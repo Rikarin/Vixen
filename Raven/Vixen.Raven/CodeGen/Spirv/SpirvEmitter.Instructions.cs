@@ -374,7 +374,7 @@ partial class SpirvEmitter {
                     types.Type(call.Function.ReturnType),
                     [
                         SpirvOperand.Id(functions[call.Function]),
-                        .. call.Arguments.Select(Argument)
+                        ..call.Arguments.Select(Argument)
                     ]
                 );
 
@@ -606,8 +606,12 @@ partial class SpirvEmitter {
     /// <summary>Emits one <c>convert</c>: a numeric conversion, a broadcast, or both.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A splat is a component conversion <i>and</i> a broadcast, and doing only the
-    ///         broadcast is silent in GLSL and invalid in SPIR-V.</b> The IR draws no distinction —
+    ///         ⚠
+    ///         <b>
+    ///             A splat is a component conversion <i>and</i> a broadcast, and doing only the
+    ///             broadcast is silent in GLSL and invalid in SPIR-V.
+    ///         </b>
+    ///         The IR draws no distinction —
     ///         <c>GlslEmitter</c> writes one constructor call, <c>float3(i)</c>, which converts and
     ///         widens in a single token — so a <c>Splat</c> from <c>i32</c> to <c>f32x3</c> is a
     ///         conversion the IR considers spelled and the SPIR-V emitter has to spell twice. Sending
@@ -750,7 +754,7 @@ partial class SpirvEmitter {
             return Emit(
                 SpirvOp.CompositeConstruct,
                 resultType,
-                [.. construct.Arguments.Select(a => SpirvOperand.Id(Value(a)))]
+                [..construct.Arguments.Select(a => SpirvOperand.Id(Value(a)))]
             );
         }
 
@@ -761,7 +765,7 @@ partial class SpirvEmitter {
             return Emit(
                 SpirvOp.CompositeConstruct,
                 resultType,
-                [.. construct.Arguments.Select(a => SpirvOperand.Id(Value(a)))]
+                [..construct.Arguments.Select(a => SpirvOperand.Id(Value(a)))]
             );
         }
 
@@ -798,7 +802,7 @@ partial class SpirvEmitter {
                 Emit(
                     SpirvOp.CompositeConstruct,
                     types.Type(columnType),
-                    [.. scalars.Skip(column * matrix.Rows).Take(matrix.Rows).Select(SpirvOperand.Id)]
+                    [..scalars.Skip(column * matrix.Rows).Take(matrix.Rows).Select(SpirvOperand.Id)]
                 )
             );
         }
@@ -813,20 +817,20 @@ partial class SpirvEmitter {
                 return Emit(
                     SpirvOp.CompositeConstruct,
                     types.Type(vector),
-                    [.. Enumerable.Repeat(SpirvOperand.Id(scalar), vector.Size)]
+                    [..Enumerable.Repeat(SpirvOperand.Id(scalar), vector.Size)]
                 );
 
             case IrMatrixType matrix: {
                 var column = Emit(
                     SpirvOp.CompositeConstruct,
                     types.Type(new IrVectorType(matrix.Component, matrix.Rows)),
-                    [.. Enumerable.Repeat(SpirvOperand.Id(scalar), matrix.Rows)]
+                    [..Enumerable.Repeat(SpirvOperand.Id(scalar), matrix.Rows)]
                 );
 
                 return Emit(
                     SpirvOp.CompositeConstruct,
                     types.Type(matrix),
-                    [.. Enumerable.Repeat(SpirvOperand.Id(column), matrix.Columns)]
+                    [..Enumerable.Repeat(SpirvOperand.Id(column), matrix.Columns)]
                 );
             }
 
@@ -844,7 +848,7 @@ partial class SpirvEmitter {
             condition = Emit(
                 SpirvOp.CompositeConstruct,
                 types.Type(new IrVectorType(IrScalarType.Bool, vector.Size)),
-                [.. Enumerable.Repeat(SpirvOperand.Id(condition), vector.Size)]
+                [..Enumerable.Repeat(SpirvOperand.Id(condition), vector.Size)]
             );
         }
 
@@ -906,7 +910,7 @@ partial class SpirvEmitter {
             type = access.ResultType(type);
         }
 
-        return Emit(SpirvOp.CompositeExtract, resultType, [SpirvOperand.Id(source), .. indices]);
+        return Emit(SpirvOp.CompositeExtract, resultType, [SpirvOperand.Id(source), ..indices]);
     }
 
     // --- Intrinsics --------------------------------------------------------
@@ -1002,7 +1006,7 @@ partial class SpirvEmitter {
         Emit(
             SpirvOp.ExtInst,
             resultType,
-            [SpirvOperand.Id(extendedInstructions), SpirvOperand.Literal((uint)instruction), .. operands]
+            [SpirvOperand.Id(extendedInstructions), SpirvOperand.Literal((uint)instruction), ..operands]
         );
 
     /// <summary>
@@ -1172,7 +1176,7 @@ partial class SpirvEmitter {
         }
 
         var coordinateType = types.Type(new IrVectorType(coordinate.Component, wanted));
-        var trimmed = Shuffle(Value(source), Value(source), [.. Enumerable.Range(0, wanted)], coordinateType);
+        var trimmed = Shuffle(Value(source), Value(source), [..Enumerable.Range(0, wanted)], coordinateType);
 
         var level = Emit(
             SpirvOp.CompositeExtract,
@@ -1323,7 +1327,12 @@ partial class SpirvEmitter {
         terminated = true;
 
         BeginBlock(then);
-        var t = Emit(SpirvOp.RayQueryGetIntersectionTKHR, types.Float, SpirvOperand.Id(query), SpirvOperand.Id(committed));
+        var t = Emit(
+            SpirvOp.RayQueryGetIntersectionTKHR,
+            types.Float,
+            SpirvOperand.Id(query),
+            SpirvOperand.Id(committed)
+        );
         var primitive = Emit(
             SpirvOp.RayQueryGetIntersectionPrimitiveIndexKHR,
             types.UInt,
@@ -1544,7 +1553,12 @@ partial class SpirvEmitter {
                         storage,
                         field,
                         rule,
-                        Emit(SpirvOp.CompositeExtract, types.Type(field), SpirvOperand.Id(value), SpirvOperand.Literal(i))
+                        Emit(
+                            SpirvOp.CompositeExtract,
+                            types.Type(field),
+                            SpirvOperand.Id(value),
+                            SpirvOperand.Literal(i)
+                        )
                     );
                 }
 
@@ -1596,7 +1610,7 @@ partial class SpirvEmitter {
     ///     </para>
     /// </remarks>
     uint EmitAtomic(IrAtomicInstruction instruction) {
-        var pointer = Resolve(instruction.Place, write: true);
+        var pointer = Resolve(instruction.Place, true);
         var type = types.Type(instruction.Result.Type);
         var scope = types.ConstantUInt((uint)SpirvScope.Device);
         var relaxed = types.ConstantUInt(0);
@@ -1648,7 +1662,7 @@ partial class SpirvEmitter {
     }
 
     void EmitStore(IrPlace place, uint value) {
-        var pointer = Resolve(place, write: true);
+        var pointer = Resolve(place, true);
 
         if (pointer.Swizzle is not { } swizzle) {
             // The laid-out form of an aggregate is a different type from the plain one, so a whole
@@ -1679,7 +1693,7 @@ partial class SpirvEmitter {
         var merged = Emit(
             SpirvOp.VectorShuffle,
             whole,
-            [SpirvOperand.Id(original), SpirvOperand.Id(value), .. selectors.Select(SpirvOperand.Literal)]
+            [SpirvOperand.Id(original), SpirvOperand.Id(value), ..selectors.Select(SpirvOperand.Literal)]
         );
 
         Add(new(SpirvOp.Store, null, null, SpirvOperand.Id(pointer.Id), SpirvOperand.Id(merged)));
@@ -1786,7 +1800,7 @@ partial class SpirvEmitter {
         var chain = Emit(
             SpirvOp.AccessChain,
             types.Pointer(storage, types.Type(type, layout)),
-            [SpirvOperand.Id(baseId), .. indices]
+            [SpirvOperand.Id(baseId), ..indices]
         );
 
         // The pointer as well as the index. The index says the *number* varies across the subgroup;
@@ -1843,7 +1857,7 @@ partial class SpirvEmitter {
         return Emit(
             SpirvOp.VectorShuffle,
             resultType,
-            [SpirvOperand.Id(left), SpirvOperand.Id(right), .. components.Select(SpirvOperand.Literal)]
+            [SpirvOperand.Id(left), SpirvOperand.Id(right), ..components.Select(SpirvOperand.Literal)]
         );
     }
 

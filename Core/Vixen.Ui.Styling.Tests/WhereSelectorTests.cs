@@ -44,13 +44,17 @@ public class WhereSelectorTests {
 
         // `.a` and `:is(…)`, one class each. The `:not(:last-child)` inside contributes nothing
         // further because the nested selector's own specificity is never added to the outer one.
-        Assert.Equal(new Specificity(0, 2, 0), selector.Specificity);
+        Assert.Equal(new(0, 2, 0), selector.Specificity);
     }
 
     /// <summary>And the same selector written with <c>:where()</c> is charged one class less.</summary>
     /// <remarks>
-    ///     ⚠ <b><c>(0,1,0)</c> is the number the utility generator needs and the reason this was
-    ///     worth doing.</b> A child-scoped family emits <c>.space-y-4 &gt; :where(:not(:last-child))</c>
+    ///     ⚠
+    ///     <b>
+    ///         <c>(0,1,0)</c> is the number the utility generator needs and the reason this was
+    ///         worth doing.
+    ///     </b>
+    ///     A child-scoped family emits <c>.space-y-4 &gt; :where(:not(:last-child))</c>
     ///     so that a child's own <c>mb-0</c> — also <c>(0,1,0)</c>, and later in the sheet — wins.
     ///     At <c>(0,2,0)</c> the container's rule beats the child and the override is unwritable.
     /// </remarks>
@@ -66,7 +70,7 @@ public class WhereSelectorTests {
         var selector = fixture.Compile(selectorText);
 
         Assert.Empty(fixture.Compiler.Diagnostics);
-        Assert.Equal(new Specificity(0, classes, types), selector.Specificity);
+        Assert.Equal(new(0, classes, types), selector.Specificity);
     }
 
     /// <summary>⚠ A nested <c>:where()</c> is already free, so subtracting for it would go negative.</summary>
@@ -102,8 +106,8 @@ public class WhereSelectorTests {
 
         Assert.Empty(fixture.Compiler.Diagnostics);
         Assert.Equal(2, compiled.Count);
-        Assert.Equal(new Specificity(0, 1, 0), compiled[0].Specificity);
-        Assert.Equal(new Specificity(0, 1, 0), compiled[1].Specificity);
+        Assert.Equal(new(0, 1, 0), compiled[0].Specificity);
+        Assert.Equal(new(0, 1, 0), compiled[1].Specificity);
 
         // A comma inside the argument is not a top-level one, so this stays a single selector.
         var single = new StyleFixture();
@@ -136,13 +140,17 @@ public class WhereSelectorTests {
         var selector = fixture.Compile(""".a[data-q=":where(x)"]""");
 
         Assert.Empty(fixture.Compiler.Diagnostics);
-        Assert.Equal(new Specificity(0, 2, 0), selector.Specificity);
+        Assert.Equal(new(0, 2, 0), selector.Specificity);
     }
 
     /// <summary><c>:open</c> rides the same repair, and it is a name the matcher can act on.</summary>
     /// <remarks>
-    ///     ⚠ <b>A third name on this scan, and the first one that is a <i>prefix</i> of other names
-    ///     CSS spells.</b> ExCSS 4.3.2 hands <c>expander:open</c> back as one
+    ///     ⚠
+    ///     <b>
+    ///         A third name on this scan, and the first one that is a <i>prefix</i> of other names
+    ///         CSS spells.
+    ///     </b>
+    ///     ExCSS 4.3.2 hands <c>expander:open</c> back as one
     ///     <c>UnknownSelector</c> covering the whole compound — measured, not assumed — so the
     ///     variant was recorded for years as needing a parser upgrade, when what it needed was the
     ///     rewrite <c>:user-valid</c> already had.
@@ -159,7 +167,7 @@ public class WhereSelectorTests {
         Assert.Empty(fixture.Compiler.Diagnostics);
 
         // A pseudo-class costs one class, exactly as `:hover` does.
-        Assert.Equal(new Specificity(0, 1, 1), fixture.Compile("expander:open").Specificity);
+        Assert.Equal(new(0, 1, 1), fixture.Compile("expander:open").Specificity);
     }
 
     /// <summary>⚠ And a longer name that merely starts with it is left for the parser to refuse.</summary>

@@ -27,7 +27,9 @@ public sealed class TestRunSummaryTests {
 
     [Fact]
     public void Both_runners_lines_are_read() {
-        var summaries = TestRunSummary.Parse([Platform, VsTest, Red, "Build succeeded.", "  Tests succeeded: 'x.dll' [net11.0|x64]"]);
+        var summaries = TestRunSummary.Parse(
+            [Platform, VsTest, Red, "Build succeeded.", "  Tests succeeded: 'x.dll' [net11.0|x64]"]
+        );
 
         Assert.Equal(
             [
@@ -53,7 +55,7 @@ public sealed class TestRunSummaryTests {
             TestRunSummary.Problems(
                 ["Vixen.ApiCheck.Tests"],
                 [Platform],
-                exitCode: 0,
+                0,
                 new Dictionary<string, int> { ["Vixen.ApiCheck.Tests"] = 274 }
             )
         );
@@ -69,7 +71,7 @@ public sealed class TestRunSummaryTests {
             TestRunSummary.Problems(
                 ["Vixen.Editor.Texturing.Tests"],
                 ["  Run tests: 'Vixen.Editor.Texturing.Tests.dll' [net11.0|x64]"],
-                exitCode: 0,
+                0,
                 new Dictionary<string, int> { ["Vixen.Editor.Texturing.Tests"] = 657 }
             )
         );
@@ -81,21 +83,23 @@ public sealed class TestRunSummaryTests {
     /// <summary>A summary for one assembly does not stand in for another's.</summary>
     [Fact]
     public void Each_expected_assembly_needs_its_own_summary() {
-        var problem = Assert.Single(TestRunSummary.Problems(["Vixen.ApiCheck.Tests", "Vixen.Ecs.Tests"], [Platform], exitCode: 0));
+        var problem = Assert.Single(
+            TestRunSummary.Problems(["Vixen.ApiCheck.Tests", "Vixen.Ecs.Tests"], [Platform], 0)
+        );
 
         Assert.StartsWith("Vixen.Ecs.Tests printed no summary line", problem, StringComparison.Ordinal);
     }
 
     [Fact]
     public void A_non_zero_exit_behind_green_summaries_is_red() {
-        var problem = Assert.Single(TestRunSummary.Problems(["Vixen.ApiCheck.Tests"], [Platform], exitCode: 3));
+        var problem = Assert.Single(TestRunSummary.Problems(["Vixen.ApiCheck.Tests"], [Platform], 3));
 
         Assert.Contains("exited 3", problem, StringComparison.Ordinal);
     }
 
     [Fact]
     public void A_failed_summary_is_red() {
-        var problem = Assert.Single(TestRunSummary.Problems(["Vixen.Fuzz.Tests"], [Red], exitCode: 1));
+        var problem = Assert.Single(TestRunSummary.Problems(["Vixen.Fuzz.Tests"], [Red], 1));
 
         Assert.Equal("Vixen.Fuzz.Tests: 1 of 44 failed.", problem);
     }
@@ -107,7 +111,7 @@ public sealed class TestRunSummaryTests {
             TestRunSummary.Problems(
                 ["Vixen.ApiCheck.Tests"],
                 [Platform],
-                exitCode: 0,
+                0,
                 new Dictionary<string, int> { ["Vixen.ApiCheck.Tests"] = 270 }
             )
         );

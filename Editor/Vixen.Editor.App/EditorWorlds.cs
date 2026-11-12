@@ -3,10 +3,8 @@
 
 using System.Globalization;
 using Vixen.Core;
-using Vixen.Core.Diagnostics;
 using Vixen.Core.Mathematics;
 using Vixen.Editor.Core;
-using Vixen.Editor.Core.Scenes;
 using Vixen.Editor.Inspector;
 using Vixen.Editor.SceneView;
 using Vixen.Editor.Ui;
@@ -65,8 +63,12 @@ sealed partial class EditorApplication {
 
     /// <summary>What the editor knows about each open scene's file, keyed by its document.</summary>
     /// <remarks>
-    ///     ⚠ <b>Which scenes are open, in what order, and which is active are
-    ///     <see cref="ISceneEditing" />'s (#1290)</b> — this is only the file beside each entry: its path
+    ///     ⚠
+    ///     <b>
+    ///         Which scenes are open, in what order, and which is active are
+    ///         <see cref="ISceneEditing" />'s (#1290)
+    ///     </b>
+    ///     — this is only the file beside each entry: its path
     ///     and its world settings, and the verbs that point the active scene at another file (#1296).
     ///     The application follows the service's <see cref="ISceneEditing.ActiveChanged" /> rather than
     ///     assigning <c>scene</c> itself, and its <see cref="ISceneEditing.ScenesChanged" /> to forget a
@@ -165,8 +167,12 @@ sealed partial class EditorApplication {
 
     /// <summary>Draws one settings group as inspector rows, and writes the sidecar when it changes.</summary>
     /// <remarks>
-    ///     ⚠ <b>Saved on change rather than behind an Apply, which is the opposite of the settings
-    ///     window's rule and is right here for the reason that rule gives.</b> Doc 20 asks for an
+    ///     ⚠
+    ///     <b>
+    ///         Saved on change rather than behind an Apply, which is the opposite of the settings
+    ///         window's rule and is right here for the reason that rule gives.
+    ///     </b>
+    ///     Doc 20 asks for an
     ///     explicit Apply where a setting <i>costs</i> something to change — lowering the undo depth
     ///     drops history, changing the content target invalidates an import. Nothing on this panel
     ///     costs anything: the fog colour is read by the next frame and the agent radius by the next
@@ -193,7 +199,11 @@ sealed partial class EditorApplication {
         try {
             world0.Save(ActiveScene.Path);
         } catch (Exception exception) when (exception is IOException or UnauthorizedAccessException) {
-            Shell.Notifications.Show("Could not save the world settings", NotificationSeverity.Error, exception.Message);
+            Shell.Notifications.Show(
+                "Could not save the world settings",
+                NotificationSeverity.Error,
+                exception.Message
+            );
         }
     }
 
@@ -212,10 +222,13 @@ sealed partial class EditorApplication {
         var lighting = world0.Lighting;
 
         // The probe count over the distance-field range, which is the volume GI actually covers.
-        var side = Math.Max(1, (int) (2f * lighting.DistanceFieldRange / Math.Max(lighting.ProbeSpacing, 0.01f)));
-        var probes = (long) side * side * Math.Max(1, side / 4);
+        var side = Math.Max(1, (int)(2f * lighting.DistanceFieldRange / Math.Max(lighting.ProbeSpacing, 0.01f)));
+        var probes = (long)side * side * Math.Max(1, side / 4);
 
-        var voxels = Math.Max(1, (int) (2f * lighting.DistanceFieldRange / Math.Max(lighting.DistanceFieldVoxel, 0.01f)));
+        var voxels = Math.Max(
+            1,
+            (int)(2f * lighting.DistanceFieldRange / Math.Max(lighting.DistanceFieldVoxel, 0.01f))
+        );
 
         Fact(facts, "Probes in range", string.Create(CultureInfo.InvariantCulture, $"{probes:N0} (derived)"));
 
@@ -253,8 +266,12 @@ sealed partial class EditorApplication {
     /// <summary>Bakes a navigation mesh over the scene's geometry and reports what came out.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Over the primitives' boxes, because the viewport draws primitives and not
-    ///         meshes.</b> <c>NavMeshBaker</c> takes vertices and indices; what the editor's world has
+    ///         ⚠
+    ///         <b>
+    ///             Over the primitives' boxes, because the viewport draws primitives and not
+    ///             meshes.
+    ///         </b>
+    ///         <c>NavMeshBaker</c> takes vertices and indices; what the editor's world has
     ///         is <c>PrimitiveShape</c> primitives and world matrices, so what is voxelised is the unit box
     ///         each primitive occupies, transformed. That is a real navigation mesh over a real
     ///         blockout — which is what a level designer bakes at this stage anyway — and it becomes
@@ -295,7 +312,7 @@ sealed partial class EditorApplication {
             navigation = NavMeshBaker.Bake(
                 System.Runtime.InteropServices.CollectionsMarshal.AsSpan(vertices),
                 System.Runtime.InteropServices.CollectionsMarshal.AsSpan(indices),
-                new NavMeshBuildSettings {
+                new() {
                     CellSize = settings.CellSize,
                     CellHeight = settings.CellHeight,
                     AgentRadius = settings.AgentRadius,
@@ -407,7 +424,7 @@ sealed partial class EditorApplication {
             return found.Document;
         }
 
-        if (EditedElsewhere(path, scene: null) is { } holder) {
+        if (EditedElsewhere(path, null) is { } holder) {
             RefuseSecondDocument(path, holder, "Could not open the scene");
 
             return null;
@@ -466,8 +483,12 @@ sealed partial class EditorApplication {
 
     /// <summary>Forgets the file of every scene the service no longer has open.</summary>
     /// <remarks>
-    ///     ⚠ <b>Following <see cref="ISceneEditing.ScenesChanged" />, so a plugin's
-    ///     <see cref="ISceneEditing.Close" /> and the Scenes panel's are one path (#1290).</b> The
+    ///     ⚠
+    ///     <b>
+    ///         Following <see cref="ISceneEditing.ScenesChanged" />, so a plugin's
+    ///         <see cref="ISceneEditing.Close" /> and the Scenes panel's are one path (#1290).
+    ///     </b>
+    ///     The
     ///     service deletes the closed scene's entities and closes the document; the path and the world
     ///     settings beside it are what only this class held.
     /// </remarks>
@@ -485,8 +506,8 @@ sealed partial class EditorApplication {
     void SetActiveScene(SceneDocument document) {
         scene = document;
 
-        picker = new ScenePicker(document);
-        probe = new SceneProbe(document);
+        picker = new(document);
+        probe = new(document);
     }
 
     /// <summary>The verbs doc 20's B6 and its multi-scene row name.</summary>
@@ -504,7 +525,7 @@ sealed partial class EditorApplication {
             EditorStrings.CommandSceneSaveAllScenes,
             EditorStrings.CategoryScene,
             SaveAllScenes,
-            enabled: () => sceneEditing.Scenes.Any(document => document.HasUnsavedChanges.Value)
+            () => sceneEditing.Scenes.Any(static document => document.HasUnsavedChanges.Value)
         );
 
         Planned("scene.layers", EditorStrings.CommandSceneLayers, EditorStrings.CategoryScene);
@@ -539,7 +560,7 @@ sealed partial class EditorApplication {
 
     /// <summary>Every asset kind Create ▸ offers, in the order it offers them.</summary>
     internal IReadOnlyList<NewAssetKind> AssetKinds =>
-        [.. Extensions.All<NewAssetKind>().OrderBy(static kind => kind.Order)];
+        [..Extensions.All<NewAssetKind>().OrderBy(static kind => kind.Order)];
 
     /// <summary>The ids of the Create submenu's lines, in the order they are shown.</summary>
     internal IEnumerable<string> CreatableIds => AssetKinds.Select(static kind => kind.Id);
@@ -686,8 +707,12 @@ sealed partial class EditorApplication {
 
         /// <summary>This assembly's utility rules, in <c>@layer utilities</c>.</summary>
         /// <remarks>
-        ///     ⚠ <b>A sheet of its own rather than a share of the editor's, and that is shape C working
-        ///     rather than a duplication of it.</b> What
+        ///     ⚠
+        ///     <b>
+        ///         A sheet of its own rather than a share of the editor's, and that is shape C working
+        ///         rather than a duplication of it.
+        ///     </b>
+        ///     What
         ///     <c>Vixen.Editor.Ui/build/Vixen.Editor.Ui.Styling.targets</c> shares is the <i>tokens</i>;
         ///     the scan and the output stay this project's, so the build stays incremental and this
         ///     assembly is not rebuilt because a panel somewhere else started using <c>gap-3</c>.
@@ -727,7 +752,8 @@ sealed partial class EditorApplication {
                 ?? throw new InvalidOperationException(
                     $"the stylesheet '{name}' is not embedded in {assembly.GetName().Name}. It is "
                     + "added by the .vcss glob in Vixen.Ui.targets, which this project imports at "
-                    + "the bottom of its .csproj.");
+                    + "the bottom of its .csproj."
+                );
 
             using var reader = new StreamReader(stream);
 

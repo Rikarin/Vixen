@@ -10,8 +10,12 @@ namespace Vixen.Ai.Tests;
 ///     Doc 37's Testing table: a mid-plan world change produces a different, still-valid plan.
 /// </summary>
 /// <remarks>
-///     ⚠ <b>The other half of § D11, and the half a "throw the stale head away" test does not
-///     reach.</b> Discarding a plan whose head stopped being runnable is the safety property; making a
+///     ⚠
+///     <b>
+///         The other half of § D11, and the half a "throw the stale head away" test does not
+///         reach.
+///     </b>
+///     Discarding a plan whose head stopped being runnable is the safety property; making a
 ///     <i>new</i> and <i>correct</i> plan out of the world as it now is, without being told anything,
 ///     is what the planner is for. An agent that only ever threw plans away would look exactly like
 ///     one that worked, until it never got anywhere.

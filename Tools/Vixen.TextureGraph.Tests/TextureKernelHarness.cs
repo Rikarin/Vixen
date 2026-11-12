@@ -14,8 +14,12 @@ namespace Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Everything here opens the device the same way <c>TexturePlanDeviceTests</c> does, and
-///         for the same reason.</b> Without a real adapter a headless run falls back to the Null
+///         ⚠
+///         <b>
+///             Everything here opens the device the same way <c>TexturePlanDeviceTests</c> does, and
+///             for the same reason.
+///         </b>
+///         Without a real adapter a headless run falls back to the Null
 ///         device on every platform, exits 0 and prints identical healthy counters — so a texture
 ///         kernel test that passed there would have proved that a black image equals a black image.
 ///         <see cref="Open" /> names the adapter into every failure and skips loudly;
@@ -35,8 +39,12 @@ static class TextureKernelHarness {
 
     /// <summary>A device, or a loud skip — or, when one was required, a failure.</summary>
     /// <remarks>
-    ///     ⚠ <b>It names the adapter into the running test's output itself, and that is doc 48's exit
-    ///     criterion 11 made mechanical.</b> Nineteen device files here name it because each of them
+    ///     ⚠
+    ///     <b>
+    ///         It names the adapter into the running test's output itself, and that is doc 48's exit
+    ///         criterion 11 made mechanical.
+    ///     </b>
+    ///     Nineteen device files here name it because each of them
     ///     remembered to; nothing required the twentieth to, and the failure this repository has
     ///     actually suffered is the one where an instrument stops running and reports success —
     ///     eighteen golden files that <em>passed</em> rather than skipped without a device. A device
@@ -91,8 +99,11 @@ static class TextureKernelHarness {
 
     /// <summary>What <see cref="Upload" /> creates its texture with, and what it therefore declares.</summary>
     /// <remarks>
-    ///     ⚠ <b>One expression, read twice, because the two spellings drifting apart is
-    ///     <a href="https://github.com/Rikarin/Vixen/issues/722">#722</a> itself.</b>
+    ///     ⚠
+    ///     <b>
+    ///         One expression, read twice, because the two spellings drifting apart is
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/722">#722</a> itself.
+    ///     </b>
     ///     <see cref="TextureExternal" /> is a declaration the evaluator believes; a helper that
     ///     created an image with one set of bits and declared another would put the undefined
     ///     behaviour back and add a refusal that never fires to hide it.
@@ -106,8 +117,12 @@ static class TextureKernelHarness {
     /// <summary>Uploads RGBA8 texels as a texture a plan can read.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>It records and submits on <see cref="IGraphicsDevice.ComputeQueue" />, because
-    ///         that is the queue <see cref="TexturePlanEvaluator" /> dispatches on</b> — and the kind
+    ///         ⚠
+    ///         <b>
+    ///             It records and submits on <see cref="IGraphicsDevice.ComputeQueue" />, because
+    ///             that is the queue <see cref="TexturePlanEvaluator" /> dispatches on
+    ///         </b>
+    ///         — and the kind
     ///         is taken from that submitter rather than spelled, so the two cannot drift into naming
     ///         different queues. <a href="https://github.com/Rikarin/Vixen/issues/679">#679</a>: this
     ///         helper uploaded on the graphics queue, which is precisely the mismatch
@@ -118,8 +133,11 @@ static class TextureKernelHarness {
     ///         validation layers say nothing and the picture comes out right.
     ///     </para>
     ///     <para>
-    ///         <b>Typed on the interface rather than on <c>VulkanDevice</c> so the Null device can
-    ///         reach it</b>, which is the only place in the tree where the two queues are two
+    ///         <b>
+    ///             Typed on the interface rather than on <c>VulkanDevice</c> so the Null device can
+    ///             reach it
+    ///         </b>
+    ///         , which is the only place in the tree where the two queues are two
     ///         objects and the choice above is therefore observable —
     ///         <c>TextureHarnessQueueTests</c>.
     ///     </para>
@@ -208,14 +226,17 @@ static class TextureKernelHarness {
         new() { [image] = new(texture, SourceUsage, new(width, height)) };
 
     /// <summary>One channel of one texel of a read-back picture.</summary>
-    public static byte At(Bitmap picture, int x, int y, int channel) =>
-        picture.Pixels[picture.Offset(x, y) + channel];
+    public static byte At(Bitmap picture, int x, int y, int channel) => picture.Pixels[picture.Offset(x, y) + channel];
 
     /// <summary>Every texel a different colour, so "this is a copy" is a claim about all of them.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A flat fill would let a kernel that writes a constant pass every copy assertion in
-    ///         these suites.</b> Red rises across, green down, blue on the diagonal — 4 096 distinct
+    ///         ⚠
+    ///         <b>
+    ///             A flat fill would let a kernel that writes a constant pass every copy assertion in
+    ///             these suites.
+    ///         </b>
+    ///         Red rises across, green down, blue on the diagonal — 4 096 distinct
     ///         triples on a 64² image, and alpha is a fourth independent field so that a shuffle cannot
     ///         confuse it with one of them.
     ///     </para>
@@ -231,8 +252,11 @@ static class TextureKernelHarness {
     ///         passed with the parameter they were about hard-coded.
     ///     </para>
     ///     <para>
-    ///         <b>Reach for <see cref="Columns(int)" />, <see cref="Rows" /> or a wheel of hard-edged
-    ///         spokes instead</b> — a one-texel checkerboard is the opposite extreme, band-limited
+    ///         <b>
+    ///             Reach for <see cref="Columns(int)" />, <see cref="Rows" /> or a wheel of hard-edged
+    ///             spokes instead
+    ///         </b>
+    ///         — a one-texel checkerboard is the opposite extreme, band-limited
     ///         nowhere, and separates a filter that ran from one that did not by more than an order of
     ///         magnitude. <see cref="AssertHeldStill" /> is the guard for whichever pattern is used:
     ///         it refuses to believe "this texel is untouched" until the same op has visibly moved
@@ -244,7 +268,7 @@ static class TextureKernelHarness {
 
         for (var y = 0; y < side; y++) {
             for (var x = 0; x < side; x++) {
-                var at = ((y * side) + x) * 4;
+                var at = (y * side + x) * 4;
 
                 pixels[at] = (byte)(x * 4);
                 pixels[at + 1] = (byte)(y * 4);
@@ -266,8 +290,12 @@ static class TextureKernelHarness {
 
     /// <summary>The same checkerboard on an image that need not be square.</summary>
     /// <remarks>
-    ///     ⚠ <b>Every § 4.3 assertion before <a href="https://github.com/Rikarin/Vixen/issues/677">#677</a>
-    ///     was made on a square image</b>, and a footprint derived per axis is exactly the arithmetic a
+    ///     ⚠
+    ///     <b>
+    ///         Every § 4.3 assertion before <a href="https://github.com/Rikarin/Vixen/issues/677">#677</a>
+    ///         was made on a square image
+    ///     </b>
+    ///     , and a footprint derived per axis is exactly the arithmetic a
     ///     square image cannot tell apart from the wrong one — <c>size.x</c> and <c>size.y</c> are the
     ///     same number there, so dividing by either gives the same answer.
     /// </remarks>
@@ -276,7 +304,7 @@ static class TextureKernelHarness {
 
         for (var y = 0; y < height; y++) {
             for (var x = 0; x < width; x++) {
-                var at = ((y * width) + x) * 4;
+                var at = (y * width + x) * 4;
                 var value = (byte)(x % 2 == 0 ? 0 : 255);
 
                 pixels[at] = value;
@@ -299,7 +327,7 @@ static class TextureKernelHarness {
 
         for (var y = 0; y < height; y++) {
             for (var x = 0; x < width; x++) {
-                var at = ((y * width) + x) * 4;
+                var at = (y * width + x) * 4;
                 var value = (byte)(y % 2 == 0 ? 0 : 255);
 
                 pixels[at] = value;
@@ -318,7 +346,7 @@ static class TextureKernelHarness {
 
         for (var y = 0; y < side; y++) {
             for (var x = 0; x < side; x++) {
-                var at = ((y * side) + x) * 4;
+                var at = (y * side + x) * 4;
                 var value = (byte)(x * 255 / (side - 1));
 
                 pixels[at] = value;
@@ -337,9 +365,9 @@ static class TextureKernelHarness {
 
         for (var texel = 0; texel < side * side; texel++) {
             pixels[texel * 4] = r;
-            pixels[(texel * 4) + 1] = g;
-            pixels[(texel * 4) + 2] = b;
-            pixels[(texel * 4) + 3] = a;
+            pixels[texel * 4 + 1] = g;
+            pixels[texel * 4 + 2] = b;
+            pixels[texel * 4 + 3] = a;
         }
 
         return pixels;
@@ -382,8 +410,12 @@ static class TextureKernelHarness {
     /// <param name="separation">How far <paramref name="moved" /> has to have moved to count.</param>
     /// <param name="what">Named into both failures, adapter and all.</param>
     /// <remarks>
-    ///     ⚠ <b>The cheap guard <a href="https://github.com/Rikarin/Vixen/issues/694">#694</a>
-    ///     names, and the assertion order is the whole point.</b> "This texel is where it was" is
+    ///     ⚠
+    ///     <b>
+    ///         The cheap guard <a href="https://github.com/Rikarin/Vixen/issues/694">#694</a>
+    ///         names, and the assertion order is the whole point.
+    ///     </b>
+    ///     "This texel is where it was" is
     ///     true of an op that ran, of an op that did nothing, of a kernel that never dispatched and of
     ///     a pattern the filter cannot move — four very different days, one green test. So the
     ///     evidence that the op moves anything at all is checked <em>first</em>, and the standing-still

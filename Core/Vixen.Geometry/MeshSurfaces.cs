@@ -7,8 +7,12 @@ namespace Vixen.Geometry;
 
 /// <summary>How a face's texture coordinates are worked out from where it is.</summary>
 /// <remarks>
-///     ⚠ <b><see cref="World" /> is the default and doc 24's P5 says why in one sentence: a block-out
-///     box scaled 8×3 must not stretch its texels.</b> Every unwrapper answers "where on this surface
+///     ⚠
+///     <b>
+///         <see cref="World" /> is the default and doc 24's P5 says why in one sentence: a block-out
+///         box scaled 8×3 must not stretch its texels.
+///     </b>
+///     Every unwrapper answers "where on this surface
 ///     am I" and every one of them needs the surface to have been laid out; a block-out has not been
 ///     laid out and never will be, because it exists to be replaced. What makes proportion readable at
 ///     a glance is a checker whose squares are a fixed number of <i>metres</i> everywhere in the level,
@@ -16,26 +20,35 @@ namespace Vixen.Geometry;
 /// </remarks>
 public enum UvProjection : byte {
     /// <summary>From the world position, on whichever axis pair each face most faces.</summary>
-    /// <remarks>The default, and the only one whose squares are the same size on two objects of
-    ///     different scales.</remarks>
+    /// <remarks>
+    ///     The default, and the only one whose squares are the same size on two objects of
+    ///     different scales.
+    /// </remarks>
     World,
 
     /// <summary>The same, in the mesh's own space, so the mapping travels with the object.</summary>
-    /// <remarks>What a prop wants: a crate carried across the level keeps its texels where they were,
-    ///     which world space does not do.</remarks>
+    /// <remarks>
+    ///     What a prop wants: a crate carried across the level keeps its texels where they were,
+    ///     which world space does not do.
+    /// </remarks>
     Box,
 
     /// <summary>From one axis for every face, whichever way each one points.</summary>
-    /// <remarks>A floor, a road, a decal — anything whose mapping should not break at the corner
-    ///     where the dominant axis changes.</remarks>
+    /// <remarks>
+    ///     A floor, a road, a decal — anything whose mapping should not break at the corner
+    ///     where the dominant axis changes.
+    /// </remarks>
     Planar
 }
 
 /// <summary>Doc 24's Surfaces table: what a face is mapped with and how its normals are computed.</summary>
 /// <remarks>
 ///     <para>
-///         <b>The arithmetic half of P5, and it is deliberately all of the half that needs no
-///         renderer.</b> A projection is a function of a position and a normal; a smoothing group is a
+///         <b>
+///             The arithmetic half of P5, and it is deliberately all of the half that needs no
+///             renderer.
+///         </b>
+///         A projection is a function of a position and a normal; a smoothing group is a
 ///         rule for averaging; the per-face transform is two-by-two matrix arithmetic. What is not here
 ///         is the material a face is assigned and the checker it is drawn with, both of which are
 ///         statements about a viewport.
@@ -180,7 +193,7 @@ public static class MeshSurfaces {
                 var sized = new Vector2(local.X * sizeX, local.Y * sizeY);
 
                 span[entry.Start + corner] = centre
-                    + new Vector2((sized.X * cos) - (sized.Y * sin), (sized.X * sin) + (sized.Y * cos))
+                    + new Vector2(sized.X * cos - sized.Y * sin, sized.X * sin + sized.Y * cos)
                     + offset;
             }
 
@@ -241,8 +254,10 @@ public static class MeshSurfaces {
     /// <param name="faces">Which faces, or <see langword="null" /> for all of them.</param>
     /// <param name="group">Which smoothing group, or zero to make every edge round them hard.</param>
     /// <returns>How many faces were changed.</returns>
-    /// <remarks>Doc 24's own words: a hard edge is the <i>absence</i> of a smoothing group, which is
-    ///     why zero is a value rather than a sentinel nobody may use.</remarks>
+    /// <remarks>
+    ///     Doc 24's own words: a hard edge is the <i>absence</i> of a smoothing group, which is
+    ///     why zero is a value rather than a sentinel nobody may use.
+    /// </remarks>
     public static int Smooth(EditMesh mesh, IReadOnlyCollection<int>? faces, int group = 1) {
         ArgumentNullException.ThrowIfNull(mesh);
 
@@ -266,8 +281,11 @@ public static class MeshSurfaces {
     /// <returns>How many smoothing groups it made.</returns>
     /// <remarks>
     ///     <para>
-    ///         <b>What everybody actually reaches for, and what a generator's output wants the moment
-    ///         it has a curve in it.</b> A cylinder made editable comes out faceted because
+    ///         <b>
+    ///             What everybody actually reaches for, and what a generator's output wants the moment
+    ///             it has a curve in it.
+    ///         </b>
+    ///         A cylinder made editable comes out faceted because
     ///         <c>EditMeshes.ToMeshData</c> has nothing but the face normals to go on; one call to this
     ///         gives its wall a smoothing group, leaves the rims where its caps meet it hard, and the
     ///         silhouette stops being a polygon.
@@ -418,7 +436,7 @@ public static class MeshSurfaces {
             return Enumerable.Range(0, mesh.FaceCount);
         }
 
-        return faces.Where(face => (uint) face < (uint) mesh.FaceCount).Distinct();
+        return faces.Where(face => (uint)face < (uint)mesh.FaceCount).Distinct();
     }
 
     /// <summary>The mesh's coordinate layer, made at full size if it has none.</summary>
@@ -449,8 +467,12 @@ public static class MeshSurfaces {
 
     /// <summary>A position dropped onto the axis pair a dominant axis names.</summary>
     /// <remarks>
-    ///     ⚠ <b>One of the two axes is negated on three of the six faces, and that is what keeps the
-    ///     texture the right way round.</b> Dropping a coordinate is a projection through the surface
+    ///     ⚠
+    ///     <b>
+    ///         One of the two axes is negated on three of the six faces, and that is what keeps the
+    ///         texture the right way round.
+    ///     </b>
+    ///     Dropping a coordinate is a projection through the surface
     ///     as well as onto it, so the two sides of a box come out mirrored unless one of them is
     ///     flipped — which reads as text on a wall being backwards on the far side of it.
     /// </remarks>

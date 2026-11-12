@@ -10,8 +10,12 @@ namespace Vixen.Ui.Tests;
 /// <summary>Text that does not fit, and the ellipsis that says so.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Every assertion here is about glyphs that were drawn, and that is the whole point of
-///         the file.</b> The defect this repository keeps finding is a property that resolves and
+///         ⚠
+///         <b>
+///             Every assertion here is about glyphs that were drawn, and that is the whole point of
+///             the file.
+///         </b>
+///         The defect this repository keeps finding is a property that resolves and
 ///         paints nothing — an unread diagnostics list, an inert <c>@apply</c>, four <c>place-*</c>
 ///         shorthands that parse and never reach the layout. A test that asserted
 ///         <c>StyleOf(element, "text-overflow") == "ellipsis"</c> would have passed on the day this
@@ -51,7 +55,7 @@ public class TextOverflowTests {
 
     static FontFace LoadFont(string file, string name) {
         using var stream = Assembly.GetExecutingAssembly()
-            .GetManifestResourceStream($"Vixen.Ui.Tests.Fonts.{file}")
+                .GetManifestResourceStream($"Vixen.Ui.Tests.Fonts.{file}")
             ?? throw new InvalidOperationException($"{file} is not embedded");
 
         using var memory = new MemoryStream();
@@ -75,7 +79,7 @@ public class TextOverflowTests {
     }
 
     static UiElement Labelled(UiDocument document, string text) {
-        var label = document.Create("label", document.Root, null);
+        var label = document.Create("label", document.Root);
         label.Text = text;
         document.Update();
         document.Draw();
@@ -131,7 +135,7 @@ public class TextOverflowTests {
 
         Assert.Single(drawn.Lines);
         Assert.True(drawn.Lines[0].Width > 60f);
-        Assert.DoesNotContain(GlyphsOf(drawn.Lines[0]), glyph => glyph.GlyphId == Marker);
+        Assert.DoesNotContain(GlyphsOf(drawn.Lines[0]), static glyph => glyph.GlyphId == Marker);
     }
 
     /// <summary>A line that already fits is returned untouched, marker and all.</summary>
@@ -143,7 +147,7 @@ public class TextOverflowTests {
         var drawn = label.Ellipsized(60f)!;
 
         Assert.True(drawn.Lines[0].Width <= 60f);
-        Assert.DoesNotContain(GlyphsOf(drawn.Lines[0]), glyph => glyph.GlyphId == Marker);
+        Assert.DoesNotContain(GlyphsOf(drawn.Lines[0]), static glyph => glyph.GlyphId == Marker);
 
         // ⚠ The same object, not merely an equal one. The block a fitting label draws is the one every
         // other reader already holds, so the common case allocates no second layout per frame.
@@ -151,8 +155,12 @@ public class TextOverflowTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>The caret's block is the untruncated one, and this is the assertion that keeps a text
-    ///     field working.</b> <c>TextField</c> and <c>CodeEditor</c> index into <see cref="UiElement.Block()" />;
+    ///     ⚠
+    ///     <b>
+    ///         The caret's block is the untruncated one, and this is the assertion that keeps a text
+    ///         field working.
+    ///     </b>
+    ///     <c>TextField</c> and <c>CodeEditor</c> index into <see cref="UiElement.Block()" />;
     ///     had truncation happened there, a caret past the cut would land on the wrong character and
     ///     a single-line field would stop scrolling sideways.
     /// </summary>
@@ -170,8 +178,12 @@ public class TextOverflowTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>The property reaches a child's text, which is the shape every real use of
-    ///     <c>truncate</c> has.</b> CSS gets there without inheriting, by putting the child's glyphs
+    ///     ⚠
+    ///     <b>
+    ///         The property reaches a child's text, which is the shape every real use of
+    ///         <c>truncate</c> has.
+    ///     </b>
+    ///     CSS gets there without inheriting, by putting the child's glyphs
     ///     on the container's own line box; Vixen has no shared line box, so it inherits instead —
     ///     see <c>UiDocument.EllipsisOf</c>. Either way the author's intent has to arrive.
     /// </summary>
@@ -188,8 +200,8 @@ public class TextOverflowTests {
             """
         );
 
-        var row = document.Create("row", document.Root, null);
-        var label = document.Create("label", row, null);
+        var row = document.Create("row", document.Root);
+        var label = document.Create("label", row);
         label.Text = "aa bb cc dd ee ff gg hh";
 
         document.Update();
@@ -227,7 +239,7 @@ public class TextOverflowTests {
         using var document = Documented(Truncating);
         Labelled(document, "aa bb cc dd ee ff gg hh");
 
-        Assert.Contains(document.Drawing.Glyphs, glyph => glyph.GlyphId == Marker);
+        Assert.Contains(document.Drawing.Glyphs, static glyph => glyph.GlyphId == Marker);
     }
 
     /// <summary>And is absent from it when the property is not set, for the same reason as above.</summary>
@@ -236,6 +248,6 @@ public class TextOverflowTests {
         using var document = Documented(Clipping);
         Labelled(document, "aa bb cc dd ee ff gg hh");
 
-        Assert.DoesNotContain(document.Drawing.Glyphs, glyph => glyph.GlyphId == Marker);
+        Assert.DoesNotContain(document.Drawing.Glyphs, static glyph => glyph.GlyphId == Marker);
     }
 }

@@ -47,7 +47,9 @@ public sealed class MemoryFileProvider : IFileProvider {
 
     /// <summary>Creates an empty provider.</summary>
     /// <param name="isReadOnly">Whether to refuse writes, for testing the read-only mount path.</param>
-    public MemoryFileProvider(bool isReadOnly) => IsReadOnly = isReadOnly;
+    public MemoryFileProvider(bool isReadOnly) {
+        IsReadOnly = isReadOnly;
+    }
 
     /// <summary>Adds or replaces a file. Ignores <see cref="IsReadOnly" />, because seeding is not writing.</summary>
     /// <param name="path">Where to put it.</param>
@@ -55,7 +57,7 @@ public sealed class MemoryFileProvider : IFileProvider {
     public void Seed(VirtualPath path, ReadOnlySpan<byte> contents) {
         lock (gate) {
             AddDirectories(path.Parent);
-            files[path] = new(contents.ToArray(), DateTimeOffset.UtcNow);
+            files[path] = new([..contents], DateTimeOffset.UtcNow);
         }
     }
 
@@ -137,7 +139,7 @@ public sealed class MemoryFileProvider : IFileProvider {
 
             // Over the stored array, not a copy: a reader that mutates the buffer it was handed is a
             // bug the writable overload exists to prevent.
-            return new MemoryStream(file.Contents, writable: false);
+            return new MemoryStream(file.Contents, false);
         }
     }
 

@@ -60,8 +60,14 @@ public static class MoveRole {
     /// <param name="role">The candidate.</param>
     /// <returns>Whether it is.</returns>
     public static bool IsKnown(Symbol role) =>
-        role == Idle || role == IdleTurn || role == Start || role == Stop
-        || role == Loop || role == Turn || role == Transition || role == Step;
+        role == Idle
+        || role == IdleTurn
+        || role == Start
+        || role == Stop
+        || role == Loop
+        || role == Turn
+        || role == Transition
+        || role == Step;
 
     /// <summary>Every reserved value, for an editor's list and for validation.</summary>
     /// <returns>The values.</returns>
@@ -125,8 +131,12 @@ public readonly record struct MoveKey(ulong Hash) : IComparable<MoveKey> {
 
 /// <summary>The numbers a query is scored against, and the limits a move admits to.</summary>
 /// <remarks>
-///     ⚠ <b><see cref="MinRate" /> and <see cref="MaxRate" /> are what let a set have one clip per
-///     gait rather than one every 0.4 m/s.</b> A walk cycle usually reads correctly ±15 %; a stop
+///     ⚠
+///     <b>
+///         <see cref="MinRate" /> and <see cref="MaxRate" /> are what let a set have one clip per
+///         gait rather than one every 0.4 m/s.
+///     </b>
+///     A walk cycle usually reads correctly ±15 %; a stop
 ///     whose weight lands on a specific frame does not survive any retiming at all, and a move that
 ///     says so is a move the selector will not stretch.
 /// </remarks>
@@ -147,8 +157,7 @@ public readonly record struct MoveTraits {
     public float FootPhase { get; init; }
 
     /// <summary>Creates traits that admit no retiming.</summary>
-    public MoveTraits() {
-    }
+    public MoveTraits() { }
 
     /// <summary>The slowest speed it can be retimed to.</summary>
     public float SlowestSpeed => Speed * MinRate;
@@ -159,8 +168,7 @@ public readonly record struct MoveTraits {
     /// <summary>The playback rate that would hit a speed, clamped to what the move admits.</summary>
     /// <param name="speed">The wanted speed, in metres a second.</param>
     /// <returns>The rate. One when the move goes nowhere, since nothing can be inferred.</returns>
-    public float RateFor(float speed) =>
-        Speed <= 1e-4f ? 1f : Math.Clamp(speed / Speed, MinRate, MaxRate);
+    public float RateFor(float speed) => Speed <= 1e-4f ? 1f : Math.Clamp(speed / Speed, MinRate, MaxRate);
 }
 
 /// <summary>One move: a clip or a tree, what it is for, and what it does.</summary>

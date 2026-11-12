@@ -87,7 +87,7 @@ public sealed class CameraImpulses {
             var falloff = 1f;
 
             if (impulse.DissipationDistance > 0f) {
-                falloff = MathUtil.Saturate(1f - (distance / impulse.DissipationDistance));
+                falloff = MathUtil.Saturate(1f - distance / impulse.DissipationDistance);
                 falloff *= falloff;
             }
 
@@ -98,7 +98,7 @@ public sealed class CameraImpulses {
             // (1 − u)² rather than an exponential, so the signal and its slope are both exactly zero
             // at the end and the impulse can be dropped rather than left ringing below the noise
             // floor for the rest of the level.
-            var remaining = 1f - (time / impulse.Duration);
+            var remaining = 1f - time / impulse.Duration;
             var envelope = remaining * remaining;
             var angular = MathUtil.TwoPi * impulse.Frequency;
 

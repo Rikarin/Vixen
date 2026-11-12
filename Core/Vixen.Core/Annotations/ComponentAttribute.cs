@@ -9,8 +9,12 @@ namespace Vixen.Core;
 ///     module initialisation, so no type scanning happens at run time.
 /// </summary>
 /// <remarks>
-///     ⚠ <b>With <see cref="DataContractAttribute" /> beside it, this is also what lets a scene place
-///     one.</b> The engine's component generator declares every type carrying both to
+///     ⚠
+///     <b>
+///         With <see cref="DataContractAttribute" /> beside it, this is also what lets a scene place
+///         one.
+///     </b>
+///     The engine's component generator declares every type carrying both to
 ///     <c>SceneComponentRegistry</c>, which is what puts it in the inspector, in the Add Component
 ///     menu, in a <c>.vxscene</c> and in a compiled one. The two attributes answer two questions —
 ///     "the ECS may attach it" and "it can be described and turned into bytes" — and a component that

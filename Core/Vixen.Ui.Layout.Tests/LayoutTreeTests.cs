@@ -24,7 +24,7 @@ public class LayoutTreeTests {
         Assert.Equal(Align.Stretch, style.AlignItems);
         Assert.Equal(Align.Auto, style.AlignSelf);
         Assert.Equal(PositionType.Relative, style.PositionType);
-        Assert.Equal(LayoutUnit.Auto, style.Dimensions[(int) Dimension.Width].Unit);
+        Assert.Equal(LayoutUnit.Auto, style.Dimensions[(int)Dimension.Width].Unit);
         Assert.Equal(LayoutUnit.Auto, style.FlexBasis.Unit);
         Assert.True(float.IsNaN(style.FlexGrow));
     }
@@ -160,8 +160,8 @@ public class LayoutTreeTests {
 
         ref readonly var style = ref tree.GetStyle(node);
 
-        Assert.Equal(5f, style.Padding[(int) Edge.All].Value);
-        Assert.Equal(9f, style.Padding[(int) Edge.Left].Value);
+        Assert.Equal(5f, style.Padding[(int)Edge.All].Value);
+        Assert.Equal(9f, style.Padding[(int)Edge.Left].Value);
         Assert.Equal(9f, StyleResolution.EdgeValue(in style.Padding, Edge.Left, Direction.Ltr).Value);
         Assert.Equal(5f, StyleResolution.EdgeValue(in style.Padding, Edge.Right, Direction.Ltr).Value);
     }
@@ -187,7 +187,7 @@ public class LayoutTreeTests {
         tree.AddChild(root, tree.CreateNode());
 
         Assert.Throws<InvalidOperationException>(() =>
-            tree.SetMeasureFunction(root, static (in MeasureRequest _) => new LayoutSize(0f, 0f))
+            tree.SetMeasureFunction(root, static (in MeasureRequest _) => new(0f, 0f))
         );
     }
 
@@ -259,8 +259,11 @@ public class LayoutTreeTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>And the free list is emptied with them, which is the path clearing the arrays alone
-    ///     would leave live.</b>
+    ///     ⚠
+    ///     <b>
+    ///         And the free list is emptied with them, which is the path clearing the arrays alone
+    ///         would leave live.
+    ///     </b>
     /// </summary>
     /// <remarks>
     ///     A tree that destroyed a node before it was disposed has slots on the free list, and

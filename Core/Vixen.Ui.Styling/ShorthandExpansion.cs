@@ -34,8 +34,12 @@ namespace Vixen.Ui.Styling;
 ///         output rather than against a table written here.
 ///     </para>
 ///     <para>
-///         ⚠ <b><c>grid-column</c> and <c>grid-row</c> are here for the opposite reason, and it is
-///         the reason <see cref="NeedsExpanding" /> exists.</b> ExCSS has never heard of either
+///         ⚠
+///         <b>
+///             <c>grid-column</c> and <c>grid-row</c> are here for the opposite reason, and it is
+///             the reason <see cref="NeedsExpanding" /> exists.
+///         </b>
+///         ExCSS has never heard of either
 ///         property, so it hands them back whole <i>whether or not</i> they hold a <c>var()</c> — the
 ///         var-only rule above would never fire and the shorthand would reach a computed style
 ///         intact. That was not merely a missing expansion: it forced the layout bridge to apply the
@@ -56,9 +60,13 @@ namespace Vixen.Ui.Styling;
 ///         is not known yet.
 ///     </para>
 ///     <para>
-///         ⚠ <b><c>place-self</c>, <c>place-items</c> and <c>place-content</c> were the last three
-///         names on that list, and the reason they stayed on it was the grammar rather than the
-///         plumbing.</b> ExCSS leaves all three whole, and every longhand they cover <i>is</i> read —
+///         ⚠
+///         <b>
+///             <c>place-self</c>, <c>place-items</c> and <c>place-content</c> were the last three
+///             names on that list, and the reason they stayed on it was the grammar rather than the
+///             plumbing.
+///         </b>
+///         ExCSS leaves all three whole, and every longhand they cover <i>is</i> read —
 ///         <c>LayoutStyleBuilder</c> reads all six of <c>align-</c>/<c>justify-items</c>,
 ///         <c>-self</c> and <c>-content</c> — so each of the three parsed, cascaded, resolved and
 ///         then did nothing whatever, which is the border-colour silence one more time. ⚠ The naive
@@ -72,8 +80,12 @@ namespace Vixen.Ui.Styling;
 ///         whether the value names one axis or two.
 ///     </para>
 ///     <para>
-///         ⚠ <b><c>grid-area</c> was the fourth name on that list until named areas landed, and it
-///         had to come off it in the same change.</b> A named area is written <c>grid-area: header</c>
+///         ⚠
+///         <b>
+///             <c>grid-area</c> was the fourth name on that list until named areas landed, and it
+///             had to come off it in the same change.
+///         </b>
+///         A named area is written <c>grid-area: header</c>
 ///         far more often than it is written as four longhands, so leaving the shorthand inert would
 ///         have shipped <c>grid-template-areas</c> with no ordinary way to use it — the "finished
 ///         thing nothing calls" shape, one property wide.
@@ -88,13 +100,20 @@ public static class ShorthandExpansion {
 
     /// <summary>What <c>border-style</c> accepts, which is how a component of <c>border</c> is known.</summary>
     static readonly HashSet<string> BorderStyles = new(StringComparer.OrdinalIgnoreCase) {
-        "none", "hidden", "dotted", "dashed", "solid", "double", "groove", "ridge", "inset", "outset"
+        "none",
+        "hidden",
+        "dotted",
+        "dashed",
+        "solid",
+        "double",
+        "groove",
+        "ridge",
+        "inset",
+        "outset"
     };
 
     /// <summary>The three keywords that are a border width without being a length.</summary>
-    static readonly HashSet<string> BorderWidths = new(StringComparer.OrdinalIgnoreCase) {
-        "thin", "medium", "thick"
-    };
+    static readonly HashSet<string> BorderWidths = new(StringComparer.OrdinalIgnoreCase) { "thin", "medium", "thick" };
 
     /// <summary>
     ///     The words that begin a two-token alignment component rather than being one: CSS Box
@@ -125,8 +144,12 @@ public static class ShorthandExpansion {
 
     /// <summary>Whether this declaration has to be taken apart before the cascade sees it.</summary>
     /// <remarks>
-    ///     ⚠ <b>The <c>var()</c> test is not the whole rule, and reading it as one is what left
-    ///     <c>grid-row</c> unexpanded.</b> For everything ExCSS understands, a <c>var()</c> is the
+    ///     ⚠
+    ///     <b>
+    ///         The <c>var()</c> test is not the whole rule, and reading it as one is what left
+    ///         <c>grid-row</c> unexpanded.
+    ///     </b>
+    ///     For everything ExCSS understands, a <c>var()</c> is the
     ///     only thing that stops the parser expanding a shorthand itself, so re-expanding a var-free
     ///     one would be second-guessing it. For a property ExCSS does not know — <c>grid-column</c>
     ///     and <c>grid-row</c> — nothing expanded it in the first place, so the condition is simply
@@ -333,8 +356,12 @@ public static class ShorthandExpansion {
     ///         <c>currentcolor</c> are words this framework's value parsers cannot read.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b><c>auto</c> is only <i>half</i> of what CSS Grid §8.4 says, and the other half is
-    ///         <see cref="Duplicated" />.</b> The rule is that an omitted second value repeats the
+    ///         ⚠
+    ///         <b>
+    ///             <c>auto</c> is only <i>half</i> of what CSS Grid §8.4 says, and the other half is
+    ///             <see cref="Duplicated" />.
+    ///         </b>
+    ///         The rule is that an omitted second value repeats the
     ///         first <i>when the first is a</i> <c>&lt;custom-ident&gt;</c>, and is <c>auto</c>
     ///         otherwise — so <c>grid-column: sidebar</c> means <c>sidebar / sidebar</c> and
     ///         <c>grid-column: 2</c> means <c>2 / auto</c>. ⚠ This paragraph used to say the rule was
@@ -389,14 +416,22 @@ public static class ShorthandExpansion {
     /// <summary><c>grid-area</c>, CSS Grid §8.4's four-edge shorthand.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The order is row-start, column-start, row-end, column-end — the two axes
-    ///         interleaved rather than one after the other</b>, which is the same order
+    ///         ⚠
+    ///         <b>
+    ///             The order is row-start, column-start, row-end, column-end — the two axes
+    ///             interleaved rather than one after the other
+    ///         </b>
+    ///         , which is the same order
     ///         <c>margin</c>'s four values go round the box and the reason a hand-written expansion
     ///         reads wrong: <c>grid-area: 1 / 2 / 3 / 4</c> is rows 1–3 and columns 2–4, not rows 1–2.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Each omitted value follows §8.4's duplication rule against the value <i>two</i>
-    ///         places before it</b>, not against the one beside it: the fourth falls back to the
+    ///         ⚠
+    ///         <b>
+    ///             Each omitted value follows §8.4's duplication rule against the value <i>two</i>
+    ///             places before it
+    ///         </b>
+    ///         , not against the one beside it: the fourth falls back to the
     ///         second, the third to the first, and the second to the first. So
     ///         <c>grid-area: header</c> is <c>header</c> on all four edges and an item covering the
     ///         whole named area, while <c>grid-area: 2</c> is one cell at row 2 with three
@@ -432,7 +467,8 @@ public static class ShorthandExpansion {
             }
         }
 
-        if (edges.Count == 0 || edges.Exists(static edge => edge.Length == 0 || VarSubstitution.NeedsSubstitution(edge))) {
+        if (edges.Count == 0
+            || edges.Exists(static edge => edge.Length == 0 || VarSubstitution.NeedsSubstitution(edge))) {
             return false;
         }
 
@@ -451,8 +487,12 @@ public static class ShorthandExpansion {
 
     /// <summary>§8.4's fallback for an omitted edge: the value it repeats, or <c>auto</c>.</summary>
     /// <remarks>
-    ///     ⚠ <b>Anything that is not a bare identifier is <c>auto</c>, including <c>auto</c> itself
-    ///     and including <c>span 2</c>.</b> A number does not repeat — <c>grid-row: 2</c> is one row
+    ///     ⚠
+    ///     <b>
+    ///         Anything that is not a bare identifier is <c>auto</c>, including <c>auto</c> itself
+    ///         and including <c>span 2</c>.
+    ///     </b>
+    ///     A number does not repeat — <c>grid-row: 2</c> is one row
     ///     and not rows 2 to 2 — and a span repeated against itself would be over-constrained and
     ///     dropped by §8.3 anyway. The test is therefore "does this look like a
     ///     <c>&lt;custom-ident&gt;</c>", which here means a first character that cannot start a
@@ -490,8 +530,12 @@ public static class ShorthandExpansion {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The tokens are grouped into components before anything is counted, and that
-    ///         grouping <i>is</i> the feature.</b> Each half of a <c>place-*</c> value is §4.1's
+    ///         ⚠
+    ///         <b>
+    ///             The tokens are grouped into components before anything is counted, and that
+    ///             grouping <i>is</i> the feature.
+    ///         </b>
+    ///         Each half of a <c>place-*</c> value is §4.1's
     ///         <c>[ safe | unsafe ]? &lt;position&gt;</c> or §4.2's
     ///         <c>[ first | last ]? baseline</c>, so a two-token value may be one component or two:
     ///         <c>place-content: safe center</c> names <i>both</i> axes and
@@ -502,8 +546,11 @@ public static class ShorthandExpansion {
     ///         <see cref="Sides" />.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>An omitted second component is copied, except that a
-    ///         <c>&lt;baseline-position&gt;</c> on <c>place-content</c> becomes <c>start</c>.</b>
+    ///         ⚠
+    ///         <b>
+    ///             An omitted second component is copied, except that a
+    ///             <c>&lt;baseline-position&gt;</c> on <c>place-content</c> becomes <c>start</c>.
+    ///         </b>
     ///         §7.1 says so, and it is not a nicety here: <c>justify-content</c> has no
     ///         <c>baseline</c> — the keyword is absent from <c>LayoutStyleBuilder</c>'s
     ///         <c>Justifications</c> table because CSS does not give the property that value — so

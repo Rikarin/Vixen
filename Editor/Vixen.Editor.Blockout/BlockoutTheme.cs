@@ -44,7 +44,8 @@ public static class BlockoutTheme {
             ?? throw new InvalidOperationException(
                 $"the stylesheet '{name}' is not embedded in {assembly.GetName().Name}. It is added "
                 + "by the .vcss glob in Vixen.Ui.targets, which this project reaches by setting "
-                + "<VixenUi>true</VixenUi>.");
+                + "<VixenUi>true</VixenUi>."
+            );
 
         using var reader = new StreamReader(stream);
 

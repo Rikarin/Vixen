@@ -36,8 +36,12 @@ namespace Vixen.Audio.Diagnostics;
 ///     </para>
 ///     <para>
 ///         The protocol is lines of text, because the client is a tool and a human debugging it with
-///         <c>nc</c> is a feature: <c>list</c>, <c>get &lt;path&gt;</c>, <c>set &lt;path&gt;
-///         &lt;value&gt;</c>, <c>bye</c>.
+///         <c>nc</c> is a feature: <c>list</c>, <c>get &lt;path&gt;</c>,
+///         <c>
+///             set &lt;path&gt;
+///             &lt;value&gt;
+///         </c>
+///         , <c>bye</c>.
 ///     </para>
 /// </remarks>
 /// <param name="control">The mix this drives.</param>
@@ -204,7 +208,8 @@ public sealed class MixControlServer(MixControl control) : IDisposable {
     void Serve(TcpClient client) {
         using var stream = client.GetStream();
         using var reader = new StreamReader(stream, Encoding.UTF8, leaveOpen: true);
-        using var writer = new StreamWriter(stream, new UTF8Encoding(false), leaveOpen: true) { AutoFlush = true };
+        using var writer = new StreamWriter(stream, new UTF8Encoding(false), leaveOpen: true);
+        writer.AutoFlush = true;
 
         writer.WriteLine("vixen-mix 1");
 
@@ -232,10 +237,12 @@ public sealed class MixControlServer(MixControl control) : IDisposable {
             case ["list"]:
                 lock (gate) {
                     foreach (var info in snapshot) {
-                        writer.WriteLine(string.Create(
-                            CultureInfo.InvariantCulture,
-                            $"control {info.Path} {info.Kind} {info.Value} {info.Minimum} {info.Maximum}"
-                        ));
+                        writer.WriteLine(
+                            string.Create(
+                                CultureInfo.InvariantCulture,
+                                $"control {info.Path} {info.Kind} {info.Value} {info.Minimum} {info.Maximum}"
+                            )
+                        );
                     }
                 }
 

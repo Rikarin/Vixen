@@ -5,7 +5,6 @@ using System.Runtime.InteropServices;
 using Vixen.Core.Imaging;
 using Vixen.Core.Mathematics;
 using Vixen.Graphics.Vulkan;
-using Vixen.Rendering;
 using Vixen.Rendering.IrradianceFields;
 using Vixen.Rendering.Lighting;
 using Xunit;
@@ -287,18 +286,23 @@ public sealed class IrradianceCaptureDeviceTests {
             BlendState.Opaque,
 
             // Reversed, like everything else the engine draws with — see DepthStencilAttachment.
-            new DepthStencilState { DepthTest = true, DepthWrite = true, DepthCompare = CompareFunction.Greater },
-            [new VertexBufferLayout(Vertex.Stride, [new(0, VertexFormat.Float32X3, 0), new(1, VertexFormat.Float32X4, 12)])],
-            pushConstantBytes: 64,
+            new() { DepthTest = true, DepthWrite = true, DepthCompare = CompareFunction.Greater },
+            [
+                new VertexBufferLayout(
+                    Vertex.Stride,
+                    [new(0, VertexFormat.Float32X3, 0), new(1, VertexFormat.Float32X4, 12)]
+                )
+            ],
+            64,
 
             // ⚠ Two-sided, and this is the line that decides whether a room exists. A probe standing
             // in one sees its inside faces, which are back faces — culled, the room vanishes and
             // every probe in the level reports an open sky. See IrradianceCubeCapture's remarks.
-            rasterizer: RasterizerState.TwoSided,
+            RasterizerState.TwoSided,
             targets: [new ColourTargetState(PixelFormat.Rgba32Float, BlendState.Opaque)]
         );
 
-        var buffer = triangles.Length > 0 ? fixture.Buffer<Vertex>(triangles, BufferUsage.Vertex) : default;
+        var buffer = triangles.Length > 0 ? fixture.Buffer(triangles, BufferUsage.Vertex) : default;
 
         var cube = new IrradianceCubeCapture(device) {
             Size = 32,
@@ -319,7 +323,7 @@ public sealed class IrradianceCaptureDeviceTests {
                 commands.BindPipeline(pipeline);
                 commands.PushConstants(ShaderStage.Vertex, 0, MemoryMarshal.AsBytes([viewProjection]));
                 commands.BindVertexBuffer(0, buffer);
-                commands.Draw(triangles.Length, 1);
+                commands.Draw(triangles.Length);
             }
         );
     }
@@ -366,14 +370,14 @@ public sealed class IrradianceCaptureDeviceTests {
         var vertices = new List<Vertex>();
 
         foreach (var axis in new[] {
-            Vector3.UnitX, -Vector3.UnitX, Vector3.UnitY, -Vector3.UnitY, Vector3.UnitZ, -Vector3.UnitZ
-        }) {
+                     Vector3.UnitX, -Vector3.UnitX, Vector3.UnitY, -Vector3.UnitY, Vector3.UnitZ, -Vector3.UnitZ
+                 }) {
             // Wider than the distance, so the six overlap at the corners and leave no gap for a
             // direction to escape through — a leak here would show up as validity nobody intended.
             vertices.AddRange(Sized(axis * distance, distance * 3f, 0.25f));
         }
 
-        return [.. vertices];
+        return [..vertices];
     }
 
     /// <summary>A quad of a given half-extent, facing the origin.</summary>

@@ -44,14 +44,14 @@ public sealed class ServicePlane {
     readonly ConcurrentDictionary<Guid, ConcurrentDictionary<IGateSubscriber, byte>> listeners = new();
 
     /// <summary>How many sockets are open.</summary>
-    public int Count => listeners.Values.Sum(account => account.Count);
+    public int Count => listeners.Values.Sum(static account => account.Count);
 
     /// <summary>Starts listening.</summary>
     /// <param name="subscriber">Who.</param>
     public void Join(IGateSubscriber subscriber) {
         ArgumentNullException.ThrowIfNull(subscriber);
 
-        listeners.GetOrAdd(subscriber.Account, _ => new()).TryAdd(subscriber, 0);
+        listeners.GetOrAdd(subscriber.Account, static _ => new()).TryAdd(subscriber, 0);
     }
 
     /// <summary>Stops.</summary>
@@ -105,6 +105,7 @@ public sealed class ServicePlane {
         try {
             await subscriber.PostAsync(message).ConfigureAwait(false);
         }
+        // Any failure drops this subscriber and no other: see the remarks.
 #pragma warning disable CA1031
         catch (Exception) {
 #pragma warning restore CA1031
@@ -144,7 +145,9 @@ public sealed class WebSocketSubscriber(Guid account, WebSocket socket) : IGateS
             await socket
                 .SendAsync(Encoding.UTF8.GetBytes(json), WebSocketMessageType.Text, true, CancellationToken.None)
                 .ConfigureAwait(false);
-        } catch (Exception failure) when (failure is WebSocketException or ObjectDisposedException or OperationCanceledException) {
+        } catch (Exception failure) when (failure is WebSocketException
+                                              or ObjectDisposedException
+                                              or OperationCanceledException) {
             // Gone. The receive loop will notice and leave; nothing here is worth failing a broadcast
             // over.
         } finally {

@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Globalization;
-using Vixen.Authoring;
 using Vixen.Core;
 using Vixen.Core.Yaml;
 using Vixen.Core.Yaml.Meta;
@@ -14,8 +13,11 @@ namespace Vixen.Editor.App;
 /// <summary>One asset, as a row of editors — what <see cref="SceneEntity" /> is for an entity.</summary>
 /// <remarks>
 ///     <para>
-///         <b>The other half of the join, and it lives here for the same reason the first half
-///         does.</b> The project browser knows GUIDs and the inspector knows objects with members;
+///         <b>
+///             The other half of the join, and it lives here for the same reason the first half
+///             does.
+///         </b>
+///         The project browser knows GUIDs and the inspector knows objects with members;
 ///         something has to be the object, and putting it in the application is what keeps
 ///         <c>Vixen.Editor.Inspector</c> from knowing what an asset database is. Selecting a file
 ///         used to set <c>EditorProject.Selection</c> and stop there — the selection was a dead end
@@ -64,7 +66,9 @@ public sealed class ProjectAsset {
 
     /// <summary>What the file is called.</summary>
     [Inspector]
-    [Tooltip("The file's name. Renaming an asset moves the file and rewrites what refers to it, which is not something the inspector can do yet.")]
+    [Tooltip(
+        "The file's name. Renaming an asset moves the file and rewrites what refers to it, which is not something the inspector can do yet."
+    )]
     public string Name => Entry is { } entry ? entry.Name : string.Empty;
 
     /// <summary>Where it is, project-relative.</summary>
@@ -103,7 +107,9 @@ public sealed class ProjectAsset {
 
     /// <summary>Which importer claims it.</summary>
     [Inspector]
-    [Tooltip("The importer named in the sidecar. 'None' is what a file no importer has claimed says, and it is not an error.")]
+    [Tooltip(
+        "The importer named in the sidecar. 'None' is what a file no importer has claimed says, and it is not an error."
+    )]
     public string Importer => Entry is { } entry ? entry.ImporterTag ?? "None" : string.Empty;
 
     /// <summary>Its identity, as the thirty-two characters a sidecar holds.</summary>
@@ -129,8 +135,12 @@ public sealed class ProjectAsset {
     /// <summary>What a build ships this asset under, or empty for its path.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Writable, where everything above is not, and the difference is where the value
-    ///         lives.</b> The rows above are the database's envelope — a name is a file on disk and a
+    ///         ⚠
+    ///         <b>
+    ///             Writable, where everything above is not, and the difference is where the value
+    ///             lives.
+    ///         </b>
+    ///         The rows above are the database's envelope — a name is a file on disk and a
     ///         GUID is written once and never again — and an address is neither: it is a per-asset
     ///         fact stored in the sidecar's <c>Addressable</c> block, which is exactly the kind of
     ///         thing an inspector edits. Without a box for it the only way to make an asset
@@ -174,8 +184,12 @@ public sealed class ProjectAsset {
 
     /// <summary>Labels for bulk loading, comma separated.</summary>
     /// <remarks>
-    ///     ⚠ <b>Comma separated rather than a list editor, which is the same call
-    ///     <c>CompositorNode</c> makes about its own.</b> A list drawer over three short strings is
+    ///     ⚠
+    ///     <b>
+    ///         Comma separated rather than a list editor, which is the same call
+    ///         <c>CompositorNode</c> makes about its own.
+    ///     </b>
+    ///     A list drawer over three short strings is
     ///     four rows of chrome and a set of add/remove buttons for something people type in one go.
     /// </remarks>
     [Inspector]
@@ -183,17 +197,24 @@ public sealed class ProjectAsset {
     public string Labels {
         get => string.Join(", ", Meta?.Addressable?.Labels ?? []);
 
-        set => Amend(info => info with {
-                Labels = [.. (value ?? string.Empty)
-                    .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)]
-            }
-        );
+        set =>
+            Amend(info => info with {
+                    Labels = [
+                        ..(value ?? string.Empty)
+                            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                    ]
+                }
+            );
     }
 
     /// <summary>Whether to keep it out of the build entirely.</summary>
     /// <remarks>
-    ///     ⚠ <b>The opt-out that only became necessary when an absent address stopped meaning
-    ///     "not shipped".</b> Every asset is addressable by its path now, so "leave this one out" had
+    ///     ⚠
+    ///     <b>
+    ///         The opt-out that only became necessary when an absent address stopped meaning
+    ///         "not shipped".
+    ///     </b>
+    ///     Every asset is addressable by its path now, so "leave this one out" had
     ///     to become something a project can say rather than something it expressed by saying
     ///     nothing. What it is for is the source file nothing loads at run time — a layered PSD a
     ///     texture was flattened from, a reference FBX kept beside the one that ships.
@@ -212,9 +233,10 @@ public sealed class ProjectAsset {
     AssetEntry? Entry => project.Assets.TryGetByGuid(Asset, out var entry) ? entry : null;
 
     /// <summary>Where this asset's sidecar is, or <see langword="null" /> if it has none.</summary>
-    string? Sidecar => Entry is { } entry
-        ? AssetMetaFile.PathFor(project.Paths.Absolute(entry.Path))
-        : null;
+    string? Sidecar =>
+        Entry is { } entry
+            ? AssetMetaFile.PathFor(project.Paths.Absolute(entry.Path))
+            : null;
 
     AssetMeta? meta;
     DateTime stamp;
@@ -222,8 +244,12 @@ public sealed class ProjectAsset {
     /// <summary>The sidecar as it stands, or <see langword="null" /> if it cannot be read.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Kept until the file's timestamp moves, which is the one place this type caches
-    ///         anything.</b> Everything else here is a dictionary lookup into an index that is
+    ///         ⚠
+    ///         <b>
+    ///             Kept until the file's timestamp moves, which is the one place this type caches
+    ///             anything.
+    ///         </b>
+    ///         Everything else here is a dictionary lookup into an index that is
     ///         already in memory; a sidecar is a disk read and a YAML parse, and three rows ask for
     ///         it — so reading it per access meant three reads and three parses <i>per drawn frame</i>
     ///         for as long as an asset was selected. That is not merely wasteful: it was enough to
@@ -266,7 +292,10 @@ public sealed class ProjectAsset {
 
             try {
                 meta = AssetMetaFile.ReadFile(path);
-            } catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or YamlParseException or YamlBindingException) {
+            } catch (Exception exception) when (exception is IOException
+                                                    or UnauthorizedAccessException
+                                                    or YamlParseException
+                                                    or YamlBindingException) {
                 // A sidecar somebody is halfway through hand-editing is not an editor that falls
                 // over — the rows read as blank, which is the honest answer to "what does it say".
                 meta = null;

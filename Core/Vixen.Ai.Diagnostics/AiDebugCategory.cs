@@ -84,16 +84,17 @@ public static class AiDebugCategories {
     /// <summary>What a category is called, lower case.</summary>
     /// <param name="category">The category.</param>
     /// <returns>Its name.</returns>
-    public static string NameOf(AiDebugCategory category) => category switch {
-        AiDebugCategory.Agent => "agent",
-        AiDebugCategory.Doing => "doing",
-        AiDebugCategory.Why => "why",
-        AiDebugCategory.Data => "data",
-        AiDebugCategory.Senses => "senses",
-        AiDebugCategory.Shapes => "shapes",
-        AiDebugCategory.Findings => "findings",
-        _ => "none"
-    };
+    public static string NameOf(AiDebugCategory category) =>
+        category switch {
+            AiDebugCategory.Agent => "agent",
+            AiDebugCategory.Doing => "doing",
+            AiDebugCategory.Why => "why",
+            AiDebugCategory.Data => "data",
+            AiDebugCategory.Senses => "senses",
+            AiDebugCategory.Shapes => "shapes",
+            AiDebugCategory.Findings => "findings",
+            _ => "none"
+        };
 
     /// <summary>Flips one category of a set.</summary>
     /// <param name="categories">The set.</param>
@@ -105,10 +106,11 @@ public static class AiDebugCategories {
     /// <summary>Which section of a snapshot a category shows, if it shows one.</summary>
     /// <param name="section">The section.</param>
     /// <returns>The category that draws it.</returns>
-    public static AiDebugCategory For(AiDebugSection section) => section switch {
-        AiDebugSection.Doing => AiDebugCategory.Doing,
-        AiDebugSection.Why => AiDebugCategory.Why,
-        AiDebugSection.Data => AiDebugCategory.Data,
-        _ => AiDebugCategory.Senses
-    };
+    public static AiDebugCategory For(AiDebugSection section) =>
+        section switch {
+            AiDebugSection.Doing => AiDebugCategory.Doing,
+            AiDebugSection.Why => AiDebugCategory.Why,
+            AiDebugSection.Data => AiDebugCategory.Data,
+            _ => AiDebugCategory.Senses
+        };
 }

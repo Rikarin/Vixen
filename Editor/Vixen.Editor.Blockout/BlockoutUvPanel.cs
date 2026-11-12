@@ -33,15 +33,22 @@ public readonly record struct UvIslandView(
 /// <summary>docs/plan/42 § D13's editor UV panel, as the half that runs without a device.</summary>
 /// <remarks>
 ///     <para>
-///         <b>"A UV panel: islands, distortion as a heat map, seam display, and the three verbs
-///         separately."</b> That is the whole of the requirement and this is the whole of the state it
+///         <b>
+///             "A UV panel: islands, distortion as a heat map, seam display, and the three verbs
+///             separately."
+///         </b>
+///         That is the whole of the requirement and this is the whole of the state it
 ///         needs: which islands there are, where each one sits, how stretched each one is, which edges
 ///         are seams, and a verb apiece for chart, flatten and pack. The drawing — the atlas rectangle,
 ///         the island outlines, the colour ramp — reads these and adds nothing to them.
 ///     </para>
 ///     <para>
-///         ⚠ <b>It is not a drag-a-vertex-in-UV-space tool, and docs/plan/42's "What this does not
-///         become" item 2 says so in as many words.</b> Every verb here replaces the whole layout;
+///         ⚠
+///         <b>
+///             It is not a drag-a-vertex-in-UV-space tool, and docs/plan/42's "What this does not
+///             become" item 2 says so in as many words.
+///         </b>
+///         Every verb here replaces the whole layout;
 ///         nothing moves one coordinate. Editing an island by hand is doc 20's surface and a different
 ///         document, and a panel that grew one gesture in that direction would have to grow an undo
 ///         model, a selection model and a snapping model with it.
@@ -67,7 +74,6 @@ public sealed class BlockoutUvPanel {
     /// </remarks>
     public const float BadDistortion = 1.15f;
 
-    EditMesh? mesh;
 
     /// <summary>What the panel is looking at, or null.</summary>
     /// <remarks>
@@ -81,9 +87,9 @@ public sealed class BlockoutUvPanel {
     ///     </para>
     /// </remarks>
     public EditMesh? Mesh {
-        get => mesh;
+        get => field;
         set {
-            mesh = value;
+            field = value;
 
             Charts = [];
             Islands = [];
@@ -133,7 +139,9 @@ public sealed class BlockoutUvPanel {
         try {
             Charts = UvUnwrap.Charts(source, Settings, out var report);
             Report = report;
-            Messages = [.. report.Warnings, $"{report.ChartCount} charts, seam length {report.SeamLengthNormalized:0.###}."];
+            Messages = [
+                ..report.Warnings, $"{report.ChartCount} charts, seam length {report.SeamLengthNormalized:0.###}."
+            ];
         } catch (Exception failure) when (failure is InvalidOperationException or ArgumentException) {
             return Fail($"Charting refused: {failure.Message}");
         }
@@ -163,7 +171,7 @@ public sealed class BlockoutUvPanel {
             Report = report;
 
             Messages = [
-                .. report.Warnings,
+                ..report.Warnings,
                 $"{Islands.Count} islands, angular distortion {report.Distortion.Angular:0.###}, "
                 + $"{report.Distortion.Flipped} flipped."
             ];
@@ -200,7 +208,7 @@ public sealed class BlockoutUvPanel {
         Report = report;
 
         Messages = [
-            .. report.Warnings,
+            ..report.Warnings,
             $"{report.EffectiveEfficiency:P1} of the atlas used after a {Packing.Margin}-texel margin "
             + $"at {Packing.Resolution}."
         ];
@@ -284,8 +292,12 @@ public sealed class BlockoutUvPanel {
 
     /// <summary>An island's worst triangle stretch, and how many of them are inside out.</summary>
     /// <remarks>
-    ///     ⚠ <b>Shape rather than size, and that is what makes the number comparable between
-    ///     islands.</b> The measure is the longest side against the area, normalised so an equilateral
+    ///     ⚠
+    ///     <b>
+    ///         Shape rather than size, and that is what makes the number comparable between
+    ///         islands.
+    ///     </b>
+    ///     The measure is the longest side against the area, normalised so an equilateral
     ///     triangle scores one — which is invariant under the uniform scale the packer is allowed to
     ///     apply. A measure that compared UV area against world area would call every island the packer
     ///     shrank a distorted one.
@@ -298,7 +310,7 @@ public sealed class BlockoutUvPanel {
             var a = island.Coordinates[corner];
             var b = island.Coordinates[corner + 1];
             var c = island.Coordinates[corner + 2];
-            var cross = ((b.X - a.X) * (c.Y - a.Y)) - ((b.Y - a.Y) * (c.X - a.X));
+            var cross = (b.X - a.X) * (c.Y - a.Y) - (b.Y - a.Y) * (c.X - a.X);
 
             if (cross < 0f) {
                 flipped++;

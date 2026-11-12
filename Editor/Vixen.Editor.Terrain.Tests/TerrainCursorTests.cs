@@ -68,7 +68,7 @@ public class TerrainCursorTests {
         TerrainCursor.Draw(draw, terrain, Vector3.Zero, Middle, 8f, 0f);
 
         Assert.NotEmpty(lines);
-        Assert.All(lines, vertex => Assert.Equal(8f, Reach(vertex, Vector3.Zero), 3));
+        Assert.All(lines, static vertex => Assert.Equal(8f, Reach(vertex, Vector3.Zero), 3));
     }
 
     [Fact]
@@ -80,13 +80,13 @@ public class TerrainCursorTests {
 
         // 8 m of reach and a plateau at 8 × (1 − 0.25) — TerrainBrush.WeightAt's own boundary, which
         // is the number that decides what a stroke looks like.
-        Assert.Contains(lines, vertex => MathF.Abs(Reach(vertex, Vector3.Zero) - 8f) < 1e-3f);
-        Assert.Contains(lines, vertex => MathF.Abs(Reach(vertex, Vector3.Zero) - 6f) < 1e-3f);
+        Assert.Contains(lines, static vertex => MathF.Abs(Reach(vertex, Vector3.Zero) - 8f) < 1e-3f);
+        Assert.Contains(lines, static vertex => MathF.Abs(Reach(vertex, Vector3.Zero) - 6f) < 1e-3f);
 
         // And nothing between them: two rings, not an annulus.
         Assert.All(
             lines,
-            vertex => Assert.True(
+            static vertex => Assert.True(
                 MathF.Abs(Reach(vertex, Vector3.Zero) - 8f) < 1e-3f
                 || MathF.Abs(Reach(vertex, Vector3.Zero) - 6f) < 1e-3f
             )
@@ -175,8 +175,8 @@ public class TerrainCursorTests {
 
         TerrainCursor.Draw(draw, terrain, Vector3.Zero, Middle, 8f, 0f);
 
-        var lowest = lines.Min(vertex => vertex.Position.Y);
-        var highest = lines.Max(vertex => vertex.Position.Y);
+        var lowest = lines.Min(static vertex => vertex.Position.Y);
+        var highest = lines.Max(static vertex => vertex.Position.Y);
 
         // ⚠ The assertion the whole feature turns on. A disc drawn flat at the hit's height spans
         // zero; a conformed one spans the grade across its diameter — 0.5 × 16 m here. Sabotaging
@@ -243,14 +243,14 @@ public class TerrainCursorTests {
 
         TerrainCursor.Draw(draw, terrain, Vector3.Zero, Middle, 8f, 0.5f);
 
-        var outer = lines.Where(vertex => Reach(vertex, Vector3.Zero) > 7f).ToList();
-        var inner = lines.Where(vertex => Reach(vertex, Vector3.Zero) < 5f).ToList();
+        var outer = lines.Where(static vertex => Reach(vertex, Vector3.Zero) > 7f).ToList();
+        var inner = lines.Where(static vertex => Reach(vertex, Vector3.Zero) < 5f).ToList();
 
         Assert.NotEmpty(outer);
         Assert.NotEmpty(inner);
 
-        Assert.All(outer, vertex => Assert.Equal(TerrainCursor.Outer, vertex.Colour));
-        Assert.All(inner, vertex => Assert.Equal(TerrainCursor.Inner, vertex.Colour));
+        Assert.All(outer, static vertex => Assert.Equal(TerrainCursor.Outer, vertex.Colour));
+        Assert.All(inner, static vertex => Assert.Equal(TerrainCursor.Inner, vertex.Colour));
 
         // The same brush said quieter, not a second thing: one hue, two weights.
         Assert.Equal(TerrainCursor.Outer.R, TerrainCursor.Inner.R);

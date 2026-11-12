@@ -15,23 +15,35 @@ namespace Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>A preview that renders nothing looks exactly like a preview that is not
-///         implemented.</b> Every structural claim about this renderer — a target was made, a pipeline
+///         ⚠
+///         <b>
+///             A preview that renders nothing looks exactly like a preview that is not
+///             implemented.
+///         </b>
+///         Every structural claim about this renderer — a target was made, a pipeline
 ///         was built, a draw was recorded, the counters went up — is true of a black square, and this
 ///         repository has shipped three of those this month. So what is asserted here is the bytes:
 ///         how many distinct colours came back, what the mean channel is, and which corner is which.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The orientation is asserted separately from the histogram, because a vertically
-///         flipped thumbnail passes every histogram.</b> The graph under test previews
+///         ⚠
+///         <b>
+///             The orientation is asserted separately from the histogram, because a vertically
+///             flipped thumbnail passes every histogram.
+///         </b>
+///         The graph under test previews
 ///         <c>float3(u, v, 1)</c> over the quad, so the top row is green-dark and the bottom row is
 ///         green-bright — in the engine's convention, where clip <c>y = +1</c> is the top. A renderer
 ///         that got the convention backwards produces a picture with exactly the same colour count and
 ///         exactly the same mean.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Skips when there is no Vulkan, and <c>VIXEN_REQUIRE_VULKAN=1</c> turns the skip into a
-///         failure.</b> A gate that silently skips is a gate that passes, which is what makes a device
+///         ⚠
+///         <b>
+///             Skips when there is no Vulkan, and <c>VIXEN_REQUIRE_VULKAN=1</c> turns the skip into a
+///             failure.
+///         </b>
+///         A gate that silently skips is a gate that passes, which is what makes a device
 ///         test worth less than nothing on a machine where nobody reads the skip count.
 ///     </para>
 /// </remarks>
@@ -107,7 +119,7 @@ public class ShaderGraphPreviewDeviceTests {
             );
 
             commands.CopyTextureToBuffer(
-                new TextureRegion(texture),
+                new(texture),
                 new(ShaderGraphPreviewRenderer.Size, ShaderGraphPreviewRenderer.Size, 1),
                 readback,
                 0
@@ -153,59 +165,58 @@ public class ShaderGraphPreviewDeviceTests {
     }
 
     static byte Channel(byte[] pixels, int x, int y, int channel) =>
-        pixels[(((y * ShaderGraphPreviewRenderer.Size) + x) * 4) + channel];
+        pixels[(y * ShaderGraphPreviewRenderer.Size + x) * 4 + channel];
 
     /// <summary>The preview is a gradient: many colours, a mid mean, and the right way up.</summary>
     [Fact]
     public void A_preview_is_a_picture_and_not_a_black_square() {
-        using (var device = Open()) {
-            VulkanDiagnostics.Reset();
+        using var device = Open();
+        VulkanDiagnostics.Reset();
 
-            var registry = Library();
-            var (graph, node) = Gradient();
+        var registry = Library();
+        var (graph, node) = Gradient();
 
-            using var renderer = new ShaderGraphPreviewRenderer(device, registry);
+        using var renderer = new ShaderGraphPreviewRenderer(device, registry);
 
-            var pixels = Render(device, renderer, graph, node, registry.Get(node.Type));
+        var pixels = Render(device, renderer, graph, node, registry.Get(node.Type));
 
-            Assert.True(
-                VulkanDiagnostics.ErrorCount == 0,
-                "The preview produced validation errors, so its picture means nothing: "
-                + string.Join(Environment.NewLine, VulkanDiagnostics.Messages)
-            );
+        Assert.True(
+            VulkanDiagnostics.ErrorCount == 0,
+            "The preview produced validation errors, so its picture means nothing: "
+            + string.Join(Environment.NewLine, VulkanDiagnostics.Messages)
+        );
 
-            var distinct = Distinct(pixels);
-            var mean = Mean(pixels);
+        var distinct = Distinct(pixels);
+        var mean = Mean(pixels);
 
-            // A 64×64 ramp in two channels: 64 reds × 64 greens is 4 096 colours if every step lands
-            // on its own byte, and rounding costs a few. A thousand is far above anything a flat fill,
-            // a clear or an undefined target produces, and far below what this actually renders.
-            Assert.True(distinct >= 1000, $"the preview holds {distinct} distinct colour(s), which is not a gradient");
+        // A 64×64 ramp in two channels: 64 reds × 64 greens is 4 096 colours if every step lands
+        // on its own byte, and rounding costs a few. A thousand is far above anything a flat fill,
+        // a clear or an undefined target produces, and far below what this actually renders.
+        Assert.True(distinct >= 1000, $"the preview holds {distinct} distinct colour(s), which is not a gradient");
 
-            // Red and green ramp 0…1 and blue is 1, so the mean channel is about (0.5 + 0.5 + 1) / 3
-            // of 255 — near 170. A black square is 0, a white one 255, and an unlit magenta error
-            // colour would be neither.
-            Assert.InRange(mean, 140d, 200d);
+        // Red and green ramp 0…1 and blue is 1, so the mean channel is about (0.5 + 0.5 + 1) / 3
+        // of 255 — near 170. A black square is 0, a white one 255, and an unlit magenta error
+        // colour would be neither.
+        Assert.InRange(mean, 140d, 200d);
 
-            const int Last = ShaderGraphPreviewRenderer.Size - 1;
+        const int Last = ShaderGraphPreviewRenderer.Size - 1;
 
-            // ⚠ The orientation. Green is v, and v is 0 at the top: clip y = +1 is the TOP in this
-            // engine and the Vulkan backend's negative-height viewport is what implements it. A
-            // preview drawn upside down passes both assertions above.
-            Assert.True(
-                Channel(pixels, 0, 0, 1) < 32,
-                $"the top-left pixel's green is {Channel(pixels, 0, 0, 1)}, so the preview is upside down"
-            );
+        // ⚠ The orientation. Green is v, and v is 0 at the top: clip y = +1 is the TOP in this
+        // engine and the Vulkan backend's negative-height viewport is what implements it. A
+        // preview drawn upside down passes both assertions above.
+        Assert.True(
+            Channel(pixels, 0, 0, 1) < 32,
+            $"the top-left pixel's green is {Channel(pixels, 0, 0, 1)}, so the preview is upside down"
+        );
 
-            Assert.True(
-                Channel(pixels, 0, Last, 1) > 220,
-                $"the bottom-left pixel's green is {Channel(pixels, 0, Last, 1)}, so the preview is upside down"
-            );
+        Assert.True(
+            Channel(pixels, 0, Last, 1) > 220,
+            $"the bottom-left pixel's green is {Channel(pixels, 0, Last, 1)}, so the preview is upside down"
+        );
 
-            // And the other axis, which no flip would disturb: red is u.
-            Assert.True(Channel(pixels, 0, 0, 0) < 32);
-            Assert.True(Channel(pixels, Last, 0, 0) > 220);
-        }
+        // And the other axis, which no flip would disturb: red is u.
+        Assert.True(Channel(pixels, 0, 0, 0) < 32);
+        Assert.True(Channel(pixels, Last, 0, 0) > 220);
     }
 
     /// <summary>Asking again for an unchanged graph compiles nothing and draws nothing.</summary>
@@ -215,167 +226,167 @@ public class ShaderGraphPreviewDeviceTests {
     /// </remarks>
     [Fact]
     public void An_unchanged_graph_costs_no_compilation() {
-        using (var device = Open()) {
-            var registry = Library();
-            var (graph, node) = Gradient();
-            var definition = registry.Get(node.Type);
+        using var device = Open();
+        var registry = Library();
+        var (graph, node) = Gradient();
+        var definition = registry.Get(node.Type);
 
-            using var renderer = new ShaderGraphPreviewRenderer(device, registry);
+        using var renderer = new ShaderGraphPreviewRenderer(device, registry);
 
-            Render(device, renderer, graph, node, definition);
+        Render(device, renderer, graph, node, definition);
 
-            var compilations = renderer.Compilations;
-            var draws = renderer.Draws;
-            var created = renderer.Created;
+        var compilations = renderer.Compilations;
+        var draws = renderer.Draws;
+        var created = renderer.Created;
 
-            var emissions = renderer.Emissions;
+        var emissions = renderer.Emissions;
 
-            // Twenty asks with nothing at all having happened — a canvas redrawing at sixty hertz
-            // while the author reads the graph. The first gate: no emission either.
-            for (var frame = 0; frame < 20; frame++) {
-                // False, because this renderer was given no image sink — there is no number to draw
-                // by. What is being measured is that asking cost nothing, not what the answer was.
-                renderer.TryGet(graph, node, definition, out _);
+        // Twenty asks with nothing at all having happened — a canvas redrawing at sixty hertz
+        // while the author reads the graph. The first gate: no emission either.
+        for (var frame = 0; frame < 20; frame++) {
+            // False, because this renderer was given no image sink — there is no number to draw
+            // by. What is being measured is that asking cost nothing, not what the answer was.
+            renderer.TryGet(graph, node, definition, out _);
 
-                Assert.Equal(0, renderer.Update());
-            }
+            Assert.Equal(0, renderer.Update());
+        }
 
-            Assert.Equal(emissions, renderer.Emissions);
-            Assert.Equal(compilations, renderer.Compilations);
+        Assert.Equal(emissions, renderer.Emissions);
+        Assert.Equal(compilations, renderer.Compilations);
 
-            // And twenty with the node moved, which is what a drag is: every `NodeGraphCommand`
-            // touches the graph, so the revision moves and the source is emitted again — and the
-            // second gate finds the same text, so nothing is compiled and nothing is drawn.
-            for (var frame = 0; frame < 20; frame++) {
-                node.Position = new(frame * 10f, 0f);
-                graph.Touch();
-
-                renderer.TryGet(graph, node, definition, out _);
-
-                Assert.Equal(0, renderer.Update());
-            }
-
-            Assert.Equal(emissions + 20, renderer.Emissions);
-            Assert.Equal(compilations, renderer.Compilations);
-            Assert.Equal(draws, renderer.Draws);
-            Assert.Equal(created, renderer.Created);
-
-            // And an edit that does change the expression costs exactly one more of each, into the
-            // target that already exists rather than into a new one.
-            node.SetValue("Tiling", 3f, 3f);
+        // And twenty with the node moved, which is what a drag is: every `NodeGraphCommand`
+        // touches the graph, so the revision moves and the source is emitted again — and the
+        // second gate finds the same text, so nothing is compiled and nothing is drawn.
+        for (var frame = 0; frame < 20; frame++) {
+            node.Position = new(frame * 10f, 0f);
             graph.Touch();
 
             renderer.TryGet(graph, node, definition, out _);
 
-            device.BeginFrame();
-            Assert.Equal(1, renderer.Update());
-            device.EndFrame();
-            device.WaitIdle();
-
-            Assert.Equal(compilations + 1, renderer.Compilations);
-            Assert.Equal(draws + 1, renderer.Draws);
-            Assert.Equal(created, renderer.Created);
+            Assert.Equal(0, renderer.Update());
         }
+
+        Assert.Equal(emissions + 20, renderer.Emissions);
+        Assert.Equal(compilations, renderer.Compilations);
+        Assert.Equal(draws, renderer.Draws);
+        Assert.Equal(created, renderer.Created);
+
+        // And an edit that does change the expression costs exactly one more of each, into the
+        // target that already exists rather than into a new one.
+        node.SetValue("Tiling", 3f, 3f);
+        graph.Touch();
+
+        renderer.TryGet(graph, node, definition, out _);
+
+        device.BeginFrame();
+        Assert.Equal(1, renderer.Update());
+        device.EndFrame();
+        device.WaitIdle();
+
+        Assert.Equal(compilations + 1, renderer.Compilations);
+        Assert.Equal(draws + 1, renderer.Draws);
+        Assert.Equal(created, renderer.Created);
     }
 
     /// <summary>Everything the renderer made is destroyed when it goes.</summary>
     /// <remarks>
-    ///     ⚠ <b>A render target per node per keystroke is a leak, and this editor has paid for one
-    ///     before.</b> The counters are equal or they are not; a claim about a leak that cannot be
+    ///     ⚠
+    ///     <b>
+    ///         A render target per node per keystroke is a leak, and this editor has paid for one
+    ///         before.
+    ///     </b>
+    ///     The counters are equal or they are not; a claim about a leak that cannot be
     ///     measured is one nobody can check.
     /// </remarks>
     [Fact]
     public void Disposing_destroys_every_target_and_gives_up_every_number() {
-        using (var device = Open()) {
-            var registry = Library();
-            var (graph, node) = Gradient();
-            var images = new CountingImages();
+        using var device = Open();
+        var registry = Library();
+        var (graph, node) = Gradient();
+        var images = new CountingImages();
 
-            var renderer = new ShaderGraphPreviewRenderer(device, registry, images);
+        var renderer = new ShaderGraphPreviewRenderer(device, registry, images);
 
-            Render(device, renderer, graph, node, registry.Get(node.Type));
+        Render(device, renderer, graph, node, registry.Get(node.Type));
 
-            Assert.Equal(1, renderer.Created);
-            Assert.Equal(0, renderer.Destroyed);
-            Assert.Equal(1, images.Registered);
-            Assert.Equal(0, images.Released);
+        Assert.Equal(1, renderer.Created);
+        Assert.Equal(0, renderer.Destroyed);
+        Assert.Equal(1, images.Registered);
+        Assert.Equal(0, images.Released);
 
-            renderer.Dispose();
+        renderer.Dispose();
 
-            Assert.Equal(renderer.Created, renderer.Destroyed);
-            Assert.Equal(0, renderer.Live);
-            Assert.Equal(images.Registered, images.Released);
+        Assert.Equal(renderer.Created, renderer.Destroyed);
+        Assert.Equal(0, renderer.Live);
+        Assert.Equal(images.Registered, images.Released);
 
-            // Idempotent, because a host that disposes on shutdown and again on a project close must
-            // not destroy the same texture twice.
-            renderer.Dispose();
+        // Idempotent, because a host that disposes on shutdown and again on a project close must
+        // not destroy the same texture twice.
+        renderer.Dispose();
 
-            Assert.Equal(renderer.Created, renderer.Destroyed);
-        }
+        Assert.Equal(renderer.Created, renderer.Destroyed);
     }
 
     /// <summary>A capacity full of nodes evicts, and eviction destroys.</summary>
     [Fact]
     public void Eviction_destroys_the_target_it_drops() {
-        using (var device = Open()) {
-            var registry = Library();
-            var graph = new NodeGraphModel { Name = "Many" };
-            var images = new CountingImages();
+        using var device = Open();
+        var registry = Library();
+        var graph = new NodeGraphModel { Name = "Many" };
+        var images = new CountingImages();
 
-            using var renderer = new ShaderGraphPreviewRenderer(device, registry, images) { Capacity = 2 };
+        using var renderer = new ShaderGraphPreviewRenderer(device, registry, images) { Capacity = 2 };
 
-            var definition = registry.Get("Vector/Tiling and Offset");
-            List<GraphNode> nodes = [];
+        var definition = registry.Get("Vector/Tiling and Offset");
+        List<GraphNode> nodes = [];
 
-            for (var index = 0; index < 4; index++) {
-                var node = graph.Add("Vector/Tiling and Offset");
+        for (var index = 0; index < 4; index++) {
+            var node = graph.Add("Vector/Tiling and Offset");
 
-                // Distinct expressions, so no two previews share a source and the eviction is about
-                // the count rather than about the cache.
-                node.SetValue("Tiling", index + 1f, index + 1f);
-                nodes.Add(node);
+            // Distinct expressions, so no two previews share a source and the eviction is about
+            // the count rather than about the cache.
+            node.SetValue("Tiling", index + 1f, index + 1f);
+            nodes.Add(node);
 
-                renderer.TryGet(graph, node, definition, out _);
+            renderer.TryGet(graph, node, definition, out _);
 
-                device.BeginFrame();
-                renderer.Update();
-                device.EndFrame();
-                device.WaitIdle();
-            }
-
-            Assert.Equal(2, renderer.Live);
-            Assert.Equal(2, renderer.Destroyed);
-            Assert.Equal(renderer.Created - renderer.Destroyed, renderer.Live);
-            Assert.Equal(images.Registered - images.Released, renderer.Live);
+            device.BeginFrame();
+            renderer.Update();
+            device.EndFrame();
+            device.WaitIdle();
         }
+
+        Assert.Equal(2, renderer.Live);
+        Assert.Equal(2, renderer.Destroyed);
+        Assert.Equal(renderer.Created - renderer.Destroyed, renderer.Live);
+        Assert.Equal(images.Registered - images.Released, renderer.Live);
     }
 
     /// <summary>A node needing a texture is refused rather than drawn as an unbound descriptor.</summary>
     [Fact]
     public void A_node_that_needs_a_resource_is_refused() {
-        using (var device = Open()) {
-            VulkanDiagnostics.Reset();
+        using var device = Open();
+        VulkanDiagnostics.Reset();
 
-            var registry = Library();
-            var graph = new NodeGraphModel { Name = "Sampled" };
-            var node = graph.Add("Texture/Sample 2D");
+        var registry = Library();
+        var graph = new NodeGraphModel { Name = "Sampled" };
+        var node = graph.Add("Texture/Sample 2D");
 
-            using var renderer = new ShaderGraphPreviewRenderer(device, registry);
+        using var renderer = new ShaderGraphPreviewRenderer(device, registry);
 
-            renderer.TryGet(graph, node, registry.Get(node.Type), out _);
+        renderer.TryGet(graph, node, registry.Get(node.Type), out _);
 
-            device.BeginFrame();
+        device.BeginFrame();
 
-            Assert.Equal(0, renderer.Update());
+        Assert.Equal(0, renderer.Update());
 
-            device.EndFrame();
-            device.WaitIdle();
+        device.EndFrame();
+        device.WaitIdle();
 
-            Assert.Equal(1, renderer.Refusals);
-            Assert.NotNull(renderer.RefusalFor(graph, node.Id));
-            Assert.Equal(0, renderer.Draws);
-            Assert.Equal(0, VulkanDiagnostics.ErrorCount);
-        }
+        Assert.Equal(1, renderer.Refusals);
+        Assert.NotNull(renderer.RefusalFor(graph, node.Id));
+        Assert.Equal(0, renderer.Draws);
+        Assert.Equal(0, VulkanDiagnostics.ErrorCount);
     }
 
     /// <summary>Two graphs whose nodes have the same identity get two previews.</summary>
@@ -387,36 +398,35 @@ public class ShaderGraphPreviewDeviceTests {
     /// </remarks>
     [Fact]
     public void Two_graphs_with_the_same_node_identity_get_their_own_targets() {
-        using (var device = Open()) {
-            var registry = Library();
-            var definition = registry.Get("Vector/Tiling and Offset");
+        using var device = Open();
+        var registry = Library();
+        var definition = registry.Get("Vector/Tiling and Offset");
 
-            var first = new NodeGraphModel { Name = "First" };
-            var second = new NodeGraphModel { Name = "Second" };
+        var first = new NodeGraphModel { Name = "First" };
+        var second = new NodeGraphModel { Name = "Second" };
 
-            var a = first.Add("Vector/Tiling and Offset");
-            var b = second.Add("Vector/Tiling and Offset");
+        var a = first.Add("Vector/Tiling and Offset");
+        var b = second.Add("Vector/Tiling and Offset");
 
-            Assert.Equal(a.Id, b.Id);
+        Assert.Equal(a.Id, b.Id);
 
-            b.SetValue("Tiling", 7f, 7f);
+        b.SetValue("Tiling", 7f, 7f);
 
-            using var renderer = new ShaderGraphPreviewRenderer(device, registry);
+        using var renderer = new ShaderGraphPreviewRenderer(device, registry);
 
-            renderer.TryGet(first, a, definition, out _);
-            renderer.TryGet(second, b, definition, out _);
+        renderer.TryGet(first, a, definition, out _);
+        renderer.TryGet(second, b, definition, out _);
 
-            device.BeginFrame();
+        device.BeginFrame();
 
-            Assert.Equal(2, renderer.Update());
+        Assert.Equal(2, renderer.Update());
 
-            device.EndFrame();
-            device.WaitIdle();
+        device.EndFrame();
+        device.WaitIdle();
 
-            Assert.Equal(2, renderer.Live);
-            Assert.Equal(2, renderer.Created);
-            Assert.NotEqual(renderer.TextureOf(first, a.Id), renderer.TextureOf(second, b.Id));
-        }
+        Assert.Equal(2, renderer.Live);
+        Assert.Equal(2, renderer.Created);
+        Assert.NotEqual(renderer.TextureOf(first, a.Id), renderer.TextureOf(second, b.Id));
     }
 
     /// <summary>⚠ A target its sink could not name when it was made is named once the sink can.</summary>
@@ -429,24 +439,23 @@ public class ShaderGraphPreviewDeviceTests {
     /// </remarks>
     [Fact]
     public void A_target_made_before_the_sink_could_name_it_is_named_on_a_later_ask() {
-        using (var device = Open()) {
-            var registry = Library();
-            var (graph, node) = Gradient();
-            var definition = registry.Get(node.Type);
-            var images = new CountingImages { Refusing = true };
+        using var device = Open();
+        var registry = Library();
+        var (graph, node) = Gradient();
+        var definition = registry.Get(node.Type);
+        var images = new CountingImages { Refusing = true };
 
-            using var renderer = new ShaderGraphPreviewRenderer(device, registry, images);
+        using var renderer = new ShaderGraphPreviewRenderer(device, registry, images);
 
-            Render(device, renderer, graph, node, definition);
+        Render(device, renderer, graph, node, definition);
 
-            Assert.False(renderer.TryGet(graph, node, definition, out _));
+        Assert.False(renderer.TryGet(graph, node, definition, out _));
 
-            images.Refusing = false;
+        images.Refusing = false;
 
-            Assert.True(renderer.TryGet(graph, node, definition, out var preview));
-            Assert.NotEqual(0ul, preview.Image);
-            Assert.Equal(1, renderer.Compilations);
-        }
+        Assert.True(renderer.TryGet(graph, node, definition, out var preview));
+        Assert.NotEqual(0ul, preview.Image);
+        Assert.Equal(1, renderer.Compilations);
     }
 
     sealed class CountingImages : IPreviewImages {

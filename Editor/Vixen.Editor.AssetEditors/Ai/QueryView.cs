@@ -23,8 +23,12 @@ namespace Vixen.Editor.AssetEditors.Ai;
 ///         intrinsic tag's own <c>Text</c>. Same arrangement as <c>CompiledSceneView</c>.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The test list is ordered and the order is editable, which is the one gesture this
-///         editor has that the utility table does not.</b> A filtering test rejects a point and
+///         ⚠
+///         <b>
+///             The test list is ordered and the order is editable, which is the one gesture this
+///             editor has that the utility table does not.
+///         </b>
+///         A filtering test rejects a point and
 ///         everything below it is skipped, so moving a trace below a distance filter is the
 ///         difference between four hundred raycasts and forty — a real cost, made by a real gesture,
 ///         with the count of surviving points beside it saying what it bought.
@@ -60,8 +64,12 @@ internal readonly record struct QueryGeneratorRow(int Slot, string Kind, string 
 /// <param name="Purpose">Filter, score, or both.</param>
 /// <param name="Detail">Its range and curve, as a person reads it.</param>
 /// <remarks>
-///     ⚠ <b><see cref="Selected" /> is in the key, and leaving it out is the failure wave 4
-///     recorded.</b> A selected test is a <i>different tag</i> — <c>query-row-selected</c> — and a
+///     ⚠
+///     <b>
+///         <see cref="Selected" /> is in the key, and leaving it out is the failure wave 4
+///         recorded.
+///     </b>
+///     A selected test is a <i>different tag</i> — <c>query-row-selected</c> — and a
 ///     tag is not a class and cannot be bound, so the choice is an <c>@if</c> inside the loop body.
 ///     An <c>@if</c> inside a surviving region is not re-evaluated, so a key that ignored the flag
 ///     would leave the first selection highlighted for ever while the list looked entirely correct.

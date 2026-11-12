@@ -10,10 +10,17 @@ namespace Vixen.Net.Engine;
 /// <summary>Marks a node of a prefab or a scene as one the network should give an id to.</summary>
 /// <remarks>
 ///     <para>
-///         <b>The authored half of <see cref="NetworkId" />, and the two are deliberately different
-///         components.</b> A <see cref="NetworkId" /> is a number the server allocated — a handle,
-///         which only exists once a session does. This is a designer's claim about content: <i>this
-///         entity is a thing the network addresses</i>, made before any peer has connected and true
+///         <b>
+///             The authored half of <see cref="NetworkId" />, and the two are deliberately different
+///             components.
+///         </b>
+///         A <see cref="NetworkId" /> is a number the server allocated — a handle,
+///         which only exists once a session does. This is a designer's claim about content:
+///         <i>
+///             this
+///             entity is a thing the network addresses
+///         </i>
+///         , made before any peer has connected and true
 ///         in every process that loads the asset. One is runtime state and one is authored fact, and
 ///         a component that tried to be both would have to be written into a scene file to be
 ///         authorable — which would let a designer, or a play-mode save, put a number in content that
@@ -46,4 +53,4 @@ namespace Vixen.Net.Engine;
 /// </example>
 [Component]
 [DataContract]
-public struct NetworkObject : ITagComponent;
+public readonly struct NetworkObject : ITagComponent;

@@ -6,12 +6,9 @@ using System.Diagnostics.CodeAnalysis;
 using Vixen.Core;
 using Vixen.Core.Yaml;
 using Vixen.Editor.Core;
-using Vixen.Editor.NodeGraph;
 using Vixen.NodeGraph;
 using Vixen.TextureGraph;
 using Vixen.Texturing;
-using Vixen.Texturing.Layers;
-using Vixen.Texturing.Painting;
 
 namespace Vixen.Editor.Texturing;
 
@@ -21,11 +18,16 @@ namespace Vixen.Editor.Texturing;
 /// <param name="Outputs">Which image is which map, by usage.</param>
 /// <param name="Externals">The imported images this plan needs supplied, per bitmap node.</param>
 /// <remarks>
-///     ⚠ <b><c>NodeGraphCompilation&lt;TexturePlan&gt;</c> alone is not enough to draw with, which is
-///     why this exists</b> — <a href="https://github.com/Rikarin/Vixen/issues/792">#792</a>. It
+///     ⚠
+///     <b>
+///         <c>NodeGraphCompilation&lt;TexturePlan&gt;</c> alone is not enough to draw with, which is
+///         why this exists
+///     </b>
+///     — <a href="https://github.com/Rikarin/Vixen/issues/792">#792</a>. It
 ///     carries the plan and the diagnostics and drops <c>TextureGraphCompiler.Outputs</c> and
 ///     <c>.Externals</c> on the floor, so a caller had the ops and no way to know which image is the
-///     base colour or which bitmap wants a file. <see cref="global::Vixen.Texturing.Layers.LayerStackCompilation" /> is this same
+///     base colour or which bitmap wants a file. <see cref="global::Vixen.Texturing.Layers.LayerStackCompilation" /> is
+///     this same
 ///     shape one type over, and for the same reason.
 /// </remarks>
 sealed record TextureGraphCompilation(
@@ -53,8 +55,12 @@ sealed record TextureGraphCompilation(
 ///         compiles and shows the two moves every graph after it makes.
 ///     </para>
 ///     <para>
-///         ⚠ <b>This used to say "nothing here compiles, because <c>TextureGraphCompiler</c> is
-///         <c>internal</c>", and that claim is false.</b> It was true when it was written and
+///         ⚠
+///         <b>
+///             This used to say "nothing here compiles, because <c>TextureGraphCompiler</c> is
+///             <c>internal</c>", and that claim is false.
+///         </b>
+///         It was true when it was written and
 ///         <a href="https://github.com/Rikarin/Vixen/issues/738">#738</a> closed by making the
 ///         compiler <c>public sealed</c>; the sentence outlived the fix, in this file and in the
 ///         panel's own status line, where an author still reads it —
@@ -62,8 +68,11 @@ sealed record TextureGraphCompilation(
 ///         the method it said could not exist.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The registry carries published node types and the compilation carries the source
-///         that resolves them, and the two come from one call.</b>
+///         ⚠
+///         <b>
+///             The registry carries published node types and the compilation carries the source
+///             that resolves them, and the two come from one call.
+///         </b>
 ///         <c>TextureCompoundLibrary.Publish</c> had no caller outside its own tests —
 ///         <a href="https://github.com/Rikarin/Vixen/issues/799">#799</a>,
 ///         <a href="https://github.com/Rikarin/Vixen/issues/803">#803</a> — so doc 48 § 4.9's four
@@ -129,8 +138,12 @@ public sealed class TextureGraphDocument : EditorDocument {
 
     /// <summary>Every compound file that could not be published, and why.</summary>
     /// <remarks>
-    ///     ⚠ <b>A compound that will not read is a node type missing from the menu and nothing
-    ///     else</b> — <c>TextureCompoundLibrary.Publish</c> reports and skips rather than throwing,
+    ///     ⚠
+    ///     <b>
+    ///         A compound that will not read is a node type missing from the menu and nothing
+    ///         else
+    ///     </b>
+    ///     — <c>TextureCompoundLibrary.Publish</c> reports and skips rather than throwing,
     ///     so that one bad file in <c>Assets/Compounds</c> does not cost an author the whole library.
     ///     That makes this the only place the loss is visible.
     /// </remarks>
@@ -196,7 +209,8 @@ public sealed class TextureGraphDocument : EditorDocument {
             Graph = NodeGraphDocument.Load(stored, out var diagnostics);
             LoadDiagnostics = diagnostics;
         } catch (Exception exception) when (exception is YamlBindingException
-            or YamlParseException or NotSupportedException) {
+                                                or YamlParseException
+                                                or NotSupportedException) {
             Graph = new() { Name = Path.GetFileNameWithoutExtension(path) };
             LoadDiagnostics = [
                 new(TexturingDiagnostics.GraphFileDoesNotParse, exception.Message, NodeId.None)
@@ -208,15 +222,23 @@ public sealed class TextureGraphDocument : EditorDocument {
     /// <returns><see langword="true" /> if it was rebuilt, so a caller can re-read what it cached.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The other half of <a href="https://github.com/Rikarin/Vixen/issues/803">#803</a>:
-    ///         a document published once, in its constructor.</b> An author who edited a compound and
+    ///         ⚠
+    ///         <b>
+    ///             The other half of <a href="https://github.com/Rikarin/Vixen/issues/803">#803</a>:
+    ///             a document published once, in its constructor.
+    ///         </b>
+    ///         An author who edited a compound and
     ///         came back to the graph containing it saw the version that was on disk when this
     ///         document opened — the old ports, the old defaults, the old contents inlined into every
     ///         bake — and nothing said so. Reopening the graph was the only cure.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A flag set by a notification and read here, rather than a check that walks the
-    ///         folder.</b> The obvious mistake is republishing whenever anybody asks whether the
+    ///         ⚠
+    ///         <b>
+    ///             A flag set by a notification and read here, rather than a check that walks the
+    ///             folder.
+    ///         </b>
+    ///         The obvious mistake is republishing whenever anybody asks whether the
     ///         library is stale: this is asked from <see cref="Compile" /> and from the panel's every
     ///         show, and a directory walk plus a <c>stat</c> per compound on every keystroke is the
     ///         same trap as republishing on every keystroke wearing a hat. <see cref="Saving" /> is
@@ -227,8 +249,11 @@ public sealed class TextureGraphDocument : EditorDocument {
     ///         (<a href="https://github.com/Rikarin/Vixen/issues/922">#922</a>).
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The flag itself lives in <see cref="CompoundWatch" /> now, and that is the whole
-    ///         of <a href="https://github.com/Rikarin/Vixen/issues/970">#970</a>.</b>
+    ///         ⚠
+    ///         <b>
+    ///             The flag itself lives in <see cref="CompoundWatch" /> now, and that is the whole
+    ///             of <a href="https://github.com/Rikarin/Vixen/issues/970">#970</a>.
+    ///         </b>
     ///         <c>LayerStackDocument</c> carried a second copy of this protocol, so #922's lesson had
     ///         to be taught twice by hand and a third publishing document would have been a third
     ///         time. Nothing about the behaviour moved.
@@ -239,8 +264,10 @@ public sealed class TextureGraphDocument : EditorDocument {
     /// <inheritdoc />
     /// <remarks>
     ///     <para>
-    ///         <b>The half <see cref="Republish" /> could not have on its own —
-    ///         <a href="https://github.com/Rikarin/Vixen/issues/922">#922</a>.</b>
+    ///         <b>
+    ///             The half <see cref="Republish" /> could not have on its own —
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/922">#922</a>.
+    ///         </b>
     ///         <c>EditorProject.DocumentSaving</c> hears a save made <em>in the editor</em>; a
     ///         <c>git checkout</c>, a text editor and a tool that writes <c>.vxtexgraph</c> files
     ///         raise nothing at all. This is where a change from outside arrives, and it is a
@@ -248,8 +275,12 @@ public sealed class TextureGraphDocument : EditorDocument {
     ///         containing it is that the library is stale, not that this file is.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A flag and no work, because this runs on the frame, once per drained change per
-    ///         open document.</b> Reading the folder here would make somebody else's Ctrl+S cost the
+    ///         ⚠
+    ///         <b>
+    ///             A flag and no work, because this runs on the frame, once per drained change per
+    ///             open document.
+    ///         </b>
+    ///         Reading the folder here would make somebody else's Ctrl+S cost the
     ///         editor a frame — <see cref="Republish" />'s own "a directory walk per keystroke is the
     ///         same trap wearing a hat", moved one caller along.
     ///     </para>
@@ -359,9 +390,7 @@ public sealed class TextureGraphDocument : EditorDocument {
         Republish();
 
         TextureGraphCompiler compiler = new(Registry) {
-            BaseWidth = BaseWidth,
-            BaseHeight = BaseHeight,
-            SubGraphSource = SubGraphs
+            BaseWidth = BaseWidth, BaseHeight = BaseHeight, SubGraphSource = SubGraphs
         };
 
         var compilation = compiler.Compile(Graph);
@@ -398,6 +427,6 @@ public sealed class TextureGraphDocument : EditorDocument {
         var temporary = AssetPath + ".tmp";
 
         File.WriteAllText(temporary, text);
-        File.Move(temporary, AssetPath, overwrite: true);
+        File.Move(temporary, AssetPath, true);
     }
 }

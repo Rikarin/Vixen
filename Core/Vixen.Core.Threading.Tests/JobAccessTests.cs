@@ -11,8 +11,12 @@ namespace Vixen.Core.Threading.Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Every scheduling test here uses <c>new JobScheduler(0)</c>, and that is the whole
-///         reason they are not flaky.</b> With no workers nothing runs until somebody completes a
+///         ⚠
+///         <b>
+///             Every scheduling test here uses <c>new JobScheduler(0)</c>, and that is the whole
+///             reason they are not flaky.
+///         </b>
+///         With no workers nothing runs until somebody completes a
 ///         handle, so "job A is still in flight when job B is scheduled" is a fact about the program
 ///         rather than about how busy the machine was. The detector fires at schedule time, which is
 ///         what makes that possible; a detector that fired when two jobs actually overlapped could
@@ -81,9 +85,7 @@ public class JobAccessTests {
         using (scheduler.DeclareAccess(WritesOne)) {
             var first = scheduler.Schedule(new IncrementJob(counter));
 
-            var failure = Assert.Throws<InvalidOperationException>(
-                () => scheduler.Schedule(new IncrementJob(counter))
-            );
+            var failure = Assert.Throws<InvalidOperationException>(() => scheduler.Schedule(new IncrementJob(counter)));
 
             Assert.Contains("conflict", failure.Message, StringComparison.Ordinal);
             scheduler.Complete(first);
@@ -219,8 +221,10 @@ public class JobAccessTests {
         using (scheduler.DeclareAccess(WritesOne)) {
             var first = scheduler.ScheduleParallel(new VisitJob(visits), visits.Length);
 
-            Assert.Throws<InvalidOperationException>(
-                () => scheduler.ScheduleParallel(new VisitJob(visits), visits.Length)
+            Assert.Throws<InvalidOperationException>(() => scheduler.ScheduleParallel(
+                    new VisitJob(visits),
+                    visits.Length
+                )
             );
 
             scheduler.Complete(first);

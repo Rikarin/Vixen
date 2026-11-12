@@ -17,14 +17,21 @@ namespace Vixen.Rendering.Water;
 /// <param name="Morph">How far the patch has morphed towards its parent's grid, 0…1.</param>
 /// <remarks>
 ///     <para>
-///         <b>The C# half of <c>WaterNode</c> in <c>WaterMesh.rvn</c>, and the two agree by
-///         construction or not at all.</b> The host packs these bytes and the shader reads them as a
+///         <b>
+///             The C# half of <c>WaterNode</c> in <c>WaterMesh.rvn</c>, and the two agree by
+///             construction or not at all.
+///         </b>
+///         The host packs these bytes and the shader reads them as a
 ///         struct — <see cref="TerrainNodeRecord" />'s bargain, and the same reason the duplication is
 ///         not a smell to be refactored away.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Sixteen bytes exactly, which is the one thing that has to be checked rather than
-///         assumed.</b> A <c>float2</c> aligns to eight, so a struct containing one aligns to eight and
+///         ⚠
+///         <b>
+///             Sixteen bytes exactly, which is the one thing that has to be checked rather than
+///             assumed.
+///         </b>
+///         A <c>float2</c> aligns to eight, so a struct containing one aligns to eight and
 ///         rounds its size up to a multiple of eight — two floats after it land at 8 and 12 and the
 ///         total is 16 with nothing left over. Adding a fifth field takes it to 24 in <c>std430</c> and
 ///         20 in C#, and a host writing a twenty-byte stride into an array read at twenty-four draws
@@ -72,14 +79,21 @@ public readonly record struct WaterMeshShaders(ShaderHandle Vertex, ShaderHandle
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>[35 § D4](../../docs/plan/35-water.md#d4-the-surface-is-the-terrains-quadtree-with-a-different-height-source).</b>
+///         <b>
+///             [35 §
+///             D4](../../docs/plan/35-water.md#d4-the-surface-is-the-terrains-quadtree-with-a-different-height-source).
+///         </b>
 ///         All the water in a zone is <em>one draw call</em>, and the far mesh is a second — the same
 ///         instanced grid patch, placed by one <see cref="WaterNodeRecord" /> each, sharing the
 ///         terrain's index buffer because the lattice is the same lattice.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Depth is tested and not written, and that is what makes § D8's pass possible at
-///         all.</b> The composite unprojects the <em>scene</em> depth to find what is behind the water;
+///         ⚠
+///         <b>
+///             Depth is tested and not written, and that is what makes § D8's pass possible at
+///             all.
+///         </b>
+///         The composite unprojects the <em>scene</em> depth to find what is behind the water;
 ///         a surface that wrote depth would put itself there and the water would be integrated against
 ///         itself. Testing is still necessary — a lake behind a hill must not draw over it — so the
 ///         state is reverse-Z <see cref="CompareFunction.Greater" /> with writes off.
@@ -129,8 +143,12 @@ public sealed class WaterSurfacePass : IDisposable {
 
     /// <summary>The most patches a zone may select before the rest are dropped.</summary>
     /// <remarks>
-    ///     ⚠ <b>A stated cap rather than a growing buffer, and the overflow is a reading rather than
-    ///     silence.</b> § Part 4's budget assertions want a number that regresses visibly; a buffer
+    ///     ⚠
+    ///     <b>
+    ///         A stated cap rather than a growing buffer, and the overflow is a reading rather than
+    ///         silence.
+    ///     </b>
+    ///     § Part 4's budget assertions want a number that regresses visibly; a buffer
     ///     that reallocated would turn a level-design mistake — a zone whose LOD scale descends to
     ///     level zero across two kilometres — into a frame-time cliff nobody can attribute.
     ///     <see cref="DroppedPatches" /> is what says it happened.
@@ -387,13 +405,13 @@ public sealed class WaterSurfacePass : IDisposable {
         device.UpdateDescriptorSet(
             frameSets[slot],
             [
-                new(WaterMeshKeys.PerFrameBlockBinding, DescriptorKind.UniformBuffer, Buffer: frameConstants[slot]),
+                new(WaterMeshKeys.PerFrameBlockBinding, DescriptorKind.UniformBuffer, frameConstants[slot]),
                 new(
                     WaterMeshKeys.BufferedWaterWavesWavesBinding,
                     DescriptorKind.StorageBuffer,
-                    Buffer: waves,
-                    Offset: slot * waveStride,
-                    Size: waveStride
+                    waves,
+                    slot * waveStride,
+                    waveStride
                 )
             ]
         );
@@ -401,15 +419,15 @@ public sealed class WaterSurfacePass : IDisposable {
         device.UpdateDescriptorSet(
             materialSets[slot],
             [
-                new(WaterMeshKeys.PerMaterialBlockBinding, DescriptorKind.UniformBuffer, Buffer: constants[slot]),
+                new(WaterMeshKeys.PerMaterialBlockBinding, DescriptorKind.UniformBuffer, constants[slot]),
                 new(WaterMeshKeys.WaterInfoBinding, DescriptorKind.SampledTexture, TextureView: info),
                 new(WaterMeshKeys.InfoSamplerBinding, DescriptorKind.Sampler, Sampler: sampler),
                 new(
                     WaterMeshKeys.NodesBinding,
                     DescriptorKind.StorageBuffer,
-                    Buffer: nodes,
-                    Offset: slot * nodeCapacity,
-                    Size: nodeCapacity
+                    nodes,
+                    slot * nodeCapacity,
+                    nodeCapacity
                 )
             ]
         );
@@ -474,9 +492,7 @@ public sealed class WaterSurfacePass : IDisposable {
                 break;
             }
 
-            records.Add(
-                WaterNodeRecord.Of(selected[index], mesh.Window.Origin, mesh.MetresPerQuad, gridQuads)
-            );
+            records.Add(WaterNodeRecord.Of(selected[index], mesh.Window.Origin, mesh.MetresPerQuad, gridQuads));
 
             taken++;
         }

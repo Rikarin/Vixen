@@ -11,15 +11,23 @@ namespace Vixen.Ui.Controls.Tests;
 /// <summary>A group blended with what is under it, rasterised and read back a pixel at a time.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Every scene here is built so that the blended answer and the unblended one differ in a
-///         channel that is 0 in one and 255 in the other.</b> The tempting fixture — green multiplied
+///         ⚠
+///         <b>
+///             Every scene here is built so that the blended answer and the unblended one differ in a
+///             channel that is 0 in one and 255 in the other.
+///         </b>
+///         The tempting fixture — green multiplied
 ///         into red — is the one to avoid: it lands on black, which is also what a group that never
 ///         drew produces, so it would pass against a feature that does nothing at all. Yellow over
 ///         magenta lands on red, and the green channel alone says which of the two happened.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Pixels asserted against CSS Compositing 1 § 5.1's arithmetic rather than against a
-///         committed picture</b>, on <c>GroupOpacityTests</c>' terms: the numbers are worked out by
+///         ⚠
+///         <b>
+///             Pixels asserted against CSS Compositing 1 § 5.1's arithmetic rather than against a
+///             committed picture
+///         </b>
+///         , on <c>GroupOpacityTests</c>' terms: the numbers are worked out by
 ///         hand from the stated colours, so this cannot be made to pass by re-accepting a screenshot.
 ///     </para>
 ///     <para>
@@ -44,10 +52,10 @@ public class MixBlendModeTests {
 
         ui.Load(
             $$"""
-            root { width: 40px; height: 40px; }
-            .back { position: absolute; left: 0; top: 0; width: 40px; height: 40px; background-color: #ff00ff; }
-            .panel { position: absolute; left: 8px; top: 8px; width: 24px; height: 24px; background-color: #ffff00; {{panelStyle}} }
-            """
+              root { width: 40px; height: 40px; }
+              .back { position: absolute; left: 0; top: 0; width: 40px; height: 40px; background-color: #ff00ff; }
+              .panel { position: absolute; left: 8px; top: 8px; width: 24px; height: 24px; background-color: #ffff00; {{panelStyle}} }
+              """
         );
 
         ui.Create("div", null, "back", "back");
@@ -67,8 +75,12 @@ public class MixBlendModeTests {
 
     /// <summary>With no declaration the panel covers the field, which is the instrument's own check.</summary>
     /// <remarks>
-    ///     ⚠ <b>This is what every other test here is measured against, and without it none of them is
-    ///     evidence.</b> A blend that silently did nothing would leave the panel yellow; so would a
+    ///     ⚠
+    ///     <b>
+    ///         This is what every other test here is measured against, and without it none of them is
+    ///         evidence.
+    ///     </b>
+    ///     A blend that silently did nothing would leave the panel yellow; so would a
     ///     blend that worked. The difference is only legible because this test pins what "nothing
     ///     happened" looks like in the same three channels.
     /// </remarks>
@@ -129,8 +141,12 @@ public class MixBlendModeTests {
     /// <summary>A bordered element blends its finished result, not each command it painted.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The test that tells a group-wide blend from a per-command one, on the commonest
-    ///         element in any interface.</b> A red panel with a blue border over a cyan field,
+    ///         ⚠
+    ///         <b>
+    ///             The test that tells a group-wide blend from a per-command one, on the commonest
+    ///             element in any interface.
+    ///         </b>
+    ///         A red panel with a blue border over a cyan field,
     ///         multiplied. CSS Compositing 1 § 5.1 blends the element's <i>rendered result</i>: the
     ///         blue border covers the red background source-over first, and blue multiplied into cyan
     ///         is blue. A blend carried on each <see cref="DrawCommand" /> would multiply the red
@@ -190,8 +206,12 @@ public class MixBlendModeTests {
     /// <summary><c>isolation: isolate</c> stops a descendant reaching the picture outside the group.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The whole of <c>isolation</c>, and it is observable only through somebody else's
-    ///         <c>mix-blend-mode</c>.</b> The child multiplies. Outside an isolated ancestor its
+    ///         ⚠
+    ///         <b>
+    ///             The whole of <c>isolation</c>, and it is observable only through somebody else's
+    ///             <c>mix-blend-mode</c>.
+    ///         </b>
+    ///         The child multiplies. Outside an isolated ancestor its
     ///         backdrop is the magenta field, so it lands on red. Inside one its backdrop is the
     ///         ancestor's own surface, which is transparent black where the ancestor painted nothing —
     ///         and § 5.1 weights the blend by the backdrop's alpha, so a blend against nothing is
@@ -213,14 +233,14 @@ public class MixBlendModeTests {
 
             ui.Load(
                 $$"""
-                root { width: 40px; height: 40px; }
-                .back { position: absolute; left: 0; top: 0; width: 40px; height: 40px; background-color: #ff00ff; }
-                .wrap { position: absolute; left: 8px; top: 8px; width: 24px; height: 24px; {{wrapperStyle}} }
-                .kid {
-                    position: absolute; left: 0; top: 0; width: 24px; height: 24px;
-                    background-color: #ffff00; mix-blend-mode: multiply;
-                }
-                """
+                  root { width: 40px; height: 40px; }
+                  .back { position: absolute; left: 0; top: 0; width: 40px; height: 40px; background-color: #ff00ff; }
+                  .wrap { position: absolute; left: 8px; top: 8px; width: 24px; height: 24px; {{wrapperStyle}} }
+                  .kid {
+                      position: absolute; left: 0; top: 0; width: 24px; height: 24px;
+                      background-color: #ffff00; mix-blend-mode: multiply;
+                  }
+                  """
             );
 
             ui.Create("div", null, "back", "back");
@@ -284,8 +304,12 @@ public class MixBlendModeTests {
 
     /// <summary>The four non-separable modes move what they name and leave the rest alone.</summary>
     /// <remarks>
-    ///     ⚠ <b><c>luminosity</c> is the one to assert, because it is the mode whose whole promise is
-    ///     that it does <i>not</i> change the other two axes.</b> A per-channel implementation of it —
+    ///     ⚠
+    ///     <b>
+    ///         <c>luminosity</c> is the one to assert, because it is the mode whose whole promise is
+    ///         that it does <i>not</i> change the other two axes.
+    ///     </b>
+    ///     A per-channel implementation of it —
     ///     the mistake — would tint the result towards the source's hue as well, which shows as the
     ///     red and blue channels no longer being equal to each other over a grey backdrop.
     /// </remarks>
@@ -297,7 +321,7 @@ public class MixBlendModeTests {
         var result = UiBlend.Apply(UiBlendMode.Luminosity, source, backdrop);
 
         // Rec. 601's luma of the source is 0.5 exactly, since the source is grey.
-        Assert.Equal(0.5f, (0.3f * result.R) + (0.59f * result.G) + (0.11f * result.B), 3);
+        Assert.Equal(0.5f, 0.3f * result.R + 0.59f * result.G + 0.11f * result.B, 3);
 
         // And the backdrop's hue survives: red is still the dominant channel and the other two are
         // still equal, which a per-channel `Lum` would not preserve.

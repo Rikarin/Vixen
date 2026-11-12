@@ -13,8 +13,11 @@ namespace Vixen.Editor.Debugger;
 ///         <c>GpuTimelineView</c>, <c>MemoryView</c> and <c>StatisticsView</c>.
 ///     </para>
 ///     <para>
-///         <b>Doc 20's E4 exit criterion: "a draw call can be stepped and its render target
-///         inspected".</b> The first half is here in full — the tree, the two step buttons, and a
+///         <b>
+///             Doc 20's E4 exit criterion: "a draw call can be stepped and its render target
+///             inspected".
+///         </b>
+///         The first half is here in full — the tree, the two step buttons, and a
 ///         state pane replayed to whichever call is selected. The second half is honest about what it
 ///         has: a capture taken from a recording backend holds the state and not the pixels, and the
 ///         target pane says which attachments the draw wrote rather than showing an image that would

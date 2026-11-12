@@ -4,17 +4,17 @@
 using Vixen.Core.Imaging;
 using Vixen.Editor.Plugin;
 using Vixen.Editor.TextureGraph;
-using Vixen.TextureGraph;
-using Vixen.Texturing.Layers;
-using Vixen.Texturing.Painting;
 
 namespace Vixen.Editor.Texturing;
 
 /// <summary>Where a per-node preview's pixels become a number the canvas draws.</summary>
 /// <remarks>
 ///     <para>
-///         <b>The plugin's half of <c>ITexturePreviewImages</c>, and the seam
-///         <c>UiPreviewImages</c> is for the shader graph</b> —
+///         <b>
+///             The plugin's half of <c>ITexturePreviewImages</c>, and the seam
+///             <c>UiPreviewImages</c> is for the shader graph
+///         </b>
+///         —
 ///         <a href="https://github.com/Rikarin/Vixen/issues/1015">#1015</a>. The difference is which
 ///         door it goes through: the shader graph's sink lives in <c>Vixen.Editor.App</c> and calls
 ///         <c>UiRenderer.RegisterImage</c> with a <c>TextureViewHandle</c>, because that assembly
@@ -23,8 +23,12 @@ namespace Vixen.Editor.Texturing;
 ///         <c>TexturingModule.Redraw</c> already uses for the paint pane's atlas.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Pixels rather than a view, and that is what makes it correct on a discrete card
-///         rather than only here.</b> <c>TextureGraphPreviews</c>' own remarks say why the pictures
+///         ⚠
+///         <b>
+///             Pixels rather than a view, and that is what makes it correct on a discrete card
+///             rather than only here.
+///         </b>
+///         <c>TextureGraphPreviews</c>' own remarks say why the pictures
 ///         come back as bytes: every image the evaluator writes is <c>ResourceSharing.Exclusive</c>
 ///         and written on <c>IGraphicsDevice.ComputeQueue</c>, so handing one straight to the queue
 ///         the interface draws on leaves its contents undefined by specification.
@@ -61,8 +65,12 @@ sealed class TexturePreviewImages(IEditorGraphics graphics) : ITexturePreviewIma
 
     /// <summary>How many pictures were rewritten in place rather than uploaded again.</summary>
     /// <remarks>
-    ///     ⚠ <b>The half that separates "the swatches are right" from "the swatches are right and an
-    ///     edit does not cost a texture per node".</b> Both look identical on screen — which is the
+    ///     ⚠
+    ///     <b>
+    ///         The half that separates "the swatches are right" from "the swatches are right and an
+    ///         edit does not cost a texture per node".
+    ///     </b>
+    ///     Both look identical on screen — which is the
     ///     reason <c>RecordingGraphics</c> keeps its uploads and its patches apart one assembly over.
     /// </remarks>
     public int Patched { get; private set; }

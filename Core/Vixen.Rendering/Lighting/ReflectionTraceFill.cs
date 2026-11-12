@@ -82,9 +82,11 @@ public sealed class ReflectionTraceFill : IDisposable {
     public string RoughSource { get; set; } = MaterialCompiler.EmptyIrradianceShader;
 
     /// <summary>The shader behind the miss slot — the far field, which is the probes' seat.</summary>
-    /// <remarks>The sky by default rather than black, because that is what every reflection in
+    /// <remarks>
+    ///     The sky by default rather than black, because that is what every reflection in
     ///     doc 06 sees beyond the probes today; its one colour is written under
-    ///     <c>ReflectionTrace.SkyMissSource.missSkyColor</c> into <see cref="Parameters" />.</remarks>
+    ///     <c>ReflectionTrace.SkyMissSource.missSkyColor</c> into <see cref="Parameters" />.
+    /// </remarks>
     public string MissSource { get; set; } = MaterialCompiler.SkyReflectionMissShader;
 
     /// <summary>What the sets are filled from, by the names the reflection interned.</summary>
@@ -129,15 +131,19 @@ public sealed class ReflectionTraceFill : IDisposable {
     /// <summary>The viewport they cover, in pixels.</summary>
     public Int2 ScreenViewport { get; set; }
 
-    /// <summary>How many equal steps a screen ray takes. Written as zero while either view is
-    ///     invalid, so the descriptors can hold a stand-in the kernel never loads.</summary>
+    /// <summary>
+    ///     How many equal steps a screen ray takes. Written as zero while either view is
+    ///     invalid, so the descriptors can hold a stand-in the kernel never loads.
+    /// </summary>
     public int ScreenSteps { get; set; } = 32;
 
     /// <summary>How deep behind a surface a sample still counts as inside it, in device depth.</summary>
     public float ScreenThickness { get; set; } = 0.02f;
 
-    /// <summary>The depth's nearest-per-cell chain — <see cref="HiZPyramid" /> wearing
-    ///     <see cref="HiZReduction.Nearest" />. Invalid keeps the fixed-step walk.</summary>
+    /// <summary>
+    ///     The depth's nearest-per-cell chain — <see cref="HiZPyramid" /> wearing
+    ///     <see cref="HiZReduction.Nearest" />. Invalid keeps the fixed-step walk.
+    /// </summary>
     /// <remarks>
     ///     A view of every level, mip N holding level N + 1 of the march — the depth itself is level
     ///     zero. ⚠ It must be this frame's reduction of <see cref="ScreenDepth" />: a chain of a
@@ -145,19 +151,25 @@ public sealed class ReflectionTraceFill : IDisposable {
     /// </remarks>
     public TextureViewHandle ScreenPyramid { get; set; }
 
-    /// <summary>How many levels the march may use, counting the depth itself — the CPU pyramid's
-    ///     own <c>Levels</c>, which is the chain's plus one.</summary>
+    /// <summary>
+    ///     How many levels the march may use, counting the depth itself — the CPU pyramid's
+    ///     own <c>Levels</c>, which is the chain's plus one.
+    /// </summary>
     public int ScreenPyramidLevels { get; set; }
 
-    /// <summary>How deep the shell is in view units, where a perspective ray can say. Zero keeps
+    /// <summary>
+    ///     How deep the shell is in view units, where a perspective ray can say. Zero keeps
     ///     the device-depth shell — <c>ScreenSpaceTrace.LinearThickness</c>, choice for
-    ///     choice.</summary>
+    ///     choice.
+    /// </summary>
     public float ScreenLinearThickness { get; set; }
 
     /// <summary>Whether positions come from <see cref="ScreenDepth" /> rather than a positions plane.</summary>
-    /// <remarks>The production wiring — a real frame has a depth, not a positions plane. Requires
+    /// <remarks>
+    ///     The production wiring — a real frame has a depth, not a positions plane. Requires
     ///     <see cref="ScreenDepth" /> and <see cref="InverseViewProjection" />; the positions
-    ///     binding then takes a stand-in the kernel never loads.</remarks>
+    ///     binding then takes a stand-in the kernel never loads.
+    /// </remarks>
     public bool ReconstructFromDepth { get; set; }
 
     /// <summary>What turns a pixel's depth back into the world, when reconstructing.</summary>
@@ -224,7 +236,7 @@ public sealed class ReflectionTraceFill : IDisposable {
         Parameters.Set(ReflectionTraceKeys.RoughnessThreshold, RoughnessThreshold);
         Parameters.Set(ReflectionTraceKeys.RoughnessBlend, RoughnessBlend);
         Parameters.Set(ReflectionTraceKeys.ViewProjection, ViewProjection);
-        Parameters.Set(ReflectionTraceKeys.ScreenViewport, new Vector2(ScreenViewport.X, ScreenViewport.Y));
+        Parameters.Set(ReflectionTraceKeys.ScreenViewport, new(ScreenViewport.X, ScreenViewport.Y));
 
         // Zero while either view is a stand-in — "a set with a hole in it binds nothing", so the
         // descriptors always point at something in the sampled layout, and this is what guarantees
@@ -261,7 +273,7 @@ public sealed class ReflectionTraceFill : IDisposable {
         }
 
         commands.BindDescriptorSet(DescriptorSetSlot.PerMaterial, material);
-        commands.Dispatch((Viewport.X + 7) / 8, (Viewport.Y + 7) / 8, 1);
+        commands.Dispatch((Viewport.X + 7) / 8, (Viewport.Y + 7) / 8);
 
         Dispatches++;
 
@@ -315,7 +327,12 @@ public sealed class ReflectionTraceFill : IDisposable {
             }
 
             writes.Add(
-                DescriptorWrite.Uniform(declared.Binding, materialBlock.Buffer, materialBlock.Offset, materialBlock.Size)
+                DescriptorWrite.Uniform(
+                    declared.Binding,
+                    materialBlock.Buffer,
+                    materialBlock.Offset,
+                    materialBlock.Size
+                )
             );
         }
 

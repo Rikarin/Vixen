@@ -14,8 +14,12 @@ namespace Vixen.Editor.Core;
 ///         <c>ContentBuildSettings</c> makes about the content target, one level up.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Here rather than in <c>Vixen.Editor.App</c>, which is where it was, and for
-///         <c>ProjectWorkspace</c>'s reason.</b> The content build reads <see cref="Scenes" /> to
+///         ⚠
+///         <b>
+///             Here rather than in <c>Vixen.Editor.App</c>, which is where it was, and for
+///             <c>ProjectWorkspace</c>'s reason.
+///         </b>
+///         The content build reads <see cref="Scenes" /> to
 ///         write the manifest a player boots from, and that build is shared: it is
 ///         <c>ContentPipeline</c>, called by the editor's Build and Run <i>and</i> by
 ///         <c>vixen content build</c>. A settings type only the editor could see would have meant the
@@ -30,8 +34,12 @@ namespace Vixen.Editor.Core;
 ///         has a reader" bar exists to keep out.
 ///     </para>
 ///     <para>
-///         ⚠ <b><see cref="Target" /> is the <i>player</i>'s and <c>ContentBuildSettings.Target</c>
-///         is the <i>content</i>'s, and they are deliberately two settings.</b> They agree in the
+///         ⚠
+///         <b>
+///             <see cref="Target" /> is the <i>player</i>'s and <c>ContentBuildSettings.Target</c>
+///             is the <i>content</i>'s, and they are deliberately two settings.
+///         </b>
+///         They agree in the
 ///         ordinary case and must be able to disagree: importing for Android while the editor keeps
 ///         drawing desktop textures is what a team building for a phone from a workstation does all
 ///         day, and a single field would make "build the Android player" also mean "reimport the whole
@@ -59,15 +67,23 @@ public sealed class PlayerBuildSettings {
     /// <summary>The scenes that ship, first one first.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Project-relative asset paths rather than GUIDs, and this is the one place in the
-    ///         editor where that is the right way round.</b> Doc 08 chose a GUID over a path
+    ///         ⚠
+    ///         <b>
+    ///             Project-relative asset paths rather than GUIDs, and this is the one place in the
+    ///             editor where that is the right way round.
+    ///         </b>
+    ///         Doc 08 chose a GUID over a path
     ///         everywhere a reference has to survive a file being moved — and this is a list a person
     ///         edits, reviews in a diff and merges when two branches each add a level. A column of
     ///         GUIDs is a merge conflict nobody can resolve by reading it.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A path here has to reach an <i>addressable</i> scene, and the content build
-    ///         refuses when it does not.</b> A build resolves every entry to the address its sidecar
+    ///         ⚠
+    ///         <b>
+    ///             A path here has to reach an <i>addressable</i> scene, and the content build
+    ///             refuses when it does not.
+    ///         </b>
+    ///         A build resolves every entry to the address its sidecar
     ///         declares and writes them, in this order, as the <c>SceneManifest</c> beside the
     ///         catalog; the host opens the first of them unless the game named one itself. A scene
     ///         with no address is in no bundle, so the alternative to refusing is a player that starts

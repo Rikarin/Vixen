@@ -21,7 +21,7 @@ public sealed class CommandRecorderTests : IDisposable {
 
         using var list = device.BeginCommandList(name: "Frame");
         list.PushDebugGroup("Opaque");
-        list.BeginRenderPass(new RenderPassDescription(Attachments(), null, "Opaque"));
+        list.BeginRenderPass(new(Attachments(), null, "Opaque"));
         list.SetViewport(new(0, 0, 1280, 720));
         list.BindPipeline(pipeline);
         list.BindVertexBuffer(0, vertices);
@@ -32,7 +32,7 @@ public sealed class CommandRecorderTests : IDisposable {
 
         device.GraphicsQueue.Submit([list]);
 
-        var kinds = device.Recorder!.Commands.Select(command => command.Kind).ToArray();
+        var kinds = device.Recorder!.Commands.Select(static command => command.Kind).ToArray();
 
         Assert.Equal(
             [
@@ -57,8 +57,8 @@ public sealed class CommandRecorderTests : IDisposable {
     [Fact]
     public void ADrawKeepsItsArguments() {
         using var list = device.BeginCommandList();
-        list.BeginRenderPass(new RenderPassDescription(Attachments(), null, "Opaque"));
-        list.DrawIndexed(36, instanceCount: 4, firstIndex: 6, vertexOffset: 2, firstInstance: 1);
+        list.BeginRenderPass(new(Attachments(), null, "Opaque"));
+        list.DrawIndexed(36, 4, 6, 2, 1);
         list.EndRenderPass();
         list.Finish();
         device.GraphicsQueue.Submit([list]);
@@ -80,7 +80,7 @@ public sealed class CommandRecorderTests : IDisposable {
     [Fact]
     public void ASubsequenceMatchesOnlyWhenItIsContiguous() {
         using var list = device.BeginCommandList();
-        list.BeginRenderPass(new RenderPassDescription(Attachments(), null, "Opaque"));
+        list.BeginRenderPass(new(Attachments(), null, "Opaque"));
         list.Draw(3);
         list.Draw(6);
         list.EndRenderPass();
@@ -127,10 +127,10 @@ public sealed class CommandRecorderTests : IDisposable {
 
         var names = device.Recorder!
             .OfKind(RecordedCommandKind.PushDebugGroup)
-            .Select(command => command.Text)
+            .Select(static command => command.Text)
             .ToArray();
 
-        Assert.Equal(["Opaque", "Shadows"], names.Select(name => name ?? string.Empty));
+        Assert.Equal(["Opaque", "Shadows"], names.Select(static name => name ?? string.Empty));
 
         first.Dispose();
         second.Dispose();
@@ -167,9 +167,11 @@ public sealed class CommandRecorderTests : IDisposable {
     [Fact]
     public void RenderPassesDoNotNest() {
         using var list = device.BeginCommandList();
-        list.BeginRenderPass(new RenderPassDescription(Attachments(), null, "Opaque"));
+        list.BeginRenderPass(new(Attachments(), null, "Opaque"));
 
-        Assert.Throws<InvalidOperationException>(() => list.BeginRenderPass(new RenderPassDescription(Attachments(), null, "Opaque")));
+        Assert.Throws<InvalidOperationException>(() =>
+            list.BeginRenderPass(new(Attachments(), null, "Opaque"))
+        );
     }
 
     /// <summary>
@@ -182,7 +184,7 @@ public sealed class CommandRecorderTests : IDisposable {
         var other = device.CreateBuffer(new(64, BufferUsage.CopyDestination, Name: "B"));
 
         using var list = device.BeginCommandList();
-        list.BeginRenderPass(new RenderPassDescription(Attachments(), null, "Opaque"));
+        list.BeginRenderPass(new(Attachments(), null, "Opaque"));
 
         Assert.Throws<InvalidOperationException>(() => list.Dispatch(1));
         Assert.Throws<InvalidOperationException>(() => list.CopyBuffer(buffer, 0, other, 0, 64));
@@ -192,7 +194,7 @@ public sealed class CommandRecorderTests : IDisposable {
     [Fact]
     public void AListFinishedInsideAPassIsRefused() {
         using var list = device.BeginCommandList(name: "Broken");
-        list.BeginRenderPass(new RenderPassDescription(Attachments(), null, "Opaque"));
+        list.BeginRenderPass(new(Attachments(), null, "Opaque"));
 
         var thrown = Assert.Throws<InvalidOperationException>(list.Finish);
         Assert.Contains("inside a render pass", thrown.Message, StringComparison.Ordinal);
@@ -223,7 +225,7 @@ public sealed class CommandRecorderTests : IDisposable {
     [Fact]
     public void AnUnnamedPassRecordsABalancedStream() {
         using var list = device.BeginCommandList(name: "Unnamed");
-        list.BeginRenderPass(new RenderPassDescription(Attachments(), null, string.Empty));
+        list.BeginRenderPass(new(Attachments(), null, string.Empty));
         list.EndRenderPass();
         list.Finish();
 
@@ -232,13 +234,13 @@ public sealed class CommandRecorderTests : IDisposable {
         var commands = device.Recorder!.Commands;
 
         Assert.Equal(
-            commands.Count(command => command.Kind == RecordedCommandKind.PushDebugGroup),
-            commands.Count(command => command.Kind == RecordedCommandKind.PopDebugGroup)
+            commands.Count(static command => command.Kind == RecordedCommandKind.PushDebugGroup),
+            commands.Count(static command => command.Kind == RecordedCommandKind.PopDebugGroup)
         );
 
         Assert.Equal(
-            commands.Count(command => command.Kind == RecordedCommandKind.BeginRenderPass),
-            commands.Count(command => command.Kind == RecordedCommandKind.EndRenderPass)
+            commands.Count(static command => command.Kind == RecordedCommandKind.BeginRenderPass),
+            commands.Count(static command => command.Kind == RecordedCommandKind.EndRenderPass)
         );
     }
 
@@ -280,8 +282,8 @@ public sealed class CommandRecorderTests : IDisposable {
     public void ARenderPassWithNoAttachmentsIsRefused() {
         using var list = device.BeginCommandList();
 
-        Assert.Throws<InvalidOperationException>(
-            () => list.BeginRenderPass(new RenderPassDescription([], null, "Empty"))
+        Assert.Throws<InvalidOperationException>(() =>
+            list.BeginRenderPass(new RenderPassDescription([], null, "Empty"))
         );
     }
 

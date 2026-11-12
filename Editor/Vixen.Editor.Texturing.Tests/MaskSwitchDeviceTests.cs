@@ -21,19 +21,22 @@ public class MaskSwitchDeviceTests(ITestOutputHelper output) {
     public void A_mask_switched_off_masks_nothing_but_its_kept_entries() {
         using var device = TexturingDevice.Open();
         MaskAsset mask = new() {
-            Source = LayerMaskSource.Constant,
-            Value = 0.25f,
-            Effects = [new() { Node = "Colour/Invert" }]
+            Source = LayerMaskSource.Constant, Value = 0.25f, Effects = [new() { Node = "Colour/Invert" }]
         };
-        MaskLayerAsset kept = new() { Source = LayerMaskSource.Constant, Value = 0.5f, Blend = LayerBlendMode.Multiply, Kept = true };
-        MaskLayerAsset artists = new() { Source = LayerMaskSource.Constant, Value = 0f, Blend = LayerBlendMode.Multiply };
+        MaskLayerAsset kept = new() {
+            Source = LayerMaskSource.Constant, Value = 0.5f, Blend = LayerBlendMode.Multiply, Kept = true
+        };
+        MaskLayerAsset artists =
+            new() { Source = LayerMaskSource.Constant, Value = 0f, Blend = LayerBlendMode.Multiply };
 
         var on = Red(device, mask with { Effects = [] });
         var off = Red(device, mask with { Enabled = false });
         var limited = Red(device, mask with { Enabled = false, Layers = [artists, kept] });
         var limitedOn = Red(device, mask with { Effects = [], Layers = [kept] });
 
-        output.WriteLine($"{TexturingDevice.Adapter(device)}: on {on}, off {off}, off with a kept entry {limited}, on with it {limitedOn}");
+        output.WriteLine(
+            $"{TexturingDevice.Adapter(device)}: on {on}, off {off}, off with a kept entry {limited}, on with it {limitedOn}"
+        );
 
         Assert.InRange(on, 61, 67);
         Assert.True(off >= 252, $"a mask switched off masks nothing; the layer weighed {off}");
@@ -45,18 +48,19 @@ public class MaskSwitchDeviceTests(ITestOutputHelper output) {
     [Fact]
     public void The_switch_and_a_kept_entry_round_trip() {
         var stack = Stack(
-            new() {
-                Enabled = false,
-                Source = LayerMaskSource.Constant,
-                Layers = [new() { Kept = true }, new()]
-            }
+            new() { Enabled = false, Source = LayerMaskSource.Constant, Layers = [new() { Kept = true }, new()] }
         );
 
         var read = LayerStackYaml.Read(LayerStackYaml.Write(stack)).Sets[0].Layers[0].Mask;
 
         Assert.False(read.Enabled);
         Assert.Equal([true, false], read.Layers.Select(static entry => entry.Kept));
-        Assert.True(LayerStackYaml.Read(LayerStackYaml.Write(Stack(new() { Source = LayerMaskSource.Constant }))).Sets[0].Layers[0].Mask.Enabled);
+        Assert.True(
+            LayerStackYaml.Read(LayerStackYaml.Write(Stack(new() { Source = LayerMaskSource.Constant })))
+                .Sets[0]
+                .Layers[0]
+                .Mask.Enabled
+        );
     }
 
     static LayerStackAsset Stack(MaskAsset mask) =>
@@ -70,7 +74,12 @@ public class MaskSwitchDeviceTests(ITestOutputHelper output) {
                     Name = "S",
                     Channels = [new() { Usage = "baseColor", Default = [0f, 0f, 0f, 1f] }],
                     Layers = [
-                        new() { Id = "white", Kind = LayerKind.Fill, Values = { ["baseColor"] = [1f, 1f, 1f, 1f] }, Mask = mask }
+                        new() {
+                            Id = "white",
+                            Kind = LayerKind.Fill,
+                            Values = { ["baseColor"] = [1f, 1f, 1f, 1f] },
+                            Mask = mask
+                        }
                     ]
                 }
             ]
@@ -80,7 +89,7 @@ public class MaskSwitchDeviceTests(ITestOutputHelper output) {
         var stack = Stack(mask);
         var build = LayerStackGraph.Build(stack, stack.Sets[0]);
 
-        Assert.DoesNotContain(build.Problems, problem => problem.Severity == NodeSeverity.Error);
+        Assert.DoesNotContain(build.Problems, static problem => problem.Severity == NodeSeverity.Error);
 
         var compilation = LayerStackCompiler.Compile(stack, build);
 

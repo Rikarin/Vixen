@@ -31,11 +31,11 @@ namespace Vixen.App.Tests;
 public sealed class HostLoggerFactoryTests {
     /// <summary>The one message shape these tests write. CA1848 is an error in this tree.</summary>
     static readonly Action<ILogger, string, Exception?> Say =
-        LoggerMessage.Define<string>(LogLevel.Warning, new EventId(1), "{Phase}");
+        LoggerMessage.Define<string>(LogLevel.Warning, new(1), "{Phase}");
 
     /// <summary>The same at Error, so the exception object has somewhere to go.</summary>
     static readonly Action<ILogger, string, Exception?> Blame =
-        LoggerMessage.Define<string>(LogLevel.Error, new EventId(2), "{Phase}");
+        LoggerMessage.Define<string>(LogLevel.Error, new(2), "{Phase}");
 
     /// <summary>A record written before the close still goes to the sink, and nowhere else.</summary>
     [Fact]
@@ -118,8 +118,12 @@ public sealed class HostLoggerFactoryTests {
     ///     made from then on.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>The logger is taken <i>before</i> the <c>AddProvider</c> on purpose, and that is the
-    ///     only arrangement that asks the question.</b> Every test in this file used to create its
+    ///     ⚠
+    ///     <b>
+    ///         The logger is taken <i>before</i> the <c>AddProvider</c> on purpose, and that is the
+    ///         only arrangement that asks the question.
+    ///     </b>
+    ///     Every test in this file used to create its
     ///     loggers after construction, so the factory snapshotting its provider list into each
     ///     logger it handed out was invisible — and it is exactly the shape the two mobile samples
     ///     used, which is why their <c>PlatformSink</c> received nothing the host wrote at boot
@@ -193,9 +197,10 @@ public sealed class HostLoggerFactoryTests {
             .Create(["--vixen-headless", "--vixen-workers", "1", "--vixen-frame-limit", "0"])
             .WithLoggerProvider(early)
             .WithServices(services => {
-                earlyWhenTheCallbacksRan = early.Records.Count;
-                services.LoggerFactory.AddProvider(late);
-            })
+                    earlyWhenTheCallbacksRan = early.Records.Count;
+                    services.LoggerFactory.AddProvider(late);
+                }
+            )
             .Build(new SilentGame());
 
         Assert.True(

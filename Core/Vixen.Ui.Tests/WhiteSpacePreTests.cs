@@ -24,8 +24,12 @@ namespace Vixen.Ui.Tests;
 ///         being honoured here is the only third that was ever missing.
 ///     </para>
 ///     <para>
-///         ⚠ <b>So the first two tests below are the load-bearing ones and they assert the ENGINE
-///         rather than the property.</b> They would have passed before this change and they are what
+///         ⚠
+///         <b>
+///             So the first two tests below are the load-bearing ones and they assert the ENGINE
+///             rather than the property.
+///         </b>
+///         They would have passed before this change and they are what
 ///         says the third one is a completion rather than a third of one; if either ever goes red —
 ///         the day CSS Text § 4's collapsing lands, which is the rest of what <c>white-space</c>
 ///         owes — then <c>pre</c> is back to being a fraction and this file has to be re-read rather
@@ -45,7 +49,7 @@ public class WhiteSpacePreTests {
 
     static FontFace LoadFont() {
         using var stream = Assembly.GetExecutingAssembly()
-            .GetManifestResourceStream("Vixen.Ui.Tests.Fonts.OpenSans-Regular.ttf")
+                .GetManifestResourceStream("Vixen.Ui.Tests.Fonts.OpenSans-Regular.ttf")
             ?? throw new InvalidOperationException("the test font is not embedded");
 
         using var memory = new MemoryStream();
@@ -93,7 +97,7 @@ public class WhiteSpacePreTests {
         var space = Block("a  b", "white-space: normal;").Lines[0].Width - one;
 
         Assert.True(space > 0f, "a second space has to widen the line for this measurement to mean anything");
-        Assert.Equal(one + (3f * space), four, Tolerance);
+        Assert.Equal(one + 3f * space, four, Tolerance);
     }
 
     /// <summary>

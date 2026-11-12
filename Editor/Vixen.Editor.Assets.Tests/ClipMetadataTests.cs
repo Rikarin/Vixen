@@ -21,25 +21,30 @@ public sealed class ClipMetadataTests {
     [Fact]
     public async Task AKindNobodyReadsIsCarriedAndSaidSoAboutRatherThanDropped() {
         const string Yaml = """
-            name: Reach
-            duration: 1.0
-            extensions:
-              combat:
-                cancelWindow: 0.4
-                stagger: light
-            """;
+                            name: Reach
+                            duration: 1.0
+                            extensions:
+                              combat:
+                                cancelWindow: 0.4
+                                stagger: light
+                            """;
 
         var result = await Import(Yaml);
 
         // The only warning is the one every empty clip gets; nothing complains about the block.
-        Assert.DoesNotContain(result.Diagnostics, entry => entry.Severity == ImportSeverity.Error);
-        Assert.DoesNotContain(result.Diagnostics, entry => entry.Message.Contains("combat", StringComparison.Ordinal) && entry.Severity == ImportSeverity.Warning);
+        Assert.DoesNotContain(result.Diagnostics, static entry => entry.Severity == ImportSeverity.Error);
+        Assert.DoesNotContain(
+            result.Diagnostics,
+            static entry => entry.Message.Contains("combat", StringComparison.Ordinal)
+                && entry.Severity == ImportSeverity.Warning
+        );
 
         // Said so about — because "this kind is spelled wrong" and "this kind's plugin is not loaded"
         // look identical in a file.
         Assert.Contains(
             result.Diagnostics,
-            entry => entry.Severity == ImportSeverity.Information && entry.Message.Contains("combat", StringComparison.Ordinal)
+            static entry => entry.Severity == ImportSeverity.Information
+                && entry.Message.Contains("combat", StringComparison.Ordinal)
         );
 
         var clip = AnimationClipAsset.FromYaml(Yaml);
@@ -54,8 +59,11 @@ public sealed class ClipMetadataTests {
             "name: Reach\nduration: 1.0\nextensions:\n  notes:\n    - time: 0.4\n      text: weight on the back foot\n"
         );
 
-        Assert.DoesNotContain(good.Diagnostics, entry => entry.Severity == ImportSeverity.Error);
-        Assert.DoesNotContain(good.Diagnostics, entry => entry.Message.Contains("nothing in this build reads", StringComparison.Ordinal));
+        Assert.DoesNotContain(good.Diagnostics, static entry => entry.Severity == ImportSeverity.Error);
+        Assert.DoesNotContain(
+            good.Diagnostics,
+            static entry => entry.Message.Contains("nothing in this build reads", StringComparison.Ordinal)
+        );
 
         var typo = await Import(
             "name: Reach\nduration: 1.0\nextensions:\n  notes:\n    - time: soon\n      text: weight on the back foot\n"
@@ -63,12 +71,16 @@ public sealed class ClipMetadataTests {
 
         Assert.Contains(
             typo.Diagnostics,
-            entry => entry.Severity == ImportSeverity.Error && entry.Message.Contains("not a number", StringComparison.Ordinal)
+            static entry => entry.Severity == ImportSeverity.Error
+                && entry.Message.Contains("not a number", StringComparison.Ordinal)
         );
 
         var silent = await Import("name: Reach\nduration: 1.0\nextensions:\n  notes:\n    - time: 0.4\n");
 
-        Assert.Contains(silent.Diagnostics, entry => entry.Message.Contains("says nothing", StringComparison.Ordinal));
+        Assert.Contains(
+            silent.Diagnostics,
+            static entry => entry.Message.Contains("says nothing", StringComparison.Ordinal)
+        );
     }
 
     /// <summary>The second implementation, and it is nothing like the first.</summary>
@@ -80,8 +92,7 @@ public sealed class ClipMetadataTests {
         Assert.Null(registry.For("notes"));
 
         var blocks = new Dictionary<string, YamlNode>(StringComparer.Ordinal) {
-            ["budget"] = YamlReader.Read("bones: 40\n"),
-            ["notes"] = YamlReader.Read("- text: whatever\n")
+            ["budget"] = YamlReader.Read("bones: 40\n"), ["notes"] = YamlReader.Read("- text: whatever\n")
         };
 
         List<string> problems = [];
@@ -97,7 +108,7 @@ public sealed class ClipMetadataTests {
         blocks["budget"] = YamlReader.Read("bones: far too many\n");
 
         Assert.False(registry.Check(blocks, problems));
-        Assert.Contains(problems, problem => problem.Contains("a number of bones", StringComparison.Ordinal));
+        Assert.Contains(problems, static problem => problem.Contains("a number of bones", StringComparison.Ordinal));
     }
 
     /// <summary>A per-clip budget a project's own build step would read. Nothing like a note.</summary>
@@ -131,7 +142,14 @@ public sealed class ClipMetadataTests {
 
         files.Seed(path, text);
 
-        var context = new ImportContext(AssetId.New(), path, importer.CreateSettings(), files, importer.Name, "Windows");
+        var context = new ImportContext(
+            AssetId.New(),
+            path,
+            importer.CreateSettings(),
+            files,
+            importer.Name,
+            "Windows"
+        );
 
         return await importer.ImportAsync(context, TestContext.Current.CancellationToken);
     }

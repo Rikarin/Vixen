@@ -68,8 +68,12 @@ public readonly record struct SubObject(SubObjectKind Kind, int Index) {
 ///         than against a scene, which is why it runs on the processor.
 ///     </para>
 ///     <para>
-///         ⚠ <b>A face is answered by a ray and a vertex by a projection, and the split is not an
-///         inconsistency.</b> A face has area, so the exact question is which triangle the ray through
+///         ⚠
+///         <b>
+///             A face is answered by a ray and a vertex by a projection, and the split is not an
+///             inconsistency.
+///         </b>
+///         A face has area, so the exact question is which triangle the ray through
 ///         the pointer meets first, and the answer needs no tolerance at all. A vertex has no area and
 ///         an edge has no width: the only thing that can be asked about them is how near the pointer
 ///         came <i>on screen</i>, which is on the other side of the projection. So the mesh's
@@ -103,8 +107,12 @@ public readonly record struct SubObject(SubObjectKind Kind, int Index) {
 public sealed class SubObjectPicker {
     /// <summary>How near the pointer has to come to a vertex or an edge, in render pixels.</summary>
     /// <remarks>
-    ///     ⚠ <b>Bigger than the thing being aimed at, exactly as <c>ScenePicker.MarkerRadius</c> and
-    ///     <c>TransformGizmo.GrabRadius</c> are.</b> A vertex is drawn as a handful of pixels and an
+    ///     ⚠
+    ///     <b>
+    ///         Bigger than the thing being aimed at, exactly as <c>ScenePicker.MarkerRadius</c> and
+    ///         <c>TransformGizmo.GrabRadius</c> are.
+    ///     </b>
+    ///     A vertex is drawn as a handful of pixels and an
     ///     edge as one line; a tolerance equal to what is drawn is one that misses far more often than
     ///     it hits.
     /// </remarks>
@@ -156,20 +164,21 @@ public sealed class SubObjectPicker {
             Project(elements, transform, camera, width, height);
 
             if ((filter & SubObjectFilter.Vertex) != 0 && Vertex(elements, pointer, tolerance) is { } vertex) {
-                return new SubObject(SubObjectKind.Vertex, vertex);
+                return new(SubObjectKind.Vertex, vertex);
             }
 
             if ((filter & SubObjectFilter.Edge) != 0 && Edge(elements, pointer, tolerance) is { } edge) {
-                return new SubObject(SubObjectKind.Edge, edge);
+                return new(SubObjectKind.Edge, edge);
             }
         }
 
         // ⚠ The face the triangle belongs to, not the triangle. A quad is two triangles and one face,
         // and every number that leaves this method is one a selection, a highlight and an extrude all
         // have to agree about — see `MeshElements.FaceOf`.
-        return (filter & SubObjectFilter.Face) != 0 && Face(elements, transform, camera, pointer, width, height) is { } face
-            ? new SubObject(SubObjectKind.Face, elements.FaceOf(face))
-            : SubObject.None;
+        return (filter & SubObjectFilter.Face) != 0
+            && Face(elements, transform, camera, pointer, width, height) is { } face
+                ? new SubObject(SubObjectKind.Face, elements.FaceOf(face))
+                : SubObject.None;
     }
 
     /// <summary>Which elements of a mesh a rubber-band took.</summary>
@@ -183,8 +192,11 @@ public sealed class SubObjectPicker {
     /// <param name="into">The indices. Cleared first.</param>
     /// <remarks>
     ///     <para>
-    ///         <b>Doc 24's P2 marquee, and it is <see cref="Under" />'s projection reused rather than a
-    ///         second geometry path.</b> The positions go on screen once and each kind is then a test
+    ///         <b>
+    ///             Doc 24's P2 marquee, and it is <see cref="Under" />'s projection reused rather than a
+    ///             second geometry path.
+    ///         </b>
+    ///         The positions go on screen once and each kind is then a test
     ///         about points in a rectangle — which is the same bargain <c>ScenePicker.Within</c> makes
     ///         over entity bounds.
     ///     </para>
@@ -278,7 +290,7 @@ public sealed class SubObjectPicker {
 
     /// <summary>Whether a projected position is on screen and inside a band.</summary>
     bool Inside(int position, Marquee marquee) =>
-        (uint) position < (uint) onScreen.Length && onScreen[position] && marquee.Contains(screen[position]);
+        (uint)position < (uint)onScreen.Length && onScreen[position] && marquee.Contains(screen[position]);
 
     /// <summary>Puts every shared position on screen, into the buffers this instance keeps.</summary>
     void Project(MeshElements elements, in Matrix4x4 transform, EditorCamera camera, int width, int height) {
@@ -373,8 +385,12 @@ public sealed class SubObjectPicker {
 
     /// <summary>Which triangle the ray through the pointer meets first.</summary>
     /// <remarks>
-    ///     ⚠ <b>The ray goes into the mesh's local space rather than the triangles coming out of
-    ///     it.</b> <see cref="ScenePicker" />'s own remarks say why: transforming a torus' six hundred
+    ///     ⚠
+    ///     <b>
+    ///         The ray goes into the mesh's local space rather than the triangles coming out of
+    ///         it.
+    ///     </b>
+    ///     <see cref="ScenePicker" />'s own remarks say why: transforming a torus' six hundred
     ///     vertices per query is the whole cost of the test, and inverting one matrix is not. Nothing
     ///     here compares distances across meshes, so the parameter is left in local units.
     /// </remarks>

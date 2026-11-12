@@ -86,15 +86,19 @@ public abstract partial class SelectBase : Control {
     ///         <c>OnCreated</c> ask before calling its base.
     ///     </para>
     /// </remarks>
-    public IReadOnlyList<Option> Options => List is null ? [] : [.. List.Content.Children.OfType<Option>()];
+    public IReadOnlyList<Option> Options => List is null ? [] : [..List.Content.Children.OfType<Option>()];
 
     /// <summary>Whether the list is showing.</summary>
     public bool IsOpen => List.IsOpen;
 
     /// <inheritdoc />
     /// <remarks>
-    ///     ⚠ <b>The popover, so that an <c>&lt;Option&gt;</c> written inside a <c>&lt;Select&gt;</c>
-    ///     lands where the options actually are.</b> Hung off the control itself it would sit beside
+    ///     ⚠
+    ///     <b>
+    ///         The popover, so that an <c>&lt;Option&gt;</c> written inside a <c>&lt;Select&gt;</c>
+    ///         lands where the options actually are.
+    ///     </b>
+    ///     Hung off the control itself it would sit beside
     ///     the field and the chevron, be laid out as part of the closed control, and show whether or
     ///     not the list was open — which is a row of choices printed under the field for ever.
     ///     <para>
@@ -159,8 +163,8 @@ public abstract partial class SelectBase : Control {
             }
         };
 
-        AddHandler<PointerEvent>(static (element, args) => ((SelectBase) element).Pointed(args));
-        AddHandler<KeyEvent>(static (element, args) => ((SelectBase) element).Keyed(args));
+        AddHandler<PointerEvent>(static (element, args) => ((SelectBase)element).Pointed(args));
+        AddHandler<KeyEvent>(static (element, args) => ((SelectBase)element).Keyed(args));
 
         List.AddHandler<ClickEvent>((_, args) => Chosen(args));
 
@@ -317,8 +321,7 @@ public abstract partial class SelectBase : Control {
 
     /// <summary>Called after an option is added, so a subclass can set its initial state.</summary>
     /// <param name="option">The option.</param>
-    protected virtual void OnOptionAdded(Option option) {
-    }
+    protected virtual void OnOptionAdded(Option option) { }
 
     /// <summary>Called when an option in the list is activated.</summary>
     /// <param name="option">The option.</param>
@@ -751,7 +754,7 @@ public sealed partial class MultiSelect : SelectBase, IValidated {
         Field.Text = shown switch {
             0 => Placeholder,
             1 => first,
-            _ => shown.ToString(System.Globalization.CultureInfo.InvariantCulture) + " selected"
+            _ => shown.ToString(CultureInfo.InvariantCulture) + " selected"
         };
 
         if (shown == 0) {
@@ -764,8 +767,12 @@ public sealed partial class MultiSelect : SelectBase, IValidated {
 
 /// <summary>A field that can be typed into as well as chosen from.</summary>
 /// <remarks>
-///     ⚠ <b>The difference from <see cref="Select" /> is not the dropdown — it is that the value need
-///     not be one of the options.</b> A combo box is a text field with suggestions; a select is a
+///     ⚠
+///     <b>
+///         The difference from <see cref="Select" /> is not the dropdown — it is that the value need
+///         not be one of the options.
+///     </b>
+///     A combo box is a text field with suggestions; a select is a
 ///     choice among a fixed set. Conflating them gives either a select that accepts nonsense or a
 ///     combo box that discards what was typed.
 /// </remarks>
@@ -792,7 +799,7 @@ public sealed partial class ComboBox : Control, IValidated {
     ///     Unlike a select's, a combo box's options carry no derived state, so there is nothing for a
     ///     <c>Popover.ContentAdded</c> handler to do here and none is subscribed.
     /// </remarks>
-    public IReadOnlyList<Option> Options => List is null ? [] : [.. List.Content.Children.OfType<Option>()];
+    public IReadOnlyList<Option> Options => List is null ? [] : [..List.Content.Children.OfType<Option>()];
 
     /// <summary>What is in the field.</summary>
     public string? Value {
@@ -809,8 +816,12 @@ public sealed partial class ComboBox : Control, IValidated {
     ///         it — see <c>ComboEditor.Complete</c> for the exact conditions.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>It closes doc 49's named gap "<c>ComboBox</c> has no completion" and nothing
-    ///         else.</b> There is no filtering of the list as you type, and no
+    ///         ⚠
+    ///         <b>
+    ///             It closes doc 49's named gap "<c>ComboBox</c> has no completion" and nothing
+    ///             else.
+    ///         </b>
+    ///         There is no filtering of the list as you type, and no
     ///         <c>aria-autocomplete</c> on the editor, because <see cref="AccessibleStates" /> has no
     ///         member for it — a screen reader hears the value change, not why.
     ///     </para>
@@ -905,7 +916,7 @@ public sealed partial class ComboBox : Control, IValidated {
             ValueChanged?.Invoke(this, value);
         };
 
-        AddHandler<ClickEvent>(static (element, args) => ((ComboBox) element).Chosen(args));
+        AddHandler<ClickEvent>(static (element, args) => ((ComboBox)element).Chosen(args));
         List.AddHandler<ClickEvent>((_, args) => Picked(args));
 
         // ⚠ The birth call, and here it is doing something the editor's own cannot: the *box* is
@@ -1006,8 +1017,12 @@ public sealed partial class ComboBox : Control, IValidated {
     /// <summary>The editable half of a combo box, which is what ARIA calls the combo box.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A type rather than a role assigned to a plain <see cref="TextBox" />, because
-    ///         the states have to be computed.</b> <c>Editor.Role = AccessibleRole.ComboBox</c> is
+    ///         ⚠
+    ///         <b>
+    ///             A type rather than a role assigned to a plain <see cref="TextBox" />, because
+    ///             the states have to be computed.
+    ///         </b>
+    ///         <c>Editor.Role = AccessibleRole.ComboBox</c> is
     ///         one line and would leave <c>aria-expanded</c> to be written into
     ///         <c>DeclaredAccessibleState</c> every time the list opened or shut — a second copy of
     ///         "is it open", kept by a handler, which is the whole thing this design does not do.
@@ -1049,7 +1064,7 @@ public sealed partial class ComboBox : Control, IValidated {
             // has already inserted the character and marked the event handled. Completion is what
             // happens AFTER the keystroke landed, so it must hear a handled one.
             AddHandler<TextInputEvent>(
-                static (element, args) => ((ComboEditor) element).Complete(args),
+                static (element, args) => ((ComboEditor)element).Complete(args),
                 handledEventsToo: true
             );
         }
@@ -1078,7 +1093,10 @@ public sealed partial class ComboBox : Control, IValidated {
         ///     </para>
         /// </remarks>
         void Complete(TextInputEvent args) {
-            if (Owner is not { Completes: true } owner || string.IsNullOrEmpty(args.Text) || HasSelection || IsComposing) {
+            if (Owner is not { Completes: true } owner
+                || string.IsNullOrEmpty(args.Text)
+                || HasSelection
+                || IsComposing) {
                 return;
             }
 
@@ -1102,7 +1120,7 @@ public sealed partial class ComboBox : Control, IValidated {
                 // Selected back to where the typing stopped, so the next character replaces the
                 // suggestion rather than following it — which is what makes completion skippable.
                 MoveCaret(typed.Length);
-                MoveCaret(Value?.Length ?? typed.Length, extend: true);
+                MoveCaret(Value?.Length ?? typed.Length, true);
                 return;
             }
         }

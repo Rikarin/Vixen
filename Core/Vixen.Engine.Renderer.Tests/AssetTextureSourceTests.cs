@@ -3,9 +3,8 @@
 
 using Vixen.Assets;
 using Vixen.Core;
-using Vixen.Core.Imaging;
 using Vixen.Core.IO;
-using Vixen.Core.Serialization;
+using Vixen.Core.Imaging;
 using Vixen.Core.Serialization.Storage;
 using Vixen.Engine.Renderer;
 using Vixen.Graphics;
@@ -50,8 +49,12 @@ public sealed class AssetTextureSourceTests : IDisposable {
     ///     true.
     /// </remarks>
     /// <remarks>
-    ///     ⚠ <b>Asked and updated in a loop rather than after a sleep, and that is the assertion rather
-    ///     than a concession to a slow machine.</b> The decode is off-thread, so "has it landed yet" has
+    ///     ⚠
+    ///     <b>
+    ///         Asked and updated in a loop rather than after a sleep, and that is the assertion rather
+    ///         than a concession to a slow machine.
+    ///     </b>
+    ///     The decode is off-thread, so "has it landed yet" has
     ///     no answer a test can wait a fixed number of milliseconds for — a run that slept long enough
     ///     on an idle laptop asserts nothing on a loaded CI runner except that the runner was slow. What
     ///     is actually being claimed holds on every iteration and needs no timing at all: the ask before
@@ -252,8 +255,7 @@ public sealed class AssetTextureSourceTests : IDisposable {
 
         var material = database.Write(
             new MaterialContent {
-                Features = [new TexturedMetalRoughnessFeature()],
-                Textures = [new("baseColorMap", Bark)]
+                Features = [new TexturedMetalRoughnessFeature()], Textures = [new("baseColorMap", Bark)]
             }
         );
 
@@ -269,10 +271,10 @@ public sealed class AssetTextureSourceTests : IDisposable {
             default,
             "Windows",
             [
-                new("bark", texture, "Main", ContentProvider.Local, [], [], 0, Reference: Bark),
-                new("hero", material, "Main", ContentProvider.Local, [], [], 0, Reference: Hero)
+                new("bark", texture, "Main", ContentProvider.Local, [], [], 0, Bark),
+                new("hero", material, "Main", ContentProvider.Local, [], [], 0, Hero)
             ],
-            [new("Main", "", default, 0, 0, CompressionMethod.None, [])]
+            [new("Main", string.Empty, default, 0, 0, CompressionMethod.None, [])]
         );
 
         return new(catalog, new LocalBundleSource(files, new("/bundles")));

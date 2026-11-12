@@ -38,7 +38,9 @@ public sealed class SceneNetworkComponentTests {
     // ⚠ typeof and not `default(NetworkObject)`. A discarded default of an empty struct is an
     // expression with no side effects, which Roslyn is free to emit no IL for at all — and the whole
     // job of this line is to be a reference the runtime has to resolve. `ldtoken` is one.
-    public SceneNetworkComponentTests() => _ = typeof(NetworkObject).Name;
+    public SceneNetworkComponentTests() {
+        _ = nameof(NetworkObject);
+    }
 
     /// <remarks>
     ///     ⚠ The empty flow mapping is load-bearing. A tag has no members, and a node that is only a
@@ -106,12 +108,12 @@ public sealed class SceneNetworkComponentTests {
         var content = Compile();
 
         var marked = content.Blocks
-            .SelectMany(block => block.Columns)
-            .Where(column => column.Component is "NetworkObject" or "PlayerPawn")
+            .SelectMany(static block => block.Columns)
+            .Where(static column => column.Component is "NetworkObject" or "PlayerPawn")
             .ToList();
 
         Assert.Equal(2, marked.Count);
-        Assert.All(marked, column => Assert.Empty(column.Data));
+        Assert.All(marked, static column => Assert.Empty(column.Data));
     }
 
     static SceneContent Compile() {

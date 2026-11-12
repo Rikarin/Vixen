@@ -8,15 +8,22 @@ namespace Vixen.TextureGraph;
 /// <summary>Which of the thirty-one operators a <c>Blend</c> op composites with.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>The numbers are the contract with <c>Shaders/Blend.rvn</c>'s <c>mode</c>, which
-///         compares against them literally, and they are <em>appended</em> rather than ordered the way
-///         § 4.2's prose lists them.</b> The eight of § M1 were numbered 0–7 before the other eight
+///         ⚠
+///         <b>
+///             The numbers are the contract with <c>Shaders/Blend.rvn</c>'s <c>mode</c>, which
+///             compares against them literally, and they are <em>appended</em> rather than ordered the way
+///             § 4.2's prose lists them.
+///         </b>
+///         The eight of § M1 were numbered 0–7 before the other eight
 ///         existed, and a plan is a file: renumbering to match the prose would have changed what every
 ///         plan already written means, silently, into another perfectly plausible picture.
 ///     </para>
 ///     <para>
-///         <b>Each has a <em>neutral</em> foreground and a <em>distinguishing</em> value, and
-///         <c>TextureBlendDeviceTests</c> asserts both of every one.</b> Neither alone is enough: a
+///         <b>
+///             Each has a <em>neutral</em> foreground and a <em>distinguishing</em> value, and
+///             <c>TextureBlendDeviceTests</c> asserts both of every one.
+///         </b>
+///         Neither alone is enough: a
 ///         mode written with its operands swapped usually keeps one of the two. Difference against
 ///         black is the backdrop whichever way round it is written, and hard light copied from overlay
 ///         without moving the selector is exactly overlay on every image there is.
@@ -205,8 +212,12 @@ internal static class TextureBlend {
     /// <returns>The op.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A second kernel rather than a fourth image on <see cref="Mix" />, and the reason
-    ///         is <c>Blend.rvn</c>'s own refusal</b> —
+    ///         ⚠
+    ///         <b>
+    ///             A second kernel rather than a fourth image on <see cref="Mix" />, and the reason
+    ///             is <c>Blend.rvn</c>'s own refusal
+    ///         </b>
+    ///         —
     ///         <a href="https://github.com/Rikarin/Vixen/issues/1059">#1059</a>. That refusal is
     ///         about a <em>layer</em>, which owns a mask stack, and doc 48 § M7 is where it belongs;
     ///         a graph's mask is whatever image the author wired, which is a different question. So

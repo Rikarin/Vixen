@@ -54,7 +54,8 @@ public sealed class QueueOwnershipTests : IDisposable {
     public void TheReleaseIsRecordedOnTheSourceQueue() {
         var buffer = Buffer();
         using var list = device.BeginCommandList(QueueKind.Graphics, "release");
-        BufferBarrier[] barriers = [new(buffer, ResourceState.ShaderWrite, ResourceState.ShaderRead, QueueKind.Graphics, QueueKind.Compute)];
+        BufferBarrier[] barriers =
+            [new(buffer, ResourceState.ShaderWrite, ResourceState.ShaderRead, QueueKind.Graphics, QueueKind.Compute)];
 
         list.Barrier(new(barriers, []));
         list.Finish();
@@ -67,7 +68,8 @@ public sealed class QueueOwnershipTests : IDisposable {
     public void TheAcquireIsRecordedOnTheDestinationQueue() {
         var buffer = Buffer();
         using var list = device.BeginCommandList(QueueKind.Compute, "acquire");
-        BufferBarrier[] barriers = [new(buffer, ResourceState.ShaderWrite, ResourceState.ShaderRead, QueueKind.Graphics, QueueKind.Compute)];
+        BufferBarrier[] barriers =
+            [new(buffer, ResourceState.ShaderWrite, ResourceState.ShaderRead, QueueKind.Graphics, QueueKind.Compute)];
 
         list.Barrier(new(barriers, []));
         list.Finish();
@@ -80,11 +82,10 @@ public sealed class QueueOwnershipTests : IDisposable {
     public void AThirdQueueIsRefused() {
         var buffer = Buffer();
         using var list = device.BeginCommandList(QueueKind.Transfer, "bystander");
-        BufferBarrier[] barriers = [new(buffer, ResourceState.ShaderWrite, ResourceState.ShaderRead, QueueKind.Graphics, QueueKind.Compute)];
+        BufferBarrier[] barriers =
+            [new(buffer, ResourceState.ShaderWrite, ResourceState.ShaderRead, QueueKind.Graphics, QueueKind.Compute)];
 
-        var failure = Assert.Throws<InvalidOperationException>(() => {
-            list.Barrier(new(barriers, []));
-        });
+        var failure = Assert.Throws<InvalidOperationException>(() => { list.Barrier(new(barriers, [])); });
 
         Assert.Contains("neither end", failure.Message, StringComparison.Ordinal);
     }
@@ -104,8 +105,6 @@ public sealed class QueueOwnershipTests : IDisposable {
             )
         ];
 
-        Assert.Throws<InvalidOperationException>(() => {
-            list.Barrier(new([], barriers));
-        });
+        Assert.Throws<InvalidOperationException>(() => { list.Barrier(new([], barriers)); });
     }
 }

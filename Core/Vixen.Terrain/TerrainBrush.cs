@@ -66,8 +66,12 @@ public interface IBrushMask {
 ///         falloff, paint weight over a falloff and foliage density over a falloff are the same
 ///         function applied to different targets. Unreal implements them three times, so a soft edge
 ///         sculpted at strength 0.3 and a soft edge painted at strength 0.3 are different shapes.
-///         This answers one question — <em>what weight does this stamp have at this world-space
-///         sample</em> — and does not know what the answer will be multiplied into. It is
+///         This answers one question —
+///         <em>
+///             what weight does this stamp have at this world-space
+///             sample
+///         </em>
+///         — and does not know what the answer will be multiplied into. It is
 ///         [docs/plan/24 § D4]'s argument for <c>SnapContext</c>, applied again.
 ///     </para>
 ///     <para>
@@ -77,8 +81,12 @@ public interface IBrushMask {
 ///         likely to change after the art is made.
 ///     </para>
 ///     <para>
-///         ⚠ <b><see cref="Falloff" /> is the fraction of the radius that falls off, not where the
-///         falloff starts.</b> Zero is a hard-edged disc and one falls off from the centre. Reading it
+///         ⚠
+///         <b>
+///             <see cref="Falloff" /> is the fraction of the radius that falls off, not where the
+///             falloff starts.
+///         </b>
+///         Zero is a hard-edged disc and one falls off from the centre. Reading it
 ///         the other way round gives a brush that is hardest where it should be softest, and the
 ///         result still looks like a brush — which is why the direction is stated here and asserted
 ///         in the tests.
@@ -142,14 +150,22 @@ public readonly record struct TerrainBrush {
     /// </param>
     /// <returns>The weight, 0…<see cref="Strength" />.</returns>
     /// <remarks>
-    ///     ⚠ <b>An alpha stamp is measured across its square and every other stamp across its
-    ///     disc</b> — <a href="https://github.com/Rikarin/Vixen/issues/1083">#1083</a>. This used to
+    ///     ⚠
+    ///     <b>
+    ///         An alpha stamp is measured across its square and every other stamp across its
+    ///         disc
+    ///     </b>
+    ///     — <a href="https://github.com/Rikarin/Vixen/issues/1083">#1083</a>. This used to
     ///     measure radially whatever the shape, which clipped an alpha to the disc inscribed in its
     ///     own mask: <see cref="BrushShape.Alpha" />'s summary says "a square footprint",
     ///     <see cref="FootprintOf" /> sizes the rectangle at <c>√2</c> radii to hold one, and
     ///     <see cref="AlphaUv" /> maps the whole unit square — all three were describing a shape the
-    ///     arithmetic refused to produce. ⚠ <b>And the visible consequence was worse than a clipped
-    ///     corner</b>: a mask that is one over its whole square — which is what an artist means by a
+    ///     arithmetic refused to produce. ⚠
+    ///     <b>
+    ///         And the visible consequence was worse than a clipped
+    ///         corner
+    ///     </b>
+    ///     : a mask that is one over its whole square — which is what an artist means by a
     ///     square brush — painted exactly what a circle painted, so a rotation control over it would
     ///     have moved no texel at all.
     ///     <para>
@@ -196,8 +212,7 @@ public readonly record struct TerrainBrush {
     /// <summary>Where a sample lands on a stamp-fitted mask.</summary>
     /// <param name="local">The sample's offset from the centre, already turned into the stamp's frame.</param>
     /// <returns>The point of the unit square, with the stamp's own square filling it exactly.</returns>
-    Vector2 AlphaUv(Vector2 local) =>
-        new((local.X / (2f * Radius)) + 0.5f, (local.Y / (2f * Radius)) + 0.5f);
+    Vector2 AlphaUv(Vector2 local) => new(local.X / (2f * Radius) + 0.5f, local.Y / (2f * Radius) + 0.5f);
 
     /// <summary>Where a sample lands on a world-tiled mask.</summary>
     /// <remarks>
@@ -223,7 +238,7 @@ public readonly record struct TerrainBrush {
         }
 
         var (sin, cos) = MathF.SinCos(radians);
-        return new((value.X * cos) - (value.Y * sin), (value.X * sin) + (value.Y * cos));
+        return new(value.X * cos - value.Y * sin, value.X * sin + value.Y * cos);
     }
 
     /// <summary>How far apart this brush's stamps are, in metres.</summary>

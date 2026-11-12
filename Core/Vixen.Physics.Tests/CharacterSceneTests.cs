@@ -3,11 +3,9 @@
 
 using Vixen.Core;
 using Vixen.Core.Mathematics;
-using Vixen.Ecs;
 using Vixen.Engine.Frames;
 using Vixen.Engine.Players;
 using Vixen.Engine.Transforms;
-using Vixen.Physics.Bodies;
 using Vixen.Physics.Characters;
 using Vixen.Physics.Ecs;
 using Xunit;
@@ -34,10 +32,10 @@ public sealed class CharacterSceneTests {
     }
 
     /// <summary>The described human: 1.8 m in a 0.3 m capsule, crouching to half of it.</summary>
-    static CharacterMovement Human(PhysicsScene scene) => CharacterMovement.Default with {
-        Shape = scene.Shapes.Capsule(0.6f, 0.3f),
-        CrouchShape = scene.Shapes.Capsule(0.3f, 0.3f)
-    };
+    static CharacterMovement Human(PhysicsScene scene) =>
+        CharacterMovement.Default with {
+            Shape = scene.Shapes.Capsule(0.6f, 0.3f), CrouchShape = scene.Shapes.Capsule(0.3f, 0.3f)
+        };
 
     static Entity Walker(PhysicsScene scene, Vector3 feet, CharacterMovement? movement = null) {
         var entity = scene.Entities.Create(LocalTransform.At(feet));
@@ -220,7 +218,10 @@ public sealed class CharacterSceneTests {
 
         var state = entities.Read<CharacterState>(walker);
 
-        Assert.True(state.IsCrouching, $"stood up under a ceiling; y = {entities.Read<LocalTransform>(walker).Position.Y}");
+        Assert.True(
+            state.IsCrouching,
+            $"stood up under a ceiling; y = {entities.Read<LocalTransform>(walker).Position.Y}"
+        );
     }
 
     [Fact]
@@ -348,8 +349,12 @@ public sealed class CharacterSceneTests {
     /// <returns>How far the character's <i>simulated</i> pose travelled, in the ground plane.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A whole <c>EngineLoop</c> and not <c>Advance</c>, because the defect this measures
-    ///         is not in the fixed step at all.</b> <c>PhysicsInterpolationSystem</c> runs in
+    ///         ⚠
+    ///         <b>
+    ///             A whole <c>EngineLoop</c> and not <c>Advance</c>, because the defect this measures
+    ///             is not in the fixed step at all.
+    ///         </b>
+    ///         <c>PhysicsInterpolationSystem</c> runs in
     ///         <c>LateUpdate</c>, so calling the four physics passes by hand — which is what every
     ///         other test in this file does — cannot see it. That is why a bug worth 50% of every
     ///         character's speed survived a suite this size.
@@ -404,12 +409,15 @@ public sealed class CharacterSceneTests {
 
         var travelled = controller!.Position - (start + CharacterMovement.Default.ShapeOffset);
 
-        return MathF.Sqrt((travelled.X * travelled.X) + (travelled.Z * travelled.Z));
+        return MathF.Sqrt(travelled.X * travelled.X + travelled.Z * travelled.Z);
     }
 
     /// <summary>
-    ///     ⚠ <b>A component that only asks for smoothing must not change how fast the character
-    ///     walks, and for as long as this repository has existed it halved it.</b>
+    ///     ⚠
+    ///     <b>
+    ///         A component that only asks for smoothing must not change how fast the character
+    ///         walks, and for as long as this repository has existed it halved it.
+    ///     </b>
     /// </summary>
     /// <remarks>
     ///     <para>
@@ -489,8 +497,11 @@ public sealed class CharacterSceneTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>And the teleport has to be where it was put on the frame it was drawn, not on the one
-    ///     after.</b>
+    ///     ⚠
+    ///     <b>
+    ///         And the teleport has to be where it was put on the frame it was drawn, not on the one
+    ///         after.
+    ///     </b>
     /// </summary>
     /// <remarks>
     ///     <para>
@@ -527,7 +538,10 @@ public sealed class CharacterSceneTests {
 
         // Walked somewhere first, so the pose it would slide back to is a real one.
         var walked = loop.World.Read<LocalTransform>(walker).Position;
-        Assert.True(MathF.Abs(walked.Z) > 1f, $"The walker only reached {walked}, so there is nothing to slide back to.");
+        Assert.True(
+            MathF.Abs(walked.Z) > 1f,
+            $"The walker only reached {walked}, so there is nothing to slide back to."
+        );
 
         // The stick released and the velocity cleared by hand, exactly as the sibling test does and
         // for the same reason: otherwise this measures one more step of walking.
@@ -593,7 +607,10 @@ public sealed class CharacterSceneTests {
 
         Assert.Equal(refused, scene.CharacterAdoptionCount);
         Assert.True(scene.TryGetCharacter(walker, out var held));
-        Assert.True(MathF.Abs(held!.Position.X) < 1f, $"Nothing said teleport, yet the controller moved to {held.Position}.");
+        Assert.True(
+            MathF.Abs(held!.Position.X) < 1f,
+            $"Nothing said teleport, yet the controller moved to {held.Position}."
+        );
 
         // The same write, now with the caller saying so out loud.
         entities.Get<PhysicsInterpolation>(walker).DrawnPosition = elsewhere;

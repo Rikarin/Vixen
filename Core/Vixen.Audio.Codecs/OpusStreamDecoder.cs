@@ -50,7 +50,7 @@ public sealed class OpusStreamDecoder : IAudioStreamDecoder {
     /// <exception cref="ArgumentNullException"><paramref name="path" /> is null.</exception>
     /// <exception cref="InvalidDataException">It is not an Ogg Opus stream.</exception>
     public OpusStreamDecoder(string path)
-        : this(OpenFile(path), leaveOpen: false) { }
+        : this(OpenFile(path), false) { }
 
     /// <summary>Opens a track from a stream.</summary>
     /// <param name="stream">The bytes. Must be seekable for <see cref="Seek" /> to work.</param>
@@ -75,7 +75,7 @@ public sealed class OpusStreamDecoder : IAudioStreamDecoder {
             }
 
             preSkip = BinaryPrimitives.ReadUInt16LittleEndian(head.AsSpan(10));
-            Format = new AudioFormat(DecodeRate, channels);
+            Format = new(DecodeRate, channels);
 
             // OpusTags, which is metadata and is skipped. A stream without it is malformed, and a
             // decoder that tried to decode it as audio would produce noise.
@@ -180,7 +180,7 @@ public sealed class OpusStreamDecoder : IAudioStreamDecoder {
         int frames;
 
         try {
-            frames = decoder.Decode(packet.AsSpan(0, length), decoded.AsSpan(), MaxPacketFrames, false);
+            frames = decoder.Decode(packet.AsSpan(0, length), decoded.AsSpan(), MaxPacketFrames);
         } catch (OpusException) {
             // A packet the decoder would not take. Treating it as the end rather than throwing: a
             // damaged tail is a content problem, and stopping the music is a better answer than
@@ -225,11 +225,14 @@ public sealed class OpusStreamDecoder : IAudioStreamDecoder {
     static FileStream OpenFile(string path) {
         ArgumentNullException.ThrowIfNull(path);
 
-        return new(path, new FileStreamOptions {
-            Mode = FileMode.Open,
-            Access = FileAccess.Read,
-            Share = FileShare.Read,
-            Options = FileOptions.SequentialScan
-        });
+        return new(
+            path,
+            new FileStreamOptions {
+                Mode = FileMode.Open,
+                Access = FileAccess.Read,
+                Share = FileShare.Read,
+                Options = FileOptions.SequentialScan
+            }
+        );
     }
 }

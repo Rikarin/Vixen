@@ -17,11 +17,12 @@ public sealed partial class LayoutTree {
     internal static bool Inexact(float left, float right) =>
         float.IsNaN(left) && float.IsNaN(right) || MathF.Abs(left - right) < ComparisonTolerance;
 
-    static MeasureMode MeasureModeOf(SizingMode mode) => mode switch {
-        SizingMode.StretchFit => MeasureMode.Exactly,
-        SizingMode.MaxContent => MeasureMode.Undefined,
-        _ => MeasureMode.AtMost
-    };
+    static MeasureMode MeasureModeOf(SizingMode mode) =>
+        mode switch {
+            SizingMode.StretchFit => MeasureMode.Exactly,
+            SizingMode.MaxContent => MeasureMode.Undefined,
+            _ => MeasureMode.AtMost
+        };
 
     /// <summary>Whether a node takes part in flow layout at all.</summary>
     bool IsInFlow(int index) =>
@@ -53,11 +54,19 @@ public sealed partial class LayoutTree {
 
     /// <summary>Whether a node is an item of a flex container specifically.</summary>
     /// <remarks>
-    ///     ⚠ <b>Only flex items are exempt from a transferred bound on an axis that was handed to
-    ///     them</b>, and the two corpora insist on the difference in the same words.
+    ///     ⚠
+    ///     <b>
+    ///         Only flex items are exempt from a transferred bound on an axis that was handed to
+    ///         them
+    ///     </b>
+    ///     , and the two corpora insist on the difference in the same words.
     ///     <c>aspect_ratio_flex_column_stretch_fill_max_width</c> and
-    ///     <c>grid_aspect_ratio_fill_child_max_width</c> are both <c>max-height: 20px;
-    ///     aspect-ratio: 2</c> on a box whose inline axis its parent fills, and the <c>max-width</c>
+    ///     <c>grid_aspect_ratio_fill_child_max_width</c> are both
+    ///     <c>
+    ///         max-height: 20px;
+    ///         aspect-ratio: 2
+    ///     </c>
+    ///     on a box whose inline axis its parent fills, and the <c>max-width</c>
     ///     of 40 that the ratio carries across is ignored by the flex item (100 wide) and obeyed by
     ///     the grid item (40 wide). CSS Flexbox §9.4 stretches an item whose cross size is
     ///     <c>auto</c> unconditionally; CSS Box Alignment §6.2's <c>normal</c> does not treat a box
@@ -78,7 +87,13 @@ public sealed partial class LayoutTree {
     }
 
     /// <summary>The node's written size on an axis, in border-box terms.</summary>
-    float ResolvedDimension(int index, Dimension dimension, float referenceLength, float ownerWidth, Direction direction) =>
+    float ResolvedDimension(
+        int index,
+        Dimension dimension,
+        float referenceLength,
+        float ownerWidth,
+        Direction direction
+    ) =>
         StyleResolution.WithBoxSizing(
             in styles[index],
             StyleResolution.ProcessedDimension(in styles[index], dimension).Resolve(referenceLength),
@@ -100,19 +115,23 @@ public sealed partial class LayoutTree {
 
     /// <summary>The node's measured size on an axis plus its margins on that axis.</summary>
     float DimensionWithMargin(int index, FlexDirection axis, float widthSize) =>
-        results[index].MeasuredDimensions[(int) FlexAxis.DimensionOf(axis)]
+        results[index].MeasuredDimensions[(int)FlexAxis.DimensionOf(axis)]
         + StyleResolution.MarginForAxis(in styles[index], axis, widthSize);
 
     /// <summary>Whether a node came out of layout with a usable size on an axis.</summary>
     bool IsLayoutDimensionDefined(int index, FlexDirection axis) {
-        var value = results[index].MeasuredDimensions[(int) FlexAxis.DimensionOf(axis)];
+        var value = results[index].MeasuredDimensions[(int)FlexAxis.DimensionOf(axis)];
         return !float.IsNaN(value) && value >= 0f;
     }
 
     /// <summary>How a child should be aligned on the cross axis, once <c>auto</c> is resolved.</summary>
     /// <remarks>
-    ///     ⚠ <b>A column container's <c>baseline</c> degrades to <c>flex-start</c> and that is only
-    ///     half of the rule</b> — see <see cref="DegradedBaselineShift" />, which supplies the other
+    ///     ⚠
+    ///     <b>
+    ///         A column container's <c>baseline</c> degrades to <c>flex-start</c> and that is only
+    ///         half of the rule
+    ///     </b>
+    ///     — see <see cref="DegradedBaselineShift" />, which supplies the other
     ///     half in RTL. The items of such a group share their LINE-LEFT edge, which
     ///     <c>direction</c> does not mirror, and the group as a whole is then aligned flow-start.
     ///     Flow-start is all this method can say; the shift is a function of the group.
@@ -128,7 +147,8 @@ public sealed partial class LayoutTree {
     /// <summary>Whether this child asked for a baseline its container's cross axis cannot give.</summary>
     bool IsDegradedBaseline(int index, int child) =>
         FlexAxis.IsColumn(styles[index].FlexDirection)
-        && (styles[child].AlignSelf == Align.Auto ? styles[index].AlignItems : styles[child].AlignSelf) == Align.Baseline;
+        && (styles[child].AlignSelf == Align.Auto ? styles[index].AlignItems : styles[child].AlignSelf)
+        == Align.Baseline;
 
     /// <summary>
     ///     How far a degraded-baseline item moves off its line's cross-start edge, which is nothing
@@ -136,8 +156,12 @@ public sealed partial class LayoutTree {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The items of a baseline-sharing group share their LINE-LEFT edge, and
-    ///         <c>direction</c> does not mirror that edge.</b> CSS Writing Modes §6.3 makes line-left
+    ///         ⚠
+    ///         <b>
+    ///             The items of a baseline-sharing group share their LINE-LEFT edge, and
+    ///             <c>direction</c> does not mirror that edge.
+    ///         </b>
+    ///         CSS Writing Modes §6.3 makes line-left
     ///         and line-right depend on the writing mode alone, and a baseline is line-relative by
     ///         construction. So in a column container — where the cross axis is the inline axis and
     ///         there is no real baseline to share — every item in the group is placed with its
@@ -147,8 +171,12 @@ public sealed partial class LayoutTree {
     ///         narrower than the group hangs back by the difference.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The group's extent is the widest item in the LINE, and it is emphatically not the
-    ///         line's cross size.</b> `align_baseline_column__border_box_rtl` is the fixture that
+    ///         ⚠
+    ///         <b>
+    ///             The group's extent is the widest item in the LINE, and it is emphatically not the
+    ///             line's cross size.
+    ///         </b>
+    ///         `align_baseline_column__border_box_rtl` is the fixture that
     ///         tells them apart: a single-line column has a line as wide as the container by CSS
     ///         Flexbox §9.4 step 8, and Chrome still puts two 50-wide items at x=50 in a 100-wide
     ///         container rather than at 0. Measured with a 30-wide second item, which the corpus does
@@ -156,7 +184,13 @@ public sealed partial class LayoutTree {
     ///         edge, and every item's left edge is on the group's left edge.
     ///     </para>
     /// </remarks>
-    float DegradedBaselineShift(int index, int child, FlexDirection crossAxis, float groupExtent, float availableInnerWidth) {
+    float DegradedBaselineShift(
+        int index,
+        int child,
+        FlexDirection crossAxis,
+        float groupExtent,
+        float availableInnerWidth
+    ) {
         if (results[index].Direction != Direction.Rtl || !IsDegradedBaseline(index, child)) {
             return 0f;
         }
@@ -165,7 +199,13 @@ public sealed partial class LayoutTree {
     }
 
     /// <summary>The cross-axis extent of the degraded baseline group formed by one line's items.</summary>
-    float BaselineGroupExtent(int index, int startChild, int endChild, FlexDirection crossAxis, float availableInnerWidth) {
+    float BaselineGroupExtent(
+        int index,
+        int startChild,
+        int endChild,
+        FlexDirection crossAxis,
+        float availableInnerWidth
+    ) {
         if (results[index].Direction != Direction.Rtl || !FlexAxis.IsColumn(styles[index].FlexDirection)) {
             return 0f;
         }
@@ -186,9 +226,16 @@ public sealed partial class LayoutTree {
 
     /// <summary>Whether that alignment was written <c>safe</c>.</summary>
     /// <remarks>
-    ///     ⚠ <b>It has to follow the same <c>auto</c> resolution as the position it modifies, or the
-    ///     two halves of one declaration come from two different elements.</b> <c>align-items: safe
-    ///     end</c> on a container is inherited whole by a child whose <c>align-self</c> is
+    ///     ⚠
+    ///     <b>
+    ///         It has to follow the same <c>auto</c> resolution as the position it modifies, or the
+    ///         two halves of one declaration come from two different elements.
+    ///     </b>
+    ///     <c>
+    ///         align-items: safe
+    ///         end
+    ///     </c>
+    ///     on a container is inherited whole by a child whose <c>align-self</c> is
     ///     <c>auto</c> — position and prefix together — and reading the prefix off the child instead
     ///     would silently drop it.
     /// </remarks>
@@ -209,10 +256,12 @@ public sealed partial class LayoutTree {
             return borderBoxWidth / ratio;
         }
 
-        var acrossInset = StyleResolution.ContentInsetForAxis(in styles[child], FlexDirection.Row, direction, innerWidth);
-        var downInset = StyleResolution.ContentInsetForAxis(in styles[child], FlexDirection.Column, direction, innerWidth);
+        var acrossInset =
+            StyleResolution.ContentInsetForAxis(in styles[child], FlexDirection.Row, direction, innerWidth);
+        var downInset =
+            StyleResolution.ContentInsetForAxis(in styles[child], FlexDirection.Column, direction, innerWidth);
 
-        return (MathF.Max(0f, borderBoxWidth - acrossInset) / ratio) + downInset;
+        return MathF.Max(0f, borderBoxWidth - acrossInset) / ratio + downInset;
     }
 
     /// <summary>The border-box width an already-decided border-box height implies through the ratio.</summary>
@@ -229,10 +278,12 @@ public sealed partial class LayoutTree {
             return borderBoxHeight * ratio;
         }
 
-        var acrossInset = StyleResolution.ContentInsetForAxis(in styles[child], FlexDirection.Row, direction, innerWidth);
-        var downInset = StyleResolution.ContentInsetForAxis(in styles[child], FlexDirection.Column, direction, innerWidth);
+        var acrossInset =
+            StyleResolution.ContentInsetForAxis(in styles[child], FlexDirection.Row, direction, innerWidth);
+        var downInset =
+            StyleResolution.ContentInsetForAxis(in styles[child], FlexDirection.Column, direction, innerWidth);
 
-        return (MathF.Max(0f, borderBoxHeight - downInset) * ratio) + acrossInset;
+        return MathF.Max(0f, borderBoxHeight - downInset) * ratio + acrossInset;
     }
 
     /// <summary>A box's minimums and maximums on both axes, made consistent with its aspect ratio.</summary>
@@ -268,14 +319,38 @@ public sealed partial class LayoutTree {
     ///     </para>
     /// </remarks>
     AspectBounds ResolveAspectBounds(int index, Direction direction, float ownerWidth, float ownerHeight) {
-        var minWidth = StyleResolution.ResolvedMinDimension(in styles[index], Dimension.Width, ownerWidth, ownerWidth, direction);
-        var minHeight = StyleResolution.ResolvedMinDimension(in styles[index], Dimension.Height, ownerHeight, ownerWidth, direction);
-        var maxWidth = StyleResolution.ResolvedMaxDimension(in styles[index], Dimension.Width, ownerWidth, ownerWidth, direction);
-        var maxHeight = StyleResolution.ResolvedMaxDimension(in styles[index], Dimension.Height, ownerHeight, ownerWidth, direction);
+        var minWidth = StyleResolution.ResolvedMinDimension(
+            in styles[index],
+            Dimension.Width,
+            ownerWidth,
+            ownerWidth,
+            direction
+        );
+        var minHeight = StyleResolution.ResolvedMinDimension(
+            in styles[index],
+            Dimension.Height,
+            ownerHeight,
+            ownerWidth,
+            direction
+        );
+        var maxWidth = StyleResolution.ResolvedMaxDimension(
+            in styles[index],
+            Dimension.Width,
+            ownerWidth,
+            ownerWidth,
+            direction
+        );
+        var maxHeight = StyleResolution.ResolvedMaxDimension(
+            in styles[index],
+            Dimension.Height,
+            ownerHeight,
+            ownerWidth,
+            direction
+        );
 
         var ratio = styles[index].AspectRatio;
         if (float.IsNaN(ratio) || ratio <= 0f) {
-            return new AspectBounds(minWidth, minHeight, maxWidth, maxHeight);
+            return new(minWidth, minHeight, maxWidth, maxHeight);
         }
 
         // ⚠ Each transfer reads the *original* bound on the other axis, never an already-merged one.
@@ -286,7 +361,7 @@ public sealed partial class LayoutTree {
         var widthFromMaxHeight = Across(maxHeight, true);
         var heightFromMaxWidth = Across(maxWidth, false);
 
-        return new AspectBounds(
+        return new(
             Merge(minWidth, widthFromMinHeight, true),
             Merge(minHeight, heightFromMinWidth, true),
             Merge(maxWidth, widthFromMaxHeight, false),
@@ -318,8 +393,12 @@ public sealed partial class LayoutTree {
 
     /// <summary>Clamps a value to a node's own min and max on an axis.</summary>
     /// <remarks>
-    ///     ⚠ <b>The maximum is applied first and the minimum second, so that a minimum larger than
-    ///     the maximum wins.</b> CSS Sizing §5.1 is explicit: "if the max size is less than the min
+    ///     ⚠
+    ///     <b>
+    ///         The maximum is applied first and the minimum second, so that a minimum larger than
+    ///         the maximum wins.
+    ///     </b>
+    ///     CSS Sizing §5.1 is explicit: "if the max size is less than the min
     ///     size, the min size wins", which the specification expresses as clamping to the max and
     ///     then to the min rather than as a special case. This used to <c>return max</c> the moment
     ///     the value exceeded it, so the minimum was never consulted and
@@ -426,8 +505,16 @@ public sealed partial class LayoutTree {
         float widthSize,
         bool axisSizeIsImposed = false
     ) {
-        var dimension = (int) FlexAxis.DimensionOf(axis);
-        results[index].MeasuredDimensions[dimension] = BoundAxis(index, axis, direction, value, axisSize, widthSize, axisSizeIsImposed);
+        var dimension = (int)FlexAxis.DimensionOf(axis);
+        results[index].MeasuredDimensions[dimension] = BoundAxis(
+            index,
+            axis,
+            direction,
+            value,
+            axisSize,
+            widthSize,
+            axisSizeIsImposed
+        );
         results[index].UnclampedMeasuredDimensions[dimension] =
             MathF.Max(value, StyleResolution.PaddingAndBorderForAxis(in styles[index], axis, direction, widthSize));
     }
@@ -440,8 +527,8 @@ public sealed partial class LayoutTree {
     ///     meant implicitly before the unclamped measurement existed.
     /// </remarks>
     void SetMeasuredDimension(int index, Dimension dimension, float bounded, float unbounded) {
-        results[index].MeasuredDimensions[(int) dimension] = bounded;
-        results[index].UnclampedMeasuredDimensions[(int) dimension] = unbounded;
+        results[index].MeasuredDimensions[(int)dimension] = bounded;
+        results[index].UnclampedMeasuredDimensions[(int)dimension] = unbounded;
     }
 
     /// <summary>CSS Flexbox §9.2 step 9: a flex base size clamped by the item's USED min and max.</summary>
@@ -462,14 +549,28 @@ public sealed partial class LayoutTree {
     ///         unfloored <see cref="BoundAxisWithinMinAndMax" />.
     ///     </para>
     /// </remarks>
-    float HypotheticalMainSize(int index, Direction direction, FlexDirection mainAxis, float flexBasis, float mainAxisOwnerSize, float ownerWidth) {
+    float HypotheticalMainSize(
+        int index,
+        Direction direction,
+        FlexDirection mainAxis,
+        float flexBasis,
+        float mainAxisOwnerSize,
+        float ownerWidth
+    ) {
         var bounded = BoundAxisWithinMinAndMax(index, direction, mainAxis, flexBasis, mainAxisOwnerSize, ownerWidth);
         var autoMin = results[index].ComputedAutoMinMainSize;
         return !float.IsNaN(autoMin) && bounded < autoMin ? autoMin : bounded;
     }
 
     /// <summary>As <see cref="BoundAxis" />, plus the automatic minimum from CSS Flexbox §4.5.</summary>
-    float BoundAxisWithAutoMin(int index, FlexDirection axis, Direction direction, float value, float axisSize, float widthSize) {
+    float BoundAxisWithAutoMin(
+        int index,
+        FlexDirection axis,
+        Direction direction,
+        float value,
+        float axisSize,
+        float widthSize
+    ) {
         var bounded = BoundAxis(index, axis, direction, value, axisSize, widthSize);
         var autoMin = results[index].ComputedAutoMinMainSize;
         return !float.IsNaN(autoMin) && bounded < autoMin ? autoMin : bounded;
@@ -485,7 +586,13 @@ public sealed partial class LayoutTree {
         ref SizingMode mode,
         ref float size
     ) {
-        var max = StyleResolution.ResolvedMaxDimension(in styles[index], FlexAxis.DimensionOf(axis), ownerAxisSize, ownerWidth, direction);
+        var max = StyleResolution.ResolvedMaxDimension(
+            in styles[index],
+            FlexAxis.DimensionOf(axis),
+            ownerAxisSize,
+            ownerWidth,
+            direction
+        );
         if (float.IsNaN(max)) {
             return;
         }
@@ -502,16 +609,18 @@ public sealed partial class LayoutTree {
                 mode = SizingMode.FitContent;
                 size = max;
                 break;
-            default:
-                break;
         }
     }
 
     /// <summary>The mirror of <see cref="ConstrainMaxSizeForMode" />: a stated minimum widens it.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A box's BLOCK size is a function of the INLINE size it is actually given, and the
-    ///         size it is actually given has been through both of its own clamps.</b> CSS Sizing §5.1
+    ///         ⚠
+    ///         <b>
+    ///             A box's BLOCK size is a function of the INLINE size it is actually given, and the
+    ///             size it is actually given has been through both of its own clamps.
+    ///         </b>
+    ///         CSS Sizing §5.1
     ///         clamps the used size by the minimum as well as the maximum; measuring the other axis
     ///         off the unclamped available space asks the box a question about a width it will never
     ///         have. The maximum half of this has been here all along and is why
@@ -547,7 +656,13 @@ public sealed partial class LayoutTree {
             return;
         }
 
-        var min = StyleResolution.ResolvedMinDimension(in styles[index], FlexAxis.DimensionOf(axis), ownerAxisSize, ownerWidth, direction);
+        var min = StyleResolution.ResolvedMinDimension(
+            in styles[index],
+            FlexAxis.DimensionOf(axis),
+            ownerAxisSize,
+            ownerWidth,
+            direction
+        );
         if (float.IsNaN(min)) {
             return;
         }
@@ -612,7 +727,7 @@ public sealed partial class LayoutTree {
             return float.NaN;
         }
 
-        if (styles[index].MinDimensions[(int) mainDimension].IsDefined) {
+        if (styles[index].MinDimensions[(int)mainDimension].IsDefined) {
             return float.NaN;
         }
 
@@ -642,7 +757,15 @@ public sealed partial class LayoutTree {
         // percentage basis; the sixth is the inline room this item's margin box will have, and at
         // this entry point the containing block's inline size is the nearest honest value for both.
         // They part company one box down — see `ProbeInlineSize`.
-        var floor = ComputeMinContentSize(index, mainAxis, direction, ownerWidth, ownerHeight, ownerWidth, currentDepth);
+        var floor = ComputeMinContentSize(
+            index,
+            mainAxis,
+            direction,
+            ownerWidth,
+            ownerHeight,
+            ownerWidth,
+            currentDepth
+        );
 
         // ⚠ <b>§4.5's CONTENT SIZE SUGGESTION is itself clamped through the ratio, and that is a
         // different clamp from the transferred size suggestion below.</b> The specification: "the
@@ -660,7 +783,12 @@ public sealed partial class LayoutTree {
         // measurement change alone — the two halves are one change and neither is worth landing by
         // itself.
         if (!float.IsNaN(floor) && !float.IsNaN(aspectRatio) && aspectRatio > 0f) {
-            var bounds = ResolveAspectBounds(index, direction, ownerWidth, isMainAxisRow ? ownerHeight : ownerMainAxisSize);
+            var bounds = ResolveAspectBounds(
+                index,
+                direction,
+                ownerWidth,
+                isMainAxisRow ? ownerHeight : ownerMainAxisSize
+            );
             var ratioMax = isMainAxisRow ? bounds.MaxWidth : bounds.MaxHeight;
             var ratioMin = isMainAxisRow ? bounds.MinWidth : bounds.MinHeight;
 
@@ -677,13 +805,17 @@ public sealed partial class LayoutTree {
             if (float.IsNaN(floor) || specified < floor) {
                 floor = specified;
             }
-        } else if (!float.IsNaN(transferred)) {
-            if (float.IsNaN(floor) || transferred < floor) {
-                floor = transferred;
-            }
+        } else if (!float.IsNaN(transferred) && (float.IsNaN(floor) || transferred < floor)) {
+            floor = transferred;
         }
 
-        var max = StyleResolution.ResolvedMaxDimension(in styles[index], mainDimension, ownerMainAxisSize, ownerWidth, direction);
+        var max = StyleResolution.ResolvedMaxDimension(
+            in styles[index],
+            mainDimension,
+            ownerMainAxisSize,
+            ownerWidth,
+            direction
+        );
         if (!float.IsNaN(max) && floor > max) {
             floor = max;
         }
@@ -711,8 +843,12 @@ public sealed partial class LayoutTree {
     /// <returns>The ceiling, or NaN.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A ceiling with a rule behind it rather than a workaround, and the difference is
-    ///         what this method exists to say.</b> §4.5's automatic minimum is an intrinsic minimum,
+    ///         ⚠
+    ///         <b>
+    ///             A ceiling with a rule behind it rather than a workaround, and the difference is
+    ///             what this method exists to say.
+    ///         </b>
+    ///         §4.5's automatic minimum is an intrinsic minimum,
     ///         and an intrinsic minimum that exceeds the size the contents were actually measured at
     ///         is a probe reporting more room than the contents ever asked for. That sentence is the
     ///         rule; every paragraph in the body is the evidence for what it is standing in front of
@@ -730,8 +866,12 @@ public sealed partial class LayoutTree {
     ///         wrote. <c>Rikarin/Vixen#265</c> is where that call was owed.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And it is taken as of 2026-09-09: the default stays <c>Flex</c>, so this term is
-    ///         permanent while it does.</b> Six audits left it open on the belief that a measurement
+    ///         ⚠
+    ///         <b>
+    ///             And it is taken as of 2026-09-09: the default stays <c>Flex</c>, so this term is
+    ///             permanent while it does.
+    ///         </b>
+    ///         Six audits left it open on the belief that a measurement
     ///         was outstanding, and none is — every probe defect this ceiling was written to hide is
     ///         closed, the layout project is green without it, Chrome has been measured, and the
     ///         flip has been costed at 36 red geometry and hit-testing assertions in
@@ -864,7 +1004,7 @@ public sealed partial class LayoutTree {
         }
 
         var ceiling = results[index].ComputedFlexBasis;
-        var offered = results[index].UnclampedMeasuredDimensions[(int) mainDimension];
+        var offered = results[index].UnclampedMeasuredDimensions[(int)mainDimension];
 
         return !float.IsNaN(offered) && (float.IsNaN(ceiling) || offered < ceiling) ? offered : ceiling;
     }
@@ -872,9 +1012,13 @@ public sealed partial class LayoutTree {
     /// <summary>What a child <i>adds</i> to its parent's min-content size.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A box's min-content <i>size</i> and its min-content <i>contribution</i> are two
-    ///         different numbers, and conflating them is what left the largest hole the Taffy corpus
-    ///         found.</b> CSS Sizing §5.2.2 defines the contribution as the box's <i>preferred</i>
+    ///         ⚠
+    ///         <b>
+    ///             A box's min-content <i>size</i> and its min-content <i>contribution</i> are two
+    ///             different numbers, and conflating them is what left the largest hole the Taffy corpus
+    ///             found.
+    ///         </b>
+    ///         CSS Sizing §5.2.2 defines the contribution as the box's <i>preferred</i>
     ///         size when that is definite, clamped by its own min and max — the contents are not
     ///         consulted at all. Only when the preferred size is <c>auto</c> does the intrinsic
     ///         min-content size answer.
@@ -987,7 +1131,15 @@ public sealed partial class LayoutTree {
             return entry.PreviousMinContentSizes[axis];
         }
 
-        var computed = ComputeMinContentSizeUncached(index, requestedAxis, ownerDirection, ownerWidth, ownerHeight, probeWidth, currentDepth);
+        var computed = ComputeMinContentSizeUncached(
+            index,
+            requestedAxis,
+            ownerDirection,
+            ownerWidth,
+            ownerHeight,
+            probeWidth,
+            currentDepth
+        );
 
         // The recursion above may have written this node's entries — a probe can reach a node twice
         // — so the keys are read again rather than trusted from before it.
@@ -1040,14 +1192,21 @@ public sealed partial class LayoutTree {
             return 0f;
         }
 
-        return MathF.Max(0f, width - StyleResolution.ContentInsetForAxis(in styles[index], FlexDirection.Row, direction, ownerWidth));
+        return MathF.Max(
+            0f,
+            width - StyleResolution.ContentInsetForAxis(in styles[index], FlexDirection.Row, direction, ownerWidth)
+        );
     }
 
     /// <summary>The inline size a text leaf under this box should be measured at.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Not <see cref="ProbeContentWidth" />, and the difference is the whole of
-    ///         <c>Rikarin/Vixen#623</c>.</b> That one answers "what are a descendant's percentages a
+    ///         ⚠
+    ///         <b>
+    ///             Not <see cref="ProbeContentWidth" />, and the difference is the whole of
+    ///             <c>Rikarin/Vixen#623</c>.
+    ///         </b>
+    ///         That one answers "what are a descendant's percentages a
     ///         fraction of", and its zero for an undeclared box is CSS Sizing §5.2.1 being obeyed.
     ///         This one answers "how much room will the text actually have", and zero is never the
     ///         answer to that: a box with no width of its own is as wide as what it is inside, less
@@ -1114,8 +1273,12 @@ public sealed partial class LayoutTree {
     /// <summary>CSS Sizing §5.1 over a probe's inline size: the room is clamped by the box's own bounds.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A box is never laid out at a width its own <c>min-width</c> forbids, so it must
-    ///         never be MEASURED at one either.</b> The block-axis intrinsic size is a function of the
+    ///         ⚠
+    ///         <b>
+    ///             A box is never laid out at a width its own <c>min-width</c> forbids, so it must
+    ///             never be MEASURED at one either.
+    ///         </b>
+    ///         The block-axis intrinsic size is a function of the
     ///         used inline size, and the used inline size is the offer clamped by the bounds — not the
     ///         offer. Sixteen Ahem characters with <c>min-width: 200px</c> in a 100-point column were
     ///         probed at 100, took two lines, and floored the item at 20 points where Chrome gives it
@@ -1130,12 +1293,24 @@ public sealed partial class LayoutTree {
     ///     </para>
     /// </remarks>
     float ClampProbeInlineSize(int index, Direction direction, float ownerWidth, float size, float inset) {
-        var max = StyleResolution.ResolvedMaxDimension(in styles[index], Dimension.Width, ownerWidth, ownerWidth, direction);
+        var max = StyleResolution.ResolvedMaxDimension(
+            in styles[index],
+            Dimension.Width,
+            ownerWidth,
+            ownerWidth,
+            direction
+        );
         if (!float.IsNaN(max)) {
             size = MathF.Min(size, MathF.Max(0f, max - inset));
         }
 
-        var min = StyleResolution.ResolvedMinDimension(in styles[index], Dimension.Width, ownerWidth, ownerWidth, direction);
+        var min = StyleResolution.ResolvedMinDimension(
+            in styles[index],
+            Dimension.Width,
+            ownerWidth,
+            ownerWidth,
+            direction
+        );
         if (!float.IsNaN(min)) {
             size = MathF.Max(size, MathF.Max(0f, min - inset));
         }
@@ -1154,7 +1329,10 @@ public sealed partial class LayoutTree {
             return 0f;
         }
 
-        return MathF.Max(0f, height - StyleResolution.ContentInsetForAxis(in styles[index], FlexDirection.Column, direction, ownerWidth));
+        return MathF.Max(
+            0f,
+            height - StyleResolution.ContentInsetForAxis(in styles[index], FlexDirection.Column, direction, ownerWidth)
+        );
     }
 
     float ComputeMinContentSizeUncached(
@@ -1214,7 +1392,12 @@ public sealed partial class LayoutTree {
             // and 10 tall came back 50 tall, five lines measured in a width of 0, and §4.5 then
             // floored the item at five lines. See `ProbeInlineSize` for where the two numbers
             // separate. `Rikarin/Vixen#623`.
-            var ownProbe = ProbeInlineSize(index, StyleResolution.ResolveDirection(in styles[index], ownerDirection), ownerWidth, probeWidth);
+            var ownProbe = ProbeInlineSize(
+                index,
+                StyleResolution.ResolveDirection(in styles[index], ownerDirection),
+                ownerWidth,
+                probeWidth
+            );
 
             var size = Measure(
                 index,
@@ -1299,9 +1482,25 @@ public sealed partial class LayoutTree {
 
             inFlowCount++;
 
-            var childMain = MinContentContribution(child, nodeMainAxis, direction, innerWidth, innerHeight, innerProbe, currentDepth)
+            var childMain = MinContentContribution(
+                    child,
+                    nodeMainAxis,
+                    direction,
+                    innerWidth,
+                    innerHeight,
+                    innerProbe,
+                    currentDepth
+                )
                 + StyleResolution.MarginForAxis(in styles[child], nodeMainAxis, innerWidth);
-            var childCross = MinContentContribution(child, nodeCrossAxis, direction, innerWidth, innerHeight, innerProbe, currentDepth)
+            var childCross = MinContentContribution(
+                    child,
+                    nodeCrossAxis,
+                    direction,
+                    innerWidth,
+                    innerHeight,
+                    innerProbe,
+                    currentDepth
+                )
                 + StyleResolution.MarginForAxis(in styles[child], nodeCrossAxis, innerWidth);
 
             mainTotal = wraps ? MathF.Max(mainTotal, childMain) : mainTotal + childMain;
@@ -1332,7 +1531,15 @@ public sealed partial class LayoutTree {
 
     LayoutSize Measure(int index, float width, MeasureMode widthMode, float height, MeasureMode heightMode) {
         var measure = MeasureFunctionOf(index)!;
-        var request = new MeasureRequest(this, new LayoutNodeId(index), ContextOf(index), width, widthMode, height, heightMode);
+        var request = new MeasureRequest(
+            this,
+            new(index),
+            ContextOf(index),
+            width,
+            widthMode,
+            height,
+            heightMode
+        );
         return measure(in request);
     }
 
@@ -1343,13 +1550,23 @@ public sealed partial class LayoutTree {
         var mainAxis = FlexAxis.Resolve(styles[index].FlexDirection, directionRespectingRoot);
         var crossAxis = FlexAxis.ResolveCross(mainAxis, directionRespectingRoot);
 
-        var relativeMain = RelativePosition(index, mainAxis, directionRespectingRoot, FlexAxis.IsRow(mainAxis) ? ownerWidth : ownerHeight);
-        var relativeCross = RelativePosition(index, crossAxis, directionRespectingRoot, FlexAxis.IsRow(mainAxis) ? ownerHeight : ownerWidth);
+        var relativeMain = RelativePosition(
+            index,
+            mainAxis,
+            directionRespectingRoot,
+            FlexAxis.IsRow(mainAxis) ? ownerWidth : ownerHeight
+        );
+        var relativeCross = RelativePosition(
+            index,
+            crossAxis,
+            directionRespectingRoot,
+            FlexAxis.IsRow(mainAxis) ? ownerHeight : ownerWidth
+        );
 
-        var mainStart = (int) FlexAxis.InlineStartEdge(mainAxis, direction);
-        var mainEnd = (int) FlexAxis.InlineEndEdge(mainAxis, direction);
-        var crossStart = (int) FlexAxis.InlineStartEdge(crossAxis, direction);
-        var crossEnd = (int) FlexAxis.InlineEndEdge(crossAxis, direction);
+        var mainStart = (int)FlexAxis.InlineStartEdge(mainAxis, direction);
+        var mainEnd = (int)FlexAxis.InlineEndEdge(mainAxis, direction);
+        var crossStart = (int)FlexAxis.InlineStartEdge(crossAxis, direction);
+        var crossEnd = (int)FlexAxis.InlineEndEdge(crossAxis, direction);
 
         results[index].Position[mainStart] =
             StyleResolution.InlineStartMargin(in styles[index], mainAxis, direction, ownerWidth) + relativeMain;
@@ -1386,15 +1603,17 @@ public sealed partial class LayoutTree {
 
     /// <summary>Derives the far edge's offset from the near edge's, now that both sizes are known.</summary>
     void SetChildTrailingPosition(int containing, int child, FlexDirection axis) {
-        var dimension = (int) FlexAxis.DimensionOf(axis);
-        var position = results[child].Position[(int) FlexAxis.FlexStartEdge(axis)];
-        results[child].Position[(int) FlexAxis.FlexEndEdge(axis)] =
+        var dimension = (int)FlexAxis.DimensionOf(axis);
+        var position = results[child].Position[(int)FlexAxis.FlexStartEdge(axis)];
+        results[child].Position[(int)FlexAxis.FlexEndEdge(axis)] =
             results[containing].MeasuredDimensions[dimension] - results[child].MeasuredDimensions[dimension] - position;
     }
 
     float PositionOfOppositeEdge(float position, FlexDirection axis, int containing, int child) {
-        var dimension = (int) FlexAxis.DimensionOf(axis);
-        return results[containing].MeasuredDimensions[dimension] - results[child].MeasuredDimensions[dimension] - position;
+        var dimension = (int)FlexAxis.DimensionOf(axis);
+        return results[containing].MeasuredDimensions[dimension]
+            - results[child].MeasuredDimensions[dimension]
+            - position;
     }
 
     /// <summary>Blanks a subtree that is not being laid out, so it reports nothing rather than stale.</summary>
@@ -1453,8 +1672,10 @@ public sealed partial class LayoutTree {
         var rounded = scale != 0f;
         var effectiveWidth = rounded ? RoundToPixelGrid(availableWidth, scale, false, false) : availableWidth;
         var effectiveHeight = rounded ? RoundToPixelGrid(availableHeight, scale, false, false) : availableHeight;
-        var effectiveLastWidth = rounded ? RoundToPixelGrid(entry.AvailableWidth, scale, false, false) : entry.AvailableWidth;
-        var effectiveLastHeight = rounded ? RoundToPixelGrid(entry.AvailableHeight, scale, false, false) : entry.AvailableHeight;
+        var effectiveLastWidth =
+            rounded ? RoundToPixelGrid(entry.AvailableWidth, scale, false, false) : entry.AvailableWidth;
+        var effectiveLastHeight =
+            rounded ? RoundToPixelGrid(entry.AvailableHeight, scale, false, false) : entry.AvailableHeight;
 
         var lastWidthMode = SizingModeOf(entry.WidthMeasureMode);
         var lastHeightMode = SizingModeOf(entry.HeightMeasureMode);
@@ -1481,38 +1702,78 @@ public sealed partial class LayoutTree {
         // the guard is here rather than in the corpus.
         var wasClamped =
             (!float.IsNaN(entry.UnclampedComputedWidth) && !Inexact(entry.UnclampedComputedWidth, entry.ComputedWidth))
-            || (!float.IsNaN(entry.UnclampedComputedHeight) && !Inexact(entry.UnclampedComputedHeight, entry.ComputedHeight));
+            || (!float.IsNaN(entry.UnclampedComputedHeight)
+                && !Inexact(entry.UnclampedComputedHeight, entry.ComputedHeight));
 
         var widthCompatible = sameWidthSpec
             || (!wasClamped
                 && (ExactAndMatchesOld(widthMode, availableWidth - marginRow, entry.ComputedWidth)
-                    || OldWasMaxContentAndStillFits(widthMode, availableWidth - marginRow, lastWidthMode, entry.ComputedWidth)
-                    || NewIsStricterAndStillValid(widthMode, availableWidth - marginRow, lastWidthMode, entry.AvailableWidth, entry.ComputedWidth)));
+                    || OldWasMaxContentAndStillFits(
+                        widthMode,
+                        availableWidth - marginRow,
+                        lastWidthMode,
+                        entry.ComputedWidth
+                    )
+                    || NewIsStricterAndStillValid(
+                        widthMode,
+                        availableWidth - marginRow,
+                        lastWidthMode,
+                        entry.AvailableWidth,
+                        entry.ComputedWidth
+                    )));
 
         var heightCompatible = sameHeightSpec
             || (!wasClamped
                 && (ExactAndMatchesOld(heightMode, availableHeight - marginColumn, entry.ComputedHeight)
-                    || OldWasMaxContentAndStillFits(heightMode, availableHeight - marginColumn, lastHeightMode, entry.ComputedHeight)
-                    || NewIsStricterAndStillValid(heightMode, availableHeight - marginColumn, lastHeightMode, entry.AvailableHeight, entry.ComputedHeight)));
+                    || OldWasMaxContentAndStillFits(
+                        heightMode,
+                        availableHeight - marginColumn,
+                        lastHeightMode,
+                        entry.ComputedHeight
+                    )
+                    || NewIsStricterAndStillValid(
+                        heightMode,
+                        availableHeight - marginColumn,
+                        lastHeightMode,
+                        entry.AvailableHeight,
+                        entry.ComputedHeight
+                    )));
 
         return widthCompatible && heightCompatible;
 
         static bool ExactAndMatchesOld(SizingMode mode, float size, float lastComputed) =>
             mode == SizingMode.StretchFit && Inexact(size, lastComputed);
 
-        static bool OldWasMaxContentAndStillFits(SizingMode mode, float size, SizingMode lastMode, float lastComputed) =>
-            mode == SizingMode.FitContent && lastMode == SizingMode.MaxContent
+        static bool OldWasMaxContentAndStillFits(
+            SizingMode mode,
+            float size,
+            SizingMode lastMode,
+            float lastComputed
+        ) =>
+            mode == SizingMode.FitContent
+            && lastMode == SizingMode.MaxContent
             && (size >= lastComputed || Inexact(size, lastComputed));
 
-        static bool NewIsStricterAndStillValid(SizingMode mode, float size, SizingMode lastMode, float lastSize, float lastComputed) =>
-            lastMode == SizingMode.FitContent && mode == SizingMode.FitContent
-            && !float.IsNaN(lastSize) && !float.IsNaN(size) && !float.IsNaN(lastComputed)
-            && lastSize > size && (lastComputed <= size || Inexact(size, lastComputed));
+        static bool NewIsStricterAndStillValid(
+            SizingMode mode,
+            float size,
+            SizingMode lastMode,
+            float lastSize,
+            float lastComputed
+        ) =>
+            lastMode == SizingMode.FitContent
+            && mode == SizingMode.FitContent
+            && !float.IsNaN(lastSize)
+            && !float.IsNaN(size)
+            && !float.IsNaN(lastComputed)
+            && lastSize > size
+            && (lastComputed <= size || Inexact(size, lastComputed));
 
-        static SizingMode SizingModeOf(MeasureMode mode) => mode switch {
-            MeasureMode.Exactly => SizingMode.StretchFit,
-            MeasureMode.Undefined => SizingMode.MaxContent,
-            _ => SizingMode.FitContent
-        };
+        static SizingMode SizingModeOf(MeasureMode mode) =>
+            mode switch {
+                MeasureMode.Exactly => SizingMode.StretchFit,
+                MeasureMode.Undefined => SizingMode.MaxContent,
+                _ => SizingMode.FitContent
+            };
     }
 }

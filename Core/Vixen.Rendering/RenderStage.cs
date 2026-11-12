@@ -219,8 +219,12 @@ public readonly record struct RenderStageMask(ulong Bits) {
     /// <param name="other">The stages to take out.</param>
     /// <returns>The remainder.</returns>
     /// <remarks>
-    ///     ⚠ <b>A subtraction rather than a complement, because a complement of a mask is every bit
-    ///     with no stage behind it as well.</b> <see cref="All" /> is deliberately every
+    ///     ⚠
+    ///     <b>
+    ///         A subtraction rather than a complement, because a complement of a mask is every bit
+    ///         with no stage behind it as well.
+    ///     </b>
+    ///     <see cref="All" /> is deliberately every
     ///     <em>representable</em> stage and not every declared one, so <c>All.Except(x)</c> is a set
     ///     holding 63 stages that do not exist — harmless where it is intersected against an object's
     ///     mask, and a surprise anywhere it is read as a list. Taking one set out of another never

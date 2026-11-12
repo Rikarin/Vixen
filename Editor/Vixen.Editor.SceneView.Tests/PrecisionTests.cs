@@ -109,7 +109,7 @@ public class PrecisionTests {
         var typed = entry.Typed!.Value;
 
         Assert.Equal(3, typed.Count);
-        Assert.True(Vector3.NearEqual(typed.Values, new Vector3(1f, 2f, 3f), 1e-4f));
+        Assert.True(Vector3.NearEqual(typed.Values, new(1f, 2f, 3f), 1e-4f));
 
         entry.Key(InputKey.Tab, ModifierKeys.Shift);
         Assert.Equal(1, entry.Component);
@@ -149,13 +149,13 @@ public class PrecisionTests {
         var gizmo = new TransformGizmo { Mode = GizmoMode.Translate };
 
         gizmo.Attach([target]);
-        gizmo.Begin(GizmoHandle.Screen, camera.PickingRay(new Vector2(500f, 400f), Width, Height), camera);
+        gizmo.Begin(GizmoHandle.Screen, camera.PickingRay(new(500f, 400f), Width, Height), camera);
 
         // `G X 5 ⏎` — the drag stops following the pointer and becomes exactly five metres along X.
-        gizmo.Typed = new TypedTransform(new Vector3(5f, 0f, 0f), 1, 0);
-        gizmo.Drag(camera.PickingRay(new Vector2(900f, 700f), Width, Height), camera);
+        gizmo.Typed = new TypedTransform(new(5f, 0f, 0f), 1, 0);
+        gizmo.Drag(camera.PickingRay(new(900f, 700f), Width, Height), camera);
 
-        Assert.True(Vector3.NearEqual(target.Position, new Vector3(5f, 0f, 0f), 1e-3f));
+        Assert.True(Vector3.NearEqual(target.Position, new(5f, 0f, 0f), 1e-3f));
     }
 
     [Fact]
@@ -165,15 +165,15 @@ public class PrecisionTests {
         var gizmo = new TransformGizmo { Mode = GizmoMode.Translate };
 
         gizmo.Attach([target]);
-        gizmo.Begin(GizmoHandle.AxisX, camera.PickingRay(new Vector2(500f, 400f), Width, Height), camera);
+        gizmo.Begin(GizmoHandle.AxisX, camera.PickingRay(new(500f, 400f), Width, Height), camera);
 
         // ⚠ Grabbed X, typed Z. Projecting "three along Z" onto the arm the user happened to be
         // holding would move the object nowhere and look like the typing was ignored — and pressing a
         // letter is a more specific statement than which arrow was grabbed.
-        gizmo.Typed = new TypedTransform(new Vector3(3f, 0f, 0f), 1, 2);
-        gizmo.Drag(camera.PickingRay(new Vector2(520f, 400f), Width, Height), camera);
+        gizmo.Typed = new TypedTransform(new(3f, 0f, 0f), 1, 2);
+        gizmo.Drag(camera.PickingRay(new(520f, 400f), Width, Height), camera);
 
-        Assert.True(Vector3.NearEqual(target.Position, new Vector3(0f, 0f, 3f), 1e-3f));
+        Assert.True(Vector3.NearEqual(target.Position, new(0f, 0f, 3f), 1e-3f));
     }
 
     [Fact]
@@ -186,30 +186,30 @@ public class PrecisionTests {
         gizmo.Snap.GridStep = 1f;
 
         gizmo.Attach([target]);
-        gizmo.Begin(GizmoHandle.Screen, camera.PickingRay(new Vector2(500f, 400f), Width, Height), camera);
+        gizmo.Begin(GizmoHandle.Screen, camera.PickingRay(new(500f, 400f), Width, Height), camera);
 
-        gizmo.SnapTo = new SnapHit(new Vector3(9f, 9f, 9f), null, SnapElements.Vertex);
-        gizmo.Typed = new TypedTransform(new Vector3(2.5f, 0f, 0f), 1, 0);
+        gizmo.SnapTo = new SnapHit(new(9f, 9f, 9f), null, SnapElements.Vertex);
+        gizmo.Typed = new TypedTransform(new(2.5f, 0f, 0f), 1, 0);
 
-        gizmo.Drag(camera.PickingRay(new Vector2(520f, 400f), Width, Height), camera);
+        gizmo.Drag(camera.PickingRay(new(520f, 400f), Width, Height), camera);
 
         // ⚠ Neither rounded to the grid nor pulled onto the corner. A number somebody typed is the
         // most specific thing anybody has said about where this lands.
-        Assert.True(Vector3.NearEqual(target.Position, new Vector3(2.5f, 0f, 0f), 1e-3f));
+        Assert.True(Vector3.NearEqual(target.Position, new(2.5f, 0f, 0f), 1e-3f));
     }
 
     [Fact]
     public void A_typed_rotation_is_in_degrees_and_a_typed_scale_is_a_factor() {
         var camera = Camera();
 
-        var turning = new StubTarget { Position = new Vector3(1f, 0f, 0f) };
+        var turning = new StubTarget { Position = new(1f, 0f, 0f) };
         var rotate = new TransformGizmo { Mode = GizmoMode.Rotate };
 
         rotate.Attach([turning]);
-        rotate.Begin(GizmoHandle.AxisY, camera.PickingRay(new Vector2(560f, 400f), Width, Height), camera);
+        rotate.Begin(GizmoHandle.AxisY, camera.PickingRay(new(560f, 400f), Width, Height), camera);
 
-        rotate.Typed = new TypedTransform(new Vector3(90f, 0f, 0f), 1, -1);
-        rotate.Drag(camera.PickingRay(new Vector2(570f, 400f), Width, Height), camera);
+        rotate.Typed = new TypedTransform(new(90f, 0f, 0f), 1, -1);
+        rotate.Drag(camera.PickingRay(new(570f, 400f), Width, Height), camera);
 
         Assert.Equal(GizmoMode.Rotate, rotate.Dragged.Kind);
         Assert.Equal(90f, rotate.Dragged.Scalar, 2);
@@ -222,12 +222,12 @@ public class PrecisionTests {
         // ⚠ Away from the middle of the pane. A scale is measured as a ratio of distances from the
         // gizmo's origin, so a grab exactly on it has no distance to be a ratio of and the drag
         // refuses — which is the arithmetic being honest rather than a bug.
-        scale.Begin(GizmoHandle.Uniform, camera.PickingRay(new Vector2(560f, 400f), Width, Height), camera);
+        scale.Begin(GizmoHandle.Uniform, camera.PickingRay(new(560f, 400f), Width, Height), camera);
 
-        scale.Typed = new TypedTransform(new Vector3(3f, 0f, 0f), 1, -1);
-        scale.Drag(camera.PickingRay(new Vector2(520f, 400f), Width, Height), camera);
+        scale.Typed = new TypedTransform(new(3f, 0f, 0f), 1, -1);
+        scale.Drag(camera.PickingRay(new(520f, 400f), Width, Height), camera);
 
-        Assert.True(Vector3.NearEqual(sized.Scale, new Vector3(3f), 1e-3f));
+        Assert.True(Vector3.NearEqual(sized.Scale, new(3f), 1e-3f));
     }
 
     [Fact]
@@ -237,10 +237,10 @@ public class PrecisionTests {
         var gizmo = new TransformGizmo { Mode = GizmoMode.Translate };
 
         gizmo.Attach([target]);
-        gizmo.Begin(GizmoHandle.Screen, camera.PickingRay(new Vector2(500f, 400f), Width, Height), camera);
+        gizmo.Begin(GizmoHandle.Screen, camera.PickingRay(new(500f, 400f), Width, Height), camera);
 
-        gizmo.Typed = new TypedTransform(new Vector3(2f, 0f, 0f), 1, 0);
-        gizmo.Drag(camera.PickingRay(new Vector2(520f, 400f), Width, Height), camera);
+        gizmo.Typed = new TypedTransform(new(2f, 0f, 0f), 1, 0);
+        gizmo.Drag(camera.PickingRay(new(520f, 400f), Width, Height), camera);
 
         // Doc 24: "the extent in metres, on screen, while resizing. Both reference editors make you
         // read a details panel."
@@ -265,14 +265,14 @@ public class PrecisionTests {
 
         var grab = pane.Screen(Vector3.Zero);
 
-        pane.Press(Vixen.Ui.PointerButton.Primary, grab);
+        pane.Press(PointerButton.Primary, grab);
         Assert.True(pane.Viewport.Gizmo.IsDragging);
 
         Assert.True(pane.Key(InputKey.Number2, KeyAction.Pressed));
         Assert.True(pane.Key(InputKey.X, KeyAction.Pressed));
 
         Assert.True(pane.Viewport.Typing.IsActive);
-        Assert.True(Vector3.NearEqual(target.Position, new Vector3(2f, 0f, 0f), 1e-3f));
+        Assert.True(Vector3.NearEqual(target.Position, new(2f, 0f, 0f), 1e-3f));
 
         // Escape abandons the typing with the drag it belonged to; a half-typed number left behind is
         // one the next drag inherits.
@@ -292,7 +292,7 @@ public class PrecisionTests {
         Assert.Null(measure.Describe());
 
         measure.Add(Vector3.Zero);
-        measure.Add(new Vector3(3f, 4f, 0f));
+        measure.Add(new(3f, 4f, 0f));
 
         Assert.True(measure.HasMeasurement);
         Assert.Equal(5f, measure.Distance, 4);
@@ -313,12 +313,12 @@ public class PrecisionTests {
         measure.Add(Vector3.Zero);
         measure.Add(Vector3.UnitX);
         measure.Add(Vector3.UnitY);
-        measure.Add(new Vector3(7f, 0f, 0f));
+        measure.Add(new(7f, 0f, 0f));
 
         // The gesture after reading a measurement is measuring the next thing, and a tool that had to
         // be cleared first is one people clear by turning it off and on again.
         Assert.Single(measure.Points);
-        Assert.Equal(new Vector3(7f, 0f, 0f), measure.Points[0]);
+        Assert.Equal(new(7f, 0f, 0f), measure.Points[0]);
     }
 
     [Fact]
@@ -331,7 +331,7 @@ public class PrecisionTests {
 
         pane.Viewport.Measure.IsActive = true;
 
-        pane.Press(Vixen.Ui.PointerButton.Primary, pane.Screen(Vector3.Zero));
+        pane.Press(PointerButton.Primary, pane.Screen(Vector3.Zero));
 
         // ⚠ A click that also selected would hand the inspector away every time somebody measured a
         // wall, and one that also grabbed a handle would move the thing being measured.
@@ -366,7 +366,7 @@ public class PrecisionTests {
         Assert.True(set.IsEmpty);
 
         set.Add(ReferenceVolumes.Person, Vector3.Zero);
-        set.Add(ReferenceVolumes.Door, new Vector3(4f, 0f, 0f));
+        set.Add(ReferenceVolumes.Door, new(4f, 0f, 0f));
 
         Assert.Equal(2, set.Placed.Count);
         Assert.True(set.RemoveLast());

@@ -135,8 +135,11 @@ public sealed class HitClaimValidator {
 
     /// <summary>How much a claim's rewind costs, or null for unlimited.</summary>
     /// <remarks>
-    ///     <b>Doc 16's owed "cost budget for rewinds", and doc 28 § Shooting says this library is the
-    ///     reason to close it.</b> A rewound claim costs a physics scene rolled back and re-traced;
+    ///     <b>
+    ///         Doc 16's owed "cost budget for rewinds", and doc 28 § Shooting says this library is the
+    ///         reason to close it.
+    ///     </b>
+    ///     A rewound claim costs a physics scene rolled back and re-traced;
     ///     an ordinary RPC costs a dictionary lookup. A rate limiter that counts them the same lets a
     ///     client spend a server's frame budget with a packet flood that is, per packet, entirely
     ///     within its rate.
@@ -206,7 +209,7 @@ public sealed class HitClaimValidator {
         // The cone the shot's own seed produced, recomputed rather than believed. A tenth of a degree
         // of slack, because the client computed it in single precision on another machine.
         var deviation = WeaponTemplate.Deviate(claim.Shot, claim.Pellet, record.Spread);
-        var possible = MathF.Sqrt((deviation.Pitch * deviation.Pitch) + (deviation.Yaw * deviation.Yaw));
+        var possible = MathF.Sqrt(deviation.Pitch * deviation.Pitch + deviation.Yaw * deviation.Yaw);
 
         if (claim.Deviation > possible + 0.1f) {
             return new(ClaimRejection.OutsideCone, 0f, rewind);

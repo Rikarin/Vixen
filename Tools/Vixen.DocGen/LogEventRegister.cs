@@ -42,10 +42,12 @@ sealed record LogEventRange(int First, int Last, IReadOnlyList<string> Owners, b
     public bool Contains(int id) => id >= First && id <= Last;
 
     /// <summary>Whether a call site in this project is allowed to draw from the range.</summary>
-    public bool Owns(LogEventSite site) => Owners.Any(owner => owner.Contains('/', StringComparison.Ordinal)
-        ? string.Equals(owner.TrimEnd('/'), site.Area, StringComparison.Ordinal)
-        : site.Project.StartsWith(owner, StringComparison.Ordinal)
-        && (site.Project.Length == owner.Length || site.Project[owner.Length] == '.'));
+    public bool Owns(LogEventSite site) =>
+        Owners.Any(owner => owner.Contains('/', StringComparison.Ordinal)
+                ? string.Equals(owner.TrimEnd('/'), site.Area, StringComparison.Ordinal)
+                : site.Project.StartsWith(owner, StringComparison.Ordinal)
+                && (site.Project.Length == owner.Length || site.Project[owner.Length] == '.')
+        );
 
     public string Describe() => $"{First}–{Last} ({string.Join(", ", Owners)})";
 }
@@ -72,8 +74,10 @@ sealed record LogEventRange(int First, int Last, IReadOnlyList<string> Owners, b
 /// </remarks>
 static partial class LogEventRegister {
     /// <summary>A row of the range table: two numbers, a subsystem cell and a status.</summary>
-    [GeneratedRegex(@"^\|\s*([\d\s ]+?)\s*[–-]\s*([\d\s ]+?)\s*\|(.+?)\|\s*\**(.+?)\**\s*\|\s*$",
-        RegexOptions.Multiline)]
+    [GeneratedRegex(
+        @"^\|\s*([\d\s ]+?)\s*[–-]\s*([\d\s ]+?)\s*\|(.+?)\|\s*\**(.+?)\**\s*\|\s*$",
+        RegexOptions.Multiline
+    )]
     private static partial Regex RangeRow();
 
     [GeneratedRegex("`([^`]+)`")]
@@ -118,24 +122,27 @@ static partial class LogEventRegister {
                 }
 
                 var arguments = attribute.ArgumentList?.Arguments ?? default;
-                var positional = arguments.Where(argument => argument.NameEquals is null).ToList();
+                var positional = arguments.Where(static argument => argument.NameEquals is null).ToList();
 
                 if (Integer(Argument(arguments, "EventId") ?? Expression(positional, 0)) is not { } id) {
                     continue;
                 }
 
-                sites.Add(new LogEventSite(
-                    id,
-                    Member(Argument(arguments, "Level") ?? Expression(positional, 1)),
-                    Text(Argument(arguments, "Message") ?? Expression(positional, 2)),
-                    project,
-                    area,
-                    relative,
-                    attribute.GetLocation().GetLineSpan().StartLinePosition.Line + 1));
+                sites.Add(
+                    new(
+                        id,
+                        Member(Argument(arguments, "Level") ?? Expression(positional, 1)),
+                        Text(Argument(arguments, "Message") ?? Expression(positional, 2)),
+                        project,
+                        area,
+                        relative,
+                        attribute.GetLocation().GetLineSpan().StartLinePosition.Line + 1
+                    )
+                );
             }
         }
 
-        return [.. sites.OrderBy(site => site.Id).ThenBy(site => site.Where, StringComparer.Ordinal)];
+        return [..sites.OrderBy(static site => site.Id).ThenBy(static site => site.Where, StringComparer.Ordinal)];
     }
 
     // ⚠ What git calls the tree, not what the disk holds (#1424). `.claude` holds git worktrees, and
@@ -166,28 +173,33 @@ static partial class LogEventRegister {
 
     static ExpressionSyntax? Argument(SeparatedSyntaxList<AttributeArgumentSyntax> arguments, string name) =>
         arguments.FirstOrDefault(argument =>
-            string.Equals(argument.NameEquals?.Name.Identifier.ValueText, name, StringComparison.Ordinal))?.Expression;
+                string.Equals(argument.NameEquals?.Name.Identifier.ValueText, name, StringComparison.Ordinal)
+            )
+            ?.Expression;
 
     static ExpressionSyntax? Expression(IReadOnlyList<AttributeArgumentSyntax> positional, int index) =>
         index < positional.Count ? positional[index].Expression : null;
 
-    static int? Integer(ExpressionSyntax? expression) => expression is LiteralExpressionSyntax literal
+    static int? Integer(ExpressionSyntax? expression) =>
+        expression is LiteralExpressionSyntax literal
         && literal.Token.Value is int value
             ? value
             : null;
 
     /// <summary><c>LogLevel.Warning</c> → <c>Warning</c>.</summary>
-    static string Member(ExpressionSyntax? expression) => expression is MemberAccessExpressionSyntax access
-        ? access.Name.Identifier.ValueText
-        : string.Empty;
+    static string Member(ExpressionSyntax? expression) =>
+        expression is MemberAccessExpressionSyntax access
+            ? access.Name.Identifier.ValueText
+            : string.Empty;
 
     /// <summary>A string literal, or the literals of a `"a" + "b"` template.</summary>
-    static string Text(ExpressionSyntax? expression) => expression switch {
-        LiteralExpressionSyntax { Token.Value: string value } => value,
-        BinaryExpressionSyntax binary when binary.IsKind(SyntaxKind.AddExpression) =>
-            Text(binary.Left) + Text(binary.Right),
-        _ => string.Empty
-    };
+    static string Text(ExpressionSyntax? expression) =>
+        expression switch {
+            LiteralExpressionSyntax { Token.Value: string value } => value,
+            BinaryExpressionSyntax binary when binary.IsKind(SyntaxKind.AddExpression) =>
+                Text(binary.Left) + Text(binary.Right),
+            _ => string.Empty
+        };
 
     // ── The register half ───────────────────────────────────────────────────────────────────────
 
@@ -206,25 +218,30 @@ static partial class LogEventRegister {
                 continue;
             }
 
-            var owners = Backticked().Matches(row.Groups[3].Value)
-                .Select(match => match.Groups[1].Value.Trim())
-                .Select(owner => owner.EndsWith(".*", StringComparison.Ordinal)
-                    ? owner[..^2]
-                    : owner.EndsWith("/*", StringComparison.Ordinal)
-                        ? owner[..^1]
-                        : owner)
-                .Where(owner => owner.Length > 0)
+            var owners = Backticked()
+                .Matches(row.Groups[3].Value)
+                .Select(static match => match.Groups[1].Value.Trim())
+                .Select(static owner => owner.EndsWith(".*", StringComparison.Ordinal)
+                        ? owner[..^2]
+                        : owner.EndsWith("/*", StringComparison.Ordinal)
+                            ? owner[..^1]
+                            : owner
+                )
+                .Where(static owner => owner.Length > 0)
                 .ToList();
 
             if (owners.Count == 0) {
                 continue;
             }
 
-            ranges.Add(new LogEventRange(
-                first,
-                last,
-                owners,
-                row.Groups[4].Value.Trim().StartsWith("in use", StringComparison.OrdinalIgnoreCase)));
+            ranges.Add(
+                new(
+                    first,
+                    last,
+                    owners,
+                    row.Groups[4].Value.Trim().StartsWith("in use", StringComparison.OrdinalIgnoreCase)
+                )
+            );
         }
 
         return ranges;
@@ -232,7 +249,7 @@ static partial class LogEventRegister {
 
     /// <summary>`13 000` — the table writes its numbers with a thousands space.</summary>
     static int? Number(string cell) {
-        var digits = new string([.. cell.Where(char.IsAsciiDigit)]);
+        var digits = new string([..cell.Where(char.IsAsciiDigit)]);
 
         return digits.Length > 0 && int.TryParse(digits, out var value) ? value : null;
     }
@@ -267,47 +284,56 @@ static partial class LogEventRegister {
     ) {
         var problems = new List<string>();
         var registered = rows
-            .Where(row => row.Kind == DocKind.LogEvent)
-            .ToDictionary(row => row.Name, StringComparer.Ordinal);
+            .Where(static row => row.Kind == DocKind.LogEvent)
+            .ToDictionary(static row => row.Name, StringComparer.Ordinal);
 
         // 1 ── The collision itself. Everything else on this list is a way of drifting; this is the
         //      one that cannot be repaired after a release, because the register's first rule is that
         //      an id never changes meaning.
         foreach (var group in sites
-            .GroupBy(site => site.Id)
-            .Where(group => group.Count() > 1)
-            .OrderBy(group => group.Key)) {
-            problems.Add($"log event {group.Key} is claimed by {group.Count()} call sites — "
-                + string.Join(", ", group.Select(site => site.Where))
-                + ". An id names one call site or it names nothing; pick the next free one in the range");
+                     .GroupBy(static site => site.Id)
+                     .Where(static group => group.Count() > 1)
+                     .OrderBy(static group => group.Key)) {
+            problems.Add(
+                $"log event {group.Key} is claimed by {group.Count()} call sites — "
+                + string.Join(", ", group.Select(static site => site.Where))
+                + ". An id names one call site or it names nothing; pick the next free one in the range"
+            );
         }
 
         // 2 ── An id in the code with no row. The register is what Vixen.DocGen reads and what a
         //      support log is decoded against, so an unregistered id is invisible to both.
-        foreach (var site in sites.Where(site => !registered.ContainsKey(site.Id.ToString())).DistinctBy(site => site.Id)) {
-            problems.Add($"{site.Where}: log event {site.Id} has no row in docs/manual/log-events.md — "
+        foreach (var site in sites.Where(site => !registered.ContainsKey(site.Id.ToString()))
+                     .DistinctBy(static site => site.Id)) {
+            problems.Add(
+                $"{site.Where}: log event {site.Id} has no row in docs/manual/log-events.md — "
                 + $"add `| {site.Id} | {(site.Level.Length > 0 ? site.Level : "…")} | "
-                + $"{Truncate(site.Message)} | 0.1.0 |` in this commit");
+                + $"{Truncate(site.Message)} | 0.1.0 |` in this commit"
+            );
         }
 
         // 3 ── A row with no call site, which is the other direction the register drifts in. A row for
         //      a deleted event is not the same problem: the rules keep it so an old log still decodes,
         //      and the Since cell is where it says so.
-        var byId = sites.ToLookup(site => site.Id.ToString(), StringComparer.Ordinal);
+        var byId = sites.ToLookup(static site => site.Id.ToString(), StringComparer.Ordinal);
 
-        foreach (var row in registered.Values.OrderBy(row => row.Name, StringComparer.Ordinal)) {
+        foreach (var row in registered.Values.OrderBy(static row => row.Name, StringComparer.Ordinal)) {
             var retired = IsRetired(row);
             var live = byId[row.Name].Any();
 
             if (!retired && !live) {
-                problems.Add($"docs/manual/log-events.md: log event {row.Name} has a row and no "
+                problems.Add(
+                    $"docs/manual/log-events.md: log event {row.Name} has a row and no "
                     + "[LoggerMessage] anywhere — if the line was deleted the id stays, so say so in "
-                    + "the Since cell (`0.1.0, retired in 0.2.0`) rather than deleting the row");
+                    + "the Since cell (`0.1.0, retired in 0.2.0`) rather than deleting the row"
+                );
             }
 
             if (retired && live) {
-                problems.Add($"docs/manual/log-events.md: log event {row.Name} is marked retired and is "
-                    + $"logged at {byId[row.Name].First().Where} — a retired id is never reused");
+                problems.Add(
+                    $"docs/manual/log-events.md: log event {row.Name} is marked retired and is "
+                    + $"logged at {byId[row.Name].First().Where} — a retired id is never reused"
+                );
             }
         }
 
@@ -315,7 +341,7 @@ static partial class LogEventRegister {
         //      page claiming an id it does not own silences that id's coverage failure — and its own
         //      ids are then covered by nothing.
         var logClaims = claims
-            .Where(claim => claim.Id.StartsWith("L:", StringComparison.Ordinal))
+            .Where(static claim => claim.Id.StartsWith("L:", StringComparison.Ordinal))
             .ToList();
 
         foreach (var claim in logClaims.Where(claim => !registered.ContainsKey(claim.Id[2..]))) {
@@ -323,13 +349,22 @@ static partial class LogEventRegister {
         }
 
         foreach (var group in logClaims
-            .GroupBy(claim => claim.Id, StringComparer.Ordinal)
-            .Where(group => group.DistinctBy(claim => claim.Page, StringComparer.Ordinal).Count() > 1)
-            .OrderBy(group => group.Key, StringComparer.Ordinal)) {
-            problems.Add($"`api: {group.Key}` is claimed by "
-                + string.Join(" and ", group.Select(claim => claim.Page).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal))
+                     .GroupBy(static claim => claim.Id, StringComparer.Ordinal)
+                     .Where(static group => group.DistinctBy(static claim => claim.Page, StringComparer.Ordinal).Count()
+                         > 1
+                     )
+                     .OrderBy(static group => group.Key, StringComparer.Ordinal)) {
+            problems.Add(
+                $"`api: {group.Key}` is claimed by "
+                + string.Join(
+                    " and ",
+                    group.Select(static claim => claim.Page)
+                        .Distinct(StringComparer.Ordinal)
+                        .Order(StringComparer.Ordinal)
+                )
                 + " — one of them is documenting an event it does not own, and the id it should be "
-                + "claiming instead is covered by nothing");
+                + "claiming instead is covered by nothing"
+            );
         }
 
         // 5 ── The range table. An id logged from the wrong assembly still decodes, and still tells a
@@ -344,8 +379,12 @@ static partial class LogEventRegister {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>This is the half that caught the capturing-a-frame defect, and the only half that
-    ///         would have.</b> When that page's <c>api:</c> list claimed 13026 and 13027 — the ids the
+    ///         ⚠
+    ///         <b>
+    ///             This is the half that caught the capturing-a-frame defect, and the only half that
+    ///             would have.
+    ///         </b>
+    ///         When that page's <c>api:</c> list claimed 13026 and 13027 — the ids the
     ///         capture feature had before the collision was renumbered — nothing about the claim itself
     ///         was wrong: both ids existed, and only one page claimed each. What said so was 13028 and
     ///         13029 being covered by nothing, which is this rule.
@@ -362,17 +401,18 @@ static partial class LogEventRegister {
         IReadOnlyList<(string Id, string Page)> claims,
         IReadOnlyList<Exemption> exemptions
     ) {
-        var covered = claims.Select(claim => claim.Id).ToHashSet(StringComparer.Ordinal);
-        var excused = exemptions.Select(entry => entry.Id).ToHashSet(StringComparer.Ordinal);
+        var covered = claims.Select(static claim => claim.Id).ToHashSet(StringComparer.Ordinal);
+        var excused = exemptions.Select(static entry => entry.Id).ToHashSet(StringComparer.Ordinal);
 
         return [
-            .. rows
-                .Where(row => row.Kind == DocKind.LogEvent)
+            ..rows
+                .Where(static row => row.Kind == DocKind.LogEvent)
                 .Where(row => !covered.Contains(row.Id) && !excused.Contains(row.Id))
-                .OrderBy(row => row.Name, StringComparer.Ordinal)
-                .Select(row => $"{row.Id} is written about by no guide page and has no line in "
+                .OrderBy(static row => row.Name, StringComparer.Ordinal)
+                .Select(static row => $"{row.Id} is written about by no guide page and has no line in "
                     + $"{Coverage.RelativePath} — an id nobody documented is the shape a renumbering "
-                    + "leaves behind when a page keeps claiming the ids the feature used to have")
+                    + "leaves behind when a page keeps claiming the ids the feature used to have"
+                )
         ];
     }
 
@@ -384,7 +424,7 @@ static partial class LogEventRegister {
             yield break;
         }
 
-        foreach (var site in sites.DistinctBy(site => site.Id)) {
+        foreach (var site in sites.DistinctBy(static site => site.Id)) {
             var range = ranges.FirstOrDefault(range => range.Contains(site.Id));
 
             if (range is null) {
@@ -419,6 +459,5 @@ static partial class LogEventRegister {
         }
     }
 
-    static string Truncate(string message) =>
-        message.Length <= 60 ? message : message[..57].TrimEnd() + "…";
+    static string Truncate(string message) => message.Length <= 60 ? message : message[..57].TrimEnd() + "…";
 }

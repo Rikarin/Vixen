@@ -51,7 +51,7 @@ sealed class TranslationReader {
 
         property = properties.Intern("translate");
         none = values.Intern("none");
-        parser = new StyleValueParser(values, keywords);
+        parser = new(values, keywords);
     }
 
     /// <summary>How far an element's style moves it, in points.</summary>
@@ -84,8 +84,12 @@ sealed class TranslationReader {
     ///         <see cref="ComputedStyle.TryGet" /> that fails is the whole cost for them.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The element rather than its width and height, so that the two layout-tree reads
-    ///         happen after that miss and not before it.</b> Passing them as arguments is the tidier
+    ///         ⚠
+    ///         <b>
+    ///             The element rather than its width and height, so that the two layout-tree reads
+    ///             happen after that miss and not before it.
+    ///         </b>
+    ///         Passing them as arguments is the tidier
     ///         signature and evaluates both on every element in the document whether or not anything
     ///         is going to look at them — the accumulation pass is not a place to spend a lookup per
     ///         element on a property almost nothing sets.
@@ -121,9 +125,13 @@ sealed class TranslationReader {
 
     /// <summary>One component, in points.</summary>
     /// <remarks>
-    ///     ⚠ <b>Through <see cref="LengthContext.ToLength" /> rather than by reading
-    ///     <see cref="StyleValue.Number" />, so that a component this engine has no reading of comes
-    ///     back undefined and is dropped.</b> <c>translate: 8px 2fr</c> then moves along x and not
+    ///     ⚠
+    ///     <b>
+    ///         Through <see cref="LengthContext.ToLength" /> rather than by reading
+    ///         <see cref="StyleValue.Number" />, so that a component this engine has no reading of comes
+    ///         back undefined and is dropped.
+    ///     </b>
+    ///     <c>translate: 8px 2fr</c> then moves along x and not
     ///     along y, where taking the number would have moved it two points — a value invented out of a
     ///     unit nobody wrote.
     /// </remarks>

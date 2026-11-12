@@ -7,7 +7,6 @@ using Vixen.Core.Mathematics;
 using Vixen.Ui;
 using Vixen.Ui.Renderer;
 using Vixen.Ui.Rendering;
-using Vixen.Ui.Text;
 using Vixen.Ui.Text.Rasterizing;
 using Xunit;
 
@@ -25,8 +24,12 @@ namespace Vixen.Graphics.Golden.Tests;
 ///         place that can be true.
 ///     </para>
 ///     <para>
-///         ⚠ <b>What the issue asked to be checked first is the instrument, and this is that
-///         check.</b> "A test that asserts the toggle changed the picture must be able to tell a
+///         ⚠
+///         <b>
+///             What the issue asked to be checked first is the instrument, and this is that
+///             check.
+///         </b>
+///         "A test that asserts the toggle changed the picture must be able to tell a
 ///         swizzled draw from an unswizzled one. Comparing draw-command counts cannot." So no
 ///         assertion here counts anything: every one reads a texel out of the rendered picture and
 ///         compares it with a number worked out on paper from the texel that went in. The counts
@@ -57,8 +60,12 @@ public sealed class UiImageViewTests {
 
     /// <summary>The alpha of every texel: a partial coverage, so an isolate of it is not 0 or 255.</summary>
     /// <remarks>
-    ///     ⚠ <b>64 and not 255, and that is the whole of what makes the alpha isolate an
-    ///     assertion.</b> A fully opaque texture makes "show the alpha as a grey" and "draw nothing
+    ///     ⚠
+    ///     <b>
+    ///         64 and not 255, and that is the whole of what makes the alpha isolate an
+    ///         assertion.
+    ///     </b>
+    ///     A fully opaque texture makes "show the alpha as a grey" and "draw nothing
     ///     at all differently" the same white rectangle, so a fixture that used 255 would pass
     ///     against a shader that ignored the channel entirely.
     /// </remarks>
@@ -89,8 +96,12 @@ public sealed class UiImageViewTests {
     ///         <see cref="UiImageView" />'s remark makes and the only way to prove it.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The green and blue channels differ from the red, so an isolate that read the
-    ///         wrong component is a wrong number rather than the right one.</b> A fixture whose texel
+    ///         ⚠
+    ///         <b>
+    ///             The green and blue channels differ from the red, so an isolate that read the
+    ///             wrong component is a wrong number rather than the right one.
+    ///         </b>
+    ///         A fixture whose texel
     ///         was grey could not tell <c>Red</c> from <c>Green</c> from a shader that ignored
     ///         <c>shape.y</c> and showed the colour.
     ///     </para>
@@ -106,7 +117,7 @@ public sealed class UiImageViewTests {
 
         var sampled = owned.Sampled("ui view", 1, Texel);
 
-        var cache = new GlyphFieldCache(new GlyphAtlas(64, 64));
+        var cache = new GlyphFieldCache(new(64, 64));
         var geometry = new UiGeometryBuilder().Build(Frame(), cache, Viewport);
 
         var renderer = new UiRenderer(
@@ -116,20 +127,21 @@ public sealed class UiImageViewTests {
                 owned.Shader("ui-box.frag.spv", ShaderStage.Fragment),
                 owned.Shader("ui-text.frag.spv", ShaderStage.Fragment),
                 owned.Shader("ui-solid.frag.spv", ShaderStage.Fragment)
-            ) {
-                Image = owned.Shader("ui-image.frag.spv", ShaderStage.Fragment)
-            },
+            ) { Image = owned.Shader("ui-image.frag.spv", ShaderStage.Fragment) },
             new Rendering.RenderOutput([PixelFormat.Rgba8UNorm])
         );
 
         owned.Owns(renderer.Dispose);
         renderer.RegisterImage(Texture, sampled.View);
 
-        owned.Graph.AddPass("ui", pass => {
-            pass.ColourAttachment(colour, LoadAction.Clear, new(0f, 0f, 0f, 1f));
-            pass.SideEffect();
-            pass.Execute(graph => renderer.Record(graph.CommandList, geometry, new(Side, Side)));
-        });
+        owned.Graph.AddPass(
+            "ui",
+            pass => {
+                pass.ColourAttachment(colour, LoadAction.Clear, new(0f, 0f, 0f, 1f));
+                pass.SideEffect();
+                pass.Execute(graph => renderer.Record(graph.CommandList, geometry, new(Side, Side)));
+            }
+        );
 
         var image = owned.Render(
             colour,
@@ -196,8 +208,12 @@ public sealed class UiImageViewTests {
     /// <summary>The row of quads: one texture, five views, left to right.</summary>
     /// <returns>A finished draw list.</returns>
     /// <remarks>
-    ///     ⚠ <b>Internal because a second suite draws it, and that is what
-    ///     <a href="https://github.com/Rikarin/Vixen/issues/1016">#1016</a> was about.</b> This file
+    ///     ⚠
+    ///     <b>
+    ///         Internal because a second suite draws it, and that is what
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/1016">#1016</a> was about.
+    ///     </b>
+    ///     This file
     ///     renders it through the hand-written GLSL copy and reads texels against numbers worked out
     ///     on paper; <c>UiRavenAgreementTests</c> renders the same list through <em>both</em> tables
     ///     and compares the pictures with each other, which is what puts the two new branches through
@@ -210,9 +226,8 @@ public sealed class UiImageViewTests {
 
         foreach (var (index, view) in Views()) {
             list.Add(
-                new DrawCommand(DrawCommandKind.Image, Left(index), Top, Width, Height, Color4.White, 0, 0) {
-                    Image = Texture,
-                    View = view
+                new(DrawCommandKind.Image, Left(index), Top, Width, Height, Color4.White, 0, 0) {
+                    Image = Texture, View = view
                 }
             );
         }
@@ -255,7 +270,7 @@ public sealed class UiImageViewTests {
     const int Top = 20;
 
     /// <summary>The left edge of the quad at an index.</summary>
-    static int Left(int index) => 4 + (index * (Width + 4));
+    static int Left(int index) => 4 + index * (Width + 4);
 
     /// <summary>The three colour bytes at the middle of the quad at an index.</summary>
     /// <remarks>
@@ -264,7 +279,7 @@ public sealed class UiImageViewTests {
     ///     range below have to be widened until it stopped being an assertion.
     /// </remarks>
     static void Sample(in Bitmap image, int index, out int red, out int green, out int blue) {
-        var at = image.Offset(Left(index) + (Width / 2), Top + (Height / 2));
+        var at = image.Offset(Left(index) + Width / 2, Top + Height / 2);
 
         red = image.Pixels[at];
         green = image.Pixels[at + 1];

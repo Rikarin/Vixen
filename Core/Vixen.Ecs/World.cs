@@ -310,7 +310,7 @@ public sealed class World : IDisposable {
     public bool CanRecreate(Entity entity) =>
         entity.WorldId == Id
         && entity.Id > 0
-        && (uint) entity.Id < (uint) nextId
+        && (uint)entity.Id < (uint)nextId
         && infos[entity.Id].Archetype is null
 
         // ⚠ Exactly one, and this is the whole of the safety argument. See `TryRecreate`.
@@ -329,8 +329,12 @@ public sealed class World : IDisposable {
     ///         would be quietly addressing nothing.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Only when the slot is exactly as <see cref="Destroy" /> left it, and the "exactly"
-    ///         is what keeps the version counter's promise.</b> Destroying bumps the version so every
+    ///         ⚠
+    ///         <b>
+    ///             Only when the slot is exactly as <see cref="Destroy" /> left it, and the "exactly"
+    ///             is what keeps the version counter's promise.
+    ///         </b>
+    ///         Destroying bumps the version so every
     ///         outstanding handle goes stale; this puts it back, which is sound <i>only</i> because
     ///         the version it is put back to was the last one issued and the one it is taken from has
     ///         never been issued at all. Rewinding further would be the bug: if the slot had since
@@ -665,8 +669,12 @@ public sealed class World : IDisposable {
     /// <exception cref="EntityNotFoundException">The handle is stale, or from another world.</exception>
     /// <exception cref="ComponentNotFoundException">The entity has no such component.</exception>
     /// <remarks>
-    ///     ⚠ <b>"Does not mark anything as changed" used to be true of the change filter and false of
-    ///     everything else</b>, on a <em>managed</em> component:
+    ///     ⚠
+    ///     <b>
+    ///         "Does not mark anything as changed" used to be true of the change filter and false of
+    ///         everything else
+    ///     </b>
+    ///     , on a <em>managed</em> component:
     ///     <see cref="Reference{T}" /> allocates the row's store slot when the handle is still zero,
     ///     which writes the chunk row, may create the world's store for that type and may resize the
     ///     world's table of stores — three mutations on a path reached through a read, and the reason
@@ -749,8 +757,12 @@ public sealed class World : IDisposable {
     /// <exception cref="EntityNotFoundException">The handle is stale, or from another world.</exception>
     /// <exception cref="InvalidOperationException">The entity already has one.</exception>
     /// <remarks>
-    ///     ⚠ <b>Zeroed even for a component that declares an <see cref="IDefaultComponent{TSelf}" />,
-    ///     which is deliberate.</b> "The ECS hands back zeroed storage" is a contract the storage layer
+    ///     ⚠
+    ///     <b>
+    ///         Zeroed even for a component that declares an <see cref="IDefaultComponent{TSelf}" />,
+    ///         which is deliberate.
+    ///     </b>
+    ///     "The ECS hands back zeroed storage" is a contract the storage layer
     ///     keeps everywhere — a chunk row is a memset — and honouring a declared default here would
     ///     mean this unconstrained call had to ask, per type, on a structural change, on behalf of the
     ///     components that never opted in. <see cref="AddDefault{T}" /> is the one that asks, and the
@@ -938,7 +950,7 @@ public sealed class World : IDisposable {
         return ref info;
     }
 
-    int Column<T>(Entity entity, ref readonly EntityInfo info) {
+    static int Column<T>(Entity entity, ref readonly EntityInfo info) {
         var column = info.Archetype!.ColumnOf(ComponentType<T>.Id);
 
         if (column >= 0) {
@@ -1236,6 +1248,5 @@ public sealed class World : IDisposable {
 
     /// <summary>Renders the name, entity count and archetype count.</summary>
     /// <returns>The world in text.</returns>
-    public override string ToString() =>
-        $"{Name}#{Id}: {EntityCount} entities in {archetypes.Count} archetypes";
+    public override string ToString() => $"{Name}#{Id}: {EntityCount} entities in {archetypes.Count} archetypes";
 }

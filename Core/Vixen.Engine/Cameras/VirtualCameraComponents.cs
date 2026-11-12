@@ -60,26 +60,28 @@ public struct CameraLens {
     ///     gives: a zeroed lens has a zero field of view and a zero far plane, and every matrix built
     ///     from it is degenerate.
     /// </remarks>
-    public static CameraLens Default => new() {
-        FieldOfView = MathUtil.DegreesToRadians(60f),
-        NearPlane = 0.1f,
-        FarPlane = 1000f,
-        Orthographic = false,
-        OrthographicHeight = 10f,
-        Dutch = 0f
-    };
+    public static CameraLens Default =>
+        new() {
+            FieldOfView = MathUtil.DegreesToRadians(60f),
+            NearPlane = 0.1f,
+            FarPlane = 1000f,
+            Orthographic = false,
+            OrthographicHeight = 10f,
+            Dutch = 0f
+        };
 
     /// <summary>The lens an existing camera is using.</summary>
     /// <param name="camera">The camera.</param>
     /// <returns>Its optics, with no roll.</returns>
-    public static CameraLens From(in Camera camera) => new() {
-        FieldOfView = camera.FieldOfView,
-        NearPlane = camera.NearPlane,
-        FarPlane = camera.FarPlane,
-        Orthographic = camera.Orthographic,
-        OrthographicHeight = camera.OrthographicHeight,
-        Dutch = 0f
-    };
+    public static CameraLens From(in Camera camera) =>
+        new() {
+            FieldOfView = camera.FieldOfView,
+            NearPlane = camera.NearPlane,
+            FarPlane = camera.FarPlane,
+            Orthographic = camera.Orthographic,
+            OrthographicHeight = camera.OrthographicHeight,
+            Dutch = 0f
+        };
 
     /// <summary>Copies the optics onto a camera, leaving its aspect ratio and order alone.</summary>
     /// <param name="camera">The camera to write.</param>
@@ -104,14 +106,15 @@ public struct CameraLens {
     ///     is better that it looks like one at a predictable moment than that it produces a frame
     ///     nobody can describe.
     /// </remarks>
-    public static CameraLens Blend(in CameraLens from, in CameraLens to, float amount) => new() {
-        FieldOfView = MathUtil.Lerp(from.FieldOfView, to.FieldOfView, amount),
-        NearPlane = MathUtil.Lerp(from.NearPlane, to.NearPlane, amount),
-        FarPlane = MathUtil.Lerp(from.FarPlane, to.FarPlane, amount),
-        Orthographic = amount < 0.5f ? from.Orthographic : to.Orthographic,
-        OrthographicHeight = MathUtil.Lerp(from.OrthographicHeight, to.OrthographicHeight, amount),
-        Dutch = MathUtil.Lerp(from.Dutch, to.Dutch, amount)
-    };
+    public static CameraLens Blend(in CameraLens from, in CameraLens to, float amount) =>
+        new() {
+            FieldOfView = MathUtil.Lerp(from.FieldOfView, to.FieldOfView, amount),
+            NearPlane = MathUtil.Lerp(from.NearPlane, to.NearPlane, amount),
+            FarPlane = MathUtil.Lerp(from.FarPlane, to.FarPlane, amount),
+            Orthographic = amount < 0.5f ? from.Orthographic : to.Orthographic,
+            OrthographicHeight = MathUtil.Lerp(from.OrthographicHeight, to.OrthographicHeight, amount),
+            Dutch = MathUtil.Lerp(from.Dutch, to.Dutch, amount)
+        };
 }
 
 /// <summary>
@@ -190,14 +193,15 @@ public struct CameraShot {
     /// <param name="position">Where.</param>
     /// <param name="rotation">Which way.</param>
     /// <returns>The shot, with no history, so its first evaluation snaps.</returns>
-    public static CameraShot At(Vector3 position, Quaternion rotation) => new() {
-        Position = position,
-        Rotation = rotation,
-        Lens = CameraLens.Default,
-        ShakePosition = Vector3.Zero,
-        ShakeRotation = Quaternion.Identity,
-        HasHistory = false
-    };
+    public static CameraShot At(Vector3 position, Quaternion rotation) =>
+        new() {
+            Position = position,
+            Rotation = rotation,
+            Lens = CameraLens.Default,
+            ShakePosition = Vector3.Zero,
+            ShakeRotation = Quaternion.Identity,
+            HasHistory = false
+        };
 }
 
 /// <summary>
@@ -222,8 +226,12 @@ public struct CameraShot {
 ///         hand-placed establishing shot wants.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Two bodies, or two aims, on one shot is a configuration error the engine cannot
-///         report.</b> The stages are separate chunk sweeps and they run in a fixed order, so the
+///         ⚠
+///         <b>
+///             Two bodies, or two aims, on one shot is a configuration error the engine cannot
+///             report.
+///         </b>
+///         The stages are separate chunk sweeps and they run in a fixed order, so the
 ///         last one to run wins and the other silently does nothing. It is checked by
 ///         <c>VirtualCameras.Validate</c>, which the editor's inspector and a test can call and the
 ///         frame loop deliberately does not — a per-frame archetype interrogation to catch a mistake
@@ -268,12 +276,8 @@ public struct VirtualCamera : IDefaultComponent<VirtualCamera> {
     ///     <see cref="IDefaultComponent{TSelf}" /> is what makes the editor's Add Component one of
     ///     them, which for years it was not.
     /// </remarks>
-    public static VirtualCamera Default => new() {
-        Priority = 0,
-        Enabled = true,
-        Lens = CameraLens.Default,
-        Channel = 0
-    };
+    public static VirtualCamera Default =>
+        new() { Priority = 0, Enabled = true, Lens = CameraLens.Default, Channel = 0 };
 
     /// <inheritdoc />
     static VirtualCamera IDefaultComponent<VirtualCamera>.DefaultValue => Default;
@@ -311,4 +315,3 @@ public struct CameraTargets {
     /// <returns>The targets.</returns>
     public static CameraTargets Both(Entity entity) => new() { Follow = entity, LookAt = entity };
 }
-

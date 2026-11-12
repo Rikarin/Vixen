@@ -114,11 +114,12 @@ public static class WebGpuConversions {
     ///     of the <em>view</em>, not of the texture, which is why
     ///     <see cref="ToViewDimension" /> takes the layer count as well.
     /// </remarks>
-    public static WgpuTextureDimension ToWebGpu(TextureDimension dimension) => dimension switch {
-        TextureDimension.Texture1D => WgpuTextureDimension.Dimension1D,
-        TextureDimension.Texture3D => WgpuTextureDimension.Dimension3D,
-        _ => WgpuTextureDimension.Dimension2D
-    };
+    public static WgpuTextureDimension ToWebGpu(TextureDimension dimension) =>
+        dimension switch {
+            TextureDimension.Texture1D => WgpuTextureDimension.Dimension1D,
+            TextureDimension.Texture3D => WgpuTextureDimension.Dimension3D,
+            _ => WgpuTextureDimension.Dimension2D
+        };
 
     /// <summary>How a view of a texture is read.</summary>
     /// <param name="dimension">The texture's shape.</param>
@@ -164,37 +165,40 @@ public static class WebGpuConversions {
 
     /// <summary>The WebGPU comparison for one of ours.</summary>
     /// <param name="compare">The engine comparison.</param>
-    public static WgpuCompareFunction ToWebGpu(CompareFunction compare) => compare switch {
-        CompareFunction.Never => WgpuCompareFunction.Never,
-        CompareFunction.Less => WgpuCompareFunction.Less,
-        CompareFunction.Equal => WgpuCompareFunction.Equal,
-        CompareFunction.LessEqual => WgpuCompareFunction.LessEqual,
-        CompareFunction.Greater => WgpuCompareFunction.Greater,
-        CompareFunction.NotEqual => WgpuCompareFunction.NotEqual,
-        CompareFunction.GreaterEqual => WgpuCompareFunction.GreaterEqual,
-        _ => WgpuCompareFunction.Always
-    };
+    public static WgpuCompareFunction ToWebGpu(CompareFunction compare) =>
+        compare switch {
+            CompareFunction.Never => WgpuCompareFunction.Never,
+            CompareFunction.Less => WgpuCompareFunction.Less,
+            CompareFunction.Equal => WgpuCompareFunction.Equal,
+            CompareFunction.LessEqual => WgpuCompareFunction.LessEqual,
+            CompareFunction.Greater => WgpuCompareFunction.Greater,
+            CompareFunction.NotEqual => WgpuCompareFunction.NotEqual,
+            CompareFunction.GreaterEqual => WgpuCompareFunction.GreaterEqual,
+            _ => WgpuCompareFunction.Always
+        };
 
     /// <summary>The WebGPU stencil operation for one of ours.</summary>
     /// <param name="operation">The engine operation.</param>
-    public static WgpuStencilOperation ToWebGpu(StencilOperation operation) => operation switch {
-        StencilOperation.Keep => WgpuStencilOperation.Keep,
-        StencilOperation.Zero => WgpuStencilOperation.Zero,
-        StencilOperation.Replace => WgpuStencilOperation.Replace,
-        StencilOperation.IncrementClamp => WgpuStencilOperation.IncrementClamp,
-        StencilOperation.DecrementClamp => WgpuStencilOperation.DecrementClamp,
-        StencilOperation.Invert => WgpuStencilOperation.Invert,
-        StencilOperation.IncrementWrap => WgpuStencilOperation.IncrementWrap,
-        _ => WgpuStencilOperation.DecrementWrap
-    };
+    public static WgpuStencilOperation ToWebGpu(StencilOperation operation) =>
+        operation switch {
+            StencilOperation.Keep => WgpuStencilOperation.Keep,
+            StencilOperation.Zero => WgpuStencilOperation.Zero,
+            StencilOperation.Replace => WgpuStencilOperation.Replace,
+            StencilOperation.IncrementClamp => WgpuStencilOperation.IncrementClamp,
+            StencilOperation.DecrementClamp => WgpuStencilOperation.DecrementClamp,
+            StencilOperation.Invert => WgpuStencilOperation.Invert,
+            StencilOperation.IncrementWrap => WgpuStencilOperation.IncrementWrap,
+            _ => WgpuStencilOperation.DecrementWrap
+        };
 
     /// <summary>The WebGPU cull mode for one of ours.</summary>
     /// <param name="cull">The engine cull mode.</param>
-    public static WgpuCullMode ToWebGpu(CullMode cull) => cull switch {
-        CullMode.Front => WgpuCullMode.Front,
-        CullMode.Back => WgpuCullMode.Back,
-        _ => WgpuCullMode.None
-    };
+    public static WgpuCullMode ToWebGpu(CullMode cull) =>
+        cull switch {
+            CullMode.Front => WgpuCullMode.Front,
+            CullMode.Back => WgpuCullMode.Back,
+            _ => WgpuCullMode.None
+        };
 
     /// <summary>The WebGPU winding for one of ours.</summary>
     /// <param name="face">The engine winding.</param>
@@ -203,13 +207,14 @@ public static class WebGpuConversions {
 
     /// <summary>The WebGPU topology for one of ours.</summary>
     /// <param name="topology">The engine topology.</param>
-    public static WgpuPrimitiveTopology ToWebGpu(PrimitiveTopology topology) => topology switch {
-        PrimitiveTopology.PointList => WgpuPrimitiveTopology.PointList,
-        PrimitiveTopology.LineList => WgpuPrimitiveTopology.LineList,
-        PrimitiveTopology.LineStrip => WgpuPrimitiveTopology.LineStrip,
-        PrimitiveTopology.TriangleStrip => WgpuPrimitiveTopology.TriangleStrip,
-        _ => WgpuPrimitiveTopology.TriangleList
-    };
+    public static WgpuPrimitiveTopology ToWebGpu(PrimitiveTopology topology) =>
+        topology switch {
+            PrimitiveTopology.PointList => WgpuPrimitiveTopology.PointList,
+            PrimitiveTopology.LineList => WgpuPrimitiveTopology.LineList,
+            PrimitiveTopology.LineStrip => WgpuPrimitiveTopology.LineStrip,
+            PrimitiveTopology.TriangleStrip => WgpuPrimitiveTopology.TriangleStrip,
+            _ => WgpuPrimitiveTopology.TriangleList
+        };
 
     /// <summary>Whether a topology is a strip, and therefore needs a strip index format.</summary>
     /// <param name="topology">The engine topology.</param>
@@ -228,19 +233,23 @@ public static class WebGpuConversions {
     /// <summary>The WebGPU address mode for one of ours.</summary>
     /// <param name="mode">The engine mode.</param>
     /// <remarks>
-    ///     <b><see cref="AddressMode.ClampToBorder" /> becomes
-    ///     <see cref="WgpuAddressMode.ClampToEdge" />, and that is visible.</b> WebGPU has no border
+    ///     <b>
+    ///         <see cref="AddressMode.ClampToBorder" /> becomes
+    ///         <see cref="WgpuAddressMode.ClampToEdge" />, and that is visible.
+    ///     </b>
+    ///     WebGPU has no border
     ///     colours at all, so there is nothing else to map it to. The case that notices is
     ///     <see cref="SamplerDescription.Shadow" />, which clamps to an opaque-white border so that
     ///     everything outside a shadow map reads as lit: on WebGPU it reads as whatever the map's
     ///     edge texel says instead, which smears the cascade's edge outward. A renderer that cares
     ///     clamps the lookup itself, and every renderer targeting the web has to.
     /// </remarks>
-    public static WgpuAddressMode ToWebGpu(AddressMode mode) => mode switch {
-        AddressMode.MirrorRepeat => WgpuAddressMode.MirrorRepeat,
-        AddressMode.ClampToEdge or AddressMode.ClampToBorder => WgpuAddressMode.ClampToEdge,
-        _ => WgpuAddressMode.Repeat
-    };
+    public static WgpuAddressMode ToWebGpu(AddressMode mode) =>
+        mode switch {
+            AddressMode.MirrorRepeat => WgpuAddressMode.MirrorRepeat,
+            AddressMode.ClampToEdge or AddressMode.ClampToBorder => WgpuAddressMode.ClampToEdge,
+            _ => WgpuAddressMode.Repeat
+        };
 
     /// <summary>The WebGPU filter for one of ours.</summary>
     /// <param name="filter">The engine filter.</param>
@@ -254,31 +263,33 @@ public static class WebGpuConversions {
 
     /// <summary>The WebGPU blend factor for one of ours.</summary>
     /// <param name="factor">The engine factor.</param>
-    public static WgpuBlendFactor ToWebGpu(BlendFactor factor) => factor switch {
-        BlendFactor.Zero => WgpuBlendFactor.Zero,
-        BlendFactor.One => WgpuBlendFactor.One,
-        BlendFactor.SourceColour => WgpuBlendFactor.Src,
-        BlendFactor.OneMinusSourceColour => WgpuBlendFactor.OneMinusSrc,
-        BlendFactor.SourceAlpha => WgpuBlendFactor.SrcAlpha,
-        BlendFactor.OneMinusSourceAlpha => WgpuBlendFactor.OneMinusSrcAlpha,
-        BlendFactor.DestinationColour => WgpuBlendFactor.Dst,
-        BlendFactor.OneMinusDestinationColour => WgpuBlendFactor.OneMinusDst,
-        BlendFactor.DestinationAlpha => WgpuBlendFactor.DstAlpha,
-        BlendFactor.OneMinusDestinationAlpha => WgpuBlendFactor.OneMinusDstAlpha,
-        BlendFactor.Constant => WgpuBlendFactor.Constant,
-        BlendFactor.OneMinusConstant => WgpuBlendFactor.OneMinusConstant,
-        _ => WgpuBlendFactor.SrcAlphaSaturated
-    };
+    public static WgpuBlendFactor ToWebGpu(BlendFactor factor) =>
+        factor switch {
+            BlendFactor.Zero => WgpuBlendFactor.Zero,
+            BlendFactor.One => WgpuBlendFactor.One,
+            BlendFactor.SourceColour => WgpuBlendFactor.Src,
+            BlendFactor.OneMinusSourceColour => WgpuBlendFactor.OneMinusSrc,
+            BlendFactor.SourceAlpha => WgpuBlendFactor.SrcAlpha,
+            BlendFactor.OneMinusSourceAlpha => WgpuBlendFactor.OneMinusSrcAlpha,
+            BlendFactor.DestinationColour => WgpuBlendFactor.Dst,
+            BlendFactor.OneMinusDestinationColour => WgpuBlendFactor.OneMinusDst,
+            BlendFactor.DestinationAlpha => WgpuBlendFactor.DstAlpha,
+            BlendFactor.OneMinusDestinationAlpha => WgpuBlendFactor.OneMinusDstAlpha,
+            BlendFactor.Constant => WgpuBlendFactor.Constant,
+            BlendFactor.OneMinusConstant => WgpuBlendFactor.OneMinusConstant,
+            _ => WgpuBlendFactor.SrcAlphaSaturated
+        };
 
     /// <summary>The WebGPU blend operation for one of ours.</summary>
     /// <param name="operation">The engine operation.</param>
-    public static WgpuBlendOperation ToWebGpu(BlendOperation operation) => operation switch {
-        BlendOperation.Subtract => WgpuBlendOperation.Subtract,
-        BlendOperation.ReverseSubtract => WgpuBlendOperation.ReverseSubtract,
-        BlendOperation.Min => WgpuBlendOperation.Min,
-        BlendOperation.Max => WgpuBlendOperation.Max,
-        _ => WgpuBlendOperation.Add
-    };
+    public static WgpuBlendOperation ToWebGpu(BlendOperation operation) =>
+        operation switch {
+            BlendOperation.Subtract => WgpuBlendOperation.Subtract,
+            BlendOperation.ReverseSubtract => WgpuBlendOperation.ReverseSubtract,
+            BlendOperation.Min => WgpuBlendOperation.Min,
+            BlendOperation.Max => WgpuBlendOperation.Max,
+            _ => WgpuBlendOperation.Add
+        };
 
     /// <summary>The WebGPU write mask for one of ours.</summary>
     /// <param name="mask">The engine mask.</param>
@@ -314,8 +325,7 @@ public static class WebGpuConversions {
     ///     have been the expensive answer <em>and</em> would have made an uninitialised attachment
     ///     read back whatever was in it.
     /// </remarks>
-    public static WgpuLoadOp ToWebGpu(LoadAction load) =>
-        load == LoadAction.Load ? WgpuLoadOp.Load : WgpuLoadOp.Clear;
+    public static WgpuLoadOp ToWebGpu(LoadAction load) => load == LoadAction.Load ? WgpuLoadOp.Load : WgpuLoadOp.Clear;
 
     /// <summary>The WebGPU store operation for one of ours.</summary>
     /// <param name="store">The engine action.</param>
@@ -335,35 +345,38 @@ public static class WebGpuConversions {
     ///     them the other way round. A cast compiles, runs, and quietly gives a player tearing where
     ///     they asked for dropped frames.
     /// </remarks>
-    public static WgpuPresentMode ToWebGpu(PresentMode mode) => mode switch {
-        PresentMode.FifoRelaxed => WgpuPresentMode.FifoRelaxed,
-        PresentMode.Mailbox => WgpuPresentMode.Mailbox,
-        PresentMode.Immediate => WgpuPresentMode.Immediate,
-        _ => WgpuPresentMode.Fifo
-    };
+    public static WgpuPresentMode ToWebGpu(PresentMode mode) =>
+        mode switch {
+            PresentMode.FifoRelaxed => WgpuPresentMode.FifoRelaxed,
+            PresentMode.Mailbox => WgpuPresentMode.Mailbox,
+            PresentMode.Immediate => WgpuPresentMode.Immediate,
+            _ => WgpuPresentMode.Fifo
+        };
 
     /// <summary>What a surface acquisition means to the RHI.</summary>
     /// <param name="status">What WebGPU said.</param>
     /// <param name="suboptimal">Whether it also said the configuration no longer matches.</param>
-    public static SwapChainStatus ToEngine(WgpuSurfaceStatus status, bool suboptimal) => status switch {
-        WgpuSurfaceStatus.Success => suboptimal ? SwapChainStatus.Suboptimal : SwapChainStatus.Ready,
+    public static SwapChainStatus ToEngine(WgpuSurfaceStatus status, bool suboptimal) =>
+        status switch {
+            WgpuSurfaceStatus.Success => suboptimal ? SwapChainStatus.Suboptimal : SwapChainStatus.Ready,
 
-        // Timeout is not out-of-date, but the caller's options are the same — skip the frame and try
-        // again — and the RHI has no third answer. Reported as out-of-date so a renderer that
-        // reconfigures on it does no harm, rather than as Ready with no texture, which would crash it.
-        WgpuSurfaceStatus.Outdated or WgpuSurfaceStatus.Timeout => SwapChainStatus.OutOfDate,
-        _ => SwapChainStatus.DeviceLost
-    };
+            // Timeout is not out-of-date, but the caller's options are the same — skip the frame and try
+            // again — and the RHI has no third answer. Reported as out-of-date so a renderer that
+            // reconfigures on it does no harm, rather than as Ready with no texture, which would crash it.
+            WgpuSurfaceStatus.Outdated or WgpuSurfaceStatus.Timeout => SwapChainStatus.OutOfDate,
+            _ => SwapChainStatus.DeviceLost
+        };
 
     /// <summary>How a sampled texture's texels are read, for the layout that declares the binding.</summary>
     /// <param name="sampleType">What the RHI says the binding holds.</param>
-    public static WgpuTextureSampleType ToWebGpu(DescriptorSampleType sampleType) => sampleType switch {
-        DescriptorSampleType.UnfilterableFloat => WgpuTextureSampleType.UnfilterableFloat,
-        DescriptorSampleType.Depth => WgpuTextureSampleType.Depth,
-        DescriptorSampleType.SInt => WgpuTextureSampleType.Sint,
-        DescriptorSampleType.UInt => WgpuTextureSampleType.Uint,
-        _ => WgpuTextureSampleType.Float
-    };
+    public static WgpuTextureSampleType ToWebGpu(DescriptorSampleType sampleType) =>
+        sampleType switch {
+            DescriptorSampleType.UnfilterableFloat => WgpuTextureSampleType.UnfilterableFloat,
+            DescriptorSampleType.Depth => WgpuTextureSampleType.Depth,
+            DescriptorSampleType.SInt => WgpuTextureSampleType.Sint,
+            DescriptorSampleType.UInt => WgpuTextureSampleType.Uint,
+            _ => WgpuTextureSampleType.Float
+        };
 
     /// <summary>What a sampler binding does, for the layout that declares it.</summary>
     /// <param name="sampleType">The texture the sampler is declared to be paired with.</param>
@@ -372,11 +385,12 @@ public static class WebGpuConversions {
     ///     the translation is the rule that makes them the same statement: depth is compared,
     ///     integers and unfilterable floats may not be filtered, and everything else filters.
     /// </remarks>
-    public static WgpuSamplerBindingType ToSamplerBinding(DescriptorSampleType sampleType) => sampleType switch {
-        DescriptorSampleType.Depth => WgpuSamplerBindingType.Comparison,
-        DescriptorSampleType.Float => WgpuSamplerBindingType.Filtering,
-        _ => WgpuSamplerBindingType.NonFiltering
-    };
+    public static WgpuSamplerBindingType ToSamplerBinding(DescriptorSampleType sampleType) =>
+        sampleType switch {
+            DescriptorSampleType.Depth => WgpuSamplerBindingType.Comparison,
+            DescriptorSampleType.Float => WgpuSamplerBindingType.Filtering,
+            _ => WgpuSamplerBindingType.NonFiltering
+        };
 
     /// <summary>What a descriptor binding is, in WebGPU's terms.</summary>
     /// <param name="binding">The engine binding.</param>
@@ -390,8 +404,12 @@ public static class WebGpuConversions {
     ///     </para>
     ///     <para>
     ///         Its default is the common case — a filterable float texture and a filtering sampler —
-    ///         so a caller who never thinks about it gets what it used to assume. <b>A shadow map is
-    ///         the case that is not the common case</b>: it wants
+    ///         so a caller who never thinks about it gets what it used to assume.
+    ///         <b>
+    ///             A shadow map is
+    ///             the case that is not the common case
+    ///         </b>
+    ///         : it wants
     ///         <see cref="DescriptorSampleType.Depth" /> on both the texture binding and the sampler
     ///         one, and a mismatch between what the layout declares and what is bound through it is
     ///         caught by <c>WebGpuDevice.UpdateDescriptorSet</c> rather than by an implementation
@@ -407,14 +425,14 @@ public static class WebGpuConversions {
                 binding.Binding,
                 visibility,
                 WgpuBufferBindingType.Uniform,
-                HasDynamicOffset: true
+                true
             ),
             DescriptorKind.StorageBuffer => new(binding.Binding, visibility, WgpuBufferBindingType.Storage),
             DescriptorKind.DynamicStorageBuffer => new(
                 binding.Binding,
                 visibility,
                 WgpuBufferBindingType.Storage,
-                HasDynamicOffset: true
+                true
             ),
             DescriptorKind.SampledTexture => new(
                 binding.Binding,
@@ -454,30 +472,32 @@ public static class WebGpuConversions {
 
     /// <summary>What to create a WebGPU buffer as, for one of ours.</summary>
     /// <param name="description">The engine description.</param>
-    public static WgpuBufferDescriptor ToWebGpu(in BufferDescription description) => new(
-        // WebGPU requires a buffer size to be a multiple of four. Rounding up is invisible: the
-        // engine's own bounds checks use the requested size, so the padding is unreachable.
-        (description.Size + 3) & ~3L,
-        ToWebGpu(description.Usage, description.Access),
-        description.Name
-    );
+    public static WgpuBufferDescriptor ToWebGpu(in BufferDescription description) =>
+        new(
+            // WebGPU requires a buffer size to be a multiple of four. Rounding up is invisible: the
+            // engine's own bounds checks use the requested size, so the padding is unreachable.
+            (description.Size + 3) & ~3L,
+            ToWebGpu(description.Usage, description.Access),
+            description.Name
+        );
 
     /// <summary>What to create a WebGPU texture as, for one of ours.</summary>
     /// <param name="description">The engine description.</param>
-    public static WgpuTextureDescriptor ToWebGpu(in TextureDescription description) => new(
-        description.Format.Require(description.Name),
-        description.Width,
-        description.Height,
+    public static WgpuTextureDescriptor ToWebGpu(in TextureDescription description) =>
+        new(
+            description.Format.Require(description.Name),
+            description.Width,
+            description.Height,
 
-        // One field for two ideas, which is WebGPU's shape: a 3D texture's depth and a 2D array's
-        // layer count share a slot, and no texture has both.
-        description.Dimension == TextureDimension.Texture3D ? description.Depth : description.ArrayLayers,
-        description.EffectiveMipLevels,
-        description.SampleCount,
-        ToWebGpu(description.Dimension),
-        ToWebGpu(description.Usage),
-        description.Name
-    );
+            // One field for two ideas, which is WebGPU's shape: a 3D texture's depth and a 2D array's
+            // layer count share a slot, and no texture has both.
+            description.Dimension == TextureDimension.Texture3D ? description.Depth : description.ArrayLayers,
+            description.EffectiveMipLevels,
+            description.SampleCount,
+            ToWebGpu(description.Dimension),
+            ToWebGpu(description.Usage),
+            description.Name
+        );
 
     /// <summary>What to create a WebGPU sampler as, for one of ours.</summary>
     /// <param name="description">The engine description.</param>
@@ -547,36 +567,39 @@ public static class WebGpuConversions {
         in DepthStencilState state,
         PixelFormat format,
         in RasterizerState rasterizer
-    ) => new(
-        format.Require("depth attachment"),
-        state.DepthWrite,
+    ) =>
+        new(
+            format.Require("depth attachment"),
+            state.DepthWrite,
 
-        // A pipeline that does not test depth still has to say something, and WebGPU's answer for
-        // "no test" is Always rather than an absent comparison.
-        state.DepthTest ? ToWebGpu(state.DepthCompare) : WgpuCompareFunction.Always,
-        state.StencilTest ? ToWebGpu(state.Front) : PassThroughStencil,
-        state.StencilTest ? ToWebGpu(state.Back) : PassThroughStencil,
-        state.StencilReadMask,
-        state.StencilWriteMask,
-        (int)rasterizer.DepthBias,
-        rasterizer.DepthBiasSlope,
-        0f
-    );
+            // A pipeline that does not test depth still has to say something, and WebGPU's answer for
+            // "no test" is Always rather than an absent comparison.
+            state.DepthTest ? ToWebGpu(state.DepthCompare) : WgpuCompareFunction.Always,
+            state.StencilTest ? ToWebGpu(state.Front) : PassThroughStencil,
+            state.StencilTest ? ToWebGpu(state.Back) : PassThroughStencil,
+            state.StencilReadMask,
+            state.StencilWriteMask,
+            (int)rasterizer.DepthBias,
+            rasterizer.DepthBiasSlope,
+            0f
+        );
 
     /// <summary>The stencil face state for one of ours.</summary>
     /// <param name="face">The engine state.</param>
-    public static WgpuStencilFaceState ToWebGpu(in StencilFaceState face) => new(
-        ToWebGpu(face.Compare),
-        ToWebGpu(face.Fail),
-        ToWebGpu(face.DepthFail),
-        ToWebGpu(face.Pass)
-    );
+    public static WgpuStencilFaceState ToWebGpu(in StencilFaceState face) =>
+        new(
+            ToWebGpu(face.Compare),
+            ToWebGpu(face.Fail),
+            ToWebGpu(face.DepthFail),
+            ToWebGpu(face.Pass)
+        );
 
     /// <summary>A stencil face that always passes and never writes.</summary>
-    static WgpuStencilFaceState PassThroughStencil => new(
-        WgpuCompareFunction.Always,
-        WgpuStencilOperation.Keep,
-        WgpuStencilOperation.Keep,
-        WgpuStencilOperation.Keep
-    );
+    static WgpuStencilFaceState PassThroughStencil =>
+        new(
+            WgpuCompareFunction.Always,
+            WgpuStencilOperation.Keep,
+            WgpuStencilOperation.Keep,
+            WgpuStencilOperation.Keep
+        );
 }

@@ -22,7 +22,7 @@ public sealed record PluginReport(
     public static PluginReport Empty { get; } = new([], [], []);
 
     /// <summary>Whether anything went wrong.</summary>
-    public bool HasErrors => Diagnostics.Any(diagnostic => diagnostic.Severity == PluginSeverity.Error);
+    public bool HasErrors => Diagnostics.Any(static diagnostic => diagnostic.Severity == PluginSeverity.Error);
 
     /// <inheritdoc />
     public override string ToString() =>

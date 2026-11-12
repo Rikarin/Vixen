@@ -20,8 +20,12 @@ namespace Tests;
 ///         own extremes to 0 and 255.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Where an equality is available it is asserted as one, over every texel of an image
-///         where no two texels are alike.</b> A tolerance over a flat fill is the assertion a broken
+///         ⚠
+///         <b>
+///             Where an equality is available it is asserted as one, over every texel of an image
+///             where no two texels are alike.
+///         </b>
+///         A tolerance over a flat fill is the assertion a broken
 ///         kernel passes: <c>TextureKernelHarness.Unique</c> exists so that "this is a copy" is a
 ///         claim about four thousand texels and four channels rather than about one colour.
 ///     </para>
@@ -31,7 +35,7 @@ public class TextureColourDeviceTests(ITestOutputHelper output) {
 
     /// <summary>An op over one image, with its parameters.</summary>
     static TextureOp Op(string kernel, int output, int[] inputs, params TextureParameter[] parameters) =>
-        new() { Kernel = kernel, Output = output, Inputs = [.. inputs], Parameters = [.. parameters] };
+        new() { Kernel = kernel, Output = output, Inputs = [..inputs], Parameters = [..parameters] };
 
     /// <summary>Evaluates one op over one uploaded picture and reads the answer back.</summary>
     static Bitmap OneOp(VulkanDevice device, byte[] source, TextureOp op, TextureFormat format = TextureFormat.Rgba8) {
@@ -140,7 +144,10 @@ public class TextureColourDeviceTests(ITestOutputHelper output) {
             TextureKernelHarness.At(picture, 20, 30, 3)
         );
 
-        Assert.Equal(255 - TextureKernelHarness.At(AsPicture(source, Side), 20, 30, 0), TextureKernelHarness.At(picture, 20, 30, 0));
+        Assert.Equal(
+            255 - TextureKernelHarness.At(AsPicture(source, Side), 20, 30, 0),
+            TextureKernelHarness.At(picture, 20, 30, 0)
+        );
     }
 
     // --- Grayscale ------------------------------------------------------------------------------
@@ -192,7 +199,15 @@ public class TextureColourDeviceTests(ITestOutputHelper output) {
         var picture = OneOp(
             device,
             TextureKernelHarness.Solid(Side, 0, 255, 0, 255),
-            Op("Grayscale", 1, [0], new("weightR", 0.2126f), new("weightG", 0.7152f), new("weightB", 0.0722f), new("normalise", 1f))
+            Op(
+                "Grayscale",
+                1,
+                [0],
+                new("weightR", 0.2126f),
+                new("weightG", 0.7152f),
+                new("weightB", 0.0722f),
+                new("normalise", 1f)
+            )
         );
 
         // 0.7152 × 255 = 182.4. Rec. 601's 0.587 would be 149.7 — thirty-three steps apart.
@@ -229,8 +244,12 @@ public class TextureColourDeviceTests(ITestOutputHelper output) {
     ///         because the same weights sum to zero and it takes the Rec. 709 fallback instead.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The same op with the flag on is asserted beside it, and that is the half that
-    ///         makes this a difference rather than a coincidence.</b> A kernel that ignored the flag
+    ///         ⚠
+    ///         <b>
+    ///             The same op with the flag on is asserted beside it, and that is the half that
+    ///             makes this a difference rather than a coincidence.
+    ///         </b>
+    ///         A kernel that ignored the flag
     ///         would draw one picture twice; these two are 60 and 116 apart, so the pair says the
     ///         branch is real and says which side of it is which.
     ///     </para>
@@ -296,7 +315,8 @@ public class TextureColourDeviceTests(ITestOutputHelper output) {
                         Math.Abs(
                             TextureKernelHarness.At(expected, x, y, channel)
                             - TextureKernelHarness.At(picture, x, y, channel)
-                        ) <= 2,
+                        )
+                        <= 2,
                         $"({x}, {y}) channel {channel}: {TextureKernelHarness.At(picture, x, y, channel)} against "
                         + $"{TextureKernelHarness.At(expected, x, y, channel)} "
                         + $"({TextureKernelHarness.Adapter(device)})"
@@ -349,9 +369,21 @@ public class TextureColourDeviceTests(ITestOutputHelper output) {
 
         var source = TextureKernelHarness.Solid(Side, 220, 30, 30, 255);
 
-        var none = OneOp(device, source, Op("Hsl", 1, [0], new("hue", 0f), new("saturation", 1f), new("lightness", 0f)));
-        var half = OneOp(device, source, Op("Hsl", 1, [0], new("hue", 0.5f), new("saturation", 1f), new("lightness", 0f)));
-        var whole = OneOp(device, source, Op("Hsl", 1, [0], new("hue", 1f), new("saturation", 1f), new("lightness", 0f)));
+        var none = OneOp(
+            device,
+            source,
+            Op("Hsl", 1, [0], new("hue", 0f), new("saturation", 1f), new("lightness", 0f))
+        );
+        var half = OneOp(
+            device,
+            source,
+            Op("Hsl", 1, [0], new("hue", 0.5f), new("saturation", 1f), new("lightness", 0f))
+        );
+        var whole = OneOp(
+            device,
+            source,
+            Op("Hsl", 1, [0], new("hue", 1f), new("saturation", 1f), new("lightness", 0f))
+        );
 
         Assert.True(
             Math.Abs(TextureKernelHarness.At(none, 5, 5, 0) - TextureKernelHarness.At(whole, 5, 5, 0)) <= 2,
@@ -384,8 +416,12 @@ public class TextureColourDeviceTests(ITestOutputHelper output) {
 
     /// <summary>Every selector reads what <see cref="TextureChannelSource" /> says it reads.</summary>
     /// <remarks>
-    ///     ⚠ <b>The whole table on one dispatch, which is what keeps the enum and the shader in
-    ///     step.</b> A renumbering in either would be a picture rather than an error, because the
+    ///     ⚠
+    ///     <b>
+    ///         The whole table on one dispatch, which is what keeps the enum and the shader in
+    ///         step.
+    ///     </b>
+    ///     A renumbering in either would be a picture rather than an error, because the
     ///     kernel has nowhere to raise from and falls through to the first input's red.
     /// </remarks>
     [Fact]
@@ -546,8 +582,12 @@ public class TextureColourDeviceTests(ITestOutputHelper output) {
     ///     Grey goes through a ramp and comes out as the ramp's colour at that position.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>The input's red and green run in opposite directions, and that is what makes this a
-    ///     test of the contract rather than of the arithmetic.</b> Doc 48 § 4.2 gives
+    ///     ⚠
+    ///     <b>
+    ///         The input's red and green run in opposite directions, and that is what makes this a
+    ///         test of the contract rather than of the arithmetic.
+    ///     </b>
+    ///     Doc 48 § 4.2 gives
     ///     <c>Grayscale Conversion</c> its own node so that "which weights" is answered once by an
     ///     artist, so this node's input is <em>grey, and grey is the red channel</em> — a kernel that
     ///     reached for a luminance, or for the wrong lane, reads a grey <c>R16Float</c> image at
@@ -561,18 +601,16 @@ public class TextureColourDeviceTests(ITestOutputHelper output) {
         output.WriteLine($"adapter: {TextureKernelHarness.Adapter(device)}");
 
         // Black to red through half green: three known colours at three known positions.
-        var ramp = TextureRamp.FromRamp(
-            position => new(position, 1f - position, 0f, 1f)
-        );
+        var ramp = TextureRamp.FromRamp(static position => new(position, 1f - position, 0f, 1f));
 
         var source = new byte[Side * Side * 4];
 
         for (var y = 0; y < Side; y++) {
             for (var x = 0; x < Side; x++) {
-                var at = ((y * Side) + x) * 4;
+                var at = (y * Side + x) * 4;
 
                 source[at] = (byte)(x * 255 / (Side - 1));
-                source[at + 1] = (byte)(255 - (x * 255 / (Side - 1)));
+                source[at + 1] = (byte)(255 - x * 255 / (Side - 1));
                 source[at + 2] = 200;
                 source[at + 3] = 255;
             }
@@ -642,8 +680,11 @@ public class TextureColourDeviceTests(ITestOutputHelper output) {
     ///     corner no block boundary lands on.
     /// </summary>
     /// <remarks>
-    ///     <b>The first kernel in the catalogue whose output depends on every texel of its input, and
-    ///     this is the assertion that says so.</b> The image is a flat mid-grey with its minimum at
+    ///     <b>
+    ///         The first kernel in the catalogue whose output depends on every texel of its input, and
+    ///         this is the assertion that says so.
+    ///     </b>
+    ///     The image is a flat mid-grey with its minimum at
     ///     (0, 0) and its maximum at (63, 63) — neither of which a reduction that read only the first
     ///     texel of each block would find, because 63 is not a multiple of eight. A broken block loop
     ///     comes back with 128 and 128, which is a plausible pair.
@@ -657,7 +698,7 @@ public class TextureColourDeviceTests(ITestOutputHelper output) {
         var source = TextureKernelHarness.Solid(Side, 128, 128, 128, 255);
 
         source[0] = 0;
-        source[(((Side - 1) * Side) + Side - 1) * 4] = 255;
+        source[((Side - 1) * Side + Side - 1) * 4] = 255;
 
         var (texture, staging) = TextureKernelHarness.Upload(device, source, Side, Side);
 
@@ -690,8 +731,8 @@ public class TextureColourDeviceTests(ITestOutputHelper output) {
 
         for (var y = 0; y < Side; y++) {
             for (var x = 0; x < Side; x++) {
-                var at = ((y * Side) + x) * 4;
-                var value = (byte)(64 + (x * 127 / (Side - 1)));
+                var at = (y * Side + x) * 4;
+                var value = (byte)(64 + x * 127 / (Side - 1));
 
                 source[at] = value;
                 source[at + 1] = value;
@@ -720,9 +761,13 @@ public class TextureColourDeviceTests(ITestOutputHelper output) {
         Assert.InRange(TextureKernelHarness.At(picture, Side - 1, 8, 0), 253, 255);
 
         // And the middle is where the arithmetic puts it rather than merely somewhere between.
-        var middle = 64 + (31 * 127 / (Side - 1));
+        var middle = 64 + 31 * 127 / (Side - 1);
 
-        Assert.InRange(TextureKernelHarness.At(picture, 31, 8, 0), (middle - 64) * 255 / 127 - 4, (middle - 64) * 255 / 127 + 4);
+        Assert.InRange(
+            TextureKernelHarness.At(picture, 31, 8, 0),
+            (middle - 64) * 255 / 127 - 4,
+            (middle - 64) * 255 / 127 + 4
+        );
 
         device.Destroy(staging);
         device.Destroy(texture);
@@ -757,8 +802,12 @@ public class TextureColourDeviceTests(ITestOutputHelper output) {
 
     /// <summary>The two-dispatch shape: 64² → 8² → 1², then the map.</summary>
     /// <remarks>
-    ///     ⚠ <b>The ladder and the ops both come from <c>TextureAdjust</c> rather than being written
-    ///     out here</b>, which is <a href="https://github.com/Rikarin/Vixen/issues/713">#713</a>: a
+    ///     ⚠
+    ///     <b>
+    ///         The ladder and the ops both come from <c>TextureAdjust</c> rather than being written
+    ///         out here
+    ///     </b>
+    ///     , which is <a href="https://github.com/Rikarin/Vixen/issues/713">#713</a>: a
     ///     chain whose length is a function of the baked extent, hand-built at a call site, is
     ///     stamped by nobody and silently two dispatches short at 4K. The three assertions below are
     ///     the differential that says the builder emits what this file used to spell — the same three
@@ -772,10 +821,10 @@ public class TextureColourDeviceTests(ITestOutputHelper output) {
             BaseHeight = Side,
             Images = [
                 new(TextureFormat.Rgba8, External: true),
-                .. levels.Select(level => new TextureImage(TextureFormat.Rgba16Float, level)),
+                ..levels.Select(static level => new TextureImage(TextureFormat.Rgba16Float, level)),
                 new(TextureFormat.Rgba8)
             ],
-            Ops = TextureAdjust.AutoLevels(levels.Length + 1, 0, [.. Enumerable.Range(1, levels.Length)], Side, Side),
+            Ops = TextureAdjust.AutoLevels(levels.Length + 1, 0, [..Enumerable.Range(1, levels.Length)], Side, Side),
             Outputs = [levels.Length, levels.Length + 1]
         };
     }

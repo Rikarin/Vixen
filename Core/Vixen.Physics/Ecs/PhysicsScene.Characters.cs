@@ -39,8 +39,12 @@ public sealed partial class PhysicsScene {
 
     /// <summary>How many times a character's controller has been moved to a written transform.</summary>
     /// <remarks>
-    ///     ⚠ <b>A character being adopted on nearly every step is two writers fighting over one
-    ///     component, and this is the number that says so.</b> A teleport, a respawn and a
+    ///     ⚠
+    ///     <b>
+    ///         A character being adopted on nearly every step is two writers fighting over one
+    ///         component, and this is the number that says so.
+    ///     </b>
+    ///     A teleport, a respawn and a
     ///     reconciliation each add one; a walking character adds none. That distinction was invisible
     ///     for as long as it existed — an interpolated character was adopted sixty times a second and
     ///     the only symptom was that it covered half the ground its <c>WalkSpeed</c> asked for, which
@@ -198,9 +202,13 @@ public sealed partial class PhysicsScene {
     ///         bridge writes that component every step and so cannot tell who changed it.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>This file used to claim a character needs no such tag, "because nothing else
-    ///         writes its transform between two steps". That was never true, and it cost 50% of every
-    ///         character's speed.</b> <c>PhysicsInterpolationSystem</c> writes it, on the same entity,
+    ///         ⚠
+    ///         <b>
+    ///             This file used to claim a character needs no such tag, "because nothing else
+    ///             writes its transform between two steps". That was never true, and it cost 50% of every
+    ///             character's speed.
+    ///         </b>
+    ///         <c>PhysicsInterpolationSystem</c> writes it, on the same entity,
     ///         every frame — and <see cref="WriteCharacterBack" /> is what puts a character in that
     ///         pass's query in the first place. With <c>alpha</c> at zero, which is every frame whose
     ///         delta is one fixed step, the pose it leaves is the <i>previous</i> step's; this read it
@@ -210,8 +218,12 @@ public sealed partial class PhysicsScene {
     ///     </para>
     ///     <para>
     ///         So the question is not "does the transform disagree with the controller" — the bridge
-    ///         is no longer the only thing that writes it — but "did anything <i>other than the
-    ///         engine's own smoothing</i> write it". <see cref="PhysicsInterpolation.DrawnPosition" />
+    ///         is no longer the only thing that writes it — but "did anything
+    ///         <i>
+    ///             other than the
+    ///             engine's own smoothing
+    ///         </i>
+    ///         write it". <see cref="PhysicsInterpolation.DrawnPosition" />
     ///         is the receipt that answers it exactly, rather than by guessing from geometry: the
     ///         guess, that an adopted pose lying between the two interpolated ones is the smoothing's,
     ///         swallows the commonest correction a predicted client ever gets, because a client that
@@ -308,16 +320,17 @@ public sealed partial class PhysicsScene {
     ///     rather than launching it. Taking the displacement wholesale gets the first two right and the
     ///     third catastrophically wrong.
     /// </remarks>
-    static Vector3 Blocked(Vector3 asked, Vector3 achieved) => new(
-        Blocked(asked.X, achieved.X),
-        Blocked(asked.Y, achieved.Y),
-        Blocked(asked.Z, achieved.Z)
-    );
+    static Vector3 Blocked(Vector3 asked, Vector3 achieved) =>
+        new(
+            Blocked(asked.X, achieved.X),
+            Blocked(asked.Y, achieved.Y),
+            Blocked(asked.Z, achieved.Z)
+        );
 
     static float Blocked(float asked, float achieved) {
         // Opposite signs means the sweep pushed the character back — penetration recovery, or a slide
         // along a surface. Nothing of the asked-for motion survived.
-        if (asked == 0f || (asked > 0f) != (achieved > 0f)) {
+        if (asked == 0f || asked > 0f != achieved > 0f) {
             return 0f;
         }
 
@@ -327,8 +340,12 @@ public sealed partial class PhysicsScene {
     /// <summary>Moves the slope and step limits onto the controller when the component's have changed.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Neither of these needs the controller recreated, and the belief that they did is
-    ///         the whole reason they were missing.</b> Jolt's <c>CharacterBase</c> carries a
+    ///         ⚠
+    ///         <b>
+    ///             Neither of these needs the controller recreated, and the belief that they did is
+    ///             the whole reason they were missing.
+    ///         </b>
+    ///         Jolt's <c>CharacterBase</c> carries a
     ///         <c>MaxSlopeAngle</c> setter, and the step height is a field of the
     ///         <c>ExtendedUpdateSettings</c> handed to <i>every</i> update — so both are live, and
     ///         <c>Core/Vixen.Physics/README.md</c>'s "fixed at creation … which is real work" was
@@ -363,8 +380,12 @@ public sealed partial class PhysicsScene {
 
     /// <summary>Swaps the collision volume when the crouch state disagrees with it.</summary>
     /// <remarks>
-    ///     ⚠ <b>A refused stand leaves the character crouched, and that is the answer rather than a
-    ///     failure.</b> <see cref="CharacterController.TrySetShape" /> returns false under a low
+    ///     ⚠
+    ///     <b>
+    ///         A refused stand leaves the character crouched, and that is the answer rather than a
+    ///         failure.
+    ///     </b>
+    ///     <see cref="CharacterController.TrySetShape" /> returns false under a low
     ///     ceiling, so putting <see cref="CharacterState.IsCrouching" /> back is all that is needed —
     ///     no call site anywhere has to know a ceiling exists, and the character keeps crouch speed
     ///     because <c>CharacterMotion</c> reads the same flag.

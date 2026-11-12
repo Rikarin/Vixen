@@ -6,8 +6,12 @@ namespace Vixen.Samples.Mmo.Contracts;
 /// <summary>The maps, by address. Strings, because that is all four processes agree about.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Here rather than in <c>Mmo.Shared</c>, and finding out why was worth the compile
-///         error.</b> The gate needs the map list — it answers "which realms are there" and it
+///         ⚠
+///         <b>
+///             Here rather than in <c>Mmo.Shared</c>, and finding out why was worth the compile
+///             error.
+///         </b>
+///         The gate needs the map list — it answers "which realms are there" and it
 ///         validates an <c>EnterWorldRequest</c> — and the orchestrator needs it to configure a
 ///         placement. Neither simulates anything, so neither should link twenty gameplay libraries;
 ///         a login service that loaded a threat table would be exactly the thing doc 27's assembly

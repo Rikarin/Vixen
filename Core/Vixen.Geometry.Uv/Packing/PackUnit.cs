@@ -41,8 +41,12 @@ sealed class PackUnit {
     /// <summary>A key taken from the island's own coordinates, below <see cref="Signature" />.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b><see cref="Signature" /> is a hash of the <i>mask</i>, and a mask is the island
-    ///         rounded to whole texels.</b> Its remarks say the input index is a safe final tie-break
+    ///         ⚠
+    ///         <b>
+    ///             <see cref="Signature" /> is a hash of the <i>mask</i>, and a mask is the island
+    ///             rounded to whole texels.
+    ///         </b>
+    ///         Its remarks say the input index is a safe final tie-break
     ///         "for two shapes that really are identical — where swapping them changes nothing anybody
     ///         can see", and that argument is one quantization step short: two islands whose coverage
     ///         grids agree do not have the same coordinates, and the atlas is baked from the

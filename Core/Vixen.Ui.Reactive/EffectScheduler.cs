@@ -27,7 +27,8 @@ namespace Vixen.Ui.Reactive;
 ///     </para>
 /// </remarks>
 public sealed class EffectScheduler {
-    [ThreadStatic] static EffectScheduler? threadDefault;
+    [ThreadStatic]
+    static EffectScheduler? threadDefault;
 
     readonly ILogger logger;
     readonly ConcurrentQueue<Action> posted = new();
@@ -36,7 +37,9 @@ public sealed class EffectScheduler {
 
     /// <summary>Creates a scheduler.</summary>
     /// <param name="logger">Where a suspended or throwing effect is reported. Optional.</param>
-    public EffectScheduler(ILogger? logger = null) => this.logger = logger ?? NullLogger.Instance;
+    public EffectScheduler(ILogger? logger = null) {
+        this.logger = logger ?? NullLogger.Instance;
+    }
 
     /// <summary>The scheduler an effect uses when it is not given one.</summary>
     /// <remarks>
@@ -68,8 +71,12 @@ public sealed class EffectScheduler {
     /// <summary>Told about every effect this scheduler suspends: where it was declared, and why.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The single point every suspension passes through, which is what makes this a hook
-    ///         rather than a line at a call site.</b> Both ways an effect stops — an unhandled
+    ///         ⚠
+    ///         <b>
+    ///             The single point every suspension passes through, which is what makes this a hook
+    ///             rather than a line at a call site.
+    ///         </b>
+    ///         Both ways an effect stops — an unhandled
     ///         exception and the runaway detector — end in <c>Effect.RunFromScheduler</c>, and a
     ///         suspended effect is invisible from outside by construction: it keeps its dependencies,
     ///         keeps its place in the graph, and the interface keeps the frame it had. So the count

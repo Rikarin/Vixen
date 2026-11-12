@@ -7,8 +7,11 @@ using Xunit;
 namespace Vixen.Live.Orchestration.Tests;
 
 /// <summary>
-///     Doc 27 § Diagnostics: <i>"why THIS player went to THAT shard … without it, placement
-///     complaints are unanswerable."</i>
+///     Doc 27 § Diagnostics:
+///     <i>
+///         "why THIS player went to THAT shard … without it, placement
+///         complaints are unanswerable."
+///     </i>
 /// </summary>
 public class PlacementLogTests {
     static readonly DateTimeOffset Noon = new(2026, 8, 4, 12, 0, 0, TimeSpan.Zero);
@@ -93,7 +96,9 @@ public class PlacementLogTests {
         log.Record(new(kept, PlaceStatus.Placed, ShardId.New(), "kept", Noon));
 
         for (var index = 0; index < 50; index++) {
-            log.Record(new(impatient, PlaceStatus.Starting, ShardId.None, "a shard is starting", Noon.AddSeconds(index)));
+            log.Record(
+                new(impatient, PlaceStatus.Starting, ShardId.None, "a shard is starting", Noon.AddSeconds(index))
+            );
         }
 
         Assert.Equal(2, log.Count);
@@ -107,10 +112,10 @@ public class PlacementLogTests {
         var oldest = Somebody();
         var newest = Somebody();
 
-        log.Record(new(oldest, PlaceStatus.Placed, ShardId.New(), "", Noon));
-        log.Record(new(newest, PlaceStatus.Placed, ShardId.New(), "", Noon.AddMinutes(5)));
+        log.Record(new(oldest, PlaceStatus.Placed, ShardId.New(), string.Empty, Noon));
+        log.Record(new(newest, PlaceStatus.Placed, ShardId.New(), string.Empty, Noon.AddMinutes(5)));
 
-        Assert.Equal([newest, oldest], log.Recent().Select(record => record.Player));
+        Assert.Equal([newest, oldest], log.Recent().Select(static record => record.Player));
     }
 
     /// <summary>

@@ -16,8 +16,12 @@ namespace Vixen.Editor.SceneView;
 ///         archetypes copying rows, not a serialisation pass.
 ///     </para>
 ///     <para>
-///         ⚠ <b>An <c>Entity</c> is a slot in a world, so copying one verbatim into another world
-///         names the wrong thing.</b> <c>World.CopyComponentsFrom</c> says so and leaves the fix-up
+///         ⚠
+///         <b>
+///             An <c>Entity</c> is a slot in a world, so copying one verbatim into another world
+///             names the wrong thing.
+///         </b>
+///         <c>World.CopyComponentsFrom</c> says so and leaves the fix-up
 ///         to the caller, because nothing generic can know which fields are handles. What is fixed up
 ///         here is the hierarchy — <c>Parent</c>, <c>Child</c> and <c>Sibling</c> — because those are
 ///         the ones the engine itself declares. A game component holding an <c>Entity</c> comes back
@@ -25,8 +29,11 @@ namespace Vixen.Editor.SceneView;
 ///         <see cref="Remap" />, which is handed the whole translation table.
 ///     </para>
 ///     <para>
-///         <b>Restoring gives every entity a new handle, and the editor's selection holds old
-///         ones.</b> That is why <see cref="Restore" /> returns the table rather than being a
+///         <b>
+///             Restoring gives every entity a new handle, and the editor's selection holds old
+///             ones.
+///         </b>
+///         That is why <see cref="Restore" /> returns the table rather than being a
 ///         <c>void</c>: a selection that was not translated would highlight whatever entity happened
 ///         to land in the slot, which is the sort of bug that looks like a rendering fault.
 ///     </para>

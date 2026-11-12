@@ -110,7 +110,7 @@ sealed class GlProgramCache(IGlApi gl) : IDisposable {
             return;
         }
 
-        var usesUniforms = bindings.Any(binding =>
+        var usesUniforms = bindings.Any(static binding =>
             binding.Kind is DescriptorKind.SampledTexture or DescriptorKind.StorageTexture
         );
 
@@ -171,7 +171,10 @@ sealed class GlProgramCache(IGlApi gl) : IDisposable {
 
     static string Numbered(string source) {
         var lines = source.Split('\n');
-        return string.Join(Environment.NewLine, lines.Select((line, index) => $"{index + 1,4}| {line.TrimEnd()}"));
+        return string.Join(
+            Environment.NewLine,
+            lines.Select(static (line, index) => $"{index + 1,4}| {line.TrimEnd()}")
+        );
     }
 
     /// <summary>What identifies a program.</summary>

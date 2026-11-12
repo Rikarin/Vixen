@@ -181,8 +181,7 @@ public sealed class PhysicsLayers {
     /// <param name="first">One layer.</param>
     /// <param name="second">The other.</param>
     /// <returns><see langword="true" /> if a pair drawn from them is considered.</returns>
-    public bool Collide(PhysicsLayer first, PhysicsLayer second) =>
-        (matrix[Check(first)] & (1u << Check(second))) != 0;
+    public bool Collide(PhysicsLayer first, PhysicsLayer second) => (matrix[Check(first)] & (1u << Check(second))) != 0;
 
     /// <summary>The layer with a name, if there is one.</summary>
     /// <param name="name">The name, compared ordinally.</param>
@@ -251,7 +250,7 @@ public sealed class PhysicsLayers {
     static PhysicsLayers CreateDefault() =>
         Define()
             .Add("Static", PhysicsBroadPhase.Static)
-            .Add("Moving", PhysicsBroadPhase.Moving)
+            .Add("Moving")
             .Build();
 
     /// <summary>Collects layers and the collision matrix, then freezes them.</summary>
@@ -328,7 +327,7 @@ public sealed class PhysicsLayers {
                 throw new InvalidOperationException("A layer table needs at least one layer.");
             }
 
-            return new([.. names], [.. broadPhases], [.. matrix]);
+            return new([..names], [..broadPhases], [..matrix]);
         }
 
         [SuppressMessage(

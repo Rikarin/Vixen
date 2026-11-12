@@ -42,7 +42,7 @@ sealed record RepositoryFiles(
             var ledger = Path.Combine(directory.FullName, LedgerName.Replace('/', Path.DirectorySeparatorChar));
 
             if (File.Exists(ledger)) {
-                return new RepositoryFiles(
+                return new(
                     ledger,
                     Path.Combine(directory.FullName, RegistryName.Replace('/', Path.DirectorySeparatorChar)),
                     Path.Combine(directory.FullName, UnlistedName.Replace('/', Path.DirectorySeparatorChar)),
@@ -57,8 +57,6 @@ sealed record RepositoryFiles(
             directory = directory.Parent;
         }
 
-        throw new InvalidOperationException(
-            $"{LedgerName} was not found above {start ?? AppContext.BaseDirectory}"
-        );
+        throw new InvalidOperationException($"{LedgerName} was not found above {start ?? AppContext.BaseDirectory}");
     }
 }

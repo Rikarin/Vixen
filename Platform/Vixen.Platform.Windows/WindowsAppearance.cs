@@ -32,10 +32,12 @@ public static class WindowsAppearance {
     const string Personalize = @"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize";
 
     /// <summary>Reads the current appearance.</summary>
-    /// <returns>The appearance. Never <see cref="SystemColorScheme.Unknown" /> on a working
-    /// Windows.</returns>
+    /// <returns>
+    ///     The appearance. Never <see cref="SystemColorScheme.Unknown" /> on a working
+    ///     Windows.
+    /// </returns>
     public static unsafe SystemColorScheme Read() {
-        var size = (uint)sizeof(uint);
+        uint size = sizeof(uint);
 
         var status = Win32.RegGetValue(
             Win32.HkeyCurrentUser,

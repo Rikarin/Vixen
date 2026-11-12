@@ -17,11 +17,15 @@ namespace Vixen.Platform.Ui.Tests;
 ///     <c>cursor-*</c> as <i>works</i> for exactly that reason. The only honest witness is the
 ///     window.
 ///     <para>
-///         ⚠ <b>ONE OF THE TWO HOSTS THAT CALL <see cref="PlatformCursor.Apply" /> IS TESTED AND THE
-///         OTHER IS NOT, AND THE EXPOSURE IS BIGGER THAN THE CALL.</b> The call sites are
-///         <c>UiApplication.cs:802</c>, covered by
+///         ⚠
+///         <b>
+///             ONE OF THE TWO HOSTS THAT CALL <see cref="PlatformCursor.Apply" /> IS TESTED AND THE
+///             OTHER IS NOT, AND THE EXPOSURE IS BIGGER THAN THE CALL.
+///         </b>
+///         The call sites are
+///         <c>UiApplication.cs:842</c>, covered by
 ///         <c>UiApplicationTests.TheLoopTellsTheWindowWhatThePointerIsOver</c>, and
-///         <c>EditorHost.cs:383</c>, covered by nothing. They are textually identical, which is an
+///         <c>EditorHost.cs:411</c>, covered by nothing. They are textually identical, which is an
 ///         argument rather than a measurement.
 ///     </para>
 ///     <para>
@@ -51,7 +55,7 @@ namespace Vixen.Platform.Ui.Tests;
 public class PlatformCursorTests {
     static (HeadlessPlatform Platform, UiDocument Document, PlatformWindowHost Host) Open(string css) {
         var platform = new HeadlessPlatform();
-        var main = platform.CreateWindow(new WindowOptions { Size = new Int2(400, 300) });
+        var main = platform.CreateWindow(new() { Size = new(400, 300) });
         var document = new UiDocument(400f, 300f);
 
         document.Load(css);
@@ -111,7 +115,7 @@ public class PlatformCursorTests {
 
         using (platform) {
             using (host) {
-                var opened = (PlatformUiWindow) host.Open(document, new UiWindowRequest("Inspector", 0f, 0f, 320f, 240f))!;
+                var opened = (PlatformUiWindow)host.Open(document, new("Inspector", 0f, 0f, 320f, 240f))!;
 
                 opened.Surface.Root.Add("div", classNames: "grip");
                 document.Update();

@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using ExCSS;
-using Selector = Vixen.Ui.Styling.Selector;
 
 namespace Vixen.Ui.Styling.Tests;
 
@@ -15,12 +14,12 @@ sealed class StyleFixture {
     static readonly StylesheetParser Parser = new(true, true, true, true, true);
 
     public StyleFixture() {
-        Names = new NameTable();
-        Table = new SelectorTable();
-        Compiler = new SelectorCompiler(Table, Names);
-        Index = new RuleIndex(Table);
-        Matcher = new SelectorMatcher(Table);
-        Tree = new StyleTree(Names);
+        Names = new();
+        Table = new();
+        Compiler = new(Table, Names);
+        Index = new(Table);
+        Matcher = new(Table);
+        Tree = new(Names);
     }
 
     public NameTable Names { get; }
@@ -61,7 +60,7 @@ sealed class StyleFixture {
     public Selector Compile(string selectorText) {
         var compiled = new List<Selector>();
         var sheet = Parser.Parse(selectorText + " { color: red }");
-        Compiler.Compile(((IStyleRule) sheet.Children.First()).Selector, compiled);
+        Compiler.Compile(((IStyleRule)sheet.Children.First()).Selector, compiled);
         return compiled.Single();
     }
 
@@ -100,7 +99,7 @@ sealed class StyleFixture {
     public List<int> MatchBruteForce(StyleNodeId element) {
         var matched = new List<int>();
         for (var rule = 0; rule < Index.Count; rule++) {
-            if (Matcher.Matches(Tree, element, Index.SelectorOf(rule), useBloom: false)) {
+            if (Matcher.Matches(Tree, element, Index.SelectorOf(rule), false)) {
                 matched.Add(rule);
             }
         }

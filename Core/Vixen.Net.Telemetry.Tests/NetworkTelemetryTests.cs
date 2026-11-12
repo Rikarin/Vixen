@@ -28,30 +28,35 @@ public sealed class NetworkTelemetryTests {
     /// <summary>A port nothing is listening on, which is the interesting deployment.</summary>
     static readonly Uri Nowhere = new("http://127.0.0.1:1");
 
-    static TelemetryOptions Options => new() {
-        ServiceName = "vixen-test",
-        ServiceVersion = "0.0.1",
-        ServiceInstanceId = "match-1",
-        Endpoint = Nowhere,
-        ExportInterval = TimeSpan.FromMilliseconds(50),
+    static TelemetryOptions Options =>
+        new() {
+            ServiceName = "vixen-test",
+            ServiceVersion = "0.0.1",
+            ServiceInstanceId = "match-1",
+            Endpoint = Nowhere,
+            ExportInterval = TimeSpan.FromMilliseconds(50),
 
-        // Off, because the runtime instrumentation registers process-wide callbacks and two test
-        // classes starting it at once is a fight over nothing this test is about.
-        IncludeRuntimeMetrics = false,
+            // Off, because the runtime instrumentation registers process-wide callbacks and two test
+            // classes starting it at once is a fight over nothing this test is about.
+            IncludeRuntimeMetrics = false,
 
-        // ⚠ Off for the same class of reason, and it is load-bearing for the two tests below rather
-        // than tidiness. A tracer provider subscribes to an `ActivitySource` *by name*, and that
-        // subscription is process-wide — so a test asserting that traces are off cannot be right
-        // while another test in the same process has them on. xunit runs the tests of one class in
-        // sequence, which makes that assertion sound here and nowhere else.
-        IncludeTraces = false
-    };
+            // ⚠ Off for the same class of reason, and it is load-bearing for the two tests below rather
+            // than tidiness. A tracer provider subscribes to an `ActivitySource` *by name*, and that
+            // subscription is process-wide — so a test asserting that traces are off cannot be right
+            // while another test in the same process has them on. xunit runs the tests of one class in
+            // sequence, which makes that assertion sound here and nowhere else.
+            IncludeTraces = false
+        };
 
     /// <summary>Traces on means the engine's source has a listener, which is the whole wiring.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Asserted through a fresh <c>ActivitySource</c> of the same name rather than
-    ///         through the engine's own object</b>, because that is what the SDK actually matches on:
+    ///         ⚠
+    ///         <b>
+    ///             Asserted through a fresh <c>ActivitySource</c> of the same name rather than
+    ///             through the engine's own object
+    ///         </b>
+    ///         , because that is what the SDK actually matches on:
     ///         <c>AddSource("Vixen.Net")</c> subscribes to the name, so any source called that gets
     ///         the listener. Which also means this test cannot pass by accident of the engine having
     ///         been touched — nothing in this assembly can start a session.
@@ -64,19 +69,18 @@ public sealed class NetworkTelemetryTests {
     /// </remarks>
     [Fact]
     public void TracesAreWiredToTheEnginesSourceAndCanBeTurnedOff() {
-        using (var source = new ActivitySource(NetworkActivity.SourceName)) {
-            Assert.False(source.HasListeners(), "Something had already subscribed before this test ran.");
+        using var source = new ActivitySource(NetworkActivity.SourceName);
+        Assert.False(source.HasListeners(), "Something had already subscribed before this test ran.");
 
-            using (NetworkTelemetry.Start(Options with { IncludeTraces = true })) {
-                Assert.True(source.HasListeners());
-            }
+        using (NetworkTelemetry.Start(Options with { IncludeTraces = true })) {
+            Assert.True(source.HasListeners());
+        }
 
-            // Disposed with the provider, so a server that stops telemetry stops paying for spans.
+        // Disposed with the provider, so a server that stops telemetry stops paying for spans.
+        Assert.False(source.HasListeners());
+
+        using (NetworkTelemetry.Start(Options)) {
             Assert.False(source.HasListeners());
-
-            using (NetworkTelemetry.Start(Options)) {
-                Assert.False(source.HasListeners());
-            }
         }
     }
 
@@ -104,7 +108,7 @@ public sealed class NetworkTelemetryTests {
         for (var tick = 0; tick < 20; tick++) {
             telemetry.Metrics.Sample();
             telemetry.Metrics.RecordTick(TimeSpan.FromMilliseconds(2));
-            telemetry.Metrics.RecordSnapshot(bytes: 256);
+            telemetry.Metrics.RecordSnapshot(256);
         }
 
         // Whether it got anything out is the network's business and is allowed to be false. That it

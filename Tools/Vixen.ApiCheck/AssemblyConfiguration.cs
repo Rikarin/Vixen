@@ -12,8 +12,12 @@ namespace Vixen.ApiCheck;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>A baseline is a promise about a Release package, and <c>--update</c> will happily
-///         write a Debug one down instead.</b> <c>CheckApi</c> hard-codes Release for a reason it
+///         ⚠
+///         <b>
+///             A baseline is a promise about a Release package, and <c>--update</c> will happily
+///             write a Debug one down instead.
+///         </b>
+///         <c>CheckApi</c> hard-codes Release for a reason it
 ///         states at length; the tool underneath it takes a path and believes whatever is at the end
 ///         of it. The two configurations genuinely disagree — the engine has <c>public const bool</c>
 ///         feature flags (<c>LeakTracker.IsSupported</c>, <c>JobScheduler.SafetyChecksEnabled</c>,

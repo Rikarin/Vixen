@@ -57,6 +57,5 @@ public readonly record struct PlayerId(ulong Value) : IComparable<PlayerId> {
     public static bool operator >=(PlayerId left, PlayerId right) => left.Value >= right.Value;
 
     /// <inheritdoc />
-    public override string ToString() =>
-        IsSome ? Value.ToString(CultureInfo.InvariantCulture) : "nobody";
+    public override string ToString() => IsSome ? Value.ToString(CultureInfo.InvariantCulture) : "nobody";
 }

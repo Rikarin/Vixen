@@ -33,22 +33,23 @@ public class CompositorContentTests {
     ///     Built as objects rather than parsed from YAML, because the editor's format is not what a
     ///     shipping game reads — the point of the exercise is the chunk.
     /// </remarks>
-    static GraphicsCompositorAsset Frame => new() {
-        Version = CompositorBuilder.SupportedVersion,
-        Stages = [new() { Name = "Opaque" }],
-        Resources = [new() { Name = "SceneColour" }],
-        Game = new SequenceAsset {
-            Name = "Frame",
-            Children = [
-                new RenderPassAsset {
-                    Name = "Main",
-                    ColourTargets = ["SceneColour"],
-                    Children = [new SingleStageAsset { Name = "Draw", View = "Camera", Stage = "Opaque" }]
-                },
-                new BloomAsset { Name = "Bloom", Source = "SceneColour", Output = "BloomResult", Levels = 3 }
-            ]
-        }
-    };
+    static GraphicsCompositorAsset Frame =>
+        new() {
+            Version = CompositorBuilder.SupportedVersion,
+            Stages = [new() { Name = "Opaque" }],
+            Resources = [new() { Name = "SceneColour" }],
+            Game = new SequenceAsset {
+                Name = "Frame",
+                Children = [
+                    new RenderPassAsset {
+                        Name = "Main",
+                        ColourTargets = ["SceneColour"],
+                        Children = [new SingleStageAsset { Name = "Draw", View = "Camera", Stage = "Opaque" }]
+                    },
+                    new BloomAsset { Name = "Bloom", Source = "SceneColour", Output = "BloomResult", Levels = 3 }
+                ]
+            }
+        };
 
     /// <summary>A catalog and a bundle holding one compositor, as a content build would leave them.</summary>
     static AssetManager Published(string address, GraphicsCompositorAsset asset) {
@@ -73,7 +74,7 @@ public class CompositorContentTests {
             default,
             "Windows",
             [new(address, id, "Main", ContentProvider.Local, [], [], 0)],
-            [new("Main", "", default, 0, 0, CompressionMethod.Lz4, [])]
+            [new("Main", string.Empty, default, 0, 0, CompressionMethod.Lz4, [])]
         );
 
         return new(catalog, new LocalBundleSource(files, new("/bundles")));
@@ -138,6 +139,10 @@ public class CompositorContentTests {
     public void AnUnknownCompositorAddressFails() {
         var assets = Published("compositors/forward", Frame);
 
-        Assert.ThrowsAny<Exception>(() => assets.Load<GraphicsCompositorAsset>("compositors/deferred", TestContext.Current.CancellationToken));
+        Assert.ThrowsAny<Exception>(() => assets.Load<GraphicsCompositorAsset>(
+                "compositors/deferred",
+                TestContext.Current.CancellationToken
+            )
+        );
     }
 }

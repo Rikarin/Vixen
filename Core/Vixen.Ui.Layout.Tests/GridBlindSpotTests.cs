@@ -61,8 +61,12 @@ public class GridBlindSpotTests {
     ///         applies to every grid inside every flex container.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The declared <c>flex-basis</c> is load-bearing and is why this is written by
-    ///         hand.</b> <c>ComputeAutoMinMainSize</c> caps the floor at the item's own flex basis
+    ///         ⚠
+    ///         <b>
+    ///             The declared <c>flex-basis</c> is load-bearing and is why this is written by
+    ///             hand.
+    ///         </b>
+    ///         <c>ComputeAutoMinMainSize</c> caps the floor at the item's own flex basis
     ///         whenever that basis was MEASURED, which hides every over-reported floor the probe
     ///         produces; a DECLARED basis carries no such guarantee, so the number reaches the
     ///         algorithm. See <c>Rikarin/Vixen#265</c>.
@@ -264,26 +268,26 @@ public class GridBlindSpotTests {
         // itself out twice. Placement, the track arena and the two intrinsic probes are all cached
         // across passes; the oracle is a second tree with the same styles, built from scratch.
         Gen.Select(Gen.Int[1, 3], Gen.Int[1, 3], Gen.Int[0, 999].Array[1, 10])
-            .Sample(shape => {
-                var (columns, rows, mutations) = shape;
+            .Sample(static shape => {
+                    var (columns, rows, mutations) = shape;
 
-                var spec = new GridSpec(columns, rows);
-                using var incremental = new LayoutTree();
-                var incrementalRoot = spec.Build(incremental);
-                incremental.CalculateLayout(incrementalRoot, 220f, 160f, Direction.Ltr);
-
-                foreach (var mutation in mutations) {
-                    spec.Mutate(mutation);
-                    spec.Apply(incremental, incrementalRoot, mutation);
+                    var spec = new GridSpec(columns, rows);
+                    using var incremental = new LayoutTree();
+                    var incrementalRoot = spec.Build(incremental);
                     incremental.CalculateLayout(incrementalRoot, 220f, 160f, Direction.Ltr);
 
-                    using var cold = new LayoutTree();
-                    var coldRoot = spec.Build(cold);
-                    cold.CalculateLayout(coldRoot, 220f, 160f, Direction.Ltr);
+                    foreach (var mutation in mutations) {
+                        spec.Mutate(mutation);
+                        spec.Apply(incremental, incrementalRoot, mutation);
+                        incremental.CalculateLayout(incrementalRoot, 220f, 160f, Direction.Ltr);
 
-                    AssertSameLayout(incremental, incrementalRoot, cold, coldRoot);
+                        using var cold = new LayoutTree();
+                        var coldRoot = spec.Build(cold);
+                        cold.CalculateLayout(coldRoot, 220f, 160f, Direction.Ltr);
+
+                        AssertSameLayout(incremental, incrementalRoot, cold, coldRoot);
+                    }
                 }
-            }
             );
     }
 
@@ -294,26 +298,28 @@ public class GridBlindSpotTests {
         // seam — is asked here for the first time on a grid. Same oracle, at 2× with fractional
         // available space.
         Gen.Select(Gen.Int[1, 3], Gen.Int[1, 3], Gen.Int[0, 999].Array[1, 10])
-            .Sample(shape => {
-                var (columns, rows, mutations) = shape;
+            .Sample(static shape => {
+                    var (columns, rows, mutations) = shape;
 
-                var spec = new GridSpec(columns, rows);
-                using var incremental = new LayoutTree { PointScaleFactor = 2f };
-                var incrementalRoot = spec.Build(incremental);
-                incremental.CalculateLayout(incrementalRoot, 220.5f, 160.25f, Direction.Ltr);
-
-                foreach (var mutation in mutations) {
-                    spec.Mutate(mutation);
-                    spec.Apply(incremental, incrementalRoot, mutation);
+                    var spec = new GridSpec(columns, rows);
+                    using var incremental = new LayoutTree();
+                    incremental.PointScaleFactor = 2f;
+                    var incrementalRoot = spec.Build(incremental);
                     incremental.CalculateLayout(incrementalRoot, 220.5f, 160.25f, Direction.Ltr);
 
-                    using var cold = new LayoutTree { PointScaleFactor = 2f };
-                    var coldRoot = spec.Build(cold);
-                    cold.CalculateLayout(coldRoot, 220.5f, 160.25f, Direction.Ltr);
+                    foreach (var mutation in mutations) {
+                        spec.Mutate(mutation);
+                        spec.Apply(incremental, incrementalRoot, mutation);
+                        incremental.CalculateLayout(incrementalRoot, 220.5f, 160.25f, Direction.Ltr);
 
-                    AssertSameLayout(incremental, incrementalRoot, cold, coldRoot);
+                        using var cold = new LayoutTree();
+                        cold.PointScaleFactor = 2f;
+                        var coldRoot = spec.Build(cold);
+                        cold.CalculateLayout(coldRoot, 220.5f, 160.25f, Direction.Ltr);
+
+                        AssertSameLayout(incremental, incrementalRoot, cold, coldRoot);
+                    }
                 }
-            }
             );
     }
 
@@ -322,7 +328,8 @@ public class GridBlindSpotTests {
         // What the rounding pass exists for, on the algorithm that had no test of it. Three
         // 33.3-point rows at 2× scale: their rounded heights differ from each other and they still
         // tile the container exactly.
-        using var tree = new LayoutTree { PointScaleFactor = 2f };
+        using var tree = new LayoutTree();
+        tree.PointScaleFactor = 2f;
         var root = tree.CreateNode();
         tree.SetDisplay(root, Display.Grid);
         tree.SetDimension(root, Dimension.Width, StyleLength.Points(100f));
@@ -389,9 +396,9 @@ public class GridBlindSpotTests {
 
         public void Mutate(int mutation) {
             if (mutation % 2 == 0) {
-                widths[mutation % widths.Length] = 11f + (mutation % 23 * 0.37f);
+                widths[mutation % widths.Length] = 11f + mutation % 23 * 0.37f;
             } else {
-                heights[mutation % heights.Length] = 13f + (mutation % 17 * 0.41f);
+                heights[mutation % heights.Length] = 13f + mutation % 17 * 0.41f;
             }
         }
 
@@ -410,7 +417,7 @@ public class GridBlindSpotTests {
         static float[] CreateSizes(int count, float start, float step) {
             var sizes = new float[count];
             for (var i = 0; i < count; i++) {
-                sizes[i] = start + (i * step % 19f);
+                sizes[i] = start + i * step % 19f;
             }
 
             return sizes;
@@ -467,8 +474,11 @@ public class GridBlindSpotTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>This test asserts what this store DOES and not what CSS says, and the day
-    ///         <c>LayoutStyle</c> carries a writing mode it must go red and be rewritten to 40.</b>
+    ///         ⚠
+    ///         <b>
+    ///             This test asserts what this store DOES and not what CSS says, and the day
+    ///             <c>LayoutStyle</c> carries a writing mode it must go red and be rewritten to 40.
+    ///         </b>
     ///         It is the same kind of record as
     ///         <c>Vixen.Ui.Controls.Tests.TextWrappingPixelTests</c>' stated deviations: a gap with
     ///         no witness is a gap that gets rediscovered. <c>Rikarin/Vixen#952</c>.
@@ -482,8 +492,12 @@ public class GridBlindSpotTests {
     ///         under it whose 20 points of min-content hide half the difference.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The oracle is a property and not a recorded number: this store's answer does not
-    ///         depend on the row at all, and Chrome's is a function of it.</b> Seven two-character
+    ///         ⚠
+    ///         <b>
+    ///             The oracle is a property and not a recorded number: this store's answer does not
+    ///             depend on the row at all, and Chrome's is a function of it.
+    ///         </b>
+    ///         Seven two-character
     ///         words at ten points a character, in a row of a stated <i>r</i> points. The row is the
     ///         item's INLINE axis once it is turned, so Chrome fits <i>r</i>/10 characters to a line
     ///         and the column — the item's BLOCK axis — is ten points per line it needs: 40 for a
@@ -515,7 +529,7 @@ public class GridBlindSpotTests {
 
         // Seven two-character words, separated by the zero-width space Taffy's generator used.
         var turned = tree.CreateNode();
-        tree.SetContext(turned, new TaffyText("HH​HH​HH​HH​HH​HH​HH", true));
+        tree.SetContext(turned, new TaffyText("HH\u200BHH\u200BHH\u200BHH\u200BHH\u200BHH\u200BHH", true));
         tree.SetMeasureFunction(turned, TaffyAhemMeasure.Measure);
         tree.AddChild(grid, turned);
 

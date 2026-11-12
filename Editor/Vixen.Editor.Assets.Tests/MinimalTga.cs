@@ -29,22 +29,22 @@ static class MinimalTga {
     /// <param name="topDown">Whether to store the top row first and say so, or store it last.</param>
     /// <returns>The file's bytes.</returns>
     public static byte[] Write(int width, int height, ReadOnlySpan<byte> rgba, bool topDown) {
-        var file = new byte[18 + (width * height * 4)];
+        var file = new byte[18 + width * height * 4];
 
-        file[0] = 0;                        // No image id.
-        file[1] = 0;                        // No colour map.
-        file[2] = 2;                        // Uncompressed true-colour.
+        file[0] = 0; // No image id.
+        file[1] = 0; // No colour map.
+        file[2] = 2; // Uncompressed true-colour.
 
         // Bytes 3..7 are the colour map specification, and stay zero.
-        file[8] = 0;                        // x origin, low byte.
+        file[8] = 0; // x origin, low byte.
         file[9] = 0;
-        file[10] = 0;                       // y origin, low byte.
+        file[10] = 0; // y origin, low byte.
         file[11] = 0;
         file[12] = (byte)(width & 0xFF);
         file[13] = (byte)(width >> 8);
         file[14] = (byte)(height & 0xFF);
         file[15] = (byte)(height >> 8);
-        file[16] = 32;                      // Bits per pixel.
+        file[16] = 32; // Bits per pixel.
 
         // The low four bits are how many of those are alpha; bit 5 is the origin. Bit 4, which
         // would mean right-to-left, is deliberately not exercised: no writer in the world sets it.
@@ -53,13 +53,13 @@ static class MinimalTga {
         for (var y = 0; y < height; y++) {
             var source = y * width * 4;
             var row = topDown ? y : height - 1 - y;
-            var into = 18 + (row * width * 4);
+            var into = 18 + row * width * 4;
 
             for (var x = 0; x < width; x++) {
-                file[into + (x * 4)] = rgba[source + (x * 4) + 2];          // B
-                file[into + (x * 4) + 1] = rgba[source + (x * 4) + 1];      // G
-                file[into + (x * 4) + 2] = rgba[source + (x * 4)];          // R
-                file[into + (x * 4) + 3] = rgba[source + (x * 4) + 3];      // A
+                file[into + x * 4] = rgba[source + x * 4 + 2]; // B
+                file[into + x * 4 + 1] = rgba[source + x * 4 + 1]; // G
+                file[into + x * 4 + 2] = rgba[source + x * 4]; // R
+                file[into + x * 4 + 3] = rgba[source + x * 4 + 3]; // A
             }
         }
 

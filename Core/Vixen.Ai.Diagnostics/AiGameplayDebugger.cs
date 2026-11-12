@@ -156,8 +156,7 @@ public sealed class AiGameplayDebugger {
         var viewpoint = Viewpoint;
         var selected = Selected;
 
-        candidates.Sort(
-            (left, right) => {
+        candidates.Sort((left, right) => {
                 // The selected agent first, always, so that "why is this one doing that" is never
                 // answered by the seventeenth label being off the bottom of the cap.
                 if (left == selected != (right == selected)) {
@@ -177,14 +176,14 @@ public sealed class AiGameplayDebugger {
 
         if (Style.Shows(AiDebugCategory.Agent)) {
             draw.Cross(at, 0.35f, colour);
-            draw.Line(at, at + (Vector3.UnitY * Style.Headroom), colour);
+            draw.Line(at, at + Vector3.UnitY * Style.Headroom, colour);
         }
 
         if (Style.Shows(AiDebugCategory.Shapes)) {
             Shapes(draw, world, state.Entity, at, colour);
         }
 
-        var cursor = at + (Vector3.UnitY * Style.Headroom);
+        var cursor = at + Vector3.UnitY * Style.Headroom;
         var size = Style.Text;
 
         if (Style.Shows(AiDebugCategory.Agent)) {
@@ -248,7 +247,7 @@ public sealed class AiGameplayDebugger {
         }
 
         var config = perception.Configs[listener.Config];
-        var eye = at + (Vector3.UnitY * config.Sight.EyeHeight);
+        var eye = at + Vector3.UnitY * config.Sight.EyeHeight;
         var forward = Forward(world, entity);
 
         // A cone drawn as its own geometry rather than as a circle, because "can it see me" is a

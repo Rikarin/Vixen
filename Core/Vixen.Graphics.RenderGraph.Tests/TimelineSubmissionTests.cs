@@ -82,8 +82,10 @@ public sealed class TimelineSubmissionTests : IDisposable {
     public void APointNothingWillSignalIsRefused() {
         var device = Device();
 
-        var failure = Assert.Throws<InvalidOperationException>(
-            () => device.GraphicsQueue.Submit([Recorded(device)], [new(QueueKind.Compute, 7)])
+        var failure = Assert.Throws<InvalidOperationException>(() => device.GraphicsQueue.Submit(
+                [Recorded(device)],
+                [new(QueueKind.Compute, 7)]
+            )
         );
 
         Assert.Contains("has only issued 0", failure.Message, StringComparison.Ordinal);
@@ -99,10 +101,10 @@ public sealed class TimelineSubmissionTests : IDisposable {
 
         Assert.Equal(
             2,
-            device.Recorder!.Commands.Count(command => command.Kind == RecordedCommandKind.Submit)
+            device.Recorder!.Commands.Count(static command => command.Kind == RecordedCommandKind.Submit)
         );
 
-        var waited = device.Recorder.Commands.Single(c => c.Kind == RecordedCommandKind.WaitForPoint);
+        var waited = device.Recorder.Commands.Single(static c => c.Kind == RecordedCommandKind.WaitForPoint);
         Assert.Equal((long)QueueKind.Compute, waited.A);
         Assert.Equal(1, waited.B);
     }
@@ -185,7 +187,7 @@ public sealed class TimelineSubmissionTests : IDisposable {
 
         graph.Execute(new DeviceQueues(device));
 
-        var declared = graph.Schedule!.Segments.Sum(segment => segment.WaitsOn.Count);
+        var declared = graph.Schedule!.Segments.Sum(static segment => segment.WaitsOn.Count);
         Assert.True(declared > 0, "The frame under test has no cross-queue edge to enforce.");
         Assert.Equal(declared, Count(device, RecordedCommandKind.WaitForPoint));
     }
@@ -250,7 +252,7 @@ public sealed class TimelineSubmissionTests : IDisposable {
     /// <summary>A device without timeline semaphores takes the draining path and says so.</summary>
     [Fact]
     public void ADeviceWithoutTimelinesFallsBackToDraining() {
-        var device = Device(timelines: false);
+        var device = Device(false);
         var queues = new DeviceQueues(device);
 
         Assert.False(queues.UsesWaitValues);
@@ -294,8 +296,8 @@ public sealed class TimelineSubmissionTests : IDisposable {
 
         // And the second frame's points are the second frame's: the counters climbed rather than
         // restarting, so a wait naming a value from frame one would be satisfied on arrival.
-        var waited = device.Recorder.Commands.Where(c => c.Kind == RecordedCommandKind.WaitForPoint);
-        Assert.All(waited, command => Assert.True(command.B > 1));
+        var waited = device.Recorder.Commands.Where(static c => c.Kind == RecordedCommandKind.WaitForPoint);
+        Assert.All(waited, static command => Assert.True(command.B > 1));
     }
 
     // ── Helpers ─────────────────────────────────────────────────────────────────────────────
@@ -310,12 +312,12 @@ public sealed class TimelineSubmissionTests : IDisposable {
     ///     differently — and comparing the numbering rather than the calls would fail for the one
     ///     reason that is not a defect. Everything else about each command is compared.
     /// </remarks>
-    static List<string> Work(NullDevice device) =>
-    [
-        .. device.Recorder!.Commands
-            .Where(command => command.Kind is not (RecordedCommandKind.Submit
-                or RecordedCommandKind.WaitForPoint
-                or RecordedCommandKind.QueueWaitIdle))
+    static List<string> Work(NullDevice device) => [
+        ..device.Recorder!.Commands
+            .Where(static command => command.Kind is not (RecordedCommandKind.Submit
+                    or RecordedCommandKind.WaitForPoint
+                    or RecordedCommandKind.QueueWaitIdle)
+            )
             .Select(command => (command with { Sequence = 0 }).ToString())
     ];
 
@@ -365,26 +367,36 @@ public sealed class TimelineSubmissionTests : IDisposable {
             ResourceState.Present
         );
 
-        graph.AddPass("prepass", pass => {
-            pass.ColourAttachment(depth);
-            pass.Execute(_ => ran.Add("prepass"));
-        });
+        graph.AddPass(
+            "prepass",
+            pass => {
+                pass.ColourAttachment(depth);
+                pass.Execute(_ => ran.Add("prepass"));
+            }
+        );
 
-        graph.AddPass("cluster", pass => {
-            pass.Kind = PassKind.Compute;
-            pass.Reads(depth);
-            pass.Writes(clusters);
-            pass.Execute(context => {
-                ran.Add("cluster");
-                context.CommandList.Dispatch(1, 1, 1);
-            });
-        });
+        graph.AddPass(
+            "cluster",
+            pass => {
+                pass.Kind = PassKind.Compute;
+                pass.Reads(depth);
+                pass.Writes(clusters);
+                pass.Execute(context => {
+                        ran.Add("cluster");
+                        context.CommandList.Dispatch(1);
+                    }
+                );
+            }
+        );
 
-        graph.AddPass("shade", pass => {
-            pass.Reads(clusters);
-            pass.ColourAttachment(output);
-            pass.Execute(_ => ran.Add("shade"));
-        });
+        graph.AddPass(
+            "shade",
+            pass => {
+                pass.Reads(clusters);
+                pass.ColourAttachment(output);
+                pass.Execute(_ => ran.Add("shade"));
+            }
+        );
     }
 
     NullDevice Device(bool timelines = true) {

@@ -79,7 +79,9 @@ public static class Content {
                     Points = 20,
                     Tag = "Earned.Slayer",
                     Criteria = [
-                        new() { Description = "Slay thirty undead", Verb = "Event.Kill", All = ["Kind.Undead"], Count = 30 }
+                        new() {
+                            Description = "Slay thirty undead", Verb = "Event.Kill", All = ["Kind.Undead"], Count = 30
+                        }
                     ],
                     Unlocks = [Slayer]
                 }
@@ -190,7 +192,7 @@ public class CollectionTests {
 
         Assert.Equal(
             [DefId.From(Content.Cat), DefId.From(Content.Gryphon), DefId.From(Content.Horse)],
-            record.Unlocks.Select(unlock => unlock.Collectible)
+            record.Unlocks.Select(static unlock => unlock.Collectible)
         );
     }
 
@@ -261,7 +263,7 @@ public class CollectionTests {
         // achievement stays unearned, which is right, and Compile says so, which is what matters.
         Assert.Contains(
             library.Problems,
-            problem => problem.Contains("has no verb", StringComparison.Ordinal)
+            static problem => problem.Contains("has no verb", StringComparison.Ordinal)
         );
 
         record.Refresh();
@@ -292,7 +294,7 @@ public class CollectionTests {
 
     [Fact]
     public void ACollectionAnswersItsOwnCounts() {
-        var context = (IRequirementContext)record;
+        IRequirementContext context = record;
 
         record.Unlock(Get(Content.Gryphon));
         record.Unlock(Get(Content.Cat));
@@ -495,7 +497,7 @@ public class CollectionTests {
         record.Note(Achievement(Content.SlayUndead), 0);
 
         var unlocks = record.Unlocks.ToArray();
-        var earned = record.Achievements().Select(achievement => achievement.Id).ToArray();
+        var earned = record.Achievements().Select(static achievement => achievement.Id).ToArray();
         var counters = record.Counters().ToArray();
 
         var loaded = new CollectionRecord(library);
@@ -550,8 +552,11 @@ public class CollectionTests {
                 .Build()
         );
 
-        Assert.Contains(library.Problems, problem => problem.Contains("no slot", StringComparison.Ordinal));
-        Assert.Contains(library.Problems, problem => problem.Contains("Pet with a slot", StringComparison.Ordinal));
+        Assert.Contains(library.Problems, static problem => problem.Contains("no slot", StringComparison.Ordinal));
+        Assert.Contains(
+            library.Problems,
+            static problem => problem.Contains("Pet with a slot", StringComparison.Ordinal)
+        );
     }
 
     [Fact]
@@ -560,7 +565,10 @@ public class CollectionTests {
             new DefinitionCatalogBuilder().Add("achieve/free", new AchievementDefinition()).Build()
         );
 
-        Assert.Contains(library.Problems, problem => problem.Contains("nothing at all", StringComparison.Ordinal));
+        Assert.Contains(
+            library.Problems,
+            static problem => problem.Contains("nothing at all", StringComparison.Ordinal)
+        );
     }
 
     [Fact]
@@ -581,7 +589,7 @@ public class CollectionTests {
 
         Assert.Contains(
             library.Problems,
-            problem => problem.Contains("its own precondition", StringComparison.Ordinal)
+            static problem => problem.Contains("its own precondition", StringComparison.Ordinal)
         );
     }
 
@@ -599,7 +607,10 @@ public class CollectionTests {
                 .Build()
         );
 
-        Assert.Contains(library.Problems, problem => problem.Contains("not in this build", StringComparison.Ordinal));
+        Assert.Contains(
+            library.Problems,
+            static problem => problem.Contains("not in this build", StringComparison.Ordinal)
+        );
     }
 
     [Fact]

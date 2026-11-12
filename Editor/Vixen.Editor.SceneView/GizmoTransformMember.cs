@@ -64,10 +64,10 @@ sealed class GizmoTransformMember : IEditMember {
     }
 
     /// <inheritdoc />
-    public Vixen.Authoring.IAuthoringCommand CreateSetCommand(IReadOnlyList<object> targets, object? value, EditorDocument? document) {
+    public IAuthoringCommand CreateSetCommand(IReadOnlyList<object> targets, object? value, EditorDocument? document) {
         ArgumentNullException.ThrowIfNull(targets);
 
-        return new SetValuesCommand(this, targets, [.. targets.Select(Read)], value, document);
+        return new SetValuesCommand(this, targets, [..targets.Select(Read)], value, document);
     }
 
     /// <inheritdoc />
@@ -83,13 +83,16 @@ sealed class GizmoTransformMember : IEditMember {
 
         return new TransformTargetsCommand(
             name,
-            [.. targets.Select(Target)],
-            [.. before.Select(state => ((Vector3, Quaternion, Vector3))state!)],
+            [..targets.Select(Target)],
+            [..before.Select(static state => ((Vector3, Quaternion, Vector3))state!)],
             document
         );
     }
 
     static IGizmoTarget Target(object owner) =>
         owner as IGizmoTarget
-        ?? throw new ArgumentException($"The gizmo's member was handed a '{owner?.GetType()}', which is not a gizmo target.", nameof(owner));
+        ?? throw new ArgumentException(
+            $"The gizmo's member was handed a '{owner?.GetType()}', which is not a gizmo target.",
+            nameof(owner)
+        );
 }

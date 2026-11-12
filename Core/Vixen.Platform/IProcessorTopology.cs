@@ -42,8 +42,10 @@ public interface IProcessorTopology {
     /// <summary>How many logical processors this process may actually run on.</summary>
     int AvailableProcessors { get; }
 
-    /// <summary>How many physical cores there are, or <see cref="AvailableProcessors" /> where the
-    /// platform does not distinguish.</summary>
+    /// <summary>
+    ///     How many physical cores there are, or <see cref="AvailableProcessors" /> where the
+    ///     platform does not distinguish.
+    /// </summary>
     int PhysicalCores { get; }
 
     /// <summary>How many performance cores there are, or <c>0</c> where the platform does not say.</summary>
@@ -58,8 +60,10 @@ public interface IProcessorTopology {
 
     /// <summary>Pins the calling thread to one logical processor.</summary>
     /// <param name="processor">A logical processor index, <c>[0, AvailableProcessors)</c>.</param>
-    /// <returns><see langword="false" /> where the platform does not allow it, which is not an
-    /// error.</returns>
+    /// <returns>
+    ///     <see langword="false" /> where the platform does not allow it, which is not an
+    ///     error.
+    /// </returns>
     bool TrySetAffinity(int processor);
 
     /// <summary>Undoes a previous <see cref="TrySetAffinity" /> for the calling thread.</summary>

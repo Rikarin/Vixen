@@ -147,7 +147,7 @@ internal sealed class SpirvInstruction(SpirvOp op, uint? resultType, uint? resul
         1
         + (ResultType.HasValue ? 1 : 0)
         + (Result.HasValue ? 1 : 0)
-        + operands.Sum(operand => operand.WordCount);
+        + operands.Sum(static operand => operand.WordCount);
 
     public void Encode(List<uint> words) {
         words.Add((uint)(WordCount << 16) | (uint)Op);

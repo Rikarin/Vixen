@@ -2,9 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core;
-using Vixen.Core.Mathematics;
 using Vixen.Ecs;
-using Vixen.Editor.AssetEditors.Scenes;
 using Vixen.Editor.AssetEditors.Tests;
 using Vixen.Editor.Core.Scenes;
 using Vixen.Editor.SceneView;
@@ -57,9 +55,7 @@ public class PrefabInstanceTests {
         var two = Turret();
         two.Roots.Add(new() { Id = EntityId.New(), Name = "Second" });
 
-        Assert.Throws<ArgumentException>(
-            () => Prefab.Instantiate(scene, AssetId.New(), two)
-        );
+        Assert.Throws<ArgumentException>(() => Prefab.Instantiate(scene, AssetId.New(), two));
     }
 
     /// <summary>The hierarchy comes across with the instance.</summary>
@@ -124,18 +120,18 @@ public class PrefabInstanceTests {
 
     /// <summary>An id the prefab does not have finds nothing.</summary>
     [Fact]
-    public void AnUnknownIdFindsNothing() =>
-        Assert.False(Prefab.TryFind(Turret(), EntityId.New(), out _));
+    public void AnUnknownIdFindsNothing() => Assert.False(Prefab.TryFind(Turret(), EntityId.New(), out _));
 
-    static SceneFile Turret() => new() {
-        Name = "Turret",
-        Roots = [
-            new() {
-                Id = EntityId.New(),
-                Name = "Turret",
-                Position = new(1f, 0f, 0f),
-                Children = [new() { Id = EntityId.New(), Name = "Barrel", Position = new(0f, 1f, 0f) }]
-            }
-        ]
-    };
+    static SceneFile Turret() =>
+        new() {
+            Name = "Turret",
+            Roots = [
+                new() {
+                    Id = EntityId.New(),
+                    Name = "Turret",
+                    Position = new(1f, 0f, 0f),
+                    Children = [new() { Id = EntityId.New(), Name = "Barrel", Position = new(0f, 1f, 0f) }]
+                }
+            ]
+        };
 }

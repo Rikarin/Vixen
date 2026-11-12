@@ -68,10 +68,11 @@ public readonly record struct AgentDebugRecord(
     float Score
 ) {
     /// <inheritdoc />
-    public override string ToString() => string.Create(
-        CultureInfo.InvariantCulture,
-        $"[{Tick}] {Entity} {Planner}: {Action} ({Index}/{Count}) {Status}, because {Reason} = {Score:0.###}"
-    );
+    public override string ToString() =>
+        string.Create(
+            CultureInfo.InvariantCulture,
+            $"[{Tick}] {Entity} {Planner}: {Action} ({Index}/{Count}) {Status}, because {Reason} = {Score:0.###}"
+        );
 }
 
 /// <summary>A ring of the last few decisions, off by default.</summary>
@@ -101,8 +102,10 @@ public sealed class AgentDebugRecorder {
     public bool Enabled { get; set; }
 
     /// <summary>How many records to keep.</summary>
-    /// <remarks>Changing it drops what has been recorded, which is what a caller wants: a ring
-    /// resized mid-session would interleave two windows and read as one.</remarks>
+    /// <remarks>
+    ///     Changing it drops what has been recorded, which is what a caller wants: a ring
+    ///     resized mid-session would interleave two windows and read as one.
+    /// </remarks>
     /// <exception cref="ArgumentOutOfRangeException">Set to less than one.</exception>
     public int Capacity {
         get => capacity;

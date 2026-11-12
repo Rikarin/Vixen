@@ -49,18 +49,13 @@ public sealed class EqualizerEffect : IAudioEffect {
         float q = 0.70710678f,
         float gainDb = 0f
     ) {
-        var band = new BiquadFilterEffect {
-            Kind = kind,
-            Frequency = frequency,
-            Q = q,
-            GainDb = gainDb
-        };
+        var band = new BiquadFilterEffect { Kind = kind, Frequency = frequency, Q = q, GainDb = gainDb };
 
         if (prepared.IsValid) {
             band.Prepare(prepared, preparedFrames);
         }
 
-        bands = [.. bands, band];
+        bands = [..bands, band];
         return band;
     }
 

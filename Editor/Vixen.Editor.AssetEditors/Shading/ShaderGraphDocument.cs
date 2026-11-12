@@ -17,8 +17,11 @@ namespace Vixen.Editor.AssetEditors.Shading;
 /// <summary>A shader, open for editing as a graph, with the Raven it emits beside it.</summary>
 /// <remarks>
 ///     <para>
-///         <b>Doc 20's B5 has had "shader graph ✅" against <c>.ShaderGraph</c> for a while, and what
-///         that ticked was the node library, the typing and the emission.</b> None of it was
+///         <b>
+///             Doc 20's B5 has had "shader graph ✅" against <c>.ShaderGraph</c> for a while, and what
+///             that ticked was the node library, the typing and the emission.
+///         </b>
+///         None of it was
 ///         reachable: there was no document, no factory and no registration, so nothing in the editor
 ///         could turn a double-click into a graph. This is that half — the same shape
 ///         <see cref="Vfx.VfxDocument" /> and <c>CompositorDocument</c> already have, and for the
@@ -44,8 +47,12 @@ namespace Vixen.Editor.AssetEditors.Shading;
 ///         <see cref="Attribute" /> is the join.
 ///     </para>
 ///     <para>
-///         ⚠ <b>A <c>.vxshadergraph</c> is imported now, and by an importer that writes no
-///         artefact.</b> This paragraph used to say nothing imported one and to describe the missing
+///         ⚠
+///         <b>
+///             A <c>.vxshadergraph</c> is imported now, and by an importer that writes no
+///             artefact.
+///         </b>
+///         This paragraph used to say nothing imported one and to describe the missing
 ///         step as "an importer that runs <see cref="Compile" /> and hands the source to Raven" —
 ///         which is half right and misplaces the other half. What a graph produces is Raven
 ///         <em>source</em>, and source is not content: it is an input to a shader compilation, so
@@ -77,13 +84,20 @@ public sealed class ShaderGraphDocument : EditorDocument, INodePreviewSource {
     /// <summary>Where this graph's sub-graphs are found, when anything has said.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>Set and <see cref="Compile" /> inlines; unset and a sub-graph node is a node type
-    ///         nothing has registered</b>, which is already a diagnostic naming the node — see
+    ///         <b>
+    ///             Set and <see cref="Compile" /> inlines; unset and a sub-graph node is a node type
+    ///             nothing has registered
+    ///         </b>
+    ///         , which is already a diagnostic naming the node — see
     ///         <c>NodeGraphCompiler.SubGraphSource</c>, which this is handed straight to.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Nothing in this build populates it, so it is null unless a host or a test sets
-    ///         it.</b> Resolving a sub-graph through the asset database is what would fill it, and that
+    ///         ⚠
+    ///         <b>
+    ///             Nothing in this build populates it, so it is null unless a host or a test sets
+    ///             it.
+    ///         </b>
+    ///         Resolving a sub-graph through the asset database is what would fill it, and that
     ///         is the asset side of doc 11's sub-graph work rather than this seam — until it lands, a
     ///         shader graph that stored a sub-graph node and was reopened reports the node type as
     ///         unknown, naming the node, rather than inlining it. The property exists because the
@@ -123,16 +137,24 @@ public sealed class ShaderGraphDocument : EditorDocument, INodePreviewSource {
     /// <returns>The refusal, in a sentence an author can act on.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b><c>ShaderGraphPreviewRenderer.RefusalFor</c> had no caller outside its own device
-    ///         test</b>, so a node declared <c>Preview = true</c> that the renderer refused — which is
+    ///         ⚠
+    ///         <b>
+    ///             <c>ShaderGraphPreviewRenderer.RefusalFor</c> had no caller outside its own device
+    ///             test
+    ///         </b>
+    ///         , so a node declared <c>Preview = true</c> that the renderer refused — which is
     ///         every <c>Texture/Sample 2D</c>, because a preview binds no resources — drew nothing and
     ///         explained nothing. <c>INodePreviewSource.TryGet</c> answers <see langword="false" /> and
     ///         a <see langword="false" /> is the same answer as "this node has no preview to show", so
     ///         the sentence the renderer had already written could not come back through it.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A type test rather than a wider framework interface, and it is the narrow one on
-    ///         purpose.</b> <c>INodePreviewSource</c> is <c>Vixen.Editor.NodeGraph</c>'s and is
+    ///         ⚠
+    ///         <b>
+    ///             A type test rather than a wider framework interface, and it is the narrow one on
+    ///             purpose.
+    ///         </b>
+    ///         <c>INodePreviewSource</c> is <c>Vixen.Editor.NodeGraph</c>'s and is
     ///         implemented by the VFX and texture graphs too; a refusal is a fact about <em>this</em>
     ///         renderer's one-uniform-block compilation, so widening the framework contract for it
     ///         would put a member on two graphs that have nothing to say through it. Both halves of
@@ -162,8 +184,12 @@ public sealed class ShaderGraphDocument : EditorDocument, INodePreviewSource {
     ///         two lists of different lengths would have to be joined by matching messages.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b><see cref="NodeDiagnostic.Node" /> is <see cref="NodeId.None" /> for a complaint
-    ///         about a line no node wrote</b>, which the preamble, the vertex stage and the master's
+    ///         ⚠
+    ///         <b>
+    ///             <see cref="NodeDiagnostic.Node" /> is <see cref="NodeId.None" /> for a complaint
+    ///             about a line no node wrote
+    ///         </b>
+    ///         , which the preamble, the vertex stage and the master's
     ///         <c>return</c> all are. Naming the nearest node instead would send an author to a node
     ///         that is fine, which is worse than saying "line 14" and letting them read it.
     ///     </para>
@@ -217,7 +243,8 @@ public sealed class ShaderGraphDocument : EditorDocument, INodePreviewSource {
             Graph = NodeGraphDocument.Load(stored, out var diagnostics);
             LoadDiagnostics = diagnostics;
         } catch (Exception exception) when (exception is YamlBindingException
-            or YamlParseException or NotSupportedException) {
+                                                or YamlParseException
+                                                or NotSupportedException) {
             Graph = new() { Name = Path.GetFileNameWithoutExtension(path) };
             LoadDiagnostics = [
                 new(ShaderGraphDiagnostics.FileDoesNotParse, exception.Message, NodeId.None)
@@ -235,8 +262,7 @@ public sealed class ShaderGraphDocument : EditorDocument, INodePreviewSource {
     /// </remarks>
     public ShaderGraphSource? Compile() {
         var result = new ShaderGraphCompiler(Registry) {
-            DefaultName = Path.GetFileNameWithoutExtension(AssetPath),
-            SubGraphSource = SubGraphSource
+            DefaultName = Path.GetFileNameWithoutExtension(AssetPath), SubGraphSource = SubGraphSource
         }.Compile(Graph);
 
         Source = result.Artefact;
@@ -275,17 +301,19 @@ public sealed class ShaderGraphDocument : EditorDocument, INodePreviewSource {
         foreach (var diagnostic in diagnostics) {
             var node = source.NodeAt(diagnostic.Line, out var span) ? span : default;
 
-            attributed.Add(new(
-                ShaderGraphDiagnostics.SourceRefused,
-                diagnostic.Message,
-                node.Node,
-                "",
-                diagnostic.Severity == CodeSeverity.Error ? NodeSeverity.Error : NodeSeverity.Warning,
+            attributed.Add(
+                new(
+                    ShaderGraphDiagnostics.SourceRefused,
+                    diagnostic.Message,
+                    node.Node,
+                    string.Empty,
+                    diagnostic.Severity == CodeSeverity.Error ? NodeSeverity.Error : NodeSeverity.Warning,
 
-                // The line Raven objected to and not the node's whole span, because the pane beside
-                // the list is showing the text and one line is where the squiggle already is.
-                new(diagnostic.Line, 1)
-            ));
+                    // The line Raven objected to and not the node's whole span, because the pane beside
+                    // the list is showing the text and one line is where the squiggle already is.
+                    new(diagnostic.Line, 1)
+                )
+            );
         }
 
         return attributed;

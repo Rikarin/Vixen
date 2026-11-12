@@ -10,15 +10,22 @@ namespace Vixen.Editor.Inspector;
 /// <summary>The row the default inspector would have drawn, wherever markup asks for one.</summary>
 /// <remarks>
 ///     <para>
-///         <b>Doc 36 § P4's <c>PropertyField</c>, and the reason an inspector can be markup at
-///         all.</b> Nine rows out of ten in a hand-written inspector are "draw this member the way
+///         <b>
+///             Doc 36 § P4's <c>PropertyField</c>, and the reason an inspector can be markup at
+///             all.
+///         </b>
+///         Nine rows out of ten in a hand-written inspector are "draw this member the way
 ///         you would have anyway" — a slider for a float with a range, a colour well for a
 ///         <c>Color4</c>, a tick for a bool. Writing each of those out is what makes people not write
 ///         custom inspectors; naming the member and getting the row is what makes them.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Empty until it is bound, which is Unity's rule and is not an implementation
-///         detail.</b> A markup tree is built by a <c>Build</c> body that knows nothing about what is
+///         ⚠
+///         <b>
+///             Empty until it is bound, which is Unity's rule and is not an implementation
+///             detail.
+///         </b>
+///         A markup tree is built by a <c>Build</c> body that knows nothing about what is
 ///         being edited — it cannot, or the markup would have to name a C# type — so the join happens
 ///         afterwards, in <see cref="MarkupBinding.Bind" />. A <c>PropertyField</c> that is never
 ///         bound draws nothing and says why in the panel rather than throwing.
@@ -171,8 +178,12 @@ public static class MarkupBinding {
     /// <summary>Wires one control to one member, both ways.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A table of the controls an inspector is actually made of, rather than a general
-    ///         mechanism.</b> A control's "value" is a differently-named property of a different type
+    ///         ⚠
+    ///         <b>
+    ///             A table of the controls an inspector is actually made of, rather than a general
+    ///             mechanism.
+    ///         </b>
+    ///         A control's "value" is a differently-named property of a different type
     ///         on each of them, and the alternative to naming them is reflection over property names
     ///         — which ADR-002 forbids and which would turn a typo into a control that silently does
     ///         nothing. A control that is not here is one a <c>&lt;PropertyField&gt;</c> covers.
@@ -241,11 +252,17 @@ public static class MarkupBinding {
 
     /// <summary>Writes a number back as the member's own type.</summary>
     /// <remarks>
-    ///     ⚠ <b>A slider is a <c>float</c> and a numeric input is a <c>double</c>, and the member is
-    ///     whichever it is.</b> Writing the control's type straight through put a boxed <c>double</c>
+    ///     ⚠
+    ///     <b>
+    ///         A slider is a <c>float</c> and a numeric input is a <c>double</c>, and the member is
+    ///         whichever it is.
+    ///     </b>
+    ///     Writing the control's type straight through put a boxed <c>double</c>
     ///     on a <c>float</c> field, which the setter rejects at run time — a row that appears to work
     ///     and changes nothing.
     /// </remarks>
     static void Write(EditProperty property, double value) =>
-        property.Write(Convert.ChangeType(value, property.Member.ValueType, System.Globalization.CultureInfo.InvariantCulture));
+        property.Write(
+            Convert.ChangeType(value, property.Member.ValueType, System.Globalization.CultureInfo.InvariantCulture)
+        );
 }

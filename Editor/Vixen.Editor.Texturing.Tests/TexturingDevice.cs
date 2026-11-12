@@ -2,16 +2,18 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Graphics.Vulkan;
-using Vixen.Texturing.Layers;
-using Vixen.Texturing.Painting;
 using Xunit;
 
 namespace Vixen.Editor.Texturing.Tests;
 
 /// <summary>A real adapter, or a loud skip.</summary>
 /// <remarks>
-///     ⚠ <b>Without a device a headless run falls back to the Null device on every platform and
-///     exits 0</b>, and every picture this project compares would then be the claim that a black
+///     ⚠
+///     <b>
+///         Without a device a headless run falls back to the Null device on every platform and
+///         exits 0
+///     </b>
+///     , and every picture this project compares would then be the claim that a black
 ///     image equals a black image. So the adapter is named in every message a device test writes,
 ///     and <c>VIXEN_REQUIRE_VULKAN=1</c> turns the skip into a failure.
 /// </remarks>
@@ -20,8 +22,11 @@ static class TexturingDevice {
     /// <returns>The device.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>It names the adapter into the running test's output itself, which is doc 48's
-    ///         exit criterion 11 made mechanical on this side too</b>
+    ///         ⚠
+    ///         <b>
+    ///             It names the adapter into the running test's output itself, which is doc 48's
+    ///             exit criterion 11 made mechanical on this side too
+    ///         </b>
     ///         (<a href="https://github.com/Rikarin/Vixen/issues/883">#883</a>). The device files
     ///         here named it because each of them remembered to; nothing required the next one to,
     ///         and the failure this repository has actually suffered is the one where an instrument
@@ -29,8 +34,11 @@ static class TexturingDevice {
     ///         one assembly along.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>This is now the only method in the project that calls
-    ///         <c>VulkanDevice.TryCreate</c>, and that is asserted rather than left to habit</b>
+    ///         ⚠
+    ///         <b>
+    ///             This is now the only method in the project that calls
+    ///             <c>VulkanDevice.TryCreate</c>, and that is asserted rather than left to habit
+    ///         </b>
     ///         (<a href="https://github.com/Rikarin/Vixen/issues/923">#923</a>). Five files carried a
     ///         private copy of this method and went round it;
     ///         <c>DeviceRollCall.Sole</c> is what stops a sixth appearing, because its detector is

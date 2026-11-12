@@ -95,10 +95,8 @@ public sealed class DefaultConstraintScheduler : IConstraintScheduler {
     public static DefaultConstraintScheduler Shared { get; } = new();
 
     /// <inheritdoc />
-    public void PlanPreEvaluation(ReadOnlySpan<ConstraintStack> stacks, IConstraintGroupSink sink) {
-    }
+    public void PlanPreEvaluation(ReadOnlySpan<ConstraintStack> stacks, IConstraintGroupSink sink) { }
 
     /// <inheritdoc />
-    public void PlanPose(ReadOnlySpan<ConstraintStack> stacks, IConstraintGroupSink sink) {
-    }
+    public void PlanPose(ReadOnlySpan<ConstraintStack> stacks, IConstraintGroupSink sink) { }
 }

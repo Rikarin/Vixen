@@ -94,10 +94,10 @@ public class VisibilityGroupTests {
         using var store = new RenderObjectStore();
         using var visibility = new VisibilityGroup();
 
-        var big = store.Add(At(new(0f, 0f, 60f), radius: 20f));
-        var small = store.Add(At(new(0f, 0f, 60f), radius: 1f));
+        var big = store.Add(At(new(0f, 0f, 60f), 20f));
+        var small = store.Add(At(new(0f, 0f, 60f)));
 
-        visibility.Cull(store, [Camera(maximumDistance: 50f)]);
+        visibility.Cull(store, [Camera(50f)]);
 
         Assert.True(visibility.IsVisible(0, big));
         Assert.False(visibility.IsVisible(0, small));
@@ -111,7 +111,7 @@ public class VisibilityGroupTests {
 
         var id = store.Add(At(new(0f, 0f, 500f)));
 
-        var near = Camera(maximumDistance: 50f);
+        var near = Camera(50f);
         var far = Camera();
 
         visibility.Cull(store, [near, far]);
@@ -173,12 +173,12 @@ public class VisibilityGroupTests {
                         (float)(random.NextDouble() * 200 - 100),
                         (float)(random.NextDouble() * 200 - 100)
                     ),
-                    radius: (float)random.NextDouble() * 5f
+                    (float)random.NextDouble() * 5f
                 )
             );
         }
 
-        var views = new[] { Camera(), Camera(maximumDistance: 40f) };
+        var views = new[] { Camera(), Camera(40f) };
 
         inline.Cull(store, views);
         parallel.Cull(store, views, scheduler);
@@ -200,15 +200,15 @@ public class VisibilityGroupTests {
     [Fact]
     public void It_agrees_with_a_brute_force_oracle() {
         var scene = Gen.Select(
-                Gen.Float[-150f, 150f],
-                Gen.Float[-150f, 150f],
-                Gen.Float[-150f, 150f],
-                Gen.Float[0.1f, 12f]
-            )
+            Gen.Float[-150f, 150f],
+            Gen.Float[-150f, 150f],
+            Gen.Float[-150f, 150f],
+            Gen.Float[0.1f, 12f]
+        )
             .Array[1, 300];
 
         scene.Sample(
-            objects => {
+            static objects => {
                 using var store = new RenderObjectStore();
                 using var visibility = new VisibilityGroup();
 
@@ -216,7 +216,7 @@ public class VisibilityGroupTests {
                     store.Add(At(new(x, y, z), radius));
                 }
 
-                var view = Camera(maximumDistance: 90f);
+                var view = Camera(90f);
                 visibility.Cull(store, [view]);
 
                 for (var i = 0; i < objects.Length; i++) {

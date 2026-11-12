@@ -25,7 +25,7 @@ public sealed record DockerPlacementOptions {
     public const string OwnerLabel = "org.vixenengine.owner";
 
     /// <summary>The realm's image.</summary>
-    public string Image { get; init; } = "";
+    public string Image { get; init; } = string.Empty;
 
     /// <summary>Which orchestrator these containers belong to.</summary>
     public string Owner { get; init; } = "vixen";
@@ -33,8 +33,12 @@ public sealed record DockerPlacementOptions {
     /// <summary>The program a realm container runs, or empty for the image's own entrypoint.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Empty is the answer for a realm image, and the one this backend is designed
-    ///         around.</b> A realm image ends in <c>ENTRYPOINT ["./YourGame.Realm"]</c> — the template's
+    ///         ⚠
+    ///         <b>
+    ///             Empty is the answer for a realm image, and the one this backend is designed
+    ///             around.
+    ///         </b>
+    ///         A realm image ends in <c>ENTRYPOINT ["./YourGame.Realm"]</c> — the template's
     ///         Dockerfile does — and everything below is <em>appended</em> to it. That is what makes a
     ///         container's command the same string a pod's <c>args</c> and <c>Process.Start</c> carry,
     ///         which is <see cref="RealmSpec" />'s whole premise.
@@ -128,7 +132,7 @@ public sealed class DockerPlacement : IRealmPlacement, IDisposable {
     /// <summary>Stands a backend up on the platform's default endpoint.</summary>
     /// <param name="options">What to run and where.</param>
     /// <exception cref="ArgumentNullException"><paramref name="options" /> is null.</exception>
-    public DockerPlacement(DockerPlacementOptions options) : this(options, new DockerEngine(), ownsEngine: true) { }
+    public DockerPlacement(DockerPlacementOptions options) : this(options, new(), true) { }
 
     /// <summary>Stands a backend up on an engine the caller built.</summary>
     /// <param name="options">What to run and where.</param>
@@ -187,7 +191,7 @@ public sealed class DockerPlacement : IRealmPlacement, IDisposable {
 
         // What a realm would be launched as, with the spec itself elided — it is two hundred
         // characters of key-value text and the interesting part is the word in front of it.
-        var command = Argv(entrypoint, [.. options.Arguments, RealmSpec.ArgumentName, "…"]);
+        var command = Argv(entrypoint, [..options.Arguments, RealmSpec.ArgumentName, "…"]);
 
         return new(true, BackendName, $"{ping.Detail}, running {options.Image} as `{command}`");
     }
@@ -218,7 +222,7 @@ public sealed class DockerPlacement : IRealmPlacement, IDisposable {
 
         var (bound, rented) = Bind(spec.Endpoint);
         var started = spec with { Endpoint = bound };
-        IReadOnlyList<string> arguments = [.. options.Arguments, .. started.ToCommandLine()];
+        IReadOnlyList<string> arguments = [..options.Arguments, ..started.ToCommandLine()];
 
         string id;
 
@@ -233,9 +237,7 @@ public sealed class DockerPlacement : IRealmPlacement, IDisposable {
                         },
                         options.Environment,
                         bound.Port
-                    ) {
-                        Entrypoint = options.Entrypoint
-                    },
+                    ) { Entrypoint = options.Entrypoint },
                     cancellation
                 )
                 .ConfigureAwait(false);
@@ -284,7 +286,7 @@ public sealed class DockerPlacement : IRealmPlacement, IDisposable {
         Running? record;
 
         lock (gate) {
-            running.TryGetValue(instance.Value ?? "", out record);
+            running.TryGetValue(instance.Value ?? string.Empty, out record);
         }
 
         if (record is null) {
@@ -369,7 +371,7 @@ public sealed class DockerPlacement : IRealmPlacement, IDisposable {
         List<Channel<PlacementEvent>> listening;
 
         lock (gate) {
-            listening = [.. watchers];
+            listening = [..watchers];
             watchers.Clear();
             running.Clear();
         }
@@ -402,8 +404,7 @@ public sealed class DockerPlacement : IRealmPlacement, IDisposable {
     static string Argv(IReadOnlyList<string> entrypoint, IReadOnlyList<string> arguments) =>
         string.Join(' ', entrypoint.Concat(arguments).Select(Quote));
 
-    static string Quote(string word) =>
-        word.Contains(' ', StringComparison.Ordinal) ? $"\"{word}\"" : word;
+    static string Quote(string word) => word.Contains(' ', StringComparison.Ordinal) ? $"\"{word}\"" : word;
 
     static string WouldExec(string image, IReadOnlyList<string> entrypoint, string program) =>
         entrypoint.Count == 0
@@ -435,8 +436,8 @@ public sealed class DockerPlacement : IRealmPlacement, IDisposable {
     async Task FollowAsync(Running record) {
         try {
             await foreach (var line in engine
-                .FollowAsync(record.Instance.Id.Value, lifetime.Token)
-                .ConfigureAwait(false)) {
+                               .FollowAsync(record.Instance.Id.Value, lifetime.Token)
+                               .ConfigureAwait(false)) {
                 options.Output?.Invoke(record.Instance.Id, line);
 
                 if (!record.Ready && RealmSignals.TryReadReady(line, out var endpoint)) {
@@ -447,7 +448,9 @@ public sealed class DockerPlacement : IRealmPlacement, IDisposable {
                     );
                 }
             }
-        } catch (Exception failure) when (failure is OperationCanceledException or IOException or HttpRequestException) {
+        } catch (Exception failure) when (failure is OperationCanceledException
+                                              or IOException
+                                              or HttpRequestException) {
             // The stream ended with the container, or with this backend. Neither is news: the exit
             // is reported by WatchExitAsync, which is the thing that knows why.
         }
@@ -458,7 +461,9 @@ public sealed class DockerPlacement : IRealmPlacement, IDisposable {
 
         try {
             code = await engine.WaitAsync(record.Instance.Id.Value, lifetime.Token).ConfigureAwait(false);
-        } catch (Exception failure) when (failure is OperationCanceledException or IOException or HttpRequestException) {
+        } catch (Exception failure) when (failure is OperationCanceledException
+                                              or IOException
+                                              or HttpRequestException) {
             return;
         }
 
@@ -487,7 +492,9 @@ public sealed class DockerPlacement : IRealmPlacement, IDisposable {
         if (options.RemoveWhenStopped) {
             try {
                 await engine.RemoveAsync(record.Instance.Id.Value, CancellationToken.None).ConfigureAwait(false);
-            } catch (Exception failure) when (failure is InvalidOperationException or IOException or HttpRequestException) {
+            } catch (Exception failure) when (failure is InvalidOperationException
+                                                  or IOException
+                                                  or HttpRequestException) {
                 // A container that could not be removed is a container an operator will find. It is
                 // not worth failing anything over, and the event above has already been published.
             }
@@ -505,13 +512,18 @@ public sealed class DockerPlacement : IRealmPlacement, IDisposable {
             }
         } catch (TimeoutException) {
             // It would not go. At this point the launcher is the only thing left that can end it.
-        } catch (Exception failure) when (failure is OperationCanceledException or IOException or HttpRequestException) {
+        } catch (Exception failure) when (failure is OperationCanceledException
+                                              or IOException
+                                              or HttpRequestException) {
             return;
         }
 
         try {
             await engine.StopAsync(record.Instance.Id.Value, options.StopGrace, lifetime.Token).ConfigureAwait(false);
-        } catch (Exception failure) when (failure is InvalidOperationException or IOException or HttpRequestException or OperationCanceledException) {
+        } catch (Exception failure) when (failure is InvalidOperationException
+                                              or IOException
+                                              or HttpRequestException
+                                              or OperationCanceledException) {
             // Already gone, or the daemon went away. WatchExitAsync reports whichever it was.
         }
     }

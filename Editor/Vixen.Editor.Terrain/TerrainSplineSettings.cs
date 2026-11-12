@@ -38,8 +38,12 @@ public sealed class TerrainSplineSettings {
 
     /// <summary>How far the flat part reaches from the centre line, in metres.</summary>
     /// <remarks>
-    ///     ⚠ <b>Half-width and not width, because it is what every measurement against the curve
-    ///     is.</b> A distance from the spline is compared against this directly; naming it width and
+    ///     ⚠
+    ///     <b>
+    ///         Half-width and not width, because it is what every measurement against the curve
+    ///         is.
+    ///     </b>
+    ///     A distance from the spline is compared against this directly; naming it width and
     ///     halving it inside would put the factor of two in the one place nobody looks.
     /// </remarks>
     [Inspector(Name = "Half-width (m)")]
@@ -87,7 +91,6 @@ public sealed class TerrainSplineSettings {
     ///     and a path under <c>Assets</c> as readily as a <c>vx:</c> id, because this is a field
     ///     somebody types into. What resolves it is the application's asset database; the placement
     ///     kernel takes names and <c>TerrainSplineSpawner</c> takes a resolver.
-    ///
     ///     ⚠ <b>One name, not a list, and that is a stated simplification.</b> A road wants a post
     ///     every twenty metres and a lamp every sixty, which is two profiles over one curve — and a
     ///     profile per road is a property of the spline asset, which needs a curve editor to author.

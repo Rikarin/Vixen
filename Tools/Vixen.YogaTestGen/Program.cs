@@ -25,7 +25,7 @@ foreach (var stale in Directory.GetFiles(output, "*.g.cs")) {
 var totalTests = 0;
 var totalSkipped = new List<(string File, SkippedTest Test)>();
 
-foreach (var path in Directory.GetFiles(fixtures, "*.cpp").OrderBy(path => path, StringComparer.Ordinal)) {
+foreach (var path in Directory.GetFiles(fixtures, "*.cpp").OrderBy(static path => path, StringComparer.Ordinal)) {
     var fixture = Path.GetFileNameWithoutExtension(path);
     var skipped = new List<SkippedTest>();
     var tests = CppTranslator.Translate(File.ReadAllText(path), skipped);

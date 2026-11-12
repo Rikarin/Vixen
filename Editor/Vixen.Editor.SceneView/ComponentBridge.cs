@@ -39,8 +39,12 @@ public enum AuthoringKind : byte {
 /// <summary>One kind of component, as something a panel can ask about by name.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>An archetype knows dense ids and a panel knows names, and the map only goes one
-///         way.</b> A <see cref="ComponentTypeId" /> is handed out in first-touch order, so it means
+///         ⚠
+///         <b>
+///             An archetype knows dense ids and a panel knows names, and the map only goes one
+///             way.
+///         </b>
+///         A <see cref="ComponentTypeId" /> is handed out in first-touch order, so it means
 ///         nothing across two runs of the same program and cannot be shown to anybody. There is
 ///         therefore no "what components does this entity have" call: an inspector enumerates the
 ///         bridges it was given and asks each one <see cref="Has" />.
@@ -182,7 +186,7 @@ public sealed class ComponentBridge<T> : IComponentBridge where T : struct {
     public void Write(World world, Entity entity, object value) {
         ArgumentNullException.ThrowIfNull(world);
 
-        var typed = (T) value;
+        var typed = (T)value;
 
         if (world.Has<T>(entity)) {
             world.Set(entity, in typed);
@@ -209,8 +213,12 @@ public sealed class ComponentBridge<T> : IComponentBridge where T : struct {
 
 /// <summary>A bridge over a component a compiled scene may name.</summary>
 /// <remarks>
-///     ⚠ <b>The set is the <i>game's</i>, and that is the whole value of going through the
-///     registry.</b> A game registers its components so its scenes can carry them; the editor's
+///     ⚠
+///     <b>
+///         The set is the <i>game's</i>, and that is the whole value of going through the
+///         registry.
+///     </b>
+///     A game registers its components so its scenes can carry them; the editor's
 ///     component panel then draws them with nothing else asked of anybody, because the rows come
 ///     from the same <c>[DataContract]</c> description the serializer uses.
 /// </remarks>
@@ -237,8 +245,12 @@ public sealed class SceneComponentBridge : IComponentBridge {
     /// <summary>Wraps a registered binder.</summary>
     /// <param name="binder">The binder.</param>
     /// <remarks>
-    ///     ⚠ <b>Zero is the right default for most components and is wrong for a few, so the few say
-    ///     so — and they say it on themselves.</b> A zeroed <c>Light</c> has no colour, no intensity
+    ///     ⚠
+    ///     <b>
+    ///         Zero is the right default for most components and is wrong for a few, so the few say
+    ///         so — and they say it on themselves.
+    ///     </b>
+    ///     A zeroed <c>Light</c> has no colour, no intensity
     ///     and no range, and adding one would put a black light on the entity, which looks like the
     ///     renderer is broken rather than like a field needs filling in. The component declares
     ///     <c>IDefaultComponent&lt;itself&gt;</c> and the binder carries it here; this took a list of
@@ -286,8 +298,12 @@ public sealed class SceneComponentBridge : IComponentBridge {
 ///         belong to a different step.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Removing records what was there, so undo puts the values back and not just the
-///         column.</b> An undo that restored a zeroed component would be worse than none: the
+///         ⚠
+///         <b>
+///             Removing records what was there, so undo puts the values back and not just the
+///             column.
+///         </b>
+///         An undo that restored a zeroed component would be worse than none: the
 ///         hierarchy would look right and the light would be black.
 ///     </para>
 /// </remarks>
@@ -370,15 +386,22 @@ public sealed class SetComponentCommand : IEditorCommand {
 /// <summary>A behaviour, as the component panel's idea of a component.</summary>
 /// <remarks>
 ///     <para>
-///         <b>The seam that makes a <c>Behavior</c> authorable, and it is one class because the panel
-///         above it only knows <see cref="IComponentBridge" />.</b> The Add Component menu, the
+///         <b>
+///             The seam that makes a <c>Behavior</c> authorable, and it is one class because the panel
+///             above it only knows <see cref="IComponentBridge" />.
+///         </b>
+///         The Add Component menu, the
 ///         foldouts, the drawers, the remove button and the drag-to-reorder all work on a behaviour
 ///         with nothing added to any of them — which is the whole return on that interface having
 ///         existed before there was a second kind of thing to put behind it.
 ///     </para>
 ///     <para>
-///         ⚠ <b><see cref="Read" /> hands back a <i>copy</i>, which is what lets everything above
-///         stay one code path.</b> A component is a struct, so reading one out of a chunk gives the
+///         ⚠
+///         <b>
+///             <see cref="Read" /> hands back a <i>copy</i>, which is what lets everything above
+///             stay one code path.
+///         </b>
+///         A component is a struct, so reading one out of a chunk gives the
 ///         panel a box it can edit freely and write back as a single
 ///         <see cref="SetComponentCommand" />. A behaviour is a class, and a panel handed the live
 ///         instance would edit the very object it was about to record as the "before" — so every
@@ -467,8 +490,7 @@ public sealed class BehaviorBridge : IComponentBridge {
     public object Create() => binder.Create();
 
     /// <inheritdoc />
-    public bool Remove(World world, Entity entity) =>
-        store() is { } behaviors && binder.RemoveFrom(behaviors, entity);
+    public bool Remove(World world, Entity entity) => store() is { } behaviors && binder.RemoveFrom(behaviors, entity);
 
     Behavior? Attached(Entity entity) => store() is { } behaviors ? binder.Attached(behaviors, entity) : null;
 }

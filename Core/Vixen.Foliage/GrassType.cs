@@ -90,22 +90,33 @@ public readonly record struct GrassWind {
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>[docs/plan/31 § D8]'s derived counterpart to <see cref="FoliageType" />, and it is
-///         smaller because most of that does not apply.</b> Grass is scattered from a rule and never
+///         <b>
+///             [docs/plan/31 § D8]'s derived counterpart to <see cref="FoliageType" />, and it is
+///             smaller because most of that does not apply.
+///         </b>
+///         Grass is scattered from a rule and never
 ///         persisted: nothing about a blade of grass is in any file, so there is no identity to keep,
 ///         no collision to allocate and no undo record to hold. What a level says is "this type, on
 ///         this layer", and a million blades follow.
 ///     </para>
 ///     <para>
-///         ⚠ <b><see cref="Density" /> is the <em>candidate</em> density and never the placed
-///         one.</b> It fixes the grid a cell is scattered over — which on the device is the dispatch
+///         ⚠
+///         <b>
+///             <see cref="Density" /> is the <em>candidate</em> density and never the placed
+///             one.
+///         </b>
+///         It fixes the grid a cell is scattered over — which on the device is the dispatch
 ///         extent and therefore cannot depend on anything sampled — and what the painted weight
 ///         decides is what fraction of those candidates survive. A density that varied with the
 ///         weight would mean a dispatch whose size depends on a texture read, which is not a thing.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The layer is a <em>name</em>, for <see cref="FoliageType.LayerFilter" />'s
-///         reason.</b> Removing the second of six terrain layers shifts the rest down, and a type
+///         ⚠
+///         <b>
+///             The layer is a <em>name</em>, for <see cref="FoliageType.LayerFilter" />'s
+///             reason.
+///         </b>
+///         Removing the second of six terrain layers shifts the rest down, and a type
 ///         holding the index would silently start growing on different ground.
 ///     </para>
 /// </remarks>
@@ -130,8 +141,12 @@ public readonly record struct GrassType {
     ///         terrain's layers use, so one upload serves however many fields name it.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Empty and unresolvable are the same picture and different mistakes, and neither is
-    ///         magenta.</b> Both leave the white default, because a field with no texture assigned
+    ///         ⚠
+    ///         <b>
+    ///             Empty and unresolvable are the same picture and different mistakes, and neither is
+    ///             magenta.
+    ///         </b>
+    ///         Both leave the white default, because a field with no texture assigned
     ///         should draw as plain grass — that is a thing to ship, unlike a material whose map did
     ///         not arrive, which is why the two fall back differently.
     ///     </para>
@@ -189,9 +204,9 @@ public readonly record struct GrassType {
     public static GrassType Of(string name) =>
         new() {
             Name = name,
-            Mesh = "",
-            Albedo = "",
-            Layer = "",
+            Mesh = string.Empty,
+            Albedo = string.Empty,
+            Layer = string.Empty,
             MinWeight = 0.15f,
             MaxWeight = 0.6f,
             Density = 16f,
@@ -213,14 +228,21 @@ public readonly record struct GrassType {
     /// <returns>The type.</returns>
     /// <remarks>
     ///     <para>
-    ///         <b>A volume's palette is <see cref="FoliageType" />s, and grass is a
-    ///         <see cref="GrassType" /></b> — [docs/plan/31 § D8]: trees are stored and grass is
+    ///         <b>
+    ///             A volume's palette is <see cref="FoliageType" />s, and grass is a
+    ///             <see cref="GrassType" />
+    ///         </b>
+    ///         — [docs/plan/31 § D8]: trees are stored and grass is
     ///         derived, so the two are different types rather than one with a flag. What a palette
     ///         needs is the placement rules they share, which is what this projects.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b><see cref="FoliageStorage.Derived" />, and that is the whole reason this cannot be
-    ///         a field-for-field copy somebody writes at a call site.</b> A grass rule entered into a
+    ///         ⚠
+    ///         <b>
+    ///             <see cref="FoliageStorage.Derived" />, and that is the whole reason this cannot be
+    ///             a field-for-field copy somebody writes at a call site.
+    ///         </b>
+    ///         A grass rule entered into a
     ///         palette as <c>Stored</c> would have its blades written into the file beside the
     ///         scene — a million transforms of a cache that the scatter is about to regenerate from
     ///         its hash anyway. <see cref="FoliageStore.Persisted" /> is what refuses to write them,
@@ -276,15 +298,19 @@ public readonly record struct GrassType {
         var high = MathF.Max(MaxWeight, low + 1e-4f);
         var t = Math.Clamp((weight - low) / (high - low), 0f, 1f);
 
-        return t * t * (3f - (2f * t));
+        return t * t * (3f - 2f * t);
     }
 
     /// <summary>How many candidates a cell is scattered over, along one axis.</summary>
     /// <param name="cellSize">How many metres the cell spans.</param>
     /// <returns>The count, at least one.</returns>
     /// <remarks>
-    ///     ⚠ <b>A square grid, so a candidate index is a slot without a division by anything
-    ///     variable.</b> The device form is one invocation per slot and recovers its 2D position from
+    ///     ⚠
+    ///     <b>
+    ///         A square grid, so a candidate index is a slot without a division by anything
+    ///         variable.
+    ///     </b>
+    ///     The device form is one invocation per slot and recovers its 2D position from
     ///     <c>SV_DispatchThreadID</c> directly; a count that was not a square would make every
     ///     invocation divide by a number it had to read first.
     /// </remarks>

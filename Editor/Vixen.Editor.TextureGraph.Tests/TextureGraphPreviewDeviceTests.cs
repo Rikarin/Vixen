@@ -74,8 +74,12 @@ public class TextureGraphPreviewDeviceTests {
 
         /// <summary>The device this lender lends for, or null once the host has lost it.</summary>
         /// <remarks>
-        ///     ⚠ <b>Settable, because a source that cached the device could not be told apart from
-        ///     one that re-reads it.</b> Both answer the same evaluator for as long as the device
+        ///     ⚠
+        ///     <b>
+        ///         Settable, because a source that cached the device could not be told apart from
+        ///         one that re-reads it.
+        ///     </b>
+        ///     Both answer the same evaluator for as long as the device
         ///     lives; the difference only shows on the frame after it dies.
         /// </remarks>
         public IGraphicsDevice? Device { get; set; }
@@ -154,15 +158,17 @@ public class TextureGraphPreviewDeviceTests {
 
     static byte Middle(Vixen.Core.Imaging.Bitmap picture) => At(picture, picture.Width / 2, picture.Height / 2);
 
-    static byte At(Vixen.Core.Imaging.Bitmap picture, int x, int y) =>
-        picture.Pixels[(((y * picture.Width) + x) * 4)];
+    static byte At(Vixen.Core.Imaging.Bitmap picture, int x, int y) => picture.Pixels[(y * picture.Width + x) * 4];
 
     /// <summary>
     ///     ⚠ One ordinary <c>Evaluate</c> holds every node's picture, so no split was needed.
     /// </summary>
     /// <remarks>
-    ///     <b>The claim under test, from batch 4, was that per-node previews needed a device-side
-    ///     path split out of <c>Evaluate</c>.</b> They do not. What made an intermediate unreadable
+    ///     <b>
+    ///         The claim under test, from batch 4, was that per-node previews needed a device-side
+    ///         path split out of <c>Evaluate</c>.
+    ///     </b>
+    ///     They do not. What made an intermediate unreadable
     ///     was the pool, and which images the pool may reuse is the <em>plan's</em> decision — so a
     ///     plan that keeps every node's image is read back node by node from an evaluator nobody
     ///     changed.
@@ -173,18 +179,14 @@ public class TextureGraphPreviewDeviceTests {
         var adapter = TextureKernelHarness.Adapter(device);
         var (graph, source, shaped, flattened) = Contrasting();
 
-        TextureGraphCompiler compiler = new(Registry()) {
-            BaseWidth = 32,
-            BaseHeight = 32,
-            PreviewEveryNode = true
-        };
+        TextureGraphCompiler compiler = new(Registry()) { BaseWidth = 32, BaseHeight = 32, PreviewEveryNode = true };
 
         var plan = compiler.Compile(graph).Value;
 
         using var evaluator = new TexturePlanEvaluator(device);
         using var bake = evaluator.Evaluate(plan);
 
-        var images = compiler.NodeImages.ToDictionary(written => written.Node, written => written.Image);
+        var images = compiler.NodeImages.ToDictionary(static written => written.Node, static written => written.Image);
 
         var uniform = Middle(bake.Read(images[source]));
         var inverted = Middle(bake.Read(images[shaped]));
@@ -218,7 +220,7 @@ public class TextureGraphPreviewDeviceTests {
         using var evaluator = new TexturePlanEvaluator(device);
         using var bake = evaluator.Evaluate(plan);
 
-        var images = compiler.NodeImages.ToDictionary(written => written.Node, written => written.Image);
+        var images = compiler.NodeImages.ToDictionary(static written => written.Node, static written => written.Image);
 
         // The pool gave the first and the third image one texture — that is the whole point of it.
         Assert.Equal(bake.Schedule.SlotOf[images[source]], bake.Schedule.SlotOf[images[flattened]]);
@@ -238,7 +240,7 @@ public class TextureGraphPreviewDeviceTests {
         Kept sink = new();
 
         using Lease lease = new(device);
-        using TextureGraphPreviews previews = new(lease.Take, () => new(Registry()), sink);
+        using TextureGraphPreviews previews = new(lease.Take, static () => new(Registry()), sink);
 
         var registry = Registry();
 
@@ -277,15 +279,23 @@ public class TextureGraphPreviewDeviceTests {
     ///         naming an imported image is an ordinary graph and reports nothing.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The refusal is counted and the bake is not, which is what separates "skipped" from
-    ///         "drew something".</b> Asserting only that <c>Update</c> does not throw would be
+    ///         ⚠
+    ///         <b>
+    ///             The refusal is counted and the bake is not, which is what separates "skipped" from
+    ///             "drew something".
+    ///         </b>
+    ///         Asserting only that <c>Update</c> does not throw would be
     ///         satisfied by a source that had stopped rebuilding anything at all —
     ///         <see cref="A_preview_source_registers_one_picture_per_node" /> is the half that says
     ///         it still does.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Every node here is downstream of the picture, which is why the whole graph is
-    ///         still refused</b> — <see cref="A_node_beside_an_imported_picture_still_gets_its_own_swatch" />
+    ///         ⚠
+    ///         <b>
+    ///             Every node here is downstream of the picture, which is why the whole graph is
+    ///             still refused
+    ///         </b>
+    ///         — <see cref="A_node_beside_an_imported_picture_still_gets_its_own_swatch" />
     ///         is the case #1089's remainder is actually about. Zero bakes is the assertion: filling
     ///         the bitmap with a stand-in texel and dispatching over it would produce a bake whose
     ///         every picture is thrown away.
@@ -307,9 +317,11 @@ public class TextureGraphPreviewDeviceTests {
         Kept sink = new();
 
         using Lease lease = new(device);
-        using TextureGraphPreviews previews = new(lease.Take, () => new(Registry()), sink);
+        using TextureGraphPreviews previews = new(lease.Take, static () => new(Registry()), sink);
 
-        Assert.False(previews.TryGet(graph, First(graph, picture.Id), Definition(Registry(), graph, picture.Id), out _));
+        Assert.False(
+            previews.TryGet(graph, First(graph, picture.Id), Definition(Registry(), graph, picture.Id), out _)
+        );
 
         previews.Update();
 
@@ -329,7 +341,6 @@ public class TextureGraphPreviewDeviceTests {
 
         Assert.True(after.Unavailable);
         Assert.Equal(0ul, after.Image);
-
     }
 
     /// <summary>
@@ -338,8 +349,11 @@ public class TextureGraphPreviewDeviceTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <b>The half of <a href="https://github.com/Rikarin/Vixen/issues/1089">#1089</a>'s
-    ///         remainder that is a regression rather than an improvement.</b> That issue names
+    ///         <b>
+    ///             The half of <a href="https://github.com/Rikarin/Vixen/issues/1089">#1089</a>'s
+    ///             remainder that is a regression rather than an improvement.
+    ///         </b>
+    ///         That issue names
     ///         <c>Text</c> and <c>Svg Path</c> as the externals whose bytes a compilation carries,
     ///         and neither of those is a node yet. The one that <em>is</em> shipped is
     ///         <c>TextureTables</c>: a gradient with no ramp asset, a curve with no curve asset and a
@@ -369,7 +383,7 @@ public class TextureGraphPreviewDeviceTests {
         Kept sink = new();
 
         using Lease lease = new(device);
-        using TextureGraphPreviews previews = new(lease.Take, () => new(Registry()), sink);
+        using TextureGraphPreviews previews = new(lease.Take, static () => new(Registry()), sink);
 
         var registry = Registry();
         var node = First(graph, gradient.Id);
@@ -401,8 +415,11 @@ public class TextureGraphPreviewDeviceTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/1089">#1089</a>'s remainder, and
-    ///         the whole of it.</b> The crash's first answer dropped every swatch in the graph — on
+    ///         <b>
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/1089">#1089</a>'s remainder, and
+    ///             the whole of it.
+    ///         </b>
+    ///         The crash's first answer dropped every swatch in the graph — on
     ///         the dozens of nodes upstream of the bitmap as much as on the bitmap. What is owed is
     ///         only the asset-backed picture, so it is filled with one black texel, the rest of the
     ///         graph bakes as it always did, and every node whose result is computed from that texel
@@ -438,7 +455,7 @@ public class TextureGraphPreviewDeviceTests {
         Kept sink = new();
 
         using Lease lease = new(device);
-        using TextureGraphPreviews previews = new(lease.Take, () => new(Registry()), sink);
+        using TextureGraphPreviews previews = new(lease.Take, static () => new(Registry()), sink);
 
         var registry = Registry();
         var clean = First(graph, uniform.Id);
@@ -489,8 +506,12 @@ public class TextureGraphPreviewDeviceTests {
 
     /// <summary>A slider, through the source the canvas draws from.</summary>
     /// <remarks>
-    ///     ⚠ <b>The compiler is the same object on every rebuild, which is what the module does and
-    ///     what <c>Refresh</c> needs</b>: a compiler with no past has nothing to replay against, so a
+    ///     ⚠
+    ///     <b>
+    ///         The compiler is the same object on every rebuild, which is what the module does and
+    ///         what <c>Refresh</c> needs
+    ///     </b>
+    ///     : a compiler with no past has nothing to replay against, so a
     ///     source handed a new one per call compiles every edit, correctly.
     /// </remarks>
     [Fact]
@@ -555,7 +576,7 @@ public class TextureGraphPreviewDeviceTests {
         Kept sink = new();
 
         using Lease lease = new(device);
-        using TextureGraphPreviews previews = new(lease.Take, () => new(Registry()), sink);
+        using TextureGraphPreviews previews = new(lease.Take, static () => new(Registry()), sink);
 
         var registry = Registry();
         var node = First(graph, source);
@@ -592,7 +613,7 @@ public class TextureGraphPreviewDeviceTests {
         Kept sink = new();
 
         using Lease lease = new(device);
-        using TextureGraphPreviews previews = new(lease.Take, () => new(Registry()), sink);
+        using TextureGraphPreviews previews = new(lease.Take, static () => new(Registry()), sink);
 
         var registry = Registry();
         var node = First(graph, source);
@@ -621,14 +642,25 @@ public class TextureGraphPreviewDeviceTests {
     /// <summary>⚠ The source owns no evaluator: it asks the lease, once per rebuild.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>The property that makes <a href="https://github.com/Rikarin/Vixen/issues/1015">#1015</a>
-    ///         wireable, and it was false.</b> This type built its own <c>TexturePlanEvaluator</c>
+    ///         <b>
+    ///             The property that makes <a href="https://github.com/Rikarin/Vixen/issues/1015">#1015</a>
+    ///             wireable, and it was false.
+    ///         </b>
+    ///         This type built its own <c>TexturePlanEvaluator</c>
     ///         in its constructor, so constructing one in <c>TexturingModule</c> beside the
     ///         evaluator both existing panes share would have made a session hold two — a second
     ///         pipeline and shader module per kernel and output format, arriving through the commit
-    ///         that closed the issue. That is exactly the cost <a
-    ///         href="https://github.com/Rikarin/Vixen/issues/820">#820</a> and <a
-    ///         href="https://github.com/Rikarin/Vixen/issues/988">#988</a> established the lease to
+    ///         that closed the issue. That is exactly the cost
+    ///         <a
+    ///             href="https://github.com/Rikarin/Vixen/issues/820">
+    ///             #820
+    ///         </a>
+    ///         and
+    ///         <a
+    ///             href="https://github.com/Rikarin/Vixen/issues/988">
+    ///             #988
+    ///         </a>
+    ///         established the lease to
     ///         prevent, and no test in either assembly could have seen it.
     ///     </para>
     ///     <para>
@@ -651,7 +683,7 @@ public class TextureGraphPreviewDeviceTests {
         Kept sink = new();
 
         using Lease lease = new(device);
-        using TextureGraphPreviews previews = new(lease.Take, () => new(Registry()), sink);
+        using TextureGraphPreviews previews = new(lease.Take, static () => new(Registry()), sink);
 
         var registry = Registry();
         var node = First(graph, source);
@@ -699,8 +731,11 @@ public class TextureGraphPreviewDeviceTests {
     /// <summary>⚠ A rebuild that could not draw leaves the graph dirty, which the remark claimed and the code did not.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>A refutation rather than a new feature, found wiring
-    ///         <a href="https://github.com/Rikarin/Vixen/issues/1015">#1015</a>.</b> The no-device
+    ///         <b>
+    ///             A refutation rather than a new feature, found wiring
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/1015">#1015</a>.
+    ///         </b>
+    ///         The no-device
     ///         branch said "a rebuild that cannot draw leaves the graph dirty" and nothing did that:
     ///         <see cref="TextureGraphPreviews.Update" /> takes the graph off the list <em>before</em>
     ///         calling the rebuild, and neither refusal put it back. So the graph was clean, the
@@ -716,8 +751,12 @@ public class TextureGraphPreviewDeviceTests {
     ///         closed the issue.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b><see cref="TextureGraphPreviews.Pending" /> is the assertion and the bakes are
-    ///         the consequence.</b> A test that only checked the second update's bake could be
+    ///         ⚠
+    ///         <b>
+    ///             <see cref="TextureGraphPreviews.Pending" /> is the assertion and the bakes are
+    ///             the consequence.
+    ///         </b>
+    ///         A test that only checked the second update's bake could be
     ///         satisfied by a source that re-compiled every frame; the pending count says the graph
     ///         was <em>remembered</em>, and the compilation count below says asking cost nothing
     ///         while there was nothing to draw on.
@@ -730,8 +769,9 @@ public class TextureGraphPreviewDeviceTests {
         var (graph, source, _, _) = Contrasting();
         Kept sink = new();
 
-        using Lease lease = new(device) { Device = null };
-        using TextureGraphPreviews previews = new(lease.Take, () => new(Registry()), sink);
+        using Lease lease = new(device);
+        lease.Device = null;
+        using TextureGraphPreviews previews = new(lease.Take, static () => new(Registry()), sink);
 
         var registry = Registry();
         var node = First(graph, source);
@@ -790,7 +830,7 @@ public class TextureGraphPreviewDeviceTests {
         Kept sink = new();
 
         using Lease lease = new(device);
-        using TextureGraphPreviews previews = new(lease.Take, () => new(Registry()), sink);
+        using TextureGraphPreviews previews = new(lease.Take, static () => new(Registry()), sink);
 
         var registry = Registry();
         var node = First(graph, source);

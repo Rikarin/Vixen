@@ -38,7 +38,7 @@ public sealed class InspectorAttribute : Attribute {
 ///     the last field in it — and a heading attached to a field cannot survive that field's deletion.
 /// </remarks>
 /// <param name="title">What the section is called.</param>
-[AttributeUsage(AttributeTargets.Field | AttributeTargets.Property, AllowMultiple = false)]
+[AttributeUsage(AttributeTargets.Field | AttributeTargets.Property)]
 public sealed class HeaderAttribute(string title) : Attribute {
     /// <summary>What the section is called.</summary>
     public string Title { get; } = title;
@@ -59,7 +59,7 @@ public sealed class HeaderAttribute(string title) : Attribute {
 ///     </para>
 /// </remarks>
 /// <param name="member">The name of the <c>bool</c> member to test.</param>
-[AttributeUsage(AttributeTargets.Field | AttributeTargets.Property, AllowMultiple = false)]
+[AttributeUsage(AttributeTargets.Field | AttributeTargets.Property)]
 public sealed class ShowIfAttribute(string member) : Attribute {
     /// <summary>The member tested.</summary>
     public string Member { get; } = member;
@@ -67,7 +67,7 @@ public sealed class ShowIfAttribute(string member) : Attribute {
 
 /// <summary>Shows the member only when another member is false.</summary>
 /// <param name="member">The name of the <c>bool</c> member to test.</param>
-[AttributeUsage(AttributeTargets.Field | AttributeTargets.Property, AllowMultiple = false)]
+[AttributeUsage(AttributeTargets.Field | AttributeTargets.Property)]
 public sealed class HideIfAttribute(string member) : Attribute {
     /// <summary>The member tested.</summary>
     public string Member { get; } = member;
@@ -81,7 +81,7 @@ public sealed class HideIfAttribute(string member) : Attribute {
 ///     meaningless alpha slider.
 /// </remarks>
 /// <param name="hdr">Whether values above one are meaningful, which adds an intensity control.</param>
-[AttributeUsage(AttributeTargets.Field | AttributeTargets.Property, AllowMultiple = false)]
+[AttributeUsage(AttributeTargets.Field | AttributeTargets.Property)]
 public sealed class ColorUsageAttribute(bool hdr = false) : Attribute {
     /// <summary>Whether values above one are meaningful.</summary>
     public bool Hdr { get; } = hdr;
@@ -97,7 +97,7 @@ public sealed class ColorUsageAttribute(bool hdr = false) : Attribute {
 ///     the asset type is a compile error rather than a picker that silently offers everything.
 /// </remarks>
 /// <param name="assetType">What kind of asset may be chosen.</param>
-[AttributeUsage(AttributeTargets.Field | AttributeTargets.Property, AllowMultiple = false)]
+[AttributeUsage(AttributeTargets.Field | AttributeTargets.Property)]
 public sealed class AssetPickerAttribute(Type assetType) : Attribute {
     /// <summary>What kind of asset may be chosen.</summary>
     public Type AssetType { get; } = assetType;
@@ -111,7 +111,7 @@ public sealed class AssetPickerAttribute(Type assetType) : Attribute {
 ///     An animation curve is a list of keys with tangents, and the generic editor for that is a list
 ///     of four-float rows nobody can read. The attribute is what says "this list is a shape".
 /// </remarks>
-[AttributeUsage(AttributeTargets.Field | AttributeTargets.Property, AllowMultiple = false)]
+[AttributeUsage(AttributeTargets.Field | AttributeTargets.Property)]
 public sealed class CurveAttribute : Attribute {
     /// <summary>The lowest value the vertical axis shows.</summary>
     public float Minimum { get; set; }
@@ -121,7 +121,7 @@ public sealed class CurveAttribute : Attribute {
 }
 
 /// <summary>Edits a string over several lines.</summary>
-[AttributeUsage(AttributeTargets.Field | AttributeTargets.Property, AllowMultiple = false)]
+[AttributeUsage(AttributeTargets.Field | AttributeTargets.Property)]
 public sealed class MultilineAttribute : Attribute {
     /// <summary>How tall the field starts out, in lines.</summary>
     public int Lines { get; set; } = 4;
@@ -132,5 +132,5 @@ public sealed class MultilineAttribute : Attribute {
 ///     Different from having no setter: a computed diagnostic is unwritable and this is a member the
 ///     inspector is told not to write. Both end up read-only, and only one of them is a decision.
 /// </remarks>
-[AttributeUsage(AttributeTargets.Field | AttributeTargets.Property, AllowMultiple = false)]
+[AttributeUsage(AttributeTargets.Field | AttributeTargets.Property)]
 public sealed class InspectorReadOnlyAttribute : Attribute;

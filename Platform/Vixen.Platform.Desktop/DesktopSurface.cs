@@ -78,8 +78,8 @@ sealed unsafe class DesktopSurface(Sdl sdl, DesktopWindow window) : ISurface {
         return info.Subsystem switch {
             SysWMType.Windows => new(
                 SurfaceKind.Win32,
-                (nint)info.Info.Win.HInstance,
-                (nint)info.Info.Win.Hwnd
+                info.Info.Win.HInstance,
+                info.Info.Win.Hwnd
             ),
             SysWMType.X11 => new(SurfaceKind.Xlib, (nint)info.Info.X11.Display, (nint)info.Info.X11.Window),
             SysWMType.Wayland => new(

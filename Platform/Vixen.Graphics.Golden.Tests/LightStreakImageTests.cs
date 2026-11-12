@@ -4,7 +4,6 @@
 using System.Runtime.InteropServices;
 using Vixen.Core.Imaging;
 using Vixen.Core.Mathematics;
-using Vixen.Graphics.RenderGraph;
 using Vixen.Rendering;
 using Vixen.Rendering.Compositor;
 using Vixen.Rendering.PostFx;
@@ -18,8 +17,11 @@ namespace Vixen.Graphics.Golden.Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>A closed form rather than a picture, because the property that matters is a shape and
-///         not a look.</b> One bright texel, a horizontal axis, and no taper: the streak must be a run
+///         <b>
+///             A closed form rather than a picture, because the property that matters is a shape and
+///             not a look.
+///         </b>
+///         One bright texel, a horizontal axis, and no taper: the streak must be a run
 ///         of non-zero pixels along that one row whose length is a function of how many blur passes
 ///         ran, and every pixel off that row must be <em>exactly</em> what the scene was. The second
 ///         half is the whole difference between this effect and bloom — an isotropic blur of any
@@ -34,8 +36,12 @@ namespace Vixen.Graphics.Golden.Tests;
 ///         contiguous. One pass of four taps is 9 pixels; two is 81.
 ///     </para>
 ///     <para>
-///         ⚠ <b><see cref="LightStreakRenderer.Attenuation" /> is 1 here and that is the fixture
-///         being honest.</b> The shipped taper is what makes a streak look like light rather than a
+///         ⚠
+///         <b>
+///             <see cref="LightStreakRenderer.Attenuation" /> is 1 here and that is the fixture
+///             being honest.
+///         </b>
+///         The shipped taper is what makes a streak look like light rather than a
 ///         bar, but it also makes the far end of the run arbitrarily dim — so a run length measured
 ///         under it would really be a measurement of where the taper crossed the eight-bit floor,
 ///         which moves with the intensity and with the format. With no taper the run has an exact
@@ -80,8 +86,8 @@ public sealed class LightStreakImageTests {
     ///     would be a threshold nobody could defend.
     /// </remarks>
     [Theory]
-    [InlineData(1, (Samples * 2) + 1)]
-    [InlineData(2, ((Samples * ((Samples * 2) + 1)) + Samples) * 2 + 1)]
+    [InlineData(1, Samples * 2 + 1)]
+    [InlineData(2, (Samples * (Samples * 2 + 1) + Samples) * 2 + 1)]
     public void TheStreakIsARunAlongOneAxisAndNothingOffIt(int blurs, int length) {
         if (!TryOpen(out var fixture)) {
             return;
@@ -92,8 +98,8 @@ public sealed class LightStreakImageTests {
 
         // The run: every pixel of it lit, and the two pixels past each end dark. Both halves, because
         // "the middle is lit" is satisfied by a streak of any length including the whole row.
-        var first = Centre - (length / 2);
-        var last = Centre + (length / 2);
+        var first = Centre - length / 2;
+        var last = Centre + length / 2;
 
         for (var x = first; x <= last; x++) {
             Assert.True(
@@ -127,8 +133,12 @@ public sealed class LightStreakImageTests {
 
     /// <summary>Turn the axis and the run turns with it, which is the instrument for the pair above.</summary>
     /// <remarks>
-    ///     ⚠ <b>Without this, both assertions above are satisfied by a pass that streaks nothing at
-    ///     all in <c>y</c> for a reason of its own</b> — a shader that hardcoded the horizontal, or a
+    ///     ⚠
+    ///     <b>
+    ///         Without this, both assertions above are satisfied by a pass that streaks nothing at
+    ///         all in <c>y</c> for a reason of its own
+    ///     </b>
+    ///     — a shader that hardcoded the horizontal, or a
     ///     host that dropped <c>direction</c> and let the declared default stand. Rotating the axis
     ///     ninety degrees and asserting the same shape down a column is what tells the two apart.
     /// </remarks>
@@ -139,7 +149,7 @@ public sealed class LightStreakImageTests {
         }
 
         using var owned = fixture!;
-        var image = Render(owned, blurs: 1, new(0f, 1f));
+        var image = Render(owned, 1, new(0f, 1f));
 
         for (var y = Centre - Samples; y <= Centre + Samples; y++) {
             Assert.True(
@@ -171,9 +181,9 @@ public sealed class LightStreakImageTests {
         // Photometric, and two orders of magnitude over the threshold: the pass measures luminance in
         // the source's units, so a 0–1 highlight would be below the default threshold of one and the
         // whole chain would correctly produce nothing.
-        texels[(Centre * Side) + Centre] = new(100f, 100f, 100f, 1f);
+        texels[Centre * Side + Centre] = new(100f, 100f, 100f, 1f);
 
-        var field = fixture.Sampled("field", Side, MemoryMarshal.AsBytes<Vector4>(texels), PixelFormat.Rgba32Float);
+        var field = fixture.Sampled("field", Side, MemoryMarshal.AsBytes(texels), PixelFormat.Rgba32Float);
         var display = fixture.Owned("display", TextureUsage.ColourTarget | TextureUsage.CopySource);
 
         using var allocator = new DescriptorAllocator(device);
@@ -187,7 +197,7 @@ public sealed class LightStreakImageTests {
         effects.AddProvider(
             new Compiling(
                 loader,
-                _ => RavenEffects.Only(
+                static _ => RavenEffects.Only(
                     ["Core", "Geometry"],
                     Path.Combine("PostFx", "Fullscreen.rvn"),
                     Path.Combine("PostFx", "LightStreak.rvn")

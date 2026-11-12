@@ -9,8 +9,12 @@ namespace Vixen.Graphics.WebGPU.Tests;
 /// <remarks>
 ///     <para>
 ///         Source rather than bytecode, which is the opposite of what <c>Vixen.Graphics.Vulkan</c>'s
-///         fixtures do and is right for the same reason theirs are: <b>WGSL is what this backend's
-///         implementations compile.</b> A browser accepts nothing else, and committing SPIR-V here
+///         fixtures do and is right for the same reason theirs are:
+///         <b>
+///             WGSL is what this backend's
+///             implementations compile.
+///         </b>
+///         A browser accepts nothing else, and committing SPIR-V here
 ///         would test a path only the native surface has. Raven is the engine's shader front end
 ///         ([07](../../docs/plan/07-raven-shader-pipeline.md)) and reaches WGSL through SPIRV-Cross;
 ///         these are fixtures, not a pipeline stage.
@@ -28,7 +32,8 @@ static class TestShaders {
     ///     <c>CullingRemovesExactlyOneWinding</c> is for — this shader states the winding and does
     ///     not assume the answer.
     /// </remarks>
-    public static ReadOnlySpan<byte> Vertex => """
+    public static ReadOnlySpan<byte> Vertex =>
+        """
         @vertex
         fn main(@builtin(vertex_index) index: u32) -> @builtin(position) vec4<f32> {
             var points = array<vec2<f32>, 3>(
@@ -57,7 +62,8 @@ static class TestShaders {
     ///         push constant arrived rather than which way up the viewport is.
     ///     </para>
     /// </remarks>
-    public static ReadOnlySpan<byte> VertexPushed => """
+    public static ReadOnlySpan<byte> VertexPushed =>
+        """
         @group(0) @binding(0) var<uniform> push: vec4<f32>;
 
         @vertex
@@ -78,7 +84,8 @@ static class TestShaders {
     ///     nothing reads — and an unread attribute is not validated against the buffer layout, which
     ///     is exactly the check this fixture exists to provoke.
     /// </remarks>
-    public static ReadOnlySpan<byte> VertexWithAttributes => """
+    public static ReadOnlySpan<byte> VertexWithAttributes =>
+        """
         @vertex
         fn main(
             @location(0) position: vec3<f32>,
@@ -94,7 +101,8 @@ static class TestShaders {
         """u8;
 
     /// <summary>Opaque green, so a covered pixel is distinguishable from a cleared one.</summary>
-    public static ReadOnlySpan<byte> Fragment => """
+    public static ReadOnlySpan<byte> Fragment =>
+        """
         @fragment
         fn main() -> @location(0) vec4<f32> {
             return vec4<f32>(0.0, 1.0, 0.0, 1.0);
@@ -107,7 +115,8 @@ static class TestShaders {
     ///     or an unbound uniform could produce by accident — both of which would pass a test that
     ///     only checked the dispatch happened.
     /// </remarks>
-    public static ReadOnlySpan<byte> Compute => """
+    public static ReadOnlySpan<byte> Compute =>
+        """
         @group(0) @binding(0) var<uniform> constants: vec4<u32>;
         @group(0) @binding(1) var<storage, read_write> result: array<u32>;
 

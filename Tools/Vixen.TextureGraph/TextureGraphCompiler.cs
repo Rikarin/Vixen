@@ -17,8 +17,12 @@ namespace Vixen.TextureGraph;
 /// <param name="Image">Its index in <see cref="TexturePlan.Images" />.</param>
 /// <param name="Node">The <c>Output</c> node that named it, so an author can be sent to it.</param>
 /// <remarks>
-///     ⚠ <b>Carried by the compiler rather than by the plan, and that is a gap rather than a
-///     design.</b> <see cref="TexturePlan.Outputs" /> is a list of indices with no names on it — it
+///     ⚠
+///     <b>
+///         Carried by the compiler rather than by the plan, and that is a gap rather than a
+///         design.
+///     </b>
+///     <see cref="TexturePlan.Outputs" /> is a list of indices with no names on it — it
 ///     is the evaluator's artefact and the evaluator has no use for a usage — so the join between "an
 ///     image survived" and "it is the roughness map" lives here, and a bake reads it off the
 ///     compiler. A layer stack compiling to the same plan would need its own copy of this, which is
@@ -62,8 +66,12 @@ public readonly record struct TextureGraphCheck(int Image, NodeDiagnostic Proble
 /// <param name="Port">Its output port.</param>
 /// <param name="Image">Its index in <see cref="TexturePlan.Images" />.</param>
 /// <remarks>
-///     ⚠ <b>Only useful with <see cref="TextureGraphCompiler.PreviewEveryNode" /> set, and that is
-///     not a convenience.</b> An image a plan does not keep is freed the moment its last reader has
+///     ⚠
+///     <b>
+///         Only useful with <see cref="TextureGraphCompiler.PreviewEveryNode" /> set, and that is
+///         not a convenience.
+///     </b>
+///     An image a plan does not keep is freed the moment its last reader has
 ///     run and its texture is handed to the next image that needs one — that is what makes the pool
 ///     cheap — so reading one back after the bake gives whatever was written into it afterwards,
 ///     which is a picture, of the wrong node, with nothing anywhere saying so.
@@ -75,8 +83,12 @@ public readonly record struct TextureGraphNodeImage(NodeId Node, string Port, in
 /// <param name="Source">Its Raven, ready for <c>TextureKernels.Variant</c>'s format rewrite.</param>
 /// <param name="Node">The node that wrote it.</param>
 /// <remarks>
-///     ⚠ <b>Carried by the compiler rather than by the plan, and — exactly as with
-///     <see cref="TextureGraphOutput" /> — that is a gap rather than a design.</b> A plan's op names
+///     ⚠
+///     <b>
+///         Carried by the compiler rather than by the plan, and — exactly as with
+///         <see cref="TextureGraphOutput" /> — that is a gap rather than a design.
+///     </b>
+///     A plan's op names
 ///     a kernel and <c>TexturePlanEvaluator</c> resolves that name through the assembly's embedded
 ///     sources, so a plan holding one of these <em>does not evaluate</em>: it throws naming a kernel
 ///     nothing has. Doc 48 § D6's node is landed to the point the section is actually about — the
@@ -101,8 +113,12 @@ public readonly record struct TextureGraphKernel(string Kernel, string Source, N
 /// </param>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Carried by the compiler rather than by the plan, for
-///         <see cref="TextureGraphOutput" />'s reason and not a new one.</b> A plan's external image
+///         ⚠
+///         <b>
+///             Carried by the compiler rather than by the plan, for
+///             <see cref="TextureGraphOutput" />'s reason and not a new one.
+///         </b>
+///         A plan's external image
 ///         says "the caller supplies this one" and deliberately says nothing about <em>what</em> — that
 ///         is what lets the same plan be re-evaluated over a different bitmap without recompiling. So
 ///         the join between "image 3 is external" and "it is the gradient this node baked" lives here,
@@ -110,8 +126,11 @@ public readonly record struct TextureGraphKernel(string Kernel, string Source, N
 ///         <c>TexturePlanEvaluator.Evaluate</c> already takes.
 ///     </para>
 ///     <para>
-///         <b>Two shapes because there are two kinds of caller-supplied picture, and only one of them
-///         can be produced by a pure compilation.</b> A ramp and a curve table are baked on the CPU
+///         <b>
+///             Two shapes because there are two kinds of caller-supplied picture, and only one of them
+///             can be produced by a pure compilation.
+///         </b>
+///         A ramp and a curve table are baked on the CPU
 ///         from the control an artist dragged — <see cref="TextureRamp" /> — so the compiler carries
 ///         the bytes and a host needs no knowledge at all. An imported image is an asset: resolving it
 ///         means an <c>AssetDatabase</c>, which a compiler that runs on every edit must not touch, so
@@ -193,8 +212,12 @@ public sealed partial class TextureGraphCompiler : NodeGraphCompiler<TexturePlan
 
     /// <summary>The resample inserted to bring one image to one level, shared the same way.</summary>
     /// <remarks>
-    ///     ⚠ <b><see cref="promotions" />' twin over the other axis, and the second half of
-    ///     <a href="https://github.com/Rikarin/Vixen/issues/779">#779</a>.</b> A node's images are
+    ///     ⚠
+    ///     <b>
+    ///         <see cref="promotions" />' twin over the other axis, and the second half of
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/779">#779</a>.
+    ///     </b>
+    ///     A node's images are
     ///     the size of the <em>finest</em> thing arriving at it, so an input coarser than that has to
     ///     be brought up — every pointwise kernel reads coordinate-for-coordinate with a clamp, and
     ///     a mismatch there is three quarters of an edge smear rather than an error.
@@ -220,8 +243,12 @@ public sealed partial class TextureGraphCompiler : NodeGraphCompiler<TexturePlan
 
     /// <summary>What this compilation is actually using, once the graph has had its say.</summary>
     /// <remarks>
-    ///     ⚠ <b>Beside the properties rather than in them, because <see cref="Adopt" /> used to write
-    ///     the graph's declarations back into the host's own fields.</b> A compiler is reusable — the
+    ///     ⚠
+    ///     <b>
+    ///         Beside the properties rather than in them, because <see cref="Adopt" /> used to write
+    ///         the graph's declarations back into the host's own fields.
+    ///     </b>
+    ///     A compiler is reusable — the
     ///     preview pane keeps one and hands it every graph in the document — so a graph declaring a
     ///     seed left that seed on the compiler, and the next graph, which declared nothing and was
     ///     therefore promised the host's number, drew with somebody else's. The properties are the
@@ -306,8 +333,11 @@ public sealed partial class TextureGraphCompiler : NodeGraphCompiler<TexturePlan
     /// <summary>The exposed parameters a host declares, for a graph that declares none of its own.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>The host's list, for <see cref="BaseWidth" />'s reason and with the same
-    ///         precedence:</b> a graph carrying its own — <c>NodeGraphModel.Parameters</c>, since
+    ///         <b>
+    ///             The host's list, for <see cref="BaseWidth" />'s reason and with the same
+    ///             precedence:
+    ///         </b>
+    ///         a graph carrying its own — <c>NodeGraphModel.Parameters</c>, since
     ///         <a href="https://github.com/Rikarin/Vixen/issues/719">#719</a> — replaces it for that
     ///         compilation and does not replace what is here.
     ///         <see cref="TextureGraphParameters.Definition" /> is what turns such a list into the
@@ -337,8 +367,11 @@ public sealed partial class TextureGraphCompiler : NodeGraphCompiler<TexturePlan
     /// <summary>Whether every node's output is kept, so each can be looked at.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>This is what a per-node preview needs, and it is the whole of what it needs from
-    ///         the evaluator.</b> Batch 4 recorded that previews would want a device-side path split
+    ///         <b>
+    ///             This is what a per-node preview needs, and it is the whole of what it needs from
+    ///             the evaluator.
+    ///         </b>
+    ///         Batch 4 recorded that previews would want a device-side path split
     ///         out of <c>Evaluate</c>; they do not. An image the plan keeps is not pooled over, so a
     ///         plan compiled with this set and evaluated once holds <em>every</em> node's picture at
     ///         the end of one bake, and <c>TextureBake.Read</c> already reads any of them back on the
@@ -398,8 +431,11 @@ public sealed partial class TextureGraphCompiler : NodeGraphCompiler<TexturePlan
     /// <summary>How many times the last compilation asked Raven to compile an expression source.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The instrument for <see cref="Bind" />'s cost sentence, which until now was
-    ///         asserted on exactly the evidence the <em>wrong</em> version of it had: none</b>
+    ///         ⚠
+    ///         <b>
+    ///             The instrument for <see cref="Bind" />'s cost sentence, which until now was
+    ///             asserted on exactly the evidence the <em>wrong</em> version of it had: none
+    ///         </b>
     ///         (<a href="https://github.com/Rikarin/Vixen/issues/940">#940</a>). That sentence said
     ///         "once per graph" for a batch after re-keying <c>Collect</c> on the expansion made it
     ///         false, and the correction is the kind of thing somebody quotes when deciding whether
@@ -423,8 +459,12 @@ public sealed partial class TextureGraphCompiler : NodeGraphCompiler<TexturePlan
 
     /// <inheritdoc />
     /// <remarks>
-    ///     ⚠ <b>This compiler answers with itself, which is what makes an expression on a sub-graph
-    ///     node's port mean anything</b> —
+    ///     ⚠
+    ///     <b>
+    ///         This compiler answers with itself, which is what makes an expression on a sub-graph
+    ///         node's port mean anything
+    ///     </b>
+    ///     —
     ///     <a href="https://github.com/Rikarin/Vixen/issues/1058">#1058</a> through
     ///     <a href="https://github.com/Rikarin/Vixen/issues/1074">#1074</a>. The <c>=</c> convention
     ///     stays here: <see cref="ISubGraphValues.Claims" /> is where this assembly tells the graph model which keys
@@ -599,7 +639,9 @@ public sealed partial class TextureGraphCompiler : NodeGraphCompiler<TexturePlan
         // A published graph's node is gone once it is inlined, so what it carries is checked here, on the
         // author's own graph. Every other node is checked by `Visit`, inlined ones included.
         foreach (var node in graph.Ordered()) {
-            if (SubGraphSource is { } source && source.TryGet(node.Type, out _) && Registry.TryGet(node.Type, out var type)) {
+            if (SubGraphSource is { } source
+                && source.TryGet(node.Type, out _)
+                && Registry.TryGet(node.Type, out var type)) {
                 Unclaimed(node, type);
             }
         }
@@ -617,28 +659,34 @@ public sealed partial class TextureGraphCompiler : NodeGraphCompiler<TexturePlan
 
         foreach (var key in node.Values.Keys.Order(StringComparer.Ordinal)) {
             if (definition.Port(key, PortDirection.Input) is null) {
-                Report(new(
-                    TextureDiagnostics.UnknownKey,
-                    $"'{key}' holds a number and '{definition.Path}' has no input called that, so nothing reads it. "
-                    + Advice(definition.Ports.Where(static port => port.Direction == PortDirection.Input)
-                        .Select(static port => port.Name)),
-                    node.Id,
-                    key,
-                    severity
-                ));
+                Report(
+                    new(
+                        TextureDiagnostics.UnknownKey,
+                        $"'{key}' holds a number and '{definition.Path}' has no input called that, so nothing reads it. "
+                        + Advice(
+                            definition.Ports.Where(static port => port.Direction == PortDirection.Input)
+                                .Select(static port => port.Name)
+                        ),
+                        node.Id,
+                        key,
+                        severity
+                    )
+                );
             }
         }
 
         foreach (var key in node.Texts.Keys.Order(StringComparer.Ordinal)) {
             if (!TextureGraphExpressions.IsExpression(key, out _) && definition.Setting(key) is null) {
-                Report(new(
-                    TextureDiagnostics.UnknownKey,
-                    $"'{key}' holds a setting and '{definition.Path}' has no setting called that, so nothing reads it. "
-                    + Advice(definition.Settings.Select(static setting => setting.Name)),
-                    node.Id,
-                    key,
-                    severity
-                ));
+                Report(
+                    new(
+                        TextureDiagnostics.UnknownKey,
+                        $"'{key}' holds a setting and '{definition.Path}' has no setting called that, so nothing reads it. "
+                        + Advice(definition.Settings.Select(static setting => setting.Name)),
+                        node.Id,
+                        key,
+                        severity
+                    )
+                );
             }
         }
     }
@@ -666,8 +714,12 @@ public sealed partial class TextureGraphCompiler : NodeGraphCompiler<TexturePlan
     ///         graph declares it; what the node compiles against is the name that knob resolves to.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A hook rather than a rewrite of the graph, and the difference is an authored
-    ///         file.</b> The first version substituted into <c>node.Texts</c> during <c>Begin</c> —
+    ///         ⚠
+    ///         <b>
+    ///             A hook rather than a rewrite of the graph, and the difference is an authored
+    ///             file.
+    ///         </b>
+    ///         The first version substituted into <c>node.Texts</c> during <c>Begin</c> —
     ///         and the model reaching <c>Begin</c> is only a copy when flattening ran, so for a
     ///         graph with no sub-graph node in it (which is what both shipped compounds using this
     ///         are) the compiler was writing into the document the panel has open. Opening
@@ -675,8 +727,12 @@ public sealed partial class TextureGraphCompiler : NodeGraphCompiler<TexturePlan
     ///         <c>Tiling: $Tiling</c> with <c>Tiling: Wrap</c>, deleting the knob.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>An unresolved reference leaves the setting holding its own text, which is a
-    ///         second complaint and deliberately so.</b> The node then reports <c>TG0010</c> about a
+    ///         ⚠
+    ///         <b>
+    ///             An unresolved reference leaves the setting holding its own text, which is a
+    ///             second complaint and deliberately so.
+    ///         </b>
+    ///         The node then reports <c>TG0010</c> about a
     ///         value it does not accept, and the pair reads as "this knob is missing, and here is the
     ///         node that wanted it" — where writing the node's declared default instead would leave a
     ///         picture that is quietly one arrangement rather than another.
@@ -710,15 +766,19 @@ public sealed partial class TextureGraphCompiler : NodeGraphCompiler<TexturePlan
     /// <param name="problem">What to say, or empty.</param>
     /// <returns><see langword="true" /> when <paramref name="value" /> should replace the setting.</returns>
     /// <remarks>
-    ///     ⚠ <b>An unresolved reference leaves the setting holding its own text, which is a second
-    ///     complaint and deliberately so.</b> The node then reports <c>TG0010</c> about a value it
+    ///     ⚠
+    ///     <b>
+    ///         An unresolved reference leaves the setting holding its own text, which is a second
+    ///         complaint and deliberately so.
+    ///     </b>
+    ///     The node then reports <c>TG0010</c> about a value it
     ///     does not accept, and the pair reads as "this knob is missing, and here is the node that
     ///     wanted it" — where writing the node's declared default instead would leave a picture that
     ///     is quietly one arrangement rather than another.
     /// </remarks>
     bool Choose(int expansion, string name, out string value, out string problem) {
-        value = "";
-        problem = "";
+        value = string.Empty;
+        problem = string.Empty;
 
         // A belt rather than the argument: `Parent` strictly shortens the path, so the chain is at
         // most as deep as the nesting the flattener already refused to exceed.
@@ -746,7 +806,7 @@ public sealed partial class TextureGraphCompiler : NodeGraphCompiler<TexturePlan
                 problem =
                     $"'{TextureGraphParameters.ReferencePrefix}{outer}' was passed into '{name}' from outside this "
                     + "graph, and nothing contains this graph. The setting keeps the text it holds.";
-                value = "";
+                value = string.Empty;
 
                 return false;
             }
@@ -760,7 +820,7 @@ public sealed partial class TextureGraphCompiler : NodeGraphCompiler<TexturePlan
 
     /// <summary>The node-type path of one expansion, or empty when there is no such expansion.</summary>
     string Scope(int expansion) =>
-        Inlining.Expansions.TryGetValue(expansion, out var inlined) ? inlined.Type : "";
+        Inlining.Expansions.TryGetValue(expansion, out var inlined) ? inlined.Type : string.Empty;
 
     /// <summary>What the sub-graph node one expansion came out of was given.</summary>
     IReadOnlyDictionary<string, string>? Overrides(int expansion) =>
@@ -768,8 +828,12 @@ public sealed partial class TextureGraphCompiler : NodeGraphCompiler<TexturePlan
 
     /// <summary>Which expansion contains one expansion, or zero for one in the author's own graph.</summary>
     /// <remarks>
-    ///     ⚠ <b>Recovered from <see cref="SubGraphExpansion.Path" /> rather than recorded, and the
-    ///     path is what makes that sound.</b> An expansion's path is the chain of sub-graph node
+    ///     ⚠
+    ///     <b>
+    ///         Recovered from <see cref="SubGraphExpansion.Path" /> rather than recorded, and the
+    ///         path is what makes that sound.
+    ///     </b>
+    ///     An expansion's path is the chain of sub-graph node
     ///     identities walked to reach it, each one an identity in its own document — so two
     ///     expansions of equal depth differ in their first differing element, and the chain minus its
     ///     last element names exactly one enclosing expansion.
@@ -805,9 +869,13 @@ public sealed partial class TextureGraphCompiler : NodeGraphCompiler<TexturePlan
     /// <summary>Takes what the graph declares about itself over what the host guessed.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Doc 48 § D8's "the graph declares a base resolution" and § D5's "the seed is part
-    ///         of the graph", which until <a href="https://github.com/Rikarin/Vixen/issues/719">#719</a>
-    ///         were properties of whoever constructed this class.</b> A saved <c>.vxtexgraph</c>
+    ///         ⚠
+    ///         <b>
+    ///             Doc 48 § D8's "the graph declares a base resolution" and § D5's "the seed is part
+    ///             of the graph", which until <a href="https://github.com/Rikarin/Vixen/issues/719">#719</a>
+    ///             were properties of whoever constructed this class.
+    ///         </b>
+    ///         A saved <c>.vxtexgraph</c>
     ///         therefore came back at the host's default — and the seed is the sharper half, because a
     ///         resolution that reopened wrong is visible and a seed that reopened different is simply
     ///         a different picture, on another machine, of a material somebody signed off.
@@ -819,8 +887,12 @@ public sealed partial class TextureGraphCompiler : NodeGraphCompiler<TexturePlan
     ///         file has an opinion.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And it reads them rather than writing them, which the first version of this did
-    ///         not.</b> Assigning the answer back into <see cref="BaseWidth" />, <see cref="Seed" />
+    ///         ⚠
+    ///         <b>
+    ///             And it reads them rather than writing them, which the first version of this did
+    ///             not.
+    ///         </b>
+    ///         Assigning the answer back into <see cref="BaseWidth" />, <see cref="Seed" />
     ///         and <see cref="Parameters" /> made the sentence above true exactly once per compiler:
     ///         a document declaring a seed left it behind, and the next graph — promised the host's
     ///         number because it declares nothing — drew with somebody else's. A compiler is
@@ -835,7 +907,8 @@ public sealed partial class TextureGraphCompiler : NodeGraphCompiler<TexturePlan
     /// </remarks>
     void Adopt(NodeGraphModel graph) {
         authoredWidth = TextureGraphSettings.Extent(graph, TextureGraphSettings.BaseWidth, BaseWidth, out var width);
-        authoredHeight = TextureGraphSettings.Extent(graph, TextureGraphSettings.BaseHeight, BaseHeight, out var height);
+        authoredHeight =
+            TextureGraphSettings.Extent(graph, TextureGraphSettings.BaseHeight, BaseHeight, out var height);
         authoredSeed = TextureGraphSettings.SeedOf(graph, Seed, out var seed);
         bitDepth = TextureGraphSettings.BitDepthOf(graph, out var depth);
         tilingX = TextureGraphSettings.TilingOf(graph, TextureGraphSettings.TilingX, out var acrossX);
@@ -845,7 +918,15 @@ public sealed partial class TextureGraphCompiler : NodeGraphCompiler<TexturePlan
             if (problem is not null) {
                 // Against no node, because it is the graph's own declaration — the same choice
                 // `Bind` makes for a parameter list that does not hold together.
-                Report(new(TextureDiagnostics.GraphSettingIgnored, problem, NodeId.None, "", NodeSeverity.Warning));
+                Report(
+                    new(
+                        TextureDiagnostics.GraphSettingIgnored,
+                        problem,
+                        NodeId.None,
+                        string.Empty,
+                        NodeSeverity.Warning
+                    )
+                );
             }
         }
 
@@ -854,9 +935,7 @@ public sealed partial class TextureGraphCompiler : NodeGraphCompiler<TexturePlan
         // ⚠ Replaced rather than merged. Two lists of knobs under one name is a graph whose
         // parameter means whichever the walk reached first, and a host that set some of its own is
         // a host that has not been updated — the file is the declaration.
-        declared.AddRange(
-            graph.Parameters.Count == 0 ? Parameters : TextureGraphParameters.Declared(graph.Parameters)
-        );
+        declared.AddRange(graph.Parameters.Count == 0 ? Parameters : TextureGraphParameters.Declared(graph.Parameters));
     }
 
     /// <summary>Resolves what the graph's own parameters are worth, before anything is inlined.</summary>
@@ -871,34 +950,55 @@ public sealed partial class TextureGraphCompiler : NodeGraphCompiler<TexturePlan
         foreach (var problem in TextureGraphParameters.Check(declared)) {
             // Against no node, because a parameter belongs to the graph rather than to any node in
             // it. There is nothing to select and saying so is better than picking one at random.
-            Report(new(
-                TextureDiagnostics.BuilderRefusedTheNumbers,
-                "This graph's parameters do not hold together: " + problem,
-                NodeId.None
-            ));
+            Report(
+                new(
+                    TextureDiagnostics.BuilderRefusedTheNumbers,
+                    "This graph's parameters do not hold together: " + problem,
+                    NodeId.None
+                )
+            );
         }
 
         ParameterValues = TextureGraphParameters.Read(declared, Arguments, out var refused);
 
         foreach (var problem in refused) {
-            Report(new(TextureDiagnostics.ParameterOverrideIgnored, problem, NodeId.None, "", NodeSeverity.Warning));
+            Report(
+                new(
+                    TextureDiagnostics.ParameterOverrideIgnored,
+                    problem,
+                    NodeId.None,
+                    string.Empty,
+                    NodeSeverity.Warning
+                )
+            );
         }
     }
 
     /// <summary>Folds every expression written inside the flattened graph, by the scope it was in.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Before the walk and not during it, because one compilation folds a whole scope's
-    ///         expressions at once.</b> Raven is asked once per <em>expansion that holds an
-    ///         expression</em> — one source holding one <c>const val</c> per parameter of that scope
+    ///         ⚠
+    ///         <b>
+    ///             Before the walk and not during it, because one compilation folds a whole scope's
+    ///             expressions at once.
+    ///         </b>
+    ///         Raven is asked once per
+    ///         <em>
+    ///             expansion that holds an
+    ///             expression
+    ///         </em>
+    ///         — one source holding one <c>const val</c> per parameter of that scope
     ///         and one per expression written in it — so forty expression fields in the author's own
     ///         graph cost one parse and one bind rather than forty, and every expression in a scope
     ///         is bound against the same parameter declarations in the same order. Folding them node
     ///         by node during the walk would be forty compilations of forty nearly identical files.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Once per graph is what this used to say, and re-keying <see cref="Collect" /> on
-    ///         the expansion made it false</b>
+    ///         ⚠
+    ///         <b>
+    ///             Once per graph is what this used to say, and re-keying <see cref="Collect" /> on
+    ///             the expansion made it false
+    ///         </b>
     ///         (<a href="https://github.com/Rikarin/Vixen/issues/931">#931</a>). The change is right —
     ///         an expansion is what makes two instances of one compound two sets of numbers — but the
     ///         cost it buys is different and this is the sentence somebody quotes when deciding
@@ -952,13 +1052,15 @@ public sealed partial class TextureGraphCompiler : NodeGraphCompiler<TexturePlan
             foreach (var problem in ignored) {
                 // Against the node the author can select rather than against no node, because
                 // this one *is* somebody's typing and it is on a node they have.
-                Say(new(
-                    TextureDiagnostics.ParameterOverrideIgnored,
-                    $"'{scope}': {problem}",
-                    inlined.Source,
-                    "",
-                    NodeSeverity.Warning
-                ));
+                Say(
+                    new(
+                        TextureDiagnostics.ParameterOverrideIgnored,
+                        $"'{scope}': {problem}",
+                        inlined.Source,
+                        string.Empty,
+                        NodeSeverity.Warning
+                    )
+                );
             }
         }
 
@@ -1013,25 +1115,29 @@ public sealed partial class TextureGraphCompiler : NodeGraphCompiler<TexturePlan
                 }
 
                 if (taken is null) {
-                    Report(new(
-                        TextureDiagnostics.ExpressionOnAPortThatTakesNone,
-                        $"An expression is stored for '{port}', which '{inlined.Type}' has no input called. It "
-                        + "was written against a version of that graph that had one.",
-                        inlined.Source,
-                        port
-                    ));
+                    Report(
+                        new(
+                            TextureDiagnostics.ExpressionOnAPortThatTakesNone,
+                            $"An expression is stored for '{port}', which '{inlined.Type}' has no input called. It "
+                            + "was written against a version of that graph that had one.",
+                            inlined.Source,
+                            port
+                        )
+                    );
 
                     continue;
                 }
 
                 if (taken.Kind is PortKind.Image or PortKind.Flow or PortKind.Texture or PortKind.Sampler) {
-                    Report(new(
-                        TextureDiagnostics.ExpressionOnAPortThatTakesNone,
-                        $"'{port}' on '{inlined.Type}' carries a {taken.Kind} and an expression is one number. "
-                        + "A published graph's image inputs are wired, not computed.",
-                        inlined.Source,
-                        port
-                    ));
+                    Report(
+                        new(
+                            TextureDiagnostics.ExpressionOnAPortThatTakesNone,
+                            $"'{port}' on '{inlined.Type}' carries a {taken.Kind} and an expression is one number. "
+                            + "A published graph's image inputs are wired, not computed.",
+                            inlined.Source,
+                            port
+                        )
+                    );
                 }
             }
         }
@@ -1047,8 +1153,12 @@ public sealed partial class TextureGraphCompiler : NodeGraphCompiler<TexturePlan
     ///         them.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Grouped by which graph each node was <em>written</em> in, not by which graph is
-    ///         being compiled.</b> An inlined node's expression was authored against the sub-graph's
+    ///         ⚠
+    ///         <b>
+    ///             Grouped by which graph each node was <em>written</em> in, not by which graph is
+    ///             being compiled.
+    ///         </b>
+    ///         An inlined node's expression was authored against the sub-graph's
     ///         own parameters, and after
     ///         <see cref="SubGraphs.Flatten(NodeGraphModel,ISubGraphSource,out IReadOnlyList{NodeDiagnostic})" />
     ///         it sits in a graph whose parameters are somebody else's — so binding the whole
@@ -1059,9 +1169,13 @@ public sealed partial class TextureGraphCompiler : NodeGraphCompiler<TexturePlan
     ///         of; the scope is that path, and the empty string is the author's own graph.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Grouped by <see cref="NodeOrigin.Expansion" /> rather than by that path, because
-    ///         the path is what a knob is <em>declared</em> by and not what it is <em>set</em>
-    ///         to.</b> One graph may contain the same published graph twice with two sets of
+    ///         ⚠
+    ///         <b>
+    ///             Grouped by <see cref="NodeOrigin.Expansion" /> rather than by that path, because
+    ///             the path is what a knob is <em>declared</em> by and not what it is <em>set</em>
+    ///             to.
+    ///         </b>
+    ///         One graph may contain the same published graph twice with two sets of
     ///         numbers, and grouping by path folds both against one of them. The scope travels beside
     ///         the key because it is still what <c>ParametersOf</c> is asked.
     ///     </para>
@@ -1094,13 +1208,15 @@ public sealed partial class TextureGraphCompiler : NodeGraphCompiler<TexturePlan
                 }
 
                 if (definition.Port(port, PortDirection.Input) is not { } declared) {
-                    Report(new(
-                        TextureDiagnostics.ExpressionOnAPortThatTakesNone,
-                        $"An expression is stored for '{port}', which this node has no input called. It was "
-                        + "written against a version of the node type that had one.",
-                        node.Id,
-                        port
-                    ));
+                    Report(
+                        new(
+                            TextureDiagnostics.ExpressionOnAPortThatTakesNone,
+                            $"An expression is stored for '{port}', which this node has no input called. It was "
+                            + "written against a version of the node type that had one.",
+                            node.Id,
+                            port
+                        )
+                    );
 
                     continue;
                 }
@@ -1109,13 +1225,15 @@ public sealed partial class TextureGraphCompiler : NodeGraphCompiler<TexturePlan
                     // ⚠ Refused rather than folded and thrown away. An expression is one float, and
                     // there is no number an image port could take — see `Constant`. Accepting it here
                     // would produce a field an author can type into whose value nothing ever reads.
-                    Report(new(
-                        TextureDiagnostics.ExpressionOnAPortThatTakesNone,
-                        $"'{port}' carries a {declared.Kind} and an expression is one number. A node's image "
-                        + "inputs are wired, not computed.",
-                        node.Id,
-                        port
-                    ));
+                    Report(
+                        new(
+                            TextureDiagnostics.ExpressionOnAPortThatTakesNone,
+                            $"'{port}' carries a {declared.Kind} and an expression is one number. A node's image "
+                            + "inputs are wired, not computed.",
+                            node.Id,
+                            port
+                        )
+                    );
 
                     continue;
                 }
@@ -1135,7 +1253,7 @@ public sealed partial class TextureGraphCompiler : NodeGraphCompiler<TexturePlan
                 // shape of "the second Dirt silently uses the first one's amount".
                 var expansion = Inlining.TryGet(node.Id, out var origin) ? origin.Expansion : 0;
 
-                For(expansion, expansion == 0 ? "" : origin.Type).Add(new(node.Id, port, node.Texts[key]));
+                For(expansion, expansion == 0 ? string.Empty : origin.Type).Add(new(node.Id, port, node.Texts[key]));
             }
         }
 
@@ -1154,15 +1272,17 @@ public sealed partial class TextureGraphCompiler : NodeGraphCompiler<TexturePlan
             // library. That is a host's mistake rather than an author's, and it is worth its own
             // sentence — this is the failure a compiler with no `SubGraphSource` produces for every
             // sub-graph in every graph, all at once.
-            Report(new(
-                TextureDiagnostics.NothingToCompile,
-                instance is SubGraphNode
-                    ? $"'{definition.Path}' is a published graph, and nothing inlined it. The compiler was "
-                      + "given no library to resolve sub-graphs through, so its contents never reached this plan."
-                    : $"'{definition.Path}' is in this graph's library but is not a texture node, so there is "
-                      + "nothing it could dispatch.",
-                node.Id
-            ));
+            Report(
+                new(
+                    TextureDiagnostics.NothingToCompile,
+                    instance is SubGraphNode
+                        ? $"'{definition.Path}' is a published graph, and nothing inlined it. The compiler was "
+                        + "given no library to resolve sub-graphs through, so its contents never reached this plan."
+                        : $"'{definition.Path}' is in this graph's library but is not a texture node, so there is "
+                        + "nothing it could dispatch.",
+                    node.Id
+                )
+            );
 
             return;
         }
@@ -1180,12 +1300,14 @@ public sealed partial class TextureGraphCompiler : NodeGraphCompiler<TexturePlan
     /// <inheritdoc />
     protected override TexturePlan? Finish(NodeGraphModel graph) {
         if (outputs.Count == 0 && !PreviewEveryNode) {
-            Report(new(
-                TextureDiagnostics.NoOutputNode,
-                "This graph has no Output node, so everything it computes is freed before anything can "
-                + "read it. Add one from the Output category.",
-                NodeId.None
-            ));
+            Report(
+                new(
+                    TextureDiagnostics.NoOutputNode,
+                    "This graph has no Output node, so everything it computes is freed before anything can "
+                    + "read it. Add one from the Output category.",
+                    NodeId.None
+                )
+            );
 
             return null;
         }
@@ -1216,8 +1338,10 @@ public sealed partial class TextureGraphCompiler : NodeGraphCompiler<TexturePlan
             authored[kernel.Kernel] = kernel.Source;
         }
 
-        var readsMeshMap = externals.Any(
-            external => external.Asset.StartsWith(Nodes.TextureMeshMaps.Scheme, StringComparison.Ordinal)
+        var readsMeshMap = externals.Any(static external => external.Asset.StartsWith(
+                Nodes.TextureMeshMaps.Scheme,
+                StringComparison.Ordinal
+            )
         );
 
         var plan = new TexturePlan {
@@ -1231,7 +1355,7 @@ public sealed partial class TextureGraphCompiler : NodeGraphCompiler<TexturePlan
             WrapY = tilingY ?? !readsMeshMap,
             Images = images.ToImmutable(),
             Ops = ops.ToImmutable(),
-            Outputs = [.. kept],
+            Outputs = [..kept],
 
             // ⚠ On the plan, which is what makes a Pixel Processor's op *runnable* — #729. Until
             // this line the generated Raven reached `Kernels` below and nowhere else, so the plan a
@@ -1249,21 +1373,23 @@ public sealed partial class TextureGraphCompiler : NodeGraphCompiler<TexturePlan
 
         if (problems.Length > 0) {
             foreach (var problem in problems) {
-                Report(new(
-                    TextureDiagnostics.PlanDoesNotHoldTogether,
-                    "The compiler produced a plan that does not hold together: " + problem,
-                    NodeId.None
-                ));
+                Report(
+                    new(
+                        TextureDiagnostics.PlanDoesNotHoldTogether,
+                        "The compiler produced a plan that does not hold together: " + problem,
+                        NodeId.None
+                    )
+                );
             }
 
             return null;
         }
 
-        Outputs = [.. outputs];
-        Checks = [.. checks];
-        NodeImages = [.. nodeImages];
-        Kernels = [.. kernels];
-        Externals = [.. externals];
+        Outputs = [..outputs];
+        Checks = [..checks];
+        NodeImages = [..nodeImages];
+        Kernels = [..kernels];
+        Externals = [..externals];
 
         Remember(plan, graph);
 
@@ -1280,9 +1406,9 @@ public sealed partial class TextureGraphCompiler : NodeGraphCompiler<TexturePlan
     /// </remarks>
     protected override string Constant(ReadOnlySpan<float> value, PortKind kind) =>
         kind switch {
-            PortKind.Image or PortKind.Flow or PortKind.Texture or PortKind.Sampler => "",
+            PortKind.Image or PortKind.Flow or PortKind.Texture or PortKind.Sampler => string.Empty,
             PortKind.Bool => value.Length > 0 && value[0] != 0f ? "true" : "false",
-            PortKind.Int => ((int)(value.Length > 0 ? value[0] : 0f)).ToString(System.Globalization.CultureInfo.InvariantCulture),
+            PortKind.Int => ((int)(value.Length > 0 ? value[0] : 0f)).ToString(CultureInfo.InvariantCulture),
             _ => Literal.Of(value.Length > 0 ? value[0] : 0f)
         };
 
@@ -1312,8 +1438,12 @@ public sealed partial class TextureGraphCompiler : NodeGraphCompiler<TexturePlan
     /// <summary>One axis at a level offset from the base, at this bake.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The same arithmetic as <c>TexturePlan</c>'s, in a second place, because a node
-    ///         that needs it needs it <em>while</em> the plan is being built.</b> A jump flood's
+    ///         ⚠
+    ///         <b>
+    ///             The same arithmetic as <c>TexturePlan</c>'s, in a second place, because a node
+    ///             that needs it needs it <em>while</em> the plan is being built.
+    ///         </b>
+    ///         A jump flood's
     ///         dispatch count is <c>log2</c> of the image it writes, so <c>Distance</c> has to know
     ///         the bake's resolution before there is a plan to ask.
     ///         <c>The_size_a_node_was_told_is_the_size_the_plan_reports</c> is what keeps the two
@@ -1387,29 +1517,45 @@ public sealed partial class TextureGraphCompiler : NodeGraphCompiler<TexturePlan
     /// <returns>A number to mix into the op's seed.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b><a href="https://github.com/Rikarin/Vixen/issues/875">#875</a>: the op's index was
-    ///         the seed, and an index is what an insertion moves.</b> A <c>NodeId</c> is not: it is
+    ///         ⚠
+    ///         <b>
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/875">#875</a>: the op's index was
+    ///             the seed, and an index is what an insertion moves.
+    ///         </b>
+    ///         A <c>NodeId</c> is not: it is
     ///         written in the <c>.vxtexgraph</c>, <c>NodeGraphModel</c> never reuses one, and adding
     ///         a node hands out a fresh number rather than renumbering the existing ones. So a noise
     ///         keeps its picture when an author wires something in beneath it.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>An inlined node is named by where it came from and not by the identity it was
-    ///         given</b>, because <c>SubGraphs.Flatten</c> numbers inlined nodes from above the outer
+    ///         ⚠
+    ///         <b>
+    ///             An inlined node is named by where it came from and not by the identity it was
+    ///             given
+    ///         </b>
+    ///         , because <c>SubGraphs.Flatten</c> numbers inlined nodes from above the outer
     ///         graph's highest id — so adding any node to the author's graph renumbers every node
     ///         inside every compound in it. <see cref="NodeGraphInlining" /> keeps the pair that does
     ///         not move: the sub-graph node it stands for, and its own id inside that compound.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The compound's type is mixed in as well, and it narrows the collisions rather
-    ///         than removing them.</b> <c>NodeOrigin.Source</c> is the outermost sub-graph node
+    ///         ⚠
+    ///         <b>
+    ///             The compound's type is mixed in as well, and it narrows the collisions rather
+    ///             than removing them.
+    ///         </b>
+    ///         <c>NodeOrigin.Source</c> is the outermost sub-graph node
     ///         however deep the nesting goes, and <c>Inner</c> is an identity in the innermost file,
     ///         so a compound containing a compound — each with a node numbered 3 — would collide on
     ///         those two alone; the type separates them when the two compounds differ.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>What the two ends alone did <em>not</em> separate is two sibling instances of the
-    ///         SAME compound nested inside one outer compound</b> — they share an outermost source, a
+    ///         ⚠
+    ///         <b>
+    ///             What the two ends alone did <em>not</em> separate is two sibling instances of the
+    ///             SAME compound nested inside one outer compound
+    ///         </b>
+    ///         — they share an outermost source, a
     ///         type and their inner ids, so they shared a name and two noise ops drew one picture
     ///         (<a href="https://github.com/Rikarin/Vixen/issues/925">#925</a>). What was missing is
     ///         the middle of the walk: which node <em>inside the outer file</em> each instance came
@@ -1431,8 +1577,12 @@ public sealed partial class TextureGraphCompiler : NodeGraphCompiler<TexturePlan
     ///         of the graph around it.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b><see cref="Hashed" /> and not <c>string.GetHashCode</c>, and the difference is
-    ///         the whole promise.</b> .NET randomises a string's hash per process, so a compound path
+    ///         ⚠
+    ///         <b>
+    ///             <see cref="Hashed" /> and not <c>string.GetHashCode</c>, and the difference is
+    ///             the whole promise.
+    ///         </b>
+    ///         .NET randomises a string's hash per process, so a compound path
     ///         hashed that way would give one material a different picture on every launch — the
     ///         failure <see cref="TexturePlan.SeedFor" />'s "the same on every machine and every run"
     ///         exists to rule out, arriving through the one input that is a string.
@@ -1463,7 +1613,7 @@ public sealed partial class TextureGraphCompiler : NodeGraphCompiler<TexturePlan
         // MurmurHash3's finalizer, which is `TexturePlan.SeedFor`'s own mix — used here so that the
         // ordinal and the node are folded together rather than living in separate bit ranges a
         // second hash would then have to separate again.
-        var value = unchecked((0xC2B2AE35u * identity) + (uint)ordinal + 1u);
+        var value = unchecked(0xC2B2AE35u * identity + (uint)ordinal + 1u);
 
         value ^= value >> 16;
         value = unchecked(value * 0x85EBCA6Bu);
@@ -1495,9 +1645,13 @@ public sealed partial class TextureGraphCompiler : NodeGraphCompiler<TexturePlan
     /// <summary>Keeps an image past the evaluation, under a usage.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The terminus is where <a href="https://github.com/Rikarin/Vixen/issues/779">#779</a>'s
-    ///         rule stops, and <a href="https://github.com/Rikarin/Vixen/issues/805">#805</a> is what
-    ///         it cost not to say so.</b> A node's output is the size of what it reads — everywhere
+    ///         ⚠
+    ///         <b>
+    ///             The terminus is where <a href="https://github.com/Rikarin/Vixen/issues/779">#779</a>'s
+    ///             rule stops, and <a href="https://github.com/Rikarin/Vixen/issues/805">#805</a> is what
+    ///             it cost not to say so.
+    ///         </b>
+    ///         A node's output is the size of what it reads — everywhere
     ///         inside a graph, which is right. Applied here it made <em>one map</em> a different size
     ///         from its siblings: <c>Resample(Half) → Output("baseColor")</c> beside a bare
     ///         <c>Output("roughness")</c> validated, baked both, and threw out of
@@ -1514,8 +1668,12 @@ public sealed partial class TextureGraphCompiler : NodeGraphCompiler<TexturePlan
     ///         terminus is one more such meeting, and what it meets is the texture set.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Level zero and not <see cref="authoredWidth" />, and the difference is a whole
-    ///         bake.</b> A terminus pinned to the authoring size would hand a 4K bake a 1K map and
+    ///         ⚠
+    ///         <b>
+    ///             Level zero and not <see cref="authoredWidth" />, and the difference is a whole
+    ///             bake.
+    ///         </b>
+    ///         A terminus pinned to the authoring size would hand a 4K bake a 1K map and
     ///         put the same throw back one level further out.
     ///     </para>
     ///     <para>
@@ -1545,17 +1703,19 @@ public sealed partial class TextureGraphCompiler : NodeGraphCompiler<TexturePlan
                 continue;
             }
 
-            Report(new(
-                TextureDiagnostics.TwoOutputsOneUsage,
-                $"Two Output nodes both write '{usage}', and a bake writes one file per usage — so one of "
-                + $"them is the map and the graph does not say which. The other is {existing.Node}.",
-                node.Id,
+            Report(
+                new(
+                    TextureDiagnostics.TwoOutputsOneUsage,
+                    $"Two Output nodes both write '{usage}', and a bake writes one file per usage — so one of "
+                    + $"them is the map and the graph does not say which. The other is {existing.Node}.",
+                    node.Id,
 
-                // The node's own field rather than the string, because the port name is the join
-                // between a diagnostic and the row an editor highlights, and a literal here is a
-                // join a rename cannot break loudly.
-                nameof(Nodes.OutputNode.Usage)
-            ));
+                    // The node's own field rather than the string, because the port name is the join
+                    // between a diagnostic and the row an editor highlights, and a literal here is a
+                    // join a rename cannot break loudly.
+                    nameof(Nodes.OutputNode.Usage)
+                )
+            );
 
             return;
         }
@@ -1565,17 +1725,19 @@ public sealed partial class TextureGraphCompiler : NodeGraphCompiler<TexturePlan
         if (level != 0) {
             var arrived = SizeOf(image);
 
-            Report(new(
-                TextureDiagnostics.OutputResampledToTheGraphsMaps,
-                $"'{usage}' is computed at {arrived.X}×{arrived.Y} and this graph's maps are "
-                + $"{Extent(authoredWidth, 0)}×{Extent(authoredHeight, 0)}, so the compiler resampled it back. A "
-                + "texture set is one material's maps over one atlas, so they are one size — a Resample says at "
-                + "which resolution part of a graph is computed and not how big its map is. Resample back before "
-                + "the Output to say it in the graph.",
-                node.Id,
-                nameof(Nodes.OutputNode.Usage),
-                NodeSeverity.Warning
-            ));
+            Report(
+                new(
+                    TextureDiagnostics.OutputResampledToTheGraphsMaps,
+                    $"'{usage}' is computed at {arrived.X}×{arrived.Y} and this graph's maps are "
+                    + $"{Extent(authoredWidth, 0)}×{Extent(authoredHeight, 0)}, so the compiler resampled it back. A "
+                    + "texture set is one material's maps over one atlas, so they are one size — a Resample says at "
+                    + "which resolution part of a graph is computed and not how big its map is. Resample back before "
+                    + "the Output to say it in the graph.",
+                    node.Id,
+                    nameof(Nodes.OutputNode.Usage),
+                    NodeSeverity.Warning
+                )
+            );
 
             image = Rescale(image, 0);
         }
@@ -1602,8 +1764,11 @@ public sealed partial class TextureGraphCompiler : NodeGraphCompiler<TexturePlan
     /// <param name="port">The port's name.</param>
     /// <returns>The number, or null.</returns>
     /// <remarks>
-    ///     <b>Read by <see cref="TextureEmitter.Number(string,int)" /> before it reads the port's own
-    ///     value</b>, so doc 48 § Part 4's "every scalar parameter accepts a Raven expression" costs a
+    ///     <b>
+    ///         Read by <see cref="TextureEmitter.Number(string,int)" /> before it reads the port's own
+    ///         value
+    ///     </b>
+    ///     , so doc 48 § Part 4's "every scalar parameter accepts a Raven expression" costs a
     ///     node nothing and a node library nothing: a node asks for its number the way it always did.
     /// </remarks>
     internal float? Expression(GraphNode node, string port) =>
@@ -1614,8 +1779,12 @@ public sealed partial class TextureGraphCompiler : NodeGraphCompiler<TexturePlan
     /// <param name="kernel">The shader's name, which its op names.</param>
     /// <param name="source">The Raven.</param>
     /// <remarks>
-    ///     ⚠ <b>Two nodes whose expressions are identical write one kernel, because the name is
-    ///     derived from the source.</b> That is what stops a graph with eight identical Pixel
+    ///     ⚠
+    ///     <b>
+    ///         Two nodes whose expressions are identical write one kernel, because the name is
+    ///         derived from the source.
+    ///     </b>
+    ///     That is what stops a graph with eight identical Pixel
     ///     Processors compiling eight identical modules, and it is why this is a set rather than a
     ///     list keyed by node.
     /// </remarks>
@@ -1641,8 +1810,12 @@ public sealed partial class TextureGraphCompiler : NodeGraphCompiler<TexturePlan
     /// <summary>Allocates an image the caller supplies, and records what fills it.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The one entry in a plan's table nothing writes, and the only place an absolute
-    ///         size enters a graph</b> — doc 48 § D8. Its <see cref="TextureImage.LevelOffset" /> is
+    ///         ⚠
+    ///         <b>
+    ///             The one entry in a plan's table nothing writes, and the only place an absolute
+    ///             size enters a graph
+    ///         </b>
+    ///         — doc 48 § D8. Its <see cref="TextureImage.LevelOffset" /> is
     ///         therefore nominal and left at the base: every kernel clamps its taps to the
     ///         <em>source's</em> own dimensions, so a ramp 256 texels wide is read correctly by an op
     ///         writing a 4K image, and a level on it would be a number nothing reads pretending
@@ -1669,13 +1842,15 @@ public sealed partial class TextureGraphCompiler : NodeGraphCompiler<TexturePlan
             var expected = (long)width * height * TextureFormats.BytesPerTexel(format);
 
             if (width <= 0 || height <= 0 || texels.Length != expected) {
-                Report(new(
-                    TextureDiagnostics.BakedPictureIsTheWrongSize,
-                    $"This node bakes its own {width}×{height} {format} picture and handed over {texels.Length} "
-                    + $"byte(s) where {expected} are needed. An external image is uploaded exactly as it is "
-                    + "written down — there is nothing that could resample it.",
-                    node.Id
-                ));
+                Report(
+                    new(
+                        TextureDiagnostics.BakedPictureIsTheWrongSize,
+                        $"This node bakes its own {width}×{height} {format} picture and handed over {texels.Length} "
+                        + $"byte(s) where {expected} are needed. An external image is uploaded exactly as it is "
+                        + "written down — there is nothing that could resample it.",
+                        node.Id
+                    )
+                );
 
                 return -1;
             }
@@ -1693,9 +1868,9 @@ public sealed partial class TextureGraphCompiler : NodeGraphCompiler<TexturePlan
             return shared;
         }
 
-        var image = Allocate(format, carried, 0, external: true);
+        var image = Allocate(format, carried, 0, true);
 
-        externals.Add(new(image, Inlining.Resolve(node.Id), asset, width, height, [.. texels]));
+        externals.Add(new(image, Inlining.Resolve(node.Id), asset, width, height, [..texels]));
 
         if (asset.Length > 0) {
             pooled[key] = image;
@@ -1714,13 +1889,15 @@ public sealed partial class TextureGraphCompiler : NodeGraphCompiler<TexturePlan
         bool strict
     ) {
         if (!binding.IsConnected(port)) {
-            Report(new(
-                TextureDiagnostics.NoImage,
-                $"'{port}' has no image connected. There is no literal image an author could type into a "
-                + "port instead, so a source node is what fills one.",
-                node.Id,
-                port
-            ));
+            Report(
+                new(
+                    TextureDiagnostics.NoImage,
+                    $"'{port}' has no image connected. There is no literal image an author could type into a "
+                    + "port instead, so a source node is what fills one.",
+                    node.Id,
+                    port
+                )
+            );
 
             return -1;
         }
@@ -1730,13 +1907,15 @@ public sealed partial class TextureGraphCompiler : NodeGraphCompiler<TexturePlan
             // been reported. A node whose output port is an image and which never asked for one is a
             // node-library bug, and it is the exact shape of failure that would otherwise compile to
             // a plan missing a dispatch and nothing to point at.
-            Report(new(
-                TextureDiagnostics.UpstreamProducedNoImage,
-                $"'{port}' is wired, and whatever feeds it produced no image. Either the node upstream "
-                + "failed, or its output is not an image this compiler can carry.",
-                node.Id,
-                port
-            ));
+            Report(
+                new(
+                    TextureDiagnostics.UpstreamProducedNoImage,
+                    $"'{port}' is wired, and whatever feeds it produced no image. Either the node upstream "
+                    + "failed, or its output is not an image this compiler can carry.",
+                    node.Id,
+                    port
+                )
+            );
 
             return -1;
         }
@@ -1752,14 +1931,16 @@ public sealed partial class TextureGraphCompiler : NodeGraphCompiler<TexturePlan
         }
 
         if (strict) {
-            Report(new(
-                TextureDiagnostics.ColourWhereOneChannelIsWanted,
-                $"'{port}' is measured rather than composited, so it takes a single channel and a colour "
-                + "arrived at it. There is no luminance a colour and a mask agree on — put a Grayscale "
-                + "node in between and say which one this graph means.",
-                node.Id,
-                port
-            ));
+            Report(
+                new(
+                    TextureDiagnostics.ColourWhereOneChannelIsWanted,
+                    $"'{port}' is measured rather than composited, so it takes a single channel and a colour "
+                    + "arrived at it. There is no luminance a colour and a mask agree on — put a Grayscale "
+                    + "node in between and say which one this graph means.",
+                    node.Id,
+                    port
+                )
+            );
 
             return source;
         }
@@ -1800,8 +1981,12 @@ public sealed partial class TextureGraphCompiler : NodeGraphCompiler<TexturePlan
     /// <returns>An image at <paramref name="level" /> holding that picture.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The <c>ChannelShuffle</c> promotion's twin, and for the same reason —
-    ///         <a href="https://github.com/Rikarin/Vixen/issues/779">#779</a>.</b> Two images meeting
+    ///         ⚠
+    ///         <b>
+    ///             The <c>ChannelShuffle</c> promotion's twin, and for the same reason —
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/779">#779</a>.
+    ///         </b>
+    ///         Two images meeting
     ///         at one node have to be the same size, because a kernel reads its inputs at the
     ///         coordinate it is writing and clamps: a 256² blend of a 256² and a 128² image is the
     ///         second one's top-left quarter stretched over nothing, with its edge row smeared down
@@ -1886,8 +2071,12 @@ public sealed partial class TextureGraphCompiler : NodeGraphCompiler<TexturePlan
     ///         to be something, and the narrowest is the one that promotes into anything later.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And the same question over size, which is
-    ///         <a href="https://github.com/Rikarin/Vixen/issues/779">#779</a>.</b> A node's output is
+    ///         ⚠
+    ///         <b>
+    ///             And the same question over size, which is
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/779">#779</a>.
+    ///         </b>
+    ///         A node's output is
     ///         the size of what it reads rather than the size of the graph — one rule, in one place,
     ///         rather than forty nodes each remembering to ask. The three shapes this was weighed
     ///         against are worth naming, because two of them are wrong: <em>refusing</em> a node
@@ -1897,8 +2086,11 @@ public sealed partial class TextureGraphCompiler : NodeGraphCompiler<TexturePlan
     ///         leaves "the target's size is the scale" meaning anything.
     ///     </para>
     ///     <para>
-    ///         <b>The finest rather than the coarsest, because a promotion must not throw detail
-    ///         away.</b> That is the same choice "widest wins" makes one axis over, and it is what
+    ///         <b>
+    ///             The finest rather than the coarsest, because a promotion must not throw detail
+    ///             away.
+    ///         </b>
+    ///         That is the same choice "widest wins" makes one axis over, and it is what
     ///         makes the resample <see cref="Read" /> inserts always a magnification.
     ///     </para>
     /// </remarks>

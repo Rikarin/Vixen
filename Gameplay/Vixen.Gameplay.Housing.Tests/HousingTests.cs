@@ -61,10 +61,7 @@ public static class Content {
             .Add(
                 Chandelier,
                 new FurnitureDefinition {
-                    DisplayName = "A chandelier",
-                    Cost = 5,
-                    Surfaces = HouseSurface.Ceiling,
-                    MaximumPerPlot = 1
+                    DisplayName = "A chandelier", Cost = 5, Surfaces = HouseSurface.Ceiling, MaximumPerPlot = 1
                 }
             )
             .Add(
@@ -427,19 +424,21 @@ public class HousingTests {
         // people's houses. Free goes negative and says so; reconciling is the caller's decision.
         var chair = DefId.From(Content.Chair);
 
-        house.Restore([
-            new(1, chair, HouseSurface.Floor, Vector3.Zero, 0f, Owner),
-            new(2, chair, HouseSurface.Floor, Vector3.One, 0f, Owner),
-            new(3, chair, HouseSurface.Floor, Vector3.Zero, 0f, Owner),
-            new(4, chair, HouseSurface.Floor, Vector3.One, 0f, Owner),
-            new(5, chair, HouseSurface.Floor, Vector3.Zero, 0f, Owner),
-            new(6, chair, HouseSurface.Floor, Vector3.One, 0f, Owner),
-            new(7, chair, HouseSurface.Floor, Vector3.Zero, 0f, Owner),
-            new(8, chair, HouseSurface.Floor, Vector3.One, 0f, Owner),
-            new(9, chair, HouseSurface.Floor, Vector3.Zero, 0f, Owner),
-            new(10, chair, HouseSurface.Floor, Vector3.One, 0f, Owner),
-            new(11, chair, HouseSurface.Floor, Vector3.Zero, 0f, Owner)
-        ]);
+        house.Restore(
+            [
+                new(1, chair, HouseSurface.Floor, Vector3.Zero, 0f, Owner),
+                new(2, chair, HouseSurface.Floor, Vector3.One, 0f, Owner),
+                new(3, chair, HouseSurface.Floor, Vector3.Zero, 0f, Owner),
+                new(4, chair, HouseSurface.Floor, Vector3.One, 0f, Owner),
+                new(5, chair, HouseSurface.Floor, Vector3.Zero, 0f, Owner),
+                new(6, chair, HouseSurface.Floor, Vector3.One, 0f, Owner),
+                new(7, chair, HouseSurface.Floor, Vector3.Zero, 0f, Owner),
+                new(8, chair, HouseSurface.Floor, Vector3.One, 0f, Owner),
+                new(9, chair, HouseSurface.Floor, Vector3.Zero, 0f, Owner),
+                new(10, chair, HouseSurface.Floor, Vector3.One, 0f, Owner),
+                new(11, chair, HouseSurface.Floor, Vector3.Zero, 0f, Owner)
+            ]
+        );
 
         Assert.Equal(22, house.Spent);
         Assert.Equal(-2, house.Free);
@@ -537,7 +536,10 @@ public class HousingTests {
                 .Build()
         );
 
-        Assert.Contains(library.Problems, problem => problem.Contains("from the doorstep", StringComparison.Ordinal));
+        Assert.Contains(
+            library.Problems,
+            static problem => problem.Contains("from the doorstep", StringComparison.Ordinal)
+        );
     }
 
     [Fact]
@@ -548,7 +550,7 @@ public class HousingTests {
                 .Build()
         );
 
-        Assert.Contains(library.Problems, problem => problem.Contains("anybody may", StringComparison.Ordinal));
+        Assert.Contains(library.Problems, static problem => problem.Contains("anybody may", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -562,7 +564,7 @@ public class HousingTests {
 
         Assert.Contains(
             library.Problems,
-            problem => problem.Contains("can never be placed anywhere", StringComparison.Ordinal)
+            static problem => problem.Contains("can never be placed anywhere", StringComparison.Ordinal)
         );
     }
 
@@ -575,9 +577,15 @@ public class HousingTests {
                 .Build()
         );
 
-        Assert.Contains(library.Problems, problem => problem.Contains("nothing fits in it", StringComparison.Ordinal));
-        Assert.Contains(library.Problems, problem => problem.Contains("no surfaces", StringComparison.Ordinal));
-        Assert.Contains(library.Problems, problem => problem.Contains("never be placed", StringComparison.Ordinal));
+        Assert.Contains(
+            library.Problems,
+            static problem => problem.Contains("nothing fits in it", StringComparison.Ordinal)
+        );
+        Assert.Contains(library.Problems, static problem => problem.Contains("no surfaces", StringComparison.Ordinal));
+        Assert.Contains(
+            library.Problems,
+            static problem => problem.Contains("never be placed", StringComparison.Ordinal)
+        );
     }
 
     // ── The oracle ────────────────────────────────────────────────────────────────────────────
@@ -590,8 +598,7 @@ public class HousingTests {
         var ids = new List<int>();
         var seen = new HashSet<int>();
         var pieces = new[] {
-            (Content.Chair, HouseSurface.Floor),
-            (Content.Painting, HouseSurface.Wall),
+            (Content.Chair, HouseSurface.Floor), (Content.Painting, HouseSurface.Wall),
             (Content.Chandelier, HouseSurface.Ceiling)
         };
 
@@ -610,7 +617,8 @@ public class HousingTests {
                             new(random.NextFloat() * 10f, 0f, random.NextFloat() * 10f),
                             random.NextFloat() * MathUtil.TwoPi,
                             out var made
-                        ) == HousingRefusal.None) {
+                        )
+                        == HousingRefusal.None) {
                         Assert.True(seen.Add(made.Id), "a placement id was handed out twice");
                         ids.Add(made.Id);
                         placed++;

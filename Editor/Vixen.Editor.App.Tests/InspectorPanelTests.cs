@@ -2,8 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core;
-using Vixen.Editor.Inspector;
-using Vixen.Editor.SceneView;
 using Vixen.Editor.Testing;
 using Vixen.Engine.Cameras;
 using Vixen.Rendering.Ecs;
@@ -206,7 +204,7 @@ public class InspectorPanelTests {
         ?? throw editor.Fail("the inspector has no components section");
 
     static TextBox NameBox(EditorSession editor) {
-        var row = editor.Inspector.Rows.FirstOrDefault(candidate => candidate.Field.Member.Name == "Name")
+        var row = editor.Inspector.Rows.FirstOrDefault(static candidate => candidate.Field.Member.Name == "Name")
             ?? throw editor.Fail("the inspector is not showing a Name row");
 
         return Descendants(row).OfType<TextBox>().FirstOrDefault()
@@ -217,7 +215,7 @@ public class InspectorPanelTests {
         editor.Scene.Entities.First(entity => editor.Scene.NameOf(entity) == name);
 
     static List<string> Labels(TreeView tree) =>
-        [.. EditorSession.NodesOf(tree).Select(node => node.Text ?? string.Empty)];
+        [..EditorSession.NodesOf(tree).Select(static node => node.Text ?? string.Empty)];
 
     static IEnumerable<UiElement> Descendants(UiElement element) {
         foreach (var child in element.Children) {

@@ -122,8 +122,8 @@ public static class SpirvTestBase {
             // a file called spirv-val, so asking only for the bare name reports "not installed" for
             // one that is — and that reads as a skip rather than as the hole it is.
             foreach (var candidate in OperatingSystem.IsWindows()
-                ? [Path.Combine(directory, name + ".exe"), Path.Combine(directory, name)]
-                : new[] { Path.Combine(directory, name) }) {
+                         ? [Path.Combine(directory, name + ".exe"), Path.Combine(directory, name)]
+                         : new[] { Path.Combine(directory, name) }) {
                 if (File.Exists(candidate)) {
                     return candidate;
                 }

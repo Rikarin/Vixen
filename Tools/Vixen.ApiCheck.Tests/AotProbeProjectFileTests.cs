@@ -28,12 +28,14 @@ namespace Vixen.ApiCheck.Tests;
 public sealed class AotProbeProjectFileTests : IDisposable {
     readonly string directory = Path.Combine(Path.GetTempPath(), "vixen-aot-probe-tests", Guid.NewGuid().ToString("N"));
 
-    public AotProbeProjectFileTests() => Directory.CreateDirectory(directory);
+    public AotProbeProjectFileTests() {
+        Directory.CreateDirectory(directory);
+    }
 
     public void Dispose() {
         try {
             if (Directory.Exists(directory)) {
-                Directory.Delete(directory, recursive: true);
+                Directory.Delete(directory, true);
             }
         } catch (IOException) {
             // A temporary directory that would not go is not a test failure.
@@ -73,7 +75,11 @@ public sealed class AotProbeProjectFileTests : IDisposable {
             "<!-- <PublishAot>true</PublishAot> -->"
         );
 
-        Assert.Contains("<!-- <PublishAot>true</PublishAot> -->", File.ReadAllText(sabotaged), StringComparison.Ordinal);
+        Assert.Contains(
+            "<!-- <PublishAot>true</PublishAot> -->",
+            File.ReadAllText(sabotaged),
+            StringComparison.Ordinal
+        );
         Assert.False(AotProbeProjectFile.DeclaresProperty(sabotaged, "PublishAot", "true"));
         Assert.True(AotProbeProjectFile.DeclaresProperty(sabotaged, "TreatWarningsAsErrors", "true"));
     }
@@ -105,7 +111,7 @@ public sealed class AotProbeProjectFileTests : IDisposable {
             "conditioned-group.csproj",
             "<PropertyGroup>",
             """<PropertyGroup Condition="'$(NeverTrue)' == 'yes'">""",
-            once: true
+            true
         );
 
         Assert.False(AotProbeProjectFile.DeclaresProperty(sabotaged, "PublishAot", "true"));
@@ -132,13 +138,21 @@ public sealed class AotProbeProjectFileTests : IDisposable {
     ///         twenty-one the iOS probe does reference — the iOS probe is <c>net11.0-ios</c> and
     ///         takes <c>net11.0</c> references happily. So "they cannot build for iOS" is not the
     ///         explanation, and the shape this has is the shape of references nobody added rather
-    ///         than references somebody left out. ⚠ The reason tokens below are <em>inferred by
-    ///         whoever wrote this test</em> and are recorded nowhere else; #961 carries the question
+    ///         than references somebody left out. ⚠ The reason tokens below are
+    ///         <em>
+    ///             inferred by
+    ///             whoever wrote this test
+    ///         </em>
+    ///         and are recorded nowhere else; #961 carries the question
     ///         for the owner and #1252 carries the fifty-three that #506 added to it.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>What actually enforces anything about iOS today is this test and nothing
-    ///         else, which is less than it sounds.</b> <c>CheckAotIos</c> needs the <c>ios</c>
+    ///         ⚠
+    ///         <b>
+    ///             What actually enforces anything about iOS today is this test and nothing
+    ///             else, which is less than it sounds.
+    ///         </b>
+    ///         <c>CheckAotIos</c> needs the <c>ios</c>
     ///         workload — <c>dotnet build</c> of the iOS probe fails <c>NETSDK1147</c> on a machine
     ///         without it, confirmed here — no workflow runs the target (<c>ci.yml</c>'s own comment
     ///         above the <c>aot</c> job says so and cites #327), and by the record it has never been
@@ -287,7 +301,7 @@ public sealed class AotProbeProjectFileTests : IDisposable {
             "Vixen.Ui.Controls",
             "Vixen.Ui.Controls.Advanced",
             "Vixen.Ui.Markup",
-            "Vixen.Ui.Renderer",
+            "Vixen.Ui.Renderer"
         ];
 
         var desktop = AotProbeProjectFile.ReferencedAssemblies(ProbeProject());
@@ -317,8 +331,7 @@ public sealed class AotProbeProjectFileTests : IDisposable {
         );
     }
 
-    static string ProbeProject() =>
-        Path.Combine(RepositoryRoot(), "Tools", "Vixen.AotProbe", "Vixen.AotProbe.csproj");
+    static string ProbeProject() => Path.Combine(RepositoryRoot(), "Tools", "Vixen.AotProbe", "Vixen.AotProbe.csproj");
 
     static string IosProbeProject() =>
         Path.Combine(RepositoryRoot(), "Tools", "Vixen.AotProbe.iOS", "Vixen.AotProbe.iOS.csproj");

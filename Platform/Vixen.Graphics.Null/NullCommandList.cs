@@ -119,7 +119,16 @@ sealed class NullCommandList(
 
     public void SetViewport(in Viewport viewport) {
         ThrowIfRecording();
-        Add(new(RecordedCommandKind.SetViewport, 0, (long)viewport.Width, (long)viewport.Height, (long)viewport.X, (long)viewport.Y));
+        Add(
+            new(
+                RecordedCommandKind.SetViewport,
+                0,
+                (long)viewport.Width,
+                (long)viewport.Height,
+                (long)viewport.X,
+                (long)viewport.Y
+            )
+        );
     }
 
     public void SetScissor(in ScissorRect scissor) {
@@ -153,7 +162,15 @@ sealed class NullCommandList(
         ReadOnlySpan<uint> dynamicOffsets = default
     ) {
         ThrowIfRecording();
-        Add(new(RecordedCommandKind.BindDescriptorSet, 0, (long)slot, (long)descriptors.Value.Packed, dynamicOffsets.Length));
+        Add(
+            new(
+                RecordedCommandKind.BindDescriptorSet,
+                0,
+                (long)slot,
+                (long)descriptors.Value.Packed,
+                dynamicOffsets.Length
+            )
+        );
     }
 
     public void PushConstants(ShaderStage stages, int offset, ReadOnlySpan<byte> data) {
@@ -162,7 +179,9 @@ sealed class NullCommandList(
         // The first four bytes as well as the shape. A push is the one call whose *payload* is the
         // whole point — a matrix at the right offset with the wrong contents draws a picture — and
         // four bytes is every scalar anyone pushes. Zero for a shorter payload, which nothing writes.
-        var head = data.Length >= sizeof(uint) ? System.Buffers.Binary.BinaryPrimitives.ReadUInt32LittleEndian(data) : 0u;
+        var head = data.Length >= sizeof(uint)
+            ? System.Buffers.Binary.BinaryPrimitives.ReadUInt32LittleEndian(data)
+            : 0u;
 
         Add(new(RecordedCommandKind.PushConstants, 0, (long)stages, offset, data.Length, head));
     }
@@ -190,7 +209,9 @@ sealed class NullCommandList(
         int firstInstance = 0
     ) {
         ThrowIfNotDrawing(nameof(DrawIndexed));
-        Add(new(RecordedCommandKind.DrawIndexed, 0, indexCount, instanceCount, firstIndex, vertexOffset, firstInstance));
+        Add(
+            new(RecordedCommandKind.DrawIndexed, 0, indexCount, instanceCount, firstIndex, vertexOffset, firstInstance)
+        );
     }
 
     public void DrawIndexedIndirect(BufferHandle arguments, long offset = 0, int drawCount = 1, int stride = 20) {
@@ -381,17 +402,52 @@ sealed class NullCommandList(
 
     public void CopyBufferToTexture(BufferHandle source, long sourceOffset, in TextureRegion destination, Int3 size) {
         ThrowIfCopying();
-        Add(new(RecordedCommandKind.CopyBufferToTexture, 0, (long)source.Value.Packed, sourceOffset, (long)destination.Texture.Value.Packed, destination.MipLevel, size.X));
+        Add(
+            new(
+                RecordedCommandKind.CopyBufferToTexture,
+                0,
+                (long)source.Value.Packed,
+                sourceOffset,
+                (long)destination.Texture.Value.Packed,
+                destination.MipLevel,
+                size.X
+            )
+        );
     }
 
-    public void CopyTextureToBuffer(in TextureRegion source, Int3 size, BufferHandle destination, long destinationOffset) {
+    public void CopyTextureToBuffer(
+        in TextureRegion source,
+        Int3 size,
+        BufferHandle destination,
+        long destinationOffset
+    ) {
         ThrowIfCopying();
-        Add(new(RecordedCommandKind.CopyTextureToBuffer, 0, (long)source.Texture.Value.Packed, source.MipLevel, (long)destination.Value.Packed, destinationOffset, size.X));
+        Add(
+            new(
+                RecordedCommandKind.CopyTextureToBuffer,
+                0,
+                (long)source.Texture.Value.Packed,
+                source.MipLevel,
+                (long)destination.Value.Packed,
+                destinationOffset,
+                size.X
+            )
+        );
     }
 
     public void CopyTexture(in TextureRegion source, in TextureRegion destination, Int3 size) {
         ThrowIfCopying();
-        Add(new(RecordedCommandKind.CopyTexture, 0, (long)source.Texture.Value.Packed, source.MipLevel, (long)destination.Texture.Value.Packed, destination.MipLevel, size.X));
+        Add(
+            new(
+                RecordedCommandKind.CopyTexture,
+                0,
+                (long)source.Texture.Value.Packed,
+                source.MipLevel,
+                (long)destination.Texture.Value.Packed,
+                destination.MipLevel,
+                size.X
+            )
+        );
     }
 
     public void ResetQueries(QueryPoolHandle pool, int first, int count) {

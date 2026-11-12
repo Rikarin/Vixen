@@ -51,8 +51,12 @@ public sealed class PityPolicyDefinition {
 /// <summary>One row of a loot table: an item, or another table.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>A row is <em>either</em> weighted or independent, and the two are different
-///         mechanisms.</b> A <see cref="Weight" /> above zero puts the row in the table's pick — one
+///         ⚠
+///         <b>
+///             A row is <em>either</em> weighted or independent, and the two are different
+///             mechanisms.
+///         </b>
+///         A <see cref="Weight" /> above zero puts the row in the table's pick — one
 ///         of the weighted rows wins per roll. A <see cref="Chance" /> above zero is rolled on its
 ///         own, in addition to the pick, which is what "and always drops five silver" and "and has a
 ///         2 % chance of the mount" are. A row that sets both is a row that means two things, so it

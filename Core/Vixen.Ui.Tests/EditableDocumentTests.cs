@@ -31,7 +31,7 @@ public class EditableDocumentTests {
     sealed class FakeWindow : IUiWindow {
         public UiSurface Surface => throw new NotSupportedException();
 
-        public string Title { get; set; } = "";
+        public string Title { get; set; } = string.Empty;
 
         public (float X, float Y, float Width, float Height) Bounds { get; set; }
 
@@ -99,11 +99,13 @@ public class EditableDocumentTests {
     static UiDocument Laid() {
         var document = new UiDocument(400f, 300f);
 
-        document.Load("""
-            root { width: 400px; height: 300px; }
-            .panel { width: 200px; height: 100px; }
-            .field { width: 50px; height: 20px; }
-        """);
+        document.Load(
+            """
+                root { width: 400px; height: 300px; }
+                .panel { width: 200px; height: 100px; }
+                .field { width: 50px; height: 20px; }
+            """
+        );
 
         return document;
     }
@@ -370,7 +372,8 @@ public class EditableDocumentTests {
     public void A_window_title_follows_the_document_and_marks_it_while_it_is_dirty() {
         using var document = Laid();
         var note = new Note("Chapter 3.md", "/tmp/Chapter 3.md");
-        using var window = new FakeWindow { Title = "opened with this" };
+        using var window = new FakeWindow();
+        window.Title = "opened with this";
 
         using var bound = UiWindowTitle.Bind(window, note, document.Effects);
         Assert.Equal("opened with this", window.Title);
@@ -393,8 +396,12 @@ public class EditableDocumentTests {
 
     /// <summary>A control deep in the tree can name the window it is drawn in and bind its title.</summary>
     /// <remarks>
-    ///     ⚠ <b>The gate on <c>UiWindowTitle.Bind</c> having a caller at all, and it is the missing
-    ///     <i>direction</i> that kept it from having one.</b> Everything that held an
+    ///     ⚠
+    ///     <b>
+    ///         The gate on <c>UiWindowTitle.Bind</c> having a caller at all, and it is the missing
+    ///         <i>direction</i> that kept it from having one.
+    ///     </b>
+    ///     Everything that held an
     ///     <c>IUiWindow</c> held it because it had opened one, so only the application head ever had
     ///     a window to hand anybody — and a component has its own element and its document and
     ///     nothing else. The two lines below are the whole of what a panel now needs to put the dirty
@@ -404,7 +411,8 @@ public class EditableDocumentTests {
     public void A_component_can_name_the_window_it_is_drawn_in_and_bind_its_title() {
         using var document = Laid();
         var note = new Note("Chapter 3.md");
-        using var window = new FakeWindow { Title = "opened with this" };
+        using var window = new FakeWindow();
+        window.Title = "opened with this";
 
         var panel = document.Root.Add("div", classNames: "panel");
         var field = panel.Add("div", classNames: "field");

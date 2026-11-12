@@ -37,7 +37,7 @@ public class PhotometryTests {
     [InlineData(12000f)]
     public void Every_temperature_has_unit_luminance(float kelvin) {
         var colour = Photometry.FromTemperature(kelvin);
-        var luminance = (0.2126f * colour.R) + (0.7152f * colour.G) + (0.0722f * colour.B);
+        var luminance = 0.2126f * colour.R + 0.7152f * colour.G + 0.0722f * colour.B;
 
         Assert.Equal(1f, luminance, 3);
     }
@@ -124,9 +124,8 @@ public class PhotometryTests {
     /// <summary>A light's radiance is its tint times its converted intensity, and nothing else.</summary>
     [Fact]
     public void A_lights_radiance_folds_in_its_unit_and_its_temperature() {
-        var lamp = RenderLight.Point(Vector3.Zero, 10f, new Color3(1f, 1f, 1f), 4f * MathF.PI * 50f) with {
-            Unit = LightUnit.Lumen,
-            Temperature = 2200f
+        var lamp = RenderLight.Point(Vector3.Zero, 10f, new(1f, 1f, 1f), 4f * MathF.PI * 50f) with {
+            Unit = LightUnit.Lumen, Temperature = 2200f
         };
 
         var tint = Photometry.FromTemperature(2200f);
@@ -214,9 +213,7 @@ public class DefaultLightTests {
     /// </remarks>
     [Fact]
     public void A_new_sun_is_the_daylight_the_sky_model_computes() {
-        var overhead = PhysicalSky.SunIlluminance(
-            new SkyParameters(new Vector3(0f, -1f, 0f), 3f)
-        );
+        var overhead = PhysicalSky.SunIlluminance(new(new(0f, -1f, 0f), 3f));
 
         Assert.InRange(Lights.Default(LightKind.Directional).Intensity, overhead * 0.5f, overhead * 2f);
     }
@@ -629,7 +626,7 @@ public class WhiteBalanceTests {
     [InlineData(0f, -1f)]
     public void EveryBalanceHasUnitLuminance(float kelvin, float tint) {
         var balance = Photometry.WhiteBalance(kelvin, tint);
-        var luminance = (0.2126f * balance.R) + (0.7152f * balance.G) + (0.0722f * balance.B);
+        var luminance = 0.2126f * balance.R + 0.7152f * balance.G + 0.0722f * balance.B;
 
         Assert.Equal(1f, luminance, 3);
     }
@@ -686,8 +683,7 @@ public class PhysicalSkyTests {
 
     /// <summary>Below the horizon there is no sun at all, and nothing goes negative.</summary>
     [Fact]
-    public void A_sun_below_the_horizon_delivers_nothing() =>
-        Assert.Equal(0f, PhysicalSky.SunIlluminance(At(-5f)));
+    public void A_sun_below_the_horizon_delivers_nothing() => Assert.Equal(0f, PhysicalSky.SunIlluminance(At(-5f)));
 
     /// <summary>The sun overhead leaves the published fit exactly as published.</summary>
     /// <remarks>
@@ -695,8 +691,7 @@ public class PhysicalSkyTests {
     ///     the fit is unquestionably inside its own range is the place it must be untouched.
     /// </remarks>
     [Fact]
-    public void The_sky_is_unscaled_with_the_sun_overhead() =>
-        Assert.Equal(1f, PhysicalSky.DiffuseScale(At(90f)), 2);
+    public void The_sky_is_unscaled_with_the_sun_overhead() => Assert.Equal(1f, PhysicalSky.DiffuseScale(At(90f)), 2);
 
     /// <summary>
     ///     ⚠ The sky dims with the sun, which the fit on its own does not do.
@@ -717,7 +712,7 @@ public class PhysicalSkyTests {
         float least,
         float most
     ) {
-        var zenith = PhysicalSky.Radiance(Vector3.UnitY, At(elevation, turbidity: 2.6f)).Y;
+        var zenith = PhysicalSky.Radiance(Vector3.UnitY, At(elevation, 2.6f)).Y;
 
         Assert.InRange(zenith, least, most);
     }
@@ -776,8 +771,8 @@ public class PhysicalSkyTests {
     [Fact]
     public void The_ground_is_a_dimmed_horizon_rather_than_black() {
         var sky = At(30f) with { GroundAlbedo = 0.2f };
-        var down = PhysicalSky.Radiance(new Vector3(0.3f, -0.9f, 0f), sky);
-        var up = PhysicalSky.Radiance(new Vector3(0.3f, 0.9f, 0f), sky);
+        var down = PhysicalSky.Radiance(new(0.3f, -0.9f, 0f), sky);
+        var up = PhysicalSky.Radiance(new(0.3f, 0.9f, 0f), sky);
 
         Assert.True(down.Y > 0f, "the ground came out black");
         Assert.True(down.Y < up.Y, $"the ground {down.Y} is not dimmer than the sky {up.Y}");

@@ -110,8 +110,8 @@ public sealed class MoveSetView : Control {
         Filter.ValueChanged += (_, _) => Reload();
         Coverage.CheckedChanged += (_, _) => Reload();
 
-        AddHandler<ClickEvent>(static (element, args) => ((MoveSetView) element).Chosen(args));
-        AddHandler<PointerEvent>(static (element, args) => ((MoveSetView) element).Pressed(args));
+        AddHandler<ClickEvent>(static (element, args) => ((MoveSetView)element).Chosen(args));
+        AddHandler<PointerEvent>(static (element, args) => ((MoveSetView)element).Pressed(args));
     }
 
     /// <summary>Shows a set.</summary>
@@ -342,16 +342,86 @@ public sealed class MoveSetView : Control {
 
         Fields.Add("moveset-title").Text = entry.Name;
 
-        Line("Name", entry.Name, value => set.SetField(entry, "Rename Move", static row => row.Name, static (row, name) => row.Name = name, value));
-        Line("Clip", entry.Clip, value => set.SetField(entry, "Set Clip", static row => row.Clip, static (row, clip) => row.Clip = clip, value));
+        Line(
+            "Name",
+            entry.Name,
+            value => set.SetField(
+                entry,
+                "Rename Move",
+                static row => row.Name,
+                static (row, name) => row.Name = name,
+                value
+            )
+        );
+        Line(
+            "Clip",
+            entry.Clip,
+            value => set.SetField(
+                entry,
+                "Set Clip",
+                static row => row.Clip,
+                static (row, clip) => row.Clip = clip,
+                value
+            )
+        );
 
         Facets(set, entry);
 
-        Number("Speed", entry.Speed, value => set.SetField(entry, "Set Speed", static row => row.Speed, static (row, speed) => row.Speed = speed, value));
-        Number("Turn rate", entry.TurnRate, value => set.SetField(entry, "Set Turn Rate", static row => row.TurnRate, static (row, turn) => row.TurnRate = turn, value));
-        Number("Min rate", entry.MinRate, value => set.SetField(entry, "Set Min Rate", static row => row.MinRate, static (row, rate) => row.MinRate = rate, value));
-        Number("Max rate", entry.MaxRate, value => set.SetField(entry, "Set Max Rate", static row => row.MaxRate, static (row, rate) => row.MaxRate = rate, value));
-        Number("Foot phase", entry.FootPhase, value => set.SetField(entry, "Set Foot Phase", static row => row.FootPhase, static (row, phase) => row.FootPhase = phase, value));
+        Number(
+            "Speed",
+            entry.Speed,
+            value => set.SetField(
+                entry,
+                "Set Speed",
+                static row => row.Speed,
+                static (row, speed) => row.Speed = speed,
+                value
+            )
+        );
+        Number(
+            "Turn rate",
+            entry.TurnRate,
+            value => set.SetField(
+                entry,
+                "Set Turn Rate",
+                static row => row.TurnRate,
+                static (row, turn) => row.TurnRate = turn,
+                value
+            )
+        );
+        Number(
+            "Min rate",
+            entry.MinRate,
+            value => set.SetField(
+                entry,
+                "Set Min Rate",
+                static row => row.MinRate,
+                static (row, rate) => row.MinRate = rate,
+                value
+            )
+        );
+        Number(
+            "Max rate",
+            entry.MaxRate,
+            value => set.SetField(
+                entry,
+                "Set Max Rate",
+                static row => row.MaxRate,
+                static (row, rate) => row.MaxRate = rate,
+                value
+            )
+        );
+        Number(
+            "Foot phase",
+            entry.FootPhase,
+            value => set.SetField(
+                entry,
+                "Set Foot Phase",
+                static row => row.FootPhase,
+                static (row, phase) => row.FootPhase = phase,
+                value
+            )
+        );
 
         Breakdown(entry);
     }
@@ -399,7 +469,7 @@ public sealed class MoveSetView : Control {
             if (!set.SetFacets(entry, text ?? string.Empty)) {
                 // A pair that did not parse leaves the field showing what the row still says, which
                 // is the only honest thing to show.
-                ((TextBox) control).Value = MoveSetDocument.Describe(entry);
+                ((TextBox)control).Value = MoveSetDocument.Describe(entry);
             }
         };
     }
@@ -426,7 +496,7 @@ public sealed class MoveSetView : Control {
 
         box.Decimals = 3;
         box.Number = value;
-        box.NumberChanged += (_, number) => write((float) number);
+        box.NumberChanged += (_, number) => write((float)number);
     }
 
     void Chosen(ClickEvent args) {
@@ -562,8 +632,8 @@ public static class MoveQueryText {
 
         return asked
             ? new MoveQuery {
-                Required = FacetSet.Of([.. required]),
-                Preferred = preferred.Count > 0 ? [.. preferred] : null,
+                Required = FacetSet.Of([..required]),
+                Preferred = preferred.Count > 0 ? [..preferred] : null,
                 Numeric = new() { Speed = speed, TurnRate = turn }
             }
             : null;

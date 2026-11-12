@@ -4,7 +4,6 @@
 using Vixen.Core;
 using Vixen.Core.Yaml;
 using Vixen.Editor.Core;
-using Vixen.Editor.NodeGraph;
 using Vixen.Editor.VfxGraph;
 using Vixen.NodeGraph;
 using Vixen.Vfx;
@@ -14,8 +13,11 @@ namespace Vixen.Editor.AssetEditors.Vfx;
 /// <summary>An effect, open for editing as a graph, with a simulation running beside it.</summary>
 /// <remarks>
 ///     <para>
-///         <b>Doc 20's E5 opens with "VFX graph reachable", and reachable is the whole of what was
-///         missing.</b> The node library, the compiler and both targets were written for
+///         <b>
+///             Doc 20's E5 opens with "VFX graph reachable", and reachable is the whole of what was
+///             missing.
+///         </b>
+///         The node library, the compiler and both targets were written for
 ///         <see cref="VfxGraphCompiler" /> and tested — what did not exist was a document, a factory
 ///         and a registration, so nothing in the editor could turn a double-click into an effect.
 ///         This is that, and it is the same shape <c>CompositorDocument</c> already had.
@@ -119,7 +121,8 @@ public sealed class VfxDocument : EditorDocument {
             Graph = NodeGraphDocument.Load(stored, out var diagnostics);
             LoadDiagnostics = diagnostics;
         } catch (Exception exception) when (exception is YamlBindingException
-            or YamlParseException or NotSupportedException) {
+                                                or YamlParseException
+                                                or NotSupportedException) {
             Graph = new() { Name = Path.GetFileNameWithoutExtension(path) };
             LoadDiagnostics = [
                 new(AssetEditorDiagnostics.VfxFileDoesNotParse, exception.Message, NodeId.None)

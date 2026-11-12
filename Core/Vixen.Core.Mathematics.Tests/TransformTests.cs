@@ -72,14 +72,18 @@ public class TransformTests {
         Assert.True(Vector3.NearEqual(Vector3.UnitY, Quaternion.Transform(Vector3.UnitX, rotation), Tolerance));
 
         // Already aligned: nothing to do.
-        Assert.True(Quaternion.SameRotation(Quaternion.Identity, Quaternion.FromToRotation(Vector3.UnitX, Vector3.UnitX)));
+        Assert.True(
+            Quaternion.SameRotation(Quaternion.Identity, Quaternion.FromToRotation(Vector3.UnitX, Vector3.UnitX))
+        );
     }
 
     [Fact]
     public void Antiparallel_directions_still_produce_a_usable_half_turn() {
         // The degenerate case: the cross product vanishes, every perpendicular axis is equally
         // valid, and a naive implementation returns a zero quaternion here.
-        foreach (var direction in new[] { Vector3.UnitX, Vector3.UnitY, Vector3.UnitZ, Vector3.Normalize(Vector3.One) }) {
+        foreach (var direction in new[] {
+                     Vector3.UnitX, Vector3.UnitY, Vector3.UnitZ, Vector3.Normalize(Vector3.One)
+                 }) {
             var rotation = Quaternion.FromToRotation(direction, -direction);
             var rotated = Quaternion.Transform(direction, rotation);
 
@@ -166,10 +170,22 @@ public class TransformTests {
     [Fact]
     public void The_matrix_indexer_is_one_based_and_checked() {
         var matrix = new Matrix4x4(
-            1f, 2f, 3f, 4f,
-            5f, 6f, 7f, 8f,
-            9f, 10f, 11f, 12f,
-            13f, 14f, 15f, 16f
+            1f,
+            2f,
+            3f,
+            4f,
+            5f,
+            6f,
+            7f,
+            8f,
+            9f,
+            10f,
+            11f,
+            12f,
+            13f,
+            14f,
+            15f,
+            16f
         );
 
         Assert.Equal(1f, matrix[1, 1]);
@@ -206,14 +222,28 @@ public class TransformTests {
 
     [Fact]
     public void The_projections_reject_impossible_arguments() {
-        Assert.Throws<ArgumentOutOfRangeException>(
-            () => Matrix4x4.PerspectiveFieldOfView(MathUtil.PiOverTwo, 1f, 1f, 0.5f)
+        Assert.Throws<ArgumentOutOfRangeException>(static () => Matrix4x4.PerspectiveFieldOfView(
+                MathUtil.PiOverTwo,
+                1f,
+                1f,
+                0.5f
+            )
         );
-        Assert.Throws<ArgumentOutOfRangeException>(
-            () => Matrix4x4.PerspectiveFieldOfView(MathUtil.PiOverTwo, 1f, -1f, 100f)
+        Assert.Throws<ArgumentOutOfRangeException>(static () => Matrix4x4.PerspectiveFieldOfView(
+                MathUtil.PiOverTwo,
+                1f,
+                -1f,
+                100f
+            )
         );
-        Assert.Throws<ArgumentOutOfRangeException>(() => Matrix4x4.PerspectiveFieldOfView(MathUtil.Pi, 1f, 1f, 100f));
-        Assert.Throws<ArgumentOutOfRangeException>(() => Matrix4x4.Orthographic(0f, 10f, 0f, 1f));
+        Assert.Throws<ArgumentOutOfRangeException>(static () => Matrix4x4.PerspectiveFieldOfView(
+                MathUtil.Pi,
+                1f,
+                1f,
+                100f
+            )
+        );
+        Assert.Throws<ArgumentOutOfRangeException>(static () => Matrix4x4.Orthographic(0f, 10f, 0f, 1f));
     }
 
     [Fact]
@@ -221,9 +251,7 @@ public class TransformTests {
         var points = new Vector3[4];
         var destination = new Vector3[3];
 
-        Assert.Throws<ArgumentException>(
-            () => Matrix4x4.TransformPositions(points, Matrix4x4.Identity, destination)
-        );
+        Assert.Throws<ArgumentException>(() => Matrix4x4.TransformPositions(points, Matrix4x4.Identity, destination));
     }
 
     [Fact]

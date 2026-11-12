@@ -58,7 +58,7 @@ public class ProcessorAffinityPlacementTests {
         // Performance first, then the efficiency core, then round again. Nothing out of range: the
         // fake records whatever it is given, so an index past the end would show up here.
         Assert.Equal([0, 1, 0, 1, 0], topology.Pinned);
-        Assert.All(topology.Pinned, processor => Assert.InRange(processor, 0, 1));
+        Assert.All(topology.Pinned, static processor => Assert.InRange(processor, 0, 1));
     }
 
     [Fact]
@@ -66,7 +66,7 @@ public class ProcessorAffinityPlacementTests {
         // macOS's answer, and a browser's. The point is not only that TryPlace says false — it is
         // that TrySetAffinity is never reached, so a platform whose implementation would throw or
         // log on every call is not made to.
-        var topology = new FakeTopology([ProcessorClass.Performance], supportsAffinity: false);
+        var topology = new FakeTopology([ProcessorClass.Performance], false);
         var placement = new ProcessorAffinityPlacement(topology);
 
         Assert.False(placement.TryPlace(0, 1));
@@ -125,7 +125,7 @@ public class ProcessorAffinityPlacementTests {
 
         public int AvailableProcessors => classes.Length;
         public int PhysicalCores => classes.Length;
-        public int PerformanceCores => classes.Count(each => each == ProcessorClass.Performance);
+        public int PerformanceCores => classes.Count(static each => each == ProcessorClass.Performance);
         public bool SupportsAffinity => supportsAffinity;
 
         public ProcessorClass ClassOf(int processor) => classes[processor];

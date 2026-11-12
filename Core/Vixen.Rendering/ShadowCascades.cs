@@ -88,9 +88,9 @@ public static class ShadowCascades {
             var t = (i + 1) / (float)count;
 
             var logarithmic = near * MathF.Pow(ratio, t);
-            var uniform = near + ((far - near) * t);
+            var uniform = near + (far - near) * t;
 
-            distances[i] = (blend * logarithmic) + ((1f - blend) * uniform);
+            distances[i] = blend * logarithmic + (1f - blend) * uniform;
         }
 
         // The last boundary is the shadow distance exactly. The blend above lands within a rounding
@@ -126,7 +126,7 @@ public static class ShadowCascades {
 
         var tanY = MathF.Tan(fieldOfView * 0.5f);
         var tanX = tanY * aspectRatio;
-        var spread = (tanX * tanX) + (tanY * tanY);
+        var spread = tanX * tanX + tanY * tanY;
 
         var distance = (near + far) * 0.5f * (1f + spread);
 
@@ -137,9 +137,9 @@ public static class ShadowCascades {
             distance = far;
         }
 
-        var radius = MathF.Sqrt((far * far * spread) + ((distance - far) * (distance - far)));
+        var radius = MathF.Sqrt(far * far * spread + (distance - far) * (distance - far));
 
-        return (eye + (view * distance), radius);
+        return (eye + view * distance, radius);
     }
 
     /// <summary>Whether a cascade still covers a slice's sphere entirely.</summary>
@@ -238,7 +238,7 @@ public static class ShadowCascades {
         // shadow that is clipped along one edge of the cascade, which reads as a straight-line seam
         // in the middle of the ground. The margin is a function of the radius and the resolution
         // only, so it does not reintroduce the orientation dependence the sphere fit removed.
-        var extent = radius + (4f * radius / resolution);
+        var extent = radius + 4f * radius / resolution;
         var texel = 2f * extent / resolution;
 
         // Snap the centre to whole texels *of the light's grid*, not of the world's. A camera
@@ -250,11 +250,11 @@ public static class ShadowCascades {
         // which means the matrix changes when nothing visible does, and "the projection is identical"
         // stops being something a test can state. The margin computed above absorbs the extra texel.
         var snapped =
-            (lightRight * Quantise(Vector3.Dot(centre, lightRight), texel))
-            + (lightUp * Quantise(Vector3.Dot(centre, lightUp), texel))
-            + (light * Quantise(Vector3.Dot(centre, light), texel));
+            lightRight * Quantise(Vector3.Dot(centre, lightRight), texel)
+            + lightUp * Quantise(Vector3.Dot(centre, lightUp), texel)
+            + light * Quantise(Vector3.Dot(centre, light), texel);
 
-        var origin = snapped - (light * (radius + extrusion));
+        var origin = snapped - light * (radius + extrusion);
 
         var lightView = Matrix4x4.LookAt(origin, snapped, reference);
         var projection = Matrix4x4.OrthographicOffCenter(
@@ -263,7 +263,7 @@ public static class ShadowCascades {
             -extent,
             extent,
             0.0625f,
-            (2f * extent) + extrusion
+            2f * extent + extrusion
         );
 
         return new(lightView * projection, snapped, radius, near, far);
@@ -382,6 +382,5 @@ public static class ShadowCascades {
     }
 
     /// <summary>The last whole multiple of a grid step at or below <paramref name="value" />.</summary>
-    static float Quantise(float value, float step) =>
-        step <= 0f ? value : MathF.Floor(value / step) * step;
+    static float Quantise(float value, float step) => step <= 0f ? value : MathF.Floor(value / step) * step;
 }

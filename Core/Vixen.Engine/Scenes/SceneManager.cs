@@ -3,7 +3,6 @@
 
 using System.Runtime.CompilerServices;
 using Vixen.Core;
-using Vixen.Core.Mathematics;
 using Vixen.Ecs;
 using Vixen.Engine.Behaviors;
 using Vixen.Engine.Transforms;
@@ -44,8 +43,11 @@ public sealed class SceneManager {
     }
 
     /// <summary>
-    ///     ⚠ <b>The id space belongs to the <i>world</i> rather than to this object, and that is the
-    ///     whole of why this is static.</b>
+    ///     ⚠
+    ///     <b>
+    ///         The id space belongs to the <i>world</i> rather than to this object, and that is the
+    ///         whole of why this is static.
+    ///     </b>
     /// </summary>
     /// <remarks>
     ///     <para>
@@ -124,7 +126,7 @@ public sealed class SceneManager {
     /// <summary>A scene's name.</summary>
     /// <param name="scene">The scene.</param>
     /// <returns>Its name, or the empty string if it is not loaded.</returns>
-    public string NameOf(SceneHandle scene) => names.GetValueOrDefault(scene.Id, "");
+    public string NameOf(SceneHandle scene) => names.GetValueOrDefault(scene.Id, string.Empty);
 
     /// <summary>Whether a scene is loaded.</summary>
     /// <param name="scene">The scene.</param>
@@ -134,10 +136,7 @@ public sealed class SceneManager {
     /// <summary>Creates an entity that belongs to a scene.</summary>
     /// <param name="scene">The scene.</param>
     /// <returns>The entity, tagged and with no other components.</returns>
-    public Entity CreateEntity(SceneHandle scene) {
-        var entity = world.Create(new SceneTag { SceneId = Require(scene).Id });
-        return entity;
-    }
+    public Entity CreateEntity(SceneHandle scene) => world.Create(new SceneTag { SceneId = Require(scene).Id });
 
     /// <summary>Creates an entity with a transform that belongs to a scene.</summary>
     /// <param name="scene">The scene.</param>

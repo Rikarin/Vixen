@@ -90,7 +90,7 @@ public class VfxShaderEmitterTests {
 
         var generated = backend.Generate(module, bag);
 
-        Assert.True(bag.IsEmpty, string.Join("\n", bag.Select(d => d.ToString())));
+        Assert.True(bag.IsEmpty, string.Join("\n", bag.Select(static d => d.ToString())));
 
         return generated;
     }
@@ -99,8 +99,12 @@ public class VfxShaderEmitterTests {
     ///     The reference tool for a target, or a skip that names it and how to install it.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>Hoisted out of the callers' <see cref="Assert.All{T}(IEnumerable{T},Action{T})" />
-    ///     deliberately.</b> <c>Assert.All</c> collects whatever its body throws and reports the
+    ///     ⚠
+    ///     <b>
+    ///         Hoisted out of the callers' <see cref="Assert.All{T}(IEnumerable{T},Action{T})" />
+    ///         deliberately.
+    ///     </b>
+    ///     <c>Assert.All</c> collects whatever its body throws and reports the
     ///     batch as one failure, so a skip raised inside the lambda would arrive as a red test
     ///     rather than a skipped one. The precondition is asked once, before the loop.
     ///     ⚠ It used to be neither: <c>Validate</c> returned early when the tool was missing, which
@@ -186,16 +190,20 @@ public class VfxShaderEmitterTests {
         (Environment.GetEnvironmentVariable("PATH") ?? string.Empty)
         .Split(Path.PathSeparator)
         .Concat(["/opt/homebrew/bin", "/usr/local/bin"])
-        .Where(directory => !string.IsNullOrWhiteSpace(directory))
+        .Where(static directory => !string.IsNullOrWhiteSpace(directory))
         .SelectMany(directory => OperatingSystem.IsWindows()
-            ? new[] { Path.Combine(directory, name + ".exe"), Path.Combine(directory, name) }
-            : [Path.Combine(directory, name)])
+                ? new[] { Path.Combine(directory, name + ".exe"), Path.Combine(directory, name) }
+                : [Path.Combine(directory, name)]
+        )
         .FirstOrDefault(File.Exists);
 
     static void Clean(string source) {
         var diagnostics = Check(source);
 
-        Assert.True(diagnostics.Count == 0, source + "\n\n" + string.Join("\n", diagnostics.Select(d => d.ToString())));
+        Assert.True(
+            diagnostics.Count == 0,
+            source + "\n\n" + string.Join("\n", diagnostics.Select(static d => d.ToString()))
+        );
     }
 
     // --- It compiles -------------------------------------------------------
@@ -296,7 +304,7 @@ public class VfxShaderEmitterTests {
         // touch either, and a descriptor bound for nothing is still a descriptor.
         Assert.Equal(
             [VfxAttribute.Position, VfxAttribute.Identifier],
-            shader.Bindings.Select(binding => binding.Attribute)
+            shader.Bindings.Select(static binding => binding.Attribute)
         );
     }
 
@@ -305,15 +313,15 @@ public class VfxShaderEmitterTests {
     public void The_identifier_is_read_only() {
         var shader = VfxShaderEmitter.Emit(Fountain(), "Fountain");
 
-        var particles = shader.Bindings.Where(binding => binding.Role == VfxBindingRole.Particle).ToArray();
-        var identifier = Assert.Single(particles, binding => binding.Attribute == VfxAttribute.Identifier);
+        var particles = shader.Bindings.Where(static binding => binding.Role == VfxBindingRole.Particle).ToArray();
+        var identifier = Assert.Single(particles, static binding => binding.Attribute == VfxAttribute.Identifier);
 
         Assert.False(identifier.IsWritten);
         Assert.Contains("var identifier: Buffer<uint>", shader.Source, StringComparison.Ordinal);
 
         Assert.All(
-            particles.Where(binding => binding.Attribute != VfxAttribute.Identifier),
-            binding => Assert.True(binding.IsWritten)
+            particles.Where(static binding => binding.Attribute != VfxAttribute.Identifier),
+            static binding => Assert.True(binding.IsWritten)
         );
 
         // ⚠ And its compacted twin *is* written, which is the one place the read-only rule inverts.
@@ -321,10 +329,11 @@ public class VfxShaderEmitterTests {
         // time anything ahead of it dies — see `VfxShaderEmitter.Compacted`.
         Assert.True(
             Assert.Single(
-                shader.Bindings,
-                binding => binding.Role == VfxBindingRole.Compacted
-                    && binding.Attribute == VfxAttribute.Identifier
-            ).IsWritten
+                    shader.Bindings,
+                    static binding => binding.Role == VfxBindingRole.Compacted
+                        && binding.Attribute == VfxAttribute.Identifier
+                )
+                .IsWritten
         );
     }
 
@@ -337,16 +346,16 @@ public class VfxShaderEmitterTests {
     public void A_position_occupies_sixteen_bytes() {
         var shader = VfxShaderEmitter.Emit(Fountain(), "Fountain");
 
-        var particles = shader.Bindings.Where(binding => binding.Role == VfxBindingRole.Particle).ToArray();
+        var particles = shader.Bindings.Where(static binding => binding.Role == VfxBindingRole.Particle).ToArray();
 
-        Assert.Equal(16, Assert.Single(particles, b => b.Attribute == VfxAttribute.Position).Stride);
-        Assert.Equal(4, Assert.Single(particles, b => b.Attribute == VfxAttribute.Size).Stride);
+        Assert.Equal(16, Assert.Single(particles, static b => b.Attribute == VfxAttribute.Position).Stride);
+        Assert.Equal(4, Assert.Single(particles, static b => b.Attribute == VfxAttribute.Size).Stride);
         Assert.Contains("var position: RWBuffer<float4>", shader.Source, StringComparison.Ordinal);
 
         // The compacted twin has the same stride by construction, and a host that sized it any other
         // way would write a survivor's position into the middle of the one before it.
         Assert.All(
-            shader.Bindings.Where(binding => binding.Role == VfxBindingRole.Compacted),
+            shader.Bindings.Where(static binding => binding.Role == VfxBindingRole.Compacted),
             binding => Assert.Equal(
                 Assert.Single(particles, particle => particle.Name + "Out" == binding.Name).Stride,
                 binding.Stride
@@ -377,7 +386,7 @@ public class VfxShaderEmitterTests {
         var shader = VfxShaderEmitter.Emit(graph, "Skipped");
 
         Assert.DoesNotContain("colour", shader.Source, StringComparison.Ordinal);
-        Assert.DoesNotContain(shader.Bindings, binding => binding.Attribute == VfxAttribute.Colour);
+        Assert.DoesNotContain(shader.Bindings, static binding => binding.Attribute == VfxAttribute.Colour);
 
         Clean(shader.Source);
     }
@@ -429,12 +438,16 @@ public class VfxShaderEmitterTests {
     public void The_salts_come_from_the_graph() {
         var graph = VfxCompiledGraph.Compile(
             [VfxSpawner.Burst(4)],
-            [new(VfxOpcode.SetLifetime, new Vector4(1f, 2f, 0f, 0f), salt: 4242)],
+            [new(VfxOpcode.SetLifetime, new Vector4(1f, 2f, 0f, 0f), 4242)],
             [],
             32
         );
 
-        Assert.Contains("Range(particle, 4242u,", VfxShaderEmitter.Emit(graph, "Pinned").Source, StringComparison.Ordinal);
+        Assert.Contains(
+            "Range(particle, 4242u,",
+            VfxShaderEmitter.Emit(graph, "Pinned").Source,
+            StringComparison.Ordinal
+        );
     }
 
     /// <summary>A parameter is written with every digit it has, or the GPU runs a different effect.</summary>
@@ -451,7 +464,11 @@ public class VfxShaderEmitterTests {
 
         var source = VfxShaderEmitter.Emit(graph, "Precise").Source;
 
-        Assert.Contains(Awkward.ToString("R", System.Globalization.CultureInfo.InvariantCulture) + "f", source, StringComparison.Ordinal);
+        Assert.Contains(
+            Awkward.ToString("R", System.Globalization.CultureInfo.InvariantCulture) + "f",
+            source,
+            StringComparison.Ordinal
+        );
 
         Clean(source);
     }
@@ -525,7 +542,11 @@ public class VfxShaderEmitterTests {
         var epsilon = VfxNoise.Epsilon.ToString("R", System.Globalization.CultureInfo.InvariantCulture);
 
         Assert.Contains($"float3({epsilon}f, 0f, 0f)", shader.Source, StringComparison.Ordinal);
-        Assert.Contains($"/ {(2f * VfxNoise.Epsilon).ToString("R", System.Globalization.CultureInfo.InvariantCulture)}f", shader.Source, StringComparison.Ordinal);
+        Assert.Contains(
+            $"/ {(2f * VfxNoise.Epsilon).ToString("R", System.Globalization.CultureInfo.InvariantCulture)}f",
+            shader.Source,
+            StringComparison.Ordinal
+        );
 
         // Two octaves' worth of loop, and the graph's salt rather than a counted one.
         Assert.Contains($"{graph.Updaters[0].Salt}u, 2)", shader.Source, StringComparison.Ordinal);
@@ -556,7 +577,7 @@ public class VfxShaderEmitterTests {
 
         // And not the per-particle draws, which nothing here uses — nor the identifier they read.
         Assert.DoesNotContain("func Value(", shader.Source, StringComparison.Ordinal);
-        Assert.DoesNotContain(shader.Bindings, binding => binding.Attribute == VfxAttribute.Identifier);
+        Assert.DoesNotContain(shader.Bindings, static binding => binding.Attribute == VfxAttribute.Identifier);
 
         Clean(shader.Source);
     }
@@ -577,7 +598,7 @@ public class VfxShaderEmitterTests {
 
     [Fact]
     public void A_name_that_is_not_an_identifier_is_refused() {
-        Assert.Throws<ArgumentException>(() => VfxShaderEmitter.Emit(Fountain(), "My Effect"));
+        Assert.Throws<ArgumentException>(static () => VfxShaderEmitter.Emit(Fountain(), "My Effect"));
     }
 
     // --- What comes out the far end ----------------------------------------
@@ -590,7 +611,7 @@ public class VfxShaderEmitterTests {
 
         Assert.True(shader.HasReap);
         Assert.Equal(3, generated.Count);
-        Assert.All(generated, unit => Assert.Equal(ShaderStage.Compute, unit.Stage));
+        Assert.All(generated, static unit => Assert.Equal(ShaderStage.Compute, unit.Stage));
 
         // The names the shader promises are the names that came out. They are spelled in two places
         // — the emitter and the accessors a host dispatches through — and nothing else would notice
@@ -614,7 +635,7 @@ public class VfxShaderEmitterTests {
         var generated = Generate(VfxShaderEmitter.Emit(Fountain(), "Fountain").Source, "spirv");
 
         Assert.Equal(3, generated.Count);
-        Assert.All(generated, unit => Assert.NotNull(unit.Binary));
+        Assert.All(generated, static unit => Assert.NotNull(unit.Binary));
 
         var validator = RequireTool("spirv");
 
@@ -642,7 +663,7 @@ public class VfxShaderEmitterTests {
         var shader = VfxShaderEmitter.Emit(graph, "Endless");
 
         Assert.False(shader.HasReap);
-        Assert.All(shader.Bindings, binding => Assert.Equal(VfxBindingRole.Particle, binding.Role));
+        Assert.All(shader.Bindings, static binding => Assert.Equal(VfxBindingRole.Particle, binding.Role));
         Assert.DoesNotContain("survivors", shader.Source, StringComparison.Ordinal);
         Assert.Equal(2, Generate(shader.Source, "spirv").Count);
     }
@@ -658,7 +679,7 @@ public class VfxShaderEmitterTests {
 
         // ⚠ Every attribute is copied, not only the written ones. What a survivor leaves behind it
         // does not get back.
-        foreach (var binding in shader.Bindings.Where(binding => binding.Role == VfxBindingRole.Particle)) {
+        foreach (var binding in shader.Bindings.Where(static binding => binding.Role == VfxBindingRole.Particle)) {
             Assert.Contains($"{binding.Name}Out[to] = {binding.Name}[slot]", shader.Source, StringComparison.Ordinal);
         }
     }
@@ -725,8 +746,12 @@ public class VfxShaderEmitterTests {
     ///     <para>
     ///         The other half of the pair above, and it was owed rather than skipped over: task #347
     ///         wrote the SPIR-V guard alone and said so, because at the time no Linux or macOS leg
-    ///         installed glslang and <b>a guard with no install step behind it only trades a false
-    ///         green for a false red</b> — which is worse, because the answer to a red nobody can fix
+    ///         installed glslang and
+    ///         <b>
+    ///             a guard with no install step behind it only trades a false
+    ///             green for a false red
+    ///         </b>
+    ///         — which is worse, because the answer to a red nobody can fix
     ///         is to delete the test. The workflow now installs it on all three legs, so the claim is
     ///         one it keeps: <c>glslang-tools</c> on Linux, <c>glslang</c> on macOS, and the Vulkan
     ///         SDK's <c>Bin</c> on Windows.

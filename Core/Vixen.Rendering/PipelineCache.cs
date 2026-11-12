@@ -81,8 +81,7 @@ public sealed class PipelineCache(IGraphicsDevice device) {
     ///     an allocation per call whether or not it is ever invoked — so the hit path asks this and
     ///     the miss path, which is about to compile a shader, can afford the closure.
     /// </remarks>
-    public bool TryGet(in PipelineKey key, out PipelineHandle pipeline) =>
-        pipelines.TryGetValue(key, out pipeline);
+    public bool TryGet(in PipelineKey key, out PipelineHandle pipeline) => pipelines.TryGetValue(key, out pipeline);
 
     /// <summary>
     ///     The pipeline for a key, creating it from <paramref name="describe" /> the first time.
@@ -107,8 +106,12 @@ public sealed class PipelineCache(IGraphicsDevice device) {
     /// <summary>Forgets every pipeline, destroying it, for a device loss or a shader reload.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>It used to drop the handles rather than destroy them, and the argument for that
-    ///         did not cover the one caller it ever got.</b> The argument was that a caller which
+    ///         ⚠
+    ///         <b>
+    ///             It used to drop the handles rather than destroy them, and the argument for that
+    ///             did not cover the one caller it ever got.
+    ///         </b>
+    ///         The argument was that a caller which
     ///         reloaded shaders is about to drop the device or the effects behind them; the editor's
     ///         <c>ReloadShaders</c> drops the effects and keeps the device, so every pipeline of the
     ///         previous generation would have been a device object with nothing left holding its

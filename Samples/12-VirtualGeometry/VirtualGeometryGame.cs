@@ -122,34 +122,34 @@ public sealed class VirtualGeometryGame : Game {
     ///     </para>
     /// </remarks>
     const string Document = """
-        version: 2
-        resources:
-          - name: SceneColour
-            format: Rgba16Float
-            usage: ColourTarget, Sampled, Storage
-          - name: SceneDepth
-            format: Depth32Float
+                            version: 2
+                            resources:
+                              - name: SceneColour
+                                format: Rgba16Float
+                                usage: ColourTarget, Sampled, Storage
+                              - name: SceneDepth
+                                format: Depth32Float
 
-            # Sampled as well as an attachment, because phase 6's merge reads the depth the hardware
-            # raster wrote to decide whether its own surface is in front of it. Costs nothing on a
-            # device with no 64-bit atomics, where that pass is not in the graph at all.
-            usage: DepthStencilTarget, Sampled
-        stages:
-          - name: Opaque
-        game: !Sequence
-          name: Frame
-          children:
-            - !RenderPass
-              name: ClearDepth
-              depthTarget: SceneDepth
-            - !ClusterCulling
-              name: Traversal
-            - !VisibilityBuffer
-              name: Visibility
-              view: Camera
-              depth: SceneDepth
-              output: VisibilityBuffer
-        """;
+                                # Sampled as well as an attachment, because phase 6's merge reads the depth the hardware
+                                # raster wrote to decide whether its own surface is in front of it. Costs nothing on a
+                                # device with no 64-bit atomics, where that pass is not in the graph at all.
+                                usage: DepthStencilTarget, Sampled
+                            stages:
+                              - name: Opaque
+                            game: !Sequence
+                              name: Frame
+                              children:
+                                - !RenderPass
+                                  name: ClearDepth
+                                  depthTarget: SceneDepth
+                                - !ClusterCulling
+                                  name: Traversal
+                                - !VisibilityBuffer
+                                  name: Visibility
+                                  view: Camera
+                                  depth: SceneDepth
+                                  output: VisibilityBuffer
+                            """;
 
     /// <inheritdoc />
     protected override void OnConfigure(AppConfig config) {
@@ -165,9 +165,7 @@ public sealed class VirtualGeometryGame : Game {
         // nobody can see to show itself, and `HeadlessPlatform.CreateWindow` posts a `WindowShown`
         // for it.
         config.Window = new() {
-            Title = "Vixen — Virtual Geometry",
-            Size = new(1280, 720),
-            IsVisible = !config.Headless
+            Title = "Vixen — Virtual Geometry", Size = new(1280, 720), IsVisible = !config.Headless
         };
 
         // The division of labour this sample is about is between a document and a host it builds
@@ -208,7 +206,7 @@ public sealed class VirtualGeometryGame : Game {
             case PlatformEventKind.MouseMoved when dragging:
                 // Grab-the-globe: drag right pulls the near face right, which swings the eye left.
                 yaw -= platformEvent.Delta.X * DragRate;
-                pitch = Math.Clamp(pitch + (platformEvent.Delta.Y * DragRate), -PitchLimit, PitchLimit);
+                pitch = Math.Clamp(pitch + platformEvent.Delta.Y * DragRate, -PitchLimit, PitchLimit);
                 break;
         }
 
@@ -311,9 +309,7 @@ public sealed class VirtualGeometryGame : Game {
         commands.Draw(3);
         commands.EndRenderPass();
 
-        commands.Barrier(
-            new([], [new(swapChain.CurrentTexture, ResourceState.ColourTarget, ResourceState.Present)])
-        );
+        commands.Barrier(new([], [new(swapChain.CurrentTexture, ResourceState.ColourTarget, ResourceState.Present)]));
     }
 
     /// <summary>Orbits the mesh, moving in and out so the traversal's cut visibly changes.</summary>
@@ -328,13 +324,14 @@ public sealed class VirtualGeometryGame : Game {
             yaw = (float)time.Total.TotalSeconds * 0.3f;
         }
 
-        var distance = 5.75f + (3.25f * MathF.Sin((float)time.Total.TotalSeconds * 0.21f));
+        var distance = 5.75f + 3.25f * MathF.Sin((float)time.Total.TotalSeconds * 0.21f);
 
         var eye = new Vector3(
-            MathF.Sin(yaw) * MathF.Cos(pitch),
-            MathF.Sin(pitch),
-            MathF.Cos(yaw) * MathF.Cos(pitch)
-        ) * distance;
+                MathF.Sin(yaw) * MathF.Cos(pitch),
+                MathF.Sin(pitch),
+                MathF.Cos(yaw) * MathF.Cos(pitch)
+            )
+            * distance;
 
         var projection = Matrix4x4.PerspectiveFieldOfView(
             FieldOfView,
@@ -371,16 +368,17 @@ public sealed class VirtualGeometryGame : Game {
 
         waiting = false;
 
-        device = VulkanDevice.Create(new() {
-            Surface = window.Surface.Handle,
-            Logger = Services.LoggerFactory.CreateLogger("Vulkan")
-        });
+        device = VulkanDevice.Create(
+            new() { Surface = window.Surface.Handle, Logger = Services.LoggerFactory.CreateLogger("Vulkan") }
+        );
 
-        swapChain = device.CreateSwapChain(new(
-            window.Surface.Handle,
-            new(window.FramebufferSize.X, window.FramebufferSize.Y),
-            PixelFormat.Bgra8UNormSrgb
-        ));
+        swapChain = device.CreateSwapChain(
+            new(
+                window.Surface.Handle,
+                new(window.FramebufferSize.X, window.FramebufferSize.Y),
+                PixelFormat.Bgra8UNormSrgb
+            )
+        );
 
         BuildRenderer();
         BuildContent();
@@ -398,7 +396,7 @@ public sealed class VirtualGeometryGame : Game {
 
         // Sixty-four slots of the default page size is eight megabytes of resident geometry — the
         // whole streaming budget, for every virtualized mesh this system ever registers.
-        geometry = new(device!, slots: 64);
+        geometry = new(device!, 64);
 
         geometry.Effects = effects;
         geometry.Pipelines = computePipelines;
@@ -448,26 +446,22 @@ public sealed class VirtualGeometryGame : Game {
     ///     uses anyway.
     /// </remarks>
     void BuildContent() {
-        var (positions, indices) = Icosphere.Build(subdivisions: 5);
+        var (positions, indices) = Icosphere.Build(5);
 
         var input = new MeshletBuildInput { Positions = positions, Indices = indices };
         var mesh = MeshletBuilder.Build(input);
         var pages = MeshletPageBuilder.Build(mesh, positions, [], new());
 
-        var registered = geometry!.Content(0, new VirtualGeometryAsset(mesh, pages.WithoutData()), new MemoryStream(pages.Data));
+        var registered = geometry!.Content(0, new(mesh, pages.WithoutData()), new MemoryStream(pages.Data));
 
         var opaque = host!.Builder.Stages["Opaque"];
 
-        var id = host.System.Objects.Add(new() {
-            Bounds = new(Vector3.Zero, 1.1f),
-            Stages = opaque.Mask,
-            FeatureIndex = geometry.Feature.Index
-        });
+        var id = host.System.Objects.Add(
+            new() { Bounds = new(Vector3.Zero, 1.1f), Stages = opaque.Mask, FeatureIndex = geometry.Feature.Index }
+        );
 
         host.System.Objects.Data.Data(geometry.Feature.Draws)[id.Index] = new() {
-            Mesh = registered,
-            Position = Vector3.Zero,
-            Scale = 1f
+            Mesh = registered, Position = Vector3.Zero, Scale = 1f
         };
 
         if (log is not null) {
@@ -487,34 +481,38 @@ public sealed class VirtualGeometryGame : Game {
         presentVertex = device!.CreateShader(ShaderStage.Vertex, Load("present.vert.spv"), "present vertex");
         presentFragment = device.CreateShader(ShaderStage.Fragment, Load("present.frag.spv"), "present fragment");
 
-        presentLayout = device.CreateDescriptorSetLayout(new(
-            DescriptorSetSlot.PerFrame,
-            [
-                new(0, DescriptorKind.SampledTexture, ShaderStage.Fragment),
-                new(1, DescriptorKind.Sampler, ShaderStage.Fragment),
+        presentLayout = device.CreateDescriptorSetLayout(
+            new(
+                DescriptorSetSlot.PerFrame,
+                [
+                    new(0, DescriptorKind.SampledTexture, ShaderStage.Fragment),
+                    new(1, DescriptorKind.Sampler, ShaderStage.Fragment),
 
-                // The traversal's visible list, so a pixel's slot can be decoded to its cluster —
-                // without it the colours hash the slot, which the atomic append reshuffles every
-                // frame, and the whole sphere flickers.
-                new(2, DescriptorKind.StorageBuffer, ShaderStage.Fragment)
-            ],
-            "present"
-        ));
+                    // The traversal's visible list, so a pixel's slot can be decoded to its cluster —
+                    // without it the colours hash the slot, which the atomic append reshuffles every
+                    // frame, and the whole sphere flickers.
+                    new(2, DescriptorKind.StorageBuffer, ShaderStage.Fragment)
+                ],
+                "present"
+            )
+        );
 
         descriptors = new(device, "VirtualGeometry");
         pointSampler = device.CreateSampler(SamplerDescription.PointClamp);
 
         presentPipelineLayout = device.CreatePipelineLayout(new([presentLayout], null, "present layout"));
 
-        presentPipeline = device.CreateGraphicsPipeline(new(
-            presentVertex,
-            presentFragment,
-            presentPipelineLayout,
-            [new(swapChain!.Format, BlendState.Opaque)],
-            Rasterizer: RasterizerState.TwoSided,
-            DepthStencil: DepthStencilState.Disabled,
-            Name: "present"
-        ));
+        presentPipeline = device.CreateGraphicsPipeline(
+            new(
+                presentVertex,
+                presentFragment,
+                presentPipelineLayout,
+                [new(swapChain!.Format, BlendState.Opaque)],
+                Rasterizer: RasterizerState.TwoSided,
+                DepthStencil: DepthStencilState.Disabled,
+                Name: "present"
+            )
+        );
     }
 
     /// <summary>Tears the stack down, in the reverse of the order it was built.</summary>
@@ -590,7 +588,8 @@ public sealed class VirtualGeometryGame : Game {
 
     static byte[] Load(string name) {
         var assembly = Assembly.GetExecutingAssembly();
-        var resource = assembly.GetManifestResourceNames().Single(entry => entry.EndsWith(name, StringComparison.Ordinal));
+        var resource = assembly.GetManifestResourceNames()
+            .Single(entry => entry.EndsWith(name, StringComparison.Ordinal));
         using var stream = assembly.GetManifestResourceStream(resource)!;
         using var memory = new MemoryStream();
         stream.CopyTo(memory);
@@ -628,7 +627,9 @@ public sealed class VirtualGeometryGame : Game {
         }
 
         static string Library() {
-            for (var directory = new DirectoryInfo(AppContext.BaseDirectory); directory is not null; directory = directory.Parent) {
+            for (var directory = new DirectoryInfo(AppContext.BaseDirectory);
+                 directory is not null;
+                 directory = directory.Parent) {
                 var candidate = Path.Combine(directory.FullName, "Raven", "Library");
 
                 if (Directory.Exists(candidate)) {

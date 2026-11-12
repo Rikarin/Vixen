@@ -130,8 +130,7 @@ internal sealed class SourceFieldSymbol : FieldSymbol {
     ///     it up without a special case. The only difference from a <c>const</c> field is
     ///     where the value comes from.
     /// </summary>
-    public override bool IsConst =>
-        IsPermutation || DeclarationFacts.Has(syntax.Modifiers, SyntaxKind.ConstKeyword);
+    public override bool IsConst => IsPermutation || DeclarationFacts.Has(syntax.Modifiers, SyntaxKind.ConstKeyword);
 
     public override bool IsStatic => IsConst || DeclarationFacts.Has(syntax.Modifiers, SyntaxKind.StaticKeyword);
 

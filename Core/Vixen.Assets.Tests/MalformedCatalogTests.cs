@@ -4,7 +4,6 @@
 using System.Buffers.Binary;
 using System.Collections.Immutable;
 using System.IO.Hashing;
-using Vixen.Core;
 using Xunit;
 
 namespace Vixen.Assets.Tests;
@@ -12,8 +11,12 @@ namespace Vixen.Assets.Tests;
 /// <summary>Catalogs whose checksum is right and whose contents are not.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Every file here has a valid CRC, and that is the point of the fixture rather than an
-///         inconvenience in building it.</b> The checksum says the bytes arrived as they were sent.
+///         ⚠
+///         <b>
+///             Every file here has a valid CRC, and that is the point of the fixture rather than an
+///             inconvenience in building it.
+///         </b>
+///         The checksum says the bytes arrived as they were sent.
 ///         It says nothing about who sent them, and it is four bytes at the end that anybody editing
 ///         the file recomputes in a line — so a catalog that reaches the parser is intact, not
 ///         trustworthy.
@@ -101,7 +104,7 @@ public sealed class MalformedCatalogTests {
     /// </remarks>
     [Fact]
     public void AStringTableCountBeyondTheStringsWrittenIsRefused() =>
-        Assert.Throws<CatalogFormatException>(() => CatalogFormat.Read(Patch(28, 400)));
+        Assert.Throws<CatalogFormatException>(static () => CatalogFormat.Read(Patch(28, 400)));
 
     /// <summary>A string whose length runs off the end of the file.</summary>
     [Theory]
@@ -120,7 +123,8 @@ public sealed class MalformedCatalogTests {
     [InlineData(999u)]
     [InlineData(0xFFFFFFFFu)]
     public void AStringTableIndexThatIsNotInTheTableIsRefusedByName(uint index) {
-        var failure = Assert.Throws<CatalogFormatException>(() => CatalogFormat.Read(Patch(TargetIndexOffset(), index)));
+        var failure = Assert.Throws<CatalogFormatException>(() => CatalogFormat.Read(Patch(TargetIndexOffset(), index))
+        );
 
         Assert.Contains("string table", failure.Message, StringComparison.Ordinal);
     }

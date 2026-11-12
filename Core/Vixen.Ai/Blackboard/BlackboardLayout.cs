@@ -36,8 +36,11 @@ public readonly record struct BlackboardKeyDefinition(Symbol Name, BlackboardVal
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>The naive blackboard is a <c>Dictionary&lt;string, object&gt;</c>, and it is wrong in
-///         four ways at once</b> — a hash per read, a box per value, an allocation per write of a
+///         <b>
+///             The naive blackboard is a <c>Dictionary&lt;string, object&gt;</c>, and it is wrong in
+///             four ways at once
+///         </b>
+///         — a hash per read, a box per value, an allocation per write of a
 ///         struct, and no cheap way to observe a key. A layout is authored once and compiled; an
 ///         instance is then a byte range, a key reference is a <see cref="ushort" />, and a read is a
 ///         span slice.
@@ -197,24 +200,25 @@ public sealed class BlackboardLayoutBuilder {
 
     /// <summary>Compiles what has been collected.</summary>
     /// <returns>The layout.</returns>
-    public BlackboardLayout Build() => new([.. keys], new(byName), size);
+    public BlackboardLayout Build() => new([..keys], new(byName), size);
 
     /// <summary>How many bytes a value of this type takes.</summary>
     /// <param name="type">The type.</param>
     /// <returns>Its size.</returns>
     /// <exception cref="ArgumentOutOfRangeException">It is not one of the six.</exception>
-    internal static int SizeOf(BlackboardValueType type) => type switch {
-        BlackboardValueType.Bool => 1,
-        BlackboardValueType.Int => 4,
-        BlackboardValueType.Float => 4,
-        BlackboardValueType.Vector3 => 12,
+    internal static int SizeOf(BlackboardValueType type) =>
+        type switch {
+            BlackboardValueType.Bool => 1,
+            BlackboardValueType.Int => 4,
+            BlackboardValueType.Float => 4,
+            BlackboardValueType.Vector3 => 12,
 
-        // (int Id, int Version, short WorldId), padded to four. Twelve is the worst case in the
-        // whole table, which is what "a key is twelve bytes at worst" means.
-        BlackboardValueType.Entity => 12,
-        BlackboardValueType.Symbol => 4,
-        _ => throw new ArgumentOutOfRangeException(nameof(type), type, "Not one of the six.")
-    };
+            // (int Id, int Version, short WorldId), padded to four. Twelve is the worst case in the
+            // whole table, which is what "a key is twelve bytes at worst" means.
+            BlackboardValueType.Entity => 12,
+            BlackboardValueType.Symbol => 4,
+            _ => throw new ArgumentOutOfRangeException(nameof(type), type, "Not one of the six.")
+        };
 
     /// <summary>What a value of this type must start on.</summary>
     /// <param name="type">The type.</param>

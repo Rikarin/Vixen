@@ -16,23 +16,25 @@ namespace Vixen.Graphics.Vulkan;
 ///     factors is wrong from a screenshot is an afternoon.
 /// </remarks>
 static class VulkanEnums {
-    public static VkPrimitiveTopology ToVulkan(PrimitiveTopology topology) => topology switch {
-        PrimitiveTopology.PointList => VkPrimitiveTopology.PointList,
-        PrimitiveTopology.LineList => VkPrimitiveTopology.LineList,
-        PrimitiveTopology.LineStrip => VkPrimitiveTopology.LineStrip,
-        PrimitiveTopology.TriangleList => VkPrimitiveTopology.TriangleList,
-        PrimitiveTopology.TriangleStrip => VkPrimitiveTopology.TriangleStrip,
-        _ => VkPrimitiveTopology.TriangleList
-    };
+    public static VkPrimitiveTopology ToVulkan(PrimitiveTopology topology) =>
+        topology switch {
+            PrimitiveTopology.PointList => VkPrimitiveTopology.PointList,
+            PrimitiveTopology.LineList => VkPrimitiveTopology.LineList,
+            PrimitiveTopology.LineStrip => VkPrimitiveTopology.LineStrip,
+            PrimitiveTopology.TriangleList => VkPrimitiveTopology.TriangleList,
+            PrimitiveTopology.TriangleStrip => VkPrimitiveTopology.TriangleStrip,
+            _ => VkPrimitiveTopology.TriangleList
+        };
 
     public static IndexType ToVulkan(IndexFormat format) =>
         format == IndexFormat.UInt32 ? IndexType.Uint32 : IndexType.Uint16;
 
-    public static CullModeFlags ToVulkan(CullMode mode) => mode switch {
-        CullMode.Front => CullModeFlags.FrontBit,
-        CullMode.Back => CullModeFlags.BackBit,
-        _ => CullModeFlags.None
-    };
+    public static CullModeFlags ToVulkan(CullMode mode) =>
+        mode switch {
+            CullMode.Front => CullModeFlags.FrontBit,
+            CullMode.Back => CullModeFlags.BackBit,
+            _ => CullModeFlags.None
+        };
 
     /// <summary>The engine's winding, mapped straight through — and that is not an oversight.</summary>
     /// <remarks>
@@ -62,55 +64,59 @@ static class VulkanEnums {
     public static PolygonMode ToVulkan(FillMode mode) =>
         mode == FillMode.Wireframe ? PolygonMode.Line : PolygonMode.Fill;
 
-    public static CompareOp ToVulkan(CompareFunction function) => function switch {
-        CompareFunction.Never => CompareOp.Never,
-        CompareFunction.Less => CompareOp.Less,
-        CompareFunction.Equal => CompareOp.Equal,
-        CompareFunction.LessEqual => CompareOp.LessOrEqual,
-        CompareFunction.Greater => CompareOp.Greater,
-        CompareFunction.NotEqual => CompareOp.NotEqual,
-        CompareFunction.GreaterEqual => CompareOp.GreaterOrEqual,
-        CompareFunction.Always => CompareOp.Always,
-        _ => CompareOp.Always
-    };
+    public static CompareOp ToVulkan(CompareFunction function) =>
+        function switch {
+            CompareFunction.Never => CompareOp.Never,
+            CompareFunction.Less => CompareOp.Less,
+            CompareFunction.Equal => CompareOp.Equal,
+            CompareFunction.LessEqual => CompareOp.LessOrEqual,
+            CompareFunction.Greater => CompareOp.Greater,
+            CompareFunction.NotEqual => CompareOp.NotEqual,
+            CompareFunction.GreaterEqual => CompareOp.GreaterOrEqual,
 
-    public static StencilOp ToVulkan(StencilOperation operation) => operation switch {
-        StencilOperation.Keep => StencilOp.Keep,
-        StencilOperation.Zero => StencilOp.Zero,
-        StencilOperation.Replace => StencilOp.Replace,
-        StencilOperation.IncrementClamp => StencilOp.IncrementAndClamp,
-        StencilOperation.DecrementClamp => StencilOp.DecrementAndClamp,
-        StencilOperation.Invert => StencilOp.Invert,
-        StencilOperation.IncrementWrap => StencilOp.IncrementAndWrap,
-        StencilOperation.DecrementWrap => StencilOp.DecrementAndWrap,
-        _ => StencilOp.Keep
-    };
+            _ => CompareOp.Always
+        };
 
-    public static Silk.NET.Vulkan.BlendFactor ToVulkan(BlendFactor factor) => factor switch {
-        BlendFactor.Zero => Silk.NET.Vulkan.BlendFactor.Zero,
-        BlendFactor.One => Silk.NET.Vulkan.BlendFactor.One,
-        BlendFactor.SourceColour => Silk.NET.Vulkan.BlendFactor.SrcColor,
-        BlendFactor.OneMinusSourceColour => Silk.NET.Vulkan.BlendFactor.OneMinusSrcColor,
-        BlendFactor.SourceAlpha => Silk.NET.Vulkan.BlendFactor.SrcAlpha,
-        BlendFactor.OneMinusSourceAlpha => Silk.NET.Vulkan.BlendFactor.OneMinusSrcAlpha,
-        BlendFactor.DestinationColour => Silk.NET.Vulkan.BlendFactor.DstColor,
-        BlendFactor.OneMinusDestinationColour => Silk.NET.Vulkan.BlendFactor.OneMinusDstColor,
-        BlendFactor.DestinationAlpha => Silk.NET.Vulkan.BlendFactor.DstAlpha,
-        BlendFactor.OneMinusDestinationAlpha => Silk.NET.Vulkan.BlendFactor.OneMinusDstAlpha,
-        BlendFactor.Constant => Silk.NET.Vulkan.BlendFactor.ConstantColor,
-        BlendFactor.OneMinusConstant => Silk.NET.Vulkan.BlendFactor.OneMinusConstantColor,
-        BlendFactor.SourceAlphaSaturated => Silk.NET.Vulkan.BlendFactor.SrcAlphaSaturate,
-        _ => Silk.NET.Vulkan.BlendFactor.One
-    };
+    public static StencilOp ToVulkan(StencilOperation operation) =>
+        operation switch {
+            StencilOperation.Keep => StencilOp.Keep,
+            StencilOperation.Zero => StencilOp.Zero,
+            StencilOperation.Replace => StencilOp.Replace,
+            StencilOperation.IncrementClamp => StencilOp.IncrementAndClamp,
+            StencilOperation.DecrementClamp => StencilOp.DecrementAndClamp,
+            StencilOperation.Invert => StencilOp.Invert,
+            StencilOperation.IncrementWrap => StencilOp.IncrementAndWrap,
+            StencilOperation.DecrementWrap => StencilOp.DecrementAndWrap,
+            _ => StencilOp.Keep
+        };
 
-    public static BlendOp ToVulkan(BlendOperation operation) => operation switch {
-        BlendOperation.Add => BlendOp.Add,
-        BlendOperation.Subtract => BlendOp.Subtract,
-        BlendOperation.ReverseSubtract => BlendOp.ReverseSubtract,
-        BlendOperation.Min => BlendOp.Min,
-        BlendOperation.Max => BlendOp.Max,
-        _ => BlendOp.Add
-    };
+    public static Silk.NET.Vulkan.BlendFactor ToVulkan(BlendFactor factor) =>
+        factor switch {
+            BlendFactor.Zero => Silk.NET.Vulkan.BlendFactor.Zero,
+            BlendFactor.One => Silk.NET.Vulkan.BlendFactor.One,
+            BlendFactor.SourceColour => Silk.NET.Vulkan.BlendFactor.SrcColor,
+            BlendFactor.OneMinusSourceColour => Silk.NET.Vulkan.BlendFactor.OneMinusSrcColor,
+            BlendFactor.SourceAlpha => Silk.NET.Vulkan.BlendFactor.SrcAlpha,
+            BlendFactor.OneMinusSourceAlpha => Silk.NET.Vulkan.BlendFactor.OneMinusSrcAlpha,
+            BlendFactor.DestinationColour => Silk.NET.Vulkan.BlendFactor.DstColor,
+            BlendFactor.OneMinusDestinationColour => Silk.NET.Vulkan.BlendFactor.OneMinusDstColor,
+            BlendFactor.DestinationAlpha => Silk.NET.Vulkan.BlendFactor.DstAlpha,
+            BlendFactor.OneMinusDestinationAlpha => Silk.NET.Vulkan.BlendFactor.OneMinusDstAlpha,
+            BlendFactor.Constant => Silk.NET.Vulkan.BlendFactor.ConstantColor,
+            BlendFactor.OneMinusConstant => Silk.NET.Vulkan.BlendFactor.OneMinusConstantColor,
+            BlendFactor.SourceAlphaSaturated => Silk.NET.Vulkan.BlendFactor.SrcAlphaSaturate,
+            _ => Silk.NET.Vulkan.BlendFactor.One
+        };
+
+    public static BlendOp ToVulkan(BlendOperation operation) =>
+        operation switch {
+            BlendOperation.Add => BlendOp.Add,
+            BlendOperation.Subtract => BlendOp.Subtract,
+            BlendOperation.ReverseSubtract => BlendOp.ReverseSubtract,
+            BlendOperation.Min => BlendOp.Min,
+            BlendOperation.Max => BlendOp.Max,
+            _ => BlendOp.Add
+        };
 
     public static ColorComponentFlags ToVulkan(ColourWriteMask mask) {
         var flags = ColorComponentFlags.None;
@@ -134,35 +140,37 @@ static class VulkanEnums {
         return flags;
     }
 
-    public static Filter ToVulkan(FilterMode mode) =>
-        mode == FilterMode.Nearest ? Filter.Nearest : Filter.Linear;
+    public static Filter ToVulkan(FilterMode mode) => mode == FilterMode.Nearest ? Filter.Nearest : Filter.Linear;
 
     public static SamplerMipmapMode ToMipmapMode(FilterMode mode) =>
         mode == FilterMode.Nearest ? SamplerMipmapMode.Nearest : SamplerMipmapMode.Linear;
 
-    public static SamplerAddressMode ToVulkan(AddressMode mode) => mode switch {
-        AddressMode.Repeat => SamplerAddressMode.Repeat,
-        AddressMode.MirrorRepeat => SamplerAddressMode.MirroredRepeat,
-        AddressMode.ClampToEdge => SamplerAddressMode.ClampToEdge,
-        AddressMode.ClampToBorder => SamplerAddressMode.ClampToBorder,
-        _ => SamplerAddressMode.Repeat
-    };
+    public static SamplerAddressMode ToVulkan(AddressMode mode) =>
+        mode switch {
+            AddressMode.Repeat => SamplerAddressMode.Repeat,
+            AddressMode.MirrorRepeat => SamplerAddressMode.MirroredRepeat,
+            AddressMode.ClampToEdge => SamplerAddressMode.ClampToEdge,
+            AddressMode.ClampToBorder => SamplerAddressMode.ClampToBorder,
+            _ => SamplerAddressMode.Repeat
+        };
 
-    public static BorderColor ToVulkan(BorderColour colour) => colour switch {
-        BorderColour.TransparentBlack => BorderColor.FloatTransparentBlack,
-        BorderColour.OpaqueBlack => BorderColor.FloatOpaqueBlack,
-        BorderColour.OpaqueWhite => BorderColor.FloatOpaqueWhite,
-        _ => BorderColor.FloatTransparentBlack
-    };
+    public static BorderColor ToVulkan(BorderColour colour) =>
+        colour switch {
+            BorderColour.TransparentBlack => BorderColor.FloatTransparentBlack,
+            BorderColour.OpaqueBlack => BorderColor.FloatOpaqueBlack,
+            BorderColour.OpaqueWhite => BorderColor.FloatOpaqueWhite,
+            _ => BorderColor.FloatTransparentBlack
+        };
 
     public static VertexInputRate ToVulkan(VertexStepMode mode) =>
         mode == VertexStepMode.Instance ? VertexInputRate.Instance : VertexInputRate.Vertex;
 
-    public static AttachmentLoadOp ToVulkan(LoadAction action) => action switch {
-        LoadAction.Load => AttachmentLoadOp.Load,
-        LoadAction.Clear => AttachmentLoadOp.Clear,
-        _ => AttachmentLoadOp.DontCare
-    };
+    public static AttachmentLoadOp ToVulkan(LoadAction action) =>
+        action switch {
+            LoadAction.Load => AttachmentLoadOp.Load,
+            LoadAction.Clear => AttachmentLoadOp.Clear,
+            _ => AttachmentLoadOp.DontCare
+        };
 
     /// <summary>The store op for an attachment action.</summary>
     /// <param name="action">What to do at the end of the pass.</param>
@@ -183,32 +191,36 @@ static class VulkanEnums {
     ///     total, so a value outside the enum resolves as <see cref="DepthResolveMode.SampleZero" />
     ///     — the mode every implementation supports.
     /// </remarks>
-    public static ResolveModeFlags ToVulkan(DepthResolveMode mode) => mode switch {
-        DepthResolveMode.Min => ResolveModeFlags.MinBit,
-        DepthResolveMode.Max => ResolveModeFlags.MaxBit,
-        _ => ResolveModeFlags.SampleZeroBit
-    };
+    public static ResolveModeFlags ToVulkan(DepthResolveMode mode) =>
+        mode switch {
+            DepthResolveMode.Min => ResolveModeFlags.MinBit,
+            DepthResolveMode.Max => ResolveModeFlags.MaxBit,
+            _ => ResolveModeFlags.SampleZeroBit
+        };
 
-    public static PresentModeKHR ToVulkan(PresentMode mode) => mode switch {
-        PresentMode.Fifo => PresentModeKHR.FifoKhr,
-        PresentMode.FifoRelaxed => PresentModeKHR.FifoRelaxedKhr,
-        PresentMode.Mailbox => PresentModeKHR.MailboxKhr,
-        PresentMode.Immediate => PresentModeKHR.ImmediateKhr,
-        _ => PresentModeKHR.FifoKhr
-    };
+    public static PresentModeKHR ToVulkan(PresentMode mode) =>
+        mode switch {
+            PresentMode.Fifo => PresentModeKHR.FifoKhr,
+            PresentMode.FifoRelaxed => PresentModeKHR.FifoRelaxedKhr,
+            PresentMode.Mailbox => PresentModeKHR.MailboxKhr,
+            PresentMode.Immediate => PresentModeKHR.ImmediateKhr,
+            _ => PresentModeKHR.FifoKhr
+        };
 
-    public static PresentMode FromVulkan(PresentModeKHR mode) => mode switch {
-        PresentModeKHR.FifoRelaxedKhr => PresentMode.FifoRelaxed,
-        PresentModeKHR.MailboxKhr => PresentMode.Mailbox,
-        PresentModeKHR.ImmediateKhr => PresentMode.Immediate,
-        _ => PresentMode.Fifo
-    };
+    public static PresentMode FromVulkan(PresentModeKHR mode) =>
+        mode switch {
+            PresentModeKHR.FifoRelaxedKhr => PresentMode.FifoRelaxed,
+            PresentModeKHR.MailboxKhr => PresentMode.Mailbox,
+            PresentModeKHR.ImmediateKhr => PresentMode.Immediate,
+            _ => PresentMode.Fifo
+        };
 
-    public static ImageType ToImageType(TextureDimension dimension) => dimension switch {
-        TextureDimension.Texture1D => ImageType.Type1D,
-        TextureDimension.Texture3D => ImageType.Type3D,
-        _ => ImageType.Type2D
-    };
+    public static ImageType ToImageType(TextureDimension dimension) =>
+        dimension switch {
+            TextureDimension.Texture1D => ImageType.Type1D,
+            TextureDimension.Texture3D => ImageType.Type3D,
+            _ => ImageType.Type2D
+        };
 
     /// <summary>The view type for a texture's shape and layer count.</summary>
     /// <param name="dimension">Its shape.</param>
@@ -219,12 +231,13 @@ static class VulkanEnums {
     ///     this wrong produces a view the shader reads as the wrong type, which validation catches and
     ///     a release build does not.
     /// </remarks>
-    public static ImageViewType ToViewType(TextureDimension dimension, int layers) => dimension switch {
-        TextureDimension.Texture1D => layers > 1 ? ImageViewType.Type1DArray : ImageViewType.Type1D,
-        TextureDimension.Texture3D => ImageViewType.Type3D,
-        TextureDimension.TextureCube => layers > 6 ? ImageViewType.TypeCubeArray : ImageViewType.TypeCube,
-        _ => layers > 1 ? ImageViewType.Type2DArray : ImageViewType.Type2D
-    };
+    public static ImageViewType ToViewType(TextureDimension dimension, int layers) =>
+        dimension switch {
+            TextureDimension.Texture1D => layers > 1 ? ImageViewType.Type1DArray : ImageViewType.Type1D,
+            TextureDimension.Texture3D => ImageViewType.Type3D,
+            TextureDimension.TextureCube => layers > 6 ? ImageViewType.TypeCubeArray : ImageViewType.TypeCube,
+            _ => layers > 1 ? ImageViewType.Type2DArray : ImageViewType.Type2D
+        };
 
     public static ShaderStageFlags ToVulkan(ShaderStage stages) {
         var flags = ShaderStageFlags.None;
@@ -264,20 +277,21 @@ static class VulkanEnums {
         return flags;
     }
 
-    public static DescriptorType ToVulkan(DescriptorKind kind) => kind switch {
-        DescriptorKind.UniformBuffer => DescriptorType.UniformBuffer,
-        DescriptorKind.DynamicUniformBuffer => DescriptorType.UniformBufferDynamic,
-        DescriptorKind.StorageBuffer => DescriptorType.StorageBuffer,
-        DescriptorKind.DynamicStorageBuffer => DescriptorType.StorageBufferDynamic,
-        DescriptorKind.SampledTexture => DescriptorType.SampledImage,
-        DescriptorKind.StorageTexture => DescriptorType.StorageImage,
-        DescriptorKind.Sampler => DescriptorType.Sampler,
+    public static DescriptorType ToVulkan(DescriptorKind kind) =>
+        kind switch {
+            DescriptorKind.UniformBuffer => DescriptorType.UniformBuffer,
+            DescriptorKind.DynamicUniformBuffer => DescriptorType.UniformBufferDynamic,
+            DescriptorKind.StorageBuffer => DescriptorType.StorageBuffer,
+            DescriptorKind.DynamicStorageBuffer => DescriptorType.StorageBufferDynamic,
+            DescriptorKind.SampledTexture => DescriptorType.SampledImage,
+            DescriptorKind.StorageTexture => DescriptorType.StorageImage,
+            DescriptorKind.Sampler => DescriptorType.Sampler,
 
-        // An explicit arm, not the fallback: the fallback maps to UniformBuffer, and a structure
-        // written as a uniform buffer is a layout the driver accepts and a query that opens nothing.
-        DescriptorKind.AccelerationStructure => DescriptorType.AccelerationStructureKhr,
-        _ => DescriptorType.UniformBuffer
-    };
+            // An explicit arm, not the fallback: the fallback maps to UniformBuffer, and a structure
+            // written as a uniform buffer is a layout the driver accepts and a query that opens nothing.
+            DescriptorKind.AccelerationStructure => DescriptorType.AccelerationStructureKhr,
+            _ => DescriptorType.UniformBuffer
+        };
 
     /// <summary>Which level of the hierarchy, in Vulkan's terms.</summary>
     public static AccelerationStructureTypeKHR ToVulkan(AccelerationStructureKind kind) =>
@@ -365,19 +379,20 @@ static class VulkanEnums {
         return flags;
     }
 
-    public static VkFormat ToVulkan(VertexFormat format) => format switch {
-        VertexFormat.Float32 => VkFormat.R32Sfloat,
-        VertexFormat.Float32X2 => VkFormat.R32G32Sfloat,
-        VertexFormat.Float32X3 => VkFormat.R32G32B32Sfloat,
-        VertexFormat.Float32X4 => VkFormat.R32G32B32A32Sfloat,
-        VertexFormat.Float16X2 => VkFormat.R16G16Sfloat,
-        VertexFormat.Float16X4 => VkFormat.R16G16B16A16Sfloat,
-        VertexFormat.UNorm8X4 => VkFormat.R8G8B8A8Unorm,
-        VertexFormat.SNorm8X4 => VkFormat.R8G8B8A8SNorm,
-        VertexFormat.UInt8X4 => VkFormat.R8G8B8A8Uint,
-        VertexFormat.UInt32 => VkFormat.R32Uint,
-        VertexFormat.UNorm16X2 => VkFormat.R16G16Unorm,
-        VertexFormat.SNorm16X4 => VkFormat.R16G16B16A16SNorm,
-        _ => VkFormat.Undefined
-    };
+    public static VkFormat ToVulkan(VertexFormat format) =>
+        format switch {
+            VertexFormat.Float32 => VkFormat.R32Sfloat,
+            VertexFormat.Float32X2 => VkFormat.R32G32Sfloat,
+            VertexFormat.Float32X3 => VkFormat.R32G32B32Sfloat,
+            VertexFormat.Float32X4 => VkFormat.R32G32B32A32Sfloat,
+            VertexFormat.Float16X2 => VkFormat.R16G16Sfloat,
+            VertexFormat.Float16X4 => VkFormat.R16G16B16A16Sfloat,
+            VertexFormat.UNorm8X4 => VkFormat.R8G8B8A8Unorm,
+            VertexFormat.SNorm8X4 => VkFormat.R8G8B8A8SNorm,
+            VertexFormat.UInt8X4 => VkFormat.R8G8B8A8Uint,
+            VertexFormat.UInt32 => VkFormat.R32Uint,
+            VertexFormat.UNorm16X2 => VkFormat.R16G16Unorm,
+            VertexFormat.SNorm16X4 => VkFormat.R16G16B16A16SNorm,
+            _ => VkFormat.Undefined
+        };
 }

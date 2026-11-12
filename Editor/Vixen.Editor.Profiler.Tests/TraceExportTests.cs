@@ -42,7 +42,7 @@ public sealed class TraceExportTests : IDisposable {
     /// <inheritdoc />
     public void Dispose() {
         if (Directory.Exists(directory)) {
-            Directory.Delete(directory, recursive: true);
+            Directory.Delete(directory, true);
         }
     }
 
@@ -71,8 +71,8 @@ public sealed class TraceExportTests : IDisposable {
         var events = document.RootElement.GetProperty("traceEvents").EnumerateArray().ToArray();
 
         var complete = events
-            .Where(entry => entry.GetProperty("ph").GetString() == "X")
-            .Select(entry => entry.GetProperty("name").GetString() ?? string.Empty)
+            .Where(static entry => entry.GetProperty("ph").GetString() == "X")
+            .Select(static entry => entry.GetProperty("name").GetString() ?? string.Empty)
             .ToArray();
 
         Assert.Equal(["Export.Update", "Export.Draw"], complete);
@@ -80,7 +80,7 @@ public sealed class TraceExportTests : IDisposable {
         // The thread's *name*, which is the metadata record the exporter writes first — without it
         // a viewer labels the track with a bare number, and a join that lost the thread id would
         // still have produced the two events above.
-        var named = Assert.Single(events, entry => entry.GetProperty("ph").GetString() == "M");
+        var named = Assert.Single(events, static entry => entry.GetProperty("ph").GetString() == "M");
 
         Assert.Equal("Main", named.GetProperty("args").GetProperty("name").GetString());
         Assert.Equal(7, named.GetProperty("tid").GetInt32());

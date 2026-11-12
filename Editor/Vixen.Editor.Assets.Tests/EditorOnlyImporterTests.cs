@@ -20,7 +20,7 @@ public sealed class EditorOnlyImporterTests {
     [InlineData(".vxtexgraph")]
     [InlineData(".vxlayers")]
     public async Task A_texturing_recipe_imports_to_nothing_and_says_what_ships(string extension) {
-        var registry = BuiltInImporters.Create(new ImporterContributions(), new ImporterContributions());
+        var registry = BuiltInImporters.Create(new(), new());
         var path = new VirtualPath("/Assets/Rust" + extension);
         var files = new MemoryFileProvider();
 
@@ -30,7 +30,7 @@ public sealed class EditorOnlyImporterTests {
         Assert.IsType<EditorOnlyImporter>(importer);
 
         var result = await importer.ImportAsync(
-            new ImportContext(AssetId.New(), path, importer.CreateSettings(), files, importer.Name, "Windows"),
+            new(AssetId.New(), path, importer.CreateSettings(), files, importer.Name, "Windows"),
             TestContext.Current.CancellationToken
         );
 

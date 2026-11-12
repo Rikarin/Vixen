@@ -31,8 +31,12 @@ namespace Vixen.Graphics.Golden.Tests;
 ///         and the issue's own remark says so.
 ///     </para>
 ///     <para>
-///         ⚠ <b>And the sufficient check was believed to cost every reference image in this suite,
-///         which is the assumption this file refutes.</b> Four comments on #286 say the only real
+///         ⚠
+///         <b>
+///             And the sufficient check was believed to cost every reference image in this suite,
+///             which is the assumption this file refutes.
+///         </b>
+///         Four comments on #286 say the only real
 ///         answer is "a golden image rendered through each", and a golden is a committed picture, so
 ///         adding a second renderer meant a second baseline for every fixture. It does not: what
 ///         answers the question is the two renderings compared <i>with each other</i>, on one device,
@@ -41,8 +45,12 @@ namespace Vixen.Graphics.Golden.Tests;
 ///         <see cref="UiBoxAgreementTests" />' argument, applied to the pair it was not applied to.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Both arms go through <see cref="UiRenderer" />, and that is what makes the comparison
-///         about the shaders.</b> Same <c>DrawList</c>, same <c>UiGeometryBuilder</c>, same glyph
+///         ⚠
+///         <b>
+///             Both arms go through <see cref="UiRenderer" />, and that is what makes the comparison
+///             about the shaders.
+///         </b>
+///         Same <c>DrawList</c>, same <c>UiGeometryBuilder</c>, same glyph
 ///         cache, same buffers, same pass. The only difference between the two is which eight modules
 ///         the <see cref="UiShaders" /> table holds — and the Raven arm gets its table from
 ///         <see cref="UiShaderLibrary.Load" />, the call <c>UiApplication</c> and <c>EditorHost</c>
@@ -53,8 +61,12 @@ namespace Vixen.Graphics.Golden.Tests;
 ///         own reflection.
 ///     </para>
 ///     <para>
-///         ⚠ <b>All eight stages are reached, and it took two fixtures rather than one because a
-///         box fixture provably cannot reach three of them.</b> The four a <see cref="UiShaders" />
+///         ⚠
+///         <b>
+///             All eight stages are reached, and it took two fixtures rather than one because a
+///             box fixture provably cannot reach three of them.
+///         </b>
+///         The four a <see cref="UiShaders" />
 ///         table takes positionally — vertex, box, text and solid — are the ones
 ///         <see cref="TheGlslCopyAndTheRavenDrawTheSameBox" /> exercises; <c>ui-image.frag</c>,
 ///         <c>ui-blur.frag</c>, <c>ui-colour.frag</c> and <c>ui-mask.frag</c> only run on a group's
@@ -65,8 +77,11 @@ namespace Vixen.Graphics.Golden.Tests;
 ///         author thought of.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Until it landed, those four had exactly what <c>ui-box.frag</c> had before #286
-///         closed: a constants-containment check and no picture.</b>
+///         ⚠
+///         <b>
+///             Until it landed, those four had exactly what <c>ui-box.frag</c> had before #286
+///             closed: a constants-containment check and no picture.
+///         </b>
 ///         <c>SharedUiShaderTests.EveryConstantInTheGlslCopyIsOneTheRavenHoldsToo</c> is satisfied by
 ///         an expression rearranged around the same numbers, which is the whole reason a text
 ///         comparison is a necessary condition and not a sufficient one.
@@ -100,8 +115,12 @@ public sealed class UiRavenAgreementTests {
     ///         repository has shipped an allow-list that outlived its reason more than once.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>lavapipe is that driver, and <see cref="LastPlaceOnSoftware" /> is that
-    ///         tolerance.</b> Exact holds on MoltenVK (Apple M1 Max) and on NVIDIA (RTX 4060 Ti,
+    ///         ⚠
+    ///         <b>
+    ///             lavapipe is that driver, and <see cref="LastPlaceOnSoftware" /> is that
+    ///             tolerance.
+    ///         </b>
+    ///         Exact holds on MoltenVK (Apple M1 Max) and on NVIDIA (RTX 4060 Ti,
     ///         2026-09-22) — every fixture in this file is bit-identical through both modules there.
     ///         On CI's <c>llvmpipe (LLVM 20.1.2, 256 bits)</c> the box theory's <c>bordered</c> frame
     ///         differs in 24 of 16384 pixels and <c>gradient</c> in 1, every one of them by exactly
@@ -161,7 +180,7 @@ public sealed class UiRavenAgreementTests {
 
         using var owned = opened!;
 
-        var cache = new GlyphFieldCache(new GlyphAtlas(64, 64));
+        var cache = new GlyphFieldCache(new(64, 64));
         var geometry = new UiGeometryBuilder().Build(UiBoxAgreementTests.Frame(fixture), cache, Viewport);
 
         // ⚠ The instrument, both halves. No layer, so this is the plain box path — a fixture that
@@ -220,8 +239,12 @@ public sealed class UiRavenAgreementTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The remainder <see cref="TheGlslCopyAndTheRavenDrawTheSameBox" /> left, and it is
-    ///         a different fixture rather than a different assertion.</b> <c>ui-image.frag</c>,
+    ///         ⚠
+    ///         <b>
+    ///             The remainder <see cref="TheGlslCopyAndTheRavenDrawTheSameBox" /> left, and it is
+    ///             a different fixture rather than a different assertion.
+    ///         </b>
+    ///         <c>ui-image.frag</c>,
     ///         <c>ui-blur.frag</c>, <c>ui-colour.frag</c> and <c>ui-mask.frag</c> are bound only by a
     ///         group's composite draw, so a frame with no <see cref="UiLayer" /> in it cannot reach
     ///         them however many box branches it exercises. <c>UiCompositingTests.Groups</c> is the
@@ -239,8 +262,12 @@ public sealed class UiRavenAgreementTests {
     ///         to the frame that uploaded them.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The counters are asserted on each arm before the pixels are, and they are the
-    ///         only thing separating "the two agree" from "neither did anything".</b> A group that was
+    ///         ⚠
+    ///         <b>
+    ///             The counters are asserted on each arm before the pixels are, and they are the
+    ///             only thing separating "the two agree" from "neither did anything".
+    ///         </b>
+    ///         A group that was
     ///         not composited still draws — it draws the un-isolated approximation, which on anything
     ///         opaque is the same picture — and a blur, a matrix and a mask each have several ways of
     ///         silently not happening. Two renderers that both declined would agree perfectly, which
@@ -248,8 +275,12 @@ public sealed class UiRavenAgreementTests {
     ///         <c>UiCompositingTests</c> uses, applied to the pair it was not applied to.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Exact, like the box case, and for the same reason: one device, one driver, one
-    ///         geometry buffer, and nothing between the two arms but the SPIR-V.</b> A divergence here
+    ///         ⚠
+    ///         <b>
+    ///             Exact, like the box case, and for the same reason: one device, one driver, one
+    ///             geometry buffer, and nothing between the two arms but the SPIR-V.
+    ///         </b>
+    ///         A divergence here
     ///         is either real drift between the two sources or a compiler reassociating a float, and
     ///         both are things somebody should be told about rather than allowed a shade of. It is
     ///         emphatically <i>not</i> <c>UiCompositingTests</c>' tolerance, which is sized for a
@@ -264,7 +295,7 @@ public sealed class UiRavenAgreementTests {
 
         using var owned = opened!;
 
-        var cache = new GlyphFieldCache(new GlyphAtlas(256, 256));
+        var cache = new GlyphFieldCache(new(256, 256));
         var geometry = new UiGeometryBuilder().Build(UiCompositingTests.Groups(), cache, Viewport);
 
         // ⚠ The instrument, and the half the box case states the other way round. A frame that opened
@@ -298,10 +329,10 @@ public sealed class UiRavenAgreementTests {
             // and it would do so identically on both arms, which is a divergence this file could not
             // see. See `UiBackdropSource`.
             one.Renderer.Upload(commands, geometry, cache.Atlas);
-            one.Renderer.Compose(commands, geometry, new Int2(Side, Side), beneath: new UiBackdropSource(Background));
+            one.Renderer.Compose(commands, geometry, new(Side, Side), beneath: new(Background));
 
             two.Renderer.Upload(commands, geometry, cache.Atlas);
-            two.Renderer.Compose(commands, geometry, new Int2(Side, Side), beneath: new UiBackdropSource(Background));
+            two.Renderer.Compose(commands, geometry, new(Side, Side), beneath: new(Background));
         }
 
         var copy = owned.Render(one.Target, Frame);
@@ -336,8 +367,12 @@ public sealed class UiRavenAgreementTests {
     /// <summary>Every <c>mix-blend-mode</c>, drawn through <c>ui-blend.frag</c> and <c>UiBlend</c> and compared.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Until this case the device blend had one implementation and nothing to hold it to
-    ///         but the software rasteriser at a tolerance of four codes</b> (#783). The fifteen modes
+    ///         ⚠
+    ///         <b>
+    ///             Until this case the device blend had one implementation and nothing to hold it to
+    ///             but the software rasteriser at a tolerance of four codes
+    ///         </b>
+    ///         (#783). The fifteen modes
     ///         are a page of branches — § 5.1's piecewise dodge, burn and soft light, § 5.3's
     ///         <c>ClipColor</c> and index-chasing <c>SetSat</c> — and a transcription slip in one of
     ///         them moves a pixel by a code or two, which is inside that tolerance. Two modules on one
@@ -357,13 +392,13 @@ public sealed class UiRavenAgreementTests {
 
         using var owned = opened!;
 
-        var cache = new GlyphFieldCache(new GlyphAtlas(64, 64));
+        var cache = new GlyphFieldCache(new(64, 64));
         var geometry = new UiGeometryBuilder().Build(EveryBlend(), cache, Viewport);
 
         // The instrument: a group per mode, each of them blended, and the last one transformed.
         Assert.Equal(15, geometry.Layers.Count);
-        Assert.Equal(15, geometry.Layers.Select(layer => layer.Blend).Distinct().Count());
-        Assert.DoesNotContain(geometry.Layers, layer => layer.Blend == UiBlendMode.Normal);
+        Assert.Equal(15, geometry.Layers.Select(static layer => layer.Blend).Distinct().Count());
+        Assert.DoesNotContain(geometry.Layers, static layer => layer.Blend == UiBlendMode.Normal);
 
         var glsl = new UiShaders(
             owned.Shader("ui.vert.spv", ShaderStage.Vertex),
@@ -387,10 +422,10 @@ public sealed class UiRavenAgreementTests {
 
         void Frame(ICommandList commands) {
             one.Renderer.Upload(commands, geometry, cache.Atlas);
-            one.Renderer.Compose(commands, geometry, new Int2(Side, Side), beneath: new UiBackdropSource(Background));
+            one.Renderer.Compose(commands, geometry, new(Side, Side), beneath: new(Background));
 
             two.Renderer.Upload(commands, geometry, cache.Atlas);
-            two.Renderer.Compose(commands, geometry, new Int2(Side, Side), beneath: new UiBackdropSource(Background));
+            two.Renderer.Compose(commands, geometry, new(Side, Side), beneath: new(Background));
         }
 
         var copy = owned.Render(one.Target, Frame);
@@ -442,21 +477,20 @@ public sealed class UiRavenAgreementTests {
                 continue;
             }
 
-            var x = (index % 4 * Cell) + 2f;
-            var y = (index / 4 * Cell) + 2f;
+            var x = index % 4 * Cell + 2f;
+            var y = index / 4 * Cell + 2f;
             var size = Cell - 4f;
             var transform = mode == UiBlendMode.Luminosity
-                ? UiTransform.Rotation(12f, new Vector2(x + (size / 2f), y + (size / 2f)))
+                ? UiTransform.Rotation(12f, new(x + size / 2f, y + size / 2f))
                 : (UiTransform?)null;
 
             list.Add(
-                new DrawCommand(DrawCommandKind.LayerPush, x, y, size, size, new Color4(1f, 1f, 1f, 0.8f), 0, 0) {
-                    Blend = mode,
-                    Transform = transform
+                new(DrawCommandKind.LayerPush, x, y, size, size, new(1f, 1f, 1f, 0.8f), 0, 0) {
+                    Blend = mode, Transform = transform
                 }
             );
             list.Add(new(DrawCommandKind.Rectangle, x, y, size, size, paint, 0, 0));
-            list.Add(new(DrawCommandKind.Rectangle, x + (size / 4f), y + (size / 4f), size / 2f, size / 2f, dark, 0, 0));
+            list.Add(new(DrawCommandKind.Rectangle, x + size / 4f, y + size / 4f, size / 2f, size / 2f, dark, 0, 0));
             list.Add(new(DrawCommandKind.LayerPop, 0, 0, 0, 0, Color4.White, 0, 0));
             index++;
         }
@@ -468,8 +502,12 @@ public sealed class UiRavenAgreementTests {
     /// <summary>A group under a perspective, drawn through both vertex stages and compared.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The compositing case above reaches the vertex stage on every draw and still
-    ///         cannot see its <c>w</c>.</b> Every vertex in that frame carries <c>w = 1</c>, so the
+    ///         ⚠
+    ///         <b>
+    ///             The compositing case above reaches the vertex stage on every draw and still
+    ///             cannot see its <c>w</c>.
+    ///         </b>
+    ///         Every vertex in that frame carries <c>w = 1</c>, so the
     ///         multiply the stage does and the divide the rasteriser does after it are both the
     ///         identity — a <c>ui.vert</c> that ignored the attribute, or a <c>Ui.rvn</c> that
     ///         multiplied the wrong thing by it, would compare identical to the other and pass. What
@@ -489,7 +527,7 @@ public sealed class UiRavenAgreementTests {
 
         using var owned = opened!;
 
-        var cache = new GlyphFieldCache(new GlyphAtlas(64, 64));
+        var cache = new GlyphFieldCache(new(64, 64));
         var geometry = new UiGeometryBuilder().Build(UiCompositingTests.Perspective(), cache, Viewport);
 
         // ⚠ The instrument: the composite quad is projective, or this compares two identities.
@@ -500,16 +538,17 @@ public sealed class UiRavenAgreementTests {
             .Select(corner => geometry.Vertices[(int)geometry.Indices[composite.First + corner]].W)
             .ToList();
 
-        Assert.True(corners.Min() < 0.9f && corners.Max() > 1.1f, $"the composite quad's w's are {string.Join(", ", corners)}.");
+        Assert.True(
+            corners.Min() < 0.9f && corners.Max() > 1.1f,
+            $"the composite quad's w's are {string.Join(", ", corners)}."
+        );
 
         var glsl = new UiShaders(
             owned.Shader("ui.vert.spv", ShaderStage.Vertex),
             owned.Shader("ui-box.frag.spv", ShaderStage.Fragment),
             owned.Shader("ui-text.frag.spv", ShaderStage.Fragment),
             owned.Shader("ui-solid.frag.spv", ShaderStage.Fragment)
-        ) {
-            Image = owned.Shader("ui-image.frag.spv", ShaderStage.Fragment)
-        };
+        ) { Image = owned.Shader("ui-image.frag.spv", ShaderStage.Fragment) };
 
         var raven = UiShaderLibrary.Load(owned.Device);
 
@@ -520,10 +559,10 @@ public sealed class UiRavenAgreementTests {
 
         void Frame(ICommandList commands) {
             one.Renderer.Upload(commands, geometry, cache.Atlas);
-            one.Renderer.Compose(commands, geometry, new Int2(Side, Side), beneath: new UiBackdropSource(Background));
+            one.Renderer.Compose(commands, geometry, new(Side, Side), beneath: new(Background));
 
             two.Renderer.Upload(commands, geometry, cache.Atlas);
-            two.Renderer.Compose(commands, geometry, new Int2(Side, Side), beneath: new UiBackdropSource(Background));
+            two.Renderer.Compose(commands, geometry, new(Side, Side), beneath: new(Background));
         }
 
         var copy = owned.Render(one.Target, Frame);
@@ -547,15 +586,22 @@ public sealed class UiRavenAgreementTests {
     /// <summary>A rounded backdrop's curve, drawn through both sources and compared.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The compositing case above binds <c>Colour</c> and still cannot reach this
-    ///         branch.</b> Its groups are filtered, masked and shadowed, and every one of them pushes
+    ///         ⚠
+    ///         <b>
+    ///             The compositing case above binds <c>Colour</c> and still cannot reach this
+    ///             branch.
+    ///         </b>
+    ///         Its groups are filtered, masked and shadowed, and every one of them pushes
     ///         a backdrop box of zeros — so the coverage is one, the multiply is the identity, and a
     ///         <c>Ui.rvn</c> that had the distance function wrong would compare identical to the GLSL
     ///         and pass. What separates this fixture is a single non-zero radius.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>It exists because the shipping applications draw through the Raven module and the
-    ///         suite that photographed #229's curve draws through the GLSL twin.</b>
+    ///         ⚠
+    ///         <b>
+    ///             It exists because the shipping applications draw through the Raven module and the
+    ///             suite that photographed #229's curve draws through the GLSL twin.
+    ///         </b>
     ///         <c>UiCompositingTests.ARoundedBackdropIsClippedToItsCurveOnBothExecutors</c> compares
     ///         the device against <c>SoftwareUiRasterizer</c> and binds <c>Shaders/*.frag.spv</c> to
     ///         do it; the desktop host binds <c>UiColour</c> and <c>UiMask</c> out of
@@ -576,7 +622,7 @@ public sealed class UiRavenAgreementTests {
 
         using var owned = opened!;
 
-        var cache = new GlyphFieldCache(new GlyphAtlas(64, 64));
+        var cache = new GlyphFieldCache(new(64, 64));
         var geometry = new UiGeometryBuilder().Build(UiCompositingTests.RoundedBackdrop(), cache, Viewport);
 
         var layer = Assert.Single(geometry.Layers);
@@ -605,10 +651,10 @@ public sealed class UiRavenAgreementTests {
 
         void Frame(ICommandList commands) {
             one.Renderer.Upload(commands, geometry, cache.Atlas);
-            one.Renderer.Compose(commands, geometry, new Int2(Side, Side), beneath: new UiBackdropSource(Background));
+            one.Renderer.Compose(commands, geometry, new(Side, Side), beneath: new(Background));
 
             two.Renderer.Upload(commands, geometry, cache.Atlas);
-            two.Renderer.Compose(commands, geometry, new Int2(Side, Side), beneath: new UiBackdropSource(Background));
+            two.Renderer.Compose(commands, geometry, new(Side, Side), beneath: new(Background));
         }
 
         var copy = owned.Render(one.Target, Frame);
@@ -640,8 +686,11 @@ public sealed class UiRavenAgreementTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>#611's two new branches had never executed in the module every application draws
-    ///         with — <a href="https://github.com/Rikarin/Vixen/issues/1016">#1016</a>.</b>
+    ///         ⚠
+    ///         <b>
+    ///             #611's two new branches had never executed in the module every application draws
+    ///             with — <a href="https://github.com/Rikarin/Vixen/issues/1016">#1016</a>.
+    ///         </b>
     ///         <see cref="UiImageViewTests" /> proves them against arithmetic worked out on paper and
     ///         binds <c>Shaders/ui-image.frag.spv</c> to do it, which is this suite's hand-written
     ///         GLSL twin; production binds <c>Ui.rvn</c>'s <c>UiImage</c> through
@@ -671,14 +720,14 @@ public sealed class UiRavenAgreementTests {
 
         using var owned = opened!;
 
-        var cache = new GlyphFieldCache(new GlyphAtlas(64, 64));
+        var cache = new GlyphFieldCache(new(64, 64));
         var geometry = new UiGeometryBuilder().Build(UiImageViewTests.Frame(), cache, Viewport);
 
         // ⚠ The instrument. Without a view that asks for something, both arms run the pre-#611 path
         // and agree about a picture neither of the new branches produced — which is exactly the state
         // #1016 describes and is indistinguishable from a pass.
-        Assert.Contains(UiImageViewTests.Views(), entry => entry.View.Channel != UiImageChannel.All);
-        Assert.Contains(UiImageViewTests.Views(), entry => entry.View.ShowStoredValues);
+        Assert.Contains(UiImageViewTests.Views(), static entry => entry.View.Channel != UiImageChannel.All);
+        Assert.Contains(UiImageViewTests.Views(), static entry => entry.View.ShowStoredValues);
         Assert.NotEmpty(geometry.Draws);
 
         var glsl = new UiShaders(
@@ -686,9 +735,7 @@ public sealed class UiRavenAgreementTests {
             owned.Shader("ui-box.frag.spv", ShaderStage.Fragment),
             owned.Shader("ui-text.frag.spv", ShaderStage.Fragment),
             owned.Shader("ui-solid.frag.spv", ShaderStage.Fragment)
-        ) {
-            Image = owned.Shader("ui-image.frag.spv", ShaderStage.Fragment)
-        };
+        ) { Image = owned.Shader("ui-image.frag.spv", ShaderStage.Fragment) };
 
         var raven = UiShaderLibrary.Load(owned.Device);
 
@@ -719,15 +766,11 @@ public sealed class UiRavenAgreementTests {
 
             copied = true;
 
-            commands.Barrier(
-                new([], [new(sampled.Texture, ResourceState.Undefined, ResourceState.CopyDestination)])
-            );
+            commands.Barrier(new([], [new(sampled.Texture, ResourceState.Undefined, ResourceState.CopyDestination)]));
 
             commands.CopyBufferToTexture(sampled.Staging, 0, new(sampled.Texture), new(1, 1, 1));
 
-            commands.Barrier(
-                new([], [new(sampled.Texture, ResourceState.CopyDestination, ResourceState.ShaderRead)])
-            );
+            commands.Barrier(new([], [new(sampled.Texture, ResourceState.CopyDestination, ResourceState.ShaderRead)]));
         }
 
         var copy = owned.Render(one.Target, Frame);
@@ -757,8 +800,12 @@ public sealed class UiRavenAgreementTests {
     ///     a picture compared with itself.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>Because "the same modules twice" is the failure mode a differential invites, and it
-    ///     is silent.</b> Every assertion next door is satisfied perfectly by an arm that loaded the
+    ///     ⚠
+    ///     <b>
+    ///         Because "the same modules twice" is the failure mode a differential invites, and it
+    ///         is silent.
+    ///     </b>
+    ///     Every assertion next door is satisfied perfectly by an arm that loaded the
     ///     GLSL table twice — a wrong resource name, a loader that fell back, a table copied instead
     ///     of built. So the handles are required to differ. They are opaque values from two separate
     ///     <c>CreateShader</c> calls over two different byte arrays, which is exactly the fact worth
@@ -800,11 +847,14 @@ public sealed class UiRavenAgreementTests {
 
         owned.Owns(renderer.Dispose);
 
-        owned.Graph.AddPass(name, pass => {
-            pass.ColourAttachment(colour, LoadAction.Clear, Background);
-            pass.SideEffect();
-            pass.Execute(context => renderer.Record(context.CommandList, geometry, new(Side, Side)));
-        });
+        owned.Graph.AddPass(
+            name,
+            pass => {
+                pass.ColourAttachment(colour, LoadAction.Clear, Background);
+                pass.SideEffect();
+                pass.Execute(context => renderer.Record(context.CommandList, geometry, new(Side, Side)));
+            }
+        );
 
         return (colour, renderer);
     }

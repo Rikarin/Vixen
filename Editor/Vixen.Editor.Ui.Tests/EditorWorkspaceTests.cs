@@ -3,8 +3,6 @@
 
 using Vixen.Core;
 using Vixen.Editor.Ui.Documents;
-using Vixen.Ui;
-using Vixen.Ui.Controls.Advanced;
 using Xunit;
 
 namespace Vixen.Editor.Ui.Tests;
@@ -20,15 +18,15 @@ public sealed class EditorWorkspaceTests : IDisposable {
     readonly EditorWorkspace workspace;
 
     public EditorWorkspaceTests() {
-        store = new EditorUserStore(directory);
-        workspace = new EditorWorkspace(shell, store);
+        store = new(directory);
+        workspace = new(shell, store);
 
-        shell.RegisterPanel("scene", new StringId("test.panel.scene", "Scene"), _ => { });
-        shell.RegisterPanel("inspector", new StringId("test.panel.inspector", "Inspector"), _ => { });
+        shell.RegisterPanel("scene", new("test.panel.scene", "Scene"), static _ => { });
+        shell.RegisterPanel("inspector", new("test.panel.inspector", "Inspector"), static _ => { });
         shell.RegisterLayout(
             "Split",
-            new StringId("test.layout.split", "Split"),
-            () => LayoutPresets.Split(["inspector"], ["scene"], 0.3f)
+            new("test.layout.split", "Split"),
+            static () => LayoutPresets.Split(["inspector"], ["scene"], 0.3f)
         );
         shell.Workspace.Reset();
     }
@@ -37,7 +35,7 @@ public sealed class EditorWorkspaceTests : IDisposable {
         shell.Dispose();
 
         if (Directory.Exists(directory)) {
-            Directory.Delete(directory, recursive: true);
+            Directory.Delete(directory, true);
         }
     }
 
@@ -134,7 +132,10 @@ public sealed class EditorWorkspaceTests : IDisposable {
 
         workspace.Restore();
 
-        Assert.Contains(shell.Notifications.History, notice => notice.Message == EditorStrings.LayoutNotRestored.Text);
+        Assert.Contains(
+            shell.Notifications.History,
+            static notice => notice.Message == EditorStrings.LayoutNotRestored.Text
+        );
     }
 
     /// <summary>A view list with no shell refuses the arrangement's verbs rather than pretending.</summary>

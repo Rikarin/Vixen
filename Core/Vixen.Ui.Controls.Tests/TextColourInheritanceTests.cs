@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Reflection;
-using Vixen.Core.Imaging;
 using Vixen.Core.Mathematics;
 using Vixen.Ui.Testing;
 using Vixen.Ui.Text;
@@ -33,7 +32,7 @@ public class TextColourInheritanceTests {
 
     static FontFace LoadFont() {
         using var stream = Assembly.GetExecutingAssembly()
-            .GetManifestResourceStream("Vixen.Ui.Controls.Tests.Fonts.OpenSans-Regular.ttf")
+                .GetManifestResourceStream("Vixen.Ui.Controls.Tests.Fonts.OpenSans-Regular.ttf")
             ?? throw new InvalidOperationException("the test font is not embedded");
 
         using var memory = new MemoryStream();

@@ -25,16 +25,24 @@ namespace Tests;
 ///         (<a href="https://github.com/Rikarin/Vixen/issues/915">#915</a>).
 ///     </para>
 ///     <para>
-///         ⚠ <b>For one block of that file the question needs no compilation at all, and that is
-///         what this is.</b> The <c>Vixen.Shaders.Generated.*</c> types are a pure function of two
+///         ⚠
+///         <b>
+///             For one block of that file the question needs no compilation at all, and that is
+///             what this is.
+///         </b>
+///         The <c>Vixen.Shaders.Generated.*</c> types are a pure function of two
 ///         committed inputs: the <c>.reflect.json</c> beside a shader, and whether the project that
 ///         owns it sets <c>VixenShaderBindingsInternal</c>. So the exact set of type names the
 ///         graph will contain can be produced here, from the same emitter the build runs, in under
 ///         a second — and every exemption line naming one of them checked against it.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The failure this was written from was not a machine difference, though it was
-///         reported as one.</b> <c>92ed644f</c> set <c>VixenShaderBindingsInternal</c> on
+///         ⚠
+///         <b>
+///             The failure this was written from was not a machine difference, though it was
+///             reported as one.
+///         </b>
+///         <c>92ed644f</c> set <c>VixenShaderBindingsInternal</c> on
 ///         <c>Platform/Vixen.Ui.Desktop</c>, which turned five emitted classes from <c>public</c>
 ///         to <c>internal</c> in one line of a csproj — and <c>Vixen.DocGen</c>'s
 ///         <c>SymbolReader</c> keeps only public and protected symbols, so <c>UiBoxKeys</c> and its
@@ -58,7 +66,7 @@ public class ExemptedGeneratedTypeTests {
 
     /// <summary>A top-level <c>public</c> declaration in the emitted source, which is a graph node.</summary>
     static readonly Regex Declaration = new(
-        @"^public (?:static |sealed |readonly |partial )*(?:class|struct|interface|enum|record) ([A-Za-z0-9_]+)",
+        "^public (?:static |sealed |readonly |partial )*(?:class|struct|interface|enum|record) ([A-Za-z0-9_]+)",
         RegexOptions.Multiline | RegexOptions.CultureInvariant
     );
 
@@ -101,10 +109,10 @@ public class ExemptedGeneratedTypeTests {
     ///     did not. <see cref="The_walk_reaches_the_shaders_and_the_exemptions" /> still asks whether
     ///     it read anything.
     /// </remarks>
-    static List<string> ReflectionFiles() =>
-        RepositoryFiles.Files(Root, "*.reflect.json")
-            .OrderBy(path => path, StringComparer.Ordinal)
-            .ToList();
+    static List<string> ReflectionFiles() => [
+        ..RepositoryFiles.Files(Root, "*.reflect.json")
+            .OrderBy(static path => path, StringComparer.Ordinal)
+    ];
 
     /// <summary>
     ///     Whether the project owning a reflection file asks the generator for internal bindings.
@@ -122,9 +130,10 @@ public class ExemptedGeneratedTypeTests {
             if (project is not null) {
                 return XDocument.Load(project.FullName)
                     .Descendants()
-                    .Any(element =>
+                    .Any(static element =>
                         element.Name.LocalName == InternalProperty
-                        && string.Equals(element.Value.Trim(), "true", StringComparison.OrdinalIgnoreCase));
+                        && string.Equals(element.Value.Trim(), "true", StringComparison.OrdinalIgnoreCase)
+                    );
             }
 
             directory = directory.Parent;
@@ -155,12 +164,12 @@ public class ExemptedGeneratedTypeTests {
     }
 
     /// <summary>The type names <c>docs/DocsExempt.txt</c> excuses in the generated namespace.</summary>
-    static List<string> ExemptedGeneratedTypes() =>
-        File.ReadAllLines(Path.Combine(Root, "docs", "DocsExempt.txt"))
-            .Where(line => line.StartsWith(Prefix, StringComparison.Ordinal))
-            .Select(line => line[Prefix.Length..].Split(' ', '\t')[0])
-            .OrderBy(name => name, StringComparer.Ordinal)
-            .ToList();
+    static List<string> ExemptedGeneratedTypes() => [
+        ..File.ReadAllLines(Path.Combine(Root, "docs", "DocsExempt.txt"))
+            .Where(static line => line.StartsWith(Prefix, StringComparison.Ordinal))
+            .Select(static line => line[Prefix.Length..].Split(' ', '\t')[0])
+            .OrderBy(static name => name, StringComparer.Ordinal)
+    ];
 
     /// <summary>The walk found both halves, so a green run below is not a run over nothing.</summary>
     /// <remarks>
@@ -204,7 +213,7 @@ public class ExemptedGeneratedTypeTests {
             + "or the project owning it now sets VixenShaderBindingsInternal, which turns the "
             + "emitted classes internal and takes them out of the graph. Delete the lines in the "
             + "commit that does it — the file may only shrink.\n  "
-            + string.Join("\n  ", stale.Select(name => Prefix + name))
+            + string.Join("\n  ", stale.Select(static name => Prefix + name))
         );
     }
 }

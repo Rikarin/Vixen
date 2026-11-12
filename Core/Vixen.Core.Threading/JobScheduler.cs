@@ -105,23 +105,34 @@ public sealed class JobScheduler : IDisposable {
     // slots — alive on every thread that ever helped it.
     static long schedulerEpoch;
 
-    [ThreadStatic] static JobScheduler? workerOf;
-    [ThreadStatic] static int workerIndex;
-    [ThreadStatic] static uint stealSeed;
+    [ThreadStatic]
+    static JobScheduler? workerOf;
+
+    [ThreadStatic]
+    static int workerIndex;
+
+    [ThreadStatic]
+    static uint stealSeed;
 
     // Per thread, not per scheduler: a shared counter incremented on every take is a cache line
     // every worker writes to, which is the one thing the deques exist to avoid. Per thread it costs
     // nothing and means the same thing — this thread has taken this many frame items in a row.
-    [ThreadStatic] static long fairnessEpoch;
-    [ThreadStatic] static int framesTakenSinceBackground;
+    [ThreadStatic]
+    static long fairnessEpoch;
+
+    [ThreadStatic]
+    static int framesTakenSinceBackground;
 
     // Slot index *plus one*, so that zero — the value a thread that has never run a work item has —
     // means "this thread is running nothing" instead of aliasing slot 0. It aliased slot 0, and the
     // self-completion guard below fired on the main thread whenever the job it was waiting for
     // happened to live there. Paired with the version, because a slot recycled between the two
     // reads is a different job in the same place.
-    [ThreadStatic] static int executingSlotPlusOne;
-    [ThreadStatic] static int executingVersion;
+    [ThreadStatic]
+    static int executingSlotPlusOne;
+
+    [ThreadStatic]
+    static int executingVersion;
 
 #if DEBUG || VIXEN_JOB_SAFETY
     // The declaration in force on this thread. Process-wide rather than per scheduler, because a
@@ -354,7 +365,7 @@ public sealed class JobScheduler : IDisposable {
     ///         that runs at zero.
     ///     </para>
     /// </remarks>
-    public JobScheduler(int workerCount) : this(workerCount, placement: null) { }
+    public JobScheduler(int workerCount) : this(workerCount, null) { }
 
     /// <summary>Creates a scheduler whose workers place themselves as they start.</summary>
     /// <param name="workerCount">How many worker threads to start.</param>
@@ -405,8 +416,7 @@ public sealed class JobScheduler : IDisposable {
             var ordinal = index;
 
             workers[index] = new(() => RunWorker(ordinal)) {
-                IsBackground = true,
-                Name = $"Vixen Job Worker {ordinal}"
+                IsBackground = true, Name = $"Vixen Job Worker {ordinal}"
             };
 
             workers[index].Start();
@@ -631,7 +641,6 @@ public sealed class JobScheduler : IDisposable {
 
         signal.Dispose();
         Unregister(this);
-        GC.SuppressFinalize(this);
     }
 
     internal static JobScheduler? OwnerOf(ReadOnlySpan<JobHandle> handles) {
@@ -703,8 +712,7 @@ public sealed class JobScheduler : IDisposable {
     ///         the count it wants.
     ///     </para>
     /// </remarks>
-    static int DefaultWorkerCount() =>
-        OperatingSystem.IsBrowser() ? 0 : Math.Max(1, Environment.ProcessorCount - 1);
+    static int DefaultWorkerCount() => OperatingSystem.IsBrowser() ? 0 : Math.Max(1, Environment.ProcessorCount - 1);
 
     static int Register(JobScheduler scheduler) {
         lock (RegistryGate) {
@@ -740,7 +748,10 @@ public sealed class JobScheduler : IDisposable {
         var failure = failures.Find(handle.Index, handle.Version);
 
         if (failure is not null) {
-            throw new JobExecutionException("A job threw an exception. See the inner exception.", failure.SourceException);
+            throw new JobExecutionException(
+                "A job threw an exception. See the inner exception.",
+                failure.SourceException
+            );
         }
     }
 

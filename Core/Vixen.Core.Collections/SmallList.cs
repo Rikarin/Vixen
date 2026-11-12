@@ -143,7 +143,7 @@ public struct SmallList<T, TBuffer> : IDisposable where TBuffer : struct, IInlin
     /// <summary>Copies the elements into a new array.</summary>
     /// <returns>An array holding the elements.</returns>
     [UnscopedRef]
-    public T[] ToArray() => Span.ToArray();
+    public T[] ToArray() => [..Span];
 
     /// <summary>Returns the spill buffer to the pool, if there is one.</summary>
     public void Dispose() {

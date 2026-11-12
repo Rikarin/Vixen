@@ -13,8 +13,11 @@ namespace Vixen.Engine.Renderer;
 /// <summary>The curves and sea states a scene's water names, out of the asset system.</summary>
 /// <remarks>
 ///     <para>
-///         <b><see cref="AssetTerrainSource" />'s arrangement, one subsystem over, and this assembly
-///         is where it belongs for the same reason:</b> <c>WaterZoneSystem</c> takes its splines and
+///         <b>
+///             <see cref="AssetTerrainSource" />'s arrangement, one subsystem over, and this assembly
+///             is where it belongs for the same reason:
+///         </b>
+///         <c>WaterZoneSystem</c> takes its splines and
 ///         its waves through seams rather than holding an <see cref="AssetManager" />, because a
 ///         test's spline is a literal, an editor's is a document being dragged and a game's is a
 ///         loaded file. Something has to be the game's answer, and it needs one of the asset system
@@ -34,7 +37,8 @@ namespace Vixen.Engine.Renderer;
 ///     </para>
 ///     <para>
 ///         ⚠ <b>The sea state has no placement and must not acquire one.</b>
-///         [35 § D7](../../docs/plan/35-water.md#d7-waves-are-a-spectrum-summed-as-gerstner-and-the-fft-is-deferred-with-arithmetic)
+///         [35 §
+///         D7](../../docs/plan/35-water.md#d7-waves-are-a-spectrum-summed-as-gerstner-and-the-fft-is-deferred-with-arithmetic)
 ///         makes determinism an exit criterion: a spectrum that varied with where a zone entity sat
 ///         is one a client and a server could disagree about, which is a boat in a different place on
 ///         each.
@@ -70,8 +74,12 @@ public sealed class AssetWaterSource : IWaterSplineSource, IWaterWaveSource {
     ///         subsystem over.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Counted on <see cref="Task.IsCompleted" /> rather than on the handle being
-    ///         non-null</b>, so it falls the moment a read finishes rather than when the next ask
+    ///         ⚠
+    ///         <b>
+    ///             Counted on <see cref="Task.IsCompleted" /> rather than on the handle being
+    ///             non-null
+    ///         </b>
+    ///         , so it falls the moment a read finishes rather than when the next ask
     ///         takes its result up. A count that stayed up until take-up would make "anything
     ///         outstanding" true on a source that had finished, and a fixture that gives up when
     ///         nothing is outstanding would hang on a real regression instead of failing. The gap
@@ -269,8 +277,7 @@ public sealed class AssetWaterSource : IWaterSplineSource, IWaterWaveSource {
             return null;
         }
 
-        return Task.Run(
-            async () => {
+        return Task.Run(async () => {
                 await using var stream = await assets.OpenAsync(address).ConfigureAwait(false);
 
                 using var memory = new MemoryStream();
@@ -289,8 +296,7 @@ public sealed class AssetWaterSource : IWaterSplineSource, IWaterWaveSource {
             return null;
         }
 
-        return Task.Run(
-            async () => {
+        return Task.Run(async () => {
                 await using var stream = await assets.OpenAsync(address).ConfigureAwait(false);
 
                 using var memory = new MemoryStream();

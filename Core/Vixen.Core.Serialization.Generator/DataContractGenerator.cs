@@ -36,7 +36,7 @@ public sealed class DataContractGenerator : IIncrementalGenerator {
         "'{0}' cannot be deserialised: {1}",
         "Vixen.Serialization",
         DiagnosticSeverity.Error,
-        isEnabledByDefault: true,
+        true,
         "Deserialisation has to be able to produce the value it read. That needs either settable "
         + "members, or a constructor whose parameters match them."
     );
@@ -47,7 +47,7 @@ public sealed class DataContractGenerator : IIncrementalGenerator {
         "'{0}.{1}' is written but cannot be read back, so it is skipped",
         "Vixen.Serialization",
         DiagnosticSeverity.Warning,
-        isEnabledByDefault: true,
+        true,
         "A member with no way to set it can be written but not restored, which produces data that "
         + "silently loses a field."
     );
@@ -79,7 +79,17 @@ public sealed class DataContractGenerator : IIncrementalGenerator {
     // `bool` is excluded on purpose — a byte that is neither 0 nor 1 is a valid bool in memory and
     // would survive a bulk copy as one, which is a difference nothing downstream expects.
     static readonly HashSet<string> Blittable = new(StringComparer.Ordinal) {
-        "byte", "sbyte", "short", "ushort", "int", "uint", "long", "ulong", "char", "float", "double"
+        "byte",
+        "sbyte",
+        "short",
+        "ushort",
+        "int",
+        "uint",
+        "long",
+        "ulong",
+        "char",
+        "float",
+        "double"
     };
 
     /// <inheritdoc />
@@ -93,14 +103,21 @@ public sealed class DataContractGenerator : IIncrementalGenerator {
             .Where(static model => model.QualifiedName is not null);
 
         context.RegisterSourceOutput(contracts, static (production, model) => EmitContract(production, model));
-        context.RegisterSourceOutput(contracts.Collect(), static (production, models) => EmitRegistration(production, models));
+        context.RegisterSourceOutput(
+            contracts.Collect(),
+            static (production, models) => EmitRegistration(production, models)
+        );
     }
 
     static ContractModel Describe(INamedTypeSymbol type) {
         var qualified = type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
 
         if (type.IsGenericType) {
-            return Failed(type, qualified, "a generic type needs one serializer per instantiation, which the registry cannot express yet");
+            return Failed(
+                type,
+                qualified,
+                "a generic type needs one serializer per instantiation, which the registry cannot express yet"
+            );
         }
 
         if (type.TypeKind is TypeKind.Interface or TypeKind.Enum || type.IsAbstract) {
@@ -117,12 +134,12 @@ public sealed class DataContractGenerator : IIncrementalGenerator {
 
         var ordered = members.ToImmutable()
             .Sort(static (left, right) => left.Order != right.Order
-                ? left.Order.CompareTo(right.Order)
-                : left.Sequence.CompareTo(right.Sequence)
+                    ? left.Order.CompareTo(right.Order)
+                    : left.Sequence.CompareTo(right.Sequence)
             );
 
         var parameterless = type.IsValueType
-            || type.InstanceConstructors.Any(constructor =>
+            || type.InstanceConstructors.Any(static constructor =>
                 constructor.Parameters.Length == 0 && constructor.DeclaredAccessibility == Accessibility.Public
             );
 
@@ -146,13 +163,13 @@ public sealed class DataContractGenerator : IIncrementalGenerator {
             // leaves nothing for any constructor to match. That produced a serializer with no
             // members at all: it wrote two varints and read every component back as zero, silently,
             // for Vector3 and for every other value type in the engine's mathematics.
-            var stored = ordered.RemoveAll(member => member.IsComputed);
+            var stored = ordered.RemoveAll(static member => member.IsComputed);
             constructorParameters = MatchConstructor(type, stored);
 
             if (!constructorParameters.IsDefault) {
                 ordered = stored;
             } else {
-                ordered = ordered.RemoveAll(member => !member.IsSettable);
+                ordered = ordered.RemoveAll(static member => !member.IsSettable);
                 constructorParameters = MatchConstructor(type, ordered);
             }
 
@@ -181,7 +198,7 @@ public sealed class DataContractGenerator : IIncrementalGenerator {
             constructorParameters.IsDefault ? ImmutableArray<string>.Empty : constructorParameters,
             null,
             EnumElementsOf(ordered)
-        ) { };
+        );
     }
 
     /// <summary>Every enum a member of this contract holds as a collection element, once each.</summary>
@@ -206,11 +223,26 @@ public sealed class DataContractGenerator : IIncrementalGenerator {
             }
         }
 
-        return found.Count == 0 ? ImmutableArray<string>.Empty : [.. found];
+        return found.Count == 0 ? ImmutableArray<string>.Empty : [..found];
     }
 
     static ContractModel Failed(INamedTypeSymbol type, string qualified, string reason) =>
-        new(string.Empty, type.Name, type.Name, [], qualified, SafeName(qualified), false, false, 0, false, false, [], [], reason);
+        new(
+            string.Empty,
+            type.Name,
+            type.Name,
+            [],
+            qualified,
+            SafeName(qualified),
+            false,
+            false,
+            0,
+            false,
+            false,
+            [],
+            [],
+            reason
+        );
 
     static void CollectMembers(INamedTypeSymbol type, ImmutableArray<MemberModel>.Builder members) {
         // Base first, so that adding a member to a base type appends to the stream rather than
@@ -223,7 +255,9 @@ public sealed class DataContractGenerator : IIncrementalGenerator {
         var sequence = members.Count;
 
         foreach (var member in type.GetMembers()) {
-            if (member.IsStatic || member.IsImplicitlyDeclared || member.DeclaredAccessibility != Accessibility.Public) {
+            if (member.IsStatic
+                || member.IsImplicitlyDeclared
+                || member.DeclaredAccessibility != Accessibility.Public) {
                 continue;
             }
 
@@ -268,7 +302,9 @@ public sealed class DataContractGenerator : IIncrementalGenerator {
                     continue;
             }
 
-            members.Add(Describe(member.Name, memberType, settable, initOnly, computed, declaring, OrderOf(member), sequence++));
+            members.Add(
+                Describe(member.Name, memberType, settable, initOnly, computed, declaring, OrderOf(member), sequence++)
+            );
         }
     }
 
@@ -286,18 +322,60 @@ public sealed class DataContractGenerator : IIncrementalGenerator {
         var keyword = Keyword(type) ?? qualified;
 
         if (Primitives.TryGetValue(keyword, out var primitive)) {
-            return new(name, keyword, MemberShape.Primitive, primitive, string.Empty, string.Empty, settable, initOnly, computed, declaring, order, sequence);
+            return new(
+                name,
+                keyword,
+                MemberShape.Primitive,
+                primitive,
+                string.Empty,
+                string.Empty,
+                settable,
+                initOnly,
+                computed,
+                declaring,
+                order,
+                sequence
+            );
         }
 
         if (type.TypeKind == TypeKind.Enum && type is INamedTypeSymbol { EnumUnderlyingType: { } underlying }) {
-            var underlyingKeyword = Keyword(underlying) ?? underlying.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
-            return new(name, qualified, MemberShape.Enum, Primitives[underlyingKeyword], underlyingKeyword, string.Empty, settable, initOnly, computed, declaring, order, sequence);
+            var underlyingKeyword = Keyword(underlying)
+                ?? underlying.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+            return new(
+                name,
+                qualified,
+                MemberShape.Enum,
+                Primitives[underlyingKeyword],
+                underlyingKeyword,
+                string.Empty,
+                settable,
+                initOnly,
+                computed,
+                declaring,
+                order,
+                sequence
+            );
         }
 
         if (type is IArrayTypeSymbol { Rank: 1 } array) {
-            var element = Keyword(array.ElementType) ?? array.ElementType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+            var element = Keyword(array.ElementType)
+                ?? array.ElementType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
             var shape = Blittable.Contains(element) ? MemberShape.BlittableArray : MemberShape.Array;
-            return new(name, qualified, shape, string.Empty, element, string.Empty, settable, initOnly, computed, declaring, order, sequence, IsEnum(array.ElementType));
+            return new(
+                name,
+                qualified,
+                shape,
+                string.Empty,
+                element,
+                string.Empty,
+                settable,
+                initOnly,
+                computed,
+                declaring,
+                order,
+                sequence,
+                IsEnum(array.ElementType)
+            );
         }
 
         if (type is INamedTypeSymbol { IsGenericType: true } generic) {
@@ -312,7 +390,21 @@ public sealed class DataContractGenerator : IIncrementalGenerator {
 
             switch (definition) {
                 case "global::System.Collections.Generic.List<T>":
-                    return new(name, qualified, MemberShape.List, string.Empty, first, string.Empty, settable, initOnly, computed, declaring, order, sequence, firstIsEnum);
+                    return new(
+                        name,
+                        qualified,
+                        MemberShape.List,
+                        string.Empty,
+                        first,
+                        string.Empty,
+                        settable,
+                        initOnly,
+                        computed,
+                        declaring,
+                        order,
+                        sequence,
+                        firstIsEnum
+                    );
 
                 // ⚠ A collection declared as one of its interfaces is a *sequence*, not a
                 // polymorphic reference. Falling through to the bottom of this method made it the
@@ -330,20 +422,76 @@ public sealed class DataContractGenerator : IIncrementalGenerator {
                 case "global::System.Collections.Generic.IList<T>":
                 case "global::System.Collections.Generic.ICollection<T>":
                 case "global::System.Collections.Generic.IEnumerable<T>":
-                    return new(name, qualified, MemberShape.Sequence, string.Empty, first, string.Empty, settable, initOnly, computed, declaring, order, sequence, firstIsEnum);
+                    return new(
+                        name,
+                        qualified,
+                        MemberShape.Sequence,
+                        string.Empty,
+                        first,
+                        string.Empty,
+                        settable,
+                        initOnly,
+                        computed,
+                        declaring,
+                        order,
+                        sequence,
+                        firstIsEnum
+                    );
 
                 case "global::System.Collections.Generic.Dictionary<TKey, TValue>":
-                    return new(name, qualified, MemberShape.Dictionary, string.Empty, first, Argument(generic, 1), settable, initOnly, computed, declaring, order, sequence, firstIsEnum, IsEnum(generic.TypeArguments[1]));
+                    return new(
+                        name,
+                        qualified,
+                        MemberShape.Dictionary,
+                        string.Empty,
+                        first,
+                        Argument(generic, 1),
+                        settable,
+                        initOnly,
+                        computed,
+                        declaring,
+                        order,
+                        sequence,
+                        firstIsEnum,
+                        IsEnum(generic.TypeArguments[1])
+                    );
 
                 case "global::System.Nullable<T>":
-                    return new(name, qualified, MemberShape.Nullable, string.Empty, first, string.Empty, settable, initOnly, computed, declaring, order, sequence, firstIsEnum);
+                    return new(
+                        name,
+                        qualified,
+                        MemberShape.Nullable,
+                        string.Empty,
+                        first,
+                        string.Empty,
+                        settable,
+                        initOnly,
+                        computed,
+                        declaring,
+                        order,
+                        sequence,
+                        firstIsEnum
+                    );
 
                 // A content reference is a sealed class, so the ordinary reference path already reads
                 // and writes it. What it needs on top is a registered serializer for its closed
                 // generic, which nothing would otherwise instantiate — see EmitRegistration. The
                 // element type is carried along for exactly that.
                 case "global::Vixen.Core.Serialization.ContentReference<T>":
-                    return new(name, qualified, MemberShape.Reference, string.Empty, first, string.Empty, settable, initOnly, computed, declaring, order, sequence);
+                    return new(
+                        name,
+                        qualified,
+                        MemberShape.Reference,
+                        string.Empty,
+                        first,
+                        string.Empty,
+                        settable,
+                        initOnly,
+                        computed,
+                        declaring,
+                        order,
+                        sequence
+                    );
             }
         }
 
@@ -351,9 +499,24 @@ public sealed class DataContractGenerator : IIncrementalGenerator {
         // name in the stream would be a string spent to say what the reader already knows.
         var otherShape = type.IsValueType
             ? MemberShape.Value
-            : type.IsSealed ? MemberShape.Reference : MemberShape.Polymorphic;
+            : type.IsSealed
+                ? MemberShape.Reference
+                : MemberShape.Polymorphic;
 
-        return new(name, qualified, otherShape, string.Empty, string.Empty, string.Empty, settable, initOnly, computed, declaring, order, sequence);
+        return new(
+            name,
+            qualified,
+            otherShape,
+            string.Empty,
+            string.Empty,
+            string.Empty,
+            settable,
+            initOnly,
+            computed,
+            declaring,
+            order,
+            sequence
+        );
     }
 
     /// <summary>Whether a type is an enum, and so reaches the registry through nothing.</summary>
@@ -391,7 +554,8 @@ public sealed class DataContractGenerator : IIncrementalGenerator {
         }
 
         foreach (var constructor in type.InstanceConstructors) {
-            if (constructor.DeclaredAccessibility != Accessibility.Public || constructor.Parameters.Length != members.Length) {
+            if (constructor.DeclaredAccessibility != Accessibility.Public
+                || constructor.Parameters.Length != members.Length) {
                 continue;
             }
 
@@ -424,7 +588,10 @@ public sealed class DataContractGenerator : IIncrementalGenerator {
     static bool HasMigrationHook(INamedTypeSymbol type) =>
         type.GetMembers("TryMigrate")
             .OfType<IMethodSymbol>()
-            .Any(method => method is { IsStatic: true, Parameters.Length: 3, DeclaredAccessibility: Accessibility.Public });
+            .Any(method => method is {
+                    IsStatic: true, Parameters.Length: 3, DeclaredAccessibility: Accessibility.Public
+                }
+            );
 
     static bool HasAttribute(ISymbol symbol, string name) =>
         symbol.GetAttributes().Any(attribute => attribute.AttributeClass?.Name == name);
@@ -441,7 +608,8 @@ public sealed class DataContractGenerator : IIncrementalGenerator {
                 }
             }
 
-            if (attribute.ConstructorArguments.Length == 1 && attribute.ConstructorArguments[0].Value is int positional) {
+            if (attribute.ConstructorArguments.Length == 1
+                && attribute.ConstructorArguments[0].Value is int positional) {
                 return positional;
             }
         }
@@ -461,7 +629,8 @@ public sealed class DataContractGenerator : IIncrementalGenerator {
                 }
             }
 
-            if (attribute.ConstructorArguments.Length == 1 && attribute.ConstructorArguments[0].Value is string positional) {
+            if (attribute.ConstructorArguments.Length == 1
+                && attribute.ConstructorArguments[0].Value is string positional) {
                 return positional;
             }
         }
@@ -507,7 +676,9 @@ public sealed class DataContractGenerator : IIncrementalGenerator {
 
     static void EmitContract(SourceProductionContext context, ContractModel model) {
         if (model.Error is not null) {
-            context.ReportDiagnostic(Diagnostic.Create(CannotConstruct, Location.None, model.QualifiedName, model.Error));
+            context.ReportDiagnostic(
+                Diagnostic.Create(CannotConstruct, Location.None, model.QualifiedName, model.Error)
+            );
             return;
         }
 
@@ -516,7 +687,9 @@ public sealed class DataContractGenerator : IIncrementalGenerator {
         source.AppendLine("#nullable disable");
         source.AppendLine();
         source.AppendLine($"namespace {GeneratedNamespace} {{");
-        source.AppendLine($"    internal sealed class {model.SafeName}Serializer : global::Vixen.Core.Serialization.DataSerializer<{model.QualifiedName}> {{");
+        source.AppendLine(
+            $"    internal sealed class {model.SafeName}Serializer : global::Vixen.Core.Serialization.DataSerializer<{model.QualifiedName}> {{"
+        );
         source.AppendLine($"        internal const int Version = {model.Version};");
         source.AppendLine($"        internal const int MemberCount = {model.Members.Length};");
         source.AppendLine();
@@ -533,14 +706,20 @@ public sealed class DataContractGenerator : IIncrementalGenerator {
     }
 
     static void EmitSerialize(StringBuilder source, ContractModel model) {
-        source.AppendLine($"        public override void Serialize(ref global::Vixen.Core.Serialization.SerializationWriter writer, in {model.QualifiedName} value) {{");
+        source.AppendLine(
+            $"        public override void Serialize(ref global::Vixen.Core.Serialization.SerializationWriter writer, in {model.QualifiedName} value) {{"
+        );
 
-        if (!model.IsValueType && !model.IsSealed) {
+        if (model is { IsValueType: false, IsSealed: false }) {
             // A derived instance written through a base serializer would lose its own members
             // silently, and the loss would only surface when the data was read back somewhere else.
-            source.AppendLine("            if (value is not null && value.GetType() != typeof(" + model.QualifiedName + ")) {");
+            source.AppendLine(
+                "            if (value is not null && value.GetType() != typeof(" + model.QualifiedName + ")) {"
+            );
             source.AppendLine("                throw new global::Vixen.Core.Serialization.SerializationException(");
-            source.AppendLine($"                    $\"A {{value.GetType()}} was written through the serializer for {model.QualifiedName}, which would drop everything the derived type adds. Polymorphic serialisation needs a type table; see Vixen.Core.Reflection.\");");
+            source.AppendLine(
+                $"                    $\"A {{value.GetType()}} was written through the serializer for {model.QualifiedName}, which would drop everything the derived type adds. Polymorphic serialisation needs a type table; see Vixen.Core.Reflection.\");"
+            );
             source.AppendLine("            }");
             source.AppendLine();
         }
@@ -556,27 +735,37 @@ public sealed class DataContractGenerator : IIncrementalGenerator {
     }
 
     static void EmitDeserialize(StringBuilder source, ContractModel model) {
-        source.AppendLine($"        public override void Deserialize(ref global::Vixen.Core.Serialization.SerializationReader reader, ref {model.QualifiedName} value) {{");
+        source.AppendLine(
+            $"        public override void Deserialize(ref global::Vixen.Core.Serialization.SerializationReader reader, ref {model.QualifiedName} value) {{"
+        );
         source.AppendLine("            var version = (int)reader.ReadVarUInt64();");
         source.AppendLine("            var count = (int)reader.ReadVarUInt64();");
         source.AppendLine();
         source.AppendLine("            if (version != Version) {");
 
         if (model.HasMigrationHook) {
-            source.AppendLine($"                if (!{model.QualifiedName}.TryMigrate(version, ref reader, ref value)) {{");
-            source.AppendLine($"                    throw new global::Vixen.Core.Serialization.SerializationVersionException(\"{model.TypeName}\", version, Version);");
+            source.AppendLine(
+                $"                if (!{model.QualifiedName}.TryMigrate(version, ref reader, ref value)) {{"
+            );
+            source.AppendLine(
+                $"                    throw new global::Vixen.Core.Serialization.SerializationVersionException(\"{model.TypeName}\", version, Version);"
+            );
             source.AppendLine("                }");
             source.AppendLine();
             source.AppendLine("                return;");
         } else {
-            source.AppendLine($"                throw new global::Vixen.Core.Serialization.SerializationVersionException(\"{model.TypeName}\", version, Version);");
+            source.AppendLine(
+                $"                throw new global::Vixen.Core.Serialization.SerializationVersionException(\"{model.TypeName}\", version, Version);"
+            );
         }
 
         source.AppendLine("            }");
         source.AppendLine();
         source.AppendLine("            if (count > MemberCount) {");
         source.AppendLine("                throw new global::Vixen.Core.Serialization.SerializationException(");
-        source.AppendLine($"                    $\"{model.TypeName} data holds {{count}} members and this build knows {{MemberCount}}. Members can be appended and older data still read; they cannot be removed or reordered without a version bump.\");");
+        source.AppendLine(
+            $"                    $\"{model.TypeName} data holds {{count}} members and this build knows {{MemberCount}}. Members can be appended and older data still read; they cannot be removed or reordered without a version bump.\");"
+        );
         source.AppendLine("            }");
         source.AppendLine();
 
@@ -588,11 +777,13 @@ public sealed class DataContractGenerator : IIncrementalGenerator {
             source.AppendLine();
 
             for (var index = 0; index < model.Members.Length; index++) {
-                source.AppendLine($"            if (count > {index}) member_{model.Members[index].Name} = {ReadCall(model.Members[index])};");
+                source.AppendLine(
+                    $"            if (count > {index}) member_{model.Members[index].Name} = {ReadCall(model.Members[index])};"
+                );
             }
 
             source.AppendLine();
-            var arguments = string.Join(", ", model.ConstructorParameters.Select(name => $"member_{name}"));
+            var arguments = string.Join(", ", model.ConstructorParameters.Select(static name => $"member_{name}"));
             source.AppendLine($"            value = new {model.QualifiedName}({arguments});");
         } else {
             if (!model.IsValueType) {
@@ -628,7 +819,7 @@ public sealed class DataContractGenerator : IIncrementalGenerator {
     /// </remarks>
     static bool UsesConstructor(ContractModel model) =>
         !model.ConstructorParameters.IsEmpty
-        && (!model.Members.All(member => member is { IsSettable: true, IsInitOnly: false })
+        && (!model.Members.All(static member => member is { IsSettable: true, IsInitOnly: false })
             || !model.HasParameterlessConstructor);
 
     /// <summary>
@@ -682,7 +873,8 @@ public sealed class DataContractGenerator : IIncrementalGenerator {
             MemberShape.Array => $"writer.WriteArray<{member.ElementType}>(value.{member.Name});",
             MemberShape.List => $"writer.WriteList<{member.ElementType}>(value.{member.Name});",
             MemberShape.Sequence => $"writer.WriteSequence<{member.ElementType}>(value.{member.Name});",
-            MemberShape.Dictionary => $"writer.WriteDictionary<{member.ElementType}, {member.SecondElementType}>(value.{member.Name});",
+            MemberShape.Dictionary =>
+                $"writer.WriteDictionary<{member.ElementType}, {member.SecondElementType}>(value.{member.Name});",
             MemberShape.Nullable => $"writer.WriteNullable<{member.ElementType}>(value.{member.Name});",
             MemberShape.Value => $"writer.WriteValue<{member.TypeName}>(value.{member.Name});",
             MemberShape.Polymorphic => $"writer.WritePolymorphic<{member.TypeName}>(value.{member.Name});",
@@ -710,7 +902,7 @@ public sealed class DataContractGenerator : IIncrementalGenerator {
     const string ContentReferencePrefix = "global::Vixen.Core.Serialization.ContentReference<";
 
     static void EmitRegistration(SourceProductionContext context, ImmutableArray<ContractModel> models) {
-        var valid = models.Where(model => model.Error is null && model.QualifiedName is not null).ToArray();
+        var valid = models.Where(static model => model.Error is null && model.QualifiedName is not null).ToArray();
 
         if (valid.Length == 0) {
             return;
@@ -721,15 +913,17 @@ public sealed class DataContractGenerator : IIncrementalGenerator {
         source.AppendLine("#nullable disable");
         source.AppendLine();
         source.AppendLine($"namespace {GeneratedNamespace} {{");
-        source.AppendLine("    /// <summary>Registers this assembly's generated serializers before any of its code runs.</summary>");
+        source.AppendLine(
+            "    /// <summary>Registers this assembly's generated serializers before any of its code runs.</summary>"
+        );
         source.AppendLine("    internal static class SerializerRegistration {");
         source.AppendLine("        [global::System.Runtime.CompilerServices.ModuleInitializer]");
         source.AppendLine("        internal static void Initialize() {");
 
-        foreach (var model in valid.OrderBy(model => model.SafeName, StringComparer.Ordinal)) {
+        foreach (var model in valid.OrderBy(static model => model.SafeName, StringComparer.Ordinal)) {
             var former = model.FormerAliases.IsDefaultOrEmpty
                 ? string.Empty
-                : ", " + string.Join(", ", model.FormerAliases.Select(alias => $"\"{alias}\""));
+                : ", " + string.Join(", ", model.FormerAliases.Select(static alias => $"\"{alias}\""));
 
             source.AppendLine(
                 $"            global::Vixen.Core.Serialization.SerializerRegistry.Register(\"{model.Alias}\", new {model.SafeName}Serializer(){former});"
@@ -741,12 +935,12 @@ public sealed class DataContractGenerator : IIncrementalGenerator {
         // which NativeAOT does not have — so the set of references a build can encounter is decided
         // by what the compiler saw, which is the same principle the rest of the pipeline runs on.
         var referenced = valid
-            .SelectMany(model => model.Members.IsDefaultOrEmpty ? [] : model.Members)
-            .Where(member => member.TypeName.StartsWith(ContentReferencePrefix, StringComparison.Ordinal))
-            .Select(member => member.ElementType)
-            .Where(element => !string.IsNullOrEmpty(element))
+            .SelectMany(static model => model.Members.IsDefaultOrEmpty ? [] : model.Members)
+            .Where(static member => member.TypeName.StartsWith(ContentReferencePrefix, StringComparison.Ordinal))
+            .Select(static member => member.ElementType)
+            .Where(static element => !string.IsNullOrEmpty(element))
             .Distinct(StringComparer.Ordinal)
-            .OrderBy(element => element, StringComparer.Ordinal);
+            .OrderBy(static element => element, StringComparer.Ordinal);
 
         foreach (var element in referenced) {
             source.AppendLine(
@@ -764,9 +958,9 @@ public sealed class DataContractGenerator : IIncrementalGenerator {
         // nothing, on purpose. Instantiated here for the same reason a ContentReference is: the
         // closed generic has to be one the compiler saw, because NativeAOT has no way to build one.
         var enums = valid
-            .SelectMany(model => model.EnumElements.IsDefaultOrEmpty ? [] : model.EnumElements)
+            .SelectMany(static model => model.EnumElements.IsDefaultOrEmpty ? [] : model.EnumElements)
             .Distinct(StringComparer.Ordinal)
-            .OrderBy(element => element, StringComparer.Ordinal);
+            .OrderBy(static element => element, StringComparer.Ordinal);
 
         foreach (var element in enums) {
             source.AppendLine(

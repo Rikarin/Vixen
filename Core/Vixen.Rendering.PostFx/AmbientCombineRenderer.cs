@@ -66,8 +66,11 @@ public sealed class AmbientCombineRenderer() : PostEffectRenderer(
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <b>Three channels, and it carries <c>f0</c> rather than metalness because metalness
-    ///         cannot be carried.</b> <c>MaterialData</c> keeps a diffuse colour and an <c>f0</c>, and
+    ///         <b>
+    ///             Three channels, and it carries <c>f0</c> rather than metalness because metalness
+    ///             cannot be carried.
+    ///         </b>
+    ///         <c>MaterialData</c> keeps a diffuse colour and an <c>f0</c>, and
     ///         the pair is underdetermined; worse, the albedo plane holds <c>base × (1 − metalness)</c>
     ///         and is therefore black at metalness one, so a consumer handed a metalness channel would
     ///         still have no base colour to rebuild a metal's <c>f0</c> from. <c>AmbientCombine.rvn</c>
@@ -111,8 +114,12 @@ public sealed class AmbientCombineRenderer() : PostEffectRenderer(
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Until this existed the bent normal was produced and discarded, and the expensive
-    ///         half of GTAO was paid for in every frame that asked for it.</b> Occlusion says how much
+    ///         ⚠
+    ///         <b>
+    ///             Until this existed the bent normal was produced and discarded, and the expensive
+    ///             half of GTAO was paid for in every frame that asked for it.
+    ///         </b>
+    ///         Occlusion says how much
     ///         light arrives and a bent normal says where it arrives from; only the second changes the
     ///         shading direction, which is most of what makes the horizon integral look better than
     ///         hemisphere sampling on a curved surface. With this on the shader evaluates the
@@ -154,8 +161,11 @@ public sealed class AmbientCombineRenderer() : PostEffectRenderer(
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <b>A compositor node reaching into the frame's lighting, because the question is the
-    ///         document's and the answer belongs to the shading pass.</b> Whether a frame has a traced
+    ///         <b>
+    ///             A compositor node reaching into the frame's lighting, because the question is the
+    ///             document's and the answer belongs to the shading pass.
+    ///         </b>
+    ///         Whether a frame has a traced
     ///         reflections plane is a fact about the graph — nothing a material or an environment
     ///         could know — and it decides whether the shading pass keeps its prefiltered specular
     ///         ambient. There is no other object that knows both.
@@ -376,5 +386,4 @@ public sealed class AmbientCombineRenderer() : PostEffectRenderer(
         Sample(bindings, AmbientCombineKeys.PointSamplerBinding, Samplers!.PointClamp);
         Sample(bindings, AmbientCombineKeys.LinearSamplerBinding, Samplers!.LinearClamp);
     }
-
 }

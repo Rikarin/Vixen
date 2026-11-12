@@ -54,9 +54,13 @@ public sealed class MaterialImporter : AssetImporter<MaterialImportSettings> {
     /// <summary>The type a compiled material's chunk is recorded as.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The <c>[DataContract]</c> alias of the type actually written, which is
-    ///         <see cref="MaterialContent" /> — not <c>"Material"</c>, which is
-    ///         <see cref="MaterialDescriptor" />'s.</b> A chunk's type string is resolved through the
+    ///         ⚠
+    ///         <b>
+    ///             The <c>[DataContract]</c> alias of the type actually written, which is
+    ///             <see cref="MaterialContent" /> — not <c>"Material"</c>, which is
+    ///             <see cref="MaterialDescriptor" />'s.
+    ///         </b>
+    ///         A chunk's type string is resolved through the
     ///         type registry at load, so the wrong alias hands the bytes of one record to the reader of
     ///         another: <c>MaterialDescriptor data holds 5 members and this build knows 3</c>, thrown
     ///         from inside <c>AssetManager.Load</c> about content the build had just declared good.
@@ -81,7 +85,9 @@ public sealed class MaterialImporter : AssetImporter<MaterialImportSettings> {
     ///     static constructor rather than a module initializer, for the reason
     ///     <see cref="MathScalars" /> gives about a process-wide table.
     /// </remarks>
-    static MaterialImporter() => MathScalars.Register();
+    static MaterialImporter() {
+        MathScalars.Register();
+    }
 
     /// <inheritdoc />
     /// <remarks>

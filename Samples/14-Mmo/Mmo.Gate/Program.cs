@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Microsoft.AspNetCore.Builder;
-using Microsoft.Extensions.DependencyInjection;
 using Vixen.Live.Gate;
 using Vixen.Samples.Mmo.Contracts;
 
@@ -30,16 +29,17 @@ public static class Program {
     public static async Task<int> Main(string[] args) {
         var builder = WebApplication.CreateBuilder(args);
 
-        builder.Services.AddVixenGate(gate => {
-            gate.Region = "eu";
-            foreach (var map in MmoMaps.Public) {
-                gate.Maps.Add(map);
-            }
+        builder.Services.AddVixenGate(static gate => {
+                gate.Region = "eu";
+                foreach (var map in MmoMaps.Public) {
+                    gate.Maps.Add(map);
+                }
 
-            // ⚠ Barrowdeep and Ravensford are deliberately absent. They are `Instance` and `Match`
-            // shards, which are allocated by a placement or a queue rather than walked into — a
-            // player who could ask the gate for a dungeon could ask for one they are locked out of.
-        });
+                // ⚠ Barrowdeep and Ravensford are deliberately absent. They are `Instance` and `Match`
+                // shards, which are allocated by a placement or a queue rather than walked into — a
+                // player who could ask the gate for a dungeon could ask for one they are locked out of.
+            }
+        );
 
         var app = builder.Build();
 

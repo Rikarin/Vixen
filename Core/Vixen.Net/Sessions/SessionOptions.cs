@@ -143,8 +143,12 @@ public sealed record SessionOptions {
     ///         <c>.Development</c> is the modest profile to reach for.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>It is here, and it can be here, although two audits recorded that it could
-    ///         not.</b> The recorded objection was that a session is handed a transport and reads its
+    ///         ⚠
+    ///         <b>
+    ///             It is here, and it can be here, although two audits recorded that it could
+    ///             not.
+    ///         </b>
+    ///         The recorded objection was that a session is handed a transport and reads its
     ///         options afterwards, so a profile on this record "would arrive after the decision it is
     ///         meant to make". That confuses the order the constructor happens to assign its fields
     ///         in — which is the constructor's own choice — with when the values are available: the
@@ -153,8 +157,12 @@ public sealed record SessionOptions {
     ///         transport, and the constructor is exactly that moment.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Null by default, so a release build is unsimulated by construction rather than by
-    ///         remembering.</b> doc 16 asks for it to be on by default in development builds, and
+    ///         ⚠
+    ///         <b>
+    ///             Null by default, so a release build is unsimulated by construction rather than by
+    ///             remembering.
+    ///         </b>
+    ///         doc 16 asks for it to be on by default in development builds, and
     ///         that half is still one line at a host — nothing in <c>Vixen.Net</c> can see a build
     ///         variant, and nothing below <c>Vixen.Engine</c> may reference the assembly that can.
     ///         What has changed is that the line is now a field on the record a host already

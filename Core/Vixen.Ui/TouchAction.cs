@@ -22,8 +22,12 @@ namespace Vixen.Ui;
 ///         whether the author wrote the axis or one of its directions.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The directional keywords are a test on how the gesture BEGINS, not a boundary
-///         check.</b> The parity ledger recorded <c>pan-left</c>/<c>pan-right</c>/<c>pan-up</c> as
+///         ⚠
+///         <b>
+///             The directional keywords are a test on how the gesture BEGINS, not a boundary
+///             check.
+///         </b>
+///         The parity ledger recorded <c>pan-left</c>/<c>pan-right</c>/<c>pan-up</c> as
 ///         needing "an at-boundary check nothing computes". They do not: Pointer Events § 6 says the
 ///         user agent may consider the touch "only for the purposes of scrolling that starts in the
 ///         given direction", and Chrome implements that as a sign test on the scroll-begin hint.
@@ -89,8 +93,12 @@ public enum TouchAction : byte {
 ///         spelling and cached on the value id.
 ///     </para>
 ///     <para>
-///         ⚠ <b>An unreadable declaration is <see cref="TouchAction.Auto" /> rather than
-///         <see cref="TouchAction.None" /></b>, because CSS drops a declaration it cannot parse and
+///         ⚠
+///         <b>
+///             An unreadable declaration is <see cref="TouchAction.Auto" /> rather than
+///             <see cref="TouchAction.None" />
+///         </b>
+///         , because CSS drops a declaration it cannot parse and
 ///         the property's initial value is <c>auto</c>. <c>contain</c>'s initial is <c>none</c>, so
 ///         that reader falls the other way; the two are the same rule applied to different
 ///         initials, not different rules.
@@ -136,13 +144,20 @@ sealed class TouchActionReader {
     /// <remarks>
     ///     <para>
     ///         The grammar is
-    ///         <c>auto | none | [ [ pan-x | pan-left | pan-right ] || [ pan-y | pan-up | pan-down ] || pinch-zoom ] | manipulation</c>.
+    ///         <c>
+    /// auto | none | [ [ pan-x | pan-left | pan-right ] || [ pan-y | pan-up | pan-down ] || pinch-zoom ] | manipulation
+    ///         </c>
+    ///         .
     ///         The three standalone words are accepted alone; the list may name each axis at most
     ///         once and <c>pinch-zoom</c> at most once, in any order.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>An unrecognised or repeated word drops the whole declaration to
-    ///         <see cref="TouchAction.Auto" /></b>, which is what CSS does with a value it cannot
+    ///         ⚠
+    ///         <b>
+    ///             An unrecognised or repeated word drops the whole declaration to
+    ///             <see cref="TouchAction.Auto" />
+    ///         </b>
+    ///         , which is what CSS does with a value it cannot
     ///         parse. Reading <c>pan-x pan-left</c> as the union would silently accept a value every
     ///         browser rejects, and a page written against this engine would then break in one.
     ///     </para>
@@ -278,10 +293,14 @@ public sealed partial class UiDocument {
     /// <returns>The intersection of <c>touch-action</c> over the chain from the target up to and including the ancestor.</returns>
     /// <remarks>
     ///     <para>
-    ///         Pointer Events § 6: <i>"examine the touch-action property of each element between the
-    ///         hit tested element and the element with the default touch behavior (including both).
-    ///         If the touch-action property of any of those elements disallows the default touch
-    ///         behavior, do nothing."</i> An intersection is that sentence as a number.
+    ///         Pointer Events § 6:
+    ///         <i>
+    ///             "examine the touch-action property of each element between the
+    ///             hit tested element and the element with the default touch behavior (including both).
+    ///             If the touch-action property of any of those elements disallows the default touch
+    ///             behavior, do nothing."
+    ///         </i>
+    ///         An intersection is that sentence as a number.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>Including both ends.</b> A <c>ScrollView</c> that says <c>touch-action: none</c>

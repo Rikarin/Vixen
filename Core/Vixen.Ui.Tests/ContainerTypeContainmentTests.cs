@@ -8,8 +8,12 @@ namespace Vixen.Ui.Tests;
 /// <summary>What <c>container-type</c> does to the box that declares it, apart from being asked.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>A query container is a contained box, and for as long as it was not, a container sized
-///         by its contents could oscillate.</b> CSS Containment 3 § 3.1: <c>inline-size</c> "applies
+///         ⚠
+///         <b>
+///             A query container is a contained box, and for as long as it was not, a container sized
+///             by its contents could oscillate.
+///         </b>
+///         CSS Containment 3 § 3.1: <c>inline-size</c> "applies
 ///         style containment and inline-size containment to the principal box, and establishes an
 ///         independent formatting context"; <c>size</c> the same with size containment. The store
 ///         already had both containments for <c>contain</c> — <c>LayoutTree.CalculateLayoutImpl</c>
@@ -46,11 +50,11 @@ public class ContainerTypeContainmentTests {
     static UiDocument ContentSized(string declaration) =>
         Laid(
             $$"""
-            root { width: 400px; height: 300px; flex-direction: row; align-items: flex-start; }
-            .box { display: block; {{declaration}} }
-            .child { display: block; width: 60px; height: 40px; }
-            """,
-            document => document.Root.Add("div", classNames: "box").Add("div", classNames: "child")
+              root { width: 400px; height: 300px; flex-direction: row; align-items: flex-start; }
+              .box { display: block; {{declaration}} }
+              .child { display: block; width: 60px; height: 40px; }
+              """,
+            static document => document.Root.Add("div", classNames: "box").Add("div", classNames: "child")
         );
 
     [Theory]
@@ -88,8 +92,12 @@ public class ContainerTypeContainmentTests {
 
     /// <summary>A child's top margin stays inside a query container rather than collapsing out through it.</summary>
     /// <remarks>
-    ///     ⚠ <b>The independent formatting context, which <c>contain: inline-size</c> alone does not
-    ///     give</b> — so the twin row is the containment without the container, and it collapses. A box
+    ///     ⚠
+    ///     <b>
+    ///         The independent formatting context, which <c>contain: inline-size</c> alone does not
+    ///         give
+    ///     </b>
+    ///     — so the twin row is the containment without the container, and it collapses. A box
     ///     with no border or padding lets its first child's margin through (CSS 2.1 § 8.3.1): the box
     ///     moves down 20 and is 10 tall. As a formatting context root it stays at 0 and is 30 tall.
     /// </remarks>
@@ -101,11 +109,11 @@ public class ContainerTypeContainmentTests {
     public void A_query_container_is_an_independent_formatting_context(string declaration, float top, float height) {
         using var document = Laid(
             $$"""
-            root { display: block; width: 400px; height: 300px; }
-            .box { display: block; {{declaration}} }
-            .child { display: block; margin-top: 20px; height: 10px; }
-            """,
-            document => document.Root.Add("div", classNames: "box").Add("div", classNames: "child")
+              root { display: block; width: 400px; height: 300px; }
+              .box { display: block; {{declaration}} }
+              .child { display: block; margin-top: 20px; height: 10px; }
+              """,
+            static document => document.Root.Add("div", classNames: "box").Add("div", classNames: "child")
         );
 
         var box = document.Root.Children[0];
@@ -138,12 +146,12 @@ public class ContainerTypeContainmentTests {
 
         using var asked = Laid(
             $$"""
-            root { display: block; width: 400px; height: 300px; }
-            .box { display: block; width: 200px; height: 100px; container-type: {{keyword}}; }
-            .child { display: block; width: 60px; height: 40px; }
-            @container (min-width: 100px) { .child { width: 30px; } }
-            """,
-            document => document.Root.Add("div", classNames: "box").Add("div", classNames: "child")
+              root { display: block; width: 400px; height: 300px; }
+              .box { display: block; width: 200px; height: 100px; container-type: {{keyword}}; }
+              .child { display: block; width: 60px; height: 40px; }
+              @container (min-width: 100px) { .child { width: 30px; } }
+              """,
+            static document => document.Root.Add("div", classNames: "box").Add("div", classNames: "child")
         );
 
         Assert.Equal(30f, asked.Root.Children[0].Children[0].Width, Tolerance);
@@ -161,14 +169,17 @@ public class ContainerTypeContainmentTests {
     [InlineData("container-type: inline-size", 360f)]
     [InlineData("container-type: size", 360f)]
     [InlineData("contain: layout", 60f)]
-    public void A_query_container_is_not_the_containing_block_of_an_absolute_descendant(string declaration, float left) {
+    public void A_query_container_is_not_the_containing_block_of_an_absolute_descendant(
+        string declaration,
+        float left
+    ) {
         using var document = Laid(
             $$"""
-            root { display: block; width: 400px; height: 300px; }
-            .box { display: block; position: static; width: 100px; height: 100px; {{declaration}} }
-            .pinned { display: block; position: absolute; right: 0; width: 40px; height: 10px; }
-            """,
-            document => document.Root.Add("div", classNames: "box").Add("div", classNames: "pinned")
+              root { display: block; width: 400px; height: 300px; }
+              .box { display: block; position: static; width: 100px; height: 100px; {{declaration}} }
+              .pinned { display: block; position: absolute; right: 0; width: 40px; height: 10px; }
+              """,
+            static document => document.Root.Add("div", classNames: "box").Add("div", classNames: "pinned")
         );
 
         Assert.Equal(left, document.Root.Children[0].Children[0].AbsoluteLeft, Tolerance);

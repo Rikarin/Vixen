@@ -74,9 +74,10 @@ public sealed class Effect : ReactiveNode, IDisposable {
     ///     dynamic expression, and formatting a string for each of them would be a per-element
     ///     allocation paid for a message almost none of them will ever produce.
     /// </remarks>
-    string Origin => originFile is null
-        ? "an unknown location"
-        : $"{FileNameOf(originFile)}:{originLine.ToString(CultureInfo.InvariantCulture)}";
+    string Origin =>
+        originFile is null
+            ? "an unknown location"
+            : $"{FileNameOf(originFile)}:{originLine.ToString(CultureInfo.InvariantCulture)}";
 
     /// <summary>Whether this effect has been suspended after misbehaving.</summary>
     /// <remarks>
@@ -105,8 +106,12 @@ public sealed class Effect : ReactiveNode, IDisposable {
     ///         its part of the element tree, alive with it.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The owning thread is asserted here, and it was the one graph mutation in this
-    ///         assembly that did not.</b> Every read and every write checks — <c>Signal</c>,
+    ///         ⚠
+    ///         <b>
+    ///             The owning thread is asserted here, and it was the one graph mutation in this
+    ///             assembly that did not.
+    ///         </b>
+    ///         Every read and every write checks — <c>Signal</c>,
     ///         <c>Computed</c>, <c>LinkedSignal</c>, <c>CollectionSignal</c>, <c>SignalDictionary</c>
     ///         and this type's own constructor all call it — and a detach was the exception, which
     ///         is the more dangerous omission rather than the less: a read from the wrong thread

@@ -142,7 +142,7 @@ public class TreeViewTests {
     [Fact]
     public void Control_click_toggles_and_shift_click_takes_the_range() {
         using var fixture = new AdvancedFixture();
-        var tree = Populated(fixture, roots: 5, children: 0);
+        var tree = Populated(fixture, 5, 0);
 
         tree.Select(tree.Visible[0]);
         tree.Select(tree.Visible[2], ModifierKeys.Control);
@@ -161,7 +161,7 @@ public class TreeViewTests {
     [Fact]
     public void A_single_select_tree_ignores_the_modifiers() {
         using var fixture = new AdvancedFixture();
-        var tree = Populated(fixture, roots: 3, children: 0);
+        var tree = Populated(fixture, 3, 0);
 
         tree.MultiSelect = false;
 
@@ -199,7 +199,7 @@ public class TreeViewTests {
     [Fact]
     public void Home_and_end_reach_the_ends_and_ctrl_a_takes_everything() {
         using var fixture = new AdvancedFixture();
-        var tree = Populated(fixture, roots: 4, children: 0);
+        var tree = Populated(fixture, 4, 0);
 
         fixture.Document.Focus(tree);
 
@@ -216,7 +216,7 @@ public class TreeViewTests {
     [Fact]
     public void Renaming_puts_a_field_in_the_row_and_commits_on_enter() {
         using var fixture = new AdvancedFixture();
-        var tree = Populated(fixture, roots: 2, children: 0);
+        var tree = Populated(fixture, 2, 0);
 
         var node = tree.Root.Children[0];
         var renamed = 0;
@@ -240,7 +240,7 @@ public class TreeViewTests {
     [Fact]
     public void Escape_abandons_a_rename() {
         using var fixture = new AdvancedFixture();
-        var tree = Populated(fixture, roots: 2, children: 0);
+        var tree = Populated(fixture, 2, 0);
 
         var node = tree.Root.Children[0];
         tree.BeginRename(node);
@@ -255,7 +255,7 @@ public class TreeViewTests {
     [Fact]
     public void F2_starts_a_rename_on_the_selection() {
         using var fixture = new AdvancedFixture();
-        var tree = Populated(fixture, roots: 2, children: 0);
+        var tree = Populated(fixture, 2, 0);
 
         fixture.Document.Focus(tree);
         tree.Select(tree.Visible[1]);
@@ -268,7 +268,7 @@ public class TreeViewTests {
     [Fact]
     public void A_node_can_be_moved_beside_or_into_another() {
         using var fixture = new AdvancedFixture();
-        var tree = Populated(fixture, roots: 3, children: 0);
+        var tree = Populated(fixture, 3, 0);
 
         var first = tree.Root.Children[0];
         var last = tree.Root.Children[2];
@@ -283,7 +283,7 @@ public class TreeViewTests {
     [Fact]
     public void Moving_a_node_down_by_one_lands_it_below_its_neighbour() {
         using var fixture = new AdvancedFixture();
-        var tree = Populated(fixture, roots: 3, children: 0);
+        var tree = Populated(fixture, 3, 0);
 
         var first = tree.Root.Children[0];
         var second = tree.Root.Children[1];
@@ -314,36 +314,36 @@ public class TreeViewTests {
     [Fact]
     public void A_point_answers_with_the_node_showing_there() {
         using var fixture = new AdvancedFixture();
-        var tree = Populated(fixture, roots: 3, children: 0);
+        var tree = Populated(fixture, 3, 0);
 
         var bounds = tree.Rows[1].Bounds;
 
         Assert.Same(
             tree.Root.Children[1],
-            tree.NodeAt(bounds.X + 20f, bounds.Y + (bounds.Height * 0.5f))
+            tree.NodeAt(bounds.X + 20f, bounds.Y + bounds.Height * 0.5f)
         );
 
         // Below the last row is not a row, which is what lets a context menu tell "on this entity"
         // from "in the empty part of the panel" — two different things for a Create command.
-        Assert.Null(tree.NodeAt(bounds.X + 20f, bounds.Y + (bounds.Height * 40f)));
+        Assert.Null(tree.NodeAt(bounds.X + 20f, bounds.Y + bounds.Height * 40f));
         Assert.Null(tree.NodeAt(bounds.X - 500f, bounds.Y));
     }
 
     [Fact]
     public void Dragging_a_row_shows_an_indicator_and_moves_the_node() {
         using var fixture = new AdvancedFixture();
-        var tree = Populated(fixture, roots: 3, children: 0);
+        var tree = Populated(fixture, 3, 0);
 
         var source = tree.Rows[0];
         var target = tree.Rows[2].Bounds;
 
         fixture.Press(source.Bounds.X + 20f, source.Bounds.Y + 4f);
-        fixture.Move(target.X + 20f, target.Y + (target.Height * 0.5f));
-        fixture.Move(target.X + 20f, target.Y + (target.Height * 0.5f));
+        fixture.Move(target.X + 20f, target.Y + target.Height * 0.5f);
+        fixture.Move(target.X + 20f, target.Y + target.Height * 0.5f);
 
         Assert.False(tree.DropIndicator.HasClass("hidden"));
 
-        fixture.Release(target.X + 20f, target.Y + (target.Height * 0.5f));
+        fixture.Release(target.X + 20f, target.Y + target.Height * 0.5f);
 
         Assert.True(tree.DropIndicator.HasClass("hidden"));
         Assert.Equal(2, tree.Root.Children.Count);
@@ -353,14 +353,14 @@ public class TreeViewTests {
     [Fact]
     public void A_double_click_activates_a_node() {
         using var fixture = new AdvancedFixture();
-        var tree = Populated(fixture, roots: 2, children: 0);
+        var tree = Populated(fixture, 2, 0);
 
         TreeNode? activated = null;
         tree.Activated += (_, node) => activated = node;
 
         var bounds = tree.Rows[0].Bounds;
         var x = bounds.X + 20f;
-        var y = bounds.Y + (bounds.Height * 0.5f);
+        var y = bounds.Y + bounds.Height * 0.5f;
 
         fixture.Press(x, y);
         fixture.Release(x, y);
@@ -373,7 +373,7 @@ public class TreeViewTests {
     [Fact]
     public void A_leaf_shows_no_chevron() {
         using var fixture = new AdvancedFixture();
-        var tree = Populated(fixture, roots: 2, children: 0);
+        var tree = Populated(fixture, 2, 0);
 
         Assert.True(tree.Rows[0].HasClass("leaf"));
 
@@ -471,8 +471,10 @@ public class TreeViewTests {
     public void The_read_only_view_is_still_not_a_property_and_says_so() {
         using var fixture = new AdvancedFixture();
 
-        var thrown = Assert.Throws<ArgumentException>(
-            () => BuildContext.Build<BadWatcher>(fixture.Document, fixture.Document.Root)
+        var thrown = Assert.Throws<ArgumentException>(() => BuildContext.Build<BadWatcher>(
+                fixture.Document,
+                fixture.Document.Root
+            )
         );
 
         Assert.Contains("'tree-view' has no property called 'Selection'", thrown.Message, StringComparison.Ordinal);
@@ -486,7 +488,7 @@ public class TreeViewTests {
     [Fact]
     public void Assigning_the_selection_selects_and_repaints() {
         using var fixture = new AdvancedFixture();
-        var tree = Populated(fixture, roots: 3, children: 0);
+        var tree = Populated(fixture, 3, 0);
 
         var raised = 0;
         tree.SelectionChanged += _ => raised++;
@@ -520,7 +522,7 @@ public class TreeViewTests {
     [Fact]
     public void Assigning_two_nodes_to_a_single_select_tree_keeps_the_last() {
         using var fixture = new AdvancedFixture();
-        var tree = Populated(fixture, roots: 3, children: 0);
+        var tree = Populated(fixture, 3, 0);
 
         tree.MultiSelect = false;
         tree.SelectedNodes = [tree.Visible[0], tree.Visible[1]];
@@ -588,7 +590,7 @@ public class TreeViewTests {
         var folder = tree.Rows[0];
         var inside = tree.Rows[1].Bounds;
 
-        DragOver(fixture, folder, inside.X + 20f, inside.Y + (inside.Height * 0.5f));
+        DragOver(fixture, folder, inside.X + 20f, inside.Y + inside.Height * 0.5f);
 
         // ⚠ Shown, and shown as a refusal. Hiding it said no with an ABSENCE, which is the same
         // picture as the pointer being over nothing at all — the interaction a person repeats three
@@ -601,7 +603,7 @@ public class TreeViewTests {
         Assert.Equal(inside.Height, tree.DropIndicator.Height, 1);
 
         // And still nothing happens on release. The picture is the only thing that changed.
-        fixture.Release(inside.X + 20f, inside.Y + (inside.Height * 0.5f));
+        fixture.Release(inside.X + 20f, inside.Y + inside.Height * 0.5f);
         Assert.Same(tree.Root.Children[0], tree.Root.Children[0].Children[0].Parent);
         Assert.Single(tree.Root.Children);
     }
@@ -622,24 +624,22 @@ public class TreeViewTests {
         // ⚠ The half the refusal must not swallow. `RowAt` finding nothing is a genuine absence and
         // an absence is the right picture for it — so the two cases the old code drew identically
         // are now two pictures rather than both becoming a red row.
-        DragOver(fixture, folder, last.X + 60f, last.Y + (last.Height * 40f));
+        DragOver(fixture, folder, last.X + 60f, last.Y + last.Height * 40f);
 
         Assert.True(tree.DropIndicator.HasClass("hidden"));
         Assert.False(tree.DropIndicator.HasClass("refused"));
 
         // And a legal target is an acceptance rather than a refusal, which is the third picture.
-        fixture.Move(last.X + 60f, last.Y + (last.Height * 0.5f));
+        fixture.Move(last.X + 60f, last.Y + last.Height * 0.5f);
 
         Assert.False(tree.DropIndicator.HasClass("hidden"));
         Assert.False(tree.DropIndicator.HasClass("refused"));
 
-        fixture.Release(last.X + 60f, last.Y + (last.Height * 0.5f));
+        fixture.Release(last.X + 60f, last.Y + last.Height * 0.5f);
 
         Assert.Same(sibling, dragged.Parent);
         Assert.Single(tree.Root.Children);
     }
-
-
 
 
     /// <summary>How many pixels two captures of the same document disagree on.</summary>
@@ -687,7 +687,7 @@ public class TreeViewTests {
         var folder = tree.Rows[0];
         var inside = tree.Rows[1].Bounds;
 
-        DragOver(fixture, folder, inside.X + 60f, inside.Y + (inside.Height * 0.5f));
+        DragOver(fixture, folder, inside.X + 60f, inside.Y + inside.Height * 0.5f);
 
         Assert.True(tree.DropIndicator.HasClass("refused"));
 

@@ -14,8 +14,12 @@ namespace Vixen.Ui.Rendering;
 ///     How many screen pixels one unit of the field's range covers — what the shader thresholds with.
 /// </param>
 /// <remarks>
-///     ⚠ <b>The quad is in document pixels and not in a view box, which is the opposite of what
-///     <c>AtlasGlyph</c> does.</b> A glyph's placement is in ems because a font's outline is
+///     ⚠
+///     <b>
+///         The quad is in document pixels and not in a view box, which is the opposite of what
+///         <c>AtlasGlyph</c> does.
+///     </b>
+///     A glyph's placement is in ems because a font's outline is
 ///     size-independent and one entry serves every size; a path arrives here <i>already scaled</i> to
 ///     where it is going, so its entry is per size. It is not per <i>position</i> — see
 ///     <see cref="IconAtlas" />, where that distinction is the whole design.
@@ -46,8 +50,12 @@ public readonly record struct IconField(AtlasRegion Region, Rectangle Quad, floa
 ///         one draw for its glyph and its text together rather than three.
 ///     </para>
 ///     <para>
-///         ⚠ <b>A path must arrive in its own local space, and this is the invariant the whole thing
-///         rests on.</b> Encoding a field costs milliseconds; a key that separated two instances of
+///         ⚠
+///         <b>
+///             A path must arrive in its own local space, and this is the invariant the whole thing
+///             rests on.
+///         </b>
+///         Encoding a field costs milliseconds; a key that separated two instances of
 ///         one icon would re-encode per icon per frame and be far slower than the tessellation it
 ///         replaces. A draw list is rebuilt every frame from wherever things are, so a tree scrolled
 ///         by a fraction of a pixel moves every icon in it — and the answer is the one
@@ -58,8 +66,12 @@ public readonly record struct IconField(AtlasRegion Region, Rectangle Quad, floa
 ///         one entry.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Rounding the coordinates instead does not work, and it is worth saying why so nobody
-///         tries it again.</b> Quantising to a fraction of a pixel looks like it should absorb the
+///         ⚠
+///         <b>
+///             Rounding the coordinates instead does not work, and it is worth saying why so nobody
+///             tries it again.
+///         </b>
+///         Quantising to a fraction of a pixel looks like it should absorb the
 ///         float error between one scrolled frame and the next, and it does — for one coordinate. An
 ///         icon has of the order of a thousand of them, so on any given frame one of them is within
 ///         its own error of a bucket boundary and flips; measured, that was 199 re-encodings in 200
@@ -165,8 +177,12 @@ public sealed class IconAtlas {
     /// <summary>How wide the coverage ramp along an edge is, in document pixels.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The tessellator's fringe, and matching it is a consistency requirement rather than
-    ///         a matter of taste.</b> <c>PathTessellator.Feather</c> puts <i>full</i> coverage on the
+    ///         ⚠
+    ///         <b>
+    ///             The tessellator's fringe, and matching it is a consistency requirement rather than
+    ///             a matter of taste.
+    ///         </b>
+    ///         <c>PathTessellator.Feather</c> puts <i>full</i> coverage on the
     ///         outline itself and ramps to nothing over the fringe <i>outside</i> it — so every
     ///         tessellated path in this engine is already half a pixel fatter than the shape it was
     ///         given, with a half-pixel edge rather than a one-pixel one. A field thresholded the
@@ -189,8 +205,12 @@ public sealed class IconAtlas {
     ///         three channels moves their median by the same amount, which is exactly a dilation.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>It is also the amplifier, and that is worth knowing before anything else here is
-    ///         blamed for a misshapen icon.</b> A dilation moves every value towards covered, so a
+    ///         ⚠
+    ///         <b>
+    ///             It is also the amplifier, and that is worth knowing before anything else here is
+    ///             blamed for a misshapen icon.
+    ///         </b>
+    ///         A dilation moves every value towards covered, so a
     ///         texel the encoding got <i>wrong by magnitude alone</i> — right about which side of the
     ///         shape it is on, wrong about how far — crosses the threshold and becomes wrong about the
     ///         side too. That is exactly what happened: <c>DistanceField</c> extended a horizontal
@@ -254,7 +274,7 @@ public sealed class IconAtlas {
 
         field = default;
 
-        if (length <= 0 || (uint) offset + (uint) length > (uint) segments.Count) {
+        if (length <= 0 || (uint)offset + (uint)length > (uint)segments.Count) {
             return false;
         }
 
@@ -293,15 +313,15 @@ public sealed class IconAtlas {
 
         var hash = 14695981039346656037UL;
 
-        Mix(ref hash, (ulong) rule);
-        Mix(ref hash, (ulong) length);
+        Mix(ref hash, (ulong)rule);
+        Mix(ref hash, (ulong)length);
 
         for (var i = 0; i < length; i++) {
             var segment = segments[offset + i];
 
             shape.Add(segment);
 
-            Mix(ref hash, (ulong) segment.Verb);
+            Mix(ref hash, (ulong)segment.Verb);
             Mix(ref hash, BitConverter.SingleToUInt32Bits(segment.P0.X));
             Mix(ref hash, BitConverter.SingleToUInt32Bits(segment.P0.Y));
             Mix(ref hash, BitConverter.SingleToUInt32Bits(segment.P1.X));
@@ -337,7 +357,7 @@ public sealed class IconAtlas {
 
         // Padded by the field's own range, so the distance still falls off outside the shape rather
         // than being cut at the edge of the cell — the same reason a glyph's cell is padded.
-        var padding = (int) MathF.Ceiling(Range);
+        var padding = (int)MathF.Ceiling(Range);
 
         // ⚠ <b>Texels per document pixel, capped — not a fixed field size, and the difference is the
         // whole picture.</b> `DistanceField.Encode` clamps to ±`Range` <i>texels</i>, so the field can
@@ -350,10 +370,10 @@ public sealed class IconAtlas {
         // transparent outside, and taking the smaller of the two is what stops a large path from
         // being encoded at a size nobody wants to rasterise.
         var scale = MathF.Min(Supersample, Resolution / MathF.Max(bounds.Width, bounds.Height));
-        var width = (int) MathF.Ceiling(bounds.Width * scale) + (2 * padding);
-        var height = (int) MathF.Ceiling(bounds.Height * scale) + (2 * padding);
+        var width = (int)MathF.Ceiling(bounds.Width * scale) + 2 * padding;
+        var height = (int)MathF.Ceiling(bounds.Height * scale) + 2 * padding;
 
-        var origin = new Vector2(bounds.MinX - (padding / scale), bounds.MinY - (padding / scale));
+        var origin = new Vector2(bounds.MinX - padding / scale, bounds.MinY - padding / scale);
         var bitmap = DistanceField.Generate(outline, width, height, scale, origin, Range);
 
         var feather = MathF.Max(Feather, NarrowestFeather);
@@ -376,21 +396,21 @@ public sealed class IconAtlas {
         // The cell's *top* is the outline's largest y, so the quad's origin is a negation of the far
         // edge rather than of the near one — reading it the other way puts every icon exactly its own
         // height out of place, which looks like a layout fault rather than a sign one.
-        var cell = new Rectangle(origin.X, -(origin.Y + (height / scale)), width / scale, height / scale);
+        var cell = new Rectangle(origin.X, -(origin.Y + height / scale), width / scale, height / scale);
 
         // One unit of the encoded value is `Range` texels and a texel is `1/scale` document pixels,
         // so `Range / scale` is how far a full unit reaches on screen — and dividing by the ramp's
         // width is what makes the shader's `saturate(d + 0.5)` span exactly that ramp. Nothing
         // multiplies it later, because the path arrived already at the size it is drawn at.
-        field = new IconField(region, cell, Range / scale / feather);
-        entries[key] = new Entry(field, shape, rule);
+        field = new(region, cell, Range / scale / feather);
+        entries[key] = new(field, shape, rule);
 
         return true;
     }
 
     bool Refuse(ulong key, PathFillRule rule, out IconField field) {
         field = default;
-        entries[key] = new Entry(field, shape, rule);
+        entries[key] = new(field, shape, rule);
         Refused++;
 
         return false;
@@ -414,16 +434,16 @@ public sealed class IconAtlas {
         foreach (var segment in shape) {
             switch (segment.Verb) {
                 case PathVerb.Move:
-                    converted.Add(new OutlineSegment(OutlineVerb.Move, segment.P2.X, -segment.P2.Y));
+                    converted.Add(new(OutlineVerb.Move, segment.P2.X, -segment.P2.Y));
                     break;
 
                 case PathVerb.Line:
-                    converted.Add(new OutlineSegment(OutlineVerb.Line, segment.P2.X, -segment.P2.Y));
+                    converted.Add(new(OutlineVerb.Line, segment.P2.X, -segment.P2.Y));
                     break;
 
                 case PathVerb.Quadratic:
                     converted.Add(
-                        new OutlineSegment(
+                        new(
                             OutlineVerb.Quadratic,
                             segment.P0.X,
                             -segment.P0.Y,
@@ -436,7 +456,7 @@ public sealed class IconAtlas {
 
                 case PathVerb.Cubic:
                     converted.Add(
-                        new OutlineSegment(
+                        new(
                             OutlineVerb.Cubic,
                             segment.P0.X,
                             -segment.P0.Y,
@@ -450,7 +470,7 @@ public sealed class IconAtlas {
                     break;
 
                 default:
-                    converted.Add(new OutlineSegment(OutlineVerb.Close, 0f, 0f));
+                    converted.Add(new(OutlineVerb.Close, 0f, 0f));
                     break;
             }
         }
@@ -465,7 +485,7 @@ public sealed class IconAtlas {
 
         public Entry(IconField field, List<PathSegment> segments, PathFillRule rule) {
             Field = field;
-            this.segments = [.. segments];
+            this.segments = [..segments];
             this.rule = rule;
         }
 

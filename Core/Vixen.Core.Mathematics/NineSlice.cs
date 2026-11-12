@@ -10,8 +10,11 @@ namespace Vixen.Core.Mathematics;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>A nine-slice is rectangle arithmetic, which is why it is here and not beside either of
-///         its callers.</b> Two consumers need exactly the same nine pairs of rectangles — a user
+///         <b>
+///             A nine-slice is rectangle arithmetic, which is why it is here and not beside either of
+///             its callers.
+///         </b>
+///         Two consumers need exactly the same nine pairs of rectangles — a user
 ///         interface stretching a panel's background and a renderer stretching a sprite — and they
 ///         cannot reference each other: <c>Vixen.Ui</c> describes a frame without a device and
 ///         <c>Vixen.Rendering</c> draws without knowing what an element tree is. The alternative was
@@ -163,7 +166,7 @@ public readonly record struct NineSlice(float Left, float Top, float Right, floa
 
         for (var row = 0; row < 3; row++) {
             for (var column = 0; column < 3; column++) {
-                into[(row * 3) + column] = new(
+                into[row * 3 + column] = new(
                     columns[column],
                     rows[row],
                     MathF.Max(columns[column + 1] - columns[column], 0f),
@@ -172,5 +175,4 @@ public readonly record struct NineSlice(float Left, float Top, float Right, floa
             }
         }
     }
-
 }

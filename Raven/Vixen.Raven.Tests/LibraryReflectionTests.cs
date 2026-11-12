@@ -309,12 +309,13 @@ public class LibraryReflectionTests {
     /// </remarks>
     static IrModule Library(out IEnumerable<string> usedPermutationKeys) {
         var trees = new[] {
-                "Core", "Shading", "Geometry", "DistanceFields", "IrradianceFields", "PunctualShadows", "VirtualShadows", "ScreenProbes",
-                "SurfaceCache", "Reflections", "Material", "Pipeline", "Ui", "PostFx", "Vfx", "Terrain", "Water"
+                "Core", "Shading", "Geometry", "DistanceFields", "IrradianceFields", "PunctualShadows",
+                "VirtualShadows", "ScreenProbes", "SurfaceCache", "Reflections", "Material", "Pipeline", "Ui", "PostFx",
+                "Vfx", "Terrain", "Water"
             }
-            .SelectMany(package => Directory.EnumerateFiles(Path.Combine(LibraryRoot, package), "*.rvn"))
-            .OrderBy(file => file, StringComparer.Ordinal)
-            .Select(file => SyntaxTree.ParseText(File.ReadAllText(file), path: Path.GetFileName(file)))
+            .SelectMany(static package => Directory.EnumerateFiles(Path.Combine(LibraryRoot, package), "*.rvn"))
+            .OrderBy(static file => file, StringComparer.Ordinal)
+            .Select(static file => SyntaxTree.ParseText(File.ReadAllText(file), path: Path.GetFileName(file)))
             .ToArray();
 
         var compilation = Compilation.Create(
@@ -328,20 +329,19 @@ public class LibraryReflectionTests {
 
         Assert.True(
             diagnostics.Count == 0,
-            "The library does not bind cleanly:\n" + string.Join("\n", diagnostics.Select(d => d.ToString()))
+            "The library does not bind cleanly:\n" + string.Join("\n", diagnostics.Select(static d => d.ToString()))
         );
 
         var bag = new DiagnosticBag();
         var module = Lowerer.Lower(compilation, bag);
 
-        Assert.DoesNotContain(bag.ToArray(), d => d.IsError);
+        Assert.DoesNotContain(bag.ToArray(), static d => d.IsError);
 
         usedPermutationKeys = compilation.UsedPermutationKeys;
         return module;
     }
 
-    static string PathOf(string package, string shader) =>
-        Path.Combine(LibraryRoot, package, shader + ".reflect.json");
+    static string PathOf(string package, string shader) => Path.Combine(LibraryRoot, package, shader + ".reflect.json");
 
     /// <summary>
     ///     The checked-in reflection is what the compiler produces for the library as it stands.
@@ -385,14 +385,14 @@ public class LibraryReflectionTests {
         var described = ReflectionBuilder.Describe(Library(out var used), used);
 
         var bloom = described["Bloom"];
-        var names = bloom.Sets.SelectMany(set => set.Bindings).Select(binding => binding.Name).ToArray();
+        var names = bloom.Sets.SelectMany(static set => set.Bindings).Select(static binding => binding.Name).ToArray();
 
         Assert.Contains("source", names);
         Assert.Contains("sourceSampler", names);
         Assert.Contains("previous", names);
 
-        Assert.Contains("texelSize", bloom.Parameters.Select(p => p.Name));
-        Assert.Contains("threshold", bloom.Parameters.Select(p => p.Name));
+        Assert.Contains("texelSize", bloom.Parameters.Select(static p => p.Name));
+        Assert.Contains("threshold", bloom.Parameters.Select(static p => p.Name));
     }
 
     /// <summary>
@@ -414,7 +414,7 @@ public class LibraryReflectionTests {
 
         Assert.All(
             described["Tonemap"].UsedPermutationKeys,
-            key => Assert.Contains(key, described["Tonemap"].Permutations.Select(p => p.Name))
+            key => Assert.Contains(key, described["Tonemap"].Permutations.Select(static p => p.Name))
         );
     }
 
@@ -423,10 +423,16 @@ public class LibraryReflectionTests {
     public void The_shaders_declared_defaults_are_in_the_reflection() {
         var described = ReflectionBuilder.Describe(Library(out var used), used);
 
-        Assert.Equal("1", Assert.Single(described["Bloom"].Parameters, p => p.Name == "threshold").DefaultValue);
-        Assert.Equal("0.5", Assert.Single(described["Bloom"].Parameters, p => p.Name == "knee").DefaultValue);
-        Assert.Equal("1", Assert.Single(described["Tonemap"].Parameters, p => p.Name == "exposure").DefaultValue);
-        Assert.Equal("4", Assert.Single(described["Tonemap"].Parameters, p => p.Name == "whitePoint").DefaultValue);
+        Assert.Equal("1", Assert.Single(described["Bloom"].Parameters, static p => p.Name == "threshold").DefaultValue);
+        Assert.Equal("0.5", Assert.Single(described["Bloom"].Parameters, static p => p.Name == "knee").DefaultValue);
+        Assert.Equal(
+            "1",
+            Assert.Single(described["Tonemap"].Parameters, static p => p.Name == "exposure").DefaultValue
+        );
+        Assert.Equal(
+            "4",
+            Assert.Single(described["Tonemap"].Parameters, static p => p.Name == "whitePoint").DefaultValue
+        );
     }
 
     /// <summary>
@@ -453,7 +459,7 @@ public class LibraryReflectionTests {
     public void A_workgroup_named_by_a_constant_dispatches_what_it_folds_to(string shader, int lanes) {
         var module = Library(out _);
         var lowered = Assert.Single(module.Shaders, s => s.Name == shader);
-        var entryPoint = Assert.Single(lowered.EntryPoints, e => e.Stage == ShaderStage.Compute);
+        var entryPoint = Assert.Single(lowered.EntryPoints, static e => e.Stage == ShaderStage.Compute);
 
         Assert.Equal(new WorkgroupSize(lanes, 1, 1), entryPoint.WorkgroupSize);
     }

@@ -4,7 +4,6 @@
 using Vixen.Audio.Devices;
 using Vixen.Audio.Ecs;
 using Vixen.Audio.Mixing;
-using Vixen.Audio.Spatial;
 using Vixen.Core;
 using Vixen.Core.Mathematics;
 using Vixen.Ecs;
@@ -20,8 +19,8 @@ public sealed class AudioSystemTests : IDisposable {
     readonly AudioSystem system;
 
     public AudioSystemTests() {
-        (engine, device) = AudioTestData.Engine(channels: 2);
-        system = new AudioSystem(engine);
+        (engine, device) = AudioTestData.Engine();
+        system = new(engine);
     }
 
     public void Dispose() {
@@ -156,10 +155,10 @@ public sealed class AudioSystemTests : IDisposable {
 
     [Fact]
     public void TheListenerFollowsItsTransform() {
-        Listener(new Vector3(5f, 0f, 0f));
+        Listener(new(5f, 0f, 0f));
         system.Synchronize(world, 1f / 60f);
 
-        Assert.Equal(new Vector3(5f, 0f, 0f), engine.Listener.Position);
+        Assert.Equal(new(5f, 0f, 0f), engine.Listener.Position);
         Assert.Equal(Vector3.Forward, engine.Listener.Forward);
         Assert.Equal(1, system.ListenerCount);
     }
@@ -172,7 +171,7 @@ public sealed class AudioSystemTests : IDisposable {
     [Fact]
     public void TwoListenersAreCountedSoTheMistakeIsVisible() {
         Listener(Vector3.Zero);
-        Listener(new Vector3(100f, 0f, 0f));
+        Listener(new(100f, 0f, 0f));
 
         system.Synchronize(world, 1f / 60f);
 
@@ -182,7 +181,7 @@ public sealed class AudioSystemTests : IDisposable {
     [Fact]
     public void APositionedSourceIsPannedByWhereItIs() {
         Listener(Vector3.Zero);
-        PositionedEmitter(AudioTestData.Constant(48_000, 1f), AudioSource.Playing, new Vector3(10f, 0f, 0f));
+        PositionedEmitter(AudioTestData.Constant(48_000, 1f), AudioSource.Playing, new(10f, 0f, 0f));
 
         system.Synchronize(world, 1f / 60f);
         var rendered = AudioTestData.Render(device, 64);
@@ -198,13 +197,13 @@ public sealed class AudioSystemTests : IDisposable {
         var entity = PositionedEmitter(
             AudioTestData.Constant(48_000, 1f),
             AudioSource.Playing,
-            new Vector3(10f, 0f, 0f)
+            new(10f, 0f, 0f)
         );
 
         system.Synchronize(world, 1f / 60f);
         AudioTestData.Render(device, 64);
 
-        world.Get<WorldTransform>(entity).Value = Matrix4x4.FromTranslation(new Vector3(-10f, 0f, 0f));
+        world.Get<WorldTransform>(entity).Value = Matrix4x4.FromTranslation(new(-10f, 0f, 0f));
         system.Synchronize(world, 1f / 60f);
         AudioTestData.Render(device, 64);
         var rendered = AudioTestData.Render(device, 64);
@@ -223,7 +222,7 @@ public sealed class AudioSystemTests : IDisposable {
         var entity = PositionedEmitter(
             AudioTestData.Constant(48_000, 1f),
             AudioSource.Playing,
-            new Vector3(0f, 0f, -200f)
+            new(0f, 0f, -200f)
         );
 
         system.Synchronize(world, 1f / 60f);
@@ -237,11 +236,11 @@ public sealed class AudioSystemTests : IDisposable {
         var entity = PositionedEmitter(AudioTestData.Constant(48_000, 1f), AudioSource.Playing, Vector3.Zero);
 
         system.Synchronize(world, 0.5f);
-        world.Get<WorldTransform>(entity).Value = Matrix4x4.FromTranslation(new Vector3(0f, 0f, -5f));
+        world.Get<WorldTransform>(entity).Value = Matrix4x4.FromTranslation(new(0f, 0f, -5f));
         system.Synchronize(world, 0.5f);
 
         // Five units in half a second is ten units a second.
-        Assert.Equal(new Vector3(0f, 0f, -10f), world.Read<AudioSpatial>(entity).Velocity);
+        Assert.Equal(new(0f, 0f, -10f), world.Read<AudioSpatial>(entity).Velocity);
     }
 
     [Fact]
@@ -250,18 +249,18 @@ public sealed class AudioSystemTests : IDisposable {
         var entity = PositionedEmitter(AudioTestData.Constant(48_000, 1f), AudioSource.Playing, Vector3.Zero);
 
         world.Get<AudioSpatial>(entity).AutoVelocity = false;
-        world.Get<AudioSpatial>(entity).Velocity = new Vector3(0f, 0f, 42f);
+        world.Get<AudioSpatial>(entity).Velocity = new(0f, 0f, 42f);
 
         system.Synchronize(world, 0.5f);
-        world.Get<WorldTransform>(entity).Value = Matrix4x4.FromTranslation(new Vector3(0f, 0f, -5f));
+        world.Get<WorldTransform>(entity).Value = Matrix4x4.FromTranslation(new(0f, 0f, -5f));
         system.Synchronize(world, 0.5f);
 
-        Assert.Equal(new Vector3(0f, 0f, 42f), world.Read<AudioSpatial>(entity).Velocity);
+        Assert.Equal(new(0f, 0f, 42f), world.Read<AudioSpatial>(entity).Velocity);
     }
 
     [Fact]
     public void AnAmbientSourceIsNotSpatialisedAtAll() {
-        Listener(new Vector3(1_000f, 0f, 0f));
+        Listener(new(1_000f, 0f, 0f));
         Emitter(AudioTestData.Constant(48_000, 1f), AudioSource.Playing);
 
         system.Synchronize(world, 1f / 60f);

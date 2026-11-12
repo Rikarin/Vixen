@@ -11,8 +11,12 @@ namespace Vixen.Ui.Controls.Tests;
 /// <summary>A reader for the numbers the document already publishes.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Every test here points the panel at a <em>second</em> document, and that is the
-///         point rather than a convenience.</b> A panel drawn into the document it describes is part
+///         ⚠
+///         <b>
+///             Every test here points the panel at a <em>second</em> document, and that is the
+///             point rather than a convenience.
+///         </b>
+///         A panel drawn into the document it describes is part
 ///         of it — writing a row adds elements, which moves <c>LayoutNodes</c> and the styling
 ///         counters the row is reporting — so an assertion of equality against its own subject can
 ///         only be true up to its own churn. Against a second document the reading is exact, which
@@ -147,9 +151,9 @@ public class DiagnosticsPanelTests {
     public void With_no_probe_the_hovered_element_is_described() {
         using var fixture = new ControlFixture(
             css: """
-                root { flex-direction: row; align-items: flex-start; }
-                .box { width: 100px; height: 50px; }
-                """
+                 root { flex-direction: row; align-items: flex-start; }
+                 .box { width: 100px; height: 50px; }
+                 """
         );
 
         var box = fixture.Document.Root.Add("div", classNames: "box");
@@ -215,8 +219,11 @@ public class DiagnosticsPanelTests {
     /// <summary>⚠ A binding that died is a row, and a document with none says zero rather than nothing.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>The reader for <c>UiDiagnostics.BrokenBindings</c>, which is the whole point of
-    ///         counting it.</b> <a href="https://github.com/Rikarin/Vixen/issues/1109">#1109</a>'s
+    ///         <b>
+    ///             The reader for <c>UiDiagnostics.BrokenBindings</c>, which is the whole point of
+    ///             counting it.
+    ///         </b>
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/1109">#1109</a>'s
     ///         symptom is a panel that renders once and freezes, and the freeze is invisible in every
     ///         other row on this list — the counters all describe a document that is settled, because
     ///         it is.

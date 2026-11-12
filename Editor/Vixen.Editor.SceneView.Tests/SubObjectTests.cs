@@ -26,7 +26,7 @@ public class SubObjectTests {
     static Vector2 Screen(EditorCamera camera, Vector3 world) {
         var projected = camera.Project(world, Width, Height);
 
-        return new Vector2(projected.X, projected.Y);
+        return new(projected.X, projected.Y);
     }
 
     // ── The element tables ──────────────────────────────────────────────────────────────────────
@@ -70,7 +70,7 @@ public class SubObjectTests {
         var sphere = MeshPrimitives.Sphere(0.5f, 24, 12);
 
         var welded = MeshElements.From(sphere);
-        var exact = MeshElements.From(sphere, tolerance: 0f);
+        var exact = MeshElements.From(sphere, 0f);
 
         Assert.True(
             welded.PositionCount < exact.PositionCount,
@@ -119,7 +119,7 @@ public class SubObjectTests {
             camera,
             Width,
             Height,
-            Screen(camera, new Vector3(0.25f, -0.1f, 0.5f))
+            Screen(camera, new(0.25f, -0.1f, 0.5f))
         );
 
         Assert.Equal(SubObjectKind.Face, hit.Kind);
@@ -131,7 +131,7 @@ public class SubObjectTests {
         var positions = elements.Positions;
 
         for (var corner = 0; corner < 3; corner++) {
-            Assert.Equal(0.5f, positions[triangles[(hit.Index * 3) + corner]].Z, 4);
+            Assert.Equal(0.5f, positions[triangles[hit.Index * 3 + corner]].Z, 4);
         }
     }
 
@@ -186,7 +186,7 @@ public class SubObjectTests {
             camera,
             Width,
             Height,
-            new Vector2(Width * 0.5f, Height * 0.5f)
+            new(Width * 0.5f, Height * 0.5f)
         );
 
         Assert.Equal(SubObjectKind.Edge, hit.Kind);
@@ -203,7 +203,7 @@ public class SubObjectTests {
         var elements = MeshElements.From(MeshPrimitives.Cube());
         var picker = new SubObjectPicker();
 
-        var at = Screen(camera, new Vector3(0.5f, 0.5f, 0.5f));
+        var at = Screen(camera, new(0.5f, 0.5f, 0.5f));
 
         // The same pixel, three questions. This is object/vertex/edge/face on the digits: the mode
         // decides which table the answer comes out of, and nothing else changes.
@@ -222,9 +222,7 @@ public class SubObjectTests {
             picker.Under(elements, Matrix4x4.Identity, camera, Width, Height, at, SubObjectFilter.Face).Kind
         );
 
-        Assert.False(
-            picker.Under(elements, Matrix4x4.Identity, camera, Width, Height, at, SubObjectFilter.None).IsHit
-        );
+        Assert.False(picker.Under(elements, Matrix4x4.Identity, camera, Width, Height, at, SubObjectFilter.None).IsHit);
     }
 
     [Fact]
@@ -235,9 +233,11 @@ public class SubObjectTests {
 
         // Well inside the +Z face, far from every corner of it on screen, and off the diagonal the
         // triangulation puts across it.
-        var at = Screen(camera, new Vector3(0.25f, -0.1f, 0.5f));
+        var at = Screen(camera, new(0.25f, -0.1f, 0.5f));
 
-        Assert.False(picker.Under(elements, Matrix4x4.Identity, camera, Width, Height, at, SubObjectFilter.Vertex).IsHit);
+        Assert.False(
+            picker.Under(elements, Matrix4x4.Identity, camera, Width, Height, at, SubObjectFilter.Vertex).IsHit
+        );
         Assert.Equal(SubObjectKind.Face, picker.Under(elements, Matrix4x4.Identity, camera, Width, Height, at).Kind);
     }
 
@@ -247,11 +247,11 @@ public class SubObjectTests {
         var elements = MeshElements.From(MeshPrimitives.Cube());
         var picker = new SubObjectPicker();
 
-        var corner = Screen(camera, new Vector3(0.5f, 0.5f, 0.5f));
+        var corner = Screen(camera, new(0.5f, 0.5f, 0.5f));
         var near = corner + new Vector2(20f, 0f);
 
         Assert.False(
-            picker.Under(elements, Matrix4x4.Identity, camera, Width, Height, near, SubObjectFilter.Vertex, 10f).IsHit
+            picker.Under(elements, Matrix4x4.Identity, camera, Width, Height, near, SubObjectFilter.Vertex).IsHit
         );
 
         Assert.Equal(
@@ -291,8 +291,8 @@ public class SubObjectTests {
         var elements = MeshElements.From(MeshPrimitives.Cube());
         var picker = new SubObjectPicker();
 
-        var transform = Matrix4x4.FromTranslation(new Vector3(2f, 0f, 0f));
-        var corner = Matrix4x4.TransformPosition(new Vector3(0.5f, 0.5f, 0.5f), transform);
+        var transform = Matrix4x4.FromTranslation(new(2f, 0f, 0f));
+        var corner = Matrix4x4.TransformPosition(new(0.5f, 0.5f, 0.5f), transform);
 
         // The pointer is where the moved corner is; the elements are still the shape's own, in its
         // own space, which is the arrangement that lets a hundred cubes share one table.
@@ -307,7 +307,7 @@ public class SubObjectTests {
         );
 
         Assert.Equal(SubObjectKind.Vertex, hit.Kind);
-        Assert.Equal(new Vector3(0.5f, 0.5f, 0.5f), elements.Positions[hit.Index]);
+        Assert.Equal(new(0.5f, 0.5f, 0.5f), elements.Positions[hit.Index]);
     }
 
     [Fact]
@@ -322,14 +322,15 @@ public class SubObjectTests {
         // editor with it.
         Assert.False(
             picker.Under(
-                elements,
-                flattened,
-                camera,
-                Width,
-                Height,
-                new Vector2(Width * 0.5f, Height * 0.5f),
-                SubObjectFilter.Face
-            ).IsHit
+                    elements,
+                    flattened,
+                    camera,
+                    Width,
+                    Height,
+                    new(Width * 0.5f, Height * 0.5f),
+                    SubObjectFilter.Face
+                )
+                .IsHit
         );
     }
 
@@ -344,8 +345,12 @@ public class SubObjectTests {
 
     /// <summary>How many separate windows of queries are measured before the bar is called missed.</summary>
     /// <remarks>
-    ///     ⚠ <b>Because <see cref="GC.GetAllocatedBytesForCurrentThread" /> measures the thread, not
-    ///     the call.</b> Anything the runtime does while this thread happens to be the one running —
+    ///     ⚠
+    ///     <b>
+    ///         Because <see cref="GC.GetAllocatedBytesForCurrentThread" /> measures the thread, not
+    ///         the call.
+    ///     </b>
+    ///     Anything the runtime does while this thread happens to be the one running —
     ///     preparing a method reached for the first time, warming a pool behind a helper — is charged
     ///     here, and one window cannot tell that apart from a query that allocates. Eight can: a
     ///     per-query allocation is in every window, and a one-off is in at most one.
@@ -397,7 +402,7 @@ public class SubObjectTests {
         var camera = Camera();
         var elements = MeshElements.From(MeshPrimitives.Cube());
         var picker = new SubObjectPicker();
-        var band = new Marquee(new Vector2(0f, 0f), new Vector2(Width, Height), false);
+        var band = new Marquee(new(0f, 0f), new(Width, Height), false);
 
         List<int> taken = [];
 
@@ -417,7 +422,7 @@ public class SubObjectTests {
         var elements = MeshElements.From(MeshPrimitives.Cube());
         var picker = new SubObjectPicker();
 
-        var corner = Screen(camera, new Vector3(0.5f, 0.5f, 0.5f));
+        var corner = Screen(camera, new(0.5f, 0.5f, 0.5f));
         var band = new Marquee(corner - new Vector2(12f), corner + new Vector2(12f), false);
 
         List<int> taken = [];
@@ -425,7 +430,7 @@ public class SubObjectTests {
         picker.Within(elements, Matrix4x4.Identity, camera, Width, Height, band, MeshElementKind.Vertex, taken);
 
         Assert.Single(taken);
-        Assert.Equal(new Vector3(0.5f, 0.5f, 0.5f), elements.Positions[taken[0]]);
+        Assert.Equal(new(0.5f, 0.5f, 0.5f), elements.Positions[taken[0]]);
 
         // ⚠ Wholly inside, not touching. Every edge at that corner leaves the box, so a touch rule
         // would take three edges from a band drawn round one point — and the extrude that followed
@@ -440,7 +445,7 @@ public class SubObjectTests {
         var elements = MeshElements.From(MeshPrimitives.Cube());
         var picker = new SubObjectPicker();
 
-        var band = new Marquee(new Vector2(2f, 2f), new Vector2(14f, 14f), false);
+        var band = new Marquee(new(2f, 2f), new(14f, 14f), false);
 
         List<int> taken = [];
 
@@ -456,10 +461,10 @@ public class SubObjectTests {
         // A cube out of the kernel is triangles, so give it a quad to have an opinion about.
         var quad = new EditMesh();
 
-        quad.AddPosition(new Vector3(-1f, 0f, -1f));
-        quad.AddPosition(new Vector3(1f, 0f, -1f));
-        quad.AddPosition(new Vector3(1f, 0f, 1f));
-        quad.AddPosition(new Vector3(-1f, 0f, 1f));
+        quad.AddPosition(new(-1f, 0f, -1f));
+        quad.AddPosition(new(1f, 0f, -1f));
+        quad.AddPosition(new(1f, 0f, 1f));
+        quad.AddPosition(new(-1f, 0f, 1f));
         quad.AddFace([0, 1, 2, 3]);
 
         var elements = MeshElements.From(quad);

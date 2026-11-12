@@ -6,7 +6,6 @@ using Vixen.Core;
 using Vixen.Core.Threading;
 using Vixen.Ecs;
 using Vixen.Ecs.Systems;
-using Vixen.Editor.Core;
 using Vixen.Engine.Diagnostics.Overlays;
 using Vixen.Engine.Transforms;
 using Xunit;
@@ -67,7 +66,7 @@ public class EditorPlaySessionTests {
     public void Pause_and_step_advance_exactly_one_frame() {
         using var world = new World("Scene");
         using var controller = new PlayModeController(world);
-        var play = new EditorPlaySession(controller, () => new Selection<Entity>());
+        var play = new EditorPlaySession(controller, static () => new());
 
         play.Enter();
         play.TogglePause();
@@ -103,12 +102,12 @@ public class EditorPlaySessionTests {
     public void The_report_names_a_project_system_that_is_not_marked() {
         using var world = new World("Scene");
         using var controller = new PlayModeController(world);
-        var play = new EditorPlaySession(controller, () => new Selection<Entity>());
+        var play = new EditorPlaySession(controller, static () => new());
 
         play.Enter();
 
         Assert.StartsWith("Play mode runs behaviours, coroutines and transforms", play.DescribeRunning());
-        Assert.DoesNotContain("does not mark [GameSystem]", play.DescribeMissing(project: null) ?? string.Empty);
+        Assert.DoesNotContain("does not mark [GameSystem]", play.DescribeMissing(null) ?? string.Empty);
 
         var said = play.DescribeMissing(typeof(UnmarkedSystem).Assembly);
 

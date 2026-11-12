@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Globalization;
-using System.Text;
 using System.Text.RegularExpressions;
 using Xunit;
 
@@ -11,8 +10,12 @@ namespace Vixen.Ui.Styling.Utilities.Tests;
 /// <summary>The parity ledger's measured columns are what the engine actually does.</summary>
 /// <remarks>
 ///     <para>
-///         <b>The requirement is <c>docs/plan/43</c> § Part 0's own closing caveat</b> — <i>"the table
-///         was generated once, by a script, and the script is not in the tree"</i> — and the week that
+///         <b>The requirement is <c>docs/plan/43</c> § Part 0's own closing caveat</b> —
+///         <i>
+///             "the table
+///             was generated once, by a script, and the script is not in the tree"
+///         </i>
+///         — and the week that
 ///         followed is the argument. Eleven grid families, <c>space-*</c>, <c>divide-*</c>, the per-edge
 ///         border colours, the eight per-corner radii, three gradient families and the ring all landed
 ///         and none of them reached the file. Twenty roots read <c>absent</c> while the feature was
@@ -41,8 +44,12 @@ namespace Vixen.Ui.Styling.Utilities.Tests;
 ///         hand-kept. The completeness fact below is what stops that being a hiding place.
 ///     </para>
 ///     <para>
-///         ⚠ <b>A collision is a question, not a verdict, and <c>block</c>/<c>inline</c> are the case
-///         that proves it.</b> They were on that list — Tailwind's <c>block-*</c> is <c>block-size</c>
+///         ⚠
+///         <b>
+///             A collision is a question, not a verdict, and <c>block</c>/<c>inline</c> are the case
+///             that proves it.
+///         </b>
+///         They were on that list — Tailwind's <c>block-*</c> is <c>block-size</c>
 ///         and Vixen's <c>block</c> was <c>display</c> — and the resolution was not to keep them apart
 ///         but to make the collision true: the family answers <c>display</c> bare and <c>height</c>
 ///         with a value, so both roots legitimately claim it and the join is right in both directions.
@@ -50,8 +57,7 @@ namespace Vixen.Ui.Styling.Utilities.Tests;
 /// </remarks>
 public class ParityLedgerTests {
     /// <summary>Set <c>VIXEN_REGENERATE=1</c> to write the measurement back instead of asserting it.</summary>
-    static bool Regenerating =>
-        Environment.GetEnvironmentVariable("VIXEN_REGENERATE") is "1";
+    static bool Regenerating => Environment.GetEnvironmentVariable("VIXEN_REGENERATE") is "1";
 
     /// <summary>Every computed column says what the engine does.</summary>
     /// <remarks>
@@ -133,8 +139,12 @@ public class ParityLedgerTests {
     /// <summary>Every registered family is claimed by some row.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Without this the whole file is a hiding place, because the drift being prevented is
-    ///         an omission and not a wrong value.</b> A family that lands and is written into no row's
+    ///         ⚠
+    ///         <b>
+    ///             Without this the whole file is a hiding place, because the drift being prevented is
+    ///             an omission and not a wrong value.
+    ///         </b>
+    ///         A family that lands and is written into no row's
     ///         <c>vixen_family</c> leaves every computed column agreeing with itself — the row that
     ///         should have moved is not joined to anything, so nothing is measured for it and
     ///         <c>absent</c> stays true of the empty join. That is precisely last week: <c>grid-rows</c>,
@@ -191,8 +201,8 @@ public class ParityLedgerTests {
     public void Every_state_is_one_of_the_five() {
         var (_, rows) = ParityLedger.Read(ParityLedger.Locate());
         var bad = rows
-            .Where(r => !ParityLedger.States.Contains(r.State, StringComparer.Ordinal))
-            .Select(r => $"{r.Root} = `{r.State}`")
+            .Where(static r => !ParityLedger.States.Contains(r.State, StringComparer.Ordinal))
+            .Select(static r => $"{r.Root} = `{r.State}`")
             .ToList();
 
         Assert.True(
@@ -205,8 +215,12 @@ public class ParityLedgerTests {
     /// <summary>No Tailwind class is listed by two rows.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>This is the fingerprint of an aggregate row, and an aggregate row is what the
-    ///         ledger cannot otherwise notice</b> (#710). <c>composed (--tw-* only)</c> was eight
+    ///         ⚠
+    ///         <b>
+    ///             This is the fingerprint of an aggregate row, and an aggregate row is what the
+    ///             ledger cannot otherwise notice
+    ///         </b>
+    ///         (#710). <c>composed (--tw-* only)</c> was eight
     ///         static classes from unrelated Tailwind roots under one descriptive name; splitting it
     ///         gave each class the root that owns it, which is what let <c>unknown</c> be retired
     ///         (<c>b9a7934d</c>). A hand resolution of a merge conflict in this file put the row back
@@ -216,8 +230,11 @@ public class ParityLedgerTests {
     ///         suddenly on two rows at once.
     ///     </para>
     ///     <para>
-    ///         <b>A class belongs to exactly one root, which is why this can be an equality rather
-    ///         than a heuristic.</b> ⚠ Contrast <c>vixen_family</c>, which several rows may
+    ///         <b>
+    ///             A class belongs to exactly one root, which is why this can be an equality rather
+    ///             than a heuristic.
+    ///         </b>
+    ///         ⚠ Contrast <c>vixen_family</c>, which several rows may
     ///         legitimately share — <c>flex</c> is claimed by three — because a Vixen family can
     ///         answer more than one Tailwind root. The direction that is one-to-one is the class.
     ///     </para>
@@ -256,9 +273,9 @@ public class ParityLedgerTests {
         }
 
         var shared = owners
-            .Where(entry => entry.Value.Count > 1)
-            .OrderBy(entry => entry.Key, StringComparer.Ordinal)
-            .Select(entry => $"{entry.Key} is on {entry.Value.Count} rows: {string.Join(", ", entry.Value)}")
+            .Where(static entry => entry.Value.Count > 1)
+            .OrderBy(static entry => entry.Key, StringComparer.Ordinal)
+            .Select(static entry => $"{entry.Key} is on {entry.Value.Count} rows: {string.Join(", ", entry.Value)}")
             .ToList();
 
         // ⚠ The instrument, and the floor alone was NOT enough — that is measured rather than
@@ -295,8 +312,12 @@ public class ParityLedgerTests {
     /// <summary>The rendered summary's root and family counts are the registry's, not a transcript.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The family count was typed by hand in the paragraph that says nothing is typed by
-    ///         hand any more, and it was wrong by roughly a factor of two.</b> The row read
+    ///         ⚠
+    ///         <b>
+    ///             The family count was typed by hand in the paragraph that says nothing is typed by
+    ///             hand any more, and it was wrong by roughly a factor of two.
+    ///         </b>
+    ///         The row read
     ///         <c>128 families</c> and the prose under it argued, correctly, that the figure moves every
     ///         week and so has to be read off the registry on the run that prints it. It was not being
     ///         read off anything. <see cref="ParityLedger.Measure" /> answers a number in the
@@ -326,7 +347,7 @@ public class ParityLedgerTests {
             @"^\|\s*Utility \*\*roots\*\*[^|]*\|\s*\*\*(?<roots>\d+)\*\*\s*\|\s*(?<families>\d+) families\s*\|\s*$"
         );
 
-        var row = plan.Select(line => shape.Match(line)).FirstOrDefault(m => m.Success);
+        var row = plan.Select(line => shape.Match(line)).FirstOrDefault(static m => m.Success);
 
         Assert.True(
             row is not null,
@@ -356,8 +377,12 @@ public class ParityLedgerTests {
     ///         is a third copy of the registry, and it rots the same way the other two did.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Read as a whole table rather than a search per state, because the first version was
-    ///         satisfied by a malformed one.</b> It asked <c>Regex.Match</c> for each state's row and
+    ///         ⚠
+    ///         <b>
+    ///             Read as a whole table rather than a search per state, because the first version was
+    ///             satisfied by a malformed one.
+    ///         </b>
+    ///         It asked <c>Regex.Match</c> for each state's row and
     ///         checked the number it found. <c>Match</c> returns the <i>first</i> hit, so a document
     ///         carrying two <c>absent</c> rows — which master did, at <c>ce585d78</c>, saying 91 and 90
     ///         — passed on the first and left the second to be read by a human. That is the "what does
@@ -388,7 +413,7 @@ public class ParityLedgerTests {
             + "until it is found again — a sweep that matches nothing reports nothing."
         );
 
-        Assert.Equal(ParityLedger.States, table.Select(row => row.State).ToArray());
+        Assert.Equal(ParityLedger.States, table.Select(static row => row.State).ToArray());
 
         var missing = new List<string>();
 
@@ -428,8 +453,11 @@ public class ParityLedgerTests {
     /// <returns>The rows, in the order the document writes them.</returns>
     static List<(string State, int Count)> StateTable(string[] plan) {
         var shape = new Regex(@"^\|\s*\*\*(?<state>[A-Za-z]+)\*\*\s*\|[^|\n]*\|\s*\*\*(?<count>\d+)\*\*\s*\|\s*$");
-        var anchor = Array.FindIndex(plan, line => shape.Match(line) is { Success: true } m
-            && m.Groups["state"].Value == "works");
+        var anchor = Array.FindIndex(
+            plan,
+            line => shape.Match(line) is { Success: true } m
+                && m.Groups["state"].Value == "works"
+        );
 
         if (anchor < 0) {
             return [];
@@ -447,20 +475,25 @@ public class ParityLedgerTests {
         }
 
         return [
-            .. plan[first..(last + 1)]
+            ..plan[first..(last + 1)]
                 .Select(line => shape.Match(line))
-                .Select(m => (
-                    m.Groups["state"].Value,
-                    int.Parse(m.Groups["count"].Value, CultureInfo.InvariantCulture)
-                ))
+                .Select(static m => (
+                        m.Groups["state"].Value,
+                        int.Parse(m.Groups["count"].Value, CultureInfo.InvariantCulture)
+                    )
+                )
         ];
     }
 
     /// <summary>The "By category" table has one row per category and adds up to its own total.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Nothing read this table at all until now, and the issue that asked for it believed
-    ///         something did.</b> #537 reasoned that a duplicated category row "would double-count into
+    ///         ⚠
+    ///         <b>
+    ///             Nothing read this table at all until now, and the issue that asked for it believed
+    ///             something did.
+    ///         </b>
+    ///         #537 reasoned that a duplicated category row "would double-count into
     ///         a <c>Total</c> the test does check" — the test checked Part 0's state table and only that,
     ///         so the whole fifteen-row cross-tabulation of the ledger was prose. It is the larger of
     ///         the two tables and the one a reader uses to decide what to work on next.
@@ -494,7 +527,8 @@ public class ParityLedgerTests {
             + @"})\s*$"
         );
         var header = Array.FindIndex(
-            plan, line => line.StartsWith("| Category | roots | works |", StringComparison.Ordinal)
+            plan,
+            static line => line.StartsWith("| Category | roots | works |", StringComparison.Ordinal)
         );
 
         Assert.True(
@@ -507,18 +541,21 @@ public class ParityLedgerTests {
         var body = new List<(string Category, int[] Counts)>();
 
         for (var line = header + 2; line < plan.Length && shape.Match(plan[line]) is { Success: true } m; line++) {
-            body.Add((
-                m.Groups["category"].Value,
-                [
-                    .. m.Groups["counts"].Value.Split('|', StringSplitOptions.RemoveEmptyEntries)
-                        .Select(cell => int.Parse(cell.Trim(), CultureInfo.InvariantCulture))
-                ]
-            ));
+            body.Add(
+                (
+                    m.Groups["category"].Value,
+                    [
+                        ..m.Groups["counts"]
+                            .Value.Split('|', StringSplitOptions.RemoveEmptyEntries)
+                            .Select(static cell => int.Parse(cell.Trim(), CultureInfo.InvariantCulture))
+                    ]
+                )
+            );
         }
 
         Assert.Equal(
-            rows.Select(row => row.Category).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal),
-            body.Select(row => row.Category).Order(StringComparer.Ordinal)
+            rows.Select(static row => row.Category).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal),
+            body.Select(static row => row.Category).Order(StringComparer.Ordinal)
         );
 
         var wrong = new List<string>();
@@ -539,14 +576,18 @@ public class ParityLedgerTests {
 
         // Against the ledger, not against the column sums: a table every row of which agrees with
         // the row above it can still be a table of the wrong measurement.
-        var total = Array.FindIndex(plan, header, line => line.StartsWith("| **Total** |", StringComparison.Ordinal));
+        var total = Array.FindIndex(
+            plan,
+            header,
+            static line => line.StartsWith("| **Total** |", StringComparison.Ordinal)
+        );
 
-        Assert.True(total > header, "the \"By category\" table has no `| **Total** |` row.");
+        Assert.True(total > header, """the "By category" table has no `| **Total** |` row.""");
 
         var quoted = plan[total]
             .Split('|', StringSplitOptions.RemoveEmptyEntries)
             .Skip(1)
-            .Select(cell => int.Parse(cell.Trim().Trim('*'), CultureInfo.InvariantCulture))
+            .Select(static cell => int.Parse(cell.Trim().Trim('*'), CultureInfo.InvariantCulture))
             .ToArray();
 
         var ledger = new[] { rows.Count }

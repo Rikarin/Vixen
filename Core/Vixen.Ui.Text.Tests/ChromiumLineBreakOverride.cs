@@ -81,48 +81,47 @@ public static class ChromiumLineBreakOverride {
     /// <param name="before">The character on the left of the position.</param>
     /// <param name="after">The character on the right of the position.</param>
     /// <returns>True to force an opportunity, false to suppress one, null to defer.</returns>
-    public static bool? Lookup(char before, char after) =>
-        before < 128 && after < 128 ? Table[before, after] : null;
+    public static bool? Lookup(char before, char after) => before < 128 && after < 128 ? Table[before, after] : null;
 
     /// <summary>Parley's <c>AsciiLineBreakTableBuilder::chromium</c>, rule for rule and in order.</summary>
     static bool?[,] Build() {
         var table = new bool?[128, 128];
 
         // Every printable pair defaults to "no break", and the rules below carve out of it.
-        Pairs(table, First, Last, First, Last, allow: false);
-        Pairs(table, First, Last, '(', '(', allow: true);
-        Pairs(table, First, Last, '<', '<', allow: true);
-        Pairs(table, First, Last, '[', '[', allow: true);
-        Pairs(table, First, Last, '{', '{', allow: true);
-        Pairs(table, '-', '-', First, Last, allow: true);
-        Pairs(table, '?', '?', First, Last, allow: true);
-        Pairs(table, '-', '-', '$', '$', allow: false);
-        Pairs(table, First, Last, '!', '!', allow: false);
-        Pairs(table, '?', '?', '"', '"', allow: false);
-        Pairs(table, '?', '?', '\'', '\'', allow: false);
-        Pairs(table, First, Last, ')', ')', allow: false);
-        Pairs(table, First, Last, ',', ',', allow: false);
-        Pairs(table, First, Last, '.', '.', allow: false);
-        Pairs(table, First, Last, '/', '/', allow: false);
-        Pairs(table, '-', '-', '0', '9', allow: false);
-        Pairs(table, First, Last, ':', ':', allow: false);
-        Pairs(table, First, Last, ';', ';', allow: false);
-        Pairs(table, First, Last, '?', '?', allow: false);
-        Pairs(table, First, Last, ']', ']', allow: false);
-        Pairs(table, First, Last, '}', '}', allow: false);
-        Pairs(table, '$', '$', First, Last, allow: false);
-        Pairs(table, '\'', '\'', First, Last, allow: false);
-        Pairs(table, '(', '(', First, Last, allow: false);
-        Pairs(table, '/', '/', First, Last, allow: false);
-        Pairs(table, '0', '9', First, Last, allow: false);
-        Pairs(table, '<', '<', First, Last, allow: false);
-        Pairs(table, '@', '@', First, Last, allow: false);
-        Pairs(table, 'A', 'Z', First, Last, allow: false);
-        Pairs(table, '[', '[', First, Last, allow: false);
-        Pairs(table, '^', '`', First, Last, allow: false);
-        Pairs(table, 'a', 'z', First, Last, allow: false);
-        Pairs(table, '{', '{', First, Last, allow: false);
-        Pairs(table, Last, Last, First, Last, allow: false);
+        Pairs(table, First, Last, First, Last, false);
+        Pairs(table, First, Last, '(', '(', true);
+        Pairs(table, First, Last, '<', '<', true);
+        Pairs(table, First, Last, '[', '[', true);
+        Pairs(table, First, Last, '{', '{', true);
+        Pairs(table, '-', '-', First, Last, true);
+        Pairs(table, '?', '?', First, Last, true);
+        Pairs(table, '-', '-', '$', '$', false);
+        Pairs(table, First, Last, '!', '!', false);
+        Pairs(table, '?', '?', '"', '"', false);
+        Pairs(table, '?', '?', '\'', '\'', false);
+        Pairs(table, First, Last, ')', ')', false);
+        Pairs(table, First, Last, ',', ',', false);
+        Pairs(table, First, Last, '.', '.', false);
+        Pairs(table, First, Last, '/', '/', false);
+        Pairs(table, '-', '-', '0', '9', false);
+        Pairs(table, First, Last, ':', ':', false);
+        Pairs(table, First, Last, ';', ';', false);
+        Pairs(table, First, Last, '?', '?', false);
+        Pairs(table, First, Last, ']', ']', false);
+        Pairs(table, First, Last, '}', '}', false);
+        Pairs(table, '$', '$', First, Last, false);
+        Pairs(table, '\'', '\'', First, Last, false);
+        Pairs(table, '(', '(', First, Last, false);
+        Pairs(table, '/', '/', First, Last, false);
+        Pairs(table, '0', '9', First, Last, false);
+        Pairs(table, '<', '<', First, Last, false);
+        Pairs(table, '@', '@', First, Last, false);
+        Pairs(table, 'A', 'Z', First, Last, false);
+        Pairs(table, '[', '[', First, Last, false);
+        Pairs(table, '^', '`', First, Last, false);
+        Pairs(table, 'a', 'z', First, Last, false);
+        Pairs(table, '{', '{', First, Last, false);
+        Pairs(table, Last, Last, First, Last, false);
 
         return table;
     }

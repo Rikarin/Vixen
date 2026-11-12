@@ -109,7 +109,7 @@ readonly record struct ContractModel(
     string Namespace,
     string TypeName,
     string Alias,
-    System.Collections.Immutable.ImmutableArray<string> FormerAliases,
+    ImmutableArray<string> FormerAliases,
     string QualifiedName,
     string SafeName,
     bool IsValueType,

@@ -17,15 +17,15 @@ public class ProjectBrowserTests {
 
         Assert.Empty(history.Entries);
 
-        history.Record(Path.Combine(scope.Directory, "Alpha"), new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc));
-        history.Record(Path.Combine(scope.Directory, "Beta"), new DateTime(2026, 2, 1, 0, 0, 0, DateTimeKind.Utc));
+        history.Record(Path.Combine(scope.Directory, "Alpha"), new(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc));
+        history.Record(Path.Combine(scope.Directory, "Beta"), new(2026, 2, 1, 0, 0, 0, DateTimeKind.Utc));
 
-        Assert.Equal(["Beta", "Alpha"], history.Entries.Select(entry => entry.Name));
+        Assert.Equal(["Beta", "Alpha"], history.Entries.Select(static entry => entry.Name));
 
         // Reopening one moves it back to the top rather than adding a second entry.
-        history.Record(Path.Combine(scope.Directory, "Alpha"), new DateTime(2026, 3, 1, 0, 0, 0, DateTimeKind.Utc));
+        history.Record(Path.Combine(scope.Directory, "Alpha"), new(2026, 3, 1, 0, 0, 0, DateTimeKind.Utc));
 
-        Assert.Equal(["Alpha", "Beta"], history.Entries.Select(entry => entry.Name));
+        Assert.Equal(["Alpha", "Beta"], history.Entries.Select(static entry => entry.Name));
     }
 
     [Fact]
@@ -42,11 +42,11 @@ public class ProjectBrowserTests {
         }
 
         Assert.Equal(3, history.Entries.Count);
-        Assert.Equal(["Project5", "Project4", "Project3"], history.Entries.Select(entry => entry.Name));
+        Assert.Equal(["Project5", "Project4", "Project3"], history.Entries.Select(static entry => entry.Name));
 
         var reopened = new ProjectHistory(scope.Directory);
 
-        Assert.Equal(["Project5", "Project4", "Project3"], reopened.Entries.Select(entry => entry.Name));
+        Assert.Equal(["Project5", "Project4", "Project3"], reopened.Entries.Select(static entry => entry.Name));
     }
 
     /// <summary>
@@ -182,5 +182,4 @@ public class ProjectBrowserTests {
             }
         }
     }
-
 }

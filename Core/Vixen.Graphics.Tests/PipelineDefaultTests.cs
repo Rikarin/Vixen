@@ -36,8 +36,7 @@ public sealed class PipelineDefaultTests {
     }
 
     [Fact]
-    public void RasterizerTwoSidedCullsNothing() =>
-        Assert.Equal(CullMode.None, RasterizerState.TwoSided.Cull);
+    public void RasterizerTwoSidedCullsNothing() => Assert.Equal(CullMode.None, RasterizerState.TwoSided.Cull);
 
     /// <summary>Reversed-Z: <see cref="CompareFunction.Greater" />, not <c>Less</c>.</summary>
     [Fact]
@@ -133,7 +132,7 @@ public sealed class PipelineDefaultTests {
 
         var writesNothing = new ColourTargetState(
             PixelFormat.Rgba8UNorm,
-            new BlendState(WriteMask: ColourWriteMask.None)
+            new(WriteMask: ColourWriteMask.None)
         );
 
         Assert.Equal(ColourWriteMask.None, writesNothing.EffectiveBlend.WriteMask);

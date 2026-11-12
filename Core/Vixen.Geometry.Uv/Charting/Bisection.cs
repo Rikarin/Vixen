@@ -6,9 +6,13 @@ namespace Vixen.Geometry.Uv.Charting;
 /// <summary>The built-in decomposition: an approximate convex split whose boundary is a walk on the graph.</summary>
 /// <remarks>
 ///     <para>
-///         docs/plan/42 § D3's default — <i>"approximate convex decomposition over the dual graph,
-///         weighted by dihedral concavity and the shape diameter function, which is the same family
-///         Seamster drew on to find inconspicuous cuts"</i> — and § D4's rule that the cut it produces is
+///         docs/plan/42 § D3's default —
+///         <i>
+///             "approximate convex decomposition over the dual graph,
+///             weighted by dihedral concavity and the shape diameter function, which is the same family
+///             Seamster drew on to find inconspicuous cuts"
+///         </i>
+///         — and § D4's rule that the cut it produces is
 ///         a set of <b>existing mesh edges</b> found by search under an edge cost.
 ///     </para>
 ///     <para>
@@ -20,8 +24,12 @@ namespace Vixen.Geometry.Uv.Charting;
 ///         representational argument, applied to a hand-written tracer.
 ///     </para>
 ///     <para>
-///         ⚠ <b>A partition of the <i>faces</i> rather than a path across the surface, and that is what
-///         makes it total.</b> A cut described as a path has to answer a different topological question
+///         ⚠
+///         <b>
+///             A partition of the <i>faces</i> rather than a path across the surface, and that is what
+///             makes it total.
+///         </b>
+///         A cut described as a path has to answer a different topological question
 ///         for every input — a disk wants a boundary-to-boundary path, an annulus wants a path joining
 ///         its two loops, a closed surface wants a separating loop, a handle wants two — and each of
 ///         those is a case that can fail. Splitting the face set can fail at nothing: any partition of a
@@ -42,8 +50,12 @@ static class Bisection {
     /// <param name="faces">The region, ascending.</param>
     /// <returns>The parts, each ascending, ordered by their lowest face index.</returns>
     /// <remarks>
-    ///     ⚠ <b>A region that falls into dual-connected pieces is returned as those pieces, before any
-    ///     geometry is looked at.</b> That is the answer to three of <c>ChartRefusal</c>'s reasons at
+    ///     ⚠
+    ///     <b>
+    ///         A region that falls into dual-connected pieces is returned as those pieces, before any
+    ///         geometry is looked at.
+    ///     </b>
+    ///     That is the answer to three of <c>ChartRefusal</c>'s reasons at
     ///     once — a disconnected chart, a bowtie pinch, and a chart reached through a non-manifold edge
     ///     — because none of the three is a shape problem and a bisection would be answering the wrong
     ///     question about all of them.
@@ -140,7 +152,7 @@ static class Bisection {
             }
 
             found.Sort();
-            components.Add([.. found]);
+            components.Add([..found]);
         }
 
         return components;
@@ -198,8 +210,16 @@ static class Bisection {
         var a = graph.Centroids[left];
         var b = graph.Centroids[right];
 
-        var one = axis switch { 0 => a.X, 1 => a.Y, _ => a.Z };
-        var other = axis switch { 0 => b.X, 1 => b.Y, _ => b.Z };
+        var one = axis switch {
+            0 => a.X,
+            1 => a.Y,
+            _ => a.Z
+        };
+        var other = axis switch {
+            0 => b.X,
+            1 => b.Y,
+            _ => b.Z
+        };
 
         if (one != other) {
             return one < other;
@@ -249,8 +269,12 @@ static class Bisection {
 
     /// <summary>Dijkstra over the region's dual subgraph under <see cref="SeamGraph.Barrier" />.</summary>
     /// <remarks>
-    ///     ⚠ <b>Only the distances are used, never the paths, and that is what makes the queue's tie
-    ///     order irrelevant.</b> A shortest distance is a well-defined function of the graph however the
+    ///     ⚠
+    ///     <b>
+    ///         Only the distances are used, never the paths, and that is what makes the queue's tie
+    ///         order irrelevant.
+    ///     </b>
+    ///     A shortest distance is a well-defined function of the graph however the
     ///     search reached it; a shortest <i>path</i> is not, when two of them tie. Taking the first and
     ///     comparing distances afterwards is what keeps this deterministic without a comparer whose
     ///     ordering would then itself be part of the contract.
@@ -326,7 +350,7 @@ static class Bisection {
             return null;
         }
 
-        return mine[0] < theirs[0] ? [[.. mine], [.. theirs]] : [[.. theirs], [.. mine]];
+        return mine[0] < theirs[0] ? [[..mine], [..theirs]] : [[..theirs], [..mine]];
     }
 
     /// <summary>What a proposed split would cost to cut, summed over the edges it crosses.</summary>

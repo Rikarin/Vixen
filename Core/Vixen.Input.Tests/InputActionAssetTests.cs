@@ -38,7 +38,7 @@ public class InputActionAssetTests {
         Assert.Equal("WASD", composite.Name);
         Assert.Equal("Keyboard&Mouse", composite.Groups);
         Assert.Equal(4, composite.Parts.Count);
-        Assert.Equal(["up", "down", "left", "right"], composite.Parts.Select(part => part.Part));
+        Assert.Equal(["up", "down", "left", "right"], composite.Parts.Select(static part => part.Part));
     }
 
     [Fact]
@@ -54,7 +54,10 @@ public class InputActionAssetTests {
         var scheme = Sample.Read().ControlSchemes[0];
 
         Assert.Equal("Keyboard&Mouse", scheme.Name);
-        Assert.Equal([InputDeviceKind.Keyboard, InputDeviceKind.Mouse], scheme.Devices.Select(device => device.Device));
+        Assert.Equal(
+            [InputDeviceKind.Keyboard, InputDeviceKind.Mouse],
+            scheme.Devices.Select(static device => device.Device)
+        );
     }
 
     [Fact]
@@ -98,8 +101,8 @@ public class InputActionAssetTests {
         var reread = InputActionAssetReader.Read(InputActionAssetWriter.Write(original), original.Name).Asset!;
 
         Assert.Equal(
-            original.Maps.SelectMany(map => map.Actions.Select(action => $"{map.Name}/{action.Name}")),
-            reread.Maps.SelectMany(map => map.Actions.Select(action => $"{map.Name}/{action.Name}"))
+            original.Maps.SelectMany(static map => map.Actions.Select(action => $"{map.Name}/{action.Name}")),
+            reread.Maps.SelectMany(static map => map.Actions.Select(action => $"{map.Name}/{action.Name}"))
         );
     }
 
@@ -137,7 +140,10 @@ public class InputActionAssetTests {
             """
         );
 
-        Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Message.Contains("no 'name'", StringComparison.Ordinal));
+        Assert.Contains(
+            result.Diagnostics,
+            static diagnostic => diagnostic.Message.Contains("no 'name'", StringComparison.Ordinal)
+        );
     }
 
     [Fact]
@@ -153,7 +159,10 @@ public class InputActionAssetTests {
             """
         );
 
-        Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Message.Contains("already has an action", StringComparison.Ordinal));
+        Assert.Contains(
+            result.Diagnostics,
+            static diagnostic => diagnostic.Message.Contains("already has an action", StringComparison.Ordinal)
+        );
     }
 
     [Fact]
@@ -174,7 +183,10 @@ public class InputActionAssetTests {
             """
         );
 
-        Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Message.Contains("'down' part", StringComparison.Ordinal));
+        Assert.Contains(
+            result.Diagnostics,
+            static diagnostic => diagnostic.Message.Contains("'down' part", StringComparison.Ordinal)
+        );
     }
 
     [Fact]
@@ -200,7 +212,10 @@ public class InputActionAssetTests {
             """
         );
 
-        Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Message.Contains("controlType", StringComparison.Ordinal));
+        Assert.Contains(
+            result.Diagnostics,
+            static diagnostic => diagnostic.Message.Contains("controlType", StringComparison.Ordinal)
+        );
     }
 
     [Fact]
@@ -216,7 +231,10 @@ public class InputActionAssetTests {
             """
         );
 
-        Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Message.Contains("newer editor", StringComparison.Ordinal));
+        Assert.Contains(
+            result.Diagnostics,
+            static diagnostic => diagnostic.Message.Contains("newer editor", StringComparison.Ordinal)
+        );
 
         // And it still loaded. Refusing would strand a player on the version they first ran.
         Assert.NotNull(result.Asset);
@@ -237,7 +255,7 @@ public class InputActionAssetTests {
         );
 
         Assert.Single(result.Diagnostics);
-        Assert.Equal(["Fire", "Jump"], result.Asset!.Maps[0].Actions.Select(action => action.Name));
+        Assert.Equal(["Fire", "Jump"], result.Asset!.Maps[0].Actions.Select(static action => action.Name));
     }
 
     [Fact]

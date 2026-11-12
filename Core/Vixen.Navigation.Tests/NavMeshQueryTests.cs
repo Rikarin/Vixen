@@ -71,7 +71,10 @@ public sealed class NavMeshQueryTests {
         }
 
         var direct = Vector3.Distance(startPoint, endPoint);
-        Assert.True(length < direct * 1.05f, $"The path across an open floor is {length}, against a straight line of {direct}.");
+        Assert.True(
+            length < direct * 1.05f,
+            $"The path across an open floor is {length}, against a straight line of {direct}."
+        );
     }
 
     [Fact]
@@ -97,7 +100,10 @@ public sealed class NavMeshQueryTests {
             length += Vector3.Distance(corners[index - 1].Position, corners[index].Position);
         }
 
-        Assert.True(length > Vector3.Distance(startPoint, endPoint), "Going around cannot be shorter than going through.");
+        Assert.True(
+            length > Vector3.Distance(startPoint, endPoint),
+            "Going around cannot be shorter than going through."
+        );
 
         // Every corner has to be on the walkable side of the wall — the gap is at x in [8, 12], and
         // a corner at the wall's depth outside it would mean the funnel cut through the geometry.
@@ -159,7 +165,16 @@ public sealed class NavMeshQueryTests {
 
         query.FindNearestPoly(new(3, 0, 8), Extents, NavQueryFilter.Default, out var start, out var startPoint);
 
-        Assert.True(query.MoveAlongSurface(start, startPoint, new(3, 0, 12), NavQueryFilter.Default, out var position, out var poly));
+        Assert.True(
+            query.MoveAlongSurface(
+                start,
+                startPoint,
+                new(3, 0, 12),
+                NavQueryFilter.Default,
+                out var position,
+                out var poly
+            )
+        );
         Assert.False(poly.IsNull);
         Assert.True(position.Z < 9.5f, $"The agent ended up at {position}, which is inside the wall.");
 

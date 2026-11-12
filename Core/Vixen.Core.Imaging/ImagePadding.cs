@@ -27,8 +27,11 @@ public enum PaddingMode {
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>It is <c>MapBaker.Dilate</c>'s idea, on a <see cref="FloatImage" /> rather than on a
-///         bake's buffers</b>, and the two rules that make it right are the same. The coverage is
+///         <b>
+///             It is <c>MapBaker.Dilate</c>'s idea, on a <see cref="FloatImage" /> rather than on a
+///             bake's buffers
+///         </b>
+///         , and the two rules that make it right are the same. The coverage is
 ///         read and never written, so one island's padding cannot overwrite the island beside it.
 ///         And each round commits after it finishes, so a texel filled early in a round cannot be
 ///         read by one later in the same round: where two islands' fronts meet in one round,
@@ -254,7 +257,7 @@ public static class ImagePadding {
             for (var y = 0; y < height; y++) {
                 for (var x = 0; x < width; x++) {
                     var from = y * width + x;
-                    var to = (y / 2) * w + (x / 2);
+                    var to = y / 2 * w + x / 2;
                     var weight = aboveWeights[from];
                     total[to] += weight;
 
@@ -296,10 +299,18 @@ public static class ImagePadding {
                     var keep = hereWeights[at];
 
                     for (var lane = 0; lane < lanes; lane++) {
-                        var upper = float.Lerp(coarse[(top * cw + left) * lanes + lane], coarse[(top * cw + right) * lanes + lane], s);
-                        var lower = float.Lerp(coarse[(bottom * cw + left) * lanes + lane], coarse[(bottom * cw + right) * lanes + lane], s);
+                        var upper = float.Lerp(
+                            coarse[(top * cw + left) * lanes + lane],
+                            coarse[(top * cw + right) * lanes + lane],
+                            s
+                        );
+                        var lower = float.Lerp(
+                            coarse[(bottom * cw + left) * lanes + lane],
+                            coarse[(bottom * cw + right) * lanes + lane],
+                            s
+                        );
                         var pulled = float.Lerp(upper, lower, t);
-                        here[at * lanes + lane] = (here[at * lanes + lane] * keep) + (pulled * (1f - keep));
+                        here[at * lanes + lane] = here[at * lanes + lane] * keep + pulled * (1f - keep);
                     }
 
                     hereWeights[at] = 1f;

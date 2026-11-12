@@ -8,8 +8,11 @@ namespace Vixen.Geometry.Testing;
 /// <summary>How many cases a property gets, which is not the same number on a build and overnight.</summary>
 /// <remarks>
 ///     <para>
-///         <b>A property test's value is proportional to how much of its space it sees, and the space
-///         these draw from is far larger than a build can afford to walk.</b> The per-commit gate runs
+///         <b>
+///             A property test's value is proportional to how much of its space it sees, and the space
+///             these draw from is far larger than a build can afford to walk.
+///         </b>
+///         The per-commit gate runs
 ///         each property a hundred times or so, which is enough to be a regression test and is not a
 ///         search. The nightly leg runs the same properties with this multiplier raised, which is the
 ///         search.
@@ -23,8 +26,12 @@ namespace Vixen.Geometry.Testing;
 ///         it. This multiplies what each property already asked for and keeps their relative weights.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The seed is deliberately not pinned, and that is a decision rather than an
-///         oversight.</b> CsCheck draws a fresh seed per run unless told otherwise, so every build
+///         ⚠
+///         <b>
+///             The seed is deliberately not pinned, and that is a decision rather than an
+///             oversight.
+///         </b>
+///         CsCheck draws a fresh seed per run unless told otherwise, so every build
 ///         already explores somewhere new — which is how a one-in-twenty flake in the least-squares
 ///         solver was found at all. A nightly that re-ran a fixed seed with more iterations would
 ///         walk further down one path; this walks further down a different path every night. The
@@ -58,9 +65,9 @@ public static class PropertyBudget {
         // give a run that takes too long and gets killed by the job's timeout, which is legible —
         // not a negative iteration count, which CsCheck reads as "none" and which would report a
         // green nightly having tested nothing.
-        var scaled = (long) onABuild * Multiplier;
+        var scaled = (long)onABuild * Multiplier;
 
-        return scaled > int.MaxValue ? int.MaxValue : (int) scaled;
+        return scaled > int.MaxValue ? int.MaxValue : (int)scaled;
     }
 
     static int Read() {

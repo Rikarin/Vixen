@@ -143,7 +143,7 @@ public sealed class MixerParameters {
             }
         }
 
-        bindings = [.. resolved];
+        bindings = [..resolved];
         problems = found;
 
         // Once at construction, so the mix is at its defaults before the first frame rather than one
@@ -218,7 +218,7 @@ public sealed class MixerParameters {
 
         values[index] = MathF.Abs(difference) <= step
             ? target
-            : values[index] + (MathF.Sign(difference) * step);
+            : values[index] + MathF.Sign(difference) * step;
     }
 
     /// <summary>Combines every binding's contribution and writes it into the mix.</summary>
@@ -258,9 +258,6 @@ public sealed class MixerParameters {
 
                 case AudioBusParameterTarget.EffectProperty:
                     binding.Effect!.TrySetProperty(binding.Property, value);
-                    break;
-
-                default:
                     break;
             }
         }
@@ -334,8 +331,7 @@ public sealed class MixerParameters {
                 }
 
                 return new(parameter, automation.Target, bus, automation.Curve) {
-                    Effect = effect,
-                    Property = automation.Property
+                    Effect = effect, Property = automation.Property
                 };
             }
         }

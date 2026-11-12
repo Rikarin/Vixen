@@ -35,9 +35,13 @@ namespace Vixen.Ui.Styling.Utilities;
 ///         an <i>ordering</i> convention and not an evaluation, and since #1373 it is one the
 ///         evaluators can disagree with. <see cref="MediaQuery" /> measures both units against the
 ///         document's text size and <see cref="ContainerQuery" /> measures <c>em</c> against the
-///         container's own font, while this order is written once into a generated sheet. ⚠ <b>So it
-///         is mobile-first among groups in one unit at any text size, and across units only at
-///         100 %.</b> <c>min-[40rem]:</c> against <c>min-[700px]:</c> sorts 640 before 700. At 150 %
+///         container's own font, while this order is written once into a generated sheet. ⚠
+///         <b>
+///             So it
+///             is mobile-first among groups in one unit at any text size, and across units only at
+///             100 %.
+///         </b>
+///         <c>min-[40rem]:</c> against <c>min-[700px]:</c> sorts 640 before 700. At 150 %
 ///         the first means 960, both hold on a 1000-pixel window, and the 700 is still written last
 ///         and still wins, though the 960 is now the tighter condition. A browser has the same limit,
 ///         because a sheet's order does not move with the reader's font. It only shows on an element
@@ -144,7 +148,8 @@ sealed class AtRuleOrder : IComparer<string> {
             return (family, Direction.AtLeast, Pixels(condition["min-width:".Length..]));
         }
 
-        if (condition.StartsWith("width <", StringComparison.Ordinal) && !condition.StartsWith("width <=", StringComparison.Ordinal)) {
+        if (condition.StartsWith("width <", StringComparison.Ordinal)
+            && !condition.StartsWith("width <=", StringComparison.Ordinal)) {
             return (family, Direction.Below, Pixels(condition["width <".Length..]));
         }
 

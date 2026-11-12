@@ -145,8 +145,7 @@ public sealed class EditableDocumentPortTests {
 
         public override bool CanReload => true;
 
-        protected override void SaveCore() {
-        }
+        protected override void SaveCore() { }
 
         protected override bool ReloadCore() {
             Reloads++;

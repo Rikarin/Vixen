@@ -23,7 +23,7 @@ public sealed class HeadlessClosureTests {
         Assert.Contains("Vixen.Texturing", assemblies);
         Assert.DoesNotContain(
             assemblies,
-            name => name!.StartsWith("Vixen.Editor.", StringComparison.Ordinal)
+            static name => name!.StartsWith("Vixen.Editor.", StringComparison.Ordinal)
                 || (name.StartsWith("Vixen.Ui", StringComparison.Ordinal) && name != "Vixen.Ui.Reactive")
         );
     }

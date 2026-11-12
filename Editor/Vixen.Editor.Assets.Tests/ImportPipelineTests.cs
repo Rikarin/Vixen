@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Text;
-using Vixen.Core;
 using Vixen.Core.IO;
 using Vixen.Core.Serialization.Storage;
 using Vixen.Core.Yaml;
@@ -29,7 +28,7 @@ public sealed class ImportPipelineTests : IDisposable {
     public void Dispose() {
         try {
             if (Directory.Exists(root)) {
-                Directory.Delete(root, recursive: true);
+                Directory.Delete(root, true);
             }
         } catch (IOException) {
             // A temporary directory that would not go is not a test failure.
@@ -41,7 +40,10 @@ public sealed class ImportPipelineTests : IDisposable {
         Write("Assets/hero.pal", "palette bytes");
         var (pipeline, artifacts, database) = Pipeline();
 
-        var outcome = await pipeline.ImportAsync(Entry(database, "Assets/hero.pal"), TestContext.Current.CancellationToken);
+        var outcome = await pipeline.ImportAsync(
+            Entry(database, "Assets/hero.pal"),
+            TestContext.Current.CancellationToken
+        );
 
         Assert.True(outcome.Succeeded);
         Assert.False(outcome.WasCached);
@@ -82,7 +84,13 @@ public sealed class ImportPipelineTests : IDisposable {
         var entry = Entry(database, "Assets/hero.pal");
 
         await pipeline.ImportAsync(entry, TestContext.Current.CancellationToken);
-        EditMeta("Assets/hero.pal", root => ((YamlMapping)root["importer"]!).Set("maxColours", new YamlScalar("16", YamlScalarStyle.Plain)));
+        EditMeta(
+            "Assets/hero.pal",
+            static root => ((YamlMapping)root["importer"]!).Set(
+                "maxColours",
+                new YamlScalar("16", YamlScalarStyle.Plain)
+            )
+        );
 
         Assert.False((await pipeline.ImportAsync(entry, TestContext.Current.CancellationToken)).WasCached);
     }
@@ -210,7 +218,7 @@ public sealed class ImportPipelineTests : IDisposable {
 
         EditMeta(
             "Assets/hero.pal",
-            _ => { },
+            static _ => { },
             "# an artist's note\nguid: {guid}\nmetaVersion: 1\nimporter: !PaletteImporter\n  maxColours: 8\n"
         );
 
@@ -236,7 +244,10 @@ public sealed class ImportPipelineTests : IDisposable {
             Files()
         );
 
-        var outcome = await pipeline.ImportAsync(Entry(database, "Assets/hero.pal"), TestContext.Current.CancellationToken);
+        var outcome = await pipeline.ImportAsync(
+            Entry(database, "Assets/hero.pal"),
+            TestContext.Current.CancellationToken
+        );
 
         Assert.False(outcome.Succeeded);
         Assert.Equal(0, pipeline.Cache.Count);
@@ -296,8 +307,8 @@ public sealed class ImportPipelineTests : IDisposable {
 
         var outcomes = await pipeline.ImportAllAsync(TestContext.Current.CancellationToken);
 
-        Assert.Contains(outcomes, outcome => !outcome.Succeeded);
-        Assert.Contains(outcomes, outcome => outcome is { Succeeded: true, Importer: "RawImporter" });
+        Assert.Contains(outcomes, static outcome => !outcome.Succeeded);
+        Assert.Contains(outcomes, static outcome => outcome is { Succeeded: true, Importer: "RawImporter" });
     }
 
     /// <summary>
@@ -318,15 +329,18 @@ public sealed class ImportPipelineTests : IDisposable {
             Files()
         );
 
-        var outcome = await pipeline.ImportAsync(Entry(database, "Assets/hero.pal"), TestContext.Current.CancellationToken);
+        var outcome = await pipeline.ImportAsync(
+            Entry(database, "Assets/hero.pal"),
+            TestContext.Current.CancellationToken
+        );
         var written = outcome.Record!.Artifacts;
 
         Assert.Equal(2, written.Count);
-        Assert.Contains(written, artifact => artifact.SubAsset.IsMain);
+        Assert.Contains(written, static artifact => artifact.SubAsset.IsMain);
 
         Assert.Contains(
             written,
-            artifact => artifact.SubAsset == SubAssets.Derive("PaletteImporter", "Palette", "swatch")
+            static artifact => artifact.SubAsset == SubAssets.Derive("PaletteImporter", "Palette", "swatch")
         );
 
         Assert.All(written, artifact => Assert.True(artifacts.Exists(artifact.Id)));
@@ -400,7 +414,9 @@ public sealed class ImportPipelineTests : IDisposable {
         );
 
         var outcomes = await pipeline.ImportAllAsync(TestContext.Current.CancellationToken);
-        var produced = outcomes.Where(outcome => outcome.Record is not null).Select(outcome => outcome.Record!).ToList();
+        var produced = outcomes.Where(static outcome => outcome.Record is not null)
+            .Select(static outcome => outcome.Record!)
+            .ToList();
 
         Assert.Equal(2, produced.Count);
         Assert.Equal(produced[0].Artifacts.Single(), produced[1].Artifacts.Single());
@@ -458,7 +474,7 @@ public sealed class ImportPipelineTests : IDisposable {
 
         await pipeline.ImportAsync(entry, TestContext.Current.CancellationToken);
 
-        EditMeta("Assets/hero.pal", _ => { }, "guid: {guid}\nmetaVersion: 1\nimporter: !EditorOnlyImporter\n");
+        EditMeta("Assets/hero.pal", static _ => { }, "guid: {guid}\nmetaVersion: 1\nimporter: !EditorOnlyImporter\n");
 
         var outcome = await pipeline.ImportAsync(entry, TestContext.Current.CancellationToken);
 
@@ -491,7 +507,10 @@ public sealed class ImportPipelineTests : IDisposable {
         var entry = Entry(database, "Assets/hero.pal");
         var withPalette = new ImportPipeline(database, Registry(new PaletteImporter()), Artifacts(), Files());
 
-        Assert.Equal("PaletteImporter", (await withPalette.ImportAsync(entry, TestContext.Current.CancellationToken)).Importer);
+        Assert.Equal(
+            "PaletteImporter",
+            (await withPalette.ImportAsync(entry, TestContext.Current.CancellationToken)).Importer
+        );
 
         var lacking = new ImportPipeline(
             database,
@@ -502,8 +521,14 @@ public sealed class ImportPipelineTests : IDisposable {
 
         var outcome = await lacking.ImportAsync(entry, TestContext.Current.CancellationToken);
 
-        Assert.False(outcome.Succeeded, "a file whose sidecar names PaletteImporter was imported by " + outcome.Importer);
-        Assert.Contains(outcome.Diagnostics, diagnostic => diagnostic.Message.Contains("PaletteImporter", StringComparison.Ordinal));
+        Assert.False(
+            outcome.Succeeded,
+            "a file whose sidecar names PaletteImporter was imported by " + outcome.Importer
+        );
+        Assert.Contains(
+            outcome.Diagnostics,
+            static diagnostic => diagnostic.Message.Contains("PaletteImporter", StringComparison.Ordinal)
+        );
     }
 
     [Fact]
@@ -520,11 +545,14 @@ public sealed class ImportPipelineTests : IDisposable {
 
         EditMeta(
             "Assets/hero.pal",
-            _ => { },
+            static _ => { },
             "guid: {guid}\nmetaVersion: 1\nimporter: !FolderImporter\n"
         );
 
-        Assert.Equal("FolderImporter", (await pipeline.ImportAsync(entry, TestContext.Current.CancellationToken)).Importer);
+        Assert.Equal(
+            "FolderImporter",
+            (await pipeline.ImportAsync(entry, TestContext.Current.CancellationToken)).Importer
+        );
     }
 
     (ImportPipeline Pipeline, ObjectDatabase Artifacts, AssetDatabase Database) Pipeline() {
@@ -541,8 +569,8 @@ public sealed class ImportPipelineTests : IDisposable {
 
     static ObjectDatabase Artifacts() {
         var files = new VirtualFileSystem();
-        files.Mount(new VirtualPath("/"), new MemoryFileProvider());
-        return new(new FileOdbBackend(files, new VirtualPath("/artifacts")));
+        files.Mount(new("/"), new MemoryFileProvider());
+        return new(new FileOdbBackend(files, new("/artifacts")));
     }
 
     IFileProvider Files() => new PhysicalFileProvider(root);

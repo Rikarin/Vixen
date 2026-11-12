@@ -145,7 +145,7 @@ sealed partial class DecalNode : TextureNode {
         Summary = "Where each point of a 3 by 3 grid over the picture lands on the decal's square, row by row from "
             + "the top left, as eighteen numbers 0 to 1 across and down. Empty bends nothing."
     )]
-    public string Warp = "";
+    public string Warp = string.Empty;
 
     /// <summary>The projected picture, in the atlas, transparent where it does not land.</summary>
     [Output(Name = "Out")]
@@ -306,7 +306,8 @@ sealed partial class SurfacePathNode : TextureNode {
     /// <summary>Stroke or Ribbon.</summary>
     [Setting(
         Name = "Mode",
-        Summary = "Stroke shows the picture through the path where it lies on the atlas; Ribbon lays it along the path.",
+        Summary =
+            "Stroke shows the picture through the path where it lies on the atlas; Ribbon lays it along the path.",
         Accepted = ["Stroke", "Ribbon"]
     )]
     public string Mode = "Stroke";
@@ -317,7 +318,7 @@ sealed partial class SurfacePathNode : TextureNode {
         Summary = "The polyline, one point to each part between semicolons: its place, its normal and its pressure, "
             + "seven numbers in the model's units."
     )]
-    public string Points = "";
+    public string Points = string.Empty;
 
     /// <summary>The path, in the atlas, transparent where it does not reach.</summary>
     [Output(Name = "Out")]
@@ -462,12 +463,12 @@ static class SurfaceFrames {
         }
 
         var forward = Vector3.Normalize(facing);
-        var squared = up - (forward * Vector3.Dot(up, forward));
+        var squared = up - forward * Vector3.Dot(up, forward);
 
         if (!(squared.LengthSquared() > 1e-8f)) {
             var axis = MathF.Abs(forward.Y) < 0.9f ? new Vector3(0f, 1f, 0f) : new Vector3(0f, 0f, -1f);
 
-            squared = axis - (forward * Vector3.Dot(axis, forward));
+            squared = axis - forward * Vector3.Dot(axis, forward);
         }
 
         var upward = Vector3.Normalize(squared);

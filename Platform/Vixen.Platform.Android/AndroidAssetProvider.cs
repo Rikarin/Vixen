@@ -108,8 +108,7 @@ internal sealed class AndroidAssetProvider(AssetManager assets) : IFileProvider 
 
     /// <inheritdoc />
     /// <exception cref="NotSupportedException">Always.</exception>
-    public void CreateDirectory(VirtualPath path) =>
-        throw new NotSupportedException("The APK is read-only.");
+    public void CreateDirectory(VirtualPath path) => throw new NotSupportedException("The APK is read-only.");
 
     /// <inheritdoc />
     /// <remarks>

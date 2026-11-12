@@ -81,8 +81,10 @@ public interface IEditableDocument {
     /// <summary>Whether something other than its own edits changed it since it was last saved.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>The second half of "would saving write anything", kept apart from
-    ///         <see cref="IsDirty" /> on purpose</b>
+    ///         <b>
+    ///             The second half of "would saving write anything", kept apart from
+    ///             <see cref="IsDirty" /> on purpose
+    ///         </b>
     ///         (<a href="https://github.com/Rikarin/Vixen/issues/656">#656</a>). An application whose
     ///         documents refer to each other — a rename in one rewriting a reference held by another —
     ///         changes a document the user never typed in, and no undo inside that document can take
@@ -115,8 +117,12 @@ public interface IEditableDocument {
 
 /// <summary>The ordinary implementation: two signals it owns and two methods to fill in.</summary>
 /// <remarks>
-///     ⚠ <b><see cref="Save" /> writes whether or not it is dirty, and it is
-///     <see cref="IEditableDocument.IsDirty" /> that greys the menu item.</b> The two are not the
+///     ⚠
+///     <b>
+///         <see cref="Save" /> writes whether or not it is dirty, and it is
+///         <see cref="IEditableDocument.IsDirty" /> that greys the menu item.
+///     </b>
+///     The two are not the
 ///     same question — Save As on an unchanged document must still write — and a base class that
 ///     short-circuited a clean save would make the difference unreachable from a subclass.
 /// </remarks>
@@ -132,8 +138,8 @@ public abstract class EditableDocument : IEditableDocument {
     protected EditableDocument(string name, string? location = null) {
         ArgumentNullException.ThrowIfNull(name);
 
-        this.name = new Signal<string>(name);
-        this.location = new Signal<string?>(location);
+        this.name = new(name);
+        this.location = new(location);
     }
 
     /// <inheritdoc />
@@ -216,8 +222,12 @@ public abstract class EditableDocument : IEditableDocument {
 
 /// <summary>The command ids a document answers, and the one call that makes an element answer them.</summary>
 /// <remarks>
-///     ⚠ <b>Answered through the command route rather than by a service, which is the whole point of
-///     putting them here.</b> An application with two documents open in two panels has two answers to
+///     ⚠
+///     <b>
+///         Answered through the command route rather than by a service, which is the whole point of
+///         putting them here.
+///     </b>
+///     An application with two documents open in two panels has two answers to
 ///     ⌘S, and the right one is decided by where the focus is — the route already walks focus →
 ///     parents → root and picks the nearest handler, so a panel that hosts a document registers
 ///     these and nothing else has to know how many panels there are. A save routed to "the
@@ -241,7 +251,10 @@ public static class DocumentCommands {
     /// </remarks>
     public const string Close = "document.close";
 
-    /// <summary>Makes an element answer <see cref="Save" />, <see cref="Revert" /> and <see cref="Close" /> for the document it hosts.</summary>
+    /// <summary>
+    ///     Makes an element answer <see cref="Save" />, <see cref="Revert" /> and <see cref="Close" /> for the document
+    ///     it hosts.
+    /// </summary>
     /// <param name="element">The element hosting the document — the panel, the tab's content, the window's root.</param>
     /// <exception cref="InvalidOperationException"><paramref name="element" /> hosts no document.</exception>
     /// <remarks>
@@ -251,15 +264,19 @@ public static class DocumentCommands {
     ///         asks the signal, with no state in between to go stale.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A greyed item does not re-enable itself when a signal changes; the document has
-    ///         to be told the route is out of date.</b> Command state is pulled by whatever is
+    ///         ⚠
+    ///         <b>
+    ///             A greyed item does not re-enable itself when a signal changes; the document has
+    ///             to be told the route is out of date.
+    ///         </b>
+    ///         Command state is pulled by whatever is
     ///         showing it, once per raise, so an effect here reads <see cref="IEditableDocument.IsDirty" />
     ///         and calls <c>InvalidateCommands</c> when it moves. Without that, typing into a clean
     ///         document leaves Save greyed until something unrelated happens to invalidate — which
     ///         looks exactly like Save being broken.
     ///     </para>
     /// </remarks>
-    public static void Install(UiElement element) => Install(element, revert: null);
+    public static void Install(UiElement element) => Install(element, null);
 
     /// <summary>Makes an element answer the three ids for the document it hosts, reverting it the host's way.</summary>
     /// <param name="element">The element hosting the document.</param>
@@ -302,10 +319,15 @@ public static class DocumentCommands {
         element.AddCommandHandler(Close, () => element.RequestClose());
 
         var ui = element.Document;
-        element.TrackDocumentCommands(new Effect(() => {
-            _ = HasUnsavedChanges(document);
-            ui.InvalidateCommands();
-        }, ui.Effects));
+        element.TrackDocumentCommands(
+            new Effect(
+                () => {
+                    _ = HasUnsavedChanges(document);
+                    ui.InvalidateCommands();
+                },
+                ui.Effects
+            )
+        );
     }
 
     /// <summary>Whether saving a document would write anything: its own edits, or a change from outside.</summary>

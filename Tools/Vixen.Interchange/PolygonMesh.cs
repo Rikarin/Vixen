@@ -17,8 +17,12 @@ namespace Vixen.Interchange;
 ///         with two faces were the diagonals inside each split quad.
 ///     </para>
 ///     <para>
-///         ⚠ <b>This is the writer's input and not a rendering structure, and the difference is the
-///         whole point.</b> <see cref="EditMesh" /> shares a position between the faces that meet
+///         ⚠
+///         <b>
+///             This is the writer's input and not a rendering structure, and the difference is the
+///             whole point.
+///         </b>
+///         <see cref="EditMesh" /> shares a position between the faces that meet
 ///         there and keeps a face's corner loop at whatever length it is, which is what OBJ's
 ///         <c>f a b c d</c> wants. Going to <see cref="Vixen.Geometry.MeshData" /> is a one-way trip and the writers
 ///         that must take it — glTF and GLB, which are triangles-only by specification — take it at
@@ -37,8 +41,12 @@ public sealed record PolygonMesh {
     ///     for a mesh that has none.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>Per corner rather than per position, because a seam is a position whose corners
-    ///     disagree.</b> Welding these onto positions would erase every seam in the atlas, which is
+    ///     ⚠
+    ///     <b>
+    ///         Per corner rather than per position, because a seam is a position whose corners
+    ///         disagree.
+    ///     </b>
+    ///     Welding these onto positions would erase every seam in the atlas, which is
     ///     the one thing an unwrap exists to produce.
     /// </remarks>
     public IReadOnlyList<Vector2> TexCoords { get; init; } = [];

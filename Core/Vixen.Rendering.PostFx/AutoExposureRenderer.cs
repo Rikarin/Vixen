@@ -4,7 +4,6 @@
 using Vixen.Core.Mathematics;
 using Vixen.Graphics;
 using Vixen.Rendering.Compositor;
-using Vixen.Shaders;
 using Vixen.Shaders.Generated;
 
 namespace Vixen.Rendering.PostFx;
@@ -28,8 +27,12 @@ namespace Vixen.Rendering.PostFx;
 ///         for a number the host never looks at.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The exposure buffer is a compositor <i>import</i>, not a declared resource, and that
-///         is the whole of what makes adaptation work.</b> A declared buffer lives for one frame; this
+///         ⚠
+///         <b>
+///             The exposure buffer is a compositor <i>import</i>, not a declared resource, and that
+///             is the whole of what makes adaptation work.
+///         </b>
+///         A declared buffer lives for one frame; this
 ///         one holds the value the eye has adapted to, and a buffer that started at zero every frame
 ///         would make <c>Adapt</c>'s ease-toward-target ease from nothing each time — an exposure that
 ///         never converges and a frame that flickers. So the host owns it, it is registered in
@@ -205,8 +208,12 @@ public sealed class AutoExposureRenderer : SceneRenderer, IDisposable, IPostProc
     ///         descriptor set is written whole or not at all.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Imported, and declared through <see cref="ComputeRenderer.Bound" /> rather than
-    ///         <c>Writes</c>.</b> Saying "writes" three times over is what VX2101 reported every launch
+    ///         ⚠
+    ///         <b>
+    ///             Imported, and declared through <see cref="ComputeRenderer.Bound" /> rather than
+    ///             <c>Writes</c>.
+    ///         </b>
+    ///         Saying "writes" three times over is what VX2101 reported every launch
     ///         — three producers and no reader is a frame's work discarded, which is exactly what the
     ///         lint is for and exactly what the declaration claimed. Nothing was actually lost, and
     ///         nothing was actually written; see <see cref="ComputeRenderer.Bound" /> for why a read
@@ -414,37 +421,51 @@ public sealed class AutoExposureRenderer : SceneRenderer, IDisposable, IPostProc
 
         Bind(node);
 
-        node.Descriptors.Bindings.Add(new() {
-            Binding = AutoExposureKeys.SourceBinding, Kind = DescriptorKind.SampledTexture, Resource = source
-        });
+        node.Descriptors.Bindings.Add(
+            new() { Binding = AutoExposureKeys.SourceBinding, Kind = DescriptorKind.SampledTexture, Resource = source }
+        );
 
-        node.Descriptors.Bindings.Add(new() {
-            Binding = AutoExposureKeys.SourceSamplerBinding, Kind = DescriptorKind.Sampler, Sampled = SamplerDescription.LinearClamp
-        });
+        node.Descriptors.Bindings.Add(
+            new() {
+                Binding = AutoExposureKeys.SourceSamplerBinding,
+                Kind = DescriptorKind.Sampler,
+                Sampled = SamplerDescription.LinearClamp
+            }
+        );
 
-        node.Descriptors.Bindings.Add(new() {
-            Binding = AutoExposureKeys.TargetBinding, Kind = DescriptorKind.StorageTexture, Resource = target
-        });
+        node.Descriptors.Bindings.Add(
+            new() { Binding = AutoExposureKeys.TargetBinding, Kind = DescriptorKind.StorageTexture, Resource = target }
+        );
 
         // ⚠ Bound in every step even though only the adaptation writes it, because an incomplete set
         // is not bound at all — the fault `WorldRenderer` records as a five-set layout with four sets
         // bound. `meanLuminance` takes the same texture as `target` here, which nothing reads: the reduce
         // path does not touch it.
-        node.Descriptors.Bindings.Add(new() {
-            Binding = AutoExposureKeys.MeanLuminanceBinding, Kind = DescriptorKind.StorageTexture, Resource = target
-        });
+        node.Descriptors.Bindings.Add(
+            new() {
+                Binding = AutoExposureKeys.MeanLuminanceBinding, Kind = DescriptorKind.StorageTexture, Resource = target
+            }
+        );
 
-        node.Descriptors.Bindings.Add(new() {
-            Binding = AutoExposureKeys.ExposureBinding, Kind = DescriptorKind.StorageBuffer, Resource = ExposureResource
-        });
+        node.Descriptors.Bindings.Add(
+            new() {
+                Binding = AutoExposureKeys.ExposureBinding,
+                Kind = DescriptorKind.StorageBuffer,
+                Resource = ExposureResource
+            }
+        );
 
         // ⚠ Bound by the reduction and the adaptation too, which never touch it. `histogram` is a
         // binding of the shader's one set whichever mode a variant is, and an incomplete set is not
         // bound at all — so a chain that skipped it would lose the exposure buffer with it and every
         // dispatch would be refused.
-        node.Descriptors.Bindings.Add(new() {
-            Binding = AutoExposureKeys.HistogramBinding, Kind = DescriptorKind.StorageBuffer, Resource = HistogramResource
-        });
+        node.Descriptors.Bindings.Add(
+            new() {
+                Binding = AutoExposureKeys.HistogramBinding,
+                Kind = DescriptorKind.StorageBuffer,
+                Resource = HistogramResource
+            }
+        );
     }
 
     /// <summary>One of the histogram's three dispatches.</summary>
@@ -517,29 +538,47 @@ public sealed class AutoExposureRenderer : SceneRenderer, IDisposable, IPostProc
         node.Parameters.Set(AutoExposureKeys.HighPercentile, Math.Max(HighPercentile, LowPercentile));
         node.Parameters.Set(AutoExposureKeys.MeteringPower, MeteringPower);
 
-        node.Descriptors.Bindings.Add(new() {
-            Binding = AutoExposureKeys.SourceBinding, Kind = DescriptorKind.SampledTexture, Resource = Source
-        });
+        node.Descriptors.Bindings.Add(
+            new() { Binding = AutoExposureKeys.SourceBinding, Kind = DescriptorKind.SampledTexture, Resource = Source }
+        );
 
-        node.Descriptors.Bindings.Add(new() {
-            Binding = AutoExposureKeys.SourceSamplerBinding, Kind = DescriptorKind.Sampler, Sampled = SamplerDescription.LinearClamp
-        });
+        node.Descriptors.Bindings.Add(
+            new() {
+                Binding = AutoExposureKeys.SourceSamplerBinding,
+                Kind = DescriptorKind.Sampler,
+                Sampled = SamplerDescription.LinearClamp
+            }
+        );
 
-        node.Descriptors.Bindings.Add(new() {
-            Binding = AutoExposureKeys.TargetBinding, Kind = DescriptorKind.StorageTexture, Resource = GridResource
-        });
+        node.Descriptors.Bindings.Add(
+            new() {
+                Binding = AutoExposureKeys.TargetBinding, Kind = DescriptorKind.StorageTexture, Resource = GridResource
+            }
+        );
 
-        node.Descriptors.Bindings.Add(new() {
-            Binding = AutoExposureKeys.MeanLuminanceBinding, Kind = DescriptorKind.StorageTexture, Resource = GridResource
-        });
+        node.Descriptors.Bindings.Add(
+            new() {
+                Binding = AutoExposureKeys.MeanLuminanceBinding,
+                Kind = DescriptorKind.StorageTexture,
+                Resource = GridResource
+            }
+        );
 
-        node.Descriptors.Bindings.Add(new() {
-            Binding = AutoExposureKeys.ExposureBinding, Kind = DescriptorKind.StorageBuffer, Resource = ExposureResource
-        });
+        node.Descriptors.Bindings.Add(
+            new() {
+                Binding = AutoExposureKeys.ExposureBinding,
+                Kind = DescriptorKind.StorageBuffer,
+                Resource = ExposureResource
+            }
+        );
 
-        node.Descriptors.Bindings.Add(new() {
-            Binding = AutoExposureKeys.HistogramBinding, Kind = DescriptorKind.StorageBuffer, Resource = HistogramResource
-        });
+        node.Descriptors.Bindings.Add(
+            new() {
+                Binding = AutoExposureKeys.HistogramBinding,
+                Kind = DescriptorKind.StorageBuffer,
+                Resource = HistogramResource
+            }
+        );
     }
 
     void Adapt(int index, string average) {
@@ -571,33 +610,49 @@ public sealed class AutoExposureRenderer : SceneRenderer, IDisposable, IPostProc
 
         Bind(node);
 
-        node.Descriptors.Bindings.Add(new() {
-            Binding = AutoExposureKeys.SourceBinding, Kind = DescriptorKind.SampledTexture, Resource = average
-        });
+        node.Descriptors.Bindings.Add(
+            new() { Binding = AutoExposureKeys.SourceBinding, Kind = DescriptorKind.SampledTexture, Resource = average }
+        );
 
-        node.Descriptors.Bindings.Add(new() {
-            Binding = AutoExposureKeys.SourceSamplerBinding, Kind = DescriptorKind.Sampler, Sampled = SamplerDescription.LinearClamp
-        });
+        node.Descriptors.Bindings.Add(
+            new() {
+                Binding = AutoExposureKeys.SourceSamplerBinding,
+                Kind = DescriptorKind.Sampler,
+                Sampled = SamplerDescription.LinearClamp
+            }
+        );
 
-        node.Descriptors.Bindings.Add(new() {
-            Binding = AutoExposureKeys.TargetBinding, Kind = DescriptorKind.StorageTexture, Resource = average
-        });
+        node.Descriptors.Bindings.Add(
+            new() { Binding = AutoExposureKeys.TargetBinding, Kind = DescriptorKind.StorageTexture, Resource = average }
+        );
 
-        node.Descriptors.Bindings.Add(new() {
-            Binding = AutoExposureKeys.MeanLuminanceBinding, Kind = DescriptorKind.StorageTexture, Resource = average
-        });
+        node.Descriptors.Bindings.Add(
+            new() {
+                Binding = AutoExposureKeys.MeanLuminanceBinding,
+                Kind = DescriptorKind.StorageTexture,
+                Resource = average
+            }
+        );
 
-        node.Descriptors.Bindings.Add(new() {
-            Binding = AutoExposureKeys.ExposureBinding, Kind = DescriptorKind.StorageBuffer, Resource = ExposureResource
-        });
+        node.Descriptors.Bindings.Add(
+            new() {
+                Binding = AutoExposureKeys.ExposureBinding,
+                Kind = DescriptorKind.StorageBuffer,
+                Resource = ExposureResource
+            }
+        );
 
         // ⚠ Bound by the reduction and the adaptation too, which never touch it. `histogram` is a
         // binding of the shader's one set whichever mode a variant is, and an incomplete set is not
         // bound at all — so a chain that skipped it would lose the exposure buffer with it and every
         // dispatch would be refused.
-        node.Descriptors.Bindings.Add(new() {
-            Binding = AutoExposureKeys.HistogramBinding, Kind = DescriptorKind.StorageBuffer, Resource = HistogramResource
-        });
+        node.Descriptors.Bindings.Add(
+            new() {
+                Binding = AutoExposureKeys.HistogramBinding,
+                Kind = DescriptorKind.StorageBuffer,
+                Resource = HistogramResource
+            }
+        );
     }
 
     /// <summary>How long the frame that has no previous exposure is told it took.</summary>
@@ -610,8 +665,12 @@ public sealed class AutoExposureRenderer : SceneRenderer, IDisposable, IPostProc
 
     /// <summary>The scalars every step carries, whether or not its mode reads them.</summary>
     /// <remarks>
-    ///     ⚠ <b>The first frame after the buffer is created is told the scene has been there
-    ///     forever, and that is what stops a launch being a fade-in from black.</b> A fresh
+    ///     ⚠
+    ///     <b>
+    ///         The first frame after the buffer is created is told the scene has been there
+    ///         forever, and that is what stops a launch being a fade-in from black.
+    ///     </b>
+    ///     A fresh
     ///     device-local allocation holds no exposure — this class used to claim it seeded one to
     ///     <c>1</c> and never did — so the adaptation eased from zero toward a target it reached in
     ///     about five time constants: at sample 13's <c>darkenRate</c> of 0.6 that is eight and a half
@@ -632,8 +691,12 @@ public sealed class AutoExposureRenderer : SceneRenderer, IDisposable, IPostProc
     /// <summary>The exposure floor, with the overlay's clamp laid over the authored one.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The relation between the overlay's EVs and these knobs is reciprocal, and the
-    ///         conversion happens here — the only place that knows both units.</b> The look authors
+    ///         ⚠
+    ///         <b>
+    ///             The relation between the overlay's EVs and these knobs is reciprocal, and the
+    ///             conversion happens here — the only place that knows both units.
+    ///         </b>
+    ///         The look authors
     ///         its clamps as EVs, the space a light meter and the rest of the look think in; this
     ///         node's knobs are linear multipliers, where a <em>high</em> EV is a <em>low</em>
     ///         exposure. So <c>meterMaximumEv</c> — "never expose for brighter than noon" — lands on
@@ -663,12 +726,14 @@ public sealed class AutoExposureRenderer : SceneRenderer, IDisposable, IPostProc
             // deliberate — a node's name is what a frame graph's edges are recorded against, and a
             // node that could be renamed mid-frame would be a pass whose dependencies point at a
             // node nobody can find.
-            steps.Add(new() {
-                Name = $"{this}.Step{steps.Count}",
-                ShaderName = AutoExposureKeys.ShaderName,
-                PermutationKeys = AutoExposureKeys.UsedPermutationKeys,
-                ConstantBinding = AutoExposureKeys.ConstantBufferBinding
-            });
+            steps.Add(
+                new() {
+                    Name = $"{this}.Step{steps.Count}",
+                    ShaderName = AutoExposureKeys.ShaderName,
+                    PermutationKeys = AutoExposureKeys.UsedPermutationKeys,
+                    ConstantBinding = AutoExposureKeys.ConstantBufferBinding
+                }
+            );
         }
 
         var node = steps[index];
@@ -687,13 +752,15 @@ public sealed class AutoExposureRenderer : SceneRenderer, IDisposable, IPostProc
 
         frame.Add(
             name,
-            frame.Graph.CreateTexture(new(
-                PixelFormat.R32Float,
-                size.X,
-                size.Y,
-                TextureUsage.Storage | TextureUsage.Sampled,
-                Name: name
-            )),
+            frame.Graph.CreateTexture(
+                new(
+                    PixelFormat.R32Float,
+                    size.X,
+                    size.Y,
+                    TextureUsage.Storage | TextureUsage.Sampled,
+                    Name: name
+                )
+            ),
             PixelFormat.R32Float
         );
     }
@@ -707,8 +774,12 @@ public sealed class AutoExposureRenderer : SceneRenderer, IDisposable, IPostProc
     ///     metered, which is the same thing a seed was for and is right about the value rather than
     ///     hopeful about it — see <see cref="SettleTime" />.
     ///     <para>
-    ///         ⚠ <b>That argument is sound for every finite value and fails for exactly one class,
-    ///         which is what the <c>sample-frame</c> leg found.</b> A lerp is <c>a + t·(b − a)</c>, so
+    ///         ⚠
+    ///         <b>
+    ///             That argument is sound for every finite value and fails for exactly one class,
+    ///             which is what the <c>sample-frame</c> leg found.
+    ///         </b>
+    ///         A lerp is <c>a + t·(b − a)</c>, so
     ///         a <c>NaN</c> in the buffer comes out a <c>NaN</c> however large the blend is, and the
     ///         settle frame that was supposed to make the seed irrelevant propagates it instead. A
     ///         fresh device-local allocation reads as zero on MoltenVK and does not on lavapipe, so
@@ -720,9 +791,13 @@ public sealed class AutoExposureRenderer : SceneRenderer, IDisposable, IPostProc
     ///         stands. <c>AutoExposure.rvn</c>'s <c>Ease</c> decides instead: a stored exposure
     ///         outside <see cref="MinimumExposure" />..<see cref="MaximumExposure" /> is not one this
     ///         node wrote, so the measurement is taken outright rather than blended toward.
-    ///         ⚠ <b>The regression test for this is the <c>sample-frame</c> CI leg and nothing
-    ///         smaller, which is a statement about what could be built rather than about what was
-    ///         worth building.</b> The defect needs a device whose fresh allocations are not zeroed,
+    ///         ⚠
+    ///         <b>
+    ///             The regression test for this is the <c>sample-frame</c> CI leg and nothing
+    ///             smaller, which is a statement about what could be built rather than about what was
+    ///             worth building.
+    ///         </b>
+    ///         The defect needs a device whose fresh allocations are not zeroed,
     ///         and every device this repository develops on zeroes them — a fixture that poisons the
     ///         buffer by hand was written, and it passed with the guard and without it, so it was
     ///         thrown away rather than shipped as an instrument that cannot fail. The leg is red
@@ -739,19 +814,23 @@ public sealed class AutoExposureRenderer : SceneRenderer, IDisposable, IPostProc
 
         owner = device;
 
-        exposure = device.CreateBuffer(new(
-            ExposureSize,
-            BufferUsage.Storage | BufferUsage.CopyDestination | BufferUsage.CopySource,
-            MemoryAccess.DeviceLocal,
-            ExposureResource
-        ));
+        exposure = device.CreateBuffer(
+            new(
+                ExposureSize,
+                BufferUsage.Storage | BufferUsage.CopyDestination | BufferUsage.CopySource,
+                MemoryAccess.DeviceLocal,
+                ExposureResource
+            )
+        );
 
-        histogram = device.CreateBuffer(new(
-            HistogramSize,
-            BufferUsage.Storage | BufferUsage.CopyDestination | BufferUsage.CopySource,
-            MemoryAccess.DeviceLocal,
-            HistogramResource
-        ));
+        histogram = device.CreateBuffer(
+            new(
+                HistogramSize,
+                BufferUsage.Storage | BufferUsage.CopyDestination | BufferUsage.CopySource,
+                MemoryAccess.DeviceLocal,
+                HistogramResource
+            )
+        );
 
         seeded = true;
 

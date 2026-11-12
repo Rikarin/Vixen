@@ -3,7 +3,6 @@
 
 using Vixen.Core.Mathematics;
 using Vixen.Geometry;
-using Vixen.Rendering;
 using Xunit;
 
 namespace Vixen.Animation.Tests;
@@ -82,10 +81,7 @@ public class SkeletonTests {
 
     [Fact]
     public void TryCreate_UnnamedJoint_IsRejected() {
-        var data = new SkeletonData {
-            Name = "Anonymous",
-            Joints = [new() { Name = "", Parent = -1 }]
-        };
+        var data = new SkeletonData { Name = "Anonymous", Joints = [new() { Name = string.Empty, Parent = -1 }] };
 
         Assert.False(Skeleton.TryCreate(data, out _, out var error));
         Assert.Contains("no name", error, StringComparison.Ordinal);

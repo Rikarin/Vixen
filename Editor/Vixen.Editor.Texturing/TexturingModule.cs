@@ -3,7 +3,6 @@
 
 using System.Globalization;
 using Vixen.Authoring;
-using Vixen.Editor.AssetEditors;
 using Vixen.Editor.Assets.Content;
 using Vixen.Editor.Core;
 using Vixen.Editor.Plugin;
@@ -37,8 +36,11 @@ namespace Vixen.Editor.Texturing;
 ///         of <see cref="Activate" />.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Three things doc 48 predicted this plugin would need and could not have. All three
-///         are closed, and closing them is what this module was for.</b>
+///         ⚠
+///         <b>
+///             Three things doc 48 predicted this plugin would need and could not have. All three
+///             are closed, and closing them is what this module was for.
+///         </b>
 ///     </para>
 ///     <list type="number">
 ///         <item>
@@ -79,8 +81,12 @@ namespace Vixen.Editor.Texturing;
 ///         </item>
 ///     </list>
 ///     <para>
-///         ⚠ <b>Every registration goes through <see cref="PluginContext" />, including the
-///         panel.</b> <c>TerrainModule</c> — the worked example — registers its five panels straight
+///         ⚠
+///         <b>
+///             Every registration goes through <see cref="PluginContext" />, including the
+///             panel.
+///         </b>
+///         <c>TerrainModule</c> — the worked example — registers its five panels straight
 ///         on <c>Shell.RegisterPanel</c> with no matching <c>UnregisterPanel</c>, which
 ///         <c>EditorShell.UnregisterPanel</c>'s own remarks describe as "a lambda over the plugin's
 ///         own state that keeps its assembly loaded for the session". It survives that because a
@@ -134,8 +140,12 @@ public sealed partial class TexturingModule : IEditorPlugin, ITexturing, IDispos
 
     /// <summary>The verb that swaps the pointer between selecting and painting.</summary>
     /// <remarks>
-    ///     ⚠ <b>A verb and not only a control, because a tool mode is a thing an artist wants on a
-    ///     key.</b> Registering it through <c>PluginContext.AddCommand</c> is what puts it in the
+    ///     ⚠
+    ///     <b>
+    ///         A verb and not only a control, because a tool mode is a thing an artist wants on a
+    ///         key.
+    ///     </b>
+    ///     Registering it through <c>PluginContext.AddCommand</c> is what puts it in the
     ///     palette and the keymap as well as on the Tools menu; the segmented control in the brush
     ///     inspector is a second writer of the same state, which is why
     ///     <see cref="PaintBrushInspector.Refresh" /> exists and is called from here.
@@ -146,8 +156,11 @@ public sealed partial class TexturingModule : IEditorPlugin, ITexturing, IDispos
     /// <summary>The verb that turns the open <c>.vxtexgraph</c> into a <c>.vxmat</c>.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>docs/plan/48 § M5's first exit word, and this module contained the string
-    ///         <c>bake</c> nowhere until it was added</b> —
+    ///         <b>
+    ///             docs/plan/48 § M5's first exit word, and this module contained the string
+    ///             <c>bake</c> nowhere until it was added
+    ///         </b>
+    ///         —
     ///         <a href="https://github.com/Rikarin/Vixen/issues/1009">#1009</a>. Two documents, three
     ///         panels and three verbs were registered, every piece of the bake existed and had tests,
     ///         and <c>new ProjectMaterialBaker</c> had one caller outside tests: a command-line verb
@@ -167,16 +180,22 @@ public sealed partial class TexturingModule : IEditorPlugin, ITexturing, IDispos
     /// <summary>The verb that turns the open <c>.vxlayers</c> into one <c>.vxmat</c> per texture set.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>Doc 48 § M7's exit word, owed one document after
-    ///         <a href="https://github.com/Rikarin/Vixen/issues/1009">#1009</a> closed the graph's</b>
+    ///         <b>
+    ///             Doc 48 § M7's exit word, owed one document after
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/1009">#1009</a> closed the graph's
+    ///         </b>
     ///         — <a href="https://github.com/Rikarin/Vixen/issues/1029">#1029</a>. Both material-bake
     ///         callers read a graph, so an artist who built a layer stack could not turn it into a
     ///         material by any route a person can take. It is what makes a smart material worth
     ///         applying: somebody who applies one wants a material out.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A second verb rather than <see cref="BakeCommand" /> baking whichever document is
-    ///         open.</b> Both can be open at once — that is the point of two panels — so one verb
+    ///         ⚠
+    ///         <b>
+    ///             A second verb rather than <see cref="BakeCommand" /> baking whichever document is
+    ///             open.
+    ///         </b>
+    ///         Both can be open at once — that is the point of two panels — so one verb
     ///         would have to guess, and the guess is wrong exactly when an artist has a graph open
     ///         beside the stack they are looking at. Two verbs each say what they bake in their own
     ///         name.
@@ -188,8 +207,11 @@ public sealed partial class TexturingModule : IEditorPlugin, ITexturing, IDispos
     /// <summary>Packs the open stack's painted layer weights into a splat map.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/1124">#1124</a>, and the reason it
-    ///         is a third verb rather than part of <see cref="BakeStackCommand" />.</b> A bake
+    ///         <b>
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/1124">#1124</a>, and the reason it
+    ///             is a third verb rather than part of <see cref="BakeStackCommand" />.
+    ///         </b>
+    ///         A bake
     ///         flattens a stack into one set of maps; this writes the opposite — the per-layer
     ///         weights that keep the layers <em>separate</em> at run time — and binds them onto a
     ///         material that already carries a <c>TexturedMaterialLayersFeature</c>. Folding the two
@@ -209,16 +231,23 @@ public sealed partial class TexturingModule : IEditorPlugin, ITexturing, IDispos
     /// <summary>The verb that re-runs the last bake a painted-over map refused.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/1019">#1019</a>: § D4's refusal
-    ///         was a dead end in the editor.</b> <c>ProjectMaterialBaker.Write</c> refuses an output
+    ///         <b>
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/1019">#1019</a>: § D4's refusal
+    ///             was a dead end in the editor.
+    ///         </b>
+    ///         <c>ProjectMaterialBaker.Write</c> refuses an output
     ///         whose bytes are no longer what the last bake wrote, which is the whole point of the
     ///         digest — and <c>force</c> is how a person says they meant it. The command line carries
     ///         one; a command handler takes no argument, so every editor bake was called with the
     ///         default and the notification could only send the artist away.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>It repeats the refused bake rather than forcing a fresh one, and that is what
-    ///         makes one verb enough for two.</b> The obvious shape is a forced twin of each bake
+    ///         ⚠
+    ///         <b>
+    ///             It repeats the refused bake rather than forcing a fresh one, and that is what
+    ///             makes one verb enough for two.
+    ///         </b>
+    ///         The obvious shape is a forced twin of each bake
     ///         verb — four verbs, two of which are a loaded gun on the Tools menu. This one is armed
     ///         only by a refusal that force answers (<see cref="MaterialBakeOutcome.Painted" />), it
     ///         repeats <em>that</em> bake with the same document, name and folder, and it disarms
@@ -239,8 +268,11 @@ public sealed partial class TexturingModule : IEditorPlugin, ITexturing, IDispos
     /// <summary>The verb that bakes the graph and turns the height march on.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/1103">#1103</a>'s editor half, and
-    ///         the ask a <em>first</em> bake had no way to make.</b> <c>MaterialBake.Material</c>
+    ///         <b>
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/1103">#1103</a>'s editor half, and
+    ///             the ask a <em>first</em> bake had no way to make.
+    ///         </b>
+    ///         <c>MaterialBake.Material</c>
     ///         preserves and re-seats a <c>ParallaxOcclusionFeature</c> the material already carries,
     ///         which by construction cannot help a material that does not exist yet — so an artist's
     ///         route was bake, hand-edit the <c>.vxmat</c>, bake again. The command line grew
@@ -248,8 +280,12 @@ public sealed partial class TexturingModule : IEditorPlugin, ITexturing, IDispos
     ///         <see cref="Vixen.Editor.Assets.Materials.MaterialBakeParallax" /> rule behind a verb.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A second verb rather than a control, which is <see cref="ForceBakeCommand" />'s
-    ///         shape and is taken here for its reason.</b> These bakes run from command handlers and
+    ///         ⚠
+    ///         <b>
+    ///             A second verb rather than a control, which is <see cref="ForceBakeCommand" />'s
+    ///             shape and is taken here for its reason.
+    ///         </b>
+    ///         These bakes run from command handlers and
     ///         have no pane to put a tick-box in — <see cref="SaveSmartMaterial" />'s remarks say the
     ///         same thing about a name control. A verb is the one form this module can offer.
     ///     </para>
@@ -265,8 +301,11 @@ public sealed partial class TexturingModule : IEditorPlugin, ITexturing, IDispos
 
     /// <summary>The verb that saves the open stack's chosen texture set as a <c>.vxsmartmat</c>.</summary>
     /// <remarks>
-    ///     <b>Doc 48 § M10, and until <see cref="SmartMaterial" /> the extension existed in the plan,
-    ///     in <c>docs/overview.md</c> and in five <c>.cs</c> comments and in no type at all</b> —
+    ///     <b>
+    ///         Doc 48 § M10, and until <see cref="SmartMaterial" /> the extension existed in the plan,
+    ///         in <c>docs/overview.md</c> and in five <c>.cs</c> comments and in no type at all
+    ///     </b>
+    ///     —
     ///     <a href="https://github.com/Rikarin/Vixen/issues/575">#575</a>. It writes onto the shelf
     ///     (<see cref="SmartMaterial.ShelfFolder" />) rather than beside the stack, because a smart
     ///     material's whole point is that it is applied to something else.
@@ -286,8 +325,12 @@ public sealed partial class TexturingModule : IEditorPlugin, ITexturing, IDispos
 
     /// <summary>The pane a stroke is made in: doc 48 § D13's 2D UV view.</summary>
     /// <remarks>
-    ///     ⚠ <b>Its own panel rather than a mode of the layers pane, and the reason is that both are
-    ///     wanted at once.</b> An artist paints while reading the stack — which layer is selected,
+    ///     ⚠
+    ///     <b>
+    ///         Its own panel rather than a mode of the layers pane, and the reason is that both are
+    ///         wanted at once.
+    ///     </b>
+    ///     An artist paints while reading the stack — which layer is selected,
     ///     what is over it, what the map looks like — so a pane that replaced the rows with a canvas
     ///     would make the two halves of one task exclusive. It is also the seam between two slices'
     ///     files: <see cref="LayerStackView" /> owns the rows and this owns the pointer.
@@ -297,8 +340,12 @@ public sealed partial class TexturingModule : IEditorPlugin, ITexturing, IDispos
     /// <summary>The pane a stroke is <em>aimed</em> in: doc 48 § D13's 3D view.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A second panel and not a mode of <see cref="PaintPanel" />, which is the same
-    ///         argument that one makes against being a mode of the layers pane.</b> The 2D view is
+    ///         ⚠
+    ///         <b>
+    ///             A second panel and not a mode of <see cref="PaintPanel" />, which is the same
+    ///             argument that one makes against being a mode of the layers pane.
+    ///         </b>
+    ///         The 2D view is
     ///         "the only way to fix the places the 3D view cannot reach" — doc 48 § D13's own words —
     ///         so the two are a pair an artist works across rather than an either/or, and a pane that
     ///         replaced one with the other would make fixing a seam mean losing sight of the model.
@@ -332,8 +379,11 @@ public sealed partial class TexturingModule : IEditorPlugin, ITexturing, IDispos
     /// <summary>The swatch under every node of the open graph: doc 48 § M4's per-node previews.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>The assignment <a href="https://github.com/Rikarin/Vixen/issues/1015">#1015</a> is
-    ///         about.</b> <c>TextureGraphPreviews</c> had device tests and no production caller for
+    ///         <b>
+    ///             The assignment <a href="https://github.com/Rikarin/Vixen/issues/1015">#1015</a> is
+    ///             about.
+    ///         </b>
+    ///         <c>TextureGraphPreviews</c> had device tests and no production caller for
     ///         four batches — the shader graph wires its equivalent through
     ///         <c>EditorApplication.ShaderGraphPreviews</c> and the texture graph wired nothing, so
     ///         the swatch under a node that asked for one was never drawn. Every part of it existed;
@@ -350,8 +400,12 @@ public sealed partial class TexturingModule : IEditorPlugin, ITexturing, IDispos
     ///         one pipeline cache and not two.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The compiler comes off the <em>canvas</em> and not off <see cref="document" />,
-    ///         and the difference is a descent.</b> An author who has double-clicked into a published
+    ///         ⚠
+    ///         <b>
+    ///             The compiler comes off the <em>canvas</em> and not off <see cref="document" />,
+    ///             and the difference is a descent.
+    ///         </b>
+    ///         An author who has double-clicked into a published
     ///         compound is looking at the library's model rather than the document's graph, and
     ///         <c>TextureGraphView.Show</c> keeps <c>Canvas.Registry</c> and
     ///         <c>Canvas.SubGraphSource</c> pointed at whatever is on screen. Compiling the graph the
@@ -400,8 +454,12 @@ public sealed partial class TexturingModule : IEditorPlugin, ITexturing, IDispos
 
     /// <summary>What turns the open graph into a material, once there is a device to run it on.</summary>
     /// <remarks>
-    ///     ⚠ <b>Built beside the previews and on the same terms, which is what makes "the bake runs
-    ///     the code the pane runs" a fact rather than an intention.</b> It shares
+    ///     ⚠
+    ///     <b>
+    ///         Built beside the previews and on the same terms, which is what makes "the bake runs
+    ///         the code the pane runs" a fact rather than an intention.
+    ///     </b>
+    ///     It shares
     ///     <see cref="evaluator" /> and <see cref="canvases" /> with both panes — so a bake dispatches
     ///     through the pipelines the preview already compiled, and reads the pixels a stroke has not
     ///     yet saved, which is what the artist is looking at when they ask for it.
@@ -410,8 +468,12 @@ public sealed partial class TexturingModule : IEditorPlugin, ITexturing, IDispos
 
     /// <summary>What turns the open stack into pixels.</summary>
     /// <remarks>
-    ///     ⚠ <b>A second preview and not a second evaluator, and the difference is what doc 48 § D1
-    ///     claims.</b> Both compile through the same public <c>TextureGraphCompiler</c>, run the same
+    ///     ⚠
+    ///     <b>
+    ///         A second preview and not a second evaluator, and the difference is what doc 48 § D1
+    ///         claims.
+    ///     </b>
+    ///     Both compile through the same public <c>TextureGraphCompiler</c>, run the same
     ///     kernels, and now dispatch through the same <see cref="evaluator" /> — which for a batch
     ///     they did not (<a href="https://github.com/Rikarin/Vixen/issues/820">#820</a>): each built
     ///     one of its own, so a session with both panels open compiled the whole overlap twice and
@@ -421,8 +483,12 @@ public sealed partial class TexturingModule : IEditorPlugin, ITexturing, IDispos
 
     /// <summary>The one evaluator both panes dispatch through.</summary>
     /// <remarks>
-    ///     ⚠ <b>Built on first use rather than at activation, and released through the registration
-    ///     scope rather than in <see cref="Deactivate" />.</b> The editor acquires its device after it
+    ///     ⚠
+    ///     <b>
+    ///         Built on first use rather than at activation, and released through the registration
+    ///         scope rather than in <see cref="Deactivate" />.
+    ///     </b>
+    ///     The editor acquires its device after it
     ///     builds its plugin host (<a href="https://github.com/Rikarin/Vixen/issues/737">#737</a>), so
     ///     there is nothing to build one on at activation; and <c>Deactivate</c> runs first while the
     ///     scope runs whatever happens to it, which is the difference that matters for a throw.
@@ -431,9 +497,13 @@ public sealed partial class TexturingModule : IEditorPlugin, ITexturing, IDispos
 
     /// <summary>Which device <see cref="evaluator" /> was built on.</summary>
     /// <remarks>
-    ///     ⚠ <b>An evaluator is bound to its device for the life of its pipeline cache, and
-    ///     <c>IEditorGraphics.Device</c> is a <em>live view</em> that can answer with a different
-    ///     one</b> — <a href="https://github.com/Rikarin/Vixen/issues/945">#945</a>. See
+    ///     ⚠
+    ///     <b>
+    ///         An evaluator is bound to its device for the life of its pipeline cache, and
+    ///         <c>IEditorGraphics.Device</c> is a <em>live view</em> that can answer with a different
+    ///         one
+    ///     </b>
+    ///     — <a href="https://github.com/Rikarin/Vixen/issues/945">#945</a>. See
     ///     <see cref="Evaluator" /> for the route that does it and what is done about it.
     /// </remarks>
     IGraphicsDevice? evaluatorDevice;
@@ -452,8 +522,12 @@ public sealed partial class TexturingModule : IEditorPlugin, ITexturing, IDispos
 
     /// <summary>The layers panel this module last built, or null when none is open.</summary>
     /// <remarks>
-    ///     ⚠ <b>Exposed so that what the panel factory <em>wires</em> can be asserted, which is this
-    ///     workstream's most-shipped defect turned into a test.</b> A resolver, a callback or a
+    ///     ⚠
+    ///     <b>
+    ///         Exposed so that what the panel factory <em>wires</em> can be asserted, which is this
+    ///         workstream's most-shipped defect turned into a test.
+    ///     </b>
+    ///     A resolver, a callback or a
     ///     delegate set in that factory is invisible from outside: the panel looks identical whether
     ///     the line ran or not, and every symptom of its absence — a row that accepts a path and
     ///     changes nothing — reads as a broken feature rather than as a missing line. Reaching the
@@ -479,9 +553,12 @@ public sealed partial class TexturingModule : IEditorPlugin, ITexturing, IDispos
 
     /// <summary>The <c>.vxpaint</c> canvases this session has open.</summary>
     /// <remarks>
-    ///     ⚠ <b>The module's, and that placement is the whole of
-    ///     <a href="https://github.com/Rikarin/Vixen/issues/885">#885</a> and
-    ///     <a href="https://github.com/Rikarin/Vixen/issues/948">#948</a> rather than a convenience.</b>
+    ///     ⚠
+    ///     <b>
+    ///         The module's, and that placement is the whole of
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/885">#885</a> and
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/948">#948</a> rather than a convenience.
+    ///     </b>
     ///     Three things read a paint layer's canvas — <see cref="BeginStroke" /> at pointer-down,
     ///     <see cref="RefreshPaint" /> at pointer-up, and the layers pane on the way to the map — and
     ///     each of them opened the file. A cache owned by any one of them would serve the other two a
@@ -495,8 +572,12 @@ public sealed partial class TexturingModule : IEditorPlugin, ITexturing, IDispos
 
     /// <summary>The 3D pane, on the same terms.</summary>
     /// <remarks>
-    ///     ⚠ <b>Held for the same three things <a href="https://github.com/Rikarin/Vixen/issues/1063">#1063</a>
-    ///     names as the blocker.</b> The pane needs the resolved <see cref="mesh" />'s projection,
+    ///     ⚠
+    ///     <b>
+    ///         Held for the same three things <a href="https://github.com/Rikarin/Vixen/issues/1063">#1063</a>
+    ///         names as the blocker.
+    ///     </b>
+    ///     The pane needs the resolved <see cref="mesh" />'s projection,
     ///     an upload, and somewhere to be put — and all three are this type's: a 3D pane built
     ///     entirely inside <c>Painting/</c> would have been a class with no constructor call and an
     ///     upload delegate nobody sets, which is this workstream's most-shipped defect rather than a
@@ -543,12 +624,16 @@ public sealed partial class TexturingModule : IEditorPlugin, ITexturing, IDispos
     string? meshKey;
 
     /// <summary>Why there is no mesh, or empty.</summary>
-    string meshRefusal = "";
+    string meshRefusal = string.Empty;
 
     /// <summary>What the islands on the paint pane were drawn for, so they are not redrawn per stroke.</summary>
     /// <remarks>
-    ///     ⚠ <b><c>PaintUvView.ShowIslands</c> rebuilds the whole overlay, three segments per
-    ///     triangle.</b> <see cref="RefreshPaint" /> runs at every pointer-up, and re-adding 75 000
+    ///     ⚠
+    ///     <b>
+    ///         <c>PaintUvView.ShowIslands</c> rebuilds the whole overlay, three segments per
+    ///         triangle.
+    ///     </b>
+    ///     <see cref="RefreshPaint" /> runs at every pointer-up, and re-adding 75 000
     ///     segments after each stroke is a cost that grows with the model and buys nothing: the
     ///     islands change when the binding or the atlas does, and at no other moment.
     /// </remarks>
@@ -652,9 +737,9 @@ public sealed partial class TexturingModule : IEditorPlugin, ITexturing, IDispos
         geometry = context.Services.TryGet<IMeshSource>(out var meshes) ? meshes : null;
 
         if (graphics is not null) {
-            preview = new TextureGraphPreview(graphics, Evaluator, canvases);
-            stackPreview = new LayerStackPreview(graphics, Evaluator, canvases);
-            baker = new MaterialBakeRoute(graphics, Evaluator, canvases);
+            preview = new(graphics, Evaluator, canvases);
+            stackPreview = new(graphics, Evaluator, canvases);
+            baker = new(graphics, Evaluator, canvases);
 
             // ⚠ #1015, and the two delegates are what make it a third *pane* rather than a third
             // evaluator. The first answers the one evaluator for whatever device the host has right
@@ -662,7 +747,7 @@ public sealed partial class TexturingModule : IEditorPlugin, ITexturing, IDispos
             // and the second reads the node library off the canvas, which is the graph that is
             // actually being drawn. Both may answer null, which is an ordinary state: the editor
             // publishes graphics before it has a device, and the panel may not be open.
-            previewImages = new TexturePreviewImages(graphics);
+            previewImages = new(graphics);
             nodePreviews = new TextureGraphPreviews(
                 () => graphics?.Device is { } ready ? Evaluator(ready) : null,
                 SwatchCompiler,
@@ -759,7 +844,7 @@ public sealed partial class TexturingModule : IEditorPlugin, ITexturing, IDispos
             GraphPanel,
             TexturingStrings.PanelTextureGraph,
             panel => {
-                view = new TextureGraphView(panel);
+                view = new(panel);
 
                 // ⚠ The line #1015 is, and it is assigned on every build of the panel rather than
                 // once: a dock panel's factory runs again on reopen, and the canvas it made last
@@ -785,7 +870,7 @@ public sealed partial class TexturingModule : IEditorPlugin, ITexturing, IDispos
                 // document's `CommandStack.Depth` (#933), and that edge outlives the elements — so
                 // a view that was not ended goes on refreshing from a stack it no longer draws.
                 stackView?.Dispose();
-                stackView = new LayerStackView(panel, tool);
+                stackView = new(panel, tool);
 
                 // ⚠ The one line that makes the panel's edits reach the picture. `LayerStackView`
                 // holds no evaluator — two of them over one device would be two pipeline caches,
@@ -818,11 +903,8 @@ public sealed partial class TexturingModule : IEditorPlugin, ITexturing, IDispos
             PaintPanel,
             TexturingStrings.PanelTexturePaint,
             panel => {
-                paintView = new PaintUvView(panel, tool) {
-                    Target = BeginStroke,
-                    Painted = Redraw,
-                    Reverted = Persist,
-                    Finished = Recorded
+                paintView = new(panel, tool) {
+                    Target = BeginStroke, Painted = Redraw, Reverted = Persist, Finished = Recorded
                 };
 
                 // A new pane holds no image, so "already uploaded" is about the last one.
@@ -843,7 +925,7 @@ public sealed partial class TexturingModule : IEditorPlugin, ITexturing, IDispos
             MeshPanel,
             TexturingStrings.PanelTexturePaint3d,
             panel => {
-                meshView = new PaintMeshView(panel, tool) {
+                meshView = new(panel, tool) {
                     Target = BeginStroke,
                     Painted = Redraw,
                     Reverted = Persist,
@@ -955,9 +1037,7 @@ public sealed partial class TexturingModule : IEditorPlugin, ITexturing, IDispos
             return null;
         }
 
-        if (stackPreview is not null) {
-            stackPreview.Unnamed = surface.NeedsNaming ? (stack, surface.Layer.Id, surface.Relative) : null;
-        }
+        stackPreview?.Unnamed = surface.NeedsNaming ? (stack, surface.Layer.Id, surface.Relative) : null;
 
         var target = Target(surface);
 
@@ -1036,7 +1116,7 @@ public sealed partial class TexturingModule : IEditorPlugin, ITexturing, IDispos
         if (stack is null) {
             mesh = null;
             meshKey = null;
-            meshRefusal = "";
+            meshRefusal = string.Empty;
 
             return null;
         }
@@ -1045,11 +1125,16 @@ public sealed partial class TexturingModule : IEditorPlugin, ITexturing, IDispos
         var set = LayerStackEdit.SetFor(asset, stack.PaintSet);
 
         var key = stack.AssetPath
-            + "\n" + asset.Model
-            + "\n" + stack.PaintSet
-            + "\n" + (set?.Mesh ?? "")
-            + "\n" + Exported(asset.Model)
-            + "\n" + ((geometry as ProjectMeshSource)?.Revision ?? 0).ToString(CultureInfo.InvariantCulture);
+            + "\n"
+            + asset.Model
+            + "\n"
+            + stack.PaintSet
+            + "\n"
+            + (set?.Mesh ?? string.Empty)
+            + "\n"
+            + Exported(asset.Model)
+            + "\n"
+            + ((geometry as ProjectMeshSource)?.Revision ?? 0).ToString(CultureInfo.InvariantCulture);
 
         if (!string.Equals(key, meshKey, StringComparison.Ordinal)) {
             meshKey = key;
@@ -1064,8 +1149,12 @@ public sealed partial class TexturingModule : IEditorPlugin, ITexturing, IDispos
     /// <returns>Its write time and length, or the empty string where there is no file to stat.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Half of <a href="https://github.com/Rikarin/Vixen/issues/971">#971</a>, and the
-    ///         half the issue does not name.</b> A stack open while the artist re-exports the model
+    ///         ⚠
+    ///         <b>
+    ///             Half of <a href="https://github.com/Rikarin/Vixen/issues/971">#971</a>, and the
+    ///             half the issue does not name.
+    ///         </b>
+    ///         A stack open while the artist re-exports the model
     ///         over the top of itself keeps the previous export's islands and goes on accepting the
     ///         previous export's texels: none of the three terms the key used to have — the stack's
     ///         path, its model and the set's mesh — moves when a file's contents change. It needs no
@@ -1088,7 +1177,7 @@ public sealed partial class TexturingModule : IEditorPlugin, ITexturing, IDispos
     /// </remarks>
     string Exported(string model) {
         if (model.Length == 0) {
-            return "";
+            return string.Empty;
         }
 
         try {
@@ -1096,10 +1185,11 @@ public sealed partial class TexturingModule : IEditorPlugin, ITexturing, IDispos
 
             return file.Exists
                 ? file.LastWriteTimeUtc.Ticks.ToString(CultureInfo.InvariantCulture)
-                + ":" + file.Length.ToString(CultureInfo.InvariantCulture)
-                : "";
+                + ":"
+                + file.Length.ToString(CultureInfo.InvariantCulture)
+                : string.Empty;
         } catch (Exception failure) when (failure is IOException or UnauthorizedAccessException) {
-            return "";
+            return string.Empty;
         }
     }
 
@@ -1125,8 +1215,12 @@ public sealed partial class TexturingModule : IEditorPlugin, ITexturing, IDispos
 
     /// <summary>Puts what strokes owed on both panes.</summary>
     /// <remarks>
-    ///     ⚠ <b>Both panes from one call, which is what makes a stroke in either of them visible in
-    ///     the other.</b> They are two pictures of one layer — an atlas, and a render of the model
+    ///     ⚠
+    ///     <b>
+    ///         Both panes from one call, which is what makes a stroke in either of them visible in
+    ///         the other.
+    ///     </b>
+    ///     They are two pictures of one layer — an atlas, and a render of the model
     ///     wearing it — so a redraw that served only the pane the pointer is in would leave the
     ///     other showing the state from before the drag until something else happened to refresh it.
     /// </remarks>
@@ -1215,15 +1309,23 @@ public sealed partial class TexturingModule : IEditorPlugin, ITexturing, IDispos
     /// <returns>Whether the host took it.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The extent is checked against the <em>image</em> rather than trusted from the
-    ///         picture.</b> The two disagree for one redraw whenever the atlas resolution changes
+    ///         ⚠
+    ///         <b>
+    ///             The extent is checked against the <em>image</em> rather than trusted from the
+    ///             picture.
+    ///         </b>
+    ///         The two disagree for one redraw whenever the atlas resolution changes
     ///         under an open pane — a stack edited to a different base size — and a patch against the
     ///         old handle would be refused by the host anyway; checking here is what makes the
     ///         fallback take over rather than the pane going quietly stale.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The uploaded image is a parameter rather than <see cref="painted" />, because
-    ///         there are two panes now.</b> The 3D pane's picture is a render of the model at the
+    ///         ⚠
+    ///         <b>
+    ///             The uploaded image is a parameter rather than <see cref="painted" />, because
+    ///             there are two panes now.
+    ///         </b>
+    ///         The 3D pane's picture is a render of the model at the
     ///         pane's own size and the 2D pane's is the atlas, so a method that reached for one field
     ///         would patch the wrong texture with the right bytes — which on a host that accepts the
     ///         write is a picture corrupted rather than an update refused.
@@ -1248,8 +1350,12 @@ public sealed partial class TexturingModule : IEditorPlugin, ITexturing, IDispos
 
     /// <summary>An undo or a redo moved texels, so the canvas goes back to disk and the map redraws.</summary>
     /// <remarks>
-    ///     ⚠ <b>The <c>RefreshStack</c> is what this is for, and the save beside it is no longer the
-    ///     reason</b> — <a href="https://github.com/Rikarin/Vixen/issues/885">#885</a>. Undoing a
+    ///     ⚠
+    ///     <b>
+    ///         The <c>RefreshStack</c> is what this is for, and the save beside it is no longer the
+    ///         reason
+    ///     </b>
+    ///     — <a href="https://github.com/Rikarin/Vixen/issues/885">#885</a>. Undoing a
     ///     stroke mends the <c>PaintImage</c> in memory, and until <see cref="PaintCanvasStore" /> the
     ///     layers pane resolved a paint layer by opening the <c>.vxpaint</c> off the disk — so
     ///     without the write the pane went on showing the stroke the artist had just taken back. The
@@ -1270,8 +1376,12 @@ public sealed partial class TexturingModule : IEditorPlugin, ITexturing, IDispos
     /// <summary>Pointer-up: the canvas goes to disk, the drag goes on the undo stack, the map redraws.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The naming edit is executed <em>before</em> the stroke and that ordering is the
-    ///         whole of it.</b> A paint layer that named no canvas gets one written down here, and it
+    ///         ⚠
+    ///         <b>
+    ///             The naming edit is executed <em>before</em> the stroke and that ordering is the
+    ///             whole of it.
+    ///         </b>
+    ///         A paint layer that named no canvas gets one written down here, and it
     ///         is a change to the <c>.vxlayers</c> rather than to the pixels — so it is its own entry.
     ///         Pushed after the stroke, the artist's first undo would take the name away and leave a
     ///         layer pointing at nothing with the stroke still in it.
@@ -1297,7 +1407,7 @@ public sealed partial class TexturingModule : IEditorPlugin, ITexturing, IDispos
             stack.Stack.Execute(
                 new SetLayerCommand(
                     stack,
-                    new LayerPath(surface.Set.Name, surface.Layer.Id),
+                    new(surface.Set.Name, surface.Layer.Id),
                     surface.Layer,
                     surface.Named(),
                     "Name paint canvas"
@@ -1308,9 +1418,7 @@ public sealed partial class TexturingModule : IEditorPlugin, ITexturing, IDispos
         stack.Stack.Execute(command);
 
         // The document names it now, and `Unnamed` is only for what it does not.
-        if (stackPreview is not null) {
-            stackPreview.Unnamed = null;
-        }
+        stackPreview?.Unnamed = null;
 
         // ⚠ Both, because they answer to different things. `RefreshStack` rebuilds the map from the
         // stack, and it rebuilds the paint pane only when the *binding* moved — the model, the mesh,
@@ -1334,8 +1442,12 @@ public sealed partial class TexturingModule : IEditorPlugin, ITexturing, IDispos
 
     /// <summary>Puts what the plan produced for the painted channel in the paint panes.</summary>
     /// <remarks>
-    ///     ⚠ <b>The stack and not the layer, and that is doc 48 § D13's promise kept: what an artist
-    ///     watches is what the bake produces.</b> A host with no device, or a stack whose plan refused,
+    ///     ⚠
+    ///     <b>
+    ///         The stack and not the layer, and that is doc 48 § D13's promise kept: what an artist
+    ///         watches is what the bake produces.
+    ///     </b>
+    ///     A host with no device, or a stack whose plan refused,
     ///     has no such picture. It shows the painted layer's own pixels and says so in the sentence
     ///     under the pane: nothing here composites one, because that would be a second opinion about
     ///     the arithmetic, which is what <a href="https://github.com/Rikarin/Vixen/issues/849">#849</a>
@@ -1394,7 +1506,8 @@ public sealed partial class TexturingModule : IEditorPlugin, ITexturing, IDispos
             : "this layer's own pixels, not the stack's composite: "
             + (live is { Refusal.Length: > 0 } ? live.Refusal : "this host has no device to evaluate it on");
         var status = $"'{opened.Set.Name}' · '{opened.Layer.Name}' · {tool.Channel} · {what}."
-            + " " + (bound is null ? meshRefusal : $"Painting on '{bound.Model}' — {bound.Triangles} triangles.");
+            + " "
+            + (bound is null ? meshRefusal : $"Painting on '{bound.Model}' — {bound.Triangles} triangles.");
 
         // ⚠ Only the sentence when the pane already holds this picture, because `Present` below keeps
         // that upload level. A pointer-up used to move the whole channel to say what it already showed.
@@ -1431,8 +1544,12 @@ public sealed partial class TexturingModule : IEditorPlugin, ITexturing, IDispos
     /// <param name="canvas">What to texture it with, or null when there is no paint layer yet.</param>
     /// <param name="status">What to say under it.</param>
     /// <remarks>
-    ///     ⚠ <b>The projection and not the <c>LayerStackMesh</c>, and that is what keeps the camera
-    ///     still.</b> <c>LayerStackMesh.Projection</c> is built once and kept, so the same instance
+    ///     ⚠
+    ///     <b>
+    ///         The projection and not the <c>LayerStackMesh</c>, and that is what keeps the camera
+    ///         still.
+    ///     </b>
+    ///     <c>LayerStackMesh.Projection</c> is built once and kept, so the same instance
     ///     comes back for as long as <see cref="meshKey" /> holds — and <c>PaintMeshView.Show</c>
     ///     re-frames on a projection that is a <em>different object</em>. Handing over the mesh and
     ///     letting the pane ask would work the same today and would stop the moment anything cached
@@ -1538,8 +1655,15 @@ public sealed partial class TexturingModule : IEditorPlugin, ITexturing, IDispos
             return;
         }
 
-        var key = (bound?.Model ?? "") + "\n" + (bound?.Mesh ?? "") + "\n" + (bound?.Triangles ?? 0)
-            + "\n" + paintView.Image.ImageWidth + "×" + paintView.Image.ImageHeight;
+        var key = (bound?.Model ?? string.Empty)
+            + "\n"
+            + (bound?.Mesh ?? string.Empty)
+            + "\n"
+            + (bound?.Triangles ?? 0)
+            + "\n"
+            + paintView.Image.ImageWidth
+            + "×"
+            + paintView.Image.ImageHeight;
 
         if (string.Equals(key, islandsKey, StringComparison.Ordinal)) {
             return;
@@ -1624,8 +1748,12 @@ public sealed partial class TexturingModule : IEditorPlugin, ITexturing, IDispos
 
     /// <inheritdoc />
     /// <remarks>
-    ///     ⚠ <b>Not the path that runs, and it is here because the analyzer is right for the wrong
-    ///     reason.</b> A module is torn down by <see cref="Deactivate" /> and by its registration
+    ///     ⚠
+    ///     <b>
+    ///         Not the path that runs, and it is here because the analyzer is right for the wrong
+    ///         reason.
+    ///     </b>
+    ///     A module is torn down by <see cref="Deactivate" /> and by its registration
     ///     scope, and nothing in the plugin host disposes an <see cref="IEditorPlugin" /> — but this
     ///     type does own device resources, so a reader who reaches for <c>using</c> should get the
     ///     right behaviour rather than a silent leak. <see cref="Release" /> is idempotent, so the
@@ -1635,8 +1763,12 @@ public sealed partial class TexturingModule : IEditorPlugin, ITexturing, IDispos
 
     /// <summary>Gives back everything of the host's that this module is holding.</summary>
     /// <remarks>
-    ///     ⚠ <b>The uploaded image and the evaluator, and both are the editor's memory rather than
-    ///     this module's.</b> A picture left behind is a texture and a descriptor set the renderer
+    ///     ⚠
+    ///     <b>
+    ///         The uploaded image and the evaluator, and both are the editor's memory rather than
+    ///         this module's.
+    ///     </b>
+    ///     A picture left behind is a texture and a descriptor set the renderer
     ///     holds for the rest of the session; an evaluator left behind is a pipeline and a shader
     ///     module per kernel it compiled. Neither shows up as a leaked registration, which is why it
     ///     is said here rather than assumed.
@@ -1740,8 +1872,12 @@ public sealed partial class TexturingModule : IEditorPlugin, ITexturing, IDispos
 
     /// <summary>How many evaluators this module has built over its life.</summary>
     /// <remarks>
-    ///     ⚠ <b>A count rather than a flag, because the defect it measures is a <em>second</em>
-    ///     one</b> — <a href="https://github.com/Rikarin/Vixen/issues/820">#820</a>. Nothing reports
+    ///     ⚠
+    ///     <b>
+    ///         A count rather than a flag, because the defect it measures is a <em>second</em>
+    ///         one
+    ///     </b>
+    ///     — <a href="https://github.com/Rikarin/Vixen/issues/820">#820</a>. Nothing reports
     ///     two: both panes draw correctly, and what it costs is a Raven parse, a shader module, a
     ///     compute pipeline and a duplicate descriptor-set-layout cache entry per kernel and format
     ///     the two panes share, held for the session.
@@ -1760,8 +1896,12 @@ public sealed partial class TexturingModule : IEditorPlugin, ITexturing, IDispos
 
     /// <summary>How many <c>.vxpaint</c> files this session has read off the disk.</summary>
     /// <remarks>
-    ///     ⚠ <b>The number <a href="https://github.com/Rikarin/Vixen/issues/948">#948</a> is, and a
-    ///     counter rather than a clock for the reason <see cref="EvaluatorsBuilt" /> is one.</b> A
+    ///     ⚠
+    ///     <b>
+    ///         The number <a href="https://github.com/Rikarin/Vixen/issues/948">#948</a> is, and a
+    ///         counter rather than a clock for the reason <see cref="EvaluatorsBuilt" /> is one.
+    ///     </b>
+    ///     A
     ///     stroke that reads its canvas three times and a stroke that reads it once produce the same
     ///     picture, the same undo entry and the same file — so nothing about the result can tell them
     ///     apart, and at 4K the difference is 134 MB of read and of allocation per stroke.
@@ -1786,8 +1926,12 @@ public sealed partial class TexturingModule : IEditorPlugin, ITexturing, IDispos
 
     /// <summary>How many times anything in this session asked the store for pixels at all.</summary>
     /// <remarks>
-    ///     ⚠ <b>The only one of the three that a call site going back to <c>File.OpenRead</c> moves
-    ///     in a direction an assertion can catch</b> —
+    ///     ⚠
+    ///     <b>
+    ///         The only one of the three that a call site going back to <c>File.OpenRead</c> moves
+    ///         in a direction an assertion can catch
+    ///     </b>
+    ///     —
     ///     <a href="https://github.com/Rikarin/Vixen/issues/978">#978</a>. Un-wiring a reader lowers
     ///     <see cref="CanvasReads" />, which a suite wanting it at zero reads as success, and lowers
     ///     <see cref="CanvasHits" />, which a threshold reads as success as soon as the remaining
@@ -1800,8 +1944,12 @@ public sealed partial class TexturingModule : IEditorPlugin, ITexturing, IDispos
     /// <returns>The evaluator, which the caller does not own.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>One per <em>device</em> rather than one per module, and for a batch it was the
-    ///         latter</b> — <a href="https://github.com/Rikarin/Vixen/issues/945">#945</a>. An
+    ///         ⚠
+    ///         <b>
+    ///             One per <em>device</em> rather than one per module, and for a batch it was the
+    ///             latter
+    ///         </b>
+    ///         — <a href="https://github.com/Rikarin/Vixen/issues/945">#945</a>. An
     ///         evaluator caches a compiled pipeline and a shader module per kernel and output format,
     ///         and an <c>EffectLoader</c>, all built on the device it was constructed with; there is
     ///         no route by which any of that is replayed onto another. So a module that returned its
@@ -1810,8 +1958,11 @@ public sealed partial class TexturingModule : IEditorPlugin, ITexturing, IDispos
     ///         entirely.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>That the device really can change inside one session was checked rather than
-    ///         assumed, because the issue's own first question was whether it can.</b>
+    ///         ⚠
+    ///         <b>
+    ///             That the device really can change inside one session was checked rather than
+    ///             assumed, because the issue's own first question was whether it can.
+    ///         </b>
     ///         <c>EditorHost</c> answers <c>PlatformEventKind.Suspending</c> with <c>Release</c>,
     ///         which sets <c>EditorApplication.GraphicsDevice</c> to null and disposes the
     ///         <c>VulkanDevice</c>; the next <c>Present</c> calls <c>EnsureDevice</c>, which sees a
@@ -1827,8 +1978,11 @@ public sealed partial class TexturingModule : IEditorPlugin, ITexturing, IDispos
     ///         future host with a different order — and for that reason it keeps its old behaviour.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A stale evaluator reaching <em>here</em> is dropped and <em>not</em> disposed,
-    ///         which is the opposite of what this type does everywhere else.</b>
+    ///         ⚠
+    ///         <b>
+    ///             A stale evaluator reaching <em>here</em> is dropped and <em>not</em> disposed,
+    ///             which is the opposite of what this type does everywhere else.
+    ///         </b>
     ///         <c>TexturePlanEvaluator.Dispose</c> calls <c>WaitIdle</c> and <c>Destroy</c> on the
     ///         device it holds — and a device that got this far unannounced was disposed before the
     ///         replacement existed. Destroying a pipeline through a destroyed device is the crash this
@@ -1845,7 +1999,7 @@ public sealed partial class TexturingModule : IEditorPlugin, ITexturing, IDispos
         EvaluatorsBuilt++;
         evaluatorDevice = device;
 
-        return evaluator = new TexturePlanEvaluator(device);
+        return evaluator = new(device);
     }
 
     /// <summary>Re-evaluates the open graph and puts the result in the pane.</summary>
@@ -1887,8 +2041,12 @@ public sealed partial class TexturingModule : IEditorPlugin, ITexturing, IDispos
 
     /// <summary>Re-compiles the open stack and puts the map it produces in the pane.</summary>
     /// <remarks>
-    ///     ⚠ <b>The one difference from <see cref="Refresh" />, and it is why the two are not one
-    ///     method.</b> A graph pane is blocked or not, and <c>TexturePreview.Describe</c> answers
+    ///     ⚠
+    ///     <b>
+    ///         The one difference from <see cref="Refresh" />, and it is why the two are not one
+    ///         method.
+    ///     </b>
+    ///     A graph pane is blocked or not, and <c>TexturePreview.Describe</c> answers
     ///     for the whole host. A stack has a third kind of answer — it compiled and the compilation
     ///     refused, it wants an imported picture, it writes no map of that usage — so the sentence
     ///     under the pane comes back from the evaluation rather than from a blocker enum.
@@ -1952,7 +2110,7 @@ public sealed partial class TexturingModule : IEditorPlugin, ITexturing, IDispos
         // `Sets[0].Mesh` while `Mesh()` resolves `PaintSet` and the part picker narrows the shown
         // set, so narrowing a chosen second set moved nothing the key held and the pane kept the
         // old islands. `SetFor` falls back to the first set, and answers null for a stack with none.
-        var mesh = LayerStackEdit.SetFor(stack.Document, stack.PaintSet)?.Mesh ?? "";
+        var mesh = LayerStackEdit.SetFor(stack.Document, stack.PaintSet)?.Mesh ?? string.Empty;
         var binding = (stack.Document.Model, mesh, tool.LayerId, tool.Channel);
 
         if (binding != paintBinding) {

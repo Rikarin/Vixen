@@ -11,8 +11,10 @@ namespace Vixen.Editor.Water.Tests;
 /// <summary>Nothing in this assembly claims a serialisation alias that nothing registers.</summary>
 /// <remarks>
 ///     <para>
-///         <b><a href="https://github.com/Rikarin/Vixen/issues/1025">#1025</a>, which is
-///         <a href="https://github.com/Rikarin/Vixen/issues/989">#989</a> two assemblies along.</b>
+///         <b>
+///             <a href="https://github.com/Rikarin/Vixen/issues/1025">#1025</a>, which is
+///             <a href="https://github.com/Rikarin/Vixen/issues/989">#989</a> two assemblies along.
+///         </b>
 ///         <c>WaterZoneSettings</c> and <c>WaterBodySettings</c> carried an unnamed
 ///         <c>[DataContract]</c> and registered nothing: <c>Vixen.Editor.Water.csproj</c> names three
 ///         analyzers — the inspector's and the two markup ones, each with a comment about why a
@@ -22,8 +24,12 @@ namespace Vixen.Editor.Water.Tests;
 ///         generator that reads it does not.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The attributes were the lie and they are gone, so this is a guard rather than a
-///         report.</b> Both are the zone and body panels' form model, drawn from <c>[Inspector]</c>.
+///         ⚠
+///         <b>
+///             The attributes were the lie and they are gone, so this is a guard rather than a
+///             report.
+///         </b>
+///         Both are the zone and body panels' form model, drawn from <c>[Inspector]</c>.
 ///         What this toolset writes is a <c>.vxspline</c>, and <c>SplineAsset</c> is declared and
 ///         registered in <c>Core/</c> where the reference index and the YAML tag can both see it.
 ///     </para>
@@ -39,8 +45,11 @@ public class WaterContractTests {
 
     /// <summary>⚠ A <c>[DataContract]</c> here would have to be registered, and today there are none.</summary>
     /// <remarks>
-    ///     <b>Both instruments first, because the interesting direction of this assertion is the one
-    ///     a vacuous pass looks exactly like.</b> The walk is required to have found the assembly's
+    ///     <b>
+    ///         Both instruments first, because the interesting direction of this assertion is the one
+    ///         a vacuous pass looks exactly like.
+    ///     </b>
+    ///     The walk is required to have found the assembly's
     ///     types — an empty <c>GetTypes</c> would satisfy the loop having checked nothing — and the
     ///     registries are required to be able to answer <em>false</em>, since a lookup that said yes
     ///     to everything would satisfy it having proved nothing. Both registries, because
@@ -65,13 +74,15 @@ public class WaterContractTests {
         Assert.False(SerializerRegistry.TryGetByAlias("VixenEditorWaterNoSuchContract", out _));
 
         var unregistered = declared
-            .Select(type => (Type: type,
-                Contract: (DataContractAttribute?)Attribute.GetCustomAttribute(type, typeof(DataContractAttribute))))
-            .Where(entry => entry.Contract is not null)
-            .Select(entry => (entry.Type, Alias: entry.Contract!.Alias ?? entry.Type.Name))
-            .Where(entry => !TypeRegistry.TryGetByAlias(entry.Alias, out _)
-                || !SerializerRegistry.TryGetByAlias(entry.Alias, out _))
-            .Select(entry => $"{entry.Type.Name} as '{entry.Alias}'")
+            .Select(static type => (Type: type,
+                    Contract: (DataContractAttribute?)Attribute.GetCustomAttribute(type, typeof(DataContractAttribute)))
+            )
+            .Where(static entry => entry.Contract is not null)
+            .Select(static entry => (entry.Type, Alias: entry.Contract!.Alias ?? entry.Type.Name))
+            .Where(static entry => !TypeRegistry.TryGetByAlias(entry.Alias, out _)
+                || !SerializerRegistry.TryGetByAlias(entry.Alias, out _)
+            )
+            .Select(static entry => $"{entry.Type.Name} as '{entry.Alias}'")
             .Order(StringComparer.Ordinal)
             .ToArray();
 

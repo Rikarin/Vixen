@@ -43,7 +43,9 @@ namespace Vixen.Engine.Coroutines;
 public readonly struct Coroutine {
     readonly ValueTask task;
 
-    internal Coroutine(ValueTask task) => this.task = task;
+    internal Coroutine(ValueTask task) {
+        this.task = task;
+    }
 
     /// <summary>A coroutine that has already finished.</summary>
     public static Coroutine Completed => default;

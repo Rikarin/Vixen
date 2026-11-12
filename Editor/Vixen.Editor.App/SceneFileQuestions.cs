@@ -12,7 +12,10 @@ using Vixen.Ui.Controls;
 
 namespace Vixen.Editor.App;
 
-/// <summary>File ▸ Save, New Scene, Open Scene and Save As: the lines over <see cref="SceneFiles" />' verbs, and the questions in front of them.</summary>
+/// <summary>
+///     File ▸ Save, New Scene, Open Scene and Save As: the lines over <see cref="SceneFiles" />' verbs, and the
+///     questions in front of them.
+/// </summary>
 /// <remarks>
 ///     <para>
 ///         <b>Moved out of <c>EditorParity.cs</c> (#1296)</b>, once the scene's file was a service. The
@@ -41,8 +44,7 @@ static class SceneFileQuestions {
         // document's own dirty signal rather than from anything here deciding when.
         context.AddCommand(
             new EditorCommand("file.save", EditorStrings.CommandSave, () => files.Save()) {
-                Category = EditorStrings.CategoryFile,
-                Enablement = () => files.Active.Document.HasUnsavedChanges.Value
+                Category = EditorStrings.CategoryFile, Enablement = () => files.Active.Document.HasUnsavedChanges.Value
             }
         );
 
@@ -53,8 +55,7 @@ static class SceneFileQuestions {
         // document's panel, and there it is the scene's save, which is what Ctrl+S always did.
         context.AddCommand(
             new EditorCommand(DocumentCommands.Save, EditorStrings.CommandDocumentSave, () => files.Save()) {
-                Category = EditorStrings.CategoryFile,
-                Enablement = () => files.Active.Document.HasUnsavedChanges.Value
+                Category = EditorStrings.CategoryFile, Enablement = () => files.Active.Document.HasUnsavedChanges.Value
             }
         );
 
@@ -70,33 +71,39 @@ static class SceneFileQuestions {
                     files.New,
                     "Discard"
                 )
-            ) {
-                Category = EditorStrings.CategoryFile
-            }
+            ) { Category = EditorStrings.CategoryFile }
         );
 
         context.AddCommand(
-            new EditorCommand("file.open-scene", EditorStrings.CommandFileOpenScene, () => Open(shell, project, files, dialogs, deferred)) {
-                Category = EditorStrings.CategoryFile,
-                Enablement = () => dialogs is not null
-            }
+            new EditorCommand(
+                "file.open-scene",
+                EditorStrings.CommandFileOpenScene,
+                () => Open(shell, project, files, dialogs, deferred)
+            ) { Category = EditorStrings.CategoryFile, Enablement = () => dialogs is not null }
         );
 
         context.AddCommand(
-            new EditorCommand("file.save-as", EditorStrings.CommandFileSaveAs, () => SaveAs(shell, project, files, dialogs, deferred)) {
-                Category = EditorStrings.CategoryFile,
-                Enablement = () => dialogs is not null
-            }
+            new EditorCommand(
+                "file.save-as",
+                EditorStrings.CommandFileSaveAs,
+                () => SaveAs(shell, project, files, dialogs, deferred)
+            ) { Category = EditorStrings.CategoryFile, Enablement = () => dialogs is not null }
         );
 
-        context.AddDefaultBinding(DocumentCommands.Save, new KeyChord(InputKey.S, ModifierKeys.Control));
-        context.AddDefaultBinding("file.new-scene", new KeyChord(InputKey.N, ModifierKeys.Control));
-        context.AddDefaultBinding("file.open-scene", new KeyChord(InputKey.O, ModifierKeys.Control));
-        context.AddDefaultBinding("file.save-as", new KeyChord(InputKey.S, ModifierKeys.Control | ModifierKeys.Shift));
+        context.AddDefaultBinding(DocumentCommands.Save, new(InputKey.S, ModifierKeys.Control));
+        context.AddDefaultBinding("file.new-scene", new(InputKey.N, ModifierKeys.Control));
+        context.AddDefaultBinding("file.open-scene", new(InputKey.O, ModifierKeys.Control));
+        context.AddDefaultBinding("file.save-as", new(InputKey.S, ModifierKeys.Control | ModifierKeys.Shift));
     }
 
     /// <summary>Asks whether to discard, then which file, and loads it over the active scene.</summary>
-    static void Open(EditorShell shell, EditorProject project, SceneFiles files, INativeDialogs? dialogs, Deferred deferred) {
+    static void Open(
+        EditorShell shell,
+        EditorProject project,
+        SceneFiles files,
+        INativeDialogs? dialogs,
+        Deferred deferred
+    ) {
         if (dialogs is null) {
             return;
         }
@@ -108,7 +115,7 @@ static class SceneFileQuestions {
             Path.GetFileName(files.Active.Writes) + " has changes that have not been written.",
             () => deferred.When(
                 dialogs.OpenFileAsync(
-                    new FileDialogOptions {
+                    new() {
                         Title = "Open Scene",
                         InitialDirectory = project.Paths.Assets,
                         Filters = [new FileFilter("Vixen scene", SceneSerializer.Extension.TrimStart('.'))]
@@ -119,14 +126,24 @@ static class SceneFileQuestions {
                         files.Load(path);
                     }
                 },
-                failure => shell.Notifications.Show("Could not open the scene", NotificationSeverity.Error, failure.Message)
+                failure => shell.Notifications.Show(
+                    "Could not open the scene",
+                    NotificationSeverity.Error,
+                    failure.Message
+                )
             ),
             "Discard"
         );
     }
 
     /// <summary>Asks where to put the active scene, and writes it there from now on.</summary>
-    static void SaveAs(EditorShell shell, EditorProject project, SceneFiles files, INativeDialogs? dialogs, Deferred deferred) {
+    static void SaveAs(
+        EditorShell shell,
+        EditorProject project,
+        SceneFiles files,
+        INativeDialogs? dialogs,
+        Deferred deferred
+    ) {
         if (dialogs is null) {
             return;
         }
@@ -135,7 +152,7 @@ static class SceneFileQuestions {
 
         deferred.When(
             dialogs.SaveFileAsync(
-                new FileDialogOptions {
+                new() {
                     Title = "Save Scene As",
                     InitialDirectory = Path.GetDirectoryName(writes) ?? project.Paths.Assets,
                     SuggestedFileName = Path.GetFileName(writes),

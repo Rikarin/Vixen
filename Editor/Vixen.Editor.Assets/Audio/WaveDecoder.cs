@@ -32,6 +32,7 @@ namespace Vixen.Editor.Assets.Audio;
 public sealed class WaveDecoder : IAudioDecoder {
     /// <summary>What a <c>fmt </c> chunk's tag says the samples are.</summary>
     const int Pcm = 0x0001;
+
     const int Float = 0x0003;
     const int Extensible = 0xFFFE;
 
@@ -178,7 +179,7 @@ public sealed class WaveDecoder : IAudioDecoder {
 
             case 16:
                 // Already the target layout, and already little-endian: a copy and nothing else.
-                return Clip(data[..(data.Length & ~1)].ToArray(), channels, sampleRate, AudioSampleFormat.Int16);
+                return Clip([..data[..(data.Length & ~1)]], channels, sampleRate, AudioSampleFormat.Int16);
 
             case 24: {
                 var frames = data.Length / 3;
@@ -216,9 +217,7 @@ public sealed class WaveDecoder : IAudioDecoder {
             }
 
             default:
-                throw new AudioFormatException(
-                    $"Its samples are {bits} bits wide. PCM WAVs are 8, 16, 24 or 32."
-                );
+                throw new AudioFormatException($"Its samples are {bits} bits wide. PCM WAVs are 8, 16, 24 or 32.");
         }
     }
 
@@ -226,7 +225,7 @@ public sealed class WaveDecoder : IAudioDecoder {
     static AudioClip FromFloat(ReadOnlySpan<byte> data, int channels, int sampleRate, int bits) {
         switch (bits) {
             case 32:
-                return Clip(data[..(data.Length & ~3)].ToArray(), channels, sampleRate, AudioSampleFormat.Float32);
+                return Clip([..data[..(data.Length & ~3)]], channels, sampleRate, AudioSampleFormat.Float32);
 
             case 64: {
                 var count = data.Length / 8;
@@ -253,7 +252,7 @@ public sealed class WaveDecoder : IAudioDecoder {
     /// </remarks>
     static AudioClip Clip(byte[] samples, int channels, int sampleRate, AudioSampleFormat format) {
         var stride = channels * (format is AudioSampleFormat.Float32 ? 4 : 2);
-        var whole = samples.Length - (samples.Length % stride);
+        var whole = samples.Length - samples.Length % stride;
 
         return new() {
             SampleRate = sampleRate,

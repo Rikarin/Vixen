@@ -14,8 +14,12 @@ namespace Vixen.Ai.Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>The row's literal phrasing asks for something § D18 explicitly does not promise, and
-///         this is the useful reading.</b> A stream is keyed on <i>the agent's own entity</i> — the way
+///         ⚠
+///         <b>
+///             The row's literal phrasing asks for something § D18 explicitly does not promise, and
+///             this is the useful reading.
+///         </b>
+///         A stream is keyed on <i>the agent's own entity</i> — the way
 ///         <c>VfxRandom</c> keys a particle on its identifier rather than its slot — so two agents with
 ///         different ids may legitimately draw differently, and a test that demanded otherwise would
 ///         be demanding that the seed do nothing. What must hold is that an agent's decisions do not
@@ -35,8 +39,8 @@ public class BehaviorTreeDeterminismTests {
 
     [Fact]
     public void TheSameTreeOnTwoWorldsWithDifferentCreationOrderWalksTheSameNodes() {
-        var quiet = Run(padding: 0);
-        var busy = Run(padding: 37);
+        var quiet = Run(0);
+        var busy = Run(37);
 
         Assert.Equal(quiet, busy);
 
@@ -107,8 +111,7 @@ public class BehaviorTreeDeterminismTests {
         return walked;
     }
 
-    static BlackboardLayout Layout() =>
-        new BlackboardLayoutBuilder().Add("alarmed", BlackboardValueType.Bool).Build();
+    static BlackboardLayout Layout() => new BlackboardLayoutBuilder().Add("alarmed", BlackboardValueType.Bool).Build();
 
     /// <summary>A selector with an observed branch and a random one, which is where order could leak.</summary>
     static BehaviorTreeTemplate Tree(AgentActionRegistry registry, BlackboardLayout layout) {

@@ -60,7 +60,7 @@ public class GizmoTests {
         Assert.Equal(second.Position, gizmo.Origin);
 
         gizmo.Pivot = PivotMode.Center;
-        Assert.Equal(new Vector3(5f, 0f, 0f), gizmo.Origin);
+        Assert.Equal(new(5f, 0f, 0f), gizmo.Origin);
     }
 
     [Fact]
@@ -69,10 +69,10 @@ public class GizmoTests {
         var (gizmo, _) = One();
 
         var scale = gizmo.WorldPerPixel(camera, Height) * gizmo.HandleLength;
-        var alongX = Screen(camera, new Vector3(scale * 0.8f, 0f, 0f));
+        var alongX = Screen(camera, new(scale * 0.8f, 0f, 0f));
 
         Assert.Equal(GizmoHandle.AxisX, gizmo.HitTest(alongX, camera, Width, Height));
-        Assert.Equal(GizmoHandle.None, gizmo.HitTest(new Vector2(5f, 5f), camera, Width, Height));
+        Assert.Equal(GizmoHandle.None, gizmo.HitTest(new(5f, 5f), camera, Width, Height));
     }
 
     [Fact]
@@ -109,7 +109,7 @@ public class GizmoTests {
         var (gizmo, _) = One();
 
         var scale = gizmo.WorldPerPixel(camera, Height) * gizmo.HandleLength;
-        var onZ = Screen(camera, new Vector3(0f, 0f, scale * 0.85f));
+        var onZ = Screen(camera, new(0f, 0f, scale * 0.85f));
 
         Assert.Equal(GizmoHandle.AxisZ, gizmo.HitTest(onZ, camera, Width, Height));
     }
@@ -134,7 +134,7 @@ public class GizmoTests {
         Assert.True(gizmo.IsAxisVisible(Vector3.UnitZ, camera));
         Assert.Equal(
             GizmoHandle.AxisZ,
-            gizmo.HitTest(Screen(camera, new Vector3(0f, 0f, scale * 0.85f)), camera, Width, Height)
+            gizmo.HitTest(Screen(camera, new(0f, 0f, scale * 0.85f)), camera, Width, Height)
         );
     }
 
@@ -147,11 +147,11 @@ public class GizmoTests {
         // with a pixel position — mirrored through the middle of the pane — so the arms of this gizmo
         // lie across the viewport as segments nothing drew, and the pointer is regularly inside their
         // grab radius. Every one of those clicks starts a drag that leaps.
-        target.Position = new Vector3(0f, 0f, 40f);
+        target.Position = new(0f, 0f, 40f);
 
         for (var x = 0; x < Width; x += 40) {
             for (var y = 0; y < Height; y += 40) {
-                Assert.Equal(GizmoHandle.None, gizmo.HitTest(new Vector2(x, y), camera, Width, Height));
+                Assert.Equal(GizmoHandle.None, gizmo.HitTest(new(x, y), camera, Width, Height));
             }
         }
     }
@@ -165,7 +165,7 @@ public class GizmoTests {
         var camera = Camera();
         var (gizmo, target) = One(GizmoMode.Rotate);
 
-        var start = Screen(camera, new Vector3(0f, 0f, 0f)) + new Vector2(0f, 90f);
+        var start = Screen(camera, new(0f, 0f, 0f)) + new Vector2(0f, 90f);
 
         Assert.True(gizmo.Begin(GizmoHandle.AxisY, camera.PickingRay(start, Width, Height), camera));
 
@@ -178,7 +178,7 @@ public class GizmoTests {
 
         // Smooth, bounded and in one direction: an angle read off a plane that is nearly parallel to
         // the ray gives none of those three.
-        Assert.All(turned, degrees => Assert.True(MathF.Abs(degrees) <= 180f, $"turned to {degrees}°"));
+        Assert.All(turned, static degrees => Assert.True(MathF.Abs(degrees) <= 180f, $"turned to {degrees}°"));
 
         for (var step = 1; step < turned.Count; step++) {
             Assert.True(
@@ -195,7 +195,7 @@ public class GizmoTests {
         var camera = Camera();
         var (gizmo, target) = One();
 
-        target.Position = new Vector3(0.3f, 0f, 0f);
+        target.Position = new(0.3f, 0f, 0f);
         gizmo.Snap.SnapPosition = true;
         gizmo.Snap.GridStep = 1f;
 
@@ -225,8 +225,8 @@ public class GizmoTests {
         var far = new EditorCamera { Distance = 200f };
         var (gizmo, _) = One();
 
-        var nearEnd = Screen(near, new Vector3(gizmo.WorldPerPixel(near, Height) * gizmo.HandleLength, 0f, 0f));
-        var farEnd = Screen(far, new Vector3(gizmo.WorldPerPixel(far, Height) * gizmo.HandleLength, 0f, 0f));
+        var nearEnd = Screen(near, new(gizmo.WorldPerPixel(near, Height) * gizmo.HandleLength, 0f, 0f));
+        var farEnd = Screen(far, new(gizmo.WorldPerPixel(far, Height) * gizmo.HandleLength, 0f, 0f));
 
         var nearLength = Vector2.Distance(nearEnd, Screen(near, Vector3.Zero));
         var farLength = Vector2.Distance(farEnd, Screen(far, Vector3.Zero));
@@ -303,7 +303,7 @@ public class GizmoTests {
         gizmo.Drag(camera.PickingRay(start + new Vector2(200f, 0f), Width, Height), camera);
 
         Assert.True(gizmo.Cancel());
-        Assert.Equal(new Vector3(3f, 0f, 0f), target.Position);
+        Assert.Equal(new(3f, 0f, 0f), target.Position);
         Assert.False(gizmo.IsDragging);
     }
 
@@ -320,12 +320,12 @@ public class GizmoTests {
         var gizmo = new TransformGizmo { Mode = GizmoMode.Rotate, Pivot = PivotMode.Center };
         gizmo.Attach([first, second]);
 
-        var start = Screen(camera, new Vector3(0f, 0f, 5f));
+        var start = Screen(camera, new(0f, 0f, 5f));
         gizmo.Begin(GizmoHandle.AxisY, camera.PickingRay(start, Width, Height), camera);
         gizmo.Drag(camera.PickingRay(start + new Vector2(150f, 0f), Width, Height), camera);
 
         // Both moved, and they are still the same distance apart: the group turned as a group.
-        Assert.NotEqual(new Vector3(-5f, 0f, 0f), first.Position);
+        Assert.NotEqual(new(-5f, 0f, 0f), first.Position);
         Assert.Equal(10f, (second.Position - first.Position).Length(), 3);
     }
 
@@ -338,7 +338,7 @@ public class GizmoTests {
         gizmo.Snap.SnapRotation = true;
         gizmo.Snap.AngleStep = 45f;
 
-        var start = Screen(camera, new Vector3(0f, 0f, 4f));
+        var start = Screen(camera, new(0f, 0f, 4f));
         gizmo.Begin(GizmoHandle.AxisY, camera.PickingRay(start, Width, Height), camera);
 
         for (var step = 1; step <= 30; step++) {
@@ -356,7 +356,7 @@ public class GizmoTests {
         var camera = Camera();
         var (gizmo, target) = One(GizmoMode.Scale);
 
-        var start = Screen(camera, new Vector3(1f, 0f, 0f));
+        var start = Screen(camera, new(1f, 0f, 0f));
         gizmo.Begin(GizmoHandle.AxisX, camera.PickingRay(start, Width, Height), camera);
         gizmo.Drag(camera.PickingRay(start + new Vector2(120f, 0f), Width, Height), camera);
 
@@ -368,18 +368,16 @@ public class GizmoTests {
     [Fact]
     public void Local_space_points_the_arms_at_the_object_s_own_axes() {
         var camera = Camera();
-        var target = new StubTarget {
-            Rotation = Quaternion.FromAxisAngle(Vector3.UnitY, MathUtil.PiOverTwo)
-        };
+        var target = new StubTarget { Rotation = Quaternion.FromAxisAngle(Vector3.UnitY, MathUtil.PiOverTwo) };
 
         var gizmo = new TransformGizmo { Space = GizmoSpace.Local };
         gizmo.Attach([target]);
 
         var basis = gizmo.Basis(camera);
-        var x = Vector3.Normalize(new Vector3(basis.M11, basis.M12, basis.M13));
+        var x = Vector3.Normalize(new(basis.M11, basis.M12, basis.M13));
 
         // The object is turned a quarter turn about Y, so its own X points along world −Z.
-        Assert.True(Vector3.NearEqual(x, new Vector3(0f, 0f, -1f), 1e-4f));
+        Assert.True(Vector3.NearEqual(x, new(0f, 0f, -1f), 1e-4f));
     }
 
     [Fact]
@@ -412,8 +410,8 @@ public class GizmoTests {
         var camera = Camera();
         var gizmo = new TransformGizmo();
 
-        Assert.Equal(GizmoHandle.None, gizmo.HitTest(new Vector2(500f, 400f), camera, Width, Height));
-        Assert.False(gizmo.Begin(GizmoHandle.AxisX, camera.PickingRay(new Vector2(500f, 400f), Width, Height), camera));
+        Assert.Equal(GizmoHandle.None, gizmo.HitTest(new(500f, 400f), camera, Width, Height));
+        Assert.False(gizmo.Begin(GizmoHandle.AxisX, camera.PickingRay(new(500f, 400f), Width, Height), camera));
     }
 
     static float EulerDegrees(Quaternion rotation) {

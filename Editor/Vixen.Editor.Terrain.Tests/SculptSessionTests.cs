@@ -22,10 +22,11 @@ namespace Vixen.Editor.Terrain.Tests;
 /// </remarks>
 sealed class SculptDocument(EditorProject project) : EditorDocument(project, AssetId.New(), "Terrain") {
     /// <inheritdoc />
-    /// <remarks>Nothing: what writing a <c>.vxterrain</c> is belongs to the asset database, which
-    ///     this test does not have and the exit criterion does not name.</remarks>
-    protected override void SaveCore() {
-    }
+    /// <remarks>
+    ///     Nothing: what writing a <c>.vxterrain</c> is belongs to the asset database, which
+    ///     this test does not have and the exit criterion does not name.
+    /// </remarks>
+    protected override void SaveCore() { }
 }
 
 /// <summary>
@@ -64,7 +65,7 @@ public sealed class SculptSessionTests : IDisposable {
         shell.Dispose();
 
         if (Directory.Exists(root)) {
-            Directory.Delete(root, recursive: true);
+            Directory.Delete(root, true);
         }
     }
 
@@ -104,7 +105,7 @@ public sealed class SculptSessionTests : IDisposable {
         Assert.True(shell.Commands.Execute(TerrainMode.ToolCommand(TerrainTool.Sculpt)));
         mode.Editing.Tools.Metres = 12f;
 
-        mode.Editing.Begin(new(20f, 60f), invert: true);
+        mode.Editing.Begin(new(20f, 60f), true);
 
         for (var x = 24; x <= 60; x += 4) {
             mode.Editing.Extend(new(x, 60f));
@@ -173,8 +174,8 @@ public sealed class SculptSessionTests : IDisposable {
         var depth = document.Stack.Depth.Value;
 
         for (var index = 0; index < 8; index++) {
-            mode.Editing.Begin(new(20f + (index * 10f), 20f));
-            mode.Editing.Extend(new(24f + (index * 10f), 24f));
+            mode.Editing.Begin(new(20f + index * 10f, 20f));
+            mode.Editing.Extend(new(24f + index * 10f, 24f));
             mode.Commit();
         }
 
@@ -245,8 +246,7 @@ public sealed class SculptSessionTests : IDisposable {
         var grounds = new[] {
             TerrainLayerDescription.Of("Grass") with { Albedo = "T/grass", TilingMetres = 4f },
             TerrainLayerDescription.Of("Rock") with {
-                Albedo = "T/rock", Surface = "T/rock-orm",
-                Blend = TerrainLayerBlend.Height, HeightContrast = 0.25f
+                Albedo = "T/rock", Surface = "T/rock-orm", Blend = TerrainLayerBlend.Height, HeightContrast = 0.25f
             },
             TerrainLayerDescription.Of("Sand") with { Albedo = "T/sand", TilingMetres = 2f },
             TerrainLayerDescription.Of("Mud") with { Albedo = "T/mud" },
@@ -257,13 +257,11 @@ public sealed class SculptSessionTests : IDisposable {
         foreach (var layer in grounds) {
             Assert.True(shell.Commands.Execute(TerrainMode.AddTargetCommand));
 
-            document.Stack.Execute(
-                TerrainLayerCommands.AssignTarget(ground, mode.Editing.Target, layer)
-            );
+            document.Stack.Execute(TerrainLayerCommands.AssignTarget(ground, mode.Editing.Target, layer));
         }
 
         Assert.Equal(6, ground.Weights.LayerCount);
-        Assert.Equal([.. grounds.Select(layer => layer.Name)], ground.Weights.Names);
+        Assert.Equal([..grounds.Select(static layer => layer.Name)], ground.Weights.Names);
 
         // --- Painted, through the mode's own strip ---------------------------
         Assert.True(shell.Commands.Execute(TerrainMode.CategoryCommand(TerrainCategory.Paint)));
@@ -282,8 +280,8 @@ public sealed class SculptSessionTests : IDisposable {
         for (var layer = 1; layer < 6; layer++) {
             mode.Editing.Target = layer;
 
-            mode.Editing.Begin(new(20f + (layer * 14f), 40f));
-            mode.Editing.Extend(new(26f + (layer * 14f), 52f));
+            mode.Editing.Begin(new(20f + layer * 14f, 40f));
+            mode.Editing.Extend(new(26f + layer * 14f, 52f));
 
             Assert.NotNull(mode.Commit());
         }
@@ -328,7 +326,7 @@ public sealed class SculptSessionTests : IDisposable {
         var materials = new sbyte[quads * quads];
 
         ground.Weights.FillCollisionMaterials(0, 0, materials);
-        Assert.All(materials, material => Assert.InRange(material, 0, 5));
+        Assert.All(materials, static material => Assert.InRange(material, 0, 5));
 
         // --- All of it undoable ----------------------------------------------
         var painted = Weights(ground);

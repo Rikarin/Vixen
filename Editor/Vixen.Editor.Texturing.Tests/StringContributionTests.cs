@@ -2,8 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Editor.Ui;
-using Vixen.Texturing.Layers;
-using Vixen.Texturing.Painting;
 using Xunit;
 
 namespace Vixen.Editor.Texturing.Tests;

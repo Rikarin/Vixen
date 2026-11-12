@@ -10,8 +10,12 @@ namespace Vixen.AotProbe.Ios;
 public static class Entry {
     /// <summary>
     ///     Touches the iOS platform assembly and the engine. The first is not decoration: without a
-    ///     reference to it the managed registrar fails the link with <c>MT0099: No platform
-    ///     assembly!</c>, which is a confusing way to be told that a console <c>Main</c> is not an
+    ///     reference to it the managed registrar fails the link with
+    ///     <c>
+    ///         MT0099: No platform
+    ///         assembly!
+    ///     </c>
+    ///     , which is a confusing way to be told that a console <c>Main</c> is not an
     ///     iOS application.
     /// </summary>
     public static void Main() {

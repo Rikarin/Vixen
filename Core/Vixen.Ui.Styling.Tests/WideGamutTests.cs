@@ -48,7 +48,7 @@ public class WideGamutTests {
 
         // P3's red is outside sRGB — that is what "wider" means — and it overflows on red.
         Assert.True(p3Red.R > 1f, $"P3 red should exceed sRGB red, got {p3Red.R}");
-        Assert.True(GamutMap.InGamut(new Vector3(p3Red.R, p3Red.G, p3Red.B), ColorGamut.DisplayP3));
+        Assert.True(GamutMap.InGamut(new(p3Red.R, p3Red.G, p3Red.B), ColorGamut.DisplayP3));
     }
 
     /// <summary><c>srgb-linear</c> skips the transfer function, which is the whole difference.</summary>
@@ -112,7 +112,7 @@ public class WideGamutTests {
     [InlineData("(min-color-gamut: p3)")]
     [InlineData("(color-gamut: srgba)")]
     public void A_malformed_gamut_query_is_refused(string condition) {
-        Assert.False(MediaQuery.TryEvaluate(condition, new MediaContext(800, 600), out _, out var reason));
+        Assert.False(MediaQuery.TryEvaluate(condition, new(800, 600), out _, out var reason));
         Assert.NotNull(reason);
     }
 }

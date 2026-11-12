@@ -13,8 +13,12 @@ namespace Vixen.TextureGraph;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>This is what stops a second opinion about what a curve or a gradient means, and doc
-///         48 § D3's ban is not what it is dodging.</b> That rule forbids a CPU <em>twin</em> of a
+///         ⚠
+///         <b>
+///             This is what stops a second opinion about what a curve or a gradient means, and doc
+///             48 § D3's ban is not what it is dodging.
+///         </b>
+///         That rule forbids a CPU <em>twin</em> of a
 ///         kernel — two transcriptions of one operation, whose parity test proves only that somebody
 ///         copied carefully. This is the opposite arrangement: there is exactly one implementation
 ///         of a Hermite spline in this repository and exactly one of a gradient's stop list, and
@@ -86,9 +90,9 @@ public static class TextureRamp {
             var color = evaluate(entry / (float)(Entries - 1));
 
             pixels[entry * 4] = Quantise(color.R);
-            pixels[(entry * 4) + 1] = Quantise(color.G);
-            pixels[(entry * 4) + 2] = Quantise(color.B);
-            pixels[(entry * 4) + 3] = Quantise(color.A);
+            pixels[entry * 4 + 1] = Quantise(color.G);
+            pixels[entry * 4 + 2] = Quantise(color.B);
+            pixels[entry * 4 + 3] = Quantise(color.A);
         }
 
         return pixels;
@@ -117,9 +121,9 @@ public static class TextureRamp {
             var at = entry / (float)(Entries - 1);
 
             pixels[entry * 4] = Quantise(CurveEvaluation.Evaluate(red, at));
-            pixels[(entry * 4) + 1] = Quantise(CurveEvaluation.Evaluate(green, at));
-            pixels[(entry * 4) + 2] = Quantise(CurveEvaluation.Evaluate(blue, at));
-            pixels[(entry * 4) + 3] = Quantise(CurveEvaluation.Evaluate(alpha, at));
+            pixels[entry * 4 + 1] = Quantise(CurveEvaluation.Evaluate(green, at));
+            pixels[entry * 4 + 2] = Quantise(CurveEvaluation.Evaluate(blue, at));
+            pixels[entry * 4 + 3] = Quantise(CurveEvaluation.Evaluate(alpha, at));
         }
 
         return pixels;
@@ -129,8 +133,12 @@ public static class TextureRamp {
     /// <returns>The keys a channel left alone carries.</returns>
     /// <remarks>
     ///     ⚠ <b>Not a convenience.</b> A curve node with one channel curved and three left alone is
-    ///     the ordinary case, and the three left alone have to be an identity <em>through the same
-    ///     evaluator</em> — an omitted channel baked as zero is a curve node that silently drops
+    ///     the ordinary case, and the three left alone have to be an identity
+    ///     <em>
+    ///         through the same
+    ///         evaluator
+    ///     </em>
+    ///     — an omitted channel baked as zero is a curve node that silently drops
     ///     colour, which is the failure this returns instead of inviting.
     /// </remarks>
     public static CurveSample[] Straight() => [
@@ -191,10 +199,10 @@ public static class TextureRamp {
                 var t = end > start ? (position - start) / (end - start) : 1f;
 
                 return new(
-                    from.R + ((to.R - from.R) * t),
-                    from.G + ((to.G - from.G) * t),
-                    from.B + ((to.B - from.B) * t),
-                    from.A + ((to.A - from.A) * t)
+                    from.R + (to.R - from.R) * t,
+                    from.G + (to.G - from.G) * t,
+                    from.B + (to.B - from.B) * t,
+                    from.A + (to.A - from.A) * t
                 );
             }
         }
@@ -216,7 +224,7 @@ public static class TextureRamp {
         }
 
         return stops.Count > 0
-            ? [.. stops.OrderBy(static stop => stop.Position)]
+            ? [..stops.OrderBy(static stop => stop.Position)]
             : throw new InvalidDataException("a ramp needs a stop");
     }
 
@@ -224,7 +232,12 @@ public static class TextureRamp {
         var lanes = new float[Channels];
 
         for (var i = 0; i < Channels; i++) {
-            if (!byte.TryParse(hex.AsSpan(i * 2, 2), NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var lane)) {
+            if (!byte.TryParse(
+                    hex.AsSpan(i * 2, 2),
+                    NumberStyles.HexNumber,
+                    CultureInfo.InvariantCulture,
+                    out var lane
+                )) {
                 throw new InvalidDataException($"'{hex}' is not hex");
             }
 
@@ -237,7 +250,10 @@ public static class TextureRamp {
     static Dictionary<string, CurveSample[]> ParseChannels(string text) {
         Dictionary<string, CurveSample[]> channels = new(StringComparer.Ordinal);
 
-        foreach (var channel in text.Split(';', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)) {
+        foreach (var channel in text.Split(
+                     ';',
+                     StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries
+                 )) {
             var split = channel.IndexOf('=', StringComparison.Ordinal);
 
             if (split < 1) {
@@ -264,7 +280,7 @@ public static class TextureRamp {
         }
 
         return keys.Count > 0
-            ? [.. keys.OrderBy(static key => key.Time)]
+            ? [..keys.OrderBy(static key => key.Time)]
             : throw new InvalidDataException("a curve channel needs a key");
     }
 

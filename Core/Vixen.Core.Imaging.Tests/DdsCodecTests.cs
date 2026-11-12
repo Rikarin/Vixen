@@ -51,17 +51,17 @@ public sealed class DdsCodecTests {
             var length = texture.Levels[level].Length / 6;
 
             for (var face = 0; face < 6; face++) {
-                texture.LevelSpan(level).Slice(face * length, length).Fill((byte)((level * 16) + face));
+                texture.LevelSpan(level).Slice(face * length, length).Fill((byte)(level * 16 + face));
             }
         }
 
         var file = DdsCodec.Write(texture);
         const int Payload = 148;
-        var chain = (4 * 4 * 4) + (2 * 2 * 4) + (1 * 1 * 4);
+        var chain = 4 * 4 * 4 + 2 * 2 * 4 + 1 * 1 * 4;
 
         Assert.Equal(0x00, file[Payload]);
-        Assert.Equal(0x10, file[Payload + (4 * 4 * 4)]);
-        Assert.Equal(0x20, file[Payload + (4 * 4 * 4) + (2 * 2 * 4)]);
+        Assert.Equal(0x10, file[Payload + 4 * 4 * 4]);
+        Assert.Equal(0x20, file[Payload + 4 * 4 * 4 + 2 * 2 * 4]);
         Assert.Equal(0x01, file[Payload + chain]);
         Assert.Equal(4u, BinaryPrimitives.ReadUInt32LittleEndian(file.AsSpan(128 + 8)));
         Assert.Equal(1u, BinaryPrimitives.ReadUInt32LittleEndian(file.AsSpan(128 + 12)));
@@ -84,7 +84,7 @@ public sealed class DdsCodecTests {
     /// <summary>The header fields a strict reader checks, in the places the format puts them.</summary>
     [Fact]
     public void TheHeaderIsWhatTheFormatSaysItIs() {
-        var file = DdsCodec.Write(new(PixelFormat.Bc7RgbaUNormSrgb, 32, 16, levelCount: 1));
+        var file = DdsCodec.Write(new(PixelFormat.Bc7RgbaUNormSrgb, 32, 16, 1));
 
         Assert.Equal("DDS "u8.ToArray(), file[..4]);
         Assert.Equal(124u, Read(4));
@@ -95,25 +95,31 @@ public sealed class DdsCodecTests {
         Assert.Equal("DX10"u8.ToArray(), file[84..88]);
         Assert.Equal(99u, Read(128));
         Assert.Equal(3u, Read(132));
-        Assert.Equal(148 + (32 * 16), file.Length);
+        Assert.Equal(148 + 32 * 16, file.Length);
 
         uint Read(int at) => BinaryPrimitives.ReadUInt32LittleEndian(file.AsSpan(at));
     }
 
     [Fact]
     public void AnythingElseIsRefusedByName() {
-        Assert.Throws<DdsException>(() => DdsCodec.Read(new byte[8]));
-        Assert.Throws<DdsException>(() => DdsCodec.Read(new byte[200]));
-        Assert.Throws<DdsException>(() => DdsCodec.Write(new(PixelFormat.Rgba8UNorm, 4, 4, levelCount: 1, depth: 4)));
-        Assert.Throws<DdsException>(() => DdsCodec.Write(new(PixelFormat.Etc2Rgba8UNorm, 4, 4)));
+        Assert.Throws<DdsException>(static () => DdsCodec.Read(new byte[8]));
+        Assert.Throws<DdsException>(static () => DdsCodec.Read(new byte[200]));
+        Assert.Throws<DdsException>(static () =>
+            DdsCodec.Write(new(PixelFormat.Rgba8UNorm, 4, 4, 1, 4))
+        );
+        Assert.Throws<DdsException>(static () => DdsCodec.Write(new(PixelFormat.Etc2Rgba8UNorm, 4, 4)));
 
         var legacy = DdsCodec.Write(new(PixelFormat.Rgba8UNorm, 4, 4));
 
-        BinaryPrimitives.WriteUInt32LittleEndian(legacy.AsSpan(84), 0x35545844);    // 'DXT5'
+        BinaryPrimitives.WriteUInt32LittleEndian(legacy.AsSpan(84), 0x35545844); // 'DXT5'
 
-        Assert.Contains("DdsDecoder", Assert.Throws<DdsException>(() => DdsCodec.Read(legacy)).Message, StringComparison.Ordinal);
+        Assert.Contains(
+            "DdsDecoder",
+            Assert.Throws<DdsException>(() => DdsCodec.Read(legacy)).Message,
+            StringComparison.Ordinal
+        );
 
-        var cut = DdsCodec.Write(new(PixelFormat.Rgba8UNorm, 4, 4, levelCount: 1));
+        var cut = DdsCodec.Write(new(PixelFormat.Rgba8UNorm, 4, 4, 1));
 
         Assert.Throws<DdsException>(() => DdsCodec.Read(cut.AsSpan(0, cut.Length - 1)));
     }
@@ -146,7 +152,17 @@ public sealed class DdsCodecTests {
         File.WriteAllBytes(path, DdsCodec.Write(encoded));
 
         var (exitCode, output) = ExternalTools.Run(
-            ffmpeg, "-v", "error", "-y", "-i", path, "-pix_fmt", "rgba", "-f", "rawvideo", raw
+            ffmpeg,
+            "-v",
+            "error",
+            "-y",
+            "-i",
+            path,
+            "-pix_fmt",
+            "rgba",
+            "-f",
+            "rawvideo",
+            raw
         );
 
         Assert.True(exitCode == 0, $"ffmpeg refused {format}:{Environment.NewLine}{output}");
@@ -159,7 +175,7 @@ public sealed class DdsCodecTests {
 
         for (var texel = 0; texel < 64 * 64; texel++) {
             for (var channel = 0; channel < channels; channel++) {
-                worst = Math.Max(worst, Math.Abs(theirs[(texel * 4) + channel] - ours[(texel * 4) + channel]));
+                worst = Math.Max(worst, Math.Abs(theirs[texel * 4 + channel] - ours[texel * 4 + channel]));
             }
         }
 
@@ -209,9 +225,9 @@ public sealed class DdsCodecTests {
 
         for (var texel = 0; texel < 64 * 64; texel++) {
             for (var channel = 0; channel < 3; channel++) {
-                var theirs = samples[(texel * channels) + channel] / 257;
+                var theirs = samples[texel * channels + channel] / 257;
 
-                worst = Math.Max(worst, Math.Abs(theirs - ours[(texel * 4) + channel]));
+                worst = Math.Max(worst, Math.Abs(theirs - ours[texel * 4 + channel]));
             }
         }
 

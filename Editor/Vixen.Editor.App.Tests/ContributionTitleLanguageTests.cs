@@ -116,17 +116,25 @@ public sealed class ContributionTitleLanguageTests {
 
     /// <summary>What Assets ▸ Create says, line by line, as the menu bar renders it.</summary>
     static List<string> CreateLines(EditorSession session) {
-        var assets = Assert.Single(session.Shell.MenuBar.Bar.Items, item => item.Label == EditorStrings.MenuAssets.Text);
-        var create = Assert.Single(assets.Menu.Items, item => item.Label == EditorStrings.MenuCreate.Text);
+        var assets = Assert.Single(
+            session.Shell.MenuBar.Bar.Items,
+            static item => item.Label == EditorStrings.MenuAssets.Text
+        );
+        var create = Assert.Single(assets.Menu.Items, static item => item.Label == EditorStrings.MenuCreate.Text);
 
         Assert.NotNull(create.Submenu);
 
-        return [.. create.Submenu.Items.Select(static item => item.Label ?? string.Empty)];
+        return [..create.Submenu.Items.Select(static item => item.Label ?? string.Empty)];
     }
 
     static List<string> ChooserRows(EditorSession session) =>
         session.Shell.Dialogs.Current is { } dialog
-            ? [.. Descendants(dialog).OfType<Button>().Where(static button => button.HasClass("choice")).Select(static button => button.Label ?? string.Empty)]
+            ? [
+                ..Descendants(dialog)
+                    .OfType<Button>()
+                    .Where(static button => button.HasClass("choice"))
+                    .Select(static button => button.Label ?? string.Empty)
+            ]
             : [];
 
     static IEnumerable<UiElement> Descendants(UiElement element) {

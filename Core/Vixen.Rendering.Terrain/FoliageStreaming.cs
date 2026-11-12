@@ -107,8 +107,12 @@ public sealed class FoliageCellPages : IPageStore {
 /// <summary>Which cells of a foliage volume a frame uploads.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>The window is derived from the volume rather than declared, because a foliage grid has
-///         no edges.</b> <see cref="FoliageCellGrid" /> indexes cells with signed integers and a forest
+///         ⚠
+///         <b>
+///             The window is derived from the volume rather than declared, because a foliage grid has
+///             no edges.
+///         </b>
+///         <see cref="FoliageCellGrid" /> indexes cells with signed integers and a forest
 ///         is wherever somebody painted one; <see cref="StreamingGrid" /> is a rectangle of cells with
 ///         an origin. So the rectangle is the bounding box of the chunks that exist, recomputed by
 ///         <see cref="Rebuild" /> whenever the volume grows past it.
@@ -171,7 +175,7 @@ public sealed class FoliageStreamer : IDisposable {
             return true;
         }
 
-        return pages.IsResident((z * grid.CountX) + x);
+        return pages.IsResident(z * grid.CountX + x);
     }
 
     /// <summary>Rebuilds the window from a volume whose extent has changed.</summary>
@@ -184,8 +188,12 @@ public sealed class FoliageStreamer : IDisposable {
     ///         so keeping the old residency would keep it against the wrong cells.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Nothing in the frame calls this, and that is a fact about the volumes rather than
-    ///         an omission.</b> The one place a streamer is built is <c>TerrainSceneRenderer</c>'s
+    ///         ⚠
+    ///         <b>
+    ///             Nothing in the frame calls this, and that is a fact about the volumes rather than
+    ///             an omission.
+    ///         </b>
+    ///         The one place a streamer is built is <c>TerrainSceneRenderer</c>'s
     ///         foliage stand, and the volumes it streams come from <c>AssetTerrainSource.Volume</c>,
     ///         which deserialises a volume once and — when a palette moves — constructs a <em>new</em>
     ///         one rather than mutating the cached instance. A new instance is a new key in the

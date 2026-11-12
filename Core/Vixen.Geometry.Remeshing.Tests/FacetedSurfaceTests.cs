@@ -9,9 +9,12 @@ namespace Vixen.Geometry.Remeshing.Tests;
 /// <summary>The surface a generator makes, which the block-out corpus does not reach.</summary>
 /// <remarks>
 ///     <para>
-///         <b>Every fixture in <c>RemesherTests</c> comes out of <see cref="MeshShapes" /> or a boolean
-///         of two of them: flat walls, sharp rims, a few hundred triangles and groups that somebody
-///         assigned.</b> An image-to-3D output is none of those — thirteen to twenty-five thousand
+///         <b>
+///             Every fixture in <c>RemesherTests</c> comes out of <see cref="MeshShapes" /> or a boolean
+///             of two of them: flat walls, sharp rims, a few hundred triangles and groups that somebody
+///             assigned.
+///         </b>
+///         An image-to-3D output is none of those — thirteen to twenty-five thousand
 ///         triangles, faceted at the scale of one of them, no crease anywhere and no material boundary
 ///         at all — and all sixteen of the ones this was measured on failed in ways nothing in the
 ///         corpus reached.
@@ -39,8 +42,12 @@ public class FacetedSurfaceTests {
     ///         <see cref="EditMesh.FromTriangles" /> arrives with.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Why the per-triangle grouping is not the fixture here, though it is the input that
-    ///         found this.</b> With a group per triangle every vertex is a feature corner, so every
+    ///         ⚠
+    ///         <b>
+    ///             Why the per-triangle grouping is not the fixture here, though it is the input that
+    ///             found this.
+    ///         </b>
+    ///         With a group per triangle every vertex is a feature corner, so every
     ///         chain is one edge long and the prune loop clears all of them — the damage shows up in the
     ///         cross field and the layout rather than in the polyline count, which is exactly why it was
     ///         invisible until a whole model refused.
@@ -55,7 +62,7 @@ public class FacetedSurfaceTests {
         mesh.GroupSource = source;
 
         var features = FeatureDetector.Detect(FieldFixtures.Condition(mesh), new());
-        var found = features.Polylines.Any(chain => (chain.Sources & FeatureSource.Group) != default);
+        var found = features.Polylines.Any(static chain => (chain.Sources & FeatureSource.Group) != default);
 
         Assert.Equal(crease, found);
     }
@@ -73,7 +80,7 @@ public class FacetedSurfaceTests {
 
         var features = FeatureDetector.Detect(FieldFixtures.Condition(mesh), new());
 
-        Assert.All(features.Polylines, chain => Assert.Equal(default, chain.Sources & FeatureSource.Group));
+        Assert.All(features.Polylines, static chain => Assert.Equal(default, chain.Sources & FeatureSource.Group));
     }
 
     /// <summary>A faceted surface comes back as quads rather than as a refusal.</summary>
@@ -95,8 +102,12 @@ public class FacetedSurfaceTests {
     /// <summary>A partition that still wants repairing at the cap is a result, not a refusal.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The layout half of the real-mesh failure, held at the stage rather than through the
-    ///         verb.</b> Thirteen of sixteen image-to-3D meshes refused here: <c>Merge</c> dissolved a
+    ///         ⚠
+    ///         <b>
+    ///             The layout half of the real-mesh failure, held at the stage rather than through the
+    ///             verb.
+    ///         </b>
+    ///         Thirteen of sixteen image-to-3D meshes refused here: <c>Merge</c> dissolved a
     ///         small patch's longest arc, <c>Extend</c> walked the loose end straight back out along the
     ///         same edges, and the two undid each other every round while both reported progress —
     ///         measured, rounds four, five and six were identical at 398 patches with 391 of them
@@ -124,15 +135,19 @@ public class FacetedSurfaceTests {
 
         Assert.DoesNotContain(
             layout.Warnings,
-            warning => warning.Contains("still had unusable patches", StringComparison.Ordinal)
+            static warning => warning.Contains("still had unusable patches", StringComparison.Ordinal)
         );
     }
 
     /// <summary>A quantization that cannot open every collapsed patch keeps the answer it had.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The quantize half, and the scale lever is what makes it reachable from the block-out
-    ///         corpus.</b> <c>Quantizer.Solve</c>'s <c>scale</c> multiplies every arc's target, so a very
+    ///         ⚠
+    ///         <b>
+    ///             The quantize half, and the scale lever is what makes it reachable from the block-out
+    ///             corpus.
+    ///         </b>
+    ///         <c>Quantizer.Solve</c>'s <c>scale</c> multiplies every arc's target, so a very
     ///         small one drives whole patches to zero in both directions — the same position two of the
     ///         sixteen real meshes reached on their own, where round zero solved cleanly with eight
     ///         collapsed patches out of 312 and round one, with the lower bounds raised to force them
@@ -213,7 +228,7 @@ public class FacetedSurfaceTests {
             for (var step = 0; step < around; step++) {
                 var theta = MathF.Tau * step / around;
                 var noise = ((ring * 73856093) ^ (step * 19349663) ^ ((ring + step) * 83492791)) & 0xFFFF;
-                var rough = 1f + (roughness * noise / 0xFFFF);
+                var rough = 1f + roughness * noise / 0xFFFF;
 
                 positions.Add(
                     rough
@@ -237,6 +252,6 @@ public class FacetedSurfaceTests {
             }
         }
 
-        return EditMesh.FromTriangles([.. positions], [.. indices]);
+        return EditMesh.FromTriangles([..positions], [..indices]);
     }
 }

@@ -9,7 +9,9 @@ namespace Vixen.Ui.Tests;
 public class InlineStyleTests {
     const float Tolerance = 0.001f;
 
-    static UiDocument Documented(string css = "root { width: 400px; height: 300px; } .box { width: 40px; height: 20px; }") {
+    static UiDocument Documented(
+        string css = "root { width: 400px; height: 300px; } .box { width: 40px; height: 20px; }"
+    ) {
         var document = new UiDocument(400f, 300f);
         document.Load(css);
 
@@ -33,10 +35,12 @@ public class InlineStyleTests {
 
     [Fact]
     public void It_beats_a_rule_however_specific() {
-        using var document = Documented("""
-            root { width: 400px; height: 300px; }
-            div#target.box { width: 40px; height: 20px; }
-        """);
+        using var document = Documented(
+            """
+                root { width: 400px; height: 300px; }
+                div#target.box { width: 40px; height: 20px; }
+            """
+        );
 
         var box = document.Root.Add("div", "target", "box");
         box.SetStyle("width", "90px");

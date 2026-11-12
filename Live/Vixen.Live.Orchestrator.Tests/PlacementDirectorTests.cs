@@ -47,7 +47,12 @@ public sealed class PlacementDirectorTests {
     [InlineData("maps/divinity", "eu", "0.1.0", PlacementFilter.Map)]
     [InlineData("maps/queensdale", "na", "0.1.0", PlacementFilter.Region)]
     [InlineData("maps/queensdale", "eu", "0.2.0", PlacementFilter.Build)]
-    public void ACandidateForSomethingElseIsNotScored(string map, string region, string build, PlacementFilter expected) {
+    public void ACandidateForSomethingElseIsNotScored(
+        string map,
+        string region,
+        string build,
+        PlacementFilter expected
+    ) {
         var candidate = Shard(key: new(map, region, new(build, Version.Content)));
 
         Assert.Equal(expected, PlacementDirector.Reject(Asking(), candidate));
@@ -76,9 +81,9 @@ public sealed class PlacementDirectorTests {
 
     [Fact]
     public void AShardAtItsHardCapIsNotScored() {
-        Assert.Equal(PlacementFilter.None, PlacementDirector.Reject(Asking(), Shard(population: 119)));
-        Assert.Equal(PlacementFilter.Full, PlacementDirector.Reject(Asking(), Shard(population: 120)));
-        Assert.Equal(PlacementFilter.Full, PlacementDirector.Reject(Asking(), Shard(population: 500)));
+        Assert.Equal(PlacementFilter.None, PlacementDirector.Reject(Asking(), Shard(119)));
+        Assert.Equal(PlacementFilter.Full, PlacementDirector.Reject(Asking(), Shard(120)));
+        Assert.Equal(PlacementFilter.Full, PlacementDirector.Reject(Asking(), Shard(500)));
     }
 
     [Fact]
@@ -96,17 +101,13 @@ public sealed class PlacementDirectorTests {
         var guild = Guid.NewGuid();
 
         var withParty = Shard(id: new(Guid.Parse("00000000-0000-0000-0000-000000000001"))) with {
-            PartyMembers = 1,
-            Population = 95
+            PartyMembers = 1, Population = 95
         };
 
         // Everything the other shard could possibly have going for it: a full guild, five friends,
         // the right language, and a perfect fill.
         var withoutParty = Shard(id: new(Guid.Parse("00000000-0000-0000-0000-000000000002"))) with {
-            GuildMembers = 50,
-            Friends = 50,
-            Locale = "en-GB",
-            Population = 60
+            GuildMembers = 50, Friends = 50, Locale = "en-GB", Population = 60
         };
 
         var decision = new PlacementDirector().Place(
@@ -123,8 +124,8 @@ public sealed class PlacementDirectorTests {
     [Fact]
     public void GuildAndFriendTermsAreCappedSoTheyCannotOutrankAParty() {
         var weights = PlacementWeights.Default;
-        var ceiling = (weights.GuildMember * weights.GuildCap)
-            + (weights.Friend * weights.FriendCap)
+        var ceiling = weights.GuildMember * weights.GuildCap
+            + weights.Friend * weights.FriendCap
             + weights.Locale
             + weights.HealthyFill;
 
@@ -138,8 +139,8 @@ public sealed class PlacementDirectorTests {
     public void PlacementPrefersFillingAShardThatIsAlreadyBusy() {
         // What makes consolidation possible: a map that is emptying converges on a few busy shards
         // rather than a lot of lonely ones, which is the input the merge rule then acts on.
-        var quiet = Shard(population: 10);
-        var healthy = Shard(population: 60);
+        var quiet = Shard(10);
+        var healthy = Shard(60);
 
         var decision = new PlacementDirector().Place(Asking(), [quiet, healthy]);
 
@@ -152,7 +153,7 @@ public sealed class PlacementDirectorTests {
         var request = Asking();
 
         var scores = new[] { 50, 80, 90, 100, 115 }
-            .Select(population => director.Place(request, [Shard(population: population)]).Score)
+            .Select(population => director.Place(request, [Shard(population)]).Score)
             .ToArray();
 
         // Healthy at 50 and 80, then negative and getting worse — so the room above the soft cap is
@@ -166,8 +167,8 @@ public sealed class PlacementDirectorTests {
 
     [Fact]
     public void APlayerIsNotSentBackToTheShardTheyWereJustMovedOff() {
-        var left = Shard(population: 60);
-        var arrived = Shard(population: 60);
+        var left = Shard(60);
+        var arrived = Shard(60);
 
         var decision = new PlacementDirector().Place(
             Asking() with { CameFrom = left.Shard },
@@ -177,14 +178,14 @@ public sealed class PlacementDirectorTests {
         Assert.Equal(arrived.Shard, decision.Shard);
         Assert.Contains(
             decision.Verdicts.Single(verdict => verdict.Shard == left.Shard).Terms,
-            term => term.Name == "antiflap"
+            static term => term.Name == "antiflap"
         );
     }
 
     [Fact]
     public void AnAgedShardIsBiasedAgainstSoARolloutFinishes() {
-        var old = Shard(population: 60) with { Age = TimeSpan.FromHours(9) };
-        var fresh = Shard(population: 60);
+        var old = Shard(60) with { Age = TimeSpan.FromHours(9) };
+        var fresh = Shard(60);
 
         Assert.Equal(fresh.Shard, new PlacementDirector().Place(Asking(), [old, fresh]).Shard);
     }
@@ -194,8 +195,8 @@ public sealed class PlacementDirectorTests {
         // A game that wants locale to dominate says so, and placement obeys.
         var weights = PlacementWeights.Default with { Locale = 50_000 };
 
-        var wrongLanguage = Shard(population: 60) with { Locale = "de" };
-        var rightLanguage = Shard(population: 10) with { Locale = "en-GB" };
+        var wrongLanguage = Shard(60) with { Locale = "de" };
+        var rightLanguage = Shard(10) with { Locale = "en-GB" };
 
         var decision = new PlacementDirector(weights).Place(
             Asking(locale: "en-GB"),
@@ -210,8 +211,8 @@ public sealed class PlacementDirectorTests {
     [Fact]
     public void EveryCandidateGetsAVerdictWhetherItWasScoredOrNot() {
         var wrongMap = Shard(key: new("maps/divinity", "eu", Version));
-        var full = Shard(population: 200);
-        var good = Shard(population: 60);
+        var full = Shard(200);
+        var good = Shard(60);
 
         var decision = new PlacementDirector().Place(Asking(), [wrongMap, full, good]);
 
@@ -230,7 +231,7 @@ public sealed class PlacementDirectorTests {
 
     [Fact]
     public void NoCandidateIsAnAnswerRatherThanAFailure() {
-        var decision = new PlacementDirector().Place(Asking(), [Shard(population: 200)]);
+        var decision = new PlacementDirector().Place(Asking(), [Shard(200)]);
 
         Assert.Equal(PlacementOutcome.NoCandidate, decision.Outcome);
         Assert.False(decision.Shard.IsValid);
@@ -255,7 +256,7 @@ public sealed class PlacementDirectorTests {
 
             for (var index = 0; index < 6; index++) {
                 shards.Add(
-                    Shard(population: random.Next(0, 119)) with {
+                    Shard(random.Next(0, 119)) with {
                         PartyMembers = index == holding ? random.Next(1, 5) : 0,
                         GuildMembers = random.Next(0, 40),
                         Friends = random.Next(0, 40),
@@ -284,10 +285,10 @@ public sealed class PlacementDirectorTests {
 
         for (var trial = 0; trial < 20_000; trial++) {
             var shards = Enumerable.Range(0, 5)
-                .Select(_ => Shard(population: random.Next(0, 400)) with {
-                    PartyMembers = random.Next(0, 3),
-                    Friends = random.Next(0, 10)
-                })
+                .Select(_ => Shard(random.Next(0, 400)) with {
+                        PartyMembers = random.Next(0, 3), Friends = random.Next(0, 10)
+                    }
+                )
                 .ToList();
 
             var decision = director.Place(Asking(Guid.NewGuid()), shards);
@@ -311,14 +312,19 @@ public sealed class PlacementDirectorTests {
             var request = Asking(Guid.NewGuid(), Guid.NewGuid(), "en-GB");
 
             var shards = Enumerable.Range(0, 8)
-                .Select(_ => Shard(population: random.Next(0, 130), state: (ShardState)random.Next(0, 8)) with {
-                    PartyMembers = random.Next(0, 3),
-                    GuildMembers = random.Next(0, 20),
-                    Friends = random.Next(0, 20),
-                    Locale = random.Next(3) switch { 0 => "en-GB", 1 => "de", _ => "" },
-                    Age = TimeSpan.FromMinutes(random.Next(0, 900)),
-                    Admits = random.Next(10) > 0
-                })
+                .Select(_ => Shard(random.Next(0, 130), (ShardState)random.Next(0, 8)) with {
+                        PartyMembers = random.Next(0, 3),
+                        GuildMembers = random.Next(0, 20),
+                        Friends = random.Next(0, 20),
+                        Locale = random.Next(3) switch {
+                            0 => "en-GB",
+                            1 => "de",
+                            _ => string.Empty
+                        },
+                        Age = TimeSpan.FromMinutes(random.Next(0, 900)),
+                        Admits = random.Next(10) > 0
+                    }
+                )
                 .ToList();
 
             var first = director.Place(request, shards);

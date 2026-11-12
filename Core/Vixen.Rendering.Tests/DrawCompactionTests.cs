@@ -40,14 +40,11 @@ public sealed class DrawCompactionTests : IDisposable {
     readonly EffectSystem effects = new();
     readonly DescriptorSetLayoutHandle arguments;
 
-    public DrawCompactionTests() : this(counting: true) { }
+    public DrawCompactionTests() : this(true) { }
 
     DrawCompactionTests(bool counting) {
         device = new(
-            new() {
-                Record = true,
-                Features = NullDevice.Everything with { HasDrawIndirectCount = counting }
-            }
+            new() { Record = true, Features = NullDevice.Everything with { HasDrawIndirectCount = counting } }
         );
 
         arguments = device.CreateDescriptorSetLayout(
@@ -144,7 +141,7 @@ public sealed class DrawCompactionTests : IDisposable {
     /// </remarks>
     [Fact]
     public void Without_the_capability_the_buffer_stays_padded() {
-        using var plain = new DrawCompactionTests(counting: false);
+        using var plain = new DrawCompactionTests(false);
         using var draws = plain.Compacted(out var bits, [0, 1]);
 
         Assert.True(draws.Compact);
@@ -165,7 +162,7 @@ public sealed class DrawCompactionTests : IDisposable {
         Assert.Contains("Compact=true", resolved[^1], StringComparison.Ordinal);
         device.Destroy(first);
 
-        using var plain = new DrawCompactionTests(counting: false);
+        using var plain = new DrawCompactionTests(false);
         using var padded = plain.Compacted(out var second, [0]);
 
         Assert.Contains("Compact=false", plain.resolved[^1], StringComparison.Ordinal);
@@ -201,7 +198,7 @@ public sealed class DrawCompactionTests : IDisposable {
     /// </remarks>
     [Fact]
     public void Without_the_capability_they_are_three_commands() {
-        using var plain = new DrawCompactionTests(counting: false);
+        using var plain = new DrawCompactionTests(false);
         using var harness = plain.Build();
 
         AddMeshes(harness, 3);
@@ -226,7 +223,8 @@ public sealed class DrawCompactionTests : IDisposable {
     [Fact]
     public void A_per_object_contributor_stops_the_merge() {
         using var harness = Build();
-        using var transforms = new TransformRenderFeature { Device = device };
+        using var transforms = new TransformRenderFeature();
+        transforms.Device = device;
 
         harness.Meshes.Add(transforms);
 
@@ -260,7 +258,8 @@ public sealed class DrawCompactionTests : IDisposable {
     [Fact]
     public void A_transform_in_a_buffer_does_not() {
         using var harness = Build();
-        using var transforms = new TransformRenderFeature { Device = device };
+        using var transforms = new TransformRenderFeature();
+        transforms.Device = device;
 
         harness.Meshes.Add(transforms);
         Assert.True(transforms.EnableRecords(UseTransformRecords));
@@ -279,8 +278,12 @@ public sealed class DrawCompactionTests : IDisposable {
     ///     Each object's record index is in the argument the GPU will draw with.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <strong>The host never records these draws, so this is the only place the index can
-    ///     be.</strong> A merged command reads its arguments out of the compacted buffer, and the
+    ///     ⚠
+    ///     <strong>
+    ///         The host never records these draws, so this is the only place the index can
+    ///         be.
+    ///     </strong>
+    ///     A merged command reads its arguments out of the compacted buffer, and the
     ///     compaction shader copies <c>firstInstance</c> from the template unchanged — so a template
     ///     left at zero would draw every object in the batch with object zero's matrix. Which is a
     ///     picture, and a plausible one: everything in the batch sitting on top of the first thing.
@@ -288,7 +291,8 @@ public sealed class DrawCompactionTests : IDisposable {
     [Fact]
     public void The_record_index_reaches_the_argument_template() {
         using var harness = Build();
-        using var transforms = new TransformRenderFeature { Device = device };
+        using var transforms = new TransformRenderFeature();
+        transforms.Device = device;
 
         harness.Meshes.Add(transforms);
         transforms.EnableRecords(UseTransformRecords);
@@ -316,9 +320,10 @@ public sealed class DrawCompactionTests : IDisposable {
     /// </remarks>
     [Fact]
     public void Without_a_device_draw_count_the_matrix_stays_pushed() {
-        using var plain = new DrawCompactionTests(counting: false);
+        using var plain = new DrawCompactionTests(false);
         using var harness = plain.Build();
-        using var transforms = new TransformRenderFeature { Device = plain.device };
+        using var transforms = new TransformRenderFeature();
+        transforms.Device = plain.device;
 
         harness.Meshes.Add(transforms);
 
@@ -339,8 +344,11 @@ public sealed class DrawCompactionTests : IDisposable {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <strong>The transform was not the only per-node contributor, and this is the other
-    ///         one.</strong> With a uniform light list, each object's block is at its own dynamic
+    ///         <strong>
+    ///             The transform was not the only per-node contributor, and this is the other
+    ///             one.
+    ///         </strong>
+    ///         With a uniform light list, each object's block is at its own dynamic
     ///         offset in one buffer — and a dynamic offset travels in the bind, not in the block, so
     ///         there is nowhere inside a merged command to change it. With clustering on the feature
     ///         binds nothing per object at all, because a fragment finds its own lights in the grid.
@@ -356,7 +364,8 @@ public sealed class DrawCompactionTests : IDisposable {
     [InlineData(false, 0, 3)]
     public void Clustered_lighting_leaves_the_merge_alone(bool clustered, int merged, int separate) {
         using var harness = Build();
-        using var transforms = new TransformRenderFeature { Device = device };
+        using var transforms = new TransformRenderFeature();
+        transforms.Device = device;
         // The shape ForwardPlus declares for set 3. The feature takes its layout rather than inventing
         // one, so a harness with a faked effect has to say what it is — see ForwardLightingRenderFeature.Layout.
         var perDraw = device.CreateDescriptorSetLayout(
@@ -367,11 +376,10 @@ public sealed class DrawCompactionTests : IDisposable {
             )
         );
 
-        using var lights = new ForwardLightingRenderFeature {
-            Device = device,
-            Clustered = clustered,
-            Layout = perDraw
-        };
+        using var lights = new ForwardLightingRenderFeature();
+        lights.Device = device;
+        lights.Clustered = clustered;
+        lights.Layout = perDraw;
 
         harness.Meshes.Add(transforms);
         harness.Meshes.Add(lights);
@@ -397,7 +405,7 @@ public sealed class DrawCompactionTests : IDisposable {
         using var harness = Build();
 
         AddMeshes(harness, 2);
-        AddMeshes(harness, 2, second: true);
+        AddMeshes(harness, 2, true);
 
         Frame(harness);
         device.Recorder!.Clear();
@@ -499,13 +507,11 @@ public sealed class DrawCompactionTests : IDisposable {
             Assert.True(geometry.TryAllocate(8, 12, out var slice));
 
             var draw = new MeshDraw { InstanceCount = 1 };
-            geometry.Apply(ref draw, slice, vertexLayout: second ? 1 : 0);
+            geometry.Apply(ref draw, slice, second ? 1 : 0);
 
             var id = h.System.Objects.Add(
                 new() {
-                    Bounds = new(new Vector3(0f, 0f, 10f), 1f),
-                    Stages = h.Opaque.Mask,
-                    FeatureIndex = h.Meshes.Index
+                    Bounds = new(new Vector3(0f, 0f, 10f), 1f), Stages = h.Opaque.Mask, FeatureIndex = h.Meshes.Index
                 }
             );
 
@@ -546,7 +552,7 @@ public sealed class DrawCompactionTests : IDisposable {
 
             return new() {
                 Key = key,
-                SetLayouts = [.. layouts],
+                SetLayouts = [..layouts],
                 Stages = Modules(ShaderStage.Compute),
                 Bindings = [
                     new("templates", DescriptorSetSlot.PerMaterial, 0, DescriptorKind.StorageBuffer),
@@ -560,6 +566,6 @@ public sealed class DrawCompactionTests : IDisposable {
         }
 
         static ImmutableArray<EffectStage> Modules(params ShaderStage[] stages) =>
-            [.. stages.Select(stage => new EffectStage(stage, [1, 2, 3, 4], "main"))];
+            [..stages.Select(static stage => new EffectStage(stage, [1, 2, 3, 4], "main"))];
     }
 }

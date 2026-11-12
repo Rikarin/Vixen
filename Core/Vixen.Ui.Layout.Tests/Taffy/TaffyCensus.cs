@@ -17,8 +17,12 @@ sealed record TaffyTally(int Passed, int Failed, int Unsupported) {
 /// <param name="Refusals">How many fixtures each distinct refusal message accounts for.</param>
 /// <param name="Report">The first few disagreements, as text.</param>
 /// <remarks>
-///     ⚠ <b><see cref="Refusals" /> used to be computed here and thrown away, and that was the whole
-///     of the hole this record closes.</b> The three conformance suites assert the <i>number</i> of
+///     ⚠
+///     <b>
+///         <see cref="Refusals" /> used to be computed here and thrown away, and that was the whole
+///         of the hole this record closes.
+///     </b>
+///     The three conformance suites assert the <i>number</i> of
 ///     refusals and nothing else, so 408 fixtures could assert nothing at all while every summary
 ///     read green and no file anywhere said what they were waiting for. See
 ///     <c>UnsupportedFixtures.txt</c>, which this feeds.
@@ -27,12 +31,15 @@ sealed record TaffyCensusResult(TaffyTally Tally, IReadOnlyDictionary<string, in
 
 /// <summary>Runs a whole category and counts the three outcomes.</summary>
 /// <remarks>
-///     ⚠ <b>This is how the corpora for unimplemented modes are represented, and the alternative was
-///     worse in both directions.</b> Marking 2 040 grid fixtures <c>Skip</c> buries the suite in noise
+///     ⚠
+///     <b>
+///         This is how the corpora for unimplemented modes are represented, and the alternative was
+///         worse in both directions.
+///     </b>
+///     Marking 2 040 grid fixtures <c>Skip</c> buries the suite in noise
 ///     and tells nobody anything; deleting them throws the oracle away. Yoga's suite skips its nine
 ///     <c>display: contents</c> fixtures by name at translation time, listing each in the generated
 ///     file's header — which is legible at nine and absurd at two thousand.
-///
 ///     So an unimplemented mode is one test that runs every one of its fixtures and asserts the
 ///     <i>tally</i> against a committed baseline. That has three properties a skip does not: the
 ///     fixtures really execute, so a crash or a hang shows up today; the number can only be changed
@@ -60,7 +67,7 @@ static class TaffyCensus {
     /// <param name="category">The corpus category.</param>
     /// <returns>Its three outcomes, counted.</returns>
     public static TaffyTally TallyOf(string category) =>
-        Tallies.GetOrAdd(category, key => new Lazy<TaffyTally>(() => Run(key, 0).Tally)).Value;
+        Tallies.GetOrAdd(category, static key => new Lazy<TaffyTally>(() => Run(key, 0).Tally)).Value;
 
     public static TaffyCensusResult Run(string category, int reportLimit = 25) {
         var fixtures = TaffyCorpus.Load(category);
@@ -102,10 +109,10 @@ static class TaffyCensus {
             $"{category}: {tally.Passed} passed, {tally.Failed} failed, {tally.Unsupported} unsupported, of {tally.Total}"
         );
 
-        foreach (var (feature, count) in byFeature.OrderByDescending(entry => entry.Value)) {
+        foreach (var (feature, count) in byFeature.OrderByDescending(static entry => entry.Value)) {
             header.AppendLine(CultureInfo.InvariantCulture, $"  unsupported {count,5}  {feature}");
         }
 
-        return new TaffyCensusResult(tally, byFeature, header + report.ToString());
+        return new(tally, byFeature, header + report.ToString());
     }
 }

@@ -11,8 +11,12 @@ namespace Vixen.Ui.Controls.Tests;
 /// <summary>A dialog that is a function of state, beside the one a command awaits.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Not a replacement for <c>ConfirmAsync</c>, and this file is not evidence that it
-///         should be one.</b> An awaited dialog is the right shape for a command that has to have an
+///         ⚠
+///         <b>
+///             Not a replacement for <c>ConfirmAsync</c>, and this file is not evidence that it
+///             should be one.
+///         </b>
+///         An awaited dialog is the right shape for a command that has to have an
 ///         answer before it continues, and it is what every caller in the tree uses. What was
 ///         missing is the declarative half: nothing bound a presentation to state, so the open state
 ///         lived in the control and a panel that showed one held a <c>ref</c> and called it from a
@@ -157,8 +161,12 @@ public class StateDialogTests {
 
     /// <summary>Two frames: one to run the effect that asks, one for the pump that presents.</summary>
     /// <remarks>
-    ///     ⚠ <b>An ask is not a presentation, and that is <c>DialogService</c>'s own contract rather
-    ///     than an artefact of this binding</b> — see <c>An_ask_opens_nothing_until_the_shell_pumps</c>.
+    ///     ⚠
+    ///     <b>
+    ///         An ask is not a presentation, and that is <c>DialogService</c>'s own contract rather
+    ///         than an artefact of this binding
+    ///     </b>
+    ///     — see <c>An_ask_opens_nothing_until_the_shell_pumps</c>.
     ///     What is new here is only that the ask is made by an effect, so it takes a flush to reach
     ///     the queue at all. Frames, not elapsed time.
     /// </remarks>

@@ -8,22 +8,33 @@ namespace Vixen.Geometry.Remeshing;
 /// <summary>The surface a transfer queries: a triangle tree, and the way back to the mesh's corners.</summary>
 /// <remarks>
 ///     <para>
-///         <b><see cref="TriangleTree" /> answers in triangle indices and every attribute lives on a
-///         corner</b>, so something has to hold the map between them.
+///         <b>
+///             <see cref="TriangleTree" /> answers in triangle indices and every attribute lives on a
+///             corner
+///         </b>
+///         , so something has to hold the map between them.
 ///         <see cref="EditMesh.Triangulate" /> hands back <i>position</i> indices, which is what the
 ///         geometry needs and not what a per-corner normal is indexed by — and the two cannot be the
 ///         same array, because a seam is exactly the case where one position carries two different
 ///         values.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Every face produces exactly <c>Count − 2</c> triangles whatever route the ear
-///         clipping took</b>, which is the invariant <see cref="EditMesh.Triangulate" />'s own
+///         ⚠
+///         <b>
+///             Every face produces exactly <c>Count − 2</c> triangles whatever route the ear
+///             clipping took
+///         </b>
+///         , which is the invariant <see cref="EditMesh.Triangulate" />'s own
 ///         remarks call out, and it is what lets the faces and the triangles be walked together here
 ///         with no second table from the kernel.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Barycentric weights arrive summing to one, including on an edge, on a vertex and on
-///         a triangle with no area</b> — <see cref="ClosestTriangle" />'s guarantee — so nothing
+///         ⚠
+///         <b>
+///             Barycentric weights arrive summing to one, including on an edge, on a vertex and on
+///             a triangle with no area
+///         </b>
+///         — <see cref="ClosestTriangle" />'s guarantee — so nothing
 ///         here renormalises them. A transfer that divided by their sum would divide by zero in
 ///         exactly the degenerate cases the guarantee exists to cover.
 ///     </para>
@@ -99,7 +110,7 @@ sealed class SourceSurface {
                 faceOf[at] = face;
 
                 for (var slot = 0; slot < 3; slot++) {
-                    var position = triangles[(at * 3) + slot];
+                    var position = triangles[at * 3 + slot];
                     var corner = entry.Start;
 
                     // The first corner of this face standing on that position. A face that walks one
@@ -113,7 +124,7 @@ sealed class SourceSurface {
                         }
                     }
 
-                    cornerOf[(at * 3) + slot] = corner;
+                    cornerOf[at * 3 + slot] = corner;
                 }
             }
         }
@@ -176,8 +187,12 @@ sealed class SourceSurface {
     /// <param name="barycentric">Where on it, as weights summing to one.</param>
     /// <returns>The unit normal.</returns>
     /// <remarks>
-    ///     ⚠ <b>The geometric normal when the source has no normal layer, and that is the honest
-    ///     answer rather than a zero.</b> A source with no normals is a real input — a boolean
+    ///     ⚠
+    ///     <b>
+    ///         The geometric normal when the source has no normal layer, and that is the honest
+    ///         answer rather than a zero.
+    ///     </b>
+    ///     A source with no normals is a real input — a boolean
     ///     result, a marching-cubes surface, an <c>.obj</c> with no <c>vn</c> lines — and handing
     ///     back <see cref="Vector3.Zero" /> would write a mesh whose every shading normal is
     ///     degenerate.
@@ -190,9 +205,9 @@ sealed class SourceSurface {
         var slots = CornersOf(triangle);
         var normals = mesh.Normals;
 
-        var sum = (normals[slots[0]] * barycentric.X)
-            + (normals[slots[1]] * barycentric.Y)
-            + (normals[slots[2]] * barycentric.Z);
+        var sum = normals[slots[0]] * barycentric.X
+            + normals[slots[1]] * barycentric.Y
+            + normals[slots[2]] * barycentric.Z;
 
         var unit = ScaleSafe.Unit(sum);
 
@@ -213,9 +228,9 @@ sealed class SourceSurface {
         var slots = CornersOf(triangle);
         var coordinates = mesh.TexCoords;
 
-        return (coordinates[slots[0]] * barycentric.X)
-            + (coordinates[slots[1]] * barycentric.Y)
-            + (coordinates[slots[2]] * barycentric.Z);
+        return coordinates[slots[0]] * barycentric.X
+            + coordinates[slots[1]] * barycentric.Y
+            + coordinates[slots[2]] * barycentric.Z;
     }
 
     /// <summary>A triangle's area.</summary>

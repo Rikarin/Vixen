@@ -96,7 +96,7 @@ public class ArrivalTests : IDisposable {
         board.Reserve(Ticket(who), 5, Noon, true, false);
 
         Assert.False(board.Arrived(who, 4));
-        Assert.False(board.Woke(who, 5));            // still Reserved, not Dormant
+        Assert.False(board.Woke(who, 5)); // still Reserved, not Dormant
         Assert.True(board.Arrived(who, 5));
     }
 
@@ -139,8 +139,7 @@ public class ArrivalTests : IDisposable {
     [Fact]
     public void A_dormant_arrival_gets_the_longer_lifetime() {
         var board = new TransferBoard {
-            ReservationLifetime = TimeSpan.FromSeconds(45),
-            DormantLifetime = TimeSpan.FromMinutes(5)
+            ReservationLifetime = TimeSpan.FromSeconds(45), DormantLifetime = TimeSpan.FromMinutes(5)
         };
         var who = Somebody();
 

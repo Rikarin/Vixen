@@ -26,9 +26,9 @@ namespace Vixen.Ui.Controls.Tests;
 /// </remarks>
 public class DiagnosticsOverlayTests {
     const string Css = """
-        root { width: 800px; height: 600px; flex-direction: row; align-items: flex-start; }
-        .box { width: 100px; height: 50px; margin: 10px; border-width: 2px; padding: 5px; }
-        """;
+                       root { width: 800px; height: 600px; flex-direction: row; align-items: flex-start; }
+                       .box { width: 100px; height: 50px; margin: 10px; border-width: 2px; padding: 5px; }
+                       """;
 
     /// <summary>The border outlines the last draw put in the list, by rectangle.</summary>
     static List<Rectangle> Strokes(UiDocument document) {
@@ -36,7 +36,7 @@ public class DiagnosticsOverlayTests {
 
         foreach (var command in document.Drawing.Commands) {
             if (command.Kind == DrawCommandKind.Border && command.Thickness == 1f) {
-                strokes.Add(new Rectangle(command.X, command.Y, command.Width, command.Height));
+                strokes.Add(new(command.X, command.Y, command.Width, command.Height));
             }
         }
 
@@ -91,7 +91,7 @@ public class DiagnosticsOverlayTests {
         fixture.Update();
 
         // Over the whole document, as the theme rule says.
-        Assert.Equal(new Rectangle(0f, 0f, 800f, 600f), overlay.Bounds);
+        Assert.Equal(new(0f, 0f, 800f, 600f), overlay.Bounds);
 
         fixture.MoveOver(box);
         fixture.Update();
@@ -146,8 +146,8 @@ public class DiagnosticsOverlayTests {
         Assert.Contains(firstBoxes.Border, Strokes(fixture.Document));
 
         overlay.Probe = new Vector2(
-            second.AbsoluteLeft + (second.Width * 0.5f),
-            second.AbsoluteTop + (second.Height * 0.5f)
+            second.AbsoluteLeft + second.Width * 0.5f,
+            second.AbsoluteTop + second.Height * 0.5f
         );
 
         fixture.Update();
@@ -192,7 +192,7 @@ public class DiagnosticsOverlayTests {
 
             foreach (var command in fixture.Document.Drawing.Commands) {
                 if (command.Kind == DrawCommandKind.Rectangle && command.Thickness == 0f && command.Radius == 0f) {
-                    washes.Add(new Rectangle(command.X, command.Y, command.Width, command.Height));
+                    washes.Add(new(command.X, command.Y, command.Width, command.Height));
                 }
             }
 

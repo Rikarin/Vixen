@@ -50,8 +50,12 @@ enum ChartRefusal : byte {
 ///         anybody splitting a vertex.
 ///     </para>
 ///     <para>
-///         ⚠ <b><see cref="Corners" /> holds <i>corner</i> indices and <see cref="Triangles" /> holds
-///         chart-local <i>vertex</i> indices, and they are parallel.</b> The solve runs on vertices,
+///         ⚠
+///         <b>
+///             <see cref="Corners" /> holds <i>corner</i> indices and <see cref="Triangles" /> holds
+///             chart-local <i>vertex</i> indices, and they are parallel.
+///         </b>
+///         The solve runs on vertices,
 ///         because that is what a Laplacian is over; the answer is written per corner, because that is
 ///         where <see cref="UvIsland" /> keeps it and where a seam costs nothing.
 ///     </para>
@@ -105,8 +109,12 @@ sealed class ChartMesh {
     /// <returns>The charts, ordered by <see cref="Id" />.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Faces are triangulated through <see cref="EditMesh.Triangulate" /> rather than
-    ///         fanned here.</b> Every face produces exactly <c>Count − 2</c> triangles whatever route it
+    ///         ⚠
+    ///         <b>
+    ///             Faces are triangulated through <see cref="EditMesh.Triangulate" /> rather than
+    ///             fanned here.
+    ///         </b>
+    ///         Every face produces exactly <c>Count − 2</c> triangles whatever route it
     ///         took, which is what lets the run of triangles a face owns be found by counting — and the
     ///         ear clipping it uses is the one that already asks <c>ExactPredicates.Orient2D</c> rather
     ///         than a <see langword="float" /> cross product.
@@ -167,7 +175,7 @@ sealed class ChartMesh {
 
             for (var triangle = faceStart[face]; triangle < faceStart[face + 1]; triangle++) {
                 for (var corner = 0; corner < 3; corner++) {
-                    var position = triangulated[(triangle * 3) + corner];
+                    var position = triangulated[triangle * 3 + corner];
 
                     if (!local[slot].TryGetValue(position, out var vertex)) {
                         vertex = origin[slot].Count;
@@ -192,8 +200,12 @@ sealed class ChartMesh {
 
     /// <summary>Which corner of a face sits at a position.</summary>
     /// <remarks>
-    ///     ⚠ <b>The first one, and a face that visits a position twice is why this is a search rather
-    ///     than an index.</b> <see cref="EditMesh.FacesAt" /> records that a cap made by a boolean
+    ///     ⚠
+    ///     <b>
+    ///         The first one, and a face that visits a position twice is why this is a search rather
+    ///         than an index.
+    ///     </b>
+    ///     <see cref="EditMesh.FacesAt" /> records that a cap made by a boolean
     ///     legitimately can. Both corners carry the same coordinate in that case — the position is
     ///     interior to one chart — so which is chosen changes nothing that is measured.
     /// </remarks>
@@ -226,8 +238,8 @@ sealed class ChartMesh {
 
         for (var triangle = 0; triangle * 3 < triangles.Count; triangle++) {
             for (var side = 0; side < 3; side++) {
-                var a = triangles[(triangle * 3) + side];
-                var b = triangles[(triangle * 3) + ((side + 1) % 3)];
+                var a = triangles[triangle * 3 + side];
+                var b = triangles[triangle * 3 + (side + 1) % 3];
                 var key = a < b ? (a, b) : (b, a);
 
                 incident[key] = incident.GetValueOrDefault(key) + 1;
@@ -277,16 +289,16 @@ sealed class ChartMesh {
 
         var chart = new ChartMesh {
             Id = id,
-            Triangles = [.. triangles],
-            Corners = [.. corners],
+            Triangles = [..triangles],
+            Corners = [..corners],
             Positions = positions,
-            Origin = [.. origin],
+            Origin = [..origin],
             IsBoundary = boundary,
             AdjacentStart = adjacentStart,
             Adjacent = adjacent
         };
 
-        chart.EulerCharacteristic = origin.Count - incident.Count + (triangles.Count / 3);
+        chart.EulerCharacteristic = origin.Count - incident.Count + triangles.Count / 3;
         chart.BoundaryLoops = Loops(boundaryEdges, boundaryValence);
         chart.Topology = Classify(chart, overloaded, boundaryValence);
 
@@ -340,8 +352,12 @@ sealed class ChartMesh {
     /// <summary>The one test that decides whether a parameterization can exist.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Euler characteristic rather than a boundary-loop count, because one number catches
-    ///         both failures.</b> For a connected surface with genus <c>g</c> and <c>b</c> boundary
+    ///         ⚠
+    ///         <b>
+    ///             Euler characteristic rather than a boundary-loop count, because one number catches
+    ///             both failures.
+    ///         </b>
+    ///         For a connected surface with genus <c>g</c> and <c>b</c> boundary
     ///         loops, <c>χ = 2 − 2g − b</c>. A disk is <c>g = 0, b = 1</c>, so <c>χ = 1</c>; an annulus
     ///         is <c>0</c> and a torus with one slit is <c>−1</c>. Counting boundary loops alone would
     ///         pass the slit torus, which is genus rather than boundary and folds just as hard.

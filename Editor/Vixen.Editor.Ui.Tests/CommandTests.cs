@@ -16,11 +16,11 @@ public class CommandTests {
     [Fact]
     public void Registering_an_id_twice_throws() {
         var registry = new CommandRegistry();
-        registry.Add("file.save", Title("Save"), () => { });
+        registry.Add("file.save", Title("Save"), static () => { });
 
         // A silent replace would let one command take over another's id by naming it; a silent
         // ignore would leave the second quietly dead. Both are found weeks later.
-        Assert.Throws<ArgumentException>(() => registry.Add("file.save", Title("Save As"), () => { }));
+        Assert.Throws<ArgumentException>(() => registry.Add("file.save", Title("Save As"), static () => { }));
     }
 
     [Fact]
@@ -73,9 +73,7 @@ public class CommandTests {
     [Fact]
     public void A_modifier_pressed_alone_is_not_a_chord() {
         var args = new KeyEvent {
-            Key = InputKey.LeftControl,
-            Action = KeyAction.Pressed,
-            Modifiers = ModifierKeys.Control
+            Key = InputKey.LeftControl, Action = KeyAction.Pressed, Modifiers = ModifierKeys.Control
         };
 
         // Otherwise every Ctrl shortcut would be reachable by pressing Ctrl, matched against a
@@ -94,7 +92,7 @@ public class CommandTests {
         Assert.Equal("file.save", keys.CommandFor(chord));
         Assert.False(keys.ChordFor("file.save-all").IsBound);
 
-        Assert.Equal(BindResult.Replaced, keys.Bind("file.save-all", chord, replace: true));
+        Assert.Equal(BindResult.Replaced, keys.Bind("file.save-all", chord, true));
         Assert.Equal("file.save-all", keys.CommandFor(chord));
         Assert.False(keys.ChordFor("file.save").IsBound);
     }
@@ -102,10 +100,10 @@ public class CommandTests {
     [Fact]
     public void Only_the_users_overrides_are_saved() {
         var keys = new KeyMap();
-        keys.SetDefault("file.save", new KeyChord(InputKey.S, ModifierKeys.Control));
-        keys.SetDefault("edit.undo", new KeyChord(InputKey.Z, ModifierKeys.Control));
+        keys.SetDefault("file.save", new(InputKey.S, ModifierKeys.Control));
+        keys.SetDefault("edit.undo", new(InputKey.Z, ModifierKeys.Control));
 
-        keys.Bind("edit.undo", new KeyChord(InputKey.U, ModifierKeys.Control));
+        keys.Bind("edit.undo", new(InputKey.U, ModifierKeys.Control));
 
         var text = KeyMapYaml.Write(keys);
 
@@ -116,12 +114,12 @@ public class CommandTests {
         Assert.DoesNotContain("file.save", text, StringComparison.Ordinal);
 
         var reloaded = new KeyMap();
-        reloaded.SetDefault("file.save", new KeyChord(InputKey.S, ModifierKeys.Control));
-        reloaded.SetDefault("edit.undo", new KeyChord(InputKey.Z, ModifierKeys.Control));
+        reloaded.SetDefault("file.save", new(InputKey.S, ModifierKeys.Control));
+        reloaded.SetDefault("edit.undo", new(InputKey.Z, ModifierKeys.Control));
         KeyMapYaml.Read(reloaded, text);
 
-        Assert.Equal(new KeyChord(InputKey.U, ModifierKeys.Control), reloaded.ChordFor("edit.undo"));
-        Assert.Equal(new KeyChord(InputKey.S, ModifierKeys.Control), reloaded.ChordFor("file.save"));
+        Assert.Equal(new(InputKey.U, ModifierKeys.Control), reloaded.ChordFor("edit.undo"));
+        Assert.Equal(new(InputKey.S, ModifierKeys.Control), reloaded.ChordFor("file.save"));
         Assert.True(reloaded.IsCustomised("edit.undo"));
         Assert.False(reloaded.IsCustomised("file.save"));
     }
@@ -129,11 +127,11 @@ public class CommandTests {
     [Fact]
     public void A_command_deliberately_unbound_stays_unbound_across_a_save() {
         var keys = new KeyMap();
-        keys.SetDefault("file.save", new KeyChord(InputKey.S, ModifierKeys.Control));
+        keys.SetDefault("file.save", new(InputKey.S, ModifierKeys.Control));
         keys.Bind("file.save", KeyChord.None);
 
         var reloaded = new KeyMap();
-        reloaded.SetDefault("file.save", new KeyChord(InputKey.S, ModifierKeys.Control));
+        reloaded.SetDefault("file.save", new(InputKey.S, ModifierKeys.Control));
         KeyMapYaml.Read(reloaded, KeyMapYaml.Write(keys));
 
         // Written as an empty chord rather than omitted: omitting it would mean "use the default",
@@ -144,13 +142,13 @@ public class CommandTests {
     [Fact]
     public void Reset_puts_every_binding_back() {
         var keys = new KeyMap();
-        keys.SetDefault("file.save", new KeyChord(InputKey.S, ModifierKeys.Control));
-        keys.Bind("file.save", new KeyChord(InputKey.W, ModifierKeys.Control));
+        keys.SetDefault("file.save", new(InputKey.S, ModifierKeys.Control));
+        keys.Bind("file.save", new(InputKey.W, ModifierKeys.Control));
 
         keys.Reset();
 
-        Assert.Equal(new KeyChord(InputKey.S, ModifierKeys.Control), keys.ChordFor("file.save"));
-        Assert.Null(keys.CommandFor(new KeyChord(InputKey.W, ModifierKeys.Control)));
+        Assert.Equal(new(InputKey.S, ModifierKeys.Control), keys.ChordFor("file.save"));
+        Assert.Null(keys.CommandFor(new(InputKey.W, ModifierKeys.Control)));
     }
 
     [Fact]
@@ -162,7 +160,7 @@ public class CommandTests {
         registry.Add("edit.undo", Title("Undo"), () => ran++);
 
         var keys = new KeyMap();
-        keys.SetDefault("edit.undo", new KeyChord(InputKey.Z, ModifierKeys.Control));
+        keys.SetDefault("edit.undo", new(InputKey.Z, ModifierKeys.Control));
 
         var dispatcher = new CommandDispatcher(registry, keys);
         dispatcher.Attach(document);
@@ -171,7 +169,7 @@ public class CommandTests {
         Assert.Equal(1, ran);
 
         // Auto-repeat is not a fresh press: holding the undo chord must undo once.
-        document.Dispatch(Pressed(InputKey.Z, repeat: true));
+        document.Dispatch(Pressed(InputKey.Z, true));
         Assert.Equal(1, ran);
     }
 
@@ -187,7 +185,7 @@ public class CommandTests {
         registry.Add("view.frame", Title("Frame Selected"), () => framed++);
 
         var keys = new KeyMap();
-        keys.SetDefault("view.frame", new KeyChord(InputKey.F, ModifierKeys.None));
+        keys.SetDefault("view.frame", new(InputKey.F, ModifierKeys.None));
 
         var dispatcher = new CommandDispatcher(registry, keys);
         dispatcher.Attach(document);
@@ -208,10 +206,12 @@ public class CommandTests {
         using var document = new UiDocument(400f, 300f);
 
         var registry = new CommandRegistry();
-        registry.Add(new EditorCommand("edit.undo", Title("Undo"), () => { }) { Enablement = () => false });
+        registry.Add(
+            new EditorCommand("edit.undo", Title("Undo"), static () => { }) { Enablement = static () => false }
+        );
 
         var keys = new KeyMap();
-        keys.SetDefault("edit.undo", new KeyChord(InputKey.Z, ModifierKeys.Control));
+        keys.SetDefault("edit.undo", new(InputKey.Z, ModifierKeys.Control));
 
         var dispatcher = new CommandDispatcher(registry, keys);
         var refused = 0;

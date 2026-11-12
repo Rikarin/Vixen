@@ -72,7 +72,10 @@ public class StageBuiltInTests {
 
     [Fact]
     public void A_built_in_consumes_no_location_so_the_attributes_keep_theirs() {
-        var unit = Assert.Single(GenerateClean(Fullscreen), u => u.Name.EndsWith(".vert", StringComparison.Ordinal));
+        var unit = Assert.Single(
+            GenerateClean(Fullscreen),
+            static u => u.Name.EndsWith(".vert", StringComparison.Ordinal)
+        );
 
         // `offset` is the second parameter but the only attribute, so it is location 0 — not 1.
         Assert.Contains("layout(location = 0) in vec2 in_offset;", unit.Code, StringComparison.Ordinal);
@@ -92,7 +95,10 @@ public class StageBuiltInTests {
         Assert.SkipUnless(SpirvTestBase.ValidatorAvailable, "spirv-val is not on PATH (brew install spirv-tools).");
 
         var listing = ReferenceCompiler.Disassemble(
-            Assert.Single(GenerateClean(Fullscreen, "spirv"), u => u.Name.EndsWith(".vert", StringComparison.Ordinal))
+            Assert.Single(
+                    GenerateClean(Fullscreen, "spirv"),
+                    static u => u.Name.EndsWith(".vert", StringComparison.Ordinal)
+                )
                 .Binary!
         );
 
@@ -131,7 +137,7 @@ public class StageBuiltInTests {
 
                 """
             ),
-            d => d.Id == "RVN2109"
+            static d => d.Id == "RVN2109"
         );
 
         Assert.True(error.IsError);
@@ -278,7 +284,10 @@ public class StageBuiltInTests {
 
     [Fact]
     public void GLSL_threads_gl_FrontFacing_through_and_declares_no_input_for_it() {
-        var unit = Assert.Single(GenerateClean(TwoSided), u => u.Name.EndsWith(".frag", StringComparison.Ordinal));
+        var unit = Assert.Single(
+            GenerateClean(TwoSided),
+            static u => u.Name.EndsWith(".frag", StringComparison.Ordinal)
+        );
 
         Assert.Contains("Fragment(gl_FrontFacing)", unit.Code, StringComparison.Ordinal);
         Assert.DoesNotContain("in_frontFacing", unit.Code, StringComparison.Ordinal);
@@ -296,7 +305,10 @@ public class StageBuiltInTests {
         Assert.SkipUnless(SpirvTestBase.ValidatorAvailable, "spirv-val is not on PATH (brew install spirv-tools).");
 
         var listing = ReferenceCompiler.Disassemble(
-            Assert.Single(GenerateClean(TwoSided, "spirv"), u => u.Name.EndsWith(".frag", StringComparison.Ordinal))
+            Assert.Single(
+                    GenerateClean(TwoSided, "spirv"),
+                    static u => u.Name.EndsWith(".frag", StringComparison.Ordinal)
+                )
                 .Binary!
         );
 
@@ -324,7 +336,7 @@ public class StageBuiltInTests {
 
                 """
             ),
-            d => d.Id == "RVN2103"
+            static d => d.Id == "RVN2103"
         );
 
         Assert.True(error.IsError);
@@ -337,7 +349,7 @@ public class StageBuiltInTests {
 
         // Only what a vertex buffer feeds. A fragment built-in was never a candidate, but the
         // list is the vertex layout and a claim about it is worth pinning.
-        Assert.Equal(["position", "normal"], reflection.VertexInputs.Select(input => input.Name));
+        Assert.Equal(["position", "normal"], reflection.VertexInputs.Select(static input => input.Name));
     }
 
     /// <summary>
@@ -395,7 +407,10 @@ public class StageBuiltInTests {
 
     [Fact]
     public void GLSL_threads_gl_FragCoord_through_and_declares_no_input_for_it() {
-        var unit = Assert.Single(GenerateClean(Stippled), u => u.Name.EndsWith(".frag", StringComparison.Ordinal));
+        var unit = Assert.Single(
+            GenerateClean(Stippled),
+            static u => u.Name.EndsWith(".frag", StringComparison.Ordinal)
+        );
 
         Assert.Contains("Fragment(gl_FragCoord)", unit.Code, StringComparison.Ordinal);
         Assert.DoesNotContain("in_fragment", unit.Code, StringComparison.Ordinal);
@@ -409,7 +424,10 @@ public class StageBuiltInTests {
         Assert.SkipUnless(SpirvTestBase.ValidatorAvailable, "spirv-val is not on PATH (brew install spirv-tools).");
 
         var listing = ReferenceCompiler.Disassemble(
-            Assert.Single(GenerateClean(Stippled, "spirv"), u => u.Name.EndsWith(".frag", StringComparison.Ordinal))
+            Assert.Single(
+                    GenerateClean(Stippled, "spirv"),
+                    static u => u.Name.EndsWith(".frag", StringComparison.Ordinal)
+                )
                 .Binary!
         );
 

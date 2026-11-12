@@ -8,8 +8,11 @@ namespace Vixen.Terrain;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>The manage half of [docs/plan/31 § The terrain panel]: resize, add and remove
-///         tiles.</b> Every one of those is the same operation — the terrain is rebuilt against a new
+///         <b>
+///             The manage half of [docs/plan/31 § The terrain panel]: resize, add and remove
+///             tiles.
+///         </b>
+///         Every one of those is the same operation — the terrain is rebuilt against a new
 ///         <see cref="TerrainDescription" /> and everything that overlaps is carried across.
 ///     </para>
 ///     <para>
@@ -22,8 +25,12 @@ namespace Vixen.Terrain;
 ///         layer's deltas, because a delta between two samples is not a delta at either of them.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Changing the height range rescales, and that is the one thing here that is not a
-///         copy.</b> Heights are stored as a fraction of
+///         ⚠
+///         <b>
+///             Changing the height range rescales, and that is the one thing here that is not a
+///             copy.
+///         </b>
+///         Heights are stored as a fraction of
 ///         <see cref="TerrainDescription.MinHeight" />…<see cref="TerrainDescription.MaxHeight" />, so
 ///         carrying the stored numbers across a range change would silently move every hill. What is
 ///         preserved is metres — a 40 m peak is still 40 m — and what is lost is precision, in
@@ -114,8 +121,12 @@ public static class TerrainResize {
 
     /// <summary>Copies one layer's deltas, in metres if the range moved and raw if it did not.</summary>
     /// <remarks>
-    ///     ⚠ <b>A delta is a difference of two stored values, so a range change scales it by the ratio
-    ///     of the two ranges rather than by <see cref="TerrainDescription.StoreHeight" />.</b> Putting
+    ///     ⚠
+    ///     <b>
+    ///         A delta is a difference of two stored values, so a range change scales it by the ratio
+    ///         of the two ranges rather than by <see cref="TerrainDescription.StoreHeight" />.
+    ///     </b>
+    ///     Putting
     ///     a delta through the absolute conversion would add the old minimum and subtract the new one,
     ///     which for a terrain whose floor moved turns every edit layer into a uniform offset of the
     ///     whole terrain.

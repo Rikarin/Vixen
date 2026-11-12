@@ -86,9 +86,7 @@ public sealed class CatalogFormatTests {
         );
 
         static ContentCatalog Referring(string shared) {
-            var entries = new List<CatalogEntry> {
-                new(shared, default, "Main", ContentProvider.Local, [], [], 0)
-            };
+            var entries = new List<CatalogEntry> { new(shared, default, "Main", ContentProvider.Local, [], [], 0) };
 
             for (var index = 0; index < 200; index++) {
                 entries.Add(new($"scene/{index}", default, "Main", ContentProvider.Local, [shared], [], 0));
@@ -100,7 +98,7 @@ public sealed class CatalogFormatTests {
 
     [Fact]
     public void SomethingThatIsNotACatalogIsRefusedByItsIdentifier() {
-        var failure = Assert.Throws<CatalogFormatException>(() => CatalogFormat.Read(new byte[64]));
+        var failure = Assert.Throws<CatalogFormatException>(static () => CatalogFormat.Read(new byte[64]));
 
         Assert.Contains("identifier", failure.Message, StringComparison.Ordinal);
     }
@@ -152,9 +150,7 @@ public sealed class CatalogFormatTests {
 
     [Fact]
     public void AnEmptyCatalogIsStillACatalog() {
-        var read = CatalogFormat.Read(
-            CatalogFormat.Write(new(CatalogFormat.Version, default, "Windows", [], []))
-        );
+        var read = CatalogFormat.Read(CatalogFormat.Write(new(CatalogFormat.Version, default, "Windows", [], [])));
 
         Assert.Equal(0, read.Count);
         Assert.Equal("Windows", read.Target);
@@ -167,7 +163,8 @@ public sealed class CatalogFormatTests {
     /// </summary>
     [Fact]
     public void AnyCatalogSurvivesTheRoundTrip() =>
-        GenCatalog.Sample(catalog => {
+        GenCatalog.Sample(
+            static catalog => {
                 var read = CatalogFormat.Read(CatalogFormat.Write(catalog));
 
                 Assert.Equal(catalog.Count, read.Count);
@@ -182,19 +179,19 @@ public sealed class CatalogFormatTests {
 
     static Gen<ContentCatalog> GenCatalog =>
         Gen.Select(GenEntry.List[0, 12], GenBundle.List[0, 4])
-            .Select(pair => new ContentCatalog(
+            .Select(static pair => new ContentCatalog(
                     CatalogFormat.Version,
                     default,
                     "Windows",
                     // A build cannot produce two entries at one address, so neither does this.
-                    pair.Item1.DistinctBy(entry => entry.Address),
-                    pair.Item2.DistinctBy(bundle => bundle.Name)
+                    pair.Item1.DistinctBy(static entry => entry.Address),
+                    pair.Item2.DistinctBy(static bundle => bundle.Name)
                 )
             );
 
     static Gen<CatalogEntry> GenEntry =>
         Gen.Select(GenName, GenName, Gen.Int[0, 1], Gen.Long[0, 1 << 20], GenName.Array[0, 3], GenName.Array[0, 2])
-            .Select(fields => new CatalogEntry(
+            .Select(static fields => new CatalogEntry(
                     fields.Item1,
                     default,
                     fields.Item2,
@@ -222,11 +219,11 @@ public sealed class CatalogFormatTests {
     }
 
     static readonly string[] Names =
-        ["", "a", "ui", "ui/hero", "ui/hero/", "ui/heroic", "level1/props/barrel", "Ünïcödé", "x y"];
+        [string.Empty, "a", "ui", "ui/hero", "ui/hero/", "ui/heroic", "level1/props/barrel", "Ünïcödé", "x y"];
 
     static Gen<CatalogBundle> GenBundle =>
         Gen.Select(GenName, GenName, Gen.Long[0, 1 << 24], Gen.UInt, GenName.Array[0, 2])
-            .Select(fields => new CatalogBundle(
+            .Select(static fields => new CatalogBundle(
                     fields.Item1,
                     fields.Item2,
                     default,
@@ -250,10 +247,19 @@ public sealed class CatalogFormatTests {
                 new("dlc/prop", new(5, 6), "Dlc", ContentProvider.Remote, ["ui/shader"], ["dlc"], 900_000)
             ],
             [
-                new("UiCore", "", new(10, 11), 4608, 0xDEADBEEF, CompressionMethod.Lz4, []),
-                new("Dlc", "https://cdn.example/Dlc.bundle", new(12, 13), 400_000, 0xC0FFEE, CompressionMethod.None, ["UiCore"])
+                new("UiCore", string.Empty, new(10, 11), 4608, 0xDEADBEEF, CompressionMethod.Lz4, []),
+                new(
+                    "Dlc",
+                    "https://cdn.example/Dlc.bundle",
+                    new(12, 13),
+                    400_000,
+                    0xC0FFEE,
+                    CompressionMethod.None,
+                    ["UiCore"]
+                )
             ]
         );
+
     /// <summary>
     ///     The shape survives the file, which is the whole reason it is in the format rather than
     ///     alongside it. Doc 27 § Upgrades refuses a live content update for any address whose shape
@@ -283,5 +289,4 @@ public sealed class CatalogFormatTests {
         Assert.Equal(0ul, axe.Shape);
         Assert.False(axe.ShapeIsKnown);
     }
-
 }

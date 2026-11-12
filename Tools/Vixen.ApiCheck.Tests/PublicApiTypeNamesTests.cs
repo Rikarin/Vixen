@@ -51,7 +51,7 @@ public sealed class PublicApiTypeNamesTests {
     [InlineData("Vixen.Ecs.Chunk.Count.get -> int")]
     [InlineData("Vixen.Ecs.Archetype.World.get -> Vixen.Ecs.World")]
     [InlineData("Vixen.Ecs.Archetype.ColumnOf(Vixen.Core.ComponentTypeId id) -> int")]
-    [InlineData("const Vixen.Net.Engine.Content.NetworkRulesContent.Label = \"network-rules\" -> string")]
+    [InlineData("""const Vixen.Net.Engine.Content.NetworkRulesContent.Label = "network-rules" -> string""")]
     [InlineData("static Vixen.Platform.MacOS.MacOSAccessibility.Read() -> Vixen.Platform.SystemAccessibility")]
     [InlineData("#nullable enable")]
     // ⚠ The trim-contract lines #1359 added. A type-level one has no arrow and no argument list of
@@ -60,7 +60,9 @@ public sealed class PublicApiTypeNamesTests {
     [InlineData("Vixen.Sample.Scanner [type: RequiresUnreferencedCode()]")]
     [InlineData("Vixen.Sample.Holder.Kind [property: DynamicallyAccessedMembers(PublicMethods)]")]
     [InlineData("Vixen.Sample.Pool<T> [typeparam T: DynamicallyAccessedMembers(PublicParameterlessConstructor)]")]
-    [InlineData("static Vixen.Ui.UiPropertyRegistry.Of(System.Type ownerType) [param ownerType: DynamicallyAccessedMembers(All)]")]
+    [InlineData(
+        "static Vixen.Ui.UiPropertyRegistry.Of(System.Type ownerType) [param ownerType: DynamicallyAccessedMembers(All)]"
+    )]
     public void AMemberIsNotATypeDeclaration(string line) => Assert.Null(PublicApiTypeNames.DocumentationId(line));
 
     /// <summary>
@@ -132,14 +134,14 @@ public sealed class PublicApiTypeNamesTests {
     public void EveryBaselinedTypeHasAPageOrAnExemption() {
         var documented = PublicApiTypeNames
             .ExemptedIds(File.ReadAllLines(Path.Combine(RepositoryRoot(), "docs", "DocsExempt.txt")))
-            .Concat(GuidePages().SelectMany(page => PublicApiTypeNames.PageIds(File.ReadAllLines(page))))
+            .Concat(GuidePages().SelectMany(static page => PublicApiTypeNames.PageIds(File.ReadAllLines(page))))
             .ToHashSet(StringComparer.Ordinal);
 
         var uncovered = PublicApiTypeNames
             .BaselinedIds(Baselines().SelectMany(File.ReadAllLines))
             .Where(id => !documented.Contains(id))
             .Distinct(StringComparer.Ordinal)
-            .OrderBy(id => id, StringComparer.Ordinal)
+            .OrderBy(static id => id, StringComparer.Ordinal)
             .ToList();
 
         Assert.True(
@@ -152,11 +154,13 @@ public sealed class PublicApiTypeNamesTests {
     }
 
     static IEnumerable<string> Baselines() =>
-        TreeFiles().Where(path => Path.GetFileName(path) is "PublicAPI.Shipped.txt" or "PublicAPI.Unshipped.txt");
+        TreeFiles()
+            .Where(static path => Path.GetFileName(path) is "PublicAPI.Shipped.txt" or "PublicAPI.Unshipped.txt");
 
     static IEnumerable<string> GuidePages() =>
-        TreeFiles().Where(path => path.EndsWith(".md", StringComparison.Ordinal))
-            .Where(path => path.Replace('\\', '/').Contains("/docs/", StringComparison.Ordinal));
+        TreeFiles()
+            .Where(static path => path.EndsWith(".md", StringComparison.Ordinal))
+            .Where(static path => path.Replace('\\', '/').Contains("/docs/", StringComparison.Ordinal));
 
     /// <summary>
     ///     ⚠ Every file this checkout owns, as git defines the tree (#1424) — not another agent's copy

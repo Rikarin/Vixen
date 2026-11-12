@@ -37,8 +37,12 @@ public class PatchParameterizationTests {
 
     /// <summary>Every point the parameterization places is a point of the source surface.</summary>
     /// <remarks>
-    ///     ⚠ <b>Because it is a barycentric point of one of the patch's own triangles and never a
-    ///     blend that is projected back afterwards.</b> The bound is the triangulation's own chord
+    ///     ⚠
+    ///     <b>
+    ///         Because it is a barycentric point of one of the patch's own triangles and never a
+    ///         blend that is projected back afterwards.
+    ///     </b>
+    ///     The bound is the triangulation's own chord
     ///     sagitta — a unit sphere cut into <see cref="Across" /> steps of 23° has its chords
     ///     <c>1 − cos(11.7°)</c> inside it — so anything further out or further in is the
     ///     parameterization missing, not the fixture being coarse.
@@ -97,8 +101,12 @@ public class PatchParameterizationTests {
 
     /// <summary>The blend the old code used leaves the sphere; the parameterization stays on it.</summary>
     /// <remarks>
-    ///     ⚠ <b>This is the comparison against what was there before, made on one patch rather than
-    ///     across two builds.</b> The Coons interior is the textbook one — the two linear
+    ///     ⚠
+    ///     <b>
+    ///         This is the comparison against what was there before, made on one patch rather than
+    ///         across two builds.
+    ///     </b>
+    ///     The Coons interior is the textbook one — the two linear
     ///     interpolations between opposite sides minus the bilinear interpolation of the corners the
     ///     two both counted — computed here from the same rim the parameterization was given. On this
     ///     patch its centre lands at roughly <c>0.57</c> of the radius: 43% of the way to the middle
@@ -115,16 +123,16 @@ public class PatchParameterizationTests {
 
         for (var i = 1; i < Across; i++) {
             for (var j = 1; j < Across; j++) {
-                var u = (float) i / Across;
-                var v = (float) j / Across;
+                var u = (float)i / Across;
+                var v = (float)j / Across;
 
-                var along = (rim[grid[0][j]] * (1f - u)) + (rim[grid[Across][j]] * u);
-                var across = (rim[grid[i][0]] * (1f - v)) + (rim[grid[i][Across]] * v);
+                var along = rim[grid[0][j]] * (1f - u) + rim[grid[Across][j]] * u;
+                var across = rim[grid[i][0]] * (1f - v) + rim[grid[i][Across]] * v;
 
-                var corners = (rim[grid[0][0]] * (1f - u) * (1f - v))
-                    + (rim[grid[Across][0]] * u * (1f - v))
-                    + (rim[grid[0][Across]] * (1f - u) * v)
-                    + (rim[grid[Across][Across]] * u * v);
+                var corners = rim[grid[0][0]] * (1f - u) * (1f - v)
+                    + rim[grid[Across][0]] * u * (1f - v)
+                    + rim[grid[0][Across]] * (1f - u) * v
+                    + rim[grid[Across][Across]] * u * v;
 
                 strayed = MathF.Max(strayed, MathF.Abs(1f - (along + across - corners).Length()));
 
@@ -176,9 +184,19 @@ public class PatchParameterizationTests {
 
         grid = Rim(mesh, corner, output, out var samples);
 
-        var found = PatchParameterization.Interior(mesh, arcs, patch, samples, output, Sides(samples), Across, Across, out _);
+        var found = PatchParameterization.Interior(
+            mesh,
+            arcs,
+            patch,
+            samples,
+            output,
+            Sides(samples),
+            Across,
+            Across,
+            out _
+        );
 
-        rim = [.. output.Positions];
+        rim = [..output.Positions];
 
         return found;
     }
@@ -186,16 +204,22 @@ public class PatchParameterizationTests {
     /// <summary>A patch triangle sitting entirely on one side is filled rather than refused.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The fixture is the whole point: its bottom side is three vertices and the triangle
-    ///         over all three of them is a face of the patch.</b> Tutte's boundary here is a square, so
+    ///         ⚠
+    ///         <b>
+    ///             The fixture is the whole point: its bottom side is three vertices and the triangle
+    ///             over all three of them is a face of the patch.
+    ///         </b>
+    ///         Tutte's boundary here is a square, so
     ///         every vertex of side 0 is pinned at <c>y = 0</c> <i>exactly</i> — that triangle is
     ///         therefore collinear in the parameter domain by construction, with a signed area of
     ///         exactly zero, however well the map is solved. It has not folded and nothing overlaps it.
     ///     </para>
     ///     <para>
-    ///         <b>The old <c>IsEmbedded</c> returned false on any zero and this returned
-    ///         <see langword="null" />, so a patch like this took the transfinite blend — which is the
-    ///         one construction here with no injectivity guarantee and the one the folds came from.</b>
+    ///         <b>
+    ///             The old <c>IsEmbedded</c> returned false on any zero and this returned
+    ///             <see langword="null" />, so a patch like this took the transfinite blend — which is the
+    ///             one construction here with no injectivity guarantee and the one the folds came from.
+    ///         </b>
     ///         Measured across the seven fixtures, every patch refused this way had <i>zero</i> flipped
     ///         triangles and one to four of these ears; on the cylinder that was 18 patches and 45
     ///         inverted quads. A zero is still fatal when an unpinned vertex is in it, which is a real
@@ -242,7 +266,17 @@ public class PatchParameterizationTests {
             [grid[0][0], grid[0][1], grid[0][2]]
         ];
 
-        var interior = PatchParameterization.Interior(mesh, arcs, patch, samples, output, Sides(samples), 2, 2, out var refused);
+        var interior = PatchParameterization.Interior(
+            mesh,
+            arcs,
+            patch,
+            samples,
+            output,
+            Sides(samples),
+            2,
+            2,
+            out var refused
+        );
 
         Assert.True(
             interior is not null,
@@ -303,7 +337,7 @@ public class PatchParameterizationTests {
         ];
 
         patch = new() {
-            Triangles = [.. Enumerable.Range(0, 8)],
+            Triangles = [..Enumerable.Range(0, 8)],
             Sides = [
                 [new(0, false)],
                 [new(1, false)],
@@ -324,8 +358,8 @@ public class PatchParameterizationTests {
             found[i] = new int[Across + 1];
 
             for (var j = 0; j <= Across; j++) {
-                var polar = FromPolar + ((ToPolar - FromPolar) * i / Across);
-                var azimuth = -Azimuth + (2f * Azimuth * j / Across);
+                var polar = FromPolar + (ToPolar - FromPolar) * i / Across;
+                var azimuth = -Azimuth + 2f * Azimuth * j / Across;
 
                 found[i][j] = positions.Count;
 
@@ -350,20 +384,20 @@ public class PatchParameterizationTests {
 
         corner = found;
 
-        return ManifoldMesh.Build([.. positions], [.. triangles], []);
+        return ManifoldMesh.Build([..positions], [..triangles], []);
     }
 
     /// <summary>The four sides, anticlockwise, each one arc.</summary>
     static LayoutPatch Patch(int[][] corner, out LayoutArc[] arcs) {
-        int[] bottom = [.. Enumerable.Range(0, Across + 1).Select(i => corner[i][0])];
-        int[] right = [.. Enumerable.Range(0, Across + 1).Select(j => corner[Across][j])];
-        int[] top = [.. Enumerable.Range(0, Across + 1).Select(i => corner[i][Across])];
-        int[] left = [.. Enumerable.Range(0, Across + 1).Select(j => corner[0][j])];
+        int[] bottom = [..Enumerable.Range(0, Across + 1).Select(i => corner[i][0])];
+        int[] right = [..Enumerable.Range(0, Across + 1).Select(j => corner[Across][j])];
+        int[] top = [..Enumerable.Range(0, Across + 1).Select(i => corner[i][Across])];
+        int[] left = [..Enumerable.Range(0, Across + 1).Select(j => corner[0][j])];
 
         arcs = [Arc(bottom), Arc(right), Arc(top), Arc(left)];
 
         return new() {
-            Triangles = [.. Enumerable.Range(0, Across * Across * 2)],
+            Triangles = [..Enumerable.Range(0, Across * Across * 2)],
             Sides = [
                 [new(0, false)],
                 [new(1, false)],
@@ -385,8 +419,8 @@ public class PatchParameterizationTests {
     static int[][] Sides(int[][] samples) => [
         samples[0],
         samples[1],
-        [.. samples[2].Reverse()],
-        [.. samples[3].Reverse()]
+        [..samples[2].Reverse()],
+        [..samples[3].Reverse()]
     ];
 
     /// <summary>
@@ -423,10 +457,10 @@ public class PatchParameterizationTests {
         }
 
         samples = [
-            [.. Enumerable.Range(0, Across + 1).Select(i => grid[i][0])],
-            [.. Enumerable.Range(0, Across + 1).Select(j => grid[Across][j])],
-            [.. Enumerable.Range(0, Across + 1).Select(i => grid[i][Across])],
-            [.. Enumerable.Range(0, Across + 1).Select(j => grid[0][j])]
+            [..Enumerable.Range(0, Across + 1).Select(i => grid[i][0])],
+            [..Enumerable.Range(0, Across + 1).Select(j => grid[Across][j])],
+            [..Enumerable.Range(0, Across + 1).Select(i => grid[i][Across])],
+            [..Enumerable.Range(0, Across + 1).Select(j => grid[0][j])]
         ];
 
         return grid;
@@ -438,7 +472,7 @@ public class PatchParameterizationTests {
 
         for (var i = 0; i <= Across; i++) {
             for (var j = 0; j <= Across; j++) {
-                placed[i, j] = i > 0 && i < Across && j > 0 && j < Across
+                placed[i, j] = i is > 0 and < Across && j > 0 && j < Across
                     ? interior[i - 1, j - 1]
                     : rim[grid[i][j]];
             }

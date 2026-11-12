@@ -17,10 +17,14 @@ public class TextureVolumeDeviceTests(ITestOutputHelper output) {
     const int Side = 64;
 
     /// <summary>Red runs across, green down, blue is fixed: every texel a different point of a plane.</summary>
-    static readonly byte[] Plane = Picture(Side, Side, (x, y) => (x * 3 / 255f, y * 3 / 255f, 128 / 255f, 1f));
+    static readonly byte[] Plane = Picture(Side, Side, static (x, y) => (x * 3 / 255f, y * 3 / 255f, 128 / 255f, 1f));
 
     /// <summary>The same points, the image mirrored left to right.</summary>
-    static readonly byte[] Mirrored = Picture(Side, Side, (x, y) => ((Side - 1 - x) * 3 / 255f, y * 3 / 255f, 128 / 255f, 1f));
+    static readonly byte[] Mirrored = Picture(
+        Side,
+        Side,
+        static (x, y) => ((Side - 1 - x) * 3 / 255f, y * 3 / 255f, 128 / 255f, 1f)
+    );
 
     [Theory]
     [InlineData("Gradient")]
@@ -61,7 +65,7 @@ public class TextureVolumeDeviceTests(ITestOutputHelper output) {
         using var device = TextureKernelHarness.Open();
 
         // At a scale of five a cell is a fifth of the bounds, which is 51 bytes exactly.
-        var moved = Picture(Side, Side, (x, y) => ((x * 3 + 51) / 255f, y * 3 / 255f, 128 / 255f, 1f));
+        var moved = Picture(Side, Side, static (x, y) => ((x * 3 + 51) / 255f, y * 3 / 255f, 128 / 255f, 1f));
 
         var shifted = Bake(
             device,
@@ -69,14 +73,28 @@ public class TextureVolumeDeviceTests(ITestOutputHelper output) {
             Side,
             Side,
             [new("Position", Plane)],
-            node => {
+            static node => {
                 node.SetValue("Scale", 5f);
                 node.SetValue("Offset X", 1f);
             }
         );
 
-        var placed = Bake(device, "Source/Volume Noise", Side, Side, [new("Position", moved)], node => node.SetValue("Scale", 5f));
-        var unshifted = Bake(device, "Source/Volume Noise", Side, Side, [new("Position", Plane)], node => node.SetValue("Scale", 5f));
+        var placed = Bake(
+            device,
+            "Source/Volume Noise",
+            Side,
+            Side,
+            [new("Position", moved)],
+            static node => node.SetValue("Scale", 5f)
+        );
+        var unshifted = Bake(
+            device,
+            "Source/Volume Noise",
+            Side,
+            Side,
+            [new("Position", Plane)],
+            static node => node.SetValue("Scale", 5f)
+        );
 
         var same = 0.0;
         var apart = 0.0;
@@ -96,7 +114,7 @@ public class TextureVolumeDeviceTests(ITestOutputHelper output) {
     public void More_octaves_add_detail_and_keep_the_mean() {
         using var device = TextureKernelHarness.Open();
 
-        static double Mean(TextureNodeBench.Lanes lanes) {
+        static double Mean(Lanes lanes) {
             var sum = 0.0;
 
             for (var y = 0; y < Side; y++) {
@@ -111,12 +129,12 @@ public class TextureVolumeDeviceTests(ITestOutputHelper output) {
         // ⚠ The second difference and not the first. Each octave is half as strong and twice as fine, so its
         // slope is the same as the first octave's and a sum of first differences barely moves — measured, five
         // per cent. Its curvature doubles per octave, which is what detail is.
-        static double Roughness(TextureNodeBench.Lanes lanes) {
+        static double Roughness(Lanes lanes) {
             var sum = 0.0;
 
             for (var y = 0; y < Side; y++) {
                 for (var x = 1; x < Side - 1; x++) {
-                    sum += Math.Abs(lanes.At(x + 1, y, 0) - (2f * lanes.At(x, y, 0)) + lanes.At(x - 1, y, 0));
+                    sum += Math.Abs(lanes.At(x + 1, y, 0) - 2f * lanes.At(x, y, 0) + lanes.At(x - 1, y, 0));
                 }
             }
 
@@ -125,15 +143,29 @@ public class TextureVolumeDeviceTests(ITestOutputHelper output) {
 
         // One cell across the bounds, so four octaves are eight cells over the 64 texels the plane spans and
         // none of them is finer than a texel.
-        var one = Bake(device, "Source/Volume Noise", Side, Side, [new("Position", Plane)], node => {
-            node.SetValue("Scale", 1f);
-            node.SetValue("Octaves", 1f);
-        });
+        var one = Bake(
+            device,
+            "Source/Volume Noise",
+            Side,
+            Side,
+            [new("Position", Plane)],
+            static node => {
+                node.SetValue("Scale", 1f);
+                node.SetValue("Octaves", 1f);
+            }
+        );
 
-        var four = Bake(device, "Source/Volume Noise", Side, Side, [new("Position", Plane)], node => {
-            node.SetValue("Scale", 1f);
-            node.SetValue("Octaves", 4f);
-        });
+        var four = Bake(
+            device,
+            "Source/Volume Noise",
+            Side,
+            Side,
+            [new("Position", Plane)],
+            static node => {
+                node.SetValue("Scale", 1f);
+                node.SetValue("Octaves", 4f);
+            }
+        );
 
         Assert.True(Roughness(four) > Roughness(one) * 2, $"{Roughness(four)} against {Roughness(one)}");
         Assert.Equal(Mean(one), Mean(four), 0.08);
@@ -143,7 +175,11 @@ public class TextureVolumeDeviceTests(ITestOutputHelper output) {
     public void A_two_point_gradient_is_the_position_projected_onto_the_line_between_them() {
         using var device = TextureKernelHarness.Open();
 
-        void Ends(Vixen.NodeGraph.GraphNode node, (float X, float Y, float Z) start, (float X, float Y, float Z) end) {
+        static void Ends(
+            Vixen.NodeGraph.GraphNode node,
+            (float X, float Y, float Z) start,
+            (float X, float Y, float Z) end
+        ) {
             node.SetValue("Start X", start.X);
             node.SetValue("Start Y", start.Y);
             node.SetValue("Start Z", start.Z);
@@ -152,8 +188,22 @@ public class TextureVolumeDeviceTests(ITestOutputHelper output) {
             node.SetValue("End Z", end.Z);
         }
 
-        var across = Bake(device, "Source/Volume Gradient", Side, Side, [new("Position", Plane)], node => Ends(node, (0.2f, 0.3f, 0f), (0.8f, 0.3f, 0f)));
-        var diagonal = Bake(device, "Source/Volume Gradient", Side, Side, [new("Position", Plane)], node => Ends(node, (0f, 0f, 0.5f), (0.5f, 0.5f, 0.5f)));
+        var across = Bake(
+            device,
+            "Source/Volume Gradient",
+            Side,
+            Side,
+            [new("Position", Plane)],
+            node => Ends(node, (0.2f, 0.3f, 0f), (0.8f, 0.3f, 0f))
+        );
+        var diagonal = Bake(
+            device,
+            "Source/Volume Gradient",
+            Side,
+            Side,
+            [new("Position", Plane)],
+            node => Ends(node, (0f, 0f, 0.5f), (0.5f, 0.5f, 0.5f))
+        );
 
         for (var y = 0; y < Side; y += 7) {
             for (var x = 0; x < Side; x += 5) {
@@ -195,10 +245,10 @@ public class TextureVolumeDeviceTests(ITestOutputHelper output) {
 
         for (var y = 0; y < Side; y++) {
             for (var x = 0; x < Side; x++) {
-                var (dx, dy) = (Math.Abs((x * 3 / 255f) - 0.25f), Math.Abs((y * 3 / 255f) - 0.25f));
+                var (dx, dy) = (Math.Abs(x * 3 / 255f - 0.25f), Math.Abs(y * 3 / 255f - 0.25f));
                 var outside = shape == "Box"
                     ? MathF.Sqrt(MathF.Pow(Math.Max(dx - 0.1f, 0f), 2) + MathF.Pow(Math.Max(dy - 0.1f, 0f), 2))
-                    : MathF.Max(MathF.Sqrt((dx * dx) + (dy * dy)) - 0.1f, 0f);
+                    : MathF.Max(MathF.Sqrt(dx * dx + dy * dy) - 0.1f, 0f);
 
                 Assert.Equal(1f - Math.Clamp(outside / 0.1f, 0f, 1f), mask.At(x, y, 0), 0.002f);
 

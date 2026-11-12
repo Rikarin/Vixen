@@ -145,8 +145,12 @@ public sealed class ImportPipeline {
     ///         <see cref="MaxConcurrency" />-at-a-time over the same list.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>What made the imports sequential was one thing, and it is preserved rather than
-    ///         given up.</b> A dependency's artefact ids are part of a dependent's key, so what an
+    ///         ⚠
+    ///         <b>
+    ///             What made the imports sequential was one thing, and it is preserved rather than
+    ///             given up.
+    ///         </b>
+    ///         A dependency's artefact ids are part of a dependent's key, so what an
     ///         asset's key <i>is</i> depends on which of its dependencies have already re-imported —
     ///         and in a path-ordered loop the answer is exactly "the ones before it in path order".
     ///         Nine importers declare asset dependencies through <c>AssetReferenceScan</c>, so this is
@@ -176,13 +180,13 @@ public sealed class ImportPipeline {
     ///     </para>
     /// </remarks>
     public async ValueTask<IReadOnlyList<ImportOutcome>> ImportAllAsync(CancellationToken cancellationToken = default) {
-        var entries = database.Entries.OrderBy(entry => entry.Path, StringComparer.Ordinal).ToArray();
+        var entries = database.Entries.OrderBy(static entry => entry.Path, StringComparer.Ordinal).ToArray();
         var prepared = new Prepared[entries.Length];
 
         Parallel.For(
             0,
             entries.Length,
-            new ParallelOptions { CancellationToken = cancellationToken },
+            new() { CancellationToken = cancellationToken },
             index => prepared[index] = Prepare(entries[index], default)
         );
 
@@ -210,7 +214,13 @@ public sealed class ImportPipeline {
                         continue;
                     }
 
-                    outcomes[index] = await ImportOneAsync(run, index, entries[index], prepared[index], cancellationToken)
+                    outcomes[index] = await ImportOneAsync(
+                            run,
+                            index,
+                            entries[index],
+                            prepared[index],
+                            cancellationToken
+                        )
                         .ConfigureAwait(false);
 
                     run.Finish(index, outcomes[index] is { WasCached: false, Record: not null });
@@ -453,7 +463,8 @@ public sealed class ImportPipeline {
             // is not known until it has run. If nothing it depended on has moved, this matches the
             // key that import stored and there is nothing to do.
             var reusable = previous is not null
-                && previous.Key == Key(
+                && previous.Key
+                == Key(
                     importer,
                     sourceHash,
                     settingsHash,
@@ -467,7 +478,8 @@ public sealed class ImportPipeline {
                     : null;
 
             return new(metaPath, root, importer, resolved, source, sourceHash, settingsHash, reusable, null);
-        } catch (Exception failure) when (failure is IOException or UnauthorizedAccessException
+        } catch (Exception failure) when (failure is IOException
+                                              or UnauthorizedAccessException
                                               or YamlParseException) {
             // A sidecar that has gone or will not parse fails that asset rather than the run, the
             // same way an importer that throws does. It is one file, and the message names it.
@@ -609,13 +621,19 @@ public sealed class ImportPipeline {
     }
 
     /// <summary>The chunk type id an artefact is stored under.</summary>
-    /// <param name="type">What the importer called it — a <c>[DataContract]</c> alias, or a name of
-    /// its own for a chunk that is not a serialised object.</param>
+    /// <param name="type">
+    ///     What the importer called it — a <c>[DataContract]</c> alias, or a name of
+    ///     its own for a chunk that is not a serialised object.
+    /// </param>
     /// <returns>The type id for the chunk's header.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The declared type, and every artefact used to be written as
-    ///         <see cref="ImportedArtifact" /> instead.</b> <c>ObjectDatabase.Read&lt;T&gt;</c> checks
+    ///         ⚠
+    ///         <b>
+    ///             The declared type, and every artefact used to be written as
+    ///             <see cref="ImportedArtifact" /> instead.
+    ///         </b>
+    ///         <c>ObjectDatabase.Read&lt;T&gt;</c> checks
     ///         the header against the type being asked for, so a chunk stamped with the wrapper's name
     ///         could not be read as the thing inside it: <c>assets.Load&lt;SceneAsset&gt;</c>,
     ///         <c>Load&lt;GraphicsCompositorAsset&gt;</c> and every other typed load out of a shipped
@@ -648,8 +666,10 @@ public sealed class ImportPipeline {
     ///     One asset's entitlement to the rest of the cache: which records it may see, and what it
     ///     has to wait for before it sees them.
     /// </summary>
-    /// <param name="Run">The run this asset is part of, or <see langword="null" /> for an import of
-    /// one asset on its own, which has nothing to be ordered against.</param>
+    /// <param name="Run">
+    ///     The run this asset is part of, or <see langword="null" /> for an import of
+    ///     one asset on its own, which has nothing to be ordered against.
+    /// </param>
     /// <param name="Index">Where this asset comes in path order.</param>
     /// <remarks>
     ///     A struct with a null <see cref="Run" /> is the whole of "there is no run", which is what
@@ -661,7 +681,9 @@ public sealed class ImportPipeline {
         internal ImportRecord? RecordOf(ImportCache cache, AssetId asset) =>
             Run is { } run
                 ? run.RecordFor(asset, Index)
-                : cache.TryGet(asset, out var record) ? record : null;
+                : cache.TryGet(asset, out var record)
+                    ? record
+                    : null;
 
         /// <summary>
         ///     Waits for every one of these that comes earlier in path order, and says whether any of
@@ -758,7 +780,10 @@ public sealed class ImportPipeline {
     ) {
         var settings = root["importer"] as YamlMapping ?? new YamlMapping();
         settings.Tag = importer.Name;
-        settings.Set("version", new YamlScalar(importer.Version.ToString(CultureInfo.InvariantCulture), YamlScalarStyle.Plain));
+        settings.Set(
+            "version",
+            new YamlScalar(importer.Version.ToString(CultureInfo.InvariantCulture), YamlScalarStyle.Plain)
+        );
 
         if (!sourceHash.IsEmpty) {
             settings.Set("sourceHash", new YamlScalar(sourceHash.ToString()));

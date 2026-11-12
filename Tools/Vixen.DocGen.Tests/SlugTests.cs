@@ -27,7 +27,8 @@ public class SlugTests {
         Assert.Equal("vixen.core.collections/pool-2", Slugs.ForType("T:Vixen.Core.Collections.Pool`2"));
         Assert.NotEqual(
             Slugs.ForType("T:Vixen.Core.Collections.Pool`1"),
-            Slugs.ForType("T:Vixen.Core.Collections.Pool`2"));
+            Slugs.ForType("T:Vixen.Core.Collections.Pool`2")
+        );
     }
 
     [Fact]

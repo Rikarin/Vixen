@@ -49,14 +49,14 @@ public sealed class FrameResizeTests : IDisposable {
 
         Draw(compositor, graph, new(320, 180));
 
-        Assert.Equal(new Int2(320, 180), node.Texture!.Probes.Layout.Viewport);
+        Assert.Equal(new(320, 180), node.Texture!.Probes.Layout.Viewport);
 
         // A display that changed scale factor, which is what the report was: not a drag, a jump.
         Assert.Equal(1, compositor.Resize(new(672, 354), device.WaitIdle));
 
         Draw(compositor, graph, new(672, 354));
 
-        Assert.Equal(new Int2(672, 354), node.Texture!.Probes.Layout.Viewport);
+        Assert.Equal(new(672, 354), node.Texture!.Probes.Layout.Viewport);
 
         // And the temporal chain restarted rather than reprojecting through a lattice that is gone.
         Assert.Equal(0, node.Placements);
@@ -132,7 +132,7 @@ public sealed class FrameResizeTests : IDisposable {
 
         Draw(compositor, graph, new(672, 354));
 
-        Assert.Equal(new Int2(672, 354), node.Texture!.Probes.Layout.Viewport);
+        Assert.Equal(new(672, 354), node.Texture!.Probes.Layout.Viewport);
     }
 
     /// <summary>A size that did not change resets nothing, and never idles.</summary>
@@ -148,8 +148,7 @@ public sealed class FrameResizeTests : IDisposable {
         using var node = new ScreenProbeGatherRenderer { Name = "ScreenProbes", Depth = "Depth", Normals = "Normals" };
 
         var compositor = new GraphicsCompositor(system) {
-            FrameSize = new(320, 180),
-            Game = new SceneRendererSequence { Children = { node } }
+            FrameSize = new(320, 180), Game = new SceneRendererSequence { Children = { node } }
         };
 
         var idles = 0;
@@ -167,15 +166,14 @@ public sealed class FrameResizeTests : IDisposable {
         using var system = new RenderSystem();
 
         var compositor = new GraphicsCompositor(system) {
-            FrameSize = new(320, 180),
-            Game = new SceneRendererSequence { Children = { new DelegateSceneRenderer() } }
+            FrameSize = new(320, 180), Game = new SceneRendererSequence { Children = { new DelegateSceneRenderer() } }
         };
 
         var idles = 0;
 
         Assert.Equal(0, compositor.Resize(new(640, 360), () => idles++));
         Assert.Equal(0, idles);
-        Assert.Equal(new Int2(640, 360), compositor.FrameSize);
+        Assert.Equal(new(640, 360), compositor.FrameSize);
     }
 
     static ScreenProbeGatherRenderer Gather(SamplerCache samplers, DescriptorAllocator allocator) =>

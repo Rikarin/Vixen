@@ -134,8 +134,11 @@ public sealed record MeshletPageSet {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <b>A per-mesh offset rather than a fixed one, because a static mesh must not pay for
-    ///         it.</b> Influences are eight bytes — four indices and four weights — on a vertex that
+    ///         <b>
+    ///             A per-mesh offset rather than a fixed one, because a static mesh must not pay for
+    ///             it.
+    ///         </b>
+    ///         Influences are eight bytes — four indices and four weights — on a vertex that
     ///         is otherwise sixteen, so charging every mesh for them would be half again the bytes of
     ///         every page of every rock in the project to carry zeros. The stride is already per
     ///         mesh, so this costs one more integer beside it.
@@ -161,8 +164,11 @@ public sealed record MeshletPageSet {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <b>One grid for the mesh, not one per cluster, and that is the whole of why this
-    ///         format does not crack.</b> Quantizing each cluster against its own bound is the
+    ///         <b>
+    ///             One grid for the mesh, not one per cluster, and that is the whole of why this
+    ///             format does not crack.
+    ///         </b>
+    ///         Quantizing each cluster against its own bound is the
     ///         obvious way to spend the bits well, and it is wrong: a vertex on a locked boundary is
     ///         referenced by a cluster on each side, the two clusters have different bounds, and the
     ///         same position rounds to two different numbers. Phase 1 went to some trouble to make
@@ -279,13 +285,13 @@ public sealed record MeshletPageSet {
         var start = Pages[placement.Page].Offset + placement.VertexOffset;
 
         for (var i = 0; i < vertexCount; i++) {
-            var at = start + (i * VertexStride);
+            var at = start + i * VertexStride;
 
             var x = placement.Origin.X + BitConverter.ToUInt16(Data, at);
             var y = placement.Origin.Y + BitConverter.ToUInt16(Data, at + 2);
             var z = placement.Origin.Z + BitConverter.ToUInt16(Data, at + 4);
 
-            positions[i] = QuantizationOrigin + (new Vector3(x, y, z) * QuantizationStep);
+            positions[i] = QuantizationOrigin + new Vector3(x, y, z) * QuantizationStep;
         }
     }
 
@@ -323,7 +329,7 @@ public sealed record MeshletPageSet {
         var start = Pages[placement.Page].Offset + placement.VertexOffset + InfluenceOffset;
 
         for (var i = 0; i < vertexCount; i++) {
-            var at = start + (i * VertexStride);
+            var at = start + i * VertexStride;
 
             influences[i] = new(
                 new(Data[at], Data[at + 1], Data[at + 2], Data[at + 3]),
@@ -397,10 +403,10 @@ public readonly record struct VertexInfluence(Int4 Bones, Vector4 Weights) {
         var bone3 = palette[Bone(firstBone, Bones.W, palette.Length)];
 
         return new(
-            (bone0.Row1 * w.X) + (bone1.Row1 * w.Y) + (bone2.Row1 * w.Z) + (bone3.Row1 * w.W),
-            (bone0.Row2 * w.X) + (bone1.Row2 * w.Y) + (bone2.Row2 * w.Z) + (bone3.Row2 * w.W),
-            (bone0.Row3 * w.X) + (bone1.Row3 * w.Y) + (bone2.Row3 * w.Z) + (bone3.Row3 * w.W),
-            (bone0.Row4 * w.X) + (bone1.Row4 * w.Y) + (bone2.Row4 * w.Z) + (bone3.Row4 * w.W)
+            bone0.Row1 * w.X + bone1.Row1 * w.Y + bone2.Row1 * w.Z + bone3.Row1 * w.W,
+            bone0.Row2 * w.X + bone1.Row2 * w.Y + bone2.Row2 * w.Z + bone3.Row2 * w.W,
+            bone0.Row3 * w.X + bone1.Row3 * w.Y + bone2.Row3 * w.Z + bone3.Row3 * w.W,
+            bone0.Row4 * w.X + bone1.Row4 * w.Y + bone2.Row4 * w.Z + bone3.Row4 * w.W
         );
     }
 

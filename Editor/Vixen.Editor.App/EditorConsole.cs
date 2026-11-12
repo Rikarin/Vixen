@@ -16,14 +16,22 @@ namespace Vixen.Editor.App;
 ///         registers the panel it describes.
 ///     </para>
 ///     <para>
-///         ⚠ <b>One <see cref="ConsoleModel" />, made on first sight and kept, rather than one per
-///         panel.</b> A panel's factory runs again every time it is reopened, and a fresh model starts
+///         ⚠
+///         <b>
+///             One <see cref="ConsoleModel" />, made on first sight and kept, rather than one per
+///             panel.
+///         </b>
+///         A panel's factory runs again every time it is reopened, and a fresh model starts
 ///         at the sink's current end, so closing and reopening the console would empty it. The
 ///         buffer, the filters and the collapse state are all the user's and survive.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The view is forgotten when the panel closes, which the old field's summary claimed
-///         and nothing did.</b> It said "while it is open, or <see langword="null" />", and the
+///         ⚠
+///         <b>
+///             The view is forgotten when the panel closes, which the old field's summary claimed
+///             and nothing did.
+///         </b>
+///         It said "while it is open, or <see langword="null" />", and the
 ///         registration had no <c>Closed</c>: View ▸ Clear Console and Play ▸ Clear Console stayed
 ///         enabled over a panel that had gone, and the second showed a tick for a toggle nobody could
 ///         see.
@@ -40,7 +48,9 @@ sealed class EditorConsole {
 
     /// <summary>Builds the model over the ring the editor's log writes into.</summary>
     /// <param name="sink">The ring.</param>
-    public EditorConsole(RingBufferSink sink) => this.sink = sink;
+    public EditorConsole(RingBufferSink sink) {
+        this.sink = sink;
+    }
 
     /// <summary>The console's view while the panel is open, or <see langword="null" />.</summary>
     public ConsoleView? View { get; private set; }
@@ -59,20 +69,22 @@ sealed class EditorConsole {
     /// <param name="activated">What activating a row does — the application's source opener.</param>
     /// <returns>The descriptor.</returns>
     public PanelDescriptor Describe(EditorShell shell, string context, Action<LogRecord> activated) =>
-        new(PanelId, EditorStrings.PanelConsole, panel => {
-            panel.WhenPressedIn(() => shell.Context = context);
+        new(
+            PanelId,
+            EditorStrings.PanelConsole,
+            panel => {
+                panel.WhenPressedIn(() => shell.Context = context);
 
-            var view = panel.Add<ConsoleView>();
+                var view = panel.Add<ConsoleView>();
 
-            model ??= new ConsoleModel(sink);
-            view.Show(model);
+                model ??= new ConsoleModel(sink);
+                view.Show(model);
 
-            view.Activated += (_, record) => activated(record);
+                view.Activated += (_, record) => activated(record);
 
-            View = view;
-        }) {
-            Closed = () => View = null
-        };
+                View = view;
+            }
+        ) { Closed = () => View = null };
 
     /// <summary>Takes whatever has been logged into the open view.</summary>
     /// <remarks>

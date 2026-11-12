@@ -32,7 +32,7 @@ namespace Vixen.Live.Persistence;
 public sealed record AccountRecord(Guid Id, string Handle, DateTimeOffset Created, bool Suspended) {
     /// <inheritdoc />
     public override string ToString() =>
-        string.Create(CultureInfo.InvariantCulture, $"{Handle} ({Id:D}){(Suspended ? ", suspended" : "")}");
+        string.Create(CultureInfo.InvariantCulture, $"{Handle} ({Id:D}){(Suspended ? ", suspended" : string.Empty)}");
 }
 
 /// <summary>One character: who they are, where they were, and the fence on writing them.</summary>
@@ -41,8 +41,12 @@ public sealed record AccountRecord(Guid Id, string Handle, DateTimeOffset Create
 ///         ⚠ <b>Nothing that is a <em>quantity of an asset</em> belongs in <see cref="Profile" />.</b>
 ///         Inventory and currency are balances, balances are a projection of <see cref="ILedger" />,
 ///         and putting a gold count here as well would be two numbers that mean one thing and drift.
-///         The rule that decides: if the support tool would ever be asked <i>where did this come
-///         from</i>, it is a ledger asset. If the answer is only ever <i>the player chose it</i> —
+///         The rule that decides: if the support tool would ever be asked
+///         <i>
+///             where did this come
+///             from
+///         </i>
+///         , it is a ledger asset. If the answer is only ever <i>the player chose it</i> —
 ///         appearance, keybinds, quest flags, the position they logged out at — it is profile.
 ///     </para>
 ///     <para>
@@ -229,10 +233,18 @@ public readonly record struct GuildMemberRow(PlayerKey Player, int Rank, DateTim
 /// <summary>One guild, as the database holds it.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>The roster is rows and not a blob, which is the whole reason this is a repository
-///         rather than grain storage.</b> Doc 27 § Persistence: grain state is coordination, and
-///         gameplay data kept in Orleans's serializer <em>"cannot be queried by anything else —
-///         including the support tool, the economy dashboard and the analytics job"</em>. "Which
+///         ⚠
+///         <b>
+///             The roster is rows and not a blob, which is the whole reason this is a repository
+///             rather than grain storage.
+///         </b>
+///         Doc 27 § Persistence: grain state is coordination, and
+///         gameplay data kept in Orleans's serializer
+///         <em>
+///             "cannot be queried by anything else —
+///             including the support tool, the economy dashboard and the analytics job"
+///         </em>
+///         . "Which
 ///         guilds is this account in" is a query, so the members are a table.
 ///     </para>
 ///     <para>
@@ -284,7 +296,8 @@ public sealed record GuildRow(
         && Members.SequenceEqual(other.Members)
         && RankNames.Count == other.RankNames.Count
         && RankNames.All(pair =>
-            other.RankNames.TryGetValue(pair.Key, out var name) && string.Equals(pair.Value, name, StringComparison.Ordinal)
+            other.RankNames.TryGetValue(pair.Key, out var name)
+            && string.Equals(pair.Value, name, StringComparison.Ordinal)
         );
 
     /// <inheritdoc />
@@ -295,9 +308,13 @@ public sealed record GuildRow(
 /// <summary>Guilds. Doc 27 § Persistence, and the half that waited for <c>IGuildGrain</c>.</summary>
 /// <remarks>
 ///     § Persistence names this interface and L3 slice one deferred it, with the reason written
-///     down: <em>"a repository's single-writer discipline comes from the grain that owns the
-///     aggregate ... A repository with no owner would be a table anything may write, which is the
-///     one thing this layer exists to prevent. It lands with the grain."</em> The grain landed.
+///     down:
+///     <em>
+///         "a repository's single-writer discipline comes from the grain that owns the
+///         aggregate ... A repository with no owner would be a table anything may write, which is the
+///         one thing this layer exists to prevent. It lands with the grain."
+///     </em>
+///     The grain landed.
 /// </remarks>
 public interface IGuildRepository {
     /// <summary>Reads a guild.</summary>
@@ -325,8 +342,12 @@ public interface IGuildRepository {
     ///     stored revision has moved on.
     /// </returns>
     /// <remarks>
-    ///     ⚠ <b>The row carries the revision it is replacing, and the comparison is in the same
-    ///     statement as the write.</b> Reading the revision and then writing would be the same check
+    ///     ⚠
+    ///     <b>
+    ///         The row carries the revision it is replacing, and the comparison is in the same
+    ///         statement as the write.
+    ///     </b>
+    ///     Reading the revision and then writing would be the same check
     ///     with the race in the middle, which is the fence `live_player`'s `lease_epoch` already
     ///     makes for a character.
     /// </remarks>

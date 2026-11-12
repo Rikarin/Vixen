@@ -4,7 +4,6 @@
 using Vixen.Core.Imaging;
 using Vixen.Core.Mathematics;
 using Vixen.Rendering;
-using Vixen.Ui.Testing.Visual;
 using Xunit;
 
 namespace Vixen.Graphics.Golden.Tests;
@@ -77,11 +76,14 @@ public sealed class LineImageTests {
         // they should end up, so a projection bug cannot hide behind a camera's arithmetic.
         var identity = Matrix4x4.Identity;
 
-        owned.Graph.AddPass("lines", pass => {
-            pass.ColourAttachment(colour, LoadAction.Clear, new(0.05f, 0.05f, 0.06f, 1f));
-            pass.SideEffect();
-            pass.Execute(context => renderer.Record(context.CommandList, identity, depthTested: false));
-        });
+        owned.Graph.AddPass(
+            "lines",
+            pass => {
+                pass.ColourAttachment(colour, LoadAction.Clear, new(0.05f, 0.05f, 0.06f, 1f));
+                pass.SideEffect();
+                pass.Execute(context => renderer.Record(context.CommandList, identity, false));
+            }
+        );
 
         var image = owned.Render(colour);
 
@@ -109,7 +111,7 @@ public sealed class LineImageTests {
             owned.Device,
             owned.Lines(),
             new RenderOutput([PixelFormat.Rgba8UNorm]),
-            capacity: 4
+            4
         );
 
         owned.Owns(renderer.Dispose);
@@ -172,7 +174,7 @@ public sealed class LineImageTests {
 
     static void AssertTheHorizontalIsRed(in Bitmap image) {
         // A quarter of the way across, well away from where the other two cross it.
-        var pixel = Strongest(image, Side / 4, Side / 2, vertical: false);
+        var pixel = Strongest(image, Side / 4, Side / 2, false);
 
         Assert.True(
             pixel.Red > 120 && pixel.Green < 120,
@@ -181,7 +183,7 @@ public sealed class LineImageTests {
     }
 
     static void AssertTheVerticalIsGreen(in Bitmap image) {
-        var pixel = Strongest(image, Side / 2, Side / 4, vertical: true);
+        var pixel = Strongest(image, Side / 2, Side / 4, true);
 
         Assert.True(
             pixel.Green > 120 && pixel.Red < 120,
@@ -193,8 +195,8 @@ public sealed class LineImageTests {
     static void AssertTheDiagonalFades(in Bitmap image) {
         // Clip space has +y up and the image has it down, so the vertex at (-0.8, -0.8) — the solid
         // end — lands at the bottom left. Scanned across, for the reason Strongest gives.
-        var solid = Strongest(image, 24, Side - 24, vertical: true).Blue;
-        var faded = Strongest(image, Side - 24, 24, vertical: true).Blue;
+        var solid = Strongest(image, 24, Side - 24, true).Blue;
+        var faded = Strongest(image, Side - 24, 24, true).Blue;
 
         Assert.True(
             solid > faded + 40,

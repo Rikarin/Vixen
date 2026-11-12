@@ -13,8 +13,12 @@ namespace Vixen.EditorShell;
 /// <remarks>
 ///     <para>
 ///         <b>"5 panels + viewport + 500-node graph + a 10⁶-row virtualised grid"</b>, composed
-///         once and used by both the gate and the benchmark. ⚠ <b>The composition is the point and
-///         the parts are not.</b> Virtualisation has its own tests, layout has a 100 000-node
+///         once and used by both the gate and the benchmark. ⚠
+///         <b>
+///             The composition is the point and
+///             the parts are not.
+///         </b>
+///         Virtualisation has its own tests, layout has a 100 000-node
 ///         throughput benchmark and the cascade has an incremental-restyle oracle; what none of them
 ///         can see is five panels' worth of style sharing against a graph's invalidation against a
 ///         grid realising a viewport's worth of rows, on one frame, on one thread.
@@ -26,9 +30,13 @@ namespace Vixen.EditorShell;
 ///         the row says.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Public, in two assemblies, and it owes the <c>Docs</c> gate nothing — read rather
-///         than guessed, because a link across a project boundary is exactly where that gate is
-///         surprising.</b> <c>Tools/Vixen.DocGen</c>'s <c>Scope.IsDocumented</c> takes a project
+///         ⚠
+///         <b>
+///             Public, in two assemblies, and it owes the <c>Docs</c> gate nothing — read rather
+///             than guessed, because a link across a project boundary is exactly where that gate is
+///             surprising.
+///         </b>
+///         <c>Tools/Vixen.DocGen</c>'s <c>Scope.IsDocumented</c> takes a project
 ///         only when its <i>area</i> — its top-level folder — is one of <c>Core</c>,
 ///         <c>Gameplay</c>, <c>Platform</c>, <c>Editor</c>, <c>Tools</c>, <c>Raven</c> or
 ///         <c>Live</c>, <i>and</i> its name does not end in <c>.Tests</c>. This copy is in a
@@ -39,8 +47,12 @@ namespace Vixen.EditorShell;
 ///         want a page, <c>IsPackable=false</c> and all.
 ///     </para>
 ///     <para>
-///         ⚠ <b>A million <i>items</i> are materialised and a million <i>rows</i> are not, and the
-///         difference is the whole claim.</b> <c>DataGrid.SetItems</c> copies its source into a list
+///         ⚠
+///         <b>
+///             A million <i>items</i> are materialised and a million <i>rows</i> are not, and the
+///             difference is the whole claim.
+///         </b>
+///         <c>DataGrid.SetItems</c> copies its source into a list
 ///         because sorting, grouping and random access all need one — that cost is inherent and is
 ///         paid in the fixture. What virtualisation avoids is an <i>element</i> per item, and that is
 ///         what the gate measures: <c>Grid.Rows</c> against <see cref="Rows" />.
@@ -117,7 +129,7 @@ public static class EditorShellScene {
         document.Update();
         document.Draw();
 
-        return new Scene {
+        return new() {
             Document = document,
             Docking = docking,
             Grid = grid,
@@ -154,7 +166,7 @@ public static class EditorShellScene {
         GraphNode? previous = null;
 
         for (var i = 0; i < Nodes; i++) {
-            var node = graph.AddNode($"Node {i}", new Vector2(i % 25 * 200f, i / 25 * 160f));
+            var node = graph.AddNode($"Node {i}", new(i % 25 * 200f, i / 25 * 160f));
 
             node.AddInput("In");
             node.AddOutput("Out");
@@ -194,11 +206,12 @@ public static class EditorShellScene {
     sealed record Row(int Index) {
         public string Name => $"Entity {Index}";
 
-        public string Kind => (Index & 3) switch {
-            0 => "Mesh",
-            1 => "Light",
-            2 => "Camera",
-            _ => "Empty"
-        };
+        public string Kind =>
+            (Index & 3) switch {
+                0 => "Mesh",
+                1 => "Light",
+                2 => "Camera",
+                _ => "Empty"
+            };
     }
 }

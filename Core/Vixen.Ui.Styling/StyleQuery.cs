@@ -33,8 +33,12 @@ sealed record StyleCondition(string Name, StyleFeature[] Features, bool Any, boo
 /// <summary>Reads and answers <c>@container style(…)</c> conditions.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>A style query is answered in the cascade and never in <see cref="ContainerScopes" />,
-///         because its subject is a computed value and not a box.</b> CSS Conditional 5 makes every
+///         ⚠
+///         <b>
+///             A style query is answered in the cascade and never in <see cref="ContainerScopes" />,
+///             because its subject is a computed value and not a box.
+///         </b>
+///         CSS Conditional 5 makes every
 ///         element a style container, so the unnamed query is about the <i>parent</i> — and the
 ///         cascade already holds the parent's resolved style when it resolves the child, which is
 ///         where inheritance reads it too. <see cref="StyleUpdater" /> stops descending where the
@@ -44,8 +48,12 @@ sealed record StyleCondition(string Name, StyleFeature[] Features, bool Any, boo
 ///         that ask about it: the invalidation is the one inheritance already has.
 ///     </para>
 ///     <para>
-///         ⚠ <b>That argument rests on the second clause, and it is the one to re-check if
-///         <c>@property</c> ever lands.</b> A registered property with <c>inherits: false</c> can
+///         ⚠
+///         <b>
+///             That argument rests on the second clause, and it is the one to re-check if
+///             <c>@property</c> ever lands.
+///         </b>
+///         A registered property with <c>inherits: false</c> can
 ///         change on the parent without the inherited portion moving, so the walk would stop there
 ///         and a child's <c>style(--x: …)</c> would answer stale. Querying such a property would
 ///         then need its own edge from the parent to the children that ask.
@@ -87,8 +95,7 @@ static class StyleQuery {
     /// <summary>Whether a prelude is a style query at all, as opposed to a size query.</summary>
     /// <param name="prelude">The text between <c>@container</c> and the block.</param>
     /// <returns>Whether it names a <c>style(</c> feature anywhere.</returns>
-    public static bool Mentions(string prelude) =>
-        prelude.Contains("style(", StringComparison.OrdinalIgnoreCase);
+    public static bool Mentions(string prelude) => prelude.Contains("style(", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>Reads a prelude made of an optional container name and <c>style()</c> features.</summary>
     /// <param name="prelude">The text between <c>@container</c> and the block.</param>
@@ -111,7 +118,7 @@ static class StyleQuery {
             var space = text.IndexOfAny(' ', '\t', '\n');
 
             if (space < 0) {
-                reason = $"'{text.ToString()}' names a container and asks it nothing";
+                reason = $"'{text}' names a container and asks it nothing";
                 return false;
             }
 
@@ -149,7 +156,7 @@ static class StyleQuery {
                 var end = Closing(text, 0);
 
                 if (end < 0) {
-                    reason = $"'{text.ToString()}' has no closing parenthesis";
+                    reason = $"'{text}' has no closing parenthesis";
                     return false;
                 }
 
@@ -159,7 +166,7 @@ static class StyleQuery {
                 var close = Closing(text, "style".Length);
 
                 if (close < 0) {
-                    reason = $"'{text.ToString()}' has no closing parenthesis";
+                    reason = $"'{text}' has no closing parenthesis";
                     return false;
                 }
 
@@ -170,7 +177,7 @@ static class StyleQuery {
                 read.Add(feature);
                 text = text[(close + 1)..].TrimStart();
             } else {
-                reason = $"'{text.ToString()}' is not a container feature Vixen understands";
+                reason = $"'{text}' is not a container feature Vixen understands";
                 return false;
             }
 
@@ -181,7 +188,7 @@ static class StyleQuery {
             var joinedByOr = text.StartsWith("or ", StringComparison.OrdinalIgnoreCase);
 
             if (!joinedByOr && !text.StartsWith("and ", StringComparison.OrdinalIgnoreCase)) {
-                reason = $"'{text.ToString()}' does not join two features with 'and' or 'or'";
+                reason = $"'{text}' does not join two features with 'and' or 'or'";
                 return false;
             }
 
@@ -215,7 +222,7 @@ static class StyleQuery {
         // ask one element: the nearest container eligible for every feature, whichever joiner.
         condition = new StyleCondition(
             name,
-            [.. read],
+            [..read],
             any == true,
             negated,
             sizes.Count == 0 ? null : string.Join(any == true ? " or " : " and ", sizes)
@@ -239,7 +246,12 @@ static class StyleQuery {
     ///     <c>not style(--x)</c> on an element with no ancestor called <c>card</c> matches nothing.
     ///     It does not match everything.
     /// </remarks>
-    public static bool Holds(StyleCondition condition, ComputedStyle? container, NameTable properties, NameTable values) {
+    public static bool Holds(
+        StyleCondition condition,
+        ComputedStyle? container,
+        NameTable properties,
+        NameTable values
+    ) {
         if (container is null) {
             return false;
         }
@@ -317,8 +329,12 @@ static class StyleQuery {
     /// <param name="values">The table values are interned in.</param>
     /// <returns>What its <c>container-type</c> reads as, <see cref="ContainerKind.Normal" /> for none.</returns>
     /// <remarks>
-    ///     ⚠ <b>The same reading as <c>UiDocument.KindOf</c>, which is what enters the element into
-    ///     <see cref="ContainerScopes" />:</b> the shorthand's half after the slash, then the
+    ///     ⚠
+    ///     <b>
+    ///         The same reading as <c>UiDocument.KindOf</c>, which is what enters the element into
+    ///         <see cref="ContainerScopes" />:
+    ///     </b>
+    ///     the shorthand's half after the slash, then the
     ///     longhand over it. A mixed query's size half is answered off that scope chain and its style
     ///     half off this, so the two agree on which element is the container only while the two
     ///     readers agree — on the kind as well as on whether there is one, since a query that reads
@@ -388,23 +404,23 @@ static class StyleQuery {
         var name = (colon < 0 ? text : text[..colon]).Trim();
 
         if (!name.StartsWith("--", StringComparison.Ordinal) || name.Length == 2) {
-            reason = $"'style({text.ToString()})' asks about '{name.ToString()}', and only custom properties can be queried";
+            reason = $"'style({text})' asks about '{name}', and only custom properties can be queried";
             return false;
         }
 
         if (colon < 0) {
-            feature = new StyleFeature(name.ToString(), null);
+            feature = new(name.ToString(), null);
             return true;
         }
 
         var value = Normalise(text[(colon + 1)..].ToString());
 
         if (value.Length == 0) {
-            reason = $"'style({text.ToString()})' has a colon and no value";
+            reason = $"'style({text})' has a colon and no value";
             return false;
         }
 
-        feature = new StyleFeature(name.ToString(), value);
+        feature = new(name.ToString(), value);
         return true;
     }
 

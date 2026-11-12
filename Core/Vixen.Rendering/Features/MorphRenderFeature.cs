@@ -16,8 +16,11 @@ namespace Vixen.Rendering.Features;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>The wiring <c>MorphKernel</c> and <c>Pipeline/MorphScatter.rvn</c> were built for and
-///         nothing had.</b> Those two are the arithmetic, checked against each other on a device; this
+///         <b>
+///             The wiring <c>MorphKernel</c> and <c>Pipeline/MorphScatter.rvn</c> were built for and
+///             nothing had.
+///         </b>
+///         Those two are the arithmetic, checked against each other on a device; this
 ///         is what allocates the buffer, copies the rest pose into it, dispatches once per active
 ///         shape and points <see cref="MeshDraw.VertexBuffer" /> at the result. Without it a mesh with
 ///         twenty blend shapes imported, stored, packed and dispatched-for still drew at rest, because
@@ -49,8 +52,12 @@ namespace Vixen.Rendering.Features;
 ///         one's.
 ///     </para>
 ///     <para>
-///         ⚠ <b>A vertex range is copied and dispatched only when its weights have changed, and the
-///         first frame counts as a change.</b> A character standing still costs nothing; a character
+///         ⚠
+///         <b>
+///             A vertex range is copied and dispatched only when its weights have changed, and the
+///             first frame counts as a change.
+///         </b>
+///         A character standing still costs nothing; a character
 ///         that has never been recorded costs a copy, because a dispatch onto an uninitialised range
 ///         does not look like a morph gone wrong — it looks like the geometry is missing. Which is
 ///         also why <see cref="Attach" /> marks the instance dirty rather than leaving the flag at its
@@ -546,7 +553,7 @@ public sealed class MorphRenderFeature : SubRenderFeature, IDisposable {
                     DescriptorWrite.Uniform(
                         MorphScatterKeys.ConstantBufferBinding,
                         blocks,
-                        blockBase + ((long)index * BlockStride),
+                        blockBase + (long)index * BlockStride,
                         MorphScatterConstants.Size
                     ),
                     DescriptorWrite.Storage(MorphScatterKeys.VerticesBinding, vertices.Buffer),
@@ -566,9 +573,7 @@ public sealed class MorphRenderFeature : SubRenderFeature, IDisposable {
             // not overlap, so the barrier is not needed for correctness there — but the alternative is
             // a loop that knows which neighbours share an instance, and one that gets that wrong is a
             // corrective applied before the shape it corrects.
-            list.Barrier(
-                new([new(vertices.Buffer, ResourceState.ShaderWrite, ResourceState.ShaderWrite)], [])
-            );
+            list.Barrier(new([new(vertices.Buffer, ResourceState.ShaderWrite, ResourceState.ShaderWrite)], []));
 
             Dispatches++;
         }
@@ -673,12 +678,7 @@ public sealed class MorphRenderFeature : SubRenderFeature, IDisposable {
             return false;
         }
 
-        resident = new() {
-            Targets = mesh.MorphTargets,
-            FirstEntry = first,
-            EntryCount = total,
-            Firsts = firsts
-        };
+        resident = new() { Targets = mesh.MorphTargets, FirstEntry = first, EntryCount = total, Firsts = firsts };
 
         shapes[key] = resident;
 
@@ -854,8 +854,12 @@ public sealed class MorphRenderFeature : SubRenderFeature, IDisposable {
 /// <param name="VertexCount">How many it has.</param>
 /// <param name="TargetCount">How many blend shapes its mesh carries.</param>
 /// <remarks>
-///     ⚠ <b>A <see cref="TargetCount" /> of zero is "this object is not morphed", and that is what the
-///     zeroed array means for every object that never attached.</b> <see cref="BaseVertex" /> cannot
+///     ⚠
+///     <b>
+///         A <see cref="TargetCount" /> of zero is "this object is not morphed", and that is what the
+///         zeroed array means for every object that never attached.
+///     </b>
+///     <see cref="BaseVertex" /> cannot
 ///     carry that meaning — zero is a real base, and the first instance to attach gets it.
 /// </remarks>
 public readonly record struct MorphInstance(int BaseVertex, int VertexCount, int TargetCount) {

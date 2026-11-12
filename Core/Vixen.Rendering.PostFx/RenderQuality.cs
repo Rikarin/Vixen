@@ -63,8 +63,12 @@ public sealed record ResolutionQuality {
     ///         upscaling filter choice is reserved for when the engine has more than that to offer.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Every shipped tier sets this to 1, and that is a statement about the path rather
-    ///         than about the tiers.</b> Declaring the six scene planes smaller was only ever half of
+    ///         ⚠
+    ///         <b>
+    ///             Every shipped tier sets this to 1, and that is a statement about the path rather
+    ///             than about the tiers.
+    ///         </b>
+    ///         Declaring the six scene planes smaller was only ever half of
     ///         a render scale; the other half is that everything reading them has to measure in
     ///         <em>their</em> grid. That was the window's everywhere, and at native resolution the
     ///         two are the same number — so the knob has always been authorable and has never been
@@ -150,8 +154,10 @@ public sealed record GlobalIlluminationQuality {
     /// </summary>
     public int? DfaoSamples { get; init; }
 
-    /// <summary>The distance-field march's resolution scale. ⚠ Carried, not yet consumed — see
-    ///     <see cref="DfaoSamples" />.</summary>
+    /// <summary>
+    ///     The distance-field march's resolution scale. ⚠ Carried, not yet consumed — see
+    ///     <see cref="DfaoSamples" />.
+    /// </summary>
     public float? DfaoScale { get; init; }
 
     /// <summary>Horizon directions per pixel — <see cref="SsaoAsset.Directions" />.</summary>
@@ -261,8 +267,12 @@ public sealed record PostFidelityQuality {
     ///         staircase, and the one that costs the most: the march is serial in this.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The only grid axis a tier moves, and the arithmetic says it should stay that
-    ///         way.</b> A froxel at view depth <c>d</c> is <c>d · 2·tan(fovX/2) / 160</c> wide and
+    ///         ⚠
+    ///         <b>
+    ///             The only grid axis a tier moves, and the arithmetic says it should stay that
+    ///             way.
+    ///         </b>
+    ///         A froxel at view depth <c>d</c> is <c>d · 2·tan(fovX/2) / 160</c> wide and
     ///         <c>d · ((far/near)^(1/slices) − 1)</c> deep. At 91° horizontal that is 0.013 d against
     ///         0.079 d at 64 slices, 0.042 d at 128, and 0.153 d at 32 — so the depth axis is between
     ///         three and twelve times the coarser one at every tier this ships, and it is where a
@@ -324,8 +334,12 @@ public sealed record PostFidelityQuality {
 
     /// <summary>Whether the lens node's three looks run — the vignette, the aberration and the grain.</summary>
     /// <remarks>
-    ///     ⚠ <b>Named for one of the three because it gates all three, and it does not gate the
-    ///     node.</b> <c>VignetteAsset</c> carries five permutations and <c>StandardFrame</c> emits it
+    ///     ⚠
+    ///     <b>
+    ///         Named for one of the three because it gates all three, and it does not gate the
+    ///         node.
+    ///     </b>
+    ///     <c>VignetteAsset</c> carries five permutations and <c>StandardFrame</c> emits it
     ///     on every tier, because the fifth is the output dither — a quantisation fix that belongs to
     ///     the encode rather than to a fidelity setting, and the lens node is the pass that writes the
     ///     frame's output resource. A tier with this false pays for one full-screen pass with every
@@ -389,8 +403,12 @@ public sealed record GeometryQuality {
 ///         <c>TerrainStreamer</c>'s byte budget.
 ///     </para>
 ///     <para>
-///         ⚠ <b>They reach those renderers by hand-off, not by reference — and the hand-off is
-///         <c>AppGraphics</c>'.</b> <c>Vixen.Rendering.Terrain</c> cannot see this assembly, because
+///         ⚠
+///         <b>
+///             They reach those renderers by hand-off, not by reference — and the hand-off is
+///             <c>AppGraphics</c>'.
+///         </b>
+///         <c>Vixen.Rendering.Terrain</c> cannot see this assembly, because
 ///         the dependency runs the other way, so the terrain factory declares its own plain-numbered
 ///         copy (<c>TerrainVegetationQuality</c>) and the host folds a resolved tier into
 ///         <c>TerrainFactory.Vegetation</c> before it builds the frame. A knob added here is not
@@ -423,8 +441,12 @@ public sealed record VegetationQuality {
 
     /// <summary>Megabytes of staged terrain tile chains a frame may hold.</summary>
     /// <remarks>
-    ///     ⚠ <b>Bytes here and cells for the foliage, and the asymmetry is the content's rather than
-    ///     an oversight.</b> A terrain tile's mip chain is a fixed number of <c>ushort</c> samples, so
+    ///     ⚠
+    ///     <b>
+    ///         Bytes here and cells for the foliage, and the asymmetry is the content's rather than
+    ///         an oversight.
+    ///     </b>
+    ///     A terrain tile's mip chain is a fixed number of <c>ushort</c> samples, so
     ///     a byte budget converts to a slot count the moment the tile size is known; a foliage cell
     ///     holds however many instances somebody painted into it, which is why
     ///     <c>FoliageCellPages.PageSize</c> is one and <see cref="FoliageCellBudget" /> counts cells.
@@ -1043,18 +1065,21 @@ public static class RenderQuality {
         T Pick<TGroup, T>(Func<QualityTierOverrides, TGroup?> group, Func<TGroup, T?> field, string name)
             where TGroup : class
             where T : struct {
-            return Of(top) ?? Of(mid) ?? Of(engine)
+            return Of(top)
+                ?? Of(mid)
+                ?? Of(engine)
                 ?? throw new InvalidOperationException(
                     $"The engine quality table has no '{name}' for tier {tier}. The bottom layer "
                     + "of the waterfall must be complete — a hole here would resolve as zero, and "
                     + "a zero quality knob is never what anyone wrote."
                 );
 
-            T? Of(QualityTierOverrides? layer) => layer is null
-                ? null
-                : group(layer) is { } opinions
-                    ? field(opinions)
-                    : null;
+            T? Of(QualityTierOverrides? layer) =>
+                layer is null
+                    ? null
+                    : group(layer) is { } opinions
+                        ? field(opinions)
+                        : null;
         }
 
         return new() {
@@ -1110,23 +1135,37 @@ public static class RenderQuality {
             VirtualGeometry = Pick(t => t.Geometry, g => g.VirtualGeometry, "geometry.virtualGeometry"),
             LodBias = Pick(t => t.Geometry, g => g.LodBias, "geometry.lodBias"),
             GrassDensityScale = Pick(t => t.Vegetation, g => g.GrassDensityScale, "vegetation.grassDensityScale"),
-            GrassCullDistanceScale = Pick(t => t.Vegetation, g => g.GrassCullDistanceScale, "vegetation.grassCullDistanceScale"),
+            GrassCullDistanceScale = Pick(
+                t => t.Vegetation,
+                g => g.GrassCullDistanceScale,
+                "vegetation.grassCullDistanceScale"
+            ),
             GrassResidentCells = Pick(t => t.Vegetation, g => g.GrassResidentCells, "vegetation.grassResidentCells"),
             FoliageDensityScale = Pick(t => t.Vegetation, g => g.FoliageDensityScale, "vegetation.foliageDensityScale"),
-            FoliageCullDistanceScale = Pick(t => t.Vegetation, g => g.FoliageCullDistanceScale, "vegetation.foliageCullDistanceScale"),
+            FoliageCullDistanceScale = Pick(
+                t => t.Vegetation,
+                g => g.FoliageCullDistanceScale,
+                "vegetation.foliageCullDistanceScale"
+            ),
             FoliageCellBudget = Pick(t => t.Vegetation, g => g.FoliageCellBudget, "vegetation.foliageCellBudget"),
             TerrainLodNearRange = Pick(t => t.Vegetation, g => g.TerrainLodNearRange, "vegetation.terrainLodNearRange"),
-            TerrainStreamingMegabytes = Pick(t => t.Vegetation, g => g.TerrainStreamingMegabytes, "vegetation.terrainStreamingMegabytes"),
-            StreamingPoolMegabytes = Pick(t => t.Textures, g => g.StreamingPoolMegabytes, "textures.streamingPoolMegabytes"),
+            TerrainStreamingMegabytes = Pick(
+                t => t.Vegetation,
+                g => g.TerrainStreamingMegabytes,
+                "vegetation.terrainStreamingMegabytes"
+            ),
+            StreamingPoolMegabytes =
+                Pick(t => t.Textures, g => g.StreamingPoolMegabytes, "textures.streamingPoolMegabytes"),
             MipBias = Pick(t => t.Textures, g => g.MipBias, "textures.mipBias"),
             ParticleBudgetScale = Pick(t => t.Textures, g => g.ParticleBudgetScale, "textures.particleBudgetScale")
         };
     }
 
-    static QualityTierOverrides? TierOf(RenderQualityAsset preset, QualityTier tier) => tier switch {
-        QualityTier.Low => preset.Low,
-        QualityTier.Medium => preset.Medium,
-        QualityTier.Epic => preset.Epic,
-        _ => preset.High
-    };
+    static QualityTierOverrides? TierOf(RenderQualityAsset preset, QualityTier tier) =>
+        tier switch {
+            QualityTier.Low => preset.Low,
+            QualityTier.Medium => preset.Medium,
+            QualityTier.Epic => preset.Epic,
+            _ => preset.High
+        };
 }

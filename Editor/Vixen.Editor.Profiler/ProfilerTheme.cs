@@ -43,8 +43,12 @@ public static class ProfilerTheme {
 
     /// <summary>The stylesheet's text, for a caller that wants to read or amend it.</summary>
     /// <remarks>
-    ///     ⚠ <b>Read out of the assembly rather than held in a <c>const string</c>, and the change
-    ///     is bigger than where the bytes live.</b> This sheet was 172 lines of CSS edited inside a
+    ///     ⚠
+    ///     <b>
+    ///         Read out of the assembly rather than held in a <c>const string</c>, and the change
+    ///         is bigger than where the bytes live.
+    ///     </b>
+    ///     This sheet was 172 lines of CSS edited inside a
     ///     raw string literal, which is what a tree with no <c>.vcss</c> item type forced — no syntax
     ///     highlighting, no formatter, no way for a hot-reload watcher to see an edit, and a rebuild
     ///     of the whole assembly for a colour. It is a real file now, embedded by the glob in
@@ -61,8 +65,12 @@ public static class ProfilerTheme {
     /// <summary>This assembly's utility rules, in <c>@layer utilities</c>.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A sheet of its own rather than a share of the editor's, and that is shape C
-    ///         working rather than a duplication of it.</b> What
+    ///         ⚠
+    ///         <b>
+    ///             A sheet of its own rather than a share of the editor's, and that is shape C
+    ///             working rather than a duplication of it.
+    ///         </b>
+    ///         What
     ///         <c>Vixen.Editor.Ui/build/Vixen.Editor.Ui.Styling.targets</c> shares is the
     ///         <i>tokens</i>; the scan and the output stay this project's, so the build stays
     ///         incremental and this assembly does not have to be rebuilt because a panel somewhere
@@ -71,8 +79,12 @@ public static class ProfilerTheme {
     ///         behaves as one sheet.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Loaded at the same origin as the sheet above, which is what keeps the whole
-    ///         ladder inside one origin and therefore meaningful.</b> Origin is the cascade's first
+    ///         ⚠
+    ///         <b>
+    ///             Loaded at the same origin as the sheet above, which is what keeps the whole
+    ///             ladder inside one origin and therefore meaningful.
+    ///         </b>
+    ///         Origin is the cascade's first
     ///         question and the layer only its second, so <c>base</c> → <c>components</c> →
     ///         <c>utilities</c> only orders anything among sheets that agree about origin. Loaded as
     ///         <c>Author</c> these utilities would stop being ordered against <c>Sheet</c> at all and
@@ -92,7 +104,8 @@ public static class ProfilerTheme {
             ?? throw new InvalidOperationException(
                 $"the stylesheet '{name}' is not embedded in {assembly.GetName().Name}. It is added "
                 + "by the .vcss glob in Vixen.Ui.targets, which this project imports at the bottom "
-                + "of its .csproj.");
+                + "of its .csproj."
+            );
 
         using var reader = new StreamReader(stream);
 

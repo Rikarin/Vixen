@@ -4,7 +4,6 @@
 using System.Reflection;
 using Vixen.Core;
 using Xunit;
-
 using Spy = Vixen.Ecs.Tests.AritySpy<
     Vixen.Ecs.Tests.Slot0, Vixen.Ecs.Tests.Slot1, Vixen.Ecs.Tests.Slot2, Vixen.Ecs.Tests.Slot3,
     Vixen.Ecs.Tests.Slot4, Vixen.Ecs.Tests.Slot5, Vixen.Ecs.Tests.Slot6, Vixen.Ecs.Tests.Slot7,
@@ -55,7 +54,7 @@ public sealed class QueryAritySurfaceTests {
     /// </summary>
     [Fact]
     public void TheGeneratedSurfaceIsThereToBeCounted() {
-        Assert.NotEmpty(IterationMethods("Query", genericParametersBeforeTheComponents: 0));
+        Assert.NotEmpty(IterationMethods("Query", 0));
         Assert.NotEmpty(BuilderMethods("WithAll"));
         Assert.NotNull(GeneratedType("QueryAction", 1));
     }
@@ -74,10 +73,10 @@ public sealed class QueryAritySurfaceTests {
     public void EveryIterationFamilyIsEmittedAtEveryArityTheDriveCovers() {
         var expected = Enumerable.Range(1, ArityDrive.MaxArity).ToArray();
 
-        Assert.Equal(expected, Arities("Query", genericParametersBeforeTheComponents: 0));
-        Assert.Equal(expected, Arities("QueryWithEntity", genericParametersBeforeTheComponents: 0));
-        Assert.Equal(expected, Arities("ForEach", genericParametersBeforeTheComponents: 1));
-        Assert.Equal(expected, Arities("ForEachWithEntity", genericParametersBeforeTheComponents: 1));
+        Assert.Equal(expected, Arities("Query", 0));
+        Assert.Equal(expected, Arities("QueryWithEntity", 0));
+        Assert.Equal(expected, Arities("ForEach", 1));
+        Assert.Equal(expected, Arities("ForEachWithEntity", 1));
     }
 
     /// <summary>The same claim for the four description builders and the four generated type families.</summary>
@@ -88,7 +87,7 @@ public sealed class QueryAritySurfaceTests {
         foreach (var family in new[] { "WithAll", "WithAny", "WithNone", "WithChanged" }) {
             Assert.Equal(
                 expected,
-                BuilderMethods(family).Select(method => method.GetGenericArguments().Length).Order()
+                BuilderMethods(family).Select(static method => method.GetGenericArguments().Length).Order()
             );
         }
 
@@ -196,7 +195,7 @@ public sealed class QueryAritySurfaceTests {
     static Entity Populate(World world, int seed) {
         var entity = world.Create();
 
-        world.Add(entity, new Slot0 { Value = seed + 0 });
+        world.Add(entity, new Slot0 { Value = seed });
         world.Add(entity, new Slot1 { Value = seed + 1 });
         world.Add(entity, new Slot2 { Value = seed + 2 });
         world.Add(entity, new Slot3 { Value = seed + 3 });
@@ -220,41 +219,38 @@ public sealed class QueryAritySurfaceTests {
     /// <param name="seed">The entity's seed.</param>
     /// <param name="index">Which slot.</param>
     /// <returns>Its starting value plus one bump per family per arity that includes it.</returns>
-    static int Expected(int seed, int index) => seed + index + (4 * (ArityDrive.MaxArity - index));
+    static int Expected(int seed, int index) => seed + index + 4 * (ArityDrive.MaxArity - index);
 
     /// <summary>The overloads of one generated iteration family, by name.</summary>
     /// <param name="family">The method name, e.g. <c>ForEachWithEntity</c>.</param>
     /// <param name="genericParametersBeforeTheComponents">One for the visitor families, none for the delegate ones.</param>
     /// <returns>The overloads.</returns>
-    static MethodInfo[] IterationMethods(string family, int genericParametersBeforeTheComponents) =>
-        [
-            .. typeof(WorldQueryExtensions)
-                .GetMethods(BindingFlags.Public | BindingFlags.Static)
-                .Where(method => method.Name == family
-                    && method.GetGenericArguments().Length > genericParametersBeforeTheComponents
-                )
-        ];
+    static MethodInfo[] IterationMethods(string family, int genericParametersBeforeTheComponents) => [
+        ..typeof(WorldQueryExtensions)
+            .GetMethods(BindingFlags.Public | BindingFlags.Static)
+            .Where(method => method.Name == family
+                && method.GetGenericArguments().Length > genericParametersBeforeTheComponents
+            )
+    ];
 
     /// <summary>The arities one iteration family is emitted at, in order.</summary>
     /// <param name="family">The method name.</param>
     /// <param name="genericParametersBeforeTheComponents">One for the visitor families, none for the delegate ones.</param>
     /// <returns>The arities.</returns>
-    static int[] Arities(string family, int genericParametersBeforeTheComponents) =>
-        [
-            .. IterationMethods(family, genericParametersBeforeTheComponents)
-                .Select(method => method.GetGenericArguments().Length - genericParametersBeforeTheComponents)
-                .Order()
-        ];
+    static int[] Arities(string family, int genericParametersBeforeTheComponents) => [
+        ..IterationMethods(family, genericParametersBeforeTheComponents)
+            .Select(method => method.GetGenericArguments().Length - genericParametersBeforeTheComponents)
+            .Order()
+    ];
 
     /// <summary>The generic overloads of one description builder, by name.</summary>
     /// <param name="family">The method name, e.g. <c>WithChanged</c>.</param>
     /// <returns>The overloads.</returns>
-    static MethodInfo[] BuilderMethods(string family) =>
-        [
-            .. typeof(QueryDescription)
-                .GetMethods(BindingFlags.Public | BindingFlags.Instance)
-                .Where(method => method.Name == family && method.IsGenericMethodDefinition)
-        ];
+    static MethodInfo[] BuilderMethods(string family) => [
+        ..typeof(QueryDescription)
+            .GetMethods(BindingFlags.Public | BindingFlags.Instance)
+            .Where(method => method.Name == family && method.IsGenericMethodDefinition)
+    ];
 
     /// <summary>One generated delegate or interface, by family and arity.</summary>
     /// <param name="family">The unmangled name, e.g. <c>IForEach</c>.</param>

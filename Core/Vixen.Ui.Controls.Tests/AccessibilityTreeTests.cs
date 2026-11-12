@@ -11,14 +11,22 @@ namespace Vixen.Ui.Controls.Tests;
 /// <remarks>
 ///     <para>
 ///         <b>The acceptance criterion of doc 46 § A2 is that this file can exist</b>, and the
-///         criterion doc 46 took it from is doc 09's own Testing table: <i>"Per control: keyboard
-///         interaction matrix, ARIA-role snapshot, virtualisation […] and a golden image."</i> Before
+///         criterion doc 46 took it from is doc 09's own Testing table:
+///         <i>
+///             "Per control: keyboard
+///             interaction matrix, ARIA-role snapshot, virtualisation […] and a golden image."
+///         </i>
+///         Before
 ///         this there was no role, no name, no value and no relation anywhere in <c>Vixen.Ui</c>, so
 ///         the promise could not be kept by anybody.
 ///     </para>
 ///     <para>
-///         ⚠ <b>A snapshot test passes beautifully against an empty tree, which is why the first
-///         assertion in every test here is not the snapshot.</b> <c>Render</c> of a document with no
+///         ⚠
+///         <b>
+///             A snapshot test passes beautifully against an empty tree, which is why the first
+///             assertion in every test here is not the snapshot.
+///         </b>
+///         <c>Render</c> of a document with no
 ///         accessibility at all is the empty string, and an expectation of the empty string matches
 ///         it — so each test asserts <see cref="AccessibilitySnapshot.Unnamed" /> is empty first
 ///         (every widget has a role <i>and</i> a name) and only then that the tree is the shape it
@@ -583,8 +591,12 @@ public class AccessibilityTreeTests {
     /// <summary>Every control the assembly can build, held to the rule a per-control test cannot state.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A test over the <i>type list</i> rather than over a window, because a window is
-    ///         a list somebody has to remember to add to.</b> Doc 46 § A2's population is one
+    ///         ⚠
+    ///         <b>
+    ///             A test over the <i>type list</i> rather than over a window, because a window is
+    ///             a list somebody has to remember to add to.
+    ///         </b>
+    ///         Doc 46 § A2's population is one
     ///         virtual per control across two assemblies, and the failure it invites is the control
     ///         nobody thought about — added next month, focusable because <c>Control</c> is
     ///         focusable by default, and silent to a screen reader because nobody wrote four lines.
@@ -609,7 +621,10 @@ public class AccessibilityTreeTests {
         // ⚠ Through `Make<T>` rather than `UiElement.Add<T>` directly: `Add`'s last parameter is a
         // `ReadOnlySpan<string>`, which reflection cannot pass at all. There is no `Add(Type)`,
         // deliberately — every other caller knows what it is adding.
-        var make = typeof(AccessibilityTreeTests).GetMethod(nameof(Make), BindingFlags.NonPublic | BindingFlags.Static)!;
+        var make = typeof(AccessibilityTreeTests).GetMethod(
+            nameof(Make),
+            BindingFlags.NonPublic | BindingFlags.Static
+        )!;
 
         foreach (var type in typeof(Button).Assembly.GetTypes()) {
             if (!type.IsPublic || type.IsAbstract || !typeof(Control).IsAssignableFrom(type)) {
@@ -620,7 +635,7 @@ public class AccessibilityTreeTests {
                 continue;
             }
 
-            var control = (Control) make.MakeGenericMethod(type).Invoke(null, [fixture.Document.Root])!;
+            var control = (Control)make.MakeGenericMethod(type).Invoke(null, [fixture.Document.Root])!;
             fixture.Update();
             built++;
 

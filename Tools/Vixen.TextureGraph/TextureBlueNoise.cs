@@ -90,7 +90,7 @@ static class TextureBlueNoise {
         }
 
         var ranks = new int[count];
-        var ones = pattern.Count(set => set);
+        var ones = pattern.Count(static set => set);
 
         // Phase one: the starting points, ranked by taking the tightest out first.
         var working = (bool[])pattern.Clone();
@@ -145,7 +145,7 @@ static class TextureBlueNoise {
                 var dx = Math.Min(x, Side - x);
                 var dy = Math.Min(y, Side - y);
 
-                kernel[(y * Side) + x] = Math.Exp(-((dx * dx) + (dy * dy)) / (2 * Sigma * Sigma));
+                kernel[y * Side + x] = Math.Exp(-(dx * dx + dy * dy) / (2 * Sigma * Sigma));
             }
         }
 
@@ -173,10 +173,10 @@ static class TextureBlueNoise {
         var (cy, cx) = Math.DivRem(index, Side);
 
         for (var y = 0; y < Side; y++) {
-            var row = ((y - cy + Side) % Side) * Side;
+            var row = (y - cy + Side) % Side * Side;
 
             for (var x = 0; x < Side; x++) {
-                energy[(y * Side) + x] += sign * kernel[row + ((x - cx + Side) % Side)];
+                energy[y * Side + x] += sign * kernel[row + (x - cx + Side) % Side];
             }
         }
     }

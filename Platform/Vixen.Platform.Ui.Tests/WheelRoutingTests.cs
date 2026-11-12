@@ -47,8 +47,8 @@ public class WheelRoutingTests {
         var wheel = PlatformEvent.MouseWheel(
             1,
             0,
-            new Vector2(20f, 20f),
-            new Vector2(0f, 1f),
+            new(20f, 20f),
+            new(0f, 1f),
             notched: notched
         );
 

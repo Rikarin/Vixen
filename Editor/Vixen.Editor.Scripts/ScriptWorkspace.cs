@@ -51,8 +51,12 @@ public sealed class ScriptWorkspace {
 
     /// <summary>How many files this workspace is holding parsed trees for.</summary>
     /// <remarks>
-    ///     ⚠ <b>Part of what a test asserts, because a cache that only ever grows is the other way
-    ///     this goes wrong.</b> A file somebody deleted has to leave, or the compilation still
+    ///     ⚠
+    ///     <b>
+    ///         Part of what a test asserts, because a cache that only ever grows is the other way
+    ///         this goes wrong.
+    ///     </b>
+    ///     A file somebody deleted has to leave, or the compilation still
     ///     contains its types and the editor keeps loading the tool that was removed.
     /// </remarks>
     public int Cached => parsed.Count;
@@ -123,7 +127,7 @@ public sealed class ScriptWorkspace {
             ScriptCompiler.AssemblyName,
             trees,
             Referenced(),
-            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, optimizationLevel: OptimizationLevel.Debug)
+            new(OutputKind.DynamicallyLinkedLibrary, optimizationLevel: OptimizationLevel.Debug)
         );
 
         Directory.CreateDirectory(output);
@@ -136,9 +140,13 @@ public sealed class ScriptWorkspace {
         // ⚠ Emitted into memory and written afterwards, so a failed emit cannot leave half a file
         // where the previous good one was. The loader would read it, and "the assembly is corrupt"
         // is a much worse message than the error that actually happened.
-        using (var assembly = new MemoryStream())
-        using (var symbols = new MemoryStream()) {
-            result = compilation.Emit(assembly, symbols, options: new(debugInformationFormat: DebugInformationFormat.PortablePdb));
+        using (var assembly = new MemoryStream()) {
+            using var symbols = new MemoryStream();
+            result = compilation.Emit(
+                assembly,
+                symbols,
+                options: new(debugInformationFormat: DebugInformationFormat.PortablePdb)
+            );
 
             problems.AddRange(result.Diagnostics.Where(ScriptCompiler.Reportable).Select(ScriptCompiler.Describe));
 

@@ -44,11 +44,13 @@ public sealed class SphericalHarmonicsL2 {
             throw new ArgumentException($"Three bands is {Count} coefficients, not {coefficients.Length}.");
         }
 
-        this.coefficients = coefficients.ToArray();
+        this.coefficients = [..coefficients];
     }
 
     /// <summary>Starts from nothing: a black environment.</summary>
-    public SphericalHarmonicsL2() => coefficients = new Vector3[Count];
+    public SphericalHarmonicsL2() {
+        coefficients = new Vector3[Count];
+    }
 
     /// <summary>Projects a cube map onto the first three bands.</summary>
     /// <param name="cube">The environment, six square faces in a float format.</param>
@@ -97,9 +99,9 @@ public sealed class SphericalHarmonicsL2 {
         basis[3] = 0.488603f * x;
         basis[4] = 1.092548f * x * y;
         basis[5] = 1.092548f * y * z;
-        basis[6] = 0.315392f * ((3f * z * z) - 1f);
+        basis[6] = 0.315392f * (3f * z * z - 1f);
         basis[7] = 1.092548f * x * z;
-        basis[8] = 0.546274f * ((x * x) - (y * y));
+        basis[8] = 0.546274f * (x * x - y * y);
     }
 
     /// <summary>

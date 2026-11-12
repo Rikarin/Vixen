@@ -23,8 +23,12 @@ sealed class DoesNotTileAttribute(string reason) : Attribute {
 /// <summary>How many channels one image edge carries: doc 48 § Part 4's <em>format</em>.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>This is the half of § Part 4's first rule that could not live where the document puts
-///         it.</b> The rule reads "grey and colour are one port kind, and grey promotes" — and the
+///         ⚠
+///         <b>
+///             This is the half of § Part 4's first rule that could not live where the document puts
+///             it.
+///         </b>
+///         The rule reads "grey and colour are one port kind, and grey promotes" — and the
 ///         kind is <see cref="PortKind.Image" />, which carries no format at all, deliberately: a
 ///         <c>PortKind</c> is shared by three graphs and <see cref="PortKinds.Accepts" /> therefore
 ///         says yes to every image-to-image wire. So the promotion and the refusal are decided
@@ -74,7 +78,9 @@ sealed class TextureEmitter {
     GraphNode node = null!;
     NodeBinding binding = NodeBinding.Empty;
 
-    internal TextureEmitter(TextureGraphCompiler compiler) => this.compiler = compiler;
+    internal TextureEmitter(TextureGraphCompiler compiler) {
+        this.compiler = compiler;
+    }
 
     /// <summary>Points the emitter at the node about to run.</summary>
     internal void Enter(GraphNode current, NodeBinding bound, TextureChannels resolved, int level) {
@@ -95,9 +101,13 @@ sealed class TextureEmitter {
     /// <summary>What this node's image ports resolved to in <em>size</em>: the finest thing arriving.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b><see cref="Resolved" />'s twin, and
-    ///         <a href="https://github.com/Rikarin/Vixen/issues/779">#779</a> is what a library
-    ///         without it looks like.</b> Every allocation a node made was at the graph's base level,
+    ///         ⚠
+    ///         <b>
+    ///             <see cref="Resolved" />'s twin, and
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/779">#779</a> is what a library
+    ///             without it looks like.
+    ///         </b>
+    ///         Every allocation a node made was at the graph's base level,
     ///         so a node downstream of a <c>Space/Resample</c> wrote a base-sized image while reading
     ///         a smaller one — and every pointwise kernel reads coordinate-for-coordinate with a
     ///         clamp, so three quarters of the output was the source's clamped edge. It was not one
@@ -191,7 +201,7 @@ sealed class TextureEmitter {
             TextureEmission.Kind.Read,
             port,
             0,
-            () => compiler.Read(node, port, binding, Resolved, Level, strict: false)
+            () => compiler.Read(node, port, binding, Resolved, Level, false)
         );
 
     /// <summary>The image arriving at one input, promoted to a stated shape rather than the node's own.</summary>
@@ -207,15 +217,18 @@ sealed class TextureEmitter {
             TextureEmission.Kind.Read,
             port,
             (int)channels,
-            () => compiler.Read(node, port, binding, channels, Level, strict: false)
+            () => compiler.Read(node, port, binding, channels, Level, false)
         );
 
     /// <summary>The image arriving at one input, which has to be a single channel.</summary>
     /// <param name="port">The port's name.</param>
     /// <returns>Its index in the plan's image table, or −1 when nothing usable arrives.</returns>
     /// <remarks>
-    ///     <b>The other half of § Part 4's rule: colour into a grey port is a type error naming the
-    ///     port.</b> For the nodes that <em>measure</em> rather than composite — a distance field, a
+    ///     <b>
+    ///         The other half of § Part 4's rule: colour into a grey port is a type error naming the
+    ///         port.
+    ///     </b>
+    ///     For the nodes that <em>measure</em> rather than composite — a distance field, a
     ///     flood fill — there is no promotion that would mean anything, because there is no
     ///     luminance a colour and a mask agree on. A graph that wants one says so with a
     ///     <c>Grayscale</c> node.
@@ -225,7 +238,7 @@ sealed class TextureEmitter {
             TextureEmission.Kind.ReadGrey,
             port,
             0,
-            () => compiler.Read(node, port, binding, TextureChannels.Grey, Level, strict: true)
+            () => compiler.Read(node, port, binding, TextureChannels.Grey, Level, true)
         );
 
     /// <summary>Allocates the image one output port carries, at this node's resolved channels.</summary>
@@ -256,8 +269,12 @@ sealed class TextureEmitter {
     ///         because the target's size <em>is</em> the scale.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Absolute when it is given, and <see cref="Level" /> when it is not —
-    ///         <a href="https://github.com/Rikarin/Vixen/issues/779">#779</a>.</b> Defaulting to zero
+    ///         ⚠
+    ///         <b>
+    ///             Absolute when it is given, and <see cref="Level" /> when it is not —
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/779">#779</a>.
+    ///         </b>
+    ///         Defaulting to zero
     ///         made every node that had not heard of #733 write a base-sized image over a smaller
     ///         source, which is a corner crop with an edge smear in about forty nodes. A node that
     ///         means "half of what arrived" still spells it as <see cref="LevelOf" /> plus one,
@@ -290,7 +307,7 @@ sealed class TextureEmitter {
     public int Scratch(TextureFormat format, int? levelOffset = null) =>
         compiler.Emission.Call(
             TextureEmission.Kind.Scratch,
-            "",
+            string.Empty,
             TextureEmission.Detail((int)format, levelOffset ?? Level),
             () => compiler.Scratch(format, levelOffset ?? Level)
         );
@@ -343,7 +360,7 @@ sealed class TextureEmitter {
             TextureEmission.Kind.External,
             $"{format}/{channels}/{width}/{height}/{TextureResultKey.Of(bytes).Value:X32}",
             0,
-            () => compiler.External(node, format, channels, "", width, height, bytes)
+            () => compiler.External(node, format, channels, string.Empty, width, height, bytes)
         );
     }
 
@@ -353,8 +370,12 @@ sealed class TextureEmitter {
     /// <param name="asset">What the graph references — an imported image.</param>
     /// <returns>Its index in the plan's image table.</returns>
     /// <remarks>
-    ///     ⚠ <b>The reference crosses and the pixels do not, because a compilation must not read an
-    ///     asset database.</b> Compiling is what runs on every edit and what a preview is; opening a
+    ///     ⚠
+    ///     <b>
+    ///         The reference crosses and the pixels do not, because a compilation must not read an
+    ///         asset database.
+    ///     </b>
+    ///     Compiling is what runs on every edit and what a preview is; opening a
     ///     file in it would make an edit cost an import. So a host walks
     ///     <c>TextureGraphCompiler.Externals</c>, reads what each entry names, and uploads it —
     ///     which is also what makes the same plan re-usable over a different picture.

@@ -3,12 +3,10 @@
 
 using Vixen.Core.Imaging;
 using Vixen.Core.Mathematics;
-using Vixen.Graphics.Vulkan;
 using Vixen.Rendering;
 using Vixen.Rendering.Compositor;
 using Vixen.Rendering.Water;
 using Vixen.Shaders;
-using Vixen.Ui.Testing.Visual;
 using Xunit;
 
 namespace Vixen.Graphics.Golden.Tests;
@@ -20,8 +18,12 @@ namespace Vixen.Graphics.Golden.Tests;
 ///     <para>
 ///         <b>§ D9's warning, made measurable.</b> "Designing the volume path first and discovering
 ///         the waterline second is how you get a system where the transition is a hard cut and the fix
-///         is architectural." A post-process volume's fold produces <em>one weight for the whole
-///         frame</em>; what a camera half in the water needs is two treatments divided by a curve. So
+///         is architectural." A post-process volume's fold produces
+///         <em>
+///             one weight for the whole
+///             frame
+///         </em>
+///         ; what a camera half in the water needs is two treatments divided by a curve. So
 ///         the assertion that matters most in this file is simply that one frame contains both.
 ///     </para>
 ///     <para>
@@ -71,7 +73,7 @@ public sealed class UnderwaterPassImageTests {
         }
 
         using var owned = fixture!;
-        var image = Render(owned, surfaceHeight: -HalfHeight - 1f, submersion: -1f);
+        var image = Render(owned, -HalfHeight - 1f, -1f);
 
         foreach (var y in (int[])[8, 64, 120]) {
             var pixel = Pixel(image, 64, y);
@@ -97,7 +99,7 @@ public sealed class UnderwaterPassImageTests {
         }
 
         using var owned = fixture!;
-        var image = Render(owned, surfaceHeight: HalfHeight + 1f, submersion: 2f);
+        var image = Render(owned, HalfHeight + 1f, 2f);
 
         foreach (var y in (int[])[8, 64, 120]) {
             Assert.Equal(1f, Alpha(image, 64, y), 0.02f);
@@ -134,8 +136,8 @@ public sealed class UnderwaterPassImageTests {
 
         using var owned = fixture!;
 
-        var low = Render(owned, surfaceHeight: -1f, submersion: 0.2f);
-        var high = Render(owned, surfaceHeight: 1f, submersion: 0.2f);
+        var low = Render(owned, -1f, 0.2f);
+        var high = Render(owned, 1f, 0.2f);
 
         var lowEdge = Waterline(low);
         var highEdge = Waterline(high);
@@ -168,7 +170,7 @@ public sealed class UnderwaterPassImageTests {
 
         // Same scene, same distance, same everything — except that on the left half the mask says the
         // surface is close in front, so the ray leaves the water almost immediately.
-        var image = Render(owned, surfaceHeight: HalfHeight + 1f, submersion: 2f, exitAt: 64, exitDistance: 0.3f);
+        var image = Render(owned, HalfHeight + 1f, 2f, exitAt: 64, exitDistance: 0.3f);
 
         var leaving = Pixel(image, 20, 64);
         var through = Pixel(image, 108, 64);
@@ -193,8 +195,8 @@ public sealed class UnderwaterPassImageTests {
 
         using var owned = fixture!;
 
-        var with = Render(owned, surfaceHeight: HalfHeight + 1f, submersion: 0.5f, caustics: true);
-        var without = Render(owned, surfaceHeight: HalfHeight + 1f, submersion: 0.5f, caustics: false);
+        var with = Render(owned, HalfHeight + 1f, 0.5f, true);
+        var without = Render(owned, HalfHeight + 1f, 0.5f);
 
         var difference = 0f;
 
@@ -241,7 +243,7 @@ public sealed class UnderwaterPassImageTests {
         // one number rather than a range.
         const float SceneDistance = 30f;
 
-        var copy = fixture.Sampled("behind", Fixture.Side, Fill(_ => Encode(Scene, 1f)));
+        var copy = fixture.Sampled("behind", Fixture.Side, Fill(static _ => Encode(Scene, 1f)));
         var depth = fixture.Sampled("sceneDepth", Fixture.Side, Fill(_ => Encode(DeviceDepth(SceneDistance))));
 
         // Coverage on the left of `exitAt` only, so one frame carries both cases and nothing else
@@ -249,7 +251,7 @@ public sealed class UnderwaterPassImageTests {
         var surface = fixture.Sampled(
             "waterSurface",
             Fixture.Side,
-            Fill(x => Encode(DeviceDepth(exitDistance), exitAt >= 0 && x < exitAt ? 1f : 0f, 0f, 1f))
+            Fill(x => Encode(DeviceDepth(exitDistance), exitAt >= 0 && x < exitAt ? 1f : 0f))
         );
 
         var display = fixture.Owned("display", TextureUsage.ColourTarget | TextureUsage.CopySource);
@@ -265,7 +267,7 @@ public sealed class UnderwaterPassImageTests {
         effects.AddProvider(
             new Compiling(
                 loader,
-                _ => RavenEffects.Only(
+                static _ => RavenEffects.Only(
                     ["Core", "Geometry", "Shading", "Water"],
                     Path.Combine("PostFx", "Fullscreen.rvn")
                 )
@@ -283,7 +285,6 @@ public sealed class UnderwaterPassImageTests {
             // A golden that silently inherits a shipping default breaks whenever that default moves
             // for reasons of its own, which is exactly what happened.
             SkyColour = new(0.35f, 0.45f, 0.6f),
-
             Output = "Display",
             Behind = "Behind",
             SceneDepth = "SceneDepth",
@@ -310,10 +311,7 @@ public sealed class UnderwaterPassImageTests {
             Allocator = allocator
         };
 
-        var compositor = new GraphicsCompositor(system) {
-            FrameSize = new(Fixture.Side, Fixture.Side),
-            Game = under
-        };
+        var compositor = new GraphicsCompositor(system) { FrameSize = new(Fixture.Side, Fixture.Side), Game = under };
 
         compositor.Imports["Behind"] = Import(copy, "behind");
         compositor.Imports["SceneDepth"] = Import(depth, "sceneDepth");
@@ -348,15 +346,27 @@ public sealed class UnderwaterPassImageTests {
         );
     }
 
-    static ImportedTexture Import((TextureHandle Texture, TextureViewHandle View, BufferHandle Staging) plane, string name) =>
+    static ImportedTexture Import(
+        (TextureHandle Texture, TextureViewHandle View, BufferHandle Staging) plane,
+        string name
+    ) =>
         new(
             plane.Texture,
             plane.View,
-            new(PixelFormat.Rgba8UNorm, Fixture.Side, Fixture.Side, TextureUsage.Sampled | TextureUsage.CopyDestination, Name: name),
+            new(
+                PixelFormat.Rgba8UNorm,
+                Fixture.Side,
+                Fixture.Side,
+                TextureUsage.Sampled | TextureUsage.CopyDestination,
+                Name: name
+            ),
             ResourceState.ShaderRead
         );
 
-    static void Upload(ICommandList commands, (TextureHandle Texture, TextureViewHandle View, BufferHandle Staging) plane) {
+    static void Upload(
+        ICommandList commands,
+        (TextureHandle Texture, TextureViewHandle View, BufferHandle Staging) plane
+    ) {
         commands.Barrier(new([], [new(plane.Texture, ResourceState.Undefined, ResourceState.CopyDestination)]));
         commands.CopyBufferToTexture(plane.Staging, 0, new(plane.Texture), new(Fixture.Side, Fixture.Side, 1));
         commands.Barrier(new([], [new(plane.Texture, ResourceState.CopyDestination, ResourceState.ShaderRead)]));
@@ -369,7 +379,9 @@ public sealed class UnderwaterPassImageTests {
     ///     opinion about the reverse-Z convention, and the opinion is exactly what gets encoded.
     /// </remarks>
     static Matrix4x4 Orthographic() {
-        Assert.True(Matrix4x4.Invert(Matrix4x4.Orthographic(HalfHeight * 2f, HalfHeight * 2f, Near, Far), out var inverse));
+        Assert.True(
+            Matrix4x4.Invert(Matrix4x4.Orthographic(HalfHeight * 2f, HalfHeight * 2f, Near, Far), out var inverse)
+        );
 
         return inverse;
     }
@@ -384,7 +396,7 @@ public sealed class UnderwaterPassImageTests {
         for (var y = 0; y < Fixture.Side; y++) {
             for (var x = 0; x < Fixture.Side; x++) {
                 var value = texel(x);
-                var offset = ((y * Fixture.Side) + x) * 4;
+                var offset = (y * Fixture.Side + x) * 4;
 
                 bytes[offset] = (byte)(value & 0xFF);
                 bytes[offset + 1] = (byte)((value >> 8) & 0xFF);
@@ -399,10 +411,10 @@ public sealed class UnderwaterPassImageTests {
     static uint Encode(Vector3 colour, float alpha) => Encode(colour.X, colour.Y, colour.Z, alpha);
 
     static uint Encode(float r, float g = 0f, float b = 0f, float a = 1f) =>
-        (uint)(byte)((Math.Clamp(r, 0f, 1f) * 255f) + 0.5f)
-        | ((uint)(byte)((Math.Clamp(g, 0f, 1f) * 255f) + 0.5f) << 8)
-        | ((uint)(byte)((Math.Clamp(b, 0f, 1f) * 255f) + 0.5f) << 16)
-        | ((uint)(byte)((Math.Clamp(a, 0f, 1f) * 255f) + 0.5f) << 24);
+        (uint)(byte)(Math.Clamp(r, 0f, 1f) * 255f + 0.5f)
+        | ((uint)(byte)(Math.Clamp(g, 0f, 1f) * 255f + 0.5f) << 8)
+        | ((uint)(byte)(Math.Clamp(b, 0f, 1f) * 255f + 0.5f) << 16)
+        | ((uint)(byte)(Math.Clamp(a, 0f, 1f) * 255f + 0.5f) << 24);
 
     static Vector3 Pixel(in Bitmap image, int x, int y) {
         var offset = image.Offset(Math.Clamp(x, 0, image.Width - 1), Math.Clamp(y, 0, image.Height - 1));

@@ -8,8 +8,11 @@ namespace Vixen.Ui.Tests;
 /// <summary>That a declared transition actually runs, in a document, over frames.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Every assertion here is about a value read <i>between</i> the two endpoints, and that
-///         is the only shape that could have caught what it is guarding.</b>
+///         ⚠
+///         <b>
+///             Every assertion here is about a value read <i>between</i> the two endpoints, and that
+///             is the only shape that could have caught what it is guarding.
+///         </b>
 ///         <c>Vixen.Ui.Styling.Animator</c> has had three test files of its own since it was written
 ///         and every one of them passed; what none of them could see is that nothing in the
 ///         repository ever constructed one. A transition and its absence agree about where a property
@@ -35,12 +38,12 @@ namespace Vixen.Ui.Tests;
 /// </remarks>
 public class TransitionTests {
     const string Css = """
-        root  { width: 400px; height: 200px; }
-        #box  { width: 10px; height: 20px; background-color: #000000;
-                transition-property: width; transition-duration: 200ms;
-                transition-timing-function: linear; }
-        #box.wide { width: 110px; }
-        """;
+                       root  { width: 400px; height: 200px; }
+                       #box  { width: 10px; height: 20px; background-color: #000000;
+                               transition-property: width; transition-duration: 200ms;
+                               transition-timing-function: linear; }
+                       #box.wide { width: 110px; }
+                       """;
 
     /// <summary>Builds the document, settles it, and returns the element about to move.</summary>
     static UiElement Settled(UiDocument document, string css = Css) {
@@ -100,8 +103,11 @@ public class TransitionTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>A transition that starts after the first frame is stamped with <i>then</i>, not with
-    ///     zero.</b>
+    ///     ⚠
+    ///     <b>
+    ///         A transition that starts after the first frame is stamped with <i>then</i>, not with
+    ///         zero.
+    ///     </b>
     /// </summary>
     /// <remarks>
     ///     <para>
@@ -170,8 +176,11 @@ public class TransitionTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>A frame with nothing running must not be dirtied, or every document repaints for
-    ///     ever.</b>
+    ///     ⚠
+    ///     <b>
+    ///         A frame with nothing running must not be dirtied, or every document repaints for
+    ///         ever.
+    ///     </b>
     /// </summary>
     /// <remarks>
     ///     <c>Tick</c> marks the document dirty while the animator has work, which is what makes a
@@ -202,8 +211,11 @@ public class TransitionTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>Colour too, because the interpolation and the round trip through CSS text are
-    ///     different risks.</b>
+    ///     ⚠
+    ///     <b>
+    ///         Colour too, because the interpolation and the round trip through CSS text are
+    ///         different risks.
+    ///     </b>
     /// </summary>
     /// <remarks>
     ///     <para>
@@ -214,8 +226,12 @@ public class TransitionTests {
     ///         property a real interface actually transitions.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The two endpoints are read out of the document rather than written down here, and
-    ///         the first draft of this test was wrong for exactly that reason.</b> Comparing against
+    ///         ⚠
+    ///         <b>
+    ///             The two endpoints are read out of the document rather than written down here, and
+    ///             the first draft of this test was wrong for exactly that reason.
+    ///         </b>
+    ///         Comparing against
     ///         the literals <c>#000000</c> and <c>#ffffff</c> passes whatever happens: ExCSS
     ///         normalises a hex colour while parsing, so neither string is ever what the cascade
     ///         interns and both assertions hold against an engine with no animator at all. Asking the
@@ -256,8 +272,11 @@ public class TransitionTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>A fading inherited value travels on the descendants too, and the endpoints cannot see
-    ///     it.</b>
+    ///     ⚠
+    ///     <b>
+    ///         A fading inherited value travels on the descendants too, and the endpoints cannot see
+    ///         it.
+    ///     </b>
     /// </summary>
     /// <remarks>
     ///     <para>
@@ -271,8 +290,12 @@ public class TransitionTests {
     ///         <c>Animator.Descend</c>.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Both endpoints agree under the old behaviour and the new one, which is why every
-    ///         assertion here is about the frame in flight.</b> At <c>t = 0</c> the panel has not moved
+    ///         ⚠
+    ///         <b>
+    ///             Both endpoints agree under the old behaviour and the new one, which is why every
+    ///             assertion here is about the frame in flight.
+    ///         </b>
+    ///         At <c>t = 0</c> the panel has not moved
     ///         and at <c>t = 0.2</c> both are white whatever inheritance does; only the middle
     ///         separates "the child is following the fade" from "the child jumped".
     ///     </para>
@@ -316,8 +339,12 @@ public class TransitionTests {
 
     /// <summary>A descendant that declares its own value is not carried along by an ancestor's fade.</summary>
     /// <remarks>
-    ///     ⚠ <b>The half that says the push is inheritance rather than a broadcast, and the half a
-    ///     naive implementation gets wrong.</b> "This element inherited the property" is inferred from
+    ///     ⚠
+    ///     <b>
+    ///         The half that says the push is inheritance rather than a broadcast, and the half a
+    ///         naive implementation gets wrong.
+    ///     </b>
+    ///     "This element inherited the property" is inferred from
     ///     its cascaded value being its parent's — a <see cref="Vixen.Ui.Styling.ComputedStyle" /> does not record
     ///     provenance — so an implementation that overwrote every descendant would repaint a label
     ///     that had asked for red. It would also then push <i>that</i> value on down, which is what the

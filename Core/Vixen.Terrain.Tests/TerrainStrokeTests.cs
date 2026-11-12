@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core.Mathematics;
-using Vixen.Terrain;
 using Xunit;
 
 namespace Vixen.Terrain.Tests;
@@ -11,8 +10,12 @@ namespace Vixen.Terrain.Tests;
 public sealed class TerrainStrokeTests {
     static TerrainDescription Shape() =>
         TerrainDescription.Default with {
-            TileSamples = 32, TilesX = 2, TilesZ = 2,
-            MetresPerQuad = 1f, MinHeight = -100f, MaxHeight = 100f
+            TileSamples = 32,
+            TilesX = 2,
+            TilesZ = 2,
+            MetresPerQuad = 1f,
+            MinHeight = -100f,
+            MaxHeight = 100f
         };
 
     static (Terrain Terrain, TerrainEditLayer Layer) Build() {
@@ -26,7 +29,7 @@ public sealed class TerrainStrokeTests {
     /// <summary>Snapshots the whole composite, for an exact before-and-after comparison.</summary>
     static ushort[] Snapshot(Terrain terrain) {
         terrain.Resolve();
-        return terrain.Composite.Span.ToArray();
+        return [..terrain.Composite.Span];
     }
 
     /// <summary>Drags a brush across the terrain, recording the stroke.</summary>
@@ -134,8 +137,13 @@ public sealed class TerrainStrokeTests {
         var before = Snapshot(terrain);
 
         var (stroke, _) = Drag(
-            terrain, layer,
-            new(16f, 10f), new(16f, 24f), new(10f, 17f), new(24f, 17f), new(16f, 10f)
+            terrain,
+            layer,
+            new(16f, 10f),
+            new(16f, 24f),
+            new(10f, 17f),
+            new(24f, 17f),
+            new(16f, 10f)
         );
 
         stroke.Undo();
@@ -176,7 +184,7 @@ public sealed class TerrainStrokeTests {
         Assert.Equal(written, stroke.Record(brush, stamp));
 
         Assert.Equal(written.X - TerrainSculpt.NeighbourMargin, stroke.Rect.X);
-        Assert.Equal(written.Width + (TerrainSculpt.NeighbourMargin * 2), stroke.Rect.Width);
+        Assert.Equal(written.Width + TerrainSculpt.NeighbourMargin * 2, stroke.Rect.Width);
     }
 
     [Fact]
@@ -188,7 +196,7 @@ public sealed class TerrainStrokeTests {
         terrain.InvalidateAll();
         var before = Snapshot(terrain);
 
-        var brush = Brush(radius: 6f);
+        var brush = Brush(6f);
         var stamp = new BrushStamp(new(16f, 16f));
         var stroke = new TerrainStroke(terrain, layer);
 

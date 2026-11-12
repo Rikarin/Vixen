@@ -15,8 +15,12 @@ namespace Vixen.Editor.App.Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Increment (2) of #531's own list, and the half of the domain every previous pass
-///         could not see.</b> <c>Core/Vixen.Ui.Styling.Tests/CombinatorPairs.txt</c> commits 88
+///         ⚠
+///         <b>
+///             Increment (2) of #531's own list, and the half of the domain every previous pass
+///             could not see.
+///         </b>
+///         <c>Core/Vixen.Ui.Styling.Tests/CombinatorPairs.txt</c> commits 88
 ///         pairings with a bare type on both sides; <b>84 of them come from editor sheets</b>, and
 ///         <c>LiveCombinatorPairTests</c> — the runtime oracle that settled the controls — lives in
 ///         <c>Vixen.Ui.Controls.Advanced.Tests</c> and cannot see an editor at all. So the sweep that
@@ -24,8 +28,12 @@ namespace Vixen.Editor.App.Tests;
 ///         reachable from where it stood.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Five source-reading models were tried before this and each reported a larger residue
-///         than the last</b> — 14 of 88, then 29 of 72, 39 of 75, 37 of 70 — because the editor's
+///         ⚠
+///         <b>
+///             Five source-reading models were tried before this and each reported a larger residue
+///             than the last
+///         </b>
+///         — 14 of 88, then 29 of 72, 39 of 75, 37 of 70 — because the editor's
 ///         parents are built in C# and joined to their children through a third file. The three
 ///         pairings that defeated all five are the same shape: a presenter constructed with the
 ///         parent element as its <c>host</c> argument. <c>editor-shell &gt; menu-bar</c> is
@@ -49,8 +57,12 @@ namespace Vixen.Editor.App.Tests;
 ///         keeps the file's two directions meaningful.
 ///     </para>
 ///     <para>
-///         ⚠ <b>And an unproved row is worth reading rather than shrugging at, which is how the
-///         second dead rule was found.</b> <c>palette-row &gt; text</c> sat in the domain and in no
+///         ⚠
+///         <b>
+///             And an unproved row is worth reading rather than shrugging at, which is how the
+///             second dead rule was found.
+///         </b>
+///         <c>palette-row &gt; text</c> sat in the domain and in no
 ///         census; chased, it turned out no palette row has ever had a <c>text</c> child — a
 ///         <c>PaletteRow</c> is a <c>ButtonBase</c> and its title cell is <c>label</c> — so the rule
 ///         matched nothing from the day it was written and the palette's category sat against its
@@ -59,8 +71,12 @@ namespace Vixen.Editor.App.Tests;
 ///         front of somebody, which is what it did.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Nothing a <c>Vixen.Ui.*</c> test run can do will notice a rule this census owes a
-///         row to, and that gap has already cost three weeks of red.</b> The domain is
+///         ⚠
+///         <b>
+///             Nothing a <c>Vixen.Ui.*</c> test run can do will notice a rule this census owes a
+///             row to, and that gap has already cost three weeks of red.
+///         </b>
+///         The domain is
 ///         <c>Core/Vixen.Ui.Styling.Tests/CombinatorPairs.txt</c> and it is fed by
 ///         <c>Core/Vixen.Ui.Controls/ControlTheme.vcss</c> and the editor sheets; the proofs live
 ///         here, in a project that takes about ten minutes to build and run. So a sheet edit is
@@ -129,8 +145,12 @@ public partial class EditorCombinatorPairTests {
     /// </summary>
     /// <remarks>
     ///     Each is a presenter given the parent element as its <c>host</c>, which is the shape #531's
-    ///     own comments identified and could not close. They are asserted by name <i>and the right
-    ///     way round</i>: a walk that recorded a child as its own parent keeps every count exactly
+    ///     own comments identified and could not close. They are asserted by name
+    ///     <i>
+    ///         and the right
+    ///         way round
+    ///     </i>
+    ///     : a walk that recorded a child as its own parent keeps every count exactly
     ///     right and reverses every row, which is the bug a floor cannot see.
     /// </remarks>
     static readonly string[] Presenter = ["editor-shell > menu-bar", "mode-bar > toolbar", "viewport-bar > toolbar"];
@@ -187,8 +207,12 @@ public partial class EditorCombinatorPairTests {
 
     /// <summary>What each sweep observed, run on first ask and kept for the class.</summary>
     /// <remarks>
-    ///     ⚠ <b>Keyed by <see cref="Depth" /> rather than held in a field per sweep, so that the
-    ///     ladder has exactly one hand-written list and it is the enum.</b> Four memo fields meant
+    ///     ⚠
+    ///     <b>
+    ///         Keyed by <see cref="Depth" /> rather than held in a field per sweep, so that the
+    ///         ladder has exactly one hand-written list and it is the enum.
+    ///     </b>
+    ///     Four memo fields meant
     ///     four places naming the four depths — <c>Ladder</c> was derived from the enum and
     ///     <c>VerdictOf</c> still forced the sweeps by naming their four properties, so a fifth depth
     ///     added to the enum would have entered the ladder, never been swept, and reported <c>-</c>
@@ -215,8 +239,12 @@ public partial class EditorCombinatorPairTests {
 
     /// <summary>Runs every sweep the ladder names, so that a verdict is over the whole of it.</summary>
     /// <remarks>
-    ///     ⚠ <b>Over <see cref="Ladder" />, which is the enum, so adding a depth needs no line
-    ///     here.</b> The version this replaced wrote the four properties out; the property that
+    ///     ⚠
+    ///     <b>
+    ///         Over <see cref="Ladder" />, which is the enum, so adding a depth needs no line
+    ///         here.
+    ///     </b>
+    ///     The version this replaced wrote the four properties out; the property that
     ///     bought is asserted next door by
     ///     <c>Every_depth_on_the_ladder_is_swept_before_a_verdict_is_read</c>, because "the climb
     ///     covers the ladder" is otherwise a claim only the reading of this method makes.
@@ -248,8 +276,12 @@ public partial class EditorCombinatorPairTests {
     ///         does not run.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The mirror denial is not what catches a reversed walk <i>here</i>, and the
-    ///         difference is worth writing down.</b> The controls' sweep records every pairing, so
+    ///         ⚠
+    ///         <b>
+    ///             The mirror denial is not what catches a reversed walk <i>here</i>, and the
+    ///             difference is worth writing down.
+    ///         </b>
+    ///         The controls' sweep records every pairing, so
     ///         reversing its walk keeps the count exactly right and turns every row round; this one
     ///         intersects with the domain afterwards, so a fully reversed walk collapses to
     ///         <i>zero</i> declared pairings and the floor above is what goes red — measured. What
@@ -298,7 +330,7 @@ public partial class EditorCombinatorPairTests {
         var census = Census(path, CensusFile);
 
         var arrived = Observed.Where(pair => !census.Contains(pair)).Order(StringComparer.Ordinal).ToList();
-        var departed = census.Where(pair => !Observed.Contains(pair)).Order(StringComparer.Ordinal).ToList();
+        var departed = census.Where(static pair => !Observed.Contains(pair)).Order(StringComparer.Ordinal).ToList();
 
         Assert.True(
             arrived.Count == 0 && departed.Count == 0,
@@ -320,8 +352,12 @@ public partial class EditorCombinatorPairTests {
     /// <summary>The same census for an editor with every panel it registers opened.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A second census rather than more rows in the first, so that no existing row
-    ///         changes meaning.</b> The bare sweep's standing is "this is what a started editor
+    ///         ⚠
+    ///         <b>
+    ///             A second census rather than more rows in the first, so that no existing row
+    ///             changes meaning.
+    ///         </b>
+    ///         The bare sweep's standing is "this is what a started editor
     ///         builds with no state a fixture put it in", and that is the sentence a departure from
     ///         it is read against. Opening panels is state a fixture put it in — weaker — so it gets
     ///         a file of its own, exactly as the controls' seeded sweep is kept apart from its bare
@@ -331,14 +367,22 @@ public partial class EditorCombinatorPairTests {
     ///         ⚠ <b>But it is much stronger than seeding, and the difference is worth stating.</b>
     ///         The controls' seeded sweep has to refuse the elements it nested, because
     ///         <c>A &gt; B</c> is trivially "provable" by putting a B under an A. Nothing here nests
-    ///         anything: the fixture asks the workspace to open a panel <em>the editor itself
-    ///         registered</em>, and every element under it is built by that panel's own factory. So
+    ///         anything: the fixture asks the workspace to open a panel
+    ///         <em>
+    ///             the editor itself
+    ///             registered
+    ///         </em>
+    ///         , and every element under it is built by that panel's own factory. So
     ///         there is no harness-built pairing to refuse, and each row is still the editor's own
     ///         construction.
     ///     </para>
     ///     <para>
-    ///         The decision, stated once because it is one decision: <b>every panel the workspace has
-    ///         registered, opened, and nothing else poked.</b> A hand-written list would go stale the
+    ///         The decision, stated once because it is one decision:
+    ///         <b>
+    ///             every panel the workspace has
+    ///             registered, opened, and nothing else poked.
+    ///         </b>
+    ///         A hand-written list would go stale the
     ///         day a panel is added and would say nothing about it; the registry is the editor's own
     ///         answer to "what panels are there".
     ///     </para>
@@ -359,7 +403,7 @@ public partial class EditorCombinatorPairTests {
         var census = Census(path, OpenedCensusFile);
 
         var arrived = Opened.Where(pair => !census.Contains(pair)).Order(StringComparer.Ordinal).ToList();
-        var departed = census.Where(pair => !Opened.Contains(pair)).Order(StringComparer.Ordinal).ToList();
+        var departed = census.Where(static pair => !Opened.Contains(pair)).Order(StringComparer.Ordinal).ToList();
 
         Assert.True(
             arrived.Count == 0 && departed.Count == 0,
@@ -398,7 +442,7 @@ public partial class EditorCombinatorPairTests {
     /// </remarks>
     [Fact]
     public void Opening_every_registered_panel_proves_more_than_the_default_arrangement() {
-        var lost = Observed.Where(pair => !Opened.Contains(pair)).Order(StringComparer.Ordinal).ToList();
+        var lost = Observed.Where(static pair => !Opened.Contains(pair)).Order(StringComparer.Ordinal).ToList();
 
         // ⚠ After the line above and not before it: `asked` is written by the sweep, and the sweep is
         // lazy. Asserting on it first reads a zero that means "nothing has run yet" and prints it as
@@ -407,7 +451,7 @@ public partial class EditorCombinatorPairTests {
 
         Assert.True(lost.Count == 0, $"opening panels LOST pairings the default arrangement builds:\n{Lines(lost)}");
 
-        var gained = Opened.Where(pair => !Observed.Contains(pair)).Order(StringComparer.Ordinal).ToList();
+        var gained = Opened.Where(static pair => !Observed.Contains(pair)).Order(StringComparer.Ordinal).ToList();
 
         Assert.True(gained.Count > 0, "opening every registered panel proved nothing the default arrangement did not.");
 
@@ -425,8 +469,11 @@ public partial class EditorCombinatorPairTests {
     ///     <para>
     ///         ⚠ <b>The third census, and where the domain actually lives.</b> Six passes of this
     ///         question reached 14 of 88 at best from source, and the two runtime sweeps before this
-    ///         one reach 38 of the domain's 89 — because <b>most of what the editor sheets declare is
-    ///         under an asset editor, which does not exist until a document of that kind is open.</b>
+    ///         one reach 38 of the domain's 89 — because
+    ///         <b>
+    ///             most of what the editor sheets declare is
+    ///             under an asset editor, which does not exist until a document of that kind is open.
+    ///         </b>
     ///         The opened census says exactly that in its own header and stops there; this is the
     ///         sweep that goes on, and it proves <b>77</b>. The overlay sweep beside it takes the
     ///         four Add Component rows and the palette's, so the four censuses together stand at
@@ -466,7 +513,7 @@ public partial class EditorCombinatorPairTests {
         var census = Census(path, DocumentCensusFile);
 
         var arrived = Documents.Where(pair => !census.Contains(pair)).Order(StringComparer.Ordinal).ToList();
-        var departed = census.Where(pair => !Documents.Contains(pair)).Order(StringComparer.Ordinal).ToList();
+        var departed = census.Where(static pair => !Documents.Contains(pair)).Order(StringComparer.Ordinal).ToList();
 
         Assert.True(
             arrived.Count == 0 && departed.Count == 0,
@@ -488,8 +535,12 @@ public partial class EditorCombinatorPairTests {
     /// <summary>Opening a document of every kind reached parts no panel builds.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The instrument for the third sweep, and its quiet failure is the one worth
-    ///         naming.</b> If <c>OpenAsset</c> stopped building views — a factory that throws into a
+    ///         ⚠
+    ///         <b>
+    ///             The instrument for the third sweep, and its quiet failure is the one worth
+    ///             naming.
+    ///         </b>
+    ///         If <c>OpenAsset</c> stopped building views — a factory that throws into a
     ///         load-diagnostics placeholder, an asset database that stopped seeing new files — this
     ///         sweep would degrade to the opened one and its census would be exactly satisfied by
     ///         whatever was regenerated that day. So what is asserted is the <em>difference</em>,
@@ -504,7 +555,7 @@ public partial class EditorCombinatorPairTests {
     /// </remarks>
     [Fact]
     public void Opening_a_document_of_every_kind_proves_more_than_opening_every_panel() {
-        var lost = Opened.Where(pair => !Documents.Contains(pair)).Order(StringComparer.Ordinal).ToList();
+        var lost = Opened.Where(static pair => !Documents.Contains(pair)).Order(StringComparer.Ordinal).ToList();
 
         // After the line above and not before it, for `asked`'s reason: `authored` is written by the
         // sweep and the sweep is lazy, so reading it first reports "this editor registers no asset
@@ -526,8 +577,12 @@ public partial class EditorCombinatorPairTests {
     /// <summary>The same census once more, with the overlays the editor's own chrome opens.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A fork off the panel sweep rather than a fourth rung of the ladder, and the
-    ///         reason is cost rather than taste.</b> Every other census does everything the one
+    ///         ⚠
+    ///         <b>
+    ///             A fork off the panel sweep rather than a fourth rung of the ladder, and the
+    ///             reason is cost rather than taste.
+    ///         </b>
+    ///         Every other census does everything the one
     ///         before it does and then more; this one does what the <em>panel</em> sweep does and
     ///         then opens two overlays. Extending the document sweep instead would pay its
     ///         thirty-four-document loop a second time — minutes, in this assembly, which is already
@@ -561,7 +616,7 @@ public partial class EditorCombinatorPairTests {
         var census = Census(path, OverlayCensusFile);
 
         var arrived = Overlays.Where(pair => !census.Contains(pair)).Order(StringComparer.Ordinal).ToList();
-        var departed = census.Where(pair => !Overlays.Contains(pair)).Order(StringComparer.Ordinal).ToList();
+        var departed = census.Where(static pair => !Overlays.Contains(pair)).Order(StringComparer.Ordinal).ToList();
 
         Assert.True(
             arrived.Count == 0 && departed.Count == 0,
@@ -597,7 +652,7 @@ public partial class EditorCombinatorPairTests {
     /// </remarks>
     [Fact]
     public void Opening_the_editors_own_overlays_proves_more_than_opening_every_panel() {
-        var lost = Opened.Where(pair => !Overlays.Contains(pair)).Order(StringComparer.Ordinal).ToList();
+        var lost = Opened.Where(static pair => !Overlays.Contains(pair)).Order(StringComparer.Ordinal).ToList();
 
         // After the line above and not before it, for `asked`'s reason: `revealed` is written by the
         // sweep and the sweep is lazy, so reading it first reports "no overlay opened" when what
@@ -625,7 +680,9 @@ public partial class EditorCombinatorPairTests {
     [Fact]
     public void Every_proved_pairing_is_one_a_sheet_declares() {
         var domain = Domain(Path.Combine(Root(), DomainFile));
-        var stray = Observed.Concat(Opened).Concat(Documents).Concat(Overlays)
+        var stray = Observed.Concat(Opened)
+            .Concat(Documents)
+            .Concat(Overlays)
             .Where(pair => !domain.Contains(pair))
             .Distinct(StringComparer.Ordinal)
             .Order(StringComparer.Ordinal)
@@ -644,8 +701,11 @@ public partial class EditorCombinatorPairTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <b>The negative half, which ten passes of this machinery built the evidence for and
-    ///         none of them turned into a gate.</b> Every census here is a set of <em>proofs</em> and
+    ///         <b>
+    ///             The negative half, which ten passes of this machinery built the evidence for and
+    ///             none of them turned into a gate.
+    ///         </b>
+    ///         Every census here is a set of <em>proofs</em> and
     ///         says nothing about the rest of the domain — deliberately, and each comment on the
     ///         issue says so. What was missing is the join: a declared pairing that no sweep proves
     ///         and that nobody has explained is now a red test rather than a row somebody might
@@ -654,8 +714,12 @@ public partial class EditorCombinatorPairTests {
     ///         graph was drawn at zero width for as long as it stood.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The proofs are the four LIVE sweeps plus the controls' two COMMITTED censuses,
-    ///         and the asymmetry is forced.</b> <c>LiveCombinatorPairTests</c> runs in another
+    ///         ⚠
+    ///         <b>
+    ///             The proofs are the four LIVE sweeps plus the controls' two COMMITTED censuses,
+    ///             and the asymmetry is forced.
+    ///         </b>
+    ///         <c>LiveCombinatorPairTests</c> runs in another
     ///         assembly and cannot be called from here; its censuses are held exactly in both
     ///         directions by its own tests, so reading them is reading a proof somebody else keeps
     ///         honest. Only one row of the domain rests on that — <c>split-view &gt; split-bar</c>,
@@ -673,7 +737,7 @@ public partial class EditorCombinatorPairTests {
     ///     <para>
     ///         ⚠ <b>A listed pairing that becomes proved fails too, so the list can only shrink.</b>
     ///         An expiry list nobody prunes stops describing anything, which is the lesson
-    ///         <c>WhitespaceExempt.txt</c> and <c>RefusalExpiry.txt</c> already carry.
+    ///         <c>DocCommentExempt.txt</c> and <c>RefusalExpiry.txt</c> already carry.
     ///     </para>
     ///     <para>
     ///         <b>What it is not.</b> A pairing proved <em>somewhere</em> is not a pairing that is
@@ -850,7 +914,7 @@ public partial class EditorCombinatorPairTests {
         Documents,
 
         /// <summary>That, and the two overlays the editor's own chrome opens over the shell.</summary>
-        Overlays,
+        Overlays
     }
 
     /// <summary>
@@ -866,8 +930,12 @@ public partial class EditorCombinatorPairTests {
     ///         same argument the opening sweep makes for reading the workspace's own panel list.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Empty files, and that is a limit on what the census proves rather than a
-    ///         shortcut.</b> Every document here loads its own defaults, so a part an editor only
+    ///         ⚠
+    ///         <b>
+    ///             Empty files, and that is a limit on what the census proves rather than a
+    ///             shortcut.
+    ///         </b>
+    ///         Every document here loads its own defaults, so a part an editor only
     ///         builds once its asset has content in it — a sprite's rectangles, a palette's rows —
     ///         is unproved by this sweep and stays unjudged. What an empty file buys is that the
     ///         editor's <em>own</em> factory builds the whole view, with nothing the fixture nested.
@@ -896,7 +964,7 @@ public partial class EditorCombinatorPairTests {
                     $"the asset database did not see the '{extension}' probe it was just handed."
                 );
 
-                fixture.Editor.OpenAsset(entry!.Guid);
+                fixture.Editor.OpenAsset(entry.Guid);
                 fixture.Settle();
 
                 made++;
@@ -951,14 +1019,14 @@ public partial class EditorCombinatorPairTests {
         fixture.Frames(2);
 
         var add = Descendants(fixture.Panel("inspector"))
-            .OfType<ButtonBase>()
-            .FirstOrDefault(button => button.Label == "Add Component")
+                .OfType<ButtonBase>()
+                .FirstOrDefault(static button => button.Label == "Add Component")
             ?? throw fixture.Fail("the inspector has no 'Add Component' button for a selected entity.");
 
         add.Activate();
         fixture.Settle();
 
-        if (!Descendants(fixture.Document.Root).OfType<AddComponentMenu>().Any(picker => picker.IsOpen)) {
+        if (!Descendants(fixture.Document.Root).OfType<AddComponentMenu>().Any(static picker => picker.IsOpen)) {
             throw fixture.Fail("pressing 'Add Component' did not open the picker.");
         }
 
@@ -983,7 +1051,8 @@ public partial class EditorCombinatorPairTests {
         }
     }
 
-    static List<string> Domain(string path) => Rows(path, DomainFile).Select(static row => row.Split('\t')[0].Trim()).ToList();
+    static List<string> Domain(string path) =>
+        [..Rows(path, DomainFile).Select(static row => row.Split('\t')[0].Trim())];
 
     static HashSet<string> Census(string path, string name) => Rows(path, name).ToHashSet(StringComparer.Ordinal);
 

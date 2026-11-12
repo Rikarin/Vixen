@@ -3,11 +3,8 @@
 
 using System;
 using System.Collections.Concurrent;
-using System.Collections.Generic;
 using System.Diagnostics;
-using System.IO;
 using System.IO.Enumeration;
-using System.Linq;
 
 namespace Vixen.Testing;
 
@@ -17,8 +14,12 @@ namespace Vixen.Testing;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Every sweep that reads "the repository" reads it through here, because the question
-///         is git's and a directory walk answers a different one.</b> Eighteen walkers used to skip
+///         ⚠
+///         <b>
+///             Every sweep that reads "the repository" reads it through here, because the question
+///             is git's and a directory walk answers a different one.
+///         </b>
+///         Eighteen walkers used to skip
 ///         build output by a hand-kept list of directory names, and the copies disagreed: eleven
 ///         skipped <c>.git</c>, <c>.claude</c>, <c>bin</c>, <c>obj</c>, <c>artifacts</c> and
 ///         <c>node_modules</c> and nothing else, three added <c>.nuke</c>, one stayed out of
@@ -91,7 +92,7 @@ static class RepositoryFiles {
         var root = Path.GetFullPath(directory);
 
         return [
-            .. Listed(root)
+            ..Listed(root)
                 .Where(relative => patterns.Length == 0 || patterns.Any(pattern => Matches(pattern, relative)))
                 .Select(relative => Path.Combine(root, relative.Replace('/', Path.DirectorySeparatorChar)))
         ];
@@ -106,7 +107,7 @@ static class RepositoryFiles {
         var slash = relative.LastIndexOf('/');
         var name = slash < 0 ? relative : relative[(slash + 1)..];
 
-        return FileSystemName.MatchesSimpleExpression(pattern, name, ignoreCase: false);
+        return FileSystemName.MatchesSimpleExpression(pattern, name, false);
     }
 
     static IReadOnlyList<string> List(string directory) {
@@ -139,7 +140,7 @@ static class RepositoryFiles {
 
         var files = output
             .Split('\0', StringSplitOptions.RemoveEmptyEntries)
-            .Where(entry => !entry.EndsWith('/'))
+            .Where(static entry => !entry.EndsWith('/'))
             .Distinct(StringComparer.Ordinal)
             .Where(entry => File.Exists(Path.Combine(directory, entry.Replace('/', Path.DirectorySeparatorChar))))
             .ToList();
@@ -152,12 +153,16 @@ static class RepositoryFiles {
     }
 
     static string FindRoot() {
-        for (var directory = AppContext.BaseDirectory; directory is not null; directory = Path.GetDirectoryName(directory)) {
+        for (var directory = AppContext.BaseDirectory;
+             directory is not null;
+             directory = Path.GetDirectoryName(directory)) {
             if (File.Exists(Path.Combine(directory, "Vixen.slnx"))) {
                 return directory;
             }
         }
 
-        throw new InvalidOperationException($"No Vixen.slnx above '{AppContext.BaseDirectory}', so no repository root.");
+        throw new InvalidOperationException(
+            $"No Vixen.slnx above '{AppContext.BaseDirectory}', so no repository root."
+        );
     }
 }

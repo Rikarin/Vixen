@@ -4,8 +4,6 @@
 using Vixen.Editor.Plugin;
 using Vixen.Graphics;
 using Vixen.Graphics.Null;
-using Vixen.Texturing.Layers;
-using Vixen.Texturing.Painting;
 using Xunit;
 
 namespace Vixen.Editor.Texturing.Tests;
@@ -13,8 +11,12 @@ namespace Vixen.Editor.Texturing.Tests;
 /// <summary>Doc 48 § D14's second prediction, and what closing it left behind.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>This suite is the evidence for a gap, so its own instrument is the thing to check
-///         first.</b> A test that only asserted "no device" against a bare <c>PluginServices</c>
+///         ⚠
+///         <b>
+///             This suite is the evidence for a gap, so its own instrument is the thing to check
+///             first.
+///         </b>
+///         A test that only asserted "no device" against a bare <c>PluginServices</c>
 ///         would pass on the day a host started publishing one, because it never asked the second
 ///         question. All three states are exercised, and the one that needs a device gets a real
 ///         <see cref="IGraphicsDevice" /> — the Null backend, which is enough because nothing here
@@ -53,8 +55,11 @@ public class TexturePreviewTests {
     /// <summary>And with a device nothing is in the way — which is the half #737 closed.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>The sentence has now had two false halves in it and this assertion held each one in
-    ///         place</b>, which is the reason it asserts an absence rather than a wording. It said
+    ///         <b>
+    ///             The sentence has now had two false halves in it and this assertion held each one in
+    ///             place
+    ///         </b>
+    ///         , which is the reason it asserts an absence rather than a wording. It said
     ///         <c>TextureGraphCompiler</c> was <c>internal</c> long after
     ///         <a href="https://github.com/Rikarin/Vixen/issues/738">#738</a> made it public
     ///         (<a href="https://github.com/Rikarin/Vixen/issues/816">#816</a>), and then said the
@@ -86,8 +91,12 @@ public class TexturePreviewTests {
 
     /// <summary>The contract refuses a service the host did not publish, by name.</summary>
     /// <remarks>
-    ///     ⚠ <b>Asserted here rather than in <c>Vixen.Editor.App.Tests</c>, because this assembly may
-    ///     not reference the application.</b> What it can say is the half that matters to a plugin:
+    ///     ⚠
+    ///     <b>
+    ///         Asserted here rather than in <c>Vixen.Editor.App.Tests</c>, because this assembly may
+    ///         not reference the application.
+    ///     </b>
+    ///     What it can say is the half that matters to a plugin:
     ///     there is no way to hand a service over that does not go through <c>PluginServices.Add</c>,
     ///     so a host that has not called it publishes none and <c>Require</c> refuses with a sentence
     ///     rather than a null reference.

@@ -44,8 +44,11 @@ public sealed record MaterialTexture(string Parameter, AssetReference Texture) {
 /// <summary>A material as a build wrote it and a frame reads it.</summary>
 /// <remarks>
 ///     <para>
-///         <b>The content form of <see cref="MaterialDescriptor" />, and the reason the two are not one
-///         type.</b> A descriptor holds a resolved <see cref="IMaterialShading" /> and says nothing
+///         <b>
+///             The content form of <see cref="MaterialDescriptor" />, and the reason the two are not one
+///             type.
+///         </b>
+///         A descriptor holds a resolved <see cref="IMaterialShading" /> and says nothing
 ///         about textures, because it is what <see cref="MaterialCompiler" /> consumes. This is what an
 ///         <em>asset</em> is: a shading model named rather than constructed, so a document can carry a
 ///         model this build has never heard of and be told so by name, and the texture assignments
@@ -130,7 +133,7 @@ public static class MaterialShading {
     /// <summary>Every model, by the name a document writes.</summary>
     public static IReadOnlyDictionary<string, Func<IMaterialShading>> All { get; } =
         new Dictionary<string, Func<IMaterialShading>>(StringComparer.Ordinal) {
-            ["StandardShading"] = () => new StandardShading(),
+            ["StandardShading"] = static () => new StandardShading(),
 
             // ⚠ The two diffuse models are entries here rather than a third `compose` slot, and that
             // is the decision #1155 asked for. A slot would cost every pass that declares
@@ -138,14 +141,14 @@ public static class MaterialShading {
             // `StandardShading` — the cheap-looking alternative — would be unreachable, because
             // `MaterialRenderFeature.PermutationSources` has no production caller (#1164). Two more
             // shaders need neither: a material selects one by the name it already writes.
-            ["OrenNayarShading"] = () => new OrenNayarShading(),
-            ["BurleyShading"] = () => new BurleyShading(),
-            ["AnisotropicShading"] = () => new AnisotropicShading(),
-            ["ClearCoatShading"] = () => new ClearCoatShading(),
-            ["SheenShading"] = () => new SheenShading(),
-            ["SubsurfaceShading"] = () => new SubsurfaceShading(),
-            ["HairShading"] = () => new HairShading(),
-            ["CelShading"] = () => new CelShading()
+            ["OrenNayarShading"] = static () => new OrenNayarShading(),
+            ["BurleyShading"] = static () => new BurleyShading(),
+            ["AnisotropicShading"] = static () => new AnisotropicShading(),
+            ["ClearCoatShading"] = static () => new ClearCoatShading(),
+            ["SheenShading"] = static () => new SheenShading(),
+            ["SubsurfaceShading"] = static () => new SubsurfaceShading(),
+            ["HairShading"] = static () => new HairShading(),
+            ["CelShading"] = static () => new CelShading()
         };
 
     /// <summary>The model a name means.</summary>

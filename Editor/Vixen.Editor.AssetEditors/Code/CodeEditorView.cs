@@ -4,9 +4,7 @@
 using Vixen.Editor.Core;
 using Vixen.Editor.Ui.Documents;
 using Vixen.Ui;
-using Vixen.Ui.Controls;
 using Vixen.Ui.Controls.Advanced;
-using Vixen.Ui.Markup.Binding;
 
 namespace Vixen.Editor.AssetEditors.Code;
 
@@ -104,7 +102,8 @@ public sealed class MarkupEditorFactory : DocumentKind {
     public override string Name => "UI";
 
     /// <inheritdoc />
-    public override IReadOnlyList<string> Extensions { get; } = [MarkupDocument.Extension, StyleSheetDocument.Extension];
+    public override IReadOnlyList<string> Extensions { get; } =
+        [MarkupDocument.Extension, StyleSheetDocument.Extension];
 
     /// <inheritdoc />
     public override IReadOnlyList<Type> DocumentTypes { get; } = [typeof(StyleSheetDocument), typeof(MarkupDocument)];
@@ -144,7 +143,10 @@ public sealed class MarkupEditorView : DocumentView<MarkupDocument> {
     }
 }
 
-/// <summary>What <see cref="MarkupEditorFactory" />'s stylesheets are shown in: the same control as <see cref="MarkupEditorView" />.</summary>
+/// <summary>
+///     What <see cref="MarkupEditorFactory" />'s stylesheets are shown in: the same control as
+///     <see cref="MarkupEditorView" />.
+/// </summary>
 public sealed class StyleSheetEditorView : DocumentView<StyleSheetDocument> {
     /// <inheritdoc />
     protected override UiElement Build(StyleSheetDocument document, UiElement panel) =>

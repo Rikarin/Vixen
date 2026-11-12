@@ -29,8 +29,12 @@ namespace Vixen.App;
 ///         say more.
 ///     </para>
 ///     <para>
-///         ⚠ <b><c>--vixen-log-level</c> beats the file's <c>minimumLevel</c>, and the file's
-///         per-category rules always apply.</b> Those are not the same decision: the flag and the
+///         ⚠
+///         <b>
+///             <c>--vixen-log-level</c> beats the file's <c>minimumLevel</c>, and the file's
+///             per-category rules always apply.
+///         </b>
+///         Those are not the same decision: the flag and the
 ///         key say the same thing, so the more explicit one has to win, while the command line has
 ///         no per-category form at all and so has nothing to disagree with.
 ///     </para>
@@ -152,8 +156,9 @@ static class LogConfigFile {
                 var rules = Apply(reader.ReadToEnd(), filter, honourMinimumLevel);
 
                 HostLog.LogConfigApplied(log, path, rules, filter.MinimumLevel);
-            } catch (Exception failure) when (failure is FormatException or IOException
-                                              or UnauthorizedAccessException) {
+            } catch (Exception failure) when (failure is FormatException
+                                                  or IOException
+                                                  or UnauthorizedAccessException) {
                 HostLog.LogConfigUnreadable(log, path, failure.Message);
             }
         }
@@ -161,7 +166,7 @@ static class LogConfigFile {
 
     /// <summary>Turns a scalar into a level, or says exactly which key was not one.</summary>
     static LogLevel Level(YamlNode node, string key) {
-        if (node is YamlScalar scalar && Enum.TryParse<LogLevel>(scalar.Value, ignoreCase: true, out var level)) {
+        if (node is YamlScalar scalar && Enum.TryParse<LogLevel>(scalar.Value, true, out var level)) {
             return level;
         }
 

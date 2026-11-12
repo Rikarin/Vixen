@@ -169,7 +169,7 @@ public sealed class NetworkRigidBodyCaptureSystem : SystemBase, IDeclaredAccess 
     public bool IsAuthority(NetworkId id) =>
         Rules is { } rules
             ? rules.MayWrite(id, Local)
-            : NetworkRules.Allows(RuleAudience.ServerOnly, Local, isOwner: false);
+            : NetworkRules.Allows(RuleAudience.ServerOnly, Local, false);
 }
 
 /// <summary>Pulls a body that is not ours toward where the authority says it is.</summary>
@@ -325,7 +325,8 @@ public sealed class NetworkRigidBodyCorrectionSystem : SystemBase, IDeclaredAcce
 
                 if (world.Has<PhysicsAngularVelocity>(entities[index])) {
                     world.Get<PhysicsAngularVelocity>(entities[index]).Value =
-                        bodies[index].AngularVelocity + AngularError(locals[index].Rotation, target[index].Rotation, settings[index]);
+                        bodies[index].AngularVelocity
+                        + AngularError(locals[index].Rotation, target[index].Rotation, settings[index]);
                 }
 
                 CorrectedCount++;
@@ -362,7 +363,7 @@ public sealed class NetworkRigidBodyCorrectionSystem : SystemBase, IDeclaredAcce
     public bool IsAuthority(NetworkId id) =>
         Rules is { } rules
             ? rules.MayWrite(id, Local)
-            : NetworkRules.Allows(RuleAudience.ServerOnly, Local, isOwner: false);
+            : NetworkRules.Allows(RuleAudience.ServerOnly, Local, false);
 
     /// <summary>The angular velocity that would rotate <paramref name="from" /> onto <paramref name="to" />.</summary>
     /// <remarks>

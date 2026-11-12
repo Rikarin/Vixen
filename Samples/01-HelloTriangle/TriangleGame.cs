@@ -29,8 +29,11 @@ namespace Vixen.Samples.HelloTriangle;
 ///         nothing and give up.
 ///     </para>
 ///     <para>
-///         <b>The whole device goes, not just the swapchain, and that is the RHI's shape rather than
-///         a choice.</b> <c>VulkanDevice</c> takes a <c>SurfaceHandle</c> at creation and holds the
+///         <b>
+///             The whole device goes, not just the swapchain, and that is the RHI's shape rather than
+///             a choice.
+///         </b>
+///         <c>VulkanDevice</c> takes a <c>SurfaceHandle</c> at creation and holds the
 ///         <c>VkSurfaceKHR</c> it makes from it, because that is what picking a present-capable queue
 ///         family needs. When Android destroys the <c>ANativeWindow</c>, that surface is invalid, so
 ///         the device built on it is too. Worth knowing before someone tries to make suspend cheap:
@@ -62,11 +65,7 @@ public sealed class TriangleGame : Game {
         // ⚠ `IsVisible` follows `Headless`, because `AppConfig.Apply` has already read the command
         // line by the time this runs — deliberately, so a game can override an operator, which makes
         // an unconditional `true` an override nobody meant to write.
-        config.Window = new() {
-            Title = "Vixen — Hello Triangle",
-            Size = new(1280, 720),
-            IsVisible = !config.Headless
-        };
+        config.Window = new() { Title = "Vixen — Hello Triangle", Size = new(1280, 720), IsVisible = !config.Headless };
 
         // This sample opens its own device and presents its own swapchain, which is the whole point
         // of it — so the host must not open a second one on the same surface. Off is one line, and
@@ -129,7 +128,13 @@ public sealed class TriangleGame : Game {
             var backbuffer = graph!.ImportTexture(
                 swapChain.CurrentTexture,
                 view,
-                new(swapChain.Format, swapChain.Size.X, swapChain.Size.Y, TextureUsage.ColourTarget, Name: "backbuffer"),
+                new(
+                    swapChain.Format,
+                    swapChain.Size.X,
+                    swapChain.Size.Y,
+                    TextureUsage.ColourTarget,
+                    Name: "backbuffer"
+                ),
 
                 // Undefined on entry: the image's previous contents are the frame before last's, and
                 // nothing here reads them. Present on exit, or the presentation engine is handed an
@@ -138,16 +143,20 @@ public sealed class TriangleGame : Game {
                 ResourceState.Present
             );
 
-            var hue = (float)((Math.Sin(time.Total.TotalSeconds) * 0.5) + 0.5);
+            var hue = (float)(Math.Sin(time.Total.TotalSeconds) * 0.5 + 0.5);
 
-            graph.AddPass("triangle", pass => {
-                pass.ColourAttachment(backbuffer, LoadAction.Clear, new(0.05f, hue * 0.1f, 0.15f, 1f));
+            graph.AddPass(
+                "triangle",
+                pass => {
+                    pass.ColourAttachment(backbuffer, LoadAction.Clear, new(0.05f, hue * 0.1f, 0.15f, 1f));
 
-                pass.Execute(context => {
-                    context.CommandList.BindPipeline(pipeline);
-                    context.CommandList.Draw(3);
-                });
-            });
+                    pass.Execute(context => {
+                            context.CommandList.BindPipeline(pipeline);
+                            context.CommandList.Draw(3);
+                        }
+                    );
+                }
+            );
 
             graph.Execute(commands);
             graph.Reset();
@@ -191,33 +200,36 @@ public sealed class TriangleGame : Game {
 
         waiting = false;
 
-        device = VulkanDevice.Create(new() {
-            Surface = window.Surface.Handle,
-            Logger = Services.LoggerFactory.CreateLogger("Vulkan")
-        });
+        device = VulkanDevice.Create(
+            new() { Surface = window.Surface.Handle, Logger = Services.LoggerFactory.CreateLogger("Vulkan") }
+        );
 
         pool = new(device);
         graph = new(device, pool);
 
-        swapChain = device.CreateSwapChain(new(
-            window.Surface.Handle,
-            new(window.FramebufferSize.X, window.FramebufferSize.Y),
-            PixelFormat.Bgra8UNormSrgb
-        ));
+        swapChain = device.CreateSwapChain(
+            new(
+                window.Surface.Handle,
+                new(window.FramebufferSize.X, window.FramebufferSize.Y),
+                PixelFormat.Bgra8UNormSrgb
+            )
+        );
 
         vertexShader = device.CreateShader(ShaderStage.Vertex, Load("triangle.vert.spv"), "triangle vertex");
         fragmentShader = device.CreateShader(ShaderStage.Fragment, Load("triangle.frag.spv"), "triangle fragment");
         layout = device.CreatePipelineLayout(new([], null, "triangle layout"));
 
-        pipeline = device.CreateGraphicsPipeline(new(
-            vertexShader,
-            fragmentShader,
-            layout,
-            [new(swapChain.Format)],
-            Rasterizer: RasterizerState.TwoSided,
-            DepthStencil: DepthStencilState.Disabled,
-            Name: "triangle"
-        ));
+        pipeline = device.CreateGraphicsPipeline(
+            new(
+                vertexShader,
+                fragmentShader,
+                layout,
+                [new(swapChain.Format)],
+                Rasterizer: RasterizerState.TwoSided,
+                DepthStencil: DepthStencilState.Disabled,
+                Name: "triangle"
+            )
+        );
 
         if (log is not null) {
             SampleLog.DeviceReady(
@@ -276,7 +288,8 @@ public sealed class TriangleGame : Game {
 
     static byte[] Load(string name) {
         var assembly = Assembly.GetExecutingAssembly();
-        var resource = assembly.GetManifestResourceNames().Single(entry => entry.EndsWith(name, StringComparison.Ordinal));
+        var resource = assembly.GetManifestResourceNames()
+            .Single(entry => entry.EndsWith(name, StringComparison.Ordinal));
         using var stream = assembly.GetManifestResourceStream(resource)!;
         using var memory = new MemoryStream();
         stream.CopyTo(memory);

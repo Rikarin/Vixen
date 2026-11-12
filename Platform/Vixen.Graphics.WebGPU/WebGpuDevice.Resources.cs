@@ -110,9 +110,7 @@ public sealed partial class WebGpuDevice {
 
     /// <inheritdoc />
     public SamplerHandle CreateSampler(in SamplerDescription description) {
-        var handle = binding.CreateSampler(
-            WebGpuConversions.ToWebGpu(description, Features.HasAnisotropicFiltering)
-        );
+        var handle = binding.CreateSampler(WebGpuConversions.ToWebGpu(description, Features.HasAnisotropicFiltering));
 
         lock (gate) {
             return new(samplers.Add(new WebGpuSampler(handle, description)));
@@ -141,7 +139,7 @@ public sealed partial class WebGpuDevice {
         }
 
         var source = LooksLikeSpirV(bytecode) ? WgpuShaderSource.SpirV : WgpuShaderSource.Wgsl;
-        var handle = binding.CreateShaderModule(new(source, bytecode.ToArray(), name));
+        var handle = binding.CreateShaderModule(new(source, [..bytecode], name));
 
         lock (gate) {
             return new(shaders.Add(new WebGpuShader(handle, stage, name)));
@@ -240,9 +238,7 @@ public sealed partial class WebGpuDevice {
         var handle = binding.CreatePipelineLayout(new(groups, description.Name));
 
         lock (gate) {
-            return new(
-                pipelineLayouts.Add(new WebGpuPipelineLayout(handle, pushGroup, sets.Length, description.Name))
-            );
+            return new(pipelineLayouts.Add(new WebGpuPipelineLayout(handle, pushGroup, sets.Length, description.Name)));
         }
     }
 
@@ -253,9 +249,7 @@ public sealed partial class WebGpuDevice {
                 throw new ArgumentException("The layout does not exist, or has been destroyed.", nameof(layout));
             }
 
-            return new(
-                descriptorSets.Add(new WebGpuDescriptorSet(layout, (WebGpuDescriptorSetLayout)found, name))
-            );
+            return new(descriptorSets.Add(new WebGpuDescriptorSet(layout, (WebGpuDescriptorSetLayout)found, name)));
         }
     }
 
@@ -294,7 +288,7 @@ public sealed partial class WebGpuDevice {
             if (slot < 0) {
                 throw new ArgumentException(
                     $"Descriptor set '{set.Name}' has no binding {write.Binding}. Its layout declares "
-                    + $"{string.Join(", ", bindings.Select(item => item.Binding))}.",
+                    + $"{string.Join(", ", bindings.Select(static item => item.Binding))}.",
                     nameof(writes)
                 );
             }
@@ -314,9 +308,7 @@ public sealed partial class WebGpuDevice {
             return;
         }
 
-        var handle = binding.CreateBindGroup(
-            new(set.ResolvedLayout.Handle, [.. set.Entries], set.Name)
-        );
+        var handle = binding.CreateBindGroup(new(set.ResolvedLayout.Handle, [..set.Entries], set.Name));
 
         var previous = set.Handle;
         set.Handle = handle;
@@ -369,9 +361,7 @@ public sealed partial class WebGpuDevice {
         var target = ResolveBuffer(buffer, "a host read");
 
         if (target.Description.Access != MemoryAccess.HostReadback) {
-            throw new InvalidOperationException(
-                $"Buffer '{target.Description.Name}' is not a readback buffer."
-            );
+            throw new InvalidOperationException($"Buffer '{target.Description.Name}' is not a readback buffer.");
         }
 
         if (offset < 0 || offset + destination.Length > target.Description.Size) {
@@ -393,69 +383,107 @@ public sealed partial class WebGpuDevice {
     }
 
     /// <inheritdoc />
-    public void Destroy(BufferHandle handle) => Destroy(buffers, handle.Value, static (device, item) => {
-        device.binding.Release(WebGpuObjectKind.Buffer, ((WebGpuBuffer)item).Handle);
-    });
-
-    /// <inheritdoc />
-    public void Destroy(TextureHandle handle) => Destroy(textures, handle.Value, static (device, item) => {
-        var texture = (WebGpuTexture)item;
-
-        if (texture.Owned) {
-            device.binding.Release(WebGpuObjectKind.Texture, texture.Handle);
-        }
-    });
-
-    /// <inheritdoc />
-    public void Destroy(TextureViewHandle handle) => Destroy(views, handle.Value, static (device, item) => {
-        var view = (WebGpuTextureView)item;
-
-        if (view.Owned) {
-            device.binding.Release(WebGpuObjectKind.TextureView, view.Handle);
-        }
-    });
-
-    /// <inheritdoc />
-    public void Destroy(SamplerHandle handle) => Destroy(samplers, handle.Value, static (device, item) => {
-        device.binding.Release(WebGpuObjectKind.Sampler, ((WebGpuSampler)item).Handle);
-    });
-
-    /// <inheritdoc />
-    public void Destroy(ShaderHandle handle) => Destroy(shaders, handle.Value, static (device, item) => {
-        device.binding.Release(WebGpuObjectKind.ShaderModule, ((WebGpuShader)item).Handle);
-    });
-
-    /// <inheritdoc />
-    public void Destroy(PipelineHandle handle) => Destroy(pipelines, handle.Value, static (device, item) => {
-        var pipeline = (WebGpuPipeline)item;
-
-        device.binding.Release(
-            pipeline.IsCompute ? WebGpuObjectKind.ComputePipeline : WebGpuObjectKind.RenderPipeline,
-            pipeline.Handle
+    public void Destroy(BufferHandle handle) =>
+        Destroy(
+            buffers,
+            handle.Value,
+            static (device, item) => { device.binding.Release(WebGpuObjectKind.Buffer, ((WebGpuBuffer)item).Handle); }
         );
-    });
+
+    /// <inheritdoc />
+    public void Destroy(TextureHandle handle) =>
+        Destroy(
+            textures,
+            handle.Value,
+            static (device, item) => {
+                var texture = (WebGpuTexture)item;
+
+                if (texture.Owned) {
+                    device.binding.Release(WebGpuObjectKind.Texture, texture.Handle);
+                }
+            }
+        );
+
+    /// <inheritdoc />
+    public void Destroy(TextureViewHandle handle) =>
+        Destroy(
+            views,
+            handle.Value,
+            static (device, item) => {
+                var view = (WebGpuTextureView)item;
+
+                if (view.Owned) {
+                    device.binding.Release(WebGpuObjectKind.TextureView, view.Handle);
+                }
+            }
+        );
+
+    /// <inheritdoc />
+    public void Destroy(SamplerHandle handle) =>
+        Destroy(
+            samplers,
+            handle.Value,
+            static (device, item) => { device.binding.Release(WebGpuObjectKind.Sampler, ((WebGpuSampler)item).Handle); }
+        );
+
+    /// <inheritdoc />
+    public void Destroy(ShaderHandle handle) =>
+        Destroy(
+            shaders,
+            handle.Value,
+            static (device, item) => {
+                device.binding.Release(WebGpuObjectKind.ShaderModule, ((WebGpuShader)item).Handle);
+            }
+        );
+
+    /// <inheritdoc />
+    public void Destroy(PipelineHandle handle) =>
+        Destroy(
+            pipelines,
+            handle.Value,
+            static (device, item) => {
+                var pipeline = (WebGpuPipeline)item;
+
+                device.binding.Release(
+                    pipeline.IsCompute ? WebGpuObjectKind.ComputePipeline : WebGpuObjectKind.RenderPipeline,
+                    pipeline.Handle
+                );
+            }
+        );
 
     /// <inheritdoc />
     public void Destroy(PipelineLayoutHandle handle) =>
-        Destroy(pipelineLayouts, handle.Value, static (device, item) => {
-            device.binding.Release(WebGpuObjectKind.PipelineLayout, ((WebGpuPipelineLayout)item).Handle);
-        });
+        Destroy(
+            pipelineLayouts,
+            handle.Value,
+            static (device, item) => {
+                device.binding.Release(WebGpuObjectKind.PipelineLayout, ((WebGpuPipelineLayout)item).Handle);
+            }
+        );
 
     /// <inheritdoc />
     public void Destroy(DescriptorSetLayoutHandle handle) =>
-        Destroy(setLayouts, handle.Value, static (device, item) => {
-            device.binding.Release(WebGpuObjectKind.BindGroupLayout, ((WebGpuDescriptorSetLayout)item).Handle);
-        });
+        Destroy(
+            setLayouts,
+            handle.Value,
+            static (device, item) => {
+                device.binding.Release(WebGpuObjectKind.BindGroupLayout, ((WebGpuDescriptorSetLayout)item).Handle);
+            }
+        );
 
     /// <inheritdoc />
     public void Destroy(DescriptorSetHandle handle) =>
-        Destroy(descriptorSets, handle.Value, static (device, item) => {
-            var set = (WebGpuDescriptorSet)item;
+        Destroy(
+            descriptorSets,
+            handle.Value,
+            static (device, item) => {
+                var set = (WebGpuDescriptorSet)item;
 
-            if (set.Handle.IsValid) {
-                device.binding.Release(WebGpuObjectKind.BindGroup, set.Handle);
+                if (set.Handle.IsValid) {
+                    device.binding.Release(WebGpuObjectKind.BindGroup, set.Handle);
+                }
             }
-        });
+        );
 
     // ── What the command list resolves through ──────────────────────────────────────────────
 
@@ -560,9 +588,7 @@ public sealed partial class WebGpuDevice {
             // The texture is not owned — the surface will invalidate it at the next present, and
             // releasing it ourselves is a double free. The view is ours, and is released with it.
             var textureHandle = new TextureHandle(textures.Add(new WebGpuTexture(texture, description, false)));
-            var viewHandle = new TextureViewHandle(
-                views.Add(new WebGpuTextureView(view, textureHandle, format, true))
-            );
+            var viewHandle = new TextureViewHandle(views.Add(new WebGpuTextureView(view, textureHandle, format, true)));
 
             return (textureHandle, viewHandle);
         }
@@ -572,7 +598,7 @@ public sealed partial class WebGpuDevice {
         var start = offset & ~3L;
         var end = (offset + data.Length + 3) & ~3L;
         var length = (int)(end - start);
-        Span<byte> scratch = length <= 512 ? stackalloc byte[length] : new byte[length];
+        var scratch = length <= 512 ? stackalloc byte[length] : new byte[length];
 
         scratch.Clear();
         data.CopyTo(scratch[(int)(offset - start)..]);
@@ -665,7 +691,9 @@ public sealed partial class WebGpuDevice {
                 // one is SamplerDescription's default being trilinear. A comparison sampler is past
                 // this already — the check above pairs it with the only declaration it fits, and
                 // filtering one is how PCF is spelled.
-                if (declared.Kind == DescriptorKind.Sampler && !declared.Filters && !declared.IsComparisonSampler
+                if (declared.Kind == DescriptorKind.Sampler
+                    && !declared.Filters
+                    && !declared.IsComparisonSampler
                     && sampler.Filters) {
                     throw new ArgumentException(
                         $"Filtering sampler '{sampler.Name}' was bound to binding {write.Binding} of "

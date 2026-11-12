@@ -25,8 +25,12 @@ namespace Tests;
 ///         every binding the material cannot fill.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Which is why the imposing stage is part of a variant's identity, and why it used not
-///         to be.</b> Keyed on <c>(material, flags, shader)</c> alone, two stages naming one shader
+///         ⚠
+///         <b>
+///             Which is why the imposing stage is part of a variant's identity, and why it used not
+///             to be.
+///         </b>
+///         Keyed on <c>(material, flags, shader)</c> alone, two stages naming one shader
 ///         collapsed to one variant and whichever of them reached a material <em>first</em> decided
 ///         what every stage drew with. A frame with one caster stage could never notice. Splitting the
 ///         cascades' casters into a cached half and a moving half made the second stage's objects
@@ -110,7 +114,12 @@ public sealed class CasterStageParameterTests : IDisposable {
                     SetLayouts = [default, default, caster, default],
                     Bindings = [
                         new("opacityMap", DescriptorSetSlot.PerMaterial, OpacityBinding, DescriptorKind.SampledTexture),
-                        new("opacitySampler", DescriptorSetSlot.PerMaterial, OpacitySamplerBinding, DescriptorKind.Sampler)
+                        new(
+                            "opacitySampler",
+                            DescriptorSetSlot.PerMaterial,
+                            OpacitySamplerBinding,
+                            DescriptorKind.Sampler
+                        )
                     ]
                 },
                 _ => new() {
@@ -119,7 +128,12 @@ public sealed class CasterStageParameterTests : IDisposable {
                     SetLayouts = [default, default, lit, default],
                     Bindings = [
                         new("albedo", DescriptorSetSlot.PerMaterial, OpacityBinding, DescriptorKind.SampledTexture),
-                        new("albedoSampler", DescriptorSetSlot.PerMaterial, OpacitySamplerBinding, DescriptorKind.Sampler)
+                        new(
+                            "albedoSampler",
+                            DescriptorSetSlot.PerMaterial,
+                            OpacitySamplerBinding,
+                            DescriptorKind.Sampler
+                        )
                     ]
                 }
             };
@@ -171,9 +185,7 @@ public sealed class CasterStageParameterTests : IDisposable {
         var projection = Matrix4x4.PerspectiveFieldOfView(MathF.PI / 3f, 1f, 0.1f, 1000f);
 
         var camera = new RenderView("camera") {
-            Stages = opaque.Mask | movers.Mask | statics.Mask,
-            Position = Vector3.Zero,
-            Frustum = new(view * projection)
+            Stages = opaque.Mask | movers.Mask | statics.Mask, Position = Vector3.Zero, Frustum = new(view * projection)
         };
 
         system.SetViews([camera]);
@@ -211,8 +223,14 @@ public sealed class CasterStageParameterTests : IDisposable {
         device.CreateTextureView(
             device.CreateTexture(
                 new() {
-                    Width = 4, Height = 4, Depth = 1, MipLevels = 1, ArrayLayers = 1, SampleCount = 1,
-                    Format = PixelFormat.Rgba8UNorm, Usage = TextureUsage.Sampled
+                    Width = 4,
+                    Height = 4,
+                    Depth = 1,
+                    MipLevels = 1,
+                    ArrayLayers = 1,
+                    SampleCount = 1,
+                    Format = PixelFormat.Rgba8UNorm,
+                    Usage = TextureUsage.Sampled
                 }
             )
         );
@@ -251,7 +269,7 @@ public sealed class CasterStageParameterTests : IDisposable {
     /// <summary>And a stage whose parameters the host did fill is bound, and counted as bound.</summary>
     [Fact]
     public void A_filled_caster_stage_is_bound() {
-        using var h = Build(fillStatics: true);
+        using var h = Build(true);
         var id = AddMesh(h, h.Opaque.Mask | h.Statics.Mask);
 
         Frame(h);
@@ -281,7 +299,7 @@ public sealed class CasterStageParameterTests : IDisposable {
     /// </remarks>
     [Fact]
     public void Each_caster_stage_is_bound_from_its_own_parameters() {
-        using var h = Build(fillStatics: true);
+        using var h = Build(true);
 
         // One material, which is what makes this one material's worth of variants — two crates out of
         // the same material, one of them nailed down.
@@ -336,7 +354,7 @@ public sealed class CasterStageParameterTests : IDisposable {
     /// </remarks>
     [Fact]
     public void A_caster_in_both_stages_is_bound_in_both() {
-        using var h = Build(fillStatics: true);
+        using var h = Build(true);
         var id = AddMesh(h, h.Opaque.Mask | h.Movers.Mask | h.Statics.Mask);
 
         Frame(h);

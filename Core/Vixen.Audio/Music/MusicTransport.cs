@@ -108,7 +108,7 @@ public sealed class MusicTransport(int sampleRate) {
                     steps++;
                 }
 
-                return Origin + (steps * segmentFrames);
+                return Origin + steps * segmentFrames;
             }
 
             default:

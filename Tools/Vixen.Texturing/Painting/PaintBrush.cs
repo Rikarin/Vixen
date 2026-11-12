@@ -48,8 +48,12 @@ public readonly record struct PaintStamp(
 ) {
     /// <summary>The aspect as the kernel may use it: at least one, finite, and capped.</summary>
     /// <remarks>
-    ///     ⚠ <b>Capped at <see cref="PaintBrush.MaximumAspect" /> because the cost is linear in it
-    ///     while the painted area is not.</b> The footprint rectangle is conservative and
+    ///     ⚠
+    ///     <b>
+    ///         Capped at <see cref="PaintBrush.MaximumAspect" /> because the cost is linear in it
+    ///         while the painted area is not.
+    ///     </b>
+    ///     The footprint rectangle is conservative and
     ///     rotation-independent, so its half-extent is the long semi-axis in <em>both</em> directions
     ///     — an aspect of <i>n</i> is <i>n</i> times the texels scanned for the same amount of paint.
     ///     A chart whose Jacobian is nearly singular reports an anisotropy in the thousands, and an
@@ -57,8 +61,7 @@ public readonly record struct PaintStamp(
     ///     8 is about. Past the cap the stamp is wrong in the old way, on charts that are already
     ///     unusable; below it, it is right.
     /// </remarks>
-    public float Stretch =>
-        Aspect > 1f && float.IsFinite(Aspect) ? MathF.Min(Aspect, PaintBrush.MaximumAspect) : 1f;
+    public float Stretch => Aspect > 1f && float.IsFinite(Aspect) ? MathF.Min(Aspect, PaintBrush.MaximumAspect) : 1f;
 }
 
 /// <summary>
@@ -66,8 +69,11 @@ public readonly record struct PaintStamp(
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>⚠ The primitive was not rebuilt, and deciding that was the first question of doc 48
-///         § M9.</b> Three homes were on the table — a new type here, a new <c>Core</c> assembly, or
+///         <b>
+///             ⚠ The primitive was not rebuilt, and deciding that was the first question of doc 48
+///             § M9.
+///         </b>
+///         Three homes were on the table — a new type here, a new <c>Core</c> assembly, or
 ///         <c>Core/Vixen.Terrain</c> beside the terrain one — and the answer is that the arithmetic
 ///         already has a home and it is not terrain-shaped. <c>TerrainBrush</c>'s own remarks say
 ///         "one service, three consumers … it does not know what the answer will be multiplied
@@ -79,8 +85,12 @@ public readonly record struct PaintStamp(
 ///         and not two.
 ///     </para>
 ///     <para>
-///         ⚠ <b>So the only thing this type adds is what a paint brush has and a terrain brush does
-///         not.</b> Two things, and they are the two doc 48 § M9's scope line names beside the
+///         ⚠
+///         <b>
+///             So the only thing this type adds is what a paint brush has and a terrain brush does
+///             not.
+///         </b>
+///         Two things, and they are the two doc 48 § M9's scope line names beside the
 ///         shared five:
 ///     </para>
 ///     <list type="bullet">
@@ -306,8 +316,12 @@ public readonly record struct PaintBrush {
     ///         and it is why the stroke's spacing, flow and opacity need no compensating change.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The mask and the falloff are evaluated in this space rather than in the
-    ///         atlas.</b> An alpha stamped on a chart stretched four to one is stretched with it,
+    ///         ⚠
+    ///         <b>
+    ///             The mask and the falloff are evaluated in this space rather than in the
+    ///             atlas.
+    ///         </b>
+    ///         An alpha stamped on a chart stretched four to one is stretched with it,
     ///         which is what an artist means by painting a shape onto a surface — a mask kept round
     ///         in the atlas would be round in a place nobody looks at and wrong on the model.
     ///     </para>
@@ -325,10 +339,10 @@ public readonly record struct PaintBrush {
 
         // Along the long axis and across it, each divided by its own semi-axis in units of the
         // radius — which is the ellipse's equation, written as a point rather than as a test.
-        var along = ((offset.X * cos) + (offset.Y * sin)) / half;
-        var across = ((offset.Y * cos) - (offset.X * sin)) * half;
+        var along = (offset.X * cos + offset.Y * sin) / half;
+        var across = (offset.Y * cos - offset.X * sin) * half;
 
-        return stamp.Centre + new Vector2((along * cos) - (across * sin), (along * sin) + (across * cos));
+        return stamp.Centre + new Vector2(along * cos - across * sin, along * sin + across * cos);
     }
 
     /// <summary>Everything a stamp can touch, as whole texels.</summary>
@@ -343,8 +357,12 @@ public readonly record struct PaintBrush {
     ///         never too small.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>So an elliptical stamp is bounded by its <em>long</em> semi-axis in both
-    ///         directions</b> — <c>r√a</c> — and not by the ellipse's own axis-aligned box. The tight
+    ///         ⚠
+    ///         <b>
+    ///             So an elliptical stamp is bounded by its <em>long</em> semi-axis in both
+    ///             directions
+    ///         </b>
+    ///         — <c>r√a</c> — and not by the ellipse's own axis-aligned box. The tight
     ///         box would be right for the falloff and wrong for the alpha, whose square in the
     ///         circularised space is a parallelogram in the atlas; and a footprint that was ever one
     ///         texel too small is a stamp writing outside the rectangle its undo record was sized

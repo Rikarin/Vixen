@@ -3,7 +3,6 @@
 
 using Vixen.Core;
 using Vixen.Editor.AssetEditors.Audio;
-using Vixen.Input;
 using Vixen.Ui;
 using Vixen.Ui.Controls;
 using Xunit;
@@ -57,7 +56,10 @@ public class FactValueFillTests {
         Assert.Equal(cell.Width, box.Width, 0.5f);
 
         // The control: a check box is the size it is.
-        Assert.True(check.Width < check.Parent!.Width / 2, $"a check box is {check.Width} px of a {check.Parent!.Width} px cell");
+        Assert.True(
+            check.Width < check.Parent!.Width / 2,
+            $"a check box is {check.Width} px of a {check.Parent!.Width} px cell"
+        );
     }
 
     /// <summary>
@@ -113,11 +115,14 @@ public class FactValueFillTests {
         view.Show(document);
         harness.Ui.Frame();
 
-        var strip = view.Strips.Children.First(candidate => candidate.Children.Any(child => child.Text == "Music"));
+        var strip = view.Strips.Children.First(static candidate => candidate.Children.Any(static child =>
+                child.Text == "Music"
+            )
+        );
 
         harness.Ui.Document.Dispatch(
             new PointerEvent {
-                X = strip.AbsoluteLeft + (strip.Width / 2f),
+                X = strip.AbsoluteLeft + strip.Width / 2f,
                 Y = strip.AbsoluteTop + 4f,
                 Action = PointerAction.Pressed,
                 Button = PointerButton.Primary
@@ -131,7 +136,7 @@ public class FactValueFillTests {
 
         // Name, Parent and Sidechain — and Sidechain is empty, which is the 18 px case.
         Assert.Equal(3, boxes.Count);
-        Assert.Contains(boxes, box => string.IsNullOrEmpty(box.Value));
+        Assert.Contains(boxes, static box => string.IsNullOrEmpty(box.Value));
 
         foreach (var box in boxes) {
             Assert.True(box.Parent!.Width > 100f, $"the value cell is {box.Parent!.Width} px wide");

@@ -65,9 +65,13 @@ public abstract partial class RangeBase : Control {
     ///         too.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b><see cref="Slider" />, <see cref="RangeSlider" /> and <see cref="LevelIndicator" />
-    ///         draw them; <see cref="ProgressBar" /> and <see cref="Gauge" /> inherit the property and
-    ///         ignore it.</b> It is here because the snapping arithmetic is. A level indicator is the
+    ///         ⚠
+    ///         <b>
+    ///             <see cref="Slider" />, <see cref="RangeSlider" /> and <see cref="LevelIndicator" />
+    ///             draw them; <see cref="ProgressBar" /> and <see cref="Gauge" /> inherit the property and
+    ///             ignore it.
+    ///         </b>
+    ///         It is here because the snapping arithmetic is. A level indicator is the
     ///         control AppKit's own tick marks belong to, and drew none until #1444. A progress bar
     ///         marks a job rather than a scale, and a dial's marks run round an arc that
     ///         <see cref="DrawTicks(DrawContext, Rectangle)" /> does not know how to draw.
@@ -92,14 +96,15 @@ public abstract partial class RangeBase : Control {
     [UiProperty(Changed = nameof(OnSnapsToTicksChanged))]
     public partial bool SnapsToTicks { get; set; }
 
-    /// <summary>What a drag, a snap and one arrow press move in: the tick spacing when snapping, otherwise <see cref="Step" />.</summary>
-    protected float Increment =>
-        SnapsToTicks && TickCount >= 2 ? (Maximum - Minimum) / (TickCount - 1) : Step;
+    /// <summary>
+    ///     What a drag, a snap and one arrow press move in: the tick spacing when snapping, otherwise <see cref="Step" />.
+    /// </summary>
+    protected float Increment => SnapsToTicks && TickCount >= 2 ? (Maximum - Minimum) / (TickCount - 1) : Step;
 
     /// <summary>Where a tick sits along the rail, as zero to one.</summary>
     /// <param name="index">Which tick, from the minimum end.</param>
     /// <param name="count">How many there are.</param>
-    protected static float TickFraction(int index, int count) => count <= 1 ? 0.5f : index / (float) (count - 1);
+    protected static float TickFraction(int index, int count) => count <= 1 ? 0.5f : index / (float)(count - 1);
 
     /// <summary>How far a tick reaches past each long edge of the rail.</summary>
     const float TickReach = 3f;
@@ -142,7 +147,7 @@ public abstract partial class RangeBase : Control {
             return;
         }
 
-        var length = Thickness(rail) + (2f * reach);
+        var length = Thickness(rail) + 2f * reach;
 
         for (var index = 0; index < count; index++) {
             var fraction = TickFraction(index, count);
@@ -150,14 +155,14 @@ public abstract partial class RangeBase : Control {
             context.FillRectangle(
                 IsVertical
                     ? new Rectangle(
-                        rail.X + ((rail.Width - length) * 0.5f),
+                        rail.X + (rail.Width - length) * 0.5f,
                         OnRail(rail.Y, rail.Height, 1f - fraction),
                         length,
                         1f
                     )
                     : new Rectangle(
                         OnRail(rail.X, rail.Width, fraction),
-                        rail.Y + ((rail.Height - length) * 0.5f),
+                        rail.Y + (rail.Height - length) * 0.5f,
                         1f,
                         length
                     ),
@@ -170,7 +175,7 @@ public abstract partial class RangeBase : Control {
     static float OnRail(float start, float extent, float fraction) =>
         MathF.Max(
             MathF.Floor(start),
-            MathF.Min(MathF.Floor(start + (extent * fraction)), MathF.Ceiling(start + extent) - 1f)
+            MathF.Min(MathF.Floor(start + extent * fraction), MathF.Ceiling(start + extent) - 1f)
         );
 
     void OnTicksChanged(int previous, int current) => OnBoundsChanged();
@@ -204,20 +209,23 @@ public abstract partial class RangeBase : Control {
     }
 
     /// <summary>The value a fraction of the way along the range, snapped to <see cref="Increment" />.</summary>
-    protected float ValueAt(float fraction) =>
-        Snap(Minimum + (Math.Clamp(fraction, 0f, 1f) * (Maximum - Minimum)));
+    protected float ValueAt(float fraction) => Snap(Minimum + Math.Clamp(fraction, 0f, 1f) * (Maximum - Minimum));
 
     /// <summary>Brings a value inside the bounds and onto a step, or onto a tick when <see cref="SnapsToTicks" />.</summary>
     protected float Snap(float value) {
         var increment = Increment;
 
-        return Clamp(increment > 0f ? Minimum + (MathF.Round((value - Minimum) / increment) * increment) : value);
+        return Clamp(increment > 0f ? Minimum + MathF.Round((value - Minimum) / increment) * increment : value);
     }
 
     /// <summary>Brings a value inside the bounds, whichever way round they currently are.</summary>
     /// <remarks>
-    ///     ⚠ <b>Not <c>Math.Clamp(value, Minimum, Maximum)</c>, and the reason is that the bounds are
-    ///     two properties.</b> They are therefore set one at a time, so a caller configuring a
+    ///     ⚠
+    ///     <b>
+    ///         Not <c>Math.Clamp(value, Minimum, Maximum)</c>, and the reason is that the bounds are
+    ///         two properties.
+    ///     </b>
+    ///     They are therefore set one at a time, so a caller configuring a
     ///     slider for <c>[Range(8, 4096)]</c> passes through an instant where <see cref="Minimum" />
     ///     is 8 and <see cref="Maximum" /> is still its default 1 — and each setter re-snaps the
     ///     value, so <c>Math.Clamp</c> throws from inside a property assignment. A control that
@@ -229,8 +237,12 @@ public abstract partial class RangeBase : Control {
     /// <summary>Which way it runs.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Here rather than on <see cref="Slider" />, because every helper below reads
-    ///         it.</b> The rail, the thumb and the fraction under a pointer are one arithmetic problem
+    ///         ⚠
+    ///         <b>
+    ///             Here rather than on <see cref="Slider" />, because every helper below reads
+    ///             it.
+    ///         </b>
+    ///         The rail, the thumb and the fraction under a pointer are one arithmetic problem
     ///         with an axis in it, and a subclass that had to re-derive the axis for each of them is
     ///         the version of this that gets one of the three wrong.
     ///     </para>
@@ -259,9 +271,9 @@ public abstract partial class RangeBase : Control {
         if (IsVertical) {
             var width = MathF.Min(bounds.Width, MathF.Max(2f, thumb * 0.3f));
 
-            return new Rectangle(
-                bounds.X + ((bounds.Width - width) * 0.5f),
-                bounds.Y + (thumb * 0.5f),
+            return new(
+                bounds.X + (bounds.Width - width) * 0.5f,
+                bounds.Y + thumb * 0.5f,
                 width,
                 MathF.Max(0f, bounds.Height - thumb)
             );
@@ -269,9 +281,9 @@ public abstract partial class RangeBase : Control {
 
         var height = MathF.Min(bounds.Height, MathF.Max(2f, thumb * 0.3f));
 
-        return new Rectangle(
-            bounds.X + (thumb * 0.5f),
-            bounds.Y + ((bounds.Height - height) * 0.5f),
+        return new(
+            bounds.X + thumb * 0.5f,
+            bounds.Y + (bounds.Height - height) * 0.5f,
             MathF.Max(0f, bounds.Width - thumb),
             height
         );
@@ -290,12 +302,12 @@ public abstract partial class RangeBase : Control {
     /// </remarks>
     protected Rectangle Span(Rectangle rail, float from, float to) {
         if (!IsVertical) {
-            return new Rectangle(rail.X + (rail.Width * from), rail.Y, rail.Width * (to - from), rail.Height);
+            return new(rail.X + rail.Width * from, rail.Y, rail.Width * (to - from), rail.Height);
         }
 
-        return new Rectangle(
+        return new(
             rail.X,
-            rail.Y + (rail.Height * (1f - to)),
+            rail.Y + rail.Height * (1f - to),
             rail.Width,
             rail.Height * (to - from)
         );
@@ -316,8 +328,12 @@ public abstract partial class RangeBase : Control {
     /// <summary>The ring drawn just inside a thumb's edge. Transparent draws none.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A thumb is the one part of a control the user has to <i>find</i> before it can be
-    ///         used, and a fill alone cannot promise that.</b> The light palette's
+    ///         ⚠
+    ///         <b>
+    ///             A thumb is the one part of a control the user has to <i>find</i> before it can be
+    ///             used, and a fill alone cannot promise that.
+    ///         </b>
+    ///         The light palette's
     ///         <c>--thumb-color</c> is <c>#ffffff</c> and its <c>--surface</c> is <c>#ffffff</c>, so
     ///         a slider at its minimum drew a white disc on white paper and had no visible thumb at
     ///         all — the fill was legible only where it happened to overlap
@@ -339,8 +355,10 @@ public abstract partial class RangeBase : Control {
     /// <param name="context">Where to draw.</param>
     /// <param name="rail">The whole rail, rounded at both ends.</param>
     /// <param name="from">Where the fill will start, as a fraction of the rail.</param>
-    /// <param name="to">Where it will end. At or before <paramref name="from" /> there is no fill, and
-    ///     the whole track is drawn.</param>
+    /// <param name="to">
+    ///     Where it will end. At or before <paramref name="from" /> there is no fill, and
+    ///     the whole track is drawn.
+    /// </param>
     /// <remarks>
     ///     <para>
     ///         ⚠ <b>Only where the fill is not, rather than whole and underneath it</b> — the defect
@@ -353,8 +371,12 @@ public abstract partial class RangeBase : Control {
     ///         way round.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Each piece reaches under the fill by the rail's whole thickness, and that is what
-    ///         keeps the join shut.</b> The fill keeps its rounded end. A track that stopped where the
+    ///         ⚠
+    ///         <b>
+    ///             Each piece reaches under the fill by the rail's whole thickness, and that is what
+    ///             keeps the join shut.
+    ///         </b>
+    ///         The fill keeps its rounded end. A track that stopped where the
     ///         fill stopped, rounded too, would be two pills touching at a point with the background
     ///         showing between them. Reaching under by one thickness makes the piece's own rounded
     ///         end the <i>same circle</i> as the fill's end cap: half of it lies inside the fill's
@@ -392,11 +414,11 @@ public abstract partial class RangeBase : Control {
         // Each piece reaches under the fill by the fill's whole end cap, so that its own rounded end is
         // the same circle as the fill's. See the remarks.
         if (from > 0f) {
-            context.FillRectangle(Span(rail, 0f, MathF.Min(1f, from + (2f * under))), TrackColor, radius);
+            context.FillRectangle(Span(rail, 0f, MathF.Min(1f, from + 2f * under)), TrackColor, radius);
         }
 
         if (to < 1f) {
-            context.FillRectangle(Span(rail, MathF.Max(0f, to - (2f * under)), 1f), TrackColor, radius);
+            context.FillRectangle(Span(rail, MathF.Max(0f, to - 2f * under), 1f), TrackColor, radius);
         }
     }
 
@@ -413,14 +435,14 @@ public abstract partial class RangeBase : Control {
 
         var box = IsVertical
             ? new Rectangle(
-                context.Bounds.X + ((context.Bounds.Width - size) * 0.5f),
-                rail.Y + (rail.Height * (1f - fraction)) - (size * 0.5f),
+                context.Bounds.X + (context.Bounds.Width - size) * 0.5f,
+                rail.Y + rail.Height * (1f - fraction) - size * 0.5f,
                 size,
                 size
             )
             : new Rectangle(
-                rail.X + (rail.Width * fraction) - (size * 0.5f),
-                context.Bounds.Y + ((context.Bounds.Height - size) * 0.5f),
+                rail.X + rail.Width * fraction - size * 0.5f,
+                context.Bounds.Y + (context.Bounds.Height - size) * 0.5f,
                 size,
                 size
             );
@@ -452,7 +474,7 @@ public abstract partial class RangeBase : Control {
         }
 
         // Inverted for the vertical case, because fraction zero is at the bottom. See `Orientation`.
-        return IsVertical ? 1f - ((y - rail.Y) / extent) : (x - rail.X) / extent;
+        return IsVertical ? 1f - (y - rail.Y) / extent : (x - rail.X) / extent;
     }
 
     /// <summary>Whether a pointer is a finger or a pen, which decide on the drag rather than on the press (#1507).</summary>
@@ -488,8 +510,7 @@ public abstract partial class RangeBase : Control {
     }
 
     /// <summary>Called when the bounds move, so a subclass can bring its value back inside them.</summary>
-    protected virtual void OnBoundsChanged() {
-    }
+    protected virtual void OnBoundsChanged() { }
 }
 
 /// <summary>A value chosen by dragging a thumb along a track.</summary>
@@ -502,8 +523,12 @@ public sealed partial class Slider : RangeBase {
 
     /// <inheritdoc />
     /// <remarks>
-    ///     ⚠ <b>A widget role with no words of its own, which is deliberate and is the same
-    ///     decision <c>TextField</c> makes.</b> A slider is a number and nothing else; what it is a
+    ///     ⚠
+    ///     <b>
+    ///         A widget role with no words of its own, which is deliberate and is the same
+    ///         decision <c>TextField</c> makes.
+    ///     </b>
+    ///     A slider is a number and nothing else; what it is a
     ///     number <i>of</i> is the caption beside it, which is somebody else's element. One
     ///     <c>AddAccessibleRelation(AccessibleRelation.LabelledBy, caption)</c> at the call site is
     ///     the whole of it, and a slider nobody did that to reports <c>null</c> so that
@@ -534,10 +559,10 @@ public sealed partial class Slider : RangeBase {
     protected override void OnCreated() {
         base.OnCreated();
 
-        AddHandler<PointerEvent>(static (element, args) => ((Slider) element).Pointed(args));
-        AddHandler<DragEvent>(static (element, args) => ((Slider) element).Dragged(args));
-        AddHandler<TapEvent>(static (element, args) => ((Slider) element).Tapped(args));
-        AddHandler<KeyEvent>(static (element, args) => ((Slider) element).Keyed(args));
+        AddHandler<PointerEvent>(static (element, args) => ((Slider)element).Pointed(args));
+        AddHandler<DragEvent>(static (element, args) => ((Slider)element).Dragged(args));
+        AddHandler<TapEvent>(static (element, args) => ((Slider)element).Tapped(args));
+        AddHandler<KeyEvent>(static (element, args) => ((Slider)element).Keyed(args));
     }
 
     /// <inheritdoc />
@@ -656,9 +681,6 @@ public sealed partial class Slider : RangeBase {
                 fingerDragging = false;
                 args.Handled = true;
                 break;
-
-            default:
-                break;
         }
     }
 
@@ -687,8 +709,8 @@ public sealed partial class Slider : RangeBase {
         var moved = args.Key switch {
             InputKey.Left or InputKey.Down => Value - step,
             InputKey.Right or InputKey.Up => Value + step,
-            InputKey.PageDown => Value - (step * 10f),
-            InputKey.PageUp => Value + (step * 10f),
+            InputKey.PageDown => Value - step * 10f,
+            InputKey.PageUp => Value + step * 10f,
             InputKey.Home => Minimum,
             InputKey.End => Maximum,
             _ => float.NaN
@@ -720,8 +742,12 @@ public sealed partial class RangeSlider : RangeBase {
 
     /// <inheritdoc />
     /// <remarks>
-    ///     ⚠ <b><c>group</c> and not <c>slider</c>, and the difference is a limitation this states
-    ///     rather than papers over.</b> WAI-ARIA's answer for a two-thumb range is a <c>group</c>
+    ///     ⚠
+    ///     <b>
+    ///         <c>group</c> and not <c>slider</c>, and the difference is a limitation this states
+    ///         rather than papers over.
+    ///     </b>
+    ///     WAI-ARIA's answer for a two-thumb range is a <c>group</c>
     ///     containing one <c>slider</c> per thumb, because each thumb is separately focusable and
     ///     separately announced. The thumbs here are drawn rather than elements — see the class's
     ///     own remarks about why every control in this set that draws a thumb draws it — so there is
@@ -754,10 +780,10 @@ public sealed partial class RangeSlider : RangeBase {
     protected override void OnCreated() {
         base.OnCreated();
 
-        AddHandler<PointerEvent>(static (element, args) => ((RangeSlider) element).Pointed(args));
-        AddHandler<DragEvent>(static (element, args) => ((RangeSlider) element).Dragged(args));
-        AddHandler<TapEvent>(static (element, args) => ((RangeSlider) element).Tapped(args));
-        AddHandler<KeyEvent>(static (element, args) => ((RangeSlider) element).Keyed(args));
+        AddHandler<PointerEvent>(static (element, args) => ((RangeSlider)element).Pointed(args));
+        AddHandler<DragEvent>(static (element, args) => ((RangeSlider)element).Dragged(args));
+        AddHandler<TapEvent>(static (element, args) => ((RangeSlider)element).Tapped(args));
+        AddHandler<KeyEvent>(static (element, args) => ((RangeSlider)element).Keyed(args));
     }
 
     /// <inheritdoc />
@@ -868,9 +894,6 @@ public sealed partial class RangeSlider : RangeBase {
                 fingerDragging = false;
                 args.Handled = true;
                 break;
-
-            default:
-                break;
         }
     }
 
@@ -964,8 +987,12 @@ public sealed partial class ProgressBar : RangeBase {
 
     /// <inheritdoc />
     /// <remarks>
-    ///     ⚠ <b><c>null</c> while <see cref="IsIndeterminate" />, which is the whole point of the
-    ///     flag.</b> ARIA says an indeterminate progress bar omits <c>aria-valuenow</c>, and a
+    ///     ⚠
+    ///     <b>
+    ///         <c>null</c> while <see cref="IsIndeterminate" />, which is the whole point of the
+    ///         flag.
+    ///     </b>
+    ///     ARIA says an indeterminate progress bar omits <c>aria-valuenow</c>, and a
     ///     screen reader reading "nought per cent" for a job whose length is unknown is the failure
     ///     that omission exists to prevent. <see cref="AccessibleStates.Busy" /> is what is said
     ///     instead.
@@ -987,8 +1014,12 @@ public sealed partial class ProgressBar : RangeBase {
 
     /// <summary>How far round the indeterminate sweep has gone, from zero to one.</summary>
     /// <remarks>
-    ///     ⚠ <b>Advanced by the application — and no longer because nothing here has a clock, which
-    ///     is what this remark said for as long as it was false.</b> The framework has a per-frame
+    ///     ⚠
+    ///     <b>
+    ///         Advanced by the application — and no longer because nothing here has a clock, which
+    ///         is what this remark said for as long as it was false.
+    ///     </b>
+    ///     The framework has a per-frame
     ///     animation driver: <c>UiDocument.Tick</c> advances <c>Vixen.Ui.Styling</c>'s
     ///     <c>Animator</c>, <c>StyleUpdater.Announce</c> starts transitions from the cascade,
     ///     <c>UiDocument.Apply</c> overlays what is in flight, and both hosts drive it —
@@ -1076,8 +1107,12 @@ public sealed partial class ProgressBar : RangeBase {
 /// <summary>Where a reading sits between two thresholds, and whether that is a problem.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Not a <see cref="ProgressBar" /> with colours, and the difference is what the
-///         reading means rather than how it is drawn.</b> A progress bar is about a job: it starts
+///         ⚠
+///         <b>
+///             Not a <see cref="ProgressBar" /> with colours, and the difference is what the
+///             reading means rather than how it is drawn.
+///         </b>
+///         A progress bar is about a job: it starts
 ///         empty, only ever goes up, and being full is the good outcome. A level indicator is about
 ///         a capacity — a disk, a battery, a budget, a memory pool — which goes both ways, never
 ///         finishes, and where <i>full</i> may be exactly the thing you are worried about. Doc 49
@@ -1091,8 +1126,12 @@ public sealed partial class ProgressBar : RangeBase {
 ///         See <see cref="Level" />.
 ///     </para>
 ///     <para>
-///         ⚠ <b>And stated by <see cref="Direction" /> when there is one line, because one line has
-///         no order.</b> This type used to refuse any such property, arguing that a flag beside two
+///         ⚠
+///         <b>
+///             And stated by <see cref="Direction" /> when there is one line, because one line has
+///             no order.
+///         </b>
+///         This type used to refuse any such property, arguing that a flag beside two
 ///         numbers can contradict them and leave a control "silently wrong and looking configured".
 ///         Both halves of that were wrong. A contradiction is not silent: a falling direction over a
 ///         disk's rising pair reads <see cref="LevelReading.Critical" /> at every ordinary reading,
@@ -1195,8 +1234,11 @@ public sealed partial class LevelIndicator : RangeBase {
     ///         threshold and never touches the value again.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Both lines are compared in one direction — the one <see cref="Direction" />
-    ///         states, or else the one the pair implies — and the critical one is asked first.</b>
+    ///         ⚠
+    ///         <b>
+    ///             Both lines are compared in one direction — the one <see cref="Direction" />
+    ///             states, or else the one the pair implies — and the critical one is asked first.
+    ///         </b>
     ///         With <c>Critical</c> above <c>Warning</c> a reading is worse as it rises; with
     ///         <c>Critical</c> below it, as it falls. A fixed <c>&gt;=</c> for both would make every
     ///         battery indicator in the world report <c>Critical</c> at full charge. The arithmetic
@@ -1259,11 +1301,11 @@ public sealed partial class LevelIndicator : RangeBase {
         // four blocks at a half reading is two, and at anything over five-eighths it is three. A
         // truncating version shows three blocks only at seven hundred and fifty thousandths, so a
         // meter sitting on a boundary reads one block low for ever.
-        var lit = (int) MathF.Round(filled * Segments);
+        var lit = (int)MathF.Round(filled * Segments);
 
         for (var i = 0; i < Segments; i++) {
-            var from = (i * share) + (i == 0 ? 0f : inset * 0.5f);
-            var to = ((i + 1) * share) - (i == Segments - 1 ? 0f : inset * 0.5f);
+            var from = i * share + (i == 0 ? 0f : inset * 0.5f);
+            var to = (i + 1) * share - (i == Segments - 1 ? 0f : inset * 0.5f);
             var block = Span(bounds, from, to);
 
             context.FillRectangle(block, i < lit ? FillColor : TrackColor, radius);
@@ -1327,8 +1369,12 @@ static class Levels {
     /// <param name="direction">What the caller stated.</param>
     /// <returns><see langword="true" /> when the reading gets worse as it rises.</returns>
     /// <remarks>
-    ///     ⚠ <b>Decided once for the pair rather than per threshold, which is how the first draft of
-    ///     this got it wrong.</b> Asking each threshold "am I on the far side of the other one" gives
+    ///     ⚠
+    ///     <b>
+    ///         Decided once for the pair rather than per threshold, which is how the first draft of
+    ///         this got it wrong.
+    ///     </b>
+    ///     Asking each threshold "am I on the far side of the other one" gives
     ///     the two comparisons opposite senses — the critical line reads upward exactly when the
     ///     warning line reads downward — so a disk at a hundred per cent came back <i>ordinary</i>
     ///     with a warning at seventy. There is one direction and both lines are on it.
@@ -1384,8 +1430,12 @@ public enum LevelReading {
 
 /// <summary>Which way a <see cref="LevelIndicator" />'s or a <see cref="Gauge" />'s reading gets worse.</summary>
 /// <remarks>
-///     ⚠ <b><see cref="Inferred" /> is zero, so an indicator nobody configured reads its thresholds'
-///     order exactly as it always has.</b> A direction is only worth stating where there is no order
+///     ⚠
+///     <b>
+///         <see cref="Inferred" /> is zero, so an indicator nobody configured reads its thresholds'
+///         order exactly as it always has.
+///     </b>
+///     A direction is only worth stating where there is no order
 ///     to read — a single threshold. See <see cref="LevelIndicator.Direction" />.
 /// </remarks>
 public enum LevelDirection {
@@ -1419,8 +1469,12 @@ public sealed partial class Spinner : Control {
 
     /// <inheritdoc />
     /// <remarks>
-    ///     ⚠ <b>The same role a <see cref="ProgressBar" /> has, because to anything listening it is
-    ///     the same thing.</b> A spinner is an indeterminate progress bar drawn as a circle; the
+    ///     ⚠
+    ///     <b>
+    ///         The same role a <see cref="ProgressBar" /> has, because to anything listening it is
+    ///         the same thing.
+    ///     </b>
+    ///     A spinner is an indeterminate progress bar drawn as a circle; the
     ///     shape is a fact about the pixels. <see cref="Phase" /> is an angle rather than a
     ///     fraction of a job, so there is no value to announce and there is never one to invent.
     /// </remarks>
@@ -1458,25 +1512,25 @@ public sealed partial class Spinner : Control {
             return;
         }
 
-        var centreX = bounds.X + (bounds.Width * 0.5f);
-        var centreY = bounds.Y + (bounds.Height * 0.5f);
+        var centreX = bounds.X + bounds.Width * 0.5f;
+        var centreY = bounds.Y + bounds.Height * 0.5f;
 
         var inner = radius * (1f - Math.Clamp(Thickness, 0.05f, 1f));
         var sweep = Math.Clamp(Sweep, 0f, 1f) * MathF.Tau;
         var start = Phase * MathF.Tau;
 
-        var steps = Math.Max(2, (int) MathF.Ceiling(32f * Math.Clamp(Sweep, 0f, 1f)));
+        var steps = Math.Max(2, (int)MathF.Ceiling(32f * Math.Clamp(Sweep, 0f, 1f)));
 
         arc.Clear();
 
         for (var i = 0; i <= steps; i++) {
-            var angle = start + (sweep * i / steps);
-            arc.Add(centreX + (MathF.Cos(angle) * radius), centreY + (MathF.Sin(angle) * radius), i == 0);
+            var angle = start + sweep * i / steps;
+            arc.Add(centreX + MathF.Cos(angle) * radius, centreY + MathF.Sin(angle) * radius, i == 0);
         }
 
         for (var i = steps; i >= 0; i--) {
-            var angle = start + (sweep * i / steps);
-            arc.LineTo(new Vector2(centreX + (MathF.Cos(angle) * inner), centreY + (MathF.Sin(angle) * inner)));
+            var angle = start + sweep * i / steps;
+            arc.LineTo(new(centreX + MathF.Cos(angle) * inner, centreY + MathF.Sin(angle) * inner));
         }
 
         arc.Close();
@@ -1489,9 +1543,9 @@ static class PathExtensions {
     /// <summary>Starts a contour or continues it.</summary>
     public static void Add(this PathBuilder path, float x, float y, bool first) {
         if (first) {
-            path.MoveTo(new Vector2(x, y));
+            path.MoveTo(new(x, y));
         } else {
-            path.LineTo(new Vector2(x, y));
+            path.LineTo(new(x, y));
         }
     }
 }

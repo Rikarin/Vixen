@@ -32,8 +32,8 @@ public class NineSliceTests {
         Assert.Equal(box.Bottom, cells[8].Bottom);
 
         for (var row = 0; row < 3; row++) {
-            Assert.Equal(cells[row * 3].Right, cells[(row * 3) + 1].Left);
-            Assert.Equal(cells[(row * 3) + 1].Right, cells[(row * 3) + 2].Left);
+            Assert.Equal(cells[row * 3].Right, cells[row * 3 + 1].Left);
+            Assert.Equal(cells[row * 3 + 1].Right, cells[row * 3 + 2].Left);
         }
 
         for (var column = 0; column < 3; column++) {
@@ -46,13 +46,13 @@ public class NineSliceTests {
     public void The_corners_are_the_border_and_the_middle_is_what_is_left() {
         var cells = Split(new(0f, 0f, 100f, 60f), new(12f, 8f, 16f, 4f));
 
-        Assert.Equal(new Rectangle(0f, 0f, 12f, 8f), cells[0]);
-        Assert.Equal(new Rectangle(84f, 0f, 16f, 8f), cells[2]);
-        Assert.Equal(new Rectangle(0f, 56f, 12f, 4f), cells[6]);
-        Assert.Equal(new Rectangle(84f, 56f, 16f, 4f), cells[8]);
+        Assert.Equal(new(0f, 0f, 12f, 8f), cells[0]);
+        Assert.Equal(new(84f, 0f, 16f, 8f), cells[2]);
+        Assert.Equal(new(0f, 56f, 12f, 4f), cells[6]);
+        Assert.Equal(new(84f, 56f, 16f, 4f), cells[8]);
 
         // The one cell that carries the stretch, and the one a caller may want to leave out.
-        Assert.Equal(new Rectangle(12f, 8f, 72f, 48f), cells[NineSlice.Centre]);
+        Assert.Equal(new(12f, 8f, 72f, 48f), cells[NineSlice.Centre]);
     }
 
     [Fact]
@@ -60,12 +60,12 @@ public class NineSliceTests {
         var cells = Split(new(5f, 5f, 40f, 30f), NineSlice.None);
 
         Assert.True(NineSlice.None.IsEmpty);
-        Assert.Equal(new Rectangle(5f, 5f, 40f, 30f), cells[NineSlice.Centre]);
+        Assert.Equal(new(5f, 5f, 40f, 30f), cells[NineSlice.Centre]);
 
         // ⚠ Still nine cells, eight of them empty. Compacting would move the middle away from index
         // four, and every caller indexes rather than searches.
         Assert.Equal(NineSlice.CellCount, cells.Length);
-        Assert.All(cells[..NineSlice.Centre], cell => Assert.True(cell.IsEmpty));
+        Assert.All(cells[..NineSlice.Centre], static cell => Assert.True(cell.IsEmpty));
     }
 
     [Fact]
@@ -78,7 +78,7 @@ public class NineSliceTests {
 
         // The middle row starts at the top edge, because the top border is nothing.
         Assert.Equal(0f, cells[3].Top);
-        Assert.Equal(new Rectangle(10f, 0f, 30f, 40f), cells[NineSlice.Centre]);
+        Assert.Equal(new(10f, 0f, 30f, 40f), cells[NineSlice.Centre]);
     }
 
     [Fact]
@@ -111,7 +111,7 @@ public class NineSliceTests {
         var cells = Split(new(0f, 0f, 0f, 40f), border);
 
         Assert.Equal(0f, border.Left, 4);
-        Assert.All(cells, cell => Assert.True(cell.IsEmpty));
+        Assert.All(cells, static cell => Assert.True(cell.IsEmpty));
     }
 
     [Fact]
@@ -130,8 +130,8 @@ public class NineSliceTests {
     public void A_source_region_and_a_destination_box_cut_the_same_way() {
         // What makes a nine-slice work at all: cell *i* of the destination is drawn with cell *i* of
         // the source, so the two splits have to agree about which cell is which whatever the units.
-        var source = Split(new(0.25f, 0f, 0.5f, 1f), new NineSlice(0.05f, 0.1f, 0.05f, 0.1f));
-        var destination = Split(new(0f, 0f, 200f, 80f), new NineSlice(10f, 10f, 10f, 10f));
+        var source = Split(new(0.25f, 0f, 0.5f, 1f), new(0.05f, 0.1f, 0.05f, 0.1f));
+        var destination = Split(new(0f, 0f, 200f, 80f), new(10f, 10f, 10f, 10f));
 
         Assert.Equal(0.25f, source[0].Left, 5);
         Assert.Equal(0f, destination[0].Left, 5);
@@ -148,7 +148,7 @@ public class NineSliceTests {
         var cells = Split(new(0f, 0f, 40f, 40f), new(-10f, 5f, 10f, 5f));
 
         Assert.Equal(0f, cells[0].Width);
-        Assert.Equal(new Rectangle(0f, 5f, 30f, 30f), cells[NineSlice.Centre]);
+        Assert.Equal(new(0f, 5f, 30f, 30f), cells[NineSlice.Centre]);
     }
 
     [Fact]
@@ -156,8 +156,9 @@ public class NineSliceTests {
         var border = NineSlice.Uniform(4f);
 
         Assert.Throws<ArgumentException>(() => {
-            Span<Rectangle> cells = stackalloc Rectangle[NineSlice.CellCount - 1];
-            border.Split(new(0f, 0f, 10f, 10f), cells);
-        });
+                Span<Rectangle> cells = stackalloc Rectangle[NineSlice.CellCount - 1];
+                border.Split(new(0f, 0f, 10f, 10f), cells);
+            }
+        );
     }
 }

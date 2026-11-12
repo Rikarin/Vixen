@@ -58,7 +58,10 @@ public sealed class RoundTripTests {
                 "importer",
                 new YamlMapping { Tag = "TextureImporter" }
                     .Set("version", new YamlScalar("3", YamlScalarStyle.Plain))
-                    .Set("wrap", new YamlMapping().Set("u", new YamlScalar("Repeat")).Set("v", new YamlScalar("Repeat")))
+                    .Set(
+                        "wrap",
+                        new YamlMapping().Set("u", new YamlScalar("Repeat")).Set("v", new YamlScalar("Repeat"))
+                    )
             )
             .Set("labels", new YamlSequence().Add(new YamlScalar("ui")).Add(new YamlScalar("hd")));
 

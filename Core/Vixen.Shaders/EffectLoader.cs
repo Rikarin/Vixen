@@ -103,7 +103,7 @@ public sealed class EffectLoader(IGraphicsDevice device) {
         ArgumentNullException.ThrowIfNull(data);
 
         var key = data.ToKey();
-        var count = data.Bindings.Any(binding => binding.Set == DescriptorSetSlot.Bindless)
+        var count = data.Bindings.Any(static binding => binding.Set == DescriptorSetSlot.Bindless)
             ? BindlessSetCount
             : SetCount;
 
@@ -117,7 +117,7 @@ public sealed class EffectLoader(IGraphicsDevice device) {
         var stages = ImmutableArray.CreateBuilder<EffectStage>(data.Stages.Length);
 
         foreach (var stage in data.Stages) {
-            stages.Add(new(stage.Stage, [.. stage.Bytecode], stage.EntryPoint));
+            stages.Add(new(stage.Stage, [..stage.Bytecode], stage.EntryPoint));
         }
 
         var parameters = ImmutableArray.CreateBuilder<EffectParameter>(data.Parameters.Length);
@@ -133,8 +133,7 @@ public sealed class EffectLoader(IGraphicsDevice device) {
         foreach (var binding in data.Bindings) {
             bindings.Add(
                 new(binding.Name, binding.Set, binding.Binding, KindOf(binding)) {
-                    Size = binding.Size,
-                    Count = binding.Count
+                    Size = binding.Size, Count = binding.Count
                 }
             );
         }
@@ -148,14 +147,15 @@ public sealed class EffectLoader(IGraphicsDevice device) {
         return new() {
             Key = key,
             Stages = stages.ToImmutable(),
-            SetLayouts = [.. sets],
-            Layout = PipelineLayoutOf(sets, [.. Pushed(data)], key.ShaderName),
+            SetLayouts = [..sets],
+            Layout = PipelineLayoutOf(sets, [..Pushed(data)], key.ShaderName),
             ConstantBufferSize = data.ConstantBufferSize,
             Parameters = parameters.ToImmutable(),
             Bindings = bindings.ToImmutable(),
-            PushConstants = [.. PushedConstants(data)],
+            PushConstants = [..PushedConstants(data)],
             VertexInputs = [
-                .. data.VertexInputs.Select(input => new EffectVertexInput(input.Name, input.Location, input.Kind))
+                ..data.VertexInputs.Select(static input => new EffectVertexInput(input.Name, input.Location, input.Kind)
+                )
             ],
             UsedPermutationKeys = permutations.ToImmutable()
         };
@@ -190,8 +190,11 @@ public sealed class EffectLoader(IGraphicsDevice device) {
             if (range is { Size: > 0, Stages: not ShaderStage.None }) {
                 yield return new(range.Stages, range.Offset, range.Size) {
                     Members = [
-                        .. (range.Members ?? []).Select(
-                            member => new EffectPushConstantMemberInfo(member.Name, member.Offset, member.Size)
+                        ..(range.Members ?? []).Select(static member => new EffectPushConstantMemberInfo(
+                                member.Name,
+                                member.Offset,
+                                member.Size
+                            )
                         )
                     ]
                 };
@@ -244,8 +247,11 @@ public sealed class EffectLoader(IGraphicsDevice device) {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <strong>Every unbounded binding in the variant gets this many, and the total is what
-    ///         the device judges.</strong> Update-after-bind sampled images are budgeted per
+    ///         <strong>
+    ///             Every unbounded binding in the variant gets this many, and the total is what
+    ///             the device judges.
+    ///         </strong>
+    ///         Update-after-bind sampled images are budgeted per
     ///         <em>pipeline layout</em> — <c>maxPerStageDescriptorUpdateAfterBindSampledImages</c> and
     ///         its whole-set sibling, which
     ///         <see cref="GraphicsDeviceFeatures.MaxBindlessDescriptors" /> already reports as one
@@ -306,9 +312,7 @@ public sealed class EffectLoader(IGraphicsDevice device) {
 
         foreach (var binding in data.Bindings) {
             if (binding.Set == slot) {
-                bindings.Add(
-                    new(binding.Binding, KindOf(binding), binding.Stages, binding.Count, binding.SampleType)
-                );
+                bindings.Add(new(binding.Binding, KindOf(binding), binding.Stages, binding.Count, binding.SampleType));
             }
         }
 
@@ -326,7 +330,7 @@ public sealed class EffectLoader(IGraphicsDevice device) {
             return existing;
         }
 
-        var description = new DescriptorSetLayoutDescription(slot, [.. bindings], $"{shaderName}.{slot}", stated);
+        var description = new DescriptorSetLayoutDescription(slot, [..bindings], $"{shaderName}.{slot}", stated);
         description.Validate();
 
         var created = Device.CreateDescriptorSetLayout(description);
@@ -342,8 +346,12 @@ public sealed class EffectLoader(IGraphicsDevice device) {
     /// <param name="shaderName">What to call it, for a capture and the validation layers.</param>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Shared for the same reason the set layouts are, and unshared it was a leak
-    ///         rather than an economy</b> —
+    ///         ⚠
+    ///         <b>
+    ///             Shared for the same reason the set layouts are, and unshared it was a leak
+    ///             rather than an economy
+    ///         </b>
+    ///         —
     ///         <a href="https://github.com/Rikarin/Vixen/issues/1111">#1111</a>. A
     ///         <c>PipelineLayoutHandle</c> minted per <see cref="Load" /> is owned by nobody: an
     ///         <see cref="Effect" /> is a plain record with no disposal, every caller in the tree
@@ -368,7 +376,11 @@ public sealed class EffectLoader(IGraphicsDevice device) {
     ///         <c>$"{shaderName}.{slot}"</c> and it has never cost a diagnosis.
     ///     </para>
     /// </remarks>
-    PipelineLayoutHandle PipelineLayoutOf(DescriptorSetLayoutHandle[] sets, PushConstantRange[] pushed, string shaderName) {
+    PipelineLayoutHandle PipelineLayoutOf(
+        DescriptorSetLayoutHandle[] sets,
+        PushConstantRange[] pushed,
+        string shaderName
+    ) {
         var shape = PipelineShape(sets, pushed);
 
         if (pipelineLayouts.TryGetValue(shape, out var existing)) {
@@ -398,7 +410,12 @@ public sealed class EffectLoader(IGraphicsDevice device) {
         }
 
         foreach (var range in pushed) {
-            builder.Append('#').Append((int)range.Stages).Append(':').Append(range.Offset).Append(':').Append(range.Size);
+            builder.Append('#')
+                .Append((int)range.Stages)
+                .Append(':')
+                .Append(range.Offset)
+                .Append(':')
+                .Append(range.Size);
         }
 
         return builder.ToString();
@@ -411,8 +428,11 @@ public sealed class EffectLoader(IGraphicsDevice device) {
     /// <returns>Its kind.</returns>
     /// <remarks>
     ///     <para>
-    ///         <b>A block that varies per draw is bound at an offset per draw, so its descriptor is a
-    ///         dynamic one.</b> The alternative is a descriptor set per object, which is the single
+    ///         <b>
+    ///             A block that varies per draw is bound at an offset per draw, so its descriptor is a
+    ///             dynamic one.
+    ///         </b>
+    ///         The alternative is a descriptor set per object, which is the single
     ///         most common reason a Vulkan renderer ends up slower than the D3D11 one it replaced —
     ///         see <c>ForwardLightingRenderFeature</c>, which writes one buffer and moves an offset.
     ///     </para>
@@ -538,11 +558,25 @@ public sealed class EffectLoader(IGraphicsDevice device) {
     static ParameterKey PermutationKeyOf(EffectPermutationValue permutation) =>
         permutation.Kind switch {
             ShaderValueKind.Int => ParameterKeys.NewPermutation(
-                int.TryParse(permutation.DefaultValue, NumberStyles.Integer, CultureInfo.InvariantCulture, out var number) ? number : 0,
+                int.TryParse(
+                    permutation.DefaultValue,
+                    NumberStyles.Integer,
+                    CultureInfo.InvariantCulture,
+                    out var number
+                )
+                    ? number
+                    : 0,
                 permutation.Name
             ),
             ShaderValueKind.UInt => ParameterKeys.NewPermutation(
-                uint.TryParse(permutation.DefaultValue, NumberStyles.Integer, CultureInfo.InvariantCulture, out var number) ? number : 0u,
+                uint.TryParse(
+                    permutation.DefaultValue,
+                    NumberStyles.Integer,
+                    CultureInfo.InvariantCulture,
+                    out var number
+                )
+                    ? number
+                    : 0u,
                 permutation.Name
             ),
             _ => ParameterKeys.NewPermutation(

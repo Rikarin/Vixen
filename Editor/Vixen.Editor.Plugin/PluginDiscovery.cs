@@ -8,8 +8,11 @@ namespace Vixen.Editor.Plugin;
 /// <summary>Finding the plugins in a set of folders, and reading what they say about themselves.</summary>
 /// <remarks>
 ///     <para>
-///         <b>A root holds one plugin per subdirectory, and a subdirectory is a plugin when it has a
-///         <c>plugin.yaml</c> in it.</b> Nothing recurses further: a plugin's own <c>lib/</c>,
+///         <b>
+///             A root holds one plugin per subdirectory, and a subdirectory is a plugin when it has a
+///             <c>plugin.yaml</c> in it.
+///         </b>
+///         Nothing recurses further: a plugin's own <c>lib/</c>,
 ///         <c>runtimes/</c> and content folders are its business, and a scan that walked into them
 ///         would find the manifest of a plugin the plugin itself vendored.
 ///     </para>
@@ -66,7 +69,7 @@ public static class PluginDiscovery {
 
                 if (seen.TryGetValue(descriptor.Id, out var winner)) {
                     diagnostics.Add(
-                        new PluginDiagnostic(
+                        new(
                             PluginSeverity.Warning,
                             descriptor.Id,
                             $"is installed twice. Using {winner.Directory} and ignoring {descriptor.Directory}."
@@ -81,7 +84,7 @@ public static class PluginDiscovery {
             }
         }
 
-        return new PluginCatalog(plugins, diagnostics);
+        return new(plugins, diagnostics);
     }
 
     /// <summary>Reads one plugin's manifest.</summary>
@@ -103,20 +106,23 @@ public static class PluginDiscovery {
         try {
             manifest = YamlSerializer.Parse<PluginManifest>(File.ReadAllText(manifestPath));
         } catch (Exception exception)
-            when (exception is YamlParseException or YamlBindingException or IOException or UnauthorizedAccessException) {
-            diagnostics.Add(
-                new PluginDiagnostic(PluginSeverity.Error, fallbackId, $"{manifestPath} could not be read: {exception.Message}")
-            );
+            when (exception is YamlParseException
+                      or YamlBindingException
+                      or IOException
+                      or UnauthorizedAccessException) {
+                diagnostics.Add(
+                    new(PluginSeverity.Error, fallbackId, $"{manifestPath} could not be read: {exception.Message}")
+                );
 
-            return null;
-        }
+                return null;
+            }
 
         var problems = manifest.Problems();
 
         if (problems.Count > 0) {
             foreach (var problem in problems) {
                 diagnostics.Add(
-                    new PluginDiagnostic(
+                    new(
                         PluginSeverity.Error,
                         manifest.Id.Length > 0 ? manifest.Id : fallbackId,
                         $"{PluginManifest.FileName}: {problem}"
@@ -127,7 +133,7 @@ public static class PluginDiscovery {
             return null;
         }
 
-        return new PluginDescriptor(manifest, directory, manifestPath, FindAssembly(directory, manifest.AssemblyFileName));
+        return new(manifest, directory, manifestPath, FindAssembly(directory, manifest.AssemblyFileName));
     }
 
     /// <summary>Where the plugin's assembly is, in the two layouts a plugin arrives in.</summary>

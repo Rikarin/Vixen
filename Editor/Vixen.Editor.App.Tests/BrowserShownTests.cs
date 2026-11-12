@@ -125,11 +125,15 @@ public sealed class BrowserShownTests {
     }
 
     static Select Sizes(EditorSession editor) =>
-        Descendants(editor.Panel("project")).OfType<Select>().FirstOrDefault(select => select.HasClass("browser-tile-size"))
+        Descendants(editor.Panel("project"))
+            .OfType<Select>()
+            .FirstOrDefault(static select => select.HasClass("browser-tile-size"))
         ?? throw editor.Fail("the browser has no tile-size picker");
 
     static Select Kinds(EditorSession editor, string tag) =>
-        Descendants(editor.Panel("project")).OfType<Select>().FirstOrDefault(select => select.Options.Any(option => option.Value == tag))
+        Descendants(editor.Panel("project"))
+            .OfType<Select>()
+            .FirstOrDefault(select => select.Options.Any(option => option.Value == tag))
         ?? throw editor.Fail($"the browser has no kind dropdown offering '{tag}'");
 
     static SearchBox Search(EditorSession editor) =>
@@ -139,7 +143,7 @@ public sealed class BrowserShownTests {
     static void Stand(EditorSession editor, string folder) {
         var view = Descendants(editor.Panel("project"))
                 .OfType<TreeView>()
-                .FirstOrDefault(candidate => candidate.HasClass("browser-folders"))
+                .FirstOrDefault(static candidate => candidate.HasClass("browser-folders"))
             ?? throw editor.Fail("the browser has no folder tree");
 
         var node = EditorSession.NodesOf(view).FirstOrDefault(candidate => candidate.Text == folder)

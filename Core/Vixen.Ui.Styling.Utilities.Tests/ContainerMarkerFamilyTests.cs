@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Ui;
-using Vixen.Ui.Styling;
 using Xunit;
 
 namespace Vixen.Ui.Styling.Utilities.Tests;
@@ -10,9 +9,13 @@ namespace Vixen.Ui.Styling.Utilities.Tests;
 /// <summary>The <c>@container</c> marker family: the class that makes a box a query container.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>The variants that ask the question landed a batch before the class that makes a box
-///         answerable, and until this every query container in the tree was declared in hand-written
-///         CSS.</b> #273 recorded why: a pure variant emits no new property and the consumption gate
+///         ⚠
+///         <b>
+///             The variants that ask the question landed a batch before the class that makes a box
+///             answerable, and until this every query container in the tree was declared in hand-written
+///             CSS.
+///         </b>
+///         #273 recorded why: a pure variant emits no new property and the consumption gate
 ///         never sees it, where a marker family emits <c>container-type</c> and faces the gate — and
 ///         <c>container-type</c> moves none of the four channels unless the scene holds a query
 ///         reacting to it. The <c>queried</c> probe scene is that scene, and this file is the mapping
@@ -76,9 +79,13 @@ public class ContainerMarkerFamilyTests {
     /// <summary>The escape hatch carries a name, rather than resolving and dropping it.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The arbitrary branch runs before the one that reads the slash, so until this row
-    ///         existed <c>@container-[inline-size]/main</c> emitted the type and silently discarded
-    ///         the name.</b> That is the failure the keyword branch two entries down spends a
+    ///         ⚠
+    ///         <b>
+    ///             The arbitrary branch runs before the one that reads the slash, so until this row
+    ///             existed <c>@container-[inline-size]/main</c> emitted the type and silently discarded
+    ///             the name.
+    ///         </b>
+    ///         That is the failure the keyword branch two entries down spends a
     ///         paragraph refusing — <c>text-center/50</c> is not a translucent alignment — arriving
     ///         through the one door that door does not cover, and its symptom is the worse half of
     ///         the pair: a class that <em>works</em>, registering a container the author's
@@ -123,13 +130,13 @@ public class ContainerMarkerFamilyTests {
 
         using var document = new UiDocument(300f, 100f);
         document.Load(
-            fixture.Generate("@container", "@container/main") + """
-            .box { display: flex; width: 120px; height: 20px; }
-            .kid { width: 10px; height: 10px; }
-            @container (min-width: 100px) { .kid { width: 40px; } }
-            @container main (min-width: 100px) { .kid { height: 30px; } }
-            """,
-            StyleOrigin.Author
+            fixture.Generate("@container", "@container/main")
+            + """
+              .box { display: flex; width: 120px; height: 20px; }
+              .kid { width: 10px; height: 10px; }
+              @container (min-width: 100px) { .kid { width: 40px; } }
+              @container main (min-width: 100px) { .kid { height: 30px; } }
+              """
         );
 
         var plain = document.Create("div", document.Root, null, "box");

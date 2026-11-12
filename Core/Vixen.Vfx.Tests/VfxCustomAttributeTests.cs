@@ -26,8 +26,7 @@ namespace Tests;
 ///     </para>
 /// </remarks>
 public class VfxCustomAttributeTests {
-    static VfxCustomAttribute[] One(VfxAttributeType type = VfxAttributeType.Float) =>
-        [new("charge", type)];
+    static VfxCustomAttribute[] One(VfxAttributeType type = VfxAttributeType.Float) => [new("charge", type)];
 
     // --- The mapping -------------------------------------------------------
 
@@ -85,8 +84,8 @@ public class VfxCustomAttributeTests {
 
         for (var particle = 0; particle < system.Count; particle++) {
             Assert.Equal(7f, values[particle * 3]);
-            Assert.Equal(8f, values[(particle * 3) + 1]);
-            Assert.Equal(9f, values[(particle * 3) + 2]);
+            Assert.Equal(8f, values[particle * 3 + 1]);
+            Assert.Equal(9f, values[particle * 3 + 2]);
         }
     }
 
@@ -116,7 +115,7 @@ public class VfxCustomAttributeTests {
 
         for (var particle = 0; particle < system.Count; particle++) {
             var x = values[particle * 3];
-            var y = values[(particle * 3) + 1];
+            var y = values[particle * 3 + 1];
 
             Assert.InRange(x, 0f, 1f);
 
@@ -174,7 +173,7 @@ public class VfxCustomAttributeTests {
             customs: One()
         );
 
-        using var system = new VfxSystem(graph, seed: 11);
+        using var system = new VfxSystem(graph, 11);
 
         for (var step = 0; step < 120; step++) {
             system.Step(1f / 60f);
@@ -195,8 +194,7 @@ public class VfxCustomAttributeTests {
 
     [Fact]
     public void A_name_that_is_not_an_identifier_is_refused() {
-        var error = Assert.Throws<ArgumentException>(
-            () => VfxCompiledGraph.Compile(
+        var error = Assert.Throws<ArgumentException>(static () => VfxCompiledGraph.Compile(
                 [VfxSpawner.Burst(1)],
                 [new(VfxOpcode.SetPosition, Vector4.Zero)],
                 [],
@@ -210,8 +208,7 @@ public class VfxCustomAttributeTests {
 
     [Fact]
     public void A_name_declared_twice_is_refused() {
-        Assert.Throws<ArgumentException>(
-            () => VfxCompiledGraph.Compile(
+        Assert.Throws<ArgumentException>(static () => VfxCompiledGraph.Compile(
                 [VfxSpawner.Burst(1)],
                 [new(VfxOpcode.SetPosition, Vector4.Zero)],
                 [],
@@ -223,8 +220,7 @@ public class VfxCustomAttributeTests {
 
     [Fact]
     public void An_unsigned_custom_is_refused() {
-        Assert.Throws<ArgumentException>(
-            () => VfxCompiledGraph.Compile(
+        Assert.Throws<ArgumentException>(static () => VfxCompiledGraph.Compile(
                 [VfxSpawner.Burst(1)],
                 [new(VfxOpcode.SetPosition, Vector4.Zero)],
                 [],
@@ -241,8 +237,7 @@ public class VfxCustomAttributeTests {
     /// </remarks>
     [Fact]
     public void A_slot_the_graph_does_not_have_is_refused() {
-        var error = Assert.Throws<ArgumentException>(
-            () => VfxCompiledGraph.Compile(
+        var error = Assert.Throws<ArgumentException>(() => VfxCompiledGraph.Compile(
                 [VfxSpawner.Burst(1)],
                 [new(VfxOpcode.SetCustom, Vector4.One) { Slot = 3 }],
                 [],
@@ -285,11 +280,11 @@ public class VfxCustomAttributeTests {
 
         // And the bindings report the slot, so a host that knows the graph knows which is which
         // without matching on a string.
-        Assert.Equal(0, Assert.Single(shader.Bindings, binding => binding.Name == "charge").Slot);
-        Assert.Equal(1, Assert.Single(shader.Bindings, binding => binding.Name == "stain").Slot);
+        Assert.Equal(0, Assert.Single(shader.Bindings, static binding => binding.Name == "charge").Slot);
+        Assert.Equal(1, Assert.Single(shader.Bindings, static binding => binding.Name == "stain").Slot);
         Assert.All(
-            shader.Bindings.Where(binding => binding.Attribute != VfxAttribute.None),
-            binding => Assert.Equal(-1, binding.Slot)
+            shader.Bindings.Where(static binding => binding.Attribute != VfxAttribute.None),
+            static binding => Assert.Equal(-1, binding.Slot)
         );
     }
 
@@ -306,7 +301,7 @@ public class VfxCustomAttributeTests {
 
         var shader = VfxShaderEmitter.Emit(graph, "Unused");
 
-        Assert.DoesNotContain(shader.Bindings, binding => binding.Name == "charge");
+        Assert.DoesNotContain(shader.Bindings, static binding => binding.Name == "charge");
 
         // The CPU still allocates it: a graph that declares an attribute and writes it from outside
         // the operation list is a legitimate thing, and the buffer is where that value would go.

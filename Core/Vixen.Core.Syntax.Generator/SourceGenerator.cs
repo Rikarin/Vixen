@@ -15,8 +15,12 @@ public class SourceGenerator : IIncrementalGenerator {
     /// <summary>The MSBuild property a project sets to say it is building a language.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Opt-in rather than on, and the reason is that this generator ships in a
-    ///         package.</b> <c>Vixen.Core.Syntax</c>'s own description advertises the third-party
+    ///         ⚠
+    ///         <b>
+    ///             Opt-in rather than on, and the reason is that this generator ships in a
+    ///             package.
+    ///         </b>
+    ///         <c>Vixen.Core.Syntax</c>'s own description advertises the third-party
     ///         case — <i>"Shared by Raven, VXML and VCSS — each supplies its own Syntax.xml"</i> —
     ///         and a <c>Syntax.xml</c> with no generator produces nothing at all, so the generator
     ///         has to travel in the package. But <c>VXS0001</c> fired on every compilation that had
@@ -70,7 +74,7 @@ public class SourceGenerator : IIncrementalGenerator {
 
     public void Initialize(IncrementalGeneratorInitializationContext context) {
         var syntaxXmlFiles = context.AdditionalTextsProvider
-            .Where(at => Path.GetFileName(at.Path) == "Syntax.xml")
+            .Where(static at => Path.GetFileName(at.Path) == "Syntax.xml")
             .Collect();
 
         // ⚠ The key is `build_property.` followed by the MSBuild property name AS AUTHORED — the
@@ -78,10 +82,9 @@ public class SourceGenerator : IIncrementalGenerator {
         // and this looks it up lower-cased, which works because AnalyzerConfigOptions compares keys
         // ordinal-ignore-case. Verified rather than assumed: the A/B that proved the opt-in was a
         // compilation whose only difference was the property, and it reported VXS0001.
-        var required = context.AnalyzerConfigOptionsProvider.Select(
-            static (provider, _) =>
-                provider.GlobalOptions.TryGetValue(RequiredProperty, out var value)
-                && string.Equals(value, "true", StringComparison.OrdinalIgnoreCase)
+        var required = context.AnalyzerConfigOptionsProvider.Select(static (provider, _) =>
+            provider.GlobalOptions.TryGetValue(RequiredProperty, out var value)
+            && string.Equals(value, "true", StringComparison.OrdinalIgnoreCase)
         );
 
         context.RegisterSourceOutput(
@@ -90,7 +93,7 @@ public class SourceGenerator : IIncrementalGenerator {
                 var (syntaxXmlFiles, required) = input;
                 var file = syntaxXmlFiles.SingleOrDefault();
 
-                if (file == null) {
+                if (file is null) {
                     if (required) {
                         context.ReportDiagnostic(Diagnostic.Create(MissingSyntaxXml, null));
                     }
@@ -99,7 +102,7 @@ public class SourceGenerator : IIncrementalGenerator {
                 }
 
                 var inputText = file.GetText();
-                if (inputText == null) {
+                if (inputText is null) {
                     context.ReportDiagnostic(Diagnostic.Create(UnableToReadSyntaxXml, null));
                     return;
                 }

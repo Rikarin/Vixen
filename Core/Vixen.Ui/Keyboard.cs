@@ -117,9 +117,13 @@ public sealed class TextInputEvent : UiEvent {
 /// <summary>Text an input method is still composing, which is not yet text the user typed.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>The separate event is the whole design, and folding it into
-///         <see cref="TextInputEvent" /> is how an interface becomes unusable in Japanese without
-///         anybody noticing.</b> A composition is <i>provisional</i>: it is replaced in place on
+///         ⚠
+///         <b>
+///             The separate event is the whole design, and folding it into
+///             <see cref="TextInputEvent" /> is how an interface becomes unusable in Japanese without
+///             anybody noticing.
+///         </b>
+///         A composition is <i>provisional</i>: it is replaced in place on
 ///         every keystroke, may be abandoned entirely, and is only real when a
 ///         <see cref="TextInputEvent" /> arrives carrying the committed string. A control that
 ///         inserted each pre-edit as typed text ends up with every intermediate reading of every
@@ -197,23 +201,34 @@ public sealed partial class UiDocument {
     /// <exception cref="ArgumentException">The surface belongs to another document.</exception>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The overload <see cref="Dispatch(UiSurface, PointerEvent)" /> and
-    ///         <see cref="Dispatch(UiSurface, WheelEvent)" /> always had and this one did not.</b>
+    ///         ⚠
+    ///         <b>
+    ///             The overload <see cref="Dispatch(UiSurface, PointerEvent)" /> and
+    ///             <see cref="Dispatch(UiSurface, WheelEvent)" /> always had and this one did not.
+    ///         </b>
     ///         The reason given was that a key goes to the focus and the focus is the document's —
     ///         true, and it stops being an answer the moment nothing is focused: the fallback was
     ///         <see cref="Primary" />'s root, so a keystroke aimed at a torn-off inspector ran
     ///         against the main window.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>This is a better answer than <see cref="KeySurface" /> and not a duplicate of
-    ///         it.</b> The key surface is the window manager's opinion, arriving through
+    ///         ⚠
+    ///         <b>
+    ///             This is a better answer than <see cref="KeySurface" /> and not a duplicate of
+    ///             it.
+    ///         </b>
+    ///         The key surface is the window manager's opinion, arriving through
     ///         <c>WindowFocusGained</c>; the surface here is where <i>this</i> event was actually
     ///         delivered, which is the operating system having already answered the question by
     ///         sending it at all. A host that has the surface in hand should pass it.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>It is <see cref="UiSurface.Focused" /> that outranks it, and it used to be
-    ///         <see cref="Focused" />.</b> While the focus was one document-global element, a
+    ///         ⚠
+    ///         <b>
+    ///             It is <see cref="UiSurface.Focused" /> that outranks it, and it used to be
+    ///             <see cref="Focused" />.
+    ///         </b>
+    ///         While the focus was one document-global element, a
     ///         keystroke delivered to a background window reached whatever the front one had
     ///         focused — the surface only decided the fallback for when nothing was focused at all,
     ///         which is exactly the half of this that was owed. Each window keeps its own first
@@ -321,8 +336,12 @@ public sealed partial class UiDocument {
     /// <returns>The element it went to.</returns>
     /// <exception cref="ArgumentException">The surface belongs to another document.</exception>
     /// <remarks>
-    ///     ⚠ <b>The same defect <see cref="Dispatch(UiSurface, KeyEvent)" /> was fixed for, and it
-    ///     outlived that fix by sitting next to it.</b> A key and the text it produces arrive from
+    ///     ⚠
+    ///     <b>
+    ///         The same defect <see cref="Dispatch(UiSurface, KeyEvent)" /> was fixed for, and it
+    ///         outlived that fix by sitting next to it.
+    ///     </b>
+    ///     A key and the text it produces arrive from
     ///     the platform two events apart and were routed by two different rules — the key by the
     ///     window it was delivered to, the text by <see cref="Primary" /> whenever nothing was
     ///     focused. So a character typed into a torn-off window landed on the main one, and did so
@@ -345,8 +364,12 @@ public sealed partial class UiDocument {
     /// <param name="args">The event.</param>
     /// <returns>The element it went to.</returns>
     /// <remarks>
-    ///     ⚠ <b>It does <i>not</i> enter keyboard mode, and that is the one difference from
-    ///     <see cref="Dispatch(TextInputEvent)" />.</b> A composition is a consequence of keystrokes
+    ///     ⚠
+    ///     <b>
+    ///         It does <i>not</i> enter keyboard mode, and that is the one difference from
+    ///         <see cref="Dispatch(TextInputEvent)" />.
+    ///     </b>
+    ///     A composition is a consequence of keystrokes
     ///     the focus has already had, so the mode is already right; raising it here as well would
     ///     light the focus ring on a field somebody is typing into with the mouse still moving,
     ///     which is the case the mode exists to distinguish.

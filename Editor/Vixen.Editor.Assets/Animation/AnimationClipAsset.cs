@@ -8,15 +8,18 @@ using Vixen.Core.Curves;
 using Vixen.Core.Mathematics;
 using Vixen.Core.Yaml;
 using Vixen.Geometry;
-using Vixen.Rendering;
 
 namespace Vixen.Editor.Assets.Animation;
 
 /// <summary>Which of a joint's ten numbers a curve drives.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Ten scalar curves rather than three vector tracks, and that is the whole reason this
-///         format exists.</b> <see cref="AnimationChannel" /> — what an import writes — holds arrays
+///         ⚠
+///         <b>
+///             Ten scalar curves rather than three vector tracks, and that is the whole reason this
+///             format exists.
+///         </b>
+///         <see cref="AnimationChannel" /> — what an import writes — holds arrays
 ///         of <c>Vector3</c> and <c>Quaternion</c>, which is exactly right for a file produced by a
 ///         DCC and exactly wrong for an editor: a curve editor edits <i>one</i> number against time,
 ///         and a dope sheet's row is one number's keys. A vector track cannot express "X has a key
@@ -65,8 +68,12 @@ public enum AnimationProperty {
     /// <summary>A blend shape's weight.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The one property that is not one of a joint's ten, and the one that needs
-    ///         <see cref="AnimationCurveData.Shape" /> beside it.</b> The nine above are components
+    ///         ⚠
+    ///         <b>
+    ///             The one property that is not one of a joint's ten, and the one that needs
+    ///             <see cref="AnimationCurveData.Shape" /> beside it.
+    ///         </b>
+    ///         The nine above are components
     ///         of a transform and a target has at most one curve for each; a morphed mesh has as many
     ///         weight curves as it has shapes, all on the same node, so the pair
     ///         <c>(Property, Shape)</c> is what identifies a curve and not the property alone.
@@ -186,8 +193,11 @@ public sealed class AnimationEventData {
 /// <summary>A whole <c>.vxanim</c> document: the format doc 20's E5 says did not exist.</summary>
 /// <remarks>
 ///     <para>
-///         <b>Authored clips and imported clips are the same runtime object and not the same
-///         file.</b> An FBX produces <see cref="AnimationClipData" /> through the model importer, and
+///         <b>
+///             Authored clips and imported clips are the same runtime object and not the same
+///             file.
+///         </b>
+///         An FBX produces <see cref="AnimationClipData" /> through the model importer, and
 ///         nothing about that changes; what was missing is a clip somebody can <i>write</i> — a
 ///         camera move, a door, a UI wobble, a hand-keyed idle — and that wants keys with tangents
 ///         rather than baked samples. <see cref="ToContent" /> is the one-way door between them, so
@@ -237,7 +247,9 @@ public sealed class AnimationClipAsset {
     ///         document in the process instead of the formats that share the convention.
     ///     </para>
     /// </remarks>
-    static AnimationClipAsset() => MathScalars.Register();
+    static AnimationClipAsset() {
+        MathScalars.Register();
+    }
 
     /// <summary>The version this reader and writer speak.</summary>
     /// <remarks>
@@ -246,8 +258,12 @@ public sealed class AnimationClipAsset {
     ///         <see cref="AnimationProperty.Weight" /> and <see cref="AnimationCurveData.Shape" />.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A genuine compatibility fence, unlike <c>ModelImporter.Version</c> 10 and
-    ///         <c>AnimationClipContent.Current</c> 2, which were re-import triggers.</b> Those two are
+    ///         ⚠
+    ///         <b>
+    ///             A genuine compatibility fence, unlike <c>ModelImporter.Version</c> 10 and
+    ///             <c>AnimationClipContent.Current</c> 2, which were re-import triggers.
+    ///         </b>
+    ///         Those two are
     ///         binary chunks written by the generated serializer, which stores a member count and
     ///         refuses only <c>count &gt; MemberCount</c> — so an appended member reads back out of
     ///         older bytes as its default and an older build answers "no weight track", which is true.
@@ -258,8 +274,12 @@ public sealed class AnimationClipAsset {
     ///         <see cref="FromYaml" /> writes.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Which is why the number a file carries is <see cref="MinimumVersion" /> and not
-    ///         this constant.</b> A fence that stamped every clip would make every clip in the project
+    ///         ⚠
+    ///         <b>
+    ///             Which is why the number a file carries is <see cref="MinimumVersion" /> and not
+    ///             this constant.
+    ///         </b>
+    ///         A fence that stamped every clip would make every clip in the project
     ///         unreadable by an older build the first time anybody saved one, for a member none of
     ///         them uses. A clip carrying no weight curve is a version-1 clip and says so.
     ///     </para>
@@ -328,16 +348,23 @@ public sealed class AnimationClipAsset {
     /// <summary>Metadata this build did not interpret, by kind, exactly as it was written.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>The open half of the format, and the reason it is a reserved block rather than
-    ///         tolerated stray keys.</b> The binder ignores a key it does not know — deliberately, so
+    ///         <b>
+    ///             The open half of the format, and the reason it is a reserved block rather than
+    ///             tolerated stray keys.
+    ///         </b>
+    ///         The binder ignores a key it does not know — deliberately, so
     ///         that an older editor can open a newer project — which means an unknown key at the root
     ///         is <i>silently deleted</i> the next time the file is saved. That is the wrong failure
     ///         for markup somebody spent a day authoring.
     ///     </para>
     ///     <para>
     ///         So everything a build might not understand goes under one key it always understands,
-    ///         bound as a raw node and written back out unchanged. <b>Unrecognised is preserved,
-    ///         never dropped</b> — and a round trip through a build that knows nothing about a kind
+    ///         bound as a raw node and written back out unchanged.
+    ///         <b>
+    ///             Unrecognised is preserved,
+    ///             never dropped
+    ///         </b>
+    ///         — and a round trip through a build that knows nothing about a kind
     ///         produces the same file it read.
     ///     </para>
     ///     <para>
@@ -378,7 +405,9 @@ public sealed class AnimationClipAsset {
     ///     lock every clip in a project out of one for nothing.
     /// </remarks>
     public int MinimumVersion =>
-        Targets.Any(target => target.Curves.Any(curve => curve.Property == AnimationProperty.Weight)) ? 2 : 1;
+        Targets.Any(static target => target.Curves.Any(static curve => curve.Property == AnimationProperty.Weight))
+            ? 2
+            : 1;
 
     /// <summary>Writes it as YAML.</summary>
     /// <returns>The text.</returns>
@@ -396,27 +425,29 @@ public sealed class AnimationClipAsset {
 
     /// <summary>The events, as the runtime's own record, in time order.</summary>
     /// <returns>The events.</returns>
-    public AnimationEvent[] ToEvents() =>
-        [.. Events.OrderBy(entry => entry.Time)
-            .Select(entry => new AnimationEvent(entry.Name, entry.Time, entry.Float, entry.Int, entry.String))];
+    public AnimationEvent[] ToEvents() => [
+        ..Events.OrderBy(static entry => entry.Time)
+            .Select(static entry => new AnimationEvent(entry.Name, entry.Time, entry.Float, entry.Int, entry.String))
+    ];
 
     /// <summary>The whole clip as the artefact a build loads.</summary>
     /// <returns>The compiled clip.</returns>
-    public AnimationClipContent ToContent() => new() {
-        Name = Name,
-        Wrap = Wrap,
-        Data = ToClipData(),
-        Events = ToEvents(),
-        Constraints = [.. Constraints],
+    public AnimationClipContent ToContent() =>
+        new() {
+            Name = Name,
+            Wrap = Wrap,
+            Data = ToClipData(),
+            Events = ToEvents(),
+            Constraints = [..Constraints],
 
-        // Re-emitted rather than carried as nodes, because the runtime type has no parser and no
-        // wish for one. A consumer that knows a kind parses its own block.
-        Extensions = Extensions.ToDictionary(
-            entry => entry.Key,
-            entry => YamlWriter.Write(entry.Value),
-            StringComparer.Ordinal
-        )
-    };
+            // Re-emitted rather than carried as nodes, because the runtime type has no parser and no
+            // wish for one. A consumer that knows a kind parses its own block.
+            Extensions = Extensions.ToDictionary(
+                static entry => entry.Key,
+                static entry => YamlWriter.Write(entry.Value),
+                StringComparer.Ordinal
+            )
+        };
 
     /// <summary>Bakes the curves into the sampled channels an import would have produced.</summary>
     /// <returns>The clip data.</returns>
@@ -434,8 +465,12 @@ public sealed class AnimationClipAsset {
     ///         not write scale: the first overwrites whatever a layer underneath set.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A weight curve becomes a channel of its own, and a target whose curves are
-    ///         <em>all</em> weight curves emits no transform channel at all.</b> Emitting an empty one
+    ///         ⚠
+    ///         <b>
+    ///             A weight curve becomes a channel of its own, and a target whose curves are
+    ///             <em>all</em> weight curves emits no transform channel at all.
+    ///         </b>
+    ///         Emitting an empty one
     ///         beside them would be free everywhere except in the one number that matters: a weight
     ///         curve names the morphed mesh's node, which is not a joint, so
     ///         <c>AnimationClip.Create</c> would put that empty channel in
@@ -470,18 +505,20 @@ public sealed class AnimationClipAsset {
                     continue;
                 }
 
-                var keys = curve.Keys.OrderBy(key => key.Time).ToArray();
+                var keys = curve.Keys.OrderBy(static key => key.Time).ToArray();
 
                 channels.Add(
                     new() {
                         Target = target.Target,
                         Shape = curve.Shape,
-                        WeightTimes = [.. keys.Select(key => key.Time)],
+                        WeightTimes = [..keys.Select(static key => key.Time)],
 
                         // Sampled through the same evaluator the transform components use rather than
                         // copied out of the keys, so that a weight curve's tangents mean what every
                         // other curve's tangents mean. At a key the two agree exactly.
-                        Weights = [.. keys.Select(key => Sample(target, AnimationProperty.Weight, key.Time, shape: curve.Shape))]
+                        Weights = [
+                            ..keys.Select(key => Sample(target, AnimationProperty.Weight, key.Time, shape: curve.Shape))
+                        ]
                     }
                 );
             }
@@ -490,36 +527,56 @@ public sealed class AnimationClipAsset {
                 continue;
             }
 
-            var position = Times(target, AnimationProperty.PositionX, AnimationProperty.PositionY, AnimationProperty.PositionZ);
-            var rotation = Times(target, AnimationProperty.RotationX, AnimationProperty.RotationY, AnimationProperty.RotationZ, AnimationProperty.RotationW);
+            var position = Times(
+                target,
+                AnimationProperty.PositionX,
+                AnimationProperty.PositionY,
+                AnimationProperty.PositionZ
+            );
+            var rotation = Times(
+                target,
+                AnimationProperty.RotationX,
+                AnimationProperty.RotationY,
+                AnimationProperty.RotationZ,
+                AnimationProperty.RotationW
+            );
             var scale = Times(target, AnimationProperty.ScaleX, AnimationProperty.ScaleY, AnimationProperty.ScaleZ);
 
-            channel.PositionTimes = [.. position];
-            channel.Positions = [.. position.Select(time => new Vector3(
-                Sample(target, AnimationProperty.PositionX, time),
-                Sample(target, AnimationProperty.PositionY, time),
-                Sample(target, AnimationProperty.PositionZ, time)
-            ))];
+            channel.PositionTimes = [..position];
+            channel.Positions = [
+                ..position.Select(time => new Vector3(
+                        Sample(target, AnimationProperty.PositionX, time),
+                        Sample(target, AnimationProperty.PositionY, time),
+                        Sample(target, AnimationProperty.PositionZ, time)
+                    )
+                )
+            ];
 
-            channel.RotationTimes = [.. rotation];
-            channel.Rotations = [.. rotation.Select(time => Normalised(
-                Sample(target, AnimationProperty.RotationX, time),
-                Sample(target, AnimationProperty.RotationY, time),
-                Sample(target, AnimationProperty.RotationZ, time),
-                Sample(target, AnimationProperty.RotationW, time, fallback: 1f)
-            ))];
+            channel.RotationTimes = [..rotation];
+            channel.Rotations = [
+                ..rotation.Select(time => Normalised(
+                        Sample(target, AnimationProperty.RotationX, time),
+                        Sample(target, AnimationProperty.RotationY, time),
+                        Sample(target, AnimationProperty.RotationZ, time),
+                        Sample(target, AnimationProperty.RotationW, time, 1f)
+                    )
+                )
+            ];
 
-            channel.ScaleTimes = [.. scale];
-            channel.Scales = [.. scale.Select(time => new Vector3(
-                Sample(target, AnimationProperty.ScaleX, time, fallback: 1f),
-                Sample(target, AnimationProperty.ScaleY, time, fallback: 1f),
-                Sample(target, AnimationProperty.ScaleZ, time, fallback: 1f)
-            ))];
+            channel.ScaleTimes = [..scale];
+            channel.Scales = [
+                ..scale.Select(time => new Vector3(
+                        Sample(target, AnimationProperty.ScaleX, time, 1f),
+                        Sample(target, AnimationProperty.ScaleY, time, 1f),
+                        Sample(target, AnimationProperty.ScaleZ, time, 1f)
+                    )
+                )
+            ];
 
             channels.Add(channel);
         }
 
-        return new() { Name = Name, Duration = Duration, Channels = [.. channels] };
+        return new() { Name = Name, Duration = Duration, Channels = [..channels] };
     }
 
     /// <summary>
@@ -527,7 +584,7 @@ public sealed class AnimationClipAsset {
     ///     produce a unit quaternion — and a rotation that is not unit is a scale nobody authored.
     /// </summary>
     static Quaternion Normalised(float x, float y, float z, float w) {
-        var length = MathF.Sqrt((x * x) + (y * y) + (z * z) + (w * w));
+        var length = MathF.Sqrt(x * x + y * y + z * z + w * w);
 
         return length > 1e-6f
             ? new(x / length, y / length, z / length, w / length)
@@ -539,7 +596,7 @@ public sealed class AnimationClipAsset {
         SortedSet<float> times = [];
 
         foreach (var property in properties) {
-            if (Find(target, property, shape: string.Empty) is not { } found) {
+            if (Find(target, property, string.Empty) is not { } found) {
                 continue;
             }
 
@@ -548,7 +605,7 @@ public sealed class AnimationClipAsset {
             }
         }
 
-        return [.. times];
+        return [..times];
     }
 
     /// <summary>
@@ -562,14 +619,18 @@ public sealed class AnimationClipAsset {
     /// </param>
     /// <returns>The curve, or <see langword="null" />.</returns>
     /// <remarks>
-    ///     ⚠ <b>The shape is compared for every property and not only for
-    ///     <see cref="AnimationProperty.Weight" />.</b> A transform curve's shape is empty, so
+    ///     ⚠
+    ///     <b>
+    ///         The shape is compared for every property and not only for
+    ///         <see cref="AnimationProperty.Weight" />.
+    ///     </b>
+    ///     A transform curve's shape is empty, so
     ///     comparing it costs nothing and asking a caller to remember which properties carry one is
     ///     how the two halves drift.
     /// </remarks>
     public static AnimationCurveData? Find(AnimationTargetData target, AnimationProperty property, string shape) =>
-        target.Curves.Find(
-            curve => curve.Property == property && string.Equals(curve.Shape, shape, StringComparison.Ordinal)
+        target.Curves.Find(curve => curve.Property == property
+            && string.Equals(curve.Shape, shape, StringComparison.Ordinal)
         );
 
     /// <summary>One component's value at a time, or its fallback when it has no curve.</summary>

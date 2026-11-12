@@ -10,8 +10,11 @@ namespace Vixen.Core.Serialization.Tests;
 /// <summary>Files that are not what they say they are, and what the two storage formats do about it.</summary>
 /// <remarks>
 ///     <para>
-///         <b>Every case here is a number in the file deciding how much memory to allocate or where a
-///         slice lands.</b> That is the whole class of defect a storage format has, and it has two
+///         <b>
+///             Every case here is a number in the file deciding how much memory to allocate or where a
+///             slice lands.
+///         </b>
+///         That is the whole class of defect a storage format has, and it has two
 ///         failure modes rather than one: the wrong exception type — an
 ///         <c>ArgumentOutOfRangeException</c> out of a decoder whose contract is
 ///         <see cref="SerializationException" /> — and the allocation that happened before the
@@ -34,8 +37,12 @@ public sealed class MalformedStorageTests {
 
     /// <summary>The entry's offset and length are 32-bit unsigned, and narrowing them first is the bug.</summary>
     /// <remarks>
-    ///     A length of 0x80000000 read as an <c>int</c> is negative, so <c>payloadStart + offset +
-    ///     length</c> lands below the file's length and the bounds check passes on its way to a slice
+    ///     A length of 0x80000000 read as an <c>int</c> is negative, so
+    ///     <c>
+    ///         payloadStart + offset +
+    ///         length
+    ///     </c>
+    ///     lands below the file's length and the bounds check passes on its way to a slice
     ///     that throws.
     /// </remarks>
     [Fact]
@@ -93,7 +100,7 @@ public sealed class MalformedStorageTests {
 
     [Fact]
     public void AWellFormedBundleStillOpensAndReads() {
-        using var backend = new BundleOdbBackend(Bundle(), verifyChecksum: true);
+        using var backend = new BundleOdbBackend(Bundle(), true);
 
         Assert.Equal(2, backend.Count);
         Assert.True(backend.TryRead(new(1, 1), out var blob));
@@ -104,7 +111,7 @@ public sealed class MalformedStorageTests {
     // ── the chunk container ─────────────────────────────────────────────────────────────────────
 
     static byte[] Blob(CompressionMethod method, ulong declared, params byte[] body) => [
-        (byte)method, .. Varint(declared), .. body
+        (byte)method, ..Varint(declared), ..body
     ];
 
     static byte[] Varint(ulong value) {
@@ -117,7 +124,7 @@ public sealed class MalformedStorageTests {
             if (value == 0) {
                 bytes.Add(current);
 
-                return [.. bytes];
+                return [..bytes];
             }
 
             bytes.Add((byte)(current | 0x80));
@@ -126,8 +133,12 @@ public sealed class MalformedStorageTests {
 
     /// <summary>A declared length no body of that size could produce is refused before it is allocated.</summary>
     /// <remarks>
-    ///     ⚠ <b>Weighed rather than asserted about, because the exception type was never the
-    ///     problem.</b> This case already threw <see cref="SerializationException" /> — after
+    ///     ⚠
+    ///     <b>
+    ///         Weighed rather than asserted about, because the exception type was never the
+    ///         problem.
+    ///     </b>
+    ///     This case already threw <see cref="SerializationException" /> — after
     ///     allocating the two hundred megabytes it was about to complain about. A backend reading a
     ///     thousand of these is a process in permanent collection, and nothing in a log says so.
     /// </remarks>
@@ -157,8 +168,10 @@ public sealed class MalformedStorageTests {
     /// <summary>A length near <see cref="int.MaxValue" /> was an OutOfMemoryException rather than a refusal.</summary>
     [Fact]
     public void ALengthThatWouldNotFitInAnArrayIsARefusalRatherThanAnOutOfMemory() =>
-        Assert.Throws<SerializationException>(
-            () => ChunkFormat.Unpack(Blob(CompressionMethod.Lz4, 0x7FFFFFFF, 1, 2, 3, 4), out _)
+        Assert.Throws<SerializationException>(static () => ChunkFormat.Unpack(
+                Blob(CompressionMethod.Lz4, 0x7FFFFFFF, 1, 2, 3, 4),
+                out _
+            )
         );
 
     /// <summary>A length past what an <c>int</c> holds is refused rather than wrapping to a plausible one.</summary>
@@ -168,8 +181,10 @@ public sealed class MalformedStorageTests {
     /// </remarks>
     [Fact]
     public void ALengthAboveIntMaxIsRefusedRatherThanTruncated() {
-        var failure = Assert.Throws<SerializationException>(
-            () => ChunkFormat.Unpack(Blob(CompressionMethod.Lz4, 1UL << 40, 1, 2, 3, 4), out _)
+        var failure = Assert.Throws<SerializationException>(static () => ChunkFormat.Unpack(
+                Blob(CompressionMethod.Lz4, 1UL << 40, 1, 2, 3, 4),
+                out _
+            )
         );
 
         Assert.Contains("1099511627776", failure.Message, StringComparison.Ordinal);
@@ -178,15 +193,17 @@ public sealed class MalformedStorageTests {
     /// <summary>A body that is not a Zstd frame is the library's exception, and this method's contract is not.</summary>
     [Fact]
     public void AZstdBodyThatIsNotAFrameIsASerializationException() =>
-        Assert.Throws<SerializationException>(
-            () => ChunkFormat.Unpack(Blob(CompressionMethod.Zstd, 4, 1, 2, 3, 4), out _)
+        Assert.Throws<SerializationException>(static () => ChunkFormat.Unpack(
+                Blob(CompressionMethod.Zstd, 4, 1, 2, 3, 4),
+                out _
+            )
         );
 
     /// <summary>A header naming more references than follow it is refused before the builder is sized.</summary>
     [Fact]
     public void AChunkHeaderNamingMoreReferencesThanFollowIsRefused() {
         // Version 1, a type id, and a reference count of ten million with nothing behind it.
-        byte[] chunk = [1, 1, 2, 3, 4, 5, 6, 7, 8, .. Varint(10_000_000)];
+        byte[] chunk = [1, 1, 2, 3, 4, 5, 6, 7, 8, ..Varint(10_000_000)];
 
         var before = GC.GetAllocatedBytesForCurrentThread();
         Assert.Throws<SerializationException>(() => ChunkFormat.ReadHeader(chunk, out _, out _));

@@ -233,8 +233,10 @@ sealed class VxmlLexer {
             return true;
         }
 
-        if (current == '<' && (window.Peek(1) == '/' || IsNameStart(window.Peek(1))
-                               || (window.Peek(1) == '!' && window.Peek(2) == '-' && window.Peek(3) == '-'))) {
+        if (current == '<'
+            && (window.Peek(1) == '/'
+                || IsNameStart(window.Peek(1))
+                || (window.Peek(1) == '!' && window.Peek(2) == '-' && window.Peek(3) == '-'))) {
             return true;
         }
 
@@ -325,7 +327,7 @@ sealed class VxmlLexer {
         if (window.Peek(gap) == '@' && AtWord("empty", gap + 1)) {
             SkipWhitespace(tokens);
             Emit(tokens, VxmlTokenKind.EmptyKeyword, 6);
-            LexBlockOpen(tokens, isSwitch: false);
+            LexBlockOpen(tokens, false);
             return;
         }
 
@@ -339,10 +341,10 @@ sealed class VxmlLexer {
 
         if (AtWord("if")) {
             Emit(tokens, VxmlTokenKind.IfKeyword, 2);
-            LexParenthesizedHeader(tokens, forLoop: false);
+            LexParenthesizedHeader(tokens, false);
         }
 
-        LexBlockOpen(tokens, isSwitch: false);
+        LexBlockOpen(tokens, false);
     }
 
     // ------------------------------------------------------------ @
@@ -415,15 +417,15 @@ sealed class VxmlLexer {
 
         if (AtDirective("if")) {
             Emit(tokens, VxmlTokenKind.IfKeyword, 3);
-            LexParenthesizedHeader(tokens, forLoop: false);
-            LexBlockOpen(tokens, isSwitch: false);
+            LexParenthesizedHeader(tokens, false);
+            LexBlockOpen(tokens, false);
             return;
         }
 
         if (AtDirective("for")) {
             Emit(tokens, VxmlTokenKind.ForKeyword, 4);
-            LexParenthesizedHeader(tokens, forLoop: true);
-            LexBlockOpen(tokens, isSwitch: false);
+            LexParenthesizedHeader(tokens, true);
+            LexBlockOpen(tokens, false);
             return;
         }
 
@@ -433,15 +435,15 @@ sealed class VxmlLexer {
         // this takes.
         if (AtDirective("rows") && AtVarHeaderAhead(5)) {
             Emit(tokens, VxmlTokenKind.RowsKeyword, 5);
-            LexParenthesizedHeader(tokens, forLoop: true);
-            LexBlockOpen(tokens, isSwitch: false);
+            LexParenthesizedHeader(tokens, true);
+            LexBlockOpen(tokens, false);
             return;
         }
 
         if (AtDirective("switch")) {
             Emit(tokens, VxmlTokenKind.SwitchKeyword, 7);
-            LexParenthesizedHeader(tokens, forLoop: false);
-            LexBlockOpen(tokens, isSwitch: true);
+            LexParenthesizedHeader(tokens, false);
+            LexBlockOpen(tokens, true);
             return;
         }
 
@@ -450,7 +452,7 @@ sealed class VxmlLexer {
         // identifier and every other directive here is spelled with a word that is not.
         if (AtDirective("empty") && AtBraceAhead(6)) {
             Emit(tokens, VxmlTokenKind.EmptyKeyword, 6);
-            LexBlockOpen(tokens, isSwitch: false);
+            LexBlockOpen(tokens, false);
             return;
         }
 

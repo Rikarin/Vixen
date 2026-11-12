@@ -15,8 +15,12 @@ namespace Vixen.Ui;
 ///         the remaining ones get their own path.
 ///     </para>
 ///     <para>
-///         ⚠ <b>An inline style is the third, and it is the one a virtualising list pays sixty times
-///         a second.</b> See <see cref="UiDocument.InvalidateInline" />.
+///         ⚠
+///         <b>
+///             An inline style is the third, and it is the one a virtualising list pays sixty times
+///             a second.
+///         </b>
+///         See <see cref="UiDocument.InvalidateInline" />.
 ///     </para>
 /// </remarks>
 enum StyleChangeKind {
@@ -59,16 +63,24 @@ public sealed partial class UiDocument {
     ///         against a document doing nothing whatever.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The number Phase 4b's invalidation-minimality gate is about, finally readable from
-    ///         the thing an application drives.</b> That gate — toggling one class on a 100×100 grid
+    ///         ⚠
+    ///         <b>
+    ///             The number Phase 4b's invalidation-minimality gate is about, finally readable from
+    ///             the thing an application drives.
+    ///         </b>
+    ///         That gate — toggling one class on a 100×100 grid
     ///         restyles exactly one element — was green for two phases against
     ///         <see cref="StyleUpdater" /> directly, while <see cref="Update" /> called
     ///         <c>StyleEngine.ResolveAll</c> and cascaded all ten thousand.
     ///     </para>
     ///     <para>
     ///         It is deliberately not <see cref="StylesApplied" />, and confusing the two is what hid
-    ///         the gap. <see cref="StylesApplied" /> counts elements whose <i>layout style was
-    ///         rebuilt</i>, which the interned <see cref="ComputedStyle" /> makes a pointer comparison
+    ///         the gap. <see cref="StylesApplied" /> counts elements whose
+    ///         <i>
+    ///             layout style was
+    ///             rebuilt
+    ///         </i>
+    ///         , which the interned <see cref="ComputedStyle" /> makes a pointer comparison
     ///         — so it reads 1 for a one-class change however the styles were arrived at, and says
     ///         nothing at all about the cost of arriving at them.
     ///     </para>
@@ -83,7 +95,7 @@ public sealed partial class UiDocument {
         dirty = true;
 
         if (!cold) {
-            changes.Add(new StyleChange(StyleChangeKind.Class, element, className));
+            changes.Add(new(StyleChangeKind.Class, element, className));
         }
     }
 
@@ -92,15 +104,19 @@ public sealed partial class UiDocument {
         dirty = true;
 
         if (!cold) {
-            changes.Add(new StyleChange(StyleChangeKind.State, element, null));
+            changes.Add(new(StyleChangeKind.State, element, null));
         }
     }
 
     /// <summary>Records a declaration written on an element itself, which reaches only its subtree.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A scrolled virtualised list cost a cold cascade of the whole document, and no
-    ///         element was created or removed to explain it.</b> #598 attributed 590 KB of a 591 KB
+    ///         ⚠
+    ///         <b>
+    ///             A scrolled virtualised list cost a cold cascade of the whole document, and no
+    ///             element was created or removed to explain it.
+    ///         </b>
+    ///         #598 attributed 590 KB of a 591 KB
     ///         scrolled frame to <c>Restyle</c> and read it as row realisation; the shell's element
     ///         count is 561 before the scroll and 561 after it, on every frame of a scroll — the rows
     ///         and cells are pooled and parked, never added and never taken away. What invalidates the
@@ -128,7 +144,7 @@ public sealed partial class UiDocument {
         dirty = true;
 
         if (!cold) {
-            changes.Add(new StyleChange(StyleChangeKind.Inline, element, null));
+            changes.Add(new(StyleChangeKind.Inline, element, null));
         }
     }
 

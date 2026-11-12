@@ -19,7 +19,8 @@ namespace Vixen.Raven.Grammar;
 [SuppressMessage(
     "Performance",
     "CA1822:Mark members as static",
-    Justification = "ANTLR emits `this.OnOpenBrace()`; CS0176 rejects an instance-qualified call to a static member.")]
+    Justification = "ANTLR emits `this.OnOpenBrace()`; CS0176 rejects an instance-qualified call to a static member."
+)]
 public abstract class RavenLexerBase(ICharStream input) : Lexer(input) {
     protected void OnOpenBrace() { }
 

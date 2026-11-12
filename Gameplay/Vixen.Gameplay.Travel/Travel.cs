@@ -7,9 +7,13 @@ namespace Vixen.Gameplay.Travel;
 
 /// <summary>What sort of way of getting somewhere it is.</summary>
 /// <remarks>
-///     ⚠ <b>Five kinds and one mechanism.</b> Doc 28: every one of them <em>"resolves to
-///     <c>RequestTransfer</c>, and the only thing this library adds is the fiction: the cost, the
-///     unlock, the requirement query, and the UI"</em>. The kind is what a client draws and what a
+///     ⚠ <b>Five kinds and one mechanism.</b> Doc 28: every one of them
+///     <em>
+///         "resolves to
+///         <c>RequestTransfer</c>, and the only thing this library adds is the fiction: the cost, the
+///         unlock, the requirement query, and the UI"
+///     </em>
+///     . The kind is what a client draws and what a
 ///     designer thinks in; it changes nothing about what happens.
 /// </remarks>
 public enum TravelKind {
@@ -199,7 +203,7 @@ public sealed class TravelLibrary {
 
     /// <summary>Everything, in address order.</summary>
     public IEnumerable<TravelPoint> Points =>
-        points.Values.OrderBy(point => point.Definition.Address, StringComparer.Ordinal);
+        points.Values.OrderBy(static point => point.Definition.Address, StringComparer.Ordinal);
 
     /// <summary>What did not resolve, and what a definition said that cannot be true at once.</summary>
     public IReadOnlyList<string> Problems => problems;
@@ -250,7 +254,7 @@ public sealed class TravelLibrary {
             );
         }
 
-        return new(points, [.. problems]);
+        return new(points, [..problems]);
     }
 
     /// <summary>Finds one.</summary>
@@ -268,10 +272,13 @@ public sealed class TravelLibrary {
 
 /// <summary>Whether somebody may go somewhere, and what to hand the realm if they may.</summary>
 /// <remarks>
-///     <b>Doc 28 § Travel, and the whole of it:</b> <em>"every one of them resolves to
-///     <c>RequestTransfer</c>, and the only thing this library adds is the fiction: the cost, the
-///     unlock, the requirement query, and the UI. That is the payoff of doc 27's protocol being one
-///     mechanism — a game adds a new way to travel by authoring a definition."</em>
+///     <b>Doc 28 § Travel, and the whole of it:</b>
+///     <em>
+///         "every one of them resolves to
+///         <c>RequestTransfer</c>, and the only thing this library adds is the fiction: the cost, the
+///         unlock, the requirement query, and the UI. That is the payoff of doc 27's protocol being one
+///         mechanism — a game adds a new way to travel by authoring a definition."
+///     </em>
 /// </remarks>
 public static class Travelling {
     /// <summary>Whether a point can be used from where somebody is, and why not.</summary>

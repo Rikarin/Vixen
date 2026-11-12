@@ -14,8 +14,12 @@ namespace Vixen.Rendering.Materials;
 ///     decision <c>IMaterialParameter</c>'s own remarks record and for the same reason: a single
 ///     value type carrying a <see cref="Vector4" /> and a lane count would put three dead floats in
 ///     every line of every graph material, and would give an inspector one editor to draw for two
-///     different things. The shader graph declares exactly two widths today — <c>Input/Float
-///     Property</c> and <c>Input/Colour Property</c> — so there are exactly two of these.
+///     different things. The shader graph declares exactly two widths today —
+///     <c>
+///         Input/Float
+///         Property
+///     </c>
+///     and <c>Input/Colour Property</c> — so there are exactly two of these.
 /// </remarks>
 [DataContract("GraphNumber")]
 public sealed record GraphSurfaceNumber(string Name, float Value) {
@@ -97,8 +101,12 @@ public sealed record GraphSurfaceMap(string Texture, string Slot) {
 ///         material already takes.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The one thing this has that no other feature does is a <see cref="ShaderName" /> it
-///         does not know at compile time.</b> Every hand-written feature returns a constant, because
+///         ⚠
+///         <b>
+///             The one thing this has that no other feature does is a <see cref="ShaderName" /> it
+///             does not know at compile time.
+///         </b>
+///         Every hand-written feature returns a constant, because
 ///         the shader it names is a file somebody committed; this one names a shader a build
 ///         generated from a <c>.vxshadergraph</c>, so the name is data. That is also the only way
 ///         this can be wrong in a way nothing catches: a material naming a graph whose shader was

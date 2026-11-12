@@ -57,8 +57,12 @@ sealed class SpirvCrossException : Exception {
 ///         <item>
 ///             <description>
 ///                 GLSL ES has no default precision for <c>float</c> in a fragment shader, so the
-///                 first declaration is <i>"type requires declaration of default precision
-///                 qualifier"</i>. Raven emits no <c>precision</c> line anywhere.
+///                 first declaration is
+///                 <i>
+///                     "type requires declaration of default precision
+///                     qualifier"
+///                 </i>
+///                 . Raven emits no <c>precision</c> line anywhere.
 ///             </description>
 ///         </item>
 ///     </list>
@@ -82,8 +86,12 @@ static unsafe class SpirvCrossTranspiler {
     /// <returns>Whether <see cref="Transpile" /> has a compiler to call.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The library is a restored NuGet asset and not an installed tool, so this is not
-    ///         the same shape as a missing driver</b> — and that is exactly why it is worth asking
+    ///         ⚠
+    ///         <b>
+    ///             The library is a restored NuGet asset and not an installed tool, so this is not
+    ///             the same shape as a missing driver
+    ///         </b>
+    ///         — and that is exactly why it is worth asking
     ///         out loud rather than letting the exception escape. <c>Silk.NET.SPIRV.Cross.Native</c>
     ///         ships SPIRV-Cross for eight RIDs, and on the ubuntu leg it nevertheless fails to load:
     ///         six of nine cases in <c>Vixen.Raven.Transpile.Tests</c> die inside
@@ -266,7 +274,9 @@ static unsafe class SpirvCrossTranspiler {
         for (nuint index = 0; index < count; index++) {
             var pair = pairs[index];
             var image = NameOf(cross, compiler, pair.ImageId, "texture", pair.ImageId);
-            var sampler = pair.SamplerId == 0 ? "" : NameOf(cross, compiler, pair.SamplerId, "sampler", pair.SamplerId);
+            var sampler = pair.SamplerId == 0
+                ? string.Empty
+                : NameOf(cross, compiler, pair.SamplerId, "sampler", pair.SamplerId);
 
             raw.Add((pair.CombinedId, image, sampler));
             imageUses[image] = imageUses.GetValueOrDefault(image) + 1;
@@ -289,12 +299,16 @@ static unsafe class SpirvCrossTranspiler {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>SPIRV-Cross does not do this, and the belief that it did is what made the GLES
-    ///         3.0 head look finished.</b> With <c>GlslSeparateShaderObjects</c> off it correctly
+    ///         ⚠
+    ///         <b>
+    ///             SPIRV-Cross does not do this, and the belief that it did is what made the GLES
+    ///             3.0 head look finished.
+    ///         </b>
+    ///         With <c>GlslSeparateShaderObjects</c> off it correctly
     ///         drops <c>layout(location = …)</c> from a varying — the qualifier arrived for varyings
     ///         in ES 3.10 and is a compile error below it — but it keeps whatever names the module
     ///         carried. Raven names the same stream <c>out_normalWS</c> where it is written and
-    ///         <c>in_normalWS</c> where it is read (<c>GlslEmitter.cs:611,628</c>), and below ES 3.10
+    ///         <c>in_normalWS</c> where it is read (<c>GlslEmitter.cs:607,624</c>), and below ES 3.10
     ///         a varying links <em>by name</em>. So the two halves compiled and the program did not
     ///         link, with the fragment input unwritten.
     ///     </para>

@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Runtime.InteropServices;
-using Vixen.Ai;
 using Xunit;
 
 namespace Vixen.Ai.Tests;
@@ -18,7 +17,7 @@ public class AgentMemoryPoolTests {
 
         var second = pool.Rent(16);
 
-        Assert.All(pool.Resolve(second).ToArray(), value => Assert.Equal(0, value));
+        Assert.All(pool.Resolve(second).ToArray(), static value => Assert.Equal(0, value));
     }
 
     [Fact]

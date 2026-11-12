@@ -95,7 +95,7 @@ public class QueryDocumentTests {
 
         var authored = document.ToYaml();
 
-        document.Edit("Extent", content => content.Generators[0].Extent = 25f);
+        document.Edit("Extent", static content => content.Generators[0].Extent = 25f);
 
         Assert.NotEqual(authored, document.ToYaml());
         Assert.True(document.Stack.Undo());
@@ -156,11 +156,7 @@ public class QueryDocumentTests {
                 );
 
                 content.Tests.Add(
-                    new() {
-                        Kind = QueryTestKind.Distance,
-                        Purpose = QueryTestPurpose.Filter,
-                        Ceiling = 8f
-                    }
+                    new() { Kind = QueryTestKind.Distance, Purpose = QueryTestPurpose.Filter, Ceiling = 8f }
                 );
 
                 content.Tests.Add(

@@ -12,7 +12,6 @@ using Vixen.Net.Motion;
 using Vixen.Net.Replication;
 using Vixen.Net.Rpc;
 using Vixen.Net.Sessions;
-using Vixen.Net.Time;
 using Vixen.Net.Transport;
 
 namespace Vixen.Samples.Multiplayer;
@@ -180,8 +179,7 @@ internal sealed class GameClient : ISessionMessageHandler, IDisposable {
         RpcMethods.RegisterAll(manifest);
 
         var settings = (options ?? new()) with {
-            MaxPlayers = 8,
-            ContentHash = ((ulong)registry.ManifestHash << 32) | manifest.ManifestHash
+            MaxPlayers = 8, ContentHash = ((ulong)registry.ManifestHash << 32) | manifest.ManifestHash
         };
 
         session = new(transport, settings, ownsTransport: true);
@@ -226,9 +224,6 @@ internal sealed class GameClient : ISessionMessageHandler, IDisposable {
             case PayloadKind.Rpc:
                 router.Receive(from, inner);
 
-                break;
-
-            default:
                 break;
         }
     }
@@ -389,9 +384,7 @@ internal sealed class GameClient : ISessionMessageHandler, IDisposable {
         // buffer decided for itself from the distance instead.
         ref readonly var transform = ref world.Read<NetworkTransform>(entity);
 
-        buffer.Add(
-            new(replication.AppliedTick, transform.Position, transform.Rotation, transform.TeleportCount)
-        );
+        buffer.Add(new(replication.AppliedTick, transform.Position, transform.Rotation, transform.TeleportCount));
     }
 
     void Forget() {
@@ -503,7 +496,7 @@ internal sealed class GameClient : ISessionMessageHandler, IDisposable {
 
     /// <summary>A circle, for a client with nobody to fight.</summary>
     Vector3 Wander() {
-        var angle = (session.Tick.Value * 0.06f) + (session.LocalPlayer!.Id.Value * 0.8f);
+        var angle = session.Tick.Value * 0.06f + session.LocalPlayer!.Id.Value * 0.8f;
 
         return new(MathF.Cos(angle), 0f, MathF.Sin(angle));
     }

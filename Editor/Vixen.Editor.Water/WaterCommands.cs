@@ -65,8 +65,12 @@ public sealed class WaterProfileCommand(
 ///         operation, because the layer is deltas over ground it never touched.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The undo is a regeneration from the <em>old</em> body list, not a stored copy of the
-///         layer.</b> A layer's deltas are sparse chunks over a whole terrain, and copying them per
+///         ⚠
+///         <b>
+///             The undo is a regeneration from the <em>old</em> body list, not a stored copy of the
+///             layer.
+///         </b>
+///         A layer's deltas are sparse chunks over a whole terrain, and copying them per
 ///         entry would put a heightfield's worth of memory on the undo stack for every drag of a
 ///         width handle. Regenerating is deterministic — that is what "regenerated wholesale" is
 ///         for — so the cheap thing and the correct thing are the same thing here.
@@ -85,8 +89,12 @@ public sealed class WaterCarveCommand(
 
     /// <summary>Which of the two lists the layer is standing at right now.</summary>
     /// <remarks>
-    ///     ⚠ <b>What the next carve passes as its <c>before</c>, and the reason it is here rather than
-    ///     in a field on the toolset.</b> A regeneration is wholesale, so the <em>forward</em> half of
+    ///     ⚠
+    ///     <b>
+    ///         What the next carve passes as its <c>before</c>, and the reason it is here rather than
+    ///         in a field on the toolset.
+    ///     </b>
+    ///     A regeneration is wholesale, so the <em>forward</em> half of
     ///     a carve is right whatever it is handed; it is the undo that has to name the list the layer
     ///     actually holds. A module that remembered "the last list I sent" would be wrong the moment
     ///     somebody pressed Ctrl-Z, and would then undo a later carve back to a state that never

@@ -100,7 +100,7 @@ public sealed class VideoPlayer : IDisposable {
     ///     every caller who omitted the argument a queue capacity of zero.
     /// </remarks>
     public VideoPlayer(IVideoStreamDecoder decoder)
-        : this(decoder, new VideoPlayerOptions()) { }
+        : this(decoder, new()) { }
 
     /// <summary>Creates a player over a decoder.</summary>
     /// <param name="decoder">What produces the frames. Owned: disposing this disposes it.</param>
@@ -124,14 +124,11 @@ public sealed class VideoPlayer : IDisposable {
         Loop = options.Loop;
 
         // Two more than the queue: the frame being decoded into, and the one on screen.
-        pool = new VideoFramePool(options.QueueCapacity + 2);
+        pool = new(options.QueueCapacity + 2);
 
         if (options.UseDecodeThread) {
             running = true;
-            thread = new Thread(DecodeLoop) {
-                IsBackground = true,
-                Name = "Vixen video decode"
-            };
+            thread = new(DecodeLoop) { IsBackground = true, Name = "Vixen video decode" };
 
             thread.Start();
         }
@@ -310,8 +307,11 @@ public sealed class VideoPlayer : IDisposable {
     /// <exception cref="ArgumentNullException"><paramref name="audio" /> is null.</exception>
     /// <remarks>
     ///     <para>
-    ///         <b>Slaving to the decoder's position instead would put the picture half a second
-    ///         ahead.</b> A decoder is filled ahead of playback by design — that is what the buffer is
+    ///         <b>
+    ///             Slaving to the decoder's position instead would put the picture half a second
+    ///             ahead.
+    ///         </b>
+    ///         A decoder is filled ahead of playback by design — that is what the buffer is
     ///         for — so its position is where the sound <em>will</em> be, not where it is. This is the
     ///         single easiest way to get A/V sync visibly wrong while every part of it looks correct.
     ///     </para>
@@ -327,7 +327,10 @@ public sealed class VideoPlayer : IDisposable {
         var rate = audio.Format.SampleRate;
 
         if (rate <= 0) {
-            throw new ArgumentException("The audio source reports no sample rate, so it cannot be a clock.", nameof(audio));
+            throw new ArgumentException(
+                "The audio source reports no sample rate, so it cannot be a clock.",
+                nameof(audio)
+            );
         }
 
         Clock.Master = () => TimeSpan.FromSeconds((double)audio.Position / rate) + offset;

@@ -4,9 +4,7 @@
 using Vixen.Core;
 using Vixen.Core.Curves;
 using Vixen.Core.Yaml;
-using Vixen.Editor.Core;
 using Vixen.Editor.Core.Scenes;
-using Vixen.Ui.Controls.Advanced;
 
 namespace Vixen.Editor.AssetEditors.Sequencing;
 
@@ -109,8 +107,11 @@ public sealed class SequenceTrackData {
 /// <summary>A whole <c>.vxseq</c> document.</summary>
 /// <remarks>
 ///     <para>
-///         <b>Doc 20 calls this "the largest single missing authoring surface" and it is the one that
-///         had nothing at all underneath it</b> — unlike the mixer, whose format existed, or the VFX
+///         <b>
+///             Doc 20 calls this "the largest single missing authoring surface" and it is the one that
+///             had nothing at all underneath it
+///         </b>
+///         — unlike the mixer, whose format existed, or the VFX
 ///         graph, whose compiler did. So the format is here, the evaluation is
 ///         <see cref="SequencePlayer" />, and both are deliberately small: a cinematic is tracks over
 ///         time, and everything else a mature sequencer grows (sub-sequences, blending between

@@ -152,9 +152,9 @@ public sealed class NavTileCache {
         for (var z = 0; z < rows; z++) {
             for (var x = 0; x < columns; x++) {
                 var minimum = new Vector3(
-                    bounds.Minimum.X + (x * extent),
+                    bounds.Minimum.X + x * extent,
                     bounds.Minimum.Y,
-                    bounds.Minimum.Z + (z * extent)
+                    bounds.Minimum.Z + z * extent
                 );
 
                 var tile = new BoundingBox(minimum, new(minimum.X + extent, bounds.Maximum.Y, minimum.Z + extent));
@@ -163,8 +163,8 @@ public sealed class NavTileCache {
                 var owned = new List<NavOffMeshConnectionData>();
 
                 foreach (var connection in connections) {
-                    if ((int)MathF.Floor((connection.Start.X - bounds.Minimum.X) / extent) == x &&
-                        (int)MathF.Floor((connection.Start.Z - bounds.Minimum.Z) / extent) == z) {
+                    if ((int)MathF.Floor((connection.Start.X - bounds.Minimum.X) / extent) == x
+                        && (int)MathF.Floor((connection.Start.Z - bounds.Minimum.Z) / extent) == z) {
                         owned.Add(connection);
                     }
                 }
@@ -173,19 +173,25 @@ public sealed class NavTileCache {
                     ? null
                     : NavMeshBaker.BuildSurface(vertices, indices, in placement, settings);
 
-                cached[x + (z * columns)] = new() {
+                cached[x + z * columns] = new() {
                     Placement = placement,
                     Surface = surface,
                     // The areas as voxelisation left them, before anything decided a shape. Every
                     // rebuild starts from this copy, because erosion and carving both destroy it.
                     Pristine = surface is null ? [] : (byte[])surface.Areas.Clone(),
-                    Volumes = volumes.ToArray(),
-                    Connections = [.. owned]
+                    Volumes = [..volumes],
+                    Connections = [..owned]
                 };
             }
         }
 
-        return new(new(bounds.Minimum, extent, extent, settings.CellSize * 0.5f, settings.AgentMaxClimb), settings, cached, columns, rows);
+        return new(
+            new(bounds.Minimum, extent, extent, settings.CellSize * 0.5f, settings.AgentMaxClimb),
+            settings,
+            cached,
+            columns,
+            rows
+        );
     }
 
     /// <summary>Builds every tile and returns a mesh holding them.</summary>
@@ -224,7 +230,9 @@ public sealed class NavTileCache {
 
         for (var index = 0; index < obstacles.Count; index++) {
             if (obstacles[index].Shape is null) {
-                obstacles[index] = obstacles[index] with { Shape = shape, Generation = obstacles[index].Generation + 1 };
+                obstacles[index] = obstacles[index] with {
+                    Shape = shape, Generation = obstacles[index].Generation + 1
+                };
 
                 return new(index, obstacles[index].Generation);
             }
@@ -309,7 +317,7 @@ public sealed class NavTileCache {
 
         for (var z = Math.Max(0, minimumZ); z <= Math.Min(Rows - 1, maximumZ); z++) {
             for (var x = Math.Max(0, minimumX); x <= Math.Min(Columns - 1, maximumX); x++) {
-                var index = x + (z * Columns);
+                var index = x + z * Columns;
                 touched++;
 
                 if (!dirty.Contains(index)) {
@@ -340,7 +348,13 @@ public sealed class NavTileCache {
 
         var placement = tile.Placement;
 
-        return NavMeshBaker.BuildTile(tile.Surface, in placement, settings, System.Runtime.InteropServices.CollectionsMarshal.AsSpan(applied), tile.Connections);
+        return NavMeshBaker.BuildTile(
+            tile.Surface,
+            in placement,
+            settings,
+            System.Runtime.InteropServices.CollectionsMarshal.AsSpan(applied),
+            tile.Connections
+        );
     }
 
     /// <summary>One tile's kept voxels, and what it is always rebuilt with.</summary>

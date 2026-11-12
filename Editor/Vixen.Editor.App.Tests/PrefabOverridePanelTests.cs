@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core;
-using Vixen.Ecs;
 using Vixen.Editor.Inspector;
 using Vixen.Editor.Testing;
 using Vixen.Ui.Controls;
@@ -115,7 +114,7 @@ public class PrefabOverridePanelTests {
         throw editor.Fail($"The inspector has no row for '{member}'.");
     }
 
-    static TextBox NameBox(EditorSession editor) => (TextBox) Row(editor, nameof(SceneEntity.Name)).Editor;
+    static TextBox NameBox(EditorSession editor) => (TextBox)Row(editor, nameof(SceneEntity.Name)).Editor;
 
     /// <summary>Writes a one-rooted prefab into the project and hands back its GUID.</summary>
     /// <remarks>

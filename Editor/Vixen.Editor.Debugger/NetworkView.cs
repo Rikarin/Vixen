@@ -20,8 +20,12 @@ namespace Vixen.Editor.Debugger;
 ///         section rests on, and the panel is what tests it.
 ///     </para>
 ///     <para>
-///         ⚠ <b>It is a <see cref="Vixen.Ui.Composition.Component" /> rather than a <c>Control</c>,
-///         which is a choice and not a constraint.</b> Nothing outside the class reads a part of it:
+///         ⚠
+///         <b>
+///             It is a <see cref="Vixen.Ui.Composition.Component" /> rather than a <c>Control</c>,
+///             which is a choice and not a constraint.
+///         </b>
+///         Nothing outside the class reads a part of it:
 ///         the host wires three delegates and the panel draws itself. A panel with no public parts is
 ///         exactly what a component is for — see <c>StatisticsView</c>, which made the same call — and
 ///         a test reaches one through <c>UiDocument.ComponentAt</c> rather than through a tree walk.

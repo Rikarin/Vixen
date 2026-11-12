@@ -40,7 +40,7 @@ public static class RealmApp {
     /// <param name="arguments">The process arguments.</param>
     /// <returns>A process exit code.</returns>
     public static int Run<TRealm>(string[]? arguments = null) where TRealm : Realm, new() {
-        if (!RealmSpec.TryRead(arguments, environment: null, out var spec, out var error)) {
+        if (!RealmSpec.TryRead(arguments, null, out var spec, out var error)) {
             // To standard error, and in a sentence: this is what somebody reads at three in the
             // morning when a launcher's arguments are wrong, and it is the whole diagnosis.
             Console.Error.WriteLine($"This process is not a realm — {error}.");

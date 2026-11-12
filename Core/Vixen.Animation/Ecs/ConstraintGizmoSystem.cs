@@ -3,7 +3,6 @@
 
 using Vixen.Animation.Constraints;
 using Vixen.Core;
-using Vixen.Core.Mathematics;
 using Vixen.Core.Threading;
 using Vixen.Ecs;
 using Vixen.Ecs.Systems;

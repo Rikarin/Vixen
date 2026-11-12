@@ -15,13 +15,14 @@ public sealed class TerrainSplineTests {
 
     /// <summary>A road straight down the middle of the terrain.</summary>
     static Spline Straight(float z = 30f, float height = 20f) =>
-        new([
-            SplinePoint.Smooth(new(2f, height, z), new(10f, 0f, 0f)),
-            SplinePoint.Smooth(new(60f, height, z), new(10f, 0f, 0f))
-        ]);
+        new(
+            [
+                SplinePoint.Smooth(new(2f, height, z), new(10f, 0f, 0f)),
+                SplinePoint.Smooth(new(60f, height, z), new(10f, 0f, 0f))
+            ]
+        );
 
-    static float HeightAt(Terrain terrain, int x, int z) =>
-        terrain.Description.HeightOf(terrain.CompositeAt(x, z));
+    static float HeightAt(Terrain terrain, int x, int z) => terrain.Description.HeightOf(terrain.CompositeAt(x, z));
 
     [Fact]
     public void TheReservedLayerIsFoundRatherThanAdded() {
@@ -87,8 +88,12 @@ public sealed class TerrainSplineTests {
 
     /// <summary>Moving the road takes the old one with it — but only through Regenerate.</summary>
     /// <remarks>
-    ///     ⚠ <b><see cref="TerrainSpline.Deform" /> clears its own rect, which is not enough when a
-    ///     road moves out of it.</b> A centreline dragged twenty metres leaves its old rect untouched,
+    ///     ⚠
+    ///     <b>
+    ///         <see cref="TerrainSpline.Deform" /> clears its own rect, which is not enough when a
+    ///         road moves out of it.
+    ///     </b>
+    ///     A centreline dragged twenty metres leaves its old rect untouched,
     ///     because the new one no longer covers it — so the operation an editor calls is
     ///     <see cref="TerrainSpline.Regenerate" />, which empties the layer and lays every road down
     ///     again. Leaving the old road behind is the failure that makes people stop using
@@ -189,16 +194,22 @@ public sealed class TerrainSplineTests {
 
     /// <summary>Meshes are spaced by distance along the curve, not by parameter.</summary>
     /// <remarks>
-    ///     ⚠ <b>Spacing by parameter bunches everything up in the tight segments and strings it out
-    ///     in the wide ones</b>, which is exactly wrong for a fence.
+    ///     ⚠
+    ///     <b>
+    ///         Spacing by parameter bunches everything up in the tight segments and strings it out
+    ///         in the wide ones
+    ///     </b>
+    ///     , which is exactly wrong for a fence.
     /// </remarks>
     [Fact]
     public void MeshesAreEvenlySpacedAlongTheCurve() {
-        var spline = new Spline([
-            SplinePoint.Smooth(new(0f, 0f, 0f), new(40f, 0f, 0f)),
-            SplinePoint.Smooth(new(20f, 0f, 0f), new(2f, 0f, 0f)),
-            SplinePoint.Smooth(new(60f, 0f, 0f), new(40f, 0f, 0f))
-        ]);
+        var spline = new Spline(
+            [
+                SplinePoint.Smooth(new(0f, 0f, 0f), new(40f, 0f, 0f)),
+                SplinePoint.Smooth(new(20f, 0f, 0f), new(2f, 0f, 0f)),
+                SplinePoint.Smooth(new(60f, 0f, 0f), new(40f, 0f, 0f))
+            ]
+        );
 
         var placed = TerrainSpline.PlaceAlong(spline, ["Meshes/post"], 5f);
 
@@ -221,7 +232,7 @@ public sealed class TerrainSplineTests {
         var again = TerrainSpline.PlaceAlong(spline, meshes, 4f);
 
         Assert.Equal(first, again);
-        Assert.True(first.Select(placement => placement.Mesh).Distinct().Count() > 1);
+        Assert.True(first.Select(static placement => placement.Mesh).Distinct().Count() > 1);
     }
 
     [Fact]
@@ -233,7 +244,7 @@ public sealed class TerrainSplineTests {
 
         foreach (var placement in placed) {
             // An entity faces its local −Z, so the forward vector should lie along +X here.
-            var forward = Quaternion.Transform(new Vector3(0f, 0f, -1f), placement.Rotation);
+            var forward = Quaternion.Transform(new(0f, 0f, -1f), placement.Rotation);
 
             Assert.True(forward.X > 0.99f, $"a post at {placement.Distance} m faces {forward}.");
         }
@@ -244,12 +255,11 @@ public sealed class TerrainSplineTests {
         var terrain = Flat();
         var layer = TerrainSpline.LayerOf(terrain);
 
-        var thrown = Assert.Throws<ArgumentException>(
-            () => TerrainSpline.Deform(
+        var thrown = Assert.Throws<ArgumentException>(() => TerrainSpline.Deform(
                 terrain,
                 layer,
                 Straight(),
-                new TerrainSplineProfile { HalfWidth = 0f, FalloffLeft = 0f, FalloffRight = 0f }
+                new() { HalfWidth = 0f, FalloffLeft = 0f, FalloffRight = 0f }
             )
         );
 
@@ -262,7 +272,7 @@ public sealed class TerrainSplineTests {
         var terrain = Flat(0f);
         var layer = TerrainSpline.LayerOf(terrain);
 
-        TerrainSpline.Deform(terrain, layer, Straight(30f, 20f), TerrainSplineProfile.Road with { Strength = 0.5f });
+        TerrainSpline.Deform(terrain, layer, Straight(), TerrainSplineProfile.Road with { Strength = 0.5f });
         terrain.Resolve();
 
         Assert.Equal(10f, HeightAt(terrain, 30, 30), 1);
@@ -270,8 +280,12 @@ public sealed class TerrainSplineTests {
 
     /// <summary>The bounding rect covers the bends, not only the control points.</summary>
     /// <remarks>
-    ///     ⚠ <b>A Hermite segment leaves the hull of its two endpoints whenever the tangents are
-    ///     long</b>, so a rect that stopped at the control points would cut the bends off a road.
+    ///     ⚠
+    ///     <b>
+    ///         A Hermite segment leaves the hull of its two endpoints whenever the tangents are
+    ///         long
+    ///     </b>
+    ///     , so a rect that stopped at the control points would cut the bends off a road.
     /// </remarks>
     [Fact]
     public void TheAffectedRectCoversTheBendsAndNotOnlyThePoints() {
@@ -279,10 +293,12 @@ public sealed class TerrainSplineTests {
         var layer = TerrainSpline.LayerOf(terrain);
 
         // Two points on one line with tangents that bow the curve well off it.
-        var bowed = new Spline([
-            SplinePoint.Smooth(new(10f, 8f, 30f), new(0f, 0f, 40f)),
-            SplinePoint.Smooth(new(50f, 8f, 30f), new(0f, 0f, -40f))
-        ]);
+        var bowed = new Spline(
+            [
+                SplinePoint.Smooth(new(10f, 8f, 30f), new(0f, 0f, 40f)),
+                SplinePoint.Smooth(new(50f, 8f, 30f), new(0f, 0f, -40f))
+            ]
+        );
 
         var rect = TerrainSpline.Deform(terrain, layer, bowed, TerrainSplineProfile.Road);
         terrain.Resolve();

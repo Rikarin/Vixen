@@ -15,7 +15,7 @@ public class StateMachineTests {
     ClipMotion Held(string name, float x, float duration = 1f) =>
         new(
             AnimationClip.Create(
-                TestRigs.Hold(name, "Mid", new Vector3(x, 0f, 0f), duration),
+                TestRigs.Hold(name, "Mid", new(x, 0f, 0f), duration),
                 skeleton
             )
         );
@@ -243,9 +243,8 @@ public class StateMachineTests {
         }
 
         for (var index = 0; index < 7; index++) {
-            states[index].AddTransition(
-                new(states[index + 1], 10f) { Interruption = TransitionInterruption.Destination }
-            );
+            states[index]
+                .AddTransition(new(states[index + 1], 10f) { Interruption = TransitionInterruption.Destination });
         }
 
         var instance = Instance(new(states));

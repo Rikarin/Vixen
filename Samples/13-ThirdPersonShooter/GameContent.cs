@@ -9,7 +9,6 @@ using Vixen.Audio.Backend.OpenAL;
 using Vixen.Audio.Devices;
 using Vixen.Audio.Diagnostics;
 using Vixen.Audio.Ecs;
-using Vixen.Audio.Mixing;
 using Vixen.Core;
 using Vixen.Engine.Diagnostics.Overlays;
 using Vixen.Engine.Frames;
@@ -41,8 +40,12 @@ public static class GameModels {
     /// <param name="material">The file stem, as in <c>player-body</c>.</param>
     /// <returns>The address.</returns>
     /// <remarks>
-    ///     ⚠ <b>A renderable with a null material draws in the renderer's fallback, and every object
-    ///     sharing one fallback is a level that renders as one grey mass.</b> The level's own
+    ///     ⚠
+    ///     <b>
+    ///         A renderable with a null material draws in the renderer's fallback, and every object
+    ///         sharing one fallback is a level that renders as one grey mass.
+    ///     </b>
+    ///     The level's own
     ///     renderables name theirs in the scene file, where an artist would put it; the player's parts
     ///     are made in code and so name theirs here. Both end up as an <c>AssetReference</c> in a
     ///     <c>MeshRenderable</c>, which is the only thing the extraction reads.
@@ -163,7 +166,7 @@ public sealed class GameSounds : IDisposable {
             return;
         }
 
-        engine.Play(clip, new PlaybackSettings { Gain = gain });
+        engine.Play(clip, new() { Gain = gain });
     }
 
     /// <summary>Puts the engine in the frame, and its panel on the screen.</summary>
@@ -172,8 +175,12 @@ public sealed class GameSounds : IDisposable {
     /// <exception cref="ArgumentNullException"><paramref name="loop" /> is null.</exception>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The <see cref="AudioSystem" /> is a bug fix and not a tidy-up, and the panel is
-    ///         what found it.</b> <c>AudioEngine.Update</c> is what collects a voice whose sound has
+    ///         ⚠
+    ///         <b>
+    ///             The <see cref="AudioSystem" /> is a bug fix and not a tidy-up, and the panel is
+    ///             what found it.
+    ///         </b>
+    ///         <c>AudioEngine.Update</c> is what collects a voice whose sound has
     ///         finished — a slot goes <c>Finished</c> on the mixer thread and only that call returns
     ///         it to <c>Free</c> — and nothing in this project ever called it. <c>TryClaim</c> takes
     ///         only free slots and <c>TrySteal</c> considers only playing or paused ones, so every
@@ -220,8 +227,8 @@ public sealed class GameSounds : IDisposable {
         }
 
         try {
-            var device = backend.OpenDevice(new AudioDeviceOptions());
-            var engine = new AudioEngine(device, new AudioEngineOptions(), services.LoggerFactory.CreateLogger("Audio"));
+            var device = backend.OpenDevice(new());
+            var engine = new AudioEngine(device, new(), services.LoggerFactory.CreateLogger("Audio"));
 
             return (engine, device, backend);
         } catch (AudioDeviceException) {

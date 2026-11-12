@@ -3,7 +3,6 @@
 
 using Vixen.Core.Syntax.Diagnostics;
 using Vixen.Raven;
-using Vixen.Raven.Diagnostics;
 using Vixen.Raven.IR;
 using Vixen.Raven.Lowering;
 using Vixen.Raven.Syntax;
@@ -24,13 +23,13 @@ public class CapabilityTests {
         var semantic = compilation.GetDiagnostics();
         Assert.True(
             semantic.Count == 0,
-            "Expected no semantic diagnostics, got:\n" + string.Join("\n", semantic.Select(d => d.ToString()))
+            "Expected no semantic diagnostics, got:\n" + string.Join("\n", semantic.Select(static d => d.ToString()))
         );
 
         var bag = new DiagnosticBag();
         var module = Lowerer.Lower(compilation, bag);
         IrVerifier.Verify(module, bag);
-        Assert.DoesNotContain(bag.ToArray(), d => d.IsError);
+        Assert.DoesNotContain(bag.ToArray(), static d => d.IsError);
 
         return module;
     }

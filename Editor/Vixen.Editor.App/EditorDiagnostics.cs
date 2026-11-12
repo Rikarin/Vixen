@@ -6,7 +6,6 @@ using Vixen.Editor.Plugin;
 using Vixen.Editor.SceneView;
 using Vixen.Editor.Ui;
 using Vixen.Graphics;
-using Vixen.Rendering;
 using Vixen.Ui;
 
 namespace Vixen.Editor.App;
@@ -22,15 +21,18 @@ namespace Vixen.Editor.App;
 ///         profiling keys the editor's own frame loop is measured in.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Doc 20's "the profiler must be able to profile the editor" is the reason
-///         <see cref="EditorKeys" /> exists at all.</b> A source selector is worth nothing if the
+///         ⚠
+///         <b>
+///             Doc 20's "the profiler must be able to profile the editor" is the reason
+///             <see cref="EditorKeys" /> exists at all.
+///         </b>
+///         A source selector is worth nothing if the
 ///         editor's own frame has no scopes in it, so the four phases of the loop are instrumented
 ///         here — and they are the four <c>EditorHost</c>'s own remarks name, so the chart matches
 ///         the sentence a reader has already been told.
 ///     </para>
 /// </remarks>
 sealed partial class EditorApplication {
-
     /// <summary>The graphics device, when the host has one.</summary>
     IGraphicsDevice? graphicsDevice;
 

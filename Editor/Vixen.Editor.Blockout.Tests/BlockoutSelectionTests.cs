@@ -43,15 +43,19 @@ public class BlockoutSelectionTests : IDisposable {
 
     /// <summary>A cylinder, which is the primitive with quads to walk loops and rings through.</summary>
     /// <remarks>
-    ///     ⚠ <b>Not a cube, and it is the same reason <c>MeshShapes</c> in the kernel's tests is
-    ///     quads.</b> A primitive arrives as a triangle soup, so a cube's every face is a triangle and
+    ///     ⚠
+    ///     <b>
+    ///         Not a cube, and it is the same reason <c>MeshShapes</c> in the kernel's tests is
+    ///         quads.
+    ///     </b>
+    ///     A primitive arrives as a triangle soup, so a cube's every face is a triangle and
     ///     every corner has more than four edges — which is exactly what an edge loop stops on. A
     ///     cylinder's side is where a designer's loop actually runs.
     /// </remarks>
     Entity Cylinder() {
         var entity = scene.CreateShape(
             PrimitiveKind.Cylinder,
-            new LocalTransform { Position = Vector3.Zero, Rotation = Quaternion.Identity, Scale = Vector3.One }
+            new() { Position = Vector3.Zero, Rotation = Quaternion.Identity, Scale = Vector3.One }
         );
 
         transforms.Resolve(world);
@@ -223,7 +227,7 @@ public class BlockoutSelectionTests : IDisposable {
 
         for (var z = 0; z < 2; z++) {
             for (var x = 0; x < 4; x++) {
-                mesh.AddPosition(new Vector3(x, 0f, z));
+                mesh.AddPosition(new(x, 0f, z));
             }
         }
 

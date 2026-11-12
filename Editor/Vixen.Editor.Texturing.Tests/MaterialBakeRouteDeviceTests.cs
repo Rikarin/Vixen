@@ -5,12 +5,8 @@ using Vixen.Core;
 using Vixen.Core.Yaml;
 using Vixen.Core.Yaml.Meta;
 using Vixen.Editor.Assets.Materials;
-using Vixen.Editor.Core;
-using Vixen.Editor.NodeGraph;
 using Vixen.NodeGraph;
 using Vixen.Rendering.Materials;
-using Vixen.Texturing.Layers;
-using Vixen.Texturing.Painting;
 using Xunit;
 
 namespace Vixen.Editor.Texturing.Tests;
@@ -28,8 +24,12 @@ namespace Vixen.Editor.Texturing.Tests;
 ///         nowhere.
 ///     </para>
 ///     <para>
-///         ⚠ <b>So this starts at a file and ends at a <c>.vxmat</c>, and every step between is the
-///         product's.</b> A committed <c>.vxtexgraph</c> is scanned into a project, opened by the
+///         ⚠
+///         <b>
+///             So this starts at a file and ends at a <c>.vxmat</c>, and every step between is the
+///             product's.
+///         </b>
+///         A committed <c>.vxtexgraph</c> is scanned into a project, opened by the
 ///         module's own <c>Open Texture Graph</c> verb into a <c>TextureGraphDocument</c>, and baked
 ///         by the module's own <c>Bake Material</c> verb. Nothing here constructs a
 ///         <see cref="MaterialBakeRoute" />, a compiler or a plan.
@@ -53,8 +53,12 @@ namespace Vixen.Editor.Texturing.Tests;
 public class MaterialBakeRouteDeviceTests(ITestOutputHelper output) {
     /// <summary>What the fixture graph is called once it is an asset, and therefore what the set is.</summary>
     /// <remarks>
-    ///     ⚠ <b>Not the fixture file's own name.</b> The material is named after the <em>graph
-    ///     asset</em> — <c>TexturingModule.BakeMaterial</c> takes the stem of the document's path —
+    ///     ⚠ <b>Not the fixture file's own name.</b> The material is named after the
+    ///     <em>
+    ///         graph
+    ///         asset
+    ///     </em>
+    ///     — <c>TexturingModule.BakeMaterial</c> takes the stem of the document's path —
     ///     so a test whose asset and fixture shared a name could not tell the two apart, and a route
     ///     that named the set after the wrong one would pass.
     /// </remarks>
@@ -70,7 +74,7 @@ public class MaterialBakeRouteDeviceTests(ITestOutputHelper output) {
 
         fixture.Host.Activate(TexturingModule.ModuleId, TexturingModule.ModuleName, new TexturingModule());
 
-        var document = Open(fixture);
+        _ = Open(fixture);
 
         Assert.True(
             fixture.Shell.Commands.Execute(TexturingModule.BakeCommand),
@@ -88,7 +92,7 @@ public class MaterialBakeRouteDeviceTests(ITestOutputHelper output) {
         // `MaterialMapNaming.Packed` does. A route that wrote one file per Output node would put
         // three here and a material naming a roughness map no feature reads.
         var files = Directory.GetFiles(folder, "*" + MaterialMapNaming.PortableExtension)
-            .Select(path => Path.GetFileName(path))
+            .Select(static path => Path.GetFileName(path))
             .Order(StringComparer.Ordinal)
             .ToArray();
 
@@ -114,8 +118,8 @@ public class MaterialBakeRouteDeviceTests(ITestOutputHelper output) {
         // ⚠ The features are what say the usages reached the material rather than only the files.
         // A base colour makes the surface textured and the ORM file adds the second feature; a bake
         // that wrote both files and composed neither is a material that draws white.
-        Assert.Contains(material.Features, feature => feature is TexturedMetalRoughnessFeature);
-        Assert.Contains(material.Features, feature => feature is TexturedOrmFeature);
+        Assert.Contains(material.Features, static feature => feature is TexturedMetalRoughnessFeature);
+        Assert.Contains(material.Features, static feature => feature is TexturedOrmFeature);
 
         Assert.True(MaterialShading.TryResolve(material.Shading, out var shading));
         Assert.False(MaterialCompiler.Compile(material.ToDescriptor(shading)).Failed);
@@ -183,8 +187,12 @@ public class MaterialBakeRouteDeviceTests(ITestOutputHelper output) {
 
     /// <summary>A graph that does not compile refuses, and writes nothing.</summary>
     /// <remarks>
-    ///     ⚠ <b>Device-free deliberately, and it is the half that says the refusal comes back as a
-    ///     sentence rather than out.</b> This runs from a command handler, and a throw out of one
+    ///     ⚠
+    ///     <b>
+    ///         Device-free deliberately, and it is the half that says the refusal comes back as a
+    ///         sentence rather than out.
+    ///     </b>
+    ///     This runs from a command handler, and a throw out of one
     ///     takes the editor's frame with it — so the assertion is that the verb <em>answered</em> and
     ///     that the project has no material, not that an exception had a good message.
     /// </remarks>
@@ -198,11 +206,11 @@ public class MaterialBakeRouteDeviceTests(ITestOutputHelper output) {
         Assert.True(fixture.Shell.Commands.Execute(TexturingModule.OpenCommand));
 
         var document = Assert.Single(fixture.Project.Documents.OfType<TextureGraphDocument>());
-        var target = document.Graph.Nodes.Single(node => node.Type == "Output/Output");
+        var target = document.Graph.Nodes.Single(static node => node.Type == "Output/Output");
 
         // A blur wired to nothing, replacing the starter graph's colour. The starter graph compiles,
         // so this is what makes the run a claim about a refusal rather than about an empty document.
-        foreach (var node in document.Graph.Nodes.Where(node => node.Type == "Source/Uniform").ToArray()) {
+        foreach (var node in document.Graph.Nodes.Where(static node => node.Type == "Source/Uniform").ToArray()) {
             document.Graph.Remove(node.Id, out _);
         }
 
@@ -258,7 +266,7 @@ public class MaterialBakeRouteDeviceTests(ITestOutputHelper output) {
             Path.Combine(fixture.Paths.Assets, "Usages" + TextureGraphDocument.Extension)
         );
 
-        var target = document.Graph.Nodes.Single(node => node.Type == "Output/Output");
+        var target = document.Graph.Nodes.Single(static node => node.Type == "Output/Output");
 
         foreach (var usage in MaterialMapNaming.Every) {
             var suffix = MaterialMapNaming.Suffix(usage);
@@ -267,7 +275,7 @@ public class MaterialBakeRouteDeviceTests(ITestOutputHelper output) {
 
             var compilation = document.Compile();
 
-            Assert.DoesNotContain(compilation.Diagnostics, one => one.Severity == NodeSeverity.Error);
+            Assert.DoesNotContain(compilation.Diagnostics, static one => one.Severity == NodeSeverity.Error);
             Assert.Equal(
                 suffix,
                 Assert.Single(compilation.Outputs).Usage
@@ -285,7 +293,7 @@ public class MaterialBakeRouteDeviceTests(ITestOutputHelper output) {
         target.SetText("Usage", "nothing-is-called-this");
 
         var refusal = Assert.Single(
-            document.Compile().Diagnostics.Where(one => one.Severity == NodeSeverity.Error)
+            document.Compile().Diagnostics.Where(static one => one.Severity == NodeSeverity.Error)
         );
 
         const string marker = "which is not one of ";
@@ -300,16 +308,20 @@ public class MaterialBakeRouteDeviceTests(ITestOutputHelper output) {
         Assert.Equal(
             MaterialMapNaming.Every.Select(MaterialMapNaming.Suffix).Order(StringComparer.Ordinal),
             (stop < 0 ? list : list[..stop])
-                .Split(", ", StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
-                .Order(StringComparer.Ordinal)
+            .Split(", ", StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
+            .Order(StringComparer.Ordinal)
         );
     }
 
     /// <summary>Scans the committed fixture in, opens it through the verb, and shrinks it.</summary>
     /// <returns>The document on the canvas.</returns>
     /// <remarks>
-    ///     ⚠ <b>64² rather than the document's 1024² default, and it is set on the document because
-    ///     that is the only place it lives.</b> The base resolution is not stored in a
+    ///     ⚠
+    ///     <b>
+    ///         64² rather than the document's 1024² default, and it is set on the document because
+    ///         that is the only place it lives.
+    ///     </b>
+    ///     The base resolution is not stored in a
     ///     <c>.vxtexgraph</c> — <a href="https://github.com/Rikarin/Vixen/issues/719">#719</a> owns
     ///     the file half — so a fixture cannot carry it, and a bake at the default would spend the
     ///     run on a mip chain this asserts nothing about.
@@ -339,9 +351,7 @@ public class MaterialBakeRouteDeviceTests(ITestOutputHelper output) {
     ///     at once and present on every developer machine.
     /// </remarks>
     static string Fixture(string name) =>
-        File.ReadAllText(
-            Path.Combine(AppContext.BaseDirectory, "Fixtures", name + TextureGraphDocument.Extension)
-        );
+        File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Fixtures", name + TextureGraphDocument.Extension));
 
     /// <summary>What the last bake said, for a message that would otherwise only say "no file".</summary>
     /// <param name="fixture">The host, whose notifications the verb writes into.</param>
@@ -356,7 +366,7 @@ public class MaterialBakeRouteDeviceTests(ITestOutputHelper output) {
         fixture.Shell.Notifications.History.Count > 0
             ? string.Join(
                 " · ",
-                fixture.Shell.Notifications.History.Select(one => one.Message + ": " + one.Detail)
+                fixture.Shell.Notifications.History.Select(static one => one.Message + ": " + one.Detail)
             )
             : "The bake said nothing at all, which is itself the finding.";
 }

@@ -14,8 +14,12 @@ namespace Vixen.Ai.Perception;
 /// <param name="Stamp">The clock reading when the sense last had it.</param>
 /// <param name="Current">Whether the most recent pass perceived it, as opposed to remembering it.</param>
 /// <remarks>
-///     ⚠ <b><see cref="LastKnownLocation" /> is frozen when <see cref="Current" /> goes false, and that
-///     is the whole reason the list survives losing sight of something.</b> "Search where he was" is
+///     ⚠
+///     <b>
+///         <see cref="LastKnownLocation" /> is frozen when <see cref="Current" /> goes false, and that
+///         is the whole reason the list survives losing sight of something.
+///     </b>
+///     "Search where he was" is
 ///     otherwise a thing every game writes by hand — a component holding a position, a timer, and the
 ///     code that decides when to throw both away — and every hand-written copy of it disagrees with
 ///     the sense about when the target was actually lost.

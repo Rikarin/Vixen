@@ -14,8 +14,11 @@ namespace Vixen.Audio.Mixing;
 ///         computed once for everything routed into it.
 ///     </para>
 ///     <para>
-///         <b>Gain and mute are written directly from the game thread and read from the audio
-///         thread, with no command and no lock.</b> Both are single values the CLR guarantees are
+///         <b>
+///             Gain and mute are written directly from the game thread and read from the audio
+///             thread, with no command and no lock.
+///         </b>
+///         Both are single values the CLR guarantees are
 ///         written atomically — a <see cref="float" /> and a <see cref="bool" /> — so the worst a
 ///         race can do is apply a new gain one block later than it was set. Buying atomicity for
 ///         that with a queue would make a volume slider feel worse, not better.
@@ -112,7 +115,7 @@ public sealed class AudioBus {
     ///     </para>
     /// </remarks>
     public void FadeTo(float gain, TimeSpan duration, AudioFadeCurve curve = AudioFadeCurve.Decibel) {
-        fade = new FadeState {
+        fade = new() {
             Active = true,
             From = Gain,
             To = gain,
@@ -149,7 +152,7 @@ public sealed class AudioBus {
         effect.Prepare(format, maxFrames);
 
         lock (gate) {
-            effects = [.. effects, effect];
+            effects = [..effects, effect];
         }
     }
 
@@ -220,7 +223,7 @@ public sealed class AudioBus {
         var send = new AudioSend(target, preFader) { Level = level };
 
         lock (gate) {
-            sends = [.. sends, send];
+            sends = [..sends, send];
         }
 
         owner?.Invalidate();

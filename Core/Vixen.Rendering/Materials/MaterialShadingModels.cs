@@ -16,8 +16,7 @@ public sealed record StandardShading : IMaterialShading {
     public string ShaderName => "StandardShading";
 
     /// <inheritdoc />
-    public void Compile(MaterialCompilationContext context) {
-    }
+    public void Compile(MaterialCompilationContext context) { }
 }
 
 /// <summary>Oren-Nayar's rough diffuse under the standard lobe: clay, plaster, concrete.</summary>
@@ -41,8 +40,7 @@ public sealed record OrenNayarShading : IMaterialShading {
     public string ShaderName => "OrenNayarShading";
 
     /// <inheritdoc />
-    public void Compile(MaterialCompilationContext context) {
-    }
+    public void Compile(MaterialCompilationContext context) { }
 }
 
 /// <summary>Burley's (Disney's) diffuse under the standard lobe: skin, unfinished wood, cloth.</summary>
@@ -57,8 +55,7 @@ public sealed record BurleyShading : IMaterialShading {
     public string ShaderName => "BurleyShading";
 
     /// <inheritdoc />
-    public void Compile(MaterialCompilationContext context) {
-    }
+    public void Compile(MaterialCompilationContext context) { }
 }
 
 /// <summary>A GGX lobe stretched along the tangent: brushed metal, vinyl, satin.</summary>
@@ -69,8 +66,7 @@ public sealed record AnisotropicShading : IMaterialShading {
     public string ShaderName => "AnisotropicShading";
 
     /// <inheritdoc />
-    public void Compile(MaterialCompilationContext context) {
-    }
+    public void Compile(MaterialCompilationContext context) { }
 }
 
 /// <summary>A second, smoother specular lobe over the base one.</summary>
@@ -81,8 +77,7 @@ public sealed record ClearCoatShading : IMaterialShading {
     public string ShaderName => "ClearCoatShading";
 
     /// <inheritdoc />
-    public void Compile(MaterialCompilationContext context) {
-    }
+    public void Compile(MaterialCompilationContext context) { }
 }
 
 /// <summary>A retroreflective rim over the base lobe, energy taken from it.</summary>
@@ -93,8 +88,7 @@ public sealed record SheenShading : IMaterialShading {
     public string ShaderName => "SheenShading";
 
     /// <inheritdoc />
-    public void Compile(MaterialCompilationContext context) {
-    }
+    public void Compile(MaterialCompilationContext context) { }
 }
 
 /// <summary>
@@ -133,8 +127,7 @@ public sealed record HairShading : IMaterialShading {
     public string ShaderName => "HairShading";
 
     /// <inheritdoc />
-    public void Compile(MaterialCompilationContext context) {
-    }
+    public void Compile(MaterialCompilationContext context) { }
 }
 
 /// <summary>

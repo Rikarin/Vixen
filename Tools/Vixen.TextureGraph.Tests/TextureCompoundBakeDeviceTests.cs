@@ -62,8 +62,12 @@ public class TextureCompoundBakeDeviceTests(ITestOutputHelper output) {
     ///         <c>WaitIdle</c> per compound and almost none of that is texels.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>What the extent buys is the second of #1085's two consequences and not the
-    ///         first, which is backwards.</b> That issue ranks "a compound broken at 1024 and
+    ///         ⚠
+    ///         <b>
+    ///             What the extent buys is the second of #1085's two consequences and not the
+    ///             first, which is backwards.
+    ///         </b>
+    ///         That issue ranks "a compound broken at 1024 and
     ///         accidentally fine at 64" above "good at 1024 and degenerate at 64", and names a
     ///         saturating radius as invisible at the smaller extent. It is the more visible one
     ///         there: a knob is texels and is <em>absolute</em>, while a generator's <c>Scale</c> is
@@ -73,8 +77,11 @@ public class TextureCompoundBakeDeviceTests(ITestOutputHelper output) {
     ///         its input through, which is a picture, so this bar cannot see it at either extent.
     ///     </para>
     ///     <para>
-    ///         <b>So the reason to be here is the consequence #1085 ranks second, and it had already
-    ///         happened before the library was committed.</b> That issue records
+    ///         <b>
+    ///             So the reason to be here is the consequence #1085 ranks second, and it had already
+    ///             happened before the library was committed.
+    ///         </b>
+    ///         That issue records
     ///         <c>Grunges/Grunge Rust</c> baking <b>four</b> values at 64 — its erosion is 7.75 texels
     ///         and its Worley cells are 4.5 there — and the file being softened until it read at both
     ///         extents. That is good content changed to suit an extent nothing bakes at, and at the
@@ -111,8 +118,12 @@ public class TextureCompoundBakeDeviceTests(ITestOutputHelper output) {
     ///         <see cref="Make_It_Tile_makes_a_noise_field_tile" /> is.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Three and not one, and the difference was found by sabotage rather than
-    ///         reasoned.</b> The obvious bar — more than a single value — could not fail while
+    ///         ⚠
+    ///         <b>
+    ///             Three and not one, and the difference was found by sabotage rather than
+    ///             reasoned.
+    ///         </b>
+    ///         The obvious bar — more than a single value — could not fail while
     ///         <c>Colour/Levels</c> dithered by default, because a flat fill came back as <em>two</em>
     ///         values, and a graph may still ask for that dither. Measured then:
     ///         <c>Utility/Histogram Range</c> with its <c>range</c> collapsed to zero drew 2, and
@@ -124,8 +135,12 @@ public class TextureCompoundBakeDeviceTests(ITestOutputHelper output) {
     ///         draw 125, 252 and 256.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The mesh maps are supplied here rather than skipped, and that is what lets the
-    ///         generators be in this roll call at all.</b> Every <c>Generators/</c> compound's
+    ///         ⚠
+    ///         <b>
+    ///             The mesh maps are supplied here rather than skipped, and that is what lets the
+    ///             generators be in this roll call at all.
+    ///         </b>
+    ///         Every <c>Generators/</c> compound's
     ///         externals are <c>meshmap:</c> references a host resolves;
     ///         <see cref="Bake" /> fills each with a two-axis ramp, so a curvature reads as something
     ///         with edges in it rather than as an image nobody uploaded — which
@@ -140,7 +155,7 @@ public class TextureCompoundBakeDeviceTests(ITestOutputHelper output) {
         using var evaluator = new TexturePlanEvaluator(device);
 
         var registry = Registry();
-        var library = TextureCompoundLibrary.Publish(registry, folder: null, out var problems);
+        var library = TextureCompoundLibrary.Publish(registry, null, out var problems);
 
         Assert.Empty(problems);
 
@@ -180,8 +195,11 @@ public class TextureCompoundBakeDeviceTests(ITestOutputHelper output) {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <b>Doc 40 § D2's first row, and the highest-value thing in § 4.9 to have authored out
-    ///         of the atomic set.</b> What the compound does is an offset-wrap with an edge mask: a
+    ///         <b>
+    ///             Doc 40 § D2's first row, and the highest-value thing in § 4.9 to have authored out
+    ///             of the atomic set.
+    ///         </b>
+    ///         What the compound does is an offset-wrap with an edge mask: a
     ///         <c>Space/Transform 2D</c> at half the image under <c>Wrap</c> is exactly periodic at
     ///         the border by construction — <c>out(0)</c> and <c>out(1)</c> both read <c>in(0.5)</c>
     ///         — and the discontinuity it moves to the middle is hidden by blending the untransformed
@@ -218,7 +236,7 @@ public class TextureCompoundBakeDeviceTests(ITestOutputHelper output) {
         using var evaluator = new TexturePlanEvaluator(device);
 
         var registry = Registry();
-        var library = TextureCompoundLibrary.Publish(registry, folder: null, out _);
+        var library = TextureCompoundLibrary.Publish(registry, null, out _);
 
         NodeGraphModel graph = new();
         var noise = graph.Add("Source/Noise");
@@ -242,10 +260,7 @@ public class TextureCompoundBakeDeviceTests(ITestOutputHelper output) {
         graph.Connect(new(tile.Id, "Out"), new(tiled.Id, "Input"));
 
         TextureGraphCompiler compiler = new(registry) {
-            BaseWidth = Side,
-            BaseHeight = Side,
-            Seed = 90210,
-            SubGraphSource = library
+            BaseWidth = Side, BaseHeight = Side, Seed = 90210, SubGraphSource = library
         };
 
         var compilation = compiler.Compile(graph);
@@ -306,8 +321,11 @@ public class TextureCompoundBakeDeviceTests(ITestOutputHelper output) {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/1059">#1059</a>'s worked example,
-    ///         measured rather than argued.</b> That finding was filed on this compound: a masked
+    ///         <b>
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/1059">#1059</a>'s worked example,
+    ///             measured rather than argued.
+    ///         </b>
+    ///         That finding was filed on this compound: a masked
     ///         composite <c>offset·(1 − m) + original·m</c> authored out of the atomic set is
     ///         <c>Colour/Invert</c> plus three <c>Colour/Blend</c>s — four dispatches and three
     ///         intermediate images. <c>Colour/Mix</c> arrived as the answer, and the question this
@@ -317,23 +335,33 @@ public class TextureCompoundBakeDeviceTests(ITestOutputHelper output) {
     ///         rewrite.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Both forms are in one graph, for
-    ///         <see cref="Make_It_Tile_makes_a_noise_field_tile" />'s reason.</b>
+    ///         ⚠
+    ///         <b>
+    ///             Both forms are in one graph, for
+    ///             <see cref="Make_It_Tile_makes_a_noise_field_tile" />'s reason.
+    ///         </b>
     ///         <c>TexturePlan.SeedFor</c> mixes the op's identity, so the same <c>Source/Noise</c>
     ///         settings in a second graph are a different field and the two halves would be compared
     ///         over different pictures.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And two guards, because "two arrangements agree" is trivially true of two
-    ///         arrangements that both do nothing.</b> The composite has to be a picture, and it has
+    ///         ⚠
+    ///         <b>
+    ///             And two guards, because "two arrangements agree" is trivially true of two
+    ///             arrangements that both do nothing.
+    ///         </b>
+    ///         The composite has to be a picture, and it has
     ///         to differ from its own background — a <c>Mix</c> whose mask never reached the kernel
     ///         would return the backdrop, and so would a four-node form whose <c>Add</c> was reading
     ///         one term. Neither guard passes over a flat fill, and neither passes over a mask that
     ///         was ignored.
     ///     </para>
     ///     <para>
-    ///         <b>So the rewrite is available and <c>Make It Tile</c> deliberately does not take
-    ///         it.</b> The twelve compounds are the measurement of the atomic set, and editing the
+    ///         <b>
+    ///             So the rewrite is available and <c>Make It Tile</c> deliberately does not take
+    ///             it.
+    ///         </b>
+    ///         The twelve compounds are the measurement of the atomic set, and editing the
     ///         worked example out of the finding would leave nothing in the tree showing what the gap
     ///         cost — <c>Compounds/README.md</c> makes that argument and this case is what stops it
     ///         becoming an excuse for an unverified claim.
@@ -484,14 +512,21 @@ public class TextureCompoundBakeDeviceTests(ITestOutputHelper output) {
     ///         it clamps at black and a highpass is signed.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>So the oracle is what makes this more than "it is not flat": all three nodes have
-    ///         to be right for the answer to be a half.</b> A blur that did nothing, an invert that
+    ///         ⚠
+    ///         <b>
+    ///             So the oracle is what makes this more than "it is not flat": all three nodes have
+    ///             to be right for the answer to be a half.
+    ///         </b>
+    ///         A blur that did nothing, an invert that
     ///         inverted alpha too, an opacity read as one instead of a half — each moves the answer
     ///         off 128, and none of them changes whether the picture is flat.
     ///     </para>
     ///     <para>
-    ///         <b>Twice, at two input values, because one is not a claim about "whatever the input
-    ///         is".</b> A compound that answered its own input rather than a half would pass at 0.5
+    ///         <b>
+    ///             Twice, at two input values, because one is not a claim about "whatever the input
+    ///             is".
+    ///         </b>
+    ///         A compound that answered its own input rather than a half would pass at 0.5
     ///         alone.
     ///     </para>
     /// </remarks>
@@ -505,7 +540,7 @@ public class TextureCompoundBakeDeviceTests(ITestOutputHelper output) {
         using var evaluator = new TexturePlanEvaluator(device);
 
         var registry = Registry();
-        var library = TextureCompoundLibrary.Publish(registry, folder: null, out _);
+        var library = TextureCompoundLibrary.Publish(registry, null, out _);
 
         NodeGraphModel graph = new();
         var flat = graph.Add("Source/Uniform");
@@ -517,10 +552,7 @@ public class TextureCompoundBakeDeviceTests(ITestOutputHelper output) {
         graph.Connect(new(high.Id, "Out"), new(target.Id, "Input"));
 
         TextureGraphCompiler compiler = new(registry) {
-            BaseWidth = Side,
-            BaseHeight = Side,
-            Seed = 3301,
-            SubGraphSource = library
+            BaseWidth = Side, BaseHeight = Side, Seed = 3301, SubGraphSource = library
         };
 
         var compilation = compiler.Compile(graph);
@@ -551,17 +583,24 @@ public class TextureCompoundBakeDeviceTests(ITestOutputHelper output) {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <b>The bake half of
-    ///         <c>TextureCompoundLibraryTests.An_expression_in_a_shipped_compound_folds_and_an_override_moves_it</c>,
-    ///         and both are worth having.</b> That one reads the number off the op the compiler
+    ///         <b>
+    ///             The bake half of
+    ///             <c>TextureCompoundLibraryTests.An_expression_in_a_shipped_compound_folds_and_an_override_moves_it</c>,
+    ///             and both are worth having.
+    ///         </b>
+    ///         That one reads the number off the op the compiler
     ///         emitted, which is a claim about a value; this one reads texels, which is a claim that
     ///         the value reached a dispatch. Doc 48's own rule — verify with a picture where the
     ///         output is a picture.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>At a contrast of one half rather than at the declared default, because the
-    ///         default is the identity and so is a <c>Levels</c> whose expressions were thrown
-    ///         away.</b> An assertion at the default could not fail in the direction this is written
+    ///         ⚠
+    ///         <b>
+    ///             At a contrast of one half rather than at the declared default, because the
+    ///             default is the identity and so is a <c>Levels</c> whose expressions were thrown
+    ///             away.
+    ///         </b>
+    ///         An assertion at the default could not fail in the direction this is written
     ///         for. With <c>contrast</c> at 0.5 the input range is 0.25…0.75, and the input is
     ///         <c>Source/Shape</c>'s gradation — exactly <c>(x + 0.5) / width</c> — so the first
     ///         sixteen columns must be black and the last sixteen white.
@@ -575,7 +614,7 @@ public class TextureCompoundBakeDeviceTests(ITestOutputHelper output) {
         using var evaluator = new TexturePlanEvaluator(device);
 
         var registry = Registry();
-        var library = TextureCompoundLibrary.Publish(registry, folder: null, out _);
+        var library = TextureCompoundLibrary.Publish(registry, null, out _);
 
         NodeGraphModel graph = new();
         var ramp = graph.Add("Source/Shape");
@@ -588,10 +627,7 @@ public class TextureCompoundBakeDeviceTests(ITestOutputHelper output) {
         graph.Connect(new(tone.Id, "Out"), new(target.Id, "Input"));
 
         TextureGraphCompiler compiler = new(registry) {
-            BaseWidth = Side,
-            BaseHeight = Side,
-            Seed = 5501,
-            SubGraphSource = library
+            BaseWidth = Side, BaseHeight = Side, Seed = 5501, SubGraphSource = library
         };
 
         var compilation = compiler.Compile(graph);
@@ -622,8 +658,12 @@ public class TextureCompoundBakeDeviceTests(ITestOutputHelper output) {
     /// <param name="usage">The <c>Output</c> node's usage — <c>baseColor</c>, <c>height</c>, …</param>
     /// <returns>The image index, to be handed to <c>TextureBake.Read</c>.</returns>
     /// <remarks>
-    ///     ⚠ <b><c>TexturePlan.Outputs</c> carries no names, and its order is the image table's rather
-    ///     than the graph's.</b> <c>TextureGraphCompiler.Outputs</c> is the half that knows which
+    ///     ⚠
+    ///     <b>
+    ///         <c>TexturePlan.Outputs</c> carries no names, and its order is the image table's rather
+    ///         than the graph's.
+    ///     </b>
+    ///     <c>TextureGraphCompiler.Outputs</c> is the half that knows which
     ///     usage went where, and it exists precisely because the plan deliberately does not.
     /// </remarks>
     static int Image(TextureGraphCompiler compiler, string usage) =>
@@ -641,7 +681,7 @@ public class TextureCompoundBakeDeviceTests(ITestOutputHelper output) {
         using var device = TextureKernelHarness.Open();
         using var evaluator = new TexturePlanEvaluator(device);
         var registry = Registry();
-        var library = TextureCompoundLibrary.Publish(registry, folder: null, out _);
+        var library = TextureCompoundLibrary.Publish(registry, null, out _);
         NodeGraphModel graph = new();
         var dust = graph.Add("Generators/Dust");
         var output = graph.Add("Output/Output");
@@ -649,10 +689,7 @@ public class TextureCompoundBakeDeviceTests(ITestOutputHelper output) {
         graph.Connect(new(dust.Id, "Out"), new(output.Id, "Input"));
 
         TextureGraphCompiler compiler = new(registry) {
-            BaseWidth = Side,
-            BaseHeight = Side,
-            Seed = 7717,
-            SubGraphSource = library
+            BaseWidth = Side, BaseHeight = Side, Seed = 7717, SubGraphSource = library
         };
         var compilation = compiler.Compile(graph);
 
@@ -670,9 +707,9 @@ public class TextureCompoundBakeDeviceTests(ITestOutputHelper output) {
                 var world = external.Asset.EndsWith(":world", StringComparison.Ordinal);
 
                 texels[at * 4] = world ? (byte)128 : byte.MaxValue;
-                texels[(at * 4) + 1] = world ? (up ? byte.MaxValue : (byte)128) : byte.MaxValue;
-                texels[(at * 4) + 2] = world ? (byte)128 : byte.MaxValue;
-                texels[(at * 4) + 3] = byte.MaxValue;
+                texels[at * 4 + 1] = world ? up ? byte.MaxValue : (byte)128 : byte.MaxValue;
+                texels[at * 4 + 2] = world ? (byte)128 : byte.MaxValue;
+                texels[at * 4 + 3] = byte.MaxValue;
             }
 
             uploads.AddPicture(compilation.Value, external.Image, Side, Side, texels, TextureFormat.Rgba8);
@@ -686,7 +723,7 @@ public class TextureCompoundBakeDeviceTests(ITestOutputHelper output) {
 
         for (var y = 0; y < Side; y++) {
             for (var x = 0; x < Side; x++) {
-                var value = picture.Pixels[((y * Side) + x) * 4] / 255.0;
+                var value = picture.Pixels[(y * Side + x) * 4] / 255.0;
 
                 if (x < Side / 2) {
                     upright += value;
@@ -714,7 +751,7 @@ public class TextureCompoundBakeDeviceTests(ITestOutputHelper output) {
         using var device = TextureKernelHarness.Open();
         using var evaluator = new TexturePlanEvaluator(device);
         var registry = Registry();
-        var library = TextureCompoundLibrary.Publish(registry, folder: null, out _);
+        var library = TextureCompoundLibrary.Publish(registry, null, out _);
         NodeGraphModel graph = new();
         var wear = graph.Add("Generators/Curvature Edge Wear");
         var output = graph.Add("Output/Output");
@@ -723,10 +760,7 @@ public class TextureCompoundBakeDeviceTests(ITestOutputHelper output) {
         graph.Connect(new(wear.Id, "Out"), new(output.Id, "Input"));
 
         TextureGraphCompiler compiler = new(registry) {
-            BaseWidth = Side,
-            BaseHeight = Side,
-            Seed = 7717,
-            SubGraphSource = library
+            BaseWidth = Side, BaseHeight = Side, Seed = 7717, SubGraphSource = library
         };
         var compilation = compiler.Compile(graph);
 
@@ -741,8 +775,8 @@ public class TextureCompoundBakeDeviceTests(ITestOutputHelper output) {
             var x = at % Side;
             var value = at == 3 ? byte.MaxValue : x is >= 24 and < 32 ? (byte)133 : (byte)128;
 
-            texels[at * 4] = texels[(at * 4) + 1] = texels[(at * 4) + 2] = value;
-            texels[(at * 4) + 3] = byte.MaxValue;
+            texels[at * 4] = texels[at * 4 + 1] = texels[at * 4 + 2] = value;
+            texels[at * 4 + 3] = byte.MaxValue;
         }
 
         var owed = TextureGraphExternals.Upload(uploads, compilation.Value, compiler.Externals);
@@ -754,8 +788,8 @@ public class TextureCompoundBakeDeviceTests(ITestOutputHelper output) {
         double band = 0, flat = 0;
 
         for (var y = 8; y < Side - 8; y++) {
-            band += picture.Pixels[((y * Side) + 28) * 4] / 255.0;
-            flat += picture.Pixels[((y * Side) + 50) * 4] / 255.0;
+            band += picture.Pixels[(y * Side + 28) * 4] / 255.0;
+            flat += picture.Pixels[(y * Side + 50) * 4] / 255.0;
         }
 
         band /= Side - 16;
@@ -789,8 +823,12 @@ public class TextureCompoundBakeDeviceTests(ITestOutputHelper output) {
     ///         <c>Utility/Highpass</c> bake <b>2 distinct values</b> — a flat fill, below the bar.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And <c>Utility/Highpass</c> is not broken.</b> It is <c>0.5·in + 0.5·(1 −
-    ///         blur(in))</c>, which is exactly one half wherever the blur returns its input; its
+    ///         ⚠ <b>And <c>Utility/Highpass</c> is not broken.</b> It is
+    ///         <c>
+    ///             0.5·in + 0.5·(1 −
+    ///             blur(in))
+    ///         </c>
+    ///         , which is exactly one half wherever the blur returns its input; its
     ///         default radius is 8 texels, and against features 128 texels across there is genuinely
     ///         no detail for it to keep. Tuning that file until the roll call was happy would have
     ///         been tuning content to an instrument, which is the second failure #1085 names. Fixing
@@ -830,7 +868,10 @@ public class TextureCompoundBakeDeviceTests(ITestOutputHelper output) {
         var used = graph.Add(path);
         var output = graph.Add("Output/Output");
 
-        graph.Connect(new(used.Id, TextureCompoundLibraryTests.FirstPictureOut(registry, path)), new(output.Id, "Input"));
+        graph.Connect(
+            new(used.Id, TextureCompoundLibraryTests.FirstPictureOut(registry, path)),
+            new(output.Id, "Input")
+        );
 
         foreach (var port in registry.Types.Single(type => type.Path == path).Ports) {
             if (port is { Direction: PortDirection.Input, Kind: PortKind.Image }) {
@@ -846,10 +887,7 @@ public class TextureCompoundBakeDeviceTests(ITestOutputHelper output) {
         }
 
         TextureGraphCompiler compiler = new(registry) {
-            BaseWidth = side,
-            BaseHeight = side,
-            Seed = 7717,
-            SubGraphSource = library
+            BaseWidth = side, BaseHeight = side, Seed = 7717, SubGraphSource = library
         };
 
         var compilation = compiler.Compile(graph);
@@ -887,7 +925,7 @@ public class TextureCompoundBakeDeviceTests(ITestOutputHelper output) {
 
         for (var y = 0; y < height; y++) {
             for (var x = 0; x < width; x++) {
-                var at = ((y * width) + x) * 4;
+                var at = (y * width + x) * 4;
 
                 texels[at] = (byte)(x * 255 / Math.Max(width - 1, 1));
                 texels[at + 1] = (byte)(y * 255 / Math.Max(height - 1, 1));

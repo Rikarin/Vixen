@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core.Syntax.Diagnostics;
-using Vixen.Editor.NodeGraph;
 using Vixen.Editor.ShaderGraph;
 using Vixen.NodeGraph;
 using Vixen.Raven;
@@ -99,7 +98,7 @@ public sealed class ShaderNodeLibraryTests {
         get {
             var data = new TheoryData<string>();
 
-            foreach (var definition in Library().Types.OrderBy(type => type.Path, StringComparer.Ordinal)) {
+            foreach (var definition in Library().Types.OrderBy(static type => type.Path, StringComparer.Ordinal)) {
                 if (definition.Create() is ShaderMasterNode) {
                     data.Add(definition.Path);
                 }
@@ -136,7 +135,7 @@ public sealed class ShaderNodeLibraryTests {
     /// <summary>The library is exactly the list the module README prints.</summary>
     [Fact]
     public void The_library_is_the_list_the_readme_prints() =>
-        Assert.Equal(Registered, Library().Types.Select(type => type.Path).Order(StringComparer.Ordinal));
+        Assert.Equal(Registered, Library().Types.Select(static type => type.Path).Order(StringComparer.Ordinal));
 
     /// <summary>Every node in the library, in one graph, through both backends — for every master.</summary>
     /// <remarks>
@@ -185,7 +184,7 @@ public sealed class ShaderNodeLibraryTests {
         // a fresh node takes and the one an author sees first. What wiring proves — conversion,
         // widening, a varying asked for — is asserted by the graphs written out in the two suites
         // beside this one, which is where a chain can be written down without inventing it from ports.
-        foreach (var definition in registry.Types.OrderBy(type => type.Path, StringComparer.Ordinal)) {
+        foreach (var definition in registry.Types.OrderBy(static type => type.Path, StringComparer.Ordinal)) {
             if (definition.Create() is ShaderMasterNode) {
                 continue;
             }
@@ -220,7 +219,7 @@ public sealed class ShaderNodeLibraryTests {
     /// <summary>Puts the emitted feature through both backends, against the whole shipped library.</summary>
     static void Generates(ShaderGraphSource source, ShaderGraphKind kind) {
         var trees = LibraryFiles()
-            .Select(file => SyntaxTree.ParseText(File.ReadAllText(file), path: Path.GetFileName(file)))
+            .Select(static file => SyntaxTree.ParseText(File.ReadAllText(file), path: Path.GetFileName(file)))
             .Append(SyntaxTree.ParseText(source.Source, path: source.Name + ".rvn"))
             .ToArray();
 
@@ -240,7 +239,7 @@ public sealed class ShaderNodeLibraryTests {
             new("first", kind == ShaderGraphKind.Surface ? source.Name : "IdentitySurface")
         ];
 
-        foreach (var slot in (string[])[
+        foreach (var slot in (string[]) [
                      "second", "third", "fourth", "fifth", "sixth", "seventh", "eighth", "under", "over"
                  ]) {
             bindings.Add(new(slot, "IdentitySurface"));
@@ -265,7 +264,7 @@ public sealed class ShaderNodeLibraryTests {
         Assert.True(
             semantic.Count == 0,
             "The generated shader did not bind against the library:\n"
-            + string.Join("\n", semantic.Select(diagnostic => diagnostic.ToString()))
+            + string.Join("\n", semantic.Select(static diagnostic => diagnostic.ToString()))
             + "\n\n"
             + source.Source
         );
@@ -305,11 +304,11 @@ public sealed class ShaderNodeLibraryTests {
     ///     fail for the library's reasons rather than the node's.
     /// </remarks>
     static void NothingObjected(DiagnosticBag bag, ShaderGraphSource source) {
-        var errors = bag.Where(diagnostic => diagnostic.IsError).ToArray();
+        var errors = bag.Where(static diagnostic => diagnostic.IsError).ToArray();
 
         Assert.True(
             errors.Length == 0,
-            string.Join("\n", errors.Select(diagnostic => diagnostic.ToString())) + "\n\n" + source.Source
+            string.Join("\n", errors.Select(static diagnostic => diagnostic.ToString())) + "\n\n" + source.Source
         );
     }
 

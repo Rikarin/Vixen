@@ -164,7 +164,7 @@ public struct BoneTransform {
         var w = MathUtil.Saturate(weight);
 
         return new(
-            value.Translation + (additive.Translation * w),
+            value.Translation + additive.Translation * w,
             Quaternion.Concatenate(
                 value.Rotation,
                 Quaternion.Nlerp(Quaternion.Identity, additive.Rotation, w)

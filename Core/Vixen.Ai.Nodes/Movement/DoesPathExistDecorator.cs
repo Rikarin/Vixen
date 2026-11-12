@@ -9,8 +9,12 @@ namespace Vixen.Ai.Nodes;
 
 /// <summary>How hard to look for a path before answering.</summary>
 /// <remarks>
-///     ⚠ <b>Unreal offers raycast, hierarchical and full; Vixen has no hierarchical graph, and
-///     <see cref="Budgeted" /> is what stands in for the middle one.</b> A hierarchical query answers
+///     ⚠
+///     <b>
+///         Unreal offers raycast, hierarchical and full; Vixen has no hierarchical graph, and
+///         <see cref="Budgeted" /> is what stands in for the middle one.
+///     </b>
+///     A hierarchical query answers
 ///     "are these two places in the same connected region" off a coarse graph built beside the mesh.
 ///     Vixen bakes no such graph, and inventing one for a decorator would be a second navigation
 ///     structure to keep in step with the first. A search with a node budget answers the same
@@ -41,8 +45,12 @@ public enum PathTest : byte {
 ///         one without the agent taking a step first.
 ///     </para>
 ///     <para>
-///         ⚠ <b>It observes the key, so it re-tests when the key changes and not when the world
-///         does.</b> A door closing does not write a blackboard key, so a branch already running
+///         ⚠
+///         <b>
+///             It observes the key, so it re-tests when the key changes and not when the world
+///             does.
+///         </b>
+///         A door closing does not write a blackboard key, so a branch already running
 ///         under this decorator keeps running until its <c>MoveTo</c> reports that the crowd failed.
 ///         That is the right division: the decorator answers "is it worth starting", and the task
 ///         answers "did it work".

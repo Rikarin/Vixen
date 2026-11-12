@@ -13,8 +13,12 @@ namespace Vixen.Editor.Water.Tests;
 
 /// <summary>The one asset kind water adds — [docs/plan/35 § D6], and its importer.</summary>
 /// <remarks>
-///     ⚠ <b>What is asserted throughout is the artefact read back the way the <em>runtime</em> reads
-///     it</b>, rather than that the import succeeded. A sea state that imports and produces a chunk
+///     ⚠
+///     <b>
+///         What is asserted throughout is the artefact read back the way the <em>runtime</em> reads
+///         it
+///     </b>
+///     , rather than that the import succeeded. A sea state that imports and produces a chunk
 ///     nothing can deserialise is a zone that falls back to its inline spectrum and draws convincing
 ///     water somebody never authored — the failure mode <c>WaterZoneSystem.UnresolvedWaves</c> exists
 ///     to make visible, and the one this suite exists to prevent shipping.
@@ -59,7 +63,7 @@ public sealed class WaterWavesImporterTests {
 
         // ⚠ Sets of its own, not the process-wide ones: ImporterContributionTests mutates Default, and
         // Linked holds whatever any host in this process linked.
-        var registry = BuiltInImporters.Create(linked, new ImporterContributions());
+        var registry = BuiltInImporters.Create(linked, new());
 
         Assert.True(registry.TryGetForFile("Assets/Seas/northsea.vxwaves", out var importer));
         Assert.Equal("WaterWavesImporter", importer.Name);
@@ -114,7 +118,10 @@ public sealed class WaterWavesImporterTests {
     /// </remarks>
     [Fact]
     public async Task AnUnnamedSeaStateTakesTheFilesOwnName() {
-        var (_, result) = await Import("harbour.vxwaves", "spectrum:\n  windSpeed: 4\n  minimumWavelength: 2\n  maximumWavelength: 20\n  count: Eight\n");
+        var (_, result) = await Import(
+            "harbour.vxwaves",
+            "spectrum:\n  windSpeed: 4\n  minimumWavelength: 2\n  maximumWavelength: 20\n  count: Eight\n"
+        );
 
         Assert.True(result.Succeeded);
 
@@ -148,7 +155,7 @@ public sealed class WaterWavesImporterTests {
         Assert.False(result.Succeeded);
         Assert.Contains(
             result.Diagnostics,
-            message => message.Severity == ImportSeverity.Error
+            static message => message.Severity == ImportSeverity.Error
                 && message.Message.Contains("runs backwards", StringComparison.Ordinal)
         );
     }
@@ -170,7 +177,7 @@ public sealed class WaterWavesImporterTests {
         Assert.False(result.Succeeded);
         Assert.Contains(
             result.Diagnostics,
-            message => message.Message.Contains("quantised wave counts", StringComparison.Ordinal)
+            static message => message.Message.Contains("quantised wave counts", StringComparison.Ordinal)
         );
     }
 
@@ -197,8 +204,11 @@ public sealed class WaterWavesImporterTests {
         );
 
         Assert.True(calm.Succeeded);
-        Assert.Contains(calm.Diagnostics, message => message.Message.Contains("mirror", StringComparison.Ordinal));
-        Assert.DoesNotContain(calm.Diagnostics, message => message.Severity == ImportSeverity.Error);
+        Assert.Contains(
+            calm.Diagnostics,
+            static message => message.Message.Contains("mirror", StringComparison.Ordinal)
+        );
+        Assert.DoesNotContain(calm.Diagnostics, static message => message.Severity == ImportSeverity.Error);
 
         var (_, iron) = await Import(
             "swell.vxwaves",
@@ -214,7 +224,10 @@ public sealed class WaterWavesImporterTests {
         );
 
         Assert.True(iron.Succeeded);
-        Assert.Contains(iron.Diagnostics, message => message.Message.Contains("corrugated iron", StringComparison.Ordinal));
+        Assert.Contains(
+            iron.Diagnostics,
+            static message => message.Message.Contains("corrugated iron", StringComparison.Ordinal)
+        );
     }
 
     [Fact]
@@ -222,7 +235,7 @@ public sealed class WaterWavesImporterTests {
         var (_, result) = await Import("broken.vxwaves", "name: [unclosed\n");
 
         Assert.False(result.Succeeded);
-        Assert.Contains(result.Diagnostics, message => message.Severity == ImportSeverity.Error);
+        Assert.Contains(result.Diagnostics, static message => message.Severity == ImportSeverity.Error);
     }
 
     static async Task<(ImportContext Context, ImportResult Result)> Import(string name, string text) {

@@ -60,7 +60,7 @@ public class Int64Tests {
         var bag = new DiagnosticBag();
         var module = Lowerer.Lower(compilation, bag);
         IrVerifier.Verify(module, bag);
-        Assert.True(bag.IsEmpty, string.Join("\n", bag.Select(d => d.ToString())));
+        Assert.True(bag.IsEmpty, string.Join("\n", bag.Select(static d => d.ToString())));
 
         return module;
     }
@@ -148,7 +148,7 @@ public class Int64Tests {
     public void A_variable_does_not_widen_on_its_own() {
         Assert.Contains(
             Compile(Kernel("        var wide: uint64 = id.x")),
-            d => d.IsError
+            static d => d.IsError
         );
 
         Assert.Empty(Compile(Kernel("        var wide: uint64 = uint64(id.x)")));
@@ -202,9 +202,7 @@ public class Int64Tests {
 
     [Fact]
     public void Compare_exchange_exists_at_both_widths() {
-        Assert.Empty(
-            Compile(Kernel("        val old = atomicCompareExchange(packed[i], uint64(0), uint64(7))"))
-        );
+        Assert.Empty(Compile(Kernel("        val old = atomicCompareExchange(packed[i], uint64(0), uint64(7))")));
     }
 
     /// <summary>
@@ -251,20 +249,21 @@ public class Int64Tests {
     public void Packing_without_an_atomic_asks_only_for_the_type() {
         var shader = Assert.Single(
             Lower(
-                """
-                package A
+                    """
+                    package A
 
-                shader S {
-                    var packed: RWBuffer<uint64>
+                    shader S {
+                        var packed: RWBuffer<uint64>
 
-                    [ComputeShader(64)]
-                    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
-                        packed[int(id.x)] = (uint64(id.z) << 32) | uint64(id.y)
+                        [ComputeShader(64)]
+                        func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+                            packed[int(id.x)] = (uint64(id.z) << 32) | uint64(id.y)
+                        }
                     }
-                }
 
-                """
-            ).Shaders
+                    """
+                )
+                .Shaders
         );
 
         var required = IrCapabilities.Of(shader);
@@ -278,20 +277,21 @@ public class Int64Tests {
     public void A_shader_without_one_asks_for_neither() {
         var shader = Assert.Single(
             Lower(
-                """
-                package A
+                    """
+                    package A
 
-                shader S {
-                    var counts: RWBuffer<uint>
+                    shader S {
+                        var counts: RWBuffer<uint>
 
-                    [ComputeShader(64)]
-                    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
-                        val old = atomicAdd(counts[int(id.x)], 1u)
+                        [ComputeShader(64)]
+                        func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+                            val old = atomicAdd(counts[int(id.x)], 1u)
+                        }
                     }
-                }
 
-                """
-            ).Shaders
+                    """
+                )
+                .Shaders
         );
 
         var required = IrCapabilities.Of(shader);
@@ -456,7 +456,8 @@ public class Int64Tests {
             case IrLoopStatement loop: {
                 IrBlock?[] parts = [loop.Condition, loop.Body, loop.Continue];
 
-                foreach (var nested in parts.Where(part => part is not null).SelectMany(part => Flatten(part!))) {
+                foreach (var nested in parts.Where(static part => part is not null)
+                             .SelectMany(static part => Flatten(part!))) {
                     yield return nested;
                 }
 

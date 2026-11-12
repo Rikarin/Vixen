@@ -46,12 +46,8 @@ public class BakeBenchmarks {
     [Params(NavMeshPartitioning.Watershed, NavMeshPartitioning.Monotone)]
     public NavMeshPartitioning Partitioning { get; set; }
 
-    NavMeshBuildSettings Settings => new() {
-        CellSize = CellSize,
-        CellHeight = CellSize * 0.5f,
-        AgentRadius = 0.6f,
-        Partitioning = Partitioning
-    };
+    NavMeshBuildSettings Settings =>
+        new() { CellSize = CellSize, CellHeight = CellSize * 0.5f, AgentRadius = 0.6f, Partitioning = Partitioning };
 
     [GlobalSetup]
     public void Setup() {
@@ -68,5 +64,5 @@ public class BakeBenchmarks {
     ///     overlapping its margin as well as its own — and is what makes a rebake local.
     /// </summary>
     [Benchmark]
-    public int Tiled() => NavMeshBaker.BakeTiles(vertices, indices, bounds, Settings, 64).Tiles.Count;
+    public int Tiled() => NavMeshBaker.BakeTiles(vertices, indices, bounds, Settings).Tiles.Count;
 }

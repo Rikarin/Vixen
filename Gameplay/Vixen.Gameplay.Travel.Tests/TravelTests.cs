@@ -25,10 +25,7 @@ public static class Content {
             .Add(
                 Portal,
                 new TravelPointDefinition {
-                    DisplayName = "Asura gate",
-                    Kind = TravelKind.Portal,
-                    From = Queensdale,
-                    To = Divinity
+                    DisplayName = "Asura gate", Kind = TravelKind.Portal, From = Queensdale, To = Divinity
                 }
             )
             .Add(
@@ -84,12 +81,13 @@ public class TravelTests {
     readonly TravelLibrary library;
     readonly Traveller player = new();
 
-    public TravelTests() => library = TravelLibrary.Compile(catalog);
+    public TravelTests() {
+        library = TravelLibrary.Compile(catalog);
+    }
 
     TravelPoint Point(string address) => library.Find(DefId.From(address))!;
 
-    static Dictionary<uint, long> Purse(long gold) =>
-        new() { [DefId.From(Content.Gold).Value] = gold };
+    static Dictionary<uint, long> Purse(long gold) => new() { [DefId.From(Content.Gold).Value] = gold };
 
     [Fact]
     public void TheContentCompilesWithNoProblems() => Assert.Empty(library.Problems);
@@ -178,7 +176,14 @@ public class TravelTests {
 
         Assert.Equal(
             TravelRefusal.None,
-            Travelling.Order(Point(Content.Taxi), Content.Player(1), DefId.From(Content.Queensdale), player, purse, out var order)
+            Travelling.Order(
+                Point(Content.Taxi),
+                Content.Player(1),
+                DefId.From(Content.Queensdale),
+                player,
+                purse,
+                out var order
+            )
         );
 
         Assert.Equal(DefId.From(Content.Divinity), order.To);
@@ -191,14 +196,28 @@ public class TravelTests {
     public void SomebodyWhoCannotPayIsRefused() =>
         Assert.Equal(
             TravelRefusal.Cost,
-            Travelling.Order(Point(Content.Taxi), Content.Player(1), DefId.From(Content.Queensdale), player, Purse(5), out _)
+            Travelling.Order(
+                Point(Content.Taxi),
+                Content.Player(1),
+                DefId.From(Content.Queensdale),
+                player,
+                Purse(5),
+                out _
+            )
         );
 
     [Fact]
     public void AFreePointCostsNothingAndNeedsNoPurse() {
         Assert.Equal(
             TravelRefusal.None,
-            Travelling.Order(Point(Content.Portal), Content.Player(1), DefId.From(Content.Queensdale), player, null, out var order)
+            Travelling.Order(
+                Point(Content.Portal),
+                Content.Player(1),
+                DefId.From(Content.Queensdale),
+                player,
+                null,
+                out var order
+            )
         );
 
         Assert.Equal(0, order.Cost);
@@ -214,17 +233,16 @@ public class TravelTests {
         // The portal, the taxi and the crypt door. Not the waypoint: it goes where they already are,
         // and they have not found it.
         Assert.Equal(3, here.Length);
-        Assert.DoesNotContain(here, point => point.Id == DefId.From(Content.Waypoint));
+        Assert.DoesNotContain(here, static point => point.Id == DefId.From(Content.Waypoint));
     }
 
     [Fact]
     public void APointThatGoesNowhereIsAProblem() {
-        var problems = TravelLibrary.Compile(
-                new DefinitionCatalogBuilder().Add("travel/odd", new TravelPointDefinition()).Build()
-            )
+        var problems = TravelLibrary
+            .Compile(new DefinitionCatalogBuilder().Add("travel/odd", new TravelPointDefinition()).Build())
             .Problems;
 
-        Assert.Contains(problems, problem => problem.Contains("goes nowhere", StringComparison.Ordinal));
+        Assert.Contains(problems, static problem => problem.Contains("goes nowhere", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -236,7 +254,7 @@ public class TravelTests {
             )
             .Problems;
 
-        Assert.Contains(problems, problem => problem.Contains("costs 100 of nothing", StringComparison.Ordinal));
+        Assert.Contains(problems, static problem => problem.Contains("costs 100 of nothing", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -248,7 +266,7 @@ public class TravelTests {
             )
             .Problems;
 
-        Assert.Contains(problems, problem => problem.Contains("it is a portal", StringComparison.Ordinal));
+        Assert.Contains(problems, static problem => problem.Contains("it is a portal", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -260,6 +278,6 @@ public class TravelTests {
             )
             .Problems;
 
-        Assert.Contains(problems, problem => problem.Contains("to itself", StringComparison.Ordinal));
+        Assert.Contains(problems, static problem => problem.Contains("to itself", StringComparison.Ordinal));
     }
 }

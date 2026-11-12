@@ -8,8 +8,12 @@ namespace Vixen.Editor.Core.Tests;
 
 /// <summary>Writing a new project: what lands, what is refused, and what is never overwritten.</summary>
 /// <remarks>
-///     ⚠ <b>The decisions moved here from <c>Tools/Vixen.Cli</c> because the editor's New Project
-///     needed them</b>, so this is where they are tested. What the CLI still owns — the listing, the
+///     ⚠
+///     <b>
+///         The decisions moved here from <c>Tools/Vixen.Cli</c> because the editor's New Project
+///         needed them
+///     </b>
+///     , so this is where they are tested. What the CLI still owns — the listing, the
 ///     exit code, the "what to type next" lines — is covered by <c>Vixen.Cli.Tests</c> driving the
 ///     real parser.
 /// </remarks>
@@ -20,7 +24,7 @@ public class ProjectScaffoldTests : IDisposable {
         GC.SuppressFinalize(this);
 
         if (Directory.Exists(root)) {
-            Directory.Delete(root, recursive: true);
+            Directory.Delete(root, true);
         }
     }
 
@@ -47,7 +51,7 @@ public class ProjectScaffoldTests : IDisposable {
 
         // The other half of a game: something to run, and somewhere for content to go.
         Assert.Contains("Program.cs", result.Written);
-        Assert.Contains(result.Written, path => path.StartsWith("Assets/", StringComparison.Ordinal));
+        Assert.Contains(result.Written, static path => path.StartsWith("Assets/", StringComparison.Ordinal));
     }
 
     /// <summary>
@@ -129,7 +133,7 @@ public class ProjectMarkerTests : IDisposable {
         GC.SuppressFinalize(this);
 
         if (Directory.Exists(root)) {
-            Directory.Delete(root, recursive: true);
+            Directory.Delete(root, true);
         }
     }
 

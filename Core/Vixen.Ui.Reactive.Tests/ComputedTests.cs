@@ -155,7 +155,10 @@ public class ComputedTests {
     [Fact]
     public void A_failure_propagates_to_dependents_rather_than_being_swallowed() {
         var source = new Signal<int>(1);
-        var failing = new Computed<int>(() => source.Value == 0 ? throw new InvalidOperationException("no") : source.Value);
+        var failing = new Computed<int>(() => source.Value == 0
+                ? throw new InvalidOperationException("no")
+                : source.Value
+        );
         var downstream = new Computed<int>(() => failing.Value + 1);
 
         Assert.Equal(2, downstream.Value);

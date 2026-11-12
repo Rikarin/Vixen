@@ -27,8 +27,12 @@ public sealed record UtilitySetImportSettings : IImportSettings {
 ///         <see cref="UtilitySetContentCompiler" />.
 ///     </para>
 ///     <para>
-///         ⚠ <b>What the importer adds over copying the file is the checking, and one check matters
-///         more than the rest.</b> A consideration whose key does not exist scores zero, and under the
+///         ⚠
+///         <b>
+///             What the importer adds over copying the file is the checking, and one check matters
+///             more than the rest.
+///         </b>
+///         A consideration whose key does not exist scores zero, and under the
 ///         zero rule that vetoes its whole action — so a typo in a key name is an action that silently
 ///         never runs. That is precisely the failure a designer cannot see by looking at the set, and
 ///         it fails the build here instead. What cannot be checked is an input a game registers in
@@ -40,7 +44,9 @@ public sealed class UtilitySetImporter : AssetImporter<UtilitySetImportSettings>
     /// <summary>The alias of the type this writes.</summary>
     public const string SetType = "UtilitySetContent";
 
-    static UtilitySetImporter() => MathScalars.Register();
+    static UtilitySetImporter() {
+        MathScalars.Register();
+    }
 
     /// <inheritdoc />
     public override int Version => UtilitySetContent.Current;
@@ -94,7 +100,7 @@ public sealed class UtilitySetImporter : AssetImporter<UtilitySetImportSettings>
     }
 
     static bool Check(ImportContext context, UtilitySetContent set) {
-        UtilitySetContentCompiler.TryCompile(set, new BehaviorTreeResolver(), out var problems, out _);
+        UtilitySetContentCompiler.TryCompile(set, new(), out var problems, out _);
 
         var fatal = false;
 

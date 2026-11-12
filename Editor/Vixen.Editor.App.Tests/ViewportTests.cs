@@ -26,10 +26,10 @@ public class ViewportTests {
         // ⚠ The classic four rather than four of the same. A layout that came up as four identical
         // perspective views is one every user then configures by hand — and it is also the layout in
         // which a presenter shared between panes is invisible, because all four would agree.
-        Assert.True(panes.Take(3).All(pane => pane.Camera.IsOrthographic));
+        Assert.True(panes.Take(3).All(static pane => pane.Camera.IsOrthographic));
         Assert.False(panes[3].Camera.IsOrthographic);
 
-        Assert.Equal(4, panes.Select(pane => (pane.Camera.Yaw, pane.Camera.Pitch)).Distinct().Count());
+        Assert.Equal(4, panes.Select(static pane => (pane.Camera.Yaw, pane.Camera.Pitch)).Distinct().Count());
 
         // ⚠ A view mode is a compositor tree and its stage belongs to the *mode* — two panes in
         // wireframe share one stage and both draw wireframe. What has to be per pane is the mode
@@ -38,7 +38,7 @@ public class ViewportTests {
         panes[0].Modes.Current = ViewMode.Wireframe;
 
         Assert.Equal(ViewMode.Wireframe, panes[0].Modes.Current);
-        Assert.All(panes.Skip(1), pane => Assert.Equal(ViewMode.Shaded, pane.Modes.Current));
+        Assert.All(panes.Skip(1), static pane => Assert.Equal(ViewMode.Shaded, pane.Modes.Current));
     }
 
     [Fact]
@@ -76,8 +76,12 @@ public class ViewportTests {
     ///     Maximise gives the Scene panel the whole window and gives the window back, splits and all.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>The panel, not the pane count, and the difference is why this command did nothing at
-    ///     all.</b> It used to set the arrangement to Single and remember what it had been — so in a
+    ///     ⚠
+    ///     <b>
+    ///         The panel, not the pane count, and the difference is why this command did nothing at
+    ///         all.
+    ///     </b>
+    ///     It used to set the arrangement to Single and remember what it had been — so in a
     ///     single-pane layout, which is the default and what nearly everyone is in, it asked the
     ///     arrangement to become what it already was and the setter returned. The button was inert in
     ///     exactly the case it is pressed.
@@ -164,7 +168,7 @@ public class ViewportTests {
     public void Every_viewport_command_title_is_declared_and_agrees_with_the_viewports_own_names() {
         using var fixture = EditorSession.Start();
 
-        var declared = EditorStrings.All.Select(id => id.Id).ToHashSet(StringComparer.Ordinal);
+        var declared = EditorStrings.All.Select(static id => id.Id).ToHashSet(StringComparer.Ordinal);
 
         foreach (var label in EditorStrings.ViewportCommandLabels.All) {
             var id = label.Id["editor.command.".Length..];
@@ -179,7 +183,7 @@ public class ViewportTests {
             Assert.Equal(ViewShading.NameOf(mode), command!.Title.Source);
         }
 
-        foreach (var flag in ShowFlags.All.Where(flag => flag != SceneShow.Grid)) {
+        foreach (var flag in ShowFlags.All.Where(static flag => flag != SceneShow.Grid)) {
             Assert.True(fixture.Shell.Commands.TryGet("scene.show-" + ShowFlags.SlugOf(flag), out var command));
             Assert.Equal(ShowFlags.NameOf(flag), command!.Title.Source);
         }
@@ -223,7 +227,7 @@ public class ViewportTests {
         // does nothing *yet* look identical while you are pressing it.
         Assert.False(fixture.CanRun("scene.bookmark-go-1"));
 
-        pane.Camera.Pivot = new Vector3(7f, 1f, 2f);
+        pane.Camera.Pivot = new(7f, 1f, 2f);
         fixture.Run("scene.bookmark-set-1");
 
         Assert.True(fixture.CanRun("scene.bookmark-go-1"));
@@ -231,7 +235,7 @@ public class ViewportTests {
         pane.Camera.Pivot = Vector3.Zero;
         fixture.Run("scene.bookmark-go-1");
 
-        Assert.Equal(new Vector3(7f, 1f, 2f), pane.Camera.Pivot);
+        Assert.Equal(new(7f, 1f, 2f), pane.Camera.Pivot);
     }
 
     /// <remarks>
@@ -247,7 +251,7 @@ public class ViewportTests {
         fixture.Open("scene");
         fixture.Frames(1);
 
-        fixture.Viewport!.Camera.Pivot = new Vector3(7f, 1f, 2f);
+        fixture.Viewport!.Camera.Pivot = new(7f, 1f, 2f);
         fixture.Run("scene.bookmark-set-1");
 
         fixture.Close("scene");
@@ -259,10 +263,11 @@ public class ViewportTests {
         fixture.Viewport!.Camera.Pivot = Vector3.Zero;
         fixture.Run("scene.bookmark-go-1");
 
-        Assert.Equal(new Vector3(7f, 1f, 2f), fixture.Viewport.Camera.Pivot);
+        Assert.Equal(new(7f, 1f, 2f), fixture.Viewport.Camera.Pivot);
 
         // Where it is kept: the published workspace's per-view state, which a module reaches too.
-        var state = fixture.Plugins.Services.Require<Vixen.Editor.Ui.Documents.IWorkspace>().ViewState<SceneViewState>("scene");
+        var state = fixture.Plugins.Services.Require<Vixen.Editor.Ui.Documents.IWorkspace>()
+            .ViewState<SceneViewState>("scene");
 
         Assert.Equal(new Vector3(7f, 1f, 2f), state.Panes[0].Bookmarks[0]?.Pivot);
         Assert.Same(state.Panes[0].Bookmarks, fixture.Viewport.Bookmarks);
@@ -281,7 +286,9 @@ public class ViewportTests {
         Assert.Equal(4, fixture.Viewports.Count);
         Assert.Equal(
             ViewportArrangement.Quad,
-            fixture.Plugins.Services.Require<Vixen.Editor.Ui.Documents.IWorkspace>().ViewState<SceneViewState>("scene").Arrangement
+            fixture.Plugins.Services.Require<Vixen.Editor.Ui.Documents.IWorkspace>()
+                .ViewState<SceneViewState>("scene")
+                .Arrangement
         );
     }
 
@@ -330,7 +337,7 @@ public class ViewportTests {
         scene.Selection.Set([crate]);
         fixture.Frames(1);
 
-        fixture.Viewport!.Camera.Pivot = new Vector3(12f, 3f, -4f);
+        fixture.Viewport!.Camera.Pivot = new(12f, 3f, -4f);
 
         Assert.True(fixture.CanRun("entity.move-to-view"));
         fixture.Run("entity.move-to-view");
@@ -340,7 +347,7 @@ public class ViewportTests {
 
         // ⚠ At the pivot, not at the eye. Moving something to the eye puts it inside the near plane,
         // which reads as the object having vanished.
-        Assert.True(Vector3.NearEqual(position, new Vector3(12f, 3f, -4f), 1e-3f));
+        Assert.True(Vector3.NearEqual(position, new(12f, 3f, -4f), 1e-3f));
     }
 
     /// <summary>

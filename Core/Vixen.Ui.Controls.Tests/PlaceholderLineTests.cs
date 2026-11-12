@@ -39,7 +39,10 @@ public class PlaceholderLineTests {
         var oneWord = PromptOf<TextArea>("Filter");
         var wide = PromptOf<TextArea>(Long);
 
-        Assert.True(wide.Height > oneWord.Height * 1.5f, $"a textarea's prompt wraps: {wide.Height} against one line's {oneWord.Height}");
+        Assert.True(
+            wide.Height > oneWord.Height * 1.5f,
+            $"a textarea's prompt wraps: {wide.Height} against one line's {oneWord.Height}"
+        );
     }
 
     static (float Width, float Height) PromptOf<T>(string prompt) where T : TextField, new() {
@@ -49,7 +52,7 @@ public class PlaceholderLineTests {
         fixture.Update();
         fixture.Update();
 
-        var shown = field.Children.Single(child => child.Tag == "field-placeholder");
+        var shown = field.Children.Single(static child => child.Tag == "field-placeholder");
 
         return (shown.Width, shown.Height);
     }

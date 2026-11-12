@@ -151,7 +151,9 @@ public sealed partial class QueryDescription {
         Describe(parts, "none", None);
 
         if (changed.Count > 0) {
-            parts.Add($"changed({string.Join(", ", changed.Select(id => ComponentRegistry.Get(id).Type.Name))})");
+            parts.Add(
+                $"changed({string.Join(", ", changed.Select(static id => ComponentRegistry.Get(id).Type.Name))})"
+            );
         }
 
         return parts.Count == 0 ? "everything" : string.Join(" ", parts);

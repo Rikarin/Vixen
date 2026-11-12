@@ -3,7 +3,6 @@
 
 using Vixen.Core.Mathematics;
 using Vixen.Geometry;
-using Vixen.Rendering;
 
 namespace Vixen.Animation.Retargeting;
 
@@ -240,11 +239,7 @@ public sealed class SkeletonRetarget {
             );
         }
 
-        var data = new AnimationClipData {
-            Name = clip.Name,
-            Duration = clip.Duration,
-            Channels = [.. channels]
-        };
+        var data = new AnimationClipData { Name = clip.Name, Duration = clip.Duration, Channels = [..channels] };
 
         var translationJoint = Map.TranslationJoint;
 

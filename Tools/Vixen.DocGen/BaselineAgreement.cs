@@ -38,9 +38,9 @@ static class BaselineAgreement {
         var disagreements = new List<Disagreement>();
 
         var byAssembly = nodes
-            .Where(node => node.IsPackable)
-            .GroupBy(node => node.Assembly, StringComparer.Ordinal)
-            .ToDictionary(group => group.Key, group => group.ToList(), StringComparer.Ordinal);
+            .Where(static node => node.IsPackable)
+            .GroupBy(static node => node.Assembly, StringComparer.Ordinal)
+            .ToDictionary(static group => group.Key, static group => group.ToList(), StringComparer.Ordinal);
 
         // ⚠ What git calls the tree, not what the disk holds (#1424). A checkout keeps its agent
         // worktrees under `.claude/worktrees/`, so a recursive walk of the main checkout found nine
@@ -49,9 +49,9 @@ static class BaselineAgreement {
         // list of names, which still read `references/` and whatever else a machine had cloned;
         // git's listing reads only this checkout's own files.
         foreach (var directory in RepositoryFiles
-            .Files(repositoryRoot, "PublicAPI.Unshipped.txt")
-            .Select(path => Path.GetDirectoryName(path)!)
-            .OrderBy(path => path, StringComparer.Ordinal)) {
+                     .Files(repositoryRoot, "PublicAPI.Unshipped.txt")
+                     .Select(static path => Path.GetDirectoryName(path)!)
+                     .OrderBy(static path => path, StringComparer.Ordinal)) {
             var assembly = Path.GetFileName(directory);
             var baselined = ReadTypes(directory);
 
@@ -62,19 +62,19 @@ static class BaselineAgreement {
             // Both sides through the same normalisation, or `Pool<TKey, TValue>` and
             // `Pool<TKey,TValue>` read as two different types and every generic looks missing.
             var graphed = byAssembly.TryGetValue(assembly, out var assemblyNodes)
-                ? assemblyNodes.Select(node => Normalize(node.QualifiedName)).ToHashSet(StringComparer.Ordinal)
+                ? assemblyNodes.Select(static node => Normalize(node.QualifiedName)).ToHashSet(StringComparer.Ordinal)
                 : [];
 
             var missingFromGraph = baselined.Where(name => !graphed.Contains(name))
-                .OrderBy(name => name, StringComparer.Ordinal)
+                .OrderBy(static name => name, StringComparer.Ordinal)
                 .ToList();
 
             var missingFromBaseline = graphed.Where(name => !baselined.Contains(name))
-                .OrderBy(name => name, StringComparer.Ordinal)
+                .OrderBy(static name => name, StringComparer.Ordinal)
                 .ToList();
 
             if (missingFromGraph.Count > 0 || missingFromBaseline.Count > 0) {
-                disagreements.Add(new Disagreement(assembly, missingFromGraph, missingFromBaseline));
+                disagreements.Add(new(assembly, missingFromGraph, missingFromBaseline));
             }
         }
 
@@ -159,7 +159,7 @@ static class BaselineAgreement {
     static bool IsTypeDeclaration(string right) {
         var words = right.Split([' ', ':'], StringSplitOptions.RemoveEmptyEntries);
 
-        return words.Any(word => word is "class" or "struct" or "interface" or "enum" or "delegate" or "record");
+        return words.Any(static word => word is "class" or "struct" or "interface" or "enum" or "delegate" or "record");
     }
 
     /// <summary>

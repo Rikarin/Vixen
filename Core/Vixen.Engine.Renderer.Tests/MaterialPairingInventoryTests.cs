@@ -23,8 +23,12 @@ namespace Tests;
 ///         obviously untextured. No device reports anything.
 ///     </para>
 ///     <para>
-///         ⚠ <b>This is <c>MaterialCompiler.OptionalSlots</c>' failure shape one layer over, and the
-///         worse half of it.</b> That one fails loudly, at compile time, and has had a completeness
+///         ⚠
+///         <b>
+///             This is <c>MaterialCompiler.OptionalSlots</c>' failure shape one layer over, and the
+///             worse half of it.
+///         </b>
+///         That one fails loudly, at compile time, and has had a completeness
 ///         test reading the library since the <c>ScreenProbes</c> package landed without its line. This
 ///         one fails as a wrong frame at runtime. The list was complete when this was written, which is
 ///         the only moment such a test can be written honestly — see
@@ -78,14 +82,15 @@ public class MaterialPairingInventoryTests {
     static string[] Sampling() {
         var sampling = Shipped()
             .SelectMany(File.ReadAllLines)
-            .Select(line => Declaration.Match(line.Trim()))
-            .Where(match => match.Success)
-            .Where(match => match.Groups["bases"].Value
-                .Split(',')
-                .Select(name => name.Trim())
-                .Contains("MaterialTextures", StringComparer.Ordinal)
+            .Select(static line => Declaration.Match(line.Trim()))
+            .Where(static match => match.Success)
+            .Where(static match => match.Groups["bases"]
+                    .Value
+                    .Split(',')
+                    .Select(static name => name.Trim())
+                    .Contains("MaterialTextures", StringComparer.Ordinal)
             )
-            .Select(match => match.Groups["name"].Value)
+            .Select(static match => match.Groups["name"].Value)
             .Distinct(StringComparer.Ordinal)
             .ToArray();
 
@@ -108,7 +113,7 @@ public class MaterialPairingInventoryTests {
 
         Assert.True(Directory.Exists(root), $"the shipped shaders were not copied to {root}");
 
-        return Directory.EnumerateFiles(root, "*.rvn", SearchOption.AllDirectories).ToArray();
+        return [..Directory.EnumerateFiles(root, "*.rvn", SearchOption.AllDirectories)];
     }
 
     /// <summary>
@@ -148,9 +153,10 @@ public class MaterialPairingInventoryTests {
                     // `MaterialTextures` itself. Leaving the flag set would attribute the next
                     // shader's slots to the previous one, and the previous one is the table.
                     samples = declaration.Success
-                        && declaration.Groups["bases"].Value
+                        && declaration.Groups["bases"]
+                            .Value
                             .Split(',')
-                            .Select(name => name.Trim())
+                            .Select(static name => name.Trim())
                             .Contains("MaterialTextures", StringComparer.Ordinal);
 
                     continue;
@@ -169,7 +175,7 @@ public class MaterialPairingInventoryTests {
         // matching, and it satisfies every assertion below while checking nothing.
         Assert.NotEmpty(slots);
 
-        return [.. slots];
+        return [..slots];
     }
 
     /// <summary>Which shader each pairing entry names, read back off the keys it wrote.</summary>
@@ -185,8 +191,8 @@ public class MaterialPairingInventoryTests {
         WorldRenderer.Paired(materials, Shader);
 
         return materials.TextureIndices.Keys
-            .Select(key => key.Name.Split('.'))
-            .Select(segments => segments[^2])
+            .Select(static key => key.Name.Split('.'))
+            .Select(static segments => segments[^2])
             .ToHashSet(StringComparer.Ordinal);
     }
 
@@ -203,8 +209,8 @@ public class MaterialPairingInventoryTests {
         WorldRenderer.Paired(materials, Shader);
 
         return materials.TextureIndices.Keys
-            .Select(key => key.Name.Split('.'))
-            .Select(segments => $"{segments[^2]}.{segments[^1]}")
+            .Select(static key => key.Name.Split('.'))
+            .Select(static segments => $"{segments[^2]}.{segments[^1]}")
             .ToHashSet(StringComparer.Ordinal);
     }
 
@@ -378,7 +384,7 @@ public class MaterialPairingInventoryTests {
 
         WorldRenderer.Paired(materials, Shader);
 
-        var maps = materials.TextureIndices.Values.Select(key => key.Name).ToArray();
+        var maps = materials.TextureIndices.Values.Select(static key => key.Name).ToArray();
 
         Assert.Equal(maps.Length, maps.Distinct(StringComparer.Ordinal).Count());
     }

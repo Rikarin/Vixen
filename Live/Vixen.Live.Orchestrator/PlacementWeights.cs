@@ -109,8 +109,12 @@ public sealed record PlacementWeights {
     ///         boxes, and one allocation per property once per fleet is invisible.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A key that names no weight is dropped, and unlike an asset importer that default
-    ///         is kept on purpose.</b> Every field here has a legitimate-looking default, so
+    ///         ⚠
+    ///         <b>
+    ///             A key that names no weight is dropped, and unlike an asset importer that default
+    ///             is kept on purpose.
+    ///         </b>
+    ///         Every field here has a legitimate-looking default, so
     ///         <c>heathyFill:</c> scores exactly like a file that does not mention fill at all — and
     ///         since a shard scored on <see cref="Default" /> is indistinguishable from one scored on
     ///         a file of nothing but typos, the silence really does hide the whole failure. What stops

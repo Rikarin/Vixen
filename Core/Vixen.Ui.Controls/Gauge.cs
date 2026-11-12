@@ -9,8 +9,12 @@ namespace Vixen.Ui.Controls;
 /// <summary>A reading on a dial: the same capacity a <see cref="LevelIndicator" /> shows, as an arc.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>The other half of doc 49 § 7.1's rank 6, and the same control drawn round a
-///         circle.</b> A level indicator is a bar because it sits in a row; a gauge is a dial because
+///         ⚠
+///         <b>
+///             The other half of doc 49 § 7.1's rank 6, and the same control drawn round a
+///             circle.
+///         </b>
+///         A level indicator is a bar because it sits in a row; a gauge is a dial because
 ///         it sits on its own — a CPU load in a status panel, a frame budget in an overlay, a tank on a
 ///         HUD. What the reading <i>means</i> is identical, so <see cref="Warning" />,
 ///         <see cref="Critical" />, <see cref="Direction" /> and <see cref="Level" /> are the level
@@ -91,7 +95,7 @@ public sealed partial class Gauge : RangeBase {
     ///     edge towards the bottom on the screen, so the open gap is centred on a quarter turn and the
     ///     dial begins half the unswept part beyond it.
     /// </remarks>
-    float StartAngle => (MathF.PI * 0.5f) + ((1f - Sweep) * MathF.PI);
+    float StartAngle => MathF.PI * 0.5f + (1f - Sweep) * MathF.PI;
 
     /// <inheritdoc />
     protected override void OnCreated() {
@@ -130,7 +134,7 @@ public sealed partial class Gauge : RangeBase {
         // its minimum passes its maximum and a gauge laid out at a third of a pixel is still a gauge.
         var width = Math.Clamp(Document.LengthOf(Style, arcWidth) ?? outer * 0.2f, MathF.Min(0.5f, outer), outer);
         var inner = outer - width;
-        var centre = new Vector2(bounds.X + (bounds.Width * 0.5f), bounds.Y + (bounds.Height * 0.5f));
+        var centre = new Vector2(bounds.X + bounds.Width * 0.5f, bounds.Y + bounds.Height * 0.5f);
 
         var start = StartAngle;
         var sweep = Sweep * MathF.Tau;
@@ -151,19 +155,27 @@ public sealed partial class Gauge : RangeBase {
     }
 
     /// <summary>Fills the part of the ring between two angles.</summary>
-    void Sector(DrawContext context, Vector2 centre, float inner, float outer, float start, float sweep, Color4 colour) {
+    void Sector(
+        DrawContext context,
+        Vector2 centre,
+        float inner,
+        float outer,
+        float start,
+        float sweep,
+        Color4 colour
+    ) {
         var steps = Math.Max(2, (int)MathF.Ceiling(sweep * 12f));
 
         arc.Clear();
 
         for (var i = 0; i <= steps; i++) {
-            var angle = start + (sweep * i / steps);
-            arc.Add(centre.X + (MathF.Cos(angle) * outer), centre.Y + (MathF.Sin(angle) * outer), i == 0);
+            var angle = start + sweep * i / steps;
+            arc.Add(centre.X + MathF.Cos(angle) * outer, centre.Y + MathF.Sin(angle) * outer, i == 0);
         }
 
         for (var i = steps; i >= 0; i--) {
-            var angle = start + (sweep * i / steps);
-            arc.LineTo(new Vector2(centre.X + (MathF.Cos(angle) * inner), centre.Y + (MathF.Sin(angle) * inner)));
+            var angle = start + sweep * i / steps;
+            arc.LineTo(new(centre.X + MathF.Cos(angle) * inner, centre.Y + MathF.Sin(angle) * inner));
         }
 
         arc.Close();

@@ -11,7 +11,6 @@ using Vixen.Geometry;
 using Vixen.Graphics;
 using Vixen.Graphics.Null;
 using Vixen.Graphics.RenderGraph;
-using Vixen.Rendering;
 using Vixen.Rendering.Compositor;
 using Vixen.Rendering.PostFx;
 using Vixen.Shaders;
@@ -35,25 +34,27 @@ public sealed class TerrainNodeTests : IDisposable {
     readonly NullDevice device = new(new() { Record = true });
     readonly EffectSystem effects = new();
 
-    public TerrainNodeTests() => effects.AddProvider(new AlwaysCompiles());
+    public TerrainNodeTests() {
+        effects.AddProvider(new AlwaysCompiles());
+    }
 
     public void Dispose() => device.Dispose();
 
     const string Document = """
-        version: 2
-        resources:
-          - name: SceneHdr
-            format: Rgba16Float
-            usage: ColourTarget, Sampled
-          - name: SceneDepth
-            format: Depth32Float
-            usage: DepthStencilTarget
-        game: !Sequence
-          name: Frame
-          children:
-            - !Terrain
-              name: Ground
-        """;
+                            version: 2
+                            resources:
+                              - name: SceneHdr
+                                format: Rgba16Float
+                                usage: ColourTarget, Sampled
+                              - name: SceneDepth
+                                format: Depth32Float
+                                usage: DepthStencilTarget
+                            game: !Sequence
+                              name: Frame
+                              children:
+                                - !Terrain
+                                  name: Ground
+                            """;
 
     // ------------------------------------------------------------------ the factory
 
@@ -80,8 +81,8 @@ public sealed class TerrainNodeTests : IDisposable {
         var (builder, _) = Builder();
         builder.Views.Clear();
 
-        var refusal = Assert.Throws<CompositorBindingException>(
-            () => builder.Build(YamlSerializer.Parse<GraphicsCompositorAsset>(Document))
+        var refusal = Assert.Throws<CompositorBindingException>(() =>
+            builder.Build(YamlSerializer.Parse<GraphicsCompositorAsset>(Document))
         );
 
         Assert.Equal("Camera", refusal.Name);
@@ -94,11 +95,7 @@ public sealed class TerrainNodeTests : IDisposable {
 
         factory.Vegetation = new() { GrassDensityScale = 0.5f, GrassResidentCells = 64 };
 
-        var compositor = builder.Build(
-            new GraphicsCompositorAsset {
-                Game = new TerrainNodeAsset { GrassDensityScale = 0.25f }
-            }
-        );
+        var compositor = builder.Build(new() { Game = new TerrainNodeAsset { GrassDensityScale = 0.25f } });
 
         var node = Assert.IsType<TerrainSceneRenderer>(compositor.Game);
 
@@ -135,7 +132,7 @@ public sealed class TerrainNodeTests : IDisposable {
             TerrainStreamingMegabytes = 39
         };
 
-        var compositor = builder.Build(new GraphicsCompositorAsset { Game = new TerrainNodeAsset() });
+        var compositor = builder.Build(new() { Game = new TerrainNodeAsset() });
         var node = Assert.IsType<TerrainSceneRenderer>(compositor.Game);
 
         Assert.Equal(factory.Vegetation, node.Vegetation);
@@ -164,7 +161,7 @@ public sealed class TerrainNodeTests : IDisposable {
         };
 
         var compositor = builder.Build(
-            new GraphicsCompositorAsset {
+            new() {
                 Game = new TerrainNodeAsset {
                     GrassDensityScale = 0.61f,
                     GrassCullDistanceScale = 0.62f,
@@ -182,7 +179,7 @@ public sealed class TerrainNodeTests : IDisposable {
         var node = Assert.IsType<TerrainSceneRenderer>(compositor.Game);
 
         Assert.Equal(
-            new TerrainVegetationQuality {
+            new() {
                 GrassDensityScale = 0.61f,
                 GrassCullDistanceScale = 0.62f,
                 GrassResidentCells = 63,
@@ -213,7 +210,7 @@ public sealed class TerrainNodeTests : IDisposable {
         static string Crossed(string name) => name == "TerrainLodNearRange" ? "TerrainNearRange" : name;
 
         var carried = typeof(VegetationQuality).GetProperties().Select(field => Crossed(field.Name));
-        var landed = typeof(TerrainVegetationQuality).GetProperties().Select(field => field.Name).ToHashSet();
+        var landed = typeof(TerrainVegetationQuality).GetProperties().Select(static field => field.Name).ToHashSet();
 
         Assert.All(
             carried,
@@ -235,7 +232,8 @@ public sealed class TerrainNodeTests : IDisposable {
     public void AWorldsTerrainComponentReachesTheFrameList() {
         using var world = new World();
         var scene = new TerrainSceneSource();
-        var system = new TerrainExtractionSystem(scene) { Assets = new OneOfEach(Map()) };
+        using var system = new TerrainExtractionSystem(scene);
+        system.Assets = new OneOfEach(Map());
 
         var entity = world.Create(
             TerrainComponent.Of("ground.vxterrain"),
@@ -246,7 +244,7 @@ public sealed class TerrainNodeTests : IDisposable {
 
         var entry = Assert.Single(scene.Terrains);
 
-        Assert.Equal(new Vector3(64f, 0f, 32f), entry.Origin);
+        Assert.Equal(new(64f, 0f, 32f), entry.Origin);
         Assert.Equal(64f, entry.NearRange);
         Assert.Null(entry.Grass);
         Assert.Equal(1, system.TerrainCount);
@@ -287,7 +285,7 @@ public sealed class TerrainNodeTests : IDisposable {
         Assert.Equal(0.5f, scene.Time, 5);
 
         // And a paused game's grass stands still, because the clock it reads is the scaled one.
-        loop.Frame(TimeSpan.FromSeconds(0.25), timeScale: 0f);
+        loop.Frame(TimeSpan.FromSeconds(0.25), 0f);
         Assert.Equal(0.5f, scene.Time, 5);
     }
 
@@ -296,7 +294,8 @@ public sealed class TerrainNodeTests : IDisposable {
     public void AGrassComponentRidesItsTerrain() {
         using var world = new World();
         var scene = new TerrainSceneSource();
-        var system = new TerrainExtractionSystem(scene) { Assets = new OneOfEach(Map()) };
+        using var system = new TerrainExtractionSystem(scene);
+        system.Assets = new OneOfEach(Map());
 
         var entity = world.Create(
             TerrainComponent.Of("ground.vxterrain"),
@@ -319,7 +318,8 @@ public sealed class TerrainNodeTests : IDisposable {
         using var world = new World();
         var scene = new TerrainSceneSource();
         var empty = new OneOfEach(null);
-        var system = new TerrainExtractionSystem(scene) { Assets = empty };
+        using var system = new TerrainExtractionSystem(scene);
+        system.Assets = empty;
 
         var entity = world.Create(
             TerrainComponent.Of("ground.vxterrain"),
@@ -337,7 +337,8 @@ public sealed class TerrainNodeTests : IDisposable {
         world.Add(entity, TerrainGrassComponent.Of("meadow.vxgrass"));
 
         var broken = GrassType.Of("meadow") with { MinWeight = 0.9f, MaxWeight = 0.1f };
-        var system2 = new TerrainExtractionSystem(scene) { Assets = new OneOfEach(Map(), broken) };
+        using var system2 = new TerrainExtractionSystem(scene);
+        system2.Assets = new OneOfEach(Map(), broken);
 
         system2.Extract(world);
 
@@ -380,7 +381,7 @@ public sealed class TerrainNodeTests : IDisposable {
         var compositor = builder.Build(YamlSerializer.Parse<GraphicsCompositorAsset>(Document));
 
         // Unbound to any weight layer, so the rule needs no painted terrain to grow.
-        var meadow = GrassType.Of("meadow") with { Layer = "" };
+        var meadow = GrassType.Of("meadow") with { Layer = string.Empty };
 
         factory.Scene!.Terrains.Add(new(Map(), Vector3.Zero, 32f, 0, true, meadow, 96f));
 
@@ -424,11 +425,11 @@ public sealed class TerrainNodeTests : IDisposable {
         var (builder, factory) = Builder();
 
         const string missing = """
-            version: 2
-            game: !Terrain
-              name: Ground
-              output: SceneColour
-            """;
+                               version: 2
+                               game: !Terrain
+                                 name: Ground
+                                 output: SceneColour
+                               """;
 
         var compositor = builder.Build(YamlSerializer.Parse<GraphicsCompositorAsset>(missing));
 
@@ -443,31 +444,39 @@ public sealed class TerrainNodeTests : IDisposable {
     // ------------------------------------------------------------------ the lit path
 
     const string LitDocument = """
-        version: 2
-        resources:
-          - name: SceneHdr
-            format: Rgba16Float
-            usage: ColourTarget, Sampled
-          - name: SceneDepth
-            format: Depth32Float
-            usage: DepthStencilTarget
-          - name: ShadowAtlas
-            format: Depth32Float
-            usage: DepthStencilTarget, Sampled
-            width: 64
-            height: 64
-        game: !Sequence
-          name: Frame
-          children:
-            - !Terrain
-              name: Ground
-        """;
+                               version: 2
+                               resources:
+                                 - name: SceneHdr
+                                   format: Rgba16Float
+                                   usage: ColourTarget, Sampled
+                                 - name: SceneDepth
+                                   format: Depth32Float
+                                   usage: DepthStencilTarget
+                                 - name: ShadowAtlas
+                                   format: Depth32Float
+                                   usage: DepthStencilTarget, Sampled
+                                   width: 64
+                                   height: 64
+                               game: !Sequence
+                                 name: Frame
+                                 children:
+                                   - !Terrain
+                                     name: Ground
+                               """;
 
     /// <summary>Wires the frame the lit path detects: a scene camera and published cascades.</summary>
     SceneConstants LitFrame(CompositorBuilder builder) {
         var constants = new SceneConstants(device) {
             Lighting = new() {
-                Camera = new RenderCamera(new(16f, 40f, 16f), new(0f, -0.5f, 0.5f), new(0f, 1f, 0f), MathF.PI / 3f, 1f, 0.1f, 1000f)
+                Camera = new RenderCamera(
+                    new(16f, 40f, 16f),
+                    new(0f, -0.5f, 0.5f),
+                    new(0f, 1f, 0f),
+                    MathF.PI / 3f,
+                    1f,
+                    0.1f,
+                    1000f
+                )
             }
         };
 
@@ -501,7 +510,7 @@ public sealed class TerrainNodeTests : IDisposable {
 
         Assert.Same(constants, node.Frame);
 
-        Draw(compositor, shadowAtlas: true);
+        Draw(compositor, true);
 
         Assert.True(node.Lit);
         Assert.False(node.Split);
@@ -521,7 +530,7 @@ public sealed class TerrainNodeTests : IDisposable {
 
         factory.Scene!.Terrains.Add(new(Map(), Vector3.Zero, 32f, 0, true, null, 0f));
 
-        Draw(compositor, shadowAtlas: true);
+        Draw(compositor, true);
 
         var node = Assert.IsType<TerrainSceneRenderer>(
             Assert.Single(Assert.IsType<SceneRendererSequence>(compositor.Game).Children)
@@ -559,34 +568,34 @@ public sealed class TerrainNodeTests : IDisposable {
     [Fact]
     public void ASplitFrameBindsTheSplitPlanes() {
         const string split = """
-            version: 2
-            resources:
-              - name: SceneHdr
-                format: Rgba16Float
-                usage: ColourTarget, Sampled
-              - name: SceneDepth
-                format: Depth32Float
-                usage: DepthStencilTarget
-              - name: ShadowAtlas
-                format: Depth32Float
-                usage: DepthStencilTarget, Sampled
-                width: 64
-                height: 64
-              - name: SceneAlbedo
-                format: Rgba16Float
-                usage: ColourTarget, Sampled
-              - name: SceneNormals
-                format: Rgba16Float
-                usage: ColourTarget, Sampled
-              - name: SceneSpecular
-                format: Rgba16Float
-                usage: ColourTarget, Sampled
-            game: !Sequence
-              name: Frame
-              children:
-                - !Terrain
-                  name: Ground
-            """;
+                             version: 2
+                             resources:
+                               - name: SceneHdr
+                                 format: Rgba16Float
+                                 usage: ColourTarget, Sampled
+                               - name: SceneDepth
+                                 format: Depth32Float
+                                 usage: DepthStencilTarget
+                               - name: ShadowAtlas
+                                 format: Depth32Float
+                                 usage: DepthStencilTarget, Sampled
+                                 width: 64
+                                 height: 64
+                               - name: SceneAlbedo
+                                 format: Rgba16Float
+                                 usage: ColourTarget, Sampled
+                               - name: SceneNormals
+                                 format: Rgba16Float
+                                 usage: ColourTarget, Sampled
+                               - name: SceneSpecular
+                                 format: Rgba16Float
+                                 usage: ColourTarget, Sampled
+                             game: !Sequence
+                               name: Frame
+                               children:
+                                 - !Terrain
+                                   name: Ground
+                             """;
 
         var (builder, factory) = Builder();
         var constants = LitFrame(builder);
@@ -594,7 +603,7 @@ public sealed class TerrainNodeTests : IDisposable {
 
         factory.Scene!.Terrains.Add(new(Map(), Vector3.Zero, 32f, 0, true, null, 0f));
 
-        Draw(compositor, shadowAtlas: true, splitPlanes: true);
+        Draw(compositor, true, true);
 
         var node = Assert.IsType<TerrainSceneRenderer>(
             Assert.Single(Assert.IsType<SceneRendererSequence>(compositor.Game).Children)
@@ -627,7 +636,7 @@ public sealed class TerrainNodeTests : IDisposable {
 
         factory.Scene!.Terrains.Add(new(Map(), Vector3.Zero, 32f, 0, true, null, 0f));
 
-        Draw(compositor, shadowAtlas: true);
+        Draw(compositor, true);
 
         var node = Assert.IsType<TerrainSceneRenderer>(
             Assert.Single(Assert.IsType<SceneRendererSequence>(compositor.Game).Children)
@@ -644,10 +653,7 @@ public sealed class TerrainNodeTests : IDisposable {
     // ------------------------------------------------------------------ the foliage
 
     static FoliageType Pine =>
-        FoliageType.Of("Pine") with {
-            Mesh = "vx:9e8a44c9930c64e388ca034c5fe4c426",
-            Radius = 2f
-        };
+        FoliageType.Of("Pine") with { Mesh = "vx:9e8a44c9930c64e388ca034c5fe4c426", Radius = 2f };
 
     /// <summary>A volume with one type and a stand of instances in front of the test camera.</summary>
     static FoliageVolume Stand(int count = 24) {
@@ -655,7 +661,7 @@ public sealed class TerrainNodeTests : IDisposable {
         var type = volume.AddType(Pine);
 
         for (var index = 0; index < count; index++) {
-            volume.Add(type, new(new(24f + (index % 8), 0f, 24f + (index / 8)), Quaternion.Identity, 1f));
+            volume.Add(type, new(new(24f + index % 8, 0f, 24f + index / 8), Quaternion.Identity, 1f));
         }
 
         return volume;
@@ -667,7 +673,8 @@ public sealed class TerrainNodeTests : IDisposable {
         using var world = new World();
         var scene = new TerrainSceneSource();
         var volume = Stand();
-        var system = new TerrainExtractionSystem(scene) { Assets = new OneOfEach(null, foliage: Pine, volume: volume) };
+        using var system = new TerrainExtractionSystem(scene);
+        system.Assets = new OneOfEach(null, foliage: Pine, volume: volume);
 
         var entity = world.Create(
             FoliageVolumeComponent.Of("forest.vxfol", "pine.vxfoliage"),
@@ -679,7 +686,7 @@ public sealed class TerrainNodeTests : IDisposable {
         var entry = Assert.Single(scene.Foliage);
 
         Assert.Same(volume, entry.Volume);
-        Assert.Equal(new Vector3(8f, 0f, 8f), entry.Origin);
+        Assert.Equal(new(8f, 0f, 8f), entry.Origin);
         Assert.Equal(1, system.FoliageCount);
 
         world.Destroy(entity);
@@ -699,7 +706,8 @@ public sealed class TerrainNodeTests : IDisposable {
         );
 
         // The type has not resolved: the volume waits, counted.
-        var waiting = new TerrainExtractionSystem(scene) { Assets = new OneOfEach(null, volume: Stand()) };
+        using var waiting = new TerrainExtractionSystem(scene);
+        waiting.Assets = new OneOfEach(null, volume: Stand());
 
         waiting.Extract(world);
 
@@ -708,9 +716,8 @@ public sealed class TerrainNodeTests : IDisposable {
 
         // The type arrives broken — a spacing of zero. The whole volume is dropped rather than the
         // one entry, because the palette's order is what the instances index.
-        var refused = new TerrainExtractionSystem(scene) {
-            Assets = new OneOfEach(null, foliage: Pine with { Radius = 0f }, volume: Stand())
-        };
+        using var refused = new TerrainExtractionSystem(scene);
+        refused.Assets = new OneOfEach(null, foliage: Pine with { Radius = 0f }, volume: Stand());
 
         refused.Extract(world);
 
@@ -753,7 +760,7 @@ public sealed class TerrainNodeTests : IDisposable {
         var compositor = builder.Build(YamlSerializer.Parse<GraphicsCompositorAsset>(Document));
 
         factory.Scene!.Foliage.Add(new(Stand(), Vector3.Zero, 0f));
-        factory.Scene.Meshes = new OneTriangle(loaded: false);
+        factory.Scene.Meshes = new OneTriangle(false);
 
         Draw(compositor);
 
@@ -814,7 +821,7 @@ public sealed class TerrainNodeTests : IDisposable {
 
         for (var x = 0; x < 3; x++) {
             for (var z = 0; z < 3; z++) {
-                wide.Add(type, new(new((x * 32f) + 16f, 0f, (z * 32f) + 16f), Quaternion.Identity, 1f));
+                wide.Add(type, new(new(x * 32f + 16f, 0f, z * 32f + 16f), Quaternion.Identity, 1f));
             }
         }
 
@@ -850,8 +857,12 @@ public sealed class TerrainNodeTests : IDisposable {
         // all, and with chains big enough that a megabyte of pool is fewer slots than there are
         // tiles. A smaller tile would make every budget clamp to the whole world and prove nothing.
         var description = TerrainDescription.Default with {
-            TileSamples = 128, TilesX = 8, TilesZ = 8,
-            MetresPerQuad = 1f, MinHeight = -100f, MaxHeight = 100f
+            TileSamples = 128,
+            TilesX = 8,
+            TilesZ = 8,
+            MetresPerQuad = 1f,
+            MinHeight = -100f,
+            MaxHeight = 100f
         };
 
         Assert.True(Slots(1) < 64, "a one-megabyte pool held every tile, so the budget decided nothing");
@@ -891,7 +902,7 @@ public sealed class TerrainNodeTests : IDisposable {
         factory.Scene!.Foliage.Add(new(Stand(), Vector3.Zero, 0f));
         factory.Scene.Meshes = new OneTriangle();
 
-        Draw(compositor, shadowAtlas: true);
+        Draw(compositor, true);
 
         var node = Assert.IsType<TerrainSceneRenderer>(
             Assert.Single(Assert.IsType<SceneRendererSequence>(compositor.Game).Children)
@@ -932,7 +943,7 @@ public sealed class TerrainNodeTests : IDisposable {
             out _
         );
 
-        var names = Assert.IsType<SequenceAsset>(expanded.Game).Children.Select(child => child.Name).ToArray();
+        var names = Assert.IsType<SequenceAsset>(expanded.Game).Children.Select(static child => child.Name).ToArray();
 
         Assert.Equal(Array.IndexOf(names, "Main") + 1, Array.IndexOf(names, "Ground"));
 
@@ -944,7 +955,7 @@ public sealed class TerrainNodeTests : IDisposable {
 
         var compositor = builder.Build(expanded);
         var children = Assert.IsType<SceneRendererSequence>(compositor.Game).Children;
-        var node = Assert.IsType<TerrainSceneRenderer>(children.Single(child => child.Name == "Ground"));
+        var node = Assert.IsType<TerrainSceneRenderer>(children.Single(static child => child.Name == "Ground"));
 
         Assert.Same(factory.Scene, node.Scene);
         Assert.Equal("SceneHdr", node.Output);
@@ -991,7 +1002,7 @@ public sealed class TerrainNodeTests : IDisposable {
         // Sixteen frames of the same wrong frame, because the claim is "once per degrade" and one
         // frame cannot distinguish that from "once per frame".
         for (var frame = 0; frame < 16; frame++) {
-            Draw(compositor, shadowAtlas: true);
+            Draw(compositor, true);
         }
 
         Assert.False(node.Lit);
@@ -1042,7 +1053,7 @@ public sealed class TerrainNodeTests : IDisposable {
 
         // The lit frame first, so that "it said something" is measured against a run where nothing
         // did — the ground draws, and the log stays empty.
-        Draw(compositor, shadowAtlas: true);
+        Draw(compositor, true);
 
         Assert.True(node.Lit);
         Assert.Null(node.PreviewReason);
@@ -1051,7 +1062,7 @@ public sealed class TerrainNodeTests : IDisposable {
         // Then the camera, alone. Everything else the frame publishes is still there.
         constants.Lighting!.Camera = null;
 
-        Draw(compositor, shadowAtlas: true);
+        Draw(compositor, true);
 
         Assert.False(node.Lit);
         Assert.Contains("SceneLighting.Camera", node.PreviewReason!, StringComparison.Ordinal);
@@ -1060,9 +1071,16 @@ public sealed class TerrainNodeTests : IDisposable {
         // A camera that comes back is a lit frame again, and re-arms the line — the second degrade is
         // a different event from the first and worth its own.
         constants.Lighting.Camera = new RenderCamera(
-            new(16f, 40f, 16f), new(0f, -0.5f, 0.5f), new(0f, 1f, 0f), MathF.PI / 3f, 1f, 0.1f, 1000f);
+            new(16f, 40f, 16f),
+            new(0f, -0.5f, 0.5f),
+            new(0f, 1f, 0f),
+            MathF.PI / 3f,
+            1f,
+            0.1f,
+            1000f
+        );
 
-        Draw(compositor, shadowAtlas: true);
+        Draw(compositor, true);
 
         Assert.True(node.Lit);
         Assert.Single(log.Lines);
@@ -1071,14 +1089,14 @@ public sealed class TerrainNodeTests : IDisposable {
         // watching a game lose its camera mid-session wants both timestamps.
         constants.Lighting.Camera = null;
 
-        Draw(compositor, shadowAtlas: true);
+        Draw(compositor, true);
 
         Assert.False(node.Lit);
         Assert.Equal(2, log.Lines.Count);
 
         // ⚠ And still one line per degrade, not one per frame, after the re-arm.
         for (var frame = 0; frame < 8; frame++) {
-            Draw(compositor, shadowAtlas: true);
+            Draw(compositor, true);
         }
 
         Assert.Equal(2, log.Lines.Count);
@@ -1099,7 +1117,7 @@ public sealed class TerrainNodeTests : IDisposable {
 
         factory.Scene!.Terrains.Add(new(Map(), Vector3.Zero, 32f, 0, true, null, 0f));
 
-        Draw(compositor, shadowAtlas: true);
+        Draw(compositor, true);
 
         var node = Assert.IsType<TerrainSceneRenderer>(
             Assert.Single(Assert.IsType<SceneRendererSequence>(compositor.Game).Children)
@@ -1146,7 +1164,7 @@ public sealed class TerrainNodeTests : IDisposable {
         );
 
         // A lit frame reports nothing, which is what makes the next assertion mean something.
-        Draw(compositor, shadowAtlas: true);
+        Draw(compositor, true);
 
         Assert.True(node.Lit);
         Assert.Empty(Degradations(compositor));
@@ -1155,7 +1173,7 @@ public sealed class TerrainNodeTests : IDisposable {
         // which is where this was hardest to see.
         constants.Lighting!.Camera = null;
 
-        Draw(compositor, shadowAtlas: true);
+        Draw(compositor, true);
 
         Assert.False(node.Lit);
         Assert.True(node.TerrainsDrawn > 0);
@@ -1169,9 +1187,16 @@ public sealed class TerrainNodeTests : IDisposable {
 
         // And it describes this frame: the camera comes back and the node leaves the report.
         constants.Lighting.Camera = new RenderCamera(
-            new(16f, 40f, 16f), new(0f, -0.5f, 0.5f), new(0f, 1f, 0f), MathF.PI / 3f, 1f, 0.1f, 1000f);
+            new(16f, 40f, 16f),
+            new(0f, -0.5f, 0.5f),
+            new(0f, 1f, 0f),
+            MathF.PI / 3f,
+            1f,
+            0.1f,
+            1000f
+        );
 
-        Draw(compositor, shadowAtlas: true);
+        Draw(compositor, true);
 
         Assert.Empty(Degradations(compositor));
 
@@ -1199,7 +1224,7 @@ public sealed class TerrainNodeTests : IDisposable {
         );
 
         node.Scene = null;
-        Draw(compositor, shadowAtlas: true);
+        Draw(compositor, true);
 
         var (_, reason) = Assert.Single(Degradations(compositor), pair => pair.Node == node.ToString());
 
@@ -1232,7 +1257,8 @@ public sealed class TerrainNodeTests : IDisposable {
             TState state,
             Exception? exception,
             Func<TState, Exception?, string> formatter
-        ) => Lines.Add((eventId.Id, logLevel, formatter(state, exception)));
+        ) =>
+            Lines.Add((eventId.Id, logLevel, formatter(state, exception)));
     }
 
     // ------------------------------------------------------------------ fixture
@@ -1265,7 +1291,11 @@ public sealed class TerrainNodeTests : IDisposable {
     ///     pass has to stand in for it the way a host stands in for a swapchain.
     /// </remarks>
     void Draw(GraphicsCompositor compositor, bool shadowAtlas = false, bool splitPlanes = false) {
-        compositor.Imports["SceneHdr"] = Imported(PixelFormat.Rgba16Float, TextureUsage.ColourTarget | TextureUsage.Sampled, "hdr");
+        compositor.Imports["SceneHdr"] = Imported(
+            PixelFormat.Rgba16Float,
+            TextureUsage.ColourTarget | TextureUsage.Sampled,
+            "hdr"
+        );
         compositor.Imports["SceneDepth"] = Imported(PixelFormat.Depth32Float, TextureUsage.DepthStencilTarget, "depth");
 
         if (shadowAtlas) {
@@ -1280,13 +1310,25 @@ public sealed class TerrainNodeTests : IDisposable {
         }
 
         if (splitPlanes) {
-            compositor.Imports["SceneAlbedo"] = Imported(PixelFormat.Rgba16Float, TextureUsage.ColourTarget | TextureUsage.Sampled, "albedo");
-            compositor.Imports["SceneNormals"] = Imported(PixelFormat.Rgba16Float, TextureUsage.ColourTarget | TextureUsage.Sampled, "normals");
+            compositor.Imports["SceneAlbedo"] = Imported(
+                PixelFormat.Rgba16Float,
+                TextureUsage.ColourTarget | TextureUsage.Sampled,
+                "albedo"
+            );
+            compositor.Imports["SceneNormals"] = Imported(
+                PixelFormat.Rgba16Float,
+                TextureUsage.ColourTarget | TextureUsage.Sampled,
+                "normals"
+            );
 
             // All three, because `DetectMode` gates on all three: the ground writes an f0 of its own
             // now, and a pass declaring three attachments against a shader that writes four is
             // refused at the draw rather than short one plane.
-            compositor.Imports["SceneSpecular"] = Imported(PixelFormat.Rgba16Float, TextureUsage.ColourTarget | TextureUsage.Sampled, "specular");
+            compositor.Imports["SceneSpecular"] = Imported(
+                PixelFormat.Rgba16Float,
+                TextureUsage.ColourTarget | TextureUsage.Sampled,
+                "specular"
+            );
         }
 
         var graph = new RenderGraph(device);
@@ -1311,13 +1353,21 @@ public sealed class TerrainNodeTests : IDisposable {
     static TerrainMap Map() =>
         new(
             TerrainDescription.Default with {
-                TileSamples = 32, TilesX = 2, TilesZ = 2,
-                MetresPerQuad = 1f, MinHeight = -100f, MaxHeight = 100f
+                TileSamples = 32,
+                TilesX = 2,
+                TilesZ = 2,
+                MetresPerQuad = 1f,
+                MinHeight = -100f,
+                MaxHeight = 100f
             }
         );
 
     /// <summary>An asset source with one of each kind, or nothing at all.</summary>
-    sealed class OneOfEach(TerrainMap? map, GrassType? grass = null, FoliageType? foliage = null, FoliageVolume? volume = null)
+    sealed class OneOfEach(
+        TerrainMap? map,
+        GrassType? grass = null,
+        FoliageType? foliage = null,
+        FoliageVolume? volume = null)
         : ITerrainAssetSource {
         public TerrainMap? Terrain(string reference) => map;
 

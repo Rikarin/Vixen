@@ -10,7 +10,7 @@ namespace Vixen.Editor.Core.Tests;
 [DataContract("PlaySettings")]
 public sealed class PlaySettings {
     /// <summary>Which scene play mode starts in.</summary>
-    public string StartScene { get; set; } = "";
+    public string StartScene { get; set; } = string.Empty;
 
     /// <summary>How many player processes an out-of-process play session launches.</summary>
     public int Players { get; set; } = 1;

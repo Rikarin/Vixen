@@ -64,7 +64,7 @@ public sealed class SideColumnWidthTests {
             ?? throw fixture.Fail($"{command} opened no ScrollView under <{tag}>");
 
         var natural = side.MaximumLeft;
-        var widest = natural == 0f ? "" : Widener(fixture, side);
+        var widest = natural == 0f ? string.Empty : Widener(fixture, side);
 
         // The column as the editor leaves it, before the test's line, so that a picture of the sheet
         // with and without the cap compares real content rather than a column the line has widened.
@@ -111,7 +111,8 @@ public sealed class SideColumnWidthTests {
             return;
         }
 
-        var (width, height) = (ScrollingPanelPictureTests.WidthOf(fixture), ScrollingPanelPictureTests.HeightOf(fixture));
+        var (width, height) = (ScrollingPanelPictureTests.WidthOf(fixture),
+            ScrollingPanelPictureTests.HeightOf(fixture));
 
         using var device = ScrollingPanelPictureTests.OpenDevice();
         using var gpu = device is null ? null : new ScrollingPanelPictureTests.GpuPicture(device, width, height);
@@ -149,8 +150,10 @@ public sealed class SideColumnWidthTests {
             fixture.Frames(2);
 
             if (without < over) {
-                var longest = Descendants(child).Select(element => element.Text).Where(text => text is { Length: > 0 })
-                    .MaxBy(text => text!.Length);
+                var longest = Descendants(child)
+                    .Select(static element => element.Text)
+                    .Where(static text => text is { Length: > 0 })
+                    .MaxBy(static text => text!.Length);
 
                 found.Add($"<{child.Tag}> (without it {without:0} px over), its longest line '{longest}'");
             }

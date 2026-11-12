@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Gameplay;
-using Vixen.Gameplay.Combat;
 using Vixen.Gameplay.Progression;
 using Vixen.Samples.Mmo.Contracts;
 
@@ -18,14 +17,22 @@ public readonly record struct MoveInput(float Forward, float Strafe, float Facin
 /// <summary>The rules both ends run, and neither end owns.</summary>
 /// <remarks>
 ///     <para>
-///         <b>Doc 27 puts this in its own assembly for one reason:</b> <em>"this is where 'the client
-///         predicts what the server will do' is made literal"</em>. Two implementations of one rule
+///         <b>Doc 27 puts this in its own assembly for one reason:</b>
+///         <em>
+///             "this is where 'the client
+///             predicts what the server will do' is made literal"
+///         </em>
+///         . Two implementations of one rule
 ///         drift, and doc 16's <c>MispredictionCount</c> is the number that catches the drift — one
 ///         assembly is what prevents it.
 ///     </para>
 ///     <para>
-///         ⚠ <b>It is much smaller than that framing suggests, and the reason is the interesting
-///         part.</b> Most of what a naive <c>.Shared</c> would hold is <em>already</em> shared,
+///         ⚠
+///         <b>
+///             It is much smaller than that framing suggests, and the reason is the interesting
+///             part.
+///         </b>
+///         Most of what a naive <c>.Shared</c> would hold is <em>already</em> shared,
 ///         because the gameplay libraries are linked by both ends: <c>AbilityTemplate.BaseAmount</c>
 ///         is the damage formula, <c>RequirementSet.IsMetBy</c> is what greys a button out and what
 ///         refuses a packet, and neither wants a wrapper here. Re-implementing them in this assembly
@@ -87,8 +94,8 @@ public static class MmoRules {
         var sin = MathF.Sin(input.Facing);
 
         return pose with {
-            X = pose.X + (((input.Forward * cos) - (input.Strafe * sin)) * speed * delta),
-            Z = pose.Z + (((input.Forward * sin) + (input.Strafe * cos)) * speed * delta),
+            X = pose.X + (input.Forward * cos - input.Strafe * sin) * speed * delta,
+            Z = pose.Z + (input.Forward * sin + input.Strafe * cos) * speed * delta,
             Facing = input.Facing
         };
     }

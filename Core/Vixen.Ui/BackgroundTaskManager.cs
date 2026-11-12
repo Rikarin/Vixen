@@ -15,8 +15,12 @@ namespace Vixen.Ui;
 ///         long operation has to be made short.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Something has to call <see cref="Pump" /> once a frame or nothing here ever
-///         changes.</b> <c>UiApplication</c> does it for an application that uses the
+///         ⚠
+///         <b>
+///             Something has to call <see cref="Pump" /> once a frame or nothing here ever
+///             changes.
+///         </b>
+///         <c>UiApplication</c> does it for an application that uses the
 ///         standard loop and exposes the manager it drives as <c>UiApplication.Tasks</c>; a host
 ///         with its own loop owns a manager and pumps it itself, which is what the editor's shell
 ///         does. A manager nobody pumps is a list of tasks stuck at nought per cent — the reported
@@ -93,8 +97,10 @@ public sealed class BackgroundTaskManager : IDisposable {
     /// <summary>Starts a task the caller drives itself.</summary>
     /// <param name="title">What it is called.</param>
     /// <returns>The task. The caller must finish it with <see cref="Complete" /> or <see cref="Fail" />.</returns>
-    /// <remarks>For work that is already asynchronous in its own way — a file watcher, a subprocess,
-    ///     a server request — and does not want its body wrapped in a delegate.</remarks>
+    /// <remarks>
+    ///     For work that is already asynchronous in its own way — a file watcher, a subprocess,
+    ///     a server request — and does not want its body wrapped in a delegate.
+    /// </remarks>
     public BackgroundTask Begin(string title) {
         ArgumentNullException.ThrowIfNull(title);
 
@@ -124,8 +130,7 @@ public sealed class BackgroundTaskManager : IDisposable {
 
         var task = Begin(title);
 
-        _ = Task.Run(
-            async () => {
+        _ = Task.Run(async () => {
                 try {
                     await work(task).ConfigureAwait(false);
                     Post(() => Stop(task, BackgroundTaskState.Completed));
@@ -200,8 +205,12 @@ public sealed class BackgroundTaskManager : IDisposable {
     /// <summary>Asks everything to stop and stops listening to what is still running.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>What an owner going away has to call, and the reason this type is disposable at
-    ///         all.</b> Work runs on the pool and reports through <see cref="Post" />; an owner that
+    ///         ⚠
+    ///         <b>
+    ///             What an owner going away has to call, and the reason this type is disposable at
+    ///             all.
+    ///         </b>
+    ///         Work runs on the pool and reports through <see cref="Post" />; an owner that
     ///         simply dropped the manager would leave every running task still enqueueing into a
     ///         queue nothing drains, so the queue grows without bound and every closure in it keeps
     ///         the task, the manager and — the case that has cost this repository twice — the

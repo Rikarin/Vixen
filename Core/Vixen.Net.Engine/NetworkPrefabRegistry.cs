@@ -38,8 +38,12 @@ public sealed record NetworkPrefab(string Address, NetworkPrefabId Id, Prefab Pr
 ///         anybody remembered, because the root is what the spawn itself is addressed to.
 ///     </para>
 ///     <para>
-///         ⚠ <b>A node already carrying a <see cref="NetworkId" /> counts too, and that is not the
-///         authoring path.</b> A template captured from a live world with <c>Prefab.CaptureFrom</c>
+///         ⚠
+///         <b>
+///             A node already carrying a <see cref="NetworkId" /> counts too, and that is not the
+///             authoring path.
+///         </b>
+///         A template captured from a live world with <c>Prefab.CaptureFrom</c>
 ///         has whatever the world had on it, and a world that has been in a session has ids; a
 ///         template out of a content build has only what the asset could carry, which is
 ///         <see cref="NetworkObject" /> and never <see cref="NetworkId" />. Reading both means the
@@ -105,7 +109,7 @@ public sealed class NetworkPrefabRegistry {
             }
         }
 
-        var entry = new NetworkPrefab(address, id, prefab, [.. networked]);
+        var entry = new NetworkPrefab(address, id, prefab, [..networked]);
         byId[id.Value] = entry;
         byAddress[address] = entry;
 

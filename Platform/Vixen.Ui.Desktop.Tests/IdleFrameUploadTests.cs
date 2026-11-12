@@ -43,10 +43,12 @@ public class IdleFrameUploadTests {
     static UiDocument Still() {
         var document = new UiDocument(200f, 200f);
 
-        document.Load("""
+        document.Load(
+            """
             root { width: 200px; height: 200px; }
             div { width: 40px; height: 20px; background-color: #345; }
-            """);
+            """
+        );
 
         for (var index = 0; index < 8; index++) {
             document.Root.Add("div");
@@ -57,12 +59,16 @@ public class IdleFrameUploadTests {
 
     /// <summary>A builder, an atlas with room in it, and the extent <see cref="Still" /> lays out in.</summary>
     static (UiGeometryBuilder Builder, GlyphFieldCache Glyphs, Rectangle Extent) Tessellator() =>
-        (new UiGeometryBuilder(), new GlyphFieldCache(new GlyphAtlas(256, 256), resolution: 32), new(0f, 0f, 200f, 200f));
+        (new UiGeometryBuilder(), new GlyphFieldCache(new(256, 256), 32), new(0f, 0f, 200f, 200f));
 
     /// <summary>A renderer over a recording device, with the modules every host loads.</summary>
     static (NullDevice Device, UiRenderer Renderer) Renderer() {
         var device = new NullDevice();
-        var renderer = new UiRenderer(device, UiShaderLibrary.Load(device), new RenderOutput([PixelFormat.Bgra8UNormSrgb]));
+        var renderer = new UiRenderer(
+            device,
+            UiShaderLibrary.Load(device),
+            new RenderOutput([PixelFormat.Bgra8UNormSrgb])
+        );
 
         return (device, renderer);
     }
@@ -99,17 +105,18 @@ public class IdleFrameUploadTests {
         var (builder, glyphs, extent) = Tessellator();
         var (device, renderer) = Renderer();
 
-        using (device)
-        using (renderer) {
-            var frame = default(UiGeometry);
+        using (device) {
+            using (renderer) {
+                var frame = default(UiGeometry);
 
-            for (var pass = 0; pass < Frames; pass++) {
-                Frame(document, builder, glyphs, extent, device, renderer, ref frame);
+                for (var pass = 0; pass < Frames; pass++) {
+                    Frame(document, builder, glyphs, extent, device, renderer, ref frame);
+                }
+
+                Assert.Equal(1, builder.Tessellations);
+                Assert.Equal(1, renderer.GeometryUploads);
+                Assert.Equal(Frames - 1, renderer.GeometryUploadsSkipped);
             }
-
-            Assert.Equal(1, builder.Tessellations);
-            Assert.Equal(1, renderer.GeometryUploads);
-            Assert.Equal(Frames - 1, renderer.GeometryUploadsSkipped);
         }
     }
 
@@ -125,30 +132,31 @@ public class IdleFrameUploadTests {
         var (builder, glyphs, extent) = Tessellator();
         var (device, renderer) = Renderer();
 
-        using (device)
-        using (renderer) {
-            var frame = default(UiGeometry);
+        using (device) {
+            using (renderer) {
+                var frame = default(UiGeometry);
 
-            Frame(document, builder, glyphs, extent, device, renderer, ref frame);
-            Frame(document, builder, glyphs, extent, device, renderer, ref frame);
+                Frame(document, builder, glyphs, extent, device, renderer, ref frame);
+                Frame(document, builder, glyphs, extent, device, renderer, ref frame);
 
-            var region = renderer.Region;
+                var region = renderer.Region;
 
-            Assert.Equal(1, renderer.GeometryUploads);
+                Assert.Equal(1, renderer.GeometryUploads);
 
-            document.Root.Children[0].AddClass("moved");
-            document.Load(".moved { width: 90px; }");
+                document.Root.Children[0].AddClass("moved");
+                document.Load(".moved { width: 90px; }");
 
-            Frame(document, builder, glyphs, extent, device, renderer, ref frame);
+                Frame(document, builder, glyphs, extent, device, renderer, ref frame);
 
-            Assert.Equal(2, builder.Tessellations);
-            Assert.Equal(2, renderer.GeometryUploads);
-            Assert.Equal(1, renderer.GeometryUploadsSkipped);
+                Assert.Equal(2, builder.Tessellations);
+                Assert.Equal(2, renderer.GeometryUploads);
+                Assert.Equal(1, renderer.GeometryUploadsSkipped);
 
-            // ⚠ The region advanced, which is what keeps a frame in flight from being written over:
-            // the skip works by *not* advancing, so the property worth pinning is that an upload
-            // still does.
-            Assert.NotEqual(region, renderer.Region);
+                // ⚠ The region advanced, which is what keeps a frame in flight from being written over:
+                // the skip works by *not* advancing, so the property worth pinning is that an upload
+                // still does.
+                Assert.NotEqual(region, renderer.Region);
+            }
         }
     }
 
@@ -164,18 +172,19 @@ public class IdleFrameUploadTests {
         var (builder, glyphs, extent) = Tessellator();
         var (device, renderer) = Renderer();
 
-        using (device)
-        using (renderer) {
-            var frame = default(UiGeometry);
+        using (device) {
+            using (renderer) {
+                var frame = default(UiGeometry);
 
-            Frame(document, builder, glyphs, extent, device, renderer, ref frame);
+                Frame(document, builder, glyphs, extent, device, renderer, ref frame);
 
-            var region = renderer.Region;
+                var region = renderer.Region;
 
-            Frame(document, builder, glyphs, extent, device, renderer, ref frame);
+                Frame(document, builder, glyphs, extent, device, renderer, ref frame);
 
-            Assert.Equal(1, renderer.GeometryUploadsSkipped);
-            Assert.Equal(region, renderer.Region);
+                Assert.Equal(1, renderer.GeometryUploadsSkipped);
+                Assert.Equal(region, renderer.Region);
+            }
         }
     }
 
@@ -194,36 +203,37 @@ public class IdleFrameUploadTests {
         var (builder, glyphs, extent) = Tessellator();
         var (device, renderer) = Renderer();
 
-        using (device)
-        using (renderer) {
-            var texture = device.CreateTexture(
-                new(PixelFormat.Rgba8UNorm, 4, 4, TextureUsage.Sampled, Name: "viewport")
-            );
+        using (device) {
+            using (renderer) {
+                var texture = device.CreateTexture(
+                    new(PixelFormat.Rgba8UNorm, 4, 4, TextureUsage.Sampled, Name: "viewport")
+                );
 
-            renderer.RegisterImage(7, device.CreateTextureView(texture));
+                renderer.RegisterImage(7, device.CreateTextureView(texture));
 
-            var frame = default(UiGeometry);
+                var frame = default(UiGeometry);
 
-            Frame(document, builder, glyphs, extent, device, renderer, ref frame);
-            Frame(document, builder, glyphs, extent, device, renderer, ref frame);
+                Frame(document, builder, glyphs, extent, device, renderer, ref frame);
+                Frame(document, builder, glyphs, extent, device, renderer, ref frame);
 
-            Assert.Equal(1, renderer.GeometryUploads);
-            Assert.Equal(1, renderer.GeometryUploadsSkipped);
+                Assert.Equal(1, renderer.GeometryUploads);
+                Assert.Equal(1, renderer.GeometryUploadsSkipped);
 
-            // The same number, a new view: what a viewport does when the pane it is in is resized.
-            renderer.RegisterImage(7, device.CreateTextureView(texture));
+                // The same number, a new view: what a viewport does when the pane it is in is resized.
+                renderer.RegisterImage(7, device.CreateTextureView(texture));
 
-            Frame(document, builder, glyphs, extent, device, renderer, ref frame);
+                Frame(document, builder, glyphs, extent, device, renderer, ref frame);
 
-            Assert.Equal(1, builder.Tessellations);
-            Assert.Equal(2, renderer.GeometryUploads);
-            Assert.Equal(1, renderer.GeometryUploadsSkipped);
+                Assert.Equal(1, builder.Tessellations);
+                Assert.Equal(2, renderer.GeometryUploads);
+                Assert.Equal(1, renderer.GeometryUploadsSkipped);
 
-            // And once its turn has come round, the still window is still again.
-            Frame(document, builder, glyphs, extent, device, renderer, ref frame);
+                // And once its turn has come round, the still window is still again.
+                Frame(document, builder, glyphs, extent, device, renderer, ref frame);
 
-            Assert.Equal(2, renderer.GeometryUploads);
-            Assert.Equal(2, renderer.GeometryUploadsSkipped);
+                Assert.Equal(2, renderer.GeometryUploads);
+                Assert.Equal(2, renderer.GeometryUploadsSkipped);
+            }
         }
     }
 
@@ -236,32 +246,33 @@ public class IdleFrameUploadTests {
     public void Unstamped_geometry_is_uploaded_every_frame() {
         var (device, renderer) = Renderer();
 
-        using (device)
-        using (renderer) {
-            var geometry = new UiGeometry(
-                [
-                    new(new(0f, 0f), new(0f, 0f), Color4.White, new(1f, 0f, 0f, 0f)),
-                    new(new(10f, 0f), new(1f, 0f), Color4.White, new(1f, 0f, 0f, 0f)),
-                    new(new(10f, 10f), new(1f, 1f), Color4.White, new(1f, 0f, 0f, 0f))
-                ],
-                [0u, 1u, 2u],
-                [],
-                []
-            );
+        using (device) {
+            using (renderer) {
+                var geometry = new UiGeometry(
+                    [
+                        new(new(0f, 0f), new(0f, 0f), Color4.White, new(1f, 0f, 0f, 0f)),
+                        new(new(10f, 0f), new(1f, 0f), Color4.White, new(1f, 0f, 0f, 0f)),
+                        new(new(10f, 10f), new(1f, 1f), Color4.White, new(1f, 0f, 0f, 0f))
+                    ],
+                    [0u, 1u, 2u],
+                    [],
+                    []
+                );
 
-            Assert.Equal(0, geometry.Generation);
+                Assert.Equal(0, geometry.Generation);
 
-            var atlas = new GlyphAtlas(64, 64);
+                var atlas = new GlyphAtlas(64, 64);
 
-            for (var pass = 0; pass < 3; pass++) {
-                using var commands = device.BeginCommandList(QueueKind.Graphics, "ui");
+                for (var pass = 0; pass < 3; pass++) {
+                    using var commands = device.BeginCommandList(QueueKind.Graphics, "ui");
 
-                renderer.Upload(commands, geometry, atlas);
-                commands.Finish();
+                    renderer.Upload(commands, geometry, atlas);
+                    commands.Finish();
+                }
+
+                Assert.Equal(3, renderer.GeometryUploads);
+                Assert.Equal(0, renderer.GeometryUploadsSkipped);
             }
-
-            Assert.Equal(3, renderer.GeometryUploads);
-            Assert.Equal(0, renderer.GeometryUploadsSkipped);
         }
     }
 

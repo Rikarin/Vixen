@@ -41,7 +41,7 @@ public sealed class PlayerInputTests {
     [Fact]
     public void ABoundSourceWritesTheControllersIntent() {
         using var world = new World();
-        var system = new PlayerInputSystem();
+        using var system = new PlayerInputSystem();
         var controller = Player.Create(world);
         var source = new Scripted { Move = new(0f, 1f), Buttons = MoveButtons.Sprint };
 
@@ -55,7 +55,7 @@ public sealed class PlayerInputTests {
     [Fact]
     public void AimAccumulatesAcrossFrames() {
         using var world = new World();
-        var system = new PlayerInputSystem();
+        using var system = new PlayerInputSystem();
         var controller = Player.Create(world);
 
         system.Bind(controller, new Scripted { Yaw = 0.1f });
@@ -74,7 +74,7 @@ public sealed class PlayerInputTests {
     [Fact]
     public void ADeafControllerKeepsItsAimAndLosesItsIntent() {
         using var world = new World();
-        var system = new PlayerInputSystem();
+        using var system = new PlayerInputSystem();
         var controller = Player.Create(world);
         var source = new Scripted { Move = new(1f, 0f), Yaw = 0.4f, Buttons = MoveButtons.Sprint };
 
@@ -93,7 +93,7 @@ public sealed class PlayerInputTests {
     [Fact]
     public void ADestroyedControllerIsSkippedRatherThanThrowing() {
         using var world = new World();
-        var system = new PlayerInputSystem();
+        using var system = new PlayerInputSystem();
         var controller = Player.Create(world);
 
         system.Bind(controller, new Scripted());
@@ -107,7 +107,7 @@ public sealed class PlayerInputTests {
     [Fact]
     public void UnbindingStopsTheSampling() {
         using var world = new World();
-        var system = new PlayerInputSystem();
+        using var system = new PlayerInputSystem();
         var controller = Player.Create(world);
         var source = new Scripted { Yaw = 0.2f };
 
@@ -127,11 +127,11 @@ public sealed class PlayerInputTests {
     [Fact]
     public void TwoPlayersInOneWorldDoNotShareInput() {
         using var world = new World();
-        var input = new PlayerInputSystem();
-        var possession = new PossessionSystem();
+        using var input = new PlayerInputSystem();
+        using var possession = new PossessionSystem();
 
         var one = Player.Create(world);
-        var two = Player.Create(world, slot: 1);
+        var two = Player.Create(world, 1);
         var firstPawn = world.Create(LocalTransform.Identity);
         var secondPawn = world.Create(LocalTransform.Identity);
 

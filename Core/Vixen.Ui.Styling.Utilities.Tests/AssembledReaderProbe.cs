@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Ui.Rendering;
-using Vixen.Ui.Styling;
 
 namespace Vixen.Ui.Styling.Utilities.Tests;
 
@@ -15,8 +14,12 @@ namespace Vixen.Ui.Styling.Utilities.Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Emission is not acceptance, and for an assembled list the difference is worse than a
-///         class that paints nothing.</b> Every slot family's <c>Alongside</c> writes one shared
+///         ⚠
+///         <b>
+///             Emission is not acceptance, and for an assembled list the difference is worse than a
+///             class that paints nothing.
+///         </b>
+///         Every slot family's <c>Alongside</c> writes one shared
 ///         declaration — <see cref="UtilityComposition.Transform" />,
 ///         <see cref="UtilityComposition.Filter" /> or <see cref="UtilityComposition.BackdropFilter" />
 ///         — and both readers drop the <b>whole</b> list on a single function they decline. So a slot
@@ -69,7 +72,8 @@ namespace Vixen.Ui.Styling.Utilities.Tests;
 /// </remarks>
 static class AssembledReaderProbe {
     /// <summary>The assembled properties whose readers drop a whole list on one declined function.</summary>
-    public static readonly string[] Properties = ["transform", "filter", "backdrop-filter", "translate", "scale", "box-shadow"];
+    public static readonly string[] Properties =
+        ["transform", "filter", "backdrop-filter", "translate", "scale", "box-shadow"];
 
     /// <summary>
     ///     The two-slot lists and the slots each is assembled from, in the order
@@ -110,27 +114,36 @@ static class AssembledReaderProbe {
     /// <param name="tokens">The theme it resolves against.</param>
     /// <param name="property">The assembled property it writes, when it does.</param>
     /// <param name="slots">The fragments it fills, when it does.</param>
-    public static bool FillsASlot(string utility, ThemeTokens tokens, out string property, out IReadOnlyList<string> slots) {
+    public static bool FillsASlot(
+        string utility,
+        ThemeTokens tokens,
+        out string property,
+        out IReadOnlyList<string> slots
+    ) {
         List<UtilityDeclaration> declarations = [];
         property = string.Empty;
         slots = [];
 
-        if (!UtilityParser.TryParse(utility, out var parsed) || !UtilityFamilies.TryResolve(parsed, tokens, declarations)) {
+        if (!UtilityParser.TryParse(utility, out var parsed)
+            || !UtilityFamilies.TryResolve(parsed, tokens, declarations)) {
             return false;
         }
 
         // ⚠ By the `var(--tw-` reference and not by the property name: `transform-none` and
         // `filter-none` write the same properties and are keywords, not slots, and a witness beside one
         // is SUPPOSED to vanish.
-        var assembled = declarations.Find(d => Array.IndexOf(Properties, d.Property) >= 0
-                                               && d.Value.Contains($"var({UtilityComposition.Prefix}", StringComparison.Ordinal));
+        var assembled = declarations.Find(static d => Array.IndexOf(Properties, d.Property) >= 0
+            && d.Value.Contains($"var({UtilityComposition.Prefix}", StringComparison.Ordinal)
+        );
 
         if (assembled.Property is null) {
             return false;
         }
 
         property = assembled.Property;
-        slots = [.. declarations.Where(d => UtilityComposition.IsFragment(d.Property)).Select(d => d.Property)];
+        slots = [
+            ..declarations.Where(static d => UtilityComposition.IsFragment(d.Property)).Select(static d => d.Property)
+        ];
 
         return true;
     }
@@ -156,7 +169,11 @@ static class AssembledReaderProbe {
             FillsASlot(utility, Tokens, out var property, out var slots);
 
             var declined = property switch {
-                "transform" => TransformOf(Tokens, utility, slots.Contains(UtilityComposition.RotateZ) ? OtherWitness : Witness) is null,
+                "transform" => TransformOf(
+                    Tokens,
+                    utility,
+                    slots.Contains(UtilityComposition.RotateZ) ? OtherWitness : Witness
+                ) is null,
                 "translate" or "scale" => Axes[property].Any(slot => !KeepsWitness(Tokens, property, slot, utility)),
                 _ => Refuses(RefusalsOf(Tokens, utility), property)
             };
@@ -208,7 +225,9 @@ static class AssembledReaderProbe {
         values.UnionWith(Tokens.InsetShadow.Keys);
 
         foreach (var utility in surface) {
-            if (!UtilityParser.TryParse(utility, out var parsed) || parsed.Arbitrary is not null || parsed.Variants.Count > 0) {
+            if (!UtilityParser.TryParse(utility, out var parsed)
+                || parsed.Arbitrary is not null
+                || parsed.Variants.Count > 0) {
                 continue;
             }
 
@@ -238,7 +257,7 @@ static class AssembledReaderProbe {
             }
         }
 
-        return [.. candidates];
+        return [..candidates];
     }
 
     /// <summary>The transform an element carrying exactly these classes ends up under.</summary>
@@ -246,7 +265,7 @@ static class AssembledReaderProbe {
     /// <param name="classes">The classes, all of which are generated into the sheet.</param>
     public static UiTransform? TransformOf(ThemeTokens tokens, params string[] classes) {
         using var document = new UiDocument(200f, 100f);
-        document.Load(new UtilityGenerator(tokens).Generate(classes), StyleOrigin.Author);
+        document.Load(new UtilityGenerator(tokens).Generate(classes));
 
         var probe = document.Create("div", document.Root, null, classes);
         document.Update();
@@ -263,9 +282,13 @@ static class AssembledReaderProbe {
     /// <param name="slot">The slot the witness overrides.</param>
     /// <param name="utility">The class under test.</param>
     /// <remarks>
-    ///     ⚠ <b>The witness is a hand-written declaration of the slot and not a class, because
-    ///     <c>translate-4</c> and <c>scale-150</c> fill both slots and leave no class a slot of its
-    ///     own.</b> An id rule outranks the utility layer, so it replaces the class's value in the one
+    ///     ⚠
+    ///     <b>
+    ///         The witness is a hand-written declaration of the slot and not a class, because
+    ///         <c>translate-4</c> and <c>scale-150</c> fill both slots and leave no class a slot of its
+    ///         own.
+    ///     </b>
+    ///     An id rule outranks the utility layer, so it replaces the class's value in the one
     ///     slot and leaves the other slot the class's. Asked once per slot, that questions each of the
     ///     class's components with a witness beside it.
     /// </remarks>
@@ -289,8 +312,8 @@ static class AssembledReaderProbe {
     /// </remarks>
     public static (float X, float Y) TranslationOf(ThemeTokens tokens, string own, params string[] classes) {
         using var document = new UiDocument(200f, 100f);
-        document.Load(new UtilityGenerator(tokens).Generate(classes), StyleOrigin.Author);
-        document.Load($"#probe {{ position: absolute; left: 0; top: 0; {own} }}", StyleOrigin.Author);
+        document.Load(new UtilityGenerator(tokens).Generate(classes));
+        document.Load($"#probe {{ position: absolute; left: 0; top: 0; {own} }}");
 
         var probe = document.Create("div", document.Root, "probe", classes);
         document.Update();
@@ -304,8 +327,8 @@ static class AssembledReaderProbe {
     /// <param name="classes">The classes, all of which are generated into the sheet.</param>
     public static UiTransform? ScaledOf(ThemeTokens tokens, string own, params string[] classes) {
         using var document = new UiDocument(200f, 100f);
-        document.Load(new UtilityGenerator(tokens).Generate(classes), StyleOrigin.Author);
-        document.Load($"#probe {{ {own} }}", StyleOrigin.Author);
+        document.Load(new UtilityGenerator(tokens).Generate(classes));
+        document.Load($"#probe {{ {own} }}");
 
         var probe = document.Create("div", document.Root, "probe", classes);
         document.Update();
@@ -329,8 +352,8 @@ static class AssembledReaderProbe {
     /// <param name="classes">The classes, all of which are generated into the sheet.</param>
     public static IReadOnlyList<string> RefusalsOf(ThemeTokens tokens, params string[] classes) {
         using var document = new UiDocument(200f, 100f);
-        document.Load(new UtilityGenerator(tokens).Generate(classes), StyleOrigin.Author);
-        document.Load(Painted, StyleOrigin.Author);
+        document.Load(new UtilityGenerator(tokens).Generate(classes));
+        document.Load(Painted);
 
         document.Create("div", document.Root, "probe", classes);
         document.Update();
@@ -353,14 +376,17 @@ static class AssembledReaderProbe {
     ///     filter opens a group at all.
     /// </remarks>
     public static UiColorMatrix? FilterOf(ThemeTokens tokens, params string[] classes) {
-        using var document = new UiDocument(200f, 100f) { Compositing = true };
-        document.Load(new UtilityGenerator(tokens).Generate(classes), StyleOrigin.Author);
-        document.Load(Painted, StyleOrigin.Author);
+        using var document = new UiDocument(200f, 100f);
+        document.Compositing = true;
+        document.Load(new UtilityGenerator(tokens).Generate(classes));
+        document.Load(Painted);
 
         document.Create("div", document.Root, "probe", classes);
         document.Update();
         document.Draw();
 
-        return document.Drawing.Commands.FirstOrDefault(c => c is { Kind: DrawCommandKind.LayerPush, Filter: not null }).Filter;
+        return document.Drawing.Commands
+            .FirstOrDefault(static c => c is { Kind: DrawCommandKind.LayerPush, Filter: not null })
+            .Filter;
     }
 }

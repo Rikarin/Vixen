@@ -6,8 +6,12 @@ namespace Vixen.Texturing.Layers;
 /// <summary>Where a layer's painted pixels live, and what they are called.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>A second file, and doc 48 Part 5 says why in one line: a stack is a file people merge
-///         and a paint layer is not.</b> A <c>.vxlayers</c> is YAML with layer names, blend modes and
+///         ⚠
+///         <b>
+///             A second file, and doc 48 Part 5 says why in one line: a stack is a file people merge
+///             and a paint layer is not.
+///         </b>
+///         A <c>.vxlayers</c> is YAML with layer names, blend modes and
 ///         anchors in it — three people can edit one and a merge tool can resolve it. A 4K RGBA
 ///         buffer inside that file would make every stroke a whole-file conflict and every diff
 ///         useless, and it would put a texture in a text format.
@@ -15,8 +19,12 @@ namespace Vixen.Texturing.Layers;
 ///     <para>
 ///         ⚠ <b>Pixels and not strokes, which is the decision this whole shape exists to allow.</b>
 ///         Doc 48 § D10: storing strokes re-renders at any resolution and diffs beautifully, and it
-///         makes every brush, every falloff and every blend mode a <em>format compatibility
-///         surface</em> — change the falloff curve and every existing project repaints differently.
+///         makes every brush, every falloff and every blend mode a
+///         <em>
+///             format compatibility
+///             surface
+///         </em>
+///         — change the falloff curve and every existing project repaints differently.
 ///         Both references store pixels; the stroke list is the session's undo and is discarded on
 ///         save. Nothing here writes a <c>.vxpaint</c>: the brush is M9
 ///         (<a href="https://github.com/Rikarin/Vixen/issues/574">#574</a>). What M7 owes is a name
@@ -47,8 +55,8 @@ public static class LayerPaint {
         ArgumentException.ThrowIfNullOrEmpty(stack);
         ArgumentException.ThrowIfNullOrEmpty(layer);
 
-        var slot = set.Length > 0 ? $".{set}" : "";
+        var slot = set.Length > 0 ? $".{set}" : string.Empty;
 
-        return $"{stack}{slot}.{layer}{(mask ? ".mask" : "")}{Extension}";
+        return $"{stack}{slot}.{layer}{(mask ? ".mask" : string.Empty)}{Extension}";
     }
 }

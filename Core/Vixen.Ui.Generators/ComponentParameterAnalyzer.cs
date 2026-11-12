@@ -27,15 +27,23 @@ namespace Vixen.Ui.Generators;
 ///         something an effect can subscribe to and no arrangement of statements substitutes for it.
 ///     </para>
 ///     <para>
-///         ⚠ <b>It cannot be a <c>VXML2xxx</c>, and the issue that proposed one called that the
-///         cheaper option.</b> <c>VxmlGenerator</c> never takes a <c>Compilation</c> — deliberately,
+///         ⚠
+///         <b>
+///             It cannot be a <c>VXML2xxx</c>, and the issue that proposed one called that the
+///             cheaper option.
+///         </b>
+///         <c>VxmlGenerator</c> never takes a <c>Compilation</c> — deliberately,
 ///         so that editing a C# file re-runs no markup — and <c>Binder</c> is pure syntax, so "is
 ///         this property signal-backed" is a question the markup compiler cannot ask at all. It has
 ///         to be a separate analyzer over the C#, which is this.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Reported as a suggestion rather than a warning, and the reason is a rule of this
-///         repository rather than a doubt about the diagnostic.</b> <c>TreatWarningsAsErrors</c> is a
+///         ⚠
+///         <b>
+///             Reported as a suggestion rather than a warning, and the reason is a rule of this
+///             repository rather than a doubt about the diagnostic.
+///         </b>
+///         <c>TreatWarningsAsErrors</c> is a
 ///         stated non-negotiable, so a warning that fires anywhere in the tree is a broken build —
 ///         and a plain parameter is sometimes right: a label a caller sets once and never changes
 ///         does not need a signal and would be paying for one. Promoting this to a warning is a
@@ -52,15 +60,23 @@ namespace Vixen.Ui.Generators;
 ///         such gap: a <c>PackageReference</c> to <c>Vixen.Ui</c> carries both.
 ///     </para>
 ///     <para>
-///         ⚠ <b>And while it is <see cref="DiagnosticSeverity.Info" /> it prints nothing at any
-///         MSBuild verbosity</b>, so a sweep that greps a build log for the id reads zero whether or
+///         ⚠
+///         <b>
+///             And while it is <see cref="DiagnosticSeverity.Info" /> it prints nothing at any
+///             MSBuild verbosity
+///         </b>
+///         , so a sweep that greps a build log for the id reads zero whether or
 ///         not there is anything to find. Promote it in <c>.editorconfig</c> for the run —
 ///         <c>TreatWarningsAsErrors</c> then turns every hit into a build error that cannot be
 ///         missed — and put the severity back afterwards.
 ///     </para>
 ///     <para>
-///         ⚠ <b>A parameter declared in a <c>.vxml</c>'s <c>@code</c> block is reached through the
-///         <c>#line</c>, and that is the only reason generated code is analyzed at all.</b> The
+///         ⚠
+///         <b>
+///             A parameter declared in a <c>.vxml</c>'s <c>@code</c> block is reached through the
+///             <c>#line</c>, and that is the only reason generated code is analyzed at all.
+///         </b>
+///         The
 ///         block is copied into a file whose first line is <c>// &lt;auto-generated /&gt;</c>, so
 ///         under <see cref="GeneratedCodeAnalysisFlags.None" /> the declaration was neither analyzed
 ///         nor reported — and that is where every markup component in this repository puts its
@@ -73,8 +89,11 @@ namespace Vixen.Ui.Generators;
 ///         <see cref="GeneratedCodeAnalysisFlags.ReportDiagnostics" /> is deliberately not set.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Reactive is a question about the accessors and not only about the type, and asking
-///         only the narrow half made the rule fire on the shape its own message asks for.</b>
+///         ⚠
+///         <b>
+///             Reactive is a question about the accessors and not only about the type, and asking
+///             only the narrow half made the rule fire on the shape its own message asks for.
+///         </b>
 ///         <c>public ShellModel Model { get =&gt; model.Value; set =&gt; model.Value = value; }</c>
 ///         over a <c>readonly Signal&lt;ShellModel&gt;</c> is precisely "back it with a
 ///         <c>Signal&lt;T&gt;</c>", and it <i>does</i> track — an effect reading it reads
@@ -108,7 +127,7 @@ public sealed class ComponentParameterAnalyzer : DiagnosticAnalyzer {
         + "Signal<{2}> if it is meant to keep up.",
         "Vixen.Ui",
         DiagnosticSeverity.Info,
-        isEnabledByDefault: true,
+        true,
         "Markup assigns a component's public properties as parameters and then keeps them current "
         + "with an effect. An effect subscribes to what it reads and a plain property is not "
         + "something to subscribe to, so the value survives exactly as long as nobody changes it. "
@@ -131,8 +150,7 @@ public sealed class ComponentParameterAnalyzer : DiagnosticAnalyzer {
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.Analyze);
         context.EnableConcurrentExecution();
 
-        context.RegisterCompilationStartAction(
-            start => {
+        context.RegisterCompilationStartAction(static start => {
                 var component = start.Compilation.GetTypeByMetadataName(ComponentMetadataName);
 
                 if (component is null) {
@@ -151,8 +169,12 @@ public sealed class ComponentParameterAnalyzer : DiagnosticAnalyzer {
 
     /// <summary>Collects a type's plain parameters, then lets its getters argue them away.</summary>
     /// <remarks>
-    ///     ⚠ <b>Two passes rather than one, because "what does the getter read" is a question about
-    ///     an operation block and a symbol action cannot ask it.</b> Reaching for a semantic model
+    ///     ⚠
+    ///     <b>
+    ///         Two passes rather than one, because "what does the getter read" is a question about
+    ///         an operation block and a symbol action cannot ask it.
+    ///     </b>
+    ///     Reaching for a semantic model
     ///     from a symbol action is <c>RS1030</c>; the supported spelling is to open the symbol, let
     ///     the block actions run over its members, and report at the end.
     /// </remarks>
@@ -161,7 +183,9 @@ public sealed class ComponentParameterAnalyzer : DiagnosticAnalyzer {
         INamedTypeSymbol component,
         INamedTypeSymbol? readOnlySignal
     ) {
-        if (context.Symbol is not INamedTypeSymbol type || type.TypeKind != TypeKind.Class || !Derives(type, component)) {
+        if (context.Symbol is not INamedTypeSymbol type
+            || type.TypeKind != TypeKind.Class
+            || !Derives(type, component)) {
             return;
         }
 
@@ -182,8 +206,7 @@ public sealed class ComponentParameterAnalyzer : DiagnosticAnalyzer {
 
         var subscribable = new ConcurrentDictionary<string, byte>(StringComparer.Ordinal);
 
-        context.RegisterOperationBlockAction(
-            block => {
+        context.RegisterOperationBlockAction(block => {
                 if (block.OwningSymbol is not IMethodSymbol { MethodKind: MethodKind.PropertyGet } getter
                     || getter.AssociatedSymbol is not IPropertySymbol read) {
                     return;
@@ -201,8 +224,7 @@ public sealed class ComponentParameterAnalyzer : DiagnosticAnalyzer {
             }
         );
 
-        context.RegisterSymbolEndAction(
-            end => {
+        context.RegisterSymbolEndAction(end => {
                 foreach (var property in plain) {
                     if (subscribable.ContainsKey(property.Name)) {
                         continue;
@@ -230,8 +252,12 @@ public sealed class ComponentParameterAnalyzer : DiagnosticAnalyzer {
 
     /// <summary>Where the author can act on the declaration.</summary>
     /// <remarks>
-    ///     ⚠ <b>An external location is what carries a diagnostic out of generated code, and it is
-    ///     also what stops one escaping that should not.</b> A <c>#line</c> in the emitted C# means
+    ///     ⚠
+    ///     <b>
+    ///         An external location is what carries a diagnostic out of generated code, and it is
+    ///         also what stops one escaping that should not.
+    ///     </b>
+    ///     A <c>#line</c> in the emitted C# means
     ///     the characters belong to a <c>.vxml</c>, so the diagnostic is re-created against that
     ///     file and no longer sits in any syntax tree — which is why Roslyn's generated-code filter,
     ///     which asks a location for its <c>SourceTree</c>, lets it through. Generated code with no
@@ -256,11 +282,19 @@ public sealed class ComponentParameterAnalyzer : DiagnosticAnalyzer {
 
     /// <summary>Whether markup could assign it.</summary>
     /// <remarks>
-    ///     ⚠ <b>The setter's accessibility rather than the property's, and an instance rather than a
-    ///     static.</b> <c>ComponentEmitter</c> writes <c>n1.Prop = …</c> against the instance it just
+    ///     ⚠
+    ///     <b>
+    ///         The setter's accessibility rather than the property's, and an instance rather than a
+    ///         static.
+    ///     </b>
+    ///     <c>ComponentEmitter</c> writes <c>n1.Prop = …</c> against the instance it just
     ///     created, so a property with a private setter is not a parameter however public its getter
-    ///     is — it is a component's own state, which is exactly what a computed <c>Accent =&gt;
-    ///     Inject&lt;…&gt;()</c> is.
+    ///     is — it is a component's own state, which is exactly what a computed
+    ///     <c>
+    ///         Accent =&gt;
+    ///         Inject&lt;…&gt;()
+    ///     </c>
+    ///     is.
     /// </remarks>
     static bool IsParameter(IPropertySymbol property) =>
         !property.IsStatic

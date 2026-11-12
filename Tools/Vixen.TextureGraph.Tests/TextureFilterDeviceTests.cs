@@ -20,8 +20,12 @@ namespace Tests;
 ///         evaluated in C# rather than against another picture.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Every parameter these kernels declare is asserted by something that would notice its
-///         absence, and that is a deliberate answer to what batch 2's review found.</b> A kernel with
+///         ⚠
+///         <b>
+///             Every parameter these kernels declare is asserted by something that would notice its
+///             absence, and that is a deliberate answer to what batch 2's review found.
+///         </b>
+///         A kernel with
 ///         a declared <c>angle</c>, <c>centre</c> or <c>elevation</c> that simply ignored it passes
 ///         every "is it a copy" test ever written. So each of those has an assertion built to fail
 ///         without it: an angle is pinned by a 2×2 of stripe patterns, a centre by which texel is a
@@ -29,8 +33,12 @@ namespace Tests;
 ///         the field whose curvature makes it matter.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Without a real adapter a headless run falls back to the Null device on every
-///         platform and prints identical healthy counters</b>, so a test that passed there would have
+///         ⚠
+///         <b>
+///             Without a real adapter a headless run falls back to the Null device on every
+///             platform and prints identical healthy counters
+///         </b>
+///         , so a test that passed there would have
 ///         proved that a black image equals a black image. <c>TextureKernelHarness.Open</c> names the
 ///         adapter into every failure and skips loudly; <c>VIXEN_REQUIRE_VULKAN=1</c> turns the skip
 ///         into a failure.
@@ -53,8 +61,11 @@ public class TextureFilterDeviceTests(ITestOutputHelper output) {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <b>This is the one kernel in § 4.4 whose answer is arithmetic, and the test was written
-    ///         before it.</b> One lit texel in a black field, blurred along x by σ, must come back as
+    ///         <b>
+    ///             This is the one kernel in § 4.4 whose answer is arithmetic, and the test was written
+    ///             before it.
+    ///         </b>
+    ///         One lit texel in a black field, blurred along x by σ, must come back as
     ///         <c>exp(−d²/2σ²)</c> divided by the sum of the weights actually taken — a number per
     ///         distance, computed here in C# from σ alone. A box blur of any radius is flat and fails
     ///         at d = 0 by 30 counts; a gaussian of the wrong σ fails in the tail. Neither can be
@@ -95,7 +106,7 @@ public class TextureFilterDeviceTests(ITestOutputHelper output) {
         for (var d = 0; d <= reach + 1; d++) {
             var weight = d > reach ? 0f : MathF.Exp(-(d * d) / (2f * sigma * sigma));
             var expected = (int)MathF.Round(weight / total * 255f);
-            var actual = TextureKernelHarness.At(picture, (Side / 2) + d, Side / 2, 0);
+            var actual = TextureKernelHarness.At(picture, Side / 2 + d, Side / 2, 0);
 
             Assert.True(
                 Math.Abs(actual - expected) <= 1,
@@ -136,9 +147,13 @@ public class TextureFilterDeviceTests(ITestOutputHelper output) {
 
     /// <summary>The blur runs along the axis its step names, and only that one.</summary>
     /// <remarks>
-    ///     ⚠ <b>The plan is what separates a separable blur, so a kernel that ignored
-    ///     <c>stepX</c>/<c>stepY</c> and always ran horizontally would produce a perfectly plausible
-    ///     picture from a two-op plan — blurred twice across and not at all down.</b> An impulse says
+    ///     ⚠
+    ///     <b>
+    ///         The plan is what separates a separable blur, so a kernel that ignored
+    ///         <c>stepX</c>/<c>stepY</c> and always ran horizontally would produce a perfectly plausible
+    ///         picture from a two-op plan — blurred twice across and not at all down.
+    ///     </b>
+    ///     An impulse says
     ///     so in one texel: the vertical variant leaves its own row black either side of the centre.
     /// </remarks>
     [Fact]
@@ -149,13 +164,13 @@ public class TextureFilterDeviceTests(ITestOutputHelper output) {
             device,
             [Impulse(Side, Side / 2, Side / 2)],
             [TextureFormat.Rgba8],
-            [TextureFilters.BlurHqOp(1, 0, 2f, vertical: true)],
+            [TextureFilters.BlurHqOp(1, 0, 2f, true)],
             1
         );
 
         // Down the column the profile is there; across the row there is nothing but the centre.
-        Assert.True(TextureKernelHarness.At(picture, Side / 2, (Side / 2) + 2, 0) > 20);
-        Assert.Equal(0, TextureKernelHarness.At(picture, (Side / 2) + 2, Side / 2, 0));
+        Assert.True(TextureKernelHarness.At(picture, Side / 2, Side / 2 + 2, 0) > 20);
+        Assert.Equal(0, TextureKernelHarness.At(picture, Side / 2 + 2, Side / 2, 0));
     }
 
     // --- Directional Blur -----------------------------------------------------------------------
@@ -238,16 +253,23 @@ public class TextureFilterDeviceTests(ITestOutputHelper output) {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <b>This is the assertion <c>centreX</c>/<c>centreY</c> needs, and nothing weaker will
-    ///         do.</b> At the centre the ray has no length, so every sample lands on the same texel —
+    ///         <b>
+    ///             This is the assertion <c>centreX</c>/<c>centreY</c> needs, and nothing weaker will
+    ///             do.
+    ///         </b>
+    ///         At the centre the ray has no length, so every sample lands on the same texel —
     ///         the answer there is the source, exactly. A kernel that ignored the parameters would
     ///         have a fixed point in the middle of the image whatever the plan said, so each centre is
     ///         checked twice: the texel it names is untouched, and the texel the <em>other</em> centre
     ///         names is not.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The source is a checkerboard and not <c>TextureKernelHarness.Unique</c>, and the
-    ///         first version of this test used <c>Unique</c> and passed for no reason at all.</b> A
+    ///         ⚠
+    ///         <b>
+    ///             The source is a checkerboard and not <c>TextureKernelHarness.Unique</c>, and the
+    ///             first version of this test used <c>Unique</c> and passed for no reason at all.
+    ///         </b>
+    ///         A
     ///         zoom blur averages a span symmetric about the texel's own radius, and the mean of a
     ///         <em>linear</em> function over a symmetric interval is its value at the middle — so any
     ///         image whose channels are linear in x and y, which <c>Unique</c>'s four are by
@@ -299,22 +321,33 @@ public class TextureFilterDeviceTests(ITestOutputHelper output) {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <b>The invariant that says this is a zoom along the ray rather than a spin about the
-    ///         centre.</b> Every sample of a zoom lies on the ray through the texel and the centre, so
+    ///         <b>
+    ///             The invariant that says this is a zoom along the ray rather than a spin about the
+    ///             centre.
+    ///         </b>
+    ///         Every sample of a zoom lies on the ray through the texel and the centre, so
     ///         a field constant along every such ray comes back untouched — while a zoom about a
     ///         different point walks off the ray immediately and crosses into the neighbouring spokes.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The field is a wheel of hard-edged spokes rather than a smooth angular sweep, and
-    ///         the smooth one is what this test had first.</b> It was green and proved nothing: a
+    ///         ⚠
+    ///         <b>
+    ///             The field is a wheel of hard-edged spokes rather than a smooth angular sweep, and
+    ///             the smooth one is what this test had first.
+    ///         </b>
+    ///         It was green and proved nothing: a
     ///         smooth sweep is very nearly <em>linear</em> along the short arc a zoom reaches, and the
     ///         mean of a linear function over a symmetric span is its middle — so a zoom about
     ///         <em>any</em> centre left it within three counts of itself, and the half meant to catch
     ///         a broken centre could not fail. Hard edges cannot be averaged back into themselves.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The invariance is exact for the field and only approximate for the picture of
-    ///         it</b>, so the window matters and is chosen rather than guessed. A tap at radius
+    ///         ⚠
+    ///         <b>
+    ///             The invariance is exact for the field and only approximate for the picture of
+    ///             it
+    ///         </b>
+    ///         , so the window matters and is chosen rather than guessed. A tap at radius
     ///         <c>r</c> along the ray reads texels whose own centres are up to half a texel off it,
     ///         which is an angular error of about <c>0.5 / r</c>; inside a spoke that costs nothing
     ///         and within about a twelfth of a radian of its edge it costs everything. So the window
@@ -371,7 +404,7 @@ public class TextureFilterDeviceTests(ITestOutputHelper output) {
         Assert.True(moved > 60, $"a zoom about a different centre only moved a texel by {moved}, on {adapter}.");
 
         static bool Interior(int x, int y) {
-            var radius = MathF.Sqrt(((x - 32) * (x - 32)) + ((y - 32) * (y - 32)));
+            var radius = MathF.Sqrt((x - 32) * (x - 32) + (y - 32) * (y - 32));
 
             if (radius is < 16f or > 30f) {
                 return false;
@@ -444,8 +477,11 @@ public class TextureFilterDeviceTests(ITestOutputHelper output) {
     ///     ⚠ An impulse spreads into the <em>diagonals</em>, which is what says this is not separable.
     /// </summary>
     /// <remarks>
-    ///     <b>The one assertion that would go red if a future reader split this kernel into two
-    ///     passes.</b> With a radius of one texel everywhere, a lit texel must come back as nine
+    ///     <b>
+    ///         The one assertion that would go red if a future reader split this kernel into two
+    ///         passes.
+    ///     </b>
+    ///     With a radius of one texel everywhere, a lit texel must come back as nine
     ///     texels of 255/9 — the four sides <b>and the four corners</b>. One separable pass leaves
     ///     the corners black, and the picture that results looks like a blur that is slightly wrong
     ///     in the direction the radius map varies, which an artist blames on the map.
@@ -607,8 +643,11 @@ public class TextureFilterDeviceTests(ITestOutputHelper output) {
 
     /// <summary>⚠ The radius is how far the overshoot reaches, and that is what asserts it.</summary>
     /// <remarks>
-    ///     <b>A kernel that ignored <c>radius</c> entirely would pass every other test in this
-    ///     file</b> — amount zero would still be a copy, a constant would still be untouched, and the
+    ///     <b>
+    ///         A kernel that ignored <c>radius</c> entirely would pass every other test in this
+    ///         file
+    ///     </b>
+    ///     — amount zero would still be a copy, a constant would still be untouched, and the
     ///     edge would still ring. Four texels from the edge is the place the two radii disagree: a
     ///     one-texel box sees nothing but the light side and leaves the texel alone <em>exactly</em>,
     ///     and a six-texel box has two dark columns in it and cannot.
@@ -619,7 +658,7 @@ public class TextureFilterDeviceTests(ITestOutputHelper output) {
 
         var edge = Step(Side, 32, 64, 192);
 
-        var narrow = Run(device, [edge], [TextureFormat.Rgba8], [TextureFilters.SharpenOp(1, 0, 1f, 1f)], 1);
+        var narrow = Run(device, [edge], [TextureFormat.Rgba8], [TextureFilters.SharpenOp(1, 0, 1f)], 1);
         var wide = Run(device, [edge], [TextureFormat.Rgba8], [TextureFilters.SharpenOp(1, 0, 1f, 6f)], 1);
 
         var adapter = TextureKernelHarness.Adapter(device);
@@ -628,7 +667,7 @@ public class TextureFilterDeviceTests(ITestOutputHelper output) {
 
         Assert.True(
             TextureKernelHarness.At(wide, 36, 32, 0) > 200,
-            $"a six-texel radius must still ring four texels from the edge and reads "
+            "a six-texel radius must still ring four texels from the edge and reads "
             + $"{TextureKernelHarness.At(wide, 36, 32, 0)}, on {adapter}."
         );
     }
@@ -743,8 +782,12 @@ public class TextureFilterDeviceTests(ITestOutputHelper output) {
     ///     <para>
     ///         <b>This is the whole node in one equality</b>, and it pins three separate things at
     ///         once: the <b>sign</b> (up the gradient, so the picture slides towards −x), the
-    ///         <b>magnitude</b>, and the fact that the gradient is taken <b>per unit of image
-    ///         width</b> rather than per texel.
+    ///         <b>magnitude</b>, and the fact that the gradient is taken
+    ///         <b>
+    ///             per unit of image
+    ///             width
+    ///         </b>
+    ///         rather than per texel.
     ///     </para>
     ///     <para>
     ///         The arithmetic is exact and worth writing out. The ramp is <c>4x</c> in bytes, so its
@@ -906,8 +949,12 @@ public class TextureFilterDeviceTests(ITestOutputHelper output) {
     ///         fixes by doubling the intensity and never reports.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Rest is asserted to within one count rather than exactly, and the reason is
-    ///         arithmetic rather than sloppiness</b>: 128 decodes to 0.50196 and not to a half, so the
+    ///         ⚠
+    ///         <b>
+    ///             Rest is asserted to within one count rather than exactly, and the reason is
+    ///             arithmetic rather than sloppiness
+    ///         </b>
+    ///         : 128 decodes to 0.50196 and not to a half, so the
     ///         residual displacement is a fiftieth of a texel. There is no byte that decodes to
     ///         exactly 0.5, which is a property of the encoding and worth knowing before someone
     ///         tries to assert an equality here.
@@ -921,10 +968,34 @@ public class TextureFilterDeviceTests(ITestOutputHelper output) {
         var expected = new Bitmap(Side, Side, source);
         var adapter = TextureKernelHarness.Adapter(device);
 
-        var right = Run(device, [source, TextureKernelHarness.Solid(Side, 255, 128, 0, 255)], [TextureFormat.Rgba8], [Push()], 2);
-        var left = Run(device, [source, TextureKernelHarness.Solid(Side, 0, 128, 0, 255)], [TextureFormat.Rgba8], [Push()], 2);
-        var rest = Run(device, [source, TextureKernelHarness.Solid(Side, 128, 128, 0, 255)], [TextureFormat.Rgba8], [Push()], 2);
-        var downwards = Run(device, [source, TextureKernelHarness.Solid(Side, 128, 255, 0, 255)], [TextureFormat.Rgba8], [Push()], 2);
+        var right = Run(
+            device,
+            [source, TextureKernelHarness.Solid(Side, 255, 128, 0, 255)],
+            [TextureFormat.Rgba8],
+            [Push()],
+            2
+        );
+        var left = Run(
+            device,
+            [source, TextureKernelHarness.Solid(Side, 0, 128, 0, 255)],
+            [TextureFormat.Rgba8],
+            [Push()],
+            2
+        );
+        var rest = Run(
+            device,
+            [source, TextureKernelHarness.Solid(Side, 128, 128, 0, 255)],
+            [TextureFormat.Rgba8],
+            [Push()],
+            2
+        );
+        var downwards = Run(
+            device,
+            [source, TextureKernelHarness.Solid(Side, 128, 255, 0, 255)],
+            [TextureFormat.Rgba8],
+            [Push()],
+            2
+        );
 
         for (var y = 8; y < Side - 12; y++) {
             for (var x = 8; x < Side - 12; x++) {
@@ -961,8 +1032,10 @@ public class TextureFilterDeviceTests(ITestOutputHelper output) {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <b>This is doc 48 § 4.4's "the one everybody gets subtly wrong", asserted as a pair,
-    ///         because either half alone is satisfied by the wrong implementation.</b>
+    ///         <b>
+    ///             This is doc 48 § 4.4's "the one everybody gets subtly wrong", asserted as a pair,
+    ///             because either half alone is satisfied by the wrong implementation.
+    ///         </b>
     ///     </para>
     ///     <para>
     ///         Over the <b>down-ramp</b> field the gradient is the same everywhere, so the walk is a
@@ -1004,7 +1077,7 @@ public class TextureFilterDeviceTests(ITestOutputHelper output) {
 
         Assert.True(
             straight <= 2,
-            $"over a field with a constant gradient the count must not matter, and one step gave "
+            "over a field with a constant gradient the count must not matter, and one step gave "
             + $"{straightOnce} against sixteen steps' {straightMany}, on {adapter}."
         );
 
@@ -1033,12 +1106,19 @@ public class TextureFilterDeviceTests(ITestOutputHelper output) {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/706">#706</a>, written down so the
-    ///         wording cannot drift back.</b> <c>SlopeBlur.rvn</c> and its builder both called
+    ///         <b>
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/706">#706</a>, written down so the
+    ///             wording cannot drift back.
+    ///         </b>
+    ///         <c>SlopeBlur.rvn</c> and its builder both called
     ///         <c>intensity</c> "the whole distance walked", and the loop steps by
     ///         <c>−∇h · intensity / N</c> — so the path is <c>|∇h| · intensity</c> and the two agree
-    ///         only over a field of unit slope. ⚠ <b>Every other assertion in this file uses exactly
-    ///         such a field</b>, which is why the confusion survived a suite that measures the walk
+    ///         only over a field of unit slope. ⚠
+    ///         <b>
+    ///             Every other assertion in this file uses exactly
+    ///             such a field
+    ///         </b>
+    ///         , which is why the confusion survived a suite that measures the walk
     ///         to the texel: <see cref="DownRamp" /> is <c>4x</c> in bytes, whose gradient per unit of
     ///         image width is <c>256/255</c>, and the distance constant above is authored as
     ///         <c>40 × 255/256</c> to cancel it.
@@ -1145,8 +1225,12 @@ public class TextureFilterDeviceTests(ITestOutputHelper output) {
 
     /// <summary>Zero steps, zero distance and a flat field are all copies — exactly, in every mode.</summary>
     /// <remarks>
-    ///     ⚠ <b>Three different ways for the walk to go nowhere, and each would survive the loss of
-    ///     the other two.</b> Zero steps never enters the loop; zero distance enters it and stands
+    ///     ⚠
+    ///     <b>
+    ///         Three different ways for the walk to go nowhere, and each would survive the loss of
+    ///         the other two.
+    ///     </b>
+    ///     Zero steps never enters the loop; zero distance enters it and stands
     ///     still; a flat field enters it, computes a gradient and finds it is zero. A kernel that
     ///     stepped before it looked, or that divided by the count before checking it, fails the first
     ///     alone.
@@ -1165,7 +1249,7 @@ public class TextureFilterDeviceTests(ITestOutputHelper output) {
             device,
             [source, field],
             [TextureFormat.Rgba8],
-            [TextureFilters.SlopeBlurOp(2, 0, 1, intensity, samples, TextureSlopeMode.Blend)],
+            [TextureFilters.SlopeBlurOp(2, 0, 1, intensity, samples)],
             2
         );
 
@@ -1223,8 +1307,8 @@ public class TextureFilterDeviceTests(ITestOutputHelper output) {
             var plan = new TexturePlan {
                 BaseWidth = Side,
                 BaseHeight = Side,
-                Images = [.. images],
-                Ops = [.. ops],
+                Images = [..images],
+                Ops = [..ops],
                 Outputs = [read]
             };
 
@@ -1252,7 +1336,7 @@ public class TextureFilterDeviceTests(ITestOutputHelper output) {
     /// <summary>One lit texel in a black field — the pattern a filter's impulse response is read off.</summary>
     static byte[] Impulse(int side, int x, int y) {
         var pixels = new byte[side * side * 4];
-        var at = ((y * side) + x) * 4;
+        var at = (y * side + x) * 4;
 
         pixels[at] = 255;
         pixels[at + 1] = 255;
@@ -1275,7 +1359,7 @@ public class TextureFilterDeviceTests(ITestOutputHelper output) {
             var value = (byte)(y % 2 == 0 ? 0 : 255);
 
             for (var x = 0; x < side; x++) {
-                var at = ((y * side) + x) * 4;
+                var at = (y * side + x) * 4;
 
                 pixels[at] = value;
                 pixels[at + 1] = value;
@@ -1295,7 +1379,7 @@ public class TextureFilterDeviceTests(ITestOutputHelper output) {
     ///     needs a known slope uses this one instead, where the step is 4 everywhere and the
     ///     arithmetic works out to a displacement of exactly four texels.
     /// </remarks>
-    static byte[] Ramp4(int side) => Along(side, x => (byte)(x * 4));
+    static byte[] Ramp4(int side) => Along(side, static x => (byte)(x * 4));
 
     /// <summary>The same ramp falling instead of rising, so the walk down it runs towards +x.</summary>
     static byte[] DownRamp(int side) => Along(side, x => (byte)((side - 1 - x) * 4));
@@ -1306,7 +1390,7 @@ public class TextureFilterDeviceTests(ITestOutputHelper output) {
     ///     the floor, so a walk of many small steps settles there while one large step sails over —
     ///     which is a difference no amount of denser sampling along a straight line can produce.
     /// </remarks>
-    static byte[] Valley(int side) => Along(side, x => (byte)(Math.Abs(x - (side / 2)) * 4));
+    static byte[] Valley(int side) => Along(side, x => (byte)(Math.Abs(x - side / 2) * 4));
 
     /// <summary>A step edge at <paramref name="at" />.</summary>
     static byte[] Step(int side, int at, byte low, byte high) => Along(side, x => x < at ? low : high);
@@ -1329,7 +1413,7 @@ public class TextureFilterDeviceTests(ITestOutputHelper output) {
 
         for (var y = 0; y < side; y++) {
             for (var x = 0; x < side; x++) {
-                var at = ((y * side) + x) * 4;
+                var at = (y * side + x) * 4;
                 var angle = MathF.Atan2(y - centreY, x - centreX) + MathF.PI;
                 var wedge = (int)MathF.Floor(angle / (2f * MathF.PI) * count);
                 var value = (byte)(wedge % 2 == 0 ? 0 : 255);
@@ -1350,7 +1434,7 @@ public class TextureFilterDeviceTests(ITestOutputHelper output) {
 
         for (var y = 0; y < side; y++) {
             for (var x = 0; x < side; x++) {
-                var at = ((y * side) + x) * 4;
+                var at = (y * side + x) * 4;
                 var v = value(x);
 
                 pixels[at] = v;

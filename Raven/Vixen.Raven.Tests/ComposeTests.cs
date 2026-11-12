@@ -3,7 +3,6 @@
 
 using Vixen.Core.Syntax.Diagnostics;
 using Vixen.Raven;
-using Vixen.Raven.Diagnostics;
 using Vixen.Raven.IR;
 using Vixen.Raven.Lowering;
 using Vixen.Raven.Symbols;
@@ -98,7 +97,7 @@ public class ComposeTests {
         var semantic = compilation.GetDiagnostics();
         Assert.True(
             semantic.Count == 0,
-            "Expected no semantic diagnostics, got:\n" + string.Join("\n", semantic.Select(d => d.ToString()))
+            "Expected no semantic diagnostics, got:\n" + string.Join("\n", semantic.Select(static d => d.ToString()))
         );
 
         var bag = new DiagnosticBag();
@@ -128,7 +127,7 @@ public class ComposeTests {
         var backend = Vixen.Raven.CodeGen.TargetBackends.Create("glsl")!;
         var generated = backend.Generate(module, bag);
 
-        Assert.DoesNotContain(bag.ToArray(), d => d.IsError);
+        Assert.DoesNotContain(bag.ToArray(), static d => d.IsError);
         return Assert.Single(generated).Code;
     }
 
@@ -155,10 +154,10 @@ public class ComposeTests {
         var (compilation, module) = LowerWith(Material, Bind("diffuse", "Lambert"));
 
         Assert.Equal(ResourceKind.None, Slot(compilation, "Lit", "diffuse").ResourceKind);
-        Assert.DoesNotContain("diffuse", FindShader(module, "Lit").Bindings.Select(b => b.Variable.Name));
+        Assert.DoesNotContain("diffuse", FindShader(module, "Lit").Bindings.Select(static b => b.Variable.Name));
 
         // The uniform beside it is still bound.
-        Assert.Contains("tint", FindShader(module, "Lit").Bindings.Select(b => b.Variable.Name));
+        Assert.Contains("tint", FindShader(module, "Lit").Bindings.Select(static b => b.Variable.Name));
     }
 
     [Fact]
@@ -322,7 +321,7 @@ public class ComposeTests {
         // And it is a composition rather than a name kept somewhere: the call lowers into the default's
         // body, which is the whole difference between defaulting a slot and documenting one.
         Assert.Contains("0.5", GenerateWith(Defaulted, ComposeBindings.Empty), StringComparison.Ordinal);
-        Assert.DoesNotContain("diffuse", FindShader(module, "Lit").Bindings.Select(b => b.Variable.Name));
+        Assert.DoesNotContain("diffuse", FindShader(module, "Lit").Bindings.Select(static b => b.Variable.Name));
     }
 
     /// <summary>
@@ -346,7 +345,10 @@ public class ComposeTests {
     [Fact]
     public void A_default_naming_an_unknown_shader_is_rejected() {
         var diagnostic = Assert.Single(
-            DiagnosticsWith(Defaulted.Replace("= Lambert", "= NoSuchShader", StringComparison.Ordinal), ComposeBindings.Empty)
+            DiagnosticsWith(
+                Defaulted.Replace("= Lambert", "= NoSuchShader", StringComparison.Ordinal),
+                ComposeBindings.Empty
+            )
         );
 
         Assert.Equal("RVN2074", diagnostic.Id);
@@ -376,7 +378,7 @@ public class ComposeTests {
                 """,
                 Bind("thing", "Impl")
             )
-            .Select(d => d.Id);
+            .Select(static d => d.Id);
 
         Assert.Contains("RVN2072", ids);
     }
@@ -458,7 +460,7 @@ public class ComposeTests {
                 """,
                 Bind("thing", "Impl")
             )
-            .Select(d => d.Id);
+            .Select(static d => d.Id);
 
         Assert.Contains("RVN2077", ids);
     }
@@ -498,7 +500,7 @@ public class ComposeBindingsTests {
 
     [Fact]
     public void Whitespace_is_trimmed_and_blank_entries_skipped() {
-        var bindings = ComposeBindings.Parse([" diffuse = Lambert ", "", "   "]);
+        var bindings = ComposeBindings.Parse([" diffuse = Lambert ", string.Empty, "   "]);
 
         Assert.Equal(1, bindings.Count);
         Assert.Equal("Lambert", bindings.Resolve("Lit", "diffuse"));
@@ -506,9 +508,9 @@ public class ComposeBindingsTests {
 
     [Fact]
     public void A_malformed_entry_is_rejected() {
-        Assert.Throws<ArgumentException>(() => ComposeBindings.Parse(["diffuse"]));
-        Assert.Throws<ArgumentException>(() => ComposeBindings.Parse(["=Lambert"]));
-        Assert.Throws<ArgumentException>(() => ComposeBindings.Parse(["diffuse="]));
+        Assert.Throws<ArgumentException>(static () => ComposeBindings.Parse(["diffuse"]));
+        Assert.Throws<ArgumentException>(static () => ComposeBindings.Parse(["=Lambert"]));
+        Assert.Throws<ArgumentException>(static () => ComposeBindings.Parse(["diffuse="]));
     }
 
     [Fact]

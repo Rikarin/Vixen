@@ -33,11 +33,11 @@ public static class Program {
         // starts realms as child processes. A deployment swaps the three and changes nothing else,
         // which is the point of them being options rather than code.
         builder.UseDevelopmentCluster(
-            new OrchestratorOptions(
-                ClusterId: "mmo-dev",
-                ServiceId: "mmo",
-                Maps: new Dictionary<string, MapOptions>(StringComparer.Ordinal),
-                Default: null
+            new(
+                "mmo-dev",
+                "mmo",
+                new Dictionary<string, MapOptions>(StringComparer.Ordinal),
+                null
             )
         );
 

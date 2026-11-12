@@ -8,7 +8,6 @@ using Vixen.Editor.Ui.Documents;
 using Vixen.Editor.VfxGraph;
 using Vixen.NodeGraph;
 using Vixen.Ui;
-using Vixen.Ui.Controls;
 using Vixen.Ui.Controls.Advanced;
 
 namespace Vixen.Editor.AssetEditors.Vfx;
@@ -38,8 +37,12 @@ public sealed partial class VfxGraphView : ITickingView;
 
 /// <summary>Opens a VFX graph.</summary>
 /// <remarks>
-///     ⚠ <b>In this assembly rather than in <c>Vixen.Editor.VfxGraph</c>, which is where doc 20's
-///     B5 files the row.</b> That assembly is the node library and the compiler, and it deliberately
+///     ⚠
+///     <b>
+///         In this assembly rather than in <c>Vixen.Editor.VfxGraph</c>, which is where doc 20's
+///         B5 files the row.
+///     </b>
+///     That assembly is the node library and the compiler, and it deliberately
 ///     knows nothing about a project, a document or a panel — which is what lets its tests compile a
 ///     graph with no editor in the way. The document and the view are the same shape every other row
 ///     of doc 11's asset-editor table has, and this is the assembly that holds them.

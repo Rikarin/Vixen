@@ -9,8 +9,12 @@ namespace Vixen.Ai.Ecs;
 /// <summary>An entity that decides what to do.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>A handle and a few numbers, and nothing else — that is the rule this component
-///         exists to keep.</b> Everything an agent thinks with is in its memory block and its
+///         ⚠
+///         <b>
+///             A handle and a few numbers, and nothing else — that is the rule this component
+///             exists to keep.
+///         </b>
+///         Everything an agent thinks with is in its memory block and its
 ///         blackboard, both of which the system owns and neither of which is here. A component that
 ///         grew a list, a template or a plan would be a component whose size depended on its content,
 ///         which is the thing an archetype ECS cannot have; it would also be per-agent state living
@@ -109,50 +113,54 @@ public struct AiAgent {
     /// <summary>An agent that runs one action and has not joined a system yet.</summary>
     /// <param name="action">Which action to run.</param>
     /// <returns>The component.</returns>
-    public static AiAgent Running(ushort action) => new() {
-        Planner = AiPlanner.None,
-        Action = action,
-        Memory = AgentMemoryHandle.Null,
-        ScheduleIndex = -1,
-        Status = ActionStatus.Running,
-        Enabled = true
-    };
+    public static AiAgent Running(ushort action) =>
+        new() {
+            Planner = AiPlanner.None,
+            Action = action,
+            Memory = AgentMemoryHandle.Null,
+            ScheduleIndex = -1,
+            Status = ActionStatus.Running,
+            Enabled = true
+        };
 
     /// <summary>An agent that runs a behaviour tree and has not joined a system yet.</summary>
     /// <param name="tree">Its index in the system's <see cref="BehaviorTreeLibrary" />.</param>
     /// <returns>The component.</returns>
-    public static AiAgent Thinking(int tree) => new() {
-        Planner = AiPlanner.BehaviorTree,
-        Asset = (ushort)tree,
-        Memory = AgentMemoryHandle.Null,
-        ScheduleIndex = -1,
-        Status = ActionStatus.Running,
-        Enabled = true
-    };
+    public static AiAgent Thinking(int tree) =>
+        new() {
+            Planner = AiPlanner.BehaviorTree,
+            Asset = (ushort)tree,
+            Memory = AgentMemoryHandle.Null,
+            ScheduleIndex = -1,
+            Status = ActionStatus.Running,
+            Enabled = true
+        };
 
     /// <summary>An agent that scores a utility set and has not joined a system yet.</summary>
     /// <param name="set">Its index in the system's <see cref="UtilitySetLibrary" />.</param>
     /// <returns>The component.</returns>
-    public static AiAgent Scoring(int set) => new() {
-        Planner = AiPlanner.Utility,
-        Asset = (ushort)set,
-        Memory = AgentMemoryHandle.Null,
-        ScheduleIndex = -1,
-        Status = ActionStatus.Running,
-        Enabled = true
-    };
+    public static AiAgent Scoring(int set) =>
+        new() {
+            Planner = AiPlanner.Utility,
+            Asset = (ushort)set,
+            Memory = AgentMemoryHandle.Null,
+            ScheduleIndex = -1,
+            Status = ActionStatus.Running,
+            Enabled = true
+        };
 
     /// <summary>An agent that plans over a GOAP domain and has not joined a system yet.</summary>
     /// <param name="domain">Its index in the system's <see cref="GoapDomainLibrary" />.</param>
     /// <param name="capabilities">Which of the domain's actions it may use, or default for all.</param>
     /// <returns>The component.</returns>
-    public static AiAgent Planning(int domain, GoapCapabilities capabilities = default) => new() {
-        Planner = AiPlanner.Goap,
-        Asset = (ushort)domain,
-        Capabilities = capabilities.Bits,
-        Memory = AgentMemoryHandle.Null,
-        ScheduleIndex = -1,
-        Status = ActionStatus.Running,
-        Enabled = true
-    };
+    public static AiAgent Planning(int domain, GoapCapabilities capabilities = default) =>
+        new() {
+            Planner = AiPlanner.Goap,
+            Asset = (ushort)domain,
+            Capabilities = capabilities.Bits,
+            Memory = AgentMemoryHandle.Null,
+            ScheduleIndex = -1,
+            Status = ActionStatus.Running,
+            Enabled = true
+        };
 }

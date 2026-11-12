@@ -13,7 +13,6 @@ using Vixen.Editor.Plugin.Generator.Tests;
 using Vixen.Editor.Plugin.Tests;
 using Vixen.Editor.SceneView;
 using Vixen.Editor.Ui;
-using Vixen.Ui;
 using Xunit;
 
 namespace Vixen.Editor.App.Tests;
@@ -50,10 +49,10 @@ public class DeclaredParityTests {
 
     sealed class Host : IDisposable {
         public Host() {
-            Shell = new EditorShell(1280f, 800f);
-            Registry = new EditorRegistry();
+            Shell = new(1280f, 800f);
+            Registry = new();
             Drawers = DrawerRegistry.CreateDefault();
-            Plugins = new PluginHost(Shell, new PluginServices().Add<IEditorRegistry>(Registry).Add(Drawers));
+            Plugins = new(Shell, new PluginServices().Add<IEditorRegistry>(Registry).Add(Drawers));
             Baseline = Commands(Shell);
         }
 
@@ -74,9 +73,9 @@ public class DeclaredParityTests {
     static Assembly Build() {
         var references = ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")!)
             .Split(Path.PathSeparator)
-            .Where(path => path.EndsWith(".dll", StringComparison.OrdinalIgnoreCase))
+            .Where(static path => path.EndsWith(".dll", StringComparison.OrdinalIgnoreCase))
             .Distinct(StringComparer.Ordinal)
-            .Select(path => (MetadataReference)MetadataReference.CreateFromFile(path))
+            .Select(static path => (MetadataReference)MetadataReference.CreateFromFile(path))
             .ToList();
 
         var compilation = CSharpCompilation.Create(
@@ -102,11 +101,12 @@ public class DeclaredParityTests {
     static void Scan(PluginContext context) => new DeclaredContributions().Scan(context, Fixture.Value);
 
     static void Generated(PluginContext context) =>
-        Fixture.Value.GetType("Fixture.Declared", throwOnError: true)!
+        Fixture.Value.GetType("Fixture.Declared", true)!
             .GetMethod("Register", BindingFlags.Public | BindingFlags.Static)!
             .Invoke(null, [context]);
 
-    static HashSet<string> Commands(EditorShell shell) => [.. shell.Commands.Commands.Select(static command => command.Id)];
+    static HashSet<string> Commands(EditorShell shell) =>
+        [..shell.Commands.Commands.Select(static command => command.Id)];
 
     /// <summary>Everything one host holds that a declaration could have put there, as text.</summary>
     static string Describe(Host host) {
@@ -129,7 +129,9 @@ public class DeclaredParityTests {
         }
 
         foreach (var item in host.Registry.All<SceneTool>()) {
-            text.AppendLine($"tool: {item.Id} '{item.Title}' {item.Input.GetType().FullName} {item.Target?.FullName} {item.Order}");
+            text.AppendLine(
+                $"tool: {item.Id} '{item.Title}' {item.Input.GetType().FullName} {item.Target?.FullName} {item.Order}"
+            );
         }
 
         foreach (var item in host.Registry.All<NewAssetKind>()) {
@@ -160,13 +162,14 @@ public class DeclaredParityTests {
 
     static string Render(MenuGroup group) => string.Join(" ", group.Entries.Select(Render));
 
-    static string Render(MenuEntry entry) => entry switch {
-        MenuCommand(var id) => id,
-        MenuSeparator => "|",
-        MenuSubmenu(var group) => $"{group.Title.Id}:'{group.Title.Source}'[{Render(group)}]",
-        MenuDynamic(var ids) => "dynamic(" + string.Join(" ", ids()) + ")",
-        _ => "?"
-    };
+    static string Render(MenuEntry entry) =>
+        entry switch {
+            MenuCommand(var id) => id,
+            MenuSeparator => "|",
+            MenuSubmenu(var group) => $"{group.Title.Id}:'{group.Title.Source}'[{Render(group)}]",
+            MenuDynamic(var ids) => "dynamic(" + string.Join(" ", ids()) + ")",
+            _ => "?"
+        };
 
     [Fact]
     public void The_generator_and_the_scan_register_the_same_things() {
@@ -187,15 +190,12 @@ public class DeclaredParityTests {
                      "fixture.bake 'fixture.command.bake' 'Bake It'",
                      "scripts.tools.things.audit 'editor.command.scripts.tools.things.audit' 'Audit'",
                      "fixture.menu.things:'Things'[editor.menu.tools.things.deeper:'Deeper'[fixture.one fixture.two | scripts.tools.things.deeper.sweep] scripts.tools.things.audit fixture.bake | fixture.existing]",
-                     "inspector: Fixture.Widget 3",
-                     "tool: tools.sculpt 'Sculpt' Fixture.SculptTool Fixture.Widget 4",
-                     "asset: assets.create.dialogue-table 'editor.command.assets.create.dialogue-table' 'Dialogue Table' .dialogue 'New Dialogue' False 0 'id: 1\\n'",
-                     "asset: assets.create.ledger 'fixture.create.ledger' 'Ledger Book' .ledger 'Ledger' True 0 'rows: []\\n'",
+                     "inspector: Fixture.Widget 3", "tool: tools.sculpt 'Sculpt' Fixture.SculptTool Fixture.Widget 4",
+                     """asset: assets.create.dialogue-table 'editor.command.assets.create.dialogue-table' 'Dialogue Table' .dialogue 'New Dialogue' False 0 'id: 1\n'""",
+                     """asset: assets.create.ledger 'fixture.create.ledger' 'Ledger Book' .ledger 'Ledger' True 0 'rows: []\n'""",
                      "overlay: overlays.declared-overlay 'editor.overlay.overlays.declared-overlay' 'Declared Overlay' BottomLeft 0",
                      "overlay: fixture.compass 'fixture.overlay.compass' 'Compass Rose' TopRight 0",
-                     "gizmo: Fixture.Widget True 5",
-                     "icon: Fixture.Widget 2 ",
-                     "drawer: Fixture.MoneyDrawer"
+                     "gizmo: Fixture.Widget True 5", "icon: Fixture.Widget 2 ", "drawer: Fixture.MoneyDrawer"
                  }) {
             Assert.Contains(present, expected, StringComparison.Ordinal);
         }
@@ -209,7 +209,7 @@ public class DeclaredParityTests {
         scanned.Plugins.Activate("fixture", "Fixture", new Module(Scan));
         generated.Plugins.Activate("fixture", "Fixture", new Module(Generated));
 
-        var verbs = Fixture.Value.GetType("Fixture.Verbs", throwOnError: true)!;
+        var verbs = Fixture.Value.GetType("Fixture.Verbs", true)!;
         var baked = verbs.GetField("Baked")!;
         var before = (int)baked.GetValue(null)!;
 
@@ -249,12 +249,14 @@ public class DeclaredParityTests {
 
         // Remove one line: the effect of deleting `[EditorMenu]` from `Verbs.Existing`.
         var things = generated.Shell.Menus.Menus
-            .Single(menu => menu.Title.Id == "editor.menu.tools")
+            .Single(static menu => menu.Title.Id == "editor.menu.tools")
             .Entries.OfType<MenuSubmenu>()
-            .Single(entry => entry.Group.Title.Id == "fixture.menu.things")
+            .Single(static entry => entry.Group.Title.Id == "fixture.menu.things")
             .Group;
 
-        things.Remove(things.Entries.OfType<MenuCommand>().Single(entry => entry.CommandId == "fixture.existing"));
+        things.Remove(
+            things.Entries.OfType<MenuCommand>().Single(static entry => entry.CommandId == "fixture.existing")
+        );
 
         Assert.NotEqual(Describe(scanned), Describe(generated));
     }
@@ -295,10 +297,16 @@ public class DeclaredParityTests {
 
         Assert.Single(host.Plugins.Load(PluginDiscovery.Scan(folder.Root)).Activated);
 
-        var tools = host.Shell.Menus.Menus.Single(menu => menu.Title.Source == "Tools");
-        var thing = Assert.Single(tools.Entries.OfType<MenuSubmenu>(), entry => entry.Group.Title.Source == "My Thing");
+        var tools = host.Shell.Menus.Menus.Single(static menu => menu.Title.Source == "Tools");
+        var thing = Assert.Single(
+            tools.Entries.OfType<MenuSubmenu>(),
+            static entry => entry.Group.Title.Source == "My Thing"
+        );
 
-        Assert.Equal(["scripts.tools.my-thing.a", "scripts.tools.my-thing.b"], thing.Group.Entries.OfType<MenuCommand>().Select(entry => entry.CommandId));
+        Assert.Equal(
+            ["scripts.tools.my-thing.a", "scripts.tools.my-thing.b"],
+            thing.Group.Entries.OfType<MenuCommand>().Select(static entry => entry.CommandId)
+        );
     }
 
     /// <summary>#1284: a title naming nothing is a load failure from the scan, never a silent literal.</summary>
@@ -344,26 +352,28 @@ public class DeclaredParityTests {
     /// <remarks>The generator's half is the four <c>VXP0003</c> rows in <c>DeclaredRegistrationTests</c>.</remarks>
     [Theory]
     [InlineData("""[CreateAssetMenu("Thing", ".thing", Title = "Nowhere")] public static string Make() => "";""")]
-    [InlineData("""[Overlay("Over", Title = "Nowhere")] public static void Build(UiElement host, IViewportPane pane) { }""")]
+    [InlineData(
+        """[Overlay("Over", Title = "Nowhere")] public static void Build(UiElement host, IViewportPane pane) { }"""
+    )]
     public void A_contribution_title_naming_nothing_refuses_the_plugin_with_a_diagnostic(string member) {
         using var folder = new PluginFolder();
 
         folder.Write(
             "untitled",
             $$"""
-            using Vixen.Editor.Core;
-            using Vixen.Editor.Plugin;
-            using Vixen.Editor.SceneView;
-            using Vixen.Ui;
+              using Vixen.Editor.Core;
+              using Vixen.Editor.Plugin;
+              using Vixen.Editor.SceneView;
+              using Vixen.Ui;
 
-            public static class Kinds {
-                {{member}}
-            }
+              public static class Kinds {
+                  {{member}}
+              }
 
-            public sealed class Untitled : IEditorPlugin {
-                public void Activate(PluginContext context) { }
-            }
-            """
+              public sealed class Untitled : IEditorPlugin {
+                  public void Activate(PluginContext context) { }
+              }
+              """
         );
 
         using var host = new Host();

@@ -2,9 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Diagnostics.CodeAnalysis;
-using Vixen.Authoring;
 using Vixen.Core;
-using Vixen.Ecs;
 using Vixen.Editor.Core;
 using Vixen.Editor.Core.Scenes;
 using Vixen.Engine.Transforms;
@@ -52,7 +50,7 @@ public sealed class DestroyEntitiesCommand : IEditorCommand, IDisposable {
         ArgumentNullException.ThrowIfNull(entities);
 
         this.document = document;
-        roots = [.. entities];
+        roots = [..entities];
     }
 
     /// <inheritdoc />
@@ -121,8 +119,12 @@ public sealed class DestroyEntitiesCommand : IEditorCommand, IDisposable {
 
     /// <inheritdoc />
     /// <remarks>
-    ///     ⚠ <b>The snapshots hold a world each, and a command stack that drops an entry does not
-    ///     dispose it.</b> So this is reachable only from a caller that clears the stack — which is
+    ///     ⚠
+    ///     <b>
+    ///         The snapshots hold a world each, and a command stack that drops an entry does not
+    ///         dispose it.
+    ///     </b>
+    ///     So this is reachable only from a caller that clears the stack — which is
     ///     honest rather than complete, and is why a snapshot holds components and not textures.
     /// </remarks>
     public void Dispose() => Release();

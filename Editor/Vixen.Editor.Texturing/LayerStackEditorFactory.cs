@@ -27,9 +27,13 @@ namespace Vixen.Editor.Texturing;
 ///         into the plugin with no way to remove it — not a leaked entry, a leaked assembly.
 ///     </para>
 ///     <para>
-///         ⚠ <b><see cref="LayerStackEditorView" /> shows the rows and no picture, and until
-///         <a href="https://github.com/Rikarin/Vixen/issues/831">#831</a> the sentence above was the
-///         opposite of what the code did.</b> It said "lists the stack and says so" and the call was
+///         ⚠
+///         <b>
+///             <see cref="LayerStackEditorView" /> shows the rows and no picture, and until
+///             <a href="https://github.com/Rikarin/Vixen/issues/831">#831</a> the sentence above was the
+///             opposite of what the code did.
+///         </b>
+///         It said "lists the stack and says so" and the call was
 ///         <c>view.Show(stack)</c> with no picture at all — so <c>LayerStackView</c> set
 ///         <c>status.Text</c> to the empty string and <c>Preview.Image</c> to zero, which is a
 ///         chequerboard under a blank line: the shape that says nothing about whether this host could
@@ -102,7 +106,7 @@ sealed class LayerStackEditorView : DocumentView<LayerStackDocument> {
         // missing, and the line says which pane has it.
         view.Show(
             stack,
-            new LayerStackPicture(
+            new(
                 null,
                 LayerStackPreview.DefaultUsage,
                 stack.Document.BaseWidth,

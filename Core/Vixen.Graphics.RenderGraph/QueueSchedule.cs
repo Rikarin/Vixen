@@ -206,8 +206,12 @@ public interface IRenderGraphQueues {
 ///         correct and slow.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The frame is the same frame either way, and that is a property to be tested rather
-///         than believed.</b> Which path was taken changes what goes *between* the submissions and
+///         ⚠
+///         <b>
+///             The frame is the same frame either way, and that is a property to be tested rather
+///             than believed.
+///         </b>
+///         Which path was taken changes what goes *between* the submissions and
 ///         nothing that is in them: the same passes, in declaration order, recorded into the same
 ///         segments, with the same barriers. <see cref="UsesWaitValues" /> says which path a given
 ///         device took, so a test can run both against one graph and compare the recordings.
@@ -309,11 +313,12 @@ public sealed class DeviceQueues : IRenderGraphQueues {
         draining?.Reset();
     }
 
-    ICommandSubmitter SubmitterFor(QueueKind kind) => kind switch {
-        QueueKind.Compute => device.ComputeQueue,
-        QueueKind.Transfer => device.TransferQueue,
-        _ => device.GraphicsQueue
-    };
+    ICommandSubmitter SubmitterFor(QueueKind kind) =>
+        kind switch {
+            QueueKind.Compute => device.ComputeQueue,
+            QueueKind.Transfer => device.TransferQueue,
+            _ => device.GraphicsQueue
+        };
 }
 
 /// <summary>
@@ -391,9 +396,10 @@ public sealed class SerialisedQueues : IRenderGraphQueues {
     /// </remarks>
     public void Reset() => submitted.Clear();
 
-    ICommandSubmitter SubmitterFor(QueueKind kind) => kind switch {
-        QueueKind.Compute => device.ComputeQueue,
-        QueueKind.Transfer => device.TransferQueue,
-        _ => device.GraphicsQueue
-    };
+    ICommandSubmitter SubmitterFor(QueueKind kind) =>
+        kind switch {
+            QueueKind.Compute => device.ComputeQueue,
+            QueueKind.Transfer => device.TransferQueue,
+            _ => device.GraphicsQueue
+        };
 }

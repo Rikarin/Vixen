@@ -3,7 +3,6 @@
 
 using System.Diagnostics;
 using System.Text;
-using Vixen.Live.Cluster;
 using Vixen.Net.Sessions;
 using Vixen.Net.Transport.Local;
 using Xunit;
@@ -39,7 +38,7 @@ public sealed class RealmClusterTests : IDisposable {
 
         host = new(
             Spec,
-            admission => new(new LocalTransport(network), Options(), admission, ownsTransport: true),
+            admission => new(new LocalTransport(network), Options(), admission, true),
             signer,
             new() { Output = output.Add, Now = () => now, HeartbeatInterval = TimeSpan.FromMilliseconds(32) }
         );

@@ -17,8 +17,12 @@ namespace Vixen.Fuzz;
 ///         tree costs a parse delegate and a list of fragments.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The unit of mutation is a node; the edit is carried in the text, and that is a
-///         decision rather than a shortcut.</b> Rewriting the tree itself is the obvious design and it
+///         ⚠
+///         <b>
+///             The unit of mutation is a node; the edit is carried in the text, and that is a
+///             decision rather than a shortcut.
+///         </b>
+///         Rewriting the tree itself is the obvious design and it
 ///         does not survive contact with either front end: VXML has no public way to make a
 ///         <c>SyntaxToken</c> at all, its generated <c>Update</c> returns a <i>detached</i> node with
 ///         no parent, and its <c>SyntaxRewriter</c> cannot remove a list element — so a tree rewriter
@@ -136,12 +140,12 @@ public sealed class SyntaxDomain : FuzzDomain<SyntaxDomain.Source> {
                 // element where an element was, an expression where an expression was. The result is
                 // usually well-formed and almost always reaches the binder, which is where a
                 // compiler's interesting defects are and where byte havoc never arrives.
-                0 or 1 => Graft(value, target, other, random, full: false),
+                0 or 1 => Graft(value, target, other, random, false),
 
                 // The same with trivia, which moves comments and indentation around and is how the
                 // trivia bookkeeping — the half of a printer that round-trip tests exercise least —
                 // gets pushed on.
-                2 => Graft(value, target, other, random, full: true),
+                2 => Graft(value, target, other, random, true),
 
                 // Duplicating carries the node's leading trivia with it, so the copy arrives
                 // separated from the original rather than welded to it. Two attributes with one
@@ -150,7 +154,7 @@ public sealed class SyntaxDomain : FuzzDomain<SyntaxDomain.Source> {
 
                 // And deleting, which is how a required child goes missing without the text around
                 // it becoming nonsense — the shape a recovering parser is most likely to mishandle.
-                _ => Splice(value.Text, target.FullSpan, "")
+                _ => Splice(value.Text, target.FullSpan, string.Empty)
             },
             []
         );
@@ -233,7 +237,7 @@ public sealed class SyntaxDomain : FuzzDomain<SyntaxDomain.Source> {
     }
 
     static string Slice(string text, TextSpan span) =>
-        span.Start < 0 || span.End > text.Length ? "" : text.Substring(span.Start, span.Length);
+        span.Start < 0 || span.End > text.Length ? string.Empty : text.Substring(span.Start, span.Length);
 
     static string Splice(string text, TextSpan span, string replacement) =>
         span.Start < 0 || span.End > text.Length

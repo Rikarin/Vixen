@@ -49,7 +49,7 @@ public sealed class PaintTexelMap<T> where T : unmanaged {
     public bool TryGet(int index, out T value) {
         var (row, column) = Math.DivRem(index, width);
 
-        if (tiles[((row >> TileBits) * tilesWide) + (column >> TileBits)] is { } tile) {
+        if (tiles[(row >> TileBits) * tilesWide + (column >> TileBits)] is { } tile) {
             var at = ((row & TileMask) << TileBits) | (column & TileMask);
 
             if (tile.Marks[at] == generation) {
@@ -71,7 +71,7 @@ public sealed class PaintTexelMap<T> where T : unmanaged {
     /// <returns>Whether it holds anything.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public bool TryGet(int column, int row, out T value) {
-        if (tiles[((row >> TileBits) * tilesWide) + (column >> TileBits)] is { } tile) {
+        if (tiles[(row >> TileBits) * tilesWide + (column >> TileBits)] is { } tile) {
             var at = ((row & TileMask) << TileBits) | (column & TileMask);
 
             if (tile.Marks[at] == generation) {
@@ -97,7 +97,7 @@ public sealed class PaintTexelMap<T> where T : unmanaged {
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void Set(int index, T value) {
         var (row, column) = Math.DivRem(index, width);
-        var slot = ((row >> TileBits) * tilesWide) + (column >> TileBits);
+        var slot = (row >> TileBits) * tilesWide + (column >> TileBits);
         var tile = tiles[slot] ??= new();
         var at = ((row & TileMask) << TileBits) | (column & TileMask);
 

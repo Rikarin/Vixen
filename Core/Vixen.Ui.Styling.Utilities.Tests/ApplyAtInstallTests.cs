@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Ui;
-using Vixen.Ui.Styling;
 using Xunit;
 
 namespace Vixen.Ui.Styling.Utilities.Tests;
@@ -10,8 +9,12 @@ namespace Vixen.Ui.Styling.Utilities.Tests;
 /// <summary><c>@apply</c> in a sheet a document installs, which is where every real sheet arrives.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>The gap these close is that <c>@apply</c> was inert everywhere it could actually be
-///         written.</b> <see cref="ApplyExpander" /> was reachable only from
+///         ⚠
+///         <b>
+///             The gap these close is that <c>@apply</c> was inert everywhere it could actually be
+///             written.
+///         </b>
+///         <see cref="ApplyExpander" /> was reachable only from
 ///         <c>Tools/Vixen.StyleGen</c>, over files named by <c>@(VixenStyleBase)</c>, and no project
 ///         in the tree set that item — so the tests beside this file exercised the expander as a
 ///         function and nothing exercised it as a feature. A sheet with an <c>@apply</c> in it
@@ -93,8 +96,11 @@ public class ApplyAtInstallTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>The ordering case: a sheet that defines the unit is installed <i>after</i> the sheet
-    ///     that spends it, and the answer has to be the same.</b>
+    ///     ⚠
+    ///     <b>
+    ///         The ordering case: a sheet that defines the unit is installed <i>after</i> the sheet
+    ///         that spends it, and the answer has to be the same.
+    ///     </b>
     /// </summary>
     /// <remarks>
     ///     <para>
@@ -106,8 +112,12 @@ public class ApplyAtInstallTests {
     ///         anywhere saying so.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Asserted against an oracle first and a literal second, so that getting the
-    ///         ordering wrong is a failure rather than a different number.</b> The oracle is the same
+    ///         ⚠
+    ///         <b>
+    ///             Asserted against an oracle first and a literal second, so that getting the
+    ///             ordering wrong is a failure rather than a different number.
+    ///         </b>
+    ///         The oracle is the same
     ///         utility taken through the generator against the same merged theme — the path that has
     ///         always been right — so the claim under test is "an <c>@apply p-4</c> means what a
     ///         <c>class="p-4"</c> means", which stays true if the spacing scale is ever redefined.
@@ -138,8 +148,12 @@ public class ApplyAtInstallTests {
 
     /// <summary>The re-expansion replays every sheet, not only the one holding the <c>@apply</c>.</summary>
     /// <remarks>
-    ///     ⚠ <b>The reload throws the whole rule set away and rebuilds it, so a sheet that had
-    ///     nothing to do with the tokens has to survive it intact.</b> That is the risk the mechanism
+    ///     ⚠
+    ///     <b>
+    ///         The reload throws the whole rule set away and rebuilds it, so a sheet that had
+    ///         nothing to do with the tokens has to survive it intact.
+    ///     </b>
+    ///     That is the risk the mechanism
     ///     carries and this is the assertion that says it does not fire: two ordinary rules, loaded
     ///     either side of the one that gets re-expanded, still apply afterwards.
     /// </remarks>
@@ -214,8 +228,12 @@ public class ApplyAtInstallTests {
 
     /// <summary>The text the engine keeps is the text it was given, not the expansion.</summary>
     /// <remarks>
-    ///     ⚠ <b>What makes the re-expansion possible at all, and what <c>HotReloadHost</c> depends
-    ///     on.</b> A failed reload puts a sheet back from <c>SheetText</c>; if that returned the
+    ///     ⚠
+    ///     <b>
+    ///         What makes the re-expansion possible at all, and what <c>HotReloadHost</c> depends
+    ///         on.
+    ///     </b>
+    ///     A failed reload puts a sheet back from <c>SheetText</c>; if that returned the
     ///     expanded form, the rollback would install a sheet with no <c>@apply</c> left in it and the
     ///     next theme change would have nothing to re-expand.
     /// </remarks>

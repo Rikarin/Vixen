@@ -284,7 +284,7 @@ public sealed class IrradianceBrickPool {
 
         var texel = new Vector3(origin.X, origin.Y, origin.Z)
             + new Vector3(0.5f)
-            + (Clamped(local) * BrickResolution);
+            + Clamped(local) * BrickResolution;
 
         return texel / new Vector3(resolution.X, resolution.Y, resolution.Z);
     }
@@ -297,7 +297,7 @@ public sealed class IrradianceBrickPool {
     internal int TexelIndex(int x, int y, int z) {
         var resolution = TexelResolution;
 
-        return x + (resolution.X * (y + (resolution.Y * z)));
+        return x + resolution.X * (y + resolution.Y * z);
     }
 
     /// <summary>Checks a slot and a coordinate, and answers where the slot starts.</summary>
@@ -328,6 +328,5 @@ public sealed class IrradianceBrickPool {
         fraction = Math.Clamp(scaled - index, 0f, 1f);
     }
 
-    static Vector3 Clamped(Vector3 local) =>
-        Vector3.Clamp(local, Vector3.Zero, Vector3.One);
+    static Vector3 Clamped(Vector3 local) => Vector3.Clamp(local, Vector3.Zero, Vector3.One);
 }

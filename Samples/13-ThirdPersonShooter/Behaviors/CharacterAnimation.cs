@@ -27,8 +27,12 @@ namespace Vixen.Samples.ThirdPersonShooter;
 ///         speed — because those are gameplay and the clip is art.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Sampled by target name rather than through a <c>Skeleton</c>, because this rig has
-///         no skeleton.</b> It is seven boxes on seven entities, and
+///         ⚠
+///         <b>
+///             Sampled by target name rather than through a <c>Skeleton</c>, because this rig has
+///             no skeleton.
+///         </b>
+///         It is seven boxes on seven entities, and
 ///         <c>AnimationClipContent.TrySample</c> exists for exactly that shape — a hand-keyed clip
 ///         driving something that is not a skinned character. A rig with a real skeleton would take
 ///         <c>AnimationClipCache.Get</c> and the baked path instead.
@@ -170,7 +174,7 @@ public sealed class CharacterAnimation : Behavior {
 
         // Driven by distance rather than by time, so a character walking slowly takes slow steps
         // rather than small ones — which is the difference between animation and a treadmill.
-        phase = Wrap(phase + (speed * Stride * delta));
+        phase = Wrap(phase + speed * Stride * delta);
 
         // ⚠ The clip supplies the *shape* of the stride and the speed supplies its *size*, which is
         // why the sampled rotation is scaled towards the identity rather than used as it stands. A
@@ -182,7 +186,7 @@ public sealed class CharacterAnimation : Behavior {
         // Phase runs over a turn and the clip over its own duration, so the cycle maps onto the clip
         // rather than onto seconds. A clip re-timed by its author therefore changes how the stride
         // *looks* and not how far it carries anybody.
-        var normalised = ((phase / MathF.Tau) + 1f) % 1f;
+        var normalised = (phase / MathF.Tau + 1f) % 1f;
 
         Pose(Walk, "LegLeft", LegLeft, reach, normalised);
         Pose(Walk, "LegRight", LegRight, reach, normalised);
@@ -193,7 +197,7 @@ public sealed class CharacterAnimation : Behavior {
 
         if (World.Has<LocalTransform>(Hips)) {
             ref var hips = ref World.Get<LocalTransform>(Hips);
-            hips.Position = new(hips.Position.X, 0.98f + (MathF.Abs(MathF.Sin(phase)) * 0.03f), hips.Position.Z);
+            hips.Position = new(hips.Position.X, 0.98f + MathF.Abs(MathF.Sin(phase)) * 0.03f, hips.Position.Z);
         }
 
         // A footstep on each crossing of the bottom of the swing, which is where a foot is on the

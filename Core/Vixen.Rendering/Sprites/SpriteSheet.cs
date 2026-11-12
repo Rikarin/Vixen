@@ -152,8 +152,8 @@ public sealed class SpriteSheet {
                 new() {
                     Name = $"{name}_{index}",
                     Region = new(
-                        offset.X + (column * (cell.X + padding.X)),
-                        offset.Y + (row * (cell.Y + padding.Y)),
+                        offset.X + column * (cell.X + padding.X),
+                        offset.Y + row * (cell.Y + padding.Y),
                         cell.X,
                         cell.Y
                     ),
@@ -165,7 +165,7 @@ public sealed class SpriteSheet {
             );
         }
 
-        return new() { Name = name, TextureSize = textureSize, Sprites = [.. sprites] };
+        return new() { Name = name, TextureSize = textureSize, Sprites = [..sprites] };
     }
 
     /// <summary>How many whole cells fit along one axis.</summary>
@@ -178,7 +178,7 @@ public sealed class SpriteSheet {
 
         // The last cell has no padding after it, so the room is one padding more than the stride
         // divides — which is the off-by-one that costs a sheet its final column.
-        return ((available + padding) / (cell + padding));
+        return (available + padding) / (cell + padding);
     }
 
     FrozenDictionary<string, int> Build() {

@@ -30,15 +30,23 @@ public enum WaterZoneUpdate {
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>[35 § D3](../../docs/plan/35-water.md#d3-the-water-info-texture-is-the-interchange-and-it-is-a-zone-render)'s
-///         sliding window, as a thing with a lifetime.</b> <see cref="WaterZone" /> is what an author
+///         <b>
+///             [35 §
+///             D3](../../docs/plan/35-water.md#d3-the-water-info-texture-is-the-interchange-and-it-is-a-zone-render)'s
+///             sliding window, as a thing with a lifetime.
+///         </b>
+///         <see cref="WaterZone" /> is what an author
 ///         states and <see cref="WaterField" /> is the arithmetic; this is what holds one, moves it,
 ///         and says when it was last right.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The field is rasterised by the same code the surface query reads, and that is
-///         [§ D2](../../docs/plan/35-water.md#d2-one-evaluator-two-hosts-and-the-seam-is-a-test)
-///         rather than a shortcut.</b> § D3 describes the info texture as a top-down <em>render</em>,
+///         ⚠
+///         <b>
+///             The field is rasterised by the same code the surface query reads, and that is
+///             [§ D2](../../docs/plan/35-water.md#d2-one-evaluator-two-hosts-and-the-seam-is-a-test)
+///             rather than a shortcut.
+///         </b>
+///         § D3 describes the info texture as a top-down <em>render</em>,
 ///         with every body drawing into it through a material. That is the faster way to fill it and
 ///         it is a second rasterisation of the same bodies — one on the device for the picture, one on
 ///         the host for the boat — and nothing would hold the two together. Filling it from
@@ -105,8 +113,12 @@ public sealed class WaterZoneState : IWaterFieldSource {
     /// <param name="replacement">The bodies.</param>
     /// <exception cref="ArgumentNullException"><paramref name="replacement" /> is null.</exception>
     /// <remarks>
-    ///     ⚠ <b>Wholesale rather than incremental, and for
-    ///     [31 § D4](../../docs/plan/31-terrain-grass-and-trees.md)'s reason.</b> A body that moved
+    ///     ⚠
+    ///     <b>
+    ///         Wholesale rather than incremental, and for
+    ///         [31 § D4](../../docs/plan/31-terrain-grass-and-trees.md)'s reason.
+    ///     </b>
+    ///     A body that moved
     ///     changes the field where it was as well as where it is, so an incremental update would have
     ///     to remember the old shape — and the one that gets forgotten is the one that leaves a river
     ///     behind after the river has gone.
@@ -150,8 +162,12 @@ public sealed class WaterZoneState : IWaterFieldSource {
     /// <returns>What it did.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="ground" /> is null.</exception>
     /// <remarks>
-    ///     ⚠ <b>The scroll test is against the window's <em>centre</em> and not against its snapped
-    ///     origin.</b> The origin moves in whole coarse texels, so testing it would compare a
+    ///     ⚠
+    ///     <b>
+    ///         The scroll test is against the window's <em>centre</em> and not against its snapped
+    ///         origin.
+    ///     </b>
+    ///     The origin moves in whole coarse texels, so testing it would compare a
     ///     continuous camera against a quantised number and fire a frame early or late depending on
     ///     where in a texel the camera happened to be — which is a re-rasterisation whose timing
     ///     depends on the world origin.

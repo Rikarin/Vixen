@@ -16,7 +16,7 @@ namespace Vixen.Core.Mathematics;
 /// </remarks>
 [DataContract]
 [StructLayout(LayoutKind.Sequential)]
-public readonly struct Matrix3x3 : IEquatable<Matrix3x3>, IFormattable, ISpanFormattable {
+public readonly struct Matrix3x3 : IEquatable<Matrix3x3>, ISpanFormattable {
     /// <summary>Number of components.</summary>
     public const int ComponentCount = 9;
 
@@ -50,9 +50,15 @@ public readonly struct Matrix3x3 : IEquatable<Matrix3x3>, IFormattable, ISpanFor
     /// <summary>The transform that does nothing.</summary>
     public static Matrix3x3 Identity =>
         new(
-            1f, 0f, 0f,
-            0f, 1f, 0f,
-            0f, 0f, 1f
+            1f,
+            0f,
+            0f,
+            0f,
+            1f,
+            0f,
+            0f,
+            0f,
+            1f
         );
 
     /// <summary>Builds a matrix from its nine elements, in row-major order.</summary>
@@ -66,9 +72,15 @@ public readonly struct Matrix3x3 : IEquatable<Matrix3x3>, IFormattable, ISpanFor
     /// <param name="m32">Row 3, column 2.</param>
     /// <param name="m33">Row 3, column 3.</param>
     public Matrix3x3(
-        float m11, float m12, float m13,
-        float m21, float m22, float m23,
-        float m31, float m32, float m33
+        float m11,
+        float m12,
+        float m13,
+        float m21,
+        float m22,
+        float m23,
+        float m31,
+        float m32,
+        float m33
     ) {
         M11 = m11;
         M12 = m12;
@@ -107,25 +119,36 @@ public readonly struct Matrix3x3 : IEquatable<Matrix3x3>, IFormattable, ISpanFor
     /// <returns>The upper-left block.</returns>
     public static Matrix3x3 FromMatrix4x4(in Matrix4x4 matrix) =>
         new(
-            matrix.M11, matrix.M12, matrix.M13,
-            matrix.M21, matrix.M22, matrix.M23,
-            matrix.M31, matrix.M32, matrix.M33
+            matrix.M11,
+            matrix.M12,
+            matrix.M13,
+            matrix.M21,
+            matrix.M22,
+            matrix.M23,
+            matrix.M31,
+            matrix.M32,
+            matrix.M33
         );
 
     /// <summary>The rotation a quaternion describes, as a 3×3 matrix.</summary>
     /// <param name="rotation">The rotation. Expected to be unit length.</param>
     /// <returns>The transform.</returns>
-    public static Matrix3x3 FromQuaternion(Quaternion rotation) =>
-        FromMatrix4x4(Matrix4x4.FromQuaternion(rotation));
+    public static Matrix3x3 FromQuaternion(Quaternion rotation) => FromMatrix4x4(Matrix4x4.FromQuaternion(rotation));
 
     /// <summary>Scales each axis independently.</summary>
     /// <param name="scale">The per-axis scale.</param>
     /// <returns>The transform.</returns>
     public static Matrix3x3 FromScale(Vector3 scale) =>
         new(
-            scale.X, 0f, 0f,
-            0f, scale.Y, 0f,
-            0f, 0f, scale.Z
+            scale.X,
+            0f,
+            0f,
+            0f,
+            scale.Y,
+            0f,
+            0f,
+            0f,
+            scale.Z
         );
 
     /// <summary>
@@ -156,15 +179,15 @@ public readonly struct Matrix3x3 : IEquatable<Matrix3x3>, IFormattable, ISpanFor
     /// <returns>The combined transform.</returns>
     public static Matrix3x3 Multiply(in Matrix3x3 left, in Matrix3x3 right) =>
         new(
-            (left.M11 * right.M11) + (left.M12 * right.M21) + (left.M13 * right.M31),
-            (left.M11 * right.M12) + (left.M12 * right.M22) + (left.M13 * right.M32),
-            (left.M11 * right.M13) + (left.M12 * right.M23) + (left.M13 * right.M33),
-            (left.M21 * right.M11) + (left.M22 * right.M21) + (left.M23 * right.M31),
-            (left.M21 * right.M12) + (left.M22 * right.M22) + (left.M23 * right.M32),
-            (left.M21 * right.M13) + (left.M22 * right.M23) + (left.M23 * right.M33),
-            (left.M31 * right.M11) + (left.M32 * right.M21) + (left.M33 * right.M31),
-            (left.M31 * right.M12) + (left.M32 * right.M22) + (left.M33 * right.M32),
-            (left.M31 * right.M13) + (left.M32 * right.M23) + (left.M33 * right.M33)
+            left.M11 * right.M11 + left.M12 * right.M21 + left.M13 * right.M31,
+            left.M11 * right.M12 + left.M12 * right.M22 + left.M13 * right.M32,
+            left.M11 * right.M13 + left.M12 * right.M23 + left.M13 * right.M33,
+            left.M21 * right.M11 + left.M22 * right.M21 + left.M23 * right.M31,
+            left.M21 * right.M12 + left.M22 * right.M22 + left.M23 * right.M32,
+            left.M21 * right.M13 + left.M22 * right.M23 + left.M23 * right.M33,
+            left.M31 * right.M11 + left.M32 * right.M21 + left.M33 * right.M31,
+            left.M31 * right.M12 + left.M32 * right.M22 + left.M33 * right.M32,
+            left.M31 * right.M13 + left.M32 * right.M23 + left.M33 * right.M33
         );
 
     /// <summary>Transposes the matrix.</summary>
@@ -172,18 +195,24 @@ public readonly struct Matrix3x3 : IEquatable<Matrix3x3>, IFormattable, ISpanFor
     /// <returns>The transpose.</returns>
     public static Matrix3x3 Transpose(in Matrix3x3 matrix) =>
         new(
-            matrix.M11, matrix.M21, matrix.M31,
-            matrix.M12, matrix.M22, matrix.M32,
-            matrix.M13, matrix.M23, matrix.M33
+            matrix.M11,
+            matrix.M21,
+            matrix.M31,
+            matrix.M12,
+            matrix.M22,
+            matrix.M32,
+            matrix.M13,
+            matrix.M23,
+            matrix.M33
         );
 
     /// <summary>The determinant.</summary>
     /// <param name="matrix">The matrix.</param>
     /// <returns>The determinant.</returns>
     public static float Determinant(in Matrix3x3 matrix) =>
-        (matrix.M11 * ((matrix.M22 * matrix.M33) - (matrix.M23 * matrix.M32)))
-        - (matrix.M12 * ((matrix.M21 * matrix.M33) - (matrix.M23 * matrix.M31)))
-        + (matrix.M13 * ((matrix.M21 * matrix.M32) - (matrix.M22 * matrix.M31)));
+        matrix.M11 * (matrix.M22 * matrix.M33 - matrix.M23 * matrix.M32)
+        - matrix.M12 * (matrix.M21 * matrix.M33 - matrix.M23 * matrix.M31)
+        + matrix.M13 * (matrix.M21 * matrix.M32 - matrix.M22 * matrix.M31);
 
     /// <summary>Inverts the matrix.</summary>
     /// <param name="matrix">The matrix to invert.</param>
@@ -199,15 +228,15 @@ public readonly struct Matrix3x3 : IEquatable<Matrix3x3>, IFormattable, ISpanFor
         var inverse = 1f / determinant;
 
         result = new(
-            ((matrix.M22 * matrix.M33) - (matrix.M23 * matrix.M32)) * inverse,
-            ((matrix.M13 * matrix.M32) - (matrix.M12 * matrix.M33)) * inverse,
-            ((matrix.M12 * matrix.M23) - (matrix.M13 * matrix.M22)) * inverse,
-            ((matrix.M23 * matrix.M31) - (matrix.M21 * matrix.M33)) * inverse,
-            ((matrix.M11 * matrix.M33) - (matrix.M13 * matrix.M31)) * inverse,
-            ((matrix.M13 * matrix.M21) - (matrix.M11 * matrix.M23)) * inverse,
-            ((matrix.M21 * matrix.M32) - (matrix.M22 * matrix.M31)) * inverse,
-            ((matrix.M12 * matrix.M31) - (matrix.M11 * matrix.M32)) * inverse,
-            ((matrix.M11 * matrix.M22) - (matrix.M12 * matrix.M21)) * inverse
+            (matrix.M22 * matrix.M33 - matrix.M23 * matrix.M32) * inverse,
+            (matrix.M13 * matrix.M32 - matrix.M12 * matrix.M33) * inverse,
+            (matrix.M12 * matrix.M23 - matrix.M13 * matrix.M22) * inverse,
+            (matrix.M23 * matrix.M31 - matrix.M21 * matrix.M33) * inverse,
+            (matrix.M11 * matrix.M33 - matrix.M13 * matrix.M31) * inverse,
+            (matrix.M13 * matrix.M21 - matrix.M11 * matrix.M23) * inverse,
+            (matrix.M21 * matrix.M32 - matrix.M22 * matrix.M31) * inverse,
+            (matrix.M12 * matrix.M31 - matrix.M11 * matrix.M32) * inverse,
+            (matrix.M11 * matrix.M22 - matrix.M12 * matrix.M21) * inverse
         );
 
         return true;
@@ -219,9 +248,9 @@ public readonly struct Matrix3x3 : IEquatable<Matrix3x3>, IFormattable, ISpanFor
     /// <returns>The transformed vector.</returns>
     public static Vector3 Transform(Vector3 value, in Matrix3x3 matrix) =>
         new(
-            (value.X * matrix.M11) + (value.Y * matrix.M21) + (value.Z * matrix.M31),
-            (value.X * matrix.M12) + (value.Y * matrix.M22) + (value.Z * matrix.M32),
-            (value.X * matrix.M13) + (value.Y * matrix.M23) + (value.Z * matrix.M33)
+            value.X * matrix.M11 + value.Y * matrix.M21 + value.Z * matrix.M31,
+            value.X * matrix.M12 + value.Y * matrix.M22 + value.Z * matrix.M32,
+            value.X * matrix.M13 + value.Y * matrix.M23 + value.Z * matrix.M33
         );
 
     /// <summary>Whether two matrices agree to within a tolerance, element by element.</summary>
@@ -268,9 +297,15 @@ public readonly struct Matrix3x3 : IEquatable<Matrix3x3>, IFormattable, ISpanFor
 
     /// <inheritdoc />
     public bool Equals(Matrix3x3 other) =>
-        M11 == other.M11 && M12 == other.M12 && M13 == other.M13
-        && M21 == other.M21 && M22 == other.M22 && M23 == other.M23
-        && M31 == other.M31 && M32 == other.M32 && M33 == other.M33;
+        M11 == other.M11
+        && M12 == other.M12
+        && M13 == other.M13
+        && M21 == other.M21
+        && M22 == other.M22
+        && M23 == other.M23
+        && M31 == other.M31
+        && M32 == other.M32
+        && M33 == other.M33;
 
     /// <inheritdoc />
     public override bool Equals(object? obj) => obj is Matrix3x3 other && Equals(other);

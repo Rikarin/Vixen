@@ -57,8 +57,12 @@ public static class TerrainHeightmapPng {
     /// <summary>The largest heightmap this will decode, on either axis.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>An absolute cap rather than one derived from the file's length, because deflate
-    ///         means there is no honest ratio to derive it from.</b> A kilobyte of IDAT legitimately
+    ///         ⚠
+    ///         <b>
+    ///             An absolute cap rather than one derived from the file's length, because deflate
+    ///             means there is no honest ratio to derive it from.
+    ///         </b>
+    ///         A kilobyte of IDAT legitimately
     ///         expands to a 4096² heightmap, so "proportionate to the input" is not a property a PNG
     ///         reader can have; what it can have is a refusal to believe a header. An IHDR is four
     ///         bytes of width and four of height and nothing checks them, so 65535×65535 is a
@@ -148,7 +152,7 @@ public static class TerrainHeightmapPng {
             throw new ArgumentException("The PNG has no IHDR chunk.", nameof(data));
         }
 
-        var stride = (width * BytesPerSample) + 1;
+        var stride = width * BytesPerSample + 1;
         var wanted = (long)stride * height;
 
         if (wanted > compressed.Length * (long)MaximumExpansion) {
@@ -216,7 +220,7 @@ public static class TerrainHeightmapPng {
             );
         }
 
-        var stride = (width * BytesPerSample) + 1;
+        var stride = width * BytesPerSample + 1;
         var raw = new byte[(long)stride * height];
 
         // ⚠ Filter 2 — "Up" — on every row, which is one subtraction per sample and is what makes a
@@ -230,8 +234,8 @@ public static class TerrainHeightmapPng {
             raw[row] = 2;
 
             for (var x = 0; x < width; x++) {
-                var value = samples[(y * width) + x];
-                var above = y > 0 ? samples[((y - 1) * width) + x] : (ushort)0;
+                var value = samples[y * width + x];
+                var above = y > 0 ? samples[(y - 1) * width + x] : (ushort)0;
 
                 // Big-endian, and the filter is applied per *byte* rather than per sample — which is
                 // what the specification says and is not the same arithmetic as filtering the
@@ -241,14 +245,14 @@ public static class TerrainHeightmapPng {
                 var aboveHigh = (byte)(above >> 8);
                 var aboveLow = (byte)above;
 
-                raw[row + 1 + (x * 2)] = (byte)(high - aboveHigh);
-                raw[row + 2 + (x * 2)] = (byte)(low - aboveLow);
+                raw[row + 1 + x * 2] = (byte)(high - aboveHigh);
+                raw[row + 2 + x * 2] = (byte)(low - aboveLow);
             }
         }
 
         var compressed = new MemoryStream();
 
-        using (var deflate = new ZLibStream(compressed, CompressionLevel.SmallestSize, leaveOpen: true)) {
+        using (var deflate = new ZLibStream(compressed, CompressionLevel.SmallestSize, true)) {
             deflate.Write(raw);
         }
 
@@ -261,11 +265,11 @@ public static class TerrainHeightmapPng {
         BinaryPrimitives.WriteUInt32BigEndian(header, (uint)width);
         BinaryPrimitives.WriteUInt32BigEndian(header[4..], (uint)height);
 
-        header[8] = 16;                       // bit depth
-        header[9] = 0;                        // colour type: greyscale
-        header[10] = 0;                       // compression: deflate
-        header[11] = 0;                       // filter: adaptive
-        header[12] = 0;                       // interlace: none
+        header[8] = 16; // bit depth
+        header[9] = 0; // colour type: greyscale
+        header[10] = 0; // compression: deflate
+        header[11] = 0; // filter: adaptive
+        header[12] = 0; // interlace: none
 
         Chunk(file, "IHDR"u8, header);
         Chunk(file, "IDAT"u8, compressed.ToArray());
@@ -357,14 +361,14 @@ public static class TerrainHeightmapPng {
                     0 => current[x],
                     1 => (byte)(current[x] + left),
                     2 => (byte)(current[x] + above),
-                    3 => (byte)(current[x] + ((left + above) / 2)),
+                    3 => (byte)(current[x] + (left + above) / 2),
                     4 => (byte)(current[x] + Paeth(left, above, corner)),
                     _ => throw new ArgumentException($"The PNG uses filter {filter}, which is not one of the five.")
                 };
             }
 
             for (var x = 0; x < width; x++) {
-                samples[(y * width) + x] = (ushort)((current[x * 2] << 8) | current[(x * 2) + 1]);
+                samples[y * width + x] = (ushort)((current[x * 2] << 8) | current[x * 2 + 1]);
             }
 
             (previous, current) = (current, previous);

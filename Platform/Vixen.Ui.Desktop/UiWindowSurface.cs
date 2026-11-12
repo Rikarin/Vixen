@@ -67,8 +67,12 @@ public sealed class UiWindowSurface : IDisposable {
 
     /// <summary>Whether this surface renders into a texture rather than to the window.</summary>
     /// <remarks>
-    ///     ⚠ <b>Internal, and set only by <c>UiApplication</c> for <c>--vixen-offscreen</c> and
-    ///     <c>--vixen-capture</c>.</b> The swapchain is built on <c>SurfaceHandle.None</c>, which a
+    ///     ⚠
+    ///     <b>
+    ///         Internal, and set only by <c>UiApplication</c> for <c>--vixen-offscreen</c> and
+    ///         <c>--vixen-capture</c>.
+    ///     </b>
+    ///     The swapchain is built on <c>SurfaceHandle.None</c>, which a
     ///     Vulkan device answers with a chain of one ordinary texture, at the window's framebuffer
     ///     size. Everything else about the frame is the windowed one.
     /// </remarks>
@@ -111,7 +115,7 @@ public sealed class UiWindowSurface : IDisposable {
     public Rectangle Extent => new(0f, 0f, Window.FramebufferSize.X / Scale, Window.FramebufferSize.Y / Scale);
 
     /// <summary>The extent in the whole pixels a projection and a scissor are computed from.</summary>
-    public Int2 Viewport => new((int) MathF.Round(Extent.Width), (int) MathF.Round(Extent.Height));
+    public Int2 Viewport => new((int)MathF.Round(Extent.Width), (int)MathF.Round(Extent.Height));
 
     /// <summary>Builds the swapchain and the renderer, once there is a surface to present to.</summary>
     /// <param name="device">The device.</param>
@@ -132,10 +136,10 @@ public sealed class UiWindowSurface : IDisposable {
             return false;
         }
 
-        built = new Int2(Window.FramebufferSize.X, Window.FramebufferSize.Y);
+        built = new(Window.FramebufferSize.X, Window.FramebufferSize.Y);
         SwapChain = device.CreateSwapChain(new(handle, built, PixelFormat.Bgra8UNormSrgb));
 
-        Renderer = new UiRenderer(device, shaders, new Vixen.Rendering.RenderOutput([SwapChain.Format]));
+        Renderer = new(device, shaders, new Vixen.Rendering.RenderOutput([SwapChain.Format]));
 
         // ⚠ Read back, not passed forward. The swapchain reports the gamut it *granted*, which is
         // not always the one it was asked for — a surface offering no wide colour space with enough
@@ -152,15 +156,23 @@ public sealed class UiWindowSurface : IDisposable {
     /// <param name="glyphs">The shared glyph atlas, which every window rasterises into.</param>
     /// <returns>Whether anything was rebuilt.</returns>
     /// <remarks>
-    ///     ⚠ <b>The key that decides is <see cref="UiGeometryBuilder.TryBuild" />'s and no longer
-    ///     this method's.</b> It used to be written out here — draw-list version, extent, atlas — and
+    ///     ⚠
+    ///     <b>
+    ///         The key that decides is <see cref="UiGeometryBuilder.TryBuild" />'s and no longer
+    ///         this method's.
+    ///     </b>
+    ///     It used to be written out here — draw-list version, extent, atlas — and
     ///     written out a second time, verbatim, in <c>EditorHost.Build</c>, which never called this
     ///     method at all. Two copies in the two hosts is exactly the arrangement where a fix reaches
     ///     one renderer and not the other, and it was also what made the saving unmeasurable: neither
     ///     copy can be reached from a test without a window, while the builder's can.
     ///     <para>
-    ///         ⚠ <b>This is also where the window's DPI scale reaches the two numbers that are spent
-    ///         <i>inside</i> the triangles</b>, and until #1329 nothing anywhere did it. The extent is
+    ///         ⚠
+    ///         <b>
+    ///             This is also where the window's DPI scale reaches the two numbers that are spent
+    ///             <i>inside</i> the triangles
+    ///         </b>
+    ///         , and until #1329 nothing anywhere did it. The extent is
     ///         in document pixels and does not move when a window is carried onto a 2× display, so the
     ///         flattening error and the antialiasing fringe — both authored in document pixels, both
     ///         magnified by the projection along with everything else — came out at twice their
@@ -243,7 +255,7 @@ public sealed class UiWindowSurface : IDisposable {
         var status = SwapChain.AcquireNextImage(out view);
 
         if (status is SwapChainStatus.OutOfDate) {
-            Recreate(device, force: true);
+            Recreate(device, true);
             status = SwapChain.AcquireNextImage(out view);
         }
 
@@ -256,16 +268,24 @@ public sealed class UiWindowSurface : IDisposable {
 
     /// <summary>Hands the geometry builder what the swapchain granted — its gamut and its white.</summary>
     /// <remarks>
-    ///     ⚠ <b>The white level is stated here rather than left at its default, and one is a
-    ///     statement.</b> A swapchain's white <i>is</i> the display's, so an authored 0–1 colour is
+    ///     ⚠
+    ///     <b>
+    ///         The white level is stated here rather than left at its default, and one is a
+    ///         statement.
+    ///     </b>
+    ///     A swapchain's white <i>is</i> the display's, so an authored 0–1 colour is
     ///     already in the units this surface wants; a float target is scene-referred and in cd/m²,
     ///     where that same white is about one candela — black beside anything the renderer lit, and
     ///     pixel-identical to a pass that never ran. See <c>UiGeometryBuilder.WhiteLevel</c> and
     ///     #670. Both callers renegotiate the surface format, which is why this is one method: a
     ///     resize onto another display can move the gamut, and it can move the format with it.
     ///     <para>
-    ///         ⚠ <b>The test and the number are <c>UiRenderer.WhiteLevelFor</c>'s and not this
-    ///         host's.</b> They were written out here, which made the desktop path the only one that
+    ///         ⚠
+    ///         <b>
+    ///             The test and the number are <c>UiRenderer.WhiteLevelFor</c>'s and not this
+    ///             host's.
+    ///         </b>
+    ///         They were written out here, which made the desktop path the only one that
     ///         knew them — a game mounting a HUD through <c>UiRenderFeature</c> had to reinvent both
     ///         and would fail silently at it. One derivation, two hosts.
     ///     </para>

@@ -3,8 +3,6 @@
 
 using System.Runtime.CompilerServices;
 using Vixen.Build;
-using Vixen.Texturing.Layers;
-using Vixen.Texturing.Painting;
 using Xunit;
 
 namespace Vixen.Editor.Texturing.Tests;
@@ -51,8 +49,7 @@ public class ApplicationReferenceRuleTests {
     static string Here([CallerFilePath] string path = "") => path;
 
     /// <summary>The repository tree this assembly was compiled from.</summary>
-    static string Repository() =>
-        Path.GetFullPath(Path.Combine(Path.GetDirectoryName(Here())!, "..", ".."));
+    static string Repository() => Path.GetFullPath(Path.Combine(Path.GetDirectoryName(Here())!, "..", ".."));
 
     /// <summary>The project files the gate reads, read by calling what the gate calls.</summary>
     static List<string> Projects() => PluginReferenceRule.ProjectFiles(Repository());
@@ -79,7 +76,7 @@ public class ApplicationReferenceRuleTests {
 
         var referenced = ApplicationReferenceRule.EditorReferences(
             root,
-            projects.Single(path =>
+            projects.Single(static path =>
                 Path.GetFileNameWithoutExtension(path) == ApplicationReferenceRule.Application
             )
         );
@@ -96,7 +93,7 @@ public class ApplicationReferenceRuleTests {
         // the assertions above read the tree with. A walk that could not see a feature reference
         // would make the tree's empty violation list mean nothing.
         using (var fixture = new Fixture()) {
-            fixture.Application([.. ApplicationReferenceRule.Allowed, "Vixen.Editor.AssetEditors"]);
+            fixture.Application([..ApplicationReferenceRule.Allowed, "Vixen.Editor.AssetEditors"]);
 
             Assert.Contains(
                 "Vixen.Editor.AssetEditors",
@@ -122,10 +119,12 @@ public class ApplicationReferenceRuleTests {
         using var fixture = new Fixture();
 
         // Everything the application is entitled to today, plus one that moved out and came back.
-        fixture.Application([
-            .. ApplicationReferenceRule.Allowed,
-            "Vixen.Editor.Blockout"
-        ]);
+        fixture.Application(
+            [
+                ..ApplicationReferenceRule.Allowed,
+                "Vixen.Editor.Blockout"
+            ]
+        );
 
         var violation = Assert.Single(ApplicationReferenceRule.Violations(fixture.Root, fixture.Projects));
 
@@ -137,7 +136,7 @@ public class ApplicationReferenceRuleTests {
     public void An_analyzer_reference_under_Editor_is_not_counted() {
         using var fixture = new Fixture();
 
-        fixture.Application([.. ApplicationReferenceRule.Allowed]);
+        fixture.Application([..ApplicationReferenceRule.Allowed]);
         fixture.AddAnalyzer("Vixen.Editor.Inspector.Generator");
 
         Assert.DoesNotContain(
@@ -173,13 +172,16 @@ public class ApplicationReferenceRuleTests {
 
             Directory.CreateDirectory(directory);
 
-            var lines = references.Select(reference =>
+            var lines = references.Select(static reference =>
                 $"""    <ProjectReference Include="..\{reference}\{reference}.csproj" />"""
             );
 
             var path = Path.Combine(directory, ApplicationReferenceRule.Application + ".csproj");
 
-            File.WriteAllText(path, $"<Project>\n  <ItemGroup>\n{string.Join("\n", lines)}\n  </ItemGroup>\n</Project>\n");
+            File.WriteAllText(
+                path,
+                $"<Project>\n  <ItemGroup>\n{string.Join("\n", lines)}\n  </ItemGroup>\n</Project>\n"
+            );
             projects.Add(path);
         }
 
@@ -200,7 +202,7 @@ public class ApplicationReferenceRuleTests {
 
         public void Dispose() {
             if (Directory.Exists(Root)) {
-                Directory.Delete(Root, recursive: true);
+                Directory.Delete(Root, true);
             }
         }
     }

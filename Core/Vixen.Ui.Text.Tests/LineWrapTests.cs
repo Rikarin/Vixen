@@ -152,15 +152,15 @@ public class LineWrapTests {
         var generator =
             from text in Gen.String[Gen.Char["abcde \n-"], 0, 60]
             from width in Gen.Float[0f, 4000f]
-                // ⚠ All three, and `BreakWord` is the one that has to be here rather than the one that
-                // was added for symmetry: it and `Anywhere` differ only in a room of nothing, and
-                // `width` here starts at exactly nothing. A generator over two of the three would sample
-                // that width for the mode whose behaviour at it is unchanged.
+            // ⚠ All three, and `BreakWord` is the one that has to be here rather than the one that
+            // was added for symmetry: it and `Anywhere` differ only in a room of nothing, and
+            // `width` here starts at exactly nothing. A generator over two of the three would sample
+            // that width for the mode whose behaviour at it is unchanged.
             from mode in Gen.OneOf(TextWrapMode.Word, TextWrapMode.Anywhere, TextWrapMode.BreakWord)
             select (text, width, mode);
 
         generator.Sample(
-            input => {
+            static input => {
                 var lines = LineWrapper.Lines(Shape(input.text), input.width, input.mode);
                 var next = 0;
 
@@ -205,15 +205,23 @@ public class LineWrapTests {
         var lines = LineWrapper.Lines(Shape("a b c"), 0f);
 
         Assert.Equal(3, lines.Count);
-        Assert.Equal(["a ", "b ", "c"], lines.Select(line => "a b c"[line.Start..line.End]));
+        Assert.Equal(["a ", "b ", "c"], lines.Select(static line => "a b c"[line.Start..line.End]));
     }
 
     /// <summary>Four two-letter words, one advance per character.</summary>
     /// <remarks>
-    ///     ⚠ <b>A stub advance array here, where the rest of this file insists on a real font, and
-    ///     the difference is what the question is.</b> Every other test asks how wide something is,
-    ///     which a stub would answer by agreeing with whatever the code did. These ask <i>which of
-    ///     the legal breaks is taken</i> — a choice among opportunities the breaker found — so a
+    ///     ⚠
+    ///     <b>
+    ///         A stub advance array here, where the rest of this file insists on a real font, and
+    ///         the difference is what the question is.
+    ///     </b>
+    ///     Every other test asks how wide something is,
+    ///     which a stub would answer by agreeing with whatever the code did. These ask
+    ///     <i>
+    ///         which of
+    ///         the legal breaks is taken
+    ///     </i>
+    ///     — a choice among opportunities the breaker found — so a
     ///     uniform advance is not a weaker instrument, it is the one that makes the right answer
     ///     computable by hand: "aa bb cc dd" in a room of 8 holds three words and orphans the fourth.
     /// </remarks>
@@ -223,8 +231,12 @@ public class LineWrapTests {
     /// <remarks>
     ///     Greedy first-fit fills line one to 8 and leaves 2 on line two. Balanced, the same two lines
     ///     are 5 and 5 — the narrowest width that still wraps to two lines, which is what CSS Text 4's
-    ///     <c>balance</c> asks for. ⚠ <b>Both halves are asserted because either alone is passed by
-    ///     something wrong</b>: a wrapper that just narrowed the box would balance a two-line heading
+    ///     <c>balance</c> asks for. ⚠
+    ///     <b>
+    ///         Both halves are asserted because either alone is passed by
+    ///         something wrong
+    ///     </b>
+    ///     : a wrapper that just narrowed the box would balance a two-line heading
     ///     into three even lines, and one that only kept the count is what the default already does.
     /// </remarks>
     [Fact]
@@ -282,8 +294,12 @@ public class LineWrapTests {
     ///         hanging out of its box. The greedy answer stands instead, orphan and all.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>This fixture was written first against <see cref="Monospaced" /> in a room of 4,
-    ///         where it passed and proved nothing.</b> That paragraph wraps to four lines of one word
+    ///         ⚠
+    ///         <b>
+    ///             This fixture was written first against <see cref="Monospaced" /> in a room of 4,
+    ///             where it passed and proved nothing.
+    ///         </b>
+    ///         That paragraph wraps to four lines of one word
     ///         each, so the line above the orphan has no earlier break to end at and the refusal
     ///         under test was never reached — widening the overflow test to a hundred times the room
     ///         left it green. The case below has both: a cut is available <i>and</i> taking it
@@ -362,7 +378,7 @@ public class LineWrapTests {
         return lines;
     }
 
-    static float Widest(List<WrappedLine> lines) => lines.Max(line => line.Advance);
+    static float Widest(List<WrappedLine> lines) => lines.Max(static line => line.Advance);
 
     static ShapedText Shape(string text) => TextShaper.Shape(TestFonts.Load(TestFonts.ContextualLatin), text);
 }

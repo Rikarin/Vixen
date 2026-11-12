@@ -7,7 +7,10 @@ using static Tests.TextureNodeBench;
 
 namespace Tests;
 
-/// <summary>Patina #170's per-instance outputs, a Tile Sampler's row offset and a Splatter's ring, through the nodes on a device.</summary>
+/// <summary>
+///     Patina #170's per-instance outputs, a Tile Sampler's row offset and a Splatter's ring, through the nodes on a
+///     device.
+/// </summary>
 /// <remarks>
 ///     A white pattern covers its whole square, so every texel an instance covers carries exactly that
 ///     instance's number, and every number is placed by arithmetic: a 4×4 grid on 64 texels has cells of 16
@@ -20,7 +23,7 @@ public class TexturePlacementOutputDeviceTests(ITestOutputHelper output) {
 
     static readonly byte[] White = Solid(Side, Side, 1f, 1f, 1f);
 
-    static TextureNodeBench.Lanes Sampler(Vixen.Graphics.Vulkan.VulkanDevice device, string draws, float rowOffset = 0f) =>
+    static Lanes Sampler(Vixen.Graphics.Vulkan.VulkanDevice device, string draws, float rowOffset = 0f) =>
         Bake(
             device,
             "Placement/Tile Sampler",
@@ -49,14 +52,14 @@ public class TexturePlacementOutputDeviceTests(ITestOutputHelper output) {
 
         for (var j = 0; j < 4; j++) {
             for (var i = 0; i < 4; i++) {
-                var (cx, cy) = ((i * Cell) + 8, (j * Cell) + 8);
+                var (cx, cy) = (i * Cell + 8, j * Cell + 8);
                 var value = random.At(cx, cy, 0);
 
                 // One number over the instance's eight texels, nought in the gap round it.
                 for (var y = cy - 3; y < cy + 3; y++) {
                     for (var x = cx - 3; x < cx + 3; x++) {
                         Assert.Equal(value, random.At(x, y, 0), 0.0001f);
-                        Assert.Equal(((i + (j * 4)) + 0.5f) / 16f, index.At(x, y, 0), 0.0001f);
+                        Assert.Equal((i + j * 4 + 0.5f) / 16f, index.At(x, y, 0), 0.0001f);
                     }
                 }
 
@@ -83,8 +86,8 @@ public class TexturePlacementOutputDeviceTests(ITestOutputHelper output) {
         // Cell (1, 2): its instance spans x 20..28 and y 36..44, so texel x reads ((x + ½) − 20) / 8.
         for (var y = 37; y < 43; y++) {
             for (var x = 21; x < 27; x++) {
-                Assert.Equal(((x + 0.5f) - 20f) / 8f, uv.At(x, y, 0), 0.002f);
-                Assert.Equal(((y + 0.5f) - 36f) / 8f, uv.At(x, y, 1), 0.002f);
+                Assert.Equal((x + 0.5f - 20f) / 8f, uv.At(x, y, 0), 0.002f);
+                Assert.Equal((y + 0.5f - 36f) / 8f, uv.At(x, y, 1), 0.002f);
             }
         }
     }
@@ -111,11 +114,12 @@ public class TexturePlacementOutputDeviceTests(ITestOutputHelper output) {
     public void A_ring_puts_its_instances_evenly_round_a_circle() {
         using var device = TextureKernelHarness.Open();
 
-        var ring = Ring(device, follow: false);
+        var ring = Ring(device, false);
 
         for (var at = 0; at < 8; at++) {
             var angle = at * MathF.Tau / 8f;
-            var (x, y) = ((int)MathF.Floor(Side * (0.5f + (0.3f * MathF.Cos(angle)))), (int)MathF.Floor(Side * (0.5f + (0.3f * MathF.Sin(angle)))));
+            var (x, y) = ((int)MathF.Floor(Side * (0.5f + 0.3f * MathF.Cos(angle))),
+                (int)MathF.Floor(Side * (0.5f + 0.3f * MathF.Sin(angle))));
 
             Assert.Equal((at + 0.5f) / 8f, ring.At(x, y, 0), 0.0001f);
         }
@@ -128,10 +132,10 @@ public class TexturePlacementOutputDeviceTests(ITestOutputHelper output) {
         using var device = TextureKernelHarness.Open();
 
         // White on the left half of the pattern, black on the right.
-        var half = Picture(Side, Side, (x, _) => x < Side / 2 ? (1f, 1f, 1f, 1f) : (0f, 0f, 0f, 1f));
+        var half = Picture(Side, Side, static (x, _) => x < Side / 2 ? (1f, 1f, 1f, 1f) : (0f, 0f, 0f, 1f));
 
-        var still = Ring(device, follow: false, pattern: half, draws: "Pattern");
-        var turned = Ring(device, follow: true, pattern: half, draws: "Pattern");
+        var still = Ring(device, false, half, "Pattern");
+        var turned = Ring(device, true, half, "Pattern");
 
         // Instance 0 is at angle nought, right of the centre, and turns by nothing either way.
         Assert.Equal(1f, still.At(49, 32, 0));
@@ -206,21 +210,45 @@ public class TexturePlacementOutputDeviceTests(ITestOutputHelper output) {
             }
         }
 
-        Assert.True(highest > 1f - (8f / count), $"the highest instance number drawn is {highest * count - 0.5f} of {count}");
+        Assert.True(
+            highest > 1f - 8f / count,
+            $"the highest instance number drawn is {highest * count - 0.5f} of {count}"
+        );
     }
 
     [Fact]
     public void A_splatter_past_its_ceiling_is_refused_and_not_cut_short() {
-        var failure = Assert.Throws<ArgumentException>(
-            () => TexturePlacement.SplatterChain(0, [], TexturePlacement.Splatter(0, 1), TexturePlacement.MaxBatchedInstances + 1)
+        var failure = Assert.Throws<ArgumentException>(static () => TexturePlacement.SplatterChain(
+                0,
+                [],
+                TexturePlacement.Splatter(0, 1),
+                TexturePlacement.MaxBatchedInstances + 1
+            )
         );
 
-        Assert.Contains(TexturePlacement.MaxBatchedInstances.ToString(System.Globalization.CultureInfo.InvariantCulture), failure.Message, StringComparison.Ordinal);
-        Assert.Equal(16, TexturePlacement.SplatterChain(0, [.. Enumerable.Range(2, 15)], TexturePlacement.Splatter(0, 1), TexturePlacement.MaxBatchedInstances).Length);
+        Assert.Contains(
+            TexturePlacement.MaxBatchedInstances.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            failure.Message,
+            StringComparison.Ordinal
+        );
+        Assert.Equal(
+            16,
+            TexturePlacement.SplatterChain(
+                    0,
+                    [..Enumerable.Range(2, 15)],
+                    TexturePlacement.Splatter(0, 1),
+                    TexturePlacement.MaxBatchedInstances
+                )
+                .Length
+        );
     }
 
     /// <summary>A 4×4 grid at a scale of a half with maps wired, each instance eight texels about its cell's centre.</summary>
-    static TextureNodeBench.Lanes Mapped(Vixen.Graphics.Vulkan.VulkanDevice device, Wire[] wires, Action<Vixen.NodeGraph.GraphNode>? more = null) =>
+    static Lanes Mapped(
+        Vixen.Graphics.Vulkan.VulkanDevice device,
+        Wire[] wires,
+        Action<Vixen.NodeGraph.GraphNode>? more = null
+    ) =>
         Bake(
             device,
             "Placement/Tile Sampler",
@@ -254,13 +282,16 @@ public class TexturePlacementOutputDeviceTests(ITestOutputHelper output) {
             new("Pattern 3", Solid(Side, Side, 0.8f, 0.8f, 0.8f))
         ];
 
-        var chosen = Mapped(device, [.. patterns, new("Index Map", Grey(Side, Side, (x, _) => x < Side / 2 ? 0.34f : 0.84f), Grey: true)]);
+        var chosen = Mapped(
+            device,
+            [..patterns, new("Index Map", Grey(Side, Side, static (x, _) => x < Side / 2 ? 0.34f : 0.84f), true)]
+        );
         var seeded = Mapped(device, patterns);
         HashSet<float> greys = [];
 
         for (var j = 0; j < 4; j++) {
             for (var i = 0; i < 4; i++) {
-                var (cx, cy) = ((i * Cell) + 8, (j * Cell) + 8);
+                var (cx, cy) = (i * Cell + 8, j * Cell + 8);
 
                 Assert.Equal(i < 2 ? 0.5f : 0.8f, chosen.At(cx, cy, 0), 0.002f);
 
@@ -279,19 +310,23 @@ public class TexturePlacementOutputDeviceTests(ITestOutputHelper output) {
     public void A_colour_map_tints_each_instance_by_its_centre() {
         using var device = TextureKernelHarness.Open();
 
-        var tints = Picture(Side, Side, (x, y) => (x < Side / 2 ? 1f : 0f, y < Side / 2 ? 1f : 0f, 0.5f, 1f));
+        var tints = Picture(Side, Side, static (x, y) => (x < Side / 2 ? 1f : 0f, y < Side / 2 ? 1f : 0f, 0.5f, 1f));
         var tinted = Mapped(device, [new("Pattern", White), new("Colour Map", tints)]);
-        var half = Mapped(device, [new("Pattern", White), new("Colour Map", tints)], node => node.SetValue("Colour Amount", 0.5f));
+        var half = Mapped(
+            device,
+            [new("Pattern", White), new("Colour Map", tints)],
+            static node => node.SetValue("Colour Amount", 0.5f)
+        );
 
         for (var j = 0; j < 4; j++) {
             for (var i = 0; i < 4; i++) {
-                var (cx, cy) = ((i * Cell) + 8, (j * Cell) + 8);
+                var (cx, cy) = (i * Cell + 8, j * Cell + 8);
                 var (red, green) = (i < 2 ? 1f : 0f, j < 2 ? 1f : 0f);
 
                 Assert.Equal(red, tinted.At(cx, cy, 0), 0.002f);
                 Assert.Equal(green, tinted.At(cx, cy, 1), 0.002f);
                 Assert.Equal(0.5f, tinted.At(cx, cy, 2), 0.002f);
-                Assert.Equal(0.5f + (red * 0.5f), half.At(cx, cy, 0), 0.002f);
+                Assert.Equal(0.5f + red * 0.5f, half.At(cx, cy, 0), 0.002f);
             }
         }
     }
@@ -308,11 +343,15 @@ public class TexturePlacementOutputDeviceTests(ITestOutputHelper output) {
 
         var push = Solid(Side, Side, 0.75f, 0.5f, 0.5f);
         var still = Mapped(device, [new("Pattern", White)]);
-        var moved = Mapped(device, [new("Pattern", White), new("Displacement Map", push)], node => node.SetValue("Displacement Amount", 0.5f));
+        var moved = Mapped(
+            device,
+            [new("Pattern", White), new("Displacement Map", push)],
+            static node => node.SetValue("Displacement Amount", 0.5f)
+        );
 
         for (var j = 0; j < 4; j++) {
             for (var i = 0; i < 4; i++) {
-                var (cx, cy) = ((i * Cell) + 8, (j * Cell) + 8);
+                var (cx, cy) = (i * Cell + 8, j * Cell + 8);
 
                 // Unmoved, the instance spans cx − 4 … cx + 3. Moved four right, cx … cx + 7.
                 Assert.Equal(1f, still.At(cx - 3, cy, 0), 0.002f);
@@ -329,7 +368,7 @@ public class TexturePlacementOutputDeviceTests(ITestOutputHelper output) {
         using var device = TextureKernelHarness.Open();
 
         // A bar across the middle of the pattern, the full width and a quarter of the height.
-        var bar = Grey(Side, Side, (_, y) => y is >= 24 and < 40 ? 1f : 0f);
+        var bar = Grey(Side, Side, static (_, y) => y is >= 24 and < 40 ? 1f : 0f);
         var down = Solid(Side, Side, 0.5f, 1f, 0.5f);
         var flat = Mapped(device, [new("Pattern", bar)]);
         var turned = Mapped(device, [new("Pattern", bar), new("Vector Map", down)]);
@@ -344,7 +383,12 @@ public class TexturePlacementOutputDeviceTests(ITestOutputHelper output) {
         Assert.Equal(1f, turned.At(cx, cy - 3, 0), 0.002f);
     }
 
-    static TextureNodeBench.Lanes Ring(Vixen.Graphics.Vulkan.VulkanDevice device, bool follow, byte[]? pattern = null, string draws = "Index") =>
+    static Lanes Ring(
+        Vixen.Graphics.Vulkan.VulkanDevice device,
+        bool follow,
+        byte[]? pattern = null,
+        string draws = "Index"
+    ) =>
         Bake(
             device,
             "Placement/Splatter",

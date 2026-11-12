@@ -12,8 +12,12 @@ namespace Vixen.Ui.Controls.Tests;
 public class TextFieldTests {
     /// <summary>The field keeps the affinity it was moved with, rather than deriving one.</summary>
     /// <remarks>
-    ///     ⚠ <b>Added because nothing asserted the storage, which is the whole argument for the
-    ///     field carrying a bit at all.</b> Forcing <see cref="TextField.MoveCaret(int, CaretAffinity, bool)" />
+    ///     ⚠
+    ///     <b>
+    ///         Added because nothing asserted the storage, which is the whole argument for the
+    ///         field carrying a bit at all.
+    ///     </b>
+    ///     Forcing <see cref="TextField.MoveCaret(int, CaretAffinity, bool)" />
     ///     to write <see cref="CaretAffinity.Upstream" /> regardless of its argument left every one
     ///     of the 971 tests in <c>Vixen.Ui.Tests</c> green: those exercise the layout — <c>LineOf</c>,
     ///     <c>CaretAt</c>, <c>CaretOffset</c> — which take the affinity as a parameter and so cannot
@@ -258,8 +262,8 @@ public class TextFieldTests {
         search.Placeholder = "Search assets";
         fixture.Update();
 
-        var placeholder = Descendants(search).First(child => child.Tag == "field-placeholder");
-        var text = Descendants(search).First(child => child.Tag == "field-text");
+        var placeholder = Descendants(search).First(static child => child.Tag == "field-placeholder");
+        var text = Descendants(search).First(static child => child.Tag == "field-text");
 
         Assert.True(placeholder.Width > 0f, "the placeholder is not being drawn, so this proves nothing.");
 
@@ -338,8 +342,12 @@ public class TextFieldTests {
 
     /// <summary>A field whose number is its default shows that number, not an empty box.</summary>
     /// <remarks>
-    ///     ⚠ <b>The text used to be written only when <see cref="NumericInput.Number" /> or
-    ///     <see cref="NumericInput.Decimals" /> changed</b>, and both default to nought — so a field
+    ///     ⚠
+    ///     <b>
+    ///         The text used to be written only when <see cref="NumericInput.Number" /> or
+    ///         <see cref="NumericInput.Decimals" /> changed
+    ///     </b>
+    ///     , and both default to nought — so a field
     ///     showing whole numbers and handed a zero was two no-op assignments and an empty box. The
     ///     inspector draws every integer member that way, and a texture's Max Size, whose zero means
     ///     "no limit", opened blank on every texture (#1415). A float field escaped only because
@@ -383,8 +391,12 @@ public class TextFieldTests {
 
     /// <summary>An assigned number is held whatever the bounds say, and the arrows are what clamp.</summary>
     /// <remarks>
-    ///     ⚠ <b>This test used to assert the opposite, and its premise is what expired rather than
-    ///     its intent.</b> It was written when the bounds lived in <c>CoerceNumber</c>, which made
+    ///     ⚠
+    ///     <b>
+    ///         This test used to assert the opposite, and its premise is what expired rather than
+    ///         its intent.
+    ///     </b>
+    ///     It was written when the bounds lived in <c>CoerceNumber</c>, which made
     ///     "the number is inside the range" true of every mutation — and therefore made
     ///     <c>:out-of-range</c> a condition the control could not be in, for any length of time, by
     ///     any route. The bounds moved to the verdict for that reason
@@ -452,10 +464,11 @@ public class TextFieldTests {
 
         var escaped = 0;
         fixture.Document.Root.AddHandler<KeyEvent>((_, args) => {
-            if (args is { Action: KeyAction.Pressed, Key: InputKey.Up, Handled: false }) {
-                escaped++;
+                if (args is { Action: KeyAction.Pressed, Key: InputKey.Up, Handled: false }) {
+                    escaped++;
+                }
             }
-        });
+        );
 
         fixture.Document.Focus(field);
 
@@ -519,7 +532,7 @@ public class TextFieldTests {
         fixture.Update();
 
         var bounds = field.Bounds;
-        var y = bounds.Y + (bounds.Height * 0.5f);
+        var y = bounds.Y + bounds.Height * 0.5f;
 
         fixture.Press(bounds.X + 5f, y);
         fixture.MovePointer(bounds.X + 15f, y);
@@ -557,7 +570,7 @@ public class TextFieldTests {
         // ever grew rightwards.
         var part = field.Children.Single(child => child.Text == field.Value);
         var bounds = part.Bounds;
-        var y = bounds.Y + (bounds.Height * 0.5f);
+        var y = bounds.Y + bounds.Height * 0.5f;
         var x = bounds.X + part.Block()!.Lines[0].CaretOffset(8);
 
         fixture.Click(x, y);
@@ -630,7 +643,7 @@ public class TextFieldTests {
         Assert.True(field.IsFocused);
 
         var bar = view.VerticalBar.Bounds;
-        var x = bar.X + (bar.Width * 0.5f);
+        var x = bar.X + bar.Width * 0.5f;
 
         fixture.Press(x, bar.Y + 10f);
         fixture.MovePointer(x, bar.Y + 60f);
@@ -651,7 +664,7 @@ public class TextFieldTests {
         fixture.Update();
 
         var bounds = field.Bounds;
-        var y = bounds.Y + (bounds.Height * 0.5f);
+        var y = bounds.Y + bounds.Height * 0.5f;
 
         fixture.Press(bounds.X + 5f, y);
         fixture.MovePointer(bounds.X + bounds.Width + 200f, y);
@@ -684,8 +697,12 @@ public class TextFieldTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>A caret is a promise that the next keystroke lands here, and on a read-only field
-    ///     that promise is false.</b> An inspector row over a member with no setter blinked exactly
+    ///     ⚠
+    ///     <b>
+    ///         A caret is a promise that the next keystroke lands here, and on a read-only field
+    ///         that promise is false.
+    ///     </b>
+    ///     An inspector row over a member with no setter blinked exactly
     ///     like one you could edit, and the only way to find out was to type into it and watch
     ///     nothing happen.
     /// </summary>
@@ -750,20 +767,23 @@ public class TextFieldTests {
     ///     would make this test fail for the one reason it is not about.
     /// </remarks>
     static int Painted(ControlFixture fixture) =>
-        fixture.Document.Drawing.Commands.Count(
-            command => command.Kind
-                is not (DrawCommandKind.LayerPush
-                or DrawCommandKind.LayerPop
-                or DrawCommandKind.ClipPush
-                or DrawCommandKind.ClipPop)
+        fixture.Document.Drawing.Commands.Count(static command => command.Kind
+            is not (DrawCommandKind.LayerPush
+            or DrawCommandKind.LayerPop
+            or DrawCommandKind.ClipPush
+            or DrawCommandKind.ClipPop)
         );
 
     // ── The input method ────────────────────────────────────────────────────────────────────────
 
     /// <summary>A pre-edit is shown at the caret and is not in the value.</summary>
     /// <remarks>
-    ///     ⚠ <b>Both halves, because either alone passes a field broken in the opposite
-    ///     direction.</b> One that puts the pre-edit in <c>Value</c> displays it correctly and raises
+    ///     ⚠
+    ///     <b>
+    ///         Both halves, because either alone passes a field broken in the opposite
+    ///         direction.
+    ///     </b>
+    ///     One that puts the pre-edit in <c>Value</c> displays it correctly and raises
     ///     a change per keystroke of the composition — and hands every intermediate reading to
     ///     <c>Coerce</c>, which is how a numeric field becomes untypable in Japanese. One that
     ///     ignores the event keeps <c>Value</c> right and shows nothing at all while somebody types.
@@ -864,7 +884,7 @@ public class TextFieldTests {
         var field = fixture.Add<TextBox>();
         field.Value = "abcd";
         field.MoveCaret(1);
-        field.MoveCaret(3, extend: true);
+        field.MoveCaret(3, true);
         fixture.Document.Focus(field);
 
         fixture.Compose("に");
@@ -916,7 +936,7 @@ public class TextFieldTests {
 
     /// <summary>What the field is showing, which is not the same string as its value.</summary>
     static string? Displayed(TextField field) =>
-        Descendants(field).First(child => child.Tag == "field-text").Text;
+        Descendants(field).First(static child => child.Tag == "field-text").Text;
 
     // ================================================================== Format and culture
 
@@ -962,8 +982,12 @@ public class TextFieldTests {
 
     /// <summary>A grouped format in a comma-decimal locale, both directions.</summary>
     /// <remarks>
-    ///     ⚠ <b>Both halves in one test on purpose, because either alone is green against a field
-    ///     that only formats.</b> Printing in a locale and parsing back under the invariant rules is
+    ///     ⚠
+    ///     <b>
+    ///         Both halves in one test on purpose, because either alone is green against a field
+    ///         that only formats.
+    ///     </b>
+    ///     Printing in a locale and parsing back under the invariant rules is
     ///     the arrangement that reads correct and eats the user's text: <c>Reread</c> is silent on
     ///     text it cannot parse, so the number simply stops following the field — and a test that
     ///     only set <c>Number</c> and looked at <c>Value</c> would never notice.

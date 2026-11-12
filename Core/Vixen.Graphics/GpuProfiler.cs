@@ -105,15 +105,20 @@ public sealed record GpuFrame(int FrameIndex, IReadOnlyList<GpuScope> Scopes, fl
         var first = BeginTicks;
         var last = LastTicks;
 
-        return last <= first || ticks <= first ? 0f : (float)Math.Clamp((ticks - first) / (double)(last - first), 0d, 1d);
+        return last <= first || ticks <= first
+            ? 0f
+            : (float)Math.Clamp((ticks - first) / (double)(last - first), 0d, 1d);
     }
 }
 
 /// <summary>Something that turns a named region of a command list into a timed scope.</summary>
 /// <remarks>
 ///     <para>
-///         <b>The seam that lets the render graph time its passes without knowing what a profiler
-///         is.</b> A graph holds one of these or holds nothing; when it holds nothing the emission is
+///         <b>
+///             The seam that lets the render graph time its passes without knowing what a profiler
+///             is.
+///         </b>
+///         A graph holds one of these or holds nothing; when it holds nothing the emission is
 ///         a null check per pass and no GPU work at all, which is the only way a per-pass timestamp
 ///         pair can be the default-off feature it has to be.
 ///     </para>
@@ -155,15 +160,22 @@ public interface IGpuScopeSink {
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>Doc 20 says the GPU profiler is the one item in E4 that "cannot start with the
-///         panel", and this is what it was waiting for.</b> The RHI now has a query pool, a
+///         <b>
+///             Doc 20 says the GPU profiler is the one item in E4 that "cannot start with the
+///             panel", and this is what it was waiting for.
+///         </b>
+///         The RHI now has a query pool, a
 ///         <c>WriteTimestamp</c> and a resolve path; what this class owns is the part above them —
 ///         which pool a frame writes into, when it is safe to read one back, and how a pair of
 ///         readings becomes a named region.
 ///     </para>
 ///     <para>
-///         ⚠ <b>It lives beside the RHI and not in the editor, because the thing being measured is a
-///         game's frame.</b> A profiler a game cannot reference is a profiler that can only ever
+///         ⚠
+///         <b>
+///             It lives beside the RHI and not in the editor, because the thing being measured is a
+///             game's frame.
+///         </b>
+///         A profiler a game cannot reference is a profiler that can only ever
 ///         report on the editor, and the editor's frame is not the frame anybody ships. The panels
 ///         that draw a <see cref="GpuFrame" /> stay in <c>Vixen.Editor.Profiler</c>; what moved down
 ///         here is only the instrument.
@@ -259,9 +271,7 @@ public sealed class GpuProfiler : IGpuScopeSink, IDisposable {
         readings = new ulong[scopeCapacity * 2];
 
         for (var index = 0; index < depth; index++) {
-            pools[index] = device.CreateQueryPool(
-                new(QueryKind.Timestamp, scopeCapacity * 2, $"gpu profiler {index}")
-            );
+            pools[index] = device.CreateQueryPool(new(QueryKind.Timestamp, scopeCapacity * 2, $"gpu profiler {index}"));
 
             pending[index] = [];
             frames[index] = -1;
@@ -381,7 +391,7 @@ public sealed class GpuProfiler : IGpuScopeSink, IDisposable {
             scopes[index] = scopes[index] with { Closed = true };
         }
 
-        commands.WriteTimestamp(pools[slot], (index * 2) + 1);
+        commands.WriteTimestamp(pools[slot], index * 2 + 1);
     }
 
     /// <summary>Reads back whatever the GPU has finished, without waiting for it.</summary>
@@ -413,7 +423,7 @@ public sealed class GpuProfiler : IGpuScopeSink, IDisposable {
                 scopes[index].Name,
                 scopes[index].Level,
                 readings[index * 2],
-                readings[(index * 2) + 1],
+                readings[index * 2 + 1],
                 scopes[index].Closed
             );
         }

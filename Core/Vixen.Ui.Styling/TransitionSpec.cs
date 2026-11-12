@@ -11,18 +11,30 @@ namespace Vixen.Ui.Styling;
 /// <param name="Delay">How long to wait first, in seconds.</param>
 /// <param name="Timing">The easing.</param>
 /// <param name="AllowDiscrete">
-///     Whether a property with no midpoint may transition at all — <c>transition-behavior:
-///     allow-discrete</c>. False is CSS's initial value and, since this parameter landed, this
+///     Whether a property with no midpoint may transition at all —
+///     <c>
+///         transition-behavior:
+///         allow-discrete
+///     </c>
+///     . False is CSS's initial value and, since this parameter landed, this
 ///     engine's.
 /// </param>
 /// <remarks>
-///     ⚠ <b>The default was the opposite of CSS's until <paramref name="AllowDiscrete" /> existed,
-///     and nothing said so.</b> <c>Animator.Observe</c> started a transition for any pair of unequal
+///     ⚠
+///     <b>
+///         The default was the opposite of CSS's until <paramref name="AllowDiscrete" /> existed,
+///         and nothing said so.
+///     </b>
+///     <c>Animator.Observe</c> started a transition for any pair of unequal
 ///     known values and never asked <see cref="StyleValue.CanInterpolate" />, so
 ///     <c>transition: all 1s</c> over <c>display: none</c> → <c>display: flex</c> ran for a second
 ///     and flipped at the halfway mark, where a browser shows <c>flex</c> on the first frame.
-///     Transitions 2 § 3 makes <c>normal</c> the initial value and <c>normal</c> means <i>not
-///     transitionable</i> rather than "transitions instantly".
+///     Transitions 2 § 3 makes <c>normal</c> the initial value and <c>normal</c> means
+///     <i>
+///         not
+///         transitionable
+///     </i>
+///     rather than "transitions instantly".
 /// </remarks>
 public readonly record struct TransitionSpec(
     int Property,
@@ -35,8 +47,12 @@ public readonly record struct TransitionSpec(
 /// <summary>Reads <c>transition</c>, <c>animation</c> and the timing-function grammar.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Vixen has to parse the <c>transition</c> shorthand itself, and cannot rely on the
-///         longhands.</b> ExCSS expands the shorthand only when it recognises every part — so
+///         ⚠
+///         <b>
+///             Vixen has to parse the <c>transition</c> shorthand itself, and cannot rely on the
+///             longhands.
+///         </b>
+///         ExCSS expands the shorthand only when it recognises every part — so
 ///         <c>transition: opacity 200ms ease-in</c> arrives as four longhand declarations, and
 ///         <c>transition: opacity 200ms spring(1, 100, 10)</c> arrives as one unknown property with
 ///         its text intact. Whether the longhands exist therefore depends on whether the author used
@@ -50,13 +66,13 @@ public readonly record struct TransitionSpec(
 /// </remarks>
 public sealed class TransitionParser {
     static readonly (string Name, Func<TimingFunction> Function)[] Keywords = [
-        ("linear", () => TimingFunction.Linear),
-        ("ease", () => TimingFunction.Ease),
-        ("ease-in", () => TimingFunction.EaseIn),
-        ("ease-out", () => TimingFunction.EaseOut),
-        ("ease-in-out", () => TimingFunction.EaseInOut),
-        ("step-start", () => TimingFunction.Step(1, StepPosition.Start)),
-        ("step-end", () => TimingFunction.Step(1, StepPosition.End))
+        ("linear", static () => TimingFunction.Linear),
+        ("ease", static () => TimingFunction.Ease),
+        ("ease-in", static () => TimingFunction.EaseIn),
+        ("ease-out", static () => TimingFunction.EaseOut),
+        ("ease-in-out", static () => TimingFunction.EaseInOut),
+        ("step-start", static () => TimingFunction.Step(1, StepPosition.Start)),
+        ("step-end", static () => TimingFunction.Step(1, StepPosition.End))
     ];
 
     readonly NameTable properties;
@@ -119,12 +135,12 @@ public sealed class TransitionParser {
             } else if (c == ')') {
                 depth--;
             } else if (c == separator && depth == 0) {
-                ranges.Add(new Range(start, i));
+                ranges.Add(new(start, i));
                 start = i + 1;
             }
         }
 
-        ranges.Add(new Range(start, text.Length));
+        ranges.Add(new(start, text.Length));
         return ranges;
     }
 
@@ -185,7 +201,7 @@ public sealed class TransitionParser {
                 : properties.Intern(part.ToString());
         }
 
-        spec = new TransitionSpec(property, duration ?? 0f, delay ?? 0f, timing, allowDiscrete);
+        spec = new(property, duration ?? 0f, delay ?? 0f, timing, allowDiscrete);
         return true;
     }
 
@@ -230,7 +246,7 @@ public sealed class TransitionParser {
                 ? StepPosition.Start
                 : StepPosition.End;
 
-            timing = TimingFunction.Step((int) numbers[0], position);
+            timing = TimingFunction.Step((int)numbers[0], position);
             return true;
         }
 
@@ -312,20 +328,17 @@ public sealed class TransitionParser {
 
                 case ' ' or '\t' or '\r' or '\n' when depth == 0: {
                     if (i > start) {
-                        ranges.Add(new Range(start, i));
+                        ranges.Add(new(start, i));
                     }
 
                     start = i + 1;
                     break;
                 }
-
-                default:
-                    break;
             }
         }
 
         if (start < text.Length) {
-            ranges.Add(new Range(start, text.Length));
+            ranges.Add(new(start, text.Length));
         }
 
         return ranges;

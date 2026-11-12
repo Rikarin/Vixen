@@ -13,14 +13,22 @@ namespace Vixen.Live.Realms.Tests;
 /// <summary>Several realms in one process, and the orchestrator between them.</summary>
 /// <remarks>
 ///     <para>
-///         Doc 27 § Testing: <i>"end to end over <c>Vixen.Net.Transport.Local</c> — three realms in
-///         one process, players walking a loop between them; assert no duplicate spawn, no lost
-///         entity, no state divergence"</i>. This is that, and the handshake each client goes through
+///         Doc 27 § Testing:
+///         <i>
+///             "end to end over <c>Vixen.Net.Transport.Local</c> — three realms in
+///             one process, players walking a loop between them; assert no duplicate spawn, no lost
+///             entity, no state divergence"
+///         </i>
+///         . This is that, and the handshake each client goes through
 ///         is byte for byte the one it goes through over UDP.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Every traveller holds a real <see cref="NetworkSession" />, and during the overlap
-///         they hold two.</b> That is what makes the loss profile mean anything: an earlier version
+///         ⚠
+///         <b>
+///             Every traveller holds a real <see cref="NetworkSession" />, and during the overlap
+///             they hold two.
+///         </b>
+///         That is what makes the loss profile mean anything: an earlier version
 ///         drove <c>SourceTransfer</c> and <c>ClientTransfer</c> directly and never opened a session,
 ///         so the only traffic on the wire was a session with no peers — a profile changed nothing,
 ///         and an assertion under one would have passed whatever the network did.
@@ -53,8 +61,12 @@ sealed class TransferFleet : IDisposable {
 
     /// <summary>What the wire does to the packets. Perfect unless a test says otherwise.</summary>
     /// <remarks>
-    ///     ⚠ <b>doc 27 § Testing specifies this leg "with <c>NetworkSimulation</c>", and the reason is
-    ///     that a clean wire cannot fail the interesting way.</b> Every abort path in the protocol is
+    ///     ⚠
+    ///     <b>
+    ///         doc 27 § Testing specifies this leg "with <c>NetworkSimulation</c>", and the reason is
+    ///         that a clean wire cannot fail the interesting way.
+    ///     </b>
+    ///     Every abort path in the protocol is
     ///     driven by a deadline, and a deadline only means anything when something can be late — so an
     ///     oracle on a perfect transport proves the state machines agree with each other and nothing
     ///     about whether they survive a network.
@@ -108,7 +120,16 @@ sealed class TransferFleet : IDisposable {
         // ⚠ A thousand streams apart per realm, so no client of one ever shares a random stream with
         // a client of another. One shared stream would drop the same packet on both sides of the same
         // step, which is a synchronised outage rather than a network.
-        var realm = new Realm(map, signer, () => Now, realms.Count, Deadlines, Wire, Seed + ((ulong)realms.Count * 1_000), Handshake);
+        var realm = new Realm(
+            map,
+            signer,
+            () => Now,
+            realms.Count,
+            Deadlines,
+            Wire,
+            Seed + (ulong)realms.Count * 1_000,
+            Handshake
+        );
 
         realms.Add(realm);
 
@@ -150,9 +171,7 @@ sealed class TransferFleet : IDisposable {
             .GetAwaiter()
             .GetResult();
 
-        var traveller = new Traveller(key, home, 1) {
-            Session = home.Connect(Ticket(key, home, epoch: 1))
-        };
+        var traveller = new Traveller(key, home, 1) { Session = home.Connect(Ticket(key, home, 1)) };
 
         travellers[key] = traveller;
 
@@ -288,16 +307,20 @@ sealed class TransferFleet : IDisposable {
     /// <param name="most">How many steps to give it.</param>
     /// <returns>Whether the fleet settled.</returns>
     /// <remarks>
-    ///     ⚠ <b>An assertion about the fence has to come after this, and it did not used to have
-    ///     to.</b> The lease moves at <c>Committing</c> and the traveller's own epoch moves at
+    ///     ⚠
+    ///     <b>
+    ///         An assertion about the fence has to come after this, and it did not used to have
+    ///         to.
+    ///     </b>
+    ///     The lease moves at <c>Committing</c> and the traveller's own epoch moves at
     ///     <c>Arrive</c>, so a loop that stops between the two leaves a fence one ahead of the player
     ///     — correctly, and briefly. With real handshakes a transfer spans enough steps that stopping
     ///     inside one is ordinary rather than rare, which is a fair description of a real fleet too.
     /// </remarks>
     public bool Settle(int most = 2_000) {
         for (var step = 0; step < most; step++) {
-            if (travellers.Values.All(traveller => traveller.InFlight is null)
-                && realms.TrueForAll(realm => realm.Transfers.InFlight == 0)) {
+            if (travellers.Values.All(static traveller => traveller.InFlight is null)
+                && realms.TrueForAll(static realm => realm.Transfers.InFlight == 0)) {
                 return true;
             }
 
@@ -323,7 +346,10 @@ sealed class TransferFleet : IDisposable {
     public long TotalInWorld(AssetId asset) {
         var total = 0L;
 
-        foreach (var row in Store.Ledger.HistoryAsync(new() { Asset = asset, Limit = int.MaxValue }, CancellationToken.None)
+        foreach (var row in Store.Ledger.HistoryAsync(
+                         new() { Asset = asset, Limit = int.MaxValue },
+                         CancellationToken.None
+                     )
                      .GetAwaiter()
                      .GetResult()) {
             total += row.Delta;
@@ -591,10 +617,10 @@ sealed class TransferFleet : IDisposable {
                 // ⚠ Stream zero is the realm's. Every client gets its own — see Connect. One shared
                 // stream would drop the same packet on both sides of the same step, which is a
                 // synchronised outage rather than a network.
-                admission => new(Wrap(0), Options(), admission, ownsTransport: true),
+                admission => new(Wrap(0), Options(), admission, true),
                 signer,
                 new() {
-                    Output = _ => { },
+                    Output = static _ => { },
                     Now = now,
                     HeartbeatInterval = TimeSpan.FromSeconds(2),
                     Transfers = deadlines
@@ -634,7 +660,7 @@ sealed class TransferFleet : IDisposable {
         ///     every transfer in flight as a duplicate.
         /// </remarks>
         public IEnumerable<PlayerKey> Residents =>
-            Host.Admission.Players.Select(player => player.Key).Where(Simulates);
+            Host.Admission.Players.Select(static player => player.Key).Where(Simulates);
 
         /// <summary>Its own clock, in ticks.</summary>
         public long Tick { get; private set; }

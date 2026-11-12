@@ -13,8 +13,11 @@ namespace Vixen.Editor.Terrain;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>The parallel of <see cref="TerrainStroke" />, and a separate type because a hole is not
-///         a delta.</b> The seven sculpt tools write signed offsets into an edit layer, so their
+///         <b>
+///             The parallel of <see cref="TerrainStroke" />, and a separate type because a hole is not
+///             a delta.
+///         </b>
+///         The seven sculpt tools write signed offsets into an edit layer, so their
 ///         record is the layer's values either side; holes are one bit on
 ///         <see cref="TerrainHoles" />, which lives on the terrain rather than on a layer and has no
 ///         alpha, no stack and no composite. Trying to record one in a

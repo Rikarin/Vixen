@@ -49,7 +49,7 @@ public class SamplingConventionTests {
             for (var y = 0; y <= 6; y++) {
                 for (var x = 0; x <= 6; x++) {
                     // Deliberately off the probe positions: on them any convention agrees.
-                    var point = new Vector3(0.13f + (x * 1.19f), 0.29f + (y * 1.17f), 0.41f + (z * 1.21f));
+                    var point = new Vector3(0.13f + x * 1.19f, 0.29f + y * 1.17f, 0.41f + z * 1.21f);
 
                     Assert.True(field.TrySample(point, out var direct));
                     Assert.Equal(direct.Value(), AsTheShaderWould(field, point), 0.0005f);
@@ -92,7 +92,11 @@ public class SamplingConventionTests {
     /// </summary>
     [Fact]
     public void TheShaderPutsProbesAtTexelCentres() {
-        Assert.Contains("entry.rgb + float3(0.5f, 0.5f, 0.5f) + local * BrickResolution", Shader, StringComparison.Ordinal);
+        Assert.Contains(
+            "entry.rgb + float3(0.5f, 0.5f, 0.5f) + local * BrickResolution",
+            Shader,
+            StringComparison.Ordinal
+        );
     }
 
     /// <summary>
@@ -126,7 +130,7 @@ public class SamplingConventionTests {
         );
 
         var entry = indirection[new((int)cell.X, (int)cell.Y, (int)cell.Z)];
-        var size = (float)entry.Size;
+        float size = entry.Size;
 
         var origin = new Vector3(
             MathF.Floor(cell.X / size) * size,
@@ -140,11 +144,11 @@ public class SamplingConventionTests {
 
         var texel = new Vector3(slot.X, slot.Y, slot.Z)
             + new Vector3(0.5f)
-            + (local * IrradianceBrickPool.BrickResolution);
+            + local * IrradianceBrickPool.BrickResolution;
 
         var uvw = texel / new Vector3(texels.X, texels.Y, texels.Z);
 
-        return Trilinear(pool, (uvw * new Vector3(texels.X, texels.Y, texels.Z)) - new Vector3(0.5f));
+        return Trilinear(pool, uvw * new Vector3(texels.X, texels.Y, texels.Z) - new Vector3(0.5f));
     }
 
     /// <summary>What a hardware trilinear fetch does, in texel coordinates, over the whole pool.</summary>
@@ -160,10 +164,9 @@ public class SamplingConventionTests {
         var fy = Math.Clamp(texel.Y - y0, 0f, 1f);
         var fz = Math.Clamp(texel.Z - z0, 0f, 1f);
 
-        float At(int x, int y, int z) =>
-            probes[x + (resolution.X * (y + (resolution.Y * z)))].Value();
+        float At(int x, int y, int z) => probes[x + resolution.X * (y + resolution.Y * z)].Value();
 
-        static float Lerp(float from, float to, float amount) => from + ((to - from) * amount);
+        static float Lerp(float from, float to, float amount) => from + (to - from) * amount;
 
         var c00 = Lerp(At(x0, y0, z0), At(x0 + 1, y0, z0), fx);
         var c10 = Lerp(At(x0, y0 + 1, z0), At(x0 + 1, y0 + 1, z0), fx);

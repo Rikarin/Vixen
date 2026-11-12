@@ -15,8 +15,12 @@ namespace Vixen.Ai.Nodes;
 
 /// <summary>What a movement task remembers between ticks.</summary>
 /// <remarks>
-///     ⚠ <b>The issued destination is kept so that a moving target is re-planned and a stationary one
-///     is not.</b> Writing <c>NavigationDestination</c> every tick would bump its version every tick,
+///     ⚠
+///     <b>
+///         The issued destination is kept so that a moving target is re-planned and a stationary one
+///         is not.
+///     </b>
+///     Writing <c>NavigationDestination</c> every tick would bump its version every tick,
 ///     which is a full path search per agent per frame — the exact cost <c>NavPathQueue</c>'s budget
 ///     exists to bound, paid unconditionally.
 /// </remarks>
@@ -89,7 +93,8 @@ public sealed class MoveToTask(BlackboardKey key, float acceptance = 1.5f, float
 
         // Failed rather than Running, so a branch whose destination is off the mesh or walled off
         // gives way to the next one instead of standing still until something else aborts it.
-        if (world.Has<NavigationState>(entity) && world.Get<NavigationState>(entity).Target == CrowdTargetState.Failed) {
+        if (world.Has<NavigationState>(entity)
+            && world.Get<NavigationState>(entity).Target == CrowdTargetState.Failed) {
             return ActionStatus.Failed;
         }
 
@@ -124,7 +129,6 @@ public sealed class MoveToTask(BlackboardKey key, float acceptance = 1.5f, float
 ///     swimmer, a possessed suit of armour walking through a wall on purpose, a boss in a room with
 ///     no mesh baked in it, and every prototype before the level has a navmesh — all of those want a
 ///     position updated toward a point and nothing else.
-///
 ///     ⚠ It writes <c>LocalTransform</c> directly, so an entity that also has a
 ///     <c>NavigationAgent</c> will have this fought over by the crowd. Use one or the other.
 /// </remarks>
@@ -350,7 +354,7 @@ public sealed class RotateTowardTask(BlackboardKey key, float degreesPerSecond =
             return ActionStatus.Succeeded;
         }
 
-        transform.Rotation = Quaternion.FromAxisAngle(Vector3.Up, current + (MathF.Sign(difference) * step));
+        transform.Rotation = Quaternion.FromAxisAngle(Vector3.Up, current + MathF.Sign(difference) * step);
 
         return ActionStatus.Running;
     }

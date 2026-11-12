@@ -131,7 +131,7 @@ internal sealed class SpirvModule {
                     SpirvOperand.Enumerant(model),
                     SpirvOperand.Id(function),
                     SpirvOperand.String(name),
-                    .. @interface.Select(SpirvOperand.Id)
+                    ..@interface.Select(SpirvOperand.Id)
                 ]
             )
         );
@@ -143,7 +143,7 @@ internal sealed class SpirvModule {
                 SpirvOp.ExecutionMode,
                 null,
                 null,
-                [SpirvOperand.Id(function), SpirvOperand.Enumerant(mode), .. literals.Select(SpirvOperand.Literal)]
+                [SpirvOperand.Id(function), SpirvOperand.Enumerant(mode), ..literals.Select(SpirvOperand.Literal)]
             )
         );
     }
@@ -176,7 +176,7 @@ internal sealed class SpirvModule {
                 SpirvOp.Decorate,
                 null,
                 null,
-                [SpirvOperand.Id(target), SpirvOperand.Enumerant(decoration), .. extra]
+                [SpirvOperand.Id(target), SpirvOperand.Enumerant(decoration), ..extra]
             )
         );
 
@@ -190,7 +190,7 @@ internal sealed class SpirvModule {
                     SpirvOperand.Id(target),
                     SpirvOperand.Literal(member),
                     SpirvOperand.Enumerant(decoration),
-                    .. extra
+                    ..extra
                 ]
             )
         );

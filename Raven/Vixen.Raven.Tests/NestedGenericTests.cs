@@ -47,9 +47,7 @@ public class NestedGenericTests {
         Assert.Empty(tree.Diagnostics);
 
         var outer = Assert.IsType<GenericNameSyntax>(FindGeneric(tree.GetRoot()));
-        var inner = Assert.IsType<GenericNameSyntax>(
-            Assert.Single(outer.TypeArgumentList.Arguments)
-        );
+        var inner = Assert.IsType<GenericNameSyntax>(Assert.Single(outer.TypeArgumentList.Arguments));
 
         Assert.Equal("Box", outer.Identifier.Text);
         Assert.Equal("Box", inner.Identifier.Text);

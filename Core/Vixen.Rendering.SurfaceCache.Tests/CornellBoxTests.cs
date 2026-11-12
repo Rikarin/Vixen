@@ -10,8 +10,12 @@ namespace Vixen.Rendering.SurfaceCache.Tests;
 /// <summary>Doc 19 § L4's exit criterion: the Cornell box, converged and measured.</summary>
 /// <remarks>
 ///     <para>
-///         The section's exit reads: <i>a Cornell-box fixture converges to a reference within a
-///         stated error; the second bounce is visible and measurable rather than asserted.</i> The
+///         The section's exit reads:
+///         <i>
+///             a Cornell-box fixture converges to a reference within a
+///             stated error; the second bounce is visible and measurable rather than asserted.
+///         </i>
+///         The
 ///         box is the classic five walls with an emissive panel in the ceiling and an open front,
 ///         cached as five authored cards; the reference is a five-bounce path tracer over the same
 ///         field and materials, deterministic so it referees. The chain's answer at a floor point
@@ -111,7 +115,10 @@ public class CornellBoxTests {
 
         Assert.True(cache.TryRadiance(new(1f, 2f, 1f), new(0f, -1f, 0f), out var panel));
         Assert.Equal(panel.X, atlas[new Int2(0, 0), upTexel].X, 0.15f);
-        Assert.True(atlas[new Int2(0, 0), upTexel].X > 4f, $"the panel never arrived: {atlas[new Int2(0, 0), upTexel]}");
+        Assert.True(
+            atlas[new Int2(0, 0), upTexel].X > 4f,
+            $"the panel never arrived: {atlas[new Int2(0, 0), upTexel]}"
+        );
 
         // Toward the left wall is red — light that exists only because the radiosity put it there.
         var redTexel = ScreenProbes.OctahedralMap.Texel(Vector3.Normalize(new(-1f, 1f, 0f)), 8);
@@ -128,7 +135,12 @@ public class CornellBoxTests {
         // And without the cache the same probe is dark — the before, kept as the discriminator.
         var dark = new ScreenProbes.ScreenProbeAtlas(new(new(16, 16)));
 
-        new ScreenProbes.TracedScreenProbeGather(new Box(), new BlackWorld()).FillProbe(dark, new(0, 0), new(1f, 0f, 1f), new(0f, 1f, 0f));
+        new ScreenProbes.TracedScreenProbeGather(new Box(), new BlackWorld()).FillProbe(
+            dark,
+            new(0, 0),
+            new(1f, 0f, 1f),
+            new(0f, 1f, 0f)
+        );
         dark.Resolve();
 
         Assert.Equal(0f, dark.Resolved(new(0, 0)).Irradiance(new(0f, 1f, 0f)).Length(), 1e-4f);
@@ -163,11 +175,11 @@ public class CornellBoxTests {
         var capture = new TracedCardCapture(box, new CornellPaint());
 
         Span<SurfaceCard> cards = [
-            new(2, new(1f, 0f, 1f), new(1f, 0.2f, 1f), new(24, 24)),  // floor, facing up
-            new(3, new(1f, 2f, 1f), new(1f, 0.2f, 1f), new(24, 24)),  // ceiling, facing down
-            new(0, new(0f, 1f, 1f), new(0.2f, 1f, 1f), new(24, 24)),  // left wall, facing +X
-            new(1, new(2f, 1f, 1f), new(0.2f, 1f, 1f), new(24, 24)),  // right wall, facing −X
-            new(4, new(1f, 1f, 0f), new(1f, 1f, 0.2f), new(24, 24))   // back wall, facing +Z
+            new(2, new(1f, 0f, 1f), new(1f, 0.2f, 1f), new(24, 24)), // floor, facing up
+            new(3, new(1f, 2f, 1f), new(1f, 0.2f, 1f), new(24, 24)), // ceiling, facing down
+            new(0, new(0f, 1f, 1f), new(0.2f, 1f, 1f), new(24, 24)), // left wall, facing +X
+            new(1, new(2f, 1f, 1f), new(0.2f, 1f, 1f), new(24, 24)), // right wall, facing −X
+            new(4, new(1f, 1f, 0f), new(1f, 1f, 0.2f), new(24, 24)) // back wall, facing +Z
         ];
 
         foreach (var card in cards) {
@@ -199,8 +211,10 @@ public class CornellBoxTests {
     static Vector3 GatherFromCache(SurfaceCacheStore cache, Vector3 position, Vector3 normal) {
         var box = new Box();
         var trace = new DistanceFieldTraceSettings { MaxDistance = 100f };
-        var origin = position + (normal * 0.01f);
-        var tangent = Vector3.Normalize(Vector3.Cross(MathF.Abs(normal.Y) < 0.99f ? new(0f, 1f, 0f) : new(1f, 0f, 0f), normal));
+        var origin = position + normal * 0.01f;
+        var tangent = Vector3.Normalize(
+            Vector3.Cross(MathF.Abs(normal.Y) < 0.99f ? new(0f, 1f, 0f) : new(1f, 0f, 0f), normal)
+        );
         var bitangent = Vector3.Cross(normal, tangent);
         var sum = Vector3.Zero;
 
@@ -224,7 +238,7 @@ public class CornellBoxTests {
         var total = Vector3.Zero;
 
         for (var path = 0; path < ReferencePaths; path++) {
-            var origin = position + (normal * 0.01f);
+            var origin = position + normal * 0.01f;
             var facing = normal;
             var throughput = Vector3.One;
 
@@ -241,7 +255,7 @@ public class CornellBoxTests {
 
                 total += throughput * paint.Emissive(hit.Position, hit.Normal);
                 throughput *= paint.Albedo(hit.Position, hit.Normal);
-                origin = hit.Position + (hit.Normal * 0.01f);
+                origin = hit.Position + hit.Normal * 0.01f;
                 facing = hit.Normal;
             }
         }
@@ -260,11 +274,11 @@ public class CornellBoxTests {
         Span<int> primes = [2, 3, 5, 7, 11, 13, 17, 19, 23, 29];
 
         var u = Halton(path + 1, primes[bounce * 2]);
-        var v = Halton(path + 1, primes[(bounce * 2) + 1]);
+        var v = Halton(path + 1, primes[bounce * 2 + 1]);
         var r = MathF.Sqrt(u);
         var phi = 2f * MathF.PI * v;
 
-        return (tangent * (r * MathF.Cos(phi))) + (bitangent * (r * MathF.Sin(phi))) + (normal * MathF.Sqrt(1f - u));
+        return tangent * (r * MathF.Cos(phi)) + bitangent * (r * MathF.Sin(phi)) + normal * MathF.Sqrt(1f - u);
     }
 
     static float Halton(int index, int prime) {

@@ -40,7 +40,10 @@ public sealed class VulkanDrawTests {
     /// </remarks>
     [Fact]
     public void AnIndexedDrawLandsWhereItsPushConstantPutsIt() {
-        VulkanRequirement.Available(VulkanDevice.TryCreate(new(), out var device, out var reason), reason ?? "no Vulkan");
+        VulkanRequirement.Available(
+            VulkanDevice.TryCreate(new(), out var device, out var reason),
+            reason ?? "no Vulkan"
+        );
         using var owned = device!;
         VulkanDiagnostics.Reset();
 
@@ -67,11 +70,14 @@ public sealed class VulkanDrawTests {
     /// </summary>
     [Fact]
     public void TheVertexColourAttributeArrivesIntact() {
-        VulkanRequirement.Available(VulkanDevice.TryCreate(new(), out var device, out var reason), reason ?? "no Vulkan");
+        VulkanRequirement.Available(
+            VulkanDevice.TryCreate(new(), out var device, out var reason),
+            reason ?? "no Vulkan"
+        );
         using var owned = device!;
 
         var pixels = Render(owned, 0f);
-        var offset = (((Side / 2) * Side) + (Side / 4)) * 4;
+        var offset = (Side / 2 * Side + Side / 4) * 4;
 
         Assert.InRange(pixels[offset], 250, 255);
         Assert.InRange(pixels[offset + 1], 0, 4);
@@ -83,55 +89,65 @@ public sealed class VulkanDrawTests {
         var vertexShader = device.CreateShader(ShaderStage.Vertex, TestShaders.MeshVertex, "mesh vertex");
         var fragmentShader = device.CreateShader(ShaderStage.Fragment, TestShaders.MeshFragment, "mesh fragment");
 
-        var layout = device.CreatePipelineLayout(new(
-            [],
-            [new(ShaderStage.Vertex, 0, sizeof(float) * 2)],
-            "mesh layout"
-        ));
+        var layout = device.CreatePipelineLayout(
+            new(
+                [],
+                [new(ShaderStage.Vertex, 0, sizeof(float) * 2)],
+                "mesh layout"
+            )
+        );
 
-        var pipeline = device.CreateGraphicsPipeline(new(
-            vertexShader,
-            fragmentShader,
-            layout,
-            [new(PixelFormat.Rgba8UNorm)],
-            [
-                new(
-                    sizeof(float) * 6,
-                    [
-                        new(0, VertexFormat.Float32X2, 0),
-                        new(1, VertexFormat.Float32X4, sizeof(float) * 2)
-                    ]
-                )
-            ],
-            Rasterizer: RasterizerState.TwoSided,
-            DepthStencil: DepthStencilState.Disabled,
-            Name: "mesh"
-        ));
+        var pipeline = device.CreateGraphicsPipeline(
+            new(
+                vertexShader,
+                fragmentShader,
+                layout,
+                [new(PixelFormat.Rgba8UNorm)],
+                [
+                    new(
+                        sizeof(float) * 6,
+                        [
+                            new(0, VertexFormat.Float32X2, 0),
+                            new(1, VertexFormat.Float32X4, sizeof(float) * 2)
+                        ]
+                    )
+                ],
+                Rasterizer: RasterizerState.TwoSided,
+                DepthStencil: DepthStencilState.Disabled,
+                Name: "mesh"
+            )
+        );
 
-        var vertices = device.CreateBuffer(new(
-            Quad.Length * sizeof(float),
-            BufferUsage.Vertex,
-            MemoryAccess.HostUpload,
-            "quad vertices"
-        ));
+        var vertices = device.CreateBuffer(
+            new(
+                Quad.Length * sizeof(float),
+                BufferUsage.Vertex,
+                MemoryAccess.HostUpload,
+                "quad vertices"
+            )
+        );
 
-        var indices = device.CreateBuffer(new(
-            Indices.Length * sizeof(ushort),
-            BufferUsage.Index,
-            MemoryAccess.HostUpload,
-            "quad indices"
-        ));
+        var indices = device.CreateBuffer(
+            new(
+                Indices.Length * sizeof(ushort),
+                BufferUsage.Index,
+                MemoryAccess.HostUpload,
+                "quad indices"
+            )
+        );
 
         device.Write(vertices, 0, MemoryMarshal.AsBytes(Quad.AsSpan()));
         device.Write(indices, 0, MemoryMarshal.AsBytes(Indices.AsSpan()));
 
-        var target = device.CreateTexture(new(
-            PixelFormat.Rgba8UNorm,
-            Side,
-            Side,
-            TextureUsage.ColourTarget | TextureUsage.CopySource,
-            Name: "mesh target"
-        ));
+        var target = device.CreateTexture(
+            new(
+                PixelFormat.Rgba8UNorm,
+                Side,
+                Side,
+                TextureUsage.ColourTarget | TextureUsage.CopySource,
+                Name: "mesh target"
+            )
+        );
 
         var view = device.CreateTextureView(target);
 
@@ -144,23 +160,27 @@ public sealed class VulkanDrawTests {
         device.BeginFrame();
 
         using (var list = device.BeginCommandList(QueueKind.Graphics, "mesh")) {
-            list.Barrier(new(
-                [
-                    new(vertices, ResourceState.HostAccess, ResourceState.VertexInput),
-                    new(indices, ResourceState.HostAccess, ResourceState.VertexInput)
-                ],
-                [new(target, ResourceState.Undefined, ResourceState.ColourTarget)]
-            ));
+            list.Barrier(
+                new(
+                    [
+                        new(vertices, ResourceState.HostAccess, ResourceState.VertexInput),
+                        new(indices, ResourceState.HostAccess, ResourceState.VertexInput)
+                    ],
+                    [new(target, ResourceState.Undefined, ResourceState.ColourTarget)]
+                )
+            );
 
-            list.BeginRenderPass(new(
-                [new(view, LoadAction.Clear, StoreAction.Store, new(0f, 0f, 0f, 1f))],
-                name: "mesh pass"
-            ));
+            list.BeginRenderPass(
+                new(
+                    [new(view, LoadAction.Clear, StoreAction.Store, new(0f, 0f, 0f, 1f))],
+                    name: "mesh pass"
+                )
+            );
 
             list.BindPipeline(pipeline);
             list.PushConstants(ShaderStage.Vertex, 0, MemoryMarshal.AsBytes(push.AsSpan()));
             list.BindVertexBuffer(0, vertices);
-            list.BindIndexBuffer(indices, IndexFormat.UInt16);
+            list.BindIndexBuffer(indices);
             list.DrawIndexed(Indices.Length);
             list.EndRenderPass();
 
@@ -190,7 +210,7 @@ public sealed class VulkanDrawTests {
     }
 
     static bool Lit(byte[] pixels, int x, int y) {
-        var offset = ((y * Side) + x) * 4;
+        var offset = (y * Side + x) * 4;
         return pixels[offset] > 8 || pixels[offset + 1] > 8 || pixels[offset + 2] > 8;
     }
 }

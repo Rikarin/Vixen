@@ -72,9 +72,7 @@ public sealed class VideoContentMissingException(string address, string reason, 
 /// <param name="root">The directory addresses are relative to.</param>
 /// <param name="extension">Appended when an address has none. Empty to append nothing.</param>
 public sealed class FileVideoContentSource(string root, string extension = ".webm") : IVideoContentSource {
-    readonly string root = Path.GetFullPath(
-        root ?? throw new ArgumentNullException(nameof(root))
-    );
+    readonly string root = Path.GetFullPath(root ?? throw new ArgumentNullException(nameof(root)));
 
     /// <summary>Where an address's file is.</summary>
     /// <param name="address">The address.</param>

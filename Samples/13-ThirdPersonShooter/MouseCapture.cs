@@ -38,8 +38,12 @@ namespace Vixen.Samples.ThirdPersonShooter;
 ///         rather than a rule and an exception.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The release is a release and no longer a toggle, and that follows from the line
-///         above.</b> Escape used to flip <c>wanted</c>, which reads correctly only from a captured
+///         ⚠
+///         <b>
+///             The release is a release and no longer a toggle, and that follows from the line
+///             above.
+///         </b>
+///         Escape used to flip <c>wanted</c>, which reads correctly only from a captured
 ///         start: from an uncaptured one the first Escape would <em>grab</em> the pointer, which is
 ///         the opposite of what the key means everywhere. Press to take, Escape to give back, and
 ///         the pair is complete without a flip.

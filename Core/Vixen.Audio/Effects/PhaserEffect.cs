@@ -98,13 +98,13 @@ public sealed class PhaserEffect : IAudioEffect {
             var offset = frame * channels;
 
             for (var channel = 0; channel < channels; channel++) {
-                var tapPhase = phase + (channel * StereoSpread);
+                var tapPhase = phase + channel * StereoSpread;
                 var modulation = MathF.Sin(2f * MathF.PI * (float)(tapPhase - Math.Floor(tapPhase)));
 
                 // Swept in log frequency, because the ear hears pitch that way — a linear sweep
                 // spends most of its time at the top of the range, where there is one octave, and
                 // rushes through the bottom, where there are six.
-                var centre = MathF.Exp(logLow + ((logHigh - logLow) * ((modulation + 1f) * 0.5f)));
+                var centre = MathF.Exp(logLow + (logHigh - logLow) * ((modulation + 1f) * 0.5f));
 
                 // The first-order all-pass coefficient for a phase rotation at that frequency. The
                 // tangent is the bilinear transform's warping, and it is what keeps the notch where
@@ -113,17 +113,17 @@ public sealed class PhaserEffect : IAudioEffect {
                 var coefficient = (tangent - 1f) / (tangent + 1f);
 
                 var input = buffer[offset + channel];
-                var value = input + (feedbackState[channel] * feedback);
+                var value = input + feedbackState[channel] * feedback;
 
                 for (var stage = 0; stage < stages; stage++) {
-                    ref var memory = ref state[(channel * MaxStages) + stage];
-                    var output = (coefficient * value) + memory;
-                    memory = value - (coefficient * output);
+                    ref var memory = ref state[channel * MaxStages + stage];
+                    var output = coefficient * value + memory;
+                    memory = value - coefficient * output;
                     value = output;
                 }
 
                 feedbackState[channel] = value;
-                buffer[offset + channel] = (input * dry) + (value * wet);
+                buffer[offset + channel] = input * dry + value * wet;
             }
 
             phase += increment;
@@ -217,5 +217,6 @@ public sealed class PhaserEffect : IAudioEffect {
     /// <inheritdoc />
     public IReadOnlyList<string> Properties => Knobs;
 
-    static readonly string[] Knobs = ["MinFrequency", "MaxFrequency", "RateHz", "Feedback", "StereoSpread", "Wet", "Dry"];
+    static readonly string[] Knobs =
+        ["MinFrequency", "MaxFrequency", "RateHz", "Feedback", "StereoSpread", "Wet", "Dry"];
 }

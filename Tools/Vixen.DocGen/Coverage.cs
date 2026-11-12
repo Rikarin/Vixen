@@ -107,14 +107,16 @@ static class Coverage {
                 continue;
             }
 
-            entries.Add(new Exemption(id, reason, number));
+            entries.Add(new(id, reason, number));
         }
 
         foreach (var duplicate in entries
-            .GroupBy(entry => entry.Id, StringComparer.Ordinal)
-            .Where(group => group.Count() > 1)) {
-            errors.Add($"{RelativePath}: `{duplicate.Key}` is exempted twice, on lines "
-                + string.Join(", ", duplicate.Select(entry => entry.Line)));
+                     .GroupBy(static entry => entry.Id, StringComparer.Ordinal)
+                     .Where(static group => group.Count() > 1)) {
+            errors.Add(
+                $"{RelativePath}: `{duplicate.Key}` is exempted twice, on lines "
+                + string.Join(", ", duplicate.Select(static entry => entry.Line))
+            );
         }
 
         return (entries, errors);
@@ -130,35 +132,43 @@ static class Coverage {
         int limit = 20
     ) {
         var problems = new List<string>();
-        var exempt = entries.ToDictionary(entry => entry.Id, StringComparer.Ordinal);
-        var byId = nodes.ToDictionary(node => node.Id, StringComparer.Ordinal);
+        var exempt = entries.ToDictionary(static entry => entry.Id, StringComparer.Ordinal);
+        var byId = nodes.ToDictionary(static node => node.Id, StringComparer.Ordinal);
 
         var uncovered = nodes
             .Where(node => node.Docs is null && !exempt.ContainsKey(node.Id))
-            .OrderBy(node => node.Id, StringComparer.Ordinal)
+            .OrderBy(static node => node.Id, StringComparer.Ordinal)
             .ToList();
 
         foreach (var node in uncovered.Take(limit)) {
-            problems.Add($"{node.Id} has no guide page and no line in {RelativePath} "
-                + $"({Taxonomy.Slug(node.Kind)}, {node.Assembly})");
+            problems.Add(
+                $"{node.Id} has no guide page and no line in {RelativePath} "
+                + $"({Taxonomy.Slug(node.Kind)}, {node.Assembly})"
+            );
         }
 
         if (uncovered.Count > limit) {
-            problems.Add($"…and {uncovered.Count - limit} more types with neither a page nor an exemption. "
-                + $"Write the page, or add the line with a reason.");
+            problems.Add(
+                $"…and {uncovered.Count - limit} more types with neither a page nor an exemption. "
+                + "Write the page, or add the line with a reason."
+            );
         }
 
-        foreach (var entry in entries.OrderBy(entry => entry.Line)) {
+        foreach (var entry in entries.OrderBy(static entry => entry.Line)) {
             if (!byId.TryGetValue(entry.Id, out var node)) {
-                problems.Add($"{RelativePath}:{entry.Line}: `{entry.Id}` names nothing the graph has — "
-                    + "it was renamed or removed, and the line goes with it");
+                problems.Add(
+                    $"{RelativePath}:{entry.Line}: `{entry.Id}` names nothing the graph has — "
+                    + "it was renamed or removed, and the line goes with it"
+                );
 
                 continue;
             }
 
             if (node.Docs is not null) {
-                problems.Add($"{RelativePath}:{entry.Line}: `{entry.Id}` is documented by "
-                    + $"`{node.Docs}` now — delete this line");
+                problems.Add(
+                    $"{RelativePath}:{entry.Line}: `{entry.Id}` is documented by "
+                    + $"`{node.Docs}` now — delete this line"
+                );
             }
         }
 
@@ -177,8 +187,12 @@ static class Coverage {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Existing reasons are preserved, and that is the whole difference between this and
-    ///         a re-seed.</b> The sweep replaces <c>sweep-pending</c> with reasons somebody wrote —
+    ///         ⚠
+    ///         <b>
+    ///             Existing reasons are preserved, and that is the whole difference between this and
+    ///             a re-seed.
+    ///         </b>
+    ///         The sweep replaces <c>sweep-pending</c> with reasons somebody wrote —
     ///         "the managed-component store is not part of the packable surface yet" — and a rewrite
     ///         that flattened those back to <c>sweep-pending</c> would delete the only review anybody
     ///         had done.
@@ -193,16 +207,16 @@ static class Coverage {
         IReadOnlyList<Exemption> existing
     ) {
         var reasons = existing
-            .GroupBy(entry => entry.Id, StringComparer.Ordinal)
-            .ToDictionary(group => group.Key, group => group.First().Reason, StringComparer.Ordinal);
+            .GroupBy(static entry => entry.Id, StringComparer.Ordinal)
+            .ToDictionary(static group => group.Key, static group => group.First().Reason, StringComparer.Ordinal);
 
         var builder = new StringBuilder(Header);
-        var byId = nodes.ToDictionary(node => node.Id, StringComparer.Ordinal);
+        var byId = nodes.ToDictionary(static node => node.Id, StringComparer.Ordinal);
         var added = 0;
 
         var uncovered = nodes
-            .Where(node => node.Docs is null)
-            .OrderBy(node => node.Id, StringComparer.Ordinal)
+            .Where(static node => node.Docs is null)
+            .OrderBy(static node => node.Id, StringComparer.Ordinal)
             .ToList();
 
         // One column, not two: the ids run to sixty characters and an aligned second column would
@@ -217,7 +231,8 @@ static class Coverage {
         }
 
         var documented = existing.Count(entry =>
-            byId.TryGetValue(entry.Id, out var node) && node.Docs is not null);
+            byId.TryGetValue(entry.Id, out var node) && node.Docs is not null
+        );
 
         var gone = existing.Count(entry => !byId.ContainsKey(entry.Id));
 

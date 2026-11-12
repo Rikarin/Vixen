@@ -18,14 +18,21 @@ public readonly record struct ExportPiece(EditMesh Mesh, Matrix4x4 Transform, st
 /// <summary>Writes block-out geometry as a file a DCC opens.</summary>
 /// <remarks>
 ///     <para>
-///         <b>Doc 24's P7, and its own words for why it is in the plan: "this is what makes 'import
-///         from a DCC' and this document the same workflow rather than competing ones".</b> A
+///         <b>
+///             Doc 24's P7, and its own words for why it is in the plan: "this is what makes 'import
+///             from a DCC' and this document the same workflow rather than competing ones".
+///         </b>
+///         A
 ///         designer blocks out a level, an artist opens the block-out in their tool and models to it,
 ///         and the level does not change shape.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The export and the bake are one piece of code, and that is the decision this phase
-///         turns on.</b> The plan says "bake to a <c>.vxmesh</c> asset through the existing importer
+///         ⚠
+///         <b>
+///             The export and the bake are one piece of code, and that is the decision this phase
+///             turns on.
+///         </b>
+///         The plan says "bake to a <c>.vxmesh</c> asset through the existing importer
 ///         machinery" — and the existing importer machinery is <c>ModelImporter</c>, which reads OBJ,
 ///         FBX and glTF through Assimp and compiles meshlets, bounds and distance fields out of them.
 ///         Inventing a second mesh format would mean a second compiler to keep in step with the first,
@@ -86,9 +93,13 @@ public static class MeshExport {
             foreach (var position in mesh.Positions) {
                 var point = Matrix4x4.TransformPosition(position, piece.Transform);
 
-                text.Append("v ").Append(Number(point.X)).Append(' ')
-                    .Append(Number(point.Y)).Append(' ')
-                    .Append(Number(point.Z)).Append('\n');
+                text.Append("v ")
+                    .Append(Number(point.X))
+                    .Append(' ')
+                    .Append(Number(point.Y))
+                    .Append(' ')
+                    .Append(Number(point.Z))
+                    .Append('\n');
             }
 
             for (var face = 0; face < mesh.FaceCount; face++) {
@@ -98,9 +109,13 @@ public static class MeshExport {
                     facing = Vector3.Normalize(facing);
                 }
 
-                text.Append("vn ").Append(Number(facing.X)).Append(' ')
-                    .Append(Number(facing.Y)).Append(' ')
-                    .Append(Number(facing.Z)).Append('\n');
+                text.Append("vn ")
+                    .Append(Number(facing.X))
+                    .Append(' ')
+                    .Append(Number(facing.Y))
+                    .Append(' ')
+                    .Append(Number(facing.Z))
+                    .Append('\n');
             }
 
             var group = int.MinValue;
@@ -139,8 +154,12 @@ public static class MeshExport {
     /// <returns>The file's JSON text.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>One file with its buffer inlined as a data URI, rather than a <c>.gltf</c> beside a
-    ///         <c>.bin</c> or a binary <c>.glb</c>.</b> A block-out export is something a designer
+    ///         ⚠
+    ///         <b>
+    ///             One file with its buffer inlined as a data URI, rather than a <c>.gltf</c> beside a
+    ///             <c>.bin</c> or a binary <c>.glb</c>.
+    ///         </b>
+    ///         A block-out export is something a designer
     ///         attaches to a message; two files is one file somebody forgets, and a <c>.glb</c>'s
     ///         chunk alignment is a second thing to get right for a format nobody is going to diff.
     ///         Every glTF reader takes the data URI.
@@ -192,19 +211,19 @@ public static class MeshExport {
             return $$"""{"asset":{"version":"2.0","generator":"Vixen"},"scenes":[{"name":{{Text(name)}},"nodes":[]}],"scene":0}""";
         }
 
-        var bytes = Convert.ToBase64String([.. buffer]);
+        var bytes = Convert.ToBase64String([..buffer]);
         var children = string.Join(",", Enumerable.Range(0, nodes.Count));
 
         return $$"""
-            {"asset":{"version":"2.0","generator":"Vixen"},
-            "scene":0,
-            "scenes":[{"name":{{Text(name)}},"nodes":[{{children}}]}],
-            "nodes":[{{string.Join(",", nodes)}}],
-            "meshes":[{{string.Join(",", meshes)}}],
-            "accessors":[{{string.Join(",", accessors)}}],
-            "bufferViews":[{{string.Join(",", views)}}],
-            "buffers":[{"byteLength":{{buffer.Count}},"uri":"data:application/octet-stream;base64,{{bytes}}"}]}
-            """.Replace("\n", string.Empty, StringComparison.Ordinal);
+                 {"asset":{"version":"2.0","generator":"Vixen"},
+                 "scene":0,
+                 "scenes":[{"name":{{Text(name)}},"nodes":[{{children}}]}],
+                 "nodes":[{{string.Join(",", nodes)}}],
+                 "meshes":[{{string.Join(",", meshes)}}],
+                 "accessors":[{{string.Join(",", accessors)}}],
+                 "bufferViews":[{{string.Join(",", views)}}],
+                 "buffers":[{"byteLength":{{buffer.Count}},"uri":"data:application/octet-stream;base64,{{bytes}}"}]}
+                 """.Replace("\n", string.Empty, StringComparison.Ordinal);
     }
 
     /// <summary>Every entity in a document that carries geometry, ready to be written.</summary>
@@ -259,9 +278,17 @@ public static class MeshExport {
     static string Number(int value) => value.ToString(CultureInfo.InvariantCulture);
 
     static string Text(string value) =>
-        "\"" + value.Replace("\\", "\\\\", StringComparison.Ordinal).Replace("\"", "\\\"", StringComparison.Ordinal) + "\"";
+        "\""
+        + value.Replace("\\", "\\\\", StringComparison.Ordinal).Replace("\"", "\\\"", StringComparison.Ordinal)
+        + "\"";
 
-    static int Write(List<byte> buffer, List<string> views, List<string> accessors, Vector3[] points, Matrix4x4 transform) {
+    static int Write(
+        List<byte> buffer,
+        List<string> views,
+        List<string> accessors,
+        Vector3[] points,
+        Matrix4x4 transform
+    ) {
         var offset = Align(buffer);
         var low = Vector3.Zero;
         var high = Vector3.Zero;
@@ -287,7 +314,13 @@ public static class MeshExport {
         return accessors.Count - 1;
     }
 
-    static int WriteNormals(List<byte> buffer, List<string> views, List<string> accessors, Vector3[] normals, Matrix4x4 transform) {
+    static int WriteNormals(
+        List<byte> buffer,
+        List<string> views,
+        List<string> accessors,
+        Vector3[] normals,
+        Matrix4x4 transform
+    ) {
         var offset = Align(buffer);
 
         foreach (var normal in normals) {
@@ -309,7 +342,7 @@ public static class MeshExport {
         var offset = Align(buffer);
 
         foreach (var index in indices) {
-            buffer.AddRange(BitConverter.GetBytes((uint) index));
+            buffer.AddRange(BitConverter.GetBytes((uint)index));
         }
 
         views.Add($$"""{"buffer":0,"byteOffset":{{offset}},"byteLength":{{indices.Length * 4}}}""");
@@ -340,8 +373,11 @@ public static class MeshExport {
 /// <summary>Something that can put a file into the project and say what asset it became.</summary>
 /// <remarks>
 ///     <para>
-///         <b>The seam doc 24's P7 bake needs, and it is the shape every other one in this assembly
-///         has.</b> <c>IMeshSource</c>, <c>ISurfaceSource</c> and <c>ISceneWriter</c> are all the same
+///         <b>
+///             The seam doc 24's P7 bake needs, and it is the shape every other one in this assembly
+///             has.
+///         </b>
+///         <c>IMeshSource</c>, <c>ISurfaceSource</c> and <c>ISceneWriter</c> are all the same
 ///         bargain: the viewport says what it wants and the application, which owns the asset
 ///         database, answers. A scene view that knew how to import an asset would be the coupling doc
 ///         11's layering exists to prevent.

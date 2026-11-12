@@ -63,7 +63,7 @@ public class EcsIntegrationTests {
             LocalTransform.Identity
         );
 
-        var system = new AnimationSystem();
+        using var system = new AnimationSystem();
         system.Run(world, 0.25f);
         system.Run(world, 0.25f);
 
@@ -144,7 +144,8 @@ public class EcsIntegrationTests {
     [InlineData(4)]
     public void Run_AcrossTheScheduler_GivesTheSameAnswerAsInline(int workers) {
         using var serial = new World(nameof(Run_AcrossTheScheduler_GivesTheSameAnswerAsInline) + "Serial" + workers);
-        using var parallel = new World(nameof(Run_AcrossTheScheduler_GivesTheSameAnswerAsInline) + "Parallel" + workers);
+        using var parallel =
+            new World(nameof(Run_AcrossTheScheduler_GivesTheSameAnswerAsInline) + "Parallel" + workers);
         using var jobs = new JobScheduler(workers);
 
         const int Characters = 64;
@@ -157,14 +158,14 @@ public class EcsIntegrationTests {
 
             // Different speeds, so the work per animator differs and the batches are uneven — which
             // is the case a work-stealing scheduler is allowed to reorder and must not change.
-            inline[index].Speed = 0.5f + (index * 0.01f);
+            inline[index].Speed = 0.5f + index * 0.01f;
             scheduled[index].Speed = inline[index].Speed;
 
             serial.Create(new AnimatorComponent { Value = inline[index] }, LocalTransform.Identity);
             parallel.Create(new AnimatorComponent { Value = scheduled[index] }, LocalTransform.Identity);
         }
 
-        var system = new AnimationSystem();
+        using var system = new AnimationSystem();
 
         for (var frame = 0; frame < 8; frame++) {
             system.Run(serial, 0.05f);
@@ -215,7 +216,7 @@ public class EcsIntegrationTests {
         using var world = new World(nameof(Run_EntitiesDestroyedBetweenFrames_AreNotEvaluatedAgain));
 
         var entity = world.Create(new AnimatorComponent { Value = Walking(RootMotionMode.Disabled) });
-        var system = new AnimationSystem();
+        using var system = new AnimationSystem();
 
         system.Run(world, 0.1f);
         Assert.Equal(1, system.LastEvaluatedCount);
@@ -235,7 +236,7 @@ public class EcsIntegrationTests {
             new SkinnedRenderer { RenderObject = new(0) }
         );
 
-        var skinning = new SkinningSystem();
+        using var skinning = new SkinningSystem();
 
         skinning.Run(world);
 

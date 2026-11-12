@@ -9,8 +9,11 @@ namespace Vixen.Rendering.Ecs;
 /// <summary>Where the geometry a <see cref="MeshRenderable" /> names comes from.</summary>
 /// <remarks>
 ///     <para>
-///         <b>An interface here rather than an <c>AssetManager</c>, because this assembly must not know
-///         what a bundle is.</b> A renderer's business is a vertex buffer; catalogs, addresses and
+///         <b>
+///             An interface here rather than an <c>AssetManager</c>, because this assembly must not know
+///             what a bundle is.
+///         </b>
+///         A renderer's business is a vertex buffer; catalogs, addresses and
 ///         claims belong to <c>Vixen.Assets</c>, and a project that loads its meshes from a file, a
 ///         test that hands over an array, and an editor that has the mesh in memory already are all
 ///         legitimate. <c>Vixen.Engine.Renderer</c> is where the two meet — see <c>AssetMeshSource</c>.

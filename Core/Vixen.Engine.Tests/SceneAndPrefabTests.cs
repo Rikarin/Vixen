@@ -178,17 +178,17 @@ public sealed class SceneAndPrefabTests {
 
         using var prefab = Prefab.CaptureFrom(world, root, "tower");
         var instance = prefab.Instantiate(world);
-        var system = new TransformSystem();
+        using var system = new TransformSystem();
         system.Resolve(world);
 
         Assert.Equal(3, prefab.EntityCount);
         Assert.NotEqual(root, instance);
-        Assert.Equal(new Vector3(1, 0, 0), world.Read<LocalTransform>(instance).Position);
+        Assert.Equal(new(1, 0, 0), world.Read<LocalTransform>(instance).Position);
 
         var instanceChild = Assert.Single(Children(world, instance));
         var instanceGrandchild = Assert.Single(Children(world, instanceChild));
 
-        Assert.Equal(new Vector3(1, 2, 3), world.Read<WorldTransform>(instanceGrandchild).Position);
+        Assert.Equal(new(1, 2, 3), world.Read<WorldTransform>(instanceGrandchild).Position);
         Assert.Equal(2, Hierarchy.DepthOf(world, instanceGrandchild));
     }
 
@@ -203,7 +203,10 @@ public sealed class SceneAndPrefabTests {
         var instance = prefab.Instantiate(world, LocalTransform.At(new(10, 0, 0)));
         new TransformSystem().Resolve(world);
 
-        Assert.Equal(new Vector3(10, 2, 0), world.Read<WorldTransform>(Assert.Single(Children(world, instance))).Position);
+        Assert.Equal(
+            new(10, 2, 0),
+            world.Read<WorldTransform>(Assert.Single(Children(world, instance))).Position
+        );
     }
 
     /// <summary>
@@ -268,7 +271,7 @@ public sealed class SceneAndPrefabTests {
 
         var instance = prefab.Instantiate(world);
 
-        Assert.Equal(new Vector3(1, 0, 0), world.Read<LocalTransform>(instance).Position);
+        Assert.Equal(new(1, 0, 0), world.Read<LocalTransform>(instance).Position);
     }
 
     [Fact]
@@ -308,7 +311,7 @@ public sealed class SceneAndPrefabTests {
         var instance = prefab.Instantiate(world, created);
 
         Assert.Equal(instance, created[0]);
-        Assert.Equal(new Vector3(0, 2, 0), world.Read<LocalTransform>(created[1]).Position);
+        Assert.Equal(new(0, 2, 0), world.Read<LocalTransform>(created[1]).Position);
         Assert.Throws<ArgumentException>(() => prefab.Instantiate(world, new Entity[1]));
     }
 
@@ -358,7 +361,7 @@ public sealed class SceneAndPrefabTests {
         Assert.False(world.IsAlive(standIn));
 
         // The stand-in's position, the template's nameplate, and the template's child.
-        Assert.Equal(new Vector3(50, 0, 0), world.Read<LocalTransform>(instance).Position);
+        Assert.Equal(new(50, 0, 0), world.Read<LocalTransform>(instance).Position);
         Assert.Equal("template", world.Read<Nameplate>(instance).Text);
         Assert.Single(Children(world, instance));
     }
@@ -368,7 +371,7 @@ public sealed class SceneAndPrefabTests {
     [Fact]
     public void ACamerasProjectionIsReverseZ() {
         var camera = Camera.Perspective;
-        var projection = CameraMath.Projection(in camera, aspectRatio: 16f / 9f);
+        var projection = CameraMath.Projection(in camera, 16f / 9f);
 
         // A point on the near plane must map to depth 1 and one on the far plane to depth 0, which
         // is what the rest of the engine is built for: clear to 0, test GREATER.
@@ -402,7 +405,7 @@ public sealed class SceneAndPrefabTests {
 
         // Where the camera is becomes the origin, and the origin becomes where the camera is not.
         Assert.Equal(Vector3.Zero, Round(Matrix4x4.TransformPosition(new(0, 5, 10), view)));
-        Assert.Equal(new Vector3(0, -5, -10), Round(Matrix4x4.TransformPosition(Vector3.Zero, view)));
+        Assert.Equal(new(0, -5, -10), Round(Matrix4x4.TransformPosition(Vector3.Zero, view)));
     }
 
     static float Depth(Matrix4x4 projection, float distance) {
@@ -410,8 +413,8 @@ public sealed class SceneAndPrefabTests {
         // out rather than through a helper because Vixen.Core.Mathematics has no Vector4-by-matrix
         // transform: everything that has needed one so far wanted the perspective divide too, and
         // this is the first caller that wants the w it divides by.
-        var z = (-distance * projection.M33) + projection.M43;
-        var w = (-distance * projection.M34) + projection.M44;
+        var z = -distance * projection.M33 + projection.M43;
+        var w = -distance * projection.M34 + projection.M44;
         return z / w;
     }
 
@@ -435,6 +438,6 @@ public sealed class SceneAndPrefabTests {
     }
 
     sealed class Nameplate {
-        public string Text { get; init; } = "";
+        public string Text { get; init; } = string.Empty;
     }
 }

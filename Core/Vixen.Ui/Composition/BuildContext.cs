@@ -40,7 +40,6 @@ public readonly record struct EventSubscription {
     ///     <c>click</c> listens for a <c>ClickEvent</c> <i>and</i> a <see cref="TapEvent" />, so a
     ///     single undo would leave one of them attached — which is worse than none, being the half
     ///     that still fires.
-    ///
     ///     ⚠ And a reference field on a struct that is copied by value on purpose: an entry is
     ///     handed a copy and every copy appends to the same list.
     /// </remarks>
@@ -64,7 +63,8 @@ public readonly record struct EventSubscription {
 /// <remarks>
 ///     <para>
 ///         Per ADR-010 every method here does one thing once. <see cref="Element" /> creates an
-///         element; <see cref="Attribute" /> sets a value that will never change; <see cref="Bind(System.Action,string,int)" />
+///         element; <see cref="Attribute" /> sets a value that will never change;
+///         <see cref="Bind(System.Action,string,int)" />
 ///         registers one effect that assigns one property. Nothing walks a tree, nothing diffs, and
 ///         a steady-state interface allocates nothing because nothing runs.
 ///     </para>
@@ -92,43 +92,74 @@ public sealed class BuildContext {
     /// </remarks>
     static readonly ConcurrentDictionary<string, Action<UiElement, Action<UiEvent>, EventSubscription>> Subscriptions =
         new(StringComparer.Ordinal) {
-            ["tap"] = (element, handler, how) =>
+            ["tap"] = static (element, handler, how) =>
                 how.Listen<TapEvent>(element, (_, args) => handler(args)),
-            ["click"] = (element, handler, how) =>
+            ["click"] = static (element, handler, how) =>
                 how.Listen<TapEvent>(element, (_, args) => handler(args)),
-            ["dblclick"] = (element, handler, how) =>
-                how.Listen<TapEvent>(element, (_, args) => { if (args.Count >= 2) { handler(args); } }),
-            ["longpress"] = (element, handler, how) =>
+            ["dblclick"] = static (element, handler, how) =>
+                how.Listen<TapEvent>(
+                    element,
+                    (_, args) => {
+                        if (args.Count >= 2) {
+                            handler(args);
+                        }
+                    }
+                ),
+            ["longpress"] = static (element, handler, how) =>
                 how.Listen<LongPressEvent>(element, (_, args) => handler(args)),
-            ["pointerdown"] = (element, handler, how) =>
+            ["pointerdown"] = static (element, handler, how) =>
                 how.Listen<PointerEvent>(
                     element,
-                    (_, args) => { if (args.Action == PointerAction.Pressed) { handler(args); } }
+                    (_, args) => {
+                        if (args.Action == PointerAction.Pressed) {
+                            handler(args);
+                        }
+                    }
                 ),
-            ["pointerup"] = (element, handler, how) =>
+            ["pointerup"] = static (element, handler, how) =>
                 how.Listen<PointerEvent>(
                     element,
-                    (_, args) => { if (args.Action == PointerAction.Released) { handler(args); } }
+                    (_, args) => {
+                        if (args.Action == PointerAction.Released) {
+                            handler(args);
+                        }
+                    }
                 ),
-            ["pointermove"] = (element, handler, how) =>
+            ["pointermove"] = static (element, handler, how) =>
                 how.Listen<PointerEvent>(
                     element,
-                    (_, args) => { if (args.Action == PointerAction.Moved) { handler(args); } }
+                    (_, args) => {
+                        if (args.Action == PointerAction.Moved) {
+                            handler(args);
+                        }
+                    }
                 ),
-            ["dragstart"] = (element, handler, how) =>
+            ["dragstart"] = static (element, handler, how) =>
                 how.Listen<DragEvent>(
                     element,
-                    (_, args) => { if (args.Stage == DragStage.Started) { handler(args); } }
+                    (_, args) => {
+                        if (args.Stage == DragStage.Started) {
+                            handler(args);
+                        }
+                    }
                 ),
-            ["drag"] = (element, handler, how) =>
+            ["drag"] = static (element, handler, how) =>
                 how.Listen<DragEvent>(
                     element,
-                    (_, args) => { if (args.Stage == DragStage.Moved) { handler(args); } }
+                    (_, args) => {
+                        if (args.Stage == DragStage.Moved) {
+                            handler(args);
+                        }
+                    }
                 ),
-            ["dragend"] = (element, handler, how) =>
+            ["dragend"] = static (element, handler, how) =>
                 how.Listen<DragEvent>(
                     element,
-                    (_, args) => { if (args.Stage is DragStage.Completed or DragStage.Cancelled) { handler(args); } }
+                    (_, args) => {
+                        if (args.Stage is DragStage.Completed or DragStage.Cancelled) {
+                            handler(args);
+                        }
+                    }
                 ),
 
             // ⚠ The drop side of the drag, and it was missing for as long as `DropEvent` existed: a
@@ -136,37 +167,57 @@ public sealed class BuildContext {
             // `.vxml` in the tree could subscribe to it, because a name absent from this table is
             // an `on:` the binder rejects. `dragstart`/`drag`/`dragend` above are the *source* half
             // and always were; these three are the target's.
-            ["dragenter"] = (element, handler, how) =>
+            ["dragenter"] = static (element, handler, how) =>
                 how.Listen<DragOverEvent>(
                     element,
-                    (_, args) => { if (args.Stage == DragOverStage.Entered) { handler(args); } }
+                    (_, args) => {
+                        if (args.Stage == DragOverStage.Entered) {
+                            handler(args);
+                        }
+                    }
                 ),
-            ["dragover"] = (element, handler, how) =>
+            ["dragover"] = static (element, handler, how) =>
                 how.Listen<DragOverEvent>(
                     element,
-                    (_, args) => { if (args.Stage == DragOverStage.Moved) { handler(args); } }
+                    (_, args) => {
+                        if (args.Stage == DragOverStage.Moved) {
+                            handler(args);
+                        }
+                    }
                 ),
-            ["dragleave"] = (element, handler, how) =>
+            ["dragleave"] = static (element, handler, how) =>
                 how.Listen<DragOverEvent>(
                     element,
-                    (_, args) => { if (args.Stage == DragOverStage.Left) { handler(args); } }
+                    (_, args) => {
+                        if (args.Stage == DragOverStage.Left) {
+                            handler(args);
+                        }
+                    }
                 ),
-            ["drop"] = (element, handler, how) =>
+            ["drop"] = static (element, handler, how) =>
                 how.Listen<DropEvent>(element, (_, args) => handler(args)),
 
             // ⚠ Two names over one event type, the shape `pointerdown`/`pointerup` already has and
             // for the same reason: a handler that had to test `args.Action` itself would be a
             // handler that fires twice per keystroke until somebody notices. `KeyAction` is the only
             // thing separating them, so the table is where the test belongs.
-            ["keydown"] = (element, handler, how) =>
+            ["keydown"] = static (element, handler, how) =>
                 how.Listen<KeyEvent>(
                     element,
-                    (_, args) => { if (args.Action == KeyAction.Pressed) { handler(args); } }
+                    (_, args) => {
+                        if (args.Action == KeyAction.Pressed) {
+                            handler(args);
+                        }
+                    }
                 ),
-            ["keyup"] = (element, handler, how) =>
+            ["keyup"] = static (element, handler, how) =>
                 how.Listen<KeyEvent>(
                     element,
-                    (_, args) => { if (args.Action == KeyAction.Released) { handler(args); } }
+                    (_, args) => {
+                        if (args.Action == KeyAction.Released) {
+                            handler(args);
+                        }
+                    }
                 ),
 
             // ⚠ Registered in the same breath as the two above, because the alternative is the
@@ -174,7 +225,7 @@ public sealed class BuildContext {
             // `on:keydown` read for a letter is a text box that types `q` on an AZERTY keyboard —
             // and an author who cannot name the event that carries characters reaches for the one
             // that is there. The two exist together so the right one is always available.
-            ["textinput"] = (element, handler, how) =>
+            ["textinput"] = static (element, handler, how) =>
                 how.Listen<TextInputEvent>(element, (_, args) => handler(args)),
 
             // ⚠ Two names over one event again, and the pair was *promised* long before it existed:
@@ -182,16 +233,34 @@ public sealed class BuildContext {
             // both bound happily and then threw "'blur' is not an event" when the element was built.
             // `blur` is also the moment a two-way binding most often wants to commit — see
             // <see cref="TwoWay{T}" /> — which is what turned a latent alias into a missing feature.
-            ["focus"] = (element, handler, how) =>
-                how.Listen<FocusEvent>(element, (_, args) => { if (args.Gained) { handler(args); } }),
-            ["blur"] = (element, handler, how) =>
-                how.Listen<FocusEvent>(element, (_, args) => { if (!args.Gained) { handler(args); } })
+            ["focus"] = static (element, handler, how) =>
+                how.Listen<FocusEvent>(
+                    element,
+                    (_, args) => {
+                        if (args.Gained) {
+                            handler(args);
+                        }
+                    }
+                ),
+            ["blur"] = static (element, handler, how) =>
+                how.Listen<FocusEvent>(
+                    element,
+                    (_, args) => {
+                        if (!args.Gained) {
+                            handler(args);
+                        }
+                    }
+                )
         };
 
     /// <summary>The region currently being built into, per parent element.</summary>
     /// <remarks>
-    ///     ⚠ <b>Strong, unlike <see cref="classes" />, because a region owns subscriptions and an
-    ///     entry that is collected ends nothing.</b> An effect is held by every signal it read, so
+    ///     ⚠
+    ///     <b>
+    ///         Strong, unlike <see cref="classes" />, because a region owns subscriptions and an
+    ///         entry that is collected ends nothing.
+    ///     </b>
+    ///     An effect is held by every signal it read, so
     ///     dropping the only reference to the region that tracked it does not stop it running — it
     ///     stops anything being <i>able</i> to. The entries are taken out instead, by
     ///     <c>Region.Clear</c> and <c>Region.Stop</c>, which is what the region's <c>forget</c> is
@@ -201,8 +270,12 @@ public sealed class BuildContext {
 
     /// <summary>What a <c>class</c> attribute last wrote to an element, so it can take it back.</summary>
     /// <remarks>
-    ///     ⚠ <b>Weak, unlike <see cref="regions" />, because nothing ever takes an entry out and
-    ///     nothing needs to.</b> A region is taken out when it ends, and it has to be: it owns
+    ///     ⚠
+    ///     <b>
+    ///         Weak, unlike <see cref="regions" />, because nothing ever takes an entry out and
+    ///         nothing needs to.
+    ///     </b>
+    ///     A region is taken out when it ends, and it has to be: it owns
     ///     subscriptions, and an effect nobody disposed goes on running whether or not the table
     ///     that found it was collected. What is here is a memory of the last string written, which
     ///     ends when its element does and can be dropped without telling anyone — so the key is
@@ -231,8 +304,12 @@ public sealed class BuildContext {
 
     /// <summary>The key of the <c>@for</c> row being built, for <see cref="Refs{TElement}" />.</summary>
     /// <remarks>
-    ///     ⚠ <b>Taken from the loop rather than recomputed at the tag, and that is the whole
-    ///     correctness argument for <c>refs</c>.</b> A handle keyed on anything but the identity
+    ///     ⚠
+    ///     <b>
+    ///         Taken from the loop rather than recomputed at the tag, and that is the whole
+    ///         correctness argument for <c>refs</c>.
+    ///     </b>
+    ///     A handle keyed on anything but the identity
     ///     <c>For</c> reconciled on is a handle that disagrees with the reconciler the
     ///     first time a key expression is not what somebody assumed — and disagrees silently,
     ///     because both sides still answer.
@@ -244,8 +321,12 @@ public sealed class BuildContext {
 
     /// <summary>The scope class of a markup-authored element, when this context is composing one.</summary>
     /// <remarks>
-    ///     ⚠ <b>Beside <see cref="owner" /> rather than inside it, because the other thing markup
-    ///     compiles to is not a <see cref="Component" />.</b> A <c>.vxml</c> with <c>@inherits</c>
+    ///     ⚠
+    ///     <b>
+    ///         Beside <see cref="owner" /> rather than inside it, because the other thing markup
+    ///         compiles to is not a <see cref="Component" />.
+    ///     </b>
+    ///     A <c>.vxml</c> with <c>@inherits</c>
     ///     produces a <see cref="UiElement" />, which has no <c>Scope</c> to ask for — and the
     ///     alternative, an interface both implement, would put two internal members of
     ///     <see cref="Component" /> on the public surface to say something a nullable string already
@@ -288,8 +369,7 @@ public sealed class BuildContext {
         ArgumentNullException.ThrowIfNull(mount);
 
         var context = new BuildContext(document, mount);
-        var component = context.Child<T>(mount);
-        return component;
+        return context.Child<T>(mount);
     }
 
     /// <summary>Builds an already-created component, so a caller can choose how it was made.</summary>
@@ -325,8 +405,11 @@ public sealed class BuildContext {
     /// <exception cref="ArgumentNullException">Either argument is null.</exception>
     /// <remarks>
     ///     <para>
-    ///         <b>The whole of what a <c>@inherits</c> component needs from the runtime, and it is
-    ///         deliberately one method.</b> A <c>.vxml</c> whose class is a <see cref="UiElement" />
+    ///         <b>
+    ///             The whole of what a <c>@inherits</c> component needs from the runtime, and it is
+    ///             deliberately one method.
+    ///         </b>
+    ///         A <c>.vxml</c> whose class is a <see cref="UiElement" />
     ///         gets the <i>same</i> <see cref="BuildContext" /> a <see cref="Component" /> does, so it
     ///         gets the same <see cref="Bind(System.Action,string,int)" />, the same <see cref="Switch" />, the
     ///         same keyed <c>For</c> reconciliation and the same region discipline. That
@@ -334,8 +417,12 @@ public sealed class BuildContext {
     ///         markup a worse way to write the imperative code it replaced.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Called from <c>OnCreated</c>, which is why the element is already in a
-    ///         document.</b> <c>UiDocument.Adopt</c> binds, attaches and then calls the hook,
+    ///         ⚠
+    ///         <b>
+    ///             Called from <c>OnCreated</c>, which is why the element is already in a
+    ///             document.
+    ///         </b>
+    ///         <c>UiDocument.Adopt</c> binds, attaches and then calls the hook,
     ///         in that order and for this reason — a part added to an unattached parent would be laid
     ///         out relative to nothing. So <c>host.Document</c> is answerable here and the anchor is
     ///         the element itself.
@@ -368,8 +455,12 @@ public sealed class BuildContext {
 
     /// <summary>Stops every subscription this context made, wherever it hung it.</summary>
     /// <remarks>
-    ///     ⚠ <b>The host's region, which reaches the rest because every region is linked into the
-    ///     one that built its element.</b> An <c>@for</c> written inside a nested <c>&lt;div&gt;</c>
+    ///     ⚠
+    ///     <b>
+    ///         The host's region, which reaches the rest because every region is linked into the
+    ///         one that built its element.
+    ///     </b>
+    ///     An <c>@for</c> written inside a nested <c>&lt;div&gt;</c>
     ///     opens its region against that div — see <see cref="Open" /> and <see cref="RegionOf" /> —
     ///     so the host's <i>slots</i> never contained it. This walked the whole table instead, which
     ///     was right for a composed element and could not be copied to a <see cref="Component" />,
@@ -513,10 +604,14 @@ public sealed class BuildContext {
     /// <returns>What was created.</returns>
     /// <remarks>
     ///     <para>
-    ///         <b>What markup's <c>tag="…"</c> attribute emits, and the runtime has always had it:
-    ///         <see cref="UiDocument.Adopt(UiElement, string, UiElement, string, System.ReadOnlySpan{string})" /> takes the tag and only falls back to
-    ///         <see cref="UiElement.TagName" />, so <c>panel.Add&lt;WaterZoneFacts&gt;("water-facts")</c>
-    ///         was already legal C#.</b> What did not exist was a spelling of it in a <c>.vxml</c>,
+    ///         <b>
+    ///             What markup's <c>tag="…"</c> attribute emits, and the runtime has always had it:
+    ///             <see cref="UiDocument.Adopt(UiElement, string, UiElement, string, System.ReadOnlySpan{string})" /> takes
+    ///             the tag and only falls back to
+    ///             <see cref="UiElement.TagName" />, so <c>panel.Add&lt;WaterZoneFacts&gt;("water-facts")</c>
+    ///             was already legal C#.
+    ///         </b>
+    ///         What did not exist was a spelling of it in a <c>.vxml</c>,
     ///         which is why <c>Part&lt;ScrollView&gt;("add-component-list")</c> — a control under the
     ///         tag a stylesheet names — was a shape markup could not write and a sealed control could
     ///         not be subclassed into.
@@ -552,8 +647,12 @@ public sealed class BuildContext {
     /// <returns>What was created, not yet built. <see cref="Compose{T}" /> builds it.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Because a component's parameters used to be assigned after its
-    ///         <c>Build</c> had already run.</b> <c>&lt;Panel Model="@Model" /&gt;</c> emitted the
+    ///         ⚠
+    ///         <b>
+    ///             Because a component's parameters used to be assigned after its
+    ///             <c>Build</c> had already run.
+    ///         </b>
+    ///         <c>&lt;Panel Model="@Model" /&gt;</c> emitted the
     ///         construction, the mount and then the assignment, so every effect the child made had
     ///         already read <c>Model</c> once at its default — and a plain C# property assigned later
     ///         notifies nobody, so the child drew the empty model for ever. Signal-backing the
@@ -682,8 +781,12 @@ public sealed class BuildContext {
     ///         name a <c>[UiProperty]</c> and a <see cref="Component" /> has none.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The refusal was said to be impossible, and it was only impossible where it was
-    ///         being looked for.</b> Three passes over
+    ///         ⚠
+    ///         <b>
+    ///             The refusal was said to be impossible, and it was only impossible where it was
+    ///             being looked for.
+    ///         </b>
+    ///         Three passes over
     ///         <a href="https://github.com/Rikarin/Vixen/issues/663">#663</a> concluded that a named
     ///         diagnostic cannot exist because the binder's <c>IsComponent</c> is nothing but
     ///         <c>char.IsUpper(name[0])</c> — so <c>&lt;Slider&gt;</c> and <c>&lt;MyPanel&gt;</c> are
@@ -692,8 +795,12 @@ public sealed class BuildContext {
     ///         named, at no cost and with no type resolution in the binder at all.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The half nobody had recorded is <c>bind:</c>, and it was the worse of the
-    ///         two.</b> #663 says <c>change:</c> "cannot be used on a component tag at all", which is
+    ///         ⚠
+    ///         <b>
+    ///             The half nobody had recorded is <c>bind:</c>, and it was the worse of the
+    ///             two.
+    ///         </b>
+    ///         #663 says <c>change:</c> "cannot be used on a component tag at all", which is
     ///         a compile error — a bad message, but a message. A <c>bind:</c> on a component tag
     ///         went through <see cref="Host(Component)" /> instead: it compiled, and then threw at
     ///         compose from <c>KeyOf</c> saying <c>'callout-body' has no property called 'Kind'</c> —
@@ -714,7 +821,7 @@ public sealed class BuildContext {
     /// </remarks>
     [Obsolete(
         "bind: and change: name a [UiProperty], and a component has none — only elements have "
-        + "properties. Pass the value in as an ordinary parameter (Name=\"@expr\"), and take the "
+        + """properties. Pass the value in as an ordinary parameter (Name="@expr"), and take the """
         + "write-back with a change: on the control inside the component.",
         error: true
     )]
@@ -827,8 +934,12 @@ public sealed class BuildContext {
     ///         changes.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b><c>style</c> is the other, and it is the one name that must <i>not</i> reach the
-    ///         style tree.</b> An attribute there is data a selector can match on — <c>[style]</c> —
+    ///         ⚠
+    ///         <b>
+    ///             <c>style</c> is the other, and it is the one name that must <i>not</i> reach the
+    ///             style tree.
+    ///         </b>
+    ///         An attribute there is data a selector can match on — <c>[style]</c> —
     ///         and nothing reads it; in CSS an inline style is a cascade origin that outranks every
     ///         author rule. The engine has had that origin all along
     ///         (<c>CascadeRanks.NormalInline</c>, <c>UiElement.SetStyle</c>); what it did not have was
@@ -900,8 +1011,11 @@ public sealed class BuildContext {
     ///         has effects in it.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The caller's file and line are forwarded, and until
-    ///         <a href="https://github.com/Rikarin/Vixen/issues/1109">#1109</a> they were not.</b>
+    ///         ⚠
+    ///         <b>
+    ///             The caller's file and line are forwarded, and until
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/1109">#1109</a> they were not.
+    ///         </b>
     ///         <c>Effect</c>'s <c>[CallerFilePath]</c> exists precisely so that a suspended-effect
     ///         log line "points at the effect rather than at this file" — and this was the one call
     ///         site that constructs effects for the whole framework, so it let the default stand and
@@ -937,8 +1051,12 @@ public sealed class BuildContext {
     /// <returns>Loading, value or error, as one signal a binding can read.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The arrival hook a panel had no way to write, and the substrate for it was
-    ///         already here with nothing calling it.</b> <c>OnComposed</c> is synchronous and has no
+    ///         ⚠
+    ///         <b>
+    ///             The arrival hook a panel had no way to write, and the substrate for it was
+    ///             already here with nothing calling it.
+    ///         </b>
+    ///         <c>OnComposed</c> is synchronous and has no
     ///         token, so a panel that had to load something on appear either blocked the build or
     ///         started a task whose completion had nowhere safe to land — and whose cancellation on
     ///         unmount was the author's to remember. <see cref="AsyncComputed{TRequest,T}" /> answers
@@ -947,8 +1065,12 @@ public sealed class BuildContext {
     ///         line that gives it one.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>What cancels it is what cancels an effect, which answers the harder half of the
-    ///         question.</b> The work is tracked on the region being built, so it is disposed —
+    ///         ⚠
+    ///         <b>
+    ///             What cancels it is what cancels an effect, which answers the harder half of the
+    ///             question.
+    ///         </b>
+    ///         The work is tracked on the region being built, so it is disposed —
     ///         and its token cancelled — when that region goes. <i>Unmount</i> is the obvious case;
     ///         <i>rebuild</i> is the one that is easy to miss, and a <c>.vxml</c> save is a rebuild:
     ///         <see cref="Rebuild" /> clears the component's region before re-entering
@@ -997,8 +1119,11 @@ public sealed class BuildContext {
     /// <param name="action">What to do with it.</param>
     /// <remarks>
     ///     <para>
-    ///         <b>This is markup's <c>use</c>, and it exists because a control fed by a
-    ///         <i>method</i> had no markup spelling at all.</b> A component-tag parameter is a
+    ///         <b>
+    ///             This is markup's <c>use</c>, and it exists because a control fed by a
+    ///             <i>method</i> had no markup spelling at all.
+    ///         </b>
+    ///         A component-tag parameter is a
     ///         property assignment, so <c>&lt;Slider Value="@x" /&gt;</c> works and
     ///         <c>panel.Inspect(descriptor, provider, targets)</c>,
     ///         <c>list.SetItems(rows)</c> and <c>select.AddOption(…)</c> do not — three arguments,
@@ -1044,8 +1169,12 @@ public sealed class BuildContext {
     ///     describes it and hand it back.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>The layering answer for every attach-shaped directive, and it is
-    ///     <see cref="Subscribe" />'s answer rather than a new one.</b> A tooltip is
+    ///     ⚠
+    ///     <b>
+    ///         The layering answer for every attach-shaped directive, and it is
+    ///         <see cref="Subscribe" />'s answer rather than a new one.
+    ///     </b>
+    ///     A tooltip is
     ///     <c>Vixen.Ui.Controls.Tooltip</c>, and the controls reference this assembly rather than the
     ///     other way round — so <c>Help</c> cannot name the type it needs. The two alternatives were
     ///     both worse. Emitting <c>global::Vixen.Ui.Controls.Tooltip.Attach(…)</c> from the generator
@@ -1179,8 +1308,12 @@ public sealed class BuildContext {
     /// <exception cref="InvalidOperationException">Nothing has registered an attachment.</exception>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The menu is not made here and is not removed with the region, which is the whole
-    ///         asymmetry with <see cref="Help(UiElement, string)" />.</b> A description is a sentence
+    ///         ⚠
+    ///         <b>
+    ///             The menu is not made here and is not removed with the region, which is the whole
+    ///             asymmetry with <see cref="Help(UiElement, string)" />.
+    ///         </b>
+    ///         A description is a sentence
     ///         written at the tag, so the tooltip that carries it is the directive's to make and to
     ///         take away. A menu is a model — every one of the nine callers in this repository builds
     ///         it from commands, keeps it in a field and re-opens it — so the directive attaches and
@@ -1188,8 +1321,12 @@ public sealed class BuildContext {
     ///         four times.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>An expression and not a nested tag, and the reason is the binder's rather than
-    ///         the menu's.</b> An overlay must be a child of the document root — the draw list is
+    ///         ⚠
+    ///         <b>
+    ///             An expression and not a nested tag, and the reason is the binder's rather than
+    ///             the menu's.
+    ///         </b>
+    ///         An overlay must be a child of the document root — the draw list is
     ///         document order, so one nested where it was written is clipped by every
     ///         <c>overflow: hidden</c> above it — and deciding that a tag needs re-parenting means
     ///         knowing that the tag names an overlay, which is exactly the type resolution the
@@ -1234,11 +1371,14 @@ public sealed class BuildContext {
         // describes — an overlay is, for painting order — so clearing the region that built the
         // target does not take it. A row in a `@for` that leaves would otherwise leave a tooltip
         // behind on every reorder, holding the element it described alive with it.
-        building.Track(new Unsubscribe(() => {
-            if (!description.IsRemoved) {
-                description.Remove();
-            }
-        }));
+        building.Track(
+            new Unsubscribe(() => {
+                    if (!description.IsRemoved) {
+                        description.Remove();
+                    }
+                }
+            )
+        );
 
         return description;
     }
@@ -1273,9 +1413,13 @@ public sealed class BuildContext {
     ///         delivers.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>From markup the handler has to be an explicitly typed lambda —
-    ///         <c>on:keydown.capture="@((KeyEvent e) => Keyed(e))"</c> — and a method group does not
-    ///         work.</b> The emitter writes one call for both overloads and cannot name the event
+    ///         ⚠
+    ///         <b>
+    ///             From markup the handler has to be an explicitly typed lambda —
+    ///             <c>on:keydown.capture="@((KeyEvent e) => Keyed(e))"</c> — and a method group does not
+    ///             work.
+    ///         </b>
+    ///         The emitter writes one call for both overloads and cannot name the event
     ///         type, because which type a name delivers is this table's business rather than the
     ///         compiler's; so <typeparamref name="TEvent" /> is inferred from the argument, and a
     ///         method group offers nothing to infer it from. Its natural type needs the delegate's
@@ -1347,8 +1491,7 @@ public sealed class BuildContext {
         // ⚠ One entry for however many handlers the table entry attached — `click` attaches two —
         // and `Unsubscribe` runs it once, which is what a region stopped and then cleared needs.
         building.Track(
-            new Unsubscribe(
-                () => {
+            new Unsubscribe(() => {
                     foreach (var remove in undo) {
                         remove();
                     }
@@ -1373,8 +1516,12 @@ public sealed class BuildContext {
     /// </exception>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The type has to match exactly, and this refuses a mismatch out loud because for a
-    ///         long time it did not refuse one at all.</b> Both legs go through
+    ///         ⚠
+    ///         <b>
+    ///             The type has to match exactly, and this refuses a mismatch out loud because for a
+    ///             long time it did not refuse one at all.
+    ///         </b>
+    ///         Both legs go through
     ///         <see cref="UiPropertyKey" />, which boxes: the forward leg unboxes to the property's
     ///         own type and the write-back casts to <typeparamref name="T" />, and an unbox is
     ///         exact — <c>float</c> is not <c>double</c> and <c>int?</c> is not <c>int</c>. The cast
@@ -1392,8 +1539,12 @@ public sealed class BuildContext {
     ///         something this method can invent.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And the converter seam #663 asks for already exists, decomposed: it is the pair
-    ///         <c>Number="@expr"</c> in and <c>change:Number="@(v => …)"</c> out</b>, which is what
+    ///         ⚠
+    ///         <b>
+    ///             And the converter seam #663 asks for already exists, decomposed: it is the pair
+    ///             <c>Number="@expr"</c> in and <c>change:Number="@(v => …)"</c> out
+    ///         </b>
+    ///         , which is what
     ///         the editor writes twenty-six times and <c>bind:</c> two. So the message names it. The
     ///         in-leg is an ordinary parameter — an effect over whatever it read, so it stays live —
     ///         and the out-leg is a lambda, which is where a narrowing cast, an undo entry or a
@@ -1410,8 +1561,11 @@ public sealed class BuildContext {
     ///         would catch, several frames after the cause.
     ///     </para>
     ///     <para>
-    ///         <b>Which event commits the write, and it is an event name rather than a vocabulary of
-    ///         its own.</b> <c>bind:Value.blur</c>, <c>bind:Value.submit</c> and
+    ///         <b>
+    ///             Which event commits the write, and it is an event name rather than a vocabulary of
+    ///             its own.
+    ///         </b>
+    ///         <c>bind:Value.blur</c>, <c>bind:Value.submit</c> and
     ///         <c>bind:Value.dragend</c> all read out of the same table <c>on:</c> reads, so
     ///         "commit" needs no per-control registration and no second list of names to keep in
     ///         step with the first. A control that publishes a moment publishes it once.
@@ -1470,13 +1624,14 @@ public sealed class BuildContext {
         var writing = false;
 
         Bind(() => {
-            writing = true;
-            try {
-                key.SetValue(target, get());
-            } finally {
-                writing = false;
+                writing = true;
+                try {
+                    key.SetValue(target, get());
+                } finally {
+                    writing = false;
+                }
             }
-        });
+        );
 
         if (commits.Length == 0) {
             Watch(target, key, () => !writing, () => set((T)key.GetValue(target)!));
@@ -1522,8 +1677,12 @@ public sealed class BuildContext {
     ///         is involved.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Changes made while the document's effects are draining are not reported, and
-    ///         that is the one rule this does not share with <c>bind:</c>.</b> A write during a flush
+    ///         ⚠
+    ///         <b>
+    ///             Changes made while the document's effects are draining are not reported, and
+    ///             that is the one rule this does not share with <c>bind:</c>.
+    ///         </b>
+    ///         A write during a flush
     ///         came <i>from</i> a binding, which means it came from the model — so handing it to a
     ///         handler whose job is to put values into the model is at best a write of what is
     ///         already there. It is not always harmless: the forward binding of
@@ -1606,8 +1765,12 @@ public sealed class BuildContext {
     /// <param name="name">The slot's name.</param>
     /// <returns>The slot element, for a caller that has to route its own content into it.</returns>
     /// <remarks>
-    ///     ⚠ <b>It returns the element because a <c>@inherits</c> component has no
-    ///     <see cref="Component.Slots" /> to be declared into.</b> A <see cref="Component" /> is
+    ///     ⚠
+    ///     <b>
+    ///         It returns the element because a <c>@inherits</c> component has no
+    ///         <see cref="Component.Slots" /> to be declared into.
+    ///     </b>
+    ///     A <see cref="Component" /> is
     ///     handed its content by <see cref="Inner(Component)" />, which reads the dictionary
     ///     <see cref="Component.Declare" /> fills; a <see cref="UiElement" /> answers the same
     ///     question with <see cref="UiElement.ContentHost" />, which is a property it overrides — so
@@ -1630,15 +1793,23 @@ public sealed class BuildContext {
     /// <exception cref="InvalidOperationException">The component declares no such slot.</exception>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The consumer half of <see cref="Slot" />, and until it existed the declaring half
-    ///         was write-only.</b> <see cref="Component.Declare" /> put every slot in the dictionary
+    ///         ⚠
+    ///         <b>
+    ///             The consumer half of <see cref="Slot" />, and until it existed the declaring half
+    ///             was write-only.
+    ///         </b>
+    ///         <see cref="Component.Declare" /> put every slot in the dictionary
     ///         and one line read it back — <see cref="Component.Content" />, looking up
     ///         <see cref="DefaultSlot" /> and nothing else. A <c>&lt;slot name="footer"&gt;</c>
     ///         therefore parsed, bound, emitted, ran, and could not be filled by anything.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>An unknown name throws rather than falling back to the default slot, which is the
-    ///         opposite of what the web platform does.</b> HTML drops unmatched slotted content on the
+    ///         ⚠
+    ///         <b>
+    ///             An unknown name throws rather than falling back to the default slot, which is the
+    ///             opposite of what the web platform does.
+    ///         </b>
+    ///         HTML drops unmatched slotted content on the
     ///         floor, and that reading is right for a document assembled from parts that do not know
     ///         each other. Here the two sides are compiled together against one another, so a name
     ///         that matches nothing is a typo the author can fix — and the two silent alternatives are
@@ -1671,8 +1842,12 @@ public sealed class BuildContext {
     /// <param name="name">The slot's name.</param>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Present so that the failure is about slots rather than about overload
-    ///         resolution.</b> A capitalised tag names a component or a control and the emitter
+    ///         ⚠
+    ///         <b>
+    ///             Present so that the failure is about slots rather than about overload
+    ///             resolution.
+    ///         </b>
+    ///         A capitalised tag names a component or a control and the emitter
     ///         cannot tell which — the two <see cref="Inner(Component)" /> overloads exist for
     ///         exactly that reason. Without this one, <c>slot="footer"</c> inside a
     ///         <c>&lt;ScrollView&gt;</c> would be a Roslyn error about converting a
@@ -1714,8 +1889,12 @@ public sealed class BuildContext {
     ///     out would mean two places to get the disposal of a branch's effects wrong.
     /// </remarks>
     /// <remarks>
-    ///     ⚠ <b>An arm inside a <c>@for</c> row builds under that row's iteration key, and getting
-    ///     that wrong was a silent defect until 2026-08-23.</b> <c>For</c> sets
+    ///     ⚠
+    ///     <b>
+    ///         An arm inside a <c>@for</c> row builds under that row's iteration key, and getting
+    ///         that wrong was a silent defect until 2026-08-23.
+    ///     </b>
+    ///     <c>For</c> sets
     ///     <c>iteration</c> around the <i>synchronous</i> build of a new region and restores it in a
     ///     <c>finally</c>; this registers its own <see cref="Bind(Action,string,int)" />, which the scheduler
     ///     runs later — so a <c>refs</c> in an arm found no key and threw the "only meaningful inside
@@ -1740,29 +1919,30 @@ public sealed class BuildContext {
         var declared = iteration;
 
         Bind(() => {
-            var next = arm();
-            if (next == current) {
-                return;
+                var next = arm();
+                if (next == current) {
+                    return;
+                }
+
+                current = next;
+                region.Clear();
+
+                if (next < 0) {
+                    return;
+                }
+
+                var outer = iteration;
+
+                iteration = declared;
+                try {
+                    In(target, region, () => build(this, target, next));
+                } finally {
+                    iteration = outer;
+                }
+
+                region.Reposition();
             }
-
-            current = next;
-            region.Clear();
-
-            if (next < 0) {
-                return;
-            }
-
-            var outer = iteration;
-
-            iteration = declared;
-            try {
-                In(target, region, () => build(this, target, next));
-            } finally {
-                iteration = outer;
-            }
-
-            region.Reposition();
-        });
+        );
     }
 
     /// <summary>Builds one subtree per item, keyed, and reconciles when the sequence changes.</summary>
@@ -1778,8 +1958,12 @@ public sealed class BuildContext {
     ///         missing one is a warning at compile time rather than a silent fallback to the index.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Reordering moves the items that left the longest increasing subsequence of
-    ///         their old positions, and no others.</b> A rotation by one is one move, whichever end
+    ///         ⚠
+    ///         <b>
+    ///             Reordering moves the items that left the longest increasing subsequence of
+    ///             their old positions, and no others.
+    ///         </b>
+    ///         A rotation by one is one move, whichever end
     ///         the row went to. That is <c>Region.Reposition</c>'s job and it is the same pass a
     ///         cleared branch is put back with; the remarks there say why only an element in the run
     ///         starting at the region's start may stay where it is.
@@ -1795,8 +1979,12 @@ public sealed class BuildContext {
     ///         a document still holding a row nobody asked for.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And a leaving row keeps its place in the order, which is what makes a fade look
-    ///         like one.</b> It stays in the region's slot list, so the rows below it are positioned
+    ///         ⚠
+    ///         <b>
+    ///             And a leaving row keeps its place in the order, which is what makes a fade look
+    ///             like one.
+    ///         </b>
+    ///         It stays in the region's slot list, so the rows below it are positioned
     ///         after it and it shrinks or fades where it stood rather than jumping to the end of the
     ///         list to die. Where it lands is decided by walking back through the previous order for
     ///         the nearest row that is still there; an index remembered from the old order would put
@@ -1806,8 +1994,12 @@ public sealed class BuildContext {
     /// <param name="empty">What to draw while the loop is drawing no rows, or null to draw nothing.</param>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>"Drawing no rows" and not "the sequence is empty", and the two differ for as
-    ///         long as an <paramref name="exit" /> lasts.</b> A list whose last row is still leaving
+    ///         ⚠
+    ///         <b>
+    ///             "Drawing no rows" and not "the sequence is empty", and the two differ for as
+    ///             long as an <paramref name="exit" /> lasts.
+    ///         </b>
+    ///         A list whose last row is still leaving
     ///         is empty by the sequence and not empty on screen, and putting <i>No results</i> beside
     ///         a row that is still fading out shows the reader both answers at once. The arm is
     ///         therefore decided by what the region holds — live rows and leaving ones together —
@@ -1828,7 +2020,7 @@ public sealed class BuildContext {
         Action<BuildContext, UiElement>? empty = null
     ) {
         ArgumentNullException.ThrowIfNull(build);
-        Rows(parent, items, key, (context, at, item, _) => build(context, at, item), indexed: false, exit, empty);
+        Rows(parent, items, key, (context, at, item, _) => build(context, at, item), false, exit, empty);
     }
 
     /// <summary>The same, with each row told where it is.</summary>
@@ -1839,8 +2031,12 @@ public sealed class BuildContext {
     /// <param name="build">Builds one item, given a signal holding its position.</param>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A <see cref="Signal{T}" /> and not an <c>int</c>, and that distinction is the
-    ///         whole feature.</b> A key that survives keeps its region and its body is <i>not</i>
+    ///         ⚠
+    ///         <b>
+    ///             A <see cref="Signal{T}" /> and not an <c>int</c>, and that distinction is the
+    ///             whole feature.
+    ///         </b>
+    ///         A key that survives keeps its region and its body is <i>not</i>
     ///         re-run, so a position handed to the body as a value is captured once — the position
     ///         that row had when its key first appeared — and is a lie from the first reorder
     ///         onwards. Nothing about it looks wrong: the list has the right rows in the right order,
@@ -1860,15 +2056,18 @@ public sealed class BuildContext {
     /// </remarks>
     /// <param name="exit">How long a removed row stays on screen, or null to remove it at once.</param>
     /// <remarks>
-    ///     ⚠ <b>What a leaving row's index reads was called an open question, and it is not one:
-    ///     nothing can observe it.</b> The three candidate answers — the index it left with, a
+    ///     ⚠
+    ///     <b>
+    ///         What a leaving row's index reads was called an open question, and it is not one:
+    ///         nothing can observe it.
+    ///     </b>
+    ///     The three candidate answers — the index it left with, a
     ///     sentinel, or a signal detached from the reconciler — differ only to something still
     ///     reading the signal, and <c>Region.Leave</c> calls <c>Stop</c> before it defers anything,
     ///     so the row's bindings are dead the moment it is let go of. What is on screen during the
     ///     interval is the last frame the model produced, index included, whichever of the three is
     ///     implemented. Writing a sentinel into it changes no pixel — which is what makes this
     ///     overload's exit a mechanical addition rather than a design decision.
-    ///
     ///     ⚠ <b>The half that <i>is</i> load-bearing is the live rows.</b> A pending exit must not
     ///     stop the survivors re-indexing: a leaving row is not in the new sequence, so whoever took
     ///     its place is written the position it vacated on that same pass. Freezing the write while
@@ -1891,7 +2090,7 @@ public sealed class BuildContext {
             items,
             key,
             (context, at, item, index) => build(context, at, item, index!),
-            indexed: true,
+            true,
             exit,
             empty
         );
@@ -1904,8 +2103,11 @@ public sealed class BuildContext {
     /// <param name="build">Builds one slot, given a signal holding the item it is showing.</param>
     /// <remarks>
     ///     <para>
-    ///         <b>The runtime half of <a href="https://github.com/Rikarin/Vixen/issues/758">#758</a>,
-    ///         and the half a markup spelling would sit on.</b> A virtualizing control has been
+    ///         <b>
+    ///             The runtime half of <a href="https://github.com/Rikarin/Vixen/issues/758">#758</a>,
+    ///             and the half a markup spelling would sit on.
+    ///         </b>
+    ///         A virtualizing control has been
     ///         reachable from a <c>.vxml</c> through <c>use=</c> since <c>VirtualListSheet.vxml</c>
     ///         proved it, but only by writing <c>CreateRow</c> and <c>BindRow</c> in <c>@code</c> —
     ///         a row <i>template</i> built by hand in C# in a file whose whole subject is the tree.
@@ -1921,8 +2123,12 @@ public sealed class BuildContext {
     ///         survives or is re-keyed. Every rule the keyed reconciler teaches is false here.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The item arrives as a <see cref="Signal{T}" />, exactly as <c>For</c>'s index
-    ///         does and for a sharper version of the same reason.</b> The body is never re-run, so a
+    ///         ⚠
+    ///         <b>
+    ///             The item arrives as a <see cref="Signal{T}" />, exactly as <c>For</c>'s index
+    ///             does and for a sharper version of the same reason.
+    ///         </b>
+    ///         The body is never re-run, so a
     ///         plain <c>int</c> handed to it would be the item that slot showed when the pool grew
     ///         — the list would draw the first dozen rows for ever while scrolling perfectly.
     ///         Writing the signal is what rebinding <i>is</i>, and the bindings inside the body
@@ -2073,112 +2279,113 @@ public sealed class BuildContext {
         }
 
         Bind(() => {
-            var wanted = new List<Region>();
-            var kept = new Dictionary<object, Region>();
-            // ⚠ Named `sequence` and not `order`: the outer `order` is the List<Region> this
-            // closure captures, and a second `order` here would shadow it — which the compiler
-            // refuses outright, and which would silently mean the wrong list if it did not.
-            var sequence = indexed ? new List<object>() : null;
-            var at = 0;
+                var wanted = new List<Region>();
+                var kept = new Dictionary<object, Region>();
+                // ⚠ Named `sequence` and not `order`: the outer `order` is the List<Region> this
+                // closure captures, and a second `order` here would shadow it — which the compiler
+                // refuses outright, and which would silently mean the wrong list if it did not.
+                var sequence = indexed ? new List<object>() : null;
+                var at = 0;
 
-            reconciling = true;
-            try {
-                foreach (var item in items()) {
-                    var identity = key(item);
-                    sequence?.Add(identity);
+                reconciling = true;
+                try {
+                    foreach (var item in items()) {
+                        var identity = key(item);
+                        sequence?.Add(identity);
 
-                    if (live.Remove(identity, out var existing)) {
-                        kept[identity] = existing;
-                        wanted.Add(existing);
+                        if (live.Remove(identity, out var existing)) {
+                            kept[identity] = existing;
+                            wanted.Add(existing);
+                            at++;
+                            continue;
+                        }
+
+                        // ⚠ A key that comes back before its old row has finished leaving ends that row
+                        // now. Reviving it is not available — `Region.Leave` disposed its bindings — and
+                        // letting both stand is the one failure an exit can introduce that the rest of
+                        // the runtime has no defence against: two subtrees under one identity, with
+                        // `refs` and the keyed effect table pointing at whichever was written last.
+                        if (leaving.Remove(identity, out var returning)) {
+                            order.Remove(returning);
+                            returning.Finish();
+                        }
+
+                        Signal<int>? index = null;
+
+                        if (positions is not null) {
+                            index = new(at);
+                            positions[identity] = index;
+                        }
+
+                        var created = new Region(target, null, region);
+                        var captured = item;
+                        var outer = iteration;
+
+                        // ⚠ Saved and restored rather than set and cleared: an `@for` inside an `@for`
+                        // body builds while the outer row is still the one a `refs` on an outer element
+                        // belongs to, and a nested loop that cleared this on the way out would give the
+                        // rest of the outer row no iteration at all.
+                        iteration = identity;
+                        try {
+                            In(target, created, () => build(this, target, captured, index));
+                        } finally {
+                            iteration = outer;
+                        }
+
+                        kept[identity] = created;
+                        wanted.Add(created);
                         at++;
-                        continue;
                     }
 
-                    // ⚠ A key that comes back before its old row has finished leaving ends that row
-                    // now. Reviving it is not available — `Region.Leave` disposed its bindings — and
-                    // letting both stand is the one failure an exit can introduce that the rest of
-                    // the runtime has no defence against: two subtrees under one identity, with
-                    // `refs` and the keyed effect table pointing at whichever was written last.
-                    if (leaving.Remove(identity, out var returning)) {
-                        order.Remove(returning);
-                        returning.Finish();
+                    // Whatever is left in `live` is what the new sequence does not contain.
+                    foreach (var (identity, gone) in live) {
+                        if (exit is null) {
+                            gone.Clear();
+                            positions?.Remove(identity);
+                            continue;
+                        }
+
+                        var captured = identity;
+                        var row = gone;
+
+                        leaving[identity] = row;
+                        row.Leave(exit, () => Ended(captured, row));
                     }
 
-                    Signal<int>? index = null;
-
-                    if (positions is not null) {
-                        index = new Signal<int>(at);
-                        positions[identity] = index;
+                    live.Clear();
+                    foreach (var (identity, item) in kept) {
+                        live[identity] = item;
                     }
 
-                    var created = new Region(target, null, region);
-                    var captured = item;
-                    var outer = iteration;
-
-                    // ⚠ Saved and restored rather than set and cleared: an `@for` inside an `@for`
-                    // body builds while the outer row is still the one a `refs` on an outer element
-                    // belongs to, and a nested loop that cleared this on the way out would give the
-                    // rest of the outer row no iteration at all.
-                    iteration = identity;
-                    try {
-                        In(target, created, () => build(this, target, captured, index));
-                    } finally {
-                        iteration = outer;
+                    // ⚠ After the matching pass and not during it, because a row's new position is not
+                    // known until the whole sequence has been walked — and because a row that survived
+                    // was never rebuilt, so this write is the only thing that can tell it that it moved.
+                    // A leaving row is not in `sequence`, so it keeps the index it had until it ends.
+                    if (sequence is not null && positions is not null) {
+                        for (var i = 0; i < sequence.Count; i++) {
+                            positions[sequence[i]].Value = i;
+                        }
                     }
 
-                    kept[identity] = created;
-                    wanted.Add(created);
-                    at++;
+                    var previous = new List<Region>(order);
+
+                    order.Clear();
+                    order.AddRange(wanted);
+
+                    foreach (var stale in previous) {
+                        if (!stale.IsLeaving || order.Contains(stale)) {
+                            continue;
+                        }
+
+                        order.Insert(After(previous, order, stale), stale);
+                    }
+                } finally {
+                    reconciling = false;
                 }
 
-                // Whatever is left in `live` is what the new sequence does not contain.
-                foreach (var (identity, gone) in live) {
-                    if (exit is null) {
-                        gone.Clear();
-                        positions?.Remove(identity);
-                        continue;
-                    }
-
-                    var captured = identity;
-                    var row = gone;
-
-                    leaving[identity] = row;
-                    row.Leave(exit, () => Ended(captured, row));
-                }
-
-                live.Clear();
-                foreach (var (identity, item) in kept) {
-                    live[identity] = item;
-                }
-
-                // ⚠ After the matching pass and not during it, because a row's new position is not
-                // known until the whole sequence has been walked — and because a row that survived
-                // was never rebuilt, so this write is the only thing that can tell it that it moved.
-                // A leaving row is not in `sequence`, so it keeps the index it had until it ends.
-                if (sequence is not null && positions is not null) {
-                    for (var i = 0; i < sequence.Count; i++) {
-                        positions[sequence[i]].Value = i;
-                    }
-                }
-
-                var previous = new List<Region>(order);
-
-                order.Clear();
-                order.AddRange(wanted);
-
-                foreach (var stale in previous) {
-                    if (!stale.IsLeaving || order.Contains(stale)) {
-                        continue;
-                    }
-
-                    order.Insert(After(previous, order, stale), stale);
-                }
-            } finally {
-                reconciling = false;
+                Settle();
             }
-
-            Settle();
-        });
+        );
     }
 
     /// <summary>Where a leaving row goes in the new order: after the nearest row still in it.</summary>
@@ -2204,14 +2411,16 @@ public sealed class BuildContext {
     ///     read — and it is what every other framework's unmount does. Its effects are disposed
     ///     immediately afterwards, so an <c>OnUnmounted</c> that writes a signal cannot leave
     ///     anything running.
-    ///
-    ///     ⚠ <b>It stops rather than clears, because a component's elements are all under its host
-    ///     and the host is somebody else's to remove.</b> Whichever of the two things that can end a
+    ///     ⚠
+    ///     <b>
+    ///         It stops rather than clears, because a component's elements are all under its host
+    ///         and the host is somebody else's to remove.
+    ///     </b>
+    ///     Whichever of the two things that can end a
     ///     component got here — the enclosing region clearing, or the document removing the host —
     ///     is already taking the host out, and removing the subtree a second time from underneath
     ///     would be one nested <c>Document.Remove</c> per element inside the walk that is removing
     ///     them. Same bargain <c>Compose</c> makes; see <c>Region.Stop</c>.
-    ///
     ///     ⚠ And the region is fetched rather than captured: <see cref="Rebuild" /> replaces a
     ///     component's region with a new one, so a closure holding the old object would stop
     ///     something nothing is in.
@@ -2225,8 +2434,12 @@ public sealed class BuildContext {
     /// <param name="host">The element it drew itself into.</param>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Two, because a component can leave the tree without any region hearing about
-    ///         it.</b> A component built inside a branch is ended by the region that built it, which
+    ///         ⚠
+    ///         <b>
+    ///             Two, because a component can leave the tree without any region hearing about
+    ///             it.
+    ///         </b>
+    ///         A component built inside a branch is ended by the region that built it, which
     ///         is what puts its effects away before the branch's elements go. A component built onto
     ///         a mount — which is every markup panel in the editor, and everything
     ///         <see cref="BuildInto" /> makes — has no such region above it, and used to go on
@@ -2234,8 +2447,12 @@ public sealed class BuildContext {
     ///         on every selection change leaked a panel's worth of effects each time.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>One object registered twice rather than two teardowns, because
-    ///         <see cref="Unsubscribe" /> is spent by its first call.</b> The orders differ — the
+    ///         ⚠
+    ///         <b>
+    ///             One object registered twice rather than two teardowns, because
+    ///             <see cref="Unsubscribe" /> is spent by its first call.
+    ///         </b>
+    ///         The orders differ — the
     ///         region disposes it before it removes the host, the document while announcing the
     ///         removal — and both are correct; what must not happen is <c>OnUnmounted</c> twice.
     ///     </para>
@@ -2248,16 +2465,23 @@ public sealed class BuildContext {
 
     /// <summary>The region a parent's content goes into, opening one the first time it is asked.</summary>
     /// <remarks>
-    ///     ⚠ <b>A region made here is linked into the region being built, and that is what makes a
-    ///     teardown reach it.</b> A region hangs off the element its content has as a <i>parent</i>,
+    ///     ⚠
+    ///     <b>
+    ///         A region made here is linked into the region being built, and that is what makes a
+    ///         teardown reach it.
+    ///     </b>
+    ///     A region hangs off the element its content has as a <i>parent</i>,
     ///     so an <c>@for</c> written inside a nested <c>&lt;div&gt;</c> opens against that div —
     ///     which is a different key in this table from the one the enclosing branch or component
     ///     builds into. Nothing above it pointed at it, so clearing the enclosing branch removed the
     ///     div and left every row's effects running: reading signals, assigning to elements that had
     ///     left the document, and holding them alive through their closures.
-    ///
-    ///     ⚠ <b><see cref="building" /> is the right owner because the element was created into it
-    ///     or into something outliving it.</b> Markup nests, so the innermost control flow live when
+    ///     ⚠
+    ///     <b>
+    ///         <see cref="building" /> is the right owner because the element was created into it
+    ///         or into something outliving it.
+    ///     </b>
+    ///     Markup nests, so the innermost control flow live when
     ///     a parent is first built into is the one whose end is also that content's end. Hand-written
     ///     C# can break that — build into an element from inside a branch that the element outlives —
     ///     and gets a subtree cleared with the branch, which is the reading of the code as written.

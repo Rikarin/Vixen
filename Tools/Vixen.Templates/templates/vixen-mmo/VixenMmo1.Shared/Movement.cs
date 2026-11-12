@@ -26,8 +26,8 @@ public static class Movement {
         var sin = MathF.Sin(input.Facing);
 
         return pose with {
-            X = pose.X + ((input.Forward * cos) - (input.Strafe * sin)) * Speed * delta,
-            Z = pose.Z + ((input.Forward * sin) + (input.Strafe * cos)) * Speed * delta,
+            X = pose.X + (input.Forward * cos - input.Strafe * sin) * Speed * delta,
+            Z = pose.Z + (input.Forward * sin + input.Strafe * cos) * Speed * delta,
             Facing = input.Facing
         };
     }

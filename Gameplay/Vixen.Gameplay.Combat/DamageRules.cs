@@ -50,7 +50,7 @@ public sealed record CombatAttributes {
         ArgumentNullException.ThrowIfNull(resistances);
 
         return this with {
-            Resistances = [.. resistances.Select(pair => (tags.RangeOf(pair.School), AttributeId.From(pair.Attribute)))]
+            Resistances = [..resistances.Select(pair => (tags.RangeOf(pair.School), AttributeId.From(pair.Attribute)))]
         };
     }
 }
@@ -230,8 +230,12 @@ public sealed class ThreatRule : IDamageRule {
 
     /// <inheritdoc />
     /// <remarks>
-    ///     ⚠ <b>Healing makes threat on everything already fighting the healer's side, and this rule
-    ///     cannot know who that is.</b> So it records the number and leaves the fan-out to whoever
+    ///     ⚠
+    ///     <b>
+    ///         Healing makes threat on everything already fighting the healer's side, and this rule
+    ///         cannot know who that is.
+    ///     </b>
+    ///     So it records the number and leaves the fan-out to whoever
     ///     owns the encounter — which is <c>Vixen.Gameplay.Instances</c>'s, and is why
     ///     <see cref="DamageEvent.Threat" /> is a figure on the event rather than a table write.
     /// </remarks>

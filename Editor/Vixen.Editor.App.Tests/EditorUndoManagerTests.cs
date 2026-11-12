@@ -163,8 +163,12 @@ public class EditorUndoManagerTests {
 
     /// <summary>The item greys itself out from the stack it would actually undo.</summary>
     /// <remarks>
-    ///     ⚠ <b>The enablement predicate had the same capture as the run, which is the worse half of
-    ///     the two.</b> A menu item that runs on the wrong history at least does something the user
+    ///     ⚠
+    ///     <b>
+    ///         The enablement predicate had the same capture as the run, which is the worse half of
+    ///         the two.
+    ///     </b>
+    ///     A menu item that runs on the wrong history at least does something the user
     ///     can see; one that reads <i>enabled</i> because a document they are not looking at has
     ///     something to take back offers an undo that then moves nothing they can see.
     /// </remarks>

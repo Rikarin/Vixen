@@ -190,17 +190,18 @@ public record struct BodyDescription {
     ///     of all zeroes, no gravity, no friction and no sleeping — four wrong answers that all look
     ///     like the physics being broken rather than like a value not being set.
     /// </remarks>
-    public static BodyDescription Create() => new() {
-        Rotation = Quaternion.Identity,
-        Motion = BodyMotion.Dynamic,
-        MotionQuality = BodyMotionQuality.Discrete,
-        Layer = PhysicsLayer.Default,
-        GravityFactor = 1f,
-        Friction = 0.2f,
-        Restitution = 0f,
-        DegreesOfFreedom = BodyDegreesOfFreedom.All,
-        AllowSleeping = true
-    };
+    public static BodyDescription Create() =>
+        new() {
+            Rotation = Quaternion.Identity,
+            Motion = BodyMotion.Dynamic,
+            MotionQuality = BodyMotionQuality.Discrete,
+            Layer = PhysicsLayer.Default,
+            GravityFactor = 1f,
+            Friction = 0.2f,
+            Restitution = 0f,
+            DegreesOfFreedom = BodyDegreesOfFreedom.All,
+            AllowSleeping = true
+        };
 
     /// <summary>A dynamic body with a shape, at a place.</summary>
     /// <param name="shape">Its collision volume.</param>
@@ -228,10 +229,5 @@ public record struct BodyDescription {
     /// <param name="position">Where it is.</param>
     /// <returns>The description.</returns>
     public static BodyDescription Trigger(ShapeId shape, Vector3 position) =>
-        Create() with {
-            Shape = shape,
-            Position = position,
-            Motion = BodyMotion.Static,
-            IsSensor = true
-        };
+        Create() with { Shape = shape, Position = position, Motion = BodyMotion.Static, IsSensor = true };
 }

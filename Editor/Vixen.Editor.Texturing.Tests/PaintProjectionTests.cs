@@ -2,10 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core.Mathematics;
-using Vixen.Editor.Texturing.Painting;
 using Vixen.Geometry;
-using Vixen.Rendering;
-using Vixen.Texturing.Layers;
 using Vixen.Texturing.Painting;
 using Xunit;
 
@@ -16,8 +13,10 @@ namespace Vixen.Editor.Texturing.Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>Doc 48 § D13's first front end, and issue
-///         <a href="https://github.com/Rikarin/Vixen/issues/574">#574</a>'s largest owed box.</b>
+///         <b>
+///             Doc 48 § D13's first front end, and issue
+///             <a href="https://github.com/Rikarin/Vixen/issues/574">#574</a>'s largest owed box.
+///         </b>
 ///         Every fixture here is a plane whose <em>layout is the arithmetic</em> — the texture
 ///         coordinate of a point equals its position, scaled by a constant this file names — so the
 ///         expected coordinate of any hit is computed rather than measured, and a wrong
@@ -156,8 +155,11 @@ public class PaintProjectionTests {
     /// <summary>⚠ A model a thousandth the size still reports a plane, and a brush of the same size.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>This repository's most-repeated arithmetic defect, in the one file that boasts
-    ///         about doc 41's scale rule.</b> <c>Vector3.Normalize</c> gives up below an
+    ///         <b>
+    ///             This repository's most-repeated arithmetic defect, in the one file that boasts
+    ///             about doc 41's scale rule.
+    ///         </b>
+    ///         <c>Vector3.Normalize</c> gives up below an
     ///         <em>absolute</em> 1e-6, and a cross product is twice the triangle's area — so it
     ///         scales as the <em>square</em> of the model. A mesh whose triangles are a millimetre
     ///         across has a cross product under the tolerance and the normal comes back
@@ -241,23 +243,30 @@ public class PaintProjectionTests {
     /// <summary>Two charts of the same size on one mesh get two densities, by which one was hit.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>⚠ The case that refutes "the density is the mesh's" and "the density is the
-    ///         chart's" in one fixture.</b> Both triangles occupy the same area of surface; one
+    ///         <b>
+    ///             ⚠ The case that refutes "the density is the mesh's" and "the density is the
+    ///             chart's" in one fixture.
+    ///         </b>
+    ///         Both triangles occupy the same area of surface; one
     ///         carries four times the coordinate range of the other. A conversion that measured
     ///         anything but the triangle it hit would answer the same number twice, and would be a
     ///         brush that is four times too small on half of a perfectly ordinary model.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>And <c>UvDensity.Measure</c> is the specific thing this rules out</b>, which
-    ///         #574's own correction warns about: it answers texels per square unit <em>per
-    ///         island</em>, so a mesh whose two islands are these would give one number per island
+    ///         #574's own correction warns about: it answers texels per square unit
+    ///         <em>
+    ///             per
+    ///             island
+    ///         </em>
+    ///         , so a mesh whose two islands are these would give one number per island
     ///         and a mesh whose one island contains both would give a single average of them.
     ///     </para>
     /// </remarks>
     [Fact]
     public void The_density_is_the_hit_triangles_own_and_not_the_meshs() {
         // Two coplanar triangles the same size, side by side, with layouts that differ four to one.
-        PaintProjection projection = PaintProjection.Over(
+        var projection = PaintProjection.Over(
             [
                 new(0f, 0f, 0f), new(1f, 0f, 0f), new(0f, 1f, 0f),
                 new(2f, 0f, 0f), new(3f, 0f, 0f), new(2f, 1f, 0f)
@@ -283,7 +292,7 @@ public class PaintProjectionTests {
     /// <summary>A triangle with no area in the atlas is not measurable, rather than very dense.</summary>
     [Fact]
     public void A_triangle_with_a_collapsed_layout_is_not_measurable() {
-        PaintProjection projection = PaintProjection.Over(
+        var projection = PaintProjection.Over(
             [new(0f, 0f, 0f), new(1f, 0f, 0f), new(0f, 1f, 0f)],
             [new(0.5f, 0.5f), new(0.5f, 0.5f), new(0.5f, 0.5f)],
             [0, 1, 2]
@@ -300,16 +309,24 @@ public class PaintProjectionTests {
     /// <summary>An island's last covered column is the last column the projection puts a hit in.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The two halves of painting on a model share one convention or the brush is
-    ///         refused where the pointer is.</b> <c>PaintCoverage.FromTriangles</c> rasterises a
+    ///         ⚠
+    ///         <b>
+    ///             The two halves of painting on a model share one convention or the brush is
+    ///             refused where the pointer is.
+    ///         </b>
+    ///         <c>PaintCoverage.FromTriangles</c> rasterises a
     ///         coordinate at <c>u · width</c> with no half-texel anywhere, and
     ///         <c>PaintProjection.Texel</c> has to agree exactly — a half-texel in either puts a hit
     ///         on the far side of an island edge from the triangle that produced it, which is a
     ///         stroke dilated at a boundary the artist is nowhere near.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The island stops short of a texel boundary, and that is what makes this able to
-    ///         fail.</b> The first version of this case was a layout covering the whole atlas, where
+    ///         ⚠
+    ///         <b>
+    ///             The island stops short of a texel boundary, and that is what makes this able to
+    ///             fail.
+    ///         </b>
+    ///         The first version of this case was a layout covering the whole atlas, where
     ///         every texel is covered and a hit displaced by half a texel is still covered — it
     ///         stayed green against exactly the drift it was written for, which is this
     ///         repository's own "verify the instrument" rule catching a new test rather than old
@@ -377,10 +394,7 @@ public class PaintProjectionTests {
     /// </remarks>
     [Fact]
     public void A_mesh_with_no_coordinates_is_refused_rather_than_projected() {
-        MeshData mesh = new() {
-            Positions = [new(0f, 0f, 0f), new(1f, 0f, 0f), new(0f, 1f, 0f)],
-            Indices = [0, 1, 2]
-        };
+        MeshData mesh = new() { Positions = [new(0f, 0f, 0f), new(1f, 0f, 0f), new(0f, 1f, 0f)], Indices = [0, 1, 2] };
 
         Assert.Null(PaintProjection.Open([mesh], out var refusal));
         Assert.Contains("texture coordinates", refusal, StringComparison.Ordinal);
@@ -388,8 +402,12 @@ public class PaintProjectionTests {
 
     /// <summary>Several meshes become one soup, with each one's indices moved along.</summary>
     /// <remarks>
-    ///     ⚠ <b>A set may name every mesh of a model, and the offset is what stops the second one
-    ///     being read through the first one's vertices.</b> Without it the tree is built over
+    ///     ⚠
+    ///     <b>
+    ///         A set may name every mesh of a model, and the offset is what stops the second one
+    ///         being read through the first one's vertices.
+    ///     </b>
+    ///     Without it the tree is built over
     ///     triangles that exist nowhere, and every one of them raycasts perfectly well.
     /// </remarks>
     [Fact]

@@ -23,8 +23,11 @@ namespace Vixen.Ui.Layout.Tests;
 ///         five boxes is on one.
 ///     </para>
 ///     <para>
-///         ⚠ <b>This store does not implement it, and the refusal is measured rather than argued:
-///         the transformation moves nothing.</b>
+///         ⚠
+///         <b>
+///             This store does not implement it, and the refusal is measured rather than argued:
+///             the transformation moves nothing.
+///         </b>
 ///         <see cref="Blockifying_a_box_in_any_of_the_five_contexts_moves_no_geometry" /> lays every
 ///         shape below out twice — once with the specified <c>display</c> and once with
 ///         §2.7's blockified one — and compares every rectangle the public API can report. All 468
@@ -33,8 +36,11 @@ namespace Vixen.Ui.Layout.Tests;
 ///         "we do not do this" is the pair of tests in this file rather than a paragraph.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The reason it is a no-op is one line of the dispatch, and it is worth knowing before
-///         anyone tries to make blockification observable.</b>
+///         ⚠
+///         <b>
+///             The reason it is a no-op is one line of the dispatch, and it is worth knowing before
+///             anyone tries to make blockification observable.
+///         </b>
 ///         <c>CalculateLayoutImpl</c> sends <see cref="Display.Block" />,
 ///         <see cref="Display.InlineBlock" />, <see cref="Display.Inline" /> and
 ///         <see cref="Display.FlowRoot" /> down the SAME branch — CSS Display §2.1's <i>inner</i>

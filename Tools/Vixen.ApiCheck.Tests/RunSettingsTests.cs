@@ -33,8 +33,12 @@ namespace Vixen.ApiCheck.Tests;
 ///         accepted it would be green in precisely the case it exists to catch.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The paragraph above is the history and not the arrangement, and the difference cost
-///         an issue.</b> <c>RunSettingsFilePath</c> made <c>dotnet test &lt;one project&gt;</c> read
+///         ⚠
+///         <b>
+///             The paragraph above is the history and not the arrangement, and the difference cost
+///             an issue.
+///         </b>
+///         <c>RunSettingsFilePath</c> made <c>dotnet test &lt;one project&gt;</c> read
 ///         the file for exactly as long as the runs went through VSTest. #560 moved <c>Test</c>,
 ///         <c>GoldenImages</c> and <c>AffectedTests</c> onto Microsoft.Testing.Platform, which reads
 ///         no settings file and downgrades the property to an MTP0001 warning — so what carries the
@@ -63,7 +67,7 @@ public sealed class RunSettingsTests {
             var variables = document
                 .Descendants("EnvironmentVariables")
                 .Elements()
-                .Select(element => (Name: element.Name.LocalName, element.Value))
+                .Select(static element => (Name: element.Name.LocalName, element.Value))
                 .ToList();
 
             Assert.True(
@@ -98,8 +102,12 @@ public sealed class RunSettingsTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Skipped rather than failed when <see cref="Marker" /> is absent, and gated on the
-    ///         marker rather than on the variable under test.</b> A bare
+    ///         ⚠
+    ///         <b>
+    ///             Skipped rather than failed when <see cref="Marker" /> is absent, and gated on the
+    ///             marker rather than on the variable under test.
+    ///         </b>
+    ///         A bare
     ///         <c>dotnet test &lt;one project&gt;</c> — the command the working agreement recommends,
     ///         and the only one an agent in a worktree may run — applies no run environment at all,
     ///         so this theory was red on every such run for a reason nobody caused, wearing the
@@ -108,11 +116,19 @@ public sealed class RunSettingsTests {
     ///         mechanism that runs and forgets <c>DYLD_LIBRARY_PATH</c> still fails here.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A prefix and not an equality, and the equality it replaces was wrong rather than
-    ///         strict.</b> <c>ExportLayerLibraryPath</c> <i>prepends</i> to an inherited value on
+    ///         ⚠
+    ///         <b>
+    ///             A prefix and not an equality, and the equality it replaces was wrong rather than
+    ///             strict.
+    ///         </b>
+    ///         <c>ExportLayerLibraryPath</c> <i>prepends</i> to an inherited value on
     ///         purpose — an export somebody made for another reason should survive a test run — so
-    ///         the host's value under <c>./build.sh Test</c> is the declared one <em>plus whatever
-    ///         the shell had</em>. Equality was green in CI only because a runner has no ambient
+    ///         the host's value under <c>./build.sh Test</c> is the declared one
+    ///         <em>
+    ///             plus whatever
+    ///             the shell had
+    ///         </em>
+    ///         . Equality was green in CI only because a runner has no ambient
     ///         <c>DYLD_LIBRARY_PATH</c>, and red under the gate itself for any developer who does.
     ///     </para>
     ///     <para>

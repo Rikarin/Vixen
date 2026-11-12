@@ -2,9 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Editor.NodeGraph;
-using Vixen.NodeGraph;
-using Vixen.Texturing.Layers;
-using Vixen.Texturing.Painting;
 using Vixen.Ui;
 using Vixen.Ui.Controls.Advanced;
 using Xunit;
@@ -38,8 +35,12 @@ public class TexturePreviewDeviceTests {
     ///         assertions below, which is what a mean or a checksum would not.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The checker is now a node the test wired, and it used to be the pane's own fixed
-    ///         plan</b> — <a href="https://github.com/Rikarin/Vixen/issues/792">#792</a>. That is the
+    ///         ⚠
+    ///         <b>
+    ///             The checker is now a node the test wired, and it used to be the pane's own fixed
+    ///             plan
+    ///         </b>
+    ///         — <a href="https://github.com/Rikarin/Vixen/issues/792">#792</a>. That is the
     ///         whole difference: the same oracle over the same picture proved the device path when
     ///         <c>TextureGraphPreview</c> hard-coded a checkerboard, and proves the <em>compiler</em>
     ///         path now that it compiles the document. The instrument is the starter graph it
@@ -136,9 +137,9 @@ public class TexturePreviewDeviceTests {
     ///     an <c>Output</c> left unfed by nothing.
     /// </remarks>
     static void Checker(TextureGraphDocument document) {
-        var output = document.Graph.Nodes.Single(node => node.Type == "Output/Output");
+        var output = document.Graph.Nodes.Single(static node => node.Type == "Output/Output");
 
-        foreach (var node in document.Graph.Nodes.Where(node => node.Type == "Source/Uniform").ToArray()) {
+        foreach (var node in document.Graph.Nodes.Where(static node => node.Type == "Source/Uniform").ToArray()) {
             document.Graph.Remove(node.Id, out _);
         }
 
@@ -171,8 +172,11 @@ public class TexturePreviewDeviceTests {
     /// <summary>⚠ An edit on the canvas reaches the picture, without reopening the panel.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>The graph pane's half of <a href="https://github.com/Rikarin/Vixen/issues/819">#819</a>,
-    ///         and it was worth nothing until the pane compiled the document.</b> While the picture
+    ///         <b>
+    ///             The graph pane's half of <a href="https://github.com/Rikarin/Vixen/issues/819">#819</a>,
+    ///             and it was worth nothing until the pane compiled the document.
+    ///         </b>
+    ///         While the picture
     ///         was a fixed checkerboard there was no difference between redrawing on every edit and
     ///         redrawing never; now a wire an author drags changes the map, and the pane has to say
     ///         so without being reopened.
@@ -221,8 +225,11 @@ public class TexturePreviewDeviceTests {
     /// <summary>⚠ A bitmap naming a picture this project has not got is a sentence, not a crash.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>The external half of <a href="https://github.com/Rikarin/Vixen/issues/792">#792</a>,
-    ///         and it is the reason the wire needed more than one line.</b> A compiled graph can ask
+    ///         <b>
+    ///             The external half of <a href="https://github.com/Rikarin/Vixen/issues/792">#792</a>,
+    ///             and it is the reason the wire needed more than one line.
+    ///         </b>
+    ///         A compiled graph can ask
     ///         for images the compiler did not carry — a <c>Source/Bitmap</c> names a project asset,
     ///         because a compilation that runs on every edit must not touch an
     ///         <c>AssetDatabase</c> — and <c>TexturePlanEvaluator.Evaluate</c> refuses a plan with an
@@ -247,9 +254,9 @@ public class TexturePreviewDeviceTests {
         Assert.True(fixture.Shell.Commands.Execute(TexturingModule.OpenCommand));
 
         var document = Assert.Single(fixture.Project.Documents.OfType<TextureGraphDocument>());
-        var output = document.Graph.Nodes.Single(node => node.Type == "Output/Output");
+        var output = document.Graph.Nodes.Single(static node => node.Type == "Output/Output");
 
-        foreach (var node in document.Graph.Nodes.Where(node => node.Type == "Source/Uniform").ToArray()) {
+        foreach (var node in document.Graph.Nodes.Where(static node => node.Type == "Source/Uniform").ToArray()) {
             document.Graph.Remove(node.Id, out _);
         }
 
@@ -313,7 +320,7 @@ public class TexturePreviewDeviceTests {
     }
 
     /// <summary>The sentence under the preview pane.</summary>
-    static string Status(UiElement panel) => Find(panel, "texture-graph-status")?.Text ?? "";
+    static string Status(UiElement panel) => Find(panel, "texture-graph-status")?.Text ?? string.Empty;
 
     /// <summary>The first element in the tree with that tag.</summary>
     static UiElement? Find(UiElement element, string tag) {

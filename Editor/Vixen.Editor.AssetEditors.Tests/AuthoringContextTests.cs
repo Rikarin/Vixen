@@ -9,7 +9,6 @@ using Vixen.Editor.AssetEditors.Animation;
 using Vixen.Editor.AssetEditors.Sequencing;
 using Vixen.Editor.Assets.Animation;
 using Vixen.Geometry;
-using Vixen.Rendering;
 using Xunit;
 using ShapeKind = Vixen.Animation.Constraints.ShapeKind;
 
@@ -29,7 +28,11 @@ public class AuthoringContextTests {
         var reopened = AnimationClipAsset.FromYaml(clip.ToYaml());
 
         Assert.Equal("Assets/Scenes/reach.vxseq", reopened.AuthoringContext);
-        Assert.DoesNotContain("vxseq", System.Text.Json.JsonSerializer.Serialize(clip.ToContent().Extensions), StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            "vxseq",
+            System.Text.Json.JsonSerializer.Serialize(clip.ToContent().Extensions),
+            StringComparison.Ordinal
+        );
 
         // The runtime record has no field for it at all, which is the strongest form the rule can
         // take: there is nowhere for a build to read it from even by mistake.
@@ -113,7 +116,7 @@ public class AuthoringContextTests {
     public void APropHeldByAJointThisRigLacksIsStillPlaced() {
         var sequence = Scene();
 
-        sequence.Tracks.Find(track => track.Kind == SequenceTrackKind.Attachment)!.Keys[0].Text = "Tentacle";
+        sequence.Tracks.Find(static track => track.Kind == SequenceTrackKind.Attachment)!.Keys[0].Text = "Tentacle";
 
         var context = AuthoringContext.From(sequence);
         var rig = Rig();
@@ -133,7 +136,7 @@ public class AuthoringContextTests {
         // ⚠ A mug the size of a mug. Proximity is measured to the *surface*, so a prop modelled as a
         // large sphere with the hand at its centre reads as far away — which is right, and is why the
         // size the scene shapes props at is a parameter rather than a constant.
-        var augmented = context.Augment(Body(rig), rig, 1.5f, size: 0.02f);
+        var augmented = context.Augment(Body(rig), rig, 1.5f, 0.02f);
 
         var found = ConstraintProposals.Find(
             rig,
@@ -141,12 +144,12 @@ public class AuthoringContextTests {
             augmented,
             [new(rig.IndexOf("Hand_r"), rig.IndexOf("Spine"), Vector3.Zero)],
             ProposalSettings.Default,
-            samples: 8
+            8
         );
 
         // The mug is on the hand's own joint, so the hand is on it for the whole clip — which is
         // exactly the contact an author would want proposed.
-        Assert.Contains(found, proposal => proposal.Shape == Symbol.Intern("mug"));
+        Assert.Contains(found, static proposal => proposal.Shape == Symbol.Intern("mug"));
     }
 
     /// <summary>
@@ -170,7 +173,7 @@ public class AuthoringContextTests {
 
         document.Scene = _ => new(
             rig,
-            context.Augment(Body(rig), rig, 1.5f, size: 0.02f),
+            context.Augment(Body(rig), rig, 1.5f, 0.02f),
             [new(rig.IndexOf("Hand_r"), rig.IndexOf("Spine"), Vector3.Zero)],
             ProposalSettings.Default
         );
@@ -196,7 +199,7 @@ public class AuthoringContextTests {
         using var project = new EditorFixture();
         var path = project.WriteAsset("Assets/reach.vxanim", "name: Reach\nduration: 1.0\n");
 
-        var document = new AnimationClipDocument(project.Project, AssetId.New(), path) { Scene = _ => null };
+        var document = new AnimationClipDocument(project.Project, AssetId.New(), path) { Scene = static _ => null };
 
         Assert.Empty(document.Propose());
         Assert.Contains("names no authoring context", document.ProposalError, StringComparison.Ordinal);
@@ -226,9 +229,7 @@ public class AuthoringContextTests {
                     ]
                 },
                 new() {
-                    Name = "mug",
-                    Kind = SequenceTrackKind.Attachment,
-                    Keys = [new() { Time = 2f, Text = "Hand_r" }]
+                    Name = "mug", Kind = SequenceTrackKind.Attachment, Keys = [new() { Time = 2f, Text = "Hand_r" }]
                 }
             ]
         };
@@ -262,7 +263,9 @@ public class AuthoringContextTests {
 
             Matrix4x4.Invert(model[index], out var inverse);
 
-            built[index] = new() { Name = joints[index].Name, Parent = joints[index].Parent, InverseBindPose = inverse };
+            built[index] = new() {
+                Name = joints[index].Name, Parent = joints[index].Parent, InverseBindPose = inverse
+            };
         }
 
         return Skeleton.Create(new() { Name = "hero", Joints = built });

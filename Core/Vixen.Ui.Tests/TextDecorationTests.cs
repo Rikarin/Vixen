@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Reflection;
-using Vixen.Core.Mathematics;
 using Vixen.Ui.Text;
 using Xunit;
 
@@ -11,8 +10,11 @@ namespace Vixen.Ui.Tests;
 /// <summary><c>text-decoration</c> from the cascade to the draw list.</summary>
 /// <remarks>
 ///     <para>
-///         <b>What is judged here is the arithmetic, and the numbers it is judged against were read
-///         out of the font files rather than out of this engine.</b> <c>TestShapeLana</c> states an
+///         <b>
+///             What is judged here is the arithmetic, and the numbers it is judged against were read
+///             out of the font files rather than out of this engine.
+///         </b>
+///         <c>TestShapeLana</c> states an
 ///         underline 90 design units thick on a 2048-unit grid and <c>Zycon</c> states one of 20 on
 ///         the same grid — a factor of four and a half, in two faces a document could mix — so a bar
 ///         drawn from a constant, from the wrong table, or at the wrong scale disagrees with one of
@@ -38,7 +40,7 @@ public class TextDecorationTests {
 
     static FontFace LoadFont(string resource, string name) {
         using var stream = Assembly.GetExecutingAssembly()
-            .GetManifestResourceStream($"Vixen.Ui.Tests.Fonts.{resource}")
+                .GetManifestResourceStream($"Vixen.Ui.Tests.Fonts.{resource}")
             ?? throw new InvalidOperationException($"the test font '{resource}' is not embedded");
 
         using var memory = new MemoryStream();
@@ -51,8 +53,12 @@ public class TextDecorationTests {
     /// <param name="declarations">What goes on the label.</param>
     /// <param name="face">Which face to register, defaulting to the thick-underlined one.</param>
     /// <remarks>
-    ///     ⚠ <b>No background anywhere, so every <see cref="DrawCommandKind.Rectangle" /> in the list
-    ///     is a decoration bar.</b> A root with a fill would put one command in front of them and the
+    ///     ⚠
+    ///     <b>
+    ///         No background anywhere, so every <see cref="DrawCommandKind.Rectangle" /> in the list
+    ///         is a decoration bar.
+    ///     </b>
+    ///     A root with a fill would put one command in front of them and the
     ///     positional assertions below would be reading it.
     /// </remarks>
     static UiDocument Documented(string declarations, FontFace? face = null) {
@@ -69,7 +75,7 @@ public class TextDecorationTests {
     }
 
     static List<DrawCommand> Bars(UiDocument document) =>
-        [.. document.Drawing.Commands.Where(static command => command.Kind == DrawCommandKind.Rectangle)];
+        [..document.Drawing.Commands.Where(static command => command.Kind == DrawCommandKind.Rectangle)];
 
     static DrawCommand Glyphs(UiDocument document) =>
         Assert.Single(document.Drawing.Commands, static command => command.Kind == DrawCommandKind.Text);
@@ -85,8 +91,12 @@ public class TextDecorationTests {
 
     /// <summary>The bar's thickness is the face's, and two faces disagree about it by four and a half.</summary>
     /// <remarks>
-    ///     ⚠ <b>The expected numbers are <c>90 × size / 2048</c> and <c>20 × size / 2048</c>, written
-    ///     out rather than read back from <see cref="FontFace.Decoration" />.</b> Asking the same
+    ///     ⚠
+    ///     <b>
+    ///         The expected numbers are <c>90 × size / 2048</c> and <c>20 × size / 2048</c>, written
+    ///         out rather than read back from <see cref="FontFace.Decoration" />.
+    ///     </b>
+    ///     Asking the same
     ///     property the implementation asked would pass with the two faces swapped, with the strikeout
     ///     table read in place of the underline one, and with the scale applied twice.
     /// </remarks>
@@ -113,7 +123,10 @@ public class TextDecorationTests {
             Hairline
         );
 
-        Assert.True(20f * 40f / 2048f < 1f, "the fixture only means something while the face asks for less than a pixel");
+        Assert.True(
+            20f * 40f / 2048f < 1f,
+            "the fixture only means something while the face asks for less than a pixel"
+        );
         Assert.Equal(1f, Assert.Single(Bars(automatic)).Height, Tolerance);
         Assert.Equal(0.5f, Assert.Single(Bars(authored)).Height, Tolerance);
     }
@@ -136,8 +149,12 @@ public class TextDecorationTests {
 
     /// <summary>The three lines are at three different heights, and each on the right side.</summary>
     /// <remarks>
-    ///     ⚠ <b>Relative to the glyph command's own baseline, which is the only anchor that is not
-    ///     this code's arithmetic repeated.</b> <see cref="DrawCommand.Y" /> on a text command <i>is</i>
+    ///     ⚠
+    ///     <b>
+    ///         Relative to the glyph command's own baseline, which is the only anchor that is not
+    ///         this code's arithmetic repeated.
+    ///     </b>
+    ///     <see cref="DrawCommand.Y" /> on a text command <i>is</i>
     ///     the baseline — see <c>DrawListBuilder.EmitText</c> — so an underline above it or an
     ///     overline below it fails here without anything having to know where the label was laid out.
     /// </remarks>
@@ -153,7 +170,10 @@ public class TextDecorationTests {
 
         switch (line) {
             case "underline":
-                Assert.True(bar.Y > baseline, $"an underline belongs below the baseline, and this one is at {bar.Y - baseline}");
+                Assert.True(
+                    bar.Y > baseline,
+                    $"an underline belongs below the baseline, and this one is at {bar.Y - baseline}"
+                );
                 break;
             case "overline":
                 Assert.True(bar.Y + bar.Height < baseline, "an overline belongs above the baseline");
@@ -162,15 +182,22 @@ public class TextDecorationTests {
                 // Above the baseline, and not so far above that it has left the glyphs — the face
                 // puts its strikeout at 530 units against an x-height of 1120.
                 Assert.True(bar.Y + bar.Height < baseline, "a line-through belongs above the baseline");
-                Assert.True(bar.Y > baseline - (Font.Metrics.Ascender * 40f / Font.UnitsPerEm), "and inside the ascent");
+                Assert.True(
+                    bar.Y > baseline - Font.Metrics.Ascender * 40f / Font.UnitsPerEm,
+                    "and inside the ascent"
+                );
                 break;
         }
     }
 
     /// <summary>A keyword written in the wrong case is still the keyword.</summary>
     /// <remarks>
-    ///     ⚠ <b>A second property to go with <c>box-shadow</c>'s, because the defect was never about
-    ///     <c>currentcolor</c>.</b> <c>StyleValueParser</c> interned an identifier's text verbatim
+    ///     ⚠
+    ///     <b>
+    ///         A second property to go with <c>box-shadow</c>'s, because the defect was never about
+    ///         <c>currentcolor</c>.
+    ///     </b>
+    ///     <c>StyleValueParser</c> interned an identifier's text verbatim
     ///     into an ordinal table, so <i>every</i> keyword in the language had two ids and every reader
     ///     held one of them — an author who wrote the other got no line, no diagnostic, and a frame
     ///     identical to one with no <c>text-decoration</c> at all. CSS Values 4 § 3.1 makes a keyword
@@ -195,8 +222,12 @@ public class TextDecorationTests {
 
     /// <summary>An underline goes under the glyphs and a line-through goes over them.</summary>
     /// <remarks>
-    ///     ⚠ <b>CSS Text Decoration 3 § 4.1's painting order, and the only reason a descender
-    ///     interrupts an underline.</b> Both orders draw a plausible picture, and the wrong one is
+    ///     ⚠
+    ///     <b>
+    ///         CSS Text Decoration 3 § 4.1's painting order, and the only reason a descender
+    ///         interrupts an underline.
+    ///     </b>
+    ///     Both orders draw a plausible picture, and the wrong one is
     ///     invisible until a <c>g</c> sits on the line — so it is asserted on the list, where it is
     ///     unambiguous, rather than left to a bitmap where an opaque colour hides it.
     /// </remarks>
@@ -221,8 +252,10 @@ public class TextDecorationTests {
     /// <summary>A thicker decoration is thicker, and a doubled one is two bars.</summary>
     [Fact]
     public void Thickness_and_style_reach_the_command() {
-        using var thin = Documented("font-size: 40px; text-decoration-line: underline; text-decoration-thickness: 1px;");
-        using var thick = Documented("font-size: 40px; text-decoration-line: underline; text-decoration-thickness: 4px;");
+        using var thin =
+            Documented("font-size: 40px; text-decoration-line: underline; text-decoration-thickness: 1px;");
+        using var thick =
+            Documented("font-size: 40px; text-decoration-line: underline; text-decoration-thickness: 4px;");
         using var doubled = Documented(
             "font-size: 40px; text-decoration-line: underline; text-decoration-thickness: 2px; text-decoration-style: double;"
         );
@@ -251,7 +284,8 @@ public class TextDecorationTests {
     [InlineData("dashed", 3f)]
     [InlineData("dotted", 1f)]
     public void A_broken_underline_covers_a_whole_number_of_marks_and_spans_the_line(string style, float marks) {
-        using var solid = Documented("font-size: 40px; text-decoration-line: underline; text-decoration-thickness: 2px;");
+        using var solid =
+            Documented("font-size: 40px; text-decoration-line: underline; text-decoration-thickness: 2px;");
         using var broken = Documented(
             $"font-size: 40px; text-decoration-line: underline; text-decoration-thickness: 2px; text-decoration-style: {style};"
         );
@@ -261,7 +295,7 @@ public class TextDecorationTests {
 
         Assert.True(pieces.Count > 1, $"a {style} underline is more than one rectangle");
 
-        var ink = pieces.Sum(piece => piece.Width);
+        var ink = pieces.Sum(static piece => piece.Width);
 
         Assert.Equal(pieces.Count * marks * 2f, ink, Tolerance);
         Assert.True(ink < whole.Width, $"a {style} underline covers less than a solid one: {ink} of {whole.Width}");
@@ -312,7 +346,8 @@ public class TextDecorationTests {
     [Fact]
     public void A_relative_offset_resolves_against_the_font_size() {
         using var plain = Documented("font-size: 40px; text-decoration-line: underline;");
-        using var relative = Documented("font-size: 40px; text-decoration-line: underline; text-underline-offset: 0.25em;");
+        using var relative =
+            Documented("font-size: 40px; text-decoration-line: underline; text-underline-offset: 0.25em;");
 
         Assert.Equal(10f, Assert.Single(Bars(relative)).Y - Assert.Single(Bars(plain)).Y, Tolerance);
     }
@@ -325,8 +360,8 @@ public class TextDecorationTests {
             "font-size: 40px; color: #ff0000; text-decoration-line: underline; text-decoration-color: #0000ff;"
         );
 
-        Assert.Equal(new Color4(1f, 0f, 0f, 1f), Assert.Single(Bars(inherited)).Color);
-        Assert.Equal(new Color4(0f, 0f, 1f, 1f), Assert.Single(Bars(own)).Color);
+        Assert.Equal(new(1f, 0f, 0f, 1f), Assert.Single(Bars(inherited)).Color);
+        Assert.Equal(new(0f, 0f, 1f, 1f), Assert.Single(Bars(own)).Color);
     }
 
     /// <summary>The bar spans the line, not each run, so it takes the line's own width.</summary>
@@ -376,8 +411,10 @@ public class TextDecorationTests {
     public void A_decoration_on_a_container_reaches_the_text_in_its_child() {
         using var document = new UiDocument(400f, 200f);
         document.Fonts.Register("Test", Font);
-        document.Load("root { width: 400px; height: 200px; align-items: flex-start; }"
-            + " panel { font-size: 40px; text-decoration-line: underline; }");
+        document.Load(
+            "root { width: 400px; height: 200px; align-items: flex-start; }"
+            + " panel { font-size: 40px; text-decoration-line: underline; }"
+        );
 
         var panel = document.Root.Add("panel");
         panel.Add("text").Text = "AB";
@@ -392,9 +429,11 @@ public class TextDecorationTests {
     public void And_the_child_can_turn_it_off_again() {
         using var document = new UiDocument(400f, 200f);
         document.Fonts.Register("Test", Font);
-        document.Load("root { width: 400px; height: 200px; align-items: flex-start; }"
+        document.Load(
+            "root { width: 400px; height: 200px; align-items: flex-start; }"
             + " panel { font-size: 40px; text-decoration-line: underline; }"
-            + " text { text-decoration-line: none; }");
+            + " text { text-decoration-line: none; }"
+        );
 
         var panel = document.Root.Add("panel");
         panel.Add("text").Text = "AB";
@@ -406,8 +445,12 @@ public class TextDecorationTests {
 
     /// <summary>The <c>text-decoration</c> shorthand reaches the longhands the engine reads.</summary>
     /// <remarks>
-    ///     ⚠ <b>Written because a real stylesheet in this repository has been using it the whole
-    ///     time.</b> <c>Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss</c> strikes an
+    ///     ⚠
+    ///     <b>
+    ///         Written because a real stylesheet in this repository has been using it the whole
+    ///         time.
+    ///     </b>
+    ///     <c>Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss</c> strikes an
     ///     overridden row through with the shorthand, and it drew nothing for as long as nothing read
     ///     the property. The builder interns only the longhands, on the argument that ExCSS expands a
     ///     shorthand while parsing — which is a claim about somebody else's library, so it is

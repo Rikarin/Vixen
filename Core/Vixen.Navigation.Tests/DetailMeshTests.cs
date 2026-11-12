@@ -47,8 +47,8 @@ public sealed class DetailMeshTests {
             for (var x = 4f; x < 20f; x += 0.7f) {
                 var point = new Vector3(x, Hill(x, z), z);
 
-                if (!query.FindNearestPoly(point, Extents, NavQueryFilter.Default, out var poly, out _) ||
-                    !query.GetPolyHeight(poly, point, out var height)) {
+                if (!query.FindNearestPoly(point, Extents, NavQueryFilter.Default, out var poly, out _)
+                    || !query.GetPolyHeight(poly, point, out var height)) {
                     continue;
                 }
 
@@ -113,11 +113,14 @@ public sealed class DetailMeshTests {
             var detail = tile.Detail[poly];
             var corners = tile.Polys[poly].VertexCount;
 
-            Assert.True(detail.TriangleCount >= corners - 2, $"Polygon {poly} has {corners} corners and {detail.TriangleCount} triangles.");
+            Assert.True(
+                detail.TriangleCount >= corners - 2,
+                $"Polygon {poly} has {corners} corners and {detail.TriangleCount} triangles."
+            );
 
             for (var triangle = 0; triangle < detail.TriangleCount; triangle++) {
                 for (var slot = 0; slot < 3; slot++) {
-                    var index = tile.DetailTriangles[((detail.FirstTriangle + triangle) * 3) + slot];
+                    var index = tile.DetailTriangles[(detail.FirstTriangle + triangle) * 3 + slot];
 
                     if (index < corners) {
                         continue;

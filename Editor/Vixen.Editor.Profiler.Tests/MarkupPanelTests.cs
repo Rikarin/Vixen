@@ -165,8 +165,12 @@ public sealed class MarkupPanelTests : IDisposable {
     }
 
     /// <summary>
-    ///     ⚠ <b>The bar is a real <see cref="ProgressBar" /> now, and only rows with a budget have
-    ///     one.</b> The hand-written panel kept a track in every row and hid the ones with nothing to
+    ///     ⚠
+    ///     <b>
+    ///         The bar is a real <see cref="ProgressBar" /> now, and only rows with a budget have
+    ///         one.
+    ///     </b>
+    ///     The hand-written panel kept a track in every row and hid the ones with nothing to
     ///     show; the markup builds none, which is what makes "no budget" and "a budget of zero"
     ///     visibly different from "measured at nothing".
     /// </summary>
@@ -202,13 +206,13 @@ public sealed class MarkupPanelTests : IDisposable {
     public void A_second_reading_replaces_the_lines_on_screen() {
         var view = Build<MemoryView>();
 
-        view.Providers.Gpu = () => [new(MemoryArena.Gpu, "Device-local", 512 * 1024 * 1024)];
+        view.Providers.Gpu = static () => [new(MemoryArena.Gpu, "Device-local", 512 * 1024 * 1024)];
         view.Take();
         test.Frames(2);
 
         Assert.Equal("512 MiB", ValueOfLine(view, "Device-local"));
 
-        view.Providers.Gpu = () => [new(MemoryArena.Gpu, "Device-local", 256 * 1024 * 1024)];
+        view.Providers.Gpu = static () => [new(MemoryArena.Gpu, "Device-local", 256 * 1024 * 1024)];
         view.Take();
         test.Frames(2);
 
@@ -233,13 +237,14 @@ public sealed class MarkupPanelTests : IDisposable {
 
         Assert.DoesNotContain("Asset residency", Labels(view));
 
-        view.Providers.Assets = () => [new(MemoryArena.Assets, "Textures", 12, IsCount: true)];
+        view.Providers.Assets = static () => [new(MemoryArena.Assets, "Textures", 12, IsCount: true)];
         view.Take();
         test.Frames(2);
 
         Assert.Contains("Asset residency", Labels(view));
 
-        var heading = Lines(view).Single(line => TextOf(line).StartsWith("Asset residency", StringComparison.Ordinal));
+        var heading = Lines(view)
+            .Single(static line => TextOf(line).StartsWith("Asset residency", StringComparison.Ordinal));
 
         Assert.True(heading.HasClass("memory-heading"));
         Assert.False(heading.HasClass("memory-row"));
@@ -274,8 +279,12 @@ public sealed class MarkupPanelTests : IDisposable {
     }
 
     /// <summary>
-    ///     ⚠ <b>The tag the stylesheet needs is on the host element the component built itself into,
-    ///     not on some wrapper.</b> `@tag` is what says so, and getting it wrong is invisible until
+    ///     ⚠
+    ///     <b>
+    ///         The tag the stylesheet needs is on the host element the component built itself into,
+    ///         not on some wrapper.
+    ///     </b>
+    ///     `@tag` is what says so, and getting it wrong is invisible until
     ///     somebody notices the panel has no padding: <c>ProfilerTheme</c> reaches these two by tag
     ///     name for every rule they have, including <c>memory-view &gt; scroll-view</c>, which is a
     ///     direct-child selector and therefore also an assertion about depth.
@@ -329,14 +338,14 @@ public sealed class MarkupPanelTests : IDisposable {
     public void A_memory_panel_that_leaves_the_document_stops_following_its_model() {
         var view = Build<MemoryView>();
 
-        view.Providers.Gpu = () => [new(MemoryArena.Gpu, "Device-local", 512 * 1024 * 1024)];
+        view.Providers.Gpu = static () => [new(MemoryArena.Gpu, "Device-local", 512 * 1024 * 1024)];
         view.Take();
         test.Frames(2);
 
         Assert.NotEmpty(Lines(view));
         view.Root.Remove();
 
-        view.Providers.Gpu = () => [new(MemoryArena.Gpu, "Device-local", 256 * 1024 * 1024)];
+        view.Providers.Gpu = static () => [new(MemoryArena.Gpu, "Device-local", 256 * 1024 * 1024)];
         view.Take();
 
         Assert.Equal(0, test.Document.Effects.PendingCount);
@@ -357,8 +366,12 @@ public sealed class MarkupPanelTests : IDisposable {
     /// <summary>The refresh control stays put while the list it refreshes scrolls under it.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>This is the placement sentence #767 kept owing, measured on a view the editor
-    ///         already ships rather than decided.</b> The issue's two rows both ended on "where the
+    ///         ⚠
+    ///         <b>
+    ///             This is the placement sentence #767 kept owing, measured on a view the editor
+    ///             already ships rather than decided.
+    ///         </b>
+    ///         The issue's two rows both ended on "where the
     ///         widget goes", called taste; the tree answers it the same way in every panel that has
     ///         one — <c>MemoryView</c>, <c>StatisticsView</c>, <c>NetworkView</c>,
     ///         <c>RemoteInspectorView</c>: the button is first in a toolbar above the list, and the
@@ -374,13 +387,13 @@ public sealed class MarkupPanelTests : IDisposable {
     public void The_refresh_control_is_above_the_list_and_outside_its_scroller() {
         var view = Build<MemoryView>();
 
-        view.Providers.Gpu = () => [
-            .. Enumerable.Range(0, 200).Select(i => new MemoryRow(MemoryArena.Gpu, $"Heap {i}", 1024L * (i + 1)))
+        view.Providers.Gpu = static () => [
+            ..Enumerable.Range(0, 200).Select(static i => new MemoryRow(MemoryArena.Gpu, $"Heap {i}", 1024L * (i + 1)))
         ];
         view.Take();
         test.Frames(2);
 
-        var refresh = Descendants(view.Root).OfType<Button>().Single(button => button.Label == "Refresh");
+        var refresh = Descendants(view.Root).OfType<Button>().Single(static button => button.Label == "Refresh");
         var scroller = Descendants(view.Root).OfType<ScrollView>().Single();
         var first = Lines(view)[0];
 
@@ -441,11 +454,10 @@ public sealed class MarkupPanelTests : IDisposable {
         return null;
     }
 
-    static string[] Labels(MemoryView view) =>
-        [.. Tagged(view.Root, "memory-label").Select(TextOf)];
+    static string[] Labels(MemoryView view) => [..Tagged(view.Root, "memory-label").Select(TextOf)];
 
     static UiElement[] Tagged(UiElement root, string tag) =>
-        [.. Descendants(root).Where(element => string.Equals(element.Tag, tag, StringComparison.Ordinal))];
+        [..Descendants(root).Where(element => string.Equals(element.Tag, tag, StringComparison.Ordinal))];
 
     /// <summary>
     ///     Everything an element and its descendants say, joined.
@@ -457,8 +469,7 @@ public sealed class MarkupPanelTests : IDisposable {
     ///     <c>Text</c> null, and an assertion reading it would be null against every row however
     ///     right the panel was.
     /// </remarks>
-    static string TextOf(UiElement element) =>
-        string.Concat(Texts(element));
+    static string TextOf(UiElement element) => string.Concat(Texts(element));
 
     static IEnumerable<string> Texts(UiElement element) {
         if (element.Text is { } own) {

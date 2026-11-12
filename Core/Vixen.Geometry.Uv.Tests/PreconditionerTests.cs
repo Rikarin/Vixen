@@ -176,7 +176,7 @@ public class PreconditionerTests {
 
         Assert.False(preconditioner.FellBack);
 
-        var expected = Enumerable.Range(0, Size).Select(index => Math.Sin(index * 0.3d)).ToArray();
+        var expected = Enumerable.Range(0, Size).Select(static index => Math.Sin(index * 0.3d)).ToArray();
         var product = new double[Size];
         matrix.Multiply(expected, product);
 
@@ -196,8 +196,8 @@ public class PreconditionerTests {
     [Fact]
     public void Incomplete_cholesky_converges_in_fewer_iterations_than_jacobi() {
         var matrix = PoissonGrid.Matrix(20);
-        var right = Enumerable.Range(0, matrix.RowCount).Select(index => Math.Sin(index * 0.618d)).ToArray();
-        var target = Math.Sqrt(right.Sum(value => value * value)) * 1e-9d;
+        var right = Enumerable.Range(0, matrix.RowCount).Select(static index => Math.Sin(index * 0.618d)).ToArray();
+        var target = Math.Sqrt(right.Sum(static value => value * value)) * 1e-9d;
 
         var cholesky = Budget(matrix, PreconditionerKind.IncompleteCholesky, right, target);
         var jacobi = Budget(matrix, PreconditionerKind.Jacobi, right, target);
@@ -223,7 +223,7 @@ public class PreconditionerTests {
     [Fact]
     public void Applying_in_place_is_the_same_as_applying_out_of_place() {
         var preconditioner = Preconditioner.Create(PoissonGrid.Matrix(6), PreconditionerKind.IncompleteCholesky);
-        var input = Enumerable.Range(0, 36).Select(index => Math.Sin(index)).ToArray();
+        var input = Enumerable.Range(0, 36).Select(static index => Math.Sin(index)).ToArray();
 
         var outOfPlace = new double[36];
         preconditioner.Apply(input, outOfPlace);

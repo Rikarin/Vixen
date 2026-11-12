@@ -75,9 +75,9 @@ public static class TextureLadder {
         var blocksY = (Math.Max(height, 1) + 3) / 4;
 
         return compression switch {
-            TextureCompression.None => (long) Math.Max(width, 1) * Math.Max(height, 1) * 4,
-            TextureCompression.Bc1 or TextureCompression.Bc4 => (long) blocksX * blocksY * 8,
-            _ => (long) blocksX * blocksY * 16
+            TextureCompression.None => (long)Math.Max(width, 1) * Math.Max(height, 1) * 4,
+            TextureCompression.Bc1 or TextureCompression.Bc4 => (long)blocksX * blocksY * 8,
+            _ => (long)blocksX * blocksY * 16
         };
     }
 
@@ -134,7 +134,8 @@ public static class TextureLadder {
         var compression = Resolve(settings);
         var (levelWidth, levelHeight) = Fit(width, height, settings.MaxSize);
 
-        List<TextureMipLevel> levels = [new(0, levelWidth, levelHeight, BytesFor(compression, levelWidth, levelHeight))];
+        List<TextureMipLevel> levels =
+            [new(0, levelWidth, levelHeight, BytesFor(compression, levelWidth, levelHeight))];
 
         if (!settings.GenerateMips) {
             return levels;
@@ -206,9 +207,14 @@ public static class TextureLadder {
 
             reason = null;
             return decoded;
-        } catch (Exception exception) when (exception is IOException or InvalidDataException
-            or NotSupportedException or UnauthorizedAccessException or InvalidOperationException
-            or ArgumentException or IndexOutOfRangeException or Ktx2Exception) {
+        } catch (Exception exception) when (exception is IOException
+                                                or InvalidDataException
+                                                or NotSupportedException
+                                                or UnauthorizedAccessException
+                                                or InvalidOperationException
+                                                or ArgumentException
+                                                or IndexOutOfRangeException
+                                                or Ktx2Exception) {
             // ⚠ A wide net, at a boundary that earns one. The decoder is a third-party codec reading
             // a file an artist may have half-written, renamed from another format, or truncated on
             // the way out of a DCC tool — and what it throws for those is not a documented set.

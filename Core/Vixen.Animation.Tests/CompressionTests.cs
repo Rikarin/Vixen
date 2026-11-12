@@ -4,7 +4,6 @@
 using CsCheck;
 using Vixen.Core.Mathematics;
 using Vixen.Geometry;
-using Vixen.Rendering;
 using Xunit;
 
 namespace Vixen.Animation.Tests;
@@ -14,12 +13,14 @@ public class CompressionTests {
 
     static readonly Gen<Quaternion> AnyRotation =
         Gen.Select(
-            Gen.Float[-1f, 1f],
-            Gen.Float[-1f, 1f],
-            Gen.Float[-1f, 1f],
-            Gen.Float[-1f, 1f],
-            (x, y, z, w) => new Quaternion(x, y, z, w)
-        ).Where(q => q.LengthSquared() > 1e-3f).Select(Quaternion.Normalize);
+                Gen.Float[-1f, 1f],
+                Gen.Float[-1f, 1f],
+                Gen.Float[-1f, 1f],
+                Gen.Float[-1f, 1f],
+                static (x, y, z, w) => new Quaternion(x, y, z, w)
+            )
+            .Where(static q => q.LengthSquared() > 1e-3f)
+            .Select(Quaternion.Normalize);
 
     static AnimationClipData Ramp(string joint, int keys, Func<int, Vector3> position) {
         var times = new float[keys];
@@ -50,7 +51,7 @@ public class CompressionTests {
     [Fact]
     public void PackedQuaternion_RoundTrips_ToWellUnderAThousandthOfADegree() {
         AnyRotation.Sample(
-            rotation => {
+            static rotation => {
                 // q and −q are the same rotation, and packing may choose the other sign; the
                 // relative-rotation measure is blind to that as well as being stable near zero.
                 var angle = AngleBetween(rotation, PackedQuaternion.Pack(rotation).Unpack());
@@ -71,7 +72,7 @@ public class CompressionTests {
 
     [Fact]
     public void Compress_AConstantTrack_CollapsesToOneKey() {
-        var data = Ramp("Mid", 120, static _ => new Vector3(1f, 2f, 3f));
+        var data = Ramp("Mid", 120, static _ => new(1f, 2f, 3f));
         var compressed = AnimationCurveCompressor.Compress(data, CurveCompressionSettings.Default, out var report);
 
         Assert.Single(compressed.Channels[0].PositionTimes);
@@ -81,7 +82,7 @@ public class CompressionTests {
 
     [Fact]
     public void Compress_ALinearTrack_KeepsOnlyItsEnds() {
-        var data = Ramp("Mid", 120, static index => new Vector3(index * 0.1f, 0f, 0f));
+        var data = Ramp("Mid", 120, static index => new(index * 0.1f, 0f, 0f));
         var compressed = AnimationCurveCompressor.Compress(data, CurveCompressionSettings.Default, out _);
 
         Assert.Equal(2, compressed.Channels[0].PositionTimes.Length);
@@ -90,8 +91,8 @@ public class CompressionTests {
     [Fact]
     public void Compress_ACurve_StaysWithinTheTolerance() {
         // A slow curve sampled once a frame — what an exporter emits, and where the reduction is.
-        var data = Ramp("Mid", 240, static index => new Vector3(MathF.Sin(index * 0.01f), 0f, 0f));
-        var settings = new CurveCompressionSettings(Position: 1e-3f);
+        var data = Ramp("Mid", 240, static index => new(MathF.Sin(index * 0.01f), 0f, 0f));
+        var settings = new CurveCompressionSettings(1e-3f);
         var compressed = AnimationCurveCompressor.Compress(data, settings, out var report);
 
         var original = AnimationClip.Create(data, skeleton);
@@ -118,8 +119,8 @@ public class CompressionTests {
     public void Compress_ErrorIsMeasuredAgainstTheAnchor_NotTheNeighbour() {
         // A staircase whose every step is inside the tolerance and whose hundredth step is a long
         // way from the first. Fitting against the previous key would drop the lot.
-        var data = Ramp("Mid", 101, static index => new Vector3(index * 0.001f, 0f, 0f));
-        var compressed = AnimationCurveCompressor.Compress(data, new(Position: 0.002f), out _);
+        var data = Ramp("Mid", 101, static index => new(index * 0.001f, 0f, 0f));
+        var compressed = AnimationCurveCompressor.Compress(data, new(0.002f), out _);
 
         var reduced = AnimationClip.Create(compressed, skeleton);
         var pose = new BoneTransform[skeleton.JointCount];
@@ -216,7 +217,7 @@ public class CompressionTests {
         }
 
         var clip = AnimationClip.Create(
-            new AnimationClipData {
+            new() {
                 Name = "Ramp",
                 Duration = 1f,
                 Channels = [new() { Target = "Mid", PositionTimes = times, Positions = values }]
@@ -247,15 +248,15 @@ public class CompressionTests {
         }
 
         for (var index = 1; index <= 10; index++) {
-            times.Add(0.04f + (index * 0.096f));
-            values.Add(new(0.04f + (index * 0.096f), 0f, 0f));
+            times.Add(0.04f + index * 0.096f);
+            values.Add(new(0.04f + index * 0.096f, 0f, 0f));
         }
 
         var clip = AnimationClip.Create(
-            new AnimationClipData {
+            new() {
                 Name = "Uneven",
                 Duration = 1f,
-                Channels = [new() { Target = "Mid", PositionTimes = [.. times], Positions = [.. values] }]
+                Channels = [new() { Target = "Mid", PositionTimes = [..times], Positions = [..values] }]
             },
             skeleton
         );
@@ -285,7 +286,7 @@ public class CompressionTests {
         }
 
         var clip = AnimationClip.Create(
-            new AnimationClipData {
+            new() {
                 Name = "Early",
                 Duration = 1f,
                 Channels = [new() { Target = "Mid", PositionTimes = times, Positions = values }]

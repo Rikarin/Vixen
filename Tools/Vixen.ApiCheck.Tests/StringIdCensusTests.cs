@@ -38,28 +38,28 @@ public class StringIdCensusTests {
     ///     tree rather than over one file, and the reason it is included in this fixture.
     /// </remarks>
     const string FoliageFixture = """
-        public sealed class EditorCommand {
-            public StringId Unavailable { get; init; }
-        }
+                                  public sealed class EditorCommand {
+                                      public StringId Unavailable { get; init; }
+                                  }
 
-        static class FoliageMode {
-            static void Register(EditorShell shell) {
-                shell.Commands.Add(
-                    new EditorCommand(
-                        RemoveTypeCommand,
-                        new StringId("editor.command." + RemoveTypeCommand, "Remove Foliage Type"),
-                        () => { }
-                    ) {
-                        Category = EditorStrings.CategoryFoliage,
-                        Context = FoliageContext,
-                        Unavailable = new("editor.command.foliage.type-remove.unavailable",
-                            "Removing a type renumbers every instance above it; not yet built."),
-                        Enablement = () => false
-                    }
-                );
-            }
-        }
-        """;
+                                  static class FoliageMode {
+                                      static void Register(EditorShell shell) {
+                                          shell.Commands.Add(
+                                              new EditorCommand(
+                                                  RemoveTypeCommand,
+                                                  new StringId("editor.command." + RemoveTypeCommand, "Remove Foliage Type"),
+                                                  () => { }
+                                              ) {
+                                                  Category = EditorStrings.CategoryFoliage,
+                                                  Context = FoliageContext,
+                                                  Unavailable = new("editor.command.foliage.type-remove.unavailable",
+                                                      "Removing a type renumbers every instance above it; not yet built."),
+                                                  Enablement = () => false
+                                              }
+                                          );
+                                      }
+                                  }
+                                  """;
 
     /// <summary>The object-initialiser shapes this repository actually holds, none of them a string.</summary>
     /// <remarks>
@@ -69,38 +69,38 @@ public class StringIdCensusTests {
     ///     would have been wrong about; these are what it would have been wrong about.
     /// </remarks>
     const string OtherInitialisersFixture = """
-        static class Elsewhere {
-            static void Build() {
-                var process = new Process {
-                    StartInfo = new("dotnet") { RedirectStandardOutput = true }
-                };
+                                            static class Elsewhere {
+                                                static void Build() {
+                                                    var process = new Process {
+                                                        StartInfo = new("dotnet") { RedirectStandardOutput = true }
+                                                    };
 
-                var pass = new ShadowPass {
-                    CasterStage = new("Caster"),
-                    Camera = new("camera"),
-                    Material = new("Mesh")
-                };
+                                                    var pass = new ShadowPass {
+                                                        CasterStage = new("Caster"),
+                                                        Camera = new("camera"),
+                                                        Material = new("Mesh")
+                                                    };
 
-                var realm = new RealmSpec {
-                    Key = new("maps/queensdale", "eu", new("0.1.0", 0xC0FFEE)),
-                    Endpoint = new("127.0.0.1", 7777)
-                };
+                                                    var realm = new RealmSpec {
+                                                        Key = new("maps/queensdale", "eu", new("0.1.0", 0xC0FFEE)),
+                                                        Endpoint = new("127.0.0.1", 7777)
+                                                    };
 
-                World = new("overlay");
-            }
-        }
-        """;
+                                                    World = new("overlay");
+                                                }
+                                            }
+                                            """;
 
     /// <summary>The two shapes that were already seen, so the fixture above is not the only positive.</summary>
     const string AnchoredFixture = """
-        static class Anchored {
-            static readonly StringId CategoryWater = new("editor.category.water", "Water");
+                                   static class Anchored {
+                                       static readonly StringId CategoryWater = new("editor.category.water", "Water");
 
-            static void Register() {
-                Add(new StringId("editor.command.file.save", "Save"));
-            }
-        }
-        """;
+                                       static void Register() {
+                                           Add(new StringId("editor.command.file.save", "Save"));
+                                       }
+                                   }
+                                   """;
 
     /// <summary>An id assigned in an object initialiser is counted, and it was not before.</summary>
     /// <remarks>
@@ -115,7 +115,7 @@ public class StringIdCensusTests {
 
         Assert.Contains("Unavailable", members);
 
-        var ids = StringIdCensus.LiteralIds(FoliageFixture, members).Select(found => found.Id).ToList();
+        var ids = StringIdCensus.LiteralIds(FoliageFixture, members).Select(static found => found.Id).ToList();
 
         Assert.Contains("editor.command.foliage.type-remove.unavailable", ids);
 
@@ -124,8 +124,8 @@ public class StringIdCensusTests {
         var constructions = StringIdCensus.Constructions(FoliageFixture, members).ToList();
 
         Assert.Equal(2, constructions.Count);
-        Assert.Contains(constructions, construction => !construction.Literal);
-        Assert.Contains(constructions, construction => construction.Literal);
+        Assert.Contains(constructions, static construction => !construction.Literal);
+        Assert.Contains(constructions, static construction => construction.Literal);
     }
 
     /// <summary>
@@ -190,18 +190,18 @@ public class StringIdCensusTests {
     [Fact]
     public void A_parameter_name_is_not_a_member_name() {
         const string declaring = """
-            static class Signals {
-                static string Format(StringId title, StringId category) => title.Text + category.Text;
-            }
-            """;
+                                 static class Signals {
+                                     static string Format(StringId title, StringId category) => title.Text + category.Text;
+                                 }
+                                 """;
 
         const string assigning = """
-            sealed class BackgroundTask {
-                readonly Signal<string> title = new(string.Empty);
+                                 sealed class BackgroundTask {
+                                     readonly Signal<string> title = new(string.Empty);
 
-                internal BackgroundTask(string title) => this.title = new(title);
-            }
-            """;
+                                     internal BackgroundTask(string title) => this.title = new(title);
+                                 }
+                                 """;
 
         var members = StringIdCensus.Members([declaring, assigning]);
 
@@ -219,11 +219,11 @@ public class StringIdCensusTests {
     [Fact]
     public void Prose_that_quotes_the_shape_is_not_a_call_site() {
         const string prose = """
-            static class Documented {
-                /// <summary>⚠ Written as <c>Unavailable = new("editor.command.x", "X")</c> once.</summary>
-                public static StringId Unavailable { get; } = EditorStrings.Nothing;
-            }
-            """;
+                             static class Documented {
+                                 /// <summary>⚠ Written as <c>Unavailable = new("editor.command.x", "X")</c> once.</summary>
+                                 public static StringId Unavailable { get; } = EditorStrings.Nothing;
+                             }
+                             """;
 
         var members = StringIdCensus.Members([prose]);
         var found = StringIdCensus.LiteralIds(prose, members).ToList();
@@ -244,29 +244,29 @@ public class StringIdCensusTests {
     ///     written that way made the census report one construction fewer.
     /// </remarks>
     const string TargetTypedFixture = """
-        static class Shapes {
-            static StringId Label(string id, string text) => new("editor.command." + id, text);
+                                      static class Shapes {
+                                          static StringId Label(string id, string text) => new("editor.command." + id, text);
 
-            static StringId Caption => new("editor.caption", "Caption");
+                                          static StringId Caption => new("editor.caption", "Caption");
 
-            static StringId Returned(string id) {
-                return new("editor.returned." + id, id);
-            }
+                                          static StringId Returned(string id) {
+                                              return new("editor.returned." + id, id);
+                                          }
 
-            static StringId Chosen(bool which) => which ? new("editor.which.yes", "Yes") : new("editor.which.no", "No");
+                                          static StringId Chosen(bool which) => which ? new("editor.which.yes", "Yes") : new("editor.which.no", "No");
 
-            static readonly StringId[] Collected = [new("editor.collected", "Collected")];
+                                          static readonly StringId[] Collected = [new("editor.collected", "Collected")];
 
-            static readonly List<StringId> Listed = new() { new("editor.listed", "Listed") };
+                                          static readonly List<StringId> Listed = new() { new("editor.listed", "Listed") };
 
-            static void Register(string id, string text) {
-                Verb(id, new("editor.command." + id, text), () => { });
-                Verb(label: new("editor.named", "Named"), id: id, run: () => { });
-            }
+                                          static void Register(string id, string text) {
+                                              Verb(id, new("editor.command." + id, text), () => { });
+                                              Verb(label: new("editor.named", "Named"), id: id, run: () => { });
+                                          }
 
-            static void Verb(string id, StringId label, Action run) { }
-        }
-        """;
+                                          static void Verb(string id, StringId label, Action run) { }
+                                      }
+                                      """;
 
     /// <summary>The same positions holding something that is not a <c>StringId</c>.</summary>
     /// <remarks>
@@ -279,27 +279,27 @@ public class StringIdCensusTests {
     ///     semantic question.
     /// </remarks>
     const string TargetTypedElsewhereFixture = """
-        static class Elsewhere {
-            static Endpoint Home() => new("127.0.0.1", 7777);
+                                               static class Elsewhere {
+                                                   static Endpoint Home() => new("127.0.0.1", 7777);
 
-            static Endpoint Away() {
-                return new("10.0.0.1", 7777);
-            }
+                                                   static Endpoint Away() {
+                                                       return new("10.0.0.1", 7777);
+                                                   }
 
-            static readonly Endpoint[] Hosts = [new("a", 1)];
+                                                   static readonly Endpoint[] Hosts = [new("a", 1)];
 
-            static void Build(List<Endpoint> hosts, NodeGraph graph, Dictionary<string, Table> tables) {
-                hosts.Add(new("b", 2));
-                Connect(new("c", 3), "c");
-                graph.Add("Frame/Frame", new(80f, 80f));
-                tables.Add(definition.Id.Value, new(definition, rows));
-            }
+                                                   static void Build(List<Endpoint> hosts, NodeGraph graph, Dictionary<string, Table> tables) {
+                                                       hosts.Add(new("b", 2));
+                                                       Connect(new("c", 3), "c");
+                                                       graph.Add("Frame/Frame", new(80f, 80f));
+                                                       tables.Add(definition.Id.Value, new(definition, rows));
+                                                   }
 
-            static void Connect(Endpoint endpoint, string name) { }
+                                                   static void Connect(Endpoint endpoint, string name) { }
 
-            static void Add(string key, StringId label) { }
-        }
-        """;
+                                                   static void Add(string key, StringId label) { }
+                                               }
+                                               """;
 
     /// <summary>Every target-typed position is a construction, and the literal ones are ids.</summary>
     [Fact]
@@ -313,12 +313,17 @@ public class StringIdCensusTests {
         // Label, Returned and the positional argument build their id at run time; the other six
         // are literals.
         Assert.Equal(9, constructions.Count);
-        Assert.Equal(3, constructions.Count(construction => !construction.Literal));
+        Assert.Equal(3, constructions.Count(static construction => !construction.Literal));
 
-        var ids = StringIdCensus.LiteralIds(TargetTypedFixture, members, parameters).Select(found => found.Id).ToList();
+        var ids = StringIdCensus.LiteralIds(TargetTypedFixture, members, parameters)
+            .Select(static found => found.Id)
+            .ToList();
 
         Assert.Equal(
-            ["editor.caption", "editor.collected", "editor.listed", "editor.named", "editor.which.no", "editor.which.yes"],
+            [
+                "editor.caption", "editor.collected", "editor.listed", "editor.named", "editor.which.no",
+                "editor.which.yes"
+            ],
             ids.Order(StringComparer.Ordinal)
         );
     }

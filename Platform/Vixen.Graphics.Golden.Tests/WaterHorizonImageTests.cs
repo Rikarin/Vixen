@@ -11,7 +11,6 @@ using Vixen.Rendering;
 using Vixen.Rendering.Compositor;
 using Vixen.Rendering.Water;
 using Vixen.Shaders;
-using Vixen.Ui.Testing.Visual;
 using Vixen.Water;
 using Xunit;
 
@@ -97,7 +96,10 @@ public sealed class WaterHorizonImageTests {
         // The ocean starts somewhere above the middle of the screen — the horizon from 1.7 m — and
         // runs to the bottom.
         Assert.True(covered.First >= 0, "no pixel of the frame has any water coverage at all");
-        Assert.True(covered.Last >= Fixture.Side - 2, $"the ocean stops {Fixture.Side - covered.Last} rows short of the camera");
+        Assert.True(
+            covered.Last >= Fixture.Side - 2,
+            $"the ocean stops {Fixture.Side - covered.Last} rows short of the camera"
+        );
 
         // ⚠ And it reaches *past* the window. A 512 m window seen from 1.7 m subtends a few degrees;
         // if the skirt were missing, the covered band would be a fraction of what it is.
@@ -112,8 +114,12 @@ public sealed class WaterHorizonImageTests {
     /// <summary>The overlay's numbers are what the pass counted, not what a caller assumed.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Two numbers <c>stat watermesh</c> used to derive, and this pins where they come
-    ///         from rather than what they came out as.</b> The draw count was <c>ZonesDrawn * 2</c> —
+    ///         ⚠
+    ///         <b>
+    ///             Two numbers <c>stat watermesh</c> used to derive, and this pins where they come
+    ///             from rather than what they came out as.
+    ///         </b>
+    ///         The draw count was <c>ZonesDrawn * 2</c> —
     ///         the window and the skirt — where <see cref="WaterSurfacePass.Record" /> issues a draw
     ///         only for whichever of the two has instances. Both frames this repository can measure
     ///         (this ocean and <c>Samples/13</c>'s lake) populate both, so the derivation and the
@@ -324,8 +330,8 @@ public sealed class WaterHorizonImageTests {
 
         effects.AddProvider(
             new Compiling(
-                new EffectLoader(device),
-                _ => RavenEffects.Only(
+                new(device),
+                static _ => RavenEffects.Only(
                     ["Core", "Geometry", "Shading", "Water"],
                     Path.Combine("PostFx", "Fullscreen.rvn")
                 )
@@ -360,15 +366,15 @@ public sealed class WaterHorizonImageTests {
         sequence.Children.Add(
             new DelegateSceneRenderer {
                 Name = "Clear depth",
-                OnBuild = (_, built) => {
+                OnBuild = static (_, built) => {
                     var target = built.Texture("harness", "SceneDepth");
 
                     built.Graph.AddPass(
                         "Clear depth",
                         pass => {
-                            pass.DepthAttachment(target, LoadAction.Clear, 0f);
+                            pass.DepthAttachment(target);
                             pass.SideEffect();
-                            pass.Execute(_ => { });
+                            pass.Execute(static _ => { });
                         }
                     );
                 }
@@ -378,8 +384,7 @@ public sealed class WaterHorizonImageTests {
         sequence.Children.Add(node);
 
         var compositor = new GraphicsCompositor(system) {
-            FrameSize = new(Fixture.Side, Fixture.Side),
-            Game = sequence
+            FrameSize = new(Fixture.Side, Fixture.Side), Game = sequence
         };
 
         // ⚠ Owned rather than ColourTarget'd, and the fixture's own remarks say why: a compositor
@@ -394,7 +399,13 @@ public sealed class WaterHorizonImageTests {
             PixelFormat.Depth32Float
         );
 
-        compositor.Imports["WaterSurface"] = new(surface.Texture, surface.View, surface.Description, ResourceState.Undefined, ResourceState.CopySource);
+        compositor.Imports["WaterSurface"] = new(
+            surface.Texture,
+            surface.View,
+            surface.Description,
+            ResourceState.Undefined,
+            ResourceState.CopySource
+        );
         compositor.Imports["WaterNormal"] = new(normal.Texture, normal.View, normal.Description);
 
         // ⚠ Cleared to zero, which under reverse-Z is the far plane — an empty scene with nothing in
@@ -441,18 +452,14 @@ public sealed class WaterHorizonImageTests {
         world.Add(
             body,
             WaterBodyComponent.Default with {
-                Kind = WaterBodyKind.Ocean,
-                Spline = "Ocean",
-                SurfaceHeight = Surface,
-                Depth = 200f
+                Kind = WaterBodyKind.Ocean, Spline = "Ocean", SurfaceHeight = Surface, Depth = 200f
             }
         );
 
         world.Add(body, new WorldTransform { Value = Matrix4x4.Identity });
 
         var zones = new WaterZoneSystem(view) {
-            Splines = new Square(4_000f, Surface),
-            Ground = new FlatWaterGround(Surface - 200f)
+            Splines = new Square(4_000f, Surface), Ground = new FlatWaterGround(Surface - 200f)
         };
 
         zones.Fold(world);
@@ -471,10 +478,10 @@ public sealed class WaterHorizonImageTests {
                             new(-half, height, -half), new(half, height, -half),
                             new(half, height, half), new(-half, height, half)
                         ],
-                        closed: true,
-                        tension: 1f
+                        true,
+                        1f
                     ),
-                    closed: true
+                    true
                 );
     }
 

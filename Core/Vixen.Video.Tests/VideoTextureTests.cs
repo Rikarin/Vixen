@@ -15,7 +15,7 @@ namespace Vixen.Video.Tests;
 public sealed class VideoTextureTests {
     [Fact]
     public void AFourTwoZeroFrameBecomesThreePlanesAndThreeCopies() {
-        using var device = new NullDevice(new NullDeviceOptions { Record = true });
+        using var device = new NullDevice(new() { Record = true });
         using var texture = new VideoTexture(device, "test");
 
         Upload(device, texture, Frame(64, 32));
@@ -28,12 +28,12 @@ public sealed class VideoTextureTests {
         var barriers = device.Recorder.OfKind(RecordedCommandKind.Barrier);
 
         Assert.Equal(2, barriers.Count);
-        Assert.All(barriers, barrier => Assert.Equal(3, barrier.B));
+        Assert.All(barriers, static barrier => Assert.Equal(3, barrier.B));
     }
 
     [Fact]
     public void EachPlaneIsCopiedAtItsOwnSize() {
-        using var device = new NullDevice(new NullDeviceOptions { Record = true });
+        using var device = new NullDevice(new() { Record = true });
         using var texture = new VideoTexture(device);
 
         Upload(device, texture, Frame(64, 32));
@@ -48,12 +48,12 @@ public sealed class VideoTextureTests {
 
     [Fact]
     public void APackedFrameIsOnePlaneOfTexelsRatherThanOfBytes() {
-        using var device = new NullDevice(new NullDeviceOptions { Record = true });
+        using var device = new NullDevice(new() { Record = true });
         using var texture = new VideoTexture(device);
 
         var frame = new VideoFrame();
 
-        frame.Reset(new VideoFormat(16, 8, VideoPixelLayout.Bgra8));
+        frame.Reset(new(16, 8, VideoPixelLayout.Bgra8));
         Upload(device, texture, frame);
 
         var copies = device.Recorder!.OfKind(RecordedCommandKind.CopyBufferToTexture);
@@ -70,7 +70,7 @@ public sealed class VideoTextureTests {
         var frame = new VideoFrame();
 
         frame.Reset(
-            new VideoFormat(
+            new(
                 16,
                 16,
                 VideoPixelLayout.Yuv420Planar,
@@ -105,11 +105,11 @@ public sealed class VideoTextureTests {
     [Fact]
     public void APlayerWhosePictureHasNotChangedIsNotUploadedAgain() {
         // A 24 fps video in a 144 fps game: one upload in six frames, not one per frame.
-        using var device = new NullDevice(new NullDeviceOptions { Record = true });
+        using var device = new NullDevice(new() { Record = true });
         using var texture = new VideoTexture(device);
         using var player = new VideoPlayer(
             new WebMVideoStreamDecoder(VideoTestContent.Video(16, 16, 3).Stream()),
-            new VideoPlayerOptions { UseDecodeThread = false, QueueCapacity = 2 }
+            new() { UseDecodeThread = false, QueueCapacity = 2 }
         );
 
         player.Play();
@@ -140,7 +140,7 @@ public sealed class VideoTextureTests {
     static VideoFrame Frame(int width, int height) {
         var frame = new VideoFrame();
 
-        frame.Reset(new VideoFormat(width, height, VideoPixelLayout.Yuv420Planar));
+        frame.Reset(new(width, height, VideoPixelLayout.Yuv420Planar));
         frame.Clear();
 
         return frame;

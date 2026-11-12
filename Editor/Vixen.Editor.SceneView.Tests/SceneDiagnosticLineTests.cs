@@ -5,7 +5,6 @@ using Vixen.Core;
 using Vixen.Core.Mathematics;
 using Vixen.Ecs;
 using Vixen.Editor.Core;
-using Vixen.Editor.Core.Scenes;
 using Vixen.Rendering;
 using Xunit;
 
@@ -21,8 +20,12 @@ namespace Vixen.Editor.SceneView.Tests;
 ///         nothing calls — the accumulator fills every frame and no pane reads it.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Asserted against <c>World</c> and not <c>Overlay</c>, which is the load-bearing
-///         choice.</b> A collider behind a wall is behind the wall; drawing it in the overlay channel
+///         ⚠
+///         <b>
+///             Asserted against <c>World</c> and not <c>Overlay</c>, which is the load-bearing
+///             choice.
+///         </b>
+///         A collider behind a wall is behind the wall; drawing it in the overlay channel
 ///         would put every wireframe in the level in front of the geometry it describes, which reads
 ///         as the colliders being in the wrong place rather than as the wrong channel.
 ///     </para>

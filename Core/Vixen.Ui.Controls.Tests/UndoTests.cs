@@ -9,8 +9,12 @@ namespace Vixen.Ui.Controls.Tests;
 /// <summary>⌘Z in a text field, and the manager it has to find first.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>What these asserted before: nothing, because <c>git grep "IUndo\|UndoManager"</c>
-///         returned no hits anywhere in the repository.</b> <c>CodeBuffer</c>'s remarks argue
+///         ⚠
+///         <b>
+///             What these asserted before: nothing, because <c>git grep "IUndo\|UndoManager"</c>
+///             returned no hits anywhere in the repository.
+///         </b>
+///         <c>CodeBuffer</c>'s remarks argue
 ///         correctly that a text control must not own an undo stack, and the argument stops one step
 ///         short of saying where the control should <i>look</i> — so a dialog's text box had no ⌘Z in
 ///         any Vixen application, the editor included.
@@ -43,10 +47,11 @@ public class UndoTests {
 
         var seen = 0;
         fixture.Document.Root.AddHandler<KeyEvent>((_, args) => {
-            if (args is { Key: InputKey.Z, Action: KeyAction.Pressed }) {
-                seen++;
+                if (args is { Key: InputKey.Z, Action: KeyAction.Pressed }) {
+                    seen++;
+                }
             }
-        });
+        );
 
         var field = fixture.Add<TextBox>();
         fixture.Document.Focus(field);
@@ -137,7 +142,7 @@ public class UndoTests {
         using var _f = fixture;
 
         field.MoveCaret(0);
-        field.MoveCaret(4, extend: true);
+        field.MoveCaret(4, true);
 
         field.Replace(string.Empty);
 
@@ -169,8 +174,12 @@ public class UndoTests {
 
     /// <summary>Two undos go further into the past rather than back and forth.</summary>
     /// <remarks>
-    ///     ⚠ <b>Not a test of <see cref="IUndoManager.IsPerforming" />, and it was labelled as one
-    ///     until the sabotage came back green.</b> Removing that guard on both sides changed nothing
+    ///     ⚠
+    ///     <b>
+    ///         Not a test of <see cref="IUndoManager.IsPerforming" />, and it was labelled as one
+    ///         until the sabotage came back green.
+    ///     </b>
+    ///     Removing that guard on both sides changed nothing
     ///     here, because <c>TextField.Restore</c> assigns <c>Value</c> directly instead of going
     ///     through <c>Replace</c>, so nothing re-enters the recorder during an undo at all. What is
     ///     asserted is the property a user has — the second ⌘Z is another step back — and the guard
@@ -214,9 +223,9 @@ public class UndoTests {
                 log.Add("undo-first");
 
                 // What a careless registrant does: the undo re-runs its edit path, which registers.
-                undo.Register("echo", () => log.Add("undo-echo"), () => { });
+                undo.Register("echo", () => log.Add("undo-echo"), static () => { });
             },
-            () => { }
+            static () => { }
         );
 
         Assert.True(undo.Undo());
@@ -280,7 +289,7 @@ public class UndoTests {
 
         for (var i = 0; i < 4; i++) {
             var index = i;
-            undo.Register("edit", () => log.Add(index), () => { });
+            undo.Register("edit", () => log.Add(index), static () => { });
         }
 
         while (undo.Undo()) { }

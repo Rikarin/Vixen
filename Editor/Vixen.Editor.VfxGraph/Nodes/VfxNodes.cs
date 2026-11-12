@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core.Mathematics;
-using Vixen.Editor.NodeGraph;
 using Vixen.NodeGraph;
 using Vixen.Vfx;
 
@@ -128,7 +127,9 @@ public sealed partial class RandomVelocityNode : VfxBlockNode {
 
     /// <inheritdoc />
     protected internal override void Contribute(VfxGraphBuilder builder) =>
-        builder.Initializers.Add(new(VfxOpcode.VelocityRandomDirection, new Vector4(Number("Minimum"), Number("Maximum"), 0f, 0f)));
+        builder.Initializers.Add(
+            new(VfxOpcode.VelocityRandomDirection, new Vector4(Number("Minimum"), Number("Maximum"), 0f, 0f))
+        );
 }
 
 /// <summary>Particles start moving in a fixed direction.</summary>
@@ -544,8 +545,11 @@ public sealed partial class RibbonOutputNode : VfxNode {
     public Flow In;
 
     /// <summary>Which custom attribute holds the strip identifier.</summary>
-    [Setting(Name = "Attribute", Summary = "The custom attribute holding the strip. Particles sharing a value are one ribbon.")]
-    public string Attribute = "";
+    [Setting(
+        Name = "Attribute",
+        Summary = "The custom attribute holding the strip. Particles sharing a value are one ribbon."
+    )]
+    public string Attribute = string.Empty;
 
     /// <inheritdoc />
     protected internal override void Contribute(VfxGraphBuilder builder) {
@@ -582,7 +586,7 @@ public sealed partial class RibbonOutputNode : VfxNode {
 public abstract class VfxCustomNode : VfxBlockNode {
     /// <summary>What the attribute is called. An identifier, because the shader binds by it.</summary>
     [Setting(Name = "Attribute", Summary = "The attribute's name. An identifier — the emitted shader binds by it.")]
-    public string Attribute = "";
+    public string Attribute = string.Empty;
 
     /// <summary>How wide it is: one, three or four floats.</summary>
     [Input(Name = "Lanes", Default = [1f])]
@@ -664,8 +668,12 @@ public sealed partial class PositionNode : VfxBlockNode {
 
 /// <summary>Particles start moving somewhere inside a cone.</summary>
 /// <remarks>
-///     ⚠ <b>The jet, the fountain and the muzzle flash — and the opcode for it had shipped in both
-///     backends with nothing able to author it.</b> <c>Vfx/Initialize/Random Velocity</c> is this with
+///     ⚠
+///     <b>
+///         The jet, the fountain and the muzzle flash — and the opcode for it had shipped in both
+///         backends with nothing able to author it.
+///     </b>
+///     <c>Vfx/Initialize/Random Velocity</c> is this with
 ///     a half-angle of π, which is a sphere, so every directional emitter in the library was a sphere
 ///     somebody had aimed with a Gravity block.
 /// </remarks>
@@ -718,9 +726,7 @@ public sealed partial class RotationNode : VfxBlockNode {
 
     /// <inheritdoc />
     protected internal override void Contribute(VfxGraphBuilder builder) =>
-        builder.Initializers.Add(
-            new(VfxOpcode.SetRotation, new Vector4(Number("Minimum"), Number("Maximum"), 0f, 0f))
-        );
+        builder.Initializers.Add(new(VfxOpcode.SetRotation, new Vector4(Number("Minimum"), Number("Maximum"), 0f, 0f)));
 }
 
 /// <summary>How fast particles spin.</summary>
@@ -756,6 +762,5 @@ public sealed partial class AngularVelocityNode : VfxBlockNode {
 [Node("Vfx/Update/Rotate", Summary = "Roll advances by angular velocity, every step.")]
 public sealed partial class RotateNode : VfxBlockNode {
     /// <inheritdoc />
-    protected internal override void Contribute(VfxGraphBuilder builder) =>
-        builder.Updaters.Add(new(VfxOpcode.Rotate));
+    protected internal override void Contribute(VfxGraphBuilder builder) => builder.Updaters.Add(new(VfxOpcode.Rotate));
 }

@@ -12,8 +12,12 @@ namespace Vixen.Ui.Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>What was missing here was the question and not the answer, which is why this took a
-///         band query rather than a second text wrapper.</b> §9.5 shortens the LINE BOXES beside a
+///         ⚠
+///         <b>
+///             What was missing here was the question and not the answer, which is why this took a
+///             band query rather than a second text wrapper.
+///         </b>
+///         §9.5 shortens the LINE BOXES beside a
 ///         float and leaves the block box full width, so a text leaf's measured size is one rectangle
 ///         either way and the staircase lives inside it. <c>LayoutTree.ContentBands</c> is what a
 ///         measure function can now ask; <c>UiElement.Block</c> breaks one line per band and then
@@ -28,8 +32,12 @@ namespace Vixen.Ui.Tests;
 ///         run in, and the fourth, whose top is the float's bottom edge, starts at <c>x = 0</c>.
 ///     </para>
 ///     <para>
-///         ⚠ <b>What is deliberately not compared with Chrome is <i>which characters</i> each line
-///         ends on.</b> That is a claim about shaping and about a font both sides have, which this
+///         ⚠
+///         <b>
+///             What is deliberately not compared with Chrome is <i>which characters</i> each line
+///             ends on.
+///         </b>
+///         That is a claim about shaping and about a font both sides have, which this
 ///         repository does not have with any browser yet — see <c>#257</c>, where the browser-read
 ///         break positions are and what has to agree before one of them is usable. So the
 ///         break positions are pinned against this store's own answer at a stated width instead:
@@ -48,7 +56,7 @@ public class TextFloatBandTests {
     /// <summary>The paragraph's lines are inset by the float and shortened by it.</summary>
     [Fact]
     public void A_paragraph_beside_a_left_float_starts_after_it_on_every_line_it_crosses() {
-        using var document = Beside(floated: true);
+        using var document = Beside(true);
         var label = Paragraphed(document);
         var block = label.Block()!;
 
@@ -61,7 +69,10 @@ public class TextFloatBandTests {
 
         for (var i = 0; i < 3; i++) {
             Assert.Equal(100f, block.Lines[i].Offset, Tolerance);
-            Assert.True(block.Lines[i].Width <= 200f + Tolerance, $"line {i} is {block.Lines[i].Width} wide in a 200 band");
+            Assert.True(
+                block.Lines[i].Width <= 200f + Tolerance,
+                $"line {i} is {block.Lines[i].Width} wide in a 200 band"
+            );
         }
 
         // ⚠ And the offset is on the line rather than applied by whoever draws it, so the caret, the
@@ -71,19 +82,26 @@ public class TextFloatBandTests {
 
     /// <summary>The line whose top is the float's bottom edge steps back out to the full width.</summary>
     /// <remarks>
-    ///     ⚠ <b>This is the half that a single narrowed width cannot express, and the reason the
-    ///     assertion is <c>&gt; 200</c> rather than an equality.</b> A paragraph wrapped to the band
+    ///     ⚠
+    ///     <b>
+    ///         This is the half that a single narrowed width cannot express, and the reason the
+    ///         assertion is <c>&gt; 200</c> rather than an equality.
+    ///     </b>
+    ///     A paragraph wrapped to the band
     ///     throughout would look right — every line short, none overflowing — and would leave a
     ///     line's worth of text tucked under a float that is no longer beside it. A line wider than
     ///     the band is only possible if the band went away.
     /// </remarks>
     [Fact]
     public void The_line_below_the_float_is_wider_than_the_band_above_it() {
-        using var document = Beside(floated: true);
+        using var document = Beside(true);
         var block = Paragraphed(document).Block()!;
 
         Assert.Equal(0f, block.Lines[3].Offset, Tolerance);
-        Assert.True(block.Lines[3].Width > 200f, $"the step-out line is {block.Lines[3].Width} wide, so it never stepped out");
+        Assert.True(
+            block.Lines[3].Width > 200f,
+            $"the step-out line is {block.Lines[3].Width} wide, so it never stepped out"
+        );
     }
 
     /// <summary>A line in a 200-point band ends where a line in a 200-point box ends.</summary>
@@ -96,12 +114,14 @@ public class TextFloatBandTests {
     /// </remarks>
     [Fact]
     public void The_lines_beside_the_float_break_where_a_box_of_the_bands_width_breaks() {
-        using var banded = Beside(floated: true);
+        using var banded = Beside(true);
         var bandedBlock = Paragraphed(banded).Block()!;
 
         using var narrow = new UiDocument(400f, 300f);
         narrow.Fonts.Register("Test", Font);
-        narrow.Load("root { width: 200px; height: 300px; display: block; } label { display: block; line-height: 20px; }");
+        narrow.Load(
+            "root { width: 200px; height: 300px; display: block; } label { display: block; line-height: 20px; }"
+        );
 
         var narrowBlock = Paragraphed(narrow).Block()!;
 
@@ -113,19 +133,23 @@ public class TextFloatBandTests {
 
     /// <summary>The same paragraph with no float beside it is not offset and is shorter.</summary>
     /// <remarks>
-    ///     ⚠ <b>The control, and it is what says the band query is answering rather than the caller
-    ///     assuming.</b> Everything above is also true of a paragraph indented by 100 points on three
+    ///     ⚠
+    ///     <b>
+    ///         The control, and it is what says the band query is answering rather than the caller
+    ///         assuming.
+    ///     </b>
+    ///     Everything above is also true of a paragraph indented by 100 points on three
     ///     lines for no reason; this is the assertion that goes red if <c>ContentBands</c> starts
     ///     answering for nodes that no float touches, which is the failure that would look like
     ///     success.
     /// </remarks>
     [Fact]
     public void A_paragraph_with_no_float_beside_it_keeps_the_whole_width() {
-        using var document = Beside(floated: false);
+        using var document = Beside(false);
         var label = Paragraphed(document);
         var block = label.Block()!;
 
-        Assert.All(block.Lines, line => Assert.Equal(0f, line.Offset, Tolerance));
+        Assert.All(block.Lines, static line => Assert.Equal(0f, line.Offset, Tolerance));
         Assert.Equal(3, block.Lines.Length);
         Assert.Equal(60f, label.Height, Tolerance);
     }

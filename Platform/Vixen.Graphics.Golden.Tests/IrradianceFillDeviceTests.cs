@@ -3,7 +3,6 @@
 
 using Vixen.Core.Mathematics;
 using Vixen.Graphics.Vulkan;
-using Vixen.Rendering;
 using Vixen.Rendering.DistanceFields;
 using Vixen.Rendering.IrradianceFields;
 using Vixen.Rendering.Lighting;
@@ -81,7 +80,11 @@ public sealed class IrradianceFillDeviceTests {
                         var origin = device.Pool.OriginOf(brick.Slot);
                         var texel = Texel(device, origin.X + x, origin.Y + y, origin.Z + z);
 
-                        Same(reference.GetProbe(brick, x, y, z), probes[texel], $"probe {x},{y},{z} of slot {brick.Slot}");
+                        Same(
+                            reference.GetProbe(brick, x, y, z),
+                            probes[texel],
+                            $"probe {x},{y},{z} of slot {brick.Slot}"
+                        );
                         compared++;
                     }
                 }
@@ -147,15 +150,14 @@ public sealed class IrradianceFillDeviceTests {
         // The whole IrradianceFields package, which is where IrradianceFill lives — and DistanceFields
         // beside it, because the fill declares a slot and NoDistanceField is what fills it.
         effects.AddProvider(
-            new Compiling(loader, _ => RavenEffects.Only(["Core", "DistanceFields", "IrradianceFields"]))
+            new Compiling(loader, static _ => RavenEffects.Only(["Core", "DistanceFields", "IrradianceFields"]))
         );
 
-        using var fill = new IrradianceFieldFill(device) {
-            Effects = effects,
-            Pipelines = new ComputePipelineCache(device),
-            Descriptors = allocator,
-            SkyColour = new(Radiance)
-        };
+        using var fill = new IrradianceFieldFill(device);
+        fill.Effects = effects;
+        fill.Pipelines = new(device);
+        fill.Descriptors = allocator;
+        fill.SkyColour = new(Radiance);
 
         var probes = new IrradianceProbe[field.Pool.Texels.Length];
 
@@ -206,7 +208,7 @@ public sealed class IrradianceFillDeviceTests {
     static int Texel(IrradianceField field, int x, int y, int z) {
         var resolution = field.Pool.TexelResolution;
 
-        return (((z * resolution.Y) + y) * resolution.X) + x;
+        return (z * resolution.Y + y) * resolution.X + x;
     }
 
     /// <summary>Whether two probes are the same answer, allowing for two different machines' maths.</summary>

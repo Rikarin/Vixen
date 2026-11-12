@@ -20,10 +20,15 @@ public sealed partial class TexturingModule {
     /// <summary>Turns the graph on the canvas into a material in the project.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>The route <a href="https://github.com/Rikarin/Vixen/issues/1009">#1009</a> says did
-    ///         not exist.</b> Everything below the notification is
-    ///         <see cref="MaterialBakeRoute.Bake(TextureGraphDocument, string, string, bool, bool)" />, which is the compile the pane runs, the
-    ///         evaluator both panes share, and the <see cref="Vixen.Editor.Assets.Materials.ProjectMaterialBaker" /> the command
+    ///         <b>
+    ///             The route <a href="https://github.com/Rikarin/Vixen/issues/1009">#1009</a> says did
+    ///             not exist.
+    ///         </b>
+    ///         Everything below the notification is
+    ///         <see cref="MaterialBakeRoute.Bake(TextureGraphDocument, string, string, bool, bool)" />, which is the compile
+    ///         the pane runs, the
+    ///         evaluator both panes share, and the <see cref="Vixen.Editor.Assets.Materials.ProjectMaterialBaker" /> the
+    ///         command
     ///         line calls. There is one baker and this is a second caller of it, which is the only
     ///         arrangement in which "the same code the CLI runs" is a fact.
     ///     </para>
@@ -40,25 +45,30 @@ public sealed partial class TexturingModule {
     ///         ⚠ <b>Force is now offered, and it is a second verb rather than an argument</b> —
     ///         <a href="https://github.com/Rikarin/Vixen/issues/1019">#1019</a>. A map somebody has
     ///         painted over stops the bake, which is § D4's whole point, and a command handler
-    ///         carries no argument to force with. ⚠ <b>The sentence here used to send the artist to
-    ///         <c>vixen texture bake --force</c> and that verb cannot re-bake a graph</b>: its
+    ///         carries no argument to force with. ⚠
+    ///         <b>
+    ///             The sentence here used to send the artist to
+    ///             <c>vixen texture bake --force</c> and that verb cannot re-bake a graph
+    ///         </b>
+    ///         : its
     ///         <c>--from</c> is required and reads a folder of maps
     ///         (<a href="https://github.com/Rikarin/Vixen/issues/1020">#1020</a>), so running it
     ///         would have written a <em>second</em> set beside the painted one rather than replacing
     ///         anything. <see cref="ForceBakeCommand" /> repeats <em>this</em> bake instead.
     ///     </para>
     /// </remarks>
-    public void BakeMaterial() => BakeGraph(document, force: false);
+    public void BakeMaterial() => BakeGraph(document, false);
 
     /// <summary>Turns the graph on the canvas into a material that marches its own height map.</summary>
     /// <remarks>
     ///     <b><a href="https://github.com/Rikarin/Vixen/issues/1103">#1103</a>.</b> The same bake as
     ///     <see cref="BakeMaterial" /> with the one ask <c>MaterialBake.Material</c> is deliberately
     ///     not allowed to make for itself. ⚠ A bake that wrote no height map says so rather than
-    ///     composing a march with nothing to sample, which is <see cref="Vixen.Editor.Assets.Materials.MaterialBakeParallax" />'s
+    ///     composing a march with nothing to sample, which is
+    ///     <see cref="Vixen.Editor.Assets.Materials.MaterialBakeParallax" />'s
     ///     rule and not this verb's.
     /// </remarks>
-    public void BakeParallaxMaterial() => BakeGraph(document, force: false, parallax: true);
+    public void BakeParallaxMaterial() => BakeGraph(document, false, true);
 
     /// <summary>Turns the graph on the canvas into a material, forcing or not.</summary>
     /// <param name="subject">The document to bake.</param>
@@ -70,8 +80,12 @@ public sealed partial class TexturingModule {
     ///         one handler and cannot force a bake nobody asked about. See <see cref="Refused" />.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And the document is a <em>parameter</em> rather than the field, which is the
-    ///         whole of what makes that closure safe.</b> Reading <c>document</c> inside the forced
+    ///         ⚠
+    ///         <b>
+    ///             And the document is a <em>parameter</em> rather than the field, which is the
+    ///             whole of what makes that closure safe.
+    ///         </b>
+    ///         Reading <c>document</c> inside the forced
     ///         run would force-bake whatever happened to be open when the artist reached for the
     ///         verb — and the ordinary way to meet a painted-over refusal is to go and look at the
     ///         file that was painted, which means opening something else first. Capturing the
@@ -111,7 +125,7 @@ public sealed partial class TexturingModule {
         // ⚠ The forced repeat carries the ask, for the same reason it carries the document: an artist
         // who asked for a march and met a painted-over refusal would otherwise press Force and get a
         // material without one, with nothing saying the second bake answered a different question.
-        Refused(outcome.Painted ? () => BakeGraph(subject, force: true, parallax: parallax) : null);
+        Refused(outcome.Painted ? () => BakeGraph(subject, true, parallax) : null);
 
         shell.Notifications.Show(
             outcome.Set is null ? "Nothing baked" : "Baked '" + outcome.Set.Name + "'",
@@ -133,14 +147,18 @@ public sealed partial class TexturingModule {
     ///     compile the layers pane runs, the evaluator both panes share and the
     ///     <see cref="Vixen.Editor.Assets.Materials.ProjectMaterialBaker" /> the command line calls.
     /// </remarks>
-    public void BakeStackMaterial() => BakeStack(stack, force: false);
+    public void BakeStackMaterial() => BakeStack(stack, false);
 
     /// <summary>Turns the open layer stack into materials, forcing or not.</summary>
     /// <param name="subject">The stack to bake.</param>
     /// <param name="force">Whether to overwrite outputs somebody has painted over.</param>
     /// <remarks>
-    ///     ⚠ <b>The stack is a parameter and not the field, for <see cref="BakeGraph" />'s
-    ///     reason</b>: the closure <see cref="Refused" /> arms must repeat the bake that was
+    ///     ⚠
+    ///     <b>
+    ///         The stack is a parameter and not the field, for <see cref="BakeGraph" />'s
+    ///         reason
+    ///     </b>
+    ///     : the closure <see cref="Refused" /> arms must repeat the bake that was
     ///     refused, not whatever is open when somebody presses the verb.
     ///     ⚠ <b>One notification for the whole stack rather than one per set.</b> A set that refused
     ///     and a set that wrote are both facts about the same gesture, and an artist reading two
@@ -189,12 +207,12 @@ public sealed partial class TexturingModule {
         }
 
         var outcomes = baker.Bake(subject, Path.GetFileNameWithoutExtension(subject.AssetPath), force: force);
-        var written = outcomes.Count(one => one.Set is not null);
-        var painted = outcomes.Any(one => one.Painted);
+        var written = outcomes.Count(static one => one.Set is not null);
+        var painted = outcomes.Any(static one => one.Painted);
 
-        Refused(painted ? () => BakeStack(subject, force: true) : null);
+        Refused(painted ? () => BakeStack(subject, true) : null);
 
-        var detail = string.Join(" · ", outcomes.Select(one => one.Status));
+        var detail = string.Join(" · ", outcomes.Select(static one => one.Status));
 
         shell.Notifications.Show(
             written == 0
@@ -210,14 +228,17 @@ public sealed partial class TexturingModule {
 
     /// <summary>Packs the open stack's layer weights into a splat map and binds it onto the material.</summary>
     /// <remarks>
-    ///     <b><a href="https://github.com/Rikarin/Vixen/issues/1124">#1124</a>'s editor half, and the
-    ///     verb <a href="https://github.com/Rikarin/Vixen/issues/1073">#1073</a> was missing.</b>
+    ///     <b>
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/1124">#1124</a>'s editor half, and the
+    ///         verb <a href="https://github.com/Rikarin/Vixen/issues/1073">#1073</a> was missing.
+    ///     </b>
     ///     Everything below the notification is <see cref="MaterialBakeRoute" /> — the same compile
     ///     the layers pane runs, the same evaluator both panes share and the same
-    ///     <see cref="Vixen.Editor.Assets.Materials.ProjectMaterialBaker" /> the command line calls, with its naming, its digest,
+    ///     <see cref="Vixen.Editor.Assets.Materials.ProjectMaterialBaker" /> the command line calls, with its naming, its
+    ///     digest,
     ///     its painted-over guard and its provenance block.
     /// </remarks>
-    public void BakeSplatMap() => BakeSplat(stack, force: false);
+    public void BakeSplatMap() => BakeSplat(stack, false);
 
     /// <summary>Packs the weights, forcing or not.</summary>
     /// <param name="subject">The stack to weigh.</param>
@@ -267,12 +288,12 @@ public sealed partial class TexturingModule {
         }
 
         var outcomes = baker.BakeSplat(subject, Path.GetFileNameWithoutExtension(subject.AssetPath), force: force);
-        var written = outcomes.Count(one => one.Set is not null);
-        var painted = outcomes.Any(one => one.Painted);
+        var written = outcomes.Count(static one => one.Set is not null);
+        var painted = outcomes.Any(static one => one.Painted);
 
-        Refused(painted ? () => BakeSplat(subject, force: true) : null);
+        Refused(painted ? () => BakeSplat(subject, true) : null);
 
-        var detail = string.Join(" · ", outcomes.Select(one => one.Status));
+        var detail = string.Join(" · ", outcomes.Select(static one => one.Status));
 
         shell.Notifications.Show(
             written == 0
@@ -288,8 +309,12 @@ public sealed partial class TexturingModule {
 
     /// <summary>Re-runs the last bake a painted-over map refused.</summary>
     /// <remarks>
-    ///     ⚠ <b>It is armed by a refusal and disarmed by running, which is what makes one verb safe
-    ///     enough to sit on the Tools menu</b> — <a href="https://github.com/Rikarin/Vixen/issues/1019">#1019</a>.
+    ///     ⚠
+    ///     <b>
+    ///         It is armed by a refusal and disarmed by running, which is what makes one verb safe
+    ///         enough to sit on the Tools menu
+    ///     </b>
+    ///     — <a href="https://github.com/Rikarin/Vixen/issues/1019">#1019</a>.
     ///     A plain "bake forced" verb is a control that overwrites an artist's paint whenever
     ///     somebody reaches for it out of order; this one does nothing at all until a bake has been
     ///     refused for the one reason force answers, and it repeats <em>that</em> bake — same
@@ -319,8 +344,12 @@ public sealed partial class TexturingModule {
     /// <summary>Remembers, or forgets, the bake a force verb would repeat.</summary>
     /// <param name="repeat">How to re-run it forced, or null when nothing force answers was refused.</param>
     /// <remarks>
-    ///     ⚠ <b>Called on every bake, including the ones that worked, and the null half is the load
-    ///     bearing one.</b> An arming that were never cleared would leave the force verb pointing at
+    ///     ⚠
+    ///     <b>
+    ///         Called on every bake, including the ones that worked, and the null half is the load
+    ///         bearing one.
+    ///     </b>
+    ///     An arming that were never cleared would leave the force verb pointing at
     ///     a refusal the artist has since resolved by hand — so pressing it would overwrite a file
     ///     that had stopped being the one they were told about.
     /// </remarks>
@@ -329,8 +358,11 @@ public sealed partial class TexturingModule {
     /// <summary>Saves the open stack's chosen texture set onto the shelf as a <c>.vxsmartmat</c>.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>Doc 48 § M10's file, given the one thing a file format needs to stop being a
-    ///         plan: somebody who makes one</b> —
+    ///         <b>
+    ///             Doc 48 § M10's file, given the one thing a file format needs to stop being a
+    ///             plan: somebody who makes one
+    ///         </b>
+    ///         —
     ///         <a href="https://github.com/Rikarin/Vixen/issues/575">#575</a>.
     ///     </para>
     ///     <para>
@@ -421,15 +453,19 @@ public sealed partial class TexturingModule {
             extract.Status
             + $" It is on the shelf at Assets/{SmartMaterial.ShelfFolder}/, ready to apply to another "
             + "stack."
-            + (replaced ? " ⚠ It replaced the entry of that name that was already there." : "")
+            + (replaced ? " ⚠ It replaced the entry of that name that was already there." : string.Empty)
         );
     }
 
     /// <summary>Puts the selected <c>.vxsmartmat</c> on top of the open stack's chosen texture set.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The open stack may itself be a shelf entry, and that is allowed rather than
-    ///         overlooked</b> — <a href="https://github.com/Rikarin/Vixen/issues/1070">#1070</a>. Its
+    ///         ⚠
+    ///         <b>
+    ///             The open stack may itself be a shelf entry, and that is allowed rather than
+    ///             overlooked
+    ///         </b>
+    ///         — <a href="https://github.com/Rikarin/Vixen/issues/1070">#1070</a>. Its
     ///         two neighbours refuse a <c>.vxsmartmat</c> in the panel and this one does not: a shelf
     ///         entry composed of two others — rust over panel wear — is a real thing to author, and
     ///         <see cref="SmartMaterial.Prepare" /> already drops everything a fragment must not
@@ -488,8 +524,10 @@ public sealed partial class TexturingModule {
 
         try {
             material = LayerStackYaml.Read(File.ReadAllText(project.Paths.Absolute(entry.Path)));
-        } catch (Exception failure) when (failure is YamlBindingException or YamlParseException
-            or NotSupportedException or IOException) {
+        } catch (Exception failure) when (failure is YamlBindingException
+                                              or YamlParseException
+                                              or NotSupportedException
+                                              or IOException) {
             shell.Notifications.Show("Nothing applied", NotificationSeverity.Warning, failure.Message);
 
             return;
@@ -516,9 +554,7 @@ public sealed partial class TexturingModule {
             return;
         }
 
-        stack.Stack.Execute(
-            new ApplySmartMaterialCommand(stack, target.Name, applied.Layers, "Apply Smart Material")
-        );
+        stack.Stack.Execute(new ApplySmartMaterialCommand(stack, target.Name, applied.Layers, "Apply Smart Material"));
 
         shell.Notifications.Show("Applied '" + material.Name + "'", NotificationSeverity.Info, applied.Status);
 
@@ -527,8 +563,12 @@ public sealed partial class TexturingModule {
 
     /// <summary>Swaps the pointer between selecting and painting.</summary>
     /// <remarks>
-    ///     ⚠ <b>It opens the pane the brush works in, and until <see cref="PaintUvView" /> existed
-    ///     there was none.</b> This verb used to say, in the notification, that no viewport drove the
+    ///     ⚠
+    ///     <b>
+    ///         It opens the pane the brush works in, and until <see cref="PaintUvView" /> existed
+    ///         there was none.
+    ///     </b>
+    ///     This verb used to say, in the notification, that no viewport drove the
     ///     brush and that a drag would paint nothing. The 2D UV view is doc 48 § D13's second front
     ///     end and is that viewport; the 3D projection path is still owed
     ///     (<a href="https://github.com/Rikarin/Vixen/issues/574">#574</a>), and a mode with no pane
@@ -558,7 +598,9 @@ public sealed partial class TexturingModule {
             // choose one and every path here takes `Sets[0]` — #927 asks for exactly this sentence
             // where a selector is not built.
             mode == PaintToolMode.Paint
-                ? "The brush is " + tool.Describe() + ". Drag in the Paint pane to lay a stroke into "
+                ? "The brush is "
+                + tool.Describe()
+                + ". Drag in the Paint pane to lay a stroke into "
                 + Aimed()
                 + ". ⚠ The 3D projection path is still doc 48 § D13 (#574), so a drag in the scene "
                 + "paints nothing."
@@ -614,7 +656,7 @@ public sealed partial class TexturingModule {
         if (project.TryGetDocument(asset, out var existing) && existing is TextureGraphDocument opened) {
             document = opened;
         } else {
-            document = new TextureGraphDocument(project, asset, project.Paths.Absolute(entry.Path));
+            document = new(project, asset, project.Paths.Absolute(entry.Path));
         }
 
         project.Activate(document);
@@ -657,7 +699,7 @@ public sealed partial class TexturingModule {
         if (project.TryGetDocument(asset, out var existing) && existing is LayerStackDocument opened) {
             stack = opened;
         } else {
-            stack = new LayerStackDocument(project, asset, project.Paths.Absolute(entry.Path));
+            stack = new(project, asset, project.Paths.Absolute(entry.Path));
         }
 
         // ⚠ A different stack's canvases are not this stack's, and the store is keyed by absolute

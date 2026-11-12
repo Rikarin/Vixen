@@ -44,7 +44,9 @@ public sealed class TrackedDollyTests {
 
         public Tracks Splines { get; } = new();
 
-        public Rig() => System.Splines = Splines;
+        public Rig() {
+            System.Splines = Splines;
+        }
 
         public void Tick(float seconds = 1f / 60f) {
             frame++;
@@ -64,10 +66,12 @@ public sealed class TrackedDollyTests {
 
     /// <summary>A straight sixty-metre track along +X at the origin's height.</summary>
     static Spline Straight() =>
-        new([
-            SplinePoint.Smooth(new(0f, 0f, 0f), new(20f, 0f, 0f)),
-            SplinePoint.Smooth(new(60f, 0f, 0f), new(20f, 0f, 0f))
-        ]);
+        new(
+            [
+                SplinePoint.Smooth(new(0f, 0f, 0f), new(20f, 0f, 0f)),
+                SplinePoint.Smooth(new(60f, 0f, 0f), new(20f, 0f, 0f))
+            ]
+        );
 
     static Entity Dolly(Rig rig, TrackedDollyBody body, Entity target = default) {
         var entity = VirtualCameras.Create(
@@ -111,11 +115,13 @@ public sealed class TrackedDollyTests {
 
         rig.Splines.Add(
             "Track",
-            new([
-                SplinePoint.Smooth(new(0f, 0f, 0f), new(4f, 0f, 0f)),
-                SplinePoint.Smooth(new(10f, 0f, 0f), new(4f, 0f, 0f)),
-                SplinePoint.Smooth(new(60f, 0f, 0f), new(30f, 0f, 0f))
-            ])
+            new(
+                [
+                    SplinePoint.Smooth(new(0f, 0f, 0f), new(4f, 0f, 0f)),
+                    SplinePoint.Smooth(new(10f, 0f, 0f), new(4f, 0f, 0f)),
+                    SplinePoint.Smooth(new(60f, 0f, 0f), new(30f, 0f, 0f))
+                ]
+            )
         );
 
         var shot = Dolly(rig, TrackedDollyBody.On("Track"));
@@ -150,12 +156,12 @@ public sealed class TrackedDollyTests {
                     SplinePoint.Smooth(new(20f, 0f, 20f), new(-10f, 0f, 0f)),
                     SplinePoint.Smooth(new(0f, 0f, 20f), new(0f, 0f, -10f))
                 ],
-                closed: true
+                true
             )
         );
 
         var open = Dolly(rig, TrackedDollyBody.On("Open", 10_000f));
-        var loop = Dolly(rig, TrackedDollyBody.On("Loop", 0f));
+        var loop = Dolly(rig, TrackedDollyBody.On("Loop"));
 
         rig.Tick();
 
@@ -184,7 +190,7 @@ public sealed class TrackedDollyTests {
         rig.Splines.Add("Track", Straight());
 
         var target = rig.Place(new(42f, 0f, 15f));
-        var shot = Dolly(rig, TrackedDollyBody.Following("Track", damping: 0f), target);
+        var shot = Dolly(rig, TrackedDollyBody.Following("Track", 0f), target);
 
         rig.Tick();
 
@@ -202,7 +208,7 @@ public sealed class TrackedDollyTests {
         rig.Splines.Add("Track", Straight());
 
         var target = rig.Place(new(42f, 0f, 15f));
-        var shot = Dolly(rig, TrackedDollyBody.Following("Track", damping: 0f), target);
+        var shot = Dolly(rig, TrackedDollyBody.Following("Track", 0f), target);
 
         rig.Tick();
 
@@ -228,10 +234,12 @@ public sealed class TrackedDollyTests {
         // Rolled a quarter turn, the track's up points sideways and the camera goes with it.
         rig.Splines.Add(
             "Track",
-            new([
-                SplinePoint.Smooth(new(0f, 0f, 0f), new(20f, 0f, 0f), MathF.PI / 2f),
-                SplinePoint.Smooth(new(60f, 0f, 0f), new(20f, 0f, 0f), MathF.PI / 2f)
-            ])
+            new(
+                [
+                    SplinePoint.Smooth(new(0f, 0f, 0f), new(20f, 0f, 0f), MathF.PI / 2f),
+                    SplinePoint.Smooth(new(60f, 0f, 0f), new(20f, 0f, 0f), MathF.PI / 2f)
+                ]
+            )
         );
 
         rig.Tick();
@@ -239,13 +247,17 @@ public sealed class TrackedDollyTests {
         var banked = rig.Read(shot).Position;
 
         Assert.True(MathF.Abs(banked.Y) < 1f, $"a fully banked track still lifted the camera to {banked.Y}.");
-        Assert.True(MathF.Abs(banked.Z) > 4f, $"a fully banked track did not carry the camera sideways.");
+        Assert.True(MathF.Abs(banked.Z) > 4f, "a fully banked track did not carry the camera sideways.");
     }
 
     /// <summary>A camera whose track cannot be found holds its position.</summary>
     /// <remarks>
-    ///     ⚠ <b>Falling back to the origin would send it through the level the first frame after
-    ///     somebody renamed an asset.</b> A camera that has not moved is a thing an author notices
+    ///     ⚠
+    ///     <b>
+    ///         Falling back to the origin would send it through the level the first frame after
+    ///         somebody renamed an asset.
+    ///     </b>
+    ///     A camera that has not moved is a thing an author notices
     ///     and can attribute.
     /// </remarks>
     [Fact]

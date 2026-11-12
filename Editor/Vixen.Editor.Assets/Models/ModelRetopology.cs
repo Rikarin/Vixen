@@ -6,15 +6,17 @@ using Vixen.Geometry;
 using Vixen.Geometry.Remeshing;
 using Vixen.Geometry.Uv;
 using Vixen.Interchange;
-using Vixen.Rendering;
 
 namespace Vixen.Editor.Assets.Models;
 
 /// <summary>Retopology and unwrapping over a model file's meshes, for the importer and the CLI alike.</summary>
 /// <remarks>
 ///     <para>
-///         <b>docs/plan/41 § D16 and docs/plan/42 § D13 name four surfaces between them and three of
-///         them run exactly this.</b> The importer, <c>vixen remesh</c> and <c>vixen unwrap</c> differ
+///         <b>
+///             docs/plan/41 § D16 and docs/plan/42 § D13 name four surfaces between them and three of
+///             them run exactly this.
+///         </b>
+///         The importer, <c>vixen remesh</c> and <c>vixen unwrap</c> differ
 ///         in where the mesh came from and where it goes, and in nothing else — so the decision of what
 ///         to do to a mesh lives here once rather than being made the same way three times and then
 ///         drifting.
@@ -146,8 +148,11 @@ public static class ModelRetopology {
     /// <returns>The guide.</returns>
     /// <remarks>
     ///     <para>
-    ///         <b>This is what makes docs/plan/41 § D10's "an asset, not a paint session" true rather
-    ///         than aspirational.</b> A <c>.vxspline</c> is already an asset with an importer, an
+    ///         <b>
+    ///             This is what makes docs/plan/41 § D10's "an asset, not a paint session" true rather
+    ///             than aspirational.
+    ///         </b>
+    ///         A <c>.vxspline</c> is already an asset with an importer, an
     ///         editor and a serializer — doc 31 built all three — so a guide is a curve saved beside
     ///         the mesh, and re-generating the source does not throw the direction away.
     ///     </para>

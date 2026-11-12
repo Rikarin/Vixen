@@ -290,8 +290,12 @@ public class UtilityFamilyTests {
     /// <summary>Two <c>snap-</c> classes write one <c>scroll-snap-type</c> between them.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Asserted as a computed value and not as emitted text, because the join happens in
-    ///         the cascade.</b> <c>snap-y</c> writes an axis and a <c>var()</c>; <c>snap-mandatory</c>
+    ///         ⚠
+    ///         <b>
+    ///             Asserted as a computed value and not as emitted text, because the join happens in
+    ///             the cascade.
+    ///         </b>
+    ///         <c>snap-y</c> writes an axis and a <c>var()</c>; <c>snap-mandatory</c>
     ///         writes the fragment that <c>var()</c> names. Neither rule can see the other, and what
     ///         reaches <c>ScrollView.SnapType</c> is a string the cascade assembled — which is exactly
     ///         why that method reads it as text rather than through a keyword accessor.
@@ -475,9 +479,13 @@ public class UtilityFamilyTests {
     /// <summary><c>lh</c> is one line box, on every sizing root that answers a keyword.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The only sizing value whose <i>unit</i> did not exist, which is why it was the
-    ///         ledger's one Sizing <c>partial</c> and why the row's own <c>value_gap</c> said nothing
-    ///         about it.</b> Every keyword beside it resolves to a unit the parser already read;
+    ///         ⚠
+    ///         <b>
+    ///             The only sizing value whose <i>unit</i> did not exist, which is why it was the
+    ///             ledger's one Sizing <c>partial</c> and why the row's own <c>value_gap</c> said nothing
+    ///             about it.
+    ///         </b>
+    ///         Every keyword beside it resolves to a unit the parser already read;
     ///         <c>max-block-lh</c> emitted text <c>StyleValueParser</c> refused, so the class
     ///         cascaded to nothing and the demotion came from the measurement rather than from the
     ///         prose. Resolving it took a <c>StyleUnit</c>, a line height on <c>LengthContext</c> and
@@ -622,7 +630,8 @@ public class UtilityFamilyTests {
 
         static string Property(string declaration) => declaration[..declaration.IndexOf(':', StringComparison.Ordinal)];
 
-        static string Value(string declaration) => declaration[(declaration.IndexOf(':', StringComparison.Ordinal) + 1)..];
+        static string Value(string declaration) =>
+            declaration[(declaration.IndexOf(':', StringComparison.Ordinal) + 1)..];
     }
 
     [Fact]
@@ -746,7 +755,7 @@ public class UtilityFamilyTests {
         // the two emissions are the same colour, because mixing against `transparent` with
         // premultiplied alpha leaves the components alone and scales only the alpha. Asserted on the
         // *parsed* value rather than on the text, which is the only place the two can be compared.
-        var parser = new StyleValueParser(new NameTable(), new NameTable());
+        var parser = new StyleValueParser(new(), new());
         var emitted = new UtilityFixture().Emits("bg-accent/50")[0]["background-color: ".Length..];
 
         var mixed = parser.Parse(emitted);
@@ -793,8 +802,11 @@ public class UtilityFamilyTests {
     /// <summary>⚠ v4's blur scale is names, and this engine answered only numbers.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>Doc 43 § C2 went looking for a scale shifted by one step and this family had no
-    ///         scale at all.</b> <c>blur-*</c> resolved through <c>--spacing</c>, so <c>blur-8</c>
+    ///         <b>
+    ///             Doc 43 § C2 went looking for a scale shifted by one step and this family had no
+    ///             scale at all.
+    ///         </b>
+    ///         <c>blur-*</c> resolved through <c>--spacing</c>, so <c>blur-8</c>
     ///         worked and <c>blur-md</c> — which is the only kind of spelling v4 has for this
     ///         family, and the one <c>UiGeometry</c>'s own remarks call canonical beside
     ///         <c>rounded-2xl</c> — produced no rule at all. A class that produces no rule is
@@ -818,7 +830,7 @@ public class UtilityFamilyTests {
     [InlineData("blur-3xl", "64px")]
     [InlineData("blur-2", "8px")]
     public void A_blur_resolves_a_named_step_and_a_spacing_count_alike(string utility, string expected) {
-        var fixture = new UtilityFixture("");
+        var fixture = new UtilityFixture(string.Empty);
 
         Assert.Contains(
             $"{UtilityComposition.Blur}: {expected}",
@@ -832,7 +844,7 @@ public class UtilityFamilyTests {
     [InlineData("backdrop-blur-md", "12px")]
     [InlineData("backdrop-blur-8", "32px")]
     public void A_backdrop_blur_reads_the_same_scale(string utility, string expected) {
-        var fixture = new UtilityFixture("");
+        var fixture = new UtilityFixture(string.Empty);
 
         Assert.Contains(
             $"{UtilityComposition.BackdropBlur}: {expected}",
@@ -859,7 +871,7 @@ public class UtilityFamilyTests {
     /// </remarks>
     [Fact]
     public void The_shipped_radius_and_shadow_scales_are_v4s_and_not_v3s() {
-        var tokens = new UtilityFixture("").Tokens;
+        var tokens = new UtilityFixture(string.Empty).Tokens;
 
         // v4's radius scale starts at `xs` and runs to `4xl`; v3's started at `sm` and stopped at
         // `3xl`, so the presence of both ends is what tells the two apart.

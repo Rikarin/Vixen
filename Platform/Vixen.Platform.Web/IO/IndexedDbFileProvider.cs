@@ -10,8 +10,11 @@ namespace Vixen.Platform.Web;
 /// <summary>Read-write storage in a browser, on top of IndexedDB.</summary>
 /// <remarks>
 ///     <para>
-///         <b>IndexedDB and not the alternatives, for reasons that are about the limits rather than
-///         the API.</b> <c>localStorage</c> is five megabytes of strings and is synchronous in a way
+///         <b>
+///             IndexedDB and not the alternatives, for reasons that are about the limits rather than
+///             the API.
+///         </b>
+///         <c>localStorage</c> is five megabytes of strings and is synchronous in a way
 ///         that blocks the compositor. Cache Storage is the first thing evicted when an origin is
 ///         over quota, which is precisely wrong for saves. The Origin Private File System is the
 ///         better answer, has a synchronous access handle, and is not in Safari on iOS — which is
@@ -48,15 +51,21 @@ public sealed class IndexedDbFileProvider : IFileProvider, IDisposable {
 
     bool disposed;
 
-    IndexedDbFileProvider(int database) => this.database = database;
+    IndexedDbFileProvider(int database) {
+        this.database = database;
+    }
 
     /// <summary>Opens a store and reads its directory.</summary>
-    /// <param name="name">The database name. Per origin, so two applications on one origin want
-    /// two.</param>
+    /// <param name="name">
+    ///     The database name. Per origin, so two applications on one origin want
+    ///     two.
+    /// </param>
     /// <param name="cancellationToken">Abandons the open.</param>
     /// <returns>The provider.</returns>
-    /// <exception cref="IOException">The browser refused to open the database — private browsing in
-    /// Firefox, or an origin whose storage the user has blocked.</exception>
+    /// <exception cref="IOException">
+    ///     The browser refused to open the database — private browsing in
+    ///     Firefox, or an origin whose storage the user has blocked.
+    /// </exception>
     public static async Task<IndexedDbFileProvider> OpenAsync(
         string name,
         CancellationToken cancellationToken = default
@@ -118,8 +127,10 @@ public sealed class IndexedDbFileProvider : IFileProvider, IDisposable {
     }
 
     /// <inheritdoc />
-    /// <remarks>Ordered by path, as the interface requires. A snapshot: the list is materialised
-    /// under the lock rather than being an iterator over the live directory.</remarks>
+    /// <remarks>
+    ///     Ordered by path, as the interface requires. A snapshot: the list is materialised
+    ///     under the lock rather than being an iterator over the live directory.
+    /// </remarks>
     public IEnumerable<FileEntry> Enumerate(VirtualPath directory, bool recursive = false) {
         var prefix = directory.IsRoot ? "/" : directory.Value + "/";
         var found = new SortedDictionary<string, FileEntry>(StringComparer.Ordinal);
@@ -283,7 +294,7 @@ public sealed class IndexedDbFileProvider : IFileProvider, IDisposable {
         Task[] waiting;
 
         lock (gate) {
-            waiting = [.. pending];
+            waiting = [..pending];
             pending.Clear();
         }
 

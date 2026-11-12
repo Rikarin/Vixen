@@ -21,8 +21,12 @@ namespace Vixen.Editor.Water.Tests;
 ///         because both are device-free and world-free on purpose.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The registration test is the one doc 31's "built and not yet reachable" failure asks
-///         for</b>, and it is the reason <c>Register</c> and <c>Activated</c> are separate moments: a
+///         ⚠
+///         <b>
+///             The registration test is the one doc 31's "built and not yet reachable" failure asks
+///             for
+///         </b>
+///         , and it is the reason <c>Register</c> and <c>Activated</c> are separate moments: a
 ///         mode whose commands appear only once somebody has entered it is a mode absent from the
 ///         palette and unbindable until then.
 ///     </para>
@@ -91,8 +95,8 @@ public sealed class WaterModeTests {
         var (shell, mode) = Built();
         using var _shell = shell;
 
-        shell.Commands.Add("scene.bookmark-go-2", new StringId("test.bookmark", "View 2"), () => { });
-        shell.Keys.SetDefault("scene.bookmark-go-2", new KeyChord(InputKey.Number2, ModifierKeys.None));
+        shell.Commands.Add("scene.bookmark-go-2", new("test.bookmark", "View 2"), static () => { });
+        shell.Keys.SetDefault("scene.bookmark-go-2", new(InputKey.Number2, ModifierKeys.None));
 
         var chord = new KeyChord(InputKey.Number2, ModifierKeys.None);
 
@@ -240,10 +244,10 @@ public sealed class WaterModeTests {
 
         mode.Editing.Add(new(0f, 0f, 0f));
 
-        Assert.True(mode.Key(null!, new KeyEvent { Key = InputKey.Escape }));
+        Assert.True(mode.Key(null!, new() { Key = InputKey.Escape }));
         Assert.Empty(mode.Editing.Points);
 
         // With nothing in flight it is somebody else's key.
-        Assert.False(mode.Key(null!, new KeyEvent { Key = InputKey.Escape }));
+        Assert.False(mode.Key(null!, new() { Key = InputKey.Escape }));
     }
 }

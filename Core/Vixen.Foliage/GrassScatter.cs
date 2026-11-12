@@ -33,8 +33,12 @@ public readonly record struct GrassBlade(FoliageInstance Instance, float Tint, f
 ///         it comes back.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Deterministic from the cell coordinate and the slot, never from an iteration
-///         order.</b> That is what makes a cell re-entering range produce the grass it had, what makes
+///         ⚠
+///         <b>
+///             Deterministic from the cell coordinate and the slot, never from an iteration
+///             order.
+///         </b>
+///         That is what makes a cell re-entering range produce the grass it had, what makes
 ///         two machines agree, and what makes this comparable to the dispatch at all — the seam test
 ///         [§ Part 4] asks for is impossible against a counter. <see cref="Hash" /> is the whole of
 ///         that contract and <c>GrassScatter.rvn</c> contains it transliterated.
@@ -46,8 +50,12 @@ public readonly record struct GrassBlade(FoliageInstance Instance, float Tint, f
 ///         <see cref="GrassType.DensityAt" />.
 ///     </para>
 ///     <para>
-///         ⚠ <b>No spacing check, and its absence is the difference from
-///         <see cref="FoliageScatter" />.</b> A minimum spacing is a query against what is already
+///         ⚠
+///         <b>
+///             No spacing check, and its absence is the difference from
+///             <see cref="FoliageScatter" />.
+///         </b>
+///         A minimum spacing is a query against what is already
 ///         placed, which makes a candidate's fate depend on the order the others were tested in — and
 ///         an order is what a dispatch of sixty-five thousand parallel invocations does not have. The
 ///         grid <em>is</em> the spacing: a candidate cannot leave its own slot.
@@ -108,8 +116,12 @@ public static class GrassScatter {
     ///         cannot be asked whether it agrees with a function and a transliteration can.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The cast of a negative coordinate is a reinterpretation of its bits and has to
-    ///         be on both sides.</b> C#'s <c>(uint)(-1)</c> and GLSL's <c>uint(-1)</c> are both
+    ///         ⚠
+    ///         <b>
+    ///             The cast of a negative coordinate is a reinterpretation of its bits and has to
+    ///             be on both sides.
+    ///         </b>
+    ///         C#'s <c>(uint)(-1)</c> and GLSL's <c>uint(-1)</c> are both
     ///         0xFFFFFFFF, which is what makes the four cells around the origin agree — and a shader
     ///         that took an absolute value or added a bias instead would produce a different field on
     ///         exactly the quadrant nobody tests.
@@ -178,8 +190,8 @@ public static class GrassScatter {
         // jitter of zero is the grid exactly rather than the grid shifted by half of it.
         var reach = Math.Clamp(type.Jitter, 0f, 1f) * step * 0.5f;
 
-        var x = origin.X + ((slotX + 0.5f) * step) + (((FoliageScatter.Unit(hash, JitterXStream) * 2f) - 1f) * reach);
-        var z = origin.Z + ((slotZ + 0.5f) * step) + (((FoliageScatter.Unit(hash, JitterZStream) * 2f) - 1f) * reach);
+        var x = origin.X + (slotX + 0.5f) * step + (FoliageScatter.Unit(hash, JitterXStream) * 2f - 1f) * reach;
+        var z = origin.Z + (slotZ + 0.5f) * step + (FoliageScatter.Unit(hash, JitterZStream) * 2f - 1f) * reach;
 
         return new(x, z);
     }
@@ -195,8 +207,12 @@ public static class GrassScatter {
     /// <returns>Why not, or <see cref="Refusal.Placed" />.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The density scalar multiplies the threshold, and every blade keeps its own
-    ///         draw.</b> So lowering the setting removes a subset of the blades that were there and
+    ///         ⚠
+    ///         <b>
+    ///             The density scalar multiplies the threshold, and every blade keeps its own
+    ///             draw.
+    ///         </b>
+    ///         So lowering the setting removes a subset of the blades that were there and
     ///         moves none of the rest — the field thins rather than rearranging itself, which is what
     ///         stops a quality slider from looking like a different level. It is
     ///         <c>InstanceCullSettings.DensityScale</c>'s rule, applied one stage earlier so the

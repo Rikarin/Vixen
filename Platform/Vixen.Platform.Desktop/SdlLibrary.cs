@@ -19,8 +19,11 @@ namespace Vixen.Platform.Desktop;
 ///         what <see cref="NativeLibraries" /> decides.
 ///     </para>
 ///     <para>
-///         <b><c>Sdl.GetApi()</c> is not called, for the same reason <c>VulkanLoader</c> stopped
-///         calling <c>Vk.GetApi()</c>.</b> It builds Silk.NET's default context, which finds a native
+///         <b>
+///             <c>Sdl.GetApi()</c> is not called, for the same reason <c>VulkanLoader</c> stopped
+///             calling <c>Vk.GetApi()</c>.
+///         </b>
+///         It builds Silk.NET's default context, which finds a native
 ///         library through <c>Assembly.Location</c> and <c>DependencyContext.Default</c> — neither of
 ///         which exists in a NativeAOT binary, and both of which ILC reports as IL3000/IL3002. Loading
 ///         the library here and handing Silk a context over the handle keeps that code out of the
@@ -72,7 +75,7 @@ public static class SdlLibrary {
                 return false;
             }
 
-            NativeLibraries.Describe(new("SDL2", [], [.. Prefixes()]));
+            NativeLibraries.Describe(new("SDL2", [], [..Prefixes()]));
             NativeLibraries.Register(typeof(Sdl).Assembly);
 
             foreach (var candidate in Candidates()) {
@@ -81,8 +84,9 @@ public static class SdlLibrary {
                 }
 
                 loaded = new(
-                    new LamdaNativeContext(
-                        name => NativeLibrary.TryGetExport(handle, name, out var address) ? address : 0
+                    new LamdaNativeContext(name => NativeLibrary.TryGetExport(handle, name, out var address)
+                            ? address
+                            : 0
                     )
                 );
 
@@ -149,7 +153,7 @@ public static class SdlLibrary {
                 ? "apt install libsdl2-2.0-0   (or the equivalent for your distribution)"
                 : "vcpkg install sdl2, or place SDL2.dll beside the executable";
 
-        return $"SDL2 could not be loaded. Silk.NET.SDL ships bindings only, so the native library "
+        return "SDL2 could not be loaded. Silk.NET.SDL ships bindings only, so the native library "
             + $"has to come from the system: {command}";
     }
 }

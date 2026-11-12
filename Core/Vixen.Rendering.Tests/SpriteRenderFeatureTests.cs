@@ -61,9 +61,7 @@ public class SpriteRenderFeatureTests : IDisposable {
         var transparent = system.AddStage(new("Transparent", RenderSortMode.ByGroup));
 
         var sprites = new SpriteRenderFeature {
-            Device = device,
-            Pipelines = new(device),
-            Describer = new EffectPipelineDescriber(device)
+            Device = device, Pipelines = new(device), Describer = new EffectPipelineDescriber(device)
         };
 
         var materials = new MaterialRenderFeature { Effects = effects };
@@ -104,16 +102,12 @@ public class SpriteRenderFeatureTests : IDisposable {
 
     static RenderObjectId Add(Harness h, Sprite? sprite, SpriteAppearance appearance = default) {
         var id = h.System.Objects.Add(
-            new() {
-                Bounds = new(Vector3.Zero, 4f),
-                Stages = h.Transparent.Mask,
-                FeatureIndex = h.Sprites.Index
-            }
+            new() { Bounds = new(Vector3.Zero, 4f), Stages = h.Transparent.Mask, FeatureIndex = h.Sprites.Index }
         );
 
         h.Sprites.SetSprite(id, sprite);
         h.Sprites.SetAppearance(id, appearance);
-        h.Materials.Assign(h.System, id, new Material("Sprite"));
+        h.Materials.Assign(h.System, id, new("Sprite"));
 
         return id;
     }
@@ -124,9 +118,14 @@ public class SpriteRenderFeatureTests : IDisposable {
         var target = device.CreateTextureView(
             device.CreateTexture(
                 new() {
-                    Width = 16, Height = 16, Depth = 1,
-                    MipLevels = 1, ArrayLayers = 1, SampleCount = 1,
-                    Format = PixelFormat.Rgba8UNorm, Usage = TextureUsage.ColourTarget
+                    Width = 16,
+                    Height = 16,
+                    Depth = 1,
+                    MipLevels = 1,
+                    ArrayLayers = 1,
+                    SampleCount = 1,
+                    Format = PixelFormat.Rgba8UNorm,
+                    Usage = TextureUsage.ColourTarget
                 }
             )
         );

@@ -167,13 +167,13 @@ public sealed class BandwidthLedger {
     /// <param name="count">How many to return.</param>
     /// <returns>Them, dearest first.</returns>
     public IReadOnlyList<BandwidthEntry> TopObjects(int count = 10) =>
-        Top(byObject, count, id => string.Create(CultureInfo.InvariantCulture, $"net {id}"));
+        Top(byObject, count, static id => string.Create(CultureInfo.InvariantCulture, $"net {id}"));
 
     /// <summary>What each connection has been sent.</summary>
     /// <param name="count">How many to return.</param>
     /// <returns>Them, dearest first.</returns>
     public IReadOnlyList<BandwidthEntry> TopConnections(int count = 10) =>
-        Top(byConnection, count, id => string.Create(CultureInfo.InvariantCulture, $"player {id}"));
+        Top(byConnection, count, static id => string.Create(CultureInfo.InvariantCulture, $"player {id}"));
 
     /// <summary>Forgets everything, for a report over the next stretch rather than the whole run.</summary>
     public void Reset() {
@@ -202,8 +202,7 @@ public sealed class BandwidthLedger {
         tally.Count++;
     }
 
-    static List<BandwidthEntry> Top(Dictionary<string, Tally> from, int count) =>
-        Top(from, count, name => name);
+    static List<BandwidthEntry> Top(Dictionary<string, Tally> from, int count) => Top(from, count, static name => name);
 
     static List<BandwidthEntry> Top<TKey>(Dictionary<TKey, Tally> from, int count, Func<TKey, string> name)
         where TKey : notnull {
@@ -215,8 +214,7 @@ public sealed class BandwidthLedger {
 
         // Dearest first, and by name within a tie so two runs of the same thing report in the same
         // order — a diagnostic that reshuffles between runs cannot be diffed.
-        entries.Sort(
-            (left, right) => left.Bits == right.Bits
+        entries.Sort(static (left, right) => left.Bits == right.Bits
                 ? string.CompareOrdinal(left.Name, right.Name)
                 : right.Bits.CompareTo(left.Bits)
         );

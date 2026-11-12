@@ -16,8 +16,12 @@ namespace Vixen.Editor.AssetEditors.Input;
 ///         <c>InputActionsView</c> beside this file; this is the second.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The source line is the whole design, and it is there because an instrument that never
-///         ran reports success.</b> The editor process owned no <c>InputService</c> until #470 — it
+///         ⚠
+///         <b>
+///             The source line is the whole design, and it is there because an instrument that never
+///             ran reports success.
+///         </b>
+///         The editor process owned no <c>InputService</c> until #470 — it
 ///         routed platform events straight into the interface's own document and never into an
 ///         <c>InputDeviceSet</c>; the one it publishes now hears keys only from a focused scene pane
 ///         during play — so a panel that simply listed "what is pressed" would draw an empty
@@ -26,8 +30,12 @@ namespace Vixen.Editor.AssetEditors.Input;
 ///         it says anything else.
 ///     </para>
 ///     <para>
-///         ⚠ <b>It reads a service rather than owning one, for the reason the agent debugger reads an
-///         <c>AiSystem</c> rather than stepping agents.</b> A panel that built its own
+///         ⚠
+///         <b>
+///             It reads a service rather than owning one, for the reason the agent debugger reads an
+///             <c>AiSystem</c> rather than stepping agents.
+///         </b>
+///         A panel that built its own
 ///         <c>InputService</c> and fed it from the editor's <c>KeyEvent</c>s would be a *second*
 ///         opinion about what the player is holding down — right up until the two disagreed, which is
 ///         the frame somebody opened this panel to understand. A host that reads devices publishes
@@ -49,8 +57,12 @@ public sealed partial class InputDebugView;
 /// <param name="Name">What it is called.</param>
 /// <param name="Value">And what it reads.</param>
 /// <remarks>
-///     ⚠ <b><see cref="Active" /> is in the key, and <see cref="Slot" /> is there because equal rows
-///     are normal.</b> Two disconnected gamepads with the same name are two rows a <c>@for</c> cannot
+///     ⚠
+///     <b>
+///         <see cref="Active" /> is in the key, and <see cref="Slot" /> is there because equal rows
+///         are normal.
+///     </b>
+///     Two disconnected gamepads with the same name are two rows a <c>@for</c> cannot
 ///     reconcile without one, and the live/idle choice is a tag rather than a class — so a surviving
 ///     key would leave the highlight on whatever was pressed when the panel opened while every value
 ///     beside it kept updating.

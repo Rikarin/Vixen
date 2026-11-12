@@ -18,51 +18,59 @@ public class PaintTileStoreProperties {
 
     static Gen<Edit> Edits(int width, int height) =>
         Gen.Select(Gen.Int[0, width - 1], Gen.Int[0, height - 1], Gen.Int[1, 400], Gen.Int[1, 400], Gen.UInt)
-            .Select((x, y, w, h, colour) => new Edit(x, y, w, h, colour));
+            .Select(static (x, y, w, h, colour) => new Edit(x, y, w, h, colour));
 
     static readonly Gen<(int Width, int Height, Edit[] Edits)> Scripts =
         Gen.Select(Gen.Int[1, 700], Gen.Int[1, 700])
-            .SelectMany((width, height) =>
+            .SelectMany(static (width, height) =>
                 Edits(width, height).Array[0, 12].Select(edits => (width, height, edits))
             );
 
     /// <summary>Every texel reads back as a flat array would have held it, wherever tiles fell.</summary>
     [Fact]
     public void The_tiles_read_as_the_flat_array_they_replaced() =>
-        Scripts.Sample(script => {
-            var (width, height, edits) = script;
-            PaintImage image = new(width, height);
-            var flat = new uint[width * height];
+        Scripts.Sample(
+            static script => {
+                var (width, height, edits) = script;
+                PaintImage image = new(width, height);
+                var flat = new uint[width * height];
 
-            foreach (var edit in edits) {
-                Apply(image, edit);
-                Model(flat, width, height, edit);
-            }
+                foreach (var edit in edits) {
+                    Apply(image, edit);
+                    Model(flat, width, height, edit);
+                }
 
-            Assert.Equal(Bytes(flat), image.ToTexels());
-        }, iter: 60, threads: 1);
+                Assert.Equal(Bytes(flat), image.ToTexels());
+            },
+            iter: 60,
+            threads: 1
+        );
 
     /// <summary>A write, a read and a second write land on the same bytes, and the picture survives.</summary>
     [Fact]
     public void A_canvas_round_trips_to_byte_identity() =>
-        Scripts.Sample(script => {
-            var (width, height, edits) = script;
-            PaintCanvas canvas = new(width, height);
-            var colour = canvas.Channel("baseColor");
+        Scripts.Sample(
+            static script => {
+                var (width, height, edits) = script;
+                PaintCanvas canvas = new(width, height);
+                var colour = canvas.Channel("baseColor");
 
-            canvas.Channel("roughness");
+                canvas.Channel("roughness");
 
-            foreach (var edit in edits) {
-                Apply(colour, edit);
-            }
+                foreach (var edit in edits) {
+                    Apply(colour, edit);
+                }
 
-            var once = Written(canvas);
-            var read = PaintCanvas.Read(new MemoryStream(once));
+                var once = Written(canvas);
+                var read = PaintCanvas.Read(new MemoryStream(once));
 
-            Assert.Equal(canvas.Channels, read.Channels);
-            Assert.Equal(colour.ToTexels(), read.Channel("baseColor").ToTexels());
-            Assert.Equal(once, Written(read));
-        }, iter: 40, threads: 1);
+                Assert.Equal(canvas.Channels, read.Channels);
+                Assert.Equal(colour.ToTexels(), read.Channel("baseColor").ToTexels());
+                Assert.Equal(once, Written(read));
+            },
+            iter: 40,
+            threads: 1
+        );
 
     /// <summary>A file from before tiles opens as the same picture, and the next save moves it on.</summary>
     /// <param name="version">Which old format.</param>
@@ -70,23 +78,30 @@ public class PaintTileStoreProperties {
     [InlineData(1)]
     [InlineData(2)]
     public void Every_older_format_opens_as_the_same_picture(int version) =>
-        Scripts.Sample(script => {
-            var (width, height, edits) = script;
-            PaintImage image = new(width, height);
+        Scripts.Sample(
+            script => {
+                var (width, height, edits) = script;
+                PaintImage image = new(width, height);
 
-            foreach (var edit in edits) {
-                Apply(image, edit);
-            }
+                foreach (var edit in edits) {
+                    Apply(image, edit);
+                }
 
-            var read = PaintCanvas.Read(new MemoryStream(Legacy(version, width, height, image.ToTexels())));
+                var read = PaintCanvas.Read(new MemoryStream(Legacy(version, width, height, image.ToTexels())));
 
-            Assert.Equal(image.ToTexels(), read.Channel("baseColor").ToTexels());
+                Assert.Equal(image.ToTexels(), read.Channel("baseColor").ToTexels());
 
-            var moved = Written(read);
+                var moved = Written(read);
 
-            Assert.Equal(PaintCanvas.CurrentVersion, BitConverter.ToInt32(moved, PaintCanvas.Magic.Length));
-            Assert.Equal(image.ToTexels(), PaintCanvas.Read(new MemoryStream(moved)).Channel("baseColor").ToTexels());
-        }, iter: 30, threads: 1);
+                Assert.Equal(PaintCanvas.CurrentVersion, BitConverter.ToInt32(moved, PaintCanvas.Magic.Length));
+                Assert.Equal(
+                    image.ToTexels(),
+                    PaintCanvas.Read(new MemoryStream(moved)).Channel("baseColor").ToTexels()
+                );
+            },
+            iter: 30,
+            threads: 1
+        );
 
     /// <summary>A real drag, undone and redone, in any number of paths.</summary>
     /// <remarks>
@@ -102,46 +117,54 @@ public class PaintTileStoreProperties {
             Gen.UInt
         );
 
-        gen.Sample((points, paths, radius, colour) => {
-            const int Size = 640;
+        gen.Sample(
+            (points, paths, radius, colour) => {
+                const int Size = 640;
 
-            PaintImage image = new(Size, Size);
+                PaintImage image = new(Size, Size);
 
-            image[1234] = 0xFF112233u; // a tile that exists and that the drag may or may not touch
+                image[1234] = 0xFF112233u; // a tile that exists and that the drag may or may not touch
 
-            var coverage = PaintCoverage.Everywhere(Size, Size);
-            PaintTarget target = new(image, coverage, Gutter: 2);
-            var before = image.ToTexels();
-            var digest = image.Digest;
-            var session = PaintSession.Begin(target, PaintBrush.Default with { Radius = radius, Spacing = 0.25f, Flow = 1f }, colour | 0xFF000000u);
-            Span<Vector2> at = stackalloc Vector2[paths];
+                var coverage = PaintCoverage.Everywhere(Size, Size);
+                PaintTarget target = new(image, coverage, 2);
+                var before = image.ToTexels();
+                var digest = image.Digest;
+                var session = PaintSession.Begin(
+                    target,
+                    PaintBrush.Default with { Radius = radius, Spacing = 0.25f, Flow = 1f },
+                    colour | 0xFF000000u
+                );
+                Span<Vector2> at = stackalloc Vector2[paths];
 
-            foreach (var (x, y) in points) {
-                at[0] = new(x, y);
+                foreach (var (x, y) in points) {
+                    at[0] = new(x, y);
 
-                // Mirrored about a vertical line, so that with a wide brush the paths overlap.
-                for (var path = 1; path < paths; path++) {
-                    at[path] = new(Size - x - (path * 8f), y);
+                    // Mirrored about a vertical line, so that with a wide brush the paths overlap.
+                    for (var path = 1; path < paths; path++) {
+                        at[path] = new(Size - x - path * 8f, y);
+                    }
+
+                    session.MoveAll(at);
                 }
 
-                session.MoveAll(at);
-            }
+                if (session.End("Stroke") is not { } command) {
+                    return;
+                }
 
-            if (session.End("Stroke") is not { } command) {
-                return;
-            }
+                var after = image.ToTexels();
 
-            var after = image.ToTexels();
+                for (var round = 0; round < 2; round++) {
+                    command.Undo(null!);
+                    Assert.Equal(before, image.ToTexels());
+                    Assert.Equal(digest, image.Digest);
 
-            for (var round = 0; round < 2; round++) {
-                command.Undo(null!);
-                Assert.Equal(before, image.ToTexels());
-                Assert.Equal(digest, image.Digest);
-
-                command.Do(null!);
-                Assert.Equal(after, image.ToTexels());
-            }
-        }, iter: 25, threads: 1);
+                    command.Do(null!);
+                    Assert.Equal(after, image.ToTexels());
+                }
+            },
+            iter: 25,
+            threads: 1
+        );
     }
 
     /// <summary>An undo record costs the tiles a stroke touched, and a picture nobody painted costs nothing.</summary>
@@ -154,7 +177,7 @@ public class PaintTileStoreProperties {
         Assert.Equal(0L, image.ResidentBytes);
 
         var session = PaintSession.Begin(
-            new(image, PaintCoverage.Everywhere(Size, Size), Gutter: 0),
+            new(image, PaintCoverage.Everywhere(Size, Size), 0),
             PaintBrush.Default with { Radius = 16f, Spacing = 0.25f, Flow = 1f },
             0xFF0000FFu
         );
@@ -205,7 +228,7 @@ public class PaintTileStoreProperties {
     public void A_tile_written_twice_is_refused() {
         using MemoryStream stream = new();
 
-        using (BinaryWriter writer = new(stream, Encoding.UTF8, leaveOpen: true)) {
+        using (BinaryWriter writer = new(stream, Encoding.UTF8, true)) {
             writer.Write(PaintCanvas.Magic);
             writer.Write(PaintCanvas.CurrentVersion);
             writer.Write(512);
@@ -241,7 +264,7 @@ public class PaintTileStoreProperties {
     static void Model(uint[] flat, int width, int height, Edit edit) {
         for (var y = edit.Y; y < Math.Min(edit.Y + edit.Height, height); y++) {
             for (var x = edit.X; x < Math.Min(edit.X + edit.Width, width); x++) {
-                flat[(y * width) + x] = edit.Colour;
+                flat[y * width + x] = edit.Colour;
             }
         }
     }
@@ -265,7 +288,7 @@ public class PaintTileStoreProperties {
     /// <summary>The two formats before tiles, laid out by hand because no writer speaks them any more.</summary>
     static byte[] Legacy(int version, int width, int height, byte[] texels) {
         using MemoryStream stream = new();
-        using BinaryWriter writer = new(stream, Encoding.UTF8, leaveOpen: true);
+        using BinaryWriter writer = new(stream, Encoding.UTF8, true);
 
         writer.Write(PaintCanvas.Magic);
         writer.Write(version);
@@ -291,7 +314,7 @@ public class PaintTileStoreProperties {
     static byte[] Deflated(byte[] texels) {
         using MemoryStream packed = new();
 
-        using (DeflateStream deflate = new(packed, CompressionLevel.Fastest, leaveOpen: true)) {
+        using (DeflateStream deflate = new(packed, CompressionLevel.Fastest, true)) {
             deflate.Write(texels);
         }
 

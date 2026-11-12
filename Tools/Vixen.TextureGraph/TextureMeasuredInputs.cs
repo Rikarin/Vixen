@@ -90,7 +90,11 @@ public static class TextureMeasuredInputs {
         TextureGraphCompiler compiler = new(registry) { BaseWidth = 8, BaseHeight = 8, SubGraphSource = subGraphs };
 
         foreach (var diagnostic in compiler.Compile(graph).Diagnostics) {
-            if (string.Equals(diagnostic.Id, TextureDiagnostics.ColourWhereOneChannelIsWanted, StringComparison.Ordinal)) {
+            if (string.Equals(
+                    diagnostic.Id,
+                    TextureDiagnostics.ColourWhereOneChannelIsWanted,
+                    StringComparison.Ordinal
+                )) {
                 return true;
             }
         }

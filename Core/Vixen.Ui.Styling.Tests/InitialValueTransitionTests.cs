@@ -8,8 +8,12 @@ namespace Vixen.Ui.Styling.Tests;
 /// <summary>Transitions that start or end at a value no declaration ever wrote.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>The gap these close is invisible from any fixture that declares both endpoints, which
-///         is what every transition fixture here did.</b> A <see cref="ComputedStyle" /> holds only
+///         ⚠
+///         <b>
+///             The gap these close is invisible from any fixture that declares both endpoints, which
+///             is what every transition fixture here did.
+///         </b>
+///         A <see cref="ComputedStyle" /> holds only
 ///         what a declaration or an inheritance put in it, so an element that never mentioned
 ///         <c>margin-left</c> and an element whose <c>margin-left</c> computes to <c>0px</c> are the
 ///         same state — and the animator, which needs a value to travel <i>from</i>, had nothing to
@@ -61,10 +65,12 @@ public class InitialValueTransitionTests {
     /// </remarks>
     [Fact]
     public void A_property_the_old_style_did_not_hold_starts_at_its_initial_value() {
-        var fixture = Fixture("""
+        var fixture = Fixture(
+            """
             .a { transition: margin-left 1s linear }
             .a.moved { margin-left: 40px }
-            """);
+            """
+        );
 
         var (animator, element) = Toggled(fixture, "moved");
 
@@ -84,10 +90,12 @@ public class InitialValueTransitionTests {
     /// </remarks>
     [Fact]
     public void A_property_the_new_style_stops_holding_travels_back_to_its_initial_value() {
-        var fixture = Fixture("""
+        var fixture = Fixture(
+            """
             .a { transition: margin-left 1s linear }
             .a.moved { margin-left: 40px }
-            """);
+            """
+        );
 
         var element = fixture.Tree.CreateElement("div", classNames: ["a", "moved"]);
         var animator = Animator(fixture);
@@ -113,18 +121,24 @@ public class InitialValueTransitionTests {
 
     /// <summary><c>opacity</c>'s initial is one, so an appearing fade goes <i>down</i>.</summary>
     /// <remarks>
-    ///     ⚠ <b>The number in the table that a plausible implementation gets backwards, and the sign
-    ///     of the travel is what catches it.</b> A table that filled every absent value with a zero
+    ///     ⚠
+    ///     <b>
+    ///         The number in the table that a plausible implementation gets backwards, and the sign
+    ///         of the travel is what catches it.
+    ///     </b>
+    ///     A table that filled every absent value with a zero
     ///     would run this transition from 0 to 0.25 rather than from 1 to 0.25 — the same endpoint,
     ///     the opposite journey, and a panel that flashes on before settling. So the assertion is the
     ///     value at a quarter of the way and not the value at the end.
     /// </remarks>
     [Fact]
     public void An_undeclared_opacity_starts_at_one_rather_than_at_zero() {
-        var fixture = Fixture("""
+        var fixture = Fixture(
+            """
             .a { transition: opacity 1s linear }
             .a.faded { opacity: 0.25 }
-            """);
+            """
+        );
 
         var (animator, element) = Toggled(fixture, "faded");
 
@@ -152,11 +166,13 @@ public class InitialValueTransitionTests {
     /// </remarks>
     [Fact]
     public void An_inherited_property_needs_no_entry_because_the_cascade_already_filled_it_in() {
-        var fixture = Fixture("""
+        var fixture = Fixture(
+            """
             .parent { color: #ff0000 }
             .parent.cool { color: #0000ff }
             .kid { transition: color 1s linear }
-            """);
+            """
+        );
 
         var parent = fixture.Tree.CreateElement("div", classNames: ["parent"]);
         var kid = fixture.Tree.CreateElement("div", parent, classNames: ["kid"]);
@@ -213,10 +229,12 @@ public class InitialValueTransitionTests {
     /// </remarks>
     [Fact]
     public void A_property_whose_initial_is_a_keyword_still_does_not_transition() {
-        var fixture = Fixture("""
+        var fixture = Fixture(
+            """
             .a { position: absolute; transition: left 1s linear }
             .a.moved { left: 40px }
-            """);
+            """
+        );
 
         var (animator, _) = Toggled(fixture, "moved");
 

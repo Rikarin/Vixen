@@ -19,7 +19,7 @@ public sealed class ReverbZoneSystemTests : IDisposable {
 
     public ReverbZoneSystemTests() {
         (engine, _) = AudioTestData.Engine();
-        system = new AudioSystem(engine);
+        system = new(engine);
     }
 
     public void Dispose() {
@@ -27,13 +27,14 @@ public sealed class ReverbZoneSystemTests : IDisposable {
         world.Dispose();
     }
 
-    static AudioReverbZone Cave(float radius = 10f, int priority = 0, float strength = 1f) => new() {
-        Parameter = "cave",
-        Shape = AudioZoneShape.Sphere,
-        Extent = new Vector3(radius, radius, radius),
-        Strength = strength,
-        Priority = priority
-    };
+    static AudioReverbZone Cave(float radius = 10f, int priority = 0, float strength = 1f) =>
+        new() {
+            Parameter = "cave",
+            Shape = AudioZoneShape.Sphere,
+            Extent = new(radius, radius, radius),
+            Strength = strength,
+            Priority = priority
+        };
 
     Entity Place(AudioReverbZone zone, Vector3 at) {
         var entity = world.Create();
@@ -55,10 +56,10 @@ public sealed class ReverbZoneSystemTests : IDisposable {
     [Fact]
     public void TheTransformDecidesWhereTheZoneIs() {
         // A description whose own Position is a long way from where it is placed.
-        var zone = Cave() with { Position = new Vector3(1_000f, 0f, 0f) };
+        var zone = Cave() with { Position = new(1_000f, 0f, 0f) };
 
-        Place(zone, new Vector3(50f, 0f, 0f));
-        Listen(new Vector3(50f, 0f, 0f));
+        Place(zone, new(50f, 0f, 0f));
+        Listen(new(50f, 0f, 0f));
 
         system.Synchronize(world, 1f / 60f);
 
@@ -76,7 +77,7 @@ public sealed class ReverbZoneSystemTests : IDisposable {
         system.Synchronize(world, 1f / 60f);
         Assert.Equal(1f, engine.ReverbZones.StrengthOf("cave"));
 
-        world.Set(ear, new WorldTransform { Value = Matrix4x4.FromTranslation(new Vector3(500f, 0f, 0f)) });
+        world.Set(ear, new WorldTransform { Value = Matrix4x4.FromTranslation(new(500f, 0f, 0f)) });
         system.Synchronize(world, 1f / 60f);
 
         Assert.Equal(0f, engine.ReverbZones.StrengthOf("cave"));
@@ -120,11 +121,11 @@ public sealed class ReverbZoneSystemTests : IDisposable {
     /// <summary>One description, many rooms — which is what makes changing all of them one edit.</summary>
     [Fact]
     public void OneDescriptionCanBeManyRooms() {
-        var cathedral = Cave(radius: 8f);
+        var cathedral = Cave(8f);
 
-        Place(cathedral, new Vector3(-100f, 0f, 0f));
-        Place(cathedral, new Vector3(100f, 0f, 0f));
-        Listen(new Vector3(100f, 0f, 0f));
+        Place(cathedral, new(-100f, 0f, 0f));
+        Place(cathedral, new(100f, 0f, 0f));
+        Listen(new(100f, 0f, 0f));
 
         system.Synchronize(world, 1f / 60f);
 
@@ -134,8 +135,8 @@ public sealed class ReverbZoneSystemTests : IDisposable {
 
     [Fact]
     public void TheMoreSpecificPlacedZoneStillWins() {
-        Place(Cave(radius: 100f, priority: 0, strength: 1f), Vector3.Zero);
-        Place(Cave(radius: 5f, priority: 10, strength: 0.2f), Vector3.Zero);
+        Place(Cave(100f), Vector3.Zero);
+        Place(Cave(5f, 10, 0.2f), Vector3.Zero);
         Listen(Vector3.Zero);
 
         system.Synchronize(world, 1f / 60f);
@@ -146,11 +147,9 @@ public sealed class ReverbZoneSystemTests : IDisposable {
     /// <summary>Zones added from code and zones placed in the world are both zones.</summary>
     [Fact]
     public void APlacedZoneAndACodeOneCoexist() {
-        engine.ReverbZones.Add(new AudioReverbZone {
-            Parameter = "underwater",
-            Position = Vector3.Zero,
-            Extent = new Vector3(20f, 20f, 20f)
-        });
+        engine.ReverbZones.Add(
+            new() { Parameter = "underwater", Position = Vector3.Zero, Extent = new(20f, 20f, 20f) }
+        );
 
         Place(Cave(), Vector3.Zero);
         Listen(Vector3.Zero);

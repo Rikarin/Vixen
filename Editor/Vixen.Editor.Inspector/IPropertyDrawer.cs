@@ -15,7 +15,8 @@ namespace Vixen.Editor.Inspector;
 ///         user was typing into.
 ///     </para>
 ///     <para>
-///         <b>A drawer never touches an undo stack.</b> It calls <see cref="Vixen.Editor.Core.EditProperty.Write(object)" />
+///         <b>A drawer never touches an undo stack.</b> It calls
+///         <see cref="Vixen.Editor.Core.EditProperty.Write(object)" />
 ///         and <see cref="Vixen.Editor.Core.EditProperty.Seal" />, which is what makes "every edit produces a command"
 ///         true by construction rather than by every drawer remembering to do it.
 ///     </para>
@@ -77,6 +78,6 @@ public abstract class PropertyDrawer<TValue, TEditor> : IPropertyDrawer where TE
         ArgumentNullException.ThrowIfNull(field);
 
         var (value, mixed) = field.Read();
-        Show(field, (TEditor) editor, mixed ? default : (TValue?) value, mixed);
+        Show(field, (TEditor)editor, mixed ? default : (TValue?)value, mixed);
     }
 }

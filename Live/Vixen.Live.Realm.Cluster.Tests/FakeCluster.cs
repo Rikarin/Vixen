@@ -96,21 +96,48 @@ sealed class FakeCluster : IRealmGrains {
         public Task<ShardReport> Report() => cluster.Answer(state.Report);
 
         public Task Requested(ShardKey key, ShardCapacity capacity) =>
-            cluster.Answer<bool>(() => { state.Requested(key, capacity); return true; });
+            cluster.Answer(() => {
+                    state.Requested(key, capacity);
+                    return true;
+                }
+            );
 
         public Task Starting(RealmInstanceId instance, RealmEndpoint endpoint) =>
-            cluster.Answer<bool>(() => { state.Starting(instance, endpoint); return true; });
+            cluster.Answer(() => {
+                    state.Starting(instance, endpoint);
+                    return true;
+                }
+            );
 
         public Task Ready(RealmEndpoint endpoint) =>
-            cluster.Answer<bool>(() => { state.Ready(endpoint); return true; });
+            cluster.Answer(() => {
+                    state.Ready(endpoint);
+                    return true;
+                }
+            );
 
         public Task<ShardState> Heartbeat(ShardHeartbeat sample) => cluster.Answer(() => state.Heartbeat(sample));
 
-        public Task Drain(string reason) => cluster.Answer<bool>(() => { state.Drain(); return true; });
+        public Task Drain(string reason) =>
+            cluster.Answer(() => {
+                    state.Drain();
+                    return true;
+                }
+            );
 
-        public Task Stopped() => cluster.Answer<bool>(() => { state.Stopped(); return true; });
+        public Task Stopped() =>
+            cluster.Answer(() => {
+                    state.Stopped();
+                    return true;
+                }
+            );
 
-        public Task Lost(string detail) => cluster.Answer<bool>(() => { state.Lost(); return true; });
+        public Task Lost(string detail) =>
+            cluster.Answer(() => {
+                    state.Lost();
+                    return true;
+                }
+            );
     }
 
     sealed class FakePlayer(FakeCluster cluster, PlayerLeaseState lease) : IPlayerGrain {
@@ -122,7 +149,11 @@ sealed class FakeCluster : IRealmGrains {
             cluster.Answer(() => lease.Renew(shard, epoch));
 
         public Task ReleaseLease(ShardId shard, long epoch) =>
-            cluster.Answer<bool>(() => { lease.Release(shard, epoch); return true; });
+            cluster.Answer(() => {
+                    lease.Release(shard, epoch);
+                    return true;
+                }
+            );
 
         Task<PlayerLease> IPlayerGrain.Lease() => cluster.Answer(lease.Current);
 
@@ -131,18 +162,23 @@ sealed class FakeCluster : IRealmGrains {
 
     sealed class FakeMap(FakeCluster cluster, List<(PlayerKey, ShardId)> departures) : IMapGrain {
         public Task<PlaceResult> Place(PlaceRequest request) =>
-            cluster.Answer(() => new PlaceResult(PlaceStatus.Refused, ShardId.None, RealmEndpoint.None, "faked"));
+            cluster.Answer(static () => new PlaceResult(PlaceStatus.Refused, ShardId.None, RealmEndpoint.None, "faked")
+            );
 
         public Task<ShardReport[]> Shards() => cluster.Answer(Array.Empty<ShardReport>);
 
-        public Task ShardChanged(ShardReport report) => cluster.Answer(() => true);
+        public Task ShardChanged(ShardReport report) => cluster.Answer(static () => true);
 
         public Task PlayerLeft(PlayerKey player, ShardId shard) =>
-            cluster.Answer<bool>(() => { departures.Add((player, shard)); return true; });
+            cluster.Answer(() => {
+                    departures.Add((player, shard));
+                    return true;
+                }
+            );
 
         /// <inheritdoc />
         public Task<string> Explain(PlayerKey player) => Task.FromResult($"nothing is held about {player}");
 
-        public Task<string> Tick(DateTimeOffset now) => cluster.Answer(() => "");
+        public Task<string> Tick(DateTimeOffset now) => cluster.Answer(static () => string.Empty);
     }
 }

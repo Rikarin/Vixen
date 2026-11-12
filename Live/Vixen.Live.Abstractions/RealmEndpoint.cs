@@ -29,7 +29,7 @@ public readonly record struct RealmEndpoint(string Host, int Port) {
     public static RealmEndpoint None => default;
 
     /// <summary>The host. Null only on <c>default</c>; see <see cref="RealmInstanceId" />.</summary>
-    public string Host { get; } = Host ?? "";
+    public string Host { get; } = Host ?? string.Empty;
 
     /// <summary>Whether this names somewhere a client could reach.</summary>
     public bool IsValid => !string.IsNullOrEmpty(Host) && Port is > 0 and <= 65535;
@@ -102,10 +102,10 @@ public readonly record struct RealmEndpoint(string Host, int Port) {
     ///     serialization surrogate produces.
     /// </remarks>
     public bool Equals(RealmEndpoint other) =>
-        Port == other.Port && string.Equals(Host ?? "", other.Host ?? "", StringComparison.Ordinal);
+        Port == other.Port && string.Equals(Host ?? string.Empty, other.Host ?? string.Empty, StringComparison.Ordinal);
 
     /// <inheritdoc />
-    public override int GetHashCode() => HashCode.Combine(Host ?? "", Port);
+    public override int GetHashCode() => HashCode.Combine(Host ?? string.Empty, Port);
 
     /// <inheritdoc />
     public override string ToString() =>

@@ -19,7 +19,7 @@ public sealed class HotReloadWatcherTests : IDisposable {
     readonly string directory =
         Directory.CreateTempSubdirectory("vixen-hot-reload-").FullName;
 
-    public void Dispose() => Directory.Delete(directory, recursive: true);
+    public void Dispose() => Directory.Delete(directory, true);
 
     // ------------------------------------------------------------ Coalescing
 
@@ -153,8 +153,12 @@ public sealed class HotReloadWatcherTests : IDisposable {
     }
 
     /// <summary>
-    ///     ⚠ <b>The sabotage behind the test above, made explicit: the diagnostics come from
-    ///     <i>two</i> lists.</b> The loader reports what it could not use and the selector compiler
+    ///     ⚠
+    ///     <b>
+    ///         The sabotage behind the test above, made explicit: the diagnostics come from
+    ///         <i>two</i> lists.
+    ///     </b>
+    ///     The loader reports what it could not use and the selector compiler
     ///     reports separately, and for the input above the loader has nothing to say — so a rollback
     ///     that consulted only the loader would look at an empty list, conclude the sheet was fine
     ///     and leave the mangled one in place. This asserts the shape of the failure directly rather
@@ -172,8 +176,12 @@ public sealed class HotReloadWatcherTests : IDisposable {
     }
 
     /// <summary>
-    ///     ⚠ <b>A rule the selector compiler cannot use, in a sheet nobody is editing, must not roll
-    ///     back every save of every other sheet.</b> A reload replays all of them — that is what
+    ///     ⚠
+    ///     <b>
+    ///         A rule the selector compiler cannot use, in a sheet nobody is editing, must not roll
+    ///         back every save of every other sheet.
+    ///     </b>
+    ///     A reload replays all of them — that is what
     ///     makes a deleted rule stop applying — so the diagnostics afterwards belong to the whole
     ///     document, and a rollback that read them as this save's would undo itself for ever.
     /// </summary>
@@ -296,8 +304,12 @@ public sealed class HotReloadWatcherTests : IDisposable {
     // ------------------------------------------------------------ Replacing rather than layering
 
     /// <summary>
-    ///     ⚠ <b>The assertion is a deleted rule's effect going away, because that is the only thing
-    ///     an overlay cannot do.</b> A watcher that loads the file again puts an <c>Author</c> copy
+    ///     ⚠
+    ///     <b>
+    ///         The assertion is a deleted rule's effect going away, because that is the only thing
+    ///         an overlay cannot do.
+    ///     </b>
+    ///     A watcher that loads the file again puts an <c>Author</c> copy
     ///     on top of the shipped <c>UserAgent</c> one: every value the new text states wins, so a
     ///     test that changed a number would pass against both the overlay and the replacement and
     ///     prove nothing. Deleting the rule is what separates them — the copy underneath still has

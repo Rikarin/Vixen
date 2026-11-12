@@ -10,8 +10,12 @@ namespace Vixen.Ui.Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>These asserted what Vixen did and a browser did something else, until the painter
-///         walked fragments.</b> They are inverted now, and the four numbers each one moved between
+///         ⚠
+///         <b>
+///             These asserted what Vixen did and a browser did something else, until the painter
+///             walked fragments.
+///         </b>
+///         They are inverted now, and the four numbers each one moved between
 ///         are recorded in the remark on it — a test whose old expectation is unrecoverable is a test
 ///         that cannot say what it caught.
 ///     </para>
@@ -25,8 +29,12 @@ namespace Vixen.Ui.Tests;
 ///         UNION of its fragments.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The union is the right answer to a different question, which is why this was a hole
-///         and not an oversight.</b> CSS 2.1 §10.1 makes the union the containing block of an
+///         ⚠
+///         <b>
+///             The union is the right answer to a different question, which is why this was a hole
+///             and not an oversight.
+///         </b>
+///         CSS 2.1 §10.1 makes the union the containing block of an
 ///         absolutely positioned descendant of an inline box, and it is what a scroll extent and a
 ///         coarse hit test want. It is not what a background covers. On a ragged second line the
 ///         difference was a visible rectangle of colour where there is no text.
@@ -67,11 +75,11 @@ public class InlineFragmentPaintingTests {
               """
         );
 
-        var box = document.Root.Add("div", id: "box");
-        var run = box.Add("div", id: "run");
-        run.Add("div", id: "a");
-        run.Add("div", id: "b");
-        run.Add("div", id: "c");
+        var box = document.Root.Add("div", "box");
+        var run = box.Add("div", "run");
+        run.Add("div", "a");
+        run.Add("div", "b");
+        run.Add("div", "c");
 
         document.Update();
         document.Draw();
@@ -163,7 +171,7 @@ public class InlineFragmentPaintingTests {
         using var scope = document;
 
         var bands = document.Drawing.Commands
-            .Where(command => command.Color == new Core.Mathematics.Color4(0f, 0f, 1f, 1f))
+            .Where(static command => command.Color == new Core.Mathematics.Color4(0f, 0f, 1f, 1f))
             .ToList();
 
         // The first fragment keeps its left edge and loses its right one; the second is the mirror.
@@ -176,17 +184,21 @@ public class InlineFragmentPaintingTests {
         var first = bands.Take(3).ToList();
         var second = bands.Skip(3).ToList();
 
-        Assert.Contains(first, band => band is { X: 0f, Width: 2f, Height: 16f });
-        Assert.DoesNotContain(first, band => band is { X: 90f, Width: 2f });
+        Assert.Contains(first, static band => band is { X: 0f, Width: 2f, Height: 16f });
+        Assert.DoesNotContain(first, static band => band is { X: 90f, Width: 2f });
 
-        Assert.DoesNotContain(second, band => band is { X: 0f, Width: 2f, Height: 16f });
-        Assert.Contains(second, band => band is { X: 60f, Width: 2f, Height: 16f });
+        Assert.DoesNotContain(second, static band => band is { X: 0f, Width: 2f, Height: 16f });
+        Assert.Contains(second, static band => band is { X: 60f, Width: 2f, Height: 16f });
     }
 
     /// <summary>And a break gets no rounded corner either, for the same reason.</summary>
     /// <remarks>
-    ///     ⚠ <b>A radius is a decoration of an end, so rounding a break would draw a pill in the
-    ///     middle of a paragraph.</b> <c>DrawCommand.Radius</c> is the single <c>float</c> a box takes
+    ///     ⚠
+    ///     <b>
+    ///         A radius is a decoration of an end, so rounding a break would draw a pill in the
+    ///         middle of a paragraph.
+    ///     </b>
+    ///     <c>DrawCommand.Radius</c> is the single <c>float</c> a box takes
     ///     when all four corners are the same circle — which no fragment of a rounded fragmented box
     ///     is, since two of its corners are squared. So both fragments carry a zero scalar and their
     ///     real radii in the side buffer, and this asserts the scalar rather than the shape record
@@ -199,13 +211,13 @@ public class InlineFragmentPaintingTests {
         using var scope = document;
 
         Assert.Equal(2, document.Drawing.Commands.Count);
-        Assert.All(document.Drawing.Commands, command => Assert.Equal(0f, command.Radius, Tolerance));
-        Assert.All(document.Drawing.Commands, command => Assert.True(command.HasStyle));
+        Assert.All(document.Drawing.Commands, static command => Assert.Equal(0f, command.Radius, Tolerance));
+        Assert.All(document.Drawing.Commands, static command => Assert.True(command.HasStyle));
 
         // The unfragmented case is the control: one box, one uniform radius, no side-buffer entry.
         var (plain, _) = Build();
         using var other = plain;
 
-        Assert.All(plain.Drawing.Commands, command => Assert.False(command.HasStyle));
+        Assert.All(plain.Drawing.Commands, static command => Assert.False(command.HasStyle));
     }
 }

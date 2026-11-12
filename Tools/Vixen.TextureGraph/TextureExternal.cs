@@ -25,9 +25,13 @@ namespace Vixen.TextureGraph;
 ///         handle turns "the caller forgot" from undefined behaviour into a refusal with a message.
 ///     </para>
 ///     <para>
-///         ⚠ <b><see cref="Size" /> is here for exactly the same reason, and
-///         <a href="https://github.com/Rikarin/Vixen/issues/1000">#1000</a> is what it costs to be
-///         without it.</b> An external image is the one place an absolute size enters a plan, so
+///         ⚠
+///         <b>
+///             <see cref="Size" /> is here for exactly the same reason, and
+///             <a href="https://github.com/Rikarin/Vixen/issues/1000">#1000</a> is what it costs to be
+///             without it.
+///         </b>
+///         An external image is the one place an absolute size enters a plan, so
 ///         <see cref="TexturePlan.SizeOf" /> cannot answer for one — it reads a level off an image
 ///         nothing allocates. A dispatch never needed the number, because every kernel clamps its
 ///         taps to the source's own <c>GetDimensions</c>; a <see cref="TextureOp.Cpu" /> op does,

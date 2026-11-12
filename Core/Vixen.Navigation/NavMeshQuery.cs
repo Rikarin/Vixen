@@ -33,7 +33,12 @@ public readonly record struct NavPathPoint(Vector3 Position, NavPolyRef Poly);
 /// <param name="Position">Where it stopped.</param>
 /// <param name="Normal">The wall's normal, facing back towards the walkable side, if it hit one.</param>
 /// <param name="LastPoly">The last polygon it was on, which is where an agent now stands.</param>
-public readonly record struct NavRaycastHit(bool Hit, float Distance, Vector3 Position, Vector3 Normal, NavPolyRef LastPoly);
+public readonly record struct NavRaycastHit(
+    bool Hit,
+    float Distance,
+    Vector3 Position,
+    Vector3 Normal,
+    NavPolyRef LastPoly);
 
 /// <summary>
 ///     Asks a <see cref="NavMesh" /> questions: which polygon is under a point, how to get from one
@@ -114,7 +119,13 @@ public sealed class NavMeshQuery {
     ///     the horizontal search is about how far off the mesh a spawn point may be, while the
     ///     vertical one is about how far above or below it the caller's idea of "here" may sit.
     /// </remarks>
-    public bool FindNearestPoly(Vector3 center, Vector3 halfExtents, NavQueryFilter filter, out NavPolyRef poly, out Vector3 point) {
+    public bool FindNearestPoly(
+        Vector3 center,
+        Vector3 halfExtents,
+        NavQueryFilter filter,
+        out NavPolyRef poly,
+        out Vector3 point
+    ) {
         ArgumentNullException.ThrowIfNull(filter);
 
         poly = NavPolyRef.Null;
@@ -157,9 +168,9 @@ public sealed class NavMeshQuery {
                     // and without this the middle of the pillar reports floor two metres away.
                     var offset = closest - center;
 
-                    if (MathF.Abs(offset.X) > halfExtents.X ||
-                        MathF.Abs(offset.Y) > halfExtents.Y ||
-                        MathF.Abs(offset.Z) > halfExtents.Z) {
+                    if (MathF.Abs(offset.X) > halfExtents.X
+                        || MathF.Abs(offset.Y) > halfExtents.Y
+                        || MathF.Abs(offset.Z) > halfExtents.Z) {
                         continue;
                     }
 
@@ -332,9 +343,7 @@ public sealed class NavMeshQuery {
         // accepted — every fresh node is — and would give the start a parent, which is a loop the
         // path reconstruction walks for ever.
         nodes[startNode] = nodes[startNode] with {
-            Cost = 0f,
-            Total = NavGeometry.Distance2D(startPosition, endPosition) * HeuristicScale,
-            Visited = true
+            Cost = 0f, Total = NavGeometry.Distance2D(startPosition, endPosition) * HeuristicScale, Visited = true
         };
 
         open.Enqueue(startNode, nodes[startNode].Total);
@@ -454,7 +463,12 @@ public sealed class NavMeshQuery {
     ///         <see cref="NavMesh.GetPortalPoints" />.
     ///     </para>
     /// </remarks>
-    public int FindStraightPath(Vector3 startPosition, Vector3 endPosition, ReadOnlySpan<NavPolyRef> path, Span<NavPathPoint> points) {
+    public int FindStraightPath(
+        Vector3 startPosition,
+        Vector3 endPosition,
+        ReadOnlySpan<NavPolyRef> path,
+        Span<NavPathPoint> points
+    ) {
         if (path.IsEmpty || points.IsEmpty) {
             return 0;
         }
@@ -553,7 +567,13 @@ public sealed class NavMeshQuery {
     ///     that wants to step somewhere asks what is in the way rather than asking whether the
     ///     destination is on the mesh, which is the same question one polygon at a time.
     /// </remarks>
-    public bool Raycast(NavPolyRef start, Vector3 startPosition, Vector3 endPosition, NavQueryFilter filter, out NavRaycastHit hit) =>
+    public bool Raycast(
+        NavPolyRef start,
+        Vector3 startPosition,
+        Vector3 endPosition,
+        NavQueryFilter filter,
+        out NavRaycastHit hit
+    ) =>
         Raycast(start, startPosition, endPosition, filter, out hit, [], out _);
 
     /// <summary>Walks a straight line across the surface, recording the polygons it crossed.</summary>
@@ -603,14 +623,22 @@ public sealed class NavMeshQuery {
             // against and nothing a line of sight can cross. A raycast that reached one stops there,
             // which is the honest answer: you cannot see across a ladder.
             if (count < 3) {
-                hit = new(true, travelled, startPosition + (direction * travelled), Vector3.Zero, current);
+                hit = new(true, travelled, startPosition + direction * travelled, Vector3.Zero, current);
 
                 return true;
             }
 
             var poly = vertices[..count];
 
-            if (!NavGeometry.ClipSegment2D(startPosition, endPosition, poly, out _, out var exit, out _, out var exitEdge)) {
+            if (!NavGeometry.ClipSegment2D(
+                    startPosition,
+                    endPosition,
+                    poly,
+                    out _,
+                    out var exit,
+                    out _,
+                    out var exitEdge
+                )) {
                 break;
             }
 
@@ -623,7 +651,7 @@ public sealed class NavMeshQuery {
 
             travelled = MathF.Max(travelled, exit);
 
-            var exitPoint = startPosition + (direction * exit);
+            var exitPoint = startPosition + direction * exit;
             var next = NavPolyRef.Null;
 
             foreach (var neighbour in Mesh.Neighbours(current)) {
@@ -664,7 +692,7 @@ public sealed class NavMeshQuery {
             current = next;
         }
 
-        hit = new(true, travelled, startPosition + (direction * travelled), Vector3.Zero, current);
+        hit = new(true, travelled, startPosition + direction * travelled, Vector3.Zero, current);
 
         return true;
     }
@@ -732,13 +760,13 @@ public sealed class NavMeshQuery {
             // Stop just short of the wall, so the next cast starts inside a polygon rather than
             // exactly on its edge, where containment is a coin toss.
             var remaining = target - hit.Position;
-            position = hit.Position - (Vector3.Normalize(travel) * 0.01f);
+            position = hit.Position - Vector3.Normalize(travel) * 0.01f;
 
             if (hit.Normal == Vector3.Zero) {
                 break;
             }
 
-            target = position + (remaining - (hit.Normal * Vector3.Dot(remaining, hit.Normal)));
+            target = position + (remaining - hit.Normal * Vector3.Dot(remaining, hit.Normal));
 
             if (NavGeometry.DistanceSquared2D(position, target) < 1e-8f) {
                 break;
@@ -761,7 +789,8 @@ public sealed class NavMeshQuery {
                 continue;
             }
 
-            if (!Mesh.TryGetPolyAttributes(neighbour.Reference, out var area, out var flags) || !searchFilter.Passes(flags)) {
+            if (!Mesh.TryGetPolyAttributes(neighbour.Reference, out var area, out var flags)
+                || !searchFilter.Passes(flags)) {
                 continue;
             }
 
@@ -776,12 +805,14 @@ public sealed class NavMeshQuery {
                 // the last polygon, or a path that ends in a large polygon would be chosen by where
                 // its edge is rather than by where the caller is going.
                 cost = node.Cost
-                    + (NavGeometry.Distance2D(node.Position, neighbourNode.Position) * searchFilter.GetAreaCost(area))
-                    + (NavGeometry.Distance2D(neighbourNode.Position, searchEndPosition) * searchFilter.GetAreaCost(area));
+                    + NavGeometry.Distance2D(node.Position, neighbourNode.Position) * searchFilter.GetAreaCost(area)
+                    + NavGeometry.Distance2D(neighbourNode.Position, searchEndPosition)
+                    * searchFilter.GetAreaCost(area);
 
                 heuristic = 0f;
             } else {
-                cost = node.Cost + (NavGeometry.Distance2D(node.Position, neighbourNode.Position) * searchFilter.GetAreaCost(area));
+                cost = node.Cost
+                    + NavGeometry.Distance2D(node.Position, neighbourNode.Position) * searchFilter.GetAreaCost(area);
                 heuristic = NavGeometry.Distance2D(neighbourNode.Position, searchEndPosition) * HeuristicScale;
             }
 
@@ -791,12 +822,7 @@ public sealed class NavMeshQuery {
                 continue;
             }
 
-            nodes[index] = neighbourNode with {
-                Cost = cost,
-                Total = total,
-                Parent = current,
-                Visited = true
-            };
+            nodes[index] = neighbourNode with { Cost = cost, Total = total, Parent = current, Visited = true };
 
             open.SetPriority(index, total);
 

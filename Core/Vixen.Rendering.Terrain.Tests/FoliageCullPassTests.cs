@@ -26,17 +26,19 @@ public sealed class FoliageCullPassTests : IDisposable {
 
     static FoliageType Tree =>
         FoliageType.Of("Tree") with {
-            Mesh = "Meshes/pine",
-            Radius = 2f,
-            StartCullDistance = 180f,
-            EndCullDistance = 200f
+            Mesh = "Meshes/pine", Radius = 2f, StartCullDistance = 180f, EndCullDistance = 200f
         };
 
     static FoliageDraw Draws(int type, params float[] distances) =>
         new(
             type,
-            [.. Enumerable.Range(0, distances.Length + 1)
-                .Select(level => new DrawCommand { IndexCount = (uint)(600 >> level), FirstIndex = (uint)(level * 10) })],
+            [
+                ..Enumerable.Range(0, distances.Length + 1)
+                    .Select(level => new DrawCommand {
+                            IndexCount = (uint)(600 >> level), FirstIndex = (uint)(level * 10)
+                        }
+                    )
+            ],
             distances
         );
 
@@ -51,7 +53,7 @@ public sealed class FoliageCullPassTests : IDisposable {
         var type = volume.AddType(Tree);
 
         for (var index = 0; index < count; index++) {
-            volume.Add(type, new(new(((index % 16) - 8) * 2f, 0f, z), Quaternion.Identity, 1f));
+            volume.Add(type, new(new((index % 16 - 8) * 2f, 0f, z), Quaternion.Identity, 1f));
         }
 
         return (volume, type);
@@ -143,8 +145,8 @@ public sealed class FoliageCullPassTests : IDisposable {
     /// <summary>More instances than the pass holds is announced rather than silent.</summary>
     [Fact]
     public void APassThatRunsOutSaysSo() {
-        using var pass = Build(instances: 16, batches: 64);
-        var (volume, type) = Filled(200, z: -100f);
+        using var pass = Build(16);
+        var (volume, type) = Filled(200);
 
         pass.Upload(volume, [Draws(type)]);
 
@@ -156,7 +158,7 @@ public sealed class FoliageCullPassTests : IDisposable {
     [Fact]
     public void ACellBehindTheCameraIsMarkedInvisible() {
         using var pass = Build();
-        var (volume, type) = Filled(64, z: 400f);
+        var (volume, type) = Filled(64, 400f);
 
         pass.Upload(volume, [Draws(type)]);
 
@@ -172,7 +174,7 @@ public sealed class FoliageCullPassTests : IDisposable {
     [Fact]
     public void ACellInFrontOfItIsNot() {
         using var pass = Build();
-        var (volume, type) = Filled(64, z: -100f);
+        var (volume, type) = Filled(64);
 
         pass.Upload(volume, [Draws(type)]);
 
@@ -259,15 +261,15 @@ public sealed class FoliageCullPassTests : IDisposable {
         device.GraphicsQueue.Submit([commands]);
 
         var recorded = device.Recorder.Commands.ToList();
-        var dispatches = recorded.FindAll(entry => entry.Kind == RecordedCommandKind.Dispatch);
+        var dispatches = recorded.FindAll(static entry => entry.Kind == RecordedCommandKind.Dispatch);
 
         Assert.Equal(2, dispatches.Count);
 
-        var first = recorded.FindIndex(entry => entry.Kind == RecordedCommandKind.Dispatch);
-        var second = recorded.FindLastIndex(entry => entry.Kind == RecordedCommandKind.Dispatch);
+        var first = recorded.FindIndex(static entry => entry.Kind == RecordedCommandKind.Dispatch);
+        var second = recorded.FindLastIndex(static entry => entry.Kind == RecordedCommandKind.Dispatch);
         var between = recorded
             .GetRange(first + 1, second - first - 1)
-            .Count(entry => entry.Kind == RecordedCommandKind.Barrier);
+            .Count(static entry => entry.Kind == RecordedCommandKind.Barrier);
 
         Assert.True(between > 0, "the placing phase reads what the counting phase wrote, unfenced.");
     }
@@ -289,9 +291,9 @@ public sealed class FoliageCullPassTests : IDisposable {
         device.GraphicsQueue.Submit([commands]);
 
         var recorded = device.Recorder.Commands.ToList();
-        var copies = recorded.FindAll(entry => entry.Kind == RecordedCommandKind.CopyBuffer);
-        var lastCopy = recorded.FindLastIndex(entry => entry.Kind == RecordedCommandKind.CopyBuffer);
-        var firstDispatch = recorded.FindIndex(entry => entry.Kind == RecordedCommandKind.Dispatch);
+        var copies = recorded.FindAll(static entry => entry.Kind == RecordedCommandKind.CopyBuffer);
+        var lastCopy = recorded.FindLastIndex(static entry => entry.Kind == RecordedCommandKind.CopyBuffer);
+        var firstDispatch = recorded.FindIndex(static entry => entry.Kind == RecordedCommandKind.Dispatch);
 
         // Two: the level counts and the level heads. One would leave the other holding last frame's.
         Assert.Equal(2, copies.Count);
@@ -314,7 +316,7 @@ public sealed class FoliageCullPassTests : IDisposable {
         commands.Finish();
         device.GraphicsQueue.Submit([commands]);
 
-        var barriers = device.Recorder.Commands.Count(entry => entry.Kind == RecordedCommandKind.Barrier);
+        var barriers = device.Recorder.Commands.Count(static entry => entry.Kind == RecordedCommandKind.Barrier);
 
         Assert.True(barriers >= 3, $"only {barriers} barriers around two compute writes three things read.");
     }
@@ -341,11 +343,12 @@ public sealed class FoliageCullPassTests : IDisposable {
         device.GraphicsQueue.Submit([commands]);
 
         var recorded = device.Recorder.Commands.ToList();
-        var firstDispatch = recorded.FindIndex(entry => entry.Kind == RecordedCommandKind.Dispatch);
-        var before = recorded.GetRange(0, firstDispatch).FindAll(entry => entry.Kind == RecordedCommandKind.Barrier);
+        var firstDispatch = recorded.FindIndex(static entry => entry.Kind == RecordedCommandKind.Dispatch);
+        var before = recorded.GetRange(0, firstDispatch)
+            .FindAll(static entry => entry.Kind == RecordedCommandKind.Barrier);
 
         // Counts, heads, survivors *and* parameters — the placing phase writes all four.
-        Assert.Contains(before, barrier => barrier.A == 4);
+        Assert.Contains(before, static barrier => barrier.A == 4);
     }
 
     // --- Frames in flight ---------------------------------------------------
@@ -377,7 +380,7 @@ public sealed class FoliageCullPassTests : IDisposable {
             device.GraphicsQueue.Submit([commands]);
 
             sets[frame] = device.Recorder.Commands
-                .First(entry => entry.Kind == RecordedCommandKind.BindDescriptorSet)
+                .First(static entry => entry.Kind == RecordedCommandKind.BindDescriptorSet)
                 .B;
             arguments[frame] = pass.Commands;
         }
@@ -465,8 +468,8 @@ public sealed class FoliageCullPassTests : IDisposable {
         device.GraphicsQueue.Submit([commands]);
 
         var pipelines = device.Recorder.Commands
-            .Where(entry => entry.Kind == RecordedCommandKind.BindPipeline)
-            .Select(entry => entry.A)
+            .Where(static entry => entry.Kind == RecordedCommandKind.BindPipeline)
+            .Select(static entry => entry.A)
             .ToArray();
 
         // Two dispatches, two pipelines, and they are not the same pipeline — but they are both the
@@ -477,8 +480,12 @@ public sealed class FoliageCullPassTests : IDisposable {
 
     /// <summary>With no pyramid the occluder binding still holds a real texture.</summary>
     /// <remarks>
-    ///     ⚠ <b>A default view in a bound set is undefined behaviour or a refused dispatch on most
-    ///     backends</b>, whether or not the variant that runs would sample it — the stance
+    ///     ⚠
+    ///     <b>
+    ///         A default view in a bound set is undefined behaviour or a refused dispatch on most
+    ///         backends
+    ///     </b>
+    ///     , whether or not the variant that runs would sample it — the stance
     ///     <c>TerrainRenderer</c> takes for a hole in a descriptor array.
     /// </remarks>
     [Fact]
@@ -527,7 +534,7 @@ public sealed class FoliageCullPassTests : IDisposable {
             device.GraphicsQueue.Submit([commands]);
 
             textureBarriers[frame] = device.Recorder.Commands
-                .Count(entry => entry.Kind == RecordedCommandKind.Barrier && entry.B > 0);
+                .Count(static entry => entry.Kind == RecordedCommandKind.Barrier && entry.B > 0);
         }
 
         Assert.Equal(1, textureBarriers[0]);
@@ -546,18 +553,20 @@ public sealed class FoliageCullPassTests : IDisposable {
         var record = FoliageCullViewRecord.Of(
             Everything(),
             new(1f, 2f, 3f),
-            new(default, projection, Levels: 6)
+            new(default, projection, 6)
         );
 
         Assert.Equal(projection, record.OccluderProjection);
         Assert.Equal(6f, record.OccluderLevels);
-        Assert.Equal(new Vector3(1f, 2f, 3f), record.Position);
+        Assert.Equal(new(1f, 2f, 3f), record.Position);
     }
 
     FoliageOccluders Pyramid() =>
         new(
             device.CreateTextureView(
-                device.CreateTexture(new(PixelFormat.R32Float, 64, 64, TextureUsage.Sampled, MipLevels: 6, Name: "hi-z"))
+                device.CreateTexture(
+                    new(PixelFormat.R32Float, 64, 64, TextureUsage.Sampled, MipLevels: 6, Name: "hi-z")
+                )
             ),
             Matrix4x4.PerspectiveFieldOfView(MathF.PI / 3f, 1f, 0.5f, 500f),
             6

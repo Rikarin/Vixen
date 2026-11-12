@@ -57,7 +57,7 @@ public sealed class StreamingSampleProvider : IAudioSampleProvider, IDisposable 
         IsLooping = loop;
         Format = decoder.Format;
         FrameCount = decoder.FrameCount;
-        ring = new AudioRingBuffer(bufferedFrames * channels);
+        ring = new(bufferedFrames * channels);
         decodeBuffer = new float[Math.Min(bufferedFrames, 4_096) * channels];
     }
 

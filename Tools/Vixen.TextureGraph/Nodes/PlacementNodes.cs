@@ -84,14 +84,22 @@ static class Placements {
 ///         zero never culls, because a coverage is never below zero.
 ///     </para>
 ///     <para>
-///         ⚠ <b>So turning a map's amount up without wiring the map reads the <em>pattern</em> as
-///         that map</b>, which is a plausible picture rather than an error. The amounts default to
+///         ⚠
+///         <b>
+///             So turning a map's amount up without wiring the map reads the <em>pattern</em> as
+///             that map
+///         </b>
+///         , which is a plausible picture rather than an error. The amounts default to
 ///         zero for exactly that reason, and this is the one arrangement in the node library where a
 ///         port's meaning depends on whether another port is connected.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The kernel searches three cells and this node refuses a plan that would reach
-///         further.</b> An instance the search does not reach is drawn cut off along a cell boundary,
+///         ⚠
+///         <b>
+///             The kernel searches three cells and this node refuses a plan that would reach
+///             further.
+///         </b>
+///         An instance the search does not reach is drawn cut off along a cell boundary,
 ///         which reads as a pattern rather than as a defect — so <c>Scale</c> and
 ///         <c>Position Jitter</c> together are checked before the op is built, and the refusal names
 ///         both numbers. That is doc 48 § D7's bargain: what FX-Map's recursion buys is an instance
@@ -99,9 +107,13 @@ static class Placements {
 ///         node runs.
 ///     </para>
 ///     <para>
-///         ⚠ <b><c>Rotation</c>, <c>Rotation Jitter</c> and <c>Rotation Map Amount</c> are all in
-///         radians, and two of the three were in turns until
-///         <a href="https://github.com/Rikarin/Vixen/issues/735">#735</a>.</b> This node was the worst
+///         ⚠
+///         <b>
+///             <c>Rotation</c>, <c>Rotation Jitter</c> and <c>Rotation Map Amount</c> are all in
+///             radians, and two of the three were in turns until
+///             <a href="https://github.com/Rikarin/Vixen/issues/735">#735</a>.
+///         </b>
+///         This node was the worst
 ///         case in the assembly: a rotation in radians immediately above a jitter in turns, with
 ///         nothing on either to say so and a difference of 2π between them. No node converts, so what
 ///         makes them agree is the kernels agreeing.
@@ -121,7 +133,12 @@ static class Placements {
 ///         never read. A wired colour map makes the output colour, whatever the pattern is.
 ///     </para>
 /// </remarks>
-[Node("Placement/Tile Sampler", Preview = true, Adjustment = false, Summary = "A grid of cells with one jittered instance of a pattern in each.")]
+[Node(
+    "Placement/Tile Sampler",
+    Preview = true,
+    Adjustment = false,
+    Summary = "A grid of cells with one jittered instance of a pattern in each."
+)]
 sealed partial class TileSamplerNode : TextureNode {
     /// <summary>How overlapping instances combine: <c>Max</c>, <c>Add</c> or <c>Blend</c>.</summary>
     [Setting(AcceptedFrom = typeof(TexturePlacementAccumulation))]
@@ -350,7 +367,12 @@ sealed partial class TileSamplerNode : TextureNode {
 ///         (<c>Index</c> through a <c>Utility/Histogram Select</c>) or a ramp across every instance is made of.
 ///     </para>
 /// </remarks>
-[Node("Placement/Splatter", Preview = true, Adjustment = false, Summary = "A bounded free scatter of one pattern, seeded from the plan.")]
+[Node(
+    "Placement/Splatter",
+    Preview = true,
+    Adjustment = false,
+    Summary = "A bounded free scatter of one pattern, seeded from the plan."
+)]
 sealed partial class SplatterNode : TextureNode {
     /// <summary>How overlapping instances combine: <c>Max</c>, <c>Add</c> or <c>Blend</c>.</summary>
     [Setting(AcceptedFrom = typeof(TexturePlacementAccumulation))]
@@ -488,31 +510,31 @@ sealed partial class SplatterNode : TextureNode {
 
         try {
             var single = TexturePlacement.Splatter(
-                    target,
-                    pattern,
-                    mask,
-                    sizeMap,
-                    rotationMap,
-                    placement,
-                    Math.Clamp(count, 1, TexturePlacement.MaxInstances),
-                    emitter.Number(nameof(Scale)),
-                    emitter.Number("Scale Jitter"),
-                    emitter.Number(nameof(Rotation)),
-                    emitter.Number("Rotation Jitter"),
-                    emitter.Number("Colour Jitter"),
-                    emitter.Integer("Pattern Count"),
-                    emitter.Flag("Alpha Coverage"),
-                    emitter.Number("Mask Threshold"),
-                    emitter.Number("Size Map Amount"),
-                    emitter.Number("Rotation Map Amount"),
-                    emitter.Number("Placement Amount"),
-                    accumulation,
-                    emitter.Number(nameof(Opacity)),
-                    draws,
-                    distribution,
-                    emitter.Number("Ring Radius"),
-                    emitter.Flag("Follow Ring")
-                );
+                target,
+                pattern,
+                mask,
+                sizeMap,
+                rotationMap,
+                placement,
+                Math.Clamp(count, 1, TexturePlacement.MaxInstances),
+                emitter.Number(nameof(Scale)),
+                emitter.Number("Scale Jitter"),
+                emitter.Number(nameof(Rotation)),
+                emitter.Number("Rotation Jitter"),
+                emitter.Number("Colour Jitter"),
+                emitter.Integer("Pattern Count"),
+                emitter.Flag("Alpha Coverage"),
+                emitter.Number("Mask Threshold"),
+                emitter.Number("Size Map Amount"),
+                emitter.Number("Rotation Map Amount"),
+                emitter.Number("Placement Amount"),
+                accumulation,
+                emitter.Number(nameof(Opacity)),
+                draws,
+                distribution,
+                emitter.Number("Ring Radius"),
+                emitter.Flag("Follow Ring")
+            );
 
             emitter.Dispatch(TexturePlacement.SplatterChain(target, scratch.ToImmutable(), single, count));
         } catch (ArgumentException refusal) {

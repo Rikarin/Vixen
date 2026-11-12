@@ -11,8 +11,12 @@ namespace Vixen.Geometry.Uv.Flattening;
 ///         first obtuse triangle, and the collision is the most consequential decision in U2.
 ///     </para>
 ///     <para>
-///         ⚠ <b>A cotangent goes negative on an obtuse angle, and clamping it away silently is not the
-///         answer — but neither is leaving it.</b> The Laplacian <c>Σ w(eᵢ − eⱼ)(eᵢ − eⱼ)ᵀ</c> is
+///         ⚠
+///         <b>
+///             A cotangent goes negative on an obtuse angle, and clamping it away silently is not the
+///             answer — but neither is leaving it.
+///         </b>
+///         The Laplacian <c>Σ w(eᵢ − eⱼ)(eᵢ − eⱼ)ᵀ</c> is
 ///         positive semi-definite exactly when every <c>w</c> is non-negative. With one negative weight
 ///         the matrix may still be definite and may not; there is no test cheaper than factorizing it,
 ///         and when it is not, conjugate gradient does not fail — it converges to a saddle. The chart
@@ -52,13 +56,21 @@ namespace Vixen.Geometry.Uv.Flattening;
 ///         <b>Intrinsic Delaunay flipping</b> is the answer that loses nothing — flip the mesh's edges
 ///         intrinsically until no cotangent is negative, and the Laplacian is unconditionally
 ///         PSD with no clamp anywhere. It is also a signed-distance-carrying edge-flip machine over an
-///         intrinsic triangulation, which is a phase of its own and is not U2's. ⚠ <b>This is the
-///         upgrade path if the clamp ever shows up in an asset</b>, and the count in
+///         intrinsic triangulation, which is a phase of its own and is not U2's. ⚠
+///         <b>
+///             This is the
+///             upgrade path if the clamp ever shows up in an asset
+///         </b>
+///         , and the count in
 ///         <see cref="Clamped" /> is what would say that it had.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Cotangents are scale-free, so the floor being relative costs nothing and is still the
-///         right shape.</b> A cotangent is a ratio of two lengths and does not change when the model
+///         ⚠
+///         <b>
+///             Cotangents are scale-free, so the floor being relative costs nothing and is still the
+///             right shape.
+///         </b>
+///         A cotangent is a ratio of two lengths and does not change when the model
 ///         does, which is what makes the whole second rung's matrix identical at any scale. The floor
 ///         is taken against the chart's largest weight anyway, because <c>1e-12</c> against a chart
 ///         whose weights are all <c>1e-9</c> is an absolute epsilon wearing a relative one's clothes —
@@ -98,8 +110,12 @@ readonly struct CotangentWeights {
     ///         does not separate the two cases and this number does.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Raw and <i>not</i> a fraction of the largest weight, which was the first attempt and
-    ///         was worse than useless.</b> A chart full of slivers has enormous <i>positive</i> weights
+    ///         ⚠
+    ///         <b>
+    ///             Raw and <i>not</i> a fraction of the largest weight, which was the first attempt and
+    ///             was worse than useless.
+    ///         </b>
+    ///         A chart full of slivers has enormous <i>positive</i> weights
     ///         too — the acute corners of the same triangles — so dividing by the largest made the bad
     ///         mesh look better than the ordinary one: <c>−0.25</c> against <c>−0.44</c>, exactly
     ///         backwards. A cotangent is already dimensionless and already reads as an angle, which is
@@ -136,11 +152,11 @@ readonly struct CotangentWeights {
             // (X1, 0) and corner 2 is (X2, Y2). Each weight belongs to the edge *opposite* its corner.
             var atZero = frame.X1 * frame.X2 / doubled;
             var atOne = frame.X1 * (frame.X1 - frame.X2) / doubled;
-            var atTwo = ((frame.Y2 * frame.Y2) - (frame.X2 * (frame.X1 - frame.X2))) / doubled;
+            var atTwo = (frame.Y2 * frame.Y2 - frame.X2 * (frame.X1 - frame.X2)) / doubled;
 
-            edge[(triangle * 3) + 0] = atZero;
-            edge[(triangle * 3) + 1] = atOne;
-            edge[(triangle * 3) + 2] = atTwo;
+            edge[triangle * 3] = atZero;
+            edge[triangle * 3 + 1] = atOne;
+            edge[triangle * 3 + 2] = atTwo;
 
             largest = Math.Max(largest, Math.Max(Math.Abs(atZero), Math.Max(Math.Abs(atOne), Math.Abs(atTwo))));
         }

@@ -128,8 +128,12 @@ public readonly record struct TerrainSplineMesh(
 ///         placement returns a list rather than writing one.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The deformation is non-destructive because of where it goes, not because of what it
-///         does.</b> [§ D4]'s reserved layer is the whole mechanism: moving the road, changing its
+///         ⚠
+///         <b>
+///             The deformation is non-destructive because of where it goes, not because of what it
+///             does.
+///         </b>
+///         [§ D4]'s reserved layer is the whole mechanism: moving the road, changing its
 ///         width or deleting it re-runs into the same layer and the author's own sculpting underneath
 ///         is untouched. A road written into the base heightfield is a road that can never be moved.
 ///     </para>
@@ -158,8 +162,12 @@ public static class TerrainSpline {
     /// <exception cref="ArgumentNullException">Something was not supplied.</exception>
     /// <exception cref="ArgumentException">The profile touches nothing.</exception>
     /// <remarks>
-    ///     ⚠ <b>Only this road's own rect is cleared, which is not enough when a road
-    ///     <em>moves</em>.</b> A centreline dragged twenty metres leaves its old rect untouched,
+    ///     ⚠
+    ///     <b>
+    ///         Only this road's own rect is cleared, which is not enough when a road
+    ///         <em>moves</em>.
+    ///     </b>
+    ///     A centreline dragged twenty metres leaves its old rect untouched,
     ///     because the new one no longer covers it — so what an editor calls is
     ///     <see cref="Regenerate" />, which empties the layer and lays every road down again. This is
     ///     the operation for adding one road to a layer that is otherwise already right.
@@ -239,8 +247,12 @@ public static class TerrainSpline {
     /// <exception cref="ArgumentNullException">Something was not supplied.</exception>
     /// <exception cref="ArgumentOutOfRangeException">There is no such layer.</exception>
     /// <remarks>
-    ///     ⚠ <b>Through <see cref="TerrainWeights.Paint" />, so the sum-to-one invariant is maintained
-    ///     in one place.</b> Writing the channel directly would leave the other layers where they
+    ///     ⚠
+    ///     <b>
+    ///         Through <see cref="TerrainWeights.Paint" />, so the sum-to-one invariant is maintained
+    ///         in one place.
+    ///     </b>
+    ///     Writing the channel directly would leave the other layers where they
     ///     were, and a sample whose weights sum to more than one draws as a brighter patch that no
     ///     tool can find.
     /// </remarks>
@@ -342,7 +354,7 @@ public static class TerrainSpline {
 
         for (var index = 0; index <= count; index++) {
             var hash = Hash(seed, index);
-            var at = (index * spacing) + (((Unit(hash, 1) * 2f) - 1f) * wander);
+            var at = index * spacing + (Unit(hash, 1) * 2f - 1f) * wander;
 
             at = Math.Clamp(at, 0f, spline.Length);
 
@@ -370,8 +382,12 @@ public static class TerrainSpline {
     ///         which is right for adding a road and wrong for moving one.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The invalidated rect covers where the roads <em>were</em>, from the chunks the
-    ///         layer had already allocated.</b> Invalidating only the new rects would leave the cached
+    ///         ⚠
+    ///         <b>
+    ///             The invalidated rect covers where the roads <em>were</em>, from the chunks the
+    ///             layer had already allocated.
+    ///         </b>
+    ///         Invalidating only the new rects would leave the cached
     ///         composite holding the old road wherever the two do not overlap — which draws as a road
     ///         that has been moved and also has not.
     ///     </para>
@@ -470,8 +486,12 @@ public static class TerrainSpline {
     /// <param name="parameter">The parameter there.</param>
     /// <returns>The horizontal distance, in metres.</returns>
     /// <remarks>
-    ///     ⚠ <b>Horizontal, and not <see cref="Spline.DistanceTo" />, because a road's width is
-    ///     measured across the ground rather than through the air.</b> The 3D distance is the one a
+    ///     ⚠
+    ///     <b>
+    ///         Horizontal, and not <see cref="Spline.DistanceTo" />, because a road's width is
+    ///         measured across the ground rather than through the air.
+    ///     </b>
+    ///     The 3D distance is the one a
     ///     camera wants; used here it means a road can only deform ground it is already level with —
     ///     so a centreline drawn twenty metres above a valley floor, which is exactly how an author
     ///     draws a causeway, touches nothing at all. Cutting and filling is the whole point of a
@@ -532,7 +552,7 @@ public static class TerrainSpline {
         var dx = point.X - ground.X;
         var dz = point.Z - ground.Y;
 
-        return (dx * dx) + (dz * dz);
+        return dx * dx + dz * dz;
     }
 
     /// <summary>The curve's left, which is what a signed offset is measured along.</summary>

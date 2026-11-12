@@ -10,16 +10,24 @@ namespace Vixen.Geometry.Uv.Tests;
 /// <summary>The same seams and the same atlas, at any worker count and any batch size.</summary>
 /// <remarks>
 ///     <para>
-///         docs/plan/42 § D12 and doc 41 § D14. ⚠ <b>The failure this is really aimed at is not a
-///         thread, it is a <c>Dictionary</c>.</b> A greedy merge that iterates a hash set merges in a
+///         docs/plan/42 § D12 and doc 41 § D14. ⚠
+///         <b>
+///             The failure this is really aimed at is not a
+///             thread, it is a <c>Dictionary</c>.
+///         </b>
+///         A greedy merge that iterates a hash set merges in a
 ///         different order on a different runtime, and every ordering decision in the charter — the
 ///         seeds, the candidate splits, the merge pairs — is a place where enumerating an unordered
 ///         collection would produce a perfectly reproducible answer on this machine and a different one
 ///         on somebody else's.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Charting adds no parallelism of its own, which is the reason the sweep is cheap and the
-///         reason it is still worth running.</b> A whole level of the recursion is handed to the
+///         ⚠
+///         <b>
+///             Charting adds no parallelism of its own, which is the reason the sweep is cheap and the
+///             reason it is still worth running.
+///         </b>
+///         A whole level of the recursion is handed to the
 ///         flattener as one chart assignment, so the threaded work is U2's and its determinism is
 ///         already gated — what this proves is that no <i>decision</i> the charter makes reads anything
 ///         the scheduler touched.

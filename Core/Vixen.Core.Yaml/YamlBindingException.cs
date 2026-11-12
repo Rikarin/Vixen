@@ -19,6 +19,7 @@ public sealed class YamlBindingException : Exception {
     /// <param name="message">What went wrong.</param>
     /// <param name="inner">What caused it, if anything.</param>
     public YamlBindingException(string path, string message, Exception? inner = null)
-        : base(path.Length == 0 ? message : $"{path}: {message}", inner) =>
+        : base(path.Length == 0 ? message : $"{path}: {message}", inner) {
         Path = path;
+    }
 }

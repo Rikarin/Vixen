@@ -180,8 +180,8 @@ public sealed class AnimationClipView : Control {
         Proposals = Side.Add("animation-proposals");
 
         CurveMode.CheckedChanged += (_, on) => ShowCurves(on);
-        Duration.NumberChanged += (_, value) => document?.SetDuration((float) value);
-        FrameRate.NumberChanged += (_, value) => document?.SetFrameRate((float) value);
+        Duration.NumberChanged += (_, value) => document?.SetDuration((float)value);
+        FrameRate.NumberChanged += (_, value) => document?.SetFrameRate((float)value);
 
         Wrap.SelectionChanged += (_, value) => {
             if (Enum.TryParse<WrapMode>(value, out var mode)) {
@@ -204,7 +204,7 @@ public sealed class AnimationClipView : Control {
         Curves.CurveChanged += _ => CommitCurve();
         Curves.SelectionChanged += _ => Restate();
 
-        AddHandler<ClickEvent>(static (element, args) => ((AnimationClipView) element).Chosen(args));
+        AddHandler<ClickEvent>(static (element, args) => ((AnimationClipView)element).Chosen(args));
     }
 
     /// <summary>Shows a clip.</summary>
@@ -316,8 +316,8 @@ public sealed class AnimationClipView : Control {
         // `AnimationClipCurves`' own note.
         Curves.Curve = row is { Target: { } target }
             && AnimationClipDocument.Curve(target, row.Property, row.Shape) is { } curve
-            ? AnimationClipCurves.ToCurve(curve)
-            : new AnimationCurve();
+                ? AnimationClipCurves.ToCurve(curve)
+                : new AnimationCurve();
 
         Curves.Frame();
     }
@@ -375,7 +375,9 @@ public sealed class AnimationClipView : Control {
 
             // ⚠ Only the curves whose keys actually moved. Rewriting every curve on every drag would
             // put one undo entry per row on the stack for a gesture that touched one of them.
-            var moved = track.Keys.Any(key => key.Tag is AnimationKeyData data && Math.Abs(data.Time - key.Time) > 1e-6f);
+            var moved = track.Keys.Any(static key =>
+                key.Tag is AnimationKeyData data && Math.Abs(data.Time - key.Time) > 1e-6f
+            );
 
             if (!moved) {
                 continue;
@@ -388,13 +390,15 @@ public sealed class AnimationClipView : Control {
                     continue;
                 }
 
-                keys.Add(new() {
-                    Time = key.Time,
-                    Value = data.Value,
-                    InTangent = data.InTangent,
-                    OutTangent = data.OutTangent,
-                    Mode = data.Mode
-                });
+                keys.Add(
+                    new() {
+                        Time = key.Time,
+                        Value = data.Value,
+                        InTangent = data.InTangent,
+                        OutTangent = data.OutTangent,
+                        Mode = data.Mode
+                    }
+                );
             }
 
             clip.SetCurve(tag.Target, tag.Property, keys, tag.Shape);
@@ -512,7 +516,7 @@ public sealed class AnimationClipView : Control {
         Line("Name", entry.Name, value => Replace(clip, entry, value, entry.Float, entry.Int, entry.String));
         Number("Time", entry.Time, value => clip.MoveEvent(entry, value));
         Number("Float", entry.Float, value => Replace(clip, entry, entry.Name, value, entry.Int, entry.String));
-        Number("Int", entry.Int, value => Replace(clip, entry, entry.Name, entry.Float, (int) value, entry.String));
+        Number("Int", entry.Int, value => Replace(clip, entry, entry.Name, entry.Float, (int)value, entry.String));
         Line("String", entry.String, value => Replace(clip, entry, entry.Name, entry.Float, entry.Int, value));
     }
 
@@ -651,7 +655,7 @@ public sealed class AnimationClipView : Control {
             if (!accessor.Write(clip, tag, field, text ?? string.Empty)) {
                 // Rejected rather than swallowed: a number that did not parse leaves the field showing
                 // what the tag still says, which is the only honest thing to show.
-                ((TextBox) control).Value = accessor.Read(tag);
+                ((TextBox)control).Value = accessor.Read(tag);
             }
         };
     }
@@ -664,7 +668,7 @@ public sealed class AnimationClipView : Control {
 
         box.Decimals = 3;
         box.Number = value;
-        box.NumberChanged += (_, number) => write((float) number);
+        box.NumberChanged += (_, number) => write((float)number);
     }
 
     void Line(string label, string value, Action<string> write) {
@@ -761,14 +765,14 @@ public sealed class AnimationClipView : Control {
                     clip.SetCurve(
                         target,
                         tag.Property,
-                        [.. AnimationClipDocument.Curve(target, tag.Property, tag.Shape)
-                            ?.Keys.Where(entry => !ReferenceEquals(entry, key)) ?? []],
+                        [
+                            ..AnimationClipDocument.Curve(target, tag.Property, tag.Shape)
+                                ?.Keys.Where(entry => !ReferenceEquals(entry, key))
+                            ?? []
+                        ],
                         tag.Shape
                     );
 
-                    break;
-
-                default:
                     break;
             }
         }
@@ -800,7 +804,10 @@ public sealed class AnimationClipEditorFactory : DocumentKind {
     }
 }
 
-/// <summary>What <see cref="AnimationClipEditorFactory" />'s documents are shown in: the Workspace half of the pair (#1294).</summary>
+/// <summary>
+///     What <see cref="AnimationClipEditorFactory" />'s documents are shown in: the Workspace half of the pair
+///     (#1294).
+/// </summary>
 public sealed class AnimationClipEditorView : DocumentView<AnimationClipDocument> {
     /// <inheritdoc />
     protected override UiElement Build(AnimationClipDocument document, UiElement panel) {

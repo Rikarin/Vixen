@@ -86,7 +86,7 @@ public sealed class LogOverlay : IDiagnosticOverlay {
             return;
         }
 
-        var characters = Math.Max(1, (int) (region.ContentWidth / DebugFont.AdvanceFor(theme.TextSize)));
+        var characters = Math.Max(1, (int)(region.ContentWidth / DebugFont.AdvanceFor(theme.TextSize)));
 
         Span<char> buffer = stackalloc char[256];
         var row = wanted - 1;

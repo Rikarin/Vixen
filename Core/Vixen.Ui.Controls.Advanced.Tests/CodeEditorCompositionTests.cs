@@ -33,9 +33,10 @@ public class CodeEditorCompositionTests {
     /// </remarks>
     static string Shown(CodeEditor editor, int row) =>
         string.Concat(
-            editor.Pool[row].Spans
-                .Where(span => !span.HasClass("parked"))
-                .Select(span => span.Text ?? string.Empty)
+            editor.Pool[row]
+                .Spans
+                .Where(static span => !span.HasClass("parked"))
+                .Select(static span => span.Text ?? string.Empty)
         );
 
     static (AdvancedFixture Fixture, CodeEditor Editor) Editor(string source = "abc") {
@@ -60,7 +61,7 @@ public class CodeEditorCompositionTests {
         var (fixture, editor) = Editor();
         using var owned = fixture;
 
-        editor.Move(new TextPosition(0, 3));
+        editor.Move(new(0, 3));
         fixture.Compose("ねこ");
 
         Assert.Equal("abcねこ", Shown(editor, 0));
@@ -76,7 +77,7 @@ public class CodeEditorCompositionTests {
         var (fixture, editor) = Editor();
         using var owned = fixture;
 
-        editor.Move(new TextPosition(0, 1));
+        editor.Move(new(0, 1));
         fixture.Compose("ねこ");
 
         Assert.Equal("aねこbc", Shown(editor, 0));
@@ -92,7 +93,7 @@ public class CodeEditorCompositionTests {
         var (fixture, editor) = Editor();
         using var owned = fixture;
 
-        editor.Move(new TextPosition(0, 3));
+        editor.Move(new(0, 3));
         fixture.Compose("ねこ");
 
         Assert.Equal("abcねこ", Shown(editor, 0));
@@ -114,7 +115,7 @@ public class CodeEditorCompositionTests {
         var (fixture, editor) = Editor();
         using var owned = fixture;
 
-        editor.Move(new TextPosition(0, 3));
+        editor.Move(new(0, 3));
         fixture.Compose("ねこ");
         fixture.TypeText("猫");
 
@@ -160,17 +161,17 @@ public class CodeEditorCompositionTests {
         var (fixture, editor) = Editor();
         using var owned = fixture;
 
-        editor.Move(new TextPosition(0, 3));
+        editor.Move(new(0, 3));
 
         var caret = editor.CaretArea.X;
 
-        fixture.Compose("ねこ", caret: 0);
+        fixture.Compose("ねこ", 0);
 
         Assert.Equal(caret, editor.CaretArea.X, 0.01f);
 
-        fixture.Compose("ねこ", caret: 2);
+        fixture.Compose("ねこ", 2);
 
-        Assert.Equal(caret + (2f * editor.CharacterWidth), editor.CaretArea.X, 0.01f);
+        Assert.Equal(caret + 2f * editor.CharacterWidth, editor.CaretArea.X, 0.01f);
     }
 
     /// <summary>
@@ -189,7 +190,7 @@ public class CodeEditorCompositionTests {
 
         var other = fixture.Add<CodeEditor>();
 
-        editor.Move(new TextPosition(0, 3));
+        editor.Move(new(0, 3));
         fixture.Compose("ねこ");
 
         Assert.Equal("abcねこ", Shown(editor, 0));
@@ -207,7 +208,7 @@ public class CodeEditorCompositionTests {
         using var owned = fixture;
 
         editor.ReadOnly = true;
-        editor.Move(new TextPosition(0, 3));
+        editor.Move(new(0, 3));
 
         fixture.Compose("ねこ");
 

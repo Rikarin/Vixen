@@ -3,8 +3,6 @@
 
 using System.Diagnostics.Metrics;
 using Vixen.Net.Diagnostics;
-using Vixen.Net.Replication;
-using Vixen.Net.Sessions;
 using Vixen.Net.Transport;
 using Xunit;
 
@@ -32,8 +30,12 @@ namespace Vixen.Live.Realms.Tests;
 ///         underneath, so this is the same collection a shard's exporter performs.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Every collecting test supplies its own meter, tagged with a version nothing else
-///         uses.</b> A <c>MeterListener</c> subscribes by meter <i>name</i>, every realm in this
+///         ⚠
+///         <b>
+///             Every collecting test supplies its own meter, tagged with a version nothing else
+///             uses.
+///         </b>
+///         A <c>MeterListener</c> subscribes by meter <i>name</i>, every realm in this
 ///         assembly now publishes under <c>Vixen.Net</c>, and xUnit runs test classes in parallel —
 ///         so a collector that took every measurement it was offered would be reading some other
 ///         test's shard about a third of the time. That is the flake this file would otherwise be.
@@ -190,7 +192,7 @@ public class RealmMetricsTests {
 
         var ledger = new BandwidthLedger();
 
-        ledger.Record(new PlayerId(1), new NetworkId(1), "NetworkTransform", bits: 4_096, asDelta: true);
+        ledger.Record(new(1), new(1), "NetworkTransform", 4_096, true);
         realm.Host.Metrics.Ledger = ledger;
 
         realm.MapIsUp();

@@ -83,7 +83,7 @@ public sealed class KubernetesPlacementTests {
         var probe = await placement.ProbeAsync(TestContext.Current.CancellationToken);
 
         Assert.False(probe.Available);
-        Assert.NotEqual("", probe.Detail);
+        Assert.NotEqual(string.Empty, probe.Detail);
     }
 
     // ── The pod ─────────────────────────────────────────────────────────────────────────────────
@@ -128,7 +128,7 @@ public sealed class KubernetesPlacementTests {
 
         var args = cluster.Last.Spec!.Containers[0].Args!.ToList();
 
-        Assert.True(RealmSpec.TryRead(args, _ => null, out var sent, out var why), why);
+        Assert.True(RealmSpec.TryRead(args, static _ => null, out var sent, out var why), why);
         Assert.Equal(spec.Shard, sent!.Shard);
         Assert.Equal(cluster.Last.Spec.Containers[0].Ports![0].HostPort, sent.Endpoint.Port);
 
@@ -178,8 +178,10 @@ public sealed class KubernetesPlacementTests {
             cluster
         );
 
-        var failure = await Assert.ThrowsAsync<InvalidOperationException>(
-            async () => await placement.StartAsync(Spec(), TestContext.Current.CancellationToken)
+        var failure = await Assert.ThrowsAsync<InvalidOperationException>(async () => await placement.StartAsync(
+                Spec(),
+                TestContext.Current.CancellationToken
+            )
         );
 
         // What the kubelet would otherwise have said is `CreateContainerError: exec: "--realm-spec":
@@ -224,11 +226,10 @@ public sealed class KubernetesPlacementTests {
 
     [Fact]
     public void TheOrchestratorsIdentityComesFromTheDownwardApi() {
-        Assert.Null(PodIdentity.FromEnvironment(_ => null));
-        Assert.Null(PodIdentity.FromEnvironment(name => name == "VIXEN_POD_NAME" ? "orchestrator-0" : null));
+        Assert.Null(PodIdentity.FromEnvironment(static _ => null));
+        Assert.Null(PodIdentity.FromEnvironment(static name => name == "VIXEN_POD_NAME" ? "orchestrator-0" : null));
 
-        var identity = PodIdentity.FromEnvironment(
-            name => name switch {
+        var identity = PodIdentity.FromEnvironment(static name => name switch {
                 "VIXEN_POD_NAME" => "orchestrator-0",
                 "VIXEN_POD_UID" => "abc-123",
                 _ => null
@@ -254,7 +255,7 @@ public sealed class KubernetesPlacementTests {
         Assert.Equal(PlacementEventKind.Started, started.Kind);
         Assert.False(started.Endpoint.IsValid);
 
-        cluster.AddNode("node-3", external: "203.0.113.9");
+        cluster.AddNode("node-3", "203.0.113.9");
         cluster.Schedule(instance.Id.Value, "node-3");
         cluster.Say(instance.Id.Value, RealmSignals.FormatReady(new("10.244.3.1", 30000)));
 
@@ -278,7 +279,7 @@ public sealed class KubernetesPlacementTests {
 
         // A single-node development cluster, where the fallback is right; in production it is a
         // shard nobody outside can reach, and the endpoint says so rather than being empty.
-        cluster.AddNode("node-1", external: null, internalAddress: "10.244.0.7");
+        cluster.AddNode("node-1", null);
         cluster.Schedule(instance.Id.Value, "node-1");
         cluster.Say(instance.Id.Value, RealmSignals.FormatReady(new("10.244.3.1", 30000)));
 
@@ -297,7 +298,7 @@ public sealed class KubernetesPlacementTests {
         // No AddNode: the RBAC does not let this orchestrator read Node objects, which is a cluster
         // whose roles have not been told about it. A fleet that refused to place anything because of
         // that would be a very confusing outage.
-        cluster.Schedule(instance.Id.Value, "node-9", hostIp: "192.0.2.44");
+        cluster.Schedule(instance.Id.Value, "node-9", "192.0.2.44");
         cluster.Say(instance.Id.Value, RealmSignals.FormatReady(new("10.244.3.1", 30000)));
 
         Assert.Equal("192.0.2.44", (await watch.NextAsync()).Endpoint.Host);
@@ -429,8 +430,7 @@ public sealed class KubernetesPlacementTests {
     public async Task ASpecThatNamesItsOwnPortIsRefused() {
         using var placement = Placement();
 
-        var failure = await Assert.ThrowsAsync<InvalidOperationException>(
-            async () => await placement.StartAsync(
+        var failure = await Assert.ThrowsAsync<InvalidOperationException>(async () => await placement.StartAsync(
                 Spec() with { Endpoint = new("10.0.0.4", 7777) },
                 TestContext.Current.CancellationToken
             )
@@ -449,8 +449,10 @@ public sealed class KubernetesPlacementTests {
 
         await placement.StartAsync(Spec(), TestContext.Current.CancellationToken);
 
-        var failure = await Assert.ThrowsAsync<InvalidOperationException>(
-            async () => await placement.StartAsync(Spec(), TestContext.Current.CancellationToken)
+        var failure = await Assert.ThrowsAsync<InvalidOperationException>(async () => await placement.StartAsync(
+                Spec(),
+                TestContext.Current.CancellationToken
+            )
         );
 
         Assert.Contains("node port range is exhausted", failure.Message, StringComparison.Ordinal);
@@ -458,10 +460,12 @@ public sealed class KubernetesPlacementTests {
 
     [Fact]
     public async Task ABackendWithNoImageRefusesWithSomethingActionable() {
-        using var placement = new KubernetesPlacement(Options() with { Image = "" }, cluster);
+        using var placement = new KubernetesPlacement(Options() with { Image = string.Empty }, cluster);
 
-        var failure = await Assert.ThrowsAsync<InvalidOperationException>(
-            async () => await placement.StartAsync(Spec(), TestContext.Current.CancellationToken)
+        var failure = await Assert.ThrowsAsync<InvalidOperationException>(async () => await placement.StartAsync(
+                Spec(),
+                TestContext.Current.CancellationToken
+            )
         );
 
         Assert.Contains("KubernetesPlacementOptions.Image", failure.Message, StringComparison.Ordinal);

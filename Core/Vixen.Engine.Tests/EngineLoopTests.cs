@@ -61,7 +61,7 @@ public sealed class EngineLoopTests {
     /// </summary>
     [Fact]
     public void AStallIsClampedAndTheDebtIsDroppedVisibly() {
-        var accumulator = new FixedStepAccumulator(Sixtieth, maxStepsPerFrame: 5);
+        var accumulator = new FixedStepAccumulator(Sixtieth, 5);
 
         Assert.Equal(5, accumulator.Advance(TimeSpan.FromSeconds(1)));
         Assert.Equal(55, accumulator.DroppedSteps);
@@ -89,7 +89,7 @@ public sealed class EngineLoopTests {
 
         Assert.Equal(6, loop.LastFixedSteps);
         Assert.Equal(6, log.Count);
-        Assert.All(log, entry => Assert.True(Math.Abs(entry.Delta - (1f / 60f)) < 1e-5f, $"{entry.Delta}"));
+        Assert.All(log, static entry => Assert.True(Math.Abs(entry.Delta - 1f / 60f) < 1e-5f, $"{entry.Delta}"));
     }
 
     [Fact]
@@ -98,10 +98,10 @@ public sealed class EngineLoopTests {
         using var loop = new EngineLoop(fixedStep: new(Sixtieth), registerDefaultSystems: false);
         loop.Add(new Simulate(log)).Add(new Think(log));
 
-        loop.Frame(TimeSpan.FromMilliseconds(100), timeScale: 0f);
+        loop.Frame(TimeSpan.FromMilliseconds(100), 0f);
 
         Assert.Equal(0, loop.LastFixedSteps);
-        Assert.Equal([SystemPhase.Update], log.Select(entry => entry.Phase));
+        Assert.Equal([SystemPhase.Update], log.Select(static entry => entry.Phase));
     }
 
     [Fact]
@@ -117,7 +117,7 @@ public sealed class EngineLoopTests {
 
         Assert.Equal(
             [SystemPhase.Input, SystemPhase.FixedUpdate, SystemPhase.Update, SystemPhase.PostRender],
-            log.Select(entry => entry.Phase)
+            log.Select(static entry => entry.Phase)
         );
     }
 
@@ -146,7 +146,7 @@ public sealed class EngineLoopTests {
     [Fact]
     public void TheDefaultSystemsAreTheBehaviourPassesAndTheTransformPass() {
         using var loop = new EngineLoop();
-        var names = loop.Systems.Graph.All.Select(node => node.Name).ToArray();
+        var names = loop.Systems.Graph.All.Select(static node => node.Name).ToArray();
 
         // Each coroutine drain is registered after the behaviour pass it shares a phase with, and
         // neither declares access, so the runner's registration-order tie-break keeps them in that

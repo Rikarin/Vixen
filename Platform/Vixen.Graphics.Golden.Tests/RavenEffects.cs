@@ -53,8 +53,12 @@ static class RavenEffects {
 
     /// <summary>A compiler over the whole library, in a fixed order.</summary>
     /// <remarks>
-    ///     ⚠ <b>Sorted, because <see cref="Directory.GetFiles(string, string, SearchOption)" /> is
-    ///     not.</b> It returns whatever order the filesystem gives, which is APFS's on the machine
+    ///     ⚠
+    ///     <b>
+    ///         Sorted, because <see cref="Directory.GetFiles(string, string, SearchOption)" /> is
+    ///         not.
+    ///     </b>
+    ///     It returns whatever order the filesystem gives, which is APFS's on the machine
     ///     this was written on and ext4's on the Linux CI runner — so "the library compiles" was a
     ///     claim about a directory listing rather than about the library. The lowering bug that
     ///     exposed it is fixed and pinned by <c>SourceOrderTests</c>, so this is no longer load
@@ -96,7 +100,9 @@ static class RavenEffects {
     /// <summary>The shader library, found by walking up rather than by counting directories.</summary>
     public static string Library {
         get {
-            for (var directory = new DirectoryInfo(AppContext.BaseDirectory); directory is not null; directory = directory.Parent) {
+            for (var directory = new DirectoryInfo(AppContext.BaseDirectory);
+                 directory is not null;
+                 directory = directory.Parent) {
                 var candidate = Path.Combine(directory.FullName, "Raven", "Library");
 
                 if (Directory.Exists(candidate)) {

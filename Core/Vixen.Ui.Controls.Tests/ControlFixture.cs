@@ -30,7 +30,7 @@ sealed class ControlFixture : IDisposable {
     const int Pointer = 0;
 
     public ControlFixture(float width = 800f, float height = 600f, string? css = null) {
-        Document = new UiDocument(width, height);
+        Document = new(width, height);
         Document.Fonts.Register("Test", Font);
 
         ControlTheme.Install(Document);
@@ -85,12 +85,21 @@ sealed class ControlFixture : IDisposable {
     ///     exercised end to end if the test sends the two events that make one. A test that raised a
     ///     <c>TapEvent</c> directly would pass against a control that never receives real input.
     /// </remarks>
-    public void Click(UiElement element, ModifierKeys modifiers = ModifierKeys.None, PointerButton button = PointerButton.Primary) {
+    public void Click(
+        UiElement element,
+        ModifierKeys modifiers = ModifierKeys.None,
+        PointerButton button = PointerButton.Primary
+    ) {
         var bounds = element.Bounds;
-        Click(bounds.X + (bounds.Width * 0.5f), bounds.Y + (bounds.Height * 0.5f), modifiers, button);
+        Click(bounds.X + bounds.Width * 0.5f, bounds.Y + bounds.Height * 0.5f, modifiers, button);
     }
 
-    public void Click(float x, float y, ModifierKeys modifiers = ModifierKeys.None, PointerButton button = PointerButton.Primary) {
+    public void Click(
+        float x,
+        float y,
+        ModifierKeys modifiers = ModifierKeys.None,
+        PointerButton button = PointerButton.Primary
+    ) {
         Press(x, y, modifiers, button);
         Release(x, y, modifiers, button);
     }
@@ -137,7 +146,7 @@ sealed class ControlFixture : IDisposable {
 
     public void MoveOver(UiElement element) {
         var bounds = element.Bounds;
-        MovePointer(bounds.X + (bounds.Width * 0.5f), bounds.Y + (bounds.Height * 0.5f));
+        MovePointer(bounds.X + bounds.Width * 0.5f, bounds.Y + bounds.Height * 0.5f);
     }
 
     void Send(
@@ -209,27 +218,25 @@ sealed class ControlFixture : IDisposable {
         clock += TimeSpan.FromMilliseconds(16);
 
         Document.Dispatch(
-            new TextCompositionEvent {
-                Text = text,
-                Start = caret < 0 ? text.Length : caret,
-                Timestamp = clock
-            }
+            new TextCompositionEvent { Text = text, Start = caret < 0 ? text.Length : caret, Timestamp = clock }
         );
 
         Update();
     }
 
     /// <summary>Sends a wheel over an element, from a continuous device unless told otherwise.</summary>
-    /// <param name="notched">Whether it came from a notched wheel rather than a trackpad. The
-    /// default is the one that changes nothing: see <see cref="WheelEvent.Notched" />.</param>
+    /// <param name="notched">
+    ///     Whether it came from a notched wheel rather than a trackpad. The
+    ///     default is the one that changes nothing: see <see cref="WheelEvent.Notched" />.
+    /// </param>
     public void Wheel(UiElement over, float deltaY, float deltaX = 0f, bool notched = false) {
         var bounds = over.Bounds;
         clock += TimeSpan.FromMilliseconds(16);
 
         Document.Dispatch(
             new WheelEvent {
-                X = bounds.X + (bounds.Width * 0.5f),
-                Y = bounds.Y + (bounds.Height * 0.5f),
+                X = bounds.X + bounds.Width * 0.5f,
+                Y = bounds.Y + bounds.Height * 0.5f,
                 DeltaX = deltaX,
                 DeltaY = deltaY,
                 Notched = notched,
@@ -244,7 +251,7 @@ sealed class ControlFixture : IDisposable {
 
     static FontFace LoadFont() {
         using var stream = Assembly.GetExecutingAssembly()
-            .GetManifestResourceStream("Vixen.Ui.Controls.Tests.Fonts.TestShapeLana.ttf")
+                .GetManifestResourceStream("Vixen.Ui.Controls.Tests.Fonts.TestShapeLana.ttf")
             ?? throw new InvalidOperationException("the test font is not embedded");
 
         using var memory = new MemoryStream();

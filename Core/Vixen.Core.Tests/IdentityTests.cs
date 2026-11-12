@@ -91,8 +91,8 @@ public class IdentityTests {
 
     [Fact]
     public void An_object_id_rejects_a_digest_of_the_wrong_size() {
-        Assert.Throws<ArgumentException>(() => ObjectId.FromBytes(new byte[15]));
-        Assert.Throws<ArgumentException>(() => ObjectId.FromBytes(new byte[17]));
+        Assert.Throws<ArgumentException>(static () => ObjectId.FromBytes(new byte[15]));
+        Assert.Throws<ArgumentException>(static () => ObjectId.FromBytes(new byte[17]));
     }
 
     [Fact]
@@ -156,7 +156,7 @@ public class IdentityTests {
     [Fact]
     public void The_packed_form_does_not_carry_the_world() {
         Assert.Equal(new Entity(7, 3, 0).Packed, new Entity(7, 3, 9).Packed);
-        Assert.NotEqual(new Entity(7, 3, 0), new Entity(7, 3, 9));
+        Assert.NotEqual(new(7, 3, 0), new Entity(7, 3, 9));
     }
 
     [Fact]

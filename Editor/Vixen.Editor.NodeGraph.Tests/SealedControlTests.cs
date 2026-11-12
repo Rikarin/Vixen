@@ -45,7 +45,6 @@ public sealed class SealedControlTests : IDisposable {
 
     public void Dispose() {
         fixture.Dispose();
-        GC.SuppressFinalize(this);
     }
 
     /// <summary>
@@ -124,7 +123,7 @@ public sealed class SealedControlTests : IDisposable {
     }
 
     static IReadOnlyList<string> Names(SealedControlHost host) =>
-        [.. host.Inspector.Rows.Select(row => row.Field.Member.Name)];
+        [..host.Inspector.Rows.Select(static row => row.Field.Member.Name)];
 
     /// <summary>What <c>NodeInspector.Rebuild</c> assembles, assembled the same way.</summary>
     SealedControlHost.Inspection Show(GraphNode node) {

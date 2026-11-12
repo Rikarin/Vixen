@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using CsCheck;
-using Vixen.Water;
 using Xunit;
 
 namespace Vixen.Water.Tests;
@@ -71,7 +70,7 @@ public sealed class WaterMathTests {
     public void TheReductionLandsInsideTheFittedRange() {
         Gen.Float[-10_000f, 10_000f]
             .Sample(
-                angle => {
+                static angle => {
                     var reduced = WaterMath.Reduce(angle, out _);
 
                     Assert.InRange(reduced, -MathF.PI - 1e-3f, MathF.PI + 1e-3f);
@@ -92,7 +91,7 @@ public sealed class WaterMathTests {
     public void SineIsOddAndCosineIsEvenAfterReduction() {
         Gen.Float[-2_000f, 2_000f]
             .Sample(
-                angle => {
+                static angle => {
                     WaterMath.SinCos(angle, out var sin, out var cos);
                     WaterMath.SinCos(-angle, out var mirrored, out var mirroredCos);
 

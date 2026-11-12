@@ -22,8 +22,12 @@ namespace Vixen.Editor.Ui;
 ///         nothing in the tree does it by hand any more.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The tokens are not a second palette, and the <c>@theme</c> block goes to some trouble
-///         to stay that way.</b> Every colour in it is a <c>var(--…)</c> reference to a custom property
+///         ⚠
+///         <b>
+///             The tokens are not a second palette, and the <c>@theme</c> block goes to some trouble
+///             to stay that way.
+///         </b>
+///         Every colour in it is a <c>var(--…)</c> reference to a custom property
 ///         <see cref="EditorTheme" /> already declares on the root — so <c>bg-surface</c> and a
 ///         hand-written <c>background: var(--surface)</c> are the same declaration, the light/dark
 ///         toggle moves both, and a user theme loaded through <see cref="ThemeService" /> moves both
@@ -31,8 +35,12 @@ namespace Vixen.Editor.Ui;
 ///         one of them was edited.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The utility layer wins every argument it has with <see cref="EditorTheme" />, and it
-///         is worth knowing that it used to lose every one of them.</b> Everything generated lands in
+///         ⚠
+///         <b>
+///             The utility layer wins every argument it has with <see cref="EditorTheme" />, and it
+///             is worth knowing that it used to lose every one of them.
+///         </b>
+///         Everything generated lands in
 ///         <c>@layer utilities</c>; the hand-written sheet was unlayered, an unlayered rule beats
 ///         every layer whatever the specificity, and so <c>task-row { padding: 6px }</c> beat
 ///         <c>p-3</c> without either of them saying <c>!important</c>. A utility could only take

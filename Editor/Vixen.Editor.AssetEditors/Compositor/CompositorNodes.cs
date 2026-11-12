@@ -40,7 +40,7 @@ public sealed partial class FrameNode : CompositorNode {
         children.Count switch {
             0 => null,
             1 => children[0],
-            _ => new SequenceAsset { Name = name, Children = [.. children] }
+            _ => new SequenceAsset { Name = name, Children = [..children] }
         };
 }
 
@@ -62,15 +62,18 @@ public sealed partial class SequenceNode : CompositorNode {
     /// <inheritdoc />
     public override IReadOnlyList<CompositorField> Fields { get; } = [
         new("Name", "Name", CompositorFieldKind.Text, "What a debug group and a frame capture call it."),
-        new("Enabled", "Enabled", CompositorFieldKind.Toggle, "Off removes the whole group from the frame.", Fallback: 1f)
+        new(
+            "Enabled",
+            "Enabled",
+            CompositorFieldKind.Toggle,
+            "Off removes the whole group from the frame.",
+            Fallback: 1f
+        )
     ];
 
     /// <inheritdoc />
-    protected internal override ISceneRendererAsset Emit(IReadOnlyList<ISceneRendererAsset> children) => new SequenceAsset {
-        Name = Named("Sequence"),
-        Enabled = Flag("Enabled", true),
-        Children = [.. children]
-    };
+    protected internal override ISceneRendererAsset Emit(IReadOnlyList<ISceneRendererAsset> children) =>
+        new SequenceAsset { Name = Named("Sequence"), Enabled = Flag("Enabled", true), Children = [..children] };
 }
 
 /// <summary>A render pass, and what draws into it.</summary>
@@ -119,7 +122,7 @@ public sealed partial class RenderPassNode : CompositorNode {
             Reads = Names("Reads"),
             BufferReads = Names("BufferReads"),
             SampleCount = Math.Max(Whole("SampleCount", 1), 1),
-            Children = [.. children]
+            Children = [..children]
         };
 }
 
@@ -152,10 +155,7 @@ public sealed partial class SingleStageNode : CompositorLeafNode {
     /// <inheritdoc />
     protected internal override ISceneRendererAsset Emit(IReadOnlyList<ISceneRendererAsset> children) =>
         new SingleStageAsset {
-            Name = Named("Stage"),
-            Enabled = Flag("Enabled", true),
-            View = Text("View"),
-            Stage = Text("Stage")
+            Name = Named("Stage"), Enabled = Flag("Enabled", true), View = Text("View"), Stage = Text("Stage")
         };
 }
 
@@ -310,11 +310,8 @@ public sealed partial class HiZNode : CompositorLeafNode {
     ];
 
     /// <inheritdoc />
-    protected internal override ISceneRendererAsset Emit(IReadOnlyList<ISceneRendererAsset> children) => new HiZAsset {
-        Name = Named("Hi-Z"),
-        Enabled = Flag("Enabled", true),
-        Depth = Text("Depth")
-    };
+    protected internal override ISceneRendererAsset Emit(IReadOnlyList<ISceneRendererAsset> children) =>
+        new HiZAsset { Name = Named("Hi-Z"), Enabled = Flag("Enabled", true), Depth = Text("Depth") };
 }
 
 /// <summary>The culling dispatch, and the draw arguments it feeds.</summary>
@@ -425,14 +422,16 @@ public sealed partial class ResourceNode : CompositorNode {
     protected internal override void Contribute(CompositorDeclarations declarations) {
         ArgumentNullException.ThrowIfNull(declarations);
 
-        declarations.Resources.Add(new() {
-            Name = Named("Target"),
-            Format = Choice("Format", PixelFormat.Rgba8UNorm),
-            Scale = Math.Max(Number("Scale", 1f), 0.0001f),
-            Width = Math.Max(Whole("Width", 0), 0),
-            Height = Math.Max(Whole("Height", 0), 0),
-            SampleCount = Math.Max(Whole("SampleCount", 1), 1)
-        });
+        declarations.Resources.Add(
+            new() {
+                Name = Named("Target"),
+                Format = Choice("Format", PixelFormat.Rgba8UNorm),
+                Scale = Math.Max(Number("Scale", 1f), 0.0001f),
+                Width = Math.Max(Whole("Width", 0), 0),
+                Height = Math.Max(Whole("Height", 0), 0),
+                SampleCount = Math.Max(Whole("SampleCount", 1), 1)
+            }
+        );
     }
 }
 
@@ -449,10 +448,7 @@ public sealed partial class BufferNode : CompositorNode {
     protected internal override void Contribute(CompositorDeclarations declarations) {
         ArgumentNullException.ThrowIfNull(declarations);
 
-        declarations.Buffers.Add(new() {
-            Name = Named("Buffer"),
-            Size = Math.Max(Whole("Size", 1), 1)
-        });
+        declarations.Buffers.Add(new() { Name = Named("Buffer"), Size = Math.Max(Whole("Size", 1), 1) });
     }
 }
 
@@ -513,15 +509,17 @@ public sealed partial class StageNode : CompositorNode {
     protected internal override void Contribute(CompositorDeclarations declarations) {
         ArgumentNullException.ThrowIfNull(declarations);
 
-        declarations.Stages.Add(new() {
-            Name = Named("Stage"),
-            SortMode = Choice("SortMode", RenderSortMode.FrontToBack),
-            Blend = Choice("Blend", BlendPreset.Opaque),
-            Depth = Choice("Depth", DepthPreset.TestAndWrite),
-            Cull = Choice("Cull", CullMode.Back),
-            DepthBias = Number("DepthBias", 0f),
-            DepthBiasSlope = Number("DepthBiasSlope", 0f),
-            DepthClamp = Flag("DepthClamp", false)
-        });
+        declarations.Stages.Add(
+            new() {
+                Name = Named("Stage"),
+                SortMode = Choice("SortMode", RenderSortMode.FrontToBack),
+                Blend = Choice("Blend", BlendPreset.Opaque),
+                Depth = Choice("Depth", DepthPreset.TestAndWrite),
+                Cull = Choice("Cull", CullMode.Back),
+                DepthBias = Number("DepthBias", 0f),
+                DepthBiasSlope = Number("DepthBiasSlope", 0f),
+                DepthClamp = Flag("DepthClamp", false)
+            }
+        );
     }
 }

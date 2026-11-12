@@ -51,8 +51,12 @@ public static class MaterialKeys {
 /// <summary>The one string in a material a host has already decided.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>A sampling feature's map name is not the author's to choose, and eight remarks said
-///         so in prose that nothing enforced.</b> A host joins a sampling shader's <c>uint</c> slot to
+///         ⚠
+///         <b>
+///             A sampling feature's map name is not the author's to choose, and eight remarks said
+///             so in prose that nothing enforced.
+///         </b>
+///         A host joins a sampling shader's <c>uint</c> slot to
 ///         a material-side texture name — <c>WorldRenderer.Paired</c> — and it keys that join off the
 ///         feature's <em>default</em>, one static entry per name for the whole frame, because a
 ///         per-material pairing would be a per-material effect key. So a material that spells its map
@@ -386,8 +390,12 @@ public sealed record TexturedNormalMapFeature : IMaterialFeature {
 ///         roughness and metalness were constants on the base workflow.
 ///     </para>
 ///     <para>
-///         ⚠ <b>It reads the base albedo back out of the surface, so the feature before it must leave
-///         its own metalness at zero.</b> At metalness zero the base workflow writes the albedo into
+///         ⚠
+///         <b>
+///             It reads the base albedo back out of the surface, so the feature before it must leave
+///             its own metalness at zero.
+///         </b>
+///         At metalness zero the base workflow writes the albedo into
 ///         <c>diffuseColor</c> untouched and <c>f0</c> at the dielectric constant, which is
 ///         recoverable; at any other value the albedo has already been split between the two channels
 ///         by a factor this cannot see. A material that sets metalness on its base feature
@@ -829,8 +837,12 @@ public sealed record SubsurfaceFeature : IMaterialFeature {
 ///         all up close.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Which is also why a layer stack cannot be added to a material that already has a
-///         base-colour map</b> without taking that map away: this is a base surface and it writes
+///         ⚠
+///         <b>
+///             Which is also why a layer stack cannot be added to a material that already has a
+///             base-colour map
+///         </b>
+///         without taking that map away: this is a base surface and it writes
 ///         <c>diffuseColor</c> from these numbers. Whatever closes it has to be <em>indexed</em>
 ///         rather than named — <c>WorldRenderer.Paired</c> keys one static
 ///         <c>MaterialRenderFeature.TextureIndices</c> entry per map name, off each feature's own
@@ -867,8 +879,12 @@ public readonly record struct MaterialLayerValue(
 public sealed record MaterialLayersFeature : IMaterialFeature {
     /// <summary>The layers, innermost first.</summary>
     /// <remarks>
-    ///     ⚠ <b>An array and not an <c>IReadOnlyList</c>, because a material carrying this has to be
-    ///     writable to a chunk.</b> The generated serializer emits <c>WritePolymorphic</c> for a
+    ///     ⚠
+    ///     <b>
+    ///         An array and not an <c>IReadOnlyList</c>, because a material carrying this has to be
+    ///         writable to a chunk.
+    ///     </b>
+    ///     The generated serializer emits <c>WritePolymorphic</c> for a
     ///     member whose declared type is an interface, and the runtime type is then
     ///     <c>MaterialLayerValue[]</c> — which has no <c>[DataContract]</c> alias, so the write
     ///     <em>throws</em>. Nobody could have hit it before doc 48's M11, because no authored material
@@ -942,8 +958,12 @@ public sealed record MaterialLayersFeature : IMaterialFeature {
 ///         which turns the widest wrong picture this feature can draw into a message somebody reads.
 ///     </para>
 ///     <para>
-///         ⚠ <b><see cref="MaterialLayerValue.Weight" /> survives, and it is a <em>scale</em> on the
-///         painted channel rather than the weight itself.</b> One is the map exactly, which is why the
+///         ⚠
+///         <b>
+///             <see cref="MaterialLayerValue.Weight" /> survives, and it is a <em>scale</em> on the
+///             painted channel rather than the weight itself.
+///         </b>
+///         One is the map exactly, which is why the
 ///         layers a caller builds should carry one; zero disables a layer wherever it was painted,
 ///         which is what an author toggling a layer off wants and is the reason the constant was not
 ///         dropped.
@@ -999,8 +1019,12 @@ public sealed record TexturedMaterialLayersFeature : IMaterialFeature {
     ///         ⚠ <b>Three by default, because a one- or three-channel texture samples alpha as 1.</b>
     ///         That is the hazard <c>TexturedOpacitySurface</c> documents at length and reads <c>.r</c>
     ///         to avoid, and it is worse here than there: an opacity mask read from the wrong channel
-    ///         makes a surface solid, where a fourth layer weighted 1 over the whole surface <em>wins
-    ///         the normalisation everywhere</em> and the material becomes that one layer. Nothing about
+    ///         makes a surface solid, where a fourth layer weighted 1 over the whole surface
+    ///         <em>
+    ///             wins
+    ///             the normalisation everywhere
+    ///         </em>
+    ///         and the material becomes that one layer. Nothing about
     ///         the frame says so — it is a lit, plausible surface of the wrong stuff.
     ///     </para>
     ///     <para>
@@ -1019,8 +1043,11 @@ public sealed record TexturedMaterialLayersFeature : IMaterialFeature {
     /// <summary>Whether a second map's per-layer heights decide which layer shows at a seam.</summary>
     /// <remarks>
     ///     <para>
-    ///         <strong>Doc 48 § B1's height map, in the one of its three readings that is a surface
-    ///         feature.</strong> A height map is parallax occlusion, height-blended layering or true
+    ///         <strong>
+    ///             Doc 48 § B1's height map, in the one of its three readings that is a surface
+    ///             feature.
+    ///         </strong>
+    ///         A height map is parallax occlusion, height-blended layering or true
     ///         displacement depending on who is asking; § B1 names height in the same sentence as the
     ///         layering gap, so this is the middle one — the map biases a splat weight rather than
     ///         displacing a coordinate. Gravel shows through sand in the gaps between the stones
@@ -1185,8 +1212,12 @@ public sealed record TexturedMaterialLayersFeature : IMaterialFeature {
 ///         <a href="https://github.com/Rikarin/Vixen/issues/1065">#1065</a>.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Not the same map as <see cref="TexturedMaterialLayersFeature.HeightMap" />, and the
-///         names are deliberately different for it.</b> That one is a <em>four-channel per-layer</em>
+///         ⚠
+///         <b>
+///             Not the same map as <see cref="TexturedMaterialLayersFeature.HeightMap" />, and the
+///             names are deliberately different for it.
+///         </b>
+///         That one is a <em>four-channel per-layer</em>
 ///         bundle whose channel <c>i</c> is layer <c>i</c>'s height; this samples one material's single
 ///         channel, which is what <c>MaterialMapTarget.Height</c> bakes. Two textures, one English
 ///         word — and giving them one parameter name would fill both indices from one texture, which
@@ -1223,8 +1254,12 @@ public sealed record TexturedMaterialLayersFeature : IMaterialFeature {
 ///         <a href="https://github.com/Rikarin/Vixen/issues/1104">#1104</a>.
 ///     </para>
 ///     <para>
-///         ⚠ <b>And the silhouette is decided rather than owed, because a <c>discard</c> in the
-///         shading pass would not produce one.</b> Coverage for this surface is settled in more
+///         ⚠
+///         <b>
+///             And the silhouette is decided rather than owed, because a <c>discard</c> in the
+///             shading pass would not produce one.
+///         </b>
+///         Coverage for this surface is settled in more
 ///         passes than the one that shades it: a depth prepass and every shadow caster rasterise it
 ///         too, and <c>DepthOnly</c> and <c>ShadowCaster</c> <em>deliberately</em> compose no
 ///         material chain — <see cref="Compositor.RenderStageAsset.ComposeFromMaterial" /> is

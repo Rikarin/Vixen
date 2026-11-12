@@ -15,11 +15,12 @@ static class Vxml {
     /// <summary>Parses and fails the test if anything was reported.</summary>
     public static DocumentSyntax ParseClean(string source) {
         var tree = Parse(source);
-        Assert.Empty(tree.Diagnostics.Select(d => d.ToString()));
+        Assert.Empty(tree.Diagnostics.Select(static d => d.ToString()));
         return tree.GetDocument();
     }
 
-    public static IReadOnlyList<string> Ids(SyntaxTree tree) => [.. tree.Diagnostics.Select(d => d.Descriptor.Id)];
+    public static IReadOnlyList<string> Ids(SyntaxTree tree) =>
+        [..tree.Diagnostics.Select(static d => d.Descriptor.Id)];
 
     /// <summary>
     ///     A syntax list as an ordinary sequence. <see cref="SyntaxList{TNode}" /> deliberately
@@ -69,8 +70,10 @@ static class Vxml {
     }
 
     static string Quote(string text) =>
-        "\"" + text.Replace("\\", "\\\\", StringComparison.Ordinal)
+        "\""
+        + text.Replace("\\", "\\\\", StringComparison.Ordinal)
             .Replace("\r", "\\r", StringComparison.Ordinal)
             .Replace("\n", "\\n", StringComparison.Ordinal)
-            .Replace("\"", "\\\"", StringComparison.Ordinal) + "\"";
+            .Replace("\"", "\\\"", StringComparison.Ordinal)
+        + "\"";
 }

@@ -16,8 +16,12 @@ namespace Vixen.Ui.Layout;
 ///         <c>min-content</c>, <c>max-content</c>, <c>0fr</c> and <c>minmax</c> ones.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The algorithm runs twice per grid, and the second run is not a repeat of the
-///         first.</b> §12.1 sizes the columns first, because an item's block-axis contribution is its
+///         ⚠
+///         <b>
+///             The algorithm runs twice per grid, and the second run is not a repeat of the
+///             first.
+///         </b>
+///         §12.1 sizes the columns first, because an item's block-axis contribution is its
 ///         height <i>given</i> a known width — a paragraph in a 200-point column is a different
 ///         height from the same paragraph in a 100-point one. So the row pass measures every item
 ///         against the inline size the column pass settled, and reversing the two produces heights
@@ -70,7 +74,7 @@ public sealed partial class LayoutTree {
     GridTrackSize ImplicitTrackSize(in GridTemplate automatic, int ordinal) {
         var stored = tracks.Slice(automatic.Offset, automatic.Count);
 
-        return stored.IsEmpty ? GridTrackSize.Auto : stored[((ordinal % stored.Length) + stored.Length) % stored.Length];
+        return stored.IsEmpty ? GridTrackSize.Auto : stored[(ordinal % stored.Length + stored.Length) % stored.Length];
     }
 
     /// <summary>
@@ -84,14 +88,24 @@ public sealed partial class LayoutTree {
     ///         inside a shrink-to-fit parent generates tracks until it runs out of memory.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Every track in the repetition must have a definite maximum for this to mean
-    ///         anything</b>, and the spec requires it — a repetition containing an <c>auto</c> or
+    ///         ⚠
+    ///         <b>
+    ///             Every track in the repetition must have a definite maximum for this to mean
+    ///             anything
+    ///         </b>
+    ///         , and the spec requires it — a repetition containing an <c>auto</c> or
     ///         intrinsic track has no fixed width to divide into, so the count is 1. The corpus's
     ///         <c>repeat(auto-fill, minmax(150px,1fr))</c> works because §7.2.3.2 says to use the
     ///         <i>minimum</i> when the maximum is flexible.
     ///     </para>
     /// </remarks>
-    int AutomaticRepetitions(in GridTemplate template, float availableSpace, float gap, int fixedTrackCount, float fixedTrackSize) {
+    int AutomaticRepetitions(
+        in GridTemplate template,
+        float availableSpace,
+        float gap,
+        int fixedTrackCount,
+        float fixedTrackSize
+    ) {
         if (template.AutoRepeatKind == GridAutoRepeat.None || template.AutoRepeatCount <= 0) {
             return 0;
         }
@@ -121,14 +135,14 @@ public sealed partial class LayoutTree {
             repetition += MathF.Max(0f, size);
         }
 
-        var perRepetition = repetition + (gap * template.AutoRepeatCount);
+        var perRepetition = repetition + gap * template.AutoRepeatCount;
         if (perRepetition <= 0f) {
             return 1;
         }
 
         // The fixed tracks and their gutters come off the top; what is left is what repeats into.
-        var room = availableSpace - fixedTrackSize - (gap * fixedTrackCount);
-        var fits = (int) MathF.Floor((room + gap) / perRepetition);
+        var room = availableSpace - fixedTrackSize - gap * fixedTrackCount;
+        var fits = (int)MathF.Floor((room + gap) / perRepetition);
 
         return int.Clamp(fits, 1, LayoutLimits.MaximumGridTracks / template.AutoRepeatCount);
     }
@@ -215,7 +229,7 @@ public sealed partial class LayoutTree {
             }
 
             if (ordinal < owner.AutoRepeatIndex + repeatedTracks) {
-                return list[owner.AutoRepeatIndex + ((ordinal - owner.AutoRepeatIndex) % owner.AutoRepeatCount)];
+                return list[owner.AutoRepeatIndex + (ordinal - owner.AutoRepeatIndex) % owner.AutoRepeatCount];
             }
 
             // ⚠ Past the repetition, the stored list resumes one whole repetition further on — the
@@ -275,11 +289,18 @@ public sealed partial class LayoutTree {
     }
 
     /// <summary>§12.5: let the items decide how big the content-sized tracks are.</summary>
-    void ResolveIntrinsicTrackSizes(in GridAxis axis, Direction direction, float ownerWidth, float ownerHeight, int currentDepth) {
+    void ResolveIntrinsicTrackSizes(
+        in GridAxis axis,
+        Direction direction,
+        float ownerWidth,
+        float ownerHeight,
+        int currentDepth
+    ) {
         var anyIntrinsic = false;
         for (var at = 0; at < axis.TrackCount && !anyIntrinsic; at++) {
             ref var track = ref Scratch.Track(axis.TracksAt + at);
-            anyIntrinsic = track.Size.Min.IsIntrinsic(axis.AvailableSpace) || track.Size.Max.IsIntrinsic(axis.AvailableSpace);
+            anyIntrinsic = track.Size.Min.IsIntrinsic(axis.AvailableSpace)
+                || track.Size.Max.IsIntrinsic(axis.AvailableSpace);
         }
 
         // Nothing here can move a track whose both ends are fixed, and the measurement it would take
@@ -309,7 +330,14 @@ public sealed partial class LayoutTree {
                         continue;
                     }
 
-                    var contributions = MeasureGridItem(in axis, in item, direction, ownerWidth, ownerHeight, currentDepth);
+                    var contributions = MeasureGridItem(
+                        in axis,
+                        in item,
+                        direction,
+                        ownerWidth,
+                        ownerHeight,
+                        currentDepth
+                    );
                     ApplyNonSpanningContribution(in axis, in item, in contributions);
                 }
 
@@ -333,7 +361,14 @@ public sealed partial class LayoutTree {
                         continue;
                     }
 
-                    var contributions = MeasureGridItem(in axis, in item, direction, ownerWidth, ownerHeight, currentDepth);
+                    var contributions = MeasureGridItem(
+                        in axis,
+                        in item,
+                        direction,
+                        ownerWidth,
+                        ownerHeight,
+                        currentDepth
+                    );
                     var gapsInside = axis.Gap * (span - 1);
 
                     var wanted = round switch {
@@ -398,7 +433,14 @@ public sealed partial class LayoutTree {
                         continue;
                     }
 
-                    var contributions = MeasureGridItem(in axis, in item, direction, ownerWidth, ownerHeight, currentDepth);
+                    var contributions = MeasureGridItem(
+                        in axis,
+                        in item,
+                        direction,
+                        ownerWidth,
+                        ownerHeight,
+                        currentDepth
+                    );
 
                     var wanted = round switch {
                         GridDistribution.IntrinsicMinimum => contributions.Minimum,
@@ -409,7 +451,7 @@ public sealed partial class LayoutTree {
                     DistributeToFlexibleTracks(in axis, in item, wanted, round);
                 }
 
-                CommitRound(in axis, growsBase: true);
+                CommitRound(in axis, true);
             }
         }
 
@@ -449,7 +491,9 @@ public sealed partial class LayoutTree {
         }
 
         if (maximum.IsIntrinsic(axis.AvailableSpace)) {
-            var wanted = maximum.Kind == GridSizingKind.MinContent ? contributions.MinContent : contributions.MaxContent;
+            var wanted = maximum.Kind == GridSizingKind.MinContent
+                ? contributions.MinContent
+                : contributions.MaxContent;
             var limit = float.IsPositiveInfinity(track.GrowthLimit) ? wanted : MathF.Max(track.GrowthLimit, wanted);
 
             // ⚠ `fit-content(x)` clamps the GROWTH LIMIT here. §7.2.2 makes it a max-content ceiling
@@ -477,8 +521,12 @@ public sealed partial class LayoutTree {
     /// <summary>§12.5 step 3.3's <i>limited</i> max-content contribution.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A <c>fit-content()</c> track spanned under a max-content constraint is already
-    ///         limited, and the contribution is what carries the limit.</b> The round this feeds is
+    ///         ⚠
+    ///         <b>
+    ///             A <c>fit-content()</c> track spanned under a max-content constraint is already
+    ///             limited, and the contribution is what carries the limit.
+    ///         </b>
+    ///         The round this feeds is
     ///         the one that lets an <c>auto</c> track absorb a spanning item's max-content size while
     ///         the container's own width is still being asked for — which is right for an <c>auto</c>
     ///         track, whose ceiling is genuinely the content, and wrong for `fit-content(10px)`,
@@ -557,8 +605,12 @@ public sealed partial class LayoutTree {
         ///     <c>max-content</c> minimum, to fit the item's <i>limited</i> max-content contribution.
         /// </summary>
         /// <remarks>
-        ///     ⚠ <b>This is a separate round from <see cref="MaxContentMinimum" /> because the two
-        ///     sentences of §12.5 step 3.3 hand out two different numbers.</b> The conditional one
+        ///     ⚠
+        ///     <b>
+        ///         This is a separate round from <see cref="MaxContentMinimum" /> because the two
+        ///         sentences of §12.5 step 3.3 hand out two different numbers.
+        ///     </b>
+        ///     The conditional one
         ///     spends the <i>limited</i> max-content contribution over a wider set of tracks; the
         ///     unconditional one spends the full max-content contribution over a narrower set. Fusing
         ///     them into a single round — one `IsAffectedBy` reading both min sizing functions, one
@@ -578,8 +630,12 @@ public sealed partial class LayoutTree {
 
         /// <summary>§12.5 step 4: grow base sizes of the flexible tracks only, to fit minimums.</summary>
         /// <remarks>
-        ///     ⚠ <b>This is the round that makes <c>0fr</c> mean anything, and it is the one round
-        ///     that does <i>not</i> distribute equally.</b> A bare <c>Nfr</c> is
+        ///     ⚠
+        ///     <b>
+        ///         This is the round that makes <c>0fr</c> mean anything, and it is the one round
+        ///         that does <i>not</i> distribute equally.
+        ///     </b>
+        ///     A bare <c>Nfr</c> is
         ///     <c>minmax(auto, Nfr)</c>, and §12.5's step 2 skips any track with a flexible sizing
         ///     function — so nothing before this point has looked at the item inside a <c>0fr</c>
         ///     track, and §12.7 then multiplies by a flex factor of zero and adds nothing. See
@@ -618,7 +674,9 @@ public sealed partial class LayoutTree {
 
             occupied += growsBase
                 ? track.BaseSize
-                : float.IsPositiveInfinity(track.GrowthLimit) ? track.BaseSize : track.GrowthLimit;
+                : float.IsPositiveInfinity(track.GrowthLimit)
+                    ? track.BaseSize
+                    : track.GrowthLimit;
 
             if (!IsAffectedBy(in track, round, axis.AvailableSpace, axis.Constraint)) {
                 continue;
@@ -658,7 +716,9 @@ public sealed partial class LayoutTree {
                 }
 
                 var ceiling = growsBase
-                    ? float.IsPositiveInfinity(track.GrowthLimit) ? float.PositiveInfinity : track.GrowthLimit - track.BaseSize
+                    ? float.IsPositiveInfinity(track.GrowthLimit)
+                        ? float.PositiveInfinity
+                        : track.GrowthLimit - track.BaseSize
                     : float.PositiveInfinity;
 
                 var headroom = ceiling - track.ItemIncurredIncrease;
@@ -734,8 +794,12 @@ public sealed partial class LayoutTree {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The subset is named by the track's MAX sizing function, and "its growth limit is
-    ///         still infinite" is not the same test.</b> §12.5.1's "distribute space beyond limits"
+    ///         ⚠
+    ///         <b>
+    ///             The subset is named by the track's MAX sizing function, and "its growth limit is
+    ///             still infinite" is not the same test.
+    ///         </b>
+    ///         §12.5.1's "distribute space beyond limits"
     ///         gives the leftover to any affected track that <i>also</i> has an intrinsic max track
     ///         sizing function when a minimum or a min-content contribution is being accommodated, or
     ///         a max-content max track sizing function when a max-content one is — and only if there
@@ -768,8 +832,12 @@ public sealed partial class LayoutTree {
     /// <summary>Whether one round of §12.5.1 is allowed to grow this track.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b><c>auto</c> is deliberately absent from the content-based round, and it is not an
-    ///         omission.</b> §12.5 step 3.2 names "a min track sizing function of <c>min-content</c>
+    ///         ⚠
+    ///         <b>
+    ///             <c>auto</c> is deliberately absent from the content-based round, and it is not an
+    ///             omission.
+    ///         </b>
+    ///         §12.5 step 3.2 names "a min track sizing function of <c>min-content</c>
     ///         or <c>max-content</c>" — <c>auto</c> is an <i>intrinsic</i> minimum, handled by 3.1
     ///         with the item's <i>minimum contribution</i>, which is a smaller number than its
     ///         min-content contribution whenever CSS Grid §6.6 zeroes the automatic minimum. Adding
@@ -804,7 +872,12 @@ public sealed partial class LayoutTree {
     ///         difference between a grid that fits and one that overflows.
     ///     </para>
     /// </remarks>
-    static bool IsAffectedBy(in GridTrackState track, GridDistribution round, float availableSpace, GridSizingConstraint constraint) =>
+    static bool IsAffectedBy(
+        in GridTrackState track,
+        GridDistribution round,
+        float availableSpace,
+        GridSizingConstraint constraint
+    ) =>
         round switch {
             GridDistribution.IntrinsicMinimum => track.Size.Min.IsIntrinsic(availableSpace),
             GridDistribution.ContentBasedMinimum =>
@@ -884,15 +957,23 @@ public sealed partial class LayoutTree {
     /// <summary>§12.5 step 4: an item over flexible tracks floors them, in proportion.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Proportional to the flex factors, not equal — and the corpus separates the two
-    ///         cleanly.</b> A 100-point item spanning <c>0fr 1fr</c> makes the first track 0 and the
+    ///         ⚠
+    ///         <b>
+    ///             Proportional to the flex factors, not equal — and the corpus separates the two
+    ///             cleanly.
+    ///         </b>
+    ///         A 100-point item spanning <c>0fr 1fr</c> makes the first track 0 and the
     ///         second 100, because a <c>0fr</c> track asked for none of the space; an equal split
     ///         gives 50 and 50 and fails 280 fixtures. §12.5 step 4 says to distribute "only to
     ///         flexible tracks", and §12.7.1's proportionality is what "flexible" means.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A total flex factor of zero falls back to an equal split, and that is not the
-    ///         same as <c>max(sum, 1)</c>.</b> Clamping the divisor to one — which is right in
+    ///         ⚠
+    ///         <b>
+    ///             A total flex factor of zero falls back to an equal split, and that is not the
+    ///             same as <c>max(sum, 1)</c>.
+    ///         </b>
+    ///         Clamping the divisor to one — which is right in
     ///         §12.7.1, where the leftover space genuinely goes unclaimed — would give a lone
     ///         <c>0fr</c> track a share of zero and collapse it. Chrome gives it the whole
     ///         contribution: <c>span1_0fr</c> expects 100, and <c>span2_0fr_0fr</c> expects 50 and
@@ -936,7 +1017,9 @@ public sealed partial class LayoutTree {
         for (var at = start; at < start + span; at++) {
             ref var track = ref Scratch.Track(axis.TracksAt + at);
 
-            if (track.IsCollapsed || !track.Size.IsFlexible || !IsAffectedBy(in track, round, axis.AvailableSpace, axis.Constraint)) {
+            if (track.IsCollapsed
+                || !track.Size.IsFlexible
+                || !IsAffectedBy(in track, round, axis.AvailableSpace, axis.Constraint)) {
                 continue;
             }
 
@@ -1020,7 +1103,13 @@ public sealed partial class LayoutTree {
     }
 
     /// <summary>§12.7: give the <c>fr</c> tracks their share of what is left.</summary>
-    void ExpandFlexibleTracks(in GridAxis axis, Direction direction, float ownerWidth, float ownerHeight, int currentDepth) {
+    void ExpandFlexibleTracks(
+        in GridAxis axis,
+        Direction direction,
+        float ownerWidth,
+        float ownerHeight,
+        int currentDepth
+    ) {
         var anyFlexible = false;
         for (var at = 0; at < axis.TrackCount && !anyFlexible; at++) {
             anyFlexible = Scratch.Track(axis.TracksAt + at).Size.IsFlexible;
@@ -1035,7 +1124,12 @@ public sealed partial class LayoutTree {
         if (axis.Constraint == GridSizingConstraint.MinContent) {
             fraction = 0f;
         } else if (axis.Constraint == GridSizingConstraint.Definite) {
-            fraction = FindFlexFraction(in axis, 0, axis.TrackCount, axis.AvailableSpace - (axis.Gap * int.Max(0, axis.TrackCount - 1)));
+            fraction = FindFlexFraction(
+                in axis,
+                0,
+                axis.TrackCount,
+                axis.AvailableSpace - axis.Gap * int.Max(0, axis.TrackCount - 1)
+            );
         } else {
             // ⚠ The indefinite case is a maximum over two families, and leaving out the second one is
             // the classic `1fr` bug: a max-content-sized grid whose `1fr` column holds a 200-point
@@ -1063,7 +1157,7 @@ public sealed partial class LayoutTree {
 
                 var contributions = MeasureGridItem(in axis, in item, direction, ownerWidth, ownerHeight, currentDepth);
                 var span = item.SpanOn(axis.Inline);
-                var room = contributions.MaxContent - (axis.Gap * (span - 1));
+                var room = contributions.MaxContent - axis.Gap * (span - 1);
 
                 fraction = MathF.Max(fraction, FindFlexFraction(in axis, item.StartOn(axis.Inline), span, room));
             }
@@ -1200,6 +1294,6 @@ public sealed partial class LayoutTree {
             alive++;
         }
 
-        return total + (axis.Gap * int.Max(0, alive - 1));
+        return total + axis.Gap * int.Max(0, alive - 1);
     }
 }

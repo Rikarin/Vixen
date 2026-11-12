@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core;
-using Vixen.Core.Mathematics;
 using Vixen.Ecs;
 using Vixen.Engine.Scenes;
 using Vixen.Engine.Transforms;
@@ -54,8 +53,12 @@ public sealed class NetworkSpawner {
 
     /// <summary>Which networked scene each local one is.</summary>
     /// <remarks>
-    ///     ⚠ <b>Optional, and no longer the difference between a spawn that names its scene and one
-    ///     that does not.</b> Left null, this makes one out of <see cref="Scenes" /> the first time a
+    ///     ⚠
+    ///     <b>
+    ///         Optional, and no longer the difference between a spawn that names its scene and one
+    ///         that does not.
+    ///     </b>
+    ///     Left null, this makes one out of <see cref="Scenes" /> the first time a
     ///     spawn needs an id — the map is a pure function of the scene names the manager already
     ///     holds, so there was never anything for a caller to decide. Setting one is for a game that
     ///     wants to read it, or that tracks scenes some other way; before it did that and also
@@ -118,9 +121,12 @@ public sealed class NetworkSpawner {
     ///     Pretending a per-object rule could answer this would be worse than saying so.
     /// </remarks>
     public bool MaySpawn(PlayerId requester) =>
-        !requester.IsValid || NetworkRules.Allows((Rules?.Default ?? NetworkRules.ServerAuthoritative).Spawn,
+        !requester.IsValid
+        || NetworkRules.Allows(
+            (Rules?.Default ?? NetworkRules.ServerAuthoritative).Spawn,
             requester,
-            isOwner: false);
+            false
+        );
 
     /// <summary>Spawns an instance of a registered prefab.</summary>
     /// <param name="world">The server's world.</param>
@@ -304,14 +310,22 @@ public sealed class NetworkSpawner {
     ///         the session, owned by a player who was gone.
     ///     </para>
     ///     <para>
-    ///         Wire it to <c>NetworkSession.PlayerLeft</c>. ⚠ <b>Do not also call the registry's own
-    ///         <see cref="NetworkRulesRegistry.OnOwnerLeft" /></b>: this calls it, because the transfer
+    ///         Wire it to <c>NetworkSession.PlayerLeft</c>. ⚠
+    ///         <b>
+    ///             Do not also call the registry's own
+    ///             <see cref="NetworkRulesRegistry.OnOwnerLeft" />
+    ///         </b>
+    ///         : this calls it, because the transfer
     ///         half has to happen whether or not anything is destroyed, and the two halves reading one
     ///         ownership table twice is how they come to disagree about who owns what.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Without <see cref="Rules" /> this does nothing at all, and says so by returning
-    ///         zero.</b> The registry is what holds both the policy and the ownership; a spawner with
+    ///         ⚠
+    ///         <b>
+    ///             Without <see cref="Rules" /> this does nothing at all, and says so by returning
+    ///             zero.
+    ///         </b>
+    ///         The registry is what holds both the policy and the ownership; a spawner with
     ///         no registry has no way to know a player owned anything, and inventing a default here
     ///         would be a second disconnect policy beside the one in the file.
     ///     </para>

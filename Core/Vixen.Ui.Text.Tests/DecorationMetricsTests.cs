@@ -8,8 +8,11 @@ namespace Vixen.Ui.Text.Tests;
 /// <summary>Where a decoration line goes comes out of the face, and these are the faces' numbers.</summary>
 /// <remarks>
 ///     <para>
-///         <b>The expectations were read out of the font binaries with a separate tool, not out of
-///         <see cref="FontFace" />.</b> A test that asserts what the code returns is a test that
+///         <b>
+///             The expectations were read out of the font binaries with a separate tool, not out of
+///             <see cref="FontFace" />.
+///         </b>
+///         A test that asserts what the code returns is a test that
 ///         cannot fail; these numbers came from parsing <c>post</c> and <c>OS/2</c> in Python before
 ///         a line of <see cref="FontFace.Decoration" /> existed, so a wrong table offset or a scale
 ///         HarfBuzz applied that we did not expect fails here rather than reading as house style.
@@ -85,8 +88,12 @@ public class DecorationMetricsTests {
 
     /// <summary>Every face this repository ships gives a drawable line.</summary>
     /// <remarks>
-    ///     ⚠ <b>The invariant the drawing code relies on, asserted over the whole set rather than
-    ///     over the four faces above.</b> A zero thickness draws nothing and a strikeout at or below
+    ///     ⚠
+    ///     <b>
+    ///         The invariant the drawing code relies on, asserted over the whole set rather than
+    ///         over the four faces above.
+    ///     </b>
+    ///     A zero thickness draws nothing and a strikeout at or below
     ///     the baseline is an underline wearing the wrong name — either would be a silent blank
     ///     rather than a failure, and both are exactly what an unguarded font table hands you.
     /// </remarks>

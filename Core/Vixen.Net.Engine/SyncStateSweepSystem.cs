@@ -12,8 +12,11 @@ namespace Vixen.Net.Engine;
 /// <summary>Marks every behaviour whose state or lists changed this frame, once, at the end of it.</summary>
 /// <remarks>
 ///     <para>
-///         <b>The caller <see cref="NetworkBehaviour.MarkChanged" />'s own remarks already claimed
-///         existed.</b> That method says it is "called by the sync system rather than by a setter",
+///         <b>
+///             The caller <see cref="NetworkBehaviour.MarkChanged" />'s own remarks already claimed
+///             existed.
+///         </b>
+///         That method says it is "called by the sync system rather than by a setter",
 ///         and until this system there was no sync system: every caller in the tree was a test, so a
 ///         game that set a <see cref="SyncVar{T}" /> and did not remember to call
 ///         <c>MarkChanged()</c> by hand had its state stay on the server for ever. Nothing failed —
@@ -28,8 +31,11 @@ namespace Vixen.Net.Engine;
 ///         after everything that writes them has run.
 ///     </para>
 ///     <para>
-///         <b>Ordering is the whole of the correctness argument, and it is invisible when it is
-///         wrong.</b> A sweep that ran <i>before</i> the behaviours would mark last frame's writes,
+///         <b>
+///             Ordering is the whole of the correctness argument, and it is invisible when it is
+///             wrong.
+///         </b>
+///         A sweep that ran <i>before</i> the behaviours would mark last frame's writes,
 ///         and the snapshot would ship every change one frame late — which presents as interpolation
 ///         that feels slightly heavy rather than as a bug. Hence
 ///         <c>[UpdateAfter(typeof(BehaviorLateUpdateSystem))]</c>: <c>LateUpdate</c> is the last
@@ -49,8 +55,10 @@ namespace Vixen.Net.Engine;
 ///         <see cref="NetworkTransformCaptureSystem.Publish" /> is.
 ///     </para>
 ///     <para>
-///         <b>The dirt is cleared by the capture, not by the sweep, and that is why a sweep is
-///         idempotent between captures rather than after one.</b>
+///         <b>
+///             The dirt is cleared by the capture, not by the sweep, and that is why a sweep is
+///             idempotent between captures rather than after one.
+///         </b>
 ///         <see cref="SyncStateReplicator{T}" /> calls <c>ClearDirty</c> as it writes the record —
 ///         clearing it here instead would mean a field that changed in a frame the server did not
 ///         capture is never sent at all. The visible consequence is that a sweep running twice

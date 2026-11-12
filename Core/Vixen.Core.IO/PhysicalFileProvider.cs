@@ -60,7 +60,7 @@ public sealed class PhysicalFileProvider : IFileProvider {
             Directory.CreateDirectory(root);
         }
 
-        EnforcesCaseSensitivity = enforceCaseSensitivity ?? IsCaseInsensitive(root, canWrite: !isReadOnly);
+        EnforcesCaseSensitivity = enforceCaseSensitivity ?? IsCaseInsensitive(root, !isReadOnly);
     }
 
     /// <inheritdoc />
@@ -98,9 +98,7 @@ public sealed class PhysicalFileProvider : IFileProvider {
         }
 
         var options = new EnumerationOptions {
-            RecurseSubdirectories = recursive,
-            IgnoreInaccessible = true,
-            AttributesToSkip = FileAttributes.System
+            RecurseSubdirectories = recursive, IgnoreInaccessible = true, AttributesToSkip = FileAttributes.System
         };
 
         foreach (var entry in Directory.EnumerateFileSystemEntries(os, "*", options)) {
@@ -205,7 +203,7 @@ public sealed class PhysicalFileProvider : IFileProvider {
         if (Directory.Exists(os) && MatchesOnDisk(path)) {
             // Never recursive. A VFS delete that quietly removed a subtree would be the single most
             // destructive call in the engine, reachable from a typo in a virtual path.
-            Directory.Delete(os, recursive: false);
+            Directory.Delete(os, false);
             Forget(os);
             return true;
         }

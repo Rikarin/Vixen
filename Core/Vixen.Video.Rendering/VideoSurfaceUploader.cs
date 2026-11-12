@@ -24,8 +24,12 @@ namespace Vixen.Video.Rendering;
 ///         answer than two method calls.
 ///     </para>
 ///     <para>
-///         ⚠ <b><see cref="Upload" /> must be called outside a render pass and <see cref="Extract" />
-///         before the renderer sorts.</b> The first records a buffer-to-texture copy and two
+///         ⚠
+///         <b>
+///             <see cref="Upload" /> must be called outside a render pass and <see cref="Extract" />
+///             before the renderer sorts.
+///         </b>
+///         The first records a buffer-to-texture copy and two
 ///         barriers, which is the one thing a Vulkan command list may not do inside a pass; the
 ///         second only fills dictionaries. They are separate for that reason and not for tidiness.
 ///     </para>
@@ -52,8 +56,12 @@ public sealed class VideoSurfaceUploader : IDisposable {
     /// <param name="stage">Which stage videos are drawn in.</param>
     /// <exception cref="ArgumentNullException">Either argument is null.</exception>
     /// <remarks>
-    ///     ⚠ <b>The stage is a constructor argument rather than a default, because there is no
-    ///     defensible default.</b> An object's stage mask is what decides whether anything draws it at
+    ///     ⚠
+    ///     <b>
+    ///         The stage is a constructor argument rather than a default, because there is no
+    ///         defensible default.
+    ///     </b>
+    ///     An object's stage mask is what decides whether anything draws it at
     ///     all, and a guess that happened to be right on the compositor it was written against is a
     ///     video that silently draws nothing on every other one.
     /// </remarks>
@@ -97,7 +105,7 @@ public sealed class VideoSurfaceUploader : IDisposable {
 
         foreach (var player in players) {
             if (!textures.TryGetValue(player, out var texture)) {
-                texture = new VideoTexture(device, "video surface");
+                texture = new(device, "video surface");
                 textures[player] = texture;
             }
 
@@ -114,8 +122,12 @@ public sealed class VideoSurfaceUploader : IDisposable {
     /// <param name="surface">The target's extent, in the units the feature draws in.</param>
     /// <exception cref="ArgumentNullException">Any argument is null.</exception>
     /// <remarks>
-    ///     ⚠ <b>An entity keeps its render object across frames and gives it back when it stops
-    ///     drawing.</b> A new object per frame would churn the store — every feature's parallel array
+    ///     ⚠
+    ///     <b>
+    ///         An entity keeps its render object across frames and gives it back when it stops
+    ///         drawing.
+    ///     </b>
+    ///     A new object per frame would churn the store — every feature's parallel array
     ///     is keyed on a dense id — and never reclaiming one would leak a slot per cutscene that
     ///     played.
     /// </remarks>
@@ -193,11 +205,11 @@ public sealed class VideoSurfaceUploader : IDisposable {
 
         if (!objects.TryGetValue(entity, out var id)) {
             id = system.Objects.Add(
-                new RenderObject {
+                new() {
                     // ⚠ A sphere that culling cannot reject. A screen-space video is not in the world
                     // and has no bounds worth testing — giving it real ones would mean a cutscene that
                     // disappeared when the camera turned round.
-                    Bounds = new BoundingSphere(Vector3.Zero, float.MaxValue),
+                    Bounds = new(Vector3.Zero, float.MaxValue),
                     Stages = stages,
                     FeatureIndex = feature.Index,
                     SortGroup = placement.Order,
@@ -212,7 +224,7 @@ public sealed class VideoSurfaceUploader : IDisposable {
 
         feature.Set(
             id,
-            new VideoDraw(
+            new(
                 texture,
                 located.Target,
                 located.TextureScale,

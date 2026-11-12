@@ -20,7 +20,11 @@ namespace Vixen.Fuzz.Tests;
 public sealed class CorpusWriteTests {
     [Fact]
     public void ConcurrentWritersOfOneFindingNeverFail() {
-        var directory = Path.Combine(Path.GetTempPath(), "vixen-fuzz-corpus", nameof(ConcurrentWritersOfOneFindingNeverFail));
+        var directory = Path.Combine(
+            Path.GetTempPath(),
+            "vixen-fuzz-corpus",
+            nameof(ConcurrentWritersOfOneFindingNeverFail)
+        );
 
         if (Directory.Exists(directory)) {
             Directory.Delete(directory, true);
@@ -70,7 +74,11 @@ public sealed class CorpusWriteTests {
     /// </remarks>
     [Fact]
     public void AFindingIsPublishedWholeOrNotAtAll() {
-        var directory = Path.Combine(Path.GetTempPath(), "vixen-fuzz-corpus", nameof(AFindingIsPublishedWholeOrNotAtAll));
+        var directory = Path.Combine(
+            Path.GetTempPath(),
+            "vixen-fuzz-corpus",
+            nameof(AFindingIsPublishedWholeOrNotAtAll)
+        );
 
         if (Directory.Exists(directory)) {
             Directory.Delete(directory, true);

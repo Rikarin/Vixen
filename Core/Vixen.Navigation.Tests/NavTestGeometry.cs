@@ -54,13 +54,20 @@ internal sealed class NavTestGeometry {
     ///     where its edges are. A flat floor cannot tell a detail mesh from no detail mesh, because a
     ///     polygon over a flat floor is already exactly right.
     /// </remarks>
-    public NavTestGeometry Terrain(float minX, float minZ, float maxX, float maxZ, int cells, Func<float, float, float> height) {
+    public NavTestGeometry Terrain(
+        float minX,
+        float minZ,
+        float maxX,
+        float maxZ,
+        int cells,
+        Func<float, float, float> height
+    ) {
         for (var row = 0; row < cells; row++) {
             for (var column = 0; column < cells; column++) {
-                var x0 = minX + ((maxX - minX) * column / cells);
-                var x1 = minX + ((maxX - minX) * (column + 1) / cells);
-                var z0 = minZ + ((maxZ - minZ) * row / cells);
-                var z1 = minZ + ((maxZ - minZ) * (row + 1) / cells);
+                var x0 = minX + (maxX - minX) * column / cells;
+                var x1 = minX + (maxX - minX) * (column + 1) / cells;
+                var z0 = minZ + (maxZ - minZ) * row / cells;
+                var z1 = minZ + (maxZ - minZ) * (row + 1) / cells;
 
                 var first = vertices.Count;
 

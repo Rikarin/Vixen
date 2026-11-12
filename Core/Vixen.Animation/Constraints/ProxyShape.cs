@@ -49,8 +49,12 @@ public enum ShapeKind : byte {
 /// </param>
 /// <remarks>
 ///     <para>
-///         One shape, two vectors, whatever the kind — which is not tidiness. <b>Resizing a shape for
-///         a different body is multiplying these</b>, and the whole of why proxy shapes exist is that
+///         One shape, two vectors, whatever the kind — which is not tidiness.
+///         <b>
+///             Resizing a shape for
+///             a different body is multiplying these
+///         </b>
+///         , and the whole of why proxy shapes exist is that
 ///         a coordinate on a shape means the same place on a body of any size. A parameterisation
 ///         with a different field set per kind would need a resize path per kind, and one of them
 ///         would be wrong.
@@ -81,14 +85,13 @@ public readonly record struct ShapeParams(Vector3 Extents, Vector3 TopExtents) {
     /// <summary>A ball.</summary>
     /// <param name="radius">Its radius.</param>
     /// <returns>The dimensions.</returns>
-    public static ShapeParams Sphere(float radius) => Box(new Vector3(radius));
+    public static ShapeParams Sphere(float radius) => Box(new(radius));
 
     /// <summary>A capsule.</summary>
     /// <param name="radius">Its radius.</param>
     /// <param name="halfHeight">Half the length of the straight part, not counting the caps.</param>
     /// <returns>The dimensions.</returns>
-    public static ShapeParams Capsule(float radius, float halfHeight) =>
-        Box(new Vector3(radius, halfHeight, radius));
+    public static ShapeParams Capsule(float radius, float halfHeight) => Box(new(radius, halfHeight, radius));
 
     /// <summary>A capsule whose radius changes with height.</summary>
     /// <param name="radius">Its radius at the bottom.</param>

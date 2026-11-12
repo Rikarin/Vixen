@@ -83,12 +83,16 @@ public sealed class MapCoordinator {
             // two seconds of history at the exact moment it matters most.
             Bump(decision.Shard, +1);
 
-            return Remember(request.Player, new(PlaceStatus.Placed, decision.Shard, decision.Endpoint, decision.Explain()), now);
+            return Remember(
+                request.Player,
+                new(PlaceStatus.Placed, decision.Shard, decision.Endpoint, decision.Explain()),
+                now
+            );
         }
 
         // Nowhere yet. Whether that is a wait or a refusal is the difference between a client showing
         // a progress bar and a client showing an error, so it is answered rather than inferred.
-        var coming = shards.Values.Count(shard => shard.State is ShardState.Requested or ShardState.Starting);
+        var coming = shards.Values.Count(static shard => shard.State is ShardState.Requested or ShardState.Starting);
 
         return Remember(
             request.Player,
@@ -207,9 +211,9 @@ public sealed class MapCoordinator {
                     // the term for nobody, which is right: it is not everybody's shard, it is
                     // nobody's yet.
                     Locale = locales.Count == 0
-                        ? ""
-                        : locales.OrderByDescending(entry => entry.Value)
-                            .ThenBy(entry => entry.Key, StringComparer.Ordinal)
+                        ? string.Empty
+                        : locales.OrderByDescending(static entry => entry.Value)
+                            .ThenBy(static entry => entry.Key, StringComparer.Ordinal)
                             .First()
                             .Key
                 }
@@ -219,19 +223,18 @@ public sealed class MapCoordinator {
         return candidates;
     }
 
-    IReadOnlyList<ShardCandidate> Snapshot(DateTimeOffset now) =>
-        [
-            .. shards.Values.Select(shard => new ShardCandidate {
-                    Shard = shard.Shard,
-                    Key = shard.Key,
-                    State = shard.State,
-                    Endpoint = shard.Endpoint,
-                    Population = shard.Population,
-                    Capacity = shard.Capacity,
-                    Age = now - shard.StartedAt
-                }
-            )
-        ];
+    IReadOnlyList<ShardCandidate> Snapshot(DateTimeOffset now) => [
+        ..shards.Values.Select(shard => new ShardCandidate {
+                Shard = shard.Shard,
+                Key = shard.Key,
+                State = shard.State,
+                Endpoint = shard.Endpoint,
+                Population = shard.Population,
+                Capacity = shard.Capacity,
+                Age = now - shard.StartedAt
+            }
+        )
+    ];
 
     void Bump(ShardId shard, int by) {
         if (shards.TryGetValue(shard, out var report)) {

@@ -8,8 +8,11 @@ namespace Vixen.Geometry.Uv.Packing;
 /// <summary>Where one unit goes: every column, every orientation, scored and reduced to one answer.</summary>
 /// <remarks>
 ///     <para>
-///         <b>The scan is a partition and the answer is a merge, which is why a thread count cannot
-///         reach it.</b> Each chunk keeps the best <see cref="Keep" /> spots it saw, and the best
+///         <b>
+///             The scan is a partition and the answer is a merge, which is why a thread count cannot
+///             reach it.
+///         </b>
+///         Each chunk keeps the best <see cref="Keep" /> spots it saw, and the best
 ///         <c>Keep</c> of a partition's per-part bests <i>is</i> the global best <c>Keep</c> — an
 ///         identity, not an approximation. So the number of chunks is free to change, the number of
 ///         workers is free to change, and the batch size is free to change, and none of them moves a
@@ -223,7 +226,9 @@ sealed class PlacementScan {
                 var lowered = grid.LowestFree(mask, spot.X, spot.Y, DescentRows);
 
                 if (lowered != spot.Y) {
-                    candidate = new(lowered + mask.Height, grid.Waste(mask, spot.X, lowered), spot.X, lowered, spot.Rotation);
+                    candidate = spot with {
+                        Level = lowered + mask.Height, Waste = grid.Waste(mask, spot.X, lowered), Y = lowered
+                    };
                 }
             }
 

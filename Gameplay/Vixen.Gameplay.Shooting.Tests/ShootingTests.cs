@@ -109,10 +109,16 @@ public class WeaponLibraryTests {
 
         var problems = WeaponLibrary.Compile(catalog).Problems;
 
-        Assert.Contains(problems, problem => problem.Contains("no rounds a second", StringComparison.Ordinal));
-        Assert.Contains(problems, problem => problem.Contains("no damage", StringComparison.Ordinal));
-        Assert.Contains(problems, problem => problem.Contains("widest before it has fired", StringComparison.Ordinal));
-        Assert.Contains(problems, problem => problem.Contains("never be fully reloaded", StringComparison.Ordinal));
+        Assert.Contains(problems, static problem => problem.Contains("no rounds a second", StringComparison.Ordinal));
+        Assert.Contains(problems, static problem => problem.Contains("no damage", StringComparison.Ordinal));
+        Assert.Contains(
+            problems,
+            static problem => problem.Contains("widest before it has fired", StringComparison.Ordinal)
+        );
+        Assert.Contains(
+            problems,
+            static problem => problem.Contains("never be fully reloaded", StringComparison.Ordinal)
+        );
     }
 
     [Fact]
@@ -176,7 +182,7 @@ public class SpreadTests {
     public void NoPelletLeavesTheCone() {
         for (var shot = 1u; shot < 500; shot++) {
             var deviation = WeaponTemplate.Deviate(shot, 0, 3f);
-            var distance = MathF.Sqrt((deviation.Pitch * deviation.Pitch) + (deviation.Yaw * deviation.Yaw));
+            var distance = MathF.Sqrt(deviation.Pitch * deviation.Pitch + deviation.Yaw * deviation.Yaw);
 
             Assert.InRange(distance, 0f, 3.0001f);
         }
@@ -192,7 +198,7 @@ public class SpreadTests {
 
         for (var shot = 1u; shot <= Shots; shot++) {
             var deviation = WeaponTemplate.Deviate(shot, 0, 4f);
-            var distance = MathF.Sqrt((deviation.Pitch * deviation.Pitch) + (deviation.Yaw * deviation.Yaw));
+            var distance = MathF.Sqrt(deviation.Pitch * deviation.Pitch + deviation.Yaw * deviation.Yaw);
 
             if (distance <= 2f) {
                 inner++;
@@ -222,10 +228,7 @@ public class WeaponStateTests {
             .Add(
                 "weapons/pistol",
                 new WeaponDefinition {
-                    Damage = new() { Amount = 30f },
-                    RoundsPerSecond = 5f,
-                    Automatic = false,
-                    Magazine = 12
+                    Damage = new() { Amount = 30f }, RoundsPerSecond = 5f, Automatic = false, Magazine = 12
                 }
             )
             .Build();
@@ -398,10 +401,7 @@ public class WeaponStateTests {
             .Add(
                 "weapons/burst",
                 new WeaponDefinition {
-                    Damage = new() { Amount = 20f },
-                    RoundsPerSecond = 20f,
-                    Burst = 3,
-                    Magazine = 30
+                    Damage = new() { Amount = 20f }, RoundsPerSecond = 20f, Burst = 3, Magazine = 30
                 }
             )
             .Build();
@@ -458,7 +458,7 @@ public class HitClaimValidatorTests {
     static HitClaimValidator Validator(out WeaponState rifle, RewindBudget? budget = null) {
         rifle = Content.State(Content.Rifle);
 
-        return new(Content.Weapons(), window: 30) { Budget = budget };
+        return new(Content.Weapons(), 30) { Budget = budget };
     }
 
     static HitClaim Claim(in ShotFired shot, int pellet = 0, ulong target = 2, int tick = 100, float distance = 10f) {
@@ -471,7 +471,7 @@ public class HitClaimValidatorTests {
             target,
             tick,
             distance,
-            MathF.Sqrt((deviation.Pitch * deviation.Pitch) + (deviation.Yaw * deviation.Yaw))
+            MathF.Sqrt(deviation.Pitch * deviation.Pitch + deviation.Yaw * deviation.Yaw)
         );
     }
 
@@ -507,7 +507,7 @@ public class HitClaimValidatorTests {
         );
 
         // And a pellet the shot never had.
-        Assert.Equal(ClaimRejection.NoSuchShot, validator.Validate(Claim(shot, pellet: 4), 105).Rejection);
+        Assert.Equal(ClaimRejection.NoSuchShot, validator.Validate(Claim(shot, 4), 105).Rejection);
     }
 
     [Fact]
@@ -529,7 +529,7 @@ public class HitClaimValidatorTests {
 
     [Fact]
     public void APenetratingWeaponMayClaimOnePelletAgainstSeveralAndTheDamageFalls() {
-        var validator = new HitClaimValidator(Content.Weapons(), window: 30);
+        var validator = new HitClaimValidator(Content.Weapons(), 30);
         var sniper = Content.State(Content.Sniper);
 
         sniper.TryFire(out var shot);
@@ -571,13 +571,13 @@ public class HitClaimValidatorTests {
 
     [Fact]
     public void APelletClaimedOutsideItsOwnConeIsRefused() {
-        var validator = new HitClaimValidator(Content.Weapons(), window: 30);
+        var validator = new HitClaimValidator(Content.Weapons(), 30);
         var shotgun = Content.State(Content.Shotgun);
 
         shotgun.TryFire(out var shot);
         validator.RecordShot(1, DefId.From(Content.Shotgun), shot, 100);
 
-        var honest = Claim(shot, pellet: 3);
+        var honest = Claim(shot, 3);
 
         Assert.True(validator.Validate(honest, 101).Accepted);
 
@@ -585,7 +585,7 @@ public class HitClaimValidatorTests {
         // client asking for a hit it could not have made looks like.
         Assert.Equal(
             ClaimRejection.OutsideCone,
-            validator.Validate(Claim(shot, pellet: 4) with { Deviation = 20f }, 101).Rejection
+            validator.Validate(Claim(shot, 4) with { Deviation = 20f }, 101).Rejection
         );
     }
 
@@ -598,7 +598,7 @@ public class HitClaimValidatorTests {
 
         Assert.Equal(
             ClaimRejection.NoLineOfSight,
-            validator.Validate(Claim(shot), 101, lineOfSight: false).Rejection
+            validator.Validate(Claim(shot), 101, false).Rejection
         );
 
         // And the refused claim did not spend the pellet.
@@ -607,7 +607,7 @@ public class HitClaimValidatorTests {
 
     [Fact]
     public void AnAgedOutShotIsForgottenAlongWithItsClaims() {
-        var validator = new HitClaimValidator(Content.Weapons(), window: 1000, history: 4);
+        var validator = new HitClaimValidator(Content.Weapons(), 1000, 4);
         var rifle = Content.State(Content.Rifle);
 
         var shots = new List<ShotFired>();
@@ -638,7 +638,7 @@ public class HitClaimValidatorTests {
 public class RewindBudgetTests {
     [Fact]
     public void ADeeperRewindCostsMore() {
-        var budget = new RewindBudget(capacity: 100f, refillPerSecond: 0f, costPerTick: 1f, minimumCost: 2f);
+        var budget = new RewindBudget(100f, 0f, 1f, 2f);
 
         Assert.Equal(2f, budget.CostOf(0));
         Assert.Equal(2f, budget.CostOf(1));
@@ -647,7 +647,7 @@ public class RewindBudgetTests {
 
     [Fact]
     public void AConnectionRunsOutAndRefills() {
-        var budget = new RewindBudget(capacity: 60f, refillPerSecond: 60f, costPerTick: 1f, minimumCost: 1f);
+        var budget = new RewindBudget(60f, 60f, 1f, 1f);
 
         Assert.True(budget.TryConsume(1, 30));
         Assert.True(budget.TryConsume(1, 30));
@@ -666,7 +666,7 @@ public class RewindBudgetTests {
     public void ARefusedClaimCostsNothing() {
         // Charging for the refusal would let a flood keep a connection permanently broke, which turns
         // a defence against one client into a way to disable somebody's hits.
-        var budget = new RewindBudget(capacity: 10f, refillPerSecond: 0f, costPerTick: 1f, minimumCost: 1f);
+        var budget = new RewindBudget(10f, 0f, 1f, 1f);
 
         Assert.False(budget.TryConsume(1, 30));
         Assert.Equal(10f, budget.RemainingFor(1));
@@ -674,7 +674,7 @@ public class RewindBudgetTests {
 
     [Fact]
     public void OneConnectionsFloodDoesNotSpendAnothers() {
-        var budget = new RewindBudget(capacity: 30f, refillPerSecond: 0f);
+        var budget = new RewindBudget(30f, 0f);
 
         Assert.True(budget.TryConsume(1, 30));
         Assert.False(budget.TryConsume(1, 30));
@@ -683,8 +683,8 @@ public class RewindBudgetTests {
 
     [Fact]
     public void AValidatorWithABudgetRefusesWhatItCannotAfford() {
-        var budget = new RewindBudget(capacity: 20f, refillPerSecond: 0f, costPerTick: 1f, minimumCost: 1f);
-        var validator = new HitClaimValidator(Content.Weapons(), window: 30) { Budget = budget };
+        var budget = new RewindBudget(20f, 0f, 1f, 1f);
+        var validator = new HitClaimValidator(Content.Weapons(), 30) { Budget = budget };
         var rifle = Content.State(Content.Rifle);
 
         for (var index = 0; index < 3; index++) {
@@ -701,7 +701,7 @@ public class RewindBudgetTests {
                 (ulong)(index + 2),
                 100,
                 10f,
-                MathF.Sqrt((deviation.Pitch * deviation.Pitch) + (deviation.Yaw * deviation.Yaw))
+                MathF.Sqrt(deviation.Pitch * deviation.Pitch + deviation.Yaw * deviation.Yaw)
             );
 
             var verdict = validator.Validate(claim, 110);
@@ -717,7 +717,7 @@ public class RewindBudgetTests {
 
     [Fact]
     public void ABudgetForgetsAConnectionThatLeft() {
-        var budget = new RewindBudget(capacity: 30f, refillPerSecond: 0f);
+        var budget = new RewindBudget(30f, 0f);
 
         budget.TryConsume(1, 10);
         Assert.True(budget.Forget(1));
@@ -728,7 +728,7 @@ public class RewindBudgetTests {
 public class ShootingModuleTests {
     [Fact]
     public void ShootingNeedsCombatAndTheKernel() {
-        Assert.Throws<InvalidOperationException>(() => new GameplayConfig().Use<ShootingModule>().Build());
+        Assert.Throws<InvalidOperationException>(static () => new GameplayConfig().Use<ShootingModule>().Build());
 
         var composition = new GameplayConfig()
             .Use<GameplayKernelModule>()
@@ -736,7 +736,7 @@ public class ShootingModuleTests {
             .Use<ShootingModule>()
             .Build();
 
-        Assert.Contains(composition.Definitions, entry => entry.Tag == "WeaponDefinition");
+        Assert.Contains(composition.Definitions, static entry => entry.Tag == "WeaponDefinition");
         Assert.Contains(ShootingModule.WeaponRoot, composition.Tags);
     }
 }

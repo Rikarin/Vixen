@@ -62,13 +62,13 @@ public class AgentRandomTests {
 
     [Fact]
     public void ConsecutiveEntitiesDoNotGetConsecutiveSeeds() {
-        var seeds = Enumerable.Range(1, 64).Select(id => AgentRandom.SeedOf(new(id, 1, 0))).ToArray();
+        var seeds = Enumerable.Range(1, 64).Select(static id => AgentRandom.SeedOf(new(id, 1, 0))).ToArray();
 
         Assert.Equal(64, seeds.Distinct().Count());
 
         // The whole reason SeedOf hashes: a wave of guards spawned together should look like a
         // crowd, not like a sequence.
-        var runs = seeds.Zip(seeds.Skip(1)).Count(pair => pair.Second == pair.First + 1);
+        var runs = seeds.Zip(seeds.Skip(1)).Count(static pair => pair.Second == pair.First + 1);
 
         Assert.Equal(0, runs);
     }
@@ -83,11 +83,14 @@ public class AgentRandomTests {
     [Fact]
     public void AgentsSeededFromTheirOwnEntitiesDoNotAllDrawTheSameNumber() {
         var values = Enumerable.Range(1, 256)
-            .Select(id => new Entity(id, 0, 0))
-            .Select(entity => AgentRandom.Value(entity, AgentRandom.SeedOf(entity), 0x5E4))
+            .Select(static id => new Entity(id, 0, 0))
+            .Select(static entity => AgentRandom.Value(entity, AgentRandom.SeedOf(entity), 0x5E4))
             .ToArray();
 
-        Assert.True(values.Distinct().Count() > 200, $"{values.Distinct().Count()} of 256 agents drew a distinct number.");
+        Assert.True(
+            values.Distinct().Count() > 200,
+            $"{values.Distinct().Count()} of 256 agents drew a distinct number."
+        );
     }
 
     [Fact]
@@ -128,7 +131,7 @@ public class AgentDebugRecorderTests {
         var written = recorder.CopyTo(buffer);
 
         Assert.Equal(4, written);
-        Assert.Equal([6L, 7L, 8L, 9L], buffer.Take(4).Select(record => record.Tick));
+        Assert.Equal([6L, 7L, 8L, 9L], buffer.Take(4).Select(static record => record.Tick));
     }
 
     [Fact]

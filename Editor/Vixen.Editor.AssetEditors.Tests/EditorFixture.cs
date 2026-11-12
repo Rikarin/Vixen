@@ -65,7 +65,7 @@ public sealed class EditorFixture : IDisposable {
     public void Dispose() {
         try {
             if (Directory.Exists(Paths.Root)) {
-                Directory.Delete(Paths.Root, recursive: true);
+                Directory.Delete(Paths.Root, true);
             }
         } catch (IOException) {
             // A temporary directory that would not go is not a test failure.

@@ -234,7 +234,7 @@ public class VolumetricFogIntegrationTests : IDisposable {
         const float Extinction = 0.05f;
         const float Inscatter = 0.3f;
 
-        var lit = MarchShadowed(Slices, Near, Far, Extinction, Inscatter, _ => 1f);
+        var lit = MarchShadowed(Slices, Near, Far, Extinction, Inscatter, static _ => 1f);
 
         // A wall across the middle third of the grid: the froxels behind it see no sun.
         var shadowed = MarchShadowed(
@@ -243,7 +243,7 @@ public class VolumetricFogIntegrationTests : IDisposable {
             Far,
             Extinction,
             Inscatter,
-            z => z is >= 20 and < 40 ? 0f : 1f
+            static z => z is >= 20 and < 40 ? 0f : 1f
         );
 
         Assert.True(shadowed.Accumulated < lit.Accumulated, "the shaded stretch scatters nothing toward the camera");
@@ -259,7 +259,7 @@ public class VolumetricFogIntegrationTests : IDisposable {
             Far,
             Extinction,
             Inscatter,
-            z => z is >= 20 and < 40 ? 1f : 0f
+            static z => z is >= 20 and < 40 ? 1f : 0f
         );
 
         Assert.Equal(lit.Accumulated, shadowed.Accumulated + occluded.Accumulated, 5);
@@ -274,7 +274,7 @@ public class VolumetricFogIntegrationTests : IDisposable {
     [Fact]
     public void An_unoccluded_ray_is_the_unshadowed_march() {
         var plain = March(64, 0.5f, 64f, 0.05f, 0.3f);
-        var shadowed = MarchShadowed(64, 0.5f, 64f, 0.05f, 0.3f, _ => 1f);
+        var shadowed = MarchShadowed(64, 0.5f, 64f, 0.05f, 0.3f, static _ => 1f);
 
         Assert.Equal(plain.Accumulated, shadowed.Accumulated, 6);
         Assert.Equal(plain.Transmittance, shadowed.Transmittance, 6);
@@ -355,7 +355,7 @@ public class VolumetricFogIntegrationTests : IDisposable {
         Assert.Null(silent.VolumetricDensity);
 
         var cleared = PostProcessOverlay.None;
-        cleared.Add(new PostProcessSettings { VolumetricDensity = 0f }, 1f);
+        cleared.Add(new() { VolumetricDensity = 0f }, 1f);
 
         Assert.NotNull(cleared.VolumetricDensity);
         Assert.Equal(0f, cleared.VolumetricDensity!.Value.Over(0.06f), 5);
@@ -372,9 +372,7 @@ public class VolumetricFogIntegrationTests : IDisposable {
     [Fact]
     public void The_volumetric_fields_reach_all_three_of_the_folds_seams() {
         var settings = new PostProcessSettings {
-            VolumetricDensity = 0.1f,
-            VolumetricAlbedo = new Vector3(0.5f, 0.6f, 0.7f),
-            VolumetricPhaseG = 0.3f
+            VolumetricDensity = 0.1f, VolumetricAlbedo = new Vector3(0.5f, 0.6f, 0.7f), VolumetricPhaseG = 0.3f
         };
 
         Assert.False(settings.IsEmpty);
@@ -390,7 +388,7 @@ public class VolumetricFogIntegrationTests : IDisposable {
         Assert.False(overlay.IsEmpty);
         Assert.Equal(0.1f, overlay.VolumetricDensity!.Value.Over(0.02f), 5);
         Assert.Equal(0.3f, overlay.VolumetricPhaseG!.Value.Over(0.7f), 5);
-        Assert.Equal(new Vector3(0.5f, 0.6f, 0.7f), overlay.VolumetricAlbedo!.Value.Over(Vector3.One));
+        Assert.Equal(new(0.5f, 0.6f, 0.7f), overlay.VolumetricAlbedo!.Value.Over(Vector3.One));
     }
 
     /// <summary>The slice boundaries are a geometric progression from near to far.</summary>
@@ -431,7 +429,7 @@ public class VolumetricFogIntegrationTests : IDisposable {
         var x = Math.Clamp((int)(uv.X * TilesX), 0, TilesX - 1);
         var y = Math.Clamp((int)(uv.Y * TilesY), 0, TilesY - 1);
 
-        return x + (y * TilesX) + (slice * TilesX * TilesY);
+        return x + y * TilesX + slice * TilesX * TilesY;
     }
 
     /// <summary>
@@ -489,7 +487,7 @@ public class VolumetricFogIntegrationTests : IDisposable {
         // WaterVolume.Phase — Henyey–Greenstein, the same eight lines the sun's term uses.
         static float Phase(float cosTheta, float anisotropy) {
             var squared = anisotropy * anisotropy;
-            var denominator = 1f + squared - (2f * anisotropy * cosTheta);
+            var denominator = 1f + squared - 2f * anisotropy * cosTheta;
 
             return (1f - squared) / (4f * MathF.PI * MathF.Max(MathF.Pow(denominator, 1.5f), 1e-6f));
         }
@@ -500,7 +498,7 @@ public class VolumetricFogIntegrationTests : IDisposable {
         var total = 0f;
 
         for (var i = 0; i < Steps; i++) {
-            total += Phase((((i + 0.5f) / Steps) * 2f) - 1f, g) * (2f / Steps);
+            total += Phase((i + 0.5f) / Steps * 2f - 1f, g) * (2f / Steps);
         }
 
         Assert.Equal(1f, total * 2f * MathF.PI, 3);
@@ -765,7 +763,7 @@ public class VolumetricFogIntegrationTests : IDisposable {
     /// </remarks>
     [Fact]
     public void A_document_that_declares_the_volume_itself_gets_neither_history_nor_jitter() {
-        using var h = Build(declared: true);
+        using var h = Build(true);
 
         Frame(h);
 
@@ -926,7 +924,7 @@ public class VolumetricFogIntegrationTests : IDisposable {
     /// </remarks>
     [Fact]
     public void A_document_decides_how_much_of_the_volume_survives_the_frame() {
-        var builder = new CompositorBuilder(new RenderSystem()) { Device = device };
+        var builder = new CompositorBuilder(new()) { Device = device };
 
         builder.Factories.Add(new PostEffectFactory());
 

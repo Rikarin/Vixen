@@ -171,8 +171,10 @@ public static class EglConstants {
     /// <summary><c>EGL_WIDTH</c>.</summary>
     public const int Width = 0x3057;
 
-    /// <summary><c>EGL_CONTEXT_MAJOR_VERSION</c>, spelled <c>EGL_CONTEXT_CLIENT_VERSION</c> before
-    /// EGL 1.5.</summary>
+    /// <summary>
+    ///     <c>EGL_CONTEXT_MAJOR_VERSION</c>, spelled <c>EGL_CONTEXT_CLIENT_VERSION</c> before
+    ///     EGL 1.5.
+    /// </summary>
     /// <remarks>One value, two names, and the older one is what an EGL 1.4 driver's headers say.</remarks>
     public const int ContextMajorVersion = 0x3098;
 

@@ -8,7 +8,6 @@ using Vixen.Assets;
 using Vixen.Core;
 using Vixen.Core.Mathematics;
 using Vixen.Ecs;
-using Vixen.Engine.Behaviors;
 using Vixen.Engine.Cameras;
 using Vixen.Engine.Diagnostics.Overlays;
 using Vixen.Engine.Frames;
@@ -133,7 +132,7 @@ public sealed class PlayerRig : IDisposable {
 
         // Seat zero. The slot is what a second local player would differ by, and the channel that
         // follows from it is what decides which camera the renderer's one view is filled from.
-        var controller = Player.Create(world, slot: 0);
+        var controller = Player.Create(world);
         var pawn = CreatePawn(world, arena, start);
 
         // ⚠ The spawn point's *rotation* goes here and nowhere else, and it took a bug to find the
@@ -147,7 +146,7 @@ public sealed class PlayerRig : IDisposable {
 
         // 4 m back, over the right shoulder. Bound to the controller, so a respawn re-aims it at the
         // new body with no code — which is the property the whole arrangement exists for.
-        var camera = PlayerCameras.ThirdPerson(world, controller, distance: 4.5f, shoulderHeight: 1.5f);
+        var camera = PlayerCameras.ThirdPerson(world, controller, 4.5f, 1.5f);
 
         var rig = new PlayerRig(world, arena.Physics, controller, pawn, camera, start.Position, logger);
 
@@ -369,17 +368,20 @@ public sealed class PlayerRig : IDisposable {
 
         // The behaviours. Each is attached under its own static type, which is what gives the store a
         // bucket of exactly that type and a monomorphic loop over it.
-        loop.Behaviors.Add(Pawn, new CharacterAnimation {
-            Visuals = visuals,
-            Hips = hips,
-            ArmLeft = armLeft,
-            ArmRight = armRight,
-            LegLeft = legLeft,
-            LegRight = legRight,
-            Sounds = Sounds,
-            Walk = Clip(assets, "Assets/Animation/walk.vxanim"),
-            Jump = Clip(assets, "Assets/Animation/jump.vxanim")
-        });
+        loop.Behaviors.Add(
+            Pawn,
+            new CharacterAnimation {
+                Visuals = visuals,
+                Hips = hips,
+                ArmLeft = armLeft,
+                ArmRight = armRight,
+                LegLeft = legLeft,
+                LegRight = legRight,
+                Sounds = Sounds,
+                Walk = Clip(assets, "Assets/Animation/walk.vxanim"),
+                Jump = Clip(assets, "Assets/Animation/jump.vxanim")
+            }
+        );
 
         Weapon = loop.Behaviors.Add(Pawn, new WeaponFire { Physics = arena.Physics, Sounds = Sounds });
         Respawn = loop.Behaviors.Add(Pawn, new RespawnWhenBelow { Floor = -8f });

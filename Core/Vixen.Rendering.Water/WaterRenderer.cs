@@ -5,7 +5,6 @@ using Vixen.Core.Mathematics;
 using Vixen.Graphics;
 using Vixen.Rendering.Compositor;
 using Vixen.Rendering.Lighting;
-using Vixen.Shaders;
 using Vixen.Shaders.Generated;
 
 namespace Vixen.Rendering.Water;
@@ -15,8 +14,12 @@ namespace Vixen.Rendering.Water;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>[35 § D8](../../docs/plan/35-water.md#d8-the-surface-is-a-pass-between-lighting-and-translucency-and-its-reflections-are-l5s),
-///         and what <c>overview § 1.9</c> recorded transmission / refraction as waiting for.</b> It
+///         <b>
+///             [35 §
+///             D8](../../docs/plan/35-water.md#d8-the-surface-is-a-pass-between-lighting-and-translucency-and-its-reflections-are-l5s),
+///             and what <c>overview § 1.9</c> recorded transmission / refraction as waiting for.
+///         </b>
+///         It
 ///         runs after deferred lighting and before ordinary translucency, reads a <em>copy</em> of the
 ///         scene colour and the depth buffer, and writes back into the scene colour.
 ///     </para>
@@ -34,8 +37,12 @@ namespace Vixen.Rendering.Water;
 ///         one coefficient triple rather than a gradient somebody painted.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The reflection plane is doc 19 § L5's, not SSR's, and that is routing rather than
-///         compromise.</b> Unreal's water pass classifies tiles specifically so it can run an indirect
+///         ⚠
+///         <b>
+///             The reflection plane is doc 19 § L5's, not SSR's, and that is routing rather than
+///             compromise.
+///         </b>
+///         Unreal's water pass classifies tiles specifically so it can run an indirect
 ///         SSR draw over them, because SSR is what it has. Vixen's SSR is ⬜ and its traced
 ///         reflections are ✅ — so a lake reflects a mountain that is <em>off screen</em>, which is the
 ///         single most common reflection failure in every screen-space implementation. Leave
@@ -147,15 +154,23 @@ public sealed class WaterRenderer : SceneRenderer, IDisposable {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>An illuminance and never a colour, because the shader multiplies it by a phase
-    ///         function.</b> <c>WaterVolume.InScatter</c> computes
+    ///         ⚠
+    ///         <b>
+    ///             An illuminance and never a colour, because the shader multiplies it by a phase
+    ///             function.
+    ///         </b>
+    ///         <c>WaterVolume.InScatter</c> computes
     ///         <c>(σs⁄σt)·(1−e^−σt·d)·L·p(θ)</c> with <c>p</c> in sr⁻¹, so the only quantity that
     ///         leaves cd/m² behind is lux — the same identity <c>FogRenderer.SunColour</c> is built on,
     ///         and the same units <c>RenderLight.Radiance</c> carries for a directional light.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The old default of <c>(1, 0.96, 0.9)</c> was four decades under the frame it was
-    ///         composited into</b>, and that is not a dim lake: the integration is exactly right and
+    ///         ⚠
+    ///         <b>
+    ///             The old default of <c>(1, 0.96, 0.9)</c> was four decades under the frame it was
+    ///             composited into
+    ///         </b>
+    ///         , and that is not a dim lake: the integration is exactly right and
     ///         lands under the exposure, so the water tonemaps to the same black as a pass that never
     ///         ran, with the fold, the patch counts, the info texture and this node's build count all
     ///         reporting success. That is task #119, and it cost a week.
@@ -266,8 +281,11 @@ public sealed class WaterRenderer : SceneRenderer, IDisposable {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <b>§ D8 keeps this "for its actual reason: the water pass is expensive per pixel and
-    ///         covers a small fraction of most frames".</b> On, a compute pass classifies the coverage
+    ///         <b>
+    ///             § D8 keeps this "for its actual reason: the water pass is expensive per pixel and
+    ///             covers a small fraction of most frames".
+    ///         </b>
+    ///         On, a compute pass classifies the coverage
     ///         mask into one flag per 8×8 tile and this node draws two triangles per tile with one
     ///         instance each; a tile with no water collapses in the vertex stage and costs no fragment
     ///         at all. Off, it is one triangle over the screen and every pixel of the frame runs the
@@ -279,8 +297,12 @@ public sealed class WaterRenderer : SceneRenderer, IDisposable {
     ///         is the same picture, on <c>!ScreenProbeGather</c>'s terms.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And it needs <see cref="Output" /> to already hold what <see cref="Behind" /> is a
-    ///         copy of, which is what makes the two paths the same picture.</b> The untiled pass writes
+    ///         ⚠
+    ///         <b>
+    ///             And it needs <see cref="Output" /> to already hold what <see cref="Behind" /> is a
+    ///             copy of, which is what makes the two paths the same picture.
+    ///         </b>
+    ///         The untiled pass writes
     ///         every pixel of the frame — the scene colour back, with a zero mask in alpha — and the
     ///         tiled one leaves a dry tile exactly as it found it. In a document that is free: § B1's
     ///         <c>!Copy</c> is what filled <see cref="Behind" /> from this very target, so "as it found
@@ -347,8 +369,12 @@ public sealed class WaterRenderer : SceneRenderer, IDisposable {
     /// <exception cref="ArgumentNullException"><paramref name="lighting" /> is null.</exception>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>These three are radiances in the frame's own units, and that is the whole reason
-    ///         this method exists rather than a document naming three colours.</b> Everything else in a
+    ///         ⚠
+    ///         <b>
+    ///             These three are radiances in the frame's own units, and that is the whole reason
+    ///             this method exists rather than a document naming three colours.
+    ///         </b>
+    ///         Everything else in a
     ///         lit frame is physical — a dusk sun is twenty thousand and a sky is thousands — while a
     ///         hand-authored <c>sunColour: 1.0 0.72 0.42</c> is a <em>tint</em>, four decades below the
     ///         scene it is composited into. The volume then integrates correctly to a number the
@@ -369,8 +395,12 @@ public sealed class WaterRenderer : SceneRenderer, IDisposable {
     ///         scattering peak moves with it. It costs three assignments.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Prefer <see cref="Sun" /> and <see cref="Frame" />, which are this without the
-    ///         remembering.</b> A host that has to call a method every frame is a host that works until
+    ///         ⚠
+    ///         <b>
+    ///             Prefer <see cref="Sun" /> and <see cref="Frame" />, which are this without the
+    ///             remembering.
+    ///         </b>
+    ///         A host that has to call a method every frame is a host that works until
     ///         somebody writes a second one, and every host but the sample that found the bug omitted
     ///         it — which is the same black lake with the fix already in the tree. This stays because a
     ///         host holding a <c>SceneLighting</c> and no <c>SceneConstants</c> has no other route, and
@@ -491,25 +521,19 @@ public sealed class WaterRenderer : SceneRenderer, IDisposable {
 
         bindings.Add(
             new() {
-                Binding = WaterKeys.WaterTilesBinding,
-                Kind = DescriptorKind.StorageBuffer,
-                Resource = tiles.Buffer
+                Binding = WaterKeys.WaterTilesBinding, Kind = DescriptorKind.StorageBuffer, Resource = tiles.Buffer
             }
         );
 
         bindings.Add(
             new() {
-                Binding = WaterKeys.PointSamplerBinding,
-                Kind = DescriptorKind.Sampler,
-                Sampler = Samplers.PointClamp
+                Binding = WaterKeys.PointSamplerBinding, Kind = DescriptorKind.Sampler, Sampler = Samplers.PointClamp
             }
         );
 
         bindings.Add(
             new() {
-                Binding = WaterKeys.LinearSamplerBinding,
-                Kind = DescriptorKind.Sampler,
-                Sampler = Samplers.LinearClamp
+                Binding = WaterKeys.LinearSamplerBinding, Kind = DescriptorKind.Sampler, Sampler = Samplers.LinearClamp
             }
         );
 
@@ -621,7 +645,12 @@ public sealed class WaterRenderer : SceneRenderer, IDisposable {
                 name,
                 tiled
                     ? frame.Graph.CreateBuffer(description)
-                    : frame.Graph.ImportBuffer(Placeholder(description), description, ResourceState.ShaderRead, ResourceState.ShaderRead),
+                    : frame.Graph.ImportBuffer(
+                        Placeholder(description),
+                        description,
+                        ResourceState.ShaderRead,
+                        ResourceState.ShaderRead
+                    ),
                 description
             );
         }
@@ -645,9 +674,7 @@ public sealed class WaterRenderer : SceneRenderer, IDisposable {
 
         classify.Descriptors.Bindings.Add(
             new() {
-                Binding = WaterTilesKeys.WaterSurfaceBinding,
-                Kind = DescriptorKind.SampledTexture,
-                Resource = Surface
+                Binding = WaterTilesKeys.WaterSurfaceBinding, Kind = DescriptorKind.SampledTexture, Resource = Surface
             }
         );
 

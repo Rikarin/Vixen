@@ -463,7 +463,8 @@ public sealed class BehaviorTreeModel {
     /// <param name="type">What it holds.</param>
     /// <returns>The key, or null if the name is taken.</returns>
     public BehaviorKeyContent? AddKey(string name, BlackboardValueType type) {
-        if (string.IsNullOrWhiteSpace(name) || Content.Keys.Any(key => string.Equals(key.Name, name, StringComparison.Ordinal))) {
+        if (string.IsNullOrWhiteSpace(name)
+            || Content.Keys.Any(key => string.Equals(key.Name, name, StringComparison.Ordinal))) {
             return null;
         }
 
@@ -491,7 +492,8 @@ public sealed class BehaviorTreeModel {
 
         if (string.IsNullOrWhiteSpace(name)
             || Content.Keys.Any(other => !ReferenceEquals(other, key)
-                && string.Equals(other.Name, name, StringComparison.Ordinal))) {
+                && string.Equals(other.Name, name, StringComparison.Ordinal)
+            )) {
             return -1;
         }
 
@@ -638,9 +640,7 @@ public sealed class BehaviorTreeModel {
             text.Append(": ");
         }
 
-        text.Append(
-            string.Join(", ", attachment.Children.Select(child => TypeOf(child)?.Label ?? child.Type))
-        );
+        text.Append(string.Join(", ", attachment.Children.Select(child => TypeOf(child)?.Label ?? child.Type)));
 
         return text.ToString();
     }
@@ -678,9 +678,7 @@ public sealed class BehaviorTreeModel {
 
     static BehaviorTreeContent Clone(BehaviorTreeContent content) {
         var copy = new BehaviorTreeContent {
-            Version = content.Version,
-            Name = content.Name,
-            Root = content.Root is null ? null : Clone(content.Root)
+            Version = content.Version, Name = content.Name, Root = content.Root is null ? null : Clone(content.Root)
         };
 
         foreach (var key in content.Keys) {
@@ -714,14 +712,15 @@ public sealed class BehaviorTreeModel {
         return copy;
     }
 
-    static BehaviorAttachmentContent Clone(BehaviorAttachmentContent attachment) => new() {
-        Type = attachment.Type,
-        Interval = attachment.Interval,
-        RandomDeviation = attachment.RandomDeviation,
-        Fields = new(attachment.Fields, StringComparer.Ordinal),
+    static BehaviorAttachmentContent Clone(BehaviorAttachmentContent attachment) =>
+        new() {
+            Type = attachment.Type,
+            Interval = attachment.Interval,
+            RandomDeviation = attachment.RandomDeviation,
+            Fields = new(attachment.Fields, StringComparer.Ordinal),
 
-        // ⚠ The nested rows too, or an undo of an edit inside a Composite condition would put back
-        // the operands the snapshot before it happened to still be sharing.
-        Children = [.. attachment.Children.Select(Clone)]
-    };
+            // ⚠ The nested rows too, or an undo of an edit inside a Composite condition would put back
+            // the operands the snapshot before it happened to still be sharing.
+            Children = [..attachment.Children.Select(Clone)]
+        };
 }

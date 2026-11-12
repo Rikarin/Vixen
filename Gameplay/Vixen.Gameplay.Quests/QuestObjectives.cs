@@ -5,8 +5,11 @@ namespace Vixen.Gameplay.Quests;
 
 /// <summary>The verbs the shipped objective types wait for, and the tag root they sit under.</summary>
 /// <remarks>
-///     <b>Declared by <see cref="QuestModule" /> so that they exist whether or not content mentions
-///     them.</b> A verb absent from the baked table resolves to an empty range, and doc 28's rule is
+///     <b>
+///         Declared by <see cref="QuestModule" /> so that they exist whether or not content mentions
+///         them.
+///     </b>
+///     A verb absent from the baked table resolves to an empty range, and doc 28's rule is
 ///     that an empty range matches nothing — so without these, every shipped objective type would
 ///     compile to a subscription that never fires, in a build whose content happened not to name the
 ///     verb.

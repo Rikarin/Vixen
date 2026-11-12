@@ -27,7 +27,7 @@ namespace Tests;
 ///     </para>
 /// </remarks>
 public class TextureSurfaceKernelTests {
-    public static TheoryData<string> Kernels => [.. TextureSurfaceKernels.All];
+    public static TheoryData<string> Kernels => [..TextureSurfaceKernels.All];
 
     /// <summary>Every name this slice registers is a kernel the folder actually holds.</summary>
     [Theory]
@@ -52,15 +52,15 @@ public class TextureSurfaceKernelTests {
         var data = Compile(kernel);
 
         var declared = data.Parameters
-            .Where(member => member.Set == DescriptorSetSlot.PerMaterial)
+            .Where(static member => member.Set == DescriptorSetSlot.PerMaterial)
             .Select(member => Unqualified(member.Name, data.ShaderName))
-            .Where(name => !TexturePlan.Supplies(name))
-            .OrderBy(name => name, StringComparer.Ordinal)
+            .Where(static name => !TexturePlan.Supplies(name))
+            .OrderBy(static name => name, StringComparer.Ordinal)
             .ToArray();
 
         var supplied = op.Parameters
-            .Select(parameter => parameter.Name)
-            .OrderBy(name => name, StringComparer.Ordinal)
+            .Select(static parameter => parameter.Name)
+            .OrderBy(static name => name, StringComparer.Ordinal)
             .ToArray();
 
         Assert.Equal(declared, supplied);
@@ -83,9 +83,12 @@ public class TextureSurfaceKernelTests {
         var data = Compile(kernel);
 
         var textures = data.Bindings
-            .Where(binding => binding is { Set: DescriptorSetSlot.PerMaterial, Kind: DescriptorKind.SampledTexture })
-            .OrderBy(binding => binding.Binding)
-            .Select(binding => binding.Name)
+            .Where(static binding => binding is {
+                    Set: DescriptorSetSlot.PerMaterial, Kind: DescriptorKind.SampledTexture
+                }
+            )
+            .OrderBy(static binding => binding.Binding)
+            .Select(static binding => binding.Name)
             .ToArray();
 
         Assert.Equal(inputs, textures);
@@ -103,9 +106,9 @@ public class TextureSurfaceKernelTests {
     [Fact]
     public void Every_length_here_is_in_texels_at_the_base_resolution() {
         var scaled = TextureSurfaces.All
-            .SelectMany(op => op.Parameters.Select(parameter => (op.Kernel, parameter.Name, parameter.Unit)))
-            .Where(entry => entry.Unit == TextureParameterUnit.TexelsAtBase)
-            .Select(entry => $"{entry.Kernel}.{entry.Name}")
+            .SelectMany(static op => op.Parameters.Select(parameter => (op.Kernel, parameter.Name, parameter.Unit)))
+            .Where(static entry => entry.Unit == TextureParameterUnit.TexelsAtBase)
+            .Select(static entry => $"{entry.Kernel}.{entry.Name}")
             .Order(StringComparer.Ordinal)
             .ToArray();
 
@@ -121,8 +124,11 @@ public class TextureSurfaceKernelTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <b>Doc 48 § 4.6 says <c>Normal → Height</c> "is the one entry here that is <em>not</em>
-    ///         a compute kernel: it runs on the CPU, which is a deliberate exception to D3".</b> The
+    ///         <b>
+    ///             Doc 48 § 4.6 says <c>Normal → Height</c> "is the one entry here that is <em>not</em>
+    ///             a compute kernel: it runs on the CPU, which is a deliberate exception to D3".
+    ///         </b>
+    ///         The
     ///         plan cannot express that. <see cref="TextureOp" /> carries a <c>Kernel</c>, images and
     ///         numbers, and <c>TexturePlanEvaluator.Run</c> puts every one of them through
     ///         <c>VariantFor</c> — which compiles the name as Raven and builds a compute pipeline. An
@@ -136,9 +142,13 @@ public class TextureSurfaceKernelTests {
     ///         48 § 4.6 already named the solver it wants.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>What this asserted until
-    ///         <a href="https://github.com/Rikarin/Vixen/issues/704">#704</a> was that a file was
-    ///         absent</b> — <c>Variant("NormalToHeight", …)</c> throws and the name is not in
+    ///         ⚠
+    ///         <b>
+    ///             What this asserted until
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/704">#704</a> was that a file was
+    ///             absent
+    ///         </b>
+    ///         — <c>Variant("NormalToHeight", …)</c> throws and the name is not in
     ///         <c>TextureKernels.Names</c> — which is <c>An_unknown_kernel_is_refused_by_name</c>
     ///         spelled twice, touches neither <see cref="TexturePlan" /> nor <see cref="TextureOp" />,
     ///         and turns <b>red the day somebody adds <c>Shaders/NormalToHeight.rvn</c></b>. It also
@@ -166,7 +176,7 @@ public class TextureSurfaceKernelTests {
     public void A_plan_expresses_exactly_one_operation_that_is_not_a_dispatch() {
         var members = typeof(TextureOp)
             .GetProperties(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly)
-            .Select(member => member.Name)
+            .Select(static member => member.Name)
             .Order(StringComparer.Ordinal)
             .ToArray();
 
@@ -231,8 +241,10 @@ public class TextureSurfaceKernelTests {
 
         Assert.Empty(plan.Validate());
 
-        var failure = Assert.Throws<ArgumentException>(
-            () => TextureKernels.Variant(plan.Ops[0].Kernel, TextureFormat.Rgba8)
+        var failure = Assert.Throws<ArgumentException>(() => TextureKernels.Variant(
+                plan.Ops[0].Kernel,
+                TextureFormat.Rgba8
+            )
         );
 
         Assert.Contains("NoKernelIsCalledThis", failure.Message, StringComparison.Ordinal);

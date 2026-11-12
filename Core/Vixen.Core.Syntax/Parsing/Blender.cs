@@ -37,8 +37,12 @@ namespace Vixen.Core.Syntax.Parsing;
 ///         no. The equal-trees-to-a-full-reparse property is pinned by test.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Position and tokens are still not the whole question: the same characters, lexed
-///         the same way, mean different things to different parse loops.</b> A front end usually has
+///         ⚠
+///         <b>
+///             Position and tokens are still not the whole question: the same characters, lexed
+///             the same way, mean different things to different parse loops.
+///         </b>
+///         A front end usually has
 ///         more than one — Raven parses a type body and an enum body with separate grammars, and
 ///         only the first can produce a method — so a candidate carries the
 ///         <see cref="ReuseCandidate.Context" /> it was parsed in and a reuse site names the one it

@@ -31,7 +31,7 @@ public class UnderlyingValueAnimationPixelTests {
     static readonly Color4 Black = new(0f, 0f, 0f, 1f);
 
     static UiTest Harness() =>
-        UiTest.Create(300, 200, new UiTestOptions { Background = Black, FrameDelta = TimeSpan.FromSeconds(0.125) });
+        UiTest.Create(300, 200, new() { Background = Black, FrameDelta = TimeSpan.FromSeconds(0.125) });
 
     static Bitmap Captured(UiTest ui, string name) {
         var picture = ui.Capture();

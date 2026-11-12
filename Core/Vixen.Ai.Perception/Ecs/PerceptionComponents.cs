@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core;
-using Vixen.Ecs;
 
 namespace Vixen.Ai.Perception.Ecs;
 
@@ -60,12 +59,8 @@ public struct AiPerception {
     /// <param name="config">Its index in the system's <see cref="PerceptionLibrary" />.</param>
     /// <param name="team">Which side it is on.</param>
     /// <returns>The component.</returns>
-    public static AiPerception Sensing(int config, byte team = 0) => new() {
-        Config = (ushort)config,
-        Team = team,
-        ListenerIndex = -1,
-        Enabled = true
-    };
+    public static AiPerception Sensing(int config, byte team = 0) =>
+        new() { Config = (ushort)config, Team = team, ListenerIndex = -1, Enabled = true };
 }
 
 /// <summary>An entity that can be noticed.</summary>
@@ -108,11 +103,12 @@ public struct AiStimuliSource {
     /// <param name="team">Which side it is on.</param>
     /// <param name="senses">Which senses find it.</param>
     /// <returns>The component.</returns>
-    public static AiStimuliSource Perceivable(byte team = 0, SenseMask senses = SenseMask.All) => new() {
-        Senses = senses,
-        Team = team,
-        Strength = 1f,
-        Height = 1f,
-        Enabled = true
-    };
+    public static AiStimuliSource Perceivable(byte team = 0, SenseMask senses = SenseMask.All) =>
+        new() {
+            Senses = senses,
+            Team = team,
+            Strength = 1f,
+            Height = 1f,
+            Enabled = true
+        };
 }

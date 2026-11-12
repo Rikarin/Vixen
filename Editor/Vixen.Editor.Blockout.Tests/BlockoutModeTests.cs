@@ -65,8 +65,8 @@ public class BlockoutModeTests {
 
         // The other claimant, exactly as `ViewportCommands` registers it: bound to the same key, in
         // no context at all.
-        shell.Commands.Add("scene.bookmark-go-2", new StringId("test.bookmark", "View 2"), () => { });
-        shell.Keys.SetDefault("scene.bookmark-go-2", new KeyChord(InputKey.Number2, ModifierKeys.None));
+        shell.Commands.Add("scene.bookmark-go-2", new("test.bookmark", "View 2"), static () => { });
+        shell.Keys.SetDefault("scene.bookmark-go-2", new(InputKey.Number2, ModifierKeys.None));
 
         var chord = new KeyChord(InputKey.Number2, ModifierKeys.None);
 
@@ -131,7 +131,7 @@ public class BlockoutModeTests {
         var (shell, _) = Built();
         using var _shell = shell;
 
-        Assert.Collection(shell.Modes.Bar(), entry => Assert.IsType<ToolbarGroup>(entry));
+        Assert.Collection(shell.Modes.Bar(), static entry => Assert.IsType<ToolbarGroup>(entry));
 
         shell.Modes.Activate(BlockoutMode.ModeId);
 
@@ -144,7 +144,7 @@ public class BlockoutModeTests {
         Assert.IsType<ToolbarSeparator>(bar[1]);
 
         Assert.Equal(
-            [.. Enum.GetValues<BlockoutElement>().Select(BlockoutMode.ElementCommand)],
+            [..Enum.GetValues<BlockoutElement>().Select(BlockoutMode.ElementCommand)],
             Assert.IsType<ToolbarGroup>(bar[2]).CommandIds
         );
 
@@ -157,7 +157,7 @@ public class BlockoutModeTests {
                 BlockoutMode.BevelCommand,
                 BlockoutMode.LoopCutCommand
             ],
-            bar.Skip(4).Select(entry => Assert.IsType<ToolbarButton>(entry).CommandId)
+            bar.Skip(4).Select(static entry => Assert.IsType<ToolbarButton>(entry).CommandId)
         );
     }
 
@@ -171,8 +171,8 @@ public class BlockoutModeTests {
         // Doc 24's P0 ships a Blockout mode "that so far only owns its keys". A press in the pane
         // still picks an entity and the gizmo still has the drag, which is what makes entering the
         // mode safe before P1 exists.
-        Assert.False(mode.Pointer(new PointerEvent()));
-        Assert.False(mode.Key(new KeyEvent()));
+        Assert.False(mode.Pointer(new()));
+        Assert.False(mode.Key(new()));
     }
 
     [Fact]

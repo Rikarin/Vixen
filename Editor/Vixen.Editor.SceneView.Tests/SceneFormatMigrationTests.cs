@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core;
-using Vixen.Core.Mathematics;
 using Vixen.Ecs;
 using Vixen.Editor.Core;
 using Vixen.Engine.Transforms;
@@ -35,8 +34,6 @@ public sealed class SceneFormatMigrationTests : IDisposable {
         if (Directory.Exists(root)) {
             Directory.Delete(root, true);
         }
-
-        GC.SuppressFinalize(this);
     }
 
     [Fact]
@@ -67,9 +64,9 @@ public sealed class SceneFormatMigrationTests : IDisposable {
 
     [Fact]
     public void ALightSurvivesTheNewRoundTrip() {
-        var entity = scene.Add("Lamp", LocalTransform.At(new Vector3(0f, 3f, 0f)));
+        var entity = scene.Add("Lamp", LocalTransform.At(new(0f, 3f, 0f)));
         var authored = Lights.Default(LightKind.Spot);
-        authored.Colour = new Color3(0.2f, 0.4f, 0.6f);
+        authored.Colour = new(0.2f, 0.4f, 0.6f);
         authored.Intensity = 2.5f;
         Lights.Attach(world, entity, authored);
 
@@ -139,7 +136,7 @@ public sealed class SceneFormatMigrationTests : IDisposable {
 
             Assert.True(Lights.TryGet(other, loaded, out var light));
             Assert.Equal(LightKind.Directional, light.Kind);
-            Assert.Equal(new Color3(1f, 0.5f, 0.25f), light.Colour);
+            Assert.Equal(new(1f, 0.5f, 0.25f), light.Colour);
             Assert.Equal(1.5f, light.Intensity);
 
             // ⚠ The file's number and not the factory's, which is the assertion that lets

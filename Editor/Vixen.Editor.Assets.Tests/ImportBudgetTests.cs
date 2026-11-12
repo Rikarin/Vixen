@@ -19,8 +19,12 @@ namespace Vixen.Editor.Assets.Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Doc 08 § Testing states the import budget as a clock — "incremental import of
-///         one asset &lt; 1 s" — and that number cannot be asserted here.</b> (This said "§ Exit
+///         ⚠
+///         <b>
+///             Doc 08 § Testing states the import budget as a clock — "incremental import of
+///             one asset &lt; 1 s" — and that number cannot be asserted here.
+///         </b>
+///         (This said "§ Exit
 ///         criteria"; doc 08 has no such section, and the row is the <c>Scale</c> one in § Testing.)
 ///         This suite runs ten test
 ///         hosts against one disk, and an import is almost entirely filesystem: a wall-clock ceiling
@@ -51,9 +55,13 @@ public sealed class ImportBudgetTests : IDisposable {
     /// <summary>The variable that raises the fixture to the size doc 08 actually names.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Doc 08 § Testing says a hundred thousand and this suite measures ten, which is an
-    ///         order of magnitude — and "the interesting failures in an index rebuild are usually the
-    ///         ones that appear between those two numbers" is exactly right.</b> A target nothing
+    ///         ⚠
+    ///         <b>
+    ///             Doc 08 § Testing says a hundred thousand and this suite measures ten, which is an
+    ///             order of magnitude — and "the interesting failures in an index rebuild are usually the
+    ///             ones that appear between those two numbers" is exactly right.
+    ///         </b>
+    ///         A target nothing
     ///         measures is not a target.
     ///     </para>
     ///     <para>
@@ -67,8 +75,11 @@ public sealed class ImportBudgetTests : IDisposable {
     ///         asked for by name, the way <c>VIXEN_FUZZ_SECONDS</c> is.
     ///     </para>
     ///     <para>
-    ///         <c>VIXEN_IMPORT_SCALE=100000 dotnet test Editor/Vixen.Editor.Assets.Tests --filter
-    ///         "FullyQualifiedName~ImportBudgetTests"</c>, and read the times out of the message.
+    ///         <c>
+    ///             VIXEN_IMPORT_SCALE=100000 dotnet test Editor/Vixen.Editor.Assets.Tests --filter
+    ///             "FullyQualifiedName~ImportBudgetTests"
+    ///         </c>
+    ///         , and read the times out of the message.
     ///     </para>
     /// </remarks>
     public const string ScaleVariable = "VIXEN_IMPORT_SCALE";
@@ -86,7 +97,8 @@ public sealed class ImportBudgetTests : IDisposable {
             NumberStyles.Integer,
             CultureInfo.InvariantCulture,
             out var asked
-        ) && asked >= 100
+        )
+        && asked >= 100
             ? asked
             : 10_000;
 
@@ -104,7 +116,7 @@ public sealed class ImportBudgetTests : IDisposable {
     public void Dispose() {
         try {
             if (Directory.Exists(root)) {
-                Directory.Delete(root, recursive: true);
+                Directory.Delete(root, true);
             }
         } catch (IOException) {
             // A temporary directory that would not go is not a test failure.
@@ -211,11 +223,11 @@ public sealed class ImportBudgetTests : IDisposable {
         // 150 it read ×2.00 against ×3.99, and the only thing raising it buys is a longer run.
         const int Small = 100;
 
-        var linear = await Opens(Small, peerReading: false);
-        var doubled = await Opens(Small * 2, peerReading: false);
+        var linear = await Opens(Small, false);
+        var doubled = await Opens(Small * 2, false);
 
-        var quadraticSmall = await Opens(Small, peerReading: true);
-        var quadraticDoubled = await Opens(Small * 2, peerReading: true);
+        var quadraticSmall = await Opens(Small, true);
+        var quadraticDoubled = await Opens(Small * 2, true);
 
         var honest = (double)doubled / linear;
         var broken = (double)quadraticDoubled / quadraticSmall;
@@ -246,8 +258,12 @@ public sealed class ImportBudgetTests : IDisposable {
     ///         build runs.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The counts come back from the fixture rather than being computed a second time
-    ///         here</b>, which is what this suite got out of <see cref="FixtureProject" />: the entry
+    ///         ⚠
+    ///         <b>
+    ///             The counts come back from the fixture rather than being computed a second time
+    ///             here
+    ///         </b>
+    ///         , which is what this suite got out of <see cref="FixtureProject" />: the entry
     ///         count used to be <c>Files + (Files / 100) + 1</c>, written beside the loop that made
     ///         the folders it is counting, and the two would have drifted the first time either
     ///         moved. <see cref="FixtureProject.Written.Entries" /> is read off the disk the fixture
@@ -259,9 +275,9 @@ public sealed class ImportBudgetTests : IDisposable {
     /// <summary>Imports the project through the call the CLI and the editor both make.</summary>
     static async Task<ImportSummary> ImportAsync(ProjectPaths paths) {
         var summary = await ContentPipeline.ImportAsync(
-            new ProjectWorkspace(paths),
+            new(paths),
             "Windows",
-            diagnostic => Assert.NotEqual(ImportSeverity.Error, diagnostic.Severity),
+            static diagnostic => Assert.NotEqual(ImportSeverity.Error, diagnostic.Severity),
             cancellationToken: TestContext.Current.CancellationToken
         );
 
@@ -290,7 +306,8 @@ public sealed class ImportBudgetTests : IDisposable {
 
         var pipeline = new ImportPipeline(
             database,
-            new ImporterRegistry().Add(new PaletteImporter { ReadsEveryPeer = peerReading }).AddFallback(new RawImporter()),
+            new ImporterRegistry().Add(new PaletteImporter { ReadsEveryPeer = peerReading })
+                .AddFallback(new RawImporter()),
             artifacts,
             files
         ) {
@@ -306,8 +323,8 @@ public sealed class ImportBudgetTests : IDisposable {
 
     static ObjectDatabase Artifacts() {
         var files = new VirtualFileSystem();
-        files.Mount(new VirtualPath("/"), new MemoryFileProvider());
-        return new(new FileOdbBackend(files, new VirtualPath("/artifacts")));
+        files.Mount(new("/"), new MemoryFileProvider());
+        return new(new FileOdbBackend(files, new("/artifacts")));
     }
 
     static string Report(ImportSummary cold, ImportSummary warm, ImportSummary incremental) =>

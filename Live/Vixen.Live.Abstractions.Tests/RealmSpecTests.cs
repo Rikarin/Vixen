@@ -30,7 +30,7 @@ public sealed class RealmSpecTests {
         var spec = Sample();
 
         Assert.True(RealmSpec.TryDecode(spec.Encode(), out var read, out var error));
-        Assert.Equal("", error);
+        Assert.Equal(string.Empty, error);
         Assert.Equal(spec, read);
     }
 
@@ -38,8 +38,7 @@ public sealed class RealmSpecTests {
     public void OptionsSurviveAndStayOutOfTheEngineNamespace() {
         var spec = Sample() with {
             Options = new Dictionary<string, string>(StringComparer.Ordinal) {
-                ["difficulty"] = "veteran",
-                ["event"] = "halloween"
+                ["difficulty"] = "veteran", ["event"] = "halloween"
             }
         };
 
@@ -152,7 +151,7 @@ public sealed class RealmSpecTests {
 
     [Fact]
     public void AProcessThatIsNotARealmIsToldSo() {
-        Assert.False(RealmSpec.TryRead(["--help"], _ => null, out var spec, out var error));
+        Assert.False(RealmSpec.TryRead(["--help"], static _ => null, out var spec, out var error));
         Assert.Null(spec);
         Assert.Contains(RealmSpec.ArgumentName, error, StringComparison.Ordinal);
         Assert.Contains(RealmSpec.EnvironmentVariable, error, StringComparison.Ordinal);
@@ -160,8 +159,8 @@ public sealed class RealmSpecTests {
 
     [Fact]
     public void ATrailingArgumentNameWithNoValueIsRefusedRatherThanIndexedPast() {
-        Assert.False(RealmSpec.TryRead([RealmSpec.ArgumentName], _ => null, out _, out var error));
-        Assert.NotEqual("", error);
+        Assert.False(RealmSpec.TryRead([RealmSpec.ArgumentName], static _ => null, out _, out var error));
+        Assert.NotEqual(string.Empty, error);
     }
 
     [Fact]

@@ -43,7 +43,7 @@ internal static class Arguments {
 
                 // One argument per line, so a path with a space in it needs no quoting — which is
                 // the other half of why the response file exists at all.
-                flat.AddRange(File.ReadAllLines(path).Where(line => line.Length > 0));
+                flat.AddRange(File.ReadAllLines(path).Where(static line => line.Length > 0));
                 continue;
             }
 
@@ -68,8 +68,15 @@ internal static class Arguments {
                 // is deleted rather than ported — so a build still passing it is a build whose
                 // .targets and whose tool are different versions, which is exactly the case the
                 // unknown-option error above exists to make loud.
-                case "--theme" or "--scan" or "--base" or "--safelist" or "--output"
-                    or "--accessor" or "--namespace" or "--class" or "--report":
+                case "--theme"
+                    or "--scan"
+                    or "--base"
+                    or "--safelist"
+                    or "--output"
+                    or "--accessor"
+                    or "--namespace"
+                    or "--class"
+                    or "--report":
                     break;
 
                 default:
@@ -98,7 +105,6 @@ internal static class Arguments {
                 case "--base": bases.Add(value); break;
                 case "--safelist": safelist.Add(value); break;
                 case "--theme": themes.Add(value); break;
-                default: break;
             }
         }
 

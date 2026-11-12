@@ -23,7 +23,10 @@ public sealed class MipChainTests {
     public void ASideThatReachesOneStaysThereWhileTheOtherKeepsHalving() {
         var texture = new TextureData(PixelFormat.R8UNorm, 8, 2);
 
-        Assert.Equal([(8, 2), (4, 1), (2, 1), (1, 1)], texture.Levels.Select(level => (level.Width, level.Height)));
+        Assert.Equal(
+            [(8, 2), (4, 1), (2, 1), (1, 1)],
+            texture.Levels.Select(static level => (level.Width, level.Height))
+        );
     }
 
     /// <summary>
@@ -96,8 +99,8 @@ public sealed class MipChainTests {
     /// </summary>
     [Fact]
     public void ACompressedFormatIsRefusedWithTheReason() {
-        var failure = Assert.Throws<NotSupportedException>(
-            () => MipChain.Generate(new TextureData(PixelFormat.Bc7RgbaUNorm, 8, 8))
+        var failure = Assert.Throws<NotSupportedException>(static () =>
+            MipChain.Generate(new(PixelFormat.Bc7RgbaUNorm, 8, 8))
         );
 
         Assert.Contains("before compression", failure.Message, StringComparison.Ordinal);
@@ -124,7 +127,8 @@ public sealed class MipChainTests {
     [Fact]
     public void AveragingInLinearLightIsBrighterThanAveragingTheEncodedValues() {
         var encodedMean = (0 + 255) / 2;
-        var linearMean = MipChain.Srgb.FromLinear((MipChain.Srgb.ToLinearTable[0] + MipChain.Srgb.ToLinearTable[255]) / 2f);
+        var linearMean =
+            MipChain.Srgb.FromLinear((MipChain.Srgb.ToLinearTable[0] + MipChain.Srgb.ToLinearTable[255]) / 2f);
 
         Assert.Equal(127, encodedMean);
         Assert.Equal(188, linearMean);
@@ -148,9 +152,9 @@ public sealed class MipChainTests {
             for (var texel = 0; texel < 4; texel++) {
                 var white = texel % 2 == 0;
                 pixels[texel * 4] = white ? (byte)255 : (byte)0;
-                pixels[(texel * 4) + 1] = white ? (byte)255 : (byte)0;
-                pixels[(texel * 4) + 2] = white ? (byte)255 : (byte)0;
-                pixels[(texel * 4) + 3] = 255;
+                pixels[texel * 4 + 1] = white ? (byte)255 : (byte)0;
+                pixels[texel * 4 + 2] = white ? (byte)255 : (byte)0;
+                pixels[texel * 4 + 3] = 255;
             }
 
             MipChain.Generate(texture, options);
@@ -233,21 +237,21 @@ public sealed class MipChainTests {
 
         for (var texel = 0; texel < 4; texel++) {
             pixels[texel * 4] = leaning[texel].X;
-            pixels[(texel * 4) + 1] = leaning[texel].Y;
-            pixels[(texel * 4) + 2] = 218;
-            pixels[(texel * 4) + 3] = 255;
+            pixels[texel * 4 + 1] = leaning[texel].Y;
+            pixels[texel * 4 + 2] = 218;
+            pixels[texel * 4 + 3] = 255;
         }
 
         MipChain.Generate(texture, MipOptions.NormalMap);
 
         var reduced = texture.Level(1);
-        var x = (reduced[0] / 255f * 2f) - 1f;
-        var y = (reduced[1] / 255f * 2f) - 1f;
-        var z = (reduced[2] / 255f * 2f) - 1f;
+        var x = reduced[0] / 255f * 2f - 1f;
+        var y = reduced[1] / 255f * 2f - 1f;
+        var z = reduced[2] / 255f * 2f - 1f;
 
         // Within a fiftieth: what is stored is a byte per channel, so a unit vector comes back as
         // a vector of length one give or take a step of the encoding.
-        Assert.Equal(1f, MathF.Sqrt((x * x) + (y * y) + (z * z)), tolerance: 0.02f);
+        Assert.Equal(1f, MathF.Sqrt(x * x + y * y + z * z), 0.02f);
 
         // These four cancel in x and y, so what is left is straight up.
         Assert.True(z > 0.99f, $"the averaged normal points at {x}, {y}, {z}");
@@ -265,21 +269,21 @@ public sealed class MipChainTests {
 
         for (var texel = 0; texel < 4; texel++) {
             pixels[texel * 4] = leaning[texel].X;
-            pixels[(texel * 4) + 1] = leaning[texel].Y;
-            pixels[(texel * 4) + 2] = 218;
-            pixels[(texel * 4) + 3] = 255;
+            pixels[texel * 4 + 1] = leaning[texel].Y;
+            pixels[texel * 4 + 2] = 218;
+            pixels[texel * 4 + 3] = 255;
         }
 
         MipChain.Generate(texture, MipOptions.Linear);
 
         var reduced = texture.Level(1);
-        var x = (reduced[0] / 255f * 2f) - 1f;
-        var y = (reduced[1] / 255f * 2f) - 1f;
-        var z = (reduced[2] / 255f * 2f) - 1f;
+        var x = reduced[0] / 255f * 2f - 1f;
+        var y = reduced[1] / 255f * 2f - 1f;
+        var z = reduced[2] / 255f * 2f - 1f;
 
         // Four unit vectors averaging to one of length 0.71: nearly thirty per cent short, and a
         // shader that normalises this back gets the direction right and the shading history wrong.
-        var length = MathF.Sqrt((x * x) + (y * y) + (z * z));
+        var length = MathF.Sqrt(x * x + y * y + z * z);
         Assert.True(length < 0.75f, $"the unweighted mean came out {length} long");
     }
 
@@ -315,8 +319,7 @@ public sealed class MipChainTests {
     /// </summary>
     [Fact]
     public void AskingForBothColourAndNormalsIsRefused() {
-        var failure = Assert.Throws<ArgumentException>(
-            () => MipChain.Generate(
+        var failure = Assert.Throws<ArgumentException>(() => MipChain.Generate(
                 new(PixelFormat.Rgba8UNorm, 2, 2),
                 new() { Srgb = true, RenormaliseNormals = true }
             )
@@ -327,8 +330,10 @@ public sealed class MipChainTests {
 
     [Fact]
     public void AlphaWeightingAFormatWithNoAlphaIsRefused() {
-        var failure = Assert.Throws<ArgumentException>(
-            () => MipChain.Generate(new(PixelFormat.R8UNorm, 2, 2), new() { AlphaWeighted = true })
+        var failure = Assert.Throws<ArgumentException>(() => MipChain.Generate(
+                new(PixelFormat.R8UNorm, 2, 2),
+                new() { AlphaWeighted = true }
+            )
         );
 
         Assert.Contains("no alpha channel", failure.Message, StringComparison.Ordinal);
@@ -344,7 +349,7 @@ public sealed class MipChainTests {
             var value = texel < 2 ? (ushort)0 : (ushort)65535;
 
             for (var channel = 0; channel < 4; channel++) {
-                BitConverter.TryWriteBytes(pixels[(((texel * 4) + channel) * 2)..], value);
+                BitConverter.TryWriteBytes(pixels[((texel * 4 + channel) * 2)..], value);
             }
         }
 
@@ -427,15 +432,15 @@ public sealed class MipChainTests {
 
         for (var texel = 0; texel < 4; texel++) {
             BitConverter.TryWriteBytes(pixels[(texel * 4)..], (ushort)((leanX[texel] + 1f) * 0.5f * 65535f));
-            BitConverter.TryWriteBytes(pixels[((texel * 4) + 2)..], (ushort)32768);
+            BitConverter.TryWriteBytes(pixels[(texel * 4 + 2)..], (ushort)32768);
         }
 
         MipChain.Generate(texture, MipOptions.NormalMap);
 
-        var x = (BitConverter.ToUInt16(texture.Level(1)) / 65535f * 2f) - 1f;
-        var y = (BitConverter.ToUInt16(texture.Level(1)[2..]) / 65535f * 2f) - 1f;
+        var x = BitConverter.ToUInt16(texture.Level(1)) / 65535f * 2f - 1f;
+        var y = BitConverter.ToUInt16(texture.Level(1)[2..]) / 65535f * 2f - 1f;
 
-        Assert.True((x * x) + (y * y) <= 1f, "a reconstructed z needs the pair to be inside the unit circle");
+        Assert.True(x * x + y * y <= 1f, "a reconstructed z needs the pair to be inside the unit circle");
         Assert.InRange(x, 0.05f, 0.15f);
     }
 
@@ -480,7 +485,10 @@ public sealed class MipChainTests {
 
                 // Each step of the narrower chain rounds a value the next step averages, so the
                 // two drift apart by at most a level per step down.
-                Assert.True(Math.Abs(rounded - eight[at]) <= level, $"level {level} byte {at}: {rounded:F2} against {eight[at]}");
+                Assert.True(
+                    Math.Abs(rounded - eight[at]) <= level,
+                    $"level {level} byte {at}: {rounded:F2} against {eight[at]}"
+                );
             }
         }
     }
@@ -517,10 +525,12 @@ public sealed class MipChainTests {
         texture.LevelSpan(0).Fill(0x7F);
         MipChain.Generate(texture);
 
-        Assert.All(texture.Level(texture.LevelCount - 1).ToArray(), value => Assert.Equal(0x7F, value));
+        Assert.All(texture.Level(texture.LevelCount - 1).ToArray(), static value => Assert.Equal(0x7F, value));
     }
 
     [Fact]
     public void AVolumeWithAChainIsRefusedRatherThanHalfFilled() =>
-        Assert.Throws<NotSupportedException>(() => MipChain.Generate(new TextureData(PixelFormat.Rgba8UNorm, 4, 4, depth: 4)));
+        Assert.Throws<NotSupportedException>(static () =>
+            MipChain.Generate(new(PixelFormat.Rgba8UNorm, 4, 4, depth: 4))
+        );
 }

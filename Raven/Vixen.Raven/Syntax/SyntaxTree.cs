@@ -47,7 +47,7 @@ public sealed class SyntaxTree : ISyntaxTree {
 
     public bool TryGetRoot(out SyntaxNode? root) {
         root = this.root;
-        return root != null;
+        return root is not null;
     }
 
     public static SyntaxTree Create(
@@ -69,8 +69,12 @@ public sealed class SyntaxTree : ISyntaxTree {
     ///         <see cref="SourceText" />, applies <c>WithChanges</c>, and hands the result here.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>No editor does, and the first clause of that sentence is the reason rather than
-    ///         an oversight.</b> Nothing in this repository calls <c>SourceText.WithChanges</c> at
+    ///         ⚠
+    ///         <b>
+    ///             No editor does, and the first clause of that sentence is the reason rather than
+    ///             an oversight.
+    ///         </b>
+    ///         Nothing in this repository calls <c>SourceText.WithChanges</c> at
     ///         all, so no text anywhere has a predecessor —
     ///         <c>SourceText.GetChangeRanges</c> answers with real ranges only for the immediate
     ///         one and otherwise reports the whole document. The editor's <c>.rvn</c> reload is a
@@ -184,16 +188,24 @@ public sealed class SyntaxTree : ISyntaxTree {
     /// <summary>Whether a node's parse ran to the end without complaining.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Two questions, because a diagnostic does not always land inside the node whose
-    ///         parse produced it.</b> The parser reports where it is <i>standing</i>, and recovery can
+    ///         ⚠
+    ///         <b>
+    ///             Two questions, because a diagnostic does not always land inside the node whose
+    ///             parse produced it.
+    ///         </b>
+    ///         The parser reports where it is <i>standing</i>, and recovery can
     ///         have carried that well past the construct it was reading — leaving a node that is
     ///         plainly broken and whose own span no diagnostic touches. The fabricated token, though,
     ///         is always inside: so nothing reported over these characters, <em>and</em> nothing
     ///         missing among them.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The window runs to the first token <i>after</i> the node, and that extra reach is
-    ///         a second defect rather than caution.</b> A member declaration ends by requiring a line
+    ///         ⚠
+    ///         <b>
+    ///             The window runs to the first token <i>after</i> the node, and that extra reach is
+    ///             a second defect rather than caution.
+    ///         </b>
+    ///         A member declaration ends by requiring a line
     ///         break — <c>ExpectSingleNewLine</c>, the last thing <c>ParseMemberDeclaration</c> does —
     ///         and that check reports where the parser is standing, which is the next real token and
     ///         not anything the member owns. Reuse skips it, because <c>TryReuseMember</c> returns
@@ -208,8 +220,12 @@ public sealed class SyntaxTree : ISyntaxTree {
     ///         wrongly reused is a diagnostic that silently disappears from an editor.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And the skip is over the lexer's trivia, not over whitespace, which is the third
-    ///         defect in this one window.</b> It used to walk <see cref="char.IsWhiteSpace(char)" />
+    ///         ⚠
+    ///         <b>
+    ///             And the skip is over the lexer's trivia, not over whitespace, which is the third
+    ///             defect in this one window.
+    ///         </b>
+    ///         It used to walk <see cref="char.IsWhiteSpace(char)" />
     ///         and stop at the first character that was not — so a <i>comment</i> between the member
     ///         and the offending token ended the window early and the member looked clean. The
     ///         smallest case is <c>var threshold: float/* ck */tp</c>: the block comment is the next
@@ -298,7 +314,7 @@ public sealed class SyntaxTree : ISyntaxTree {
         string? path = "",
         Encoding? encoding = default
     ) =>
-        ParseText(text, options, path, encoding, blender: null);
+        ParseText(text, options, path, encoding, null);
 
     static SyntaxTree ParseText(
         string text,

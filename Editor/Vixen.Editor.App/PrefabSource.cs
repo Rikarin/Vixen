@@ -4,7 +4,6 @@
 using System.Diagnostics.CodeAnalysis;
 using Vixen.Core;
 using Vixen.Core.Mathematics;
-using Vixen.Ecs;
 using Vixen.Editor.Core;
 using Vixen.Editor.Core.Scenes;
 using Vixen.Editor.Inspector;
@@ -23,8 +22,12 @@ namespace Vixen.Editor.App;
 ///         rather than silently.
 ///     </para>
 ///     <para>
-///         ⚠⚠ <b>Overridden means "the instance claims it", read from
-///         <see cref="SceneDocument.Prefabs" />.</b> The previous implementation compared the
+///         ⚠⚠
+///         <b>
+///             Overridden means "the instance claims it", read from
+///             <see cref="SceneDocument.Prefabs" />.
+///         </b>
+///         The previous implementation compared the
 ///         inspected object's value with the template's, which is model (A) of doc 47 § 3 and is
 ///         rejected there: a comparison cannot see an override to <c>0</c>, nor an override to a value
 ///         that happens to equal the template's, so the row would quietly stop being marked and the
@@ -33,8 +36,12 @@ namespace Vixen.Editor.App;
 ///         reads it.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The editor application's <c>SceneEntity</c>'s position and rotation are world space
-///         and <see cref="SceneEntityData" />'s are relative to the parent.</b> The two objects a pairing
+///         ⚠
+///         <b>
+///             The editor application's <c>SceneEntity</c>'s position and rotation are world space
+///             and <see cref="SceneEntityData" />'s are relative to the parent.
+///         </b>
+///         The two objects a pairing
 ///         joins do not mean the same thing by "position", so <see cref="TryGetPrefabValue" /> takes
 ///         the template's value through the instance's parent before handing it back — otherwise a
 ///         revert would write a local value into a world-space setter and put the entity somewhere
@@ -79,8 +86,10 @@ public sealed class PrefabSource : IPrefabSource {
     /// <summary>Says which entity an inspected object stands for, and which part of it.</summary>
     /// <param name="target">The object an inspector will show.</param>
     /// <param name="entity">The entity it stands for.</param>
-    /// <param name="dataAlias">The <c>[DataContract]</c> alias when the object is a component, or empty
-    ///     when it is the entity itself.</param>
+    /// <param name="dataAlias">
+    ///     The <c>[DataContract]</c> alias when the object is a component, or empty
+    ///     when it is the entity itself.
+    /// </param>
     /// <remarks>
     ///     ⚠ <b>The alias and not the component's type.</b> A member path in the format is
     ///     <c>Alias.Member</c> — doc 47 § 4 — and the alias is what a <c>.vxscene</c> already writes
@@ -209,8 +218,12 @@ public sealed class PrefabSource : IPrefabSource {
 
     /// <summary>The template entity one of the scene's entities is to be read against.</summary>
     /// <remarks>
-    ///     ⚠ <b>The outer template first, which is nesting's whole rule and is
-    ///     <c>PrefabOverrides.TryPair</c>'s, restated over the live world.</b> A run sitting inside an
+    ///     ⚠
+    ///     <b>
+    ///         The outer template first, which is nesting's whole rule and is
+    ///         <c>PrefabOverrides.TryPair</c>'s, restated over the live world.
+    ///     </b>
+    ///     A run sitting inside an
     ///     instance of another prefab <i>is</i> that prefab's copy of it, the outer author's overrides
     ///     included, so reaching past it to the inner prefab's own file would show — and revert to —
     ///     values the outer template does not have.
@@ -319,7 +332,6 @@ public sealed class PrefabSource : IPrefabSource {
     /// <summary>Which entity an inspected object stands for, and which part of it.</summary>
     readonly record struct Pairing(Entity Entity, string Alias) {
         /// <summary>The member path the format spells this member as.</summary>
-        public string PathTo(InspectorMember member) =>
-            Alias.Length == 0 ? member.Name : $"{Alias}.{member.Name}";
+        public string PathTo(InspectorMember member) => Alias.Length == 0 ? member.Name : $"{Alias}.{member.Name}";
     }
 }

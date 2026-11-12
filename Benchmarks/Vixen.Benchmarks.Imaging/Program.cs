@@ -23,20 +23,42 @@ const int PsnrSize = 1024;
 Console.WriteLine($"{RuntimeSummary()}");
 Console.WriteLine();
 Console.WriteLine($"PSNR at {PsnrSize}², dB");
-Console.WriteLine($"{"image",-28}{"format",-8}{string.Join("", qualities.Select(quality => $"{quality,10}"))}");
+Console.WriteLine(
+    $"{"image",-28}{"format",-8}{string.Join(string.Empty, qualities.Select(static quality => $"{quality,10}"))}"
+);
 
 foreach (var (name, make) in ReferenceImages.LowDynamicRange) {
     var image = make(PsnrSize);
 
-    Row(name, "BC7", image, PixelFormat.Bc7RgbaUNorm, (original, decoded) => ReferenceImages.Psnr(original, decoded));
+    Row(
+        name,
+        "BC7",
+        image,
+        PixelFormat.Bc7RgbaUNorm,
+        static (original, decoded) => ReferenceImages.Psnr(original, decoded)
+    );
 }
 
-Row("HDR light edge", "BC6H", ReferenceImages.HighDynamicRange(PsnrSize), PixelFormat.Bc6HRgbUFloat, ReferenceImages.HalfPsnr);
-Row("HDR, signed", "BC6Hs", ReferenceImages.SignedHighDynamicRange(PsnrSize), PixelFormat.Bc6HRgbSFloat, ReferenceImages.HalfPsnr);
+Row(
+    "HDR light edge",
+    "BC6H",
+    ReferenceImages.HighDynamicRange(PsnrSize),
+    PixelFormat.Bc6HRgbUFloat,
+    ReferenceImages.HalfPsnr
+);
+Row(
+    "HDR, signed",
+    "BC6Hs",
+    ReferenceImages.SignedHighDynamicRange(PsnrSize),
+    PixelFormat.Bc6HRgbSFloat,
+    ReferenceImages.HalfPsnr
+);
 
 Console.WriteLine();
 Console.WriteLine("Encode time, seconds, whole process on every core");
-Console.WriteLine($"{"image",-28}{"format",-8}{"size",-7}{string.Join("", qualities.Select(quality => $"{quality,10}"))}");
+Console.WriteLine(
+    $"{"image",-28}{"format",-8}{"size",-7}{string.Join(string.Empty, qualities.Select(static quality => $"{quality,10}"))}"
+);
 
 foreach (var size in quick ? [2048] : new[] { 2048, 4096 }) {
     Time("filtered noise", "BC7", ReferenceImages.FilteredNoise(size), PixelFormat.Bc7RgbaUNorm, size);

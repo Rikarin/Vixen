@@ -9,17 +9,24 @@ namespace Vixen.Texturing;
 /// <summary>Every diagnostic id this assembly reports, and the one sentence each of them means.</summary>
 /// <remarks>
 ///     <para>
-///         <b><a href="https://github.com/Rikarin/Vixen/issues/936">#936</a>: the shape
-///         <a href="https://github.com/Rikarin/Vixen/issues/804">#804</a> gave
-///         <c>Vixen.TextureGraph</c>, applied to the assembly next door before it has anything
-///         to collide with.</b> There is exactly one id here today, so nothing is broken and that is
+///         <b>
+///             <a href="https://github.com/Rikarin/Vixen/issues/936">#936</a>: the shape
+///             <a href="https://github.com/Rikarin/Vixen/issues/804">#804</a> gave
+///             <c>Vixen.TextureGraph</c>, applied to the assembly next door before it has anything
+///             to collide with.
+///         </b>
+///         There is exactly one id here today, so nothing is broken and that is
 ///         the point of doing it now: <c>TG0012</c>, <c>TG0017</c> and <c>TG0018</c> each came to mean
 ///         two things because a tenth call site typed four characters no list anywhere held, and a
 ///         call site cannot know what the first one means when there is nowhere to read it.
 ///     </para>
 ///     <para>
-///         ⚠ <b><c>TX</c> is not a second prefix for the texture graph, and folding it into
-///         <c>TG</c> would be the wrong tidy-up</b> — which the issue asked to be checked before the
+///         ⚠
+///         <b>
+///             <c>TX</c> is not a second prefix for the texture graph, and folding it into
+///             <c>TG</c> would be the wrong tidy-up
+///         </b>
+///         — which the issue asked to be checked before the
 ///         shape was copied, and the answer is no. <c>TG…</c> is what the <em>compiler</em> says about
 ///         a graph: a node that refused, an expression that will not fold. <c>TX0000</c> is what the
 ///         <em>document</em> says when the file did not parse at all, and it has three siblings
@@ -29,8 +36,12 @@ namespace Vixen.Texturing;
 ///         spelling "this file is unreadable" unlike the other three, and that one is worse.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Both halves of that paragraph's successor are closed —
-///         <a href="https://github.com/Rikarin/Vixen/issues/963">#963</a>.</b> It said the three
+///         ⚠
+///         <b>
+///             Both halves of that paragraph's successor are closed —
+///             <a href="https://github.com/Rikarin/Vixen/issues/963">#963</a>.
+///         </b>
+///         It said the three
 ///         siblings were still bare literals and that <c>ILayerStackDocument</c> reported its load
 ///         failure with no id at all. <c>AssetEditorDiagnostics</c> now declares those three and the
 ///         six the same assembly reports beside them — nine, not three, which the issue did not know
@@ -74,8 +85,12 @@ public static class TexturingDiagnostics {
     ///     mode a later version added — so the document opened on an empty stack.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>Wider than <see cref="GraphFileDoesNotParse" />, because <c>LayerStackYaml.Read</c>
-    ///     refuses rather than defaults.</b> A blend mode this build cannot spell would otherwise
+    ///     ⚠
+    ///     <b>
+    ///         Wider than <see cref="GraphFileDoesNotParse" />, because <c>LayerStackYaml.Read</c>
+    ///         refuses rather than defaults.
+    ///     </b>
+    ///     A blend mode this build cannot spell would otherwise
     ///     composite every layer using it as a <c>Copy</c>, which is a picture rather than an error —
     ///     so an unreadable *value* lands here alongside bytes that are not YAML.
     /// </remarks>
@@ -91,10 +106,10 @@ public static class TexturingDiagnostics {
     ///     distinct.
     /// </remarks>
     internal static ImmutableArray<string> Ids { get; } = [
-        .. typeof(TexturingDiagnostics)
+        ..typeof(TexturingDiagnostics)
             .GetFields(BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic)
-            .Where(field => field.IsLiteral && field.FieldType == typeof(string))
-            .Select(field => (string)field.GetRawConstantValue()!)
+            .Where(static field => field.IsLiteral && field.FieldType == typeof(string))
+            .Select(static field => (string)field.GetRawConstantValue()!)
             .Order(StringComparer.Ordinal)
     ];
 }

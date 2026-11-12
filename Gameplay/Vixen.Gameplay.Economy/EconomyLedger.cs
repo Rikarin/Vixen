@@ -6,8 +6,11 @@ namespace Vixen.Gameplay.Economy;
 /// <summary>One side of a movement: a player, or a place in the world that is not one.</summary>
 /// <remarks>
 ///     <para>
-///         <b>The gameplay-side mirror of doc 27's <c>LedgerAccount</c>, and it has to be a mirror
-///         rather than the thing itself</b> — the ledger is <c>Live/</c>'s and doc 28's spine says
+///         <b>
+///             The gameplay-side mirror of doc 27's <c>LedgerAccount</c>, and it has to be a mirror
+///             rather than the thing itself
+///         </b>
+///         — the ledger is <c>Live/</c>'s and doc 28's spine says
 ///         <c>Gameplay/</c> may not reference it. So this library says what must move and the realm
 ///         translates, which is task #27's bridge and the same shape <c>IPityStore</c> has.
 ///     </para>
@@ -118,7 +121,7 @@ public sealed class EconomyIntent {
         ArgumentNullException.ThrowIfNull(movements);
 
         Key = key ?? string.Empty;
-        this.movements = [.. movements];
+        this.movements = [..movements];
         Detail = detail ?? string.Empty;
     }
 
@@ -192,8 +195,12 @@ public interface IEconomyLedger {
 /// <summary>An <see cref="IEconomyLedger" /> in memory. For tests, and for a single-process game.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Built with <see cref="KeyHorizon.Never" />, so a long-running realm leaks until it
-///         says otherwise.</b> Every applied key is kept for ever by default, which over a week of
+///         ⚠
+///         <b>
+///             Built with <see cref="KeyHorizon.Never" />, so a long-running realm leaks until it
+///             says otherwise.
+///         </b>
+///         Every applied key is kept for ever by default, which over a week of
 ///         uptime is every key of that week — <c>Samples/14-Mmo</c>'s soak measures it at about a
 ///         megabyte a minute. Pass a <see cref="KeyHorizon" /> and call <see cref="Forget" /> off the
 ///         frame path; see that type for why the default is the leak rather than a chosen number.
@@ -256,8 +263,7 @@ public sealed class MemoryEconomyLedger : IEconomyLedger {
     public long Forgotten => forgotten;
 
     /// <inheritdoc />
-    public long Balance(EconomyAccount account, DefId asset) =>
-        balances.GetValueOrDefault((account, asset.Value));
+    public long Balance(EconomyAccount account, DefId asset) => balances.GetValueOrDefault((account, asset.Value));
 
     /// <summary>Everything an account holds, in address order of the asset id.</summary>
     /// <param name="account">Whose.</param>
@@ -265,8 +271,8 @@ public sealed class MemoryEconomyLedger : IEconomyLedger {
     public IEnumerable<(DefId Asset, long Amount)> Holdings(EconomyAccount account) =>
         balances
             .Where(entry => entry.Key.Account == account && entry.Value != 0)
-            .Select(entry => (new DefId(entry.Key.Asset), entry.Value))
-            .OrderBy(entry => entry.Item1.Value);
+            .Select(static entry => (new DefId(entry.Key.Asset), entry.Value))
+            .OrderBy(static entry => entry.Item1.Value);
 
     /// <summary>What every account holds of one asset, added up.</summary>
     /// <param name="asset">What.</param>
@@ -289,8 +295,11 @@ public sealed class MemoryEconomyLedger : IEconomyLedger {
     /// <returns>How many rows were dropped.</returns>
     /// <remarks>
     ///     <para>
-    ///         <b>The mirror of a realm seeding a player's balances when they arrive, and a realm that
-    ///         does not do it holds every departed player's purse for ever.</b> Five hundred players
+    ///         <b>
+    ///             The mirror of a realm seeding a player's balances when they arrive, and a realm that
+    ///             does not do it holds every departed player's purse for ever.
+    ///         </b>
+    ///         Five hundred players
     ///         travelling between shards is a row per player per asset per arrival, none of which any
     ///         query will ever name again.
     ///     </para>
@@ -302,8 +311,12 @@ public sealed class MemoryEconomyLedger : IEconomyLedger {
     ///         one for the same handover would make the ledger disagree with itself.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The balances are moved rather than deleted, which is why this takes a
-    ///         destination.</b> Deleting the rows would leave whatever seeded them holding the negative
+    ///         ⚠
+    ///         <b>
+    ///             The balances are moved rather than deleted, which is why this takes a
+    ///             destination.
+    ///         </b>
+    ///         Deleting the rows would leave whatever seeded them holding the negative
     ///         of a purse nothing balances, and <see cref="Total" /> — the ledger's own arithmetic
     ///         check — would stop summing to zero. A leak fixed by breaking the invariant that finds
     ///         duplication bugs is a bad trade.
@@ -408,8 +421,12 @@ public sealed class MemoryEconomyLedger : IEconomyLedger {
     ///         calls this leaks, and leaking is the failure this type is willing to have.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A clock that jumps forward past the whole horizon empties the set rather than
-    ///         catching up one generation per call.</b> Both are correct — everything held is older
+    ///         ⚠
+    ///         <b>
+    ///             A clock that jumps forward past the whole horizon empties the set rather than
+    ///             catching up one generation per call.
+    ///         </b>
+    ///         Both are correct — everything held is older
     ///         than the horizon either way — and the difference is that the second spends the next
     ///         eight calls doing it, which is a stall a host that paused the process for an hour does
     ///         not need on top of the pause. A clock that jumps <em>backwards</em> forgets nothing

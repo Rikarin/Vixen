@@ -84,12 +84,12 @@ public class MeshBooleanTests {
         var made = MeshBoolean.Apply(slab, column, BooleanOperation.Difference);
 
         AssertSolid(made, "difference");
-        Assert.Equal((6f * 1f * 6f) - (2f * 1f * 2f), Volume(made!), 2);
+        Assert.Equal(6f * 1f * 6f - 2f * 1f * 2f, Volume(made!), 2);
 
         // ⚠ And the reveal is the *cutter's* faces, shifted into their own groups — which is what
         // makes "give the hole a different material" a selection rather than a rebuild.
         Assert.True(
-            made!.Faces.Select(face => face.Group).Distinct().Count() > 6,
+            made!.Faces.Select(static face => face.Group).Distinct().Count() > 6,
             "the cut brought its own groups"
         );
     }
@@ -151,7 +151,7 @@ public class MeshBooleanTests {
         var made = MeshBoolean.Apply(floor, wall, BooleanOperation.Union);
 
         AssertSolid(made, "flush union");
-        Assert.Equal((6f * 1f * 6f) + (6f * 3f * 0.5f), Volume(made!), 2);
+        Assert.Equal(6f * 1f * 6f + 6f * 3f * 0.5f, Volume(made!), 2);
     }
 
     [Fact]
@@ -203,13 +203,13 @@ public class MeshBooleanTests {
         );
 
         AssertSolid(moved, "difference through a transform");
-        Assert.Equal((6f * 1f * 6f) - (2f * 1f * 2f), Volume(moved!), 2);
+        Assert.Equal(6f * 1f * 6f - 2f * 1f * 2f, Volume(moved!), 2);
     }
 
     [Fact]
     public void A_plane_cut_halves_a_box_and_caps_the_opening() {
         var box = Box(new(4f, 4f, 4f));
-        var made = MeshBoolean.PlaneCut(box, new Plane(Vector3.UnitY, -2f));
+        var made = MeshBoolean.PlaneCut(box, new(Vector3.UnitY, -2f));
 
         AssertSolid(made, "plane cut");
         Assert.Equal(4f * 2f * 4f, Volume(made!), 2);
@@ -221,15 +221,15 @@ public class MeshBooleanTests {
         Assert.Equal(2f, made.Bounds.Maximum.Y, 3);
 
         // The cap is one face in its own group, so "select the face the cut made" is one click.
-        Assert.Equal(1, made!.Faces.Count(face => face.Group == MeshBoolean.CapGroup));
+        Assert.Equal(1, made!.Faces.Count(static face => face.Group == MeshBoolean.CapGroup));
     }
 
     [Fact]
     public void A_plane_cut_can_keep_the_other_half_instead() {
         var box = Box(new(4f, 4f, 4f));
 
-        var lower = MeshBoolean.PlaneCut(box, new Plane(Vector3.UnitY, -2f));
-        var upper = MeshBoolean.PlaneCut(box, new Plane(Vector3.UnitY, -2f), keepFront: true);
+        var lower = MeshBoolean.PlaneCut(box, new(Vector3.UnitY, -2f));
+        var upper = MeshBoolean.PlaneCut(box, new(Vector3.UnitY, -2f), true);
 
         AssertSolid(lower, "lower half");
         AssertSolid(upper, "upper half");
@@ -245,7 +245,7 @@ public class MeshBooleanTests {
     [Fact]
     public void An_uncapped_cut_is_a_surface_rather_than_a_solid() {
         var box = Box(new(4f, 4f, 4f));
-        var made = MeshBoolean.PlaneCut(box, new Plane(Vector3.UnitY, -2f), cap: false);
+        var made = MeshBoolean.PlaneCut(box, new(Vector3.UnitY, -2f), cap: false);
 
         Assert.NotNull(made);
         Assert.False(made.Validate().IsClosed, "an uncapped cut has an opening");
@@ -254,7 +254,7 @@ public class MeshBooleanTests {
     [Fact]
     public void A_cut_that_misses_leaves_the_solid_alone() {
         var box = Box(new(4f, 4f, 4f));
-        var made = MeshBoolean.PlaneCut(box, new Plane(Vector3.UnitY, -100f));
+        var made = MeshBoolean.PlaneCut(box, new(Vector3.UnitY, -100f));
 
         AssertSolid(made, "a cut above everything");
         Assert.Equal(64f, Volume(made!), 2);
@@ -267,14 +267,14 @@ public class MeshBooleanTests {
         // keeps all of it — including the coplanar face itself, which has to survive or the box loses
         // its floor.
         var box = Box(new(4f, 4f, 4f));
-        var made = MeshBoolean.PlaneCut(box, new Plane(Vector3.UnitY, 0f), keepFront: true);
+        var made = MeshBoolean.PlaneCut(box, new(Vector3.UnitY, 0f), true);
 
         AssertSolid(made, "a cut along the floor");
         Assert.Equal(64f, Volume(made!), 2);
 
         // And the other half is nothing rather than a single face with no volume — which is what a
         // classification that kept the coplanar surface and called it a solid would have given.
-        Assert.Null(MeshBoolean.PlaneCut(box, new Plane(Vector3.UnitY, 0f)));
+        Assert.Null(MeshBoolean.PlaneCut(box, new(Vector3.UnitY, 0f)));
     }
 
     [Fact]
@@ -311,8 +311,8 @@ public class MeshBooleanTests {
 
         // ⚠ A verb that dropped the smoothing gives back a cylinder that is faceted, which reads as a
         // renderer bug rather than as the boolean that caused it.
-        Assert.Contains(made.Faces, face => face.Smoothing != 0);
-        Assert.Contains(made.Faces, face => face.Group == MeshShapes.GroupSide);
+        Assert.Contains(made.Faces, static face => face.Smoothing != 0);
+        Assert.Contains(made.Faces, static face => face.Group == MeshShapes.GroupSide);
     }
 
     [Fact]
@@ -348,6 +348,6 @@ public class MeshBooleanTests {
             AssertSolid(mesh, "cut " + step);
         }
 
-        Assert.Equal((8f * 4f * 8f) - (6f * 0.6f * 4f * 0.6f), Volume(mesh), 2);
+        Assert.Equal(8f * 4f * 8f - 6f * 0.6f * 4f * 0.6f, Volume(mesh), 2);
     }
 }

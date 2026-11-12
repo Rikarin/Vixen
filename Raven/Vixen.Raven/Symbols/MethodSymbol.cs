@@ -72,8 +72,8 @@ public abstract class MethodSymbol : Symbol {
 
     public override string ToDisplayString() {
         var qualifier = ContainingType is { } type ? type.ToDisplayString() + "." : string.Empty;
-        var typeArgs = Arity == 0 ? string.Empty : $"<{string.Join(", ", TypeParameters.Select(p => p.Name))}>";
-        var parameters = string.Join(", ", Parameters.Select(p => p.ToDisplayString()));
+        var typeArgs = Arity == 0 ? string.Empty : $"<{string.Join(", ", TypeParameters.Select(static p => p.Name))}>";
+        var parameters = string.Join(", ", Parameters.Select(static p => p.ToDisplayString()));
         return $"{qualifier}{Name}{typeArgs}({parameters}): {ReturnType.ToDisplayString()}";
     }
 }
@@ -89,7 +89,8 @@ public sealed class SynthesizedMethodSymbol : MethodSymbol {
     public override Symbol? ContainingSymbol { get; }
     public override MethodKind MethodKind { get; }
     public override TypeSymbol ReturnType { get; }
-    public override IReadOnlyList<ParameterSymbol> Parameters => parameters;    public override bool IsStatic => ContainingSymbol is null;
+    public override IReadOnlyList<ParameterSymbol> Parameters => parameters;
+    public override bool IsStatic => ContainingSymbol is null;
 
     internal SynthesizedMethodSymbol(
         Symbol? container,
@@ -102,8 +103,9 @@ public sealed class SynthesizedMethodSymbol : MethodSymbol {
         Name = name;
         ReturnType = returnType;
         MethodKind = methodKind;
-        this.parameters = parameters
-            .Select((p, i) => (ParameterSymbol)new SynthesizedParameterSymbol(this, p.Name, p.Type, i))
-            .ToArray();
+        this.parameters = [
+            ..parameters
+                .Select((p, i) => (ParameterSymbol)new SynthesizedParameterSymbol(this, p.Name, p.Type, i))
+        ];
     }
 }

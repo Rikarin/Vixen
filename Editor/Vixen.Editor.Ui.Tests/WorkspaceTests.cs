@@ -17,7 +17,7 @@ public class WorkspaceTests : IDisposable {
         ControlTheme.Install(document);
         AdvancedTheme.Install(document);
 
-        workspace = new DockingWorkspace(document.Root);
+        workspace = new(document.Root);
     }
 
     public void Dispose() {
@@ -28,9 +28,9 @@ public class WorkspaceTests : IDisposable {
     static StringId Title(string text) => new("test.panel." + text, text);
 
     void Three() {
-        workspace.Register("hierarchy", Title("Hierarchy"), panel => panel.Add<TextBlock>().Text = "tree");
-        workspace.Register("scene", Title("Scene"), panel => panel.Add<TextBlock>().Text = "viewport");
-        workspace.Register("inspector", Title("Inspector"), panel => panel.Add<TextBlock>().Text = "grid");
+        workspace.Register("hierarchy", Title("Hierarchy"), static panel => panel.Add<TextBlock>().Text = "tree");
+        workspace.Register("scene", Title("Scene"), static panel => panel.Add<TextBlock>().Text = "viewport");
+        workspace.Register("inspector", Title("Inspector"), static panel => panel.Add<TextBlock>().Text = "grid");
     }
 
     [Fact]
@@ -77,7 +77,7 @@ public class WorkspaceTests : IDisposable {
 
         workspace.AddPreset(
             "Default",
-            () => LayoutPresets.Standard(["hierarchy"], ["scene"], ["inspector"])
+            static () => LayoutPresets.Standard(["hierarchy"], ["scene"], ["inspector"])
         );
 
         Assert.True(workspace.Apply("Default"));
@@ -98,8 +98,8 @@ public class WorkspaceTests : IDisposable {
     [Fact]
     public void A_preset_closes_the_panels_it_does_not_name() {
         Three();
-        workspace.Register("asset.9e8a44c9", Title("Rock.glb"), _ => { });
-        workspace.AddPreset("Default", () => LayoutPresets.Standard(["hierarchy"], ["scene"], ["inspector"]));
+        workspace.Register("asset.9e8a44c9", Title("Rock.glb"), static _ => { });
+        workspace.AddPreset("Default", static () => LayoutPresets.Standard(["hierarchy"], ["scene"], ["inspector"]));
 
         workspace.Open("asset.9e8a44c9");
         Assert.True(workspace.IsOpen("asset.9e8a44c9"));
@@ -114,8 +114,8 @@ public class WorkspaceTests : IDisposable {
     [Fact]
     public void A_saved_arrangement_still_keeps_an_open_document() {
         Three();
-        workspace.Register("asset.9e8a44c9", Title("Rock.glb"), _ => { });
-        workspace.AddPreset("Default", () => LayoutPresets.Standard(["hierarchy"], ["scene"], ["inspector"]));
+        workspace.Register("asset.9e8a44c9", Title("Rock.glb"), static _ => { });
+        workspace.AddPreset("Default", static () => LayoutPresets.Standard(["hierarchy"], ["scene"], ["inspector"]));
 
         workspace.Apply("Default");
         workspace.Open("asset.9e8a44c9");
@@ -129,7 +129,7 @@ public class WorkspaceTests : IDisposable {
     public void Reset_goes_back_to_the_preset_rather_than_to_what_was_dragged() {
         Three();
 
-        workspace.AddPreset("Default", () => LayoutPresets.Standard(["hierarchy"], ["scene"], ["inspector"]));
+        workspace.AddPreset("Default", static () => LayoutPresets.Standard(["hierarchy"], ["scene"], ["inspector"]));
         workspace.Apply("Default");
 
         var preset = Assert.IsType<DockSplitNode>(workspace.Host.Layout.Root);
@@ -145,16 +145,16 @@ public class WorkspaceTests : IDisposable {
     public void An_arrangement_round_trips_and_brings_its_panels_back() {
         Three();
 
-        workspace.AddPreset("Default", () => LayoutPresets.Standard(["hierarchy"], ["scene"], ["inspector"]));
+        workspace.AddPreset("Default", static () => LayoutPresets.Standard(["hierarchy"], ["scene"], ["inspector"]));
         workspace.Apply("Default");
 
         var saved = workspace.Save();
 
         var second = new DockingWorkspace(document.Root);
-        second.Register("hierarchy", Title("Hierarchy"), _ => { });
-        second.Register("scene", Title("Scene"), _ => { });
-        second.Register("inspector", Title("Inspector"), _ => { });
-        second.AddPreset("Default", () => LayoutPresets.Standard(["hierarchy"], ["scene"], ["inspector"]));
+        second.Register("hierarchy", Title("Hierarchy"), static _ => { });
+        second.Register("scene", Title("Scene"), static _ => { });
+        second.Register("inspector", Title("Inspector"), static _ => { });
+        second.AddPreset("Default", static () => LayoutPresets.Standard(["hierarchy"], ["scene"], ["inspector"]));
 
         second.Load(saved);
 
@@ -165,7 +165,7 @@ public class WorkspaceTests : IDisposable {
     [Fact]
     public void An_arrangement_naming_nothing_this_editor_knows_falls_back_to_the_default() {
         Three();
-        workspace.AddPreset("Default", () => LayoutPresets.Standard(["hierarchy"], ["scene"], ["inspector"]));
+        workspace.AddPreset("Default", static () => LayoutPresets.Standard(["hierarchy"], ["scene"], ["inspector"]));
 
         Assert.False(workspace.Load(LayoutPresets.Single("some.plugin.panel").Save()));
 
@@ -183,7 +183,7 @@ public class WorkspaceTests : IDisposable {
     [Fact]
     public void A_layout_file_that_is_not_yaml_falls_back_to_the_default_rather_than_stopping_start_up() {
         Three();
-        workspace.AddPreset("Default", () => LayoutPresets.Standard(["hierarchy"], ["scene"], ["inspector"]));
+        workspace.AddPreset("Default", static () => LayoutPresets.Standard(["hierarchy"], ["scene"], ["inspector"]));
 
         Assert.False(workspace.Load("root: [unclosed"));
 
@@ -194,7 +194,7 @@ public class WorkspaceTests : IDisposable {
     [Fact]
     public void A_layout_that_loads_says_so() {
         Three();
-        workspace.AddPreset("Default", () => LayoutPresets.Standard(["hierarchy"], ["scene"], ["inspector"]));
+        workspace.AddPreset("Default", static () => LayoutPresets.Standard(["hierarchy"], ["scene"], ["inspector"]));
 
         Assert.True(workspace.Load(LayoutPresets.Single("scene").Save()));
     }
@@ -212,7 +212,7 @@ public class WorkspaceTests : IDisposable {
             )
         };
 
-        workspace.AddPreset("Default", () => LayoutPresets.Standard(["hierarchy"], ["scene"], ["inspector"]));
+        workspace.AddPreset("Default", static () => LayoutPresets.Standard(["hierarchy"], ["scene"], ["inspector"]));
         workspace.Load(stale.Save());
 
         Assert.True(workspace.IsOpen("hierarchy"));
@@ -221,8 +221,8 @@ public class WorkspaceTests : IDisposable {
 
     [Fact]
     public void Registering_a_panel_twice_throws() {
-        workspace.Register("scene", Title("Scene"), _ => { });
-        Assert.Throws<ArgumentException>(() => workspace.Register("scene", Title("Scene Again"), _ => { }));
+        workspace.Register("scene", Title("Scene"), static _ => { });
+        Assert.Throws<ArgumentException>(() => workspace.Register("scene", Title("Scene Again"), static _ => { }));
     }
 
     [Fact]
@@ -253,11 +253,11 @@ public class WorkspaceTests : IDisposable {
     [Fact]
     public void A_restored_arrangement_keeps_the_tab_that_was_in_front() {
         Three();
-        workspace.Register("project", Title("Project"), _ => { });
+        workspace.Register("project", Title("Project"), static _ => { });
 
         workspace.AddPreset(
             "Default",
-            () => LayoutPresets.Standard(["hierarchy", "project"], ["scene"], ["inspector"])
+            static () => LayoutPresets.Standard(["hierarchy", "project"], ["scene"], ["inspector"])
         );
 
         workspace.Apply("Default");
@@ -266,11 +266,11 @@ public class WorkspaceTests : IDisposable {
         browser.Selected = 0;
 
         var second = new DockingWorkspace(document.Root);
-        second.Register("hierarchy", Title("Hierarchy"), _ => { });
-        second.Register("project", Title("Project"), _ => { });
-        second.Register("scene", Title("Scene"), _ => { });
-        second.Register("inspector", Title("Inspector"), _ => { });
-        second.AddPreset("Default", () => LayoutPresets.Standard(["hierarchy"], ["scene"], ["inspector"]));
+        second.Register("hierarchy", Title("Hierarchy"), static _ => { });
+        second.Register("project", Title("Project"), static _ => { });
+        second.Register("scene", Title("Scene"), static _ => { });
+        second.Register("inspector", Title("Inspector"), static _ => { });
+        second.AddPreset("Default", static () => LayoutPresets.Standard(["hierarchy"], ["scene"], ["inspector"]));
 
         second.Load(workspace.Save());
 

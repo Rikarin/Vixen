@@ -15,8 +15,12 @@ namespace Vixen.Ui.Testing.Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>That summary said "compute the number the shader computes, to the last bit", and
-///         that is a stronger claim than anything here holds.</b> The expected value below is a C#
+///         ⚠
+///         <b>
+///             That summary said "compute the number the shader computes, to the last bit", and
+///             that is a stronger claim than anything here holds.
+///         </b>
+///         The expected value below is a C#
 ///         re-implementation of the shader's line with only the literal taken from <c>Ui.rvn</c>, so
 ///         what is proved is that both ports perform the same operation on the same constant. Going
 ///         further would need the module's own answer, and a driver is entitled to differ from one:
@@ -29,8 +33,12 @@ namespace Vixen.Ui.Testing.Tests;
 ///         this one's.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Both ports divided by <see cref="MathF.Tau" /> where both shaders multiply by the
-///         rounded reciprocal, and nothing could see it</b> —
+///         ⚠
+///         <b>
+///             Both ports divided by <see cref="MathF.Tau" /> where both shaders multiply by the
+///             rounded reciprocal, and nothing could see it
+///         </b>
+///         —
 ///         <see href="https://github.com/Rikarin/Vixen/issues/1256">#1256</see>. The arithmetic
 ///         census in <c>SharedUiShaderTests</c> walks SPIR-V modules, so a C# port is outside it by
 ///         construction; <c>UiCompositingTests</c> compares the device with the software rasteriser
@@ -38,15 +46,22 @@ namespace Vixen.Ui.Testing.Tests;
 ///         other, said so in a comment, and were both one bit from the module that ships.
 ///     </para>
 ///     <para>
-///         <b>The oracle is the shader's own line, read out of <c>Ui.rvn</c> rather than written here
-///         again.</b> A test that re-derives the constant is a third copy that can drift with the
+///         <b>
+///             The oracle is the shader's own line, read out of <c>Ui.rvn</c> rather than written here
+///             again.
+///         </b>
+///         A test that re-derives the constant is a third copy that can drift with the
 ///         other two; this one takes it from the file the applications draw with, and asserts the
 ///         line was found — in both <c>UiBox.Parameter</c> and <c>UiMask.Progress</c>, which is what
 ///         says the extraction is reading the right thing.
 ///     </para>
 ///     <para>
-///         ⚠ <b>And the instrument is checked: the division and the multiplication must disagree
-///         somewhere in the sweep, or the test could not be false.</b> They differ on a measured
+///         ⚠
+///         <b>
+///             And the instrument is checked: the division and the multiplication must disagree
+///             somewhere in the sweep, or the test could not be false.
+///         </b>
+///         They differ on a measured
 ///         fraction of angles — the count is asserted as a floor rather than reported — and the
 ///         sabotage (putting <c>/ MathF.Tau</c> back in either port) is red on exactly those.
 ///     </para>
@@ -79,7 +94,7 @@ public class ConicSweepTests {
         // this is reading nothing; more means a third copy appeared and should be checked too.
         Assert.Equal(2, matches.Count);
 
-        var literals = matches.Select(match => match.Groups[1].Value).Distinct(StringComparer.Ordinal).ToArray();
+        var literals = matches.Select(static match => match.Groups[1].Value).Distinct(StringComparer.Ordinal).ToArray();
 
         Assert.Single(literals);
 
@@ -88,7 +103,7 @@ public class ConicSweepTests {
 
     /// <summary>What the shader's line evaluates to for one angle, spelled exactly as it spells it.</summary>
     static float ShaderTurns(float angle, float reciprocal) {
-        var turns = (angle * reciprocal) + 1f;
+        var turns = angle * reciprocal + 1f;
 
         return turns - MathF.Floor(turns);
     }
@@ -103,10 +118,10 @@ public class ConicSweepTests {
             Vector2.Zero,
             Half,
             axis,
-            new Vector3(0f, 0f, 1f),
-            new GradientStops(0f, 0.5f, 1f),
+            new(0f, 0f, 1f),
+            new(0f, 0.5f, 1f),
             GradientShape.Conic,
-            Via: false
+            false
         );
 
         var disagreements = 0;
@@ -114,7 +129,7 @@ public class ConicSweepTests {
         foreach (var offset in Offsets()) {
             var angle = MathF.Atan2(offset.X, -offset.Y) - MathF.Atan2(axis.X, -axis.Y);
             var expected = ShaderTurns(angle, reciprocal);
-            var quotient = (angle / MathF.Tau) + 1f;
+            var quotient = angle / MathF.Tau + 1f;
 
             if (quotient - MathF.Floor(quotient) != expected) {
                 disagreements++;
@@ -126,7 +141,10 @@ public class ConicSweepTests {
         // The instrument: measured at 162 of 3600 on 2026-09-22 (and 9 of 360 before the sweep was
         // widened), so the floor is well under it. If the division and the multiplication agreed
         // everywhere this sweep could not go red, whatever the port did.
-        Assert.True(disagreements > 40, $"the quotient and the product disagreed on only {disagreements} of {Steps} angles.");
+        Assert.True(
+            disagreements > 40,
+            $"the quotient and the product disagreed on only {disagreements} of {Steps} angles."
+        );
     }
 
     [Fact]
@@ -141,9 +159,9 @@ public class ConicSweepTests {
             GradientShape.Conic,
             GradientSpace.Linear,
             axis,
-            new Color4(1f, 1f, 1f, 1f),
+            new(1f, 1f, 1f, 1f),
             default,
-            hasVia: false,
+            false,
             GradientStops.Default
         );
 
@@ -152,7 +170,7 @@ public class ConicSweepTests {
         foreach (var offset in Offsets()) {
             var angle = MathF.Atan2(offset.X, -offset.Y) - MathF.Atan2(axis.X, -axis.Y);
             var expected = ShaderTurns(angle, reciprocal);
-            var quotient = (angle / MathF.Tau) + 1f;
+            var quotient = angle / MathF.Tau + 1f;
 
             if (quotient - MathF.Floor(quotient) != expected) {
                 disagreements++;
@@ -162,7 +180,10 @@ public class ConicSweepTests {
         }
 
         // Measured at 172 of 3600 on 2026-09-22 with this axis.
-        Assert.True(disagreements > 40, $"the quotient and the product disagreed on only {disagreements} of {Steps} angles.");
+        Assert.True(
+            disagreements > 40,
+            $"the quotient and the product disagreed on only {disagreements} of {Steps} angles."
+        );
     }
 
     static string RepositoryRoot() {

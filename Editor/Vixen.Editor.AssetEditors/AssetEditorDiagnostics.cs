@@ -9,16 +9,27 @@ namespace Vixen.Editor.AssetEditors;
 /// <summary>Every diagnostic id this assembly reports, and the one sentence each of them means.</summary>
 /// <remarks>
 ///     <para>
-///         <b><a href="https://github.com/Rikarin/Vixen/issues/963">#963</a>: the shape
-///         <a href="https://github.com/Rikarin/Vixen/issues/804">#804</a> gave
-///         <c>Vixen.TextureGraph</c> and <a
-///         href="https://github.com/Rikarin/Vixen/issues/936">#936</a> gave
-///         <c>Vixen.Editor.Texturing</c>, applied to the third assembly.</b> The shape is copied; the
+///         <b>
+///             <a href="https://github.com/Rikarin/Vixen/issues/963">#963</a>: the shape
+///             <a href="https://github.com/Rikarin/Vixen/issues/804">#804</a> gave
+///             <c>Vixen.TextureGraph</c> and
+///             <a
+///                 href="https://github.com/Rikarin/Vixen/issues/936">
+///                 #936
+///             </a>
+///             gave
+///             <c>Vixen.Editor.Texturing</c>, applied to the third assembly.
+///         </b>
+///         The shape is copied; the
 ///         list is not, and that is the part the issue could not have known.
 ///     </para>
 ///     <para>
-///         ⚠ <b>#963 says "today each of these three assemblies has exactly one id", and for this one
-///         that is false.</b> It named <c>SG0000</c>, <c>CO0000</c> and <c>VF0000</c> — the three
+///         ⚠
+///         <b>
+///             #963 says "today each of these three assemblies has exactly one id", and for this one
+///             that is false.
+///         </b>
+///         It named <c>SG0000</c>, <c>CO0000</c> and <c>VF0000</c> — the three
 ///         document-kind ids meaning "this file did not parse at all". The assembly also reports
 ///         <c>SG0100</c> from <c>ShaderGraphDocument.Blame</c> and <c>CO0001</c>…<c>CO0006</c> from
 ///         <c>CompositorGraphCompiler</c>, which makes nine rather than three, and makes the second
@@ -26,8 +37,12 @@ namespace Vixen.Editor.AssetEditors;
 ///         stop had already had eight chances.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Seven of those nine are here and the other two are not, because a diagnostic family
-///         is not per assembly</b> —
+///         ⚠
+///         <b>
+///             Seven of those nine are here and the other two are not, because a diagnostic family
+///             is not per assembly
+///         </b>
+///         —
 ///         <a href="https://github.com/Rikarin/Vixen/issues/982">#982</a>. <c>SG0000</c> and
 ///         <c>SG0100</c> are reported from this assembly and declared in
 ///         <c>Vixen.Editor.ShaderGraph.ShaderGraphDiagnostics</c>, beside the <c>SG0001</c>…
@@ -37,15 +52,23 @@ namespace Vixen.Editor.AssetEditors;
 ///         and meant two things in the one panel an author reads them in.
 ///     </para>
 ///     <para>
-///         ⚠ <b>So <c>SG</c> is still a literal this assembly refuses, and that is the point rather
-///         than an oversight.</b> <c>AssetEditorDiagnosticIdTests</c> walks these sources for the
+///         ⚠
+///         <b>
+///             So <c>SG</c> is still a literal this assembly refuses, and that is the point rather
+///             than an oversight.
+///         </b>
+///         <c>AssetEditorDiagnosticIdTests</c> walks these sources for the
 ///         whole family and not merely for what is declared below, so the next <c>SG</c> id reported
 ///         from here is forced into the shared declaration — the gate used to force it into this
 ///         file, which is the half of #982 that made it urgent rather than tidy.
 ///     </para>
 ///     <para>
-///         ⚠ <b><c>&lt;XX&gt;0000</c> is a per-document-kind id and folding it into a compiler's
-///         family would be the wrong tidy-up.</b> <c>SG…</c> is what the shader-graph
+///         ⚠
+///         <b>
+///             <c>&lt;XX&gt;0000</c> is a per-document-kind id and folding it into a compiler's
+///             family would be the wrong tidy-up.
+///         </b>
+///         <c>SG…</c> is what the shader-graph
 ///         <em>compiler</em> says about a graph; <c>SG0000</c> is what the <em>document</em> says
 ///         when the file is not a graph at all, and it has three siblings spelled the same way —
 ///         <c>CO0000</c>, <c>VF0000</c> and <c>TX0000</c> one assembly over. One document kind out of
@@ -93,10 +116,10 @@ static class AssetEditorDiagnostics {
     ///     distinct.
     /// </remarks>
     internal static ImmutableArray<string> Ids { get; } = [
-        .. typeof(AssetEditorDiagnostics)
+        ..typeof(AssetEditorDiagnostics)
             .GetFields(BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic)
-            .Where(field => field.IsLiteral && field.FieldType == typeof(string))
-            .Select(field => (string)field.GetRawConstantValue()!)
+            .Where(static field => field.IsLiteral && field.FieldType == typeof(string))
+            .Select(static field => (string)field.GetRawConstantValue()!)
             .Order(StringComparer.Ordinal)
     ];
 }

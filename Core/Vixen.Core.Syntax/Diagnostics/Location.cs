@@ -32,7 +32,7 @@ public sealed class Location {
     Location(string filePath, TextSpan span, SourceText? text) {
         FilePath = filePath;
         SourceSpan = span;
-        this.SourceText = text;
+        SourceText = text;
     }
 
     /// <summary>A location backed by source text, so it can render line and column.</summary>

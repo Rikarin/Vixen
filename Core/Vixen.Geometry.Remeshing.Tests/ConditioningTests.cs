@@ -302,11 +302,7 @@ public class ConditioningTests {
     /// </summary>
     [Fact]
     public void NothingInTheCorpusThrowsWithEveryStepTurnedOn() {
-        var settings = new ConditioningSettings {
-            PreRemeshIterations = 2,
-            FillHoles = true,
-            HoleSize = 0.2f
-        };
+        var settings = new ConditioningSettings { PreRemeshIterations = 2, FillHoles = true, HoleSize = 0.2f };
 
         foreach (var (name, mesh) in BrokenMeshes.Corpus()) {
             var record = Record.Exception(() => MeshConditioner.Condition(mesh, settings, out _));
@@ -316,9 +312,11 @@ public class ConditioningTests {
     }
 
     /// <summary>How many triangles a mesh triangulates into, which is what conditioning counts.</summary>
-    /// <remarks>⚠ Not <see cref="EditMesh.FaceCount" />. A generated sphere is mostly quads, so the
+    /// <remarks>
+    ///     ⚠ Not <see cref="EditMesh.FaceCount" />. A generated sphere is mostly quads, so the
     ///     two numbers differ by nearly a factor of two and the wrong one makes a test that looks
-    ///     like it is about conditioning into a test about triangulation.</remarks>
+    ///     like it is about conditioning into a test about triangulation.
+    /// </remarks>
     static int Triangles(EditMesh mesh) => mesh.Triangulate().Length / 3;
 
     /// <summary>The coefficient of variation of the edge lengths — lower is more isotropic.</summary>

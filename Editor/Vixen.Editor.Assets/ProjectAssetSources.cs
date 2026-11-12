@@ -10,8 +10,11 @@ namespace Vixen.Editor.Assets;
 /// <summary>The project's own guid index, as the thing an import resolves through.</summary>
 /// <remarks>
 ///     <para>
-///         <b>A wrapper and not a method on <see cref="AssetDatabase" />, because the database is the
-///         editor's and the seam is the pipeline's.</b> An import is allowed to ask where an asset is
+///         <b>
+///             A wrapper and not a method on <see cref="AssetDatabase" />, because the database is the
+///             editor's and the seam is the pipeline's.
+///         </b>
+///         An import is allowed to ask where an asset is
 ///         and nothing else — not to enumerate the project, not to scan it, not to write a sidecar —
 ///         and an interface with one method is what makes that statement checkable.
 ///     </para>

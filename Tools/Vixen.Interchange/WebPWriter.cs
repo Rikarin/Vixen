@@ -43,7 +43,10 @@ public static class WebPWriter {
     /// <exception cref="ArgumentException">The shape is not one a WebP holds.</exception>
     public static byte[] Encode(int width, int height, int channels, ReadOnlySpan<byte> samples) {
         if (channels is not (1 or 3 or 4)) {
-            throw new ArgumentException($"A WebP is written from one, three or four channels, not {channels}.", nameof(channels));
+            throw new ArgumentException(
+                $"A WebP is written from one, three or four channels, not {channels}.",
+                nameof(channels)
+            );
         }
 
         if (width is < 1 or > 16384 || height is < 1 or > 16384) {
@@ -62,14 +65,17 @@ public static class WebPWriter {
             var source = at * channels;
             uint red = samples[source];
             var (green, blue) = channels == 1 ? (red, red) : ((uint)samples[source + 1], (uint)samples[source + 2]);
-            uint opacity = channels == 4 ? samples[source + 3] : 255u;
+            var opacity = channels == 4 ? samples[source + 3] : 255u;
             alpha |= opacity != 255;
             argb[at] = (opacity << 24) | (((red - green) & 0xFF) << 16) | (green << 8) | ((blue - green) & 0xFF);
         }
 
         var tokens = Tokens(argb, width);
 
-        var counts = new[] { new long[Literals + LengthCodes], new long[Literals], new long[Literals], new long[Literals], new long[DistanceCodes] };
+        var counts = new[] {
+            new long[Literals + LengthCodes], new long[Literals], new long[Literals], new long[Literals],
+            new long[DistanceCodes]
+        };
 
         foreach (var token in tokens) {
             if (token.Length == 0) {
@@ -182,7 +188,7 @@ public static class WebPWriter {
         var highest = 31 - int.LeadingZeroCount(d);
         var second = (d >> (highest - 1)) & 1;
         var extraBits = highest - 1;
-        return ((2 * highest) + second, (uint)(d & ((1 << extraBits) - 1)), extraBits);
+        return (2 * highest + second, (uint)(d & ((1 << extraBits) - 1)), extraBits);
     }
 
     /// <summary>Writes a prefix code for some counts, and returns it for the data.</summary>
@@ -305,7 +311,7 @@ public static class WebPWriter {
                 count = 0;
             }
 
-            return output.ToArray();
+            return [..output];
         }
     }
 }

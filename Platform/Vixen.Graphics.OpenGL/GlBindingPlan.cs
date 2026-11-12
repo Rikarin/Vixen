@@ -42,7 +42,9 @@ readonly record struct GlBindingSlot(DescriptorKind Kind, uint Index);
 sealed class GlBindingPlan {
     readonly Dictionary<(DescriptorSetSlot Slot, uint Binding), GlBindingSlot> slots = [];
 
-    GlBindingPlan(int pushConstantVectors) => PushConstantVectors = pushConstantVectors;
+    GlBindingPlan(int pushConstantVectors) {
+        PushConstantVectors = pushConstantVectors;
+    }
 
     /// <summary>How many <c>vec4</c>s of push constants the layout declares.</summary>
     /// <remarks>
@@ -73,8 +75,8 @@ sealed class GlBindingPlan {
         var plan = new GlBindingPlan((pushConstantBytes + 15) / 16);
         uint uniforms = 0, storages = 0, textures = 0, images = 0, samplers = 0;
 
-        foreach (var set in sets.OrderBy(entry => entry.Slot)) {
-            foreach (var binding in (set.Bindings ?? []).OrderBy(entry => entry.Binding)) {
+        foreach (var set in sets.OrderBy(static entry => entry.Slot)) {
+            foreach (var binding in (set.Bindings ?? []).OrderBy(static entry => entry.Binding)) {
                 // An array binding takes a contiguous run, because that is what GLSL's
                 // `uniform sampler2D atlas[4]` occupies: units n..n+3, consecutively.
                 var count = (uint)Math.Max(1, binding.Count);

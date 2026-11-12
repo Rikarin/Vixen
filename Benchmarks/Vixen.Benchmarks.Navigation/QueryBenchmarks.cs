@@ -50,7 +50,8 @@ public class QueryBenchmarks {
 
     /// <summary>Where am I standing.</summary>
     [Benchmark]
-    public bool FindNearestPoly() => query.FindNearestPoly(new(Size * 0.5f, 0, Size * 0.5f), Extents, NavQueryFilter.Default, out _, out _);
+    public bool FindNearestPoly() =>
+        query.FindNearestPoly(new(Size * 0.5f, 0, Size * 0.5f), Extents, NavQueryFilter.Default, out _, out _);
 
     /// <summary>The search. This is what a destination change costs.</summary>
     [Benchmark(Baseline = true)]

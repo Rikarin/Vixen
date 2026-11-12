@@ -23,7 +23,7 @@ public class AnywhereSpaceLineTests {
 
     static FontFace LoadFont() {
         using var stream = Assembly.GetExecutingAssembly()
-            .GetManifestResourceStream("Vixen.Ui.Tests.Fonts.OpenSans-Regular.ttf")
+                .GetManifestResourceStream("Vixen.Ui.Tests.Fonts.OpenSans-Regular.ttf")
             ?? throw new InvalidOperationException("the test font is not embedded");
 
         using var memory = new MemoryStream();

@@ -51,8 +51,8 @@ public class VfxCollisionTests {
 
         VfxSimulation.Update(buffer, [Ground(1f, 1f)], 1f / 60f);
 
-        Assert.Equal(new Vector3(0f, 2f, 0f), buffer.Position[0]);
-        Assert.Equal(new Vector3(0f, -10f, 0f), buffer.Velocity[0]);
+        Assert.Equal(new(0f, 2f, 0f), buffer.Position[0]);
+        Assert.Equal(new(0f, -10f, 0f), buffer.Velocity[0]);
     }
 
     [Fact]
@@ -116,7 +116,7 @@ public class VfxCollisionTests {
             1f / 60f
         );
 
-        Assert.Equal(new Vector3(2f, 0f, 0f), buffer.Position[0]);
+        Assert.Equal(new(2f, 0f, 0f), buffer.Position[0]);
         Assert.Equal(4f, buffer.Velocity[0].X);
     }
 
@@ -130,7 +130,7 @@ public class VfxCollisionTests {
             1f / 60f
         );
 
-        Assert.Equal(new Vector3(5f, 0f, 0f), buffer.Position[0]);
+        Assert.Equal(new(5f, 0f, 0f), buffer.Position[0]);
     }
 
     /// <summary>

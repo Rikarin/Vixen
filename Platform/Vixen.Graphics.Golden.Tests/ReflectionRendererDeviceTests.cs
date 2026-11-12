@@ -44,17 +44,17 @@ public sealed class ReflectionRendererDeviceTests {
         // The camera: top-down orthographic, ndc.x = world.x / 4, ndc.y = world.z / 4, reversed
         // depth = (world.y + 4) / 8 — and its exact inverse, because the host has both.
         var viewProjection = new Matrix4x4(
-            new Vector4(0.25f, 0f, 0f, 0f),
-            new Vector4(0f, 0f, 0.125f, 0f),
-            new Vector4(0f, 0.25f, 0f, 0f),
-            new Vector4(0f, 0f, 0.5f, 1f)
+            new(0.25f, 0f, 0f, 0f),
+            new(0f, 0f, 0.125f, 0f),
+            new(0f, 0.25f, 0f, 0f),
+            new(0f, 0f, 0.5f, 1f)
         );
 
         var inverse = new Matrix4x4(
-            new Vector4(4f, 0f, 0f, 0f),
-            new Vector4(0f, 0f, 4f, 0f),
-            new Vector4(0f, 8f, 0f, 0f),
-            new Vector4(0f, -4f, 0f, 1f)
+            new(4f, 0f, 0f, 0f),
+            new(0f, 0f, 4f, 0f),
+            new(0f, 8f, 0f, 0f),
+            new(0f, -4f, 0f, 1f)
         );
 
         // The frame: a floor at y = 0 filling the view, a ceiling patch at y = 2, and a corner of
@@ -65,7 +65,7 @@ public sealed class ReflectionRendererDeviceTests {
 
         for (var y = 0; y < Side; y++) {
             for (var x = 0; x < Side; x++) {
-                var at = (y * Side) + x;
+                var at = y * Side + x;
                 var ceiling = x is >= 3 and <= 6 && y is >= 2 and <= 5;
                 var open = x == 7 && y == 7;
 
@@ -83,7 +83,9 @@ public sealed class ReflectionRendererDeviceTests {
         effects.AddProvider(
             new Compiling(
                 loader,
-                _ => RavenEffects.Only(["Core", "Shading", "Geometry", "DistanceFields", "IrradianceFields", "SurfaceCache", "Reflections"])
+                static _ => RavenEffects.Only(
+                    ["Core", "Shading", "Geometry", "DistanceFields", "IrradianceFields", "SurfaceCache", "Reflections"]
+                )
             )
         );
 
@@ -102,22 +104,57 @@ public sealed class ReflectionRendererDeviceTests {
         };
 
         // The imports the node reads, uploaded before the graph runs.
-        var depthPlane = owned.Owned("frame-depth", TextureUsage.Sampled | TextureUsage.CopyDestination, PixelFormat.Rgba32Float, Side, Side);
-        var normalPlane = owned.Owned("frame-normals", TextureUsage.Sampled | TextureUsage.CopyDestination, PixelFormat.Rgba32Float, Side, Side);
-        var colourPlane = owned.Owned("frame-colour", TextureUsage.Sampled | TextureUsage.CopyDestination, PixelFormat.Rgba32Float, Side, Side);
+        var depthPlane = owned.Owned(
+            "frame-depth",
+            TextureUsage.Sampled | TextureUsage.CopyDestination,
+            PixelFormat.Rgba32Float,
+            Side,
+            Side
+        );
+        var normalPlane = owned.Owned(
+            "frame-normals",
+            TextureUsage.Sampled | TextureUsage.CopyDestination,
+            PixelFormat.Rgba32Float,
+            Side,
+            Side
+        );
+        var colourPlane = owned.Owned(
+            "frame-colour",
+            TextureUsage.Sampled | TextureUsage.CopyDestination,
+            PixelFormat.Rgba32Float,
+            Side,
+            Side
+        );
 
-        var staging = owned.Buffer<Vector4>([.. depths, .. normalPlaneData, .. colours], BufferUsage.CopySource);
+        var staging = owned.Buffer([..depths, ..normalPlaneData, ..colours], BufferUsage.CopySource);
 
         using var system = new RenderSystem();
 
         var compositor = new GraphicsCompositor(system) {
-            FrameSize = new(Side, Side),
-            Game = new SceneRendererSequence { Children = { node } }
+            FrameSize = new(Side, Side), Game = new SceneRendererSequence { Children = { node } }
         };
 
-        compositor.Imports["Depth"] = new(depthPlane.Texture, depthPlane.View, depthPlane.Description, ResourceState.ShaderRead, ResourceState.ShaderRead);
-        compositor.Imports["Normals"] = new(normalPlane.Texture, normalPlane.View, normalPlane.Description, ResourceState.ShaderRead, ResourceState.ShaderRead);
-        compositor.Imports["SceneColour"] = new(colourPlane.Texture, colourPlane.View, colourPlane.Description, ResourceState.ShaderRead, ResourceState.ShaderRead);
+        compositor.Imports["Depth"] = new(
+            depthPlane.Texture,
+            depthPlane.View,
+            depthPlane.Description,
+            ResourceState.ShaderRead,
+            ResourceState.ShaderRead
+        );
+        compositor.Imports["Normals"] = new(
+            normalPlane.Texture,
+            normalPlane.View,
+            normalPlane.Description,
+            ResourceState.ShaderRead,
+            ResourceState.ShaderRead
+        );
+        compositor.Imports["SceneColour"] = new(
+            colourPlane.Texture,
+            colourPlane.View,
+            colourPlane.Description,
+            ResourceState.ShaderRead,
+            ResourceState.ShaderRead
+        );
 
         allocator.BeginFrame();
         owned.Graph.Reset();
@@ -128,12 +165,19 @@ public sealed class ReflectionRendererDeviceTests {
         node.Trace!.ScreenThickness = 0.05f;
         node.Trace.MaxDistance = 8f;
         node.Trace.Parameters.Set(
-            ParameterKeys.New<Vector3>($"{ReflectionTraceFill.ShaderName}.{MaterialCompiler.SkyReflectionMissShader}.missSkyColor"),
+            ParameterKeys.New<Vector3>(
+                $"{ReflectionTraceFill.ShaderName}.{MaterialCompiler.SkyReflectionMissShader}.missSkyColor"
+            ),
             SkyMiss
         );
 
         var readback = device.CreateBuffer(
-            new BufferDescription(Side * Side * 16, BufferUsage.CopyDestination, MemoryAccess.HostReadback, "node-readback")
+            new(
+                Side * Side * 16,
+                BufferUsage.CopyDestination,
+                MemoryAccess.HostReadback,
+                "node-readback"
+            )
         );
 
         device.BeginFrame();
@@ -152,16 +196,25 @@ public sealed class ReflectionRendererDeviceTests {
 
             var plane = Side * Side * 16;
 
-            commands.CopyBufferToTexture(staging, 0, new TextureRegion(depthPlane.Texture), new(Side, Side, 1));
-            commands.CopyBufferToTexture(staging, plane, new TextureRegion(normalPlane.Texture), new(Side, Side, 1));
-            commands.CopyBufferToTexture(staging, plane * 2, new TextureRegion(colourPlane.Texture), new(Side, Side, 1));
+            commands.CopyBufferToTexture(staging, 0, new(depthPlane.Texture), new(Side, Side, 1));
+            commands.CopyBufferToTexture(staging, plane, new(normalPlane.Texture), new(Side, Side, 1));
+            commands.CopyBufferToTexture(
+                staging,
+                plane * 2,
+                new(colourPlane.Texture),
+                new(Side, Side, 1)
+            );
 
             commands.Barrier(
                 new(
                     [],
                     [
                         new TextureBarrier(depthPlane.Texture, ResourceState.CopyDestination, ResourceState.ShaderRead),
-                        new TextureBarrier(normalPlane.Texture, ResourceState.CopyDestination, ResourceState.ShaderRead),
+                        new TextureBarrier(
+                            normalPlane.Texture,
+                            ResourceState.CopyDestination,
+                            ResourceState.ShaderRead
+                        ),
                         new TextureBarrier(colourPlane.Texture, ResourceState.CopyDestination, ResourceState.ShaderRead)
                     ]
                 )
@@ -174,7 +227,7 @@ public sealed class ReflectionRendererDeviceTests {
                 new([], [new TextureBarrier(node.Output, ResourceState.ShaderRead, ResourceState.CopySource)])
             );
 
-            commands.CopyTextureToBuffer(new TextureRegion(node.Output), new(Side, Side, 1), readback, 0);
+            commands.CopyTextureToBuffer(new(node.Output), new(Side, Side, 1), readback, 0);
             commands.Barrier(
                 new([], [new TextureBarrier(node.Output, ResourceState.CopySource, ResourceState.ShaderRead)])
             );
@@ -210,8 +263,8 @@ public sealed class ReflectionRendererDeviceTests {
 
         var reference = new TracedReflections(new EmptyWorld(), new UniformSky(Vector3.Zero), new SkyFallback(sky)) {
             MaxDistance = 8f,
-            ScreenTrace = new ScreenSpaceTrace(surface) { ViewProjection = viewProjection, Steps = 32, Thickness = 0.05f },
-            ScreenColour = pixel => new(0.1f * pixel.X, 0.1f * pixel.Y, 0.3f)
+            ScreenTrace = new(surface) { ViewProjection = viewProjection, Steps = 32, Thickness = 0.05f },
+            ScreenColour = static pixel => new(0.1f * pixel.X, 0.1f * pixel.Y, 0.3f)
         };
 
         var worst = 0f;
@@ -219,8 +272,8 @@ public sealed class ReflectionRendererDeviceTests {
 
         for (var y = 0; y < Side; y++) {
             for (var x = 0; x < Side; x++) {
-                var at = (y * Side) + x;
-                var answer = new Vector4(bytes[at * 4], bytes[(at * 4) + 1], bytes[(at * 4) + 2], bytes[(at * 4) + 3]);
+                var at = y * Side + x;
+                var answer = new Vector4(bytes[at * 4], bytes[at * 4 + 1], bytes[at * 4 + 2], bytes[at * 4 + 3]);
 
                 if (!surface.TrySurface(new(x, y), out var position, out _)) {
                     Assert.Equal(0f, answer.W);
@@ -235,7 +288,8 @@ public sealed class ReflectionRendererDeviceTests {
 
                 worst = MathF.Max(worst, (new Vector3(answer.X, answer.Y, answer.Z) - expected).Length());
 
-                if ((new Vector3(answer.X, answer.Y, answer.Z) - new Vector3(SkyMiss.X, SkyMiss.Y, SkyMiss.Z)).Length() > 0.05f) {
+                if ((new Vector3(answer.X, answer.Y, answer.Z) - new Vector3(SkyMiss.X, SkyMiss.Y, SkyMiss.Z)).Length()
+                    > 0.05f) {
                     screened++;
                 }
             }

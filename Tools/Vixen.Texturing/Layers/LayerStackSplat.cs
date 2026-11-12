@@ -117,8 +117,12 @@ public static class LayerStackSplat {
     ///         arriving where nobody asked for it.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The layer composites with <c>Copy</c> whatever its own operator is, and that is a
-    ///         decision rather than a simplification.</b> <c>Blend</c> computes
+    ///         ⚠
+    ///         <b>
+    ///             The layer composites with <c>Copy</c> whatever its own operator is, and that is a
+    ///             decision rather than a simplification.
+    ///         </b>
+    ///         <c>Blend</c> computes
     ///         <c>amount = opacity · mask · alpha</c> and then mixes by the operator: over a black
     ///         backdrop a <c>Multiply</c> layer mixes to black and weighs <em>nothing</em>, however
     ///         much of the texel it covers. The operator says how a layer's colour combines with what

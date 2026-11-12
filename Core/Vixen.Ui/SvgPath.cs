@@ -8,8 +8,12 @@ namespace Vixen.Ui;
 
 /// <summary>What was wrong with a piece of path data.</summary>
 /// <remarks>
-///     ⚠ <b>An exception rather than a silently truncated path, and only for what cannot be read at
-///     all.</b> A command letter nobody has defined, a number that is not a number, a path that opens
+///     ⚠
+///     <b>
+///         An exception rather than a silently truncated path, and only for what cannot be read at
+///         all.
+///     </b>
+///     A command letter nobody has defined, a number that is not a number, a path that opens
 ///     with a curve and has no pen position — those are typos in a string somebody wrote, and a parser
 ///     that answered them with the half it managed would put a shape on screen that is wrong in a way
 ///     nobody can see the cause of. What is <i>not</i> an error is a path that ends early or a stray
@@ -19,7 +23,9 @@ public sealed class SvgPathException : FormatException {
     /// <summary>Describes a fault.</summary>
     /// <param name="message">What is wrong.</param>
     /// <param name="position">Where in the data it is, as a character offset.</param>
-    public SvgPathException(string message, int position) : base(message) => Position = position;
+    public SvgPathException(string message, int position) : base(message) {
+        Position = position;
+    }
 
     /// <summary>Where in the data the fault is, as a character offset.</summary>
     public int Position { get; }
@@ -51,8 +57,12 @@ public sealed class SvgPathException : FormatException {
 ///         shows as every closed subpath after the first landing in the wrong place.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The smooth commands need the previous control point, and its reflection is only
-///         defined after a curve of the same family.</b> <c>S</c> after a line reflects nothing and
+///         ⚠
+///         <b>
+///             The smooth commands need the previous control point, and its reflection is only
+///             defined after a curve of the same family.
+///         </b>
+///         <c>S</c> after a line reflects nothing and
 ///         the control point is the pen itself — the specification's own rule, and the one a
 ///         from-memory implementation always gets wrong, because the wrong answer only shows on
 ///         paths that mix lines and smooth curves.
@@ -143,7 +153,7 @@ public static class SvgPath {
 
                 case 'H': {
                     Pen(ref started, path, pen, reader);
-                    pen = new Vector2((relative ? pen.X : 0f) + reader.Number(), pen.Y);
+                    pen = new((relative ? pen.X : 0f) + reader.Number(), pen.Y);
 
                     path.LineTo(pen);
                     smoothCubic = smoothQuadratic = false;
@@ -153,7 +163,7 @@ public static class SvgPath {
 
                 case 'V': {
                     Pen(ref started, path, pen, reader);
-                    pen = new Vector2(pen.X, (relative ? pen.Y : 0f) + reader.Number());
+                    pen = new(pen.X, (relative ? pen.Y : 0f) + reader.Number());
 
                     path.LineTo(pen);
                     smoothCubic = smoothQuadratic = false;
@@ -184,7 +194,7 @@ public static class SvgPath {
                     // The reflection of the previous cubic's second control point, or the pen itself
                     // when the previous command was not a cubic — F.6 of the specification, and the
                     // rule a from-memory implementation drops.
-                    var first = smoothCubic ? (pen * 2f) - control : pen;
+                    var first = smoothCubic ? pen * 2f - control : pen;
                     var second = origin + reader.Point();
 
                     pen = origin + reader.Point();
@@ -217,7 +227,7 @@ public static class SvgPath {
                 case 'T': {
                     Pen(ref started, path, pen, reader);
 
-                    var handle = smoothQuadratic ? (pen * 2f) - control : pen;
+                    var handle = smoothQuadratic ? pen * 2f - control : pen;
 
                     pen = origin + reader.Point();
 
@@ -291,8 +301,12 @@ public static class SvgPath {
 
     /// <summary>Opens a contour at the pen for data whose first drawing command is not a move.</summary>
     /// <remarks>
-    ///     ⚠ <b>The specification says such data is in error, and refusing it would be worse than
-    ///     accepting it.</b> The pen is at the origin and a contour has to start somewhere; a path
+    ///     ⚠
+    ///     <b>
+    ///         The specification says such data is in error, and refusing it would be worse than
+    ///         accepting it.
+    ///     </b>
+    ///     The pen is at the origin and a contour has to start somewhere; a path
     ///     that draws from (0,0) is visibly wrong at a glance, where a parser that threw would take
     ///     out a whole icon set for one glyph an exporter trimmed too eagerly.
     /// </remarks>
@@ -345,11 +359,11 @@ public static class SvgPath {
 
         // Into the ellipse's own frame, with the chord's midpoint at the origin.
         var half = (from - to) * 0.5f;
-        var x1 = (cos * half.X) + (sin * half.Y);
-        var y1 = (-sin * half.X) + (cos * half.Y);
+        var x1 = cos * half.X + sin * half.Y;
+        var y1 = -sin * half.X + cos * half.Y;
 
         // F.6.6: grow the radii until the endpoints are reachable.
-        var reach = ((x1 * x1) / (rx * rx)) + ((y1 * y1) / (ry * ry));
+        var reach = x1 * x1 / (rx * rx) + y1 * y1 / (ry * ry);
 
         if (reach > 1f) {
             var grow = MathF.Sqrt(reach);
@@ -358,8 +372,8 @@ public static class SvgPath {
             ry *= grow;
         }
 
-        var numerator = (rx * rx * ry * ry) - (rx * rx * y1 * y1) - (ry * ry * x1 * x1);
-        var denominator = (rx * rx * y1 * y1) + (ry * ry * x1 * x1);
+        var numerator = rx * rx * ry * ry - rx * rx * y1 * y1 - ry * ry * x1 * x1;
+        var denominator = rx * rx * y1 * y1 + ry * ry * x1 * x1;
         var factor = denominator == 0f ? 0f : MathF.Sqrt(MathF.Max(0f, numerator / denominator));
 
         if (large == sweep) {
@@ -370,7 +384,7 @@ public static class SvgPath {
         var cy1 = -factor * ry * x1 / rx;
 
         var middle = (from + to) * 0.5f;
-        var centre = new Vector2((cos * cx1) - (sin * cy1) + middle.X, (sin * cx1) + (cos * cy1) + middle.Y);
+        var centre = new Vector2(cos * cx1 - sin * cy1 + middle.X, sin * cx1 + cos * cy1 + middle.Y);
 
         var start = MathF.Atan2((y1 - cy1) / ry, (x1 - cx1) / rx);
         var end = MathF.Atan2((-y1 - cy1) / ry, (-x1 - cx1) / rx);
@@ -384,7 +398,7 @@ public static class SvgPath {
             delta += MathF.Tau;
         }
 
-        var steps = Math.Max(1, (int) MathF.Ceiling(MathF.Abs(delta) / (MathF.PI * 0.5f)));
+        var steps = Math.Max(1, (int)MathF.Ceiling(MathF.Abs(delta) / (MathF.PI * 0.5f)));
         var step = delta / steps;
 
         // The magic constant that makes a cubic follow a circular arc, for an arbitrary sweep rather
@@ -392,18 +406,25 @@ public static class SvgPath {
         var handle = 4f / 3f * MathF.Tan(step * 0.25f);
 
         for (var index = 0; index < steps; index++) {
-            var a = start + (step * index);
+            var a = start + step * index;
             var b = a + step;
 
             var (pa, ta) = OnArc(centre, rx, ry, cos, sin, a);
             var (pb, tb) = OnArc(centre, rx, ry, cos, sin, b);
 
-            path.CubicTo(pa + (ta * handle), pb - (tb * handle), pb);
+            path.CubicTo(pa + ta * handle, pb - tb * handle, pb);
         }
     }
 
     /// <summary>A point on the rotated ellipse and its tangent, at an angle.</summary>
-    static (Vector2 Point, Vector2 Tangent) OnArc(Vector2 centre, float rx, float ry, float cos, float sin, float angle) {
+    static (Vector2 Point, Vector2 Tangent) OnArc(
+        Vector2 centre,
+        float rx,
+        float ry,
+        float cos,
+        float sin,
+        float angle
+    ) {
         var ca = MathF.Cos(angle);
         var sa = MathF.Sin(angle);
 
@@ -414,8 +435,8 @@ public static class SvgPath {
         var dy = ry * ca;
 
         return (
-            new Vector2((cos * x) - (sin * y) + centre.X, (sin * x) + (cos * y) + centre.Y),
-            new Vector2((cos * dx) - (sin * dy), (sin * dx) + (cos * dy))
+            new Vector2(cos * x - sin * y + centre.X, sin * x + cos * y + centre.Y),
+            new Vector2(cos * dx - sin * dy, sin * dx + cos * dy)
         );
     }
 
@@ -496,7 +517,7 @@ public static class SvgPath {
             var x = Number();
             var y = Number();
 
-            return new Vector2(x, y);
+            return new(x, y);
         }
 
         /// <summary>Reads one of the arc's two flags, which are a single character each.</summary>

@@ -97,7 +97,7 @@ public sealed class RemoteInspectorTests : IDisposable {
         Settle();
 
         Assert.Equal("capture", far.LastCommand);
-        Assert.Contains(client.Log, line => line.Contains("capture", StringComparison.Ordinal));
+        Assert.Contains(client.Log, static line => line.Contains("capture", StringComparison.Ordinal));
     }
 
     /// <summary>
@@ -212,10 +212,18 @@ public sealed class RemoteInspectorTests : IDisposable {
                     break;
 
                 case InspectorMessage.RequestTree:
-                    Send(writer => InspectorProtocol.WriteEntity(writer, new(1, 0, "Root", ["Transform"])));
-                    Send(writer => InspectorProtocol.WriteEntity(writer, new(2, 1, "Camera", ["Transform", "Camera"])));
-                    Send(writer => InspectorProtocol.WriteEntity(writer, new(3, 1, "Light", ["Transform", "Light"])));
-                    Send(writer => InspectorProtocol.WriteBare(writer, InspectorMessage.TreeComplete));
+                    Send(static writer => InspectorProtocol.WriteEntity(writer, new(1, 0, "Root", ["Transform"])));
+                    Send(static writer => InspectorProtocol.WriteEntity(
+                            writer,
+                            new(2, 1, "Camera", ["Transform", "Camera"])
+                        )
+                    );
+                    Send(static writer => InspectorProtocol.WriteEntity(
+                            writer,
+                            new(3, 1, "Light", ["Transform", "Light"])
+                        )
+                    );
+                    Send(static writer => InspectorProtocol.WriteBare(writer, InspectorMessage.TreeComplete));
 
                     break;
 
@@ -232,9 +240,6 @@ public sealed class RemoteInspectorTests : IDisposable {
                         Send(writer => InspectorProtocol.WriteText(writer, InspectorMessage.Result, verb + " done"));
                     }
 
-                    break;
-
-                default:
                     break;
             }
         }

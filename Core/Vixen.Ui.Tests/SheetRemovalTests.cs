@@ -23,10 +23,10 @@ public class SheetRemovalTests {
     const int Cards = 6;
 
     const string Base = """
-        root { width: 400px; height: 300px; }
-        panel { display: flex; flex-wrap: wrap; width: 400px; height: 100px; }
-        card { width: 40px; height: 20px; margin: 2px; background-color: #0000ff; }
-        """;
+                        root { width: 400px; height: 300px; }
+                        panel { display: flex; flex-wrap: wrap; width: 400px; height: 100px; }
+                        card { width: 40px; height: 20px; margin: 2px; background-color: #0000ff; }
+                        """;
 
     const string Override = ".hot { background-color: #ff0000; }";
 
@@ -53,13 +53,13 @@ public class SheetRemovalTests {
         document.Draw();
     }
 
-    static int Red(UiDocument document) => document.Drawing.Commands.Count(command => command.Color.R > 0.5f);
+    static int Red(UiDocument document) => document.Drawing.Commands.Count(static command => command.Color.R > 0.5f);
 
-    static int Blue(UiDocument document) => document.Drawing.Commands.Count(command => command.Color.B > 0.5f);
+    static int Blue(UiDocument document) => document.Drawing.Commands.Count(static command => command.Color.B > 0.5f);
 
     [Fact]
     public void Removing_a_sheet_restyles_every_element_it_styled_from_what_remains() {
-        using var document = Board(withOverride: true, out var sheet);
+        using var document = Board(true, out var sheet);
 
         Frame(document);
 
@@ -76,7 +76,7 @@ public class SheetRemovalTests {
 
     [Fact]
     public void A_removed_sheet_leaves_the_loaded_count_where_it_was_and_keeps_its_slot() {
-        using var document = Board(withOverride: false, out _);
+        using var document = Board(false, out _);
         var styles = document.Styles;
         var loaded = styles.LoadedSheetCount;
         var slots = styles.SheetCount;
@@ -95,7 +95,7 @@ public class SheetRemovalTests {
     /// <summary>The handle problem #1484 names: an index taken after the removed one still names its own sheet.</summary>
     [Fact]
     public void An_index_handed_out_after_the_removed_sheet_still_names_the_sheet_it_named() {
-        using var document = Board(withOverride: true, out var removed);
+        using var document = Board(true, out var removed);
         var later = document.Load("card { height: 20px; }");
 
         document.Unload(removed);
@@ -108,7 +108,7 @@ public class SheetRemovalTests {
 
     [Fact]
     public void A_sheet_cannot_be_removed_twice_or_replaced_once_removed() {
-        using var document = Board(withOverride: true, out var sheet);
+        using var document = Board(true, out var sheet);
 
         document.Unload(sheet);
 
@@ -118,7 +118,7 @@ public class SheetRemovalTests {
 
     [Fact]
     public void A_retained_board_replays_after_a_removal_without_the_removed_rules_under_the_verifier() {
-        using var document = Board(withOverride: true, out var sheet);
+        using var document = Board(true, out var sheet);
         document.RetainsDrawing = true;
 
         // ⚠ On by default only in a Debug build, and CI tests a Release one.
@@ -141,11 +141,14 @@ public class SheetRemovalTests {
         Assert.Equal(Cards, Blue(document));
     }
 
-    /// <summary>The Release half: with the verifier off, the retained picture is the one a board that never had the sheet draws.</summary>
+    /// <summary>
+    ///     The Release half: with the verifier off, the retained picture is the one a board that never had the sheet
+    ///     draws.
+    /// </summary>
     [Fact]
     public void A_retained_board_after_a_removal_draws_what_a_board_that_never_had_the_sheet_draws() {
-        using var retained = Board(withOverride: true, out var sheet);
-        using var never = Board(withOverride: false, out _);
+        using var retained = Board(true, out var sheet);
+        using var never = Board(false, out _);
         retained.RetainsDrawing = true;
         retained.VerifiesRetainedDrawing = false;
         never.RetainsDrawing = false;

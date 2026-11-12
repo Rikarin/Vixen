@@ -144,7 +144,7 @@ public sealed class VariationReport {
     /// <param name="variation">Its row.</param>
     /// <param name="goal">Its column.</param>
     /// <returns>The cell.</returns>
-    public HarnessCell this[int variation, int goal] => cells[(variation * Goals.Count) + goal];
+    public HarnessCell this[int variation, int goal] => cells[variation * Goals.Count + goal];
 
     /// <summary>The cell an author should look at first, or <see langword="null" /> if there are none.</summary>
     /// <param name="thresholds">
@@ -287,8 +287,12 @@ public sealed class HarnessPlan {
 ///         (<see cref="HarnessCell.Reached" />).
 ///     </para>
 ///     <para>
-///         ⚠ <b>"Joint limits hit" is <see cref="HarnessCell.Reached" /> and they are not the same
-///         thing.</b> The plan asks for joint limits; no skeleton in this engine carries any, which
+///         ⚠
+///         <b>
+///             "Joint limits hit" is <see cref="HarnessCell.Reached" /> and they are not the same
+///             thing.
+///         </b>
+///         The plan asks for joint limits; no skeleton in this engine carries any, which
 ///         <see cref="DefaultConstraintArbiter" /> already says. What can be measured is whether the
 ///         chain was fully extended while the goal was still missing — a straight arm reaching for
 ///         something out of range — which is the failure a limit would have caught in the cases that
@@ -442,8 +446,12 @@ public static class VariationHarness {
 
     /// <summary>One configuration's samples, kept until the whole clip has been walked.</summary>
     /// <remarks>
-    ///     ⚠ <b>Kept rather than folded in as it goes, because the residual cannot be judged until the
-    ///     run is over.</b> A goal is worth measuring when it is being asked for in full, and how much
+    ///     ⚠
+    ///     <b>
+    ///         Kept rather than folded in as it goes, because the residual cannot be judged until the
+    ///         run is over.
+    ///     </b>
+    ///     A goal is worth measuring when it is being asked for in full, and how much
     ///     "in full" is depends on the rest of the clip: a tag at <c>MaxWeight</c> 0.4, or one sharing
     ///     a chain with another, is never at 1.0 and is not therefore failing. Folding the worst
     ///     residual in per sample would score every clip on its own crossfades.
@@ -495,7 +503,7 @@ public static class VariationHarness {
                 }
 
                 var residual = residuals[found];
-                var slot = (column * samples) + sample;
+                var slot = column * samples + sample;
 
                 applied[slot] = residual.Applied;
                 missed[slot] = MathF.Abs(residual.Magnitude);
@@ -528,7 +536,7 @@ public static class VariationHarness {
                 var peak = 0f;
 
                 for (var sample = 0; sample < samples; sample++) {
-                    peak = MathF.Max(peak, applied[(column * samples) + sample]);
+                    peak = MathF.Max(peak, applied[column * samples + sample]);
                 }
 
                 if (peak <= 0f) {
@@ -544,7 +552,7 @@ public static class VariationHarness {
                 var penetration = 0f;
 
                 for (var sample = 0; sample < samples; sample++) {
-                    var slot = (column * samples) + sample;
+                    var slot = column * samples + sample;
 
                     penetration = MathF.Max(penetration, sunk[slot]);
 
@@ -585,11 +593,13 @@ public static class VariationHarness {
         ConstraintGoal goal,
         ReadOnlySpan<BoneTransform> model
     ) {
-        if (subject.Shapes is null || stack.Shapes is not { } shapes
+        if (subject.Shapes is null
+            || stack.Shapes is not { } shapes
             || goal.Goal is not SurfaceFrame surface
             || goal is not PositionGoal position
             || !shapes.TryPose(surface.Coordinate.Shape, model, out var posed)
-            || goal.Effector < 0 || goal.Effector >= model.Length) {
+            || goal.Effector < 0
+            || goal.Effector >= model.Length) {
             return 0f;
         }
 
@@ -618,7 +628,9 @@ public static class VariationHarness {
         var chain = goal.Solved;
         var bind = stack.Skeleton.BindPose;
 
-        for (var joint = chain.Effector; joint >= 0; joint = joint == chain.First ? -1 : stack.Skeleton.ParentOf(joint)) {
+        for (var joint = chain.Effector;
+             joint >= 0;
+             joint = joint == chain.First ? -1 : stack.Skeleton.ParentOf(joint)) {
             if ((uint)joint >= (uint)pose.Length) {
                 break;
             }

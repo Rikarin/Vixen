@@ -50,7 +50,8 @@ public sealed class ObjectRecordTests : IDisposable {
     [InlineData(true, true)]
     [InlineData(false, false)]
     public void Records_need_the_draw_to_carry_the_slot(bool addressable, bool expected) {
-        using var lighting = new ForwardLightingRenderFeature { Device = device };
+        using var lighting = new ForwardLightingRenderFeature();
+        lighting.Device = device;
 
         Assert.Equal(expected, lighting.EnableRecords(UseObjectRecords, addressable));
         Assert.Equal(expected, lighting.UseRecords);
@@ -66,7 +67,7 @@ public sealed class ObjectRecordTests : IDisposable {
     [Fact]
     public void Every_object_gets_its_own_probe() {
         using var h = Build();
-        h.Lighting.EnableRecords(UseObjectRecords, addressable: true);
+        h.Lighting.EnableRecords(UseObjectRecords, true);
 
         var near = AddMesh(h, new(0f, 0f, 10f));
         var far = AddMesh(h, new(40f, 0f, 10f));
@@ -113,7 +114,7 @@ public sealed class ObjectRecordTests : IDisposable {
 
         h.Lighting.Scene = scene;
         h.Lighting.ShaderName = "Lit";
-        h.Lighting.EnableRecords(UseObjectRecords, addressable: true);
+        h.Lighting.EnableRecords(UseObjectRecords, true);
 
         AddMesh(h, new(0f, 0f, 10f));
         h.System.Draw();
@@ -135,10 +136,10 @@ public sealed class ObjectRecordTests : IDisposable {
 
         Assert.Single(h.Lighting.PermutationKeys);
 
-        h.Lighting.EnableRecords(UseObjectRecords, addressable: false);
+        h.Lighting.EnableRecords(UseObjectRecords, false);
 
         Assert.Equal(2, h.Lighting.PermutationKeys.Count);
-        Assert.Contains(h.Lighting.PermutationKeys, key => key.Name == "Lit.UseObjectRecords");
+        Assert.Contains(h.Lighting.PermutationKeys, static key => key.Name == "Lit.UseObjectRecords");
     }
 
     // --- The fixture --------------------------------------------------------
@@ -153,11 +154,15 @@ public sealed class ObjectRecordTests : IDisposable {
 
         // Two probes far enough apart that an object is inside exactly one of them, so "which probe"
         // is a question with a different answer per object rather than one the fixture pre-decides.
-        probes.Probes.Add(new() { Bounds = new(new(-8f, -8f, 2f), new(8f, 8f, 18f)), CapturePosition = new(0f, 0f, 10f) });
-        probes.Probes.Add(new() { Bounds = new(new(32f, -8f, 2f), new(48f, 8f, 18f)), CapturePosition = new(40f, 0f, 10f) });
+        probes.Probes.Add(
+            new() { Bounds = new(new(-8f, -8f, 2f), new(8f, 8f, 18f)), CapturePosition = new(0f, 0f, 10f) }
+        );
+        probes.Probes.Add(
+            new() { Bounds = new(new(32f, -8f, 2f), new(48f, 8f, 18f)), CapturePosition = new(40f, 0f, 10f) }
+        );
 
         lighting.Probes = probes;
-        lighting.Lights.Add(RenderLight.Directional(new(0f, -1f, 0f), new(1f, 1f, 1f), 1f));
+        lighting.Lights.Add(RenderLight.Directional(new(0f, -1f, 0f), new(1f, 1f, 1f)));
 
         meshes.Add(lighting);
         system.AddFeature(meshes);

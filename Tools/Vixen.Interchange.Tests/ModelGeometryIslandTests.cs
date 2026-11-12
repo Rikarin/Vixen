@@ -11,8 +11,12 @@ namespace Vixen.Editor.Assets.Tests;
 /// <summary>What `vixen uv pack` reads before it repacks anything: the atlas a file already has.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>The defect these exist for reads a connected component over <i>vertex indices</i> as an
-///         island.</b> That is true only of a file that shares an index wherever the position and the
+///         ⚠
+///         <b>
+///             The defect these exist for reads a connected component over <i>vertex indices</i> as an
+///             island.
+///         </b>
+///         That is true only of a file that shares an index wherever the position and the
 ///         coordinate agree. A generated GLB shares nothing: measured on sixteen image-to-3D outputs,
 ///         every one carries exactly three drawing vertices per triangle, so components over raw indices
 ///         came out at one island per triangle — 25 427 on a 25 439-triangle mesh whose atlas has 422.
@@ -111,8 +115,8 @@ public class ModelGeometryIslandTests {
 
         void Corner(int column, int row) {
             indices.Add(positions.Count);
-            positions.Add(new((float) column / across, 0f, (float) row / along));
-            coordinates.Add(new((float) column / across, (float) row / along));
+            positions.Add(new((float)column / across, 0f, (float)row / along));
+            coordinates.Add(new((float)column / across, (float)row / along));
         }
 
         for (var row = 0; row < along; row++) {
@@ -154,8 +158,8 @@ public class ModelGeometryIslandTests {
         }
 
         return Built(
-            [.. one.Positions, .. two.Positions],
-            [.. one.TexCoords, .. two.TexCoords],
+            [..one.Positions, ..two.Positions],
+            [..one.TexCoords, ..two.TexCoords],
             indices
         );
     }
@@ -171,9 +175,9 @@ public class ModelGeometryIslandTests {
 
         return new() {
             Name = "island-fixture",
-            Positions = [.. positions],
-            TexCoords = [.. coordinates],
-            Indices = [.. indices],
+            Positions = [..positions],
+            TexCoords = [..coordinates],
+            Indices = [..indices],
             Bounds = new(low, high)
         };
     }

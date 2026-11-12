@@ -98,9 +98,9 @@ public class TextureFrameLoopTests {
 
             // A property is a member and its getter is another one, and `get_FrameCount` is not a
             // second thing a caller can ask.
-            .Where(member => member is not MethodInfo { IsSpecialName: true })
-            .Select(member => member.Name)
-            .Where(name => name.Contains("Frame", StringComparison.Ordinal))
+            .Where(static member => member is not MethodInfo { IsSpecialName: true })
+            .Select(static member => member.Name)
+            .Where(static name => name.Contains("Frame", StringComparison.Ordinal))
             .Distinct(StringComparer.Ordinal)
             .Order(StringComparer.Ordinal)
             .ToArray();
@@ -121,15 +121,22 @@ public class TextureFrameLoopTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <b>The other half of the issue, and the half that is a behaviour rather than a
-    ///         surface.</b> This used to assert the opposite: the nesting was accepted in silence,
+    ///         <b>
+    ///             The other half of the issue, and the half that is a behaviour rather than a
+    ///             surface.
+    ///         </b>
+    ///         This used to assert the opposite: the nesting was accepted in silence,
     ///         the second <c>BeginFrame</c> taken as an ordinary one, and the only evidence was the
     ///         frame counter advancing twice across one host frame. What made it a trap rather than
     ///         a rule was that a caller could not have checked either — see the test above.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Asserted on the Null device, where the nesting is harmless, and that is the
-    ///         point.</b> On Vulkan the same two calls reset the command pools of the slot the caller
+    ///         ⚠
+    ///         <b>
+    ///             Asserted on the Null device, where the nesting is harmless, and that is the
+    ///             point.
+    ///         </b>
+    ///         On Vulkan the same two calls reset the command pools of the slot the caller
     ///         is recording into and leave its fences a slot behind for the rest of the session, so
     ///         no test could safely demonstrate the damage — which is precisely the argument for a
     ///         refusal rather than a comment saying not to. It also means this device must track the
@@ -166,15 +173,17 @@ public class TextureFrameLoopTests {
 
         var inside = device.FrameCount;
 
-        var refused = Assert.Throws<InvalidOperationException>(
-            () => evaluator.Evaluate(plan, new Dictionary<int, TextureHandle> { [0] = source })
+        var refused = Assert.Throws<InvalidOperationException>(() => evaluator.Evaluate(
+                plan,
+                new Dictionary<int, TextureHandle> { [0] = source }
+            )
         );
 
         Assert.Contains("inside a frame", refused.Message, StringComparison.Ordinal);
 
         Assert.True(
             device.FrameCount == inside,
-            $"The refusal happened after the evaluator had advanced the frame counter by "
+            "The refusal happened after the evaluator had advanced the frame counter by "
             + $"{device.FrameCount - inside}. A guard that fires once the nested BeginFrame has run has "
             + "already reset the caller's command pools, which is the damage "
             + "https://github.com/Rikarin/Vixen/issues/775 is about — reported rather than prevented."

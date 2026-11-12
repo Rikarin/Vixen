@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core.Syntax.Diagnostics;
-using Vixen.Editor.NodeGraph;
 using Vixen.Editor.VfxGraph;
 using Vixen.NodeGraph;
 using Vixen.Raven;
@@ -33,7 +32,7 @@ public class VfxGraphCompilerTests {
     static NodeTypeRegistry Library() {
         var registry = new NodeTypeRegistry();
 
-        Vixen.Editor.VfxGraph.NodeTypes.Register(registry);
+        NodeTypes.Register(registry);
 
         return registry;
     }
@@ -90,7 +89,7 @@ public class VfxGraphCompilerTests {
     }
 
     static string Report(string phase, IReadOnlyList<Diagnostic> diagnostics, string source) =>
-        $"{phase} failed:\n{string.Join("\n", diagnostics.Select(diagnostic => diagnostic.ToString()))}\n\n{source}";
+        $"{phase} failed:\n{string.Join("\n", diagnostics.Select(static diagnostic => diagnostic.ToString()))}\n\n{source}";
 
     /// <summary>The claim, in one test: one graph, an effect that runs and a shader that compiles.</summary>
     [Fact]
@@ -111,7 +110,9 @@ public class VfxGraphCompilerTests {
 
         Assert.All(
             system.Particles.Position[..system.Count].ToArray(),
-            position => Assert.True(float.IsFinite(position.X) && float.IsFinite(position.Y) && float.IsFinite(position.Z))
+            static position => Assert.True(
+                float.IsFinite(position.X) && float.IsFinite(position.Y) && float.IsFinite(position.Z)
+            )
         );
 
         // And the GPU half, actually compiled.
@@ -146,7 +147,7 @@ public class VfxGraphCompilerTests {
 
         Assert.Equal(
             [VfxOpcode.Gravity, VfxOpcode.Drag, VfxOpcode.Integrate],
-            compiled.Updaters.Select(operation => operation.Opcode)
+            compiled.Updaters.Select(static operation => operation.Opcode)
         );
     }
 
@@ -162,7 +163,7 @@ public class VfxGraphCompilerTests {
         gravity.SetValue("Acceleration", 0f, -20f, 0f);
 
         var compiled = new VfxGraphCompiler(Library()).Compile(graph).Value.Graph;
-        var operation = Assert.Single(compiled.Updaters, entry => entry.Opcode == VfxOpcode.Gravity);
+        var operation = Assert.Single(compiled.Updaters, static entry => entry.Opcode == VfxOpcode.Gravity);
 
         Assert.Equal(-20f, operation.A.Y);
     }
@@ -176,7 +177,7 @@ public class VfxGraphCompilerTests {
         graph.Add("Vfx/Update/Gravity");
 
         var compiled = new VfxGraphCompiler(Library()).Compile(graph).Value.Graph;
-        var operation = Assert.Single(compiled.Updaters, entry => entry.Opcode == VfxOpcode.Gravity);
+        var operation = Assert.Single(compiled.Updaters, static entry => entry.Opcode == VfxOpcode.Gravity);
 
         Assert.Equal(-9.81f, operation.A.Y, 5);
     }
@@ -211,7 +212,7 @@ public class VfxGraphCompilerTests {
         var result = new VfxGraphCompiler(Library()).Compile(graph);
 
         Assert.False(result.Succeeded);
-        Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Id == "VG0002");
+        Assert.Contains(result.Diagnostics, static diagnostic => diagnostic.Id == "VG0002");
     }
 
     /// <summary>
@@ -234,7 +235,7 @@ public class VfxGraphCompilerTests {
 
         Assert.False(result.Succeeded);
 
-        var diagnostic = Assert.Single(result.Diagnostics, entry => entry.Id == "VG0003");
+        var diagnostic = Assert.Single(result.Diagnostics, static entry => entry.Id == "VG0003");
 
         Assert.Contains("Velocity", diagnostic.Message, StringComparison.Ordinal);
     }
@@ -260,18 +261,19 @@ public class VfxGraphCompilerTests {
     /// </remarks>
     [Fact]
     public void The_mesh_output_makes_an_instanced_renderer() {
-        Assert.Equal(VfxBillboardAlignment.Camera, Rendered(_ => { }).Alignment);
-        Assert.Equal(VfxRendererKind.Mesh, Rendered(_ => { }).Kind);
+        Assert.Equal(VfxBillboardAlignment.Camera, Rendered(static _ => { }).Alignment);
+        Assert.Equal(VfxRendererKind.Mesh, Rendered(static _ => { }).Kind);
 
         // Velocity wins over an axis, which is what the node's remarks promise.
-        var both = Rendered(node => {
-            node.SetValue("Align to Velocity", 1f);
-            node.SetValue("Axis", 1f, 0f, 0f);
-        });
+        var both = Rendered(static node => {
+                node.SetValue("Align to Velocity", 1f);
+                node.SetValue("Axis", 1f, 0f, 0f);
+            }
+        );
 
         Assert.Equal(VfxBillboardAlignment.Velocity, both.Alignment);
 
-        var axis = Rendered(node => node.SetValue("Axis", 0f, 0f, 1f));
+        var axis = Rendered(static node => node.SetValue("Axis", 0f, 0f, 1f));
 
         Assert.Equal(VfxBillboardAlignment.FixedAxis, axis.Alignment);
         Assert.Equal(new(0f, 0f, 1f), axis.Axis);
@@ -348,7 +350,10 @@ public class VfxGraphCompilerTests {
         var result = new VfxGraphCompiler(Library()).Compile(graph);
 
         Assert.False(result.Succeeded);
-        Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Message.Contains("strip", StringComparison.Ordinal));
+        Assert.Contains(
+            result.Diagnostics,
+            static diagnostic => diagnostic.Message.Contains("strip", StringComparison.Ordinal)
+        );
     }
 
     /// <summary>
@@ -389,20 +394,26 @@ public class VfxGraphCompilerTests {
 
         var compiled = result.Value.Graph;
 
-        Assert.Equal(["glow", "spark"], compiled.Customs.Select(custom => custom.Name));
+        Assert.Equal(["glow", "spark"], compiled.Customs.Select(static custom => custom.Name));
         Assert.Equal(VfxAttributeType.Float3, compiled.Customs[0].Type);
         Assert.Equal(VfxAttributeType.Float, compiled.Customs[1].Type);
 
-        var written = Assert.Single(compiled.Initializers, entry => entry.Opcode == VfxOpcode.SetCustom);
+        var written = Assert.Single(compiled.Initializers, static entry => entry.Opcode == VfxOpcode.SetCustom);
 
         Assert.Equal(0, written.Slot);
         Assert.Equal(0.5f, written.A.Y);
 
-        Assert.Equal(1, Assert.Single(compiled.Initializers, entry => entry.Opcode == VfxOpcode.RandomCustom).Slot);
+        Assert.Equal(
+            1,
+            Assert.Single(compiled.Initializers, static entry => entry.Opcode == VfxOpcode.RandomCustom).Slot
+        );
 
         // The updater names the same attribute the initializer did, so it writes the slot that one
         // declared rather than declaring a second of its own.
-        Assert.Equal(0, Assert.Single(compiled.Updaters, entry => entry.Opcode == VfxOpcode.CustomOverLife).Slot);
+        Assert.Equal(
+            0,
+            Assert.Single(compiled.Updaters, static entry => entry.Opcode == VfxOpcode.CustomOverLife).Slot
+        );
 
         // And the shader half, which declares one buffer per slot in that order.
         Compiles(result.Value.Shader.Source);
@@ -427,7 +438,10 @@ public class VfxGraphCompilerTests {
         var result = new VfxGraphCompiler(Library()).Compile(graph);
 
         Assert.False(result.Succeeded);
-        Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Message.Contains("Float4", StringComparison.Ordinal));
+        Assert.Contains(
+            result.Diagnostics,
+            static diagnostic => diagnostic.Message.Contains("Float4", StringComparison.Ordinal)
+        );
     }
 
     /// <summary>Two lanes is refused rather than rounded down to one.</summary>
@@ -450,7 +464,10 @@ public class VfxGraphCompilerTests {
         var result = new VfxGraphCompiler(Library()).Compile(graph);
 
         Assert.False(result.Succeeded);
-        Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Message.Contains("lanes", StringComparison.Ordinal));
+        Assert.Contains(
+            result.Diagnostics,
+            static diagnostic => diagnostic.Message.Contains("lanes", StringComparison.Ordinal)
+        );
     }
 
     /// <summary>A name the emitted shader already uses is refused, against the name that was typed.</summary>
@@ -491,7 +508,10 @@ public class VfxGraphCompilerTests {
         var result = new VfxGraphCompiler(Library()).Compile(graph);
 
         Assert.False(result.Succeeded);
-        Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Message.Contains("needs a name", StringComparison.Ordinal));
+        Assert.Contains(
+            result.Diagnostics,
+            static diagnostic => diagnostic.Message.Contains("needs a name", StringComparison.Ordinal)
+        );
     }
 
     /// <summary>The two field and collider nodes the library was missing reach their opcodes.</summary>
@@ -526,13 +546,13 @@ public class VfxGraphCompilerTests {
 
         Assert.True(result.Succeeded, string.Join("\n", result.Diagnostics));
 
-        var turning = Assert.Single(result.Value.Graph.Updaters, entry => entry.Opcode == VfxOpcode.Vortex);
+        var turning = Assert.Single(result.Value.Graph.Updaters, static entry => entry.Opcode == VfxOpcode.Vortex);
 
         // A.xyz is a point on the axis and A.w the acceleration; B.xyz is the axis and B.w the reach.
         Assert.Equal(new(1f, 2f, 3f, 7f), turning.A);
         Assert.Equal(new(0f, 0f, 1f, 9f), turning.B);
 
-        var ball = Assert.Single(result.Value.Graph.Updaters, entry => entry.Opcode == VfxOpcode.CollideSphere);
+        var ball = Assert.Single(result.Value.Graph.Updaters, static entry => entry.Opcode == VfxOpcode.CollideSphere);
 
         Assert.Equal(new(4f, 5f, 6f, 2f), ball.A);
         Assert.Equal(0.25f, ball.B.X);
@@ -553,8 +573,12 @@ public class VfxGraphCompilerTests {
     ///         README claimed one was left; there were five.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The rotation assertion is behavioural rather than structural, and that is the
-    ///         point.</b> Three of these five write an attribute that only a fourth one moves and only
+    ///         ⚠
+    ///         <b>
+    ///             The rotation assertion is behavioural rather than structural, and that is the
+    ///             point.
+    ///         </b>
+    ///         Three of these five write an attribute that only a fourth one moves and only
     ///         <c>VfxGeometry</c> reads, so a graph carrying all three and turning nothing would
     ///         satisfy every "the opcode is in the list" check there is — which is the shape of every
     ///         built-and-never-fed defect in this tree. Roll is asserted to have <em>moved</em>, in the
@@ -606,17 +630,20 @@ public class VfxGraphCompilerTests {
         var initializers = result.Value.Graph.Initializers;
 
         // A.xyz is the point.
-        Assert.Equal(new(1f, 2f, 3f, 0f), Assert.Single(initializers, one => one.Opcode == VfxOpcode.SetPosition).A);
+        Assert.Equal(
+            new(1f, 2f, 3f, 0f),
+            Assert.Single(initializers, static one => one.Opcode == VfxOpcode.SetPosition).A
+        );
 
         // A.xyz is the axis and A.w the half-angle; B.x and B.y are the speed range.
-        var aimed = Assert.Single(initializers, one => one.Opcode == VfxOpcode.VelocityInCone);
+        var aimed = Assert.Single(initializers, static one => one.Opcode == VfxOpcode.VelocityInCone);
 
         Assert.Equal(new(0f, 0f, 1f, 0.25f), aimed.A);
         Assert.Equal(4f, aimed.B.X);
         Assert.Equal(6f, aimed.B.Y);
 
-        Assert.Equal(2f, Assert.Single(initializers, one => one.Opcode == VfxOpcode.SetAngularVelocity).A.X);
-        Assert.Single(result.Value.Graph.Updaters, one => one.Opcode == VfxOpcode.Rotate);
+        Assert.Equal(2f, Assert.Single(initializers, static one => one.Opcode == VfxOpcode.SetAngularVelocity).A.X);
+        Assert.Single(result.Value.Graph.Updaters, static one => one.Opcode == VfxOpcode.Rotate);
 
         using var system = new VfxSystem(result.Value.Graph);
 
@@ -629,7 +656,7 @@ public class VfxGraphCompilerTests {
         // ⚠ Exactly the authored roll on the step it was born, and this is a fact about the runtime
         // rather than a rounding allowance: the updaters run over the particles that were already
         // alive, so one spawned this step is initialized and not yet advanced.
-        Assert.All(system.Particles.Rotation[..spawned].ToArray(), angle => Assert.Equal(0.5f, angle, 4));
+        Assert.All(system.Particles.Rotation[..spawned].ToArray(), static angle => Assert.Equal(0.5f, angle, 4));
 
         // A whole second of it, so what is asserted is the rate rather than one step of it.
         for (var step = 0; step < 60; step++) {
@@ -637,7 +664,7 @@ public class VfxGraphCompilerTests {
         }
 
         Assert.Equal(spawned, system.Count);
-        Assert.All(system.Particles.Rotation[..spawned].ToArray(), angle => Assert.Equal(2.5f, angle, 3));
+        Assert.All(system.Particles.Rotation[..spawned].ToArray(), static angle => Assert.Equal(2.5f, angle, 3));
 
         Compiles(result.Value.Shader.Source);
     }
@@ -647,7 +674,7 @@ public class VfxGraphCompilerTests {
     public void Every_block_in_the_library_compiles_both_ways() {
         var graph = new NodeGraphModel { Name = "Everything" };
 
-        foreach (var path in Library().Types.Select(type => type.Path).Order(StringComparer.Ordinal)) {
+        foreach (var path in Library().Types.Select(static type => type.Path).Order(StringComparer.Ordinal)) {
             // One effect node and one output; the rest are blocks and a graph may hold all of them.
             if (path == "Vfx/Output/Light") {
                 continue;
@@ -659,7 +686,8 @@ public class VfxGraphCompilerTests {
             // default — an attribute called nothing cannot be a binding in the emitted shader, which
             // is why the compiler refuses one rather than inventing it. One name for all four, so
             // they share a slot and the ribbon's lookup finds what the blocks declared.
-            if (node.Type.Contains("Custom", StringComparison.Ordinal) || node.Type.EndsWith("Ribbon", StringComparison.Ordinal)) {
+            if (node.Type.Contains("Custom", StringComparison.Ordinal)
+                || node.Type.EndsWith("Ribbon", StringComparison.Ordinal)) {
                 node.SetText("Attribute", "strip");
             }
         }

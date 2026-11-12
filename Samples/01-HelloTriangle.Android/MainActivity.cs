@@ -48,8 +48,11 @@ public sealed class MainActivity : AndroidActivityHost {
     ///         it will go away again every time the activity stops.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b><c>WithLoggerProvider</c> rather than
-    ///         <c>WithServices(… LoggerFactory.AddProvider …)</c>, which is what this used to say.</b>
+    ///         ⚠
+    ///         <b>
+    ///             <c>WithLoggerProvider</c> rather than
+    ///             <c>WithServices(… LoggerFactory.AddProvider …)</c>, which is what this used to say.
+    ///         </b>
     ///         Service callbacks run last, so the sink was installed after the platform, the mounts,
     ///         the workers, the engine and the whole graphics build had logged — and <c>logcat</c> is
     ///         the only log there is on a phone, so the half a bring-up is about was the half that

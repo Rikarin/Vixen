@@ -63,8 +63,8 @@ public sealed class PaletteRemovalTests {
         Assert.Equal(12, volume.CountOf(1));
 
         // The rocks are where the rocks were, filed under their new index.
-        foreach (var chunk in volume.Chunks.Where(chunk => chunk.Type == 1)) {
-            Assert.All(chunk.Instances, instance => Assert.Equal(80f, instance.Position.Z));
+        foreach (var chunk in volume.Chunks.Where(static chunk => chunk.Type == 1)) {
+            Assert.All(chunk.Instances, static instance => Assert.Equal(80f, instance.Position.Z));
         }
     }
 
@@ -85,7 +85,7 @@ public sealed class PaletteRemovalTests {
 
         volume.RemoveType(pine);
 
-        Assert.Equal(["Oak", "Rock"], volume.Palette.Select(type => type.Name));
+        Assert.Equal(["Oak", "Rock"], volume.Palette.Select(static type => type.Name));
         Assert.Equal(12, volume.CountOf(0));
         Assert.Equal(12, volume.CountOf(1));
     }
@@ -119,9 +119,9 @@ public sealed class PaletteRemovalTests {
         Assert.Equal(24, volume.CellCount);
         Assert.Equal(24, volume.InstanceCount);
         Assert.Equal(4, volume.Palette.Count);
-        Assert.All(volume.Chunks, chunk => Assert.InRange(chunk.Type, 0, 3));
+        Assert.All(volume.Chunks, static chunk => Assert.InRange(chunk.Type, 0, 3));
 
-        var keys = volume.Chunks.Select(chunk => (chunk.Type, chunk.Cell)).ToArray();
+        var keys = volume.Chunks.Select(static chunk => (chunk.Type, chunk.Cell)).ToArray();
 
         Assert.Equal(keys.Length, keys.Distinct().Count());
     }
@@ -130,11 +130,11 @@ public sealed class PaletteRemovalTests {
     public void TheBoundsSurviveTheMove() {
         var volume = Stocked(out _, out var oak, out _);
 
-        var before = volume.Chunks.First(chunk => chunk.Type == 2).Bounds;
+        var before = volume.Chunks.First(static chunk => chunk.Type == 2).Bounds;
 
         volume.RemoveType(oak);
 
-        var after = volume.Chunks.First(chunk => chunk.Type == 1).Bounds;
+        var after = volume.Chunks.First(static chunk => chunk.Type == 1).Bounds;
 
         Assert.Equal(before.Minimum, after.Minimum);
         Assert.Equal(before.Maximum, after.Maximum);

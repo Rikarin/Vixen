@@ -47,8 +47,12 @@ public sealed record LayerStackCompilation(
 /// <summary>A layer stack, as a <see cref="TexturePlan" />.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Doc 48 § D1: the stack does not get an evaluator of its own, and it does not get a
-///         plan emitter of its own either.</b> This class is thirty lines because all it does is
+///         ⚠
+///         <b>
+///             Doc 48 § D1: the stack does not get an evaluator of its own, and it does not get a
+///             plan emitter of its own either.
+///         </b>
+///         This class is thirty lines because all it does is
 ///         hand <see cref="LayerStackGraph" />'s graph to <c>TextureGraphCompiler</c> — the same
 ///         public compiler a hand-wired <c>.vxtexgraph</c> goes through, with the same node classes
 ///         and the same kernels behind them. There is no arithmetic here for the graph compiler to
@@ -79,8 +83,12 @@ public static class LayerStackCompiler {
     /// <returns>The plan, the graph it came from, and everything either half had to say.</returns>
     /// <exception cref="ArgumentNullException">The stack or the set is null.</exception>
     /// <remarks>
-    ///     ⚠ <b>A parameter rather than a project, because this is a static method with no
-    ///     document</b> — which is exactly how the two panels came to publish two different libraries
+    ///     ⚠
+    ///     <b>
+    ///         A parameter rather than a project, because this is a static method with no
+    ///         document
+    ///     </b>
+    ///     — which is exactly how the two panels came to publish two different libraries
     ///     (<a href="https://github.com/Rikarin/Vixen/issues/858">#858</a>). What a caller has to know
     ///     is that leaving it null means a fill or a mask effect naming a project compound compiles
     ///     in the graph panel and is <c>TG0001</c> — "nothing inlined it" — here.
@@ -115,15 +123,22 @@ public static class LayerStackCompiler {
     /// <returns>The plan, the graph it came from, and everything either half had to say.</returns>
     /// <exception cref="ArgumentNullException">The stack, the set or the library is null.</exception>
     /// <remarks>
-    ///     ⚠ <b>The overload a caller that compiles more than once should use, and every interactive
-    ///     one does.</b> The <c>assets</c> parameter above publishes the library on the spot, which
+    ///     ⚠
+    ///     <b>
+    ///         The overload a caller that compiles more than once should use, and every interactive
+    ///         one does.
+    ///     </b>
+    ///     The <c>assets</c> parameter above publishes the library on the spot, which
     ///     is a recursive directory walk plus a <c>File.ReadAllText</c> and a YAML parse per project
     ///     compound — affordable for a bake and not for
     ///     <c>LayerStackPreview.Evaluate</c>, which runs once per frame of an opacity drag
     ///     (<a href="https://github.com/Rikarin/Vixen/issues/956">#956</a>).
     ///     <para>
-    ///         <b>A <see cref="TextureLibrary" /> rather than a registry and a source, for that
-    ///         type's own reason</b>: a registry holding a published node type the compiler cannot
+    ///         <b>
+    ///             A <see cref="TextureLibrary" /> rather than a registry and a source, for that
+    ///             type's own reason
+    ///         </b>
+    ///         : a registry holding a published node type the compiler cannot
     ///         resolve is worse than one without it, so the two are never passed apart.
     ///     </para>
     /// </remarks>
@@ -151,9 +166,13 @@ public static class LayerStackCompiler {
     /// <returns>The registry.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The call to <c>TextureCompoundLibrary.Publish</c> that
-    ///         <a href="https://github.com/Rikarin/Vixen/issues/799">#799</a> says nothing in this
-    ///         tree makes.</b> Without it the three shipped generator compounds are embedded in the
+    ///         ⚠
+    ///         <b>
+    ///             The call to <c>TextureCompoundLibrary.Publish</c> that
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/799">#799</a> says nothing in this
+    ///             tree makes.
+    ///         </b>
+    ///         Without it the three shipped generator compounds are embedded in the
     ///         assembly, loadable, compilable and unreachable — a mask naming <c>Generators/Dirt</c>
     ///         resolves to no node type, and a graph containing one reaches a compiler with no
     ///         <c>SubGraphSource</c> and fails on every node it cannot inline. That is why doc 48
@@ -161,8 +180,12 @@ public static class LayerStackCompiler {
     ///         was no way to author one.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>This used to read the shipped compounds and only those, and that made one node
-    ///         type mean two different things depending on which panel an author was in</b> —
+    ///         ⚠
+    ///         <b>
+    ///             This used to read the shipped compounds and only those, and that made one node
+    ///             type mean two different things depending on which panel an author was in
+    ///         </b>
+    ///         —
     ///         <a href="https://github.com/Rikarin/Vixen/issues/858">#858</a>.
     ///         <c>TextureGraphDocument</c> publishes <c>Assets/Compounds</c> beside the shipped four,
     ///         so a fill or a mask effect naming a project compound compiled in the graph panel and
@@ -237,8 +260,6 @@ public static class LayerStackCompiler {
             compilation.Diagnostics,
             compiler.Outputs,
             compiler.Externals
-        ) {
-            Layers = build.Layers
-        };
+        ) { Layers = build.Layers };
     }
 }

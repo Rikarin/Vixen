@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Diagnostics;
-using Vixen.Ai.Perception.Ecs;
 using Vixen.Core.Mathematics;
 using Vixen.Physics;
 using Vixen.Physics.Bodies;
@@ -46,8 +45,8 @@ public class PerceptionCostTests {
 
     [Fact]
     public void FiveHundredListenersAndFiveHundredSourcesCostFarLessWithTheBroadPhase() {
-        var (fast, quick) = Measure(broadPhase: true);
-        var (slow, scanned) = Measure(broadPhase: false);
+        var (fast, quick) = Measure(true);
+        var (slow, scanned) = Measure(false);
 
         var report = $"broad phase: {fast.Examined} examined in {quick:0.000} ms; "
             + $"scan: {slow.Examined} examined in {scanned:0.000} ms; recorded budget {Budget:0.000} ms.";
@@ -81,11 +80,11 @@ public class PerceptionCostTests {
 
         // Five hundred of each over a 400-metre square: a village, at the density a village has.
         for (var index = 0; index < Listeners; index++) {
-            fleet.Listener(Spread(index, 1), team: 0);
+            fleet.Listener(Spread(index, 1));
         }
 
         for (var index = 0; index < Sources; index++) {
-            fleet.Source(Spread(index, 2), team: 1);
+            fleet.Source(Spread(index, 2));
         }
 
         fleet.Step(3);
@@ -106,9 +105,9 @@ public class PerceptionCostTests {
         value ^= value >> 15;
 
         return new(
-            ((value & 0xFFFF) / 65535f * 400f) - 200f,
+            (value & 0xFFFF) / 65535f * 400f - 200f,
             0f,
-            ((value >> 16) / 65535f * 400f) - 200f
+            (value >> 16) / 65535f * 400f - 200f
         );
     }
 }
@@ -135,7 +134,9 @@ public class SightOcclusionTests {
         fleet.Source(new(0f, 0f, -10f));
 
         // A slab across the line of sight, five metres out, three metres high.
-        var wall = physics.CreateBody(BodyDescription.Static(physics.Shapes.Box(new Vector3(6f, 3f, 0.25f)), new(0f, 1.5f, -5f)));
+        var wall = physics.CreateBody(
+            BodyDescription.Static(physics.Shapes.Box(new Vector3(6f, 3f, 0.25f)), new(0f, 1.5f, -5f))
+        );
 
         fleet.Step();
 
@@ -159,7 +160,9 @@ public class SightOcclusionTests {
         var fleet = Watching(physics);
         var listener = fleet.Listener(Vector3.Zero);
         var target = fleet.Source(new(0f, 0f, -10f));
-        var body = physics.CreateBody(BodyDescription.Static(physics.Shapes.Box(new Vector3(0.5f, 1f, 0.5f)), new(0f, 1f, -10f)));
+        var body = physics.CreateBody(
+            BodyDescription.Static(physics.Shapes.Box(new Vector3(0.5f, 1f, 0.5f)), new(0f, 1f, -10f))
+        );
 
         fleet.World.Add(target, new PhysicsBody { Handle = body });
         fleet.Step();
@@ -180,7 +183,9 @@ public class SightOcclusionTests {
 
         fleet.Source(new(0f, 0f, -10f));
 
-        var body = physics.CreateBody(BodyDescription.Static(physics.Shapes.Box(new Vector3(0.5f, 2f, 0.5f)), new(0f, 1.7f, 0f)));
+        var body = physics.CreateBody(
+            BodyDescription.Static(physics.Shapes.Box(new Vector3(0.5f, 2f, 0.5f)), new(0f, 1.7f, 0f))
+        );
 
         fleet.World.Add(listener, new PhysicsBody { Handle = body });
         fleet.Step();
@@ -192,7 +197,7 @@ public class SightOcclusionTests {
     [Fact]
     public void NothingOutsideTheConeIsEverTraced() {
         using var physics = new PhysicsWorld();
-        var fleet = Watching(physics, cone: 90f);
+        var fleet = Watching(physics, 90f);
 
         fleet.Listener(Vector3.Zero);
         fleet.Source(new(0f, 0f, -10f));

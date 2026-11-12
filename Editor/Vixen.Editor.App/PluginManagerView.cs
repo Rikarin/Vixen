@@ -10,8 +10,11 @@ namespace Vixen.Editor.App;
 ///         detail line are made of, and the type declaration the emitter's partial pairs with.
 ///     </para>
 ///     <para>
-///         <b>A grid over <c>PluginHost.Plugins</c>, which has held everything this needs
-///         since it was written.</b> A <c>LoadedPlugin</c> carries the manifest, the state,
+///         <b>
+///             A grid over <c>PluginHost.Plugins</c>, which has held everything this needs
+///             since it was written.
+///         </b>
+///         A <c>LoadedPlugin</c> carries the manifest, the state,
 ///         the failure and the registration count, and <c>PluginDescriptor</c> is
 ///         deliberately "the result of reading, not of loading" — so a plugin that is disabled,
 ///         incompatible or broken is an ordinary row rather than an absence.

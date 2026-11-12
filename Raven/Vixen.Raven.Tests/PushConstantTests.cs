@@ -46,20 +46,20 @@ public class PushConstantTests {
     public void A_marked_field_becomes_a_push_constant_rather_than_a_descriptor() {
         var shader = LoweringTestBase.FindShader(LoweringTestBase.Lower(Sprite), "S");
 
-        Assert.Equal(["offset", "scale"], BindingPlan.PushConstants(shader).Select(c => c.Name));
+        Assert.Equal(["offset", "scale"], BindingPlan.PushConstants(shader).Select(static c => c.Name));
 
         // And is absent from the descriptor plan: it has no (set, binding) for a host to bind to.
         Assert.DoesNotContain(
             BindingPlan.Of(shader),
-            planned => planned.Kind == IrBindingKind.PushConstant
-                || planned.Members.Any(m => m.Kind == IrBindingKind.PushConstant)
+            static planned => planned.Kind == IrBindingKind.PushConstant
+                || planned.Members.Any(static m => m.Kind == IrBindingKind.PushConstant)
         );
 
         // The uniform block is still there, and still starts at binding 0 — adding a push constant
         // renumbers nothing.
         var block = Assert.Single(BindingPlan.Of(shader));
         Assert.Equal(0, block.Binding);
-        Assert.Equal(["tint"], block.Members.Select(m => m.Name));
+        Assert.Equal(["tint"], block.Members.Select(static m => m.Name));
     }
 
     [Fact]
@@ -73,7 +73,10 @@ public class PushConstantTests {
         }
 
         // The vertex stage reads them as ordinary globals, exactly as it reads a uniform.
-        var vertex = Assert.Single(GenerateClean(Sprite), u => u.Name.EndsWith(".vert", StringComparison.Ordinal));
+        var vertex = Assert.Single(
+            GenerateClean(Sprite),
+            static u => u.Name.EndsWith(".vert", StringComparison.Ordinal)
+        );
         Assert.Contains("vec2 _1 = scale;", vertex.Code, StringComparison.Ordinal);
     }
 
@@ -82,7 +85,10 @@ public class PushConstantTests {
         Assert.SkipUnless(SpirvTestBase.ValidatorAvailable, "spirv-val is not on PATH (brew install spirv-tools).");
 
         var listing = ReferenceCompiler.Disassemble(
-            Assert.Single(GenerateClean(Sprite, "spirv"), u => u.Name.EndsWith(".vert", StringComparison.Ordinal))
+            Assert.Single(
+                    GenerateClean(Sprite, "spirv"),
+                    static u => u.Name.EndsWith(".vert", StringComparison.Ordinal)
+                )
                 .Binary!
         );
 
@@ -106,7 +112,7 @@ public class PushConstantTests {
         Assert.Equal("SPushConstants", range.Name);
         Assert.Equal(0, range.Offset);
         Assert.Equal(16, range.Size);
-        Assert.Equal([("offset", 0), ("scale", 8)], range.Members.Select(m => (m.Name, m.Offset)));
+        Assert.Equal([("offset", 0), ("scale", 8)], range.Members.Select(static m => (m.Name, m.Offset)));
     }
 
     /// <summary>
@@ -120,10 +126,8 @@ public class PushConstantTests {
     [InlineData("Buffer<float>")]
     public void A_descriptor_cannot_be_pushed(string type) {
         Assert.Contains(
-            SemanticTestBase.Diagnose(
-                $"package A\n\nshader S {{\n    [PushConstant] var thing: {type}\n}}\n"
-            ),
-            d => d.Id == "RVN2120" && d.IsError
+            SemanticTestBase.Diagnose($"package A\n\nshader S {{\n    [PushConstant] var thing: {type}\n}}\n"),
+            static d => d.Id == "RVN2120" && d.IsError
         );
     }
 
@@ -140,7 +144,7 @@ public class PushConstantTests {
             """
         );
 
-        var warning = Assert.Single(diagnostics, d => d.Id == "RVN2121");
+        var warning = Assert.Single(diagnostics, static d => d.Id == "RVN2121");
         Assert.False(warning.IsError);
         Assert.Contains("PerFrame", warning.GetMessage(), StringComparison.Ordinal);
     }
@@ -158,7 +162,7 @@ public class PushConstantTests {
 
                 """
             ),
-            d => d.Id == "RVN2091"
+            static d => d.Id == "RVN2091"
         );
     }
 
@@ -170,12 +174,12 @@ public class PushConstantTests {
     [Fact]
     public void A_block_over_the_guaranteed_size_warns_with_the_number() {
         var source = "package A\n\nshader S {\n"
-            + string.Concat(Enumerable.Range(0, 9).Select(i => $"    [PushConstant] var m{i}: mat4\n"))
+            + string.Concat(Enumerable.Range(0, 9).Select(static i => $"    [PushConstant] var m{i}: mat4\n"))
             + "}\n";
 
         LoweringTestBase.LowerWithDiagnostics(source, out var diagnostics);
 
-        var warning = Assert.Single(diagnostics, d => d.Id == "RVN3007");
+        var warning = Assert.Single(diagnostics, static d => d.Id == "RVN3007");
         Assert.False(warning.IsError);
         Assert.Contains("576 bytes", warning.GetMessage(), StringComparison.Ordinal);
     }

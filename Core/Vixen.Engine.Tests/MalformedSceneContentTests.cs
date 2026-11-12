@@ -13,8 +13,12 @@ namespace Vixen.Engine.Tests;
 /// <summary>A column and its block disagreeing about how many entities there are.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>The one thing <c>Validate</c> cannot check, and therefore the one that was not
-///         checked.</b> It relates the tables to each other — parents to count, block members to
+///         ⚠
+///         <b>
+///             The one thing <c>Validate</c> cannot check, and therefore the one that was not
+///             checked.
+///         </b>
+///         It relates the tables to each other — parents to count, block members to
 ///         count — and every one of those is a comparison against a number already in a register. A
 ///         column's <i>bytes</i> are not: only a binder knows how wide one value is, and it only
 ///         knows by reading it. So the check has to be after the read, and being after the read is
@@ -29,7 +33,9 @@ namespace Vixen.Engine.Tests;
 ///     </para>
 /// </remarks>
 public sealed class MalformedSceneContentTests {
-    public MalformedSceneContentTests() => SceneComponentRegistry.Register<Health>();
+    public MalformedSceneContentTests() {
+        SceneComponentRegistry.Register<Health>();
+    }
 
     /// <summary>Two entities that both carry a Health, with a column of the caller's choosing.</summary>
     static SceneContent Scene(byte[] column) =>
@@ -88,7 +94,7 @@ public sealed class MalformedSceneContentTests {
     public void AColumnLongerThanItsBlockIsRefusedRatherThanIgnored() {
         using var world = new World();
 
-        var failure = Assert.Throws<ArgumentException>(() => Scene([.. TwoValues(), 9, 9, 9, 9]).Instantiate(world, []));
+        var failure = Assert.Throws<ArgumentException>(() => Scene([..TwoValues(), 9, 9, 9, 9]).Instantiate(world, []));
 
         Assert.Contains("left after", failure.Message, StringComparison.Ordinal);
     }
@@ -116,7 +122,7 @@ public sealed class MalformedSceneContentTests {
     [InlineData(3)]
     public void ASceneThatRefusesLeavesNoEntitiesBehind(int delta) {
         var right = TwoValues();
-        var column = delta < 0 ? right[..(right.Length + delta)] : [.. right, .. new byte[delta]];
+        var column = delta < 0 ? right[..(right.Length + delta)] : [..right, ..new byte[delta]];
 
         using var world = new World();
 
@@ -146,7 +152,7 @@ public sealed class MalformedSceneContentTests {
         foreach (var block in content.Blocks) {
             foreach (var column in block.Columns) {
                 if (string.Equals(column.Component, "SceneTestHealth", StringComparison.Ordinal)) {
-                    column.Data = [.. column.Data, 7, 7, 7, 7];
+                    column.Data = [..column.Data, 7, 7, 7, 7];
                     lengthened++;
                 }
             }

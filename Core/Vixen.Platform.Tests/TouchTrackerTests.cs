@@ -67,8 +67,8 @@ public sealed class TouchTrackerTests {
         tracker.TryMove(1, new(110, 100), out _, out var first);
         tracker.TryMove(1, new(115, 90), out _, out var second);
 
-        Assert.Equal(new Vector2(10, 0), first);
-        Assert.Equal(new Vector2(5, -10), second);
+        Assert.Equal(new(10, 0), first);
+        Assert.Equal(new(5, -10), second);
     }
 
     /// <summary>

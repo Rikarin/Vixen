@@ -143,22 +143,19 @@ public sealed class PhysicsShapes : IDisposable {
     /// <param name="halfHeight">Half the height of the cylindrical part.</param>
     /// <param name="radius">The radius.</param>
     /// <returns>Its id.</returns>
-    public ShapeId Capsule(float halfHeight, float radius) =>
-        Register(ShapeDescription.Capsule(halfHeight, radius));
+    public ShapeId Capsule(float halfHeight, float radius) => Register(ShapeDescription.Capsule(halfHeight, radius));
 
     /// <summary>Registers a cylinder standing on the Y axis.</summary>
     /// <param name="halfHeight">Half the total height.</param>
     /// <param name="radius">The radius.</param>
     /// <returns>Its id.</returns>
-    public ShapeId Cylinder(float halfHeight, float radius) =>
-        Register(ShapeDescription.Cylinder(halfHeight, radius));
+    public ShapeId Cylinder(float halfHeight, float radius) => Register(ShapeDescription.Cylinder(halfHeight, radius));
 
     /// <summary>Registers an infinite half-space.</summary>
     /// <param name="normal">Which way is up.</param>
     /// <param name="distance">How far from the origin along the normal.</param>
     /// <returns>Its id.</returns>
-    public ShapeId Plane(Vector3 normal, float distance = 0f) =>
-        Register(ShapeDescription.Plane(normal, distance));
+    public ShapeId Plane(Vector3 normal, float distance = 0f) => Register(ShapeDescription.Plane(normal, distance));
 
     /// <summary>Registers the convex hull of a point cloud.</summary>
     /// <param name="points">The points. At least four, and not all in one plane.</param>
@@ -178,7 +175,7 @@ public sealed class PhysicsShapes : IDisposable {
             );
         }
 
-        pointData.Add(points.ToArray());
+        pointData.Add([..points]);
         return Register(new() { Kind = ShapeKind.ConvexHull, DataIndex = pointData.Count - 1 });
     }
 
@@ -224,8 +221,8 @@ public sealed class PhysicsShapes : IDisposable {
             }
         }
 
-        pointData.Add(vertices.ToArray());
-        indexData.Add(indices.ToArray());
+        pointData.Add([..vertices]);
+        indexData.Add([..indices]);
 
         // Both blobs are appended together, so one index addresses the pair.
         return Register(new() { Kind = ShapeKind.Mesh, DataIndex = pointData.Count - 1 });
@@ -257,8 +254,12 @@ public sealed class PhysicsShapes : IDisposable {
     ///         a collider that has stopped matching its ground.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b><paramref name="sampleCount" /> must be a power of two, and this is checked rather
-    ///         than trusted.</b> Jolt requires it to be a multiple of the block size and requires the
+    ///         ⚠
+    ///         <b>
+    ///             <paramref name="sampleCount" /> must be a power of two, and this is checked rather
+    ///             than trusted.
+    ///         </b>
+    ///         Jolt requires it to be a multiple of the block size and requires the
     ///         resulting block count to be a power of two; it states both as native assertions, and
     ///         <see cref="DefaultConvexRadius" />'s note applies — those assertions are compiled out of
     ///         the shipped native library, so a violation is silent corruption rather than a crash.
@@ -270,7 +271,7 @@ public sealed class PhysicsShapes : IDisposable {
 
         if (sampleCount < MinHeightFieldSampleCount || (sampleCount & (sampleCount - 1)) != 0) {
             throw new PhysicsShapeException(
-                $"A height field's sample count must be a power of two of at least "
+                "A height field's sample count must be a power of two of at least "
                 + $"{MinHeightFieldSampleCount}; it was {sampleCount}. Note that a tile of N quads is "
                 + "N + 1 samples, so it is the sample count that is the power of two and the quad count "
                 + "that is one less.",
@@ -331,7 +332,7 @@ public sealed class PhysicsShapes : IDisposable {
             );
         }
 
-        heightData.Add(heights.ToArray());
+        heightData.Add([..heights]);
         heightPlacements.Add(new(sampleCount, offset, scale));
 
         // Both blobs are appended together, so one index addresses the pair.
@@ -364,7 +365,7 @@ public sealed class PhysicsShapes : IDisposable {
             }
         }
 
-        childData.Add(children.ToArray());
+        childData.Add([..children]);
         return Register(new() { Kind = ShapeKind.Compound, DataIndex = childData.Count - 1 });
     }
 
@@ -484,7 +485,7 @@ public sealed class PhysicsShapes : IDisposable {
         // asserts rather than clamping, and the assert is compiled out of the shipped native library.
         var radius = MathF.Min(DefaultConvexRadius, smallest * 0.5f);
         var extents = JoltMath.ToJolt(halfExtents);
-        return new BoxShape(in extents, radius);
+        return new(in extents, radius);
     }
 
     static Shape BuildCylinder(float halfHeight, float radius) {
@@ -504,7 +505,7 @@ public sealed class PhysicsShapes : IDisposable {
         // surface is where dot(n, p) + c == 0. Getting that sign wrong puts the solid side up and the
         // world's floor becomes its ceiling, which is exactly the bug that looks like broken gravity.
         var unit = normal / length;
-        var plane = new System.Numerics.Plane(JoltMath.ToJolt(unit), -distance);
+        var plane = new Plane(JoltMath.ToJolt(unit), -distance);
         using var settings = new PlaneShapeSettings(in plane, null, PlaneShapeSettings.DefaultHalfExtent);
         return settings.Create();
     }
@@ -538,8 +539,8 @@ public sealed class PhysicsShapes : IDisposable {
 
         for (var triangle = 0; triangle < triangles.Length; triangle++) {
             var first = indices[triangle * 3];
-            var second = indices[(triangle * 3) + 1];
-            var third = indices[(triangle * 3) + 2];
+            var second = indices[triangle * 3 + 1];
+            var third = indices[triangle * 3 + 2];
             triangles[triangle] = new(in first, in second, in third, 0, 0);
         }
 

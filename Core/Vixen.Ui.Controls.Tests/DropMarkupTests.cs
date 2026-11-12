@@ -41,7 +41,7 @@ public class DropMarkupTests {
     static (float X, float Y) Middle(UiElement element) {
         var bounds = element.Bounds;
 
-        return (bounds.X + (bounds.Width * 0.5f), bounds.Y + (bounds.Height * 0.5f));
+        return (bounds.X + bounds.Width * 0.5f, bounds.Y + bounds.Height * 0.5f);
     }
 
     /// <summary>A file dragged out of Finder reaches a handler written in markup.</summary>
@@ -110,8 +110,12 @@ public class DropMarkupTests {
     ///         what starts the session.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And the target is a control tag with <c>AllowDrop="true"</c> as an
-    ///         attribute</b>, which is a different mechanism from the <c>Zone.AllowDrop = true</c>
+    ///         ⚠
+    ///         <b>
+    ///             And the target is a control tag with <c>AllowDrop="true"</c> as an
+    ///             attribute
+    ///         </b>
+    ///         , which is a different mechanism from the <c>Zone.AllowDrop = true</c>
     ///         the lowercase zone needs: on a lowercase tag the attribute is inert data a selector
     ///         can match. A sample that wrote it on the wrong one has a target that never matches
     ///         and a page that compiles.
@@ -156,7 +160,7 @@ public class DropMarkupTests {
 
         var (sourceX, sourceY) = Middle(source);
         fixture.Press(sourceX, sourceY);
-        fixture.Document.BeginDrag(source, new DataObject());
+        fixture.Document.BeginDrag(source, new());
 
         var (x, y) = Middle(sheet.Zone);
         fixture.MovePointer(x, y);

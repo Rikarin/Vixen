@@ -3,7 +3,6 @@
 
 using Vixen.Core.Imaging;
 using Vixen.Core.Mathematics;
-using Vixen.Rendering;
 using Vixen.Rendering.DistanceFields;
 using Vixen.Rendering.IrradianceFields;
 using Vixen.Rendering.Lighting;
@@ -52,9 +51,9 @@ public class CapturedIrradianceFillerTests {
     /// </remarks>
     static Vector3 Sky(Vector3 direction) =>
         new(
-            0.5f + (0.4f * direction.Y),
-            0.6f + (0.3f * direction.X),
-            0.7f + (0.2f * direction.Z)
+            0.5f + 0.4f * direction.Y,
+            0.6f + 0.3f * direction.X,
+            0.7f + 0.2f * direction.Z
         );
 
     /// <summary>A capture of <see cref="Sky" /> from anywhere, since nothing occludes it.</summary>
@@ -111,7 +110,8 @@ public class CapturedIrradianceFillerTests {
         var capture = new IrradianceCapture(CubeImage.Uniform(Size, new(radiance)), 1f, 1f);
         var probe = filler.Project(capture, IrradianceProbe.Empty);
 
-        foreach (var normal in (Vector3[]) [Vector3.UnitY, -Vector3.UnitY, Vector3.UnitX, Vector3.Normalize(Vector3.One)]) {
+        foreach (var normal in (Vector3[])
+                 [Vector3.UnitY, -Vector3.UnitY, Vector3.UnitX, Vector3.Normalize(Vector3.One)]) {
             Assert.Equal(radiance, probe.Irradiance(normal).X, radiance * 0.01f);
         }
     }
@@ -185,13 +185,13 @@ public class CapturedIrradianceFillerTests {
                 for (var u = 0; u < Size; u++) {
                     var direction = cube.DirectionOf((CubeFace)face, u, v);
 
-                    cube.At((CubeFace)face, u, v) = new(Constant + (Slope * direction.Y));
+                    cube.At((CubeFace)face, u, v) = new(Constant + Slope * direction.Y);
                 }
             }
         }
 
         var probe = new CapturedIrradianceFiller(new OpenSky()).Project(new(cube, 1f, 1f), IrradianceProbe.Empty);
-        var expected = Constant + (2f / 3f * Slope * normal.Y);
+        var expected = Constant + 2f / 3f * Slope * normal.Y;
 
         Assert.Equal(expected, probe.Irradiance(normal).X, 0.005f);
     }
@@ -282,7 +282,7 @@ public class CapturedIrradianceFillerTests {
         // and answers nothing — which is correct behaviour and a fixture measuring the wrong thing.
         //
         // Every direction of this sky is between 0.2 and 1.0, so anything a surface receives is too.
-        foreach (var point in (Vector3[]) [Vector3.Zero, new(1f, -1f, 0.5f), new(-1.5f, 1.5f, 0f)]) {
+        foreach (var point in (Vector3[])[Vector3.Zero, new(1f, -1f, 0.5f), new(-1.5f, 1.5f, 0f)]) {
             var lit = field.Irradiance(point, Vector3.UnitY);
 
             Assert.InRange(lit.X, 0.2f, 1f);

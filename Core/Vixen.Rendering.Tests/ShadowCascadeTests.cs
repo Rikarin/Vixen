@@ -134,7 +134,7 @@ public class ShadowCascadeTests {
         var baseline = Fit(new(0f, 0f, -1f), Vector3.Zero);
         var texel = 2f * baseline.Radius / 1024f;
 
-        var nudged = Fit(new(0f, 0f, -1f), new Vector3(texel * 0.01f, 0f, 0f));
+        var nudged = Fit(new(0f, 0f, -1f), new(texel * 0.01f, 0f, 0f));
 
         Assert.Equal(baseline.Centre, nudged.Centre);
         Assert.Equal(baseline.ViewProjection, nudged.ViewProjection);
@@ -152,7 +152,7 @@ public class ShadowCascadeTests {
         var baseline = Fit(new(0f, 0f, -1f), Vector3.Zero);
         var texel = 2f * baseline.Radius / 1024f;
 
-        var moved = Fit(new(0f, 0f, -1f), new Vector3(texel * 40f, 0f, 0f));
+        var moved = Fit(new(0f, 0f, -1f), new(texel * 40f, 0f, 0f));
 
         Assert.NotEqual(baseline.Centre, moved.Centre);
     }
@@ -190,9 +190,9 @@ public class ShadowCascadeTests {
             for (var sx = -1; sx <= 1; sx += 2) {
                 for (var sy = -1; sy <= 1; sy += 2) {
                     var corner = eye
-                        + (forward * depth)
-                        + (right * (sx * tanX * depth))
-                        + (up * (sy * tanY * depth));
+                        + forward * depth
+                        + right * (sx * tanX * depth)
+                        + up * (sy * tanY * depth);
 
                     Assert.True(frustum.Contains(corner), $"corner ({sx},{sy}) at {depth} is outside");
                 }
@@ -268,11 +268,11 @@ public class ShadowCascadeTests {
             Assert.True(depth <= splits[index], $"{depth} selected cascade {index}, which ends at {splits[index]}");
             Assert.True(index == 0 || depth > splits[index - 1], $"{depth} skipped cascade {index - 1}");
 
-            foreach (var (sx, sy) in (( int X, int Y)[])[(0, 0), (1, 1), (-1, 1), (1, -1), (-1, -1)]) {
+            foreach (var (sx, sy) in ((int X, int Y)[])[(0, 0), (1, 1), (-1, 1), (1, -1), (-1, -1)]) {
                 var point = eye
-                    + (forward * depth)
-                    + (right * (sx * tanX * depth))
-                    + (up * (sy * tanY * depth));
+                    + forward * depth
+                    + right * (sx * tanX * depth)
+                    + up * (sy * tanY * depth);
 
                 Assert.True(
                     fitted[index].Contains(point),
@@ -313,16 +313,16 @@ public class ShadowCascadeTests {
             Assert.Equal(512f, viewport.Height);
         }
 
-        Assert.Equal(new Int2(1024, 1024), ShadowCascades.AtlasSize(4, 512));
+        Assert.Equal(new(1024, 1024), ShadowCascades.AtlasSize(4, 512));
     }
 
     [Fact]
     public void One_cascade_fills_its_whole_atlas() {
         var (scale, offset) = ShadowCascades.AtlasTile(0, 1);
 
-        Assert.Equal(new Vector2(1f, 1f), scale);
-        Assert.Equal(new Vector2(0f, 0f), offset);
-        Assert.Equal(new Int2(512, 512), ShadowCascades.AtlasSize(1, 512));
+        Assert.Equal(new(1f, 1f), scale);
+        Assert.Equal(new(0f, 0f), offset);
+        Assert.Equal(new(512, 512), ShadowCascades.AtlasSize(1, 512));
     }
 
     /// <summary>
@@ -353,8 +353,8 @@ public class ShadowCascadeTests {
                 var plain = Uv(cascade.ViewProjection, point);
                 var tiled = Uv(atlas, point);
 
-                Assert.Equal(offset.X + (scale.X * plain.X), tiled.X, 4);
-                Assert.Equal(offset.Y + (scale.Y * plain.Y), tiled.Y, 4);
+                Assert.Equal(offset.X + scale.X * plain.X, tiled.X, 4);
+                Assert.Equal(offset.Y + scale.Y * plain.Y, tiled.Y, 4);
 
                 // And inside the tile, which is the claim a driver would otherwise make for us by
                 // sampling somebody else's depth.
@@ -420,7 +420,7 @@ public class ShadowCascadeTests {
     /// </remarks>
     [Fact]
     public void Rolling_the_camera_does_not_turn_the_light() {
-        var forward = Vector3.Normalize(new Vector3(0.3f, -0.2f, 1f));
+        var forward = Vector3.Normalize(new(0.3f, -0.2f, 1f));
         var right = Vector3.Normalize(Vector3.Cross(forward, Up));
 
         var upright = ShadowCascades.Fit(Vector3.Zero, forward, Up, Light, Fov, Aspect, 1f, 50f, 1024);
@@ -429,7 +429,7 @@ public class ShadowCascadeTests {
         // identical frustum, so every one of them must be fitted identically.
         foreach (var angle in (float[])[0.1f, 0.7f, 1.5f, 3f]) {
             var rolled = Vector3.Normalize(
-                (Vector3.Normalize(Vector3.Cross(right, forward)) * MathF.Cos(angle)) + (right * MathF.Sin(angle))
+                Vector3.Normalize(Vector3.Cross(right, forward)) * MathF.Cos(angle) + right * MathF.Sin(angle)
             );
 
             var turned = ShadowCascades.Fit(Vector3.Zero, forward, rolled, Light, Fov, Aspect, 1f, 50f, 1024);
@@ -469,10 +469,22 @@ public class ShadowCascadeTests {
             var m = fitted.ViewProjection;
 
             var rotation = new Matrix4x4(
-                m.M11, m.M12, m.M13, m.M14,
-                m.M21, m.M22, m.M23, m.M24,
-                m.M31, m.M32, m.M33, m.M34,
-                0f, 0f, 0f, 1f
+                m.M11,
+                m.M12,
+                m.M13,
+                m.M14,
+                m.M21,
+                m.M22,
+                m.M23,
+                m.M24,
+                m.M31,
+                m.M32,
+                m.M33,
+                m.M34,
+                0f,
+                0f,
+                0f,
+                1f
             );
 
             basis ??= rotation;
@@ -538,7 +550,7 @@ public class ShadowCascadeTests {
         var clip = Matrix4x4.TransformVector4(new(point, 1f), matrix);
         var ndc = new Vector2(clip.X / clip.W, clip.Y / clip.W);
 
-        return new((ndc.X * 0.5f) + 0.5f, (-ndc.Y * 0.5f) + 0.5f);
+        return new(ndc.X * 0.5f + 0.5f, -ndc.Y * 0.5f + 0.5f);
     }
 
     static ShadowCascade Fit(Vector3 forward, Vector3 eye = default) =>

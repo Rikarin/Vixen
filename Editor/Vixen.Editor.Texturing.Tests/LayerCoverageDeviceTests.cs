@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core.Imaging;
-using Vixen.Editor.Texturing.Layers;
 using Vixen.Graphics.Vulkan;
 using Vixen.TextureGraph;
 using Vixen.Texturing.Layers;
@@ -25,8 +24,11 @@ namespace Vixen.Editor.Texturing.Tests;
 ///         they are visible is the texel.
 ///     </para>
 ///     <para>
-///         <b>So each is a constant whose correct value is arithmetic rather than a reference
-///         image.</b> A group over a canvas of ½ that covers nothing must leave ½; the same group
+///         <b>
+///             So each is a constant whose correct value is arithmetic rather than a reference
+///             image.
+///         </b>
+///         A group over a canvas of ½ that covers nothing must leave ½; the same group
 ///         multiplying the whole canvas leaves ¼, and the two are 128 and 64 in a byte. There is no
 ///         tolerance to widen and no golden to re-bless.
 ///     </para>
@@ -50,8 +52,12 @@ public class LayerCoverageDeviceTests(ITestOutputHelper output) {
 
     /// <summary>#807 · 1 — a group's mode must not reach a texel none of its children covered.</summary>
     /// <remarks>
-    ///     ⚠ <b>The child covers nothing because its mask is zero, which is the one way a stack can
-    ///     express "no coverage" without a paint layer.</b> Its blend amount is therefore zero and
+    ///     ⚠
+    ///     <b>
+    ///         The child covers nothing because its mask is zero, which is the one way a stack can
+    ///         express "no coverage" without a paint layer.
+    ///     </b>
+    ///     Its blend amount is therefore zero and
     ///     it changes no texel — so a correct group, whatever its own mode, is the identity here.
     ///     A group that blends the cursor it was handed squares it instead.
     /// </remarks>
@@ -122,11 +128,7 @@ public class LayerCoverageDeviceTests(ITestOutputHelper output) {
                             Channels = ["roughness"],
                             Values = { ["roughness"] = [0.2f, 0.2f, 0.2f, 1f] }
                         },
-                        new() {
-                            Id = "colour",
-                            Kind = LayerKind.Fill,
-                            Values = { ["baseColor"] = [1f, 0f, 0f, 1f] }
-                        }
+                        new() { Id = "colour", Kind = LayerKind.Fill, Values = { ["baseColor"] = [1f, 0f, 0f, 1f] } }
                     ]
                 }
             ]
@@ -151,8 +153,11 @@ public class LayerCoverageDeviceTests(ITestOutputHelper output) {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <b>The oracle is the operator's own neutral, which makes the expected value
-    ///         independent of the parameter being swept.</b> Multiply's neutral is white; a group
+    ///         <b>
+    ///             The oracle is the operator's own neutral, which makes the expected value
+    ///             independent of the parameter being swept.
+    ///         </b>
+    ///         Multiply's neutral is white; a group
     ///         holding nothing but white therefore leaves a canvas of ½ at ½, whether it covers a
     ///         quarter of the texel or all of it. Nothing has to be recomputed per row and there is
     ///         no reference to re-bless.
@@ -188,7 +193,9 @@ public class LayerCoverageDeviceTests(ITestOutputHelper output) {
 
         var red = BakeRed(device, stack, "baseColor");
 
-        output.WriteLine($"{TexturingDevice.Adapter(device)}: a white Multiply group at coverage {coverage} baked red {red}");
+        output.WriteLine(
+            $"{TexturingDevice.Adapter(device)}: a white Multiply group at coverage {coverage} baked red {red}"
+        );
 
         Assert.True(
             red is >= 126 and <= 130,
@@ -206,8 +213,12 @@ public class LayerCoverageDeviceTests(ITestOutputHelper output) {
     ///     replacing it.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>The same stack as <see cref="A_group_that_covers_nothing_leaves_the_canvas_alone" />
-    ///     with one line added, and that line used to change the picture from grey to black.</b> A
+    ///     ⚠
+    ///     <b>
+    ///         The same stack as <see cref="A_group_that_covers_nothing_leaves_the_canvas_alone" />
+    ///         with one line added, and that line used to change the picture from grey to black.
+    ///     </b>
+    ///     A
     ///     group's mask is doc 48 § D10's whole reason for a group — "a stack with one mask, which is
     ///     how twenty layers stay legible" — so this is the intended shape rather than an edge case.
     ///     A mask that <em>replaced</em> the alpha overwrote the group's accumulated coverage with the
@@ -236,12 +247,14 @@ public class LayerCoverageDeviceTests(ITestOutputHelper output) {
 
         var red = BakeRed(device, stack, "baseColor");
 
-        output.WriteLine($"{TexturingDevice.Adapter(device)}: a masked Multiply group covering nothing baked red {red}");
+        output.WriteLine(
+            $"{TexturingDevice.Adapter(device)}: a masked Multiply group covering nothing baked red {red}"
+        );
 
         Assert.True(
             red is >= 126 and <= 130,
             $"{TexturingDevice.Adapter(device)}: the group's one child is masked to nothing, so the group covers no "
-            + $"texel and its own mask of 1 has nothing to reveal — ½ survives, which is 128. It baked "
+            + "texel and its own mask of 1 has nothing to reveal — ½ survives, which is 128. It baked "
             + $"{red}. A mask shuffled *over* the foreground's alpha replaces the coverage the group "
             + "accumulated with the mask's own value, so a group covering nothing multiplies at full "
             + "strength: ½ times the group's black is 0. #832 · 1, and #790 one level up."
@@ -253,8 +266,11 @@ public class LayerCoverageDeviceTests(ITestOutputHelper output) {
     ///     transparency it was isolated over.
     /// </summary>
     /// <remarks>
-    ///     <b>The companion to the neutral sweep, and the half that would still pass if the group's
-    ///     colour were ignored entirely.</b> A white group is the identity under Multiply whatever
+    ///     <b>
+    ///         The companion to the neutral sweep, and the half that would still pass if the group's
+    ///         colour were ignored entirely.
+    ///     </b>
+    ///     A white group is the identity under Multiply whatever
     ///     happens to its colour, so on its own that test cannot tell a correct un-premultiplied
     ///     colour from a group that contributed nothing. Here the group is grey: ½ of the canvas
     ///     multiplied by the group's ½ is ¼, half-covered over ½ is ⅜, and ⅜ is 96.
@@ -297,14 +313,21 @@ public class LayerCoverageDeviceTests(ITestOutputHelper output) {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <b>The oracle is again the operator's own neutral, and the filter is what produces
-    ///         it.</b> The group's child is <em>black</em> and the filter inverts it, so a fully
+    ///         <b>
+    ///             The oracle is again the operator's own neutral, and the filter is what produces
+    ///             it.
+    ///         </b>
+    ///         The group's child is <em>black</em> and the filter inverts it, so a fully
     ///         applied filter hands the group white — Multiply's neutral — and the canvas of ½ comes
     ///         back at ½ whatever the group covers. Nothing is recomputed per row.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A filter's content is the backdrop, so compositing it <em>over</em> that backdrop
-    ///         under-applies it by exactly the coverage.</b> With the adjusted picture and the picture
+    ///         ⚠
+    ///         <b>
+    ///             A filter's content is the backdrop, so compositing it <em>over</em> that backdrop
+    ///             under-applies it by exactly the coverage.
+    ///         </b>
+    ///         With the adjusted picture and the picture
     ///         it adjusts both covering K, the over rule bakes <c>1 / (2 − K)</c> of the way to white
     ///         at a coverage of <c>K(2 − K)</c> — 0.667 at a half, not 1 — and the multiply then
     ///         darkens the canvas to 96. The whole sweep reads 128 · 104 · 96 · 104 · 128, so the two
@@ -339,12 +362,7 @@ public class LayerCoverageDeviceTests(ITestOutputHelper output) {
                         Id = "flip",
                         Kind = LayerKind.Filter,
                         Filter = LayerFilterKind.Invert,
-                        Settings = {
-                            ["Red"] = [1f],
-                            ["Green"] = [1f],
-                            ["Blue"] = [1f],
-                            ["Alpha"] = [0f]
-                        }
+                        Settings = { ["Red"] = [1f], ["Green"] = [1f], ["Blue"] = [1f], ["Alpha"] = [0f] }
                     }
                 ]
             }
@@ -352,12 +370,14 @@ public class LayerCoverageDeviceTests(ITestOutputHelper output) {
 
         var red = BakeRed(device, stack, "baseColor");
 
-        output.WriteLine($"{TexturingDevice.Adapter(device)}: an inverting filter in a group at coverage {coverage} baked {red}");
+        output.WriteLine(
+            $"{TexturingDevice.Adapter(device)}: an inverting filter in a group at coverage {coverage} baked {red}"
+        );
 
         Assert.True(
             red is >= 126 and <= 130,
             $"{TexturingDevice.Adapter(device)}: the group's child is black and the filter over it inverts, so a filter "
-            + $"applied in full hands the group white — Multiply's own neutral — and the canvas of ½ "
+            + "applied in full hands the group white — Multiply's own neutral — and the canvas of ½ "
             + $"survives at 128 whatever the coverage. At {coverage} it baked {red}. A filter "
             + "composited *over* the picture it adjusts is applied 1/(2 − K) of the way, which is 96 at "
             + "a half and 104 at a quarter and at three quarters. #845."
@@ -370,8 +390,11 @@ public class LayerCoverageDeviceTests(ITestOutputHelper output) {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <b>The oracle is a second bake rather than a number, because the number would have to
-    ///         be recomputed per row and re-blessed with it.</b> Two stacks that differ by one layer
+    ///         <b>
+    ///             The oracle is a second bake rather than a number, because the number would have to
+    ///             be recomputed per row and re-blessed with it.
+    ///         </b>
+    ///         Two stacks that differ by one layer
     ///         which does nothing must bake the same texel; the assertion never has to know what that
     ///         texel is. A grey child rather than a white one, so that a group whose colour was
     ///         ignored entirely would not pass — under Multiply, white is the identity however wrong
@@ -393,7 +416,9 @@ public class LayerCoverageDeviceTests(ITestOutputHelper output) {
         var red = BakeRed(device, Filtered(coverage, false), "baseColor");
         var filtered = BakeRed(device, Filtered(coverage, true), "baseColor");
 
-        output.WriteLine($"{TexturingDevice.Adapter(device)}: coverage {coverage} baked {red} plain and {filtered} filtered");
+        output.WriteLine(
+            $"{TexturingDevice.Adapter(device)}: coverage {coverage} baked {red} plain and {filtered} filtered"
+        );
 
         Assert.True(
             Math.Abs(red - filtered) <= 2,
@@ -458,7 +483,9 @@ public class LayerCoverageDeviceTests(ITestOutputHelper output) {
                 Id = "ink",
                 Kind = LayerKind.Fill,
                 Values = { ["baseColor"] = [0f, 0f, 0f, 1f] },
-                Mask = new() { Source = LayerMaskSource.Anchor, Anchor = new() { Anchor = "inner", Channel = "baseColor" } }
+                Mask = new() {
+                    Source = LayerMaskSource.Anchor, Anchor = new() { Anchor = "inner", Channel = "baseColor" }
+                }
             }
         );
 
@@ -470,7 +497,7 @@ public class LayerCoverageDeviceTests(ITestOutputHelper output) {
         Assert.True(
             Math.Abs(red - expected) <= 2,
             $"{TexturingDevice.Adapter(device)}: the anchored layer is white and covers {coverage}, so a mask that is "
-            + $"its value times its coverage reveals the black layer by that much and the canvas of ½ "
+            + "its value times its coverage reveals the black layer by that much and the canvas of ½ "
             + $"comes back at ½(1 − {coverage}) — {expected}. It baked {red}. An anchor read for its "
             + "red alone is a mask of 1 wherever the anchored layer has any colour at all, which is a "
             + "black canvas at every coverage but zero. #874."
@@ -482,8 +509,11 @@ public class LayerCoverageDeviceTests(ITestOutputHelper output) {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/789">#789</a> claims an
-    ///         <em>identity</em> and not an approximation</b>: a mask that is one constant inside the
+    ///         <b>
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/789">#789</a> claims an
+    ///             <em>identity</em> and not an approximation
+    ///         </b>
+    ///         : a mask that is one constant inside the
     ///         unit interval is a number the layer's opacity absorbs, because <c>Blend.rvn</c> reads
     ///         <c>amount = saturate(opacity) · saturate(b.w)</c> and multiplication reassociates. Every
     ///         other test in this file bakes the folded form only — a bare constant mask compiles to
@@ -498,8 +528,12 @@ public class LayerCoverageDeviceTests(ITestOutputHelper output) {
     ///         this a differential rather than two spellings of one arithmetic.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Not what <a href="https://github.com/Rikarin/Vixen/issues/895">#895</a> asked for,
-    ///         because its premise is refuted.</b> It says every mask in this file is a bare constant
+    ///         ⚠
+    ///         <b>
+    ///             Not what <a href="https://github.com/Rikarin/Vixen/issues/895">#895</a> asked for,
+    ///             because its premise is refuted.
+    ///         </b>
+    ///         It says every mask in this file is a bare constant
     ///         and that the unfolded path therefore lost its device coverage;
     ///         <see cref="An_anchor_onto_a_partly_covered_layer_masks_by_its_coverage" /> masks by an
     ///         <em>anchor</em>, which never folded, and bakes the full shuffle-multiply-shuffle chain
@@ -513,8 +547,8 @@ public class LayerCoverageDeviceTests(ITestOutputHelper output) {
     public void A_folded_constant_mask_bakes_what_the_unfolded_one_bakes(float coverage) {
         using var device = TexturingDevice.Open();
 
-        var bare = Grey(Ink(coverage, unfold: false));
-        var kept = Grey(Ink(coverage, unfold: true));
+        var bare = Grey(Ink(coverage, false));
+        var kept = Grey(Ink(coverage, true));
 
         // ⚠ The instrument, and it is device-free on purpose: if the entry below did not actually stop
         // `LayerStackGraph.Folds`, the two stacks would compile to one plan and every assertion after
@@ -574,12 +608,9 @@ public class LayerCoverageDeviceTests(ITestOutputHelper output) {
         };
 
         if (unfold) {
-            layer.Mask.Layers.Add(new() {
-                Source = LayerMaskSource.Constant,
-                Value = 1f,
-                Blend = LayerBlendMode.Copy,
-                Opacity = 0f
-            });
+            layer.Mask.Layers.Add(
+                new() { Source = LayerMaskSource.Constant, Value = 1f, Blend = LayerBlendMode.Copy, Opacity = 0f }
+            );
         }
 
         return layer;
@@ -602,21 +633,18 @@ public class LayerCoverageDeviceTests(ITestOutputHelper output) {
             // the comparison below is about the compositing and not about what a blur does to a flat
             // fill. A default-radius blur of a constant is also the identity, which would make this
             // pass while asserting nothing about the port having reached the node.
-            children.Add(new() {
-                Id = "still",
-                Kind = LayerKind.Filter,
-                Filter = LayerFilterKind.Blur,
-                Settings = { ["Radius"] = [0f] }
-            });
+            children.Add(
+                new() {
+                    Id = "still",
+                    Kind = LayerKind.Filter,
+                    Filter = LayerFilterKind.Blur,
+                    Settings = { ["Radius"] = [0f] }
+                }
+            );
         }
 
         return Grey(
-            new LayerAsset {
-                Id = "g",
-                Kind = LayerKind.Group,
-                Blend = LayerBlendMode.Multiply,
-                Children = children
-            }
+            new LayerAsset { Id = "g", Kind = LayerKind.Group, Blend = LayerBlendMode.Multiply, Children = children }
         );
     }
 
@@ -633,7 +661,7 @@ public class LayerCoverageDeviceTests(ITestOutputHelper output) {
                 new() {
                     Name = "S",
                     Channels = [new() { Usage = "baseColor", Default = [0.5f, 0.5f, 0.5f, 1f] }],
-                    Layers = [.. layers]
+                    Layers = [..layers]
                 }
             ]
         };

@@ -53,8 +53,12 @@ public partial class AmbientConsumer {
 
 /// <summary>An ambient value, spent from two real <c>.vxml</c> files on both sides of it.</summary>
 /// <remarks>
-///     ⚠ <b>Written against committed markup rather than a hand-built <c>Component</c>, for
-///     <c>SlotProjectionTests</c>' reason.</b> The item this closes is that markup could not express
+///     ⚠
+///     <b>
+///         Written against committed markup rather than a hand-built <c>Component</c>, for
+///         <c>SlotProjectionTests</c>' reason.
+///     </b>
+///     The item this closes is that markup could not express
 ///     a cross-cutting value, so a hand-written <c>Build</c> body proves the half that was never in
 ///     question.
 /// </remarks>

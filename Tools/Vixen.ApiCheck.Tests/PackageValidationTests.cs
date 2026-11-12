@@ -22,8 +22,12 @@ namespace Vixen.ApiCheck.Tests;
 ///         <c>runtimes/&lt;rid&gt;/lib</c> path for the compatible-runtime validator to inspect).
 ///     </para>
 ///     <para>
-///         ⚠ <b>Both of those are true today and neither is true forever, and nothing was watching
-///         either.</b> Six rounds each re-derived the same facts by hand and left nothing behind, so
+///         ⚠
+///         <b>
+///             Both of those are true today and neither is true forever, and nothing was watching
+///             either.
+///         </b>
+///         Six rounds each re-derived the same facts by hand and left nothing behind, so
 ///         the day one of them changes is a day the prose in doc 12 quietly becomes wrong — and it is
 ///         precisely the day the property starts being worth setting. A refusal that cannot expire
 ///         loudly is indistinguishable from an oversight a year later.
@@ -42,11 +46,11 @@ public sealed class PackageValidationTests {
     [Fact]
     public void TheCompatibleFrameworkValidatorStillHasNothingToCompare() {
         var multiTargeted = ProjectFiles()
-            .Where(project => XDocument.Load(project)
-                .Descendants()
-                .Any(element => element.Name.LocalName == "TargetFrameworks")
+            .Where(static project => XDocument.Load(project)
+                    .Descendants()
+                    .Any(static element => element.Name.LocalName == "TargetFrameworks")
             )
-            .Select(project => Path.GetFileName(project))
+            .Select(static project => Path.GetFileName(project))
             .Order(StringComparer.Ordinal)
             .ToList();
 
@@ -86,7 +90,7 @@ public sealed class PackageValidationTests {
             + "PackageValidationBaselineVersion is owed rather than blocked — see #337 and "
             + "docs/plan/12 § NuGet package layout. ⚠ If that release was never pushed to a feed, "
             + "the property cannot be set either and the refusal has to be rewritten here with that "
-            + "as its reason, because \"there has never been a release\" will have stopped being one."
+            + """as its reason, because "there has never been a release" will have stopped being one."""
         );
     }
 
@@ -114,9 +118,9 @@ public sealed class PackageValidationTests {
     [Fact]
     public void NoPackageDeclaresAnIconSoTheLayoutTablesRefusalStillHolds() {
         var declared = ProjectFiles()
-            .Where(project => XDocument.Load(project)
-                .Descendants()
-                .Any(element => element.Name.LocalName is "PackageIcon" or "PackageIconUrl")
+            .Where(static project => XDocument.Load(project)
+                    .Descendants()
+                    .Any(static element => element.Name.LocalName is "PackageIcon" or "PackageIconUrl")
             )
             .Select(Path.GetFileName)
             .Order(StringComparer.Ordinal)
@@ -167,17 +171,18 @@ public sealed class PackageValidationTests {
             File.ReadAllText(Path.Combine(RepositoryRoot(), "docs", "api-history", "index.json"))
         );
 
-        return index.RootElement.EnumerateArray()
-            .Select(row => row.GetProperty("Version").GetString() ?? string.Empty)
-            .Where(version => version.Length > 0)
-            .ToList();
+        return [
+            ..index.RootElement.EnumerateArray()
+                .Select(static row => row.GetProperty("Version").GetString() ?? string.Empty)
+                .Where(static version => version.Length > 0)
+        ];
     }
 
     static string VersionPrefix() {
         var declared = XDocument.Load(Path.Combine(RepositoryRoot(), "Directory.Build.props"))
             .Descendants()
-            .Where(element => element.Name.LocalName == "VersionPrefix")
-            .Select(element => element.Value.Trim())
+            .Where(static element => element.Name.LocalName == "VersionPrefix")
+            .Select(static element => element.Value.Trim())
             .FirstOrDefault();
 
         Assert.False(

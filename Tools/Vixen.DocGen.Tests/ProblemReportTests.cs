@@ -16,8 +16,12 @@ namespace Vixen.DocGen.Tests;
 ///         would fail on what it printed.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Ask what this gate prints on the day it does not run: it printed errors and
-///         succeeded, which is the strongest possible version of that failure.</b> Sixteen batches of
+///         ⚠
+///         <b>
+///             Ask what this gate prints on the day it does not run: it printed errors and
+///             succeeded, which is the strongest possible version of that failure.
+///         </b>
+///         Sixteen batches of
 ///         the doc 48 workstream ran <c>Docs</c> in their pre-merge sweep believing it was the gate,
 ///         and every one of those sweeps would have passed a new undocumented public type.
 ///     </para>
@@ -33,7 +37,7 @@ public class ProblemReportTests {
     /// </remarks>
     [Fact]
     public void A_run_that_does_not_gate_does_not_write_to_standard_error() {
-        var (toStandardError, lines) = ProblemReport.Describe(One, gating: false);
+        var (toStandardError, lines) = ProblemReport.Describe(One, false);
 
         Assert.False(toStandardError);
         Assert.Contains(One[0], lines[^1], StringComparison.Ordinal);
@@ -41,16 +45,20 @@ public class ProblemReportTests {
 
     /// <summary>And it names the target that does fail, in the form it is typed.</summary>
     /// <remarks>
-    ///     ⚠ <b>The two target names differ by six characters, and CLAUDE.md was wrong about which
-    ///     was which for sixteen batches.</b> A reader who is told only "this does not gate" has to
+    ///     ⚠
+    ///     <b>
+    ///         The two target names differ by six characters, and CLAUDE.md was wrong about which
+    ///         was which for sixteen batches.
+    ///     </b>
+    ///     A reader who is told only "this does not gate" has to
     ///     go and find out what does; the line carries the command, so the answer is where the
     ///     question is asked.
     /// </remarks>
     [Fact]
     public void A_run_that_does_not_gate_names_the_target_that_does() {
-        var (_, lines) = ProblemReport.Describe(One, gating: false);
+        var (_, lines) = ProblemReport.Describe(One, false);
 
-        Assert.Contains(lines, line => line.Contains("CheckDocs", StringComparison.Ordinal));
+        Assert.Contains(lines, static line => line.Contains("CheckDocs", StringComparison.Ordinal));
     }
 
     /// <summary>⚠ A gating run still writes to standard error, which is what makes it visible.</summary>
@@ -62,10 +70,10 @@ public class ProblemReportTests {
     /// </remarks>
     [Fact]
     public void A_gating_run_writes_to_standard_error() {
-        var (toStandardError, lines) = ProblemReport.Describe(One, gating: true);
+        var (toStandardError, lines) = ProblemReport.Describe(One, true);
 
         Assert.True(toStandardError);
-        Assert.DoesNotContain(lines, line => line.Contains("CheckDocs", StringComparison.Ordinal));
+        Assert.DoesNotContain(lines, static line => line.Contains("CheckDocs", StringComparison.Ordinal));
     }
 
     /// <summary>Nothing found is nothing printed, on either stream.</summary>
@@ -92,8 +100,8 @@ public class ProblemReportTests {
     /// </remarks>
     [Fact]
     public void Past_the_limit_the_remainder_is_counted() {
-        var many = Enumerable.Range(0, 30).Select(index => $"problem {index}").ToList();
-        var (_, lines) = ProblemReport.Describe(many, gating: true, limit: 25);
+        var many = Enumerable.Range(0, 30).Select(static index => $"problem {index}").ToList();
+        var (_, lines) = ProblemReport.Describe(many, true);
 
         // A blank line, the header, twenty-five problems, and the tally.
         Assert.Equal(28, lines.Count);

@@ -8,7 +8,6 @@ using Vixen.Rendering.Compositor;
 using Vixen.Rendering.Materials;
 using Vixen.Rendering.PostFx;
 using Vixen.Shaders;
-using Vixen.Ui.Testing.Visual;
 using Xunit;
 
 namespace Vixen.Graphics.Golden.Tests;
@@ -32,42 +31,52 @@ namespace Vixen.Graphics.Golden.Tests;
 ///     </para>
 ///     <para><b>Determinism.</b> What is pinned and what is allowed to run:</para>
 ///     <list type="bullet">
-///         <item><description>
-///             <b>Antialiasing is FXAA, not TAA.</b> TAA converges over frames against a jitter
-///             sequence and a history buffer, and a golden that depends on which frame it stopped at is
-///             a golden that fails when anything upstream changes the frame count. FXAA is a single
-///             pass over the resolved image and settles in one frame. What that costs is stated below.
-///         </description></item>
-///         <item><description>
-///             <b>Exposure is metered, and the meter's adaptation is pinned.</b> The histogram meter
-///             eases towards its target at <c>1 − exp(−dt·rate)</c> per frame, so a metered fixture's
-///             brightness is otherwise a picture of how many frames it was left running.
-///             <see cref="TierScene" /> sets the node's <c>DeltaTime</c> to ten seconds, which makes
-///             that fraction one: the meter arrives at its target on the first frame and stays. The
-///             <em>rate</em> is untouched, because the rate is what a regression in the adaptation
-///             would move. Metered rather than fixed on purpose — the tier's
-///             <c>post.localExposure</c> only ever runs with the meter, so a fixed-exposure fixture
-///             could not see that knob at all.
-///         </description></item>
-///         <item><description>
-///             <b>The scene is photometric.</b> Twelve thousand lux of sun, a sky in cd/m², a lamp in
-///             lumens. Not decoration: the meter and the tone curve are calibrated in real units, so a
-///             scene authored in 0–1 colours is a dozen stops under everything downstream of it and
-///             the frame comes back flat white. That was this fixture's first picture.
-///         </description></item>
-///         <item><description>
-///             <b>Two frames are rendered and the second is kept.</b> Not for convergence — nothing
-///             here converges — but because the first frame of any frame graph is the one where a
-///             history plane, a reduced depth pyramid or a reprojected volume has no previous frame to
-///             read, and a fixture that only ever renders frame one would pass while every such plane
-///             is wrong from frame two onwards. The volumetric fog's temporal reprojection is exactly
-///             that: it reads its own last volume.
-///         </description></item>
-///         <item><description>
-///             <b>Nothing moves between the two frames.</b> The camera, the lights and the transforms
-///             are written once, so a reprojection that reads last frame's matrices reads the same
-///             ones — which is what makes two frames stable rather than a longer settle.
-///         </description></item>
+///         <item>
+///             <description>
+///                 <b>Antialiasing is FXAA, not TAA.</b> TAA converges over frames against a jitter
+///                 sequence and a history buffer, and a golden that depends on which frame it stopped at is
+///                 a golden that fails when anything upstream changes the frame count. FXAA is a single
+///                 pass over the resolved image and settles in one frame. What that costs is stated below.
+///             </description>
+///         </item>
+///         <item>
+///             <description>
+///                 <b>Exposure is metered, and the meter's adaptation is pinned.</b> The histogram meter
+///                 eases towards its target at <c>1 − exp(−dt·rate)</c> per frame, so a metered fixture's
+///                 brightness is otherwise a picture of how many frames it was left running.
+///                 <see cref="TierScene" /> sets the node's <c>DeltaTime</c> to ten seconds, which makes
+///                 that fraction one: the meter arrives at its target on the first frame and stays. The
+///                 <em>rate</em> is untouched, because the rate is what a regression in the adaptation
+///                 would move. Metered rather than fixed on purpose — the tier's
+///                 <c>post.localExposure</c> only ever runs with the meter, so a fixed-exposure fixture
+///                 could not see that knob at all.
+///             </description>
+///         </item>
+///         <item>
+///             <description>
+///                 <b>The scene is photometric.</b> Twelve thousand lux of sun, a sky in cd/m², a lamp in
+///                 lumens. Not decoration: the meter and the tone curve are calibrated in real units, so a
+///                 scene authored in 0–1 colours is a dozen stops under everything downstream of it and
+///                 the frame comes back flat white. That was this fixture's first picture.
+///             </description>
+///         </item>
+///         <item>
+///             <description>
+///                 <b>Two frames are rendered and the second is kept.</b> Not for convergence — nothing
+///                 here converges — but because the first frame of any frame graph is the one where a
+///                 history plane, a reduced depth pyramid or a reprojected volume has no previous frame to
+///                 read, and a fixture that only ever renders frame one would pass while every such plane
+///                 is wrong from frame two onwards. The volumetric fog's temporal reprojection is exactly
+///                 that: it reads its own last volume.
+///             </description>
+///         </item>
+///         <item>
+///             <description>
+///                 <b>Nothing moves between the two frames.</b> The camera, the lights and the transforms
+///                 are written once, so a reprojection that reads last frame's matrices reads the same
+///                 ones — which is what makes two frames stable rather than a longer settle.
+///             </description>
+///         </item>
 ///     </list>
 ///     <para>
 ///         <b>What the four pictures are supposed to differ by.</b> The tier moves nothing about
@@ -89,29 +98,31 @@ public sealed class StandardFrameTierImageTests {
     ///     The frame every tier expands, with the tier as the only difference between the four runs.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>GI and reflections are off, and that is a statement about the harness rather than a
-    ///     preference.</b> <see cref="GiMode.Probes" /> emits a clipmap, an irradiance field, a
+    ///     ⚠
+    ///     <b>
+    ///         GI and reflections are off, and that is a statement about the harness rather than a
+    ///         preference.
+    ///     </b>
+    ///     <see cref="GiMode.Probes" /> emits a clipmap, an irradiance field, a
     ///     surface cache and a screen-probe gather, all of which need scene data this fixture does not
     ///     stage — a distance field of the boxes, a probe grid, cards. What that costs is stated in
     ///     the README: the tiers' GI knobs are not under a picture here, only their shadow, fog and
     ///     post ones.
     /// </remarks>
-    internal static StandardFrameAsset Frame => new() {
-        Name = "Frame",
-        Shadows = ShadowMode.Cascades,
-        Gi = GiMode.Off,
-        Reflections = ReflectionsMode.Off,
-        Antialiasing = AntialiasingMode.Fxaa,
-        Exposure = ExposureMode.Automatic,
-        Particles = false
-    };
+    internal static StandardFrameAsset Frame =>
+        new() {
+            Name = "Frame",
+            Shadows = ShadowMode.Cascades,
+            Gi = GiMode.Off,
+            Reflections = ReflectionsMode.Off,
+            Antialiasing = AntialiasingMode.Fxaa,
+            Exposure = ExposureMode.Automatic,
+            Particles = false
+        };
 
     /// <summary>The same frame with the ambient split on, which is the shape sample 13 ships.</summary>
-    static StandardFrameAsset SplitFrame => Frame with {
-        Name = "Split",
-        Gi = GiMode.Ambient,
-        Reflections = ReflectionsMode.Screen
-    };
+    static StandardFrameAsset SplitFrame =>
+        Frame with { Name = "Split", Gi = GiMode.Ambient, Reflections = ReflectionsMode.Screen };
 
     static GraphicsCompositorAsset Document => new() { Game = Frame };
 
@@ -255,8 +266,12 @@ public sealed class StandardFrameTierImageTests {
     ///         holds both ends of the plane the fourth target exists to carry.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Its first reference was a picture of a frame with no diffuse ambient in it, and
-    ///         this is what caught that.</b> The split pass withholds the diffuse half for
+    ///         ⚠
+    ///         <b>
+    ///             Its first reference was a picture of a frame with no diffuse ambient in it, and
+    ///             this is what caught that.
+    ///         </b>
+    ///         The split pass withholds the diffuse half for
     ///         <c>!AmbientCombine</c> to rebuild from an irradiance plane, and <c>!StandardFrame</c>
     ///         names one only at <c>gi: probes</c> — so <c>gi: ambient</c> here withheld the term and
     ///         put nothing back. Against <c>tier-high</c> that was 86.0% of the frame and a mean of
@@ -317,7 +332,7 @@ public sealed class StandardFrameTierImageTests {
 
         Assert.True(
             against.MeanChannel > 1.0,
-            $"The split frame and the unsplit tier-high reference differ by an average channel of "
+            "The split frame and the unsplit tier-high reference differ by an average channel of "
             + $"{against.MeanChannel:F3}/255 over {against.DifferingPixels} of {against.TotalPixels} "
             + $"pixels ({against.Fraction:P3}), where 1.000 is the least a rebuilt frame may — this "
             + "one is measured at 2.708. The likeliest cause is that ForwardPlus compiled without "
@@ -378,8 +393,12 @@ public sealed class StandardFrameTierImageTests {
     ///         fall apart", not as "every consumer measured in the right grid".
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And the numbers say the fixture is not blind, it is watching with the wrong
-    ///         bound.</b> Re-measured on an M1 Max: that sabotage moves this comparison from 1.361
+    ///         ⚠
+    ///         <b>
+    ///             And the numbers say the fixture is not blind, it is watching with the wrong
+    ///             bound.
+    ///         </b>
+    ///         Re-measured on an M1 Max: that sabotage moves this comparison from 1.361
     ///         over 3.284% of the frame to 1.879 over 4.407%, against a ceiling of 8.0 — a real signal
     ///         four times under the guard. Tightening the ceiling is <em>not</em> the answer, because
     ///         1.6 would be a cross-driver bound 1.38× over the correct value while
@@ -403,9 +422,7 @@ public sealed class StandardFrameTierImageTests {
 
         using var owned = fixture!;
 
-        var half = new RenderQualityAsset {
-            High = new() { Resolution = new() { RenderScale = 0.5f } }
-        };
+        var half = new RenderQualityAsset { High = new() { Resolution = new() { RenderScale = 0.5f } } };
 
         Bitmap native;
         Bitmap scaled;
@@ -422,7 +439,7 @@ public sealed class StandardFrameTierImageTests {
 
         Assert.True(
             comparison.MeanChannel > 0.35,
-            $"A half-scale frame and a native one differ by a mean channel of "
+            "A half-scale frame and a native one differ by a mean channel of "
             + $"{comparison.MeanChannel:F3}/255, where 0.35 is what Tolerance.Shaded allows two "
             + "renderings of the same picture — so the render scale reached nothing. The tier's "
             + "value lands on the six scene planes' Scale in StandardFrame.Emit; if those are still "
@@ -431,7 +448,7 @@ public sealed class StandardFrameTierImageTests {
 
         Assert.True(
             comparison.MeanChannel < 8.0,
-            $"A half-scale frame and a native one differ by a mean channel of "
+            "A half-scale frame and a native one differ by a mean channel of "
             + $"{comparison.MeanChannel:F3}/255 over {comparison.Fraction:P3} of the frame, where "
             + "8.000 is this fixture's worst recorded silent defect and 1.361 is what half "
             + "resolution upscaled back measures. The scale reached the frame and something read "
@@ -458,8 +475,12 @@ public sealed class StandardFrameTierImageTests {
     ///         ⚠ <b>The worst channel and not the mean, and the numbers are why.</b> Measured on an
     ///         M1 Max, this repository, 2026-09-10: the two frames differ by a mean channel of
     ///         <b>0.042</b> over <b>0.006%</b> of the frame — one pixel of 16 384 past
-    ///         <see cref="Tolerance.Shaded" />'s threshold — and by a worst channel of <b>16/255 at
-    ///         (61, 64)</b>, which is the contact under the near box. A mean bound could not be set
+    ///         <see cref="Tolerance.Shaded" />'s threshold — and by a worst channel of
+    ///         <b>
+    ///             16/255 at
+    ///             (61, 64)
+    ///         </b>
+    ///         , which is the contact under the near box. A mean bound could not be set
     ///         above the 0.35 two renderings of the same picture are allowed, so it would be a
     ///         predicate that cannot be false. The worst channel is 16 against a driver's rounding
     ///         noise of one or two, and this comparison is between two renderings on the same device
@@ -467,8 +488,12 @@ public sealed class StandardFrameTierImageTests {
     ///         scale fixture above measures exactly 0.000 for that case.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>That the difference is one pixel wide is the honest reading of this fixture and
-    ///         not of the feature.</b> The producer is built so that an unoccluded surface's bent
+    ///         ⚠
+    ///         <b>
+    ///             That the difference is one pixel wide is the honest reading of this fixture and
+    ///             not of the feature.
+    ///         </b>
+    ///         The producer is built so that an unoccluded surface's bent
     ///         normal is exactly its geometric normal at every tilt — <c>GtaoImageTests</c> holds
     ///         that — so only the corners and the contacts may move at all, and at 128² with a
     ///         half-scale AO plane and a 0.5 m march there are a handful of such texels. The claim
@@ -493,9 +518,7 @@ public sealed class StandardFrameTierImageTests {
 
         using var owned = fixture!;
 
-        var flat = new RenderQualityAsset {
-            High = new() { GlobalIllumination = new() { SsaoBentNormal = false } }
-        };
+        var flat = new RenderQualityAsset { High = new() { GlobalIllumination = new() { SsaoBentNormal = false } } };
 
         Bitmap bent;
         Bitmap geometric;
@@ -530,7 +553,7 @@ public sealed class StandardFrameTierImageTests {
 
         Assert.True(
             comparison.WorstChannel >= 8,
-            $"The split frame with the tier's bent normal on and the same frame with it off differ "
+            "The split frame with the tier's bent normal on and the same frame with it off differ "
             + $"by a worst channel of {comparison.WorstChannel}/255 at ({comparison.WorstAt.X}, "
             + $"{comparison.WorstAt.Y}), a mean of {comparison.MeanChannel:F3}/255 over "
             + $"{comparison.Fraction:P3} of the frame, where 8 is the least a real difference may "
@@ -546,8 +569,11 @@ public sealed class StandardFrameTierImageTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <b>The claim <see cref="AFrameRenderedBelowNativeIsTheSameScene" /> measured itself
-    ///         unable to make.</b> That test's remarks record the limitation in full: reverting
+    ///         <b>
+    ///             The claim <see cref="AFrameRenderedBelowNativeIsTheSameScene" /> measured itself
+    ///             unable to make.
+    ///         </b>
+    ///         That test's remarks record the limitation in full: reverting
     ///         <c>ReflectionRenderer</c> to size its march by the window while the depth plane is half
     ///         that leaves it green, so the screen-space path's render-scale correctness was under no
     ///         picture. Re-measured here on an M1 Max rather than taken on trust — the sabotage moves
@@ -574,26 +600,34 @@ public sealed class StandardFrameTierImageTests {
     ///         the rest of the frame.
     ///     </para>
     ///     <para>
-    ///         <b>Measured on an M1 Max, this repository, 2026-09-03, all three numbers from the same
-    ///         session:</b>
+    ///         <b>
+    ///             Measured on an M1 Max, this repository, 2026-09-03, all three numbers from the same
+    ///             session:
+    ///         </b>
     ///     </para>
     ///     <list type="bullet">
-    ///         <item><description>
-    ///             reflections on against off — <b>25.997</b> over 99.780% of the frame, which is the
-    ///             instrument: the traced term is nearly the whole picture, so 8.0 is 3.2× under it;
-    ///         </description></item>
-    ///         <item><description>
-    ///             native against half scale, correct — <b>3.020</b> over 7.977%. A mirror reflects
-    ///             something genuinely blurrier at half resolution, so this is not near zero and
-    ///             should not be;
-    ///         </description></item>
-    ///         <item><description>
-    ///             native against half scale, with <c>ReflectionRenderer</c>'s <c>screen</c> reverted
-    ///             to <c>frame.Size</c> — <b>25.641</b> over 99.518%, which is almost exactly the
-    ///             reflections-off number. At half scale the march indexes a rectangle the depth plane
-    ///             does not occupy, every <c>Load</c> past the edge answers zero, and the frame loses
-    ///             very nearly all of its reflection.
-    ///         </description></item>
+    ///         <item>
+    ///             <description>
+    ///                 reflections on against off — <b>25.997</b> over 99.780% of the frame, which is the
+    ///                 instrument: the traced term is nearly the whole picture, so 8.0 is 3.2× under it;
+    ///             </description>
+    ///         </item>
+    ///         <item>
+    ///             <description>
+    ///                 native against half scale, correct — <b>3.020</b> over 7.977%. A mirror reflects
+    ///                 something genuinely blurrier at half resolution, so this is not near zero and
+    ///                 should not be;
+    ///             </description>
+    ///         </item>
+    ///         <item>
+    ///             <description>
+    ///                 native against half scale, with <c>ReflectionRenderer</c>'s <c>screen</c> reverted
+    ///                 to <c>frame.Size</c> — <b>25.641</b> over 99.518%, which is almost exactly the
+    ///                 reflections-off number. At half scale the march indexes a rectangle the depth plane
+    ///                 does not occupy, every <c>Load</c> past the edge answers zero, and the frame loses
+    ///                 very nearly all of its reflection.
+    ///             </description>
+    ///         </item>
     ///     </list>
     ///     <para>
     ///         The bound is 9.0: 2.98× over what a correct half-scale frame measures and 2.85× under
@@ -617,9 +651,7 @@ public sealed class StandardFrameTierImageTests {
 
         using var owned = fixture!;
 
-        var half = new RenderQualityAsset {
-            High = new() { Resolution = new() { RenderScale = 0.5f } }
-        };
+        var half = new RenderQualityAsset { High = new() { Resolution = new() { RenderScale = 0.5f } } };
 
         Bitmap native;
         Bitmap scaled;
@@ -641,7 +673,7 @@ public sealed class StandardFrameTierImageTests {
 
         Assert.True(
             traced.MeanChannel > 8.0,
-            $"Turning the screen-space reflections off changes this frame by a mean channel of "
+            "Turning the screen-space reflections off changes this frame by a mean channel of "
             + $"{traced.MeanChannel:F3}/255 over {traced.Fraction:P3}, which is not enough of the "
             + "picture for the comparison below to be about the reflection. Either the trace stopped "
             + "producing anything — check ReflectionRenderer.Skipped and the roughness threshold "
@@ -652,7 +684,7 @@ public sealed class StandardFrameTierImageTests {
 
         Assert.True(
             comparison.MeanChannel < 9.0,
-            $"A half-scale frame and a native one differ by a mean channel of "
+            "A half-scale frame and a native one differ by a mean channel of "
             + $"{comparison.MeanChannel:F3}/255 over {comparison.Fraction:P3} of the frame, in a "
             + "scene whose lower half is a mirror, where 3.020 over 7.977% is what a correct one "
             + "measures and 25.641 over 99.518% is what sizing the march by the window measures. The suspect is a screen-space pass that sized "
@@ -675,8 +707,12 @@ public sealed class StandardFrameTierImageTests {
     ///         High/Epic <b>0.519%</b>.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Low against Medium was over two per cent until that change, and what it was
-    ///         measuring was the defect.</b> Medium adds exactly two things to Low here — the analytic
+    ///         ⚠
+    ///         <b>
+    ///             Low against Medium was over two per cent until that change, and what it was
+    ///             measuring was the defect.
+    ///         </b>
+    ///         Medium adds exactly two things to Low here — the analytic
     ///         fog and bloom — and a bloom thresholded at one candela in a frame whose radiance is
     ///         thousands passed the <i>entire picture</i> through its bright pass, so "Medium differs
     ///         from Low" was a blurred copy of the whole frame laid over it. A bloom that finds only
@@ -686,8 +722,12 @@ public sealed class StandardFrameTierImageTests {
     ///         the frame would produce.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>High against Epic moved the other way, and that is the same fix seen from the
-    ///         other side.</b> It was 0.061% — ten pixels — because everything Epic adds over High was
+    ///         ⚠
+    ///         <b>
+    ///             High against Epic moved the other way, and that is the same fix seen from the
+    ///             other side.
+    ///         </b>
+    ///         It was 0.061% — ten pixels — because everything Epic adds over High was
     ///         invisible at 128² <i>against a frame-wide haze</i>; bloom going from five pyramid levels
     ///         to six now moves 0.519%, because there is finally a local highlight for the extra level
     ///         to spread. The pair is still held to "differ at all" rather than to that number: it is
@@ -721,25 +761,33 @@ public sealed class StandardFrameTierImageTests {
     ///         What is in frame, and why each is:
     ///     </para>
     ///     <list type="bullet">
-    ///         <item><description>
-    ///             a <b>wide floor</b>, rough, which is what a shadow lands on and what fog is read
-    ///             against — a tier golden of a wall alone proves very little;
-    ///         </description></item>
-    ///         <item><description>
-    ///             a <b>tall caster</b>, off to the left and behind, throwing a shadow diagonally
-    ///             across the near floor — the shadowed edge, which is the one thing a bias or a
-    ///             comparison flip moves;
-    ///         </description></item>
-    ///         <item><description>
-    ///             a <b>smooth metal slab</b>, low roughness, off to the right and tilted in depth,
-    ///             which is where the environment and the lamp's highlight show and where a roughness
-    ///             threshold would;
-    ///         </description></item>
-    ///         <item><description>
-    ///             a <b>bright emissive block</b>, small and near, which is what bloom has to find —
-    ///             the tier turns bloom off entirely at Low and gives it six levels at Epic, and
-    ///             without something bright in frame those two are the same picture.
-    ///         </description></item>
+    ///         <item>
+    ///             <description>
+    ///                 a <b>wide floor</b>, rough, which is what a shadow lands on and what fog is read
+    ///                 against — a tier golden of a wall alone proves very little;
+    ///             </description>
+    ///         </item>
+    ///         <item>
+    ///             <description>
+    ///                 a <b>tall caster</b>, off to the left and behind, throwing a shadow diagonally
+    ///                 across the near floor — the shadowed edge, which is the one thing a bias or a
+    ///                 comparison flip moves;
+    ///             </description>
+    ///         </item>
+    ///         <item>
+    ///             <description>
+    ///                 a <b>smooth metal slab</b>, low roughness, off to the right and tilted in depth,
+    ///                 which is where the environment and the lamp's highlight show and where a roughness
+    ///                 threshold would;
+    ///             </description>
+    ///         </item>
+    ///         <item>
+    ///             <description>
+    ///                 a <b>bright emissive block</b>, small and near, which is what bloom has to find —
+    ///                 the tier turns bloom off entirely at Low and gives it six levels at Epic, and
+    ///                 without something bright in frame those two are the same picture.
+    ///             </description>
+    ///         </item>
     ///     </list>
     ///     <para>
     ///         ⚠ <b>Every one of the four is at a different height as well as a different bearing.</b>
@@ -799,11 +847,8 @@ public sealed class StandardFrameTierImageTests {
     ///     the tier's and the tier is the same in all three runs, so nothing here varies but the
     ///     scale and the reflections switch.
     /// </remarks>
-    static StandardFrameAsset MirrorFrame => Frame with {
-        Name = "Mirror",
-        Gi = GiMode.Ambient,
-        Reflections = ReflectionsMode.Screen
-    };
+    static StandardFrameAsset MirrorFrame =>
+        Frame with { Name = "Mirror", Gi = GiMode.Ambient, Reflections = ReflectionsMode.Screen };
 
     /// <summary>
     ///     The mirror scene: a specular floor, and something over it worth reflecting.
@@ -857,21 +902,22 @@ public sealed class StandardFrameTierImageTests {
     ///     whether a pixel is traced at all — a mirror authored just over it produces a frame with no
     ///     reflection in it and an instrument assertion that fails for the wrong reason.
     /// </remarks>
-    static Material Mirrored => Compile(new(0.95f, 0.95f, 0.95f), metalness: 1f, roughness: 0.03f);
+    static Material Mirrored => Compile(new(0.95f, 0.95f, 0.95f), 1f, 0.03f);
 
     /// <summary>What the mirror reflects: a slab bright enough that losing it is not a darker frame.</summary>
-    static Material Beacon => Compile(
-        new(0.95f, 0.75f, 0.35f),
-        metalness: 0f,
-        roughness: 0.4f,
-        emissive: new(40_000f, 26_000f, 9_000f)
-    );
+    static Material Beacon =>
+        Compile(
+            new(0.95f, 0.75f, 0.35f),
+            0f,
+            0.4f,
+            new(40_000f, 26_000f, 9_000f)
+        );
 
     /// <summary>The floor and the caster: matte, and a colour no light in the scene is.</summary>
-    static Material Rough => Compile(new(0.42f, 0.46f, 0.38f), metalness: 0f, roughness: 0.85f);
+    static Material Rough => Compile(new(0.42f, 0.46f, 0.38f), 0f, 0.85f);
 
     /// <summary>The slab: metal and smooth, so it shows the environment rather than the sun.</summary>
-    static Material Smooth => Compile(new(0.85f, 0.82f, 0.76f), metalness: 1f, roughness: 0.12f);
+    static Material Smooth => Compile(new(0.85f, 0.82f, 0.76f), 1f, 0.12f);
 
     /// <summary>The block bloom has to find.</summary>
     /// <remarks>
@@ -879,12 +925,13 @@ public sealed class StandardFrameTierImageTests {
     ///     and a surface that is only brightly lit is at the mercy of the sun's own intensity. An
     ///     emissive value well over one is over the bloom threshold whatever the exposure.
     /// </remarks>
-    static Material Bright => Compile(
-        new(0.9f, 0.55f, 0.25f),
-        metalness: 0f,
-        roughness: 0.5f,
-        emissive: new(9_000f, 5_200f, 2_100f)
-    );
+    static Material Bright =>
+        Compile(
+            new(0.9f, 0.55f, 0.25f),
+            0f,
+            0.5f,
+            new(9_000f, 5_200f, 2_100f)
+        );
 
     static Material Compile(Vector3 colour, float metalness, float roughness, Vector3? emissive = null) {
         var features = new List<IMaterialFeature> {
@@ -895,13 +942,11 @@ public sealed class StandardFrameTierImageTests {
             features.Add(new EmissiveFeature { EmissiveColor = glow, Intensity = 1f });
         }
 
-        var compilation = MaterialCompiler.Compile(
-            new() { ShaderName = "ForwardPlus", Features = features }
-        );
+        var compilation = MaterialCompiler.Compile(new() { ShaderName = "ForwardPlus", Features = features });
 
         Assert.False(
             compilation.Failed,
-            string.Join(Environment.NewLine, compilation.Diagnostics.Select(diagnostic => diagnostic.ToString()))
+            string.Join(Environment.NewLine, compilation.Diagnostics.Select(static diagnostic => diagnostic.ToString()))
         );
 
         return compilation.Material!;

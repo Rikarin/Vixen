@@ -38,8 +38,12 @@ sealed class TriangleSoup {
 
     /// <summary>Where <see cref="Groups" /> came from, carried so § D4 can tell a boundary from a guess.</summary>
     /// <remarks>
-    ///     ⚠ <b>Carried rather than recomputed, and losing it costs a feature source in one direction
-    ///     and invents 25 000 of them in the other.</b> Conditioning rewrites the triangulation
+    ///     ⚠
+    ///     <b>
+    ///         Carried rather than recomputed, and losing it costs a feature source in one direction
+    ///         and invents 25 000 of them in the other.
+    ///     </b>
+    ///     Conditioning rewrites the triangulation
     ///     completely — a weld, a de-speck, a cut and an isotropic round — but it never changes what the
     ///     group ids <i>mean</i>, so the answer is the source mesh's and the only correct thing to do
     ///     with it is pass it along.
@@ -70,8 +74,12 @@ sealed class TriangleSoup {
 
     /// <summary>The bounding box's diagonal, which every tolerance in conditioning is a fraction of.</summary>
     /// <remarks>
-    ///     ⚠ <b>This is the number that makes conditioning scale-free, and it is the single most
-    ///     likely place for the bug docs/plan/41 § D3 names.</b> Doc 24 records the same lesson twice
+    ///     ⚠
+    ///     <b>
+    ///         This is the number that makes conditioning scale-free, and it is the single most
+    ///         likely place for the bug docs/plan/41 § D3 names.
+    ///     </b>
+    ///     Doc 24 records the same lesson twice
     ///     — <c>EditMesh.DefaultWeldTolerance</c> and the capsule's poles, where an absolute epsilon
     ///     declared sixty-four real triangles degenerate. A fixed epsilon is a claim about how big a
     ///     model is.
@@ -160,9 +168,9 @@ sealed class TriangleSoup {
     /// <param name="triangle">Its index.</param>
     /// <returns>The cross product of two of its edges.</returns>
     public Vector3 Cross(int triangle) {
-        var a = Positions[Triangles[(triangle * 3) + 0]];
-        var b = Positions[Triangles[(triangle * 3) + 1]];
-        var c = Positions[Triangles[(triangle * 3) + 2]];
+        var a = Positions[Triangles[triangle * 3]];
+        var b = Positions[Triangles[triangle * 3 + 1]];
+        var c = Positions[Triangles[triangle * 3 + 2]];
 
         return Vector3.Cross(b - a, c - a);
     }

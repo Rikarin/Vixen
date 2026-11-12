@@ -29,8 +29,12 @@ public enum TraceEnds : byte {
 ///         entity <i>is</i> needs <see cref="LocalTransform" /> — none of which the planners may see.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Every one of them is expensive per point, and that is the whole reason
-///         <see cref="QueryTestPurpose.Filter" /> exists and why test order is the author's.</b> A
+///         ⚠
+///         <b>
+///             Every one of them is expensive per point, and that is the whole reason
+///             <see cref="QueryTestPurpose.Filter" /> exists and why test order is the author's.
+///         </b>
+///         A
 ///         four-hundred-point grid with a trace at the top of the list is four hundred raycasts; the
 ///         same list with a distance filter first is a few dozen. The runtime does not reorder — a
 ///         query whose cost depended on a heuristic nobody can see would be one nobody could budget.
@@ -53,7 +57,8 @@ public static class WorldQueryTests {
         TraceEnds ends = TraceEnds.PointToContext,
         float height = 1.7f,
         PhysicsLayerMask? blockers = null
-    ) => new TraceQueryTest(physics, ends, height, blockers);
+    ) =>
+        new TraceQueryTest(physics, ends, height, blockers);
 
     /// <summary>How many bodies are within a radius of the point.</summary>
     /// <param name="physics">The world to ask.</param>
@@ -70,7 +75,8 @@ public static class WorldQueryTests {
         float radius = 1f,
         float height = 0.5f,
         PhysicsLayerMask? layers = null
-    ) => new OverlapQueryTest(physics, radius, height, layers);
+    ) =>
+        new OverlapQueryTest(physics, radius, height, layers);
 
     /// <summary>How far the agent would actually walk to reach the point, over the navmesh.</summary>
     /// <param name="query">The mesh to ask. ⚠ One search at a time — see <see cref="NavMeshQuery" />.</param>
@@ -89,8 +95,12 @@ public static class WorldQueryTests {
     /// <param name="query">The mesh to ask.</param>
     /// <returns>The test.</returns>
     /// <remarks>
-    ///     ⚠ <b>The cheapest world test there is, and the one that belongs at the top of most
-    ///     lists.</b> A grid generated around an agent puts most of its points inside walls and off
+    ///     ⚠
+    ///     <b>
+    ///         The cheapest world test there is, and the one that belongs at the top of most
+    ///         lists.
+    ///     </b>
+    ///     A grid generated around an agent puts most of its points inside walls and off
     ///     ledges; rejecting those before anything traces or searches is the difference between a
     ///     query that is affordable and one that is not.
     /// </remarks>
@@ -221,7 +231,9 @@ sealed class EntityGenerator<T> : IQueryGenerator {
     readonly QueryDescription description = new QueryDescription().WithAll<T, LocalTransform>();
     readonly float radius;
 
-    public EntityGenerator(float radius) => this.radius = MathF.Max(0f, radius);
+    public EntityGenerator(float radius) {
+        this.radius = MathF.Max(0f, radius);
+    }
 
     public Symbol Name { get; } = Symbol.Intern($"Entities<{typeof(T).Name}>");
 

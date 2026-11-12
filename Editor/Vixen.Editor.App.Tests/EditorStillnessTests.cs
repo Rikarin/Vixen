@@ -9,8 +9,11 @@ namespace Vixen.Editor.App.Tests;
 /// <summary>What the editor's shell actually costs on a frame where nothing happened.</summary>
 /// <remarks>
 ///     <para>
-///         <b>The instrument for "redraw only when something changed", measured on the real shell
-///         rather than argued about.</b> `Vixen.Ui.Desktop`'s README says outright that the editor
+///         <b>
+///             The instrument for "redraw only when something changed", measured on the real shell
+///             rather than argued about.
+///         </b>
+///         `Vixen.Ui.Desktop`'s README says outright that the editor
 ///         "draws every frame rather than when something changes", and it is right about the
 ///         <i>drawing</i> — <c>Record</c>, <c>Upload</c>, <c>Compose</c> and the present are all
 ///         unconditional. What was never measured is whether the frame would have had anything new to
@@ -26,8 +29,12 @@ namespace Vixen.Editor.App.Tests;
 ///         fifteen frames each — and everything else in an idle shell is genuinely still.
 ///     </para>
 ///     <para>
-///         ⚠ <b><see cref="A_running_background_task_keeps_every_frame_dirty" /> is the half that
-///         matters, and it is the anti-freeze test.</b> The reason this work was never attempted is
+///         ⚠
+///         <b>
+///             <see cref="A_running_background_task_keeps_every_frame_dirty" /> is the half that
+///             matters, and it is the anti-freeze test.
+///         </b>
+///         The reason this work was never attempted is
 ///         that a surface which forgets to declare itself freezes silently — a progress bar that stops
 ///         moving looks like a hung import rather than like a bug in a redraw gate. That failure is
 ///         now a red test rather than a thing somebody notices: while a task is running, every frame
@@ -42,8 +49,12 @@ namespace Vixen.Editor.App.Tests;
 public class EditorStillnessTests {
     /// <summary>Sixty frames of an editor nobody is touching change nothing at all.</summary>
     /// <remarks>
-    ///     ⚠ <b>If this goes red, something in the shell has started rewriting itself every frame, and
-    ///     the fix is to throttle that thing rather than to relax this number.</b> That is what
+    ///     ⚠
+    ///     <b>
+    ///         If this goes red, something in the shell has started rewriting itself every frame, and
+    ///         the fix is to throttle that thing rather than to relax this number.
+    ///     </b>
+    ///     That is what
     ///     <c>EditorShell.StatusInterval</c>'s own comment is about: one changed character makes the
     ///     whole window's draw list differ, so the window re-emits every vertex it drew last time
     ///     whatever is on screen. Sixty frames is four crossings of that fifteen-frame throttle, so a

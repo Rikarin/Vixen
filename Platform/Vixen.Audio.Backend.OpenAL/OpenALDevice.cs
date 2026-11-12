@@ -125,7 +125,7 @@ sealed unsafe class OpenALDevice : IAudioDevice {
             source.Prepare(Format, BufferFrames);
             running = true;
 
-            thread = new Thread(Pump) {
+            thread = new(Pump) {
                 IsBackground = true,
                 Name = "Vixen OpenAL",
 

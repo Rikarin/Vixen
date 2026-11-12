@@ -17,7 +17,6 @@ using Vixen.Rendering.Features;
 using Vixen.Rendering.PostFx;
 using Vixen.Shaders;
 using Vixen.Shaders.Generated;
-using Vixen.Ui.Testing.Visual;
 using Xunit;
 
 namespace Vixen.Graphics.Golden.Tests;
@@ -65,26 +64,36 @@ public sealed class CompositorImageTests {
     ///         drawn anything all have to be right for the picture to be:
     ///     </para>
     ///     <list type="bullet">
-    ///         <item><description>
-    ///             the <strong>fullscreen triangle</strong> covers the viewport from
-    ///             <c>gl_VertexIndex</c> alone — no vertex buffer is bound anywhere in this frame;
-    ///         </description></item>
-    ///         <item><description>
-    ///             its <strong>UVs</strong> put the source the right way up, where a flipped V is the
-    ///             most common way a post pass is wrong and needs a picture to see;
-    ///         </description></item>
-    ///         <item><description>
-    ///             the <strong>descriptor set the allocator wrote</strong> points binding 0 at the
-    ///             texture the node declared and binding 1 at the sampler, or the frame is black;
-    ///         </description></item>
-    ///         <item><description>
-    ///             <strong>exposure landed at its own offset</strong>, which is what dims it — writing
-    ///             it at the wrong one leaves the triangle at full brightness;
-    ///         </description></item>
-    ///         <item><description>
-    ///             <strong>the graph ordered and barriered the two passes</strong>, or the post pass
-    ///             samples a target that has not been drawn into.
-    ///         </description></item>
+    ///         <item>
+    ///             <description>
+    ///                 the <strong>fullscreen triangle</strong> covers the viewport from
+    ///                 <c>gl_VertexIndex</c> alone — no vertex buffer is bound anywhere in this frame;
+    ///             </description>
+    ///         </item>
+    ///         <item>
+    ///             <description>
+    ///                 its <strong>UVs</strong> put the source the right way up, where a flipped V is the
+    ///                 most common way a post pass is wrong and needs a picture to see;
+    ///             </description>
+    ///         </item>
+    ///         <item>
+    ///             <description>
+    ///                 the <strong>descriptor set the allocator wrote</strong> points binding 0 at the
+    ///                 texture the node declared and binding 1 at the sampler, or the frame is black;
+    ///             </description>
+    ///         </item>
+    ///         <item>
+    ///             <description>
+    ///                 <strong>exposure landed at its own offset</strong>, which is what dims it — writing
+    ///                 it at the wrong one leaves the triangle at full brightness;
+    ///             </description>
+    ///         </item>
+    ///         <item>
+    ///             <description>
+    ///                 <strong>the graph ordered and barriered the two passes</strong>, or the post pass
+    ///                 samples a target that has not been drawn into.
+    ///             </description>
+    ///         </item>
     ///     </list>
     ///     <para>
     ///         <strong><c>whitePoint</c> is deliberately never set.</strong> It reaches the shader as
@@ -156,8 +165,7 @@ public sealed class CompositorImageTests {
         );
 
         var compositor = new GraphicsCompositor(system) {
-            FrameSize = new(Fixture.Side, Fixture.Side),
-            Game = new SceneRendererSequence { Children = { pass, post } }
+            FrameSize = new(Fixture.Side, Fixture.Side), Game = new SceneRendererSequence { Children = { pass, post } }
         };
 
         compositor.Imports["SceneColour"] = new(scene.Texture, scene.View, scene.Description);
@@ -198,19 +206,25 @@ public sealed class CompositorImageTests {
     ///         different:
     ///     </para>
     ///     <list type="bullet">
-    ///         <item><description>
-    ///             <strong>red where they overlap</strong> — the prepass wrote the nearer depth and
-    ///             the far quad was rejected. What is committed;
-    ///         </description></item>
-    ///         <item><description>
-    ///             <strong>yellow where they overlap</strong> — both shaded, so nothing was rejected
-    ///             and the prepass bought nothing at all;
-    ///         </description></item>
-    ///         <item><description>
-    ///             <strong>black</strong> — the depth an <c>Equal</c> test compares against is not
-    ///             the depth the prepass wrote, so every fragment failed. That is what a prepass
-    ///             whose vertex stage disagrees with the material's by one instruction looks like.
-    ///         </description></item>
+    ///         <item>
+    ///             <description>
+    ///                 <strong>red where they overlap</strong> — the prepass wrote the nearer depth and
+    ///                 the far quad was rejected. What is committed;
+    ///             </description>
+    ///         </item>
+    ///         <item>
+    ///             <description>
+    ///                 <strong>yellow where they overlap</strong> — both shaded, so nothing was rejected
+    ///                 and the prepass bought nothing at all;
+    ///             </description>
+    ///         </item>
+    ///         <item>
+    ///             <description>
+    ///                 <strong>black</strong> — the depth an <c>Equal</c> test compares against is not
+    ///                 the depth the prepass wrote, so every fragment failed. That is what a prepass
+    ///                 whose vertex stage disagrees with the material's by one instruction looks like.
+    ///             </description>
+    ///         </item>
     ///     </list>
     ///     <para>
     ///         It is also the first picture the <em>render system</em> has produced rather than the
@@ -237,25 +251,28 @@ public sealed class CompositorImageTests {
         // Depth written once, then only tested. `Equal` is what makes the prepass load-bearing: with
         // `Greater` the colour pass would reject the far quad on its own and the prepass would prove
         // nothing.
-        var prepass = system.AddStage(new("DepthPrepass") {
-            ShaderName = "DepthOnly",
-            Rasterizer = RasterizerState.TwoSided
-        });
+        var prepass = system.AddStage(
+            new("DepthPrepass") { ShaderName = "DepthOnly", Rasterizer = RasterizerState.TwoSided }
+        );
 
-        var opaque = system.AddStage(new("Opaque") {
-            DepthStencil = new(DepthWrite: false, DepthCompare: CompareFunction.Equal),
-            Blend = BlendState.Additive,
-            Rasterizer = RasterizerState.TwoSided
-        });
+        var opaque = system.AddStage(
+            new("Opaque") {
+                DepthStencil = new(DepthWrite: false, DepthCompare: CompareFunction.Equal),
+                Blend = BlendState.Additive,
+                Rasterizer = RasterizerState.TwoSided
+            }
+        );
 
         var describer = new EffectPipelineDescriber(device);
 
-        describer.VertexLayouts.Add([
-            new VertexBufferLayout(
-                Vertex.Stride,
-                [new(0, VertexFormat.Float32X3, 0), new(1, VertexFormat.Float32X4, 12)]
-            )
-        ]);
+        describer.VertexLayouts.Add(
+            [
+                new VertexBufferLayout(
+                    Vertex.Stride,
+                    [new(0, VertexFormat.Float32X3, 0), new(1, VertexFormat.Float32X4, 12)]
+                )
+            ]
+        );
 
         var effects = new EffectSystem();
         effects.AddProvider(new Scene(owned));
@@ -271,7 +288,7 @@ public sealed class CompositorImageTests {
         // One quad's worth of geometry twice over, so the two draws differ by an index range and a
         // transform rather than by geometry — which is what puts FirstIndex and the push constant
         // under test alongside everything else.
-        var vertices = owned.Buffer<Vertex>(Vertex.Quads.AsSpan(), BufferUsage.Vertex);
+        var vertices = owned.Buffer(Vertex.Quads.AsSpan(), BufferUsage.Vertex);
         var indices = owned.Buffer<ushort>([0, 1, 2, 2, 1, 3, 4, 5, 6, 6, 5, 7], BufferUsage.Index);
 
         var view = new RenderView("camera") { Frustum = new(Matrix4x4.Identity) };
@@ -312,11 +329,7 @@ public sealed class CompositorImageTests {
         // Declared, not imported: the depth buffer lives and dies inside the frame, so it is the
         // graph's to allocate — and the two passes over it are what keep it alive between them.
         compositor.Resources.Add(
-            new() {
-                Name = "SceneDepth",
-                Format = PixelFormat.Depth32Float,
-                Usage = TextureUsage.DepthStencilTarget
-            }
+            new() { Name = "SceneDepth", Format = PixelFormat.Depth32Float, Usage = TextureUsage.DepthStencilTarget }
         );
 
         compositor.Imports["Display"] = new(
@@ -356,19 +369,25 @@ public sealed class CompositorImageTests {
     ///         they are asserted here before the comparison:
     ///     </para>
     ///     <list type="bullet">
-    ///         <item><description>
-    ///             the glow is <strong>centred on the source</strong>, which a flipped V or a
-    ///             half-texel offset moves;
-    ///         </description></item>
-    ///         <item><description>
-    ///             it is <strong>symmetric</strong> about that centre in both axes, which a texel size
-    ///             taken from the target rather than the source breaks unevenly;
-    ///         </description></item>
-    ///         <item><description>
-    ///             it <strong>spreads well beyond the source</strong>, which is the only evidence that
-    ///             the deep levels contributed at all — a chain that silently ran one level would
-    ///             still produce a plausible-looking picture.
-    ///         </description></item>
+    ///         <item>
+    ///             <description>
+    ///                 the glow is <strong>centred on the source</strong>, which a flipped V or a
+    ///                 half-texel offset moves;
+    ///             </description>
+    ///         </item>
+    ///         <item>
+    ///             <description>
+    ///                 it is <strong>symmetric</strong> about that centre in both axes, which a texel size
+    ///                 taken from the target rather than the source breaks unevenly;
+    ///             </description>
+    ///         </item>
+    ///         <item>
+    ///             <description>
+    ///                 it <strong>spreads well beyond the source</strong>, which is the only evidence that
+    ///                 the deep levels contributed at all — a chain that silently ran one level would
+    ///                 still produce a plausible-looking picture.
+    ///             </description>
+    ///         </item>
     ///     </list>
     /// </remarks>
     [Fact]
@@ -405,16 +424,16 @@ public sealed class CompositorImageTests {
             64
         );
 
-        var vertices = owned.Buffer<Vertex>(Vertex.Spark.AsSpan(), BufferUsage.Vertex);
+        var vertices = owned.Buffer(Vertex.Spark.AsSpan(), BufferUsage.Vertex);
         var indices = owned.Buffer<ushort>([0, 1, 2, 2, 1, 3], BufferUsage.Index);
 
         // A small bright square, off centre so that a flipped or offset sample is a moved glow rather
         // than an identical one.
         var world = new Matrix4x4(
-            new Vector4(SparkExtent, 0f, 0f, 0f),
-            new Vector4(0f, SparkExtent, 0f, 0f),
-            new Vector4(0f, 0f, 1f, 0f),
-            new Vector4(SparkX, SparkY, 0f, 1f)
+            new(SparkExtent, 0f, 0f, 0f),
+            new(0f, SparkExtent, 0f, 0f),
+            new(0f, 0f, 1f, 0f),
+            new(SparkX, SparkY, 0f, 1f)
         );
 
         var source = new RenderPassRenderer { Name = "Scene", ClearColour = new(0f, 0f, 0f, 1f) };
@@ -424,9 +443,13 @@ public sealed class CompositorImageTests {
             new DelegateSceneRenderer {
                 OnRecord = (_, context) => {
                     context.CommandList.BindPipeline(spark);
-                    context.CommandList.PushConstants(ShaderStage.Vertex, 0, MemoryMarshal.AsBytes(new ReadOnlySpan<Matrix4x4>(in world)));
+                    context.CommandList.PushConstants(
+                        ShaderStage.Vertex,
+                        0,
+                        MemoryMarshal.AsBytes(new ReadOnlySpan<Matrix4x4>(in world))
+                    );
                     context.CommandList.BindVertexBuffer(0, vertices);
-                    context.CommandList.BindIndexBuffer(indices, IndexFormat.UInt16);
+                    context.CommandList.BindIndexBuffer(indices);
                     context.CommandList.DrawIndexed(6);
                 }
             }
@@ -619,19 +642,20 @@ public sealed class CompositorImageTests {
         using var samplers = new SamplerCache(device);
         using var system = new RenderSystem();
 
-        var casters = system.AddStage(new("ShadowCaster") {
-            ShaderName = "DepthOnly",
-            Rasterizer = RasterizerState.TwoSided
-        });
+        var casters = system.AddStage(
+            new("ShadowCaster") { ShaderName = "DepthOnly", Rasterizer = RasterizerState.TwoSided }
+        );
 
         var describer = new EffectPipelineDescriber(device);
 
-        describer.VertexLayouts.Add([
-            new VertexBufferLayout(
-                Vertex.Stride,
-                [new(0, VertexFormat.Float32X3, 0), new(1, VertexFormat.Float32X4, 12)]
-            )
-        ]);
+        describer.VertexLayouts.Add(
+            [
+                new VertexBufferLayout(
+                    Vertex.Stride,
+                    [new(0, VertexFormat.Float32X3, 0), new(1, VertexFormat.Float32X4, 12)]
+                )
+            ]
+        );
 
         var effects = new EffectSystem();
         effects.AddProvider(new Shadowed(owned));
@@ -644,7 +668,7 @@ public sealed class CompositorImageTests {
         meshes.Add(materials);
         system.AddFeature(meshes);
 
-        var vertices = owned.Buffer<Vertex>(Vertex.Spark.AsSpan(), BufferUsage.Vertex);
+        var vertices = owned.Buffer(Vertex.Spark.AsSpan(), BufferUsage.Vertex);
         var indices = owned.Buffer<ushort>([0, 1, 2, 2, 1, 3], BufferUsage.Index);
 
         // Bounded tightly and placed well down the frustum, and both of those are what make the atlas
@@ -665,19 +689,16 @@ public sealed class CompositorImageTests {
             InstanceCount = 1
         };
 
-        materials.Assign(system, caster, new Material("Mesh"));
+        materials.Assign(system, caster, new("Mesh"));
 
-        using var viewConstants = new ViewConstants(device) {
-            Descriptors = allocator,
-            Layout = Shadowed.ViewLayout(device, owned)
-        };
+        using var viewConstants = new ViewConstants(device);
+        viewConstants.Descriptors = allocator;
+        viewConstants.Layout = Shadowed.ViewLayout(device, owned);
 
         // The camera as one description the frame owns, rather than seven scalars copied onto the
         // shadow node. The view and the cascade fit are then built from the same thing and cannot
         // disagree about where the camera is looking.
-        var camera = new RenderView("camera") {
-            Camera = RenderCamera.Default with { Position = new(0f, 0f, 10f) }
-        };
+        var camera = new RenderView("camera") { Camera = RenderCamera.Default with { Position = new(0f, 0f, 10f) } };
 
         var shadows = new ShadowMapRenderer {
             Name = "Shadows",
@@ -710,7 +731,7 @@ public sealed class CompositorImageTests {
             new() { Binding = 3, Kind = DescriptorKind.Sampler, Sampler = samplers.PointClamp }
         );
 
-        receiver.Parameters.Set(Ground, new Vector4(GroundMinX, GroundMinZ, GroundSize, GroundSize));
+        receiver.Parameters.Set(Ground, new(GroundMinX, GroundMinZ, GroundSize, GroundSize));
 
         var compositor = new GraphicsCompositor(system) {
             FrameSize = new(Fixture.Side, Fixture.Side),
@@ -758,8 +779,11 @@ public sealed class CompositorImageTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <b><see cref="ShadowCascade" />'s fixture with one thing changed: the caster is
-    ///         extracted rather than hand-built.</b> That test adds a render object itself, so it says
+    ///         <b>
+    ///             <see cref="ShadowCascade" />'s fixture with one thing changed: the caster is
+    ///             extracted rather than hand-built.
+    ///         </b>
+    ///         That test adds a render object itself, so it says
     ///         nothing about which objects a <em>scene</em> puts in a caster stage — and the answer,
     ///         for a mesh with a cluster hierarchy, was none. The traversal draws no per-object command,
     ///         so an instance stamped with the caster stages is walked past in silence: the mesh drew
@@ -783,7 +807,7 @@ public sealed class CompositorImageTests {
     /// </remarks>
     [Fact]
     public void VirtualizedShadowCaster() {
-        VirtualizedShadow(weight: 0f, scale: 1f);
+        VirtualizedShadow(0f, 1f);
     }
 
     /// <summary>
@@ -791,8 +815,11 @@ public sealed class CompositorImageTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <b>The claim that matters twice over, and the reason the caster is built from the
-    ///         fallback rather than from anything else.</b> <c>MeshletMesh.Fallback</c> indexes the
+    ///         <b>
+    ///             The claim that matters twice over, and the reason the caster is built from the
+    ///             fallback rather than from anything else.
+    ///         </b>
+    ///         <c>MeshletMesh.Fallback</c> indexes the
     ///         <em>source mesh's</em> vertices, so the caster is deformed by
     ///         <see cref="MorphRenderFeature" /> — the same pre-pass, over the same numbering, that the
     ///         mesh would have used had it never been virtualized. A caster built any other way would
@@ -815,7 +842,7 @@ public sealed class CompositorImageTests {
     /// </remarks>
     [Fact]
     public void MorphedVirtualizedShadowCaster() {
-        VirtualizedShadow(weight: 1f, scale: Shrink);
+        VirtualizedShadow(1f, Shrink);
     }
 
     /// <summary>How far the caster's one blend shape pulls the quad in, at a weight of one.</summary>
@@ -856,10 +883,9 @@ public sealed class CompositorImageTests {
 
         var opaque = system.AddStage(new("Opaque"));
 
-        var casters = system.AddStage(new("ShadowCaster") {
-            ShaderName = "DepthOnly",
-            Rasterizer = RasterizerState.TwoSided
-        });
+        var casters = system.AddStage(
+            new("ShadowCaster") { ShaderName = "DepthOnly", Rasterizer = RasterizerState.TwoSided }
+        );
 
         var describer = new EffectPipelineDescriber(device);
 
@@ -868,12 +894,14 @@ public sealed class CompositorImageTests {
         // route a scene's does. Location 1 is the tangent read as a colour; the caster stage has no
         // fragment shader, so what it holds is never read, and a vertex input the shader declares and
         // no buffer supplies is a validation error rather than a black pixel.
-        describer.VertexLayouts.Add([
-            new VertexBufferLayout(
-                SurfaceVertex.SizeInBytes,
-                [new(0, VertexFormat.Float32X3, 0), new(1, VertexFormat.Float32X4, 24)]
-            )
-        ]);
+        describer.VertexLayouts.Add(
+            [
+                new VertexBufferLayout(
+                    SurfaceVertex.SizeInBytes,
+                    [new(0, VertexFormat.Float32X3, 0), new(1, VertexFormat.Float32X4, 24)]
+                )
+            ]
+        );
 
         var effects = new EffectSystem();
 
@@ -887,12 +915,11 @@ public sealed class CompositorImageTests {
         var materials = new MaterialRenderFeature { Effects = effects };
         var virtualized = new VirtualGeometryRenderFeature();
 
-        using var morph = new MorphRenderFeature(device, vertexCapacity: 1024, entryCapacity: 1024) {
-            Effects = effects,
-            Pipelines = new(device),
-            Descriptors = allocator,
-            Source = buffer
-        };
+        using var morph = new MorphRenderFeature(device, 1024, 1024);
+        morph.Effects = effects;
+        morph.Pipelines = new(device);
+        morph.Descriptors = allocator;
+        morph.Source = buffer;
 
         meshes.Add(transforms);
         meshes.Add(materials);
@@ -933,20 +960,19 @@ public sealed class CompositorImageTests {
         Assert.Equal(meshes.Index, system.Objects[handle.Caster].FeatureIndex);
         Assert.Equal(casters.Mask, system.Objects[handle.Caster].Stages);
 
-        var weights = new MorphWeightSystem { Feature = morph, Renderer = system };
+        using var weights = new MorphWeightSystem();
+        weights.Feature = morph;
+        weights.Renderer = system;
 
         weights.Run(world);
 
         Assert.Equal(1, weights.CastersWeighted);
 
-        using var viewConstants = new ViewConstants(device) {
-            Descriptors = allocator,
-            Layout = Shadowed.ViewLayout(device, owned)
-        };
+        using var viewConstants = new ViewConstants(device);
+        viewConstants.Descriptors = allocator;
+        viewConstants.Layout = Shadowed.ViewLayout(device, owned);
 
-        var camera = new RenderView("camera") {
-            Camera = RenderCamera.Default with { Position = new(0f, 0f, 10f) }
-        };
+        var camera = new RenderView("camera") { Camera = RenderCamera.Default with { Position = new(0f, 0f, 10f) } };
 
         var shadows = new ShadowMapRenderer {
             Name = "Shadows",
@@ -979,7 +1005,7 @@ public sealed class CompositorImageTests {
             new() { Binding = 3, Kind = DescriptorKind.Sampler, Sampler = samplers.PointClamp }
         );
 
-        receiver.Parameters.Set(Ground, new Vector4(GroundMinX, GroundMinZ, GroundSize, GroundSize));
+        receiver.Parameters.Set(Ground, new(GroundMinX, GroundMinZ, GroundSize, GroundSize));
 
         var compositor = new GraphicsCompositor(system) {
             FrameSize = new(Fixture.Side, Fixture.Side),
@@ -1056,9 +1082,9 @@ public sealed class CompositorImageTests {
 
         for (var y = 0; y < 3; y++) {
             for (var x = 0; x < 3; x++) {
-                var at = (y * 3) + x;
+                var at = y * 3 + x;
 
-                positions[at] = new((x * 0.5f) - 0.5f, (y * 0.5f) - 0.5f, 0f);
+                positions[at] = new(x * 0.5f - 0.5f, y * 0.5f - 0.5f, 0f);
                 normals[at] = new(0f, 0f, 1f);
                 indices[at] = at;
 
@@ -1072,7 +1098,7 @@ public sealed class CompositorImageTests {
 
         for (var y = 0; y < 2; y++) {
             for (var x = 0; x < 2; x++) {
-                var a = (y * 3) + x;
+                var a = y * 3 + x;
 
                 triangles.AddRange([a, a + 1, a + 3]);
                 triangles.AddRange([a + 1, a + 4, a + 3]);
@@ -1083,7 +1109,7 @@ public sealed class CompositorImageTests {
             Name = "caster",
             Positions = positions,
             Normals = normals,
-            Indices = [.. triangles],
+            Indices = [..triangles],
             MorphTargets = [MorphTargetData.Encode("shrink", indices, deltas, [])]
         };
     }
@@ -1149,7 +1175,7 @@ public sealed class CompositorImageTests {
     static void AssertShadow(in Bitmap image, float scale) {
         var light = Vector3.Normalize(Light);
         var travel = -CasterCentre.Y / light.Y;
-        var centre = new Vector2(CasterCentre.X + (travel * light.X), CasterCentre.Z + (travel * light.Z));
+        var centre = new Vector2(CasterCentre.X + travel * light.X, CasterCentre.Z + travel * light.Z);
         var half = CasterHalf * scale;
 
         // The whole rectangle, not just its middle. A shadow of the right size in the wrong place and
@@ -1202,12 +1228,13 @@ public sealed class CompositorImageTests {
     static readonly Vector3 CasterCentre = new(0f, 3f, -25f);
 
     /// <summary>Six units across at y = 3, which is <see cref="Vertex.Spark" /> scaled and lifted.</summary>
-    static Matrix4x4 CasterWorld => new(
-        new Vector4(6f, 0f, 0f, 0f),
-        new Vector4(0f, 0f, 6f, 0f),
-        new Vector4(0f, 1f, 0f, 0f),
-        new Vector4(CasterCentre.X, CasterCentre.Y, CasterCentre.Z, 1f)
-    );
+    static Matrix4x4 CasterWorld =>
+        new(
+            new Vector4(6f, 0f, 0f, 0f),
+            new Vector4(0f, 0f, 6f, 0f),
+            new Vector4(0f, 1f, 0f, 0f),
+            new Vector4(CasterCentre.X, CasterCentre.Y, CasterCentre.Z, 1f)
+        );
 
     const float GroundMinX = -10f;
     const float GroundMinZ = -35f;
@@ -1239,10 +1266,10 @@ public sealed class CompositorImageTests {
     ///     apart — which the compiled fixture shader agrees with because it declares the same struct.
     /// </remarks>
     static (ParameterKey<Matrix4x4> Matrix, ParameterKey<float> Split) CascadeKeys(int index) =>
-        (
-            ParameterKeys.New<Matrix4x4>($"ShadowReceive.cascades[{index}].viewProjection"),
-            ParameterKeys.New<float>($"ShadowReceive.cascades[{index}].split")
-        );
+    (
+        ParameterKeys.New<Matrix4x4>($"ShadowReceive.cascades[{index}].viewProjection"),
+        ParameterKeys.New<float>($"ShadowReceive.cascades[{index}].split")
+    );
 
     /// <summary>The depth-only caster and the plan-view receiver.</summary>
     sealed class Shadowed : IEffectProvider {
@@ -1275,11 +1302,12 @@ public sealed class CompositorImageTests {
             var layout = device.CreatePipelineLayout(new([empty, empty, set], null, "receive"));
 
             fixture.Owns(() => {
-                device.Destroy(layout);
-                device.Destroy(set);
-                device.Destroy(empty);
-                device.Destroy(push);
-            });
+                    device.Destroy(layout);
+                    device.Destroy(set);
+                    device.Destroy(empty);
+                    device.Destroy(push);
+                }
+            );
 
             caster = new() {
                 Key = EffectKey.Of("DepthOnly"),
@@ -1295,8 +1323,8 @@ public sealed class CompositorImageTests {
                 ],
                 SetLayouts = [default, default, set],
                 Layout = layout,
-                ConstantBufferSize = (Cascades * CascadeStride) + 80,
-                Parameters = [.. Members()]
+                ConstantBufferSize = Cascades * CascadeStride + 80,
+                Parameters = [..Members()]
             };
         }
 
@@ -1306,11 +1334,11 @@ public sealed class CompositorImageTests {
                 var (matrix, split) = CascadeKeys(i);
 
                 yield return new(matrix, i * CascadeStride, 64);
-                yield return new(split, (i * CascadeStride) + 64, 4);
+                yield return new(split, i * CascadeStride + 64, 4);
             }
 
             yield return new(View, Cascades * CascadeStride, 64);
-            yield return new(Ground, (Cascades * CascadeStride) + 64, 16);
+            yield return new(Ground, Cascades * CascadeStride + 64, 16);
         }
 
         /// <summary>
@@ -1337,9 +1365,10 @@ public sealed class CompositorImageTests {
             Shared[device] = created;
 
             fixture.Owns(() => {
-                Shared.Remove(device);
-                device.Destroy(created);
-            });
+                    Shared.Remove(device);
+                    device.Destroy(created);
+                }
+            );
 
             return created;
         }
@@ -1347,7 +1376,7 @@ public sealed class CompositorImageTests {
         static readonly Dictionary<VulkanDevice, DescriptorSetLayoutHandle> Shared = [];
 
         static ImmutableArray<byte> Read(string name) =>
-            [.. File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Shaders", name))];
+            [..File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Shaders", name))];
 
         public Effect? TryGet(EffectKey key) => key.ShaderName == "DepthOnly" ? caster : receive;
     }
@@ -1447,8 +1476,11 @@ public sealed class CompositorImageTests {
     ///         two copies of the kernel.
     ///     </para>
     ///     <para>
-    ///         <strong>Every variant's set layout declares <c>previous</c>, as the real shader's
-    ///         reflection does.</strong> <c>Bloom.rvn</c>'s permutation folds away the code that
+    ///         <strong>
+    ///             Every variant's set layout declares <c>previous</c>, as the real shader's
+    ///             reflection does.
+    ///         </strong>
+    ///         <c>Bloom.rvn</c>'s permutation folds away the code that
     ///         samples it, not the declaration, so <see cref="BloomRenderer" /> fills the binding on
     ///         every pass — with a stand-in on the passes that never read it — and a layout without it
     ///         would make that write itself the validation error. The fixture's GLSL is narrower than
@@ -1512,14 +1544,15 @@ public sealed class CompositorImageTests {
             var plainLayout = device.CreatePipelineLayout(new([empty, empty, plain], null, "copy"));
 
             fixture.Owns(() => {
-                device.Destroy(sampledLayout);
-                device.Destroy(combiningLayout);
-                device.Destroy(plainLayout);
-                device.Destroy(plain);
-                device.Destroy(combining);
-                device.Destroy(sampled);
-                device.Destroy(empty);
-            });
+                    device.Destroy(sampledLayout);
+                    device.Destroy(combiningLayout);
+                    device.Destroy(plainLayout);
+                    device.Destroy(plain);
+                    device.Destroy(combining);
+                    device.Destroy(sampled);
+                    device.Destroy(empty);
+                }
+            );
 
             // The offsets Bloom.reflect.json reports, which is what the GLSL block beside this file
             // was written to match.
@@ -1562,18 +1595,18 @@ public sealed class CompositorImageTests {
                 SetLayouts = [default, default, set],
                 Layout = layout,
                 ConstantBufferSize = BloomKeys.ConstantBufferSize,
-                Parameters = [.. parameters]
+                Parameters = [..parameters]
             };
 
         static ImmutableArray<byte> Read(string name) =>
-            [.. File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Shaders", name))];
+            [..File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Shaders", name))];
 
         public Effect? TryGet(EffectKey key) {
             if (key.ShaderName != BloomKeys.ShaderName) {
                 return copy;
             }
 
-            var mode = key.Values.FirstOrDefault(v => v.Key == BloomKeys.Mode.Name).Value;
+            var mode = key.Values.FirstOrDefault(static v => v.Key == BloomKeys.Mode.Name).Value;
 
             return mode switch {
                 "0" => prefilter,
@@ -1619,7 +1652,7 @@ public sealed class CompositorImageTests {
         }
 
         static ImmutableArray<byte> Read(string name) =>
-            [.. File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Shaders", name))];
+            [..File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Shaders", name))];
 
         public Effect? TryGet(EffectKey key) => key.ShaderName == "DepthOnly" ? depth : mesh;
     }
@@ -1663,9 +1696,10 @@ public sealed class CompositorImageTests {
             var layout = device.CreatePipelineLayout(new([set], null, "tonemap"));
 
             fixture.Owns(() => {
-                device.Destroy(layout);
-                device.Destroy(set);
-            });
+                    device.Destroy(layout);
+                    device.Destroy(set);
+                }
+            );
 
             effect = new() {
                 Key = EffectKey.From(TonemapKeys.ShaderName, new(), []),
@@ -1684,7 +1718,7 @@ public sealed class CompositorImageTests {
         }
 
         static ImmutableArray<byte> Read(Fixture fixture, string name) =>
-            [.. File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Shaders", name))];
+            [..File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Shaders", name))];
 
         public Effect? TryGet(EffectKey key) => effect;
     }

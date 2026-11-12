@@ -25,8 +25,11 @@ public enum WebSocketChannelState : byte {
 ///         code.
 ///     </para>
 ///     <para>
-///         <b>Message-oriented and polled, where the real thing is stream-oriented and
-///         asynchronous.</b> WebSocket already gives message boundaries, so nothing above needs to
+///         <b>
+///             Message-oriented and polled, where the real thing is stream-oriented and
+///             asynchronous.
+///         </b>
+///         WebSocket already gives message boundaries, so nothing above needs to
 ///         re-invent them; the polling is what keeps the transport contract's promise that nothing is
 ///         delivered outside <c>Poll</c>. A real implementation runs its own I/O and queues what
 ///         arrives — the threads are inside this interface, and the layer above never sees one.

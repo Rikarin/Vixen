@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Runtime.InteropServices;
-using Vixen.Ai;
 using Vixen.Ai.Ecs;
 using Vixen.Core;
 using Vixen.Ecs;
@@ -69,7 +68,7 @@ public class BehaviorTreeCostTests {
         fleet.Step(0);
 
         var frame = 1;
-        Measured.NothingAllocated(() => fleet.Step(frame++), warmUp: 20, passes: 100);
+        Measured.NothingAllocated(() => fleet.Step(frame++), 20, 100);
     }
 
     /// <summary>
@@ -121,7 +120,7 @@ public class BehaviorTreeCostTests {
         }
 
         // …and each one's node memory really is a different range of the pool.
-        Assert.Equal(100, instances.Select(pair => pair.Tree.Handle.Index).Distinct().Count());
+        Assert.Equal(100, instances.Select(static pair => pair.Tree.Handle.Index).Distinct().Count());
     }
 
     /// <summary>
@@ -130,8 +129,8 @@ public class BehaviorTreeCostTests {
     /// </summary>
     [Fact]
     public void TheSameTreeOnTwoWorldsProducesTheIdenticalSequenceOfActiveNodes() {
-        var first = Run(decoys: 0);
-        var second = Run(decoys: 37);
+        var first = Run(0);
+        var second = Run(37);
 
         Assert.Equal(first, second);
         Assert.NotEmpty(first);
@@ -204,13 +203,14 @@ public class BehaviorTreeCostTests {
     static AgentContext Context(World world, Entity entity, Blackboard board, AgentActionRegistry actions, int frame) =>
         new(world, entity, board, null, Frame(frame), AgentRandom.SeedOf(entity), actions);
 
-    static GameTime Frame(int index) => new(
-        TimeSpan.FromSeconds(index / 60.0),
-        TimeSpan.FromSeconds(1 / 60.0),
-        TimeSpan.FromSeconds(1 / 60.0),
-        index,
-        1f
-    );
+    static GameTime Frame(int index) =>
+        new(
+            TimeSpan.FromSeconds(index / 60.0),
+            TimeSpan.FromSeconds(1 / 60.0),
+            TimeSpan.FromSeconds(1 / 60.0),
+            index,
+            1f
+        );
 
     /// <summary>A world full of agents on one tree, and the two ways of counting what a frame cost.</summary>
     sealed class Fleet : IDisposable {

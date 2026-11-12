@@ -10,8 +10,11 @@ namespace Vixen.Foliage;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>[docs/plan/31 § D10]: a foliage type declares a collision shape and an activation
-///         radius, and instances within that radius of a physics-relevant entity get a body.</b> Ten
+///         <b>
+///             [docs/plan/31 § D10]: a foliage type declares a collision shape and an activation
+///             radius, and instances within that radius of a physics-relevant entity get a body.
+///         </b>
+///         Ten
 ///         thousand static bodies is not a scene, it is a broadphase problem.
 ///     </para>
 ///     <para>
@@ -55,8 +58,12 @@ public sealed class FoliageCollision {
     /// </param>
     /// <returns>How many bodies are wanted afterwards.</returns>
     /// <remarks>
-    ///     ⚠ <b>The radius is the <em>type's</em>, so one source produces a different set per
-    ///     type.</b> A boulder wants a body from further away than a fern does, and a single global
+    ///     ⚠
+    ///     <b>
+    ///         The radius is the <em>type's</em>, so one source produces a different set per
+    ///         type.
+    ///     </b>
+    ///     A boulder wants a body from further away than a fern does, and a single global
     ///     radius would make one of them wrong — which is the setting a project reaches for when a
     ///     vehicle drives through a rock it should have hit.
     /// </remarks>
@@ -109,8 +116,12 @@ public sealed class FoliageCollision {
 
     /// <summary>Drops every body, which is what leaving a level does.</summary>
     /// <remarks>
-    ///     ⚠ <b>The whole active set comes out as <see cref="Deactivated" />, so a pool can return
-    ///     it.</b> Clearing silently would leak every body the caller had allocated — and it would
+    ///     ⚠
+    ///     <b>
+    ///         The whole active set comes out as <see cref="Deactivated" />, so a pool can return
+    ///         it.
+    ///     </b>
+    ///     Clearing silently would leak every body the caller had allocated — and it would
     ///     leak them into a physics world that is about to be handed a different volume's instances
     ///     at the same addresses.
     /// </remarks>
@@ -127,8 +138,12 @@ public sealed class FoliageCollision {
     /// <param name="address">The address.</param>
     /// <returns>Whether it had a body.</returns>
     /// <remarks>
-    ///     ⚠ <b>What an erase stroke needs, and it is not the same as letting the next
-    ///     <see cref="Update" /> notice.</b> An erased instance's address now belongs to whichever
+    ///     ⚠
+    ///     <b>
+    ///         What an erase stroke needs, and it is not the same as letting the next
+    ///         <see cref="Update" /> notice.
+    ///     </b>
+    ///     An erased instance's address now belongs to whichever
     ///     instance shifted down into it, so the next update would find that one already active and
     ///     never give it a body of its own — a tree with a hole where its collision should be, for as
     ///     long as the level runs.

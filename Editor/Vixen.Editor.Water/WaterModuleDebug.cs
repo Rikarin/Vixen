@@ -4,9 +4,7 @@
 using Vixen.Core;
 using Vixen.Editor.Core;
 using Vixen.Editor.Plugin;
-using Vixen.Editor.Ui;
 using Vixen.Rendering.Water;
-using Vixen.Ui.Controls;
 
 namespace Vixen.Editor.Water;
 
@@ -60,7 +58,10 @@ namespace Vixen.Editor.Water;
 )]
 [EditorSubmenu(DebugMenu, Title = nameof(WaterStrings.MenuWaterDebug))]
 public sealed partial class WaterModule {
-    /// <summary>The toolset's submenu under Scene. A key for the declarations; its title is <see cref="WaterStrings.MenuWater" />.</summary>
+    /// <summary>
+    ///     The toolset's submenu under Scene. A key for the declarations; its title is
+    ///     <see cref="WaterStrings.MenuWater" />.
+    /// </summary>
     internal const string WaterMenu = "Scene/Water";
 
     /// <summary>The six switches' submenu.</summary>
@@ -120,13 +121,10 @@ public sealed partial class WaterModule {
     public WaterDebugFlags Debug => debug;
 
     /// <summary>Puts the verbs in the shell and the switches in the registry, and takes all of it back out.</summary>
-    void WaterDebugCommands(Vixen.Editor.Plugin.PluginContext context, IEditorRegistry extensions) {
+    void WaterDebugCommands(PluginContext context, IEditorRegistry extensions) {
         foreach (var (id, read, toggle) in DebugVerbs()) {
             context.AddCommand(
-                new EditorCommand(id, WaterStrings.Commands[id], toggle) {
-                    Category = WaterStrings.CategoryWater,
-                    Checked = read
-                }
+                new(id, WaterStrings.Commands[id], toggle) { Category = WaterStrings.CategoryWater, Checked = read }
             );
         }
 

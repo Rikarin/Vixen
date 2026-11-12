@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Silk.NET.SDL;
-using Vixen.Core;
 using Vixen.Core.Mathematics;
 using SdlWindow = Silk.NET.SDL.Window;
 
@@ -27,8 +26,8 @@ public sealed unsafe class DesktopWindow : IWindow, IGlContextSource {
 
     SdlWindow* handle;
     Cursor* cursor;
-    CursorShape cursorShape;
-    CursorMode cursorMode;
+
+
     IGlContext? gl;
 
     internal DesktopWindow(Sdl sdl, SdlWindow* handle) {
@@ -178,15 +177,15 @@ public sealed unsafe class DesktopWindow : IWindow, IGlContextSource {
 
     /// <inheritdoc />
     public CursorMode CursorMode {
-        get => cursorMode;
+        get => field;
         set {
             ThrowIfClosed();
 
-            if (value == cursorMode) {
+            if (value == field) {
                 return;
             }
 
-            cursorMode = value;
+            field = value;
 
             // Relative mode is global in SDL rather than per-window, which is correct in practice —
             // only the focused window can own the pointer — but means the last window to ask wins.
@@ -198,15 +197,15 @@ public sealed unsafe class DesktopWindow : IWindow, IGlContextSource {
 
     /// <inheritdoc />
     public CursorShape CursorShape {
-        get => cursorShape;
+        get => field;
         set {
             ThrowIfClosed();
 
-            if (value == cursorShape && cursor is not null) {
+            if (value == field && cursor is not null) {
                 return;
             }
 
-            cursorShape = value;
+            field = value;
             var replacement = sdl.CreateSystemCursor(SdlTranslation.ToSdl(value));
 
             if (replacement is null) {

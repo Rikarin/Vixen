@@ -27,11 +27,13 @@ public class ScrollMomentumTests {
 
     /// <summary>A view whose content is ten times as tall as it is.</summary>
     static (ControlFixture Fixture, ScrollView View) Tall(bool dragToScroll = true) {
-        var fixture = new ControlFixture(css: """
-            root  { width: 400px; height: 300px; }
-            #view { width: 100px; height: 60px; }
-            #body { width: 100px; height: 600px; }
-            """);
+        var fixture = new ControlFixture(
+            css: """
+                 root  { width: 400px; height: 300px; }
+                 #view { width: 100px; height: 60px; }
+                 #body { width: 100px; height: 600px; }
+                 """
+        );
 
         var view = fixture.Document.Create<ScrollView>(null, fixture.Document.Root, "view");
         fixture.Document.Create("div", view.Content, "body");
@@ -51,17 +53,17 @@ public class ScrollMomentumTests {
     /// <returns>Where the pointer ended up.</returns>
     static float Flick(ControlFixture fixture, ScrollView view, int steps, PointerType type = PointerType.Unknown) {
         var bounds = view.Bounds;
-        var x = bounds.X + (bounds.Width * 0.5f);
-        var y = bounds.Y + (bounds.Height * 0.5f);
+        var x = bounds.X + bounds.Width * 0.5f;
+        var y = bounds.Y + bounds.Height * 0.5f;
 
         fixture.Press(x, y, type: type);
 
         for (var step = 1; step <= steps; step++) {
-            fixture.MovePointer(x, y - (Step * step), type: type);
+            fixture.MovePointer(x, y - Step * step, type: type);
             fixture.Advance(Frame);
         }
 
-        return y - (Step * steps);
+        return y - Step * steps;
     }
 
     /// <summary>
@@ -70,8 +72,12 @@ public class ScrollMomentumTests {
     ///     path in this control where the number the user is moving is not the number being stored.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>The move that <i>starts</i> the drag scrolls nothing, and that is deliberate rather
-    ///     than an off-by-one.</b> The recogniser calls a press a drag once it has wandered past its
+    ///     ⚠
+    ///     <b>
+    ///         The move that <i>starts</i> the drag scrolls nothing, and that is deliberate rather
+    ///         than an off-by-one.
+    ///     </b>
+    ///     The recogniser calls a press a drag once it has wandered past its
     ///     slop, and honouring that first delta would jump the content by however far the finger got
     ///     before the threshold was crossed — a visible lurch at the beginning of every scroll. A
     ///     drag begins where the finger is when it becomes one. Here the steps are twenty pixels, so
@@ -83,7 +89,7 @@ public class ScrollMomentumTests {
         var (fixture, view) = Tall();
         using var _ = fixture;
 
-        Flick(fixture, view, steps: 3);
+        Flick(fixture, view, 3);
 
         Assert.Equal(Step * 2, view.ScrollTop);
     }
@@ -98,10 +104,10 @@ public class ScrollMomentumTests {
         var (fixture, view) = Tall();
         using var _ = fixture;
 
-        var y = Flick(fixture, view, steps: 4);
+        var y = Flick(fixture, view, 4);
         var released = view.ScrollTop;
 
-        fixture.Release(view.Bounds.X + (view.Bounds.Width * 0.5f), y);
+        fixture.Release(view.Bounds.X + view.Bounds.Width * 0.5f, y);
 
         Assert.True(view.IsFlinging);
 
@@ -120,8 +126,8 @@ public class ScrollMomentumTests {
         var (fixture, view) = Tall();
         using var _ = fixture;
 
-        var y = Flick(fixture, view, steps: 4);
-        fixture.Release(view.Bounds.X + (view.Bounds.Width * 0.5f), y);
+        var y = Flick(fixture, view, 4);
+        fixture.Release(view.Bounds.X + view.Bounds.Width * 0.5f, y);
 
         Assert.True(view.IsFlinging);
 
@@ -158,8 +164,8 @@ public class ScrollMomentumTests {
             var (fixture, view) = Tall();
             using var _ = fixture;
 
-            var y = Flick(fixture, view, steps: 4);
-            fixture.Release(view.Bounds.X + (view.Bounds.Width * 0.5f), y);
+            var y = Flick(fixture, view, 4);
+            fixture.Release(view.Bounds.X + view.Bounds.Width * 0.5f, y);
 
             var released = view.ScrollTop;
 
@@ -182,13 +188,13 @@ public class ScrollMomentumTests {
     [InlineData(PointerType.Unknown)]
     [InlineData(PointerType.Mouse)]
     public void A_view_that_was_not_asked_to_drag_does_not(PointerType type) {
-        var (fixture, view) = Tall(dragToScroll: false);
+        var (fixture, view) = Tall(false);
         using var _ = fixture;
 
         Assert.False(view.DragToScroll);
 
-        var y = Flick(fixture, view, steps: 4, type: type);
-        fixture.Release(view.Bounds.X + (view.Bounds.Width * 0.5f), y, type: type);
+        var y = Flick(fixture, view, 4, type);
+        fixture.Release(view.Bounds.X + view.Bounds.Width * 0.5f, y, type: type);
 
         Assert.Equal(0f, view.ScrollTop);
         Assert.False(view.IsFlinging);
@@ -212,13 +218,13 @@ public class ScrollMomentumTests {
     [InlineData(PointerType.Touch)]
     [InlineData(PointerType.Pen)]
     public void A_finger_scrolls_a_view_that_was_never_asked(PointerType type) {
-        var (fixture, view) = Tall(dragToScroll: false);
+        var (fixture, view) = Tall(false);
         using var _ = fixture;
 
         Assert.False(view.DragToScroll);
 
-        var y = Flick(fixture, view, steps: 4, type: type);
-        fixture.Release(view.Bounds.X + (view.Bounds.Width * 0.5f), y, type: type);
+        var y = Flick(fixture, view, 4, type);
+        fixture.Release(view.Bounds.X + view.Bounds.Width * 0.5f, y, type: type);
 
         // Upwards, so the offset goes down the content — the one path where the number the user is
         // moving is not the number being stored.
@@ -236,8 +242,8 @@ public class ScrollMomentumTests {
         var (fixture, view) = Tall();
         using var _ = fixture;
 
-        var y = Flick(fixture, view, steps: 4);
-        fixture.Release(view.Bounds.X + (view.Bounds.Width * 0.5f), y);
+        var y = Flick(fixture, view, 4);
+        fixture.Release(view.Bounds.X + view.Bounds.Width * 0.5f, y);
 
         view.ScrollTop = view.MaximumTop;
 

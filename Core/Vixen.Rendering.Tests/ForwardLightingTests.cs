@@ -86,10 +86,7 @@ public class ForwardLightingTests : IDisposable {
         var system = new RenderSystem();
         var opaque = system.AddStage(new("Opaque"));
 
-        var meshes = new MeshRenderFeature {
-            Pipelines = new(device),
-            Describer = new EffectPipelineDescriber(device)
-        };
+        var meshes = new MeshRenderFeature { Pipelines = new(device), Describer = new EffectPipelineDescriber(device) };
 
         var materials = new MaterialRenderFeature { Effects = effects };
         var lighting = new ForwardLightingRenderFeature { Device = device, Layout = PerDraw };
@@ -104,9 +101,7 @@ public class ForwardLightingTests : IDisposable {
         var projection = Matrix4x4.PerspectiveFieldOfView(MathF.PI / 3f, 1f, 0.1f, 1000f);
 
         var camera = new RenderView("camera") {
-            Stages = opaque.Mask,
-            Position = Vector3.Zero,
-            Frustum = new(view * projection)
+            Stages = opaque.Mask, Position = Vector3.Zero, Frustum = new(view * projection)
         };
 
         system.SetViews([camera]);
@@ -124,11 +119,7 @@ public class ForwardLightingTests : IDisposable {
 
     static RenderObjectId AddMesh(Harness h, Vector3 at, float radius = 1f) {
         var id = h.System.Objects.Add(
-            new() {
-                Bounds = new(at, radius),
-                Stages = h.Opaque.Mask,
-                FeatureIndex = h.Meshes.Index
-            }
+            new() { Bounds = new(at, radius), Stages = h.Opaque.Mask, FeatureIndex = h.Meshes.Index }
         );
 
         h.System.Objects.Data.Data(h.Meshes.Draws)[id.Index] = new() {
@@ -145,9 +136,14 @@ public class ForwardLightingTests : IDisposable {
         var target = device.CreateTextureView(
             device.CreateTexture(
                 new() {
-                    Width = 16, Height = 16, Depth = 1,
-                    MipLevels = 1, ArrayLayers = 1, SampleCount = 1,
-                    Format = PixelFormat.Rgba8UNorm, Usage = TextureUsage.ColourTarget
+                    Width = 16,
+                    Height = 16,
+                    Depth = 1,
+                    MipLevels = 1,
+                    ArrayLayers = 1,
+                    SampleCount = 1,
+                    Format = PixelFormat.Rgba8UNorm,
+                    Usage = TextureUsage.ColourTarget
                 }
             )
         );
@@ -173,9 +169,14 @@ public class ForwardLightingTests : IDisposable {
         device.CreateTextureView(
             device.CreateTexture(
                 new() {
-                    Width = 16, Height = 16, Depth = 1,
-                    MipLevels = 1, ArrayLayers = 1, SampleCount = 1,
-                    Format = PixelFormat.Rgba8UNorm, Usage = TextureUsage.ColourTarget
+                    Width = 16,
+                    Height = 16,
+                    Depth = 1,
+                    MipLevels = 1,
+                    ArrayLayers = 1,
+                    SampleCount = 1,
+                    Format = PixelFormat.Rgba8UNorm,
+                    Usage = TextureUsage.ColourTarget
                 }
             )
         );
@@ -208,8 +209,8 @@ public class ForwardLightingTests : IDisposable {
 
         var bound = device.Recorder!
             .OfKind(RecordedCommandKind.BindDescriptorSet)
-            .Where(command => command.A == (long)DescriptorSetSlot.PerDraw)
-            .Select(command => command.B)
+            .Where(static command => command.A == (long)DescriptorSetSlot.PerDraw)
+            .Select(static command => command.B)
             .Distinct()
             .ToArray();
 
@@ -256,15 +257,15 @@ public class ForwardLightingTests : IDisposable {
         var record = light.ToGpu();
         MemoryMarshal.Write(bytes, in record);
 
-        Assert.Equal(1f, At(bytes, 0));   // position.x
-        Assert.Equal(3f, At(bytes, 8));   // position.z
-        Assert.Equal(2f, At(bytes, 12));  // kind — Spot
-        Assert.Equal(4f, At(bytes, 16));  // colour.r
-        Assert.Equal(7f, At(bytes, 28));  // range
-        Assert.Equal(1f, At(bytes, 40));  // direction.z
-        Assert.Equal(1f, At(bytes, 44));  // cos(0) — inner
-        Assert.Equal(8f, At(bytes, 48));  // radius
-        Assert.Equal(1f, At(bytes, 52));  // cos(0) — outer
+        Assert.Equal(1f, At(bytes, 0)); // position.x
+        Assert.Equal(3f, At(bytes, 8)); // position.z
+        Assert.Equal(2f, At(bytes, 12)); // kind — Spot
+        Assert.Equal(4f, At(bytes, 16)); // colour.r
+        Assert.Equal(7f, At(bytes, 28)); // range
+        Assert.Equal(1f, At(bytes, 40)); // direction.z
+        Assert.Equal(1f, At(bytes, 44)); // cos(0) — inner
+        Assert.Equal(8f, At(bytes, 48)); // radius
+        Assert.Equal(1f, At(bytes, 52)); // cos(0) — outer
 
         // The shadow index, in the first of the two floats that used to be padding — so the tail
         // below is exactly where it was, and no shader compiled against the old record moved.
@@ -311,9 +312,9 @@ public class ForwardLightingTests : IDisposable {
         var light = RenderLight.Tube(
             Vector3.Zero,
             new(0f, 0f, 2f),
-            halfLength: 3f,
-            radius: 0.25f,
-            range: 10f,
+            3f,
+            0.25f,
+            10f,
             new(1f, 1f, 1f)
         );
 
@@ -321,10 +322,10 @@ public class ForwardLightingTests : IDisposable {
         var record = light.ToGpu();
         MemoryMarshal.Write(bytes, in record);
 
-        Assert.Equal(3f, At(bytes, 12));   // kind — Tube
-        Assert.Equal(0.25f, At(bytes, 48));  // radius, which a tube uses for its thickness
-        Assert.Equal(1f, At(bytes, 72));   // tangent.z — normalised on the way out
-        Assert.Equal(3f, At(bytes, 76));   // halfLength
+        Assert.Equal(3f, At(bytes, 12)); // kind — Tube
+        Assert.Equal(0.25f, At(bytes, 48)); // radius, which a tube uses for its thickness
+        Assert.Equal(1f, At(bytes, 72)); // tangent.z — normalised on the way out
+        Assert.Equal(3f, At(bytes, 76)); // halfLength
     }
 
     /// <summary>A rectangle's width axis comes out square to its normal, whatever was authored.</summary>
@@ -337,14 +338,15 @@ public class ForwardLightingTests : IDisposable {
     [Fact]
     public void A_rectangles_axis_is_squared_against_its_normal() {
         var light = RenderLight.Rect(
-            Vector3.Zero,
-            new(0f, 1f, 0f),
-            new(1f, 0.5f, 0f),
-            halfWidth: 2f,
-            halfHeight: 1f,
-            range: 10f,
-            new(1f, 1f, 1f)
-        ).ToGpu();
+                Vector3.Zero,
+                new(0f, 1f, 0f),
+                new(1f, 0.5f, 0f),
+                2f,
+                1f,
+                10f,
+                new(1f, 1f, 1f)
+            )
+            .ToGpu();
 
         Assert.Equal(0f, Vector3.Dot(light.Tangent, light.Direction), 5);
         Assert.Equal(1f, light.Tangent.Length(), 5);
@@ -352,14 +354,15 @@ public class ForwardLightingTests : IDisposable {
         // A width axis parallel to the normal has no square part to keep, and still has to come out
         // as *some* usable axis rather than as a zero vector the cross product would collapse.
         var degenerate = RenderLight.Rect(
-            Vector3.Zero,
-            new(0f, 1f, 0f),
-            new(0f, 1f, 0f),
-            halfWidth: 2f,
-            halfHeight: 1f,
-            range: 10f,
-            new(1f, 1f, 1f)
-        ).ToGpu();
+                Vector3.Zero,
+                new(0f, 1f, 0f),
+                new(0f, 1f, 0f),
+                2f,
+                1f,
+                10f,
+                new(1f, 1f, 1f)
+            )
+            .ToGpu();
 
         Assert.Equal(1f, degenerate.Tangent.Length(), 5);
         Assert.Equal(0f, Vector3.Dot(degenerate.Tangent, degenerate.Direction), 5);
@@ -503,7 +506,7 @@ public class ForwardLightingTests : IDisposable {
     [Fact]
     public void Range_is_measured_to_the_surface_rather_than_the_centre() {
         using var h = Build();
-        var id = AddMesh(h, new(0f, 0f, 20f), radius: 10f);
+        var id = AddMesh(h, new(0f, 0f, 20f), 10f);
         h.Lighting.Lights.Add(RenderLight.Point(new(0f, 0f, 31f), 5f, new(1f)));
 
         Record(h);
@@ -532,7 +535,7 @@ public class ForwardLightingTests : IDisposable {
 
         Record(h);
 
-        var chosen = h.Lighting.LightsFor(h.System, id).Select(light => light.Colour.X).ToArray();
+        var chosen = h.Lighting.LightsFor(h.System, id).Select(static light => light.Colour.X).ToArray();
 
         Assert.Equal([12f, 11f, 10f, 9f], chosen);
     }
@@ -557,8 +560,9 @@ public class ForwardLightingTests : IDisposable {
     ///     </para>
     ///     <para>
     ///         Under the budget nothing is dropped, so nothing can churn — which is the whole of the
-    ///         fix and also its limit. <c>ForwardLightingRenderFeature.Select</c> — private, so this is prose rather than a link —
-///         says the
+    ///         fix and also its limit. <c>ForwardLightingRenderFeature.Select</c> — private, so this is prose rather than a
+    ///         link —
+    ///         says the
     ///         general answer is clustered lighting, where there is no per-object budget to overflow.
     ///     </para>
     /// </remarks>
@@ -581,12 +585,10 @@ public class ForwardLightingTests : IDisposable {
         h.Lighting.MaxLightsPerObject = budget;
 
         // One big object with every light inside its bounds, which is what collapses the score.
-        var id = AddMesh(h, Vector3.Zero, radius: 40f);
+        var id = AddMesh(h, Vector3.Zero, 40f);
 
         for (var i = 0; i < baselines.Length; i++) {
-            h.Lighting.Lights.Add(
-                RenderLight.Point(new(i * 4f, 2f, 0f), 60f, new(1f), baselines[i])
-            );
+            h.Lighting.Lights.Add(RenderLight.Point(new(i * 4f, 2f, 0f), 60f, new(1f), baselines[i]));
         }
 
         var frames = new List<HashSet<float>>();
@@ -595,12 +597,12 @@ public class ForwardLightingTests : IDisposable {
         foreach (var clock in (float[])[0f, 0.21f]) {
             for (var i = 0; i < baselines.Length; i++) {
                 var light = h.Lighting.Lights[i];
-                light.Intensity = baselines[i] * (1f + (0.12f * MathF.Sin((clock * 1.7f * MathF.Tau) + i)));
+                light.Intensity = baselines[i] * (1f + 0.12f * MathF.Sin(clock * 1.7f * MathF.Tau + i));
                 h.Lighting.Lights[i] = light;
             }
 
             Record(h);
-            frames.Add([.. h.Lighting.LightsFor(h.System, id).Select(light => light.Position.X)]);
+            frames.Add([..h.Lighting.LightsFor(h.System, id).Select(static light => light.Position.X)]);
         }
 
         return !frames[0].SetEquals(frames[1]);
@@ -632,7 +634,7 @@ public class ForwardLightingTests : IDisposable {
     ///         ⚠ <b>A phase requirement, not a convenience.</b> The earliest reader of
     ///         <c>ISunSource.Sun</c> is <c>ShadowMapRenderer.Collect</c>, which runs before the render
     ///         system runs any phase at all — so a value this feature latched in
-///         <c>ForwardLightingRenderFeature.Prepare</c>
+    ///         <c>ForwardLightingRenderFeature.Prepare</c>
     ///         answered with the previous frame's sun, and on the first frame with none.
     ///     </para>
     ///     <para>
@@ -667,13 +669,13 @@ public class ForwardLightingTests : IDisposable {
 
         lighting.Lights.Add(RenderLight.Directional(new(0f, -1f, 0f), new(1f), 3f));
 
-        Assert.Equal(new Vector3(0f, -1f, 0f), lighting.Sun!.Value.Direction);
+        Assert.Equal(new(0f, -1f, 0f), lighting.Sun!.Value.Direction);
 
         var turned = lighting.Lights[0];
         turned.Direction = new(1f, 0f, 0f);
         lighting.Lights[0] = turned;
 
-        Assert.Equal(new Vector3(1f, 0f, 0f), lighting.Sun!.Value.Direction);
+        Assert.Equal(new(1f, 0f, 0f), lighting.Sun!.Value.Direction);
     }
 
     /// <summary>A scene whose sun was removed has no sun, rather than the one it used to have.</summary>
@@ -704,7 +706,7 @@ public class ForwardLightingTests : IDisposable {
 
         lighting.Lights.Add(RenderLight.Directional(new(0f, -1f, 0f), new(1f), 0f));
 
-        Assert.Equal(new Vector3(0f, -1f, 0f), lighting.Sun!.Value.Direction);
+        Assert.Equal(new(0f, -1f, 0f), lighting.Sun!.Value.Direction);
     }
 
     /// <summary>A spot light pointing the other way does not reach an object inside its range.</summary>
@@ -717,10 +719,10 @@ public class ForwardLightingTests : IDisposable {
             RenderLight.Spot(
                 new(0f, 0f, 12f),
                 new(0f, 0f, 1f),
-                range: 20f,
-                innerAngle: 0.2f,
-                outerAngle: 0.3f,
-                new Color3(1f)
+                20f,
+                0.2f,
+                0.3f,
+                new(1f)
             )
         );
 
@@ -738,10 +740,10 @@ public class ForwardLightingTests : IDisposable {
             RenderLight.Spot(
                 new(0f, 0f, 12f),
                 new(0f, 0f, -1f),
-                range: 20f,
-                innerAngle: 0.2f,
-                outerAngle: 0.3f,
-                new Color3(1f)
+                20f,
+                0.2f,
+                0.3f,
+                new(1f)
             )
         );
 
@@ -832,8 +834,12 @@ public class ForwardLightingTests : IDisposable {
 
         var selector = new ReflectionProbeSelector();
 
-        selector.Probes.Add(new() { Bounds = new(new(-5f, -5f, 5f), new(5f, 5f, 15f)), CapturePosition = new(0f, 0f, 10f) });
-        selector.Probes.Add(new() { Bounds = new(new(-5f, -5f, 25f), new(5f, 5f, 35f)), CapturePosition = new(0f, 0f, 30f) });
+        selector.Probes.Add(
+            new() { Bounds = new(new(-5f, -5f, 5f), new(5f, 5f, 15f)), CapturePosition = new(0f, 0f, 10f) }
+        );
+        selector.Probes.Add(
+            new() { Bounds = new(new(-5f, -5f, 25f), new(5f, 5f, 35f)), CapturePosition = new(0f, 0f, 30f) }
+        );
 
         h.Lighting.Probes = selector;
 
@@ -856,7 +862,9 @@ public class ForwardLightingTests : IDisposable {
         using var h = Build();
 
         var selector = new ReflectionProbeSelector();
-        selector.Probes.Add(new() { Bounds = new(new(-5f, -5f, 5f), new(5f, 5f, 15f)), CapturePosition = new(0f, 0f, 10f) });
+        selector.Probes.Add(
+            new() { Bounds = new(new(-5f, -5f, 5f), new(5f, 5f, 15f)), CapturePosition = new(0f, 0f, 10f) }
+        );
 
         h.Lighting.Probes = selector;
 
@@ -932,7 +940,7 @@ public class ForwardLightingTests : IDisposable {
         Record(h);
 
         Assert.Equal(0, h.Lighting.BlockStride % 256);
-        Assert.True(h.Lighting.BlockStride >= ForwardLightingRenderFeature.HeaderSize + (8 * LightSize));
+        Assert.True(h.Lighting.BlockStride >= ForwardLightingRenderFeature.HeaderSize + 8 * LightSize);
         Assert.Equal(4 * h.Lighting.BlockStride, h.Lighting.UsedBytes);
     }
 
@@ -958,11 +966,11 @@ public class ForwardLightingTests : IDisposable {
 
         var binds = device.Recorder!
             .OfKind(RecordedCommandKind.BindDescriptorSet)
-            .Where(command => command.A == (long)DescriptorSetSlot.PerDraw)
+            .Where(static command => command.A == (long)DescriptorSetSlot.PerDraw)
             .ToArray();
 
         Assert.Equal(4, binds.Length);
-        Assert.Single(binds.Select(bind => bind.B).Distinct());
+        Assert.Single(binds.Select(static bind => bind.B).Distinct());
 
         var offsets = ids
             .Select(id => h.System.Objects.Data.Data(h.Lighting.Assignments)[id.Index].Offset)
@@ -987,8 +995,12 @@ public class ForwardLightingTests : IDisposable {
     ///         of bug that ships.
     ///     </para>
     ///     <para>
-    ///         What is asserted is the property rather than the mechanism: <strong>no set is written
-    ///         twice inside a window of <c>FramesInFlight</c> frames</strong>, growth frame included.
+    ///         What is asserted is the property rather than the mechanism:
+    ///         <strong>
+    ///             no set is written
+    ///             twice inside a window of <c>FramesInFlight</c> frames
+    ///         </strong>
+    ///         , growth frame included.
     ///         Every frame writes exactly one set, so a handle appearing twice in such a window
     ///         <em>is</em> a rewrite of something still in flight. The buffer needs no equivalent
     ///         check — <see cref="IGraphicsDevice" /> defers destruction until the frames that could

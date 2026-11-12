@@ -88,9 +88,7 @@ public sealed partial class WebGpuDevice {
         );
 
         lock (gate) {
-            return new(
-                pipelines.Add(new WebGpuPipeline(handle, false, layout.PushConstantGroup, description.Name))
-            );
+            return new(pipelines.Add(new WebGpuPipeline(handle, false, layout.PushConstantGroup, description.Name)));
         }
     }
 
@@ -101,14 +99,10 @@ public sealed partial class WebGpuDevice {
         var layout = ResolvePipelineLayout(description.Layout, description.Name);
         var compute = ResolveShader(description.Compute, description.Name, "compute");
 
-        var handle = binding.CreateComputePipeline(
-            new(layout.Handle, compute.Handle, EntryPoint, description.Name)
-        );
+        var handle = binding.CreateComputePipeline(new(layout.Handle, compute.Handle, EntryPoint, description.Name));
 
         lock (gate) {
-            return new(
-                pipelines.Add(new WebGpuPipeline(handle, true, layout.PushConstantGroup, description.Name))
-            );
+            return new(pipelines.Add(new WebGpuPipeline(handle, true, layout.PushConstantGroup, description.Name)));
         }
     }
 
@@ -130,8 +124,12 @@ public sealed partial class WebGpuDevice {
     /// <inheritdoc />
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Not yet — but not for the reason this comment used to give, which was wrong
-    ///         twice over.</b> It said <c>timestamp-query</c> is "not free to ask for" and that a
+    ///         ⚠
+    ///         <b>
+    ///             Not yet — but not for the reason this comment used to give, which was wrong
+    ///             twice over.
+    ///         </b>
+    ///         It said <c>timestamp-query</c> is "not free to ask for" and that a
     ///         device requesting it unconditionally "would fail to be created on the majority of
     ///         the configurations this backend targets".
     ///     </para>

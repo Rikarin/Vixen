@@ -1,11 +1,11 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
-using Vixen.Core.Mathematics;
 using CoreAnimation;
 using Foundation;
 using ObjCRuntime;
 using UIKit;
+using Vixen.Core.Mathematics;
 
 namespace Vixen.Platform.Ios;
 
@@ -165,16 +165,12 @@ internal sealed class IosMetalView : UIView {
     /// </remarks>
     internal void ReleaseAllTouches() {
         foreach (var finger in tracker.Clear()) {
-            events?.Post(
-                PlatformEvent.Touch(PlatformEventKind.TouchUp, windowId, IosClock.Now, finger, default)
-            );
+            events?.Post(PlatformEvent.Touch(PlatformEventKind.TouchUp, windowId, IosClock.Now, finger, default));
         }
     }
 
     void Post(PlatformEventKind kind, int finger, Vector2 position, Vector2 delta, UITouch touch) =>
-        events?.Post(
-            PlatformEvent.Touch(kind, windowId, IosClock.Now, finger, position, delta, Pressure(touch))
-        );
+        events?.Post(PlatformEvent.Touch(kind, windowId, IosClock.Now, finger, position, delta, Pressure(touch)));
 
     Vector2 At(UITouch touch) {
         var point = touch.LocationInView(this);

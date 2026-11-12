@@ -137,7 +137,7 @@ public sealed class ScreenProbeHistoryTexture : IDisposable {
         for (var set = 0; set < 2; set++) {
             for (var plane = 0; plane < Planes; plane++) {
                 textures[set, plane] = graphics.CreateTexture(
-                    new TextureDescription(
+                    new(
                         PixelFormat.Rgba32Float,
                         grid.X,
                         grid.Y,
@@ -152,7 +152,7 @@ public sealed class ScreenProbeHistoryTexture : IDisposable {
 
         for (var plane = 0; plane < FilteredPlanes; plane++) {
             filtered[plane] = graphics.CreateTexture(
-                new TextureDescription(
+                new(
                     PixelFormat.Rgba32Float,
                     grid.X,
                     grid.Y,
@@ -177,17 +177,17 @@ public sealed class ScreenProbeHistoryTexture : IDisposable {
             return;
         }
 
-        var barriers = new TextureBarrier[(2 * Planes) + FilteredPlanes];
+        var barriers = new TextureBarrier[2 * Planes + FilteredPlanes];
 
         for (var set = 0; set < 2; set++) {
             for (var plane = 0; plane < Planes; plane++) {
-                barriers[(set * Planes) + plane] =
+                barriers[set * Planes + plane] =
                     new(textures[set, plane], ResourceState.Undefined, ResourceState.ShaderRead);
             }
         }
 
         for (var plane = 0; plane < FilteredPlanes; plane++) {
-            barriers[(2 * Planes) + plane] = new(filtered[plane], ResourceState.Undefined, ResourceState.ShaderRead);
+            barriers[2 * Planes + plane] = new(filtered[plane], ResourceState.Undefined, ResourceState.ShaderRead);
         }
 
         commands.Barrier(new([], barriers));
@@ -226,7 +226,7 @@ public sealed class ScreenProbeHistoryTexture : IDisposable {
 
         if (!download.IsValid) {
             download = device.CreateBuffer(
-                new BufferDescription(
+                new(
                     planeBytes * Planes,
                     BufferUsage.CopyDestination,
                     MemoryAccess.HostReadback,
@@ -245,7 +245,7 @@ public sealed class ScreenProbeHistoryTexture : IDisposable {
 
         for (var plane = 0; plane < Planes; plane++) {
             commands.CopyTextureToBuffer(
-                new TextureRegion(textures[front, plane]),
+                new(textures[front, plane]),
                 new(grid.X, grid.Y, 1),
                 download,
                 plane * planeBytes
@@ -277,7 +277,7 @@ public sealed class ScreenProbeHistoryTexture : IDisposable {
 
         if (!filteredDownload.IsValid) {
             filteredDownload = device.CreateBuffer(
-                new BufferDescription(
+                new(
                     planeBytes * FilteredPlanes,
                     BufferUsage.CopyDestination,
                     MemoryAccess.HostReadback,
@@ -290,7 +290,7 @@ public sealed class ScreenProbeHistoryTexture : IDisposable {
 
         for (var plane = 0; plane < FilteredPlanes; plane++) {
             commands.CopyTextureToBuffer(
-                new TextureRegion(filtered[plane]),
+                new(filtered[plane]),
                 new(grid.X, grid.Y, 1),
                 filteredDownload,
                 plane * planeBytes
@@ -321,9 +321,9 @@ public sealed class ScreenProbeHistoryTexture : IDisposable {
 
         for (var index = 0; index < count; index++) {
             var l0 = floats.AsSpan(index * 4);
-            var red = floats.AsSpan((count * 4) + (index * 4));
-            var green = floats.AsSpan((2 * count * 4) + (index * 4));
-            var blue = floats.AsSpan((3 * count * 4) + (index * 4));
+            var red = floats.AsSpan(count * 4 + index * 4);
+            var green = floats.AsSpan(2 * count * 4 + index * 4);
+            var blue = floats.AsSpan(3 * count * 4 + index * 4);
 
             filteredProbes[index] = new(
                 new Vector3(l0[0], l0[1], l0[2]),
@@ -356,10 +356,10 @@ public sealed class ScreenProbeHistoryTexture : IDisposable {
 
         for (var index = 0; index < count; index++) {
             var l0 = floats.AsSpan(index * 4);
-            var red = floats.AsSpan((count * 4) + (index * 4));
-            var green = floats.AsSpan((2 * count * 4) + (index * 4));
-            var blue = floats.AsSpan((3 * count * 4) + (index * 4));
-            var surface = floats.AsSpan((4 * count * 4) + (index * 4));
+            var red = floats.AsSpan(count * 4 + index * 4);
+            var green = floats.AsSpan(2 * count * 4 + index * 4);
+            var blue = floats.AsSpan(3 * count * 4 + index * 4);
+            var surface = floats.AsSpan(4 * count * 4 + index * 4);
 
             accumulated[index] = new(
                 new Vector3(l0[0], l0[1], l0[2]),

@@ -88,19 +88,20 @@ public sealed record NavMeshImportSettings : IImportSettings {
     public int TileSize { get; init; }
 
     /// <summary>These settings as the baker's.</summary>
-    internal NavMeshBuildSettings ToBuildSettings() => new() {
-        CellSize = CellSize,
-        CellHeight = CellHeight,
-        AgentHeight = AgentHeight,
-        AgentRadius = AgentRadius,
-        AgentMaxClimb = AgentMaxClimb,
-        AgentMaxSlope = AgentMaxSlope,
-        MinRegionArea = MinRegionArea,
-        MergeRegionArea = MergeRegionArea,
-        Partitioning = Partitioning,
-        MaxSimplificationError = MaxSimplificationError,
-        MaxEdgeLength = MaxEdgeLength,
-        DetailSampleDistance = DetailSampleDistance,
-        DetailSampleMaxError = DetailSampleMaxError
-    };
+    internal NavMeshBuildSettings ToBuildSettings() =>
+        new() {
+            CellSize = CellSize,
+            CellHeight = CellHeight,
+            AgentHeight = AgentHeight,
+            AgentRadius = AgentRadius,
+            AgentMaxClimb = AgentMaxClimb,
+            AgentMaxSlope = AgentMaxSlope,
+            MinRegionArea = MinRegionArea,
+            MergeRegionArea = MergeRegionArea,
+            Partitioning = Partitioning,
+            MaxSimplificationError = MaxSimplificationError,
+            MaxEdgeLength = MaxEdgeLength,
+            DetailSampleDistance = DetailSampleDistance,
+            DetailSampleMaxError = DetailSampleMaxError
+        };
 }

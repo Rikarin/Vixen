@@ -2,8 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core.Mathematics;
-using Vixen.Editor.Texturing.Painting;
-using Vixen.Texturing.Layers;
 using Vixen.Texturing.Painting;
 using Xunit;
 
@@ -16,16 +14,22 @@ namespace Vixen.Editor.Texturing.Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Every number in <c>PaintCostTests</c> was measured over
-///         <c>PaintCoverage.Everywhere</c>, which is the easy case by construction.</b>
+///         ⚠
+///         <b>
+///             Every number in <c>PaintCostTests</c> was measured over
+///             <c>PaintCoverage.Everywhere</c>, which is the easy case by construction.
+///         </b>
 ///         <c>PaintStroke.Dilate</c> breaks out of its round loop as soon as a round finds nothing to
 ///         fill, and over an atlas every texel of which is surface the first round finds nothing at
 ///         all — so the dilation runs <em>once</em> however large the gutter is. That was true of
 ///         every stroke the editor could take, because nothing handed the paint pane a real map.
 ///     </para>
 ///     <para>
-///         <b>So the closed form is re-derived here against real islands, and the derivation is from
-///         the flat run rather than from constants.</b> A stamp scans its footprint once and then
+///         <b>
+///             So the closed form is re-derived here against real islands, and the derivation is from
+///             the flat run rather than from constants.
+///         </b>
+///         A stamp scans its footprint once and then
 ///         scans the footprint grown by the gutter once per round; over <c>Everywhere</c> that is
 ///         exactly one round, which makes the flat run a measurement of both terms — and the island
 ///         run must then be the same footprint plus <c>gutter</c> of the same grown rectangle. No
@@ -53,8 +57,12 @@ public class PaintIslandCostTests(ITestOutputHelper output) {
     ///         same too, and the only free variable left is how many rounds ran.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The islands are eight texels wide with eight-texel gaps, which is what makes
-    ///         every round find something.</b> Round <c>r</c> fills the texels at distance
+    ///         ⚠
+    ///         <b>
+    ///             The islands are eight texels wide with eight-texel gaps, which is what makes
+    ///             every round find something.
+    ///         </b>
+    ///         Round <c>r</c> fills the texels at distance
     ///         <c>r + 1</c> from coverage; a gap of eight has texels at distances one to four from
     ///         each side, so all four rounds have work. A gap of two would fill in one round and this
     ///         would measure the gap rather than the gutter.
@@ -74,11 +82,11 @@ public class PaintIslandCostTests(ITestOutputHelper output) {
 
         // ⚠ The claim, with nothing hard-coded: real islands put every round to work, over the parts of
         // the grown rectangle near an edge, and never more than all of it.
-        var grown = (2L * ((int)MathF.Ceiling(Radius) + Gutter)) * (2L * ((int)MathF.Ceiling(Radius) + Gutter));
+        var grown = 2L * ((int)MathF.Ceiling(Radius) + Gutter) * (2L * ((int)MathF.Ceiling(Radius) + Gutter));
         var round = (islands.Scanned - footprint) / Gutter;
 
         Assert.True(round > 0, "the island stamp scanned nothing, so the gutter is not being walked at all.");
-        Assert.InRange(islands.Scanned, footprint, footprint + (Gutter * (grown + (grown / 2))));
+        Assert.InRange(islands.Scanned, footprint, footprint + Gutter * (grown + grown / 2));
 
         // And the island run evaluates fewer weights, because half its footprint is not surface —
         // which is the half of the change that makes a stamp cheaper rather than dearer.
@@ -112,14 +120,14 @@ public class PaintIslandCostTests(ITestOutputHelper output) {
         stroke.MoveTo(new(1024f, 2048f));
 
         for (var step = 1; step < Stamps; step++) {
-            stroke.MoveTo(new(1024f + (step * Radius), 2048f));
+            stroke.MoveTo(new(1024f + step * Radius, 2048f));
         }
 
         Assert.Equal(Stamps, stroke.StampCount);
 
-        var square = (long)((2 * Radius) + 2) * ((2 * Radius) + 2);
-        var dilated = (long)((2 * Radius) + 2 + (2 * Gutter)) * ((2 * Radius) + 2 + (2 * Gutter));
-        var bound = Stamps * (square + (Gutter * dilated));
+        var square = (long)(2 * Radius + 2) * (2 * Radius + 2);
+        var dilated = (long)(2 * Radius + 2 + 2 * Gutter) * (2 * Radius + 2 + 2 * Gutter);
+        var bound = Stamps * (square + Gutter * dilated);
 
         Assert.True(
             stroke.TexelsScanned <= bound,
@@ -137,7 +145,7 @@ public class PaintIslandCostTests(ITestOutputHelper output) {
         output.WriteLine(
             $"64 stamps over real islands: {stroke.TexelsScanned} texels scanned, "
             + $"{stroke.WeightsEvaluated} weights, {stroke.DilatedTexels} texels dilated. The bound is {bound}, "
-            + $"and the flat case reaches about a quarter of it."
+            + "and the flat case reaches about a quarter of it."
         );
     }
 
@@ -157,8 +165,12 @@ public class PaintIslandCostTests(ITestOutputHelper output) {
     ///     Islands eight texels square on a sixteen-texel pitch, over the region one stamp reaches.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>Built through <see cref="PaintCoverage.FromTriangles" /> from UV quads rather than
-    ///     from a raster</b>, because that is the path a bound mesh takes — <c>LayerStackMesh</c>
+    ///     ⚠
+    ///     <b>
+    ///         Built through <see cref="PaintCoverage.FromTriangles" /> from UV quads rather than
+    ///         from a raster
+    ///     </b>
+    ///     , because that is the path a bound mesh takes — <c>LayerStackMesh</c>
     ///     hands the same rasteriser the model's own triangles. A hand-written raster would measure
     ///     the dilation over a map this test invented.
     /// </remarks>

@@ -6,8 +6,11 @@ namespace Vixen.Ui.Styling.Utilities;
 /// <summary>The <c>--tw-*</c> fragments utilities contribute to, and what each one is worth unset.</summary>
 /// <remarks>
 ///     <para>
-///         <b>A composed utility sets a custom property instead of a declaration, and a different
-///         utility assembles the pieces.</b> <c>from-accent</c> emits no <c>background-image</c> at
+///         <b>
+///             A composed utility sets a custom property instead of a declaration, and a different
+///             utility assembles the pieces.
+///         </b>
+///         <c>from-accent</c> emits no <c>background-image</c> at
 ///         all — it emits <c>--tw-gradient-from</c>, and <c>bg-linear-to-r</c> is what reads the
 ///         fragments and builds the gradient. Twelve of the 328 Tailwind roots in
 ///         <c>docs/plan/43-web-styling-parity.md</c> are this shape, and the same pattern is how v4
@@ -15,8 +18,12 @@ namespace Vixen.Ui.Styling.Utilities;
 ///         <c>transform</c>), <c>box-shadow</c> and filters. So this is not a gradient feature.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The composition is resolved by the cascade at use time, not by the generator at emit
-///         time, and the reason is variants.</b> <c>from-accent hover:from-accent-hover</c> is two
+///         ⚠
+///         <b>
+///             The composition is resolved by the cascade at use time, not by the generator at emit
+///             time, and the reason is variants.
+///         </b>
+///         <c>from-accent hover:from-accent-hover</c> is two
 ///         rules with two different selectors, and which one supplies the colour is a question only
 ///         the cascade can answer — it depends on whether the pointer is over the element *now*. A
 ///         generator composing when it emits knows neither, so it would have to either drop the
@@ -27,12 +34,20 @@ namespace Vixen.Ui.Styling.Utilities;
 ///         argument as tests rather than as prose.
 ///     </para>
 ///     <para>
-///         ⚠ <b>An unset custom property poisons the whole declaration, and the initial value here is
-///         the answer to it.</b> Per CSS, a <c>var()</c> that resolves to nothing and carries no
+///         ⚠
+///         <b>
+///             An unset custom property poisons the whole declaration, and the initial value here is
+///             the answer to it.
+///         </b>
+///         Per CSS, a <c>var()</c> that resolves to nothing and carries no
 ///         fallback makes the declaration <i>invalid at computed-value time</i> —
 ///         <see cref="Vixen.Ui.Styling.VarSubstitution" /> implements exactly that, by returning
-///         null. So a naive <c>linear-gradient(var(--tw-gradient-from), var(--tw-gradient-via),
-///         var(--tw-gradient-to))</c> would make <c>from-red to-blue</c> with no <c>via</c> produce
+///         null. So a naive
+///         <c>
+///             linear-gradient(var(--tw-gradient-from), var(--tw-gradient-via),
+///             var(--tw-gradient-to))
+///         </c>
+///         would make <c>from-red to-blue</c> with no <c>via</c> produce
 ///         <i>no gradient at all</i> rather than a two-stop one. The web's two answers are
 ///         <c>@property</c> with an <c>initial-value</c>, or a <c>var()</c> fallback chain. Vixen has
 ///         no <c>@property</c>; it has had the fallback chain since <c>VarSubstitution</c> was
@@ -41,8 +56,11 @@ namespace Vixen.Ui.Styling.Utilities;
 ///         cannot say what it is worth unset does not belong in this table.
 ///     </para>
 ///     <para>
-///         <b>What <c>@property</c> would still buy, so that its absence is a known quantity rather
-///         than a discovery.</b> Two things, neither of which blocks this mechanism. Registration
+///         <b>
+///             What <c>@property</c> would still buy, so that its absence is a known quantity rather
+///             than a discovery.
+///         </b>
+///         Two things, neither of which blocks this mechanism. Registration
 ///         carries <c>inherits: false</c>, and Vixen's custom properties all inherit — see
 ///         <see cref="Vixen.Ui.Styling.InheritedProperties.IsCustomProperty" /> — so a fragment set on
 ///         a box is visible to its descendants, and a child carrying an assembler and no fragments of
@@ -97,8 +115,12 @@ public static class UtilityComposition {
 
     /// <summary>The assembled stop list every gradient assembler interpolates.</summary>
     /// <remarks>
-    ///     ⚠ <b>This one's initial value <i>is</i> the two-stop list, and that is what makes a missing
-    ///     <c>via-*</c> degrade instead of vanish.</b> <c>from-*</c> and <c>to-*</c> deliberately do
+    ///     ⚠
+    ///     <b>
+    ///         This one's initial value <i>is</i> the two-stop list, and that is what makes a missing
+    ///         <c>via-*</c> degrade instead of vanish.
+    ///     </b>
+    ///     <c>from-*</c> and <c>to-*</c> deliberately do
     ///     not set it: they set their own colours and let the fallback do the assembling, so the
     ///     two-stop form is what happens when nobody says otherwise rather than something that has to
     ///     be emitted correctly by two separate families. Only <c>via-*</c> overrides it, because
@@ -148,8 +170,12 @@ public static class UtilityComposition {
     /// <summary>Whether a snapping container must land on a candidate or only may.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A fragment because <c>scroll-snap-type</c> is one property carrying two
-    ///         independent choices and Tailwind spells them as two classes.</b> <c>snap-y</c> is the
+    ///         ⚠
+    ///         <b>
+    ///             A fragment because <c>scroll-snap-type</c> is one property carrying two
+    ///             independent choices and Tailwind spells them as two classes.
+    ///         </b>
+    ///         <c>snap-y</c> is the
     ///         axis and <c>snap-mandatory</c> is the strictness, and the two are written beside each
     ///         other on one element — so the axis class has to name a value it does not know, which
     ///         is exactly what a <c>var()</c> is for. Emitting <c>y mandatory</c> from a single class
@@ -166,8 +192,12 @@ public static class UtilityComposition {
 
     /// <summary>How long a transition the <c>transition</c> class started runs for.</summary>
     /// <remarks>
-    ///     ⚠ <b>A fragment rather than a plain declaration on the <c>transition</c> family, and the
-    ///     reason is the generated sheet's own ordering.</b> <see cref="UtilityGenerator" /> writes
+    ///     ⚠
+    ///     <b>
+    ///         A fragment rather than a plain declaration on the <c>transition</c> family, and the
+    ///         reason is the generated sheet's own ordering.
+    ///     </b>
+    ///     <see cref="UtilityGenerator" /> writes
     ///     its rules in <i>ordinal class-name order</i> — deliberately, so that a project produces the
     ///     same file byte for byte — which makes class-name order the cascade order between two
     ///     utilities of equal specificity. <c>duration-1000</c> sorts before <c>transition</c>, so a
@@ -182,8 +212,12 @@ public static class UtilityComposition {
 
     /// <summary>Where a radial mask's centre sits, as a CSS <c>&lt;position&gt;</c>.</summary>
     /// <remarks>
-    ///     ⚠ <b><c>center</c>, which is CSS's own default, so the fragment costs nothing while nobody
-    ///     sets it.</b> <c>DrawListBuilder.MaskFrame</c> resolves a centred <c>at</c> to a zero offset
+    ///     ⚠
+    ///     <b>
+    ///         <c>center</c>, which is CSS's own default, so the fragment costs nothing while nobody
+    ///         sets it.
+    ///     </b>
+    ///     <c>DrawListBuilder.MaskFrame</c> resolves a centred <c>at</c> to a zero offset
     ///     and the box's own half size — the arrangement the entry already had — so
     ///     <c>radial-gradient(at center, …)</c> and <c>radial-gradient(…)</c> reach the shader as the
     ///     same record. Without that the fragment would put every radial mask in the interface on the
@@ -208,15 +242,23 @@ public static class UtilityComposition {
     /// <summary>Whether a radial mask's ending shape is a circle or an ellipse.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Its own fragment rather than a second spelling of <see cref="MaskRadialSize" />,
-    ///         because CSS makes the two independent and <c>mask-circle mask-radial-closest-side</c>
-    ///         is two classes that have to agree about one <c>mask-image</c>.</b> Folding them into
+    ///         ⚠
+    ///         <b>
+    ///             Its own fragment rather than a second spelling of <see cref="MaskRadialSize" />,
+    ///             because CSS makes the two independent and <c>mask-circle mask-radial-closest-side</c>
+    ///             is two classes that have to agree about one <c>mask-image</c>.
+    ///         </b>
+    ///         Folding them into
     ///         one fragment would make whichever class the cascade picked last erase the other's
     ///         half of the ending.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b><c>ellipse</c> is CSS's own default, so the fragment costs nothing while nobody
-    ///         sets it</b> — <c>BackgroundGradient.IsDefaultEnding</c> is false only for a circle or a
+    ///         ⚠
+    ///         <b>
+    ///             <c>ellipse</c> is CSS's own default, so the fragment costs nothing while nobody
+    ///             sets it
+    ///         </b>
+    ///         — <c>BackgroundGradient.IsDefaultEnding</c> is false only for a circle or a
     ///         non-farthest-corner size, so a radial mask that names neither still reaches the shader
     ///         on the fast path where <c>UiShape.Paint</c> stays zero.
     ///     </para>
@@ -366,8 +408,12 @@ public static class UtilityComposition {
     /// <summary>How far a <c>transform</c> spins the box about the axis normal to the screen.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The angle, not the whole <c>rotateZ(…)</c>, which is where this diverges from v4's
-    ///         own fragment — and the divergence buys negation.</b> Tailwind writes
+    ///         ⚠
+    ///         <b>
+    ///             The angle, not the whole <c>rotateZ(…)</c>, which is where this diverges from v4's
+    ///             own fragment — and the divergence buys negation.
+    ///         </b>
+    ///         Tailwind writes
     ///         <c>--tw-rotate-z: rotateZ(45deg)</c> and assembles the bare references.
     ///         <c>UtilityFamilies.TryNegate</c> flips a resolved declaration by prefixing a minus and
     ///         refuses any value that does not begin with a digit, so a fragment holding a function
@@ -378,8 +424,12 @@ public static class UtilityComposition {
     ///         see <see cref="Prefix" /> — so the shape is this layer's to choose.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b><c>0deg</c> and not <c>0</c>, for <see cref="Blur" />'s reason and with its
-    ///         consequence.</b> The initial is substituted <i>inside</i> a function, and
+    ///         ⚠
+    ///         <b>
+    ///             <c>0deg</c> and not <c>0</c>, for <see cref="Blur" />'s reason and with its
+    ///             consequence.
+    ///         </b>
+    ///         The initial is substituted <i>inside</i> a function, and
     ///         <c>rotateZ(0)</c> is not a value CSS has: <c>TransformReader</c>'s angle parser refuses
     ///         a bare number, and a refused function refuses the whole list — so the unit here is what
     ///         keeps an element that carries no rotation at all from dropping its <c>transform</c>.
@@ -397,8 +447,12 @@ public static class UtilityComposition {
     ///         a <c>UiTransform</c> once at the end.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>On its own it is a vertical squash, and that is the right picture rather than a
-    ///         degraded one.</b> A rotation about x is a foreshortening until something projects it,
+    ///         ⚠
+    ///         <b>
+    ///             On its own it is a vertical squash, and that is the right picture rather than a
+    ///             degraded one.
+    ///         </b>
+    ///         A rotation about x is a foreshortening until something projects it,
     ///         so <c>rotate-x-45</c> with no <c>perspective-*</c> on the parent really is the box
     ///         squashed to <c>cos 45°</c> of its height — which is what a browser draws too. The
     ///         pair is what makes a card flip, and the <c>perspective-*</c> family is the other half.
@@ -419,8 +473,12 @@ public static class UtilityComposition {
     ///         what the family is written for.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Two fragments and not one, although CSS's own <c>skew(a, b)</c> takes both
-    ///         angles.</b> The pair is the translations' situation and not the rotation's:
+    ///         ⚠
+    ///         <b>
+    ///             Two fragments and not one, although CSS's own <c>skew(a, b)</c> takes both
+    ///             angles.
+    ///         </b>
+    ///         The pair is the translations' situation and not the rotation's:
     ///         <c>skew-x-6 skew-y-3</c> is two classes that have to arrive as one <c>transform</c>,
     ///         and a single fragment holding <c>6deg 3deg</c> would let whichever rule the cascade
     ///         picked last zero the other axis silently. ⚠ It is also why <c>skew-*</c> writes
@@ -437,9 +495,13 @@ public static class UtilityComposition {
     /// <summary>How far a <c>transform</c> moves the box towards the viewer.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A slot in <see cref="Transform" /> and not a third component on the
-    ///         <c>translate</c> property, which is where v4 puts it — and the two compose to the
-    ///         same matrix.</b> Transforms 2 § 3 applies <c>transform</c> to a point before
+    ///         ⚠
+    ///         <b>
+    ///             A slot in <see cref="Transform" /> and not a third component on the
+    ///             <c>translate</c> property, which is where v4 puts it — and the two compose to the
+    ///             same matrix.
+    ///         </b>
+    ///         Transforms 2 § 3 applies <c>transform</c> to a point before
     ///         <c>scale</c>, <c>rotate</c> and <c>translate</c>, so a <c>translateZ</c> written
     ///         FIRST in the list is applied LAST — after every rotation in it, which is v4's order
     ///         exactly. What remains between the two spellings is a translation along z against a
@@ -454,8 +516,12 @@ public static class UtilityComposition {
     ///         literal, so what arrives here is <c>16px</c>.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Invisible without a <c>perspective-*</c> on the parent, and that is the right
-    ///         picture.</b> Every point of an element is at z = 0 until something moves it, and
+    ///         ⚠
+    ///         <b>
+    ///             Invisible without a <c>perspective-*</c> on the parent, and that is the right
+    ///             picture.
+    ///         </b>
+    ///         Every point of an element is at z = 0 until something moves it, and
     ///         <c>w = 1 − z/d</c> is one until something supplies the <c>d</c> — so
     ///         <c>translate-z-12</c> alone genuinely does nothing, exactly as in a browser.
     ///     </para>
@@ -532,8 +598,12 @@ public static class UtilityComposition {
 
     /// <summary>What colour it is.</summary>
     /// <remarks>
-    ///     ⚠ <b>The initial is <c>currentcolor</c>, which is v4's, and it is the one part of this
-    ///     family that needed something from the engine.</b> A ring with a width and no colour is the
+    ///     ⚠
+    ///     <b>
+    ///         The initial is <c>currentcolor</c>, which is v4's, and it is the one part of this
+    ///         family that needed something from the engine.
+    ///     </b>
+    ///     A ring with a width and no colour is the
     ///     commonest way the class is written — `ring-2` on a focused control — and any concrete
     ///     initial would have been a colour nobody chose. `transparent` would have been worse than
     ///     wrong: `ring-2` would resolve, cascade, and paint nothing, which is the "looks like it
@@ -545,9 +615,13 @@ public static class UtilityComposition {
 
     /// <summary>How wide the gap between the element and its ring is, as a length.</summary>
     /// <remarks>
-    ///     ⚠ <b>The offset is not a property of the ring — it is a <i>second</i> ring underneath it,
-    ///     and that is the whole of why this family needed a fifth slot rather than a wider
-    ///     <see cref="Ring" />.</b> v4 draws <c>0 0 0 &lt;offset&gt; &lt;offset-colour&gt;</c> and then
+    ///     ⚠
+    ///     <b>
+    ///         The offset is not a property of the ring — it is a <i>second</i> ring underneath it,
+    ///         and that is the whole of why this family needed a fifth slot rather than a wider
+    ///         <see cref="Ring" />.
+    ///     </b>
+    ///     v4 draws <c>0 0 0 &lt;offset&gt; &lt;offset-colour&gt;</c> and then
     ///     the ring itself at <c>calc(offset + width)</c>, so the near half of the larger ring is
     ///     covered by the smaller one and what survives is a band of the offset colour with the ring
     ///     outside it. There is no gap anywhere in the arithmetic: a "gap" that is really a hole would
@@ -559,8 +633,12 @@ public static class UtilityComposition {
     /// <summary>What colour the gap is painted in.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b><c>Canvas</c>, and not v4's <c>#fff</c> — this is the decision the family waited
-    ///         on rather than an implementation of it.</b> Tailwind's white is not a colour anybody
+    ///         ⚠
+    ///         <b>
+    ///             <c>Canvas</c>, and not v4's <c>#fff</c> — this is the decision the family waited
+    ///             on rather than an implementation of it.
+    ///         </b>
+    ///         Tailwind's white is not a colour anybody
     ///         chose either; it is the assumption that the page behind the element is white, which is
     ///         the only answer a stylesheet generator with no view of the document can give. This
     ///         engine has one: <c>Canvas</c> is CSS's own name for the background of application
@@ -569,8 +647,12 @@ public static class UtilityComposition {
     ///         <c>#fff</c> would put a white halo round every focused control in this dark chrome.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Opaque, and it has to be, which is what forced a matching drop in the draw
-    ///         list.</b> The obvious safe initial is <c>transparent</c> — an unset slot that paints
+    ///         ⚠
+    ///         <b>
+    ///             Opaque, and it has to be, which is what forced a matching drop in the draw
+    ///             list.
+    ///         </b>
+    ///         The obvious safe initial is <c>transparent</c> — an unset slot that paints
     ///         nothing — and it is wrong here in a way no other slot in this table is: with the
     ///         offset ring transparent, <c>ring-2 ring-offset-2</c> paints a four-point ring with no
     ///         gap in it, which reads as the offset class being ignored rather than as an unset
@@ -585,8 +667,12 @@ public static class UtilityComposition {
     /// <summary>The <c>shadow-*</c> token, held as a fragment so a ring can be layered over it.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The one fragment here that exists for a <i>collision</i> rather than for an
-    ///         ordered list.</b> Every other entry in this table is a slot in a value CSS builds out
+    ///         ⚠
+    ///         <b>
+    ///             The one fragment here that exists for a <i>collision</i> rather than for an
+    ///             ordered list.
+    ///         </b>
+    ///         Every other entry in this table is a slot in a value CSS builds out
     ///         of parts — a transform's functions, a filter's, a gradient's stops. This one is a whole
     ///         shadow, and <c>shadow-lg</c> could perfectly well have gone on emitting
     ///         <c>box-shadow</c> directly. What it could not do is share the property with
@@ -605,8 +691,12 @@ public static class UtilityComposition {
 
     /// <summary>The <c>inset-shadow-*</c> token, which is a whole <c>inset</c> shadow.</summary>
     /// <remarks>
-    ///     ⚠ <b><see cref="Shadow" />'s arrangement against the other theme namespace, and the
-    ///     <c>inset</c> keyword lives in the token rather than here.</b> A <c>--inset-shadow-*</c> is a
+    ///     ⚠
+    ///     <b>
+    ///         <see cref="Shadow" />'s arrangement against the other theme namespace, and the
+    ///         <c>inset</c> keyword lives in the token rather than here.
+    ///     </b>
+    ///     A <c>--inset-shadow-*</c> is a
     ///     designed thing the way a <c>--shadow-*</c> is — the offset, the blur and the alpha are
     ///     chosen together to read as one depth <i>below</i> the surface — and the keyword is part of
     ///     what was designed. Assembling it here instead would mean this slot's initial had to carry
@@ -616,8 +706,12 @@ public static class UtilityComposition {
 
     /// <summary>How thick an inner ring is, as a length.</summary>
     /// <remarks>
-    ///     ⚠ <b><see cref="RingWidth" />'s shape, and the zero initial is only sound because
-    ///     <c>EmitOneShadow</c> drops a degenerate inner shadow.</b> A zero-spread <i>outer</i> ring is
+    ///     ⚠
+    ///     <b>
+    ///         <see cref="RingWidth" />'s shape, and the zero initial is only sound because
+    ///         <c>EmitOneShadow</c> drops a degenerate inner shadow.
+    ///     </b>
+    ///     A zero-spread <i>outer</i> ring is
     ///     a shadow the exact size of the border box, painted behind it and covered by it. Its inner
     ///     twin is not harmless in the same way: the region between the box and the box is empty, but
     ///     the fragment stage reaches that answer as one minus the box's own coverage, which at an
@@ -649,8 +743,12 @@ public static class UtilityComposition {
 
     /// <summary>How far a <c>filter: blur()</c> spreads, as a Gaussian standard deviation.</summary>
     /// <remarks>
-    ///     ⚠ <b><c>0px</c> and not <c>0</c>, for the reason <see cref="TranslateX" />'s initial gives
-    ///     at length</b> — legibility rather than interpolation. It matters slightly more here,
+    ///     ⚠
+    ///     <b>
+    ///         <c>0px</c> and not <c>0</c>, for the reason <see cref="TranslateX" />'s initial gives
+    ///         at length
+    ///     </b>
+    ///     — legibility rather than interpolation. It matters slightly more here,
     ///     because the initial is substituted <i>inside</i> a function: a bare zero would generate
     ///     <c>filter: blur(0)</c>, which is valid CSS and reads like a length somebody forgot the unit
     ///     on.
@@ -985,8 +1083,8 @@ public static class UtilityComposition {
         // Two passes, because one fragment's initial value is written in terms of the others. The
         // stop list is the only one, and the alternative — a lazily resolved table — would buy
         // generality nothing has asked for and lose the invariant that `Reference` is a pure lookup.
-        Initials[GradientStops] = StopList(via: false);
-        Names = [.. Initials.Keys.Order(StringComparer.Ordinal)];
+        Initials[GradientStops] = StopList(false);
+        Names = [..Initials.Keys.Order(StringComparer.Ordinal)];
     }
 
     /// <summary>Every fragment a utility family can set, ordered.</summary>
@@ -1023,8 +1121,12 @@ public static class UtilityComposition {
     /// <returns><c>var(--tw-…, initial)</c>.</returns>
     /// <exception cref="ArgumentException">The name is not a fragment.</exception>
     /// <remarks>
-    ///     ⚠ <b>The only supported way to mention a fragment, and the reason is that the bare form is
-    ///     both shorter and wrong.</b> <c>var(--tw-gradient-to)</c> reads fine and drops the entire
+    ///     ⚠
+    ///     <b>
+    ///         The only supported way to mention a fragment, and the reason is that the bare form is
+    ///         both shorter and wrong.
+    ///     </b>
+    ///     <c>var(--tw-gradient-to)</c> reads fine and drops the entire
     ///     declaration the moment nobody wrote a <c>to-*</c>. Routing every reference through here
     ///     means the fallback cannot be forgotten in one assembler out of five, which is how this
     ///     class of bug actually arrives.
@@ -1050,27 +1152,34 @@ public static class UtilityComposition {
     ///         others were present, which is exactly what a stylesheet cannot know.
     ///     </para>
     /// </remarks>
-    public static string MaskLayers() =>
-        $"{Reference(MaskLinear)}, {Reference(MaskRadial)}, {Reference(MaskConic)}";
+    public static string MaskLayers() => $"{Reference(MaskLinear)}, {Reference(MaskRadial)}, {Reference(MaskConic)}";
 
     /// <summary>The four-layer value the edge ramps give <see cref="MaskLinear" />.</summary>
     /// <remarks>
-    ///     ⚠ <b>The edges take over the linear slot rather than getting a fourth of their own, which
-    ///     is Tailwind v4's arrangement and is also the only one that fits.</b> A `mask-t-*` beside a
+    ///     ⚠
+    ///     <b>
+    ///         The edges take over the linear slot rather than getting a fourth of their own, which
+    ///         is Tailwind v4's arrangement and is also the only one that fits.
+    ///     </b>
+    ///     A `mask-t-*` beside a
     ///     `mask-linear-*` is two linear masks and CSS has one linear slot; giving the edges their
     ///     own would make `mask-image` seven layers deep before anybody wrote a second class. What it
     ///     costs is that `mask-t-from-50% mask-linear-45` is a conflict — the two write the same
     ///     fragment and the cascade picks one — which is the behaviour Tailwind has.
     /// </remarks>
     public static string MaskEdgeLayers() =>
-        string.Join(", ", MaskEdges.Select(edge => Reference(MaskEdge(edge))));
+        string.Join(", ", MaskEdges.Select(static edge => Reference(MaskEdge(edge))));
 
     /// <summary>One edge's ramp, as a gradient running towards that edge.</summary>
     /// <param name="edge">One of <see cref="MaskEdges" />.</param>
     /// <returns>The gradient text.</returns>
     /// <remarks>
-    ///     ⚠ <b><c>to top</c> and not <c>to bottom</c> for <c>mask-t-*</c>, and the direction is the
-    ///     part that is easy to get backwards.</b> `mask-t-from-50%` fades the element out *at the
+    ///     ⚠
+    ///     <b>
+    ///         <c>to top</c> and not <c>to bottom</c> for <c>mask-t-*</c>, and the direction is the
+    ///         part that is easy to get backwards.
+    ///     </b>
+    ///     `mask-t-from-50%` fades the element out *at the
     ///     top*: it is opaque from the bottom up to the halfway mark and transparent by the top edge.
     ///     A gradient written `to bottom` with the same stops fades the bottom instead, which is a
     ///     perfectly plausible picture and the wrong one.
@@ -1088,8 +1197,12 @@ public static class UtilityComposition {
     /// <returns>The <c>mask-image</c> value.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>No <c>in oklab</c>, and its absence is deliberate where the gradient assembler's
-    ///         presence is.</b> An interpolation space says what is halfway between two <i>colours</i>,
+    ///         ⚠
+    ///         <b>
+    ///             No <c>in oklab</c>, and its absence is deliberate where the gradient assembler's
+    ///             presence is.
+    ///         </b>
+    ///         An interpolation space says what is halfway between two <i>colours</i>,
     ///         and a mask reads only alpha — every space the engine has lerps the alpha channel
     ///         plainly, so a hint here would be a token that changes nothing and invites the reader to
     ///         think it might. See <c>UiMask</c>, which carries no space for the same reason.
@@ -1102,7 +1215,8 @@ public static class UtilityComposition {
     ///     </para>
     /// </remarks>
     public static string MaskImage(string shape, string geometry) {
-        var stops = $"{Reference(MaskFrom)} {Reference(MaskFromPosition)}, {Reference(MaskTo)} {Reference(MaskToPosition)}";
+        var stops =
+            $"{Reference(MaskFrom)} {Reference(MaskFromPosition)}, {Reference(MaskTo)} {Reference(MaskToPosition)}";
 
         return geometry.Length == 0
             ? $"{shape}-gradient({stops})"
@@ -1117,9 +1231,7 @@ public static class UtilityComposition {
     ///     well-formed however few of the six colours and positions anybody actually wrote.
     /// </remarks>
     public static string StopList(bool via) {
-        var stops = new List<string> {
-            $"{Reference(GradientFrom)} {Reference(GradientFromPosition)}"
-        };
+        var stops = new List<string> { $"{Reference(GradientFrom)} {Reference(GradientFromPosition)}" };
 
         if (via) {
             stops.Add($"{Reference(GradientVia)} {Reference(GradientViaPosition)}");
@@ -1132,13 +1244,21 @@ public static class UtilityComposition {
     /// <summary>The two-axis value a <c>translate</c> declaration takes.</summary>
     /// <returns>The assembled value.</returns>
     /// <remarks>
-    ///     ⚠ <b>Both <c>translate-x</c> and <c>translate-y</c> emit this same constant, so both are
-    ///     assemblers as well as contributors — which the gradient families are not.</b> The
+    ///     ⚠
+    ///     <b>
+    ///         Both <c>translate-x</c> and <c>translate-y</c> emit this same constant, so both are
+    ///         assemblers as well as contributors — which the gradient families are not.
+    ///     </b>
+    ///     The
     ///     alternative is Tailwind v3's shape, a separate <c>transform</c> class that has to be
     ///     present for either axis to do anything; v4 dropped it because the class was forgotten
     ///     constantly and its absence looked exactly like the utility being broken. Emitting the
-    ///     assembly from both means <c>translate-x-2</c> alone works, and <c>translate-x-2
-    ///     translate-y-4</c> composes, because the two rules write the same declaration and differ
+    ///     assembly from both means <c>translate-x-2</c> alone works, and
+    ///     <c>
+    ///         translate-x-2
+    ///         translate-y-4
+    ///     </c>
+    ///     composes, because the two rules write the same declaration and differ
     ///     only in which fragment they set beside it.
     /// </remarks>
     public static string Translation() => $"{Reference(TranslateX)} {Reference(TranslateY)}";
@@ -1168,8 +1288,12 @@ public static class UtilityComposition {
     /// <remarks>
     ///     <para>
     ///         <see cref="Translation" />'s arrangement, with one difference that is the whole reason
-    ///         the family needed the mechanism: <b>the assembled value is a list whose <i>length</i>
-    ///         varies</b>, so the slots nobody filled have to contribute no tokens at all rather than
+    ///         the family needed the mechanism:
+    ///         <b>
+    ///             the assembled value is a list whose <i>length</i>
+    ///             varies
+    ///         </b>
+    ///         , so the slots nobody filled have to contribute no tokens at all rather than
     ///         an identity. Four empty <c>var()</c> fallbacks and one keyword is what
     ///         <c>tabular-nums</c> alone computes to, and `UiDocument.NumericFeatures` splits on
     ///         spaces, so the empties cost nothing downstream.
@@ -1194,8 +1318,12 @@ public static class UtilityComposition {
     ///         beside it, so one class works alone and several compose.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Five functions, which is v4's own list — and the two that joined last are the
-    ///         ones every note here said were waiting on a renderer.</b> See the block above
+    ///         ⚠
+    ///         <b>
+    ///             Five functions, which is v4's own list — and the two that joined last are the
+    ///             ones every note here said were waiting on a renderer.
+    ///         </b>
+    ///         See the block above
     ///         <see cref="RotateZ" />: a <c>transform</c> naming a function <c>TransformReader</c>
     ///         cannot read is refused whole, so a slot added before its parser would take the working
     ///         rotation down with it. <c>skewX</c> and <c>skewY</c> joined on the day somebody read
@@ -1204,8 +1332,12 @@ public static class UtilityComposition {
     ///         the reader composes the list in four dimensions and reduces once.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Seven now, and the two that joined last are written FIRST — which is the whole of
-    ///         why they can live here at all.</b> v4 spells <c>translateZ</c> and <c>scaleZ</c> on
+    ///         ⚠
+    ///         <b>
+    ///             Seven now, and the two that joined last are written FIRST — which is the whole of
+    ///             why they can live here at all.
+    ///         </b>
+    ///         v4 spells <c>translateZ</c> and <c>scaleZ</c> on
     ///         the <c>translate</c> and <c>scale</c> <i>properties</i>, and Transforms 2 § 3 applies
     ///         <c>transform</c> to a point BEFORE those two. A list is applied right to left, so a
     ///         function written first is applied last — after every rotation beside it, which is
@@ -1216,8 +1348,12 @@ public static class UtilityComposition {
     ///         would swing rather than lift.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The premise that kept them out was refuted rather than resolved
-    ///         (<c>Rikarin/Vixen#1328</c>).</b> The note here said a <c>translate-z-4</c> resolves to
+    ///         ⚠
+    ///         <b>
+    ///             The premise that kept them out was refuted rather than resolved
+    ///             (<c>Rikarin/Vixen#1328</c>).
+    ///         </b>
+    ///         The note here said a <c>translate-z-4</c> resolves to
     ///         <c>calc(var(--spacing) * 4)</c> and that <c>TransformReader.Functions</c> refuses a
     ///         nested parenthesis. The refusal was real and is gone; the <c>calc()</c> is not this
     ///         engine's output at all — <c>TrySpacing</c> folds the spacing scale at resolution time
@@ -1249,14 +1385,22 @@ public static class UtilityComposition {
     ///         <c>outline</c> property and without a fourth border edge.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Both <c>ring-&lt;width&gt;</c> and <c>ring-&lt;colour&gt;</c> emit this, so both
-    ///         are assemblers</b> — the same arrangement as the two translations, and for the same
+    ///         ⚠
+    ///         <b>
+    ///             Both <c>ring-&lt;width&gt;</c> and <c>ring-&lt;colour&gt;</c> emit this, so both
+    ///             are assemblers
+    ///         </b>
+    ///         — the same arrangement as the two translations, and for the same
     ///         reason: v4 dropped v3's separate <c>transform</c>-style enabling class because its
     ///         absence looked exactly like the utility being broken.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A ring and a <c>shadow-*</c> on one element used to be the known limit and is not
-    ///         any more.</b> It was two defects wearing one symptom: CSS layers them by comma and
+    ///         ⚠
+    ///         <b>
+    ///             A ring and a <c>shadow-*</c> on one element used to be the known limit and is not
+    ///             any more.
+    ///         </b>
+    ///         It was two defects wearing one symptom: CSS layers them by comma and
     ///         <c>EmitShadow</c> refused a list outright, so even a hand-written
     ///         <c>box-shadow: a, b</c> in a <c>.vcss</c> drew nothing. The list landed first
     ///         (`Rikarin/Vixen#279` item 1); what was left was here, and is <see cref="Shadows" />.
@@ -1268,22 +1412,29 @@ public static class UtilityComposition {
     /// <summary>The <c>box-shadow</c> the gap under a ring is.</summary>
     /// <returns>The assembled value.</returns>
     /// <remarks>
-    ///     ⚠ <b><see cref="Ring" />'s shape in the offset's two fragments, and it is painted
-    ///     <i>over</i> the ring rather than under it.</b> It is written earlier in
+    ///     ⚠
+    ///     <b>
+    ///         <see cref="Ring" />'s shape in the offset's two fragments, and it is painted
+    ///         <i>over</i> the ring rather than under it.
+    ///     </b>
+    ///     It is written earlier in
     ///     <see cref="Shadows" />, and CSS Backgrounds 3 § 7.1.1 paints a shadow list front to back in
     ///     the order written — so the smaller ring covers the near half of the larger one and what is
     ///     left is a band of the offset colour with the ring outside it. Reversing the two would put
     ///     the ring under the gap and paint no ring at all, which is the failure that makes the order
     ///     in <see cref="Shadows" /> an assertion rather than a listing.
     /// </remarks>
-    public static string RingOffset() =>
-        $"0 0 0 {Reference(RingOffsetWidth)} {Reference(RingOffsetColor)}";
+    public static string RingOffset() => $"0 0 0 {Reference(RingOffsetWidth)} {Reference(RingOffsetColor)}";
 
     /// <summary>The <c>box-shadow</c> an inner ring is: <see cref="Ring" /> with the keyword.</summary>
     /// <returns>The assembled value.</returns>
     /// <remarks>
-    ///     ⚠ <b>One keyword's difference from <see cref="Ring" /> and an entirely different draw
-    ///     path.</b> An outer ring is the border box grown by the spread and painted behind it; an
+    ///     ⚠
+    ///     <b>
+    ///         One keyword's difference from <see cref="Ring" /> and an entirely different draw
+    ///         path.
+    ///     </b>
+    ///     An outer ring is the border box grown by the spread and painted behind it; an
     ///     inner one is the region between the border box and the border box shrunk by the spread,
     ///     painted <i>over</i> the background — CSS Backgrounds 3 § 7.1.1's other answer, which is why
     ///     `DrawListBuilder` makes two passes over one list. So the family is a spread and a colour
@@ -1295,8 +1446,12 @@ public static class UtilityComposition {
     /// <returns>The assembled comma list.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Five items, which is v4's, and every one of them arrived on the day its family
-    ///         was registered rather than in advance.</b> A slot for a family nobody can write is a
+    ///         ⚠
+    ///         <b>
+    ///             Five items, which is v4's, and every one of them arrived on the day its family
+    ///             was registered rather than in advance.
+    ///         </b>
+    ///         A slot for a family nobody can write is a
     ///         lane reserved for a guess, and it is not free: every unset slot substitutes a shadow
     ///         into this list on every element that carries any of these classes. So they joined in
     ///         three steps — <c>ring-*</c> and <c>shadow-*</c> first, then the two inner ones with
@@ -1313,8 +1468,12 @@ public static class UtilityComposition {
     ///         position among the outer ones settles nothing but their order against each other.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Every item is always present, and the unset ones cost nothing only because
-    ///         <c>EmitOneShadow</c> drops all three degenerate shapes they take.</b> A fully
+    ///         ⚠
+    ///         <b>
+    ///             Every item is always present, and the unset ones cost nothing only because
+    ///             <c>EmitOneShadow</c> drops all three degenerate shapes they take.
+    ///         </b>
+    ///         A fully
     ///         transparent shadow is dropped for the two <c>--tw-*-shadow</c> slots, an inner shadow
     ///         covering no area for the inner ring, and an outer shadow with no offset, no blur and no
     ///         spread for the ring and the offset ring — whose colours are <c>currentcolor</c> and
@@ -1339,24 +1498,36 @@ public static class UtilityComposition {
     ///         unset fragment costs the list one function that does nothing.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Eight functions, always all eight, and seven of them are doing nothing on almost
-    ///         every element that carries this declaration.</b> That is what the initials in
+    ///         ⚠
+    ///         <b>
+    ///             Eight functions, always all eight, and seven of them are doing nothing on almost
+    ///             every element that carries this declaration.
+    ///         </b>
+    ///         That is what the initials in
     ///         <see cref="Initials" /> buy and it is deliberate: the alternative is emitting only the
     ///         functions somebody wrote, which a per-class generator cannot do — a <c>blur-2</c> and a
     ///         <c>grayscale</c> are two rules with two selectors, and neither knows the other exists.
     ///         See this class's opening remarks, which is the same argument the gradient stops make.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The order is Tailwind v4's and is fixed here, so <c>invert brightness-200</c> and
-    ///         <c>brightness-200 invert</c> are the same picture where CSS would make them
-    ///         different.</b> Classes on an element are a set, not a sequence, so no utility system
+    ///         ⚠
+    ///         <b>
+    ///             The order is Tailwind v4's and is fixed here, so <c>invert brightness-200</c> and
+    ///             <c>brightness-200 invert</c> are the same picture where CSS would make them
+    ///             different.
+    ///         </b>
+    ///         Classes on an element are a set, not a sequence, so no utility system
     ///         can offer both — v4 picks an order and documents it, and this picks the same one so
     ///         that a sheet ported from Tailwind renders the same. Someone who needs the other order
     ///         writes a <c>filter</c> declaration by hand.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b><c>drop-shadow()</c> is the ninth and it is <i>last</i>, which is v4's order and
-    ///         is also the only order this engine could execute.</b> Seven of the nine are a
+    ///         ⚠
+    ///         <b>
+    ///             <c>drop-shadow()</c> is the ninth and it is <i>last</i>, which is v4's order and
+    ///             is also the only order this engine could execute.
+    ///         </b>
+    ///         Seven of the nine are a
     ///         per-pixel colour transform and the eighth is a Gaussian; a drop shadow is neither — it
     ///         is a blur of the alpha channel, offset, tinted and composited <i>under</i> the layer —
     ///         and it does not commute with the eighth. <c>blur(σ) drop-shadow(τ)</c> casts the shadow
@@ -1366,8 +1537,12 @@ public static class UtilityComposition {
     ///         engine; see <c>UiLayer.Shadow</c>, where both executors pin the seam.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>It was deliberately absent from this string until there was a reader, and that
-    ///         was not caution for its own sake.</b> <c>DrawListBuilder.Filter</c> refuses a list
+    ///         ⚠
+    ///         <b>
+    ///             It was deliberately absent from this string until there was a reader, and that
+    ///             was not caution for its own sake.
+    ///         </b>
+    ///         <c>DrawListBuilder.Filter</c> refuses a list
     ///         carrying any function it cannot execute, so adding <c>drop-shadow</c> here a day early
     ///         would have turned off every other filter in the engine — silently, on every element
     ///         carrying a <c>blur-*</c> or a <c>grayscale</c>. That is why the reader landed first.
@@ -1382,30 +1557,45 @@ public static class UtilityComposition {
     /// <returns>The assembled value.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A second assembler and not nine more slots in <see cref="Filter" />, because
-    ///         <c>filter</c> and <c>backdrop-filter</c> are different properties an element may
-    ///         legitimately carry both of.</b> A single declaration cannot be two, and the picture the
+    ///         ⚠
+    ///         <b>
+    ///             A second assembler and not nine more slots in <see cref="Filter" />, because
+    ///             <c>filter</c> and <c>backdrop-filter</c> are different properties an element may
+    ///             legitimately carry both of.
+    ///         </b>
+    ///         A single declaration cannot be two, and the picture the
     ///         pair describes — a grey panel over a blurred scene — is the ordinary use of the
     ///         feature rather than an exotic one.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Nine functions in Tailwind v4's own order, which puts <c>opacity()</c> between
-    ///         <c>invert()</c> and <c>saturate()</c> and has no <c>drop-shadow()</c> at the end.</b>
+    ///         ⚠
+    ///         <b>
+    ///             Nine functions in Tailwind v4's own order, which puts <c>opacity()</c> between
+    ///             <c>invert()</c> and <c>saturate()</c> and has no <c>drop-shadow()</c> at the end.
+    ///         </b>
     ///         Everything <see cref="Filter" />'s remarks say about why the order is fixed here rather
     ///         than taken from the classes applies word for word: classes on an element are a set and
     ///         CSS's list is a sequence, so no utility system can offer both orders and v4 documents
     ///         the one it picks.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b><c>opacity()</c>'s presence here is the reason <c>StyleValueParser</c> learned the
-    ///         function at all</b>, and it is refused inside a plain <c>filter</c> —
+    ///         ⚠
+    ///         <b>
+    ///             <c>opacity()</c>'s presence here is the reason <c>StyleValueParser</c> learned the
+    ///             function at all
+    ///         </b>
+    ///         , and it is refused inside a plain <c>filter</c> —
     ///         <c>DrawListBuilder.One</c> is where that asymmetry is stated. It cannot ride the colour
     ///         matrix the other eight compose into, because a three-row matrix has no alpha row; see
     ///         <c>UiBackdrop.Alpha</c>.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The unprefixed property only, where Tailwind emits <c>-webkit-backdrop-filter</c>
-    ///         beside it.</b> That copy is for Safari and there is no Safari here, so emitting it would
+    ///         ⚠
+    ///         <b>
+    ///             The unprefixed property only, where Tailwind emits <c>-webkit-backdrop-filter</c>
+    ///             beside it.
+    ///         </b>
+    ///         That copy is for Safari and there is no Safari here, so emitting it would
     ///         put a declaration nothing can read into every generated sheet — see
     ///         <c>UtilityFamilies.BackdropAlongside</c>, which is where the choice is argued.
     ///     </para>

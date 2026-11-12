@@ -79,21 +79,23 @@ public static class GamutMap {
     ///     The same light, described against different primaries — not a different colour. A value
     ///     that lands inside <c>[0, 1]</c> here is one the display can show.
     /// </remarks>
-    public static Vector3 FromLinearSrgb(Vector3 linear, ColorGamut gamut) => gamut switch {
-        ColorGamut.DisplayP3 => Transform(SrgbToP3, linear),
-        ColorGamut.Rec2020 => Transform(SrgbToRec2020, linear),
-        _ => linear
-    };
+    public static Vector3 FromLinearSrgb(Vector3 linear, ColorGamut gamut) =>
+        gamut switch {
+            ColorGamut.DisplayP3 => Transform(SrgbToP3, linear),
+            ColorGamut.Rec2020 => Transform(SrgbToRec2020, linear),
+            _ => linear
+        };
 
     /// <summary>Rebases a colour from a gamut's primaries back onto linear sRGB.</summary>
     /// <param name="linear">The colour, in that gamut's linear primaries.</param>
     /// <param name="gamut">The gamut it is expressed in.</param>
     /// <returns>The same colour, in linear sRGB primaries.</returns>
-    public static Vector3 ToLinearSrgb(Vector3 linear, ColorGamut gamut) => gamut switch {
-        ColorGamut.DisplayP3 => Transform(P3ToSrgb, linear),
-        ColorGamut.Rec2020 => Transform(Rec2020ToSrgb, linear),
-        _ => linear
-    };
+    public static Vector3 ToLinearSrgb(Vector3 linear, ColorGamut gamut) =>
+        gamut switch {
+            ColorGamut.DisplayP3 => Transform(P3ToSrgb, linear),
+            ColorGamut.Rec2020 => Transform(Rec2020ToSrgb, linear),
+            _ => linear
+        };
 
     /// <summary>Whether a colour is showable on a display with this gamut.</summary>
     /// <param name="linear">The colour, in linear sRGB primaries.</param>
@@ -109,9 +111,12 @@ public static class GamutMap {
         var mapped = FromLinearSrgb(linear, gamut);
         const float tolerance = 1e-5f;
 
-        return mapped.X >= -tolerance && mapped.X <= 1f + tolerance
-            && mapped.Y >= -tolerance && mapped.Y <= 1f + tolerance
-            && mapped.Z >= -tolerance && mapped.Z <= 1f + tolerance;
+        return mapped.X >= -tolerance
+            && mapped.X <= 1f + tolerance
+            && mapped.Y >= -tolerance
+            && mapped.Y <= 1f + tolerance
+            && mapped.Z >= -tolerance
+            && mapped.Z <= 1f + tolerance;
     }
 
     /// <summary>Clamps a colour into a gamut channel by channel.</summary>
@@ -129,7 +134,7 @@ public static class GamutMap {
         var mapped = FromLinearSrgb(linear, gamut);
 
         return ToLinearSrgb(
-            new Vector3(
+            new(
                 Math.Clamp(mapped.X, 0f, 1f),
                 Math.Clamp(mapped.Y, 0f, 1f),
                 Math.Clamp(mapped.Z, 0f, 1f)
@@ -152,7 +157,7 @@ public static class GamutMap {
         var a = left.A - right.A;
         var b = left.B - right.B;
 
-        return MathF.Sqrt((l * l) + (a * a) + (b * b));
+        return MathF.Sqrt(l * l + a * a + b * b);
     }
 
     /// <summary>Brings a colour into a gamut, preserving lightness and hue.</summary>
@@ -165,9 +170,13 @@ public static class GamutMap {
     ///         relative colorimetric intent, so mapping is only ever a repair.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The in-gamut test comes first, ahead of the lightness branches the specification
-    ///         writes first, and that reordering is the difference between this being callable per
-    ///         colour per frame and not.</b> <see cref="Oklab.FromLinear" /> costs three cube roots
+    ///         ⚠
+    ///         <b>
+    ///             The in-gamut test comes first, ahead of the lightness branches the specification
+    ///             writes first, and that reordering is the difference between this being callable per
+    ///             colour per frame and not.
+    ///         </b>
+    ///         <see cref="Oklab.FromLinear" /> costs three cube roots
     ///         and two 3×3 products; <see cref="InGamut" /> on <see cref="ColorGamut.Srgb" /> costs
     ///         six comparisons and no matrix at all. Written in the specification's order, every
     ///         colour in a frame pays the conversion in order to discover it did not need it — and
@@ -175,8 +184,12 @@ public static class GamutMap {
     ///         should be tuned for.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>It is a reordering and not a behaviour change, for a reason specific to these
-    ///         three gamuts.</b> The branches being hopped over answer <c>L ≥ 1</c> and <c>L ≤ 0</c>,
+    ///         ⚠
+    ///         <b>
+    ///             It is a reordering and not a behaviour change, for a reason specific to these
+    ///             three gamuts.
+    ///         </b>
+    ///         The branches being hopped over answer <c>L ≥ 1</c> and <c>L ≤ 0</c>,
     ///         and no colour inside any of sRGB, Display P3 or Rec. 2020 has a lightness outside
     ///         <c>(0, 1)</c>: all three share D65 and normalise white to <c>L = 1</c>, so their
     ///         cubes are bounded by black and white on the lightness axis. A colour that satisfies
@@ -195,7 +208,7 @@ public static class GamutMap {
         // Out of range on the lightness axis: there is no chroma reduction that helps, because the
         // failure is not chroma. The specification names the answers rather than searching for them.
         if (origin.L >= 1f) {
-            return new Vector3(1f, 1f, 1f);
+            return new(1f, 1f, 1f);
         }
 
         if (origin.L <= 0f) {
@@ -214,7 +227,7 @@ public static class GamutMap {
         }
 
         var min = 0f;
-        var max = MathF.Sqrt((origin.A * origin.A) + (origin.B * origin.B));
+        var max = MathF.Sqrt(origin.A * origin.A + origin.B * origin.B);
 
         // ⚠ Tracks whether `min` is still known to be inside the gamut. Once the MINDE branch below
         // has moved `min` to a chroma that is *outside* it, the plain in-gamut test can no longer be
@@ -261,14 +274,15 @@ public static class GamutMap {
     public static Color4 Map(Color4 colour, ColorGamut gamut) {
         var mapped = Map(new Vector3(colour.R, colour.G, colour.B), gamut);
 
-        return new Color4(mapped.X, mapped.Y, mapped.Z, colour.A);
+        return new(mapped.X, mapped.Y, mapped.Z, colour.A);
     }
 
-    static Vector3 Transform(in Matrix3x3 matrix, Vector3 value) => new(
-        (matrix.M11 * value.X) + (matrix.M12 * value.Y) + (matrix.M13 * value.Z),
-        (matrix.M21 * value.X) + (matrix.M22 * value.Y) + (matrix.M23 * value.Z),
-        (matrix.M31 * value.X) + (matrix.M32 * value.Y) + (matrix.M33 * value.Z)
-    );
+    static Vector3 Transform(in Matrix3x3 matrix, Vector3 value) =>
+        new(
+            matrix.M11 * value.X + matrix.M12 * value.Y + matrix.M13 * value.Z,
+            matrix.M21 * value.X + matrix.M22 * value.Y + matrix.M23 * value.Z,
+            matrix.M31 * value.X + matrix.M32 * value.Y + matrix.M33 * value.Z
+        );
 
     /// <summary>Builds the linear-RGB-to-XYZ matrix for a set of primaries on the D65 white point.</summary>
     /// <remarks>
@@ -292,9 +306,9 @@ public static class GamutMap {
         var inverse = Inverse(primaries);
 
         double[] scale = [
-            (inverse[0] * white[0]) + (inverse[1] * white[1]) + (inverse[2] * white[2]),
-            (inverse[3] * white[0]) + (inverse[4] * white[1]) + (inverse[5] * white[2]),
-            (inverse[6] * white[0]) + (inverse[7] * white[1]) + (inverse[8] * white[2])
+            inverse[0] * white[0] + inverse[1] * white[1] + inverse[2] * white[2],
+            inverse[3] * white[0] + inverse[4] * white[1] + inverse[5] * white[2],
+            inverse[6] * white[0] + inverse[7] * white[1] + inverse[8] * white[2]
         ];
 
         return [
@@ -309,10 +323,10 @@ public static class GamutMap {
 
         for (var row = 0; row < 3; row++) {
             for (var column = 0; column < 3; column++) {
-                result[(row * 3) + column] =
-                    (left[(row * 3) + 0] * right[column])
-                    + (left[(row * 3) + 1] * right[3 + column])
-                    + (left[(row * 3) + 2] * right[6 + column]);
+                result[row * 3 + column] =
+                    left[row * 3] * right[column]
+                    + left[row * 3 + 1] * right[3 + column]
+                    + left[row * 3 + 2] * right[6 + column];
             }
         }
 
@@ -324,28 +338,35 @@ public static class GamutMap {
     // handful of times, and float inversion error would otherwise be baked into every result.
     static double[] Inverse(double[] matrix) {
         var determinant =
-            (matrix[0] * ((matrix[4] * matrix[8]) - (matrix[5] * matrix[7])))
-            - (matrix[1] * ((matrix[3] * matrix[8]) - (matrix[5] * matrix[6])))
-            + (matrix[2] * ((matrix[3] * matrix[7]) - (matrix[4] * matrix[6])));
+            matrix[0] * (matrix[4] * matrix[8] - matrix[5] * matrix[7])
+            - matrix[1] * (matrix[3] * matrix[8] - matrix[5] * matrix[6])
+            + matrix[2] * (matrix[3] * matrix[7] - matrix[4] * matrix[6]);
 
         var scale = 1d / determinant;
 
         return [
-            ((matrix[4] * matrix[8]) - (matrix[5] * matrix[7])) * scale,
-            ((matrix[2] * matrix[7]) - (matrix[1] * matrix[8])) * scale,
-            ((matrix[1] * matrix[5]) - (matrix[2] * matrix[4])) * scale,
-            ((matrix[5] * matrix[6]) - (matrix[3] * matrix[8])) * scale,
-            ((matrix[0] * matrix[8]) - (matrix[2] * matrix[6])) * scale,
-            ((matrix[2] * matrix[3]) - (matrix[0] * matrix[5])) * scale,
-            ((matrix[3] * matrix[7]) - (matrix[4] * matrix[6])) * scale,
-            ((matrix[1] * matrix[6]) - (matrix[0] * matrix[7])) * scale,
-            ((matrix[0] * matrix[4]) - (matrix[1] * matrix[3])) * scale
+            (matrix[4] * matrix[8] - matrix[5] * matrix[7]) * scale,
+            (matrix[2] * matrix[7] - matrix[1] * matrix[8]) * scale,
+            (matrix[1] * matrix[5] - matrix[2] * matrix[4]) * scale,
+            (matrix[5] * matrix[6] - matrix[3] * matrix[8]) * scale,
+            (matrix[0] * matrix[8] - matrix[2] * matrix[6]) * scale,
+            (matrix[2] * matrix[3] - matrix[0] * matrix[5]) * scale,
+            (matrix[3] * matrix[7] - matrix[4] * matrix[6]) * scale,
+            (matrix[1] * matrix[6] - matrix[0] * matrix[7]) * scale,
+            (matrix[0] * matrix[4] - matrix[1] * matrix[3]) * scale
         ];
     }
 
-    static Matrix3x3 ToMatrix(double[] values) => new(
-        (float) values[0], (float) values[1], (float) values[2],
-        (float) values[3], (float) values[4], (float) values[5],
-        (float) values[6], (float) values[7], (float) values[8]
-    );
+    static Matrix3x3 ToMatrix(double[] values) =>
+        new(
+            (float)values[0],
+            (float)values[1],
+            (float)values[2],
+            (float)values[3],
+            (float)values[4],
+            (float)values[5],
+            (float)values[6],
+            (float)values[7],
+            (float)values[8]
+        );
 }

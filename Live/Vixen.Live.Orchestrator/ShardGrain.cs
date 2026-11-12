@@ -15,7 +15,7 @@ namespace Vixen.Live.Orchestration;
 /// <param name="Now">The clock.</param>
 public sealed record HealthOptions(TimeSpan Interval, int MissesBeforeLost, Func<DateTimeOffset> Now) {
     /// <summary>Doc 27's defaults.</summary>
-    public static HealthOptions Default { get; } = new(TimeSpan.FromSeconds(2), 3, () => DateTimeOffset.UtcNow);
+    public static HealthOptions Default { get; } = new(TimeSpan.FromSeconds(2), 3, static () => DateTimeOffset.UtcNow);
 
     /// <summary>How long silence has to last before a shard is declared lost.</summary>
     public TimeSpan Patience => Interval * MissesBeforeLost;
@@ -193,7 +193,9 @@ public sealed class ShardGrain : Grain, IShardGrain {
 
     /// <summary>Stands one up.</summary>
     /// <param name="options">What counts as healthy, or null for doc 27's defaults.</param>
-    public ShardGrain(HealthOptions? options = null) => this.options = options;
+    public ShardGrain(HealthOptions? options = null) {
+        this.options = options;
+    }
 
     /// <summary>
     ///     The lifecycle, built on first use because the grain key is not available in a constructor.

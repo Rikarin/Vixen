@@ -207,7 +207,7 @@ public sealed class NetworkViewTests : IDisposable {
         var records = Tagged(view.Root, "network-record");
 
         Assert.Equal(2, records.Length);
-        Assert.Contains(records, row => TextOf(row).Contains("NetworkTransform", StringComparison.Ordinal));
+        Assert.Contains(records, static row => TextOf(row).Contains("NetworkTransform", StringComparison.Ordinal));
     }
 
     /// <summary>
@@ -223,7 +223,7 @@ public sealed class NetworkViewTests : IDisposable {
         snapshot = snapshot[..3];
 
         var view = Attached();
-        var status = Assert.Single(Tagged(view.Root, "network-status"), part => part.HasClass("truncated"));
+        var status = Assert.Single(Tagged(view.Root, "network-status"), static part => part.HasClass("truncated"));
 
         Assert.Contains("TRUNCATED", TextOf(status), StringComparison.Ordinal);
     }
@@ -234,7 +234,9 @@ public sealed class NetworkViewTests : IDisposable {
         Replicate(20);
 
         var view = Attached();
-        var name = Assert.Single(Rows(view, "by component").Select(row => TextOf(Tagged(row, "network-name").Single())));
+        var name = Assert.Single(
+            Rows(view, "by component").Select(static row => TextOf(Tagged(row, "network-name").Single()))
+        );
 
         Assert.Equal("NetworkTransform", name);
     }
@@ -276,7 +278,7 @@ public sealed class NetworkViewTests : IDisposable {
 
         Assert.Empty(Tagged(view.Root, "network-sample"));
         Assert.Empty(Tagged(view.Root, "network-lane"));
-        Assert.Contains(Statuses(view), line => line.Contains("no NetworkSession", StringComparison.Ordinal));
+        Assert.Contains(Statuses(view), static line => line.Contains("no NetworkSession", StringComparison.Ordinal));
     }
 
     /// <summary>The graph's clock is the document's, and a reading is a bar.</summary>
@@ -348,7 +350,7 @@ public sealed class NetworkViewTests : IDisposable {
 
         Assert.Equal(NetworkTrend.Capacity, before.Length);
 
-        var head = Array.FindIndex(before, bar => bar.HasClass("newest"));
+        var head = Array.FindIndex(before, static bar => bar.HasClass("newest"));
         Assert.True(head >= 0, "nothing on the strip says which bar is now");
 
         test.Advance(NetworkView.Interval);
@@ -359,12 +361,12 @@ public sealed class NetworkViewTests : IDisposable {
         // scrolled would have replaced every element on it.
         Assert.Equal(NetworkTrend.Capacity, after.Length);
 
-        var moved = Array.FindIndex(after, bar => bar.HasClass("newest"));
+        var moved = Array.FindIndex(after, static bar => bar.HasClass("newest"));
 
         Assert.NotEqual(head, moved);
 
         // Half the ring away from either end of the sweep, so it is a slot nothing touched.
-        var untouched = (moved + (NetworkTrend.Capacity / 2)) % NetworkTrend.Capacity;
+        var untouched = (moved + NetworkTrend.Capacity / 2) % NetworkTrend.Capacity;
         Assert.Same(before[untouched], after[untouched]);
     }
 
@@ -379,7 +381,10 @@ public sealed class NetworkViewTests : IDisposable {
         test.Advance(NetworkView.Interval * 2);
 
         Assert.Equal(2, Tagged(view.Root, "network-lane").Length);
-        Assert.Contains(Statuses(view), line => line.Contains("No resent or lost-inbound lane", StringComparison.Ordinal));
+        Assert.Contains(
+            Statuses(view),
+            static line => line.Contains("No resent or lost-inbound lane", StringComparison.Ordinal)
+        );
     }
 
     /// <summary>
@@ -389,8 +394,12 @@ public sealed class NetworkViewTests : IDisposable {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The trouble stops half way through, which is the assertion that a lifetime ratio
-    ///         would fail.</b> The counters are cumulative and keep every loss for ever; a lane that
+    ///         ⚠
+    ///         <b>
+    ///             The trouble stops half way through, which is the assertion that a lifetime ratio
+    ///             would fail.
+    ///         </b>
+    ///         The counters are cumulative and keep every loss for ever; a lane that
     ///         divided the totals would still read five per cent long after the link went clean, and
     ///         so would a lane that charted the totals themselves. Only a lane that divides one
     ///         interval's losses by the same interval's traffic goes back to zero — and the ring
@@ -406,8 +415,7 @@ public sealed class NetworkViewTests : IDisposable {
         var counted = default(TransportLoss);
         var lossy = true;
 
-        var view = Graphed(
-            () => counted = new(
+        var view = Graphed(() => counted = new(
                 counted.Sent + 100,
                 counted.Retransmitted + (lossy ? 20 : 0),
                 counted.Expected + 200,
@@ -420,7 +428,10 @@ public sealed class NetworkViewTests : IDisposable {
         Assert.Equal(4, Tagged(view.Root, "network-lane").Length);
         Assert.NotEmpty(Samples(view, "resent"));
         Assert.NotEmpty(Samples(view, "lost inbound"));
-        Assert.DoesNotContain(Statuses(view), line => line.Contains("No resent or lost-inbound lane", StringComparison.Ordinal));
+        Assert.DoesNotContain(
+            Statuses(view),
+            static line => line.Contains("No resent or lost-inbound lane", StringComparison.Ordinal)
+        );
 
         Assert.Equal("20.0 %", Reading(view, "resent"));
         Assert.Equal("10.0 %", Reading(view, "lost inbound"));
@@ -442,8 +453,12 @@ public sealed class NetworkViewTests : IDisposable {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The two are given deliberately different numbers, and the gap between them is
-    ///         the reading.</b> Twenty per cent of what went out went again; five per cent of what
+    ///         ⚠
+    ///         <b>
+    ///             The two are given deliberately different numbers, and the gap between them is
+    ///             the reading.
+    ///         </b>
+    ///         Twenty per cent of what went out went again; five per cent of what
     ///         went out is what the far end says never arrived. A panel that had replaced the bound
     ///         with the measurement, or wired both lanes to one source, would show one number twice
     ///         — and the case somebody opens this pane for is exactly the one where they differ: a
@@ -478,7 +493,10 @@ public sealed class NetworkViewTests : IDisposable {
         Assert.Equal(5, Tagged(view.Root, "network-lane").Length);
         Assert.NotEmpty(Samples(view, "resent"));
         Assert.NotEmpty(Samples(view, "lost outbound"));
-        Assert.DoesNotContain(Statuses(view), line => line.Contains("No lost-outbound lane", StringComparison.Ordinal));
+        Assert.DoesNotContain(
+            Statuses(view),
+            static line => line.Contains("No lost-outbound lane", StringComparison.Ordinal)
+        );
 
         Assert.Equal("20.0 %", Reading(view, "resent"));
         Assert.Equal("5.0 %", Reading(view, "lost outbound"));
@@ -513,7 +531,10 @@ public sealed class NetworkViewTests : IDisposable {
         Assert.Equal("5.0 %", Reading(view, "lost outbound"));
 
         // And the sentence about this end's own counters is still there, because it is still true.
-        Assert.Contains(Statuses(view), line => line.Contains("No resent or lost-inbound lane", StringComparison.Ordinal));
+        Assert.Contains(
+            Statuses(view),
+            static line => line.Contains("No resent or lost-inbound lane", StringComparison.Ordinal)
+        );
     }
 
     /// <summary>
@@ -531,7 +552,10 @@ public sealed class NetworkViewTests : IDisposable {
         test.Advance(NetworkView.Interval * 2);
 
         Assert.Equal(2, Tagged(view.Root, "network-lane").Length);
-        Assert.Contains(Statuses(view), line => line.Contains("No lost-outbound lane", StringComparison.Ordinal));
+        Assert.Contains(
+            Statuses(view),
+            static line => line.Contains("No lost-outbound lane", StringComparison.Ordinal)
+        );
     }
 
     /// <summary>
@@ -539,9 +563,9 @@ public sealed class NetworkViewTests : IDisposable {
     ///     re-drawing every bar — and what makes two bars in a lane comparable at all.
     /// </summary>
     [Theory]
-    [InlineData(0, 1)]          // nothing measured is not a divide by zero
-    [InlineData(0.4, 0.5)]      // and the ladder goes below one
-    [InlineData(1, 1)]          // a rung is its own ceiling rather than the next one up
+    [InlineData(0, 1)] // nothing measured is not a divide by zero
+    [InlineData(0.4, 0.5)] // and the ladder goes below one
+    [InlineData(1, 1)] // a rung is its own ceiling rather than the next one up
     [InlineData(1.1, 2)]
     [InlineData(3, 5)]
     [InlineData(6, 10)]
@@ -563,13 +587,16 @@ public sealed class NetworkViewTests : IDisposable {
 
         test.Advance(NetworkView.Interval * 2);
 
-        Assert.Contains(Statuses(view), line => line.Contains("no NetworkSession", StringComparison.Ordinal));
+        Assert.Contains(Statuses(view), static line => line.Contains("no NetworkSession", StringComparison.Ordinal));
 
-        view.Session = () => null;
+        view.Session = static () => null;
         test.Advance(NetworkView.Interval * 2);
 
-        Assert.Contains(Statuses(view), line => line.Contains("No session running", StringComparison.Ordinal));
-        Assert.DoesNotContain(Statuses(view), line => line.Contains("no NetworkSession", StringComparison.Ordinal));
+        Assert.Contains(Statuses(view), static line => line.Contains("No session running", StringComparison.Ordinal));
+        Assert.DoesNotContain(
+            Statuses(view),
+            static line => line.Contains("no NetworkSession", StringComparison.Ordinal)
+        );
     }
 
     /// <summary>
@@ -634,7 +661,7 @@ public sealed class NetworkViewTests : IDisposable {
         test.Advance(NetworkView.Interval * 2);
 
         Assert.Empty(Tagged(view.Root, "network-lane"));
-        Assert.Contains(Statuses(view), line => line.Contains("No session running", StringComparison.Ordinal));
+        Assert.Contains(Statuses(view), static line => line.Contains("No session running", StringComparison.Ordinal));
     }
 
     /// <summary>
@@ -647,9 +674,13 @@ public sealed class NetworkViewTests : IDisposable {
         var counting = false;
         var counted = default(TransportLoss);
 
-        var view = Graphed(
-            () => counting
-                ? counted = new(counted.Sent + 100, counted.Retransmitted + 3, counted.Expected + 200, counted.Missing + 10)
+        var view = Graphed(() => counting
+                ? counted = new(
+                    counted.Sent + 100,
+                    counted.Retransmitted + 3,
+                    counted.Expected + 200,
+                    counted.Missing + 10
+                )
                 : null
         );
 
@@ -693,8 +724,12 @@ public sealed class NetworkViewTests : IDisposable {
 
     /// <summary>A panel pointed at a running host session, optionally on a transport that counts.</summary>
     /// <remarks>
-    ///     ⚠ <b>The session delegate feeds the estimator, which is a test double doing what a real
-    ///     session's ping loop does.</b> <c>NetworkView.Sample</c> pulls its source exactly once per
+    ///     ⚠
+    ///     <b>
+    ///         The session delegate feeds the estimator, which is a test double doing what a real
+    ///         session's ping loop does.
+    ///     </b>
+    ///     <c>NetworkView.Sample</c> pulls its source exactly once per
     ///     reading, so one ping comes back per reading — and it is a <i>rising</i> one, because a
     ///     lane whose numbers never moved would be a lane that could freeze without a test noticing.
     /// </remarks>
@@ -717,8 +752,12 @@ public sealed class NetworkViewTests : IDisposable {
 
     /// <summary>A panel over a host whose links carry a peer's report, scripted once a reading.</summary>
     /// <remarks>
-    ///     ⚠ <b>The session is pumped from inside the panel's own pull, and that is what makes this
-    ///     deterministic.</b> <c>NetworkView.Sample</c> invokes the delegate exactly once per
+    ///     ⚠
+    ///     <b>
+    ///         The session is pumped from inside the panel's own pull, and that is what makes this
+    ///         deterministic.
+    ///     </b>
+    ///     <c>NetworkView.Sample</c> invokes the delegate exactly once per
     ///     reading, so a fixed number of <c>Update</c> calls at a fixed step is a fixed number of
     ///     ping cadences per reading — an ordering property, the same on an idle machine and on one
     ///     running fifteen other suites. Nothing here waits for a wall clock.
@@ -727,7 +766,7 @@ public sealed class NetworkViewTests : IDisposable {
     /// <param name="peer">What the far end says it missed, asked once a reading.</param>
     /// <returns>The panel, with one reading already taken.</returns>
     NetworkView Reported(Func<TransportLoss?>? counted, Func<TransportLoss> peer) {
-        var host = Host(counted, reporting: true);
+        var host = Host(counted, true);
         var built = BuildContext.Build<NetworkView>(test.Document, test.Document.Root);
 
         built.Session = () => {
@@ -749,8 +788,12 @@ public sealed class NetworkViewTests : IDisposable {
 
     /// <summary>A host session — one process, both halves — with its own player connected.</summary>
     /// <remarks>
-    ///     ⚠ <b>The loss counters are the session's transport's, so a test of the loss lanes is a test
-    ///     of a session running on a transport that counts.</b> The in-process one does not — it never
+    ///     ⚠
+    ///     <b>
+    ///         The loss counters are the session's transport's, so a test of the loss lanes is a test
+    ///         of a session running on a transport that counts.
+    ///     </b>
+    ///     The in-process one does not — it never
     ///     loses anything and has no sequence numbers to notice a gap in — so this wraps it in a
     ///     decorator that answers <c>Loss</c> and forwards everything else, which is what a
     ///     <c>UdpTransport</c> is to this panel and nothing more.
@@ -759,7 +802,7 @@ public sealed class NetworkViewTests : IDisposable {
         ITransport carrier = new LocalTransport(network);
 
         if (counted is not null || reporting) {
-            carrier = wire = new CountingTransport(carrier, counted ?? (static () => null));
+            carrier = wire = new(carrier, counted ?? (static () => null));
         }
 
         // ⚠ The ping cadence rather than the default second, because a report crosses on it and the
@@ -786,7 +829,10 @@ public sealed class NetworkViewTests : IDisposable {
     Entity Spawn() {
         spawned = true;
 
-        return world.Create(ids.Next(), new NetworkTransform { Position = Vector3.Zero, Rotation = Quaternion.Identity });
+        return world.Create(
+            ids.Next(),
+            new NetworkTransform { Position = Vector3.Zero, Rotation = Quaternion.Identity }
+        );
     }
 
     /// <summary>Moves everything and sends a snapshot, keeping the last one's bytes.</summary>
@@ -810,7 +856,7 @@ public sealed class NetworkViewTests : IDisposable {
             ledger.Advance(TimeSpan.FromMilliseconds(33));
 
             if (sender.TryWriteSnapshot(world, Player, at, buffer, out var written)) {
-                snapshot = written.ToArray();
+                snapshot = [..written];
                 sender.Acknowledge(Player, at);
             }
 
@@ -828,7 +874,8 @@ public sealed class NetworkViewTests : IDisposable {
     static UiElement[] Rows(NetworkView view, string heading) => Tagged(Table(view, heading), "network-row");
 
     /// <summary>What the dearest row of a column costs, which is what a second reading moves.</summary>
-    static string Cost(NetworkView view, string heading) => TextOf(Tagged(Rows(view, heading)[0], "network-cost").Single());
+    static string Cost(NetworkView view, string heading) =>
+        TextOf(Tagged(Rows(view, heading)[0], "network-cost").Single());
 
     /// <summary>A transport that counts, wrapped round one that does not.</summary>
     sealed class CountingTransport(ITransport inner, Func<TransportLoss?> counted) : ITransport {
@@ -837,8 +884,11 @@ public sealed class NetworkViewTests : IDisposable {
         ///     into the <c>LinkReport</c> it sends its peer.
         /// </summary>
         /// <remarks>
-        ///     ⚠ <b>A property the test sets once a reading rather than a delegate called per send.
-        ///     </b> A host sends two reports a cadence — the server half to its player and the client
+        ///     ⚠
+        ///     <b>
+        ///         A property the test sets once a reading rather than a delegate called per send.
+        ///     </b>
+        ///     A host sends two reports a cadence — the server half to its player and the client
         ///     half to the server — and a delegate that moved on each call would give the two links
         ///     different totals, so the worst of them would alternate and the panel would be right to
         ///     refuse to difference them.
@@ -894,10 +944,9 @@ public sealed class NetworkViewTests : IDisposable {
         TextOf(Tagged(Lane(view, heading), "network-cost").Single());
 
     /// <summary>Every line of prose the panel is showing.</summary>
-    static string[] Statuses(NetworkView view) => [.. Tagged(view.Root, "network-status").Select(TextOf)];
+    static string[] Statuses(NetworkView view) => [..Tagged(view.Root, "network-status").Select(TextOf)];
 
-    static UiElement[] Tagged(UiElement root, string tag) =>
-        [.. Descendants(root).Where(element => element.Tag == tag)];
+    static UiElement[] Tagged(UiElement root, string tag) => [..Descendants(root).Where(element => element.Tag == tag)];
 
     /// <summary>
     ///     A walk rather than a read, because markup text is its own element: an interpolation emits

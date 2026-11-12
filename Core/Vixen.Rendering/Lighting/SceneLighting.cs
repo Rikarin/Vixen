@@ -87,8 +87,12 @@ public sealed class SceneLighting {
     ///         frame with no combine node never has it changed and keeps the 1 it was born with.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Written into every shader's parameters unconditionally, and the declared default
-    ///         in the <c>.rvn</c> is not a fallback.</b> A shader's default only reaches the buffer
+    ///         ⚠
+    ///         <b>
+    ///             Written into every shader's parameters unconditionally, and the declared default
+    ///             in the <c>.rvn</c> is not a fallback.
+    ///         </b>
+    ///         A shader's default only reaches the buffer
     ///         through the generated <c>*Keys</c> class, and this path interns its names as strings —
     ///         so a member nobody sets is <em>zero</em>, not one, and a frame that simply forgot to
     ///         write this would silently lose all of its specular ambient.

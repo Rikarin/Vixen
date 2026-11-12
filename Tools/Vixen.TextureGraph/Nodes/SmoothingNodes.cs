@@ -27,7 +27,10 @@ sealed partial class MedianNode : TextureNode {
 
     /// <inheritdoc />
     protected internal override void Compile(TextureEmitter emitter) =>
-        Smoothing.Filter(emitter, (target, source) => TextureSmoothingFilters.MedianOp(target, source, emitter.Number(nameof(Radius))));
+        Smoothing.Filter(
+            emitter,
+            (target, source) => TextureSmoothingFilters.MedianOp(target, source, emitter.Number(nameof(Radius)))
+        );
 }
 
 /// <summary>A blur that does not cross a colour edge.</summary>
@@ -82,7 +85,10 @@ sealed partial class PainterlySmoothNode : TextureNode {
 
     /// <inheritdoc />
     protected internal override void Compile(TextureEmitter emitter) =>
-        Smoothing.Filter(emitter, (target, source) => TextureSmoothingFilters.KuwaharaOp(target, source, emitter.Number(nameof(Radius))));
+        Smoothing.Filter(
+            emitter,
+            (target, source) => TextureSmoothingFilters.KuwaharaOp(target, source, emitter.Number(nameof(Radius)))
+        );
 }
 
 /// <summary>A smear along the circle about a centre.</summary>
@@ -152,7 +158,10 @@ sealed partial class AntiAliasNode : TextureNode {
 
     /// <inheritdoc />
     protected internal override void Compile(TextureEmitter emitter) =>
-        Smoothing.Filter(emitter, (target, source) => TextureSmoothingFilters.AntiAliasOp(target, source, emitter.Number(nameof(Threshold))));
+        Smoothing.Filter(
+            emitter,
+            (target, source) => TextureSmoothingFilters.AntiAliasOp(target, source, emitter.Number(nameof(Threshold)))
+        );
 }
 
 /// <summary>What the one-input filters share.</summary>

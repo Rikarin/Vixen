@@ -13,8 +13,12 @@ namespace Vixen.Engine.Renderer;
 ///         Doc 13's third overlay — "which assets are resident, being loaded, or evicted" — and the
 ///         one of its three that was never actually blocked. The overview said the two remaining
 ///         panels needed <c>Vixen.Ui</c> and <c>Vixen.Assets</c> to report and that neither may
-///         reference <c>Vixen.Engine</c>, so each wanted a join assembly of its own. ⚠ <b>That is
-///         true of the UI panel and false of this one</b>, twice over: the numbers are not
+///         reference <c>Vixen.Engine</c>, so each wanted a join assembly of its own. ⚠
+///         <b>
+///             That is
+///             true of the UI panel and false of this one
+///         </b>
+///         , twice over: the numbers are not
 ///         <c>Vixen.Assets</c>' at all — <c>Vixen.Assets</c>' own README says so, and points at
 ///         <c>Vixen.Rendering</c>'s <c>PageResidency</c> as the one budget every streamer is a
 ///         consumer of — and this assembly already references <c>Vixen.Engine</c>,
@@ -23,8 +27,11 @@ namespace Vixen.Engine.Renderer;
 ///         before the blocker was written.
 ///     </para>
 ///     <para>
-///         <b>Three rows that answer different questions, and the last is the one worth opening the
-///         panel for.</b> Resident against budget says whether the pool is full; loading and pending
+///         <b>
+///             Three rows that answer different questions, and the last is the one worth opening the
+///             panel for.
+///         </b>
+///         Resident against budget says whether the pool is full; loading and pending
 ///         say whether the streamer is keeping up with where the camera is pointed; and refusals say
 ///         the pool is <em>too small for this scene</em> rather than that anything is broken. A frame
 ///         with refusals climbing sampled a coarser texture than it asked for and looked merely
@@ -60,8 +67,12 @@ public sealed class StreamingOverlay(WorldRenderer renderer) : IDiagnosticOverla
     ///     What fraction of the texture budget is resident, or −1 when nothing is streaming textures.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>Negative rather than zero for "no streamer", and it is the same distinction the
-    ///     dashes draw.</b> A pool that is empty and a pool that does not exist are the two states
+    ///     ⚠
+    ///     <b>
+    ///         Negative rather than zero for "no streamer", and it is the same distinction the
+    ///         dashes draw.
+    ///     </b>
+    ///     A pool that is empty and a pool that does not exist are the two states
     ///     this panel is for telling apart, and zero is a legitimate value of the first.
     /// </remarks>
     public float ResidentFraction { get; private set; } = -1f;
@@ -89,7 +100,10 @@ public sealed class StreamingOverlay(WorldRenderer renderer) : IDiagnosticOverla
                 ? (float)((double)streamer.ResidentBytes / streamer.Budget)
                 : 0f;
 
-            if (buffer.TryWrite($"{Megabytes(streamer.ResidentBytes):F1}/{Megabytes(streamer.Budget):F0} MB", out var sized)) {
+            if (buffer.TryWrite(
+                    $"{Megabytes(streamer.ResidentBytes):F1}/{Megabytes(streamer.Budget):F0} MB",
+                    out var sized
+                )) {
                 region.Meter(0, "resident", buffer[..sized], ResidentFraction, Scale(theme, ResidentFraction));
             }
 
@@ -128,9 +142,10 @@ public sealed class StreamingOverlay(WorldRenderer renderer) : IDiagnosticOverla
     ///     the point where the next request has nothing cheap left to evict, not at the point where
     ///     the pool is being used.
     /// </remarks>
-    static Color4 Scale(OverlayTheme theme, float fraction) => fraction switch {
-        < 0.75f => theme.Good,
-        < 0.90f => theme.Warning,
-        _ => theme.Bad
-    };
+    static Color4 Scale(OverlayTheme theme, float fraction) =>
+        fraction switch {
+            < 0.75f => theme.Good,
+            < 0.90f => theme.Warning,
+            _ => theme.Bad
+        };
 }

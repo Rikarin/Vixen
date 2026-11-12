@@ -54,7 +54,7 @@ public sealed class VideoColourConversionTests {
     public void GreyIsGrey() {
         var frame = new VideoFrame();
 
-        frame.Reset(new VideoFormat(2, 2, VideoPixelLayout.Grey8, Range: VideoColourRange.Full));
+        frame.Reset(new(2, 2, VideoPixelLayout.Grey8, Range: VideoColourRange.Full));
         frame.Plane(0).Fill(200);
 
         var bgra = new byte[VideoColourConversion.BgraSize(frame.Format)];
@@ -71,7 +71,7 @@ public sealed class VideoColourConversionTests {
     public void PackedBgraIsCopiedRatherThanConverted() {
         var frame = new VideoFrame();
 
-        frame.Reset(new VideoFormat(1, 1, VideoPixelLayout.Bgra8));
+        frame.Reset(new(1, 1, VideoPixelLayout.Bgra8));
         frame.Plane(0)[0] = 1;
         frame.Plane(0)[1] = 2;
         frame.Plane(0)[2] = 3;
@@ -88,7 +88,7 @@ public sealed class VideoColourConversionTests {
     public void ChromaIsSharedByFourLumaSamplesInFourTwoZero() {
         var frame = new VideoFrame();
 
-        frame.Reset(new VideoFormat(2, 2, VideoPixelLayout.Yuv420Planar));
+        frame.Reset(new(2, 2, VideoPixelLayout.Yuv420Planar));
         frame.Plane(0).Fill(128);
         frame.Plane(1).Fill(90);
         frame.Plane(2).Fill(240);
@@ -100,8 +100,8 @@ public sealed class VideoColourConversionTests {
         // One chroma sample, four pixels, all the same colour.
         for (var pixel = 1; pixel < 4; pixel++) {
             Assert.Equal(bgra[0], bgra[pixel * 4]);
-            Assert.Equal(bgra[1], bgra[(pixel * 4) + 1]);
-            Assert.Equal(bgra[2], bgra[(pixel * 4) + 2]);
+            Assert.Equal(bgra[1], bgra[pixel * 4 + 1]);
+            Assert.Equal(bgra[2], bgra[pixel * 4 + 2]);
         }
     }
 
@@ -109,7 +109,7 @@ public sealed class VideoColourConversionTests {
     public void ADestinationTooSmallSaysSoRatherThanWritingPastIt() {
         var frame = new VideoFrame();
 
-        frame.Reset(new VideoFormat(4, 4, VideoPixelLayout.Grey8));
+        frame.Reset(new(4, 4, VideoPixelLayout.Grey8));
 
         Assert.Throws<ArgumentException>(() => VideoColourConversion.ToBgra(frame, new byte[8]));
     }
@@ -123,7 +123,7 @@ public sealed class VideoColourConversionTests {
     ) {
         var frame = new VideoFrame();
 
-        frame.Reset(new VideoFormat(2, 2, VideoPixelLayout.Yuv420Planar, Range: range, Matrix: matrix));
+        frame.Reset(new(2, 2, VideoPixelLayout.Yuv420Planar, Range: range, Matrix: matrix));
         frame.Plane(0).Fill(luma);
         frame.Plane(1).Fill(blue);
         frame.Plane(2).Fill(red);

@@ -24,7 +24,7 @@ public sealed class DebugDrawTests {
     public void ATimedLineSurvivesUntilItsTimeIsUp() {
         var draw = new DebugDraw();
 
-        draw.Line(Vector3.Zero, Vector3.UnitX, Color4.Red, seconds: 0.1f);
+        draw.Line(Vector3.Zero, Vector3.UnitX, Color4.Red, 0.1f);
 
         for (var frame = 0; frame < 5; frame++) {
             draw.Advance(1f / 60f);
@@ -72,13 +72,13 @@ public sealed class DebugDrawTests {
     public void AxesAreRedGreenAndBlueInThatOrder() {
         var draw = new DebugDraw();
 
-        draw.Axes(Matrix4x4.FromTranslation(new(5, 0, 0)), length: 2f);
+        draw.Axes(Matrix4x4.FromTranslation(new(5, 0, 0)), 2f);
 
         Assert.Equal(3, draw.Count);
         Assert.Equal(Color4.Red, draw.Lines[0].Colour);
         Assert.Equal(Color4.Green, draw.Lines[1].Colour);
         Assert.Equal(Color4.Blue, draw.Lines[2].Colour);
-        Assert.Equal(new Vector3(7, 0, 0), draw.Lines[0].To);
+        Assert.Equal(new(7, 0, 0), draw.Lines[0].To);
     }
 
     [Fact]
@@ -121,7 +121,7 @@ public sealed class DebugDrawTests {
         using var loop = new EngineLoop(registerDefaultSystems: false);
         loop.Add(new DebugDrawSystem(draw));
 
-        draw.Line(Vector3.Zero, Vector3.UnitX, Color4.Red, seconds: 0.02f);
+        draw.Line(Vector3.Zero, Vector3.UnitX, Color4.Red, 0.02f);
 
         loop.Frame(TimeSpan.FromMilliseconds(16));
         Assert.Equal(1, draw.Count);

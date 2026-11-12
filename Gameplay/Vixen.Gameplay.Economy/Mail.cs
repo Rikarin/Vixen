@@ -120,8 +120,12 @@ public sealed class MailMessage {
 /// <summary>Everybody's mailboxes, and the only thing that moves an attachment.</summary>
 /// <remarks>
 ///     <para>
-///         <b>Doc 28 builds the auction on this and says so:</b> mail is <em>"the delivery mechanism
-///         for auction settlement, so it must exist before the auction does"</em>. Currency and goods
+///         <b>Doc 28 builds the auction on this and says so:</b> mail is
+///         <em>
+///             "the delivery mechanism
+///             for auction settlement, so it must exist before the auction does"
+///         </em>
+///         . Currency and goods
 ///         are the same shape here, which is what lets an auction pay a seller who is offline.
 ///     </para>
 ///     <para>
@@ -235,7 +239,7 @@ public sealed class PostOffice {
             }
         }
 
-        mail = Post(from, to, subject, body, [.. attachments], codCurrency, Math.Max(0, cod), now, days);
+        mail = Post(from, to, subject, body, [..attachments], codCurrency, Math.Max(0, cod), now, days);
 
         return MailRefusal.None;
     }
@@ -248,21 +252,35 @@ public sealed class PostOffice {
     /// <param name="days">How long before it goes back.</param>
     /// <returns>The letter.</returns>
     /// <remarks>
-    ///     ⚠ <b>For a caller that has already moved the goods into <see cref="EconomyAccount.Mail" />
-    ///     as part of its own intent</b> — an auction settlement, which pays the seller and the buyer
+    ///     ⚠
+    ///     <b>
+    ///         For a caller that has already moved the goods into <see cref="EconomyAccount.Mail" />
+    ///         as part of its own intent
+    ///     </b>
+    ///     — an auction settlement, which pays the seller and the buyer
     ///     out of one posting. Routing those through <see cref="Send" /> would move them a second time,
     ///     out of an account that no longer holds them.
     /// </remarks>
-    public MailMessage Deliver(PlayerId to, string subject, IReadOnlyList<MailAttachment> attachments, float now, float days = 30f) {
+    public MailMessage Deliver(
+        PlayerId to,
+        string subject,
+        IReadOnlyList<MailAttachment> attachments,
+        float now,
+        float days = 30f
+    ) {
         ArgumentNullException.ThrowIfNull(attachments);
 
-        return Post(PlayerId.None, to, subject, string.Empty, [.. attachments], default, 0, now, days);
+        return Post(PlayerId.None, to, subject, string.Empty, [..attachments], default, 0, now, days);
     }
 
     /// <summary>Puts a letter in a box without moving anything.</summary>
     /// <remarks>
-    ///     ⚠ <b>Separate from <see cref="Send" />, because a return is a letter whose attachments are
-    ///     already escrowed.</b> Routing a return through <c>Send</c> would move them a second time,
+    ///     ⚠
+    ///     <b>
+    ///         Separate from <see cref="Send" />, because a return is a letter whose attachments are
+    ///         already escrowed.
+    ///     </b>
+    ///     Routing a return through <c>Send</c> would move them a second time,
     ///     out of an account that does not hold them — and the first version of this did exactly that
     ///     and then posted a corrective intent to undo it, which is two writes where the whole library
     ///     is built on there being one.
@@ -288,7 +306,7 @@ public sealed class PostOffice {
             codCurrency,
             cod,
             now,
-            days > 0f ? now + (days * 86400f) : float.PositiveInfinity
+            days > 0f ? now + days * 86400f : float.PositiveInfinity
         );
 
         Box(to).Insert(0, mail);
@@ -319,7 +337,7 @@ public sealed class PostOffice {
 
         var escrow = EconomyAccount.Of(EconomyAccount.Mail);
         var recipient = EconomyAccount.Of(player);
-        var movements = new List<AssetMove>((mail.Attachments.Length * 2) + 2);
+        var movements = new List<AssetMove>(mail.Attachments.Length * 2 + 2);
 
         foreach (ref readonly var attachment in mail.Attachments) {
             movements.Add(new(escrow, attachment.Asset, -attachment.Amount));
@@ -395,7 +413,17 @@ public sealed class PostOffice {
 
             // The goods are still in the escrow account, so the return moves nothing and carries no
             // charge: nobody took them, so nobody owes anything.
-            Post(PlayerId.None, mail.From, $"Returned: {mail.Subject}", mail.Body, [.. mail.Attachments], default, 0, now, 30f);
+            Post(
+                PlayerId.None,
+                mail.From,
+                $"Returned: {mail.Subject}",
+                mail.Body,
+                [..mail.Attachments],
+                default,
+                0,
+                now,
+                30f
+            );
         }
 
         return returned;

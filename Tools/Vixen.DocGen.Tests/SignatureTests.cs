@@ -15,7 +15,7 @@ public class SignatureTests {
         var links = new SourceLinks(Path.GetTempPath(), "https://github.com/rikarin/Vixen", "abc123");
 
         return new SymbolReader(links)
-            .Read(compilation.Assembly, "Core", isPackable: true)
+            .Read(compilation.Assembly, "Core", true)
             .Single(node => node.QualifiedName == metadataName)
             .Signature;
     }
@@ -24,9 +24,9 @@ public class SignatureTests {
     public void ASignatureArrivesAsClassifiedRunsRatherThanAString() {
         var spans = Read("namespace Fixtures { public sealed class World; }", "Fixtures.World");
 
-        Assert.Contains(spans, span => span is { Kind: "keyword", Text: "public" });
-        Assert.Contains(spans, span => span is { Kind: "keyword", Text: "sealed" });
-        Assert.Contains(spans, span => span is { Kind: "class", Text: "World" });
+        Assert.Contains(spans, static span => span is { Kind: "keyword", Text: "public" });
+        Assert.Contains(spans, static span => span is { Kind: "keyword", Text: "sealed" });
+        Assert.Contains(spans, static span => span is { Kind: "class", Text: "World" });
     }
 
     /// <summary>The runs joined back are the signature, so nothing is lost by classifying it.</summary>
@@ -39,7 +39,9 @@ public class SignatureTests {
                     public int Count { get; }
                 }
             }
-            """, "Fixtures.Bag");
+            """,
+            "Fixtures.Bag"
+        );
 
         Assert.Equal("public sealed class Bag", Signatures.Text(spans));
     }
@@ -53,27 +55,28 @@ public class SignatureTests {
                     public void Add(int value) { }
                 }
             }
-            """);
+            """
+        );
 
         var links = new SourceLinks(Path.GetTempPath(), "https://github.com/rikarin/Vixen", "abc123");
 
         var member = new SymbolReader(links)
-            .Read(compilation.Assembly, "Core", isPackable: true)
-            .Single(node => node.QualifiedName == "Fixtures.Bag")
+            .Read(compilation.Assembly, "Core", true)
+            .Single(static node => node.QualifiedName == "Fixtures.Bag")
             .Members
-            .Single(candidate => candidate.Name == "Add");
+            .Single(static candidate => candidate.Name == "Add");
 
-        Assert.Contains(member.Signature, span => span is { Kind: "keyword", Text: "int" });
-        Assert.Contains(member.Signature, span => span is { Kind: "parameter", Text: "value" });
-        Assert.Contains(member.Signature, span => span is { Kind: "method", Text: "Add" });
+        Assert.Contains(member.Signature, static span => span is { Kind: "keyword", Text: "int" });
+        Assert.Contains(member.Signature, static span => span is { Kind: "parameter", Text: "value" });
+        Assert.Contains(member.Signature, static span => span is { Kind: "method", Text: "Add" });
     }
 
     [Fact]
     public void TypeParametersAreTheirOwnKind() {
         var spans = Read("namespace Fixtures { public sealed class Pool<TItem>; }", "Fixtures.Pool<TItem>");
 
-        Assert.Contains(spans, span => span is { Kind: "type-parameter", Text: "TItem" });
-        Assert.Contains(spans, span => span is { Kind: "punctuation" });
+        Assert.Contains(spans, static span => span is { Kind: "type-parameter", Text: "TItem" });
+        Assert.Contains(spans, static span => span is { Kind: "punctuation" });
     }
 
     /// <summary>
@@ -84,7 +87,8 @@ public class SignatureTests {
     public void AdjacentRunsOfTheSameKindAreOneRun() {
         var spans = Read(
             "namespace Fixtures { public sealed class Nested<T> { } }",
-            "Fixtures.Nested<T>");
+            "Fixtures.Nested<T>"
+        );
 
         for (var index = 1; index < spans.Count; index++) {
             Assert.NotEqual(spans[index - 1].Kind, spans[index].Kind);
@@ -98,7 +102,7 @@ public class SignatureTests {
         var links = new SourceLinks(Path.GetTempPath(), "https://github.com/rikarin/Vixen", "abc123");
 
         return new SymbolReader(links)
-            .Read(compilation.Assembly, "Core", isPackable: true)
+            .Read(compilation.Assembly, "Core", true)
             .Single(node => node.QualifiedName == type)
             .Members.Single(candidate => candidate.Name == member)
             .Signature;
@@ -119,11 +123,15 @@ public class SignatureTests {
                     public Chunk Take(Chunk source) => source;
                 }
             }
-            """, "Fixtures.World", "Take");
+            """,
+            "Fixtures.World",
+            "Take"
+        );
 
         Assert.All(
-            spans.Where(span => span.Text == "Chunk"),
-            span => Assert.Equal("T:Fixtures.Chunk", span.Id));
+            spans.Where(static span => span.Text == "Chunk"),
+            static span => Assert.Equal("T:Fixtures.Chunk", span.Id)
+        );
     }
 
     /// <summary>
@@ -140,10 +148,14 @@ public class SignatureTests {
         var spans = Member(
             "namespace Fixtures { public sealed class World { public int Count(int value) => value; } }",
             "Fixtures.World",
-            "Count");
+            "Count"
+        );
 
-        Assert.All(spans.Where(span => span.Kind is "punctuation" or "space"), span => Assert.Null(span.Id));
-        Assert.Contains(spans, span => span is { Text: "int", Id: "T:System.Int32" });
+        Assert.All(
+            spans.Where(static span => span.Kind is "punctuation" or "space"),
+            static span => Assert.Null(span.Id)
+        );
+        Assert.Contains(spans, static span => span is { Text: "int", Id: "T:System.Int32" });
     }
 
     /// <summary>
@@ -162,9 +174,12 @@ public class SignatureTests {
                     public Left Swap(Right value) => null!;
                 }
             }
-            """, "Fixtures.World", "Swap");
+            """,
+            "Fixtures.World",
+            "Swap"
+        );
 
-        Assert.Contains(spans, span => span is { Text: "Left", Id: "T:Fixtures.Left" });
-        Assert.Contains(spans, span => span is { Text: "Right", Id: "T:Fixtures.Right" });
+        Assert.Contains(spans, static span => span is { Text: "Left", Id: "T:Fixtures.Left" });
+        Assert.Contains(spans, static span => span is { Text: "Right", Id: "T:Fixtures.Right" });
     }
 }

@@ -2,9 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Globalization;
-using Vixen.Core.Mathematics;
 using Vixen.Editor.Inspector;
-using Vixen.Editor.NodeGraph;
 using Vixen.NodeGraph;
 using Vixen.Ui;
 using Vixen.Ui.Controls.Advanced;
@@ -34,7 +32,9 @@ public class PortDrawerTests : IDisposable {
     readonly NodeGraphModel graph = new();
     readonly Dial dial = new();
 
-    public PortDrawerTests() => Vixen.Editor.NodeGraph.Tests.NodeTypes.Register(registry);
+    public PortDrawerTests() {
+        Vixen.Editor.NodeGraph.Tests.NodeTypes.Register(registry);
+    }
 
     public void Dispose() {
         fixture.Dispose();
@@ -55,7 +55,7 @@ public class PortDrawerTests : IDisposable {
         var shown = Assert.Single(Inside(fields, "test-dial"));
 
         Assert.Equal("0.25", shown.Text);
-        Assert.All(fields.Boxes, box => Assert.True(box.HasClass("parked")));
+        Assert.All(fields.Boxes, static box => Assert.True(box.HasClass("parked")));
 
         // What the drawer writes is the node's value, recorded as one entry that undoes.
         Assert.True(dial.Built["A"].Write(0.75f));
@@ -71,7 +71,10 @@ public class PortDrawerTests : IDisposable {
         fixture.Stack.Undo();
         fixture.Update();
 
-        Assert.Equal("0.25", Assert.Single(Inside(fixture.Port(node.Id, "A", PortDirection.Input).Fields, "test-dial")).Text);
+        Assert.Equal(
+            "0.25",
+            Assert.Single(Inside(fixture.Port(node.Id, "A", PortDirection.Input).Fields, "test-dial")).Text
+        );
     }
 
     [Fact]
@@ -155,14 +158,14 @@ public class PortDrawerTests : IDisposable {
         var moved = false;
 
         for (var y = 0f; y <= 9_000f; y += 120f) {
-            fixture.Canvas.Pan = new Vector2(0f, y);
+            fixture.Canvas.Pan = new(0f, y);
             fixture.Update();
 
             moved |= !ReferenceEquals(fixture.Canvas.Items[0].Node, first);
         }
 
         for (var y = 9_000f; y >= 0f; y -= 120f) {
-            fixture.Canvas.Pan = new Vector2(0f, y);
+            fixture.Canvas.Pan = new(0f, y);
             fixture.Update();
         }
 

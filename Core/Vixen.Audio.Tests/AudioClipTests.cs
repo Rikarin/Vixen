@@ -13,10 +13,7 @@ public sealed class AudioClipTests {
         // One second of stereo 16-bit at 48 kHz is 192 000 bytes, and a clip that divided those by
         // the sample rate would report four seconds.
         var clip = new AudioClip {
-            SampleRate = 48_000,
-            Channels = 2,
-            Format = AudioSampleFormat.Int16,
-            Samples = new byte[48_000 * 2 * 2]
+            SampleRate = 48_000, Channels = 2, Format = AudioSampleFormat.Int16, Samples = new byte[48_000 * 2 * 2]
         };
 
         Assert.Equal(48_000, clip.FrameCount);
@@ -51,10 +48,7 @@ public sealed class AudioClipTests {
     [Fact]
     public void AskingForTheOtherFormatGivesNothingRatherThanNonsense() {
         var clip = new AudioClip {
-            SampleRate = 8_000,
-            Channels = 1,
-            Format = AudioSampleFormat.Int16,
-            Samples = new byte[8]
+            SampleRate = 8_000, Channels = 1, Format = AudioSampleFormat.Int16, Samples = new byte[8]
         };
 
         Assert.False(clip.AsInt16().IsEmpty);
@@ -70,10 +64,7 @@ public sealed class AudioClipTests {
         }
 
         var clip = new AudioClip {
-            SampleRate = 44_100,
-            Channels = 2,
-            Format = AudioSampleFormat.Float32,
-            Samples = samples
+            SampleRate = 44_100, Channels = 2, Format = AudioSampleFormat.Float32, Samples = samples
         };
 
         var loaded = Serializer.Read<AudioClip>(Serializer.ToBytes(clip));

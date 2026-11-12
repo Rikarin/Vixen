@@ -85,12 +85,10 @@ public readonly record struct AssetId(Guid Value)
         Value.TryFormat(utf8Destination, out bytesWritten, Normalize(format));
 
     /// <inheritdoc />
-    public static AssetId Parse(string s, IFormatProvider? provider = null) =>
-        new(Guid.Parse(s, provider));
+    public static AssetId Parse(string s, IFormatProvider? provider = null) => new(Guid.Parse(s, provider));
 
     /// <inheritdoc />
-    public static AssetId Parse(ReadOnlySpan<char> s, IFormatProvider? provider = null) =>
-        new(Guid.Parse(s, provider));
+    public static AssetId Parse(ReadOnlySpan<char> s, IFormatProvider? provider = null) => new(Guid.Parse(s, provider));
 
     /// <inheritdoc />
     public static bool TryParse([NotNullWhen(true)] string? s, IFormatProvider? provider, out AssetId result) =>

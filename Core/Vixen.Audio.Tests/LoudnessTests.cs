@@ -22,7 +22,7 @@ public sealed class LoudnessTests {
 
     static LoudnessMeterEffect Meter(int channels = 2) {
         var meter = new LoudnessMeterEffect();
-        meter.Prepare(new AudioFormat(Rate, channels), 4_800);
+        meter.Prepare(new(Rate, channels), 4_800);
         return meter;
     }
 
@@ -36,7 +36,7 @@ public sealed class LoudnessTests {
 
             for (var channel = 0; channel < channels; channel++) {
                 if (only.Length == 0 || Array.IndexOf(only, channel) >= 0) {
-                    buffer[(frame * channels) + channel] = value;
+                    buffer[frame * channels + channel] = value;
                 }
             }
         }
@@ -225,7 +225,7 @@ public sealed class LoudnessTests {
     [Fact]
     public void ItReadsTheSameAtADifferentSampleRate() {
         var meter = new LoudnessMeterEffect();
-        meter.Prepare(new AudioFormat(44_100, 2), 4_800);
+        meter.Prepare(new(44_100, 2), 4_800);
 
         var frames = 44_100 * 4;
         var buffer = new float[frames * 2];
@@ -234,7 +234,7 @@ public sealed class LoudnessTests {
         for (var frame = 0; frame < frames; frame++) {
             var value = peak * MathF.Sin(2f * MathF.PI * 1_000f * frame / 44_100f);
             buffer[frame * 2] = value;
-            buffer[(frame * 2) + 1] = value;
+            buffer[frame * 2 + 1] = value;
         }
 
         meter.Process(buffer, frames, 2);

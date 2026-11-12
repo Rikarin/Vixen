@@ -77,7 +77,9 @@ public sealed class SelectorMatcher(SelectorTable table) {
             }
 
             case Combinator.SubsequentSibling: {
-                for (var sibling = tree.PreviousSiblingOf(element); sibling >= 0; sibling = tree.PreviousSiblingOf(sibling)) {
+                for (var sibling = tree.PreviousSiblingOf(element);
+                     sibling >= 0;
+                     sibling = tree.PreviousSiblingOf(sibling)) {
                     if (MatchFrom(tree, sibling, selector, compoundIndex - 1, useBloom)) {
                         return true;
                     }
@@ -169,7 +171,13 @@ public sealed class SelectorMatcher(SelectorTable table) {
 
             case SimpleSelectorKind.Not: {
                 for (var i = 0; i < simple.NestedCount; i++) {
-                    if (MatchFrom(tree, element, table.Nested(simple.NestedStart + i), table.Nested(simple.NestedStart + i).Count - 1, useBloom)) {
+                    if (MatchFrom(
+                            tree,
+                            element,
+                            table.Nested(simple.NestedStart + i),
+                            table.Nested(simple.NestedStart + i).Count - 1,
+                            useBloom
+                        )) {
                         return false;
                     }
                 }
@@ -188,7 +196,13 @@ public sealed class SelectorMatcher(SelectorTable table) {
 
             case SimpleSelectorKind.Is: {
                 for (var i = 0; i < simple.NestedCount; i++) {
-                    if (MatchFrom(tree, element, table.Nested(simple.NestedStart + i), table.Nested(simple.NestedStart + i).Count - 1, useBloom)) {
+                    if (MatchFrom(
+                            tree,
+                            element,
+                            table.Nested(simple.NestedStart + i),
+                            table.Nested(simple.NestedStart + i).Count - 1,
+                            useBloom
+                        )) {
                         return true;
                     }
                 }
@@ -241,8 +255,12 @@ public sealed class SelectorMatcher(SelectorTable table) {
     /// <summary>RFC 4647 § 3.3.2 extended filtering, which is what Selectors 4 § 9.1 asks for.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Not "starts with the range", which is the implementation everybody writes and is
-    ///         wrong in both directions.</b> Too wide, because <c>den</c> starts with <c>de</c> and
+    ///         ⚠
+    ///         <b>
+    ///             Not "starts with the range", which is the implementation everybody writes and is
+    ///             wrong in both directions.
+    ///         </b>
+    ///         Too wide, because <c>den</c> starts with <c>de</c> and
     ///         is Dendi, not German — the comparison is over <i>subtags</i>, so a range only matches
     ///         at a hyphen. Too narrow, because a range's subtags need not be <i>consecutive</i> in
     ///         the tag: <c>de-AT</c> matches <c>de-Latn-AT</c>, since a script subtag somebody added
@@ -374,7 +392,9 @@ public sealed class SelectorMatcher(SelectorTable table) {
             AttributeOperator.Suffix => actual.EndsWith(expected, StringComparison.Ordinal),
             AttributeOperator.Substring => actual.Contains(expected, StringComparison.Ordinal),
             AttributeOperator.DashMatch => string.Equals(actual, expected, StringComparison.Ordinal)
-                || (actual.StartsWith(expected, StringComparison.Ordinal) && actual.Length > expected.Length && actual[expected.Length] == '-'),
+                || (actual.StartsWith(expected, StringComparison.Ordinal)
+                    && actual.Length > expected.Length
+                    && actual[expected.Length] == '-'),
             AttributeOperator.Includes => Includes(actual, expected),
             _ => false
         };

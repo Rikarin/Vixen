@@ -1,0 +1,164 @@
+# Skala (https://github.com/Rikarin/Skala) over the repository: one analysis, one gate, one report.
+#
+# - The gate decides: `skala check --gate=…` exits 1 and that is the verdict; nothing below re-reads severities.
+# - The `pr` gate cares only about the lines a pull request touched; the `ci` gate on master only about what the
+#   committed baseline (.skala/baseline.sarif) has not accepted. Gates are in skala.jsonc.
+# - The report is rendered from the stored SARIF (`skala report`, which runs no analysis), so it shows exactly what the
+#   gate saw.
+#
+# Formatting is part of both gates (`"formatting": "clean"`), so this job is also what replaced `dotnet format`: the
+# CheckFormat target runs the same `skala format --check` for a developer, without the analysis.
+
+name: Skala
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+
+# The same queue-on-master, cancel-on-a-branch rule ci.yml carries, for ci.yml's reason.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/master' }}
+
+permissions:
+  contents: read
+  security-events: write # the SARIF upload to code scanning, nothing else
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  NUGET_PACKAGES: ${{ github.workspace }}/.nuget/packages
+
+jobs:
+  skala:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # `--since` needs the merge base with origin/master
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Cache NuGet
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.NUGET_PACKAGES }}
+          key: nuget-skala-${{ hashFiles('**/Directory.Packages.props', 'global.json') }}
+          restore-keys: nuget-skala-
+
+      - run: dotnet tool restore
+
+      # The baseline only goes down (skala.jsonc, "The baseline"): its size, by rule, goes to the run's summary, and the
+      # job fails when it holds more entries than the same file on the base (the pull request's target, or the commit a
+      # push to master replaced). Shrinking it, or keeping it, passes; a first push with no base to compare skips the
+      # comparison.
+      - name: Baseline size
+        env:
+          BASE: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || github.event.before }}
+        run: |
+          set -euo pipefail
+          count() {
+            python3 -c '
+          import collections, json, sys
+          runs = json.load(sys.stdin)["runs"]
+          results = [r for run in runs for r in run.get("results", [])]
+          if sys.argv[1] == "total":
+              print(len(results))
+          else:
+              for rule, n in collections.Counter(r["ruleId"] for r in results).most_common():
+                  print(f"| {rule} | {n} |")
+          ' "$1"
+          }
+          now=$(count total < .skala/baseline.sarif)
+          before=""
+          if [ -n "$BASE" ] && git cat-file -e "$BASE:.skala/baseline.sarif" 2>/dev/null; then
+            before=$(git show "$BASE:.skala/baseline.sarif" | count total)
+          fi
+          {
+            echo "### Skala baseline: $now accepted finding(s)"
+            if [ -n "$before" ]; then echo; echo "On the base ($BASE): $before."; fi
+            if [ "$now" != 0 ]; then
+              echo
+              echo "| Rule | Accepted |"
+              echo "| --- | ---: |"
+              count rules < .skala/baseline.sarif
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [ -n "$before" ] && [ "$now" -gt "$before" ]; then
+            echo "::error file=.skala/baseline.sarif::the baseline grew from $before to $now accepted findings; fix the new findings, or switch the rule off in .editorconfig with the reason (skala.jsonc)"
+            exit 1
+          fi
+
+      # A real build with a binary log: what the compiler actually saw, generated sources included. Release, for the
+      # reason CheckApi and Docs hard-code it: the generators arrive as ProjectReferences resolved under
+      # bin/$(Configuration), and a compilation without them is not the code.
+      - name: Build
+        run: dotnet build Vixen.slnx -c Release -bl:artifacts/skala.binlog
+
+      - name: Check (pull request)
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: >
+          dotnet skala check
+          --load=binlog --binlog artifacts/skala.binlog --require-fresh-binlog
+          --gate=pr
+          --since "origin/$BASE_REF"
+          --no-new-suppressions
+          --duplication
+          --format=github
+          --output .skala/report.sarif
+          --output-unsuppressed .skala/code-scanning.sarif
+
+      - name: Check (master)
+        if: github.event_name != 'pull_request'
+        run: >
+          dotnet skala check
+          --load=binlog --binlog artifacts/skala.binlog --require-fresh-binlog
+          --gate=ci
+          --duplication
+          --format=github
+          --output .skala/report.sarif
+          --output-unsuppressed .skala/code-scanning.sarif
+
+      # Everything below runs even when the gate failed (that is when the report matters), but only when the check got
+      # far enough to write its report: an empty upload would tell code scanning "nothing found".
+      - name: Upload SARIF to code scanning
+        if: always() && hashFiles('.skala/code-scanning.sarif') != ''
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: .skala/code-scanning.sarif
+          category: skala
+
+      - name: Keep the report
+        if: always() && hashFiles('.skala/report.sarif') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: skala-report
+          path: .skala/report.sarif
+
+      # The report as markdown, from the stored SARIF. Exit 1 is the stored verdict the check step already failed on,
+      # so only other codes (an unreadable SARIF) fail this step.
+      - name: Render the report
+        if: always() && hashFiles('.skala/report.sarif') != ''
+        run: |
+          set -uo pipefail
+          status=0
+          dotnet skala report .skala/report.sarif --format=markdown > skala-report.md || status=$?
+          if [ "$status" != 0 ] && [ "$status" != 1 ]; then
+            echo "::error::skala report exited $status: the stored SARIF could not be rendered."
+            exit "$status"
+          fi
+
+      - name: Keep the rendered report
+        if: always() && hashFiles('skala-report.md') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: skala-report-markdown
+          path: skala-report.md

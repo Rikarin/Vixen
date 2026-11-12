@@ -3,7 +3,6 @@
 
 using Vixen.Animation;
 using Vixen.Animation.Ecs;
-using Vixen.Core;
 using Vixen.Core.Mathematics;
 using Vixen.Core.Threading;
 using Vixen.Ecs;
@@ -95,7 +94,7 @@ public sealed class NetworkBonesCaptureSystem : SystemBase, IDeclaredAccess {
     public bool IsAuthority(NetworkId id) =>
         Rules is { } rules
             ? rules.MayWrite(id, Local)
-            : NetworkRules.Allows(RuleAudience.ServerOnly, Local, isOwner: false);
+            : NetworkRules.Allows(RuleAudience.ServerOnly, Local, false);
 
     static int Read(Animator animator, int[] joints, ref NetworkBones bones) {
         var pose = animator.Pose;
@@ -215,7 +214,7 @@ public sealed class NetworkBonesApplySystem : SystemBase, IDeclaredAccess {
     public bool IsAuthority(NetworkId id) =>
         Rules is { } rules
             ? rules.MayWrite(id, Local)
-            : NetworkRules.Allows(RuleAudience.ServerOnly, Local, isOwner: false);
+            : NetworkRules.Allows(RuleAudience.ServerOnly, Local, false);
 
     static void Pose(Animator animator, int[] joints, in NetworkBones bones) {
         var pose = animator.Pose;

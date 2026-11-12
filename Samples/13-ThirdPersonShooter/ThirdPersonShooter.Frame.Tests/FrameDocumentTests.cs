@@ -4,7 +4,6 @@
 using Vixen.Core.Mathematics;
 using Vixen.Core.Threading;
 using Vixen.Core.Yaml;
-using Vixen.Core.Yaml.Meta;
 using Vixen.Graphics.Null;
 using Vixen.Rendering;
 using Vixen.Rendering.Compositor;
@@ -31,10 +30,14 @@ namespace Vixen.Samples.ThirdPersonShooter.Tests;
 ///     </para>
 /// </remarks>
 public sealed class FrameDocumentTests : IDisposable {
-    /// <summary>The same registration <c>CompositorImporter</c> makes, for the same reason: the
+    /// <summary>
+    ///     The same registration <c>CompositorImporter</c> makes, for the same reason: the
     ///     document writes colours and vectors as plain scalars — <c>colour: 0.42 0.30 0.20</c> —
-    ///     and the generator describes no such shape on its own.</summary>
-    static FrameDocumentTests() => MathScalars.Register();
+    ///     and the generator describes no such shape on its own.
+    /// </summary>
+    static FrameDocumentTests() {
+        MathScalars.Register();
+    }
 
     readonly NullDevice device = new(new() { Record = true });
 
@@ -87,16 +90,31 @@ public sealed class FrameDocumentTests : IDisposable {
     public void The_enabled_set_is_what_the_split_made_composable() {
         using var built = Build();
 
-        Assert.True(built.Builder.Nodes["Gather"].Enabled, "the split gave the gather its depth decode and its normals producer");
+        Assert.True(
+            built.Builder.Nodes["Gather"].Enabled,
+            "the split gave the gather its depth decode and its normals producer"
+        );
         Assert.True(built.Builder.Nodes["Occlusion"].Enabled, "the combine consumes the occlusion plane now");
-        Assert.True(built.Builder.Nodes["ContactOcclusion"].Enabled, "the combine multiplies contact into the same ambient");
+        Assert.True(
+            built.Builder.Nodes["ContactOcclusion"].Enabled,
+            "the combine multiplies contact into the same ambient"
+        );
         Assert.True(built.Builder.Nodes["Combine"].Enabled, "the combine is where the split frame becomes whole");
-        Assert.True(built.Builder.Nodes["Mirrors"].Enabled, "the reflections target enters the frame's namespace now — the last of doc 19's nodes to flip");
+        Assert.True(
+            built.Builder.Nodes["Mirrors"].Enabled,
+            "the reflections target enters the frame's namespace now — the last of doc 19's nodes to flip"
+        );
 
-        Assert.False(built.Builder.Nodes["Indirect"].Enabled, "the gather already supplies the screen irradiance — both is double-counted skylight");
+        Assert.False(
+            built.Builder.Nodes["Indirect"].Enabled,
+            "the gather already supplies the screen irradiance — both is double-counted skylight"
+        );
         Assert.False(built.Builder.Nodes["Edging"].Enabled, "outlines are a look this level does not want");
 
-        Assert.False(built.Builder.Nodes["Traversal"].Enabled, "nothing mounts WorldRenderer.Clusters — the traversal ran for an empty list");
+        Assert.False(
+            built.Builder.Nodes["Traversal"].Enabled,
+            "nothing mounts WorldRenderer.Clusters — the traversal ran for an empty list"
+        );
 
         Assert.False(
             built.Builder.Nodes["Visibility"].Enabled,
@@ -168,7 +186,8 @@ public sealed class FrameDocumentTests : IDisposable {
     /// </remarks>
     [Fact]
     public void Both_marching_nodes_deepen_the_trace_chains_ring() {
-        using var chain = new HiZPyramid(device) { Reduction = HiZReduction.Nearest };
+        using var chain = new HiZPyramid(device);
+        chain.Reduction = HiZReduction.Nearest;
 
         using var built = Build(builder => builder.TracePyramid = chain);
 
@@ -211,8 +230,7 @@ public sealed class FrameDocumentTests : IDisposable {
         using var visibility = new GpuVisibilityGroup(device);
         using var pyramid = new HiZPyramid(device);
 
-        using var built = Build(
-            builder => {
+        using var built = Build(builder => {
                 builder.Visibility = visibility;
                 builder.Occluders = pyramid;
             }
@@ -223,8 +241,10 @@ public sealed class FrameDocumentTests : IDisposable {
         Assert.Same(pyramid, Assert.IsType<HiZRenderer>(built.Builder.Nodes["Occluders"]).Pyramid);
     }
 
-    /// <summary>The virtual shadow node adopts the host's atlas, and publishes under the one prefix
-    ///     the shading pass declares.</summary>
+    /// <summary>
+    ///     The virtual shadow node adopts the host's atlas, and publishes under the one prefix
+    ///     the shading pass declares.
+    /// </summary>
     /// <remarks>
     ///     <para>
     ///         The handover half is the culling test's above: the atlas is host-owned because a
@@ -257,8 +277,10 @@ public sealed class FrameDocumentTests : IDisposable {
         Assert.True(built.Builder.Nodes["Sun"].Enabled, "the cascades are the map's fall-through, not its casualty");
     }
 
-    /// <summary>The ground is spliced after the pass that draws the level and before the one that
-    ///     writes its velocity — the seat a <c>!StandardFrame</c>'s <c>afterOpaque</c> would use.</summary>
+    /// <summary>
+    ///     The ground is spliced after the pass that draws the level and before the one that
+    ///     writes its velocity — the seat a <c>!StandardFrame</c>'s <c>afterOpaque</c> would use.
+    /// </summary>
     /// <remarks>
     ///     <para>
     ///         ⚠ <b>Position, not presence.</b> A <c>!Terrain</c> node anywhere in the sequence
@@ -278,7 +300,7 @@ public sealed class FrameDocumentTests : IDisposable {
         using var built = Build();
 
         var order = built.Compositor.Game is SceneRendererSequence sequence
-            ? sequence.Children.Select(child => child.ToString()).ToList()
+            ? sequence.Children.Select(static child => child.ToString()).ToList()
             : [];
 
         var main = order.IndexOf("Main");
@@ -311,8 +333,10 @@ public sealed class FrameDocumentTests : IDisposable {
         Assert.Equal("ShadowAtlas", node.ShadowAtlas);
     }
 
-    /// <summary>Every arena material binds its base-colour map, and binds it under the one name the
-    ///     host pairs.</summary>
+    /// <summary>
+    ///     Every arena material binds its base-colour map, and binds it under the one name the
+    ///     host pairs.
+    /// </summary>
     /// <remarks>
     ///     <para>
     ///         ⚠ <b><c>baseColorMap</c> is not a name a material may choose.</b>
@@ -417,7 +441,7 @@ public sealed class FrameDocumentTests : IDisposable {
 
         var compilation = MaterialCompiler.Compile(wall.ToDescriptor(shading));
 
-        Assert.False(compilation.Failed, string.Join("; ", compilation.Diagnostics.Select(one => one.Message)));
+        Assert.False(compilation.Failed, string.Join("; ", compilation.Diagnostics.Select(static one => one.Message)));
 
         var parallax = Assert.Single(wall.Features.OfType<ParallaxOcclusionFeature>());
 
@@ -477,8 +501,12 @@ public sealed class FrameDocumentTests : IDisposable {
     /// <summary>The water's three nodes are in the order doc 35 § D8 requires, and the copy is between them.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The ordering is the whole of § B1, and getting it wrong is undefined behaviour
-    ///         rather than a wrong picture.</b> <c>!Water</c> samples what is behind the surface and
+    ///         ⚠
+    ///         <b>
+    ///             The ordering is the whole of § B1, and getting it wrong is undefined behaviour
+    ///             rather than a wrong picture.
+    ///         </b>
+    ///         <c>!Water</c> samples what is behind the surface and
     ///         writes the finished pixel into the same target the frame was already in; reading a
     ///         target a pass is also writing is undefined on a driver, so a <c>!Copy</c> has to sit
     ///         between the lit frame and the composite. A document that dropped the copy would render
@@ -497,7 +525,7 @@ public sealed class FrameDocumentTests : IDisposable {
         using var built = Build();
 
         var order = built.Compositor.Game is SceneRendererSequence sequence
-            ? sequence.Children.Select(child => child.ToString()).ToList()
+            ? sequence.Children.Select(static child => child.ToString()).ToList()
             : [];
 
         var ground = order.IndexOf("Ground");
@@ -576,8 +604,12 @@ public sealed class FrameDocumentTests : IDisposable {
     /// <summary>Every gate is the same hole in the mesh and in the collider.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The two halves of a wall segment are authored independently and nothing in the
-    ///         build checks that they agree.</b> A <c>scale</c> on the entity decides what you can
+    ///         ⚠
+    ///         <b>
+    ///             The two halves of a wall segment are authored independently and nothing in the
+    ///             build checks that they agree.
+    ///         </b>
+    ///         A <c>scale</c> on the entity decides what you can
     ///         see and a <c>!BoxCollision</c> beside it decides what you can walk through, and a hole
     ///         you can see and not walk through — or walk through and not see — is worse than no hole.
     ///     </para>
@@ -602,8 +634,8 @@ public sealed class FrameDocumentTests : IDisposable {
             var half = 0f;
 
             for (var scan = index + 1;
-                scan < lines.Length && !lines[scan].TrimStart().StartsWith("- name:", StringComparison.Ordinal);
-                scan++) {
+                 scan < lines.Length && !lines[scan].TrimStart().StartsWith("- name:", StringComparison.Ordinal);
+                 scan++) {
                 var line = lines[scan].Trim();
 
                 if (line.StartsWith("scale:", StringComparison.Ordinal)) {
@@ -718,6 +750,5 @@ public sealed class FrameDocumentTests : IDisposable {
     /// <inheritdoc />
     public void Dispose() {
         device.Dispose();
-        GC.SuppressFinalize(this);
     }
 }

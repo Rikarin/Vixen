@@ -56,7 +56,8 @@ public struct GameplayRandom {
     /// <param name="eventId">What the roll is for — a drop event's id, an encounter's, a craft's.</param>
     /// <param name="salt">Which roll within that event: the first item, the second, the quality.</param>
     /// <returns>The stream.</returns>
-    public static GameplayRandom For(ulong eventId, ulong salt = 0) => new(Mix(eventId) ^ Mix(salt + 0x9e3779b97f4a7c15ul));
+    public static GameplayRandom For(ulong eventId, ulong salt = 0) =>
+        new(Mix(eventId) ^ Mix(salt + 0x9e3779b97f4a7c15ul));
 
     /// <summary>Continues a stream from a stored state.</summary>
     /// <param name="state">What <see cref="State" /> reported.</param>
@@ -78,7 +79,7 @@ public struct GameplayRandom {
         var xorshifted = (uint)(((previous >> 18) ^ previous) >> 27);
         var rotation = (int)(previous >> 59);
 
-        return (xorshifted >> rotation) | (xorshifted << ((-rotation) & 31));
+        return (xorshifted >> rotation) | (xorshifted << (-rotation & 31));
     }
 
     /// <summary>The next number in <c>[0, 1)</c>.</summary>
@@ -192,5 +193,5 @@ public struct GameplayRandom {
         return value ^ (value >> 31);
     }
 
-    void Step() => state = (state * Multiplier) + Increment;
+    void Step() => state = state * Multiplier + Increment;
 }

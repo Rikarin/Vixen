@@ -352,8 +352,12 @@ public class SpirvValidationTests {
     ///         that take a scalar happily. <c>OpDot</c> is core, requires "a vector of
     ///         floating-point type" on both operands, and was emitted for the scalar anyway. The
     ///         module generated, every golden matched (they come from the same emitter), and
-    ///         <c>spirv-val</c> refused it: <c>Expected float vector as operand: Dot operand
-    ///         index 2</c>.
+    ///         <c>spirv-val</c> refused it:
+    ///         <c>
+    ///             Expected float vector as operand: Dot operand
+    ///             index 2
+    ///         </c>
+    ///         .
     ///     </para>
     ///     <para>
     ///         The multiply is not a substitution: a dot product of one lane <em>is</em> the

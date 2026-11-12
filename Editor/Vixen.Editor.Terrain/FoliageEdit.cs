@@ -7,7 +7,6 @@ using Vixen.Core.Mathematics;
 using Vixen.Editor.Core;
 using Vixen.Editor.Inspector;
 using Vixen.Foliage;
-using Vixen.Terrain;
 
 namespace Vixen.Editor.Terrain;
 
@@ -127,8 +126,12 @@ public sealed class FoliageSettings {
 
 /// <summary>What kinds of surface accept a foliage stroke.</summary>
 /// <remarks>
-///     ⚠ <b>A stroke ray-tests through the probe, which is already the seam <c>ScenePlacement</c>
-///     uses to answer "where does this go".</b> So painting onto a blockout wall works on the day
+///     ⚠
+///     <b>
+///         A stroke ray-tests through the probe, which is already the seam <c>ScenePlacement</c>
+///         uses to answer "where does this go".
+///     </b>
+///     So painting onto a blockout wall works on the day
 ///     blockout meshes are probeable, with no foliage-specific code — which is [§ The foliage
 ///     tools]'s claim and the reason these are a filter over an existing question rather than four
 ///     new ones.
@@ -308,7 +311,7 @@ public sealed class FoliageEdit {
                         break;
 
                     case FoliageTool.Fill:
-                        Scatter(volume, surface, ground, radius, strength: 1f);
+                        Scatter(volume, surface, ground, radius, 1f);
                         break;
 
                     case FoliageTool.Reapply:
@@ -429,9 +432,7 @@ public sealed class FoliageEdit {
             before[index] = volume.At(addresses[index]) ?? default;
         }
 
-        var command = new FoliageMoveCommand(volume, addresses, before, offset, Rebind);
-
-        return command;
+        return new FoliageMoveCommand(volume, addresses, before, offset, Rebind);
     }
 
     /// <summary>Why a stroke cannot start.</summary>
@@ -468,7 +469,7 @@ public sealed class FoliageEdit {
                 ground,
                 radius,
                 strength,
-                FoliageScatter.Hash(strokeSeed, (type * 977) + placed.Count),
+                FoliageScatter.Hash(strokeSeed, type * 977 + placed.Count),
                 placed
             );
         }

@@ -45,8 +45,12 @@ enum SystemMessage : byte {
     ///     which are the receiver's outbound loss.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>A new value rather than a longer <see cref="Pong" />, and the difference is
-    ///     compatibility.</b> Both dispatch switches end in a <c>default:</c> that drops an unknown
+    ///     ⚠
+    ///     <b>
+    ///         A new value rather than a longer <see cref="Pong" />, and the difference is
+    ///         compatibility.
+    ///     </b>
+    ///     Both dispatch switches end in a <c>default:</c> that drops an unknown
     ///     message without comment, so a peer that has never heard of this ignores it and loses only
     ///     the measurement. Lengthening <see cref="Pong" /> breaks the other way and breaks silently:
     ///     its fields are read in one <c>&amp;&amp;</c> chain with <c>Clock.Synchronize</c> inside it

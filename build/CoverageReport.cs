@@ -2,10 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System;
-using System.Collections.Generic;
 using System.Globalization;
-using System.IO;
-using System.Linq;
 using System.Xml.Linq;
 
 /// <summary>
@@ -75,9 +72,9 @@ static class CoverageReport {
 
         var declared = XDocument.Load(sibling)
             .Descendants()
-            .Where(element => element.Name.LocalName == "AssemblyName")
-            .Select(element => element.Value.Trim())
-            .FirstOrDefault(value => value.Length > 0);
+            .Where(static element => element.Name.LocalName == "AssemblyName")
+            .Select(static element => element.Value.Trim())
+            .FirstOrDefault(static value => value.Length > 0);
 
         return declared ?? stem;
     }
@@ -93,8 +90,12 @@ static class CoverageReport {
     ///         against 80.8 % of the assembly the suite is named after.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Every line in a cobertura document is written twice, and counting the descendants
-    ///         counts both.</b> A <c>&lt;class&gt;</c> lists its lines once inside each
+    ///         ⚠
+    ///         <b>
+    ///             Every line in a cobertura document is written twice, and counting the descendants
+    ///             counts both.
+    ///         </b>
+    ///         A <c>&lt;class&gt;</c> lists its lines once inside each
     ///         <c>&lt;method&gt;</c> and once more in its own <c>&lt;lines&gt;</c>, so
     ///         <c>package.Descendants("line")</c> reports an assembly at about double its size —
     ///         measured on <c>Vixen.Core.Mathematics</c>, 8 444 of 11 318 for a package that is 4 221
@@ -175,12 +176,14 @@ static class CoverageReport {
     ///     for one that reached here anyway, rather than writing <c>NaN%</c> or <c>0.0%</c> into a
     ///     table somebody reads.
     /// </exception>
-    public static double Rate(Row row) => row.Total > 0
-        ? (double)row.Covered / row.Total
-        : throw new ArgumentException(
-            $"{row.Subject} is {row.Covered} of {row.Total} lines, and a rate over no lines is not a "
-            + "rate. A suite whose subject the document does not list has not measured zero.",
-            nameof(row));
+    public static double Rate(Row row) =>
+        row.Total > 0
+            ? (double)row.Covered / row.Total
+            : throw new ArgumentException(
+                $"{row.Subject} is {row.Covered} of {row.Total} lines, and a rate over no lines is not a "
+                + "rate. A suite whose subject the document does not list has not measured zero.",
+                nameof(row)
+            );
 
     /// <summary>
     ///     <c>artifacts/coverage/coverage.md</c>, as lines, from the rows a run measured.
@@ -204,16 +207,16 @@ static class CoverageReport {
             "# Coverage",
             string.Empty,
             "Line coverage of each test project's own subject assembly, as last measured. No number "
-            + "here gates anything — see docs/plan/12 § \"Coverage, and why there is no `Coverage` "
-            + "target\" for why a floor would be worse than the gap it fills.",
+            + """here gates anything — see docs/plan/12 § "Coverage, and why there is no `Coverage` """
+            + """target" for why a floor would be worse than the gap it fills.""",
             string.Empty,
             "| Subject | Lines covered | Lines | Rate |",
             "| --- | ---: | ---: | ---: |"
         };
 
         foreach (var row in rows
-            .OrderBy(Rate)
-            .ThenBy(row => row.Subject, StringComparer.Ordinal)) {
+                     .OrderBy(Rate)
+                     .ThenBy(static row => row.Subject, StringComparer.Ordinal)) {
             lines.Add(
                 string.Create(
                     CultureInfo.InvariantCulture,

@@ -52,12 +52,12 @@ public class LoweringDiagnosticsTests {
 
     static void AssertLowering(string source, params string[] expectedIds) {
         var diagnostics = LoweringDiagnosticsOf(source);
-        var actual = diagnostics.Select(d => d.Id).Distinct().ToArray();
+        var actual = diagnostics.Select(static d => d.Id).Distinct().ToArray();
 
         Assert.True(
             expectedIds.SequenceEqual(actual),
             $"Expected [{string.Join(", ", expectedIds)}] but got:\n"
-            + string.Join("\n", diagnostics.Select(d => d.ToString()))
+            + string.Join("\n", diagnostics.Select(static d => d.ToString()))
         );
     }
 }

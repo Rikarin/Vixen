@@ -40,7 +40,7 @@ public sealed class BlendTree1D : Motion {
         ArgumentNullException.ThrowIfNull(children);
 
         Parameter = parameter;
-        this.children = [.. children.OrderBy(child => child.Threshold)];
+        this.children = [..children.OrderBy(static child => child.Threshold)];
 
         if (this.children.Length == 0) {
             throw new ArgumentException("A blend tree needs at least one motion.", nameof(children));

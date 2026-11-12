@@ -15,8 +15,12 @@ namespace Vixen.App.Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Nothing else in the tree can produce this state, which is why the defect it covers
-///         survived.</b> <c>HeadlessSurface.Handle</c> is <c>SurfaceHandle.None</c> unconditionally,
+///         ⚠
+///         <b>
+///             Nothing else in the tree can produce this state, which is why the defect it covers
+///             survived.
+///         </b>
+///         <c>HeadlessSurface.Handle</c> is <c>SurfaceHandle.None</c> unconditionally,
 ///         so every test that has ever run the host has run it offscreen — and "offscreen" is the
 ///         one branch of <c>AppGraphics.RequestCapture</c> that writes a picture. A desktop run is
 ///         the other branch, and it had no coverage at all.

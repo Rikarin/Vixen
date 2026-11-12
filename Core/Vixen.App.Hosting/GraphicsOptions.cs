@@ -40,8 +40,12 @@ public sealed class GraphicsOptions {
     /// <summary>Extra node kinds the frame may name, beyond the ones the builder knows itself.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Filled in <c>Game.OnConfigure</c>, because the compositor is built before
-    ///         <c>OnInitialise</c> runs.</b> <c>CompositorBuilder</c> cannot switch on a type in a
+    ///         ⚠
+    ///         <b>
+    ///             Filled in <c>Game.OnConfigure</c>, because the compositor is built before
+    ///             <c>OnInitialise</c> runs.
+    ///         </b>
+    ///         <c>CompositorBuilder</c> cannot switch on a type in a
     ///         package downstream of it — <c>Vixen.Rendering.PostFx</c> is one, and a case there would
     ///         be a reference cycle — so a document naming <c>!Bloom</c> or <c>!DistanceFieldAo</c>
     ///         needs a factory that knows them. Adding one here is the only moment early enough.
@@ -106,8 +110,10 @@ public sealed class GraphicsOptions {
     public string? Look { get; set; }
 
     /// <summary>The name of the view the camera fills.</summary>
-    /// <remarks>What a document's <c>view:</c> binds a node to. A name nothing in the document uses
-    /// draws nothing, which the compositor reports as an unbound view rather than silently.</remarks>
+    /// <remarks>
+    ///     What a document's <c>view:</c> binds a node to. A name nothing in the document uses
+    ///     draws nothing, which the compositor reports as an unbound view rather than silently.
+    /// </remarks>
     public string View { get; set; } = "Camera";
 
     /// <summary>The name of the stage the world's drawables are extracted into.</summary>
@@ -117,12 +123,15 @@ public sealed class GraphicsOptions {
     ///     Stages an object is extracted into as well as <see cref="Stage" />.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>A shadow caster is the same object in a second stage, and extraction is where that is
-    ///     decided.</b> <see cref="Stage" /> is the camera's — it is what the frame's view draws — and
+    ///     ⚠
+    ///     <b>
+    ///         A shadow caster is the same object in a second stage, and extraction is where that is
+    ///         decided.
+    ///     </b>
+    ///     <see cref="Stage" /> is the camera's — it is what the frame's view draws — and
     ///     an object only in it is invisible to a shadow pass however carefully the document is
     ///     written. Naming the caster stage here is what puts the bit in the mask
     ///     <c>MeshExtractionSystem</c> stamps on every object.
-    ///
     ///     The view's own mask stays <see cref="Stage" /> alone: a shadow node makes its own views,
     ///     one per cascade, and adding the caster stage to the camera would draw the level twice
     ///     into the frame the player sees.
@@ -134,8 +143,12 @@ public sealed class GraphicsOptions {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The host's half of <c>ShadowMapRenderer.StaticCasterStage</c>, and it does nothing
-    ///         on its own.</b> Three things have to agree before a frame caches its sun shadow: the
+    ///         ⚠
+    ///         <b>
+    ///             The host's half of <c>ShadowMapRenderer.StaticCasterStage</c>, and it does nothing
+    ///             on its own.
+    ///         </b>
+    ///         Three things have to agree before a frame caches its sun shadow: the
     ///         document's <c>!ShadowMap</c> names a <c>staticStage:</c> and a non-zero <c>slack:</c>,
     ///         this names the same stage, and the scene puts
     ///         <c>Vixen.Rendering.Ecs.StaticShadowCaster</c> on the geometry that never moves. Any one
@@ -213,8 +226,12 @@ public sealed class GraphicsOptions {
     ///         <see cref="string.Empty" /> turns the file off and keeps the in-memory cache.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Only the Vulkan backend reads it, and it decides persistence rather than
-    ///         caching.</b> A <c>VkPipelineCache</c> is created either way — without one the driver
+    ///         ⚠
+    ///         <b>
+    ///             Only the Vulkan backend reads it, and it decides persistence rather than
+    ///             caching.
+    ///         </b>
+    ///         A <c>VkPipelineCache</c> is created either way — without one the driver
     ///         compiles the same shader twice for two pipelines that differ only in blend state —
     ///         and this is what makes the second <em>run</em> cheap as well as the second pipeline.
     ///         The blob is driver- and device-specific and is discarded on any mismatch.
@@ -238,8 +255,12 @@ public sealed class GraphicsOptions {
     ///         host reports every candidate's refusal instead of running.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Even when <see cref="GraphicsBackend.Null" /> was named in
-    ///         <see cref="Backends" />.</b> There is no escape hatch on purpose, because there is
+    ///         ⚠
+    ///         <b>
+    ///             Even when <see cref="GraphicsBackend.Null" /> was named in
+    ///             <see cref="Backends" />.
+    ///         </b>
+    ///         There is no escape hatch on purpose, because there is
     ///         already a way to say the thing an escape hatch would say: leave this off and write
     ///         <c>--vixen-backend vulkan,null</c>, which is "a GPU if there is one, the device that
     ///         draws nothing if there is not". Two spellings of that, one of which also claims a
@@ -276,8 +297,11 @@ public sealed class GraphicsOptions {
     /// <summary>GPUs and drivers a backend must not be selected on, whatever they claim.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>The other half of <see cref="Backends" />, and the half that decides <i>when</i>
-    ///         the fall-through happens.</b> A preference list says which APIs to try; this says
+    ///         <b>
+    ///             The other half of <see cref="Backends" />, and the half that decides <i>when</i>
+    ///             the fall-through happens.
+    ///         </b>
+    ///         A preference list says which APIs to try; this says
     ///         which machines the first of them is a lie on.
     ///         <a href="../../docs/plan/10-platforms.md">Doc 10</a> § Android is the case it was
     ///         written for: a phone reports Vulkan, answers every capability query correctly, and
@@ -286,8 +310,12 @@ public sealed class GraphicsOptions {
     ///         known to be lying about it".
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Empty denies nothing, and a deny-list is only ever as good as somebody's
-    ///         curation.</b> The failure it must not have is refusing hardware that works, because
+    ///         ⚠
+    ///         <b>
+    ///             Empty denies nothing, and a deny-list is only ever as good as somebody's
+    ///             curation.
+    ///         </b>
+    ///         The failure it must not have is refusing hardware that works, because
     ///         the symptom is a black screen or a downgraded backend on a machine nobody was
     ///         thinking about — which is why <see cref="GpuDenyList.Parse" /> refuses a rule that
     ///         matches everything and reports a malformed line instead of skipping it.
@@ -382,8 +410,11 @@ public sealed class GraphicsOptions {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <b>The switch [doc 13](../../docs/plan/13-diagnostics.md) § Diagnostic overlays needed
-    ///         and did not have.</b> Frame stats, the mini flame chart, the log tail and the console
+    ///         <b>
+    ///             The switch [doc 13](../../docs/plan/13-diagnostics.md) § Diagnostic overlays needed
+    ///             and did not have.
+    ///         </b>
+    ///         Frame stats, the mini flame chart, the log tail and the console
     ///         were written, tested and reachable from nowhere — <c>DiagnosticOverlaySystem</c> was
     ///         constructed by its own tests and by nothing else in the tree, and no node drew a
     ///         frame's <c>DebugDraw</c>, so every subsystem that had been writing lines into the
@@ -401,8 +432,12 @@ public sealed class GraphicsOptions {
     ///         <see cref="GpuProfiling" />.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>It costs a line pipeline pair and one pass, and nothing else while every panel is
-    ///         off.</b> An overlay reads what its subsystem already published; the pass declares
+    ///         ⚠
+    ///         <b>
+    ///             It costs a line pipeline pair and one pass, and nothing else while every panel is
+    ///             off.
+    ///         </b>
+    ///         An overlay reads what its subsystem already published; the pass declares
     ///         itself only when the frame has geometry queued. What it is not free of is the
     ///         accumulator: <c>DebugDraw.Enabled</c> stays true, so a subsystem drawing gizmos is
     ///         allocating them again.
@@ -413,8 +448,11 @@ public sealed class GraphicsOptions {
     /// <summary>Which panels start switched on, by the names <c>overlay &lt;name&gt;</c> uses.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>Because a headless run has nobody to type at the console, and that is the run a
-    ///         picture comes from.</b> <c>--vixen-overlays</c> registers the panels and leaves all but
+    ///         <b>
+    ///             Because a headless run has nobody to type at the console, and that is the run a
+    ///             picture comes from.
+    ///         </b>
+    ///         <c>--vixen-overlays</c> registers the panels and leaves all but
     ///         the frame stats switched off, which is right for a person with a keyboard and leaves a
     ///         capture unable to show any of the others. <c>--vixen-overlay gpu,water</c> fills it in,
     ///         and implies <see cref="Overlays" />.

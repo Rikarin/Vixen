@@ -31,16 +31,24 @@ public enum ClientTransferState : byte {
 /// </summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Every state before <see cref="ClientTransferState.Switched" /> is one the player is
-///         still playing in.</b> The second session exists so the map can be fetched and the first
+///         ⚠
+///         <b>
+///             Every state before <see cref="ClientTransferState.Switched" /> is one the player is
+///             still playing in.
+///         </b>
+///         The second session exists so the map can be fetched and the first
 ///         snapshot can arrive while they walk around on the first; a client that stopped rendering
 ///         at <see cref="ClientTransferState.Connecting" /> would turn a preload back into a loading
 ///         screen and give up everything the protocol is for.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>Abandoning is not a failure the player sees.</b> The first session was never closed,
-///         so an abort is a second session quietly going away. Doc 27: <i>every abort leaves the
-///         player where they already were, which is always a valid state</i>.
+///         so an abort is a second session quietly going away. Doc 27:
+///         <i>
+///             every abort leaves the
+///             player where they already were, which is always a valid state
+///         </i>
+///         .
 ///     </para>
 /// </remarks>
 public sealed class ClientTransfer {

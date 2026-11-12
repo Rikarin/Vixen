@@ -6,12 +6,10 @@ using Vixen.Core;
 using Vixen.Core.Mathematics;
 using Vixen.Ecs;
 using Vixen.Editor.Core;
-using Vixen.Editor.Core.Scenes;
 using Vixen.Editor.SceneView;
 using Vixen.Editor.Ui;
 using Vixen.Engine.Transforms;
 using Vixen.Geometry;
-using Vixen.Input;
 using Vixen.Rendering;
 using Vixen.Ui;
 using Vixen.Ui.Controls;
@@ -26,8 +24,12 @@ namespace Vixen.Editor.Blockout.Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Every assertion that matters here reads the overlay <c>SceneLines</c> would carry,
-///         not a field the mode set.</b> "The mode computed a cell" and "a designer can see where the
+///         ⚠
+///         <b>
+///             Every assertion that matters here reads the overlay <c>SceneLines</c> would carry,
+///             not a field the mode set.
+///         </b>
+///         "The mode computed a cell" and "a designer can see where the
 ///         next click lands" are two statements, and the second is the whole of what
 ///         <a href="https://github.com/Rikarin/Vixen/issues/374">#374</a> asked for — a preview whose
 ///         entire content is what it looks like.
@@ -69,8 +71,6 @@ public sealed class BlockoutHoverTests : IDisposable {
         if (Directory.Exists(root)) {
             Directory.Delete(root, true);
         }
-
-        GC.SuppressFinalize(this);
     }
 
     // ── The cube grid ───────────────────────────────────────────────────────────────────────────
@@ -94,7 +94,7 @@ public sealed class BlockoutHoverTests : IDisposable {
     /// </remarks>
     [Fact]
     public void Hovering_in_object_mode_draws_the_cell_under_the_pointer() {
-        var (mode, pane) = Hovered(new Vector3(3.5f, 0f, -2.5f));
+        var (mode, pane) = Hovered(new(3.5f, 0f, -2.5f));
 
         Assert.Equal(new GridBox(3, 0, -3, 1, 1, 1), mode.HoverCell);
 
@@ -105,10 +105,10 @@ public sealed class BlockoutHoverTests : IDisposable {
 
         // And the box is the cell: its corners span exactly one step in each direction, from the
         // cell's own corner.
-        Assert.Equal(3f, overlay.Min(vertex => vertex.Position.X), 3);
-        Assert.Equal(4f, overlay.Max(vertex => vertex.Position.X), 3);
-        Assert.Equal(-3f, overlay.Min(vertex => vertex.Position.Z), 3);
-        Assert.Equal(-2f, overlay.Max(vertex => vertex.Position.Z), 3);
+        Assert.Equal(3f, overlay.Min(static vertex => vertex.Position.X), 3);
+        Assert.Equal(4f, overlay.Max(static vertex => vertex.Position.X), 3);
+        Assert.Equal(-3f, overlay.Min(static vertex => vertex.Position.Z), 3);
+        Assert.Equal(-2f, overlay.Max(static vertex => vertex.Position.Z), 3);
     }
 
     /// <summary>Moving off the plane takes the preview away rather than leaving the last cell.</summary>
@@ -164,7 +164,7 @@ public sealed class BlockoutHoverTests : IDisposable {
     /// </remarks>
     [Fact]
     public void The_cube_grid_verb_builds_at_the_hovered_cell() {
-        var (mode, _) = Hovered(new Vector3(5.5f, 0f, 7.5f));
+        var (mode, _) = Hovered(new(5.5f, 0f, 7.5f));
 
         Assert.True(commands!.Execute(BlockoutMode.CubeGridCommand));
 
@@ -197,7 +197,7 @@ public sealed class BlockoutHoverTests : IDisposable {
 
         var before = mesh.FaceCount;
 
-        MeshOperations.LoopCut(mesh, 0, 1, 0.5f);
+        MeshOperations.LoopCut(mesh, 0);
 
         Assert.Equal(before + segments.Count, mesh.FaceCount);
     }
@@ -303,7 +303,7 @@ public sealed class BlockoutHoverTests : IDisposable {
 
         var entity = scene.CreateShape(
             PrimitiveKind.Cube,
-            new LocalTransform { Position = Vector3.Zero, Rotation = Quaternion.Identity, Scale = Vector3.One }
+            new() { Position = Vector3.Zero, Rotation = Quaternion.Identity, Scale = Vector3.One }
         );
 
         new TransformSystem().Resolve(world);
@@ -324,7 +324,7 @@ public sealed class BlockoutHoverTests : IDisposable {
         // Nothing hovered: the cage is drawn and the loop is not.
         Assert.Empty(Loop(pane, mode));
 
-        editing.Hover = new SubObject(SubObjectKind.Edge, 0);
+        editing.Hover = new(SubObjectKind.Edge, 0);
 
         List<(Vector3 A, Vector3 B)> expected = [];
 
@@ -470,7 +470,7 @@ public sealed class BlockoutHoverTests : IDisposable {
         document.Update();
         control.Refresh();
 
-        var pane = new SceneViewport(control, new Selection<Entity>()) { Show = SceneShow.None };
+        var pane = new SceneViewport(control, new()) { Show = SceneShow.None };
 
         pane.Camera.Pivot = at;
         pane.Camera.Distance = 30f;
@@ -508,7 +508,7 @@ public sealed class BlockoutHoverTests : IDisposable {
         shell.Modes.Changed += modes => shell.Context = modes.Context ?? "scene";
         shell.Modes.Activate(BlockoutMode.ModeId);
 
-        mode.Editing = new MeshEdit(scene);
+        mode.Editing = new(scene);
 
         var pane = Pane(at);
 
@@ -542,7 +542,7 @@ public sealed class BlockoutHoverTests : IDisposable {
 
     /// <summary>Just the loop preview's vertices, told apart from the element cage by their colour.</summary>
     IReadOnlyList<LineVertex> Loop(SceneViewport pane, BlockoutMode mode) =>
-        [.. Overlay(pane).Where(vertex => vertex.Colour == mode.LoopColour)];
+        [..Overlay(pane).Where(vertex => vertex.Colour == mode.LoopColour)];
 
     /// <summary>The overlay segments a frame would carry, through the call the presenter makes.</summary>
     IReadOnlyList<LineVertex> Overlay(SceneViewport pane) {

@@ -113,9 +113,9 @@ public static class MikkTSpace {
 
     static Vector3 Unit(Vector3 value) => NotZero(value) ? value * (1f / value.Length()) : value;
 
-    static Vector3 Project(Vector3 value, Vector3 normal) => Unit(value - (normal * Dot(normal, value)));
+    static Vector3 Project(Vector3 value, Vector3 normal) => Unit(value - normal * Dot(normal, value));
 
-    static float Dot(Vector3 one, Vector3 two) => (one.X * two.X) + (one.Y * two.Y) + (one.Z * two.Z);
+    static float Dot(Vector3 one, Vector3 two) => one.X * two.X + one.Y * two.Y + one.Z * two.Z;
 
     /// <summary>What a corner ends up with.</summary>
     struct Space {
@@ -211,12 +211,12 @@ public static class MikkTSpace {
             return tangents;
         }
 
-        Vector3 Point(int triangle, int corner) => positions[list[(triangle * 3) + corner]];
+        Vector3 Point(int triangle, int corner) => positions[list[triangle * 3 + corner]];
 
         static int GridCell(float minimum, float maximum, float value) {
             var cell = (int)(Cells * ((value - minimum) / (maximum - minimum)));
 
-            return cell < Cells ? (cell >= 0 ? cell : 0) : Cells - 1;
+            return cell < Cells ? cell >= 0 ? cell : 0 : Cells - 1;
         }
 
         /// <summary>Points every corner with the same position, normal and coordinate at one of them.</summary>
@@ -413,8 +413,8 @@ public static class MikkTSpace {
                         finding = false;
                     } else {
                         for (var corner = 0; corner < 3; corner++) {
-                            (list[(at * 3) + corner], list[(other * 3) + corner]) =
-                                (list[(other * 3) + corner], list[(at * 3) + corner]);
+                            (list[at * 3 + corner], list[other * 3 + corner]) =
+                                (list[other * 3 + corner], list[at * 3 + corner]);
                         }
 
                         (flags[at], flags[other]) = (flags[other], flags[at]);
@@ -439,15 +439,15 @@ public static class MikkTSpace {
             for (var triangle = 0; triangle < good; triangle++) {
                 flags[triangle] |= GroupWithAny;
 
-                var (c0, c1, c2) = (list[triangle * 3], list[(triangle * 3) + 1], list[(triangle * 3) + 2]);
+                var (c0, c1, c2) = (list[triangle * 3], list[triangle * 3 + 1], list[triangle * 3 + 2]);
                 var (t0, t1, t2) = (Coordinate(c0), Coordinate(c1), Coordinate(c2));
                 var (t21x, t21y) = (t1.X - t0.X, t1.Y - t0.Y);
                 var (t31x, t31y) = (t2.X - t0.X, t2.Y - t0.Y);
                 var d1 = positions[c1] - positions[c0];
                 var d2 = positions[c2] - positions[c0];
-                var area = (t21x * t31y) - (t21y * t31x);
-                var s = (d1 * t31y) - (d2 * t21y);
-                var t = (d1 * -t31x) + (d2 * t21x);
+                var area = t21x * t31y - t21y * t31x;
+                var s = d1 * t31y - d2 * t21y;
+                var t = d1 * -t31x + d2 * t21x;
 
                 flags[triangle] |= area > 0f ? OrientPreserving : 0;
 
@@ -480,13 +480,11 @@ public static class MikkTSpace {
 
             for (var face = 0; face < good; face++) {
                 for (var corner = 0; corner < 3; corner++) {
-                    var one = list[(face * 3) + corner];
-                    var two = list[(face * 3) + (corner < 2 ? corner + 1 : 0)];
+                    var one = list[face * 3 + corner];
+                    var two = list[face * 3 + (corner < 2 ? corner + 1 : 0)];
 
-                    edges[(face * 3) + corner] = new() {
-                        Low = one < two ? one : two,
-                        High = !(one < two) ? one : two,
-                        Face = face
+                    edges[face * 3 + corner] = new() {
+                        Low = one < two ? one : two, High = !(one < two) ? one : two, Face = face
                     };
                 }
             }
@@ -521,17 +519,19 @@ public static class MikkTSpace {
             var (low, high, face) = (edges[at].Low, edges[at].High, edges[at].Face);
             var (fromA, toA, numberA) = EdgeOf(face, low, high);
 
-            if (neighbours[(face * 3) + numberA] != -1) {
+            if (neighbours[face * 3 + numberA] != -1) {
                 return;
             }
 
-            for (var other = at + 1; other < edges.Length && edges[other].Low == low && edges[other].High == high; other++) {
+            for (var other = at + 1;
+                 other < edges.Length && edges[other].Low == low && edges[other].High == high;
+                 other++) {
                 var next = edges[other].Face;
                 var (toB, fromB, numberB) = EdgeOf(next, low, high);
 
-                if (fromA == fromB && toA == toB && neighbours[(next * 3) + numberB] == -1) {
-                    neighbours[(face * 3) + numberA] = next;
-                    neighbours[(next * 3) + numberB] = face;
+                if (fromA == fromB && toA == toB && neighbours[next * 3 + numberB] == -1) {
+                    neighbours[face * 3 + numberA] = next;
+                    neighbours[next * 3 + numberB] = face;
 
                     return;
                 }
@@ -540,7 +540,7 @@ public static class MikkTSpace {
 
         /// <summary>A triangle's edge between two welded corners, in the triangle's own direction.</summary>
         (int From, int To, int Number) EdgeOf(int face, int low, int high) {
-            var (c0, c1, c2) = (list[face * 3], list[(face * 3) + 1], list[(face * 3) + 2]);
+            var (c0, c1, c2) = (list[face * 3], list[face * 3 + 1], list[face * 3 + 2]);
 
             if (c0 == low || c0 == high) {
                 return c1 == low || c1 == high ? (c0, c1, 0) : (c2, c0, 2);
@@ -607,22 +607,22 @@ public static class MikkTSpace {
 
             for (var face = 0; face < good; face++) {
                 for (var corner = 0; corner < 3; corner++) {
-                    if ((flags[face] & GroupWithAny) != 0 || assigned[(face * 3) + corner] != Unassigned) {
+                    if ((flags[face] & GroupWithAny) != 0 || assigned[face * 3 + corner] != Unassigned) {
                         continue;
                     }
 
                     var group = count++;
 
-                    assigned[(face * 3) + corner] = group;
+                    assigned[face * 3 + corner] = group;
                     groups[group] = new() {
                         Count = 1,
                         Offset = offset,
-                        Vertex = list[(face * 3) + corner],
+                        Vertex = list[face * 3 + corner],
                         Orient = (flags[face] & OrientPreserving) != 0
                     };
                     members[offset] = face;
 
-                    Spread(group, neighbours[(face * 3) + corner], neighbours[(face * 3) + (corner > 0 ? corner - 1 : 2)]);
+                    Spread(group, neighbours[face * 3 + corner], neighbours[face * 3 + (corner > 0 ? corner - 1 : 2)]);
                     offset += groups[group].Count;
                 }
             }
@@ -639,8 +639,8 @@ public static class MikkTSpace {
 
             while (pending.TryPop(out var face)) {
                 if (face >= 0 && Join(group, face, out var corner)) {
-                    pending.Push(neighbours[(face * 3) + (corner > 0 ? corner - 1 : 2)]);
-                    pending.Push(neighbours[(face * 3) + corner]);
+                    pending.Push(neighbours[face * 3 + (corner > 0 ? corner - 1 : 2)]);
+                    pending.Push(neighbours[face * 3 + corner]);
                 }
             }
         }
@@ -649,9 +649,9 @@ public static class MikkTSpace {
             var vertex = groups[group].Vertex;
             var orient = groups[group].Orient;
 
-            corner = list[face * 3] == vertex ? 0 : list[(face * 3) + 1] == vertex ? 1 : 2;
+            corner = list[face * 3] == vertex ? 0 : list[face * 3 + 1] == vertex ? 1 : 2;
 
-            if (assigned[(face * 3) + corner] != Unassigned) {
+            if (assigned[face * 3 + corner] != Unassigned) {
                 return false;
             }
 
@@ -659,19 +659,19 @@ public static class MikkTSpace {
             // tangent of its own takes the orientation of the first group to reach it.
             if ((flags[face] & GroupWithAny) != 0
                 && assigned[face * 3] == Unassigned
-                && assigned[(face * 3) + 1] == Unassigned
-                && assigned[(face * 3) + 2] == Unassigned) {
+                && assigned[face * 3 + 1] == Unassigned
+                && assigned[face * 3 + 2] == Unassigned) {
                 flags[face] &= ~OrientPreserving;
                 flags[face] |= orient ? OrientPreserving : 0;
             }
 
-            if (((flags[face] & OrientPreserving) != 0) != orient) {
+            if ((flags[face] & OrientPreserving) != 0 != orient) {
                 return false;
             }
 
             members[groups[group].Offset + groups[group].Count] = face;
             groups[group].Count++;
-            assigned[(face * 3) + corner] = group;
+            assigned[face * 3 + corner] = group;
 
             return true;
         }
@@ -689,8 +689,8 @@ public static class MikkTSpace {
 
                 for (var member = 0; member < size; member++) {
                     var face = members[offset + member];
-                    var corner = assigned[face * 3] == group ? 0 : assigned[(face * 3) + 1] == group ? 1 : 2;
-                    var normal = normals[list[(face * 3) + corner]];
+                    var corner = assigned[face * 3] == group ? 0 : assigned[face * 3 + 1] == group ? 1 : 2;
+                    var normal = normals[list[face * 3 + corner]];
                     var s = Project(tangentS[face], normal);
                     var t = Project(tangentT[face], normal);
 
@@ -714,11 +714,11 @@ public static class MikkTSpace {
 
                     if (index < 0) {
                         index = subgroups.Count;
-                        subgroups.Add([.. joined]);
+                        subgroups.Add([..joined]);
                         found.Add(Evaluate(joined, groups[group].Vertex));
                     }
 
-                    spaces[(original[face] * 3) + corner] = new() { S = found[index], Orient = groups[group].Orient };
+                    spaces[original[face] * 3 + corner] = new() { S = found[index], Orient = groups[group].Orient };
                 }
             }
         }
@@ -744,11 +744,11 @@ public static class MikkTSpace {
                     continue;
                 }
 
-                var corner = list[face * 3] == vertex ? 0 : list[(face * 3) + 1] == vertex ? 1 : 2;
-                var index = list[(face * 3) + corner];
+                var corner = list[face * 3] == vertex ? 0 : list[face * 3 + 1] == vertex ? 1 : 2;
+                var index = list[face * 3 + corner];
                 var normal = normals[index];
-                var next = list[(face * 3) + (corner < 2 ? corner + 1 : 0)];
-                var previous = list[(face * 3) + (corner > 0 ? corner - 1 : 2)];
+                var next = list[face * 3 + (corner < 2 ? corner + 1 : 0)];
+                var previous = list[face * 3 + (corner > 0 ? corner - 1 : 2)];
                 var one = Project(positions[previous] - positions[index], normal);
                 var two = Project(positions[next] - positions[index], normal);
                 var angle = (float)Math.Acos(Math.Clamp(Dot(one, two), -1f, 1f));
@@ -773,8 +773,8 @@ public static class MikkTSpace {
 
             for (var triangle = good; triangle < total; triangle++) {
                 for (var corner = 0; corner < 3; corner++) {
-                    if (first.TryGetValue(list[(triangle * 3) + corner], out var at)) {
-                        spaces[(original[triangle] * 3) + corner] = spaces[(original[at / 3] * 3) + (at % 3)];
+                    if (first.TryGetValue(list[triangle * 3 + corner], out var at)) {
+                        spaces[original[triangle] * 3 + corner] = spaces[original[at / 3] * 3 + at % 3];
                     }
                 }
             }

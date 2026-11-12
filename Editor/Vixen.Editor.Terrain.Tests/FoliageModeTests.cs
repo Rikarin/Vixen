@@ -24,8 +24,7 @@ sealed class Meadow(Func<Vector2, bool>? hit = null, Func<Vector2, Vector3>? nor
 public sealed class FoliageModeTests {
     static readonly EditorContext NoContext = null!;
 
-    static FoliageType Tree =>
-        FoliageType.Of("Tree") with { Mesh = "Meshes/pine", Density = 0.05f, Radius = 3f };
+    static FoliageType Tree => FoliageType.Of("Tree") with { Mesh = "Meshes/pine", Density = 0.05f, Radius = 3f };
 
     static (FoliageEdit Edit, FoliageVolume Volume, int Type) Painting(FoliageType? type = null) {
         var volume = new FoliageVolume(new(32f));
@@ -130,7 +129,7 @@ public sealed class FoliageModeTests {
         using var _shell = shell;
 
         shell.Modes.Activate(FoliageMode.ModeId);
-        mode.Editing.Volume = new FoliageVolume();
+        mode.Editing.Volume = new();
 
         Assert.True(shell.Commands.Execute(FoliageMode.AddTypeCommand));
 
@@ -219,7 +218,7 @@ public sealed class FoliageModeTests {
         var placed = volume.InstanceCount;
         Assert.True(placed > 0);
 
-        edit.Begin(new(50f, 50f), invert: true);
+        edit.Begin(new(50f, 50f), true);
         var command = edit.Commit();
 
         Assert.Equal(0, volume.InstanceCount);
@@ -266,7 +265,7 @@ public sealed class FoliageModeTests {
 
         var before = Snapshot(volume);
         Assert.NotEmpty(before);
-        Assert.All(before, entry => Assert.Equal(1f, entry.Scale, 4));
+        Assert.All(before, static entry => Assert.Equal(1f, entry.Scale, 4));
 
         volume.SetType(type, volume.Palette[type] with { MinScale = 2f, MaxScale = 4f });
 
@@ -279,11 +278,11 @@ public sealed class FoliageModeTests {
 
         Assert.Equal(before.Length, after.Length);
         Assert.Equal(
-            before.Select(entry => entry.Position).OrderBy(at => at.X).ToArray(),
-            after.Select(entry => entry.Position).OrderBy(at => at.X).ToArray()
+            before.Select(static entry => entry.Position).OrderBy(static at => at.X).ToArray(),
+            after.Select(static entry => entry.Position).OrderBy(static at => at.X).ToArray()
         );
 
-        Assert.All(after, entry => Assert.InRange(entry.Scale, 2f, 4f));
+        Assert.All(after, static entry => Assert.InRange(entry.Scale, 2f, 4f));
     }
 
     [Fact]
@@ -367,7 +366,7 @@ public sealed class FoliageModeTests {
 
     [Fact]
     public void An_empty_palette_refuses_the_brush_and_says_so() {
-        var edit = new FoliageEdit { Volume = new FoliageVolume(), Surface = new Meadow() };
+        var edit = new FoliageEdit { Volume = new(), Surface = new Meadow() };
 
         Assert.False(edit.CanStroke);
         Assert.False(edit.Begin(new(50f, 50f)));
@@ -453,8 +452,12 @@ public sealed class FoliageModeTests {
 
     /// <summary>A move across a cell boundary re-cells and the selection follows it.</summary>
     /// <remarks>
-    ///     ⚠ <b>The address changes, so a gizmo still holding the old one moves a different tree
-    ///     next frame.</b> That is the failure that reads as the gizmo drifting.
+    ///     ⚠
+    ///     <b>
+    ///         The address changes, so a gizmo still holding the old one moves a different tree
+    ///         next frame.
+    ///     </b>
+    ///     That is the failure that reads as the gizmo drifting.
     /// </remarks>
     [Fact]
     public void Moving_an_instance_across_a_cell_boundary_rebinds_the_selection() {
@@ -475,7 +478,7 @@ public sealed class FoliageModeTests {
         var chunk = Assert.Single(volume.Chunks);
 
         Assert.Equal(new(1, 0), chunk.Cell);
-        Assert.Equal(new FoliageCellKey(1, 0), edit.Selection.Single().Cell);
+        Assert.Equal(new(1, 0), edit.Selection.Single().Cell);
         Assert.Equal(40f, volume.At(edit.Selection.Single())!.Value.Position.X, 3);
     }
 
@@ -535,7 +538,7 @@ public sealed class FoliageModeTests {
         // A grid of strokes across two square kilometres.
         for (var z = 0; z < 40; z++) {
             for (var x = 0; x < 40; x++) {
-                edit.Begin(new(60f + (x * 70f), 60f + (z * 70f)));
+                edit.Begin(new(60f + x * 70f, 60f + z * 70f));
                 edit.Commit();
             }
         }
@@ -588,19 +591,18 @@ public sealed class FoliageModeTests {
         var found = reloaded
             .Within(new(lifted.Position.X, lifted.Position.Z), 0.1f)
             .Select(address => reloaded.At(address)!.Value)
-            .Where(instance => MathF.Abs(instance.Position.Y - 7f) < 1e-3f)
+            .Where(static instance => MathF.Abs(instance.Position.Y - 7f) < 1e-3f)
             .ToArray();
 
         Assert.Single(found);
         Assert.Equal(lifted.Position, found[0].Position);
     }
 
-    static (Vector3 Position, float Scale)[] Snapshot(FoliageVolume volume) =>
-        [
-            .. volume.Chunks
-                .SelectMany(chunk => chunk.Instances)
-                .Select(instance => (instance.Position, instance.Scale))
-                .OrderBy(entry => entry.Position.X)
-                .ThenBy(entry => entry.Position.Z)
-        ];
+    static (Vector3 Position, float Scale)[] Snapshot(FoliageVolume volume) => [
+        ..volume.Chunks
+            .SelectMany(static chunk => chunk.Instances)
+            .Select(static instance => (instance.Position, instance.Scale))
+            .OrderBy(static entry => entry.Position.X)
+            .ThenBy(static entry => entry.Position.Z)
+    ];
 }

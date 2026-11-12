@@ -51,10 +51,10 @@ public sealed class ImportedGeometryLoadsTests {
         var data = Artifact(result, VirtualGeometryContent.ClusterPageArtifact);
 
         using var device = new NullDevice();
-        using var geometry = new VirtualGeometrySystem(device, slots: 32, pageSize: 128 * 1024);
+        using var geometry = new VirtualGeometrySystem(device, 32, 128 * 1024);
 
         var asset = Serializer.Read<VirtualGeometryAsset>(records.ToArray());
-        var index = geometry.Content(3, asset, new MemoryStream(data.ToArray()));
+        var index = geometry.Content(3, asset, new MemoryStream([..data]));
 
         Assert.Equal(0, index);
         Assert.Equal(1, geometry.MeshCount);
@@ -86,17 +86,17 @@ public sealed class ImportedGeometryLoadsTests {
     public async Task Each_artefact_is_its_own_addressable_sub_asset() {
         var result = await Import();
 
-        var ids = result.Artifacts.Select(artifact => artifact.SubAsset).ToArray();
+        var ids = result.Artifacts.Select(static artifact => artifact.SubAsset).ToArray();
 
         Assert.Equal(ids.Length, ids.Distinct().Count());
 
         // And each is declared, because a chunk whose sub-asset the .meta does not name is one nothing
         // can address — the planner's other refusal.
-        foreach (var artifact in result.Artifacts.Where(artifact => !artifact.SubAsset.IsMain)) {
+        foreach (var artifact in result.Artifacts.Where(static artifact => !artifact.SubAsset.IsMain)) {
             Assert.Contains(result.SubAssets, declared => declared.Id == artifact.SubAsset);
         }
 
-        var names = result.SubAssets.Select(declared => declared.Name).ToArray();
+        var names = result.SubAssets.Select(static declared => declared.Name).ToArray();
 
         Assert.Equal(names.Length, names.Distinct(StringComparer.Ordinal).Count());
         Assert.Contains(ModelImporter.ClusterName("Plane"), names);
@@ -118,12 +118,12 @@ public sealed class ImportedGeometryLoadsTests {
 
         var records = Assert.Single(
             result.Artifacts,
-            artifact => artifact.Type == VirtualGeometryContent.ClusterArtifact
+            static artifact => artifact.Type == VirtualGeometryContent.ClusterArtifact
         );
 
         var blob = Assert.Single(
             result.Artifacts,
-            artifact => artifact.Type == VirtualGeometryContent.ClusterPageArtifact
+            static artifact => artifact.Type == VirtualGeometryContent.ClusterPageArtifact
         );
 
         Assert.Equal(records.SubAsset, mesh.Clusters.SubAsset);
@@ -133,11 +133,14 @@ public sealed class ImportedGeometryLoadsTests {
     /// <summary>A mesh imported without clusters says so, rather than pointing at nothing.</summary>
     [Fact]
     public async Task An_unclustered_mesh_carries_no_reference() {
-        var result = await Import(clusters: false);
+        var result = await Import(false);
         var mesh = Serializer.Read<MeshData>(Artifact(result, ModelImporter.MeshType).ToArray());
 
         Assert.False(mesh.IsClustered);
-        Assert.DoesNotContain(result.Artifacts, artifact => artifact.Type == VirtualGeometryContent.ClusterArtifact);
+        Assert.DoesNotContain(
+            result.Artifacts,
+            static artifact => artifact.Type == VirtualGeometryContent.ClusterArtifact
+        );
     }
 
     static ReadOnlySpan<byte> Artifact(ImportResult result, string type) =>
@@ -181,7 +184,7 @@ public sealed class ImportedGeometryLoadsTests {
 
         for (var y = 0; y < segments; y++) {
             for (var x = 0; x < segments; x++) {
-                var a = (y * (segments + 1)) + x + 1;
+                var a = y * (segments + 1) + x + 1;
                 var b = a + 1;
                 var c = a + segments + 1;
                 var d = c + 1;

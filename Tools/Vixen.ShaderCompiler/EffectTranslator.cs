@@ -26,8 +26,12 @@ namespace Vixen.ShaderCompiler;
 ///     </para>
 ///     <para>
 ///         <strong>The naming has to match the generator, not merely resemble it.</strong>
-///         <c>Vixen.Shaders.Generators</c> emits <c>ParameterKeys.New&lt;float&gt;
-///         ("Lighting.exposure")</c> from the same reflection at build time; this produces the key a
+///         <c>Vixen.Shaders.Generators</c> emits
+///         <c>
+///             ParameterKeys.New&lt;float&gt;
+///             ("Lighting.exposure")
+///         </c>
+///         from the same reflection at build time; this produces the key a
 ///         loaded effect writes through. They are interned by name, so agreeing means they are the
 ///         same object and disagreeing means two keys for one offset — a value set through the
 ///         generated one landing nowhere.
@@ -51,24 +55,38 @@ public static class EffectTranslator {
             ShaderName = effect.Name,
             Target = effect.Target,
             SourceHash = effect.SourceHash,
-            Permutations = [.. Permutations(effect)],
-            Composition = [.. composition.Slots.Select(slot => new EffectComposeBinding(slot.Key, slot.Value))],
-            Stages = [.. effect.Modules.Select(module => new EffectStageData(Stage(module.Stage), [.. module.Bytes], module.Name))],
-            Bindings = [.. Bindings(reflection)],
+            Permutations = [..Permutations(effect)],
+            Composition = [..composition.Slots.Select(static slot => new EffectComposeBinding(slot.Key, slot.Value))],
+            Stages = [
+                ..effect.Modules.Select(static module => new EffectStageData(
+                        Stage(module.Stage),
+                        [..module.Bytes],
+                        module.Name
+                    )
+                )
+            ],
+            Bindings = [..Bindings(reflection)],
             ConstantBufferSize = block?.Binding.Size ?? 0,
-            Parameters = [.. Parameters(effect.Name, reflection)],
+            Parameters = [..Parameters(effect.Name, reflection)],
             VertexInputs = [
-                .. reflection.VertexInputs.Select(input => new EffectVertexInputData(input.Name, input.Location, Kind(input.Type)))
+                ..reflection.VertexInputs.Select(static input => new EffectVertexInputData(
+                        input.Name,
+                        input.Location,
+                        Kind(input.Type)
+                    )
+                )
             ],
             PushConstants = [
-                .. reflection.PushConstants.Select(
-                    range => new EffectPushConstantData(
+                ..reflection.PushConstants.Select(static range => new EffectPushConstantData(
                         Stages(range.Stages),
                         range.Offset,
                         range.Size,
                         [
-                            .. range.Members.Select(
-                                member => new EffectPushConstantMember(member.Name, member.Offset, member.Size)
+                            ..range.Members.Select(static member => new EffectPushConstantMember(
+                                    member.Name,
+                                    member.Offset,
+                                    member.Size
+                                )
                             )
                         ]
                     )
@@ -159,7 +177,11 @@ public static class EffectTranslator {
         }
     }
 
-    static IEnumerable<EffectParameterData> Parameters(string shaderName, RavenReflection reflection, UniformBlock block) {
+    static IEnumerable<EffectParameterData> Parameters(
+        string shaderName,
+        RavenReflection reflection,
+        UniformBlock block
+    ) {
         var slot = (DescriptorSetSlot)block.Set;
 
         foreach (var parameter in reflection.Parameters) {
@@ -178,12 +200,13 @@ public static class EffectTranslator {
             var count = ElementCount(block.Binding, parameter.Name[..marker]);
 
             for (var index = 0; index < count; index++) {
-                var name = $"{parameter.Name[..marker]}[{index.ToString(System.Globalization.CultureInfo.InvariantCulture)}]{parameter.Name[(marker + 2)..]}";
+                var name =
+                    $"{parameter.Name[..marker]}[{index.ToString(System.Globalization.CultureInfo.InvariantCulture)}]{parameter.Name[(marker + 2)..]}";
 
                 yield return new(
                     Qualified(shaderName, name),
                     kind,
-                    parameter.Offset + (index * parameter.ArrayStride),
+                    parameter.Offset + index * parameter.ArrayStride,
                     parameter.Size,
                     slot
                 );
@@ -236,32 +259,32 @@ public static class EffectTranslator {
     /// </remarks>
     static string Qualified(string shaderName, string name) => $"{shaderName}.{name}";
 
-    static Vixen.Graphics.ShaderStage Stage(RavenStage stage) =>
+    static ShaderStage Stage(RavenStage stage) =>
         stage switch {
-            RavenStage.Vertex => Vixen.Graphics.ShaderStage.Vertex,
-            RavenStage.Fragment => Vixen.Graphics.ShaderStage.Fragment,
-            RavenStage.Geometry => Vixen.Graphics.ShaderStage.Geometry,
-            RavenStage.Compute => Vixen.Graphics.ShaderStage.Compute,
-            _ => Vixen.Graphics.ShaderStage.None
+            RavenStage.Vertex => ShaderStage.Vertex,
+            RavenStage.Fragment => ShaderStage.Fragment,
+            RavenStage.Geometry => ShaderStage.Geometry,
+            RavenStage.Compute => ShaderStage.Compute,
+            _ => ShaderStage.None
         };
 
-    static Vixen.Graphics.ShaderStage Stages(ShaderStages stages) {
-        var result = Vixen.Graphics.ShaderStage.None;
+    static ShaderStage Stages(ShaderStages stages) {
+        var result = ShaderStage.None;
 
         if (stages.HasFlag(ShaderStages.Vertex)) {
-            result |= Vixen.Graphics.ShaderStage.Vertex;
+            result |= ShaderStage.Vertex;
         }
 
         if (stages.HasFlag(ShaderStages.Fragment)) {
-            result |= Vixen.Graphics.ShaderStage.Fragment;
+            result |= ShaderStage.Fragment;
         }
 
         if (stages.HasFlag(ShaderStages.Geometry)) {
-            result |= Vixen.Graphics.ShaderStage.Geometry;
+            result |= ShaderStage.Geometry;
         }
 
         if (stages.HasFlag(ShaderStages.Compute)) {
-            result |= Vixen.Graphics.ShaderStage.Compute;
+            result |= ShaderStage.Compute;
         }
 
         return result;

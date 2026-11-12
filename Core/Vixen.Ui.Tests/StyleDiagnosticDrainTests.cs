@@ -12,8 +12,12 @@ namespace Vixen.Ui.Tests;
 /// <summary>That a stylesheet Vixen could not read says so somewhere a person will find it.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>The sabotage these are written against is deleting the drain, not breaking the
-///         producer.</b> Every message asserted below already existed and was already correct —
+///         ⚠
+///         <b>
+///             The sabotage these are written against is deleting the drain, not breaking the
+///             producer.
+///         </b>
+///         Every message asserted below already existed and was already correct —
 ///         <c>StyleSheetLoader</c> has said "Vixen does not understand this rule" since it was
 ///         written. What did not exist was a reader: <c>StyleSheetLoader.Diagnostics</c> is public
 ///         and, outside this repository's own tests, nothing had ever looked at it. Remove the
@@ -36,7 +40,7 @@ public class StyleDiagnosticDrainTests {
     }
 
     static IReadOnlyList<LogRecord> Warnings(RingBufferSink sink) =>
-        [.. sink.Snapshot().Where(record => record.Level >= LogLevel.Warning)];
+        [..sink.Snapshot().Where(static record => record.Level >= LogLevel.Warning)];
 
     /// <summary>The sabotage test: an at-rule nothing understands must not pass in silence.</summary>
     /// <remarks>
@@ -45,8 +49,12 @@ public class StyleDiagnosticDrainTests {
     ///     and all of them used to be dropped by <c>StyleSheetLoader.LoadUnknown</c> with a
     ///     well-worded diagnostic that reached nobody.
     ///     <para>
-    ///         ⚠ <b>This list used to name <c>@container</c> and that was wrong, in the direction this
-    ///         whole file exists to catch.</b> ExCSS 4.3.2 <i>does</i> know <c>@container</c> — it
+    ///         ⚠
+    ///         <b>
+    ///             This list used to name <c>@container</c> and that was wrong, in the direction this
+    ///             whole file exists to catch.
+    ///         </b>
+    ///         ExCSS 4.3.2 <i>does</i> know <c>@container</c> — it
     ///         hands back a <c>ContainerRule</c> with the name and condition already split out, not a
     ///         <c>RuleType.Unknown</c> — so it never went through <c>LoadUnknown</c>, never produced
     ///         the diagnostic this remark credited it with, and fell out of the loader's <c>switch</c>
@@ -257,8 +265,11 @@ public class StyleDiagnosticDrainTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>Two refusals of the same kind are told apart by the rule each names, and nothing
-    ///     else.</b>
+    ///     ⚠
+    ///     <b>
+    ///         Two refusals of the same kind are told apart by the rule each names, and nothing
+    ///         else.
+    ///     </b>
     /// </summary>
     /// <remarks>
     ///     <para>
@@ -291,8 +302,11 @@ public class StyleDiagnosticDrainTests {
         var warnings = Warnings(sink);
         Assert.Equal(2, warnings.Count);
 
-        var card = Assert.Single(warnings, record => record.Message.Contains(".card", StringComparison.Ordinal));
-        var badge = Assert.Single(warnings, record => record.Message.Contains(".badge", StringComparison.Ordinal));
+        var card = Assert.Single(warnings, static record => record.Message.Contains(".card", StringComparison.Ordinal));
+        var badge = Assert.Single(
+            warnings,
+            static record => record.Message.Contains(".badge", StringComparison.Ordinal)
+        );
 
         // Each names its own rule and only its own — which is the fact that fails the moment the
         // rule stops being threaded and both lines collapse back into the same text.
@@ -361,7 +375,11 @@ public class StyleDiagnosticDrainTests {
         Assert.NotEmpty(warnings);
         Assert.All(
             warnings,
-            warning => Assert.Contains(".panel:has(:totally-invented)", warning.Message, StringComparison.Ordinal)
+            static warning => Assert.Contains(
+                ".panel:has(:totally-invented)",
+                warning.Message,
+                StringComparison.Ordinal
+            )
         );
     }
 
@@ -383,13 +401,16 @@ public class StyleDiagnosticDrainTests {
         var warnings = Warnings(sink);
         Assert.Equal(2, warnings.Count);
 
-        Assert.Single(warnings, record => !record.Message.Contains(".badge", StringComparison.Ordinal));
-        Assert.Single(warnings, record => !record.Message.Contains(".card", StringComparison.Ordinal));
+        Assert.Single(warnings, static record => !record.Message.Contains(".badge", StringComparison.Ordinal));
+        Assert.Single(warnings, static record => !record.Message.Contains(".card", StringComparison.Ordinal));
     }
 
     /// <summary>
-    ///     ⚠ <b>The <i>loader</i> threads a rule too, and the four tests above only exercise the
-    ///     compiler's.</b>
+    ///     ⚠
+    ///     <b>
+    ///         The <i>loader</i> threads a rule too, and the four tests above only exercise the
+    ///         compiler's.
+    ///     </b>
     /// </summary>
     /// <remarks>
     ///     <para>
@@ -420,8 +441,11 @@ public class StyleDiagnosticDrainTests {
         var warnings = Warnings(sink);
         Assert.Equal(2, warnings.Count);
 
-        var panel = Assert.Single(warnings, record => record.Message.Contains(".panel", StringComparison.Ordinal));
-        var tray = Assert.Single(warnings, record => record.Message.Contains(".tray", StringComparison.Ordinal));
+        var panel = Assert.Single(
+            warnings,
+            static record => record.Message.Contains(".panel", StringComparison.Ordinal)
+        );
+        var tray = Assert.Single(warnings, static record => record.Message.Contains(".tray", StringComparison.Ordinal));
 
         Assert.DoesNotContain(".tray", panel.Message, StringComparison.Ordinal);
         Assert.DoesNotContain(".panel", tray.Message, StringComparison.Ordinal);
@@ -459,8 +483,8 @@ public class StyleDiagnosticDrainTests {
         var warnings = Warnings(sink);
         Assert.Equal(2, warnings.Count);
 
-        Assert.Single(warnings, record => record.Message.Contains("{ 0% }", StringComparison.Ordinal));
-        Assert.Single(warnings, record => record.Message.Contains("{ 100% }", StringComparison.Ordinal));
+        Assert.Single(warnings, static record => record.Message.Contains("{ 0% }", StringComparison.Ordinal));
+        Assert.Single(warnings, static record => record.Message.Contains("{ 100% }", StringComparison.Ordinal));
 
         foreach (var warning in warnings) {
             Assert.Equal(7006, warning.EventId.Id);
@@ -471,13 +495,19 @@ public class StyleDiagnosticDrainTests {
     // ── The two producers that are not the cascade ──────────────────────────────────────────────
 
     /// <summary>
-    ///     ⚠ <b>A length in a unit that measures no distance is refused correctly and, until now,
-    ///     invisibly.</b>
+    ///     ⚠
+    ///     <b>
+    ///         A length in a unit that measures no distance is refused correctly and, until now,
+    ///         invisibly.
+    ///     </b>
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <b><c>letter-spacing</c> is the worst of the five and the reason this is asserted on
-    ///         the log rather than on a box.</b> The refusal leaves the tracking inherited, an
+    ///         <b>
+    ///             <c>letter-spacing</c> is the worst of the five and the reason this is asserted on
+    ///             the log rather than on a box.
+    ///         </b>
+    ///         The refusal leaves the tracking inherited, an
     ///         element under a root inherits zero, and zero tracking <i>is</i>
     ///         <c>letter-spacing: normal</c> — the initial value. There is no frame, no metric and no
     ///         computed style that differs between "this declaration was thrown away" and "there was
@@ -541,8 +571,11 @@ public class StyleDiagnosticDrainTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>The draw list is a fourth producer with a drain point of its own, because it runs in
-    ///     the draw pass.</b>
+    ///     ⚠
+    ///     <b>
+    ///         The draw list is a fourth producer with a drain point of its own, because it runs in
+    ///         the draw pass.
+    ///     </b>
     /// </summary>
     /// <remarks>
     ///     <para>
@@ -759,7 +792,10 @@ public class StyleDiagnosticDrainTests {
 
         // ⚠ And it is NOT in the document's ledger of refusals, which is what a hot reload compares:
         // the declaration applied, and a save that adds one must not be rolled back (#1396).
-        Assert.DoesNotContain(document.Refusals(), line => line.Contains("choice-list.tall", StringComparison.Ordinal));
+        Assert.DoesNotContain(
+            document.Refusals(),
+            static line => line.Contains("choice-list.tall", StringComparison.Ordinal)
+        );
     }
 
     /// <summary>The clip the author asked for says nothing, and so does content that fits.</summary>
@@ -817,8 +853,8 @@ public class StyleDiagnosticDrainTests {
         var warnings = Warnings(sink);
 
         Assert.Equal(2, warnings.Count);
-        Assert.Contains(warnings, one => one.Message.Contains("'console-detail'", StringComparison.Ordinal));
-        Assert.Contains(warnings, one => one.Message.Contains("'message-log-detail'", StringComparison.Ordinal));
+        Assert.Contains(warnings, static one => one.Message.Contains("'console-detail'", StringComparison.Ordinal));
+        Assert.Contains(warnings, static one => one.Message.Contains("'message-log-detail'", StringComparison.Ordinal));
     }
 
     /// <summary>A stand-in for a control: an element that names a tag of its own, as every control does.</summary>
@@ -876,7 +912,10 @@ public class StyleDiagnosticDrainTests {
         // that adds to that list, and deleting the rule that restated a control's declarations is a
         // legitimate edit that adds exactly this — so filing it there made the editor refuse its own
         // theme being emptied.
-        Assert.DoesNotContain(document.Refusals(), line => line.Contains("copied-list", StringComparison.Ordinal));
+        Assert.DoesNotContain(
+            document.Refusals(),
+            static line => line.Contains("copied-list", StringComparison.Ordinal)
+        );
     }
 
     /// <summary>The same control restated, under its own tag, or a plain element under any tag says nothing.</summary>
@@ -938,8 +977,12 @@ public class StyleDiagnosticDrainTests {
 
     /// <summary>A rule loaded later that restates what was lost is heard, and a sheet that drops it is heard again.</summary>
     /// <remarks>
-    ///     ⚠ <b>The own tag's answer is cached, and a cache that outlived a sheet change would report
-    ///     the old sheet for ever.</b> Asked here the only way that matters: the same elements, the
+    ///     ⚠
+    ///     <b>
+    ///         The own tag's answer is cached, and a cache that outlived a sheet change would report
+    ///         the old sheet for ever.
+    ///     </b>
+    ///     Asked here the only way that matters: the same elements, the
     ///     own rule narrowed by a later sheet, and a fresh report that names what the new sheet asks
     ///     for.
     /// </remarks>

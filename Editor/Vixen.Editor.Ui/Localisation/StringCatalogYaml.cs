@@ -59,10 +59,12 @@ public static class StringCatalogYaml {
         ArgumentNullException.ThrowIfNull(yaml);
 
         if (YamlReader.Read(yaml) is not YamlMapping document) {
-            return new StringCatalog(language);
+            return new(language);
         }
 
-        var catalog = new StringCatalog((document["language"] as YamlScalar)?.Value is { Length: > 0 } named ? named : language);
+        var catalog = new StringCatalog(
+            (document["language"] as YamlScalar)?.Value is { Length: > 0 } named ? named : language
+        );
 
         if (document["strings"] is YamlMapping strings) {
             foreach (var (id, node) in strings) {

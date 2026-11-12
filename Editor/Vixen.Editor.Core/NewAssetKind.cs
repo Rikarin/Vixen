@@ -46,8 +46,12 @@ public sealed record NewAssetKind(
 ) {
     /// <summary>Produces the contents per file, or <see langword="null" /> to use <see cref="Contents" />.</summary>
     /// <remarks>
-    ///     ⚠ <b>Per creation rather than per registration, which is the whole reason it is a delegate
-    ///     and not a longer string.</b> A starter document that carries an identifier, a name or a
+    ///     ⚠
+    ///     <b>
+    ///         Per creation rather than per registration, which is the whole reason it is a delegate
+    ///         and not a longer string.
+    ///     </b>
+    ///     A starter document that carries an identifier, a name or a
     ///     date is a different file every time it is made — and evaluating it once when a plugin
     ///     loaded would give every asset in the project the first one's, which is a collision nobody
     ///     would look for in the Create menu. A kind whose contents are a fixed template leaves this

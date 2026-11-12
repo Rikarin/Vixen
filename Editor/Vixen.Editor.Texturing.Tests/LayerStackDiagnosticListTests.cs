@@ -10,8 +10,12 @@ namespace Vixen.Editor.Texturing.Tests;
 /// <summary>The diagnostic half of the panel's message list, over diagnostics a stack really raises.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>The half of <a href="https://github.com/Rikarin/Vixen/issues/830">#830</a> that had
-///         no test with a reachable production input.</b> The one test of the new list feeds a
+///         ⚠
+///         <b>
+///             The half of <a href="https://github.com/Rikarin/Vixen/issues/830">#830</a> that had
+///             no test with a reachable production input.
+///         </b>
+///         The one test of the new list feeds a
 ///         <c>Wobble</c> setting the filter node does not declare — which <c>LayerStackGraph</c>
 ///         catches itself and raises as a <c>LayerStackProblem.Warning</c>, the <em>other</em> loop.
 ///         Nothing exercised the <c>NodeDiagnostic</c> loop against anything a stack can express, so
@@ -47,7 +51,7 @@ public class LayerStackDiagnosticListTests {
     [Fact]
     public void A_compiler_diagnostic_from_a_mask_effect_is_listed() {
         var compilation = Compiled("only");
-        var diagnostic = Assert.Single(new HashSet<string>(compilation.Diagnostics.Select(one => one.Id)));
+        var diagnostic = Assert.Single(new HashSet<string>(compilation.Diagnostics.Select(static one => one.Id)));
 
         Assert.Equal("TG0010", diagnostic);
 
@@ -95,7 +99,7 @@ public class LayerStackDiagnosticListTests {
         }
 
         Assert.True(channels > 1, "One channel, so the per-channel arithmetic below proves nothing.");
-        Assert.Equal((channels * 2) + relief, nodes - compilation.Layers.Count);
+        Assert.Equal(channels * 2 + relief, nodes - compilation.Layers.Count);
     }
 
     /// <summary>
@@ -137,8 +141,14 @@ public class LayerStackDiagnosticListTests {
         var lines = Describe(both);
 
         Assert.Equal(2, lines.Count);
-        Assert.Contains(lines, line => line.StartsWith("Error — layer 'first' TG0010:", StringComparison.Ordinal));
-        Assert.Contains(lines, line => line.StartsWith("Error — layer 'second' TG0010:", StringComparison.Ordinal));
+        Assert.Contains(
+            lines,
+            static line => line.StartsWith("Error — layer 'first' TG0010:", StringComparison.Ordinal)
+        );
+        Assert.Contains(
+            lines,
+            static line => line.StartsWith("Error — layer 'second' TG0010:", StringComparison.Ordinal)
+        );
 
         // ⚠ And each line still stands for the whole per-channel fan-out rather than for one node:
         // measured off the compile, so a set that grows a channel moves both halves together.
@@ -153,16 +163,18 @@ public class LayerStackDiagnosticListTests {
 
     /// <summary>The lines the panel would render for one compilation.</summary>
     /// <remarks>
-    ///     ⚠ <b>Through <c>LayerStackPicture</c> and not through a fixture, because the compile is
-    ///     pure.</b> Everything under test here is known before a device is asked for, so a test that
+    ///     ⚠
+    ///     <b>
+    ///         Through <c>LayerStackPicture</c> and not through a fixture, because the compile is
+    ///         pure.
+    ///     </b>
+    ///     Everything under test here is known before a device is asked for, so a test that
     ///     opened a panel would be asserting this and a graphics service at once — and would skip on
     ///     the machine that has neither.
     /// </remarks>
     static IReadOnlyList<string> Describe(LayerStackCompilation compilation) {
-        LayerStackPicture picture = new(null, "baseColor", 0, 0, "") {
-            Problems = compilation.Problems,
-            Diagnostics = compilation.Diagnostics,
-            Layers = compilation.Layers
+        LayerStackPicture picture = new(null, "baseColor", 0, 0, string.Empty) {
+            Problems = compilation.Problems, Diagnostics = compilation.Diagnostics, Layers = compilation.Layers
         };
 
         return LayerStackView.Describe(picture);

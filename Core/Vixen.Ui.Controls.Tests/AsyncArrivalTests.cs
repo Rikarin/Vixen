@@ -117,10 +117,11 @@ public class AsyncArrivalTests {
     ///     markup's own <c>&lt;async-guest&gt;</c> is what hangs off it.
     /// </remarks>
     static UiElement Element(AsyncHost host) =>
-        host.Guest.Root.Children.SelectMany(child => child.Children).Single(child => child.Tag == "async-state");
+        host.Guest.Root.Children.SelectMany(static child => child.Children)
+            .Single(static child => child.Tag == "async-state");
 
     static UiTest Host(out AsyncHost host) {
-        var ui = ControlHarness.Open(400f, 300f);
+        var ui = ControlHarness.Open();
 
         host = new();
 

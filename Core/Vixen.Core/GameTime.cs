@@ -77,10 +77,11 @@ public readonly record struct GameTime(
 
     /// <summary>Renders the frame number and both deltas, for logs and overlays.</summary>
     /// <returns>The time in text.</returns>
-    public override string ToString() => string.Create(
-        CultureInfo.InvariantCulture,
-        $"frame {FrameCount} @ {Total.TotalSeconds:F3}s (dt {Elapsed.TotalMilliseconds:F2}ms, scale {TimeScale:F2})"
-    );
+    public override string ToString() =>
+        string.Create(
+            CultureInfo.InvariantCulture,
+            $"frame {FrameCount} @ {Total.TotalSeconds:F3}s (dt {Elapsed.TotalMilliseconds:F2}ms, scale {TimeScale:F2})"
+        );
 
     /// <inheritdoc />
     public string ToString(string? format, IFormatProvider? formatProvider) => ToString();

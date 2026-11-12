@@ -18,8 +18,12 @@ public readonly record struct GridAutoRepeatSpan(GridAutoRepeat Kind, int Index,
 /// <summary>Reads a CSS <c>&lt;track-list&gt;</c> into the tracks <see cref="LayoutTree" /> stores.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>This is the inverse of <see cref="GridTrackSize.ToString" />, which is why it lives
-///         here rather than in the styling assembly.</b> <c>Vixen.Ui.Styling</c> resolves declarations
+///         ⚠
+///         <b>
+///             This is the inverse of <see cref="GridTrackSize.ToString" />, which is why it lives
+///             here rather than in the styling assembly.
+///         </b>
+///         <c>Vixen.Ui.Styling</c> resolves declarations
 ///         without knowing what a length measures and cannot see a <see cref="GridTrackSize" /> at
 ///         all; <c>Vixen.Ui</c>, the bridge, can — but so can the layout conformance corpus, and only
 ///         one of those two can be true of a parser that both of them must agree with. A type that
@@ -35,16 +39,24 @@ public readonly record struct GridAutoRepeatSpan(GridAutoRepeat Kind, int Index,
 ///         lines, so a fixture that would break the stylesheet breaks the corpus first.
 ///     </para>
 ///     <para>
-///         ⚠ <b>It is a tokeniser and not a <c>Split</c>, because both of the separators a track list
-///         uses also occur inside its functions.</b> <c>minmax(0px,1fr)</c> holds a comma and
+///         ⚠
+///         <b>
+///             It is a tokeniser and not a <c>Split</c>, because both of the separators a track list
+///             uses also occur inside its functions.
+///         </b>
+///         <c>minmax(0px,1fr)</c> holds a comma and
 ///         <c>repeat(auto-fill, 1px 1px)</c> holds spaces, so splitting on either at the top level
 ///         cuts through a function argument — and the corpus contains
 ///         <c>40px repeat(1, 40px) repeat(auto-fill, 40px)</c>, which needs both separators read
 ///         correctly in one string. A depth counter over the parentheses is the whole of the fix.
 ///     </para>
 ///     <para>
-///         ⚠ <b>A fixed <c>repeat(N, …)</c> is expanded here and an automatic one is not, and that
-///         asymmetry is CSS Grid §7.2.3.2 rather than a shortcut.</b> <c>repeat(4, 10px)</c> is
+///         ⚠
+///         <b>
+///             A fixed <c>repeat(N, …)</c> is expanded here and an automatic one is not, and that
+///             asymmetry is CSS Grid §7.2.3.2 rather than a shortcut.
+///         </b>
+///         <c>repeat(4, 10px)</c> is
 ///         defined as a textual expansion — it means exactly <c>10px 10px 10px 10px</c> and nothing
 ///         downstream can tell the two apart. <c>repeat(auto-fill, …)</c> is not: the number of
 ///         repetitions is computed from the container's own definite size, so it changes when the box
@@ -67,8 +79,12 @@ public static class GridTrackList {
     /// <param name="refusal">Receives the token that could not be read, when this returns false.</param>
     /// <returns>Whether the whole list was understood.</returns>
     /// <remarks>
-    ///     ⚠ <b>The caller supplies the list, because the bridge parses once per restyled element and
-    ///     a grid-heavy panel would otherwise allocate one per element per change.</b> A refusal
+    ///     ⚠
+    ///     <b>
+    ///         The caller supplies the list, because the bridge parses once per restyled element and
+    ///         a grid-heavy panel would otherwise allocate one per element per change.
+    ///     </b>
+    ///     A refusal
     ///     leaves <paramref name="tracks" /> holding whatever had been read before the bad token,
     ///     which no caller may use — the declaration is dropped whole, per CSS's rule for an invalid
     ///     value in an otherwise valid declaration.
@@ -141,8 +157,8 @@ public static class GridTrackList {
                     }
 
                     for (var repetitionIndex = 0;
-                        repetitionIndex < times && tracks.Count < LayoutLimits.MaximumGridTracks;
-                        repetitionIndex++) {
+                         repetitionIndex < times && tracks.Count < LayoutLimits.MaximumGridTracks;
+                         repetitionIndex++) {
                         foreach (var track in repetition) {
                             if (!Emit(tracks, track)) {
                                 break;
@@ -161,7 +177,7 @@ public static class GridTrackList {
         // this grammar is supposed to leave alone. A stylesheet wants the opposite (an empty
         // `grid-template-columns` is a typo, not a template), so that judgement belongs to the
         // caller, which knows which of the two it is. See the bridge's own empty check.
-        return new GridAutoRepeatSpan(kind, autoRepeatIndex, autoRepeatCount);
+        return new(kind, autoRepeatIndex, autoRepeatCount);
     }
 
     // ── Tokenising ──────────────────────────────────────────────────────────────────────────────
@@ -246,8 +262,12 @@ public static class GridTrackList {
 
     /// <summary>One <c>&lt;track-size&gt;</c>: a breadth, a <c>minmax()</c> or a <c>fit-content()</c>.</summary>
     /// <remarks>
-    ///     ⚠ <b>A <c>minmax()</c> whose minimum exceeds its maximum is parsed faithfully and not
-    ///     repaired here.</b> <c>minmax(auto,10px)</c> and <c>minmax(max-content,10px)</c> both occur
+    ///     ⚠
+    ///     <b>
+    ///         A <c>minmax()</c> whose minimum exceeds its maximum is parsed faithfully and not
+    ///         repaired here.
+    ///     </b>
+    ///     <c>minmax(auto,10px)</c> and <c>minmax(max-content,10px)</c> both occur
     ///     in the corpus, and §12.4 is explicit that the growth limit is raised to the base size when
     ///     it ends up below it — a step of the sizing algorithm operating on resolved numbers, not a
     ///     syntactic fixup. Clamping at parse time would resolve <c>max-content</c> against nothing.
@@ -277,11 +297,11 @@ public static class GridTrackList {
 
             // §7.2.2's argument is a <length-percentage> only — a keyword there is not fit-content.
             if (argument.EndsWith("px", StringComparison.Ordinal)) {
-                return GridTrackSize.FitContent(Number(argument[..^2]), isPercent: false);
+                return GridTrackSize.FitContent(Number(argument[..^2]), false);
             }
 
             if (argument.EndsWith('%')) {
-                return GridTrackSize.FitContent(Number(argument[..^1]), isPercent: true);
+                return GridTrackSize.FitContent(Number(argument[..^1]), true);
             }
 
             throw new RefusedException($"fit-content({argument})");

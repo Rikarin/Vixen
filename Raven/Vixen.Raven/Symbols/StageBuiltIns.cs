@@ -168,10 +168,11 @@ public static class StageBuiltIns {
 
     static readonly Dictionary<(string Semantic, ShaderStage Stage), StageBuiltInInfo> Table =
         Known.ToDictionary(
-            b => (b.Semantic, b.Stage),
+            static b => (b.Semantic, b.Stage),
             EqualityComparer<(string, ShaderStage)>.Create(
-                (a, b) => a.Item2 == b.Item2 && string.Equals(a.Item1, b.Item1, StringComparison.OrdinalIgnoreCase),
-                v => HashCode.Combine(v.Item1.ToLowerInvariant(), v.Item2)
+                static (a, b) => a.Item2 == b.Item2
+                    && string.Equals(a.Item1, b.Item1, StringComparison.OrdinalIgnoreCase),
+                static v => HashCode.Combine(v.Item1.ToLowerInvariant(), v.Item2)
             )
         );
 
@@ -185,7 +186,7 @@ public static class StageBuiltIns {
     ///     varies between runs is a golden test that fails for no reason.
     /// </remarks>
     public static string Names(ShaderStage stage) =>
-        string.Join(", ", Known.Where(b => b.Stage == stage).Select(b => b.Semantic));
+        string.Join(", ", Known.Where(b => b.Stage == stage).Select(static b => b.Semantic));
 
     /// <summary>What a semantic names on this stage, or null when it names no built-in.</summary>
     public static StageBuiltInInfo? Of(string? semantic, ShaderStage stage) =>

@@ -8,7 +8,6 @@ using Vixen.Core.Mathematics;
 using Vixen.Editor.AssetEditors.Animation;
 using Vixen.Editor.SceneView;
 using Vixen.Geometry;
-using Vixen.Rendering;
 using Vixen.Ui;
 using Xunit;
 using ShapeKind = Vixen.Animation.Constraints.ShapeKind;
@@ -22,7 +21,9 @@ public class ProxyShapeEditorTests {
         using var project = new EditorFixture();
         var document = Open(project);
 
-        var shape = document.Add(new() { Name = "belly", Kind = ShapeKind.Sphere, Joint = "Spine", Extents = new(0.2f) });
+        var shape = document.Add(
+            new() { Name = "belly", Kind = ShapeKind.Sphere, Joint = "Spine", Extents = new(0.2f) }
+        );
 
         var resized = document.Edit(shape, "Resize Shape", entry => entry with { Extents = new(0.3f) });
 
@@ -75,7 +76,9 @@ public class ProxyShapeEditorTests {
 
         document.Rig = Rig();
 
-        var belly = document.Add(new() { Name = "belly", Kind = ShapeKind.Sphere, Joint = "Spine", Extents = new(0.2f) });
+        var belly = document.Add(
+            new() { Name = "belly", Kind = ShapeKind.Sphere, Joint = "Spine", Extents = new(0.2f) }
+        );
 
         Assert.Null(document.Mirror(belly));
         Assert.Single(document.Set.Shapes);
@@ -104,7 +107,7 @@ public class ProxyShapeEditorTests {
 
         var chosen = document.GenerateCoarse();
 
-        Assert.True(chosen > 0 && chosen < 3, $"a coarse set is a subset, and this one has {chosen} of 3");
+        Assert.True(chosen is > 0 and < 3, $"a coarse set is a subset, and this one has {chosen} of 3");
 
         // One shape's flag, changed by hand, survives as an ordinary edit.
         var first = document.Set.Shapes[0];
@@ -132,7 +135,17 @@ public class ProxyShapeEditorTests {
         view.Against = new() {
             Name = "Other",
             Shapes = [
-                new("belly", ShapeKind.Sphere, "Spine", Vector3.Zero, Quaternion.Identity, new(0.2f), new(0.2f), [], false)
+                new(
+                    "belly",
+                    ShapeKind.Sphere,
+                    "Spine",
+                    Vector3.Zero,
+                    Quaternion.Identity,
+                    new(0.2f),
+                    new(0.2f),
+                    [],
+                    false
+                )
             ]
         };
 
@@ -143,7 +156,11 @@ public class ProxyShapeEditorTests {
 
         var notes = view.Report.Children.Select(static child => child.Text ?? string.Empty).ToArray();
 
-        Assert.Contains(notes, note => note.Contains("palm_l", StringComparison.Ordinal) && note.Contains("silently does nothing", StringComparison.Ordinal));
+        Assert.Contains(
+            notes,
+            static note => note.Contains("palm_l", StringComparison.Ordinal)
+                && note.Contains("silently does nothing", StringComparison.Ordinal)
+        );
     }
 
     /// <summary>With no rig, the panel says what it cannot check rather than checking nothing.</summary>
@@ -274,7 +291,7 @@ public class ProxyShapeEditorTests {
         document.Rig = rig;
 
         var shape = document.Add(Tagged("palm_l", "Hand_l", "hand"));
-        var world = new BoneTransform(new Vector3(10f, 0f, 0f), Quaternion.Identity, Vector3.One);
+        var world = new BoneTransform(new(10f, 0f, 0f), Quaternion.Identity, Vector3.One);
 
         var target = new ProxyShapeGizmoTarget(document, shape, ProxyShapeGizmoTarget.JointOf(rig, [], shape, world));
 
@@ -360,7 +377,7 @@ public class ProxyShapeEditorTests {
 
         // A shape is a record, so the edit replaced it — and the panel has to be holding the
         // replacement rather than the instance that is no longer in the set.
-        Assert.Equal(0.4f, (view.Selected?.Position.X) ?? float.NaN, 3);
+        Assert.Equal(0.4f, view.Selected?.Position.X ?? float.NaN, 3);
 
         document.Stack.Undo();
         Assert.Equal(shape.Position.X, Assert.Single(document.Set.Shapes).Position.X, 3);
@@ -399,14 +416,28 @@ public class ProxyShapeEditorTests {
     }
 
     static ProxyShapeRecord Tagged(string name, string joint, string region) =>
-        new(name, ShapeKind.Sphere, joint, Vector3.Zero, Quaternion.Identity, new(0.15f), new(0.15f), [$"region={region}"], false);
+        new(
+            name,
+            ShapeKind.Sphere,
+            joint,
+            Vector3.Zero,
+            Quaternion.Identity,
+            new(0.15f),
+            new(0.15f),
+            [$"region={region}"],
+            false
+        );
 
     static void Click(ViewHarness harness, UiElement element) {
-        var x = element.AbsoluteLeft + (element.Width / 2f);
-        var y = element.AbsoluteTop + (element.Height / 2f);
+        var x = element.AbsoluteLeft + element.Width / 2f;
+        var y = element.AbsoluteTop + element.Height / 2f;
 
-        harness.Ui.Document.Dispatch(new PointerEvent { X = x, Y = y, Action = PointerAction.Pressed, Button = PointerButton.Primary });
-        harness.Ui.Document.Dispatch(new PointerEvent { X = x, Y = y, Action = PointerAction.Released, Button = PointerButton.Primary });
+        harness.Ui.Document.Dispatch(
+            new PointerEvent { X = x, Y = y, Action = PointerAction.Pressed, Button = PointerButton.Primary }
+        );
+        harness.Ui.Document.Dispatch(
+            new PointerEvent { X = x, Y = y, Action = PointerAction.Released, Button = PointerButton.Primary }
+        );
 
         harness.Ui.Frame();
     }
@@ -435,7 +466,9 @@ public class ProxyShapeEditorTests {
 
             Matrix4x4.Invert(model[index], out var inverse);
 
-            built[index] = new() { Name = joints[index].Name, Parent = joints[index].Parent, InverseBindPose = inverse };
+            built[index] = new() {
+                Name = joints[index].Name, Parent = joints[index].Parent, InverseBindPose = inverse
+            };
         }
 
         return Skeleton.Create(new() { Name = "Body", Joints = built });

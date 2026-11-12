@@ -24,9 +24,7 @@ public class IkTests {
         var (pose, model) = Fresh();
         var target = new Vector3(x, y, z);
 
-        Assert.True(
-            TwoBoneIk.Solve(skeleton, pose.Bones, model, new(0, 1, 2, target, new(0f, 1f, 5f)))
-        );
+        Assert.True(TwoBoneIk.Solve(skeleton, pose.Bones, model, new(0, 1, 2, target, new(0f, 1f, 5f))));
 
         TestRigs.Near(target, TipOf(pose), $"target {target}");
     }
@@ -102,9 +100,7 @@ public class IkTests {
         var left = branching.IndexOf("LeftArm");
         var right = branching.IndexOf("RightArm");
 
-        Assert.False(
-            TwoBoneIk.Solve(branching, pose.Bones, model, new(0, left, right, Vector3.Zero, Vector3.UnitZ))
-        );
+        Assert.False(TwoBoneIk.Solve(branching, pose.Bones, model, new(0, left, right, Vector3.Zero, Vector3.UnitZ)));
     }
 
     [Fact]

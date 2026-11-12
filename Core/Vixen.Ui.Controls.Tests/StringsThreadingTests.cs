@@ -9,8 +9,11 @@ namespace Vixen.Ui.Controls.Tests;
 /// <summary>The language is process-wide; the graph node that announces it is not.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b><a href="https://github.com/Rikarin/Vixen/issues/1413">#1413</a>, and the last
-///         piece of ambient state two correctly single-threaded graphs still shared.</b>
+///         ⚠
+///         <b>
+///             <a href="https://github.com/Rikarin/Vixen/issues/1413">#1413</a>, and the last
+///             piece of ambient state two correctly single-threaded graphs still shared.
+///         </b>
 ///         <c>ReactiveGraph.OwningThread</c> is off by default precisely so that a test host — or an
 ///         editor with more than one graph — may run independent graphs on independent threads, and
 ///         #1030 made <c>ReactiveGraph.Epoch</c> safe for exactly that. <c>Strings</c> was one
@@ -48,10 +51,11 @@ public class StringsThreadingTests {
         string? seen = null;
 
         var other = new Thread(() => {
-            elsewhere = new EffectScheduler();
-            bound = new Effect(() => seen = Probe.Text, elsewhere);
-            elsewhere.Flush();
-        });
+                elsewhere = new();
+                bound = new Effect(() => seen = Probe.Text, elsewhere);
+                elsewhere.Flush();
+            }
+        );
 
         other.Start();
         other.Join();
@@ -143,8 +147,12 @@ public class StringsThreadingTests {
     ///         nothing re-runs and the label keeps the language the process has just left.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>This passed without the invalidation it exists for until its precondition was
-    ///         made explicit.</b> A thread's node is made lazily and seeded with the process's catalog
+    ///         ⚠
+    ///         <b>
+    ///             This passed without the invalidation it exists for until its precondition was
+    ///             made explicit.
+    ///         </b>
+    ///         A thread's node is made lazily and seeded with the process's catalog
     ///         at that moment, so a thread that first touched <c>Strings</c> <em>after</em> the other
     ///         thread's <c>Use</c> made a node already holding the other language, <c>Use(null)</c>
     ///         took the ordinary write, and the branch under test never ran. Whether it ran depended
@@ -160,33 +168,35 @@ public class StringsThreadingTests {
         string? relabelled = null;
 
         var here = new Thread(() => {
-            var scheduler = new EffectScheduler();
-            string? seen = null;
+                var scheduler = new EffectScheduler();
+                string? seen = null;
 
-            try {
-                // ⚠ The line whose absence made this vacuous: this thread's node exists, and holds
-                // the source catalog, before the other thread moves the process away from it.
-                Assert.Same(StringCatalog.Source, Strings.Catalog);
+                try {
+                    // ⚠ The line whose absence made this vacuous: this thread's node exists, and holds
+                    // the source catalog, before the other thread moves the process away from it.
+                    Assert.Same(StringCatalog.Source, Strings.Catalog);
 
-                var elsewhere = new Thread(() => Strings.Use(new StringCatalog("cs").Set(Probe.Id, "Sonda")));
+                    var elsewhere = new Thread(static () => Strings.Use(new StringCatalog("cs").Set(Probe.Id, "Sonda"))
+                    );
 
-                elsewhere.Start();
-                elsewhere.Join();
+                    elsewhere.Start();
+                    elsewhere.Join();
 
-                using var bound = new Effect(() => seen = Probe.Text, scheduler);
+                    using var bound = new Effect(() => seen = Probe.Text, scheduler);
 
-                scheduler.Flush();
-                drawn = seen;
+                    scheduler.Flush();
+                    drawn = seen;
 
-                Strings.Use(null);
-                scheduler.Flush();
-                relabelled = seen;
-            } catch (Exception thrown) {
-                failure = thrown;
-            } finally {
-                Strings.Use(null);
+                    Strings.Use(null);
+                    scheduler.Flush();
+                    relabelled = seen;
+                } catch (Exception thrown) {
+                    failure = thrown;
+                } finally {
+                    Strings.Use(null);
+                }
             }
-        });
+        );
 
         here.Start();
         here.Join();
@@ -209,7 +219,7 @@ public class StringsThreadingTests {
     [Fact]
     public void A_missing_string_asked_for_mid_enumeration_does_not_break_the_reader() {
         try {
-            Strings.Use(new StringCatalog("xx"));
+            Strings.Use(new("xx"));
 
             _ = new StringId("tests.strings.missing.a", "A").Text;
             _ = new StringId("tests.strings.missing.b", "B").Text;
@@ -259,43 +269,49 @@ public class StringsThreadingTests {
         List<Thread> threads = [];
 
         try {
-            Strings.Use(new StringCatalog("xx"));
+            Strings.Use(new("xx"));
 
             for (var t = 0; t < Writers; t++) {
                 var writer = t;
 
-                threads.Add(new Thread(() => {
-                    try {
-                        start.SignalAndWait();
+                threads.Add(
+                    new Thread(() => {
+                            try {
+                                start.SignalAndWait();
 
-                        for (var i = 0; i < Each; i++) {
-                            _ = new StringId($"tests.strings.race.{writer}.{i}", "x").Text;
+                                for (var i = 0; i < Each; i++) {
+                                    _ = new StringId($"tests.strings.race.{writer}.{i}", "x").Text;
+                                }
+                            } catch (Exception failure) {
+                                if (Interlocked.Increment(ref failures) == 1) {
+                                    first = failure.GetType().Name + ": " + failure.Message;
+                                }
+                            } finally {
+                                Interlocked.Increment(ref done);
+                            }
                         }
-                    } catch (Exception failure) {
-                        if (Interlocked.Increment(ref failures) == 1) {
-                            first = failure.GetType().Name + ": " + failure.Message;
-                        }
-                    } finally {
-                        Interlocked.Increment(ref done);
-                    }
-                }));
+                    )
+                );
             }
 
-            threads.Add(new Thread(() => {
-                try {
-                    start.SignalAndWait();
+            threads.Add(
+                new Thread(() => {
+                        try {
+                            start.SignalAndWait();
 
-                    while (Volatile.Read(ref done) < Writers) {
-                        foreach (var id in Strings.Missing) {
-                            _ = id.Length;
+                            while (Volatile.Read(ref done) < Writers) {
+                                foreach (var id in Strings.Missing) {
+                                    _ = id.Length;
+                                }
+                            }
+                        } catch (Exception failure) {
+                            if (Interlocked.Increment(ref failures) == 1) {
+                                first = "reader: " + failure.GetType().Name + ": " + failure.Message;
+                            }
                         }
                     }
-                } catch (Exception failure) {
-                    if (Interlocked.Increment(ref failures) == 1) {
-                        first = "reader: " + failure.GetType().Name + ": " + failure.Message;
-                    }
-                }
-            }));
+                )
+            );
 
             foreach (var thread in threads) {
                 thread.Start();
@@ -342,44 +358,49 @@ public class StringsThreadingTests {
         List<Thread> threads = [];
 
         for (var t = 0; t < Threads; t++) {
-            threads.Add(new Thread(() => {
-                try {
-                    var scheduler = new EffectScheduler();
-                    var count = 0;
-                    var revision = new Signal<int>(0);
-                    var depth = new Computed<int>(() => {
-                        _ = revision.Value;
-                        return count;
-                    });
-                    var dirty = new Computed<bool>(() => {
-                        _ = revision.Value;
-                        return count != 0;
-                    });
-                    var watched = -1;
-
-                    using var watch = new Effect(() => watched = depth.Value, scheduler);
-
-                    for (var i = 1; i <= Iterations; i++) {
-                        using var label = new Effect(() => _ = Probe.Text, scheduler);
-
-                        scheduler.Flush();
-
-                        count = i;
-                        revision.Value = i;
-                        scheduler.Flush();
-
-                        if (depth.Value != i || !dirty.Value || watched != i) {
-                            throw new InvalidOperationException(
-                                $"depth {depth.Value}, dirty {dirty.Value}, watched {watched} after {i} edits"
+            threads.Add(
+                new Thread(() => {
+                        try {
+                            var scheduler = new EffectScheduler();
+                            var count = 0;
+                            var revision = new Signal<int>(0);
+                            var depth = new Computed<int>(() => {
+                                    _ = revision.Value;
+                                    return count;
+                                }
                             );
+                            var dirty = new Computed<bool>(() => {
+                                    _ = revision.Value;
+                                    return count != 0;
+                                }
+                            );
+                            var watched = -1;
+
+                            using var watch = new Effect(() => watched = depth.Value, scheduler);
+
+                            for (var i = 1; i <= Iterations; i++) {
+                                using var label = new Effect(static () => _ = Probe.Text, scheduler);
+
+                                scheduler.Flush();
+
+                                count = i;
+                                revision.Value = i;
+                                scheduler.Flush();
+
+                                if (depth.Value != i || !dirty.Value || watched != i) {
+                                    throw new InvalidOperationException(
+                                        $"depth {depth.Value}, dirty {dirty.Value}, watched {watched} after {i} edits"
+                                    );
+                                }
+                            }
+                        } catch (Exception failure) {
+                            if (Interlocked.Increment(ref failures) == 1) {
+                                first = failure.GetType().Name + ": " + failure.Message;
+                            }
                         }
                     }
-                } catch (Exception failure) {
-                    if (Interlocked.Increment(ref failures) == 1) {
-                        first = failure.GetType().Name + ": " + failure.Message;
-                    }
-                }
-            }));
+                )
+            );
         }
 
         foreach (var thread in threads) {

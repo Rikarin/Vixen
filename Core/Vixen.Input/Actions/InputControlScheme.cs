@@ -18,7 +18,9 @@ namespace Vixen.Input;
 ///     </para>
 /// </remarks>
 public sealed class InputControlScheme {
-    internal InputControlScheme(InputControlSchemeData data) => Data = data;
+    internal InputControlScheme(InputControlSchemeData data) {
+        Data = data;
+    }
 
     /// <summary>What the asset said.</summary>
     public InputControlSchemeData Data { get; }

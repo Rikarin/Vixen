@@ -12,8 +12,11 @@ namespace Vixen.Audio.Spatial;
 ///         difference between knowing where something is and guessing.
 ///     </para>
 ///     <para>
-///         <b>This is a structural model and not a measured filter set, and the distinction
-///         matters.</b> A real HRTF is a pair of impulse responses measured around somebody's actual
+///         <b>
+///             This is a structural model and not a measured filter set, and the distinction
+///             matters.
+///         </b>
+///         A real HRTF is a pair of impulse responses measured around somebody's actual
 ///         head, and it is several megabytes of content that has to be shipped and licensed. What is
 ///         here instead is the three physical mechanisms behind those measurements, each written down
 ///         as a filter: the path length difference to the two ears, the shadow the head casts, and
@@ -139,12 +142,12 @@ public sealed class HrtfPanner {
         var whole = (int)delay;
         var fraction = delay - whole;
 
-        var first = ((writeCursor - whole) + MaxDelaySamples) % MaxDelaySamples;
-        var second = ((first - 1) + MaxDelaySamples) % MaxDelaySamples;
+        var first = (writeCursor - whole + MaxDelaySamples) % MaxDelaySamples;
+        var second = (first - 1 + MaxDelaySamples) % MaxDelaySamples;
 
         // Linear between the two, which at these delays is plenty: the cue is an arrival time, and an
         // error of a hundredth of a sample is an error of a fifth of a degree.
-        return (delayLine[offset + first] * (1f - fraction)) + (delayLine[offset + second] * fraction);
+        return delayLine[offset + first] * (1f - fraction) + delayLine[offset + second] * fraction;
     }
 
     /// <summary>The head's shadow at one ear, as a one-pole one-zero whose zero moves with the angle.</summary>
@@ -159,7 +162,7 @@ public sealed class HrtfPanner {
 
         // 1.05 facing the ear down to 0.1 in full shadow — the numbers are the model's, fitted to
         // measurements of a sphere.
-        var alpha = 1.05f + (0.95f * MathF.Cos(angle / 180f * 150f * MathF.PI / 180f));
+        var alpha = 1.05f + 0.95f * MathF.Cos(angle / 180f * 150f * MathF.PI / 180f);
 
         // H(s) = (1 + α·s/2ω₀) / (1 + s/2ω₀), bilinear-transformed. Its gain is 1 at DC and α at
         // Nyquist, and that direction is the entire model: a head is transparent to a wavelength much
@@ -169,11 +172,11 @@ public sealed class HrtfPanner {
         var beta = sampleRate * HeadRadius / SpeedOfSound;
         var denominator = 1f + beta;
 
-        var b0 = (1f + (alpha * beta)) / denominator;
-        var b1 = (1f - (alpha * beta)) / denominator;
+        var b0 = (1f + alpha * beta) / denominator;
+        var b1 = (1f - alpha * beta) / denominator;
         var a1 = (1f - beta) / denominator;
 
-        var output = (b0 * sample) + (b1 * previous) - (a1 * state);
+        var output = b0 * sample + b1 * previous - a1 * state;
         previous = sample;
         state = output;
         return output;
@@ -199,7 +202,7 @@ public sealed class HrtfPanner {
 
         // Rising from about 6 kHz underfoot to 11 kHz overhead, which is the range the measurements
         // put it in and the range the ear reads as height.
-        var centre = 6_000f + (5_000f * ((height + 90f) / 180f));
+        var centre = 6_000f + 5_000f * ((height + 90f) / 180f);
         var nyquist = sampleRate * 0.5f;
 
         if (centre >= nyquist * 0.95f) {
@@ -218,14 +221,14 @@ public sealed class HrtfPanner {
         var cos = MathF.Cos(omega);
         var alpha = sin / (2f * q);
 
-        var b0 = 1f - (depth * alpha / (1f + alpha));
-        var b1 = -2f * cos * (1f - (depth * alpha / (1f + alpha)));
+        var b0 = 1f - depth * alpha / (1f + alpha);
+        var b1 = -2f * cos * (1f - depth * alpha / (1f + alpha));
         var b2 = b0;
         var a0 = 1f + alpha;
         var a1 = -2f * cos;
         var a2 = 1f - alpha;
 
-        var output = ((b0 * sample) + (b1 * x1) + (b2 * x2) - (a1 * y1) - (a2 * y2)) / a0;
+        var output = (b0 * sample + b1 * x1 + b2 * x2 - a1 * y1 - a2 * y2) / a0;
 
         x2 = x1;
         x1 = sample;

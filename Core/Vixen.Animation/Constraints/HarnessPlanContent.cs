@@ -162,11 +162,11 @@ public sealed class HarnessPlanContent {
         List<IVariationSource> axes = [];
 
         if (Bodies.Count > 0) {
-            axes.Add(new BodyVariation(skeleton, [.. Bodies]));
+            axes.Add(new BodyVariation(skeleton, [..Bodies]));
         }
 
         if (Ground.Count > 0) {
-            axes.Add(new GroundVariation([.. Ground.Select(static step => (step.Degrees, step.Height))]));
+            axes.Add(new GroundVariation([..Ground.Select(static step => (step.Degrees, step.Height))]));
         }
 
         foreach (var axis in Props) {
@@ -178,8 +178,8 @@ public sealed class HarnessPlanContent {
                 new PropVariation(
                     axis.Slot,
                     [
-                        .. axis.Values.Select(
-                            static prop => (prop.Name, new BoneTransform(prop.Position, prop.Rotation, prop.Scale))
+                        ..axis.Values.Select(static prop => (prop.Name,
+                                new BoneTransform(prop.Position, prop.Rotation, prop.Scale))
                         )
                     ]
                 )

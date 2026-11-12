@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Collections.Immutable;
-using Orleans;
 using Vixen.Live;
 
 namespace Vixen.Samples.Mmo.Cluster;
@@ -13,8 +12,10 @@ namespace Vixen.Samples.Mmo.Cluster;
 [GenerateSerializer]
 [Immutable]
 public readonly record struct EventContribution(
-    [property: Id(0)] PlayerKey Player,
-    [property: Id(1)] int Contribution
+    [property: Id(0)]
+    PlayerKey Player,
+    [property: Id(1)]
+    int Contribution
 );
 
 /// <summary>A world event's state, fleet-wide.</summary>
@@ -28,13 +29,20 @@ public readonly record struct EventContribution(
 [GenerateSerializer]
 [Immutable]
 public sealed record WorldEventRecord(
-    [property: Id(0)] string Event,
-    [property: Id(1)] bool Running,
-    [property: Id(2)] DateTimeOffset Started,
-    [property: Id(3)] DateTimeOffset Ends,
-    [property: Id(4)] int Progress,
-    [property: Id(5)] ImmutableArray<EventContribution> Contributions,
-    [property: Id(6)] uint Revision
+    [property: Id(0)]
+    string Event,
+    [property: Id(1)]
+    bool Running,
+    [property: Id(2)]
+    DateTimeOffset Started,
+    [property: Id(3)]
+    DateTimeOffset Ends,
+    [property: Id(4)]
+    int Progress,
+    [property: Id(5)]
+    ImmutableArray<EventContribution> Contributions,
+    [property: Id(6)]
+    uint Revision
 ) {
     /// <summary>An event nobody has started.</summary>
     public static WorldEventRecord None { get; } = new(string.Empty, false, default, default, 0, [], 0);
@@ -65,8 +73,11 @@ public sealed record WorldEventRecord(
 /// <summary>One world event, across every shard of its map.</summary>
 /// <remarks>
 ///     <para>
-///         <b>The one grain this sample adds, and the argument for it is the same one doc 27 makes
-///         for <c>IInstanceGrain</c>.</b> The Rootbound Colossus is on <c>maps/thornwood</c>, and
+///         <b>
+///             The one grain this sample adds, and the argument for it is the same one doc 27 makes
+///             for <c>IInstanceGrain</c>.
+///         </b>
+///         The Rootbound Colossus is on <c>maps/thornwood</c>, and
 ///         Thornwood is several shards at peak. An event whose schedule each shard kept would come up
 ///         at a different minute on each of them — so a player who zoned would find it already dead
 ///         on one and not yet started on another, and the fleet would pay out three times.

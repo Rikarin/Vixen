@@ -42,7 +42,7 @@ public sealed class PacketReaderTarget : IFuzzTarget {
     ///     by the input, which is the property being asserted. The multiple is what it is because a
     ///     program of nothing but empty-string reads pays the header every time.
     /// </remarks>
-    public long AllowanceFor(int inputLength) => 512 + (48L * inputLength);
+    public long AllowanceFor(int inputLength) => 512 + 48L * inputLength;
 
     /// <inheritdoc />
     public void Seed(ICollection<byte[]> corpus) {
@@ -53,7 +53,7 @@ public sealed class PacketReaderTarget : IFuzzTarget {
         var packet = new byte[256];
         var writer = new PacketWriter(packet);
         writer.WriteByte(7);
-        writer.WriteBool(value: true);
+        writer.WriteBool(true);
         writer.WriteUInt16(0xBEEF);
         writer.WriteUInt32(0xDEADBEEF);
         writer.WriteUInt64(0x0123456789ABCDEF);
@@ -174,11 +174,11 @@ public sealed class PacketReaderTarget : IFuzzTarget {
                     break;
             }
 
-            signature = (signature * 31) + (read ? 1 : 0);
+            signature = signature * 31 + (read ? 1 : 0);
         }
 
-        return (signature * 31)
-            + (reader.Position * 7L)
+        return signature * 31
+            + reader.Position * 7L
             + (reader.Failed ? 1_000_003L : 0)
             + (reader.IsComplete ? 7L : 0);
     }
@@ -239,7 +239,7 @@ public sealed class BitReaderTarget : IFuzzTarget {
 
         var packet = new byte[128];
         var writer = new BitWriter(packet);
-        writer.WriteBool(value: true);
+        writer.WriteBool(true);
         writer.Write(0x2A, 6);
         writer.WriteVariable(70_000);
         writer.WriteQuantized(0.25f, Range);
@@ -271,7 +271,7 @@ public sealed class BitReaderTarget : IFuzzTarget {
 
             switch (step & 0x0F) {
                 case 0:
-                    read = reader.TryRead(1 + (argument * 2), out _);
+                    read = reader.TryRead(1 + argument * 2, out _);
 
                     break;
 
@@ -354,12 +354,12 @@ public sealed class BitReaderTarget : IFuzzTarget {
                     break;
             }
 
-            signature = (signature * 31) + (read ? 1 : 0);
+            signature = signature * 31 + (read ? 1 : 0);
         }
 
-        return (signature * 31)
-            + (reader.BitsRead * 7L)
-            + (copy.BitsWritten * 3L)
+        return signature * 31
+            + reader.BitsRead * 7L
+            + copy.BitsWritten * 3L
             + (reader.Failed ? 1_000_003L : 0)
             + (copy.Overflowed ? 31L : 0);
     }

@@ -28,8 +28,12 @@ public sealed class TerrainAssetImporterTests {
 
     /// <summary>Each extension is recorded under the alias of the type actually written.</summary>
     /// <remarks>
-    ///     ⚠ <b>The failure this pins down is <c>MaterialImporter</c>'s, recorded in its own
-    ///     remarks</b>: a chunk's type string is resolved through the type registry at load, so the
+    ///     ⚠
+    ///     <b>
+    ///         The failure this pins down is <c>MaterialImporter</c>'s, recorded in its own
+    ///         remarks
+    ///     </b>
+    ///     : a chunk's type string is resolved through the type registry at load, so the
     ///     wrong alias hands the bytes of one record to the reader of another — thrown from inside the
     ///     asset manager about content the build had just declared good.
     /// </remarks>
@@ -74,8 +78,12 @@ public sealed class TerrainAssetImporterTests {
 
     /// <summary>What the type says about itself reaches the author at import time.</summary>
     /// <remarks>
-    ///     ⚠ <b>The whole reason this is not <c>NativeFormatImporter</c> with four more
-    ///     extensions.</b> That importer carries a document forward untouched and cannot read it; this
+    ///     ⚠
+    ///     <b>
+    ///         The whole reason this is not <c>NativeFormatImporter</c> with four more
+    ///         extensions.
+    ///     </b>
+    ///     That importer carries a document forward untouched and cannot read it; this
     ///     one runs the type's own <c>Validate()</c>, which turns "the grass never grew" from a bug
     ///     report into a message beside the file that caused it.
     /// </remarks>
@@ -93,7 +101,7 @@ public sealed class TerrainAssetImporterTests {
         Assert.True(result.Succeeded);
         Assert.Contains(
             result.Diagnostics,
-            message => message.Message.Contains("candidate density", StringComparison.Ordinal)
+            static message => message.Message.Contains("candidate density", StringComparison.Ordinal)
         );
     }
 
@@ -136,7 +144,7 @@ public sealed class TerrainAssetImporterTests {
         var (_, result) = await Import("pine.vxfoliage", "name: \"\"\n");
 
         Assert.True(result.Succeeded);
-        Assert.DoesNotContain(result.Diagnostics, message => message.Severity == ImportSeverity.Error);
+        Assert.DoesNotContain(result.Diagnostics, static message => message.Severity == ImportSeverity.Error);
     }
 
     /// <summary>A foliage document is compiled to the record the runtime opens.</summary>
@@ -206,7 +214,7 @@ public sealed class TerrainAssetImporterTests {
         Assert.False(result.Succeeded);
         Assert.Contains(
             result.Diagnostics,
-            message => message.Severity == ImportSeverity.Error
+            static message => message.Severity == ImportSeverity.Error
                 && message.Message.Contains("magic", StringComparison.Ordinal)
         );
     }
@@ -225,7 +233,7 @@ public sealed class TerrainAssetImporterTests {
 
         Assert.Contains(
             result.Diagnostics,
-            message => message.Severity == ImportSeverity.Error
+            static message => message.Severity == ImportSeverity.Error
                 && message.Message.Contains("control point", StringComparison.Ordinal)
         );
 
@@ -234,8 +242,12 @@ public sealed class TerrainAssetImporterTests {
 
     /// <summary>A spline document is compiled to the record <c>AssetWaterSource</c> opens.</summary>
     /// <remarks>
-    ///     ⚠ <b>This shipped as a text chunk, and the importer's own remarks said it would "stay text
-    ///     until a runtime consumer exists".</b> One does: docs/plan/35 § D6 makes a water body a
+    ///     ⚠
+    ///     <b>
+    ///         This shipped as a text chunk, and the importer's own remarks said it would "stay text
+    ///         until a runtime consumer exists".
+    ///     </b>
+    ///     One does: docs/plan/35 § D6 makes a water body a
     ///     spline reference, so a <c>.vxspline</c> is now read by a game and a game does not carry the
     ///     YAML dialect. A text chunk here is a lake that quietly never appears — the failure this
     ///     asserts against by reading the artefact back the way the runtime does.
@@ -254,7 +266,7 @@ public sealed class TerrainAssetImporterTests {
             """
         );
 
-        Assert.True(result.Succeeded, string.Join("; ", result.Diagnostics.Select(entry => entry.Message)));
+        Assert.True(result.Succeeded, string.Join("; ", result.Diagnostics.Select(static entry => entry.Message)));
 
         var artefact = Assert.Single(result.Artifacts);
         var written = Serializer.Read<Vixen.Core.Mathematics.SplineAsset>(artefact.Content.Span);
@@ -271,7 +283,7 @@ public sealed class TerrainAssetImporterTests {
         var (_, result) = await Import("gravel.vxlayer", "name: [unclosed\n");
 
         Assert.False(result.Succeeded);
-        Assert.Contains(result.Diagnostics, message => message.Severity == ImportSeverity.Error);
+        Assert.Contains(result.Diagnostics, static message => message.Severity == ImportSeverity.Error);
     }
 
     // ── The heightmap ───────────────────────────────────────────────────────────────────────────
@@ -300,7 +312,7 @@ public sealed class TerrainAssetImporterTests {
         Assert.False(result.Succeeded);
         Assert.Contains(
             result.Diagnostics,
-            message => message.Message.Contains("width and height", StringComparison.Ordinal)
+            static message => message.Message.Contains("width and height", StringComparison.Ordinal)
         );
     }
 
@@ -325,11 +337,11 @@ public sealed class TerrainAssetImporterTests {
         var (_, result) = await ImportHeightmap(
             "terrain.hmpng",
             TerrainHeightmapPng.Encode(16, 12, samples),
-            new HeightmapImportSettings { Width = 999, Height = 999 }
+            new() { Width = 999, Height = 999 }
         );
 
         Assert.True(result.Succeeded);
-        Assert.DoesNotContain(result.Diagnostics, message => message.Severity == ImportSeverity.Error);
+        Assert.DoesNotContain(result.Diagnostics, static message => message.Severity == ImportSeverity.Error);
     }
 
     /// <summary>And an eight-bit one is still refused, with the reason.</summary>
@@ -350,7 +362,7 @@ public sealed class TerrainAssetImporterTests {
         Assert.False(result.Succeeded);
         Assert.Contains(
             result.Diagnostics,
-            message => message.Severity == ImportSeverity.Error
+            static message => message.Severity == ImportSeverity.Error
                 && message.Message.Contains("sixteen", StringComparison.Ordinal)
         );
     }

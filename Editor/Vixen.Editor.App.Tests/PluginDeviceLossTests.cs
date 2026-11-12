@@ -36,7 +36,7 @@ public class PluginDeviceLossTests {
 
         editor.Open("project");
 
-        var graphics = editor.Application.PluginHost.Services.Require<IEditorGraphics>();
+        _ = editor.Application.PluginHost.Services.Require<IEditorGraphics>();
         var plugin = new Holder();
 
         editor.Application.PluginHost.Activate("test.holder", "Holder", plugin);
@@ -166,7 +166,7 @@ public class PluginDeviceLossTests {
 
         Assert.Contains(
             editor.Application.PluginHost.Diagnostics,
-            diagnostic => diagnostic.PluginId == "test.thrower"
+            static diagnostic => diagnostic.PluginId == "test.thrower"
                 && diagnostic.Severity == PluginSeverity.Error
                 && diagnostic.Message.Contains("device resources", StringComparison.Ordinal)
         );
@@ -219,8 +219,7 @@ public class PluginDeviceLossTests {
         public void Activate(PluginContext context) {
             graphics = context.Services.Require<IEditorGraphics>();
 
-            context.OnDeviceLost(
-                device => {
+            context.OnDeviceLost(device => {
                     released.Add(device);
                     answered.Add(graphics.Device);
                 }

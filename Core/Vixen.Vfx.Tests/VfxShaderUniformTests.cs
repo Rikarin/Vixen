@@ -62,7 +62,7 @@ public class VfxShaderUniformTests {
 
     [Fact]
     public void The_push_constant_block_is_the_struct_the_host_writes() {
-        var shader = VfxShaderEmitter.Emit(Graph(), "Effect");
+        var shader = VfxShaderEmitter.Emit(Graph());
         var tree = SyntaxTree.ParseText(shader.Source, path: "Effect.rvn");
 
         Assert.Empty(tree.Diagnostics);
@@ -97,7 +97,7 @@ public class VfxShaderUniformTests {
     /// </summary>
     [Fact]
     public void Both_kernels_declare_the_same_block() {
-        var shader = VfxShaderEmitter.Emit(Graph(), "Effect");
+        var shader = VfxShaderEmitter.Emit(Graph());
         var tree = SyntaxTree.ParseText(shader.Source, path: "Effect.rvn");
         var compilation = Compilation.Create("Vfx", tree);
         var bag = new DiagnosticBag();
@@ -107,12 +107,15 @@ public class VfxShaderUniformTests {
 
         var blocks = new[] { shader.InitializeShader, shader.UpdateShader }
             .Select(name => Assert.Single(module.Shaders, entry => entry.Name == name))
-            .Select(kernel => Assert.Single(ReflectionBuilder.Describe(kernel, compilation.UsedPermutationKeys).PushConstants))
+            .Select(kernel => Assert.Single(
+                    ReflectionBuilder.Describe(kernel, compilation.UsedPermutationKeys).PushConstants
+                )
+            )
             .ToArray();
 
         Assert.Equal(
-            blocks[0].Members.Select(member => (member.Name, member.Offset)),
-            blocks[1].Members.Select(member => (member.Name, member.Offset))
+            blocks[0].Members.Select(static member => (member.Name, member.Offset)),
+            blocks[1].Members.Select(static member => (member.Name, member.Offset))
         );
 
         Assert.Equal(blocks[0].Size, blocks[1].Size);
@@ -124,7 +127,7 @@ public class VfxShaderUniformTests {
     /// </summary>
     [Fact]
     public void The_attribute_buffers_are_all_in_the_first_set() {
-        var shader = VfxShaderEmitter.Emit(Graph(), "Effect");
+        var shader = VfxShaderEmitter.Emit(Graph());
         var tree = SyntaxTree.ParseText(shader.Source, path: "Effect.rvn");
         var compilation = Compilation.Create("Vfx", tree);
         var bag = new DiagnosticBag();
@@ -140,13 +143,13 @@ public class VfxShaderUniformTests {
 
         // And in declaration order, which is what lets the host bind by index rather than by name.
         Assert.Equal(
-            shader.Bindings.Select(binding => binding.Name),
-            set.Bindings.Select(binding => binding.Name)
+            shader.Bindings.Select(static binding => binding.Name),
+            set.Bindings.Select(static binding => binding.Name)
         );
 
         Assert.Equal(
             Enumerable.Range(0, shader.Bindings.Count),
-            set.Bindings.Select(binding => binding.Binding)
+            set.Bindings.Select(static binding => binding.Binding)
         );
     }
 }

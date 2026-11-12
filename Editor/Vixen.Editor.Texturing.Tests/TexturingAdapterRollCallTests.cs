@@ -3,8 +3,6 @@
 
 using System.Runtime.CompilerServices;
 using Vixen.Editor.Testing;
-using Vixen.Texturing.Layers;
-using Vixen.Texturing.Painting;
 using Xunit;
 
 namespace Vixen.Editor.Texturing.Tests;
@@ -15,31 +13,47 @@ namespace Vixen.Editor.Texturing.Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>The criterion is "a device is confirmed by name in <em>every</em> GPU test in this
-///         area", the area is two test projects, and one of them had nothing enumerating its device
-///         files</b> (<a href="https://github.com/Rikarin/Vixen/issues/883">#883</a>). The convention
+///         ⚠
+///         <b>
+///             The criterion is "a device is confirmed by name in <em>every</em> GPU test in this
+///             area", the area is two test projects, and one of them had nothing enumerating its device
+///             files
+///         </b>
+///         (<a href="https://github.com/Rikarin/Vixen/issues/883">#883</a>). The convention
 ///         held — every file here names its adapter, and that was measured — but a convention is a
 ///         claim about the files that exist rather than about the next one, which is the sentence the
 ///         first roll call was written to stop being true.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The walk is <see cref="DeviceRollCall" />, taken as a parameterised call rather than
-///         copied</b> — the arrangement <c>PluginReferenceRule</c> and <c>TextureKernelSurfaces</c>
+///         ⚠
+///         <b>
+///             The walk is <see cref="DeviceRollCall" />, taken as a parameterised call rather than
+///             copied
+///         </b>
+///         — the arrangement <c>PluginReferenceRule</c> and <c>TextureKernelSurfaces</c>
 ///         use, and the one <a href="https://github.com/Rikarin/Vixen/issues/872">#872</a> says a
 ///         second roll call must not be without. A second transcription of this walk would have the
 ///         defect it is written to catch: two subject sets, one of which somebody forgets.
 ///     </para>
 ///     <para>
-///         ✅ <b>The harness guarantee reached two of the seven device files here and now reaches all
-///         seven</b> (<a href="https://github.com/Rikarin/Vixen/issues/923">#923</a>). Five of them
+///         ✅
+///         <b>
+///             The harness guarantee reached two of the seven device files here and now reaches all
+///             seven
+///         </b>
+///         (<a href="https://github.com/Rikarin/Vixen/issues/923">#923</a>). Five of them
 ///         carried a private opener that created its own device and never reached
 ///         <see cref="TexturingDevice.Open" />; all five named their adapter, so this was never a
 ///         defect in the tree, and it meant the strong mechanism covered two files while this walk
 ///         carried the other five.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The consolidation is not what closed the hole — <see cref="DeviceRollCall.Sole" />
-///         is.</b> Deleting five copies makes the tree tidy and says nothing about the eighth file,
+///         ⚠
+///         <b>
+///             The consolidation is not what closed the hole — <see cref="DeviceRollCall.Sole" />
+///             is.
+///         </b>
+///         Deleting five copies makes the tree tidy and says nothing about the eighth file,
 ///         which is the sentence #883 was written to stop being true one level along. So the roll
 ///         call now also requires the backend's creating call to appear in the harness and nowhere
 ///         else: an author cannot rename it, so a new device file has no way to get a device except
@@ -87,8 +101,8 @@ public class TexturingAdapterRollCallTests {
             DeviceRollCall.Read(Path.GetDirectoryName(Here())!, "TexturingAdapterRollCallTests.cs"),
             Opens,
             Names,
-            harness: "TexturingDevice.cs",
-            least: 5,
+            "TexturingDevice.cs",
+            5,
             Anonymous
         );
 
@@ -101,8 +115,12 @@ public class TexturingAdapterRollCallTests {
     ///         confirmed by name" for everything that goes through <see cref="TexturingDevice.Open" />.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The instrument is the assertion before the finding: this test writes nothing
-    ///         itself.</b> Its own output is empty until the harness is called, so the adapter's name
+    ///         ⚠
+    ///         <b>
+    ///             The instrument is the assertion before the finding: this test writes nothing
+    ///             itself.
+    ///         </b>
+    ///         Its own output is empty until the harness is called, so the adapter's name
     ///         being there afterwards is the harness's doing and cannot be this test's. Without a
     ///         device it skips, loudly, like every other device test here.
     ///     </para>
@@ -127,8 +145,11 @@ public class TexturingAdapterRollCallTests {
     ///     have an anonymous one.
     /// </summary>
     /// <remarks>
-    ///     <b>The strong half, and the reason the five private openers were deleted rather than
-    ///     merely tidied</b> (<a href="https://github.com/Rikarin/Vixen/issues/923">#923</a>). The
+    ///     <b>
+    ///         The strong half, and the reason the five private openers were deleted rather than
+    ///         merely tidied
+    ///     </b>
+    ///     (<a href="https://github.com/Rikarin/Vixen/issues/923">#923</a>). The
     ///     detector is the backend's own creating call, which no author of a test here can rename or
     ///     spell differently, so this is a claim about every file that could open a device rather
     ///     than about every file that named its opener <c>Open()</c>.
@@ -137,7 +158,7 @@ public class TexturingAdapterRollCallTests {
     public void Only_the_harness_here_creates_a_device() =>
         DeviceRollCall.Sole(
             DeviceRollCall.Read(Path.GetDirectoryName(Here())!, "TexturingAdapterRollCallTests.cs"),
-            harness: "TexturingDevice.cs"
+            "TexturingDevice.cs"
         );
 
     /// <summary>A file's text as the walk sees it, built from the detector rather than retyped.</summary>
@@ -156,8 +177,11 @@ public class TexturingAdapterRollCallTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <b>Both halves, over synthetic sources, because a rule that has never produced an
-    ///         answer is in the state <c>PluginReferenceRule</c> shipped in.</b> The passing case is
+    ///         <b>
+    ///             Both halves, over synthetic sources, because a rule that has never produced an
+    ///             answer is in the state <c>PluginReferenceRule</c> shipped in.
+    ///         </b>
+    ///         The passing case is
     ///         the roll call above; these are the two failing ones, and they are the two the walk is
     ///         written for — a file that went round the harness, and a walk that matched nothing at
     ///         all because it read no files or the backend renamed the call.
@@ -169,21 +193,23 @@ public class TexturingAdapterRollCallTests {
     /// </remarks>
     [Fact]
     public void A_second_file_that_creates_a_device_fails_the_check_and_so_does_none() {
-        DeviceRollCall.Source[] harnessOnly = [Creating("TexturingDevice.cs"), new("Other.cs", "TexturingDevice.Open();")];
+        DeviceRollCall.Source[] harnessOnly =
+            [Creating("TexturingDevice.cs"), new("Other.cs", "TexturingDevice.Open();")];
 
-        DeviceRollCall.Sole(harnessOnly, harness: "TexturingDevice.cs");
+        DeviceRollCall.Sole(harnessOnly, "TexturingDevice.cs");
 
-        var second = Assert.ThrowsAny<Exception>(
-            () => DeviceRollCall.Sole(
+        var second = Assert.ThrowsAny<Exception>(static () => DeviceRollCall.Sole(
                 [Creating("TexturingDevice.cs"), Creating("Sneaky.cs")],
-                harness: "TexturingDevice.cs"
+                "TexturingDevice.cs"
             )
         );
 
         Assert.Contains("Sneaky.cs", second.Message, StringComparison.Ordinal);
 
-        var none = Assert.ThrowsAny<Exception>(
-            () => DeviceRollCall.Sole([new("TexturingDevice.cs", "nothing creates anything here")], harness: "TexturingDevice.cs")
+        var none = Assert.ThrowsAny<Exception>(static () => DeviceRollCall.Sole(
+                [new("TexturingDevice.cs", "nothing creates anything here")],
+                "TexturingDevice.cs"
+            )
         );
 
         Assert.Contains("no file at all", none.Message, StringComparison.Ordinal);

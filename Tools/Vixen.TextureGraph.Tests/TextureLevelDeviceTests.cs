@@ -13,8 +13,12 @@ namespace Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>"Tests pass" is not evidence for a defect whose symptom is a picture, and this one's
-///         is.</b> Every compiled plan validated, every op dispatched, every counter read healthy —
+///         ⚠
+///         <b>
+///             "Tests pass" is not evidence for a defect whose symptom is a picture, and this one's
+///             is.
+///         </b>
+///         Every compiled plan validated, every op dispatched, every counter read healthy —
 ///         the image table simply said 256 where the source said 128, and a pointwise kernel reads
 ///         its input at the coordinate it is writing and clamps. What that produces is the source's
 ///         top-left quarter over the whole target with its right and bottom edge rows smeared across
@@ -62,10 +66,7 @@ public class TextureLevelDeviceTests(ITestOutputHelper output) {
         // image a plan does not keep is pooled over, so reading one back after the bake gives
         // whichever op wrote that texture last.
         TextureGraphCompiler compiler = new(registry) {
-            BaseWidth = Side,
-            BaseHeight = Side,
-            Seed = 41823,
-            PreviewEveryNode = true
+            BaseWidth = Side, BaseHeight = Side, Seed = 41823, PreviewEveryNode = true
         };
 
         var compilation = compiler.Compile(graph);

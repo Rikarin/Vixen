@@ -6,7 +6,6 @@ using Vixen.Editor.AssetEditors.Sequencing;
 using Vixen.Editor.SceneView;
 using Vixen.Editor.Testing;
 using Vixen.Engine.Transforms;
-using Vixen.Ui;
 using Xunit;
 
 namespace Vixen.Editor.App.Tests;
@@ -40,7 +39,7 @@ public class MilestoneE5Tests {
     [InlineData("Input Actions")]
     [InlineData("Font")]
     public void Doc_11s_asset_editor_table_has_a_row_that_opens(string editor) {
-        var registry = StandardEditors.CreateWorldless(new Core.EditorProject(new Core.ProjectPaths(Path.GetTempPath())));
+        var registry = StandardEditors.CreateWorldless(new(new(Path.GetTempPath())));
 
         // The two that need a world are not in the worldless set, and are the two the fixture below
         // proves by opening a scene at all.
@@ -53,8 +52,12 @@ public class MilestoneE5Tests {
 
     /// <summary>A track is added and keyed through the panel's own buttons, with no document call.</summary>
     /// <remarks>
-    ///     ⚠ <b>This is the test that was missing, and its absence is why the panel shipped
-    ///     unusable.</b> The exit-clause test above calls <c>AddTrack</c> and <c>AddKey</c> on the
+    ///     ⚠
+    ///     <b>
+    ///         This is the test that was missing, and its absence is why the panel shipped
+    ///         unusable.
+    ///     </b>
+    ///     The exit-clause test above calls <c>AddTrack</c> and <c>AddKey</c> on the
     ///     document and uses the view only to scrub and play — so it covered the model and the
     ///     playback path and never touched the *authoring* path, where track selection came only from
     ///     clicking a key a new track does not have.
@@ -69,7 +72,7 @@ public class MilestoneE5Tests {
         scene.Selection.Set([actor]);
 
         var view = OpenSequence(fixture, "Take.vxseq");
-        var document = (SequenceDocument) fixture.Project.Documents.First(open => open is SequenceDocument);
+        var document = (SequenceDocument)fixture.Project.Documents.First(static open => open is SequenceDocument);
 
         // Adding a track selects it, so the next press of Key has somewhere to land.
         Press(fixture, "Track: Transform");
@@ -100,7 +103,7 @@ public class MilestoneE5Tests {
         using var fixture = EditorSession.Start();
 
         var view = OpenSequence(fixture, "Cuts.vxseq");
-        var document = (SequenceDocument) fixture.Project.Documents.First(open => open is SequenceDocument);
+        var document = (SequenceDocument)fixture.Project.Documents.First(static open => open is SequenceDocument);
 
         Press(fixture, "Track: Camera");
         Press(fixture, "Track: Event");
@@ -118,17 +121,17 @@ public class MilestoneE5Tests {
     /// <summary>Clicks a control by what it says, which is what a person aims at.</summary>
     /// <remarks>
     ///     <para>
-    ///     ⚠ <b>Through the pointer rather than by raising the button's own event.</b> The defect
-    ///     these two cover was in the *routing* — a header click had nowhere to land — and a test
-    ///     that invoked <c>Clicked</c> directly would have passed against the broken build. It is
-    ///     also what caught the layout defect found while writing them: a control that is drawn but
-    ///     covered fails a pointer click and is invisible to an event-raising one.
+    ///         ⚠ <b>Through the pointer rather than by raising the button's own event.</b> The defect
+    ///         these two cover was in the *routing* — a header click had nowhere to land — and a test
+    ///         that invoked <c>Clicked</c> directly would have passed against the broken build. It is
+    ///         also what caught the layout defect found while writing them: a control that is drawn but
+    ///         covered fails a pointer click and is invisible to an event-raising one.
     ///     </para>
     ///     <para>
-    ///     ⚠ <b>Scoped to the bar, because these words are not unique in an editor.</b> "Key" is also
-    ///     two menu items and a row of <c>kbd</c> shortcut hints — twelve elements — and a click with
-    ///     twelve candidates resolves to none of them. The bar is where the button this test means
-    ///     lives, so saying so is both what makes it unambiguous and what documents the gesture.
+    ///         ⚠ <b>Scoped to the bar, because these words are not unique in an editor.</b> "Key" is also
+    ///         two menu items and a row of <c>kbd</c> shortcut hints — twelve elements — and a click with
+    ///         twelve candidates resolves to none of them. The bar is where the button this test means
+    ///         lives, so saying so is both what makes it unambiguous and what documents the gesture.
     ///     </para>
     /// </remarks>
     static void Press(EditorSession fixture, string text) {
@@ -202,7 +205,6 @@ public class MilestoneE5Tests {
     [InlineData("assets.create-material", ".vxmat")]
     [InlineData("assets.create-frame", ".vxcompositor")]
     [InlineData("assets.create-addressable-group", ".vxgroup")]
-
     [InlineData("assets.create-vfx", ".vxvfx")]
     [InlineData("assets.create-animation", ".vxanim")]
     [InlineData("assets.create-animation-graph", ".vxanimgraph")]
@@ -224,7 +226,8 @@ public class MilestoneE5Tests {
 
         fixture.Run(command).Settle();
 
-        var created = Directory.EnumerateFiles(fixture.Project.Paths.Assets, "*" + extension, SearchOption.AllDirectories);
+        var created =
+            Directory.EnumerateFiles(fixture.Project.Paths.Assets, "*" + extension, SearchOption.AllDirectories);
 
         Assert.NotEmpty(created);
 
@@ -235,7 +238,11 @@ public class MilestoneE5Tests {
         var opened = created
             .Select(path => fixture.Project.Paths.Relative(path))
             .Where(relative => fixture.Project.Assets.TryGetByPath(relative, out _))
-            .Select(relative => { fixture.Project.Assets.TryGetByPath(relative, out var entry); return entry.Guid; })
+            .Select(relative => {
+                    fixture.Project.Assets.TryGetByPath(relative, out var entry);
+                    return entry.Guid;
+                }
+            )
             .ToHashSet();
 
         Assert.Contains(fixture.Project.Documents, document => opened.Contains(document.Asset));
@@ -243,8 +250,12 @@ public class MilestoneE5Tests {
 
     /// <summary>An asset editor's own tab closes and reopens, which is where the graphs went wrong.</summary>
     /// <remarks>
-    ///     ⚠ <b>The theory above covers the four world-building panels and this covers the panels
-    ///     doc 20's Part F row is actually about.</b> A graph view subscribes to its document's
+    ///     ⚠
+    ///     <b>
+    ///         The theory above covers the four world-building panels and this covers the panels
+    ///         doc 20's Part F row is actually about.
+    ///     </b>
+    ///     A graph view subscribes to its document's
     ///     <c>Compiled</c>, and the view that was closed stayed subscribed — so the <i>reopened</i>
     ///     view's first compile called the dead one's handler, which wrote into elements that had
     ///     left the tree and took the editor down. It was found by giving the shader graph the same

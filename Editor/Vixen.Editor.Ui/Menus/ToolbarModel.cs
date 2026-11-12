@@ -50,8 +50,12 @@ public sealed record ToolbarGroup(params string[] CommandIds) : ToolbarEntry;
 /// <summary>Several commands drawn as one boxed run of buttons.</summary>
 /// <param name="CommandIds">Its members, in order.</param>
 /// <remarks>
-///     ⚠ <b>One <i>control</i>, where <see cref="ToolbarGroup" /> is one <i>choice</i>, and the
-///     transport is why the two are separate records.</b> A transport bar is a single object in every
+///     ⚠
+///     <b>
+///         One <i>control</i>, where <see cref="ToolbarGroup" /> is one <i>choice</i>, and the
+///         transport is why the two are separate records.
+///     </b>
+///     A transport bar is a single object in every
 ///     editor, every player and every tape machine there has ever been, so Play, Pause, Step and Stop
 ///     want the box — but they are four verbs, not four alternatives, and a segmented control would
 ///     announce them as a question with one answer and let the arrow keys "choose" Stop. The box is
@@ -67,7 +71,8 @@ public sealed record ToolbarBox(params string[] CommandIds) : ToolbarEntry;
 /// <remarks>
 ///     What a snap-value picker, a build-target picker and a camera-speed picker are. The menu is
 ///     built from the registry through
-///     <see cref="MenuPresenter.Context(UiDocument, CommandRegistry, KeyMap, System.ReadOnlySpan{string})" />, so its lines get their
+///     <see cref="MenuPresenter.Context(UiDocument, CommandRegistry, KeyMap, System.ReadOnlySpan{string})" />, so its
+///     lines get their
 ///     labels, ticks, shortcuts and enablement from the same place every other view does.
 /// </remarks>
 public sealed record ToolbarDropdown(StringId Title, string? Icon, params string?[] CommandIds) : ToolbarEntry;

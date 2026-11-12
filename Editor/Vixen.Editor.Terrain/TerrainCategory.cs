@@ -6,8 +6,11 @@ namespace Vixen.Editor.Terrain;
 /// <summary>Which half of the terrain toolset a drag belongs to.</summary>
 /// <remarks>
 ///     <para>
-///         <b>Sculpt and Paint, inside one mode — [docs/plan/31 § Two modes, not three, and not
-///         one].</b> Both require a terrain and both act on its texels, so they are one mode; what
+///         <b>
+///             Sculpt and Paint, inside one mode — [docs/plan/31 § Two modes, not three, and not
+///             one].
+///         </b>
+///         Both require a terrain and both act on its texels, so they are one mode; what
 ///         differs is whether a stamp writes a height or a weight. Unreal spells the same split as
 ///         tabs within Landscape mode and it is right.
 ///     </para>

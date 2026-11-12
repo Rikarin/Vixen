@@ -57,12 +57,11 @@ public class DiscardTests {
         // Not a call, not a return: the IR keeps it as the terminator it is, so both backends can
         // see that the block ends here without inspecting a callee.
         Assert.Contains("discard", PrintFunction(module, "Fragment"), StringComparison.Ordinal);
-        Assert.DoesNotContain(module.AllFunctions, function => function.Name == "discard");
+        Assert.DoesNotContain(module.AllFunctions, static function => function.Name == "discard");
     }
 
     [Fact]
-    public void GLSL_spells_it_discard() =>
-        Assert.Contains("discard;", GenerateOne(Cutout), StringComparison.Ordinal);
+    public void GLSL_spells_it_discard() => Assert.Contains("discard;", GenerateOne(Cutout), StringComparison.Ordinal);
 
     /// <summary>
     ///     SPIR-V spells it <c>OpKill</c>, which is a block terminator — so nothing follows it and
@@ -161,7 +160,7 @@ public class DiscardTests {
 
                 """
             ),
-            d => d.Id == "RVN2128"
+            static d => d.Id == "RVN2128"
         );
 
         Assert.False(warning.IsError);
@@ -237,8 +236,11 @@ public class DiscardTests {
     /// <summary>A function that cannot discard gets no dead return, so nothing else grows one.</summary>
     [Fact]
     public void A_function_that_cannot_discard_is_left_alone() =>
-        Assert.DoesNotContain("_discarded", GenerateOne(Cutout.Replace("discard", "return float4(0f, 0f, 0f, 0f)")),
-            StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            "_discarded",
+            GenerateOne(Cutout.Replace("discard", "return float4(0f, 0f, 0f, 0f)")),
+            StringComparison.Ordinal
+        );
 
     // --- Which stages may reach it -----------------------------------------
 
@@ -280,7 +282,7 @@ public class DiscardTests {
 
                 """
             ),
-            d => d.Id == "RVN3008"
+            static d => d.Id == "RVN3008"
         );
 
         Assert.True(error.IsError);
@@ -311,7 +313,7 @@ public class DiscardTests {
 
                 """
             ),
-            d => d.Id == "RVN3008"
+            static d => d.Id == "RVN3008"
         );
 
     /// <summary>One function that discards is one diagnostic, however many bad stages reach it.</summary>
@@ -347,7 +349,7 @@ public class DiscardTests {
 
                 """
             ),
-            d => d.Id == "RVN3008"
+            static d => d.Id == "RVN3008"
         );
 
     // --- Syntax -------------------------------------------------------------
@@ -360,18 +362,19 @@ public class DiscardTests {
     public void It_is_a_statement_rather_than_an_expression() =>
         Assert.NotEmpty(
             SyntaxTree.ParseText(
-                """
-                package A
+                    """
+                    package A
 
-                shader S {
-                    [FragmentShader]
-                    func Fragment(): float4 {
-                        return discard
+                    shader S {
+                        [FragmentShader]
+                        func Fragment(): float4 {
+                            return discard
+                        }
                     }
-                }
 
-                """
-            ).Diagnostics
+                    """
+                )
+                .Diagnostics
         );
 
     /// <summary>The keyword round-trips, so the tree still reproduces the file byte for byte.</summary>

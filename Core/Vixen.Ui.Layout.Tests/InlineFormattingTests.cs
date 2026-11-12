@@ -11,8 +11,12 @@ namespace Vixen.Ui.Layout.Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Neither corpus contains a single inline fixture, and that was verified rather than
-///         assumed.</b> Across all eight of Taffy's files, every occurrence of the string
+///         ⚠
+///         <b>
+///             Neither corpus contains a single inline fixture, and that was verified rather than
+///             assumed.
+///         </b>
+///         Across all eight of Taffy's files, every occurrence of the string
 ///         <c>inline</c> is a <i>test name</i> about a grid's inline axis
 ///         (<c>grid_overflow_inline_axis_*</c>) and every occurrence of <c>vertical</c> is a test name
 ///         too (<c>rounding_inner_node_controversy_vertical</c>, <c>grid_relayout_vertical_text</c>).
@@ -31,8 +35,12 @@ namespace Vixen.Ui.Layout.Tests;
 ///         Each test below names the file it came from.
 ///     </para>
 ///     <para>
-///         ⚠ <b>And most of WPT's inline tests are still unusable here, for a reason worth writing
-///         down.</b> A line box's height and baseline depend on the <i>strut</i> — the block
+///         ⚠
+///         <b>
+///             And most of WPT's inline tests are still unusable here, for a reason worth writing
+///             down.
+///         </b>
+///         A line box's height and baseline depend on the <i>strut</i> — the block
 ///         container's own font ascent and descent — so almost every inline test in WPT is implicitly
 ///         a font test. <c>Vixen.Ui.Layout</c> has no font and no font size; it is geometry, and
 ///         <c>FontRegistry</c> lives a layer out in <c>Vixen.Ui</c>. The tests that survive the
@@ -336,8 +344,12 @@ public class InlineFormattingTests {
     ///     §9.2.1.1 wraps it in an anonymous block box.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>This test used to assert the opposite, and inverting it is what closing the gap looks
-    ///     like.</b> It was written as
+    ///     ⚠
+    ///     <b>
+    ///         This test used to assert the opposite, and inverting it is what closing the gap looks
+    ///         like.
+    ///     </b>
+    ///     It was written as
     ///     <c>Mixed_content_stacks_because_there_are_no_anonymous_boxes</c> and it said the two boxes
     ///     below get a line each — which is what this store did while a block container could only
     ///     stack. §9.2.1.1 wraps each run of inline-level children in an <i>anonymous block box</i>,
@@ -410,8 +422,12 @@ public class InlineFormattingTests {
 
     /// <summary>An anonymous block box breaks its run onto as many lines as the run needs.</summary>
     /// <remarks>
-    ///     ⚠ <b>The height of an anonymous block box is the only thing about it that anything else can
-    ///     see</b>, so this is the assertion that matters most: the block-level box <i>after</i> the
+    ///     ⚠
+    ///     <b>
+    ///         The height of an anonymous block box is the only thing about it that anything else can
+    ///         see
+    ///     </b>
+    ///     , so this is the assertion that matters most: the block-level box <i>after</i> the
     ///     run has to move down by three line boxes and not by one. A run that flowed correctly and
     ///     then reported a single line's height would place every box in this test right and the
     ///     container's own height wrong.
@@ -527,8 +543,12 @@ public class InlineFormattingTests {
     ///     as its widest single child.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>The intrinsic-size half, and the one that is easy to leave out because nothing looks
-    ///     broken until a container has to size itself.</b> A block container's content width is a
+    ///     ⚠
+    ///     <b>
+    ///         The intrinsic-size half, and the one that is easy to leave out because nothing looks
+    ///         broken until a container has to size itself.
+    ///     </b>
+    ///     A block container's content width is a
     ///     <i>maximum</i> over its children, which is the right operator over block-level boxes and
     ///     the wrong one over a run that shares a line: it answers the run's <i>minimum</i>. Here the
     ///     three 25-point boxes want 75 between them; taking the maximum instead gives 25, and the run
@@ -620,13 +640,20 @@ public class InlineFormattingTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>The five font-relative <c>vertical-align</c> values fall back to
-    ///     <see cref="VerticalAlign.Baseline" /> on a container with no strut, and that is asserted
-    ///     rather than left to be discovered.</b>
+    ///     ⚠
+    ///     <b>
+    ///         The five font-relative <c>vertical-align</c> values fall back to
+    ///         <see cref="VerticalAlign.Baseline" /> on a container with no strut, and that is asserted
+    ///         rather than left to be discovered.
+    ///     </b>
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>This test's name gained four words and its premise moved, which is the honest half to
-    ///     record.</b> It used to say the five were refused because <c>Vixen.Ui.Layout</c> has no font
+    ///     ⚠
+    ///     <b>
+    ///         This test's name gained four words and its premise moved, which is the honest half to
+    ///         record.
+    ///     </b>
+    ///     It used to say the five were refused because <c>Vixen.Ui.Layout</c> has no font
     ///     and never could — and the store still has none, but a strut turned out to be five
     ///     <i>numbers</i> rather than a font, so <see cref="StrutMetrics" /> is now written on the
     ///     container by whoever owns the <c>FontRegistry</c> and all five are honoured wherever one

@@ -3,7 +3,6 @@
 
 using Vixen.Core.Syntax.Diagnostics;
 using Vixen.Raven.Artefacts;
-using Vixen.Raven.Diagnostics;
 using Vixen.Raven.IR;
 using Vixen.Raven.Symbols;
 using Xunit;
@@ -45,7 +44,7 @@ public class IrVerifierTests {
         function.Body.Add(new IrIfStatement(condition, then, null));
         function.Body.Add(new IrReturnStatement(inner));
 
-        Assert.Contains(Verify(ModuleWith(function)), d => d.GetMessage().Contains("%1"));
+        Assert.Contains(Verify(ModuleWith(function)), static d => d.GetMessage().Contains("%1"));
     }
 
     [Fact]
@@ -56,7 +55,7 @@ public class IrVerifierTests {
         function.Body.Add(new IrConstantInstruction(value, 1));
         function.Body.Add(new IrConstantInstruction(value, 2));
 
-        Assert.Contains(Verify(ModuleWith(function)), d => d.GetMessage().Contains("defined more than once"));
+        Assert.Contains(Verify(ModuleWith(function)), static d => d.GetMessage().Contains("defined more than once"));
     }
 
     [Fact]
@@ -72,7 +71,7 @@ public class IrVerifierTests {
         function.Body.Add(new IrBinaryInstruction(sum, IrBinaryOp.Add, left, right));
         function.Body.Add(new IrReturnStatement(sum));
 
-        Assert.Contains(Verify(ModuleWith(function)), d => d.GetMessage().Contains("does not match"));
+        Assert.Contains(Verify(ModuleWith(function)), static d => d.GetMessage().Contains("does not match"));
     }
 
     [Fact]
@@ -84,7 +83,7 @@ public class IrVerifierTests {
         function.Body.Add(new IrConstantInstruction(value, 1));
         function.Body.Add(new IrStoreInstruction(new(local), value));
 
-        Assert.Contains(Verify(ModuleWith(function)), d => d.GetMessage().Contains("store"));
+        Assert.Contains(Verify(ModuleWith(function)), static d => d.GetMessage().Contains("store"));
     }
 
     [Fact]
@@ -95,7 +94,7 @@ public class IrVerifierTests {
         function.Body.Add(new IrConstantInstruction(condition, 1));
         function.Body.Add(new IrIfStatement(condition, new(), null));
 
-        Assert.Contains(Verify(ModuleWith(function)), d => d.GetMessage().Contains("expected bool"));
+        Assert.Contains(Verify(ModuleWith(function)), static d => d.GetMessage().Contains("expected bool"));
     }
 
     [Fact]
@@ -107,7 +106,7 @@ public class IrVerifierTests {
         var value = function.NewValue(IrScalarType.Float);
         function.Body.Add(new IrLoadInstruction(value, new(local, [new IrFieldAccess(0)])));
 
-        Assert.Contains(Verify(ModuleWith(function)), d => d.GetMessage().Contains("is not valid on"));
+        Assert.Contains(Verify(ModuleWith(function)), static d => d.GetMessage().Contains("is not valid on"));
     }
 
     [Fact]
@@ -120,7 +119,7 @@ public class IrVerifierTests {
         module.Add(callee);
         module.Add(caller);
 
-        Assert.Contains(Verify(module), d => d.GetMessage().Contains("passes 0 arguments"));
+        Assert.Contains(Verify(module), static d => d.GetMessage().Contains("passes 0 arguments"));
     }
 
     [Fact]
@@ -128,7 +127,7 @@ public class IrVerifierTests {
         var function = new IrFunction("Bad", IrScalarType.Void);
         function.Body.Add(new IrBreakStatement());
 
-        Assert.Contains(Verify(ModuleWith(function)), d => d.GetMessage().Contains("'break' outside a loop"));
+        Assert.Contains(Verify(ModuleWith(function)), static d => d.GetMessage().Contains("'break' outside a loop"));
     }
 
     [Fact]
@@ -153,7 +152,7 @@ public class IrVerifierTests {
 
         Assert.Contains(
             Verify(ModuleWith(function)),
-            d => d.GetMessage().Contains("can finish without returning")
+            static d => d.GetMessage().Contains("can finish without returning")
         );
     }
 
@@ -166,7 +165,7 @@ public class IrVerifierTests {
         var module = new IrModule("Test");
         module.Add(shader);
 
-        Assert.Contains(Verify(module), d => d.GetMessage().Contains("is not a function of shader"));
+        Assert.Contains(Verify(module), static d => d.GetMessage().Contains("is not a function of shader"));
     }
 
     [Fact]
@@ -181,7 +180,7 @@ public class IrVerifierTests {
         var module = new IrModule("Test");
         module.Add(shader);
 
-        Assert.Contains(Verify(module), d => d.GetMessage().Contains("reuses Uniform slot 0"));
+        Assert.Contains(Verify(module), static d => d.GetMessage().Contains("reuses Uniform slot 0"));
     }
 
     [Fact]
@@ -278,7 +277,7 @@ public class IrVerifierTests {
         var self = new IrStructType("Node");
         self.SetFields([new("next", self)]);
 
-        Assert.Contains(Verify(ModuleWith(self)), d => d.GetMessage().Contains("Node.next: Node"));
+        Assert.Contains(Verify(ModuleWith(self)), static d => d.GetMessage().Contains("Node.next: Node"));
     }
 
     /// <summary>An array of the type is the same infinity, so the walk goes through its element.</summary>
@@ -291,7 +290,7 @@ public class IrVerifierTests {
         var self = new IrStructType("Cell");
         self.SetFields([new("children", new IrArrayType(self, 4))]);
 
-        Assert.Contains(Verify(ModuleWith(self)), d => d.GetMessage().Contains("never terminates"));
+        Assert.Contains(Verify(ModuleWith(self)), static d => d.GetMessage().Contains("never terminates"));
     }
 
     /// <summary>
@@ -347,14 +346,16 @@ public class IrVerifierTests {
     /// </remarks>
     [Fact]
     public void A_library_whose_struct_table_holds_a_cycle_is_refused() {
-        var decoder = new LibraryIrDecoder(name => name);
+        var decoder = new LibraryIrDecoder(static name => name);
 
-        decoder.DecodeStructs(new() {
-            Structs = [
-                new() { Key = "Lib::A", Name = "A", Fields = [new("b", Reference("Lib::B"))] },
-                new() { Key = "Lib::B", Name = "B", Fields = [new("a", Reference("Lib::A"))] }
-            ]
-        });
+        decoder.DecodeStructs(
+            new() {
+                Structs = [
+                    new() { Key = "Lib::A", Name = "A", Fields = [new("b", Reference("Lib::B"))] },
+                    new() { Key = "Lib::B", Name = "B", Fields = [new("a", Reference("Lib::A"))] }
+                ]
+            }
+        );
 
         var module = new IrModule("Consumer");
 
@@ -362,11 +363,10 @@ public class IrVerifierTests {
             module.Add(structType);
         }
 
-        Assert.Contains(Verify(module), d => d.GetMessage().Contains("never terminates"));
+        Assert.Contains(Verify(module), static d => d.GetMessage().Contains("never terminates"));
     }
 
-    static LibraryIrTypeReference Reference(string key) =>
-        new() { Kind = IrTypeKind.Struct, Struct = key };
+    static LibraryIrTypeReference Reference(string key) => new() { Kind = IrTypeKind.Struct, Struct = key };
 
     static IrModule ModuleWith(params IrStructType[] structs) {
         var module = new IrModule("Test");

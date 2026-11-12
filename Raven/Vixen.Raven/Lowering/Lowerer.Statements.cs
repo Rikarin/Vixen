@@ -90,8 +90,8 @@ public sealed partial class Lowerer {
                 Emit(
                     new IrReturnStatement(
                         @return.Expression is { } value ? LowerExpression(value)
-                            // A bare `return` in a constructor still hands back the value
-                            // being built.
+                        // A bare `return` in a constructor still hands back the value
+                        // being built.
                         : IsConstructingSelf ? Load(SelfPlace!)
                         : null
                     )
@@ -299,8 +299,8 @@ public sealed partial class Lowerer {
         var subject = Function.AddLocal("switch", governingType);
         Emit(new IrStoreInstruction(new(subject), governing));
 
-        var cases = statement.Sections.Where(s => !s.IsDefault).ToArray();
-        var fallback = statement.Sections.FirstOrDefault(s => s.IsDefault);
+        var cases = statement.Sections.Where(static s => !s.IsDefault).ToArray();
+        var fallback = statement.Sections.FirstOrDefault(static s => s.IsDefault);
 
         // Built back to front, so each section's `else` is the chain already assembled.
         IrBlock? otherwise = fallback is null ? null : EmitInto(() => LowerSection(fallback));
@@ -309,8 +309,7 @@ public sealed partial class Lowerer {
             var section = cases[i];
             var tail = otherwise;
 
-            otherwise = EmitInto(
-                () => {
+            otherwise = EmitInto(() => {
                     // A section with no labels can never be selected; emitting the test would
                     // need a constant false, and dropping it says the same thing.
                     if (section.Labels.Count == 0) {

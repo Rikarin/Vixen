@@ -60,7 +60,7 @@ public sealed class ReplicationGenerator : IIncrementalGenerator {
         "'{0}' is a {1}, which replication cannot put on the wire. Replicate a field of a supported type, or write the IComponentReplicator by hand.",
         "Vixen.Net",
         DiagnosticSeverity.Error,
-        isEnabledByDefault: true
+        true
     );
 
     static readonly DiagnosticDescriptor QuantizeNotFloat = new(
@@ -69,7 +69,7 @@ public sealed class ReplicationGenerator : IIncrementalGenerator {
         "'{0}' is a {1}. [Quantize] declares the range of a float or a Vector3; an integer already knows what it is worth, and a rotation has no range to declare.",
         "Vixen.Net",
         DiagnosticSeverity.Error,
-        isEnabledByDefault: true
+        true
     );
 
     static readonly DiagnosticDescriptor QuantizeInvalid = new(
@@ -78,7 +78,7 @@ public sealed class ReplicationGenerator : IIncrementalGenerator {
         "'{0}' asks for {1} bits over [{2}, {3}]. A width is between 1 and 32 and the range has to go upwards.",
         "Vixen.Net",
         DiagnosticSeverity.Error,
-        isEnabledByDefault: true
+        true
     );
 
     static readonly DiagnosticDescriptor NothingToSend = new(
@@ -87,7 +87,7 @@ public sealed class ReplicationGenerator : IIncrementalGenerator {
         "'{0}' is replicated and has no public fields, so every snapshot of it is empty. Add a field, or drop the attribute.",
         "Vixen.Net",
         DiagnosticSeverity.Warning,
-        isEnabledByDefault: true
+        true
     );
 
     /// <inheritdoc />
@@ -144,8 +144,8 @@ public sealed class ReplicationGenerator : IIncrementalGenerator {
         var fullName = type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
         var wireName = type.ToDisplayString(
             new SymbolDisplayFormat(
-                globalNamespaceStyle: SymbolDisplayGlobalNamespaceStyle.Omitted,
-                typeQualificationStyle: SymbolDisplayTypeQualificationStyle.NameAndContainingTypesAndNamespaces
+                SymbolDisplayGlobalNamespaceStyle.Omitted,
+                SymbolDisplayTypeQualificationStyle.NameAndContainingTypesAndNamespaces
             )
         );
 
@@ -215,7 +215,7 @@ public sealed class ReplicationGenerator : IIncrementalGenerator {
                 return null;
             }
 
-            return new(field.Name, WireCodec.KindOf(field.Type, quantized: true), range.Min, range.Max, range.Bits);
+            return new(field.Name, WireCodec.KindOf(field.Type, true), range.Min, range.Max, range.Bits);
         }
 
         var kind = WireCodec.KindOf(field.Type);
@@ -269,9 +269,6 @@ public sealed class ReplicationGenerator : IIncrementalGenerator {
                         priority = value;
 
                         break;
-
-                    default:
-                        break;
                 }
             }
         }
@@ -293,7 +290,9 @@ public sealed class ReplicationGenerator : IIncrementalGenerator {
         source.AppendLine();
         source.AppendLine($"namespace {GeneratedNamespace};");
         source.AppendLine();
-        source.AppendLine($"/// <summary>Replicates <see cref=\"{wireName}\" />. Written by Vixen.Net.Generators.</summary>");
+        source.AppendLine(
+            $"/// <summary>Replicates <see cref=\"{wireName}\" />. Written by Vixen.Net.Generators.</summary>"
+        );
         source.AppendLine($"internal sealed class {className} : global::Vixen.Net.Replication.IComponentReplicator {{");
         source.AppendLine($"    public static readonly {className} Instance = new();");
         source.AppendLine();
@@ -321,13 +320,17 @@ public sealed class ReplicationGenerator : IIncrementalGenerator {
         source.AppendLine();
         source.AppendLine($"    public string TypeName => \"{wireName}\";");
         source.AppendLine();
-        source.AppendLine($"    public global::Vixen.Net.Channel Channel => global::Vixen.Net.Channel.{settings.Channel};");
+        source.AppendLine(
+            $"    public global::Vixen.Net.Channel Channel => global::Vixen.Net.Channel.{settings.Channel};"
+        );
         source.AppendLine();
         source.AppendLine($"    public int Priority => {settings.Priority.ToString(CultureInfo.InvariantCulture)};");
         source.AppendLine();
         source.AppendLine("    public global::Vixen.Ecs.QueryDescription ChangedQuery => Changed;");
         source.AppendLine();
-        source.AppendLine("    public global::System.ReadOnlySpan<global::Vixen.Net.Messaging.WireLane> Lanes => Layout;");
+        source.AppendLine(
+            "    public global::System.ReadOnlySpan<global::Vixen.Net.Messaging.WireLane> Lanes => Layout;"
+        );
         source.AppendLine();
         source.AppendLine("    public bool Has(global::Vixen.Ecs.World world, global::Vixen.Core.Entity entity) =>");
         source.AppendLine($"        world.Has<{fullName}>(entity);");
@@ -397,7 +400,9 @@ public sealed class ReplicationGenerator : IIncrementalGenerator {
         }
 
         source.AppendLine();
-        source.AppendLine("    /// <summary>The fixed-width fields Write produces, in the order it produces them.</summary>");
+        source.AppendLine(
+            "    /// <summary>The fixed-width fields Write produces, in the order it produces them.</summary>"
+        );
         source.Append("    static readonly global::Vixen.Net.Messaging.WireLane[] Layout = ");
 
         if (lanes.Count == 0) {
@@ -426,14 +431,20 @@ public sealed class ReplicationGenerator : IIncrementalGenerator {
         source.AppendLine();
         source.AppendLine("/// <summary>Every replicated component in this assembly.</summary>");
         source.AppendLine("/// <remarks>");
-        source.AppendLine("///     The closed set the registry is built from. Nothing is ever deserialized into a type a");
-        source.AppendLine("///     packet named — a packet names a position in this list, and a position that is not here");
+        source.AppendLine(
+            "///     The closed set the registry is built from. Nothing is ever deserialized into a type a"
+        );
+        source.AppendLine(
+            "///     packet named — a packet names a position in this list, and a position that is not here"
+        );
         source.AppendLine("///     is a packet that is refused.");
         source.AppendLine("/// </remarks>");
         source.AppendLine("internal static class ReplicatedComponents {");
         source.AppendLine("    /// <summary>Hands every replicator in this assembly to a registry.</summary>");
-        source.AppendLine("    /// <param name=\"registry\">The registry.</param>");
-        source.AppendLine("    public static void RegisterAll(global::Vixen.Net.Replication.ReplicationRegistry registry) {");
+        source.AppendLine("""    /// <param name="registry">The registry.</param>""");
+        source.AppendLine(
+            "    public static void RegisterAll(global::Vixen.Net.Replication.ReplicationRegistry registry) {"
+        );
 
         foreach (var className in sorted) {
             source.AppendLine($"        registry.Register({className}.Instance);");
@@ -456,7 +467,11 @@ public sealed class ReplicationGenerator : IIncrementalGenerator {
             location,
             descriptor.Id,
             descriptor.Title.ToString(CultureInfo.InvariantCulture),
-            string.Format(CultureInfo.InvariantCulture, descriptor.MessageFormat.ToString(CultureInfo.InvariantCulture), arguments),
+            string.Format(
+                CultureInfo.InvariantCulture,
+                descriptor.MessageFormat.ToString(CultureInfo.InvariantCulture),
+                arguments
+            ),
             descriptor.DefaultSeverity
         );
     }

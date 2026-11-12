@@ -61,8 +61,7 @@ public static class ChannelExtensions {
     /// <summary>Whether the channel promises the message arrives at all.</summary>
     /// <param name="channel">The channel.</param>
     /// <returns><see langword="true" /> for the two reliable channels.</returns>
-    public static bool IsReliable(this Channel channel) =>
-        channel is Channel.Reliable or Channel.ReliableUnordered;
+    public static bool IsReliable(this Channel channel) => channel is Channel.Reliable or Channel.ReliableUnordered;
 
     /// <summary>Whether the channel promises messages are observed in the order they were sent.</summary>
     /// <param name="channel">The channel.</param>
@@ -71,8 +70,7 @@ public static class ChannelExtensions {
     ///     <see cref="Channel.Sequenced" />. The two mean different things by it — one waits, the
     ///     other discards — but a receiver never sees an older message after a newer one either way.
     /// </returns>
-    public static bool IsOrdered(this Channel channel) =>
-        channel is Channel.Reliable or Channel.Sequenced;
+    public static bool IsOrdered(this Channel channel) => channel is Channel.Reliable or Channel.Sequenced;
 
     /// <summary>Whether a message on this channel may be silently dropped.</summary>
     /// <param name="channel">The channel.</param>

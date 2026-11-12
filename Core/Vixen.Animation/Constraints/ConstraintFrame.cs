@@ -80,8 +80,12 @@ public readonly ref struct ConstraintContext {
     ///     The character's own place in the world, for bringing a world-space frame into model space.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>Left unset it is the identity, and the getter says so rather than leaving
-    ///     <c>default</c> to mean it.</b> <see cref="BoneTransform" /> is a plain struct, so
+    ///     ⚠
+    ///     <b>
+    ///         Left unset it is the identity, and the getter says so rather than leaving
+    ///         <c>default</c> to mean it.
+    ///     </b>
+    ///     <see cref="BoneTransform" /> is a plain struct, so
     ///     <c>default</c> is a transform with a scale of <em>zero</em> — and inverting that collapses
     ///     every world-space frame onto the model origin. A character with no world transform is at the
     ///     origin unrotated, which is what a caller omitting it means, and the alternative is a context
@@ -115,8 +119,12 @@ public readonly ref struct ConstraintContext {
 
     /// <summary>Where in its clip the goal being resolved is, in <c>[0, 1]</c>.</summary>
     /// <remarks>
-    ///     ⚠ <b>Per goal, not per character, which is why it is rebuilt into the context rather than
-    ///     read off the animator.</b> A frame resolves for one goal at a time and two goals on one
+    ///     ⚠
+    ///     <b>
+    ///         Per goal, not per character, which is why it is rebuilt into the context rather than
+    ///         read off the animator.
+    ///     </b>
+    ///     A frame resolves for one goal at a time and two goals on one
     ///     body routinely come from clips at different phases — a walk at 0.3 under a reach at 0.8.
     ///     Only <see cref="TrajectoryFrame" /> reads it; everything else is constant over a clip.
     /// </remarks>
@@ -132,8 +140,12 @@ public readonly ref struct ConstraintContext {
 /// <summary>Where a goal is. The seam every kind of "somewhere" goes through.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b><see cref="TryResolve" /> returning <see langword="false" /> is the important
-///         case.</b> A frame naming a bound entity that no longer exists, or a shape that is not
+///         ⚠
+///         <b>
+///             <see cref="TryResolve" /> returning <see langword="false" /> is the important
+///             case.
+///         </b>
+///         A frame naming a bound entity that no longer exists, or a shape that is not
 ///         loaded, fails cleanly, and the stage eases the constraint out instead of snapping the
 ///         limb. Resolution failure is expected, not exceptional, and an implementation that throws
 ///         instead is one that turns a despawned prop into a crash.
@@ -152,8 +164,7 @@ public interface IConstraintFrame {
 public sealed record WorldFrame(BoneTransform Transform) : IConstraintFrame {
     /// <summary>A fixed point in the world, unrotated.</summary>
     /// <param name="position">Where.</param>
-    public WorldFrame(Vector3 position) : this(new BoneTransform(position, Quaternion.Identity, Vector3.One)) {
-    }
+    public WorldFrame(Vector3 position) : this(new BoneTransform(position, Quaternion.Identity, Vector3.One)) { }
 
     /// <inheritdoc />
     public bool TryResolve(in ConstraintContext context, out Frame frame) {
@@ -172,8 +183,7 @@ public sealed record WorldFrame(BoneTransform Transform) : IConstraintFrame {
 public sealed record JointFrame(int Joint, BoneTransform Offset) : IConstraintFrame {
     /// <summary>A joint, with no offset.</summary>
     /// <param name="joint">Which joint.</param>
-    public JointFrame(int joint) : this(joint, BoneTransform.Identity) {
-    }
+    public JointFrame(int joint) : this(joint, BoneTransform.Identity) { }
 
     /// <inheritdoc />
     public bool TryResolve(in ConstraintContext context, out Frame frame) {
@@ -197,8 +207,7 @@ public sealed record JointFrame(int Joint, BoneTransform Offset) : IConstraintFr
 public sealed record EntityFrame(Symbol Slot, BoneTransform Offset) : IConstraintFrame {
     /// <summary>A slot by name.</summary>
     /// <param name="slot">The slot.</param>
-    public EntityFrame(string slot) : this(Symbol.Intern(slot), BoneTransform.Identity) {
-    }
+    public EntityFrame(string slot) : this(Symbol.Intern(slot), BoneTransform.Identity) { }
 
     /// <inheritdoc />
     public bool TryResolve(in ConstraintContext context, out Frame frame) {
@@ -227,8 +236,7 @@ public sealed record SocketFrame(Symbol Slot, Symbol Socket, BoneTransform Offse
     /// <param name="slot">The slot.</param>
     /// <param name="socket">The attachment point.</param>
     public SocketFrame(string slot, string socket)
-        : this(Symbol.Intern(slot), Symbol.Intern(socket), BoneTransform.Identity) {
-    }
+        : this(Symbol.Intern(slot), Symbol.Intern(socket), BoneTransform.Identity) { }
 
     /// <inheritdoc />
     public bool TryResolve(in ConstraintContext context, out Frame frame) {
@@ -259,8 +267,7 @@ public sealed record SocketFrame(Symbol Slot, Symbol Socket, BoneTransform Offse
 public sealed record ProvidedFrame(Symbol Name) : IConstraintFrame {
     /// <summary>A provided frame by name.</summary>
     /// <param name="name">What it is called.</param>
-    public ProvidedFrame(string name) : this(Symbol.Intern(name)) {
-    }
+    public ProvidedFrame(string name) : this(Symbol.Intern(name)) { }
 
     /// <inheritdoc />
     public bool TryResolve(in ConstraintContext context, out Frame frame) {

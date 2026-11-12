@@ -65,7 +65,7 @@ public static class EulerAngles {
         // for every rotation an artist actually authors.
         var sinPitch = Math.Clamp(-z.Y, -1f, 1f);
         var pitch = MathF.Asin(sinPitch);
-        var cosPitch = MathF.Sqrt(MathF.Max(0f, 1f - (sinPitch * sinPitch)));
+        var cosPitch = MathF.Sqrt(MathF.Max(0f, 1f - sinPitch * sinPitch));
 
         float yaw;
         float roll;

@@ -59,7 +59,7 @@ public readonly record struct PaintRect(int X, int Y, int Width, int Height) {
     /// <param name="margin">How many texels.</param>
     /// <returns>The grown rectangle.</returns>
     public PaintRect Grow(int margin) =>
-        IsEmpty ? this : new(X - margin, Y - margin, Width + (2 * margin), Height + (2 * margin));
+        IsEmpty ? this : new(X - margin, Y - margin, Width + 2 * margin, Height + 2 * margin);
 
     /// <summary>What two rectangles share.</summary>
     /// <param name="other">The other.</param>
@@ -235,7 +235,7 @@ public sealed class PaintImage {
     /// <param name="y">Its row.</param>
     /// <returns>The texel.</returns>
     public uint At(int x, int y) {
-        var slot = ((y / TileSize) * tilesWide) + (x / TileSize);
+        var slot = y / TileSize * tilesWide + x / TileSize;
 
         if (tiles[slot] is not { } tile) {
             return background;
@@ -255,7 +255,7 @@ public sealed class PaintImage {
     /// <param name="y">Its row.</param>
     /// <param name="value">The texel.</param>
     public void Put(int x, int y, uint value) {
-        var slot = ((y / TileSize) * tilesWide) + (x / TileSize);
+        var slot = y / TileSize * tilesWide + x / TileSize;
         var tile = Writable(slot);
         var at = TexelOffset(x, y, slot);
         var texels = tile.Texels;
@@ -301,10 +301,10 @@ public sealed class PaintImage {
             for (var tileX = 0; tileX < tilesWide; tileX++) {
                 var rect = TileRect(tileX, tileY);
                 var row = rect.Width * BytesPerTexel;
-                var tile = tiles[(tileY * tilesWide) + tileX];
+                var tile = tiles[tileY * tilesWide + tileX];
 
                 for (var y = 0; y < rect.Height; y++) {
-                    var to = flat.Slice((((rect.Y + y) * Width) + rect.X) * BytesPerTexel, row);
+                    var to = flat.Slice(((rect.Y + y) * Width + rect.X) * BytesPerTexel, row);
 
                     if (tile is null) {
                         MemoryMarshal.Cast<byte, uint>(to).Fill(background);
@@ -341,10 +341,10 @@ public sealed class PaintImage {
                 var bytes = new byte[row * rect.Height];
 
                 for (var y = 0; y < rect.Height; y++) {
-                    flat.Slice((((rect.Y + y) * Width) + rect.X) * BytesPerTexel, row).CopyTo(bytes.AsSpan(y * row));
+                    flat.Slice(((rect.Y + y) * Width + rect.X) * BytesPerTexel, row).CopyTo(bytes.AsSpan(y * row));
                 }
 
-                var slot = (tileY * tilesWide) + tileX;
+                var slot = tileY * tilesWide + tileX;
 
                 tiles[slot] = bytes.AsSpan().IndexOfAnyExcept((byte)0) < 0 ? null : new(bytes);
                 written[slot] = revision;
@@ -388,7 +388,7 @@ public sealed class PaintImage {
             while (x < rect.EndX) {
                 var tileX = x / TileSize;
                 var tileY = (rect.Y + y) / TileSize;
-                var tile = tiles[(tileY * tilesWide) + tileX];
+                var tile = tiles[tileY * tilesWide + tileX];
                 var box = TileRect(tileX, tileY);
                 var run = Math.Min(box.EndX, rect.EndX) - x;
                 var to = row.Slice((x - rect.X) * BytesPerTexel, run * BytesPerTexel);
@@ -396,7 +396,7 @@ public sealed class PaintImage {
                 if (tile is null) {
                     MemoryMarshal.Cast<byte, uint>(to).Fill(background);
                 } else {
-                    tile.Texels.AsSpan((((rect.Y + y - box.Y) * box.Width) + (x - box.X)) * BytesPerTexel, to.Length)
+                    tile.Texels.AsSpan(((rect.Y + y - box.Y) * box.Width + (x - box.X)) * BytesPerTexel, to.Length)
                         .CopyTo(to);
                 }
 
@@ -413,7 +413,11 @@ public sealed class PaintImage {
     public void WriteRect(PaintRect rect, ReadOnlySpan<byte> from) {
         var stride = rect.Width * BytesPerTexel;
 
-        if (rect.X < 0 || rect.Y < 0 || rect.EndX > Width || rect.EndY > Height || from.Length != stride * rect.Height) {
+        if (rect.X < 0
+            || rect.Y < 0
+            || rect.EndX > Width
+            || rect.EndY > Height
+            || from.Length != stride * rect.Height) {
             throw new ArgumentException(
                 $"{rect} of a {Width}×{Height} image is {stride * rect.Height} bytes, and {from.Length} were given.",
                 nameof(from)
@@ -429,7 +433,7 @@ public sealed class PaintImage {
                 var tileY = (rect.Y + y) / TileSize;
                 var box = TileRect(tileX, tileY);
                 var run = Math.Min(box.EndX, rect.EndX) - x;
-                var tile = Writable((tileY * tilesWide) + tileX);
+                var tile = Writable(tileY * tilesWide + tileX);
 
                 row.Slice((x - rect.X) * BytesPerTexel, run * BytesPerTexel)
                     .CopyTo(tile.Texels.AsSpan(((rect.Y + y - box.Y) * box.Width + (x - box.X)) * BytesPerTexel));
@@ -456,7 +460,7 @@ public sealed class PaintImage {
     /// <param name="tileY">Its row of tiles.</param>
     /// <returns>Whether it does.</returns>
     internal bool IsBackground(int tileX, int tileY) {
-        if (tiles[(tileY * tilesWide) + tileX] is not { } tile) {
+        if (tiles[tileY * tilesWide + tileX] is not { } tile) {
             return true;
         }
 
@@ -483,7 +487,7 @@ public sealed class PaintImage {
     /// <param name="tileY">Its row of tiles.</param>
     /// <returns>The bytes, shared with the image until the next write, or empty when it holds none.</returns>
     public ReadOnlyMemory<byte> TileTexels(int tileX, int tileY) =>
-        tiles[(tileY * tilesWide) + tileX]?.Texels ?? ReadOnlyMemory<byte>.Empty;
+        tiles[tileY * tilesWide + tileX]?.Texels ?? ReadOnlyMemory<byte>.Empty;
 
     /// <summary>A tile's texels, whether it holds any or not.</summary>
     /// <param name="tileX">Its column of tiles.</param>
@@ -519,7 +523,7 @@ public sealed class PaintImage {
             );
         }
 
-        var slot = (tileY * tilesWide) + tileX;
+        var slot = tileY * tilesWide + tileX;
 
         revision++;
         tiles[slot] = new(texels);
@@ -628,9 +632,9 @@ public sealed class PaintImage {
     int TexelOffset(int x, int y, int slot) {
         var column = x % TileSize;
         var row = y % TileSize;
-        var wide = Math.Min(TileSize, Width - ((slot % tilesWide) * TileSize));
+        var wide = Math.Min(TileSize, Width - slot % tilesWide * TileSize);
 
-        return ((row * wide) + column) * BytesPerTexel;
+        return (row * wide + column) * BytesPerTexel;
     }
 
     Tile Writable(int slot) {
@@ -707,8 +711,12 @@ public sealed class PaintImage {
     /// <param name="amount">How far, 0…1.</param>
     /// <returns>The mixed texel.</returns>
     /// <remarks>
-    ///     ⚠ <b>From the value the texel had <em>before the stroke</em>, never from the value it has
-    ///     now.</b> Compositing a stamp onto the current value makes a texel that two stamps cross
+    ///     ⚠
+    ///     <b>
+    ///         From the value the texel had <em>before the stroke</em>, never from the value it has
+    ///         now.
+    ///     </b>
+    ///     Compositing a stamp onto the current value makes a texel that two stamps cross
     ///     darker than a texel one stamp crosses, which is the defect where a slow drag paints
     ///     stronger than a fast one over the same ground. <c>PaintStroke</c> keeps the before-value —
     ///     the undo record already holds it, so the correct arithmetic costs nothing extra.
@@ -721,7 +729,7 @@ public sealed class PaintImage {
             var a = (from >> (channel * 8)) & 0xFF;
             var b = (to >> (channel * 8)) & 0xFF;
 
-            mixed |= (uint)Quantise(((a + ((b - (float)a) * t)) / 255f)) << (channel * 8);
+            mixed |= (uint)Quantise((a + (b - (float)a) * t) / 255f) << (channel * 8);
         }
 
         return mixed;

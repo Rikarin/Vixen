@@ -36,8 +36,8 @@ public sealed class DdsException(string message) : Exception(message);
 ///     </para>
 /// </remarks>
 public static class DdsCodec {
-    const uint Magic = 0x20534444;       // 'DDS '
-    const uint FourCcDx10 = 0x30315844;  // 'DX10'
+    const uint Magic = 0x20534444; // 'DDS '
+    const uint FourCcDx10 = 0x30315844; // 'DX10'
     const int HeaderLength = 124;
     const int PixelFormatLength = 32;
     const int ExtensionLength = 20;
@@ -60,35 +60,35 @@ public static class DdsCodec {
 
     /// <summary>Each format and its <c>DXGI_FORMAT</c> number.</summary>
     static readonly (PixelFormat Format, uint Dxgi)[] Table = [
-        (PixelFormat.Rgba32Float, 2),       // R32G32B32A32_FLOAT
-        (PixelFormat.Rgba16Float, 10),      // R16G16B16A16_FLOAT
-        (PixelFormat.Rgba16UNorm, 11),      // R16G16B16A16_UNORM
-        (PixelFormat.Rg32Float, 16),        // R32G32_FLOAT
-        (PixelFormat.Rgba8UNorm, 28),       // R8G8B8A8_UNORM
-        (PixelFormat.Rgba8UNormSrgb, 29),   // R8G8B8A8_UNORM_SRGB
-        (PixelFormat.Rg16Float, 34),        // R16G16_FLOAT
-        (PixelFormat.Rg16UNorm, 35),        // R16G16_UNORM
-        (PixelFormat.R32Float, 41),         // R32_FLOAT
-        (PixelFormat.Rg8UNorm, 49),         // R8G8_UNORM
-        (PixelFormat.R16Float, 54),         // R16_FLOAT
-        (PixelFormat.R16UNorm, 56),         // R16_UNORM
-        (PixelFormat.R8UNorm, 61),          // R8_UNORM
-        (PixelFormat.Bc1RgbaUNorm, 71),     // BC1_UNORM
+        (PixelFormat.Rgba32Float, 2), // R32G32B32A32_FLOAT
+        (PixelFormat.Rgba16Float, 10), // R16G16B16A16_FLOAT
+        (PixelFormat.Rgba16UNorm, 11), // R16G16B16A16_UNORM
+        (PixelFormat.Rg32Float, 16), // R32G32_FLOAT
+        (PixelFormat.Rgba8UNorm, 28), // R8G8B8A8_UNORM
+        (PixelFormat.Rgba8UNormSrgb, 29), // R8G8B8A8_UNORM_SRGB
+        (PixelFormat.Rg16Float, 34), // R16G16_FLOAT
+        (PixelFormat.Rg16UNorm, 35), // R16G16_UNORM
+        (PixelFormat.R32Float, 41), // R32_FLOAT
+        (PixelFormat.Rg8UNorm, 49), // R8G8_UNORM
+        (PixelFormat.R16Float, 54), // R16_FLOAT
+        (PixelFormat.R16UNorm, 56), // R16_UNORM
+        (PixelFormat.R8UNorm, 61), // R8_UNORM
+        (PixelFormat.Bc1RgbaUNorm, 71), // BC1_UNORM
         (PixelFormat.Bc1RgbaUNormSrgb, 72), // BC1_UNORM_SRGB
-        (PixelFormat.Bc3RgbaUNorm, 77),     // BC3_UNORM
+        (PixelFormat.Bc3RgbaUNorm, 77), // BC3_UNORM
         (PixelFormat.Bc3RgbaUNormSrgb, 78), // BC3_UNORM_SRGB
-        (PixelFormat.Bc4RUNorm, 80),        // BC4_UNORM
-        (PixelFormat.Bc5RgUNorm, 83),       // BC5_UNORM
-        (PixelFormat.Bgra8UNorm, 87),       // B8G8R8A8_UNORM
-        (PixelFormat.Bgra8UNormSrgb, 91),   // B8G8R8A8_UNORM_SRGB
-        (PixelFormat.Bc6HRgbUFloat, 95),    // BC6H_UF16
-        (PixelFormat.Bc6HRgbSFloat, 96),    // BC6H_SF16
-        (PixelFormat.Bc7RgbaUNorm, 98),     // BC7_UNORM
-        (PixelFormat.Bc7RgbaUNormSrgb, 99)  // BC7_UNORM_SRGB
+        (PixelFormat.Bc4RUNorm, 80), // BC4_UNORM
+        (PixelFormat.Bc5RgUNorm, 83), // BC5_UNORM
+        (PixelFormat.Bgra8UNorm, 87), // B8G8R8A8_UNORM
+        (PixelFormat.Bgra8UNormSrgb, 91), // B8G8R8A8_UNORM_SRGB
+        (PixelFormat.Bc6HRgbUFloat, 95), // BC6H_UF16
+        (PixelFormat.Bc6HRgbSFloat, 96), // BC6H_SF16
+        (PixelFormat.Bc7RgbaUNorm, 98), // BC7_UNORM
+        (PixelFormat.Bc7RgbaUNormSrgb, 99) // BC7_UNORM_SRGB
     ];
 
     /// <summary>Every format that can be written.</summary>
-    public static IEnumerable<PixelFormat> Supported => Table.Select(entry => entry.Format);
+    public static IEnumerable<PixelFormat> Supported => Table.Select(static entry => entry.Format);
 
     /// <summary>Whether a format can be written.</summary>
     /// <param name="format">The format.</param>
@@ -115,7 +115,10 @@ public static class DdsCodec {
         var compressed = texture.Format.IsCompressed();
         var levelZeroBytes = (uint)texture.Format.LevelSize(texture.Width, 1);
 
-        var flags = FlagCaps | FlagHeight | FlagWidth | FlagPixelFormat
+        var flags = FlagCaps
+            | FlagHeight
+            | FlagWidth
+            | FlagPixelFormat
             | (compressed ? FlagLinearSize : FlagPitch)
             | (texture.LevelCount > 1 ? FlagMipMapCount : 0);
 
@@ -123,7 +126,8 @@ public static class DdsCodec {
             | (texture.LevelCount > 1 ? CapsMipMap | CapsComplex : 0)
             | (texture.FaceCount == 6 || texture.LayerCount > 1 ? CapsComplex : 0);
 
-        var pitchOrLinearSize = compressed ? (uint)texture.Format.LevelSize(texture.Width, texture.Height) : levelZeroBytes;
+        var pitchOrLinearSize =
+            compressed ? (uint)texture.Format.LevelSize(texture.Width, texture.Height) : levelZeroBytes;
 
         var span = file.AsSpan();
 

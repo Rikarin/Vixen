@@ -41,7 +41,7 @@ public sealed class Selection<T> : IReadOnlyList<T> where T : notnull {
     ///     <see langword="default" /> when nothing is selected, which for a value type is a value and
     ///     not a null — check <see cref="IsEmpty" /> rather than the result.
     /// </remarks>
-    public T? Primary => items.Count == 0 ? default : items[items.Count - 1];
+    public T? Primary => items.Count == 0 ? default : items[^1];
 
     /// <summary>The selection as a list a view can reconcile against.</summary>
     public IReadOnlyList<T> Items => items;
@@ -52,7 +52,9 @@ public sealed class Selection<T> : IReadOnlyList<T> where T : notnull {
 
     /// <summary>Creates an empty selection.</summary>
     /// <param name="comparer">How two selected things are compared, or <see langword="null" /> for the default.</param>
-    public Selection(IEqualityComparer<T>? comparer = null) => membership = new(comparer);
+    public Selection(IEqualityComparer<T>? comparer = null) {
+        membership = new(comparer);
+    }
 
     /// <summary>Whether something is selected.</summary>
     /// <param name="item">The thing.</param>

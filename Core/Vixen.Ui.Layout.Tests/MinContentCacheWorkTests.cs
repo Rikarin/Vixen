@@ -14,8 +14,12 @@ namespace Vixen.Ui.Layout.Tests;
 ///         min-content cache exists to make that free.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The filed reading — "the same question asked three times" — is right about the cost
-///         and slightly wrong about the question.</b> The three were three different keys: the
+///         ⚠
+///         <b>
+///             The filed reading — "the same question asked three times" — is right about the cost
+///             and slightly wrong about the question.
+///         </b>
+///         The three were three different keys: the
 ///         sibling's own §4.5 floor under the column's offered height (1000), the root's probe of the
 ///         column under §5.2.1's zero, and the second flex pass under the column's resolved height
 ///         (40). A leaf's min-content size reads none of those heights, so all three were one answer,
@@ -49,11 +53,13 @@ public class MinContentCacheWorkTests {
                 var perLine = MathF.Max(1f, MathF.Floor(width / Word));
                 var lines = MathF.Ceiling(words / perLine);
 
-                return new LayoutSize(width, request.HeightMode == MeasureMode.Exactly ? request.AvailableHeight : lines * 10f);
+                return new(width, request.HeightMode == MeasureMode.Exactly ? request.AvailableHeight : lines * 10f);
             };
     }
 
-    static (LayoutTree Tree, LayoutNodeId Root, LayoutNodeId Column, LayoutNodeId[] Items, Counter Sibling) Build(bool definiteColumn = true) {
+    static (LayoutTree Tree, LayoutNodeId Root, LayoutNodeId Column, LayoutNodeId[] Items, Counter Sibling) Build(
+        bool definiteColumn = true
+    ) {
         var sibling = new Counter();
         var tree = new LayoutTree();
 
@@ -103,7 +109,10 @@ public class MinContentCacheWorkTests {
     [Theory]
     [InlineData(true, 3)]
     [InlineData(false, 4)]
-    public void A_clean_sibling_is_not_measured_again_when_its_neighbour_changes(bool definiteColumn, int coldMeasurements) {
+    public void A_clean_sibling_is_not_measured_again_when_its_neighbour_changes(
+        bool definiteColumn,
+        int coldMeasurements
+    ) {
         var (tree, root, column, items, sibling) = Build(definiteColumn);
 
         Assert.Equal(coldMeasurements, Layout(tree, root, sibling));
@@ -122,8 +131,12 @@ public class MinContentCacheWorkTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>The same layout with the cache keyed on the owner height that it no longer reads gives
-    ///     the same geometry</b>, so the narrower key changes cost and not answers: the sibling's
+    ///     ⚠
+    ///     <b>
+    ///         The same layout with the cache keyed on the owner height that it no longer reads gives
+    ///         the same geometry
+    ///     </b>
+    ///     , so the narrower key changes cost and not answers: the sibling's
     ///     §4.5 floor under the shared key is the one it would have computed.
     /// </summary>
     [Fact]

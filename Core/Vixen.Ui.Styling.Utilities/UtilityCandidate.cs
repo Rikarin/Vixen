@@ -30,8 +30,11 @@ namespace Vixen.Ui.Styling.Utilities;
 ///     The CSS property named by an <i>arbitrary property</i> — the <c>mask-type</c> of
 ///     <c>[mask-type:luminance]</c> — or null for every other candidate.
 ///     <para>
-///         ⚠ <b>A separate field rather than a <see cref="Name" /> that happens to look like a
-///         property, because the two are read by different tables and confusing them is the bug.</b>
+///         ⚠
+///         <b>
+///             A separate field rather than a <see cref="Name" /> that happens to look like a
+///             property, because the two are read by different tables and confusing them is the bug.
+///         </b>
 ///         <see cref="Name" /> is a key into <see cref="UtilityFamilies" />' registry; this is a
 ///         property name to emit verbatim, and there is by construction no family for it. A candidate
 ///         with a <see cref="Property" /> has an empty <see cref="Name" /> and its value in
@@ -69,8 +72,12 @@ public readonly record struct UtilityCandidate(
 ///         to mean "this is not shaped like a utility at all", never "I do not know this one".
 ///     </para>
 ///     <para>
-///         ⚠ <b>Three escape hatches and not one, and the two beside <c>w-[37px]</c> are both decided
-///         in this method because neither has a family to decide it.</b> The arbitrary <i>value</i>
+///         ⚠
+///         <b>
+///             Three escape hatches and not one, and the two beside <c>w-[37px]</c> are both decided
+///             in this method because neither has a family to decide it.
+///         </b>
+///         The arbitrary <i>value</i>
 ///         <c>w-[37px]</c> is a known family given a value the theme does not hold. The arbitrary
 ///         <i>property</i> <c>[mask-type:luminance]</c> is a property with no family at all, and it
 ///         parses to an empty <see cref="UtilityCandidate.Name" /> with the property in
@@ -80,8 +87,12 @@ public readonly record struct UtilityCandidate(
 ///         were ever two spellings.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Both of the new two are shape-tested rather than waved through, and a malformed one
-///         produces no candidate at all.</b> <c>[1..:red]</c> and <c>[mask type:red]</c> are refused
+///         ⚠
+///         <b>
+///             Both of the new two are shape-tested rather than waved through, and a malformed one
+///             produces no candidate at all.
+///         </b>
+///         <c>[1..:red]</c> and <c>[mask type:red]</c> are refused
 ///         by <c>IsPropertyName</c> here, and the value half is refused by
 ///         <c>UtilityFamilies.IsPlausibleValue</c> exactly as <c>w-[1..]</c> is — the <c>text[1..]</c>
 ///         defect has two more ways in now and both are closed.
@@ -223,7 +234,7 @@ public static class UtilityParser {
             return false;
         }
 
-        parsed = new UtilityCandidate(
+        parsed = new(
             candidate,
             variants,
             name,
@@ -247,8 +258,12 @@ public static class UtilityParser {
 
     /// <summary>Whether a run of text is a CSS identifier, and so usable as a property name.</summary>
     /// <remarks>
-    ///     ⚠ <b>The property half of the same argument <c>UtilityFamilies.IsPlausibleValue</c> makes
-    ///     about the value half, and it is needed for the same reason.</b> An arbitrary property
+    ///     ⚠
+    ///     <b>
+    ///         The property half of the same argument <c>UtilityFamilies.IsPlausibleValue</c> makes
+    ///         about the value half, and it is needed for the same reason.
+    ///     </b>
+    ///     An arbitrary property
     ///     bypasses the family table entirely, so nothing downstream will ever say that
     ///     <c>[1..:red]</c> is not a declaration — it would be written into the sheet, refused by
     ///     ExCSS, and dropped without a word, which is the <c>text[1..]</c> defect one field over.

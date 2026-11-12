@@ -28,7 +28,11 @@ public abstract class RavenSyntaxNode : SyntaxNode {
     /// <summary>This node's kind. The shared tree stores it as <see cref="SyntaxNode.RawKind" />.</summary>
     public SyntaxKind Kind => (SyntaxKind)RawKind;
 
-    internal RavenSyntaxNode(Green.GreenNode green, SyntaxNode? parent, int position) : base(green, parent, position) { }
+    internal RavenSyntaxNode(Green.GreenNode green, SyntaxNode? parent, int position) : base(
+        green,
+        parent,
+        position
+    ) { }
 
     /// <summary>Dispatches to the visitor's method for this node's type.</summary>
     public abstract void Accept(SyntaxVisitor visitor);

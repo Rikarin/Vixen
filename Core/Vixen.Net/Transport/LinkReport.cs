@@ -9,8 +9,11 @@ namespace Vixen.Net.Transport;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>This is the fifth measurement, and it is why it is not a field on
-///         <see cref="TransportLoss" />.</b> That struct carries four totals taken from two kinds of
+///         <b>
+///             This is the fifth measurement, and it is why it is not a field on
+///             <see cref="TransportLoss" />.
+///         </b>
+///         That struct carries four totals taken from two kinds of
 ///         evidence — what this end sent and resent, and what this end expected and missed — and its
 ///         own remarks refuse to conflate them. "What the peer says it missed of what I sent" is
 ///         taken by neither: it is a measurement made by a different machine, arriving a round trip

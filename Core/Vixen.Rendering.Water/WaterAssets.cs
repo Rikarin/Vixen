@@ -11,9 +11,13 @@ namespace Vixen.Rendering.Water;
 /// <summary>The water pass, as a document names it.</summary>
 /// <remarks>
 ///     <para>
-///         <b>A node in a <c>.vxcompositor</c>, which means a project that has no water does not pay
-///         for the copy</b> —
-///         [35 § D8](../../docs/plan/35-water.md#d8-the-surface-is-a-pass-between-lighting-and-translucency-and-its-reflections-are-l5s).
+///         <b>
+///             A node in a <c>.vxcompositor</c>, which means a project that has no water does not pay
+///             for the copy
+///         </b>
+///         —
+///         [35 §
+///         D8](../../docs/plan/35-water.md#d8-the-surface-is-a-pass-between-lighting-and-translucency-and-its-reflections-are-l5s).
 ///         The <c>!Copy</c> ahead of it is culled with its target when nothing reads the snapshot, so
 ///         a document carrying both costs nothing in a scene where no surface pass ran.
 ///     </para>
@@ -127,8 +131,12 @@ public sealed record WaterAsset : ISceneRendererAsset {
 /// <summary>The water surface mesh, as a document names it.</summary>
 /// <remarks>
 ///     <para>
-///         <b>[35 § D4](../../docs/plan/35-water.md#d4-the-surface-is-the-terrains-quadtree-with-a-different-height-source),
-///         and the node without which <c>!Water</c> has nothing to composite.</b> It draws every
+///         <b>
+///             [35 §
+///             D4](../../docs/plan/35-water.md#d4-the-surface-is-the-terrains-quadtree-with-a-different-height-source),
+///             and the node without which <c>!Water</c> has nothing to composite.
+///         </b>
+///         It draws every
 ///         zone's quadtree into the two planes — a coverage mask with the surface's device depth, and
 ///         the surface's normal with its foam — and writes no colour of its own.
 ///     </para>
@@ -189,8 +197,12 @@ public sealed record WaterSurfaceAsset : ISceneRendererAsset {
 /// <summary>The waterline composite, as a document names it.</summary>
 /// <remarks>
 ///     <para>
-///         <b>[35 § D9](../../docs/plan/35-water.md#d9-underwater-is-a-post-process-volume-and-the-waterline-is-named-as-the-hard-part)'s
-///         second half.</b> The volume half is a <c>PostProcessVolume</c> with
+///         <b>
+///             [35 §
+///             D9](../../docs/plan/35-water.md#d9-underwater-is-a-post-process-volume-and-the-waterline-is-named-as-the-hard-part)'s
+///             second half.
+///         </b>
+///         The volume half is a <c>PostProcessVolume</c> with
 ///         <see cref="UnderwaterShape" /> and grades the whole frame; this is the curve, which a fold
 ///         cannot express because a fold produces one weight.
 ///     </para>
@@ -305,8 +317,12 @@ public sealed class WaterRendererFactory : ISceneRendererFactory {
     /// <summary>Where the zones the surface node draws come from.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A factory-level property rather than something a document names, because a system
-    ///         is not a document's to reference.</b> A <c>.vxcompositor</c> describes a frame; which
+    ///         ⚠
+    ///         <b>
+    ///             A factory-level property rather than something a document names, because a system
+    ///             is not a document's to reference.
+    ///         </b>
+    ///         A <c>.vxcompositor</c> describes a frame; which
     ///         world is running is the host's business, and <c>AppGraphics</c> is what has both in its
     ///         hands. Left unset, a <c>!WaterSurface</c> node builds and draws nothing — a frame with
     ///         no water rather than an exception, on <c>!ScreenProbeGather</c>'s terms.
@@ -362,10 +378,7 @@ public sealed class WaterRendererFactory : ISceneRendererFactory {
             View = declared.View is { Length: > 0 } name ? builder.Views.GetValueOrDefault(name) : null,
             Zones = Zones,
             GridQuads = declared.GridQuads,
-            Ranges = TerrainLodRanges.Default with {
-                NearRange = declared.NearRange,
-                LevelCount = declared.LevelCount
-            },
+            Ranges = TerrainLodRanges.Default with { NearRange = declared.NearRange, LevelCount = declared.LevelCount },
             FarDistance = declared.FarDistance,
             EdgeFade = declared.EdgeFade,
             Settings = WaterMeshSettings.Default with {

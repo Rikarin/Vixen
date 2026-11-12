@@ -32,8 +32,10 @@ static class DialogArguments {
     /// <param name="options">What the caller asked for.</param>
     /// <param name="kind">Which dialog.</param>
     /// <param name="multiple">Whether several files may be chosen. Open dialogs only.</param>
-    /// <returns>The arguments, in order, unquoted — they are passed as a list and never through a
-    /// shell, which is what keeps a file called <c>; rm -rf ~</c> a file name.</returns>
+    /// <returns>
+    ///     The arguments, in order, unquoted — they are passed as a list and never through a
+    ///     shell, which is what keeps a file called <c>; rm -rf ~</c> a file name.
+    /// </returns>
     public static string[] For(DialogTool tool, in FileDialogOptions options, DialogKind kind, bool multiple) =>
         tool == DialogTool.Zenity ? Zenity(options, kind, multiple) : KDialog(options, kind, multiple);
 
@@ -88,7 +90,7 @@ static class DialogArguments {
             }
         }
 
-        return [.. arguments];
+        return [..arguments];
     }
 
     static string[] KDialog(in FileDialogOptions options, DialogKind kind, bool multiple) {
@@ -139,7 +141,7 @@ static class DialogArguments {
             arguments.Add(options.Title);
         }
 
-        return [.. arguments];
+        return [..arguments];
     }
 
     /// <summary>Where the dialog opens, and what it is called if it is a save dialog.</summary>

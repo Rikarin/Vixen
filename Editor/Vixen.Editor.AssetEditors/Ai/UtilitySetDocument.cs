@@ -3,7 +3,6 @@
 
 using System.Diagnostics.CodeAnalysis;
 using Vixen.Ai;
-using Vixen.Authoring;
 using Vixen.Core;
 using Vixen.Core.Yaml;
 using Vixen.Editor.Ai;
@@ -75,7 +74,8 @@ public sealed class UtilitySetDocument : EditorDocument {
                 );
             }
         } catch (Exception exception) when (exception is YamlBindingException
-            or YamlParseException or NotSupportedException) {
+                                                or YamlParseException
+                                                or NotSupportedException) {
             content = New(name);
             LoadError = exception.Message;
         }

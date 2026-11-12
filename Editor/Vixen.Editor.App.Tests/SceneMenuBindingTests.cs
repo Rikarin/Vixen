@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core;
-using Vixen.Editor.Core;
 using Vixen.Editor.SceneView;
 using Vixen.Editor.Testing;
 using Vixen.Editor.Ui;
@@ -71,7 +70,7 @@ public class SceneMenuBindingTests {
 
         fixture.Run("scene.context-menu").Settle();
 
-        var item = Assert.Single(Items(fixture), candidate => candidate.Label == "Absent Verb");
+        var item = Assert.Single(Items(fixture), static candidate => candidate.Label == "Absent Verb");
 
         Assert.True(item.Disabled, "an entry whose id nothing responds to was offered as pressable");
         Assert.Equal("test.nothing-answers-this", item.Command);
@@ -79,8 +78,12 @@ public class SceneMenuBindingTests {
 
     /// <summary>The radial menu greys the same two cases, though it cannot be bound.</summary>
     /// <remarks>
-    ///     ⚠ <b>The one surface of the three with no test until this one, and the one most able to
-    ///     drift.</b> A <c>RadialItem</c> cannot take <c>ButtonBase.Command</c> — the hold-and-release
+    ///     ⚠
+    ///     <b>
+    ///         The one surface of the three with no test until this one, and the one most able to
+    ///         drift.
+    ///     </b>
+    ///     A <c>RadialItem</c> cannot take <c>ButtonBase.Command</c> — the hold-and-release
     ///     gesture runs a wedge through <c>RadialMenu.Accept</c> without a click, so a bound wedge would
     ///     run twice on the click path — and so <c>SceneMenus.OpenRadialMenu</c> copies what the binding
     ///     does by hand. A copy is exactly what goes stale when the binding changes; this pins that it
@@ -98,9 +101,11 @@ public class SceneMenuBindingTests {
         var refusing = true;
 
         fixture.Shell.Commands.Add(
-            new EditorCommand("test.radial-refuses", new StringId("test.radial-refuses", "Refusing Wedge"), static () => { }) {
-                Enablement = () => !refusing
-            }
+            new EditorCommand(
+                "test.radial-refuses",
+                new("test.radial-refuses", "Refusing Wedge"),
+                static () => { }
+            ) { Enablement = () => !refusing }
         );
 
         using var absent = fixture.Extensions.Add(
@@ -116,7 +121,7 @@ public class SceneMenuBindingTests {
         Assert.True(Wedge(fixture, "Absent Wedge").Disabled, "a wedge whose id nothing answers was pressable");
         Assert.True(Wedge(fixture, "Refusing Wedge").Disabled, "a wedge whose command said no was pressable");
 
-        Radial(fixture).Close(CloseReason.Code);
+        Radial(fixture).Close();
         refusing = false;
         fixture.Run("scene.radial-menu").Settle();
 
@@ -172,7 +177,8 @@ public class SceneMenuBindingTests {
         Assert.True(view.Select("scene-view"));
         fixture.Settle();
 
-        var toggles = Descendants(view.Pane).OfType<ToggleButton>()
+        var toggles = Descendants(view.Pane)
+            .OfType<ToggleButton>()
             .Where(static toggle => toggle.Command is { Length: > 0 })
             .ToList();
 

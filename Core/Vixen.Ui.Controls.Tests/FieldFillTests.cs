@@ -55,7 +55,10 @@ public class FieldFillTests {
             // The premise: the row is wide, so a field at its chrome is a choice and not a squeeze.
             Assert.True(row.Content.Width > 400f, $"the row is {row.Content.Width} px wide");
 
-            Assert.True(field.Width > Chrome + 1f, $"an empty field is {field.Width} px wide — its chrome and nothing else");
+            Assert.True(
+                field.Width > Chrome + 1f,
+                $"an empty field is {field.Width} px wide — its chrome and nothing else"
+            );
             Assert.Equal(row.Content.Width, field.Width, 0.5f);
         }
     }
@@ -111,7 +114,8 @@ public class FieldFillTests {
     [InlineData(typeof(DatePicker))]
     [InlineData(typeof(RangeSlider))]
     public void A_date_picker_or_a_range_slider_fills_a_key_value_rows_value_half(Type kind) {
-        using var fixture = new ControlFixture(css: "column { width: 600px; flex-direction: column; align-items: stretch; }");
+        using var fixture =
+            new ControlFixture(css: "column { width: 600px; flex-direction: column; align-items: stretch; }");
         var row = fixture.Document.Root.Add("column").Add<KeyValueRow>();
         row.Key = "Due";
 
@@ -130,7 +134,10 @@ public class FieldFillTests {
             box.Label = "Remember me";
             fixture.Update();
 
-            Assert.True(box.Width < row.Content.Width / 2, $"a check box is {box.Width} px of a {row.Content.Width} px row");
+            Assert.True(
+                box.Width < row.Content.Width / 2,
+                $"a check box is {box.Width} px of a {row.Content.Width} px row"
+            );
         }
     }
 }

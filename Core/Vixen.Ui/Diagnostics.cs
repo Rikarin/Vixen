@@ -81,8 +81,11 @@ public readonly record struct UiBoxModel(Rectangle Margin, Rectangle Border, Rec
 public readonly struct UiDiagnostics(UiDocument document) {
     /// <summary>Whether this build records dirty regions at all.</summary>
     /// <remarks>
-    ///     ⚠ <b>The difference between "nothing changed" and "nobody was watching", and a panel that
-    ///     cannot say which is a panel that reports success on the day it does not run.</b>
+    ///     ⚠
+    ///     <b>
+    ///         The difference between "nothing changed" and "nobody was watching", and a panel that
+    ///         cannot say which is a panel that reports success on the day it does not run.
+    ///     </b>
     ///     <see cref="DirtyRegions" /> is empty in both cases, and only this says which — the same
     ///     job <c>World.EventsEnabled</c> does for the ECS's structural events, and it is a
     ///     <c>const</c> for the same reason: the public surface is identical in every configuration
@@ -121,8 +124,12 @@ public readonly struct UiDiagnostics(UiDocument document) {
 
     /// <summary>What invalidated the document before the pass <c>Update</c> most recently ran.</summary>
     /// <remarks>
-    ///     ⚠ <b>Emptied by a frame that finds nothing to do, and it is the same honesty
-    ///     <c>Update</c>'s own counters had to learn.</b> A frame that did no work was invalidated by
+    ///     ⚠
+    ///     <b>
+    ///         Emptied by a frame that finds nothing to do, and it is the same honesty
+    ///         <c>Update</c>'s own counters had to learn.
+    ///     </b>
+    ///     A frame that did no work was invalidated by
     ///     nothing, so a settled document reports no regions rather than the last real pass's — the
     ///     failure that made <c>StylesResolved</c> read a few hundred for ever on a document nobody
     ///     was touching. So a dirty-region highlight is drawn in the frame that did the work, which
@@ -142,8 +149,12 @@ public readonly struct UiDiagnostics(UiDocument document) {
     /// <summary>How many times a surface's draw list has been rebuilt from the tree.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The instrument doc 49 § 7.3 asks for, standing before the work it is meant to
-    ///         measure.</b> There is no retained per-element surface and no dirty-rect path:
+    ///         ⚠
+    ///         <b>
+    ///             The instrument doc 49 § 7.3 asks for, standing before the work it is meant to
+    ///             measure.
+    ///         </b>
+    ///         There is no retained per-element surface and no dirty-rect path:
     ///         <c>DrawListBuilder.Build</c> reconstructs the whole list on every frame of every
     ///         window, whether or not anything moved. The only economy is a content diff
     ///         <i>afterwards</i> — <c>DrawList.Version</c> — which lets a still window skip the
@@ -180,8 +191,12 @@ public readonly struct UiDiagnostics(UiDocument document) {
     /// <summary>How many draw commands have been written, over every window and every frame.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The size of the rebuild, where <see cref="DrawListsBuilt" /> is only its
-    ///         count</b> — and it is the unit doc 49 § 7.3's damage tracking would actually move. A
+    ///         ⚠
+    ///         <b>
+    ///             The size of the rebuild, where <see cref="DrawListsBuilt" /> is only its
+    ///             count
+    ///         </b>
+    ///         — and it is the unit doc 49 § 7.3's damage tracking would actually move. A
     ///         still window rebuilding thirty times is a number that says nothing about how big the
     ///         window is; the same window emitting two hundred and forty commands to produce eight
     ///         distinct ones says how much of the machine the waste is, on a document of any size,
@@ -220,8 +235,12 @@ public readonly struct UiDiagnostics(UiDocument document) {
     /// <summary>How many times a binding in this document has thrown and been suspended.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The one number here that counts a defect rather than a cost, and the interface it
-    ///         describes looks perfect.</b> A <c>Composition.BuildContext.Bind</c> is an
+    ///         ⚠
+    ///         <b>
+    ///             The one number here that counts a defect rather than a cost, and the interface it
+    ///             describes looks perfect.
+    ///         </b>
+    ///         A <c>Composition.BuildContext.Bind</c> is an
     ///         <c>Effect</c>, and an effect answers an unhandled exception by suspending itself — it
     ///         keeps its dependencies, keeps its place in the graph and never runs again. The
     ///         assignment that threw had already written whatever it wrote, so the first frame is
@@ -237,8 +256,12 @@ public readonly struct UiDiagnostics(UiDocument document) {
     ///         symptom was a texturing panel that rendered once and froze.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>It counts every effect this document's scheduler suspends, which used not to be
-    ///         the same thing.</b> The count was taken inside <c>BuildContext.Bind</c>'s own
+    ///         ⚠
+    ///         <b>
+    ///             It counts every effect this document's scheduler suspends, which used not to be
+    ///             the same thing.
+    ///         </b>
+    ///         The count was taken inside <c>BuildContext.Bind</c>'s own
     ///         <c>try</c>, so it saw the effects that method built and nothing else — the four
     ///         production sites that construct an <c>Effect</c> directly stopped as silently as
     ///         before, and a <i>runaway</i> effect, which throws nothing, was never counted by any
@@ -341,7 +364,7 @@ public readonly struct UiDiagnostics(UiDocument document) {
             -layout.GetComputedPadding(node, Edge.Bottom)
         );
 
-        return new UiBoxModel(marginBox, border, paddingBox, contentBox);
+        return new(marginBox, border, paddingBox, contentBox);
     }
 
     /// <summary>Grows a rectangle by an edge each, clamped so that it cannot turn inside out.</summary>
@@ -379,15 +402,20 @@ public partial class UiDocument {
     int recordingCount;
 
     /// <summary>What invalidated the document before the pass <c>Update</c> most recently ran.</summary>
-    internal ReadOnlySpan<UiDirtyRegion> DirtyRegions => System.Runtime.InteropServices.CollectionsMarshal.AsSpan(recorded);
+    internal ReadOnlySpan<UiDirtyRegion> DirtyRegions =>
+        System.Runtime.InteropServices.CollectionsMarshal.AsSpan(recorded);
 
     /// <summary>How many invalidations were recorded, the dropped ones included.</summary>
     internal int RegionsRecorded { get; private set; }
 
     /// <summary>How many times a surface's draw list has been rebuilt from the tree.</summary>
     /// <remarks>
-    ///     ⚠ <b>Always compiled, unlike the region ring above, because this is the number a
-    ///     <i>gate</i> reads rather than the number an overlay draws.</b> A counter behind
+    ///     ⚠
+    ///     <b>
+    ///         Always compiled, unlike the region ring above, because this is the number a
+    ///         <i>gate</i> reads rather than the number an overlay draws.
+    ///     </b>
+    ///     A counter behind
     ///     <c>DEBUG</c> is a counter a Release gate cannot assert on, and the measurement doc 49 asks
     ///     for — idle-frame work, before and against after — is worthless if the two runs are not the
     ///     same build. It is one increment per window per frame.
@@ -420,16 +448,24 @@ public partial class UiDocument {
     /// <summary>Records an effect of this document's that the scheduler has just suspended.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Not <c>[Conditional]</c>, and the contrast with <see cref="RecordDirty" /> right
-    ///         below is the argument.</b> That one sits in the path a virtualised list walks two
+    ///         ⚠
+    ///         <b>
+    ///             Not <c>[Conditional]</c>, and the contrast with <see cref="RecordDirty" /> right
+    ///             below is the argument.
+    ///         </b>
+    ///         That one sits in the path a virtualised list walks two
     ///         dozen times a frame, so the call site itself is what has to go. This one is reached
     ///         only by an effect that has already stopped, so there is no cost to compile away — and
     ///         a counter behind <c>DEBUG</c> is a counter no <c>Release</c> gate can assert on, which
     ///         is the whole failure this records.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Reached from <c>EffectScheduler.Suspended</c> and from nowhere else, which is
-    ///         <a href="https://github.com/Rikarin/Vixen/issues/1122">#1122</a>.</b> It used to be
+    ///         ⚠
+    ///         <b>
+    ///             Reached from <c>EffectScheduler.Suspended</c> and from nowhere else, which is
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/1122">#1122</a>.
+    ///         </b>
+    ///         It used to be
     ///         called from inside the <c>try</c> that <c>BuildContext.Bind</c> wraps its assignment
     ///         in, so it saw the effects that one method built and no others — and it could not see
     ///         the runaway detector at all, because that path throws nothing. Both gaps close by
@@ -468,8 +504,12 @@ public partial class UiDocument {
 
     /// <summary>Records that something was invalidated, in a build that asked to know.</summary>
     /// <remarks>
-    ///     ⚠ <b><c>[Conditional]</c> rather than a runtime <c>if</c>, so that a build without the
-    ///     flag has no call site at all</b> — no call, no argument evaluation, and in particular no
+    ///     ⚠
+    ///     <b>
+    ///         <c>[Conditional]</c> rather than a runtime <c>if</c>, so that a build without the
+    ///         flag has no call site at all
+    ///     </b>
+    ///     — no call, no argument evaluation, and in particular no
     ///     read of <see cref="UiElement.Bounds" />, which goes into the layout results. That is
     ///     <c>World.RaiseCreated</c>'s shape and it is chosen for the same reason: this sits in the
     ///     path a virtualised list walks two dozen times a frame.
@@ -490,7 +530,7 @@ public partial class UiDocument {
         recordingCount++;
 
         if (recording.Count < RegionCapacity) {
-            recording.Add(new UiDirtyRegion(element.Bounds, kind));
+            recording.Add(new(element.Bounds, kind));
         }
     }
 

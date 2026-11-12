@@ -2,19 +2,24 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Texturing;
-using Vixen.Texturing.Layers;
-using Vixen.Texturing.Painting;
 
 namespace Vixen.Editor.Texturing;
 
 /// <summary>Whether the node library a document published has been overtaken by a compound.</summary>
 /// <remarks>
 ///     <para>
-///         <b><a href="https://github.com/Rikarin/Vixen/issues/970">#970</a>: one staleness protocol,
-///         where there were two identical ones.</b> <c>TextureGraphDocument</c> grew a folder, a
+///         <b>
+///             <a href="https://github.com/Rikarin/Vixen/issues/970">#970</a>: one staleness protocol,
+///             where there were two identical ones.
+///         </b>
+///         <c>TextureGraphDocument</c> grew a folder, a
 ///         flag, a <c>DocumentSaving</c> handler, an <c>OnProjectFileChanged</c> override and a
-///         <c>StartsWith(folder + separator)</c> test; <a
-///         href="https://github.com/Rikarin/Vixen/issues/956">#956</a> gave <c>LayerStackDocument</c>
+///         <c>StartsWith(folder + separator)</c> test;
+///         <a
+///             href="https://github.com/Rikarin/Vixen/issues/956">
+///             #956
+///         </a>
+///         gave <c>LayerStackDocument</c>
 ///         the same five, because the first file belonged to another slice at the time. Both are one
 ///         slice's now, and the duplication is exactly the shape <c>TextureNodeLibrary.FolderOf</c>'s
 ///         own remarks refuse one level up — a second spelling of "did that file change" is a second

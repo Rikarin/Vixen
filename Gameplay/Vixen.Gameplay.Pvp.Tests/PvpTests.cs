@@ -28,9 +28,28 @@ public static class Content {
                     TimeLimit = 600f,
                     Tag = "Pvp.InMatch",
                     Objectives = [
-                        new() { Id = "mine", Kind = PvpObjectiveKind.ResourceControl, CaptureSeconds = 4f, PointsPerTick = 1, TickSeconds = 1f },
-                        new() { Id = "farm", Kind = PvpObjectiveKind.ResourceControl, CaptureSeconds = 4f, PointsPerTick = 1, TickSeconds = 1f, StartingOwner = 0 },
-                        new() { Id = "flag", Kind = PvpObjectiveKind.FlagReturn, CaptureSeconds = 2f, PointsPerTick = 0, PointsOnCapture = 25 }
+                        new() {
+                            Id = "mine",
+                            Kind = PvpObjectiveKind.ResourceControl,
+                            CaptureSeconds = 4f,
+                            PointsPerTick = 1,
+                            TickSeconds = 1f
+                        },
+                        new() {
+                            Id = "farm",
+                            Kind = PvpObjectiveKind.ResourceControl,
+                            CaptureSeconds = 4f,
+                            PointsPerTick = 1,
+                            TickSeconds = 1f,
+                            StartingOwner = 0
+                        },
+                        new() {
+                            Id = "flag",
+                            Kind = PvpObjectiveKind.FlagReturn,
+                            CaptureSeconds = 2f,
+                            PointsPerTick = 0,
+                            PointsOnCapture = 25
+                        }
                     ]
                 }
             )
@@ -45,7 +64,13 @@ public static class Content {
                     TimeLimit = 60f,
                     Rounds = 3,
                     Objectives = [
-                        new() { Id = "centre", Kind = PvpObjectiveKind.CapturePoint, CaptureSeconds = 1f, PointsPerTick = 5, TickSeconds = 1f }
+                        new() {
+                            Id = "centre",
+                            Kind = PvpObjectiveKind.CapturePoint,
+                            CaptureSeconds = 1f,
+                            PointsPerTick = 5,
+                            TickSeconds = 1f
+                        }
                     ]
                 }
             )
@@ -60,7 +85,13 @@ public static class Content {
                     ScoreToWin = 10,
                     TimeLimit = 10f,
                     Objectives = [
-                        new() { Id = "point", Kind = PvpObjectiveKind.CapturePoint, CaptureSeconds = 0.1f, PointsPerTick = 1, TickSeconds = 1f }
+                        new() {
+                            Id = "point",
+                            Kind = PvpObjectiveKind.CapturePoint,
+                            CaptureSeconds = 0.1f,
+                            PointsPerTick = 1,
+                            TickSeconds = 1f
+                        }
                     ]
                 }
             )
@@ -79,8 +110,7 @@ public class PvpMatchTests {
         return match;
     }
 
-    static void Stand(PvpMatch match, int objective, int red, int blue) =>
-        match.Occupy(objective, [red, blue]);
+    static void Stand(PvpMatch match, int objective, int red, int blue) => match.Occupy(objective, [red, blue]);
 
     [Fact]
     public void TheContentCompilesWithNoProblems() => Assert.Empty(library.Problems);
@@ -363,34 +393,34 @@ public class PvpLibraryTests {
     public void AMapNothingCanEndIsAProblem() =>
         Assert.Contains(
             Problems(new() { ScoreToWin = 0, TimeLimit = 0f }),
-            problem => problem.Contains("nothing can end it", StringComparison.Ordinal)
+            static problem => problem.Contains("nothing can end it", StringComparison.Ordinal)
         );
 
     [Fact]
     public void AMapWonOnScoreWithNoObjectivesIsAProblem() =>
         Assert.Contains(
             Problems(new() { ScoreToWin = 100 }),
-            problem => problem.Contains("nobody can score", StringComparison.Ordinal)
+            static problem => problem.Contains("nobody can score", StringComparison.Ordinal)
         );
 
     [Fact]
     public void AnObjectiveThatScoresNothingIsAProblem() =>
         Assert.Contains(
             Problems(new() { Objectives = [new() { Id = "a", PointsPerTick = 0, PointsOnCapture = 0 }] }),
-            problem => problem.Contains("holding it does nothing", StringComparison.Ordinal)
+            static problem => problem.Contains("holding it does nothing", StringComparison.Ordinal)
         );
 
     [Fact]
     public void AnObjectiveOwnedByATeamThatDoesNotExistIsAProblem() =>
         Assert.Contains(
             Problems(new() { Teams = 2, Objectives = [new() { Id = "a", StartingOwner = 5 }] }),
-            problem => problem.Contains("only 2", StringComparison.Ordinal)
+            static problem => problem.Contains("only 2", StringComparison.Ordinal)
         );
 
     [Fact]
     public void TwoObjectivesWithOneIdIsAProblem() =>
         Assert.Contains(
             Problems(new() { Objectives = [new() { Id = "a" }, new() { Id = "a" }] }),
-            problem => problem.Contains("two objectives called 'a'", StringComparison.Ordinal)
+            static problem => problem.Contains("two objectives called 'a'", StringComparison.Ordinal)
         );
 }

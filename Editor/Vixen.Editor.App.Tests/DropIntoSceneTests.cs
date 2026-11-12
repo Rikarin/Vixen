@@ -6,7 +6,6 @@ using Vixen.Editor.Core;
 using Vixen.Editor.SceneView;
 using Vixen.Editor.Testing;
 using Vixen.Ui;
-using Vixen.Ui.Controls.Advanced;
 using Xunit;
 
 namespace Vixen.Editor.App.Tests;
@@ -51,10 +50,10 @@ public class DropIntoSceneTests {
     }
 
     static (float X, float Y) Centre(UiElement element) =>
-        (element.Bounds.X + (element.Bounds.Width * 0.5f), element.Bounds.Y + (element.Bounds.Height * 0.5f));
+        (element.Bounds.X + element.Bounds.Width * 0.5f, element.Bounds.Y + element.Bounds.Height * 0.5f);
 
     static IReadOnlyList<Entity> Instances(EditorSession editor) =>
-        [.. editor.Scene.Entities.Where(entity => AssetInstances.TryGet(editor.Scene.World, entity, out _))];
+        [..editor.Scene.Entities.Where(entity => AssetInstances.TryGet(editor.Scene.World, entity, out _))];
 
     [Fact]
     public void Dropping_an_asset_on_the_viewport_makes_an_entity_that_references_it() {
@@ -99,8 +98,8 @@ public class DropIntoSceneTests {
 
         editor.Shell.RegisterLayout(
             "Apart",
-            new Vixen.Ui.StringId("editor.layout.apart", "Apart"),
-            () => Vixen.Editor.Ui.LayoutPresets.Standard(["hierarchy"], ["scene"], ["project"])
+            new("editor.layout.apart", "Apart"),
+            static () => Vixen.Editor.Ui.LayoutPresets.Standard(["hierarchy"], ["scene"], ["project"])
         );
 
         editor.Shell.Workspace.Apply("Apart");

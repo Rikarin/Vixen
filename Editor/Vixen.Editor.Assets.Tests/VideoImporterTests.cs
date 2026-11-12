@@ -26,7 +26,7 @@ public sealed class VideoImporterTests {
 
     [Fact]
     public async Task AClipCarriesWhatTheContainerSaid() {
-        var result = await Import("intro.webm", WebM(320, 180, frames: 5));
+        var result = await Import("intro.webm", WebM(320, 180, 5));
 
         Assert.True(result.Succeeded);
 
@@ -44,14 +44,14 @@ public sealed class VideoImporterTests {
     public async Task TheCodecIsRecordedSoAGameCanFindOutBeforeTheCutsceneStarts() {
         // The field that earns its place: a title with no VP9 decoder wants to know that at the menu,
         // not at the moment the cutscene was supposed to play.
-        var result = await Import("intro.webm", WebM(64, 64, frames: 1, videoCodec: "V_VP9"));
+        var result = await Import("intro.webm", WebM(64, 64, 1, "V_VP9"));
 
         Assert.Equal("V_VP9", Read(result).CodecId);
     }
 
     [Fact]
     public async Task AnAudioTrackIsNoticedAndNamed() {
-        var result = await Import("intro.webm", WebM(64, 64, frames: 2, audioCodec: "A_OPUS"));
+        var result = await Import("intro.webm", WebM(64, 64, 2, audioCodec: "A_OPUS"));
 
         var clip = Read(result);
 
@@ -61,12 +61,12 @@ public sealed class VideoImporterTests {
 
     [Fact]
     public async Task TheContainerIsCopiedBesideTheClip() {
-        var bytes = WebM(64, 64, frames: 2);
+        var bytes = WebM(64, 64, 2);
         var result = await Import("intro.webm", bytes);
 
         Assert.Equal(2, result.Artifacts.Count);
 
-        var container = result.Artifacts.Single(artifact => !artifact.SubAsset.IsMain);
+        var container = result.Artifacts.Single(static artifact => !artifact.SubAsset.IsMain);
 
         Assert.Equal(bytes, container.Content.Span.ToArray());
     }
@@ -77,8 +77,8 @@ public sealed class VideoImporterTests {
         // in the build, and the bytes fetched by something else.
         var result = await Import(
             "intro.webm",
-            WebM(64, 64, frames: 2),
-            new VideoImportSettings { EmbedContainer = false }
+            WebM(64, 64, 2),
+            new() { EmbedContainer = false }
         );
 
         Assert.Single(result.Artifacts);
@@ -87,12 +87,12 @@ public sealed class VideoImporterTests {
 
     [Fact]
     public async Task AnMp4SaysWhatIsMissingRatherThanShippingAByteBlob() {
-        var result = await Import("intro.mp4", [0, 0, 0, 0x18, .. "ftypmp42"u8]);
+        var result = await Import("intro.mp4", [0, 0, 0, 0x18, .."ftypmp42"u8]);
 
         Assert.False(result.Succeeded);
         Assert.Contains(
             result.Diagnostics,
-            diagnostic => diagnostic.Message.Contains("MP4", StringComparison.Ordinal)
+            static diagnostic => diagnostic.Message.Contains("MP4", StringComparison.Ordinal)
         );
     }
 
@@ -101,26 +101,26 @@ public sealed class VideoImporterTests {
         var result = await Import("intro.webm", [1, 2, 3, 4, 5, 6, 7, 8]);
 
         Assert.False(result.Succeeded);
-        Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Severity == ImportSeverity.Error);
+        Assert.Contains(result.Diagnostics, static diagnostic => diagnostic.Severity == ImportSeverity.Error);
     }
 
     [Fact]
     public async Task AFileWithNoCuesIsImportedAndWarnedAbout() {
         // Seeking without them rewinds and scans, which is correct and slow — and a remux fixes it
         // for a few kilobytes, which is worth telling somebody.
-        var result = await Import("intro.webm", WebM(64, 64, frames: 3));
+        var result = await Import("intro.webm", WebM(64, 64, 3));
 
         Assert.True(result.Succeeded);
         Assert.Contains(
             result.Diagnostics,
-            diagnostic => diagnostic.Severity == ImportSeverity.Warning
+            static diagnostic => diagnostic.Severity == ImportSeverity.Warning
                 && diagnostic.Message.Contains("cue index", StringComparison.Ordinal)
         );
     }
 
     static VideoClip Read(ImportResult result) =>
         Serializer.Read<VideoClip>(
-            result.Artifacts.Single(artifact => artifact.SubAsset.IsMain).Content.Span.ToArray()
+            result.Artifacts.Single(static artifact => artifact.SubAsset.IsMain).Content.Span.ToArray()
         );
 
     static async Task<ImportResult> Import(string name, byte[] bytes, VideoImportSettings? settings = null) {
@@ -150,7 +150,13 @@ public sealed class VideoImporterTests {
     ///     third copy of the muxer would be a third thing to keep in step for the sake of five
     ///     elements.
     /// </remarks>
-    static byte[] WebM(int width, int height, int frames, string videoCodec = "V_UNCOMPRESSED", string? audioCodec = null) {
+    static byte[] WebM(
+        int width,
+        int height,
+        int frames,
+        string videoCodec = "V_UNCOMPRESSED",
+        string? audioCodec = null
+    ) {
         using var body = new MemoryStream();
 
         using (var info = new MemoryStream()) {
@@ -256,7 +262,7 @@ public sealed class VideoImporterTests {
             start++;
         }
 
-        return bytes[start..].ToArray();
+        return [..bytes[start..]];
     }
 
     static byte[] Float(double value) {

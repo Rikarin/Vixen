@@ -88,7 +88,7 @@ public sealed class PlainTokenizer : ICodeTokenizer {
         ArgumentNullException.ThrowIfNull(into);
 
         if (line.Length > 0) {
-            into.Add(new CodeToken(0, line.Length, CodeTokenKind.Plain));
+            into.Add(new(0, line.Length, CodeTokenKind.Plain));
         }
 
         return 0;
@@ -295,7 +295,7 @@ public sealed class CStyleTokenizer : ICodeTokenizer {
 
     static void Emit(List<CodeToken> into, int start, int length, CodeTokenKind kind) {
         if (length > 0) {
-            into.Add(new CodeToken(start, length, kind));
+            into.Add(new(start, length, kind));
         }
     }
 }

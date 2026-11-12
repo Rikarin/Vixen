@@ -17,8 +17,11 @@ namespace Vixen.Editor.Assets.Tests;
 /// <summary>A zone, a body and a boat, all the way from a <c>.vxscene</c> to entities in a world.</summary>
 /// <remarks>
 ///     <para>
-///         <b>The fixture that did not exist, which is why a scene could not carry water and the suite
-///         was green anyway.</b> <c>Vixen.Rendering.Water</c> and <c>Vixen.Water.Physics</c> ran the
+///         <b>
+///             The fixture that did not exist, which is why a scene could not carry water and the suite
+///             was green anyway.
+///         </b>
+///         <c>Vixen.Rendering.Water</c> and <c>Vixen.Water.Physics</c> ran the
 ///         serialization generator and not <c>Vixen.Engine.Generators</c>, so all four component types
 ///         had a serializer, a contract name and an inspector description — everything a unit test
 ///         asks about — and no <c>[ModuleInitializer]</c> declaring them to

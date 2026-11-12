@@ -194,7 +194,7 @@ constructor is exactly that moment. `SessionOptions.Simulation` is a `NetworkSim
 set, the session wraps and publishes the wrapper as `NetworkSession.Simulation`.
 
 - **The profile needed no new profile.** `NetworkSimulationProfile.Broadband`
-  (`Transport/NetworkSimulationProfile.cs:32-40`) says in its own summary that it is *"the profile a
+  (`Transport/NetworkSimulationProfile.cs:30-36`) says in its own summary that it is *"the profile a
   development build should run with by default"* — 35 ms one way, 8 ms of jitter, 0.5 % loss.
   `NetworkSimulationSettings.Development(seed)` is that profile with a name to grep for; a sixth
   named profile in a record that already has five would be surface with no caller.

@@ -9,8 +9,12 @@ namespace Vixen.Gameplay.Collections;
 /// <remarks>
 ///     <para>
 ///         <b>Where this diverges from doc 28's G-Q3, and why.</b> G-Q3 answers that achievements
-///         belong in Collections because <em>"an achievement is an unlock with criteria, criteria are
-///         tag queries, and the state shape is identical"</em>. The first and third are exactly right
+///         belong in Collections because
+///         <em>
+///             "an achievement is an unlock with criteria, criteria are
+///             tag queries, and the state shape is identical"
+///         </em>
+///         . The first and third are exactly right
 ///         and this library is built on them. The second covers "have all five keys" and does not
 ///         cover "kill thirty boars" — a tag query is a standing test and cannot count. So an
 ///         achievement here has both: <see cref="AchievementDefinition.Requires" /> is the standing

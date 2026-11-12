@@ -4,7 +4,6 @@
 using Vixen.Animation.Constraints;
 using Vixen.Core;
 using Vixen.Core.Serialization;
-using Vixen.Core.Yaml;
 using Vixen.Core.Yaml.Meta;
 using Vixen.Interchange;
 

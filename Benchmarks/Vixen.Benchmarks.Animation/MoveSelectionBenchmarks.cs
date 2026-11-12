@@ -64,7 +64,7 @@ public class MoveSelectionBenchmarks {
                     ("condition", Conditions[index / Gaits.Length % Conditions.Length]),
                     ("surface", Surfaces[index / (Gaits.Length * Conditions.Length) % Surfaces.Length])
                 ),
-                new() { Speed = 0.5f + (index % Gaits.Length * 1.5f), MinRate = 0.85f, MaxRate = 1.15f }
+                new() { Speed = 0.5f + index % Gaits.Length * 1.5f, MinRate = 0.85f, MaxRate = 1.15f }
             );
         }
 
@@ -76,7 +76,7 @@ public class MoveSelectionBenchmarks {
             new(Facet.Of("gait", "jog"), 1f)
         ];
 
-        query = new MoveQuery {
+        query = new() {
             Required = Required ? FacetSet.Of(("gait", "jog")) : FacetSet.Empty,
             Preferred = preferred,
             Numeric = new() { Speed = 2.4f },

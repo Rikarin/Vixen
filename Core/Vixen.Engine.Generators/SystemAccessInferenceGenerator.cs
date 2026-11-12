@@ -51,8 +51,12 @@ sealed record AccessModel(
 ///         one is a class whose author says its access is visible in its own body.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The delegate and visitor forms cannot say read from write, so they are read as
-///         writes.</b> <c>QueryAction&lt;T0, T1&gt;</c> takes every component by <c>ref</c> whether or
+///         ⚠
+///         <b>
+///             The delegate and visitor forms cannot say read from write, so they are read as
+///             writes.
+///         </b>
+///         <c>QueryAction&lt;T0, T1&gt;</c> takes every component by <c>ref</c> whether or
 ///         not the body assigns through one, so there is no signal to read. Over-declaring costs
 ///         parallelism and under-declaring is a race, so the direction is chosen and written down
 ///         rather than guessed at per call. The chunk form is exact, because
@@ -88,7 +92,7 @@ public sealed class SystemAccessInferenceGenerator : IIncrementalGenerator {
         "'{0}' is marked [InferAccess] but does not implement ISystem, so nothing would ever read the declaration",
         "Vixen.Engine",
         DiagnosticSeverity.Warning,
-        isEnabledByDefault: true,
+        true,
         "SystemGraph reads IDeclaredAccess off the systems a runner was given. On anything else the "
         + "generated property is dead code. Implement ISystem — deriving from SystemBase is the "
         + "usual way — or drop the attribute."
@@ -100,7 +104,7 @@ public sealed class SystemAccessInferenceGenerator : IIncrementalGenerator {
         "'{0}' is marked [InferAccess] but is not a partial top-level non-generic class, so the declaration has nowhere to go",
         "Vixen.Engine",
         DiagnosticSeverity.Warning,
-        isEnabledByDefault: true,
+        true,
         "The declaration is emitted as the other half of the class. A nested type would need every "
         + "type around it to be partial too, and a generic one would need a declaration per "
         + "instantiation — both are better refused than half-supported."
@@ -112,7 +116,7 @@ public sealed class SystemAccessInferenceGenerator : IIncrementalGenerator {
         "'{0}' is marked [InferAccess] and already implements IDeclaredAccess, so the inferred declaration is dropped",
         "Vixen.Engine",
         DiagnosticSeverity.Warning,
-        isEnabledByDefault: true,
+        true,
         "A system whose access is computed at construction has one place that says what it is, which "
         + "is the whole point of the interface. Emitting a second Access property there would not "
         + "compile; dropping it silently would leave the attribute looking like it did something."
@@ -124,7 +128,7 @@ public sealed class SystemAccessInferenceGenerator : IIncrementalGenerator {
         "'{0}' is marked [InferAccess] and also carries [Reads] or [Writes], so the attributes win and nothing is inferred",
         "Vixen.Engine",
         DiagnosticSeverity.Warning,
-        isEnabledByDefault: true,
+        true,
         "Explicit attributes override inference, so the inferred declaration would never be read. "
         + "Two declarations that agree everywhere except where the schedule is wrong is the shape "
         + "this refuses; keep one of them."
@@ -136,7 +140,7 @@ public sealed class SystemAccessInferenceGenerator : IIncrementalGenerator {
         "'{0}' is marked [InferAccess] but no component access was found in its body, so it stays undeclared and conflicts with everything",
         "Vixen.Engine",
         DiagnosticSeverity.Warning,
-        isEnabledByDefault: true,
+        true,
         "An empty declaration would be indistinguishable from a system nobody annotated — the "
         + "runner reads both as 'conflicts with everything' and serialises them. Either the queries "
         + "are somewhere this cannot see, in which case declare them with [Reads]/[Writes] or "
@@ -150,7 +154,7 @@ public sealed class SystemAccessInferenceGenerator : IIncrementalGenerator {
         + "which this cannot read — so the inferred declaration may be missing what that call touches",
         "Vixen.Engine",
         DiagnosticSeverity.Warning,
-        isEnabledByDefault: true,
+        true,
         "Inference reads the invocations in this class's own declarations, which includes its private "
         + "helpers and local functions. A call into a base class, another type or another assembly is "
         + "outside that, and a component it queries is inferred as nothing — an under-declared system "
@@ -172,12 +176,13 @@ public sealed class SystemAccessInferenceGenerator : IIncrementalGenerator {
     }
 
     static AccessModel Describe(GeneratorAttributeSyntaxContext context, CancellationToken token) {
-        var type = (INamedTypeSymbol) context.TargetSymbol;
+        var type = (INamedTypeSymbol)context.TargetSymbol;
         var qualified = type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
-        var space = type.ContainingNamespace.IsGlobalNamespace ? "" : type.ContainingNamespace.ToDisplayString();
+        var space = type.ContainingNamespace.IsGlobalNamespace
+            ? string.Empty
+            : type.ContainingNamespace.ToDisplayString();
 
-        AccessModel Refused(DiagnosticDescriptor problem) =>
-            new(qualified, space, type.Name, [], [], problem, []);
+        AccessModel Refused(DiagnosticDescriptor problem) => new(qualified, space, type.Name, [], [], problem, []);
 
         // Before the shape checks, because "this is not a system" is the mistake and "it is not
         // partial" is only how it would have been fixed. A class that is neither should be told the
@@ -236,7 +241,7 @@ public sealed class SystemAccessInferenceGenerator : IIncrementalGenerator {
             return Refused(NothingInferred);
         }
 
-        return new(qualified, space, type.Name, [.. reads], [.. writes], null, handoffs.ToImmutable());
+        return new(qualified, space, type.Name, [..reads], [..writes], null, handoffs.ToImmutable());
     }
 
     /// <summary>Whether this call takes the world (or a piece of it) somewhere inference cannot follow.</summary>
@@ -245,8 +250,12 @@ public sealed class SystemAccessInferenceGenerator : IIncrementalGenerator {
     /// <returns>Whether it is a blind spot worth saying out loud.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The blind spot is narrower than it reads, and that is what makes the rule
-    ///         affordable.</b> Inference walks every invocation under the class's own
+    ///         ⚠
+    ///         <b>
+    ///             The blind spot is narrower than it reads, and that is what makes the rule
+    ///             affordable.
+    ///         </b>
+    ///         Inference walks every invocation under the class's own
     ///         <c>DeclaringSyntaxReferences</c>, which is the whole class — so a private helper, a
     ///         local function and the other half of a partial are all already read. What is outside
     ///         is a base class, another type, and another assembly.
@@ -359,13 +368,13 @@ public sealed class SystemAccessInferenceGenerator : IIncrementalGenerator {
 
     static bool IsPartial(INamedTypeSymbol type) =>
         type.DeclaringSyntaxReferences
-            .Select(reference => reference.GetSyntax())
+            .Select(static reference => reference.GetSyntax())
             .OfType<ClassDeclarationSyntax>()
-            .Any(declaration => declaration.Modifiers.Any(modifier => modifier.ValueText == "partial"));
+            .Any(static declaration => declaration.Modifiers.Any(static modifier => modifier.ValueText == "partial"));
 
     static bool Implements(INamedTypeSymbol type, string qualifiedInterface) =>
-        type.AllInterfaces.Any(
-            contract => contract.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat) == qualifiedInterface
+        type.AllInterfaces.Any(contract => contract.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)
+            == qualifiedInterface
         );
 
     static void Emit(SourceProductionContext context, ImmutableArray<AccessModel> models) {
@@ -408,7 +417,7 @@ public sealed class SystemAccessInferenceGenerator : IIncrementalGenerator {
             source.AppendLine("#nullable enable");
             source.AppendLine();
 
-            var indent = "";
+            var indent = string.Empty;
 
             if (model.Namespace.Length > 0) {
                 source.AppendLine($"namespace {model.Namespace} {{");
@@ -435,7 +444,7 @@ public sealed class SystemAccessInferenceGenerator : IIncrementalGenerator {
                 source.AppendLine("}");
             }
 
-            var hint = model.QualifiedName.Replace("global::", "").Replace('.', '_');
+            var hint = model.QualifiedName.Replace("global::", string.Empty).Replace('.', '_');
             context.AddSource($"{hint}.Access.g.cs", SourceText.From(source.ToString(), Encoding.UTF8));
         }
     }

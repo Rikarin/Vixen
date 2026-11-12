@@ -161,8 +161,7 @@ public sealed class GroupPolicy {
     public int SubgroupSize => Math.Max(0, Definition.SubgroupSize);
 
     /// <summary>How many subgroups there are. One for a group with none.</summary>
-    public int Subgroups =>
-        SubgroupSize == 0 ? 1 : (MaximumMembers + SubgroupSize - 1) / SubgroupSize;
+    public int Subgroups => SubgroupSize == 0 ? 1 : (MaximumMembers + SubgroupSize - 1) / SubgroupSize;
 
     /// <summary>How long an invite stands.</summary>
     public float InviteSeconds => MathF.Max(0f, Definition.InviteSeconds);
@@ -197,8 +196,12 @@ public readonly record struct GroupInvite(PlayerId To, PlayerId From, float Expi
 ///         <see cref="ISocialStore" />'s, for the same reason <c>IPityStore</c> exists.
 ///     </para>
 ///     <para>
-///         ⚠ <b>A non-empty group always has exactly one leader, and that is the invariant everything
-///         else is arranged around.</b> A leaderless group cannot invite, cannot kick and cannot be
+///         ⚠
+///         <b>
+///             A non-empty group always has exactly one leader, and that is the invariant everything
+///             else is arranged around.
+///         </b>
+///         A leaderless group cannot invite, cannot kick and cannot be
 ///         disbanded — it is a group that has to be cleaned up by an operator. So leadership passes on
 ///         a leader leaving or being removed, and it passes to the <em>longest-standing</em> remaining
 ///         member rather than to whoever a dictionary enumerated first: the rule has to be one a

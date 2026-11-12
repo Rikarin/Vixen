@@ -4,7 +4,6 @@
 using System.Runtime.InteropServices;
 using Vixen.Core.Imaging;
 using Vixen.Core.Mathematics;
-using Vixen.Graphics.RenderGraph;
 using Vixen.Rendering;
 using Vixen.Rendering.Compositor;
 using Vixen.Rendering.Lighting;
@@ -29,8 +28,12 @@ namespace Vixen.Graphics.Golden.Tests;
 ///         curved surface.
 ///     </para>
 ///     <para>
-///         ⚠ <b>An output nothing reads is indistinguishable, to every gate in this repository, from
-///         an output nothing produces — both are green.</b> <see cref="GtaoImageTests" /> holds the
+///         ⚠
+///         <b>
+///             An output nothing reads is indistinguishable, to every gate in this repository, from
+///             an output nothing produces — both are green.
+///         </b>
+///         <see cref="GtaoImageTests" /> holds the
 ///         occlusion term against its closed form and says nothing about the direction, because
 ///         nothing downstream would have noticed if the direction were garbage. That is the shape
 ///         these fixtures exist to close.
@@ -44,8 +47,12 @@ namespace Vixen.Graphics.Golden.Tests;
 ///         direction would return the same constant three times.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The flat unoccluded case is exactly where the two normals agree, so it cannot be the
-///         oracle — but it is the guarantee.</b> An unoccluded surface's bent normal is its geometric
+///         ⚠
+///         <b>
+///             The flat unoccluded case is exactly where the two normals agree, so it cannot be the
+///             oracle — but it is the guarantee.
+///         </b>
+///         An unoccluded surface's bent normal is its geometric
 ///         normal, so <see cref="AnUnbentPlaneRendersExactlyAsItDidBefore" /> is what says turning the
 ///         permutation on cannot move an open surface. ⚠ That identity had to be <em>made</em> true:
 ///         the producer's raw slice sum leans toward the camera on a slanted surface, which
@@ -54,8 +61,12 @@ namespace Vixen.Graphics.Golden.Tests;
 ///         and so says nothing about it; the two halves are deliberately in different files.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The plane's layout changes with the permutation, which is a second defect inside the
-///         first.</b> With the bent normal on, the occlusion moves from <c>r</c> to <c>a</c> and
+///         ⚠
+///         <b>
+///             The plane's layout changes with the permutation, which is a second defect inside the
+///             first.
+///         </b>
+///         With the bent normal on, the occlusion moves from <c>r</c> to <c>a</c> and
 ///         <c>rgb</c> becomes the direction — so the old consumer, reading <c>r</c>, would have
 ///         multiplied its whole ambient term by the <em>x of a direction</em>: a number in [0, 1] that
 ///         looks exactly like an occlusion value. <see cref="TheOcclusionIsReadFromAlphaWhenTheDirectionOccupiesRgb" />
@@ -74,9 +85,13 @@ namespace Vixen.Graphics.Golden.Tests;
 ///         x on one side and by its negation on the other.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The first sabotage originally left
-///         <see cref="TheDirectionIsDecodedIntoWorldSpaceAndNotLeftInViewSpace" /> green, and that was
-///         the test's defect and not the sabotage's.</b> It asserted only that two cameras agree, and
+///         ⚠
+///         <b>
+///             The first sabotage originally left
+///             <see cref="TheDirectionIsDecodedIntoWorldSpaceAndNotLeftInViewSpace" /> green, and that was
+///             the test's defect and not the sabotage's.
+///         </b>
+///         It asserted only that two cameras agree, and
 ///         a pass that reads no direction at all agrees with itself perfectly. The gap assertion in
 ///         front of the equality is what makes it a claim about a rotation.
 ///     </para>
@@ -139,7 +154,7 @@ public sealed class BentNormalAmbientImageTests {
 
         using var owned = fixture!;
 
-        var geometric = Middle(Render(owned, bent: null));
+        var geometric = Middle(Render(owned, null));
         var unbent = Middle(Render(owned, Facing));
 
         Assert.True(
@@ -220,10 +235,10 @@ public sealed class BentNormalAmbientImageTests {
         using var owned = fixture!;
 
         var open = Middle(Render(owned, Leaning));
-        var quarter = Middle(Render(owned, Leaning, occlusion: 0.25f));
+        var quarter = Middle(Render(owned, Leaning, 0.25f));
 
         // Eight-bit rounding at both ends of the quarter, and nothing else: the term is a product.
-        Assert.InRange(quarter, (open / 4) - 2, (open / 4) + 2);
+        Assert.InRange(quarter, open / 4 - 2, open / 4 + 2);
     }
 
     /// <summary>
@@ -232,8 +247,12 @@ public sealed class BentNormalAmbientImageTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Every other fixture here looks down −Z from the origin, so its view matrix is the
-    ///         identity and a missing rotation is invisible.</b> That is the same arrangement
+    ///         ⚠
+    ///         <b>
+    ///             Every other fixture here looks down −Z from the origin, so its view matrix is the
+    ///             identity and a missing rotation is invisible.
+    ///         </b>
+    ///         That is the same arrangement
     ///         <see cref="GtaoImageTests" /> uses and for the same reason — through a non-trivial view
     ///         matrix, a mistake in the rotation and a mistake in the estimator are one picture. So one
     ///         fixture pays for the other's blind spot: the camera looks down +X, the direction is
@@ -333,7 +352,7 @@ public sealed class BentNormalAmbientImageTests {
         var normals = new Vector4[Side * Side];
         var contact = new Vector4[Side * Side];
 
-        var encoded = bent is { } direction ? (Vector3.Normalize(direction) * 0.5f) + new Vector3(0.5f) : Vector3.Zero;
+        var encoded = bent is { } direction ? Vector3.Normalize(direction) * 0.5f + new Vector3(0.5f) : Vector3.Zero;
 
         for (var i = 0; i < direct.Length; i++) {
             direct[i] = new(0f, 0f, 0f, 1f);
@@ -347,28 +366,28 @@ public sealed class BentNormalAmbientImageTests {
         var directPlane = fixture.Sampled(
             "direct",
             Side,
-            MemoryMarshal.AsBytes<Vector4>(direct),
+            MemoryMarshal.AsBytes(direct),
             PixelFormat.Rgba32Float
         );
 
         var albedoPlane = fixture.Sampled(
             "albedo",
             Side,
-            MemoryMarshal.AsBytes<Vector4>(albedo),
+            MemoryMarshal.AsBytes(albedo),
             PixelFormat.Rgba32Float
         );
 
         var normalPlane = fixture.Sampled(
             "normals",
             Side,
-            MemoryMarshal.AsBytes<Vector4>(normals),
+            MemoryMarshal.AsBytes(normals),
             PixelFormat.Rgba32Float
         );
 
         var contactPlane = fixture.Sampled(
             "contact",
             Side,
-            MemoryMarshal.AsBytes<Vector4>(contact),
+            MemoryMarshal.AsBytes(contact),
             PixelFormat.Rgba32Float
         );
 
@@ -385,7 +404,7 @@ public sealed class BentNormalAmbientImageTests {
         effects.AddProvider(
             new Compiling(
                 loader,
-                _ => RavenEffects.Only(
+                static _ => RavenEffects.Only(
                     ["Core", "Geometry", "Shading"],
                     Path.Combine("PostFx", "Fullscreen.rvn"),
                     Path.Combine("PostFx", "AmbientCombine.rvn")

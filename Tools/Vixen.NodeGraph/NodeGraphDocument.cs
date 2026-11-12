@@ -155,9 +155,13 @@ public sealed record GraphParameterAsset {
 
     /// <summary>Every value it may hold, or empty when it may hold any name.</summary>
     /// <remarks>
-    ///     ⚠ <b>The member <see cref="SettingDefinition.Accepted" /> has had since
-    ///     <a href="https://github.com/Rikarin/Vixen/issues/964">#964</a> and this shape had not, so
-    ///     a graph's own knob could not be a choice however the model spelled it.</b> A
+    ///     ⚠
+    ///     <b>
+    ///         The member <see cref="SettingDefinition.Accepted" /> has had since
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/964">#964</a> and this shape had not, so
+    ///         a graph's own knob could not be a choice however the model spelled it.
+    ///     </b>
+    ///     A
     ///     <see cref="SettingKind.Text" /> parameter with a list is what a published texture graph
     ///     declares to expose an inner node's setting
     ///     (<a href="https://github.com/Rikarin/Vixen/issues/1060">#1060</a>); one without a list is
@@ -246,9 +250,13 @@ public sealed record NodeGraphAsset {
 
     /// <summary>What the graph itself is set to — a texture graph's base resolution and seed.</summary>
     /// <remarks>
-    ///     ⚠ <b>Until <a href="https://github.com/Rikarin/Vixen/issues/719">#719</a> there was no such
-    ///     field, and a <c>.vxtexgraph</c> therefore came back at whatever resolution and seed the
-    ///     host that opened it happened to default to.</b> A seed that is not in the file is a seed
+    ///     ⚠
+    ///     <b>
+    ///         Until <a href="https://github.com/Rikarin/Vixen/issues/719">#719</a> there was no such
+    ///         field, and a <c>.vxtexgraph</c> therefore came back at whatever resolution and seed the
+    ///         host that opened it happened to default to.
+    ///     </b>
+    ///     A seed that is not in the file is a seed
     ///     that changes between machines, which doc 48 § D5 says plainly is not a source asset.
     /// </remarks>
     public Dictionary<string, string> Settings { get; init; } = [];
@@ -293,83 +301,95 @@ public static class NodeGraphDocument {
         List<GraphNodeAsset> nodes = [];
 
         foreach (var node in graph.Nodes) {
-            nodes.Add(new() {
-                Id = node.Id.Value,
-                Type = node.Type,
-                X = node.Position.X,
-                Y = node.Position.Y,
-                Values = new(node.Values),
-                Texts = new(node.Texts),
-                Bypassed = node.Bypassed
-            });
+            nodes.Add(
+                new() {
+                    Id = node.Id.Value,
+                    Type = node.Type,
+                    X = node.Position.X,
+                    Y = node.Position.Y,
+                    Values = new(node.Values),
+                    Texts = new(node.Texts),
+                    Bypassed = node.Bypassed
+                }
+            );
         }
 
         List<GraphEdgeAsset> edges = [];
 
         foreach (var edge in graph.Edges) {
-            edges.Add(new() {
-                FromNode = edge.From.Node.Value,
-                FromPort = edge.From.Port,
-                ToNode = edge.To.Node.Value,
-                ToPort = edge.To.Port
-            });
+            edges.Add(
+                new() {
+                    FromNode = edge.From.Node.Value,
+                    FromPort = edge.From.Port,
+                    ToNode = edge.To.Node.Value,
+                    ToPort = edge.To.Port
+                }
+            );
         }
 
         List<GraphGroupAsset> groups = [];
 
         foreach (var group in graph.Groups) {
-            groups.Add(new() {
-                Id = group.Id,
-                Title = group.Title,
-                Nodes = [.. group.Nodes.Select(id => id.Value)],
-                Color = group.Color,
-                Description = group.Description
-            });
+            groups.Add(
+                new() {
+                    Id = group.Id,
+                    Title = group.Title,
+                    Nodes = [..group.Nodes.Select(static id => id.Value)],
+                    Color = group.Color,
+                    Description = group.Description
+                }
+            );
         }
 
         List<GraphCommentAsset> comments = [];
 
         foreach (var comment in graph.Comments) {
-            comments.Add(new() {
-                Id = comment.Id,
-                Text = comment.Text,
-                X = comment.Position.X,
-                Y = comment.Position.Y,
-                Width = comment.Size.X,
-                Height = comment.Size.Y
-            });
+            comments.Add(
+                new() {
+                    Id = comment.Id,
+                    Text = comment.Text,
+                    X = comment.Position.X,
+                    Y = comment.Position.Y,
+                    Width = comment.Size.X,
+                    Height = comment.Size.Y
+                }
+            );
         }
 
         List<GraphPortAsset> ports = [];
 
         foreach (var port in graph.Interface) {
-            ports.Add(new() {
-                Name = port.Name,
-                Direction = port.Direction,
-                Kind = port.Kind,
-                Default = [.. port.Default],
-                Summary = port.Summary
-            });
+            ports.Add(
+                new() {
+                    Name = port.Name,
+                    Direction = port.Direction,
+                    Kind = port.Kind,
+                    Default = [..port.Default],
+                    Summary = port.Summary
+                }
+            );
         }
 
         List<GraphParameterAsset> parameters = [];
 
         foreach (var parameter in graph.Parameters) {
-            parameters.Add(new() {
-                Name = parameter.Name,
-                Default = parameter.Default,
-                Summary = parameter.Summary,
-                Kind = parameter.Kind,
-                Minimum = parameter.Minimum,
-                Maximum = parameter.Maximum,
-                Group = parameter.Group,
-                Accepted = [.. parameter.Accepted],
-                Label = parameter.Label,
-                Widget = parameter.Widget,
-                VisibleIf = parameter.VisibleIf?.Setting ?? "",
-                VisibleValue = parameter.VisibleIf?.Value ?? "",
-                VisibleNegated = parameter.VisibleIf?.Negated ?? false
-            });
+            parameters.Add(
+                new() {
+                    Name = parameter.Name,
+                    Default = parameter.Default,
+                    Summary = parameter.Summary,
+                    Kind = parameter.Kind,
+                    Minimum = parameter.Minimum,
+                    Maximum = parameter.Maximum,
+                    Group = parameter.Group,
+                    Accepted = [..parameter.Accepted],
+                    Label = parameter.Label,
+                    Widget = parameter.Widget,
+                    VisibleIf = parameter.VisibleIf?.Setting ?? string.Empty,
+                    VisibleValue = parameter.VisibleIf?.Value ?? string.Empty,
+                    VisibleNegated = parameter.VisibleIf?.Negated ?? false
+                }
+            );
         }
 
         List<GraphPresetAsset> presets = [];
@@ -381,17 +401,17 @@ public static class NodeGraphDocument {
         return new() {
             Version = Version,
             Name = graph.Name,
-            Nodes = [.. nodes],
-            Edges = [.. edges],
-            Groups = [.. groups],
-            Comments = [.. comments],
-            Interface = [.. ports],
+            Nodes = [..nodes],
+            Edges = [..edges],
+            Groups = [..groups],
+            Comments = [..comments],
+            Interface = [..ports],
             Settings = new(graph.Settings, StringComparer.Ordinal),
-            Parameters = [.. parameters],
-            Presets = [.. presets],
+            Parameters = [..parameters],
+            Presets = [..presets],
             Description = graph.Info.Description,
             Author = graph.Info.Author,
-            Tags = [.. graph.Info.Tags],
+            Tags = [..graph.Info.Tags],
             PhysicalSize = graph.Info.PhysicalSize == default
                 ? []
                 : [graph.Info.PhysicalSize.X, graph.Info.PhysicalSize.Y]
@@ -443,17 +463,25 @@ public static class NodeGraphDocument {
 
         foreach (var entry in asset.Parameters) {
             if (string.IsNullOrWhiteSpace(entry.Name)) {
-                found.Add(new("NG0104", "A parameter of the graph has no name, and an override is stored by name.", NodeId.None));
+                found.Add(
+                    new(
+                        "NG0104",
+                        "A parameter of the graph has no name, and an override is stored by name.",
+                        NodeId.None
+                    )
+                );
 
                 continue;
             }
 
             if (!knobs.Add(entry.Name)) {
-                found.Add(new(
-                    "NG0104",
-                    $"The graph declares two parameters called '{entry.Name}'. The second was dropped.",
-                    NodeId.None
-                ));
+                found.Add(
+                    new(
+                        "NG0104",
+                        $"The graph declares two parameters called '{entry.Name}'. The second was dropped.",
+                        NodeId.None
+                    )
+                );
 
                 continue;
             }
@@ -467,7 +495,7 @@ public static class NodeGraphDocument {
                     entry.Minimum,
                     entry.Maximum,
                     entry.Group,
-                    [.. entry.Accepted],
+                    [..entry.Accepted],
                     entry.Label,
                     entry.Widget,
                     entry.VisibleIf.Length > 0 ? new(entry.VisibleIf, entry.VisibleValue, entry.VisibleNegated) : null
@@ -481,13 +509,15 @@ public static class NodeGraphDocument {
 
         foreach (var entry in asset.Presets) {
             if (string.IsNullOrWhiteSpace(entry.Name) || !presets.Add(entry.Name)) {
-                found.Add(new(
-                    "NG0105",
-                    string.IsNullOrWhiteSpace(entry.Name)
-                        ? "A preset of the graph has no name, and a preset is chosen by name. It was dropped."
-                        : $"The graph declares two presets called '{entry.Name}'. The second was dropped.",
-                    NodeId.None
-                ));
+                found.Add(
+                    new(
+                        "NG0105",
+                        string.IsNullOrWhiteSpace(entry.Name)
+                            ? "A preset of the graph has no name, and a preset is chosen by name. It was dropped."
+                            : $"The graph declares two presets called '{entry.Name}'. The second was dropped.",
+                        NodeId.None
+                    )
+                );
 
                 continue;
             }
@@ -508,22 +538,30 @@ public static class NodeGraphDocument {
 
         foreach (var entry in asset.Interface) {
             if (string.IsNullOrWhiteSpace(entry.Name)) {
-                found.Add(new("NG0103", "A port of the graph's interface has no name, and an edge is stored by port name.", NodeId.None));
+                found.Add(
+                    new(
+                        "NG0103",
+                        "A port of the graph's interface has no name, and an edge is stored by port name.",
+                        NodeId.None
+                    )
+                );
 
                 continue;
             }
 
             if (!declared.Add((entry.Name, entry.Direction))) {
-                found.Add(new(
-                    "NG0103",
-                    $"The graph's interface declares two {entry.Direction} ports called '{entry.Name}'. The second was dropped.",
-                    NodeId.None
-                ));
+                found.Add(
+                    new(
+                        "NG0103",
+                        $"The graph's interface declares two {entry.Direction} ports called '{entry.Name}'. The second was dropped.",
+                        NodeId.None
+                    )
+                );
 
                 continue;
             }
 
-            graph.Interface.Add(new(entry.Name, entry.Direction, entry.Kind, [.. entry.Default], entry.Summary));
+            graph.Interface.Add(new(entry.Name, entry.Direction, entry.Kind, [..entry.Default], entry.Summary));
         }
 
         // The identities are the file's, not fresh ones. See NodeGraphModel.Add(NodeId, ...).
@@ -580,10 +618,7 @@ public static class NodeGraphDocument {
 
         foreach (var entry in asset.Groups) {
             var group = new GraphGroup {
-                Id = entry.Id,
-                Title = entry.Title,
-                Color = entry.Color,
-                Description = entry.Description
+                Id = entry.Id, Title = entry.Title, Color = entry.Color, Description = entry.Description
             };
 
             foreach (var member in entry.Nodes) {
@@ -598,12 +633,14 @@ public static class NodeGraphDocument {
         }
 
         foreach (var entry in asset.Comments) {
-            graph.Comments.Add(new() {
-                Id = entry.Id,
-                Text = entry.Text,
-                Position = new(entry.X, entry.Y),
-                Size = new(entry.Width, entry.Height)
-            });
+            graph.Comments.Add(
+                new() {
+                    Id = entry.Id,
+                    Text = entry.Text,
+                    Position = new(entry.X, entry.Y),
+                    Size = new(entry.Width, entry.Height)
+                }
+            );
         }
 
         // After both lists, because a file written before these had identities holds zeros, and a
@@ -642,11 +679,13 @@ public static class NodeGraphDocument {
             && height > 0f) {
             size = new(width, height);
         } else if (asset.PhysicalSize.Length > 0) {
-            found.Add(new(
-                "NG0106",
-                "The graph's physical size is not a width and a height above zero, in centimetres. It was dropped.",
-                NodeId.None
-            ));
+            found.Add(
+                new(
+                    "NG0106",
+                    "The graph's physical size is not a width and a height above zero, in centimetres. It was dropped.",
+                    NodeId.None
+                )
+            );
         }
 
         return new(asset.Description, asset.Author, tags, size);

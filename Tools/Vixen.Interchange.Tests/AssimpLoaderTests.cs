@@ -13,8 +13,9 @@ public sealed class AssimpLoaderTests {
     /// <param name="property">The platform's property.</param>
     /// <returns>Its names.</returns>
     static string[] BindingNames(string property) {
-        var container = typeof(AssimpApi).Assembly.GetTypes().Single(type => type.Name == "AssimpLibraryNameContainer");
-        var names = container.GetProperty(property)?.GetValue(Activator.CreateInstance(container, nonPublic: true));
+        var container = typeof(AssimpApi).Assembly.GetTypes()
+            .Single(static type => type.Name == "AssimpLibraryNameContainer");
+        var names = container.GetProperty(property)?.GetValue(Activator.CreateInstance(container, true));
 
         return Assert.IsType<string[]>(names);
     }

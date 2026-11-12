@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Reflection;
-using Vixen.Ui.Layout;
 using Vixen.Ui.Text;
 using Xunit;
 
@@ -11,11 +10,19 @@ namespace Vixen.Ui.Tests;
 /// <summary><c>-webkit-line-clamp</c>: the budget, the height it reports, and the marker.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>This is the one truncation in this engine that happens in the <i>measure</i> path,
-///         and the reason is the whole feature.</b> An ellipsis changes the picture and nothing else
+///         ⚠
+///         <b>
+///             This is the one truncation in this engine that happens in the <i>measure</i> path,
+///             and the reason is the whole feature.
+///         </b>
+///         An ellipsis changes the picture and nothing else
 ///         — the element is as wide as it always was, which is what makes its parent shrink it and
-///         is why <c>UiElement.Ellipsized</c> runs at paint. A clamp changes <i>how many lines there
-///         are</i>, so it changes the height, so a budget applied after layout would reserve room
+///         is why <c>UiElement.Ellipsized</c> runs at paint. A clamp changes
+///         <i>
+///             how many lines there
+///             are
+///         </i>
+///         , so it changes the height, so a budget applied after layout would reserve room
 ///         for lines nobody draws and leave a hole under the text.
 ///         <see cref="A_clamped_block_measures_the_lines_it_kept" /> is that assertion.
 ///     </para>
@@ -33,7 +40,7 @@ public class LineClampTests {
 
     static FontFace LoadFont() {
         using var stream = Assembly.GetExecutingAssembly()
-            .GetManifestResourceStream("Vixen.Ui.Tests.Fonts.OpenSans-Regular.ttf")
+                .GetManifestResourceStream("Vixen.Ui.Tests.Fonts.OpenSans-Regular.ttf")
             ?? throw new InvalidOperationException("the test font is not embedded");
 
         using var memory = new MemoryStream();
@@ -152,8 +159,12 @@ public class LineClampTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>The marker lands on a line that fits, which is what makes this different from an
-    ///     ellipsis.</b> A width test before the marker would silently drop it on every clamped
+    ///     ⚠
+    ///     <b>
+    ///         The marker lands on a line that fits, which is what makes this different from an
+    ///         ellipsis.
+    ///     </b>
+    ///     A width test before the marker would silently drop it on every clamped
     ///     paragraph whose last kept line happens to be short — and most are, because a wrap point
     ///     is where the next word did not fit.
     /// </summary>
@@ -185,8 +196,12 @@ public class LineClampTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>The clamp is in the block's cache key, and the element's text does not change when it
-    ///     arrives.</b> A key that missed it is a paragraph that measured five lines and draws three:
+    ///     ⚠
+    ///     <b>
+    ///         The clamp is in the block's cache key, and the element's text does not change when it
+    ///         arrives.
+    ///     </b>
+    ///     A key that missed it is a paragraph that measured five lines and draws three:
     ///     the box stays two lines too tall and the gap reads as a margin nobody wrote.
     /// </summary>
     [Fact]
@@ -237,6 +252,6 @@ public class LineClampTests {
 
         Assert.Equal(2, drawn.Lines.Length);
         Assert.EndsWith("…", last, StringComparison.Ordinal);
-        Assert.Equal(1, last.Count(character => character == '…'));
+        Assert.Equal(1, last.Count(static character => character == '…'));
     }
 }

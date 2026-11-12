@@ -167,8 +167,12 @@ public static class UiPropertyRegistry {
     /// <returns>The keys, bases first.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Every level's class constructor is forced, and the parameter's annotation is
-    ///         what makes that legal</b> (#1336). The walk that did this before #1240 was one
+    ///         ⚠
+    ///         <b>
+    ///             Every level's class constructor is forced, and the parameter's annotation is
+    ///             what makes that legal
+    ///         </b>
+    ///         (#1336). The walk that did this before #1240 was one
     ///         <c>IL2072</c>, and the warning described something live: a NativeAOT publish answered
     ///         <c>Of(typeof(Derived))</c> with the derived property and nothing from any base,
     ///         because ILC preserves a constructor it can <em>name</em> and not one reached through
@@ -178,8 +182,12 @@ public static class UiPropertyRegistry {
     ///         for a leaf that declares no property of its own and so gets no generated file.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Refuted: <c>Type.BaseType</c> <em>can</em> name it, given
-    ///         <see cref="DynamicallyAccessedMemberTypes.All" />.</b> That is the one annotation the
+    ///         ⚠
+    ///         <b>
+    ///             Refuted: <c>Type.BaseType</c> <em>can</em> name it, given
+    ///             <see cref="DynamicallyAccessedMemberTypes.All" />.
+    ///         </b>
+    ///         That is the one annotation the
     ///         trimmer propagates across <c>BaseType</c> in full — the rest propagate only their
     ///         public halves, because a non-public member of a base is not inherited and a class
     ///         constructor is non-public, which is exactly why
@@ -245,8 +253,12 @@ public static class UiPropertyRegistry {
     /// <returns>Whether it was found.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Constructing an element does <i>not</i> register its properties, which is the
-    ///         opposite of what this used to assume.</b> The generator puts each key in a
+    ///         ⚠
+    ///         <b>
+    ///             Constructing an element does <i>not</i> register its properties, which is the
+    ///             opposite of what this used to assume.
+    ///         </b>
+    ///         The generator puts each key in a
     ///         <c>static readonly</c> field initialiser and adds no static constructor, so the class
     ///         is <c>beforefieldinit</c> — and the CLR is then free to defer the initialiser until
     ///         something reads a static field of that exact type. Making an instance is not that. So
@@ -257,8 +269,12 @@ public static class UiPropertyRegistry {
     ///         rest of the application had already run.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Fixed in the generator, which now emits an empty static constructor, and not
-    ///         here.</b> A class with one is no longer <c>beforefieldinit</c>, so the CLR must run
+    ///         ⚠
+    ///         <b>
+    ///             Fixed in the generator, which now emits an empty static constructor, and not
+    ///             here.
+    ///         </b>
+    ///         A class with one is no longer <c>beforefieldinit</c>, so the CLR must run
     ///         the initialisers before the first instance exists — which makes the premise below
     ///         true rather than merely assumed. The repair cannot be made on this side:
     ///         <see cref="Of" /> can call <see cref="RuntimeHelpers.RunClassConstructor" /> because
@@ -352,8 +368,12 @@ public static class UiPropertyRegistry {
     /// <param name="into">Where the keys go.</param>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The forcing on the way down is back, and the <c>IL2072</c> it used to raise is
-    ///         not</b> (#1336, undoing #1240's half of the trade). The warning was a true positive:
+    ///         ⚠
+    ///         <b>
+    ///             The forcing on the way down is back, and the <c>IL2072</c> it used to raise is
+    ///             not
+    ///         </b>
+    ///         (#1336, undoing #1240's half of the trade). The warning was a true positive:
     ///         measured on 2026-09-10 with a NativeAOT publish of a probe declaring
     ///         <c>Base : UiElement</c> and <c>Derived : Base</c>, <c>Of(typeof(Derived))</c> came
     ///         back with the derived property and <b>nothing else</b>, where CoreCLR returned all
@@ -378,8 +398,12 @@ public static class UiPropertyRegistry {
     ///         run time and not merely warning-silencing, and #1240's finding reproduces on demand.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The claim that nothing here publishes ahead of time is false and was the reason
-    ///         this was left unproved.</b> <c>./build.sh CheckAot</c> publishes
+    ///         ⚠
+    ///         <b>
+    ///             The claim that nothing here publishes ahead of time is false and was the reason
+    ///             this was left unproved.
+    ///         </b>
+    ///         <c>./build.sh CheckAot</c> publishes
     ///         <c>Tools/Vixen.AotProbe</c> with <c>ILLinkTreatWarningsAsErrors</c> and
     ///         <c>Vixen.Ui</c> among its <c>TrimmerRootAssembly</c> entries, and <c>ci.yml</c> runs
     ///         it per platform. ⚠ Since #1255 it also runs the binary it produces, and the first

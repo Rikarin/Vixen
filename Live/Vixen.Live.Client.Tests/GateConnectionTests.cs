@@ -107,11 +107,10 @@ public class GateConnectionTests {
     [Fact]
     public async Task With_no_session_it_waits_rather_than_opening_anything() {
         var sockets = new SocketFactory();
-        var client = new GateClient(new HttpClient { BaseAddress = new("https://gate.example/v1/") });
-        await using var connection = new GateConnection(Address, client, sockets.Make) {
-            FirstBackoff = TimeSpan.FromMilliseconds(5),
-            MaximumBackoff = TimeSpan.FromMilliseconds(20)
-        };
+        var client = new GateClient(new() { BaseAddress = new("https://gate.example/v1/") });
+        await using var connection = new GateConnection(Address, client, sockets.Make);
+        connection.FirstBackoff = TimeSpan.FromMilliseconds(5);
+        connection.MaximumBackoff = TimeSpan.FromMilliseconds(20);
         using var stop = new CancellationTokenSource();
 
         var heard = Listen(connection, stop.Token);
@@ -129,7 +128,7 @@ public class GateConnectionTests {
 
     static GateConnection Connect(SocketFactory sockets, out GateClient client) {
         var gate = new FakeGate().Answers(
-            new SignInResponse("a.b.c", Guid.NewGuid(), Noon.AddHours(12)),
+            new("a.b.c", Guid.NewGuid(), Noon.AddHours(12)),
             GateJson.Default.SignInResponse
         );
 
@@ -137,8 +136,7 @@ public class GateConnectionTests {
         client.SignInAsync("development", "alice", CancellationToken.None).GetAwaiter().GetResult();
 
         return new(Address, client, sockets.Make) {
-            FirstBackoff = TimeSpan.FromMilliseconds(1),
-            MaximumBackoff = TimeSpan.FromMilliseconds(10)
+            FirstBackoff = TimeSpan.FromMilliseconds(1), MaximumBackoff = TimeSpan.FromMilliseconds(10)
         };
     }
 

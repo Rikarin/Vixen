@@ -136,8 +136,7 @@ public sealed unsafe class DesktopDisplays(Sdl sdl) : IDisplayInfo {
     ///     SDL 2 has no HDR query at all, so <see cref="DisplayMode.IsHdr" /> is always
     ///     <see langword="false" /> here rather than guessed at from the pixel format.
     /// </summary>
-    static DisplayMode Convert(Silk.NET.SDL.DisplayMode mode) =>
-        new(new(mode.W, mode.H), mode.RefreshRate, false);
+    static DisplayMode Convert(Silk.NET.SDL.DisplayMode mode) => new(new(mode.W, mode.H), mode.RefreshRate, false);
 }
 
 /// <summary>The system clipboard, which SDL 2 supports for text and nothing else.</summary>
@@ -255,7 +254,7 @@ public sealed unsafe class DesktopDialogs(Sdl sdl) : INativeDialogs {
 
         var titleBytes = System.Text.Encoding.UTF8.GetBytes(options.Title + '\0');
         var messageBytes = System.Text.Encoding.UTF8.GetBytes(options.Message + '\0');
-        var labelBytes = buttons.Select(label => System.Text.Encoding.UTF8.GetBytes(label + '\0')).ToArray();
+        var labelBytes = buttons.Select(static label => System.Text.Encoding.UTF8.GetBytes(label + '\0')).ToArray();
 
         var handles = new MessageBoxButtonData[buttons.Length];
         var pinned = new System.Runtime.InteropServices.GCHandle[labelBytes.Length];
@@ -283,20 +282,22 @@ public sealed unsafe class DesktopDialogs(Sdl sdl) : INativeDialogs {
 
             var chosen = -1;
 
-            fixed (byte* title = titleBytes)
-            fixed (byte* message = messageBytes)
-            fixed (MessageBoxButtonData* buttonData = handles) {
-                var data = new MessageBoxData {
-                    Flags = (uint)SeverityFlag(options.Severity),
-                    Window = window,
-                    Title = title,
-                    Message = message,
-                    Numbuttons = buttons.Length,
-                    Buttons = buttonData
-                };
+            fixed (byte* title = titleBytes) {
+                fixed (byte* message = messageBytes) {
+                    fixed (MessageBoxButtonData* buttonData = handles) {
+                        var data = new MessageBoxData {
+                            Flags = (uint)SeverityFlag(options.Severity),
+                            Window = window,
+                            Title = title,
+                            Message = message,
+                            Numbuttons = buttons.Length,
+                            Buttons = buttonData
+                        };
 
-                if (sdl.ShowMessageBox(&data, &chosen) != 0) {
-                    return ValueTask.FromResult(MessageBoxResult.None);
+                        if (sdl.ShowMessageBox(&data, &chosen) != 0) {
+                            return ValueTask.FromResult(MessageBoxResult.None);
+                        }
+                    }
                 }
             }
 
@@ -312,25 +313,28 @@ public sealed unsafe class DesktopDialogs(Sdl sdl) : INativeDialogs {
         }
     }
 
-    static string[] ButtonsFor(MessageBoxButtons buttons) => buttons switch {
-        MessageBoxButtons.OkCancel => ["OK", "Cancel"],
-        MessageBoxButtons.YesNo => ["Yes", "No"],
-        MessageBoxButtons.YesNoCancel => ["Yes", "No", "Cancel"],
-        _ => ["OK"]
-    };
+    static string[] ButtonsFor(MessageBoxButtons buttons) =>
+        buttons switch {
+            MessageBoxButtons.OkCancel => ["OK", "Cancel"],
+            MessageBoxButtons.YesNo => ["Yes", "No"],
+            MessageBoxButtons.YesNoCancel => ["Yes", "No", "Cancel"],
+            _ => ["OK"]
+        };
 
-    static MessageBoxResult[] ResultsFor(MessageBoxButtons buttons) => buttons switch {
-        MessageBoxButtons.OkCancel => [MessageBoxResult.Ok, MessageBoxResult.Cancel],
-        MessageBoxButtons.YesNo => [MessageBoxResult.Yes, MessageBoxResult.No],
-        MessageBoxButtons.YesNoCancel => [MessageBoxResult.Yes, MessageBoxResult.No, MessageBoxResult.Cancel],
-        _ => [MessageBoxResult.Ok]
-    };
+    static MessageBoxResult[] ResultsFor(MessageBoxButtons buttons) =>
+        buttons switch {
+            MessageBoxButtons.OkCancel => [MessageBoxResult.Ok, MessageBoxResult.Cancel],
+            MessageBoxButtons.YesNo => [MessageBoxResult.Yes, MessageBoxResult.No],
+            MessageBoxButtons.YesNoCancel => [MessageBoxResult.Yes, MessageBoxResult.No, MessageBoxResult.Cancel],
+            _ => [MessageBoxResult.Ok]
+        };
 
-    static MessageBoxFlags SeverityFlag(MessageBoxSeverity severity) => severity switch {
-        MessageBoxSeverity.Warning => MessageBoxFlags.Warning,
-        MessageBoxSeverity.Error => MessageBoxFlags.Error,
-        _ => MessageBoxFlags.Information
-    };
+    static MessageBoxFlags SeverityFlag(MessageBoxSeverity severity) =>
+        severity switch {
+            MessageBoxSeverity.Warning => MessageBoxFlags.Warning,
+            MessageBoxSeverity.Error => MessageBoxFlags.Error,
+            _ => MessageBoxFlags.Information
+        };
 }
 
 /// <summary>Text entry and the IME.</summary>

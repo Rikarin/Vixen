@@ -16,7 +16,7 @@ namespace Vixen.Ui.Text.Tests;
 /// </remarks>
 public class ShapingCacheTests {
     static readonly string[] Words = [
-        "a a", "abc", "hello world", "", " ",
+        "a a", "abc", "hello world", string.Empty, " ",
         "لسان", "فن خطاطی", "abcلسان", "لسان abc",
         "ಲ್ಲಿ", "ಖ್ಯೆ ಫ್ರಿ", "ಲ್ಲಿabc"
     ];
@@ -25,21 +25,25 @@ public class ShapingCacheTests {
     public void A_cached_paragraph_is_the_paragraph_that_would_have_been_shaped() {
         var font = TestFonts.Load(TestFonts.Arabic);
 
-        Gen.Int[0, Words.Length - 1].Array[1, 60]
-            .Sample(indices => {
-                // Deliberately smaller than the number of distinct strings, so the run evicts and
-                // re-shapes rather than only ever filling.
-                var cache = new ShapingCache(4);
+        Gen.Int[0, Words.Length - 1]
+            .Array[1, 60]
+            .Sample(
+                indices => {
+                    // Deliberately smaller than the number of distinct strings, so the run evicts and
+                    // re-shapes rather than only ever filling.
+                    var cache = new ShapingCache(4);
 
-                foreach (var index in indices) {
-                    var cached = cache.Shape(font, Words[index]);
-                    var cold = TextShaper.Shape(font, Words[index]);
+                    foreach (var index in indices) {
+                        var cached = cache.Shape(font, Words[index]);
+                        var cold = TextShaper.Shape(font, Words[index]);
 
-                    Assert.Equal(Describe(cold), Describe(cached));
-                }
+                        Assert.Equal(Describe(cold), Describe(cached));
+                    }
 
-                Assert.True(cache.Count <= 4, $"the cache holds {cache.Count} entries with a capacity of 4");
-            }, iter: 200);
+                    Assert.True(cache.Count <= 4, $"the cache holds {cache.Count} entries with a capacity of 4");
+                },
+                iter: 200
+            );
     }
 
     [Fact]
@@ -123,6 +127,9 @@ public class ShapingCacheTests {
     static string Describe(ShapedText shaped) =>
         string.Join(
             " ",
-            shaped.Placements().Select(placement => $"{placement.GlyphId}@{placement.X:0.##},{placement.Y:0.##}#{placement.Cluster}")
+            shaped.Placements()
+                .Select(static placement =>
+                    $"{placement.GlyphId}@{placement.X:0.##},{placement.Y:0.##}#{placement.Cluster}"
+                )
         );
 }

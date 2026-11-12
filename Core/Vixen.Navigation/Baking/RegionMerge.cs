@@ -40,7 +40,13 @@ internal static class RegionMerge {
     ///     keeping at all", the second is "not worth keeping apart".
     /// </param>
     /// <returns>How many regions there are now, counting the unassigned zero.</returns>
-    public static int Apply(CompactHeightfield field, ushort[] regions, int regionCount, int minRegionArea, int mergeRegionArea) {
+    public static int Apply(
+        CompactHeightfield field,
+        ushort[] regions,
+        int regionCount,
+        int minRegionArea,
+        int mergeRegionArea
+    ) {
         var pool = new Region[regionCount + 1];
 
         for (var index = 0; index < pool.Length; index++) {
@@ -58,7 +64,7 @@ internal static class RegionMerge {
     static void Describe(CompactHeightfield field, ushort[] regions, Region[] pool) {
         for (var z = 0; z < field.Depth; z++) {
             for (var x = 0; x < field.Width; x++) {
-                ref var cell = ref field.Cells[x + (z * field.Width)];
+                ref var cell = ref field.Cells[x + z * field.Width];
 
                 for (var index = cell.Index; index < cell.Index + cell.Count; index++) {
                     var id = regions[index];
@@ -144,7 +150,10 @@ internal static class RegionMerge {
                 group.Add(current);
 
                 foreach (var connection in pool[current].Connections) {
-                    if (connection == 0 || connection >= pool.Length || pool[connection].Visited || pool[connection].Id == 0) {
+                    if (connection == 0
+                        || connection >= pool.Length
+                        || pool[connection].Visited
+                        || pool[connection].Id == 0) {
                         continue;
                     }
 
@@ -352,7 +361,15 @@ internal static class RegionMerge {
     ///     out is the region's neighbours <i>in order</i>, which is what makes "do we touch this one
     ///     more than once" a question about a list rather than about geometry.
     /// </remarks>
-    static void WalkBoundary(CompactHeightfield field, ushort[] regions, int startX, int startZ, int startIndex, int startDirection, List<ushort> connections) {
+    static void WalkBoundary(
+        CompactHeightfield field,
+        ushort[] regions,
+        int startX,
+        int startZ,
+        int startIndex,
+        int startDirection,
+        List<ushort> connections
+    ) {
         var x = startX;
         var z = startZ;
         var index = startIndex;

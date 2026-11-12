@@ -35,7 +35,9 @@ namespace Vixen.Editor.App.Tests;
 ///     </para>
 /// </remarks>
 public class PrefabPlacementTests {
-    static PrefabPlacementTests() => SceneScalars.Register();
+    static PrefabPlacementTests() {
+        SceneScalars.Register();
+    }
 
     const string TemplateName = "Turret";
 
@@ -212,7 +214,7 @@ public class PrefabPlacementTests {
                     Position = position,
                     Prefab = new AssetReference(prefab).ToString(),
                     Source = Source,
-                    Overrides = [.. claimed],
+                    Overrides = [..claimed],
                     Components = [Lamp(intensity)]
                 }
             ]
@@ -244,7 +246,7 @@ public class PrefabPlacementTests {
         var document = Open(fixture, world, level.Path, level.Asset);
 
         Assert.True(document.TryGetEntity(level.Instance, out var entity));
-        Assert.Equal(new Vector3(5f, 0f, 0f), world.Read<LocalTransform>(entity).Position);
+        Assert.Equal(new(5f, 0f, 0f), world.Read<LocalTransform>(entity).Position);
         Assert.True(document.Reconciled is { Written: > 0 });
     }
 
@@ -272,7 +274,7 @@ public class PrefabPlacementTests {
 
         // The unclaimed member still followed, which is what makes this an override rather than a
         // reconcile that did nothing.
-        Assert.Equal(new Vector3(5f, 0f, 0f), world.Read<LocalTransform>(entity).Position);
+        Assert.Equal(new(5f, 0f, 0f), world.Read<LocalTransform>(entity).Position);
     }
 
     /// <summary>A claimed member is left exactly as the level had it.</summary>
@@ -287,7 +289,7 @@ public class PrefabPlacementTests {
         var document = Open(fixture, world, level.Path, level.Asset);
 
         Assert.True(document.TryGetEntity(level.Instance, out var entity));
-        Assert.Equal(new Vector3(1f, 0f, 0f), world.Read<LocalTransform>(entity).Position);
+        Assert.Equal(new(1f, 0f, 0f), world.Read<LocalTransform>(entity).Position);
     }
 
     /// <summary>⚠ A prefab that has gone costs the level nothing, and is reported.</summary>
@@ -303,7 +305,7 @@ public class PrefabPlacementTests {
         var document = Open(fixture, world, level.Path, level.Asset);
 
         Assert.True(document.TryGetEntity(level.Instance, out var entity));
-        Assert.Equal(new Vector3(1f, 0f, 0f), world.Read<LocalTransform>(entity).Position);
+        Assert.Equal(new(1f, 0f, 0f), world.Read<LocalTransform>(entity).Position);
         Assert.Equal(4f, world.Read<Light>(entity).Intensity);
 
         // The link is kept, so the instance comes back the moment the asset does.
@@ -320,8 +322,7 @@ public class PrefabPlacementTests {
         using var world = new World("Scene");
 
         var file = new SceneFile {
-            Name = "Level",
-            Roots = [new() { Id = EntityId.New(), Name = "Crate", Position = new(1f, 0f, 0f) }]
+            Name = "Level", Roots = [new() { Id = EntityId.New(), Name = "Crate", Position = new(1f, 0f, 0f) }]
         };
 
         var asset = AssetId.New();
@@ -421,12 +422,7 @@ public class PrefabPlacementTests {
         new() {
             Name = "Bulb",
             Roots = [
-                new() {
-                    Id = source,
-                    Name = "Bulb",
-                    Position = position,
-                    Components = [Lamp(intensity)]
-                }
+                new() { Id = source, Name = "Bulb", Position = position, Components = [Lamp(intensity)] }
             ]
         };
 
@@ -533,7 +529,7 @@ public class PrefabPlacementTests {
         Assert.Equal(42f, world.Read<Light>(entity).Intensity);
 
         // The outer prefab did not claim the position, so the inner prefab's is what it shows.
-        Assert.Equal(new Vector3(0f, 3f, 0f), world.Read<LocalTransform>(entity).Position);
+        Assert.Equal(new(0f, 3f, 0f), world.Read<LocalTransform>(entity).Position);
     }
 
     /// <summary>⚠ A child the prefab gained arrives in every level that uses it — doc 47 row 4.</summary>
@@ -638,7 +634,7 @@ public class PrefabPlacementTests {
 
         Assert.DoesNotContain(
             document.Reconciled?.Reports ?? [],
-            report => report.Kind == PrefabReportKind.AddedByTemplate
+            static report => report.Kind == PrefabReportKind.AddedByTemplate
         );
     }
 }

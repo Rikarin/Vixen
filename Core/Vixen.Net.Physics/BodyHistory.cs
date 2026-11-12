@@ -166,11 +166,10 @@ public sealed class BodyHistory {
         // apart differ by far less than the ten bits the rotation was quantised to on the wire, so
         // the two answers are identical after quantisation and one of them costs a trigonometric
         // pair per body per shot.
-        return new(
-            left.At,
-            Vector3.Lerp(left.Position, right.Position, amount),
-            Quaternion.Nlerp(left.Rotation, right.Rotation, amount)
-        );
+        return left with {
+            Position = Vector3.Lerp(left.Position, right.Position, amount),
+            Rotation = Quaternion.Nlerp(left.Rotation, right.Rotation, amount)
+        };
     }
 
     bool TryNearest(Tick at, out BodyPose pose) {

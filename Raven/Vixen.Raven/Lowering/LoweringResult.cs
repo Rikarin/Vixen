@@ -57,8 +57,12 @@ public sealed class LoweringResult {
     /// </summary>
     /// <remarks>
     ///     ⚠ These are exempt from qualification, and the exemption is load-bearing rather than an
-    ///     optimisation. A tuple has no declaration to match on, so two libraries' <c>(float,
-    ///     float)</c> must reach one struct object or a library function's return type stops
+    ///     optimisation. A tuple has no declaration to match on, so two libraries'
+    ///     <c>
+    ///         (float,
+    ///         float)
+    ///     </c>
+    ///     must reach one struct object or a library function's return type stops
     ///     matching the caller's local — <c>Lowerer.LowerTuple</c> says exactly that. A
     ///     monomorphised generic is named the same way, from its arguments.
     /// </remarks>

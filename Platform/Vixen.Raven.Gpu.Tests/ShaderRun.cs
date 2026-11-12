@@ -67,19 +67,23 @@ static class ShaderRun {
 
         var (binary, reflection) = Compile(kernel, imports);
 
-        var output = owned.CreateBuffer(new(
-            count * sizeof(float),
-            BufferUsage.Storage | BufferUsage.CopySource,
-            MemoryAccess.DeviceLocal,
-            "gate.output"
-        ));
+        var output = owned.CreateBuffer(
+            new(
+                count * sizeof(float),
+                BufferUsage.Storage | BufferUsage.CopySource,
+                MemoryAccess.DeviceLocal,
+                "gate.output"
+            )
+        );
 
-        var readback = owned.CreateBuffer(new(
-            count * sizeof(float),
-            BufferUsage.CopyDestination,
-            MemoryAccess.HostReadback,
-            "gate.readback"
-        ));
+        var readback = owned.CreateBuffer(
+            new(
+                count * sizeof(float),
+                BufferUsage.CopyDestination,
+                MemoryAccess.HostReadback,
+                "gate.readback"
+            )
+        );
 
         var hasUniforms = !uniforms.IsEmpty;
 
@@ -96,18 +100,19 @@ static class ShaderRun {
         // would agree with the shader by luck, and the one case where it did not would look like
         // arithmetic going wrong rather than a binding.
         var bindings = reflection.Sets
-            .SelectMany(set => set.Bindings)
-            .OrderBy(binding => binding.Binding)
+            .SelectMany(static set => set.Bindings)
+            .OrderBy(static binding => binding.Binding)
             .ToArray();
 
         var entries = bindings
-            .Select(binding => new DescriptorBinding(
-                (uint)binding.Binding,
-                binding.Type == DescriptorType.UniformBuffer
-                    ? DescriptorKind.UniformBuffer
-                    : DescriptorKind.StorageBuffer,
-                DeviceStage.Compute
-            ))
+            .Select(static binding => new DescriptorBinding(
+                    (uint)binding.Binding,
+                    binding.Type == DescriptorType.UniformBuffer
+                        ? DescriptorKind.UniformBuffer
+                        : DescriptorKind.StorageBuffer,
+                    DeviceStage.Compute
+                )
+            )
             .ToArray();
 
         var setLayout = owned.CreateDescriptorSetLayout(new(DescriptorSetSlot.PerFrame, entries, "gate.set"));
@@ -116,8 +121,9 @@ static class ShaderRun {
 
         var writes = bindings
             .Select(binding => binding.Type == DescriptorType.UniformBuffer
-                ? DescriptorWrite.Uniform((uint)binding.Binding, constants)
-                : DescriptorWrite.Storage((uint)binding.Binding, output))
+                    ? DescriptorWrite.Uniform((uint)binding.Binding, constants)
+                    : DescriptorWrite.Storage((uint)binding.Binding, output)
+            )
             .ToArray();
 
         owned.UpdateDescriptorSet(descriptors, writes);
@@ -179,8 +185,8 @@ static class ShaderRun {
     /// </remarks>
     public static (byte[] Binary, RavenReflection Reflection) Compile(string kernel, string[] imports) {
         var trees = imports
-            .Select(name => Path.Combine(LibraryRoot, name))
-            .Select(path => SyntaxTree.ParseText(File.ReadAllText(path), path: Path.GetFileName(path)))
+            .Select(static name => Path.Combine(LibraryRoot, name))
+            .Select(static path => SyntaxTree.ParseText(File.ReadAllText(path), path: Path.GetFileName(path)))
             .Append(SyntaxTree.ParseText(kernel, path: "Gate.rvn"))
             .ToArray();
 
@@ -209,7 +215,8 @@ static class ShaderRun {
 
         var unit = Assert.Single(
             generated,
-            candidate => candidate.Stage == RavenStage.Compute && candidate.Name.StartsWith("Gate", StringComparison.Ordinal)
+            static candidate => candidate.Stage == RavenStage.Compute
+                && candidate.Name.StartsWith("Gate", StringComparison.Ordinal)
         );
 
         Assert.NotNull(unit.Binary);
@@ -220,12 +227,12 @@ static class ShaderRun {
         // than the fault it is looking for.
         var shader = Assert.Single(
             module.Shaders,
-            candidate => candidate.Name.StartsWith("Gate", StringComparison.Ordinal)
+            static candidate => candidate.Name.StartsWith("Gate", StringComparison.Ordinal)
         );
 
         return (unit.Binary, ReflectionBuilder.Describe(shader, compilation.UsedPermutationKeys));
     }
 
     static string Report(string phase, IReadOnlyList<Diagnostic> diagnostics, string source) =>
-        $"{phase} the gate's shader failed:\n{string.Join("\n", diagnostics.Select(d => d.ToString()))}\n\n{source}";
+        $"{phase} the gate's shader failed:\n{string.Join("\n", diagnostics.Select(static d => d.ToString()))}\n\n{source}";
 }

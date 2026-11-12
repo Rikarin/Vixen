@@ -315,8 +315,8 @@ public class FlexibleLengthResolutionTests {
         var boxWidth = tree.GetWidth(box);
         var textWidth = tree.GetWidth(text);
 
-        Assert.Equal(50f - (450f * 50f / 550f), boxWidth, Tolerance);
-        Assert.Equal(500f - (450f * 500f / 550f), textWidth, Tolerance);
+        Assert.Equal(50f - 450f * 50f / 550f, boxWidth, Tolerance);
+        Assert.Equal(500f - 450f * 500f / 550f, textWidth, Tolerance);
 
         Assert.Equal(100f, boxWidth + textWidth, Tolerance);
         Assert.Equal(10f * (50f - boxWidth), 500f - textWidth, Tolerance);
@@ -334,14 +334,14 @@ public class FlexibleLengthResolutionTests {
         const float content = 500f;
 
         if (request.WidthMode == MeasureMode.Undefined || float.IsNaN(request.AvailableWidth)) {
-            return new LayoutSize(content, 10f);
+            return new(content, 10f);
         }
 
         var width = request.WidthMode == MeasureMode.Exactly
             ? request.AvailableWidth
             : MathF.Min(content, request.AvailableWidth);
 
-        return new LayoutSize(width, width <= 0f ? 10f : MathF.Ceiling(content / width) * 10f);
+        return new(width, width <= 0f ? 10f : MathF.Ceiling(content / width) * 10f);
     }
 
     [Fact]

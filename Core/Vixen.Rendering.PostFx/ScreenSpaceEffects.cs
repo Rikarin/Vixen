@@ -132,10 +132,11 @@ public sealed class SharpenRenderer() : PostEffectRenderer(
 ///     where three passes would be three full-screen reads of an HDR target.
 /// </remarks>
 public sealed class VignetteRenderer() : PostEffectRenderer(
-    VignetteKeys.ShaderName,
-    VignetteKeys.UsedPermutationKeys,
-    VignetteKeys.ConstantBufferBinding
-), IPostProcessTarget {
+        VignetteKeys.ShaderName,
+        VignetteKeys.UsedPermutationKeys,
+        VignetteKeys.ConstantBufferBinding
+    ),
+    IPostProcessTarget {
     PostProcessOverlay applied;
 
     /// <inheritdoc />
@@ -235,8 +236,12 @@ public sealed class VignetteRenderer() : PostEffectRenderer(
     ///         ten-bit output is a different number here and not a different shader.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>It counts codes of the <em>stored</em> value, and what one of those is worth in
-    ///         the units the shader writes depends on the target.</b> Against an
+    ///         ⚠
+    ///         <b>
+    ///             It counts codes of the <em>stored</em> value, and what one of those is worth in
+    ///             the units the shader writes depends on the target.
+    ///         </b>
+    ///         Against an
     ///         <see cref="PixelFormat.Rgba8UNormSrgb" /> attachment — which is
     ///         <see cref="VignetteAsset" />'s own default — the hardware encodes on the way out, so a
     ///         stored code is a linear step that changes size across the range by a factor of
@@ -342,10 +347,11 @@ public sealed class VignetteRenderer() : PostEffectRenderer(
 ///     material carrying the fog's parameters and evaluating it whether it is on or not.
 /// </remarks>
 public sealed class FogRenderer() : PostEffectRenderer(
-    FogKeys.ShaderName,
-    FogKeys.UsedPermutationKeys,
-    FogKeys.ConstantBufferBinding
-), IPostProcessTarget {
+        FogKeys.ShaderName,
+        FogKeys.UsedPermutationKeys,
+        FogKeys.ConstantBufferBinding
+    ),
+    IPostProcessTarget {
     PostProcessOverlay applied;
 
     /// <inheritdoc />
@@ -443,8 +449,12 @@ public sealed class FogRenderer() : PostEffectRenderer(
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b><see cref="Colour" /> plus the sun's illuminance, and that sum is the whole
-    ///         point.</b> The shader blends <c>lerp(fogColour, sunColour, p)</c> with <c>p</c> the
+    ///         ⚠
+    ///         <b>
+    ///             <see cref="Colour" /> plus the sun's illuminance, and that sum is the whole
+    ///             point.
+    ///         </b>
+    ///         The shader blends <c>lerp(fogColour, sunColour, p)</c> with <c>p</c> the
     ///         phase function in sr⁻¹, so a sun term written as a sum collapses the blend to
     ///         <c>fogColour + p·E</c> — the single-scattering source function of a medium under a sky
     ///         of radiance <see cref="Colour" /> and a directional light of illuminance <c>E</c> lux.
@@ -512,7 +522,7 @@ public sealed class FogRenderer() : PostEffectRenderer(
     ///     replaces the analytic term out to <see cref="VolumeFar" /> and the analytic term carries on
     ///     beyond it, so a name here changes what the first sixty-four metres of every ray are.
     /// </remarks>
-    public string Volume { get; init; } = "";
+    public string Volume { get; init; } = string.Empty;
 
     /// <summary>The volume's own near plane, in view depth.</summary>
     /// <remarks>
@@ -659,10 +669,10 @@ public sealed class OutlineRenderer() : PostEffectRenderer(
     public required string Depth { get; init; }
 
     /// <summary>The normals it finds creases in.</summary>
-    public string Normals { get; init; } = "";
+    public string Normals { get; init; } = string.Empty;
 
     /// <summary>A mask of what is selected, for an outline around one object.</summary>
-    public string SelectionMask { get; init; } = "";
+    public string SelectionMask { get; init; } = string.Empty;
 
     /// <summary>Whether creases inside a silhouette are outlined too.</summary>
     public bool UseNormals { get; set; } = true;

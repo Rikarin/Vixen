@@ -48,7 +48,7 @@ public class BudgetWarningTests {
         Assert.True(
             said is not null,
             $"{name}: the mesh has {faces} faces against a budget of {budget}, which is "
-            + $"{(float) faces / budget:F2}× a tolerance of {Remesher.BudgetTolerance:F2}, and not one of "
+            + $"{(float)faces / budget:F2}× a tolerance of {Remesher.BudgetTolerance:F2}, and not one of "
             + $"the {report.Warnings.Count} warnings mentions the budget."
         );
 
@@ -57,8 +57,12 @@ public class BudgetWarningTests {
 
     /// <summary>A mirrored remesh warns about the whole mesh, not about the half it planned.</summary>
     /// <remarks>
-    ///     ⚠ <b>The case that makes the defect unarguable, because the two numbers differ by exactly
-    ///     two.</b> The quantization runs on half the surface and the mirror doubles it afterwards, so a
+    ///     ⚠
+    ///     <b>
+    ///         The case that makes the defect unarguable, because the two numbers differ by exactly
+    ///         two.
+    ///     </b>
+    ///     The quantization runs on half the surface and the mirror doubles it afterwards, so a
     ///     warning decided from the layout quotes half of what it shipped — the report said "169665
     ///     against 96" for a mesh carrying 339330 faces. A factor of two is not a rounding disagreement.
     /// </remarks>
@@ -85,7 +89,12 @@ public class BudgetWarningTests {
     /// <summary>The face count a budget warning quotes, or null when there is no such warning.</summary>
     static int? Quoted(RemeshReport report) {
         foreach (var warning in report.Warnings) {
-            var found = Regex.Match(warning, @"The budget was not met: (\d+) quads", RegexOptions.None, TimeSpan.FromSeconds(5));
+            var found = Regex.Match(
+                warning,
+                @"The budget was not met: (\d+) quads",
+                RegexOptions.None,
+                TimeSpan.FromSeconds(5)
+            );
 
             if (found.Success) {
                 return int.Parse(found.Groups[1].Value, CultureInfo.InvariantCulture);

@@ -7,8 +7,12 @@ namespace Vixen.Ui.Controls;
 
 /// <summary>One choice in a <see cref="SegmentedControl" />.</summary>
 /// <remarks>
-///     ⚠ <b>A <see cref="ToggleBase" /> reporting <see cref="AccessibleRole.Radio" /> rather than a
-///     <see cref="ToggleButton" /> reporting <c>button</c>.</b> The two look identical and are not
+///     ⚠
+///     <b>
+///         A <see cref="ToggleBase" /> reporting <see cref="AccessibleRole.Radio" /> rather than a
+///         <see cref="ToggleButton" /> reporting <c>button</c>.
+///     </b>
+///     The two look identical and are not
 ///     the same thing to a screen reader: a strip of three toggle buttons is announced as three
 ///     independent pressed-or-not buttons, where a segmented control is one question with three
 ///     answers and has to say "two of three". <see cref="ToggleBase.CanUncheck" /> is false for
@@ -46,8 +50,12 @@ public sealed partial class Segment : ToggleBase {
 ///         existed had no keyboard, no exclusivity and no accessible structure.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The same model as <see cref="RadioGroup" />, deliberately, and not a subclass of
-///         it.</b> The exclusion, the roving tab index and the wrapping arrows are the same
+///         ⚠
+///         <b>
+///             The same model as <see cref="RadioGroup" />, deliberately, and not a subclass of
+///             it.
+///         </b>
+///         The exclusion, the roving tab index and the wrapping arrows are the same
 ///         behaviour and the members are not: a radio group's children are radios with a dot and a
 ///         label beside them, a segmented control's are joined buttons, and a base class shared
 ///         between them would have to be parameterised on the member type to say anything useful.
@@ -81,7 +89,7 @@ public sealed partial class SegmentedControl : Control {
 
     /// <summary>The segments, in order.</summary>
     /// <remarks>A fresh snapshot from the children, on <see cref="RadioGroup.Options" />'s terms.</remarks>
-    public IReadOnlyList<Segment> Segments => [.. Children.OfType<Segment>()];
+    public IReadOnlyList<Segment> Segments => [..Children.OfType<Segment>()];
 
     /// <summary>Raised when the choice changes.</summary>
     public event Action<SegmentedControl, string?>? ValueChanged;

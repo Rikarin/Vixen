@@ -18,8 +18,12 @@ sealed class AdvancedFixture : IDisposable {
 
     /// <summary>The fixed-pitch face the advanced theme's <c>font-family: monospace</c> resolves to.</summary>
     /// <remarks>
-    ///     ⚠ <b>Registered under the generic family name the stylesheet uses, and it has to be
-    ///     fixed-pitch.</b> <c>CodeEditor</c> turns a column into an x by multiplying a one-digit
+    ///     ⚠
+    ///     <b>
+    ///         Registered under the generic family name the stylesheet uses, and it has to be
+    ///         fixed-pitch.
+    ///     </b>
+    ///     <c>CodeEditor</c> turns a column into an x by multiplying a one-digit
     ///     probe, so with only the proportional face registered — which was this fixture until
     ///     #1259 — the whole geometry suite ran in the state the theme's own comment forbids and
     ///     could not notice, because every expected x was computed the way the control computes
@@ -30,7 +34,7 @@ sealed class AdvancedFixture : IDisposable {
     TimeSpan clock;
 
     public AdvancedFixture(float width = 800f, float height = 600f, string? css = null) {
-        Document = new UiDocument(width, height);
+        Document = new(width, height);
         Document.Fonts.Register("Test", Font);
         Document.Fonts.Register("monospace", Monospace);
 
@@ -76,7 +80,7 @@ sealed class AdvancedFixture : IDisposable {
     /// <summary>The middle of an element, in document space — where a pointer test aims.</summary>
     public static (float X, float Y) Centre(UiElement element) {
         var bounds = element.Bounds;
-        return (bounds.X + (bounds.Width * 0.5f), bounds.Y + (bounds.Height * 0.5f));
+        return (bounds.X + bounds.Width * 0.5f, bounds.Y + bounds.Height * 0.5f);
     }
 
     public void Press(
@@ -84,7 +88,8 @@ sealed class AdvancedFixture : IDisposable {
         float y,
         PointerButton button = PointerButton.Primary,
         ModifierKeys modifiers = ModifierKeys.None
-    ) => Send(x, y, PointerAction.Pressed, button, modifiers);
+    ) =>
+        Send(x, y, PointerAction.Pressed, button, modifiers);
 
     public void Move(float x, float y, ModifierKeys modifiers = ModifierKeys.None) =>
         Send(x, y, PointerAction.Moved, PointerButton.None, modifiers);
@@ -94,7 +99,8 @@ sealed class AdvancedFixture : IDisposable {
         float y,
         PointerButton button = PointerButton.Primary,
         ModifierKeys modifiers = ModifierKeys.None
-    ) => Send(x, y, PointerAction.Released, button, modifiers);
+    ) =>
+        Send(x, y, PointerAction.Released, button, modifiers);
 
     /// <summary>Presses in the middle of an element, drags to a point and releases there.</summary>
     /// <remarks>
@@ -139,7 +145,7 @@ sealed class AdvancedFixture : IDisposable {
     public void Drag(UiElement from, float x, float y) {
         var bounds = from.Bounds;
 
-        Press(bounds.X + (bounds.Width * 0.5f), bounds.Y + (bounds.Height * 0.5f));
+        Press(bounds.X + bounds.Width * 0.5f, bounds.Y + bounds.Height * 0.5f);
         Move(x, y);
         Move(x, y);
         Release(x, y);
@@ -201,11 +207,7 @@ sealed class AdvancedFixture : IDisposable {
         clock += TimeSpan.FromMilliseconds(16);
 
         Document.Dispatch(
-            new TextCompositionEvent {
-                Text = text,
-                Start = caret < 0 ? text.Length : caret,
-                Timestamp = clock
-            }
+            new TextCompositionEvent { Text = text, Start = caret < 0 ? text.Length : caret, Timestamp = clock }
         );
 
         Update();
@@ -230,8 +232,8 @@ sealed class AdvancedFixture : IDisposable {
 
         Document.Dispatch(
             new WheelEvent {
-                X = bounds.X + (bounds.Width * 0.5f),
-                Y = bounds.Y + (bounds.Height * 0.5f),
+                X = bounds.X + bounds.Width * 0.5f,
+                Y = bounds.Y + bounds.Height * 0.5f,
                 DeltaY = deltaY,
                 Timestamp = clock
             }
@@ -316,7 +318,7 @@ sealed class AdvancedFixture : IDisposable {
 
     static FontFace LoadFont(string name) {
         using var stream = Assembly.GetExecutingAssembly()
-            .GetManifestResourceStream($"Vixen.Ui.Controls.Advanced.Tests.Fonts.{name}.ttf")
+                .GetManifestResourceStream($"Vixen.Ui.Controls.Advanced.Tests.Fonts.{name}.ttf")
             ?? throw new InvalidOperationException($"the test font {name} is not embedded");
 
         using var memory = new MemoryStream();

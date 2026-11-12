@@ -9,7 +9,6 @@ using Vixen.Editor.Assets.Content;
 using Vixen.Editor.Assets.Models;
 using Vixen.Editor.Core;
 using Vixen.Editor.Texturing.Layers;
-using Vixen.Editor.Texturing.Painting;
 using Vixen.Rendering.Ecs;
 using Vixen.Texturing.Layers;
 using Vixen.Texturing.Painting;
@@ -27,8 +26,12 @@ namespace Vixen.Editor.Texturing.Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Every test here goes through the panel and ends at a texel or at an overlay
-///         segment.</b> <c>LayerStackMeshTests</c> settles that a model resolves to UV triangles;
+///         ⚠
+///         <b>
+///             Every test here goes through the panel and ends at a texel or at an overlay
+///             segment.
+///         </b>
+///         <c>LayerStackMeshTests</c> settles that a model resolves to UV triangles;
 ///         what is settled here is that something <em>calls</em> it — which is the half this
 ///         workstream keeps losing. A suite asserting that <c>LayerStackMesh.Open</c> works would be
 ///         green against exactly the state #920 reports, in which every piece existed and the paint
@@ -60,7 +63,7 @@ public class LayerStackBindingTests {
         var picker = Find<Select>(panel, "layer-stack-model");
 
         Assert.Equal(LayerStackView.NoMesh, picker.Value);
-        Assert.Contains(picker.Options, option => option.Value == "Assets/Hull.obj");
+        Assert.Contains(picker.Options, static option => option.Value == "Assets/Hull.obj");
 
         picker.Value = "Assets/Hull.obj";
 
@@ -69,7 +72,7 @@ public class LayerStackBindingTests {
         Assert.True(document.IsDirty.Value);
 
         Assert.True(document.Stack.Undo());
-        Assert.Equal("", document.Document.Model);
+        Assert.Equal(string.Empty, document.Document.Model);
 
         // ⚠ The picker is re-read rather than asserted straight after the undo, and that is a finding
         // rather than a convenience. Nothing in this plugin subscribes to `EditorDocument.Stack`, so
@@ -84,16 +87,23 @@ public class LayerStackBindingTests {
     /// <summary>A model imported while a stack is open reaches the picker.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/954">#954</a>, and the remark it
-    ///         refuted is above <c>LayerStackView.Rebind</c>.</b> That remark said the options are
+    ///         <b>
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/954">#954</a>, and the remark it
+    ///             refuted is above <c>LayerStackView.Rebind</c>.
+    ///         </b>
+    ///         That remark said the options are
     ///         re-read per stack "because the project's models are not fixed" — and the gate that
     ///         decided when to re-read them was the document reference and the bound path, while the
     ///         module hands the same reference to every refresh. So the one moment a picker had to be
     ///         refilled was the one moment it never was.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The refresh <em>before</em> the notification is the half that makes this a test
-    ///         rather than a tautology.</b> Without it, a picker refilled unconditionally on every
+    ///         ⚠
+    ///         <b>
+    ///             The refresh <em>before</em> the notification is the half that makes this a test
+    ///             rather than a tautology.
+    ///         </b>
+    ///         Without it, a picker refilled unconditionally on every
     ///         show would pass — and refilling on every show is the trap the issue names, because the
     ///         fill walks every asset in the project and a show runs on every keystroke of a slider.
     ///     </para>
@@ -112,7 +122,7 @@ public class LayerStackBindingTests {
 
         Assert.DoesNotContain(
             Find<Select>(Panel(fixture), "layer-stack-model").Options,
-            option => option.Value == "Assets/Late.obj"
+            static option => option.Value == "Assets/Late.obj"
         );
 
         Model(fixture, "Late.obj", Quad(0f, 0.5f));
@@ -122,7 +132,7 @@ public class LayerStackBindingTests {
         // panel that refilled here would be paying a project walk per show.
         Assert.DoesNotContain(
             Find<Select>(Panel(fixture), "layer-stack-model").Options,
-            option => option.Value == "Assets/Late.obj"
+            static option => option.Value == "Assets/Late.obj"
         );
 
         using var edits = new ExternalEdits(fixture.Project);
@@ -136,7 +146,7 @@ public class LayerStackBindingTests {
 
         Assert.Contains(
             Find<Select>(Panel(fixture), "layer-stack-model").Options,
-            option => option.Value == "Assets/Late.obj"
+            static option => option.Value == "Assets/Late.obj"
         );
 
         // ⚠ And the view recorded the number it refilled at, or every subsequent show refills —
@@ -149,23 +159,30 @@ public class LayerStackBindingTests {
 
         Assert.DoesNotContain(
             Find<Select>(Panel(fixture), "layer-stack-model").Options,
-            option => option.Value == "Assets/Later.obj"
+            static option => option.Value == "Assets/Later.obj"
         );
     }
 
     /// <summary>⚠ And a second consumer of that same notification still hears it afterwards.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/1006">#1006</a>, which is the
-    ///         hazard <a href="https://github.com/Rikarin/Vixen/issues/971">#971</a> named in its own
-    ///         last warning and routed around rather than repaired.</b> The document carried a
+    ///         <b>
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/1006">#1006</a>, which is the
+    ///             hazard <a href="https://github.com/Rikarin/Vixen/issues/971">#971</a> named in its own
+    ///             last warning and routed around rather than repaired.
+    ///         </b>
+    ///         The document carried a
     ///         boolean that the picker's refill cleared, so the two consumers of "a model changed"
     ///         raced on who read it first and the loser was told nothing had happened. Nothing clears
     ///         a number.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The second consumer here is the test itself, holding its own copy, which is the
-    ///         whole contract.</b> A consumer added later is correct by existing rather than by being
+    ///         ⚠
+    ///         <b>
+    ///             The second consumer here is the test itself, holding its own copy, which is the
+    ///             whole contract.
+    ///         </b>
+    ///         A consumer added later is correct by existing rather than by being
     ///         wired into whoever was clearing — so a fixture that added a real second panel would be
     ///         asserting the same thing at more expense.
     ///     </para>
@@ -197,7 +214,7 @@ public class LayerStackBindingTests {
 
         Assert.Contains(
             Find<Select>(Panel(fixture), "layer-stack-model").Options,
-            option => option.Value == "Assets/Late.obj"
+            static option => option.Value == "Assets/Late.obj"
         );
 
         Assert.NotEqual(seen, document.ModelsRevision);
@@ -230,8 +247,11 @@ public class LayerStackBindingTests {
     /// <summary>A model re-exported under an open stack reaches the pane.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/971">#971</a>, by the route the
-    ///         issue does not name and which needs no import at all.</b> The resolve is cached on the
+    ///         <b>
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/971">#971</a>, by the route the
+    ///             issue does not name and which needs no import at all.
+    ///         </b>
+    ///         The resolve is cached on the
     ///         stack's path, its model and the set's mesh, and not one of the three moves when the
     ///         artist re-exports the model over the top of itself — so the pane goes on drawing the
     ///         previous export's islands and the brush goes on accepting the previous export's texels,
@@ -266,8 +286,11 @@ public class LayerStackBindingTests {
     /// <summary>An import reaches a stack that was already open when it ran.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/971">#971</a>'s own route, and the
-    ///         file's own bytes cannot see it.</b> The cube here has no <c>vt</c> line anywhere in it,
+    ///         <b>
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/971">#971</a>'s own route, and the
+    ///             file's own bytes cannot see it.
+    ///         </b>
+    ///         The cube here has no <c>vt</c> line anywhere in it,
     ///         so an atlas can only have been generated by the import's unwrap — the file is byte for
     ///         byte what it was when the stack bound to it, and only <c>Library/</c> changed. A cache
     ///         key made of the file's stamp is therefore not enough; what moves is
@@ -307,16 +330,18 @@ public class LayerStackBindingTests {
 
         List<ContentDiagnostic> said = [];
 
-        var summary = TexturingFixture.Wait(ContentPipeline.ImportAsync(
-            workspace,
-            ProjectWorkspace.HostTarget,
-            said.Add,
-            cancellationToken: TestContext.Current.CancellationToken
-        ));
+        var summary = TexturingFixture.Wait(
+            ContentPipeline.ImportAsync(
+                workspace,
+                ProjectWorkspace.HostTarget,
+                said.Add,
+                cancellationToken: TestContext.Current.CancellationToken
+            )
+        );
 
         Assert.True(
             summary.Failed == 0,
-            "the import failed: " + string.Join("; ", said.Select(diagnostic => diagnostic.Message))
+            "the import failed: " + string.Join("; ", said.Select(static diagnostic => diagnostic.Message))
         );
 
         fixture.Project.Assets.Scan();
@@ -335,35 +360,38 @@ public class LayerStackBindingTests {
 
     /// <summary>A cube with no texture coordinates whatever, so an atlas can only have been generated.</summary>
     const string Cube = """
-        o Cube
-        v -0.5 -0.5 -0.5
-        v 0.5 -0.5 -0.5
-        v 0.5 0.5 -0.5
-        v -0.5 0.5 -0.5
-        v -0.5 -0.5 0.5
-        v 0.5 -0.5 0.5
-        v 0.5 0.5 0.5
-        v -0.5 0.5 0.5
-        f 5 6 7
-        f 5 7 8
-        f 1 4 3
-        f 1 3 2
-        f 2 3 7
-        f 2 7 6
-        f 1 5 8
-        f 1 8 4
-        f 4 8 7
-        f 4 7 3
-        f 1 2 6
-        f 1 6 5
+                        o Cube
+                        v -0.5 -0.5 -0.5
+                        v 0.5 -0.5 -0.5
+                        v 0.5 0.5 -0.5
+                        v -0.5 0.5 -0.5
+                        v -0.5 -0.5 0.5
+                        v 0.5 -0.5 0.5
+                        v 0.5 0.5 0.5
+                        v -0.5 0.5 0.5
+                        f 5 6 7
+                        f 5 7 8
+                        f 1 4 3
+                        f 1 3 2
+                        f 2 3 7
+                        f 2 7 6
+                        f 1 5 8
+                        f 1 8 4
+                        f 4 8 7
+                        f 4 7 3
+                        f 1 2 6
+                        f 1 6 5
 
-        """;
+                        """;
 
     /// <summary>The part picker offers the model's meshes, and narrowing to one takes the rest away.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/941">#941</a>, whose only reason
-    ///         for not existing was cost.</b> The field round-tripped through the YAML and narrowed
+    ///         <b>
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/941">#941</a>, whose only reason
+    ///             for not existing was cost.
+    ///         </b>
+    ///         The field round-tripped through the YAML and narrowed
     ///         the resolve, and the sole way to set it was to edit the <c>.vxlayers</c> by hand —
     ///         because offering the names was thought to mean parsing the model on a panel build. It
     ///         means reading the sidecar, which an import has already written the names into.
@@ -399,9 +427,9 @@ public class LayerStackBindingTests {
 
         var parts = Find<Select>(Panel(fixture), "layer-stack-set-mesh");
 
-        Assert.Contains(parts.Options, option => option.Value == LayerStackView.EveryMesh);
-        Assert.Contains(parts.Options, option => option.Value == "hull");
-        Assert.Contains(parts.Options, option => option.Value == "upper");
+        Assert.Contains(parts.Options, static option => option.Value == LayerStackView.EveryMesh);
+        Assert.Contains(parts.Options, static option => option.Value == "hull");
+        Assert.Contains(parts.Options, static option => option.Value == "upper");
         Assert.Equal(LayerStackView.EveryMesh, parts.Value);
 
         var depth = document.Stack.Depth.Value;
@@ -420,7 +448,7 @@ public class LayerStackBindingTests {
         Find<Select>(Panel(fixture), "layer-stack-set-mesh").Value = LayerStackView.EveryMesh;
 
         Assert.Equal(12, image.Overlay.Count);
-        Assert.Equal("", document.Document.Sets[0].Mesh);
+        Assert.Equal(string.Empty, document.Document.Sets[0].Mesh);
     }
 
     /// <summary>Narrowing the chosen set reaches the pane when the chosen set is not the first.</summary>
@@ -449,10 +477,7 @@ public class LayerStackBindingTests {
         document.Document = document.Document with {
             Sets = [
                 first,
-                first with {
-                    Name = "Head",
-                    Layers = [new() { Id = "paint", Name = "Paint", Kind = LayerKind.Paint }]
-                }
+                first with { Name = "Head", Layers = [new() { Id = "paint", Name = "Paint", Kind = LayerKind.Paint }] }
             ]
         };
 
@@ -468,7 +493,7 @@ public class LayerStackBindingTests {
         Find<Select>(Panel(fixture), "layer-stack-set-mesh").Value = "upper";
 
         Assert.Equal("upper", document.Document.Sets[1].Mesh);
-        Assert.Equal("", document.Document.Sets[0].Mesh);
+        Assert.Equal(string.Empty, document.Document.Sets[0].Mesh);
         Assert.Equal(6, image.Overlay.Count);
     }
 
@@ -485,7 +510,7 @@ public class LayerStackBindingTests {
 
         Model(fixture, "Hull.obj", Quad(0f, 0.5f));
 
-        var document = Paintable(fixture, "Hull");
+        _ = Paintable(fixture, "Hull");
         var panel = Panel(fixture);
         var image = ImageIn(PaintPane(fixture));
 
@@ -530,7 +555,7 @@ public class LayerStackBindingTests {
         var pane = PaintPane(fixture);
         var image = ImageIn(pane);
 
-        Drag(fixture, image, new Vector2(8f, 16f), new Vector2(16f, 16f));
+        Drag(fixture, image, new(8f, 16f), new(16f, 16f));
 
         var canvas = Painted(document);
 
@@ -548,16 +573,23 @@ public class LayerStackBindingTests {
     /// <summary>And refused above the island's rows, which the u-narrowed fixture cannot tell.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Every other quad in this file spans the whole of <c>v</c>, so every other
-    ///         assertion here is satisfied by a coverage map flipped in <c>v</c></b> —
+    ///         ⚠
+    ///         <b>
+    ///             Every other quad in this file spans the whole of <c>v</c>, so every other
+    ///             assertion here is satisfied by a coverage map flipped in <c>v</c>
+    ///         </b>
+    ///         —
     ///         <a href="https://github.com/Rikarin/Vixen/issues/955">#955</a>. This island is the
     ///         atlas's bottom half and the two texels are the same distance from the stamp's centre
     ///         on opposite sides of the island's edge in <c>v</c>, so nothing but the row can
     ///         separate them: flip the map and the two swap.
     ///     </para>
     ///     <para>
-    ///         <b>Which half of the atlas that is takes reading two conventions against each
-    ///         other.</b> The OBJ says <c>v</c> ∈ [0, 0.5] and an OBJ's <c>v</c> counts up from the
+    ///         <b>
+    ///             Which half of the atlas that is takes reading two conventions against each
+    ///             other.
+    ///         </b>
+    ///         The OBJ says <c>v</c> ∈ [0, 0.5] and an OBJ's <c>v</c> counts up from the
     ///         bottom; <c>ModelReader</c> asks Assimp for <c>FlipUVs</c>; so the island is rows
     ///         32…63 and the refused texel is above it.
     ///     </para>
@@ -574,7 +606,7 @@ public class LayerStackBindingTests {
 
         var image = ImageIn(PaintPane(fixture));
 
-        Drag(fixture, image, new Vector2(24f, 48f), new Vector2(32f, 48f));
+        Drag(fixture, image, new(24f, 48f), new(32f, 48f));
 
         var canvas = Painted(document);
 
@@ -597,7 +629,7 @@ public class LayerStackBindingTests {
 
         Model(fixture, "Hull.obj", Quad(0f, 0.5f));
 
-        var document = Paintable(fixture, "Hull");
+        _ = Paintable(fixture, "Hull");
         var pane = PaintPane(fixture);
 
         Assert.Contains("names no model", Status(pane), StringComparison.Ordinal);
@@ -614,8 +646,12 @@ public class LayerStackBindingTests {
 
     /// <summary>The paint verb names the set and the layer a drag would reach.</summary>
     /// <remarks>
-    ///     ⚠ <b>It said "this stack's first paint layer", which stopped being true the moment a row
-    ///     could be selected</b> — <a href="https://github.com/Rikarin/Vixen/issues/910">#910</a> —
+    ///     ⚠
+    ///     <b>
+    ///         It said "this stack's first paint layer", which stopped being true the moment a row
+    ///         could be selected
+    ///     </b>
+    ///     — <a href="https://github.com/Rikarin/Vixen/issues/910">#910</a> —
     ///     and never said which set, which is
     ///     <a href="https://github.com/Rikarin/Vixen/issues/927">#927</a>. A sentence that describes
     ///     a behaviour the build no longer has is worse than no sentence, because an artist acts on
@@ -632,7 +668,7 @@ public class LayerStackBindingTests {
         // ⚠ `[0]`, because `NotificationCenter.Show` inserts at the front. Reading `[^1]` gets the
         // *oldest* notification of the session, which for the first assertion here is the same entry
         // — so the mistake is invisible until a test makes two.
-        var unselected = fixture.Shell.Notifications.History[0].Detail ?? "";
+        var unselected = fixture.Shell.Notifications.History[0].Detail ?? string.Empty;
 
         Assert.Contains("set 'Default'", unselected, StringComparison.Ordinal);
         Assert.Contains("no layer is selected", unselected, StringComparison.Ordinal);
@@ -647,7 +683,7 @@ public class LayerStackBindingTests {
         Assert.True(fixture.Shell.Commands.Execute(TexturingModule.PaintCommand));
         Assert.True(fixture.Shell.Commands.Execute(TexturingModule.PaintCommand));
 
-        var selected = fixture.Shell.Notifications.History[0].Detail ?? "";
+        var selected = fixture.Shell.Notifications.History[0].Detail ?? string.Empty;
 
         Assert.Contains("the layer 'grime'", selected, StringComparison.Ordinal);
         Assert.Contains("set 'Default'", selected, StringComparison.Ordinal);
@@ -655,9 +691,13 @@ public class LayerStackBindingTests {
 
     /// <summary>Closing and reopening the layers panel keeps the layer the brush is aimed at.</summary>
     /// <remarks>
-    ///     ⚠ <b>A dock panel's factory runs again on every reopen, so a view that reset the selection
-    ///     when it built its rows would take the artist's chosen layer away whenever they closed the
-    ///     panel.</b> Which of the two copies is durable is the decision: <c>PaintTool</c> is the
+    ///     ⚠
+    ///     <b>
+    ///         A dock panel's factory runs again on every reopen, so a view that reset the selection
+    ///         when it built its rows would take the artist's chosen layer away whenever they closed the
+    ///         panel.
+    ///     </b>
+    ///     Which of the two copies is durable is the decision: <c>PaintTool</c> is the
     ///     module's and outlives the panel — its own remarks say so about the brush — so the tool is
     ///     the model and the rows are its presenter, and the new view recovers the marker from it.
     /// </remarks>
@@ -721,12 +761,12 @@ public class LayerStackBindingTests {
 
         var image = ImageIn(PaintPane(fixture));
 
-        Drag(fixture, image, new Vector2(8f, 16f), new Vector2(16f, 16f));
+        Drag(fixture, image, new(8f, 16f), new(16f, 16f));
 
         // With nothing selected the brush takes the first paint layer in composite order, which is
         // the one *lower* in the file — "Rust".
-        Assert.Equal("rust", Layer(document, painted: true).Id);
-        Assert.Equal("", Find(document, "grime").Paint);
+        Assert.Equal("rust", Layer(document, true).Id);
+        Assert.Equal(string.Empty, Find(document, "grime").Paint);
 
         var entries = document.Stack.Depth.Value;
 
@@ -739,7 +779,7 @@ public class LayerStackBindingTests {
         // would make choosing a layer a reason to save the file.
         Assert.Equal(entries, document.Stack.Depth.Value);
 
-        Drag(fixture, image, new Vector2(8f, 16f), new Vector2(16f, 16f));
+        Drag(fixture, image, new(8f, 16f), new(16f, 16f));
 
         Assert.NotEmpty(Find(document, "grime").Paint);
     }
@@ -754,7 +794,7 @@ public class LayerStackBindingTests {
     [Fact]
     public void Clicking_the_selected_row_again_clears_the_selection() {
         using var fixture = new TexturingFixture();
-        var document = Paintable(fixture, "Hull");
+        _ = Paintable(fixture, "Hull");
         var panel = Panel(fixture);
         var buttons = Selects(panel);
 
@@ -788,7 +828,7 @@ public class LayerStackBindingTests {
 
     /// <summary>Where a layer's pixels ended up.</summary>
     static PaintImage Painted(LayerStackDocument document) {
-        var layer = Layer(document, painted: true);
+        var layer = Layer(document, true);
         var file = Path.Combine(Path.GetDirectoryName(document.AssetPath)!, layer.Paint);
 
         Assert.True(File.Exists(file), "the stroke did not reach a .vxpaint");
@@ -854,16 +894,18 @@ public class LayerStackBindingTests {
         var workspace = new ProjectWorkspace(fixture.Paths);
         List<ContentDiagnostic> said = [];
 
-        var summary = TexturingFixture.Wait(ContentPipeline.ImportAsync(
-            workspace,
-            ProjectWorkspace.HostTarget,
-            said.Add,
-            cancellationToken: TestContext.Current.CancellationToken
-        ));
+        var summary = TexturingFixture.Wait(
+            ContentPipeline.ImportAsync(
+                workspace,
+                ProjectWorkspace.HostTarget,
+                said.Add,
+                cancellationToken: TestContext.Current.CancellationToken
+            )
+        );
 
         Assert.True(
             summary.Failed == 0,
-            "the import failed: " + string.Join("; ", said.Select(diagnostic => diagnostic.Message))
+            "the import failed: " + string.Join("; ", said.Select(static diagnostic => diagnostic.Message))
         );
 
         fixture.Project.Assets.Scan();
@@ -892,8 +934,12 @@ public class LayerStackBindingTests {
 
     /// <summary>An open stack with paint layers in it, at an atlas small enough to reason about.</summary>
     /// <remarks>
-    ///     ⚠ <b>The verb is run again after the stack is put in, because the panel drew the one that
-    ///     was there when it opened.</b> A test that assigned <c>Document</c> and then read the rows
+    ///     ⚠
+    ///     <b>
+    ///         The verb is run again after the stack is put in, because the panel drew the one that
+    ///         was there when it opened.
+    ///     </b>
+    ///     A test that assigned <c>Document</c> and then read the rows
     ///     would be reading the starter stack, and every assertion about a layer it added would be
     ///     about a row that is not on the screen.
     /// </remarks>
@@ -902,9 +948,8 @@ public class LayerStackBindingTests {
         var stack = LayerStackDocument.Starter(name) with { BaseWidth = 64, BaseHeight = 64 };
 
         foreach (var id in paint.Length > 0 ? paint : ["rust"]) {
-            stack.Sets[0].Layers.Add(
-                new() { Id = id, Name = char.ToUpperInvariant(id[0]) + id[1..], Kind = LayerKind.Paint }
-            );
+            stack.Sets[0]
+                .Layers.Add(new() { Id = id, Name = char.ToUpperInvariant(id[0]) + id[1..], Kind = LayerKind.Paint });
         }
 
         document.Document = stack;
@@ -952,7 +997,7 @@ public class LayerStackBindingTests {
         List<string> found = [];
 
         foreach (var element in All(panel, "layer-stack-row-name")) {
-            found.Add(element.Text ?? "");
+            found.Add(element.Text ?? string.Empty);
         }
 
         return found;
@@ -971,10 +1016,10 @@ public class LayerStackBindingTests {
     }
 
     static string Status(UiElement panel) {
-        var text = "";
+        var text = string.Empty;
 
         foreach (var element in All(panel, "paint-uv-status")) {
-            text = element.Text ?? "";
+            text = element.Text ?? string.Empty;
         }
 
         return text;
@@ -1044,19 +1089,14 @@ public class LayerStackBindingTests {
 
         fixture.Shell.Document.Dispatch(
             new PointerEvent {
-                X = start.X,
-                Y = start.Y,
-                Action = PointerAction.Pressed,
-                Button = PointerButton.Primary
+                X = start.X, Y = start.Y, Action = PointerAction.Pressed, Button = PointerButton.Primary
             }
         );
 
         for (var step = 1; step <= 4; step++) {
             var at = Vector2.Lerp(start, end, step / 4f);
 
-            fixture.Shell.Document.Dispatch(
-                new PointerEvent { X = at.X, Y = at.Y, Action = PointerAction.Moved }
-            );
+            fixture.Shell.Document.Dispatch(new PointerEvent { X = at.X, Y = at.Y, Action = PointerAction.Moved });
         }
 
         fixture.Shell.Document.Dispatch(

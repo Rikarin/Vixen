@@ -10,8 +10,11 @@ namespace Tests;
 /// <summary>What <c>TexturePlan.SeedFor</c> is stable under, and how that is measured.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b><see cref="TexturePlan.Seed" />'s own remarks once claimed a property the code did not
-///         have, and <a href="https://github.com/Rikarin/Vixen/issues/875">#875</a> was the finding.</b>
+///         ⚠
+///         <b>
+///             <see cref="TexturePlan.Seed" />'s own remarks once claimed a property the code did not
+///             have, and <a href="https://github.com/Rikarin/Vixen/issues/875">#875</a> was the finding.
+///         </b>
 ///         They said <c>SeedFor</c> "mixes the plan's seed with the op's own identity"; it mixed the
 ///         op's <em>index in <c>Ops</c></em>, which is the number an insertion moves. An op appearing
 ///         ahead of a seeded one redrew it, and
@@ -19,14 +22,21 @@ namespace Tests;
 ///         layer per channel ahead of everything with nothing anywhere reporting the pixel change.
 ///     </para>
 ///     <para>
-///         <b>An op now carries <see cref="TextureOp.Identity" />, which
-///         <c>TextureGraphCompiler</c> derives from the <c>NodeId</c> that emitted it</b> — plus its
+///         <b>
+///             An op now carries <see cref="TextureOp.Identity" />, which
+///             <c>TextureGraphCompiler</c> derives from the <c>NodeId</c> that emitted it
+///         </b>
+///         — plus its
 ///         ordinal within that node, since a reduction chain is one node and many ops. A node id is
 ///         written in the <c>.vxtexgraph</c> and <c>NodeGraphModel</c> never reuses one.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The insertion has to be one that <em>moves</em> the seeded op's index, and most do
-///         not.</b> <c>NodeGraphModel.Ordered</c> is Kahn's algorithm with its queue seeded in
+///         ⚠
+///         <b>
+///             The insertion has to be one that <em>moves</em> the seeded op's index, and most do
+///             not.
+///         </b>
+///         <c>NodeGraphModel.Ordered</c> is Kahn's algorithm with its queue seeded in
 ///         insertion order, so a node added to an open graph is always enqueued behind the nodes
 ///         already ready — adding a second source beside a <c>Source/Noise</c> leaves the noise at op
 ///         0, before this change as much as after it. A test written that way is green against the
@@ -35,8 +45,12 @@ namespace Tests;
 ///         blend, and a second source feeding that blend is emitted ahead of it.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Nothing here can speak for the layer stack, which is the front end #875 was filed
-///         about.</b> That model is rebuilt from the <c>.vxlayers</c> on every compile, so it names
+///         ⚠
+///         <b>
+///             Nothing here can speak for the layer stack, which is the front end #875 was filed
+///             about.
+///         </b>
+///         That model is rebuilt from the <c>.vxlayers</c> on every compile, so it names
 ///         its own nodes rather than taking the counter's —
 ///         <c>LayerStackGraph.Named</c>, asserted by
 ///         <c>LayerStackCompileTests.A_layers_seed_survives_a_layer_inserted_beneath_it</c> in the
@@ -206,8 +220,11 @@ public class TexturePlanSeedTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/925">#925</a>, and it is the
-    ///         narrowest graph in which the two ends of the walk are not enough.</b> An op inlined out
+    ///         <b>
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/925">#925</a>, and it is the
+    ///             narrowest graph in which the two ends of the walk are not enough.
+    ///         </b>
+    ///         An op inlined out
     ///         of a compound was named by <c>NodeOrigin.Source</c> — the outermost sub-graph node,
     ///         which stays outermost however deep the nesting goes — its <c>Inner</c> id in the
     ///         innermost file, and that file's type path. Two <c>Library/Speck</c> nodes inside one
@@ -246,8 +263,12 @@ public class TexturePlanSeedTests {
     ///         its own document, and a document never renumbers one.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The insertion has to be one that actually moves both numbers, and neither is
-    ///         easy to move by accident</b> — this file's own standing trap, twice over.
+    ///         ⚠
+    ///         <b>
+    ///             The insertion has to be one that actually moves both numbers, and neither is
+    ///             easy to move by accident
+    ///         </b>
+    ///         — this file's own standing trap, twice over.
     ///         <c>NodeGraphModel.Ordered</c> seeds its queue in insertion order, so a compound
     ///         <em>added</em> to a graph is walked behind every compound already ready and the
     ///         expansion counter does not budge; what moves it is a compound that becomes ready
@@ -262,8 +283,8 @@ public class TexturePlanSeedTests {
     public void A_noise_inside_a_nested_compound_keeps_its_seed_when_a_compound_is_spliced_ahead_of_it() {
         var (compiler, graph, used) = Nested();
         var before = Compiled(compiler, graph);
-        var inlined = compiler.Inlining.Origins.Keys.Select(id => id.Value).Order().ToArray();
-        var walked = compiler.Inlining.Origins.Values.Select(origin => origin.Expansion).Max();
+        var inlined = compiler.Inlining.Origins.Keys.Select(static id => id.Value).Order().ToArray();
+        var walked = compiler.Inlining.Origins.Values.Select(static origin => origin.Expansion).Max();
 
         // The edit: another compound spliced between the source and the nested one, so that it is
         // ready before the nested compound and the flattener descends into it first.
@@ -273,8 +294,8 @@ public class TexturePlanSeedTests {
         graph.Connect(new(spliced.Id, "Out"), new(used.Id, "In"));
 
         var after = Compiled(compiler, graph);
-        var renumbered = compiler.Inlining.Origins.Keys.Select(id => id.Value).Order().ToArray();
-        var rewalked = compiler.Inlining.Origins.Values.Select(origin => origin.Expansion).Max();
+        var renumbered = compiler.Inlining.Origins.Keys.Select(static id => id.Value).Order().ToArray();
+        var rewalked = compiler.Inlining.Origins.Values.Select(static origin => origin.Expansion).Max();
 
         // The two instruments. The identities the flattener handed the compound's contents moved,
         // which is #875's mechanism; and the walk-ordered expansion counter moved too, which is why
@@ -346,10 +367,7 @@ public class TexturePlanSeedTests {
 
         return (
             new TextureGraphCompiler(registry) {
-                BaseWidth = Side,
-                BaseHeight = Side,
-                Seed = Seed,
-                SubGraphSource = library
+                BaseWidth = Side, BaseHeight = Side, Seed = Seed, SubGraphSource = library
             },
             graph,
             used
@@ -401,9 +419,7 @@ public class TexturePlanSeedTests {
         NodeTypes.Register(registry);
 
         var compilation = new TextureGraphCompiler(registry) {
-            BaseWidth = Side,
-            BaseHeight = Side,
-            Seed = Seed
+            BaseWidth = Side, BaseHeight = Side, Seed = Seed
         }.Compile(graph);
 
         Assert.Empty(compilation.Diagnostics);

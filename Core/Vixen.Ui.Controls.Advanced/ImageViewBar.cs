@@ -6,8 +6,11 @@ namespace Vixen.Ui.Controls.Advanced;
 /// <summary>The two pickers that drive an <see cref="ImageView" />'s channel and colour space.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b><see cref="ImageView.Channels" /> and <see cref="ImageView.ColorSpace" /> worked and
-///         nothing set them — <a href="https://github.com/Rikarin/Vixen/issues/1012">#1012</a>.</b>
+///         ⚠
+///         <b>
+///             <see cref="ImageView.Channels" /> and <see cref="ImageView.ColorSpace" /> worked and
+///             nothing set them — <a href="https://github.com/Rikarin/Vixen/issues/1012">#1012</a>.
+///         </b>
 ///         The picker was correct and unreachable: a sweep of <c>.cs</c> and <c>.vxml</c> found the
 ///         two enums named nowhere outside the control and its own tests. Three panels want the same
 ///         strip — the texture graph's node preview, the layer stack's, the paint view's — so the
@@ -22,8 +25,12 @@ namespace Vixen.Ui.Controls.Advanced;
 ///         of seven cannot express.
 ///     </para>
 ///     <para>
-///         ⚠ <b>It writes the control's properties and asserts nothing about the picture, and the
-///         test is where that distinction is paid.</b> A binding that sets the property and a
+///         ⚠
+///         <b>
+///             It writes the control's properties and asserts nothing about the picture, and the
+///             test is where that distinction is paid.
+///         </b>
+///         A binding that sets the property and a
 ///         binding that reaches the picture are the same assertion only until somebody stops passing
 ///         <c>view:</c> at the <c>DrawImage</c> call — so <c>ImageViewBarTests</c> clicks a segment
 ///         and reads the <em>draw command's</em> <c>View</c>, not the property back.
@@ -31,8 +38,12 @@ namespace Vixen.Ui.Controls.Advanced;
 ///     <para>
 ///         <b>Three panels host one</b> — <c>TextureGraphView</c>, <c>LayerStackView</c> and
 ///         <c>PaintUvView</c>, each pointed at that pane's own <see cref="ImageView" />, which is
-///         all of <a href="https://github.com/Rikarin/Vixen/issues/1012">#1012</a>. ⚠ <b>The strip
-///         is added <em>before</em> the viewer and <c>View</c> assigned after</b>: <c>Add</c>
+///         all of <a href="https://github.com/Rikarin/Vixen/issues/1012">#1012</a>. ⚠
+///         <b>
+///             The strip
+///             is added <em>before</em> the viewer and <c>View</c> assigned after
+///         </b>
+///         : <c>Add</c>
 ///         appends, so the toggles sit above the picture, and assigning <c>View</c> adopts what the
 ///         pane is already showing rather than pushing this strip's first segment over it.
 ///     </para>

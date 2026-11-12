@@ -64,8 +64,10 @@ public sealed class ReconstructedScreenSurface : IScreenSurface {
     /// <summary>Device depth per pixel, row-major over the viewport. Zero is the sky.</summary>
     public Span<float> Depth => depth;
 
-    /// <summary>Stored normals per pixel, row-major — <c>xyz</c> raw and signed, as the G-buffer
-    ///     stores them in Rgba16Float.</summary>
+    /// <summary>
+    ///     Stored normals per pixel, row-major — <c>xyz</c> raw and signed, as the G-buffer
+    ///     stores them in Rgba16Float.
+    /// </summary>
     /// <remarks>
     ///     Kept as stored rather than re-encoded on the way in, so the decode below is the shader's
     ///     line — <c>SafeNormalize(xyz)</c> — run on the shader's input. A buffer holding a second
@@ -90,7 +92,7 @@ public sealed class ReconstructedScreenSurface : IScreenSurface {
         position = default;
         normal = default;
 
-        var index = (pixel.Y * Viewport.X) + pixel.X;
+        var index = pixel.Y * Viewport.X + pixel.X;
         var deviceDepth = depth[index];
 
         // Nothing was drawn here. ZERO is the sky, because depth is reversed — the upsample pass's
@@ -105,7 +107,7 @@ public sealed class ReconstructedScreenSurface : IScreenSurface {
         // The old `* 2 − 1` remap tilted every flat surface onto a fixed world diagonal, which broke
         // the upsample's plane test on open floors — and made a cleared texel decode to a plausible
         // diagonal instead of the zero the sky test below wants.
-        normal = SafeNormalize(new Vector3(stored.X, stored.Y, stored.Z));
+        normal = SafeNormalize(new(stored.X, stored.Y, stored.Z));
 
         if (normal == Vector3.Zero) {
             return false;
@@ -120,8 +122,8 @@ public sealed class ReconstructedScreenSurface : IScreenSurface {
         // y = +1 is the top of the screen while a UV's v = 0 is the top row. See
         // `Transform.UvToNdc`, which this mirrors and which gained the same sign.
         var uv = new Vector2((pixel.X + 0.5f) / Viewport.X, (pixel.Y + 0.5f) / Viewport.Y);
-        var ndc = new Vector2((uv.X * 2f) - 1f, ((1f - uv.Y) * 2f) - 1f);
-        var clip = Matrix4x4.TransformVector4(new Vector4(ndc.X, ndc.Y, deviceDepth, 1f), InverseViewProjection);
+        var ndc = new Vector2(uv.X * 2f - 1f, (1f - uv.Y) * 2f - 1f);
+        var clip = Matrix4x4.TransformVector4(new(ndc.X, ndc.Y, deviceDepth, 1f), InverseViewProjection);
 
         position = new Vector3(clip.X, clip.Y, clip.Z) / MathF.Max(clip.W, Epsilon);
 

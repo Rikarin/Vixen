@@ -22,78 +22,79 @@ public static class WebGpuFormats {
     /// <summary>The WebGPU format for one of ours.</summary>
     /// <param name="format">The engine format.</param>
     /// <returns><see cref="WgpuTextureFormat.Undefined" /> for a format WebGPU does not have.</returns>
-    public static WgpuTextureFormat ToWebGpu(this PixelFormat format) => format switch {
-        PixelFormat.R8UNorm => WgpuTextureFormat.R8Unorm,
-        PixelFormat.R8SNorm => WgpuTextureFormat.R8Snorm,
-        PixelFormat.R8UInt => WgpuTextureFormat.R8Uint,
-        PixelFormat.R8SInt => WgpuTextureFormat.R8Sint,
+    public static WgpuTextureFormat ToWebGpu(this PixelFormat format) =>
+        format switch {
+            PixelFormat.R8UNorm => WgpuTextureFormat.R8Unorm,
+            PixelFormat.R8SNorm => WgpuTextureFormat.R8Snorm,
+            PixelFormat.R8UInt => WgpuTextureFormat.R8Uint,
+            PixelFormat.R8SInt => WgpuTextureFormat.R8Sint,
 
-        PixelFormat.Rg8UNorm => WgpuTextureFormat.Rg8Unorm,
-        PixelFormat.Rg8SNorm => WgpuTextureFormat.Rg8Snorm,
-        PixelFormat.R16Float => WgpuTextureFormat.R16Float,
-        PixelFormat.R16UInt => WgpuTextureFormat.R16Uint,
+            PixelFormat.Rg8UNorm => WgpuTextureFormat.Rg8Unorm,
+            PixelFormat.Rg8SNorm => WgpuTextureFormat.Rg8Snorm,
+            PixelFormat.R16Float => WgpuTextureFormat.R16Float,
+            PixelFormat.R16UInt => WgpuTextureFormat.R16Uint,
 
-        // R16UNorm has no WebGPU equivalent: the specification has 16-bit integer and half-float
-        // formats and no 16-bit normalised ones. R16Float is the nearest thing and is *not*
-        // substituted here, because it changes both the range and the precision of every texel and
-        // the caller is the only one who can say whether that is acceptable.
-        PixelFormat.R16UNorm => WgpuTextureFormat.Undefined,
+            // R16UNorm has no WebGPU equivalent: the specification has 16-bit integer and half-float
+            // formats and no 16-bit normalised ones. R16Float is the nearest thing and is *not*
+            // substituted here, because it changes both the range and the precision of every texel and
+            // the caller is the only one who can say whether that is acceptable.
+            PixelFormat.R16UNorm => WgpuTextureFormat.Undefined,
 
-        PixelFormat.Rgba8UNorm => WgpuTextureFormat.Rgba8Unorm,
-        PixelFormat.Rgba8UNormSrgb => WgpuTextureFormat.Rgba8UnormSrgb,
-        PixelFormat.Bgra8UNorm => WgpuTextureFormat.Bgra8Unorm,
-        PixelFormat.Bgra8UNormSrgb => WgpuTextureFormat.Bgra8UnormSrgb,
-        PixelFormat.Rgba8SNorm => WgpuTextureFormat.Rgba8Snorm,
-        PixelFormat.Rg16Float => WgpuTextureFormat.Rg16Float,
+            PixelFormat.Rgba8UNorm => WgpuTextureFormat.Rgba8Unorm,
+            PixelFormat.Rgba8UNormSrgb => WgpuTextureFormat.Rgba8UnormSrgb,
+            PixelFormat.Bgra8UNorm => WgpuTextureFormat.Bgra8Unorm,
+            PixelFormat.Bgra8UNormSrgb => WgpuTextureFormat.Bgra8UnormSrgb,
+            PixelFormat.Rgba8SNorm => WgpuTextureFormat.Rgba8Snorm,
+            PixelFormat.Rg16Float => WgpuTextureFormat.Rg16Float,
 
-        // Rg16UNorm, for the same reason as R16UNorm.
-        PixelFormat.Rg16UNorm => WgpuTextureFormat.Undefined,
-        PixelFormat.R32Float => WgpuTextureFormat.R32Float,
-        PixelFormat.R32UInt => WgpuTextureFormat.R32Uint,
-        PixelFormat.Rgb10A2UNorm => WgpuTextureFormat.Rgb10A2Unorm,
-        PixelFormat.Rg11B10Float => WgpuTextureFormat.Rg11B10Ufloat,
+            // Rg16UNorm, for the same reason as R16UNorm.
+            PixelFormat.Rg16UNorm => WgpuTextureFormat.Undefined,
+            PixelFormat.R32Float => WgpuTextureFormat.R32Float,
+            PixelFormat.R32UInt => WgpuTextureFormat.R32Uint,
+            PixelFormat.Rgb10A2UNorm => WgpuTextureFormat.Rgb10A2Unorm,
+            PixelFormat.Rg11B10Float => WgpuTextureFormat.Rg11B10Ufloat,
 
-        PixelFormat.Rgba16Float => WgpuTextureFormat.Rgba16Float,
-        PixelFormat.Rg32Float => WgpuTextureFormat.Rg32Float,
+            PixelFormat.Rgba16Float => WgpuTextureFormat.Rgba16Float,
+            PixelFormat.Rg32Float => WgpuTextureFormat.Rg32Float,
 
-        // Rgba16UNorm, for the same reason as R16UNorm.
-        PixelFormat.Rgba16UNorm => WgpuTextureFormat.Undefined,
+            // Rgba16UNorm, for the same reason as R16UNorm.
+            PixelFormat.Rgba16UNorm => WgpuTextureFormat.Undefined,
 
-        PixelFormat.Rgba32Float => WgpuTextureFormat.Rgba32Float,
-        PixelFormat.Rgba32UInt => WgpuTextureFormat.Rgba32Uint,
+            PixelFormat.Rgba32Float => WgpuTextureFormat.Rgba32Float,
+            PixelFormat.Rgba32UInt => WgpuTextureFormat.Rgba32Uint,
 
-        PixelFormat.Depth16UNorm => WgpuTextureFormat.Depth16Unorm,
-        PixelFormat.Depth32Float => WgpuTextureFormat.Depth32Float,
+            PixelFormat.Depth16UNorm => WgpuTextureFormat.Depth16Unorm,
+            PixelFormat.Depth32Float => WgpuTextureFormat.Depth32Float,
 
-        // WebGPU has no D24_UNORM_S8_UINT. `depth24plus-stencil8` is "at least 24 bits of depth",
-        // whose actual layout the implementation chooses — so this is a legitimate mapping for an
-        // attachment and a wrong one for a copy, which is why CanCopy below refuses it. The engine's
-        // depth is Depth32Float anyway (reversed Z, docs/plan/05); this format exists for content
-        // that arrived from elsewhere.
-        PixelFormat.Depth24UNormStencil8 => WgpuTextureFormat.Depth24PlusStencil8,
-        PixelFormat.Depth32FloatStencil8 => WgpuTextureFormat.Depth32FloatStencil8,
+            // WebGPU has no D24_UNORM_S8_UINT. `depth24plus-stencil8` is "at least 24 bits of depth",
+            // whose actual layout the implementation chooses — so this is a legitimate mapping for an
+            // attachment and a wrong one for a copy, which is why CanCopy below refuses it. The engine's
+            // depth is Depth32Float anyway (reversed Z, docs/plan/05); this format exists for content
+            // that arrived from elsewhere.
+            PixelFormat.Depth24UNormStencil8 => WgpuTextureFormat.Depth24PlusStencil8,
+            PixelFormat.Depth32FloatStencil8 => WgpuTextureFormat.Depth32FloatStencil8,
 
-        PixelFormat.Bc1RgbaUNorm => WgpuTextureFormat.Bc1RgbaUnorm,
-        PixelFormat.Bc1RgbaUNormSrgb => WgpuTextureFormat.Bc1RgbaUnormSrgb,
-        PixelFormat.Bc3RgbaUNorm => WgpuTextureFormat.Bc3RgbaUnorm,
-        PixelFormat.Bc3RgbaUNormSrgb => WgpuTextureFormat.Bc3RgbaUnormSrgb,
-        PixelFormat.Bc4RUNorm => WgpuTextureFormat.Bc4RUnorm,
-        PixelFormat.Bc5RgUNorm => WgpuTextureFormat.Bc5RgUnorm,
-        PixelFormat.Bc6HRgbUFloat => WgpuTextureFormat.Bc6HRgbUfloat,
-        PixelFormat.Bc6HRgbSFloat => WgpuTextureFormat.Bc6HRgbFloat,
-        PixelFormat.Bc7RgbaUNorm => WgpuTextureFormat.Bc7RgbaUnorm,
-        PixelFormat.Bc7RgbaUNormSrgb => WgpuTextureFormat.Bc7RgbaUnormSrgb,
+            PixelFormat.Bc1RgbaUNorm => WgpuTextureFormat.Bc1RgbaUnorm,
+            PixelFormat.Bc1RgbaUNormSrgb => WgpuTextureFormat.Bc1RgbaUnormSrgb,
+            PixelFormat.Bc3RgbaUNorm => WgpuTextureFormat.Bc3RgbaUnorm,
+            PixelFormat.Bc3RgbaUNormSrgb => WgpuTextureFormat.Bc3RgbaUnormSrgb,
+            PixelFormat.Bc4RUNorm => WgpuTextureFormat.Bc4RUnorm,
+            PixelFormat.Bc5RgUNorm => WgpuTextureFormat.Bc5RgUnorm,
+            PixelFormat.Bc6HRgbUFloat => WgpuTextureFormat.Bc6HRgbUfloat,
+            PixelFormat.Bc6HRgbSFloat => WgpuTextureFormat.Bc6HRgbFloat,
+            PixelFormat.Bc7RgbaUNorm => WgpuTextureFormat.Bc7RgbaUnorm,
+            PixelFormat.Bc7RgbaUNormSrgb => WgpuTextureFormat.Bc7RgbaUnormSrgb,
 
-        PixelFormat.Etc2Rgb8A1UNorm => WgpuTextureFormat.Etc2Rgb8A1Unorm,
-        PixelFormat.Etc2Rgba8UNorm => WgpuTextureFormat.Etc2Rgba8Unorm,
+            PixelFormat.Etc2Rgb8A1UNorm => WgpuTextureFormat.Etc2Rgb8A1Unorm,
+            PixelFormat.Etc2Rgba8UNorm => WgpuTextureFormat.Etc2Rgba8Unorm,
 
-        PixelFormat.Astc4X4UNorm => WgpuTextureFormat.Astc4X4Unorm,
-        PixelFormat.Astc4X4UNormSrgb => WgpuTextureFormat.Astc4X4UnormSrgb,
-        PixelFormat.Astc8X8UNorm => WgpuTextureFormat.Astc8X8Unorm,
-        PixelFormat.Astc8X8UNormSrgb => WgpuTextureFormat.Astc8X8UnormSrgb,
+            PixelFormat.Astc4X4UNorm => WgpuTextureFormat.Astc4X4Unorm,
+            PixelFormat.Astc4X4UNormSrgb => WgpuTextureFormat.Astc4X4UnormSrgb,
+            PixelFormat.Astc8X8UNorm => WgpuTextureFormat.Astc8X8Unorm,
+            PixelFormat.Astc8X8UNormSrgb => WgpuTextureFormat.Astc8X8UnormSrgb,
 
-        _ => WgpuTextureFormat.Undefined
-    };
+            _ => WgpuTextureFormat.Undefined
+        };
 
     /// <summary>One of ours for a WebGPU format.</summary>
     /// <param name="format">The WebGPU format.</param>
@@ -102,59 +103,60 @@ public static class WebGpuFormats {
     ///     What a surface's preferred format is read back through: the implementation picks, and the
     ///     swapchain has to report the choice in the RHI's vocabulary.
     /// </remarks>
-    public static PixelFormat ToEngine(this WgpuTextureFormat format) => format switch {
-        WgpuTextureFormat.R8Unorm => PixelFormat.R8UNorm,
-        WgpuTextureFormat.R8Snorm => PixelFormat.R8SNorm,
-        WgpuTextureFormat.R8Uint => PixelFormat.R8UInt,
-        WgpuTextureFormat.R8Sint => PixelFormat.R8SInt,
+    public static PixelFormat ToEngine(this WgpuTextureFormat format) =>
+        format switch {
+            WgpuTextureFormat.R8Unorm => PixelFormat.R8UNorm,
+            WgpuTextureFormat.R8Snorm => PixelFormat.R8SNorm,
+            WgpuTextureFormat.R8Uint => PixelFormat.R8UInt,
+            WgpuTextureFormat.R8Sint => PixelFormat.R8SInt,
 
-        WgpuTextureFormat.Rg8Unorm => PixelFormat.Rg8UNorm,
-        WgpuTextureFormat.Rg8Snorm => PixelFormat.Rg8SNorm,
-        WgpuTextureFormat.R16Float => PixelFormat.R16Float,
-        WgpuTextureFormat.R16Uint => PixelFormat.R16UInt,
+            WgpuTextureFormat.Rg8Unorm => PixelFormat.Rg8UNorm,
+            WgpuTextureFormat.Rg8Snorm => PixelFormat.Rg8SNorm,
+            WgpuTextureFormat.R16Float => PixelFormat.R16Float,
+            WgpuTextureFormat.R16Uint => PixelFormat.R16UInt,
 
-        WgpuTextureFormat.Rgba8Unorm => PixelFormat.Rgba8UNorm,
-        WgpuTextureFormat.Rgba8UnormSrgb => PixelFormat.Rgba8UNormSrgb,
-        WgpuTextureFormat.Bgra8Unorm => PixelFormat.Bgra8UNorm,
-        WgpuTextureFormat.Bgra8UnormSrgb => PixelFormat.Bgra8UNormSrgb,
-        WgpuTextureFormat.Rgba8Snorm => PixelFormat.Rgba8SNorm,
-        WgpuTextureFormat.Rg16Float => PixelFormat.Rg16Float,
-        WgpuTextureFormat.R32Float => PixelFormat.R32Float,
-        WgpuTextureFormat.R32Uint => PixelFormat.R32UInt,
-        WgpuTextureFormat.Rgb10A2Unorm => PixelFormat.Rgb10A2UNorm,
-        WgpuTextureFormat.Rg11B10Ufloat => PixelFormat.Rg11B10Float,
+            WgpuTextureFormat.Rgba8Unorm => PixelFormat.Rgba8UNorm,
+            WgpuTextureFormat.Rgba8UnormSrgb => PixelFormat.Rgba8UNormSrgb,
+            WgpuTextureFormat.Bgra8Unorm => PixelFormat.Bgra8UNorm,
+            WgpuTextureFormat.Bgra8UnormSrgb => PixelFormat.Bgra8UNormSrgb,
+            WgpuTextureFormat.Rgba8Snorm => PixelFormat.Rgba8SNorm,
+            WgpuTextureFormat.Rg16Float => PixelFormat.Rg16Float,
+            WgpuTextureFormat.R32Float => PixelFormat.R32Float,
+            WgpuTextureFormat.R32Uint => PixelFormat.R32UInt,
+            WgpuTextureFormat.Rgb10A2Unorm => PixelFormat.Rgb10A2UNorm,
+            WgpuTextureFormat.Rg11B10Ufloat => PixelFormat.Rg11B10Float,
 
-        WgpuTextureFormat.Rgba16Float => PixelFormat.Rgba16Float,
-        WgpuTextureFormat.Rg32Float => PixelFormat.Rg32Float,
-        WgpuTextureFormat.Rgba32Float => PixelFormat.Rgba32Float,
-        WgpuTextureFormat.Rgba32Uint => PixelFormat.Rgba32UInt,
+            WgpuTextureFormat.Rgba16Float => PixelFormat.Rgba16Float,
+            WgpuTextureFormat.Rg32Float => PixelFormat.Rg32Float,
+            WgpuTextureFormat.Rgba32Float => PixelFormat.Rgba32Float,
+            WgpuTextureFormat.Rgba32Uint => PixelFormat.Rgba32UInt,
 
-        WgpuTextureFormat.Depth16Unorm => PixelFormat.Depth16UNorm,
-        WgpuTextureFormat.Depth32Float => PixelFormat.Depth32Float,
-        WgpuTextureFormat.Depth24PlusStencil8 => PixelFormat.Depth24UNormStencil8,
-        WgpuTextureFormat.Depth32FloatStencil8 => PixelFormat.Depth32FloatStencil8,
+            WgpuTextureFormat.Depth16Unorm => PixelFormat.Depth16UNorm,
+            WgpuTextureFormat.Depth32Float => PixelFormat.Depth32Float,
+            WgpuTextureFormat.Depth24PlusStencil8 => PixelFormat.Depth24UNormStencil8,
+            WgpuTextureFormat.Depth32FloatStencil8 => PixelFormat.Depth32FloatStencil8,
 
-        WgpuTextureFormat.Bc1RgbaUnorm => PixelFormat.Bc1RgbaUNorm,
-        WgpuTextureFormat.Bc1RgbaUnormSrgb => PixelFormat.Bc1RgbaUNormSrgb,
-        WgpuTextureFormat.Bc3RgbaUnorm => PixelFormat.Bc3RgbaUNorm,
-        WgpuTextureFormat.Bc3RgbaUnormSrgb => PixelFormat.Bc3RgbaUNormSrgb,
-        WgpuTextureFormat.Bc4RUnorm => PixelFormat.Bc4RUNorm,
-        WgpuTextureFormat.Bc5RgUnorm => PixelFormat.Bc5RgUNorm,
-        WgpuTextureFormat.Bc6HRgbUfloat => PixelFormat.Bc6HRgbUFloat,
-        WgpuTextureFormat.Bc6HRgbFloat => PixelFormat.Bc6HRgbSFloat,
-        WgpuTextureFormat.Bc7RgbaUnorm => PixelFormat.Bc7RgbaUNorm,
-        WgpuTextureFormat.Bc7RgbaUnormSrgb => PixelFormat.Bc7RgbaUNormSrgb,
+            WgpuTextureFormat.Bc1RgbaUnorm => PixelFormat.Bc1RgbaUNorm,
+            WgpuTextureFormat.Bc1RgbaUnormSrgb => PixelFormat.Bc1RgbaUNormSrgb,
+            WgpuTextureFormat.Bc3RgbaUnorm => PixelFormat.Bc3RgbaUNorm,
+            WgpuTextureFormat.Bc3RgbaUnormSrgb => PixelFormat.Bc3RgbaUNormSrgb,
+            WgpuTextureFormat.Bc4RUnorm => PixelFormat.Bc4RUNorm,
+            WgpuTextureFormat.Bc5RgUnorm => PixelFormat.Bc5RgUNorm,
+            WgpuTextureFormat.Bc6HRgbUfloat => PixelFormat.Bc6HRgbUFloat,
+            WgpuTextureFormat.Bc6HRgbFloat => PixelFormat.Bc6HRgbSFloat,
+            WgpuTextureFormat.Bc7RgbaUnorm => PixelFormat.Bc7RgbaUNorm,
+            WgpuTextureFormat.Bc7RgbaUnormSrgb => PixelFormat.Bc7RgbaUNormSrgb,
 
-        WgpuTextureFormat.Etc2Rgb8A1Unorm => PixelFormat.Etc2Rgb8A1UNorm,
-        WgpuTextureFormat.Etc2Rgba8Unorm => PixelFormat.Etc2Rgba8UNorm,
+            WgpuTextureFormat.Etc2Rgb8A1Unorm => PixelFormat.Etc2Rgb8A1UNorm,
+            WgpuTextureFormat.Etc2Rgba8Unorm => PixelFormat.Etc2Rgba8UNorm,
 
-        WgpuTextureFormat.Astc4X4Unorm => PixelFormat.Astc4X4UNorm,
-        WgpuTextureFormat.Astc4X4UnormSrgb => PixelFormat.Astc4X4UNormSrgb,
-        WgpuTextureFormat.Astc8X8Unorm => PixelFormat.Astc8X8UNorm,
-        WgpuTextureFormat.Astc8X8UnormSrgb => PixelFormat.Astc8X8UNormSrgb,
+            WgpuTextureFormat.Astc4X4Unorm => PixelFormat.Astc4X4UNorm,
+            WgpuTextureFormat.Astc4X4UnormSrgb => PixelFormat.Astc4X4UNormSrgb,
+            WgpuTextureFormat.Astc8X8Unorm => PixelFormat.Astc8X8UNorm,
+            WgpuTextureFormat.Astc8X8UnormSrgb => PixelFormat.Astc8X8UNormSrgb,
 
-        _ => PixelFormat.Undefined
-    };
+            _ => PixelFormat.Undefined
+        };
 
     /// <summary>The WebGPU format, or an exception naming what is missing.</summary>
     /// <param name="format">The engine format.</param>
@@ -180,26 +182,26 @@ public static class WebGpuFormats {
     ///     implementation's business, so there is no defined byte pattern for a copy to move. Every
     ///     other format may.
     /// </remarks>
-    public static bool CanCopy(this PixelFormat format) =>
-        format != PixelFormat.Depth24UNormStencil8;
+    public static bool CanCopy(this PixelFormat format) => format != PixelFormat.Depth24UNormStencil8;
 
     /// <summary>The WebGPU vertex format for one of ours.</summary>
     /// <param name="format">The engine format.</param>
-    public static WgpuVertexFormat ToWebGpu(this VertexFormat format) => format switch {
-        VertexFormat.Float32 => WgpuVertexFormat.Float32,
-        VertexFormat.Float32X2 => WgpuVertexFormat.Float32X2,
-        VertexFormat.Float32X3 => WgpuVertexFormat.Float32X3,
-        VertexFormat.Float32X4 => WgpuVertexFormat.Float32X4,
-        VertexFormat.Float16X2 => WgpuVertexFormat.Float16X2,
-        VertexFormat.Float16X4 => WgpuVertexFormat.Float16X4,
-        VertexFormat.UNorm8X4 => WgpuVertexFormat.Unorm8X4,
-        VertexFormat.SNorm8X4 => WgpuVertexFormat.Snorm8X4,
-        VertexFormat.UInt8X4 => WgpuVertexFormat.Uint8X4,
-        VertexFormat.UInt32 => WgpuVertexFormat.Uint32,
-        VertexFormat.UNorm16X2 => WgpuVertexFormat.Unorm16X2,
-        VertexFormat.SNorm16X4 => WgpuVertexFormat.Snorm16X4,
-        _ => WgpuVertexFormat.Undefined
-    };
+    public static WgpuVertexFormat ToWebGpu(this VertexFormat format) =>
+        format switch {
+            VertexFormat.Float32 => WgpuVertexFormat.Float32,
+            VertexFormat.Float32X2 => WgpuVertexFormat.Float32X2,
+            VertexFormat.Float32X3 => WgpuVertexFormat.Float32X3,
+            VertexFormat.Float32X4 => WgpuVertexFormat.Float32X4,
+            VertexFormat.Float16X2 => WgpuVertexFormat.Float16X2,
+            VertexFormat.Float16X4 => WgpuVertexFormat.Float16X4,
+            VertexFormat.UNorm8X4 => WgpuVertexFormat.Unorm8X4,
+            VertexFormat.SNorm8X4 => WgpuVertexFormat.Snorm8X4,
+            VertexFormat.UInt8X4 => WgpuVertexFormat.Uint8X4,
+            VertexFormat.UInt32 => WgpuVertexFormat.Uint32,
+            VertexFormat.UNorm16X2 => WgpuVertexFormat.Unorm16X2,
+            VertexFormat.SNorm16X4 => WgpuVertexFormat.Snorm16X4,
+            _ => WgpuVertexFormat.Undefined
+        };
 
     /// <summary>How a texture in this format is read by a shader.</summary>
     /// <param name="format">The engine format.</param>
@@ -210,8 +212,10 @@ public static class WebGpuFormats {
     ///     <em>unfilterable</em> unless <see cref="WgpuFeatureName.Float32Filterable" /> is on, so
     ///     that decision is passed in rather than assumed.
     /// </remarks>
-    /// <param name="float32Filterable">Whether the device has
-    /// <see cref="WgpuFeatureName.Float32Filterable" />.</param>
+    /// <param name="float32Filterable">
+    ///     Whether the device has
+    ///     <see cref="WgpuFeatureName.Float32Filterable" />.
+    /// </param>
     public static WgpuTextureSampleType SampleType(this PixelFormat format, bool float32Filterable) {
         if (format.HasDepth()) {
             return WgpuTextureSampleType.Depth;

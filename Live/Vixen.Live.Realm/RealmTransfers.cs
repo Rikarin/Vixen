@@ -28,7 +28,9 @@ public sealed class RealmTransfers {
 
     /// <summary>Builds one.</summary>
     /// <param name="deadlines">How long each step of a transfer may take.</param>
-    public RealmTransfers(TransferDeadlines? deadlines = null) => this.deadlines = deadlines ?? new();
+    public RealmTransfers(TransferDeadlines? deadlines = null) {
+        this.deadlines = deadlines ?? new();
+    }
 
     /// <summary>The slots held for people on their way here.</summary>
     public TransferBoard Arriving { get; } = new();
@@ -37,15 +39,19 @@ public sealed class RealmTransfers {
     public TransferMetrics Metrics { get; } = new();
 
     /// <summary>Everybody currently on their way out.</summary>
-    public IReadOnlyCollection<SourceTransfer> Leaving => [.. leaving.Values];
+    public IReadOnlyCollection<SourceTransfer> Leaving => [..leaving.Values];
 
     /// <summary>How many are in flight, which is the number a drain watches.</summary>
     public int InFlight => leaving.Count;
 
     /// <summary>The arrivals whose slots aged out on the last <see cref="Step" />.</summary>
     /// <remarks>
-    ///     ⚠ <b>A lapsed arrival can still have a session on this realm, and somebody has to close
-    ///     it.</b> The client was admitted by its ticket at t3 and the transfer then died — its source
+    ///     ⚠
+    ///     <b>
+    ///         A lapsed arrival can still have a session on this realm, and somebody has to close
+    ///         it.
+    ///     </b>
+    ///     The client was admitted by its ticket at t3 and the transfer then died — its source
     ///     is still simulating it, so this realm must not, and an admission it has stopped tracking as
     ///     an arrival is one it would otherwise hold for ever: a slot against the cap, held for a
     ///     player who is playing somewhere else. <see cref="RealmHost" /> reads this and releases

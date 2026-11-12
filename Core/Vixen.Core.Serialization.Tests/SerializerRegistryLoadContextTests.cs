@@ -11,8 +11,11 @@ namespace Vixen.Core.Serialization.Tests;
 /// <summary>The serialised-name half of <a href="https://github.com/Rikarin/Vixen/issues/798">#798</a>.</summary>
 /// <remarks>
 ///     <para>
-///         <b>Two registries refuse a second claim, not one, and fixing either alone closes
-///         nothing.</b> A <c>[DataContract]</c> generates a descriptor into <c>TypeRegistry</c>
+///         <b>
+///             Two registries refuse a second claim, not one, and fixing either alone closes
+///             nothing.
+///         </b>
+///         A <c>[DataContract]</c> generates a descriptor into <c>TypeRegistry</c>
 ///         <em>and</em> a serializer into <see cref="SerializerRegistry" />, both from the same
 ///         module initializer. An editor plugin's entry assembly is loaded from its own path into a
 ///         collectible context while every dependency goes to the default one, so that initializer
@@ -20,9 +23,13 @@ namespace Vixen.Core.Serialization.Tests;
 ///         claim exactly as the other one threw an <see cref="InvalidOperationException" />.
 ///     </para>
 ///     <para>
-///         ⚠ <b><see cref="SerializerRegistry.Evict" />'s remarks describe the collision as a
-///         <em>rebuild</em> problem and name eviction as the answer, which is right about a rebuild
-///         and cannot help here.</b> A plugin's two copies are simultaneous: the host's is registered
+///         ⚠
+///         <b>
+///             <see cref="SerializerRegistry.Evict" />'s remarks describe the collision as a
+///             <em>rebuild</em> problem and name eviction as the answer, which is right about a rebuild
+///             and cannot help here.
+///         </b>
+///         A plugin's two copies are simultaneous: the host's is registered
 ///         and stays registered while the plugin's context loads beside it. There is nothing to evict
 ///         first.
 ///     </para>
@@ -49,7 +56,7 @@ public class SerializerRegistryLoadContextTests {
         Assert.Equal(typeof(Twin).FullName, second.FullName);
 
         try {
-            SerializerRegistry.Register<Twin>("LoadContextTwinSerializer", new TwinSerializer<Twin>());
+            SerializerRegistry.Register("LoadContextTwinSerializer", new TwinSerializer<Twin>());
             RegisterOther(second, "LoadContextTwinSerializer");
 
             Assert.True(SerializerRegistry.TryGetByAlias("LoadContextTwinSerializer", out var held));
@@ -67,10 +74,12 @@ public class SerializerRegistryLoadContextTests {
     /// </remarks>
     [Fact]
     public void Two_different_types_claiming_one_name_is_still_refused() {
-        SerializerRegistry.Register<Twin>("SharedTwinName", new TwinSerializer<Twin>());
+        SerializerRegistry.Register("SharedTwinName", new TwinSerializer<Twin>());
 
-        var thrown = Assert.Throws<SerializationException>(
-            () => SerializerRegistry.Register<Other>("SharedTwinName", new TwinSerializer<Other>())
+        var thrown = Assert.Throws<SerializationException>(static () => SerializerRegistry.Register(
+                "SharedTwinName",
+                new TwinSerializer<Other>()
+            )
         );
 
         Assert.Contains("claim the serialised name", thrown.Message, StringComparison.Ordinal);
@@ -88,8 +97,12 @@ public class SerializerRegistryLoadContextTests {
     ///     <para>
     ///         ⚠ <b>It was found by a suite failing for a reason that read like nonsense</b>, which is
     ///         the same sentence <see cref="SerializerRegistry.Evict" />'s remarks already use:
-    ///         <c>ObjectDatabaseTests</c> went red with <c>Expected: SettableClass … Actual:
-    ///         SettableClass</c>, because loading this assembly into a second context ran its whole
+    ///         <c>ObjectDatabaseTests</c> went red with
+    ///         <c>
+    ///             Expected: SettableClass … Actual:
+    ///             SettableClass
+    ///         </c>
+    ///         , because loading this assembly into a second context ran its whole
     ///         generated module initializer and the last writer of each id won.
     ///     </para>
     /// </remarks>
@@ -98,12 +111,10 @@ public class SerializerRegistryLoadContextTests {
         var second = Loaded();
 
         try {
-            SerializerRegistry.Register<Twin>(new TwinSerializer<Twin>());
+            SerializerRegistry.Register(new TwinSerializer<Twin>());
             RegisterOther(second, "TypeIdTwinSerializer");
 
-            Assert.True(
-                SerializerRegistry.TryGetByTypeId(Storage.ContentHash.TypeId(typeof(Twin)), out var held)
-            );
+            Assert.True(SerializerRegistry.TryGetByTypeId(Storage.ContentHash.TypeId(typeof(Twin)), out var held));
 
             Assert.Same(typeof(Twin), held.SerializedType);
         } finally {
@@ -124,7 +135,7 @@ public class SerializerRegistryLoadContextTests {
         var second = Loaded();
 
         try {
-            SerializerRegistry.Register<Twin>("EvictedTwinSerializer", new TwinSerializer<Twin>());
+            SerializerRegistry.Register("EvictedTwinSerializer", new TwinSerializer<Twin>());
             RegisterOther(second, "EvictedTwinSerializer");
 
             SerializerRegistry.Evict(second.Assembly);
@@ -144,7 +155,7 @@ public class SerializerRegistryLoadContextTests {
 
         var register = typeof(SerializerRegistry)
             .GetMethods(BindingFlags.Public | BindingFlags.Static)
-            .Single(method => method.Name == "Register" && method.GetParameters().Length == 3)
+            .Single(static method => method.Name == "Register" && method.GetParameters().Length == 3)
             .MakeGenericMethod(type);
 
         register.Invoke(null, [alias, serializer, Array.Empty<string>()]);
@@ -159,7 +170,7 @@ public class SerializerRegistryLoadContextTests {
     /// </remarks>
     [MethodImpl(MethodImplOptions.NoInlining)]
     static Type Loaded() {
-        var context = new AssemblyLoadContext("serializer-registry-second-copy", isCollectible: true);
+        var context = new AssemblyLoadContext("serializer-registry-second-copy", true);
         var assembly = context.LoadFromAssemblyPath(typeof(Twin).Assembly.Location);
 
         return assembly.GetType(typeof(Twin).FullName!)!;

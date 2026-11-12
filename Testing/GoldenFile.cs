@@ -20,8 +20,12 @@ namespace Vixen.Testing;
 ///     </para>
 ///     <para>
 ///         <b>The switch is <c>UPDATE_GOLDEN=1</c>, and that is not a new one.</b> ⚠ The tree was
-///         read as having three conventions for this and it has two, split by <i>what is being
-///         rewritten</i> rather than by accident: <c>UPDATE_GOLDEN</c> rewrites a snapshot of output
+///         read as having three conventions for this and it has two, split by
+///         <i>
+///             what is being
+///             rewritten
+///         </i>
+///         rather than by accident: <c>UPDATE_GOLDEN</c> rewrites a snapshot of output
 ///         (Raven's four golden suites, the two <c>Vixen.Net</c> wire suites), and
 ///         <c>VIXEN_REGENERATE</c> rewrites a committed <i>artefact</i> that is not a test fixture at
 ///         all — generated binding code, the reflection JSON, the parity census. The image goldens
@@ -100,7 +104,7 @@ static class GoldenFile {
     ///     </para>
     /// </remarks>
     public static string InProjectDirectory(params string[] parts) =>
-        Path.Combine([AppContext.BaseDirectory, "..", "..", "..", .. parts]);
+        Path.Combine([AppContext.BaseDirectory, "..", "..", "..", ..parts]);
 
     /// <summary>Several goldens, compared by one test, reported together.</summary>
     public sealed class Set {
@@ -203,7 +207,6 @@ static class GoldenFile {
     ///     </para>
     /// </remarks>
     static string Diff(string expected, string actual) {
-
         var before = expected.Split('\n');
         var after = actual.Split('\n');
 

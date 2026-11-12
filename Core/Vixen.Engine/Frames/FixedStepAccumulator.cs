@@ -104,8 +104,7 @@ public sealed class FixedStepAccumulator {
     ///     <c>SystemPhase.FixedUpdate</c> that multiplied by the frame delta would be doing the
     ///     variable-step thing this class exists to prevent.
     /// </remarks>
-    public GameTime StepTime(GameTime frame) =>
-        frame with { Elapsed = Step * frame.TimeScale, UnscaledElapsed = Step };
+    public GameTime StepTime(GameTime frame) => frame with { Elapsed = Step * frame.TimeScale, UnscaledElapsed = Step };
 
     /// <summary>Throws away the banked time, without counting it as dropped.</summary>
     /// <remarks>For a loop that has just loaded a scene, where the time before it means nothing.</remarks>

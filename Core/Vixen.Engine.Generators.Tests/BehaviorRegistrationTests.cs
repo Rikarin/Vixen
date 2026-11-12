@@ -13,16 +13,16 @@ public sealed class BehaviorRegistrationTests {
         var (diagnostics, sources) = GeneratorHarness.Run(
             new BehaviorRegistrationGenerator(),
             $$"""
-            {{GeneratorHarness.Preamble}}
+              {{GeneratorHarness.Preamble}}
 
-            [DataContract]
-            public class Spinner : Behavior {
-                public Spinner(float speed) { }
-            }
-            """
+              [DataContract]
+              public class Spinner : Behavior {
+                  public Spinner(float speed) { }
+              }
+              """
         );
 
-        Assert.Single(diagnostics, diagnostic => diagnostic.Id == "VXS0402");
+        Assert.Single(diagnostics, static diagnostic => diagnostic.Id == "VXS0402");
         Assert.Empty(sources);
     }
 
@@ -38,16 +38,16 @@ public sealed class BehaviorRegistrationTests {
         var (diagnostics, sources) = GeneratorHarness.Run(
             new BehaviorRegistrationGenerator(),
             $$"""
-            {{GeneratorHarness.Preamble}}
+              {{GeneratorHarness.Preamble}}
 
-            [DataContract]
-            public class Spinner : Behavior {
-                public float Speed;
-            }
-            """
+              [DataContract]
+              public class Spinner : Behavior {
+                  public float Speed;
+              }
+              """
         );
 
-        Assert.DoesNotContain(diagnostics, diagnostic => diagnostic.Id == "VXS0402");
+        Assert.DoesNotContain(diagnostics, static diagnostic => diagnostic.Id == "VXS0402");
         Assert.Contains("Declare<global::Subject.Spinner>()", Assert.Single(sources));
     }
 
@@ -58,16 +58,16 @@ public sealed class BehaviorRegistrationTests {
         var (diagnostics, _) = GeneratorHarness.Run(
             new BehaviorRegistrationGenerator(),
             $$"""
-            {{GeneratorHarness.Preamble}}
+              {{GeneratorHarness.Preamble}}
 
-            [DataContract]
-            public class Hidden : Behavior {
-                Hidden() { }
-            }
-            """
+              [DataContract]
+              public class Hidden : Behavior {
+                  Hidden() { }
+              }
+              """
         );
 
-        Assert.Single(diagnostics, diagnostic => diagnostic.Id == "VXS0402");
+        Assert.Single(diagnostics, static diagnostic => diagnostic.Id == "VXS0402");
     }
 
     [Fact]
@@ -75,15 +75,15 @@ public sealed class BehaviorRegistrationTests {
         var (diagnostics, sources) = GeneratorHarness.Run(
             new BehaviorRegistrationGenerator(),
             $$"""
-            {{GeneratorHarness.Preamble}}
+              {{GeneratorHarness.Preamble}}
 
-            [DataContract]
-            public class Follow<T> : Behavior {
-            }
-            """
+              [DataContract]
+              public class Follow<T> : Behavior {
+              }
+              """
         );
 
-        Assert.Single(diagnostics, diagnostic => diagnostic.Id == "VXS0403");
+        Assert.Single(diagnostics, static diagnostic => diagnostic.Id == "VXS0403");
         Assert.Empty(sources);
     }
 
@@ -104,16 +104,16 @@ public sealed class BehaviorRegistrationTests {
         var (diagnostics, sources) = GeneratorHarness.Run(
             new BehaviorRegistrationGenerator(),
             $$"""
-            {{GeneratorHarness.Preamble}}
+              {{GeneratorHarness.Preamble}}
 
-            public static class Outer<T> {
-                [DataContract]
-                public class Inner : Behavior { }
-            }
-            """
+              public static class Outer<T> {
+                  [DataContract]
+                  public class Inner : Behavior { }
+              }
+              """
         );
 
-        Assert.Single(diagnostics, diagnostic => diagnostic.Id == "VXS0403");
+        Assert.Single(diagnostics, static diagnostic => diagnostic.Id == "VXS0403");
         Assert.Empty(sources);
     }
 
@@ -130,16 +130,16 @@ public sealed class BehaviorRegistrationTests {
         var (diagnostics, sources) = GeneratorHarness.Run(
             new BehaviorRegistrationGenerator(),
             $$"""
-            {{GeneratorHarness.Preamble}}
+              {{GeneratorHarness.Preamble}}
 
-            public static class Outer {
-                [DataContract]
-                public class Inner : Behavior { }
-            }
-            """
+              public static class Outer {
+                  [DataContract]
+                  public class Inner : Behavior { }
+              }
+              """
         );
 
-        Assert.DoesNotContain(diagnostics, diagnostic => diagnostic.Id == "VXS0403");
+        Assert.DoesNotContain(diagnostics, static diagnostic => diagnostic.Id == "VXS0403");
         Assert.Contains("Declare<global::Subject.Outer.Inner>()", Assert.Single(sources));
     }
 
@@ -150,13 +150,13 @@ public sealed class BehaviorRegistrationTests {
         var (diagnostics, sources) = GeneratorHarness.Run(
             new BehaviorRegistrationGenerator(),
             $$"""
-            {{GeneratorHarness.Preamble}}
+              {{GeneratorHarness.Preamble}}
 
-            [DataContract]
-            public abstract class Weapon : Behavior {
-                protected Weapon(int damage) { }
-            }
-            """
+              [DataContract]
+              public abstract class Weapon : Behavior {
+                  protected Weapon(int damage) { }
+              }
+              """
         );
 
         Assert.Empty(diagnostics);
@@ -170,13 +170,13 @@ public sealed class BehaviorRegistrationTests {
         var (diagnostics, sources) = GeneratorHarness.Run(
             new BehaviorRegistrationGenerator(),
             $$"""
-            {{GeneratorHarness.Preamble}}
+              {{GeneratorHarness.Preamble}}
 
-            [DataContract]
-            public class Settings {
-                public Settings(int value) { }
-            }
-            """
+              [DataContract]
+              public class Settings {
+                  public Settings(int value) { }
+              }
+              """
         );
 
         Assert.Empty(diagnostics);
@@ -188,13 +188,13 @@ public sealed class BehaviorRegistrationTests {
         var (_, sources) = GeneratorHarness.Run(
             new BehaviorRegistrationGenerator(),
             $$"""
-            {{GeneratorHarness.Preamble}}
+              {{GeneratorHarness.Preamble}}
 
-            public abstract class Weapon : Behavior { }
+              public abstract class Weapon : Behavior { }
 
-            [DataContract]
-            public class Rifle : Weapon { }
-            """
+              [DataContract]
+              public class Rifle : Weapon { }
+              """
         );
 
         Assert.Contains("Declare<global::Subject.Rifle>()", Assert.Single(sources));
@@ -207,15 +207,15 @@ public sealed class BehaviorRegistrationTests {
         var diagnostics = GeneratorHarness.CompileWithGeneratedCode(
             new BehaviorRegistrationGenerator(),
             $$"""
-            {{GeneratorHarness.Preamble}}
+              {{GeneratorHarness.Preamble}}
 
-            [DataContract]
-            public class Spinner : Behavior {
-                public float Speed;
-            }
-            """
+              [DataContract]
+              public class Spinner : Behavior {
+                  public float Speed;
+              }
+              """
         );
 
-        Assert.Empty(diagnostics.Where(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error));
+        Assert.Empty(diagnostics.Where(static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error));
     }
 }

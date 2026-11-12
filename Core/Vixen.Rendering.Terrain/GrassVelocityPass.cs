@@ -14,8 +14,11 @@ namespace Vixen.Rendering.Terrain;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>The velocity half of a <see cref="GrassDrawPass" />, on
-///         <see cref="TerrainVelocityPass" />'s terms.</b> The blade mesh, the albedo binding and the
+///         <b>
+///             The velocity half of a <see cref="GrassDrawPass" />, on
+///             <see cref="TerrainVelocityPass" />'s terms.
+///         </b>
+///         The blade mesh, the albedo binding and the
 ///         scatter's instance buffer are all the colour pass's; what is this pass's own is the block
 ///         holding both matrices and both clocks, and the pipeline that writes one signed channel
 ///         pair instead of shaded colour. Grass is the one thing in the ground stack whose velocity
@@ -53,18 +56,26 @@ sealed class GrassVelocityPass : IDisposable {
     /// <param name="shaders">The <c>GrassVelocity</c> stages.</param>
     /// <param name="motionFormat">The frame's motion target format.</param>
     /// <param name="depthFormat">The scene depth it tests against.</param>
-    public GrassVelocityPass(IGraphicsDevice device, TerrainShaders shaders, PixelFormat motionFormat, PixelFormat depthFormat) {
+    public GrassVelocityPass(
+        IGraphicsDevice device,
+        TerrainShaders shaders,
+        PixelFormat motionFormat,
+        PixelFormat depthFormat
+    ) {
         ArgumentNullException.ThrowIfNull(device);
 
         if (!shaders.IsValid) {
-            throw new ArgumentException("A grass velocity pass needs both a vertex and a fragment stage.", nameof(shaders));
+            throw new ArgumentException(
+                "A grass velocity pass needs both a vertex and a fragment stage.",
+                nameof(shaders)
+            );
         }
 
         this.device = device;
         slots = Math.Max(1, device.FramesInFlight);
 
         // One block per frame in flight — GrassDrawPass's ring, for its immediate-memcpy reason.
-        constantStride = ((GrassVelocityKeys.ConstantBufferSize + SlotAlignment - 1) / SlotAlignment) * SlotAlignment;
+        constantStride = (GrassVelocityKeys.ConstantBufferSize + SlotAlignment - 1) / SlotAlignment * SlotAlignment;
 
         constants = device.CreateBuffer(
             new(constantStride * slots, BufferUsage.Uniform, MemoryAccess.HostUpload, "grass velocity constants")
@@ -74,10 +85,26 @@ sealed class GrassVelocityPass : IDisposable {
             new(
                 DescriptorSetSlot.PerMaterial,
                 [
-                    new(GrassVelocityKeys.ConstantBufferBinding, DescriptorKind.UniformBuffer, ShaderStage.Vertex | ShaderStage.Fragment),
-                    new(GrassVelocityKeys.AlbedoMapBinding, DescriptorKind.SampledTexture, ShaderStage.Vertex | ShaderStage.Fragment),
-                    new(GrassVelocityKeys.AlbedoSamplerBinding, DescriptorKind.Sampler, ShaderStage.Vertex | ShaderStage.Fragment),
-                    new(GrassVelocityKeys.BladesBinding, DescriptorKind.StorageBuffer, ShaderStage.Vertex | ShaderStage.Fragment)
+                    new(
+                        GrassVelocityKeys.ConstantBufferBinding,
+                        DescriptorKind.UniformBuffer,
+                        ShaderStage.Vertex | ShaderStage.Fragment
+                    ),
+                    new(
+                        GrassVelocityKeys.AlbedoMapBinding,
+                        DescriptorKind.SampledTexture,
+                        ShaderStage.Vertex | ShaderStage.Fragment
+                    ),
+                    new(
+                        GrassVelocityKeys.AlbedoSamplerBinding,
+                        DescriptorKind.Sampler,
+                        ShaderStage.Vertex | ShaderStage.Fragment
+                    ),
+                    new(
+                        GrassVelocityKeys.BladesBinding,
+                        DescriptorKind.StorageBuffer,
+                        ShaderStage.Vertex | ShaderStage.Fragment
+                    )
                 ],
                 "grass velocity"
             )
@@ -188,7 +215,12 @@ sealed class GrassVelocityPass : IDisposable {
         device.UpdateDescriptorSet(
             descriptors[slot],
             [
-                DescriptorWrite.Uniform(GrassVelocityKeys.ConstantBufferBinding, constants, slot * constantStride, GrassVelocityKeys.ConstantBufferSize),
+                DescriptorWrite.Uniform(
+                    GrassVelocityKeys.ConstantBufferBinding,
+                    constants,
+                    slot * constantStride,
+                    GrassVelocityKeys.ConstantBufferSize
+                ),
                 DescriptorWrite.Texture(GrassVelocityKeys.AlbedoMapBinding, draw.AlbedoOrDefault),
                 DescriptorWrite.SamplerAt(GrassVelocityKeys.AlbedoSamplerBinding, draw.AlbedoSampler),
                 DescriptorWrite.Storage(GrassVelocityKeys.BladesBinding, dispatch.Instances)

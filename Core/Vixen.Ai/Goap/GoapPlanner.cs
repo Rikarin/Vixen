@@ -3,7 +3,6 @@
 
 using Vixen.Core;
 using Vixen.Core.Mathematics;
-using Vixen.Ecs;
 
 namespace Vixen.Ai;
 
@@ -52,18 +51,24 @@ public readonly record struct GoapConsidered(int Action, GoapRejection Why);
 
 /// <summary>What bounds a search.</summary>
 /// <remarks>
-///     ⚠ <b>A GOAP search is exponential in depth and the engine must not hang on a badly authored
-///     action set.</b> That is doc 37 § D10's mandatory bound, and the two numbers are the whole of
+///     ⚠
+///     <b>
+///         A GOAP search is exponential in depth and the engine must not hang on a badly authored
+///         action set.
+///     </b>
+///     That is doc 37 § D10's mandatory bound, and the two numbers are the whole of
 ///     it: exceeding either produces <see cref="PlanFailure.BudgetExhausted" /> or
 ///     <see cref="PlanFailure.DepthExceeded" /> naming the goal, which the debugger shows and a test
 ///     asserts.
-///
-///     The defaults target doc 28's stated scale — <i>"the few dozen agents where emergent behaviour
-///     is the point, not the thousand critters"</i> — and a project that wants deeper plans says so
+///     The defaults target doc 28's stated scale —
+///     <i>
+///         "the few dozen agents where emergent behaviour
+///         is the point, not the thousand critters"
+///     </i>
+///     — and a project that wants deeper plans says so
 ///     and pays for them.
 /// </remarks>
 public sealed record GoapSettings {
-
     /// <summary>The shipped bounds.</summary>
     public static GoapSettings Default { get; } = new();
 
@@ -88,8 +93,12 @@ public readonly record struct GoapTarget(bool Found, Vector3 Position, Entity En
 
 /// <summary>What an action costs to reach.</summary>
 /// <remarks>
-///     doc 37 § Part 4's seam. ⚠ <b>The distance cost is a straight line by default, not a path
-///     length.</b> A path query per candidate action per resolve is a nav search per edge of the
+///     doc 37 § Part 4's seam. ⚠
+///     <b>
+///         The distance cost is a straight line by default, not a path
+///         length.
+///     </b>
+///     A path query per candidate action per resolve is a nav search per edge of the
 ///     search graph, which is the cost of the whole system in one line — so the shipped model is
 ///     arithmetic, and the one that asks the navmesh lives in <c>Vixen.Ai.Nodes</c> where the navmesh
 ///     does, with the guide saying plainly what it costs.
@@ -132,7 +141,7 @@ sealed class StraightLineCostModel(float perMetre) : IActionCostModel {
 
         // ⚠ Floored at one, not at zero. The heuristic counts unmet conditions, and it is admissible
         // only while every action costs at least as much as it claims to remove.
-        return MathF.Max(1f, action.BaseCost + (distance * perMetre));
+        return MathF.Max(1f, action.BaseCost + distance * perMetre);
     }
 }
 
@@ -142,7 +151,6 @@ sealed class StraightLineCostModel(float perMetre) : IActionCostModel {
 ///     ⚠ <b>A mask on the agent rather than a domain per capability set.</b> A domain describes what a
 ///     <i>kind</i> of agent can do; whether this particular one has a gun, a key or a broken leg is
 ///     per agent, and a domain per permutation is a graph rebuild per permutation.
-///
 ///     Sixty-four actions is the limit of a mask, and an action past it is treated as allowed rather
 ///     than silently forbidden — a domain that large is one nobody is masking.
 /// </remarks>
@@ -251,8 +259,12 @@ public sealed class GoapPlan {
 ///         plan.
 ///     </para>
 ///     <para>
-///         ⚠ <b>A plan is a chain, so an action with two unmet conditions is served one at a time —
-///         and that is correct rather than a simplification.</b> Only the head is committed
+///         ⚠
+///         <b>
+///             A plan is a chain, so an action with two unmet conditions is served one at a time —
+///             and that is correct rather than a simplification.
+///         </b>
+///         Only the head is committed
 ///         (§ D11): the head is by construction runnable now, running it changes the world, and the
 ///         next resolve plans from what the world then is. A search that instead tried to satisfy
 ///         every branch of a conjunction at once would be a hyper-graph search whose plans go stale
@@ -299,8 +311,12 @@ public sealed class GoapPlanner {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         doc 37 § Part 5's GOAP viewer: <i>"the actions that were considered and rejected with
-    ///         why"</i>. A plan says what will happen; a designer staring at an agent that does
+    ///         doc 37 § Part 5's GOAP viewer:
+    ///         <i>
+    ///             "the actions that were considered and rejected with
+    ///             why"
+    ///         </i>
+    ///         . A plan says what will happen; a designer staring at an agent that does
     ///         nothing needs the other half — which actions the search looked at, and what it did not
     ///         like about each.
     ///     </para>
@@ -366,7 +382,7 @@ public sealed class GoapPlanner {
         }
 
         var wanted = Domain.Goals[snapshot.Goal];
-        var world = (ReadOnlySpan<int>)snapshot.World;
+        ReadOnlySpan<int> world = snapshot.World;
 
         plan.Goal = wanted.Name;
         plan.GoalIndex = snapshot.Goal;
@@ -390,7 +406,7 @@ public sealed class GoapPlanner {
             var found = Domain.Servers(in condition, candidates);
 
             for (var index = 0; index < found; index++) {
-                Push(snapshot, candidates[index], parent: -1);
+                Push(snapshot, candidates[index], -1);
             }
         }
 
@@ -450,7 +466,7 @@ public sealed class GoapPlanner {
     void Expand(GoapSnapshot snapshot, int index) {
         var node = nodes[index];
         var action = Domain[node.Action];
-        var world = (ReadOnlySpan<int>)snapshot.World;
+        ReadOnlySpan<int> world = snapshot.World;
 
         for (var slot = 0; slot < action.Conditions.Length; slot++) {
             if (action.Conditions[slot].Holds(world)) {

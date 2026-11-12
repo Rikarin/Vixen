@@ -20,8 +20,8 @@ public class TextSpanTests {
 
     [Fact]
     public void Touching_spans_do_not_overlap() {
-        Assert.False(new TextSpan(0, 5).OverlapsWith(new TextSpan(5, 5)));
-        Assert.True(new TextSpan(0, 6).OverlapsWith(new TextSpan(5, 5)));
+        Assert.False(new TextSpan(0, 5).OverlapsWith(new(5, 5)));
+        Assert.True(new TextSpan(0, 6).OverlapsWith(new(5, 5)));
     }
 
     [Fact]
@@ -35,9 +35,9 @@ public class TextSpanTests {
 
     [Fact]
     public void FromBounds_rejects_a_reversed_or_negative_range() {
-        Assert.Equal(new TextSpan(2, 3), TextSpan.FromBounds(2, 5));
-        Assert.Throws<ArgumentOutOfRangeException>(() => TextSpan.FromBounds(-1, 5));
-        Assert.Throws<ArgumentOutOfRangeException>(() => TextSpan.FromBounds(5, 2));
+        Assert.Equal(new(2, 3), TextSpan.FromBounds(2, 5));
+        Assert.Throws<ArgumentOutOfRangeException>(static () => TextSpan.FromBounds(-1, 5));
+        Assert.Throws<ArgumentOutOfRangeException>(static () => TextSpan.FromBounds(5, 2));
     }
 
     [Fact]
@@ -61,7 +61,7 @@ public class SourceTextTests {
         Assert.Equal("b", source.GetLineText(1));
 
         // CRLF counts as one break, so "b" starts at 3 there and 2 otherwise.
-        Assert.Equal(new LinePosition(1, 0), source.GetLinePosition(text.Length - 1));
+        Assert.Equal(new(1, 0), source.GetLinePosition(text.Length - 1));
     }
 
     [Fact]
@@ -69,26 +69,26 @@ public class SourceTextTests {
         var text = SourceText.From("a\n");
 
         Assert.Equal(2, text.LineCount);
-        Assert.Equal("", text.GetLineText(1));
+        Assert.Equal(string.Empty, text.GetLineText(1));
     }
 
     [Fact]
     public void Offsets_map_to_zero_based_line_and_character() {
         var text = SourceText.From("one\ntwo\nthree");
 
-        Assert.Equal(new LinePosition(0, 0), text.GetLinePosition(0));
-        Assert.Equal(new LinePosition(1, 0), text.GetLinePosition(4));
-        Assert.Equal(new LinePosition(1, 2), text.GetLinePosition(6));
-        Assert.Equal(new LinePosition(2, 4), text.GetLinePosition(12));
+        Assert.Equal(new(0, 0), text.GetLinePosition(0));
+        Assert.Equal(new(1, 0), text.GetLinePosition(4));
+        Assert.Equal(new(1, 2), text.GetLinePosition(6));
+        Assert.Equal(new(2, 4), text.GetLinePosition(12));
     }
 
     [Fact]
     public void Offsets_are_clamped_so_end_of_file_resolves() {
         var text = SourceText.From("ab");
 
-        Assert.Equal(new LinePosition(0, 0), text.GetLinePosition(-5));
-        Assert.Equal(new LinePosition(0, 2), text.GetLinePosition(2));
-        Assert.Equal(new LinePosition(0, 2), text.GetLinePosition(999));
+        Assert.Equal(new(0, 0), text.GetLinePosition(-5));
+        Assert.Equal(new(0, 2), text.GetLinePosition(2));
+        Assert.Equal(new(0, 2), text.GetLinePosition(999));
     }
 
     [Fact]
@@ -111,8 +111,8 @@ public class SourceTextTests {
     public void A_span_maps_to_a_line_position_span() {
         var span = SourceText.From("one\ntwo").GetLinePositionSpan(TextSpan.FromBounds(1, 5));
 
-        Assert.Equal(new LinePosition(0, 1), span.Start);
-        Assert.Equal(new LinePosition(1, 1), span.End);
+        Assert.Equal(new(0, 1), span.Start);
+        Assert.Equal(new(1, 1), span.End);
     }
 
     [Fact]

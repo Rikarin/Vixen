@@ -63,8 +63,11 @@ public sealed class EditorProject {
     /// <summary>Raised by an open document just before it writes itself back.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>Before the write, which is the entire reason it is here rather than on the
-    ///         document.</b> <see cref="EditorDocument.Saved" /> already says "this document has been
+    ///         <b>
+    ///             Before the write, which is the entire reason it is here rather than on the
+    ///             document.
+    ///         </b>
+    ///         <see cref="EditorDocument.Saved" /> already says "this document has been
     ///         written" and is the hook a sidecar writes itself from. What this says is "a path is
     ///         about to change", and the only subscriber that needs it is one holding a file watcher:
     ///         <c>IFileWatcher.Suppress</c> has to be called before the platform sees the write, or
@@ -226,7 +229,7 @@ public sealed class EditorProject {
         document.MarkClosed();
 
         if (ReferenceEquals(activeDocument.Peek(), document)) {
-            activeDocument.Value = documents.Count > 0 ? documents[documents.Count - 1] : null;
+            activeDocument.Value = documents.Count > 0 ? documents[^1] : null;
         }
 
         document.OnClosed();
@@ -259,8 +262,11 @@ public sealed class EditorProject {
     /// </param>
     /// <remarks>
     ///     <para>
-    ///         <b>Here rather than inside <c>ExternalEdits</c>, because a watcher is not the only
-    ///         thing that changes files</b> —
+    ///         <b>
+    ///             Here rather than inside <c>ExternalEdits</c>, because a watcher is not the only
+    ///             thing that changes files
+    ///         </b>
+    ///         —
     ///         <a href="https://github.com/Rikarin/Vixen/issues/1006">#1006</a>. An import run from
     ///         inside the editor rewrites <c>Library/</c> and moves nothing under <c>Assets/</c>, so
     ///         the watcher never fires and every open document is told nothing. <c>ContentTasks</c>
@@ -289,12 +295,12 @@ public sealed class EditorProject {
                 snapshot[index].OnProjectFileChanged(path);
             } catch (Exception failure)
                 when (failure is IOException
-                    or UnauthorizedAccessException
-                    or InvalidOperationException
-                    or NotSupportedException) {
-                // Kept, on `ExternalEdits.TryReload`'s argument: a document that could not take the
-                // news keeps what it has.
-            }
+                          or UnauthorizedAccessException
+                          or InvalidOperationException
+                          or NotSupportedException) {
+                    // Kept, on `ExternalEdits.TryReload`'s argument: a document that could not take the
+                    // news keeps what it has.
+                }
         }
     }
 

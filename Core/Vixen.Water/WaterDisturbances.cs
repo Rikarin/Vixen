@@ -7,8 +7,12 @@ namespace Vixen.Water;
 
 /// <summary>What kind of thing disturbed the water.</summary>
 /// <remarks>
-///     ⚠ <b>Two and not a spectrum, because the two are told apart by <em>time</em> and nothing
-///     else.</b> A splash is one event; a wake is a continuous one. Anything a consumer wants to do
+///     ⚠
+///     <b>
+///         Two and not a spectrum, because the two are told apart by <em>time</em> and nothing
+///         else.
+///     </b>
+///     A splash is one event; a wake is a continuous one. Anything a consumer wants to do
 ///     differently — a burst of spray against a trailing V, a loud noise against a steady hiss —
 ///     follows from that, and a third value would be a third thing for every consumer to have an
 ///     opinion about.
@@ -29,8 +33,12 @@ public enum WaterDisturbanceKind {
 /// <param name="Height">Where the surface was, in world units — for a consumer that places geometry.</param>
 /// <remarks>
 ///     <para>
-///         <b>[35 § D12](../../docs/plan/35-water.md#d12-ripples-are-a-sliding-window-height-field-and-they-are-displacement-not-geometry)'s
-///         wake and splash hooks, as one event with two consumers.</b> A ripple field turns it into an
+///         <b>
+///             [35 §
+///             D12](../../docs/plan/35-water.md#d12-ripples-are-a-sliding-window-height-field-and-they-are-displacement-not-geometry)'s
+///             wake and splash hooks, as one event with two consumers.
+///         </b>
+///         A ripple field turns it into an
 ///         injection; <c>Vixen.Vfx</c> turns it into a burst of spray. Which is the same shape as
 ///         § D2's one-evaluator rule and is there for the same reason: two producers — one for the
 ///         simulation and one for the particles — is a wake whose spray is not where the ripple is,

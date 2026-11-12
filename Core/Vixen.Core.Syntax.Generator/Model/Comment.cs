@@ -9,5 +9,6 @@ namespace Vixen.Core.Syntax.Generator.Model;
 #nullable disable
 
 public class Comment {
-    [XmlAnyElement] public XmlElement[] Body { get; set; }
+    [XmlAnyElement]
+    public XmlElement[] Body { get; set; }
 }

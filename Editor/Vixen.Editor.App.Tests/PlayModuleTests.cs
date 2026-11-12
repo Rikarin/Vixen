@@ -173,7 +173,7 @@ public class PlayModuleTests {
 
         var registry = editor.Plugins.Services.Require<IEditorRegistry>();
 
-        string[] Passes() => [.. registry.All<IPlaySystems>().Select(static systems => systems.GetType().Name)];
+        string[] Passes() => [..registry.All<IPlaySystems>().Select(static systems => systems.GetType().Name)];
 
         string[] expected = ["PlayDiagnostics", "PlayPhysics", "PlayAnimation", "PlayAi", "PlayInput"];
 

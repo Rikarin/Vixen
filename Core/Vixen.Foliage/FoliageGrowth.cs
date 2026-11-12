@@ -7,8 +7,12 @@ namespace Vixen.Foliage;
 
 /// <summary>What a simulation is asked to grow, and where.</summary>
 /// <remarks>
-///     ⚠ <b>The seed is a setting rather than a default, because it is the one number an author
-///     re-rolls.</b> "Grow me a different forest with the same rules" is the operation, and it is a
+///     ⚠
+///     <b>
+///         The seed is a setting rather than a default, because it is the one number an author
+///         re-rolls.
+///     </b>
+///     "Grow me a different forest with the same rules" is the operation, and it is a
 ///     different operation from changing the rules — which is why the seed is beside the region and
 ///     not hidden inside the simulation.
 /// </remarks>
@@ -129,8 +133,12 @@ public readonly record struct FoliageGrowthResult(
 ///         where a parent stood, thinned under shade, cleared where a volume says.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The output is a volume of its own, and that is [§ D4]'s reserved layer in this
-///         kernel's vocabulary.</b> A simulation is re-runnable, which means it regenerates its
+///         ⚠
+///         <b>
+///             The output is a volume of its own, and that is [§ D4]'s reserved layer in this
+///             kernel's vocabulary.
+///         </b>
+///         A simulation is re-runnable, which means it regenerates its
 ///         instances <em>wholesale</em> — so it cannot share a container with the ones an artist
 ///         placed by hand, or re-rolling the seed would delete an afternoon's work. The destination is
 ///         cleared and refilled; the scene's own volume is never touched.
@@ -138,8 +146,12 @@ public readonly record struct FoliageGrowthResult(
 ///     <para>
 ///         ⚠ <b>Deterministic from the stated seed, and never from an iteration order.</b> A plant's
 ///         identity is hashed at birth from its parent's identity and the seed index, so it does not
-///         move when the plants around it change; and each step's candidates are <em>resolved in hash
-///         order</em> rather than in the order they were generated, because which of two overlapping
+///         move when the plants around it change; and each step's candidates are
+///         <em>
+///             resolved in hash
+///             order
+///         </em>
+///         rather than in the order they were generated, because which of two overlapping
 ///         seeds wins must not depend on which parent was walked first.
 ///     </para>
 ///     <para>
@@ -458,7 +470,7 @@ public static class FoliageGrowth {
             var canopy = theirs.Ecology.ShadeAt(other.Age);
 
             if (canopy > 0f && distance < canopy) {
-                shade += 1f - (distance / canopy);
+                shade += 1f - distance / canopy;
             }
         }
 
@@ -563,8 +575,7 @@ public static class FoliageGrowth {
             }
         }
 
-        (int X, int Z) KeyOf(Vector2 at) =>
-            ((int)MathF.Floor(at.X / size), (int)MathF.Floor(at.Y / size));
+        (int X, int Z) KeyOf(Vector2 at) => ((int)MathF.Floor(at.X / size), (int)MathF.Floor(at.Y / size));
     }
 
     /// <summary>The counters, mutable because they are accumulated across every step.</summary>

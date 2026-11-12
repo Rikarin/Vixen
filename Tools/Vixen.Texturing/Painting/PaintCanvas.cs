@@ -23,8 +23,12 @@ namespace Vixen.Texturing.Painting;
 ///         degenerate case with one channel in it and no special format.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Deflated per channel since version 2, and the reason the first version was not is
-///         wrong by more than an order of magnitude</b> —
+///         ⚠
+///         <b>
+///             Deflated per channel since version 2, and the reason the first version was not is
+///             wrong by more than an order of magnitude
+///         </b>
+///         —
 ///         <a href="https://github.com/Rikarin/Vixen/issues/850">#850</a>. This said, and the issue
 ///         said, that compressing a 4K channel was "a second of Deflate". Measured, it is <b>43 ms</b>
 ///         at <see cref="CompressionLevel.Fastest" /> — and the raw write it replaces is 36–66 ms of
@@ -51,7 +55,7 @@ namespace Vixen.Texturing.Painting;
 /// </remarks>
 public sealed class PaintCanvas {
     /// <summary>What the format's first eight bytes say.</summary>
-    public static readonly byte[] Magic = "VXPAINT\0"u8.ToArray();
+    public static readonly byte[] Magic = [.."VXPAINT\0"u8];
 
     /// <summary>What this build writes.</summary>
     public const int CurrentVersion = 3;
@@ -225,7 +229,10 @@ public sealed class PaintCanvas {
         return reduced;
     }
 
-    /// <summary>This canvas at another resolution: <see cref="Enlarged" /> where it grows, <see cref="Reduced" /> where it shrinks.</summary>
+    /// <summary>
+    ///     This canvas at another resolution: <see cref="Enlarged" /> where it grows, <see cref="Reduced" /> where it
+    ///     shrinks.
+    /// </summary>
     /// <param name="width">The new width.</param>
     /// <param name="height">The new height.</param>
     /// <returns>A new canvas with every channel this one has.</returns>
@@ -284,8 +291,12 @@ public sealed class PaintCanvas {
     ///         than as an error.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Each tile's compressed length is written before its bytes, and the compression
-    ///         therefore happens into memory first.</b> A <c>DeflateStream</c> straight onto the
+    ///         ⚠
+    ///         <b>
+    ///             Each tile's compressed length is written before its bytes, and the compression
+    ///             therefore happens into memory first.
+    ///         </b>
+    ///         A <c>DeflateStream</c> straight onto the
     ///         output would need the length patched afterwards, which needs a seekable stream — and
     ///         <see cref="PaintSurface.Save" /> writes through a temporary file precisely because the
     ///         destination is not always one. The buffer is the <em>compressed</em> size, which is the
@@ -295,7 +306,7 @@ public sealed class PaintCanvas {
     public void Write(Stream stream) {
         ArgumentNullException.ThrowIfNull(stream);
 
-        using BinaryWriter writer = new(stream, Encoding.UTF8, leaveOpen: true);
+        using BinaryWriter writer = new(stream, Encoding.UTF8, true);
 
         writer.Write(Magic);
         writer.Write(CurrentVersion);
@@ -337,12 +348,16 @@ public sealed class PaintCanvas {
 
         var packed = new byte[held.Count][];
 
-        Parallel.For(0, held.Count, index => packed[index] = Deflated(image.TileTexels(held[index].X, held[index].Y).Span));
+        Parallel.For(
+            0,
+            held.Count,
+            index => packed[index] = Deflated(image.TileTexels(held[index].X, held[index].Y).Span)
+        );
 
         writer.Write(held.Count);
 
         for (var index = 0; index < held.Count; index++) {
-            writer.Write((held[index].Y * image.TilesWide) + held[index].X);
+            writer.Write(held[index].Y * image.TilesWide + held[index].X);
             writer.Write(packed[index].Length);
             writer.Write(packed[index]);
         }
@@ -351,7 +366,7 @@ public sealed class PaintCanvas {
     static byte[] Deflated(ReadOnlySpan<byte> texels) {
         using MemoryStream packed = new();
 
-        using (DeflateStream deflate = new(packed, CompressionLevel.Fastest, leaveOpen: true)) {
+        using (DeflateStream deflate = new(packed, CompressionLevel.Fastest, true)) {
             deflate.Write(texels);
         }
 
@@ -365,7 +380,7 @@ public sealed class PaintCanvas {
     public static PaintCanvas Read(Stream stream) {
         ArgumentNullException.ThrowIfNull(stream);
 
-        using BinaryReader reader = new(stream, Encoding.UTF8, leaveOpen: true);
+        using BinaryReader reader = new(stream, Encoding.UTF8, true);
 
         var magic = reader.ReadBytes(Magic.Length);
 
@@ -481,8 +496,12 @@ public sealed class PaintCanvas {
     /// <summary>Reads a version-1 channel: the texels, raw.</summary>
     /// <returns>How many bytes were read.</returns>
     /// <remarks>
-    ///     ⚠ <b>A loop, because <c>BinaryReader.Read(byte[], int, int)</c> forwards to a single
-    ///     <c>Stream.Read</c> and a stream is entitled to return fewer bytes than asked for.</b> A 4K
+    ///     ⚠
+    ///     <b>
+    ///         A loop, because <c>BinaryReader.Read(byte[], int, int)</c> forwards to a single
+    ///         <c>Stream.Read</c> and a stream is entitled to return fewer bytes than asked for.
+    ///     </b>
+    ///     A 4K
     ///     channel is 67 MB, and over a network stream the first read is a chunk — so the single-read
     ///     form refuses a complete file as a truncated one.
     /// </remarks>
@@ -505,8 +524,12 @@ public sealed class PaintCanvas {
     /// <summary>Reads a version-2 channel: a length, then that many Deflate bytes.</summary>
     /// <returns>How many texel bytes came out.</returns>
     /// <remarks>
-    ///     ⚠ <b>The claim that made this format's short-read loop load-bearing is false, and it was
-    ///     tested rather than assumed.</b> <a href="https://github.com/Rikarin/Vixen/issues/850">#850</a>
+    ///     ⚠
+    ///     <b>
+    ///         The claim that made this format's short-read loop load-bearing is false, and it was
+    ///         tested rather than assumed.
+    ///     </b>
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/850">#850</a>
     ///     says "over a <c>DeflateStream</c> a short read stops being an edge case and becomes the
     ///     norm — the loop is what makes version 2 possible at all". It is not: .NET's
     ///     <see cref="DeflateStream" /> keeps inflating until the caller's buffer is full or the data
@@ -535,9 +558,9 @@ public sealed class PaintCanvas {
             );
         }
 
-        using MemoryStream source = new(block, writable: false);
+        using MemoryStream source = new(block, false);
         using DeflateStream inflate = new(source, CompressionMode.Decompress);
 
-        return inflate.ReadAtLeast(texels, texels.Length, throwOnEndOfStream: false);
+        return inflate.ReadAtLeast(texels, texels.Length, false);
     }
 }

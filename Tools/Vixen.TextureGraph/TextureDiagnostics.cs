@@ -200,8 +200,12 @@ static class TextureDiagnostics {
     ///     there, or the name it was given is not one the knob accepts.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>Separate from <see cref="SettingNotAccepted" /> even though both are "that is not one
-    ///     of the names".</b> <c>TG0010</c> is a node refusing what its own setting holds; this is the
+    ///     ⚠
+    ///     <b>
+    ///         Separate from <see cref="SettingNotAccepted" /> even though both are "that is not one
+    ///         of the names".
+    ///     </b>
+    ///     <c>TG0010</c> is a node refusing what its own setting holds; this is the
     ///     forwarding refusing to put it there, one phase earlier, and the two carry different advice:
     ///     one is fixed on the node and the other on the knob of the graph that contains it. Reporting
     ///     both under one id would leave an author with a sentence naming a node they never wrote and
@@ -236,22 +240,26 @@ static class TextureDiagnostics {
     ///     than a second array, because a second array is the thing that would go stale — and the
     ///     roll call checks the reflection query itself found something, since an empty one is
     ///     trivially distinct.
-    /// <para>
-    ///     ⚠ <b><c>Ids</c> and emphatically not <c>All</c>, which is a real trap and was measured
-    ///     rather than guessed.</b> The kernel roll call's "declaring surface" detector is a member
-    ///     name: <c>TextureColourKernelTests.Declared</c> and <c>TextureNodeLibraryTests.Declared</c>
-    ///     sweep <em>every</em> type in this assembly for a static <c>All</c> returning strings and
-    ///     take what it holds to be kernel names. Calling this one <c>All</c> put nineteen diagnostic
-    ///     ids into the kernel inventory and turned two roll calls red with a message about
-    ///     <c>Tile</c>. A future non-kernel surface here should not be called <c>All</c> either —
-    ///     <a href="https://github.com/Rikarin/Vixen/issues/814">#814</a>.
-    /// </para>
+    ///     <para>
+    ///         ⚠
+    ///         <b>
+    ///             <c>Ids</c> and emphatically not <c>All</c>, which is a real trap and was measured
+    ///             rather than guessed.
+    ///         </b>
+    ///         The kernel roll call's "declaring surface" detector is a member
+    ///         name: <c>TextureColourKernelTests.Declared</c> and <c>TextureNodeLibraryTests.Declared</c>
+    ///         sweep <em>every</em> type in this assembly for a static <c>All</c> returning strings and
+    ///         take what it holds to be kernel names. Calling this one <c>All</c> put nineteen diagnostic
+    ///         ids into the kernel inventory and turned two roll calls red with a message about
+    ///         <c>Tile</c>. A future non-kernel surface here should not be called <c>All</c> either —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/814">#814</a>.
+    ///     </para>
     /// </remarks>
     internal static ImmutableArray<string> Ids { get; } = [
-        .. typeof(TextureDiagnostics)
+        ..typeof(TextureDiagnostics)
             .GetFields(BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic)
-            .Where(field => field.IsLiteral && field.FieldType == typeof(string))
-            .Select(field => (string)field.GetRawConstantValue()!)
+            .Where(static field => field.IsLiteral && field.FieldType == typeof(string))
+            .Select(static field => (string)field.GetRawConstantValue()!)
             .Order(StringComparer.Ordinal)
     ];
 }

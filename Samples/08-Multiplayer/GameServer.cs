@@ -12,7 +12,6 @@ using Vixen.Net.Motion;
 using Vixen.Net.Replication;
 using Vixen.Net.Rpc;
 using Vixen.Net.Sessions;
-using Vixen.Net.Time;
 using Vixen.Net.Transport;
 
 namespace Vixen.Samples.Multiplayer;
@@ -102,9 +101,13 @@ internal sealed class GameServer : ISessionMessageHandler, IDisposable {
     /// <summary>What decides who is told about what.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>An <see cref="InterestGrid" /> is the chain's <i>source</i> and
-    ///         <see cref="ExplicitInterestRule" /> is a rule after it, and the order is not
-    ///         decoration.</b> A rule only ever sees the candidates the source produced — which is
+    ///         ⚠
+    ///         <b>
+    ///             An <see cref="InterestGrid" /> is the chain's <i>source</i> and
+    ///             <see cref="ExplicitInterestRule" /> is a rule after it, and the order is not
+    ///             decoration.
+    ///         </b>
+    ///         A rule only ever sees the candidates the source produced — which is
     ///         why the rule is a source as well, and why <c>Show</c> is given the entity: without the
     ///         nomination it could keep something visible that a later rule would have hidden and
     ///         could not resurrect an object the grid never offered. In an arena forty metres across with a
@@ -153,8 +156,7 @@ internal sealed class GameServer : ISessionMessageHandler, IDisposable {
         RpcMethods.RegisterAll(manifest);
 
         var settings = (options ?? new()) with {
-            MaxPlayers = 8,
-            ContentHash = ((ulong)registry.ManifestHash << 32) | manifest.ManifestHash
+            MaxPlayers = 8, ContentHash = ((ulong)registry.ManifestHash << 32) | manifest.ManifestHash
         };
 
         session = new(transport, settings, ownsTransport: true);

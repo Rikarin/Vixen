@@ -69,7 +69,7 @@ public sealed class LagCompensationTests {
 
         // Compensated: the same ray, against the world as it was on tick 1.
         using (var rewind = compensator.Rewind(new(1))) {
-            Assert.Equal(new Tick(1), rewind.At);
+            Assert.Equal(new(1), rewind.At);
             Assert.Equal(1, rewind.BodyCount);
 
             Assert.True(
@@ -111,19 +111,19 @@ public sealed class LagCompensationTests {
         // 66 ms round trip is two ticks at 30 Hz, plus two of interpolation slack: four ticks back.
         var quick = TimeSpan.FromMilliseconds(66);
 
-        Assert.Equal(new Tick(16), compensator.ClampFor(new(16), quick));
-        Assert.Equal(new Tick(16), compensator.ClampFor(new(4), quick));
+        Assert.Equal(new(16), compensator.ClampFor(new(16), quick));
+        Assert.Equal(new(16), compensator.ClampFor(new(4), quick));
         Assert.Equal(1, compensator.ClampedCount);
 
         // A slower connection genuinely gets a longer window, and is not clamped for using it.
         var slow = TimeSpan.FromMilliseconds(200);
 
-        Assert.Equal(new Tick(12), compensator.ClampFor(new(12), slow));
+        Assert.Equal(new(12), compensator.ClampFor(new(12), slow));
         Assert.Equal(1, compensator.ClampedCount);
 
         // Nothing rewinds into the future, however far ahead the client's clock is running — and a
         // client's clock legitimately does run ahead, so this is not counted as a lie.
-        Assert.Equal(new Tick(20), compensator.ClampFor(new(25), quick));
+        Assert.Equal(new(20), compensator.ClampFor(new(25), quick));
         Assert.Equal(1, compensator.ClampedCount);
     }
 
@@ -142,8 +142,8 @@ public sealed class LagCompensationTests {
             compensator.Capture(new(tick));
         }
 
-        Assert.Equal(new Tick(8), compensator.ClampFor(new(8), TimeSpan.Zero));
-        Assert.Equal(new Tick(8), compensator.ClampFor(new(2), TimeSpan.Zero));
+        Assert.Equal(new(8), compensator.ClampFor(new(8), TimeSpan.Zero));
+        Assert.Equal(new(8), compensator.ClampFor(new(2), TimeSpan.Zero));
     }
 
     /// <summary>The rewind window has a ceiling nobody's latency can raise.</summary>
@@ -162,7 +162,7 @@ public sealed class LagCompensationTests {
         }
 
         // Three ticks at 30 Hz, whatever a two-second round trip would otherwise buy.
-        Assert.Equal(new Tick(37), compensator.ClampFor(new(5), TimeSpan.FromSeconds(2)));
+        Assert.Equal(new(37), compensator.ClampFor(new(5), TimeSpan.FromSeconds(2)));
     }
 
     /// <summary>A rewind that throws still puts the world back.</summary>
@@ -188,8 +188,7 @@ public sealed class LagCompensationTests {
 
         // An Action rather than a lambda inline, so overload resolution cannot pick the async
         // overload of Throws and assert on a task nobody awaited.
-        var query = new Action(
-            () => {
+        var query = new Action(() => {
                 using var rewind = compensator.Rewind(new(1));
 
                 Assert.NotEqual(before, Position(world, body));
@@ -274,7 +273,9 @@ public sealed class LagCompensationTests {
         using var world = new PhysicsWorld();
         var compensator = new LagCompensator(world, Rate);
 
-        var wall = world.CreateBody(BodyDescription.Static(world.Shapes.Box(new Vector3(5f, 5f, 0.5f)), new(0f, 0f, 5f)));
+        var wall = world.CreateBody(
+            BodyDescription.Static(world.Shapes.Box(new Vector3(5f, 5f, 0.5f)), new(0f, 0f, 5f))
+        );
         var player = world.CreateBody(BodyDescription.Kinematic(world.Shapes.Sphere(0.5f), new(0f, 0f, 0f)));
 
         compensator.Track(player);
@@ -287,7 +288,7 @@ public sealed class LagCompensationTests {
         using var rewind = compensator.Rewind(new(1));
 
         Assert.Equal(1, rewind.BodyCount);
-        Assert.Equal(new Vector3(0f, 0f, 5f), Position(world, wall));
+        Assert.Equal(new(0f, 0f, 5f), Position(world, wall));
     }
 
     /// <summary>A body destroyed under the compensator is dropped rather than queried.</summary>
@@ -334,7 +335,7 @@ public sealed class LagCompensationTests {
 
         Assert.True(compensator.TryGetHistory(body, out var history));
         Assert.Equal(4, history!.Count);
-        Assert.Equal(new Tick(7), history.Oldest.At);
+        Assert.Equal(new(7), history.Oldest.At);
 
         using var rewind = compensator.Rewind(new(1));
         Assert.Equal(7f, Position(world, body).X, 3);
@@ -364,9 +365,7 @@ public sealed class LagCompensationTests {
         var compensator = new LagCompensator(world, Rate);
 
         for (var i = 0; i < 16; i++) {
-            compensator.Track(
-                world.CreateBody(BodyDescription.Kinematic(world.Shapes.Sphere(0.5f), new(i, 0f, 0f)))
-            );
+            compensator.Track(world.CreateBody(BodyDescription.Kinematic(world.Shapes.Sphere(0.5f), new(i, 0f, 0f))));
         }
 
         // Warm-up: the histories allocate their rings on the first capture that reaches them, and

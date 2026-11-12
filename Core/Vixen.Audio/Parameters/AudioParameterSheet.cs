@@ -283,9 +283,6 @@ public sealed class AudioParameterSheet {
                     case AudioParameterTarget.HighPassHz:
                         highPass = MathF.Max(highPass, value);
                         break;
-
-                    default:
-                        break;
                 }
             }
         }
@@ -321,6 +318,6 @@ public sealed class AudioParameterSheet {
         var step = (parameter.Maximum - parameter.Minimum) * deltaSeconds / parameter.SeekSeconds;
         var difference = target - current;
 
-        current = MathF.Abs(difference) <= step ? target : current + (MathF.Sign(difference) * step);
+        current = MathF.Abs(difference) <= step ? target : current + MathF.Sign(difference) * step;
     }
 }

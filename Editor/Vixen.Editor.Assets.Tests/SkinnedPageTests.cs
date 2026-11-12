@@ -5,7 +5,6 @@ using Vixen.Core.Mathematics;
 using Vixen.Editor.Assets.Models;
 using Vixen.Geometry;
 using Vixen.Interchange;
-using Vixen.Rendering;
 using Vixen.Rendering.VirtualGeometry;
 using Xunit;
 
@@ -29,7 +28,7 @@ namespace Vixen.Editor.Assets.Tests;
 /// </remarks>
 public sealed class SkinnedPageTests {
     /// <summary>What a byte weight promises: half a 255th, which only rounding achieves.</summary>
-    const float Tolerance = (0.5f / 255f) + 1e-6f;
+    const float Tolerance = 0.5f / 255f + 1e-6f;
 
     /// <summary>
     ///     A skinned mesh's page vertex carries its four influences, and they decode to what went in.
@@ -64,13 +63,13 @@ public sealed class SkinnedPageTests {
                 var source = hierarchy.Vertices[hierarchy.Meshlets[cluster].VertexOffset + i];
 
                 Assert.Equal(mesh.BoneIndices[source * 4], influences[i].Bones.X);
-                Assert.Equal(mesh.BoneIndices[(source * 4) + 1], influences[i].Bones.Y);
+                Assert.Equal(mesh.BoneIndices[source * 4 + 1], influences[i].Bones.Y);
                 // Half a 255th, not a whole one — which is the assertion that rounding is rounding.
                 // Truncation is also within a 255th and is wrong in the same direction every time, so it
                 // loses up to four of them from every vertex's total; the shader renormalises, turning
                 // that into a uniform deflation toward the skeleton — a scale bug with no scale in it.
                 Assert.Equal(mesh.BoneWeights[source * 4], influences[i].Weights.X, Tolerance);
-                Assert.Equal(mesh.BoneWeights[(source * 4) + 1], influences[i].Weights.Y, Tolerance);
+                Assert.Equal(mesh.BoneWeights[source * 4 + 1], influences[i].Weights.Y, Tolerance);
 
                 compared++;
             }
@@ -126,14 +125,18 @@ public sealed class SkinnedPageTests {
         Assert.NotNull(hierarchy);
 
         var problems = new List<string>();
-        var pages = ModelCompiler.CompilePages(mesh, hierarchy, (severity, message) => {
-            if (severity == ImportSeverity.Error) {
-                problems.Add(message);
+        var pages = ModelCompiler.CompilePages(
+            mesh,
+            hierarchy,
+            (severity, message) => {
+                if (severity == ImportSeverity.Error) {
+                    problems.Add(message);
+                }
             }
-        });
+        );
 
         Assert.Null(pages);
-        Assert.Contains(problems, message => message.Contains("256 bones", StringComparison.Ordinal));
+        Assert.Contains(problems, static message => message.Contains("256 bones", StringComparison.Ordinal));
     }
 
     static void Report(ImportSeverity severity, string message) =>
@@ -170,12 +173,12 @@ public sealed class SkinnedPageTests {
 
         return new() {
             Name = "Bar",
-            Positions = [.. positions],
-            Normals = [.. normals],
-            TexCoords = [.. texCoords],
-            Indices = [.. indices],
-            BoneIndices = [.. bones],
-            BoneWeights = [.. weights]
+            Positions = [..positions],
+            Normals = [..normals],
+            TexCoords = [..texCoords],
+            Indices = [..indices],
+            BoneIndices = [..bones],
+            BoneWeights = [..weights]
         };
     }
 }

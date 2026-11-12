@@ -55,8 +55,12 @@ public interface IEditorRegistry {
 
 /// <summary>The contribution registry.</summary>
 /// <remarks>
-///     ⚠ <b>Locked, because the generated producer runs on whatever thread first touched the
-///     assembly.</b> A module initializer is not on the frame thread and has no way to get onto it;
+///     ⚠
+///     <b>
+///         Locked, because the generated producer runs on whatever thread first touched the
+///         assembly.
+///     </b>
+///     A module initializer is not on the frame thread and has no way to get onto it;
 ///     everything else here is, so contention is a start-up cost and nothing more.
 /// </remarks>
 public sealed class EditorRegistry : IEditorRegistry {
@@ -88,7 +92,7 @@ public sealed class EditorRegistry : IEditorRegistry {
             var typed = new T[found.Count];
 
             for (var index = 0; index < found.Count; index++) {
-                typed[index] = (T) found[index];
+                typed[index] = (T)found[index];
             }
 
             return typed;
@@ -118,7 +122,7 @@ public sealed class EditorRegistry : IEditorRegistry {
         Type[] kinds;
 
         lock (gate) {
-            kinds = [.. contributions.Keys];
+            kinds = [..contributions.Keys];
             contributions.Clear();
         }
 

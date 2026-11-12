@@ -41,7 +41,8 @@ public class LibraryTreeTests {
     ///     asserts about the library proper.
     /// </remarks>
     static readonly string[] Packages = [
-        "Core", "Shading", "Geometry", "DistanceFields", "IrradianceFields", "PunctualShadows", "VirtualShadows", "ScreenProbes",
+        "Core", "Shading", "Geometry", "DistanceFields", "IrradianceFields", "PunctualShadows", "VirtualShadows",
+        "ScreenProbes",
         "SurfaceCache", "Reflections", "Material", "Pipeline", "Ui", "PostFx", "Vfx", "Terrain", "Water"
     ];
 
@@ -83,7 +84,7 @@ public class LibraryTreeTests {
         var tree = SyntaxTree.ParseText(source, path: relative);
         Assert.True(
             tree.Diagnostics.Count == 0,
-            $"{relative} does not parse:\n" + string.Join("\n", tree.Diagnostics.Select(d => d.ToString()))
+            $"{relative} does not parse:\n" + string.Join("\n", tree.Diagnostics.Select(static d => d.ToString()))
         );
 
         Assert.Equal(source, tree.GetRoot().ToFullString());
@@ -101,7 +102,7 @@ public class LibraryTreeTests {
     [Fact]
     public void TheWholeLibraryBindsAsOneCompilation() {
         var trees = Files()
-            .Select(file => SyntaxTree.ParseText(File.ReadAllText(file), path: Path.GetFileName(file)))
+            .Select(static file => SyntaxTree.ParseText(File.ReadAllText(file), path: Path.GetFileName(file)))
             .ToArray();
 
         // A pipeline shader is a template, so its compose slot must be filled for the tree to bind:
@@ -117,7 +118,7 @@ public class LibraryTreeTests {
 
         Assert.True(
             diagnostics.Count == 0,
-            "The library does not bind cleanly:\n" + string.Join("\n", diagnostics.Select(d => d.ToString()))
+            "The library does not bind cleanly:\n" + string.Join("\n", diagnostics.Select(static d => d.ToString()))
         );
     }
 
@@ -135,10 +136,11 @@ public class LibraryTreeTests {
             var diagnostics = new DiagnosticBag();
             var library = BuildLibrary(Path.GetFileNameWithoutExtension(file), diagnostics);
 
-            var errors = diagnostics.ToArray().Where(d => d.IsError).ToArray();
+            var errors = diagnostics.ToArray().Where(static d => d.IsError).ToArray();
             Assert.True(
                 errors.Length == 0,
-                $"{Path.GetFileName(file)} does not export:\n" + string.Join("\n", errors.Select(d => d.ToString()))
+                $"{Path.GetFileName(file)} does not export:\n"
+                + string.Join("\n", errors.Select(static d => d.ToString()))
             );
 
             Assert.NotEmpty(library.Types);
@@ -155,7 +157,7 @@ public class LibraryTreeTests {
     public void AShaderCompilesAgainstTheLibraryThroughReferences(string target) {
         var generated = GenerateConsumer(target);
 
-        Assert.Equal([ShaderStage.Vertex, ShaderStage.Fragment], generated.Select(unit => unit.Stage));
+        Assert.Equal([ShaderStage.Vertex, ShaderStage.Fragment], generated.Select(static unit => unit.Stage));
 
         if (target == "spirv") {
             Assert.All(generated, SpirvTestBase.Validate);
@@ -174,11 +176,12 @@ public class LibraryTreeTests {
     /// </remarks>
     [Fact]
     public void AFunctionReachedThroughSeveralReferencesIsEmittedOnce() {
-        var fragment = Assert.Single(GenerateConsumer("glsl"), unit => unit.Stage == ShaderStage.Fragment).Code;
+        var fragment = Assert.Single(GenerateConsumer("glsl"), static unit => unit.Stage == ShaderStage.Fragment).Code;
 
         var definitions = fragment
             .Split('\n')
-            .Count(line => line.StartsWith("vec3 SafeNormalize(", StringComparison.Ordinal) && line.EndsWith('{'));
+            .Count(static line => line.StartsWith("vec3 SafeNormalize(", StringComparison.Ordinal) && line.EndsWith('{')
+            );
 
         Assert.Equal(1, definitions);
     }
@@ -194,14 +197,14 @@ public class LibraryTreeTests {
     /// </remarks>
     [Fact]
     public void UnreachedLibraryFunctionsAreNotEmitted() {
-        var fragment = Assert.Single(GenerateConsumer("glsl"), unit => unit.Stage == ShaderStage.Fragment).Code;
+        var fragment = Assert.Single(GenerateConsumer("glsl"), static unit => unit.Stage == ShaderStage.Fragment).Code;
 
-        foreach (var absent in (string[])[
-            "Halton", "ConcentricDisk", "RadicalInverseBase2", "ImportanceSampleGgx",
-            "OrenNayar", "Burley", "DistributionGgxAnisotropic",
-            "AcesFilmic", "AgXSigmoid", "LinearToPq", "RgbToYCoCg",
-            "EncodeOctahedral", "DecodeOctahedral", "DirectionToEquirectangular"
-        ]) {
+        foreach (var absent in (string[]) [
+                     "Halton", "ConcentricDisk", "RadicalInverseBase2", "ImportanceSampleGgx",
+                     "OrenNayar", "Burley", "DistributionGgxAnisotropic",
+                     "AcesFilmic", "AgXSigmoid", "LinearToPq", "RgbToYCoCg",
+                     "EncodeOctahedral", "DecodeOctahedral", "DirectionToEquirectangular"
+                 ]) {
             Assert.DoesNotContain(absent, fragment, StringComparison.Ordinal);
         }
     }
@@ -224,13 +227,13 @@ public class LibraryTreeTests {
         // The exported packages only, which is the scope the reference path covers. Pulling Pipeline
         // in would mean binding its compose slot, and a template shader is not what this compares.
         var trees = ExportedFiles()
-            .Select(file => SyntaxTree.ParseText(File.ReadAllText(file), path: Path.GetFileName(file)))
+            .Select(static file => SyntaxTree.ParseText(File.ReadAllText(file), path: Path.GetFileName(file)))
             .Append(SyntaxTree.ParseText(Consumer, path: "Consumer.rvn"))
             .ToArray();
 
         var bag = new DiagnosticBag();
         var together = Lowerer.Lower(Compilation.Create("Together", trees), bag);
-        Assert.True(bag.IsEmpty, string.Join("\n", bag.Select(d => d.ToString())));
+        Assert.True(bag.IsEmpty, string.Join("\n", bag.Select(static d => d.ToString())));
 
         foreach (var name in (string[])["VisibilitySmithGgx", "DistributionGgx", "SafeNormalize"]) {
             var fromReference = FindFunction(referenced, name);
@@ -264,12 +267,15 @@ public class LibraryTreeTests {
 
         // Sanity: the tree really does contain the passes, so a refactor that stopped finding files
         // cannot make this pass by generating nothing.
-        var names = module.Shaders.Select(shader => shader.Name).ToArray();
-        foreach (var expected in (string[])["ForwardPlus", "GBufferPass", "Deferred", "ClusterCulling", "DepthOnly", "ShadowCaster", "UiQuad", "Tonemap", "AutoExposure", "ParticleBillboard"]) {
+        var names = module.Shaders.Select(static shader => shader.Name).ToArray();
+        foreach (var expected in (string[]) [
+                     "ForwardPlus", "GBufferPass", "Deferred", "ClusterCulling", "DepthOnly", "ShadowCaster", "UiQuad",
+                     "Tonemap", "AutoExposure", "ParticleBillboard"
+                 ]) {
             Assert.Contains(expected, names);
         }
 
-        var entryPoints = module.Shaders.Sum(shader => shader.EntryPoints.Count);
+        var entryPoints = module.Shaders.Sum(static shader => shader.EntryPoints.Count);
         Assert.True(entryPoints >= 20, $"Only {entryPoints} entry points across the library.");
 
         AssertReachesBothBackends(module, entryPoints);
@@ -281,10 +287,10 @@ public class LibraryTreeTests {
             var bag = new DiagnosticBag();
             var generated = TargetBackends.Create(target)!.Generate(module, bag);
 
-            var errors = bag.ToArray().Where(d => d.IsError).ToArray();
+            var errors = bag.ToArray().Where(static d => d.IsError).ToArray();
             Assert.True(
                 errors.Length == 0,
-                $"The library does not reach {target}:\n" + string.Join("\n", errors.Select(d => d.ToString()))
+                $"The library does not reach {target}:\n" + string.Join("\n", errors.Select(static d => d.ToString()))
             );
 
             if (expectedUnits is { } count) {
@@ -323,10 +329,10 @@ public class LibraryTreeTests {
 
         var written = Assert.Single(
             FindShader(module, "ClusterCulling").Bindings,
-            b => b.Name == "clusters"
+            static b => b.Name == "clusters"
         );
 
-        var read = Assert.Single(FindShader(module, "ForwardPlus").Bindings, b => b.Name == "clusters");
+        var read = Assert.Single(FindShader(module, "ForwardPlus").Bindings, static b => b.Name == "clusters");
 
         // One type, not two structurally equal ones: the culler writes and the shading pass reads
         // the same `ClusterLights`, which is what keeps a channel from being added to one side only.
@@ -336,7 +342,7 @@ public class LibraryTreeTests {
 
         // The clustered loop is emitted and the uniform-array one is not, which is the permutation
         // doing its job rather than a branch surviving into the variant.
-        var fragment = FindShader(module, "ForwardPlus").Functions.Single(f => f.Name.Contains("Clustered"));
+        var fragment = FindShader(module, "ForwardPlus").Functions.Single(static f => f.Name.Contains("Clustered"));
         Assert.NotNull(fragment);
 
         AssertReachesBothBackends(module);
@@ -370,11 +376,11 @@ public class LibraryTreeTests {
         if (mode == "Mode=1") {
             // The adaptation step is the one that outlives the frame: a storage buffer the next
             // frame's tonemapper reads as a uniform, which no fragment stage could have written.
-            var buffer = Assert.Single(shader.Bindings, b => b.Name == "exposure");
+            var buffer = Assert.Single(shader.Bindings, static b => b.Name == "exposure");
             Assert.True(buffer.IsWritable);
         }
 
-        Assert.Contains(shader.Bindings, b => b.Kind == IrBindingKind.StorageImage);
+        Assert.Contains(shader.Bindings, static b => b.Kind == IrBindingKind.StorageImage);
         AssertReachesBothBackends(module);
     }
 
@@ -402,7 +408,7 @@ public class LibraryTreeTests {
         foreach (var name in (string[])["DepthOnly", "ShadowCaster"]) {
             var fragment = Assert.Single(
                 FindShader(module, name).EntryPoints,
-                entry => entry.Stage == ShaderStage.Fragment
+                static entry => entry.Stage == ShaderStage.Fragment
             );
 
             Assert.True(fragment.Function.Discards, $"{name}'s cutout did not survive lowering.");
@@ -412,11 +418,11 @@ public class LibraryTreeTests {
             var bag = new DiagnosticBag();
             var generated = TargetBackends.Create(target)!.Generate(module, bag);
 
-            var errors = bag.ToArray().Where(d => d.IsError).ToArray();
+            var errors = bag.ToArray().Where(static d => d.IsError).ToArray();
             Assert.True(
                 errors.Length == 0,
                 $"The alpha-tested library does not reach {target}:\n"
-                + string.Join("\n", errors.Select(d => d.ToString()))
+                + string.Join("\n", errors.Select(static d => d.ToString()))
             );
 
             if (target == "spirv") {
@@ -451,12 +457,12 @@ public class LibraryTreeTests {
         var culling = FindShader(traversal, "Culling");
 
         var shared = Assert.Single(culling.EntryPoints).SharedVariables;
-        Assert.Equal(["queue", "pushed", "taken", "overflowed"], shared.Select(v => v.Name).ToArray());
+        Assert.Equal(["queue", "pushed", "taken", "overflowed"], shared.Select(static v => v.Name).ToArray());
 
         // The output the traversal exists to produce, and the request buffer that makes streaming
         // demand-driven rather than predictive.
-        Assert.Contains(culling.Bindings, b => b.Name == "visible" && b.IsWritable);
-        Assert.Contains(culling.Bindings, b => b.Name == "requests" && b.IsWritable);
+        Assert.Contains(culling.Bindings, static b => b.Name == "visible" && b.IsWritable);
+        Assert.Contains(culling.Bindings, static b => b.Name == "requests" && b.IsWritable);
 
         AssertReachesBothBackends(traversal);
 
@@ -498,7 +504,11 @@ public class LibraryTreeTests {
 
         // With the permutation off it is gone entirely, so the ambient term costs a variant that has no
         // field exactly nothing.
-        Assert.DoesNotContain("VisibilityResolve_SampleIrradiance", ResolveSource(LowerTree()), StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            "VisibilityResolve_SampleIrradiance",
+            ResolveSource(LowerTree()),
+            StringComparison.Ordinal
+        );
 
         // And the forward pass reaches it through the same slot name, which is what makes the two
         // one decision rather than two that agree.
@@ -532,19 +542,19 @@ public class LibraryTreeTests {
     [Fact]
     public void A_composition_that_names_no_optional_slot_still_compiles_the_library() {
         var trees = Files()
-            .Select(file => SyntaxTree.ParseText(File.ReadAllText(file), path: Path.GetFileName(file)))
+            .Select(static file => SyntaxTree.ParseText(File.ReadAllText(file), path: Path.GetFileName(file)))
             .ToArray();
 
         var compilation = Compilation.Create("Library", PermutationValues.Empty, LibraryComposition.Minimal(), trees);
         var diagnostics = compilation.GetDiagnostics();
 
-        Assert.True(diagnostics.Count == 0, string.Join("\n", diagnostics.Select(d => d.ToString())));
+        Assert.True(diagnostics.Count == 0, string.Join("\n", diagnostics.Select(static d => d.ToString())));
 
         // And the defaults are what filled them, rather than the slots having quietly disappeared.
         var bag = new DiagnosticBag();
         var module = Lowerer.Lower(compilation, bag);
 
-        Assert.DoesNotContain(bag.ToArray(), d => d.IsError);
+        Assert.DoesNotContain(bag.ToArray(), static d => d.IsError);
         Assert.NotEmpty(module.Shaders);
     }
 
@@ -554,9 +564,12 @@ public class LibraryTreeTests {
     /// <summary>
     ///     Lowers the whole tree with a default material bound, verifying the IR.
     /// </summary>
-    static IrModule LowerTree(PermutationValues? permutations = null, params (string Slot, string Shader)[] composition) {
+    static IrModule LowerTree(
+        PermutationValues? permutations = null,
+        params (string Slot, string Shader)[] composition
+    ) {
         var trees = Files()
-            .Select(file => SyntaxTree.ParseText(File.ReadAllText(file), path: Path.GetFileName(file)))
+            .Select(static file => SyntaxTree.ParseText(File.ReadAllText(file), path: Path.GetFileName(file)))
             .ToArray();
 
         var compilation = Compilation.Create(
@@ -567,20 +580,20 @@ public class LibraryTreeTests {
         );
 
         var diagnostics = compilation.GetDiagnostics();
-        Assert.True(diagnostics.Count == 0, string.Join("\n", diagnostics.Select(d => d.ToString())));
+        Assert.True(diagnostics.Count == 0, string.Join("\n", diagnostics.Select(static d => d.ToString())));
 
         var bag = new DiagnosticBag();
         var module = Lowerer.Lower(compilation, bag);
 
         Assert.True(
             IrVerifier.Verify(module, bag),
-            "The library's IR does not verify:\n" + string.Join("\n", bag.Select(d => d.ToString()))
+            "The library's IR does not verify:\n" + string.Join("\n", bag.Select(static d => d.ToString()))
         );
 
-        var errors = bag.ToArray().Where(d => d.IsError).ToArray();
+        var errors = bag.ToArray().Where(static d => d.IsError).ToArray();
         Assert.True(
             errors.Length == 0,
-            "The library does not lower cleanly:\n" + string.Join("\n", errors.Select(d => d.ToString()))
+            "The library does not lower cleanly:\n" + string.Join("\n", errors.Select(static d => d.ToString()))
         );
 
         return module;
@@ -632,25 +645,28 @@ public class LibraryTreeTests {
 
         // The contract really is by-reference all the way to the IR, which is why `inout` exists.
         var compute = module.Shaders
-            .SelectMany(shader => shader.Functions)
-            .First(function => function.Name.EndsWith("Compute", StringComparison.Ordinal));
+            .SelectMany(static shader => shader.Functions)
+            .First(static function => function.Name.EndsWith("Compute", StringComparison.Ordinal));
 
         Assert.True(compute.Parameters[^1].IsByReference);
 
         // The feature's own parameters are now the effect's, qualified by the feature that declares
         // them so two features with a `strength` stay distinguishable.
-        var forward = module.Shaders.Single(shader => shader.Name == "Forward");
+        var forward = module.Shaders.Single(static shader => shader.Name == "Forward");
         Assert.Contains(forward.Bindings, binding => binding.Name.StartsWith(feature + ".", StringComparison.Ordinal));
 
         foreach (var target in (string[])["glsl", "spirv"]) {
             var bag = new DiagnosticBag();
             var generated = TargetBackends.Create(target)!.Generate(module, bag);
 
-            var errors = bag.ToArray().Where(d => d.IsError).ToArray();
-            Assert.True(errors.Length == 0, string.Join("\n", errors.Select(d => d.ToString())));
+            var errors = bag.ToArray().Where(static d => d.IsError).ToArray();
+            Assert.True(errors.Length == 0, string.Join("\n", errors.Select(static d => d.ToString())));
 
             if (target == "spirv") {
-                Assert.All(generated.Where(unit => unit.Name.StartsWith("Forward", StringComparison.Ordinal)), SpirvTestBase.Validate);
+                Assert.All(
+                    generated.Where(static unit => unit.Name.StartsWith("Forward", StringComparison.Ordinal)),
+                    SpirvTestBase.Validate
+                );
             }
         }
     }
@@ -677,8 +693,12 @@ public class LibraryTreeTests {
     ///         have parameters and those arrived either way.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The second claim used to be <c>Assert.NotEqual</c> over the emitted GLSL as
-    ///         <em>text</em>, and that is a syntactic proxy for a semantic question — #1249.</b> A
+    ///         ⚠
+    ///         <b>
+    ///             The second claim used to be <c>Assert.NotEqual</c> over the emitted GLSL as
+    ///             <em>text</em>, and that is a syntactic proxy for a semantic question — #1249.
+    ///         </b>
+    ///         A
     ///         model rewritten to shade exactly like <c>StandardShading</c> passed it: with
     ///         <c>OrenNayarShading.Shade</c> calling <c>DiffuseModels.Lambert</c> the two units still
     ///         compared unequal, because the body kept one extra local and a declared local
@@ -757,13 +777,14 @@ public class LibraryTreeTests {
             var bag = new DiagnosticBag();
             var generated = TargetBackends.Create(target)!.Generate(module, bag);
 
-            var errors = bag.ToArray().Where(d => d.IsError).ToArray();
+            var errors = bag.ToArray().Where(static d => d.IsError).ToArray();
             Assert.True(
                 errors.Length == 0,
-                $"{model} does not reach {target}:\n" + string.Join("\n", errors.Select(d => d.ToString()))
+                $"{model} does not reach {target}:\n" + string.Join("\n", errors.Select(static d => d.ToString()))
             );
 
-            var pass = generated.Where(unit => unit.Name.StartsWith("ForwardPlus", StringComparison.Ordinal)).ToArray();
+            var pass = generated.Where(static unit => unit.Name.StartsWith("ForwardPlus", StringComparison.Ordinal))
+                .ToArray();
             Assert.NotEmpty(pass);
 
             if (target == "spirv") {
@@ -780,8 +801,12 @@ public class LibraryTreeTests {
     /// <remarks>
     ///     <para>
     ///         <b>#1155's actual claim, which the theory above cannot make.</b> That test asserts the
-    ///         emitted unit differs from the standard model's, as <em>text</em> — and ⚠ <b>a model
-    ///         that shades exactly like <c>StandardShading</c> passes it</b>. It did: with
+    ///         emitted unit differs from the standard model's, as <em>text</em> — and ⚠
+    ///         <b>
+    ///             a model
+    ///             that shades exactly like <c>StandardShading</c> passes it
+    ///         </b>
+    ///         . It did: with
     ///         <c>OrenNayarShading</c>'s <c>Shade</c> sabotaged to call <c>DiffuseModels.Lambert</c>
     ///         the theory stayed green, because the sabotaged body kept one extra local and a
     ///         declared local renumbers every temporary after it. See
@@ -855,7 +880,7 @@ public class LibraryTreeTests {
             ]
         );
 
-        var names = FindShader(module, "ForwardPlus").Bindings.Select(binding => binding.Name).ToArray();
+        var names = FindShader(module, "ForwardPlus").Bindings.Select(static binding => binding.Name).ToArray();
 
         Assert.Contains("CompositeSurface.MetalRoughnessSurface.baseColor", names);
         Assert.Contains("CompositeSurface.NormalMapSurface.normalTS", names);
@@ -863,15 +888,16 @@ public class LibraryTreeTests {
 
         // The slots the material did not use contributed nothing — which is what makes one chain
         // able to stand in for every length.
-        Assert.DoesNotContain(names, name => name.Contains("IdentitySurface", StringComparison.Ordinal));
+        Assert.DoesNotContain(names, static name => name.Contains("IdentitySurface", StringComparison.Ordinal));
 
         foreach (var target in (string[])["glsl", "spirv"]) {
             var bag = new DiagnosticBag();
             var generated = TargetBackends.Create(target)!.Generate(module, bag);
 
-            Assert.DoesNotContain(bag.ToArray(), d => d.IsError);
+            Assert.DoesNotContain(bag.ToArray(), static d => d.IsError);
 
-            var pass = generated.Where(unit => unit.Name.StartsWith("ForwardPlus", StringComparison.Ordinal)).ToArray();
+            var pass = generated.Where(static unit => unit.Name.StartsWith("ForwardPlus", StringComparison.Ordinal))
+                .ToArray();
 
             if (target == "spirv") {
                 Assert.All(pass, SpirvTestBase.Validate);
@@ -896,21 +922,22 @@ public class LibraryTreeTests {
     public void ALayeredMaterialSizesItsLayersByPermutation(int count) {
         var module = LowerTree(
             PermutationValues.Parse([$"LayerCount={count}"]),
-            composition: [("surface", "MaterialLayersSurface")]
+            [("surface", "MaterialLayersSurface")]
         );
 
         var pass = FindShader(module, "ForwardPlus");
-        var names = pass.Bindings.Select(binding => binding.Name).ToArray();
+        var names = pass.Bindings.Select(static binding => binding.Name).ToArray();
 
-        Assert.Contains(names, name => name.Contains("MaterialLayersSurface.layers", StringComparison.Ordinal));
+        Assert.Contains(names, static name => name.Contains("MaterialLayersSurface.layers", StringComparison.Ordinal));
 
         foreach (var target in (string[])["glsl", "spirv"]) {
             var bag = new DiagnosticBag();
             var generated = TargetBackends.Create(target)!.Generate(module, bag);
 
-            Assert.DoesNotContain(bag.ToArray(), d => d.IsError);
+            Assert.DoesNotContain(bag.ToArray(), static d => d.IsError);
 
-            var units = generated.Where(unit => unit.Name.StartsWith("ForwardPlus", StringComparison.Ordinal)).ToArray();
+            var units = generated.Where(static unit => unit.Name.StartsWith("ForwardPlus", StringComparison.Ordinal))
+                .ToArray();
 
             if (target == "spirv") {
                 Assert.All(units, SpirvTestBase.Validate);
@@ -939,7 +966,7 @@ public class LibraryTreeTests {
             ]
         );
 
-        var names = FindShader(module, "ForwardPlus").Bindings.Select(binding => binding.Name).ToArray();
+        var names = FindShader(module, "ForwardPlus").Bindings.Select(static binding => binding.Name).ToArray();
 
         Assert.Contains("BlendSurface.MetalRoughnessSurface.baseColor", names);
         Assert.Contains("BlendSurface.SpecularGlossinessSurface.specularColor", names);
@@ -949,9 +976,10 @@ public class LibraryTreeTests {
             var bag = new DiagnosticBag();
             var generated = TargetBackends.Create(target)!.Generate(module, bag);
 
-            Assert.DoesNotContain(bag.ToArray(), d => d.IsError);
+            Assert.DoesNotContain(bag.ToArray(), static d => d.IsError);
 
-            var units = generated.Where(unit => unit.Name.StartsWith("ForwardPlus", StringComparison.Ordinal)).ToArray();
+            var units = generated.Where(static unit => unit.Name.StartsWith("ForwardPlus", StringComparison.Ordinal))
+                .ToArray();
 
             if (target == "spirv") {
                 Assert.All(units, SpirvTestBase.Validate);
@@ -999,7 +1027,7 @@ public class LibraryTreeTests {
             ]
         );
 
-        var names = FindShader(module, "ForwardPlus").Bindings.Select(binding => binding.Name).ToArray();
+        var names = FindShader(module, "ForwardPlus").Bindings.Select(static binding => binding.Name).ToArray();
 
         Assert.Contains("CompositeSurface.MetalRoughnessSurface.baseColor", names);
         Assert.Contains("CompositeSurface.NormalMapSurface.normalTS", names);
@@ -1009,9 +1037,10 @@ public class LibraryTreeTests {
             var bag = new DiagnosticBag();
             var generated = TargetBackends.Create(target)!.Generate(module, bag);
 
-            Assert.DoesNotContain(bag.ToArray(), d => d.IsError);
+            Assert.DoesNotContain(bag.ToArray(), static d => d.IsError);
 
-            var pass = generated.Where(unit => unit.Name.StartsWith("ForwardPlus", StringComparison.Ordinal)).ToArray();
+            var pass = generated.Where(static unit => unit.Name.StartsWith("ForwardPlus", StringComparison.Ordinal))
+                .ToArray();
 
             if (target == "spirv") {
                 Assert.All(pass, SpirvTestBase.Validate);
@@ -1043,12 +1072,12 @@ public class LibraryTreeTests {
     [Fact]
     public void TheLibraryDeclaresExactlyTheSlotsTheEngineBinds() {
         var declared = Files()
-            .SelectMany(file => File.ReadAllLines(file))
-            .Select(line => line.Trim())
-            .Where(line => line.StartsWith("compose val ", StringComparison.Ordinal))
-            .Select(line => line["compose val ".Length..].Split(':')[0].Trim())
+            .SelectMany(static file => File.ReadAllLines(file))
+            .Select(static line => line.Trim())
+            .Where(static line => line.StartsWith("compose val ", StringComparison.Ordinal))
+            .Select(static line => line["compose val ".Length..].Split(':')[0].Trim())
             .Distinct(StringComparer.Ordinal)
-            .OrderBy(slot => slot, StringComparer.Ordinal)
+            .OrderBy(static slot => slot, StringComparer.Ordinal)
             .ToArray();
 
         // Slot names only: which shader declares which is the engine's business, and qualifying them
@@ -1109,16 +1138,16 @@ public class LibraryTreeTests {
             var bag = new DiagnosticBag();
             var generated = TargetBackends.Create(target)!.Generate(module, bag);
 
-            var errors = bag.ToArray().Where(d => d.IsError).ToArray();
+            var errors = bag.ToArray().Where(static d => d.IsError).ToArray();
 
             Assert.True(
                 errors.Length == 0,
                 $"{model} does not reach {target} through the resolve:\n"
-                + string.Join("\n", errors.Select(d => d.ToString()))
+                + string.Join("\n", errors.Select(static d => d.ToString()))
             );
 
             var pass = generated
-                .Where(unit => unit.Name.StartsWith("VisibilityResolve", StringComparison.Ordinal))
+                .Where(static unit => unit.Name.StartsWith("VisibilityResolve", StringComparison.Ordinal))
                 .ToArray();
 
             Assert.NotEmpty(pass);
@@ -1190,7 +1219,9 @@ public class LibraryTreeTests {
     /// </remarks>
     [Fact]
     public void The_forward_pass_and_the_resolve_share_one_light_loop() {
-        var composition = new (string, string)[] { ("surface", "MetalRoughnessSurface"), ("shading", "StandardShading") };
+        var composition = new (string, string)[] {
+            ("surface", "MetalRoughnessSurface"), ("shading", "StandardShading")
+        };
 
         var permutations = PermutationValues.Parse(["UseClusteredLights=true", "UseShadows=true"]);
         var module = LowerTree(permutations, composition);
@@ -1250,7 +1281,7 @@ public class LibraryTreeTests {
     [Fact]
     public void A_shader_inherits_its_bases_permutations() {
         var pass = FindShader(LowerTree(), "ForwardPlus");
-        var names = pass.Permutations.Select(permutation => permutation.Name).ToArray();
+        var names = pass.Permutations.Select(static permutation => permutation.Name).ToArray();
 
         // Its own, and the base's.
         Assert.Contains("UseTransformRecords", names);
@@ -1260,7 +1291,7 @@ public class LibraryTreeTests {
 
         // The resolve inherits the same ones, which is what lets a host ask for the same lighting.
         var resolve = FindShader(LowerTree(), "VisibilityResolve");
-        var resolveNames = resolve.Permutations.Select(permutation => permutation.Name).ToArray();
+        var resolveNames = resolve.Permutations.Select(static permutation => permutation.Name).ToArray();
 
         Assert.Contains("UseClusteredLights", resolveNames);
         Assert.Contains("UseShadows", resolveNames);
@@ -1268,7 +1299,7 @@ public class LibraryTreeTests {
         // And a composed feature's are not hoisted: the surface below has its own and the pass does not
         // gain them.
         var composed = FindShader(LowerTree(composition: [("shading", "CelShading")]), "ForwardPlus");
-        Assert.DoesNotContain("Steps", composed.Permutations.Select(permutation => permutation.Name));
+        Assert.DoesNotContain("Steps", composed.Permutations.Select(static permutation => permutation.Name));
     }
 
     /// <summary>
@@ -1485,11 +1516,11 @@ public class LibraryTreeTests {
         var bag = new DiagnosticBag();
         var generated = TargetBackends.Create("glsl")!.Generate(module, bag);
 
-        Assert.DoesNotContain(bag.ToArray(), d => d.IsError);
+        Assert.DoesNotContain(bag.ToArray(), static d => d.IsError);
 
         return Assert.Single(
                 generated,
-                unit => unit.Name.StartsWith("VisibilityResolve", StringComparison.Ordinal)
+                static unit => unit.Name.StartsWith("VisibilityResolve", StringComparison.Ordinal)
                     && unit.Stage == ShaderStage.Compute
             )
             .Code;
@@ -1500,8 +1531,12 @@ public class LibraryTreeTests {
     /// <returns>The identifiers it calls, declares or constructs, without duplicates.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A set of names rather than the emitted text, because the text answers a
-    ///         different question than the one being asked</b> — #1249. Two units that shade
+    ///         ⚠
+    ///         <b>
+    ///             A set of names rather than the emitted text, because the text answers a
+    ///             different question than the one being asked
+    ///         </b>
+    ///         — #1249. Two units that shade
     ///         identically differ as text the moment one of them declares a local the other does not,
     ///         since every temporary after it renumbers; and two units that shade
     ///         <em>differently</em> are guaranteed to differ in what they call only when the
@@ -1550,18 +1585,19 @@ public class LibraryTreeTests {
         var bag = new DiagnosticBag();
         var generated = TargetBackends.Create("glsl")!.Generate(module, bag);
 
-        Assert.DoesNotContain(bag.ToArray(), d => d.IsError);
+        Assert.DoesNotContain(bag.ToArray(), static d => d.IsError);
 
         return Assert.Single(
                 generated,
-                unit => unit.Name.StartsWith("ForwardPlus", StringComparison.Ordinal) && unit.Stage == ShaderStage.Fragment
+                static unit => unit.Name.StartsWith("ForwardPlus", StringComparison.Ordinal)
+                    && unit.Stage == ShaderStage.Fragment
             )
             .Code;
     }
 
     static IrModule LowerMaterial(string feature) {
         var trees = Files()
-            .Select(file => SyntaxTree.ParseText(File.ReadAllText(file), path: Path.GetFileName(file)))
+            .Select(static file => SyntaxTree.ParseText(File.ReadAllText(file), path: Path.GetFileName(file)))
             .Append(SyntaxTree.ParseText(MaterialConsumer, path: "Forward.rvn"))
             .ToArray();
 
@@ -1575,7 +1611,7 @@ public class LibraryTreeTests {
         var diagnostics = compilation.GetDiagnostics();
         Assert.True(
             diagnostics.Count == 0,
-            "The material contract does not bind:\n" + string.Join("\n", diagnostics.Select(d => d.ToString()))
+            "The material contract does not bind:\n" + string.Join("\n", diagnostics.Select(static d => d.ToString()))
         );
 
         var bag = new DiagnosticBag();
@@ -1583,10 +1619,10 @@ public class LibraryTreeTests {
 
         Assert.True(
             IrVerifier.Verify(module, bag),
-            "The composed module does not verify:\n" + string.Join("\n", bag.Select(d => d.ToString()))
+            "The composed module does not verify:\n" + string.Join("\n", bag.Select(static d => d.ToString()))
         );
 
-        Assert.True(bag.IsEmpty, string.Join("\n", bag.Select(d => d.ToString())));
+        Assert.True(bag.IsEmpty, string.Join("\n", bag.Select(static d => d.ToString())));
         return module;
     }
 
@@ -1631,8 +1667,8 @@ public class LibraryTreeTests {
 
     static IEnumerable<string> In(string[] packages) =>
         packages
-            .SelectMany(package => Directory.EnumerateFiles(Path.Combine(LibraryRoot, package), "*.rvn"))
-            .OrderBy(file => file, StringComparer.Ordinal);
+            .SelectMany(static package => Directory.EnumerateFiles(Path.Combine(LibraryRoot, package), "*.rvn"))
+            .OrderBy(static file => file, StringComparer.Ordinal);
 
     /// <summary>
     ///     A shader that reaches into all three referenced libraries, including through a stream so
@@ -1693,7 +1729,7 @@ public class LibraryTreeTests {
         // including Material — which is shaders with bindings — would be RVN5001 for its functions
         // even while building Core's artefact.
         var trees = ExportedFiles()
-            .Select(f => SyntaxTree.ParseText(File.ReadAllText(f), path: Path.GetFileName(f)))
+            .Select(static f => SyntaxTree.ParseText(File.ReadAllText(f), path: Path.GetFileName(f)))
             .ToArray();
 
         var compilation = Compilation.Create(name, trees);
@@ -1719,14 +1755,17 @@ public class LibraryTreeTests {
         foreach (var file in ExportedFiles()) {
             var diagnostics = new DiagnosticBag();
             var library = BuildLibrary(Path.GetFileNameWithoutExtension(file), diagnostics);
-            Assert.DoesNotContain(diagnostics.ToArray(), d => d.IsError);
+            Assert.DoesNotContain(diagnostics.ToArray(), static d => d.IsError);
 
-            var path = Path.Combine(directory, Path.GetFileNameWithoutExtension(file) + CompiledLibraryFormat.Extension);
+            var path = Path.Combine(
+                directory,
+                Path.GetFileNameWithoutExtension(file) + CompiledLibraryFormat.Extension
+            );
             CompiledLibraryWriter.WriteFile(path, library);
             references.Add(RavenReference.FromFile(path));
         }
 
-        return [.. references];
+        return [..references];
     }
 
     static IrModule LowerConsumer(RavenReference[] references) {
@@ -1737,7 +1776,7 @@ public class LibraryTreeTests {
         Assert.True(
             diagnostics.Count == 0,
             "The consumer does not bind against the library:\n"
-            + string.Join("\n", diagnostics.Select(d => d.ToString()))
+            + string.Join("\n", diagnostics.Select(static d => d.ToString()))
         );
 
         var bag = new DiagnosticBag();
@@ -1745,10 +1784,10 @@ public class LibraryTreeTests {
 
         Assert.True(
             IrVerifier.Verify(module, bag),
-            "The linked module does not verify:\n" + string.Join("\n", bag.Select(d => d.ToString()))
+            "The linked module does not verify:\n" + string.Join("\n", bag.Select(static d => d.ToString()))
         );
 
-        Assert.True(bag.IsEmpty, string.Join("\n", bag.Select(d => d.ToString())));
+        Assert.True(bag.IsEmpty, string.Join("\n", bag.Select(static d => d.ToString())));
         return module;
     }
 
@@ -1757,15 +1796,15 @@ public class LibraryTreeTests {
         var bag = new DiagnosticBag();
         var generated = TargetBackends.Create(target)!.Generate(module, bag);
 
-        var errors = bag.ToArray().Where(d => d.IsError).ToArray();
-        Assert.True(errors.Length == 0, string.Join("\n", errors.Select(d => d.ToString())));
+        var errors = bag.ToArray().Where(static d => d.IsError).ToArray();
+        Assert.True(errors.Length == 0, string.Join("\n", errors.Select(static d => d.ToString())));
 
         return generated;
     }
 
     static IrFunction FindFunction(IrModule module, string name) {
         var matches = module.Shaders
-            .SelectMany(shader => shader.Functions)
+            .SelectMany(static shader => shader.Functions)
             .Concat(module.Functions)
             .Where(function => function.Name.EndsWith(name, StringComparison.Ordinal))
             .ToArray();

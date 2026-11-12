@@ -12,8 +12,12 @@ namespace Vixen.Build;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>This is strictly narrower than <see cref="DataContractGeneratorRule" /> and is not
-///         covered by it.</b> That rule refuses a project naming <em>neither</em> registration
+///         ⚠
+///         <b>
+///             This is strictly narrower than <see cref="DataContractGeneratorRule" /> and is not
+///             covered by it.
+///         </b>
+///         That rule refuses a project naming <em>neither</em> registration
 ///         generator; a project naming the two <c>Vixen.Core.*</c> ones and not
 ///         <c>Vixen.Engine.Generators</c> reads clean there and is missing the third declaration.
 ///         <c>Vixen.Ai.Nodes</c> and <c>Vixen.Ai.Perception</c> were both in exactly that state
@@ -37,8 +41,12 @@ namespace Vixen.Build;
 ///         same conjunction. <c>[DataContract]</c> by itself is the other rule's business.
 ///     </para>
 ///     <para>
-///         ⚠ <b>And only where the registry is reachable, because the generator itself is a no-op
-///         otherwise.</b> <c>ComponentRegistrationGenerator</c> selects on
+///         ⚠
+///         <b>
+///             And only where the registry is reachable, because the generator itself is a no-op
+///             otherwise.
+///         </b>
+///         <c>ComponentRegistrationGenerator</c> selects on
 ///         <c>compilation.GetTypeByMetadataName("Vixen.Engine.Scenes.SceneComponentRegistry")</c> and
 ///         emits nothing when it is absent — <c>Vixen.Net</c> declares components without referencing
 ///         <c>Vixen.Engine</c> deliberately. A rule that ignored that would demand an analyzer
@@ -153,8 +161,12 @@ static class ComponentGeneratorRule {
     ///         whole rule exists to make loud.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>An argument list is tracked separately from the brackets, because a name after a
-    ///         comma inside one looks exactly like a second attribute.</b> <c>[Foo(1, Component)]</c>
+    ///         ⚠
+    ///         <b>
+    ///             An argument list is tracked separately from the brackets, because a name after a
+    ///             comma inside one looks exactly like a second attribute.
+    ///         </b>
+    ///         <c>[Foo(1, Component)]</c>
     ///         is one attribute and an enum member, and reading it as two would make a project a
     ///         subject on the strength of something that is not an attribute at all.
     ///     </para>
@@ -256,8 +268,12 @@ static class ComponentGeneratorRule {
     /// <param name="projectFile">The project to read.</param>
     /// <returns>True when the pair in that project would be declared to the registry.</returns>
     /// <remarks>
-    ///     ⚠ <b>A <c>PackageReference</c> to <c>Vixen.Engine</c> is enough and a
-    ///     <c>ProjectReference</c> to it is not</b>, which is the whole difference. The package puts
+    ///     ⚠
+    ///     <b>
+    ///         A <c>PackageReference</c> to <c>Vixen.Engine</c> is enough and a
+    ///         <c>ProjectReference</c> to it is not
+    ///     </b>
+    ///     , which is the whole difference. The package puts
     ///     the generator under <c>analyzers/dotnet/cs</c> — <c>Vixen.Engine.csproj</c>'s
     ///     <c>PackEngineGenerators</c> target, added because a project scaffolded from the
     ///     <c>vixen-game</c> template got no generator at all — and an analyzer does not flow through
@@ -317,7 +333,7 @@ static class ComponentGeneratorRule {
                 continue;
             }
 
-            if (DataContractGeneratorRule.Sources(project).Exists(source => Applications(source).Count > 0)) {
+            if (DataContractGeneratorRule.Sources(project).Exists(static source => Applications(source).Count > 0)) {
                 subjects.Add(name);
             }
         }
@@ -335,12 +351,13 @@ static class ComponentGeneratorRule {
         var files = projects.ToList();
         var subjects = Subjects(files);
 
-        return files
-            .Where(project => subjects.Contains(Path.GetFileNameWithoutExtension(project), StringComparer.Ordinal))
-            .Where(project => !NamesTheGenerator(project))
-            .Select(project => Path.GetFileNameWithoutExtension(project))
-            .Order(StringComparer.Ordinal)
-            .ToList();
+        return [
+            ..files
+                .Where(project => subjects.Contains(Path.GetFileNameWithoutExtension(project), StringComparer.Ordinal))
+                .Where(static project => !NamesTheGenerator(project))
+                .Select(static project => Path.GetFileNameWithoutExtension(project))
+                .Order(StringComparer.Ordinal)
+        ];
     }
 
     /// <summary>The project names the exemption file allows to be offenders.</summary>
@@ -381,8 +398,8 @@ static class ComponentGeneratorRule {
     /// <returns>One message per violation; empty when the tree agrees with the exemption file.</returns>
     /// <remarks>
     ///     ⚠ <b>An exempted project that has become clean is a violation too</b>, which is what makes
-    ///     the list only ever shrink — the property <c>CheckWhitespace</c>'s and
-    ///     <c>CheckDocComments</c>' lists have, and the reason a stale line cannot sit there hiding a
+    ///     the list only ever shrink — the property <c>CheckDocComments</c>' and
+    ///     <c>CheckDocs</c>' lists have, and the reason a stale line cannot sit there hiding a
     ///     project that has since been fixed and re-broken.
     /// </remarks>
     public static List<string> Violations(string root, IEnumerable<string> projects) {

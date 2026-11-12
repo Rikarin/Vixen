@@ -66,12 +66,12 @@ public class VfxGpuDispatchTests : IDisposable {
         Assert.Equal(0, simulation.Dispatches);
 
         using (var list = device.BeginCommandList(QueueKind.Compute, "counted")) {
-            simulation.Initialize(list, Kernel("initialize"), 0, Count, seed: 3, time: 0f);
+            simulation.Initialize(list, Kernel("initialize"), 0, Count, 3, 0f);
 
             var clock = 0f;
 
             for (var step = 0; step < Steps; step++) {
-                simulation.Update(list, Kernel("update"), Count, 1f / 60f, seed: 3, clock);
+                simulation.Update(list, Kernel("update"), Count, 1f / 60f, 3, clock);
                 clock += 1f / 60f;
             }
 
@@ -100,7 +100,7 @@ public class VfxGpuDispatchTests : IDisposable {
         using var simulation = new VfxGpuSimulation(device, shader, Count);
 
         using (var list = device.BeginCommandList(QueueKind.Compute, "empty")) {
-            simulation.Update(list, Kernel("update"), 0, 1f / 60f, seed: 3, time: 0f);
+            simulation.Update(list, Kernel("update"), 0, 1f / 60f, 3, 0f);
             list.Finish();
             device.ComputeQueue.Submit([list]);
         }
@@ -125,7 +125,7 @@ public class VfxGpuDispatchTests : IDisposable {
         using var simulation = new VfxGpuSimulation(device, shader, Count);
 
         using (var list = device.BeginCommandList(QueueKind.Compute, "reaped")) {
-            simulation.Update(list, Kernel("update"), Count, 1f / 60f, seed: 3, time: 0f);
+            simulation.Update(list, Kernel("update"), Count, 1f / 60f, 3, 0f);
             simulation.Reap(list, Kernel("reap"), Count);
             list.Finish();
             device.ComputeQueue.Submit([list]);
@@ -154,7 +154,7 @@ public class VfxGpuDispatchTests : IDisposable {
         Assert.Equal(0, sort.Dispatches);
 
         using (var list = device.BeginCommandList(QueueKind.Compute, "sorted")) {
-            sort.Record(list, Kernel("seed"), Kernel("step"), Count, new Vector3(0f, 0f, 5f));
+            sort.Record(list, Kernel("seed"), Kernel("step"), Count, new(0f, 0f, 5f));
             list.Finish();
             device.ComputeQueue.Submit([list]);
         }
@@ -238,7 +238,7 @@ public class VfxGpuDispatchTests : IDisposable {
         var before = device.Recorder!.CountOf(RecordedCommandKind.BindDescriptorSet);
 
         using (var list = device.BeginCommandList(QueueKind.Compute, "seeded")) {
-            sort.Record(list, Kernel("seed"), Kernel("step"), Count, new Vector3(0f, 0f, 5f));
+            sort.Record(list, Kernel("seed"), Kernel("step"), Count, new(0f, 0f, 5f));
             list.Finish();
             device.ComputeQueue.Submit([list]);
         }
@@ -265,9 +265,7 @@ public class VfxGpuDispatchTests : IDisposable {
     ///     bytes are never read: what is being counted is the command, not the kernel.
     /// </remarks>
     PipelineHandle Kernel(string name) =>
-        device.CreateComputePipeline(
-            new(device.CreateShader(ShaderStage.Compute, new byte[4], name), default, name)
-        );
+        device.CreateComputePipeline(new(device.CreateShader(ShaderStage.Compute, new byte[4], name), default, name));
 
     /// <summary>A graph whose particles never finish: positions, a velocity, and an integration.</summary>
     static VfxCompiledGraph Graph() =>

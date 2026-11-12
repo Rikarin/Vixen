@@ -148,7 +148,7 @@ public class ColorPickerFocusRingTests {
         using var fixture = new AdvancedFixture();
         var picker = Picker(fixture);
 
-        var chips = picker.Palette.Children.OfType<ColorSwatch>().Where(chip => chip.Selectable).ToList();
+        var chips = picker.Palette.Children.OfType<ColorSwatch>().Where(static chip => chip.Selectable).ToList();
 
         Assert.Equal(picker.Swatches.Count, chips.Count);
 
@@ -159,8 +159,12 @@ public class ColorPickerFocusRingTests {
 
     /// <summary>A band's box does not move when the focus arrives, which is why the border is resting.</summary>
     /// <remarks>
-    ///     ⚠ <b><c>box-sizing</c> is <c>border-box</c>, so a ring added on focus reflows the
-    ///     element's own content by a pixel each way</b> — the marker drawn inside a band would
+    ///     ⚠
+    ///     <b>
+    ///         <c>box-sizing</c> is <c>border-box</c>, so a ring added on focus reflows the
+    ///         element's own content by a pixel each way
+    ///     </b>
+    ///     — the marker drawn inside a band would
     ///     twitch every time the focus came and went. <c>gradient-rail</c> was given a transparent
     ///     resting border for exactly this and the two bands now are too; this is what would go red
     ///     if somebody folded the width into the <c>:focus-visible</c> rule to save a line.

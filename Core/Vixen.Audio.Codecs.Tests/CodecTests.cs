@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Audio;
-using Vixen.Audio.Codecs;
 using Vixen.Audio.Streaming;
 using Xunit;
 
@@ -36,7 +35,7 @@ public sealed class CodecTests {
             collected.AddRange(block.AsSpan(0, frames * channels).ToArray());
         }
 
-        return [.. collected];
+        return [..collected];
     }
 
     /// <summary>What a correlation reads for the fixture's own tone: half its amplitude.</summary>
@@ -66,14 +65,14 @@ public sealed class CodecTests {
             imaginary += mono[i] * Math.Sin(angle);
         }
 
-        return (float)(Math.Sqrt((real * real) + (imaginary * imaginary)) / mono.Length);
+        return (float)(Math.Sqrt(real * real + imaginary * imaginary) / mono.Length);
     }
 
     static float[] Channel(float[] interleaved, int channels, int channel) {
         var mono = new float[interleaved.Length / channels];
 
         for (var frame = 0; frame < mono.Length; frame++) {
-            mono[frame] = interleaved[(frame * channels) + channel];
+            mono[frame] = interleaved[frame * channels + channel];
         }
 
         return mono;
@@ -102,8 +101,14 @@ public sealed class CodecTests {
         // Away from the ends, where an encoder's window has faded the signal.
         var mono = Channel(decoded, 2, 0).AsSpan(4_800, 24_000);
 
-        Assert.True(Correlation(mono, ToneHz) > Expected * 0.8f, $"the tone correlated at only {Correlation(mono, ToneHz):F4}, wanted about {Expected:F2}");
-        Assert.True(Correlation(mono, ToneHz * 3f) < Expected * 0.05f, $"a third harmonic at {Correlation(mono, ToneHz * 3f):F4}");
+        Assert.True(
+            Correlation(mono, ToneHz) > Expected * 0.8f,
+            $"the tone correlated at only {Correlation(mono, ToneHz):F4}, wanted about {Expected:F2}"
+        );
+        Assert.True(
+            Correlation(mono, ToneHz * 3f) < Expected * 0.05f,
+            $"a third harmonic at {Correlation(mono, ToneHz * 3f):F4}"
+        );
     }
 
     [Fact]
@@ -117,13 +122,16 @@ public sealed class CodecTests {
         var frames = decoder.Decode(buffer, 4_800);
 
         Assert.Equal(4_800, frames);
-        Assert.True(Correlation(Channel(buffer, 2, 0), ToneHz) > Expected * 0.8f, $"correlated at {Correlation(Channel(buffer, 2, 0), ToneHz):F4}");
+        Assert.True(
+            Correlation(Channel(buffer, 2, 0), ToneHz) > Expected * 0.8f,
+            $"correlated at {Correlation(Channel(buffer, 2, 0), ToneHz):F4}"
+        );
     }
 
     [Fact]
     public void VorbisRefusesSomethingThatIsNotVorbis() {
         using var stream = new MemoryStream(new byte[4_096]);
-        Assert.Throws<InvalidDataException>(() => new VorbisStreamDecoder(stream, leaveOpen: true));
+        Assert.Throws<InvalidDataException>(() => new VorbisStreamDecoder(stream, true));
     }
 
     /// <summary>Whatever the file's "input sample rate" says, Opus decodes at 48 and only at 48.</summary>
@@ -149,8 +157,14 @@ public sealed class CodecTests {
         Assert.InRange(decoded.Length, Rate - 3_000, Rate + 3_000);
 
         var mono = decoded.AsSpan(4_800, 24_000);
-        Assert.True(Correlation(mono, ToneHz) > Expected * 0.8f, $"the tone correlated at only {Correlation(mono, ToneHz):F4}, wanted about {Expected:F2}");
-        Assert.True(Correlation(mono, ToneHz * 3f) < Expected * 0.05f, $"a third harmonic at {Correlation(mono, ToneHz * 3f):F4}");
+        Assert.True(
+            Correlation(mono, ToneHz) > Expected * 0.8f,
+            $"the tone correlated at only {Correlation(mono, ToneHz):F4}, wanted about {Expected:F2}"
+        );
+        Assert.True(
+            Correlation(mono, ToneHz * 3f) < Expected * 0.05f,
+            $"a third harmonic at {Correlation(mono, ToneHz * 3f):F4}"
+        );
     }
 
     [Fact]
@@ -162,7 +176,10 @@ public sealed class CodecTests {
 
         foreach (var channel in new[] { 0, 1 }) {
             var mono = Channel(decoded, 2, channel).AsSpan(4_800, 24_000);
-            Assert.True(Correlation(mono, ToneHz) > Expected * 0.8f, $"channel {channel} correlated at {Correlation(mono, ToneHz):F4}");
+            Assert.True(
+                Correlation(mono, ToneHz) > Expected * 0.8f,
+                $"channel {channel} correlated at {Correlation(mono, ToneHz):F4}"
+            );
         }
     }
 
@@ -203,11 +220,11 @@ public sealed class CodecTests {
     [Fact]
     public void OpusRefusesSomethingThatIsNotOpus() {
         using var notOgg = new MemoryStream(new byte[4_096]);
-        Assert.Throws<InvalidDataException>(() => new OpusStreamDecoder(notOgg, leaveOpen: true));
+        Assert.Throws<InvalidDataException>(() => new OpusStreamDecoder(notOgg, true));
 
         // A real Ogg, but a Vorbis one — so the container parses and the first packet is not OpusHead.
         using var vorbis = File.OpenRead(Fixture("tone-stereo.ogg"));
-        Assert.Throws<InvalidDataException>(() => new OpusStreamDecoder(vorbis, leaveOpen: true));
+        Assert.Throws<InvalidDataException>(() => new OpusStreamDecoder(vorbis, true));
     }
 
     [Fact]

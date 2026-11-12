@@ -199,10 +199,11 @@ public sealed class GpuDrawArguments : IDisposable {
     /// <summary>Where one object's arguments start, for one view.</summary>
     /// <param name="viewIndex">Which view.</param>
     /// <param name="id">Which object.</param>
-    /// <remarks>Meaningless when <see cref="IsCompacted" />: a survivor's record is not at its own
-    /// slot, which is the entire point.</remarks>
-    public long OffsetOf(int viewIndex, RenderObjectId id) =>
-        (((long)viewIndex * ObjectCount) + id.Index) * Stride;
+    /// <remarks>
+    ///     Meaningless when <see cref="IsCompacted" />: a survivor's record is not at its own
+    ///     slot, which is the entire point.
+    /// </remarks>
+    public long OffsetOf(int viewIndex, RenderObjectId id) => ((long)viewIndex * ObjectCount + id.Index) * Stride;
 
     /// <summary>Whether the last update wrote a compacted list rather than a padded one.</summary>
     /// <remarks>
@@ -221,8 +222,7 @@ public sealed class GpuDrawArguments : IDisposable {
     public int BatchCount { get; private set; }
 
     /// <summary>Which batch an object was put in, or <c>0</c> for one nothing assigned.</summary>
-    public int BatchOf(RenderObjectId id) =>
-        id.Index >= 0 && id.Index < batchOf.Length ? (int)batchOf[id.Index] : 0;
+    public int BatchOf(RenderObjectId id) => id.Index >= 0 && id.Index < batchOf.Length ? (int)batchOf[id.Index] : 0;
 
     /// <summary>
     ///     How many objects are in a batch — the ceiling a count-buffer draw is given.
@@ -233,16 +233,14 @@ public sealed class GpuDrawArguments : IDisposable {
     ///     what a caller compares its run length against before drawing a whole batch at once — see
     ///     <c>MeshRenderFeature</c>.
     /// </remarks>
-    public int BatchSizeOf(int batch) =>
-        batch >= 0 && batch < batchSizes.Length ? batchSizes[batch] : 0;
+    public int BatchSizeOf(int batch) => batch >= 0 && batch < batchSizes.Length ? batchSizes[batch] : 0;
 
     /// <summary>Where a batch's compacted run starts, for one view.</summary>
     public long BatchOffsetOf(int viewIndex, int batch) =>
-        (((long)viewIndex * ObjectCount) + (batch >= 0 && batch < batchBases.Length ? batchBases[batch] : 0)) * Stride;
+        ((long)viewIndex * ObjectCount + (batch >= 0 && batch < batchBases.Length ? batchBases[batch] : 0)) * Stride;
 
     /// <summary>Where a batch's survivor count is, for one view.</summary>
-    public long CountOffsetOf(int viewIndex, int batch) =>
-        (((long)viewIndex * BatchCount) + batch) * sizeof(uint);
+    public long CountOffsetOf(int viewIndex, int batch) => ((long)viewIndex * BatchCount + batch) * sizeof(uint);
 
     /// <summary>
     ///     One batch id per object slot, to be filled before an update.
@@ -409,7 +407,12 @@ public sealed class GpuDrawArguments : IDisposable {
             GpuCulling.BufferSize(viewCount, GpuCulling.WordsFor(objectCount))
         );
 
-        writes[2] = DescriptorWrite.Storage(DrawArgumentsKeys.CommandsBinding, commands, 0, (long)viewCount * objectCount * Stride);
+        writes[2] = DescriptorWrite.Storage(
+            DrawArgumentsKeys.CommandsBinding,
+            commands,
+            0,
+            (long)viewCount * objectCount * Stride
+        );
 
         // The batch layout, whether or not this variant reads it. A binding is a declared field and
         // survives its last reader folding away — the same fact `[MaterialIndex("…")]` turns on — so
@@ -552,12 +555,12 @@ public sealed class GpuDrawArguments : IDisposable {
         batching.Begin();
         batchOffset = batching.Offset;
         batching.Add(batchOf.AsSpan(0, objectCount));
-        baseOffset = batching.Offset + ((long)objectCount * sizeof(uint));
+        baseOffset = batching.Offset + (long)objectCount * sizeof(uint);
         batching.Add(batchBases.AsSpan(0, BatchCount));
         batching.Upload();
 
         batchOffset = batching.Offset;
-        baseOffset = batchOffset + ((long)objectCount * sizeof(uint));
+        baseOffset = batchOffset + (long)objectCount * sizeof(uint);
 
         return EnsureCounts((long)viewCount * BatchCount * sizeof(uint));
     }

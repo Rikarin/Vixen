@@ -58,7 +58,7 @@ public class TransitionTests {
 
     [Fact]
     public void All_is_the_absence_of_a_named_property() {
-        var parser = new TransitionParser(new NameTable());
+        var parser = new TransitionParser(new());
         var specs = new List<TransitionSpec>();
 
         Assert.True(parser.TryParseShorthand("all 300ms", specs));
@@ -67,7 +67,7 @@ public class TransitionTests {
 
     [Fact]
     public void Springs_survive_the_shorthand() {
-        var parser = new TransitionParser(new NameTable());
+        var parser = new TransitionParser(new());
         var specs = new List<TransitionSpec>();
 
         Assert.True(parser.TryParseShorthand("transform 400ms spring(2, 180, 12)", specs));
@@ -107,10 +107,12 @@ public class TransitionTests {
 
     [Fact]
     public void A_changed_value_transitions_between_the_two() {
-        var fixture = TransitionFixture("""
+        var fixture = TransitionFixture(
+            """
             .a { opacity: 0; transition: opacity 1s linear }
             .a.shown { opacity: 1 }
-            """);
+            """
+        );
 
         var element = fixture.Tree.CreateElement("div", classNames: ["a"]);
         var animator = Animator(fixture);
@@ -142,10 +144,12 @@ public class TransitionTests {
         // through a fade must reverse from the current value, not from the original — and must not
         // take the full duration to travel the half it has left, or moving the mouse on and off
         // repeatedly makes the element drift further behind with every pass.
-        var fixture = TransitionFixture("""
+        var fixture = TransitionFixture(
+            """
             .a { opacity: 0; transition: opacity 1s linear }
             .a.shown { opacity: 1 }
-            """);
+            """
+        );
 
         var element = fixture.Tree.CreateElement("div", classNames: ["a"]);
         var animator = Animator(fixture);
@@ -178,10 +182,12 @@ public class TransitionTests {
 
     [Fact]
     public void A_delay_holds_the_starting_value() {
-        var fixture = TransitionFixture("""
+        var fixture = TransitionFixture(
+            """
             .a { opacity: 0; transition: opacity 1s linear 0.5s }
             .a.shown { opacity: 1 }
-            """);
+            """
+        );
 
         var element = fixture.Tree.CreateElement("div", classNames: ["a"]);
         var animator = Animator(fixture);
@@ -202,10 +208,12 @@ public class TransitionTests {
 
     [Fact]
     public void A_property_no_transition_covers_changes_instantly() {
-        var fixture = TransitionFixture("""
+        var fixture = TransitionFixture(
+            """
             .a { opacity: 0; background: rgb(0, 0, 0); transition: opacity 1s linear }
             .a.shown { opacity: 1; background: rgb(255, 255, 255) }
-            """);
+            """
+        );
 
         var element = fixture.Tree.CreateElement("div", classNames: ["a"]);
         var animator = Animator(fixture);
@@ -218,9 +226,7 @@ public class TransitionTests {
 
         // Opacity only. `transition` names one property and `background` is not it.
         Assert.Equal(1, animator.RunningCount);
-        Assert.False(
-            animator.TryGetCurrent(element, fixture.Engine.Properties.Lookup("background"), 0.5f, out _)
-        );
+        Assert.False(animator.TryGetCurrent(element, fixture.Engine.Properties.Lookup("background"), 0.5f, out _));
     }
 
     [Fact]
@@ -228,10 +234,12 @@ public class TransitionTests {
         // CSS Cascading 5 puts the transition tier at the very top of the table, above `!important`,
         // and it is the only arrangement that works: a transition that could be outvoted would
         // stutter whenever anything else changed.
-        var fixture = TransitionFixture("""
+        var fixture = TransitionFixture(
+            """
             .a { opacity: 0; transition: opacity 1s linear }
             .a.shown { opacity: 1 !important }
-            """);
+            """
+        );
 
         var element = fixture.Tree.CreateElement("div", classNames: ["a"]);
         var animator = Animator(fixture);
@@ -262,15 +270,23 @@ public class TransitionTests {
     /// <summary>⚠ A discrete pair does not transition, which is what <c>normal</c> means.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The engine used to run one, and the wrong behaviour was a transition rather than
-    ///         a missing one — which is why nothing noticed.</b> <c>Observe</c> skipped a property
+    ///         ⚠
+    ///         <b>
+    ///             The engine used to run one, and the wrong behaviour was a transition rather than
+    ///             a missing one — which is why nothing noticed.
+    ///         </b>
+    ///         <c>Observe</c> skipped a property
     ///         only when an end was unknown or the two ends were equal, and never asked
     ///         <see cref="StyleValue.CanInterpolate" />; <c>StyleValue.Lerp</c>'s non-interpolable
     ///         arm then flipped at the halfway mark. So <c>display: none</c> → <c>display: flex</c>
     ///         under <c>transition: all 1s</c> spent half a second with the box still gone, where a
     ///         browser shows it on the first frame. Transitions 2 § 3 makes <c>normal</c> the initial
-    ///         value of <c>transition-behavior</c>, and <c>normal</c> means <i>not transitionable at
-    ///         all</i> rather than "transitions instantly".
+    ///         value of <c>transition-behavior</c>, and <c>normal</c> means
+    ///         <i>
+    ///             not transitionable at
+    ///             all
+    ///         </i>
+    ///         rather than "transitions instantly".
     ///     </para>
     ///     <para>
     ///         The measured numbers are the issue's own: <c>RunningCount == 1</c>, and the keyword
@@ -279,10 +295,12 @@ public class TransitionTests {
     /// </remarks>
     [Fact]
     public void A_discrete_property_takes_its_new_value_at_once() {
-        var fixture = TransitionFixture("""
+        var fixture = TransitionFixture(
+            """
             .a { display: none; transition: all 1s linear }
             .a.shown { display: flex }
-            """);
+            """
+        );
 
         var element = fixture.Tree.CreateElement("div", classNames: ["a"]);
         var animator = Animator(fixture);
@@ -310,10 +328,12 @@ public class TransitionTests {
     /// </remarks>
     [Fact]
     public void A_discrete_property_told_to_allow_it_transitions_and_flips_halfway() {
-        var fixture = TransitionFixture("""
+        var fixture = TransitionFixture(
+            """
             .a { display: none; transition: all 1s linear allow-discrete }
             .a.shown { display: flex }
-            """);
+            """
+        );
 
         var element = fixture.Tree.CreateElement("div", classNames: ["a"]);
         var animator = Animator(fixture);
@@ -337,8 +357,12 @@ public class TransitionTests {
 
     /// <summary>The keyword reaches the parser as a component of the shorthand rather than a name.</summary>
     /// <remarks>
-    ///     ⚠ <b><c>allow-discrete</c> is an unrecognised word to a loop that decides by what a token
-    ///     parses as, and every unrecognised word in that grammar is the property.</b> Without its
+    ///     ⚠
+    ///     <b>
+    ///         <c>allow-discrete</c> is an unrecognised word to a loop that decides by what a token
+    ///         parses as, and every unrecognised word in that grammar is the property.
+    ///     </b>
+    ///     Without its
     ///     own arm it would have been interned as a property called <c>allow-discrete</c>, giving a
     ///     spec that matches a longhand nothing writes — a transition that silently covers nothing,
     ///     which is indistinguishable from one that works until somebody changes the value.
@@ -373,11 +397,13 @@ public class TransitionTests {
     /// </remarks>
     [Fact]
     public void The_longhand_reaches_the_gate_too() {
-        var fixture = TransitionFixture("""
+        var fixture = TransitionFixture(
+            """
             .a { display: none; transition-property: display; transition-duration: 1s;
                  transition-behavior: allow-discrete }
             .a.shown { display: flex }
-            """);
+            """
+        );
 
         var element = fixture.Tree.CreateElement("div", classNames: ["a"]);
         var animator = Animator(fixture);

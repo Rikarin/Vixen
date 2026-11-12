@@ -64,12 +64,12 @@ public class TextureIncrementalDeviceTests {
                 new(TextureFormat.Rgba16Float),
                 new(TextureFormat.Rgba8),
                 new(TextureFormat.R16Float),
-                new(TextureFormat.Rgba16Float, LevelOffset: 1)
+                new(TextureFormat.Rgba16Float, 1)
             ],
             Ops = [
                 Levels(A, Ramp),
                 Levels(B, A, gamma: 0.5f),
-                Levels(C, A, white: 0.5f),
+                Levels(C, A, 0.5f),
                 new() {
                     Kernel = "Resample",
                     Output = D,
@@ -185,6 +185,7 @@ public class TextureIncrementalDeviceTests {
         var (_, externals) = Supply(device, plan, uploads, TextureKernelHarness.Ramp(Side));
 
         using (evaluator.EvaluateIncremental(plan, externals)) { }
+
         using (evaluator.EvaluateIncremental(plan.WithValues([new(1, "gamma", 2f)]), externals)) { }
 
         using var back = evaluator.EvaluateIncremental(plan, externals);
@@ -205,7 +206,7 @@ public class TextureIncrementalDeviceTests {
 
         // A parameter the kernel does not declare reaches no uniform, so the key is what the GPU
         // would have received and not what the op happens to carry.
-        var ignored = plan.Ops[1] with { Parameters = [.. plan.Ops[1].Parameters, new("nobody reads this", 7f)] };
+        var ignored = plan.Ops[1] with { Parameters = [..plan.Ops[1].Parameters, new("nobody reads this", 7f)] };
         var carried = new TexturePlan {
             BaseWidth = plan.BaseWidth,
             BaseHeight = plan.BaseHeight,
@@ -227,12 +228,7 @@ public class TextureIncrementalDeviceTests {
             Images = [new(TextureFormat.Rgba8), new(TextureFormat.Rgba8)],
             Ops = [
                 Uniform(0, 0.5f),
-                new() {
-                    Kernel = "Levels",
-                    Output = 1,
-                    Inputs = [0],
-                    Parameters = Levels(1, 0).Parameters
-                }
+                new() { Kernel = "Levels", Output = 1, Inputs = [0], Parameters = Levels(1, 0).Parameters }
             ],
             Outputs = [1]
         };
@@ -306,9 +302,7 @@ public class TextureIncrementalDeviceTests {
 
         var plan = Chain();
         var (texture, supplied) = Supply(device, plan, uploads, TextureKernelHarness.Ramp(Side));
-        var unknown = new Dictionary<int, TextureExternal> {
-            [Ramp] = supplied[Ramp] with { Content = default }
-        };
+        var unknown = new Dictionary<int, TextureExternal> { [Ramp] = supplied[Ramp] with { Content = default } };
 
         using (evaluator.EvaluateIncremental(plan, unknown)) { }
 
@@ -453,7 +447,7 @@ public class TextureIncrementalDeviceTests {
             ],
             Ops = [
                 new() { Kernel = "Transposed", Cpu = new TransposeRgba8(), Output = 1, Inputs = [Ramp] },
-                TextureCpuOperations.NormalToHeight(2, Ramp, 8f, 1f),
+                TextureCpuOperations.NormalToHeight(2, Ramp, 8f),
                 Levels(3, 1)
             ],
             Outputs = [2, 3]
@@ -517,7 +511,7 @@ public class TextureIncrementalDeviceTests {
                 new(TextureFormat.R16Float),
                 new(TextureFormat.Rgba16Float)
             ],
-            Ops = [Levels(1, Ramp), TextureCpuOperations.NormalToHeight(2, 1, 8f, 1f), Levels(3, 1)],
+            Ops = [Levels(1, Ramp), TextureCpuOperations.NormalToHeight(2, 1, 8f), Levels(3, 1)],
             Outputs = [2, 3]
         };
 
@@ -582,7 +576,7 @@ public class TextureIncrementalDeviceTests {
                 BaseWidth = Side,
                 BaseHeight = Side,
                 Images = [new(format)],
-                Ops = [TextureIncrementalDeviceTests.Uniform(0, 0.5f)],
+                Ops = [Uniform(0, 0.5f)],
                 Outputs = [0]
             };
 
@@ -601,8 +595,7 @@ public class TextureIncrementalDeviceTests {
 
         using (evaluator.EvaluateIncremental(Filled(TextureFormat.Rgba8), new Dictionary<int, TextureExternal>())) { }
 
-        Assert.Throws<InvalidOperationException>(
-            () => evaluator.EvaluateIncremental(
+        Assert.Throws<InvalidOperationException>(() => evaluator.EvaluateIncremental(
                 Filled(TextureFormat.Rgba16Float),
                 new Dictionary<int, TextureExternal>()
             )

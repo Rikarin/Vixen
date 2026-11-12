@@ -21,7 +21,7 @@ public sealed class ModulationEffectTests {
             var value = amplitude * MathF.Sin(2f * MathF.PI * frequency * frame / Rate);
 
             for (var channel = 0; channel < channels; channel++) {
-                buffer[(frame * channels) + channel] = value;
+                buffer[frame * channels + channel] = value;
             }
         }
 
@@ -33,7 +33,7 @@ public sealed class ModulationEffectTests {
         var loudest = 0f;
 
         for (var frame = from; frame < from + count; frame++) {
-            loudest = MathF.Max(loudest, MathF.Abs(buffer[(frame * channels) + channel]));
+            loudest = MathF.Max(loudest, MathF.Abs(buffer[frame * channels + channel]));
         }
 
         return loudest;
@@ -51,14 +51,12 @@ public sealed class ModulationEffectTests {
         // A steady tone through a swept comb comes out with a level that wanders, because the notch
         // is passing over it. Sample the envelope at four points across one cycle.
         var levels = new[] {
-            Level(buffer, 8_000, 2_000),
-            Level(buffer, 14_000, 2_000),
-            Level(buffer, 20_000, 2_000),
+            Level(buffer, 8_000, 2_000), Level(buffer, 14_000, 2_000), Level(buffer, 20_000, 2_000),
             Level(buffer, 26_000, 2_000)
         };
 
         Assert.True(levels.Max() > levels.Min() * 1.2f, $"the level barely moved: {string.Join(", ", levels)}");
-        Assert.All(buffer, value => Assert.True(float.IsFinite(value)));
+        Assert.All(buffer, static value => Assert.True(float.IsFinite(value)));
     }
 
     [Fact]
@@ -66,13 +64,13 @@ public sealed class ModulationEffectTests {
         var chorus = ModulatedDelayEffect.Chorus();
         chorus.Prepare(AudioFormat.Stereo48k, Rate);
 
-        var buffer = Sine(440f, Rate, channels: 2);
+        var buffer = Sine(440f, Rate, 2);
         chorus.Process(buffer, Rate, 2);
 
         var difference = 0f;
 
         for (var frame = 20_000; frame < 30_000; frame++) {
-            difference = MathF.Max(difference, MathF.Abs(buffer[frame * 2] - buffer[(frame * 2) + 1]));
+            difference = MathF.Max(difference, MathF.Abs(buffer[frame * 2] - buffer[frame * 2 + 1]));
         }
 
         // The input was identical in both channels; the sweep phase was not.
@@ -85,11 +83,11 @@ public sealed class ModulationEffectTests {
         chorus.StereoSpread = 0f;
         chorus.Prepare(AudioFormat.Stereo48k, 4_096);
 
-        var buffer = Sine(440f, 4_096, channels: 2);
+        var buffer = Sine(440f, 4_096, 2);
         chorus.Process(buffer, 4_096, 2);
 
         for (var frame = 2_000; frame < 2_100; frame++) {
-            Assert.Equal(buffer[frame * 2], buffer[(frame * 2) + 1], 1e-5f);
+            Assert.Equal(buffer[frame * 2], buffer[frame * 2 + 1], 1e-5f);
         }
     }
 
@@ -115,7 +113,7 @@ public sealed class ModulationEffectTests {
         var buffer = Sine(1_000f, Rate);
         flanger.Process(buffer, Rate, 1);
 
-        Assert.All(buffer, value => Assert.True(float.IsFinite(value)));
+        Assert.All(buffer, static value => Assert.True(float.IsFinite(value)));
         Assert.True(AudioTestData.Peak(buffer) < 50f, $"it reached {AudioTestData.Peak(buffer):F1}");
     }
 
@@ -154,14 +152,12 @@ public sealed class ModulationEffectTests {
         phaser.Process(buffer, Rate, 1);
 
         var levels = new[] {
-            Level(buffer, 8_000, 2_000),
-            Level(buffer, 14_000, 2_000),
-            Level(buffer, 20_000, 2_000),
+            Level(buffer, 8_000, 2_000), Level(buffer, 14_000, 2_000), Level(buffer, 20_000, 2_000),
             Level(buffer, 26_000, 2_000)
         };
 
         Assert.True(levels.Max() > levels.Min() * 1.2f, $"the level barely moved: {string.Join(", ", levels)}");
-        Assert.All(buffer, value => Assert.True(float.IsFinite(value)));
+        Assert.All(buffer, static value => Assert.True(float.IsFinite(value)));
     }
 
     /// <summary>

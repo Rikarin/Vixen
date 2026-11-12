@@ -2,15 +2,17 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core;
-using Vixen.Core.Mathematics;
 
 namespace Vixen.Foliage;
 
 /// <summary>Whether a type's instances are stored or derived.</summary>
 /// <remarks>
 ///     <para>
-///         <b>[docs/plan/31 § D8], and it is the design decision most likely to be got wrong from a
-///         feature list.</b> The dividing line is <em>density × identity</em>: something you would
+///         <b>
+///             [docs/plan/31 § D8], and it is the design decision most likely to be got wrong from a
+///             feature list.
+///         </b>
+///         The dividing line is <em>density × identity</em>: something you would
 ///         place ten thousand of and never name individually is derived; something you would place a
 ///         hundred of and might name is stored.
 ///     </para>
@@ -73,8 +75,12 @@ public readonly record struct FoliageType {
     ///         <c>FoliageDrawPass</c>'s white 1×1.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A volume's stand binds one albedo for its whole palette, so the first type that
-    ///         names one supplies it for every type in that volume.</b> That is the draw pass's shape
+    ///         ⚠
+    ///         <b>
+    ///             A volume's stand binds one albedo for its whole palette, so the first type that
+    ///             names one supplies it for every type in that volume.
+    ///         </b>
+    ///         That is the draw pass's shape
     ///         and not this field's: <c>FoliageDrawPass</c> has one <c>albedoMap</c> binding and draws
     ///         every palette type through one descriptor set, so a pine and a birch in one volume
     ///         cannot differ here. Splitting them means a texture array or a set per type, and until
@@ -102,8 +108,12 @@ public readonly record struct FoliageType {
 
     /// <summary>How much an instance turns to face the surface normal, 0…1.</summary>
     /// <remarks>
-    ///     One is flat against the ground and zero is upright. ⚠ <b>Trees want a value near zero and
-    ///     rocks want one near one</b>, which is why it is a fraction rather than a flag: a tree
+    ///     One is flat against the ground and zero is upright. ⚠
+    ///     <b>
+    ///         Trees want a value near zero and
+    ///         rocks want one near one
+    ///     </b>
+    ///     , which is why it is a fraction rather than a flag: a tree
     ///     leaning ten per cent into the hill reads as growth, and a tree lying flat on it reads as
     ///     felled.
     /// </remarks>
@@ -178,8 +188,8 @@ public readonly record struct FoliageType {
     public static FoliageType Of(string name) =>
         new() {
             Name = name,
-            Mesh = "",
-            Albedo = "",
+            Mesh = string.Empty,
+            Albedo = string.Empty,
             Storage = FoliageStorage.Stored,
             Density = 0.1f,
             Radius = 2f,
@@ -192,12 +202,12 @@ public readonly record struct FoliageType {
             MaxSlope = MathF.PI / 4f,
             MinAltitude = float.NegativeInfinity,
             MaxAltitude = float.PositiveInfinity,
-            LayerFilter = "",
+            LayerFilter = string.Empty,
             LayerThreshold = 0.5f,
             StartCullDistance = 200f,
             EndCullDistance = 250f,
             CastShadows = true,
-            CollisionShape = "",
+            CollisionShape = string.Empty,
             ActivationRadius = 50f,
             Ecology = FoliageEcology.None
         };

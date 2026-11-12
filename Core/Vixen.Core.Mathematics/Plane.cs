@@ -57,8 +57,7 @@ public readonly struct Plane : IEquatable<Plane>, IFormattable {
     /// <param name="b">The second point.</param>
     /// <param name="c">The third point.</param>
     /// <returns>The plane, or a degenerate one if the points are collinear.</returns>
-    public static Plane FromPoints(Vector3 a, Vector3 b, Vector3 c) =>
-        FromPointNormal(a, Vector3.Cross(b - a, c - a));
+    public static Plane FromPoints(Vector3 a, Vector3 b, Vector3 c) => FromPointNormal(a, Vector3.Cross(b - a, c - a));
 
     /// <summary>Rescales the plane so its normal is unit length.</summary>
     /// <param name="plane">The plane.</param>

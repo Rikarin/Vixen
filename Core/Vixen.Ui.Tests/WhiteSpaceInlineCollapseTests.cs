@@ -47,7 +47,7 @@ public class WhiteSpaceInlineCollapseTests {
 
     static FontFace LoadFont() {
         using var stream = Assembly.GetExecutingAssembly()
-            .GetManifestResourceStream("Vixen.Ui.Tests.Fonts.OpenSans-Regular.ttf")
+                .GetManifestResourceStream("Vixen.Ui.Tests.Fonts.OpenSans-Regular.ttf")
             ?? throw new InvalidOperationException("the test font is not embedded");
 
         using var memory = new MemoryStream();
@@ -73,10 +73,12 @@ public class WhiteSpaceInlineCollapseTests {
 
         var container = document.Root.Add("container");
         var labels = parts.Select(part => {
-            var element = container.Add("label");
-            element.Text = part;
-            return element;
-        }).ToArray();
+                    var element = container.Add("label");
+                    element.Text = part;
+                    return element;
+                }
+            )
+            .ToArray();
 
         document.Update();
         return (document, labels);
@@ -120,7 +122,10 @@ public class WhiteSpaceInlineCollapseTests {
         var one = Advance(PreLine, "foo bar");
 
         Assert.Equal(54.016f, one, Tolerance);
-        Assert.True(Advance(Normal, "foo ", " bar") > one + 1f, "the control has to keep both spaces or this measures nothing");
+        Assert.True(
+            Advance(Normal, "foo ", " bar") > one + 1f,
+            "the control has to keep both spaces or this measures nothing"
+        );
         Assert.Equal(one, Advance(PreLine, "foo ", " bar"), Tolerance);
     }
 
@@ -163,11 +168,16 @@ public class WhiteSpaceInlineCollapseTests {
         mixed[0].AddClass("pre");
         document.Update();
 
-        Assert.True(Advance(mixed) > 54.016f + 1f, $"a preserved space swallowed the collapsible one after it: {Advance(mixed)}");
+        Assert.True(
+            Advance(mixed) > 54.016f + 1f,
+            $"a preserved space swallowed the collapsible one after it: {Advance(mixed)}"
+        );
     }
 
     /// <summary>
-    ///     ⚠ <b>The pin this issue inverts</b> (<c>WhiteSpacePreLineTests.An_inline_leaf_keeps_its_leading_space_only_where_it_shares_a_line</c>, now <c>…only_after_content</c>):
+    ///     ⚠ <b>The pin this issue inverts</b>
+    ///     (<c>WhiteSpacePreLineTests.An_inline_leaf_keeps_its_leading_space_only_where_it_shares_a_line</c>, now
+    ///     <c>…only_after_content</c>):
     ///     an inline leaf with nothing before it in its formatting context starts the container's
     ///     first line, so its leading run is phase II's to remove, and one with nothing after it ends
     ///     the last.
@@ -193,8 +203,12 @@ public class WhiteSpaceInlineCollapseTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>A segment break at the end of one element starts the next element's text on a new
-    ///     line</b>, so the run after it is removed twice over: it is beside a segment break
+    ///     ⚠
+    ///     <b>
+    ///         A segment break at the end of one element starts the next element's text on a new
+    ///         line
+    ///     </b>
+    ///     , so the run after it is removed twice over: it is beside a segment break
     ///     (§ 4.1.1) and at the start of a line (§ 4.1.3).
     /// </summary>
     [Fact]
@@ -238,8 +252,12 @@ public class WhiteSpaceInlineCollapseTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>A box with no content between two spaces is looked past, and whether it has a size
-    ///     does not enter into it</b> (#249). The layout keeps such a <c>display: inline</c> box
+    ///     ⚠
+    ///     <b>
+    ///         A box with no content between two spaces is looked past, and whether it has a size
+    ///         does not enter into it
+    ///     </b>
+    ///     (#249). The layout keeps such a <c>display: inline</c> box
     ///     atomic — <c>LayoutTree.IsNonAtomicInline</c> answers false for one with no child that takes
     ///     part in the line — and this was recorded as owed on the belief that the collapsing walk,
     ///     which walks into it and finds nothing, might be wrong for one that draws. Chrome 153
@@ -253,7 +271,11 @@ public class WhiteSpaceInlineCollapseTests {
     [InlineData("inline", "", 54.016f)]
     [InlineData("inline", "padding: 0px 5px;", 54.016f)]
     [InlineData("inline-block", "", 58.172f)]
-    public void An_empty_box_between_two_spaces_decides_by_its_kind_and_not_by_its_size(string display, string padding, float chrome) {
+    public void An_empty_box_between_two_spaces_decides_by_its_kind_and_not_by_its_size(
+        string display,
+        string padding,
+        float chrome
+    ) {
         var document = new UiDocument(900f, 300f);
         document.Fonts.Register("Test", Font);
 
@@ -325,7 +347,11 @@ public class WhiteSpaceInlineCollapseTests {
     [Theory]
     [InlineData("inline", "padding: 0px 5px;", 24.641f)]
     [InlineData("inline-block", "", 28.797f)]
-    public void An_empty_box_ending_the_line_decides_by_its_kind_whether_the_space_before_it_stays(string display, string padding, float chrome) {
+    public void An_empty_box_ending_the_line_decides_by_its_kind_whether_the_space_before_it_stays(
+        string display,
+        string padding,
+        float chrome
+    ) {
         var document = new UiDocument(900f, 300f);
         document.Fonts.Register("Test", Font);
 
@@ -381,13 +407,23 @@ public class WhiteSpaceInlineCollapseTests {
 
         var word = Line(PreLine, "bar").Labels[0].Block()!.Width;
 
-        Assert.True(bar.Bounds.Y >= foo.Bounds.Bottom, $"the second label did not wrap, so this measures nothing: {foo.Bounds} then {bar.Bounds}");
-        Assert.True(bar.Block()!.Width > word + 1f, $"the leading run on the wrapped line is no longer drawn ({bar.Block()!.Width} against {word}) — invert this test");
+        Assert.True(
+            bar.Bounds.Y >= foo.Bounds.Bottom,
+            $"the second label did not wrap, so this measures nothing: {foo.Bounds} then {bar.Bounds}"
+        );
+        Assert.True(
+            bar.Block()!.Width > word + 1f,
+            $"the leading run on the wrapped line is no longer drawn ({bar.Block()!.Width} against {word}) — invert this test"
+        );
     }
 
     /// <summary>
-    ///     ⚠ <b>Decided by a neighbour's text, so a neighbour's text change has to reach this
-    ///     element's box</b> — which the layout tree does not do by itself: a node is re-measured
+    ///     ⚠
+    ///     <b>
+    ///         Decided by a neighbour's text, so a neighbour's text change has to reach this
+    ///         element's box
+    ///     </b>
+    ///     — which the layout tree does not do by itself: a node is re-measured
     ///     when it or its style changes, and here neither did. Without the neighbour being dirtied the
     ///     block would rebuild on the next draw and the box would keep the old width, which is a
     ///     picture drawn over a layout that disagrees with it.
@@ -425,7 +461,10 @@ public class WhiteSpaceInlineCollapseTests {
         var preserved = Advance(labels);
 
         Assert.Equal(54.016f, collapsed, Tolerance);
-        Assert.True(preserved > collapsed + 1f, $"the second label kept its collapsed width after the first stopped collapsing: {preserved}");
+        Assert.True(
+            preserved > collapsed + 1f,
+            $"the second label kept its collapsed width after the first stopped collapsing: {preserved}"
+        );
 
         labels[0].RemoveClass("pre");
         document.Update();
@@ -439,8 +478,12 @@ public class WhiteSpaceInlineCollapseTests {
     ///     goes, though nothing about <c>␠bar</c> changed — and back again.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>Not carried by <c>UiDocument.Arrange</c>'s edge check, whatever that check's comment
-    ///     might lead one to expect.</b> This stays green with the check made inert, and with the
+    ///     ⚠
+    ///     <b>
+    ///         Not carried by <c>UiDocument.Arrange</c>'s edge check, whatever that check's comment
+    ///         might lead one to expect.
+    ///     </b>
+    ///     This stays green with the check made inert, and with the
     ///     enrolment narrowed to leaves whose parent is not a flex box: the flip changes how the
     ///     layout sizes the leaf, and the layout re-measures it on its own. What turns it red is
     ///     <c>UiElement.IsFlattenedInline</c> no longer seeing the flex parent (29.375 against
@@ -456,7 +499,10 @@ public class WhiteSpaceInlineCollapseTests {
         // Before: in the lines after `foo`, the space is kept (§ 4.1.1 collapses it to one, and
         // there is only one).
         Assert.Equal(54.016f, Advance(labels), Tolerance);
-        Assert.True(labels[1].Block()!.Width > word + 1f, $"the space after foo was not drawn in the block container: {labels[1].Block()!.Width} against {word}");
+        Assert.True(
+            labels[1].Block()!.Width > word + 1f,
+            $"the space after foo was not drawn in the block container: {labels[1].Block()!.Width} against {word}"
+        );
 
         container.AddClass("row");
         document.Update();

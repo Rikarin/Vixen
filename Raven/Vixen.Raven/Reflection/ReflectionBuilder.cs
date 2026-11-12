@@ -33,8 +33,8 @@ public static class ReflectionBuilder {
     ) {
         ArgumentNullException.ThrowIfNull(shader);
 
-        var stages = shader.EntryPoints.Select(e => e.Stage).Distinct().Order().ToImmutableArray();
-        var stageFlags = shader.EntryPoints.Aggregate(ShaderStages.None, (flags, e) => flags | Flag(e.Stage));
+        var stages = shader.EntryPoints.Select(static e => e.Stage).Distinct().Order().ToImmutableArray();
+        var stageFlags = shader.EntryPoints.Aggregate(ShaderStages.None, static (flags, e) => flags | Flag(e.Stage));
 
         var sets = BuildSets(shader, stageFlags);
 
@@ -45,16 +45,17 @@ public static class ReflectionBuilder {
             Outputs = BuildOutputs(shader),
             Parameters = BuildParameters(sets),
             Permutations = [
-                .. shader.Permutations.Select(p => new PermutationInfo(
-                    p.Name,
-                    ShaderDataType.From(p.Type),
-                    Format(p.DefaultValue)
-                ))
+                ..shader.Permutations.Select(static p => new PermutationInfo(
+                        p.Name,
+                        ShaderDataType.From(p.Type),
+                        Format(p.DefaultValue)
+                    )
+                )
             ],
             ValueParameters = [
-                .. shader.ValueParameters.Select(p => new ValueParameterInfo(p.Name, ShaderDataType.From(p.Type)))
+                ..shader.ValueParameters.Select(static p => new ValueParameterInfo(p.Name, ShaderDataType.From(p.Type)))
             ],
-            RequiredCapabilities = [.. IrCapabilities.Of(shader)],
+            RequiredCapabilities = [..IrCapabilities.Of(shader)],
 
             // Narrowed to what *this* shader declares. The list handed in is the compilation's, and a
             // compilation is more than one shader — so a key another shader branched on would
@@ -62,7 +63,7 @@ public static class ReflectionBuilder {
             // means and is what an effect cache key hashes. Describing a whole library at once made
             // that visible: a two-permutation post effect reported forty.
             UsedPermutationKeys = [
-                .. (usedPermutationKeys ?? [])
+                ..(usedPermutationKeys ?? [])
                     .Where(key => shader.Permutations.Any(p => string.Equals(p.Name, key, StringComparison.Ordinal)))
                     .Order(StringComparer.Ordinal)
             ],
@@ -78,7 +79,7 @@ public static class ReflectionBuilder {
         ArgumentNullException.ThrowIfNull(module);
 
         var keys = usedPermutationKeys?.ToArray() ?? [];
-        return module.Shaders.ToImmutableDictionary(s => s.Name, s => Describe(s, keys), StringComparer.Ordinal);
+        return module.Shaders.ToImmutableDictionary(static s => s.Name, s => Describe(s, keys), StringComparer.Ordinal);
     }
 
     /// <summary>
@@ -88,7 +89,7 @@ public static class ReflectionBuilder {
     static ImmutableArray<DescriptorSetInfo> BuildSets(IrShader shader, ShaderStages stages) {
         var sets = ImmutableArray.CreateBuilder<DescriptorSetInfo>();
 
-        foreach (var group in BindingPlan.Of(shader).GroupBy(b => b.Set)) {
+        foreach (var group in BindingPlan.Of(shader).GroupBy(static b => b.Set)) {
             var bindings = ImmutableArray.CreateBuilder<BindingInfo>();
 
             foreach (var planned in group) {
@@ -123,7 +124,7 @@ public static class ReflectionBuilder {
             return [];
         }
 
-        var (offsets, size) = ShaderLayout.Members([.. constants.Select(c => c.Type)], LayoutRule.Std430);
+        var (offsets, size) = ShaderLayout.Members([..constants.Select(static c => c.Type)], LayoutRule.Std430);
         var members = ImmutableArray.CreateBuilder<MemberInfo>();
 
         for (var i = 0; i < constants.Length; i++) {
@@ -154,7 +155,7 @@ public static class ReflectionBuilder {
         // usually has, because the host writes bytes at these offsets and both backends laid the
         // record out the other way.
         var rule = planned.IsRecord ? LayoutRule.Std430 : LayoutRule.Std140;
-        var (offsets, size) = ShaderLayout.Members([.. uniforms.Select(u => u.Type)], rule);
+        var (offsets, size) = ShaderLayout.Members([..uniforms.Select(static u => u.Type)], rule);
         var members = ImmutableArray.CreateBuilder<MemberInfo>();
 
         for (var i = 0; i < uniforms.Length; i++) {
@@ -196,7 +197,7 @@ public static class ReflectionBuilder {
                 // Any marked uniform marks the block. A set's loose uniforms are gathered into one
                 // binding and bound once, so where its bytes are is a property of the block and not
                 // of a member — see BindingInfo.IsDynamicOffset.
-                IsDynamicOffset = uniforms.Any(u => u.IsDynamicOffset)
+                IsDynamicOffset = uniforms.Any(static u => u.IsDynamicOffset)
             };
     }
 
@@ -225,7 +226,7 @@ public static class ReflectionBuilder {
             Flatten(buffer.Name, array.Element, 0, LayoutRule.Std430, members);
         }
 
-        return new BindingInfo(
+        return new(
             planned.Binding,
             buffer.Name,
             DescriptorType.StorageBuffer,
@@ -331,7 +332,7 @@ public static class ReflectionBuilder {
         ImmutableArray<MemberInfo>.Builder members,
         int enclosingStride
     ) {
-        var (offsets, _) = ShaderLayout.Members([.. structType.Fields.Select(f => f.Type)], rule);
+        var (offsets, _) = ShaderLayout.Members([..structType.Fields.Select(static f => f.Type)], rule);
 
         for (var i = 0; i < structType.Fields.Count; i++) {
             Flatten(
@@ -362,14 +363,14 @@ public static class ReflectionBuilder {
     ///     </para>
     /// </remarks>
     static ImmutableArray<VertexInputInfo> BuildVertexInputs(IrShader shader) {
-        if (shader.EntryPoints.FirstOrDefault(e => e.Stage == ShaderStage.Vertex) is not { } vertex) {
+        if (shader.EntryPoints.FirstOrDefault(static e => e.Stage == ShaderStage.Vertex) is not { } vertex) {
             return [];
         }
 
         var locations = StreamPlan.InputLocations(shader, vertex);
 
         return [
-            .. vertex.StreamInputs.Select(stream => new VertexInputInfo(
+            ..vertex.StreamInputs.Select(stream => new VertexInputInfo(
                     StreamPlan.LocationOf(shader, stream),
                     stream.Name,
                     ShaderDataType.From(stream.Type),
@@ -382,10 +383,10 @@ public static class ReflectionBuilder {
             // variant never reads is absent for the harder version of the same reason — the module
             // does not declare it, so a host that bound an attribute to it would be describing a
             // location the pipeline has no variable at.
-            .. vertex.Inputs
+            ..vertex.Inputs
                 .Select((io, i) => (Io: io, Location: vertex.ReadsInput(i) ? locations[i] : null))
-                .Where(entry => entry.Location is not null)
-                .Select(entry => new VertexInputInfo(
+                .Where(static entry => entry.Location is not null)
+                .Select(static entry => new VertexInputInfo(
                         entry.Location!.Value,
                         entry.Io.Name,
                         ShaderDataType.From(entry.Io.Type),
@@ -404,16 +405,16 @@ public static class ReflectionBuilder {
     ///     its colour-attachment list straight off this.
     /// </remarks>
     static ImmutableArray<FragmentOutputInfo> BuildOutputs(IrShader shader) {
-        if (shader.EntryPoints.FirstOrDefault(e => e.Stage == ShaderStage.Fragment) is not { } fragment) {
+        if (shader.EntryPoints.FirstOrDefault(static e => e.Stage == ShaderStage.Fragment) is not { } fragment) {
             return [];
         }
 
         return [
-            .. fragment.Outputs.Select(
+            ..fragment.Outputs.Select(
                 // The member index where there is one, so a target lowering pruned as unwritten
                 // leaves a hole in the reported locations rather than renumbering — the emitters
                 // decorate by the same rule, and the reflection must say what they emitted.
-                (output, index) => new FragmentOutputInfo(
+                static (output, index) => new FragmentOutputInfo(
                     output.Member ?? index,
                     output.Name,
                     ShaderDataType.From(output.Type),
@@ -461,7 +462,6 @@ public static class ReflectionBuilder {
     /// <remarks>
     ///     In the spelling a host supplies it in, so <c>--define UseDetail=true</c> and the reported
     ///     default read the same way round.
-    ///
     ///     ⚠ <b>A vector is its lanes, comma separated, and the separator is load-bearing.</b> The
     ///     reflection is JSON read by a source generator that has no Raven types in it, so a default
     ///     crosses as text — see <c>PermutationInfo.DefaultValue</c>. Formatting a lane array with

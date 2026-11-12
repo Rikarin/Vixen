@@ -33,8 +33,12 @@ namespace Vixen.Editor.NodeGraph;
 ///         guarantee its handle is live should answer with a colour instead.
 ///     </para>
 ///     <para>
-///         ⚠ <b><see cref="Unavailable" /> is the third kind, and it replaced a <c>Label</c> that
-///         nothing could ever have read</b> —
+///         ⚠
+///         <b>
+///             <see cref="Unavailable" /> is the third kind, and it replaced a <c>Label</c> that
+///             nothing could ever have read
+///         </b>
+///         —
 ///         <a href="https://github.com/Rikarin/Vixen/issues/1092">#1092</a>. That parameter offered
 ///         "a few characters over it", every producer passed the default, and the reason no reader
 ///         was ever written is structural rather than an oversight: <see cref="NodePreviewLayer" />
@@ -130,7 +134,7 @@ public sealed class NodePreviewLayer : UiElement {
             }
 
             var box = canvas.RectOf(shown);
-            var origin = canvas.ToScreen(new Vector2(box.X + ((box.Width - Size) * 0.5f), box.Bottom + Gap));
+            var origin = canvas.ToScreen(new(box.X + (box.Width - Size) * 0.5f, box.Bottom + Gap));
             var swatch = new Rectangle(origin.X, origin.Y, Size * canvas.Zoom, Size * canvas.Zoom);
 
             if (swatch.Intersects(reserved)) {
@@ -173,8 +177,12 @@ public sealed class NodePreviewLayer : UiElement {
     /// <param name="color">The canvas's wire colour, so it belongs to the graph rather than to a theme.</param>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Bars and not a flat colour, because a flat colour is what an ordinary constant
-    ///         node shows.</b> The one thing this has to do is be unmistakable for both of the other
+    ///         ⚠
+    ///         <b>
+    ///             Bars and not a flat colour, because a flat colour is what an ordinary constant
+    ///             node shows.
+    ///         </b>
+    ///         The one thing this has to do is be unmistakable for both of the other
     ///         two states — a picture and a swatch — from across a canvas at any zoom, and a hatch
     ///         over the chequer is neither. Seven of them at quarters of the swatch's own side, so
     ///         the count does not change with the zoom and the shape is the same at every size.
@@ -203,11 +211,11 @@ public sealed class NodePreviewLayer : UiElement {
             var offset = box.Width * bar * 0.25f;
 
             if (offset <= box.Width) {
-                bars.MoveTo(new Vector2(box.X + offset, box.Y));
-                bars.LineTo(new Vector2(box.X, box.Y + offset));
+                bars.MoveTo(new(box.X + offset, box.Y));
+                bars.LineTo(new(box.X, box.Y + offset));
             } else {
-                bars.MoveTo(new Vector2(box.X + box.Width, box.Y + offset - box.Width));
-                bars.LineTo(new Vector2(box.X + offset - box.Width, box.Y + box.Height));
+                bars.MoveTo(new(box.X + box.Width, box.Y + offset - box.Width));
+                bars.LineTo(new(box.X + offset - box.Width, box.Y + box.Height));
             }
         }
 
@@ -216,12 +224,12 @@ public sealed class NodePreviewLayer : UiElement {
 
     /// <summary>Two greys behind a swatch, so alpha reads as alpha.</summary>
     static void Chequer(DrawContext context, Rectangle box) {
-        context.FillRectangle(box, new Color4(0.82f, 0.82f, 0.82f, 1f), 2f);
+        context.FillRectangle(box, new(0.82f, 0.82f, 0.82f, 1f), 2f);
 
         var half = box.Width * 0.5f;
         var dark = new Color4(0.62f, 0.62f, 0.62f, 1f);
 
-        context.FillRectangle(new Rectangle(box.X, box.Y, half, box.Height * 0.5f), dark);
-        context.FillRectangle(new Rectangle(box.X + half, box.Y + (box.Height * 0.5f), half, box.Height * 0.5f), dark);
+        context.FillRectangle(new(box.X, box.Y, half, box.Height * 0.5f), dark);
+        context.FillRectangle(new(box.X + half, box.Y + box.Height * 0.5f, half, box.Height * 0.5f), dark);
     }
 }

@@ -35,32 +35,34 @@ static class OpenXrFormats {
     /// <summary>Which Vulkan format a pixel format is, or <c>0</c> if it has no direct equivalent.</summary>
     /// <param name="format">The engine's format.</param>
     /// <returns>The Vulkan enumerator.</returns>
-    public static long ToVulkan(PixelFormat format) => format switch {
-        PixelFormat.Rgba8UNorm => R8G8B8A8Unorm,
-        PixelFormat.Rgba8UNormSrgb => R8G8B8A8Srgb,
-        PixelFormat.Bgra8UNorm => B8G8R8A8Unorm,
-        PixelFormat.Bgra8UNormSrgb => B8G8R8A8Srgb,
-        PixelFormat.Rgba16Float => R16G16B16A16Sfloat,
-        PixelFormat.Depth16UNorm => D16Unorm,
-        PixelFormat.Depth32Float => D32Sfloat,
-        PixelFormat.Depth24UNormStencil8 => D24UnormS8Uint,
-        _ => 0
-    };
+    public static long ToVulkan(PixelFormat format) =>
+        format switch {
+            PixelFormat.Rgba8UNorm => R8G8B8A8Unorm,
+            PixelFormat.Rgba8UNormSrgb => R8G8B8A8Srgb,
+            PixelFormat.Bgra8UNorm => B8G8R8A8Unorm,
+            PixelFormat.Bgra8UNormSrgb => B8G8R8A8Srgb,
+            PixelFormat.Rgba16Float => R16G16B16A16Sfloat,
+            PixelFormat.Depth16UNorm => D16Unorm,
+            PixelFormat.Depth32Float => D32Sfloat,
+            PixelFormat.Depth24UNormStencil8 => D24UnormS8Uint,
+            _ => 0
+        };
 
     /// <summary>Which pixel format a Vulkan enumerator is, or <see cref="PixelFormat.Undefined" />.</summary>
     /// <param name="format">The Vulkan enumerator.</param>
     /// <returns>The engine's format.</returns>
-    public static PixelFormat FromVulkan(long format) => format switch {
-        R8G8B8A8Unorm => PixelFormat.Rgba8UNorm,
-        R8G8B8A8Srgb => PixelFormat.Rgba8UNormSrgb,
-        B8G8R8A8Unorm => PixelFormat.Bgra8UNorm,
-        B8G8R8A8Srgb => PixelFormat.Bgra8UNormSrgb,
-        R16G16B16A16Sfloat => PixelFormat.Rgba16Float,
-        D16Unorm => PixelFormat.Depth16UNorm,
-        D32Sfloat => PixelFormat.Depth32Float,
-        D24UnormS8Uint => PixelFormat.Depth24UNormStencil8,
-        _ => PixelFormat.Undefined
-    };
+    public static PixelFormat FromVulkan(long format) =>
+        format switch {
+            R8G8B8A8Unorm => PixelFormat.Rgba8UNorm,
+            R8G8B8A8Srgb => PixelFormat.Rgba8UNormSrgb,
+            B8G8R8A8Unorm => PixelFormat.Bgra8UNorm,
+            B8G8R8A8Srgb => PixelFormat.Bgra8UNormSrgb,
+            R16G16B16A16Sfloat => PixelFormat.Rgba16Float,
+            D16Unorm => PixelFormat.Depth16UNorm,
+            D32Sfloat => PixelFormat.Depth32Float,
+            D24UnormS8Uint => PixelFormat.Depth24UNormStencil8,
+            _ => PixelFormat.Undefined
+        };
 
     /// <summary>Picks a format for a swapchain out of what the runtime offers.</summary>
     /// <param name="wanted">What the caller asked for.</param>

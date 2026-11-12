@@ -48,12 +48,9 @@ public class ProxyShapeTests {
         // Points inside, outside and right on the skin. The last is the one an author actually
         // places; the other two are what a hand-typed number and a physics answer look like.
         foreach (var point in new Vector3[] {
-            new(0.5f, 0.3f, -0.2f),
-            new(0.05f, -0.4f, 0.03f),
-            new(-0.9f, 0.9f, 0.4f),
-            new(0f, 0.6f, 0f),
-            new(0.31f, 0f, 0f)
-        }) {
+                     new(0.5f, 0.3f, -0.2f), new(0.05f, -0.4f, 0.03f), new(-0.9f, 0.9f, 0.4f), new(0f, 0.6f, 0f),
+                     new(0.31f, 0f, 0f)
+                 }) {
             var coordinate = ShapeGeometry.Project(kind, dimensions, point, out var residual);
             var sample = ShapeGeometry.Evaluate(kind, dimensions, coordinate);
             var back = sample.Position + Quaternion.Transform(residual, sample.Rotation());
@@ -170,7 +167,7 @@ public class ProxyShapeTests {
     public void OnePropIsGrippedCorrectlyByThreeHandsWithNoPerHandOffset() {
         // One authored grip: the middle of the palm's outward face. No hand is mentioned by size
         // anywhere below.
-        var contact = SurfaceCoordinate.On("right-palm", new SurfacePoint(2, 0.5f, 0.5f));
+        var contact = SurfaceCoordinate.On("right-palm", new(2, 0.5f, 0.5f));
 
         List<float> reach = [];
 
@@ -179,7 +176,7 @@ public class ProxyShapeTests {
             var stack = Stack(body);
 
             var socket = stack.Sockets.Add(
-                new AttachmentSocket {
+                new() {
                     Name = Symbol.Intern("right-hand-grip"),
                     Joint = body.Wrist,
                     Offset = new(new Vector3(0f, -0.05f, 0f), Quaternion.Identity, Vector3.One),
@@ -220,7 +217,7 @@ public class ProxyShapeTests {
     [InlineData(8)]
     [InlineData(120)]
     public void PosingCostFollowsTheGoalsAndNotTheShapeCount(int shapes) {
-        var body = Body(Vector3.One, filler: shapes);
+        var body = Body(Vector3.One, shapes);
         var stack = Stack(body);
 
         Assert.Equal(shapes + 2, stack.Shapes!.Set.Count);
@@ -238,12 +235,12 @@ public class ProxyShapeTests {
             new OrientationGoal {
                 Effector = body.Wrist,
                 Chain = new(body.Shoulder, body.Wrist),
-                Goal = new SurfaceFrame(SurfaceCoordinate.On("right-palm", new SurfacePoint(2, 0.5f, 0.5f))),
+                Goal = new SurfaceFrame(SurfaceCoordinate.On("right-palm", new(2, 0.5f, 0.5f))),
                 EaseIn = 0f
             }
         );
 
-        Settle(stack, body, frames: 4);
+        Settle(stack, body, 4);
 
         // ⚠ Two, on a body carrying a hundred and twenty. This is the second of the three reasons
         // proxy shapes are not physics colliders, and it is invisible in a screenshot — a regression
@@ -348,7 +345,11 @@ public class ProxyShapeTests {
         var shapes = new ProxyShapes(body.Shapes, poser);
 
         Assert.True(shapes.TryPose(Symbol.Intern("belly"), body.Model, out var swollen));
-        Assert.Equal(body.Shapes[body.Shapes.IndexOf("belly")].Dimensions.Radius * 2.5f, swollen.Dimensions.Radius, 1e-4f);
+        Assert.Equal(
+            body.Shapes[body.Shapes.IndexOf("belly")].Dimensions.Radius * 2.5f,
+            swollen.Dimensions.Radius,
+            1e-4f
+        );
 
         var plain = new ProxyShapes(body.Shapes);
 
@@ -393,7 +394,7 @@ public class ProxyShapeTests {
         List<ShapeValidation> findings = [];
 
         Assert.False(vocabulary.Validate(set, findings, Symbol.Intern("humanoid")));
-        Assert.Contains(findings, finding => finding.Shape == Symbol.Intern("right-palm"));
+        Assert.Contains(findings, static finding => finding.Shape == Symbol.Intern("right-palm"));
 
         // ⚠ The distinction the class exists for. A name says "if you have a belly, call it belly";
         // a class says "a humanoid *has* a belly", which is what a clip authored on one member needs
@@ -429,8 +430,7 @@ public class ProxyShapeTests {
 
     [Fact]
     public void TwoShapesWithOneNameAreRefusedAtBuildTime() {
-        var thrown = Assert.Throws<InvalidOperationException>(
-            () => ProxyShapeSet.Of(
+        var thrown = Assert.Throws<InvalidOperationException>(() => ProxyShapeSet.Of(
                 "Doubled",
                 null,
                 new ProxyShape { Name = Symbol.Intern("left-palm"), Kind = ShapeKind.Box, Joint = 0 },
@@ -448,7 +448,10 @@ public class ProxyShapeTests {
                 new(Symbol.Intern("belly"), "The front of the torso, between the ribs and the hips."),
                 new(Symbol.Intern("right-palm"), "The gripping face of the right hand.")
             ],
-            [new(Facet.Of("affords", "grip-surface"), "A hand may close on it."), new(Facet.Of("affords", "lean-on"), "A body may rest against it.")],
+            [
+                new(Facet.Of("affords", "grip-surface"), "A hand may close on it."),
+                new(Facet.Of("affords", "lean-on"), "A body may rest against it.")
+            ],
             [
                 new ShapeClass(
                     Symbol.Intern("humanoid"),
@@ -525,8 +528,7 @@ public class ProxyShapeTests {
     /// <summary>A torso and one arm, at whatever proportions, with the shapes to match.</summary>
     static TestBody Body(Vector3 scale, int filler = 0, int ribs = 0) => new(scale, filler, ribs);
 
-    static ConstraintStack Stack(TestBody body) =>
-        new(body.Skeleton) { Shapes = new(body.Shapes) };
+    static ConstraintStack Stack(TestBody body) => new(body.Skeleton) { Shapes = new(body.Shapes) };
 
     static Vector3 Settle(ConstraintStack stack, TestBody body, int frames = 60) {
         for (var frame = 0; frame < frames; frame++) {
@@ -546,10 +548,7 @@ public class ProxyShapeTests {
         Assert.True(
             new SurfaceFrame(coordinate).TryResolve(
                 new() {
-                    Skeleton = body.Skeleton,
-                    Model = body.Model,
-                    Bindings = stack.Bindings,
-                    Shapes = stack.Shapes
+                    Skeleton = body.Skeleton, Model = body.Model, Bindings = stack.Bindings, Shapes = stack.Shapes
                 },
                 out var frame
             )
@@ -628,7 +627,7 @@ public class ProxyShapeTests {
                 );
             }
 
-            Shapes = ProxyShapeSet.Of("Body", "humanoid", [.. shapes]);
+            Shapes = ProxyShapeSet.Of("Body", "humanoid", [..shapes]);
             Pose = new(Skeleton);
             Model = new BoneTransform[Skeleton.JointCount];
 
@@ -663,7 +662,7 @@ sealed class SwellingTestPoser(float swell) : IProxyShapePoser {
             return false;
         }
 
-        posed = posed with { Dimensions = posed.Dimensions.Scaled(new Vector3(swell)) };
+        posed = posed with { Dimensions = posed.Dimensions.Scaled(new(swell)) };
         return true;
     }
 }

@@ -16,8 +16,12 @@ namespace Vixen.Terrain;
 ///         two terrains with the same shape should compare equal whatever their heights are.
 ///     </para>
 ///     <para>
-///         ⚠ <b><see cref="TileSamples" /> is a count of samples and must be a power of two, so a
-///         tile spans one less than a power of two quads.</b> That is not a stylistic choice. Jolt's
+///         ⚠
+///         <b>
+///             <see cref="TileSamples" /> is a count of samples and must be a power of two, so a
+///             tile spans one less than a power of two quads.
+///         </b>
+///         That is not a stylistic choice. Jolt's
 ///         height field needs the sample count to be a multiple of its block size and needs the
 ///         resulting block count to be a power of two, and it reports a violation by returning
 ///         nothing at all — see <c>PhysicsShapes.HeightField</c>. Unreal states the same constraint
@@ -85,10 +89,10 @@ public readonly record struct TerrainDescription {
     ///     <c>tiles × quads + 1</c> — see <see cref="TerrainSamples" />, where that sharing is
     ///     structural rather than a rule somebody has to remember.
     /// </remarks>
-    public int SamplesX => (TilesX * TileQuads) + 1;
+    public int SamplesX => TilesX * TileQuads + 1;
 
     /// <summary>How many samples the whole terrain has along Z.</summary>
-    public int SamplesZ => (TilesZ * TileQuads) + 1;
+    public int SamplesZ => TilesZ * TileQuads + 1;
 
     /// <summary>How many samples there are altogether.</summary>
     public long SampleCount => (long)SamplesX * SamplesZ;
@@ -137,8 +141,7 @@ public readonly record struct TerrainDescription {
     /// <summary>What a stored sample means in metres.</summary>
     /// <param name="height">The stored sample.</param>
     /// <returns>The height in metres.</returns>
-    public float HeightOf(ushort height) =>
-        MinHeight + (height / (float)TerrainSamples.MaxHeight * HeightRange);
+    public float HeightOf(ushort height) => MinHeight + height / (float)TerrainSamples.MaxHeight * HeightRange;
 
     /// <summary>What a height in metres stores as.</summary>
     /// <param name="metres">The height.</param>
@@ -162,8 +165,12 @@ public readonly record struct TerrainDescription {
     /// <param name="z">The sample's Z index.</param>
     /// <returns>The tile's indices and the sample's indices within it.</returns>
     /// <remarks>
-    ///     ⚠ <b>A boundary sample answers as the <em>upper</em> tile's sample zero, not the lower
-    ///     tile's last.</b> Both are true — the sample is shared, which is the whole point of
+    ///     ⚠
+    ///     <b>
+    ///         A boundary sample answers as the <em>upper</em> tile's sample zero, not the lower
+    ///         tile's last.
+    ///     </b>
+    ///     Both are true — the sample is shared, which is the whole point of
     ///     <see cref="TerrainSamples" /> — and this has to pick one, because a caller iterating tiles
     ///     must visit each sample exactly once. Picking the upper makes ownership the half-open range
     ///     <c>[T·quads, (T+1)·quads)</c>, which partitions the grid cleanly; the very last row and
@@ -173,15 +180,19 @@ public readonly record struct TerrainDescription {
     public (int TileX, int TileZ, int LocalX, int LocalZ) TileOf(int x, int z) {
         var tileX = Math.Clamp(x / TileQuads, 0, TilesX - 1);
         var tileZ = Math.Clamp(z / TileQuads, 0, TilesZ - 1);
-        return (tileX, tileZ, x - (tileX * TileQuads), z - (tileZ * TileQuads));
+        return (tileX, tileZ, x - tileX * TileQuads, z - tileZ * TileQuads);
     }
 
     /// <summary>Which tiles a rectangle of samples touches.</summary>
     /// <param name="rect">The samples.</param>
     /// <returns>The tiles, as a rectangle of tile indices. Empty for a rectangle outside the terrain.</returns>
     /// <remarks>
-    ///     ⚠ <b>From the sample indices rather than from <see cref="TileOf" />, and the difference is
-    ///     the seam.</b> A sample on a tile boundary belongs to two tiles; <see cref="TileOf" /> has
+    ///     ⚠
+    ///     <b>
+    ///         From the sample indices rather than from <see cref="TileOf" />, and the difference is
+    ///         the seam.
+    ///     </b>
+    ///     A sample on a tile boundary belongs to two tiles; <see cref="TileOf" /> has
     ///     to answer with one of them so that iterating tiles visits each sample once, and a caller
     ///     invalidating, re-uploading or re-colliding "the tile this sample is in" would leave the
     ///     neighbour holding stale ground along the shared row. This answers with both, which is what
@@ -320,5 +331,5 @@ public readonly record struct TerrainRect(int X, int Z, int Width, int Height) {
     ///     cannot restore what the read changed on the next pass.
     /// </remarks>
     public TerrainRect Grow(int margin) =>
-        IsEmpty ? this : new(X - margin, Z - margin, Width + (margin * 2), Height + (margin * 2));
+        IsEmpty ? this : new(X - margin, Z - margin, Width + margin * 2, Height + margin * 2);
 }

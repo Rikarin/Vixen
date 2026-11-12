@@ -90,8 +90,12 @@ public class LocalisationTests {
     ///     all the way down to the button in the corner of the search box.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>Built after the language is chosen, which is the behaviour rather than a convenience
-    ///     of the test.</b> A control assigns its labels in <c>OnCreated</c>, so it shows the
+    ///     ⚠
+    ///     <b>
+    ///         Built after the language is chosen, which is the behaviour rather than a convenience
+    ///         of the test.
+    ///     </b>
+    ///     A control assigns its labels in <c>OnCreated</c>, so it shows the
     ///     language that was in use when it was built — see <c>ControlStrings</c>. Building first
     ///     and translating second would assert something the control set does not do.
     /// </remarks>
@@ -128,7 +132,10 @@ public class LocalisationTests {
     /// </remarks>
     [Fact]
     public void Declared_control_ids_are_unique() {
-        Assert.Equal(ControlStrings.All.Count, ControlStrings.All.Select(id => id.Id).Distinct(StringComparer.Ordinal).Count());
+        Assert.Equal(
+            ControlStrings.All.Count,
+            ControlStrings.All.Select(static id => id.Id).Distinct(StringComparer.Ordinal).Count()
+        );
     }
 
     /// <summary>The template a translator starts from covers everything the control set says.</summary>

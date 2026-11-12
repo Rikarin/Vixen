@@ -84,7 +84,9 @@ public class TextureUnknownKeyTests {
         gradient.SetValue("Octaves", 4f);
         gradient.SetValue("Out", 1f);
 
-        var found = compiler.Compile(graph).Diagnostics.Where(one => one.Id == "TG0025").Select(one => one.Port);
+        var found = compiler.Compile(graph)
+            .Diagnostics.Where(static one => one.Id == "TG0025")
+            .Select(static one => one.Port);
 
         Assert.Equal(["Octaves", "Out"], found.Order(StringComparer.Ordinal));
     }
@@ -99,8 +101,8 @@ public class TextureUnknownKeyTests {
 
         var compilation = compiler.Compile(graph);
 
-        Assert.DoesNotContain(compilation.Diagnostics, one => one.Id == "TG0025");
-        Assert.Contains(compilation.Diagnostics, one => one.Id == "TG0016");
+        Assert.DoesNotContain(compilation.Diagnostics, static one => one.Id == "TG0025");
+        Assert.Contains(compilation.Diagnostics, static one => one.Id == "TG0016");
     }
 
     /// <summary>
@@ -109,7 +111,7 @@ public class TextureUnknownKeyTests {
     [Fact]
     public void A_compounds_node_is_checked_against_its_knobs() {
         var registry = Registry();
-        var library = TextureCompoundLibrary.Publish(registry, folder: null, out _);
+        var library = TextureCompoundLibrary.Publish(registry, null, out _);
         NodeGraphModel graph = new();
         var dust = graph.Add("Generators/Dust");
         var output = graph.Add("Output/Output");
@@ -125,9 +127,9 @@ public class TextureUnknownKeyTests {
         dust.SetText("facng", "0.7");
         dust.SetValue("Amount", 1f);
 
-        var found = compiler.Compile(graph).Diagnostics.Where(one => one.Id == "TG0025").ToArray();
+        var found = compiler.Compile(graph).Diagnostics.Where(static one => one.Id == "TG0025").ToArray();
 
-        Assert.Equal(["Amount", "facng"], found.Select(one => one.Port).Order(StringComparer.Ordinal));
+        Assert.Equal(["Amount", "facng"], found.Select(static one => one.Port).Order(StringComparer.Ordinal));
         Assert.All(found, one => Assert.Equal(dust.Id, one.Node));
     }
 }

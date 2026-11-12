@@ -46,8 +46,10 @@ public class TwoWayTypeTests {
     public void A_binding_whose_types_disagree_says_so_at_compose_rather_than_going_quiet() {
         using var fixture = new ControlFixture();
 
-        var thrown = Assert.Throws<ArgumentException>(
-            () => BuildContext.Build<Mismatched>(fixture.Document, fixture.Document.Root)
+        var thrown = Assert.Throws<ArgumentException>(() => BuildContext.Build<Mismatched>(
+                fixture.Document,
+                fixture.Document.Root
+            )
         );
 
         // Both types named, because "the types do not match" without them sends the author to read
@@ -63,13 +65,19 @@ public class TwoWayTypeTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>The pair that message names, run: the same mismatched types bind fine when the
-    ///     conversion is written where a reader can see it.</b>
+    ///     ⚠
+    ///     <b>
+    ///         The pair that message names, run: the same mismatched types bind fine when the
+    ///         conversion is written where a reader can see it.
+    ///     </b>
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <b>This is what a `.vxml` emits for <c>Value="@expr"</c> beside
-    ///         <c>change:Value="@(v =&gt; …)"</c></b> — an assignment plus a
+    ///         <b>
+    ///             This is what a `.vxml` emits for <c>Value="@expr"</c> beside
+    ///             <c>change:Value="@(v =&gt; …)"</c>
+    ///         </b>
+    ///         — an assignment plus a
     ///         <see cref="BuildContext.Bind(System.Action, string, int)" /> for the in-leg
     ///         (<c>ComponentEmitter.EmitParameter</c>) and a
     ///         <see cref="BuildContext.Changed{T}" /> for the out-leg — so the shape under test is
@@ -110,9 +118,7 @@ public class TwoWayTypeTests {
     public void A_nullable_model_against_a_value_property_is_a_mismatch_too() {
         using var fixture = new ControlFixture();
 
-        Assert.Throws<ArgumentException>(
-            () => BuildContext.Build<Nullable>(fixture.Document, fixture.Document.Root)
-        );
+        Assert.Throws<ArgumentException>(() => BuildContext.Build<Nullable>(fixture.Document, fixture.Document.Root));
     }
 
     sealed class Matched : Component {

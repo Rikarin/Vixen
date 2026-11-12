@@ -5,7 +5,6 @@ using Vixen.Core.Syntax.Diagnostics;
 using Vixen.Raven;
 using Vixen.Raven.Lowering;
 using Vixen.Raven.Reflection;
-using Vixen.Raven.Symbols;
 using Vixen.Raven.Syntax;
 using Xunit;
 using static Tests.CodeGenTestBase;
@@ -52,12 +51,12 @@ public class RenderTargetTests {
         var module = LoweringTestBase.Lower(GBuffer);
         var entry = Assert.Single(LoweringTestBase.FindShader(module, "S").EntryPoints);
 
-        Assert.Equal(["albedo", "normal", "material"], entry.Outputs.Select(o => o.Name));
-        Assert.Equal([0, 1, 2], entry.Outputs.Select(o => o.Member));
+        Assert.Equal(["albedo", "normal", "material"], entry.Outputs.Select(static o => o.Name));
+        Assert.Equal([0, 1, 2], entry.Outputs.Select(static o => o.Member));
 
         // The semantic is synthesized from the index rather than declared, so the target a member
         // writes cannot disagree with the location the plan gives it.
-        Assert.Equal(["SV_Target0", "SV_Target1", "SV_Target2"], entry.Outputs.Select(o => o.Semantic));
+        Assert.Equal(["SV_Target0", "SV_Target1", "SV_Target2"], entry.Outputs.Select(static o => o.Semantic));
 
         // `Output` means "the one output", and there is not one.
         Assert.Null(entry.Output);
@@ -94,8 +93,8 @@ public class RenderTargetTests {
     public void The_reflection_reports_one_colour_attachment_per_target() {
         var reflection = ReflectionOf(GBuffer);
 
-        Assert.Equal([0, 1, 2], reflection.Outputs.Select(o => o.Location));
-        Assert.Equal(["albedo", "normal", "material"], reflection.Outputs.Select(o => o.Name));
+        Assert.Equal([0, 1, 2], reflection.Outputs.Select(static o => o.Location));
+        Assert.Equal(["albedo", "normal", "material"], reflection.Outputs.Select(static o => o.Name));
     }
 
     [Fact]
@@ -155,7 +154,7 @@ public class RenderTargetTests {
             target
         );
 
-        Assert.Contains(reported, d => d.Id == "RVN4001" && d.IsError);
+        Assert.Contains(reported, static d => d.Id == "RVN4001" && d.IsError);
     }
 
     /// <summary>
@@ -190,7 +189,7 @@ public class RenderTargetTests {
             target
         );
 
-        Assert.Contains(reported, d => d.Id == "RVN4001" && d.IsError);
+        Assert.Contains(reported, static d => d.Id == "RVN4001" && d.IsError);
     }
 
     /// <summary>
@@ -253,8 +252,8 @@ public class RenderTargetTests {
 
         var entry = Assert.Single(LoweringTestBase.FindShader(module, "S").EntryPoints);
 
-        Assert.Equal(["color", "normal"], entry.Outputs.Select(o => o.Name));
-        Assert.Equal([0, 1], entry.Outputs.Select(o => o.Member));
+        Assert.Equal(["color", "normal"], entry.Outputs.Select(static o => o.Name));
+        Assert.Equal([0, 1], entry.Outputs.Select(static o => o.Member));
     }
 
     /// <summary>
@@ -310,7 +309,7 @@ public class RenderTargetTests {
         Assert.DoesNotContain("out_extra", unit.Code, StringComparison.Ordinal);
 
         var reflection = ReflectionOf(Middle);
-        Assert.Equal([0, 2], reflection.Outputs.Select(o => o.Location));
+        Assert.Equal([0, 2], reflection.Outputs.Select(static o => o.Location));
     }
 
     /// <summary>

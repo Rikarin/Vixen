@@ -5,7 +5,6 @@ using System.Net;
 using Vixen.App;
 using Vixen.Core;
 using Vixen.Net.Sessions;
-using Vixen.Net.Time;
 using Vixen.Net.Transport;
 using Vixen.Net.Transport.Udp;
 
@@ -42,7 +41,8 @@ public abstract class Realm : Game {
     /// <summary>What this shard was told to be.</summary>
     /// <exception cref="InvalidOperationException">Read before <c>RealmApp</c> bound one.</exception>
     public RealmSpec Spec =>
-        spec ?? throw new InvalidOperationException(
+        spec
+        ?? throw new InvalidOperationException(
             "A realm has no spec until it is started. Run it through RealmApp.Run<TRealm>(args), or "
             + "call Bind(spec) before building the application."
         );
@@ -50,7 +50,8 @@ public abstract class Realm : Game {
     /// <summary>The shard's own machinery: admission, map, heartbeat, directory.</summary>
     /// <exception cref="InvalidOperationException">Read before <c>OnRealmInitialise</c>.</exception>
     public RealmHost Host =>
-        host ?? throw new InvalidOperationException(
+        host
+        ?? throw new InvalidOperationException(
             "The realm host does not exist until OnInitialise. OnConfigure runs before the platform, "
             + "which is the point of it — it decides what the platform will be."
         );
@@ -86,8 +87,12 @@ public abstract class Realm : Game {
 
     /// <summary>Where the session's user payloads go, or null to drop them.</summary>
     /// <remarks>
-    ///     ⚠ <b>A realm's session is updated once, by the host, and this is how a handler reaches
-    ///     it.</b> Calling <c>Host.Session.Update</c> from <see cref="OnRealmUpdate" /> to install
+    ///     ⚠
+    ///     <b>
+    ///         A realm's session is updated once, by the host, and this is how a handler reaches
+    ///         it.
+    ///     </b>
+    ///     Calling <c>Host.Session.Update</c> from <see cref="OnRealmUpdate" /> to install
     ///     one would advance the session twice a frame — two rounds of drift correction, two rounds
     ///     of timeouts — which presents as a session that ages twice as fast as the world in it.
     /// </remarks>
@@ -117,12 +122,11 @@ public abstract class Realm : Game {
     protected virtual ITransport CreateTransport(RealmEndpoint endpoint) =>
         new UdpTransport(
             new UdpDatagramSocketFactory(),
-            new UdpTransportOptions {
+            new() {
                 // Every interface, on the port placement published. The spec's host is what a client
                 // is told, and on a Kubernetes node or behind a relay it is not an address this
                 // process could bind even if it wanted to.
-                ListenEndPoint = new(IPAddress.Any, endpoint.Port),
-                MaxConnections = Spec.Capacity.HardCap
+                ListenEndPoint = new(IPAddress.Any, endpoint.Port), MaxConnections = Spec.Capacity.HardCap
             }
         );
 
@@ -136,9 +140,7 @@ public abstract class Realm : Game {
     /// </remarks>
     protected virtual SessionOptions CreateSessionOptions() =>
         new() {
-            MaxPlayers = Spec.Capacity.HardCap,
-            TickRate = new TickRate(Spec.TickRate),
-            ContentHash = Spec.Key.Version.Content
+            MaxPlayers = Spec.Capacity.HardCap, TickRate = new(Spec.TickRate), ContentHash = Spec.Key.Version.Content
         };
 
     /// <summary>The cluster key, or null for <see cref="RealmHost.DevelopmentSigner" />.</summary>
@@ -188,7 +190,7 @@ public abstract class Realm : Game {
     protected sealed override void OnInitialise() {
         host = new(
             Spec,
-            admission => new(CreateTransport(Spec.Endpoint), CreateSessionOptions(), admission, ownsTransport: true),
+            admission => new(CreateTransport(Spec.Endpoint), CreateSessionOptions(), admission, true),
             CreateSigner(),
             CreateHostOptions()
         );

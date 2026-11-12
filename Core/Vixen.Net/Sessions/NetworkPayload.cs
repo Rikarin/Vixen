@@ -33,8 +33,11 @@ public enum PayloadKind : byte {
 
     /// <summary>The largest kind there is. Anything above it did not come from this engine.</summary>
     /// <remarks>
-    ///     <b>Kept beside the members rather than written into <see cref="NetworkPayload.TryUnwrap" />,
-    ///     because it was once written into it and went stale.</b> The check read "greater than
+    ///     <b>
+    ///         Kept beside the members rather than written into <see cref="NetworkPayload.TryUnwrap" />,
+    ///         because it was once written into it and went stale.
+    ///     </b>
+    ///     The check read "greater than
     ///     <see cref="Rpc" />" and stayed that way when <see cref="Broadcast" /> was added — so every
     ///     broadcast that went through the session layer was refused as malformed, silently, while the
     ///     router's own tests passed because they never went through it. There is now a test that

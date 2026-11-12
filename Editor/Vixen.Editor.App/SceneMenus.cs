@@ -43,32 +43,26 @@ sealed partial class EditorApplication {
 
     void SceneMenuCommands() {
         Shell.Commands.Add(
-            new EditorCommand(
+            new(
                 "scene.radial-menu",
                 EditorStrings.CommandRadialMenu,
                 OpenRadialMenu
-            ) {
-                Category = EditorStrings.CategoryScene,
-                Enablement = () => Viewport is not null
-            }
+            ) { Category = EditorStrings.CategoryScene, Enablement = () => Viewport is not null }
         );
 
         Shell.Commands.Add(
-            new EditorCommand(
+            new(
                 "scene.context-menu",
                 EditorStrings.CommandSceneContextMenu,
                 OpenSceneMenu
-            ) {
-                Category = EditorStrings.CategoryScene,
-                Enablement = () => Viewport is not null
-            }
+            ) { Category = EditorStrings.CategoryScene, Enablement = () => Viewport is not null }
         );
 
         // ⚠ Two unmodified keys in the viewport, which is a budget worth spending here. W, E and R
         // are the gizmo and 1–4 belong to whichever element mode is active; Q and C were free, and a
         // menu that costs a chord is a menu people reach for the mouse instead of.
-        Shell.Keys.SetDefault("scene.radial-menu", new KeyChord(InputKey.Q, ModifierKeys.None));
-        Shell.Keys.SetDefault("scene.context-menu", new KeyChord(InputKey.C, ModifierKeys.None));
+        Shell.Keys.SetDefault("scene.radial-menu", new(InputKey.Q, ModifierKeys.None));
+        Shell.Keys.SetDefault("scene.context-menu", new(InputKey.C, ModifierKeys.None));
     }
 
     /// <summary>What a menu should offer, given which one it is and what mode is on.</summary>
@@ -84,7 +78,7 @@ sealed partial class EditorApplication {
         return Extensions.All<SceneMenuItem>()
             .Where(entry => (entry.Surface & surface) != 0)
             .Where(entry => entry.Mode is null || string.Equals(entry.Mode, mode, StringComparison.Ordinal))
-            .OrderBy(entry => entry.Order)
+            .OrderBy(static entry => entry.Order)
             .ThenBy(entry => Title(entry), StringComparer.CurrentCultureIgnoreCase);
     }
 
@@ -144,7 +138,7 @@ sealed partial class EditorApplication {
         radial.Chose -= RadialChosen;
         radial.Chose += RadialChosen;
 
-        radial.OpenAt(pane.PointerPosition.X, pane.PointerPosition.Y, hold: true);
+        radial.OpenAt(pane.PointerPosition.X, pane.PointerPosition.Y, true);
     }
 
     void RadialChosen(RadialMenu menu, RadialItem item) {
@@ -209,8 +203,12 @@ sealed partial class EditorApplication {
     /// <summary>What the editor itself puts in the two menus.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Registered rather than built in, so that the editor's own entries and a plugin's
-    ///         arrive by the same door.</b> This is doc 36 § D2's rule applied to one more surface:
+    ///         ⚠
+    ///         <b>
+    ///             Registered rather than built in, so that the editor's own entries and a plugin's
+    ///             arrive by the same door.
+    ///         </b>
+    ///         This is doc 36 § D2's rule applied to one more surface:
     ///         an extension point whose own author bypasses it is a guess rather than a contract, and
     ///         the fastest way to find out that <see cref="SceneMenuItem" /> is missing something is
     ///         to be its first user.

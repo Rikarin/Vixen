@@ -89,8 +89,12 @@ public enum StyleUnit : byte {
     ///     The element's own computed line height — CSS Values 4's <c>lh</c>.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>Appended rather than filed next to <see cref="Em" />, because these are bytes on a
-    ///     struct that is interned and compared.</b> Renumbering the relative units would change what
+    ///     ⚠
+    ///     <b>
+    ///         Appended rather than filed next to <see cref="Em" />, because these are bytes on a
+    ///         struct that is interned and compared.
+    ///     </b>
+    ///     Renumbering the relative units would change what
     ///     every persisted <see cref="StyleValue" /> means, and the alphabetical neighbour is worth
     ///     nothing against that.
     ///     <para>
@@ -108,8 +112,12 @@ public enum StyleUnit : byte {
     ///     on a struct that is interned and compared, so filing the six container units beside the
     ///     four viewport ones would change what every persisted <see cref="StyleValue" /> means.
     ///     <para>
-    ///         ⚠ <b>Resolving to the <i>viewport</i> when there is no query container is the
-    ///         specification and not a fallback this engine invented</b> — CSS Containment 3 § 5.3
+    ///         ⚠
+    ///         <b>
+    ///             Resolving to the <i>viewport</i> when there is no query container is the
+    ///             specification and not a fallback this engine invented
+    ///         </b>
+    ///         — CSS Containment 3 § 5.3
     ///         says the container units are relative to the small viewport size when no eligible
     ///         container exists. So a <c>cqw</c> outside every container is a <c>vw</c>, which is why
     ///         a stylesheet that loses its <c>container-type</c> reflows rather than collapsing.
@@ -122,8 +130,12 @@ public enum StyleUnit : byte {
 
     /// <summary>A hundredth of the query container's inline size — <c>cqi</c>.</summary>
     /// <remarks>
-    ///     ⚠ <b>An exact substitution for <see cref="ContainerWidth" /> here, not an approximation of
-    ///     one.</b> The inline axis is the horizontal axis in every writing mode
+    ///     ⚠
+    ///     <b>
+    ///         An exact substitution for <see cref="ContainerWidth" /> here, not an approximation of
+    ///         one.
+    ///     </b>
+    ///     The inline axis is the horizontal axis in every writing mode
     ///     <c>Vixen.Ui.Layout</c> has, and it has one — the same argument doc 43 records for
     ///     <c>inset-x-*</c> emitting <c>left</c> and <c>right</c> where v4 emits <c>inset-inline</c>.
     ///     It is a distinct member all the same, because a stylesheet that wrote <c>cqi</c> has to
@@ -161,7 +173,15 @@ public enum StyleUnit : byte {
 public readonly struct StyleValue : IEquatable<StyleValue> {
     readonly StyleValue[]? items;
 
-    StyleValue(StyleValueKind kind, float number, StyleUnit unit, Color4 colour, int keyword, StyleValue[]? items, bool commas = false) {
+    StyleValue(
+        StyleValueKind kind,
+        float number,
+        StyleUnit unit,
+        Color4 colour,
+        int keyword,
+        StyleValue[]? items,
+        bool commas = false
+    ) {
         Kind = kind;
         Number = number;
         Unit = unit;
@@ -243,7 +263,7 @@ public readonly struct StyleValue : IEquatable<StyleValue> {
     /// <returns>The value.</returns>
     internal static StyleValue FromCommaList(StyleValue[] parts) {
         ArgumentNullException.ThrowIfNull(parts);
-        return new StyleValue(StyleValueKind.List, 0f, StyleUnit.None, default, NameTable.None, parts, commas: true);
+        return new StyleValue(StyleValueKind.List, 0f, StyleUnit.None, default, NameTable.None, parts, true);
     }
 
     /// <summary>Whether two values can be interpolated between.</summary>
@@ -296,7 +316,9 @@ public readonly struct StyleValue : IEquatable<StyleValue> {
             StyleValueKind.Number or StyleValueKind.Color => true,
             StyleValueKind.Length => from.Unit == to.Unit,
             StyleValueKind.Keyword => from.Keyword == to.Keyword,
-            StyleValueKind.List => from.Commas == to.Commas && from.Items.Length == to.Items.Length && EveryPartCan(from, to),
+            StyleValueKind.List => from.Commas == to.Commas
+                && from.Items.Length == to.Items.Length
+                && EveryPartCan(from, to),
             _ => false
         };
 
@@ -392,14 +414,15 @@ public readonly struct StyleValue : IEquatable<StyleValue> {
     public override bool Equals(object? obj) => obj is StyleValue other && Equals(other);
 
     /// <inheritdoc />
-    public override int GetHashCode() => Kind switch {
-        StyleValueKind.Number => HashCode.Combine(Kind, Number),
-        StyleValueKind.Length => HashCode.Combine(Kind, Number, Unit),
-        StyleValueKind.Color => HashCode.Combine(Kind, Color),
-        StyleValueKind.Keyword => HashCode.Combine(Kind, Keyword),
-        StyleValueKind.List => Items.Length,
-        _ => 0
-    };
+    public override int GetHashCode() =>
+        Kind switch {
+            StyleValueKind.Number => HashCode.Combine(Kind, Number),
+            StyleValueKind.Length => HashCode.Combine(Kind, Number, Unit),
+            StyleValueKind.Color => HashCode.Combine(Kind, Color),
+            StyleValueKind.Keyword => HashCode.Combine(Kind, Keyword),
+            StyleValueKind.List => Items.Length,
+            _ => 0
+        };
 
     /// <summary>Compares two values.</summary>
     /// <param name="left">One.</param>
@@ -474,9 +497,12 @@ public readonly struct StyleValue : IEquatable<StyleValue> {
                     // `rotate: z 90deg`, and a lone `blur(4px)` written as `blur 4px` parses back to
                     // the same two items anyway. ⚠ Not in a comma list, whose parts are each a whole
                     // value: `inset 0 0 8px red` is a shadow headed by a keyword, not `inset(…)`.
-                    parts[i] = !Commas && Items[i] is { Kind: StyleValueKind.List, Items: [{ Kind: StyleValueKind.Keyword } head, ..] } function
-                        ? Function(head, function.Items, names)
-                        : Items[i].ToCss(names);
+                    parts[i] = !Commas
+                        && Items[i] is {
+                            Kind: StyleValueKind.List, Items: [{ Kind: StyleValueKind.Keyword } head, ..]
+                        } function
+                            ? Function(head, function.Items, names)
+                            : Items[i].ToCss(names);
                 }
 
                 return string.Join(Commas ? ", " : " ", parts);
@@ -497,7 +523,7 @@ public readonly struct StyleValue : IEquatable<StyleValue> {
 
         static string Format(float value) => value.ToString("0.####", CultureInfo.InvariantCulture);
 
-        static int Channel(float value) => (int) MathF.Round(Math.Clamp(value, 0f, 1f) * 255f);
+        static int Channel(float value) => (int)MathF.Round(Math.Clamp(value, 0f, 1f) * 255f);
 
         // Four decimals is enough for a length in pixels and it is not enough here: the whole reason
         // this branch exists is that the value came back different from the way it went out. A bare
@@ -512,42 +538,44 @@ public readonly struct StyleValue : IEquatable<StyleValue> {
     ///     so a failing assertion said <c>50Percent</c> where the stylesheet said <c>50%</c>. Two
     ///     tables of the same thing is how a unit gets added to one and not the other.
     /// </remarks>
-    static string Suffix(StyleUnit unit) => unit switch {
-        StyleUnit.Pixels => "px",
-        StyleUnit.Percent => "%",
-        StyleUnit.Seconds => "s",
-        StyleUnit.Degrees => "deg",
-        StyleUnit.Em => "em",
-        StyleUnit.Rem => "rem",
-        StyleUnit.ViewportWidth => "vw",
-        StyleUnit.ViewportHeight => "vh",
-        StyleUnit.ViewportMin => "vmin",
-        StyleUnit.ViewportMax => "vmax",
+    static string Suffix(StyleUnit unit) =>
+        unit switch {
+            StyleUnit.Pixels => "px",
+            StyleUnit.Percent => "%",
+            StyleUnit.Seconds => "s",
+            StyleUnit.Degrees => "deg",
+            StyleUnit.Em => "em",
+            StyleUnit.Rem => "rem",
+            StyleUnit.ViewportWidth => "vw",
+            StyleUnit.ViewportHeight => "vh",
+            StyleUnit.ViewportMin => "vmin",
+            StyleUnit.ViewportMax => "vmax",
 
-        // ⚠ `lh` was missing here from the day it was added, which is the failure this table's own
-        // remark describes happening to a *second* table and not to itself: `1lh` printed as `1`, a
-        // bare number, in every assertion message and every debug dump. Nothing reads the string
-        // back, so it cost nothing but a reader's confidence — and the six below arrived at the same
-        // seam, which is how it was noticed.
-        StyleUnit.LineHeight => "lh",
-        StyleUnit.ContainerWidth => "cqw",
-        StyleUnit.ContainerHeight => "cqh",
-        StyleUnit.ContainerInline => "cqi",
-        StyleUnit.ContainerBlock => "cqb",
-        StyleUnit.ContainerMin => "cqmin",
-        StyleUnit.ContainerMax => "cqmax",
-        _ => string.Empty
-    };
+            // ⚠ `lh` was missing here from the day it was added, which is the failure this table's own
+            // remark describes happening to a *second* table and not to itself: `1lh` printed as `1`, a
+            // bare number, in every assertion message and every debug dump. Nothing reads the string
+            // back, so it cost nothing but a reader's confidence — and the six below arrived at the same
+            // seam, which is how it was noticed.
+            StyleUnit.LineHeight => "lh",
+            StyleUnit.ContainerWidth => "cqw",
+            StyleUnit.ContainerHeight => "cqh",
+            StyleUnit.ContainerInline => "cqi",
+            StyleUnit.ContainerBlock => "cqb",
+            StyleUnit.ContainerMin => "cqmin",
+            StyleUnit.ContainerMax => "cqmax",
+            _ => string.Empty
+        };
 
     /// <inheritdoc />
-    public override string ToString() => Kind switch {
-        StyleValueKind.Number => Format(Number),
-        StyleValueKind.Length => Format(Number) + Suffix(Unit),
-        StyleValueKind.Color => Color.ToString(),
-        StyleValueKind.Keyword => "keyword " + Keyword.ToString(CultureInfo.InvariantCulture),
-        StyleValueKind.List => Items.Length.ToString(CultureInfo.InvariantCulture) + " parts",
-        _ => "unknown"
-    };
+    public override string ToString() =>
+        Kind switch {
+            StyleValueKind.Number => Format(Number),
+            StyleValueKind.Length => Format(Number) + Suffix(Unit),
+            StyleValueKind.Color => Color.ToString(),
+            StyleValueKind.Keyword => "keyword " + Keyword.ToString(CultureInfo.InvariantCulture),
+            StyleValueKind.List => Items.Length.ToString(CultureInfo.InvariantCulture) + " parts",
+            _ => "unknown"
+        };
 
     static string Format(float value) => value.ToString("0.####", CultureInfo.InvariantCulture);
 }

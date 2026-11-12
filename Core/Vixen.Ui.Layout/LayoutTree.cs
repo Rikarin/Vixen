@@ -75,7 +75,9 @@ public sealed partial class LayoutTree : IDisposable {
     int freeCount;
 
     /// <summary>Creates an empty tree.</summary>
-    public LayoutTree() => Grow(InitialCapacity);
+    public LayoutTree() {
+        Grow(InitialCapacity);
+    }
 
     /// <summary>How many live nodes there are.</summary>
     public int NodeCount => nodeCount;
@@ -120,13 +122,13 @@ public sealed partial class LayoutTree : IDisposable {
         // would read whichever fragments the previous occupant left behind.
         results[index].FragmentOffset = -1;
 
-        links[index] = new LayoutLinks { Parent = -1, ChildOffset = -1 };
+        links[index] = new() { Parent = -1, ChildOffset = -1 };
         flags[index] = LayoutNodeState.Live | LayoutNodeState.Dirty | LayoutNodeState.HasNewLayout;
 
         // A reused slot must not inherit the previous occupant's sorted block, and clearing the
         // stale flag here is what lets `FlushChildOrder` skip a queue entry whose node is gone.
         if (orderedChildren is not null) {
-            orderedChildren[index] = new OrderedChildren { Offset = -1 };
+            orderedChildren[index] = new() { Offset = -1 };
         }
 
         if (measureFunctions is not null) {
@@ -143,7 +145,7 @@ public sealed partial class LayoutTree : IDisposable {
 
         ClearGridNames(index);
 
-        return new LayoutNodeId(index);
+        return new(index);
     }
 
     /// <summary>Removes a node and everything under it.</summary>
@@ -152,7 +154,7 @@ public sealed partial class LayoutTree : IDisposable {
         var index = Validate(node);
         var childIds = children.Slice(links[index].ChildOffset, links[index].ChildCount);
         for (var i = childIds.Length - 1; i >= 0; i--) {
-            DestroyRecursive(new LayoutNodeId(childIds[i]));
+            DestroyRecursive(new(childIds[i]));
         }
 
         Detach(index);
@@ -161,7 +163,7 @@ public sealed partial class LayoutTree : IDisposable {
         ClearGridNames(index);
         ReleaseOrderedBlock(index);
         ReleaseFragments(index);
-        links[index] = new LayoutLinks { Parent = -1, ChildOffset = -1 };
+        links[index] = new() { Parent = -1, ChildOffset = -1 };
         flags[index] = LayoutNodeState.None;
 
         if (measureFunctions is not null) {
@@ -193,8 +195,12 @@ public sealed partial class LayoutTree : IDisposable {
     ///     child list.
     /// </exception>
     /// <remarks>
-    ///     ⚠ <b>The index is a position in <i>this</i> store's child list, which is not necessarily
-    ///     the same list a caller is reading positions off.</b> Every caller here holds a node in at
+    ///     ⚠
+    ///     <b>
+    ///         The index is a position in <i>this</i> store's child list, which is not necessarily
+    ///         the same list a caller is reading positions off.
+    ///     </b>
+    ///     Every caller here holds a node in at
     ///     least one other tree as well, and those trees are free to contain nodes this one does
     ///     not — <c>UiDocument.CreateSurface</c> is one that does, and it took two callers with it.
     ///     So the range failure below says what the count actually is rather than leaving the caller
@@ -308,7 +314,7 @@ public sealed partial class LayoutTree : IDisposable {
         var links = this.links[Validate(node)];
         ArgumentOutOfRangeException.ThrowIfNegative(index);
         ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(index, links.ChildCount);
-        return new LayoutNodeId(children.Slice(links.ChildOffset, links.ChildCount)[index]);
+        return new(children.Slice(links.ChildOffset, links.ChildCount)[index]);
     }
 
     /// <summary>A node's parent, or <see cref="LayoutNodeId.Invalid" />.</summary>
@@ -343,15 +349,18 @@ public sealed partial class LayoutTree : IDisposable {
     /// <summary>Marks a subtree as needing layout whatever its styles say.</summary>
     /// <param name="node">The root of the subtree.</param>
     /// <remarks>
-    ///     ⚠ <b>The escape hatch <see cref="MarkDirty" /> deliberately is not, and it exists for one
-    ///     reason: <see cref="PointScaleFactor" />.</b> Everything else that can change a node's
+    ///     ⚠
+    ///     <b>
+    ///         The escape hatch <see cref="MarkDirty" /> deliberately is not, and it exists for one
+    ///         reason: <see cref="PointScaleFactor" />.
+    ///     </b>
+    ///     Everything else that can change a node's
     ///     result is a style or a child, and both mark it — which is what makes the refusal in
     ///     <c>MarkDirty</c> right. The pixel grid is neither. A window dragged onto a display with a
     ///     different scale changes no declaration anywhere, so nothing is dirty, so
     ///     <see cref="CalculateLayout" /> answers from the cache and the rounding pass — which is
     ///     what reads the grid — never runs. The window then keeps the previous display's half-pixel
     ///     seams for as long as nothing else about it changes.
-    ///
     ///     Every node in the subtree rather than only its root, because the cache is per node: an
     ///     ancestor that recomputes still serves its children's sizes from theirs.
     /// </remarks>
@@ -466,13 +475,13 @@ public sealed partial class LayoutTree : IDisposable {
         orderedChildren = null;
         reorderQueue = null;
         orderKeys = [];
-        children = new ChildArena();
+        children = new();
         capacity = 0;
         nodeCount = 0;
     }
 
     internal int Validate(LayoutNodeId node) {
-        if ((uint) node.Index >= (uint) capacity || (flags[node.Index] & LayoutNodeState.Live) == 0) {
+        if ((uint)node.Index >= (uint)capacity || (flags[node.Index] & LayoutNodeState.Live) == 0) {
             throw new ArgumentOutOfRangeException(nameof(node), $"{node} is not a live node in this tree.");
         }
 
@@ -505,8 +514,7 @@ public sealed partial class LayoutTree : IDisposable {
     ///     <see cref="DestroyRecursive" /> — could otherwise walk a stale copy naming a node that
     ///     has since been removed.
     /// </remarks>
-    internal Span<int> DocumentChildIds(int index) =>
-        children.Slice(links[index].ChildOffset, links[index].ChildCount);
+    internal Span<int> DocumentChildIds(int index) => children.Slice(links[index].ChildOffset, links[index].ChildCount);
 
     internal MeasureFunction? MeasureFunctionOf(int index) => measureFunctions?[index];
 
@@ -553,7 +561,7 @@ public sealed partial class LayoutTree : IDisposable {
     void Detach(int index) {
         var parent = links[index].Parent;
         if (parent >= 0) {
-            RemoveChild(new LayoutNodeId(parent), new LayoutNodeId(index));
+            RemoveChild(new(parent), new(index));
         }
     }
 

@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core.Imaging;
-using Vixen.Graphics.RenderGraph;
 using Xunit;
 
 namespace Vixen.Graphics.Golden.Tests;
@@ -39,8 +38,11 @@ namespace Vixen.Graphics.Golden.Tests;
 ///         swapped, which is the one mistake here that renders perfectly.
 ///     </para>
 ///     <para>
-///         <b>Measured on MoltenVK at 128×128: <c>Min</c> lights 8256 pixels and <c>Max</c> 8128, a
-///         difference of exactly 128.</b> That is one pixel per row, which is what a corner-to-corner
+///         <b>
+///             Measured on MoltenVK at 128×128: <c>Min</c> lights 8256 pixels and <c>Max</c> 8128, a
+///             difference of exactly 128.
+///         </b>
+///         That is one pixel per row, which is what a corner-to-corner
 ///         45° edge has to give and is the same count the sibling <c>MsaaResolveImageTests</c> arrives
 ///         at from the other direction — it counts the partly covered pixels in a resolved colour
 ///         image and finds 128 of them. The two fixtures measure the same band by different means,
@@ -96,8 +98,12 @@ public sealed class DepthResolveImageTests {
     /// </summary>
     /// <param name="fixture">The fixture, disposed here when the answer is no.</param>
     /// <remarks>
-    ///     ⚠ <b>This is a device question and not a sample-count one, and lavapipe is why the two had
-    ///     to be told apart.</b> It renders a 4× depth attachment happily and advertises
+    ///     ⚠
+    ///     <b>
+    ///         This is a device question and not a sample-count one, and lavapipe is why the two had
+    ///         to be told apart.
+    ///     </b>
+    ///     It renders a 4× depth attachment happily and advertises
     ///     <c>VK_RESOLVE_MODE_SAMPLE_ZERO_BIT</c> alone, so this fixture asked it for
     ///     <see cref="DepthResolveMode.Min" /> and got
     ///     VUID-VkRenderingInfo-pDepthAttachment-06102 back — a red test that was reporting the
@@ -297,7 +303,7 @@ public sealed class DepthResolveImageTests {
         int maximum;
 
         using (var owned = fixture!) {
-            minimum = Survivors(Run(owned, DepthResolveMode.Min, samples: 1));
+            minimum = Survivors(Run(owned, DepthResolveMode.Min, 1));
         }
 
         if (!TryOpen(out fixture)) {
@@ -305,7 +311,7 @@ public sealed class DepthResolveImageTests {
         }
 
         using (var owned = fixture!) {
-            maximum = Survivors(Run(owned, DepthResolveMode.Max, samples: 1));
+            maximum = Survivors(Run(owned, DepthResolveMode.Max, 1));
         }
 
         Assert.Equal(minimum, maximum);
@@ -349,7 +355,7 @@ public sealed class DepthResolveImageTests {
         // the lower-left half and its hypotenuse runs corner to corner at 45°. That diagonal is where
         // pixels are partly covered, and partly covered pixels are the only ones the two rules
         // disagree about.
-        var triangle = owned.Buffer<float>(
+        var triangle = owned.Buffer(
             [
                 -1f, -1f, Near, 1f, 1f, 1f, 1f,
                 1f, -1f, Near, 1f, 1f, 1f, 1f,
@@ -361,7 +367,7 @@ public sealed class DepthResolveImageTests {
         var depth = samples == 1
             ? resolved
             : owned.Graph.CreateTexture(
-                new TextureDescription(
+                new(
                     PixelFormat.Depth32Float,
                     Fixture.Side,
                     Fixture.Side,
@@ -375,7 +381,7 @@ public sealed class DepthResolveImageTests {
         // same sample count. Nothing reads it and nothing resolves it — the samples this fixture is
         // about are the depth buffer's.
         var scratch = owned.Graph.CreateTexture(
-            new TextureDescription(
+            new(
                 PixelFormat.Rgba8UNorm,
                 Fixture.Side,
                 Fixture.Side,
@@ -385,24 +391,28 @@ public sealed class DepthResolveImageTests {
             )
         );
 
-        owned.Graph.AddPass("write depth", pass => {
-            pass.ColourAttachment(scratch, LoadAction.Clear, default);
+        owned.Graph.AddPass(
+            "write depth",
+            pass => {
+                pass.ColourAttachment(scratch, LoadAction.Clear, default);
 
-            // Zero is far under reversed-Z; this clears to 0.2, which the probe at 0.5 beats.
-            if (samples == 1) {
-                pass.DepthAttachment(depth, LoadAction.Clear, Far);
-            } else {
-                pass.DepthAttachment(depth, LoadAction.Clear, Far, resolve: resolved, resolveMode: mode);
+                // Zero is far under reversed-Z; this clears to 0.2, which the probe at 0.5 beats.
+                if (samples == 1) {
+                    pass.DepthAttachment(depth, LoadAction.Clear, Far);
+                } else {
+                    pass.DepthAttachment(depth, LoadAction.Clear, Far, resolve: resolved, resolveMode: mode);
+                }
+
+                pass.SideEffect();
+
+                pass.Execute(context => {
+                        context.CommandList.BindPipeline(writer);
+                        context.CommandList.BindVertexBuffer(0, triangle);
+                        context.CommandList.Draw(3);
+                    }
+                );
             }
-
-            pass.SideEffect();
-
-            pass.Execute(context => {
-                context.CommandList.BindPipeline(writer);
-                context.CommandList.BindVertexBuffer(0, triangle);
-                context.CommandList.Draw(3);
-            });
-        });
+        );
 
         var prober = owned.Pipeline(
             owned.Shader("depth.vert.spv", ShaderStage.Vertex),
@@ -422,21 +432,25 @@ public sealed class DepthResolveImageTests {
             1f
         );
 
-        var quad = owned.Buffer<float>(Screen(), BufferUsage.Vertex);
-        var indices = owned.Buffer<ushort>(QuadIndices, BufferUsage.Index);
+        var quad = owned.Buffer(Screen(), BufferUsage.Vertex);
+        var indices = owned.Buffer(QuadIndices, BufferUsage.Index);
 
-        owned.Graph.AddPass("probe depth", pass => {
-            pass.ColourAttachment(colour, LoadAction.Clear, clear);
-            pass.DepthAttachment(resolved, LoadAction.Load, readOnly: true);
-            pass.SideEffect();
+        owned.Graph.AddPass(
+            "probe depth",
+            pass => {
+                pass.ColourAttachment(colour, LoadAction.Clear, clear);
+                pass.DepthAttachment(resolved, LoadAction.Load, readOnly: true);
+                pass.SideEffect();
 
-            pass.Execute(context => {
-                context.CommandList.BindPipeline(prober);
-                context.CommandList.BindVertexBuffer(0, quad);
-                context.CommandList.BindIndexBuffer(indices, IndexFormat.UInt16);
-                context.CommandList.DrawIndexed(QuadIndices.Length);
-            });
-        });
+                pass.Execute(context => {
+                        context.CommandList.BindPipeline(prober);
+                        context.CommandList.BindVertexBuffer(0, quad);
+                        context.CommandList.BindIndexBuffer(indices);
+                        context.CommandList.DrawIndexed(QuadIndices.Length);
+                    }
+                );
+            }
+        );
 
         return owned.Render(colour);
     }

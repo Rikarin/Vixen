@@ -15,8 +15,12 @@ public sealed record TemplateFile(string Path, byte[] Content);
 /// <summary>The <c>dotnet new</c> templates, read out of this assembly.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Here rather than in <c>Tools/Vixen.Cli</c>, which is where it was, and for
-///         <c>ProjectWorkspace</c>'s reason.</b> The editor's New Project made two directories and
+///         ⚠
+///         <b>
+///             Here rather than in <c>Tools/Vixen.Cli</c>, which is where it was, and for
+///             <c>ProjectWorkspace</c>'s reason.
+///         </b>
+///         The editor's New Project made two directories and
 ///         called it a project — so every project born in the editor had no <c>.csproj</c>, and Build
 ///         and Run was greyed for all of them with a message naming a terminal command. An editor
 ///         that cannot finish the project it just made is failing doc 20's second bar on the first
@@ -33,8 +37,11 @@ public sealed record TemplateFile(string Path, byte[] Content);
 ///         nothing keeping them equal.
 ///     </para>
 ///     <para>
-///         <b>Why the files are the source and the C# is generated from them, rather than the other
-///         way round.</b> <c>ScaffoldRunner</c>'s remarks used to say the pack should be generated
+///         <b>
+///             Why the files are the source and the C# is generated from them, rather than the other
+///             way round.
+///         </b>
+///         <c>ScaffoldRunner</c>'s remarks used to say the pack should be generated
 ///         from its strings. It is the wrong direction: <c>dotnet new</c> consumes real files with
 ///         real names and a <c>.template.config/template.json</c> beside them that no C# string
 ///         could produce, so generating the pack means generating something no human reviews.
@@ -112,10 +119,11 @@ public static class TemplateCatalog {
             files[relative[(separator + 1)..]] = Bytes(assembly, resource);
         }
 
-        return byTemplate
-            .Select(entry => Describe(entry.Key, entry.Value))
-            .OrderBy(template => template.Id, StringComparer.Ordinal)
-            .ToArray();
+        return [
+            ..byTemplate
+                .Select(static entry => Describe(entry.Key, entry.Value))
+                .OrderBy(static template => template.Id, StringComparer.Ordinal)
+        ];
     }
 
     static byte[] Bytes(Assembly assembly, string resource) {
@@ -174,13 +182,17 @@ public static class TemplateCatalog {
         }
 
         var names = value.ValueKind is JsonValueKind.Array
-            ? value.EnumerateArray().Select(entry => entry.GetString()).OfType<string>()
+            ? value.EnumerateArray().Select(static entry => entry.GetString()).OfType<string>()
             : [value.GetString() ?? string.Empty];
 
-        return names
-            .Select(name => name.StartsWith("vixen-", StringComparison.Ordinal) ? name["vixen-".Length..] : name)
-            .Where(name => name.Length > 0)
-            .ToArray();
+        return [
+            ..names
+                .Select(static name => name.StartsWith("vixen-", StringComparison.Ordinal)
+                        ? name["vixen-".Length..]
+                        : name
+                )
+                .Where(static name => name.Length > 0)
+        ];
     }
 
     /// <summary>Whether a file is one to substitute into, or one to copy across untouched.</summary>
@@ -191,7 +203,7 @@ public static class TemplateCatalog {
     ///     reason: the alternative is a list of extensions, and the file that is not on it is a
     ///     shader with a project name silently rewritten into the middle of its bytecode.
     /// </remarks>
-    public static bool IsTextFile(ReadOnlySpan<byte> content) => !content.Contains((byte) 0);
+    public static bool IsTextFile(ReadOnlySpan<byte> content) => !content.Contains((byte)0);
 
     /// <summary>Applies the two substitutions to a file's bytes.</summary>
     internal static byte[] Substitute(byte[] content, string sourceName, string projectName, string version) {
@@ -260,7 +272,7 @@ public sealed class ProjectTemplate {
                     TemplateCatalog.Substitute(file.Value, SourceName, projectName, version)
                 )
             )
-            .OrderBy(file => file.Path, StringComparer.Ordinal)
+            .OrderBy(static file => file.Path, StringComparer.Ordinal)
             .ToArray();
     }
 }
@@ -319,14 +331,18 @@ public static class ProjectScaffold {
     public static bool IsUsableName(string name) =>
         name is { Length: > 0 }
         && char.IsLetter(name[0])
-        && name.All(character => char.IsLetterOrDigit(character) || character is '_' or '.');
+        && name.All(static character => char.IsLetterOrDigit(character) || character is '_' or '.');
 
     /// <summary>The nearest usable project name to a directory's own.</summary>
     /// <param name="directoryName">What the folder is called.</param>
     /// <returns>A name <see cref="IsUsableName" /> accepts.</returns>
     /// <remarks>
-    ///     ⚠ <b>For the editor, where the name is not typed — it is whatever folder somebody picked
-    ///     in a file dialog.</b> "my game (2)" is an ordinary thing to call a directory and an
+    ///     ⚠
+    ///     <b>
+    ///         For the editor, where the name is not typed — it is whatever folder somebody picked
+    ///         in a file dialog.
+    ///     </b>
+    ///     "my game (2)" is an ordinary thing to call a directory and an
     ///     impossible thing to call a namespace, and refusing to make a project out of it would be
     ///     the editor rejecting a folder the user had just created in its own picker. The CLI does
     ///     not use this: there the name is an argument, so saying it is unusable is useful and
@@ -334,8 +350,10 @@ public static class ProjectScaffold {
     /// </remarks>
     public static string NameFrom(string directoryName) {
         var cleaned = new string(
-            [.. (directoryName ?? string.Empty)
-                .Where(character => char.IsLetterOrDigit(character) || character is '_' or '.')]
+            [
+                ..(directoryName ?? string.Empty)
+                    .Where(static character => char.IsLetterOrDigit(character) || character is '_' or '.')
+            ]
         ).TrimStart('.', '_');
 
         // A leading digit is the other way a folder name fails, and prefixing beats dropping: `2024`
@@ -368,7 +386,9 @@ public static class ProjectScaffold {
 
         var root = Path.GetFullPath(directory);
         var files = chosen.Instantiate(name, SdkVersion);
-        var collisions = files.Where(file => File.Exists(Path.Combine(root, file.Path))).Select(file => file.Path).ToList();
+        var collisions = files.Where(file => File.Exists(Path.Combine(root, file.Path)))
+            .Select(static file => file.Path)
+            .ToList();
 
         if (collisions.Count > 0) {
             return new([], collisions, string.Empty);
@@ -381,6 +401,6 @@ public static class ProjectScaffold {
             File.WriteAllBytes(path, file.Content);
         }
 
-        return new([.. files.Select(file => file.Path)], [], string.Empty);
+        return new([..files.Select(static file => file.Path)], [], string.Empty);
     }
 }

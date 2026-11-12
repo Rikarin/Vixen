@@ -4,7 +4,6 @@
 using System.Runtime.InteropServices;
 using Vixen.Core.Mathematics;
 using Vixen.Graphics.Vulkan;
-using Vixen.ShaderCompiler;
 using Vixen.Shaders;
 using Vixen.Water;
 using Xunit;
@@ -16,8 +15,11 @@ namespace Vixen.Graphics.Golden.Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>The highest-value test in doc 35, and it is written before there is a renderer to see it
-///         fail in.</b> The surface height at a position is defined once, as arithmetic over the
+///         <b>
+///             The highest-value test in doc 35, and it is written before there is a renderer to see it
+///             fail in.
+///         </b>
+///         The surface height at a position is defined once, as arithmetic over the
 ///         field's surface channel and the Gerstner sum at that position and time. That arithmetic
 ///         exists in exactly two places — <c>Vixen.Water.WaterEvaluator</c> and
 ///         <c>Raven/Library/Water/Surface.rvn</c> — and this is what holds them together.
@@ -31,8 +33,11 @@ namespace Vixen.Graphics.Golden.Tests;
 ///         existence is a bug report.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The stated tolerance is <see cref="Tolerance" /> metres, and doc 35 asked for exact.
-///         This is the risk table's own fallback, taken, and here is the measurement behind it.</b>
+///         ⚠
+///         <b>
+///             The stated tolerance is <see cref="Tolerance" /> metres, and doc 35 asked for exact.
+///             This is the risk table's own fallback, taken, and here is the measurement behind it.
+///         </b>
 ///         Doc 35 § Risks says: "Exact float agreement between a C# evaluator and a SPIR-V one is a
 ///         real claim… If that turns out to be too expensive, the tolerance becomes a stated ULP bound
 ///         and the test still holds — what must not happen is the test being deleted." So: it is not
@@ -160,11 +165,11 @@ public class WaterSurfaceSeamDeviceTests {
         Assert.True(
             worst <= Tolerance,
             $"the shader and the evaluator differ by {worst} at query {worstAt} "
-                + $"(position {queries[worstAt].Position}, t = {queries[worstAt].WaterTime}): "
-                + $"expected {Describe(expected[worstAt])}, got {Describe(actual[worstAt])}. "
-                + "The two sides of docs/plan/35 § D2 have drifted — which is what Unreal's "
-                + "Max Wave Height Offset exists to paper over. Fix the arithmetic, or re-measure "
-                + "and say in Tolerance's remarks what moved; do not delete this."
+            + $"(position {queries[worstAt].Position}, t = {queries[worstAt].WaterTime}): "
+            + $"expected {Describe(expected[worstAt])}, got {Describe(actual[worstAt])}. "
+            + "The two sides of docs/plan/35 § D2 have drifted — which is what Unreal's "
+            + "Max Wave Height Offset exists to paper over. Fix the arithmetic, or re-measure "
+            + "and say in Tolerance's remarks what moved; do not delete this."
         );
     }
 
@@ -212,7 +217,7 @@ public class WaterSurfaceSeamDeviceTests {
             Assert.True(
                 apart <= Tolerance,
                 $"{(int)count} waves differ by {apart} at query {index}: "
-                    + $"expected {Describe(expected)}, got {Describe(actual[index])}"
+                + $"expected {Describe(expected)}, got {Describe(actual[index])}"
             );
         }
     }
@@ -318,7 +323,7 @@ public class WaterSurfaceSeamDeviceTests {
 
         var shader = device.CreateShader(
             ShaderStage.Compute,
-            effect.Stages.Single(stage => stage.Stage == ShaderStage.Compute).Bytecode.AsSpan(),
+            effect.Stages.Single(static stage => stage.Stage == ShaderStage.Compute).Bytecode.AsSpan(),
             "WaterSurfaceProbe"
         );
 
@@ -341,7 +346,7 @@ public class WaterSurfaceSeamDeviceTests {
             commands.BindPipeline(pipeline);
             commands.BindDescriptorSet(DescriptorSetSlot.PerFrame, frameSet);
             commands.BindDescriptorSet(DescriptorSetSlot.PerDraw, set);
-            commands.Dispatch((Queries + 63) / 64, 1, 1);
+            commands.Dispatch((Queries + 63) / 64);
 
             commands.Barrier(new([new(resultBuffer, ResourceState.ShaderWrite, ResourceState.CopySource)], []));
             commands.CopyBuffer(resultBuffer, 0, readback, 0, resultBytes);
@@ -364,7 +369,7 @@ public class WaterSurfaceSeamDeviceTests {
         device.Destroy(drawBlock);
         device.Destroy(frameBlock);
 
-        return MemoryMarshal.Cast<byte, Result>(bytes).ToArray();
+        return [..MemoryMarshal.Cast<byte, Result>(bytes)];
     }
 
     static void Write(EffectBlock declared, byte[] constants, string name, int value) {
@@ -372,7 +377,7 @@ public class WaterSurfaceSeamDeviceTests {
 
         Assert.True(
             member.Key is not null,
-            $"the probe declares no '{name}': {string.Join(", ", declared.Members.Select(m => m.Key.Name))}"
+            $"the probe declares no '{name}': {string.Join(", ", declared.Members.Select(static m => m.Key.Name))}"
         );
 
         BitConverter.TryWriteBytes(constants.AsSpan(member.Offset), value);
@@ -390,7 +395,7 @@ public class WaterSurfaceSeamDeviceTests {
         Assert.True(
             found.Length == 1,
             $"the probe has {found.Length} bindings called '{name}': "
-                + string.Join(", ", effect.Bindings.Select(binding => binding.Name))
+            + string.Join(", ", effect.Bindings.Select(static binding => binding.Name))
         );
 
         return found[0].Binding;

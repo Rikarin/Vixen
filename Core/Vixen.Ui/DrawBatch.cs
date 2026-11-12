@@ -55,8 +55,12 @@ public enum BatchKind : byte {
 
     /// <summary>A composited group opened or closed. Always exactly one command.</summary>
     /// <remarks>
-    ///     ⚠ <b>A boundary rather than a state change, which is why it is not folded into
-    ///     <see cref="Clip" /> even though both are "not a draw".</b> A clip narrows the scissor of the
+    ///     ⚠
+    ///     <b>
+    ///         A boundary rather than a state change, which is why it is not folded into
+    ///         <see cref="Clip" /> even though both are "not a draw".
+    ///     </b>
+    ///     A clip narrows the scissor of the
     ///     draws around it and they still land in the same picture; a layer says the draws after it go
     ///     into a <i>different</i> picture. A consumer that treated the two alike would carry on
     ///     drawing a group's contents into the surface above it.
@@ -135,8 +139,12 @@ public readonly record struct DrawBatch(
 ///         re-binds only when the pipeline handle changes, which reaches the same runs with two
 ///         locals and no array. That is right for a mesh, whose nodes are rebuilt from culling every
 ///         frame so nothing precomputed would survive. A user interface is the opposite case — most
-///         frames draw exactly what the last one drew — so the runs are worked out <i>behind the
-///         frame diff</i> and a still interface pays nothing.
+///         frames draw exactly what the last one drew — so the runs are worked out
+///         <i>
+///             behind the
+///             frame diff
+///         </i>
+///         and a still interface pays nothing.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>That open question is closed: this list is used, and not by the render feature.</b>
@@ -174,7 +182,7 @@ public static class DrawBatcher {
                 continue;
             }
 
-            into.Add(new DrawBatch(kind, i, 1, font, rule) { Image = image });
+            into.Add(new(kind, i, 1, font, rule) { Image = image });
         }
     }
 
@@ -190,13 +198,19 @@ public static class DrawBatcher {
     /// <summary>What decides which batch a command can join.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <s>The fill rule is part of the key. Two filled paths wound the same way but read by
-    ///         different rules are not the same draw — one of them punches its hole and the other does
-    ///         not — so merging them silently fills in every counter in an icon set.</s>
+    ///         ⚠
+    ///         <s>
+    ///             The fill rule is part of the key. Two filled paths wound the same way but read by
+    ///             different rules are not the same draw — one of them punches its hole and the other does
+    ///             not — so merging them silently fills in every counter in an icon set.
+    ///         </s>
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>That reason stopped being true when the tessellator was written, and the fill rule
-    ///         stays in the key as insurance rather than as a covered claim.</b>
+    ///         ⚠
+    ///         <b>
+    ///             That reason stopped being true when the tessellator was written, and the fill rule
+    ///             stays in the key as insurance rather than as a covered claim.
+    ///         </b>
     ///         <c>UiGeometryBuilder</c> reads <c>command.FillRule</c> per <i>command</i>, so two fills
     ///         under different rules in one batch each punch their own holes and nothing is lost by
     ///         merging them. What would make the reason true again is a renderer that resolves the

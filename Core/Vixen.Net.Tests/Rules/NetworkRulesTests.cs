@@ -32,7 +32,7 @@ public sealed class NetworkRulesTests {
         };
 
         // A rule that could stop the authority would be a rule about nothing.
-        Assert.True(rules.MayCallServerRpc(Object, PlayerId.None, requiresOwnership: true));
+        Assert.True(rules.MayCallServerRpc(Object, PlayerId.None, true));
         Assert.True(rules.MayChangeOwner(Object, PlayerId.None));
         Assert.True(rules.MaySpawn(Object, PlayerId.None));
     }
@@ -95,9 +95,9 @@ public sealed class NetworkRulesTests {
     public void TheDefaultRulesAddNothingToWhatTheMethodsDeclare() {
         // Safety out of the box comes from the attribute, not from here: [ServerRpc] requires
         // ownership unless a method says otherwise.
-        Assert.True(rules.MayCallServerRpc(Object, Owner, requiresOwnership: true));
-        Assert.False(rules.MayCallServerRpc(Object, Stranger, requiresOwnership: true));
-        Assert.True(rules.MayCallServerRpc(Object, Stranger, requiresOwnership: false));
+        Assert.True(rules.MayCallServerRpc(Object, Owner, true));
+        Assert.False(rules.MayCallServerRpc(Object, Stranger, true));
+        Assert.True(rules.MayCallServerRpc(Object, Stranger, false));
     }
 
     [Fact]
@@ -105,12 +105,12 @@ public sealed class NetworkRulesTests {
         rules.Set(Object, new() { CallServerRpc = RuleAudience.Owner });
 
         // The method said anybody may. The object says only its owner, and the object wins.
-        Assert.False(rules.MayCallServerRpc(Object, Stranger, requiresOwnership: false));
-        Assert.True(rules.MayCallServerRpc(Object, Owner, requiresOwnership: false));
+        Assert.False(rules.MayCallServerRpc(Object, Stranger, false));
+        Assert.True(rules.MayCallServerRpc(Object, Owner, false));
 
         rules.Set(Object, new() { CallServerRpc = RuleAudience.ServerOnly });
 
-        Assert.False(rules.MayCallServerRpc(Object, Owner, requiresOwnership: false));
+        Assert.False(rules.MayCallServerRpc(Object, Owner, false));
     }
 
     [Fact]
@@ -119,7 +119,7 @@ public sealed class NetworkRulesTests {
 
         // A policy file quietly granting more than the code asked for is the thing this design
         // exists to avoid.
-        Assert.False(rules.MayCallServerRpc(Object, Stranger, requiresOwnership: true));
+        Assert.False(rules.MayCallServerRpc(Object, Stranger, true));
     }
 
     [Fact]
@@ -164,7 +164,7 @@ public sealed class NetworkRulesTests {
 
         Assert.Equal(4, rules.OnOwnerLeft(Owner, actions)); // three plus the fixture's object
 
-        Assert.Contains(new DisconnectAction(avatar, DisconnectBehaviour.Destroy), actions);
+        Assert.Contains(new(avatar, DisconnectBehaviour.Destroy), actions);
 
         // The transfer is done; the destroy is a decision handed back, because destroying an entity
         // is not the policy's to do.
@@ -211,13 +211,10 @@ public sealed class NetworkRulesTests {
 
     /// <summary>A transport for a router that is never asked to send anything.</summary>
     sealed class NullTransport : IRpcTransport {
-        public void SendToServer(ReadOnlySpan<byte> payload, Channel channel) {
-        }
+        public void SendToServer(ReadOnlySpan<byte> payload, Channel channel) { }
 
-        public void SendToPlayer(PlayerId player, ReadOnlySpan<byte> payload, Channel channel) {
-        }
+        public void SendToPlayer(PlayerId player, ReadOnlySpan<byte> payload, Channel channel) { }
 
-        public void SendToAll(ReadOnlySpan<byte> payload, Channel channel) {
-        }
+        public void SendToAll(ReadOnlySpan<byte> payload, Channel channel) { }
     }
 }

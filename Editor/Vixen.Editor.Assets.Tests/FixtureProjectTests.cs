@@ -5,7 +5,6 @@ using Vixen.Editor.Assets.Content;
 using Vixen.Editor.Assets.Models;
 using Vixen.Editor.Assets.Scenes;
 using Vixen.Editor.Assets.Textures;
-using Vixen.Editor.Core;
 using Vixen.Interchange;
 using Vixen.Testing;
 using Xunit;
@@ -39,7 +38,7 @@ public sealed class FixtureProjectTests : IDisposable {
     public void Dispose() {
         try {
             if (Directory.Exists(root)) {
-                Directory.Delete(root, recursive: true);
+                Directory.Delete(root, true);
             }
         } catch (IOException) {
             // A temporary directory that would not go is not a test failure.
@@ -61,9 +60,9 @@ public sealed class FixtureProjectTests : IDisposable {
         List<ImportProgress> steps = [];
 
         var summary = await ContentPipeline.ImportAsync(
-            new ProjectWorkspace(new ProjectPaths(project.Root)),
+            new(new(project.Root)),
             "Windows",
-            diagnostic => Assert.NotEqual(ImportSeverity.Error, diagnostic.Severity),
+            static diagnostic => Assert.NotEqual(ImportSeverity.Error, diagnostic.Severity),
             steps.Add,
             cancellationToken: TestContext.Current.CancellationToken
         );
@@ -108,8 +107,9 @@ public sealed class FixtureProjectTests : IDisposable {
     public void A_second_fixture_in_the_same_directory_is_refused() {
         new FixtureProject { Root = root, Blobs = 2 }.Write();
 
-        var refusal = Assert.Throws<InvalidOperationException>(
-            () => new FixtureProject { Root = root, Blobs = 2 }.Write()
+        var refusal = Assert.Throws<InvalidOperationException>(() => new FixtureProject {
+                Root = root, Blobs = 2
+            }.Write()
         );
 
         Assert.Contains("already has something in it", refusal.Message, StringComparison.Ordinal);

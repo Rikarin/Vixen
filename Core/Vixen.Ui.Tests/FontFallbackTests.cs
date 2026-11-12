@@ -54,7 +54,7 @@ public class FontFallbackTests {
 
     static FontFace LoadFont(string resource, string name) {
         using var stream = Assembly.GetExecutingAssembly()
-            .GetManifestResourceStream($"Vixen.Ui.Tests.Fonts.{resource}")
+                .GetManifestResourceStream($"Vixen.Ui.Tests.Fonts.{resource}")
             ?? throw new InvalidOperationException($"the test font '{resource}' is not embedded");
 
         using var memory = new MemoryStream();
@@ -117,7 +117,7 @@ public class FontFallbackTests {
         // about U+D83E and U+DD8E, and no font has either — so the lizard would be "covered by
         // nothing", stay with the head of the chain, and draw a tofu from a font that has the real
         // glyph two places further along. It looks exactly like a missing font.
-        Assert.Equal([Lana, Emoji, Lana], line.Runs.Select(run => run.Font));
+        Assert.Equal([Lana, Emoji, Lana], line.Runs.Select(static run => run.Font));
         Assert.Equal(Astral, line.Runs[1].Shaped.Text);
     }
 
@@ -155,7 +155,7 @@ public class FontFallbackTests {
 
         var line = Labelled(document, Kannada + Latin + Kannada).Block()!.Lines[0];
 
-        Assert.Equal([Serif, Lana, Serif], line.Runs.Select(run => run.Font));
+        Assert.Equal([Serif, Lana, Serif], line.Runs.Select(static run => run.Font));
     }
 
     [Fact]

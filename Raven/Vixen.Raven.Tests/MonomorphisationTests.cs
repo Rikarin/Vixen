@@ -56,15 +56,15 @@ public class MonomorphisationTests {
     public void One_struct_and_one_function_per_instantiation() {
         var module = Lower(TwoBoxes);
 
-        Assert.Equal(["Box_float4", "Box_float"], module.Structs.Select(s => s.Name));
+        Assert.Equal(["Box_float4", "Box_float"], module.Structs.Select(static s => s.Name));
         Assert.Equal(
             ["vec<f32,4>", "f32"],
-            module.Structs.Select(s => Assert.Single(s.Fields).Type.Name)
+            module.Structs.Select(static s => Assert.Single(s.Fields).Type.Name)
         );
 
         // The open definition is emitted nowhere: there is no `Box` and no `Get`.
-        Assert.DoesNotContain(module.Structs, s => s.Name == "Box");
-        Assert.Equal(["Box_float4_Get", "Box_float_Get"], module.Functions.Select(f => f.Name));
+        Assert.DoesNotContain(module.Structs, static s => s.Name == "Box");
+        Assert.Equal(["Box_float4_Get", "Box_float_Get"], module.Functions.Select(static f => f.Name));
     }
 
     [Fact]
@@ -165,10 +165,10 @@ public class MonomorphisationTests {
 
         // `Pair<float>` appears nowhere in the shader; it is reached only by reading `Holder<T>`'s
         // members through its map, which is why discovery is a worklist rather than one pass.
-        Assert.Equal(["Holder_float", "Pair_float"], module.Structs.Select(s => s.Name).Order());
+        Assert.Equal(["Holder_float", "Pair_float"], module.Structs.Select(static s => s.Name).Order());
         Assert.Equal(
             "Pair_float",
-            Assert.Single(module.Structs.Single(s => s.Name == "Holder_float").Fields).Type.Name
+            Assert.Single(module.Structs.Single(static s => s.Name == "Holder_float").Fields).Type.Name
         );
     }
 
@@ -207,7 +207,7 @@ public class MonomorphisationTests {
     public void A_generic_method_becomes_one_function_per_argument_list() {
         var module = Lower(Pick);
 
-        Assert.Equal(["Pick_float4", "Pick_float"], module.Functions.Select(f => f.Name));
+        Assert.Equal(["Pick_float4", "Pick_float"], module.Functions.Select(static f => f.Name));
 
         // Two call sites, one function: a constructed method symbol is built fresh at each use, so
         // without canonicalisation this would be `Pick_float4` twice.
@@ -218,7 +218,7 @@ public class MonomorphisationTests {
     public void The_open_definition_of_a_generic_method_is_never_emitted() {
         var module = Lower(Pick);
 
-        Assert.DoesNotContain(module.Functions, f => f.Name == "Pick");
+        Assert.DoesNotContain(module.Functions, static f => f.Name == "Pick");
         Assert.Empty(Assert.Single(module.Structs).Fields);
     }
 
@@ -265,8 +265,8 @@ public class MonomorphisationTests {
         // A nested argument recurses through the same rule rather than having its punctuation
         // beaten out, so the name still reads.
         var module = Lower(Nested);
-        Assert.Contains(module.Structs, s => s.Name == "Box_Pair_float");
-        Assert.Contains(module.Structs, s => s.Name == "Pair_float");
+        Assert.Contains(module.Structs, static s => s.Name == "Box_Pair_float");
+        Assert.Contains(module.Structs, static s => s.Name == "Pair_float");
 
         GenerateClean(Nested);
         GenerateClean(Nested, "spirv");
@@ -307,6 +307,6 @@ public class MonomorphisationTests {
             """
         );
 
-        Assert.Equal(["Inner_float4", "Outer_float4"], module.Structs.Select(s => s.Name).Order());
+        Assert.Equal(["Inner_float4", "Outer_float4"], module.Structs.Select(static s => s.Name).Order());
     }
 }

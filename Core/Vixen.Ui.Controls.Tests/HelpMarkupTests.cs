@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Ui.Composition;
-using Vixen.Ui.Reactive;
 using Vixen.Ui.Testing;
 using Xunit;
 
@@ -57,7 +56,7 @@ public class HelpMarkupTests {
         var tips = ui.Document.Root.Children.OfType<Tooltip>().ToList();
 
         // One per `help`, in source order, each carrying the sentence its element is described by.
-        Assert.Equal(["Writes the scene to disk", "Nothing has happened yet"], tips.Select(tip => tip.Label));
+        Assert.Equal(["Writes the scene to disk", "Nothing has happened yet"], tips.Select(static tip => tip.Label));
         Assert.All(tips, tip => Assert.Same(ui.Document.Root, tip.Parent));
 
         // ⚠ And none of them is under the element it describes, which is the arrangement that looks

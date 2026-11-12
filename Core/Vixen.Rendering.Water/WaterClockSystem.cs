@@ -9,14 +9,21 @@ namespace Vixen.Rendering.Water;
 /// <summary>Advances the one water clock, before anything in the frame reads it.</summary>
 /// <remarks>
 ///     <para>
-///         <b>[35 § D2](../../docs/plan/35-water.md#d2-one-evaluator-two-hosts-and-the-seam-is-a-test)'s
-///         first consequence, given a phase.</b> There is exactly one water time in a running game:
+///         <b>
+///             [35 § D2](../../docs/plan/35-water.md#d2-one-evaluator-two-hosts-and-the-seam-is-a-test)'s
+///             first consequence, given a phase.
+///         </b>
+///         There is exactly one water time in a running game:
 ///         the vertex stage draws at it, the underwater shape tests at it, and a buoyancy solver
 ///         integrates at it. This is the one thing that writes it.
 ///     </para>
 ///     <para>
-///         ⚠ <b>In <see cref="SystemPhase.EarlyUpdate" />, and the phase is the whole point of the
-///         system existing.</b> <see cref="WaterZoneSystem" /> used to advance the clock in its own
+///         ⚠
+///         <b>
+///             In <see cref="SystemPhase.EarlyUpdate" />, and the phase is the whole point of the
+///             system existing.
+///         </b>
+///         <see cref="WaterZoneSystem" /> used to advance the clock in its own
 ///         <see cref="SystemPhase.PreRender" /> update — it has to fold there, because a body is
 ///         rasterised where <c>TransformSystem</c> has just put it — and
 ///         <see cref="SystemPhase.FixedUpdate" /> runs <em>earlier in the same frame</em>. So a
@@ -49,7 +56,6 @@ public sealed class WaterClockSystem(WaterZoneSystem zones) : SystemBase {
     ///     slow motion — every wave keeps its own dispersion relation, so a long swell still outruns
     ///     the chop by the same ratio. Scaling the amplitudes or the wavelengths instead would be a
     ///     different sea rather than the same one seen slowly.
-    ///
     ///     ⚠ It multiplies <c>GameTime.Total</c>, which already carries the game's own time scale —
     ///     so a paused game has a still sea without this being touched.
     /// </remarks>

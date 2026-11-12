@@ -4,11 +4,9 @@
 using System.CommandLine;
 using System.Globalization;
 using System.Text;
-using Vixen.Core.Mathematics;
 using Vixen.Editor.Assets.Models;
 using Vixen.Geometry;
 using Vixen.Interchange;
-using Vixen.Rendering;
 using Xunit;
 
 namespace Vixen.Cli.Tests;
@@ -22,12 +20,14 @@ namespace Vixen.Cli.Tests;
 public sealed class GeometryCommandTests : IDisposable {
     readonly string root = Path.Combine(Path.GetTempPath(), "vixen-geometry-tests", Guid.NewGuid().ToString("N"));
 
-    public GeometryCommandTests() => Directory.CreateDirectory(root);
+    public GeometryCommandTests() {
+        Directory.CreateDirectory(root);
+    }
 
     public void Dispose() {
         try {
             if (Directory.Exists(root)) {
-                Directory.Delete(root, recursive: true);
+                Directory.Delete(root, true);
             }
         } catch (IOException) {
             // A temporary directory that would not go is not a test failure.
@@ -59,7 +59,10 @@ public sealed class GeometryCommandTests : IDisposable {
     [InlineData(".gltf")]
     [InlineData(".glb")]
     public async Task What_is_written_reads_back_as_a_model(string extension) {
-        var input = Write("sphere.obj", MeshShapes.Create(ShapeParameters.Default(ShapeKind.Sphere) with { Sides = 12, Steps = 6 }));
+        var input = Write(
+            "sphere.obj",
+            MeshShapes.Create(ShapeParameters.Default(ShapeKind.Sphere) with { Sides = 12, Steps = 6 })
+        );
         var output = Path.Combine(root, "sphere-quads" + extension);
 
         var (code, said, _) = await Run("remesh", input, output, "--quads", "120");
@@ -80,12 +83,18 @@ public sealed class GeometryCommandTests : IDisposable {
     /// <summary>The symmetry flag reaches the remesher rather than being parsed and dropped.</summary>
     [Fact]
     public async Task The_symmetry_flag_changes_what_is_written() {
-        var input = Write("cyl.obj", MeshShapes.Create(ShapeParameters.Default(ShapeKind.Cylinder) with { Sides = 12 }));
+        var input = Write(
+            "cyl.obj",
+            MeshShapes.Create(ShapeParameters.Default(ShapeKind.Cylinder) with { Sides = 12 })
+        );
         var plain = Path.Combine(root, "plain.obj");
         var mirrored = Path.Combine(root, "mirrored.obj");
 
         Assert.Equal(ExitCode.Success, (await Run("remesh", input, plain, "--quads", "120")).Code);
-        Assert.Equal(ExitCode.Success, (await Run("remesh", input, mirrored, "--quads", "120", "--symmetry", "x")).Code);
+        Assert.Equal(
+            ExitCode.Success,
+            (await Run("remesh", input, mirrored, "--quads", "120", "--symmetry", "x")).Code
+        );
         Assert.NotEqual(File.ReadAllText(plain), File.ReadAllText(mirrored));
     }
 
@@ -93,9 +102,7 @@ public sealed class GeometryCommandTests : IDisposable {
     public async Task An_axis_that_is_not_an_axis_is_a_usage_error() {
         var input = Write("box.obj", MeshShapes.Create(ShapeKind.Box));
 
-        var (code, _, complaint) = await Run(
-            "remesh", input, Path.Combine(root, "out.obj"), "--symmetry", "diagonal"
-        );
+        var (code, _, complaint) = await Run("remesh", input, Path.Combine(root, "out.obj"), "--symmetry", "diagonal");
 
         Assert.Equal(ExitCode.UsageError, code);
         Assert.Contains("x, y or z", complaint, StringComparison.Ordinal);
@@ -104,7 +111,9 @@ public sealed class GeometryCommandTests : IDisposable {
     [Fact]
     public async Task A_missing_input_is_a_usage_error_with_something_on_stderr() {
         var (code, _, complaint) = await Run(
-            "remesh", Path.Combine(root, "nothing.obj"), Path.Combine(root, "out.obj")
+            "remesh",
+            Path.Combine(root, "nothing.obj"),
+            Path.Combine(root, "out.obj")
         );
 
         Assert.Equal(ExitCode.UsageError, code);
@@ -156,7 +165,16 @@ public sealed class GeometryCommandTests : IDisposable {
 
         Assert.Equal(ExitCode.Success, (await Run("unwrap", input, unwrapped, "--resolution", "512")).Code);
 
-        var (code, said, complaint) = await Run("uv", "pack", unwrapped, repacked, "--resolution", "512", "--margin", "8");
+        var (code, said, complaint) = await Run(
+            "uv",
+            "pack",
+            unwrapped,
+            repacked,
+            "--resolution",
+            "512",
+            "--margin",
+            "8"
+        );
 
         Assert.Equal(ExitCode.Success, code);
         Assert.Empty(complaint);
@@ -187,7 +205,11 @@ public sealed class GeometryCommandTests : IDisposable {
         var input = Write("box.obj", MeshShapes.Create(ShapeKind.Box));
 
         var (code, _, complaint) = await Run(
-            "remesh", input, Path.Combine(root, "out.obj"), "--guide", Path.Combine(root, "spine.vxspline")
+            "remesh",
+            input,
+            Path.Combine(root, "out.obj"),
+            "--guide",
+            Path.Combine(root, "spine.vxspline")
         );
 
         Assert.Equal(ExitCode.UsageError, code);
@@ -226,7 +248,10 @@ public sealed class GeometryCommandTests : IDisposable {
     /// </remarks>
     [Fact]
     public async Task What_the_remesh_writes_is_quads_that_share_their_corners() {
-        var input = Write("sphere.obj", MeshShapes.Create(ShapeParameters.Default(ShapeKind.Sphere) with { Sides = 16, Steps = 8 }));
+        var input = Write(
+            "sphere.obj",
+            MeshShapes.Create(ShapeParameters.Default(ShapeKind.Sphere) with { Sides = 16, Steps = 8 })
+        );
         var output = Path.Combine(root, "sphere-quads.obj");
 
         Assert.Equal(ExitCode.Success, (await Run("remesh", input, output, "--quads", "200")).Code);
@@ -234,7 +259,7 @@ public sealed class GeometryCommandTests : IDisposable {
         var (positions, faces) = Obj(output);
 
         Assert.NotEmpty(faces);
-        Assert.All(faces, face => Assert.Equal(4, face.Length));
+        Assert.All(faces, static face => Assert.Equal(4, face.Length));
 
         // One position per quad give or take, rather than four. A fully split result has exactly
         // 4 × faces, which is what this refuses.
@@ -244,7 +269,7 @@ public sealed class GeometryCommandTests : IDisposable {
 
         Assert.True(
             valence.GetValueOrDefault(2) > valence.GetValueOrDefault(1),
-            $"more boundary edges than interior ones: {string.Join(", ", valence.OrderBy(pair => pair.Key).Select(pair => $"{pair.Key}:{pair.Value}"))}"
+            $"more boundary edges than interior ones: {string.Join(", ", valence.OrderBy(static pair => pair.Key).Select(static pair => $"{pair.Key}:{pair.Value}"))}"
         );
     }
 
@@ -260,7 +285,10 @@ public sealed class GeometryCommandTests : IDisposable {
     [InlineData("pack")]
     public async Task What_an_unwrap_writes_is_a_connected_surface_with_its_seams_intact(string verb) {
         var seed = Path.Combine(root, "seed.obj");
-        var input = Write("sphere.obj", MeshShapes.Create(ShapeParameters.Default(ShapeKind.Sphere) with { Sides = 16, Steps = 8 }));
+        var input = Write(
+            "sphere.obj",
+            MeshShapes.Create(ShapeParameters.Default(ShapeKind.Sphere) with { Sides = 16, Steps = 8 })
+        );
 
         Assert.Equal(ExitCode.Success, (await Run("unwrap", input, seed)).Code);
 
@@ -273,7 +301,7 @@ public sealed class GeometryCommandTests : IDisposable {
         Assert.Equal(ExitCode.Success, code);
 
         var (positions, faces) = Obj(output);
-        var corners = faces.Sum(face => face.Length);
+        var corners = faces.Sum(static face => face.Length);
 
         Assert.NotEmpty(faces);
         Assert.True(positions < corners, $"{positions} positions for {corners} corners is one vertex per corner.");
@@ -282,19 +310,22 @@ public sealed class GeometryCommandTests : IDisposable {
 
         Assert.True(
             valence.GetValueOrDefault(2) > valence.GetValueOrDefault(1),
-            $"more boundary edges than interior ones: {string.Join(", ", valence.OrderBy(pair => pair.Key).Select(pair => $"{pair.Key}:{pair.Value}"))}"
+            $"more boundary edges than interior ones: {string.Join(", ", valence.OrderBy(static pair => pair.Key).Select(static pair => $"{pair.Key}:{pair.Value}"))}"
         );
 
         // A seam is a position whose corners disagree about the coordinate. Welding the positions is
         // what connects the surface; if it had welded the coordinates with them there would be no
         // position left carrying two, and the atlas would have no seams to cut along.
-        Assert.Contains(Seams(output), pair => pair.Value.Count > 1);
+        Assert.Contains(Seams(output), static pair => pair.Value.Count > 1);
     }
 
     /// <summary>glTF cannot hold a quad, so the writer says it triangulated rather than doing it quietly.</summary>
     /// <remarks>
-    ///     <b>docs/plan/41 § Part 4 wants quads and glTF 2.0's <c>mode</c> has no n-gon, so <c>.glb</c>
-    ///     genuinely cannot carry one.</b> Refusing the format would take away the container the rest of
+    ///     <b>
+    ///         docs/plan/41 § Part 4 wants quads and glTF 2.0's <c>mode</c> has no n-gon, so <c>.glb</c>
+    ///         genuinely cannot carry one.
+    ///     </b>
+    ///     Refusing the format would take away the container the rest of
     ///     the pipeline reads; triangulating in silence is what let a triangles-only output ship as a
     ///     quad tool. The third option is the note.
     /// </remarks>
@@ -327,8 +358,9 @@ public sealed class GeometryCommandTests : IDisposable {
             } else if (line.StartsWith("f ", StringComparison.Ordinal)) {
                 faces.Add(
                     [
-                        .. line.Split(' ', StringSplitOptions.RemoveEmptyEntries).Skip(1)
-                            .Select(corner => int.Parse(corner.Split('/')[0], CultureInfo.InvariantCulture))
+                        ..line.Split(' ', StringSplitOptions.RemoveEmptyEntries)
+                            .Skip(1)
+                            .Select(static corner => int.Parse(corner.Split('/')[0], CultureInfo.InvariantCulture))
                     ]
                 );
             }
@@ -393,7 +425,11 @@ public sealed class GeometryCommandTests : IDisposable {
     string Write(string name, EditMesh mesh) {
         var path = Path.Combine(root, name);
 
-        File.WriteAllText(path, ModelWriter.Obj([ModelGeometry.ToMeshData(mesh, Path.GetFileNameWithoutExtension(name))]), Encoding.UTF8);
+        File.WriteAllText(
+            path,
+            ModelWriter.Obj([ModelGeometry.ToMeshData(mesh, Path.GetFileNameWithoutExtension(name))]),
+            Encoding.UTF8
+        );
 
         return path;
     }
@@ -405,11 +441,12 @@ public sealed class GeometryCommandTests : IDisposable {
         var parsed = VixenCommand.Create(output, error).Parse(args);
 
         if (parsed.Errors.Count > 0) {
-            return (ExitCode.UsageError, output.ToString(), string.Join("\n", parsed.Errors.Select(problem => problem.Message)));
+            return (ExitCode.UsageError, output.ToString(),
+                string.Join("\n", parsed.Errors.Select(static problem => problem.Message)));
         }
 
         var code = await parsed.InvokeAsync(null, TestContext.Current.CancellationToken);
 
-        return ((ExitCode) code, output.ToString(), error.ToString());
+        return ((ExitCode)code, output.ToString(), error.ToString());
     }
 }

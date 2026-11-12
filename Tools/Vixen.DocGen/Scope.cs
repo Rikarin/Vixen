@@ -24,7 +24,13 @@ static class Scope {
     ///     a page rather than a 404.
     /// </remarks>
     static readonly HashSet<string> DocumentedAreas = new(StringComparer.Ordinal) {
-        "Core", "Gameplay", "Platform", "Editor", "Tools", "Raven", "Live"
+        "Core",
+        "Gameplay",
+        "Platform",
+        "Editor",
+        "Tools",
+        "Raven",
+        "Live"
     };
 
     /// <summary>Whether a project's types belong in the graph.</summary>
@@ -66,10 +72,10 @@ static class Scope {
         var kept = new List<DocNode>();
         var merged = 0;
 
-        foreach (var group in nodes.GroupBy(node => node.Slug, StringComparer.Ordinal)) {
+        foreach (var group in nodes.GroupBy(static node => node.Slug, StringComparer.Ordinal)) {
             var candidates = group
-                .OrderByDescending(node => node.IsPackable)
-                .ThenBy(node => node.Assembly, StringComparer.Ordinal)
+                .OrderByDescending(static node => node.IsPackable)
+                .ThenBy(static node => node.Assembly, StringComparer.Ordinal)
                 .ToList();
 
             if (candidates.Count == 1) {
@@ -80,9 +86,7 @@ static class Scope {
 
             merged += candidates.Count - 1;
 
-            kept.Add(candidates[0] with {
-                AlsoIn = [.. candidates.Skip(1).Select(node => node.Assembly)]
-            });
+            kept.Add(candidates[0] with { AlsoIn = [..candidates.Skip(1).Select(static node => node.Assembly)] });
         }
 
         return (kept, merged);

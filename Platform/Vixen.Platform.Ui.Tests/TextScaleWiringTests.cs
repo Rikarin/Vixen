@@ -38,7 +38,7 @@ public class TextScaleWiringTests {
 
         Assert.Equal(32f, probe.Width, 0.001f);
 
-        PlatformInput.ApplyAccessibility(document, new SystemAccessibility(TextScale: 1.5f));
+        PlatformInput.ApplyAccessibility(document, new(TextScale: 1.5f));
         document.Update();
 
         Assert.Equal(48f, probe.Width, 0.001f);
@@ -60,7 +60,7 @@ public class TextScaleWiringTests {
         using var document = new UiDocument(400f, 400f);
         var probe = Probe(document);
 
-        PlatformInput.ApplyAccessibility(document, new SystemAccessibility(TextScale: 2f));
+        PlatformInput.ApplyAccessibility(document, new(TextScale: 2f));
         PlatformInput.ApplyAccessibility(document, SystemAccessibility.Unknown);
         document.Update();
 
@@ -74,7 +74,7 @@ public class TextScaleWiringTests {
         using var document = new UiDocument(400f, 400f, 12f);
         var probe = Probe(document);
 
-        PlatformInput.ApplyAccessibility(document, new SystemAccessibility(TextScale: 2f));
+        PlatformInput.ApplyAccessibility(document, new(TextScale: 2f));
         document.Update();
 
         Assert.Equal(48f, probe.Width, 0.001f);
@@ -90,7 +90,7 @@ public class TextScaleWiringTests {
         // one call: `DesktopAccessibility` polls every sixteen pumps, so the text would grow by half
         // again four times a second until the window was one letter wide.
         for (var i = 0; i < 5; i++) {
-            PlatformInput.ApplyAccessibility(document, new SystemAccessibility(TextScale: 1.5f));
+            PlatformInput.ApplyAccessibility(document, new(TextScale: 1.5f));
         }
 
         document.Update();

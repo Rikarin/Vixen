@@ -136,8 +136,6 @@ public static class VarSubstitution {
                     break;
                 case ',' when depth == 0:
                     return i;
-                default:
-                    break;
             }
         }
 
@@ -158,8 +156,6 @@ public static class VarSubstitution {
                         return i;
                     }
 
-                    break;
-                default:
                     break;
             }
         }

@@ -35,10 +35,8 @@ public sealed record NavMeshAsset {
     /// <summary>Wraps the result of a tiled bake.</summary>
     /// <param name="result">What <see cref="NavMeshBaker.BakeTiles" /> produced.</param>
     /// <returns>The asset.</returns>
-    public static NavMeshAsset FromBake(NavMeshBakeResult result) => new() {
-        Params = result.Params,
-        Tiles = [.. result.Tiles]
-    };
+    public static NavMeshAsset FromBake(NavMeshBakeResult result) =>
+        new() { Params = result.Params, Tiles = [..result.Tiles] };
 
     /// <summary>Wraps a single tile baked with <see cref="NavMeshParams.Single" />.</summary>
     /// <param name="tile">The tile.</param>

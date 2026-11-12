@@ -12,8 +12,12 @@ namespace Vixen.Ui.Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b><a href="https://github.com/Rikarin/Vixen/issues/1211">#1211</a> is half right and the
-///         wrong half is the half it names.</b> It reports that a right-aligned label ending in two
+///         ⚠
+///         <b>
+///             <a href="https://github.com/Rikarin/Vixen/issues/1211">#1211</a> is half right and the
+///             wrong half is the half it names.
+///         </b>
+///         It reports that a right-aligned label ending in two
 ///         spaces draws 8.31 points short of the box's right edge, calls that the ragged edge
 ///         <c>LineWrapper.Width</c>'s trim exists to prevent, and says <c>text-align</c> sees the
 ///         trimmed width in every browser. Measured in Chrome 152 — a 200px right-aligned box, 16px
@@ -32,8 +36,12 @@ namespace Vixen.Ui.Tests;
 ///         already keeps them, so <b>the picture #1211 measured is the browser's picture</b>.
 ///     </para>
 ///     <para>
-///         ⚠ <b>"Its unwrapped path" was the load-bearing qualifier, and the wrapped one hung all
-///         three.</b> A paragraph <c>UiElement.Wrap</c> broke reported <c>LineWrapper.Width</c>'s
+///         ⚠
+///         <b>
+///             "Its unwrapped path" was the load-bearing qualifier, and the wrapped one hung all
+///             three.
+///         </b>
+///         A paragraph <c>UiElement.Wrap</c> broke reported <c>LineWrapper.Width</c>'s
 ///         unconditionally trimmed measure for <i>every</i> line it produced, so rows two and three
 ///         of the table above were wrong by exactly the trailing spaces and nobody had measured
 ///         them; the two tests at the end of this file are those rows, and
@@ -51,8 +59,12 @@ namespace Vixen.Ui.Tests;
 ///         pins.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Both tests are pinned to the trim in <c>LineWrapper.Width</c> and to
-///         <c>TextLine.Hung</c>, which is what a sabotage has to break to turn them red</b> — the
+///         ⚠
+///         <b>
+///             Both tests are pinned to the trim in <c>LineWrapper.Width</c> and to
+///             <c>TextLine.Hung</c>, which is what a sabotage has to break to turn them red
+///         </b>
+///         — the
 ///         first goes red if the unwrapped line stops carrying its spaces, the second if the block
 ///         starts counting them. And whatever implements <c>white-space: break-spaces</c> turns the
 ///         second one over: that value stops the hanging outright. See
@@ -64,7 +76,7 @@ public class TrailingSpaceAlignmentTests {
 
     static FontFace LoadFont() {
         using var stream = Assembly.GetExecutingAssembly()
-            .GetManifestResourceStream("Vixen.Ui.Tests.Fonts.OpenSans-Regular.ttf")
+                .GetManifestResourceStream("Vixen.Ui.Tests.Fonts.OpenSans-Regular.ttf")
             ?? throw new InvalidOperationException("the test font is not embedded");
 
         using var memory = new MemoryStream();
@@ -84,8 +96,12 @@ public class TrailingSpaceAlignmentTests {
     /// <summary>A trailing space stays in the line box, so a right-aligned line shifts by it.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>This asserts the shift rather than its absence, which is the correction #1211
-    ///         needs.</b> The two spaces are inside the line box because the line ended where the
+    ///         ⚠
+    ///         <b>
+    ///             This asserts the shift rather than its absence, which is the correction #1211
+    ///             needs.
+    ///         </b>
+    ///         The two spaces are inside the line box because the line ended where the
     ///         text did and not at a soft wrap, so <c>text-align</c> distributes the slack that is
     ///         left after them — Chrome 152 to the pixel, and the picture the issue called a bug.
     ///     </para>
@@ -136,8 +152,12 @@ public class TrailingSpaceAlignmentTests {
     /// <summary>And it does not widen the box the text is measured into.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The other question, and the one Vixen was answering with the first one's
-    ///         number.</b> <c>TextLayout.Width</c> is what a shrink-to-fit box is sized from, and CSS
+    ///         ⚠
+    ///         <b>
+    ///             The other question, and the one Vixen was answering with the first one's
+    ///             number.
+    ///         </b>
+    ///         <c>TextLayout.Width</c> is what a shrink-to-fit box is sized from, and CSS
     ///         Text § 5.2 leaves hanging white space out of an intrinsic measure whatever the line
     ///         did with it — Chrome 152 makes both of these 21.344 and a box of nothing but spaces
     ///         0.000.
@@ -149,8 +169,12 @@ public class TrailingSpaceAlignmentTests {
     ///         disagreed.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The line's own width is not asserted here and cannot be, which is worth saying
-    ///         because it looks like the obvious extra check.</b> A shrink-to-fit box is laid out
+    ///         ⚠
+    ///         <b>
+    ///             The line's own width is not asserted here and cannot be, which is worth saying
+    ///             because it looks like the obvious extra check.
+    ///         </b>
+    ///         A shrink-to-fit box is laid out
     ///         twice: the second pass offers the paragraph the width the first one measured, the
     ///         untrimmed run no longer fits in it, and the line comes back through the wrapper
     ///         carrying the trimmed measure after all. That costs nothing — a box wrapped to its own
@@ -195,8 +219,12 @@ public class TrailingSpaceAlignmentTests {
     ///         at 51.11. <c>Rikarin/Vixen#1237</c>.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The two paragraphs differ by the two spaces and nothing else, which is what makes
-    ///         the first assertion a control rather than a repetition.</b> The soft-wrapped line is
+    ///         ⚠
+    ///         <b>
+    ///             The two paragraphs differ by the two spaces and nothing else, which is what makes
+    ///             the first assertion a control rather than a repetition.
+    ///         </b>
+    ///         The soft-wrapped line is
     ///         the same range in both — it must not move, and it does not, because a line the wrapper
     ///         broke goes on reporting the wrapper's trimmed width. A change that stopped hanging
     ///         everywhere would pass the second assertion and fail this one.
@@ -238,7 +266,7 @@ public class TrailingSpaceAlignmentTests {
         Assert.Equal(commands[0].X - hung.AbsoluteLeft, commands[2].X - kept.AbsoluteLeft, 0.01f);
 
         Assert.Equal(
-            (commands[1].X - hung.AbsoluteLeft) - pair,
+            commands[1].X - hung.AbsoluteLeft - pair,
             commands[3].X - kept.AbsoluteLeft,
             0.01f
         );
@@ -247,16 +275,24 @@ public class TrailingSpaceAlignmentTests {
     /// <summary>So does a line ending at a forced break — minus the break itself.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Row three, and the fiddly one: two characters have to be told apart inside one
-    ///         line's trailing white space.</b> Chrome keeps the spaces before a <c>\n</c> in the line
+    ///         ⚠
+    ///         <b>
+    ///             Row three, and the fiddly one: two characters have to be told apart inside one
+    ///             line's trailing white space.
+    ///         </b>
+    ///         Chrome keeps the spaces before a <c>\n</c> in the line
     ///         box and gives the newline no width at all, so <c>ef  \nxy</c> right-aligned in a 60px
     ///         box draws its first line exactly where a box containing only <c>ef  </c> draws its
     ///         one. Everything Vixen had walked back over <c>char.IsWhiteSpace</c>, which cannot make
     ///         that distinction; <c>TextLine.Terminator</c> is the measure that can.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Both errors are on the same axis and in opposite directions, which is why one
-    ///         equality is a two-sided assertion.</b> In this face the pair of spaces is 8.31 and the
+    ///         ⚠
+    ///         <b>
+    ///             Both errors are on the same axis and in opposite directions, which is why one
+    ///             equality is a two-sided assertion.
+    ///         </b>
+    ///         In this face the pair of spaces is 8.31 and the
     ///         newline — shaped as whatever glyph the face has for U+000A — is 9.60. Hanging the
     ///         spaces puts the line 8.31 to the <i>right</i> of the reference; counting the newline
     ///         puts it 9.60 to the <i>left</i>. Only keeping the first and dropping the second lands

@@ -76,7 +76,7 @@ public sealed class SyncStateReplicator<T> : IComponentReplicator where T : Netw
         // that depends on run-time state, which is exactly what cannot work.
         var prototype = new T();
         prototype.State.Seal();
-        lanes = [.. prototype.State.Lanes];
+        lanes = [..prototype.State.Lanes];
     }
 
     /// <inheritdoc />

@@ -3,7 +3,6 @@
 
 using Vixen.Core.Mathematics;
 using Vixen.Geometry;
-using Vixen.Rendering;
 using Xunit;
 
 namespace Vixen.Animation.Tests;
@@ -91,7 +90,7 @@ public class AnimationClipTests {
         }
 
         var clip = AnimationClip.Create(
-            new AnimationClipData {
+            new() {
                 Name = "Ramp",
                 Duration = 15f,
                 Channels = [new() { Target = "Mid", PositionTimes = times, Positions = values }]
@@ -184,7 +183,7 @@ public class AnimationClipTests {
         var clip = AnimationClip.Create(
             TestRigs.Hold("Walk", "Mid", Vector3.Zero),
             skeleton,
-            [new("Step", 0.5f, Float: 0.75f, Int: 2, String: "left")]
+            [new("Step", 0.5f, 0.75f, 2, "left")]
         );
 
         var buffer = new AnimationEventBuffer();

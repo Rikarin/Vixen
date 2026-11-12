@@ -66,8 +66,12 @@ public enum ShapeKind : byte {
 /// <remarks>
 ///     <para>
 ///         <b>Doc 24's D6 in one struct.</b> A shape is created with live parameters and editing one
-///         rebuilds it, because the overwhelmingly common blockout edit is <i>"that corridor should be
-///         a metre wider"</i> — one number, not a face selection.
+///         rebuilds it, because the overwhelmingly common blockout edit is
+///         <i>
+///             "that corridor should be
+///             a metre wider"
+///         </i>
+///         — one number, not a face selection.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>Six fields for twelve shapes, rather than a record per kind.</b> A discriminated union
@@ -78,8 +82,12 @@ public enum ShapeKind : byte {
 ///         same way whatever the kind is.
 ///     </para>
 ///     <para>
-///         ⚠ <b><see cref="Size" /> is the whole extent in world units, and the geometry carries
-///         it.</b> <c>MeshPrimitives</c> builds everything to fit the unit cube so that a transform's
+///         ⚠
+///         <b>
+///             <see cref="Size" /> is the whole extent in world units, and the geometry carries
+///             it.
+///         </b>
+///         <c>MeshPrimitives</c> builds everything to fit the unit cube so that a transform's
 ///         scale is the size, which is right when a thousand entities share one upload. It is wrong
 ///         here: a wall built as a unit cube scaled <c>8 3 0.2</c> has a non-uniform transform, so
 ///         every bevel it is given afterwards is wider on one axis than another and every texel on it
@@ -154,18 +162,40 @@ public record struct ShapeParameters {
             ShapeKind.Cone => new() { Kind = kind, Size = new(1f, 2f, 1f), Sides = 16, Steps = 1 },
             ShapeKind.Sphere => new() { Kind = kind, Size = new(1f, 1f, 1f), Sides = 24, Steps = 12 },
             ShapeKind.Capsule => new() { Kind = kind, Size = new(1f, 2f, 1f), Sides = 16, Steps = 6 },
-            ShapeKind.Torus => new() { Kind = kind, Size = new(2f, 0.5f, 2f), Sides = 24, Steps = 12, Inner = 0.25f },
+            ShapeKind.Torus => new() {
+                Kind = kind,
+                Size = new(2f, 0.5f, 2f),
+                Sides = 24,
+                Steps = 12,
+                Inner = 0.25f
+            },
             ShapeKind.Stairs => new() { Kind = kind, Size = new(2f, 2.5f, 4f), Sides = 16, Steps = 12 },
             ShapeKind.Ramp => new() { Kind = kind, Size = new(2f, 2f, 4f), Sides = 16, Steps = 1 },
 
             ShapeKind.Arch => new() {
-                Kind = kind, Size = new(4f, 3.2f, 0.4f), Sides = 12, Steps = 1, Thickness = 0.4f, Inner = 0.5f
+                Kind = kind,
+                Size = new(4f, 3.2f, 0.4f),
+                Sides = 12,
+                Steps = 1,
+                Thickness = 0.4f,
+                Inner = 0.5f
             },
 
-            ShapeKind.Pipe => new() { Kind = kind, Size = new(1f, 2f, 1f), Sides = 16, Steps = 1, Inner = 0.7f },
+            ShapeKind.Pipe => new() {
+                Kind = kind,
+                Size = new(1f, 2f, 1f),
+                Sides = 16,
+                Steps = 1,
+                Inner = 0.7f
+            },
 
             ShapeKind.DoorFrame => new() {
-                Kind = kind, Size = new(4f, 3f, 0.4f), Sides = 16, Steps = 1, Thickness = 0.5f, Inner = 0.55f
+                Kind = kind,
+                Size = new(4f, 3f, 0.4f),
+                Sides = 16,
+                Steps = 1,
+                Thickness = 0.5f,
+                Inner = 0.55f
             },
 
             _ => new() { Kind = kind, Size = new(2f, 2f, 2f), Sides = 16, Steps = 1 }
@@ -174,8 +204,12 @@ public record struct ShapeParameters {
     /// <summary>The same parameters, with everything a generator cannot survive brought into range.</summary>
     /// <returns>The clamped parameters.</returns>
     /// <remarks>
-    ///     ⚠ <b>Clamped rather than validated, and the caller is a number field somebody is dragging
-    ///     through zero.</b> An inspector that threw on a negative side count would throw once per
+    ///     ⚠
+    ///     <b>
+    ///         Clamped rather than validated, and the caller is a number field somebody is dragging
+    ///         through zero.
+    ///     </b>
+    ///     An inspector that threw on a negative side count would throw once per
     ///     frame while a designer scrubbed a slider past it; one that refused the edit would make the
     ///     field impossible to type a two-digit number into. So the generator always produces geometry
     ///     and the field always accepts what was typed.
@@ -187,7 +221,6 @@ public record struct ShapeParameters {
                 Math.Clamp(Size.Y, Kind == ShapeKind.Plane ? 0f : MinimumSize, MaximumSize),
                 Math.Clamp(Size.Z, MinimumSize, MaximumSize)
             ),
-
             Sides = Math.Clamp(Sides, 3, MaximumDivisions),
             Steps = Math.Clamp(Steps, 1, MaximumDivisions),
             Thickness = Math.Clamp(Thickness, 0f, MaximumSize),
@@ -195,8 +228,10 @@ public record struct ShapeParameters {
         };
 
     /// <summary>The smallest extent a shape may have on any axis.</summary>
-    /// <remarks>A tenth of a millimetre, which is <c>WorkPlane.MinimumStep</c>'s floor and is there
-    ///     for the same reason: a zero extent is a shape with no faces and no way back.</remarks>
+    /// <remarks>
+    ///     A tenth of a millimetre, which is <c>WorkPlane.MinimumStep</c>'s floor and is there
+    ///     for the same reason: a zero extent is a shape with no faces and no way back.
+    /// </remarks>
     public const float MinimumSize = 1e-4f;
 
     /// <summary>And the largest.</summary>
@@ -242,9 +277,11 @@ public static class MeshShapes {
     /// <summary>Builds a shape.</summary>
     /// <param name="parameters">Which shape and how big.</param>
     /// <returns>The mesh, in the shape's own space.</returns>
-    /// <remarks>The parameters are clamped first, so this never throws and never produces a mesh with
+    /// <remarks>
+    ///     The parameters are clamped first, so this never throws and never produces a mesh with
     ///     no faces — see <see cref="ShapeParameters.Clamped" /> for why that is the caller's
-    ///     interest.</remarks>
+    ///     interest.
+    /// </remarks>
     public static EditMesh Create(in ShapeParameters parameters) {
         var shape = parameters.Clamped();
         var mesh = Built(shape);
@@ -268,9 +305,9 @@ public static class MeshShapes {
             ShapeKind.Torus => Torus(shape),
             ShapeKind.Stairs => Stairs(shape),
             ShapeKind.Ramp => Ramp(shape),
-            ShapeKind.Arch => Opening(shape, round: true),
+            ShapeKind.Arch => Opening(shape, true),
             ShapeKind.Pipe => Pipe(shape),
-            ShapeKind.DoorFrame => Opening(shape, round: false),
+            ShapeKind.DoorFrame => Opening(shape, false),
             _ => Box(shape)
         };
 
@@ -280,21 +317,30 @@ public static class MeshShapes {
     public static EditMesh Create(ShapeKind kind) => Create(ShapeParameters.Default(kind));
 
     /// <summary>Sweeps a closed outline along a straight line and caps both ends.</summary>
-    /// <param name="outline">The outline, anticlockwise in the plane <paramref name="across" /> and
-    ///     <paramref name="up" /> span. Three points or more.</param>
+    /// <param name="outline">
+    ///     The outline, anticlockwise in the plane <paramref name="across" /> and
+    ///     <paramref name="up" /> span. Three points or more.
+    /// </param>
     /// <param name="origin">Where the near cap's outline origin is.</param>
     /// <param name="across">The outline's first axis, as a unit vector.</param>
     /// <param name="up">Its second, as a unit vector perpendicular to the first.</param>
-    /// <param name="along">How far and which way to sweep. Must point the way
-    ///     <paramref name="across" /> crossed into <paramref name="up" /> does.</param>
+    /// <param name="along">
+    ///     How far and which way to sweep. Must point the way
+    ///     <paramref name="across" /> crossed into <paramref name="up" /> does.
+    /// </param>
     /// <param name="capGroup">Which group the two caps go in.</param>
-    /// <param name="sides">Which group each swept side goes in, one per outline edge, or empty for
-    ///     <paramref name="capGroup" /> plus one.</param>
+    /// <param name="sides">
+    ///     Which group each swept side goes in, one per outline edge, or empty for
+    ///     <paramref name="capGroup" /> plus one.
+    /// </param>
     /// <returns>The mesh: two n-gons and a quad per outline edge.</returns>
     /// <remarks>
     ///     <para>
-    ///         <b>The one routine three of the level-design shapes are, and the poly-shape tool as
-    ///         well.</b> Doc 24's poly shape is "click a polygon on the work plane, then drag the
+    ///         <b>
+    ///             The one routine three of the level-design shapes are, and the poly-shape tool as
+    ///             well.
+    ///         </b>
+    ///         Doc 24's poly shape is "click a polygon on the work plane, then drag the
     ///         height", which is this with the outline a designer clicked; a staircase is this with a
     ///         staircase-shaped outline; a ramp is this with a triangle.
     ///     </para>
@@ -306,8 +352,12 @@ public static class MeshShapes {
     ///         way a generator goes wrong.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A self-intersecting outline produces a self-intersecting solid rather than an
-    ///         error.</b> Deciding whether a polygon a designer clicked crosses itself is a question
+    ///         ⚠
+    ///         <b>
+    ///             A self-intersecting outline produces a self-intersecting solid rather than an
+    ///             error.
+    ///         </b>
+    ///         Deciding whether a polygon a designer clicked crosses itself is a question
     ///         with a real answer and no cheap one, and refusing at the end of a gesture is worse than
     ///         producing something visibly wrong that <c>Ctrl+Z</c> takes away. The caps are triangulated
     ///         by <see cref="EditMesh.Triangulate()" />, which falls back to a fan for exactly this case.
@@ -330,11 +380,11 @@ public static class MeshShapes {
         }
 
         for (var point = 0; point < count; point++) {
-            mesh.AddPosition(origin + (across * outline[point].X) + (up * outline[point].Y));
+            mesh.AddPosition(origin + across * outline[point].X + up * outline[point].Y);
         }
 
         for (var point = 0; point < count; point++) {
-            mesh.AddPosition(origin + along + (across * outline[point].X) + (up * outline[point].Y));
+            mesh.AddPosition(origin + along + across * outline[point].X + up * outline[point].Y);
         }
 
         var near = new int[count];
@@ -439,9 +489,9 @@ public static class MeshShapes {
             for (var column = 0; column <= cells; column++) {
                 mesh.AddPosition(
                     new(
-                        -half.X + (shape.Size.X * column / cells),
+                        -half.X + shape.Size.X * column / cells,
                         0f,
-                        -half.Z + (shape.Size.Z * row / cells)
+                        -half.Z + shape.Size.Z * row / cells
                     )
                 );
             }
@@ -454,10 +504,10 @@ public static class MeshShapes {
                 // Anticlockwise seen from above, which is the way a floor is looked at.
                 Quad(
                     mesh,
-                    (row * stride) + column,
-                    ((row + 1) * stride) + column,
-                    ((row + 1) * stride) + column + 1,
-                    (row * stride) + column + 1,
+                    row * stride + column,
+                    (row + 1) * stride + column,
+                    (row + 1) * stride + column + 1,
+                    row * stride + column + 1,
                     GroupTop
                 );
             }
@@ -474,8 +524,8 @@ public static class MeshShapes {
 
         Belt(mesh, shape.Sides, 0, shape.Sides, GroupSide);
 
-        Cap(mesh, shape.Sides, shape.Sides, up: true, GroupTop);
-        Cap(mesh, shape.Sides, 0, up: false, GroupBottom);
+        Cap(mesh, shape.Sides, shape.Sides, true, GroupTop);
+        Cap(mesh, shape.Sides, 0, false, GroupBottom);
 
         return mesh;
     }
@@ -497,7 +547,7 @@ public static class MeshShapes {
             mesh.AddFace(triangle, GroupSide);
         }
 
-        Cap(mesh, shape.Sides, 0, up: false, GroupBottom);
+        Cap(mesh, shape.Sides, 0, false, GroupBottom);
 
         return mesh;
     }
@@ -519,12 +569,12 @@ public static class MeshShapes {
             var scale = MathF.Sin(pitch);
 
             for (var side = 0; side < shape.Sides; side++) {
-                var angle = side / (float) shape.Sides * MathF.Tau;
+                var angle = side / (float)shape.Sides * MathF.Tau;
 
                 mesh.AddPosition(
                     new(
                         MathF.Cos(angle) * scale * radius.X,
-                        radius.Y + (y * radius.Y),
+                        radius.Y + y * radius.Y,
                         MathF.Sin(angle) * scale * radius.Z
                     )
                 );
@@ -534,11 +584,11 @@ public static class MeshShapes {
         var first = 2;
 
         for (var ring = 0; ring + 2 < rings; ring++) {
-            Belt(mesh, shape.Sides, first + ((ring + 1) * shape.Sides), first + (ring * shape.Sides), GroupSide);
+            Belt(mesh, shape.Sides, first + (ring + 1) * shape.Sides, first + ring * shape.Sides, GroupSide);
         }
 
-        Fan(mesh, shape.Sides, first, north, forward: false, GroupSide);
-        Fan(mesh, shape.Sides, first + ((rings - 2) * shape.Sides), south, forward: true, GroupSide);
+        Fan(mesh, shape.Sides, first, north, false, GroupSide);
+        Fan(mesh, shape.Sides, first + (rings - 2) * shape.Sides, south, true, GroupSide);
 
         return mesh;
     }
@@ -551,7 +601,7 @@ public static class MeshShapes {
         // nothing. A capsule shorter than it is wide is a sphere with an elliptical waist rather than
         // an error, which is what a designer scrubbing the height field through the diameter expects.
         var cap = MathF.Min(radius.X, radius.Y);
-        var straight = MathF.Max(shape.Size.Y - (cap * 2f), 0f);
+        var straight = MathF.Max(shape.Size.Y - cap * 2f, 0f);
         var rings = Math.Max(shape.Steps, 2);
 
         var north = mesh.AddPosition(new(0f, shape.Size.Y, 0f));
@@ -565,11 +615,11 @@ public static class MeshShapes {
             var upper = ring <= rings;
             var pitch = MathF.PI * 0.5f * (upper ? ring : ring - rings - 1) / rings;
 
-            var y = upper ? cap + straight + (MathF.Cos(pitch) * cap) : cap - (MathF.Sin(pitch) * cap);
+            var y = upper ? cap + straight + MathF.Cos(pitch) * cap : cap - MathF.Sin(pitch) * cap;
             var scale = upper ? MathF.Sin(pitch) : MathF.Cos(pitch);
 
             for (var side = 0; side < shape.Sides; side++) {
-                var angle = side / (float) shape.Sides * MathF.Tau;
+                var angle = side / (float)shape.Sides * MathF.Tau;
 
                 mesh.AddPosition(new(MathF.Cos(angle) * scale * radius.X, y, MathF.Sin(angle) * scale * radius.Y));
             }
@@ -579,11 +629,11 @@ public static class MeshShapes {
         var bands = rings * 2;
 
         for (var ring = 0; ring + 1 < bands; ring++) {
-            Belt(mesh, shape.Sides, first + ((ring + 1) * shape.Sides), first + (ring * shape.Sides), GroupSide);
+            Belt(mesh, shape.Sides, first + (ring + 1) * shape.Sides, first + ring * shape.Sides, GroupSide);
         }
 
-        Fan(mesh, shape.Sides, first, north, forward: false, GroupSide);
-        Fan(mesh, shape.Sides, first + ((bands - 1) * shape.Sides), south, forward: true, GroupSide);
+        Fan(mesh, shape.Sides, first, north, false, GroupSide);
+        Fan(mesh, shape.Sides, first + (bands - 1) * shape.Sides, south, true, GroupSide);
 
         return mesh;
     }
@@ -602,17 +652,17 @@ public static class MeshShapes {
         var segments = Math.Max(shape.Steps, 3);
 
         for (var side = 0; side < shape.Sides; side++) {
-            var yaw = side / (float) shape.Sides * MathF.Tau;
+            var yaw = side / (float)shape.Sides * MathF.Tau;
             var outward = new Vector3(MathF.Cos(yaw), 0f, MathF.Sin(yaw));
 
             for (var segment = 0; segment < segments; segment++) {
-                var pitch = segment / (float) segments * MathF.Tau;
+                var pitch = segment / (float)segments * MathF.Tau;
 
                 mesh.AddPosition(
                     new(
-                        outward.X * (ring.X + (MathF.Cos(pitch) * tube)),
-                        tube + (MathF.Sin(pitch) * tube),
-                        outward.Z * (ring.Y + (MathF.Cos(pitch) * tube))
+                        outward.X * (ring.X + MathF.Cos(pitch) * tube),
+                        tube + MathF.Sin(pitch) * tube,
+                        outward.Z * (ring.Y + MathF.Cos(pitch) * tube)
                     )
                 );
             }
@@ -626,10 +676,10 @@ public static class MeshShapes {
 
                 Quad(
                     mesh,
-                    (side * segments) + segment,
-                    (side * segments) + over,
-                    (next * segments) + over,
-                    (next * segments) + segment,
+                    side * segments + segment,
+                    side * segments + over,
+                    next * segments + over,
+                    next * segments + segment,
                     GroupSide
                 );
             }
@@ -657,8 +707,8 @@ public static class MeshShapes {
         // which reads as the bore not having been cut at all.
         Belt(mesh, sides, sides * 3, sides * 2, GroupBore);
 
-        Annulus(mesh, sides, sides, sides * 3, up: true, GroupTop);
-        Annulus(mesh, sides, 0, sides * 2, up: false, GroupBottom);
+        Annulus(mesh, sides, sides, sides * 3, true, GroupTop);
+        Annulus(mesh, sides, 0, sides * 2, false, GroupBottom);
 
         return mesh;
     }
@@ -696,7 +746,7 @@ public static class MeshShapes {
         groups[1] = GroupBack;
 
         for (var edge = 2; edge < points; edge++) {
-            groups[edge] = (edge % 2) == 0 ? GroupTop : GroupFront;
+            groups[edge] = edge % 2 == 0 ? GroupTop : GroupFront;
         }
 
         return groups;
@@ -764,9 +814,9 @@ public static class MeshShapes {
 
         if (round) {
             for (var segment = 1; segment < shape.Sides; segment++) {
-                var angle = MathF.PI * (1f - (segment / (float) shape.Sides));
+                var angle = MathF.PI * (1f - segment / (float)shape.Sides);
 
-                rim.Add(new(MathF.Cos(angle) * width, spring + (MathF.Sin(angle) * (top - spring))));
+                rim.Add(new(MathF.Cos(angle) * width, spring + MathF.Sin(angle) * (top - spring)));
             }
         }
 
@@ -870,16 +920,18 @@ public static class MeshShapes {
 
     static void Ring(EditMesh mesh, int sides, float radiusX, float radiusZ, float y) {
         for (var side = 0; side < sides; side++) {
-            var angle = side / (float) sides * MathF.Tau;
+            var angle = side / (float)sides * MathF.Tau;
 
             mesh.AddPosition(new(MathF.Cos(angle) * radiusX, y, MathF.Sin(angle) * radiusZ));
         }
     }
 
     /// <summary>Quads between two rings of the same size, wound outwards.</summary>
-    /// <remarks><paramref name="lower" /> and <paramref name="upper" /> are the first position of
+    /// <remarks>
+    ///     <paramref name="lower" /> and <paramref name="upper" /> are the first position of
     ///     each ring; swapping them is what turns a surface inside out, which is how a pipe's bore is
-    ///     built from the same routine as its outside.</remarks>
+    ///     built from the same routine as its outside.
+    /// </remarks>
     static void Belt(EditMesh mesh, int sides, int lower, int upper, int group) {
         for (var side = 0; side < sides; side++) {
             var next = (side + 1) % sides;
@@ -973,8 +1025,10 @@ public static class MeshShapes {
     public const int GroupRight = 6;
 
     /// <summary>The inside of a hole through it: a pipe's bore, a doorway's reveal.</summary>
-    /// <remarks>Its own group rather than <see cref="GroupSide" /> because it is the one surface of a
+    /// <remarks>
+    ///     Its own group rather than <see cref="GroupSide" /> because it is the one surface of a
     ///     block-out that is usually a different material from everything around it — a doorway's
-    ///     reveal is trim, and a pipe's bore is dark.</remarks>
+    ///     reveal is trim, and a pipe's bore is dark.
+    /// </remarks>
     public const int GroupBore = 7;
 }

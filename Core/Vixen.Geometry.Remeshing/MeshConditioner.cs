@@ -17,15 +17,23 @@ namespace Vixen.Geometry.Remeshing;
 ///         exists for.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Every tolerance here is a fraction of the bounding-box diagonal and none is a
-///         distance.</b> Doc 24 records the same lesson twice — <c>EditMesh.DefaultWeldTolerance</c>'s
+///         ⚠
+///         <b>
+///             Every tolerance here is a fraction of the bounding-box diagonal and none is a
+///             distance.
+///         </b>
+///         Doc 24 records the same lesson twice — <c>EditMesh.DefaultWeldTolerance</c>'s
 ///         own remarks, and the capsule's poles in doc 24 § P1, where an absolute epsilon declared
 ///         sixty-four real triangles degenerate and "a primitive built at a tenth of the scale would
 ///         have had all of them declared so". A fixed number is a claim about how big a model is.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Orientation propagates only across manifold edges; connectivity counts every
-///         shared edge.</b> Those are two different graphs over the same faces and using one for both
+///         ⚠
+///         <b>
+///             Orientation propagates only across manifold edges; connectivity counts every
+///             shared edge.
+///         </b>
+///         Those are two different graphs over the same faces and using one for both
 ///         is a bug in either direction. A wall meeting a floor in a T — doc 24's <i>ordinary</i>
 ///         blockout case — has an edge with three faces, and no assignment of windings makes three
 ///         faces pairwise opposed along it, so a flood fill that crossed it would declare an
@@ -35,16 +43,22 @@ namespace Vixen.Geometry.Remeshing;
 /// </remarks>
 static class MeshConditioner {
     /// <summary>How many rounds the non-manifold repair will iterate before giving up.</summary>
-    /// <remarks>One round resolves every case that occurs in practice. The cap is for the exotic
-    ///     one where two faces of a cut edge are still joined at both ends through other edges.</remarks>
+    /// <remarks>
+    ///     One round resolves every case that occurs in practice. The cap is for the exotic
+    ///     one where two faces of a cut edge are still joined at both ends through other edges.
+    /// </remarks>
     public const int RepairRounds = 8;
 
     /// <summary>How large a cross product's own rounding error is, against the two edges it multiplied.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A relative bound is not scale-free if it sits below what the arithmetic can
-    ///         resolve, and that is a different mistake from an absolute one but it fails the same
-    ///         way.</b> <c>b - a</c> is a difference of coordinates of order the diagonal, so it
+    ///         ⚠
+    ///         <b>
+    ///             A relative bound is not scale-free if it sits below what the arithmetic can
+    ///             resolve, and that is a different mistake from an absolute one but it fails the same
+    ///             way.
+    ///         </b>
+    ///         <c>b - a</c> is a difference of coordinates of order the diagonal, so it
     ///         carries an absolute error of order <c>ε × diagonal</c> whatever the edge's own length
     ///         is — and a cross product of two such differences therefore carries an error of order
     ///         <c>ε × diagonal × reach</c>, where <c>reach</c> is the longer of them. Single
@@ -81,9 +95,13 @@ static class MeshConditioner {
     /// </param>
     /// <returns>The conditioned surface.</returns>
     /// <remarks>
-    ///     ⚠ <b><paramref name="targetEdgeLength" /> is a parameter rather than a
-    ///     <see cref="ConditioningSettings" /> field, and that is a gap in the contract rather than a
-    ///     choice.</b> Step six is defined as "isotropic pre-remesh <i>to a target edge length</i>"
+    ///     ⚠
+    ///     <b>
+    ///         <paramref name="targetEdgeLength" /> is a parameter rather than a
+    ///         <see cref="ConditioningSettings" /> field, and that is a gap in the contract rather than a
+    ///         choice.
+    ///     </b>
+    ///     Step six is defined as "isotropic pre-remesh <i>to a target edge length</i>"
     ///     and the only place a length lives is <see cref="RemeshSettings.TargetEdgeLength" />, which
     ///     conditioning is not handed. The pipeline passes the one it derived; a caller conditioning
     ///     on its own passes zero and gets the mesh's own mean, which is the scale-free answer.
@@ -117,7 +135,7 @@ static class MeshConditioner {
         // ⚠ Built before the pre-remesh and never rebuilt: the reference the relaxation reprojects
         // onto is the surface as it stood when step six began. Reprojecting onto the previous
         // iteration compounds the drift instead of correcting it.
-        var reference = SurfaceProjector.Build([.. soup.Positions], [.. soup.Triangles]);
+        var reference = SurfaceProjector.Build([..soup.Positions], [..soup.Triangles]);
         var target = IsotropicRemesh.Run(soup, reference, targetEdgeLength, settings.PreRemeshIterations);
 
         var shrinkwrapped = false;
@@ -170,15 +188,23 @@ static class MeshConditioner {
     /// <returns>How many positions were merged away.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A grid of cells the size of the tolerance, and the twenty-seven round each one are
-    ///         searched.</b> Hashing the rounded position alone is one line shorter and wrong in
+    ///         ⚠
+    ///         <b>
+    ///             A grid of cells the size of the tolerance, and the twenty-seven round each one are
+    ///             searched.
+    ///         </b>
+    ///         Hashing the rounded position alone is one line shorter and wrong in
     ///         exactly the case this exists for — two positions a hair apart either side of a cell
     ///         boundary land in different buckets and are never compared. The same structure
     ///         <c>EditMesh.Weld</c> uses, for the same reason.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Triangles that collapse to a line, and exact duplicates, go with them, and the
-    ///         report has no field that counts them.</b> A triangle with two equal corners has no
+    ///         ⚠
+    ///         <b>
+    ///             Triangles that collapse to a line, and exact duplicates, go with them, and the
+    ///             report has no field that counts them.
+    ///         </b>
+    ///         A triangle with two equal corners has no
     ///         area, no normal and no edge; a triangle listed twice makes every one of its three edges
     ///         non-manifold, so step four would cut them apart into a doubled sheet that the field
     ///         would then be solved on twice. Both are removed here. The difference shows in
@@ -271,9 +297,9 @@ static class MeshConditioner {
         var seen = new HashSet<(int A, int B, int C)>();
 
         for (var triangle = 0; triangle * 3 < triangles.Length; triangle++) {
-            var a = remap[triangles[(triangle * 3) + 0]];
-            var b = remap[triangles[(triangle * 3) + 1]];
-            var c = remap[triangles[(triangle * 3) + 2]];
+            var a = remap[triangles[triangle * 3]];
+            var b = remap[triangles[triangle * 3 + 1]];
+            var c = remap[triangles[triangle * 3 + 2]];
 
             if (a == b || b == c || c == a) {
                 continue;
@@ -339,8 +365,8 @@ static class MeshConditioner {
                 var face = stack.Pop();
 
                 for (var side = 0; side < 3; side++) {
-                    var from = soup.Triangles[(face * 3) + side];
-                    var to = soup.Triangles[(face * 3) + ((side + 1) % 3)];
+                    var from = soup.Triangles[face * 3 + side];
+                    var to = soup.Triangles[face * 3 + (side + 1) % 3];
 
                     if (!faces.TryGetValue(Key(from, to), out var sharing) || sharing.Count != 2) {
                         // A boundary, or a non-manifold edge. Neither carries an orientation across:
@@ -366,8 +392,8 @@ static class MeshConditioner {
                     }
 
                     if (forwards) {
-                        (soup.Triangles[(other * 3) + 1], soup.Triangles[(other * 3) + 2]) =
-                            (soup.Triangles[(other * 3) + 2], soup.Triangles[(other * 3) + 1]);
+                        (soup.Triangles[other * 3 + 1], soup.Triangles[other * 3 + 2]) =
+                            (soup.Triangles[other * 3 + 2], soup.Triangles[other * 3 + 1]);
 
                         reoriented++;
                     }
@@ -391,8 +417,12 @@ static class MeshConditioner {
     /// <returns>How many components were dropped.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Area, not triangle count, and the difference is the whole of what the default has
-    ///         to get right.</b> A generator's hallucinated debris is a handful of triangles covering
+    ///         ⚠
+    ///         <b>
+    ///             Area, not triangle count, and the difference is the whole of what the default has
+    ///             to get right.
+    ///         </b>
+    ///         A generator's hallucinated debris is a handful of triangles covering
     ///         a millionth of the model; a character's separate eyeball is a well-tessellated sphere
     ///         covering a fair fraction of a percent. By triangle count the eyeball can be the smaller
     ///         of the two, and by area it never is.
@@ -470,9 +500,9 @@ static class MeshConditioner {
         for (var face = 0; face < count; face++) {
             if (areas[Find(parent, face)] >= bound) {
                 soup.Add(
-                    triangles[(face * 3) + 0],
-                    triangles[(face * 3) + 1],
-                    triangles[(face * 3) + 2],
+                    triangles[face * 3],
+                    triangles[face * 3 + 1],
+                    triangles[face * 3 + 2],
                     groups[face]
                 );
             }
@@ -532,9 +562,9 @@ static class MeshConditioner {
                 var vertex = soup.Triangles[half];
 
                 foreach (var neighbour in (int[]) [
-                    soup.Triangles[ManifoldMesh.Next(half)],
-                    soup.Triangles[ManifoldMesh.Previous(half)]
-                ]) {
+                             soup.Triangles[ManifoldMesh.Next(half)],
+                             soup.Triangles[ManifoldMesh.Previous(half)]
+                         ]) {
                     var key = (vertex, neighbour);
 
                     if (!fans.TryGetValue(key, out var list)) {
@@ -606,8 +636,12 @@ static class MeshConditioner {
     /// <param name="size">The largest hole to close, as a length.</param>
     /// <returns>How many holes were filled.</returns>
     /// <remarks>
-    ///     ⚠ <b>Off by default, and deliberately: a hole in the input is very often a hole in the
-    ///     subject.</b> <see cref="ConditioningSettings.FillHoles" /> defaults to false. A mouth, a
+    ///     ⚠
+    ///     <b>
+    ///         Off by default, and deliberately: a hole in the input is very often a hole in the
+    ///         subject.
+    ///     </b>
+    ///     <see cref="ConditioningSettings.FillHoles" /> defaults to false. A mouth, a
     ///     sleeve and a pipe's bore are all boundary loops, and closing one silently is worse than
     ///     leaving it — the remesh will happily lay quads over it and nobody will look at the report.
     /// </remarks>
@@ -628,8 +662,8 @@ static class MeshConditioner {
             var face = sharing[0];
 
             for (var side = 0; side < 3; side++) {
-                var from = soup.Triangles[(face * 3) + side];
-                var to = soup.Triangles[(face * 3) + ((side + 1) % 3)];
+                var from = soup.Triangles[face * 3 + side];
+                var to = soup.Triangles[face * 3 + (side + 1) % 3];
 
                 if (Key(from, to) == key) {
                     next.TryAdd(to, from);
@@ -710,8 +744,8 @@ static class MeshConditioner {
 
         for (var face = 0; face < soup.TriangleCount; face++) {
             for (var side = 0; side < 3; side++) {
-                var from = soup.Triangles[(face * 3) + side];
-                var to = soup.Triangles[(face * 3) + ((side + 1) % 3)];
+                var from = soup.Triangles[face * 3 + side];
+                var to = soup.Triangles[face * 3 + (side + 1) % 3];
 
                 if (from == to) {
                     continue;
@@ -733,8 +767,8 @@ static class MeshConditioner {
     /// <summary>Whether a face walks an edge from one named end to the other rather than back.</summary>
     static bool Walks(TriangleSoup soup, int face, int from, int to) {
         for (var side = 0; side < 3; side++) {
-            if (soup.Triangles[(face * 3) + side] == from
-                && soup.Triangles[(face * 3) + ((side + 1) % 3)] == to) {
+            if (soup.Triangles[face * 3 + side] == from
+                && soup.Triangles[face * 3 + (side + 1) % 3] == to) {
                 return true;
             }
         }
@@ -761,12 +795,12 @@ static class MeshConditioner {
     }
 
     /// <summary>An unordered vertex pair as one key.</summary>
-    static long Key(int a, int b) =>
-        a < b ? ((long) a << 32) | (uint) b : ((long) b << 32) | (uint) a;
+    static long Key(int a, int b) => a < b ? ((long)a << 32) | (uint)b : ((long)b << 32) | (uint)a;
 
-    static (long X, long Y, long Z) Cell(Vector3 position, float size) => (
-        (long) MathF.Floor(position.X / size),
-        (long) MathF.Floor(position.Y / size),
-        (long) MathF.Floor(position.Z / size)
+    static (long X, long Y, long Z) Cell(Vector3 position, float size) =>
+    (
+        (long)MathF.Floor(position.X / size),
+        (long)MathF.Floor(position.Y / size),
+        (long)MathF.Floor(position.Z / size)
     );
 }

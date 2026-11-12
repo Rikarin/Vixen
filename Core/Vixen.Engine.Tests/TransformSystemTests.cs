@@ -14,31 +14,31 @@ public sealed class TransformSystemTests {
     [Fact]
     public void ARootsWorldTransformIsItsLocalTransform() {
         using var world = new World();
-        var system = new TransformSystem();
+        using var system = new TransformSystem();
         var entity = Hierarchy.CreateTransform(world, LocalTransform.At(new(1, 2, 3)));
 
         system.Resolve(world);
 
-        Assert.Equal(new Vector3(1, 2, 3), world.Read<WorldTransform>(entity).Position);
+        Assert.Equal(new(1, 2, 3), world.Read<WorldTransform>(entity).Position);
     }
 
     [Fact]
     public void AChildIsPositionedRelativeToItsParent() {
         using var world = new World();
-        var system = new TransformSystem();
+        using var system = new TransformSystem();
         var parent = Hierarchy.CreateTransform(world, LocalTransform.At(new(10, 0, 0)));
         var child = Hierarchy.CreateTransform(world, LocalTransform.At(new(0, 5, 0)));
 
         Hierarchy.SetParent(world, child, parent);
         system.Resolve(world);
 
-        Assert.Equal(new Vector3(10, 5, 0), world.Read<WorldTransform>(child).Position);
+        Assert.Equal(new(10, 5, 0), world.Read<WorldTransform>(child).Position);
     }
 
     [Fact]
     public void AParentsRotationCarriesToItsChild() {
         using var world = new World();
-        var system = new TransformSystem();
+        using var system = new TransformSystem();
 
         var parent = Hierarchy.CreateTransform(
             world,
@@ -59,7 +59,7 @@ public sealed class TransformSystemTests {
     [Fact]
     public void AGrandchildFollowsTheWholeChain() {
         using var world = new World();
-        var system = new TransformSystem();
+        using var system = new TransformSystem();
         var a = Hierarchy.CreateTransform(world, LocalTransform.At(new(1, 0, 0)));
         var b = Hierarchy.CreateTransform(world, LocalTransform.At(new(0, 1, 0)));
         var c = Hierarchy.CreateTransform(world, LocalTransform.At(new(0, 0, 1)));
@@ -68,13 +68,13 @@ public sealed class TransformSystemTests {
         Hierarchy.SetParent(world, c, b);
         system.Resolve(world);
 
-        Assert.Equal(new Vector3(1, 1, 1), world.Read<WorldTransform>(c).Position);
+        Assert.Equal(new(1, 1, 1), world.Read<WorldTransform>(c).Position);
     }
 
     [Fact]
     public void MovingAParentMovesEverythingBelowIt() {
         using var world = new World();
-        var system = new TransformSystem();
+        using var system = new TransformSystem();
         var parent = Hierarchy.CreateTransform(world, LocalTransform.Identity);
         var child = Hierarchy.CreateTransform(world, LocalTransform.At(new(0, 1, 0)));
         var grandchild = Hierarchy.CreateTransform(world, LocalTransform.At(new(0, 1, 0)));
@@ -87,7 +87,7 @@ public sealed class TransformSystemTests {
         world.Get<LocalTransform>(parent).Position = new(5, 0, 0);
         system.Resolve(world);
 
-        Assert.Equal(new Vector3(5, 2, 0), world.Read<WorldTransform>(grandchild).Position);
+        Assert.Equal(new(5, 2, 0), world.Read<WorldTransform>(grandchild).Position);
     }
 
     /// <summary>
@@ -102,7 +102,7 @@ public sealed class TransformSystemTests {
     [Fact]
     public void AWorldRotationSetUnderARotatedParentComesBackUnchanged() {
         using var world = new World();
-        var system = new TransformSystem();
+        using var system = new TransformSystem();
 
         var parent = Hierarchy.CreateTransform(
             world,
@@ -137,7 +137,7 @@ public sealed class TransformSystemTests {
     [Fact]
     public void TheWorldRotationGetterInvertsTheSetter() {
         using var world = new World();
-        var system = new TransformSystem();
+        using var system = new TransformSystem();
 
         var parent = Hierarchy.CreateTransform(
             world,
@@ -175,7 +175,7 @@ public sealed class TransformSystemTests {
     [Fact]
     public void AFrameInWhichNothingMovedTouchesNothing() {
         using var world = new World();
-        var system = new TransformSystem();
+        using var system = new TransformSystem();
         var entity = Hierarchy.CreateTransform(world, LocalTransform.At(new(1, 2, 3)));
 
         world.AdvanceVersion();
@@ -194,25 +194,25 @@ public sealed class TransformSystemTests {
     [Fact]
     public void ReparentingCountsAsMovingEvenThoughTheLocalTransformDidNotChange() {
         using var world = new World();
-        var system = new TransformSystem();
+        using var system = new TransformSystem();
         var parent = Hierarchy.CreateTransform(world, LocalTransform.At(new(10, 0, 0)));
         var child = Hierarchy.CreateTransform(world, LocalTransform.At(new(0, 5, 0)));
 
         system.Resolve(world);
-        Assert.Equal(new Vector3(0, 5, 0), world.Read<WorldTransform>(child).Position);
+        Assert.Equal(new(0, 5, 0), world.Read<WorldTransform>(child).Position);
 
         world.AdvanceVersion();
         Hierarchy.SetParent(world, child, parent);
         world.AdvanceVersion();
         system.Resolve(world);
 
-        Assert.Equal(new Vector3(10, 5, 0), world.Read<WorldTransform>(child).Position);
+        Assert.Equal(new(10, 5, 0), world.Read<WorldTransform>(child).Position);
     }
 
     [Fact]
     public void ReparentingKeepingWorldPositionDoesNotMoveTheEntity() {
         using var world = new World();
-        var system = new TransformSystem();
+        using var system = new TransformSystem();
         var parent = Hierarchy.CreateTransform(world, LocalTransform.At(new(10, 3, 0)));
         var child = Hierarchy.CreateTransform(world, LocalTransform.At(new(1, 2, 3)));
 
@@ -225,13 +225,13 @@ public sealed class TransformSystemTests {
 
         var position = world.Read<WorldTransform>(child).Position;
         Assert.True((position - new Vector3(1, 2, 3)).Length() < 1e-4f, $"{position}");
-        Assert.Equal(new Vector3(-9, -1, 3), Round(world.Read<LocalTransform>(child).Position));
+        Assert.Equal(new(-9, -1, 3), Round(world.Read<LocalTransform>(child).Position));
     }
 
     [Fact]
     public void ADeepChainResolvesInOnePass() {
         using var world = new World();
-        var system = new TransformSystem();
+        using var system = new TransformSystem();
         var chain = new List<Entity>();
         var previous = Entity.Null;
 
@@ -248,7 +248,7 @@ public sealed class TransformSystemTests {
 
         system.Resolve(world);
 
-        Assert.Equal(new Vector3(0, 32, 0), world.Read<WorldTransform>(chain[^1]).Position);
+        Assert.Equal(new(0, 32, 0), world.Read<WorldTransform>(chain[^1]).Position);
         Assert.Equal(31, Hierarchy.DepthOf(world, chain[^1]));
     }
 
@@ -274,7 +274,7 @@ public sealed class TransformSystemTests {
 
         // Warmed up until the buckets have grown to the depth this scene needs and every chunk has
         // been visited once, then measured over five hundred more.
-        Measured.NothingAllocated(Frame, warmUp: 8, passes: 500);
+        Measured.NothingAllocated(Frame, 8, 500);
 
         return;
 
@@ -312,10 +312,10 @@ public sealed class TransformSystemTests {
 
         for (var edit = 1; edit <= 3; edit++) {
             // Between two frames, the way a pointer event or a typed number arrives.
-            new Transform(world, entity).Position = new Vector3(edit, 0, 0);
+            new Transform(world, entity).Position = new(edit, 0, 0);
             Frame();
 
-            Assert.Equal(new Vector3(edit, 0, 0), world.Read<WorldTransform>(entity).Position);
+            Assert.Equal(new(edit, 0, 0), world.Read<WorldTransform>(entity).Position);
         }
 
         return;

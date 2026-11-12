@@ -60,10 +60,10 @@ public readonly struct BoundingFrustum : IEquatable<BoundingFrustum> {
         var z = new Vector4(viewProjection.M13, viewProjection.M23, viewProjection.M33, viewProjection.M43);
         var w = new Vector4(viewProjection.M14, viewProjection.M24, viewProjection.M34, viewProjection.M44);
 
-        Left = PlaneFrom(w + x);   // clip.x >= -clip.w
-        Right = PlaneFrom(w - x);  // clip.x <=  clip.w
+        Left = PlaneFrom(w + x); // clip.x >= -clip.w
+        Right = PlaneFrom(w - x); // clip.x <=  clip.w
         Bottom = PlaneFrom(w + y); // clip.y >= -clip.w
-        Top = PlaneFrom(w - y);    // clip.y <=  clip.w
+        Top = PlaneFrom(w - y); // clip.y <=  clip.w
 
         // Reverse-Z: depth 1 is the near plane, so `clip.z <= clip.w` bounds the *near* side and
         // `clip.z >= 0` bounds the far side. A forward-Z projection would have these swapped.
@@ -193,9 +193,9 @@ public readonly struct BoundingFrustum : IEquatable<BoundingFrustum> {
             return Vector3.Zero;
         }
 
-        var numerator = (-a.D * bCrossC)
-            - (b.D * Vector3.Cross(c.Normal, a.Normal))
-            - (c.D * Vector3.Cross(a.Normal, b.Normal));
+        var numerator = -a.D * bCrossC
+            - b.D * Vector3.Cross(c.Normal, a.Normal)
+            - c.D * Vector3.Cross(a.Normal, b.Normal);
 
         return numerator / determinant;
     }
@@ -236,8 +236,12 @@ public readonly struct BoundingFrustum : IEquatable<BoundingFrustum> {
 
     /// <inheritdoc />
     public bool Equals(BoundingFrustum other) =>
-        Near == other.Near && Far == other.Far && Left == other.Left
-        && Right == other.Right && Top == other.Top && Bottom == other.Bottom;
+        Near == other.Near
+        && Far == other.Far
+        && Left == other.Left
+        && Right == other.Right
+        && Top == other.Top
+        && Bottom == other.Bottom;
 
     /// <inheritdoc />
     public override bool Equals(object? obj) => obj is BoundingFrustum other && Equals(other);

@@ -10,8 +10,12 @@ namespace Vixen.Ui.Controls.Tests;
 /// <summary>A translucent subtree, rasterised, and read back a pixel at a time.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>The one property that separates a group from a multiplier is <i>self-overlap</i>, so
-///         every test here is built out of two children that cover each other.</b> A half-opaque panel
+///         ⚠
+///         <b>
+///             The one property that separates a group from a multiplier is <i>self-overlap</i>, so
+///             every test here is built out of two children that cover each other.
+///         </b>
+///         A half-opaque panel
 ///         containing one child is drawn identically by both models — which is why the collapse in
 ///         <c>DrawList.Collapse</c> is safe, and also why a test written on a single child
 ///         would pass against the bug it is supposed to catch.
@@ -26,9 +30,16 @@ namespace Vixen.Ui.Controls.Tests;
 public class GroupOpacityTests {
     /// <summary>A harness whose documents composite, which is now also the default.</summary>
     /// <remarks>
-    ///     ⚠ <b><s>Opted into per test rather than switched on globally, because the renderer that
-    ///     ships cannot composite yet.</s> It ships and it composites, so this is no longer an opt-in
-    ///     — and it is kept anyway.</b> See <see cref="DrawListBuilder.Compositing" />: the fear was
+    ///     ⚠
+    ///     <b>
+    ///         <s>
+    ///             Opted into per test rather than switched on globally, because the renderer that
+    ///             ships cannot composite yet.
+    ///         </s>
+    ///         It ships and it composites, so this is no longer an opt-in
+    ///         — and it is kept anyway.
+    ///     </b>
+    ///     See <see cref="DrawListBuilder.Compositing" />: the fear was
     ///     that switching it on globally would put the visual baselines, which render on the CPU where
     ///     compositing always worked, ahead of <c>Vixen.Ui.Renderer</c>, so the committed screenshots
     ///     would be pictures of something the editor does not draw. What closed that gap was
@@ -53,11 +64,11 @@ public class GroupOpacityTests {
 
         ui.Load(
             $$"""
-            root { width: 40px; height: 40px; background-color: #000000; }
-            .group { position: absolute; left: 0; top: 0; width: 40px; height: 40px; opacity: {{alpha}}; {{parentStyle}} }
-            .lower { position: absolute; left: 0; top: 0; width: 40px; height: 20px; background-color: #ff0000; }
-            .upper { position: absolute; left: 0; top: 0; width: 40px; height: 10px; background-color: #00ff00; }
-            """
+              root { width: 40px; height: 40px; background-color: #000000; }
+              .group { position: absolute; left: 0; top: 0; width: 40px; height: 40px; opacity: {{alpha}}; {{parentStyle}} }
+              .lower { position: absolute; left: 0; top: 0; width: 40px; height: 20px; background-color: #ff0000; }
+              .upper { position: absolute; left: 0; top: 0; width: 40px; height: 10px; background-color: #00ff00; }
+              """
         );
 
         var group = ui.Create("div", null, "group", "group");
@@ -111,8 +122,12 @@ public class GroupOpacityTests {
 
     /// <summary>Two nested groups fade by the product, and each isolates separately.</summary>
     /// <remarks>
-    ///     ⚠ <b>The case a single accumulated multiplier gets right and a badly threaded group gets
-    ///     wrong in the other direction.</b> The outer group is a surface, the inner group is a surface
+    ///     ⚠
+    ///     <b>
+    ///         The case a single accumulated multiplier gets right and a badly threaded group gets
+    ///         wrong in the other direction.
+    ///     </b>
+    ///     The outer group is a surface, the inner group is a surface
     ///     inside it, and the inner one's opacity must not <i>also</i> be pushed down onto its contents
     ///     — that would fade them twice and land at an eighth rather than a quarter.
     /// </remarks>
@@ -169,7 +184,10 @@ public class GroupOpacityTests {
 
         using (ui) {
             Assert.Empty(ui.Geometry.Layers);
-            Assert.DoesNotContain(ui.Document.Drawing.Commands, command => command.Kind == DrawCommandKind.LayerPush);
+            Assert.DoesNotContain(
+                ui.Document.Drawing.Commands,
+                static command => command.Kind == DrawCommandKind.LayerPush
+            );
 
             var bitmap = ui.Capture();
             Assert.InRange(bitmap.Pixels[bitmap.Offset(20, 20)], 120, 136);
@@ -178,8 +196,12 @@ public class GroupOpacityTests {
 
     /// <summary>A group that needs a surface says so, and says how big.</summary>
     /// <remarks>
-    ///     ⚠ <b>The bounds are the ink and not the element's box, which is the difference a child
-    ///     hanging outside its parent makes.</b> Opacity isolates without clipping — CSS Compositing 1
+    ///     ⚠
+    ///     <b>
+    ///         The bounds are the ink and not the element's box, which is the difference a child
+    ///         hanging outside its parent makes.
+    ///     </b>
+    ///     Opacity isolates without clipping — CSS Compositing 1
     ///     § 3 — so a surface sized to the parent would cut the overflow off, and the picture would lose
     ///     exactly the part that <c>overflow: visible</c> promises to keep. Asserted on the geometry
     ///     rather than on pixels because a surface one pixel short shows only where the overflow is.
@@ -222,8 +244,12 @@ public class GroupOpacityTests {
 
     /// <summary>Every group's ranges nest, and the list is in pre-order.</summary>
     /// <remarks>
-    ///     ⚠ <b>The invariant both renderers execute against, asserted where a change to the builder
-    ///     would break it.</b> Each consumer walks the draws once with a stack and enters a group when
+    ///     ⚠
+    ///     <b>
+    ///         The invariant both renderers execute against, asserted where a change to the builder
+    ///         would break it.
+    ///     </b>
+    ///     Each consumer walks the draws once with a stack and enters a group when
     ///     the draw index matches the next layer's <see cref="UiLayer.First" /> — which is only correct
     ///     if the list is in pre-order and the ranges nest rather than overlap. A builder that appended
     ///     at close time instead would produce post-order, and every nested group would be composited
@@ -268,8 +294,12 @@ public class GroupOpacityTests {
 
     /// <summary>A click lands on the element it looks like it landed on, inside a group.</summary>
     /// <remarks>
-    ///     ⚠ <b>The invariant a compositing pass is most likely to break, and the one nothing else
-    ///     would notice.</b> <c>UiDocument.Accumulate</c> is where the draw list, hit testing and arrow
+    ///     ⚠
+    ///     <b>
+    ///         The invariant a compositing pass is most likely to break, and the one nothing else
+    ///         would notice.
+    ///     </b>
+    ///     <c>UiDocument.Accumulate</c> is where the draw list, hit testing and arrow
     ///     navigation agree about where an element is; a group that moved its contents — into a surface
     ///     with its own origin, say — would draw them in one place and let them be clicked in another.
     ///     This passes because a group's surface is the size of the whole viewport and its contents keep
@@ -311,8 +341,12 @@ public class GroupOpacityTests {
 
     /// <summary>A clip outside a group still clips the composite.</summary>
     /// <remarks>
-    ///     ⚠ <b>The composite is a draw like any other and has to carry the scissor that was in force
-    ///     where the group <i>opened</i>.</b> A group inside <c>overflow: hidden</c> that composited
+    ///     ⚠
+    ///     <b>
+    ///         The composite is a draw like any other and has to carry the scissor that was in force
+    ///         where the group <i>opened</i>.
+    ///     </b>
+    ///     A group inside <c>overflow: hidden</c> that composited
     ///     unclipped would paint the whole subtree over its container's neighbours — and it would do it
     ///     only for translucent subtrees, which is a bug that looks like a z-order fault. The clip is
     ///     taken at the push rather than at the pop because the two differ whenever the group's own

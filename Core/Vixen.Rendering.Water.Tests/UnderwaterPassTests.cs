@@ -61,13 +61,14 @@ public sealed class UnderwaterPassTests : IDisposable {
         system.Dispose();
         device.Dispose();
         world.Dispose();
-        GC.SuppressFinalize(this);
     }
 
     // --- The fixture --------------------------------------------------------
 
     static RenderResourceAsset Declared(string name) =>
-        new() { Name = name, Format = PixelFormat.Rgba16Float, Usage = TextureUsage.ColourTarget | TextureUsage.Sampled };
+        new() {
+            Name = name, Format = PixelFormat.Rgba16Float, Usage = TextureUsage.ColourTarget | TextureUsage.Sampled
+        };
 
     UnderwaterRenderer Node(string behind = "SceneColourCopy", WaterZoneSystem? zones = null) =>
         new() {
@@ -109,7 +110,7 @@ public sealed class UnderwaterPassTests : IDisposable {
                     "Writer " + target,
                     pass => {
                         pass.ColourAttachment(texture);
-                        pass.Execute(context => context.CommandList.Draw(3));
+                        pass.Execute(static context => context.CommandList.Draw(3));
                     }
                 );
             }
@@ -134,8 +135,7 @@ public sealed class UnderwaterPassTests : IDisposable {
         world.Add(body, new WorldTransform { Value = Matrix4x4.Identity });
 
         var system = new WaterZoneSystem(view) {
-            Splines = new Square(60f, height),
-            Ground = new FlatWaterGround(height - 20f)
+            Splines = new Square(60f, height), Ground = new FlatWaterGround(height - 20f)
         };
 
         system.Fold(world);
@@ -154,10 +154,10 @@ public sealed class UnderwaterPassTests : IDisposable {
                             new(-half, height, -half), new(half, height, -half),
                             new(half, height, half), new(-half, height, half)
                         ],
-                        closed: true,
-                        tension: 1f
+                        true,
+                        1f
                     ),
-                    closed: true
+                    true
                 );
     }
 
@@ -177,8 +177,11 @@ public sealed class UnderwaterPassTests : IDisposable {
         Assert.Contains("WaterSurface", node.Pass.Reads);
         Assert.Contains("SceneColour", node.Pass.ColourTargets);
 
-        Assert.Equal(3, node.Pass.Descriptors.Bindings.Count(binding => binding.Kind == DescriptorKind.SampledTexture));
-        Assert.Equal(2, node.Pass.Descriptors.Bindings.Count(binding => binding.Kind == DescriptorKind.Sampler));
+        Assert.Equal(
+            3,
+            node.Pass.Descriptors.Bindings.Count(static binding => binding.Kind == DescriptorKind.SampledTexture)
+        );
+        Assert.Equal(2, node.Pass.Descriptors.Bindings.Count(static binding => binding.Kind == DescriptorKind.Sampler));
     }
 
     /// <summary>
@@ -191,7 +194,7 @@ public sealed class UnderwaterPassTests : IDisposable {
     /// </remarks>
     [Fact]
     public void Reading_the_target_it_writes_is_refused() {
-        using var node = Node(behind: "SceneColour");
+        using var node = Node("SceneColour");
 
         var thrown = Assert.Throws<CompositorBindingException>(() => Build(Compositor(node)));
 
@@ -370,5 +373,4 @@ public sealed class UnderwaterPassTests : IDisposable {
 
         Assert.InRange(feather, 0.005f, 0.25f);
     }
-
 }

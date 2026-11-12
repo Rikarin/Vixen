@@ -28,8 +28,11 @@ public static class CameraNoiseSignal {
     /// <param name="seed">Which noise.</param>
     /// <returns>A value in <c>[−1, 1]</c>.</returns>
     /// <remarks>
-    ///     <b>The time is a <see cref="double" /> and the cell is taken from it before anything is
-    ///     narrowed.</b> A session's clock runs to tens of thousands of seconds, where a
+    ///     <b>
+    ///         The time is a <see cref="double" /> and the cell is taken from it before anything is
+    ///         narrowed.
+    ///     </b>
+    ///     A session's clock runs to tens of thousands of seconds, where a
     ///     <see cref="float" /> has resolved down to hundredths and the wobble has visibly
     ///     quantised — and the usual fix, wrapping the clock, buys the quantisation off with a
     ///     discontinuity every time it wraps. Splitting into an integer cell and a fraction first
@@ -48,11 +51,12 @@ public static class CameraNoiseSignal {
     /// <param name="firstChannel">The channel index of the X axis; Y and Z follow it.</param>
     /// <param name="seed">Which noise.</param>
     /// <returns>Three values, each in <c>[−1, 1]</c>.</returns>
-    public static Vector3 Sample(double seconds, Vector3 frequency, int firstChannel, int seed) => new(
-        Sample(seconds * frequency.X, firstChannel, seed),
-        Sample(seconds * frequency.Y, firstChannel + 1, seed),
-        Sample(seconds * frequency.Z, firstChannel + 2, seed)
-    );
+    public static Vector3 Sample(double seconds, Vector3 frequency, int firstChannel, int seed) =>
+        new(
+            Sample(seconds * frequency.X, firstChannel, seed),
+            Sample(seconds * frequency.Y, firstChannel + 1, seed),
+            Sample(seconds * frequency.Z, firstChannel + 2, seed)
+        );
 
     /// <summary>The value at a lattice point.</summary>
     /// <param name="cell">Which point.</param>
@@ -73,11 +77,11 @@ public static class CameraNoiseSignal {
         hash *= 0x297A2D39u;
         hash ^= hash >> 15;
 
-        return ((hash & 0xFFFFFFu) * (2f / 0xFFFFFF)) - 1f;
+        return (hash & 0xFFFFFFu) * (2f / 0xFFFFFF) - 1f;
     }
 
     /// <summary>The quintic smoothstep, whose first two derivatives vanish at both ends.</summary>
     /// <param name="value">A number in <c>[0, 1]</c>.</param>
     /// <returns>The eased number.</returns>
-    static float Fade(float value) => value * value * value * ((value * ((value * 6f) - 15f)) + 10f);
+    static float Fade(float value) => value * value * value * (value * (value * 6f - 15f) + 10f);
 }

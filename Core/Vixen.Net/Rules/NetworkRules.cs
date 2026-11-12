@@ -76,8 +76,12 @@ public enum OwnershipClaim : byte {
 ///         <b>What is enforced today.</b> <see cref="CallServerRpc" /> is checked by
 ///         <c>RpcRouter</c> before a call is dispatched, <see cref="ChangeOwner" /> by the ownership
 ///         transfer path, and <see cref="OnOwnerDisconnect" /> by <c>NetworkSpawner.OnOwnerLeft</c>,
-///         which a server wires to its session's <c>PlayerLeft</c>. ⚠ <b>That last one was declared
-///         and unreached until 2026-09-03</b>: <see cref="NetworkRulesRegistry.OnOwnerLeft" /> had
+///         which a server wires to its session's <c>PlayerLeft</c>. ⚠
+///         <b>
+///             That last one was declared
+///             and unreached until 2026-09-03
+///         </b>
+///         : <see cref="NetworkRulesRegistry.OnOwnerLeft" /> had
 ///         exactly one caller in the repository and it was a test, so a policy could say
 ///         <c>Destroy</c> and the object outlived the session owned by a player who was gone.
 ///         <see cref="Spawn" />, <see cref="Despawn" /> and <see cref="Write" /> are declared and
@@ -104,9 +108,7 @@ public sealed record NetworkRules {
     ///     or a trusted-client prototype wants, and a deliberate relaxation rather than a default.
     /// </summary>
     public static NetworkRules OwnerAuthoritative { get; } = new() {
-        Write = RuleAudience.Owner,
-        Despawn = RuleAudience.Owner,
-        ChangeOwner = RuleAudience.Owner
+        Write = RuleAudience.Owner, Despawn = RuleAudience.Owner, ChangeOwner = RuleAudience.Owner
     };
 
     /// <summary>Who may ask the server to create one of these.</summary>

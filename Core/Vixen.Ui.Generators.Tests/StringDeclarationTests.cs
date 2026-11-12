@@ -7,24 +7,28 @@ namespace Vixen.Ui.Generators.Tests;
 
 /// <summary>What the analyzer says about a declaration class, and what it deliberately says nothing about.</summary>
 /// <remarks>
-///     ⚠ <b>The first test here is the one that matters: the shape as it is written today reports
-///     nothing.</b> A rule that fired on <c>EditorStrings</c> or <c>ControlStrings</c> as they stand
+///     ⚠
+///     <b>
+///         The first test here is the one that matters: the shape as it is written today reports
+///         nothing.
+///     </b>
+///     A rule that fired on <c>EditorStrings</c> or <c>ControlStrings</c> as they stand
 ///     would not be a check, it would be a demand that the declaration shape change — and doc 46 § A3
 ///     is explicit that the shape is the thing worth having unchanged, because a second generator
 ///     outside this repository emits it too.
 /// </remarks>
 public class StringDeclarationTests {
     const string Declared = """
-        using System.Collections.Generic;
-        using Vixen.Ui;
+                            using System.Collections.Generic;
+                            using Vixen.Ui;
 
-        public static class ShopStrings {
-            public static StringId Buy { get; } = new("shop.action.buy", "Buy");
-            public static StringId Cancel { get; } = new("shop.action.cancel", "Cancel");
+                            public static class ShopStrings {
+                                public static StringId Buy { get; } = new("shop.action.buy", "Buy");
+                                public static StringId Cancel { get; } = new("shop.action.cancel", "Cancel");
 
-            public static IReadOnlyList<StringId> All { get; } = [Buy, Cancel];
-        }
-        """;
+                                public static IReadOnlyList<StringId> All { get; } = [Buy, Cancel];
+                            }
+                            """;
 
     /// <summary>The shape both declaration classes in this repository are written in.</summary>
     [Fact]
@@ -91,10 +95,10 @@ public class StringDeclarationTests {
             Declared
             + """
 
-            public static class Checkout {
-                public static string Label() => new StringId("shop.action.pay", "Pay").Source;
-            }
-            """
+              public static class Checkout {
+                  public static string Label() => new StringId("shop.action.pay", "Pay").Source;
+              }
+              """
         );
 
         var diagnostic = Assert.Single(reported);
@@ -133,9 +137,13 @@ public class StringDeclarationTests {
     /// </summary>
     /// <remarks>
     ///     An editor mode registers a command per tool and builds the id from the tool's name, and a
-    ///     duplicate-id rule that guessed at it would report on a string it cannot read. ⚠ <b>The
-    ///     older half of this remark said such a shape was one a declaration class had no way to
-    ///     express, and that stopped being true</b> — <c>StringFamily</c> is the way, and the tests
+    ///     duplicate-id rule that guessed at it would report on a string it cannot read. ⚠
+    ///     <b>
+    ///         The
+    ///         older half of this remark said such a shape was one a declaration class had no way to
+    ///         express, and that stopped being true
+    ///     </b>
+    ///     — <c>StringFamily</c> is the way, and the tests
     ///     below are what the analyzer says about one.
     /// </remarks>
     [Fact]
@@ -160,18 +168,18 @@ public class StringDeclarationTests {
     }
 
     const string Family = """
-        using System.Collections.Generic;
-        using Vixen.Ui;
+                          using System.Collections.Generic;
+                          using Vixen.Ui;
 
-        public static class ToolStrings {
-            public static StringFamily Commands { get; } = new(
-                "shop.command.",
-                [new("buy", "Buy"), new("sell", "Sell")]
-            );
+                          public static class ToolStrings {
+                              public static StringFamily Commands { get; } = new(
+                                  "shop.command.",
+                                  [new("buy", "Buy"), new("sell", "Sell")]
+                              );
 
-            public static IReadOnlyList<StringId> All { get; } = [.. Commands.All];
-        }
-        """;
+                              public static IReadOnlyList<StringId> All { get; } = [.. Commands.All];
+                          }
+                          """;
 
     /// <summary>A declaration class whose declarations are a family reports nothing.</summary>
     [Fact]
@@ -227,10 +235,10 @@ public class StringDeclarationTests {
             Family
             + """
 
-            public static class Checkout {
-                public static string Label() => new StringId("shop.action.pay", "Pay").Source;
-            }
-            """
+              public static class Checkout {
+                  public static string Label() => new StringId("shop.action.pay", "Pay").Source;
+              }
+              """
         );
 
         var diagnostic = Assert.Single(reported);
@@ -274,11 +282,11 @@ public class StringDeclarationTests {
             Family
             + """
 
-            public static class Checkout {
-                public static StringId Label() =>
-                    new StringFamily("shop.action.", [new("pay", "Pay")])["pay"];
-            }
-            """
+              public static class Checkout {
+                  public static StringId Label() =>
+                      new StringFamily("shop.action.", [new("pay", "Pay")])["pay"];
+              }
+              """
         );
 
         var diagnostic = Assert.Single(reported);

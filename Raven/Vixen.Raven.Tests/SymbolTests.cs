@@ -99,7 +99,7 @@ public class SymbolTests {
         Assert.Empty(compilation.GetDiagnostics());
 
         // Nothing in the syntax stands in for the missing body.
-        var start = FindNode<MethodDeclarationSyntax>(tree, m => m.Identifier.ValueText == "Start");
+        var start = FindNode<MethodDeclarationSyntax>(tree, static m => m.Identifier.ValueText == "Start");
         Assert.Null(start.Body);
         Assert.Null(start.ExpressionBody);
 

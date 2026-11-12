@@ -8,8 +8,12 @@ namespace Vixen.Ui.Controls;
 /// <summary>The three state bits a control that takes part in constraint validation writes.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Shared because the invariant is shared, and the invariant is the half that is easy
-///         to write wrong.</b> Exactly one of <see cref="ElementState.Valid" /> and
+///         ⚠
+///         <b>
+///             Shared because the invariant is shared, and the invariant is the half that is easy
+///             to write wrong.
+///         </b>
+///         Exactly one of <see cref="ElementState.Valid" /> and
 ///         <see cref="ElementState.Invalid" /> on a control that validates, and neither on one that
 ///         does not — <c>Valid</c> is a bit of its own rather than the absence of <c>Invalid</c>
 ///         precisely so that a plain container is neither (Selectors 4 § 10.6). A control that wrote

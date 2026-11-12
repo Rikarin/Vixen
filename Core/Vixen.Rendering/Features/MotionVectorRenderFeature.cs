@@ -17,8 +17,10 @@ namespace Vixen.Rendering.Features;
 ///         motion vectors exist for.
 ///     </para>
 ///     <para>
-///         <b>Its own sub-feature rather than two more fields on
-///         <see cref="TransformRenderFeature" />, and the reason is that feature's records path.</b>
+///         <b>
+///             Its own sub-feature rather than two more fields on
+///             <see cref="TransformRenderFeature" />, and the reason is that feature's records path.
+///         </b>
 ///         With <c>UseRecords</c> on — which is every device with
 ///         <see cref="GraphicsDeviceFeatures.HasDrawIndirectCount" /> — that feature pushes nothing at
 ///         all, because a push is per draw and a merged command has no point inside it at which to
@@ -34,8 +36,12 @@ namespace Vixen.Rendering.Features;
 ///         Vulkan's guaranteed push size and therefore the budget.
 ///     </para>
 ///     <para>
-///         ⚠ <b>It contributes nothing to any other pass, and that is checked by offset rather than by
-///         name.</b> <c>ForwardPlus</c> declares a 64-byte range, so offset 64 falls outside it and
+///         ⚠
+///         <b>
+///             It contributes nothing to any other pass, and that is checked by offset rather than by
+///             name.
+///         </b>
+///         <c>ForwardPlus</c> declares a 64-byte range, so offset 64 falls outside it and
 ///         this pushes nothing there — a push into a range a layout does not have is a validation
 ///         error on every draw, not a value quietly dropped.
 ///     </para>
@@ -151,8 +157,12 @@ public sealed class MotionVectorRenderFeature : SubRenderFeature, IDrawSubFeatur
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>It asks about <see cref="PreviousOffset" />, not about
-    ///         <see cref="Offset" />.</b> Every geometry pass in the engine has a range covering byte
+    ///         ⚠
+    ///         <b>
+    ///             It asks about <see cref="PreviousOffset" />, not about
+    ///             <see cref="Offset" />.
+    ///         </b>
+    ///         Every geometry pass in the engine has a range covering byte
     ///         zero, so testing the first matrix would say yes to the shading pass — and pushing 128
     ///         bytes into its 64-byte range is a validation error on every draw of the frame. Only the
     ///         velocity pass declares a range that reaches 64, which makes the question "is this the

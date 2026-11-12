@@ -17,8 +17,7 @@ namespace Vixen.Ui.Controls.Tests;
 /// </remarks>
 public class IconArtTests {
     /// <summary>A filled square, in view-box units.</summary>
-    static PathBuilder Square(float x, float y, float size) =>
-        new PathBuilder().AddRectangle(new Rectangle(x, y, size, size));
+    static PathBuilder Square(float x, float y, float size) => new PathBuilder().AddRectangle(new(x, y, size, size));
 
     /// <summary>Opens a document with one icon filling it.</summary>
     static UiTest Opened(string? css = null) =>
@@ -39,9 +38,9 @@ public class IconArtTests {
         var icon = ui.Add<Icon>("art");
 
         // Two squares side by side on a 24 grid, so each covers a known quarter of the picture.
-        icon.Art = new IconArt(
-            new IconPath(Square(0f, 0f, 12f), IconPaint.Of(new Color4(1f, 0f, 0f, 1f))),
-            new IconPath(Square(12f, 12f, 12f), IconPaint.Of(new Color4(0f, 0f, 1f, 1f)))
+        icon.Art = new(
+            new IconPath(Square(0f, 0f, 12f), IconPaint.Of(new(1f, 0f, 0f, 1f))),
+            new IconPath(Square(12f, 12f, 12f), IconPaint.Of(new(0f, 0f, 1f, 1f)))
         );
 
         ui.Frame();
@@ -59,9 +58,9 @@ public class IconArtTests {
 
         var icon = ui.Add<Icon>("art");
 
-        icon.Art = new IconArt(
+        icon.Art = new(
             new IconPath(Square(0f, 0f, 12f), IconPaint.Foreground),
-            new IconPath(Square(12f, 12f, 12f), IconPaint.Of(new Color4(0f, 0f, 1f, 1f)))
+            new IconPath(Square(12f, 12f, 12f), IconPaint.Of(new(0f, 0f, 1f, 1f)))
         );
 
         ui.Frame();
@@ -83,7 +82,7 @@ public class IconArtTests {
         using var ui = Opened("root { --icon-warning: #ff0000; }");
 
         var icon = ui.Add<Icon>("art");
-        icon.Art = new IconArt(new IconPath(Square(0f, 0f, 24f), IconPaint.Named("--icon-warning")));
+        icon.Art = new(new IconPath(Square(0f, 0f, 24f), IconPaint.Named("--icon-warning")));
         ui.Frame();
 
         Assert.True(At(ui, 24, 24).R > 200, "the token should have resolved to the property the root set");
@@ -94,7 +93,10 @@ public class IconArtTests {
         ui.Frame();
 
         var recoloured = At(ui, 24, 24);
-        Assert.True(recoloured.B > 200 && recoloured.R < 60, $"it should have followed the token, and was {recoloured}");
+        Assert.True(
+            recoloured.B > 200 && recoloured.R < 60,
+            $"it should have followed the token, and was {recoloured}"
+        );
     }
 
     [Fact]
@@ -102,7 +104,7 @@ public class IconArtTests {
         using var ui = Opened("icon { color: #00ff00; }");
 
         var icon = ui.Add<Icon>("art");
-        icon.Art = new IconArt(new IconPath(Square(0f, 0f, 24f), IconPaint.Named("--nobody-sets-this")));
+        icon.Art = new(new IconPath(Square(0f, 0f, 24f), IconPaint.Named("--nobody-sets-this")));
         ui.Frame();
 
         var fallback = At(ui, 24, 24);
@@ -124,9 +126,7 @@ public class IconArtTests {
         // threshold this test could set.
         var empty = ui.Ink();
 
-        icon.Art = new IconArt(
-            new IconPath(Square(4f, 4f, 16f), IconPaint.None, IconPaint.Of(new Color4(1f, 1f, 1f, 1f)), 2f)
-        );
+        icon.Art = new(new IconPath(Square(4f, 4f, 16f), IconPaint.None, IconPaint.Of(new(1f, 1f, 1f, 1f)), 2f));
 
         ui.Frame();
         var drawn = ui.Ink() - empty;
@@ -154,8 +154,11 @@ public class IconArtTests {
     ///         glyph it was written to hide.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Invisible to the consumption gate, which is why the ledger refused
-    ///         <c>fill-none</c> and <c>stroke-none</c> for weeks rather than registering them.</b>
+    ///         ⚠
+    ///         <b>
+    ///             Invisible to the consumption gate, which is why the ledger refused
+    ///             <c>fill-none</c> and <c>stroke-none</c> for weeks rather than registering them.
+    ///         </b>
     ///         <c>fill</c> <i>is</i> read — the first state below proves it — so a family scored
     ///         green off the half that worked while the keyword painted. Only a per-value assertion
     ///         can tell the three apart, and only in pixels.
@@ -166,7 +169,7 @@ public class IconArtTests {
         using var ui = Opened("icon { color: #ff0000; }");
 
         var icon = ui.Add<Icon>("art");
-        icon.Art = new IconArt(new IconPath(Square(0f, 0f, 24f), IconPaint.Foreground));
+        icon.Art = new(new IconPath(Square(0f, 0f, 24f), IconPaint.Foreground));
         ui.Frame();
 
         var unset = At(ui, 24, 24);
@@ -195,9 +198,7 @@ public class IconArtTests {
 
         var icon = ui.Add<Icon>("art");
 
-        icon.Art = new IconArt(
-            new IconPath(Square(4f, 4f, 16f), IconPaint.Of(new Color4(0f, 0f, 1f, 1f)), IconPaint.Foreground, 4f)
-        );
+        icon.Art = new(new IconPath(Square(4f, 4f, 16f), IconPaint.Of(new(0f, 0f, 1f, 1f)), IconPaint.Foreground, 4f));
 
         ui.Frame();
 
@@ -217,8 +218,12 @@ public class IconArtTests {
 
     /// <summary><c>fill: none</c> reaches the single-path form as well as the art one.</summary>
     /// <remarks>
-    ///     ⚠ <b>Two draw paths, and a fix to one of them is a family that works on some icons and not
-    ///     others.</b> <c>Geometry</c> is the whole of the editor's chrome and never goes through
+    ///     ⚠
+    ///     <b>
+    ///         Two draw paths, and a fix to one of them is a family that works on some icons and not
+    ///         others.
+    ///     </b>
+    ///     <c>Geometry</c> is the whole of the editor's chrome and never goes through
     ///     <c>Resolve</c> — the same split the <c>fill-*</c> colour family had to be careful of, one
     ///     keyword later.
     /// </remarks>
@@ -252,9 +257,9 @@ public class IconArtTests {
 
         var icon = ui.Add<Icon>("art");
 
-        icon.Art = new IconArt(
+        icon.Art = new(
             new IconPath(Square(0f, 0f, 12f), IconPaint.Foreground),
-            new IconPath(Square(12f, 12f, 12f), IconPaint.Of(new Color4(0f, 0f, 1f, 1f)))
+            new IconPath(Square(12f, 12f, 12f), IconPaint.Of(new(0f, 0f, 1f, 1f)))
         );
 
         ui.Frame();

@@ -4,7 +4,6 @@
 using System.Runtime.InteropServices;
 using Vixen.Core.Mathematics;
 using Vixen.Graphics.Vulkan;
-using Vixen.Rendering;
 using Vixen.Rendering.Lighting;
 using Vixen.Rendering.Materials;
 using Vixen.Rendering.RayTracing;
@@ -84,8 +83,8 @@ public sealed class AccelerationStructureDeviceTests {
 
         for (var i = 0; i < vertices.Length; i++) {
             positions[i * 3] = vertices[i].X;
-            positions[(i * 3) + 1] = vertices[i].Y;
-            positions[(i * 3) + 2] = vertices[i].Z;
+            positions[i * 3 + 1] = vertices[i].Y;
+            positions[i * 3 + 2] = vertices[i].Z;
         }
 
         const BufferUsage Input =
@@ -95,9 +94,7 @@ public sealed class AccelerationStructureDeviceTests {
             new(positions.Length * 4L, Input, MemoryAccess.HostUpload, "as-vertices")
         );
 
-        var indexBuffer = device.CreateBuffer(
-            new(indices.Length * 4L, Input, MemoryAccess.HostUpload, "as-indices")
-        );
+        var indexBuffer = device.CreateBuffer(new(indices.Length * 4L, Input, MemoryAccess.HostUpload, "as-indices"));
 
         owned.Owns(() => device.Destroy(vertexBuffer));
         owned.Owns(() => device.Destroy(indexBuffer));
@@ -106,11 +103,13 @@ public sealed class AccelerationStructureDeviceTests {
 
         var bottomInput = new AccelerationStructureBuildInput(
             AccelerationStructureKind.BottomLevel,
-            Triangles: new(vertexBuffer, 0, vertices.Length, 12, indexBuffer, 0, indices.Length)
+            new(vertexBuffer, 0, vertices.Length, 12, indexBuffer, 0, indices.Length)
         );
 
         var bottomSizes = device.GetAccelerationStructureSizes(bottomInput);
-        var bottom = device.CreateAccelerationStructure(new(AccelerationStructureKind.BottomLevel, bottomSizes.Structure, "as-bottom"));
+        var bottom = device.CreateAccelerationStructure(
+            new(AccelerationStructureKind.BottomLevel, bottomSizes.Structure, "as-bottom")
+        );
 
         owned.Owns(() => device.Destroy(bottom));
 
@@ -127,7 +126,9 @@ public sealed class AccelerationStructureDeviceTests {
         );
 
         var topSizes = device.GetAccelerationStructureSizes(topInput);
-        var top = device.CreateAccelerationStructure(new(AccelerationStructureKind.TopLevel, topSizes.Structure, "as-top"));
+        var top = device.CreateAccelerationStructure(
+            new(AccelerationStructureKind.TopLevel, topSizes.Structure, "as-top")
+        );
 
         owned.Owns(() => device.Destroy(top));
 
@@ -154,21 +155,25 @@ public sealed class AccelerationStructureDeviceTests {
         var effects = new EffectSystem();
 
         effects.AddProvider(
-            new Compiling(loader, _ => RavenEffects.Only(["Core", "DistanceFields", "IrradianceFields", "ScreenProbes", "SurfaceCache"]))
+            new Compiling(
+                loader,
+                static _ => RavenEffects.Only(
+                    ["Core", "DistanceFields", "IrradianceFields", "ScreenProbes", "SurfaceCache"]
+                )
+            )
         );
 
         const float Bias = 0.01f;
 
-        using var trace = new ScreenProbeTraceFill(device) {
-            Effects = effects,
-            Pipelines = new ComputePipelineCache(device),
-            Descriptors = allocator,
-            Source = MaterialCompiler.RayQueryFieldShader,
-            SkyColour = new(0.6f, 0.45f, 0.3f),
-            SkyGradient = new(0.2f),
-            MaxDistance = 8f,
-            SurfaceBias = Bias
-        };
+        using var trace = new ScreenProbeTraceFill(device);
+        trace.Effects = effects;
+        trace.Pipelines = new(device);
+        trace.Descriptors = allocator;
+        trace.Source = MaterialCompiler.RayQueryFieldShader;
+        trace.SkyColour = new(0.6f, 0.45f, 0.3f);
+        trace.SkyGradient = new(0.2f);
+        trace.MaxDistance = 8f;
+        trace.SurfaceBias = Bias;
 
         trace.Parameters.Set(
             ParameterKeys.New<AccelerationStructureHandle>(
@@ -220,8 +225,8 @@ public sealed class AccelerationStructureDeviceTests {
                 var expectedHit = referee.TraceField(origin, direction, 8f).Hit;
 
                 var atlasOrigin = layout.AtlasOrigin(new(0, 0));
-                var texel = texels[((atlasOrigin.Y + y) * layout.AtlasSize.X) + atlasOrigin.X + x];
-                var sky = new Vector3(0.6f, 0.45f, 0.3f) + (new Vector3(0.2f) * direction.Y);
+                var texel = texels[(atlasOrigin.Y + y) * layout.AtlasSize.X + atlasOrigin.X + x];
+                var sky = new Vector3(0.6f, 0.45f, 0.3f) + new Vector3(0.2f) * direction.Y;
                 var actualHit = (new Vector3(texel.X, texel.Y, texel.Z) - sky).Length() > 0.05f;
 
                 if (expectedHit != actualHit) {

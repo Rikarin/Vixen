@@ -51,8 +51,12 @@ sealed class ViewportChrome {
 
     /// <summary>How many frames pass between rewrites of the stats readout.</summary>
     /// <remarks>
-    ///     ⚠ <b>A quarter of a second, and it is a performance decision rather than a cosmetic
-    ///     one.</b> The readout ends in <c>16.7 ms (60 fps)</c>, which changes every frame — and one
+    ///     ⚠
+    ///     <b>
+    ///         A quarter of a second, and it is a performance decision rather than a cosmetic
+    ///         one.
+    ///     </b>
+    ///     The readout ends in <c>16.7 ms (60 fps)</c>, which changes every frame — and one
     ///     changed character makes the whole window's draw list differ, which takes away every chance
     ///     to re-use the frame's geometry. The window then re-emits every vertex it drew last time,
     ///     and for a panel of icons that is most of the frame.
@@ -95,8 +99,12 @@ sealed class ViewportChrome {
     /// <summary>Rebuilds every pane's contributed overlays.</summary>
     /// <param name="kind">The contribution kind that changed.</param>
     /// <remarks>
-    ///     ⚠ <b>Without this, an overlay works in a plugin and not in a project script, and nothing
-    ///     about either says why.</b> <see cref="Attach" /> reads the registry when the panes are
+    ///     ⚠
+    ///     <b>
+    ///         Without this, an overlay works in a plugin and not in a project script, and nothing
+    ///         about either says why.
+    ///     </b>
+    ///     <see cref="Attach" /> reads the registry when the panes are
     ///     arranged; a packaged plugin registers at start-up, which is before that, and a project's
     ///     `Editor/` script registers on its first build, which is after — so the same declaration in
     ///     the same words appeared in one tier and silently not in the other. A plugin enabled from the
@@ -160,12 +168,12 @@ sealed class ViewportChrome {
             new ToolbarDropdown(EditorStrings.ViewportWorkPlane, null, EditorApplication.ViewportIds.WorkPlaneIds),
             new ToolbarDropdown(EditorStrings.ViewportPrecision, null, EditorApplication.ViewportIds.PrecisionIds),
             new ToolbarSeparator(),
-            new ToolbarDropdown(EditorStrings.ViewportViewMode, null, [.. EditorApplication.ViewportIds.ViewModes]),
+            new ToolbarDropdown(EditorStrings.ViewportViewMode, null, [..EditorApplication.ViewportIds.ViewModes]),
             new ToolbarDropdown(EditorStrings.ViewportShow, null, ShowIds),
-            new ToolbarDropdown(EditorStrings.ViewportSpeed, null, [.. EditorApplication.ViewportIds.SpeedIds]),
+            new ToolbarDropdown(EditorStrings.ViewportSpeed, null, [..EditorApplication.ViewportIds.SpeedIds]),
             new ToolbarSeparator(),
             new ToolbarButton("scene.toggle-projection"),
-            new ToolbarDropdown(EditorStrings.ViewportLayout, null, [.. EditorApplication.ViewportIds.Arrangements]),
+            new ToolbarDropdown(EditorStrings.ViewportLayout, null, [..EditorApplication.ViewportIds.Arrangements]),
             new ToolbarButton("scene.maximise")
         );
 
@@ -190,7 +198,7 @@ sealed class ViewportChrome {
         extensions = registry;
         Contributed(overlays, pane, registry);
 
-        attached.Add(new Attached(pane, bar, toolbar, stats, readout, overlays));
+        attached.Add(new(pane, bar, toolbar, stats, readout, overlays));
     }
 
     /// <summary>Puts every contributed overlay over one pane, in the corner it asked for.</summary>
@@ -199,8 +207,12 @@ sealed class ViewportChrome {
     /// <param name="extensions">Where the <see cref="SceneOverlay" /> contributions are.</param>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>One corner element per corner that is used, and none for the ones that are
-    ///         not.</b> Four empty absolutely-positioned columns over every pane in a four-pane layout
+    ///         ⚠
+    ///         <b>
+    ///             One corner element per corner that is used, and none for the ones that are
+    ///             not.
+    ///         </b>
+    ///         Four empty absolutely-positioned columns over every pane in a four-pane layout
     ///         is sixteen elements the layout pass walks to draw nothing.
     ///     </para>
     ///     <para>
@@ -374,6 +386,5 @@ sealed class ViewportChrome {
     ///     over the same state to make this list uniform is exactly the two-writers mistake doc 20
     ///     names. So the list is composed here instead.
     /// </remarks>
-    static readonly string?[] ShowIds = ["scene.toggle-grid", .. EditorApplication.ViewportIds.ShowFlagIds];
-
+    static readonly string?[] ShowIds = ["scene.toggle-grid", ..EditorApplication.ViewportIds.ShowFlagIds];
 }

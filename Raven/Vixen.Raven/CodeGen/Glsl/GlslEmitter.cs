@@ -324,7 +324,7 @@ sealed class GlslEmitter {
                 // stage merely stores into has to say `writeonly` or the ES front end refuses the
                 // declaration. Derived from what the stage's reachable code does — see ImageAccess,
                 // which reports nothing at all rather than guess when a receiver cannot be traced.
-                var group = planned.Declarations.Select(declaration => declaration.Variable);
+                var group = planned.Declarations.Select(static declaration => declaration.Variable);
 
                 var access = resource.Type is IrStorageImageType
                     ? imageAccess.IsWriteOnly(group) ? "writeonly "
@@ -343,9 +343,7 @@ sealed class GlslEmitter {
                     ? DeclareRuntime(resource.Type, name, resource.Name)
                     : Declare(resource.Type, name, resource.Name);
 
-                writer.Line(
-                    $"layout({format}{layout}) {access}uniform {declaration};" + Comment(resource.Semantic)
-                );
+                writer.Line($"layout({format}{layout}) {access}uniform {declaration};" + Comment(resource.Semantic));
 
                 opaque = true;
                 continue;
@@ -565,9 +563,7 @@ sealed class GlslEmitter {
         // than something to emit around.
         var size = entryPoint.WorkgroupSize!.Value;
 
-        writer.Line(
-            $"layout(local_size_x = {size.X}, local_size_y = {size.Y}, local_size_z = {size.Z}) in;"
-        );
+        writer.Line($"layout(local_size_x = {size.X}, local_size_y = {size.Y}, local_size_z = {size.Z}) in;");
         writer.Blank();
 
         EmitSharedVariables();
@@ -686,7 +682,7 @@ sealed class GlslEmitter {
         // Decided by scanning the IR rather than while emitting, because the helper has to be in
         // the text before the first call to it — and calls are only discovered mid-body, after
         // their function's opening line is already written.
-        if (functions.Any(f => Traces(f.Body))) {
+        if (functions.Any(static f => Traces(f.Body))) {
             rayQueryDeclared = true;
             rayQueryTraced = true;
             EmitTraceHelper();
@@ -728,16 +724,17 @@ sealed class GlslEmitter {
 
     /// <summary>Whether a body runs a ray query anywhere, however deeply nested.</summary>
     static bool Traces(IrBlock block) =>
-        block.Statements.Any(statement => statement switch {
-            IrIntrinsicInstruction { Intrinsic: IrIntrinsic.TraceRayQuery } => true,
-            IrBlock nested => Traces(nested),
-            IrIfStatement conditional => Traces(conditional.Then)
-                || (conditional.Else is { } otherwise && Traces(otherwise)),
-            IrLoopStatement loop => Traces(loop.Condition)
-                || Traces(loop.Body)
-                || (loop.Continue is { } step && Traces(step)),
-            _ => false
-        });
+        block.Statements.Any(static statement => statement switch {
+                IrIntrinsicInstruction { Intrinsic: IrIntrinsic.TraceRayQuery } => true,
+                IrBlock nested => Traces(nested),
+                IrIfStatement conditional => Traces(conditional.Then)
+                    || (conditional.Else is { } otherwise && Traces(otherwise)),
+                IrLoopStatement loop => Traces(loop.Condition)
+                    || Traces(loop.Body)
+                    || (loop.Continue is { } step && Traces(step)),
+                _ => false
+            }
+        );
 
     /// <summary>
     ///     Injects the one function that owns a <c>rayQueryEXT</c>, before anything that calls it.
@@ -1025,7 +1022,7 @@ sealed class GlslEmitter {
                 return;
 
             case IrStoreInstruction store:
-                writer.Line($"{Place(store.Place, write: true)} = {Value(store.Value)};");
+                writer.Line($"{Place(store.Place, true)} = {Value(store.Value)};");
                 return;
 
             case IrCallInstruction { Result: null } call:
@@ -1081,8 +1078,8 @@ sealed class GlslEmitter {
         var resultType = intrinsic.Result?.Type ?? IrScalarType.Void;
         var call = GlslIntrinsics.Call(
             intrinsic.Intrinsic,
-            [.. intrinsic.Arguments.Select(Value)],
-            [.. intrinsic.Arguments.Select(a => a.Type)],
+            [..intrinsic.Arguments.Select(Value)],
+            [..intrinsic.Arguments.Select(static a => a.Type)],
             TypeName(resultType),
             resultType
         );
@@ -1297,7 +1294,7 @@ sealed class GlslEmitter {
                     break;
 
                 case IrSwizzleAccess swizzle:
-                    builder.Append('.').Append(string.Concat(swizzle.Components.Select(c => "xyzw"[c])));
+                    builder.Append('.').Append(string.Concat(swizzle.Components.Select(static c => "xyzw"[c])));
                     break;
             }
 
@@ -1405,8 +1402,7 @@ sealed class GlslEmitter {
     ///     share a bug rather than a rule. The rule itself is the IR's — an unsized array of textures
     ///     — and both read it off the IR.
     /// </remarks>
-    static bool IsDescriptorArray(IrType type) =>
-        type is IrArrayType { Length: null, Element: IrTextureType };
+    static bool IsDescriptorArray(IrType type) => type is IrArrayType { Length: null, Element: IrTextureType };
 
     string Unsupported(IrType type, string what) {
         Report(

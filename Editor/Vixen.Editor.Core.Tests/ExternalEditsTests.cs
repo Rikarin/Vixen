@@ -31,8 +31,7 @@ sealed class StubWatcher : IFileWatcher {
 
     public void Suppress(VirtualPath path) => Suppressed.Add(path);
 
-    public void Observed() {
-    }
+    public void Observed() { }
 
     public int Drain(ICollection<FileChange> into) {
         var count = pending.Count;
@@ -46,8 +45,7 @@ sealed class StubWatcher : IFileWatcher {
 
     public void ClearOverflow() => HasOverflowed = false;
 
-    public void Dispose() {
-    }
+    public void Dispose() { }
 }
 
 /// <summary>A document that is a text file, so that reloading it is observable.</summary>
@@ -110,13 +108,13 @@ sealed class TextFileDocument : EditorDocument {
         var temporary = path + ".tmp";
 
         File.WriteAllText(temporary, Text);
-        File.Move(temporary, path, overwrite: true);
+        File.Move(temporary, path, true);
     }
 
     /// <summary>Changes what it holds without touching the file, which is what an unsaved edit is.</summary>
     public void Edit(string text) {
         Text = text;
-        Stack.Execute(new DelegateCommand("Edit", _ => { }, _ => { }));
+        Stack.Execute(new DelegateCommand("Edit", static _ => { }, static _ => { }));
     }
 }
 
@@ -283,8 +281,12 @@ public sealed class ExternalEditsTests : IDisposable {
 
     /// <summary>The same claim against the real watcher, which is the thing that has to believe it.</summary>
     /// <remarks>
-    ///     ⚠ <b>The window is bounded by <c>FileChangeCoalescer.SuppressionWindow</c>, which is two
-    ///     seconds.</b> Watching for longer would be a test that fails whenever the platform reported
+    ///     ⚠
+    ///     <b>
+    ///         The window is bounded by <c>FileChangeCoalescer.SuppressionWindow</c>, which is two
+    ///         seconds.
+    ///     </b>
+    ///     Watching for longer would be a test that fails whenever the platform reported
     ///     a write later than the design promises to ignore it — which is not this seam being wrong,
     ///     it is the test asserting past the guarantee. A second and a half is six debounce windows
     ///     and comfortably inside the suppression.
@@ -293,9 +295,8 @@ public sealed class ExternalEditsTests : IDisposable {
     public void The_editors_own_save_does_not_come_back_through_a_real_watcher() {
         var document = Open("Thing.txt");
 
-        using var watcher = new FileWatcher(files.Paths.Assets, VirtualPath.Root) {
-            Debounce = TimeSpan.FromMilliseconds(20)
-        };
+        using var watcher = new FileWatcher(files.Paths.Assets, VirtualPath.Root);
+        watcher.Debounce = TimeSpan.FromMilliseconds(20);
 
         using var edits = new ExternalEdits(project, watcher);
 
@@ -304,7 +305,10 @@ public sealed class ExternalEditsTests : IDisposable {
 
         var drained = Quiet(watcher, TimeSpan.FromSeconds(1.5));
 
-        Assert.DoesNotContain(drained, change => change.Path.Value.StartsWith("/Thing.txt", StringComparison.Ordinal));
+        Assert.DoesNotContain(
+            drained,
+            static change => change.Path.Value.StartsWith("/Thing.txt", StringComparison.Ordinal)
+        );
 
         edits.Apply(drained);
 
@@ -323,9 +327,8 @@ public sealed class ExternalEditsTests : IDisposable {
     public void A_write_the_editor_did_not_make_does_come_through_the_real_watcher() {
         var document = Open("Thing.txt");
 
-        using var watcher = new FileWatcher(files.Paths.Assets, VirtualPath.Root) {
-            Debounce = TimeSpan.FromMilliseconds(20)
-        };
+        using var watcher = new FileWatcher(files.Paths.Assets, VirtualPath.Root);
+        watcher.Debounce = TimeSpan.FromMilliseconds(20);
 
         using var edits = new ExternalEdits(project, watcher);
 
@@ -381,8 +384,12 @@ public sealed class ExternalEditsTests : IDisposable {
 
     /// <summary>A read that declines, and one that throws, both leave what was on screen on screen.</summary>
     /// <remarks>
-    ///     ⚠ <b><c>NotSupportedException</c> is in the list because it is what a <em>file</em> causes
-    ///     rather than a bug</b> — a document written by another version of the engine, pulled from a
+    ///     ⚠
+    ///     <b>
+    ///         <c>NotSupportedException</c> is in the list because it is what a <em>file</em> causes
+    ///         rather than a bug
+    ///     </b>
+    ///     — a document written by another version of the engine, pulled from a
     ///     branch while the editor is open. Uncaught, an external program's Ctrl+S takes the editor
     ///     down, which is <c>EditorFrames.Reframe</c>'s argument exactly.
     /// </remarks>
@@ -434,8 +441,12 @@ public sealed class ExternalEditsTests : IDisposable {
     ///     old one and finds nothing open.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>What this deliberately does not claim is that the document now reads the new
-    ///     file.</b> A document holds the path it was opened with — <c>CodeDocument.AssetPath</c>,
+    ///     ⚠
+    ///     <b>
+    ///         What this deliberately does not claim is that the document now reads the new
+    ///         file.
+    ///     </b>
+    ///     A document holds the path it was opened with — <c>CodeDocument.AssetPath</c>,
     ///     <c>StandardFrameDocument.AssetPath</c>, both set in a constructor — so a document whose
     ///     asset has moved re-reads and saves to where it used to be. That is a real gap and it is
     ///     older than this seam: it needs somewhere for a document to be told its file moved, which
@@ -536,8 +547,12 @@ public sealed class ExternalEditsTests : IDisposable {
 
     /// <summary>Drains a real watcher for a fixed window, for a claim that nothing arrives.</summary>
     /// <remarks>
-    ///     ⚠ <b>Fixed rather than "until quiet", which is the difference between a negative claim
-    ///     and a race.</b> Stopping at the first quiet moment would stop before a platform that
+    ///     ⚠
+    ///     <b>
+    ///         Fixed rather than "until quiet", which is the difference between a negative claim
+    ///         and a race.
+    ///     </b>
+    ///     Stopping at the first quiet moment would stop before a platform that
     ///     reports late has reported at all, and the test would pass without the watcher having said
     ///     anything either way.
     /// </remarks>

@@ -4,7 +4,6 @@
 using Vixen.Core.Syntax;
 using Vixen.Core.Syntax.Diagnostics;
 using Vixen.Raven.Binding;
-using Vixen.Raven.Diagnostics;
 using Vixen.Raven.Symbols;
 using Vixen.Raven.Symbols.Source;
 using Vixen.Raven.Syntax;
@@ -228,7 +227,7 @@ public sealed class SemanticModel {
         var isGetter = accessor.Kind == SyntaxKind.GetAccessorDeclaration;
 
         // A setter and the two observers all see the incoming value as `value`.
-        List<ParameterSymbol> parameters = [.. property.Parameters];
+        List<ParameterSymbol> parameters = [..property.Parameters];
         if (!isGetter) {
             parameters.Add(new SynthesizedParameterSymbol(property, "value", property.Type, parameters.Count));
         }

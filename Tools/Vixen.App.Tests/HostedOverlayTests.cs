@@ -15,8 +15,11 @@ namespace Vixen.App.Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>The state this closes: every one of those was built, tested and constructed by nothing
-///         outside its own tests.</b> <c>DiagnosticOverlaySystem</c>, <c>DebugDrawRenderer</c>,
+///         <b>
+///             The state this closes: every one of those was built, tested and constructed by nothing
+///             outside its own tests.
+///         </b>
+///         <c>DiagnosticOverlaySystem</c>, <c>DebugDrawRenderer</c>,
 ///         <c>FrameStatsOverlay</c>, <c>ConsoleOverlay</c> and water's six <c>water.show*</c> verbs
 ///         were complete at their own end and unreachable from a game — the same shape as the GPU
 ///         profiler that timed nothing for months.
@@ -61,10 +64,10 @@ public sealed class HostedOverlayTests : IDisposable {
 
         // The four panels doc 13 names for the frame itself: stats, the flame chart, the console and
         // the log tail. The last is added by AppBuilder, which owns the ring it reads.
-        Assert.Contains(graphics.Overlays.Registered, overlay => overlay.Name == "stats");
-        Assert.Contains(graphics.Overlays.Registered, overlay => overlay.Name == "framegraph");
-        Assert.Contains(graphics.Overlays.Registered, overlay => overlay.Name == "console");
-        Assert.Contains(graphics.Overlays.Registered, overlay => overlay.Name == "log");
+        Assert.Contains(graphics.Overlays.Registered, static overlay => overlay.Name == "stats");
+        Assert.Contains(graphics.Overlays.Registered, static overlay => overlay.Name == "framegraph");
+        Assert.Contains(graphics.Overlays.Registered, static overlay => overlay.Name == "console");
+        Assert.Contains(graphics.Overlays.Registered, static overlay => overlay.Name == "log");
     }
 
     /// <summary>
@@ -139,12 +142,12 @@ public sealed class HostedOverlayTests : IDisposable {
         using var application = Build(new SilentGame(), ["--vixen-overlays"]);
         var commands = application.Services.Graphics!.Console!;
 
-        Assert.Contains(commands.Registered, command => command.Name == "water.showFlow");
-        Assert.Contains(commands.Registered, command => command.Name == "water.showTiles");
+        Assert.Contains(commands.Registered, static command => command.Name == "water.showFlow");
+        Assert.Contains(commands.Registered, static command => command.Name == "water.showTiles");
 
         // And the registry's own two, which is what makes a panel switchable from the prompt.
-        Assert.Contains(commands.Registered, command => command.Name == "overlay");
-        Assert.Contains(commands.Registered, command => command.Name == "overlays");
+        Assert.Contains(commands.Registered, static command => command.Name == "overlay");
+        Assert.Contains(commands.Registered, static command => command.Name == "overlays");
     }
 
     /// <summary>Typing a verb changes the flag the renderer reads.</summary>
@@ -212,7 +215,7 @@ public sealed class HostedOverlayTests : IDisposable {
         application.RunFrame();
 
         Assert.True(graphics.Renderer.Host.Debug!.ScreenCount > 0);
-        Assert.Contains(Walk(graphics.Renderer.Host.Compositor!.Game!), node => node is DebugOverlayRenderer);
+        Assert.Contains(Walk(graphics.Renderer.Host.Compositor!.Game!), static node => node is DebugOverlayRenderer);
     }
 
     /// <summary>
@@ -226,8 +229,12 @@ public sealed class HostedOverlayTests : IDisposable {
     ///         <c>Vixen.Engine.Tests</c>' <c>ALooseContentBuildIsStamped</c>.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A notice on the registry, and no longer a property on the frame-statistics
-    ///         panel</b> — see #919. The panel could be taken off the screen by four published calls
+    ///         ⚠
+    ///         <b>
+    ///             A notice on the registry, and no longer a property on the frame-statistics
+    ///             panel
+    ///         </b>
+    ///         — see #919. The panel could be taken off the screen by four published calls
     ///         and by a write the registry never sees, after which the build was silent again.
     ///     </para>
     /// </remarks>
@@ -264,8 +271,8 @@ public sealed class HostedOverlayTests : IDisposable {
     }
 
     VixenApplication Build(Game game, string[] extra) =>
-        VixenApp.Create(["--vixen-workers", "1", "--vixen-frame-limit", "0", .. extra])
-            .WithPlatform(new HeadlessPlatform(new HeadlessPlatformOptions { FileSystem = files }))
+        VixenApp.Create(["--vixen-workers", "1", "--vixen-frame-limit", "0", ..extra])
+            .WithPlatform(new HeadlessPlatform(new() { FileSystem = files }))
             .Build(game);
 
     class SilentGame : Game {

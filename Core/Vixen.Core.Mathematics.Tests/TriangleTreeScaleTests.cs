@@ -9,8 +9,11 @@ namespace Vixen.Core.Mathematics.Tests;
 /// <summary>A ray hits the same triangles whatever units the model was authored in.</summary>
 /// <remarks>
 ///     <para>
-///         <b>The fourth appearance in this repository of one mistake, and the first one caught by a
-///         test rather than by a symptom.</b> <see cref="MathUtil.ZeroTolerance" /> is an absolute
+///         <b>
+///             The fourth appearance in this repository of one mistake, and the first one caught by a
+///             test rather than by a symptom.
+///         </b>
+///         <see cref="MathUtil.ZeroTolerance" /> is an absolute
 ///         <c>1e-6</c>, and every quantity it was guarding here carries the model's units — the
 ///         Möller–Trumbore determinant is <c>edge1 · (direction × edge2)</c> and so carries them
 ///         <i>squared</i>, a barycentric denominator likewise, a segment's squared length likewise.
@@ -135,9 +138,9 @@ public class TriangleTreeScaleTests {
         for (var segment = 0; segment < Segments; segment++) {
             indices.Add(0);
             indices.Add(1 + segment);
-            indices.Add(1 + ((segment + 1) % Segments));
+            indices.Add(1 + (segment + 1) % Segments);
         }
 
-        return ([.. vertices], [.. indices]);
+        return ([..vertices], [..indices]);
     }
 }

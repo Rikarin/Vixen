@@ -6,8 +6,6 @@ using System.Globalization;
 using System.Net;
 using System.Net.Sockets;
 using System.Net.WebSockets;
-using System.Security.Cryptography;
-using System.Text;
 using Channels = System.Threading.Channels;
 
 namespace Vixen.Net.Transport.WebSocket;
@@ -21,8 +19,11 @@ namespace Vixen.Net.Transport.WebSocket;
 ///         is either right or obviously broken.
 ///     </para>
 ///     <para>
-///         <b>A <see cref="TcpListener" /> and the framework's own framing, rather than
-///         <c>HttpListener</c>.</b> The upgrade is thirty lines of RFC 6455 — a SHA-1 of the client's
+///         <b>
+///             A <see cref="TcpListener" /> and the framework's own framing, rather than
+///             <c>HttpListener</c>.
+///         </b>
+///         The upgrade is thirty lines of RFC 6455 — a SHA-1 of the client's
 ///         key and a fixed GUID — and doing it here avoids <c>HttpListener</c>'s URL-reservation
 ///         behaviour on Windows and its uneven support elsewhere. The framing underneath is
 ///         <c>WebSocket.CreateFromStream</c>, which is the part worth not writing.
@@ -103,8 +104,7 @@ sealed class SystemWebSocketListener : IWebSocketListener {
         stopping.Dispose();
     }
 
-    static IPAddress Resolve(string host) =>
-        IPAddress.TryParse(host, out var address) ? address : IPAddress.Loopback;
+    static IPAddress Resolve(string host) => IPAddress.TryParse(host, out var address) ? address : IPAddress.Loopback;
 
     async Task AcceptLoop(CancellationToken token) {
         while (!token.IsCancellationRequested) {
@@ -156,7 +156,7 @@ sealed class SystemWebSocketListener : IWebSocketListener {
 
             var socket = System.Net.WebSockets.WebSocket.CreateFromStream(
                 stream,
-                new WebSocketCreationOptions { IsServer = true, KeepAliveInterval = TimeSpan.FromSeconds(30) }
+                new() { IsServer = true, KeepAliveInterval = TimeSpan.FromSeconds(30) }
             );
 
             ready.Enqueue(SystemWebSocketChannel.Accepted(socket, client));
@@ -211,12 +211,14 @@ sealed class SystemWebSocketListener : IWebSocketListener {
 
 sealed class SystemWebSocketChannel : IWebSocketChannel {
     readonly ConcurrentQueue<byte[]> inbound = new();
+
     // Asynchronous, not a BlockingCollection, and that distinction cost an afternoon. A blocking
     // enumeration inside an async method with no await before it runs on the *caller's* thread —
     // so starting the send loop from the accept path blocked the accept path, and a connection that
     // had completed its handshake was never handed over. Nothing threw; it simply stopped.
     readonly Channels.Channel<byte[]> outbound =
         Channels.Channel.CreateUnbounded<byte[]>(new() { SingleReader = true });
+
     readonly CancellationTokenSource stopping = new();
 
     System.Net.WebSockets.WebSocket? socket;
@@ -244,7 +246,7 @@ sealed class SystemWebSocketChannel : IWebSocketChannel {
 
     public void Send(ReadOnlySpan<byte> message) {
         if (State == WebSocketChannelState.Open) {
-            outbound.Writer.TryWrite(message.ToArray());
+            outbound.Writer.TryWrite([..message]);
         }
     }
 
@@ -286,8 +288,10 @@ sealed class SystemWebSocketChannel : IWebSocketChannel {
             socket = client;
             state = (int)WebSocketChannelState.Open;
             Start();
-        } catch (Exception exception) when (exception is WebSocketException or OperationCanceledException
-                                                or ObjectDisposedException or SocketException) {
+        } catch (Exception exception) when (exception is WebSocketException
+                                                or OperationCanceledException
+                                                or ObjectDisposedException
+                                                or SocketException) {
             // Nobody there, or they refused. Closed rather than thrown: the transport reports being
             // refused as an event, and an exception on a background task has nowhere to go.
             client.Dispose();
@@ -322,8 +326,10 @@ sealed class SystemWebSocketChannel : IWebSocketChannel {
 
                 inbound.Enqueue(buffer[..offset]);
             }
-        } catch (Exception exception) when (exception is WebSocketException or OperationCanceledException
-                                                or ObjectDisposedException or InvalidOperationException) {
+        } catch (Exception exception) when (exception is WebSocketException
+                                                or OperationCanceledException
+                                                or ObjectDisposedException
+                                                or InvalidOperationException) {
             // Every one of these means the same thing to the layer above: it ended.
         } finally {
             state = (int)WebSocketChannelState.Closed;
@@ -337,15 +343,17 @@ sealed class SystemWebSocketChannel : IWebSocketChannel {
                     return;
                 }
 
-                await socket.SendAsync(message, WebSocketMessageType.Binary, endOfMessage: true, token)
+                await socket.SendAsync(message, WebSocketMessageType.Binary, true, token)
                     .ConfigureAwait(false);
             }
 
             if (socket is { State: WebSocketState.Open }) {
                 await socket.CloseOutputAsync(WebSocketCloseStatus.NormalClosure, null, token).ConfigureAwait(false);
             }
-        } catch (Exception exception) when (exception is WebSocketException or OperationCanceledException
-                                                or ObjectDisposedException or InvalidOperationException) {
+        } catch (Exception exception) when (exception is WebSocketException
+                                                or OperationCanceledException
+                                                or ObjectDisposedException
+                                                or InvalidOperationException) {
             state = (int)WebSocketChannelState.Closed;
         }
     }

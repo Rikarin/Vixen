@@ -49,7 +49,7 @@ public sealed class ImpostorTests {
 
         var cell = Grid.NearestTo(Vector3.UnitY);
 
-        Assert.Equal(new ImpostorCell(4, 4), cell);
+        Assert.Equal(new(4, 4), cell);
         Assert.True(Vector3.Distance(Vector3.UnitY, Grid.DirectionOf(cell)) < 1e-5f);
     }
 
@@ -112,7 +112,7 @@ public sealed class ImpostorTests {
 
         grid.Blend(grid.DirectionOf(cell), samples);
 
-        var dominant = samples.ToArray().MaxBy(sample => sample.Weight);
+        var dominant = samples.ToArray().MaxBy(static sample => sample.Weight);
 
         Assert.Equal(cell, dominant.Cell);
         Assert.True(dominant.Weight > 0.99f, $"the cell's own direction gave it {dominant.Weight}.");
@@ -154,7 +154,7 @@ public sealed class ImpostorTests {
 
     [Fact]
     public void TheAtlasPacksEveryCellWithoutOverlapping() {
-        var atlas = new ImpostorAtlas(Grid, cellSize: 64, padding: 4);
+        var atlas = new ImpostorAtlas(Grid, 64, 4);
         var covered = new HashSet<(int X, int Y)>();
 
         for (var z = 0; z < atlas.Grid.Side; z++) {
@@ -178,7 +178,7 @@ public sealed class ImpostorTests {
     /// <summary>Every cell's drawable area is separated by at least the gutter.</summary>
     [Fact]
     public void TheGutterSeparatesNeighbouringCells() {
-        var atlas = new ImpostorAtlas(Grid, cellSize: 64, padding: 4);
+        var atlas = new ImpostorAtlas(Grid, 64, 4);
 
         var (leftX, _, leftWidth, _) = atlas.RectOf(new(0, 0));
         var (rightX, _, _, _) = atlas.RectOf(new(1, 0));
@@ -188,7 +188,7 @@ public sealed class ImpostorTests {
 
     [Fact]
     public void ACellTooSmallForItsGutterIsRefused() {
-        var thrown = Assert.Throws<ArgumentOutOfRangeException>(() => new ImpostorAtlas(Grid, 8, 4));
+        var thrown = Assert.Throws<ArgumentOutOfRangeException>(static () => new ImpostorAtlas(Grid, 8, 4));
 
         Assert.Contains("nothing left to draw", thrown.Message, StringComparison.Ordinal);
     }
@@ -201,7 +201,7 @@ public sealed class ImpostorTests {
     /// </remarks>
     [Fact]
     public void TheMipChainStopsAtTheCellSize() {
-        var atlas = new ImpostorAtlas(Grid, cellSize: 128, padding: 4);
+        var atlas = new ImpostorAtlas(Grid, 128, 4);
 
         Assert.Equal(1152, atlas.Resolution);
         Assert.Equal(8, atlas.MipLevels);
@@ -242,8 +242,12 @@ public sealed class ImpostorTests {
 
     /// <summary>The shader still folds the way the kernel does.</summary>
     /// <remarks>
-    ///     ⚠ <b>An impostor that samples the wrong cell looks like a tree facing slightly the wrong
-    ///     way</b> — which nobody reports and everybody notices. A source assertion catches the
+    ///     ⚠
+    ///     <b>
+    ///         An impostor that samples the wrong cell looks like a tree facing slightly the wrong
+    ///         way
+    ///     </b>
+    ///     — which nobody reports and everybody notices. A source assertion catches the
     ///     failure that actually happens: somebody edits one of the two folds.
     /// </remarks>
     [Fact]
@@ -275,7 +279,7 @@ public sealed class ImpostorTests {
             // What Impostor.rvn's ImpostorMath.Encode computes.
             var scale = MathF.Abs(direction.X) + MathF.Abs(direction.Y) + MathF.Abs(direction.Z);
             var n = direction / scale;
-            var shader = new Vector2(((n.X + n.Z) * 0.5f) + 0.5f, ((n.X - n.Z) * 0.5f) + 0.5f);
+            var shader = new Vector2((n.X + n.Z) * 0.5f + 0.5f, (n.X - n.Z) * 0.5f + 0.5f);
 
             var kernel = ImpostorGrid.Encode(direction);
 

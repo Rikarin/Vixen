@@ -15,28 +15,28 @@ public sealed class ModelReaderSideFileTests {
     static readonly ModelReadOptions Default = new() { GenerateTangents = false };
 
     const string Quad = """
-        mtllib paint.mtl
-        o Quad
-        v 0 0 0
-        v 1 0 0
-        v 1 1 0
-        v 0 1 0
-        vt 0 0
-        vt 1 0
-        vt 1 1
-        vt 0 1
-        usemtl Red
-        f 1/1 2/2 3/3
-        usemtl Blue
-        f 1/1 3/3 4/4
-        """;
+                        mtllib paint.mtl
+                        o Quad
+                        v 0 0 0
+                        v 1 0 0
+                        v 1 1 0
+                        v 0 1 0
+                        vt 0 0
+                        vt 1 0
+                        vt 1 1
+                        vt 0 1
+                        usemtl Red
+                        f 1/1 2/2 3/3
+                        usemtl Blue
+                        f 1/1 3/3 4/4
+                        """;
 
     const string Library = """
-        newmtl Red
-        Kd 1 0 0
-        newmtl Blue
-        Kd 0 0 1
-        """;
+                           newmtl Red
+                           Kd 1 0 0
+                           newmtl Blue
+                           Kd 0 0 1
+                           """;
 
     [Fact]
     public void AnObjFindsItsMaterialLibraryThroughTheResolver() {
@@ -106,7 +106,10 @@ public sealed class ModelReaderSideFileTests {
         );
 
         Assert.NotEmpty(read.Meshes);
-        Assert.Contains(said, static line => line.Severity == ImportSeverity.Warning && line.Message.Contains("locked"));
+        Assert.Contains(
+            said,
+            static line => line.Severity == ImportSeverity.Warning && line.Message.Contains("locked")
+        );
     }
 
     /// <summary>A <c>.gltf</c> whose buffer is a file beside it reads, which from bytes alone it did not.</summary>
@@ -114,27 +117,27 @@ public sealed class ModelReaderSideFileTests {
     public void AGltfReadsItsBufferFromBesideIt() {
         float[] positions = [0, 0, 0, 1, 0, 0, 0, 1, 0];
         ushort[] indices = [0, 1, 2];
-        var buffer = new byte[(positions.Length * 4) + (indices.Length * 2)];
+        var buffer = new byte[positions.Length * 4 + indices.Length * 2];
         Buffer.BlockCopy(positions, 0, buffer, 0, positions.Length * 4);
         Buffer.BlockCopy(indices, 0, buffer, positions.Length * 4, indices.Length * 2);
         var json = $$"""
-            {
-              "asset": { "version": "2.0" },
-              "scene": 0,
-              "scenes": [{ "nodes": [0] }],
-              "nodes": [{ "mesh": 0 }],
-              "meshes": [{ "name": "Tri", "primitives": [{ "attributes": { "POSITION": 0 }, "indices": 1 }] }],
-              "buffers": [{ "byteLength": {{buffer.Length}}, "uri": "tri.bin" }],
-              "bufferViews": [
-                { "buffer": 0, "byteOffset": 0, "byteLength": 36, "target": 34962 },
-                { "buffer": 0, "byteOffset": 36, "byteLength": 6, "target": 34963 }
-              ],
-              "accessors": [
-                { "bufferView": 0, "componentType": 5126, "count": 3, "type": "VEC3", "min": [0, 0, 0], "max": [1, 1, 0] },
-                { "bufferView": 1, "componentType": 5123, "count": 3, "type": "SCALAR" }
-              ]
-            }
-            """;
+                     {
+                       "asset": { "version": "2.0" },
+                       "scene": 0,
+                       "scenes": [{ "nodes": [0] }],
+                       "nodes": [{ "mesh": 0 }],
+                       "meshes": [{ "name": "Tri", "primitives": [{ "attributes": { "POSITION": 0 }, "indices": 1 }] }],
+                       "buffers": [{ "byteLength": {{buffer.Length}}, "uri": "tri.bin" }],
+                       "bufferViews": [
+                         { "buffer": 0, "byteOffset": 0, "byteLength": 36, "target": 34962 },
+                         { "buffer": 0, "byteOffset": 36, "byteLength": 6, "target": 34963 }
+                       ],
+                       "accessors": [
+                         { "bufferView": 0, "componentType": 5126, "count": 3, "type": "VEC3", "min": [0, 0, 0], "max": [1, 1, 0] },
+                         { "bufferView": 1, "componentType": 5123, "count": 3, "type": "SCALAR" }
+                       ]
+                     }
+                     """;
 
         var read = ModelReader.Read(
             Bytes(json),

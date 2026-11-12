@@ -138,6 +138,6 @@ public static class ReferenceCompiler {
             "\n",
             text.Replace("\r\n", "\n", StringComparison.Ordinal)
                 .Split('\n')
-                .Select((line, i) => $"{i + 1,4}  {line}")
+                .Select(static (line, i) => $"{i + 1,4}  {line}")
         );
 }

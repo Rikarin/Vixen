@@ -98,7 +98,7 @@ public sealed class ImportCache {
     public IReadOnlyCollection<ImportRecord> Records {
         get {
             lock (gate) {
-                return [.. byAsset.Values];
+                return [..byAsset.Values];
             }
         }
     }
@@ -143,7 +143,7 @@ public sealed class ImportCache {
         writer.NewLine = "\n";
         writer.WriteLine(Header);
 
-        foreach (var record in Records.OrderBy(record => record.Asset)) {
+        foreach (var record in Records.OrderBy(static record => record.Asset)) {
             foreach (var dependency in record.FileDependencies) {
                 if (dependency.Contains('\t', StringComparison.Ordinal)) {
                     throw new ArgumentException(
@@ -160,7 +160,7 @@ public sealed class ImportCache {
                     record.Importer,
                     record.ImporterVersion.ToString(CultureInfo.InvariantCulture),
                     record.Key.Value,
-                    string.Join(',', record.Artifacts.Select(artifact => $"{artifact.SubAsset}:{artifact.Id}")),
+                    string.Join(',', record.Artifacts.Select(static artifact => $"{artifact.SubAsset}:{artifact.Id}")),
                     string.Join(',', record.AssetDependencies),
                     string.Join('\t', record.FileDependencies)
                 )
@@ -203,7 +203,7 @@ public sealed class ImportCache {
                 continue;
             }
 
-            Set(new(asset, parts[1], version, new(key), artifacts, [.. parts[6..]], dependencies));
+            Set(new(asset, parts[1], version, new(key), artifacts, [..parts[6..]], dependencies));
         }
 
         return true;
@@ -243,6 +243,5 @@ public sealed class ImportCache {
         return assets;
     }
 
-    static IEnumerable<string> Split(string joined) =>
-        joined.Length == 0 ? [] : joined.Split(',');
+    static IEnumerable<string> Split(string joined) => joined.Length == 0 ? [] : joined.Split(',');
 }

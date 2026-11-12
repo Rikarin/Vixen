@@ -14,10 +14,18 @@ namespace Vixen.Ai.Nodes;
 /// <remarks>
 ///     <para>
 ///         doc 37 § D12's second implementation of <see cref="IActionCostModel" />, and the guide is
-///         supposed to say plainly what it costs, so: <b>this is a navigation query per action per
-///         resolve.</b> A domain of forty actions asks the mesh forty times every time an agent
-///         thinks. That is affordable at doc 28's stated scale — <i>"the few dozen agents where
-///         emergent behaviour is the point"</i> — and is not affordable for a crowd.
+///         supposed to say plainly what it costs, so:
+///         <b>
+///             this is a navigation query per action per
+///             resolve.
+///         </b>
+///         A domain of forty actions asks the mesh forty times every time an agent
+///         thinks. That is affordable at doc 28's stated scale —
+///         <i>
+///             "the few dozen agents where
+///             emergent behaviour is the point"
+///         </i>
+///         — and is not affordable for a crowd.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>Budgeted rather than exact, for P4's reason.</b> Vixen bakes no coarse graph, so there
@@ -54,7 +62,7 @@ public sealed class NavigationCostModel(NavMeshQuery query, float perMetre = 0.1
 
         var straight = (target.Position - from).Length();
 
-        return MathF.Max(1f, action.BaseCost + (Travel(from, target.Position, straight) * perMetre));
+        return MathF.Max(1f, action.BaseCost + Travel(from, target.Position, straight) * perMetre);
     }
 
     /// <summary>How far the agent would actually walk, or a penalised straight line.</summary>
@@ -101,7 +109,7 @@ public static class GoapWiring {
     /// <returns>The table, ready for target sensors to be added to it.</returns>
     public static GoapTargetSensors Sensors() =>
         new() {
-            AgentPosition = (in AgentContext context, out Vector3 position) =>
+            AgentPosition = static (in AgentContext context, out Vector3 position) =>
                 AgentTarget.TryPositionOf(context.World, context.Entity, out position)
         };
 

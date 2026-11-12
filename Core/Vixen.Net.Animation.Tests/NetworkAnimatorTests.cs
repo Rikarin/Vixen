@@ -24,7 +24,7 @@ public sealed class NetworkAnimatorTests {
     [Fact]
     public void TheAuthorityPublishesItsParametersAndState() {
         using var world = new World("animator-capture");
-        var capture = new NetworkAnimatorCaptureSystem();
+        using var capture = new NetworkAnimatorCaptureSystem();
 
         var animator = Build(out var speed);
         animator.Parameters.SetFloat(speed, 4.5f);
@@ -52,7 +52,8 @@ public sealed class NetworkAnimatorTests {
     [Fact]
     public void AReceiverDrivesItsOwnAnimatorFromTheParameters() {
         using var world = new World("animator-apply");
-        var apply = new NetworkAnimatorApplySystem { Local = Receiving };
+        using var apply = new NetworkAnimatorApplySystem();
+        apply.Local = Receiving;
 
         var animator = Build(out var speed);
         var entity = Spawn(world, animator);
@@ -82,12 +83,13 @@ public sealed class NetworkAnimatorTests {
     [Fact]
     public void AnAnimatorAlreadyInTheRightState_IsNotRestarted() {
         using var world = new World("animator-no-restart");
-        var apply = new NetworkAnimatorApplySystem { Local = Receiving };
+        using var apply = new NetworkAnimatorApplySystem();
+        apply.Local = Receiving;
 
         var animator = Build(out _);
         animator.Update(0.25f);
 
-        var entity = Spawn(world, animator);
+        _ = Spawn(world, animator);
         var before = animator.Layers[0].States.NormalizedTime;
 
         Assert.True(before > 0f, "The animator should have advanced before this is meaningful.");
@@ -109,9 +111,10 @@ public sealed class NetworkAnimatorTests {
     [Fact]
     public void AnAnimatorThatHasDivergedIsCorrected() {
         using var world = new World("animator-correct");
-        var apply = new NetworkAnimatorApplySystem { Local = Receiving };
+        using var apply = new NetworkAnimatorApplySystem();
+        apply.Local = Receiving;
 
-        var animator = Build(out _, twoStates: true);
+        var animator = Build(out _, true);
         animator.Update(0.1f);
 
         var entity = Spawn(world, animator);
@@ -139,14 +142,20 @@ public sealed class NetworkAnimatorTests {
         ownership.SetOwner(new(1), mine);
         rules.Set(new(1), NetworkRules.OwnerAuthoritative);
 
-        var capture = new NetworkAnimatorCaptureSystem { Rules = rules, Local = mine };
-        var apply = new NetworkAnimatorApplySystem { Rules = rules, Local = mine };
+        using var capture = new NetworkAnimatorCaptureSystem();
+        capture.Rules = rules;
+        capture.Local = mine;
+        using var apply = new NetworkAnimatorApplySystem();
+        apply.Rules = rules;
+        apply.Local = mine;
 
         Assert.True(capture.IsAuthority(new(1)));
         Assert.True(apply.IsAuthority(new(1)));
 
         // And a peer that is not the owner takes the other branch on the same rule.
-        var theirs = new NetworkAnimatorCaptureSystem { Rules = rules, Local = new(5) };
+        using var theirs = new NetworkAnimatorCaptureSystem();
+        theirs.Rules = rules;
+        theirs.Local = new(5);
         Assert.False(theirs.IsAuthority(new(1)));
     }
 
@@ -183,16 +192,13 @@ public sealed class NetworkAnimatorTests {
         Assert.Equal(1024f, got.Values[2]);
     }
 
-    static Entity Spawn(World world, Animator animator) {
-        var entity = world.Create(
+    static Entity Spawn(World world, Animator animator) =>
+        world.Create(
             new NetworkId(1),
             new AnimatorComponent { Value = animator },
             default(NetworkAnimator),
             default(NetworkAnimatorParameters)
         );
-
-        return entity;
-    }
 
     /// <summary>A one-joint rig with a state machine over it, which is all these tests need.</summary>
     /// <remarks>
@@ -208,7 +214,7 @@ public sealed class NetworkAnimatorTests {
             ? new[] { new AnimationState("Idle", new Still()), new AnimationState("Run", new Still()) }
             : [new AnimationState("Idle", new Still())];
 
-        animator.AddLayer("Base", new AnimationStateMachine(states));
+        animator.AddLayer("Base", new(states));
 
         return animator;
     }
@@ -217,8 +223,7 @@ public sealed class NetworkAnimatorTests {
         Assert.True(
             Skeleton.TryCreate(
                 new() {
-                    Name = "Test",
-                    Joints = [new() { Name = "Root", Parent = -1, InverseBindPose = Matrix4x4.Identity }]
+                    Name = "Test", Joints = [new() { Name = "Root", Parent = -1, InverseBindPose = Matrix4x4.Identity }]
                 },
                 out var skeleton,
                 out var error

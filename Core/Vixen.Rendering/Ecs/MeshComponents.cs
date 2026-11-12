@@ -18,8 +18,11 @@ namespace Vixen.Rendering.Ecs;
 ///         instance of.
 ///     </para>
 ///     <para>
-///         <b>An <see cref="AssetReference" /> rather than a bare <see cref="AssetId" />, because a
-///         model is not one mesh.</b> An FBX imports to a main object and a sub-asset per mesh, and
+///         <b>
+///             An <see cref="AssetReference" /> rather than a bare <see cref="AssetId" />, because a
+///             model is not one mesh.
+///         </b>
+///         An FBX imports to a main object and a sub-asset per mesh, and
 ///         what an entity draws is usually one of the parts — <c>characters/hero#Hero_Mesh</c>, whose
 ///         reference is the asset's id and that part's sub-asset id. A bare id could only ever name the
 ///         main object.
@@ -47,8 +50,12 @@ namespace Vixen.Rendering.Ecs;
 public struct MeshRenderable : IDefaultComponent<MeshRenderable> {
     /// <summary>Which mesh, as the reference a scene stores.</summary>
     /// <remarks>
-    ///     ⚠ <b><c>[AssetType]</c> is what makes the row in the inspector a picker for <i>meshes</i>
-    ///     rather than for anything in the project.</b> It is <c>Vixen.Core</c>'s annotation and not
+    ///     ⚠
+    ///     <b>
+    ///         <c>[AssetType]</c> is what makes the row in the inspector a picker for <i>meshes</i>
+    ///         rather than for anything in the project.
+    ///     </b>
+    ///     It is <c>Vixen.Core</c>'s annotation and not
     ///     the editor's, for the reason this whole component is drawn from its <c>[DataContract]</c>
     ///     description: a runtime assembly referencing an editor one is the coupling doc 11's
     ///     layering exists to prevent.
@@ -73,9 +80,12 @@ public struct MeshRenderable : IDefaultComponent<MeshRenderable> {
     ///         build one with, exactly as <c>Lights.Default</c> exists for the same reason.
     ///     </para>
     ///     <para>
-    ///         <b>Read by <see cref="MeshExtractionSystem" />, and only where
-    ///         <see cref="MeshExtractionSystem.CasterStages" /> says which stages are the shadow
-    ///         ones.</b> A render object carries a stage mask and nothing else a shadow pass could
+    ///         <b>
+    ///             Read by <see cref="MeshExtractionSystem" />, and only where
+    ///             <see cref="MeshExtractionSystem.CasterStages" /> says which stages are the shadow
+    ///             ones.
+    ///         </b>
+    ///         A render object carries a stage mask and nothing else a shadow pass could
     ///         consult, so "casts no shadow" is spelled as "not in those stages" — which means a host
     ///         that has not named them cannot honour the flag, and ignores it rather than dropping
     ///         every shadow in a scene whose zeroed columns all read <see langword="false" />.
@@ -92,13 +102,18 @@ public struct MeshRenderable : IDefaultComponent<MeshRenderable> {
 
     /// <summary>A renderable with no mesh yet, casting shadows once it has one.</summary>
     /// <remarks>
-    ///     ⚠ <b>Explicit, so this does not become a second public name for
-    ///     <see cref="MeshRenderables.Default" />.</b> That one takes the mesh, which is the question an
+    ///     ⚠
+    ///     <b>
+    ///         Explicit, so this does not become a second public name for
+    ///         <see cref="MeshRenderables.Default" />.
+    ///     </b>
+    ///     That one takes the mesh, which is the question an
     ///     Add Component has no answer to — the picker is the answer, and it is the next thing the
     ///     author touches. What is worth carrying across from it is the shadow flag, whose zero reads
     ///     as a lighting bug and takes a while to attribute to a checkbox.
     /// </remarks>
-    static MeshRenderable IDefaultComponent<MeshRenderable>.DefaultValue => MeshRenderables.Default(AssetReference.Null);
+    static MeshRenderable IDefaultComponent<MeshRenderable>.DefaultValue =>
+        MeshRenderables.Default(AssetReference.Null);
 }
 
 /// <summary>An entity drawn as one of the built-in shapes.</summary>
@@ -163,7 +178,7 @@ public struct PrimitiveShape {
 /// </remarks>
 [Component]
 [DataContract]
-public struct StaticShadowCaster : ITagComponent;
+public readonly struct StaticShadowCaster : ITagComponent;
 
 /// <summary>How much of each of a mesh's blend shapes an entity is wearing.</summary>
 /// <remarks>
@@ -222,8 +237,12 @@ public struct BlendShapeWeights {
     ///         that has the weights is the only place that knows which mesh they are for.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Filled in by <see cref="MorphWeightSystem" /> from the shapes the render feature
-    ///         actually attached</b>, so it is the mesh's own order and not a guess — and so that a
+    ///         ⚠
+    ///         <b>
+    ///             Filled in by <see cref="MorphWeightSystem" /> from the shapes the render feature
+    ///             actually attached
+    ///         </b>
+    ///         , so it is the mesh's own order and not a guess — and so that a
     ///         game that never animates a face pays nothing for it. It is left alone once set: a
     ///         caller that wrote its own names is stating a binding, and overwriting it every frame
     ///         would make a hand-built one impossible.
@@ -324,7 +343,7 @@ public static class PrimitiveShapes {
     /// </remarks>
     public static bool TryParse(string? text, out PrimitiveKind kind) {
         if (!string.IsNullOrWhiteSpace(text)) {
-            return Enum.TryParse(text.Trim(), ignoreCase: true, out kind) && All.Contains(kind);
+            return Enum.TryParse(text.Trim(), true, out kind) && All.Contains(kind);
         }
 
         kind = default;
@@ -373,8 +392,12 @@ public static class PrimitiveShapes {
 ///         rather than by scanning for a sentinel.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Neither <c>[Component]</c> nor <c>[DataContract]</c>, and both omissions are
-///         load-bearing.</b> A <see cref="RenderObjectId" /> is a dense index into arrays this process
+///         ⚠
+///         <b>
+///             Neither <c>[Component]</c> nor <c>[DataContract]</c>, and both omissions are
+///             load-bearing.
+///         </b>
+///         A <see cref="RenderObjectId" /> is a dense index into arrays this process
 ///         allocated, so it means nothing in another one — saving it into a scene would restore a handle
 ///         to whatever object took the slot. That is the same reason <c>Entity</c> is never written to a
 ///         scene, and the absence of the attributes is the whole of what keeps this out of

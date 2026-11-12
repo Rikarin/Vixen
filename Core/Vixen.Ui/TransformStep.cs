@@ -7,8 +7,12 @@ namespace Vixen.Ui;
 
 /// <summary>Which primitive a <see cref="TransformStep" /> is.</summary>
 /// <remarks>
-///     ⚠ <b><see cref="RotateX" /> and <see cref="RotateY" /> are kinds of their own rather than a
-///     <see cref="Rotate3d" /> with a fixed axis, and the reason is bits rather than meaning.</b> The
+///     ⚠
+///     <b>
+///         <see cref="RotateX" /> and <see cref="RotateY" /> are kinds of their own rather than a
+///         <see cref="Rotate3d" /> with a fixed axis, and the reason is bits rather than meaning.
+///     </b>
+///     The
 ///     two have closed-form matrices that the Rodrigues formula reproduces only to the last bit — its
 ///     <c>(1 − cos) + cos</c> on the axis cell is not exactly one — and every committed screenshot was
 ///     rendered through the closed forms. They interpolate as <c>rotate3d()</c> does, which is what
@@ -56,8 +60,12 @@ enum TransformStepKind : byte {
 /// </param>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>The step exists because a transition cannot interpolate a matrix one function at a
-///         time and still be CSS.</b> <c>rotate(0deg)</c> to <c>rotate(360deg)</c> is a full turn;
+///         ⚠
+///         <b>
+///             The step exists because a transition cannot interpolate a matrix one function at a
+///             time and still be CSS.
+///         </b>
+///         <c>rotate(0deg)</c> to <c>rotate(360deg)</c> is a full turn;
 ///         the two matrices are both the identity, and any interpolation of the matrices moves
 ///         nothing. So CSS Transforms 2 interpolates the <i>arguments</i> of paired functions, and
 ///         only falls back to matrices where a pair shares no primitive — which means a transform has

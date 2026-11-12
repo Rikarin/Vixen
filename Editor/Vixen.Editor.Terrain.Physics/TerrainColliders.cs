@@ -23,8 +23,12 @@ namespace Vixen.Editor.Terrain.Physics;
 ///         up.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The claim it was "three lines" was nearly right and the missing line is the whole
-///         point.</b> The two <c>Rebuild</c> methods return <see langword="bool" /> where the
+///         ⚠
+///         <b>
+///             The claim it was "three lines" was nearly right and the missing line is the whole
+///             point.
+///         </b>
+///         The two <c>Rebuild</c> methods return <see langword="bool" /> where the
 ///         interface returns <see langword="void" />, and a forwarding wrapper that discarded that
 ///         value would be the exact failure this engine keeps producing: <see langword="false" />
 ///         means <em>this system has never heard of this terrain</em>, so every stroke would return
@@ -77,8 +81,12 @@ public sealed class TerrainColliders(TerrainColliderSystem colliders) : ITerrain
 
     /// <inheritdoc />
     /// <remarks>
-    ///     ⚠ <b>Forwarded rather than left to the interface's default, which would be a tile at a
-    ///     time.</b> Both walk <c>TerrainDescription.TilesOf</c> and answer with both sides of a
+    ///     ⚠
+    ///     <b>
+    ///         Forwarded rather than left to the interface's default, which would be a tile at a
+    ///         time.
+    ///     </b>
+    ///     Both walk <c>TerrainDescription.TilesOf</c> and answer with both sides of a
     ///     seam; the difference is that this one resolves the terrain once instead of once per tile.
     /// </remarks>
     public void Rebuild(TerrainMap terrain, TerrainRect rect) {

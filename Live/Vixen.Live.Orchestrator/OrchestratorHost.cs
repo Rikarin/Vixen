@@ -92,7 +92,7 @@ public static class OrchestratorHost {
         ArgumentNullException.ThrowIfNull(options);
 
         builder.UseVixenOrchestrator(options);
-        builder.UseOrleans(silo => silo.UseLocalhostClustering());
+        builder.UseOrleans(static silo => silo.UseLocalhostClustering());
 
         return builder;
     }

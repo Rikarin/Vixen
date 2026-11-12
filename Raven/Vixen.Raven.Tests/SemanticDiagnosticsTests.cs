@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core.Syntax.Diagnostics;
-using Vixen.Raven.Diagnostics;
 using Xunit;
 using static Tests.SemanticTestBase;
 
@@ -643,7 +642,7 @@ public class SemanticDiagnosticsTests {
             """
         );
 
-        var circular = Assert.Single(diagnostics, d => d.Id == "RVN2005");
+        var circular = Assert.Single(diagnostics, static d => d.Id == "RVN2005");
         Assert.Contains("F", circular.GetMessage());
         Assert.Equal(DiagnosticSeverity.Error, circular.Severity);
     }
@@ -663,7 +662,7 @@ public class SemanticDiagnosticsTests {
             """
         );
 
-        var circular = Assert.Single(diagnostics, d => d.Id == "RVN2005");
+        var circular = Assert.Single(diagnostics, static d => d.Id == "RVN2005");
         Assert.Contains("x", circular.GetMessage());
     }
 
@@ -686,7 +685,7 @@ public class SemanticDiagnosticsTests {
             """
         );
 
-        Assert.Contains(diagnostics, d => d.Id == "RVN2005");
+        Assert.Contains(diagnostics, static d => d.Id == "RVN2005");
     }
 
     [Fact]
@@ -705,7 +704,7 @@ public class SemanticDiagnosticsTests {
             """
         );
 
-        var circular = Assert.Single(diagnostics, d => d.Id == "RVN2005");
+        var circular = Assert.Single(diagnostics, static d => d.Id == "RVN2005");
         Assert.Contains("N", circular.GetMessage());
     }
 
@@ -744,7 +743,7 @@ public class SemanticDiagnosticsTests {
             """
         );
 
-        var recursive = Assert.Single(diagnostics, d => d.Id == "RVN2008");
+        var recursive = Assert.Single(diagnostics, static d => d.Id == "RVN2008");
         Assert.Equal(DiagnosticSeverity.Error, recursive.Severity);
         Assert.Contains("P.T", recursive.GetMessage(), StringComparison.Ordinal);
         Assert.Contains("T.f: P.T", recursive.GetMessage(), StringComparison.Ordinal);
@@ -771,11 +770,11 @@ public class SemanticDiagnosticsTests {
             """
         );
 
-        var fromA = Assert.Single(diagnostics, d => d.Id == "RVN2008" && d.GetMessage().Contains("'P.A'"));
+        var fromA = Assert.Single(diagnostics, static d => d.Id == "RVN2008" && d.GetMessage().Contains("'P.A'"));
         Assert.Contains("A.b: P.B → B.a: P.A", fromA.GetMessage(), StringComparison.Ordinal);
 
         // Both declarations are reported, because either one is a place the cycle can be broken.
-        Assert.Contains(diagnostics, d => d.Id == "RVN2008" && d.GetMessage().Contains("'P.B'"));
+        Assert.Contains(diagnostics, static d => d.Id == "RVN2008" && d.GetMessage().Contains("'P.B'"));
     }
 
     /// <summary>
@@ -797,7 +796,7 @@ public class SemanticDiagnosticsTests {
               """
         );
 
-        var recursive = Assert.Single(diagnostics, d => d.Id == "RVN2008");
+        var recursive = Assert.Single(diagnostics, static d => d.Id == "RVN2008");
         Assert.Contains(route, recursive.GetMessage(), StringComparison.Ordinal);
     }
 
@@ -819,7 +818,7 @@ public class SemanticDiagnosticsTests {
             """
         );
 
-        var fromA = Assert.Single(diagnostics, d => d.Id == "RVN2008" && d.GetMessage().Contains("'P.A'"));
+        var fromA = Assert.Single(diagnostics, static d => d.Id == "RVN2008" && d.GetMessage().Contains("'P.A'"));
         Assert.Contains("A.b: P.B[2] → B.a: P.A", fromA.GetMessage(), StringComparison.Ordinal);
     }
 
@@ -843,7 +842,7 @@ public class SemanticDiagnosticsTests {
               """
         );
 
-        Assert.Single(diagnostics, d => d.Id == "RVN2008");
+        Assert.Single(diagnostics, static d => d.Id == "RVN2008");
     }
 
     /// <summary>
@@ -868,7 +867,7 @@ public class SemanticDiagnosticsTests {
             """
         );
 
-        var recursive = Assert.Single(diagnostics, d => d.Id == "RVN2008");
+        var recursive = Assert.Single(diagnostics, static d => d.Id == "RVN2008");
         Assert.Contains("A.b: P.B<P.A> → B.t: P.A", recursive.GetMessage(), StringComparison.Ordinal);
     }
 
@@ -893,9 +892,9 @@ public class SemanticDiagnosticsTests {
             """
         );
 
-        var recursive = Assert.Single(diagnostics, d => d.Id == "RVN2008");
+        var recursive = Assert.Single(diagnostics, static d => d.Id == "RVN2008");
         Assert.Contains("'P.A'", recursive.GetMessage(), StringComparison.Ordinal);
-        Assert.DoesNotContain(diagnostics, d => d.Id == "RVN2007");
+        Assert.DoesNotContain(diagnostics, static d => d.Id == "RVN2007");
     }
 
     /// <summary>
@@ -939,8 +938,12 @@ public class SemanticDiagnosticsTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A method group is the one receiver typed as an error without an error having
-    ///         been reported</b>, so the guard that suppresses a cascade from an already-reported
+    ///         ⚠
+    ///         <b>
+    ///             A method group is the one receiver typed as an error without an error having
+    ///             been reported
+    ///         </b>
+    ///         , so the guard that suppresses a cascade from an already-reported
     ///         receiver used to swallow it — the same shape as <c>RVN2030</c> and a namespace, and
     ///         found the same way. <c>min.y</c> is one token away from <c>scale.y</c>, and it
     ///         compiled with nothing reported at all: the <c>val</c> took a void type, the multiply
@@ -1002,9 +1005,13 @@ public class SemanticDiagnosticsTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>This is <c>Raven/Library/Pipeline/ClusterRaster.rvn</c> before <c>852bcca0</c>,
-    ///         and <c>Terrain/GrassScatter.rvn</c> and <c>Terrain/Impostor.rvn</c> before this
-    ///         commit.</b> A newline ends a statement (README § Line breaks), so the two lines are
+    ///         ⚠
+    ///         <b>
+    ///             This is <c>Raven/Library/Pipeline/ClusterRaster.rvn</c> before <c>852bcca0</c>,
+    ///             and <c>Terrain/GrassScatter.rvn</c> and <c>Terrain/Impostor.rvn</c> before this
+    ///             commit.
+    ///         </b>
+    ///         A newline ends a statement (README § Line breaks), so the two lines are
     ///         <c>total = total</c> — a legal assignment that stores what it just loaded — and a
     ///         unary <c>+</c> nobody reads. Every one of the three compiled clean, dispatched, and
     ///         produced geometry that did not move: the shipped <c>GrassScatter.comp.spv</c> holds
@@ -1081,9 +1088,7 @@ public class SemanticDiagnosticsTests {
     // because the parser reaches them, not because a grammar for files was ever written.
     [InlineData("float operator +(a: float, b: float) {\n    return a\n}", "+", "operator")]
     public void A_member_at_package_level_is_reported(string member, string name, string kind) {
-        var diagnostic = Assert.Single(
-            AssertDiagnostics($"package A\n\n{member}\n\nshader S {{\n}}\n", "RVN2054")
-        );
+        var diagnostic = Assert.Single(AssertDiagnostics($"package A\n\n{member}\n\nshader S {{\n}}\n", "RVN2054"));
 
         Assert.True(diagnostic.IsError);
         Assert.Contains(name, diagnostic.GetMessage(), StringComparison.Ordinal);

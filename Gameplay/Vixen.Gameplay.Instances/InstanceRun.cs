@@ -18,7 +18,7 @@ public sealed class InstanceLibrary {
 
     /// <summary>Every instance, in address order.</summary>
     public IEnumerable<Instance> Instances =>
-        instances.Values.OrderBy(instance => instance.Definition.Address, StringComparer.Ordinal);
+        instances.Values.OrderBy(static instance => instance.Definition.Address, StringComparer.Ordinal);
 
     /// <summary>What did not resolve, and what a definition said that cannot be true at once.</summary>
     public IReadOnlyList<string> Problems => problems;
@@ -75,7 +75,7 @@ public sealed class InstanceLibrary {
                 }
             }
 
-            if (definition.Encounters.Count > 0 && !definition.Encounters.Exists(entry => entry.IsCheckpoint)) {
+            if (definition.Encounters.Count > 0 && !definition.Encounters.Exists(static entry => entry.IsCheckpoint)) {
                 problems.Add(
                     $"'{definition.Address}' has no checkpoint, so a wipe on the last fight sends the group "
                     + "back to the door."
@@ -84,11 +84,11 @@ public sealed class InstanceLibrary {
 
             instances.Add(
                 definition.Id.Value,
-                new(definition, DefId.From(definition.Scene), difficulties, [.. definition.Encounters])
+                new(definition, DefId.From(definition.Scene), difficulties, [..definition.Encounters])
             );
         }
 
-        return new(instances, [.. problems]);
+        return new(instances, [..problems]);
     }
 
     /// <summary>Finds an instance.</summary>
@@ -104,8 +104,12 @@ public sealed class InstanceLibrary {
 ///         which difficulty, who is in it, how far they got, and what a wipe costs them.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The difficulty is chosen once and cannot change.</b> A lockout is per <c>(instance,
-///         difficulty)</c>, so a group that could switch halfway would have one lockout covering two —
+///         ⚠ <b>The difficulty is chosen once and cannot change.</b> A lockout is per
+///         <c>
+///             (instance,
+///             difficulty)
+///         </c>
+///         , so a group that could switch halfway would have one lockout covering two —
 ///         which is the shape of every "clear it on normal then swap to heroic" exploit.
 ///     </para>
 ///     <para>
@@ -159,7 +163,7 @@ public sealed class InstanceRun {
     public bool IsClosed { get; private set; }
 
     /// <summary>How many fights have been beaten.</summary>
-    public int Defeated => statuses.Count(status => status == EncounterStatus.Defeated);
+    public int Defeated => statuses.Count(static status => status == EncounterStatus.Defeated);
 
     /// <summary>The furthest checkpoint reached, or −1 for none.</summary>
     public int Checkpoint { get; private set; } = -1;

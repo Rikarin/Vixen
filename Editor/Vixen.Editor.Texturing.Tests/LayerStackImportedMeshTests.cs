@@ -40,29 +40,29 @@ namespace Vixen.Editor.Texturing.Tests;
 public class LayerStackImportedMeshTests {
     /// <summary>A cube with no texture coordinates whatever, so an atlas can only have been generated.</summary>
     const string Cube = """
-        o Cube
-        v -0.5 -0.5 -0.5
-        v 0.5 -0.5 -0.5
-        v 0.5 0.5 -0.5
-        v -0.5 0.5 -0.5
-        v -0.5 -0.5 0.5
-        v 0.5 -0.5 0.5
-        v 0.5 0.5 0.5
-        v -0.5 0.5 0.5
-        f 5 6 7
-        f 5 7 8
-        f 1 4 3
-        f 1 3 2
-        f 2 3 7
-        f 2 7 6
-        f 1 5 8
-        f 1 8 4
-        f 4 8 7
-        f 4 7 3
-        f 1 2 6
-        f 1 6 5
+                        o Cube
+                        v -0.5 -0.5 -0.5
+                        v 0.5 -0.5 -0.5
+                        v 0.5 0.5 -0.5
+                        v -0.5 0.5 -0.5
+                        v -0.5 -0.5 0.5
+                        v 0.5 -0.5 0.5
+                        v 0.5 0.5 0.5
+                        v -0.5 0.5 0.5
+                        f 5 6 7
+                        f 5 7 8
+                        f 1 4 3
+                        f 1 3 2
+                        f 2 3 7
+                        f 2 7 6
+                        f 1 5 8
+                        f 1 8 4
+                        f 4 8 7
+                        f 4 7 3
+                        f 1 2 6
+                        f 1 6 5
 
-        """;
+                        """;
 
     /// <summary>
     ///     An import-time unwrap is what the stack resolves to, and before the import the same call is
@@ -93,7 +93,7 @@ public class LayerStackImportedMeshTests {
 
         var mesh = LayerStackMesh.Open(fixture.Project, stack, stack.Sets[0], geometry, out var after);
 
-        Assert.Equal("", after);
+        Assert.Equal(string.Empty, after);
         Assert.NotNull(mesh);
 
         // A cube is twelve triangles and the unwrap does not add or remove any: it assigns the
@@ -107,7 +107,7 @@ public class LayerStackImportedMeshTests {
         // packs charts with a margin, so a map covering every texel of the square would mean the
         // coordinates had degenerated — which is exactly what `PaintCoverage.Everywhere` looks like,
         // and what the pane showed before a stack knew its mesh at all.
-        Assert.InRange(coverage.CoveredTexels, 1, (64 * 64) - 1);
+        Assert.InRange(coverage.CoveredTexels, 1, 64 * 64 - 1);
     }
 
     /// <summary>
@@ -183,7 +183,7 @@ public class LayerStackImportedMeshTests {
         var narrowed = With(stack, mesh);
         var opened = LayerStackMesh.Open(fixture.Project, narrowed, narrowed.Sets[0], geometry, out var refusal);
 
-        Assert.Equal("", refusal);
+        Assert.Equal(string.Empty, refusal);
         Assert.NotNull(opened);
 
         return opened;
@@ -203,16 +203,18 @@ public class LayerStackImportedMeshTests {
     static void Import(TexturingFixture fixture, ProjectWorkspace workspace) {
         List<ContentDiagnostic> said = [];
 
-        var summary = TexturingFixture.Wait(ContentPipeline.ImportAsync(
-            workspace,
-            ProjectWorkspace.HostTarget,
-            said.Add,
-            cancellationToken: TestContext.Current.CancellationToken
-        ));
+        var summary = TexturingFixture.Wait(
+            ContentPipeline.ImportAsync(
+                workspace,
+                ProjectWorkspace.HostTarget,
+                said.Add,
+                cancellationToken: TestContext.Current.CancellationToken
+            )
+        );
 
         Assert.True(
             summary.Failed == 0,
-            "the import failed: " + string.Join("; ", said.Select(diagnostic => diagnostic.Message))
+            "the import failed: " + string.Join("; ", said.Select(static diagnostic => diagnostic.Message))
         );
 
         fixture.Project.Assets.Scan();

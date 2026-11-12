@@ -17,8 +17,12 @@ namespace Vixen.Editor.Core.Tests;
 ///         <see cref="IUndoManager" />.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Register is the opposite of <see cref="CommandStack.Execute" />, and that is the
-///         thing to get wrong.</b> Execute runs the command and then records it; a control calling
+///         ⚠
+///         <b>
+///             Register is the opposite of <see cref="CommandStack.Execute" />, and that is the
+///             thing to get wrong.
+///         </b>
+///         Execute runs the command and then records it; a control calling
 ///         Register has <i>already</i> made the edit, so running it here would apply it twice — a
 ///         keystroke that types two characters, and a stack whose first undo takes back an edit
 ///         nobody made.
@@ -40,7 +44,7 @@ public sealed class CommandStackUndoManagerTests {
 
         manager.Register(
             "Typing",
-            () => value = "",
+            () => value = string.Empty,
             () => {
                 applications++;
                 value = "typed";
@@ -56,7 +60,7 @@ public sealed class CommandStackUndoManagerTests {
         Assert.Equal("Typing", stack.UndoName.Value);
 
         Assert.True(manager.Undo());
-        Assert.Equal("", value);
+        Assert.Equal(string.Empty, value);
 
         Assert.True(manager.Redo());
         Assert.Equal("typed", value);
@@ -87,7 +91,7 @@ public sealed class CommandStackUndoManagerTests {
 
     [Fact]
     public void Registering_while_the_stack_is_replaying_is_ignored() {
-        var manager = Manager(out var stack);
+        var manager = Manager(out _);
 
         var value = "b";
         var reentered = 0;
@@ -101,7 +105,7 @@ public sealed class CommandStackUndoManagerTests {
             () => {
                 value = "a";
                 reentered++;
-                manager.Register("Typing", () => { }, () => { });
+                manager.Register("Typing", static () => { }, static () => { });
             },
             () => value = "b"
         );
@@ -165,7 +169,7 @@ public sealed class CommandStackUndoManagerTests {
         Assert.Equal(stack.CanUndo.Value, manager.CanUndo);
         Assert.Equal(stack.CanRedo.Value, manager.CanRedo);
 
-        manager.Register("Typing", () => { }, () => { });
+        manager.Register("Typing", static () => { }, static () => { });
 
         Assert.True(manager.CanUndo);
         Assert.Equal(stack.CanUndo.Value, manager.CanUndo);

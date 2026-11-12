@@ -67,13 +67,15 @@ static class ExternalTool {
     /// <param name="program">The program name, resolved through the <c>PATH</c>.</param>
     /// <param name="arguments">The arguments, passed as a list so that nothing is quoted or split.</param>
     /// <param name="output">What it wrote.</param>
-    /// <returns><see langword="false" /> if it could not be started, failed, timed out or said
-    /// nothing.</returns>
+    /// <returns>
+    ///     <see langword="false" /> if it could not be started, failed, timed out or said
+    ///     nothing.
+    /// </returns>
     public static bool TryRead(string program, IReadOnlyList<string> arguments, out byte[] output) {
         output = [];
 
         try {
-            using var process = Start(program, arguments, redirectInput: false, redirectOutput: true);
+            using var process = Start(program, arguments, false, true);
 
             if (process is null) {
                 return false;
@@ -83,14 +85,15 @@ static class ExternalTool {
             process.StandardOutput.BaseStream.CopyTo(buffer);
 
             if (!process.WaitForExit(ReadTimeout)) {
-                process.Kill(entireProcessTree: true);
+                process.Kill(true);
                 return false;
             }
 
             output = buffer.ToArray();
             return process.ExitCode == 0 && output.Length > 0;
-        } catch (Exception error) when (error is InvalidOperationException or IOException
-            or System.ComponentModel.Win32Exception) {
+        } catch (Exception error) when (error is InvalidOperationException
+                                            or IOException
+                                            or System.ComponentModel.Win32Exception) {
             return false;
         }
     }
@@ -99,11 +102,13 @@ static class ExternalTool {
     /// <param name="program">The program name, resolved through the <c>PATH</c>.</param>
     /// <param name="arguments">The arguments.</param>
     /// <param name="input">What to write to its standard input.</param>
-    /// <returns><see langword="false" /> only if it could not be started or exited unhappily. See
-    /// the remarks on this class about why still running is a success.</returns>
+    /// <returns>
+    ///     <see langword="false" /> only if it could not be started or exited unhappily. See
+    ///     the remarks on this class about why still running is a success.
+    /// </returns>
     public static bool TryWrite(string program, IReadOnlyList<string> arguments, ReadOnlySpan<byte> input) {
         try {
-            using var process = Start(program, arguments, redirectInput: true, redirectOutput: false);
+            using var process = Start(program, arguments, true, false);
 
             if (process is null) {
                 return false;
@@ -114,8 +119,9 @@ static class ExternalTool {
             }
 
             return !process.WaitForExit(WriteTimeout) || process.ExitCode == 0;
-        } catch (Exception error) when (error is InvalidOperationException or IOException
-            or System.ComponentModel.Win32Exception) {
+        } catch (Exception error) when (error is InvalidOperationException
+                                            or IOException
+                                            or System.ComponentModel.Win32Exception) {
             return false;
         }
     }
@@ -138,7 +144,7 @@ static class ExternalTool {
         CancellationToken cancellationToken
     ) {
         try {
-            using var process = Start(program, arguments, redirectInput: false, redirectOutput: true);
+            using var process = Start(program, arguments, false, true);
 
             if (process is null) {
                 return (-1, string.Empty);
@@ -150,8 +156,9 @@ static class ExternalTool {
             return (process.ExitCode, output);
         } catch (OperationCanceledException) {
             return (-1, string.Empty);
-        } catch (Exception error) when (error is InvalidOperationException or IOException
-            or System.ComponentModel.Win32Exception) {
+        } catch (Exception error) when (error is InvalidOperationException
+                                            or IOException
+                                            or System.ComponentModel.Win32Exception) {
             return (-1, string.Empty);
         }
     }

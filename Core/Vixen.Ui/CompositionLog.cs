@@ -10,16 +10,24 @@ static partial class CompositionLog {
     /// <summary>A two-way binding whose forward leg can never run again.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The failure a <c>bind:</c> is most likely to have and the one it could not
-    ///         report.</b> The forward leg is an <c>Effect</c>, so it follows whatever the expression
+    ///         ⚠
+    ///         <b>
+    ///             The failure a <c>bind:</c> is most likely to have and the one it could not
+    ///             report.
+    ///         </b>
+    ///         The forward leg is an <c>Effect</c>, so it follows whatever the expression
     ///         <i>read</i>; over a plain property it reads nothing, runs once and is finished, while
     ///         the write-back leg keeps working perfectly. The result is a control that follows the
     ///         model until something other than the control writes it, and then silently stops —
     ///         which is the direction an author tests second.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A warning rather than the refusal a type mismatch gets, because this one
-    ///         half-works.</b> <c>bind:Value="@Model.Name"</c> over a POCO nothing else writes is a
+    ///         ⚠
+    ///         <b>
+    ///             A warning rather than the refusal a type mismatch gets, because this one
+    ///             half-works.
+    ///         </b>
+    ///         <c>bind:Value="@Model.Name"</c> over a POCO nothing else writes is a
     ///         reasonable thing to have written and does what its author wanted; a mismatch is not
     ///         and never can be. What is not reasonable is being unable to tell the two apart, which
     ///         is what this line is for.

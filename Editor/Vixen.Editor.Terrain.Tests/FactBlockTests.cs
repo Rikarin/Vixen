@@ -13,8 +13,12 @@ namespace Vixen.Editor.Terrain.Tests;
 /// <summary>The derived-numbers block, held to the loop it replaces.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>The assertion is the whole element tree with every rectangle in it, not a property
-///         read.</b> A part that draws the same rows a pixel to the left is a defect and a count
+///         ⚠
+///         <b>
+///             The assertion is the whole element tree with every rectangle in it, not a property
+///             read.
+///         </b>
+///         A part that draws the same rows a pixel to the left is a defect and a count
 ///         assertion cannot see it, so this builds the hand-written form, writes down what the
 ///         document looks like, throws it away, builds the part in exactly the same place, and
 ///         compares the two dumps as strings. Same place, because <c>UiTest.Tree</c> prints absolute
@@ -72,23 +76,25 @@ public sealed class FactBlockTests : IDisposable {
     [Fact]
     public void The_part_builds_the_tree_the_hand_written_loop_did() {
         var handWritten = Dump(() => {
-            var host = test.Document.Root.Add("terrain-facts");
+                var host = test.Document.Root.Add("terrain-facts");
 
-            HandWritten(host, Grass);
+                HandWritten(host, Grass);
 
-            return host;
-        });
+                return host;
+            }
+        );
 
         // ⚠ The part *is* the `terrain-facts` element rather than something inside one, which is the
         // whole reason it can stand where `panel.Add("terrain-facts")` stood. A box around it is
         // precisely what `dock-panel.scrolls > *` would stop reaching the content.
         var part = Dump(() => {
-            var block = test.Document.Root.Add<FactBlock>();
+                var block = test.Document.Root.Add<FactBlock>();
 
-            block.Show(Grass);
+                block.Show(Grass);
 
-            return block;
-        });
+                return block;
+            }
+        );
 
         Assert.Equal(handWritten, part);
     }
@@ -112,7 +118,7 @@ public sealed class FactBlockTests : IDisposable {
         test.Frames(2);
 
         Assert.Single(block.Children);
-        Assert.Equal("9.0 MB (derived)", ((FactRow) block.Children[0]).ValueText.Text);
+        Assert.Equal("9.0 MB (derived)", ((FactRow)block.Children[0]).ValueText.Text);
     }
 
     /// <summary>

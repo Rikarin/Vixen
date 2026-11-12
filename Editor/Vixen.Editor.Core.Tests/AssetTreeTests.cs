@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core;
-using Vixen.Editor.Core;
 using Xunit;
 
 namespace Vixen.Editor.Core.Tests;
@@ -13,7 +12,7 @@ public class AssetTreeTests {
 
     static AssetEntry Folder(string path) => new(AssetId.New(), path, null, 1, true);
 
-    static IReadOnlyList<string> Names(AssetTreeNode node) => [.. node.Children.Select(child => child.Name)];
+    static IReadOnlyList<string> Names(AssetTreeNode node) => [..node.Children.Select(static child => child.Name)];
 
     [Fact]
     public void An_empty_project_is_a_root_with_nothing_in_it() {
@@ -26,11 +25,13 @@ public class AssetTreeTests {
 
     [Fact]
     public void Files_hang_off_the_folder_their_path_names() {
-        var root = AssetTree.Build([
-            Folder("Assets/Scenes"),
-            File("Assets/Scenes/Main.vxscene"),
-            File("Assets/Readme.txt")
-        ]);
+        var root = AssetTree.Build(
+            [
+                Folder("Assets/Scenes"),
+                File("Assets/Scenes/Main.vxscene"),
+                File("Assets/Readme.txt")
+            ]
+        );
 
         Assert.Equal(["Scenes", "Readme.txt"], Names(root));
         Assert.Equal(["Main.vxscene"], Names(root.Children[0]));
@@ -107,7 +108,7 @@ public class AssetTreeTests {
         ];
 
         var forwards = AssetTree.Build(entries);
-        var backwards = AssetTree.Build([.. Enumerable.Reverse(entries)]);
+        var backwards = AssetTree.Build([..Enumerable.Reverse(entries)]);
 
         Assert.Equal(Names(forwards), Names(backwards));
         Assert.Equal(["b", "a.txt", "c.txt"], Names(forwards));
@@ -119,7 +120,7 @@ public class AssetTreeTests {
 
         Assert.Equal(
             [AssetTree.RootName, "Scenes", "Main.vxscene"],
-            root.Descend().Select(node => node.Name)
+            root.Descend().Select(static node => node.Name)
         );
     }
 
@@ -130,7 +131,7 @@ public class AssetTreeTests {
         Assert.Equal("Main.vxscene", AssetTree.Find(root, "Assets/Scenes/Main.vxscene")?.Name);
         Assert.Equal("Scenes", AssetTree.Find(root, "Assets/Scenes")?.Name);
         Assert.Null(AssetTree.Find(root, "Assets/Nope"));
-        Assert.Null(AssetTree.Find(root, ""));
+        Assert.Null(AssetTree.Find(root, string.Empty));
     }
 
     [Fact]
@@ -143,11 +144,13 @@ public class AssetTreeTests {
 
     [Fact]
     public void A_search_keeps_the_folders_holding_what_matched() {
-        var root = AssetTree.Build([
-            File("Assets/Scenes/Main.vxscene"),
-            File("Assets/Textures/Crate.png"),
-            File("Assets/Textures/Barrel.png")
-        ]);
+        var root = AssetTree.Build(
+            [
+                File("Assets/Scenes/Main.vxscene"),
+                File("Assets/Textures/Crate.png"),
+                File("Assets/Textures/Barrel.png")
+            ]
+        );
 
         var found = AssetTree.Filter(root, "crate");
         var textures = Assert.Single(found.Children);

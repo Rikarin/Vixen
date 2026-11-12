@@ -35,8 +35,12 @@ public interface IBlackboardBinding {
 /// <param name="age">The key holding the stimulus age in seconds, or null for none.</param>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>The target key stays set after the target is lost, and the age key is how a tree
-///         tells.</b> Clearing it on losing sight would make "chase him" and "search where he was"
+///         ⚠
+///         <b>
+///             The target key stays set after the target is lost, and the age key is how a tree
+///             tells.
+///         </b>
+///         Clearing it on losing sight would make "chase him" and "search where he was"
 ///         two different branches reading two different keys, and the second one would need its own
 ///         copy of the position and its own timer — which is the hand-written memory management this
 ///         exists to remove. A branch that only wants a live target tests
@@ -107,7 +111,6 @@ public sealed class TargetLocationAgeBinding(
 ///     when the area is busy, or a "you are outnumbered, fall back" branch actually reads — and each
 ///     of those written against the triple would be a decorator comparing an entity key to nothing in
 ///     particular.
-///
 ///     ⚠ It counts only what is <i>currently</i> perceived, not what is remembered. "Two of them are
 ///     in the room" and "two of them were in the room at some point in the last five seconds" are
 ///     different claims, and only the first is worth an alarm.

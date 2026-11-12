@@ -17,7 +17,7 @@ namespace Vixen.Editor.Assets;
 public sealed class ImporterAttribute(params string[] extensions) : Attribute {
     /// <summary>The extensions it claims, lowercase and with their leading dots.</summary>
     public IReadOnlyList<string> Extensions { get; } =
-        [.. (extensions ?? []).Select(extension => extension.ToLowerInvariant())];
+        [..(extensions ?? []).Select(static extension => extension.ToLowerInvariant())];
 }
 
 /// <summary>Anything that turns a source file into artefacts.</summary>
@@ -60,8 +60,12 @@ public interface IAssetImporter {
 ///         <c>ImportContext&lt;TSettings&gt;</c> and is not a simplification. Building an
 ///         <c>ImportContext&lt;T&gt;</c> for a settings type the pipeline only knows at run time
 ///         needs <c>MakeGenericType</c>, which NativeAOT does not have. The importer's own type
-///         parameter costs nothing — it is closed at the <c>class TextureImporter :
-///         AssetImporter&lt;TextureImportSettings&gt;</c> declaration — so the settings arrive as a
+///         parameter costs nothing — it is closed at the
+///         <c>
+///             class TextureImporter :
+///             AssetImporter&lt;TextureImportSettings&gt;
+///         </c>
+///         declaration — so the settings arrive as a
 ///         typed parameter and everything stays statically bound.
 ///     </para>
 ///     <para>

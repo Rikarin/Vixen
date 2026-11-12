@@ -119,9 +119,13 @@ public sealed class UiTest : IDisposable {
 
     /// <summary>What kind of device the harness's pointers claim to be.</summary>
     /// <remarks>
-    ///     ⚠ <b><see cref="PointerType.Mouse" /> here, where <see cref="PointerEvent.PointerType" />
-    ///     defaults to <see cref="PointerType.Unknown" />, and the two defaults disagree on
-    ///     purpose.</b> The field's default has to be "nobody said", because an unset field that
+    ///     ⚠
+    ///     <b>
+    ///         <see cref="PointerType.Mouse" /> here, where <see cref="PointerEvent.PointerType" />
+    ///         defaults to <see cref="PointerType.Unknown" />, and the two defaults disagree on
+    ///         purpose.
+    ///     </b>
+    ///     The field's default has to be "nobody said", because an unset field that
     ///     claimed to be a mouse would be an arbitration point lying to whoever trusted it. A test
     ///     harness is not an unset field: it is a producer, it knows what it is driving, and every
     ///     existing test in this repository that reaches for a pointer means the desktop one. Set it
@@ -185,7 +189,7 @@ public sealed class UiTest : IDisposable {
     ///     zero would make the first assertion of every test a surprise.
     /// </remarks>
     public static UiTest Create(float width = 1280f, float height = 720f, UiTestOptions? options = null) {
-        var test = new UiTest(new UiDocument(width, height), options ?? new UiTestOptions());
+        var test = new UiTest(new(width, height), options ?? new UiTestOptions());
         test.Frame();
         return test;
     }
@@ -196,8 +200,12 @@ public sealed class UiTest : IDisposable {
     /// <returns>A harness over it.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A harness that can only make its own document cannot test anything that owns
-    ///         one</b> — which is every shell, every application and every control set that installs
+    ///         ⚠
+    ///         <b>
+    ///             A harness that can only make its own document cannot test anything that owns
+    ///             one
+    ///         </b>
+    ///         — which is every shell, every application and every control set that installs
     ///         its own stylesheets on the way up. <c>EditorShell</c> is the case this was added for:
     ///         it builds a document in its constructor, and a screenshot of a <i>different</i> one
     ///         would be a picture of an empty viewport while the thing under test laid itself out
@@ -210,14 +218,15 @@ public sealed class UiTest : IDisposable {
     ///         the harness first is the arrangement that avoids it.
     ///     </para>
     ///     <para>
-    ///         No frame is run here, unlike <see cref="Create(float, float, UiTestOptions)" />. An adopted document has usually
+    ///         No frame is run here, unlike <see cref="Create(float, float, UiTestOptions)" />. An adopted document has
+    ///         usually
     ///         had its tree built already and may want a clock, a resize or a stylesheet before it is
     ///         laid out — so the first frame is the caller's to place.
     ///     </para>
     /// </remarks>
     public static UiTest Adopt(UiDocument document, UiTestOptions? options = null) {
         ArgumentNullException.ThrowIfNull(document);
-        return new UiTest(document, options ?? new UiTestOptions());
+        return new(document, options ?? new UiTestOptions());
     }
 
     /// <summary>Adds a stylesheet.</summary>
@@ -231,7 +240,10 @@ public sealed class UiTest : IDisposable {
     /// <param name="id">Its id, if it has one.</param>
     /// <param name="classNames">Its classes.</param>
     /// <returns>The element.</returns>
-    /// <remarks>A shorthand for <see cref="UiDocument.Create(string, UiElement?, string?, ReadOnlySpan{string})" />, so that a test building a fixture does not read as a paragraph about the document.</remarks>
+    /// <remarks>
+    ///     A shorthand for <see cref="UiDocument.Create(string, UiElement?, string?, ReadOnlySpan{string})" />, so that a
+    ///     test building a fixture does not read as a paragraph about the document.
+    /// </remarks>
     public UiElement Create(string tag, UiElement? parent = null, string? id = null, params string[] classNames) =>
         Document.Create(tag, parent ?? Document.Root, id, classNames);
 
@@ -354,7 +366,7 @@ public sealed class UiTest : IDisposable {
     /// <param name="pointer">Which pointer. The first one, unless a test is using two.</param>
     /// <returns>What it went to, or <c>null</c> if nothing was there.</returns>
     public UiElement? MovePointer(float x, float y, int pointer = PointerId) {
-        positions[pointer] = new Vector2(x, y);
+        positions[pointer] = new(x, y);
         return Send(PointerAction.Moved, PointerButton.None, pointer);
     }
 
@@ -375,8 +387,7 @@ public sealed class UiTest : IDisposable {
     /// <summary>Where a pointer is.</summary>
     /// <param name="pointer">Which one.</param>
     /// <returns>Its position, or the origin if it has never been moved.</returns>
-    public Vector2 PointerAt(int pointer) =>
-        positions.TryGetValue(pointer, out var position) ? position : Vector2.Zero;
+    public Vector2 PointerAt(int pointer) => positions.TryGetValue(pointer, out var position) ? position : Vector2.Zero;
 
     /// <summary>Drags from one point to another, in steps.</summary>
     /// <param name="fromX">Where to press, in document pixels.</param>
@@ -411,7 +422,7 @@ public sealed class UiTest : IDisposable {
 
         for (var step = 1; step <= steps; step++) {
             var t = (float)step / steps;
-            MovePointer(fromX + ((toX - fromX) * t), fromY + ((toY - fromY) * t));
+            MovePointer(fromX + (toX - fromX) * t, fromY + (toY - fromY) * t);
             Frame();
         }
 
@@ -427,14 +438,16 @@ public sealed class UiTest : IDisposable {
     /// <param name="deltaY">How far down.</param>
     /// <returns>What it went to.</returns>
     public UiElement? Wheel(float deltaX, float deltaY) =>
-        Document.Dispatch(new WheelEvent {
-            PointerId = PointerId,
-            X = Pointer.X,
-            Y = Pointer.Y,
-            DeltaX = deltaX,
-            DeltaY = deltaY,
-            Timestamp = Now
-        });
+        Document.Dispatch(
+            new WheelEvent {
+                PointerId = PointerId,
+                X = Pointer.X,
+                Y = Pointer.Y,
+                DeltaX = deltaX,
+                DeltaY = deltaY,
+                Timestamp = Now
+            }
+        );
 
     /// <summary>Presses and releases a key, with whatever <see cref="Hold" /> is holding.</summary>
     /// <param name="key">Which physical key, by its US-QWERTY legend.</param>
@@ -450,24 +463,23 @@ public sealed class UiTest : IDisposable {
     /// <param name="isRepeat">Whether this is the platform's auto-repeat.</param>
     /// <returns>What it went to.</returns>
     public UiElement? KeyDown(InputKey key, bool isRepeat = false) =>
-        Document.Dispatch(new KeyEvent {
-            Key = key,
-            Action = KeyAction.Pressed,
-            Modifiers = Modifiers,
-            IsRepeat = isRepeat,
-            Timestamp = Now
-        });
+        Document.Dispatch(
+            new KeyEvent {
+                Key = key,
+                Action = KeyAction.Pressed,
+                Modifiers = Modifiers,
+                IsRepeat = isRepeat,
+                Timestamp = Now
+            }
+        );
 
     /// <summary>Lets a key up.</summary>
     /// <param name="key">Which one.</param>
     /// <returns>What it went to.</returns>
     public UiElement? KeyUp(InputKey key) =>
-        Document.Dispatch(new KeyEvent {
-            Key = key,
-            Action = KeyAction.Released,
-            Modifiers = Modifiers,
-            Timestamp = Now
-        });
+        Document.Dispatch(
+            new KeyEvent { Key = key, Action = KeyAction.Released, Modifiers = Modifiers, Timestamp = Now }
+        );
 
     /// <summary>Sends typed text to whatever has the focus.</summary>
     /// <param name="text">What was typed.</param>
@@ -502,11 +514,7 @@ public sealed class UiTest : IDisposable {
         ArgumentNullException.ThrowIfNull(text);
 
         return Document.Dispatch(
-            new TextCompositionEvent {
-                Text = text,
-                Start = caret < 0 ? text.Length : caret,
-                Timestamp = Now
-            }
+            new TextCompositionEvent { Text = text, Start = caret < 0 ? text.Length : caret, Timestamp = Now }
         );
     }
 
@@ -526,7 +534,7 @@ public sealed class UiTest : IDisposable {
         var width = (int)MathF.Round(Document.Viewport.ViewportWidth);
         var height = (int)MathF.Round(Document.Viewport.ViewportHeight);
 
-        var frame = geometry.Build(Document.Drawing, glyphs, new Rectangle(0, 0, width, height));
+        var frame = geometry.Build(Document.Drawing, glyphs, new(0, 0, width, height));
         return SoftwareUiRasterizer.Render(frame, glyphs.Atlas, width, height, Options.Background);
     }
 
@@ -544,7 +552,7 @@ public sealed class UiTest : IDisposable {
             var width = (int)MathF.Round(Document.Viewport.ViewportWidth);
             var height = (int)MathF.Round(Document.Viewport.ViewportHeight);
 
-            return geometry.Build(Document.Drawing, glyphs, new Rectangle(0, 0, width, height));
+            return geometry.Build(Document.Drawing, glyphs, new(0, 0, width, height));
         }
     }
 
@@ -647,8 +655,12 @@ public sealed class UiTest : IDisposable {
     ///         same shape a pixel to the left is a defect, and relative coordinates would hide it.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The classes are sorted, which is the opposite decision and for the opposite
-    ///         reason.</b> A rectangle is what the interface is; a class list's <i>order</i> is only
+    ///         ⚠
+    ///         <b>
+    ///             The classes are sorted, which is the opposite decision and for the opposite
+    ///             reason.
+    ///         </b>
+    ///         A rectangle is what the interface is; a class list's <i>order</i> is only
     ///         the order somebody's code ran, and nothing in the cascade can read it. See
     ///         <c>Describe</c>.
     ///     </para>
@@ -669,8 +681,12 @@ public sealed class UiTest : IDisposable {
     /// <exception cref="ArgumentNullException"><paramref name="root" /> is null.</exception>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A tree dump is blind to everything that is not a tag, a class, a rectangle or a
-    ///         <see cref="UiElement.Text" />.</b> A checked toggle, a disabled button, a button's
+    ///         ⚠
+    ///         <b>
+    ///             A tree dump is blind to everything that is not a tag, a class, a rectangle or a
+    ///             <see cref="UiElement.Text" />.
+    ///         </b>
+    ///         A checked toggle, a disabled button, a button's
     ///         <c>Label</c>, a numeric input's <c>Number</c> and a text field's <c>Value</c> all draw
     ///         through a control's own parts, so a port that lost one of them is byte-identical in
     ///         every state anybody dumped. Doc 36 § F7 wave 8 added this because the editor's panel
@@ -685,8 +701,12 @@ public sealed class UiTest : IDisposable {
     ///         <c>Expander</c> without naming any of them.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b><see cref="UiElement.State" /> is included and is a pointer-dependent flag
-    ///         set.</b> Hover is written by a pointer dispatch, so a dump taken with the pointer
+    ///         ⚠
+    ///         <b>
+    ///             <see cref="UiElement.State" /> is included and is a pointer-dependent flag
+    ///             set.
+    ///         </b>
+    ///         Hover is written by a pointer dispatch, so a dump taken with the pointer
     ///         resting over the panel is not the same as one taken with it elsewhere — which is a
     ///         property of the thing being measured rather than of the measurement, and is the
     ///         difference wave 6 recorded between a pooled row's hover and a keyed one's.
@@ -710,8 +730,8 @@ public sealed class UiTest : IDisposable {
                 var property = Array.Find(
                     properties,
                     candidate => string.Equals(candidate.Name, name, StringComparison.Ordinal)
-                                 && candidate.CanRead
-                                 && candidate.GetIndexParameters().Length == 0
+                        && candidate.CanRead
+                        && candidate.GetIndexParameters().Length == 0
                 );
 
                 if (property is null || Value(property.GetValue(element)) is not { } value) {
@@ -736,9 +756,13 @@ public sealed class UiTest : IDisposable {
     /// <summary>The line terminator every dump ends a line with, on every platform.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b><c>StringBuilder.AppendLine</c> appends <see cref="Environment.NewLine" />, and
-    ///         what a dump is compared against is a raw string literal in a <c>.cs</c> file that
-    ///         <c>.gitattributes</c> pins to <c>eol=lf</c> on every checkout.</b> A dump built with
+    ///         ⚠
+    ///         <b>
+    ///             <c>StringBuilder.AppendLine</c> appends <see cref="Environment.NewLine" />, and
+    ///             what a dump is compared against is a raw string literal in a <c>.cs</c> file that
+    ///             <c>.gitattributes</c> pins to <c>eol=lf</c> on every checkout.
+    ///         </b>
+    ///         A dump built with
     ///         <c>AppendLine</c> therefore agrees with its expectation on Linux and macOS and differs
     ///         from it in <i>every line</i> on Windows. That is not a hypothetical: master's
     ///         <c>test-windows-latest</c> leg reported three <c>DisclosureMarkupTests</c> and one
@@ -772,16 +796,17 @@ public sealed class UiTest : IDisposable {
     ///     is a value somebody typed. Either way a regression is visible — a token that should be
     ///     there and is not is as much a diff as one that changed.
     /// </remarks>
-    static string? Value(object? read) => read switch {
-        null => null,
-        bool flag => flag ? "True" : null,
-        ElementState state => state == ElementState.None ? null : state.ToString(),
-        string { Length: 0 } => null,
-        string content => "\"" + content + "\"",
-        double number => number.ToString("0.###", CultureInfo.InvariantCulture),
-        float number => number.ToString("0.###", CultureInfo.InvariantCulture),
-        _ => read.ToString() is { Length: > 0 } other ? other : null
-    };
+    static string? Value(object? read) =>
+        read switch {
+            null => null,
+            bool flag => flag ? "True" : null,
+            ElementState state => state == ElementState.None ? null : state.ToString(),
+            string { Length: 0 } => null,
+            string content => "\"" + content + "\"",
+            double number => number.ToString("0.###", CultureInfo.InvariantCulture),
+            float number => number.ToString("0.###", CultureInfo.InvariantCulture),
+            _ => read.ToString() is { Length: > 0 } other ? other : null
+        };
 
     /// <inheritdoc />
     public void Dispose() => Document.Dispose();
@@ -843,16 +868,18 @@ public sealed class UiTest : IDisposable {
     UiElement? Send(PointerAction action, PointerButton button, int pointer) {
         var position = PointerAt(pointer);
 
-        return Document.Dispatch(new PointerEvent {
-            PointerId = pointer,
-            PointerType = PointerType,
-            X = position.X,
-            Y = position.Y,
-            Button = button,
-            Modifiers = Modifiers,
-            Action = action,
-            Timestamp = Now
-        });
+        return Document.Dispatch(
+            new PointerEvent {
+                PointerId = pointer,
+                PointerType = PointerType,
+                X = position.X,
+                Y = position.Y,
+                Button = button,
+                Modifiers = Modifiers,
+                Action = action,
+                Timestamp = Now
+            }
+        );
     }
 
     void Describe(UiElement element, int depth, StringBuilder text) {
@@ -860,13 +887,13 @@ public sealed class UiTest : IDisposable {
 
         if (!element.IsRemoved) {
             text.Append(' ')
-                .Append(element.Left.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture))
+                .Append(element.Left.ToString("0.#", CultureInfo.InvariantCulture))
                 .Append(',')
-                .Append(element.Top.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture))
+                .Append(element.Top.ToString("0.#", CultureInfo.InvariantCulture))
                 .Append(' ')
-                .Append(element.Width.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture))
+                .Append(element.Width.ToString("0.#", CultureInfo.InvariantCulture))
                 .Append('×')
-                .Append(element.Height.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture));
+                .Append(element.Height.ToString("0.#", CultureInfo.InvariantCulture));
         }
 
         if (element.Text is { Length: > 0 } content) {

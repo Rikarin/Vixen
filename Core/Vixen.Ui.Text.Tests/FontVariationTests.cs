@@ -85,7 +85,7 @@ public class FontVariationTests {
 
     [Fact]
     public void An_axis_nobody_named_keeps_its_default() {
-        var axes = ImmutableArray.Create(Weight, new FontAxis("wdth", 50f, 100f, 200f));
+        var axes = ImmutableArray.Create(Weight, new("wdth", 50f, 100f, 200f));
 
         var position = FontVariation.Create(axes, [], new Dictionary<string, float> { ["wdth"] = 150f });
 
@@ -148,12 +148,12 @@ public class FontVariationTests {
         var bold = new GlyphKey(0, 42, 64, new FontVariation([1f]));
 
         Assert.NotEqual(regular, bold);
-        Assert.Equal(regular, new GlyphKey(0, 42, 64, new FontVariation([0f])));
+        Assert.Equal(regular, new(0, 42, 64, new FontVariation([0f])));
 
         // A static face keeps the old shape of the key and is distinct from a variable font sitting
         // at its defaults, which is not pedantry: one has a single instance for ever, the other is
         // one assignment away from being something else.
-        Assert.NotEqual(new GlyphKey(0, 42, 64), regular);
+        Assert.NotEqual(new(0, 42, 64), regular);
     }
 
     [Fact]
@@ -161,7 +161,7 @@ public class FontVariationTests {
         var font = TestFonts.Load("Zycon.ttf");
 
         Assert.True(font.IsVariable);
-        Assert.Equal(["T1  ", "T2  ", "T3  ", "T4  ", "M1  ", "M2  "], font.Axes.Select(axis => axis.Tag));
+        Assert.Equal(["T1  ", "T2  ", "T3  ", "T4  ", "M1  ", "M2  "], font.Axes.Select(static axis => axis.Tag));
 
         // ⚠ Order, not sorted order, and it is load-bearing: every variation table names an axis by
         // its index. Sorting these would read `M1`'s deltas against `T1`'s coordinate.
@@ -200,7 +200,7 @@ public class FontVariationTests {
         // the same answer — a cache that was correct about a distinction nothing downstream made.
         var font = TestFonts.Load("TestGVARFour.ttf");
 
-        Assert.Equal(["cntr", "wght"], font.Axes.Select(axis => axis.Tag));
+        Assert.Equal(["cntr", "wght"], font.Axes.Select(static axis => axis.Tag));
 
         var light = TextShaper.Shape(font, "OIO", ParagraphDirection.Auto, font.Variation(Weights(0f)));
         var heavy = TextShaper.Shape(font, "OIO", ParagraphDirection.Auto, font.Variation(Weights(1000f)));

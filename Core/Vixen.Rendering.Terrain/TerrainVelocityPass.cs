@@ -13,16 +13,27 @@ namespace Vixen.Rendering.Terrain;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>The velocity half of a <see cref="TerrainRenderer" />, on <see cref="TerrainCasterPass" />'s
-///         terms.</b> The heightmap, the hole mask, the samplers, the index buffer <em>and the frame's
-///         node records</em> are all borrowed from the surface renderer — the records especially, because
+///         <b>
+///             The velocity half of a <see cref="TerrainRenderer" />, on <see cref="TerrainCasterPass" />'s
+///             terms.
+///         </b>
+///         The heightmap, the hole mask, the samplers, the index buffer
+///         <em>
+///             and the frame's
+///             node records
+///         </em>
+///         are all borrowed from the surface renderer — the records especially, because
 ///         the depth test is what makes a velocity pass honest: it draws the exact patches the surface
 ///         drew, at the same morph, so its fragments land on their own depths and nothing else's. What is
 ///         this pass's own is the constant block holding the two matrices and the set that points at it.
 ///     </para>
 ///     <para>
-///         ⚠ <b><see cref="CompareFunction.GreaterEqual" />, not the frame stages' strict
-///         <see cref="CompareFunction.Greater" />.</b> This pass re-rasterises geometry that is already
+///         ⚠
+///         <b>
+///             <see cref="CompareFunction.GreaterEqual" />, not the frame stages' strict
+///             <see cref="CompareFunction.Greater" />.
+///         </b>
+///         This pass re-rasterises geometry that is already
 ///         the nearest thing in the depth buffer, so its fragments arrive <em>at</em> the stored depth —
 ///         a strict test rejects every one of them and the pass silently writes nothing. Equal passes,
 ///         anything behind still fails, which is all the test is here for.
@@ -45,9 +56,11 @@ sealed class TerrainVelocityPass : IDisposable {
     bool disposed;
 
     /// <summary>The depth state the velocity pass rasterises with — tested, never written, equal wins.</summary>
-    /// <remarks>See the class remarks for why the comparison is not the stages' strict one. A property
+    /// <remarks>
+    ///     See the class remarks for why the comparison is not the stages' strict one. A property
     ///     rather than a literal at the pipeline so a test can hold the convention without a device
-    ///     that renders.</remarks>
+    ///     that renders.
+    /// </remarks>
     internal static DepthStencilState DepthState =>
         DepthStencilState.TestOnly with { DepthCompare = CompareFunction.GreaterEqual };
 
@@ -68,7 +81,10 @@ sealed class TerrainVelocityPass : IDisposable {
         ArgumentNullException.ThrowIfNull(surface);
 
         if (!shaders.IsValid) {
-            throw new ArgumentException("A terrain velocity pass needs both a vertex and a fragment stage.", nameof(shaders));
+            throw new ArgumentException(
+                "A terrain velocity pass needs both a vertex and a fragment stage.",
+                nameof(shaders)
+            );
         }
 
         this.device = device;
@@ -97,13 +113,40 @@ sealed class TerrainVelocityPass : IDisposable {
             new(
                 DescriptorSetSlot.PerMaterial,
                 [
-                    new(TerrainVelocityKeys.ConstantBufferBinding, DescriptorKind.UniformBuffer, ShaderStage.Vertex | ShaderStage.Fragment),
-                    new(TerrainVelocityKeys.HeightMapBinding, DescriptorKind.SampledTexture, ShaderStage.Vertex | ShaderStage.Fragment),
-                    new(TerrainVelocityKeys.WeightMapsBinding, DescriptorKind.SampledTexture, ShaderStage.Fragment, TerrainRenderer.MaxWeightMaps),
-                    new(TerrainVelocityKeys.LayerMapsBinding, DescriptorKind.SampledTexture, ShaderStage.Fragment, TerrainRenderer.MaxLayers),
+                    new(
+                        TerrainVelocityKeys.ConstantBufferBinding,
+                        DescriptorKind.UniformBuffer,
+                        ShaderStage.Vertex | ShaderStage.Fragment
+                    ),
+                    new(
+                        TerrainVelocityKeys.HeightMapBinding,
+                        DescriptorKind.SampledTexture,
+                        ShaderStage.Vertex | ShaderStage.Fragment
+                    ),
+                    new(
+                        TerrainVelocityKeys.WeightMapsBinding,
+                        DescriptorKind.SampledTexture,
+                        ShaderStage.Fragment,
+                        TerrainRenderer.MaxWeightMaps
+                    ),
+                    new(
+                        TerrainVelocityKeys.LayerMapsBinding,
+                        DescriptorKind.SampledTexture,
+                        ShaderStage.Fragment,
+                        TerrainRenderer.MaxLayers
+                    ),
                     new(TerrainVelocityKeys.HoleMapBinding, DescriptorKind.SampledTexture, ShaderStage.Fragment),
-                    new(TerrainVelocityKeys.SurfaceMapsBinding, DescriptorKind.SampledTexture, ShaderStage.Fragment, TerrainRenderer.MaxLayers),
-                    new(TerrainVelocityKeys.HeightSamplerBinding, DescriptorKind.Sampler, ShaderStage.Vertex | ShaderStage.Fragment),
+                    new(
+                        TerrainVelocityKeys.SurfaceMapsBinding,
+                        DescriptorKind.SampledTexture,
+                        ShaderStage.Fragment,
+                        TerrainRenderer.MaxLayers
+                    ),
+                    new(
+                        TerrainVelocityKeys.HeightSamplerBinding,
+                        DescriptorKind.Sampler,
+                        ShaderStage.Vertex | ShaderStage.Fragment
+                    ),
                     new(TerrainVelocityKeys.WeightSamplerBinding, DescriptorKind.Sampler, ShaderStage.Fragment),
                     new(TerrainVelocityKeys.LayerSamplerBinding, DescriptorKind.Sampler, ShaderStage.Fragment),
                     new(TerrainVelocityKeys.HoleSamplerBinding, DescriptorKind.Sampler, ShaderStage.Fragment),
@@ -116,7 +159,9 @@ sealed class TerrainVelocityPass : IDisposable {
         );
 
         // Padded below the material set — TerrainRenderer's own layout argument, verbatim.
-        emptySetLayout = device.CreateDescriptorSetLayout(new(DescriptorSetSlot.PerFrame, [], "terrain velocity empty"));
+        emptySetLayout = device.CreateDescriptorSetLayout(
+            new(DescriptorSetSlot.PerFrame, [], "terrain velocity empty")
+        );
         layout = device.CreatePipelineLayout(new([emptySetLayout, emptySetLayout, setLayout], [], "terrain velocity"));
 
         pipeline = device.CreateGraphicsPipeline(

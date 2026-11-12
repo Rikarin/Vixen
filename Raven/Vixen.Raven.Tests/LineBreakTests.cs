@@ -79,9 +79,9 @@ public class LineBreakTests {
         var method = tree.GetRoot()
             .DescendantNodes()
             .OfType<MethodDeclarationSyntax>()
-            .Single(m => m.Identifier.Text == "Blend");
+            .Single(static m => m.Identifier.Text == "Blend");
 
-        Assert.Equal(["a", "b", "t"], method.ParameterList.Parameters.Select(p => p.Identifier.Text));
+        Assert.Equal(["a", "b", "t"], method.ParameterList.Parameters.Select(static p => p.Identifier.Text));
     }
 
     /// <summary>

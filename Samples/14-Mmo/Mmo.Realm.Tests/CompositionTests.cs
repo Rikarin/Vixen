@@ -10,8 +10,11 @@ namespace Vixen.Samples.Mmo.Realms.Tests;
 /// <summary>That twenty gameplay libraries actually compose, which nothing before this proved.</summary>
 /// <remarks>
 ///     <para>
-///         <b>Doc 28 ships twenty-odd packages so that a game can decline most of them, and every
-///         milestone up to this one composed a handful.</b> <c>GameplayConfig.Build</c> is where two
+///         <b>
+///             Doc 28 ships twenty-odd packages so that a game can decline most of them, and every
+///             milestone up to this one composed a handful.
+///         </b>
+///         <c>GameplayConfig.Build</c> is where two
 ///         modules declaring the same stat, two claiming one definition alias, and a module whose
 ///         dependency nobody used are each caught — and none of those is a mistake a single library's
 ///         own tests can make.
@@ -37,7 +40,7 @@ public sealed class CompositionTests {
         // ⚠ Refused by Build() rather than asserted here — this checks the *consequence*, which is
         // that every alias in the composition is unique and therefore that a `!Tag` in a .vxdef
         // names exactly one type. Two types on one alias is a file that decodes as the wrong thing.
-        var aliases = composition.Definitions.Select(definition => definition.Tag).ToArray();
+        var aliases = composition.Definitions.Select(static definition => definition.Tag).ToArray();
 
         Assert.Equal(aliases.Length, aliases.Distinct(StringComparer.Ordinal).Count());
     }

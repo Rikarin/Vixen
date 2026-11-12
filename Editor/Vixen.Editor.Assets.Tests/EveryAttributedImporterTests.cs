@@ -31,8 +31,12 @@ namespace Vixen.Editor.Assets.Tests;
 ///         where it fails a build.
 ///     </para>
 ///     <para>
-///         ⚠ <b>A test over the constructed registry rather than a <c>CheckArchitecture</c> rule, and
-///         the difference is not stylistic.</b> <c>CheckArchitecture</c> runs without compiling
+///         ⚠
+///         <b>
+///             A test over the constructed registry rather than a <c>CheckArchitecture</c> rule, and
+///             the difference is not stylistic.
+///         </b>
+///         <c>CheckArchitecture</c> runs without compiling
 ///         anything — it parses <c>.csproj</c> XML — so a rule there could only pattern-match the
 ///         source text of <c>Create()</c>, which asserts what the method <em>appears</em> to say. This
 ///         asserts what <c>TryGetForFile</c> actually returns, which is the property that was
@@ -51,8 +55,11 @@ namespace Vixen.Editor.Assets.Tests;
 /// </remarks>
 public sealed class EveryAttributedImporterTests {
     /// <summary>
-    ///     ⚠ <b>Scoped to the assembly that defines <see cref="BuiltInImporters" />, and the scope is
-    ///     the design decision.</b>
+    ///     ⚠
+    ///     <b>
+    ///         Scoped to the assembly that defines <see cref="BuiltInImporters" />, and the scope is
+    ///         the design decision.
+    ///     </b>
     /// </summary>
     /// <remarks>
     ///     <para>
@@ -88,11 +95,11 @@ public sealed class EveryAttributedImporterTests {
     public void EveryImporterInThisAssemblyIsRegistered() {
         // ⚠ A contribution set of its own, not ImporterContributions.Default: the default is
         // process-wide and ImporterContributionTests mutates it, so reading it here would race.
-        var missing = Unregistered(BuiltInImporters.Create(new ImporterContributions()));
+        var missing = Unregistered(BuiltInImporters.Create(new()));
 
         Assert.True(
             missing.Count == 0,
-            $"{string.Join(", ", missing.Select(type => type.Name))} "
+            $"{string.Join(", ", missing.Select(static type => type.Name))} "
             + $"{(missing.Count == 1 ? "carries [Importer] and is" : "carry [Importer] and are")} absent from "
             + $"BuiltInImporters.Create(), so the extensions {(missing.Count == 1 ? "it claims" : "they claim")} fall "
             + "through to RawImporter and become byte blobs no runtime reader resolves — with no error anywhere. Add "
@@ -113,7 +120,7 @@ public sealed class EveryAttributedImporterTests {
     /// </remarks>
     [Fact]
     public void EveryClaimedExtensionReachesItsOwnImporter() {
-        var registry = BuiltInImporters.Create(new ImporterContributions());
+        var registry = BuiltInImporters.Create(new());
 
         foreach (var type in Attributed(BuiltIn)) {
             foreach (var extension in Claimed(type)) {
@@ -158,9 +165,9 @@ public sealed class EveryAttributedImporterTests {
     /// <param name="registry">The registry.</param>
     /// <returns>The types that declare <c>[Importer]</c> and are not in it.</returns>
     static IReadOnlyList<Type> Unregistered(ImporterRegistry registry) {
-        var held = registry.Importers.Select(importer => importer.GetType()).ToHashSet();
+        var held = registry.Importers.Select(static importer => importer.GetType()).ToHashSet();
 
-        return [.. Attributed(BuiltIn).Where(type => !held.Contains(type))];
+        return [..Attributed(BuiltIn).Where(type => !held.Contains(type))];
     }
 
     /// <summary>Every concrete importer in an assembly that declares which files it claims.</summary>
@@ -168,14 +175,14 @@ public sealed class EveryAttributedImporterTests {
     /// <returns>The types.</returns>
     static IEnumerable<Type> Attributed(Assembly assembly) =>
         assembly.GetTypes()
-            .Where(type => type is { IsAbstract: false, IsInterface: false })
-            .Where(type => typeof(IAssetImporter).IsAssignableFrom(type))
-            .Where(type => Attribute.IsDefined(type, typeof(ImporterAttribute)))
-            .OrderBy(type => type.Name, StringComparer.Ordinal);
+            .Where(static type => type is { IsAbstract: false, IsInterface: false })
+            .Where(static type => typeof(IAssetImporter).IsAssignableFrom(type))
+            .Where(static type => Attribute.IsDefined(type, typeof(ImporterAttribute)))
+            .OrderBy(static type => type.Name, StringComparer.Ordinal);
 
     /// <summary>The extensions a type's attribute claims, read without constructing it.</summary>
     /// <param name="type">The importer type.</param>
     /// <returns>The extensions.</returns>
     static IReadOnlyList<string> Claimed(Type type) =>
-        ((ImporterAttribute) Attribute.GetCustomAttribute(type, typeof(ImporterAttribute))!).Extensions;
+        ((ImporterAttribute)Attribute.GetCustomAttribute(type, typeof(ImporterAttribute))!).Extensions;
 }

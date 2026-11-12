@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Authoring;
-using Vixen.Core;
 using Vixen.Core.Mathematics;
 using Vixen.Editor.Core;
 using Vixen.Editor.SceneView;
@@ -18,8 +17,11 @@ namespace Vixen.Editor.Terrain;
 /// <summary>The viewport mode the sculpt tools live in.</summary>
 /// <remarks>
 ///     <para>
-///         <b>The third mode, and the first whose gestures <em>are</em> the feature — [docs/plan/31
-///         § Two modes, not three, and not one].</b> Blockout proved the seam by claiming keys that
+///         <b>
+///             The third mode, and the first whose gestures <em>are</em> the feature — [docs/plan/31
+///             § Two modes, not three, and not one].
+///         </b>
+///         Blockout proved the seam by claiming keys that
 ///         already meant something; this one claims eight of them and then spends the whole of every
 ///         drag inside <see cref="Pointer(IViewportPane, PointerEvent)" />, because a brush is not a
 ///         verb with a shortcut — it is a pointer that means something else while the mode is active.
@@ -32,8 +34,12 @@ namespace Vixen.Editor.Terrain;
 ///         reason and it is right.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Entering the mode with no terrain shows the create panel rather than an empty
-///         toolbar.</b> <see cref="HasTerrain" /> is what the panel reads, and the tool commands are
+///         ⚠
+///         <b>
+///             Entering the mode with no terrain shows the create panel rather than an empty
+///             toolbar.
+///         </b>
+///         <see cref="HasTerrain" /> is what the panel reads, and the tool commands are
 ///         disabled rather than hidden — a mode that does nothing and says nothing is the state every
 ///         one of these toolsets puts a new user in.
 ///     </para>
@@ -87,11 +93,11 @@ public sealed class TerrainMode : IEditorMode, IViewportInput {
     ///     what a category is. Everything else in this mode is a panel row.
     /// </remarks>
     public IReadOnlyList<ToolbarEntry> Toolbar => [
-        new ToolbarGroup([.. Categories.Select(CategoryCommand)]),
+        new ToolbarGroup([..Categories.Select(CategoryCommand)]),
         new ToolbarSeparator(),
         Category == TerrainCategory.Paint
-            ? new ToolbarGroup([.. PaintTools.Select(PaintToolCommand)])
-            : new ToolbarGroup([.. Tools.Select(ToolCommand)])
+            ? new ToolbarGroup([..PaintTools.Select(PaintToolCommand)])
+            : new ToolbarGroup([..Tools.Select(ToolCommand)])
     ];
 
     /// <summary>The two halves of the toolset, in the order the strip lists them.</summary>
@@ -285,8 +291,10 @@ public sealed class TerrainMode : IEditorMode, IViewportInput {
     public static string SlotCommand(int slot) => "terrain.tool-" + (slot + 1);
 
     /// <summary>How many digits the mode claims.</summary>
-    /// <remarks>Eight, which is the larger of the two tool sets. A digit past the current
-    ///     category's count does nothing rather than wrapping.</remarks>
+    /// <remarks>
+    ///     Eight, which is the larger of the two tool sets. A digit past the current
+    ///     category's count does nothing rather than wrapping.
+    /// </remarks>
     public const int SlotCount = 8;
 
     /// <summary>Adds a target layer to paint with.</summary>
@@ -384,7 +392,7 @@ public sealed class TerrainMode : IEditorMode, IViewportInput {
                 }
             );
 
-            shell.Keys.SetDefault(id, new KeyChord((InputKey)((int)InputKey.Number1 + slot), ModifierKeys.None));
+            shell.Keys.SetDefault(id, new((InputKey)((int)InputKey.Number1 + slot), ModifierKeys.None));
         }
 
         foreach (var tool in Tools) {
@@ -405,7 +413,7 @@ public sealed class TerrainMode : IEditorMode, IViewportInput {
         Verb(SofterCommand, () => Editing.Brush.Press(-1), InputKey.Minus);
 
         shell.Commands.Add(
-            new EditorCommand(CreateCommand, TerrainStrings.TerrainCommands[CreateCommand], Made) {
+            new(CreateCommand, TerrainStrings.TerrainCommands[CreateCommand], Made) {
                 Category = TerrainStrings.CategoryTerrain,
                 Context = TerrainContext,
 
@@ -451,29 +459,39 @@ public sealed class TerrainMode : IEditorMode, IViewportInput {
             }
         );
 
-        Layer(AddLayerCommand, () => {
-            var (command, layer) = TerrainLayerCommands.Add(Editing.Terrain!, NextLayerName());
+        Layer(
+            AddLayerCommand,
+            () => {
+                var (command, layer) = TerrainLayerCommands.Add(Editing.Terrain!, NextLayerName());
 
-            Run(command);
-            Editing.Layer = layer;
-        }, needsLayer: false);
+                Run(command);
+                Editing.Layer = layer;
+            },
+            false
+        );
 
-        Layer(RemoveLayerCommand, () => {
-            var terrain = Editing.Terrain!;
-            var index = terrain.IndexOf(Editing.Layer!);
+        Layer(
+            RemoveLayerCommand,
+            () => {
+                var terrain = Editing.Terrain!;
+                var index = terrain.IndexOf(Editing.Layer!);
 
-            Run(TerrainLayerCommands.Remove(terrain, Editing.Layer!));
-            Editing.Layer = terrain.Layers.Count == 0
-                ? null
-                : terrain.Layers[Math.Clamp(index - 1, 0, terrain.Layers.Count - 1)];
-        });
+                Run(TerrainLayerCommands.Remove(terrain, Editing.Layer!));
+                Editing.Layer = terrain.Layers.Count == 0
+                    ? null
+                    : terrain.Layers[Math.Clamp(index - 1, 0, terrain.Layers.Count - 1)];
+            }
+        );
 
-        Layer(DuplicateLayerCommand, () => {
-            var (command, layer) = TerrainLayerCommands.Duplicate(Editing.Terrain!, Editing.Layer!);
+        Layer(
+            DuplicateLayerCommand,
+            () => {
+                var (command, layer) = TerrainLayerCommands.Duplicate(Editing.Terrain!, Editing.Layer!);
 
-            Run(command);
-            Editing.Layer = layer;
-        });
+                Run(command);
+                Editing.Layer = layer;
+            }
+        );
 
         Layer(
             ClearLayerCommand,
@@ -501,10 +519,14 @@ public sealed class TerrainMode : IEditorMode, IViewportInput {
             var id = ToolCommand(tool);
 
             shell.Commands.Add(
-                new EditorCommand(id, TerrainStrings.TerrainCommands[id], () => {
-                    Category = TerrainCategory.Sculpt;
-                    Tool = tool;
-                }) {
+                new EditorCommand(
+                    id,
+                    TerrainStrings.TerrainCommands[id],
+                    () => {
+                        Category = TerrainCategory.Sculpt;
+                        Tool = tool;
+                    }
+                ) {
                     Category = TerrainStrings.CategoryTerrain,
                     Context = TerrainContext,
                     RadioGroup = ToolGroup,
@@ -522,10 +544,14 @@ public sealed class TerrainMode : IEditorMode, IViewportInput {
             var id = PaintToolCommand(tool);
 
             shell.Commands.Add(
-                new EditorCommand(id, TerrainStrings.TerrainCommands[id], () => {
-                    Category = TerrainCategory.Paint;
-                    PaintTool = tool;
-                }) {
+                new EditorCommand(
+                    id,
+                    TerrainStrings.TerrainCommands[id],
+                    () => {
+                        Category = TerrainCategory.Paint;
+                        PaintTool = tool;
+                    }
+                ) {
                     Category = TerrainStrings.CategoryTerrain,
                     Context = TerrainContext,
                     RadioGroup = PaintGroup,
@@ -555,23 +581,27 @@ public sealed class TerrainMode : IEditorMode, IViewportInput {
 
         void Verb(string id, Action run, InputKey key) {
             shell.Commands.Add(
-                new EditorCommand(id, TerrainStrings.TerrainCommands[id], run) {
+                new(id, TerrainStrings.TerrainCommands[id], run) {
                     Category = TerrainStrings.CategoryTerrain,
                     Context = TerrainContext,
                     Enablement = () => IsActive() && HasTerrain
                 }
             );
 
-            shell.Keys.SetDefault(id, new KeyChord(key, ModifierKeys.None));
+            shell.Keys.SetDefault(id, new(key, ModifierKeys.None));
         }
 
         void Layer(string id, Action run, bool needsLayer = true, Func<bool>? enabled = null) {
             shell.Commands.Add(
-                new EditorCommand(id, TerrainStrings.TerrainCommands[id], () => {
-                    if (Editing.Terrain is not null && (!needsLayer || Editing.Layer is not null)) {
-                        run();
+                new EditorCommand(
+                    id,
+                    TerrainStrings.TerrainCommands[id],
+                    () => {
+                        if (Editing.Terrain is not null && (!needsLayer || Editing.Layer is not null)) {
+                            run();
+                        }
                     }
-                }) {
+                ) {
                     Category = TerrainStrings.CategoryTerrain,
                     Context = TerrainContext,
                     Enablement = () =>
@@ -612,8 +642,7 @@ public sealed class TerrainMode : IEditorMode, IViewportInput {
     }
 
     /// <inheritdoc />
-    public void Activated() {
-    }
+    public void Activated() { }
 
     /// <inheritdoc />
     /// <remarks>
@@ -647,8 +676,10 @@ public sealed class TerrainMode : IEditorMode, IViewportInput {
     public bool Pointer(PointerEvent args) => false;
 
     /// <inheritdoc />
-    /// <remarks>Everything the mode owns from the keyboard is a command, and a command's key comes
-    ///     through the keymap.</remarks>
+    /// <remarks>
+    ///     Everything the mode owns from the keyboard is a command, and a command's key comes
+    ///     through the keymap.
+    /// </remarks>
     public bool Key(KeyEvent args) => false;
 
     /// <inheritdoc />
@@ -854,7 +885,7 @@ public sealed class TerrainMode : IEditorMode, IViewportInput {
     string NextLayerName() {
         var terrain = Editing.Terrain!;
 
-        for (var index = terrain.Layers.Count + 1; ; index++) {
+        for (var index = terrain.Layers.Count + 1;; index++) {
             var name = "Layer " + index;
 
             if (!terrain.Layers.Any(layer => string.Equals(layer.Name, name, StringComparison.Ordinal))) {
@@ -865,8 +896,12 @@ public sealed class TerrainMode : IEditorMode, IViewportInput {
 
     /// <summary>Whether this mode is the shell's active one.</summary>
     /// <remarks>
-    ///     ⚠ <b>Enablement as well as context, because the palette does not go through the
-    ///     keymap</b> — <c>BlockoutMode.IsActive</c>'s reason. Scoping keeps the chord from firing
+    ///     ⚠
+    ///     <b>
+    ///         Enablement as well as context, because the palette does not go through the
+    ///         keymap
+    ///     </b>
+    ///     — <c>BlockoutMode.IsActive</c>'s reason. Scoping keeps the chord from firing
     ///     outside the mode and does nothing about somebody choosing "Erosion Tool" out of the
     ///     palette while they are in Select.
     /// </remarks>
@@ -876,7 +911,7 @@ public sealed class TerrainMode : IEditorMode, IViewportInput {
     string NextTargetName() {
         var weights = Editing.Terrain!.Weights;
 
-        for (var index = weights.LayerCount + 1; ; index++) {
+        for (var index = weights.LayerCount + 1;; index++) {
             var name = "Target " + index;
 
             if (!weights.Names.Any(existing => string.Equals(existing, name, StringComparison.Ordinal))) {

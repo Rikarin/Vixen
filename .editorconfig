@@ -1,4 +1,9 @@
 # Vixen — see docs/plan/00-vision-and-principles.md § "Coding standards"
+#
+# Skala (skala.jsonc, .github/workflows/skala.yml) formats from this file and reads its rule severities and
+# thresholds from here, as Roslyn and the IDE do; skala.jsonc holds only the gates. A rule that fits Vixen is fixed
+# to zero findings; one that does not is switched off or re-tuned below, with the reason, instead of being parked in
+# .skala/baseline.sarif. Every rule not named here runs at Skala's default.
 root = true
 
 [*]
@@ -16,6 +21,16 @@ indent_size = 2
 trim_trailing_whitespace = false
 
 [*.cs]
+# SK6031, a readonly field whose contents are mutable: Vixen keeps arrays and pools in readonly fields on purpose —
+# archetype columns, job slots, cube faces. `readonly` there fixes the reference, which is what the JIT hoists a
+# bounds check against and what a reader needs to know; writing the contents is the field's job.
+dotnet_diagnostic.SK6031.severity = none
+
+# SK0230, an empty `with` expression: `x with { }` is how a record is copied, and Vixen copies on purpose — a layer
+# extracted from a stack must not share its instance, and an equality test needs a second object. The rule's fix
+# returns the same object.
+dotnet_diagnostic.SK0230.severity = none
+
 indent_size = 4
 csharp_using_directive_placement = outside_namespace:warning
 csharp_style_namespace_declarations = file_scoped:warning
@@ -1006,3 +1021,12 @@ dotnet_diagnostic.VXLG0001.severity = none
 
 [Core/Vixen.Fuzz/SyntaxDomain.cs]
 dotnet_diagnostic.VXLG0001.severity = none
+
+# Nuke's build is one global-namespace `partial class Build` by Nuke's own convention, and the rules beside it follow
+# it; nothing references the build assembly, so there is no name table to share (SK6030).
+[build/**.cs]
+dotnet_diagnostic.SK6030.severity = none
+
+# A test or benchmark that measures allocation, finalisation or a leak has to collect first (SK4024).
+[{**/*.Tests/**.cs,Testing/**.cs,Benchmarks/**.cs}]
+dotnet_diagnostic.SK4024.severity = none

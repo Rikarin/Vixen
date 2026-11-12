@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core.Syntax.Diagnostics;
-using Vixen.Editor.NodeGraph;
 using Vixen.Editor.ShaderGraph;
 using Vixen.NodeGraph;
 using Vixen.Raven;
@@ -35,7 +34,7 @@ public class ShaderGraphCompilerTests {
     static NodeTypeRegistry Library() {
         var registry = new NodeTypeRegistry();
 
-        Vixen.Editor.ShaderGraph.NodeTypes.Register(registry);
+        NodeTypes.Register(registry);
 
         return registry;
     }
@@ -70,7 +69,7 @@ public class ShaderGraphCompilerTests {
         Assert.True(
             diagnostics.Count == 0,
             "The generated shader did not compile:\n"
-            + string.Join("\n", diagnostics.Select(diagnostic => diagnostic.ToString()))
+            + string.Join("\n", diagnostics.Select(static diagnostic => diagnostic.ToString()))
             + "\n\n"
             + source
         );
@@ -89,7 +88,7 @@ public class ShaderGraphCompilerTests {
 
         var generated = backend.Generate(module, bag);
 
-        Assert.True(bag.IsEmpty, string.Join("\n", bag.Select(diagnostic => diagnostic.ToString())));
+        Assert.True(bag.IsEmpty, string.Join("\n", bag.Select(static diagnostic => diagnostic.ToString())));
         Assert.NotEmpty(generated);
     }
 
@@ -134,42 +133,42 @@ public class ShaderGraphCompilerTests {
         Assert.True(result.Succeeded, string.Join("\n", result.Diagnostics));
 
         const string Expected = """
-            // Generated from a node graph by Vixen.Editor.ShaderGraph. The graph is the source; this is not.
+                                // Generated from a node graph by Vixen.Editor.ShaderGraph. The graph is the source; this is not.
 
-            package Vixen.ShaderGraph.Generated
+                                package Vixen.ShaderGraph.Generated
 
-            shader Tinted {
-                /// The object-to-clip transform. Every graph has one; none of them author it.
-                var worldViewProjection: mat4
+                                shader Tinted {
+                                    /// The object-to-clip transform. Every graph has one; none of them author it.
+                                    var worldViewProjection: mat4
 
-                /// The object-to-world transform, for the world-space interpolators.
-                var world: mat4
+                                    /// The object-to-world transform, for the world-space interpolators.
+                                    var world: mat4
 
-                var albedo: Texture2D
+                                    var albedo: Texture2D
 
-                var albedoSampler: Sampler
+                                    var albedoSampler: Sampler
 
-                stream var uv: float2
+                                    stream var uv: float2
 
-                [VertexShader]
-                [Semantic("SV_Position")]
-                func Vertex(position: float3, texcoord: float2): float4 {
-                    uv = texcoord
-                    return worldViewProjection * float4(position, 1f)
-                }
+                                    [VertexShader]
+                                    [Semantic("SV_Position")]
+                                    func Vertex(position: float3, texcoord: float2): float4 {
+                                        uv = texcoord
+                                        return worldViewProjection * float4(position, 1f)
+                                    }
 
-                [FragmentShader]
-                [Semantic("SV_Target")]
-                func Fragment(): float4 {
-                    val n1_UV = uv
-                    val n2_Out = n1_UV * float2(2f, 2f) + float2(0f, 0f)
-                    val n3_RGBA = albedo.Sample(albedoSampler, n2_Out)
-                    val surface = float4(n3_RGBA.xyz, 1f)
-                    return surface
-                }
-            }
+                                    [FragmentShader]
+                                    [Semantic("SV_Target")]
+                                    func Fragment(): float4 {
+                                        val n1_UV = uv
+                                        val n2_Out = n1_UV * float2(2f, 2f) + float2(0f, 0f)
+                                        val n3_RGBA = albedo.Sample(albedoSampler, n2_Out)
+                                        val surface = float4(n3_RGBA.xyz, 1f)
+                                        return surface
+                                    }
+                                }
 
-            """;
+                                """;
 
         Assert.Equal(Expected.ReplaceLineEndings(), result.Value.Source.ReplaceLineEndings());
         Compiles(result.Value.Source);
@@ -195,8 +194,12 @@ public class ShaderGraphCompilerTests {
     /// <summary>A wired chain of self-contained nodes, through both backends.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>This was called <c>Every_node_in_the_library_reaches_both_backends</c> and was a
-    ///         hand-written list of node paths</b>, so a node added without a line in it was compiled
+    ///         ⚠
+    ///         <b>
+    ///             This was called <c>Every_node_in_the_library_reaches_both_backends</c> and was a
+    ///             hand-written list of node paths
+    ///         </b>
+    ///         , so a node added without a line in it was compiled
     ///         by nothing — which is what happened to the five procedural and UV nodes, and exactly
     ///         what this remark used to say the test existed to prevent. The library walk is
     ///         <see cref="ShaderNodeLibraryTests.Every_node_in_the_library_reaches_both_backends" />
@@ -264,7 +267,7 @@ public class ShaderGraphCompilerTests {
         var result = new ShaderGraphCompiler(Library()).Compile(graph);
 
         Assert.False(result.Succeeded);
-        Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Id == "SG0003");
+        Assert.Contains(result.Diagnostics, static diagnostic => diagnostic.Id == "SG0003");
     }
 
     [Fact]
@@ -279,7 +282,7 @@ public class ShaderGraphCompilerTests {
 
         Assert.False(result.Succeeded);
 
-        var diagnostic = Assert.Single(result.Diagnostics, entry => entry.Id == "SG0002");
+        var diagnostic = Assert.Single(result.Diagnostics, static entry => entry.Id == "SG0002");
 
         Assert.Equal(second.Id, diagnostic.Node);
     }
@@ -297,7 +300,7 @@ public class ShaderGraphCompilerTests {
 
         Assert.False(result.Succeeded);
 
-        var diagnostic = Assert.Single(result.Diagnostics, entry => entry.Id == "NG0001");
+        var diagnostic = Assert.Single(result.Diagnostics, static entry => entry.Id == "NG0001");
 
         Assert.Equal(missing.Id, diagnostic.Node);
         Assert.Contains("ThirdParty/Kaleidoscope", diagnostic.Message, StringComparison.Ordinal);

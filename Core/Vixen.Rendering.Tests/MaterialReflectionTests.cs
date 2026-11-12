@@ -47,10 +47,11 @@ public class MaterialReflectionTests {
     static string[] Reflected() {
         using var document = JsonDocument.Parse(File.ReadAllText(ReflectionPath()));
 
-        return document.RootElement.GetProperty("Parameters")
-            .EnumerateArray()
-            .Select(parameter => parameter.GetProperty("Name").GetString()!)
-            .ToArray();
+        return [
+            ..document.RootElement.GetProperty("Parameters")
+                .EnumerateArray()
+                .Select(static parameter => parameter.GetProperty("Name").GetString()!)
+        ];
     }
 
     /// <summary>
@@ -65,10 +66,10 @@ public class MaterialReflectionTests {
     [Fact]
     public void EveryComposedParameterInTheShaderIsOneTheCompilerWrites() {
         var material = Compile();
-        var written = material.Parameters.Keys.Select(key => key.Name).ToHashSet(StringComparer.Ordinal);
+        var written = material.Parameters.Keys.Select(static key => key.Name).ToHashSet(StringComparer.Ordinal);
 
         var composed = Reflected()
-            .Where(name => name.StartsWith(MaterialCompiler.ChainShader + ".", StringComparison.Ordinal))
+            .Where(static name => name.StartsWith(MaterialCompiler.ChainShader + ".", StringComparison.Ordinal))
             .ToArray();
 
         Assert.NotEmpty(composed);
@@ -93,7 +94,7 @@ public class MaterialReflectionTests {
         var prefix = material.ShaderName + ".";
 
         var written = material.Parameters.Keys
-            .Select(key => key.Name)
+            .Select(static key => key.Name)
             .Where(name => name.StartsWith(prefix + MaterialCompiler.ChainShader, StringComparison.Ordinal))
             .ToArray();
 
@@ -127,7 +128,7 @@ public class MaterialReflectionTests {
 
         Assert.False(
             compilation.Failed,
-            string.Join("\n", compilation.Diagnostics.Select(diagnostic => diagnostic.ToString()))
+            string.Join("\n", compilation.Diagnostics.Select(static diagnostic => diagnostic.ToString()))
         );
 
         return compilation.Material!;
@@ -143,8 +144,11 @@ public class MaterialReflectionTests {
     ///     having nothing to do with materials.
     /// </remarks>
     static string ReflectionPath() {
-        for (var directory = new DirectoryInfo(AppContext.BaseDirectory); directory is not null; directory = directory.Parent) {
-            var candidate = Path.Combine(directory.FullName, "Raven", "Library", "Pipeline", "ForwardPlus.reflect.json");
+        for (var directory = new DirectoryInfo(AppContext.BaseDirectory);
+             directory is not null;
+             directory = directory.Parent) {
+            var candidate =
+                Path.Combine(directory.FullName, "Raven", "Library", "Pipeline", "ForwardPlus.reflect.json");
 
             if (File.Exists(candidate)) {
                 return candidate;

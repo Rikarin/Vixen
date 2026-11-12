@@ -197,7 +197,7 @@ public sealed class LoudnessMeterEffect : IAudioEffect {
         }
 
         rangeHistogram = new long[(int)((RangeCeilingLufs - RangeFloorLufs) / RangeBucketLu) + 1];
-        truePeak = new TruePeakMeter(channelCount);
+        truePeak = new(channelCount);
 
         hopFrames = Math.Max((int)(sampleRate * HopSeconds), 1);
         hopsPerBlock = Math.Max((int)MathF.Round(BlockSeconds / HopSeconds), 1);
@@ -236,13 +236,13 @@ public sealed class LoudnessMeterEffect : IAudioEffect {
                 // The head filter first and then the high-pass, which is the order the standard
                 // specifies — they do not commute exactly in floating point and the reference
                 // implementations all do it this way round.
-                var shelved = (shelf.B0 * value) + shelfZ1[channel];
-                shelfZ1[channel] = (shelf.B1 * value) - (shelf.A1 * shelved) + shelfZ2[channel];
-                shelfZ2[channel] = (shelf.B2 * value) - (shelf.A2 * shelved);
+                var shelved = shelf.B0 * value + shelfZ1[channel];
+                shelfZ1[channel] = shelf.B1 * value - shelf.A1 * shelved + shelfZ2[channel];
+                shelfZ2[channel] = shelf.B2 * value - shelf.A2 * shelved;
 
-                var passed = (high.B0 * shelved) + highZ1[channel];
-                highZ1[channel] = (high.B1 * shelved) - (high.A1 * passed) + highZ2[channel];
-                highZ2[channel] = (high.B2 * shelved) - (high.A2 * passed);
+                var passed = high.B0 * shelved + highZ1[channel];
+                highZ1[channel] = high.B1 * shelved - high.A1 * passed + highZ2[channel];
+                highZ2[channel] = high.B2 * shelved - high.A2 * passed;
 
                 weighted += weights[channel] * passed * passed;
             }
@@ -343,7 +343,7 @@ public sealed class LoudnessMeterEffect : IAudioEffect {
         // The relative gate, recomputed each time from the running energy mean of everything above
         // the absolute floor — the same shape as the integrated measurement's gate, 20 LU down
         // instead of 10.
-        var threshold = (float)((10.0 * Math.Log10(rangeSum / rangeCount)) - RangeRelativeGateLu);
+        var threshold = (float)(10.0 * Math.Log10(rangeSum / rangeCount) - RangeRelativeGateLu);
         var gated = 0L;
         var first = 0;
 
@@ -371,7 +371,7 @@ public sealed class LoudnessMeterEffect : IAudioEffect {
     }
 
     /// <summary>Where a bucket sits, in LUFS.</summary>
-    static float Centre(int bucket) => RangeFloorLufs + (bucket * RangeBucketLu);
+    static float Centre(int bucket) => RangeFloorLufs + bucket * RangeBucketLu;
 
     /// <summary>Walks the gated part of the histogram to a percentile.</summary>
     float Percentile(int first, long gated, float fraction) {
@@ -443,14 +443,14 @@ public sealed class LoudnessMeterEffect : IAudioEffect {
         var k = MathF.Tan(MathF.PI * ShelfHz / sampleRate);
         var vh = MathF.Pow(10f, ShelfGainDb / 20f);
         var vb = MathF.Pow(vh, 0.4996668f);
-        var denominator = 1f + (k / ShelfQ) + (k * k);
+        var denominator = 1f + k / ShelfQ + k * k;
 
-        shelf = new BiquadCoefficients(
-            (vh + (vb * k / ShelfQ) + (k * k)) / denominator,
-            2f * ((k * k) - vh) / denominator,
-            (vh - (vb * k / ShelfQ) + (k * k)) / denominator,
-            2f * ((k * k) - 1f) / denominator,
-            (1f - (k / ShelfQ) + (k * k)) / denominator
+        shelf = new(
+            (vh + vb * k / ShelfQ + k * k) / denominator,
+            2f * (k * k - vh) / denominator,
+            (vh - vb * k / ShelfQ + k * k) / denominator,
+            2f * (k * k - 1f) / denominator,
+            (1f - k / ShelfQ + k * k) / denominator
         );
 
         // The high-pass: everything below about 38 Hz is not loudness, it is rumble.
@@ -458,14 +458,14 @@ public sealed class LoudnessMeterEffect : IAudioEffect {
         const float HighQ = 0.5003270f;
 
         var hk = MathF.Tan(MathF.PI * HighHz / sampleRate);
-        var hd = 1f + (hk / HighQ) + (hk * hk);
+        var hd = 1f + hk / HighQ + hk * hk;
 
-        high = new BiquadCoefficients(
+        high = new(
             1f,
             -2f,
             1f,
-            2f * ((hk * hk) - 1f) / hd,
-            (1f - (hk / HighQ) + (hk * hk)) / hd
+            2f * (hk * hk - 1f) / hd,
+            (1f - hk / HighQ + hk * hk) / hd
         );
     }
 }

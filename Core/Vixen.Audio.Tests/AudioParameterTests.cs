@@ -3,7 +3,6 @@
 
 using Vixen.Audio.Devices;
 using Vixen.Audio.Events;
-using Vixen.Audio.Mixing;
 using Vixen.Audio.Parameters;
 using Xunit;
 
@@ -99,13 +98,14 @@ public sealed class AudioParameterSheetTests {
         float minimum = 0f,
         float maximum = 1f,
         float seekSeconds = 0f
-    ) => new() {
-        Name = name,
-        Minimum = minimum,
-        Maximum = maximum,
-        SeekSeconds = seekSeconds,
-        Automation = [new(target, AudioCurve.Ramp(from, to))]
-    };
+    ) =>
+        new() {
+            Name = name,
+            Minimum = minimum,
+            Maximum = maximum,
+            SeekSeconds = seekSeconds,
+            Automation = [new(target, AudioCurve.Ramp(from, to))]
+        };
 
     [Fact]
     public void AValueIsNormalisedAgainstItsOwnRange() {
@@ -238,7 +238,7 @@ public sealed class AudioParameterSheetTests {
     /// <summary>A reversed or zero-width range would otherwise divide by zero or run the curve backwards.</summary>
     [Fact]
     public void ARangeThatIsNotOneIsPinnedRatherThanUndefined() {
-        var sheet = Sheet(Parameter("a", AudioParameterTarget.GainDb, 3f, 9f, minimum: 5f, maximum: 5f));
+        var sheet = Sheet(Parameter("a", AudioParameterTarget.GainDb, 3f, 9f, 5f, 5f));
 
         Assert.Equal(0f, sheet.Normalize(0, 5f));
         Assert.Equal(3f, sheet.Evaluate([5f]).GainDb, 1e-4f);
@@ -250,21 +250,26 @@ public sealed class VoiceParameterTests : IDisposable {
     readonly AudioEngine engine;
     readonly NullAudioDevice device;
 
-    public VoiceParameterTests() => (engine, device) = AudioTestData.Engine(voices: 8);
+    public VoiceParameterTests() {
+        (engine, device) = AudioTestData.Engine(voices: 8);
+    }
 
     public void Dispose() => engine.Dispose();
 
-    static AudioParameterSheet Submersion(float cutoff = 300f, float gainDb = 0f) => new([
-        new AudioParameterDefinition {
-            Name = "submersion",
-            Automation = gainDb == 0f
-                ? [new(AudioParameterTarget.LowPassHz, AudioCurve.Ramp(24_000f, cutoff))]
-                : [
-                    new(AudioParameterTarget.LowPassHz, AudioCurve.Ramp(24_000f, cutoff)),
-                    new(AudioParameterTarget.GainDb, AudioCurve.Ramp(0f, gainDb))
-                ]
-        }
-    ]);
+    static AudioParameterSheet Submersion(float cutoff = 300f, float gainDb = 0f) =>
+        new(
+            [
+                new AudioParameterDefinition {
+                    Name = "submersion",
+                    Automation = gainDb == 0f
+                        ? [new(AudioParameterTarget.LowPassHz, AudioCurve.Ramp(24_000f, cutoff))]
+                        : [
+                            new(AudioParameterTarget.LowPassHz, AudioCurve.Ramp(24_000f, cutoff)),
+                            new(AudioParameterTarget.GainDb, AudioCurve.Ramp(0f, gainDb))
+                        ]
+                }
+            ]
+        );
 
     [Fact]
     public void AttachingGivesTheVoiceTheSheetAndItsDefaults() {
@@ -276,14 +281,15 @@ public sealed class VoiceParameterTests : IDisposable {
     }
 
     [Fact]
-    public void AStaleHandleAttachesNothing() =>
-        Assert.False(engine.AttachParameters(new VoiceHandle(0, 999), Submersion()));
+    public void AStaleHandleAttachesNothing() => Assert.False(engine.AttachParameters(new(0, 999), Submersion()));
 
     [Fact]
     public void AParameterMovesTowardsWhatItWasPointedAt() {
-        var sheet = new AudioParameterSheet([
-            new AudioParameterDefinition { Name = "x", SeekSeconds = 1f }
-        ]);
+        var sheet = new AudioParameterSheet(
+            [
+                new AudioParameterDefinition { Name = "x", SeekSeconds = 1f }
+            ]
+        );
 
         var handle = engine.Play(AudioTestData.Constant(48_000, 1f));
         engine.AttachParameters(handle, sheet);
@@ -311,9 +317,11 @@ public sealed class VoiceParameterTests : IDisposable {
 
     [Fact]
     public void AValueIsClampedToItsParametersRange() {
-        var sheet = new AudioParameterSheet([
-            new AudioParameterDefinition { Name = "x", Minimum = 0f, Maximum = 2f }
-        ]);
+        var sheet = new AudioParameterSheet(
+            [
+                new AudioParameterDefinition { Name = "x", Minimum = 0f, Maximum = 2f }
+            ]
+        );
 
         var handle = engine.Play(AudioTestData.Constant(48_000, 1f));
         engine.AttachParameters(handle, sheet);
@@ -326,7 +334,7 @@ public sealed class VoiceParameterTests : IDisposable {
     /// <summary>The whole point of a gain automation, measured where it lands.</summary>
     [Fact]
     public void AGainCurveScalesTheVoiceWithoutTouchingItsOwnGain() {
-        var handle = engine.Play(AudioTestData.Constant(48_000, 1f), new PlaybackSettings { Gain = 0.5f });
+        var handle = engine.Play(AudioTestData.Constant(48_000, 1f), new() { Gain = 0.5f });
         engine.AttachParameters(handle, Submersion(24_000f, -6f));
         engine.SetParameter(handle, "submersion", 1f);
         engine.Update(0f);
@@ -348,11 +356,11 @@ public sealed class VoiceParameterTests : IDisposable {
     public void OneInstanceCanBeUnderwaterWhileAnotherIsNot() {
         var dry = engine.CreateBus("Dry");
         var wet = engine.CreateBus("Wet");
-        var sheet = Submersion(300f);
+        var sheet = Submersion();
         var tone = AudioTestData.Tone(6_000f, 48_000);
 
-        var above = engine.Play(tone, new PlaybackSettings { Bus = dry.Index });
-        var below = engine.Play(tone, new PlaybackSettings { Bus = wet.Index });
+        var above = engine.Play(tone, new() { Bus = dry.Index });
+        var below = engine.Play(tone, new() { Bus = wet.Index });
 
         engine.AttachParameters(above, sheet);
         engine.AttachParameters(below, sheet);
@@ -375,12 +383,13 @@ public sealed class VoiceParameterTests : IDisposable {
     /// <summary>A high-pass thins rather than muffles, which is the other half of a telephone.</summary>
     [Fact]
     public void AHighPassTakesTheBottomOut() {
-        var sheet = new AudioParameterSheet([
-            new AudioParameterDefinition {
-                Name = "radio",
-                Automation = [new(AudioParameterTarget.HighPassHz, AudioCurve.Ramp(0f, 2_000f))]
-            }
-        ]);
+        var sheet = new AudioParameterSheet(
+            [
+                new AudioParameterDefinition {
+                    Name = "radio", Automation = [new(AudioParameterTarget.HighPassHz, AudioCurve.Ramp(0f, 2_000f))]
+                }
+            ]
+        );
 
         var handle = engine.Play(AudioTestData.Tone(120f, 48_000));
         engine.AttachParameters(handle, sheet);
@@ -400,7 +409,7 @@ public sealed class VoiceParameterTests : IDisposable {
     [Fact]
     public void ACutoffAtOrAboveNyquistIsNoFilterAtAll() {
         var handle = engine.Play(AudioTestData.Tone(6_000f, 48_000));
-        engine.AttachParameters(handle, Submersion(300f));
+        engine.AttachParameters(handle, Submersion());
         engine.Update(0f);
 
         var peak = 0f;
@@ -472,10 +481,10 @@ public sealed class VoiceParameterTests : IDisposable {
     /// <summary>An event with parameters attaches them itself, so a caller only sets values.</summary>
     [Fact]
     public void AnEventAttachesItsSheetOnEveryPlay() {
-        var sound = new AudioEvent(engine, new AudioEventDescription {
-            Variants = [new(AudioTestData.Tone(6_000f, 48_000))],
-            Parameters = Submersion(300f)
-        });
+        var sound = new AudioEvent(
+            engine,
+            new() { Variants = [new(AudioTestData.Tone(6_000f, 48_000))], Parameters = Submersion() }
+        );
 
         var handle = sound.Play();
 

@@ -80,7 +80,7 @@ public class MathUtilTests {
         Assert.Equal(0f, MathUtil.WrapAngle(MathUtil.TwoPi), 5);
         Assert.Equal(MathUtil.Pi, MathF.Abs(MathUtil.WrapAngle(MathUtil.Pi)), 5);
         Assert.Equal(-MathUtil.PiOverTwo, MathUtil.WrapAngle(-MathUtil.PiOverTwo), 5);
-        Assert.Equal(0.5f, MathUtil.WrapAngle((MathUtil.TwoPi * 3f) + 0.5f), 4);
+        Assert.Equal(0.5f, MathUtil.WrapAngle(MathUtil.TwoPi * 3f + 0.5f), 4);
     }
 
     [Fact]
@@ -107,7 +107,7 @@ public class MathUtilTests {
         Assert.Equal(4, MathUtil.NextPowerOfTwo(3));
         Assert.Equal(1024, MathUtil.NextPowerOfTwo(1024));
         Assert.Equal(2048, MathUtil.NextPowerOfTwo(1025));
-        Assert.Throws<ArgumentOutOfRangeException>(() => MathUtil.NextPowerOfTwo(int.MaxValue));
+        Assert.Throws<ArgumentOutOfRangeException>(static () => MathUtil.NextPowerOfTwo(int.MaxValue));
     }
 
     [Fact]
@@ -116,8 +116,8 @@ public class MathUtilTests {
         Assert.Equal(256, MathUtil.AlignUp(256, 256));
         Assert.Equal(512, MathUtil.AlignUp(257, 256));
         Assert.Equal(0, MathUtil.AlignUp(0, 16));
-        Assert.Throws<ArgumentOutOfRangeException>(() => MathUtil.AlignUp(16, 0));
-        Assert.Throws<ArgumentOutOfRangeException>(() => MathUtil.AlignUp(-1, 16));
+        Assert.Throws<ArgumentOutOfRangeException>(static () => MathUtil.AlignUp(16, 0));
+        Assert.Throws<ArgumentOutOfRangeException>(static () => MathUtil.AlignUp(-1, 16));
     }
 
     [Fact]

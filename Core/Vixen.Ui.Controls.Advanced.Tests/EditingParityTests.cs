@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Input;
-using Vixen.Ui.Controls;
 using Xunit;
 
 namespace Vixen.Ui.Controls.Advanced.Tests;
@@ -73,11 +72,11 @@ public class EditingParityTests {
 
         using (var fixture = new AdvancedFixture()) {
             var editor = Editor(fixture, keymap);
-            editor.Move(new TextPosition(0, Line.Length));
+            editor.Move(new(0, Line.Length));
 
             fixture.Type(InputKey.Left, word);
 
-            Assert.Equal(new TextPosition(0, 8), editor.Caret);
+            Assert.Equal(new(0, 8), editor.Caret);
         }
     }
 
@@ -117,11 +116,11 @@ public class EditingParityTests {
         using var fixture = new AdvancedFixture();
 
         var editor = Editor(fixture, EditingKeymap.MacOs);
-        editor.Move(new TextPosition(0, Line.Length));
+        editor.Move(new(0, Line.Length));
 
         fixture.Type(InputKey.Left, ModifierKeys.Meta);
 
-        Assert.Equal(new TextPosition(0, 0), editor.Caret);
+        Assert.Equal(new(0, 0), editor.Caret);
     }
 
     /// <summary>⌃A on a Mac is the start of the line, in both controls, and not Select All.</summary>
@@ -139,11 +138,11 @@ public class EditingParityTests {
 
         using (var fixture = new AdvancedFixture()) {
             var editor = Editor(fixture, EditingKeymap.MacOs);
-            editor.Move(new TextPosition(0, Line.Length));
+            editor.Move(new(0, Line.Length));
 
             fixture.Type(InputKey.A, ModifierKeys.Control);
 
-            Assert.Equal(new TextPosition(0, 0), editor.Caret);
+            Assert.Equal(new(0, 0), editor.Caret);
             Assert.False(editor.HasSelection);
         }
     }
@@ -162,7 +161,7 @@ public class EditingParityTests {
 
         using (var fixture = new AdvancedFixture()) {
             var editor = Editor(fixture, EditingKeymap.MacOs);
-            editor.Move(new TextPosition(0, 4));
+            editor.Move(new(0, 4));
 
             fixture.Type(InputKey.K, ModifierKeys.Control);
 
@@ -186,7 +185,7 @@ public class EditingParityTests {
 
         using (var fixture = new AdvancedFixture()) {
             var editor = Editor(fixture, keymap);
-            editor.Move(new TextPosition(0, Line.Length));
+            editor.Move(new(0, Line.Length));
 
             fixture.Type(InputKey.Backspace, word);
 
@@ -205,7 +204,7 @@ public class EditingParityTests {
 
         var field = Field(fixture, EditingKeymap.Windows);
         field.MoveCaret(0);
-        field.MoveCaret(3, extend: true);
+        field.MoveCaret(3, true);
 
         fixture.Type(InputKey.Backspace, ModifierKeys.Control);
 
@@ -214,8 +213,12 @@ public class EditingParityTests {
 
     /// <summary>A chord neither table knows is left for whatever else was listening.</summary>
     /// <remarks>
-    ///     ⚠ <b>What each switch printed for a key it had no row for, which is the thing to check
-    ///     before replacing one.</b> Both ended in <c>default: return;</c> — no <c>Handled</c>, so
+    ///     ⚠
+    ///     <b>
+    ///         What each switch printed for a key it had no row for, which is the thing to check
+    ///         before replacing one.
+    ///     </b>
+    ///     Both ended in <c>default: return;</c> — no <c>Handled</c>, so
     ///     the event kept climbing. Replacing them with a table that fell through to
     ///     <c>args.Handled = true</c> would have made a text control eat every unbound shortcut in
     ///     the application, silently.
@@ -228,10 +231,11 @@ public class EditingParityTests {
 
         var seen = 0;
         fixture.Document.Root.AddHandler<KeyEvent>((_, args) => {
-            if (args is { Key: InputKey.G, Action: KeyAction.Pressed }) {
-                seen++;
+                if (args is { Key: InputKey.G, Action: KeyAction.Pressed }) {
+                    seen++;
+                }
             }
-        });
+        );
 
         var field = fixture.Add<TextArea>();
         field.Value = Line;

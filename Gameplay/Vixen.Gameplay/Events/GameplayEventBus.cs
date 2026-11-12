@@ -13,7 +13,11 @@ public delegate void GameplayEventCallback(in GameplayEvent gameplayEvent);
 
 /// <summary>One subscription, and the handle that cancels it.</summary>
 public sealed class GameplayEventSubscription {
-    internal GameplayEventSubscription(GameplayEventBus bus, GameplayEventFilter filter, GameplayEventCallback handler) {
+    internal GameplayEventSubscription(
+        GameplayEventBus bus,
+        GameplayEventFilter filter,
+        GameplayEventCallback handler
+    ) {
         Bus = bus;
         Filter = filter;
         Handler = handler;

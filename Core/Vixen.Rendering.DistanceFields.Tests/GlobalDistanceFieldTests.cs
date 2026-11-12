@@ -51,7 +51,7 @@ public class GlobalDistanceFieldTests {
 
     [Fact]
     public void SnappingIsToWholeCellsInEveryDirection() {
-        Assert.Equal(new Vector3(2, 0, -2), GlobalDistanceField.Snap(new(2.4f, 0.4f, -1.6f), 2f));
+        Assert.Equal(new(2, 0, -2), GlobalDistanceField.Snap(new(2.4f, 0.4f, -1.6f), 2f));
         Assert.Equal(Vector3.Zero, GlobalDistanceField.Snap(new(0.9f, -0.9f, 0.9f), 2f));
     }
 
@@ -140,7 +140,7 @@ public class GlobalDistanceFieldTests {
                 for (var x = 0; x < 24; x++) {
                     var bounds = clipmap.BoundsOf(0);
                     var cell = bounds.Size / 23f;
-                    var point = bounds.Minimum + (cell * new Vector3(x, y, z));
+                    var point = bounds.Minimum + cell * new Vector3(x, y, z);
                     var truth = Shapes.SphereDistance(point, 1f);
 
                     // Clamped values are the level saying "at least this far", which is still true.
@@ -222,7 +222,7 @@ public class GlobalDistanceFieldTests {
         var serial = new GlobalDistanceField(16, 6f, 2);
 
         parallel.Update(new(0.5f, 0, 0), instances);
-        serial.Update(new(0.5f, 0, 0), instances, parallel: false);
+        serial.Update(new(0.5f, 0, 0), instances, false);
 
         for (var level = 0; level < 2; level++) {
             for (var z = 0; z < 16; z++) {
@@ -299,7 +299,7 @@ public class GlobalDistanceFieldTests {
         Assert.False(clipmap.IsRefreshing);
         Assert.Equal(moved, clipmap.ViewPosition);
         Assert.NotEqual(box, clipmap.BoundsOf(0));
-        Assert.NotEqual(cells, clipmap.LevelData(0).ToArray());
+        Assert.NotEqual(cells, [..clipmap.LevelData(0)]);
     }
 
     /// <summary>
@@ -387,7 +387,5 @@ public class GlobalDistanceFieldTests {
     [InlineData(16, 0f, 4)]
     [InlineData(16, 4f, 0)]
     public void AClipmapThatCannotExistIsRejected(int resolution, float extent, int levels) =>
-        Assert.Throws<ArgumentOutOfRangeException>(
-            () => new GlobalDistanceField(resolution, extent, levels)
-        );
+        Assert.Throws<ArgumentOutOfRangeException>(() => new GlobalDistanceField(resolution, extent, levels));
 }

@@ -122,7 +122,7 @@ public sealed class CharacterSwimmingTests {
             var before = state.Mode;
 
             // A swell about the swim threshold, entirely inside the gap between the two.
-            state.Immersion = 0.8f + (0.09f * MathF.Sin(index * Step * MathF.Tau));
+            state.Immersion = 0.8f + 0.09f * MathF.Sin(index * Step * MathF.Tau);
 
             Advance(ref state);
 
@@ -150,7 +150,7 @@ public sealed class CharacterSwimmingTests {
         for (var index = 0; index < 600; index++) {
             var before = state.Mode;
 
-            state.Immersion = 0.8f + (0.09f * MathF.Sin(index * Step * MathF.Tau));
+            state.Immersion = 0.8f + 0.09f * MathF.Sin(index * Step * MathF.Tau);
 
             CharacterMotion.Step(settings, ref state, default, CharacterGround.Grounded, Step);
 
@@ -195,7 +195,7 @@ public sealed class CharacterSwimmingTests {
             CharacterMotion.Step(Settings, ref state, default, CharacterGround.Airborne, Step);
 
             // The immersion a real bridge would write back: deeper when moving down, and clamped.
-            state.Immersion = Math.Clamp(state.Immersion - (state.Velocity.Y * Step * 0.5f), 0f, 1f);
+            state.Immersion = Math.Clamp(state.Immersion - state.Velocity.Y * Step * 0.5f, 0f, 1f);
         }
 
         Assert.True(MathF.Abs(state.Velocity.Y) < 0.05f, $"it was still moving at {state.Velocity.Y} m/s.");

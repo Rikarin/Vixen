@@ -27,8 +27,12 @@ namespace Vixen.Editor.SceneView;
 ///         they hold entity handles, and a copy of one names the original's parent.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Undoable through <see cref="SceneDocument.Create" /> per entity, inside one
-///         transaction.</b> Duplicating a room of nine walls is one thing somebody did and has to be
+///         ⚠
+///         <b>
+///             Undoable through <see cref="SceneDocument.Create" /> per entity, inside one
+///             transaction.
+///         </b>
+///         Duplicating a room of nine walls is one thing somebody did and has to be
 ///         one <c>Ctrl+Z</c>; it is nine entries underneath because the create command is what knows
 ///         how to give a handle back.
 ///     </para>
@@ -44,8 +48,10 @@ public static class SceneClone {
     /// <summary>Copies an entity and its subtree, undoably.</summary>
     /// <param name="document">The scene.</param>
     /// <param name="entity">What to copy.</param>
-    /// <param name="parent">What to hang the copy from, or <see cref="Entity.Null" /> for the
-    ///     original's own parent.</param>
+    /// <param name="parent">
+    ///     What to hang the copy from, or <see cref="Entity.Null" /> for the
+    ///     original's own parent.
+    /// </param>
     /// <param name="offset">How far to move the copy, in its parent's space.</param>
     /// <param name="name">What to call it, or null for the original's name.</param>
     /// <returns>The copy, or <see cref="Entity.Null" /> when there was nothing to copy.</returns>
@@ -118,8 +124,10 @@ public static class SceneClone {
     /// <param name="from">The original.</param>
     /// <param name="to">The copy.</param>
     /// <returns>How many components were copied.</returns>
-    /// <remarks>What makes a clone the same thing rather than a same-shaped thing, and it is public
-    ///     because a paste, a prefab apply and a duplicate all want exactly this.</remarks>
+    /// <remarks>
+    ///     What makes a clone the same thing rather than a same-shaped thing, and it is public
+    ///     because a paste, a prefab apply and a duplicate all want exactly this.
+    /// </remarks>
     public static int Components(World world, Entity from, Entity to) {
         ArgumentNullException.ThrowIfNull(world);
 
@@ -150,7 +158,12 @@ public static class SceneClone {
         var local = world.Has<LocalTransform>(entity) ? world.Read<LocalTransform>(entity) : LocalTransform.Identity;
         var placed = local with { Position = local.Position + offset };
 
-        var copy = document.Create(name ?? document.NameOf(entity), placed, parent, made => Components(world, entity, made));
+        var copy = document.Create(
+            name ?? document.NameOf(entity),
+            placed,
+            parent,
+            made => Components(world, entity, made)
+        );
 
         // ⚠ The geometry goes through the same commands a verb would use, rather than being written
         // into the document directly. That is what makes an undo of a duplicate put the tables back
@@ -184,7 +197,9 @@ public static class SceneClone {
     }
 
     static bool Inside(SceneDocument document, Entity entity, HashSet<Entity> others) {
-        for (var at = Hierarchy.ParentOf(document.World, entity); !at.IsNull; at = Hierarchy.ParentOf(document.World, at)) {
+        for (var at = Hierarchy.ParentOf(document.World, entity);
+             !at.IsNull;
+             at = Hierarchy.ParentOf(document.World, at)) {
             if (others.Contains(at)) {
                 return true;
             }

@@ -124,8 +124,12 @@ public sealed class RenderPassRenderer : SceneRenderer {
     ///     <see cref="ResolveTargets" /> names it.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>The default is the sample nearest the camera, which under the engine's reversed-Z
-    ///     convention is the <em>largest</em> depth value.</b> Depth cannot borrow colour's rule:
+    ///     ⚠
+    ///     <b>
+    ///         The default is the sample nearest the camera, which under the engine's reversed-Z
+    ///         convention is the <em>largest</em> depth value.
+    ///     </b>
+    ///     Depth cannot borrow colour's rule:
     ///     averaging several depths gives a surface behind nothing and in front of nothing, so
     ///     everything reading the resolved buffer reads a plane no geometry occupies — and it does so
     ///     without an error anywhere.
@@ -255,7 +259,7 @@ public sealed class RenderPassRenderer : SceneRenderer {
     public IList<SceneRenderer> Children { get; } = [];
 
     /// <inheritdoc />
-    public override IReadOnlyList<SceneRenderer> Nested => [.. Children];
+    public override IReadOnlyList<SceneRenderer> Nested => [..Children];
 
     /// <inheritdoc />
     protected internal override void Collect(GraphicsCompositor compositor) {
@@ -315,22 +319,26 @@ public sealed class RenderPassRenderer : SceneRenderer {
         // only one of the two lists is the edge the graph would be missing, so there is one list.
         var textures = Reads.Concat(SceneTextures.Values)
             .Distinct(StringComparer.Ordinal)
-            .ToDictionary(read => read, read => frame.Texture(ToString(), read), StringComparer.Ordinal);
+            .ToDictionary(static read => read, read => frame.Texture(ToString(), read), StringComparer.Ordinal);
 
         var buffers = BufferReads.Concat(SceneBuffers.Values)
             .Distinct(StringComparer.Ordinal)
-            .ToDictionary(read => read, read => frame.Buffer(ToString(), read), StringComparer.Ordinal);
+            .ToDictionary(static read => read, read => frame.Buffer(ToString(), read), StringComparer.Ordinal);
 
         var bound = Descriptors.Resolve(ToString(), textures, buffers, samplers: Samplers);
         var sampled = textures.Values.ToArray();
         var consumed = buffers.Values.ToArray();
 
         var publishedTextures = SceneTextures
-            .Select(entry => (Key: ParameterKeys.New<TextureViewHandle>($"{ShaderName}.{entry.Key}"), Texture: textures[entry.Value]))
+            .Select(entry => (Key: ParameterKeys.New<TextureViewHandle>($"{ShaderName}.{entry.Key}"),
+                    Texture: textures[entry.Value])
+            )
             .ToArray();
 
         var publishedBuffers = SceneBuffers
-            .Select(entry => (Key: ParameterKeys.New<BufferHandle>($"{ShaderName}.{entry.Key}"), Buffer: buffers[entry.Value]))
+            .Select(entry => (Key: ParameterKeys.New<BufferHandle>($"{ShaderName}.{entry.Key}"),
+                    Buffer: buffers[entry.Value])
+            )
             .ToArray();
 
         frame.Graph.AddPass(
@@ -364,8 +372,7 @@ public sealed class RenderPassRenderer : SceneRenderer {
                     pass.Reads(read);
                 }
 
-                pass.Execute(
-                    graphContext => {
+                pass.Execute(graphContext => {
                         var context = frame.Context(graphContext.CommandList);
                         var previous = context.Output;
                         var previousScene = context.SceneConstants;

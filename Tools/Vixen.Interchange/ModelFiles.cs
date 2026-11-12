@@ -69,9 +69,7 @@ sealed unsafe class ModelFiles {
             var handle = GCHandle.Alloc(files);
             try {
                 var io = new FileIO {
-                    OpenProc = new PfnFileOpenProc(&Open),
-                    CloseProc = new PfnFileCloseProc(&Close),
-                    UserData = (byte*)GCHandle.ToIntPtr(handle)
+                    OpenProc = new(&Open), CloseProc = new(&Close), UserData = (byte*)GCHandle.ToIntPtr(handle)
                 };
                 return (import((IntPtr)(&io)), files.Problems);
             } finally {
@@ -119,12 +117,12 @@ sealed unsafe class ModelFiles {
             }
 
             var file = (AssimpFile*)NativeMemory.AllocZeroed((nuint)sizeof(AssimpFile));
-            file->ReadProc = new PfnFileReadProc(&Read);
-            file->WriteProc = new PfnFileReadProc(&Write);
-            file->TellProc = new PfnFileTellProc(&Tell);
-            file->FileSizeProc = new PfnFileTellProc(&Size);
-            file->SeekProc = new PfnFileSeek(&Seek);
-            file->FlushProc = new PfnFileFlushProc(&Flush);
+            file->ReadProc = new(&Read);
+            file->WriteProc = new(&Write);
+            file->TellProc = new(&Tell);
+            file->FileSizeProc = new(&Size);
+            file->SeekProc = new(&Seek);
+            file->FlushProc = new(&Flush);
             file->UserData = (byte*)GCHandle.ToIntPtr(GCHandle.Alloc(found));
             return file;
         } catch {

@@ -3,7 +3,6 @@
 
 using Vixen.Audio.Devices;
 using Vixen.Audio.Effects;
-using Vixen.Audio.Mixing;
 using Vixen.Audio.Sources;
 using Xunit;
 
@@ -12,7 +11,7 @@ namespace Vixen.Audio.Tests;
 /// <summary>The input half, which until now did not exist.</summary>
 public sealed class CaptureTests {
     static NullAudioCaptureDevice Microphone(int bufferedFrames = 4_800) {
-        var device = new NullAudioCaptureDevice(new AudioCaptureOptions { BufferedFrames = bufferedFrames });
+        var device = new NullAudioCaptureDevice(new() { BufferedFrames = bufferedFrames });
         device.Start();
         return device;
     }
@@ -36,7 +35,7 @@ public sealed class CaptureTests {
 
         Assert.False(quiet.SupportsCapture);
         Assert.Empty(quiet.EnumerateCaptureDevices());
-        Assert.Throws<AudioDeviceException>(() => quiet.OpenCaptureDevice(new AudioCaptureOptions()));
+        Assert.Throws<AudioDeviceException>(() => quiet.OpenCaptureDevice(new()));
     }
 
     [Fact]
@@ -46,7 +45,7 @@ public sealed class CaptureTests {
         Assert.True(backend.SupportsCapture);
         Assert.Single(backend.EnumerateCaptureDevices());
 
-        using var device = backend.OpenCaptureDevice(new AudioCaptureOptions());
+        using var device = backend.OpenCaptureDevice(new());
         device.Start();
 
         Assert.True(device.IsRunning);
@@ -82,7 +81,7 @@ public sealed class CaptureTests {
     /// <summary>A reader that stopped reading loses the newest audio and is told how much.</summary>
     [Fact]
     public void ASlowReaderLosesAudioAndItIsCounted() {
-        using var device = Microphone(bufferedFrames: 480);
+        using var device = Microphone(480);
 
         Assert.Equal(480, device.Push(Speech(480)));
         Assert.Equal(0, device.Overruns);
@@ -93,7 +92,7 @@ public sealed class CaptureTests {
 
     [Fact]
     public void AStoppedMicrophoneHearsNothing() {
-        var device = new NullAudioCaptureDevice(new AudioCaptureOptions());
+        var device = new NullAudioCaptureDevice(new());
 
         Assert.False(device.IsRunning);
         Assert.Equal(0, device.Push(Speech(480)));
@@ -105,14 +104,14 @@ public sealed class CaptureTests {
     /// <summary>Monitoring, and the only way to prove the path end to end.</summary>
     [Fact]
     public void AMicrophoneCanBePlayedThroughTheMixer() {
-        var (engine, output) = AudioTestData.Engine(channels: 2);
+        var (engine, output) = AudioTestData.Engine();
 
         using (engine) {
             using var microphone = Microphone();
             var provider = new CaptureSampleProvider(microphone);
 
             microphone.Push(Speech(4_800, 0.8f));
-            engine.Play(provider, new PlaybackSettings());
+            engine.Play(provider, new());
 
             var peak = 0f;
 
@@ -130,12 +129,12 @@ public sealed class CaptureTests {
     /// </summary>
     [Fact]
     public void AnEmptyMicrophoneIsSilenceAndACounterRatherThanTheEndOfTheSound() {
-        var (engine, output) = AudioTestData.Engine(channels: 2);
+        var (engine, output) = AudioTestData.Engine();
 
         using (engine) {
             using var microphone = Microphone();
             var provider = new CaptureSampleProvider(microphone);
-            var handle = engine.Play(provider, new PlaybackSettings());
+            var handle = engine.Play(provider, new());
 
             // Nothing was ever pushed, so every frame is starved.
             AudioTestData.Render(output, 256);
@@ -150,22 +149,21 @@ public sealed class CaptureTests {
     /// <summary>The reason the gate exists, wired the way a session actually would be.</summary>
     [Fact]
     public void AGateOnTheVoiceBusRemovesTheRoomToneAndKeepsTheSpeech() {
-        var (engine, output) = AudioTestData.Engine(channels: 2);
+        var (engine, output) = AudioTestData.Engine();
 
         using (engine) {
             using var microphone = Microphone();
             var voice = engine.CreateBus("Voice");
 
-            voice.AddEffect(new GateEffect {
-                ThresholdDb = -40f,
-                HoldSeconds = 0f,
-                ReleaseSeconds = 0.001f,
-                AttackSeconds = 0.0005f
-            });
+            voice.AddEffect(
+                new GateEffect {
+                    ThresholdDb = -40f, HoldSeconds = 0f, ReleaseSeconds = 0.001f, AttackSeconds = 0.0005f
+                }
+            );
 
             engine.Play(
                 new CaptureSampleProvider(microphone),
-                new PlaybackSettings { Bus = voice.Index }
+                new() { Bus = voice.Index }
             );
 
             // Exactly as much as the blocks below consume, so the second push is not queued behind
@@ -182,7 +180,7 @@ public sealed class CaptureTests {
                 noise = MathF.Max(noise, AudioTestData.Peak(AudioTestData.Render(output, 64)));
             }
 
-            microphone.Push(Speech(Frames, 0.5f));
+            microphone.Push(Speech(Frames));
             var speech = 0f;
 
             for (var i = 0; i < Blocks; i++) {
@@ -202,8 +200,7 @@ public sealed class CaptureTests {
 
         public IReadOnlyList<AudioDeviceInfo> EnumerateDevices() => [];
 
-        public IAudioDevice OpenDevice(in AudioDeviceOptions options) =>
-            throw new AudioDeviceException("No devices.");
+        public IAudioDevice OpenDevice(in AudioDeviceOptions options) => throw new AudioDeviceException("No devices.");
 
         public void Dispose() { }
     }

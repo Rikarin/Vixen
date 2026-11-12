@@ -63,8 +63,7 @@ public readonly struct BoundingSphere : IEquatable<BoundingSphere>, IFormattable
     /// <summary>The sphere circumscribing a box.</summary>
     /// <param name="box">The box.</param>
     /// <returns>The bounding sphere.</returns>
-    public static BoundingSphere FromBox(BoundingBox box) =>
-        box.IsEmpty ? Empty : new(box.Center, box.Extent.Length());
+    public static BoundingSphere FromBox(BoundingBox box) => box.IsEmpty ? Empty : new(box.Center, box.Extent.Length());
 
     /// <summary>The smallest sphere containing both.</summary>
     /// <param name="left">The first sphere.</param>
@@ -94,7 +93,7 @@ public readonly struct BoundingSphere : IEquatable<BoundingSphere>, IFormattable
 
         var radius = (distance + left.Radius + right.Radius) * 0.5f;
         var direction = distance < MathUtil.ZeroTolerance ? Vector3.Zero : offset / distance;
-        return new(left.Center + (direction * (radius - left.Radius)), radius);
+        return new(left.Center + direction * (radius - left.Radius), radius);
     }
 
     /// <summary>Whether a point is inside or on the surface.</summary>

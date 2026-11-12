@@ -20,7 +20,7 @@ namespace Vixen.Editor.Assets.Tests;
 /// </remarks>
 public class SpriteSlicerTests {
     /// <summary>A transparent image of a given size.</summary>
-    static TextureData Blank(int width, int height) => new(PixelFormat.Rgba8UNorm, width, height, levelCount: 1);
+    static TextureData Blank(int width, int height) => new(PixelFormat.Rgba8UNorm, width, height, 1);
 
     /// <summary>Paints an opaque rectangle into an image.</summary>
     static TextureData Fill(TextureData texture, int x, int y, int width, int height, byte alpha = 255) {
@@ -28,7 +28,7 @@ public class SpriteSlicerTests {
 
         for (var row = y; row < y + height; row++) {
             for (var column = x; column < x + width; column++) {
-                var index = ((row * texture.Width) + column) * 4;
+                var index = (row * texture.Width + column) * 4;
 
                 pixels[index] = 255;
                 pixels[index + 1] = 255;
@@ -48,11 +48,11 @@ public class SpriteSlicerTests {
 
         Assert.Equal(8, sprites.Count);
         Assert.Equal("sprite_0", sprites[0].Name);
-        Assert.Equal(new Rectangle(0f, 0f, 32f, 32f), sprites[0].Region);
+        Assert.Equal(new(0f, 0f, 32f, 32f), sprites[0].Region);
 
         // Row-major from the top-left, which is the order a texture is laid out in and therefore the
         // order an animation's frames are drawn in.
-        Assert.Equal(new Rectangle(32f, 32f, 32f, 32f), sprites[5].Region);
+        Assert.Equal(new(32f, 32f, 32f, 32f), sprites[5].Region);
     }
 
     [Fact]
@@ -93,7 +93,7 @@ public class SpriteSlicerTests {
         );
 
         Assert.Equal(2, sprites.Count);
-        Assert.Equal(new Rectangle(32f, 0f, 32f, 32f), sprites[1].Region);
+        Assert.Equal(new(32f, 0f, 32f, 32f), sprites[1].Region);
     }
 
     [Fact]
@@ -103,8 +103,8 @@ public class SpriteSlicerTests {
         var sprites = SpriteSlicer.Slice(texture, new(SliceMethod.GridByCount) { CellCount = new(4, 2) });
 
         Assert.Equal(8, sprites.Count);
-        Assert.Equal(new Rectangle(0f, 0f, 32f, 32f), sprites[0].Region);
-        Assert.Equal(new Rectangle(96f, 32f, 32f, 32f), sprites[7].Region);
+        Assert.Equal(new(0f, 0f, 32f, 32f), sprites[0].Region);
+        Assert.Equal(new(96f, 32f, 32f, 32f), sprites[7].Region);
     }
 
     [Fact]
@@ -119,8 +119,8 @@ public class SpriteSlicerTests {
         );
 
         Assert.Equal(4, sprites.Count);
-        Assert.Equal(new Rectangle(0f, 0f, 32f, 32f), sprites[0].Region);
-        Assert.Equal(new Rectangle(102f, 0f, 32f, 32f), sprites[3].Region);
+        Assert.Equal(new(0f, 0f, 32f, 32f), sprites[0].Region);
+        Assert.Equal(new(102f, 0f, 32f, 32f), sprites[3].Region);
     }
 
     [Fact]
@@ -133,7 +133,7 @@ public class SpriteSlicerTests {
         );
 
         Assert.Equal(2, sprites.Count);
-        Assert.Equal(new Rectangle(8f, 8f, 32f, 32f), sprites[0].Region);
+        Assert.Equal(new(8f, 8f, 32f, 32f), sprites[0].Region);
     }
 
     [Fact]
@@ -145,7 +145,7 @@ public class SpriteSlicerTests {
             new(SliceMethod.GridBySize) { CellSize = new(32, 32), Trim = true }
         );
 
-        Assert.Equal(new Rectangle(8f, 4f, 10f, 6f), Assert.Single(sprites).Region);
+        Assert.Equal(new(8f, 4f, 10f, 6f), Assert.Single(sprites).Region);
     }
 
     [Fact]
@@ -157,12 +157,12 @@ public class SpriteSlicerTests {
 
     [Fact]
     public void TheAlphaThresholdDecidesWhatCountsAsDrawn() {
-        var texture = Fill(Blank(32, 32), 4, 4, 8, 8, alpha: 3);
+        var texture = Fill(Blank(32, 32), 4, 4, 8, 8, 3);
 
         // Zero is not a disabled threshold: a texel with alpha 3 is very nearly invisible and is
         // still drawn, so the default keeps it.
         Assert.False(SpriteSlicer.Trim(texture, new(0f, 0f, 32f, 32f)).IsEmpty);
-        Assert.True(SpriteSlicer.Trim(texture, new(0f, 0f, 32f, 32f), threshold: 4).IsEmpty);
+        Assert.True(SpriteSlicer.Trim(texture, new(0f, 0f, 32f, 32f), 4).IsEmpty);
     }
 
     [Fact]
@@ -175,8 +175,8 @@ public class SpriteSlicerTests {
         var sprites = SpriteSlicer.Slice(texture, new(SliceMethod.Automatic));
 
         Assert.Equal(2, sprites.Count);
-        Assert.Equal(new Rectangle(2f, 2f, 10f, 10f), sprites[0].Region);
-        Assert.Equal(new Rectangle(40f, 4f, 12f, 8f), sprites[1].Region);
+        Assert.Equal(new(2f, 2f, 10f, 10f), sprites[0].Region);
+        Assert.Equal(new(40f, 4f, 12f, 8f), sprites[1].Region);
     }
 
     [Fact]
@@ -189,7 +189,10 @@ public class SpriteSlicerTests {
             Fill(texture, 4 + step, 4 + step, 1, 1);
         }
 
-        Assert.Equal(new Rectangle(4f, 4f, 8f, 8f), Assert.Single(SpriteSlicer.Slice(texture, new(SliceMethod.Automatic))).Region);
+        Assert.Equal(
+            new(4f, 4f, 8f, 8f),
+            Assert.Single(SpriteSlicer.Slice(texture, new(SliceMethod.Automatic))).Region
+        );
     }
 
     [Fact]
@@ -204,7 +207,7 @@ public class SpriteSlicerTests {
 
         var sprites = SpriteSlicer.Slice(texture, new(SliceMethod.Automatic));
 
-        Assert.Equal(new Rectangle(8f, 8f, 20f, 16f), Assert.Single(sprites).Region);
+        Assert.Equal(new(8f, 8f, 20f, 16f), Assert.Single(sprites).Region);
     }
 
     [Fact]
@@ -215,14 +218,14 @@ public class SpriteSlicerTests {
         // merges first makes a larger box that only then overlaps what is left.
         var texture = Blank(64, 64);
 
-        foreach (var corner in (int[]) [0, 15, 30]) {
+        foreach (var corner in (int[])[0, 15, 30]) {
             Fill(texture, corner, corner, 21, 1);
             Fill(texture, corner, corner, 1, 21);
         }
 
         var sprites = SpriteSlicer.Slice(texture, new(SliceMethod.Automatic));
 
-        Assert.Equal(new Rectangle(0f, 0f, 51f, 51f), Assert.Single(sprites).Region);
+        Assert.Equal(new(0f, 0f, 51f, 51f), Assert.Single(sprites).Region);
     }
 
     [Fact]
@@ -261,7 +264,7 @@ public class SpriteSlicerTests {
     public void ATextureWithNoAlphaToReadSlicesIntoNothing() {
         // A compressed source arrives in blocks. Rather than half-decode one, automatic slicing says
         // it cannot — and the panel disables the button rather than showing an empty result.
-        var compressed = new TextureData(PixelFormat.Bc7RgbaUNorm, 64, 64, levelCount: 1);
+        var compressed = new TextureData(PixelFormat.Bc7RgbaUNorm, 64, 64, 1);
 
         Assert.False(SpriteSlicer.CanReadAlpha(compressed));
         Assert.Empty(SpriteSlicer.Slice(compressed, new(SliceMethod.Automatic)));
@@ -274,15 +277,12 @@ public class SpriteSlicerTests {
         var sprites = SpriteSlicer.Slice(
             texture,
             new(SliceMethod.GridBySize) {
-                CellSize = new(32, 32),
-                Pivot = new(0f, 0f),
-                Border = NineSlice.Uniform(4f),
-                NamePrefix = "tile"
+                CellSize = new(32, 32), Pivot = new(0f, 0f), Border = NineSlice.Uniform(4f), NamePrefix = "tile"
             }
         );
 
         Assert.Equal("tile_1", sprites[1].Name);
-        Assert.Equal(new Vector2(0f, 0f), sprites[0].Pivot);
+        Assert.Equal(new(0f, 0f), sprites[0].Pivot);
         Assert.Equal(NineSlice.Uniform(4f), sprites[0].Border);
     }
 
@@ -304,8 +304,8 @@ public class SpriteSlicerTests {
         var sprite = rect.ToSprite(new(128, 64), 32f);
 
         Assert.Equal("hero", sprite.Name);
-        Assert.Equal(new Rectangle(0.25f, 0.25f, 0.5f, 0.5f), sprite.Uv);
-        Assert.Equal(new Vector2(2f, 1f), sprite.Size);
+        Assert.Equal(new(0.25f, 0.25f, 0.5f, 0.5f), sprite.Uv);
+        Assert.Equal(new(2f, 1f), sprite.Size);
         Assert.Equal(0.25f, sprite.UnitBorder.Left, 5);
     }
 }

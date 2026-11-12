@@ -70,11 +70,12 @@ public struct FollowBody {
     ///     Behind is +Z, because an entity faces its local −Z (see <c>Conventions.md</c>
     ///     § Handedness).
     /// </remarks>
-    public static FollowBody Behind(float distance, float height, float damping = 0.5f) => new() {
-        Offset = new(0f, height, distance),
-        Binding = CameraBinding.TargetHeading,
-        Damping = new(damping, damping, damping)
-    };
+    public static FollowBody Behind(float distance, float height, float damping = 0.5f) =>
+        new() {
+            Offset = new(0f, height, distance),
+            Binding = CameraBinding.TargetHeading,
+            Damping = new(damping, damping, damping)
+        };
 }
 
 /// <summary>
@@ -141,22 +142,27 @@ public struct FramingBody {
     /// <param name="distance">How far away.</param>
     /// <param name="damping">The damping time on every axis, in seconds.</param>
     /// <returns>The body.</returns>
-    public static FramingBody At(float distance, float damping = 0.5f) => new() {
-        TrackedOffset = Vector3.Zero,
-        Distance = distance,
-        ScreenPosition = Vector2.Zero,
-        DeadZone = new(0.1f, 0.1f),
-        MinimumDistance = 0f,
-        MaximumDistance = 0f,
-        Damping = new(damping, damping, damping)
-    };
+    public static FramingBody At(float distance, float damping = 0.5f) =>
+        new() {
+            TrackedOffset = Vector3.Zero,
+            Distance = distance,
+            ScreenPosition = Vector2.Zero,
+            DeadZone = new(0.1f, 0.1f),
+            MinimumDistance = 0f,
+            MaximumDistance = 0f,
+            Damping = new(damping, damping, damping)
+        };
 }
 
 /// <summary>Puts the camera on a sphere about the target, at an angle the game chooses.</summary>
 /// <remarks>
 ///     <para>
-///         Cinemachine's Orbital Transposer, with one deliberate difference: <b>it reads no
-///         device.</b> <see cref="Heading" /> and <see cref="Pitch" /> are two numbers that gameplay
+///         Cinemachine's Orbital Transposer, with one deliberate difference:
+///         <b>
+///             it reads no
+///             device.
+///         </b>
+///         <see cref="Heading" /> and <see cref="Pitch" /> are two numbers that gameplay
 ///         writes — from a stick, from a mouse, from a cutscene's animation curve, from a tween that
 ///         recentres the camera behind the player after a few idle seconds — and the body's job is
 ///         only to turn them into a position and damp the result. Binding a camera component
@@ -196,13 +202,14 @@ public struct OrbitBody {
     /// <param name="pitch">How far above the horizontal, in radians.</param>
     /// <param name="damping">The damping time on every axis, in seconds.</param>
     /// <returns>The body.</returns>
-    public static OrbitBody At(float radius, float pitch = 0f, float damping = 0.3f) => new() {
-        PivotOffset = Vector3.Zero,
-        Radius = radius,
-        Heading = 0f,
-        Pitch = pitch,
-        Damping = new(damping, damping, damping)
-    };
+    public static OrbitBody At(float radius, float pitch = 0f, float damping = 0.3f) =>
+        new() {
+            PivotOffset = Vector3.Zero,
+            Radius = radius,
+            Heading = 0f,
+            Pitch = pitch,
+            Damping = new(damping, damping, damping)
+        };
 }
 
 /// <summary>Puts the camera exactly on the target, with no damping and no argument.</summary>
@@ -289,23 +296,25 @@ public struct TrackedDollyBody {
     /// <param name="track">Which spline asset.</param>
     /// <param name="position">How far along it, in metres.</param>
     /// <returns>The body.</returns>
-    public static TrackedDollyBody On(string track, float position = 0f) => new() {
-        Track = track,
-        Position = position,
-        Mode = DollyMode.Manual,
-        Offset = Vector3.Zero,
-        Damping = Vector3.Zero
-    };
+    public static TrackedDollyBody On(string track, float position = 0f) =>
+        new() {
+            Track = track,
+            Position = position,
+            Mode = DollyMode.Manual,
+            Offset = Vector3.Zero,
+            Damping = Vector3.Zero
+        };
 
     /// <summary>A camera that slides along a track to stay beside what it follows.</summary>
     /// <param name="track">Which spline asset.</param>
     /// <param name="damping">The damping time on every axis, in seconds.</param>
     /// <returns>The body.</returns>
-    public static TrackedDollyBody Following(string track, float damping = 0.4f) => new() {
-        Track = track,
-        Position = 0f,
-        Mode = DollyMode.NearestToTarget,
-        Offset = Vector3.Zero,
-        Damping = new(damping, damping, damping)
-    };
+    public static TrackedDollyBody Following(string track, float damping = 0.4f) =>
+        new() {
+            Track = track,
+            Position = 0f,
+            Mode = DollyMode.NearestToTarget,
+            Offset = Vector3.Zero,
+            Damping = new(damping, damping, damping)
+        };
 }

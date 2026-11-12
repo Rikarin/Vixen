@@ -13,8 +13,12 @@ namespace Vixen.Editor.App.Tests;
 /// <summary>Doc 20 § B1's collections: a named set of assets that survives the files moving.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>A collection keeps the result and a saved filter keeps the query, which is why only
-///         one of them is a preference.</b> `BrowserSavedFilterTests` proves the filter half by
+///         ⚠
+///         <b>
+///             A collection keeps the result and a saved filter keeps the query, which is why only
+///             one of them is a preference.
+///         </b>
+///         `BrowserSavedFilterTests` proves the filter half by
 ///         importing a file <em>after</em> the filter is named and finding it anyway; this proves the
 ///         collection half the opposite way, by moving a file on disk after it is collected and
 ///         finding it in the same collection afterwards. A store keyed by path cannot pass that, and
@@ -30,8 +34,12 @@ namespace Vixen.Editor.App.Tests;
 /// </remarks>
 public class BrowserCollectionTests {
     /// <summary>
-    ///     ⚠ <b>The whole feature in one assertion: collected, then moved on disk, then still
-    ///     there.</b> The move is a real one — the file and its sidecar both, the way a file manager
+    ///     ⚠
+    ///     <b>
+    ///         The whole feature in one assertion: collected, then moved on disk, then still
+    ///         there.
+    ///     </b>
+    ///     The move is a real one — the file and its sidecar both, the way a file manager
     ///     or a checkout moves them — and the rescan afterwards is what a project does about it. What
     ///     survives it is the identity, which is the reason a collection holds ids.
     /// </summary>
@@ -227,7 +235,7 @@ public class BrowserCollectionTests {
 
         Assert.Empty(Assert.Single(editor.AssetCollections).Assets);
 
-        var tile = Grid(editor).Tiles.First(candidate => candidate.Node?.Name == "widget-a.png");
+        var tile = Grid(editor).Tiles.First(static candidate => candidate.Node?.Name == "widget-a.png");
         var row = Row(editor, "Level art");
 
         // ⚠ The press selects, and what a drag carries is the selection — so the gesture has to start
@@ -243,7 +251,7 @@ public class BrowserCollectionTests {
     static EditorSession Started(string? data = null) {
         var editor = data is null
             ? EditorSession.Start()
-            : EditorSession.Start(new EditorSessionOptions { DataDirectory = data });
+            : EditorSession.Start(new() { DataDirectory = data });
 
         editor.Open("project");
         editor.Settle();
@@ -253,7 +261,9 @@ public class BrowserCollectionTests {
         // tree is already a hierarchy and a second folders-only column would be the same information
         // twice. Asserted rather than pressed: a toggle pressed here would turn it *off*.
         Assert.True(
-            Descendants(editor.Panel("project")).OfType<ToggleButton>().First(button => button.Label == "Grid")
+            Descendants(editor.Panel("project"))
+                .OfType<ToggleButton>()
+                .First(static button => button.Label == "Grid")
                 .IsChecked,
             "the browser did not open in grid mode, so the collections column is not on screen"
         );
@@ -288,11 +298,14 @@ public class BrowserCollectionTests {
     static TreeView Folders(EditorSession editor) =>
         Descendants(editor.Panel("project"))
             .OfType<TreeView>()
-            .FirstOrDefault(tree => tree.HasClass("browser-folders"))
+            .FirstOrDefault(static tree => tree.HasClass("browser-folders"))
         ?? throw editor.Fail("the browser has no folder column");
 
     static List<string> Shown(EditorSession editor) => [
-        .. Grid(editor).Items.Where(item => !item.IsFolder).Select(item => item.Name).Order(StringComparer.Ordinal)
+        ..Grid(editor)
+            .Items.Where(static item => !item.IsFolder)
+            .Select(static item => item.Name)
+            .Order(StringComparer.Ordinal)
     ];
 
     /// <summary>Clicks a row in the folder column, which is either a folder or a collection.</summary>
@@ -306,7 +319,7 @@ public class BrowserCollectionTests {
     static (float X, float Y) Middle(UiElement element) {
         var bounds = element.Bounds;
 
-        return (bounds.X + (bounds.Width / 2f), bounds.Y + (bounds.Height / 2f));
+        return (bounds.X + bounds.Width / 2f, bounds.Y + bounds.Height / 2f);
     }
 
     static IEnumerable<UiElement> Descendants(UiElement element) {

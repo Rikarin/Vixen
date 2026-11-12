@@ -234,8 +234,7 @@ public sealed class BehaviorTreeTemplate {
     /// <param name="index">The node to test.</param>
     /// <returns>Whether it is inside.</returns>
     /// <remarks>Two comparisons, and this is the abort test in its entirety.</remarks>
-    public bool Contains(int ancestor, int index) =>
-        index >= ancestor && index <= nodes[ancestor].LastDescendant;
+    public bool Contains(int ancestor, int index) => index >= ancestor && index <= nodes[ancestor].LastDescendant;
 
     /// <summary>The keys one decorator reads.</summary>
     /// <param name="slot">The decorator.</param>
@@ -252,8 +251,14 @@ public sealed class BehaviorTreeTemplate {
             ref readonly var node = ref nodes[index];
             var what = node.Kind == BehaviorNodeKind.Composite ? node.Composite.ToString() : "Task";
 
-            text.Append(System.Globalization.CultureInfo.InvariantCulture, $"{index,3} {new string(' ', Depth(index) * 2)}{what} {node.Name}")
-                .Append(System.Globalization.CultureInfo.InvariantCulture, $" [last {node.LastDescendant}, memory {node.MemoryOffset}+{node.MemorySize}");
+            text.Append(
+                    System.Globalization.CultureInfo.InvariantCulture,
+                    $"{index,3} {new string(' ', Depth(index) * 2)}{what} {node.Name}"
+                )
+                .Append(
+                    System.Globalization.CultureInfo.InvariantCulture,
+                    $" [last {node.LastDescendant}, memory {node.MemoryOffset}+{node.MemorySize}"
+                );
 
             if (node.DecoratorCount > 0) {
                 text.Append(System.Globalization.CultureInfo.InvariantCulture, $", {node.DecoratorCount} decorator(s)");

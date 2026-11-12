@@ -143,12 +143,13 @@ public static class WordBreaker {
             return false;
         }
 
-        if (IsLetter(before) && (after is WordBreakClass.MidLetter or WordBreakClass.MidNumLet or WordBreakClass.SingleQuote)
+        if (IsLetter(before)
+            && after is WordBreakClass.MidLetter or WordBreakClass.MidNumLet or WordBreakClass.SingleQuote
             && IsLetter(FollowingClass(classes, i))) {
             return false;
         }
 
-        if ((before is WordBreakClass.MidLetter or WordBreakClass.MidNumLet or WordBreakClass.SingleQuote)
+        if (before is WordBreakClass.MidLetter or WordBreakClass.MidNumLet or WordBreakClass.SingleQuote
             && IsLetter(after)
             && IsLetter(PrecedingClass(classes, left))) {
             return false;
@@ -190,7 +191,7 @@ public static class WordBreaker {
             return false;
         }
 
-        if ((before is WordBreakClass.MidNum or WordBreakClass.MidNumLet or WordBreakClass.SingleQuote)
+        if (before is WordBreakClass.MidNum or WordBreakClass.MidNumLet or WordBreakClass.SingleQuote
             && after == WordBreakClass.Numeric
             && PrecedingClass(classes, left) == WordBreakClass.Numeric) {
             return false;
@@ -223,8 +224,7 @@ public static class WordBreaker {
         return true;
     }
 
-    static bool IsLetter(WordBreakClass value) =>
-        value is WordBreakClass.ALetter or WordBreakClass.HebrewLetter;
+    static bool IsLetter(WordBreakClass value) => value is WordBreakClass.ALetter or WordBreakClass.HebrewLetter;
 
     static bool IsIgnorable(WordBreakClass value) =>
         value is WordBreakClass.Extend or WordBreakClass.Format or WordBreakClass.ZWJ;

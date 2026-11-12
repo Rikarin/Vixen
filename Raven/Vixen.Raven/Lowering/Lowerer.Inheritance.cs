@@ -97,7 +97,9 @@ public sealed partial class Lowerer {
     }
 
     static IEnumerable<FieldSymbol> DeclaredStorage(NamedTypeSymbol type) =>
-        type.GetMembers().OfType<FieldSymbol>().Where(f => f is { IsConst: false, IsCompose: false, IsStream: false });
+        type.GetMembers()
+            .OfType<FieldSymbol>()
+            .Where(static f => f is { IsConst: false, IsCompose: false, IsStream: false });
 
     /// <summary>
     ///     The bodies a type inherits and does not itself declare, with the name each copy gets.
@@ -113,11 +115,11 @@ public sealed partial class Lowerer {
         }
 
         List<(string, Symbol, BoundBody)> result = [];
-        HashSet<string> taken = [.. MemberBodies(type, report: false).Select(entry => entry.Name)];
+        HashSet<string> taken = [..MemberBodies(type, false).Select(static entry => entry.Name)];
         HashSet<string> seen = [];
 
         foreach (var baseType in bases) {
-            foreach (var (_, member, body) in MemberBodies(baseType, report: false)) {
+            foreach (var (_, member, body) in MemberBodies(baseType, false)) {
                 // Signature identity rather than name: two overloads are two members, and the
                 // derived type may override one of them.
                 if (member is not MethodSymbol method || !seen.Add(Signature(method))) {
@@ -138,7 +140,7 @@ public sealed partial class Lowerer {
     }
 
     static string Signature(MethodSymbol method) =>
-        $"{method.Name}({string.Join(",", method.Parameters.Select(p => p.Type.ToDisplayString()))})";
+        $"{method.Name}({string.Join(",", method.Parameters.Select(static p => p.Type.ToDisplayString()))})";
 
     /// <summary>Creates the signature of every body a type inherits.</summary>
     void DeclareInheritedFunctions(NamedTypeSymbol type) {
@@ -194,7 +196,7 @@ public sealed partial class Lowerer {
 
             foreach (var baseType in BaseChain(type).Reverse()) {
                 if (shaders.TryGetValue(baseType, out var source)) {
-                    MergeInterface(shader, source, qualify: false);
+                    MergeInterface(shader, source, false);
                 }
             }
         }

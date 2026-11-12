@@ -15,8 +15,11 @@ namespace Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>The exit criterion the plan states is a golden image against
-///         <c>MeshRenderFeature</c></b>, and that is a device test — there is no rasterizer here. What
+///         <b>
+///             The exit criterion the plan states is a golden image against
+///             <c>MeshRenderFeature</c>
+///         </b>
+///         , and that is a device test — there is no rasterizer here. What
 ///         <em>can</em> be checked on the host is the part a golden image would only tell you about
 ///         obliquely: every step between "the traversal accepted a cluster" and "a vertex is at a world
 ///         position" is arithmetic, all of it is mirrored, and a golden image that differed would leave
@@ -133,7 +136,7 @@ public sealed class ClusterRasterTests {
 
         var records = visibility.Records;
         var geometry = visibility.GeometryRecords;
-        var expected = new Vector3[mesh.Meshlets.Max(meshlet => meshlet.VertexCount)];
+        var expected = new Vector3[mesh.Meshlets.Max(static meshlet => meshlet.VertexCount)];
         var checkedCorners = 0;
 
         for (var cluster = 0; cluster < mesh.Meshlets.Length; cluster++) {
@@ -153,8 +156,8 @@ public sealed class ClusterRasterTests {
 
                     // The oracle: the same corner through the format's own decoder, placed and scaled the
                     // way the vertex stage places and scales it.
-                    var local = pages.GetCorners(cluster, meshlet.TriangleCount)[(triangle * 3) + (int)corner];
-                    var reference = instance.Position + (expected[local] * instance.Scale);
+                    var local = pages.GetCorners(cluster, meshlet.TriangleCount)[triangle * 3 + (int)corner];
+                    var reference = instance.Position + expected[local] * instance.Scale;
 
                     Assert.Equal(reference, world);
                     checkedCorners++;
@@ -190,7 +193,7 @@ public sealed class ClusterRasterTests {
         var slots = new uint[visibility.PageCount];
         Array.Fill(slots, GpuClusterVisibility.PageAbsent);
 
-        Assert.All(slots, slot => Assert.Equal(GpuClusterVisibility.PageAbsent, slot));
+        Assert.All(slots, static slot => Assert.Equal(GpuClusterVisibility.PageAbsent, slot));
 
         // Zero would be a real slot, which is precisely why absent is not zero.
         Assert.NotEqual(0u, GpuClusterVisibility.PageAbsent);
@@ -214,7 +217,11 @@ public sealed class ClusterRasterTests {
         Assert.Contains("val start = page * pageSize", source, StringComparison.Ordinal);
 
         // The corner is a byte inside the page and the vertex is a stride from the page's own start.
-        Assert.Contains("Byte(start + record.triangleOffset + triangle * 3u + corner)", source, StringComparison.Ordinal);
+        Assert.Contains(
+            "Byte(start + record.triangleOffset + triangle * 3u + corner)",
+            source,
+            StringComparison.Ordinal
+        );
         Assert.Contains("start + record.vertexOffset + local * record.vertexStride", source, StringComparison.Ordinal);
 
         // The grid decode is an integer addition of the cluster's origin, then the mesh's step.
@@ -226,7 +233,11 @@ public sealed class ClusterRasterTests {
         Assert.Contains("(slot + 1u) << TriangleBits", source, StringComparison.Ordinal);
 
         // And a surplus corner is a degenerate triangle rather than a fetch past the cluster.
-        Assert.Contains("triangle >= record.triangleCount || page == Cull.PageAbsent", source, StringComparison.Ordinal);
+        Assert.Contains(
+            "triangle >= record.triangleCount || page == Cull.PageAbsent",
+            source,
+            StringComparison.Ordinal
+        );
     }
 
     /// <summary>What the traversal appends, as <c>Cull.PackVisible</c> packs it.</summary>
@@ -254,16 +265,16 @@ public sealed class ClusterRasterTests {
         Assert.NotEqual(GpuClusterVisibility.PageAbsent, slot);
 
         var start = slot * (uint)pages.PageSize;
-        var local = pool[start + record.TriangleOffset + (triangle * 3u) + corner];
-        var at = start + record.VertexOffset + (local * record.VertexStride);
+        var local = pool[start + record.TriangleOffset + triangle * 3u + corner];
+        var at = start + record.VertexOffset + local * record.VertexStride;
 
         var x = record.Origin.X + BitConverter.ToUInt16(pool, (int)at);
         var y = record.Origin.Y + BitConverter.ToUInt16(pool, (int)(at + 2));
         var z = record.Origin.Z + BitConverter.ToUInt16(pool, (int)(at + 4));
 
-        var position = pages.QuantizationOrigin + (new Vector3(x, y, z) * pages.QuantizationStep);
+        var position = pages.QuantizationOrigin + new Vector3(x, y, z) * pages.QuantizationStep;
 
-        return instance.Position + (position * instance.Scale);
+        return instance.Position + position * instance.Scale;
     }
 
     /// <summary>A closed UV sphere: one vertex per pole, and the seam welded.</summary>
@@ -287,7 +298,7 @@ public sealed class ClusterRasterTests {
         var indices = new List<int>();
         var last = positions.Count - 1;
 
-        int At(int ring, int segment) => 1 + ((ring - 1) * segments) + (segment % segments);
+        int At(int ring, int segment) => 1 + (ring - 1) * segments + segment % segments;
 
         for (var segment = 0; segment < segments; segment++) {
             indices.AddRange([0, At(1, segment + 1), At(1, segment)]);
@@ -306,11 +317,13 @@ public sealed class ClusterRasterTests {
             }
         }
 
-        return new() { Positions = [.. positions], Indices = [.. indices] };
+        return new() { Positions = [..positions], Indices = [..indices] };
     }
 
     static string Source(string folder, string file) {
-        for (var directory = new DirectoryInfo(AppContext.BaseDirectory); directory is not null; directory = directory.Parent) {
+        for (var directory = new DirectoryInfo(AppContext.BaseDirectory);
+             directory is not null;
+             directory = directory.Parent) {
             var candidate = Path.Combine(directory.FullName, "Raven", "Library", folder, file);
 
             if (File.Exists(candidate)) {
@@ -318,6 +331,8 @@ public sealed class ClusterRasterTests {
             }
         }
 
-        throw new FileNotFoundException($"Raven/Library/{folder}/{file} was not found above '{AppContext.BaseDirectory}'.");
+        throw new FileNotFoundException(
+            $"Raven/Library/{folder}/{file} was not found above '{AppContext.BaseDirectory}'."
+        );
     }
 }

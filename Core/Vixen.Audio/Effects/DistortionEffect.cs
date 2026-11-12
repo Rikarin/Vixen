@@ -122,14 +122,14 @@ public sealed class DistortionEffect : IAudioEffect {
         // Rebuilt rather than refused when the knob moved since Prepare: an effect that silently did
         // the wrong thing until something else happened to re-prepare it would be a bad afternoon.
         if (oversampling > 1 && (sampler is null || sampler.Factor != oversampling || sampler.Channels != channels)) {
-            sampler = new Oversampler(channels, oversampling);
+            sampler = new(channels, oversampling);
         }
 
         if (sampler is null || oversampling <= 1) {
             for (var i = 0; i < samples; i++) {
                 var dry = buffer[i];
                 var shaped = Shape(dry * drive, curve) * output;
-                buffer[i] = dry + ((shaped - dry) * mix);
+                buffer[i] = dry + (shaped - dry) * mix;
             }
 
             return;
@@ -139,7 +139,7 @@ public sealed class DistortionEffect : IAudioEffect {
 
         for (var frame = 0; frame < frameCount; frame++) {
             for (var channel = 0; channel < channels; channel++) {
-                var index = (frame * channels) + channel;
+                var index = frame * channels + channel;
                 var dry = buffer[index];
 
                 sampler.Expand(channel, dry, points);
@@ -149,7 +149,7 @@ public sealed class DistortionEffect : IAudioEffect {
                 }
 
                 var shaped = sampler.Collapse(channel, points) * output;
-                buffer[index] = dry + ((shaped - dry) * mix);
+                buffer[index] = dry + (shaped - dry) * mix;
             }
         }
     }
@@ -221,7 +221,7 @@ public sealed class DistortionEffect : IAudioEffect {
                 // 1.5x − 0.5x³: flat-topped at exactly ±1, with a slope of 1.5 through zero, which is
                 // why it is louder than it went in before it is louder than the rail.
                 var clamped = Math.Clamp(value, -1f, 1f);
-                return (1.5f * clamped) - (0.5f * clamped * clamped * clamped);
+                return 1.5f * clamped - 0.5f * clamped * clamped * clamped;
             }
 
             case DistortionCurve.Foldback: {
@@ -236,7 +236,6 @@ public sealed class DistortionEffect : IAudioEffect {
                 return folded;
             }
 
-            case DistortionCurve.SoftClip:
             default:
                 return MathF.Tanh(value);
         }

@@ -21,8 +21,12 @@ namespace Vixen.Cli.Tests;
 ///         and that an unresolved query is a non-zero exit rather than an empty list.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The sidecars here are written by hand, deliberately, and that is only sound because
-///         of the suite above.</b> <c>Vixen.Cli</c> does not reference the editor application, so the
+///         ⚠
+///         <b>
+///             The sidecars here are written by hand, deliberately, and that is only sound because
+///             of the suite above.
+///         </b>
+///         <c>Vixen.Cli</c> does not reference the editor application, so the
 ///         baker is out of reach; a fixture that also owned the reader would be a test of one file
 ///         against itself, which is why the agreement is asserted in the other assembly and only the
 ///         wiring is asserted here.
@@ -31,12 +35,14 @@ namespace Vixen.Cli.Tests;
 public sealed class MeshMapCommandTests : IDisposable {
     readonly string root = Path.Combine(Path.GetTempPath(), "vixen-meshmap-cli", Guid.NewGuid().ToString("N")[..12]);
 
-    public MeshMapCommandTests() => Directory.CreateDirectory(Path.Combine(root, "Assets", MeshMapNaming.DefaultFolder));
+    public MeshMapCommandTests() {
+        Directory.CreateDirectory(Path.Combine(root, "Assets", MeshMapNaming.DefaultFolder));
+    }
 
     public void Dispose() {
         try {
             if (Directory.Exists(root)) {
-                Directory.Delete(root, recursive: true);
+                Directory.Delete(root, true);
             }
         } catch (IOException) {
             // A temporary directory that would not go is not a test failure.
@@ -101,9 +107,8 @@ public sealed class MeshMapCommandTests : IDisposable {
             AssetMetaFile.PathFor(file),
             new() {
                 Guid = Core.AssetId.New(),
-                Extensions = new Dictionary<string, string>(StringComparer.Ordinal) {
-                    [MeshMapNaming.UsageKey] = MeshMapNaming.Suffix(usage),
-                    [MeshMapNaming.MeshKey] = set
+                Extensions = new(StringComparer.Ordinal) {
+                    [MeshMapNaming.UsageKey] = MeshMapNaming.Suffix(usage), [MeshMapNaming.MeshKey] = set
                 }
             }
         );
@@ -131,7 +136,7 @@ public sealed class MeshMapCommandTests : IDisposable {
         if (parsed.Errors.Count > 0) {
             return (
                 ExitCode.UsageError, output.ToString(),
-                string.Join("\n", parsed.Errors.Select(problem => problem.Message))
+                string.Join("\n", parsed.Errors.Select(static problem => problem.Message))
             );
         }
 

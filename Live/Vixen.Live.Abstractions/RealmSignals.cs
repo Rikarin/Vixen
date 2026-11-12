@@ -6,8 +6,11 @@ namespace Vixen.Live;
 /// <summary>The four lines a realm and its launcher say to each other over stdio.</summary>
 /// <remarks>
 ///     <para>
-///         <b>A realm with no orchestrator still needs a control plane, and this is the smallest one
-///         that is not a lie: the process's own standard streams.</b> The launcher writes commands to
+///         <b>
+///             A realm with no orchestrator still needs a control plane, and this is the smallest one
+///             that is not a lie: the process's own standard streams.
+///         </b>
+///         The launcher writes commands to
 ///         stdin, the realm writes its state to stdout, and both are things every one of the three
 ///         placement backends already has — <c>Process</c> directly, Docker through the container's
 ///         attached streams, Kubernetes through the pod's. Doc 27 § Cost defines L0 as a dedicated
@@ -84,8 +87,8 @@ public static class RealmSignals {
     ///     pressed return would be a worse server than one that ignored them.
     /// </remarks>
     public static string ReadCommand(string? line) {
-        var trimmed = line?.Trim() ?? "";
+        var trimmed = line?.Trim() ?? string.Empty;
 
-        return trimmed is Drain or Stop ? trimmed : "";
+        return trimmed is Drain or Stop ? trimmed : string.Empty;
     }
 }

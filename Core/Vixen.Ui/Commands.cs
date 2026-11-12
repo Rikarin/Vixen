@@ -71,8 +71,11 @@ public interface IResponder {
     ///         fallbacks.
     ///     </para>
     ///     <para>
-    ///         <b>Defaulted to <c>false</c>: the overwhelming majority of responders are verb tables
-    ///         and want no keys.</b> Returning <c>true</c> marks the event handled, which is what
+    ///         <b>
+    ///             Defaulted to <c>false</c>: the overwhelming majority of responders are verb tables
+    ///             and want no keys.
+    ///         </b>
+    ///         Returning <c>true</c> marks the event handled, which is what
     ///         stops the walk and what keeps the fallbacks from also running.
     ///     </para>
     /// </remarks>
@@ -80,8 +83,12 @@ public interface IResponder {
 
     /// <summary>The undo manager this responder supplies to the chain, if it owns one.</summary>
     /// <remarks>
-    ///     ⚠ <b><c>NSResponder.undoManager</c>'s third leg, and the reason a text box in a dialog can
-    ///     have ⌘Z without owning a stack.</b> A control does not own an undo manager, it
+    ///     ⚠
+    ///     <b>
+    ///         <c>NSResponder.undoManager</c>'s third leg, and the reason a text box in a dialog can
+    ///         have ⌘Z without owning a stack.
+    ///     </b>
+    ///     A control does not own an undo manager, it
     ///     <i>finds</i> one — see <see cref="UiElement.FindUndoManager" />. Defaulted to <c>null</c>,
     ///     which means "not mine, keep walking", and is the right answer for every responder that is
     ///     a table of verbs.
@@ -157,7 +164,7 @@ public readonly struct CommandHandler : IEquatable<CommandHandler> {
         ArgumentNullException.ThrowIfNull(responder);
         ArgumentNullException.ThrowIfNull(execute);
 
-        return new CommandHandler(id, null, responder, execute, canExecute, title, isChecked);
+        return new(id, null, responder, execute, canExecute, title, isChecked);
     }
 
     /// <summary>The command id this answers to.</summary>
@@ -247,9 +254,10 @@ public readonly struct CommandHandler : IEquatable<CommandHandler> {
     public static bool operator !=(CommandHandler left, CommandHandler right) => !left.Equals(right);
 
     /// <inheritdoc />
-    public override string ToString() => Element is { } element
-        ? $"{Id} on <{element.Tag}>"
-        : $"{Id} on {Responder?.GetType().Name ?? "nothing"}";
+    public override string ToString() =>
+        Element is { } element
+            ? $"{Id} on <{element.Tag}>"
+            : $"{Id} on {Responder?.GetType().Name ?? "nothing"}";
 }
 
 /// <summary>A table of command handlers, owned by something that is not an element.</summary>
@@ -344,8 +352,12 @@ public sealed class CommandResponder : IResponder {
 ///         or the other is the whole of the wiring.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The first handler that responds wins, and its <c>canExecute</c> is the only one
-///         asked.</b> A second responder further up that would also have handled the id is not
+///         ⚠
+///         <b>
+///             The first handler that responds wins, and its <c>canExecute</c> is the only one
+///             asked.
+///         </b>
+///         A second responder further up that would also have handled the id is not
 ///         consulted — not even to break a tie when the first one says no. Consulting it would make
 ///         "which handler runs" depend on how many things happen to be listening, which is a
 ///         behaviour that changes when an unrelated panel is added.
@@ -377,17 +389,25 @@ public static class CommandRoute {
     /// <returns>The focus commands resolve from, or the root when there is none.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The root rather than nothing, so a document-wide handler still answers while the
-    ///         focus is nowhere.</b> With something focused the root is on the walk anyway, being
+    ///         ⚠
+    ///         <b>
+    ///             The root rather than nothing, so a document-wide handler still answers while the
+    ///             focus is nowhere.
+    ///         </b>
+    ///         With something focused the root is on the walk anyway, being
     ///         every element's last ancestor; falling back to it is what makes "focused → parents →
     ///         root" one loop rather than two cases. It is also why a command with a
     ///         registration-time implementation — a handler on the root — always responds, and
     ///         nothing changes for it.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b><see cref="UiDocument.CommandFocus" /> and not <see cref="UiDocument.Focused" />,
-    ///         because the surfaces that <i>display</i> commands take the focus in order to be
-    ///         operable.</b> An open menu focuses its first item so the arrow keys work, and a menu
+    ///         ⚠
+    ///         <b>
+    ///             <see cref="UiDocument.CommandFocus" /> and not <see cref="UiDocument.Focused" />,
+    ///             because the surfaces that <i>display</i> commands take the focus in order to be
+    ///             operable.
+    ///         </b>
+    ///         An open menu focuses its first item so the arrow keys work, and a menu
     ///         bar's name takes the focus when it is pressed — so a menu item resolving from
     ///         <c>Focused</c> resolves from <i>itself</i>, and the view whose verb it was showing is
     ///         no longer on the walk at all. That is AppKit's rule stated as data rather than as an
@@ -522,8 +542,12 @@ public sealed partial class UiDocument {
     ///         <see cref="IResponder" /> on the model object itself.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Asked after the root and before
-    ///         <see cref="ApplicationCommandResponder" />.</b> Anything in the tree outranks it,
+    ///         ⚠
+    ///         <b>
+    ///             Asked after the root and before
+    ///             <see cref="ApplicationCommandResponder" />.
+    ///         </b>
+    ///         Anything in the tree outranks it,
     ///         including a handler on the root, so a view that wants to override the document's verb
     ///         does so by declaring it and nothing else.
     ///     </para>
@@ -588,8 +612,12 @@ public sealed partial class UiDocument {
     /// <summary>Drops both responders and the invalidation subscribers, so a closed document holds nothing it was lent.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Called from <see cref="Dispose" />, and the point is the graph rather than the
-    ///         three fields.</b> A responder is a table of closures and a closure reaches everything
+    ///         ⚠
+    ///         <b>
+    ///             Called from <see cref="Dispose" />, and the point is the graph rather than the
+    ///             three fields.
+    ///         </b>
+    ///         A responder is a table of closures and a closure reaches everything
     ///         it captured — a view-model, its selection, and in this editor's case an assembly in a
     ///         collectible load context. A disposed document that still pointed at one would keep
     ///         all of that reachable for as long as anything held the document, which is the shape
@@ -625,8 +653,12 @@ public sealed partial class UiDocument {
     ///         is set as many times as anybody likes and read once.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Raised from <see cref="Tick" /> rather than from <see cref="Update" />, because
-    ///         <c>Update</c> is allowed not to happen.</b> A frame in which nothing dirtied the
+    ///         ⚠
+    ///         <b>
+    ///             Raised from <see cref="Tick" /> rather than from <see cref="Update" />, because
+    ///             <c>Update</c> is allowed not to happen.
+    ///         </b>
+    ///         A frame in which nothing dirtied the
     ///         document returns early without running a pass, and a command becoming executable is
     ///         not a thing that dirties one — so a surface hung on the pass would go stale for
     ///         exactly as long as the interface was still. <c>Tick</c> is the call a host must make
@@ -718,8 +750,12 @@ public partial class UiElement {
     ///         opened over is no longer focused.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>It does not make anything unfocusable, and that is the whole reason it is a
-    ///         second flag rather than <see cref="Focusable" />.</b> Tab still reaches it, the ring
+    ///         ⚠
+    ///         <b>
+    ///             It does not make anything unfocusable, and that is the whole reason it is a
+    ///             second flag rather than <see cref="Focusable" />.
+    ///         </b>
+    ///         Tab still reaches it, the ring
     ///         still shows, arrow keys still move between menu items. The only thing that changes is
     ///         what <see cref="CommandRoute.Origin" /> reads afterwards.
     ///     </para>
@@ -771,8 +807,14 @@ public partial class UiElement {
     /// <param name="id">The command id, as the keymap and the menu spell it.</param>
     /// <param name="execute">What it does.</param>
     /// <param name="canExecute">Whether it can, asked whenever anything shows the command. Always, if omitted.</param>
-    /// <param name="title">What to call it right now, for the handful of commands whose name is their state. Omitted leaves every surface's own label alone.</param>
-    /// <param name="isChecked">Whether it is on, for a command that is a toggle. Omitted means it is not a toggle and shows no tick.</param>
+    /// <param name="title">
+    ///     What to call it right now, for the handful of commands whose name is their state. Omitted leaves
+    ///     every surface's own label alone.
+    /// </param>
+    /// <param name="isChecked">
+    ///     Whether it is on, for a command that is a toggle. Omitted means it is not a toggle and shows no
+    ///     tick.
+    /// </param>
     /// <exception cref="ArgumentException">This element already handles that id.</exception>
     /// <remarks>
     ///     ⚠ <b>Registering the same id twice on one element throws</b>, for
@@ -799,7 +841,7 @@ public partial class UiElement {
             }
         }
 
-        bindings.Handlers.Add(new CommandRegistration(id, execute, canExecute, title, isChecked));
+        bindings.Handlers.Add(new(id, execute, canExecute, title, isChecked));
 
         // A new responder can turn a greyed item live, and a view that declares eight handlers as it
         // is built asks for one raise between them.
@@ -811,15 +853,23 @@ public partial class UiElement {
     /// <returns>Whether this element was handling it.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>This has no production caller, and the zero is recorded here rather than left to
-    ///         be rediscovered.</b> <c>Rikarin/Vixen#642</c> measured seven APIs on this chain with
+    ///         ⚠
+    ///         <b>
+    ///             This has no production caller, and the zero is recorded here rather than left to
+    ///             be rediscovered.
+    ///         </b>
+    ///         <c>Rikarin/Vixen#642</c> measured seven APIs on this chain with
     ///         none; every other one has since been answered by something an application really is,
     ///         and this is the last. What is written down is the two candidates and why each turned
     ///         out to be the wrong caller, because both read like obvious ones.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Undo was going to be it, and <see cref="UndoCommands.Install" /> answered the
-    ///         same problem without withdrawing anything.</b> The argument ran: a focused
+    ///         ⚠
+    ///         <b>
+    ///             Undo was going to be it, and <see cref="UndoCommands.Install" /> answered the
+    ///             same problem without withdrawing anything.
+    ///         </b>
+    ///         The argument ran: a focused
     ///         <c>TextField</c> that registered <c>edit.undo</c> swallows the application's Undo,
     ///         because <see cref="CommandRoute.Resolve" /> stops at the first element that
     ///         <i>registered</i> an id and its refusal is final — so the field would have to
@@ -828,8 +878,11 @@ public partial class UiElement {
     ///         found the field finds the stack the field records into.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The other candidate is a handler whose element stops being able to run it, and
-    ///         that is what <c>canExecute</c> is for.</b>
+    ///         ⚠
+    ///         <b>
+    ///             The other candidate is a handler whose element stops being able to run it, and
+    ///             that is what <c>canExecute</c> is for.
+    ///         </b>
     ///         <c>Samples/02-HelloUi/Panels/Hierarchy.vxml</c> makes the argument where it applies:
     ///         with no row selected the panel's Copy <i>greys</i> rather than falling through to the
     ///         shell's, because a refusal from the nearest responder being final is what stops one
@@ -880,7 +933,7 @@ public partial class UiElement {
         if (commands is not null) {
             foreach (var registration in commands.Handlers) {
                 if (string.Equals(registration.Id, id, StringComparison.Ordinal)) {
-                    handler = new CommandHandler(
+                    handler = new(
                         id,
                         this,
                         null,
@@ -932,8 +985,11 @@ public partial class UiElement {
     ///         anybody appends.
     ///     </para>
     ///     <para>
-    ///         <b>Lifetime keeps the existing rule: the element holds the responder and never the
-    ///         reverse.</b> A responder is dropped when its element is, which is why there is no
+    ///         <b>
+    ///             Lifetime keeps the existing rule: the element holds the responder and never the
+    ///             reverse.
+    ///         </b>
+    ///         A responder is dropped when its element is, which is why there is no
     ///         registration token and no disposable here.
     ///     </para>
     /// </remarks>

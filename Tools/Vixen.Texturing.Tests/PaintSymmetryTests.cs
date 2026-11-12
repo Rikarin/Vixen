@@ -28,7 +28,10 @@ public class PaintSymmetryTests {
     static PaintMeshSurface Plate() =>
         new(
             PaintProjection.Over(
-                [new(Low, Low, 0f), new(Low + Size, Low, 0f), new(Low + Size, Low + Size, 0f), new(Low, Low + Size, 0f)],
+                [
+                    new(Low, Low, 0f), new(Low + Size, Low, 0f), new(Low + Size, Low + Size, 0f),
+                    new(Low, Low + Size, 0f)
+                ],
                 [new(0f, 0f), new(1f, 0f), new(1f, 1f), new(0f, 1f)],
                 [0, 1, 2, 0, 2, 3]
             ),
@@ -211,13 +214,14 @@ public class PaintSymmetryTests {
         for (var y = 0; y < Side; y++) {
             for (var x = 0; x < Side; x++) {
                 if (image.At(x, y) != 0u) {
-                    (left, right, top, bottom) = (Math.Min(left, x), Math.Max(right, x), Math.Min(top, y), Math.Max(bottom, y));
+                    (left, right, top, bottom) = (Math.Min(left, x), Math.Max(right, x), Math.Min(top, y),
+                        Math.Max(bottom, y));
                 }
             }
         }
 
-        Assert.InRange(right - left + 1, (4f * 10f * texelsPerPixel) - 3f, (4f * 10f * texelsPerPixel) + 3f);
-        Assert.InRange(bottom - top + 1, (10f * texelsPerPixel) - 3f, (10f * texelsPerPixel) + 3f);
+        Assert.InRange(right - left + 1, 4f * 10f * texelsPerPixel - 3f, 4f * 10f * texelsPerPixel + 3f);
+        Assert.InRange(bottom - top + 1, 10f * texelsPerPixel - 3f, 10f * texelsPerPixel + 3f);
     }
 
     [Fact]
@@ -228,12 +232,20 @@ public class PaintSymmetryTests {
         var texelsPerUnit = Side / Size;
 
         Assert.Equal(7f, surface.PictureRadius(view, new(1f, 2f), 7f, PaintSizeSpace.Picture));
-        Assert.Equal(32f / texelsPerUnit / perPixel, surface.PictureRadius(view, view.Project(Centre), 32f, PaintSizeSpace.Texels), 3);
+        Assert.Equal(
+            32f / texelsPerUnit / perPixel,
+            surface.PictureRadius(view, view.Project(Centre), 32f, PaintSizeSpace.Texels),
+            3
+        );
         Assert.Equal(0.5f / perPixel, surface.PictureRadius(view, view.Project(Centre), 0.5f, PaintSizeSpace.Model), 3);
 
         // Off the plate: the centre's depth and the mean density, which for one flat island are the same answers.
         Assert.Equal(0.5f / perPixel, surface.PictureRadius(view, new(1f, 1f), 0.5f, PaintSizeSpace.Model), 3);
-        Assert.Equal(32f / texelsPerUnit / perPixel, surface.PictureRadius(view, new(1f, 1f), 32f, PaintSizeSpace.Texels), 3);
+        Assert.Equal(
+            32f / texelsPerUnit / perPixel,
+            surface.PictureRadius(view, new(1f, 1f), 32f, PaintSizeSpace.Texels),
+            3
+        );
 
         Assert.Equal(0.5f * texelsPerUnit, surface.AtlasRadius(new(128f, 128f), 0.5f, PaintSizeSpace.Model), 3);
         Assert.Equal(12f, surface.AtlasRadius(new(128f, 128f), 12f, PaintSizeSpace.Texels));
@@ -263,8 +275,16 @@ public class PaintSymmetryTests {
         var view = Above();
         var perPixel = view.PerPixel(8f);
 
-        Assert.Equal(32f / 64f / perPixel, surface.PictureRadius(view, view.Project(new(3f, 4f, 0f)), 32f, PaintSizeSpace.Texels), 3);
-        Assert.Equal(32f / 32f / perPixel, surface.PictureRadius(view, view.Project(new(5f, 4f, 0f)), 32f, PaintSizeSpace.Texels), 3);
+        Assert.Equal(
+            32f / 64f / perPixel,
+            surface.PictureRadius(view, view.Project(new(3f, 4f, 0f)), 32f, PaintSizeSpace.Texels),
+            3
+        );
+        Assert.Equal(
+            32f / 32f / perPixel,
+            surface.PictureRadius(view, view.Project(new(5f, 4f, 0f)), 32f, PaintSizeSpace.Texels),
+            3
+        );
         Assert.Equal(16f, surface.AtlasRadius(new(160f, 32f), 0.5f, PaintSizeSpace.Model), 3);
     }
 
@@ -276,11 +296,14 @@ public class PaintSymmetryTests {
         Assert.True(Vector3.Distance(new(4f, 5f, 0f), quarter.Point(new(5f, 4f, 0f))) < 1e-5f);
         Assert.True(Vector3.Distance(new(3f, 4f, 7f), mirror.Point(new(5f, 4f, 7f))) < 1e-5f);
         Assert.True(Vector3.Distance(-Vector3.UnitX, mirror.Direction(Vector3.UnitX)) < 1e-6f);
-        Assert.Throws<ArgumentOutOfRangeException>(() => PaintSymmetryGroup.Radial(Vector3.UnitZ, Centre, 1));
-        Assert.Throws<ArgumentOutOfRangeException>(
-            () => PaintSymmetryGroup.Radial(Vector3.UnitZ, Centre, PaintSymmetryGroup.MaximumCount + 1)
+        Assert.Throws<ArgumentOutOfRangeException>(static () => PaintSymmetryGroup.Radial(Vector3.UnitZ, Centre, 1));
+        Assert.Throws<ArgumentOutOfRangeException>(static () => PaintSymmetryGroup.Radial(
+                Vector3.UnitZ,
+                Centre,
+                PaintSymmetryGroup.MaximumCount + 1
+            )
         );
-        Assert.Throws<ArgumentException>(() => PaintSymmetryGroup.Radial(Vector3.Zero, Centre, 3));
+        Assert.Throws<ArgumentException>(static () => PaintSymmetryGroup.Radial(Vector3.Zero, Centre, 3));
         Assert.Equal(5, PaintSymmetryGroup.Radial(Vector3.UnitZ, Centre, 6).Copies.Count);
     }
 }

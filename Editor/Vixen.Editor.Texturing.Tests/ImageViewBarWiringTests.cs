@@ -3,10 +3,7 @@
 
 using Vixen.Core;
 using Vixen.Editor.Texturing.Layers;
-using Vixen.Editor.Texturing.Painting;
-using Vixen.Input;
 using Vixen.Texturing.Layers;
-using Vixen.Texturing.Painting;
 using Vixen.Ui;
 using Vixen.Ui.Controls;
 using Vixen.Ui.Controls.Advanced;
@@ -33,8 +30,12 @@ namespace Vixen.Editor.Texturing.Tests;
 ///         is what a fourth has to join.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The segment is pressed through the shell's own pointer, at the coordinates a layout
-///         pass gave it.</b> Setting <c>SegmentedControl.Value</c> would pass against a strip built
+///         ⚠
+///         <b>
+///             The segment is pressed through the shell's own pointer, at the coordinates a layout
+///             pass gave it.
+///         </b>
+///         Setting <c>SegmentedControl.Value</c> would pass against a strip built
 ///         with no box, off the bottom of a fixed-width column, or hidden behind the picture — all
 ///         of which are "the panel does not offer it" wearing a green test. A dispatch that misses
 ///         reaches the root and changes nothing.
@@ -89,8 +90,12 @@ public class ImageViewBarWiringTests {
 
     /// <summary>And the paint pane, where the isolate is what says how much of a stroke landed.</summary>
     /// <remarks>
-    ///     ⚠ <b>The one that reads the <em>draw command</em>, because this pane is the one whose
-    ///     picture is real without a device.</b> The atlas is uploaded through
+    ///     ⚠
+    ///     <b>
+    ///         The one that reads the <em>draw command</em>, because this pane is the one whose
+    ///         picture is real without a device.
+    ///     </b>
+    ///     The atlas is uploaded through
     ///     <c>IEditorGraphics</c>, so <c>ImageView.Image</c> is a number the pane was given rather
     ///     than a number a fixture invented — which is the difference between proving the panel's
     ///     strip reaches the picture and proving it reaches a field. The assertion goes red if
@@ -127,7 +132,7 @@ public class ImageViewBarWiringTests {
         fixture.Shell.Document.Update();
         fixture.Shell.Document.Draw();
 
-        Assert.Equal(new UiImageView(UiImageChannel.Alpha, true), Drawn(fixture, image.Image));
+        Assert.Equal(new(UiImageChannel.Alpha, true), Drawn(fixture, image.Image));
     }
 
     /// <summary>The image command for one image number, read out of the frame just drawn.</summary>
@@ -145,8 +150,8 @@ public class ImageViewBarWiringTests {
             $"'{element.Tag}' has no box, so a pointer at its middle lands on whatever is behind it."
         );
 
-        var x = bounds.X + (bounds.Width * 0.5f);
-        var y = bounds.Y + (bounds.Height * 0.5f);
+        var x = bounds.X + bounds.Width * 0.5f;
+        var y = bounds.Y + bounds.Height * 0.5f;
 
         fixture.Shell.Document.Dispatch(
             new PointerEvent { X = x, Y = y, Action = PointerAction.Pressed, Button = PointerButton.Primary }

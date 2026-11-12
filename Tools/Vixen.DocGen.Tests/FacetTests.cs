@@ -32,7 +32,9 @@ public class FacetTests {
             """
             [Vixen.Core.Component]
             public struct Velocity { public float X; public float Y; }
-            """, "Velocity");
+            """,
+            "Velocity"
+        );
 
         Assert.Equal(8, facets.SizeBytes);
         // 16 KB / (12-byte entity + 8-byte component)
@@ -45,7 +47,9 @@ public class FacetTests {
             """
             [Vixen.Core.Component]
             public struct Padded { public byte Flag; public float Value; }
-            """, "Padded");
+            """,
+            "Padded"
+        );
 
         // byte, three bytes of padding, float — and the whole thing aligned to four.
         Assert.Equal(8, facets.SizeBytes);
@@ -59,7 +63,9 @@ public class FacetTests {
 
             [Vixen.Core.Component]
             public struct Transform { public Position3 Translation; public float Scale; }
-            """, "Transform");
+            """,
+            "Transform"
+        );
 
         Assert.Equal(16, facets.SizeBytes);
     }
@@ -70,7 +76,9 @@ public class FacetTests {
             """
             [Vixen.Core.Component]
             public struct Frozen;
-            """, "Frozen");
+            """,
+            "Frozen"
+        );
 
         Assert.Equal(1, facets.SizeBytes);
     }
@@ -85,7 +93,8 @@ public class FacetTests {
             """
             [Vixen.Core.Component]
             public struct Managed { public string Name; }
-            """);
+            """
+        );
 
         var facets = Facets.For(compilation.Type("Managed"), DocKind.Component);
 
@@ -108,7 +117,9 @@ public class FacetTests {
             [Vixen.Ecs.Systems.Reads(typeof(Velocity))]
             [Vixen.Ecs.Systems.Writes(typeof(Position))]
             public sealed class MovementSystem : Vixen.Ecs.Systems.ISystem { public void Dispose() { } }
-            """, "MovementSystem");
+            """,
+            "MovementSystem"
+        );
 
         Assert.Equal("FixedUpdate", facets.Phase);
         Assert.Equal(["T:Velocity"], facets.Reads!);
@@ -135,7 +146,9 @@ public class FacetTests {
                     .Write<LocalTransform>()
                     .Build();
             }
-            """, "OrbitSystem");
+            """,
+            "OrbitSystem"
+        );
 
         Assert.Equal(["T:Orbit"], facets.Reads!);
         Assert.Equal(["T:LocalTransform"], facets.Writes!);
@@ -150,7 +163,9 @@ public class FacetTests {
         var facets = Read(
             """
             public sealed class QuietSystem : Vixen.Ecs.Systems.ISystem { public void Dispose() { } }
-            """, "QuietSystem");
+            """,
+            "QuietSystem"
+        );
 
         Assert.Equal("Update", facets.Phase);
     }
@@ -167,7 +182,9 @@ public class FacetTests {
                 public float X;
                 public float Y;
             }
-            """, "NetworkTransform");
+            """,
+            "NetworkTransform"
+        );
 
         Assert.Equal("Unreliable", facets.Channel);
         Assert.Equal(20, facets.SendRate);
@@ -190,7 +207,9 @@ public class FacetTests {
             """
             [Vixen.Net.Replication.Replicated]
             public struct Health { public int Value; }
-            """, "Health");
+            """,
+            "Health"
+        );
 
         Assert.Equal("Unreliable", facets.Channel);
         Assert.Equal(0, facets.SendRate);
@@ -204,7 +223,9 @@ public class FacetTests {
             """
             [Vixen.Editor.Assets.Importer(".fbx", ".obj")]
             public sealed class ModelImporter;
-            """, "ModelImporter");
+            """,
+            "ModelImporter"
+        );
 
         Assert.Equal([".fbx", ".obj"], facets.Extensions!);
     }
@@ -215,7 +236,9 @@ public class FacetTests {
             """
             [Vixen.NodeGraph.Node("Math/Add", Summary = "Adds two numbers.")]
             public partial class AddNode;
-            """, "AddNode");
+            """,
+            "AddNode"
+        );
 
         Assert.Equal("Math/Add", facets.MenuPath);
         Assert.Equal("Adds two numbers.", facets.MenuSummary);
@@ -228,9 +251,11 @@ public class FacetTests {
             [System.AttributeUsage(System.AttributeTargets.Field | System.AttributeTargets.Property,
                 AllowMultiple = true)]
             public sealed class InspectorAttribute : System.Attribute;
-            """, "InspectorAttribute");
+            """,
+            "InspectorAttribute"
+        );
 
-        Assert.Equal(["Field", "Property"], facets.Targets!.OrderBy(target => target, StringComparer.Ordinal));
+        Assert.Equal(["Field", "Property"], facets.Targets!.OrderBy(static target => target, StringComparer.Ordinal));
         Assert.True(facets.AllowMultiple);
     }
 

@@ -6,7 +6,6 @@ using Vixen.Animation.Motions;
 using Vixen.Animation.StateMachine;
 using Vixen.Core.Mathematics;
 using Vixen.Geometry;
-using Vixen.Rendering;
 
 namespace Vixen.Benchmarks.Animation;
 
@@ -27,7 +26,7 @@ static class Rigs {
         for (var index = 0; index < joints; index++) {
             // A chain for the first eight, then four limbs branching off it, so the hierarchy has
             // depth and breadth rather than being one long chain the cache loves.
-            var parent = index == 0 ? -1 : index < 8 ? index - 1 : ((index - 8) % 4) + 4;
+            var parent = index == 0 ? -1 : index < 8 ? index - 1 : (index - 8) % 4 + 4;
             var offset = new Vector3(0.1f, 0.2f, 0f);
             var local = Matrix4x4.FromTranslation(offset);
 
@@ -56,14 +55,14 @@ static class Rigs {
             var positions = new Vector3[keys];
 
             for (var index = 0; index < keys; index++) {
-                var phase = (index / (float)rate) + (joint * 0.37f);
+                var phase = index / (float)rate + joint * 0.37f;
 
                 rotations[index] = Quaternion.FromAxisAngle(
                     Vector3.Normalize(new(1f, 2f, 3f)),
                     MathF.Sin(phase) * 0.4f
                 );
 
-                positions[index] = new(0.1f, 0.2f + (MathF.Sin(phase) * 0.01f), 0f);
+                positions[index] = new(0.1f, 0.2f + MathF.Sin(phase) * 0.01f, 0f);
             }
 
             channels[joint] = new() {

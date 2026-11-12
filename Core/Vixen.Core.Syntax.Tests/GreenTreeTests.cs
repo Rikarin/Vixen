@@ -86,10 +86,12 @@ public class GreenTreeTests {
     /// </summary>
     [Fact]
     public void A_list_node_carries_the_reserved_kind() {
-        var list = Green.SyntaxList.List([
-            new ToyToken(ToyKind.Word, "a"),
-            new ToyToken(ToyKind.Word, "b")
-        ]);
+        var list = Green.SyntaxList.List(
+            [
+                new ToyToken(ToyKind.Word, "a"),
+                new ToyToken(ToyKind.Word, "b")
+            ]
+        );
 
         Assert.NotNull(list);
         Assert.True(list.IsList);

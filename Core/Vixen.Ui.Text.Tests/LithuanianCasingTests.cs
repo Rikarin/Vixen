@@ -16,8 +16,12 @@ namespace Vixen.Ui.Text.Tests;
 ///         it, so the precomposed form is missing a mark a reader expects to see.
 ///     </para>
 ///     <para>
-///         ⚠ <b>These are the three <c>lt</c> rows in SpecialCasing.txt that carry a language and no
-///         condition, and that is why they could land while the rest of the set could not.</b> The
+///         ⚠
+///         <b>
+///             These are the three <c>lt</c> rows in SpecialCasing.txt that carry a language and no
+///             condition, and that is why they could land while the rest of the set could not.
+///         </b>
+///         The
 ///         other Lithuanian rows — <c>More_Above</c> on <c>I</c>, <c>J</c> and U+012E, and
 ///         <c>After_Soft_Dotted</c> on U+0307 — are conditional on combining class 230 and on the
 ///         <c>Soft_Dotted</c> property, and no generated table in this assembly carries either. So
@@ -49,13 +53,13 @@ public class LithuanianCasingTests {
 
     [Theory]
     // U+00CC → i + dot above + grave.
-    [InlineData("\u00CC", "\u0069\u0307\u0300")]
+    [InlineData("\u00CC", "i\u0307\u0300")]
 
     // U+00CD → i + dot above + acute.
-    [InlineData("\u00CD", "\u0069\u0307\u0301")]
+    [InlineData("\u00CD", "i\u0307\u0301")]
 
     // U+0128 → i + dot above + tilde.
-    [InlineData("\u0128", "\u0069\u0307\u0303")]
+    [InlineData("\u0128", "i\u0307\u0303")]
     public void A_precomposed_capital_lowercases_with_its_dot_kept(string source, string expected) =>
         Assert.Equal(expected, TransformedText.Of(source, TextTransform.Lowercase, "lt").Text);
 
@@ -104,7 +108,7 @@ public class LithuanianCasingTests {
 
         // Lowercased, so the `A` is an `a`: the fixture is a lowercase transform and the trailing
         // letter is there for the index arithmetic rather than to be left alone.
-        Assert.Equal("\u0069\u0307\u0300a", transformed.Text);
+        Assert.Equal("i\u0307\u0300a", transformed.Text);
 
         // The `A` is source index 1 and drawn index 3, which is the arithmetic a one-to-one map gets
         // wrong and which nothing else in this string would reveal.
@@ -130,9 +134,9 @@ public class LithuanianCasingTests {
     public void A_capital_i_with_a_separate_mark_is_left_alone() {
         // `I` and a combining grave — two scalars, and *not* the precomposed U+00CC above, which is
         // the pair this whole file is spelt in escapes to keep apart.
-        var transformed = TransformedText.Of("\u0049\u0300", TextTransform.Lowercase, "lt");
+        var transformed = TransformedText.Of("I\u0300", TextTransform.Lowercase, "lt");
 
-        Assert.Equal("\u0069\u0300", transformed.Text);
+        Assert.Equal("i\u0300", transformed.Text);
         Assert.False(transformed.Text.Contains(DotAbove, StringComparison.Ordinal));
     }
 }

@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Editor.NodeGraph;
-using Vixen.Editor.Texturing.Layers;
 using Vixen.NodeGraph;
 using Vixen.TextureGraph;
 using Vixen.Texturing.Layers;
@@ -30,8 +29,11 @@ namespace Vixen.Editor.Texturing.Tests;
 ///         the instrument: it names the ones § 4.9 lists and compares the manifest with the disk.
 ///     </para>
 ///     <para>
-///         ⚠ <b>And the joining case is
-///         <see cref="Every_generator_a_shipped_smart_material_names_is_a_compound_that_ships" />.</b>
+///         ⚠
+///         <b>
+///             And the joining case is
+///             <see cref="Every_generator_a_shipped_smart_material_names_is_a_compound_that_ships" />.
+///         </b>
 ///         A generator mask carries a node-type path as a <em>string</em>; nothing checks it until a
 ///         bake compiles the stack, and a path naming no published compound is a mask that refuses on
 ///         somebody else's machine. That string is the only edge between this assembly's content and
@@ -41,8 +43,12 @@ namespace Vixen.Editor.Texturing.Tests;
 public class SmartMaterialContentTests {
     /// <summary>The five doc 48 § M10 asks for, and the sixth § 4.9's row names without a ●.</summary>
     /// <remarks>
-    ///     ⚠ <b><c>Leather</c> is here on a weaker warrant than the other five and it is worth saying
-    ///     which.</b> § 4.9's smart-material row marks five ● and lists <c>Leather</c> unmarked — the
+    ///     ⚠
+    ///     <b>
+    ///         <c>Leather</c> is here on a weaker warrant than the other five and it is worth saying
+    ///         which.
+    ///     </b>
+    ///     § 4.9's smart-material row marks five ● and lists <c>Leather</c> unmarked — the
     ///     document's own "the rest is how a library grows". So nothing owes it; what this line claims
     ///     is only that having shipped it, retiring it is a deliberate edit rather than a glob that
     ///     quietly stopped matching.
@@ -66,12 +72,12 @@ public class SmartMaterialContentTests {
     /// </remarks>
     [Fact]
     public void The_shelf_this_assembly_ships_is_the_folder_and_not_a_list() {
-        Assert.All(Owed, name => Assert.Contains(name, SmartMaterial.Shipped));
+        Assert.All(Owed, static name => Assert.Contains(name, SmartMaterial.Shipped));
 
         // ⚠ And each one reads back, which is what makes `Shipped` a list of files rather than a list
         // of names: a manifest entry whose stream does not open is the failure `Source` returns null
         // for, and every case below would then loop over names it could not read.
-        Assert.All(SmartMaterial.Shipped, name => Assert.NotNull(SmartMaterial.Source(name)));
+        Assert.All(SmartMaterial.Shipped, static name => Assert.NotNull(SmartMaterial.Source(name)));
     }
 
     /// <summary>Every shipped smart material reads through the stack's own reader.</summary>
@@ -154,8 +160,12 @@ public class SmartMaterialContentTests {
     ///         with a sentence about a node type, on a machine that is not the one that wrote it.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Against the registry the compounds are published <em>into</em>, not against the
-    ///         file names.</b> A compound nests, so a path check that read the folder would be a
+    ///         ⚠
+    ///         <b>
+    ///             Against the registry the compounds are published <em>into</em>, not against the
+    ///             file names.
+    ///         </b>
+    ///         A compound nests, so a path check that read the folder would be a
     ///         second opinion about what publishing does; and a generator naming an atomic node
     ///         (<c>Source/Noise</c>) is legal here for the same reason — the mask wants a node type,
     ///         and the library is what decides which ones exist.
@@ -166,7 +176,7 @@ public class SmartMaterialContentTests {
         NodeTypeRegistry registry = new();
 
         NodeTypes.Register(registry);
-        TextureCompoundLibrary.Publish(registry, folder: null, out var problems);
+        TextureCompoundLibrary.Publish(registry, null, out var problems);
 
         Assert.Empty(problems);
         Assert.NotEmpty(SmartMaterial.Shipped);
@@ -275,7 +285,7 @@ public class SmartMaterialContentTests {
         } finally {
             try {
                 if (Directory.Exists(assets)) {
-                    Directory.Delete(assets, recursive: true);
+                    Directory.Delete(assets, true);
                 }
             } catch (IOException) {
                 // A file the test wrote and the OS has not let go of. Not what is under test.

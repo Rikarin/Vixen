@@ -3,7 +3,6 @@
 
 using System.Buffers.Binary;
 using Vixen.Core;
-using Vixen.Core.Serialization;
 
 namespace Vixen.AssetCompiler;
 

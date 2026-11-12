@@ -36,7 +36,7 @@ public sealed class ProjectAssemblyTests : IDisposable {
     public void Dispose() {
         try {
             if (Directory.Exists(root)) {
-                Directory.Delete(root, recursive: true);
+                Directory.Delete(root, true);
             }
         } catch (IOException) {
             // A build server holding a handle on something under here is not this test's business.
@@ -142,7 +142,7 @@ public sealed class ProjectAssemblyTests : IDisposable {
     public void A_project_with_no_csproj_is_not_a_failure() {
         Directory.CreateDirectory(root);
 
-        var assemblies = new ProjectAssemblies(new ProjectPaths(root));
+        var assemblies = new ProjectAssemblies(new(root));
         var built = assemblies.Reload();
 
         Assert.Null(built.Assembly);
@@ -156,9 +156,9 @@ public sealed class ProjectAssemblyTests : IDisposable {
     [Fact]
     public void Two_projects_in_one_root_is_no_project_at_all() {
         Write("public class Empty;");
-        File.WriteAllText(Path.Combine(root, "Second.csproj"), "<Project Sdk=\"Microsoft.NET.Sdk\" />");
+        File.WriteAllText(Path.Combine(root, "Second.csproj"), """<Project Sdk="Microsoft.NET.Sdk" />""");
 
-        Assert.Null(new ProjectAssemblies(new ProjectPaths(root)).Project);
+        Assert.Null(new ProjectAssemblies(new(root)).Project);
     }
 
     [Fact]
@@ -177,7 +177,7 @@ public sealed class ProjectAssemblyTests : IDisposable {
             """
         );
 
-        var assemblies = new ProjectAssemblies(new ProjectPaths(root));
+        var assemblies = new ProjectAssemblies(new(root));
         var built = assemblies.Reload();
 
         Assert.False(built.Failed, built.Output);
@@ -206,7 +206,7 @@ public sealed class ProjectAssemblyTests : IDisposable {
     public void A_project_that_does_not_compile_says_so_and_says_why() {
         Write("public class Broken { this is not C#; }");
 
-        var built = new ProjectAssemblies(new ProjectPaths(root)).Reload();
+        var built = new ProjectAssemblies(new(root)).Reload();
 
         Assert.True(built.Failed);
         Assert.Null(built.Assembly);
@@ -233,7 +233,7 @@ public sealed class ProjectAssemblyTests : IDisposable {
             """
         );
 
-        var assemblies = new ProjectAssemblies(new ProjectPaths(root));
+        var assemblies = new ProjectAssemblies(new(root));
 
         Assert.False(assemblies.Reload().Failed);
         Assert.True(SceneBehaviorRegistry.TryGet("EvictedPatrol", out _));
@@ -265,7 +265,7 @@ public sealed class ProjectAssemblyTests : IDisposable {
             """
         );
 
-        var assemblies = new ProjectAssemblies(new ProjectPaths(root));
+        var assemblies = new ProjectAssemblies(new(root));
 
         Assert.False(assemblies.Reload().Failed);
         Assert.True(SceneBehaviorRegistry.TryGet("CrossingPatrol", out var before));
@@ -319,7 +319,7 @@ public sealed class ProjectAssemblyTests : IDisposable {
     public void A_rebuild_that_fails_keeps_the_previous_builds_types() {
         Write(Declaring("KeptPatrol"));
 
-        var assemblies = new ProjectAssemblies(new ProjectPaths(root));
+        var assemblies = new ProjectAssemblies(new(root));
         var first = assemblies.Reload();
 
         Assert.False(first.Failed, first.Output);
@@ -334,16 +334,22 @@ public sealed class ProjectAssemblyTests : IDisposable {
         Assert.Contains("error", second.Output, StringComparison.OrdinalIgnoreCase);
         Assert.NotNull(second.Assembly);
         Assert.Same(second.Assembly, assemblies.Loaded);
-        Assert.True(SceneBehaviorRegistry.TryGet("KeptPatrol", out var after), "the failed rebuild took the last good build's types with it");
+        Assert.True(
+            SceneBehaviorRegistry.TryGet("KeptPatrol", out var after),
+            "the failed rebuild took the last good build's types with it"
+        );
 
         // From a fresh context: the old one was unloaded before the compiler ran, as it has to be.
         Assert.NotSame(before.BehaviorType, after.BehaviorType);
     }
 
     /// <summary>
-    ///     ⚠ <b>An authored project behaviour, and its values, survive a rebuild that fails — and when the
-    ///     last good build is gone too, they are held rather than dropped, and the scene refuses to be
-    ///     saved without them (#1490).</b>
+    ///     ⚠
+    ///     <b>
+    ///         An authored project behaviour, and its values, survive a rebuild that fails — and when the
+    ///         last good build is gone too, they are held rather than dropped, and the scene refuses to be
+    ///         saved without them (#1490).
+    ///     </b>
     /// </summary>
     /// <remarks>
     ///     The last build is the user fixing the syntax error: what was held goes back on, with the value
@@ -354,7 +360,7 @@ public sealed class ProjectAssemblyTests : IDisposable {
         Write(Declaring("HeldPatrol"));
         Directory.CreateDirectory(Path.Combine(root, "Assets"));
 
-        var project = new EditorProject(new ProjectPaths(root));
+        var project = new EditorProject(new(root));
         using var world = new World("Scene");
         var file = Path.Combine(root, "Assets", "Level.vxscene");
         var scene = new SceneDocument(project, world, AssetId.Empty, "Level") { Writer = new SceneFileWriter(file) };
@@ -363,9 +369,9 @@ public sealed class ProjectAssemblyTests : IDisposable {
         using var session = new ProjectSession(
             project,
             (title, _, _) => said.Add(title),
-            () => { },
-            () => false,
-            new ProjectHistory(Path.Combine(root, "Data"))
+            static () => { },
+            static () => false,
+            new(Path.Combine(root, "Data"))
         );
 
         Assert.True(session.BuildCode(), string.Join(Environment.NewLine, said));
@@ -391,12 +397,12 @@ public sealed class ProjectAssemblyTests : IDisposable {
         Assert.Equal(41.5f, Speed(Assert.Single(scene.Behaviors.AllOn(entity).ToArray())));
 
         // And again with the last good build deleted, so there is nothing at all to put it back on.
-        Directory.Delete(Path.Combine(root, "bin"), recursive: true);
+        Directory.Delete(Path.Combine(root, "bin"), true);
         said.Clear();
 
         Assert.False(session.BuildCode());
         Assert.Empty(scene.Behaviors.AllOn(entity).ToArray());
-        Assert.Contains(said, title => title.Contains("held", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(said, static title => title.Contains("held", StringComparison.OrdinalIgnoreCase));
 
         // ⚠ The save path: a scene written now would be written without it, so it is refused, and the
         // file on disk is still the one that names the behaviour.
@@ -415,8 +421,12 @@ public sealed class ProjectAssemblyTests : IDisposable {
     }
 
     /// <summary>
-    ///     ⚠ <b>Every open scene keeps its project behaviours across a rebuild, not only the active one
-    ///     (#1496).</b> The take-off ran over the active scene alone, so a scene opened beside it kept
+    ///     ⚠
+    ///     <b>
+    ///         Every open scene keeps its project behaviours across a rebuild, not only the active one
+    ///         (#1496).
+    ///     </b>
+    ///     The take-off ran over the active scene alone, so a scene opened beside it kept
     ///     instances of the unloaded types: the next save wrote it without them, because the registry no
     ///     longer knew the old type, and the instances held the old context alive.
     /// </summary>
@@ -435,18 +445,27 @@ public sealed class ProjectAssemblyTests : IDisposable {
         Write(Declaring("TwinPatrol"));
         Directory.CreateDirectory(Path.Combine(root, "Assets"));
 
-        var project = new EditorProject(new ProjectPaths(root));
+        var project = new EditorProject(new(root));
         using var world = new World("Scenes");
-        var files = new[] { Path.Combine(root, "Assets", "Active.vxscene"), Path.Combine(root, "Assets", "Beside.vxscene") };
-        var scenes = files.Select(file => new SceneDocument(project, world, AssetId.Empty, Path.GetFileNameWithoutExtension(file)) { Writer = new SceneFileWriter(file) }).ToArray();
+        var files = new[] {
+            Path.Combine(root, "Assets", "Active.vxscene"), Path.Combine(root, "Assets", "Beside.vxscene")
+        };
+        var scenes = files.Select(file => new SceneDocument(
+                    project,
+                    world,
+                    AssetId.Empty,
+                    Path.GetFileNameWithoutExtension(file)
+                ) { Writer = new SceneFileWriter(file) }
+            )
+            .ToArray();
         List<string> said = [];
 
         using var session = new ProjectSession(
             project,
             (title, _, _) => said.Add(title),
-            () => { },
-            () => false,
-            new ProjectHistory(Path.Combine(root, "Data"))
+            static () => { },
+            static () => false,
+            new(Path.Combine(root, "Data"))
         );
 
         Assert.True(session.BuildCode(), string.Join(Environment.NewLine, said));
@@ -455,7 +474,12 @@ public sealed class ProjectAssemblyTests : IDisposable {
         var first = ContextOf("TwinPatrol");
 
         // A rebuild that works: a new field, the ordinary edit.
-        var laps = Declaring("TwinPatrol").Replace("Speed { get; set; } = 1f;", "Speed { get; set; } = 1f; public int Laps { get; set; }", StringComparison.Ordinal);
+        var laps = Declaring("TwinPatrol")
+            .Replace(
+                "Speed { get; set; } = 1f;",
+                "Speed { get; set; } = 1f; public int Laps { get; set; }",
+                StringComparison.Ordinal
+            );
 
         File.WriteAllText(Path.Combine(root, "GameCode.cs"), laps);
 
@@ -479,11 +503,14 @@ public sealed class ProjectAssemblyTests : IDisposable {
             GC.Collect();
         }
 
-        Assert.False(first.IsAlive, "the first build's load context was not collected after the rebuild put its behaviours back");
+        Assert.False(
+            first.IsAlive,
+            "the first build's load context was not collected after the rebuild put its behaviours back"
+        );
 
         // A rebuild with nothing to fall back on: both are held, and neither scene will save.
         File.WriteAllText(Path.Combine(root, "GameCode.cs"), "public class Broken { this is not C#; }");
-        Directory.Delete(Path.Combine(root, "bin"), recursive: true);
+        Directory.Delete(Path.Combine(root, "bin"), true);
 
         Assert.False(session.BuildCode());
 
@@ -540,29 +567,29 @@ public sealed class ProjectAssemblyTests : IDisposable {
     [Fact]
     public void A_rebuild_that_removes_a_member_puts_every_behaviour_back() {
         const string before = """
-            using Vixen.Core;
-            using Vixen.Engine.Behaviors;
+                              using Vixen.Core;
+                              using Vixen.Engine.Behaviors;
 
-            namespace GameCode;
+                              namespace GameCode;
 
-            [DataContract("TrioFirst")]
-            public sealed class TrioFirst : Behavior { public float Speed { get; set; } = 1f; }
+                              [DataContract("TrioFirst")]
+                              public sealed class TrioFirst : Behavior { public float Speed { get; set; } = 1f; }
 
-            [DataContract("TrioMiddle")]
-            public sealed class TrioMiddle : Behavior {
-                public float Speed { get; set; } = 1f;
-                public int Laps { get; set; }
-                public int Turns { get; set; }
-            }
+                              [DataContract("TrioMiddle")]
+                              public sealed class TrioMiddle : Behavior {
+                                  public float Speed { get; set; } = 1f;
+                                  public int Laps { get; set; }
+                                  public int Turns { get; set; }
+                              }
 
-            [DataContract("TrioLast")]
-            public sealed class TrioLast : Behavior { public float Speed { get; set; } = 1f; }
-            """;
+                              [DataContract("TrioLast")]
+                              public sealed class TrioLast : Behavior { public float Speed { get; set; } = 1f; }
+                              """;
 
         Write(before);
         Directory.CreateDirectory(Path.Combine(root, "Assets"));
 
-        var project = new EditorProject(new ProjectPaths(root));
+        var project = new EditorProject(new(root));
         using var world = new World("Scenes");
         var file = Path.Combine(root, "Assets", "Trio.vxscene");
         var scene = new SceneDocument(project, world, AssetId.Empty, "Trio") { Writer = new SceneFileWriter(file) };
@@ -571,9 +598,9 @@ public sealed class ProjectAssemblyTests : IDisposable {
         using var session = new ProjectSession(
             project,
             (title, _, detail) => said.Add(title + ": " + detail),
-            () => { },
-            () => false,
-            new ProjectHistory(Path.Combine(root, "Data"))
+            static () => { },
+            static () => false,
+            new(Path.Combine(root, "Data"))
         );
 
         Assert.True(session.BuildCode(), string.Join(Environment.NewLine, said));
@@ -598,11 +625,14 @@ public sealed class ProjectAssemblyTests : IDisposable {
         scene.Save();
         said.Clear();
 
-        File.WriteAllText(Path.Combine(root, "GameCode.cs"), before.Replace("public int Laps { get; set; }", string.Empty, StringComparison.Ordinal));
+        File.WriteAllText(
+            Path.Combine(root, "GameCode.cs"),
+            before.Replace("public int Laps { get; set; }", string.Empty, StringComparison.Ordinal)
+        );
 
         Assert.True(session.BuildCode(), string.Join(Environment.NewLine, said));
 
-        var back = scene.Behaviors.AllOn(entity).ToArray().ToDictionary(behavior => behavior.GetType().Name);
+        var back = scene.Behaviors.AllOn(entity).ToArray().ToDictionary(static behavior => behavior.GetType().Name);
 
         Assert.Equal(3, back.Count);
         Assert.Equal(11f, Read<float>(back["TrioFirst"], "Speed"));
@@ -617,7 +647,11 @@ public sealed class ProjectAssemblyTests : IDisposable {
         }
 
         // Said, by name: the value is gone from the scene the next save writes.
-        Assert.Contains(said, line => line.Contains("TrioMiddle", StringComparison.Ordinal) && line.Contains("laps", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(
+            said,
+            static line => line.Contains("TrioMiddle", StringComparison.Ordinal)
+                && line.Contains("laps", StringComparison.OrdinalIgnoreCase)
+        );
 
         scene.Save();
 
@@ -627,12 +661,16 @@ public sealed class ProjectAssemblyTests : IDisposable {
         Assert.Contains("!TrioMiddle", saved, StringComparison.Ordinal);
         Assert.Contains("!TrioLast", saved, StringComparison.Ordinal);
 
-        static T Read<T>(Behavior behavior, string member) => (T)behavior.GetType().GetProperty(member)!.GetValue(behavior)!;
+        static T Read<T>(Behavior behavior, string member) =>
+            (T)behavior.GetType().GetProperty(member)!.GetValue(behavior)!;
     }
 
     /// <summary>
-    ///     ⚠ <b>A script saved on disk rebuilds the project's code through the editor's own frame loop,
-    ///     with the scene's behaviours carried — and not while the game is playing (#1508).</b>
+    ///     ⚠
+    ///     <b>
+    ///         A script saved on disk rebuilds the project's code through the editor's own frame loop,
+    ///         with the scene's behaviours carried — and not while the game is playing (#1508).
+    ///     </b>
     ///     <c>BuildCode</c>'s only production caller was the first frame, so the whole rebuild path —
     ///     #1490, #1496, #1502, #1503 — was reachable from tests and from nothing a user could do.
     /// </summary>
@@ -676,16 +714,24 @@ public sealed class ProjectAssemblyTests : IDisposable {
 
         // The build's own writes under `bin/` and `obj/` are drained before anything is counted: an
         // editor that rebuilt on its own output would rebuild for ever.
-        Pump(editor, () => false, TimeSpan.FromSeconds(1.5));
+        Pump(editor, static () => false, TimeSpan.FromSeconds(1.5));
         Assert.Equal(1, built);
 
         // An ordinary edit — a new member — saved by another program.
         File.WriteAllText(
             Path.Combine(root, "GameCode.cs"),
-            Declaring("WatchedPatrol").Replace("Speed { get; set; } = 1f;", "Speed { get; set; } = 1f; public int Laps { get; set; } = 3;", StringComparison.Ordinal)
+            Declaring("WatchedPatrol")
+                .Replace(
+                    "Speed { get; set; } = 1f;",
+                    "Speed { get; set; } = 1f; public int Laps { get; set; } = 3;",
+                    StringComparison.Ordinal
+                )
         );
 
-        Assert.True(Pump(editor, () => built == 2, TimeSpan.FromMinutes(2)), "a script saved on disk never rebuilt the project's code");
+        Assert.True(
+            Pump(editor, () => built == 2, TimeSpan.FromMinutes(2)),
+            "a script saved on disk never rebuilt the project's code"
+        );
 
         Assert.True(SceneBehaviorRegistry.TryGet("WatchedPatrol", out var second));
         Assert.NotSame(first.BehaviorType, second.BehaviorType);
@@ -697,7 +743,7 @@ public sealed class ProjectAssemblyTests : IDisposable {
         Assert.Equal(3, (int)kept.GetType().GetProperty("Laps")!.GetValue(kept)!);
 
         // And the build's own output again: still exactly one rebuild for one edit.
-        Pump(editor, () => false, TimeSpan.FromSeconds(1.5));
+        Pump(editor, static () => false, TimeSpan.FromSeconds(1.5));
         Assert.Equal(2, built);
 
         // ⚠ While playing, an edit is held, not built.
@@ -707,17 +753,25 @@ public sealed class ProjectAssemblyTests : IDisposable {
 
         File.WriteAllText(
             Path.Combine(root, "GameCode.cs"),
-            Declaring("WatchedPatrol").Replace("Speed { get; set; } = 1f;", "Speed { get; set; } = 1f; public int Laps { get; set; } = 4;", StringComparison.Ordinal)
+            Declaring("WatchedPatrol")
+                .Replace(
+                    "Speed { get; set; } = 1f;",
+                    "Speed { get; set; } = 1f; public int Laps { get; set; } = 4;",
+                    StringComparison.Ordinal
+                )
         );
 
-        Pump(editor, () => false, TimeSpan.FromSeconds(2));
+        Pump(editor, static () => false, TimeSpan.FromSeconds(2));
         Assert.Equal(2, built);
 
         play.Leave();
 
-        Assert.True(Pump(editor, () => built == 3, TimeSpan.FromMinutes(2)), "an edit saved during play was never built after it");
+        Assert.True(
+            Pump(editor, () => built == 3, TimeSpan.FromMinutes(2)),
+            "an edit saved during play was never built after it"
+        );
 
-        Pump(editor, () => false, TimeSpan.FromSeconds(1.5));
+        Pump(editor, static () => false, TimeSpan.FromSeconds(1.5));
         Assert.Equal(3, built);
     }
 
@@ -753,10 +807,13 @@ public sealed class ProjectAssemblyTests : IDisposable {
         Assert.NotNull(context);
         Assert.True(context.IsCollectible, "the project's assembly is not in a collectible context");
 
-        return new WeakReference(context);
+        return new(context);
     }
 
-    /// <summary>A code build redraws the inspector over the rebuilt type and restates the build panel, which follow it themselves.</summary>
+    /// <summary>
+    ///     A code build redraws the inspector over the rebuilt type and restates the build panel, which follow it
+    ///     themselves.
+    /// </summary>
     /// <remarks>
     ///     <para>
     ///         ⚠ <b>The two readers subscribe to <c>IProjectSession.CodeBuilt</c> themselves (#1293)</b>, where
@@ -799,7 +856,12 @@ public sealed class ProjectAssemblyTests : IDisposable {
 
         File.WriteAllText(
             Path.Combine(root, "GameCode.cs"),
-            Declaring("InspectedPatrol").Replace("Speed { get; set; } = 1f;", "Speed { get; set; } = 1f; public int Laps { get; set; } = 3;", StringComparison.Ordinal)
+            Declaring("InspectedPatrol")
+                .Replace(
+                    "Speed { get; set; } = 1f;",
+                    "Speed { get; set; } = 1f; public int Laps { get; set; } = 3;",
+                    StringComparison.Ordinal
+                )
         );
 
         Assert.True(session.BuildCode());
@@ -838,7 +900,7 @@ public sealed class ProjectAssemblyTests : IDisposable {
     public void The_project_is_loaded_beside_the_editor_rather_than_into_it() {
         Write("public sealed class Ordinary { public int Value { get; set; } }");
 
-        var built = new ProjectAssemblies(new ProjectPaths(root)).Reload();
+        var built = new ProjectAssemblies(new(root)).Reload();
 
         Assert.False(built.Failed, built.Output);
 

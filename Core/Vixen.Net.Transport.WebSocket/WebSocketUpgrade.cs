@@ -10,8 +10,11 @@ namespace Vixen.Net.Transport.WebSocket;
 /// <summary>The RFC 6455 handshake, as a function of bytes.</summary>
 /// <remarks>
 ///     <para>
-///         <b>The one part of this transport we parse ourselves, and it runs before anything has
-///         authenticated.</b> The framing above it is <c>WebSocket.CreateFromStream</c> — the runtime's,
+///         <b>
+///             The one part of this transport we parse ourselves, and it runs before anything has
+///             authenticated.
+///         </b>
+///         The framing above it is <c>WebSocket.CreateFromStream</c> — the runtime's,
 ///         and deliberately not ours. The upgrade is thirty lines of header scanning over bytes from a
 ///         stranger, which makes it the most exposed code in the package and the reason it is a static
 ///         function over a span rather than a loop inside an <c>async</c> method: something shaped like

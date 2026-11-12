@@ -58,14 +58,22 @@ public interface IFoliageSurface {
 ///         random ranges.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Deterministic from the stamp and the candidate index, never from an iteration
-///         order</b> — [§ D8]'s requirement, and it is what makes an undone-and-redone stroke produce
+///         ⚠
+///         <b>
+///             Deterministic from the stamp and the candidate index, never from an iteration
+///             order
+///         </b>
+///         — [§ D8]'s requirement, and it is what makes an undone-and-redone stroke produce
 ///         the same forest. A counter-based identity would also make the CPU reference and the GPU
 ///         scatter impossible to compare, which is the seam test the grass phase needs.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The spacing check is against what is already placed, including this stamp's own
-///         earlier candidates.</b> Checking only the volume would let one stamp drop forty trees on
+///         ⚠
+///         <b>
+///             The spacing check is against what is already placed, including this stamp's own
+///             earlier candidates.
+///         </b>
+///         Checking only the volume would let one stamp drop forty trees on
 ///         one spot, because none of them was there when the others were tested.
 ///     </para>
 /// </remarks>
@@ -261,8 +269,12 @@ public static class FoliageScatter {
     /// <param name="alignToNormal">How much it turns to face the normal, 0…1.</param>
     /// <returns>The instance.</returns>
     /// <remarks>
-    ///     ⚠ <b>The one definition of "turn a hit into a thing standing on it", and it takes the
-    ///     ranges rather than a <see cref="FoliageType" /> so that grass can reach it.</b> A
+    ///     ⚠
+    ///     <b>
+    ///         The one definition of "turn a hit into a thing standing on it", and it takes the
+    ///         ranges rather than a <see cref="FoliageType" /> so that grass can reach it.
+    ///     </b>
+    ///     A
     ///     <see cref="GrassType" /> is not a foliage type — it has no spacing, no collision and no
     ///     identity — and a second copy of this arithmetic is a second answer to "which way does a
     ///     blade lean", which is exactly the drift the CPU/GPU seam test exists to forbid.
@@ -277,7 +289,7 @@ public static class FoliageScatter {
         float alignToNormal
     ) {
         var yaw = randomYaw ? Unit(hash, 1) * MathF.Tau : 0f;
-        var pitch = maxPitch > 0f ? ((Unit(hash, 2) * 2f) - 1f) * maxPitch : 0f;
+        var pitch = maxPitch > 0f ? (Unit(hash, 2) * 2f - 1f) * maxPitch : 0f;
         var scale = float.Lerp(minScale, maxScale, Unit(hash, 3));
 
         var upright = Quaternion.FromAxisAngle(Vector3.UnitY, yaw);

@@ -36,9 +36,7 @@ static class Releases {
     static readonly JsonSerializerOptions Options = new() {
         WriteIndented = true,
         DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull,
-        Converters = {
-            new System.Text.Json.Serialization.JsonStringEnumConverter(JsonNamingPolicy.KebabCaseLower)
-        }
+        Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter(JsonNamingPolicy.KebabCaseLower) }
     };
 
     /// <summary>Writes one release's table, everywhere it belongs.</summary>
@@ -56,8 +54,8 @@ static class Releases {
             // Kebab-cased like the `Kind` values themselves, so a caller can look a count up by the
             // same string it filters rows with.
             Counts = changes
-                .GroupBy(change => JsonNamingPolicy.KebabCaseLower.ConvertName(change.Kind.ToString()))
-                .ToDictionary(group => group.Key, group => group.Count(), StringComparer.Ordinal)
+                .GroupBy(static change => JsonNamingPolicy.KebabCaseLower.ConvertName(change.Kind.ToString()))
+                .ToDictionary(static group => group.Key, static group => group.Count(), StringComparer.Ordinal)
         };
 
         var path = DetailPath(repositoryRoot, record.Version);
@@ -68,7 +66,8 @@ static class Releases {
         WriteChangelog(
             repositoryRoot,
             record.Version,
-            ReleaseDiff.Markdown(record.Version, previousVersion, record.Date, changes));
+            ReleaseDiff.Markdown(record.Version, previousVersion, record.Date, changes)
+        );
 
         WriteIndex(repositoryRoot, outputDirectory, History.Read(repositoryRoot));
     }
@@ -92,28 +91,40 @@ static class Releases {
                 // An archived graph with no table: the store was hand-edited, or the release predates
                 // the table. Listed anyway — the version exists, and saying so is more honest than a
                 // gap in the switcher.
-                index.Add(new { release.Version, release.Date, release.Types, release.Members, Breaking = 0, HasTable = false });
+                index.Add(
+                    new {
+                        release.Version,
+                        release.Date,
+                        release.Types,
+                        release.Members,
+                        Breaking = 0,
+                        HasTable = false
+                    }
+                );
 
                 continue;
             }
 
-            File.Copy(source, Path.Combine(directory, $"{release.Version}.json"), overwrite: true);
+            File.Copy(source, Path.Combine(directory, $"{release.Version}.json"), true);
 
             var detail = JsonSerializer.Deserialize<ReleaseDetail>(File.ReadAllText(source), Options);
 
-            index.Add(new {
-                release.Version,
-                release.Date,
-                release.Types,
-                release.Members,
-                Breaking = detail?.Changes.Count(change => change.IsBreaking) ?? 0,
-                HasTable = true
-            });
+            index.Add(
+                new {
+                    release.Version,
+                    release.Date,
+                    release.Types,
+                    release.Members,
+                    Breaking = detail?.Changes.Count(static change => change.IsBreaking) ?? 0,
+                    HasTable = true
+                }
+            );
         }
 
         File.WriteAllText(
             Path.Combine(directory, "index.json"),
-            JsonSerializer.Serialize(index, Options) + "\n");
+            JsonSerializer.Serialize(index, Options) + "\n"
+        );
     }
 
     /// <summary>
@@ -156,9 +167,12 @@ static class Releases {
         // rewrite of something in the middle.
         var block = section.TrimEnd('\n') + "\n\n";
 
-        File.WriteAllText(path, insertAt < 0
-            ? body + "\n\n" + block
-            : body[..(insertAt + 1)] + "\n" + block + body[(insertAt + 1)..].TrimStart('\n') + "\n");
+        File.WriteAllText(
+            path,
+            insertAt < 0
+                ? body + "\n\n" + block
+                : body[..(insertAt + 1)] + "\n" + block + body[(insertAt + 1)..].TrimStart('\n') + "\n"
+        );
     }
 
     static string DetailPath(string repositoryRoot, string version) =>

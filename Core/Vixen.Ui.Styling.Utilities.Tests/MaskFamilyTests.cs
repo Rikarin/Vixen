@@ -8,8 +8,12 @@ namespace Vixen.Ui.Styling.Utilities.Tests;
 /// <summary>What each mask family's class actually masks, read off the assembled <c>mask-image</c>.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Eighteen of the twenty-five mask roots were named by no test in the tree, and the
-///         reason given for not needing one did not hold.</b> #629 declined the cluster rows on the
+///         ⚠
+///         <b>
+///             Eighteen of the twenty-five mask roots were named by no test in the tree, and the
+///             reason given for not needing one did not hold.
+///         </b>
+///         #629 declined the cluster rows on the
 ///         grounds that <c>MaskGradientTests</c> and <c>GradientPaintTests</c> pin it against
 ///         pixels. Both do read pixels and both write hand-authored declarations —
 ///         <c>mask-image: linear-gradient(to right, …)</c>, <c>mask-mode</c>, <c>mask-size</c> — and
@@ -18,15 +22,23 @@ namespace Vixen.Ui.Styling.Utilities.Tests;
 ///         the bottom edge.
 ///     </para>
 ///     <para>
-///         ⚠ <b>And <c>UtilityConsumptionGateTests</c> is green for every one of them, which is the
-///         whole point of writing these.</b> That gate's verdict is per <i>property</i> and unions
+///         ⚠
+///         <b>
+///             And <c>UtilityConsumptionGateTests</c> is green for every one of them, which is the
+///             whole point of writing these.
+///         </b>
+///         That gate's verdict is per <i>property</i> and unions
 ///         over values: <c>mask-image</c> is read, so a family that put its ramp on the wrong edge —
 ///         or on no edge at all — passes there with nothing to say. The same distinction one level
 ///         down from the one #629 exists to draw.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The assertion is the <i>computed</i> value and not the emitted text, and that is
-///         what makes it about the answer rather than the mechanism.</b> Every one of these classes
+///         ⚠
+///         <b>
+///             The assertion is the <i>computed</i> value and not the emitted text, and that is
+///             what makes it about the answer rather than the mechanism.
+///         </b>
+///         Every one of these classes
 ///         emits a <c>--tw-*</c> fragment plus a <c>mask-image</c> made of <c>var()</c>s, so the
 ///         string a family emits says almost nothing on its own — the layer list only becomes a
 ///         gradient once the cascade substitutes. <c>UtilityFamilyTests</c> holds the emitted form
@@ -59,13 +71,21 @@ public class MaskFamilyTests {
     ///     The twelve edge ramps put their stop on the edge they name and nowhere else.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b><c>mask-t-*</c> is <c>to top</c> and not <c>to bottom</c>: it fades the element out
-    ///     <i>at the top</i>.</b> The four physical edges are the rows that would catch a family
+    ///     ⚠
+    ///     <b>
+    ///         <c>mask-t-*</c> is <c>to top</c> and not <c>to bottom</c>: it fades the element out
+    ///         <i>at the top</i>.
+    ///     </b>
+    ///     The four physical edges are the rows that would catch a family
     ///     wired to the opposite ramp, and swapping any pair of them is a defect no gate, no
     ///     emission test and no computed-value null check can see.
     ///     <para>
-    ///         ⚠ <b><c>mask-x-*</c> and <c>mask-y-*</c> drive <i>two</i> ramps rather than widening
-    ///         one</b> — that is why <c>Family.Positions</c> is several. A shorthand that set a single
+    ///         ⚠
+    ///         <b>
+    ///             <c>mask-x-*</c> and <c>mask-y-*</c> drive <i>two</i> ramps rather than widening
+    ///             one
+    ///         </b>
+    ///         — that is why <c>Family.Positions</c> is several. A shorthand that set a single
     ///         fragment would fade one side and leave the other solid, and the two-edge rows below
     ///         are the only place that distinction is stated.
     ///     </para>
@@ -103,8 +123,12 @@ public class MaskFamilyTests {
     ///     opaque.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>Which of the three layers a class fills is the claim, and it is the one that decides
-    ///     whether two mask classes compose or one of them silently wins.</b> The list is always
+    ///     ⚠
+    ///     <b>
+    ///         Which of the three layers a class fills is the claim, and it is the one that decides
+    ///         whether two mask classes compose or one of them silently wins.
+    ///     </b>
+    ///     The list is always
     ///     three long and always in the same order, so a radial family that wrote into the linear
     ///     slot would still produce a valid <c>mask-image</c>, still mask, and still be green
     ///     everywhere else — until an author wrote a linear class beside it.
@@ -173,8 +197,12 @@ public class MaskFamilyTests {
 
     /// <summary>Two classes that name different edges of the same box compose.</summary>
     /// <remarks>
-    ///     ⚠ <b>This is the property the whole per-edge arrangement exists for, and the one an
-    ///     implementation that wrote a whole <c>mask-image</c> per class could not have.</b> Each edge
+    ///     ⚠
+    ///     <b>
+    ///         This is the property the whole per-edge arrangement exists for, and the one an
+    ///         implementation that wrote a whole <c>mask-image</c> per class could not have.
+    ///     </b>
+    ///     Each edge
     ///     class writes all four ramps and drives one; the two rules therefore write the identical
     ///     <c>--tw-mask-linear</c> and differ only in the fragment underneath it, so the cascade
     ///     picking either rule gives the same answer. A family that assembled its layer from its own
@@ -193,15 +221,23 @@ public class MaskFamilyTests {
     /// <summary>And so do two classes in different layers — sharing their stop positions.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Across layers the mechanism is the opposite one and the observable is the
-    ///         same</b>: the layer a class does not fill resolves through its <c>var()</c> fallback to
+    ///         ⚠
+    ///         <b>
+    ///             Across layers the mechanism is the opposite one and the observable is the
+    ///             same
+    ///         </b>
+    ///         : the layer a class does not fill resolves through its <c>var()</c> fallback to
     ///         an opaque gradient, which is the identity under <c>mask-composite: intersect</c>. That
     ///         fallback is what lets a single class mask at all, and it is also what stops a second
     ///         class in another layer from being erased by the first.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>But the stops are shared and the shapes are not, which is surprising enough to be
-    ///         the reason this assertion is written out in full.</b> <c>mask-linear-from-*</c>,
+    ///         ⚠
+    ///         <b>
+    ///             But the stops are shared and the shapes are not, which is surprising enough to be
+    ///             the reason this assertion is written out in full.
+    ///         </b>
+    ///         <c>mask-linear-from-*</c>,
     ///         <c>mask-radial-from-*</c> and <c>mask-conic-from-*</c> all write the one
     ///         <c>--tw-mask-from-position</c> — Tailwind's arrangement, faithfully — so the
     ///         <c>20%</c> asked for on the conic layer below appears on the radial layer too. Only

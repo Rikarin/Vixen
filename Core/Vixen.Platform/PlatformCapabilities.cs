@@ -5,8 +5,10 @@ using Vixen.Core;
 
 namespace Vixen.Platform;
 
-/// <summary>What a platform can actually do, asked at runtime rather than assumed from a
-/// <c>#if</c>.</summary>
+/// <summary>
+///     What a platform can actually do, asked at runtime rather than assumed from a
+///     <c>#if</c>.
+/// </summary>
 /// <remarks>
 ///     <para>
 ///         Every capability here is absent on at least one supported target: a dedicated server has

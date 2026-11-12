@@ -23,8 +23,12 @@ namespace Vixen.Editor.App;
 ///         by picking a menu item.
 ///     </para>
 ///     <para>
-///         ⚠ <b>And to see what came back, which is half of why the maps are project assets at
-///         all.</b> <c>BakedMaps.Warnings</c> has always carried what a bake could not do — a texel
+///         ⚠
+///         <b>
+///             And to see what came back, which is half of why the maps are project assets at
+///             all.
+///         </b>
+///         <c>BakedMaps.Warnings</c> has always carried what a bake could not do — a texel
 ///         no ray reached, a search radius too short for the cage — and the only place it reached was
 ///         the detail line of a toast that is gone in four seconds. The result list here is what
 ///         makes "the curvature map looks wrong" answerable without re-running the bake.
@@ -63,14 +67,22 @@ sealed partial class MeshMapBakeView;
 ///         derived from <see cref="Measure" /> and is deliberately not itself a stored member.
 ///     </para>
 ///     <para>
-///         ⚠ <b><see cref="SearchRadius" /> is a fraction of the source's bounding-box diagonal and
-///         never a distance</b> — <c>BakeSettings</c>'s own remark, restated here because this is
+///         ⚠
+///         <b>
+///             <see cref="SearchRadius" /> is a fraction of the source's bounding-box diagonal and
+///             never a distance
+///         </b>
+///         — <c>BakeSettings</c>'s own remark, restated here because this is
 ///         where a person types the number. A cage in metres is a claim about how big a model is,
 ///         and the same character exported in centimetres finds nothing.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The panel asks in <see cref="MeshMapUsage" /> and this answers in the bake's flags,
-///         and that seam is here on purpose.</b> They are two enums for the reason
+///         ⚠
+///         <b>
+///             The panel asks in <see cref="MeshMapUsage" /> and this answers in the bake's flags,
+///             and that seam is here on purpose.
+///         </b>
+///         They are two enums for the reason
 ///         <see cref="MeshMapUsage" />'s own remarks give — one says what to spend rays on, the other
 ///         names one file — and a panel that spoke the bake's flags would be a panel that has to know
 ///         which two of the nine are not in them.
@@ -92,12 +104,16 @@ public sealed class MeshMapBakeSettings {
 
     /// <summary>Which of § D12's seven to measure, by <see cref="MeshMapNaming.Suffix" />.</summary>
     /// <remarks>
-    ///     ⚠ <b>The stored form, and it is a list of names for the reason this type's own remarks
-    ///     give.</b> A name that no longer parses is simply not wanted rather than refused — a project
+    ///     ⚠
+    ///     <b>
+    ///         The stored form, and it is a list of names for the reason this type's own remarks
+    ///         give.
+    ///     </b>
+    ///     A name that no longer parses is simply not wanted rather than refused — a project
     ///     opened in an older editor after somebody added a measurement has to load — which is
     ///     <c>ProjectSettingsStore.UnknownKeys</c>'s bargain one level down.
     /// </remarks>
-    public List<string> Measure { get; set; } = [.. Optional.Select(MeshMapNaming.Suffix)];
+    public List<string> Measure { get; set; } = [..Optional.Select(MeshMapNaming.Suffix)];
 
     /// <summary>Which of § D12's seven to measure. The normal and the displacement are not optional.</summary>
     /// <remarks>Derived from <see cref="Measure" />, which is the half that is written to the file.</remarks>
@@ -127,8 +143,12 @@ public sealed class MeshMapBakeSettings {
     ///         guard silently turned off for every later bake.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And it is a setting rather than a prompt because the bake's two halves are minutes
-    ///         apart.</b> The refusal happens on the frame thread after the casting has finished; a
+    ///         ⚠
+    ///         <b>
+    ///             And it is a setting rather than a prompt because the bake's two halves are minutes
+    ///             apart.
+    ///         </b>
+    ///         The refusal happens on the frame thread after the casting has finished; a
     ///         dialog there would ask the question at the end of a bake somebody started and walked
     ///         away from, which is the one moment nobody is looking.
     ///     </para>
@@ -211,16 +231,17 @@ public sealed class MeshMapBakeSettings {
         };
 
     /// <summary>Which ray budget a usage is spent out of, or null where it is not one of the seven.</summary>
-    static Measurements? Flag(MeshMapUsage usage) => usage switch {
-        MeshMapUsage.AmbientOcclusion => Measurements.AmbientOcclusion,
-        MeshMapUsage.BentNormal => Measurements.BentNormal,
-        MeshMapUsage.Curvature => Measurements.Curvature,
-        MeshMapUsage.Thickness => Measurements.Thickness,
-        MeshMapUsage.Position => Measurements.Position,
-        MeshMapUsage.WorldNormal => Measurements.WorldNormal,
-        MeshMapUsage.Id => Measurements.Id,
-        _ => null
-    };
+    static Measurements? Flag(MeshMapUsage usage) =>
+        usage switch {
+            MeshMapUsage.AmbientOcclusion => Measurements.AmbientOcclusion,
+            MeshMapUsage.BentNormal => Measurements.BentNormal,
+            MeshMapUsage.Curvature => Measurements.Curvature,
+            MeshMapUsage.Thickness => Measurements.Thickness,
+            MeshMapUsage.Position => Measurements.Position,
+            MeshMapUsage.WorldNormal => Measurements.WorldNormal,
+            MeshMapUsage.Id => Measurements.Id,
+            _ => null
+        };
 }
 
 /// <summary>One row of the panel's "what the last bake produced" list.</summary>

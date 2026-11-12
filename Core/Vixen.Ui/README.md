@@ -406,7 +406,7 @@ matches it.
 ## What a screen-reader bridge has to be, and why there is not one
 
 ⚠ **Everything above is read by xUnit and by nothing else.** Every `AccessibilityInvalidated +=` in
-the repository is in a test — `Vixen.Ui.Tests/AccessibilityTests.cs:32,176,208` and the two
+the repository is in a test — `Vixen.Ui.Tests/AccessibilityTests.cs:36,180,212` and the two
 `AccessibilityNotificationTests` — and grepping every platform assembly for `NSAccessibility`,
 `IRawElementProvider`, `UIAutomation`, `AtSpi` and `IAccessible` returns nothing. No screen reader on
 any platform can see a Vixen element, and the suite that covers the tree is green either way, which
@@ -418,7 +418,7 @@ because the tree above was designed against it and the reasons are not recoverab
 — an `NSWindow`, an `HWND`, an AT-SPI object with `ROLE_FRAME` — and `UiDocument` deliberately spans
 several (`Surfaces.cs:22`, and one document across windows is the thing this framework does that
 AppKit does not). So the attach and detach points are `SurfaceAdded`/`SurfaceRemoved`
-(`Surfaces.cs:133,136`), `SurfaceOf` (`Surfaces.cs:306`) is how a node answers which window it belongs
+(`Surfaces.cs:140,143`), `SurfaceOf` (`Surfaces.cs:319`) is how a node answers which window it belongs
 to, and the per-frame raise stays document-wide because coalescing across surfaces is cheaper than
 three flags and the diff has to walk anyway.
 
@@ -443,7 +443,7 @@ provider references an AT retains for as long as it likes, AT-SPI hands out bus 
 frame ended. So a snapshot node carries a stable id allocated once per element and kept across
 republishes, and the map from id back to a live element for the *action* path is weak — a request
 against an id whose element is gone answers "no longer valid" rather than resurrecting it or
-crashing. `ReleaseAccessibilitySubscribers` (`Accessibility.cs:964`) exists for the mirror image of
+crashing. `ReleaseAccessibilitySubscribers` (`Accessibility.cs:1034`) exists for the mirror image of
 this leak and is the precedent for taking it seriously.
 
 **Three things the model owes a bridge and does not have yet, in the order a bridge needs them.**
@@ -457,7 +457,7 @@ this leak and is the precedent for taking it seriously.
   by asking for the line the caret is on, the word to its right, the selected range and the character
   offsets of each — `AXTextMarker`, `ITextProvider`, AT-SPI's `Text` interface. Without it `TextField`
   is announced as one opaque value and `CodeEditor` is unreadable, bridge or no bridge.
-* **Live-region announcements.** `Toasts.cs:31,114` assigns `Alert` and `Log` correctly and there is
+* **Live-region announcements.** `Toasts.cs:35,118` assigns `Alert` and `Log` correctly and there is
   nothing to deliver: a toast appears where the user is not looking and takes itself away again, so a
   reader that is only told when the user walks to it is never told. The announcement is a *message*
   rather than a tree change, which is why the coalesced per-frame diff cannot carry it and why it
@@ -469,7 +469,7 @@ a validation seam that does not exist rather than on a bridge — and `Accessibl
 no producer either.
 
 **Geometry crosses two coordinate systems and neither of them is the one AT asks for.** Layout gives
-a rect in document space; a surface knows its size and DPI scale (`UiSurface.cs:104`); the protocols
+a rect in document space; a surface knows its size and DPI scale (`UiSurface.cs:116`); the protocols
 want screen space, and on macOS in a bottom-left origin. The snapshot therefore carries surface-space
 rects and the platform half adds the window origin, because the window origin is the one number that
 only the platform assembly can know and the one that changes when the user drags the window without
@@ -1836,8 +1836,8 @@ property at a time, across the `UiDocument` partials that produce it.
 
 | Doc 13 asks for | What is here | Where |
 |---|---|---|
-| layout-node count | `LayoutTree.NodeCount` | `Vixen.Ui.Layout/LayoutTree.cs:81` |
-| the frame's work | `StylesResolved`, `StylesApplied`, `ContainerScopesEntered`, `StyleCompactions`, `SettlingPasses`, `Settled`, `LastPassWasCold` | `Restyle.cs:76`, `UiDocument.cs:507`, `Vixen.Ui/Containers.cs:180`, `UiDocument.cs:986`, `UiDocument.cs:1266` |
+| layout-node count | `LayoutTree.NodeCount` | `Vixen.Ui.Layout/LayoutTree.cs:83` |
+| the frame's work | `StylesResolved`, `StylesApplied`, `ContainerScopesEntered`, `StyleCompactions`, `SettlingPasses`, `Settled`, `LastPassWasCold` | `Restyle.cs:88`, `UiDocument.cs:536`, `Vixen.Ui/Containers.cs:206`, `UiDocument.cs:1026`, `UiDocument.cs:1309` |
 | element bounds, box model | `UiElement.AbsoluteLeft`/`Top`/`Width`/`Height`, and the layout node behind them | `UiElement.cs` |
 | the hovered element | `UiDocument.HitTest(x, y)`, and `HitTest(surface, x, y)` | `UiDocument.cs` |
 | style origin for it | `StyleOrigin`, `CascadePrecedence`, `StyleRuleSet.Origin` — the cascade carries provenance because it needs it | `Vixen.Ui.Styling` |

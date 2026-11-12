@@ -3,7 +3,6 @@
 
 using CsCheck;
 using Vixen.Core.Mathematics;
-using Vixen.Terrain;
 using Xunit;
 
 namespace Vixen.Terrain.Tests;
@@ -94,7 +93,7 @@ public sealed class TerrainBrushTests {
 
     [Fact]
     public void TheCentreIsFullStrengthAndOutsideTheRadiusIsNothing() {
-        var brush = Brush(radius: 4f, strength: 0.75f);
+        var brush = Brush(4f, 0.75f);
         var stamp = new BrushStamp(new(10f, 20f));
 
         Assert.Equal(0.75f, brush.WeightAt(new(10f, 20f), stamp), 5);
@@ -107,7 +106,7 @@ public sealed class TerrainBrushTests {
         // Falloff 0.25 means the outer quarter of the radius falls off, so everything inside three
         // quarters of it is full strength. Reading the setting the other way round would make this
         // the softest part of the brush.
-        var brush = Brush(radius: 4f, falloff: 0.25f);
+        var brush = Brush(4f, falloff: 0.25f);
         var stamp = new BrushStamp(Vector2.Zero);
 
         Assert.Equal(1f, brush.WeightAt(new(0f, 0f), stamp), 5);
@@ -168,7 +167,7 @@ public sealed class TerrainBrushTests {
 
     [Fact]
     public void ANonPositiveRadiusPaintsNothingRatherThanEverything() {
-        var brush = Brush(radius: 0f);
+        var brush = Brush(0f);
         Assert.Equal(0f, brush.WeightAt(Vector2.Zero, new(Vector2.Zero)), 5);
     }
 
@@ -188,9 +187,7 @@ public sealed class TerrainBrushTests {
 
     [Fact]
     public void AnAlphaStampReadsItsMaskOverTheStampsOwnSquare() {
-        var brush = TerrainBrush.Default with {
-            Radius = 4f, Strength = 1f, Falloff = 0f, Shape = BrushShape.Alpha
-        };
+        var brush = TerrainBrush.Default with { Radius = 4f, Strength = 1f, Falloff = 0f, Shape = BrushShape.Alpha };
 
         var mask = new RecordingMask();
 
@@ -213,8 +210,12 @@ public sealed class TerrainBrushTests {
 
     /// <summary>An alpha reaches the corners of its square; the disc inside it never does.</summary>
     /// <remarks>
-    ///     ⚠ <b>Why a rotation control and an alpha are one feature and not two —
-    ///     <a href="https://github.com/Rikarin/Vixen/issues/1083">#1083</a>.</b> A mask that is one
+    ///     ⚠
+    ///     <b>
+    ///         Why a rotation control and an alpha are one feature and not two —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/1083">#1083</a>.
+    ///     </b>
+    ///     A mask that is one
     ///     over the whole unit square is what an artist means by a square brush, and while the reach
     ///     was measured radially it was clipped to the inscribed disc: a square alpha painted exactly
     ///     what a circle painted, and turning it moved no texel at all. The corner is the only place
@@ -222,9 +223,7 @@ public sealed class TerrainBrushTests {
     /// </remarks>
     [Fact]
     public void AnAlphaReachesTheCornersOfItsSquareAndACircleDoesNot() {
-        var brush = TerrainBrush.Default with {
-            Radius = 4f, Strength = 1f, Falloff = 0f, Shape = BrushShape.Alpha
-        };
+        var brush = TerrainBrush.Default with { Radius = 4f, Strength = 1f, Falloff = 0f, Shape = BrushShape.Alpha };
 
         var stamp = new BrushStamp(new(10f, 20f));
 
@@ -242,9 +241,7 @@ public sealed class TerrainBrushTests {
     /// <summary>And turning one moves what it covers, which is the rotation knob's whole point.</summary>
     [Fact]
     public void TurningAMaskedStampMovesWhatItCovers() {
-        var brush = TerrainBrush.Default with {
-            Radius = 4f, Strength = 1f, Falloff = 0f, Shape = BrushShape.Alpha
-        };
+        var brush = TerrainBrush.Default with { Radius = 4f, Strength = 1f, Falloff = 0f, Shape = BrushShape.Alpha };
 
         // A chisel: a band across the middle of the square, whose support is not radially symmetric.
         var mask = new BandMask(0.2f);
@@ -261,7 +258,11 @@ public sealed class TerrainBrushTests {
     [Fact]
     public void APatternStampReadsItsMaskInWorldSpaceSoAStrokeRevealsOneTexture() {
         var brush = TerrainBrush.Default with {
-            Radius = 4f, Strength = 1f, Falloff = 0f, Shape = BrushShape.Pattern, PatternScale = 4f
+            Radius = 4f,
+            Strength = 1f,
+            Falloff = 0f,
+            Shape = BrushShape.Pattern,
+            PatternScale = 4f
         };
 
         var mask = new RecordingMask();
@@ -278,7 +279,11 @@ public sealed class TerrainBrushTests {
     [Fact]
     public void APatternWrapsRatherThanRunningOffTheUnitSquare() {
         var brush = TerrainBrush.Default with {
-            Radius = 100f, Strength = 1f, Falloff = 0f, Shape = BrushShape.Pattern, PatternScale = 4f
+            Radius = 100f,
+            Strength = 1f,
+            Falloff = 0f,
+            Shape = BrushShape.Pattern,
+            PatternScale = 4f
         };
 
         var mask = new RecordingMask();
@@ -295,9 +300,7 @@ public sealed class TerrainBrushTests {
 
     [Fact]
     public void AMaskMultipliesTheFalloffRatherThanReplacingIt() {
-        var brush = TerrainBrush.Default with {
-            Radius = 4f, Strength = 1f, Falloff = 0.5f, Shape = BrushShape.Alpha
-        };
+        var brush = TerrainBrush.Default with { Radius = 4f, Strength = 1f, Falloff = 0.5f, Shape = BrushShape.Alpha };
 
         var circle = brush with { Shape = BrushShape.Circle };
         var half = new ConstantMask(0.5f);
@@ -315,25 +318,25 @@ public sealed class TerrainBrushTests {
     public void ACirclesFootprintIsItsRadiusAndAMasksIsItsDiagonal() {
         var stamp = new BrushStamp(new(10f, 20f));
 
-        var circle = Brush(radius: 4f).FootprintOf(stamp);
+        var circle = Brush().FootprintOf(stamp);
         Assert.Equal(new(6f, 16f), circle.Minimum);
         Assert.Equal(new(14f, 24f), circle.Maximum);
 
         // A square stamp turned 45° reaches √2 radii into its corners, and the bound is the same
         // whichever way it is turned rather than tight for one angle and wrong for the next.
-        var alpha = (Brush(radius: 4f) with { Shape = BrushShape.Alpha }).FootprintOf(stamp);
+        var alpha = (Brush() with { Shape = BrushShape.Alpha }).FootprintOf(stamp);
         Assert.Equal(4f * MathF.Sqrt(2f), alpha.Maximum.X - 10f, 4);
     }
 
     [Fact]
     public void AFootprintContainsEverythingTheStampCanTouch() {
-        var brush = Brush(radius: 3f);
+        var brush = Brush(3f);
         var stamp = new BrushStamp(new(2f, -5f));
         var footprint = brush.FootprintOf(stamp);
 
         for (var step = 0; step < 64; step++) {
             var angle = step / 64f * MathF.Tau;
-            var sample = stamp.Centre + (new Vector2(MathF.Cos(angle), MathF.Sin(angle)) * 2.99f);
+            var sample = stamp.Centre + new Vector2(MathF.Cos(angle), MathF.Sin(angle)) * 2.99f;
 
             Assert.True(brush.WeightAt(sample, stamp) > 0f);
             Assert.True(footprint.Contains(sample));
@@ -358,10 +361,7 @@ public sealed class TerrainBrushTests {
                     var (radius, strength, falloff, curve) = input;
 
                     var brush = TerrainBrush.Default with {
-                        Radius = radius,
-                        Strength = strength,
-                        Falloff = falloff,
-                        Curve = (BrushFalloffKind)curve
+                        Radius = radius, Strength = strength, Falloff = falloff, Curve = (BrushFalloffKind)curve
                     };
 
                     var stamp = new BrushStamp(Vector2.Zero);

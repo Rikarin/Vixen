@@ -19,8 +19,12 @@ public class SingularityTests {
     ///         test of the <i>extraction</i>.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The precondition is that the mesh resolves the field, and the fixtures are built
-    ///         to satisfy it rather than pretending it is not there.</b> The index is read off period
+    ///         ⚠
+    ///         <b>
+    ///             The precondition is that the mesh resolves the field, and the fixtures are built
+    ///             to satisfy it rather than pretending it is not there.
+    ///         </b>
+    ///         The index is read off period
     ///         jumps — which of the four rotations of a neighbour was meant — and a quarter turn is
     ///         ninety degrees, so an edge across which the field genuinely turns by more than
     ///         forty-five has no right answer and the identity is not available. Measured: on the
@@ -51,11 +55,11 @@ public class SingularityTests {
         var field = CrossFieldTests.Solve(mesh, settings);
         var found = SingularityPass.Extract(mesh, field);
 
-        Assert.Equal(4 * expected, found.Sum(entry => entry.Index));
+        Assert.Equal(4 * expected, found.Sum(static entry => entry.Index));
 
         // Every one of them is a whole quarter turn and every triangle appears once, which is what
         // makes the sum above a sum of indices rather than of anything else.
-        Assert.Equal(found.Count, found.Select(entry => entry.Triangle).Distinct().Count());
+        Assert.Equal(found.Count, found.Select(static entry => entry.Triangle).Distinct().Count());
 
         foreach (var entry in found) {
             Assert.InRange(entry.Index, -1, 1);
@@ -66,8 +70,11 @@ public class SingularityTests {
     /// <summary>A cube's eight quarter turns sit on its eight corners and nowhere else.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>docs/plan/41 § D6 steps two and three, on the one shape where they appear to
-    ///         contradict each other.</b> Step two says a singularity on a hard edge is a visible pinch
+    ///         <b>
+    ///             docs/plan/41 § D6 steps two and three, on the one shape where they appear to
+    ///             contradict each other.
+    ///         </b>
+    ///         Step two says a singularity on a hard edge is a visible pinch
     ///         and the exit criterion is zero on features; step three says the right place for one is
     ///         where the surface is not developable and names "the corner of a box". On a cube every
     ///         vertex is a feature corner and every edge is a feature edge, and χ = 2 says eight
@@ -103,8 +110,11 @@ public class SingularityTests {
     /// <summary>The placement pass is monotone: never more on a feature, never more turning.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>What § D6's exit criterion turns into where it cannot be met outright, and it is
-    ///         worth stating plainly rather than dressing up.</b> On a cube and on a boolean of two
+    ///         <b>
+    ///             What § D6's exit criterion turns into where it cannot be met outright, and it is
+    ///             worth stating plainly rather than dressing up.
+    ///         </b>
+    ///         On a cube and on a boolean of two
     ///         boxes the pass reaches zero singularities on feature lines. On a staircase, on a
     ///         voxelised sphere and on a box with a cylindrical bore it does not: measured, a box with
     ///         a bore goes from thirty-four on feature lines to twenty-eight, and a flight of stairs
@@ -113,8 +123,12 @@ public class SingularityTests {
     ///         honest report is a number rather than a claim.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>What <i>is</i> guaranteed is that the pass never makes either measure worse, and
-    ///         that is a design property rather than an observation</b> — each of the three
+    ///         ⚠
+    ///         <b>
+    ///             What <i>is</i> guaranteed is that the pass never makes either measure worse, and
+    ///             that is a design property rather than an observation
+    ///         </b>
+    ///         — each of the three
     ///         corrections scores the field before and after and puts the field back unless it
     ///         improved. See <c>SingularityPass.Correct</c>.
     ///     </para>
@@ -144,7 +158,7 @@ public class SingularityTests {
         );
 
         Assert.True(
-            after.Sum(entry => Math.Abs(entry.Index)) <= before.Sum(entry => Math.Abs(entry.Index)),
+            after.Sum(static entry => Math.Abs(entry.Index)) <= before.Sum(static entry => Math.Abs(entry.Index)),
             $"{name}: the placement pass added turning."
         );
 
@@ -159,8 +173,12 @@ public class SingularityTests {
 
     /// <summary>Singularities are drawn toward the angle defect rather than toward the curvature.</summary>
     /// <remarks>
-    ///     ⚠ <b>A cylinder is curved and perfectly developable, and § D6 step three is stated in terms
-    ///     of the second.</b> Its angle defect is zero along its whole wall, so nothing there attracts
+    ///     ⚠
+    ///     <b>
+    ///         A cylinder is curved and perfectly developable, and § D6 step three is stated in terms
+    ///         of the second.
+    ///     </b>
+    ///     Its angle defect is zero along its whole wall, so nothing there attracts
     ///     a singularity — and the eight quarter turns a closed cylinder owes go to the two cap rims,
     ///     where all of its Gaussian curvature is. A pass that read the curvature <i>magnitude</i>
     ///     instead would find the wall as curved as the rim and scatter them along it.
@@ -266,11 +284,12 @@ public class SingularityTests {
         }
     }
 
-    static ManifoldMesh Genus(string name) => name switch {
-        "sphere" => FieldFixtures.Condition(MeshShapes.Create(ShapeKind.Sphere)),
-        "torus" => FieldFixtures.Condition(MeshShapes.Create(ShapeKind.Torus)),
-        "plate-one-hole" => FieldFixtures.Smooth(FieldFixtures.Plate(5, 3, [(2, 1)]), 0.35f, 20),
-        "plate-two-holes" => FieldFixtures.Smooth(FieldFixtures.Plate(7, 3, [(2, 1), (4, 1)]), 0.35f, 20),
-        _ => throw new ArgumentOutOfRangeException(nameof(name), name, "No such fixture.")
-    };
+    static ManifoldMesh Genus(string name) =>
+        name switch {
+            "sphere" => FieldFixtures.Condition(MeshShapes.Create(ShapeKind.Sphere)),
+            "torus" => FieldFixtures.Condition(MeshShapes.Create(ShapeKind.Torus)),
+            "plate-one-hole" => FieldFixtures.Smooth(FieldFixtures.Plate(5, 3, [(2, 1)]), 0.35f, 20),
+            "plate-two-holes" => FieldFixtures.Smooth(FieldFixtures.Plate(7, 3, [(2, 1), (4, 1)]), 0.35f, 20),
+            _ => throw new ArgumentOutOfRangeException(nameof(name), name, "No such fixture.")
+        };
 }

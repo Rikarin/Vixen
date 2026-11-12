@@ -124,12 +124,15 @@ foreach (var assemblyPath in assemblies) {
         var unshipped = ApiBaseline.Read(unshippedPath);
         var approved = ApiBaseline.Approved(shipped, unshipped);
 
-        ApiBaseline.Write(shippedPath, [.. approved]);
+        ApiBaseline.Write(shippedPath, [..approved]);
         ApiBaseline.Write(unshippedPath, []);
 
-        Console.WriteLine(string.Create(
-            CultureInfo.InvariantCulture,
-            $"{name}: folded {unshipped.Count} entries in, {approved.Count} shipped."));
+        Console.WriteLine(
+            string.Create(
+                CultureInfo.InvariantCulture,
+                $"{name}: folded {unshipped.Count} entries in, {approved.Count} shipped."
+            )
+        );
 
         continue;
     }
@@ -187,7 +190,7 @@ foreach (var assemblyPath in assemblies) {
     // same member — which is also exactly what a rename looks like.
     var dialect = new[] { shippedPath, unshippedPath }
         .Where(File.Exists)
-        .SelectMany(path => ApiDialect.Errors(File.ReadAllLines(path)).Select(error => error.Describe(path)))
+        .SelectMany(static path => ApiDialect.Errors(File.ReadAllLines(path)).Select(error => error.Describe(path)))
         .ToList();
 
     foreach (var error in dialect) {
@@ -274,7 +277,7 @@ void Report(char sign, IReadOnlyList<string> entries) {
     }
 }
 
-void PrintUsage() {
+static void PrintUsage() {
     Console.WriteLine(
         """
         vixen-api-check [--update | --fold] <assembly> [<assembly> …]

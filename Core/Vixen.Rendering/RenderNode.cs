@@ -47,8 +47,7 @@ public readonly record struct SortKey(ulong Value) : IComparable<SortKey> {
     /// <summary>Builds a key that orders near objects before far ones, grouped first.</summary>
     /// <param name="group">The grouping value, in the high 32 bits.</param>
     /// <param name="distance">Distance from the view. Negative values are clamped to zero.</param>
-    public static SortKey FrontToBack(uint group, float distance) =>
-        new(((ulong)group << 32) | Quantise(distance));
+    public static SortKey FrontToBack(uint group, float distance) => new(((ulong)group << 32) | Quantise(distance));
 
     /// <summary>Builds a key that orders far objects before near ones.</summary>
     /// <remarks>

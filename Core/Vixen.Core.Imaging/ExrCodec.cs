@@ -65,7 +65,9 @@ public static class ExrCodec {
 
         var names = NamesOf(image.Channels);
 
-        if (image.Width <= 0 || image.Height <= 0 || image.Samples.Length != image.Width * image.Height * image.Channels) {
+        if (image.Width <= 0
+            || image.Height <= 0
+            || image.Samples.Length != image.Width * image.Height * image.Channels) {
             throw new ArgumentException("The samples do not fill the image.", nameof(image));
         }
 
@@ -78,13 +80,13 @@ public static class ExrCodec {
 
         Parallel.For(0, blocks, block => chunks[block] = Chunk(image, names, pixels, block));
 
-        var offset = file.Length + (blocks * sizeof(long));
+        var offset = file.Length + blocks * sizeof(long);
         Span<byte> entry = stackalloc byte[sizeof(long)];
 
         foreach (var chunk in chunks) {
             BinaryPrimitives.WriteInt64LittleEndian(entry, offset);
             file.Write(entry);
-            offset += chunk.Length + (2 * sizeof(int));
+            offset += chunk.Length + 2 * sizeof(int);
         }
 
         for (var block = 0; block < blocks; block++) {
@@ -158,12 +160,14 @@ public static class ExrCodec {
         var blocks = (height + lines - 1) / lines;
 
         for (var block = 0; block < blocks; block++) {
-            var offset = checked((int)BinaryPrimitives.ReadInt64LittleEndian(data[(at + (block * sizeof(long)))..]));
+            var offset = checked((int)BinaryPrimitives.ReadInt64LittleEndian(data[(at + block * sizeof(long))..]));
             var first = BinaryPrimitives.ReadInt32LittleEndian(data[offset..]) - top;
             var size = BinaryPrimitives.ReadInt32LittleEndian(data[(offset + 4)..]);
             var count = Math.Min(lines, height - first);
             var expected = count * width * channels.Sum(static channel => channel.Type == (int)ExrPixels.Half ? 2 : 4);
-            var raw = size < expected ? Unzip(data.Slice(offset + 8, size), expected) : data.Slice(offset + 8, size).ToArray();
+            var raw = size < expected
+                ? Unzip(data.Slice(offset + 8, size), expected)
+                : data.Slice(offset + 8, size).ToArray();
 
             Unpack(raw, channels, order, output, first, count);
         }
@@ -171,12 +175,13 @@ public static class ExrCodec {
         return output;
     }
 
-    static string[] NamesOf(int channels) => channels switch {
-        1 => ["Y"],
-        3 => ["B", "G", "R"],
-        4 => ["A", "B", "G", "R"],
-        _ => throw new ArgumentException($"{channels} channels: one, three or four are written.", nameof(channels))
-    };
+    static string[] NamesOf(int channels) =>
+        channels switch {
+            1 => ["Y"],
+            3 => ["B", "G", "R"],
+            4 => ["A", "B", "G", "R"],
+            _ => throw new ArgumentException($"{channels} channels: one, three or four are written.", nameof(channels))
+        };
 
     /// <summary>Where each channel of the file goes in an interleaved picture.</summary>
     static int[] Order(List<(string Name, int Type)> channels) {
@@ -261,7 +266,8 @@ public static class ExrCodec {
                 var lane = Lane(name);
 
                 for (var x = 0; x < image.Width; x++) {
-                    var sample = image.Samples[(((line * image.Width) + x) * image.Channels) + (image.Channels == 1 ? 0 : lane)];
+                    var sample = image.Samples[(line * image.Width + x) * image.Channels
+                        + (image.Channels == 1 ? 0 : lane)];
 
                     if (pixels == ExrPixels.Half) {
                         BinaryPrimitives.WriteHalfLittleEndian(span[at..], (Half)sample);
@@ -277,12 +283,13 @@ public static class ExrCodec {
         return Zip(raw);
     }
 
-    static int Lane(string name) => name switch {
-        "G" => 1,
-        "B" => 2,
-        "A" => 3,
-        _ => 0
-    };
+    static int Lane(string name) =>
+        name switch {
+            "G" => 1,
+            "B" => 2,
+            "A" => 3,
+            _ => 0
+        };
 
     /// <summary>The format's compression: bytes split in two, delta-coded, then zlib.</summary>
     static byte[] Zip(byte[] raw) {
@@ -313,7 +320,7 @@ public static class ExrCodec {
     }
 
     static byte[] Unzip(ReadOnlySpan<byte> compressed, int expected) {
-        using var input = new MemoryStream(compressed.ToArray());
+        using var input = new MemoryStream([..compressed]);
         using var zlib = new ZLibStream(input, CompressionMode.Decompress);
 
         var moved = new byte[expected];
@@ -350,7 +357,7 @@ public static class ExrCodec {
                 var type = channels[channel].Type;
 
                 for (var x = 0; x < output.Width; x++) {
-                    var index = (((line * output.Width) + x) * output.Channels) + order[channel];
+                    var index = (line * output.Width + x) * output.Channels + order[channel];
 
                     switch (type) {
                         case (int)ExrPixels.Half:

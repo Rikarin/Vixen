@@ -18,16 +18,24 @@ namespace Vixen.Editor.Assets.Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>This is a determinism gate, and determinism gates fail intermittently or not at
-///         all.</b> A parallel import that got the ordering wrong would still produce a correct-looking
+///         ⚠
+///         <b>
+///             This is a determinism gate, and determinism gates fail intermittently or not at
+///             all.
+///         </b>
+///         A parallel import that got the ordering wrong would still produce a correct-looking
 ///         build most of the time — the wrong bytes need two particular assets to finish in a
 ///         particular order — so the assertion is repeated, the fixture importer sleeps for a random
 ///         few milliseconds so that no two runs interleave the same way, and the corpus is built to
 ///         put dependencies on both sides of their dependants in path order.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The anti-vacuity control is the concurrency high-water mark, and it is not
-///         optional.</b> Every assertion below would pass for ever against a pipeline that quietly ran
+///         ⚠
+///         <b>
+///             The anti-vacuity control is the concurrency high-water mark, and it is not
+///             optional.
+///         </b>
+///         Every assertion below would pass for ever against a pipeline that quietly ran
 ///         everything sequentially — which is precisely the state this task started from. So the
 ///         fixture importer counts how many imports were in flight at once, and the test requires the
 ///         sequential leg to peak at exactly one and the parallel leg to peak at more than one. A
@@ -64,7 +72,7 @@ public sealed class ImportParallelismTests : IDisposable {
     public void Dispose() {
         try {
             if (Directory.Exists(root)) {
-                Directory.Delete(root, recursive: true);
+                Directory.Delete(root, true);
             }
         } catch (IOException) {
             // A temporary directory that would not go is not a test failure.
@@ -82,8 +90,12 @@ public sealed class ImportParallelismTests : IDisposable {
     ///         or a GUID would differ here before it differed in CI.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The warm half is the one that catches an ordering bug in the <i>decision</i>
-    ///         rather than in the key.</b> One asset's dependency is edited on each side and one
+    ///         ⚠
+    ///         <b>
+    ///             The warm half is the one that catches an ordering bug in the <i>decision</i>
+    ///             rather than in the key.
+    ///         </b>
+    ///         One asset's dependency is edited on each side and one
     ///         dependant sits before its dependency in path order — so the correct answer is that it
     ///         is <i>not</i> re-imported in this run, and converges in the next. A scheduler that
     ///         waited for dependencies rather than for earlier ones would re-import it, produce a
@@ -92,7 +104,7 @@ public sealed class ImportParallelismTests : IDisposable {
     /// </remarks>
     [Fact]
     public async Task SixteenImportsAtOnceProduceWhatOneAtATimeProduced() {
-        var sequential = await TrialAsync("one-at-a-time", concurrency: 1);
+        var sequential = await TrialAsync("one-at-a-time", 1);
 
         // The control for the control: at a concurrency of one the pipeline is the loop this
         // replaced, so anything above one here would mean the probe is counting something else.
@@ -145,14 +157,15 @@ public sealed class ImportParallelismTests : IDisposable {
     ///     </para>
     /// </remarks>
     static IReadOnlyList<(string Dependant, string Dependency)> Pairs { get; } = [
-        .. Enumerable.Range(0, 8).SelectMany(slot => new[] {
-                // The dependant sorts before its dependency: 'a' then 'b' inside the same bulk slot.
-                (Named(slot * 5, "a"), Named(slot * 5, "b")),
+        ..Enumerable.Range(0, 8)
+            .SelectMany(static slot => new[] {
+                    // The dependant sorts before its dependency: 'a' then 'b' inside the same bulk slot.
+                    (Named(slot * 5, "a"), Named(slot * 5, "b")),
 
-                // And after it: 'd' depends on 'c'.
-                (Named((slot * 5) + 2, "d"), Named((slot * 5) + 2, "c"))
-            }
-        )
+                    // And after it: 'd' depends on 'c'.
+                    (Named(slot * 5 + 2, "d"), Named(slot * 5 + 2, "c"))
+                }
+            )
     ];
 
     /// <summary>What the whole of one leg produced, as things that are equal or are not.</summary>
@@ -204,16 +217,14 @@ public sealed class ImportParallelismTests : IDisposable {
                 .AddFallback(new RawImporter()),
             artifacts,
             new PhysicalFileProvider(paths.Root)
-        ) {
-            MaxConcurrency = concurrency
-        };
+        ) { MaxConcurrency = concurrency };
 
         var cold = await pipeline.ImportAllAsync(TestContext.Current.CancellationToken);
 
-        Assert.All(cold, outcome => Assert.True(outcome.Succeeded));
+        Assert.All(cold, static outcome => Assert.True(outcome.Succeeded));
 
-        var pathOf = database.Entries.ToDictionary(entry => entry.Guid, entry => entry.Path);
-        var keys = cold.Where(outcome => outcome.Record is not null)
+        var pathOf = database.Entries.ToDictionary(static entry => entry.Guid, static entry => entry.Path);
+        var keys = cold.Where(static outcome => outcome.Record is not null)
             .Select(outcome => $"{pathOf[outcome.Asset]} {outcome.Record!.Key.Value}")
             .Order(StringComparer.Ordinal)
             .ToArray();
@@ -226,18 +237,18 @@ public sealed class ImportParallelismTests : IDisposable {
 
         var warm = await pipeline.ImportAllAsync(TestContext.Current.CancellationToken);
 
-        Assert.All(warm, outcome => Assert.True(outcome.Succeeded));
+        Assert.All(warm, static outcome => Assert.True(outcome.Succeeded));
 
         return new(
             keys,
-            [.. cold.Select(outcome => pathOf[outcome.Asset])],
-            cold.Count(outcome => outcome is { WasCached: false, Importer: not null }),
+            [..cold.Select(outcome => pathOf[outcome.Asset])],
+            cold.Count(static outcome => outcome is { WasCached: false, Importer: not null }),
             [
-                .. warm.Where(outcome => outcome is { WasCached: false, Importer: not null })
+                ..warm.Where(static outcome => outcome is { WasCached: false, Importer: not null })
                     .Select(outcome => pathOf[outcome.Asset])
                     .Order(StringComparer.Ordinal)
             ],
-            warm.Count(outcome => outcome is { WasCached: false, Importer: not null }),
+            warm.Count(static outcome => outcome is { WasCached: false, Importer: not null }),
             probe.Peak
         );
     }
@@ -248,8 +259,8 @@ public sealed class ImportParallelismTests : IDisposable {
     /// <summary>Every source file the corpus has, which is the bulk plus both ends of every pair.</summary>
     static IEnumerable<string> Sources() =>
         Enumerable.Range(0, Bulk)
-            .Select(index => Named(index, string.Empty))
-            .Concat(Pairs.SelectMany(pair => new[] { pair.Dependant, pair.Dependency }));
+            .Select(static index => Named(index, string.Empty))
+            .Concat(Pairs.SelectMany(static pair => new[] { pair.Dependant, pair.Dependency }));
 
     /// <summary>
     ///     A file name that sorts where it is wanted: zero-padded so that ordinal order is numeric
@@ -260,8 +271,8 @@ public sealed class ImportParallelismTests : IDisposable {
 
     static ObjectDatabase Artifacts() {
         var files = new VirtualFileSystem();
-        files.Mount(new VirtualPath("/"), new MemoryFileProvider());
-        return new(new FileOdbBackend(files, new VirtualPath("/artifacts")));
+        files.Mount(new("/"), new MemoryFileProvider());
+        return new(new FileOdbBackend(files, new("/artifacts")));
     }
 }
 

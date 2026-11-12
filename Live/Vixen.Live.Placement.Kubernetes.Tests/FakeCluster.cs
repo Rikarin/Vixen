@@ -26,8 +26,12 @@ sealed class FakeCluster : IClusterApi {
 
     /// <summary>Whether a pod's log streams at all.</summary>
     /// <remarks>
-    ///     ⚠ <b>False is not "the realm said nothing" — it is the 400 a real API server answers with
-    ///     while the container has not started.</b> A pod that is being scheduled or pulling has no
+    ///     ⚠
+    ///     <b>
+    ///         False is not "the realm said nothing" — it is the 400 a real API server answers with
+    ///         while the container has not started.
+    ///     </b>
+    ///     A pod that is being scheduled or pulling has no
     ///     log to read and says so with an error, not an empty stream, which is why a backend that
     ///     treated the end of that stream as the end of the pod would report every realm Lost
     ///     milliseconds after placing it.
@@ -35,7 +39,7 @@ sealed class FakeCluster : IClusterApi {
     public bool LogsReadable { get; set; } = true;
 
     /// <summary>Every pod it holds.</summary>
-    public IReadOnlyCollection<V1Pod> Pods => [.. pods.Values];
+    public IReadOnlyCollection<V1Pod> Pods => [..pods.Values];
 
     /// <summary>The most recently created one.</summary>
     public V1Pod Last { get; private set; } = new();
@@ -54,10 +58,7 @@ sealed class FakeCluster : IClusterApi {
             addresses.Add(new() { Type = "ExternalIP", Address = external });
         }
 
-        nodes[name] = new() {
-            Metadata = new() { Name = name },
-            Status = new() { Addresses = addresses }
-        };
+        nodes[name] = new() { Metadata = new() { Name = name }, Status = new() { Addresses = addresses } };
     }
 
     /// <summary>Schedules a pod onto a node, as the scheduler would.</summary>
@@ -85,13 +86,12 @@ sealed class FakeCluster : IClusterApi {
 
         pod.Status = new() {
             Phase = "Pending",
-            ContainerStatuses =
-            [
+            ContainerStatuses = [
                 new() {
                     Name = "realm",
                     Ready = false,
                     Image = pod.Spec!.Containers[0].Image,
-                    ImageID = "",
+                    ImageID = string.Empty,
                     RestartCount = 0,
                     State = new() { Waiting = new() { Reason = reason, Message = message } }
                 }
@@ -110,13 +110,12 @@ sealed class FakeCluster : IClusterApi {
             pod.Status.Phase = phase;
 
             if (reason.Length > 0) {
-                pod.Status.ContainerStatuses =
-                [
+                pod.Status.ContainerStatuses = [
                     new() {
                         Name = "realm",
                         Ready = false,
                         Image = pod.Spec!.Containers[0].Image,
-                        ImageID = "",
+                        ImageID = string.Empty,
                         RestartCount = 0,
                         State = new() { Terminated = new() { Reason = reason, ExitCode = code } }
                     }
@@ -162,7 +161,7 @@ sealed class FakeCluster : IClusterApi {
 
         return Task.FromResult<IReadOnlyList<V1Pod>>(
             [
-                .. pods.Values.Where(pod =>
+                ..pods.Values.Where(pod =>
                     pod.Metadata?.Labels is { } labels
                     && labels.TryGetValue(wanted[0], out var value)
                     && string.Equals(value, wanted[1], StringComparison.Ordinal)

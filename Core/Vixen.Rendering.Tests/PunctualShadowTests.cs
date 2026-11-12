@@ -48,20 +48,19 @@ public class PunctualShadowTests : IDisposable {
     [Fact]
     public void Every_direction_lands_in_some_cube_face() {
         var faces = Enum.GetValues<CubeFace>()
-            .Select(face => new BoundingFrustum(ShadowProjections.Cube(Vector3.Zero, face, 100f)))
+            .Select(static face => new BoundingFrustum(ShadowProjections.Cube(Vector3.Zero, face, 100f)))
             .ToArray();
 
         Gen.Select(Gen.Float[-1f, 1f], Gen.Float[-1f, 1f], Gen.Float[-1f, 1f])
             // Long enough to normalise. A vector whose length underflows to zero normalises to the
             // origin, which is in no frustum and is a fact about float, not about cube maps.
-            .Where(
-                direction =>
-                    (direction.Item1 * direction.Item1)
-                    + (direction.Item2 * direction.Item2)
-                    + (direction.Item3 * direction.Item3) > 0.01f
+            .Where(static direction =>
+                direction.Item1 * direction.Item1
+                + direction.Item2 * direction.Item2
+                + direction.Item3 * direction.Item3
+                > 0.01f
             )
-            .Sample(
-                direction => {
+            .Sample(direction => {
                     var point = Vector3.Normalize(new(direction.Item1, direction.Item2, direction.Item3)) * 10f;
 
                     Assert.True(
@@ -98,9 +97,7 @@ public class PunctualShadowTests : IDisposable {
     /// </remarks>
     [Fact]
     public void A_light_pointing_along_the_up_axis_is_not_degenerate() {
-        var frustum = new BoundingFrustum(
-            ShadowProjections.Spot(new(0f, 10f, 0f), new(0f, -1f, 0f), 0.4f, 50f)
-        );
+        var frustum = new BoundingFrustum(ShadowProjections.Spot(new(0f, 10f, 0f), new(0f, -1f, 0f), 0.4f, 50f));
 
         Assert.True(frustum.Contains(new Vector3(0f, 0f, 0f)));
         Assert.False(frustum.Contains(new Vector3(0f, 20f, 0f)));
@@ -127,18 +124,17 @@ public class PunctualShadowTests : IDisposable {
     [Fact]
     public void The_face_a_direction_falls_on_is_the_one_that_can_see_it() {
         var faces = Enum.GetValues<CubeFace>()
-            .Select(face => new BoundingFrustum(ShadowProjections.Cube(Vector3.Zero, face, 100f)))
+            .Select(static face => new BoundingFrustum(ShadowProjections.Cube(Vector3.Zero, face, 100f)))
             .ToArray();
 
         Gen.Select(Gen.Float[-1f, 1f], Gen.Float[-1f, 1f], Gen.Float[-1f, 1f])
-            .Where(
-                direction =>
-                    (direction.Item1 * direction.Item1)
-                    + (direction.Item2 * direction.Item2)
-                    + (direction.Item3 * direction.Item3) > 0.01f
+            .Where(static direction =>
+                direction.Item1 * direction.Item1
+                + direction.Item2 * direction.Item2
+                + direction.Item3 * direction.Item3
+                > 0.01f
             )
-            .Sample(
-                direction => {
+            .Sample(direction => {
                     var toward = Vector3.Normalize(new(direction.Item1, direction.Item2, direction.Item3));
                     var point = toward * 10f;
 
@@ -191,8 +187,8 @@ public class PunctualShadowTests : IDisposable {
                 var whole = Uv(plain, point);
                 var inside = Uv(tiled, point);
 
-                Assert.Equal(offset.X + (scale.X * whole.X), inside.X, 4);
-                Assert.Equal(offset.Y + (scale.Y * whole.Y), inside.Y, 4);
+                Assert.Equal(offset.X + scale.X * whole.X, inside.X, 4);
+                Assert.Equal(offset.Y + scale.Y * whole.Y, inside.Y, 4);
             }
         }
     }
@@ -208,7 +204,7 @@ public class PunctualShadowTests : IDisposable {
         var clip = Matrix4x4.TransformVector4(new(point, 1f), projection);
         var ndc = new Vector2(clip.X / clip.W, clip.Y / clip.W);
 
-        return new((ndc.X * 0.5f) + 0.5f, (-ndc.Y * 0.5f) + 0.5f);
+        return new(ndc.X * 0.5f + 0.5f, -ndc.Y * 0.5f + 0.5f);
     }
 
     /// <summary>A point light costs six times a spot light, and the number says so.</summary>
@@ -247,10 +243,7 @@ public class PunctualShadowTests : IDisposable {
     Harness Build(int tilesPerSide = 4) {
         var system = new RenderSystem();
 
-        var meshes = new MeshRenderFeature {
-            Pipelines = new(device),
-            Describer = new EffectPipelineDescriber(device)
-        };
+        var meshes = new MeshRenderFeature { Pipelines = new(device), Describer = new EffectPipelineDescriber(device) };
 
         var materials = new MaterialRenderFeature { Effects = effects };
         meshes.Add(materials);
@@ -329,14 +322,14 @@ public class PunctualShadowTests : IDisposable {
     public void A_spot_light_takes_one_tile_and_a_point_light_six() {
         using var h = Build();
 
-        h.Shadows.Lights.Add(RenderLight.Spot(Vector3.Zero, new(0f, 0f, -1f), 20f, 0.2f, 0.4f, new Color3(1f)));
+        h.Shadows.Lights.Add(RenderLight.Spot(Vector3.Zero, new(0f, 0f, -1f), 20f, 0.2f, 0.4f, new(1f)));
         h.Shadows.Lights.Add(RenderLight.Point(new(5f, 0f, 0f), 20f, new(1f)));
 
         h.Compositor.Collect();
 
         Assert.Equal(7, h.Shadows.Tiles.Count);
-        Assert.Single(h.Shadows.Tiles, tile => tile.Face is null);
-        Assert.Equal(6, h.Shadows.Tiles.Count(tile => tile.Face is not null));
+        Assert.Single(h.Shadows.Tiles, static tile => tile.Face is null);
+        Assert.Equal(6, h.Shadows.Tiles.Count(static tile => tile.Face is not null));
     }
 
     /// <summary>A directional light in the list is skipped — it belongs to the cascade renderer.</summary>
@@ -365,7 +358,7 @@ public class PunctualShadowTests : IDisposable {
 
         var corners = device.Recorder
             .OfKind(RecordedCommandKind.SetScissor)
-            .Select(command => (command.C, command.D))
+            .Select(static command => (command.C, command.D))
             .ToArray();
 
         Assert.Equal(6, corners.Distinct().Count());
@@ -375,7 +368,7 @@ public class PunctualShadowTests : IDisposable {
     [Fact]
     public void The_atlas_pass_writes_depth_only() {
         using var h = Build();
-        h.Shadows.Lights.Add(RenderLight.Spot(Vector3.Zero, new(0f, 0f, -1f), 20f, 0.2f, 0.4f, new Color3(1f)));
+        h.Shadows.Lights.Add(RenderLight.Spot(Vector3.Zero, new(0f, 0f, -1f), 20f, 0.2f, 0.4f, new(1f)));
         AddCaster(h, new(0f, 0f, -5f));
 
         Frame(h);
@@ -397,7 +390,7 @@ public class PunctualShadowTests : IDisposable {
     [Fact]
     public void A_light_that_does_not_fit_is_dropped_whole_and_counted() {
         // Four tiles in total: one point light fits, the second cannot.
-        using var h = Build(tilesPerSide: 2);
+        using var h = Build(2);
 
         h.Shadows.Lights.Add(RenderLight.Point(Vector3.Zero, 20f, new(1f)));
         h.Shadows.Lights.Add(RenderLight.Point(new(5f, 0f, 0f), 20f, new(1f)));
@@ -416,10 +409,10 @@ public class PunctualShadowTests : IDisposable {
     /// </remarks>
     [Fact]
     public void A_spot_light_fits_where_a_point_light_did_not() {
-        using var h = Build(tilesPerSide: 2);
+        using var h = Build(2);
 
         h.Shadows.Lights.Add(RenderLight.Point(Vector3.Zero, 20f, new(1f)));
-        h.Shadows.Lights.Add(RenderLight.Spot(new(5f, 0f, 0f), new(0f, -1f, 0f), 20f, 0.2f, 0.4f, new Color3(1f)));
+        h.Shadows.Lights.Add(RenderLight.Spot(new(5f, 0f, 0f), new(0f, -1f, 0f), 20f, 0.2f, 0.4f, new(1f)));
 
         h.Compositor.Collect();
 
@@ -441,7 +434,7 @@ public class PunctualShadowTests : IDisposable {
         using var h = Build();
 
         h.Shadows.Lights.Add(RenderLight.Directional(new(0f, -1f, 0f), new(1f)));
-        h.Shadows.Lights.Add(RenderLight.Spot(Vector3.Zero, new(0f, 0f, -1f), 20f, 0.2f, 0.4f, new Color3(1f)));
+        h.Shadows.Lights.Add(RenderLight.Spot(Vector3.Zero, new(0f, 0f, -1f), 20f, 0.2f, 0.4f, new(1f)));
         h.Shadows.Lights.Add(RenderLight.Point(new(5f, 0f, 0f), 20f, new(1f)));
 
         h.Compositor.Collect();
@@ -475,7 +468,7 @@ public class PunctualShadowTests : IDisposable {
         using var h = Build();
 
         h.Shadows.Device = device;
-        h.Shadows.Lights.Add(RenderLight.Spot(Vector3.Zero, new(0f, 0f, -1f), 20f, 0.2f, 0.4f, new Color3(1f)));
+        h.Shadows.Lights.Add(RenderLight.Spot(Vector3.Zero, new(0f, 0f, -1f), 20f, 0.2f, 0.4f, new(1f)));
 
         h.Compositor.Collect();
         Assert.Equal(0, h.Shadows.TileBase);
@@ -507,9 +500,9 @@ public class PunctualShadowTests : IDisposable {
     /// </remarks>
     [Fact]
     public void A_light_that_stops_fitting_loses_its_index() {
-        using var h = Build(tilesPerSide: 2);
+        using var h = Build(2);
 
-        h.Shadows.Lights.Add(RenderLight.Spot(Vector3.Zero, new(0f, 0f, -1f), 20f, 0.2f, 0.4f, new Color3(1f)));
+        h.Shadows.Lights.Add(RenderLight.Spot(Vector3.Zero, new(0f, 0f, -1f), 20f, 0.2f, 0.4f, new(1f)));
         h.Compositor.Collect();
 
         Assert.Equal(1, h.Shadows.Lights[0].ShadowTile);
@@ -519,7 +512,7 @@ public class PunctualShadowTests : IDisposable {
         for (var i = 0; i < 4; i++) {
             h.Shadows.Lights.Insert(
                 i,
-                RenderLight.Spot(new(i, 0f, 0f), new(0f, 0f, -1f), 20f, 0.2f, 0.4f, new Color3(1f))
+                RenderLight.Spot(new(i, 0f, 0f), new(0f, 0f, -1f), 20f, 0.2f, 0.4f, new(1f))
             );
         }
 
@@ -577,7 +570,7 @@ public class PunctualShadowTests : IDisposable {
         h.Shadows.Lights.Add(RenderLight.Point(Vector3.Zero, 40f, new(1f)));
 
         // Well down −Z and small enough to be inside one face's frustum only.
-        AddCaster(h, new(0f, 0f, -20f), radius: 0.5f);
+        AddCaster(h, new(0f, 0f, -20f), 0.5f);
 
         Frame(h);
 

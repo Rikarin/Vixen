@@ -25,9 +25,7 @@ public class StyleSheetLoadingTests {
         // The reason this is a small reader rather than `IndexOf('}')`. A stylesheet that sets
         // `content: "}"` would otherwise have its layer cut in half, and the rules after the cut
         // would silently load into no layer at all.
-        Assert.True(
-            LayerRuleParser.TryParse("""@layer base { .x { content: "}" ; color: red } }""", out var rule)
-        );
+        Assert.True(LayerRuleParser.TryParse("""@layer base { .x { content: "}" ; color: red } }""", out var rule));
 
         Assert.Contains("color: red", rule.Body!, StringComparison.Ordinal);
     }
@@ -69,7 +67,7 @@ public class StyleSheetLoadingTests {
         );
 
         // The whole body, not the part before the mis-read string swallowed it.
-        Assert.Contains("font-feature-settings: \"onum\" 1;", rule.Body!, StringComparison.Ordinal);
+        Assert.Contains("""font-feature-settings: "onum" 1;""", rule.Body!, StringComparison.Ordinal);
 
         // ⚠ And a second rule after it, which is what the mis-cut actually loses: the body ended
         // early, so everything past the first quoted selector fell out of the layer silently.
@@ -93,10 +91,12 @@ public class StyleSheetLoadingTests {
     [Fact]
     public void An_anonymous_layer_cannot_be_reopened() {
         var fixture = new CascadeFixture();
-        fixture.Load("""
+        fixture.Load(
+            """
             @layer { .x { color: first } }
             @layer { .x { color: second } }
-            """);
+            """
+        );
 
         var element = fixture.Tree.CreateElement("div", classNames: ["x"]);
 
@@ -113,7 +113,7 @@ public class StyleSheetLoadingTests {
             .x { color: base }
             @media (min-width: 600px) { .x { color: wide } }
             """,
-            media: new MediaContext(320, 640)
+            media: new(320, 640)
         );
 
         var element = fixture.Tree.CreateElement("div", classNames: ["x"]);
@@ -130,7 +130,7 @@ public class StyleSheetLoadingTests {
             @media (min-width: 600px) { .x { color: wide } }
             .x { color: base }
             """,
-            media: new MediaContext(800, 600)
+            media: new(800, 600)
         );
 
         var element = fixture.Tree.CreateElement("div", classNames: ["x"]);
@@ -167,9 +167,14 @@ public class StyleSheetLoadingTests {
     [InlineData("(400px <= height < 600px)", 800, 400, true)]
     [InlineData("(400px <= height < 600px)", 800, 600, false)]
     [InlineData("(400px <= height < 600px)", 800, 399, false)]
-    public void The_media_features_compare_the_way_CSS_says(string condition, float width, float height, bool expected) {
+    public void The_media_features_compare_the_way_CSS_says(
+        string condition,
+        float width,
+        float height,
+        bool expected
+    ) {
         Assert.True(
-            MediaQuery.TryEvaluate(condition, new MediaContext(width, height), out var matches, out var reason),
+            MediaQuery.TryEvaluate(condition, new(width, height), out var matches, out var reason),
             reason
         );
 
@@ -189,7 +194,7 @@ public class StyleSheetLoadingTests {
     [InlineData("(prefers-color-scheme < dark)")]
     [InlineData("(color-gamut > srgb)")]
     public void A_comparison_that_is_not_a_range_is_a_diagnostic_rather_than_a_guess(string condition) {
-        Assert.False(MediaQuery.TryEvaluate(condition, new MediaContext(800, 600), out _, out var reason));
+        Assert.False(MediaQuery.TryEvaluate(condition, new(800, 600), out _, out var reason));
         Assert.NotNull(reason);
     }
 
@@ -214,8 +219,21 @@ public class StyleSheetLoadingTests {
     [InlineData("(400px <= width < 40rem)", 20f, 799f, true)]
     [InlineData("(400px <= width < 40rem)", 20f, 800f, false)]
     [InlineData("(400px <= width < 40rem)", 20f, 399f, false)]
-    public void A_font_relative_width_is_measured_against_the_initial_font_size(string condition, float font, float width, bool expected) {
-        Assert.True(MediaQuery.TryEvaluate(condition, new MediaContext(width, 600) { FontSize = font }, out var matches, out var reason), reason);
+    public void A_font_relative_width_is_measured_against_the_initial_font_size(
+        string condition,
+        float font,
+        float width,
+        bool expected
+    ) {
+        Assert.True(
+            MediaQuery.TryEvaluate(
+                condition,
+                new(width, 600) { FontSize = font },
+                out var matches,
+                out var reason
+            ),
+            reason
+        );
         Assert.Equal(expected, matches);
     }
 
@@ -224,7 +242,7 @@ public class StyleSheetLoadingTests {
         // Sixteen is CSS's `medium`. It is what a context nobody gave a text size answers, and not
         // what a document answers: `UiSurface.Media` states the document's own.
         Assert.Equal(16f, new MediaContext(800, 600).FontSize);
-        Assert.True(MediaQuery.TryEvaluate("(min-width: 40rem)", new MediaContext(640, 600), out var matches, out _));
+        Assert.True(MediaQuery.TryEvaluate("(min-width: 40rem)", new(640, 600), out var matches, out _));
         Assert.True(matches);
     }
 
@@ -235,7 +253,7 @@ public class StyleSheetLoadingTests {
     [InlineData("(min-resolution: 2rem)")]
     [InlineData("(max-resolution: 1em)")]
     public void A_font_relative_resolution_is_a_diagnostic(string condition) {
-        Assert.False(MediaQuery.TryEvaluate(condition, new MediaContext(800, 600), out _, out var reason));
+        Assert.False(MediaQuery.TryEvaluate(condition, new(800, 600), out _, out var reason));
         Assert.NotNull(reason);
         Assert.False(MediaQuery.TryEvaluate(condition, default, out _, out _));
     }
@@ -246,10 +264,12 @@ public class StyleSheetLoadingTests {
         // and the other silently drops them on a phone, and nobody notices either until a screenshot
         // looks odd. The same rule the selector compiler follows.
         var fixture = new CascadeFixture();
-        fixture.Load("""
+        fixture.Load(
+            """
             .x { color: base }
             @media (hover: hover) { .x { color: hoverable } }
-            """);
+            """
+        );
 
         var element = fixture.Tree.CreateElement("div", classNames: ["x"]);
 
@@ -263,10 +283,12 @@ public class StyleSheetLoadingTests {
         // ExCSS does the expansion, which is one of the things ADR-009 buys. What Vixen has to get
         // right is that `!important` travels with it.
         var fixture = new CascadeFixture();
-        fixture.Load("""
+        fixture.Load(
+            """
             .x { padding: 2px 4px }
             .y { margin: 1px !important }
-            """);
+            """
+        );
 
         var padded = fixture.Tree.CreateElement("div", classNames: ["x"]);
         var style = fixture.Engine.Resolver.Resolve(fixture.Tree, padded);
@@ -303,10 +325,12 @@ public class StyleSheetLoadingTests {
         // Vixen as `rgb(255, 0, 0)` when written literally and as `red` when substituted. Anything
         // downstream that parses a colour must accept both forms.
         var fixture = new CascadeFixture();
-        fixture.Load("""
+        fixture.Load(
+            """
             .literal { color: red }
             .substituted { --c: red; color: var(--c) }
-            """);
+            """
+        );
 
         var literal = fixture.Tree.CreateElement("div", classNames: ["literal"]);
         var substituted = fixture.Tree.CreateElement("div", classNames: ["substituted"]);
@@ -328,8 +352,12 @@ public class StyleSheetLoadingTests {
     ///         suite staying green.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Driven through <c>ReadDeclarations</c> rather than through
-    ///         <c>UiElement.SetStyle</c>, and the two are not the same path.</b> <c>SetStyle</c>
+    ///         ⚠
+    ///         <b>
+    ///             Driven through <c>ReadDeclarations</c> rather than through
+    ///             <c>UiElement.SetStyle</c>, and the two are not the same path.
+    ///         </b>
+    ///         <c>SetStyle</c>
     ///         interns one property and one value directly and never expands a shorthand, so it
     ///         cannot reach this refusal; the attribute path goes through ExCSS. Reaching for the
     ///         friendlier API here would have produced a test that passed while covering nothing.
@@ -354,8 +382,11 @@ public class StyleSheetLoadingTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>A malformed alignment value is a dropped declaration, not an exception out of
-    ///     <c>StyleEngine.Load</c>.</b>
+    ///     ⚠
+    ///     <b>
+    ///         A malformed alignment value is a dropped declaration, not an exception out of
+    ///         <c>StyleEngine.Load</c>.
+    ///     </b>
     /// </summary>
     /// <remarks>
     ///     <para>
@@ -552,7 +583,7 @@ public class StyleSheetLoadingTests {
             .card:has(.error) { color: red }
             """,
             StyleOrigin.Author,
-            new MediaContext(100f, 100f)
+            new(100f, 100f)
         );
 
         Assert.Single(fixture.Engine.Loader.Diagnostics);

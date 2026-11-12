@@ -100,8 +100,12 @@ public enum PatrolMode : byte {
 /// <summary>The route a patrol walks.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>A component and not a task setting, because a route is a level's data and a task is an
-///         asset's.</b> One `.vxbt` runs every guard in the game; the corridor each of them walks is
+///         ⚠
+///         <b>
+///             A component and not a task setting, because a route is a level's data and a task is an
+///             asset's.
+///         </b>
+///         One `.vxbt` runs every guard in the game; the corridor each of them walks is
 ///         placed in the level editor. Putting the points on the task would mean a behaviour tree per
 ///         patrol route, which is the thing an authored tree exists to avoid.
 ///     </para>

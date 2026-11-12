@@ -286,8 +286,12 @@ public class AutomaticMinimumSizeTests {
     ///         container at all — which is the point: the container changes nothing here.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The direct question, also measured: a <c>width: min-content</c> box wrapped
-    ///         around a scroll container holding a 500-point box is 500 wide in Chrome</b> (515 with
+    ///         ⚠
+    ///         <b>
+    ///             The direct question, also measured: a <c>width: min-content</c> box wrapped
+    ///             around a scroll container holding a 500-point box is 500 wide in Chrome
+    ///         </b>
+    ///         (515 with
     ///         a classic scrollbar), not zero. A scroll container being allowed to be smaller than
     ///         its contents is §4.5's sentence about its OWN automatic minimum, which
     ///         <c>ComputeAutoMinMainSize</c> and <c>LayoutTree.Grid</c>'s <c>AutomaticMinimumIsZero</c>
@@ -354,8 +358,12 @@ public class AutomaticMinimumSizeTests {
     ///         that only asserted the shell could be satisfied by a store that had lost the content.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>This test passed while the editor was broken, and the first attempt at the
-    ///         deletion was reverted for it.</b> What it models is a chain in which <em>every</em>
+    ///         ⚠
+    ///         <b>
+    ///             This test passed while the editor was broken, and the first attempt at the
+    ///             deletion was reverted for it.
+    ///         </b>
+    ///         What it models is a chain in which <em>every</em>
     ///         box clips, and the editor's is not one: <c>editor-shell</c> and
     ///         <c>editor-workspace</c> sit above <c>docking-host</c> declaring no overflow and no
     ///         zero minimums, so §4.5's opt-out reached every pane and not the frame. A layout
@@ -503,8 +511,8 @@ public class AutomaticMinimumSizeTests {
         // The basis is DECLARED for the reason the empty-padding witness gives: a measured one sets
         // LayoutResult.FlexBasisFromContent, and the cap in ComputeAutoMinMainSize — which exists
         // precisely to hold this over-reported floor down — would hide the change.
-        Assert.Equal(40f, GridFlooredWidth(columns: 2));
-        Assert.Equal(20f, GridFlooredWidth(columns: 1));
+        Assert.Equal(40f, GridFlooredWidth(2));
+        Assert.Equal(20f, GridFlooredWidth(1));
     }
 
     /// <summary>
@@ -546,16 +554,23 @@ public class AutomaticMinimumSizeTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>This is <c>Rikarin/Vixen#623</c>, and the number it used to produce was not
-    ///         merely wrong but unbounded.</b> §4.5's floor for the row is its min-content height,
+    ///         ⚠
+    ///         <b>
+    ///             This is <c>Rikarin/Vixen#623</c>, and the number it used to produce was not
+    ///             merely wrong but unbounded.
+    ///         </b>
+    ///         §4.5's floor for the row is its min-content height,
     ///         which is a question about the text inside it — and the recursion handed the text the
     ///         row's <i>percentage basis</i>, which CSS Sizing §5.2.1 makes zero for a box with no
     ///         definite width. So the run was measured in a width of nothing, reported a line per
     ///         point of ink, and the item was floored sixty times too tall.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The declared <c>flex-basis</c> on the row is what makes this observable at all,
-    ///         and it is the whole reason this test is shaped the way it is.</b>
+    ///         ⚠
+    ///         <b>
+    ///             The declared <c>flex-basis</c> on the row is what makes this observable at all,
+    ///             and it is the whole reason this test is shaped the way it is.
+    ///         </b>
     ///         <c>ComputeAutoMinMainSize</c> caps the floor at the item's own flex basis whenever
     ///         that basis was MEASURED — an inequality that hides every over-reported floor in this
     ///         method, and which is still load-bearing for #265's second defect. A declaration is
@@ -670,8 +685,12 @@ public class AutomaticMinimumSizeTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The two are different numbers precisely when the box overflows, which is what a
-    ///         percentage width plus a margin always does.</b> <c>ProbeInlineSize</c> subtracts the
+    ///         ⚠
+    ///         <b>
+    ///             The two are different numbers precisely when the box overflows, which is what a
+    ///             percentage width plus a margin always does.
+    ///         </b>
+    ///         <c>ProbeInlineSize</c> subtracts the
     ///         box's margins from the offer, and for a box whose width comes FROM the remaining
     ///         space that is right. A <c>width: 100%</c> box does not take its width from the
     ///         remaining space: it is as wide as its containing block and the margins push its
@@ -680,9 +699,13 @@ public class AutomaticMinimumSizeTests {
     ///         lines than it takes, and §4.5's floor comes out a whole line too tall.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The oracle is an inconsistency rather than a recorded number: the row is floored
-    ///         at the height of the very content it is drawn around, so the floor must EQUAL the
-    ///         height of the text inside it.</b> The text is laid out at the full container width in
+    ///         ⚠
+    ///         <b>
+    ///             The oracle is an inconsistency rather than a recorded number: the row is floored
+    ///             at the height of the very content it is drawn around, so the floor must EQUAL the
+    ///             height of the text inside it.
+    ///         </b>
+    ///         The text is laid out at the full container width in
     ///         every column of the theory — asserted, so the premise cannot rot — and the run is
     ///         area-preserving, so its height is the ink over that width and nothing else. A probe
     ///         that measures 50 points narrower reports one more line at every width, and the row
@@ -828,7 +851,11 @@ public class AutomaticMinimumSizeTests {
     [Theory]
     [InlineData(Wrap.NoWrap, 40f, 30f)]
     [InlineData(Wrap.Wrap, 30f, 0f)]
-    public void A_gapped_row_is_floored_at_its_items_and_the_gutters_between_them(Wrap wrap, float expectedWidth, float expectedSecondLeft) {
+    public void A_gapped_row_is_floored_at_its_items_and_the_gutters_between_them(
+        Wrap wrap,
+        float expectedWidth,
+        float expectedSecondLeft
+    ) {
         using var tree = new LayoutTree();
 
         var root = tree.CreateNode();
@@ -868,15 +895,18 @@ public class AutomaticMinimumSizeTests {
     ///     the same width under every measure mode, so what the tests observe is the floor rather
     ///     than the measurer being clever.
     /// </remarks>
-    static LayoutSize MeasureFixedContent(in MeasureRequest request) =>
-        new((float) (request.Context ?? 0f), 20f);
+    static LayoutSize MeasureFixedContent(in MeasureRequest request) => new((float)(request.Context ?? 0f), 20f);
 
     /// <summary>
     ///     Two hundred and forty points of one unbreakable word, ten points to the line.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>The intrinsic sizes are equal on purpose: this run's min-content size IS its
-    ///     max-content size.</b> That is <c>overflow-wrap: break-word</c>'s own rule — the breaking
+    ///     ⚠
+    ///     <b>
+    ///         The intrinsic sizes are equal on purpose: this run's min-content size IS its
+    ///         max-content size.
+    ///     </b>
+    ///     That is <c>overflow-wrap: break-word</c>'s own rule — the breaking
     ///     keyword changes where line layout may break a run that already overflows, and CSS Sizing
     ///     §5.2 says it does not change the intrinsic minimum. A definite offer is the one thing that
     ///     wraps it, so the height is the ink over the width the item is finally given.
@@ -885,19 +915,25 @@ public class AutomaticMinimumSizeTests {
         const float word = 240f;
         const float line = 10f;
 
-        if (request.WidthMode == MeasureMode.Undefined || float.IsNaN(request.AvailableWidth) || request.AvailableWidth <= 0f) {
-            return new LayoutSize(word, line);
+        if (request.WidthMode == MeasureMode.Undefined
+            || float.IsNaN(request.AvailableWidth)
+            || request.AvailableWidth <= 0f) {
+            return new(word, line);
         }
 
         var available = MathF.Min(request.AvailableWidth, word);
 
-        return new LayoutSize(available, MathF.Ceiling(word / available) * line);
+        return new(available, MathF.Ceiling(word / available) * line);
     }
 
     /// <summary>Six hundred points of run that breaks anywhere, ten points to the line.</summary>
     /// <remarks>
-    ///     ⚠ <b>Area-preserving on purpose, so every expectation below is arithmetic rather than a
-    ///     recorded number.</b> The run has a fixed amount of ink and no unbreakable piece, so the
+    ///     ⚠
+    ///     <b>
+    ///         Area-preserving on purpose, so every expectation below is arithmetic rather than a
+    ///         recorded number.
+    ///     </b>
+    ///     The run has a fixed amount of ink and no unbreakable piece, so the
     ///     height it takes is the ink over the room it is given — halve the width and the height
     ///     doubles, exactly. A measurer that answered a remembered pair of numbers could be
     ///     satisfied by a probe measuring at any width at all.
@@ -914,6 +950,6 @@ public class AutomaticMinimumSizeTests {
         // probe used to ask for, and why the floor it computed was sixty times too tall.
         var lines = available <= 0f ? ink : MathF.Ceiling(ink / available);
 
-        return new LayoutSize(MathF.Min(available, ink), lines * line);
+        return new(MathF.Min(available, ink), lines * line);
     }
 }

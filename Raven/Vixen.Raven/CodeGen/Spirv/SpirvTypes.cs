@@ -198,19 +198,18 @@ sealed class SpirvTypes {
     ///     access chain that indexes it — and the three have to agree or the module has a runtime
     ///     array nothing decorated, or a decoration on an array that is not one.
     /// </remarks>
-    internal static bool IsDescriptorArray(IrType type) =>
-        type is IrArrayType { Length: null, Element: IrTextureType };
+    internal static bool IsDescriptorArray(IrType type) => type is IrArrayType { Length: null, Element: IrTextureType };
 
     uint Struct(IrStructType structType, LayoutRule? layout) {
         if (structs.TryGetValue((structType, layout), out var existing)) {
             return existing;
         }
 
-        var members = structType.Fields.Select(f => f.Type).ToArray();
+        var members = structType.Fields.Select(static f => f.Type).ToArray();
         var id = module.AddDeclaration(
             SpirvOp.TypeStruct,
             null,
-            [.. members.Select(m => SpirvOperand.Id(Type(m, layout)))]
+            [..members.Select(m => SpirvOperand.Id(Type(m, layout)))]
         );
 
         structs[(structType, layout)] = id;
@@ -272,8 +271,12 @@ sealed class SpirvTypes {
     ///         format stores.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The <c>Depth</c> operand is a hint to Vulkan and load-bearing to everything
-    ///         downstream.</b> A driver will accept <c>OpImageSampleDref*</c> against an image
+    ///         ⚠
+    ///         <b>
+    ///             The <c>Depth</c> operand is a hint to Vulkan and load-bearing to everything
+    ///             downstream.
+    ///         </b>
+    ///         A driver will accept <c>OpImageSampleDref*</c> against an image
     ///         declared <c>Depth = 0</c> — which is exactly what <c>glslc</c> emits for the GLSL
     ///         this backend's sibling writes, since a separate image has no shadow spelling. But
     ///         SPIRV-Cross reads this operand to decide between <c>texture_2d&lt;f32&gt;</c> and
@@ -380,7 +383,7 @@ sealed class SpirvTypes {
 
             case IrArrayType { Length: { } length } array:
                 return module.Intern(
-                    $"array{(layout is { } rule ? "." + rule : "")} {array.Element.Name} {length}",
+                    $"array{(layout is { } rule ? "." + rule : string.Empty)} {array.Element.Name} {length}",
                     () => Array(array, length, layout)
                 );
 
@@ -440,7 +443,7 @@ sealed class SpirvTypes {
             () => module.AddDeclaration(
                 SpirvOp.TypeFunction,
                 null,
-                [SpirvOperand.Id(returnType), .. parameters.Select(SpirvOperand.Id)]
+                [SpirvOperand.Id(returnType), ..parameters.Select(SpirvOperand.Id)]
             )
         );
 
@@ -544,8 +547,12 @@ sealed class SpirvTypes {
     /// <summary>The all-zero value of a type, for a constant with no explicit value.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b><c>void</c> is refused rather than nulled, and it is the one type here that has
-    ///         no zero.</b> SPIR-V says so directly — <c>OpConstantNull</c>'s result type must be one
+    ///         ⚠
+    ///         <b>
+    ///             <c>void</c> is refused rather than nulled, and it is the one type here that has
+    ///             no zero.
+    ///         </b>
+    ///         SPIR-V says so directly — <c>OpConstantNull</c>'s result type must be one
     ///         that <i>has</i> a null value, and <c>OpTypeVoid</c> does not — so the instruction this
     ///         would otherwise intern is invalid however it was reached.
     ///     </para>

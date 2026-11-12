@@ -5,7 +5,6 @@ using Vixen.Core;
 using Vixen.Editor.Assets;
 using Vixen.Editor.Core;
 using Vixen.Editor.Ui;
-using Vixen.Ui.Controls;
 using Vixen.Ui.HotReload;
 
 namespace Vixen.Editor.App;
@@ -18,8 +17,11 @@ namespace Vixen.Editor.App;
 ///         published <see cref="ISourceControl" />.
 ///     </para>
 ///     <para>
-///         <b>Diff and history are one panel and not two, which is the finding that made this worth doing
-///         at all.</b> A history row's whole value is what a person does with it — look at what that commit
+///         <b>
+///             Diff and history are one panel and not two, which is the finding that made this worth doing
+///             at all.
+///         </b>
+///         A history row's whole value is what a person does with it — look at what that commit
 ///         changed, or take that version back — so a history list with no diff under it is a list of
 ///         sentences, and a diff with no list is a diff of the one thing you already have.
 ///     </para>
@@ -56,7 +58,12 @@ sealed class AssetRevisions {
     /// <param name="sourceControl">The published service.</param>
     /// <param name="project">The project whose selection the panel follows.</param>
     /// <param name="hotReload">The reload host the view is mounted through.</param>
-    public AssetRevisions(EditorShell shell, ISourceControl sourceControl, EditorProject project, HotReloadHost hotReload) {
+    public AssetRevisions(
+        EditorShell shell,
+        ISourceControl sourceControl,
+        EditorProject project,
+        HotReloadHost hotReload
+    ) {
         this.shell = shell;
         this.sourceControl = sourceControl;
         this.project = project;
@@ -88,9 +95,7 @@ sealed class AssetRevisions {
                 View = view;
                 Show();
             }
-        ) {
-            Closed = () => View = null
-        };
+        ) { Closed = () => View = null };
 
     /// <summary>Opens the panel on whatever is selected — what Show History is a name for.</summary>
     /// <remarks>
@@ -180,7 +185,7 @@ sealed class AssetRevisions {
         deferred.When(
             sourceControl.DiffAsync(view.Path, revision.Id),
             view.ShowDiff,
-            failure => view.ShowDiff(new SourceControlDiff(false, failure.Message))
+            failure => view.ShowDiff(new(false, failure.Message))
         );
     }
 
@@ -200,7 +205,7 @@ sealed class AssetRevisions {
 
         async Task Ask() {
             var asked = await shell.Dialogs.ConfirmAsync(
-                    $"Restore '{System.IO.Path.GetFileName(path)}' from {revision.ShortId}?",
+                    $"Restore '{Path.GetFileName(path)}' from {revision.ShortId}?",
                     $"{name} will write that version over the file in the working tree. "
                     + "The change is left uncommitted, so Revert to Source Control undoes it."
                     + Environment.NewLine

@@ -63,12 +63,22 @@ public static class ConstraintFieldAccess {
         Number(table, "EaseOut", static tag => tag.EaseOut, static (tag, value) => tag.EaseOut = value);
         Number(table, "MaxWeight", static tag => tag.MaxWeight, static (tag, value) => tag.MaxWeight = value);
         Number(table, "Tolerance", static tag => tag.Tolerance, static (tag, value) => tag.Tolerance = value);
-        Number(table, "AuthoredDistance", static tag => tag.AuthoredDistance, static (tag, value) => tag.AuthoredDistance = value);
+        Number(
+            table,
+            "AuthoredDistance",
+            static tag => tag.AuthoredDistance,
+            static (tag, value) => tag.AuthoredDistance = value
+        );
         Number(table, "Min", static tag => tag.Min, static (tag, value) => tag.Min = value);
         Number(table, "Max", static tag => tag.Max, static (tag, value) => tag.Max = value);
 
         Vector(table, "Offset", static tag => tag.Offset, static (tag, value) => tag.Offset = value);
-        Vector(table, "EffectorOffset", static tag => tag.EffectorOffset, static (tag, value) => tag.EffectorOffset = value);
+        Vector(
+            table,
+            "EffectorOffset",
+            static tag => tag.EffectorOffset,
+            static (tag, value) => tag.EffectorOffset = value
+        );
         Vector(table, "Region", static tag => tag.Region, static (tag, value) => tag.Region = value);
         Vector(table, "Pole", static tag => tag.Pole, static (tag, value) => tag.Pole = value);
         Vector(table, "Axis", static tag => tag.Axis, static (tag, value) => tag.Axis = value);
@@ -261,7 +271,10 @@ public static class ConstraintFieldAccess {
     /// <param name="text">The line.</param>
     /// <returns>The frame, or <see langword="null" /> when the line makes no sense.</returns>
     public static ConstraintFrameRecord? Parse(string? text) {
-        var parts = (text ?? string.Empty).Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        var parts = (text ?? string.Empty).Split(
+            ' ',
+            StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries
+        );
 
         if (parts.Length == 0 || !Enum.TryParse<ConstraintFrameKind>(parts[0], true, out var kind)) {
             return null;
@@ -331,14 +344,14 @@ public static class ConstraintFieldAccess {
     /// <summary>A rotation as pitch, yaw and roll in degrees.</summary>
     static Vector3 Euler(Quaternion rotation) {
         var q = Quaternion.Normalize(rotation);
-        var sinPitch = 2f * ((q.W * q.X) - (q.Y * q.Z));
+        var sinPitch = 2f * (q.W * q.X - q.Y * q.Z);
 
         var pitch = MathF.Abs(sinPitch) >= 0.9999f
             ? MathF.CopySign(MathUtil.PiOverTwo, sinPitch)
             : MathF.Asin(sinPitch);
 
-        var yaw = MathF.Atan2(2f * ((q.W * q.Y) + (q.X * q.Z)), 1f - (2f * ((q.X * q.X) + (q.Y * q.Y))));
-        var roll = MathF.Atan2(2f * ((q.W * q.Z) + (q.X * q.Y)), 1f - (2f * ((q.X * q.X) + (q.Z * q.Z))));
+        var yaw = MathF.Atan2(2f * (q.W * q.Y + q.X * q.Z), 1f - 2f * (q.X * q.X + q.Y * q.Y));
+        var roll = MathF.Atan2(2f * (q.W * q.Z + q.X * q.Y), 1f - 2f * (q.X * q.X + q.Z * q.Z));
 
         return new(
             MathUtil.RadiansToDegrees(pitch),

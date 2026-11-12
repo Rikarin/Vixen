@@ -24,14 +24,14 @@ namespace Vixen.Ui.Styling.Tests;
 /// </remarks>
 public class ContainerStyleQueryTests {
     const string Sheet = """
-        .one { --variant: primary; }
-        .two { --variant: secondary; }
-        .spaced { --variant:   primary  ; }
-        .flag { --flag: on; }
-        @container style(--variant: primary) { .leaf { color: styled; } }
-        @container style(--flag) { .leaf { background-color: flagged; } }
-        @container style(--variant: primary) and style(--flag: on) { .leaf { border-color: both; } }
-        """;
+                         .one { --variant: primary; }
+                         .two { --variant: secondary; }
+                         .spaced { --variant:   primary  ; }
+                         .flag { --flag: on; }
+                         @container style(--variant: primary) { .leaf { color: styled; } }
+                         @container style(--flag) { .leaf { background-color: flagged; } }
+                         @container style(--variant: primary) and style(--flag: on) { .leaf { border-color: both; } }
+                         """;
 
     static (CascadeFixture Fixture, StyleNodeId Leaf, ComputedStyle Parent) Scene(params string[] parentClasses) {
         var fixture = new CascadeFixture();
@@ -85,11 +85,13 @@ public class ContainerStyleQueryTests {
     [InlineData("style(--variant: primary) /* c */ and style(--flag: on)")]
     public void A_comment_in_a_style_query_prelude_is_ignored(string prelude) {
         var fixture = new CascadeFixture();
-        fixture.Load($$"""
-            .one { --variant: primary; --flag: on; }
-            .two { --variant: secondary; --flag: on; }
-            @container {{prelude}} { .leaf { color: styled; } }
-            """);
+        fixture.Load(
+            $$"""
+              .one { --variant: primary; --flag: on; }
+              .two { --variant: secondary; --flag: on; }
+              @container {{prelude}} { .leaf { color: styled; } }
+              """
+        );
 
         Assert.Empty(fixture.Engine.Loader.Diagnostics);
 
@@ -159,27 +161,48 @@ public class ContainerStyleQueryTests {
     [Theory]
     // Mixed with a size feature by `or` is answered now (#273, `Or_across_the_halves_…` below), but
     // not mixed with `and` as well: that is the precedence rule again, across the halves.
-    [InlineData("@container (min-width: 400px) or style(--a: 1) and style(--b: 1) { .leaf { color: x } }", "mixed without parentheses")]
+    [InlineData(
+        "@container (min-width: 400px) or style(--a: 1) and style(--b: 1) { .leaf { color: x } }",
+        "mixed without parentheses"
+    )]
     // A size half that does not read is refused for the reason a size query alone would be.
-    [InlineData("@container (min-width: 30furlongs) and style(--variant: primary) { .leaf { color: x } }", "30furlongs")]
+    [InlineData(
+        "@container (min-width: 30furlongs) and style(--variant: primary) { .leaf { color: x } }",
+        "30furlongs"
+    )]
     // `not` over a mixed list is the list rule, whichever half it would negate.
-    [InlineData("@container not style(--a: 1) and (min-width: 400px) { .leaf { color: x } }", "'not' applies to one feature")]
+    [InlineData(
+        "@container not style(--a: 1) and (min-width: 400px) { .leaf { color: x } }",
+        "'not' applies to one feature"
+    )]
     // A standard property, which no engine answers either and which this cascade has no computed
     // value to compare for without re-deriving one.
     [InlineData("@container style(color: red) { .leaf { color: x } }", "custom properties")]
     // ⚠ `and` and `or` have no precedence over each other in CSS Conditional 5, so mixing them without
     // parentheses is invalid rather than read one way. A parenthesised group is refused as such.
-    [InlineData("@container style(--a: 1) and style(--b: 1) or style(--c: 1) { .leaf { color: x } }", "mixed without parentheses")]
-    [InlineData("@container (style(--a: 1) or style(--b: 1)) and style(--c: 1) { .leaf { color: x } }", "parenthesised group")]
+    [InlineData(
+        "@container style(--a: 1) and style(--b: 1) or style(--c: 1) { .leaf { color: x } }",
+        "mixed without parentheses"
+    )]
+    [InlineData(
+        "@container (style(--a: 1) or style(--b: 1)) and style(--c: 1) { .leaf { color: x } }",
+        "parenthesised group"
+    )]
     // `not` negates one query in parentheses, never a list.
-    [InlineData("@container not style(--a: 1) and style(--b: 1) { .leaf { color: x } }", "'not' applies to one feature")]
+    [InlineData(
+        "@container not style(--a: 1) and style(--b: 1) { .leaf { color: x } }",
+        "'not' applies to one feature"
+    )]
     // A name with nothing to ask, and a word CSS reserves.
     [InlineData("@container none style(--a: 1) { .leaf { color: x } }", "cannot be a container name")]
     public void A_style_query_this_cascade_cannot_answer_is_a_diagnostic(string css, string because) {
         var fixture = new CascadeFixture();
         fixture.Load(css);
 
-        Assert.Contains(fixture.Engine.Loader.Diagnostics, diagnostic => diagnostic.Reason.Contains(because, StringComparison.Ordinal));
+        Assert.Contains(
+            fixture.Engine.Loader.Diagnostics,
+            diagnostic => diagnostic.Reason.Contains(because, StringComparison.Ordinal)
+        );
 
         var parent = fixture.Tree.CreateElement("div");
         var leaf = fixture.Tree.CreateElement("div", parent, classNames: ["leaf"]);
@@ -193,16 +216,16 @@ public class ContainerStyleQueryTests {
     ///     from an unnamed one: the unnamed form reads the parent, whatever it is called.
     /// </remarks>
     const string Named = """
-        .card { container-name: card; }
-        .panel { container: side card-like / normal; }
-        .primary { --variant: primary; }
-        .secondary { --variant: secondary; }
-        .flag { --flag: on; }
-        @container card style(--variant: primary) { .leaf { color: named; } }
-        @container card-like style(--variant: primary) { .leaf { background-color: listed; } }
-        @container style(--variant: primary) or style(--flag: on) { .leaf { border-color: either; } }
-        @container not style(--variant: primary) { .leaf { outline-color: not-primary; } }
-        """;
+                         .card { container-name: card; }
+                         .panel { container: side card-like / normal; }
+                         .primary { --variant: primary; }
+                         .secondary { --variant: secondary; }
+                         .flag { --flag: on; }
+                         @container card style(--variant: primary) { .leaf { color: named; } }
+                         @container card-like style(--variant: primary) { .leaf { background-color: listed; } }
+                         @container style(--variant: primary) or style(--flag: on) { .leaf { border-color: either; } }
+                         @container not style(--variant: primary) { .leaf { outline-color: not-primary; } }
+                         """;
 
     /// <summary>Resolves a chain of elements top down with the engine, and returns the last one's style.</summary>
     static (CascadeFixture Fixture, ComputedStyle Leaf) Chain(params string[][] classes) {
@@ -376,7 +399,10 @@ public class ContainerStyleQueryTests {
         Assert.Equal("named", fixture.Value(leaf));
     }
 
-    /// <summary>A chain of <paramref name="depth" /> elements each with a sibling, under a sheet with one named <c>style()</c> rule.</summary>
+    /// <summary>
+    ///     A chain of <paramref name="depth" /> elements each with a sibling, under a sheet with one named <c>style()</c>
+    ///     rule.
+    /// </summary>
     /// <returns>The fixture, after one whole-document resolve, and the deepest element.</returns>
     static (CascadeFixture Fixture, StyleNodeId Deepest) DeepTree(string sheet, int depth, string[] deepestClasses) {
         var fixture = new CascadeFixture();
@@ -406,11 +432,11 @@ public class ContainerStyleQueryTests {
     [Fact]
     public void A_named_style_query_no_candidate_reaches_collects_no_ancestor_chain() {
         const string sheet = """
-            .card { container-name: card; }
-            .primary { --variant: primary; }
-            .item { color: plain; }
-            @container card style(--variant: primary) { .never { color: named; } }
-            """;
+                             .card { container-name: card; }
+                             .primary { --variant: primary; }
+                             .item { color: plain; }
+                             @container card style(--variant: primary) { .never { color: named; } }
+                             """;
 
         var (fixture, deepest) = DeepTree(sheet, 24, ["item"]);
         var resolver = fixture.Engine.Resolver;
@@ -429,11 +455,11 @@ public class ContainerStyleQueryTests {
     [Fact]
     public void Only_the_element_a_named_style_rule_can_reach_collects_its_chain() {
         const string sheet = """
-            .card { container-name: card; }
-            .primary { --variant: primary; }
-            .item { color: plain; }
-            @container card style(--variant: primary) { .leaf { color: named; } }
-            """;
+                             .card { container-name: card; }
+                             .primary { --variant: primary; }
+                             .item { color: plain; }
+                             @container card style(--variant: primary) { .leaf { color: named; } }
+                             """;
 
         var (fixture, deepest) = DeepTree(sheet, 24, ["leaf"]);
         var styles = fixture.Engine.ResolveAll();
@@ -464,12 +490,12 @@ public class ContainerStyleQueryTests {
         string? expected
     ) {
         const string sheet = """
-            .card { container-name: card; }
-            .sized { container-type: inline-size; }
-            .primary { --variant: primary; }
-            .secondary { --variant: secondary; }
-            @container card style(--variant: primary) { @container (min-width: 1px) { .leaf { color: nested; } } }
-            """;
+                             .card { container-name: card; }
+                             .sized { container-type: inline-size; }
+                             .primary { --variant: primary; }
+                             .secondary { --variant: secondary; }
+                             @container card style(--variant: primary) { @container (min-width: 1px) { .leaf { color: nested; } } }
+                             """;
 
         var fixture = new CascadeFixture();
         fixture.Load(sheet);
@@ -498,14 +524,14 @@ public class ContainerStyleQueryTests {
     ///     <see cref="CascadeFixture.Contain" />, for the size half, as a layout pass would do.
     /// </remarks>
     const string Mixed = """
-        .sized { container-type: inline-size; }
-        .card { container-name: card; }
-        .primary { --variant: primary; }
-        .secondary { --variant: secondary; }
-        @container (min-width: 400px) and style(--variant: primary) { .leaf { color: mixed; } }
-        @container style(--variant: primary) and (min-width: 400px) { .leaf { border-color: reversed; } }
-        @container card (min-width: 400px) and style(--variant: primary) { .leaf { background-color: named-mixed; } }
-        """;
+                         .sized { container-type: inline-size; }
+                         .card { container-name: card; }
+                         .primary { --variant: primary; }
+                         .secondary { --variant: secondary; }
+                         @container (min-width: 400px) and style(--variant: primary) { .leaf { color: mixed; } }
+                         @container style(--variant: primary) and (min-width: 400px) { .leaf { border-color: reversed; } }
+                         @container card (min-width: 400px) and style(--variant: primary) { .leaf { background-color: named-mixed; } }
+                         """;
 
     /// <summary>A container of a given width and classes, one element between it and the leaf, and the leaf's style.</summary>
     static (CascadeFixture Fixture, ComputedStyle Leaf) MixedScene(float width, string[] container, string[] between) {
@@ -513,7 +539,7 @@ public class ContainerStyleQueryTests {
         fixture.Load(Mixed);
 
         var box = fixture.Tree.CreateElement("div", classNames: container);
-        fixture.Contain(box, width, name: container.Contains("card") ? "card" : "");
+        fixture.Contain(box, width, name: container.Contains("card") ? "card" : string.Empty);
 
         var middle = fixture.Tree.CreateElement("div", box, classNames: between);
         var leaf = fixture.Tree.CreateElement("div", middle, classNames: ["leaf"]);
@@ -610,16 +636,21 @@ public class ContainerStyleQueryTests {
     [InlineData(300f, "secondary", "", false)]
     [InlineData(300f, "secondary", "primary", false)]
     [InlineData(300f, "primary", "secondary", true)]
-    public void Or_across_the_halves_holds_when_either_half_does(float width, string variant, string between, bool holds) {
+    public void Or_across_the_halves_holds_when_either_half_does(
+        float width,
+        string variant,
+        string between,
+        bool holds
+    ) {
         const string sheet = """
-            .sized { container-type: inline-size; }
-            .card { container-name: card; }
-            .primary { --variant: primary; }
-            .secondary { --variant: secondary; }
-            @container (min-width: 400px) or style(--variant: primary) { .leaf { color: either; } }
-            @container style(--variant: primary) or (min-width: 400px) { .leaf { border-color: reversed; } }
-            @container card (min-width: 400px) or style(--variant: primary) { .leaf { background-color: named-either; } }
-            """;
+                             .sized { container-type: inline-size; }
+                             .card { container-name: card; }
+                             .primary { --variant: primary; }
+                             .secondary { --variant: secondary; }
+                             @container (min-width: 400px) or style(--variant: primary) { .leaf { color: either; } }
+                             @container style(--variant: primary) or (min-width: 400px) { .leaf { border-color: reversed; } }
+                             @container card (min-width: 400px) or style(--variant: primary) { .leaf { background-color: named-either; } }
+                             """;
 
         var fixture = new CascadeFixture();
         fixture.Load(sheet);
@@ -642,10 +673,12 @@ public class ContainerStyleQueryTests {
     [Fact]
     public void Or_across_the_halves_with_no_size_container_does_not_apply() {
         var fixture = new CascadeFixture();
-        fixture.Load("""
+        fixture.Load(
+            """
             .primary { --variant: primary; }
             @container (min-width: 400px) or style(--variant: primary) { .leaf { color: either; } }
-            """);
+            """
+        );
 
         var parent = fixture.Tree.CreateElement("div", classNames: ["primary"]);
         var leaf = fixture.Tree.CreateElement("div", parent, classNames: ["leaf"]);
@@ -667,12 +700,12 @@ public class ContainerStyleQueryTests {
     [Fact]
     public void A_block_axis_mixed_query_asks_the_size_container_past_an_inline_size_one() {
         const string sheet = """
-            .inline { container-type: inline-size; }
-            .both { container-type: size; }
-            .primary { --variant: primary; }
-            .secondary { --variant: secondary; }
-            @container (min-height: 200px) and style(--variant: primary) { .leaf { color: tall-primary; } }
-            """;
+                             .inline { container-type: inline-size; }
+                             .both { container-type: size; }
+                             .primary { --variant: primary; }
+                             .secondary { --variant: secondary; }
+                             @container (min-height: 200px) and style(--variant: primary) { .leaf { color: tall-primary; } }
+                             """;
 
         var asked = new CascadeFixture();
         asked.Load(sheet);

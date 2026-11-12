@@ -103,8 +103,7 @@ public sealed class ClusterCullingRenderer : SceneRenderer {
                 pass.Kind = PassKind.Graphics;
                 pass.SideEffect();
 
-                pass.Execute(
-                    context => {
+                pass.Execute(context => {
                         // Pages first — see the class remarks. The bitset the dispatch is about to read
                         // was written on the assumption that this happened.
                         LastPageCopies = pages?.Flush(context.CommandList) ?? 0;

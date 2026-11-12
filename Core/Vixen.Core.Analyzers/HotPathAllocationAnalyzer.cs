@@ -52,7 +52,7 @@ public sealed class HotPathAllocationAnalyzer : DiagnosticAnalyzer {
         "{0} allocates on the managed heap, and '{1}' is marked [HotPath], which says it must not",
         "Vixen.Performance",
         DiagnosticSeverity.Warning,
-        isEnabledByDefault: true,
+        true,
         "[HotPath] declares that a member runs inside the frame loop and must not allocate. A "
         + "per-frame allocation is not a leak and never shows up as one: it shows up as a collection "
         + "somebody else's frame pays for, at a moment that depends on what the rest of the process "
@@ -68,8 +68,7 @@ public sealed class HotPathAllocationAnalyzer : DiagnosticAnalyzer {
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
         context.EnableConcurrentExecution();
 
-        context.RegisterCompilationStartAction(
-            start => {
+        context.RegisterCompilationStartAction(static start => {
                 var hotPath = start.Compilation.GetTypeByMetadataName(HotPathMetadataName);
 
                 // A compilation that cannot name the attribute cannot have marked anything with it.
@@ -77,8 +76,7 @@ public sealed class HotPathAllocationAnalyzer : DiagnosticAnalyzer {
                     return;
                 }
 
-                start.RegisterOperationBlockStartAction(
-                    block => {
+                start.RegisterOperationBlockStartAction(block => {
                         if (!IsHotPath(block.OwningSymbol, hotPath)) {
                             return;
                         }

@@ -9,8 +9,12 @@ namespace Vixen.Editor.App;
 /// <summary>The animation passes an in-editor play session runs.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b><c>AnimationSystems.AddAnimation</c> had no production caller at all until this
-///         file</b> (<a href="https://github.com/Rikarin/Vixen/issues/1221">#1221</a>). The one call
+///         ⚠
+///         <b>
+///             <c>AnimationSystems.AddAnimation</c> had no production caller at all until this
+///             file
+///         </b>
+///         (<a href="https://github.com/Rikarin/Vixen/issues/1221">#1221</a>). The one call
 ///         in the tree was <c>GizmoTests</c>, so <c>AnimationSystem</c>, <c>SkinningSystem</c> and
 ///         <c>BlendShapeAnimationSystem</c> were in nothing's loop and an <c>AnimatorComponent</c>
 ///         was never evaluated — clip playback and root motion unreachable, not merely unskinned.
@@ -18,8 +22,12 @@ namespace Vixen.Editor.App;
 ///         made, which is this repository's commonest defect shape.
 ///     </para>
 ///     <para>
-///         ⚠ <b><c>[GameSystem]</c> is deliberately <em>not</em> the answer, and that decision is
-///         #1221's other half.</b> <c>GameSystemAttribute</c>'s own remarks say it is opt-in and that
+///         ⚠
+///         <b>
+///             <c>[GameSystem]</c> is deliberately <em>not</em> the answer, and that decision is
+///             #1221's other half.
+///         </b>
+///         <c>GameSystemAttribute</c>'s own remarks say it is opt-in and that
 ///         "the engine's own systems do not carry it": a declared system is built out of a service
 ///         registry by the project that owns it, and these three take no service and belong to
 ///         whoever runs a frame. Annotating them would put three engine passes into every project's

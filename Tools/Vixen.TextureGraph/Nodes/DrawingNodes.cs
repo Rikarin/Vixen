@@ -52,7 +52,11 @@ enum TextureVectorDraw {
 ///         decision about where a paragraph may break, and an author who wants two lines writes two.
 ///     </para>
 /// </remarks>
-[Node("Source/Text", Preview = true, Summary = "A line or lines of text in a font, as a mask: labels, logos, stamps, serial numbers.")]
+[Node(
+    "Source/Text",
+    Preview = true,
+    Summary = "A line or lines of text in a font, as a mask: labels, logos, stamps, serial numbers."
+)]
 sealed partial class TextNode : TextureNode {
     /// <summary>What to write. A line break starts a new line.</summary>
     [Setting(Summary = "What to write. A line break starts a new line.")]
@@ -60,30 +64,58 @@ sealed partial class TextNode : TextureNode {
 
     /// <summary>The font file, as a host finds it. Empty is the bundled Open Sans.</summary>
     [Setting(Summary = "A TrueType or OpenType font file. Empty uses the bundled Open Sans.")]
-    public string Font = "";
+    public string Font = string.Empty;
 
     /// <summary>Where each line sits against the anchor.</summary>
-    [Setting(AcceptedFrom = typeof(TextureTextAlign), Summary = "Whether each line starts, centres or ends at the anchor.")]
+    [Setting(
+        AcceptedFrom = typeof(TextureTextAlign),
+        Summary = "Whether each line starts, centres or ends at the anchor."
+    )]
     public string Alignment = "Centre";
 
     /// <summary>The font size, as a fraction of the image's height.</summary>
-    [Input(Minimum = 0.001f, SoftMinimum = 0.01f, SoftMaximum = 1f, Summary = "The font size, as a fraction of the image's height.")]
+    [Input(
+        Minimum = 0.001f,
+        SoftMinimum = 0.01f,
+        SoftMaximum = 1f,
+        Summary = "The font size, as a fraction of the image's height."
+    )]
     public Scalar Size = 0.2f;
 
     /// <summary>Where the anchor is across the image, from 0 at the left to 1 at the right.</summary>
-    [Input(Name = "Position X", SoftMinimum = 0f, SoftMaximum = 1f, Summary = "Where the anchor is across the image, from 0 at the left to 1 at the right.")]
+    [Input(
+        Name = "Position X",
+        SoftMinimum = 0f,
+        SoftMaximum = 1f,
+        Summary = "Where the anchor is across the image, from 0 at the left to 1 at the right."
+    )]
     public Scalar PositionX = 0.5f;
 
     /// <summary>Where the middle of the block of lines is, from 0 at the top to 1 at the bottom.</summary>
-    [Input(Name = "Position Y", SoftMinimum = 0f, SoftMaximum = 1f, Summary = "Where the middle of the lines is, from 0 at the top to 1 at the bottom.")]
+    [Input(
+        Name = "Position Y",
+        SoftMinimum = 0f,
+        SoftMaximum = 1f,
+        Summary = "Where the middle of the lines is, from 0 at the top to 1 at the bottom."
+    )]
     public Scalar PositionY = 0.5f;
 
     /// <summary>Extra space after every letter, as a fraction of the font size. Negative tightens.</summary>
-    [Input(Name = "Letter Spacing", SoftMinimum = -0.2f, SoftMaximum = 1f, Summary = "Extra space after every letter, as a fraction of the font size. Negative tightens.")]
+    [Input(
+        Name = "Letter Spacing",
+        SoftMinimum = -0.2f,
+        SoftMaximum = 1f,
+        Summary = "Extra space after every letter, as a fraction of the font size. Negative tightens."
+    )]
     public Scalar LetterSpacing = 0f;
 
     /// <summary>The distance between lines, as a multiple of the font's own line height.</summary>
-    [Input(Name = "Line Spacing", Minimum = 0f, SoftMaximum = 3f, Summary = "The distance between lines, as a multiple of the font's own line height.")]
+    [Input(
+        Name = "Line Spacing",
+        Minimum = 0f,
+        SoftMaximum = 3f,
+        Summary = "The distance between lines, as a multiple of the font's own line height."
+    )]
     public Scalar LineSpacing = 1f;
 
     /// <summary>White where the letters are.</summary>
@@ -112,7 +144,7 @@ sealed partial class TextNode : TextureNode {
         var source = emitter.External(TextureFormat.R8, TextureChannels.Grey, reference);
         var target = emitter.Write("Out", TextureChannels.Grey);
 
-        emitter.Dispatch(TextureSources.Bitmap(target, source, srgb: false));
+        emitter.Dispatch(TextureSources.Bitmap(target, source, false));
     }
 }
 
@@ -130,18 +162,28 @@ sealed partial class TextNode : TextureNode {
 ///         using one says which, because a drawing quietly missing a part is a wrong picture nobody can explain.
 ///     </para>
 /// </remarks>
-[Node("Source/Vector", Preview = true, Summary = "An SVG file drawn at the graph's size: logos, decals, icons and stencils, as colour or as a mask.")]
+[Node(
+    "Source/Vector",
+    Preview = true,
+    Summary = "An SVG file drawn at the graph's size: logos, decals, icons and stencils, as colour or as a mask."
+)]
 sealed partial class VectorNode : TextureNode {
     /// <summary>The SVG file, as a host finds it.</summary>
     [Setting(Summary = "The SVG file to draw.")]
-    public string File = "";
+    public string File = string.Empty;
 
     /// <summary>How the drawing's frame is laid onto the image.</summary>
-    [Setting(AcceptedFrom = typeof(TextureVectorFit), Summary = "Contain shows all of it, Cover fills the image, Stretch fills it in each axis.")]
+    [Setting(
+        AcceptedFrom = typeof(TextureVectorFit),
+        Summary = "Contain shows all of it, Cover fills the image, Stretch fills it in each axis."
+    )]
     public string Fit = "Contain";
 
     /// <summary>Whether it writes its own colours or a mask.</summary>
-    [Setting(AcceptedFrom = typeof(TextureVectorDraw), Summary = "Colour draws the file's own colours; Coverage draws a white mask of its shapes.")]
+    [Setting(
+        AcceptedFrom = typeof(TextureVectorDraw),
+        Summary = "Colour draws the file's own colours; Coverage draws a white mask of its shapes."
+    )]
     public string Draw = "Colour";
 
     /// <summary>How large it is, against the size the fit gives it.</summary>
@@ -149,11 +191,21 @@ sealed partial class VectorNode : TextureNode {
     public Scalar Scale = 1f;
 
     /// <summary>Where its middle is across the image.</summary>
-    [Input(Name = "Position X", SoftMinimum = 0f, SoftMaximum = 1f, Summary = "Where its middle is across the image, from 0 at the left to 1 at the right.")]
+    [Input(
+        Name = "Position X",
+        SoftMinimum = 0f,
+        SoftMaximum = 1f,
+        Summary = "Where its middle is across the image, from 0 at the left to 1 at the right."
+    )]
     public Scalar PositionX = 0.5f;
 
     /// <summary>Where its middle is down the image.</summary>
-    [Input(Name = "Position Y", SoftMinimum = 0f, SoftMaximum = 1f, Summary = "Where its middle is down the image, from 0 at the top to 1 at the bottom.")]
+    [Input(
+        Name = "Position Y",
+        SoftMinimum = 0f,
+        SoftMaximum = 1f,
+        Summary = "Where its middle is down the image, from 0 at the top to 1 at the bottom."
+    )]
     public Scalar PositionY = 0.5f;
 
     /// <summary>The drawing.</summary>
@@ -192,7 +244,7 @@ sealed partial class VectorNode : TextureNode {
         if (draw == TextureVectorDraw.Coverage) {
             var mask = emitter.External(TextureFormat.R8, TextureChannels.Grey, reference);
 
-            emitter.Dispatch(TextureSources.Bitmap(emitter.Write("Out", TextureChannels.Grey), mask, srgb: false));
+            emitter.Dispatch(TextureSources.Bitmap(emitter.Write("Out", TextureChannels.Grey), mask, false));
 
             return;
         }
@@ -201,6 +253,6 @@ sealed partial class VectorNode : TextureNode {
         // `Bitmap.rvn`'s, so every image inside the graph is linear as every other source's is.
         var source = emitter.External(TextureFormat.Rgba8, TextureChannels.Colour, reference);
 
-        emitter.Dispatch(TextureSources.Bitmap(emitter.Write("Out", TextureChannels.Colour), source, srgb: true));
+        emitter.Dispatch(TextureSources.Bitmap(emitter.Write("Out", TextureChannels.Colour), source, true));
     }
 }

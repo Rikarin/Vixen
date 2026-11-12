@@ -3,9 +3,7 @@
 
 using Vixen.Core.Mathematics;
 using Vixen.Terrain;
-using Vixen.Water;
 using Xunit;
-
 using TerrainAsset = Vixen.Terrain.Terrain;
 
 namespace Vixen.Water.Tests;
@@ -49,16 +47,14 @@ public sealed class WaterCarveTests {
                     new(low.X + side, surface, low.Y + side),
                     new(low.X, surface, low.Y + side)
                 ],
-                closed: true,
-                tension: 1f
+                true,
+                1f
             ),
-            closed: true
+            true
         );
 
         return new(WaterBodyKind.Lake, spline, defaults: new() { Depth = depth }) {
-            SurfaceHeight = surface,
-            ShoreFalloff = 2f,
-            BedRamp = 4f
+            SurfaceHeight = surface, ShoreFalloff = 2f, BedRamp = 4f
         };
     }
 
@@ -235,7 +231,7 @@ public sealed class WaterCarveTests {
     [Fact]
     public void Two_bodies_that_overlap_give_the_ground_the_deeper_bed() {
         var shallow = Lake(new(40f, 40f), depth: 2f);
-        var deep = Lake(new(44f, 44f), side: 16f, depth: 6f);
+        var deep = Lake(new(44f, 44f), 16f, depth: 6f);
 
         var forwards = Ground();
         var backwards = Ground();

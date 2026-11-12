@@ -31,9 +31,11 @@ namespace Vixen.Graphics.Golden.Tests;
 [Collection("Vulkan")]
 public sealed class SurfaceCacheRadiosityDeviceTests {
     /// <summary>The card struct's offsets are the reflection's, member for member.</summary>
-    /// <remarks>The same assertion the fill jobs carry, for the same reason: a struct that agrees
+    /// <remarks>
+    ///     The same assertion the fill jobs carry, for the same reason: a struct that agrees
     ///     with a comment agrees with nothing, and std430's rounding of a <c>float3</c> to sixteen
-    ///     bytes is exactly the mistake sequential layout would make silently.</remarks>
+    ///     bytes is exactly the mistake sequential layout would make silently.
+    /// </remarks>
     [Fact]
     public void TheCardStructMatchesTheReflection() {
         var path = Path.Combine(RavenEffects.Library, "SurfaceCache", "SurfaceCacheGather.reflect.json");
@@ -62,10 +64,22 @@ public sealed class SurfaceCacheRadiosityDeviceTests {
         }
 
         Assert.Equal(SurfaceCacheCardData.Stride, size);
-        Assert.Equal(offsets["centre"], (int)Marshal.OffsetOf<SurfaceCacheCardData>(nameof(SurfaceCacheCardData.Centre)));
-        Assert.Equal(offsets["halfSize"], (int)Marshal.OffsetOf<SurfaceCacheCardData>(nameof(SurfaceCacheCardData.HalfSize)));
-        Assert.Equal(offsets["origin"], (int)Marshal.OffsetOf<SurfaceCacheCardData>(nameof(SurfaceCacheCardData.Origin)));
-        Assert.Equal(offsets["resolution"], (int)Marshal.OffsetOf<SurfaceCacheCardData>(nameof(SurfaceCacheCardData.Resolution)));
+        Assert.Equal(
+            offsets["centre"],
+            (int)Marshal.OffsetOf<SurfaceCacheCardData>(nameof(SurfaceCacheCardData.Centre))
+        );
+        Assert.Equal(
+            offsets["halfSize"],
+            (int)Marshal.OffsetOf<SurfaceCacheCardData>(nameof(SurfaceCacheCardData.HalfSize))
+        );
+        Assert.Equal(
+            offsets["origin"],
+            (int)Marshal.OffsetOf<SurfaceCacheCardData>(nameof(SurfaceCacheCardData.Origin))
+        );
+        Assert.Equal(
+            offsets["resolution"],
+            (int)Marshal.OffsetOf<SurfaceCacheCardData>(nameof(SurfaceCacheCardData.Resolution))
+        );
         Assert.Equal(offsets["axis"], (int)Marshal.OffsetOf<SurfaceCacheCardData>(nameof(SurfaceCacheCardData.Axis)));
     }
 
@@ -87,17 +101,18 @@ public sealed class SurfaceCacheRadiosityDeviceTests {
         var loader = new EffectLoader(device);
         var effects = new EffectSystem();
 
-        effects.AddProvider(new Compiling(loader, _ => RavenEffects.Only(["Core", "DistanceFields", "SurfaceCache"])));
+        effects.AddProvider(
+            new Compiling(loader, static _ => RavenEffects.Only(["Core", "DistanceFields", "SurfaceCache"]))
+        );
 
         var pipelines = new ComputePipelineCache(device);
 
-        using var light = new SurfaceCacheLightFill(device) {
-            Effects = effects,
-            Pipelines = pipelines,
-            Descriptors = allocator,
-            TowardSun = Vector3.Normalize(new(0.3f, 1f, 0.1f)),
-            SunIrradiance = new(2f, 1.5f, 1f)
-        };
+        using var light = new SurfaceCacheLightFill(device);
+        light.Effects = effects;
+        light.Pipelines = pipelines;
+        light.Descriptors = allocator;
+        light.TowardSun = Vector3.Normalize(new(0.3f, 1f, 0.1f));
+        light.SunIrradiance = new(2f, 1.5f, 1f);
 
         allocator.BeginFrame();
         device.BeginFrame();
@@ -148,16 +163,17 @@ public sealed class SurfaceCacheRadiosityDeviceTests {
         var loader = new EffectLoader(device);
         var effects = new EffectSystem();
 
-        effects.AddProvider(new Compiling(loader, _ => RavenEffects.Only(["Core", "DistanceFields", "SurfaceCache"])));
+        effects.AddProvider(
+            new Compiling(loader, static _ => RavenEffects.Only(["Core", "DistanceFields", "SurfaceCache"]))
+        );
 
         var pipelines = new ComputePipelineCache(device);
 
-        using var gather = new SurfaceCacheGatherFill(device) {
-            Effects = effects,
-            Pipelines = pipelines,
-            Descriptors = allocator,
-            SkyColour = new(0.6f, 0.5f, 0.4f)
-        };
+        using var gather = new SurfaceCacheGatherFill(device);
+        gather.Effects = effects;
+        gather.Pipelines = pipelines;
+        gather.Descriptors = allocator;
+        gather.SkyColour = new(0.6f, 0.5f, 0.4f);
 
         allocator.BeginFrame();
         device.BeginFrame();
@@ -194,7 +210,7 @@ public sealed class SurfaceCacheRadiosityDeviceTests {
 
             for (var y = 0; y < card.Resolution.Y; y++) {
                 for (var x = 0; x < card.Resolution.X; x++) {
-                    var texel = texels[((origin.Y + y) * store.Atlas.Size.X) + origin.X + x];
+                    var texel = texels[(origin.Y + y) * store.Atlas.Size.X + origin.X + x];
 
                     if (!store.IsValid(index, new(x, y))) {
                         continue;
@@ -229,7 +245,7 @@ public sealed class SurfaceCacheRadiosityDeviceTests {
 
         // Sun straight overhead at irradiance π: the floor's direct term is exactly one where the
         // panel does not shadow it, and the panel's underside faces away and gets nothing.
-        var radiosity = new CardRadiosity(world) { Sky = _ => new(0.5f, 0.4f, 0.3f), MaxDistance = 8f };
+        var radiosity = new CardRadiosity(world) { Sky = static _ => new(0.5f, 0.4f, 0.3f), MaxDistance = 8f };
 
         radiosity.Light(store, new(0f, 1f, 0f), new(MathF.PI));
 
@@ -240,19 +256,20 @@ public sealed class SurfaceCacheRadiosityDeviceTests {
         var loader = new EffectLoader(device);
         var effects = new EffectSystem();
 
-        effects.AddProvider(new Compiling(loader, _ => RavenEffects.Only(["Core", "DistanceFields", "SurfaceCache"])));
+        effects.AddProvider(
+            new Compiling(loader, static _ => RavenEffects.Only(["Core", "DistanceFields", "SurfaceCache"]))
+        );
 
         var pipelines = new ComputePipelineCache(device);
 
-        using var gather = new SurfaceCacheGatherFill(device) {
-            Effects = effects,
-            Pipelines = pipelines,
-            Descriptors = allocator,
-            Source = "GlobalDistanceField",
-            CacheSource = MaterialCompiler.SurfaceCacheShader,
-            SkyColour = new(0.5f, 0.4f, 0.3f),
-            MaxDistance = 8f
-        };
+        using var gather = new SurfaceCacheGatherFill(device);
+        gather.Effects = effects;
+        gather.Pipelines = pipelines;
+        gather.Descriptors = allocator;
+        gather.Source = "GlobalDistanceField";
+        gather.CacheSource = MaterialCompiler.SurfaceCacheShader;
+        gather.SkyColour = new(0.5f, 0.4f, 0.3f);
+        gather.MaxDistance = 8f;
 
         allocator.BeginFrame();
         device.BeginFrame();
@@ -263,7 +280,10 @@ public sealed class SurfaceCacheRadiosityDeviceTests {
 
             // After the uploads, because the views have to exist to be written.
             fieldTexture.Apply(gather.Parameters, $"{SurfaceCacheGatherFill.ShaderName}.GlobalDistanceField");
-            texture.Apply(gather.Parameters, $"{SurfaceCacheGatherFill.ShaderName}.{MaterialCompiler.SurfaceCacheShader}");
+            texture.Apply(
+                gather.Parameters,
+                $"{SurfaceCacheGatherFill.ShaderName}.{MaterialCompiler.SurfaceCacheShader}"
+            );
 
             Assert.Equal(store.Cards.Count, gather.Record(commands, texture));
             Assert.True(texture.RecordGatherReadback(commands));
@@ -299,7 +319,7 @@ public sealed class SurfaceCacheRadiosityDeviceTests {
                         continue;
                     }
 
-                    var gpu = texels[((origin.Y + y) * store.Atlas.Size.X) + origin.X + x];
+                    var gpu = texels[(origin.Y + y) * store.Atlas.Size.X + origin.X + x];
                     var cpu = store.Gathered(index, new(x, y));
 
                     worst = MathF.Max(worst, MathF.Abs(gpu.X - cpu.X));
@@ -326,7 +346,10 @@ public sealed class SurfaceCacheRadiosityDeviceTests {
         // And the seam itself carried light both ways: the panel's emissive pulls a floor texel
         // above the sky it would otherwise see, and the lit floor reaches the panel's underside.
         Assert.True(floorLit > 0.6f, $"no floor texel rose above the sky ({floorLit}), so no ray ever read the cache");
-        Assert.True(panelLit > 0.1f, $"the panel's underside saw nothing ({panelLit}), so the lit floor never answered");
+        Assert.True(
+            panelLit > 0.1f,
+            $"the panel's underside saw nothing ({panelLit}), so the lit floor never answered"
+        );
     }
 
     /// <summary>A floor slab under an emissive panel — every capture, both worlds, one store.</summary>
@@ -337,7 +360,7 @@ public sealed class SurfaceCacheRadiosityDeviceTests {
     ///     to a different world than the rays.
     /// </remarks>
     static (SurfaceCacheStore Store, GlobalDistanceField World) Scene() {
-        var world = new GlobalDistanceField(resolution: 48, finestExtent: 4f);
+        var world = new GlobalDistanceField(48, 4f);
 
         world.Update(
             Vector3.Zero,
@@ -377,7 +400,7 @@ public sealed class SurfaceCacheRadiosityDeviceTests {
                     var outside = Vector3.Max(q, Vector3.Zero).Length();
                     var inside = MathF.Min(MathF.Max(q.X, MathF.Max(q.Y, q.Z)), 0f);
 
-                    distances[x + (resolution * (y + (resolution * z)))] = outside + inside;
+                    distances[x + resolution * (y + resolution * z)] = outside + inside;
                 }
             }
         }
@@ -391,7 +414,7 @@ public sealed class SurfaceCacheRadiosityDeviceTests {
 
             for (var y = 0; y < card.Resolution.Y; y++) {
                 for (var x = 0; x < card.Resolution.X; x++) {
-                    var texel = texels[((origin.Y + y) * store.Atlas.Size.X) + origin.X + x];
+                    var texel = texels[(origin.Y + y) * store.Atlas.Size.X + origin.X + x];
 
                     if (!store.IsValid(index, new(x, y))) {
                         continue;

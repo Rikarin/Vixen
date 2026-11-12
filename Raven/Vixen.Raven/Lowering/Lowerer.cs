@@ -8,8 +8,6 @@ using Vixen.Raven.CodeGen;
 using Vixen.Raven.Diagnostics;
 using Vixen.Raven.IR;
 using Vixen.Raven.Symbols;
-using Vixen.Raven.Symbols.Source;
-using Vixen.Raven.Syntax;
 
 namespace Vixen.Raven.Lowering;
 
@@ -99,6 +97,7 @@ public sealed partial class Lowerer {
     ///     </para>
     /// </remarks>
     NamedTypeSymbol? currentSelfType;
+
     IrVariable? selfLocal;
     IrVariable? selfParameter;
     readonly Dictionary<Symbol, IrVariable> variables = [];
@@ -197,7 +196,7 @@ public sealed partial class Lowerer {
         // An open generic is never emitted — only its instantiations are, which is what
         // monomorphisation means and the only thing either target can take.
         var declared = compilation.GetAllTypes();
-        var types = declared.Where(t => t.TypeParameters.Count == 0).ToArray();
+        var types = declared.Where(static t => t.TypeParameters.Count == 0).ToArray();
         var instantiations = PlanInstantiations(declared);
         var link = LinkReferences(types);
 
@@ -399,7 +398,7 @@ public sealed partial class Lowerer {
     ///     Copies one shader's bindings and streams onto another, skipping what it already has.
     /// </summary>
     static void MergeInterface(IrShader target, IrShader source, bool qualify = true) {
-        var present = target.Bindings.Select(binding => binding.Variable).ToHashSet();
+        var present = target.Bindings.Select(static binding => binding.Variable).ToHashSet();
 
         // Continue the target's own numbering. `IrBinding.Slot` counts per kind and is what the
         // verifier checks for duplicates; the (set, binding) pair a backend emits comes from
@@ -452,7 +451,7 @@ public sealed partial class Lowerer {
         // Streams have the same problem for the same reason. Appended, so the consumer's own keep
         // their locations — a stream's location is its index in this list, which is what makes the
         // writing and reading stages agree.
-        var streams = target.Streams.Select(stream => stream.Variable).ToHashSet();
+        var streams = target.Streams.Select(static stream => stream.Variable).ToHashSet();
         foreach (var stream in source.Streams) {
             if (streams.Add(stream.Variable)) {
                 target.Add(stream);
@@ -470,7 +469,8 @@ public sealed partial class Lowerer {
         // selected by the composition and configured by its own key, and hoisting those into the
         // consumer would make one shader's variant space the product of every feature's.
         if (!qualify) {
-            var permutations = target.Permutations.Select(permutation => permutation.Name).ToHashSet(StringComparer.Ordinal);
+            var permutations = target.Permutations.Select(static permutation => permutation.Name)
+                .ToHashSet(StringComparer.Ordinal);
 
             foreach (var permutation in source.Permutations) {
                 if (permutations.Add(permutation.Name)) {
@@ -478,7 +478,8 @@ public sealed partial class Lowerer {
                 }
             }
 
-            var values = target.ValueParameters.Select(parameter => parameter.Name).ToHashSet(StringComparer.Ordinal);
+            var values = target.ValueParameters.Select(static parameter => parameter.Name)
+                .ToHashSet(StringComparer.Ordinal);
 
             foreach (var parameter in source.ValueParameters) {
                 if (values.Add(parameter.Name)) {
@@ -502,7 +503,7 @@ public sealed partial class Lowerer {
     IReadOnlyList<Instantiation> PlanInstantiations(IReadOnlyList<NamedTypeSymbol> declared) {
         monomorphiser = new(member => bodies.GetValueOrDefault(member) ?? (IEnumerable<BoundBody>)[]);
 
-        foreach (var type in declared.Where(t => t.TypeParameters.Count == 0)) {
+        foreach (var type in declared.Where(static t => t.TypeParameters.Count == 0)) {
             monomorphiser.Seed(type);
         }
 
@@ -554,13 +555,11 @@ public sealed partial class Lowerer {
     string Arguments(IReadOnlyList<TypeSymbol> typeArguments) =>
         string.Join(
             "_",
-            typeArguments.Select(
-                a => a is ConstructedNamedTypeSymbol nested ? Flatten(nested) : a.ToDisplayString()
-            )
+            typeArguments.Select(a => a is ConstructedNamedTypeSymbol nested ? Flatten(nested) : a.ToDisplayString())
         );
 
     static string Mangle(string name) =>
-        string.Concat(name.Select(c => char.IsLetterOrDigit(c) || c == '_' ? c : '_'));
+        string.Concat(name.Select(static c => char.IsLetterOrDigit(c) || c == '_' ? c : '_'));
 
     /// <summary>Creates the signatures an instantiation contributes, before any body is lowered.</summary>
     void DeclareInstantiation(Instantiation instantiation) {
@@ -627,7 +626,8 @@ public sealed partial class Lowerer {
 
     /// <summary>The declaring type of a generic method, for the <c>currentType</c> a body is lowered in.</summary>
     static NamedTypeSymbol? ContainerOf(MethodSymbol method) =>
-        method.ContainingSymbol as NamedTypeSymbol ?? (method as SubstitutedMethodSymbol)?.OriginalDefinition
+        method.ContainingSymbol as NamedTypeSymbol
+        ?? (method as SubstitutedMethodSymbol)?.OriginalDefinition
             .ContainingSymbol as NamedTypeSymbol;
 
     void CollectBodies() {
@@ -670,8 +670,12 @@ public sealed partial class Lowerer {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A separate pass for the same reason <see cref="DeclareMemberFunctions" /> is one,
-    ///         and it was missing.</b> A body may read a global belonging to a shader it composes,
+    ///         ⚠
+    ///         <b>
+    ///             A separate pass for the same reason <see cref="DeclareMemberFunctions" /> is one,
+    ///             and it was missing.
+    ///         </b>
+    ///         A body may read a global belonging to a shader it composes,
     ///         and <c>compose</c> puts that shader wherever the author kept it — which for a library
     ///         means a different file, reached in whatever order the file list arrived in. Declaring
     ///         and lowering in one pass made that order load-bearing: lower the composed shader first
@@ -782,7 +786,7 @@ public sealed partial class Lowerer {
         }
 
         var size = Reflection.ShaderLayout
-            .Members([.. constants.Select(c => c.Type)], Reflection.LayoutRule.Std430)
+            .Members([..constants.Select(static c => c.Type)], Reflection.LayoutRule.Std430)
             .Size;
 
         if (size > Guaranteed) {
@@ -916,7 +920,7 @@ public sealed partial class Lowerer {
                 continue;
             }
 
-            var declared = shader.SharedVariables.Select(s => s.Variable).ToHashSet();
+            var declared = shader.SharedVariables.Select(static s => s.Variable).ToHashSet();
 
             foreach (var entryPoint in shader.EntryPoints) {
                 HashSet<IrVariable> touched = [];
@@ -927,7 +931,7 @@ public sealed partial class Lowerer {
 
                 // Declaration order, so a unit's declarations come out in the order the author
                 // wrote them rather than in the order the body happened to reach them.
-                entryPoint.SetSharedVariables([.. shader.SharedVariables.Where(s => touched.Contains(s.Variable))]);
+                entryPoint.SetSharedVariables([..shader.SharedVariables.Where(s => touched.Contains(s.Variable))]);
 
                 if (entryPoint.Stage == ShaderStage.Compute) {
                     continue;
@@ -960,7 +964,7 @@ public sealed partial class Lowerer {
     void ReportBarriersOutsideComputeStages() {
         HashSet<IrFunction> said = [];
 
-        foreach (var entryPoint in module.Shaders.SelectMany(shader => shader.EntryPoints)) {
+        foreach (var entryPoint in module.Shaders.SelectMany(static shader => shader.EntryPoints)) {
             if (entryPoint.Stage == ShaderStage.Compute) {
                 continue;
             }
@@ -1036,9 +1040,6 @@ public sealed partial class Lowerer {
             case IrArrayLengthInstruction length when shared.Contains(length.Place.Root):
                 touched.Add(length.Place.Root);
                 break;
-
-            default:
-                break;
         }
     }
 
@@ -1054,7 +1055,7 @@ public sealed partial class Lowerer {
     void ReportImplicitLodOutsideFragmentStages() {
         HashSet<IrFunction> said = [];
 
-        foreach (var entryPoint in module.Shaders.SelectMany(shader => shader.EntryPoints)) {
+        foreach (var entryPoint in module.Shaders.SelectMany(static shader => shader.EntryPoints)) {
             if (entryPoint.Stage == ShaderStage.Fragment) {
                 continue;
             }
@@ -1080,9 +1081,7 @@ public sealed partial class Lowerer {
             // ⚠ Both, and the second is easy to forget: a shadow lookup takes its level of detail
             // from the quad exactly as a colour sample does, so a `SampleCompare` in a compute
             // stage is the same silently-level-zero module RVN3013 exists to name.
-            IrIntrinsicInstruction {
-                Intrinsic: IrIntrinsic.SampleTexture or IrIntrinsic.SampleTextureCompare
-            } => true,
+            IrIntrinsicInstruction { Intrinsic: IrIntrinsic.SampleTexture or IrIntrinsic.SampleTextureCompare } => true,
             IrBlock block => block.Statements.Any(ContainsImplicitSample),
             IrIfStatement conditional => ContainsImplicitSample(conditional.Then)
                 || (conditional.Else is { } otherwise && ContainsImplicitSample(otherwise)),
@@ -1112,8 +1111,12 @@ public sealed partial class Lowerer {
     /// <remarks>
     ///     <para>
     ///         Runs once the whole module is lowered, because it reads bodies. A stream the stage
-    ///         stores to is an output. A stream is an input only when the stage can <em>read it
-    ///         before writing it</em> — not merely when it reads it somewhere, which is the
+    ///         stores to is an output. A stream is an input only when the stage can
+    ///         <em>
+    ///             read it
+    ///             before writing it
+    ///         </em>
+    ///         — not merely when it reads it somewhere, which is the
     ///         distinction that keeps <c>normalWS = n; return normalWS</c> in a vertex stage from
     ///         declaring a vertex attribute nobody asked for. A read of a stream this stage produces
     ///         resolves to the output variable, which both targets allow: only SPIR-V's
@@ -1139,7 +1142,7 @@ public sealed partial class Lowerer {
                 continue;
             }
 
-            var streams = shader.Streams.Select(stream => stream.Variable).ToHashSet();
+            var streams = shader.Streams.Select(static stream => stream.Variable).ToHashSet();
 
             // Every stage's answer first, because the second half of the question is shader-wide:
             // whether *anything* reads a stream cannot be answered from inside one stage.
@@ -1153,11 +1156,13 @@ public sealed partial class Lowerer {
                 CollectStreamUses(entryPoint.Function.Body, streams, firstUseIsRead, written, []);
 
                 // Declaration order, so the locations a plan assigns come out ascending.
-                resolved.Add((
-                    entryPoint,
-                    [.. shader.Streams.Where(s => firstUseIsRead.GetValueOrDefault(s.Variable))],
-                    [.. shader.Streams.Where(s => written.Contains(s.Variable))]
-                ));
+                resolved.Add(
+                    (
+                        entryPoint,
+                        [..shader.Streams.Where(s => firstUseIsRead.GetValueOrDefault(s.Variable))],
+                        [..shader.Streams.Where(s => written.Contains(s.Variable))]
+                    )
+                );
 
                 foreach (var (variable, isRead) in firstUseIsRead) {
                     if (isRead) {
@@ -1174,7 +1179,7 @@ public sealed partial class Lowerer {
                     ? outputs.Where(s => !readSomewhere.Contains(s.Variable)).ToList()
                     : [];
 
-                entryPoint.SetStreams(inputs, [.. outputs.Except(privates)], privates);
+                entryPoint.SetStreams(inputs, [..outputs.Except(privates)], privates);
 
                 ReportUnusableStreams(shader, entryPoint);
                 ReportUnconsumedStreams(shader, entryPoint);
@@ -1229,7 +1234,7 @@ public sealed partial class Lowerer {
                 }
 
                 entryPoint.SetOutputs(
-                    [.. entryPoint.Outputs.Where(output => output.Member is { } member && written.Contains(member))]
+                    [..entryPoint.Outputs.Where(output => output.Member is { } member && written.Contains(member))]
                 );
             }
         }
@@ -1241,7 +1246,12 @@ public sealed partial class Lowerer {
     ///     a copy, a call result — sets <paramref name="wholesale" /> instead, because what such a
     ///     value carries in each member is not visible from here and guessing would drop targets.
     /// </remarks>
-    static void CollectTargetWrites(IrStatement statement, IrStructType targets, HashSet<int> written, ref bool wholesale) {
+    static void CollectTargetWrites(
+        IrStatement statement,
+        IrStructType targets,
+        HashSet<int> written,
+        ref bool wholesale
+    ) {
         switch (statement) {
             case IrBlock block:
                 foreach (var nested in block.Statements) {
@@ -1324,7 +1334,7 @@ public sealed partial class Lowerer {
                 // Indexed by position, because an input is its parameter: `BuildEntryPoint` pairs
                 // them off one for one and every consumer reads them the same way round.
                 entryPoint.SetInputsRead(
-                    [.. Enumerable.Range(0, entryPoint.Inputs.Count).Select(i => touched.Contains(parameters[i]))]
+                    [..Enumerable.Range(0, entryPoint.Inputs.Count).Select(i => touched.Contains(parameters[i]))]
                 );
             }
         }
@@ -1389,9 +1399,6 @@ public sealed partial class Lowerer {
                 }
 
                 break;
-
-            default:
-                break;
         }
     }
 
@@ -1401,8 +1408,11 @@ public sealed partial class Lowerer {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The reason "nobody in this shader reads it" is not on its own enough to make a
-    ///         stream private, and the engine's own two most-shipped modules are why.</b>
+    ///         ⚠
+    ///         <b>
+    ///             The reason "nobody in this shader reads it" is not on its own enough to make a
+    ///             stream private, and the engine's own two most-shipped modules are why.
+    ///         </b>
     ///         <c>Platform/Vixen.Ui.Desktop/Shaders/Ui.rvn</c> declares <c>UiVertex</c> with a
     ///         vertex stage and seven fragment shaders beside it, and
     ///         <c>Editor/Vixen.Editor.Host/Shaders/Line.rvn</c> splits <c>LineVertex</c> from
@@ -1517,7 +1527,7 @@ public sealed partial class Lowerer {
     void ReportDiscardsOutsideFragmentStages() {
         HashSet<IrFunction> said = [];
 
-        foreach (var entryPoint in module.Shaders.SelectMany(shader => shader.EntryPoints)) {
+        foreach (var entryPoint in module.Shaders.SelectMany(static shader => shader.EntryPoints)) {
             if (entryPoint.Stage == ShaderStage.Fragment) {
                 continue;
             }
@@ -1586,14 +1596,14 @@ public sealed partial class Lowerer {
                 break;
 
             case IrLoadInstruction load when streams.Contains(load.Place.Root):
-                Note(load.Place.Root, isRead: true);
+                Note(load.Place.Root, true);
                 break;
 
             case IrStoreInstruction store when streams.Contains(store.Place.Root):
                 // A partial write — one lane of a vector, one column of a matrix — keeps the rest
                 // of the value, so it reads before it writes. Saying so here rather than in each
                 // backend keeps the two agreeing about what the interface is.
-                Note(store.Place.Root, isRead: store.Place.Chain.Count > 0);
+                Note(store.Place.Root, store.Place.Chain.Count > 0);
                 written.Add(store.Place.Root);
                 break;
 
@@ -1632,8 +1642,7 @@ public sealed partial class Lowerer {
 
     static IrEntryPoint BuildEntryPoint(MethodSymbol method, IrFunction function) {
         var inputs = method.Parameters
-            .Select(
-                (p, i) => new IrStageIo(
+            .Select((p, i) => new IrStageIo(
                     p.Name,
                     function.Parameters[i].Type,
                     p.SemanticName,
@@ -1678,8 +1687,12 @@ public sealed partial class Lowerer {
         }
 
         return [
-            .. targets.Fields.Select(
-                (field, index) => new IrStageIo(field.Name, field.Type, $"SV_Target{index}", index)
+            ..targets.Fields.Select(static (field, index) => new IrStageIo(
+                    field.Name,
+                    field.Type,
+                    $"SV_Target{index}",
+                    index
+                )
             )
         ];
     }
@@ -1742,7 +1755,7 @@ public sealed partial class Lowerer {
             }
         }
 
-        structs[type].SetFields(fields.ToArray());
+        structs[type].SetFields([..fields]);
     }
 
     void LowerStruct(NamedTypeSymbol type) {
@@ -1831,7 +1844,7 @@ public sealed partial class Lowerer {
         currentSelfType ??= type;
 
         try {
-            foreach (var (name, member, body) in MemberBodies(type, report: true)) {
+            foreach (var (name, member, body) in MemberBodies(type, true)) {
                 add(LowerFunction(name, body, member, type, SelfTypeFor(body, selfType)));
             }
         } finally {
@@ -1869,7 +1882,7 @@ public sealed partial class Lowerer {
         currentSelfType ??= type;
 
         try {
-            foreach (var (name, member, body) in MemberBodies(type, report: false)) {
+            foreach (var (name, member, body) in MemberBodies(type, false)) {
                 DeclareFunction(name, body, member, type, SelfTypeFor(body, selfType));
             }
         } finally {
@@ -1899,9 +1912,7 @@ public sealed partial class Lowerer {
         // property, whose `member` is the property and whose accessor is the body's.
         var declaration = member as MethodSymbol ?? body.Member as MethodSymbol;
 
-        var function = new IrFunction(name, returnType) {
-            NoContraction = declaration?.NoContraction ?? false
-        };
+        var function = new IrFunction(name, returnType) { NoContraction = declaration?.NoContraction ?? false };
 
         IrVariable? shellSelfParameter = null;
         IrVariable? shellSelfLocal = null;
@@ -1928,7 +1939,7 @@ public sealed partial class Lowerer {
             );
         }
 
-        var shell = new FunctionShell(function, shellSelfParameter, shellSelfLocal, [.. parameters]);
+        var shell = new FunctionShell(function, shellSelfParameter, shellSelfLocal, [..parameters]);
 
         // A copy emitted for a type that did not declare the member is keyed by the pair, because
         // the member symbol alone already names the base's own function.
@@ -1943,7 +1954,13 @@ public sealed partial class Lowerer {
         shells[(key, body.Kind)] = shell;
     }
 
-    IrFunction LowerFunction(string name, BoundBody body, Symbol member, NamedTypeSymbol? type, IrStructType? selfType) {
+    IrFunction LowerFunction(
+        string name,
+        BoundBody body,
+        Symbol member,
+        NamedTypeSymbol? type,
+        IrStructType? selfType
+    ) {
         var constructsSelf = body.Kind == BoundBodyKind.Constructor && selfType is not null;
         var shell = IsInheritedCopy(member, type)
             ? inheritedShells[(type!, member, body.Kind)]

@@ -18,7 +18,7 @@
 # delete the rule, as `palette-row > text` was.
 #
 # ⚠ The list can only SHRINK. A row that becomes proved fails this test exactly as a new unproved
-# pairing does — the same bargain `WhitespaceExempt.txt` and `RefusalExpiry.txt` make, and the reason
+# pairing does — the same bargain `DocCommentExempt.txt` and `RefusalExpiry.txt` make, and the reason
 # is that an expiry list nobody prunes is a list that stops describing anything.
 #
 # What this gate is worth, said plainly: it catches the `compositor-editor > node-canvas` class of

@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core;
-using Vixen.Core.Mathematics;
 using Vixen.Ecs;
 using Vixen.Editor.Core;
 using Vixen.Editor.Core.Scenes;
@@ -57,7 +56,7 @@ public class PrefabSerializationTests : IDisposable {
 
     /// <summary>One lit entity that says it came from a prefab.</summary>
     Entity Linked(EntityId source, float intensity, params string[] claimed) {
-        var entity = scene.Add("Lamp", LocalTransform.At(new Vector3(1f, 2f, 3f)));
+        var entity = scene.Add("Lamp", LocalTransform.At(new(1f, 2f, 3f)));
 
         Lights.Attach(world, entity, LightKind.Point);
         scene.World.Get<Light>(entity).Intensity = intensity;
@@ -202,13 +201,11 @@ public class PrefabSerializationTests : IDisposable {
     [Fact]
     public void HalfALinkIsNotReadAsAnInstance() {
         var half = new SceneFile {
-            Name = "Level",
-            Roots = [new() { Id = EntityId.New(), Name = "Lamp", Prefab = TurretReference }]
+            Name = "Level", Roots = [new() { Id = EntityId.New(), Name = "Lamp", Prefab = TurretReference }]
         };
 
         var second = new SceneFile {
-            Name = "Level",
-            Roots = [new() { Id = EntityId.New(), Name = "Lamp", Source = EntityId.New() }]
+            Name = "Level", Roots = [new() { Id = EntityId.New(), Name = "Lamp", Source = EntityId.New() }]
         };
 
         foreach (var file in new[] { half, second }) {

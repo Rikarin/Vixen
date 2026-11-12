@@ -37,8 +37,12 @@ public class DensityFieldTests {
 
     /// <summary>Adaptivity above zero makes the target shorter where the surface bends more.</summary>
     /// <remarks>
-    ///     ⚠ <b>A rounded plate rather than a capsule, and the reason is a nice illustration of what
-    ///     the curvature magnitude is.</b> A capsule's largest principal curvature is the reciprocal
+    ///     ⚠
+    ///     <b>
+    ///         A rounded plate rather than a capsule, and the reason is a nice illustration of what
+    ///         the curvature magnitude is.
+    ///     </b>
+    ///     A capsule's largest principal curvature is the reciprocal
     ///     of its radius on the hemispheres <i>and</i> on the cylinder between them, so it is uniform
     ///     from end to end and there is nothing to compare — which is exactly why the fixture had to
     ///     change rather than the assertion.
@@ -118,11 +122,19 @@ public class DensityFieldTests {
     ///         and looks like a working feature. <see cref="DensityField.Resample" /> is the way across.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>This asserted that a uniform mask of two halves every target, and that stopped
-    ///         being true when <c>base</c> started being solved from the budget rather than assumed from
-    ///         the area.</b> The mask is one of the three terms § D9 multiplies together and
-    ///         <c>DensityField.Normalise</c> divides all three back out, so <b>a uniform mask is
-    ///         now exactly a no-op</b> — the budget is the budget, and a mask that says "twice as dense
+    ///         ⚠
+    ///         <b>
+    ///             This asserted that a uniform mask of two halves every target, and that stopped
+    ///             being true when <c>base</c> started being solved from the budget rather than assumed from
+    ///             the area.
+    ///         </b>
+    ///         The mask is one of the three terms § D9 multiplies together and
+    ///         <c>DensityField.Normalise</c> divides all three back out, so
+    ///         <b>
+    ///             a uniform mask is
+    ///             now exactly a no-op
+    ///         </b>
+    ///         — the budget is the budget, and a mask that says "twice as dense
     ///         everywhere" says nothing. It is <i>where</i> the mask varies that moves quads, and a
     ///         painted region is paid for by the unpainted ones. That is the behaviour asserted here,
     ///         and it is a change in what the setting means rather than a tolerance being loosened.
@@ -136,7 +148,7 @@ public class DensityFieldTests {
         var curvature = CurvatureField.Build(mesh);
 
         var plain = DensityField.Build(mesh, settings, features, curvature);
-        var flat = DensityField.Build(mesh, settings, features, curvature, [.. Enumerable.Repeat(2f, mesh.VertexCount)]);
+        var flat = DensityField.Build(mesh, settings, features, curvature, [..Enumerable.Repeat(2f, mesh.VertexCount)]);
         var wrong = DensityField.Build(mesh, settings, features, curvature, [1f, 1f, 1f]);
 
         for (var vertex = 0; vertex < mesh.VertexCount; vertex++) {
@@ -181,7 +193,7 @@ public class DensityFieldTests {
         var mask = new float[source.PositionCount];
 
         for (var position = 0; position < mask.Length; position++) {
-            mask[position] = 1f + ((source.Positions[position].X - box.Minimum.X) / span);
+            mask[position] = 1f + (source.Positions[position].X - box.Minimum.X) / span;
         }
 
         var resampled = DensityField.Resample(source.Positions, indices, mask, mesh);
@@ -189,7 +201,7 @@ public class DensityFieldTests {
         Assert.Equal(mesh.VertexCount, resampled.Length);
 
         for (var vertex = 0; vertex < mesh.VertexCount; vertex++) {
-            var expected = 1f + ((mesh.Positions[vertex].X - box.Minimum.X) / span);
+            var expected = 1f + (mesh.Positions[vertex].X - box.Minimum.X) / span;
 
             Assert.True(
                 MathF.Abs(resampled[vertex] - expected) < 0.05f,
@@ -213,8 +225,18 @@ public class DensityFieldTests {
         var small = FieldFixtures.Scaled(mesh, 1e-3f);
         var large = FieldFixtures.Scaled(mesh, 1e+3f);
 
-        var one = DensityField.Build(small, settings, FeatureDetector.Detect(small, settings), CurvatureField.Build(small));
-        var two = DensityField.Build(large, settings, FeatureDetector.Detect(large, settings), CurvatureField.Build(large));
+        var one = DensityField.Build(
+            small,
+            settings,
+            FeatureDetector.Detect(small, settings),
+            CurvatureField.Build(small)
+        );
+        var two = DensityField.Build(
+            large,
+            settings,
+            FeatureDetector.Detect(large, settings),
+            CurvatureField.Build(large)
+        );
 
         for (var vertex = 0; vertex < mesh.VertexCount; vertex++) {
             var expected = one.Target(vertex) * 1e+6f;

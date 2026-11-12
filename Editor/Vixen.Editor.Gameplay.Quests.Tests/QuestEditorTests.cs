@@ -55,10 +55,7 @@ static class Content {
         new() {
             DisplayName = "A Prologue",
             Stages = [
-                new() {
-                    Id = "hunt",
-                    Objectives = [new() { Type = "Kill", DisplayName = "Skeletons", Count = 3 }]
-                }
+                new() { Id = "hunt", Objectives = [new() { Type = "Kill", DisplayName = "Skeletons", Count = 3 }] }
             ]
         };
 }
@@ -73,7 +70,7 @@ public class QuestModelTests {
 
         Assert.Equal(1, model.AddStage());
         Assert.Equal(0, model.AddObjective(1, new() { Type = "Collect", Count = 4 }));
-        Assert.True(model.Edit(1, 0, objective => objective.Count = 9));
+        Assert.True(model.Edit(1, 0, static objective => objective.Count = 9));
         Assert.True(model.MoveStage(1, 0));
         Assert.True(model.RemoveObjective(0, 0));
         Assert.True(model.RemoveStage(0));
@@ -92,7 +89,7 @@ public class QuestModelTests {
         Assert.False(model.RemoveStage(9));
         Assert.Equal(-1, model.AddObjective(9));
         Assert.False(model.RemoveObjective(0, 9));
-        Assert.False(model.Edit(9, 0, _ => { }));
+        Assert.False(model.Edit(9, 0, static _ => { }));
         Assert.False(model.MoveStage(0, 0));
         Assert.Equal(0, changes);
     }
@@ -103,7 +100,7 @@ public class QuestModelTests {
         var model = new QuestModel(quest);
         var snapshot = model.Snapshot();
 
-        model.Edit(0, 0, objective => objective.Count = 99);
+        model.Edit(0, 0, static objective => objective.Count = 99);
         model.AddStage();
 
         Assert.Equal(99, model.Quest.Stages[0].Objectives[0].Count);
@@ -116,9 +113,12 @@ public class QuestModelTests {
 
     [Fact]
     public void AQuestWithNoStagesIsAProblem() {
-        var model = new QuestModel(new QuestDefinition());
+        var model = new QuestModel(new());
 
-        Assert.Contains(model.Validate(), problem => problem.Stage == -1 && problem.Message.Contains("no stages", StringComparison.Ordinal));
+        Assert.Contains(
+            model.Validate(),
+            static problem => problem.Stage == -1 && problem.Message.Contains("no stages", StringComparison.Ordinal)
+        );
     }
 
     [Fact]
@@ -129,7 +129,11 @@ public class QuestModelTests {
 
         var problems = new QuestModel(quest).Validate();
 
-        Assert.Contains(problems, problem => problem is { Stage: 0, Objective: 0 } && problem.Message.Contains("Yodel", StringComparison.Ordinal));
+        Assert.Contains(
+            problems,
+            static problem => problem is { Stage: 0, Objective: 0 }
+                && problem.Message.Contains("Yodel", StringComparison.Ordinal)
+        );
     }
 
     [Fact]
@@ -138,7 +142,10 @@ public class QuestModelTests {
 
         quest.Stages[0].Objectives[0].Optional = true;
 
-        Assert.Contains(new QuestModel(quest).Validate(), problem => problem.Message.Contains("optional", StringComparison.Ordinal));
+        Assert.Contains(
+            new QuestModel(quest).Validate(),
+            static problem => problem.Message.Contains("optional", StringComparison.Ordinal)
+        );
     }
 
     [Fact]
@@ -147,7 +154,10 @@ public class QuestModelTests {
 
         quest.Rewards.Choices = [new() { Def = "items/sword" }];
 
-        Assert.Contains(new QuestModel(quest).Validate(), problem => problem.Message.Contains("not a choice", StringComparison.Ordinal));
+        Assert.Contains(
+            new QuestModel(quest).Validate(),
+            static problem => problem.Message.Contains("not a choice", StringComparison.Ordinal)
+        );
     }
 
     [Fact]
@@ -197,10 +207,7 @@ public class EventChainTests {
                 )
                 .Add(
                     "events/second",
-                    new DynamicEventDefinition {
-                        Duration = 10f,
-                        Objectives = [new() { Type = "Interact", Count = 1 }]
-                    }
+                    new DynamicEventDefinition { Duration = 10f, Objectives = [new() { Type = "Interact", Count = 1 }] }
                 )
                 .Build()
         );
@@ -223,9 +230,9 @@ public class EventChainTests {
         Assert.True(chain.IsCyclic);
         Assert.Contains(
             chain.BackEdges,
-            edge => edge.From == DefId.From(Content.Retake) && edge.To == DefId.From(Content.Defence)
+            static edge => edge.From == DefId.From(Content.Retake) && edge.To == DefId.From(Content.Defence)
         );
-        Assert.DoesNotContain(chain.TreeEdges, edge => edge.To == DefId.From(Content.Defence));
+        Assert.DoesNotContain(chain.TreeEdges, static edge => edge.To == DefId.From(Content.Defence));
     }
 
     [Fact]
@@ -321,8 +328,8 @@ public class EventChainProjectionTests {
 
         var retake = projection.BoxOf(DefId.From(Content.Retake))!;
 
-        Assert.Contains(retake.Attachments, attachment => attachment.Kind == "loop");
-        Assert.Contains(retake.Attachments, attachment => attachment.Kind == "missing");
+        Assert.Contains(retake.Attachments, static attachment => attachment.Kind == "loop");
+        Assert.Contains(retake.Attachments, static attachment => attachment.Kind == "missing");
     }
 
     [Fact]
@@ -367,8 +374,11 @@ public class EventChainProjectionTests {
 
         var defence = projection.BoxOf(DefId.From(Content.Defence))!;
 
-        Assert.Contains(defence.Attachments, attachment => attachment is { Kind: "objective", Text: "Bandits", Detail: "×10" });
-        Assert.Contains(defence.Attachments, attachment => attachment is { Kind: "timer", Detail: "60 s" });
+        Assert.Contains(
+            defence.Attachments,
+            static attachment => attachment is { Kind: "objective", Text: "Bandits", Detail: "×10" }
+        );
+        Assert.Contains(defence.Attachments, static attachment => attachment is { Kind: "timer", Detail: "60 s" });
     }
 
     [Fact]
@@ -382,8 +392,8 @@ public class EventChainProjectionTests {
         using var director = new DynamicEventDirector(library, bus);
         var instance = director.Begin(DefId.From(Content.Defence))!;
 
-        instance.Contribute(new PlayerId(1), 5);
-        instance.Contribute(new PlayerId(2), 5);
+        instance.Contribute(new(1), 5);
+        instance.Contribute(new(2), 5);
 
         Assert.Equal(1, projection.Live(director));
 

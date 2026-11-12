@@ -46,7 +46,7 @@ public sealed class WorldTests {
 
     [Fact]
     public void EveryCampFillsOnTheFirstTickAndTheCounterSaysSo() {
-        var world = new WorldSpawns(Camps(4), seed: 7);
+        var world = new WorldSpawns(Camps(4), 7);
 
         Assert.Equal(4, world.Camps);
         Assert.Equal(0, world.Alive);
@@ -62,7 +62,7 @@ public sealed class WorldTests {
     public void AFullWorldIssuesNothingAndThatIsTheCheapPath() {
         // ⚠ The property that makes ticking every camp every frame affordable at all: a camp nothing
         // has killed does no work. A shard with no players costs nothing here.
-        var world = new WorldSpawns(Camps(4), seed: 7);
+        var world = new WorldSpawns(Camps(4), 7);
 
         world.Tick(0f);
 
@@ -73,11 +73,11 @@ public sealed class WorldTests {
 
     [Fact]
     public void SomethingThatDiedComesBackOnItsTableClockAndNotBefore() {
-        var world = new WorldSpawns(Camps(1), seed: 7);
+        var world = new WorldSpawns(Camps(1), 7);
 
         world.Tick(0f);
 
-        Assert.True(world.Died(camp: 0, slot: 1, now: 5f));
+        Assert.True(world.Died(0, 1, 5f));
         Assert.Equal(2, world.Alive);
 
         // Ten seconds after the death, not after the tick that noticed it — so a server that fell
@@ -89,12 +89,12 @@ public sealed class WorldTests {
 
     [Fact]
     public void ADeathInACampThatIsNotThereIsRefusedRatherThanIgnored() {
-        var world = new WorldSpawns(Camps(1), seed: 7);
+        var world = new WorldSpawns(Camps(1), 7);
 
         world.Tick(0f);
 
-        Assert.False(world.Died(camp: 9, slot: 0, now: 1f));
-        Assert.False(world.Died(camp: 0, slot: 9, now: 1f));
+        Assert.False(world.Died(9, 0, 1f));
+        Assert.False(world.Died(0, 9, 1f));
     }
 
     [Fact]
@@ -102,8 +102,8 @@ public sealed class WorldTests {
         // ⚠ What makes a spawn bug reportable rather than an anecdote, and what a shard restarted on
         // the same spec relies on. The orders are compared, not just the count: a different creature
         // in the same slot is the interesting failure.
-        var one = new WorldSpawns(Camps(3), seed: 0x50AC);
-        var two = new WorldSpawns(Camps(3), seed: 0x50AC);
+        var one = new WorldSpawns(Camps(3), 0x50AC);
+        var two = new WorldSpawns(Camps(3), 0x50AC);
 
         one.Tick(0f);
         two.Tick(0f);
@@ -120,7 +120,7 @@ public sealed class WorldTests {
 
         Assert.Empty(libraries.Problems);
 
-        realm.Compose(libraries, ImmutableArray<string>.Empty, seed: 0x50AC);
+        realm.Compose(libraries, ImmutableArray<string>.Empty, 0x50AC);
 
         Assert.NotNull(realm.Libraries);
         Assert.NotNull(realm.Spawns);
@@ -129,7 +129,7 @@ public sealed class WorldTests {
 
         // OnRealmUpdate is protected; Update is what the host calls, and driving it is what makes
         // this a test of the realm rather than of the field it holds.
-        realm.Tick(seconds: 0);
+        realm.Tick(0);
 
         Assert.Equal(3, realm.Spawns.Issued);
     }
@@ -142,11 +142,10 @@ public sealed class WorldTests {
         // files, labelled `definitions`, none of which read as one.
         var realm = new MmoRealm();
 
-        var refusal = Assert.Throws<InvalidOperationException>(
-            () => realm.Compose(
+        var refusal = Assert.Throws<InvalidOperationException>(() => realm.Compose(
                 MmoLibraries.Load([]),
                 ["'maps/greenmarch' is labelled a definition and did not read as one."],
-                seed: 0
+                0
             )
         );
 

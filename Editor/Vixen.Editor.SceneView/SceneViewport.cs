@@ -4,7 +4,6 @@
 using Vixen.Authoring;
 using Vixen.Core.Mathematics;
 using Vixen.Editor.Core;
-using Vixen.Geometry;
 using Vixen.Input;
 using Vixen.Rendering;
 using Vixen.Rendering.Ecs;
@@ -180,8 +179,12 @@ public sealed class SceneViewport : IDisposable, IViewportPane {
 
     /// <summary>Where the pointer last was, in document coordinates.</summary>
     /// <remarks>
-    ///     ⚠ <b>Document coordinates, where <see cref="pointer" /> beside it is render pixels, and
-    ///     both are needed.</b> A pick and a zoom want the render point, because that is the space
+    ///     ⚠
+    ///     <b>
+    ///         Document coordinates, where <see cref="pointer" /> beside it is render pixels, and
+    ///         both are needed.
+    ///     </b>
+    ///     A pick and a zoom want the render point, because that is the space
     ///     the camera and the picking target are in; anything that has to <i>put a control there</i>
     ///     — a pie menu at the cursor, a context menu at the cursor — wants the space the interface
     ///     is laid out in, and converting back would mean undoing a render-scale that is not
@@ -192,12 +195,13 @@ public sealed class SceneViewport : IDisposable, IViewportPane {
     ///     </para>
     /// </remarks>
     public Vector2 PointerPosition {
-        get => moved
-            ? field
-            : new Vector2(
-                Control.Bounds.X + (Control.Bounds.Width * 0.5f),
-                Control.Bounds.Y + (Control.Bounds.Height * 0.5f)
-            );
+        get =>
+            moved
+                ? field
+                : new Vector2(
+                    Control.Bounds.X + (Control.Bounds.Width * 0.5f),
+                    Control.Bounds.Y + (Control.Bounds.Height * 0.5f)
+                );
 
         private set;
     }
@@ -207,7 +211,7 @@ public sealed class SceneViewport : IDisposable, IViewportPane {
     /// <summary>The control the scene is drawn in.</summary>
     public ViewportControl Control { get; }
 
-    /// <summary>Where the camera is looking.</summary>
+    /// <inheritdoc />
     public EditorCamera Camera { get; } = new();
 
     /// <summary>The handles over the selection.</summary>
@@ -259,8 +263,12 @@ public sealed class SceneViewport : IDisposable, IViewportPane {
 
     /// <summary>How far the wheel scrolls in one notch, in device-independent pixels.</summary>
     /// <remarks>
-    ///     ⚠ <b>The wheel arrives in pixels and the camera zooms in notches, and the conversion has
-    ///     to happen somewhere.</b> <c>WheelEvent</c> carries a distance the backend has already
+    ///     ⚠
+    ///     <b>
+    ///         The wheel arrives in pixels and the camera zooms in notches, and the conversion has
+    ///         to happen somewhere.
+    ///     </b>
+    ///     <c>WheelEvent</c> carries a distance the backend has already
     ///     resolved from the device and the machine's settings — see its own remarks for why a
     ///     framework must not invent that number — while <see cref="EditorCamera.ZoomSpeed" /> is a
     ///     fraction of the distance <i>per notch</i>. Handing one straight to the other is a zoom of
@@ -311,8 +319,12 @@ public sealed class SceneViewport : IDisposable, IViewportPane {
 
     /// <summary>What can answer "what is under this ray", for placement and for snapping.</summary>
     /// <remarks>
-    ///     ⚠ <b><see cref="ISceneProbe" /> rather than <c>ISurfaceProbe</c>, and the difference is the
-    ///     exclusion.</b> A drop asks about a scene it is not yet part of; a <i>drag</i> asks about a
+    ///     ⚠
+    ///     <b>
+    ///         <see cref="ISceneProbe" /> rather than <c>ISurfaceProbe</c>, and the difference is the
+    ///         exclusion.
+    ///     </b>
+    ///     A drop asks about a scene it is not yet part of; a <i>drag</i> asks about a
     ///     scene the dragged object is in the middle of, and a probe that could not be told to leave
     ///     it out would answer with the object's own surface for the whole of every drag — a snap that
     ///     never moves. Nothing is lost: <see cref="Drop" /> hands this straight to
@@ -323,8 +335,12 @@ public sealed class SceneViewport : IDisposable, IViewportPane {
     /// <summary>Where the geometry a <c>MeshRenderable</c> names comes from, for the lines that need its size.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>On the pane rather than on <see cref="SceneLines" />, and the reason is who has to
-    ///         see it.</b> Two presenters draw a pane — <c>ScenePresenter</c> over the editor's own
+    ///         ⚠
+    ///         <b>
+    ///             On the pane rather than on <see cref="SceneLines" />, and the reason is who has to
+    ///             see it.
+    ///         </b>
+    ///         Two presenters draw a pane — <c>ScenePresenter</c> over the editor's own
     ///         shapes and <c>FramePresenter</c> over a composed frame — and each holds a
     ///         <see cref="SceneLines" /> of its own. Anything hung on one of those appears in one
     ///         pane's worth of the editor and silently not in the other, which is the shape of the
@@ -358,8 +374,12 @@ public sealed class SceneViewport : IDisposable, IViewportPane {
 
     /// <summary>The tape measure: click two points and read the distance, three and read the angle.</summary>
     /// <remarks>
-    ///     ⚠ <b>Inactive until a command turns it on, and while it is on a click measures rather than
-    ///     selects.</b> That is a mode in everything but name, and it is deliberately not one: it takes
+    ///     ⚠
+    ///     <b>
+    ///         Inactive until a command turns it on, and while it is on a click measures rather than
+    ///         selects.
+    ///     </b>
+    ///     That is a mode in everything but name, and it is deliberately not one: it takes
     ///     the primary button and gives it straight back, so <c>Shift+M</c> twice is the whole of its
     ///     life cycle and nothing has to be entered or left.
     /// </remarks>
@@ -370,8 +390,12 @@ public sealed class SceneViewport : IDisposable, IViewportPane {
 
     /// <summary>The exact transform being typed, if one is.</summary>
     /// <remarks>
-    ///     ⚠ <b>Doc 24's <c>G X 5 ⏎</c>, and it lives on the pane rather than on the gizmo because it
-    ///     is about the keyboard.</b> The gizmo is arithmetic over targets and has never heard of a
+    ///     ⚠
+    ///     <b>
+    ///         Doc 24's <c>G X 5 ⏎</c>, and it lives on the pane rather than on the gizmo because it
+    ///         is about the keyboard.
+    ///     </b>
+    ///     The gizmo is arithmetic over targets and has never heard of a
     ///     key; this reads them while a drag is in flight, and what it hands over is the magnitude the
     ///     drag applies instead of the pointer's. <see cref="NumericEntry.Text" /> is what a readout
     ///     draws.
@@ -380,8 +404,12 @@ public sealed class SceneViewport : IDisposable, IViewportPane {
 
     /// <summary>What answers "which face of this mesh", or <see langword="null" /> for nothing.</summary>
     /// <remarks>
-    ///     ⚠ <b>A third question beside <see cref="Picker" /> and <see cref="Surfaces" /> rather than
-    ///     a mode of either, and doc 24's B4 is the argument.</b> Sub-object selection asks about one
+    ///     ⚠
+    ///     <b>
+    ///         A third question beside <see cref="Picker" /> and <see cref="Surfaces" /> rather than
+    ///         a mode of either, and doc 24's B4 is the argument.
+    ///     </b>
+    ///     Sub-object selection asks about one
     ///     entity's geometry, answers with an index into a table, and needs a tolerance in pixels
     ///     because a vertex has no area — none of which "which entity is under this ray" has an
     ///     opinion about. Null leaves <see cref="PickSubObject" /> answering nothing, which is every
@@ -392,8 +420,12 @@ public sealed class SceneViewport : IDisposable, IViewportPane {
     /// <summary>Which mesh this pane is editing the elements of, or <see langword="null" /> for none.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>One per editor and shared by every pane, exactly as <see cref="Gizmo" />'s snap
-    ///         context is.</b> Selecting a face in the perspective view and seeing it highlighted in
+    ///         ⚠
+    ///         <b>
+    ///             One per editor and shared by every pane, exactly as <see cref="Gizmo" />'s snap
+    ///             context is.
+    ///         </b>
+    ///         Selecting a face in the perspective view and seeing it highlighted in
     ///         the top view is what every reference toolset does; one per pane would be four selections
     ///         of one mesh with nothing reconciling them.
     ///     </para>
@@ -407,8 +439,12 @@ public sealed class SceneViewport : IDisposable, IViewportPane {
     /// <summary>The contributed per-component gizmos, or <see langword="null" /> for none.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>On the pane rather than on <see cref="SceneLines" />, and the reason is who can
-    ///         reach what.</b> A <see cref="ComponentGizmos" /> needs the component bridges, which the
+    ///         ⚠
+    ///         <b>
+    ///             On the pane rather than on <see cref="SceneLines" />, and the reason is who can
+    ///             reach what.
+    ///         </b>
+    ///         A <see cref="ComponentGizmos" /> needs the component bridges, which the
     ///         application assembles from the behaviour store; the <see cref="SceneLines" /> that
     ///         draws with it is owned by the presenter, which the *executable* builds and which
     ///         deliberately cannot see the application. The pane is the one object both ends already
@@ -432,16 +468,24 @@ public sealed class SceneViewport : IDisposable, IViewportPane {
     ///         nowhere in a pane for them to come out.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A list this pane reads rather than a delegate it calls, unlike
-    ///         <see cref="Gizmos" /> and <see cref="Cursor" /> above.</b> The geometry is produced
+    ///         ⚠
+    ///         <b>
+    ///             A list this pane reads rather than a delegate it calls, unlike
+    ///             <see cref="Gizmos" /> and <see cref="Cursor" /> above.
+    ///         </b>
+    ///         The geometry is produced
     ///         once per frame by the session's loop — which runs before any pane uploads and does not
     ///         know how many panes there are — so four panes calling a producer would either draw a
     ///         frame apiece or draw the same one four times. What every pane wants is the one list
     ///         the frame already made.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Into <see cref="SceneLines" />'s depth-tested channel, which is the same choice
-    ///         the water diagnostics made and for the same reason.</b> A collider behind a wall is
+    ///         ⚠
+    ///         <b>
+    ///             Into <see cref="SceneLines" />'s depth-tested channel, which is the same choice
+    ///             the water diagnostics made and for the same reason.
+    ///         </b>
+    ///         A collider behind a wall is
     ///         behind the wall: these describe places in the world rather than handles you have to be
     ///         able to reach through it.
     ///     </para>
@@ -457,8 +501,11 @@ public sealed class SceneViewport : IDisposable, IViewportPane {
     /// <summary>What the active mode draws under the pointer, or <see langword="null" /> for nothing.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>The hover cursor: a brush ring, a placement footprint, whatever the mode wants to
-    ///         promise the next click will do.</b> Without it every stroke is discovered by making it
+    ///         <b>
+    ///             The hover cursor: a brush ring, a placement footprint, whatever the mode wants to
+    ///             promise the next click will do.
+    ///         </b>
+    ///         Without it every stroke is discovered by making it
     ///         and looking at the result.
     ///     </para>
     ///     <para>
@@ -469,8 +516,12 @@ public sealed class SceneViewport : IDisposable, IViewportPane {
     ///         <see cref="Gizmos" /> makes one property above.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A delegate rather than an interface, and it draws into <see cref="SceneLines" />'s
-    ///         <i>overlay</i> channel.</b> A cursor conformed to the surface it is lying on is
+    ///         ⚠
+    ///         <b>
+    ///             A delegate rather than an interface, and it draws into <see cref="SceneLines" />'s
+    ///             <i>overlay</i> channel.
+    ///         </b>
+    ///         A cursor conformed to the surface it is lying on is
     ///         coplanar with it, and coplanar geometry in the depth-tested channel z-fights — the ring
     ///         would come and go in bands as the camera moved. A hover cursor also has to be visible
     ///         to be worth having: one hidden by the hill it is behind is one the user cannot aim
@@ -501,8 +552,7 @@ public sealed class SceneViewport : IDisposable, IViewportPane {
     public IEditorRegistry Extensions { get; set; } = EditorRegistry.Default;
 
     /// <summary>Every contributed tool, in the order they should be offered.</summary>
-    public IReadOnlyList<SceneTool> Tools =>
-        [.. Extensions.All<SceneTool>().OrderBy(static tool => tool.Order)];
+    public IReadOnlyList<SceneTool> Tools => [..Extensions.All<SceneTool>().OrderBy(static tool => tool.Order)];
 
     /// <summary>What the pane is doing inside its mode, or <see langword="null" /> for nothing.</summary>
     /// <remarks>
@@ -561,7 +611,7 @@ public sealed class SceneViewport : IDisposable, IViewportPane {
         // never sees one. A mode drawing anything under the pointer needs to be told when the pointer
         // is no longer under anything; without this it draws a hover cursor that stays behind, at the
         // last place inside the pane, for the whole time somebody is using a panel.
-        control.AddHandler<PointerEvent>(OnCrossed, RoutingStrategy.Direct, handledEventsToo: true);
+        control.AddHandler<PointerEvent>(OnCrossed, RoutingStrategy.Direct, true);
 
         // ⚠ Not handledEventsToo, and the other way round from the pointer above: this one competes
         // for the key and wins it, because a W that flies must not also be a W that switches the
@@ -592,8 +642,12 @@ public sealed class SceneViewport : IDisposable, IViewportPane {
     ///         is invisible until somebody flies alongside a moving object and finds it swimming.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The gizmo is pointed at the selection here, once a frame, and not at the press
-    ///         that grabs a handle.</b> <c>GizmoGeometry</c> draws what the gizmo is attached to, so
+    ///         ⚠
+    ///         <b>
+    ///             The gizmo is pointed at the selection here, once a frame, and not at the press
+    ///             that grabs a handle.
+    ///         </b>
+    ///         <c>GizmoGeometry</c> draws what the gizmo is attached to, so
     ///         a gizmo attached only by <see cref="BeginManipulate" /> has no handles to draw until
     ///         somebody has already clicked — and the click that would attach them is the click that
     ///         hit-tests against nothing. That is a gizmo which appears one click late and never over
@@ -644,7 +698,7 @@ public sealed class SceneViewport : IDisposable, IViewportPane {
             return;
         }
 
-        var seconds = MathF.Min((float) delta.TotalSeconds, MaximumFlyStep);
+        var seconds = MathF.Min((float)delta.TotalSeconds, MaximumFlyStep);
 
         if (seconds <= 0f) {
             return;
@@ -698,8 +752,8 @@ public sealed class SceneViewport : IDisposable, IViewportPane {
         }
 
         if (Picking is { } buffer) {
-            var x = Math.Clamp((int) point.X, 0, Control.RenderWidth - 1);
-            var y = Math.Clamp((int) point.Y, 0, Control.RenderHeight - 1);
+            var x = Math.Clamp((int)point.X, 0, Control.RenderWidth - 1);
+            var y = Math.Clamp((int)point.Y, 0, Control.RenderHeight - 1);
             var sequence = buffer.Request(x, y, additive);
 
             PickRequested?.Invoke(this, new(x, y, additive, sequence));
@@ -741,8 +795,12 @@ public sealed class SceneViewport : IDisposable, IViewportPane {
     /// <param name="additive">Whether the click extends the selection rather than replacing it.</param>
     /// <returns>Whether the pane is editing a mesh at all, which is whether the click was consumed.</returns>
     /// <remarks>
-    ///     ⚠ <b>A miss is still consumed, because a miss in an element mode means "deselect" rather
-    ///     than "fall through to the entity picker".</b> Clicking empty space while inside a mesh drops
+    ///     ⚠
+    ///     <b>
+    ///         A miss is still consumed, because a miss in an element mode means "deselect" rather
+    ///         than "fall through to the entity picker".
+    ///     </b>
+    ///     Clicking empty space while inside a mesh drops
     ///     the face selection; leaving the mesh is <c>Tab</c> or picking a different object, both of
     ///     which are deliberate. A click that sometimes deselected a face and sometimes selected the
     ///     wall behind it would be the same gesture doing two things.
@@ -970,11 +1028,13 @@ public sealed class SceneViewport : IDisposable, IViewportPane {
     ///     pressing the key that saved it again from where you were.
     /// </remarks>
     public ViewBookmark? SaveBookmark(int slot) {
-        if ((uint) slot >= (uint) BookmarkSlots) {
+        if ((uint)slot >= (uint)BookmarkSlots) {
             return null;
         }
 
-        var bookmark = Camera.Bookmark("View " + (slot + 1).ToString(System.Globalization.CultureInfo.InvariantCulture));
+        var bookmark = Camera.Bookmark(
+            "View " + (slot + 1).ToString(System.Globalization.CultureInfo.InvariantCulture)
+        );
         Bookmarks[slot] = bookmark;
 
         return bookmark;
@@ -984,7 +1044,7 @@ public sealed class SceneViewport : IDisposable, IViewportPane {
     /// <param name="slot">Which one.</param>
     /// <returns>Whether there was one.</returns>
     public bool RestoreBookmark(int slot) {
-        if ((uint) slot >= (uint) BookmarkSlots || Bookmarks[slot] is not { } bookmark) {
+        if ((uint)slot >= (uint)BookmarkSlots || Bookmarks[slot] is not { } bookmark) {
             return false;
         }
 
@@ -995,7 +1055,7 @@ public sealed class SceneViewport : IDisposable, IViewportPane {
     /// <summary>Whether a slot has a view in it.</summary>
     /// <param name="slot">Which one.</param>
     /// <returns>Whether it does.</returns>
-    public bool HasBookmark(int slot) => (uint) slot < (uint) BookmarkSlots && Bookmarks[slot] is not null;
+    public bool HasBookmark(int slot) => (uint)slot < (uint)BookmarkSlots && Bookmarks[slot] is not null;
 
     /// <summary>What a drag with this button and these modifiers means.</summary>
     /// <param name="button">Which button is down.</param>
@@ -1003,8 +1063,11 @@ public sealed class SceneViewport : IDisposable, IViewportPane {
     /// <returns>What to do.</returns>
     /// <remarks>
     ///     <para>
-    ///         <b>Blender's middle-button set, plus Maya's Alt chords, plus the right button that
-    ///         flies.</b> The middle button orbits, shift pans and control dollies — which is the
+    ///         <b>
+    ///             Blender's middle-button set, plus Maya's Alt chords, plus the right button that
+    ///             flies.
+    ///         </b>
+    ///         The middle button orbits, shift pans and control dollies — which is the
     ///         gesture most people bring with them and the one the whole rest of this type is written
     ///         against. Alt with left, middle and right is the same three in Maya's spelling, and the
     ///         two sets do not collide because Blender's use no modifier where Maya's use Alt.
@@ -1171,7 +1234,7 @@ public sealed class SceneViewport : IDisposable, IViewportPane {
         Typing.Clear();
 
         var drag = new GizmoDrag(
-            [.. Gizmo.Targets],
+            [..Gizmo.Targets],
             Gizmo.Mode,
             Gizmo.Active,
             Gizmo.Captured(),
@@ -1197,9 +1260,7 @@ public sealed class SceneViewport : IDisposable, IViewportPane {
         return true;
     }
 
-    /// <summary>The ray under a point in this pane.</summary>
-    /// <param name="point">Where, in render pixels.</param>
-    /// <returns>The ray, in world space.</returns>
+    /// <inheritdoc />
     public Ray Ray(Vector2 point) => Camera.PickingRay(point, Control.RenderWidth, Control.RenderHeight);
 
     /// <inheritdoc />
@@ -1245,8 +1306,11 @@ public sealed class SceneViewport : IDisposable, IViewportPane {
     /// <summary>Tells the mode and the tool that the pointer came onto this pane or left it.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>The other half of <see cref="OnPointer" />, and a separate handler because it has to
-    ///         be.</b> A crossing is delivered <see cref="RoutingStrategy.Direct" /> and
+    ///         <b>
+    ///             The other half of <see cref="OnPointer" />, and a separate handler because it has to
+    ///             be.
+    ///         </b>
+    ///         A crossing is delivered <see cref="RoutingStrategy.Direct" /> and
     ///         <c>UiElement.Invoke</c> matches handlers on the strategy they registered with, so the
     ///         bubble listener that hears every move cannot hear one of these. What arrives here is
     ///         only <see cref="PointerAction.Entered" /> and <see cref="PointerAction.Exited" />;
@@ -1289,8 +1353,12 @@ public sealed class SceneViewport : IDisposable, IViewportPane {
     ///         camera was supposed to be swinging around.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A move with nothing held carries <see cref="PointerButton.None" />, which is why
-    ///         the hover test is before the primary-button check rather than inside it.</b> Nothing
+    ///         ⚠
+    ///         <b>
+    ///             A move with nothing held carries <see cref="PointerButton.None" />, which is why
+    ///             the hover test is before the primary-button check rather than inside it.
+    ///         </b>
+    ///         Nothing
     ///         else in the editor asks what is under the pointer, so without this the handle the
     ///         cursor is over never lights up and the only way to find out whether a press will grab
     ///         an arm is to press and see what moves.
@@ -1310,7 +1378,7 @@ public sealed class SceneViewport : IDisposable, IViewportPane {
         var point = Control.ToRender(args.X, args.Y);
         pointer = point;
 
-        PointerPosition = new Vector2(args.X, args.Y);
+        PointerPosition = new(args.X, args.Y);
         moved = true;
 
         // ⚠ First refusal, and it is refusal over what a press *starts* rather than over a gesture
@@ -1374,9 +1442,6 @@ public sealed class SceneViewport : IDisposable, IViewportPane {
             case PointerAction.Released when Selecting is not null:
                 EndSelect();
                 break;
-
-            default:
-                break;
         }
     }
 
@@ -1398,7 +1463,7 @@ public sealed class SceneViewport : IDisposable, IViewportPane {
         // during it would silently become an orbit, leaving a rectangle on screen that nothing is
         // updating. The band owns the drag until it is released.
         if (Selecting is not null) {
-            DragSelect(new Vector2(drag.X, drag.Y));
+            DragSelect(new(drag.X, drag.Y));
             return;
         }
 
@@ -1477,8 +1542,7 @@ public sealed class SceneViewport : IDisposable, IViewportPane {
             : null;
     }
 
-    void OnZoomed(ViewportControl control, float delta) =>
-        Wheel(delta, pointer.IsZero ? Middle(control) : pointer);
+    void OnZoomed(ViewportControl control, float delta) => Wheel(delta, pointer.IsZero ? Middle(control) : pointer);
 
     static Vector2 Middle(ViewportControl control) => new(control.RenderWidth * 0.5f, control.RenderHeight * 0.5f);
 
@@ -1575,8 +1639,12 @@ public sealed class SceneViewport : IDisposable, IViewportPane {
 
     /// <summary>Where a measured point lands: on the geometry if anything is snapping, else the plane.</summary>
     /// <remarks>
-    ///     ⚠ <b>It snaps like everything else, and that is the whole of why a tape measure is worth
-    ///     having.</b> A distance between two points the pointer happened to land on is a number
+    ///     ⚠
+    ///     <b>
+    ///         It snaps like everything else, and that is the whole of why a tape measure is worth
+    ///         having.
+    ///     </b>
+    ///     A distance between two points the pointer happened to land on is a number
     ///     nobody can act on; between two corners it is the width of the doorway. The same
     ///     <see cref="SnapContext" /> a drag consults answers, so turning vertex snapping on makes the
     ///     measurement exact without anybody being told twice.
@@ -1617,8 +1685,12 @@ public sealed class SceneViewport : IDisposable, IViewportPane {
     ///         magnitude of.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The drag is re-applied from the pointer where it already is, not from a fresh
-    ///         event.</b> Nothing has moved — a key was pressed — so the ray is the one the last
+    ///         ⚠
+    ///         <b>
+    ///             The drag is re-applied from the pointer where it already is, not from a fresh
+    ///             event.
+    ///         </b>
+    ///         Nothing has moved — a key was pressed — so the ray is the one the last
     ///         pointer event produced, and `Drag` recomputes the whole transform from the pose at the
     ///         grab. That is the same property numeric entry exists because of.
     ///     </para>

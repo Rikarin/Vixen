@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core.Mathematics;
-using Vixen.Geometry;
 
 namespace Vixen.Editor.SceneView;
 
@@ -19,8 +18,12 @@ namespace Vixen.Editor.SceneView;
 ///         pass records them over the composition.
 ///     </para>
 ///     <para>
-///         ⚠ <b>An overlay rather than a change to the surface, and in a composed pane that is not a
-///         compromise — it is the only correct answer.</b> A composed pane exists to show the frame a
+///         ⚠
+///         <b>
+///             An overlay rather than a change to the surface, and in a composed pane that is not a
+///             compromise — it is the only correct answer.
+///         </b>
+///         A composed pane exists to show the frame a
 ///         game would draw. Painting the selected object amber is precisely the one edit that
 ///         destroys what the pane is for: the material you selected the object to look at is the
 ///         thing you can no longer see. The tint is right in the tool pane, which is a diagram; a
@@ -52,8 +55,12 @@ public static class SelectionCage {
     /// <summary>How much of each edge a bracket takes, as a fraction of that edge's whole length.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A fraction rather than a length, so the cage reads the same on a bolt and on a
-    ///         building.</b> A bracket of a fixed number of world units is the whole edge on one and
+    ///         ⚠
+    ///         <b>
+    ///             A fraction rather than a length, so the cage reads the same on a bolt and on a
+    ///             building.
+    ///         </b>
+    ///         A bracket of a fixed number of world units is the whole edge on one and
     ///         invisible on the other, and a bracket of a fixed number of pixels turns into a
     ///         continuous box the moment the object is small on screen — which is exactly the
     ///         collision with <see cref="SceneShow.Bounds" /> the brackets exist to avoid.
@@ -110,7 +117,8 @@ public static class SelectionCage {
 
         for (var index = 0; index < 8; index++) {
             corners[index] = Matrix4x4.TransformPosition(
-                centre + new Vector3(
+                centre
+                + new Vector3(
                     (index & 1) == 0 ? -extent.X : extent.X,
                     (index & 2) == 0 ? -extent.Y : extent.Y,
                     (index & 4) == 0 ? -extent.Z : extent.Z
@@ -134,8 +142,12 @@ public static class SelectionCage {
     /// <summary>The half-size of the box the cage is drawn on, which is the extent plus the standoff.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The standoff is a world distance and the extent is in the object's own space, so
-    ///         it is divided by that axis's scale on the way in.</b> A crate scaled twelvefold on X
+    ///         ⚠
+    ///         <b>
+    ///             The standoff is a world distance and the extent is in the object's own space, so
+    ///             it is divided by that axis's scale on the way in.
+    ///         </b>
+    ///         A crate scaled twelvefold on X
     ///         would otherwise get twelve times the gap on X and the cage would sit visibly crooked
     ///         round it — a bracket further from one face than from the next reads as a bug in the
     ///         bracket rather than as a scale on the object.
@@ -153,11 +165,12 @@ public static class SelectionCage {
         var centre = (bounds.Minimum + bounds.Maximum) * 0.5f;
         var gap = Standoff * camera.WorldPerPixel(Matrix4x4.TransformPosition(centre, transform), height);
 
-        return extent + new Vector3(
-            Spread(gap, transform.Right.Length()),
-            Spread(gap, transform.Up.Length()),
-            Spread(gap, transform.Forward.Length())
-        );
+        return extent
+            + new Vector3(
+                Spread(gap, transform.Right.Length()),
+                Spread(gap, transform.Up.Length()),
+                Spread(gap, transform.Forward.Length())
+            );
     }
 
     static float Spread(float gap, float scale) => scale > 0f ? gap / scale : 0f;

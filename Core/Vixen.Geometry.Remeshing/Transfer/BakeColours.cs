@@ -22,8 +22,8 @@ public sealed record BakeImage(int Width, int Height, IReadOnlyList<Vector4> Pix
             return Vector4.One;
         }
 
-        var x = (Wrap(uv.X) * Width) - 0.5f;
-        var y = (Wrap(uv.Y) * Height) - 0.5f;
+        var x = Wrap(uv.X) * Width - 0.5f;
+        var y = Wrap(uv.Y) * Height - 0.5f;
         var (left, top) = ((int)MathF.Floor(x), (int)MathF.Floor(y));
         var (across, down) = (x - left, y - top);
 
@@ -33,17 +33,20 @@ public sealed record BakeImage(int Width, int Height, IReadOnlyList<Vector4> Pix
         return Vector4.Lerp(upper, lower, down);
     }
 
-    Vector4 Pixel(int x, int y) => Pixels[(Mod(y, Height) * Width) + Mod(x, Width)];
+    Vector4 Pixel(int x, int y) => Pixels[Mod(y, Height) * Width + Mod(x, Width)];
 
     static float Wrap(float value) => value - MathF.Floor(value);
 
-    static int Mod(int value, int size) => ((value % size) + size) % size;
+    static int Mod(int value, int size) => (value % size + size) % size;
 }
 
 /// <summary>What colour each point of the source is, for a bake that carries it onto the target.</summary>
 /// <param name="Corners">A colour per source corner, or null for white: vertex colours, or a material's colour.</param>
 /// <param name="Images">The pictures the source's faces read, at the source's own coordinates.</param>
-/// <param name="FaceImages">Which of <paramref name="Images" /> each source face reads, <c>-1</c> for none, or null for the first.</param>
+/// <param name="FaceImages">
+///     Which of <paramref name="Images" /> each source face reads, <c>-1</c> for none, or null for
+///     the first.
+/// </param>
 /// <remarks>
 ///     <para>
 ///         <b>A colour is the corners' blend times the face's picture</b>, which is how a material with a

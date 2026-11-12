@@ -116,16 +116,16 @@ better than doc 40's Part 1 suggested.
 | Offscreen rendering inside the editor | `Editor/Vixen.Editor.App/ThumbnailSurface.cs`, `ShaderGraphPreviewRenderer.cs` | A device in an editor assembly, drawing into a target, with no window |
 | Image containers and codecs | [`Vixen.Core.Imaging`](../../Core/Vixen.Core.Imaging/README.md) | `TextureData`, `MipChain`, `PngCodec`, `Ktx2`, `BlockCompression`, `DataFormatDescriptor` |
 | Texture import | `Editor/Vixen.Editor.Assets/Textures/` | `TextureImporter`, `StbImageDecoder`, `DdsDecoder`, and `SpriteSlicing` — doc 40's cited precedent for a pure pixel kernel tested with images built in a test |
-| An atlas rasteriser and a cage bake | `Core/Vixen.Geometry.Remeshing/Transfer/` — `AtlasRaster.cs`, `SourceSurface.cs`, `MapBaker.cs:718` | Conservative texel coverage, gutter dilation, opposed ray casting with a fallback, and a triangle tree over the source. **The expensive half of a mesh-map baker** |
+| An atlas rasteriser and a cage bake | `Core/Vixen.Geometry.Remeshing/Transfer/` — `AtlasRaster.cs`, `SourceSurface.cs`, `MapBaker.cs:763` | Conservative texel coverage, gutter dilation, opposed ray casting with a fallback, and a triangle tree over the source. **The expensive half of a mesh-map baker** |
 | UV unwrapping | [`Vixen.Geometry.Uv`](../../Core/Vixen.Geometry.Uv/README.md) | Charting, flattening, packing — so a mesh with no UVs is not a refusal |
 | A brush, a stroke and a falloff | `Core/Vixen.Terrain/BrushStroke.cs`, `BrushFalloff.cs`, `TerrainPaint.cs`; `Editor/Vixen.Editor.Terrain/TerrainPaintCommand.cs` | Pointer → stamp → kernel → **one undo entry per drag**, already solved once |
 | A plugin host, and two features that use it | [`Vixen.Editor.Plugin`](../../Editor/Vixen.Editor.Plugin/README.md), `TerrainModule`, `WaterModule` | Commands, panels, modes, layouts, keybindings, contributions, `Owns`/`With`, collectible unload |
-| A material asset and three sampling features | `MaterialAsset.cs:133` (`.vxmat`), `MaterialFeatures.cs:180`, `:331`, `:404` | Base colour, tangent normal and a packed ORM all sample from the bindless table today |
+| A material asset and three sampling features | `MaterialAsset.cs:133` (`.vxmat`), `MaterialFeatures.cs:184`, `:335`, `:412` | Base colour, tangent normal and a packed ORM all sample from the bindless table today |
 | The authoring pattern to copy | [doc 39](39-standard-frame-and-render-presets.md), [doc 40 § D4](40-ai-assisted-material-generation.md) | A simple surface that *is* a graph, and an **Explode** that hands over the real one, one-way |
 
 ⚠ **Doc 40 § B1 is out of date and this document corrects it.** It said thirteen material features and
 only one names a map. Three name one now — `TexturedMetalRoughnessFeature`, `TexturedNormalMapFeature`
-and `TexturedOrmFeature` — and `WorldRenderer.cs:1301-1303` pairs all three into the bindless table. The
+and `TexturedOrmFeature` — and `WorldRenderer.cs:1312-1318` pairs all three into the bindless table. The
 gap that remains is real but different, and it is [B1](#b1-a-layer-stack-cannot-ship-as-a-live-layered-material--for-the-runtime-path-only) below.
 
 ---
@@ -136,7 +136,7 @@ Six. Two are ⛔ and both are smaller than they look.
 
 ### B1. A layer stack cannot ship as a live layered material ⛔ *for the runtime path only*
 
-`MaterialLayersFeature` (`MaterialFeatures.cs:867`) blends N metal-roughness layers — and
+`MaterialLayersFeature` (`MaterialFeatures.cs:879`) blends N metal-roughness layers — and
 `MaterialLayerValue` (`MaterialFeatures.cs:487@d9e7d960e`) carries `Weight` as a **`float` constant**. Its own remarks say where the
 weight comes from is the caller's business; no caller supplies one from a texture, and there is no
 `TexturedMaterialLayersFeature`. `BlendFeature` (`:553`) has the same shape one level up.
@@ -208,7 +208,7 @@ them and every one needs a golden, a sabotage and a scale-invariance check.
 
 ### B3. `MapBaker` bakes two of the ten mesh maps 🟡
 
-`MapBaker.Bake` (`MapBaker.cs:738`) fills a normal map and a signed displacement map. The seven the
+`MapBaker.Bake` (`MapBaker.cs:783`) fills a normal map and a signed displacement map. The seven the
 generators actually read — ambient occlusion, curvature, thickness, position, world-space normal, bent
 normal, ID — are **not there**, and neither is the hierarchy that would make them fast.
 
@@ -553,7 +553,7 @@ other group whose picture no canvas could hold, and a group whose anchor points 
 
 A **texture set** is a material slot on the mesh. A **channel** is one output map; the default set is
 base colour, normal, ORM (occlusion·roughness·metalness packed, which is what
-`TexturedOrmFeature` (`MaterialFeatures.cs:404`) reads), height and emissive, and the set is editable.
+`TexturedOrmFeature` (`MaterialFeatures.cs:412`) reads), height and emissive, and the set is editable.
 
 The bake writes, per texture set: one file per channel, one `.vxmat` naming them, and the provenance
 block. ⚠ **It writes through the asset database's scan-then-read-back-the-GUID sequence rather than
@@ -1394,7 +1394,7 @@ divided by a 2 m tile*, which is what
 0..1 repeats once per two metres across the surface it is meant to place layers on — thirty-two times
 for that wall — and the wrap is not a bug there, because the tiling *is* the uv.
 ⚠ **And a second uv set is not the way out**:
-`SurfaceVertex` (`Core/Vixen.Rendering/SurfaceVertex.cs:49`) carries exactly one `TexCoord`, so
+`SurfaceVertex` (`Core/Vixen.Rendering/SurfaceVertex.cs:56`) carries exactly one `TexCoord`, so
 "splat on uv0, detail on uv1" is a vertex-format change and out of this document's scope. Re-exporting
 an arena mesh at its own extent would give it a 0..1 unwrap and change every other material already on
 it, which breaks the one-changed-thing rule the arena's own A/B rests on. So: **a purpose-built ground
@@ -1598,7 +1598,7 @@ that has rotted is a `git grep` away from being caught.
 | 9 | A painted-over output is detected | **measured** | `MaterialBakeAssetTests` — refused, overwritten when forced, and an untouched set not called painted | — |
 | 10 | The plugin loads, activates, unloads, and links the app in no build | **measured, both halves** | `Vixen.Editor.Plugin.Tests/LoadingTests` via `PluginHost.WaitForCollection`; `PluginReferenceRule` called by `CheckArchitecture` and by `PluginReferenceRuleTests` | — |
 | 11 | A device confirmed by name in every GPU test in this area | **measured, both projects** | `DeviceRollCall`, one walk with two callers — `TextureAdapterRollCallTests` and `TexturingAdapterRollCallTests` — plus the harness half: `TextureKernelHarness.Open` and `TexturingDevice.Open` each write the adapter into the running test's output, so a device that goes through a harness cannot be anonymous ([#883](https://github.com/Rikarin/Vixen/issues/883)) | ⚠ **This cell said the harness reaches two of seven files and the other five call `VulkanDevice.TryCreate` directly, and that stopped being true when [#923](https://github.com/Rikarin/Vixen/issues/923) closed.** Re-measured 2026-09-08: `git grep -l VulkanDevice.TryCreate Editor/Vixen.Editor.Texturing.Tests/` returns **one** file, `TexturingDevice.cs`, and eighteen files name `TexturingDevice` — so every device in that project is opened by the harness that writes the adapter into the test's output. ⚠ And that is **enforced rather than observed**: `Only_the_harness_here_creates_a_device` runs `DeviceRollCall.Sole` over the directory, with a negative case proving a second creating file — and a tree with *no* creating file — both go red, so the walk is now the weaker of the two mechanisms rather than the only one. ⚠ What is *not* covered is still "in this area": nineteen golden device files elsewhere name no adapter and no gate can scope the rule to them ([#795](https://github.com/Rikarin/Vixen/issues/795)) |
-| 12 | A frame is photographed | **measured** | `BakedMaterialImageTests` — maps from `TexturePlanEvaluator`, packed by `MaterialBake`, drawn through `StandardFrameAsset`, differenced against `MetalRoughnessFeature`; **and, from 2026-09-08, from a committed `.vxtexgraph` compiled by `TextureGraphCompiler`** ([#1081](https://github.com/Rikarin/Vixen/issues/1081)) | It is a golden-suite file, so it skips without a device; ⚠ eighteen files in that suite *passed* rather than skipped until 2026-08-21. ⚠ **This cell said the plan is hand-built and no document is opened, and that was the whole gap**: `Fixtures/BakedGraph.vxtexgraph` is now parsed, loaded, compiled against `NodeTypes.Register`'s registry, read back by *usage* off `TextureGraphCompiler.Outputs`, evaluated, packed and rendered onto the same oracle. ⚠ A second fixture differing **only** in the base-colour node's `Colour` must draw a different frame, which is what stops the first being satisfied by a compiler that never read the file. ⚠ The picture is still **flat** — a differential against a constant surface can only be taken over one — so nothing here says a checker or a noise reaches a frame correctly; it says the *document* does. ⚠⚠ **The blocker this cell recorded was refuted by the file that gave it**: `TextureGraphOutput` is a `public readonly record struct` (`TextureGraphCompiler.cs:26`) with no `InternalsVisibleTo` anywhere in the chain, and `BakedMaterialImageTests` named the type in its own source while saying it could not see it |
+| 12 | A frame is photographed | **measured** | `BakedMaterialImageTests` — maps from `TexturePlanEvaluator`, packed by `MaterialBake`, drawn through `StandardFrameAsset`, differenced against `MetalRoughnessFeature`; **and, from 2026-09-08, from a committed `.vxtexgraph` compiled by `TextureGraphCompiler`** ([#1081](https://github.com/Rikarin/Vixen/issues/1081)) | It is a golden-suite file, so it skips without a device; ⚠ eighteen files in that suite *passed* rather than skipped until 2026-08-21. ⚠ **This cell said the plan is hand-built and no document is opened, and that was the whole gap**: `Fixtures/BakedGraph.vxtexgraph` is now parsed, loaded, compiled against `NodeTypes.Register`'s registry, read back by *usage* off `TextureGraphCompiler.Outputs`, evaluated, packed and rendered onto the same oracle. ⚠ A second fixture differing **only** in the base-colour node's `Colour` must draw a different frame, which is what stops the first being satisfied by a compiler that never read the file. ⚠ The picture is still **flat** — a differential against a constant surface can only be taken over one — so nothing here says a checker or a noise reaches a frame correctly; it says the *document* does. ⚠⚠ **The blocker this cell recorded was refuted by the file that gave it**: `TextureGraphOutput` is a `public readonly record struct` (`TextureGraphCompiler.cs:30`) with no `InternalsVisibleTo` anywhere in the chain, and `BakedMaterialImageTests` named the type in its own source while saying it could not see it |
 
 ✅ **Two of the twelve were cited in the tests by the wrong number and one by wording the criterion no
 longer has; all three now cite the sentence instead** ([#884](https://github.com/Rikarin/Vixen/issues/884)).

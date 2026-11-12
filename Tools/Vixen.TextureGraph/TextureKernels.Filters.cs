@@ -7,8 +7,12 @@ namespace Vixen.TextureGraph;
 
 /// <summary>How a <c>SlopeBlur</c> op accumulates the source along the walk.</summary>
 /// <remarks>
-///     ⚠ <b>The numbers are the contract with <c>Shaders/SlopeBlur.rvn</c>'s <c>mode</c>, which
-///     compares against them literally.</b> Nothing in the compilation would notice a renumbering —
+///     ⚠
+///     <b>
+///         The numbers are the contract with <c>Shaders/SlopeBlur.rvn</c>'s <c>mode</c>, which
+///         compares against them literally.
+///     </b>
+///     Nothing in the compilation would notice a renumbering —
 ///     a min where a max was meant is a perfectly plausible picture. <c>TextureFilterDeviceTests</c>
 ///     pins each one by a property only it has.
 /// </remarks>
@@ -34,8 +38,12 @@ enum TextureSlopeMode {
 ///         complete set.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Every parameter is a scalar, and that is a property of the evaluator rather than a
-///         style.</b> <c>Uniforms</c> writes one <see cref="float" /> per uniform-block member, so a
+///         ⚠
+///         <b>
+///             Every parameter is a scalar, and that is a property of the evaluator rather than a
+///             style.
+///         </b>
+///         <c>Uniforms</c> writes one <see cref="float" /> per uniform-block member, so a
 ///         <c>float2</c> would receive its x and a zero — a centre of <c>(0.5, 0)</c> where
 ///         <c>(0.5, 0.5)</c> was meant. So a centre is two parameters, in every kernel under
 ///         <c>Shaders/</c>.
@@ -277,8 +285,12 @@ static class TextureFilters {
     ///     a field of unit slope.
     /// </param>
     /// <param name="samples">
-    ///     How many steps the walk is cut into. ⚠ <b>This changes the answer wherever the field
-    ///     curves</b>, which is the node rather than a quality setting — see <c>SlopeBlur.rvn</c>.
+    ///     How many steps the walk is cut into. ⚠
+    ///     <b>
+    ///         This changes the answer wherever the field
+    ///         curves
+    ///     </b>
+    ///     , which is the node rather than a quality setting — see <c>SlopeBlur.rvn</c>.
     ///     0 is a copy.
     /// </param>
     /// <param name="mode">How the samples are accumulated.</param>
@@ -308,8 +320,12 @@ static class TextureFilters {
     /// <param name="plan">The plan to walk.</param>
     /// <returns>One line per offending op, empty when there is nothing to say.</returns>
     /// <remarks>
-    ///     ⚠ <b>The table this walks is no longer here, and the move is
-    ///     <a href="https://github.com/Rikarin/Vixen/issues/1011">#1011</a>.</b> A kernel's loop bound
+    ///     ⚠
+    ///     <b>
+    ///         The table this walks is no longer here, and the move is
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/1011">#1011</a>.
+    ///     </b>
+    ///     A kernel's loop bound
     ///     is not a property of the Filters family: <c>Curvature</c>, <c>HeightToNormal</c> and
     ///     <c>EdgeDetect</c> clip the same way and were outside a table that lived on this class only
     ///     because <a href="https://github.com/Rikarin/Vixen/issues/678">#678</a>'s batch did not own

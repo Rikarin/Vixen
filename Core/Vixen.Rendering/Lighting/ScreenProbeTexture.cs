@@ -6,7 +6,6 @@ using Vixen.Core.Imaging;
 using Vixen.Core.Mathematics;
 using Vixen.Graphics;
 using Vixen.Rendering.ScreenProbes;
-using Vixen.Shaders;
 
 namespace Vixen.Rendering.Lighting;
 
@@ -85,8 +84,10 @@ public sealed class ScreenProbeTexture : IDisposable {
     public TextureViewHandle AtlasView => atlasView;
 
     /// <summary>One plane of the resolved probes — grid-sized, in the irradiance pool's packing.</summary>
-    /// <param name="plane">Which one — zero the constant term with validity in alpha, one to three the
-    ///     red, green and blue components of the linear coefficients.</param>
+    /// <param name="plane">
+    ///     Which one — zero the constant term with validity in alpha, one to three the
+    ///     red, green and blue components of the linear coefficients.
+    /// </param>
     public TextureViewHandle ProbeView(int plane) => probeViews[plane];
 
     /// <summary>Moves the four resolved-probe planes from one state to another, in one barrier.</summary>
@@ -158,7 +159,7 @@ public sealed class ScreenProbeTexture : IDisposable {
 
             var size = Probes.Layout.AtlasSize;
 
-            commands.CopyBufferToTexture(staging, 0, new TextureRegion(atlas), new(size.X, size.Y, 1));
+            commands.CopyBufferToTexture(staging, 0, new(atlas), new(size.X, size.Y, 1));
             TransitionAtlas(commands, ResourceState.CopyDestination, ResourceState.ShaderRead);
         }
 
@@ -201,7 +202,7 @@ public sealed class ScreenProbeTexture : IDisposable {
 
         if (!download.IsValid) {
             download = device.CreateBuffer(
-                new BufferDescription(
+                new(
                     (long)scratch.Length * sizeof(float),
                     BufferUsage.CopyDestination,
                     MemoryAccess.HostReadback,
@@ -213,7 +214,7 @@ public sealed class ScreenProbeTexture : IDisposable {
         var size = Probes.Layout.AtlasSize;
 
         TransitionAtlas(commands, ResourceState.ShaderRead, ResourceState.CopySource);
-        commands.CopyTextureToBuffer(new TextureRegion(atlas), new(size.X, size.Y, 1), download, 0);
+        commands.CopyTextureToBuffer(new(atlas), new(size.X, size.Y, 1), download, 0);
         TransitionAtlas(commands, ResourceState.CopySource, ResourceState.ShaderRead);
 
         return true;
@@ -236,7 +237,7 @@ public sealed class ScreenProbeTexture : IDisposable {
 
         if (!probeDownload.IsValid) {
             probeDownload = device.CreateBuffer(
-                new BufferDescription(
+                new(
                     planeBytes * ProbePlanes,
                     BufferUsage.CopyDestination,
                     MemoryAccess.HostReadback,
@@ -248,7 +249,7 @@ public sealed class ScreenProbeTexture : IDisposable {
         TransitionProbes(commands, ResourceState.ShaderRead, ResourceState.CopySource);
 
         for (var plane = 0; plane < ProbePlanes; plane++) {
-            commands.CopyTextureToBuffer(new TextureRegion(probes[plane]), new(grid.X, grid.Y, 1), probeDownload, plane * planeBytes);
+            commands.CopyTextureToBuffer(new(probes[plane]), new(grid.X, grid.Y, 1), probeDownload, plane * planeBytes);
         }
 
         TransitionProbes(commands, ResourceState.CopySource, ResourceState.ShaderRead);
@@ -280,9 +281,9 @@ public sealed class ScreenProbeTexture : IDisposable {
 
         for (var index = 0; index < count; index++) {
             var l0 = floats.AsSpan(index * Channels);
-            var red = floats.AsSpan((count * Channels) + (index * Channels));
-            var green = floats.AsSpan((2 * count * Channels) + (index * Channels));
-            var blue = floats.AsSpan((3 * count * Channels) + (index * Channels));
+            var red = floats.AsSpan(count * Channels + index * Channels);
+            var green = floats.AsSpan(2 * count * Channels + index * Channels);
+            var blue = floats.AsSpan(3 * count * Channels + index * Channels);
 
             resolved[index] = new(
                 new Vector3(l0[0], l0[1], l0[2]),
@@ -404,7 +405,7 @@ public sealed class ScreenProbeTexture : IDisposable {
                 for (var ty = 0; ty < resolution; ty++) {
                     for (var tx = 0; tx < resolution; tx++) {
                         var radiance = Probes[probe, new(tx, ty)];
-                        var at = (((origin.Y + ty) * width) + origin.X + tx) * Channels;
+                        var at = ((origin.Y + ty) * width + origin.X + tx) * Channels;
 
                         scratch[at] = radiance.X;
                         scratch[at + 1] = radiance.Y;
@@ -430,7 +431,7 @@ public sealed class ScreenProbeTexture : IDisposable {
         // atlas be seeded from the host and refined by a dispatch, and Sampled is what the resolve
         // and upsample passes will do to it.
         atlas = graphics.CreateTexture(
-            new TextureDescription(
+            new(
                 PixelFormat.Rgba32Float,
                 size.X,
                 size.Y,
@@ -448,7 +449,7 @@ public sealed class ScreenProbeTexture : IDisposable {
 
         for (var plane = 0; plane < ProbePlanes; plane++) {
             probes[plane] = graphics.CreateTexture(
-                new TextureDescription(
+                new(
                     PixelFormat.Rgba32Float,
                     grid.X,
                     grid.Y,
@@ -461,7 +462,7 @@ public sealed class ScreenProbeTexture : IDisposable {
         }
 
         staging = graphics.CreateBuffer(
-            new BufferDescription(
+            new(
                 (long)scratch.Length * sizeof(float),
                 BufferUsage.CopySource,
                 MemoryAccess.HostUpload,

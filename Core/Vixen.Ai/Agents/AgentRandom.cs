@@ -11,8 +11,12 @@ namespace Vixen.Ai;
 ///         <b>Stateless, and keyed on identity rather than on a slot.</b> A weighted-random selector
 ///         reading <c>Random.Shared</c> is a desync per NPC per second: two machines running the same
 ///         build would draw in whatever order their threads happened to reach the agents, and the
-///         choices would diverge within a frame. A value here is a pure function of <i>who is
-///         asking, on which stream, for what</i>, so any thread can compute any agent's number at any
+///         choices would diverge within a frame. A value here is a pure function of
+///         <i>
+///             who is
+///             asking, on which stream, for what
+///         </i>
+///         , so any thread can compute any agent's number at any
 ///         time without having computed anybody else's first.
 ///     </para>
 ///     <para>
@@ -61,17 +65,24 @@ public static class AgentRandom {
     /// <param name="salt">What the number is for.</param>
     /// <returns>The hash.</returns>
     /// <remarks>
-    ///     ⚠ <b>The entity and the seed are combined with <c>+</c> and not with <c>^</c>, and that is
-    ///     not a stylistic difference.</b> The seed a caller has is almost always
+    ///     ⚠
+    ///     <b>
+    ///         The entity and the seed are combined with <c>+</c> and not with <c>^</c>, and that is
+    ///         not a stylistic difference.
+    ///     </b>
+    ///     The seed a caller has is almost always
     ///     <see cref="SeedOf" />'s, which is <c>Hash(id)</c> for a freshly created entity — so
-    ///     <c>Hash(id) ^ seed</c> is <c>Hash(id) ^ Hash(id)</c>, which is <b>zero for every agent in
-    ///     the world</b>. Every guard then drew the same number from its supposedly private stream: one
+    ///     <c>Hash(id) ^ seed</c> is <c>Hash(id) ^ Hash(id)</c>, which is
+    ///     <b>
+    ///         zero for every agent in
+    ///         the world
+    ///     </b>
+    ///     . Every guard then drew the same number from its supposedly private stream: one
     ///     shuffled selector picked the same child in a thousand agents, and a jittered interval put
     ///     the whole population on one frame. P3 found it by spreading forty listeners across ten
     ///     frames and watching all forty land on frame five.
     /// </remarks>
-    public static uint Hash(Entity entity, uint seed, uint salt) =>
-        Hash(Hash(Hash((uint)entity.Id) + seed) ^ salt);
+    public static uint Hash(Entity entity, uint seed, uint salt) => Hash(Hash(Hash((uint)entity.Id) + seed) ^ salt);
 
     /// <summary>A number in <c>[0,1)</c>.</summary>
     /// <param name="entity">The agent.</param>
@@ -88,7 +99,7 @@ public static class AgentRandom {
     /// <param name="maximum">The top, exclusive.</param>
     /// <returns>The number.</returns>
     public static float Range(Entity entity, uint seed, uint salt, float minimum, float maximum) =>
-        minimum + ((maximum - minimum) * Value(entity, seed, salt));
+        minimum + (maximum - minimum) * Value(entity, seed, salt);
 
     /// <summary>An index into a set.</summary>
     /// <param name="entity">The agent.</param>

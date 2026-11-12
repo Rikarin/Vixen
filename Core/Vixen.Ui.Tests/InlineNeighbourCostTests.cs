@@ -33,7 +33,7 @@ public class InlineNeighbourCostTests {
 
     static FontFace LoadFont() {
         using var stream = Assembly.GetExecutingAssembly()
-            .GetManifestResourceStream("Vixen.Ui.Tests.Fonts.OpenSans-Regular.ttf")
+                .GetManifestResourceStream("Vixen.Ui.Tests.Fonts.OpenSans-Regular.ttf")
             ?? throw new InvalidOperationException("the test font is not embedded");
 
         using var memory = new MemoryStream();
@@ -100,7 +100,10 @@ public class InlineNeighbourCostTests {
         var at = container.ChildList.IndexOf(leaves[^1]);
 
         Assert.Equal(leaves.Length - 1, at);
-        Assert.True(tally.Comparisons - before >= leaves.Length, $"the counter saw {tally.Comparisons - before} comparisons for a search of {leaves.Length}");
+        Assert.True(
+            tally.Comparisons - before >= leaves.Length,
+            $"the counter saw {tally.Comparisons - before} comparisons for a search of {leaves.Length}"
+        );
 
         tally.Comparisons = 0;
     }
@@ -121,7 +124,10 @@ public class InlineNeighbourCostTests {
         // The lookups ran: every leaf but the last has a word after it, so its trailing space does
         // not hang — which only `After` can have answered.
         Assert.NotNull(leaves[0].Block());
-        Assert.True(tally.Comparisons <= 8L * leaves.Length, $"{tally.Comparisons} comparisons for {leaves.Length} leaves");
+        Assert.True(
+            tally.Comparisons <= 8L * leaves.Length,
+            $"{tally.Comparisons} comparisons for {leaves.Length} leaves"
+        );
     }
 
     /// <summary>
@@ -181,7 +187,7 @@ public class InlineNeighbourCostTests {
     /// </summary>
     [Fact]
     public void A_pass_over_a_settled_paragraph_is_linear_in_its_leaves() {
-        long Cost(int count) {
+        static long Cost(int count) {
             var (document, container, leaves, tally) = Paragraph(count);
             document.Update();
             ProveInstrument(container, leaves, tally);
@@ -197,7 +203,10 @@ public class InlineNeighbourCostTests {
         var small = Cost(1000);
         var large = Cost(2000);
 
-        Assert.True(large <= 3L * Math.Max(small, 1000), $"1 000 leaves cost {small} comparisons and 2 000 cost {large}");
+        Assert.True(
+            large <= 3L * Math.Max(small, 1000),
+            $"1 000 leaves cost {small} comparisons and 2 000 cost {large}"
+        );
         Assert.True(large <= 8L * 2000, $"{large} comparisons for 2 000 leaves");
     }
 }

@@ -107,8 +107,11 @@ public sealed record TerrainNodeAsset : ISceneRendererAsset {
 /// <summary>The vegetation numbers one quality tier resolves to, in the terrain stack's own vocabulary.</summary>
 /// <remarks>
 ///     <para>
-///         <b>The consumption end of doc 39's <c>VegetationQuality</c> group, without the reference
-///         that would be a cycle.</b> The waterfall lives in <c>Vixen.Rendering.PostFx</c>, which
+///         <b>
+///             The consumption end of doc 39's <c>VegetationQuality</c> group, without the reference
+///             that would be a cycle.
+///         </b>
+///         The waterfall lives in <c>Vixen.Rendering.PostFx</c>, which
 ///         depends on this project's neighbours and must not be depended on back — so what crosses
 ///         the boundary is plain numbers, filled by whoever holds a resolved tier:
 ///         <see cref="TerrainFactory.Vegetation" /> is the slot, and the defaults here are the
@@ -150,8 +153,12 @@ public sealed record TerrainVegetationQuality {
 
     /// <summary>Megabytes of staged tile chains one terrain's streamer may hold.</summary>
     /// <remarks>
-    ///     ⚠ <b>Bytes, unlike every other budget here, because a tile's size is knowable and a cell's
-    ///     is not.</b> A mip chain is a fixed count of <c>ushort</c> samples once the tile size is
+    ///     ⚠
+    ///     <b>
+    ///         Bytes, unlike every other budget here, because a tile's size is knowable and a cell's
+    ///         is not.
+    ///     </b>
+    ///     A mip chain is a fixed count of <c>ushort</c> samples once the tile size is
     ///     read, so <see cref="TerrainStreamer" /> divides this into slots; a foliage cell holds
     ///     whatever was painted into it, which is why its budget counts cells.
     /// </remarks>

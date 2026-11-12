@@ -11,8 +11,12 @@ namespace Vixen.Ui.Layout.Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Doc 43's exit criterion 5, for inline — and inline starts further back than grid
-///         does.</b> <see cref="InlineFormattingTests" /> already records that neither corpus
+///         ⚠
+///         <b>
+///             Doc 43's exit criterion 5, for inline — and inline starts further back than grid
+///             does.
+///         </b>
+///         <see cref="InlineFormattingTests" /> already records that neither corpus
 ///         contains a single inline fixture: not one of Taffy's 5 524 tests sets
 ///         <c>display: inline*</c> and neither does any of Yoga's 534. So every inline assertion in
 ///         this store is hand-written already, and what this file adds is the two questions a
@@ -46,26 +50,26 @@ public class InlineBlindSpotTests {
         // to one box's width re-breaks the lines after it, so a stale line box is visible as a box
         // on the wrong row rather than as a rounding difference.
         Gen.Select(Gen.Int[3, 9], Gen.Int[0, 999].Array[1, 10])
-            .Sample(shape => {
-                var (boxes, mutations) = shape;
+            .Sample(static shape => {
+                    var (boxes, mutations) = shape;
 
-                var spec = new RunSpec(boxes);
-                using var incremental = new LayoutTree();
-                var incrementalRoot = spec.Build(incremental);
-                incremental.CalculateLayout(incrementalRoot, 200f, float.NaN, Direction.Ltr);
-
-                foreach (var mutation in mutations) {
-                    spec.Mutate(mutation);
-                    spec.Apply(incremental, incrementalRoot, mutation);
+                    var spec = new RunSpec(boxes);
+                    using var incremental = new LayoutTree();
+                    var incrementalRoot = spec.Build(incremental);
                     incremental.CalculateLayout(incrementalRoot, 200f, float.NaN, Direction.Ltr);
 
-                    using var cold = new LayoutTree();
-                    var coldRoot = spec.Build(cold);
-                    cold.CalculateLayout(coldRoot, 200f, float.NaN, Direction.Ltr);
+                    foreach (var mutation in mutations) {
+                        spec.Mutate(mutation);
+                        spec.Apply(incremental, incrementalRoot, mutation);
+                        incremental.CalculateLayout(incrementalRoot, 200f, float.NaN, Direction.Ltr);
 
-                    AssertSameLayout(incremental, incrementalRoot, cold, coldRoot);
+                        using var cold = new LayoutTree();
+                        var coldRoot = spec.Build(cold);
+                        cold.CalculateLayout(coldRoot, 200f, float.NaN, Direction.Ltr);
+
+                        AssertSameLayout(incremental, incrementalRoot, cold, coldRoot);
+                    }
                 }
-            }
             );
     }
 
@@ -74,26 +78,28 @@ public class InlineBlindSpotTests {
         // The same oracle at 2× with a fractional container, which is the case no fixture in either
         // corpus is written at.
         Gen.Select(Gen.Int[3, 9], Gen.Int[0, 999].Array[1, 10])
-            .Sample(shape => {
-                var (boxes, mutations) = shape;
+            .Sample(static shape => {
+                    var (boxes, mutations) = shape;
 
-                var spec = new RunSpec(boxes);
-                using var incremental = new LayoutTree { PointScaleFactor = 2f };
-                var incrementalRoot = spec.Build(incremental);
-                incremental.CalculateLayout(incrementalRoot, 200.5f, float.NaN, Direction.Ltr);
-
-                foreach (var mutation in mutations) {
-                    spec.Mutate(mutation);
-                    spec.Apply(incremental, incrementalRoot, mutation);
+                    var spec = new RunSpec(boxes);
+                    using var incremental = new LayoutTree();
+                    incremental.PointScaleFactor = 2f;
+                    var incrementalRoot = spec.Build(incremental);
                     incremental.CalculateLayout(incrementalRoot, 200.5f, float.NaN, Direction.Ltr);
 
-                    using var cold = new LayoutTree { PointScaleFactor = 2f };
-                    var coldRoot = spec.Build(cold);
-                    cold.CalculateLayout(coldRoot, 200.5f, float.NaN, Direction.Ltr);
+                    foreach (var mutation in mutations) {
+                        spec.Mutate(mutation);
+                        spec.Apply(incremental, incrementalRoot, mutation);
+                        incremental.CalculateLayout(incrementalRoot, 200.5f, float.NaN, Direction.Ltr);
 
-                    AssertSameLayout(incremental, incrementalRoot, cold, coldRoot);
+                        using var cold = new LayoutTree();
+                        cold.PointScaleFactor = 2f;
+                        var coldRoot = spec.Build(cold);
+                        cold.CalculateLayout(coldRoot, 200.5f, float.NaN, Direction.Ltr);
+
+                        AssertSameLayout(incremental, incrementalRoot, cold, coldRoot);
+                    }
                 }
-            }
             );
     }
 
@@ -104,7 +110,8 @@ public class InlineBlindSpotTests {
         // them out end to end accumulates, and the last box on a line of five 33.3-point boxes ends
         // up a whole pixel from where the cold pass puts it. Each box must start exactly where its
         // predecessor ended.
-        using var tree = new LayoutTree { PointScaleFactor = 2f };
+        using var tree = new LayoutTree();
+        tree.PointScaleFactor = 2f;
         var root = tree.CreateNode();
         tree.SetDisplay(root, Display.Block);
         tree.SetDimension(root, Dimension.Width, StyleLength.Points(200f));
@@ -160,9 +167,9 @@ public class InlineBlindSpotTests {
 
         public void Mutate(int mutation) {
             if (mutation % 2 == 0) {
-                widths[mutation % widths.Length] = 23f + (mutation % 29 * 1.31f);
+                widths[mutation % widths.Length] = 23f + mutation % 29 * 1.31f;
             } else {
-                heights[mutation % heights.Length] = 9f + (mutation % 13 * 0.77f);
+                heights[mutation % heights.Length] = 9f + mutation % 13 * 0.77f;
             }
         }
 
@@ -181,7 +188,7 @@ public class InlineBlindSpotTests {
         static float[] CreateSizes(int count, float start, float step) {
             var sizes = new float[count];
             for (var i = 0; i < count; i++) {
-                sizes[i] = start + (i * step % 19f);
+                sizes[i] = start + i * step % 19f;
             }
 
             return sizes;

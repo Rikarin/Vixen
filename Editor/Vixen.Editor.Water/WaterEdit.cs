@@ -16,12 +16,20 @@ namespace Vixen.Editor.Water;
 public enum WaterTool {
     /// <summary>Click a series of points on the ground to lay a body's curve.</summary>
     /// <remarks>
-    ///     ⚠ <b>This used to say "the one gesture that is not already served by <c>SplineEdit</c>",
-    ///     and <c>SplineEdit</c> serves none of them.</b> It is instantiated by nothing outside its own
+    ///     ⚠
+    ///     <b>
+    ///         This used to say "the one gesture that is not already served by <c>SplineEdit</c>",
+    ///         and <c>SplineEdit</c> serves none of them.
+    ///     </b>
+    ///     It is instantiated by nothing outside its own
     ///     tests, so no author can move a control point in any viewport — see
     ///     <see href="https://github.com/Rikarin/Vixen/issues/118">#118</see>. Draw is the gesture that
-    ///     would still be this mode's when that is fixed, because laying points <i>on the ground at the
-    ///     terrain's height</i> is a question about the terrain rather than about the curve.
+    ///     would still be this mode's when that is fixed, because laying points
+    ///     <i>
+    ///         on the ground at the
+    ///         terrain's height
+    ///     </i>
+    ///     is a question about the terrain rather than about the curve.
     /// </remarks>
     Draw,
 
@@ -141,8 +149,12 @@ public sealed class WaterEdit {
 
     /// <summary>How near the first point a click has to be to close the curve, in metres.</summary>
     /// <remarks>
-    ///     ⚠ <b>Clicking the first point again is how a closed body is finished, because the UI has
-    ///     no double click.</b> <c>PointerAction</c> reports moves, presses and releases and nothing
+    ///     ⚠
+    ///     <b>
+    ///         Clicking the first point again is how a closed body is finished, because the UI has
+    ///         no double click.
+    ///     </b>
+    ///     <c>PointerAction</c> reports moves, presses and releases and nothing
     ///     else — a click count is a fact about time that the event does not carry — so the gesture
     ///     every polygon tool offers second is the one offered first here. Enter finishes as well, and
     ///     is the only way to finish a river, which has no first point to come back to.
@@ -231,8 +243,12 @@ public sealed class WaterEdit {
     /// <returns>The curve, or <see langword="null" /> if there are not enough points.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Closed for every kind but a river, and the tangents are smoothed across the
-    ///         closure.</b> A closed curve whose tangents were computed as though it were open has a
+    ///         ⚠
+    ///         <b>
+    ///             Closed for every kind but a river, and the tangents are smoothed across the
+    ///             closure.
+    ///         </b>
+    ///         A closed curve whose tangents were computed as though it were open has a
     ///         corner where its two ends meet, which is a lake with a notch in it at the place the
     ///         author started drawing — and the author has no way to know that is why.
     ///     </para>
@@ -249,7 +265,7 @@ public sealed class WaterEdit {
 
         var closed = Kind != WaterBodyKind.River;
 
-        return new(Spline.SmoothTangents([.. drawn], closed, tension: 1f), closed);
+        return new(Spline.SmoothTangents([..drawn], closed, 1f), closed);
     }
 
     /// <summary>Takes hold of a profile handle.</summary>
@@ -269,8 +285,12 @@ public sealed class WaterEdit {
     /// <returns>The profile after it.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Both width handles edit the <em>same</em> number, and the sign is the
-    ///         difference.</b> A river's channel is symmetric about its centreline, so two handles is
+    ///         ⚠
+    ///         <b>
+    ///             Both width handles edit the <em>same</em> number, and the sign is the
+    ///             difference.
+    ///         </b>
+    ///         A river's channel is symmetric about its centreline, so two handles is
     ///         two grips on one value — dragging the left bank outward and the right bank outward both
     ///         widen it. Two independent half-widths would be a second number to author and a river
     ///         whose centreline is not its centre.
@@ -345,8 +365,8 @@ public sealed class WaterEdit {
         var centre = frame.Position;
 
         return (
-            centre - (side * profile.HalfWidth),
-            centre + (side * profile.HalfWidth),
+            centre - side * profile.HalfWidth,
+            centre + side * profile.HalfWidth,
             centre - new Vector3(0f, profile.Depth, 0f)
         );
     }
@@ -377,8 +397,12 @@ public sealed class WaterEdit {
     /// <param name="side">Which way is right of the curve there — <see cref="SideAt" />.</param>
     /// <returns>The unit axis, or zero for <see cref="WaterHandle.None" />.</returns>
     /// <remarks>
-    ///     ⚠ <b>Both width handles answer <em>the same</em> axis, and that is what makes
-    ///     <see cref="Drag" />'s two cases differ only in sign.</b> The metres a drag is worth are
+    ///     ⚠
+    ///     <b>
+    ///         Both width handles answer <em>the same</em> axis, and that is what makes
+    ///         <see cref="Drag" />'s two cases differ only in sign.
+    ///     </b>
+    ///     The metres a drag is worth are
     ///     measured along +side and +Y for all three, so a left handle pulled outward is a negative
     ///     number and <c>HalfWidth − metres</c> widens the channel. Answering −side here would negate
     ///     it twice and a left bank would drag the wrong way.
@@ -404,8 +428,12 @@ public sealed class WaterEdit {
     ///         public seam on a gizmo.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A camera looking straight down the axis has no answer, and the handle holds
-    ///         still rather than being flung.</b> The denominator goes to zero as the two directions
+    ///         ⚠
+    ///         <b>
+    ///             A camera looking straight down the axis has no answer, and the handle holds
+    ///             still rather than being flung.
+    ///         </b>
+    ///         The denominator goes to zero as the two directions
     ///         line up, and an unchecked divide there is a width that jumps to a kilometre on the one
     ///         frame the author orbited past.
     ///     </para>
@@ -422,7 +450,7 @@ public sealed class WaterEdit {
         // bank rather than as a sign error, and only from some angles.
         var w = handle - ray.Origin;
         var b = Vector3.Dot(axis, along);
-        var denominator = 1f - (b * b);
+        var denominator = 1f - b * b;
 
         if (MathF.Abs(denominator) < 1e-5f) {
             return handle;
@@ -431,6 +459,6 @@ public sealed class WaterEdit {
         var d = Vector3.Dot(axis, w);
         var e = Vector3.Dot(along, w);
 
-        return handle + (axis * (((b * e) - d) / denominator));
+        return handle + axis * ((b * e - d) / denominator);
     }
 }

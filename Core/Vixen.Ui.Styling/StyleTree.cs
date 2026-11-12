@@ -78,8 +78,12 @@ public sealed class StyleTree {
     /// <summary>Which surface's <c>@media</c> answers each element reads.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Inherited from the parent at creation, and that is the whole of the propagation
-    ///         story.</b> A document's surfaces share one rule set, so a rule's conditional group is
+    ///         ⚠
+    ///         <b>
+    ///             Inherited from the parent at creation, and that is the whole of the propagation
+    ///             story.
+    ///         </b>
+    ///         A document's surfaces share one rule set, so a rule's conditional group is
     ///         answered per <i>scope</i> rather than per rule set — and the scope an element is in is
     ///         the scope of the surface it is shown in. Every element under a surface root is created
     ///         after it, and <c>UiDocument.Reparent</c> rebuilds a moved subtree's slots in pre-order
@@ -115,6 +119,7 @@ public sealed class StyleTree {
     ///     </para>
     /// </remarks>
     int[] containers = new int[64];
+
     int[] providedContainers = new int[64];
     bool[] alive = new bool[64];
     int count;
@@ -212,13 +217,11 @@ public sealed class StyleTree {
             classArena.Add(names.Intern(className));
         }
 
-        classes[index] = new ClassRange(classStart, classNames.Length);
+        classes[index] = new(classStart, classNames.Length);
 
         var parentIndex = parent is { IsValid: true } owner ? owner.Index : NoParent;
-        links[index] = new ElementLinks {
-            Parent = parentIndex,
-            ChildOffset = -1,
-            IndexInParent = parentIndex >= 0 ? links[parentIndex].ChildCount : 0
+        links[index] = new() {
+            Parent = parentIndex, ChildOffset = -1, IndexInParent = parentIndex >= 0 ? links[parentIndex].ChildCount : 0
         };
 
         // ⚠ From the parent rather than from a default, and before the element is handed back. This
@@ -237,14 +240,13 @@ public sealed class StyleTree {
         }
 
         blooms[index] = BuildBloom(index);
-        return new StyleNodeId(index);
+        return new(index);
     }
 
     /// <summary>Whether an element is still in the tree.</summary>
     /// <param name="element">The element.</param>
     /// <returns>Whether it has not been removed.</returns>
-    public bool IsAlive(StyleNodeId element) =>
-        (uint) element.Index < (uint) count && alive[element.Index];
+    public bool IsAlive(StyleNodeId element) => (uint)element.Index < (uint)count && alive[element.Index];
 
     /// <summary>Removes an element and everything under it.</summary>
     /// <param name="element">The element.</param>
@@ -252,8 +254,12 @@ public sealed class StyleTree {
     ///     <para>
     ///         ⚠ <b>Tombstoned, never reused</b>, and that is the whole design decision. The obvious
     ///         implementation is a free list handing removed slots back out, and it would quietly
-    ///         break three separate things that all rest on one unwritten invariant: <i>a parent's
-    ///         index is lower than its children's</i>. <c>StyleUpdater.ResolveAll</c> walks slots in
+    ///         break three separate things that all rest on one unwritten invariant:
+    ///         <i>
+    ///             a parent's
+    ///             index is lower than its children's
+    ///         </i>
+    ///         . <c>StyleUpdater.ResolveAll</c> walks slots in
     ///         ascending order because that is parents-before-children and inheritance needs it;
     ///         its incremental pass uses the index as a priority for the same reason; and
     ///         <see cref="AddToDescendantBlooms" /> sweeps forward from an element and gives up the
@@ -300,8 +306,12 @@ public sealed class StyleTree {
     ///         be a silent corruption rather than a leak.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Relative order is preserved, and that is the entire reason this exists rather
-    ///         than a free list.</b> Live slots come out in the order they went in, so a parent's
+    ///         ⚠
+    ///         <b>
+    ///             Relative order is preserved, and that is the entire reason this exists rather
+    ///             than a free list.
+    ///         </b>
+    ///         Live slots come out in the order they went in, so a parent's
     ///         index stays below its children's — the unwritten invariant three separate passes rest
     ///         on, spelled out in <see cref="Remove" />. Handing a hole back out is what breaks it.
     ///     </para>
@@ -368,7 +378,7 @@ public sealed class StyleTree {
                 newClasses.Add(classArena[classRange.Start + c]);
             }
 
-            classes[to] = new ClassRange(classStart, classRange.Count);
+            classes[to] = classRange with { Start = classStart };
 
             var attributeStart = newAttributes.Count;
 
@@ -376,7 +386,7 @@ public sealed class StyleTree {
                 newAttributes.Add(attributeArena[attributeRange.Start + a]);
             }
 
-            attributes[to] = new AttributeRange(attributeStart, attributeRange.Count);
+            attributes[to] = attributeRange with { Start = attributeStart };
 
             var childStart = newChildren.Count;
 
@@ -396,7 +406,7 @@ public sealed class StyleTree {
                 newChildren.Add(child);
             }
 
-            links[to] = new ElementLinks {
+            links[to] = new() {
                 Parent = link.Parent < 0 ? NoParent : remap[link.Parent],
                 ChildOffset = link.ChildCount > 0 ? childStart : -1,
                 ChildCount = link.ChildCount,
@@ -553,7 +563,7 @@ public sealed class StyleTree {
                 continue;
             }
 
-            attributeArena[range.Start + i] = new AttributeEntry(nameId, valueId);
+            attributeArena[range.Start + i] = new(nameId, valueId);
             return;
         }
 
@@ -562,8 +572,8 @@ public sealed class StyleTree {
             attributeArena.Add(attributeArena[range.Start + i]);
         }
 
-        attributeArena.Add(new AttributeEntry(nameId, valueId));
-        attributes[index] = new AttributeRange(start, range.Count + 1);
+        attributeArena.Add(new(nameId, valueId));
+        attributes[index] = new(start, range.Count + 1);
     }
 
     /// <summary>Sets the transient state a selector can ask about.</summary>
@@ -614,8 +624,7 @@ public sealed class StyleTree {
     ///     By slot rather than by <see cref="StyleNodeId" /> because <c>ResolveAll</c> walks slots,
     ///     including the removed ones — the same reason <c>ParentOf</c> and <c>IsAliveAt</c> do.
     /// </remarks>
-    public InlineStyleId? InlineAt(int index) =>
-        inlines[index] < 0 ? null : new InlineStyleId(inlines[index]);
+    public InlineStyleId? InlineAt(int index) => inlines[index] < 0 ? null : new InlineStyleId(inlines[index]);
 
     /// <summary>Puts an element, and everything created under it afterwards, in a media scope.</summary>
     /// <param name="element">The element, which is a surface root in every current caller.</param>
@@ -728,7 +737,7 @@ public sealed class StyleTree {
         }
 
         classArena.Add(classId);
-        classes[index] = new ClassRange(start, range.Count + 1);
+        classes[index] = new(start, range.Count + 1);
 
         AddToDescendantBlooms(index, classId);
         return true;
@@ -762,7 +771,7 @@ public sealed class StyleTree {
             }
         }
 
-        classes[index] = new ClassRange(start, range.Count - 1);
+        classes[index] = new(start, range.Count - 1);
         return true;
     }
 
@@ -873,11 +882,11 @@ public sealed class StyleTree {
         var parent = Validate(element);
         ArgumentOutOfRangeException.ThrowIfNegative(index);
         ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(index, links[parent].ChildCount);
-        return new StyleNodeId(childArena[links[parent].ChildOffset + index]);
+        return new(childArena[links[parent].ChildOffset + index]);
     }
 
     internal int Validate(StyleNodeId element) {
-        if ((uint) element.Index >= (uint) count) {
+        if ((uint)element.Index >= (uint)count) {
             throw new ArgumentOutOfRangeException(nameof(element), $"{element} is not in this tree.");
         }
 
@@ -913,8 +922,12 @@ public sealed class StyleTree {
 
     /// <summary>The element's one-based position among the siblings that share its tag.</summary>
     /// <remarks>
-    ///     ⚠ <b>Counted rather than looked up, and it is the one structural test that cannot be
-    ///     O(1) here.</b> <see cref="IndexInParentOf" /> is stored because a child's position is
+    ///     ⚠
+    ///     <b>
+    ///         Counted rather than looked up, and it is the one structural test that cannot be
+    ///         O(1) here.
+    ///     </b>
+    ///     <see cref="IndexInParentOf" /> is stored because a child's position is
     ///     maintained by every insertion anyway; an of-type position is a position in a subsequence
     ///     that depends on which tag is being asked about, so a stored copy would be one number per
     ///     element per tag. Browsers count it too. The walk is over the parent's child list, which
@@ -1077,8 +1090,12 @@ public sealed class StyleTree {
     /// <summary>Adds a child to a parent's run, relocating it only when it has outgrown its space.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>This used to be O(children) per append whenever anything else had grown into the
-    ///         arena behind it, which makes building a wide parent quadratic.</b> The old version kept
+    ///         ⚠
+    ///         <b>
+    ///             This used to be O(children) per append whenever anything else had grown into the
+    ///             arena behind it, which makes building a wide parent quadratic.
+    ///         </b>
+    ///         The old version kept
     ///         a run packed tight and had only one way to add a slot: if the run was not the last
     ///         thing in the arena, copy the whole run to the end and append there. Building
     ///         parent-then-children keeps the run at the end and hides it — which is why every control

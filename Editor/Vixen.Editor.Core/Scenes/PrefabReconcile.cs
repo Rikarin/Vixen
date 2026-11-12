@@ -102,18 +102,27 @@ public sealed record PrefabReconcileReport(
 ///         exactly what an instance of the outer should show.
 ///     </para>
 ///     <para>
-///         ⚠⚠ <b>An earlier note here said the passes could not interfere because every entity carries
-///         at most one link. That is true and it is not the question.</b> A scene node inside an instance
+///         ⚠⚠
+///         <b>
+///             An earlier note here said the passes could not interfere because every entity carries
+///             at most one link. That is true and it is not the question.
+///         </b>
+///         A scene node inside an instance
 ///         of A carrying B's link is reachable from <i>both</i> templates, and the two disagree — B's
 ///         file has none of A's overrides over B. The disjointness was of the link sets and not of the
 ///         entities, and reconciling B on its own is how a nested prefab loses every override its outer
 ///         author made. That is why
-///         <see cref="PrefabOverrides.Reconcile(SceneFile,IReadOnlyDictionary{string,SceneFile},ICollection{PrefabReport})" />
+///         <see
+///             cref="PrefabOverrides.Reconcile(SceneFile,IReadOnlyDictionary{string,SceneFile},ICollection{PrefabReport})" />
 ///         takes every template at once.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The composition happens to the parsed template in memory, and no <c>.vxprefab</c> is
-///         written either.</b> The same rule as the scene's: a prefab somebody merely has a level open
+///         ⚠
+///         <b>
+///             The composition happens to the parsed template in memory, and no <c>.vxprefab</c> is
+///             written either.
+///         </b>
+///         The same rule as the scene's: a prefab somebody merely has a level open
 ///         against is not a prefab they asked to edit.
 ///     </para>
 /// </remarks>
@@ -280,12 +289,12 @@ public static class PrefabReconcile {
             template = SceneFile.FromYaml(File.ReadAllText(path));
         } catch (Exception error)
             when (error is YamlParseException or YamlBindingException or NotSupportedException or IOException) {
-            // ⚠ Caught and reported rather than thrown out of an open. A single unreadable prefab
-            // would otherwise stop a level opening at all — which turns "one asset is broken" into
-            // "the level is gone", and the level is the file that cannot be rebuilt.
-            why = new(prefab, PrefabUnresolvedKind.Unreadable, error.Message);
-            return false;
-        }
+                // ⚠ Caught and reported rather than thrown out of an open. A single unreadable prefab
+                // would otherwise stop a level opening at all — which turns "one asset is broken" into
+                // "the level is gone", and the level is the file that cannot be rebuilt.
+                why = new(prefab, PrefabUnresolvedKind.Unreadable, error.Message);
+                return false;
+            }
 
         why = default;
         return true;

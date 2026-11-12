@@ -18,10 +18,12 @@ public class InteractionTests {
     static UiTest Fixture(out UiElement button) {
         var ui = UiTest.Create(400f, 300f);
 
-        ui.Load("""
-            root { width: 400px; height: 300px; }
-            .btn { width: 100px; height: 40px; }
-        """);
+        ui.Load(
+            """
+                root { width: 400px; height: 300px; }
+                .btn { width: 100px; height: 40px; }
+            """
+        );
 
         button = ui.Create("button", ui.Document.Root, "save", "btn");
         button.Text = "Save";
@@ -41,12 +43,12 @@ public class InteractionTests {
 
         Assert.Equal(
             [PointerAction.Moved, PointerAction.Pressed, PointerAction.Released],
-            seen.Select(args => args.Action)
+            seen.Select(static args => args.Action)
         );
 
         // The centre of a hundred-by-forty box at the origin.
-        Assert.All(seen, args => Assert.Equal(50f, args.X, 0.001f));
-        Assert.All(seen, args => Assert.Equal(20f, args.Y, 0.001f));
+        Assert.All(seen, static args => Assert.Equal(50f, args.X, 0.001f));
+        Assert.All(seen, static args => Assert.Equal(20f, args.Y, 0.001f));
     }
 
     [Fact]
@@ -134,9 +136,9 @@ public class InteractionTests {
         ui.Hold(ModifierKeys.Control);
         ui.Get("#save").PressKey(InputKey.S);
 
-        Assert.Equal([KeyAction.Pressed, KeyAction.Released], seen.Select(args => args.Action));
-        Assert.All(seen, args => Assert.Equal(InputKey.S, args.Key));
-        Assert.All(seen, args => Assert.Equal(ModifierKeys.Control, args.Modifiers));
+        Assert.Equal([KeyAction.Pressed, KeyAction.Released], seen.Select(static args => args.Action));
+        Assert.All(seen, static args => Assert.Equal(InputKey.S, args.Key));
+        Assert.All(seen, static args => Assert.Equal(ModifierKeys.Control, args.Modifiers));
     }
 
     [Fact]
@@ -152,13 +154,13 @@ public class InteractionTests {
         Assert.True(ui.Tab());
         ui.Get("#cancel").ShouldBeFocused();
 
-        Assert.True(ui.Tab(backwards: true));
+        Assert.True(ui.Tab(true));
         Assert.True(first.IsFocused);
     }
 
     [Fact]
     public void A_wheel_is_hit_tested_and_bubbles() {
-        using var ui = Fixture(out var button);
+        using var ui = Fixture(out _);
 
         var seen = new List<WheelEvent>();
         ui.Document.Root.AddHandler<WheelEvent>((_, args) => seen.Add(args));

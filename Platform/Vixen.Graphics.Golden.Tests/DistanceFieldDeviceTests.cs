@@ -70,8 +70,8 @@ public sealed class DistanceFieldDeviceTests {
 
         Assert.NotNull(data);
 
-        var declared = data!.Bindings.Select(binding => binding.Name).ToHashSet(StringComparer.Ordinal);
-        var parameters = data.Parameters.Select(parameter => parameter.Name).ToHashSet(StringComparer.Ordinal);
+        var declared = data!.Bindings.Select(static binding => binding.Name).ToHashSet(StringComparer.Ordinal);
+        var parameters = data.Parameters.Select(static parameter => parameter.Name).ToHashSet(StringComparer.Ordinal);
 
         // A binding's own name carries the shader that declared it and no pass — `EffectSetWriter`
         // is what puts the pass back on, resolving `{ShaderName}.{binding.Name}`. So the key a host
@@ -88,7 +88,7 @@ public sealed class DistanceFieldDeviceTests {
         Assert.Contains($"{Pass}.{Source}.distanceFieldLevels", keys);
 
         for (var level = 0; level < 4; level++) {
-            foreach (var member in (string[]) ["minimum", "maximum", "inverseCellSize", "maxDistance"]) {
+            foreach (var member in (string[])["minimum", "maximum", "inverseCellSize", "maxDistance"]) {
                 Assert.Contains($"{Pass}.{Source}.distanceFieldVolumes[{level}].{member}", parameters);
             }
         }
@@ -111,8 +111,12 @@ public sealed class DistanceFieldDeviceTests {
     ///         compilation gets the shader's declared default.
     ///     </para>
     ///     <para>
-    ///         The consequence is worth being plain about: <b>a clipmap with a level count other than
-    ///         the shader's default binds the wrong number of descriptors</b>, and nothing on either
+    ///         The consequence is worth being plain about:
+    ///         <b>
+    ///             a clipmap with a level count other than
+    ///             the shader's default binds the wrong number of descriptors
+    ///         </b>
+    ///         , and nothing on either
     ///         side currently notices. Until the compiler forwards a composed shader's keys, four
     ///         levels is not a default — it is the only value, and a project wanting two needs the
     ///         shader edited rather than a setting changed.
@@ -124,7 +128,7 @@ public sealed class DistanceFieldDeviceTests {
     /// </remarks>
     [Fact]
     public void OnlyThePassesOwnPermutationsAreSelectable() {
-        var declared = Compiler().Declared("DistanceFieldAo", Tracing()).Select(info => info.Name).ToArray();
+        var declared = Compiler().Declared("DistanceFieldAo", Tracing()).Select(static info => info.Name).ToArray();
 
         Assert.Equal(["SunShadow"], declared);
         Assert.DoesNotContain("LevelCount", declared);
@@ -139,7 +143,7 @@ public sealed class DistanceFieldDeviceTests {
     static ShaderComposition Tracing() {
         var slots = Composition()
             .Slots
-            .Where(pair => !pair.Key.EndsWith("distanceField", StringComparison.Ordinal))
+            .Where(static pair => !pair.Key.EndsWith("distanceField", StringComparison.Ordinal))
             .ToList();
 
         slots.Add(new("distanceField", "GlobalDistanceField"));
@@ -158,7 +162,7 @@ public sealed class DistanceFieldDeviceTests {
 
         Assert.False(
             compilation.Failed,
-            string.Join(Environment.NewLine, compilation.Diagnostics.Select(diagnostic => diagnostic.ToString()))
+            string.Join(Environment.NewLine, compilation.Diagnostics.Select(static diagnostic => diagnostic.ToString()))
         );
 
         return compilation.Material!.Composition;

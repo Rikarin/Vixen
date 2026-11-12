@@ -12,8 +12,12 @@ namespace Tests;
 /// <summary>The § 4.3 kernels on an image that is not square, which is where a per-axis mistake lives.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Every space-kernel assertion in the branch this file was added to was made at
-///         64×64</b>, and a square image is the one shape that cannot see the defect
+///         ⚠
+///         <b>
+///             Every space-kernel assertion in the branch this file was added to was made at
+///             64×64
+///         </b>
+///         , and a square image is the one shape that cannot see the defect
 ///         <a href="https://github.com/Rikarin/Vixen/issues/677">#677</a> names: a footprint whose
 ///         columns are divided by the wrong output extent is *exactly right* when the two extents are
 ///         one number. A whole class of arithmetic — anything of the form
@@ -43,7 +47,7 @@ public class TextureAspectDeviceTests(ITestOutputHelper output) {
     const int Tall = 64;
 
     static TextureOp Op(string kernel, int output, int[] inputs, TextureParameter[] parameters) =>
-        new() { Kernel = kernel, Output = output, Inputs = [.. inputs], Parameters = [.. parameters] };
+        new() { Kernel = kernel, Output = output, Inputs = [..inputs], Parameters = [..parameters] };
 
     static TextureParameter[] Transform(float rotation, TextureTiling tiling, TextureFilter filter) => [
         new("rotation", rotation),
@@ -126,8 +130,12 @@ public class TextureAspectDeviceTests(ITestOutputHelper output) {
     ///         a square space and every texel centre lands on a texel centre.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The guard <a href="https://github.com/Rikarin/Vixen/issues/677">#677</a> put here
-    ///         survives the change of answer.</b> At a quarter turn the inverse is now
+    ///         ⚠
+    ///         <b>
+    ///             The guard <a href="https://github.com/Rikarin/Vixen/issues/677">#677</a> put here
+    ///             survives the change of answer.
+    ///         </b>
+    ///         At a quarter turn the inverse is now
     ///         <c>(0 ¼ / −4 0)</c>, and the footprints are <c>|(0, −4 · 64/256)| = 1</c> and
     ///         <c>|(¼ · 256/64, 0)| = 1</c>: one tap. Dividing either column by the other axis's extent
     ///         makes a footprint of four, four taps, and a grey where a point-sampled turn of a column
@@ -153,7 +161,11 @@ public class TextureAspectDeviceTests(ITestOutputHelper output) {
         Assert.Equal(Wide, picture.Width);
         Assert.Equal(Tall, picture.Height);
 
-        AssertStriped(picture, alongX: true, $"a column checkerboard on a {Wide}×{Tall} image, turned a quarter, on {TextureKernelHarness.Adapter(device)}");
+        AssertStriped(
+            picture,
+            true,
+            $"a column checkerboard on a {Wide}×{Tall} image, turned a quarter, on {TextureKernelHarness.Adapter(device)}"
+        );
     }
 
     /// <summary>The transpose of the same case, so neither axis is right by accident.</summary>
@@ -181,7 +193,11 @@ public class TextureAspectDeviceTests(ITestOutputHelper output) {
         Assert.Equal(Tall, picture.Width);
         Assert.Equal(Wide, picture.Height);
 
-        AssertStriped(picture, alongX: false, $"a row checkerboard on a {Tall}×{Wide} image, turned a quarter, on {TextureKernelHarness.Adapter(device)}");
+        AssertStriped(
+            picture,
+            false,
+            $"a row checkerboard on a {Tall}×{Wide} image, turned a quarter, on {TextureKernelHarness.Adapter(device)}"
+        );
     }
 
     /// <summary>Every texel pure black or white, constant along one axis and alternating along the other.</summary>
@@ -189,14 +205,22 @@ public class TextureAspectDeviceTests(ITestOutputHelper output) {
         for (var y = 0; y < picture.Height; y++) {
             for (var x = 0; x < picture.Width; x++) {
                 var value = TextureKernelHarness.At(picture, x, y, 0);
-                var first = alongX ? TextureKernelHarness.At(picture, 0, y, 0) : TextureKernelHarness.At(picture, x, 0, 0);
+                var first = alongX
+                    ? TextureKernelHarness.At(picture, 0, y, 0)
+                    : TextureKernelHarness.At(picture, x, 0, 0);
                 var neighbour = alongX
                     ? TextureKernelHarness.At(picture, x, (y + 1) % picture.Height, 0)
                     : TextureKernelHarness.At(picture, (x + 1) % picture.Width, y, 0);
 
-                Assert.True(value is 0 or 255, $"{what}: ({x}, {y}) is {value}, a mix where a turn in texels reads one texel.");
+                Assert.True(
+                    value is 0 or 255,
+                    $"{what}: ({x}, {y}) is {value}, a mix where a turn in texels reads one texel."
+                );
                 Assert.True(value == first, $"{what}: ({x}, {y}) is {value} and its stripe began {first}.");
-                Assert.True(value != neighbour, $"{what}: ({x}, {y}) and its neighbour across the stripes are both {value}.");
+                Assert.True(
+                    value != neighbour,
+                    $"{what}: ({x}, {y}) and its neighbour across the stripes are both {value}."
+                );
             }
         }
     }

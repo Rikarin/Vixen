@@ -64,8 +64,8 @@ public sealed class SceneHierarchyViewTests {
         harness.Ui.Frame();
 
         Assert.Equal(2, view.RootCount);
-        Assert.Equal(["Parent", "Sibling"], view.Tree.Root.Children.Select(node => node.Text));
-        Assert.Equal(["Child"], view.Tree.Root.Children[0].Children.Select(node => node.Text));
+        Assert.Equal(["Parent", "Sibling"], view.Tree.Root.Children.Select(static node => node.Text));
+        Assert.Equal(["Child"], view.Tree.Root.Children[0].Children.Select(static node => node.Text));
     }
 
     /// <summary>A structure change rebuilds, and the roots come back expanded.</summary>
@@ -87,7 +87,7 @@ public sealed class SceneHierarchyViewTests {
 
         Assert.Equal(1, view.RootCount);
         Assert.True(view.Tree.Root.Children[0].IsExpanded);
-        Assert.Equal(["Later"], view.Tree.Root.Children[0].Children.Select(node => node.Text));
+        Assert.Equal(["Later"], view.Tree.Root.Children[0].Children.Select(static node => node.Text));
     }
 
     /// <summary>

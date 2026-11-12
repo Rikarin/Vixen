@@ -13,8 +13,12 @@ namespace Vixen.Editor.App.Tests;
 /// <summary>The host's own frame loop, run headless.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Nothing built an <c>EditorHost</c> before this file.</b> <c>grep -rn "new
-///         EditorHost"</c> had one hit — <c>Program.cs</c> — so every step of <c>Run</c> was
+///         ⚠ <b>Nothing built an <c>EditorHost</c> before this file.</b>
+///         <c>
+///             grep -rn "new
+///             EditorHost"
+///         </c>
+///         had one hit — <c>Program.cs</c> — so every step of <c>Run</c> was
 ///         uncovered: pump, resize coalescing, tick, document update, <c>PlatformCursor.Apply</c>,
 ///         editor update, draw, sync, geometry, present. <see cref="Editor.Testing.EditorSession" /> is not that
 ///         coverage and does not claim to be: it runs the same four steps in the same order out of
@@ -44,11 +48,9 @@ public class EditorHostTests {
 
     static (TemporaryFileSystemHost Files, HeadlessPlatform Platform, IWindow Window) Open() {
         var files = new TemporaryFileSystemHost();
-        var platform = new HeadlessPlatform(new HeadlessPlatformOptions { FileSystem = files });
+        var platform = new HeadlessPlatform(new() { FileSystem = files });
 
-        var window = platform.CreateWindow(
-            new WindowOptions { Title = "Vixen Editor", Size = new Int2(1280, 800) }
-        );
+        var window = platform.CreateWindow(new() { Title = "Vixen Editor", Size = new(1280, 800) });
 
         return (files, platform, window);
     }
@@ -78,8 +80,12 @@ public class EditorHostTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>The one assertion that a frame actually happened, rather than that the loop
-    ///     returned.</b> Everything else here is true of a host that drew nothing: the title is
+    ///     ⚠
+    ///     <b>
+    ///         The one assertion that a frame actually happened, rather than that the loop
+    ///         returned.
+    ///     </b>
+    ///     Everything else here is true of a host that drew nothing: the title is
     ///     pushed by the constructor, and the layout and the placement are written after the loop
     ///     whether or not it went round. <c>Command</c> runs on the first drawn frame and nowhere
     ///     else, and an unknown one is exit code 2 — so this is red for a loop whose body never ran,
@@ -91,15 +97,20 @@ public class EditorHostTests {
 
         using (files) {
             using (platform) {
-                using var host = new EditorHost(platform, window) { Command = "no.such.command" };
+                using var host = new EditorHost(platform, window);
+                host.Command = "no.such.command";
                 Assert.Equal(2, host.Run(1));
             }
         }
     }
 
     /// <summary>
-    ///     ⚠ <b>Two frames rather than one, because the second is where a frame that only works
-    ///     once fails.</b> The loop reuses the pane geometry it built, retires thumbnails between
+    ///     ⚠
+    ///     <b>
+    ///         Two frames rather than one, because the second is where a frame that only works
+    ///         once fails.
+    ///     </b>
+    ///     The loop reuses the pane geometry it built, retires thumbnails between
     ///     frames and runs its one-shot command on the first pass only; a step that leaves state
     ///     behind is invisible in a single frame.
     /// </summary>
@@ -143,8 +154,12 @@ public class EditorHostTests {
     /// <summary>The palette the machine already had reaches the shell before the first frame.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The editor is the host a wire gets added to second, and the one where a missing
-    ///         wire is quietest.</b> Its theme uses the class dark-mode strategy and asks no media
+    ///         ⚠
+    ///         <b>
+    ///             The editor is the host a wire gets added to second, and the one where a missing
+    ///             wire is quietest.
+    ///         </b>
+    ///         Its theme uses the class dark-mode strategy and asks no media
     ///         query, so the symptom of an unwired palette here is not a light window on a dark
     ///         machine but <c>color: CanvasText</c> in a panel or a plug-in sheet silently keeping
     ///         Chromium's black. CLAUDE.md's two-renderers rule is about exactly this pair, and
@@ -152,8 +167,12 @@ public class EditorHostTests {
     ///         reachable from nothing.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The queue is drained between the setting and the run, and without that line this
-    ///         proves nothing.</b> Setting a headless platform's palette queues the appearance event
+    ///         ⚠
+    ///         <b>
+    ///             The queue is drained between the setting and the run, and without that line this
+    ///             proves nothing.
+    ///         </b>
+    ///         Setting a headless platform's palette queues the appearance event
     ///         on purpose — that is what a desktop's poll does — so a run that kept it would have
     ///         the seed and the handler apply the same value, and deleting the seed would leave this
     ///         green. Draining makes the seed the only thing that could have supplied the colour.
@@ -186,8 +205,12 @@ public class EditorHostTests {
 
     /// <summary>And a palette that moves under the running editor is picked up.</summary>
     /// <remarks>
-    ///     ⚠ <b>Through <see cref="SwitchingPlatform" />, because the seed and the handler read the
-    ///     same property and this loop runs its seed on every <c>Run</c>.</b> See that class: the
+    ///     ⚠
+    ///     <b>
+    ///         Through <see cref="SwitchingPlatform" />, because the seed and the handler read the
+    ///         same property and this loop runs its seed on every <c>Run</c>.
+    ///     </b>
+    ///     See that class: the
     ///     value has to differ between the two reads or neither line can be sabotaged on its own,
     ///     and the platform is the only thing in reach that can make it differ mid-frame.
     /// </remarks>

@@ -64,7 +64,7 @@ public static class GoapDomainContentCompiler {
 
             goals[index] = new(
                 Symbol.Intern(goal.Name),
-                [.. goal.Conditions.Select(condition => Condition(condition, names, problems))],
+                [..goal.Conditions.Select(condition => Condition(condition, names, problems))],
                 goal.Priority
             );
         }
@@ -82,13 +82,20 @@ public static class GoapDomainContentCompiler {
         Dictionary<string, GoapWorldKey> names,
         List<BehaviorTreeDiagnostic> problems
     ) {
-        BehaviorTreeContentCompiler.TryResolveTask(resolver, layout, content.Task, content.Fields, problems, out var task);
+        BehaviorTreeContentCompiler.TryResolveTask(
+            resolver,
+            layout,
+            content.Task,
+            content.Fields,
+            problems,
+            out var task
+        );
 
         return new(
             Symbol.Intern(content.Name),
             task,
-            [.. content.Conditions.Select(condition => Condition(condition, names, problems))],
-            [.. content.Effects.Select(effect => Effect(effect, names, problems))]
+            [..content.Conditions.Select(condition => Condition(condition, names, problems))],
+            [..content.Effects.Select(effect => Effect(effect, names, problems))]
         ) {
             BaseCost = content.Cost,
             Target = content.Target.Length > 0 ? Symbol.Intern(content.Target) : Symbol.None,
@@ -111,7 +118,11 @@ public static class GoapDomainContentCompiler {
     ) =>
         new(Key(content.Key, names, problems), content.Increases);
 
-    static GoapWorldKey Key(string name, Dictionary<string, GoapWorldKey> names, List<BehaviorTreeDiagnostic> problems) {
+    static GoapWorldKey Key(
+        string name,
+        Dictionary<string, GoapWorldKey> names,
+        List<BehaviorTreeDiagnostic> problems
+    ) {
         if (name.Length == 0) {
             problems.Add(new(Symbol.None, "A condition or effect needs a world key."));
 

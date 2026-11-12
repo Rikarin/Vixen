@@ -34,49 +34,49 @@ public class CompositorAssetTests : IDisposable {
     readonly EffectSystem effects = new();
 
     const string Document = """
-        version: 2
-        resources:
-          - name: SceneColour
-            format: Rgba16Float
-            usage: ColourTarget, Sampled
-          - name: SceneDepth
-            format: Depth32Float
-            usage: DepthStencilTarget
-        stages:
-          - name: ShadowCaster
-            cull: Front
-            depthBias: 1
-            depthBiasSlope: 2
-          - name: Opaque
-          - name: Transparent
-            sortMode: BackToFront
-            blend: AlphaBlend
-            depth: TestOnly
-        game: !Sequence
-          name: Frame
-          children:
-            - !ShadowMap
-              name: Shadows
-              stage: ShadowCaster
-              atlas: ShadowAtlas
-              cascadeCount: 2
-              resolution: 256
-              shadowDistance: 100
-            - !RenderPass
-              name: Main
-              colourTargets: [SceneColour]
-              depthTarget: SceneDepth
-              reads: [ShadowAtlas]
-              children:
-                - !SingleStage
-                  name: OpaqueDraw
-                  view: Camera
-                  stage: Opaque
-                - !SingleStage
-                  name: TransparentDraw
-                  view: Camera
-                  stage: Transparent
-        """;
+                            version: 2
+                            resources:
+                              - name: SceneColour
+                                format: Rgba16Float
+                                usage: ColourTarget, Sampled
+                              - name: SceneDepth
+                                format: Depth32Float
+                                usage: DepthStencilTarget
+                            stages:
+                              - name: ShadowCaster
+                                cull: Front
+                                depthBias: 1
+                                depthBiasSlope: 2
+                              - name: Opaque
+                              - name: Transparent
+                                sortMode: BackToFront
+                                blend: AlphaBlend
+                                depth: TestOnly
+                            game: !Sequence
+                              name: Frame
+                              children:
+                                - !ShadowMap
+                                  name: Shadows
+                                  stage: ShadowCaster
+                                  atlas: ShadowAtlas
+                                  cascadeCount: 2
+                                  resolution: 256
+                                  shadowDistance: 100
+                                - !RenderPass
+                                  name: Main
+                                  colourTargets: [SceneColour]
+                                  depthTarget: SceneDepth
+                                  reads: [ShadowAtlas]
+                                  children:
+                                    - !SingleStage
+                                      name: OpaqueDraw
+                                      view: Camera
+                                      stage: Opaque
+                                    - !SingleStage
+                                      name: TransparentDraw
+                                      view: Camera
+                                      stage: Transparent
+                            """;
 
     /// <summary>The same frame, splitting its shading across the ambient split's four planes.</summary>
     /// <remarks>
@@ -97,53 +97,53 @@ public class CompositorAssetTests : IDisposable {
     ///     </para>
     /// </remarks>
     const string SplitDocument = """
-        version: 2
-        resources:
-          - name: SceneColour
-            format: Rgba16Float
-            usage: ColourTarget, Sampled
-          - name: SceneAlbedo
-            format: Rgba8UNormSrgb
-            usage: ColourTarget, Sampled
-          - name: SceneNormals
-            format: Rgba16Float
-            usage: ColourTarget, Sampled
-          - name: SceneSpecular
-            format: Rgba8UNorm
-            usage: ColourTarget, Sampled
-          - name: SceneMotion
-            format: Rg16Float
-            usage: ColourTarget, Sampled
-          - name: SceneDepth
-            format: Depth32Float
-            usage: DepthStencilTarget
-        stages:
-          - name: Opaque
-          - name: Motion
-        game: !Sequence
-          name: Frame
-          children:
-            - !RenderPass
-              name: Main
-              colourTargets: [SceneColour, SceneAlbedo, SceneNormals, SceneSpecular]
-              depthTarget: SceneDepth
-              children:
-                - !SingleStage
-                  name: OpaqueDraw
-                  view: Camera
-                  stage: Opaque
-            - !RenderPass
-              name: Velocity
-              colourTargets: [SceneMotion]
-              depthTarget: SceneDepth
-              depthLoad: Load
-              readOnlyDepth: true
-              children:
-                - !SingleStage
-                  name: MotionVectors
-                  view: Camera
-                  stage: Motion
-        """;
+                                 version: 2
+                                 resources:
+                                   - name: SceneColour
+                                     format: Rgba16Float
+                                     usage: ColourTarget, Sampled
+                                   - name: SceneAlbedo
+                                     format: Rgba8UNormSrgb
+                                     usage: ColourTarget, Sampled
+                                   - name: SceneNormals
+                                     format: Rgba16Float
+                                     usage: ColourTarget, Sampled
+                                   - name: SceneSpecular
+                                     format: Rgba8UNorm
+                                     usage: ColourTarget, Sampled
+                                   - name: SceneMotion
+                                     format: Rg16Float
+                                     usage: ColourTarget, Sampled
+                                   - name: SceneDepth
+                                     format: Depth32Float
+                                     usage: DepthStencilTarget
+                                 stages:
+                                   - name: Opaque
+                                   - name: Motion
+                                 game: !Sequence
+                                   name: Frame
+                                   children:
+                                     - !RenderPass
+                                       name: Main
+                                       colourTargets: [SceneColour, SceneAlbedo, SceneNormals, SceneSpecular]
+                                       depthTarget: SceneDepth
+                                       children:
+                                         - !SingleStage
+                                           name: OpaqueDraw
+                                           view: Camera
+                                           stage: Opaque
+                                     - !RenderPass
+                                       name: Velocity
+                                       colourTargets: [SceneMotion]
+                                       depthTarget: SceneDepth
+                                       depthLoad: Load
+                                       readOnlyDepth: true
+                                       children:
+                                         - !SingleStage
+                                           name: MotionVectors
+                                           view: Camera
+                                           stage: Motion
+                                 """;
 
     /// <summary>A frame that culls on the device, as a document says it.</summary>
     /// <remarks>
@@ -153,36 +153,36 @@ public class CompositorAssetTests : IDisposable {
     ///     already have.
     /// </remarks>
     const string CullingDocument = """
-        version: 2
-        resources:
-          - name: SceneColour
-            format: Rgba16Float
-            usage: ColourTarget, Sampled
-          - name: SceneDepth
-            format: Depth32Float
-            usage: DepthStencilTarget, Sampled
-        stages:
-          - name: Opaque
-        game: !Sequence
-          name: Frame
-          children:
-            - !GpuCulling
-              name: Culling
-              readBack: false
-              indirectDraws: true
-            - !RenderPass
-              name: Main
-              colourTargets: [SceneColour]
-              depthTarget: SceneDepth
-              children:
-                - !SingleStage
-                  name: OpaqueDraw
-                  view: Camera
-                  stage: Opaque
-            - !HiZ
-              name: Pyramid
-              depth: SceneDepth
-        """;
+                                   version: 2
+                                   resources:
+                                     - name: SceneColour
+                                       format: Rgba16Float
+                                       usage: ColourTarget, Sampled
+                                     - name: SceneDepth
+                                       format: Depth32Float
+                                       usage: DepthStencilTarget, Sampled
+                                   stages:
+                                     - name: Opaque
+                                   game: !Sequence
+                                     name: Frame
+                                     children:
+                                       - !GpuCulling
+                                         name: Culling
+                                         readBack: false
+                                         indirectDraws: true
+                                       - !RenderPass
+                                         name: Main
+                                         colourTargets: [SceneColour]
+                                         depthTarget: SceneDepth
+                                         children:
+                                           - !SingleStage
+                                             name: OpaqueDraw
+                                             view: Camera
+                                             stage: Opaque
+                                       - !HiZ
+                                         name: Pyramid
+                                         depth: SceneDepth
+                                   """;
 
     /// <summary>The same frame, culled in two phases, which is four nodes in an order.</summary>
     /// <remarks>
@@ -192,54 +192,54 @@ public class CompositorAssetTests : IDisposable {
     ///     makes its answer about this frame's depth rather than the last one's.
     /// </remarks>
     const string TwoPhaseDocument = """
-        version: 2
-        resources:
-          - name: SceneColour
-            format: Rgba16Float
-            usage: ColourTarget, Sampled
-          - name: SceneDepth
-            format: Depth32Float
-            usage: DepthStencilTarget, Sampled
-        stages:
-          - name: Opaque
-        game: !Sequence
-          name: Frame
-          children:
-            - !GpuCulling
-              name: Culling
-              readBack: false
-              indirectDraws: true
-            - !RenderPass
-              name: Main
-              colourTargets: [SceneColour]
-              depthTarget: SceneDepth
-              children:
-                - !SingleStage
-                  name: OpaqueDraw
-                  view: Camera
-                  stage: Opaque
-            - !HiZ
-              name: Pyramid
-              depth: SceneDepth
-            - !GpuCulling
-              name: LateCulling
-              phase: Late
-              indirectDraws: true
-            - !RenderPass
-              name: Late
-              colourTargets: [SceneColour]
-              depthTarget: SceneDepth
-              load: Load
-              depthLoad: Load
-              children:
-                - !SingleStage
-                  name: LateOpaqueDraw
-                  view: Camera
-                  stage: Opaque
-            - !HiZ
-              name: FinalPyramid
-              depth: SceneDepth
-        """;
+                                    version: 2
+                                    resources:
+                                      - name: SceneColour
+                                        format: Rgba16Float
+                                        usage: ColourTarget, Sampled
+                                      - name: SceneDepth
+                                        format: Depth32Float
+                                        usage: DepthStencilTarget, Sampled
+                                    stages:
+                                      - name: Opaque
+                                    game: !Sequence
+                                      name: Frame
+                                      children:
+                                        - !GpuCulling
+                                          name: Culling
+                                          readBack: false
+                                          indirectDraws: true
+                                        - !RenderPass
+                                          name: Main
+                                          colourTargets: [SceneColour]
+                                          depthTarget: SceneDepth
+                                          children:
+                                            - !SingleStage
+                                              name: OpaqueDraw
+                                              view: Camera
+                                              stage: Opaque
+                                        - !HiZ
+                                          name: Pyramid
+                                          depth: SceneDepth
+                                        - !GpuCulling
+                                          name: LateCulling
+                                          phase: Late
+                                          indirectDraws: true
+                                        - !RenderPass
+                                          name: Late
+                                          colourTargets: [SceneColour]
+                                          depthTarget: SceneDepth
+                                          load: Load
+                                          depthLoad: Load
+                                          children:
+                                            - !SingleStage
+                                              name: LateOpaqueDraw
+                                              view: Camera
+                                              stage: Opaque
+                                        - !HiZ
+                                          name: FinalPyramid
+                                          depth: SceneDepth
+                                    """;
 
     // --- Fixture ------------------------------------------------------------
 
@@ -260,27 +260,27 @@ public class CompositorAssetTests : IDisposable {
     ///     The lit path: a clipmap, a probe field, and the two screen passes that read them.
     /// </summary>
     const string LightingDocument = """
-        version: 2
-        resources:
-          - name: SceneDepth
-            format: Depth32Float
-            usage: DepthStencilTarget, Sampled
-          - name: SceneNormals
-            format: Rgba16Float
-            usage: ColourTarget, Sampled
-        stages:
-          - name: Opaque
-        game: !Sequence
-          name: Frame
-          children:
-            - !GlobalDistanceField
-              name: Clipmap
-              parallel: false
-            - !IrradianceField
-              name: Probes
-              budget: 16
-              dilationPasses: 2
-        """;
+                                    version: 2
+                                    resources:
+                                      - name: SceneDepth
+                                        format: Depth32Float
+                                        usage: DepthStencilTarget, Sampled
+                                      - name: SceneNormals
+                                        format: Rgba16Float
+                                        usage: ColourTarget, Sampled
+                                    stages:
+                                      - name: Opaque
+                                    game: !Sequence
+                                      name: Frame
+                                      children:
+                                        - !GlobalDistanceField
+                                          name: Clipmap
+                                          parallel: false
+                                        - !IrradianceField
+                                          name: Probes
+                                          budget: 16
+                                          dilationPasses: 2
+                                    """;
 
     /// <summary>The virtualized path as a document describes it: traverse, then draw and shade.</summary>
     /// <remarks>
@@ -290,29 +290,29 @@ public class CompositorAssetTests : IDisposable {
     ///     node, because their order is not something a file should be able to get wrong.
     /// </remarks>
     const string ClusterDocument = """
-        version: 2
-        resources:
-          - name: SceneColour
-            format: Rgba16Float
-            usage: ColourTarget, Sampled, Storage
-          - name: SceneDepth
-            format: Depth32Float
-            usage: DepthStencilTarget, Sampled
-        stages:
-          - name: Opaque
-        game: !Sequence
-          name: Frame
-          children:
-            - !ClusterCulling
-              name: Traversal
-            - !VisibilityBuffer
-              name: Visibility
-              output: Identities
-              depth: SceneDepth
-              colour: SceneColour
-              albedo: SceneAlbedo
-              normals: SceneNormals
-        """;
+                                   version: 2
+                                   resources:
+                                     - name: SceneColour
+                                       format: Rgba16Float
+                                       usage: ColourTarget, Sampled, Storage
+                                     - name: SceneDepth
+                                       format: Depth32Float
+                                       usage: DepthStencilTarget, Sampled
+                                   stages:
+                                     - name: Opaque
+                                   game: !Sequence
+                                     name: Frame
+                                     children:
+                                       - !ClusterCulling
+                                         name: Traversal
+                                       - !VisibilityBuffer
+                                         name: Visibility
+                                         output: Identities
+                                         depth: SceneDepth
+                                         colour: SceneColour
+                                         albedo: SceneAlbedo
+                                         normals: SceneNormals
+                                   """;
 
     /// <summary>
     ///     A document can describe the virtualized path, and a host that supplied nothing gets nodes
@@ -409,7 +409,7 @@ public class CompositorAssetTests : IDisposable {
 
         var probes = new IrradianceField(
             new BoundingBox(new(-8f, -8f, -8f), new(8f, 8f, 8f)),
-            new Int3(4, 4, 4)
+            new(4, 4, 4)
         );
 
         using var jobs = new JobScheduler(0);
@@ -460,19 +460,19 @@ public class CompositorAssetTests : IDisposable {
 
     /// <summary>Doc 19 § L4's node: the cache kept in the frame, and who reads it.</summary>
     const string SurfaceCacheDocument = """
-        version: 2
-        stages:
-          - name: Opaque
-        game: !Sequence
-          name: Frame
-          children:
-            - !SurfaceCache
-              name: Cache
-              source: SurfaceCache
-              passes:
-                - ScreenProbeTrace
-                - ReflectionTrace
-        """;
+                                        version: 2
+                                        stages:
+                                          - name: Opaque
+                                        game: !Sequence
+                                          name: Frame
+                                          children:
+                                            - !SurfaceCache
+                                              name: Cache
+                                              source: SurfaceCache
+                                              passes:
+                                                - ScreenProbeTrace
+                                                - ReflectionTrace
+                                        """;
 
     /// <summary>
     ///     A document can place the surface cache, and a host that supplied no store gets a node
@@ -582,7 +582,7 @@ public class CompositorAssetTests : IDisposable {
         // ⚠ And the usages survive the document, because they are what the node refuses on. A
         // resource round-tripping without them is a copy that fails at build time in a frame that
         // loaded cleanly.
-        var declared = compositor.Resources.Single(resource => resource.Name == "SceneColour");
+        var declared = compositor.Resources.Single(static resource => resource.Name == "SceneColour");
         Assert.True(declared.Usage.HasFlag(TextureUsage.CopySource));
     }
 
@@ -637,8 +637,8 @@ public class CompositorAssetTests : IDisposable {
         Assert.Equal(4, pass.SampleCount);
         Assert.Equal("SceneColour", Assert.Contains("SceneSamples", pass.ResolveTargets));
 
-        var samples = compositor.Resources.Single(resource => resource.Name == "SceneSamples");
-        var resolved = compositor.Resources.Single(resource => resource.Name == "SceneColour");
+        var samples = compositor.Resources.Single(static resource => resource.Name == "SceneSamples");
+        var resolved = compositor.Resources.Single(static resource => resource.Name == "SceneColour");
 
         Assert.Equal(4, samples.SampleCount);
         Assert.Equal(1, resolved.SampleCount);
@@ -716,8 +716,8 @@ public class CompositorAssetTests : IDisposable {
         Assert.Equal("SceneDepth", Assert.Contains("SceneDepthSamples", pass.ResolveTargets));
         Assert.Equal(DepthResolveMode.Max, pass.DepthResolveMode);
 
-        var samples = compositor.Resources.Single(resource => resource.Name == "SceneDepthSamples");
-        var resolved = compositor.Resources.Single(resource => resource.Name == "SceneDepth");
+        var samples = compositor.Resources.Single(static resource => resource.Name == "SceneDepthSamples");
+        var resolved = compositor.Resources.Single(static resource => resource.Name == "SceneDepth");
 
         Assert.Equal(4, samples.SampleCount);
         Assert.Equal(1, resolved.SampleCount);
@@ -789,10 +789,7 @@ public class CompositorAssetTests : IDisposable {
     Harness Build() {
         var system = new RenderSystem();
 
-        var meshes = new MeshRenderFeature {
-            Pipelines = new(device),
-            Describer = new EffectPipelineDescriber(device)
-        };
+        var meshes = new MeshRenderFeature { Pipelines = new(device), Describer = new EffectPipelineDescriber(device) };
 
         var materials = new MaterialRenderFeature { Effects = effects };
         meshes.Add(materials);
@@ -989,11 +986,7 @@ public class CompositorAssetTests : IDisposable {
 
     static RenderObjectId AddMesh(Harness h, float z, Material material, RenderStageMask stages) {
         var id = h.System.Objects.Add(
-            new() {
-                Bounds = new(new Vector3(0f, 0f, z), 1f),
-                Stages = stages,
-                FeatureIndex = h.Meshes.Index
-            }
+            new() { Bounds = new(new Vector3(0f, 0f, z), 1f), Stages = stages, FeatureIndex = h.Meshes.Index }
         );
 
         h.System.Objects.Data.Data(h.Meshes.Draws)[id.Index] = new() {
@@ -1144,8 +1137,9 @@ public class CompositorAssetTests : IDisposable {
         var culling = Assert.IsType<GpuCullingAsset>(
             Assert.IsType<SequenceAsset>(
                 YamlSerializer.Parse<GraphicsCompositorAsset>(
-                    YamlSerializer.ToYaml(YamlSerializer.Parse<GraphicsCompositorAsset>(CullingDocument))
-                ).Game
+                        YamlSerializer.ToYaml(YamlSerializer.Parse<GraphicsCompositorAsset>(CullingDocument))
+                    )
+                    .Game
             ).Children[0]
         );
 
@@ -1156,10 +1150,12 @@ public class CompositorAssetTests : IDisposable {
         // And the phase, which is the one field whose loss turns a two-phase frame into a frame that
         // culls twice and draws everything twice — a document that reads back as valid.
         var phases = Assert.IsType<SequenceAsset>(
-            YamlSerializer.Parse<GraphicsCompositorAsset>(
-                YamlSerializer.ToYaml(YamlSerializer.Parse<GraphicsCompositorAsset>(TwoPhaseDocument))
-            ).Game
-        ).Children;
+                YamlSerializer.Parse<GraphicsCompositorAsset>(
+                        YamlSerializer.ToYaml(YamlSerializer.Parse<GraphicsCompositorAsset>(TwoPhaseDocument))
+                    )
+                    .Game
+            )
+            .Children;
 
         Assert.Equal(CullPhase.Main, Assert.IsType<GpuCullingAsset>(phases[0]).Phase);
         Assert.Equal(CullPhase.Late, Assert.IsType<GpuCullingAsset>(phases[3]).Phase);
@@ -1181,9 +1177,12 @@ public class CompositorAssetTests : IDisposable {
         using var h = Build();
 
         var compositor = Compose(h, asset);
-        var everywhere = h.Builder.Stages.Values.Aggregate(RenderStageMask.None, (mask, stage) => mask | stage.Mask);
+        var everywhere = h.Builder.Stages.Values.Aggregate(
+            RenderStageMask.None,
+            static (mask, stage) => mask | stage.Mask
+        );
 
-        AddMesh(h, -10f, new Material("Lit"), everywhere);
+        AddMesh(h, -10f, new("Lit"), everywhere);
 
         Frame(h, compositor);
 
@@ -1214,7 +1213,7 @@ public class CompositorAssetTests : IDisposable {
         var opaque = h.Builder.Stages["Opaque"];
         var transparent = h.Builder.Stages["Transparent"];
 
-        AddMesh(h, -10f, new Material("Lit"), opaque.Mask | transparent.Mask);
+        AddMesh(h, -10f, new("Lit"), opaque.Mask | transparent.Mask);
 
         Frame(h, compositor);
 
@@ -1291,14 +1290,14 @@ public class CompositorAssetTests : IDisposable {
         var compositor = Compose(h, asset);
         var opaque = h.Builder.Stages["Opaque"];
 
-        var mesh = AddMesh(h, -10f, new Material("ForwardPlus"), opaque.Mask);
+        var mesh = AddMesh(h, -10f, new("ForwardPlus"), opaque.Mask);
 
         Frame(h, compositor);
 
         var effect = h.Materials.EffectOf(h.System, mesh);
 
         Assert.NotNull(effect);
-        Assert.Contains(new KeyValuePair<string, string>("ForwardPlus.CascadeCount", "2"), effect!.Key.Values);
+        Assert.Contains(new("ForwardPlus.CascadeCount", "2"), effect!.Key.Values);
     }
 
     /// <summary>
@@ -1306,8 +1305,11 @@ public class CompositorAssetTests : IDisposable {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <strong>The cascade defect above, one array along, and it was live for the same
-    ///         reason.</strong> <c>ClusteredShading.rvn</c> sizes <c>lights[MaxLights]</c> from a
+    ///         <strong>
+    ///             The cascade defect above, one array along, and it was live for the same
+    ///             reason.
+    ///         </strong>
+    ///         <c>ClusteredShading.rvn</c> sizes <c>lights[MaxLights]</c> from a
     ///         permutation declared sixteen,
     ///         <see cref="ForwardLightingRenderFeature.MaxLightsPerObject" /> sizes the block the
     ///         feature writes and ships eight, the quality tiers ask for four on Low — and no line of
@@ -1333,7 +1335,8 @@ public class CompositorAssetTests : IDisposable {
 
         // Four, which is the Low tier's number and neither side's default — so an assertion that
         // passes cannot be passing on eight or on sixteen.
-        using var lighting = new ForwardLightingRenderFeature { MaxLightsPerObject = 4 };
+        using var lighting = new ForwardLightingRenderFeature();
+        lighting.MaxLightsPerObject = 4;
 
         h.Meshes.Add(lighting);
         Compose(h, asset);
@@ -1357,21 +1360,22 @@ public class CompositorAssetTests : IDisposable {
     public void The_light_budget_is_in_the_key_the_shading_variant_was_resolved_from() {
         var asset = YamlSerializer.Parse<GraphicsCompositorAsset>(Document);
         using var h = Build();
-        using var lighting = new ForwardLightingRenderFeature { MaxLightsPerObject = 4 };
+        using var lighting = new ForwardLightingRenderFeature();
+        lighting.MaxLightsPerObject = 4;
 
         h.Meshes.Add(lighting);
 
         var compositor = Compose(h, asset);
         var opaque = h.Builder.Stages["Opaque"];
 
-        var mesh = AddMesh(h, -10f, new Material("ForwardPlus"), opaque.Mask);
+        var mesh = AddMesh(h, -10f, new("ForwardPlus"), opaque.Mask);
 
         Frame(h, compositor);
 
         var effect = h.Materials.EffectOf(h.System, mesh);
 
         Assert.NotNull(effect);
-        Assert.Contains(new KeyValuePair<string, string>("ForwardPlus.MaxLights", "4"), effect!.Key.Values);
+        Assert.Contains(new("ForwardPlus.MaxLights", "4"), effect!.Key.Values);
     }
 
     /// <summary>
@@ -1425,8 +1429,8 @@ public class CompositorAssetTests : IDisposable {
     /// </remarks>
     [Fact]
     public void A_clustered_frame_resolves_a_different_variant_than_an_unclustered_one() {
-        Assert.Equal("false", Shaded(clustered: false));
-        Assert.Equal("true", Shaded(clustered: true));
+        Assert.Equal("false", Shaded(false));
+        Assert.Equal("true", Shaded(true));
     }
 
     /// <summary>What one frame's shading variant was compiled for, as its effect key spells it.</summary>
@@ -1438,13 +1442,14 @@ public class CompositorAssetTests : IDisposable {
     string? Shaded(bool clustered) {
         var asset = YamlSerializer.Parse<GraphicsCompositorAsset>(Document);
         using var h = Build();
-        using var lighting = new ForwardLightingRenderFeature { Clustered = clustered };
+        using var lighting = new ForwardLightingRenderFeature();
+        lighting.Clustered = clustered;
 
         h.Meshes.Add(lighting);
 
         var compositor = Compose(h, asset);
         var opaque = h.Builder.Stages["Opaque"];
-        var mesh = AddMesh(h, -10f, new Material("ForwardPlus"), opaque.Mask);
+        var mesh = AddMesh(h, -10f, new("ForwardPlus"), opaque.Mask);
 
         Frame(h, compositor);
 
@@ -1466,8 +1471,11 @@ public class CompositorAssetTests : IDisposable {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <strong>The other half of the ambient split, which a document could always declare and
-    ///         nothing ever acted on.</strong> <c>ForwardPlus.SplitOutputs</c> is a permutation and no
+    ///         <strong>
+    ///             The other half of the ambient split, which a document could always declare and
+    ///             nothing ever acted on.
+    ///         </strong>
+    ///         <c>ForwardPlus.SplitOutputs</c> is a permutation and no
     ///         production code in the engine set it: two sample projects did, by hand, beside their
     ///         own frames. A third project that declared the planes and the combine and forgot the
     ///         permutation got a frame that was <em>pixel-identical</em> to an unsplit one — the
@@ -1567,14 +1575,14 @@ public class CompositorAssetTests : IDisposable {
         compositor.Imports["SceneColour"] =
             Imported(PixelFormat.Rgba16Float, TextureUsage.ColourTarget, "SceneColour");
 
-        var mesh = AddMesh(h, -10f, new Material("ForwardPlus"), h.Builder.Stages["Opaque"].Mask);
+        var mesh = AddMesh(h, -10f, new("ForwardPlus"), h.Builder.Stages["Opaque"].Mask);
 
         Frame(h, compositor);
 
         var effect = h.Materials.EffectOf(h.System, mesh);
 
         Assert.NotNull(effect);
-        Assert.Contains(new KeyValuePair<string, string>("ForwardPlus.SplitOutputs", "true"), effect!.Key.Values);
+        Assert.Contains(new("ForwardPlus.SplitOutputs", "true"), effect!.Key.Values);
     }
 
     // --- Refusals -----------------------------------------------------------
@@ -1670,7 +1678,7 @@ public class CompositorAssetTests : IDisposable {
         using var h = Build();
 
         var compositor = Compose(h, asset);
-        var depth = compositor.Resources.Single(resource => resource.Name == "SceneDepth");
+        var depth = compositor.Resources.Single(static resource => resource.Name == "SceneDepth");
 
         compositor.Resources[compositor.Resources.IndexOf(depth)] = depth with { Scale = 0.5f };
 
@@ -1829,9 +1837,12 @@ public class CompositorAssetTests : IDisposable {
 
         using var h = Build();
         var compositor = Compose(h, loaded);
-        var everywhere = h.Builder.Stages.Values.Aggregate(RenderStageMask.None, (mask, stage) => mask | stage.Mask);
+        var everywhere = h.Builder.Stages.Values.Aggregate(
+            RenderStageMask.None,
+            static (mask, stage) => mask | stage.Mask
+        );
 
-        AddMesh(h, -10f, new Material("Lit"), everywhere);
+        AddMesh(h, -10f, new("Lit"), everywhere);
 
         Frame(h, compositor);
 
@@ -1874,43 +1885,43 @@ public class CompositorAssetTests : IDisposable {
     ///     </para>
     /// </remarks>
     const string PostChain = """
-        version: 2
-        resources:
-          - name: SceneColour
-            format: Rgba16Float
-            usage: ColourTarget, Sampled
-        stages:
-          - name: Opaque
-        game: !Sequence
-          name: Frame
-          children:
-            - !RenderPass
-              name: Main
-              colourTargets: [SceneColour]
-              children:
-                - !SingleStage
-                  name: OpaqueDraw
-                  view: Camera
-                  stage: Opaque
-            - !FullScreen
-              name: Blur
-              shader: Blur
-              colourTargets: [BloomResult]
-              reads: [SceneColour]
-              constantBinding: 2
-            - !FullScreen
-              name: Tonemap
-              shader: Tonemap
-              colourTargets: [Display]
-              reads: [BloomResult]
-              constantBinding: 2
-              bindings:
-                - name: source
-                  resource: BloomResult
-                - kind: Sampler
-                  binding: 1
-                  sampler: LinearClamp
-        """;
+                             version: 2
+                             resources:
+                               - name: SceneColour
+                                 format: Rgba16Float
+                                 usage: ColourTarget, Sampled
+                             stages:
+                               - name: Opaque
+                             game: !Sequence
+                               name: Frame
+                               children:
+                                 - !RenderPass
+                                   name: Main
+                                   colourTargets: [SceneColour]
+                                   children:
+                                     - !SingleStage
+                                       name: OpaqueDraw
+                                       view: Camera
+                                       stage: Opaque
+                                 - !FullScreen
+                                   name: Blur
+                                   shader: Blur
+                                   colourTargets: [BloomResult]
+                                   reads: [SceneColour]
+                                   constantBinding: 2
+                                 - !FullScreen
+                                   name: Tonemap
+                                   shader: Tonemap
+                                   colourTargets: [Display]
+                                   reads: [BloomResult]
+                                   constantBinding: 2
+                                   bindings:
+                                     - name: source
+                                       resource: BloomResult
+                                     - kind: Sampler
+                                       binding: 1
+                                       sampler: LinearClamp
+                             """;
 
     [Fact]
     public void A_document_can_author_a_post_chain() {
@@ -2060,25 +2071,25 @@ public class CompositorAssetTests : IDisposable {
     ///     the only thing that could was a host writing C#.
     /// </remarks>
     const string WithViewBlock = """
-        version: 2
-        viewBlock:
-          binding: 0
-          stages: Vertex
-        resources:
-          - name: SceneColour
-            format: Rgba16Float
-            usage: ColourTarget, Sampled
-        stages:
-          - name: Opaque
-        game: !RenderPass
-          name: Main
-          colourTargets: [SceneColour]
-          children:
-            - !SingleStage
-              name: OpaqueDraw
-              view: Camera
-              stage: Opaque
-        """;
+                                 version: 2
+                                 viewBlock:
+                                   binding: 0
+                                   stages: Vertex
+                                 resources:
+                                   - name: SceneColour
+                                     format: Rgba16Float
+                                     usage: ColourTarget, Sampled
+                                 stages:
+                                   - name: Opaque
+                                 game: !RenderPass
+                                   name: Main
+                                   colourTargets: [SceneColour]
+                                   children:
+                                     - !SingleStage
+                                       name: OpaqueDraw
+                                       view: Camera
+                                       stage: Opaque
+                                 """;
 
     [Fact]
     public void A_document_can_declare_the_per_view_block() {
@@ -2213,7 +2224,7 @@ public class CompositorAssetTests : IDisposable {
         var cull = Assert.IsType<ComputeRenderer>(sequence.Children[0]);
 
         Assert.Equal("ClusterCulling", cull.ShaderName);
-        Assert.Equal(new Int3(4, 3, 6), cull.Groups);
+        Assert.Equal(new(4, 3, 6), cull.Groups);
         Assert.Equal(["SceneLights"], cull.BufferReads);
         Assert.Equal(["Clusters"], cull.BufferWrites);
 

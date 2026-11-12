@@ -69,7 +69,9 @@ public sealed class Spinner : Behaviour {
 /// <summary>No parameterless constructor, so it is described but not constructible.</summary>
 [DataContract]
 public sealed class Anchored {
-    public Anchored(int target) => Target = target;
+    public Anchored(int target) {
+        Target = target;
+    }
 
     public int Target { get; set; }
 }
@@ -94,7 +96,7 @@ public sealed record ImportSettings {
 
 /// <summary>An init-only member on a struct, where the write has to land in the box.</summary>
 [DataContract]
-public struct Extent {
+public readonly struct Extent {
     public int Width { get; init; }
     public int Height { get; init; }
 }

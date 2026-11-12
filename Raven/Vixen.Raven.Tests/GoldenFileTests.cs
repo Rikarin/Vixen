@@ -21,7 +21,7 @@ public sealed class GoldenFileTests : IDisposable {
     /// <summary>Cleans up the scratch directory.</summary>
     public void Dispose() {
         if (Directory.Exists(directory)) {
-            Directory.Delete(directory, recursive: true);
+            Directory.Delete(directory, true);
         }
     }
 
@@ -71,8 +71,10 @@ public sealed class GoldenFileTests : IDisposable {
     /// </remarks>
     [Fact]
     public void AnEmptyRenderingIsRefusedAgainstAnEmptyGolden() {
-        var failure = Assert.Throws<XunitException>(
-            () => GoldenFile.Matches(string.Empty, Committed("empty.txt", string.Empty))
+        var failure = Assert.Throws<XunitException>(() => GoldenFile.Matches(
+                string.Empty,
+                Committed("empty.txt", string.Empty)
+            )
         );
 
         Assert.Contains("is empty", failure.Message, StringComparison.Ordinal);

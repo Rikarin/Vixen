@@ -29,14 +29,21 @@ public readonly record struct ProfileEntry(
 /// <summary>The table under the flame chart: every scope, aggregated.</summary>
 /// <remarks>
 ///     <para>
-///         <b>The half of a profiler that answers "what is slow", where the chart answers "what
-///         happened".</b> A flame chart shows one frame's shape and is unreadable for a question
+///         <b>
+///             The half of a profiler that answers "what is slow", where the chart answers "what
+///             happened".
+///         </b>
+///         A flame chart shows one frame's shape and is unreadable for a question
 ///         like "which scope costs the most across two hundred frames"; the table is that question
 ///         and nothing else.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Self time is summed per <i>node</i> and total time per <i>sample</i>, and mixing the
-///         two is the classic way to get a table that does not add up.</b> A recursive scope appears
+///         ⚠
+///         <b>
+///             Self time is summed per <i>node</i> and total time per <i>sample</i>, and mixing the
+///             two is the classic way to get a table that does not add up.
+///         </b>
+///         A recursive scope appears
 ///         at two levels of the same tree — its inclusive time is counted twice if you sum samples,
 ///         which is why total here is the sum of durations and self is the sum of
 ///         <see cref="FlameNode.SelfMilliseconds" />: the second is what a subtree contributed and
@@ -55,8 +62,7 @@ public static class ProfileSummary {
 
         foreach (var thread in threads) {
             foreach (var root in thread.Roots) {
-                root.Walk(
-                    node => {
+                root.Walk(node => {
                         ref var entry = ref System.Runtime.InteropServices.CollectionsMarshal
                             .GetValueRefOrAddDefault(byKey, node.Sample.Key, out _);
 
@@ -86,8 +92,7 @@ public static class ProfileSummary {
         // Total descending, which is the order somebody opens the table to read. A tie breaks on the
         // name so that two scopes costing nothing do not swap places between captures and look like
         // something changed.
-        entries.Sort(
-            static (left, right) => left.TotalMilliseconds != right.TotalMilliseconds
+        entries.Sort(static (left, right) => left.TotalMilliseconds != right.TotalMilliseconds
                 ? right.TotalMilliseconds.CompareTo(left.TotalMilliseconds)
                 : string.CompareOrdinal(left.Name, right.Name)
         );
@@ -126,9 +131,10 @@ public readonly record struct ProfileDelta(ProfilingKey Key, ProfileEntry? Befor
     ///     an infinity in it puts every newly-instrumented scope above every real regression, which
     ///     is the opposite of useful — a view shows "new" in that column instead.
     /// </remarks>
-    public double? Ratio => Before is { TotalMilliseconds: > 0d } baseline
-        ? TotalDelta / baseline.TotalMilliseconds
-        : null;
+    public double? Ratio =>
+        Before is { TotalMilliseconds: > 0d } baseline
+            ? TotalDelta / baseline.TotalMilliseconds
+            : null;
 }
 
 /// <summary>Two captures, subtracted.</summary>
@@ -166,8 +172,7 @@ public static class CaptureComparison {
 
         // Regressions first, which is what somebody presses Compare to find. Descending on the
         // signed delta puts improvements at the bottom rather than hiding them.
-        deltas.Sort(
-            static (left, right) => left.TotalDelta != right.TotalDelta
+        deltas.Sort(static (left, right) => left.TotalDelta != right.TotalDelta
                 ? right.TotalDelta.CompareTo(left.TotalDelta)
                 : string.CompareOrdinal(left.Name, right.Name)
         );

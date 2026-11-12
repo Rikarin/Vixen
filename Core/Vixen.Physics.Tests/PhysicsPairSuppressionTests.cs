@@ -98,7 +98,9 @@ public sealed class PhysicsPairSuppressionTests {
         // A third sphere overlapping both, in no group at all.
         var third = world.CreateBody(
             BodyDescription.Dynamic(world.Shapes.Sphere(0.5f), new(0f, 0.1f, 0f))
-                with { Mass = 1f, AllowSleeping = false }
+            with {
+                Mass = 1f, AllowSleeping = false
+            }
         );
 
         Assert.True(world.CanBodiesCollide(first, third));
@@ -239,10 +241,18 @@ public sealed class PhysicsPairSuppressionTests {
     ///         first and its second after the second.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And the re-pointing half is asserted through <c>StaleFilterCount</c> rather than
-    ///         through a distance, because a distance cannot see it.</b> This test was written first
-    ///         with only the behavioural assertion and it <b>passed against a build that never
-    ///         re-pointed a single body</b> — which makes the test the defect, not the code. It passes
+    ///         ⚠
+    ///         <b>
+    ///             And the re-pointing half is asserted through <c>StaleFilterCount</c> rather than
+    ///             through a distance, because a distance cannot see it.
+    ///         </b>
+    ///         This test was written first
+    ///         with only the behavioural assertion and it
+    ///         <b>
+    ///             passed against a build that never
+    ///             re-pointed a single body
+    ///         </b>
+    ///         — which makes the test the defect, not the code. It passes
     ///         because a body still naming the old, smaller table makes Jolt index a bitmask past its
     ///         end, and the bit it read there happened to say "disabled", which is the answer the
     ///         assertion wanted. Reading each body's group back out of Jolt is the only form of this
@@ -263,7 +273,7 @@ public sealed class PhysicsPairSuppressionTests {
 
         for (var index = 0; index < filler.Length; index++) {
             filler[index] = world.CreateBody(
-                BodyDescription.Dynamic(shape, new(20f + (index * 4f), 0f, 0f)) with { Mass = 1f }
+                BodyDescription.Dynamic(shape, new(20f + index * 4f, 0f, 0f)) with { Mass = 1f }
             );
         }
 

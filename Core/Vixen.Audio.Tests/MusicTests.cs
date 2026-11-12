@@ -3,7 +3,6 @@
 
 using Vixen.Audio.Assets;
 using Vixen.Audio.Devices;
-using Vixen.Audio.Mixing;
 using Vixen.Audio.Music;
 using Vixen.Audio.Parameters;
 using Vixen.Core.Serialization;
@@ -123,28 +122,25 @@ public sealed class MusicPlayerTests : IDisposable {
     public MusicPlayerTests() {
         var backend = new NullAudioBackend();
 
-        device = (NullAudioDevice)backend.OpenDevice(new AudioDeviceOptions {
-            Format = new AudioFormat(48_000, 2),
-            BufferFrames = Block
-        });
+        device = (NullAudioDevice)backend.OpenDevice(new() { Format = new(48_000, 2), BufferFrames = Block });
 
-        engine = new(device, new AudioEngineOptions {
-            VoiceCapacity = 8,
-            StreamOnOwnThread = false,
-            MasterLimiter = false
-        });
+        engine = new(
+            device,
+            new AudioEngineOptions { VoiceCapacity = 8, StreamOnOwnThread = false, MasterLimiter = false }
+        );
     }
 
     public void Dispose() => engine.Dispose();
 
     /// <summary>A segment whose clip is a ramp, so where its playhead is can be read off a sample.</summary>
-    static MusicSegment Segment(string name, int frames = 96_000, string next = "", int loops = -1) => new() {
-        Name = name,
-        Clip = AudioTestData.Ramp(frames),
-        Tempo = new() { BeatsPerMinute = 120f, BeatsPerBar = 4 },
-        LoopCount = loops,
-        Next = next
-    };
+    static MusicSegment Segment(string name, int frames = 96_000, string next = "", int loops = -1) =>
+        new() {
+            Name = name,
+            Clip = AudioTestData.Ramp(frames),
+            Tempo = new() { BeatsPerMinute = 120f, BeatsPerBar = 4 },
+            LoopCount = loops,
+            Next = next
+        };
 
     /// <summary>Renders whole blocks, updating as a frame loop would.</summary>
     /// <remarks>
@@ -193,7 +189,7 @@ public sealed class MusicPlayerTests : IDisposable {
 
         // A bar at 120 in four is 96 000 frames. Ask part way through the first one.
         Advance(player, 100);
-        Assert.True(player.TransitionTo("Combat", MusicQuantize.Bar));
+        Assert.True(player.TransitionTo("Combat"));
 
         Assert.Equal("Combat", player.Queued?.Name);
         Assert.Equal(96_000, player.QueuedAtFrame);
@@ -214,7 +210,7 @@ public sealed class MusicPlayerTests : IDisposable {
         Advance(player, 10);
 
         var before = engine.Statistics.ActiveVoices;
-        player.TransitionTo("Combat", MusicQuantize.Bar);
+        player.TransitionTo("Combat");
         Advance(player, 1);
 
         // Two voices, one of them silent and waiting on its start frame — and its bar line is a long
@@ -235,11 +231,11 @@ public sealed class MusicPlayerTests : IDisposable {
         // Part way into the first bar, because a request made exactly on a bar line lands on that
         // bar line — which is right, and is not what this is about.
         Advance(player, 10);
-        player.TransitionTo("Combat", MusicQuantize.Bar);
+        player.TransitionTo("Combat");
         Assert.Equal(96_000, player.QueuedAtFrame);
 
         // 96 000 frames from the origin, ten blocks of which have already gone by.
-        Advance(player, (96_000 / Block) - 10 - 1);
+        Advance(player, 96_000 / Block - 10 - 1);
         Assert.Equal("Explore", player.Current?.Name);
 
         Advance(player, 1);
@@ -257,11 +253,13 @@ public sealed class MusicPlayerTests : IDisposable {
     public void TheJoinLandsOnASampleThatIsNotABlockBoundary() {
         var player = new MusicPlayer(engine) { CrossfadeSeconds = 0f };
 
-        player.Add(new MusicSegment {
-            Name = "Odd",
-            Clip = AudioTestData.Ramp(96_000),
-            Tempo = new() { BeatsPerMinute = 137f, BeatsPerBar = 4 }
-        });
+        player.Add(
+            new() {
+                Name = "Odd",
+                Clip = AudioTestData.Ramp(96_000),
+                Tempo = new() { BeatsPerMinute = 137f, BeatsPerBar = 4 }
+            }
+        );
 
         player.Add(Segment("Next"));
         player.Play("Odd");
@@ -279,7 +277,7 @@ public sealed class MusicPlayerTests : IDisposable {
     [Fact]
     public void AScheduledVoiceIsSilentUntilItsFrameAndThenStartsFromTheTop() {
         // A hundred frames in, which is part way through the second block.
-        var handle = engine.Play(AudioTestData.Constant(48_000, 1f), new PlaybackSettings { StartFrame = 100 });
+        var handle = engine.Play(AudioTestData.Constant(48_000, 1f), new() { StartFrame = 100 });
 
         Assert.True(handle.IsValid);
 
@@ -296,7 +294,7 @@ public sealed class MusicPlayerTests : IDisposable {
     [Fact]
     public void ASegmentThatRunsOutMovesOnToWhatItNames() {
         var player = new MusicPlayer(engine) { CrossfadeSeconds = 0f };
-        player.Add(Segment("Intro", frames: 6_400, next: "Loop", loops: 0));
+        player.Add(Segment("Intro", 6_400, "Loop", 0));
         player.Add(Segment("Loop"));
 
         player.Play("Intro");
@@ -310,7 +308,7 @@ public sealed class MusicPlayerTests : IDisposable {
     [Fact]
     public void ASegmentThatLoopsForeverNeverMovesOn() {
         var player = new MusicPlayer(engine);
-        player.Add(Segment("Loop", frames: 6_400, next: "Never"));
+        player.Add(Segment("Loop", 6_400, "Never"));
         player.Add(Segment("Never"));
 
         player.Play("Loop");
@@ -381,12 +379,14 @@ public sealed class MusicPlayerTests : IDisposable {
     public void MarkersAreRaisedInOrderAndOnlyOnce() {
         var player = new MusicPlayer(engine);
 
-        player.Add(new MusicSegment {
-            Name = "Explore",
-            Clip = AudioTestData.Ramp(192_000),
-            Tempo = new() { BeatsPerMinute = 120f, BeatsPerBar = 4 },
-            Markers = [new("drop", 2f), new("swell", 5f)]
-        });
+        player.Add(
+            new() {
+                Name = "Explore",
+                Clip = AudioTestData.Ramp(192_000),
+                Tempo = new() { BeatsPerMinute = 120f, BeatsPerBar = 4 },
+                Markers = [new("drop", 2f), new("swell", 5f)]
+            }
+        );
 
         var seen = new List<string>();
         player.MarkerPassed += seen.Add;
@@ -410,7 +410,7 @@ public sealed class MusicPlayerTests : IDisposable {
 
         player.Play("Explore");
         Advance(player, 10);
-        player.TransitionTo("Combat", MusicQuantize.Bar);
+        player.TransitionTo("Combat");
 
         Assert.Equal(["Explore"], started);
 
@@ -424,22 +424,27 @@ public sealed class MusicPlayerTests : IDisposable {
     /// </summary>
     [Fact]
     public void ATransitionCanBeDrivenByAParameterInsteadOfACall() {
-        engine.LoadParameters([
-            new AudioBusParameterDefinition { Name = "intensity", Minimum = 0f, Maximum = 1f }
-        ], out _);
+        engine.LoadParameters(
+            [
+                new AudioBusParameterDefinition { Name = "intensity", Minimum = 0f, Maximum = 1f }
+            ],
+            out _
+        );
 
         var player = new MusicPlayer(engine) { CrossfadeSeconds = 0f };
         player.Add(Segment("Explore"));
         player.Add(Segment("Combat"));
 
-        player.AddTransition(new MusicTransition {
-            From = "Explore",
-            To = "Combat",
-            Quantize = MusicQuantize.Bar,
-            Parameter = "intensity",
-            Minimum = 0.7f,
-            Maximum = 1f
-        });
+        player.AddTransition(
+            new() {
+                From = "Explore",
+                To = "Combat",
+                Quantize = MusicQuantize.Bar,
+                Parameter = "intensity",
+                Minimum = 0.7f,
+                Maximum = 1f
+            }
+        );
 
         player.Play("Explore");
         Advance(player, 10);
@@ -463,13 +468,15 @@ public sealed class MusicPlayerTests : IDisposable {
         player.Add(Segment("Explore"));
         player.Add(Segment("Combat"));
 
-        player.AddTransition(new MusicTransition {
-            From = "Explore",
-            To = "Combat",
-            Parameter = "intensity",
-            Minimum = 0.7f,
-            Maximum = 1f
-        });
+        player.AddTransition(
+            new() {
+                From = "Explore",
+                To = "Combat",
+                Parameter = "intensity",
+                Minimum = 0.7f,
+                Maximum = 1f
+            }
+        );
 
         player.Play("Explore");
         engine.Parameters!.Set("intensity", 0.2f);
@@ -484,23 +491,27 @@ public sealed class MusicPlayerTests : IDisposable {
     public void AnAssetBuildsAPlayerAndReportsWhatDidNotResolve() {
         var music = engine.CreateBus("Music");
 
-        var player = MusicBuilder.Build(engine, new MusicAsset {
-            Name = "Level",
-            Bus = "Music",
-            Start = "Explore",
-            CrossfadeSeconds = 0.1f,
-            Segments = [
-                new() {
-                    Name = "Explore",
-                    Clip = new ContentReference<AudioClip>(default, AudioTestData.Ramp(96_000)),
-                    BeatsPerMinute = 128f
-                },
-                new() { Name = "Broken" }
-            ],
-            Transitions = [
-                new() { From = "Explore", To = "Combat", Parameter = "intensity" }
-            ]
-        }, out var problems);
+        var player = MusicBuilder.Build(
+            engine,
+            new() {
+                Name = "Level",
+                Bus = "Music",
+                Start = "Explore",
+                CrossfadeSeconds = 0.1f,
+                Segments = [
+                    new() {
+                        Name = "Explore",
+                        Clip = new ContentReference<AudioClip>(default, AudioTestData.Ramp(96_000)),
+                        BeatsPerMinute = 128f
+                    },
+                    new() { Name = "Broken" }
+                ],
+                Transitions = [
+                    new() { From = "Explore", To = "Combat", Parameter = "intensity" }
+                ]
+            },
+            out var problems
+        );
 
         Assert.Equal(music.Index, player.Bus);
         Assert.Equal(0.1f, player.CrossfadeSeconds);
@@ -508,17 +519,17 @@ public sealed class MusicPlayerTests : IDisposable {
         Assert.Equal(128f, player.Transport.Tempo.BeatsPerMinute);
 
         Assert.Equal(2, problems.Count);
-        Assert.Contains(problems, p => p.Contains("Broken", StringComparison.Ordinal));
-        Assert.Contains(problems, p => p.Contains("Combat", StringComparison.Ordinal));
+        Assert.Contains(problems, static p => p.Contains("Broken", StringComparison.Ordinal));
+        Assert.Contains(problems, static p => p.Contains("Combat", StringComparison.Ordinal));
     }
 
     [Fact]
     public void AnAssetWithAnUnknownBusOrStartSaysSo() {
-        var player = MusicBuilder.Build(engine, new MusicAsset {
-            Name = "Level",
-            Bus = "Nowhere",
-            Start = "Missing"
-        }, out var problems);
+        var player = MusicBuilder.Build(
+            engine,
+            new() { Name = "Level", Bus = "Nowhere", Start = "Missing" },
+            out var problems
+        );
 
         Assert.Equal(0, player.Bus);
         Assert.Null(player.Current);

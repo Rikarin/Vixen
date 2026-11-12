@@ -30,36 +30,56 @@ public readonly record struct UiInterface(UiGeometry Geometry, GlyphAtlas Atlas,
     /// <remarks>
     ///     <para>
     ///         One when the document was laid out in physical pixels, and the display's DPI scale
-    ///         when it was laid out in device-independent ones. ⚠ <b>Until this existed the feature
-    ///         had nowhere to put a density and both of its calls into the renderer took the
-    ///         default</b>, so a HUD laid out in points on a 2× display drew into the top-left
+    ///         when it was laid out in device-independent ones. ⚠
+    ///         <b>
+    ///             Until this existed the feature
+    ///             had nowhere to put a density and both of its calls into the renderer took the
+    ///             default
+    ///         </b>
+    ///         , so a HUD laid out in points on a 2× display drew into the top-left
     ///         quarter of the window and took the pointer with it — hit testing is done against the
     ///         layout, and the layout was right. It reads as a renderer that is mysteriously small
     ///         rather than as a unit mismatch; see <see cref="UiRenderer.Record" />'s remarks, which
     ///         describe exactly this arrangement.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>It has to reach <see cref="UiRenderFeature.Compose(ICommandList)" /> and
-    ///         <c>UiRenderFeature.Draw</c> together, which is why it lives on the surface
-    ///         rather than being passed to one of them.</b> A group's surface is allocated at
+    ///         ⚠
+    ///         <b>
+    ///             It has to reach <see cref="UiRenderFeature.Compose(ICommandList)" /> and
+    ///             <c>UiRenderFeature.Draw</c> together, which is why it lives on the surface
+    ///             rather than being passed to one of them.
+    ///         </b>
+    ///         A group's surface is allocated at
     ///         <c>Compose</c>'s scale and sampled at <c>Record</c>'s, so a density supplied to one
     ///         and not the other is worse than no density at all: a whole interface at the wrong
     ///         size is at least uniformly wrong, and a composited group at the wrong size is a panel
     ///         that has come adrift from the rest of the frame.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>An <c>init</c> property with a default rather than a fifth positional
-    ///         parameter</b> — the arrangement <see cref="UiShaders.Image" /> is in, and for the same
+    ///         ⚠
+    ///         <b>
+    ///             An <c>init</c> property with a default rather than a fifth positional
+    ///             parameter
+    ///         </b>
+    ///         — the arrangement <see cref="UiShaders.Image" /> is in, and for the same
     ///         reason: every existing four-argument construction goes on meaning what it meant.
-    ///         ⚠ <b>The default belongs to the primary constructor and not to
-    ///         <c>default(UiInterface)</c></b>, which has a scale of zero — but that value has a null
+    ///         ⚠
+    ///         <b>
+    ///             The default belongs to the primary constructor and not to
+    ///             <c>default(UiInterface)</c>
+    ///         </b>
+    ///         , which has a scale of zero — but that value has a null
     ///         geometry too and was never a surface anything could draw, and both
     ///         <see cref="UiRenderer.Record" /> and <see cref="UiRenderer.Compose" /> refuse a
     ///         non-positive scale by drawing nothing rather than by dividing by it.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>This is the projection's density and not the geometry's, and a game HUD needs
-    ///         both.</b> Setting it right still leaves <c>UiGeometryBuilder.Tolerance</c> and
+    ///         ⚠
+    ///         <b>
+    ///             This is the projection's density and not the geometry's, and a game HUD needs
+    ///             both.
+    ///         </b>
+    ///         Setting it right still leaves <c>UiGeometryBuilder.Tolerance</c> and
     ///         <c>UiGeometryBuilder.Fringe</c> — the two numbers spent <i>inside</i> the triangles —
     ///         at their scale-one defaults, so a HUD on a 2× display comes out correctly placed and
     ///         flattened to twice the intended chord error with a fringe band twice as wide. #1329
@@ -86,8 +106,12 @@ public readonly record struct UiInterface(UiGeometry Geometry, GlyphAtlas Atlas,
 ///         can be checked against a picture without a scene, a camera or a compositor.
 ///     </para>
 ///     <para>
-///         ⚠ <b>One render object per surface, not one per batch — which corrects a guess written
-///         down before the renderer had been read.</b> <c>DrawBatch</c>'s remarks reasoned that
+///         ⚠
+///         <b>
+///             One render object per surface, not one per batch — which corrects a guess written
+///             down before the renderer had been read.
+///         </b>
+///         <c>DrawBatch</c>'s remarks reasoned that
 ///         <c>RenderSortMode.ByGroup</c> exists "for UI and anything else already ordered", and
 ///         concluded that the batch index would have to be the sort group. It is not, and it cannot
 ///         be: the store's objects live across frames and are indexed by a dense id every feature's
@@ -114,8 +138,10 @@ public sealed class UiRenderFeature : RootRenderFeature {
     /// <inheritdoc />
     public override string Name => "Ui";
 
-    /// <summary>What draws an interface that named no renderer of its own. Set before the first
-    /// frame that draws.</summary>
+    /// <summary>
+    ///     What draws an interface that named no renderer of its own. Set before the first
+    ///     frame that draws.
+    /// </summary>
     /// <remarks>
     ///     <para>
     ///         Supplied rather than created here, because building it needs shader modules and the
@@ -123,8 +149,12 @@ public sealed class UiRenderFeature : RootRenderFeature {
     ///         whoever assembled the compositor.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The default for <em>one</em> interface, and not a renderer the feature shares
-    ///         out.</b> A <see cref="UiRenderer" /> is per-surface state: it advances its ring region
+    ///         ⚠
+    ///         <b>
+    ///             The default for <em>one</em> interface, and not a renderer the feature shares
+    ///             out.
+    ///         </b>
+    ///         A <see cref="UiRenderer" /> is per-surface state: it advances its ring region
     ///         inside <c>Upload</c> and <c>Record</c> draws from the region the last upload wrote, so
     ///         two interfaces uploaded through one of these come out as two copies of the second. A
     ///         second interface therefore brings its own — see <see cref="Mount" /> — and this stays
@@ -133,12 +163,18 @@ public sealed class UiRenderFeature : RootRenderFeature {
     /// </remarks>
     public UiRenderer? Renderer { get; set; }
 
-    /// <summary>How many of the last <see cref="Upload" />'s interfaces were built too dark for the
-    /// pass they are drawn into.</summary>
+    /// <summary>
+    ///     How many of the last <see cref="Upload" />'s interfaces were built too dark for the
+    ///     pass they are drawn into.
+    /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The only observer the black-HUD defect has, and it exists because the picture
-    ///         has none.</b> The renderer works in cd/m². A HUD authored 0–1 and built at a white
+    ///         ⚠
+    ///         <b>
+    ///             The only observer the black-HUD defect has, and it exists because the picture
+    ///             has none.
+    ///         </b>
+    ///         The renderer works in cd/m². A HUD authored 0–1 and built at a white
     ///         level of one, drawn into a scene-referred float pass, is about one candela — which is
     ///         not dim, it is black, and it is pixel-identical to a pass that never ran. There is no
     ///         validation error in it and no exception: the frame uploads, records and presents, and
@@ -162,8 +198,10 @@ public sealed class UiRenderFeature : RootRenderFeature {
     /// </remarks>
     public int Dim { get; private set; }
 
-    /// <summary>How many of the last <see cref="Upload" />'s interfaces were flattened or feathered
-    /// for a lower density than their <see cref="UiInterface.Scale" />.</summary>
+    /// <summary>
+    ///     How many of the last <see cref="Upload" />'s interfaces were flattened or feathered
+    ///     for a lower density than their <see cref="UiInterface.Scale" />.
+    /// </summary>
     /// <remarks>
     ///     <para>
     ///         ⚠ <b>The half of a HUD's density that <see cref="UiInterface.Scale" /> cannot carry</b>
@@ -200,8 +238,12 @@ public sealed class UiRenderFeature : RootRenderFeature {
     /// <summary>How many of the last compose's top-level groups read a backdrop that has no scene in it.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The only observer #1378's picture has, and it lives here because this is the only
-    ///         place that knows.</b> A top-level group with <c>mix-blend-mode</c> or a
+    ///         ⚠
+    ///         <b>
+    ///             The only observer #1378's picture has, and it lives here because this is the only
+    ///             place that knows.
+    ///         </b>
+    ///         A top-level group with <c>mix-blend-mode</c> or a
     ///         <c>backdrop-filter</c> reads what lies beneath it, and inside a world renderer that is
     ///         the scene — which has not been drawn when <see cref="Compose(ICommandList)" /> records
     ///         its passes from <c>WorldRenderer.Draw</c>'s prologue, so
@@ -310,8 +352,12 @@ public sealed class UiRenderFeature : RootRenderFeature {
     /// <exception cref="InvalidOperationException">The feature is not in a render system yet.</exception>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The half that was missing, and the reason nothing in the tree drew an interface
-    ///         inside a world.</b> <see cref="Set" /> takes a <see cref="RenderObjectId" /> and no
+    ///         ⚠
+    ///         <b>
+    ///             The half that was missing, and the reason nothing in the tree drew an interface
+    ///             inside a world.
+    ///         </b>
+    ///         <see cref="Set" /> takes a <see cref="RenderObjectId" /> and no
     ///         caller could get one: the object has to be added to the store with <em>this</em>
     ///         feature's index on it, and a host that guessed at that wrote a record the wrong
     ///         feature would be asked to draw. So it is here, where the index is known, rather than
@@ -335,8 +381,12 @@ public sealed class UiRenderFeature : RootRenderFeature {
     ///         disagreeing is a first frame in the wrong order.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A renderer belongs to one interface, and that is what makes the
-    ///         <paramref name="order" /> above mean anything.</b> The ordering exists so that a modal
+    ///         ⚠
+    ///         <b>
+    ///             A renderer belongs to one interface, and that is what makes the
+    ///             <paramref name="order" /> above mean anything.
+    ///         </b>
+    ///         The ordering exists so that a modal
     ///         can be drawn over a document and a tooltip over the modal — which is more than one
     ///         mounted interface, and is the arrangement a shared <see cref="UiRenderer" /> cannot
     ///         serve: it advances its ring region inside <c>Upload</c> and <c>Record</c> draws from
@@ -388,8 +438,7 @@ public sealed class UiRenderFeature : RootRenderFeature {
     /// <summary>What draws one mounted interface: its own renderer, or the shared default.</summary>
     /// <param name="id">What <see cref="Mount" /> returned.</param>
     /// <returns>The renderer, or <see langword="null" /> if there is none yet.</returns>
-    public UiRenderer? RendererOf(RenderObjectId id) =>
-        renderers.TryGetValue(id.Index, out var own) ? own : Renderer;
+    public UiRenderer? RendererOf(RenderObjectId id) => renderers.TryGetValue(id.Index, out var own) ? own : Renderer;
 
     /// <summary>Points an object at the surface it draws.</summary>
     /// <param name="id">The object.</param>
@@ -420,8 +469,12 @@ public sealed class UiRenderFeature : RootRenderFeature {
     /// <exception cref="ArgumentNullException"><paramref name="commands" /> is null.</exception>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The other half of drawing, and until this existed it had no reachable caller
-    ///         either.</b> <see cref="Draw" /> runs inside a render pass and can only
+    ///         ⚠
+    ///         <b>
+    ///             The other half of drawing, and until this existed it had no reachable caller
+    ///             either.
+    ///         </b>
+    ///         <see cref="Draw" /> runs inside a render pass and can only
     ///         <see cref="UiRenderer.Record" />; <see cref="UiRenderer.Upload" /> is what writes this
     ///         frame's vertices, indices and box records into the ring and copies the glyph atlas,
     ///         and a texture copy is the one thing a Vulkan command list may not do inside a pass.
@@ -436,8 +489,12 @@ public sealed class UiRenderFeature : RootRenderFeature {
     ///         glyphs in it would the picture have looked right.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>One <see cref="UiRenderer" /> serves one surface, and this is where that is
-    ///         enforced rather than described.</b> A renderer advances its ring region inside
+    ///         ⚠
+    ///         <b>
+    ///             One <see cref="UiRenderer" /> serves one surface, and this is where that is
+    ///             enforced rather than described.
+    ///         </b>
+    ///         A renderer advances its ring region inside
     ///         <c>Upload</c> and <c>Record</c> draws from the region the <em>last</em> upload wrote,
     ///         so two mounted interfaces uploaded through one of them are both drawn from the second
     ///         one's geometry — the modal and the document behind it come out as two copies of the
@@ -514,8 +571,12 @@ public sealed class UiRenderFeature : RootRenderFeature {
     /// <exception cref="ArgumentNullException"><paramref name="commands" /> is null.</exception>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The third outside-the-pass half, and skipping it does not degrade a frame — it
-    ///         draws a different one.</b> <see cref="UiRenderer.Compose" />'s own remarks call itself
+    ///         ⚠
+    ///         <b>
+    ///             The third outside-the-pass half, and skipping it does not degrade a frame — it
+    ///             draws a different one.
+    ///         </b>
+    ///         <see cref="UiRenderer.Compose" />'s own remarks call itself
     ///         optional, and read alone that is true: <c>Record</c> skips a group's draws only where
     ///         a surface exists, so a host that never composes gets the flat walk. But
     ///         <c>UiGeometryBuilder</c> emits a group's contents at <i>alpha one</i> precisely so the
@@ -524,8 +585,12 @@ public sealed class UiRenderFeature : RootRenderFeature {
     ///         panel comes out solid, and nothing anywhere says so.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The backdrop is left at its default here, which is a picture and not an
-    ///         oversight.</b> <see cref="UiRenderer.Compose" />'s <c>beneath</c> wants what the host
+    ///         ⚠
+    ///         <b>
+    ///             The backdrop is left at its default here, which is a picture and not an
+    ///             oversight.
+    ///         </b>
+    ///         <see cref="UiRenderer.Compose" />'s <c>beneath</c> wants what the host
     ///         had already painted where the interface will be, and inside a world renderer that is
     ///         the scene — which at this point in the frame <em>has not been drawn</em>, because
     ///         these passes are recorded ahead of the caller's own. So a <c>backdrop-filter</c> over
@@ -651,8 +716,12 @@ public sealed class UiRenderFeature : RootRenderFeature {
 
     /// <inheritdoc />
     /// <remarks>
-    ///     ⚠ The surface's own order, and <b>the stage this is drawn in has to sort
-    ///     <c>ByGroup</c></b>. Every other mode puts depth in the key, and an interface has no depth —
+    ///     ⚠ The surface's own order, and
+    ///     <b>
+    ///         the stage this is drawn in has to sort
+    ///         <c>ByGroup</c>
+    ///     </b>
+    ///     . Every other mode puts depth in the key, and an interface has no depth —
     ///     two surfaces at the same distance would then sort by object id, which is whichever one
     ///     happened to be created first.
     /// </remarks>

@@ -17,8 +17,12 @@ namespace Vixen.Rendering.Water;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>[35 § D4](../../docs/plan/35-water.md#d4-the-surface-is-the-terrains-quadtree-with-a-different-height-source),
-///         and the node that makes a wet pixel possible at all.</b> Without it nothing writes
+///         <b>
+///             [35 §
+///             D4](../../docs/plan/35-water.md#d4-the-surface-is-the-terrains-quadtree-with-a-different-height-source),
+///             and the node that makes a wet pixel possible at all.
+///         </b>
+///         Without it nothing writes
 ///         <c>WaterSurface</c> or <c>WaterNormal</c>, so § D8's <c>!Water</c> reads a cleared mask,
 ///         finds no coverage anywhere and passes the frame through unchanged — a water stack that is
 ///         wired, tested and invisible.
@@ -70,9 +74,13 @@ public sealed class WaterMeshRenderer : SceneRenderer, IDisposable {
     /// <summary>The simulation's water time, in seconds.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Read off <see cref="Zones" /> rather than settable, and that is
-    ///         [§ D2](../../docs/plan/35-water.md#d2-one-evaluator-two-hosts-and-the-seam-is-a-test)
-    ///         rather than a convenience.</b> There is exactly one water clock in a running game: the
+    ///         ⚠
+    ///         <b>
+    ///             Read off <see cref="Zones" /> rather than settable, and that is
+    ///             [§ D2](../../docs/plan/35-water.md#d2-one-evaluator-two-hosts-and-the-seam-is-a-test)
+    ///             rather than a convenience.
+    ///         </b>
+    ///         There is exactly one water clock in a running game: the
     ///         zone system holds it, the buoyancy solver reads it, the underwater shape reads it and
     ///         the vertex stage reads it. A settable one here would be a second place for it to be
     ///         written, and a vertex stage a frame ahead of a buoyancy solver is a boat that hovers —
@@ -122,8 +130,12 @@ public sealed class WaterMeshRenderer : SceneRenderer, IDisposable {
     /// <summary>How many draw calls those zones actually recorded.</summary>
     /// <remarks>
     ///     ⚠ <b>Summed from what each pass recorded, rather than derived as two per zone.</b> A zone
-    ///     records the skirt and the window as separate instanced draws and <em>skips whichever has
-    ///     no instances</em> — see <see cref="WaterSurfacePass.Record" /> — so a zone whose skirt is
+    ///     records the skirt and the window as separate instanced draws and
+    ///     <em>
+    ///         skips whichever has
+    ///         no instances
+    ///     </em>
+    ///     — see <see cref="WaterSurfacePass.Record" /> — so a zone whose skirt is
     ///     wholly culled issues one draw and not two. ⚠ Both water frames this repository can
     ///     measure populate both, so the derived figure was not observably wrong in either: what is
     ///     wrong with it is that it is an assumption about a number the pass was already counting.
@@ -271,8 +283,7 @@ public sealed class WaterMeshRenderer : SceneRenderer, IDisposable {
             pass => {
                 pass.SideEffect();
 
-                pass.Execute(
-                    context => {
+                pass.Execute(context => {
                         var uploads = 0;
 
                         foreach (var (zone, state, component) in ready) {
@@ -303,10 +314,9 @@ public sealed class WaterMeshRenderer : SceneRenderer, IDisposable {
                 // Loaded, and never written — see WaterSurfacePass.DepthState. The surface joins a
                 // frame that already has its opaque depth, and § D8 unprojects that same depth to
                 // find what is behind the water.
-                pass.DepthAttachment(depth, LoadAction.Load, 0f);
+                pass.DepthAttachment(depth, LoadAction.Load);
 
-                pass.Execute(
-                    context => {
+                pass.Execute(context => {
                         foreach (var (zone, _, _) in ready) {
                             zone.Pass.Record(context.CommandList);
 

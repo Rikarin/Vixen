@@ -18,18 +18,22 @@ public sealed class VxInputParseException : Exception {
     }
 
     /// <summary>Creates the exception.</summary>
-    public VxInputParseException() : base("The document is not in the .vxinput dialect.") =>
+    public VxInputParseException() : base("The document is not in the .vxinput dialect.") {
         Detail = Message;
+    }
 
     /// <summary>Creates the exception.</summary>
     /// <param name="message">What is wrong.</param>
-    public VxInputParseException(string message) : base(message) => Detail = message;
+    public VxInputParseException(string message) : base(message) {
+        Detail = message;
+    }
 
     /// <summary>Creates the exception.</summary>
     /// <param name="message">What is wrong.</param>
     /// <param name="innerException">What caused it.</param>
-    public VxInputParseException(string message, Exception innerException) : base(message, innerException) =>
+    public VxInputParseException(string message, Exception innerException) : base(message, innerException) {
         Detail = message;
+    }
 
     /// <summary>The one-based line.</summary>
     public int Line { get; }
@@ -316,7 +320,7 @@ public static class VxInputReader {
         }
 
         static string Unquoted(string text) =>
-            text.Length >= 2 && (text[0] == '\'' || text[0] == '"') && text[text.Length - 1] == text[0]
+            text.Length >= 2 && (text[0] == '\'' || text[0] == '"') && text[^1] == text[0]
                 ? text.Substring(1, text.Length - 2)
                 : text;
 

@@ -27,8 +27,11 @@ namespace Vixen.Ui.Controls;
 ///         keypress both produce.
 ///     </para>
 ///     <para>
-///         ⚠ <b>What keeps one press from counting twice is <see cref="Control.RaisesActivation" />,
-///         asked of the element the tap started on and every element between that and the listener.</b>
+///         ⚠
+///         <b>
+///             What keeps one press from counting twice is <see cref="Control.RaisesActivation" />,
+///             asked of the element the tap started on and every element between that and the listener.
+///         </b>
 ///         A control that reports its own activation has already told the handler, so its tap is
 ///         left alone; anything else has not, so its tap <i>is</i> the click. The walk is needed
 ///         because a button's label is a child element and the hit test lands on it — and it is
@@ -44,8 +47,12 @@ static class ControlMarkup {
     ///     the <c>ctx.On</c> that needs this to have happened.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>That sentence is true of <c>on:</c> and is not true of everything registered
-    ///     below.</b> It rests on the markup naming a capitalised tag, and <c>help=</c> and
+    ///     ⚠
+    ///     <b>
+    ///         That sentence is true of <c>on:</c> and is not true of everything registered
+    ///         below.
+    ///     </b>
+    ///     It rests on the markup naming a capitalised tag, and <c>help=</c> and
     ///     <c>context-menu=</c> are legal on a <c>&lt;div&gt;</c> — so a <c>.vxml</c> of plain boxes
     ///     with a tooltip on one of them reads this seam having touched nothing in this assembly.
     ///     <c>on:</c> survives that because the event names it needs are <c>Vixen.Ui</c>'s own and
@@ -66,7 +73,7 @@ static class ControlMarkup {
     internal static void Register() {
         BuildContext.Subscribe(
             "click",
-            (element, handler, how) => {
+            static (element, handler, how) => {
                 how.Listen<ClickEvent>(element, (_, args) => handler(args));
 
                 how.Listen<TapEvent>(
@@ -82,7 +89,7 @@ static class ControlMarkup {
 
         BuildContext.Subscribe(
             "dblclick",
-            (element, handler, how) => {
+            static (element, handler, how) => {
                 how.Listen<ClickEvent>(
                     element,
                     (_, args) => {
@@ -109,7 +116,7 @@ static class ControlMarkup {
         // on, and the only route by which `TextField.Submitted` was ever reachable from markup.
         BuildContext.Subscribe(
             "submit",
-            (element, handler, how) => how.Listen<SubmitEvent>(element, (_, args) => handler(args))
+            static (element, handler, how) => how.Listen<SubmitEvent>(element, (_, args) => handler(args))
         );
 
         // ⚠ `help` is the accessible description first and the hover box second, which is why the
@@ -121,28 +128,30 @@ static class ControlMarkup {
         // The tooltip is a root child because every overlay is: the draw list is document order, so
         // one nested inside the button it describes would be clipped by every `overflow: hidden`
         // between them.
-        BuildContext.Describes(target => {
-            var tip = target.Document.Root.Add<Tooltip>();
-            tip.Attach(target);
+        BuildContext.Describes(static target => {
+                var tip = target.Document.Root.Add<Tooltip>();
+                tip.Attach(target);
 
-            return tip;
-        });
+                return tip;
+            }
+        );
 
         // ⚠ The menu arrives as a `UiElement` because `Vixen.Ui` has no name for a menu, so this is
         // where the type is checked — and it throws rather than doing nothing, because an attribute
         // that silently attached nothing is a right-click that reads as a broken panel.
-        BuildContext.Contextualises((target, menu) => {
-            if (menu is not ContextMenu context) {
-                throw new ArgumentException(
-                    $"'context-menu' wants a {nameof(ContextMenu)} and was given a "
-                    + $"{menu.GetType().Name}. A menu opened at the pointer is a distinct type from a "
-                    + $"{nameof(Menu)} dropped beside an anchor, because the placement rule differs.",
-                    nameof(menu)
-                );
-            }
+        BuildContext.Contextualises(static (target, menu) => {
+                if (menu is not ContextMenu context) {
+                    throw new ArgumentException(
+                        $"'context-menu' wants a {nameof(ContextMenu)} and was given a "
+                        + $"{menu.GetType().Name}. A menu opened at the pointer is a distinct type from a "
+                        + $"{nameof(Menu)} dropped beside an anchor, because the placement rule differs.",
+                        nameof(menu)
+                    );
+                }
 
-            context.Attach(target);
-        });
+                context.Attach(target);
+            }
+        );
 
         // ⚠ The write-back leg of a bound open state, and its absence is what made `bind:IsOpen`
         // look like the missing feature. `IsOpen` is deliberately not a `[UiProperty]` — see
@@ -153,7 +162,7 @@ static class ControlMarkup {
         // one-way in, which is an overlay the user closes and the model reopens on the next flush.
         BuildContext.Subscribe(
             "openchanged",
-            (element, handler, how) => how.Listen<OpenChangedEvent>(element, (_, args) => handler(args))
+            static (element, handler, how) => how.Listen<OpenChangedEvent>(element, (_, args) => handler(args))
         );
     }
 

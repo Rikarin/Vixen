@@ -15,7 +15,7 @@ namespace Vixen.Live.Orchestration;
 /// <param name="Now">The clock. A parameter so a test does not have to wait.</param>
 public sealed record LeaseOptions(TimeSpan Lifetime, Func<DateTimeOffset> Now) {
     /// <summary>The defaults.</summary>
-    public static LeaseOptions Default { get; } = new(TimeSpan.FromSeconds(20), () => DateTimeOffset.UtcNow);
+    public static LeaseOptions Default { get; } = new(TimeSpan.FromSeconds(20), static () => DateTimeOffset.UtcNow);
 }
 
 /// <summary>One character's lease. ADR-021, and the reason duplication is not expressible.</summary>
@@ -49,7 +49,9 @@ public sealed class PlayerLeaseState {
 
     /// <summary>Stands one up.</summary>
     /// <param name="options">The lifetime and clock, or null for the defaults.</param>
-    public PlayerLeaseState(LeaseOptions? options = null) => this.options = options ?? LeaseOptions.Default;
+    public PlayerLeaseState(LeaseOptions? options = null) {
+        this.options = options ?? LeaseOptions.Default;
+    }
 
     /// <summary>Takes the lease, superseding whoever held it.</summary>
     /// <param name="shard">Which shard is asking.</param>

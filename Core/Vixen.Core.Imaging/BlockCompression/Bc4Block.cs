@@ -35,14 +35,14 @@ static class Bc4Block {
 
         if (red0 > red1) {
             for (var step = 1; step <= 6; step++) {
-                palette[1 + step] = Interpolate(((7 - step) * red0) + (step * red1), 7);
+                palette[1 + step] = Interpolate((7 - step) * red0 + step * red1, 7);
             }
 
             return;
         }
 
         for (var step = 1; step <= 4; step++) {
-            palette[1 + step] = Interpolate(((5 - step) * red0) + (step * red1), 5);
+            palette[1 + step] = Interpolate((5 - step) * red0 + step * red1, 5);
         }
 
         palette[6] = 0;
@@ -68,8 +68,7 @@ static class Bc4Block {
     ///         from what Vixen's own preview and error metric said it would be.
     ///     </para>
     /// </remarks>
-    static byte Interpolate(int weighted, int denominator) =>
-        (byte)(((weighted * 2) + denominator) / (denominator * 2));
+    static byte Interpolate(int weighted, int denominator) => (byte)((weighted * 2 + denominator) / (denominator * 2));
 
     /// <summary>Reads a block.</summary>
     /// <param name="block">Its eight bytes.</param>

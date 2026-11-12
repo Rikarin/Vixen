@@ -32,7 +32,7 @@ public static class Level {
             }
         }
 
-        return ([.. vertices], [.. indices]);
+        return ([..vertices], [..indices]);
     }
 
     static void Pillar(List<Vector3> vertices, List<int> indices, Vector3 centre, float width, float height) {

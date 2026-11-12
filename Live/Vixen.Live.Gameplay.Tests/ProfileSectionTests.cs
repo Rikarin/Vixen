@@ -27,8 +27,7 @@ public static class SectionContent {
             .Add(
                 Tree,
                 new TalentTreeDefinition {
-                    DisplayName = "Fire",
-                    Nodes = [new() { Id = "kindle", DisplayName = "Kindle", MaximumRanks = 3 }]
+                    DisplayName = "Fire", Nodes = [new() { Id = "kindle", DisplayName = "Kindle", MaximumRanks = 3 }]
                 }
             )
             .Add(Smithing, new ProfessionDefinition { DisplayName = "Smithing", MaximumSkill = 500 })
@@ -247,7 +246,7 @@ public class QuestSectionTests : IDisposable {
     }
 
     QuestJournal Reload(ReadOnlyMemory<byte> bytes, QuestLibrary? into = null) {
-        var fresh = new QuestJournal(into ?? library, new GameplayEventBus(), new(1));
+        var fresh = new QuestJournal(into ?? library, new(), new(1));
 
         new QuestSection(fresh).Load(bytes);
 
@@ -291,7 +290,7 @@ public class QuestSectionTests : IDisposable {
         journal.Find(DefId.From(SectionContent.Prologue))!.Tracker!.Seat(0, 3f, true);
 
         var bytes = section.Save();
-        var fresh = new QuestJournal(library, new GameplayEventBus(), new(1));
+        var fresh = new QuestJournal(library, new(), new(1));
         var advances = 0;
 
         fresh.Advanced += (_, _) => advances++;
@@ -344,7 +343,7 @@ public class QuestSectionTests : IDisposable {
         journal.Accept(DefId.From(SectionContent.Prologue));
 
         var bytes = section.Save();
-        var fresh = new QuestJournal(library, new GameplayEventBus(), new(1), new Nothing());
+        var fresh = new QuestJournal(library, new(), new(1), new Nothing());
 
         new QuestSection(fresh).Load(bytes);
 
@@ -435,7 +434,7 @@ public class ExplorationSectionTests {
         record.Reveal(Map, 4, 4, 2);
 
         var bytes = section.Save();
-        var wider = ExplorationLibrary.Compile(SectionContent.Exploration(columns: 32));
+        var wider = ExplorationLibrary.Compile(SectionContent.Exploration(32));
         var back = new ExplorationRecord(wider);
         var into = new ExplorationSection(back);
 
@@ -514,7 +513,7 @@ public class WardrobeSectionTests {
         Assert.NotEqual(Head, shifted.Tags.Resolve("Slot.Head"));
 
         var into = CollectionLibrary.Compile(shifted);
-        var back = new Wardrobe(new CollectionRecord(into));
+        var back = new Wardrobe(new(into));
 
         new WardrobeSection(back, shifted.Tags).Load(bytes);
 
@@ -548,7 +547,7 @@ public class WardrobeSectionTests {
 
         var bytes = section.Save();
         var bare = new DefinitionCatalogBuilder().AddTag("Slot.Feet").Build();
-        var into = new WardrobeSection(new Wardrobe(record), bare.Tags);
+        var into = new WardrobeSection(new(record), bare.Tags);
 
         into.Load(bytes);
 

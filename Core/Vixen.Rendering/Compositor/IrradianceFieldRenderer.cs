@@ -31,8 +31,11 @@ namespace Vixen.Rendering.Compositor;
 ///         comes from somewhere that knows about geometry and light. This knows about ordering.
 ///     </para>
 ///     <para>
-///         <b>Dilation and the border sync run after a fill, in that order, or the field has holes and
-///         seams in it.</b> Doing them here rather than leaving them to a caller is the whole reason
+///         <b>
+///             Dilation and the border sync run after a fill, in that order, or the field has holes and
+///             seams in it.
+///         </b>
+///         Doing them here rather than leaving them to a caller is the whole reason
 ///         this type exists — they are cheap, they are easy to forget, and forgetting either produces
 ///         an artefact that looks like a lighting bug rather than a missing call.
 ///     </para>

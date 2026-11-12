@@ -13,8 +13,12 @@ namespace Vixen.Platform;
 ///         to light says.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Collapsing <see cref="Unknown" /> into <see cref="Light" /> is the mistake this
-///         enum exists to prevent.</b> A stylesheet asks two questions —
+///         ⚠
+///         <b>
+///             Collapsing <see cref="Unknown" /> into <see cref="Light" /> is the mistake this
+///             enum exists to prevent.
+///         </b>
+///         A stylesheet asks two questions —
 ///         <c>(prefers-color-scheme: dark)</c> and <c>(prefers-color-scheme: light)</c> — and CSS
 ///         says both are false when there is no preference. A platform that reported light where it
 ///         meant "I do not know" would make the second one true, which is a stylesheet taking a

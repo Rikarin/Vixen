@@ -11,8 +11,12 @@ namespace Vixen.Ui.Controls.Tests;
 /// <summary>Where a tag nested inside a <c>&lt;Dialog&gt;</c> or a <c>&lt;Drawer&gt;</c> lands.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>The two most application-shaped overlays in the set were the two that could not be
-///         written in markup at all.</b> <c>Popover</c> overrides <c>UiElement.ContentHost</c>, which
+///         ⚠
+///         <b>
+///             The two most application-shaped overlays in the set were the two that could not be
+///             written in markup at all.
+///         </b>
+///         <c>Popover</c> overrides <c>UiElement.ContentHost</c>, which
 ///         is what makes <c>&lt;Popover&gt;</c>, <c>&lt;Select&gt;</c> and <c>&lt;ComboBox&gt;</c>
 ///         nesting work; <c>Dialog</c> and <c>Drawer</c> overrode neither, so a child landed on the
 ///         overlay element itself — a sibling of the backdrop and the surface.
@@ -48,7 +52,7 @@ public class OverlayMarkupTests {
 
         // And nothing leaked onto the overlay element, which is the half a body-only assertion
         // misses: before the override, `dialog-note` was the third child here.
-        Assert.Equal(["dialog-backdrop", "dialog-surface"], dialog.Children.Select(child => child.Tag));
+        Assert.Equal(["dialog-backdrop", "dialog-surface"], dialog.Children.Select(static child => child.Tag));
     }
 
     /// <summary>And inside a <c>&lt;Drawer&gt;</c>, including a control rather than a bare part.</summary>
@@ -63,13 +67,13 @@ public class OverlayMarkupTests {
 
         var drawer = sheet.Filters;
 
-        Assert.Equal(["drawer-note", "checkbox"], drawer.Body.Children.Select(child => child.Tag));
+        Assert.Equal(["drawer-note", "checkbox"], drawer.Body.Children.Select(static child => child.Tag));
         Assert.All(drawer.Body.Children, child => Assert.Same(drawer.Body, child.Parent));
 
         var box = Assert.IsType<CheckBox>(drawer.Body.Children[1]);
         Assert.Equal("Only modified", box.Label);
 
-        Assert.Equal(["drawer-backdrop", "drawer-surface"], drawer.Children.Select(child => child.Tag));
+        Assert.Equal(["drawer-backdrop", "drawer-surface"], drawer.Children.Select(static child => child.Tag));
     }
 
     /// <summary>

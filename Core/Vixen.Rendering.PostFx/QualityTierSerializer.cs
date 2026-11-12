@@ -11,8 +11,12 @@ namespace Vixen.Rendering.PostFx;
 /// <summary>The one hand-written serializer this assembly needs, and why it is hand-written.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>An enum member is serialised inline by whatever holds it — a <em>nullable</em> enum
-///         member is not.</b> The generator emits <c>WriteNullable&lt;QualityTier&gt;</c> for
+///         ⚠
+///         <b>
+///             An enum member is serialised inline by whatever holds it — a <em>nullable</em> enum
+///             member is not.
+///         </b>
+///         The generator emits <c>WriteNullable&lt;QualityTier&gt;</c> for
 ///         <see cref="StandardFrameAsset.Quality" />, and the nullable path goes through
 ///         <see cref="SerializerRegistry.Get{T}" /> for its inner value, which is a registry the
 ///         generator never puts enums into. Every other document enum in this assembly is a plain

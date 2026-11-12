@@ -38,7 +38,7 @@ public static class ColorSpace {
     /// <param name="value">The linear value, nominally in <c>[0, 1]</c>.</param>
     /// <returns>The encoded value.</returns>
     public static float LinearToSrgb(float value) =>
-        value <= 0.0031308f ? value * 12.92f : (1.055f * MathF.Pow(value, 1f / 2.4f)) - 0.055f;
+        value <= 0.0031308f ? value * 12.92f : 1.055f * MathF.Pow(value, 1f / 2.4f) - 0.055f;
 
     /// <summary>
     ///     The relative luminance of a linear colour, using the Rec. 709 primaries that sRGB shares.
@@ -50,6 +50,5 @@ public static class ColorSpace {
     ///     a great deal of image-processing code does — gives something that is neither luminance
     ///     nor lightness.
     /// </remarks>
-    public static float Luminance(Vector3 linear) =>
-        (0.2126f * linear.X) + (0.7152f * linear.Y) + (0.0722f * linear.Z);
+    public static float Luminance(Vector3 linear) => 0.2126f * linear.X + 0.7152f * linear.Y + 0.0722f * linear.Z;
 }

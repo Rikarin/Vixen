@@ -106,6 +106,9 @@ public sealed class VulkanInstanceTests {
 
         uint count = 0;
         Assert.Equal(Result.Success, owned.Api.EnumeratePhysicalDevices(owned.Handle, ref count, null));
-        Assert.True(count > 0, "The instance enumerated no physical devices, which is what the portability flag prevents.");
+        Assert.True(
+            count > 0,
+            "The instance enumerated no physical devices, which is what the portability flag prevents."
+        );
     }
 }

@@ -17,8 +17,11 @@ namespace Vixen.Rendering;
 ///         what lets a compositor choose without anything downstream knowing which it got.
 ///     </para>
 ///     <para>
-///         <strong>The result is a bitset either way, and that is the load-bearing part of the
-///         contract.</strong> Sorting walks <see cref="Words" /> a word at a time; a feature narrows
+///         <strong>
+///             The result is a bitset either way, and that is the load-bearing part of the
+///             contract.
+///         </strong>
+///         Sorting walks <see cref="Words" /> a word at a time; a feature narrows
 ///         the set through <see cref="Hide" />. Neither would work against an implementation that
 ///         answered with a list, so the shape of the answer belongs here rather than to whichever
 ///         thing computed it.

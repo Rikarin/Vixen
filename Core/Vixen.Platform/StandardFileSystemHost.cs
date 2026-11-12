@@ -42,8 +42,10 @@ public sealed class StandardFileSystemHost : IFileSystemHost {
     ///     assembly was loaded from — which is right for every desktop layout and for a published
     ///     single file.
     /// </param>
-    /// <exception cref="ArgumentException"><paramref name="organisation" /> or
-    /// <paramref name="application" /> is empty.</exception>
+    /// <exception cref="ArgumentException">
+    ///     <paramref name="organisation" /> or
+    ///     <paramref name="application" /> is empty.
+    /// </exception>
     public StandardFileSystemHost(string organisation, string application, string? applicationDirectory = null) {
         ArgumentException.ThrowIfNullOrWhiteSpace(organisation);
         ArgumentException.ThrowIfNullOrWhiteSpace(application);
@@ -138,7 +140,7 @@ public sealed class StandardFileSystemHost : IFileSystemHost {
     public void MountStandardLocations(VirtualFileSystem fileSystem) {
         ArgumentNullException.ThrowIfNull(fileSystem);
 
-        fileSystem.Mount(MountPoints.App, new PhysicalFileProvider(ApplicationDirectory, isReadOnly: true));
+        fileSystem.Mount(MountPoints.App, new PhysicalFileProvider(ApplicationDirectory, true));
         fileSystem.Mount(MountPoints.Data, new PhysicalFileProvider(DataDirectory));
         fileSystem.Mount(MountPoints.Cache, new PhysicalFileProvider(CacheDirectory));
         fileSystem.Mount(MountPoints.Temp, new PhysicalFileProvider(TemporaryDirectory));

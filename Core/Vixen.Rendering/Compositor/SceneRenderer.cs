@@ -16,19 +16,29 @@ namespace Vixen.Rendering.Compositor;
 ///         <strong>Three phases, and each can only do its own job.</strong>
 ///     </para>
 ///     <list type="number">
-///         <item><description>
-///             <see cref="Collect" /> runs before the render system and says which views this node
-///             needs and which stages those views draw — so the frame's view list is <em>derived
-///             from the tree</em> rather than handed to it.
-///         </description></item>
-///         <item><description>
-///             <see cref="Build" /> runs after culling and sorting and declares render-graph passes:
-///             what each reads, what it writes, and what it does. Nothing is recorded here.
-///         </description></item>
-///         <item><description>
-///             <see cref="Record" /> runs inside a pass the graph opened, with its barriers already
-///             placed. Only drawing is left.
-///         </description></item>
+///         <item>
+///             <description>
+///                 <see cref="Collect" /> runs before the render system and says which views this node
+///                 needs and which stages those views draw — so the frame's view list is
+///                 <em>
+///                     derived
+///                     from the tree
+///                 </em>
+///                 rather than handed to it.
+///             </description>
+///         </item>
+///         <item>
+///             <description>
+///                 <see cref="Build" /> runs after culling and sorting and declares render-graph passes:
+///                 what each reads, what it writes, and what it does. Nothing is recorded here.
+///             </description>
+///         </item>
+///         <item>
+///             <description>
+///                 <see cref="Record" /> runs inside a pass the graph opened, with its barriers already
+///                 placed. Only drawing is left.
+///             </description>
+///         </item>
 ///     </list>
 ///     <para>
 ///         The last split is not bureaucracy — it is the RHI's own. A draw has to be inside a render
@@ -39,7 +49,7 @@ namespace Vixen.Rendering.Compositor;
 /// </remarks>
 public abstract class SceneRenderer {
     /// <summary>The node's name, for debug groups, profiling and the compositor asset.</summary>
-    public string Name { get; init; } = "";
+    public string Name { get; init; } = string.Empty;
 
     /// <summary>Whether this node runs at all.</summary>
     /// <remarks>
@@ -194,7 +204,7 @@ public sealed class SceneRendererSequence : SceneRenderer {
     public IList<SceneRenderer> Children { get; } = [];
 
     /// <inheritdoc />
-    public override IReadOnlyList<SceneRenderer> Nested => [.. Children];
+    public override IReadOnlyList<SceneRenderer> Nested => [..Children];
 
     /// <inheritdoc />
     protected internal override void Collect(GraphicsCompositor compositor) {

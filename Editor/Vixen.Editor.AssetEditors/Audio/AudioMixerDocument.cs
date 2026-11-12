@@ -20,8 +20,12 @@ namespace Vixen.Editor.AssetEditors.Audio;
 ///         format attached. This document is the YAML end of that sentence and the undo stack over it.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Every number a person sees is in decibels and every number the mixer runs on is
-///         linear.</b> That is <see cref="MixerBusAsset" />'s own decision and this editor does not
+///         ⚠
+///         <b>
+///             Every number a person sees is in decibels and every number the mixer runs on is
+///             linear.
+///         </b>
+///         That is <see cref="MixerBusAsset" />'s own decision and this editor does not
 ///         second-guess it: the fields edit <c>GainDb</c> directly, and the one conversion happens
 ///         where it always did, in <see cref="MixerBuilder" />.
 ///     </para>
@@ -128,10 +132,9 @@ public sealed class AudioMixerDocument : EditorDocument {
             "Add Bus",
             Mixer with {
                 Buses = [
-                    .. Mixer.Buses,
+                    ..Mixer.Buses,
                     new MixerBusAsset {
-                        Name = InputUnique(name, Mixer.Buses.Select(bus => bus.Name)),
-                        Parent = parent
+                        Name = InputUnique(name, Mixer.Buses.Select(static bus => bus.Name)), Parent = parent
                     }
                 ]
             }
@@ -158,21 +161,44 @@ public sealed class AudioMixerDocument : EditorDocument {
             "Remove Bus",
             Mixer with {
                 Buses = [
-                    .. Mixer.Buses
+                    ..Mixer.Buses
                         .Where(bus => !string.Equals(bus.Name, name, StringComparison.Ordinal))
                         .Select(bus => bus with {
-                            Parent = string.Equals(bus.Parent, name, StringComparison.Ordinal) ? removed.Parent : bus.Parent,
-                            Sidechain = string.Equals(bus.Sidechain, name, StringComparison.Ordinal) ? string.Empty : bus.Sidechain,
-                            Sends = [.. bus.Sends.Where(send => !string.Equals(send.Target, name, StringComparison.Ordinal))]
-                        })
+                                Parent = string.Equals(bus.Parent, name, StringComparison.Ordinal)
+                                    ? removed.Parent
+                                    : bus.Parent,
+                                Sidechain = string.Equals(bus.Sidechain, name, StringComparison.Ordinal)
+                                    ? string.Empty
+                                    : bus.Sidechain,
+                                Sends = [
+                                    ..bus.Sends.Where(send => !string.Equals(
+                                            send.Target,
+                                            name,
+                                            StringComparison.Ordinal
+                                        )
+                                    )
+                                ]
+                            }
+                        )
                 ],
                 Snapshots = [
-                    .. Mixer.Snapshots.Select(snapshot => snapshot with {
-                        Buses = [.. snapshot.Buses.Where(entry => !string.Equals(entry.Bus, name, StringComparison.Ordinal))],
-                        Sends = [.. snapshot.Sends.Where(entry =>
-                            !string.Equals(entry.Bus, name, StringComparison.Ordinal)
-                            && !string.Equals(entry.Target, name, StringComparison.Ordinal))]
-                    })
+                    ..Mixer.Snapshots.Select(snapshot => snapshot with {
+                            Buses = [
+                                ..snapshot.Buses.Where(entry => !string.Equals(
+                                        entry.Bus,
+                                        name,
+                                        StringComparison.Ordinal
+                                    )
+                                )
+                            ],
+                            Sends = [
+                                ..snapshot.Sends.Where(entry =>
+                                    !string.Equals(entry.Bus, name, StringComparison.Ordinal)
+                                    && !string.Equals(entry.Target, name, StringComparison.Ordinal)
+                                )
+                            ]
+                        }
+                    )
                 ]
             }
         );
@@ -188,8 +214,11 @@ public sealed class AudioMixerDocument : EditorDocument {
         Replace(
             name,
             Mixer with {
-                Buses = [.. Mixer.Buses.Select(entry =>
-                    string.Equals(entry.Name, bus, StringComparison.Ordinal) ? change(entry) : entry)]
+                Buses = [
+                    ..Mixer.Buses.Select(entry =>
+                        string.Equals(entry.Name, bus, StringComparison.Ordinal) ? change(entry) : entry
+                    )
+                ]
             }
         );
     }
@@ -198,7 +227,7 @@ public sealed class AudioMixerDocument : EditorDocument {
     /// <param name="from">The bus the copy leaves.</param>
     /// <param name="to">The bus it arrives at.</param>
     public void AddSend(string from, string to) =>
-        EditBus("Add Send", from, bus => bus with { Sends = [.. bus.Sends, new MixerSendAsset { Target = to }] });
+        EditBus("Add Send", from, bus => bus with { Sends = [..bus.Sends, new MixerSendAsset { Target = to }] });
 
     /// <summary>Adds an effect to a bus's insert chain, undoably.</summary>
     /// <param name="bus">Which bus, by name.</param>
@@ -206,7 +235,7 @@ public sealed class AudioMixerDocument : EditorDocument {
     public void AddEffect(string bus, IAudioEffectAsset effect) {
         ArgumentNullException.ThrowIfNull(effect);
 
-        EditBus("Add Effect", bus, found => found with { Effects = [.. found.Effects, effect] });
+        EditBus("Add Effect", bus, found => found with { Effects = [..found.Effects, effect] });
     }
 
     /// <summary>Removes an effect by its position in the chain, undoably.</summary>
@@ -216,7 +245,7 @@ public sealed class AudioMixerDocument : EditorDocument {
         EditBus(
             "Remove Effect",
             bus,
-            found => found with { Effects = [.. found.Effects.Where((_, position) => position != index)] }
+            found => found with { Effects = [..found.Effects.Where((_, position) => position != index)] }
         );
 
     /// <summary>Adds a snapshot, undoably.</summary>
@@ -228,8 +257,10 @@ public sealed class AudioMixerDocument : EditorDocument {
             "Add Snapshot",
             Mixer with {
                 Snapshots = [
-                    .. Mixer.Snapshots,
-                    new MixerSnapshotAsset { Name = InputUnique(name, Mixer.Snapshots.Select(entry => entry.Name)) }
+                    ..Mixer.Snapshots,
+                    new MixerSnapshotAsset {
+                        Name = InputUnique(name, Mixer.Snapshots.Select(static entry => entry.Name))
+                    }
                 ]
             }
         );
@@ -241,7 +272,9 @@ public sealed class AudioMixerDocument : EditorDocument {
         Replace(
             "Remove Snapshot",
             Mixer with {
-                Snapshots = [.. Mixer.Snapshots.Where(entry => !string.Equals(entry.Name, name, StringComparison.Ordinal))],
+                Snapshots = [
+                    ..Mixer.Snapshots.Where(entry => !string.Equals(entry.Name, name, StringComparison.Ordinal))
+                ],
                 DefaultSnapshot = string.Equals(Mixer.DefaultSnapshot, name, StringComparison.Ordinal)
                     ? string.Empty
                     : Mixer.DefaultSnapshot
@@ -264,16 +297,29 @@ public sealed class AudioMixerDocument : EditorDocument {
         Replace(
             "Edit Snapshot",
             Mixer with {
-                Snapshots = [.. Mixer.Snapshots.Select(entry =>
-                    string.Equals(entry.Name, snapshot, StringComparison.Ordinal)
-                        ? entry with {
-                            Buses = entry.Buses.Any(line => string.Equals(line.Bus, bus, StringComparison.Ordinal))
-                                ? [.. entry.Buses.Select(line => string.Equals(line.Bus, bus, StringComparison.Ordinal)
-                                    ? line with { GainDb = gainDb, Muted = muted }
-                                    : line)]
-                                : [.. entry.Buses, new SnapshotBusAsset { Bus = bus, GainDb = gainDb, Muted = muted }]
-                        }
-                        : entry)]
+                Snapshots = [
+                    ..Mixer.Snapshots.Select(entry =>
+                        string.Equals(entry.Name, snapshot, StringComparison.Ordinal)
+                            ? entry with {
+                                Buses = entry.Buses.Any(line => string.Equals(line.Bus, bus, StringComparison.Ordinal))
+                                    ? [
+                                        ..entry.Buses.Select(line => string.Equals(
+                                                line.Bus,
+                                                bus,
+                                                StringComparison.Ordinal
+                                            )
+                                                ? line with { GainDb = gainDb, Muted = muted }
+                                                : line
+                                        )
+                                    ]
+                                    : [
+                                        ..entry.Buses,
+                                        new SnapshotBusAsset { Bus = bus, GainDb = gainDb, Muted = muted }
+                                    ]
+                            }
+                            : entry
+                    )
+                ]
             }
         );
 
@@ -284,12 +330,17 @@ public sealed class AudioMixerDocument : EditorDocument {
         Replace(
             "Edit Snapshot",
             Mixer with {
-                Snapshots = [.. Mixer.Snapshots.Select(entry =>
-                    string.Equals(entry.Name, snapshot, StringComparison.Ordinal)
-                        ? entry with {
-                            Buses = [.. entry.Buses.Where(line => !string.Equals(line.Bus, bus, StringComparison.Ordinal))]
-                        }
-                        : entry)]
+                Snapshots = [
+                    ..Mixer.Snapshots.Select(entry =>
+                        string.Equals(entry.Name, snapshot, StringComparison.Ordinal)
+                            ? entry with {
+                                Buses = [
+                                    ..entry.Buses.Where(line => !string.Equals(line.Bus, bus, StringComparison.Ordinal))
+                                ]
+                            }
+                            : entry
+                    )
+                ]
             }
         );
 

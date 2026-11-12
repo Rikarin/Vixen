@@ -3,7 +3,6 @@
 
 using System.Diagnostics;
 using System.Reflection;
-using Vixen.Core.Threading;
 using Xunit;
 
 namespace Vixen.Geometry.Remeshing.Tests;
@@ -26,7 +25,7 @@ public class OptimisedInDebugTests {
         Assert.True(
             IsOptimised(typeof(Remesher).Assembly),
             "Vixen.Geometry.Remeshing is compiled with the optimiser off. Its csproj sets "
-            + "<Optimize Condition=\"'$(Configuration)' == 'Debug'\">true</Optimize> and something has "
+            + """<Optimize Condition="'$(Configuration)' == 'Debug'">true</Optimize> and something has """
             + "removed it: this suite goes from 122 s back to 327 s without it. See that file's remarks."
         );
     }
@@ -35,7 +34,7 @@ public class OptimisedInDebugTests {
     public void The_optimiser_did_not_come_with_a_configuration_change() {
 #if DEBUG
         Assert.True(
-            JobScheduler.SafetyChecksEnabled,
+            Vixen.Core.Threading.JobScheduler.SafetyChecksEnabled,
             "This is a Debug build with the scheduler's safety checks compiled out, which no "
             + "combination of this repository's own settings produces. Optimize was meant to be the "
             + "only thing that moved."

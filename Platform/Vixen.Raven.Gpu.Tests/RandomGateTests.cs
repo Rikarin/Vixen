@@ -10,8 +10,11 @@ namespace Vixen.Raven.Gpu.Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>Doc 07 § E's <c>Random.rvn</c> row, in the form that row actually needs — and ⚠ not the
-///         form it asks for.</b> The row says the file "must match the CPU implementation
+///         <b>
+///             Doc 07 § E's <c>Random.rvn</c> row, in the form that row actually needs — and ⚠ not the
+///             form it asks for.
+///         </b>
+///         The row says the file "must match the CPU implementation
 ///         bit-for-bit", and there is no CPU implementation of it: <c>Random.Multiplier</c> appears in
 ///         exactly one file in the tree, which is <c>Random.rvn</c> itself. The pair doc 06's
 ///         dual-target parity is about is a different one — <c>Vixen.Vfx.VfxRandom</c> against the
@@ -21,8 +24,11 @@ namespace Vixen.Raven.Gpu.Tests;
 ///         nothing in the engine would call it.
 ///     </para>
 ///     <para>
-///         <b>So what is asserted is what the file's exactness rules actually buy: a golden
-///         vector.</b> <c>Random.rvn</c>'s header states three rules — wrapping 32-bit integer
+///         <b>
+///             So what is asserted is what the file's exactness rules actually buy: a golden
+///             vector.
+///         </b>
+///         <c>Random.rvn</c>'s header states three rules — wrapping 32-bit integer
 ///         arithmetic only, no float anywhere in the state, and a float conversion that is a shift
 ///         and a multiply by a power of two — and every one of them exists so that a value does not
 ///         depend on which driver compiled the shader. A table of bits is the only thing that can
@@ -145,7 +151,7 @@ public sealed class RandomGateTests {
     /// <summary>Every seed hashes to the bits the table says, on the device that ran it.</summary>
     [Fact]
     public void The_device_produces_the_pinned_bits() {
-        var run = ShaderRun.Run(Vectors, Imports, Seeds * Stride, groups: 1);
+        var run = ShaderRun.Run(Vectors, Imports, Seeds * Stride, 1);
 
         Assert.NotNull(run);
 
@@ -154,9 +160,9 @@ public sealed class RandomGateTests {
 
             // The seed the shader derived, checked before what it hashed to — otherwise a wrong
             // seed reads as a wrong hash and sends the reader into `Random.rvn`.
-            Assert.Equal(Seed[index], (uint)((index * 0x01000193) + 0x811C9DC5));
+            Assert.Equal(Seed[index], (uint)(index * 0x01000193 + 0x811C9DC5));
 
-            Bits(Hash[index], run.Values, slot + 0, "Hash", index);
+            Bits(Hash[index], run.Values, slot, "Hash", index);
             Bits(Forward[index], run.Values, slot + 2, "Combine(seed, i)", index);
             Bits(Reverse[index], run.Values, slot + 4, "Combine(i, seed)", index);
         }
@@ -175,7 +181,7 @@ public sealed class RandomGateTests {
     /// </remarks>
     [Fact]
     public void The_float_conversion_is_exact_and_Float01_is_ToFloat01_of_Hash() {
-        var run = ShaderRun.Run(Vectors, Imports, Seeds * Stride, groups: 1);
+        var run = ShaderRun.Run(Vectors, Imports, Seeds * Stride, 1);
 
         Assert.NotNull(run);
 
@@ -260,14 +266,14 @@ public sealed class RandomGateTests {
                                  }
                                  """;
 
-        var run = ShaderRun.Run(Sabotaged, Imports, Seeds * 2, groups: 1);
+        var run = ShaderRun.Run(Sabotaged, Imports, Seeds * 2, 1);
 
         Assert.NotNull(run);
 
         var moved = 0;
 
         for (var index = 0; index < Seeds; index++) {
-            var value = ((uint)run.Values[(index * 2) + 0] << 16) | (uint)run.Values[(index * 2) + 1];
+            var value = ((uint)run.Values[index * 2] << 16) | (uint)run.Values[index * 2 + 1];
 
             if (value != Hash[index]) {
                 moved++;

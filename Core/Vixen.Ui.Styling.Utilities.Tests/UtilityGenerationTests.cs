@@ -137,9 +137,15 @@ public class UtilityGenerationTests {
     [InlineData("-inset-screen", null)]
     [InlineData("-translate-none", null)]
     [InlineData("-mt-[auto]", null)]
-    [InlineData("-translate-x-full", "--tw-translate-x: -100%; translate: var(--tw-translate-x, 0px) var(--tw-translate-y, 0px)")]
+    [InlineData(
+        "-translate-x-full",
+        "--tw-translate-x: -100%; translate: var(--tw-translate-x, 0px) var(--tw-translate-y, 0px)"
+    )]
     [InlineData("-inset-full", "top: -100%; right: -100%; bottom: -100%; left: -100%")]
-    [InlineData("-mx-[calc(100%_-_2px)]", "margin-left: calc(calc(100% - 2px) * -1); margin-right: calc(calc(100% - 2px) * -1)")]
+    [InlineData(
+        "-mx-[calc(100%_-_2px)]",
+        "margin-left: calc(calc(100% - 2px) * -1); margin-right: calc(calc(100% - 2px) * -1)"
+    )]
     [InlineData("-mt-(--gap)", "margin-top: calc(var(--gap) * -1)")]
     [InlineData("-rotate-[calc(1deg_+_2deg)]", "rotate: calc(calc(1deg + 2deg) * -1)")]
     public void Only_a_root_Tailwind_signs_has_a_negative_class(string utility, string? expected) {
@@ -173,11 +179,11 @@ public class UtilityGenerationTests {
     [Fact]
     public void A_negated_variable_computes_to_the_negative_length() {
         var fixture = new UtilityFixture();
-        var computed = fixture.Computed(["-mt-(--gap)"], "margin-top", extraCss: "div { --gap: 8px; }");
+        var computed = fixture.Computed(["-mt-(--gap)"], "margin-top", "div { --gap: 8px; }");
 
         Assert.NotNull(computed);
 
-        var margin = new StyleValueParser(new NameTable(), new NameTable()).Parse(computed);
+        var margin = new StyleValueParser(new(), new()).Parse(computed);
 
         Assert.Equal(StyleValueKind.Length, margin.Kind);
         Assert.Equal(-8f, margin.Number, 3);
@@ -189,19 +195,74 @@ public class UtilityGenerationTests {
     ///     this, so reading the production list back would make it a tautology.
     /// </remarks>
     static readonly HashSet<string> TailwindSigned = new(StringComparer.Ordinal) {
-        "m", "mx", "my", "mt", "mr", "mb", "ml", "ms", "me", "mbs", "mbe",
-        "scroll-m", "scroll-mx", "scroll-my", "scroll-mt", "scroll-mr", "scroll-mb", "scroll-ml",
-        "scroll-ms", "scroll-me", "scroll-mbs", "scroll-mbe",
-        "inset", "inset-x", "inset-y", "inset-s", "inset-e", "inset-bs", "inset-be",
-        "top", "right", "bottom", "left", "start", "end",
-        "translate", "translate-x", "translate-y", "translate-z",
-        "rotate", "rotate-x", "rotate-y", "rotate-z",
-        "skew", "skew-x", "skew-y",
-        "scale", "scale-x", "scale-y", "scale-z",
-        "space-x", "space-y",
-        "order", "z", "col", "col-start", "col-end", "row", "row-start", "row-end",
-        "indent", "tracking", "underline-offset", "outline-offset",
-        "hue-rotate", "backdrop-hue-rotate", "mask-linear", "mask-conic"
+        "m",
+        "mx",
+        "my",
+        "mt",
+        "mr",
+        "mb",
+        "ml",
+        "ms",
+        "me",
+        "mbs",
+        "mbe",
+        "scroll-m",
+        "scroll-mx",
+        "scroll-my",
+        "scroll-mt",
+        "scroll-mr",
+        "scroll-mb",
+        "scroll-ml",
+        "scroll-ms",
+        "scroll-me",
+        "scroll-mbs",
+        "scroll-mbe",
+        "inset",
+        "inset-x",
+        "inset-y",
+        "inset-s",
+        "inset-e",
+        "inset-bs",
+        "inset-be",
+        "top",
+        "right",
+        "bottom",
+        "left",
+        "start",
+        "end",
+        "translate",
+        "translate-x",
+        "translate-y",
+        "translate-z",
+        "rotate",
+        "rotate-x",
+        "rotate-y",
+        "rotate-z",
+        "skew",
+        "skew-x",
+        "skew-y",
+        "scale",
+        "scale-x",
+        "scale-y",
+        "scale-z",
+        "space-x",
+        "space-y",
+        "order",
+        "z",
+        "col",
+        "col-start",
+        "col-end",
+        "row",
+        "row-start",
+        "row-end",
+        "indent",
+        "tracking",
+        "underline-offset",
+        "outline-offset",
+        "hue-rotate",
+        "backdrop-hue-rotate",
+        "mask-linear",
+        "mask-conic"
     };
 
     /// <summary>
@@ -237,11 +298,16 @@ public class UtilityGenerationTests {
             if (TailwindSigned.Contains(negative.Name)) {
                 reached.Add(negative.Name);
             } else {
-                leaked.Add($"-{utility} → {string.Join("; ", declarations.Select(d => $"{d.Property}: {d.Value}"))}");
+                leaked.Add(
+                    $"-{utility} → {string.Join("; ", declarations.Select(static d => $"{d.Property}: {d.Value}"))}"
+                );
             }
         }
 
-        Assert.True(leaked.Count == 0, $"{leaked.Count} negative spellings of unsigned roots resolve:\n{string.Join('\n', leaked)}");
+        Assert.True(
+            leaked.Count == 0,
+            $"{leaked.Count} negative spellings of unsigned roots resolve:\n{string.Join('\n', leaked)}"
+        );
         Assert.Empty(TailwindSigned.Except(reached).Order(StringComparer.Ordinal));
     }
 
@@ -282,8 +348,12 @@ public class UtilityGenerationTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>The headline case, against the sheet a game actually gets, and it is the one the
-    ///     test above cannot make.</b> That test says an unlayered rule beats a utility — true, and
+    ///     ⚠
+    ///     <b>
+    ///         The headline case, against the sheet a game actually gets, and it is the one the
+    ///         test above cannot make.
+    ///     </b>
+    ///     That test says an unlayered rule beats a utility — true, and
     ///     still true, and for a release it was also what <c>ControlTheme</c> was: unlayered. So
     ///     <c>&lt;Button class="p-2"&gt;</c> lost to <c>button { padding: 5px 12px }</c> silently and
     ///     always, and a lone <c>@layer utilities</c> was worse than no layers at all — the utility is
@@ -337,8 +407,8 @@ public class UtilityGenerationTests {
 
         Assert.Contains("@media (min-width: 768px)", fixture.Generate("md:p-4"), StringComparison.Ordinal);
 
-        Assert.Null(fixture.Computed(["md:p-4"], "padding-left", media: new MediaContext(320, 640)));
-        Assert.Equal("16px", fixture.Computed(["md:p-4"], "padding-left", media: new MediaContext(1024, 768)));
+        Assert.Null(fixture.Computed(["md:p-4"], "padding-left", media: new(320, 640)));
+        Assert.Equal("16px", fixture.Computed(["md:p-4"], "padding-left", media: new(1024, 768)));
     }
 
     [Fact]
@@ -355,7 +425,7 @@ public class UtilityGenerationTests {
                 ["md:hover:focus:p-4"],
                 "padding-left",
                 state: ElementState.Hover | ElementState.Focus,
-                media: new MediaContext(1024, 768)
+                media: new(1024, 768)
             )
         );
     }
@@ -397,7 +467,9 @@ public class UtilityGenerationTests {
         var media = new UtilityFixture();
         Assert.Contains("prefers-color-scheme: dark", media.Generate("dark:bg-accent"), StringComparison.Ordinal);
 
-        var byClass = new UtilityFixture(UtilityFixture.Theme.Replace("--dark-mode: media", "--dark-mode: class", StringComparison.Ordinal));
+        var byClass = new UtilityFixture(
+            UtilityFixture.Theme.Replace("--dark-mode: media", "--dark-mode: class", StringComparison.Ordinal)
+        );
         var css = byClass.Generate("dark:bg-accent");
 
         Assert.Contains(".dark ", css, StringComparison.Ordinal);
@@ -466,9 +538,9 @@ public class UtilityGenerationTests {
 
         // And the conditions conjoin: 700px satisfies the outer one only, which is the width that
         // tells a nested stack from a flattened one.
-        Assert.Equal("16px", fixture.Computed(["sm:md:p-4"], "padding-left", media: new MediaContext(1000, 800)));
-        Assert.Null(fixture.Computed(["sm:md:p-4"], "padding-left", media: new MediaContext(700, 800)));
-        Assert.Null(fixture.Computed(["sm:md:p-4"], "padding-left", media: new MediaContext(300, 800)));
+        Assert.Equal("16px", fixture.Computed(["sm:md:p-4"], "padding-left", media: new(1000, 800)));
+        Assert.Null(fixture.Computed(["sm:md:p-4"], "padding-left", media: new(700, 800)));
+        Assert.Null(fixture.Computed(["sm:md:p-4"], "padding-left", media: new(300, 800)));
     }
 
     [Fact]
@@ -513,7 +585,7 @@ public class UtilityGenerationTests {
         var fixture = new UtilityFixture();
 
         Assert.Equal(1, Occurrences(fixture.Generate("md:md:p-4"), "@media (min-width: 768px)"));
-        Assert.Equal("16px", fixture.Computed(["md:md:p-4"], "padding-left", media: new MediaContext(1024, 768)));
+        Assert.Equal("16px", fixture.Computed(["md:md:p-4"], "padding-left", media: new(1024, 768)));
     }
 
     [Fact]
@@ -546,7 +618,7 @@ public class UtilityGenerationTests {
         Assert.Contains("!important", fixture.Generate("p-4!"), StringComparison.Ordinal);
         Assert.Equal(
             "16px",
-            fixture.Computed(["p-4!"], "padding-left", extraCss: "#x { padding-left: 99px }")
+            fixture.Computed(["p-4!"], "padding-left", "#x { padding-left: 99px }")
         );
     }
 

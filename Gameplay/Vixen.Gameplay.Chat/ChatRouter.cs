@@ -68,8 +68,12 @@ public readonly record struct ChatDelivery(
 ///         server has hung.
 ///     </para>
 ///     <para>
-///         ⚠ <b>A block drops the <em>recipient</em> on a fan-out channel and the <em>message</em> on a
-///         direct one.</b> Blocking somebody cannot silence them in a zone everybody else can hear —
+///         ⚠
+///         <b>
+///             A block drops the <em>recipient</em> on a fan-out channel and the <em>message</em> on a
+///             direct one.
+///         </b>
+///         Blocking somebody cannot silence them in a zone everybody else can hear —
 ///         that is a moderator's job — so what a block does to zone chat is stop you seeing it, which
 ///         is a per-recipient decision made here rather than a rejection made to the sender.
 ///     </para>
@@ -132,7 +136,9 @@ public sealed class ChatRouter {
 
         // The channel's own gates before the pipeline, because "you may not speak here at all" is a
         // different answer from "not so fast" and the player should get the durable one.
-        if (found.Permission.IsSome && context.ContextOf(sender) is var speaker && speaker?.HasTag(found.Permission) != true) {
+        if (found.Permission.IsSome
+            && context.ContextOf(sender) is var speaker
+            && speaker?.HasTag(found.Permission) != true) {
             return Refused(ChatRejection.NoPermission, $"You cannot speak on {found.DisplayName}.");
         }
 
@@ -161,7 +167,7 @@ public sealed class ChatRouter {
 
         Delivered++;
 
-        var delivery = new ChatDelivery(ChatRejection.None, string.Empty, message, [.. audience], found.Route);
+        var delivery = new ChatDelivery(ChatRejection.None, string.Empty, message, [..audience], found.Route);
 
         Sent?.Invoke(delivery);
 

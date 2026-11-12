@@ -50,8 +50,7 @@ public sealed class ShaderDocument : CodeDocument {
     /// <param name="asset">Its identity.</param>
     /// <param name="path">Where the file is, absolute.</param>
     public ShaderDocument(EditorProject project, AssetId asset, string path)
-        : base(project, asset, path) {
-    }
+        : base(project, asset, path) { }
 
     /// <inheritdoc />
     protected override IReadOnlyList<CodeDiagnostic> Analyse(string text) {

@@ -72,8 +72,7 @@ public sealed class SampledTextureTypeSymbol : TypeSymbol, IEquatable<SampledTex
 
     public override string ToDisplayString() => $"{Name}<{ElementType.ToDisplayString()}>";
 
-    public bool Equals(SampledTextureTypeSymbol? other) =>
-        other is not null && ElementType.Equals(other.ElementType);
+    public bool Equals(SampledTextureTypeSymbol? other) => other is not null && ElementType.Equals(other.ElementType);
 
     public override bool Equals(object? obj) => Equals(obj as SampledTextureTypeSymbol);
 

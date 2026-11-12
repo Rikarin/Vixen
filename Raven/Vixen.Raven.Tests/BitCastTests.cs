@@ -133,7 +133,7 @@ public class BitCastTests {
         );
 
         var body = LoweringTestBase.PrintFunction(module, "Unpack");
-        Assert.Contains($"{IrIntrinsic.BitCast.ToString().ToLowerInvariant()} ", body, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains($"{nameof(IrIntrinsic.BitCast).ToLowerInvariant()} ", body, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("vec<f32,3>", body, StringComparison.Ordinal);
     }
 

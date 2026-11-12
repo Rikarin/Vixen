@@ -24,15 +24,15 @@ namespace Vixen.Editor.App.Tests;
 /// </remarks>
 public sealed class DocumentChordTests {
     const string Knobs = """
-        version: 2
-        game: !StandardFrame
-          quality: High
-          shadows: Cascades
-          look: !Look
-            settings:
-              ev100: 13
+                         version: 2
+                         game: !StandardFrame
+                           quality: High
+                           shadows: Cascades
+                           look: !Look
+                             settings:
+                               ev100: 13
 
-        """;
+                         """;
 
     [Fact]
     public void Ctrl_s_in_a_dirty_asset_tab_saves_that_document_and_not_the_scene() {
@@ -174,7 +174,7 @@ public sealed class DocumentChordTests {
         Dirty(document);
         FocusIn(session, tab);
 
-        Assert.True(session.Document.RequestClose(UiCloseReason.Quit), "the tab's prompt refused a quit");
+        Assert.True(session.Document.RequestClose(), "the tab's prompt refused a quit");
         session.Settle();
 
         Assert.False(session.IsAsking, "the tab's prompt asked about a quit");
@@ -229,12 +229,12 @@ public sealed class DocumentChordTests {
     static void Dirty(StandardFrameDocument document) {
         document.Settings.Antialiasing = AntialiasingMode.Off;
         Assert.True(document.Apply());
-        document.Stack.Execute(new DelegateCommand("Turn a knob", _ => { }, _ => { }));
+        document.Stack.Execute(new DelegateCommand("Turn a knob", static _ => { }, static _ => { }));
     }
 
     /// <summary>Puts the focus on something inside a tab, which is where the route starts.</summary>
     static void FocusIn(EditorSession session, string tab) {
-        var target = Descendants(session.Panel(tab)).FirstOrDefault(element => element.Focusable)
+        var target = Descendants(session.Panel(tab)).FirstOrDefault(static element => element.Focusable)
             ?? throw session.Fail($"Nothing in the '{tab}' tab takes the focus.");
 
         Assert.True(session.Document.Focus(target));

@@ -9,8 +9,12 @@ namespace Vixen.Ui;
 /// <summary><c>@apply</c>, expanded as a sheet is installed rather than as one is built.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Until this existed, <c>@apply</c> was inert in every sheet in the repository and said
-///         nothing about it.</b> <see cref="ApplyExpander" /> ran in exactly one place —
+///         ⚠
+///         <b>
+///             Until this existed, <c>@apply</c> was inert in every sheet in the repository and said
+///             nothing about it.
+///         </b>
+///         <see cref="ApplyExpander" /> ran in exactly one place —
 ///         <c>Tools/Vixen.StyleGen</c>, over files named by <c>@(VixenStyleBase)</c> — and no project
 ///         set that item. Every hand-written sheet reaches the runtime as a raw
 ///         <c>EmbeddedResource</c> through its own <c>Theme.Css</c>, so an <c>@apply</c> written into
@@ -122,8 +126,12 @@ public sealed partial class UiDocument {
     /// <param name="css">The sheet about to be loaded.</param>
     /// <returns>Whether every sheet has to be expanded again once it is in.</returns>
     /// <remarks>
-    ///     ⚠ <b>Asked <i>before</i> the sheet is loaded, so that "already expanded" means what it
-    ///     says.</b> A sheet that carries both an <c>@theme</c> and an <c>@apply</c> of its own needs
+    ///     ⚠
+    ///     <b>
+    ///         Asked <i>before</i> the sheet is loaded, so that "already expanded" means what it
+    ///         says.
+    ///     </b>
+    ///     A sheet that carries both an <c>@theme</c> and an <c>@apply</c> of its own needs
     ///     no reload on its own account: it is added to <see cref="StyleEngine" />'s list before the
     ///     preprocessor runs, so its tokens are in the merge that expands it.
     ///     <para>

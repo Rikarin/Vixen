@@ -9,15 +9,22 @@ namespace Vixen.Ui.Controls.Tests;
 /// <summary>What a field actually emits for a selection that is not one rectangle.</summary>
 /// <remarks>
 ///     <para>
-///         <b>The band is resolved by <c>TextLine.VisualRanges</c> and this is the test that it is
-///         resolved by anything at all.</b> <c>Vixen.Ui.Tests.CaretAffinityTests</c> judges the
+///         <b>
+///             The band is resolved by <c>TextLine.VisualRanges</c> and this is the test that it is
+///             resolved by anything at all.
+///         </b>
+///         <c>Vixen.Ui.Tests.CaretAffinityTests</c> judges the
 ///         geometry; the failure mode this file exists for is the one this repository meets most
 ///         often — a correct helper nothing calls, with the field still painting its own single span
 ///         beside it.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The oracle is the emitted draw list, and it has to be: a selection drawn as one
-///         rectangle and one drawn as two have the same bounding box.</b> Anything reading extent —
+///         ⚠
+///         <b>
+///             The oracle is the emitted draw list, and it has to be: a selection drawn as one
+///             rectangle and one drawn as two have the same bounding box.
+///         </b>
+///         Anything reading extent —
 ///         a screenshot's coloured columns included — passes against the defect, because the defect
 ///         is that the middle of that box is filled in when it should not be.
 ///     </para>
@@ -53,13 +60,14 @@ public class SelectionRangeTests {
         return (fixture, field);
     }
 
-    static List<DrawCommand> Bands(ControlFixture fixture) =>
-        fixture.Document.Drawing.Commands
-            .Where(command => command.Kind == DrawCommandKind.Rectangle
+    static List<DrawCommand> Bands(ControlFixture fixture) => [
+        ..fixture.Document.Drawing.Commands
+            .Where(static command => command.Kind == DrawCommandKind.Rectangle
                 && command.Color.R == 1f
                 && command.Color.G == 0f
-                && command.Color.B == 1f)
-            .ToList();
+                && command.Color.B == 1f
+            )
+    ];
 
     [Fact]
     public void A_selection_crossing_a_direction_change_is_painted_as_two_bands() {
@@ -69,7 +77,7 @@ public class SelectionRangeTests {
         // The second Latin letter and the first Arabic one, with the second Arabic letter drawn
         // between them and outside the selection.
         field.MoveCaret(1);
-        field.MoveCaret(3, extend: true);
+        field.MoveCaret(3, true);
         fixture.Update();
 
         var bands = Bands(fixture);
@@ -84,13 +92,13 @@ public class SelectionRangeTests {
 
         // Same widths, in the same left-to-right order, which is what says the field is painting
         // what the resolver returned rather than two rectangles of its own.
-        foreach (var pair in expected.OrderBy(range => range.X).Zip(bands.OrderBy(band => band.X))) {
+        foreach (var pair in expected.OrderBy(static range => range.X).Zip(bands.OrderBy(static band => band.X))) {
             Assert.Equal(pair.First.Width, pair.Second.Width, 0.01f);
         }
 
         // ⚠ And the gap is the point. The unselected letter sits between the two bands, and a field
         // that painted one rectangle would have covered it while passing every count above.
-        var gap = bands.Max(band => band.X) - bands.Min(band => band.X + band.Width);
+        var gap = bands.Max(static band => band.X) - bands.Min(static band => band.X + band.Width);
 
         Assert.True(gap > 1f, "the unselected letter between the two bands is not painted over");
     }
@@ -101,7 +109,7 @@ public class SelectionRangeTests {
         using var owned = fixture;
 
         field.MoveCaret(0);
-        field.MoveCaret(2, extend: true);
+        field.MoveCaret(2, true);
         fixture.Update();
 
         // The compatibility half: splitting a selection that needs splitting must not split one that

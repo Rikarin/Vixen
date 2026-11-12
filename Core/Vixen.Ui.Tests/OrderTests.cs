@@ -12,8 +12,12 @@ namespace Vixen.Ui.Tests;
 ///     <para>
 ///         CSS Flexbox §5.4 gives <c>order</c> a deliberately narrow blast radius: it changes the
 ///         order items are <b>laid out</b> in and the order they are <b>painted</b> in, and it
-///         explicitly changes neither <b>selector matching</b> nor <b>sequential focus
-///         navigation</b>. The specification says so in as many words, because reordering that
+///         explicitly changes neither <b>selector matching</b> nor
+///         <b>
+///             sequential focus
+///             navigation
+///         </b>
+///         . The specification says so in as many words, because reordering that
 ///         dragged the tab order along with it would let a stylesheet decide what a keyboard does.
 ///     </para>
 ///     <para>
@@ -35,11 +39,11 @@ namespace Vixen.Ui.Tests;
 /// </remarks>
 public class OrderTests {
     const string Css = """
-        root { width: 400px; height: 200px; }
-        div { width: 50px; height: 50px; }
-        .moved { order: -1; }
-        .even { width: 60px; }
-        """;
+                       root { width: 400px; height: 200px; }
+                       div { width: 50px; height: 50px; }
+                       .moved { order: -1; }
+                       .even { width: 60px; }
+                       """;
 
     /// <summary>
     ///     ⚠ <b>Trap one: <c>:nth-child</c> counts document position, not visual position.</b>
@@ -145,12 +149,12 @@ public class OrderTests {
         document.Draw();
 
         var fills = document.Drawing.Commands
-            .Where(command => command.Kind == DrawCommandKind.Rectangle)
-            .Select(command => command.Color)
+            .Where(static command => command.Kind == DrawCommandKind.Rectangle)
+            .Select(static command => command.Color)
             .ToList();
 
-        var red = fills.FindIndex(color => color.R > 0.9f && color.G < 0.1f);
-        var green = fills.FindIndex(color => color.G > 0.9f && color.R < 0.1f);
+        var red = fills.FindIndex(static color => color.R > 0.9f && color.G < 0.1f);
+        var green = fills.FindIndex(static color => color.G > 0.9f && color.R < 0.1f);
 
         Assert.True(red >= 0 && green >= 0, "both boxes were filled");
 
@@ -189,12 +193,12 @@ public class OrderTests {
         document.Draw();
 
         var fills = document.Drawing.Commands
-            .Where(command => command.Kind == DrawCommandKind.Rectangle)
-            .Select(command => command.Color)
+            .Where(static command => command.Kind == DrawCommandKind.Rectangle)
+            .Select(static command => command.Color)
             .ToList();
 
-        var green = fills.FindIndex(color => color.G > 0.9f && color.R < 0.1f);
-        var red = fills.FindIndex(color => color.R > 0.9f && color.G < 0.1f);
+        var green = fills.FindIndex(static color => color.G > 0.9f && color.R < 0.1f);
+        var red = fills.FindIndex(static color => color.R > 0.9f && color.G < 0.1f);
 
         Assert.True(green >= 0 && red >= 0, "both boxes were filled");
         Assert.True(red > green, "z-index is the outer sort");

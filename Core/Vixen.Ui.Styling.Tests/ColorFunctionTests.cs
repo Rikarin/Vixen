@@ -9,8 +9,11 @@ namespace Vixen.Ui.Styling.Tests;
 /// <summary><c>oklab()</c>, <c>oklch()</c> and <c>color-mix()</c>, against oracles that are not this code.</summary>
 /// <remarks>
 ///     <para>
-///         <b>Two external oracles do nearly all the work here, and neither is a number this parser
-///         produced.</b> The first is Björn Ottosson's published conversion table, which
+///         <b>
+///             Two external oracles do nearly all the work here, and neither is a number this parser
+///             produced.
+///         </b>
+///         The first is Björn Ottosson's published conversion table, which
 ///         <c>Vixen.Core.Mathematics.Tests.OklabTests</c> already holds the engine to — so
 ///         <c>oklab(0.627955 0.224863 0.125846)</c> has to come out sRGB red, and the polar form of
 ///         the same three numbers has to come out the same red. The second is arithmetic that can be
@@ -35,8 +38,7 @@ public class ColorFunctionTests {
         return value.Color;
     }
 
-    static void AssertUnknown(string text) =>
-        Assert.Equal(StyleValueKind.Unknown, Parser().Parse(text).Kind);
+    static void AssertUnknown(string text) => Assert.Equal(StyleValueKind.Unknown, Parser().Parse(text).Kind);
 
     static void AssertLinear(Color4 colour, float r, float g, float b, float a) {
         Assert.Equal(r, colour.R, Tolerance);
@@ -98,10 +100,9 @@ public class ColorFunctionTests {
     /// <summary>A colour encoded to sRGB and rounded to bytes, clamped the way a display would.</summary>
     static string Clamped(string text) {
         var srgb = Color(text).ToSrgb();
-
-        static int Byte(float value) => (int) MathF.Round(Math.Clamp(value, 0f, 1f) * 255f);
-
         return $"#{Byte(srgb.R):x2}{Byte(srgb.G):x2}{Byte(srgb.B):x2}";
+
+        static int Byte(float value) => (int)MathF.Round(Math.Clamp(value, 0f, 1f) * 255f);
     }
 
     [Fact]
@@ -258,8 +259,8 @@ public class ColorFunctionTests {
         AssertMidpointHue(" decreasing hue", 30f, 10f, 20f);
 
         // Shorter is the default, and it is the one that crosses zero rather than travelling 340°.
-        AssertMidpointHue("", 10f, 30f, 20f);
-        AssertMidpointHue("", 10f, 350f, 0f);
+        AssertMidpointHue(string.Empty, 10f, 30f, 20f);
+        AssertMidpointHue(string.Empty, 10f, 350f, 0f);
     }
 
     [Fact]
@@ -311,7 +312,10 @@ public class ColorFunctionTests {
 
         // And a percentage above 100 is clamped into range rather than refused, per the grammar's
         // `<percentage [0,100]>`.
-        Assert.Equal(Color("color-mix(in oklab, white 100%, black 0%)"), Color("color-mix(in oklab, white 140%, black 0%)"));
+        Assert.Equal(
+            Color("color-mix(in oklab, white 100%, black 0%)"),
+            Color("color-mix(in oklab, white 140%, black 0%)")
+        );
     }
 
     [Fact]
@@ -360,7 +364,13 @@ public class ColorFunctionTests {
         // Which makes it exactly what the old `rgba()` rewrite produced for a hex colour — the point
         // being that the utility layer can switch to emitting a mix without moving any colour that
         // already worked.
-        AssertLinear(half, Color("rgba(79, 124, 255, 0.5)").R, Color("rgba(79, 124, 255, 0.5)").G, Color("rgba(79, 124, 255, 0.5)").B, 0.5f);
+        AssertLinear(
+            half,
+            Color("rgba(79, 124, 255, 0.5)").R,
+            Color("rgba(79, 124, 255, 0.5)").G,
+            Color("rgba(79, 124, 255, 0.5)").B,
+            0.5f
+        );
     }
 
     [Fact]
@@ -374,7 +384,10 @@ public class ColorFunctionTests {
         var polar = Color("color-mix(in oklch, blue 50%, transparent)");
 
         AssertLinear(rectangular, Color("blue").R, Color("blue").G, Color("blue").B, 0.5f);
-        Assert.True(polar.R > rectangular.R + 0.05f, $"expected the polar mix to redden, got {polar.R} vs {rectangular.R}");
+        Assert.True(
+            polar.R > rectangular.R + 0.05f,
+            $"expected the polar mix to redden, got {polar.R} vs {rectangular.R}"
+        );
     }
 
     // ---------------------------------------------------------------- color-mix: what the endpoints may be

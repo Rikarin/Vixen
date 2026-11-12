@@ -39,10 +39,11 @@ internal sealed class IosDisplays : IDisplayInfo {
             // deprecated because it answers across every connected scene and so belongs to no
             // particular one.
             var insets = UIApplication.SharedApplication.ConnectedScenes
-                .OfType<UIWindowScene>()
-                .SelectMany(scene => scene.Windows)
-                .FirstOrDefault(candidate => candidate.IsKeyWindow)
-                ?.SafeAreaInsets ?? default;
+                    .OfType<UIWindowScene>()
+                    .SelectMany(scene => scene.Windows)
+                    .FirstOrDefault(candidate => candidate.IsKeyWindow)
+                    ?.SafeAreaInsets
+                ?? default;
 
             var work = new Rectangle(
                 (float)insets.Left,
@@ -149,8 +150,10 @@ internal sealed class IosPower : IPowerInfo {
     public float? BatteryLevel => UIDevice.CurrentDevice.BatteryLevel is var level and >= 0 ? level : null;
 
     /// <inheritdoc />
-    /// <remarks>iOS does not tell an application how long it has left, and estimating it here would
-    /// be inventing a number.</remarks>
+    /// <remarks>
+    ///     iOS does not tell an application how long it has left, and estimating it here would
+    ///     be inventing a number.
+    /// </remarks>
     public TimeSpan? EstimatedTimeRemaining => null;
 
     /// <inheritdoc />

@@ -30,13 +30,13 @@ public sealed class CompilerPoolTests : IDisposable {
 
     public void Dispose() {
         if (Directory.Exists(project)) {
-            Directory.Delete(project, recursive: true);
+            Directory.Delete(project, true);
         }
     }
 
     [Fact]
     public async Task AnImportRunsInAnotherProcessAndComesBackWhole() {
-        using var pool = new CompilerPool(project, workers: 1);
+        using var pool = new CompilerPool(project, 1);
 
         var result = await pool.ExecuteAsync(Job("RawImporter", "/Assets/notes.txt"), Cancellation);
 
@@ -57,13 +57,13 @@ public sealed class CompilerPoolTests : IDisposable {
             "shader: Standard\nalbedo: vx:9e8a44c9930c64e388ca034c5fe4c426\n"
         );
 
-        using var pool = new CompilerPool(project, workers: 1);
+        using var pool = new CompilerPool(project, 1);
 
         var result = await pool.ExecuteAsync(Job("NativeFormatImporter", "/Assets/hero.vxmat"), Cancellation);
 
         Assert.True(result.Succeeded);
         Assert.Equal(
-            new AssetId(Guid.Parse("9e8a44c9930c64e388ca034c5fe4c426")),
+            new(Guid.Parse("9e8a44c9930c64e388ca034c5fe4c426")),
             Assert.Single(result.AssetDependencies)
         );
     }
@@ -72,7 +72,7 @@ public sealed class CompilerPoolTests : IDisposable {
     public async Task WhatTheImporterSaidComesBackWithItsSeverity() {
         File.WriteAllText(Path.Combine(project, "Assets", "broken.vxmat"), "albedo: vx:notaguid\n");
 
-        using var pool = new CompilerPool(project, workers: 1);
+        using var pool = new CompilerPool(project, 1);
 
         var result = await pool.ExecuteAsync(Job("NativeFormatImporter", "/Assets/broken.vxmat"), Cancellation);
 
@@ -88,12 +88,12 @@ public sealed class CompilerPoolTests : IDisposable {
     /// </summary>
     [Fact]
     public async Task AWorkerThatDiesFailsItsAssetAndNotTheRun() {
-        using var pool = new CompilerPool(project, workers: 1);
+        using var pool = new CompilerPool(project, 1);
 
         // Warm one worker up, so there is a live process to kill.
         Assert.True((await pool.ExecuteAsync(Job("RawImporter", "/Assets/notes.txt"), Cancellation)).Succeeded);
 
-        Assert.Single(pool.Workers).Process.Kill(entireProcessTree: true);
+        Assert.Single(pool.Workers).Process.Kill(true);
 
         var killed = await pool.ExecuteAsync(Job("RawImporter", "/Assets/notes.txt"), Cancellation);
 
@@ -110,7 +110,7 @@ public sealed class CompilerPoolTests : IDisposable {
 
     [Fact]
     public async Task AnImporterThisBuildDoesNotHaveIsRefusedByName() {
-        using var pool = new CompilerPool(project, workers: 1);
+        using var pool = new CompilerPool(project, 1);
 
         var result = await pool.ExecuteAsync(Job("KaleidoscopeImporter", "/Assets/notes.txt"), Cancellation);
 
@@ -126,7 +126,7 @@ public sealed class CompilerPoolTests : IDisposable {
     public async Task TwoWorkersServeTwoImportsWithoutCrossingTheirAnswers() {
         File.WriteAllText(Path.Combine(project, "Assets", "other.txt"), "a completely different string");
 
-        using var pool = new CompilerPool(project, workers: 2);
+        using var pool = new CompilerPool(project, 2);
 
         var first = pool.ExecuteAsync(Job("RawImporter", "/Assets/notes.txt"), Cancellation).AsTask();
         var second = pool.ExecuteAsync(Job("RawImporter", "/Assets/other.txt"), Cancellation).AsTask();
@@ -144,7 +144,7 @@ public sealed class CompilerPoolTests : IDisposable {
     /// </summary>
     [Fact]
     public async Task ThePoolIsAnExecutorTheProcessBoundaryIsInvisibleThrough() {
-        using var pool = new CompilerPool(project, workers: 1);
+        using var pool = new CompilerPool(project, 1);
 
         IImportExecutor executor = pool;
 
@@ -152,7 +152,7 @@ public sealed class CompilerPoolTests : IDisposable {
 
         var in_process = await new InProcessImportExecutor(
             BuiltInImporters.Create(),
-            new PhysicalFileProvider(project, isReadOnly: true)
+            new PhysicalFileProvider(project, true)
         ).ExecuteAsync(Job("RawImporter", "/Assets/notes.txt"), Cancellation);
 
         Assert.Equal(in_process.Succeeded, out_of_process.Succeeded);
@@ -169,7 +169,7 @@ public sealed class CompilerPoolTests : IDisposable {
     }
 
     static ImportJob Job(string importer, string source) =>
-        new(AssetId.New(), importer, new VirtualPath(source), string.Empty, "Windows", EnforceDeclaredReads: true);
+        new(AssetId.New(), importer, new VirtualPath(source), string.Empty, "Windows", true);
 
     static CancellationToken Cancellation => TestContext.Current.CancellationToken;
 }

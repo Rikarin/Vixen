@@ -25,8 +25,12 @@ namespace Vixen.Editor.Blockout;
 ///         "select group" are one keystroke each.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Mapping and smoothing demote a parametric shape and assigning a material does
-///         not.</b> A projection writes into the mesh's corner layer, so a shape that stayed parametric
+///         ⚠
+///         <b>
+///             Mapping and smoothing demote a parametric shape and assigning a material does
+///             not.
+///         </b>
+///         A projection writes into the mesh's corner layer, so a shape that stayed parametric
 ///         would lose it the next time anybody nudged a parameter. A material assignment is on the
 ///         document beside the mesh and survives a regeneration untouched — so a designer can dress a
 ///         parametric corridor and still widen it.
@@ -61,7 +65,13 @@ public static class BlockoutSurfaces {
         using (document.Stack.BeginTransaction("Assign Material")) {
             foreach (var group in groups) {
                 document.Stack.Execute(
-                    new MaterialCommand(document, editing.Target, group, document.MaterialsOf(editing.Target).GetValueOrDefault(group, AssetReference.Null), material)
+                    new MaterialCommand(
+                        document,
+                        editing.Target,
+                        group,
+                        document.MaterialsOf(editing.Target).GetValueOrDefault(group, AssetReference.Null),
+                        material
+                    )
                 );
             }
         }
@@ -113,9 +123,11 @@ public static class BlockoutSurfaces {
     /// <param name="projection">Which projection.</param>
     /// <param name="scale">How many world units one repeat covers.</param>
     /// <returns>Whether anything was mapped.</returns>
-    /// <remarks>⚠ <b>World is the default and doc 24's P5 says why:</b> a block-out box scaled 8×3
+    /// <remarks>
+    ///     ⚠ <b>World is the default and doc 24's P5 says why:</b> a block-out box scaled 8×3
     ///     must not stretch its texels. The entity's world matrix is what makes that true across two
-    ///     objects of different scales, so it is read here rather than left to the caller.</remarks>
+    ///     objects of different scales, so it is read here rather than left to the caller.
+    /// </remarks>
     public static bool Project(
         MeshEdit editing,
         UvProjection projection = UvProjection.World,
@@ -190,8 +202,10 @@ public static class BlockoutSurfaces {
     /// <param name="editing">What is being edited.</param>
     /// <param name="smooth">Whether they are smoothed together, or hardened.</param>
     /// <returns>Whether anything changed.</returns>
-    /// <remarks>Doc 24's own words: a hard edge is the absence of a smoothing group, so hardening is
-    ///     the same verb with a group of zero.</remarks>
+    /// <remarks>
+    ///     Doc 24's own words: a hard edge is the absence of a smoothing group, so hardening is
+    ///     the same verb with a group of zero.
+    /// </remarks>
     public static bool Smooth(MeshEdit editing, bool smooth = true) {
         ArgumentNullException.ThrowIfNull(editing);
 
@@ -223,8 +237,10 @@ public static class BlockoutSurfaces {
     /// <param name="editing">What is being edited.</param>
     /// <param name="angle">How far two faces may turn and still be one surface, in radians.</param>
     /// <returns>Whether anything changed.</returns>
-    /// <remarks>The verb a converted cylinder wants, and the one that stops a block-out's curves
-    ///     reading as polygons — see <see cref="MeshSurfaces.AutoSmooth" />.</remarks>
+    /// <remarks>
+    ///     The verb a converted cylinder wants, and the one that stops a block-out's curves
+    ///     reading as polygons — see <see cref="MeshSurfaces.AutoSmooth" />.
+    /// </remarks>
     public static bool AutoSmooth(MeshEdit editing, float angle = MeshSurfaces.DefaultSmoothingAngle) {
         ArgumentNullException.ThrowIfNull(editing);
 
@@ -242,8 +258,12 @@ public static class BlockoutSurfaces {
 
     /// <summary>Which faces a surface verb acts on: the selection, or all of them when it is empty.</summary>
     /// <remarks>
-    ///     ⚠ <b>Empty means everything here and means nothing in <see cref="BlockoutGeometry" />, and
-    ///     the asymmetry is deliberate.</b> "Project the UVs" with nothing selected obviously means the
+    ///     ⚠
+    ///     <b>
+    ///         Empty means everything here and means nothing in <see cref="BlockoutGeometry" />, and
+    ///         the asymmetry is deliberate.
+    ///     </b>
+    ///     "Project the UVs" with nothing selected obviously means the
     ///     whole object; "extrude" with nothing selected obviously means nothing. A surface verb has a
     ///     sensible whole-object reading and a geometry verb does not.
     /// </remarks>
@@ -254,7 +274,7 @@ public static class BlockoutSurfaces {
 
         var faces = editing.Selection.Converted(mesh, MeshElementKind.Face);
 
-        return faces.Count > 0 ? [.. faces] : null;
+        return faces.Count > 0 ? [..faces] : null;
     }
 
     static Matrix4x4 ToWorld(MeshEdit editing) {

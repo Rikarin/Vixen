@@ -43,7 +43,8 @@ sealed class SolutionLoader(string solutionPath, string configuration, Action<st
     ///     threshold would have made it.
     /// </remarks>
     static readonly (string Fragment, string Reason)[] ExpectedFailures = [
-        ("Duplicate source file", "the analyzer projects list AnalyzerReleases.*.md as AdditionalFiles and the SDK adds them again")
+        ("Duplicate source file",
+            "the analyzer projects list AnalyzerReleases.*.md as AdditionalFiles and the SDK adds them again")
     ];
 
     public async Task<IReadOnlyList<LoadedProject>> LoadAsync(CancellationToken cancellationToken) {
@@ -54,20 +55,22 @@ sealed class SolutionLoader(string solutionPath, string configuration, Action<st
         // point at bin/<Configuration>/…. Against a tree built in another configuration the files do
         // not exist, the generators never run, and the graph silently loses everything they emit —
         // measured at 298 types and four kinds.
-        using var workspace = MSBuildWorkspace.Create(new Dictionary<string, string> {
-            ["Configuration"] = configuration
-        });
+        using var workspace = MSBuildWorkspace.Create(
+            new Dictionary<string, string> { ["Configuration"] = configuration }
+        );
 
         workspace.SkipUnrecognizedProjects = true;
 
         using var handler = workspace.RegisterWorkspaceFailedHandler(failure => {
-            var message = failure.Diagnostic.Message;
+                var message = failure.Diagnostic.Message;
 
-            if (!ExpectedFailures.Any(expected =>
-                message.Contains(expected.Fragment, StringComparison.Ordinal))) {
-                unexpected.Add(message);
+                if (!ExpectedFailures.Any(expected =>
+                        message.Contains(expected.Fragment, StringComparison.Ordinal)
+                    )) {
+                    unexpected.Add(message);
+                }
             }
-        });
+        );
 
         log($"Opening {Path.GetFileName(solutionPath)} with Configuration={configuration}");
 
@@ -86,8 +89,8 @@ sealed class SolutionLoader(string solutionPath, string configuration, Action<st
         var projects = new List<LoadedProject>();
 
         foreach (var project in solution.Projects
-            .Where(candidate => candidate.Language == LanguageNames.CSharp)
-            .OrderBy(candidate => candidate.Name, StringComparer.Ordinal)) {
+                     .Where(static candidate => candidate.Language == LanguageNames.CSharp)
+                     .OrderBy(static candidate => candidate.Name, StringComparer.Ordinal)) {
             var compilation = await project.GetCompilationAsync(cancellationToken)
                 // RESULT.md § F2: null here means the C# language service is missing from the MEF
                 // composition, which is a packaging mistake rather than a property of the project —
@@ -113,17 +116,24 @@ sealed class SolutionLoader(string solutionPath, string configuration, Action<st
                 generatedCount++;
             }
 
-            projects.Add(new LoadedProject(
-                project.Name,
-                compilation,
-                AreaOf(root, project.FilePath),
-                project.AssemblyName is { } name && packable.Contains(name),
-                generatedCount,
-                [.. compilation.GetDiagnostics(cancellationToken)
-                    .Where(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error)],
-                [.. project.AnalyzerReferences.SelectMany(reference =>
-                    reference.GetAnalyzers(LanguageNames.CSharp))]
-            ));
+            projects.Add(
+                new LoadedProject(
+                    project.Name,
+                    compilation,
+                    AreaOf(root, project.FilePath),
+                    project.AssemblyName is { } name && packable.Contains(name),
+                    generatedCount,
+                    [
+                        ..compilation.GetDiagnostics(cancellationToken)
+                            .Where(static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error)
+                    ],
+                    [
+                        ..project.AnalyzerReferences.SelectMany(static reference =>
+                            reference.GetAnalyzers(LanguageNames.CSharp)
+                        )
+                    ]
+                )
+            );
         }
 
         return projects;
@@ -131,8 +141,8 @@ sealed class SolutionLoader(string solutionPath, string configuration, Action<st
 
     /// <summary>The assemblies `CheckApi` gates — the ones with a baseline beside the project.</summary>
     static HashSet<string> PackableAssemblies(string root) => [
-        .. Directory.EnumerateFiles(root, "PublicAPI.Unshipped.txt", SearchOption.AllDirectories)
-            .Select(path => Path.GetFileName(Path.GetDirectoryName(path))!)
+        ..Directory.EnumerateFiles(root, "PublicAPI.Unshipped.txt", SearchOption.AllDirectories)
+            .Select(static path => Path.GetFileName(Path.GetDirectoryName(path))!)
     ];
 
     /// <summary>Top-level folder the project sits in, which is how the site groups the API tree.</summary>

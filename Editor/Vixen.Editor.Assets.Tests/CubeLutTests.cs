@@ -2,9 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core;
-using Vixen.Core.Imaging;
 using Vixen.Core.IO;
-using Vixen.Core.Yaml.Meta;
+using Vixen.Core.Imaging;
 using Vixen.Editor.Assets.Textures;
 using Vixen.Graphics;
 using Xunit;
@@ -58,7 +57,7 @@ public class CubeLutTests {
         var table = CubeLut.Parse(Identity(3));
 
         Assert.Equal(new(0f, 0f, 0f), Texel(table, 0));
-        Assert.Equal(new(1f, 1f, 1f), Texel(table, (3 * 3 * 3) - 1));
+        Assert.Equal(new(1f, 1f, 1f), Texel(table, 3 * 3 * 3 - 1));
     }
 
     /// <summary>A declared domain is normalised out, so the sampler always indexes 0..1.</summary>
@@ -122,9 +121,7 @@ public class CubeLutTests {
     /// </remarks>
     [Fact]
     public void ATruncatedTableIsRefusedRatherThanPadded() {
-        var thrown = Assert.Throws<FormatException>(
-            () => CubeLut.Parse("LUT_3D_SIZE 2\n0 0 0\n1 0 0\n0 1 0\n")
-        );
+        var thrown = Assert.Throws<FormatException>(static () => CubeLut.Parse("LUT_3D_SIZE 2\n0 0 0\n1 0 0\n0 1 0\n"));
 
         Assert.Contains("8", thrown.Message, StringComparison.Ordinal);
         Assert.Contains("3", thrown.Message, StringComparison.Ordinal);
@@ -133,7 +130,7 @@ public class CubeLutTests {
     /// <summary>A 1D table is named rather than misread as a short 3D one.</summary>
     [Fact]
     public void AOneDimensionalTableIsNamed() {
-        var thrown = Assert.Throws<FormatException>(() => CubeLut.Parse("LUT_1D_SIZE 16\n0 0 0\n"));
+        var thrown = Assert.Throws<FormatException>(static () => CubeLut.Parse("LUT_1D_SIZE 16\n0 0 0\n"));
 
         Assert.Contains("1D", thrown.Message, StringComparison.Ordinal);
     }
@@ -141,12 +138,12 @@ public class CubeLutTests {
     /// <summary>A file with no size has no shape, and says so.</summary>
     [Fact]
     public void AFileWithNoSizeIsRefused() =>
-        Assert.Throws<FormatException>(() => CubeLut.Parse("0 0 0\n1 1 1\n"));
+        Assert.Throws<FormatException>(static () => CubeLut.Parse("0 0 0\n1 1 1\n"));
 
     /// <summary>An absurd size is refused before it is allocated.</summary>
     [Fact]
     public void AnAbsurdSizeIsRefusedBeforeItIsAllocated() =>
-        Assert.Throws<FormatException>(() => CubeLut.Parse("LUT_3D_SIZE 4096\n"));
+        Assert.Throws<FormatException>(static () => CubeLut.Parse("LUT_3D_SIZE 4096\n"));
 
     /// <summary>And that the build's own registry hands a <c>.cube</c> to the LUT importer.</summary>
     /// <remarks>
@@ -170,7 +167,7 @@ public class CubeLutTests {
     public void TheBuildsOwnRegistryHandsACubeFileToIt() {
         // ⚠ A contribution set of its own, not ImporterContributions.Default: the default is
         // process-wide and ImporterContributionTests mutates it, so reading it here would race.
-        var registry = BuiltInImporters.Create(new ImporterContributions());
+        var registry = BuiltInImporters.Create(new());
 
         Assert.True(registry.TryGetForFile("Assets/Looks/evening.cube", out var importer));
         Assert.IsType<CubeLutImporter>(importer);
@@ -228,7 +225,7 @@ public class CubeLutTests {
     }
 
     /// <summary>One texel's three colour channels, read back out of the half-float volume.</summary>
-    static Vixen.Core.Mathematics.Vector3 Texel(Vixen.Core.Imaging.TextureData table, int index) {
+    static Vixen.Core.Mathematics.Vector3 Texel(TextureData table, int index) {
         var pixels = table.Pixels;
         var at = index * 4 * sizeof(ushort);
 

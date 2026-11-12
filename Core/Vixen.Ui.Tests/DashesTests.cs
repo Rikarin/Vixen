@@ -57,7 +57,7 @@ public class DashesTests {
     ) {
         var marks = Marks(length, thickness, dotted);
         var mark = Dashes.MarkOf(dotted ? StrokeStyle.Dotted : StrokeStyle.Dashed, thickness);
-        var ink = marks.Sum(m => m.Length);
+        var ink = marks.Sum(static m => m.Length);
 
         Assert.Equal(marks.Count * mark, ink, Tolerance);
         Assert.True(ink < length, $"a broken line covers less than the run: {ink} of {length}");
@@ -97,13 +97,13 @@ public class DashesTests {
     [Fact]
     public void A_dotted_run_has_more_marks_than_a_dashed_one_of_the_same_length() {
         // The two differ only in the mark and gap lengths, and a dot is a third of a dash.
-        Assert.True(Marks(200f, 2f, dotted: true).Count > Marks(200f, 2f, dotted: false).Count);
+        Assert.True(Marks(200f, 2f, true).Count > Marks(200f, 2f, false).Count);
     }
 
     [Fact]
     public void An_empty_run_produces_nothing() {
-        Assert.Empty(Marks(0f, 1f, dotted: false));
-        Assert.Empty(Marks(-4f, 1f, dotted: true));
+        Assert.Empty(Marks(0f, 1f, false));
+        Assert.Empty(Marks(-4f, 1f, true));
     }
 
     [Fact]

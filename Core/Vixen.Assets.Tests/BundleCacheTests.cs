@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.IO.Hashing;
-using Vixen.Core;
 using Vixen.Core.IO;
 using Vixen.Core.Serialization.Storage;
 using Xunit;
@@ -26,7 +25,10 @@ public sealed class BundleCacheTests {
         var path = await world.Cache.EnsureAsync(bundle, null, TestContext.Current.CancellationToken);
 
         Assert.True(world.Cache.IsCached(bundle));
-        Assert.Equal(world.Contents("pack"), await world.Files.ReadAllBytesAsync(path, TestContext.Current.CancellationToken));
+        Assert.Equal(
+            world.Contents("pack"),
+            await world.Files.ReadAllBytesAsync(path, TestContext.Current.CancellationToken)
+        );
 
         // The partial file is gone rather than left as a second copy of a large download.
         Assert.False(world.Files.Exists(world.Cache.PartialPathOf(bundle)));
@@ -43,8 +45,11 @@ public sealed class BundleCacheTests {
         var bundle = world.Publish("pack", 4096);
         world.Transport.CutOffAfter = 1000;
 
-        await Assert.ThrowsAsync<BundleUnavailableException>(
-            async () => await world.Cache.EnsureAsync(bundle, null, TestContext.Current.CancellationToken)
+        await Assert.ThrowsAsync<BundleUnavailableException>(async () => await world.Cache.EnsureAsync(
+                bundle,
+                null,
+                TestContext.Current.CancellationToken
+            )
         );
 
         Assert.Equal(1000, world.Cache.ReceivedSoFar(bundle));
@@ -72,8 +77,11 @@ public sealed class BundleCacheTests {
         var bundle = world.Publish("pack", 4096);
         world.Transport.CutOffAfter = 1000;
 
-        await Assert.ThrowsAsync<BundleUnavailableException>(
-            async () => await world.Cache.EnsureAsync(bundle, null, TestContext.Current.CancellationToken)
+        await Assert.ThrowsAsync<BundleUnavailableException>(async () => await world.Cache.EnsureAsync(
+                bundle,
+                null,
+                TestContext.Current.CancellationToken
+            )
         );
 
         world.Transport.CutOffAfter = int.MaxValue;
@@ -105,8 +113,11 @@ public sealed class BundleCacheTests {
 
         world.Transport.AnswerFrom = 500;
 
-        var failure = await Assert.ThrowsAsync<BundleUnavailableException>(
-            async () => await world.Cache.EnsureAsync(bundle, null, TestContext.Current.CancellationToken)
+        var failure = await Assert.ThrowsAsync<BundleUnavailableException>(async () => await world.Cache.EnsureAsync(
+                bundle,
+                null,
+                TestContext.Current.CancellationToken
+            )
         );
 
         Assert.Contains("byte 1000", failure.Message, StringComparison.Ordinal);
@@ -128,8 +139,11 @@ public sealed class BundleCacheTests {
         wrong[2000] ^= 0xFF;
         world.Transport.Serve(bundle.Url, wrong);
 
-        var failure = await Assert.ThrowsAsync<BundleUnavailableException>(
-            async () => await world.Cache.EnsureAsync(bundle, null, TestContext.Current.CancellationToken)
+        var failure = await Assert.ThrowsAsync<BundleUnavailableException>(async () => await world.Cache.EnsureAsync(
+                bundle,
+                null,
+                TestContext.Current.CancellationToken
+            )
         );
 
         Assert.Contains("CRC", failure.Message, StringComparison.Ordinal);
@@ -146,10 +160,13 @@ public sealed class BundleCacheTests {
     public async Task ADownloadThatEndsShortIsRefused() {
         var world = new CacheWorld();
         var bundle = world.Publish("pack", 4096);
-        world.Transport.Serve(bundle.Url, world.Contents("pack").AsSpan(0, 3000).ToArray());
+        world.Transport.Serve(bundle.Url, [..world.Contents("pack").AsSpan(0, 3000)]);
 
-        var failure = await Assert.ThrowsAsync<BundleUnavailableException>(
-            async () => await world.Cache.EnsureAsync(bundle, null, TestContext.Current.CancellationToken)
+        var failure = await Assert.ThrowsAsync<BundleUnavailableException>(async () => await world.Cache.EnsureAsync(
+                bundle,
+                null,
+                TestContext.Current.CancellationToken
+            )
         );
 
         Assert.Contains("3000 bytes", failure.Message, StringComparison.Ordinal);
@@ -192,8 +209,11 @@ public sealed class BundleCacheTests {
         var bundle = world.Publish("pack", 4096);
         world.Transport.CutOffAfter = 1000;
 
-        await Assert.ThrowsAsync<BundleUnavailableException>(
-            async () => await world.Cache.EnsureAsync(bundle, null, TestContext.Current.CancellationToken)
+        await Assert.ThrowsAsync<BundleUnavailableException>(async () => await world.Cache.EnsureAsync(
+                bundle,
+                null,
+                TestContext.Current.CancellationToken
+            )
         );
 
         world.Transport.CutOffAfter = int.MaxValue;
@@ -261,18 +281,22 @@ public sealed class BundleCacheTests {
     /// </summary>
     [Fact]
     public async Task CancellingLeavesWhatArrivedWhereAResumeWillFindIt() {
-        var world = new CacheWorld(bufferSize: 1024);
+        var world = new CacheWorld(1024);
         var bundle = world.Publish("pack", 8192);
 
         using var cancelling = new CancellationTokenSource();
         var progress = new Watching(report => {
-            if (report.Received >= 2048) {
-                cancelling.Cancel();
+                if (report.Received >= 2048) {
+                    cancelling.Cancel();
+                }
             }
-        });
+        );
 
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(
-            async () => await world.Cache.EnsureAsync(bundle, progress, cancelling.Token)
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(async () => await world.Cache.EnsureAsync(
+                bundle,
+                progress,
+                cancelling.Token
+            )
         );
 
         // Enough arrived to be worth keeping, and not all of it — which is the state a resume exists
@@ -293,14 +317,17 @@ public sealed class BundleCacheTests {
     /// </summary>
     [Fact]
     public async Task ProgressRisesToTheBundlesSizeAndCountsWhatWasAlreadyThere() {
-        var world = new CacheWorld(bufferSize: 1024);
+        var world = new CacheWorld(1024);
         var bundle = world.Publish("pack", 4096);
         world.Transport.CutOffAfter = 2048;
 
         var interrupted = new Watching();
 
-        await Assert.ThrowsAsync<BundleUnavailableException>(
-            async () => await world.Cache.EnsureAsync(bundle, interrupted, TestContext.Current.CancellationToken)
+        await Assert.ThrowsAsync<BundleUnavailableException>(async () => await world.Cache.EnsureAsync(
+                bundle,
+                interrupted,
+                TestContext.Current.CancellationToken
+            )
         );
 
         Assert.Equal(0, interrupted.Reports[0].Received);
@@ -315,7 +342,7 @@ public sealed class BundleCacheTests {
         Assert.Equal(2048, resumed.Reports[0].Received);
         Assert.Equal(4096, resumed.Reports[^1].Received);
         Assert.Equal(1.0, resumed.Reports[^1].Fraction);
-        Assert.All(resumed.Reports, report => Assert.Equal("pack", report.Bundle));
+        Assert.All(resumed.Reports, static report => Assert.Equal("pack", report.Bundle));
 
         for (var index = 1; index < resumed.Reports.Count; index++) {
             Assert.True(resumed.Reports[index].Received > resumed.Reports[index - 1].Received);
@@ -385,10 +412,13 @@ public sealed class BundleCacheTests {
     [Fact]
     public async Task ABundleWithNoUrlSaysTheCatalogAndTheBuildDisagree() {
         var world = new CacheWorld();
-        var local = new CatalogBundle("shipped", "", new(7, 7), 10, 0, CompressionMethod.Lz4, []);
+        var local = new CatalogBundle("shipped", string.Empty, new(7, 7), 10, 0, CompressionMethod.Lz4, []);
 
-        var failure = await Assert.ThrowsAsync<BundleUnavailableException>(
-            async () => await world.Cache.EnsureAsync(local, null, TestContext.Current.CancellationToken)
+        var failure = await Assert.ThrowsAsync<BundleUnavailableException>(async () => await world.Cache.EnsureAsync(
+                local,
+                null,
+                TestContext.Current.CancellationToken
+            )
         );
 
         Assert.Contains("no URL", failure.Message, StringComparison.Ordinal);
@@ -399,10 +429,21 @@ public sealed class BundleCacheTests {
     [Fact]
     public async Task AUrlThatAnswersNothingBecomesABundleFailure() {
         var world = new CacheWorld();
-        var missing = new CatalogBundle("gone", "https://example.invalid/gone", new(9, 9), 10, 0, CompressionMethod.Lz4, []);
+        var missing = new CatalogBundle(
+            "gone",
+            "https://example.invalid/gone",
+            new(9, 9),
+            10,
+            0,
+            CompressionMethod.Lz4,
+            []
+        );
 
-        var failure = await Assert.ThrowsAsync<BundleUnavailableException>(
-            async () => await world.Cache.EnsureAsync(missing, null, TestContext.Current.CancellationToken)
+        var failure = await Assert.ThrowsAsync<BundleUnavailableException>(async () => await world.Cache.EnsureAsync(
+                missing,
+                null,
+                TestContext.Current.CancellationToken
+            )
         );
 
         Assert.Equal("gone", failure.Bundle);
@@ -421,7 +462,7 @@ public sealed class BundleCacheTests {
 
         await world.Cache.EnsureAsync(version1, null, TestContext.Current.CancellationToken);
 
-        var version2 = world.Publish("pack", 4096, seed: 99);
+        var version2 = world.Publish("pack", 4096, 99);
 
         Assert.False(world.Cache.IsCached(version2));
         Assert.True(world.Cache.IsCached(version1));
@@ -461,7 +502,7 @@ public sealed class BundleCacheTests {
             var contents = new byte[size];
 
             for (var index = 0; index < size; index++) {
-                contents[index] = (byte)((index * 31) + seed);
+                contents[index] = (byte)(index * 31 + seed);
             }
 
             var url = $"https://content.example/{name}-{seed}.bundle";

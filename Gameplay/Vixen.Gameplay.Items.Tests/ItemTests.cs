@@ -21,10 +21,7 @@ public static class Content {
             .Add(
                 "rarities/legendary",
                 new ItemRarityDefinition {
-                    DisplayName = "Legendary",
-                    Order = 4,
-                    Affixes = 2,
-                    Tag = "Item.Rarity.Legendary"
+                    DisplayName = "Legendary", Order = 4, Affixes = 2, Tag = "Item.Rarity.Legendary"
                 }
             )
             .Add(
@@ -63,7 +60,9 @@ public static class Content {
                     DisplayName = "Keen",
                     Weight = 2f,
                     MinimumItemLevel = 50,
-                    Stats = [new() { Attribute = "CritChance", Op = ModifierOp.AddPercent, Value = 0.02f, Maximum = 0.08f }],
+                    Stats = [
+                        new() { Attribute = "CritChance", Op = ModifierOp.AddPercent, Value = 0.02f, Maximum = 0.08f }
+                    ],
                     Tags = ["Affix.Prefix.Keen"],
                     RequiredItemTags = ["Item.Weapon"]
                 }
@@ -233,9 +232,7 @@ public class ItemLibraryTests {
             .Add(
                 "items/broken",
                 new ItemDefinition {
-                    Rarity = "rarities/nonexistent",
-                    AffixPools = ["affixes/pools/nonexistent"],
-                    Tags = ["Item.Weapon"]
+                    Rarity = "rarities/nonexistent", AffixPools = ["affixes/pools/nonexistent"], Tags = ["Item.Weapon"]
                 }
             )
             .Build();
@@ -251,8 +248,8 @@ public class ItemLibraryTests {
 
     [Fact]
     public void AnItemThisBuildDoesNotHaveIsNamedRatherThanNull() {
-        var error = Assert.Throws<DefinitionNotFoundException>(
-            () => Content.Library().Get(DefId.From("items/nonexistent"))
+        var error = Assert.Throws<DefinitionNotFoundException>(static () =>
+            Content.Library().Get(DefId.From("items/nonexistent"))
         );
 
         Assert.Contains("different one", error.Message, StringComparison.Ordinal);
@@ -303,7 +300,7 @@ public class ItemAffixTests {
         for (var seed = 1u; seed < 500; seed++) {
             var rolled = ItemAffixes.Roll(sword, seed);
 
-            Assert.Equal(rolled.Length, rolled.Select(affix => affix.Affix).Distinct().Count());
+            Assert.Equal(rolled.Length, rolled.Select(static affix => affix.Affix).Distinct().Count());
         }
     }
 
@@ -408,7 +405,7 @@ public class ItemStatsTests {
         Assert.True(produced >= 2);
         Assert.All(modifiers, modifier => Assert.Equal(source, modifier.Source));
 
-        var power = modifiers.First(modifier => modifier.Attribute == AttributeId.From("Power"));
+        var power = modifiers.First(static modifier => modifier.Attribute == AttributeId.From("Power"));
 
         Assert.Equal(251f, power.Value);
     }
@@ -486,8 +483,8 @@ public class ItemsModuleTests {
 
         Assert.Equal(5, composition.Definitions.Count);
         Assert.Empty(composition.Systems);
-        Assert.Contains(composition.Definitions, entry => entry.Tag == "ItemDefinition");
-        Assert.Contains(composition.Definitions, entry => entry.Tag == "AffixPoolDefinition");
+        Assert.Contains(composition.Definitions, static entry => entry.Tag == "ItemDefinition");
+        Assert.Contains(composition.Definitions, static entry => entry.Tag == "AffixPoolDefinition");
     }
 
     [Fact]

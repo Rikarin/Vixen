@@ -34,7 +34,12 @@ public class PlayAiTests {
 
         try {
             Assert.True(
-                AgentDeclarations.DeclareAction("play-ai-test.wait", _ => new WaitTask(60f), WaitTask.StateSize, origin)
+                AgentDeclarations.DeclareAction(
+                    "play-ai-test.wait",
+                    static _ => new WaitTask(60f),
+                    WaitTask.StateSize,
+                    origin
+                )
             );
 
             using var session = EditorSession.Start();

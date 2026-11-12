@@ -166,8 +166,10 @@ public class BayesianTests {
 
     [Fact]
     public void AFreeForAllIsRefusedRatherThanApproximated() =>
-        Assert.Throws<ArgumentException>(
-            () => model.Update([[model.Starting], [model.Starting], [model.Starting]], [0, 1, 2])
+        Assert.Throws<ArgumentException>(() => model.Update(
+                [[model.Starting], [model.Starting], [model.Starting]],
+                [0, 1, 2]
+            )
         );
 }
 
@@ -227,7 +229,7 @@ sealed class Teams(int size) : IMatchFunction {
 
 public class MatchmakerTests {
     static MatchTicket Ticket(string id, double rating, float enqueued = 0f, int size = 1) =>
-        new(id, [.. Enumerable.Range(1, size).Select(who => new PlayerId((ulong)who))], new(rating), enqueued);
+        new(id, [..Enumerable.Range(1, size).Select(static who => new PlayerId((ulong)who))], new(rating), enqueued);
 
     [Fact]
     public void ATicketIsAPartyAndAPartyIsNeverSplit() {
@@ -247,7 +249,7 @@ public class MatchmakerTests {
                 queue.Enqueue(
                     new(
                         id,
-                        [.. Enumerable.Range(0, size).Select(seat => new PlayerId((ulong)((index * 8) + seat + 1)))],
+                        [..Enumerable.Range(0, size).Select(seat => new PlayerId((ulong)(index * 8 + seat + 1)))],
                         new(1500d),
                         index
                     )
@@ -277,7 +279,7 @@ public class MatchmakerTests {
 
         var queue = new Matchmaker(
             new Duels(),
-            new MatchPool(GameplayTagQuery.Resolve(tags, all: ["Role.Tank"]), MinimumRating: 1000d)
+            new MatchPool(GameplayTagQuery.Resolve(tags, ["Role.Tank"]), 1000d)
         );
 
         Assert.False(queue.Enqueue(Ticket("no-tag", 1500d)));
@@ -331,7 +333,7 @@ public class MatchmakerTests {
         queue.Enqueue(Ticket("far", 2500d));
 
         var accepted = Assert.Single(queue.Cycle(1f));
-        var ids = accepted.Tickets.Select(ticket => ticket.Id).Order(StringComparer.Ordinal).ToArray();
+        var ids = accepted.Tickets.Select(static ticket => ticket.Id).Order(StringComparer.Ordinal).ToArray();
 
         Assert.Equal(["even-a", "even-b"], ids);
         Assert.Equal(1, queue.Count);
@@ -343,7 +345,7 @@ public class MatchmakerTests {
         // with a newcomer, or they can only ever be paired with somebody equally starved.
         var queue = new Matchmaker(new Duels(), wideningPerSecond: 10d);
         var patient = Ticket("patient", 1000d);
-        var fresh = Ticket("fresh", 1400d, enqueued: 100f);
+        var fresh = Ticket("fresh", 1400d, 100f);
 
         Assert.False(queue.Compatible(patient, fresh, 10f));
         Assert.True(queue.Compatible(patient, fresh, 60f));
@@ -364,7 +366,7 @@ public class MatchmakerTests {
 
         for (var second = 0; second < 600; second++) {
             if (second % 2 == 0) {
-                queue.Enqueue(Ticket($"t{second}", 800d + (random.NextInt(1400)), second));
+                queue.Enqueue(Ticket($"t{second}", 800d + random.NextInt(1400), second));
             }
 
             foreach (var proposal in queue.Cycle(second)) {
@@ -424,7 +426,7 @@ public class MatchmakerTests {
         public string Name => "recorder";
 
         public IReadOnlyList<MatchProposal> Propose(IReadOnlyList<MatchTicket> pool, float now) {
-            seen.AddRange(pool.Select(ticket => ticket.Id));
+            seen.AddRange(pool.Select(static ticket => ticket.Id));
 
             return [];
         }

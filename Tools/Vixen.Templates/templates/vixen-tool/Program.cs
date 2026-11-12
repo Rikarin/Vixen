@@ -1,5 +1,5 @@
-using VixenTool1;
 using Vixen.App;
+using VixenTool1;
 
 // The two calls VixenApp.Run<T> makes, written out, because a batch head wants to answer with the
 // exit code its own step decided rather than the host's. Everything in the boot path is a public

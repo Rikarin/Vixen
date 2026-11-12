@@ -76,9 +76,9 @@ public class ClusterCullingDeviceTests {
         // part of the grid entirely; and one behind the camera, which reaches nothing and is the case
         // a mirrored axis would fill the whole grid with.
         RenderLight[] lights = [
-            RenderLight.Point(new(0f, 0f, -6f), 4f, new(1f, 1f, 1f), 1f),
-            RenderLight.Point(new(9f, -3f, -30f), 12f, new(1f, 1f, 1f), 1f),
-            RenderLight.Point(new(0f, 0f, 40f), 5f, new(1f, 1f, 1f), 1f)
+            RenderLight.Point(new(0f, 0f, -6f), 4f, new(1f, 1f, 1f)),
+            RenderLight.Point(new(9f, -3f, -30f), 12f, new(1f, 1f, 1f)),
+            RenderLight.Point(new(0f, 0f, 40f), 5f, new(1f, 1f, 1f))
         ];
 
         var gpu = Cull(owned, effect, slot, lights);
@@ -114,7 +114,7 @@ public class ClusterCullingDeviceTests {
 
         // And the culling actually did something. A shader that wrote nothing at all agrees with an
         // oracle that expected nothing, which is exactly the frame the handedness bug produced.
-        var filled = gpu.Count(list => list.Length > 0);
+        var filled = gpu.Count(static list => list.Length > 0);
 
         Assert.True(filled > 0, "no cluster holds any light");
         Assert.True(filled < ClusterGrid.Count, "every cluster holds a light, so nothing was culled");
@@ -140,13 +140,13 @@ public class ClusterCullingDeviceTests {
         var effect = Compiled(owned.Device);
 
         RenderLight[] lights = [
-            RenderLight.Directional(new(-0.4f, -1f, -0.3f), new(1f, 1f, 1f), 1f),
-            RenderLight.Point(new(0f, 0f, 400f), 1f, new(1f, 1f, 1f), 1f)
+            RenderLight.Directional(new(-0.4f, -1f, -0.3f), new(1f, 1f, 1f)),
+            RenderLight.Point(new(0f, 0f, 400f), 1f, new(1f, 1f, 1f))
         ];
 
         var gpu = Cull(owned, effect, effect.Bindings[0].Set, lights);
 
-        Assert.All(gpu, list => Assert.Equal([0], list));
+        Assert.All(gpu, static list => Assert.Equal([0], list));
     }
 
     // --- The device half ----------------------------------------------------
@@ -159,9 +159,9 @@ public class ClusterCullingDeviceTests {
         // shaders, whose compose slots are bound per material — they do not compile without a
         // composition, and this fixture has no business supplying one.
         string[] sources = [
-            .. Directory.GetFiles(Path.Combine(library, "Core"), "*.rvn"),
-            .. Directory.GetFiles(Path.Combine(library, "Geometry"), "*.rvn"),
-            .. Directory.GetFiles(Path.Combine(library, "Shading"), "*.rvn"),
+            ..Directory.GetFiles(Path.Combine(library, "Core"), "*.rvn"),
+            ..Directory.GetFiles(Path.Combine(library, "Geometry"), "*.rvn"),
+            ..Directory.GetFiles(Path.Combine(library, "Shading"), "*.rvn"),
             Path.Combine(library, "Pipeline", "ClusterCulling.rvn")
         ];
 
@@ -188,8 +188,8 @@ public class ClusterCullingDeviceTests {
         var stride = Marshal.SizeOf<ClusterLights>();
         var size = ClusterGrid.BufferSize;
 
-        var gpu = lights.Select(light => light.ToGpu()).ToArray();
-        var input = fixture.Buffer<PunctualLightData>(gpu, BufferUsage.Storage);
+        var gpu = lights.Select(static light => light.ToGpu()).ToArray();
+        var input = fixture.Buffer(gpu, BufferUsage.Storage);
 
         var clusters = device.CreateBuffer(
             new(size, BufferUsage.Storage | BufferUsage.CopySource, MemoryAccess.DeviceLocal, "clusters")
@@ -211,7 +211,8 @@ public class ClusterCullingDeviceTests {
             ShaderName = "ClusterCulling",
             Pipelines = pipelines,
             Groups = ClusterGrid.GroupCount,
-            ConstantBinding = effect.Bindings.Single(binding => binding.Kind == DescriptorKind.UniformBuffer).Binding,
+            ConstantBinding = effect.Bindings.Single(static binding => binding.Kind == DescriptorKind.UniformBuffer)
+                .Binding,
             Descriptors = { Allocator = allocator, Slot = slot }
         };
 
@@ -227,14 +228,16 @@ public class ClusterCullingDeviceTests {
         culling.Parameters.Set(ParameterKeys.New<int>("ClusterCulling.lightCount"), lights.Length);
         ClusterGrid.Apply(culling.Parameters, Camera, "ClusterCulling");
 
-        var compositor = new GraphicsCompositor(system) {
-            FrameSize = new(Fixture.Side, Fixture.Side),
-            Game = culling
-        };
+        var compositor = new GraphicsCompositor(system) { FrameSize = new(Fixture.Side, Fixture.Side), Game = culling };
 
         compositor.BufferImports["SceneLights"] = new(
             input,
-            new(gpu.Length * Marshal.SizeOf<PunctualLightData>(), BufferUsage.Storage, MemoryAccess.HostUpload, "SceneLights"),
+            new(
+                gpu.Length * Marshal.SizeOf<PunctualLightData>(),
+                BufferUsage.Storage,
+                MemoryAccess.HostUpload,
+                "SceneLights"
+            ),
             ResourceState.ShaderRead,
             ResourceState.ShaderRead
         );
@@ -333,7 +336,9 @@ public class ClusterCullingDeviceTests {
 
     /// <summary>The shader library, found by walking up rather than by counting directories.</summary>
     static string Library() {
-        for (var directory = new DirectoryInfo(AppContext.BaseDirectory); directory is not null; directory = directory.Parent) {
+        for (var directory = new DirectoryInfo(AppContext.BaseDirectory);
+             directory is not null;
+             directory = directory.Parent) {
             var candidate = Path.Combine(directory.FullName, "Raven", "Library");
 
             if (Directory.Exists(candidate)) {

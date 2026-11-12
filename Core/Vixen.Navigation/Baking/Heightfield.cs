@@ -44,7 +44,7 @@ internal struct HeightfieldSpan {
     public const int DropScale = 16;
 
     /// <summary>The span's surface height, in <see cref="DropScale" />ths of a voxel.</summary>
-    public readonly int Surface => (Max * DropScale) - Drop;
+    public readonly int Surface => Max * DropScale - Drop;
 }
 
 /// <summary>
@@ -115,7 +115,7 @@ internal sealed class Heightfield {
     /// <param name="x">The column's X.</param>
     /// <param name="z">The column's Z.</param>
     /// <returns>The span index.</returns>
-    public int First(int x, int z) => columns[x + (z * Width)];
+    public int First(int x, int z) => columns[x + z * Width];
 
     /// <summary>Reads a span.</summary>
     /// <param name="index">Its index.</param>
@@ -156,8 +156,14 @@ internal sealed class Heightfield {
     ///     <see cref="HeightfieldSpan.DropScale" />ths of a voxel.
     /// </param>
     public void AddSpan(int x, int z, ushort min, ushort max, byte area, int mergeThreshold, byte drop = 0) {
-        var column = x + (z * Width);
-        var added = new HeightfieldSpan { Min = min, Max = max, Area = area, Drop = drop, Next = -1 };
+        var column = x + z * Width;
+        var added = new HeightfieldSpan {
+            Min = min,
+            Max = max,
+            Area = area,
+            Drop = drop,
+            Next = -1
+        };
 
         var previous = -1;
         var current = columns[column];
@@ -242,8 +248,8 @@ internal sealed class Heightfield {
 
         for (var triangle = 0; triangle < areas.Length; triangle++) {
             var a = vertices[indices[triangle * 3]];
-            var b = vertices[indices[(triangle * 3) + 1]];
-            var c = vertices[indices[(triangle * 3) + 2]];
+            var b = vertices[indices[triangle * 3 + 1]];
+            var c = vertices[indices[triangle * 3 + 2]];
             var normal = Vector3.Normalize(Vector3.Cross(b - a, c - a));
 
             // Only the upward-facing side counts. A wall's inner face is not ground at any slope, and
@@ -257,12 +263,17 @@ internal sealed class Heightfield {
     /// <param name="indices">Three indices per triangle.</param>
     /// <param name="areas">One area id per triangle.</param>
     /// <param name="mergeThreshold">Passed through to <see cref="AddSpan" />.</param>
-    public void RasterizeTriangles(ReadOnlySpan<Vector3> vertices, ReadOnlySpan<int> indices, ReadOnlySpan<byte> areas, int mergeThreshold) {
+    public void RasterizeTriangles(
+        ReadOnlySpan<Vector3> vertices,
+        ReadOnlySpan<int> indices,
+        ReadOnlySpan<byte> areas,
+        int mergeThreshold
+    ) {
         for (var triangle = 0; triangle < areas.Length; triangle++) {
             RasterizeTriangle(
                 vertices[indices[triangle * 3]],
-                vertices[indices[(triangle * 3) + 1]],
-                vertices[indices[(triangle * 3) + 2]],
+                vertices[indices[triangle * 3 + 1]],
+                vertices[indices[triangle * 3 + 2]],
                 areas[triangle],
                 mergeThreshold
             );
@@ -291,9 +302,11 @@ internal sealed class Heightfield {
         var minimum = Vector3.Min(a, Vector3.Min(b, c));
         var maximum = Vector3.Max(a, Vector3.Max(b, c));
 
-        if (minimum.X > Bounds.Maximum.X || maximum.X < Bounds.Minimum.X ||
-            minimum.Z > Bounds.Maximum.Z || maximum.Z < Bounds.Minimum.Z ||
-            maximum.Y < Bounds.Minimum.Y) {
+        if (minimum.X > Bounds.Maximum.X
+            || maximum.X < Bounds.Minimum.X
+            || minimum.Z > Bounds.Maximum.Z
+            || maximum.Z < Bounds.Minimum.Z
+            || maximum.Y < Bounds.Minimum.Y) {
             return;
         }
 
@@ -315,7 +328,7 @@ internal sealed class Heightfield {
         var remainingCount = 3;
 
         for (var z = firstRow; z <= lastRow && remainingCount >= 3; z++) {
-            var rowMaximum = Bounds.Minimum.Z + ((z + 1) * CellSize);
+            var rowMaximum = Bounds.Minimum.Z + (z + 1) * CellSize;
 
             Divide(remaining[..remainingCount], row, out var rowCount, scratch, out var leftoverCount, rowMaximum, 2);
             scratch[..leftoverCount].CopyTo(remaining);
@@ -337,7 +350,7 @@ internal sealed class Heightfield {
             var lastColumn = Math.Clamp((int)((rowMaxX - Bounds.Minimum.X) * inverseCellSize), 0, Width - 1);
 
             for (var x = firstColumn; x <= lastColumn && rowCount >= 3; x++) {
-                var columnMaximum = Bounds.Minimum.X + ((x + 1) * CellSize);
+                var columnMaximum = Bounds.Minimum.X + (x + 1) * CellSize;
 
                 Divide(row[..rowCount], cell, out var cellCount, scratch, out var rowLeftover, columnMaximum, 0);
                 scratch[..rowLeftover].CopyTo(row);
@@ -372,7 +385,7 @@ internal sealed class Heightfield {
                 // voxel above it and then drops a whole voxel back down to itself, which is the one
                 // cell of height every navmesh over a flat floor used to be reported at.
                 var drop = (byte)Math.Clamp(
-                    (int)MathF.Round((spanMax - (high * inverseCellHeight)) * HeightfieldSpan.DropScale),
+                    (int)MathF.Round((spanMax - high * inverseCellHeight) * HeightfieldSpan.DropScale),
                     0,
                     HeightfieldSpan.DropScale
                 );
@@ -436,12 +449,12 @@ internal sealed class Heightfield {
                         continue;
                     }
 
-                    var bottom = (int)span.Max;
+                    int bottom = span.Max;
                     var top = span.Next >= 0 ? spans[span.Next].Min : MaxHeight;
 
                     var lowestNeighbour = MaxHeight;
-                    var lowestReachable = (int)span.Max;
-                    var highestReachable = (int)span.Max;
+                    int lowestReachable = span.Max;
+                    int highestReachable = span.Max;
 
                     for (var direction = 0; direction < 4; direction++) {
                         var neighbourX = x + OffsetX[direction];
@@ -560,7 +573,7 @@ internal sealed class Heightfield {
 
             if (previousInside != currentInside) {
                 var fraction = distances[previous] / (distances[previous] - distances[index]);
-                var crossing = input[previous] + ((input[index] - input[previous]) * fraction);
+                var crossing = input[previous] + (input[index] - input[previous]) * fraction;
 
                 below[belowCount++] = crossing;
                 above[aboveCount++] = crossing;

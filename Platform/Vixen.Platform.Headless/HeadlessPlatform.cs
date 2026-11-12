@@ -57,7 +57,7 @@ public sealed class HeadlessPlatform : IPlatform {
     bool disposed;
 
     /// <summary>Creates the platform.</summary>
-        public HeadlessPlatform() : this(new HeadlessPlatformOptions()) { }
+    public HeadlessPlatform() : this(new()) { }
 
     /// <summary>Creates the platform.</summary>
     /// <param name="options">What to build it out of.</param>
@@ -96,8 +96,12 @@ public sealed class HeadlessPlatform : IPlatform {
     /// <summary>The appearance a headless run reports, and the seam a test drives it through.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b><see cref="SystemColorScheme.Unknown" /> by default, because a headless run has
-    ///         no operating-system appearance to report.</b> A test that wants one sets it, and
+    ///         ⚠
+    ///         <b>
+    ///             <see cref="SystemColorScheme.Unknown" /> by default, because a headless run has
+    ///             no operating-system appearance to report.
+    ///         </b>
+    ///         A test that wants one sets it, and
     ///         setting it queues a <see cref="PlatformEventKind.SystemColorSchemeChanged" /> exactly
     ///         as a desktop's poll would — so a host wired to the event is exercised by the same
     ///         code path the real platform takes, and a host wired to nothing fails the test rather
@@ -125,11 +129,17 @@ public sealed class HeadlessPlatform : IPlatform {
         }
     }
 
-    /// <summary>The accessibility settings a headless run reports, and the seam a test drives them
-    /// through.</summary>
+    /// <summary>
+    ///     The accessibility settings a headless run reports, and the seam a test drives them
+    ///     through.
+    /// </summary>
     /// <remarks>
-    ///     ⚠ <b><see cref="SystemAccessibility.Unknown" /> by default, because a headless run has no
-    ///     user to have asked for anything.</b> Setting it queues a
+    ///     ⚠
+    ///     <b>
+    ///         <see cref="SystemAccessibility.Unknown" /> by default, because a headless run has no
+    ///         user to have asked for anything.
+    ///     </b>
+    ///     Setting it queues a
     ///     <see cref="PlatformEventKind.SystemAccessibilityChanged" /> exactly as a desktop's poll
     ///     would, on the same terms as <see cref="ColorScheme" /> beside it — so a host wired to the
     ///     event is exercised by the real code path and a host wired to nothing goes red.
@@ -152,8 +162,12 @@ public sealed class HeadlessPlatform : IPlatform {
 
     /// <summary>The accent a headless run reports, and the seam a test drives it through.</summary>
     /// <remarks>
-    ///     ⚠ <b><see cref="SystemAccent.Unknown" /> by default, and it queues the <i>appearance</i>
-    ///     event rather than one of its own</b> — which is what the desktop does, because an accent
+    ///     ⚠
+    ///     <b>
+    ///         <see cref="SystemAccent.Unknown" /> by default, and it queues the <i>appearance</i>
+    ///         event rather than one of its own
+    ///     </b>
+    ///     — which is what the desktop does, because an accent
     ///     change moves what a sheet resolves and nothing else. A test that set this and waited for
     ///     an event of its own would be waiting for one no real platform posts.
     /// </remarks>
@@ -176,16 +190,24 @@ public sealed class HeadlessPlatform : IPlatform {
     /// <summary>The semantic palette a headless run reports, and the seam a test drives it through.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b><see cref="SystemSemanticColors.Unknown" /> by default, and it queues the
-    ///         <i>appearance</i> event</b> — the same one <see cref="Accent" /> beside it queues, and
+    ///         ⚠
+    ///         <b>
+    ///             <see cref="SystemSemanticColors.Unknown" /> by default, and it queues the
+    ///             <i>appearance</i> event
+    ///         </b>
+    ///         — the same one <see cref="Accent" /> beside it queues, and
     ///         for the same reason: no desktop posts an event of its own for a palette move, so a
     ///         test waiting for one would wait for something no real platform sends. Both hosts read
     ///         this property on <see cref="PlatformEventKind.SystemColorSchemeChanged" />, so that is
     ///         the event the change has to ride.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>This property is why there is an <see cref="IPlatform.SemanticColors" /> a test
-    ///         can move at all.</b> The interface member has a default implementation answering
+    ///         ⚠
+    ///         <b>
+    ///             This property is why there is an <see cref="IPlatform.SemanticColors" /> a test
+    ///             can move at all.
+    ///         </b>
+    ///         The interface member has a default implementation answering
     ///         <see cref="SystemSemanticColors.Unknown" />, so a headless run that did not override
     ///         it made "the host is wired" and "the host is not wired" produce the same document —
     ///         which is the shape the two-hosts hazard hides in.
@@ -273,7 +295,7 @@ public sealed class HeadlessPlatform : IPlatform {
         // Windows that were disposed since the last pump stop being windows. Done here rather than
         // in Dispose so that an application enumerating Windows inside its event handling sees a
         // list that does not change under it.
-        windows.RemoveAll(window => window.IsClosed);
+        windows.RemoveAll(static window => window.IsClosed);
 
         return events.Drain();
     }

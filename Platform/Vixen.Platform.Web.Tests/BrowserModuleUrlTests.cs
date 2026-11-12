@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System;
-using System.IO;
 using Vixen.Audio.Backend.WebAudio;
 using Vixen.Graphics.WebGPU.Browser;
 using Xunit;
@@ -15,28 +14,40 @@ namespace Vixen.Platform.Web.Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>This is the regression test for a defect that shipped in all three bindings at once
-///         and that nothing in the repository could see.</b>
+///         <b>
+///             This is the regression test for a defect that shipped in all three bindings at once
+///             and that nothing in the repository could see.
+///         </b>
 ///         <c>JSHost.ImportAsync</c> takes a URL and hands it to a dynamic <c>import()</c> issued
 ///         from the <em>runtime's own module</em>, which <c>Microsoft.NET.Sdk.WebAssembly</c>
 ///         publishes into <c>_framework/</c>. The three <c>vixen-*.js</c> files are content files
 ///         and are published to the <em>site root</em>. So the obvious-looking
 ///         <c>"./vixen-platform.js"</c> asked for <c>_framework/vixen-platform.js</c>, which is not
-///         there, and the failure arrived as <c>TypeError: Failed to fetch dynamically imported
-///         module</c> thrown from inside <c>WebPlatform.CreateAsync</c> — that is, the default
+///         there, and the failure arrived as
+///         <c>
+///             TypeError: Failed to fetch dynamically imported
+///             module
+///         </c>
+///         thrown from inside <c>WebPlatform.CreateAsync</c> — that is, the default
 ///         configuration of the platform could never start.
 ///         (docs/plan/spikes/web-head/RESULT.md § 1.)
 ///     </para>
 ///     <para>
-///         <b>It is testable here only because the constants were moved into files that hold nothing
-///         else.</b> The rest of each interop class is <c>[JSImport]</c>, which needs the browser
+///         <b>
+///             It is testable here only because the constants were moved into files that hold nothing
+///             else.
+///         </b>
+///         The rest of each interop class is <c>[JSImport]</c>, which needs the browser
 ///         runtime pack; the <c>*Interop.Module.cs</c> files need nothing, so this project — plain
 ///         <c>net11.0</c>, in <c>Vixen.slnx</c>, run by <c>nuke Test</c> on all three CI legs —
 ///         links them as source. No browser, no <c>wasm-tools</c>, no publish.
 ///     </para>
 ///     <para>
-///         <b>What it cannot know is that the SDK's runtime directory is called <c>_framework</c>,
-///         and that content files really do land beside the page.</b> Those are facts about the
+///         <b>
+///             What it cannot know is that the SDK's runtime directory is called <c>_framework</c>,
+///             and that content files really do land beside the page.
+///         </b>
+///         Those are facts about the
 ///         WebAssembly SDK, not about this code, and asserting them here would only restate the
 ///         assumption. <c>nuke PublishWeb</c> checks them against a head the SDK actually published,
 ///         which is the other half of this invariant and the reason that target exists.
@@ -54,11 +65,12 @@ public class BrowserModuleUrlTests {
     static readonly Uri RuntimeModule = new("https://vixen.invalid/_framework/dotnet.runtime.js");
 
     /// <summary>The three browser bindings: project directory, module name, default module URL.</summary>
-    public static TheoryData<string, string, string> Bindings => new() {
-        { "Vixen.Platform.Web", WebInterop.ModuleName, WebInterop.DefaultModuleUrl },
-        { "Vixen.Audio.Backend.WebAudio", WebAudioInterop.ModuleName, WebAudioInterop.DefaultModuleUrl },
-        { "Vixen.Graphics.WebGPU.Browser", WebGpuInterop.ModuleName, WebGpuInterop.DefaultModuleUrl }
-    };
+    public static TheoryData<string, string, string> Bindings =>
+        new() {
+            { "Vixen.Platform.Web", WebInterop.ModuleName, WebInterop.DefaultModuleUrl },
+            { "Vixen.Audio.Backend.WebAudio", WebAudioInterop.ModuleName, WebAudioInterop.DefaultModuleUrl },
+            { "Vixen.Graphics.WebGPU.Browser", WebGpuInterop.ModuleName, WebGpuInterop.DefaultModuleUrl }
+        };
 
     /// <summary>
     ///     The instrument, checked before anything is measured with it: a single dot resolves into
@@ -170,14 +182,16 @@ public class BrowserModuleUrlTests {
             declaration.Contains("CopyToOutputDirectory", StringComparison.Ordinal)
             && !declaration.Contains("CopyToOutputDirectory=\"Never\"", StringComparison.Ordinal),
             $"{project}.csproj does not copy wwwroot\\{fileName} to its output, so a project "
-            + $"reference — which is how the samples and the spike head consume it — gets no "
+            + "reference — which is how the samples and the spike head consume it — gets no "
             + $"{fileName} at all. The declaration reads:{Environment.NewLine}{declaration}"
         );
     }
 
     /// <summary>The repository root, found by walking up rather than by counting directories.</summary>
     static string RepositoryRoot() {
-        for (var directory = new DirectoryInfo(AppContext.BaseDirectory); directory is not null; directory = directory.Parent) {
+        for (var directory = new DirectoryInfo(AppContext.BaseDirectory);
+             directory is not null;
+             directory = directory.Parent) {
             if (File.Exists(Path.Combine(directory.FullName, "Vixen.slnx"))) {
                 return directory.FullName;
             }

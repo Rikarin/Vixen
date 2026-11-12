@@ -16,8 +16,12 @@ using Serilog;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>They are never cleaned up by anything, and on 2026-09-04 they were 105 GB of a
-///         132 GB tree</b> (#561). Each one carries its own <c>bin</c> and <c>obj</c> — about 25 GB
+///         ⚠
+///         <b>
+///             They are never cleaned up by anything, and on 2026-09-04 they were 105 GB of a
+///             132 GB tree
+///         </b>
+///         (#561). Each one carries its own <c>bin</c> and <c>obj</c> — about 25 GB
 ///         apiece once the solution has been built in both configurations — and three of the six
 ///         were on branches already merged into master, with clean working trees, and had been for
 ///         days. Removing them by hand recovered 79 GB.
@@ -43,8 +47,12 @@ using Serilog;
 ///         reported and left alone whatever the flags say.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The fourth condition is here because the third is not the runner's promise, only its
-///         habit</b> (#770). The lock is what is read as "somebody is still using this", and the
+///         ⚠
+///         <b>
+///             The fourth condition is here because the third is not the runner's promise, only its
+///             habit
+///         </b>
+///         (#770). The lock is what is read as "somebody is still using this", and the
 ///         agent runner does set it — but on 2026-09-05, with two batches running, two of thirteen
 ///         live agent worktrees carried none. The other two conditions are properties of the
 ///         <i>work</i> rather than of the <i>worker</i>: merged and clean is exactly the state an
@@ -80,8 +88,12 @@ using Serilog;
 ///         different directions, and removal needs all of them.
 ///     </para>
 ///     <para>
-///         ⚠ <b>This block used to end by <em>refusing</em> the fourth condition, and that refusal has
-///         expired rather than been overruled.</b> Its argument was that a recency guard fails on its
+///         ⚠
+///         <b>
+///             This block used to end by <em>refusing</em> the fourth condition, and that refusal has
+///             expired rather than been overruled.
+///         </b>
+///         Its argument was that a recency guard fails on its
 ///         own terms — an agent's last act is to commit, so at the moment its branch is merged its
 ///         worktree is the <i>most</i> recently touched thing on the disk, and the guard would refuse
 ///         every worktree in precisely the merge-then-prune window the target exists to serve. That
@@ -105,8 +117,12 @@ using Serilog;
 ///         behind an explicit <c>--remove-merged</c> typed on purpose, which is the actual guard.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The four conditions themselves are in <see cref="WorktreeSafety" />, not here, and
-///         that is a testability split rather than a tidiness one.</b> The removable verdict is
+///         ⚠
+///         <b>
+///             The four conditions themselves are in <see cref="WorktreeSafety" />, not here, and
+///             that is a testability split rather than a tidiness one.
+///         </b>
+///         The removable verdict is
 ///         unreachable on any real machine — a removable worktree is one nobody has — so every audit
 ///         of this target has had to sabotage a predicate to see the branch at all, and sabotage
 ///         leaves nothing behind that would notice the next edit. As a pure function over five
@@ -199,8 +215,12 @@ partial class Build {
     ///         master.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>An empty head is refused rather than asked about, because git would answer — and
-    ///         about the wrong tree.</b> <c>rev-list --count "master.."</c> is not an error: the
+    ///         ⚠
+    ///         <b>
+    ///             An empty head is refused rather than asked about, because git would answer — and
+    ///             about the wrong tree.
+    ///         </b>
+    ///         <c>rev-list --count "master.."</c> is not an error: the
     ///         missing right-hand side means <c>HEAD</c>, and the <c>HEAD</c> it means is the one of
     ///         the checkout this target is running in. So a worktree whose <c>HEAD</c> line the parse
     ///         did not see would be judged by <i>this</i> agent's branch, exit 0, and say nothing
@@ -292,106 +312,118 @@ partial class Build {
         }
     }
 
-    Target PruneWorktrees => definition => definition
-        .Description("Reports the agent worktrees under .claude/worktrees that are merged, clean, unlocked and idle — and removes them with --remove-merged")
-        .Executes(() => {
-            var registered = RegisteredWorktrees();
-            var main = registered[0].Path;
-            var directory = main / ".claude" / "worktrees";
+    Target PruneWorktrees =>
+        definition => definition
+            .Description(
+                "Reports the agent worktrees under .claude/worktrees that are merged, clean, unlocked and idle — and removes them with --remove-merged"
+            )
+            .Executes(() => {
+                    var registered = RegisteredWorktrees();
+                    var main = registered[0].Path;
+                    var directory = main / ".claude" / "worktrees";
 
-            if (!directory.DirectoryExists()) {
-                Log.Information("{Directory} does not exist; nothing to prune.", directory);
+                    if (!directory.DirectoryExists()) {
+                        Log.Information("{Directory} does not exist; nothing to prune.", directory);
 
-                return;
-            }
+                        return;
+                    }
 
-            var byPath = registered.ToDictionary(worktree => worktree.Path.ToString(), StringComparer.Ordinal);
-            var removable = new List<Worktree>();
+                    var byPath = registered.ToDictionary(worktree => worktree.Path.ToString(), StringComparer.Ordinal);
+                    var removable = new List<Worktree>();
 
-            // Every directory entry, not every registered worktree, because the two disagreeing
-            // is the failure this target exists for.
-            foreach (var entry in directory.GlobDirectories("*").OrderBy(path => path.ToString(), StringComparer.Ordinal)) {
-                if (!byPath.TryGetValue(entry.ToString(), out var worktree)) {
-                    Log.Warning(
-                        "  ⚠ not a worktree  {Name}  {Size} — git does not know about this directory, so "
-                        + "`git worktree prune` will never touch it and git run from inside it answers about "
-                        + "the parent repository. Look at it by hand.",
-                        entry.Name,
-                        Measure(entry).Size
-                    );
+                    // Every directory entry, not every registered worktree, because the two disagreeing
+                    // is the failure this target exists for.
+                    foreach (var entry in directory.GlobDirectories("*")
+                                 .OrderBy(path => path.ToString(), StringComparer.Ordinal)) {
+                        if (!byPath.TryGetValue(entry.ToString(), out var worktree)) {
+                            Log.Warning(
+                                "  ⚠ not a worktree  {Name}  {Size} — git does not know about this directory, so "
+                                + "`git worktree prune` will never touch it and git run from inside it answers about "
+                                + "the parent repository. Look at it by hand.",
+                                entry.Name,
+                                Measure(entry).Size
+                            );
 
-                    continue;
+                            continue;
+                        }
+
+                        // Never the checkout this target is running in, whatever its state says. Nuke's
+                        // own assemblies are loaded out of it.
+                        if (entry == RootDirectory) {
+                            Log.Information(
+                                "  in use          {Name} — this is the checkout PruneWorktrees is running in.",
+                                entry.Name
+                            );
+
+                            continue;
+                        }
+
+                        // One walk, and before the conditions rather than inside them: both branches below
+                        // print the size, the fourth condition reads the same walk's other number, and
+                        // measuring first means no write this target itself provokes can be mistaken for a
+                        // worker's.
+                        var footprint = Measure(entry);
+
+                        // ⚠ The four conditions live in WorktreeSafety and not here, and the split is the
+                        // only way the removable verdict is ever exercised: a removable worktree is by
+                        // definition one nobody has, so on a real machine this loop's other branch is
+                        // unreachable and every audit of it so far has had to sabotage a predicate to see
+                        // it. Compared against UTC — the newest write is a file's UTC timestamp, not the
+                        // local time a log line shows.
+                        var reasons = WorktreeSafety.KeepReasons(
+                            worktree.Locked,
+                            worktree.Head,
+                            IsMergedIntoMaster,
+                            () => IsClean(entry),
+                            footprint.Read,
+                            footprint.NewestWrite,
+                            DateTime.UtcNow,
+                            IdleMinutes
+                        );
+
+                        if (reasons.Count > 0) {
+                            Log.Information(
+                                "  keep            {Name}  {Size} — {Reasons}.",
+                                entry.Name,
+                                footprint.Size,
+                                string.Join("; ", reasons)
+                            );
+
+                            continue;
+                        }
+
+                        Log.Information(
+                            "  removable       {Name}  {Size} — merged into master, clean, unlocked, {Idle}.",
+                            entry.Name,
+                            footprint.Size,
+                            IdleMinutes > 0 ? $"and unwritten for {IdleMinutes} min" : "and the idle check is off"
+                        );
+                        removable.Add(worktree);
+                    }
+
+                    if (removable.Count == 0) {
+                        Log.Information("Nothing is safe to remove.");
+
+                        return;
+                    }
+
+                    if (!RemoveMerged) {
+                        Log.Information(
+                            "{Count} worktree(s) are safe to remove. Rerun with --remove-merged to remove them.",
+                            removable.Count
+                        );
+
+                        return;
+                    }
+
+                    foreach (var worktree in removable) {
+                        // ⚠ `git worktree remove` and not a directory delete: it re-checks dirtiness
+                        // itself and refuses, so the decision above is a filter in front of git's own
+                        // guard rather than a replacement for it. It also unregisters the worktree,
+                        // which a delete would leave for `prune` to notice later.
+                        GitTasks.Git($"worktree remove \"{worktree.Path}\"", RootDirectory);
+                        Log.Information("Removed {Name}.", worktree.Path.Name);
+                    }
                 }
-
-                // Never the checkout this target is running in, whatever its state says. Nuke's
-                // own assemblies are loaded out of it.
-                if (entry == RootDirectory) {
-                    Log.Information("  in use          {Name} — this is the checkout PruneWorktrees is running in.", entry.Name);
-
-                    continue;
-                }
-
-                // One walk, and before the conditions rather than inside them: both branches below
-                // print the size, the fourth condition reads the same walk's other number, and
-                // measuring first means no write this target itself provokes can be mistaken for a
-                // worker's.
-                var footprint = Measure(entry);
-
-                // ⚠ The four conditions live in WorktreeSafety and not here, and the split is the
-                // only way the removable verdict is ever exercised: a removable worktree is by
-                // definition one nobody has, so on a real machine this loop's other branch is
-                // unreachable and every audit of it so far has had to sabotage a predicate to see
-                // it. Compared against UTC — the newest write is a file's UTC timestamp, not the
-                // local time a log line shows.
-                var reasons = WorktreeSafety.KeepReasons(
-                    worktree.Locked,
-                    worktree.Head,
-                    IsMergedIntoMaster,
-                    () => IsClean(entry),
-                    footprint.Read,
-                    footprint.NewestWrite,
-                    DateTime.UtcNow,
-                    IdleMinutes
-                );
-
-                if (reasons.Count > 0) {
-                    Log.Information("  keep            {Name}  {Size} — {Reasons}.", entry.Name, footprint.Size, string.Join("; ", reasons));
-
-                    continue;
-                }
-
-                Log.Information(
-                    "  removable       {Name}  {Size} — merged into master, clean, unlocked, {Idle}.",
-                    entry.Name,
-                    footprint.Size,
-                    IdleMinutes > 0 ? $"and unwritten for {IdleMinutes} min" : "and the idle check is off"
-                );
-                removable.Add(worktree);
-            }
-
-            if (removable.Count == 0) {
-                Log.Information("Nothing is safe to remove.");
-
-                return;
-            }
-
-            if (!RemoveMerged) {
-                Log.Information(
-                    "{Count} worktree(s) are safe to remove. Rerun with --remove-merged to remove them.",
-                    removable.Count
-                );
-
-                return;
-            }
-
-            foreach (var worktree in removable) {
-                // ⚠ `git worktree remove` and not a directory delete: it re-checks dirtiness
-                // itself and refuses, so the decision above is a filter in front of git's own
-                // guard rather than a replacement for it. It also unregisters the worktree,
-                // which a delete would leave for `prune` to notice later.
-                GitTasks.Git($"worktree remove \"{worktree.Path}\"", RootDirectory);
-                Log.Information("Removed {Name}.", worktree.Path.Name);
-            }
-        }
-        );
+            );
 }

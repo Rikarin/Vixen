@@ -11,8 +11,12 @@ namespace Vixen.Ui.Rendering;
 /// <param name="Blue">The blue output.</param>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Three rows and not five, because none of the seven functions this represents touches
-///         alpha and none of them reads it.</b> CSS's <c>feColorMatrix</c> is 4×5 — twenty
+///         ⚠
+///         <b>
+///             Three rows and not five, because none of the seven functions this represents touches
+///             alpha and none of them reads it.
+///         </b>
+///         CSS's <c>feColorMatrix</c> is 4×5 — twenty
 ///         coefficients, an alpha row and an alpha column — and every one of <c>brightness</c>,
 ///         <c>contrast</c>, <c>grayscale</c>, <c>invert</c>, <c>saturate</c>, <c>sepia</c> and
 ///         <c>hue-rotate</c> leaves the alpha row at <c>0 0 0 1 0</c> and the alpha column at zero.
@@ -20,8 +24,12 @@ namespace Vixen.Ui.Rendering;
 ///         bytes in a push constant range that has to fit beside the projection.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Applied to <i>premultiplied</i> colour, with the offset scaled by alpha, and that is
-///         what makes the whole feature cost nothing.</b> A colour matrix is defined on
+///         ⚠
+///         <b>
+///             Applied to <i>premultiplied</i> colour, with the offset scaled by alpha, and that is
+///             what makes the whole feature cost nothing.
+///         </b>
+///         A colour matrix is defined on
 ///         un-premultiplied colour: <c>c' = M·(c/a) + o</c>, so <c>c'·a = M·c + o·a</c>. The
 ///         premultiplied form needs no division and no reconstruction — see <see cref="Apply(Color4)" /> —
 ///         which matters twice over. It means transparent black stays transparent black, so a
@@ -85,8 +93,12 @@ public readonly record struct UiColorMatrix(Vector4 Red, Vector4 Green, Vector4 
     /// <param name="colour">The sample, premultiplied.</param>
     /// <returns>The transformed sample, premultiplied, with the same alpha.</returns>
     /// <remarks>
-    ///     ⚠ <b>Clamped to <c>[0, a]</c> and not to <c>[0, 1]</c>, and the difference is the whole of
-    ///     what makes <c>brightness-150</c> agree between the two executors.</b> Premultiplied colour
+    ///     ⚠
+    ///     <b>
+    ///         Clamped to <c>[0, a]</c> and not to <c>[0, 1]</c>, and the difference is the whole of
+    ///         what makes <c>brightness-150</c> agree between the two executors.
+    ///     </b>
+    ///     Premultiplied colour
     ///     is valid only up to its own alpha — <c>c ≤ a</c> is what "this pixel is that colour, that
     ///     covered" means — and clamping there is the same thing as clamping the un-premultiplied
     ///     colour to <c>[0, 1]</c>, which is what CSS specifies. Left unclamped, the device would clamp
@@ -104,8 +116,12 @@ public readonly record struct UiColorMatrix(Vector4 Red, Vector4 Green, Vector4 
     /// <returns>The transformed sample, premultiplied, in the same units, with the same alpha.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The matrix is defined on colour whose white is one, and a surface on a float pass is
-    ///         not that (#1418).</b> <see cref="UiGeometryBuilder.WhiteLevel" /> scales every interface
+    ///         ⚠
+    ///         <b>
+    ///             The matrix is defined on colour whose white is one, and a surface on a float pass is
+    ///             not that (#1418).
+    ///         </b>
+    ///         <see cref="UiGeometryBuilder.WhiteLevel" /> scales every interface
     ///         colour into the pass's units, so on a pass at BT.2408's 203 an authored white reaches a
     ///         group's surface at 203. Applied as it stands, the clamp to <c>[0, a]</c> in
     ///         <see cref="Apply(Color4)" /> then caps every filtered pixel at one candela and an offset
@@ -113,8 +129,12 @@ public readonly record struct UiColorMatrix(Vector4 Red, Vector4 Green, Vector4 
     ///         It is <see cref="UiBlend.Apply" />'s clamp, one filter over (#1209).
     ///     </para>
     ///     <para>
-    ///         So this normalises by the white, applies the matrix, and re-lights: <c>w·clamp(M·(c/w) +
-    ///         o·a, 0, a)</c>, which is <c>clamp(M·c + o·a·w, 0, a·w)</c> because the coefficients are
+    ///         So this normalises by the white, applies the matrix, and re-lights:
+    ///         <c>
+    ///             w·clamp(M·(c/w) +
+    ///             o·a, 0, a)
+    ///         </c>
+    ///         , which is <c>clamp(M·c + o·a·w, 0, a·w)</c> because the coefficients are
     ///         linear — so the multiply costs one factor on the offset and one on the ceiling, and at
     ///         a white of one it is <see cref="Apply(Color4)" /> exactly. <c>Ui.rvn</c>'s
     ///         <c>UiComposite.Filter</c> is the same expression, with the white in a push lane.
@@ -125,10 +145,10 @@ public readonly record struct UiColorMatrix(Vector4 Red, Vector4 Green, Vector4 
         var rgb = new Vector3(colour.R, colour.G, colour.B);
         var lit = colour.A * scale;
 
-        return new Color4(
-            Math.Clamp(Vector3.Dot(new Vector3(Red.X, Red.Y, Red.Z), rgb) + (Red.W * lit), 0f, lit),
-            Math.Clamp(Vector3.Dot(new Vector3(Green.X, Green.Y, Green.Z), rgb) + (Green.W * lit), 0f, lit),
-            Math.Clamp(Vector3.Dot(new Vector3(Blue.X, Blue.Y, Blue.Z), rgb) + (Blue.W * lit), 0f, lit),
+        return new(
+            Math.Clamp(Vector3.Dot(new(Red.X, Red.Y, Red.Z), rgb) + Red.W * lit, 0f, lit),
+            Math.Clamp(Vector3.Dot(new(Green.X, Green.Y, Green.Z), rgb) + Green.W * lit, 0f, lit),
+            Math.Clamp(Vector3.Dot(new(Blue.X, Blue.Y, Blue.Z), rgb) + Blue.W * lit, 0f, lit),
             colour.A
         );
     }
@@ -151,8 +171,7 @@ public readonly record struct UiColorMatrix(Vector4 Red, Vector4 Green, Vector4 
     ///         doubled inversion and not an inversion plus a double.
     ///     </para>
     /// </remarks>
-    public UiColorMatrix Then(in UiColorMatrix next) =>
-        new(Row(next.Red), Row(next.Green), Row(next.Blue));
+    public UiColorMatrix Then(in UiColorMatrix next) => new(Row(next.Red), Row(next.Green), Row(next.Blue));
 
     /// <summary>Lightens or darkens: <c>c' = c · amount</c>.</summary>
     /// <param name="amount">One is unchanged, zero is black, above one over-exposes.</param>
@@ -175,7 +194,7 @@ public readonly record struct UiColorMatrix(Vector4 Red, Vector4 Green, Vector4 
     ///     agreeing, and a value somebody can compute by hand.
     /// </remarks>
     public static UiColorMatrix Contrast(float amount) {
-        var offset = 0.5f - (0.5f * amount);
+        var offset = 0.5f - 0.5f * amount;
 
         return new(
             new Vector4(amount, 0f, 0f, offset),
@@ -203,9 +222,9 @@ public readonly record struct UiColorMatrix(Vector4 Red, Vector4 Green, Vector4 
         var rest = 1f - amount;
 
         return new(
-            new Vector4((l.X * rest) + amount, l.Y * rest, l.Z * rest, 0f),
-            new Vector4(l.X * rest, (l.Y * rest) + amount, l.Z * rest, 0f),
-            new Vector4(l.X * rest, l.Y * rest, (l.Z * rest) + amount, 0f)
+            new Vector4(l.X * rest + amount, l.Y * rest, l.Z * rest, 0f),
+            new Vector4(l.X * rest, l.Y * rest + amount, l.Z * rest, 0f),
+            new Vector4(l.X * rest, l.Y * rest, l.Z * rest + amount, 0f)
         );
     }
 
@@ -227,7 +246,7 @@ public readonly record struct UiColorMatrix(Vector4 Red, Vector4 Green, Vector4 
     /// <param name="amount">Zero is unchanged, one is a full inversion, a half is flat mid grey.</param>
     /// <returns>The matrix.</returns>
     public static UiColorMatrix Invert(float amount) {
-        var scale = 1f - (2f * amount);
+        var scale = 1f - 2f * amount;
 
         return new(
             new Vector4(scale, 0f, 0f, amount),
@@ -240,8 +259,12 @@ public readonly record struct UiColorMatrix(Vector4 Red, Vector4 Green, Vector4 
     /// <param name="degrees">How far round. Zero and any multiple of 360 are the identity.</param>
     /// <returns>The matrix.</returns>
     /// <remarks>
-    ///     ⚠ <b>The spec's linear approximation and not a true HSL rotation, which is the difference
-    ///     between matching a browser and being defensible.</b> Filter Effects 1 § 8.5 defines this as
+    ///     ⚠
+    ///     <b>
+    ///         The spec's linear approximation and not a true HSL rotation, which is the difference
+    ///         between matching a browser and being defensible.
+    ///     </b>
+    ///     Filter Effects 1 § 8.5 defines this as
     ///     a fixed 3×3 built from <c>cos</c> and <c>sin</c> — an approximation that does not preserve
     ///     luminance exactly and can push a saturated colour out of gamut, which <see cref="Apply(Color4)" />
     ///     then clamps. Every browser produces exactly these numbers, so a "better" rotation here
@@ -254,21 +277,21 @@ public readonly record struct UiColorMatrix(Vector4 Red, Vector4 Green, Vector4 
 
         return new(
             new Vector4(
-                0.213f + (c * 0.787f) - (s * 0.213f),
-                0.715f - (c * 0.715f) - (s * 0.715f),
-                0.072f - (c * 0.072f) + (s * 0.928f),
+                0.213f + c * 0.787f - s * 0.213f,
+                0.715f - c * 0.715f - s * 0.715f,
+                0.072f - c * 0.072f + s * 0.928f,
                 0f
             ),
             new Vector4(
-                0.213f - (c * 0.213f) + (s * 0.143f),
-                0.715f + (c * 0.285f) + (s * 0.140f),
-                0.072f - (c * 0.072f) - (s * 0.283f),
+                0.213f - c * 0.213f + s * 0.143f,
+                0.715f + c * 0.285f + s * 0.140f,
+                0.072f - c * 0.072f - s * 0.283f,
                 0f
             ),
             new Vector4(
-                0.213f - (c * 0.213f) - (s * 0.787f),
-                0.715f - (c * 0.715f) + (s * 0.715f),
-                0.072f + (c * 0.928f) + (s * 0.072f),
+                0.213f - c * 0.213f - s * 0.787f,
+                0.715f - c * 0.715f + s * 0.715f,
+                0.072f + c * 0.928f + s * 0.072f,
                 0f
             )
         );
@@ -279,18 +302,18 @@ public readonly record struct UiColorMatrix(Vector4 Red, Vector4 Green, Vector4 
         var rest = 1f - amount;
 
         return new(
-            (full.Red * amount) + (Identity.Red * rest),
-            (full.Green * amount) + (Identity.Green * rest),
-            (full.Blue * amount) + (Identity.Blue * rest)
+            full.Red * amount + Identity.Red * rest,
+            full.Green * amount + Identity.Green * rest,
+            full.Blue * amount + Identity.Blue * rest
         );
     }
 
     /// <summary>One row of <paramref name="outer" /> composed onto this whole matrix.</summary>
     Vector4 Row(in Vector4 outer) =>
         new(
-            (outer.X * Red.X) + (outer.Y * Green.X) + (outer.Z * Blue.X),
-            (outer.X * Red.Y) + (outer.Y * Green.Y) + (outer.Z * Blue.Y),
-            (outer.X * Red.Z) + (outer.Y * Green.Z) + (outer.Z * Blue.Z),
-            (outer.X * Red.W) + (outer.Y * Green.W) + (outer.Z * Blue.W) + outer.W
+            outer.X * Red.X + outer.Y * Green.X + outer.Z * Blue.X,
+            outer.X * Red.Y + outer.Y * Green.Y + outer.Z * Blue.Y,
+            outer.X * Red.Z + outer.Y * Green.Z + outer.Z * Blue.Z,
+            outer.X * Red.W + outer.Y * Green.W + outer.Z * Blue.W + outer.W
         );
 }

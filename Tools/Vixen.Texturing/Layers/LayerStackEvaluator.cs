@@ -68,7 +68,7 @@ public sealed class LayerStackEvaluator : IDisposable {
         this.canvases = canvases;
         this.pictures = pictures;
 
-        folder = Path.GetDirectoryName(Path.GetFullPath(stackPath)) ?? "";
+        folder = Path.GetDirectoryName(Path.GetFullPath(stackPath)) ?? string.Empty;
     }
 
     /// <summary>The plan the last <see cref="Prepare" /> left, or nothing when it failed.</summary>
@@ -90,7 +90,7 @@ public sealed class LayerStackEvaluator : IDisposable {
     ///     The group whose own composite every output is, or empty for the stack's picture — what a group is flattened
     ///     into. See <see cref="LayerStackGraph.Capture" />.
     /// </summary>
-    public string Capture { get; init; } = "";
+    public string Capture { get; init; } = string.Empty;
 
     /// <summary>Whether a pass-through <see cref="Capture" /> keeps what is beneath it.</summary>
     public bool Backdrop { get; init; }
@@ -106,7 +106,7 @@ public sealed class LayerStackEvaluator : IDisposable {
     ///     The layer whose amount every output is, weighed in the picture it is part of, or empty —
     ///     <see cref="LayerStackGraph.Amount" />. Patina's Find asks it of a layer whose mask reads the picture.
     /// </summary>
-    public string Asked { get; init; } = "";
+    public string Asked { get; init; } = string.Empty;
 
     /// <summary>
     ///     The mesh maps the host's bake holds, which a set's normal and occlusion are mixed with — see
@@ -156,7 +156,7 @@ public sealed class LayerStackEvaluator : IDisposable {
             Discard();
             Diagnostics = [];
 
-            return [.. build.Problems.Select(static problem => problem.Message)];
+            return [..build.Problems.Select(static problem => problem.Message)];
         }
 
         Compiled = false;
@@ -164,7 +164,7 @@ public sealed class LayerStackEvaluator : IDisposable {
         // ⚠ `rebuilt`, because `Build` makes a new graph every time, and the compiler's own check on
         // anything the graph does not say. Its size, its library and its seed came from this stack
         // once, so a compiler left to answer would answer for the stack it was built for.
-        if (Current(stack, registry, subGraphs) && compiler!.Refresh(build.Graph, rebuilt: true) is { } refreshed) {
+        if (Current(stack, registry, subGraphs) && compiler!.Refresh(build.Graph, true) is { } refreshed) {
             Plan = refreshed;
 
             return [];
@@ -187,7 +187,7 @@ public sealed class LayerStackEvaluator : IDisposable {
         Diagnostics = compilation.Diagnostics;
 
         if (compilation.Artefact is not { } plan) {
-            return [.. compilation.Diagnostics.Select(static diagnostic => diagnostic.Message)];
+            return [..compilation.Diagnostics.Select(static diagnostic => diagnostic.Message)];
         }
 
         var refusals = Upload(plan, compiler.Externals);
@@ -247,8 +247,12 @@ public sealed class LayerStackEvaluator : IDisposable {
 
     /// <summary>The last keys, as long as this plan's images.</summary>
     /// <remarks>
-    ///     ⚠ <b>An extension keeps the plan's images and adds to the end, so the part they share still says
-    ///     what changed.</b> Giving up on any difference in length made the stamp after a thumbnail run the
+    ///     ⚠
+    ///     <b>
+    ///         An extension keeps the plan's images and adds to the end, so the part they share still says
+    ///         what changed.
+    ///     </b>
+    ///     Giving up on any difference in length made the stamp after a thumbnail run the
     ///     whole stack, once per stroke. An image that is new has no key, and so has nothing to repair.
     /// </remarks>
     static ImmutableArray<TextureResultKey> Fitted(ImmutableArray<TextureResultKey> keys, int images) {
@@ -260,7 +264,7 @@ public sealed class LayerStackEvaluator : IDisposable {
 
         keys.AsSpan(0, Math.Min(keys.Length, images)).CopyTo(fitted);
 
-        return [.. fitted];
+        return [..fitted];
     }
 
     /// <summary>
@@ -335,7 +339,9 @@ public sealed class LayerStackEvaluator : IDisposable {
 
         try {
             canvas = canvases.Open(file);
-        } catch (Exception failure) when (failure is IOException or InvalidDataException or UnauthorizedAccessException) {
+        } catch (Exception failure) when (failure is IOException
+                                              or InvalidDataException
+                                              or UnauthorizedAccessException) {
             return $"'{relative}' would not read: {failure.Message}";
         }
 

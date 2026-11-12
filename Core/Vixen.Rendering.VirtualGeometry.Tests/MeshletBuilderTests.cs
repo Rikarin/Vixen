@@ -22,7 +22,8 @@ public class MeshletBuilderTests {
         var mesh = Shapes.Sphere(4);
         var built = MeshletBuilder.Build(mesh);
 
-        var covered = built.Meshlets.Where(meshlet => meshlet.Level == 0).Sum(meshlet => meshlet.TriangleCount);
+        var covered = built.Meshlets.Where(static meshlet => meshlet.Level == 0)
+            .Sum(static meshlet => meshlet.TriangleCount);
 
         Assert.Equal(mesh.TriangleCount, covered);
         Assert.Empty(MeshletValidator.Validate(built, mesh));
@@ -45,13 +46,16 @@ public class MeshletBuilderTests {
     [Fact]
     public void ClustersAreAboutTheSizeTheyWereAskedFor() {
         var built = MeshletBuilder.Build(Shapes.Sphere(4));
-        var leaves = built.Meshlets.Where(meshlet => meshlet.Level == 0).ToList();
+        var leaves = built.Meshlets.Where(static meshlet => meshlet.Level == 0).ToList();
 
         // A partition that answered with one triangle per cluster would satisfy every other test
         // here. What makes a cluster worth having is that it is nearly full.
-        var average = leaves.Average(meshlet => meshlet.TriangleCount);
+        var average = leaves.Average(static meshlet => meshlet.TriangleCount);
 
-        Assert.True(average > 96, $"Level-zero clusters average {average:F1} of 128 triangles, over {leaves.Count} clusters.");
+        Assert.True(
+            average > 96,
+            $"Level-zero clusters average {average:F1} of 128 triangles, over {leaves.Count} clusters."
+        );
     }
 
     [Fact]
@@ -59,7 +63,10 @@ public class MeshletBuilderTests {
         var mesh = Shapes.Sphere(4);
         var built = MeshletBuilder.Build(mesh);
 
-        Assert.True(built.LevelCount >= 4, $"A {mesh.TriangleCount}-triangle sphere produced {built.LevelCount} levels.");
+        Assert.True(
+            built.LevelCount >= 4,
+            $"A {mesh.TriangleCount}-triangle sphere produced {built.LevelCount} levels."
+        );
         Assert.True(built.Roots.Length <= 4, $"It converged to {built.Roots.Length} roots.");
     }
 
@@ -68,7 +75,9 @@ public class MeshletBuilderTests {
         var built = MeshletBuilder.Build(Shapes.Sphere(4));
 
         var triangles = Enumerable.Range(0, built.LevelCount)
-            .Select(level => built.Meshlets.Where(meshlet => meshlet.Level == level).Sum(meshlet => meshlet.TriangleCount))
+            .Select(level =>
+                built.Meshlets.Where(meshlet => meshlet.Level == level).Sum(static meshlet => meshlet.TriangleCount)
+            )
             .ToList();
 
         for (var level = 1; level < triangles.Count; level++) {
@@ -133,7 +142,7 @@ public class MeshletBuilderTests {
 
         Assert.All(
             built.Meshlets,
-            meshlet => {
+            static meshlet => {
                 Assert.Equal(-1, meshlet.FirstBone);
                 Assert.Equal(0, meshlet.BoneCount);
             }
@@ -155,8 +164,8 @@ public class MeshletBuilderTests {
 
             for (var triangle = 0; triangle < meshlet.TriangleCount; triangle++) {
                 var a = mesh.Positions[corners[triangle * 3]];
-                var b = mesh.Positions[corners[(triangle * 3) + 1]];
-                var c = mesh.Positions[corners[(triangle * 3) + 2]];
+                var b = mesh.Positions[corners[triangle * 3 + 1]];
+                var c = mesh.Positions[corners[triangle * 3 + 2]];
                 var normal = Vector3.Cross(b - a, c - a);
 
                 if (normal.LengthSquared() <= 0) {

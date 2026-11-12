@@ -31,8 +31,12 @@ namespace Vixen.Editor.SceneView;
 ///         one entity selected is the mesh being edited, and anything else is none.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The selection survives a position change and is dropped by a topology change, which is
-///         P2's exit criterion.</b> Undoing a drag puts the corners back and leaves every index meaning
+///         ⚠
+///         <b>
+///             The selection survives a position change and is dropped by a topology change, which is
+///             P2's exit criterion.
+///         </b>
+///         Undoing a drag puts the corners back and leaves every index meaning
 ///         what it did; an extrude renumbers the tables, so an index kept across one names a different
 ///         element. The table sizes recorded when the mesh was last seen are what tell the two apart —
 ///         cheaply, and without the document having to describe what changed.
@@ -54,8 +58,10 @@ public sealed class MeshEdit {
     }
 
     /// <summary>The scene the mesh being edited belongs to.</summary>
-    /// <remarks>What a geometry verb needs: the mesh to change, and the undo stack to record the
-    ///     change on. Exposed rather than passed alongside, because the two must be the same scene.</remarks>
+    /// <remarks>
+    ///     What a geometry verb needs: the mesh to change, and the undo stack to record the
+    ///     change on. Exposed rather than passed alongside, because the two must be the same scene.
+    /// </remarks>
     public SceneDocument Document => document;
 
     /// <summary>Whether an element mode is in force at all.</summary>
@@ -80,8 +86,10 @@ public sealed class MeshEdit {
     }
 
     /// <summary>Whose mesh is being edited, or <see cref="Entity.Null" /> for none.</summary>
-    /// <remarks>Setting it to a different entity clears the selection, because an index into one
-    ///     mesh's tables means nothing about another's.</remarks>
+    /// <remarks>
+    ///     Setting it to a different entity clears the selection, because an index into one
+    ///     mesh's tables means nothing about another's.
+    /// </remarks>
     public Entity Target {
         get;
         private set {
@@ -145,8 +153,12 @@ public sealed class MeshEdit {
 
     /// <summary>How many divisions a curved primitive is made editable at.</summary>
     /// <remarks>
-    ///     ⚠ <b><see cref="SceneMeshes.Segments" />' and <c>ScenePicker.Segments</c>' number, and it
-    ///     has to stay theirs.</b> Making a sphere editable at a different tessellation from the one it
+    ///     ⚠
+    ///     <b>
+    ///         <see cref="SceneMeshes.Segments" />' and <c>ScenePicker.Segments</c>' number, and it
+    ///         has to stay theirs.
+    ///     </b>
+    ///     Making a sphere editable at a different tessellation from the one it
     ///     is drawn and picked at is a mesh whose faces are not the faces on screen — a click that
     ///     selects a face nobody can see, which is the same disagreement the picker's own remarks are
     ///     about in a second place.
@@ -171,14 +183,22 @@ public sealed class MeshEdit {
     /// <returns>Whether the selection was dropped because the mesh's structure changed.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Called before anything reads the selection, and it is cheap when nothing has
-    ///         happened.</b> The version the document keeps per entity moves on every edit, so the
+    ///         ⚠
+    ///         <b>
+    ///             Called before anything reads the selection, and it is cheap when nothing has
+    ///             happened.
+    ///         </b>
+    ///         The version the document keeps per entity moves on every edit, so the
     ///         common case is one integer comparison — which is what lets a frame loop and a pointer
     ///         move both call it without either having to know whether the other did.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A topology change drops the selection rather than trimming it, and the distinction
-    ///         is what P2's exit asks for.</b> If the tables are the same size the mesh was dragged, and
+    ///         ⚠
+    ///         <b>
+    ///             A topology change drops the selection rather than trimming it, and the distinction
+    ///             is what P2's exit asks for.
+    ///         </b>
+    ///         If the tables are the same size the mesh was dragged, and
     ///         every index still names the element the designer chose. If they are not, the numbering
     ///         has moved under the selection — an extrude inserts positions, a dissolve removes faces —
     ///         and what is left is not a smaller version of what was selected, it is a set of indices
@@ -224,14 +244,21 @@ public sealed class MeshEdit {
     /// <summary>What to ask before a shape's live parameters are thrown away, or null to just do it.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>D6's confirmation, and it arrives with P4 because P4 is what creates the parameters
-    ///         it protects.</b> Answering <see langword="false" /> leaves the shape parametric and the
+    ///         <b>
+    ///             D6's confirmation, and it arrives with P4 because P4 is what creates the parameters
+    ///             it protects.
+    ///         </b>
+    ///         Answering <see langword="false" /> leaves the shape parametric and the
     ///         edit undone, which is what a Cancel has to mean; answering <see langword="true" /> opens
     ///         the door and it does not close again.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Asked once and then never again, which is what "the first time" means and is not
-    ///         the same as "once per shape".</b> A designer who has understood what the door is does
+    ///         ⚠
+    ///         <b>
+    ///             Asked once and then never again, which is what "the first time" means and is not
+    ///             the same as "once per shape".
+    ///         </b>
+    ///         A designer who has understood what the door is does
     ///         not need to be told again on the second wall; a dialog that appeared every time is one
     ///         people learn to dismiss without reading, which is worse than not having it. What tells
     ///         them afterwards is the badge — <c>SceneDocument.IsPlainMesh</c>.
@@ -298,8 +325,12 @@ public sealed class MeshEdit {
     /// <param name="kind">Which kind of element a click will select.</param>
     /// <returns>Whether there turned out to be a mesh to edit.</returns>
     /// <remarks>
-    ///     ⚠ <b>Entering a mode no longer demotes anything, and that changed when P4 gave a shape a
-    ///     mesh of its own.</b> P2 put the demotion here because a parametric entity had no cage to
+    ///     ⚠
+    ///     <b>
+    ///         Entering a mode no longer demotes anything, and that changed when P4 gave a shape a
+    ///         mesh of its own.
+    ///     </b>
+    ///     P2 put the demotion here because a parametric entity had no cage to
     ///     draw, so pressing <c>3</c> on one and seeing nothing happen read as the mode being broken.
     ///     A shape generated by <see cref="MeshShapes" /> has a real mesh in the document from the
     ///     moment it is created, so the cage is there, every element of it selects, and the parameters
@@ -326,8 +357,11 @@ public sealed class MeshEdit {
     /// <returns>The mesh, or <see langword="null" /> when there is nothing to make one from.</returns>
     /// <remarks>
     ///     <para>
-    ///         <b>A <c>PrimitiveShape</c> becoming a mesh, which is a promotion rather than a
-    ///         demotion.</b> The primitive kind stays on the entity and stops being what draws it —
+    ///         <b>
+    ///             A <c>PrimitiveShape</c> becoming a mesh, which is a promotion rather than a
+    ///             demotion.
+    ///         </b>
+    ///         The primitive kind stays on the entity and stops being what draws it —
     ///         see <c>SceneMeshes.Drawn</c>, where an edited mesh wins over everything — and nothing is
     ///         lost, because a <c>PrimitiveShape</c> is a kind and a material and both survive.
     ///     </para>
@@ -410,8 +444,10 @@ public sealed class MeshEdit {
     /// <summary>Where the selection is, in world space.</summary>
     /// <param name="transform">The entity's world matrix.</param>
     /// <returns>The centre, or null when nothing is selected.</returns>
-    /// <remarks>What the gizmo sits on while an element mode is in force, which is the selection's
-    ///     centre rather than the entity's origin — a drag of one wall pivots on that wall.</remarks>
+    /// <remarks>
+    ///     What the gizmo sits on while an element mode is in force, which is the selection's
+    ///     centre rather than the entity's origin — a drag of one wall pivots on that wall.
+    /// </remarks>
     public Vector3? Centre(in Matrix4x4 transform) =>
         Mesh is { } mesh && Selection.Centre(mesh) is { } centre
             ? Matrix4x4.TransformPosition(centre, transform)

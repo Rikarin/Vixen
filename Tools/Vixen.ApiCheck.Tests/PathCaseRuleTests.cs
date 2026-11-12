@@ -13,16 +13,24 @@ namespace Vixen.ApiCheck.Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         doc 10 § Cross-platform discipline promises <i>"a CI check on Linux catches
-///         <c>Texture.PNG</c> vs <c>texture.png</c> before a user does"</i> and there was no such
+///         doc 10 § Cross-platform discipline promises
+///         <i>
+///             "a CI check on Linux catches
+///             <c>Texture.PNG</c> vs <c>texture.png</c> before a user does"
+///         </i>
+///         and there was no such
 ///         check (<a href="https://github.com/Rikarin/Vixen/issues/329">#329</a>). <c>PathCaseRule</c>
 ///         is the rule and <c>CheckPathCase</c> is the gate; this is the other caller, for the reason
 ///         <c>ComponentGeneratorRuleTests</c> and <c>DataContractGeneratorRuleTests</c> exist — a
 ///         rule whose only answer comes from a gate is a rule nobody has watched produce a positive.
 ///     </para>
 ///     <para>
-///         ⚠ <b>And here the argument is sharper than usual, because this rule's true answer on this
-///         tree is "nothing".</b> A check that reports no violations is indistinguishable from a
+///         ⚠
+///         <b>
+///             And here the argument is sharper than usual, because this rule's true answer on this
+///             tree is "nothing".
+///         </b>
+///         A check that reports no violations is indistinguishable from a
 ///         check that stopped matching, so the synthetic fixtures below are not decoration: they are
 ///         the only place anything watches the scan say yes.
 ///     </para>
@@ -55,7 +63,7 @@ public sealed class PathCaseRuleTests {
     [Fact]
     public void AMisCasedReferenceIsReported() {
         var violations = PathCaseRule
-            .Scan("Samples/Demo/Demo.cs", "var texture = \"Assets/Textures/Crate.PNG\";", PathCaseRule.Index(Tree))
+            .Scan("Samples/Demo/Demo.cs", """var texture = "Assets/Textures/Crate.PNG";""", PathCaseRule.Index(Tree))
             .ToList();
 
         var violation = Assert.Single(violations);
@@ -147,7 +155,7 @@ public sealed class PathCaseRuleTests {
     public void ACaseCollisionIsFoundAndACleanTreeIsNot() {
         Assert.Empty(PathCaseRule.Collisions(Tree));
 
-        var collision = Assert.Single(PathCaseRule.Collisions([.. Tree, "Assets/Textures/CRATE.PNG"]));
+        var collision = Assert.Single(PathCaseRule.Collisions([..Tree, "Assets/Textures/CRATE.PNG"]));
 
         Assert.Equal(["Assets/Textures/CRATE.PNG", "Assets/Textures/Crate.png"], collision);
     }
@@ -166,7 +174,7 @@ public sealed class PathCaseRuleTests {
     public void TheExemptionFileAndBinariesAreNotScanned() {
         Assert.False(PathCaseRule.IsScannable(PathCaseRule.ExemptionsFile));
         Assert.False(PathCaseRule.IsScannable("Samples/03-Lighting/Assets/Crate.png"));
-        Assert.True(PathCaseRule.IsScannable("docs/WhitespaceExempt.txt"));
+        Assert.True(PathCaseRule.IsScannable("docs/DocCommentExempt.txt"));
         Assert.True(PathCaseRule.IsScannable("Core/Vixen.Ecs/World.cs"));
     }
 
@@ -183,8 +191,12 @@ public sealed class PathCaseRuleTests {
     ///     <para>
     ///         This is <c>CheckPathCase</c>'s own body against this checkout, so the gate's answer
     ///         can be watched without a Release solution build. It asserts three things and the
-    ///         middle one is the load-bearing one: no unexempted violation, <b>every exemption still
-    ///         reported</b>, and enough files read to be this repository.
+    ///         middle one is the load-bearing one: no unexempted violation,
+    ///         <b>
+    ///             every exemption still
+    ///             reported
+    ///         </b>
+    ///         , and enough files read to be this repository.
     ///     </para>
     ///     <para>
     ///         ⚠ <c>git ls-files</c> rather than a directory walk, for the reason
@@ -198,7 +210,10 @@ public sealed class PathCaseRuleTests {
         var root = RepositoryRoot();
         var committed = CommittedPaths(root);
 
-        Assert.True(committed.Count > 3000, $"`git ls-files` returned {committed.Count} paths, which is not this tree.");
+        Assert.True(
+            committed.Count > 3000,
+            $"`git ls-files` returned {committed.Count} paths, which is not this tree."
+        );
 
         var index = PathCaseRule.Index(committed);
         var exempt = PathCaseRule.ReadExemptions(
@@ -222,7 +237,10 @@ public sealed class PathCaseRuleTests {
 
         Assert.Equal(
             string.Empty,
-            string.Join('\n', violations.Where(violation => !exempt.Contains(violation.Key())).Select(v => v.ToString()))
+            string.Join(
+                '\n',
+                violations.Where(violation => !exempt.Contains(violation.Key())).Select(static v => v.ToString())
+            )
         );
 
         Assert.Equal(
@@ -232,7 +250,9 @@ public sealed class PathCaseRuleTests {
                 exempt
                     .Where(key => violations.All(violation => violation.Key() != key))
                     .Order(StringComparer.Ordinal)
-                    .Select(key => $"{key} is exempt and no longer reported — delete the line, or the scan has stopped matching.")
+                    .Select(static key =>
+                        $"{key} is exempt and no longer reported — delete the line, or the scan has stopped matching."
+                    )
             )
         );
     }
@@ -251,7 +271,7 @@ public sealed class PathCaseRuleTests {
     public void TheTreeHasNoPathsDifferingOnlyInCase() {
         var collisions = PathCaseRule.Collisions(CommittedPaths(RepositoryRoot()));
 
-        Assert.Equal(string.Empty, string.Join('\n', collisions.Select(group => string.Join(" and ", group))));
+        Assert.Equal(string.Empty, string.Join('\n', collisions.Select(static group => string.Join(" and ", group))));
     }
 
     /// <summary>Every path git tracks in this checkout, relative to its root.</summary>
@@ -260,9 +280,7 @@ public sealed class PathCaseRuleTests {
     static List<string> CommittedPaths(string root) {
         using var git = Process.Start(
             new ProcessStartInfo("git", "ls-files") {
-                WorkingDirectory = root,
-                RedirectStandardOutput = true,
-                UseShellExecute = false
+                WorkingDirectory = root, RedirectStandardOutput = true, UseShellExecute = false
             }
         );
 
@@ -273,7 +291,7 @@ public sealed class PathCaseRuleTests {
 
         Assert.Equal(0, git.ExitCode);
 
-        return [.. output.Split('\n').Select(line => line.Trim()).Where(line => line.Length > 0)];
+        return [..output.Split('\n').Select(static line => line.Trim()).Where(static line => line.Length > 0)];
     }
 
     /// <summary>The repository root, found by walking up from the test binary.</summary>

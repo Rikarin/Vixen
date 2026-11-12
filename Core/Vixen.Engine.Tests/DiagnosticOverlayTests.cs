@@ -231,10 +231,10 @@ public sealed class DiagnosticOverlayTests {
     /// </remarks>
     [Fact]
     public void ALooseContentBuildIsStamped() {
-        Assert.Equal(0, BadLines(loose: false));
-        Assert.True(BadLines(loose: true) > 0, "the LOOSE stamp put no ink on the screen");
+        Assert.Equal(0, BadLines(false));
+        Assert.True(BadLines(true) > 0, "the LOOSE stamp put no ink on the screen");
         Assert.True(
-            Lines(loose: true) > Lines(loose: false),
+            Lines(true) > Lines(false),
             "the stamped frame drew no more than the unstamped one"
         );
     }
@@ -242,8 +242,12 @@ public sealed class DiagnosticOverlayTests {
     /// <summary>The stamp survives every way a panel can be taken off the screen.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>#919, and the reason the stamp is not a row on the frame-statistics panel any
-    ///         more.</b> It was, and <c>overlay stats off</c> at the console erased it — after which
+    ///         ⚠
+    ///         <b>
+    ///             #919, and the reason the stamp is not a row on the frame-statistics panel any
+    ///             more.
+    ///         </b>
+    ///         It was, and <c>overlay stats off</c> at the console erased it — after which
     ///         a Release build reading a directory somebody left on disk was again indistinguishable
     ///         from one reading its own bundles, which is the exact condition doc 17 Q5b traded the
     ///         "release reads only bundles" invariant away to avoid.
@@ -264,19 +268,19 @@ public sealed class DiagnosticOverlayTests {
     /// </remarks>
     [Fact]
     public void TheStampSurvivesEveryWayOfHidingAPanel() {
-        Assert.True(BadLines(loose: true) > 0, "the unhidden frame was not stamped");
+        Assert.True(BadLines(true) > 0, "the unhidden frame was not stamped");
 
-        Assert.True(BadLines(loose: true, o => o.Set("stats", false)) > 0, "'overlay stats off' erased it");
-        Assert.True(BadLines(loose: true, o => o.Remove("stats")) > 0, "removing the panel erased it");
-        Assert.True(BadLines(loose: true, o => o.DisableAll()) > 0, "DisableAll erased it");
+        Assert.True(BadLines(true, static o => o.Set("stats", false)) > 0, "'overlay stats off' erased it");
+        Assert.True(BadLines(true, static o => o.Remove("stats")) > 0, "removing the panel erased it");
+        Assert.True(BadLines(true, static o => o.DisableAll()) > 0, "DisableAll erased it");
 
         // The fifth path, which the registry never sees.
         Assert.True(
-            BadLines(loose: true, o => o.Registered[0].Enabled = false) > 0,
+            BadLines(true, static o => o.Registered[0].Enabled = false) > 0,
             "writing Enabled straight onto the overlay erased it"
         );
 
-        Assert.Equal(0, BadLines(loose: true, o => o.Enabled = false));
+        Assert.Equal(0, BadLines(true, static o => o.Enabled = false));
     }
 
     static int Lines(bool loose) => Stamped(loose).ScreenCount;

@@ -69,7 +69,7 @@ public class ClientTransferTests {
     public void The_tick_rebase_converges_over_the_overlap() {
         var client = new ClientTransfer();
 
-        client.Prepared(Prepare(targetTick: 900), Running);
+        client.Prepared(Prepare(), Running);
         client.Connected(1_000);
 
         Assert.Equal(-100, client.Rebase.Offset);

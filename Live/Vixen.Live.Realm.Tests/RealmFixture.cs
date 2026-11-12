@@ -74,7 +74,7 @@ sealed class RealmFixture : IDisposable {
             // ⚠ The realm's own stream and each client's are seeded differently — see Connect. One
             // shared stream drops the same packet on both sides of the same step, which is a
             // synchronised outage rather than a network.
-            admission => new(Wrap(0), Options(), admission, ownsTransport: true),
+            admission => new(Wrap(0), Options(), admission, true),
             Signer,
             new() {
                 Output = Output.Add,
@@ -109,9 +109,7 @@ sealed class RealmFixture : IDisposable {
     public NetworkSession Connect(TransferTicket? ticket) {
         var session = new NetworkSession(
             Wrap(clients.Count + 1),
-            Options() with {
-                AuthenticationPayload = ticket is null ? [] : Encoding.UTF8.GetBytes(ticket.Encode())
-            },
+            Options() with { AuthenticationPayload = ticket is null ? [] : Encoding.UTF8.GetBytes(ticket.Encode()) },
             ownsTransport: true
         );
 
@@ -126,7 +124,7 @@ sealed class RealmFixture : IDisposable {
     /// <param name="messages">Where the realm's user payloads go.</param>
     public void Pump(int rounds = 8, ISessionMessageHandler? messages = null) {
         for (var round = 0; round < rounds; round++) {
-            Host.Update(Step, scenes: null, messages);
+            Host.Update(Step, null, messages);
 
             foreach (var client in clients) {
                 client.Update(Step);

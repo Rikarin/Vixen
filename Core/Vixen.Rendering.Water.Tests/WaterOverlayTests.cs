@@ -33,11 +33,11 @@ public sealed class WaterOverlayTests {
     public void A_fold_that_rebuilds_everything_every_frame_is_shown_in_amber() {
         var theme = OverlayTheme.Default;
 
-        Assert.Contains(Colours(new WaterStatistics { Bodies = 3, Rebuilt = 3 }), colour => colour == theme.Warning);
+        Assert.Contains(Colours(new() { Bodies = 3, Rebuilt = 3 }), colour => colour == theme.Warning);
 
         // And an amortised fold is not. A panel that warned either way would be one people stop
         // reading, which is the same outcome as a warning that never fires.
-        Assert.DoesNotContain(Colours(new WaterStatistics { Bodies = 3, Rebuilt = 0 }), colour => colour == theme.Warning);
+        Assert.DoesNotContain(Colours(new() { Bodies = 3, Rebuilt = 0 }), colour => colour == theme.Warning);
     }
 
     /// <summary>An empty scene is not a fold that rebuilt everything it had.</summary>
@@ -45,7 +45,7 @@ public sealed class WaterOverlayTests {
     public void A_scene_with_no_water_is_not_warned_about() {
         var theme = OverlayTheme.Default;
 
-        Assert.DoesNotContain(Colours(new WaterStatistics()), colour => colour == theme.Warning);
+        Assert.DoesNotContain(Colours(new()), colour => colour == theme.Warning);
     }
 
     /// <summary>Every colour the panel put on the screen for one set of numbers.</summary>

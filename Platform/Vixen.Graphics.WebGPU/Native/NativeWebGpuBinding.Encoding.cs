@@ -106,8 +106,7 @@ public sealed unsafe partial class NativeWebGpuBinding {
             };
 
             var depthClip = new PrimitiveDepthClipControl {
-                Chain = new() { SType = SType.PrimitiveDepthClipControl },
-                UnclippedDepth = true
+                Chain = new() { SType = SType.PrimitiveDepthClipControl }, UnclippedDepth = true
             };
 
             var primitive = new PrimitiveState {
@@ -174,10 +173,7 @@ public sealed unsafe partial class NativeWebGpuBinding {
             var native = new ComputePipelineDescriptor {
                 Label = (byte*)label,
                 Layout = (PipelineLayout*)descriptor.Layout.Value,
-                Compute = new() {
-                    Module = (ShaderModule*)descriptor.Module.Value,
-                    EntryPoint = (byte*)entry
-                }
+                Compute = new() { Module = (ShaderModule*)descriptor.Module.Value, EntryPoint = (byte*)entry }
             };
 
             return Wrap(api.DeviceCreateComputePipeline(device, &native));
@@ -595,8 +591,12 @@ public sealed unsafe partial class NativeWebGpuBinding {
     ///     </para>
     ///     <para>
     ///         Passing Silk's struct to it puts <c>resolveTarget</c>'s low half where
-    ///         <c>loadOp</c> belongs, and wgpu panics with <c>invalid load op for render pass color
-    ///         attachment: 0</c> — which is what it did, and which is worth writing down because the
+    ///         <c>loadOp</c> belongs, and wgpu panics with
+    ///         <c>
+    ///             invalid load op for render pass color
+    ///             attachment: 0
+    ///         </c>
+    ///         — which is what it did, and which is worth writing down because the
     ///         message names neither the struct nor the version.
     ///     </para>
     ///     <para>
@@ -621,33 +621,36 @@ public sealed unsafe partial class NativeWebGpuBinding {
         public Color ClearValue;
     }
 
-    static NativeStencilFaceState Face(in WgpuStencilFaceState face) => new() {
-        Compare = (NativeCompareFunction)face.Compare,
-        FailOp = (NativeStencilOperation)face.FailOp,
-        DepthFailOp = (NativeStencilOperation)face.DepthFailOp,
-        PassOp = (NativeStencilOperation)face.PassOp
-    };
+    static NativeStencilFaceState Face(in WgpuStencilFaceState face) =>
+        new() {
+            Compare = (NativeCompareFunction)face.Compare,
+            FailOp = (NativeStencilOperation)face.FailOp,
+            DepthFailOp = (NativeStencilOperation)face.DepthFailOp,
+            PassOp = (NativeStencilOperation)face.PassOp
+        };
 
-    static Extent3D Extent(int width, int height, int depthOrLayers) => new(
-        (uint)Math.Max(1, width),
-        (uint)Math.Max(1, height),
-        (uint)Math.Max(1, depthOrLayers)
-    );
+    static Extent3D Extent(int width, int height, int depthOrLayers) =>
+        new(
+            (uint)Math.Max(1, width),
+            (uint)Math.Max(1, height),
+            (uint)Math.Max(1, depthOrLayers)
+        );
 
-    static ImageCopyTexture Region(in WgpuImageCopyTexture region) => new() {
-        Texture = (WgpuTexture*)region.Texture.Value,
-        MipLevel = (uint)region.MipLevel,
-        Origin = new((uint)region.OriginX, (uint)region.OriginY, (uint)region.OriginZ),
-        Aspect = (TextureAspect)region.Aspect
-    };
+    static ImageCopyTexture Region(in WgpuImageCopyTexture region) =>
+        new() {
+            Texture = (WgpuTexture*)region.Texture.Value,
+            MipLevel = (uint)region.MipLevel,
+            Origin = new((uint)region.OriginX, (uint)region.OriginY, (uint)region.OriginZ),
+            Aspect = (TextureAspect)region.Aspect
+        };
 
-    static ImageCopyBuffer Linear(in WgpuImageCopyBuffer buffer) => new() {
-        Buffer = (WgpuBuffer*)buffer.Buffer.Value,
-        Layout = new() {
-            Offset = (ulong)buffer.Offset,
-            BytesPerRow = (uint)buffer.BytesPerRow,
-            RowsPerImage = (uint)Math.Max(1, buffer.RowsPerImage)
-        }
-    };
-
+    static ImageCopyBuffer Linear(in WgpuImageCopyBuffer buffer) =>
+        new() {
+            Buffer = (WgpuBuffer*)buffer.Buffer.Value,
+            Layout = new() {
+                Offset = (ulong)buffer.Offset,
+                BytesPerRow = (uint)buffer.BytesPerRow,
+                RowsPerImage = (uint)Math.Max(1, buffer.RowsPerImage)
+            }
+        };
 }

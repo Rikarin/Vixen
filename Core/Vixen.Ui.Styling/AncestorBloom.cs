@@ -66,8 +66,8 @@ struct AncestorBloom {
         // Interned ids are dense small integers assigned in first-seen order, which is close to the
         // worst possible input for a filter that just takes low bits: every name in a document would
         // land in the first few. Mixing first is what makes the occupancy even.
-        var mixed = Mix((uint) nameId);
-        return ((int) (mixed & 127), (int) ((mixed >> 7) & 127));
+        var mixed = Mix((uint)nameId);
+        return ((int)(mixed & 127), (int)((mixed >> 7) & 127));
     }
 
     static uint Mix(uint value) {

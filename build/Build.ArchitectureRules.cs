@@ -69,8 +69,12 @@ partial class Build {
     ///         this in the meantime so the MMO work is not blocked on that argument.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>It is a pair rather than a project name because the exception is this edge, not
-    ///         that project.</b> A second <c>Live/</c> project reaching into <c>Tools/</c> would be a
+    ///         ⚠
+    ///         <b>
+    ///             It is a pair rather than a project name because the exception is this edge, not
+    ///             that project.
+    ///         </b>
+    ///         A second <c>Live/</c> project reaching into <c>Tools/</c> would be a
     ///         new decision and should fail here until somebody makes it.
     ///     </para>
     /// </remarks>
@@ -123,8 +127,12 @@ partial class Build {
 
     /// <summary>The suffix that marks a game's own grain-interface assembly.</summary>
     /// <remarks>
-    ///     ⚠ <b>A game writes an Orleans assembly, and this rule used to forbid the one doc 27 tells
-    ///     it to write.</b> § The three assemblies a game writes gives <c>MyGame.Cluster</c> the row
+    ///     ⚠
+    ///     <b>
+    ///         A game writes an Orleans assembly, and this rule used to forbid the one doc 27 tells
+    ///         it to write.
+    ///     </b>
+    ///     § The three assemblies a game writes gives <c>MyGame.Cluster</c> the row
     ///     "may reference <c>Microsoft.Orleans.Sdk</c> and <c>MyGame.Contracts</c>", and
     ///     <c>Samples/14-Mmo</c> is that row built — so the check was failing the reference
     ///     implementation of the design it cites.
@@ -138,407 +146,446 @@ partial class Build {
     /// </remarks>
     const string ClusterSuffix = ".Cluster";
 
-    Target CheckArchitecture => definition => definition
-        .Description(
-            "Fails on a layer violation, a banned IL-rewriting package, editor-only code in a runtime "
-            + "assembly, an editor plugin that reaches the editor application, a shell assembly naming a feature, a "
-            + "module registering round PluginContext, "
-            + "or an EditorApplication part "
-            + "over its ceiling"
-        )
-        .Executes(() => {
-                // ⚠ The eight layers and the three exclusions live in `PluginReferenceRule` and this
-                // is one caller of them. They were written here and transcribed into
-                // `PluginReferenceRuleTests`, which is the shape #872 names: everything else about
-                // that rule was shared and its subject set was copied, so a ninth top-level directory
-                // would have joined the gate and not the test — and the test would have gone on
-                // reporting the gate's answer about a set that was no longer the gate's.
-                var projects = PluginReferenceRule
-                    .ProjectFiles(RootDirectory)
-                    .Select(AbsolutePath.Create)
-                    .ToList();
-
-                Assert.True(projects.Count > 0, "Found no projects to check — the glob is wrong.");
-
-                var violations = new List<string>();
-
-                foreach (var project in projects) {
-                    var name = project.NameWithoutExtension;
-                    var layer = LayerOf(project);
-                    var document = XDocument.Load(project);
-
-                    var packages = document.Descendants("PackageReference")
-                        .Select(element => element.Attribute("Include")?.Value)
-                        .Where(value => value is not null)
-                        .Select(value => value!)
+    Target CheckArchitecture =>
+        definition => definition
+            .Description(
+                "Fails on a layer violation, a banned IL-rewriting package, editor-only code in a runtime "
+                + "assembly, an editor plugin that reaches the editor application, a shell assembly naming a feature, a "
+                + "module registering round PluginContext, "
+                + "or an EditorApplication part "
+                + "over its ceiling"
+            )
+            .Executes(() => {
+                    // ⚠ The eight layers and the three exclusions live in `PluginReferenceRule` and this
+                    // is one caller of them. They were written here and transcribed into
+                    // `PluginReferenceRuleTests`, which is the shape #872 names: everything else about
+                    // that rule was shared and its subject set was copied, so a ninth top-level directory
+                    // would have joined the gate and not the test — and the test would have gone on
+                    // reporting the gate's answer about a set that was no longer the gate's.
+                    var projects = PluginReferenceRule
+                        .ProjectFiles(RootDirectory)
+                        .Select(AbsolutePath.Create)
                         .ToList();
 
-                    var references = document.Descendants("ProjectReference")
-                        .Select(element => element.Attribute("Include")?.Value)
-                        .Where(value => value is not null)
-                        .Select(value => AbsolutePath.Create(project.Parent / value!).NameWithoutExtension)
-                        .ToList();
+                    Assert.True(projects.Count > 0, "Found no projects to check — the glob is wrong.");
 
-                    foreach (var banned in packages.Where(package => BannedPackages.Contains(package, StringComparer.OrdinalIgnoreCase))) {
-                        violations.Add($"{name} references {banned}, which rewrites IL (ADR-002).");
-                    }
+                    var violations = new List<string>();
 
-                    // A test project may reference anything: it is not shipped, and forbidding it
-                    // would mean a layer could not be tested against its neighbours.
-                    if (name.EndsWith(".Tests", StringComparison.Ordinal)) {
-                        continue;
-                    }
+                    foreach (var project in projects) {
+                        var name = project.NameWithoutExtension;
+                        var layer = LayerOf(project);
+                        var document = XDocument.Load(project);
 
-                    if (layer is "Core" or "Platform") {
-                        foreach (var editorOnly in packages.Where(package => EditorOnlyPackages.Contains(package, StringComparer.OrdinalIgnoreCase))) {
-                            violations.Add($"{name} is a runtime assembly and references {editorOnly}, which is import-time only (ADR-015).");
+                        var packages = document.Descendants("PackageReference")
+                            .Select(element => element.Attribute("Include")?.Value)
+                            .Where(value => value is not null)
+                            .Select(value => value!)
+                            .ToList();
+
+                        var references = document.Descendants("ProjectReference")
+                            .Select(element => element.Attribute("Include")?.Value)
+                            .Where(value => value is not null)
+                            .Select(value => AbsolutePath.Create(project.Parent / value!).NameWithoutExtension)
+                            .ToList();
+
+                        foreach (var banned in packages.Where(package => BannedPackages.Contains(
+                                         package,
+                                         StringComparer.OrdinalIgnoreCase
+                                     )
+                                 )) {
+                            violations.Add($"{name} references {banned}, which rewrites IL (ADR-002).");
+                        }
+
+                        // A test project may reference anything: it is not shipped, and forbidding it
+                        // would mean a layer could not be tested against its neighbours.
+                        if (name.EndsWith(".Tests", StringComparison.Ordinal)) {
+                            continue;
+                        }
+
+                        if (layer is "Core" or "Platform") {
+                            foreach (var editorOnly in packages.Where(package => EditorOnlyPackages.Contains(
+                                             package,
+                                             StringComparer.OrdinalIgnoreCase
+                                         )
+                                     )) {
+                                violations.Add(
+                                    $"{name} is a runtime assembly and references {editorOnly}, which is import-time only (ADR-015)."
+                                );
+                            }
+                        }
+
+                        // ADR-016 and ADR-017. Orleans lives in Live/ and not everywhere in it.
+                        var orleans = packages
+                            .Where(package => package.StartsWith(OrleansPrefix, StringComparison.OrdinalIgnoreCase))
+                            .ToList();
+
+                        if (orleans.Count > 0) {
+                            if (layer == "Samples" && name.EndsWith(ClusterSuffix, StringComparison.Ordinal)) {
+                                // Doc 27's MyGame.Cluster row, which is allowed exactly this.
+                            } else if (layer != "Live") {
+                                violations.Add(
+                                    $"{name} is in {layer} and references {orleans[0]}. Orleans is the control plane and "
+                                    + "only the control plane — see docs/plan/27 ADR-016."
+                                );
+                            } else if (OrleansFreeInLive.Contains(name, StringComparer.Ordinal)) {
+                                violations.Add(
+                                    $"{name} references {orleans[0]}, and it is the one Live/ assembly a game client "
+                                    + "transitively links (ADR-017). The surrogates in Vixen.Live.Cluster exist so that "
+                                    + "it does not have to."
+                                );
+                            }
+                        }
+
+                        foreach (var reference in references) {
+                            var referenced = LayerOfProject(projects, reference);
+
+                            // Core sits below Platform, and both sit below Editor and Tools. A
+                            // reference upward makes the lower layer unusable without the higher one,
+                            // which defeats the point of having layers.
+                            //
+                            // ⚠ Raven is in the list, and it was not. docs/plan/37's `AiLayeringTests`
+                            // has forbidden `Vixen.Raven` to a Core assembly since it was written and
+                            // this rule did not — so the assembly test and the gate meant to replace it
+                            // disagreed, and the gate was the permissive one. Raven is a layer here
+                            // already (see the Live rule below), it sits on Core rather than under it,
+                            // and a shipped runtime library that links a shader compiler is the thing
+                            // this whole block exists to refuse.
+                            if (layer == "Core"
+                                && referenced is "Gameplay" or "Platform" or "Editor" or "Tools" or "Live" or "Raven"
+                                && !AllowedCoreEdges.Contains((name, reference))) {
+                                violations.Add($"{name} is in Core and references {reference}, which is not.");
+                            }
+
+                            // Gameplay sits on Core and under everything else. docs/plan/28's libraries
+                            // are engine-side runtime code — a client links them — so the thing that
+                            // must never happen is one of them reaching into the online service tier and
+                            // making "items and quests" undeployable without an orchestrator.
+                            if (layer == "Gameplay" && referenced is "Editor" or "Tools" or "Live") {
+                                violations.Add($"{name} is in Gameplay and references {reference}, which is above it.");
+                            }
+
+                            if (layer == "Platform" && referenced is "Editor" or "Tools" or "Live") {
+                                violations.Add($"{name} is in Platform and references {reference}, which is above it.");
+                            }
+
+                            // docs/plan/27 § Repository layout: nothing in Core/, Gameplay/, Platform/,
+                            // Editor/ or Raven/ may reference Live/, and Live/ may not reference
+                            // Editor/. The first half is what keeps a game client from linking an
+                            // orchestrator; the second is what keeps a shipped, operated tier from
+                            // depending on a developer tool.
+                            if (layer is "Editor" or "Raven" && referenced == "Live") {
+                                violations.Add($"{name} is in {layer} and references {reference}, which is in Live.");
+                            }
+
+                            if (layer == "Live" && referenced == "Editor") {
+                                violations.Add(
+                                    $"{name} is in Live and references {reference}. Live/ is shipped and operated; "
+                                    + "Editor/ is a developer tool. See docs/plan/27 § Repository layout."
+                                );
+                            }
+
+                            // Live sits above Tools only by exception, and the exception is one edge.
+                            if (layer == "Live"
+                                && referenced == "Tools"
+                                && !AllowedUpwardReferences.Contains((name, reference))) {
+                                violations.Add(
+                                    $"{name} is in Live and references {reference}, which is in Tools. Only "
+                                    + $"{string.Join(", ", AllowedUpwardReferences.Select(edge => $"{edge.From} → {edge.To}"))} "
+                                    + "is allowed, and docs/plan/27 M-Q4 is the argument for removing even that."
+                                );
+                            }
+
+                            // The single most important boundary in the codebase. A UI framework that
+                            // needs a scene, an ECS world and a game loop is not an application
+                            // framework, and this reference is cheap to add and expensive to unwind.
+                            if (name.StartsWith("Vixen.Ui", StringComparison.Ordinal) && reference == "Vixen.Engine") {
+                                violations.Add($"{name} references Vixen.Engine. See docs/plan/00 § Layer discipline.");
+                            }
+
+                            // The same boundary, from the other side. docs/plan/02 § Samples describes
+                            // 02-HelloUi as "Vixen.Ui only, no engine — proves the UI/Engine boundary",
+                            // and doc 15 makes it what proves the framework standalone before the editor
+                            // is allowed to depend on it. A sample that reached for Vixen.App would prove
+                            // nothing — Vixen.App references Vixen.Engine — and it is exactly the change
+                            // somebody makes to save writing a frame loop. Asserted here so that saving
+                            // it fails the build rather than quietly deleting the demonstration.
+                            if (name == "HelloUi" && reference is "Vixen.Engine" or "Vixen.App") {
+                                violations.Add(
+                                    $"{name} references {reference}, and it exists to demonstrate that it does not have to. "
+                                    + "See docs/plan/02 § Samples."
+                                );
+                            }
                         }
                     }
 
-                    // ADR-016 and ADR-017. Orleans lives in Live/ and not everywhere in it.
-                    var orleans = packages
-                        .Where(package => package.StartsWith(OrleansPrefix, StringComparison.OrdinalIgnoreCase))
-                        .ToList();
+                    // Doc 48 exit criterion 10. A plugin is a project that names the plugin contract, and
+                    // no plugin may reach the editor application — directly or through anything else.
+                    //
+                    // ⚠ The rule itself lives in PluginReferenceRule, which this target is one caller of
+                    // and Vixen.Editor.Texturing.Tests is the other. It was written inside this
+                    // `Executes` and could therefore only ever answer by running a gate that compiles the
+                    // solution in Release — so it shipped without anybody having seen it produce an
+                    // answer, which is the state this repository's own rule says to fix first.
+                    var edges = PluginReferenceRule.Edges(projects.Select(project => project.ToString()));
 
-                    if (orleans.Count > 0) {
-                        if (layer == "Samples" && name.EndsWith(ClusterSuffix, StringComparison.Ordinal)) {
-                            // Doc 27's MyGame.Cluster row, which is allowed exactly this.
-                        } else if (layer != "Live") {
-                            violations.Add(
-                                $"{name} is in {layer} and references {orleans[0]}. Orleans is the control plane and "
-                                + "only the control plane — see docs/plan/27 ADR-016."
-                            );
-                        } else if (OrleansFreeInLive.Contains(name, StringComparer.Ordinal)) {
-                            violations.Add(
-                                $"{name} references {orleans[0]}, and it is the one Live/ assembly a game client "
-                                + "transitively links (ADR-017). The surrogates in Vixen.Live.Cluster exist so that "
-                                + "it does not have to."
-                            );
-                        }
-                    }
+                    Assert.True(PluginReferenceRule.Vacuity(edges) is null, PluginReferenceRule.Vacuity(edges) ?? "");
 
-                    foreach (var reference in references) {
-                        var referenced = LayerOfProject(projects, reference);
+                    violations.AddRange(PluginReferenceRule.Violations(edges));
 
-                        // Core sits below Platform, and both sit below Editor and Tools. A
-                        // reference upward makes the lower layer unusable without the higher one,
-                        // which defeats the point of having layers.
-                        //
-                        // ⚠ Raven is in the list, and it was not. docs/plan/37's `AiLayeringTests`
-                        // has forbidden `Vixen.Raven` to a Core assembly since it was written and
-                        // this rule did not — so the assembly test and the gate meant to replace it
-                        // disagreed, and the gate was the permissive one. Raven is a layer here
-                        // already (see the Live rule below), it sits on Core rather than under it,
-                        // and a shipped runtime library that links a shader compiler is the thing
-                        // this whole block exists to refuse.
-                        if (layer == "Core"
-                            && referenced is "Gameplay" or "Platform" or "Editor" or "Tools" or "Live" or "Raven"
-                            && !AllowedCoreEdges.Contains((name, reference))) {
-                            violations.Add($"{name} is in Core and references {reference}, which is not.");
-                        }
+                    // #1005. A `[DataContract]` in a project that names neither registration generator
+                    // compiles, runs, and registers nothing — an analyzer does not flow through a
+                    // `ProjectReference`, so the attribute is decoration and no instrument in this tree
+                    // could say which projects were in that state. `Vixen.Editor.Terrain` carried eight
+                    // (#989) and a runtime roll call in one assembly's own suite is what found them.
+                    //
+                    // ⚠ The subject set is asserted before the empty violation list is believed, for the
+                    // reason the plugin count above is logged: a walk that read no sources would report
+                    // "no violations" and mean "I read nothing".
+                    var subjects = DataContractGeneratorRule.Subjects(projects.Select(project => project.ToString()));
 
-                        // Gameplay sits on Core and under everything else. docs/plan/28's libraries
-                        // are engine-side runtime code — a client links them — so the thing that
-                        // must never happen is one of them reaching into the online service tier and
-                        // making "items and quests" undeployable without an orchestrator.
-                        if (layer == "Gameplay" && referenced is "Editor" or "Tools" or "Live") {
-                            violations.Add($"{name} is in Gameplay and references {reference}, which is above it.");
-                        }
-
-                        if (layer == "Platform" && referenced is "Editor" or "Tools" or "Live") {
-                            violations.Add($"{name} is in Platform and references {reference}, which is above it.");
-                        }
-
-                        // docs/plan/27 § Repository layout: nothing in Core/, Gameplay/, Platform/,
-                        // Editor/ or Raven/ may reference Live/, and Live/ may not reference
-                        // Editor/. The first half is what keeps a game client from linking an
-                        // orchestrator; the second is what keeps a shipped, operated tier from
-                        // depending on a developer tool.
-                        if ((layer is "Editor" or "Raven") && referenced == "Live") {
-                            violations.Add($"{name} is in {layer} and references {reference}, which is in Live.");
-                        }
-
-                        if (layer == "Live" && referenced == "Editor") {
-                            violations.Add(
-                                $"{name} is in Live and references {reference}. Live/ is shipped and operated; "
-                                + "Editor/ is a developer tool. See docs/plan/27 § Repository layout."
-                            );
-                        }
-
-                        // Live sits above Tools only by exception, and the exception is one edge.
-                        if (layer == "Live"
-                            && referenced == "Tools"
-                            && !AllowedUpwardReferences.Contains((name, reference))) {
-                            violations.Add(
-                                $"{name} is in Live and references {reference}, which is in Tools. Only "
-                                + $"{string.Join(", ", AllowedUpwardReferences.Select(edge => $"{edge.From} → {edge.To}"))} "
-                                + "is allowed, and docs/plan/27 M-Q4 is the argument for removing even that."
-                            );
-                        }
-
-                        // The single most important boundary in the codebase. A UI framework that
-                        // needs a scene, an ECS world and a game loop is not an application
-                        // framework, and this reference is cheap to add and expensive to unwind.
-                        if (name.StartsWith("Vixen.Ui", StringComparison.Ordinal) && reference == "Vixen.Engine") {
-                            violations.Add($"{name} references Vixen.Engine. See docs/plan/00 § Layer discipline.");
-                        }
-
-                        // The same boundary, from the other side. docs/plan/02 § Samples describes
-                        // 02-HelloUi as "Vixen.Ui only, no engine — proves the UI/Engine boundary",
-                        // and doc 15 makes it what proves the framework standalone before the editor
-                        // is allowed to depend on it. A sample that reached for Vixen.App would prove
-                        // nothing — Vixen.App references Vixen.Engine — and it is exactly the change
-                        // somebody makes to save writing a frame loop. Asserted here so that saving
-                        // it fails the build rather than quietly deleting the demonstration.
-                        if (name == "HelloUi" && reference is "Vixen.Engine" or "Vixen.App") {
-                            violations.Add(
-                                $"{name} references {reference}, and it exists to demonstrate that it does not have to. "
-                                + "See docs/plan/02 § Samples."
-                            );
-                        }
-                    }
-                }
-
-                // Doc 48 exit criterion 10. A plugin is a project that names the plugin contract, and
-                // no plugin may reach the editor application — directly or through anything else.
-                //
-                // ⚠ The rule itself lives in PluginReferenceRule, which this target is one caller of
-                // and Vixen.Editor.Texturing.Tests is the other. It was written inside this
-                // `Executes` and could therefore only ever answer by running a gate that compiles the
-                // solution in Release — so it shipped without anybody having seen it produce an
-                // answer, which is the state this repository's own rule says to fix first.
-                var edges = PluginReferenceRule.Edges(projects.Select(project => project.ToString()));
-
-                Assert.True(PluginReferenceRule.Vacuity(edges) is null, PluginReferenceRule.Vacuity(edges) ?? "");
-
-                violations.AddRange(PluginReferenceRule.Violations(edges));
-
-                // #1005. A `[DataContract]` in a project that names neither registration generator
-                // compiles, runs, and registers nothing — an analyzer does not flow through a
-                // `ProjectReference`, so the attribute is decoration and no instrument in this tree
-                // could say which projects were in that state. `Vixen.Editor.Terrain` carried eight
-                // (#989) and a runtime roll call in one assembly's own suite is what found them.
-                //
-                // ⚠ The subject set is asserted before the empty violation list is believed, for the
-                // reason the plugin count above is logged: a walk that read no sources would report
-                // "no violations" and mean "I read nothing".
-                var subjects = DataContractGeneratorRule.Subjects(projects.Select(project => project.ToString()));
-
-                Assert.True(
-                    subjects > 0,
-                    "No project applies [DataContract], so the DataContract rule is checking nothing."
-                );
-
-                violations.AddRange(
-                    DataContractGeneratorRule.Violations(
-                        RootDirectory,
-                        projects.Select(project => project.ToString())
-                    )
-                );
-
-                // #1139. Strictly narrower than the rule above and invisible to it: a project naming
-                // the two Vixen.Core generators and not `Vixen.Engine.Generators` reads clean there
-                // and is missing the third declaration — `SceneComponentRegistry.Declare<T>()` — so
-                // the type serialises, its alias resolves, and the Add Component menu does not offer
-                // it while a .vxscene naming it fails at load. `Vixen.Ai.Nodes` and
-                // `Vixen.Ai.Perception` were both in that state and both read clean (#1056), which is
-                // the third time the shape was found by hand rather than by a gate.
-                //
-                // ⚠ The subject set is both halves — carries the pair AND reaches Vixen.Engine — so a
-                // rename of the registry assembly reports "checking nothing" rather than "no
-                // violations", which is the one this rule could plausibly go quiet on.
-                var componentSubjects = ComponentGeneratorRule.Subjects(
-                    projects.Select(project => project.ToString())
-                );
-
-                Assert.True(
-                    componentSubjects.Count > 0,
-                    $"No project declares a [Component] [DataContract] type and reaches "
-                    + $"{ComponentGeneratorRule.Registry}, so the component-registration rule is checking "
-                    + "nothing."
-                );
-
-                violations.AddRange(
-                    ComponentGeneratorRule.Violations(
-                        RootDirectory,
-                        projects.Select(project => project.ToString())
-                    )
-                );
-
-                // #1165. One level up from the two above: those ask whether a project in this tree
-                // names a generator, this asks whether the PACKAGE carries it. An analyzer does not
-                // flow through a `ProjectReference`, so a library that never packs its sibling
-                // generator ships the attributes and none of the code they generate — and every
-                // in-tree consumer names the generator itself, so nothing in a green build can
-                // notice. `Vixen.Editor.Inspector` and `Vixen.Editor.NodeGraph` were both found in
-                // that state by hand.
-                //
-                // ⚠ Both halves of the subject set again, and the second is the one that matters
-                // here: a walk that stopped understanding `TargetsForTfmSpecificContentInPackage`
-                // reports every generator in the tree as an offender rather than going quiet, so the
-                // vacuity to guard against is "nothing is packaged", not "nothing is a subject".
-                var packagedGenerators = GeneratorPackagingRule.Packaged(
-                    projects.Select(project => project.ToString())
-                );
-
-                Assert.True(
-                    GeneratorPackagingRule.Subjects(projects.Select(project => project.ToString())).Count > 0,
-                    "No generator or analyzer project was found, so the generator-packaging rule is checking "
-                    + "nothing."
-                );
-
-                Assert.True(
-                    packagedGenerators.Count > 0,
-                    "No library packs a generator, so the generator-packaging rule can no longer read a pack "
-                    + "target and would report every generator in the tree."
-                );
-
-                violations.AddRange(
-                    GeneratorPackagingRule.Violations(
-                        RootDirectory,
-                        projects.Select(project => project.ToString())
-                    )
-                );
-
-                // Doc 36 § P3's third exit criterion, which had never been written: nothing failed the
-                // build when `Vixen.Editor.App` referenced a feature assembly again. Blockout and
-                // Terrain were decoupled at real cost and either could have come back in silence.
-                //
-                // ⚠ It had a second, shrink-only half — `NotYetMoved`, what was still owed — and it was
-                // deleted rather than emptied when the last name left (#1302): an empty shrink-only list
-                // asserts nothing. What is left is `Allowed` and the rule that anything else fails.
-                var applicationVacuity = ApplicationReferenceRule.Vacuity(
-                    RootDirectory,
-                    projects.Select(project => project.ToString())
-                );
-
-                Assert.True(applicationVacuity is null, applicationVacuity ?? "");
-
-                violations.AddRange(
-                    ApplicationReferenceRule.Violations(
-                        RootDirectory,
-                        projects.Select(project => project.ToString())
-                    )
-                );
-
-                // Doc 50 § D6: the application's parts may only shrink. Doc 36's "under 800" was
-                // recorded rising seven times and failed nothing; a ceiling at today's size fails
-                // the first commit that grows it, and a row left above a shrunk file fails too.
-                var applicationParts = ApplicationSizeRule.Measure(RootDirectory);
-
-                if (UpdateExemptions) {
-                    var before = ApplicationSizeRule.Read(RootDirectory);
-
-                    System.IO.File.WriteAllText(RootDirectory / ApplicationSizeRule.TableFile, ApplicationSizeRule.Render(applicationParts), new System.Text.UTF8Encoding(false));
-
-                    foreach (var (file, lines) in applicationParts) {
-                        if (before.TryGetValue(file, out var ceiling) && lines > ceiling) {
-                            Log.Warning("{File} went UP, {Ceiling} → {Lines}: the application grew.", file, ceiling, lines);
-                        }
-                    }
-
-                    Log.Warning("{Table} has been rewritten from the tree. Read the diff before committing.", ApplicationSizeRule.TableFile);
-                }
-
-                var applicationCeilings = ApplicationSizeRule.Read(RootDirectory);
-                var sizeVacuity = ApplicationSizeRule.Vacuity(applicationParts, applicationCeilings);
-
-                Assert.True(sizeVacuity is null, sizeVacuity ?? "");
-
-                violations.AddRange(ApplicationSizeRule.Violations(applicationParts, applicationCeilings));
-
-                // Doc 50 § D6: a shell assembly naming what a feature owns. Project references cannot
-                // see an extension literal, a panel id or a command id, and doc 36 § P3 recorded a
-                // fully-qualified `case` pattern compiling with no diagnostic once the reference went —
-                // so this reads source, `.cs` and `.vxml`, against a list that may only shrink.
-                var featureVocabulary = FeatureNameRule.Measure(RootDirectory);
-                var featureVacuity = FeatureNameRule.Vacuity(featureVocabulary);
-
-                Assert.True(featureVacuity is null, featureVacuity ?? "");
-
-                var featureFindings = FeatureNameRule.Scan(RootDirectory, featureVocabulary);
-
-                if (UpdateExemptions) {
-                    var before = FeatureNameRule.Exempt(RootDirectory);
-
-                    System.IO.File.WriteAllText(
-                        RootDirectory / FeatureNameRule.ExemptionFile,
-                        FeatureNameRule.Render(featureFindings, before),
-                        new System.Text.UTF8Encoding(false)
+                    Assert.True(
+                        subjects > 0,
+                        "No project applies [DataContract], so the DataContract rule is checking nothing."
                     );
 
-                    foreach (var finding in featureFindings.Where(finding =>
-                                 !before.TryGetValue(finding.Key, out var row) || finding.Count > row.Count)) {
-                        Log.Warning("The shell learned a feature name: {File} {Name} {Count}", finding.File, finding.Name, finding.Count);
-                    }
-
-                    Log.Warning("{File} has been rewritten from the tree. Read the diff before committing.", FeatureNameRule.ExemptionFile);
-                }
-
-                violations.AddRange(FeatureNameRule.Violations(featureFindings, FeatureNameRule.Exempt(RootDirectory)));
-
-                // Doc 50 § D6 and § F7: a module registering straight into the shell, a theme or the
-                // services bag rather than through PluginContext, whose wrappers record the removal.
-                var moduleSubjects = ModuleRegistrationRule.Subjects(RootDirectory);
-                var moduleVacuity = ModuleRegistrationRule.Vacuity(moduleSubjects);
-
-                Assert.True(moduleVacuity is null, moduleVacuity ?? "");
-
-                var moduleFindings = ModuleRegistrationRule.Scan(RootDirectory, moduleSubjects);
-
-                if (UpdateExemptions) {
-                    System.IO.File.WriteAllText(
-                        RootDirectory / ModuleRegistrationRule.ExemptionFile,
-                        ModuleRegistrationRule.Render(moduleFindings, ModuleRegistrationRule.Exempt(RootDirectory)),
-                        new System.Text.UTF8Encoding(false)
+                    violations.AddRange(
+                        DataContractGeneratorRule.Violations(
+                            RootDirectory,
+                            projects.Select(project => project.ToString())
+                        )
                     );
 
-                    Log.Warning("{File} has been rewritten from the tree. Read the diff before committing.", ModuleRegistrationRule.ExemptionFile);
+                    // #1139. Strictly narrower than the rule above and invisible to it: a project naming
+                    // the two Vixen.Core generators and not `Vixen.Engine.Generators` reads clean there
+                    // and is missing the third declaration — `SceneComponentRegistry.Declare<T>()` — so
+                    // the type serialises, its alias resolves, and the Add Component menu does not offer
+                    // it while a .vxscene naming it fails at load. `Vixen.Ai.Nodes` and
+                    // `Vixen.Ai.Perception` were both in that state and both read clean (#1056), which is
+                    // the third time the shape was found by hand rather than by a gate.
+                    //
+                    // ⚠ The subject set is both halves — carries the pair AND reaches Vixen.Engine — so a
+                    // rename of the registry assembly reports "checking nothing" rather than "no
+                    // violations", which is the one this rule could plausibly go quiet on.
+                    var componentSubjects = ComponentGeneratorRule.Subjects(
+                        projects.Select(project => project.ToString())
+                    );
+
+                    Assert.True(
+                        componentSubjects.Count > 0,
+                        $"No project declares a [Component] [DataContract] type and reaches "
+                        + $"{ComponentGeneratorRule.Registry}, so the component-registration rule is checking "
+                        + "nothing."
+                    );
+
+                    violations.AddRange(
+                        ComponentGeneratorRule.Violations(
+                            RootDirectory,
+                            projects.Select(project => project.ToString())
+                        )
+                    );
+
+                    // #1165. One level up from the two above: those ask whether a project in this tree
+                    // names a generator, this asks whether the PACKAGE carries it. An analyzer does not
+                    // flow through a `ProjectReference`, so a library that never packs its sibling
+                    // generator ships the attributes and none of the code they generate — and every
+                    // in-tree consumer names the generator itself, so nothing in a green build can
+                    // notice. `Vixen.Editor.Inspector` and `Vixen.Editor.NodeGraph` were both found in
+                    // that state by hand.
+                    //
+                    // ⚠ Both halves of the subject set again, and the second is the one that matters
+                    // here: a walk that stopped understanding `TargetsForTfmSpecificContentInPackage`
+                    // reports every generator in the tree as an offender rather than going quiet, so the
+                    // vacuity to guard against is "nothing is packaged", not "nothing is a subject".
+                    var packagedGenerators = GeneratorPackagingRule.Packaged(
+                        projects.Select(project => project.ToString())
+                    );
+
+                    Assert.True(
+                        GeneratorPackagingRule.Subjects(projects.Select(project => project.ToString())).Count > 0,
+                        "No generator or analyzer project was found, so the generator-packaging rule is checking "
+                        + "nothing."
+                    );
+
+                    Assert.True(
+                        packagedGenerators.Count > 0,
+                        "No library packs a generator, so the generator-packaging rule can no longer read a pack "
+                        + "target and would report every generator in the tree."
+                    );
+
+                    violations.AddRange(
+                        GeneratorPackagingRule.Violations(
+                            RootDirectory,
+                            projects.Select(project => project.ToString())
+                        )
+                    );
+
+                    // Doc 36 § P3's third exit criterion, which had never been written: nothing failed the
+                    // build when `Vixen.Editor.App` referenced a feature assembly again. Blockout and
+                    // Terrain were decoupled at real cost and either could have come back in silence.
+                    //
+                    // ⚠ It had a second, shrink-only half — `NotYetMoved`, what was still owed — and it was
+                    // deleted rather than emptied when the last name left (#1302): an empty shrink-only list
+                    // asserts nothing. What is left is `Allowed` and the rule that anything else fails.
+                    var applicationVacuity = ApplicationReferenceRule.Vacuity(
+                        RootDirectory,
+                        projects.Select(project => project.ToString())
+                    );
+
+                    Assert.True(applicationVacuity is null, applicationVacuity ?? "");
+
+                    violations.AddRange(
+                        ApplicationReferenceRule.Violations(
+                            RootDirectory,
+                            projects.Select(project => project.ToString())
+                        )
+                    );
+
+                    // Doc 50 § D6: the application's parts may only shrink. Doc 36's "under 800" was
+                    // recorded rising seven times and failed nothing; a ceiling at today's size fails
+                    // the first commit that grows it, and a row left above a shrunk file fails too.
+                    var applicationParts = ApplicationSizeRule.Measure(RootDirectory);
+
+                    if (UpdateExemptions) {
+                        var before = ApplicationSizeRule.Read(RootDirectory);
+
+                        System.IO.File.WriteAllText(
+                            RootDirectory / ApplicationSizeRule.TableFile,
+                            ApplicationSizeRule.Render(applicationParts),
+                            new System.Text.UTF8Encoding(false)
+                        );
+
+                        foreach (var (file, lines) in applicationParts) {
+                            if (before.TryGetValue(file, out var ceiling) && lines > ceiling) {
+                                Log.Warning(
+                                    "{File} went UP, {Ceiling} → {Lines}: the application grew.",
+                                    file,
+                                    ceiling,
+                                    lines
+                                );
+                            }
+                        }
+
+                        Log.Warning(
+                            "{Table} has been rewritten from the tree. Read the diff before committing.",
+                            ApplicationSizeRule.TableFile
+                        );
+                    }
+
+                    var applicationCeilings = ApplicationSizeRule.Read(RootDirectory);
+                    var sizeVacuity = ApplicationSizeRule.Vacuity(applicationParts, applicationCeilings);
+
+                    Assert.True(sizeVacuity is null, sizeVacuity ?? "");
+
+                    violations.AddRange(ApplicationSizeRule.Violations(applicationParts, applicationCeilings));
+
+                    // Doc 50 § D6: a shell assembly naming what a feature owns. Project references cannot
+                    // see an extension literal, a panel id or a command id, and doc 36 § P3 recorded a
+                    // fully-qualified `case` pattern compiling with no diagnostic once the reference went —
+                    // so this reads source, `.cs` and `.vxml`, against a list that may only shrink.
+                    var featureVocabulary = FeatureNameRule.Measure(RootDirectory);
+                    var featureVacuity = FeatureNameRule.Vacuity(featureVocabulary);
+
+                    Assert.True(featureVacuity is null, featureVacuity ?? "");
+
+                    var featureFindings = FeatureNameRule.Scan(RootDirectory, featureVocabulary);
+
+                    if (UpdateExemptions) {
+                        var before = FeatureNameRule.Exempt(RootDirectory);
+
+                        System.IO.File.WriteAllText(
+                            RootDirectory / FeatureNameRule.ExemptionFile,
+                            FeatureNameRule.Render(featureFindings, before),
+                            new System.Text.UTF8Encoding(false)
+                        );
+
+                        foreach (var finding in featureFindings.Where(finding =>
+                                     !before.TryGetValue(finding.Key, out var row) || finding.Count > row.Count
+                                 )) {
+                            Log.Warning(
+                                "The shell learned a feature name: {File} {Name} {Count}",
+                                finding.File,
+                                finding.Name,
+                                finding.Count
+                            );
+                        }
+
+                        Log.Warning(
+                            "{File} has been rewritten from the tree. Read the diff before committing.",
+                            FeatureNameRule.ExemptionFile
+                        );
+                    }
+
+                    violations.AddRange(
+                        FeatureNameRule.Violations(featureFindings, FeatureNameRule.Exempt(RootDirectory))
+                    );
+
+                    // Doc 50 § D6 and § F7: a module registering straight into the shell, a theme or the
+                    // services bag rather than through PluginContext, whose wrappers record the removal.
+                    var moduleSubjects = ModuleRegistrationRule.Subjects(RootDirectory);
+                    var moduleVacuity = ModuleRegistrationRule.Vacuity(moduleSubjects);
+
+                    Assert.True(moduleVacuity is null, moduleVacuity ?? "");
+
+                    var moduleFindings = ModuleRegistrationRule.Scan(RootDirectory, moduleSubjects);
+
+                    if (UpdateExemptions) {
+                        System.IO.File.WriteAllText(
+                            RootDirectory / ModuleRegistrationRule.ExemptionFile,
+                            ModuleRegistrationRule.Render(moduleFindings, ModuleRegistrationRule.Exempt(RootDirectory)),
+                            new System.Text.UTF8Encoding(false)
+                        );
+
+                        Log.Warning(
+                            "{File} has been rewritten from the tree. Read the diff before committing.",
+                            ModuleRegistrationRule.ExemptionFile
+                        );
+                    }
+
+                    violations.AddRange(
+                        ModuleRegistrationRule.Violations(moduleFindings, ModuleRegistrationRule.Exempt(RootDirectory))
+                    );
+
+                    Log.Information(
+                        "Module registration: {Subjects} projects declare a module; {Rows} rows go round PluginContext.",
+                        moduleSubjects.Count,
+                        moduleFindings.Count
+                    );
+
+                    Log.Information(
+                        "Feature names: {Features} feature assemblies own {Types} types, {Extensions} extensions, {Panels} panel ids "
+                        + "and {Prefixes} command prefixes; the shell holds {Rows} exempt rows.",
+                        featureVocabulary.Features.Count,
+                        featureVocabulary.Types.Count,
+                        featureVocabulary.Extensions.Count,
+                        featureVocabulary.PanelIds.Count,
+                        featureVocabulary.Prefixes.Count,
+                        featureFindings.Count
+                    );
+
+                    foreach (var violation in violations) {
+                        Log.Error("{Violation}", violation);
+                    }
+
+                    Assert.True(
+                        violations.Count == 0,
+                        $"{violations.Count} architecture violation(s). See the errors above."
+                    );
+
+                    // ⚠ The plugin count is logged because it is the rule's subject set, and a subject set
+                    // is the half of a rule nothing checks. It read nine while the editor application —
+                    // which references the contract because it hosts plugins — was being counted as one
+                    // of them.
+                    Log.Information(
+                        "Checked {Count} projects, of which {Plugins} are editor plugins, {Subjects} apply "
+                        + "[DataContract] and {Components} declare a [Component] [DataContract] type the scene "
+                        + "registry can see; no violations.",
+                        projects.Count,
+                        PluginReferenceRule.Plugins(edges).Count,
+                        subjects,
+                        componentSubjects.Count
+                    );
                 }
-
-                violations.AddRange(ModuleRegistrationRule.Violations(moduleFindings, ModuleRegistrationRule.Exempt(RootDirectory)));
-
-                Log.Information(
-                    "Module registration: {Subjects} projects declare a module; {Rows} rows go round PluginContext.",
-                    moduleSubjects.Count,
-                    moduleFindings.Count
-                );
-
-                Log.Information(
-                    "Feature names: {Features} feature assemblies own {Types} types, {Extensions} extensions, {Panels} panel ids "
-                    + "and {Prefixes} command prefixes; the shell holds {Rows} exempt rows.",
-                    featureVocabulary.Features.Count,
-                    featureVocabulary.Types.Count,
-                    featureVocabulary.Extensions.Count,
-                    featureVocabulary.PanelIds.Count,
-                    featureVocabulary.Prefixes.Count,
-                    featureFindings.Count
-                );
-
-                foreach (var violation in violations) {
-                    Log.Error("{Violation}", violation);
-                }
-
-                Assert.True(
-                    violations.Count == 0,
-                    $"{violations.Count} architecture violation(s). See the errors above."
-                );
-
-                // ⚠ The plugin count is logged because it is the rule's subject set, and a subject set
-                // is the half of a rule nothing checks. It read nine while the editor application —
-                // which references the contract because it hosts plugins — was being counted as one
-                // of them.
-                Log.Information(
-                    "Checked {Count} projects, of which {Plugins} are editor plugins, {Subjects} apply "
-                    + "[DataContract] and {Components} declare a [Component] [DataContract] type the scene "
-                    + "registry can see; no violations.",
-                    projects.Count,
-                    PluginReferenceRule.Plugins(edges).Count,
-                    subjects,
-                    componentSubjects.Count
-                );
-            }
-        );
+            );
 
     /// <summary>The top-level directory a project sits under, which is the layer it belongs to.</summary>
     /// <remarks>

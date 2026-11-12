@@ -3,7 +3,6 @@
 
 using Vixen.Core;
 using Vixen.Core.Mathematics;
-using Vixen.Ecs;
 using Vixen.Engine.Diagnostics;
 using Vixen.Engine.Diagnostics.Overlays;
 using Vixen.Engine.Frames;
@@ -84,14 +83,14 @@ public sealed class PhysicsSceneTests {
 
         // Not merely "unchanged in value" — untouched, so a hundred thousand pieces of level geometry
         // do not dirty their chunk's LocalTransform column every step and wake the transform pass.
-        Assert.Equal(new Vector3(0f, -1f, 0f), entities.Read<LocalTransform>(ground).Position);
+        Assert.Equal(new(0f, -1f, 0f), entities.Read<LocalTransform>(ground).Position);
 
         // The interpolation state is seeded once, when the body is made, and then left alone: both
         // ends of it are the authored pose, so a renderer that lerps between them draws the same
         // thing whatever the alpha is.
         var interpolation = entities.Read<PhysicsInterpolation>(ground);
-        Assert.Equal(new Vector3(0f, -1f, 0f), interpolation.PreviousPosition);
-        Assert.Equal(new Vector3(0f, -1f, 0f), interpolation.CurrentPosition);
+        Assert.Equal(new(0f, -1f, 0f), interpolation.PreviousPosition);
+        Assert.Equal(new(0f, -1f, 0f), interpolation.CurrentPosition);
     }
 
     [Fact]
@@ -432,8 +431,12 @@ public sealed class PhysicsSceneTests {
     ///     all.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>Everything the test above asserts was true for months and no build could reach any of
-    ///     it.</b> <c>PhysicsDebugDrawSystem</c> was constructed nowhere outside that test, so
+    ///     ⚠
+    ///     <b>
+    ///         Everything the test above asserts was true for months and no build could reach any of
+    ///         it.
+    ///     </b>
+    ///     <c>PhysicsDebugDrawSystem</c> was constructed nowhere outside that test, so
     ///     <c>overlay physics on</c> answered "there is no overlay called 'physics'" — doc 13
     ///     § Diagnostic overlays asks for it to be toggleable in every build. So the assertion here is
     ///     deliberately not "the overlay draws": it is that the console's own route reaches it.
@@ -473,7 +476,7 @@ public sealed class PhysicsSceneTests {
         Assert.Equal(0, draw.ScreenCount);
 
         draw.Clear();
-        overlays.Draw(draw, new(1280f, 720f), new GameTime());
+        overlays.Draw(draw, new(1280f, 720f), new());
 
         Assert.Equal(1, overlays.DrawnCount);
         Assert.True(draw.ScreenCount > 0, "the counts panel drew no screen geometry");

@@ -38,8 +38,12 @@ namespace Vixen.Geometry.Remeshing.Tests;
 public class RemesherTests {
     /// <summary>Every face has four sides, on every fixture that produces one.</summary>
     /// <remarks>
-    ///     ⚠ <b>docs/plan/41 § D8 and § D15: quad-<i>dominant</i> is not good enough and the reason is
-    ///     downstream.</b> Doc 24's <c>MeshOperations</c> is built on the assumption that a loop, a ring
+    ///     ⚠
+    ///     <b>
+    ///         docs/plan/41 § D8 and § D15: quad-<i>dominant</i> is not good enough and the reason is
+    ///         downstream.
+    ///     </b>
+    ///     Doc 24's <c>MeshOperations</c> is built on the assumption that a loop, a ring
     ///     and a loop cut are statements about four-sided faces — a result with a triangle in it has no
     ///     rings to cut and the mesh kernel's whole vocabulary stops working on it. This is the
     ///     assertion the extraction's grid construction exists to make trivially true, and it is the one
@@ -69,15 +73,22 @@ public class RemesherTests {
     /// <summary>A boolean of two boxes reproduces its feature lines to the order the criterion names.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>docs/plan/41's second exit criterion, measured rather than claimed: "every feature
-    ///         polyline is a chain of output edges, to 1e-5".</b> It is achievable because § D4 makes the
+    ///         <b>
+    ///             docs/plan/41's second exit criterion, measured rather than claimed: "every feature
+    ///             polyline is a chain of output edges, to 1e-5".
+    ///         </b>
+    ///         It is achievable because § D4 makes the
     ///         polylines <i>boundaries of the layout</i> rather than something snapped to afterwards —
     ///         the arcs run along the source chain, their samples are interpolated on it, and the arcs
     ///         are split at every key of the chain so the run between two samples is straight.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Measured, in fractions of the bounding-box diagonal: box 5.87e-5, plate with a hole
-    ///         2.86e-4, cylinder 2.43e-5, union of two boxes 4.46e-5, their difference 2.83e-4.</b> The
+    ///         ⚠
+    ///         <b>
+    ///             Measured, in fractions of the bounding-box diagonal: box 5.87e-5, plate with a hole
+    ///             2.86e-4, cylinder 2.43e-5, union of two boxes 4.46e-5, their difference 2.83e-4.
+    ///         </b>
+    ///         The
     ///         two booleans were <b>8.61e-3 and 1.27e-2</b> — three orders short — and are now within a
     ///         factor of five and thirty of the criterion. Two causes were found and both were about
     ///         where a crease <i>starts</i> rather than what runs along it. A collapsed arc merges its
@@ -88,8 +99,12 @@ public class RemesherTests {
     ///         of the feature graph; <see cref="Quantizer" /> now floors those at one quad.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The plate is the one that moved the wrong way, from 2.42e-5 to 2.86e-4, and it is
-    ///         recorded rather than tuned around.</b> Its worst arc is a three-vertex chain on the hole's
+    ///         ⚠
+    ///         <b>
+    ///             The plate is the one that moved the wrong way, from 2.42e-5 to 2.86e-4, and it is
+    ///             recorded rather than tuned around.
+    ///         </b>
+    ///         Its worst arc is a three-vertex chain on the hole's
     ///         rim with a chord sagitta of 1.56e-3: the chain is genuinely <i>curved</i>, two samples
     ///         straddle the bend, and the output edge between them cuts it. That is a sampling limit on a
     ///         curved feature rather than a slit, it is not what this phase set out to fix, and placing
@@ -97,9 +112,13 @@ public class RemesherTests {
     ///         cylinder worse — the relaxation slides them off again — so it was removed.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Every tolerance below rose by three to eight times when § D9's <c>base</c> started
-    ///         being solved from the budget, and they are the numbers measured rather than the numbers
-    ///         hoped for.</b> box <c>5.87e-5 → 2.92e-4</c>, union <c>4.46e-5 → 3.18e-4</c>, plate
+    ///         ⚠
+    ///         <b>
+    ///             Every tolerance below rose by three to eight times when § D9's <c>base</c> started
+    ///             being solved from the budget, and they are the numbers measured rather than the numbers
+    ///             hoped for.
+    ///         </b>
+    ///         box <c>5.87e-5 → 2.92e-4</c>, union <c>4.46e-5 → 3.18e-4</c>, plate
     ///         <c>2.86e-4 → 5.15e-4</c>, difference <c>2.83e-4 → 8.26e-4</c>; cylinder did not move.
     ///         docs/plan/41's first exit criterion and its second pull against each other through a
     ///         single scalar and this is what that costs today.
@@ -112,12 +131,20 @@ public class RemesherTests {
     ///         <c>DensityField.Normalise</c> divides back out, so a crease that used to be
     ///         quantized at half of a short <c>base</c> is now quantized at half of one about 2.4 times
     ///         longer — and the whole point of that term is that a hard edge is not straddled by one
-    ///         enormous quad. <b>Excluding the feature band from the budget solve is the row this
-    ///         leaves</b>, and docs/plan/41's second exit criterion records it in the same words.
+    ///         enormous quad.
+    ///         <b>
+    ///             Excluding the feature band from the budget solve is the row this
+    ///             leaves
+    ///         </b>
+    ///         , and docs/plan/41's second exit criterion records it in the same words.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>That row has now been tried, and it buys the creases back by giving the budget
-    ///         away.</b> Dropping <c>featureTerm</c> from <c>DensityField.Normalise</c>'s sum
+    ///         ⚠
+    ///         <b>
+    ///             That row has now been tried, and it buys the creases back by giving the budget
+    ///             away.
+    ///         </b>
+    ///         Dropping <c>featureTerm</c> from <c>DensityField.Normalise</c>'s sum
     ///         takes box to <c>7.6e-5</c> and union to <c>1.77e-4</c> — most of the regression undone —
     ///         and takes box to <b>1,675 quads against a 400 budget</b>, 4.2× and far past
     ///         <see cref="Remesher.BudgetTolerance" />. It is the naive <c>√(area / quads)</c> again by
@@ -125,8 +152,12 @@ public class RemesherTests {
     ///         and not a commit.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The not-coarseness claim above is confirmed by the matched-count control, which is
-    ///         the one that makes this worth writing down.</b> The solved base at a 1,200 budget gives
+    ///         ⚠
+    ///         <b>
+    ///             The not-coarseness claim above is confirmed by the matched-count control, which is
+    ///             the one that makes this worth writing down.
+    ///         </b>
+    ///         The solved base at a 1,200 budget gives
     ///         box 1,729 quads at <c>7.17e-4</c>; the excluded band at a 400 budget gives 1,675 quads —
     ///         <i>fewer</i> — at <c>7.6e-5</c>. Nine times better on less. Where the quads sit matters
     ///         more than how many there are.
@@ -167,8 +198,12 @@ public class RemesherTests {
     /// <summary>Every closed fixture but one comes back closed, consistent and with nothing left over.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>This asserted a sphere and only a sphere, and naming the exception is what made the
-    ///         fix findable.</b> A closed input must produce <see cref="MeshReport.IsSolid" />. A sphere
+    ///         ⚠
+    ///         <b>
+    ///             This asserted a sphere and only a sphere, and naming the exception is what made the
+    ///             fix findable.
+    ///         </b>
+    ///         A closed input must produce <see cref="MeshReport.IsSolid" />. A sphere
     ///         always did; the hard-surface fixtures did not, because their partitions contained patches
     ///         whose boundary walked one arc twice and <see cref="PatchExtractor" /> refuses those rather
     ///         than emit a folded grid — so what was missing was holes rather than corruption.
@@ -214,8 +249,12 @@ public class RemesherTests {
     ///         count equals the quantized count exactly on every one of them.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Asserted on the warning text rather than on a count, because the warning is what a
-    ///         caller reads.</b> § Part 4's whole argument is that a remesher which cannot say it went
+    ///         ⚠
+    ///         <b>
+    ///             Asserted on the warning text rather than on a count, because the warning is what a
+    ///             caller reads.
+    ///         </b>
+    ///         § Part 4's whole argument is that a remesher which cannot say it went
     ///         wrong will be trusted until it embarrasses somebody — so the assertion is that the report
     ///         does not carry the sentence, which is the same thing the user would look for.
     ///     </para>
@@ -235,14 +274,18 @@ public class RemesherTests {
 
         Assert.DoesNotContain(
             report.Warnings,
-            warning => warning.Contains("patches were skipped", StringComparison.Ordinal)
+            static warning => warning.Contains("patches were skipped", StringComparison.Ordinal)
         );
     }
 
     /// <summary>No patch's boundary walks the same arc twice, on any fixture.</summary>
     /// <remarks>
-    ///     ⚠ <b>The invariant underneath <see cref="No_patch_is_skipped_by_the_extractor" />, asserted
-    ///     where it is established rather than where it is felt.</b> An arc used twice by one patch is a
+    ///     ⚠
+    ///     <b>
+    ///         The invariant underneath <see cref="No_patch_is_skipped_by_the_extractor" />, asserted
+    ///         where it is established rather than where it is felt.
+    ///     </b>
+    ///     An arc used twice by one patch is a
     ///     slit walked up one side and back down the other; it puts one run of output vertices into a
     ///     grid row twice, and it also puts one quantization variable into three or four constraints,
     ///     which stops the system being a flow problem at all. Testing the layout directly is what tells
@@ -278,8 +321,12 @@ public class RemesherTests {
     /// <summary>Two patches sharing a side hold the same position indices, in reverse.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>docs/plan/41 § D8: "grid vertices on shared sides are the <i>same</i> vertices, by
-    ///         index, so the seam is an equality rather than a weld".</b> A tolerance weld here is how a
+    ///         ⚠
+    ///         <b>
+    ///             docs/plan/41 § D8: "grid vertices on shared sides are the <i>same</i> vertices, by
+    ///             index, so the seam is an equality rather than a weld".
+    ///         </b>
+    ///         A tolerance weld here is how a
     ///         mesh acquires a crack that only shows up under subdivision, on a model whose scale nobody
     ///         thought about.
     ///     </para>
@@ -299,7 +346,7 @@ public class RemesherTests {
     public void A_shared_side_is_one_set_of_vertices(string name) {
         var layout = Layout(name, out var mesh, out var features);
         var quantization = Quantizer.Solve(layout);
-        var projector = SurfaceProjector.Build(mesh.Positions.ToArray(), mesh.Triangles.ToArray());
+        var projector = SurfaceProjector.Build([..mesh.Positions], [..mesh.Triangles]);
         var extraction = PatchExtractor.Extract(mesh, features, layout, quantization, projector);
 
         var uses = new Dictionary<int, List<(int Patch, bool Reversed)>>();
@@ -318,7 +365,7 @@ public class RemesherTests {
 
         var shared = 0;
 
-        foreach (var (arc, list) in uses.OrderBy(entry => entry.Key)) {
+        foreach (var (arc, list) in uses.OrderBy(static entry => entry.Key)) {
             if (list.Count != 2 || list[0].Patch == list[1].Patch) {
                 continue;
             }
@@ -390,8 +437,12 @@ public class RemesherTests {
     ///         the exact one is a Dijkstra over reduced costs.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Where they agree is where the system has no slack, and that is the useful half of
-    ///         the comparison.</b> A layout whose rounded targets already satisfy every constraint has
+    ///         ⚠
+    ///         <b>
+    ///             Where they agree is where the system has no slack, and that is the useful half of
+    ///             the comparison.
+    ///         </b>
+    ///         A layout whose rounded targets already satisfy every constraint has
     ///         nothing to route, so the two produce the same integers — the assertion is
     ///         <i>no worse</i> rather than <i>strictly better</i>.
     ///     </para>
@@ -428,9 +479,12 @@ public class RemesherTests {
     ///     ends into one output vertex, which is what "collapse" means — but a patch whose whole width
     ///     or whole height comes to zero produces no quads at all and is a bug. Both halves are asserted:
     ///     zeros are allowed to be present, and every patch's two dimensions are positive.
-    ///
-    ///     ⚠ <b>A fan has three sides rather than two pairs, and its constraint is the same law written
-    ///     once more.</b> Its three spokes are what the router solved for, so what has to hold is that
+    ///     ⚠
+    ///     <b>
+    ///         A fan has three sides rather than two pairs, and its constraint is the same law written
+    ///         once more.
+    ///     </b>
+    ///     Its three spokes are what the router solved for, so what has to hold is that
     ///     each side equals the two spokes it runs between — <c>n₀ = a + c</c>, <c>n₁ = a + b</c>,
     ///     <c>n₂ = b + c</c> — and that each spoke is at least one, which is the whole of the parity and
     ///     the triangle inequality a three-quads-round-a-centre filling needs.
@@ -487,9 +541,12 @@ public class RemesherTests {
     ///     scales as the <i>square</i> of the model. Every number this phase reports is a fraction of the
     ///     bounding-box diagonal for the same reason, so a millimetre-wide box and a kilometre-wide one
     ///     have to come out the same.
-    ///
-    ///     ⚠ <b>The <i>relative</i> measures are compared and the quad count is not, and R1 recorded
-    ///     why.</b> <c>ScaleInvarianceTests</c> measured that five rounds of the pre-remesh do not agree
+    ///     ⚠
+    ///     <b>
+    ///         The <i>relative</i> measures are compared and the quad count is not, and R1 recorded
+    ///         why.
+    ///     </b>
+    ///     <c>ScaleInvarianceTests</c> measured that five rounds of the pre-remesh do not agree
     ///     exactly at a thousandth and a thousand times — <c>0.001f</c> is not a binary fraction, so each
     ///     coordinate is perturbed by an ulp and a mesh full of equal edge lengths breaks its ties
     ///     differently. That reaches this phase as a different conditioned mesh, a different field, a
@@ -497,15 +554,22 @@ public class RemesherTests {
     ///     a thousand times. Asserting the count would be asserting that R1 is bit-exact under scaling,
     ///     which it is not and does not claim to be. What must hold is that <i>nothing degrades</i> — the
     ///     result is still all quads, still as near the surface, still with nothing on a feature.
-    ///
-    ///     ⚠⚠ <b>The four factors around a thousandth are a swept neighbourhood rather than four
-    ///     sizes, and sweeping is what found the defect.</b> A single sample at <c>1e-3</c> passed while
+    ///     ⚠⚠
+    ///     <b>
+    ///         The four factors around a thousandth are a swept neighbourhood rather than four
+    ///         sizes, and sweeping is what found the defect.
+    ///     </b>
+    ///     A single sample at <c>1e-3</c> passed while
     ///     <c>0.0009</c> came back with ten boundary edges: the ulp-level perturbation above reaches the
     ///     partition as a different flood, and at that one scale it left a patch bounded by three arcs
     ///     that <c>Divide</c> could not corner and <c>Merge</c> was too large to dissolve — dropped, and
-    ///     the drop is the hole. <b><c>Assert.Equal(unit.Mesh.IsSolid, scaled.Mesh.IsSolid)</c> is the
-    ///     assertion that caught it and it is not to be weakened to "solid, or a warning saying it is
-    ///     not".</b> A warning is what the pipeline owes a caller about a hole; it is not permission for
+    ///     the drop is the hole.
+    ///     <b>
+    ///         <c>Assert.Equal(unit.Mesh.IsSolid, scaled.Mesh.IsSolid)</c> is the
+    ///         assertion that caught it and it is not to be weakened to "solid, or a warning saying it is
+    ///         not".
+    ///     </b>
+    ///     A warning is what the pipeline owes a caller about a hole; it is not permission for
     ///     one, and a test that accepts the apology tests only that the apology was printed. The layout
     ///     carries such a patch as a fan now, so all four are solid.
     /// </remarks>
@@ -557,7 +621,7 @@ public class RemesherTests {
         // and R6 filled it, so the assertion is inverted rather than deleted: the stage that carries
         // the attributes and derives the atlas cannot take no time, and a zero here now means the
         // transfer silently did not run.
-        var transfer = report.Stages.Single(timing => timing.Stage == RemeshStage.Transfer);
+        var transfer = report.Stages.Single(static timing => timing.Stage == RemeshStage.Transfer);
 
         Assert.True(transfer.Elapsed > TimeSpan.Zero, "Stage seven did no work at all.");
         Assert.True(transfer.Elements > 0, "Stage seven carried nothing.");
@@ -566,8 +630,12 @@ public class RemesherTests {
 
     /// <summary>Nothing throws and nothing hangs, on eighteen deliberately broken meshes.</summary>
     /// <remarks>
-    ///     ⚠ <b>docs/plan/41's seventh exit criterion, and the word "hang" in it is why every walk,
-    ///     every repair and every solve in this phase is bounded.</b> A separatrix that cycles, a patch
+    ///     ⚠
+    ///     <b>
+    ///         docs/plan/41's seventh exit criterion, and the word "hang" in it is why every walk,
+    ///         every repair and every solve in this phase is bounded.
+    ///     </b>
+    ///     A separatrix that cycles, a patch
     ///     repair that oscillates, a flow augmentation that routes in a circle — all three are the
     ///     natural failure of their algorithm rather than an exotic one, and each carries an explicit
     ///     budget that ends in a warning. A refusal comes back as an empty mesh with the reason in the
@@ -606,7 +674,10 @@ public class RemesherTests {
         );
 
         Assert.True(quads.FaceCount > 0, string.Join(" · ", report.Warnings));
-        Assert.DoesNotContain(report.Warnings, warning => warning.Contains("not applied yet", StringComparison.Ordinal));
+        Assert.DoesNotContain(
+            report.Warnings,
+            static warning => warning.Contains("not applied yet", StringComparison.Ordinal)
+        );
         Assert.Equal(0, report.NonQuadCount);
     }
 
@@ -668,16 +739,17 @@ public class RemesherTests {
         return scaled;
     }
 
-    internal static EditMesh Fixture(string name) => name switch {
-        "box" => MeshShapes.Create(ShapeKind.Box),
-        "sphere" => MeshShapes.Create(ShapeParameters.Default(ShapeKind.Sphere) with { Sides = 24, Steps = 12 }),
-        "cylinder" => MeshShapes.Create(ShapeParameters.Default(ShapeKind.Cylinder) with { Sides = 16 }),
-        "stairs" => MeshShapes.Create(ShapeKind.Stairs),
-        "plate" => FieldFixtures.Plate(5, 5, [(2, 2)]),
-        "union" => Boolean(BooleanOperation.Union),
-        "difference" => Boolean(BooleanOperation.Difference),
-        _ => throw new ArgumentOutOfRangeException(nameof(name), name, "No such fixture.")
-    };
+    internal static EditMesh Fixture(string name) =>
+        name switch {
+            "box" => MeshShapes.Create(ShapeKind.Box),
+            "sphere" => MeshShapes.Create(ShapeParameters.Default(ShapeKind.Sphere) with { Sides = 24, Steps = 12 }),
+            "cylinder" => MeshShapes.Create(ShapeParameters.Default(ShapeKind.Cylinder) with { Sides = 16 }),
+            "stairs" => MeshShapes.Create(ShapeKind.Stairs),
+            "plate" => FieldFixtures.Plate(5, 5, [(2, 2)]),
+            "union" => Boolean(BooleanOperation.Union),
+            "difference" => Boolean(BooleanOperation.Difference),
+            _ => throw new ArgumentOutOfRangeException(nameof(name), name, "No such fixture.")
+        };
 
     /// <summary>Doc 24's blockout case: two boxes through <see cref="MeshBoolean" />.</summary>
     static EditMesh Boolean(BooleanOperation operation) =>

@@ -6,7 +6,10 @@ using System.Collections.Immutable;
 namespace Vixen.TextureGraph;
 
 /// <summary>Which lattice a <c>Volume Noise</c> sums.</summary>
-/// <remarks>The numbers are the contract with <c>Shaders/VolumeNoise.rvn</c>'s <c>basis</c>, which compares against them literally.</remarks>
+/// <remarks>
+///     The numbers are the contract with <c>Shaders/VolumeNoise.rvn</c>'s <c>basis</c>, which compares against them
+///     literally.
+/// </remarks>
 internal enum TextureVolumeBasis {
     /// <summary>A value per lattice point, blended trilinearly: soft and blobby.</summary>
     Value = 0,
@@ -126,7 +129,12 @@ internal static class TextureVolumes {
     /// <param name="start">Where it is nought.</param>
     /// <param name="end">Where it is one.</param>
     /// <returns>The op.</returns>
-    public static TextureOp Gradient(int output, int position, (float X, float Y, float Z) start, (float X, float Y, float Z) end) =>
+    public static TextureOp Gradient(
+        int output,
+        int position,
+        (float X, float Y, float Z) start,
+        (float X, float Y, float Z) end
+    ) =>
         Shape(output, position, GradientKind, start, end, 0f);
 
     static TextureOp Shape(

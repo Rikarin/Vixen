@@ -27,8 +27,11 @@ public class SectionTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>A region named by its heading, and a heading a reader can navigate to, as the tree
-    ///     hands them to a screen reader.</b>
+    ///     ⚠
+    ///     <b>
+    ///         A region named by its heading, and a heading a reader can navigate to, as the tree
+    ///         hands them to a screen reader.
+    ///     </b>
     /// </summary>
     /// <remarks>
     ///     Asserted on the rendered tree rather than on the properties alone: a region whose name was
@@ -65,8 +68,11 @@ public class SectionTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>With no title it is still a region, it has no heading at all, and the gate says it is
-    ///     unnamed.</b>
+    ///     ⚠
+    ///     <b>
+    ///         With no title it is still a region, it has no heading at all, and the gate says it is
+    ///         unnamed.
+    ///     </b>
     /// </summary>
     /// <remarks>
     ///     The region stays so that <c>AccessibilitySnapshot.Unnamed</c> can report it — a role that
@@ -125,7 +131,7 @@ public class SectionTests {
     /// </remarks>
     [Fact]
     public void A_nested_tag_lands_in_the_content_and_keeps_its_own_anonymity() {
-        using var ui = ControlHarness.Open(400f, 300f);
+        using var ui = ControlHarness.Open();
         var sheet = new SectionSheet { Heading = "Audio" };
 
         BuildContext.BuildInto(sheet, ui.Document, ui.Document.Root);

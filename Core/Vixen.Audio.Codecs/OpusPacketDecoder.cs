@@ -36,7 +36,7 @@ public sealed class OpusPacketDecoder : IDisposable {
         }
 
         FrameSize = OpusPacketEncoder.FramesPer(frameMilliseconds);
-        Format = new AudioFormat(Rate, channels);
+        Format = new(Rate, channels);
 
         OpusRuntime.Ensure();
         decoder = OpusCodecFactory.CreateDecoder(Rate, channels);
@@ -66,7 +66,7 @@ public sealed class OpusPacketDecoder : IDisposable {
         }
 
         try {
-            var frames = decoder.Decode(packet, pcm, FrameSize, false);
+            var frames = decoder.Decode(packet, pcm, FrameSize);
 
             if (frames > 0) {
                 return frames;
@@ -110,7 +110,7 @@ public sealed class OpusPacketDecoder : IDisposable {
 
         try {
             var frames = next.IsEmpty
-                ? decoder.Decode(ReadOnlySpan<byte>.Empty, pcm, FrameSize, false)
+                ? decoder.Decode(ReadOnlySpan<byte>.Empty, pcm, FrameSize)
                 : decoder.Decode(next, pcm, FrameSize, true);
 
             if (frames > 0) {

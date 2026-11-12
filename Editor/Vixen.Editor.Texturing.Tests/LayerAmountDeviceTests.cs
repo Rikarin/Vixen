@@ -12,7 +12,8 @@ namespace Vixen.Editor.Texturing.Tests;
 /// <summary>How much one layer covers in the picture it is part of, read off the device.</summary>
 /// <remarks>
 ///     <para>
-///         <c>LayerStackGraph.Amount</c> answers <c>Weights</c>' question for a layer whose mask reads the picture. Patina's
+///         <c>LayerStackGraph.Amount</c> answers <c>Weights</c>' question for a layer whose mask reads the picture.
+///         Patina's
 ///         Find Layer weighed each layer alone, so a mask step reading the layers beneath (Patina #113) read nothing, and
 ///         the layer found under a click was not the one the picture shows there.
 ///     </para>
@@ -50,7 +51,9 @@ public class LayerAmountDeviceTests(ITestOutputHelper output) {
     [Fact]
     public void A_folder_around_the_layer_multiplies_its_amount_and_the_layers_above_feed_nothing() {
         using var device = TexturingDevice.Open();
-        LayerAsset half = new() { Id = "half", Kind = LayerKind.Fill, Opacity = 0.5f, Values = { ["baseColor"] = [0.2f, 0.6f, 0.2f, 1f] } };
+        LayerAsset half = new() {
+            Id = "half", Kind = LayerKind.Fill, Opacity = 0.5f, Values = { ["baseColor"] = [0.2f, 0.6f, 0.2f, 1f] }
+        };
         LayerAsset folder = new() {
             Id = "folder",
             Kind = LayerKind.Group,
@@ -75,11 +78,21 @@ public class LayerAmountDeviceTests(ITestOutputHelper output) {
     [Fact]
     public void Inside_an_isolated_folder_a_mask_reads_what_the_folder_holds_beneath_it() {
         using var device = TexturingDevice.Open();
-        LayerAsset folder = new() { Id = "folder", Kind = LayerKind.Group, Blend = LayerBlendMode.Multiply, Children = [Moss()] };
-        LayerAsset passing = folder with { Id = "passing", Blend = LayerBlendMode.Copy };
+        LayerAsset folder = new() {
+            Id = "folder", Kind = LayerKind.Group, Blend = LayerBlendMode.Multiply, Children = [Moss()]
+        };
+        var passing = folder with { Id = "passing", Blend = LayerBlendMode.Copy };
 
-        var isolated = Weigh(device, Stack(Rock(), folder), LayerStackGraph.Amount(Stack(Rock(), folder), Stack(Rock(), folder).Sets[0], "moss"));
-        var passed = Weigh(device, Stack(Rock(), passing), LayerStackGraph.Amount(Stack(Rock(), passing), Stack(Rock(), passing).Sets[0], "moss"));
+        var isolated = Weigh(
+            device,
+            Stack(Rock(), folder),
+            LayerStackGraph.Amount(Stack(Rock(), folder), Stack(Rock(), folder).Sets[0], "moss")
+        );
+        var passed = Weigh(
+            device,
+            Stack(Rock(), passing),
+            LayerStackGraph.Amount(Stack(Rock(), passing), Stack(Rock(), passing).Sets[0], "moss")
+        );
 
         output.WriteLine($"{TexturingDevice.Adapter(device)}: isolated {isolated}, passing through {passed}");
 
@@ -95,7 +108,9 @@ public class LayerAmountDeviceTests(ITestOutputHelper output) {
     [Fact]
     public void A_channel_the_layer_leaves_alone_weighs_nothing() {
         using var device = TexturingDevice.Open();
-        LayerAsset rough = new() { Id = "rough", Kind = LayerKind.Fill, Channels = ["roughness"], Values = { ["roughness"] = [1f, 1f, 1f, 1f] } };
+        LayerAsset rough = new() {
+            Id = "rough", Kind = LayerKind.Fill, Channels = ["roughness"], Values = { ["roughness"] = [1f, 1f, 1f, 1f] }
+        };
         LayerAsset folder = new() { Id = "folder", Kind = LayerKind.Group, Children = [rough] };
         var stack = Stack(Rock(), folder);
 
@@ -129,7 +144,10 @@ public class LayerAmountDeviceTests(ITestOutputHelper output) {
         output.WriteLine($"{TexturingDevice.Adapter(device)}: drafted over a half set layer {amount}");
 
         Assert.True(built.HasErrors, "a build has no draft, so the empty slot refuses it");
-        Assert.Contains(drafted.Problems, problem => problem.Layer == "half" && problem.Severity == NodeSeverity.Warning);
+        Assert.Contains(
+            drafted.Problems,
+            static problem => problem.Layer == "half" && problem.Severity == NodeSeverity.Warning
+        );
         // The quarter grey of the half set layer, not the rock's half beneath it, nor nothing.
         Assert.InRange(amount, (byte)56, (byte)72);
     }
@@ -176,14 +194,14 @@ public class LayerAmountDeviceTests(ITestOutputHelper output) {
                 new() {
                     Name = "S",
                     Channels = [new() { Usage = "baseColor", Default = [0f, 0f, 0f, 1f] }],
-                    Layers = [.. layers]
+                    Layers = [..layers]
                 }
             ]
         };
 
     /// <summary>The red of the first texel of the build's first output, 0..255.</summary>
     static byte Weigh(VulkanDevice device, LayerStackAsset stack, LayerStackBuild build) {
-        Assert.DoesNotContain(build.Problems, problem => problem.Severity == NodeSeverity.Error);
+        Assert.DoesNotContain(build.Problems, static problem => problem.Severity == NodeSeverity.Error);
 
         var compilation = LayerStackCompiler.Compile(stack, build);
 

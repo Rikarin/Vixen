@@ -27,8 +27,8 @@ public class IconAtlasTests {
         var corners = new Vector2[points];
 
         for (var i = 0; i < points; i++) {
-            var t = i / (float) (points - 1) * MathF.Tau * 1.5f;
-            corners[i] = new Vector2(12f + (8f * MathF.Cos(t)), 12f + (8f * MathF.Sin(t)));
+            var t = i / (float)(points - 1) * MathF.Tau * 1.5f;
+            corners[i] = new(12f + 8f * MathF.Cos(t), 12f + 8f * MathF.Sin(t));
         }
 
         var half = 0.75f;
@@ -50,10 +50,10 @@ public class IconAtlasTests {
 
     static PathBuilder Square(float side) =>
         new PathBuilder()
-            .MoveTo(new Vector2(0f, 0f))
-            .LineTo(new Vector2(side, 0f))
-            .LineTo(new Vector2(side, side))
-            .LineTo(new Vector2(0f, side))
+            .MoveTo(new(0f, 0f))
+            .LineTo(new(side, 0f))
+            .LineTo(new(side, side))
+            .LineTo(new(0f, side))
             .Close();
 
     static DrawList Listed(
@@ -66,10 +66,8 @@ public class IconAtlasTests {
 
         list.BeginFrame();
         list.Add(
-            new DrawCommand(kind, origin.X, origin.Y, 0f, 0f, Color4.White, 0f, 0f) {
-                Offset = list.AddPath(path),
-                Length = path.Count,
-                FillRule = rule
+            new(kind, origin.X, origin.Y, 0f, 0f, Color4.White, 0f, 0f) {
+                Offset = list.AddPath(path), Length = path.Count, FillRule = rule
             }
         );
 
@@ -113,7 +111,7 @@ public class IconAtlasTests {
         var generated = builder.Icons!.Generated;
 
         for (var i = 1; i <= 50; i++) {
-            builder.Build(Listed(path, origin: new Vector2(i * 0.37f, i * 13f)), glyphs, Viewport);
+            builder.Build(Listed(path, origin: new(i * 0.37f, i * 13f)), glyphs, Viewport);
         }
 
         Assert.Equal(generated, builder.Icons.Generated);
@@ -128,7 +126,7 @@ public class IconAtlasTests {
         var glyphs = Glyphs();
 
         var here = Snapshot(builder.Build(Listed(path), glyphs, Viewport));
-        var there = Snapshot(builder.Build(Listed(path, origin: new Vector2(100f, 40f)), glyphs, Viewport));
+        var there = Snapshot(builder.Build(Listed(path, origin: new(100f, 40f)), glyphs, Viewport));
 
         Assert.Equal(here.Count, there.Count);
 
@@ -180,7 +178,7 @@ public class IconAtlasTests {
 
         // It drew, and it drew as a fill.
         Assert.NotEmpty(geometry.Vertices);
-        Assert.All(geometry.Draws, draw => Assert.Equal(BatchKind.PathFill, draw.Kind));
+        Assert.All(geometry.Draws, static draw => Assert.Equal(BatchKind.PathFill, draw.Kind));
     }
 
     /// <summary>
@@ -191,13 +189,11 @@ public class IconAtlasTests {
     /// </summary>
     [Fact]
     public void An_even_odd_path_is_refused() {
-        var atlas = new IconAtlas(new GlyphAtlas(512, 512));
+        var atlas = new IconAtlas(new(512, 512));
         var list = Listed(Expanded(16f), rule: PathFillRule.EvenOdd);
         var command = list.Commands[0];
 
-        Assert.False(
-            atlas.TryGet(list.Segments, command.Offset, command.Length, PathFillRule.EvenOdd, out _)
-        );
+        Assert.False(atlas.TryGet(list.Segments, command.Offset, command.Length, PathFillRule.EvenOdd, out _));
 
         Assert.Equal(1, atlas.Refused);
     }
@@ -210,7 +206,7 @@ public class IconAtlasTests {
     /// </summary>
     [Fact]
     public void A_path_larger_than_the_ceiling_is_refused() {
-        var atlas = new IconAtlas(new GlyphAtlas(512, 512)) { MaxSize = 40f };
+        var atlas = new IconAtlas(new(512, 512)) { MaxSize = 40f };
         var list = Listed(Square(200f));
         var command = list.Commands[0];
 
@@ -220,14 +216,20 @@ public class IconAtlasTests {
         var small = Listed(Square(20f));
 
         Assert.True(
-            atlas.TryGet(small.Segments, small.Commands[0].Offset, small.Commands[0].Length, PathFillRule.NonZero, out _)
+            atlas.TryGet(
+                small.Segments,
+                small.Commands[0].Offset,
+                small.Commands[0].Length,
+                PathFillRule.NonZero,
+                out _
+            )
         );
     }
 
     /// <summary>A refusal is remembered, so a shape is not rasterised again to reach the same no.</summary>
     [Fact]
     public void A_refusal_is_not_repeated() {
-        var atlas = new IconAtlas(new GlyphAtlas(512, 512)) { MaxSize = 40f };
+        var atlas = new IconAtlas(new(512, 512)) { MaxSize = 40f };
         var list = Listed(Square(200f));
         var command = list.Commands[0];
 
@@ -241,8 +243,12 @@ public class IconAtlasTests {
     // ======================================================================== The picture
 
     /// <summary>
-    ///     ⚠ <b>The field's edge has to land where the shape's edge is, and this is the test that
-    ///     would have caught the y-flip.</b> A document's y runs down and an outline's runs up, so a
+    ///     ⚠
+    ///     <b>
+    ///         The field's edge has to land where the shape's edge is, and this is the test that
+    ///         would have caught the y-flip.
+    ///     </b>
+    ///     A document's y runs down and an outline's runs up, so a
     ///     field encoded without negating one is upside down <i>about its own centre</i> — which a
     ///     symmetric icon hides completely and an arrow does not. A square is used because its edges
     ///     are at exactly known coordinates, so the whole chain — padding, scale, cell origin, the
@@ -252,7 +258,7 @@ public class IconAtlasTests {
     [InlineData(10f)]
     [InlineData(23.5f)]
     public void The_reconstructed_edge_lands_where_the_shape_edge_is(float side) {
-        var atlas = new IconAtlas(new GlyphAtlas(512, 512));
+        var atlas = new IconAtlas(new(512, 512));
         var list = Listed(Square(side));
         var command = list.Commands[0];
 
@@ -262,10 +268,10 @@ public class IconAtlasTests {
         var middleRow = field.Region.Height / 2;
         var middleColumn = field.Region.Width / 2;
 
-        var left = Crossing(atlas, field, middleRow, horizontal: true, rising: true);
-        var right = Crossing(atlas, field, middleRow, horizontal: true, rising: false);
-        var top = Crossing(atlas, field, middleColumn, horizontal: false, rising: true);
-        var bottom = Crossing(atlas, field, middleColumn, horizontal: false, rising: false);
+        var left = Crossing(atlas, field, middleRow, true, true);
+        var right = Crossing(atlas, field, middleRow, true, false);
+        var top = Crossing(atlas, field, middleColumn, false, true);
+        var bottom = Crossing(atlas, field, middleColumn, false, false);
 
         // Within a texel of the truth, which at this resolution is a fraction of a document pixel.
         var texel = field.Quad.Width / field.Region.Width;
@@ -285,8 +291,12 @@ public class IconAtlasTests {
     ///     match the tessellator's fringe and so pushes a value of exactly 0.5 over the threshold.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>Every other test in this file is blind to it, which is worth saying rather than
-    ///     leaving to be rediscovered.</b> <c>The_reconstructed_edge_lands_where_the_shape_edge_is</c>
+    ///     ⚠
+    ///     <b>
+    ///         Every other test in this file is blind to it, which is worth saying rather than
+    ///         leaving to be rediscovered.
+    ///     </b>
+    ///     <c>The_reconstructed_edge_lands_where_the_shape_edge_is</c>
     ///     is the only one that reads a texel at all, and it walks the middle row and middle column of
     ///     a <i>square</i> — two lines that never leave the shape's own silhouette, which is exactly
     ///     where the phantom band coincides with the real edge. The rest count vertices, entries and
@@ -295,7 +305,7 @@ public class IconAtlasTests {
     /// </remarks>
     [Fact]
     public void The_gap_between_two_bars_is_a_gap_for_its_whole_length() {
-        var atlas = new IconAtlas(new GlyphAtlas(512, 512));
+        var atlas = new IconAtlas(new(512, 512));
         var list = Listed(Pause(18f));
         var command = list.Commands[0];
 
@@ -312,7 +322,7 @@ public class IconAtlasTests {
                 // The gap, taken a quarter of a pixel in from each bar so that the edge's own ramp is
                 // not what is being measured — and over the full height of the cell, because the
                 // whole point is that the two ends behaved differently from the middle.
-                if (at.X < (10.6f * scale) + 0.25f || at.X > (13.4f * scale) - 0.25f) {
+                if (at.X < 10.6f * scale + 0.25f || at.X > 13.4f * scale - 0.25f) {
                     continue;
                 }
 
@@ -326,13 +336,17 @@ public class IconAtlasTests {
         Assert.True(
             worst < 0.5f,
             $"the gap reads {worst:F3} at texel {worstAt}, which the shader draws as "
-            + $"{Math.Clamp(((worst - 0.5f) * field.ScreenPixelRange) + 0.5f, 0f, 1f):F2} of the icon's colour"
+            + $"{Math.Clamp((worst - 0.5f) * field.ScreenPixelRange + 0.5f, 0f, 1f):F2} of the icon's colour"
         );
     }
 
     /// <summary>
-    ///     ⚠ <b>The general form: the field's silhouette is the shape's silhouette, dilated by the
-    ///     fringe and by nothing else.</b> Stated over the whole cell rather than along a line,
+    ///     ⚠
+    ///     <b>
+    ///         The general form: the field's silhouette is the shape's silhouette, dilated by the
+    ///         fringe and by nothing else.
+    ///     </b>
+    ///     Stated over the whole cell rather than along a line,
     ///     because the defect this replaces was a band two texels clear of the artwork that no line
     ///     through the artwork could cross. The shapes are rectangles so that the distance is a closed
     ///     form owing nothing to the code under test.
@@ -348,7 +362,7 @@ public class IconAtlasTests {
     [Theory]
     [MemberData(nameof(Silhouettes))]
     public void Nothing_reads_as_covered_that_is_not_within_the_fringe(string name, Rectangle[] parts) {
-        var atlas = new IconAtlas(new GlyphAtlas(512, 512));
+        var atlas = new IconAtlas(new(512, 512));
         var path = new PathBuilder();
 
         foreach (var part in parts) {
@@ -361,7 +375,7 @@ public class IconAtlasTests {
         Assert.True(atlas.TryGet(list.Segments, command.Offset, command.Length, PathFillRule.NonZero, out var field));
 
         var texel = field.Quad.Width / field.Region.Width;
-        var slack = (atlas.Feather * 0.5f) + (1.5f * texel);
+        var slack = atlas.Feather * 0.5f + 1.5f * texel;
         var failures = new List<string>();
 
         for (var y = 0; y < field.Region.Height; y++) {
@@ -389,15 +403,15 @@ public class IconAtlasTests {
 
     public static TheoryData<string, Rectangle[]> Silhouettes() =>
         new() {
-            { "stop", [Fit(new Rectangle(6f, 6f, 12f, 12f))] },
-            { "pause", [Fit(new Rectangle(7f, 4f, 3.6f, 16f)), Fit(new Rectangle(13.4f, 4f, 3.6f, 16f))] },
-            { "a hairline and a block", [Fit(new Rectangle(4f, 4f, 1f, 16f)), Fit(new Rectangle(9f, 8f, 11f, 8f))] }
+            { "stop", [Fit(new(6f, 6f, 12f, 12f))] },
+            { "pause", [Fit(new(7f, 4f, 3.6f, 16f)), Fit(new(13.4f, 4f, 3.6f, 16f))] },
+            { "a hairline and a block", [Fit(new(4f, 4f, 1f, 16f)), Fit(new(9f, 8f, 11f, 8f))] }
         };
 
     /// <summary>A view-box rectangle at the size a toolbar draws an icon.</summary>
     static Rectangle Fit(Rectangle box) {
         const float Scale = 18f / 24f;
-        return new Rectangle(box.X * Scale, box.Y * Scale, box.Width * Scale, box.Height * Scale);
+        return new(box.X * Scale, box.Y * Scale, box.Width * Scale, box.Height * Scale);
     }
 
     /// <summary>The transport's pause glyph, fitted the way <c>Icon</c> fits one.</summary>
@@ -405,8 +419,8 @@ public class IconAtlasTests {
         var scale = size / 24f;
 
         return new PathBuilder()
-            .AddRectangle(new Rectangle(7f * scale, 4f * scale, 3.6f * scale, 16f * scale))
-            .AddRectangle(new Rectangle(13.4f * scale, 4f * scale, 3.6f * scale, 16f * scale));
+            .AddRectangle(new(7f * scale, 4f * scale, 3.6f * scale, 16f * scale))
+            .AddRectangle(new(13.4f * scale, 4f * scale, 3.6f * scale, 16f * scale));
     }
 
     /// <summary>Signed distance to a union of disjoint rectangles, positive inside. A closed form.</summary>
@@ -419,7 +433,7 @@ public class IconAtlasTests {
 
             var distance = dx >= 0f && dy >= 0f
                 ? MathF.Min(dx, dy)
-                : -MathF.Sqrt((MathF.Max(-dx, 0f) * MathF.Max(-dx, 0f)) + (MathF.Max(-dy, 0f) * MathF.Max(-dy, 0f)));
+                : -MathF.Sqrt(MathF.Max(-dx, 0f) * MathF.Max(-dx, 0f) + MathF.Max(-dy, 0f) * MathF.Max(-dy, 0f));
 
             best = MathF.Max(best, distance);
         }
@@ -430,8 +444,8 @@ public class IconAtlasTests {
     /// <summary>A texel's centre, in the path's own coordinates.</summary>
     static Vector2 Point(IconField field, int x, int y) =>
         new(
-            field.Quad.X + ((x + 0.5f) / field.Region.Width * field.Quad.Width),
-            field.Quad.Y + ((y + 0.5f) / field.Region.Height * field.Quad.Height)
+            field.Quad.X + (x + 0.5f) / field.Region.Width * field.Quad.Width,
+            field.Quad.Y + (y + 0.5f) / field.Region.Height * field.Quad.Height
         );
 
     /// <summary>Where the median crosses a half along one line of the cell, in the path's own units.</summary>
@@ -455,11 +469,11 @@ public class IconAtlasTests {
 
             // Linear between the two texel centres, which is what the sampler does too.
             var t = (0.5f - before) / (here - before);
-            var centre = step + 0.5f + ((next - step) * t);
+            var centre = step + 0.5f + (next - step) * t;
 
             return horizontal
-                ? field.Quad.X + (centre / field.Region.Width * field.Quad.Width)
-                : field.Quad.Y + (centre / field.Region.Height * field.Quad.Height);
+                ? field.Quad.X + centre / field.Region.Width * field.Quad.Width
+                : field.Quad.Y + centre / field.Region.Height * field.Quad.Height;
         }
 
         return float.NaN;
@@ -467,7 +481,7 @@ public class IconAtlasTests {
 
     static float Median(IconAtlas icons, IconField field, int x, int y) {
         var atlas = icons.Atlas;
-        var at = (((field.Region.Y + y) * atlas.Width) + field.Region.X + x) * 3;
+        var at = ((field.Region.Y + y) * atlas.Width + field.Region.X + x) * 3;
 
         var r = atlas.Pixels[at];
         var g = atlas.Pixels[at + 1];
@@ -494,10 +508,8 @@ public class IconAtlasTests {
 
         for (var i = 0; i < 3; i++) {
             list.Add(
-                new DrawCommand(DrawCommandKind.Field, i * 20f, 0f, 0f, 0f, Color4.White, 0f, 0f) {
-                    Offset = list.AddPath(path),
-                    Length = path.Count,
-                    FillRule = PathFillRule.NonZero
+                new(DrawCommandKind.Field, i * 20f, 0f, 0f, 0f, Color4.White, 0f, 0f) {
+                    Offset = list.AddPath(path), Length = path.Count, FillRule = PathFillRule.NonZero
                 }
             );
         }
@@ -524,7 +536,7 @@ public class IconAtlasTests {
         var icon = new GlyphKey(-1, 0, 0) { Path = 0 };
 
         Assert.NotEqual(glyph, icon);
-        Assert.NotEqual(new GlyphKey(0, 0, 48) { Path = 7 }, glyph);
+        Assert.NotEqual(new(0, 0, 48) { Path = 7 }, glyph);
     }
 
     /// <summary>
@@ -545,10 +557,8 @@ public class IconAtlasTests {
             var path = Expanded(12f + i, 12 + i);
 
             list.Add(
-                new DrawCommand(DrawCommandKind.Field, i * 20f, 0f, 0f, 0f, Color4.White, 0f, 0f) {
-                    Offset = list.AddPath(path),
-                    Length = path.Count,
-                    FillRule = PathFillRule.NonZero
+                new(DrawCommandKind.Field, i * 20f, 0f, 0f, 0f, Color4.White, 0f, 0f) {
+                    Offset = list.AddPath(path), Length = path.Count, FillRule = PathFillRule.NonZero
                 }
             );
         }
@@ -560,5 +570,6 @@ public class IconAtlasTests {
         Assert.False(builder.AtlasChanged);
     }
 
-    static List<Vector2> Snapshot(UiGeometry geometry) => [.. geometry.Vertices.Select(vertex => vertex.Position)];
+    static List<Vector2> Snapshot(UiGeometry geometry) =>
+        [..geometry.Vertices.Select(static vertex => vertex.Position)];
 }

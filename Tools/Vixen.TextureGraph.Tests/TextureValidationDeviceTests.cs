@@ -139,8 +139,12 @@ public class TextureValidationDeviceTests(ITestOutputHelper output) {
     ///         answer.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>It is deliberately the one test in this suite that expects errors, and the reason
-    ///         is the instrument.</b> A validation test that only ever asserts silence passes on a
+    ///         ⚠
+    ///         <b>
+    ///             It is deliberately the one test in this suite that expects errors, and the reason
+    ///             is the instrument.
+    ///         </b>
+    ///         A validation test that only ever asserts silence passes on a
     ///         device whose layers are loaded and mute, absent, or watching the wrong thing — the
     ///         failure mode this file's own remarks are about. This is the positive control: the same
     ///         <c>VulkanDiagnostics</c>, the same device, and a call the specification forbids.

@@ -100,7 +100,7 @@ public static class MeshletValidator {
             }
 
             for (var corner = 0; corner < meshlet.TriangleCount * 3; corner++) {
-                if (mesh.Triangles[(meshlet.TriangleOffset * 3) + corner] >= meshlet.VertexCount) {
+                if (mesh.Triangles[meshlet.TriangleOffset * 3 + corner] >= meshlet.VertexCount) {
                     problems.Add($"Cluster {index} has a corner outside its own vertex list.");
 
                     break;
@@ -134,7 +134,7 @@ public static class MeshletValidator {
                 problems.Add($"Cluster {index} is a root and its parent error is {meshlet.ParentError}, not infinite.");
             }
 
-            if (meshlet.Level == 0 != (meshlet.Source < 0)) {
+            if (meshlet.Level == 0 != meshlet.Source < 0) {
                 problems.Add($"Cluster {index} is at level {meshlet.Level} and names source group {meshlet.Source}.");
             }
 
@@ -221,7 +221,8 @@ public static class MeshletValidator {
         var counts = new Dictionary<(int, int, int), int>();
 
         for (var triangle = 0; triangle < source.TriangleCount; triangle++) {
-            var key = (source.Indices[triangle * 3], source.Indices[(triangle * 3) + 1], source.Indices[(triangle * 3) + 2]);
+            var key = (source.Indices[triangle * 3], source.Indices[triangle * 3 + 1],
+                source.Indices[triangle * 3 + 2]);
             counts[key] = counts.GetValueOrDefault(key) + 1;
         }
 
@@ -236,7 +237,7 @@ public static class MeshletValidator {
             for (var triangle = 0; triangle < meshlet.TriangleCount; triangle++) {
                 for (var corner = 0; corner < 3; corner++) {
                     corners[corner] = mesh.Vertices[
-                        meshlet.VertexOffset + mesh.Triangles[((meshlet.TriangleOffset + triangle) * 3) + corner]
+                        meshlet.VertexOffset + mesh.Triangles[(meshlet.TriangleOffset + triangle) * 3 + corner]
                     ];
                 }
 

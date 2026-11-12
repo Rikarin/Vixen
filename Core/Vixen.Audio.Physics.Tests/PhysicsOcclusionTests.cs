@@ -20,7 +20,7 @@ public sealed class PhysicsOcclusionTests {
         using var world = new PhysicsWorld();
         var provider = new PhysicsOcclusionProvider(world);
 
-        Assert.Equal(0f, provider.Occlusion(new Vector3(0f, 0f, -10f), Vector3.Zero));
+        Assert.Equal(0f, provider.Occlusion(new(0f, 0f, -10f), Vector3.Zero));
     }
 
     [Fact]
@@ -28,11 +28,11 @@ public sealed class PhysicsOcclusionTests {
         using var world = new PhysicsWorld();
 
         // Wide and tall enough that every ray in the fan hits it.
-        Wall(world, new Vector3(0f, 0f, -5f), new Vector3(20f, 20f, 0.5f));
+        Wall(world, new(0f, 0f, -5f), new(20f, 20f, 0.5f));
 
         var provider = new PhysicsOcclusionProvider(world);
 
-        Assert.Equal(1f, provider.Occlusion(new Vector3(0f, 0f, -10f), Vector3.Zero));
+        Assert.Equal(1f, provider.Occlusion(new(0f, 0f, -10f), Vector3.Zero));
     }
 
     /// <summary>
@@ -48,10 +48,10 @@ public sealed class PhysicsOcclusionTests {
         // source at z = −10 and the wall is halfway, so an offset of s at the source is s/2 here:
         // of the five rays, the one pushed +1.5 right crosses at x = 0.75 and is stopped, and the
         // other four cross at x ≤ 0 and are not.
-        Wall(world, new Vector3(10.2f, 0f, -5f), new Vector3(10f, 10f, 0.5f));
+        Wall(world, new(10.2f, 0f, -5f), new(10f, 10f, 0.5f));
 
         var provider = new PhysicsOcclusionProvider(world) { Spread = 1.5f };
-        var occlusion = provider.Occlusion(new Vector3(0f, 0f, -10f), Vector3.Zero);
+        var occlusion = provider.Occlusion(new(0f, 0f, -10f), Vector3.Zero);
 
         Assert.Equal(0.2f, occlusion, 1e-4f);
     }
@@ -66,18 +66,20 @@ public sealed class PhysicsOcclusionTests {
         var scenery = new PhysicsLayer(1);
 
         world.CreateBody(
-            BodyDescription.Static(world.Shapes.Box(new Vector3(20f, 20f, 0.5f)), new Vector3(0f, 0f, -5f))
-                with { Layer = scenery }
+            BodyDescription.Static(world.Shapes.Box(new Vector3(20f, 20f, 0.5f)), new(0f, 0f, -5f))
+            with {
+                Layer = scenery
+            }
         );
 
         var provider = new PhysicsOcclusionProvider(world);
 
         // Everything blocks by default, so the wall is found.
-        Assert.Equal(1f, provider.Occlusion(new Vector3(0f, 0f, -10f), Vector3.Zero));
+        Assert.Equal(1f, provider.Occlusion(new(0f, 0f, -10f), Vector3.Zero));
 
         // Told to look at everything except that layer, it is not.
         provider.Layers = PhysicsLayerMask.All.Without(scenery);
-        Assert.Equal(0f, provider.Occlusion(new Vector3(0f, 0f, -10f), Vector3.Zero));
+        Assert.Equal(0f, provider.Occlusion(new(0f, 0f, -10f), Vector3.Zero));
     }
 
     /// <summary>
@@ -110,7 +112,7 @@ public sealed class PhysicsOcclusionTests {
     [Fact]
     public void ASoundOnTopOfTheListenerIsNotOccluded() {
         using var world = new PhysicsWorld();
-        Wall(world, new Vector3(0f, 0f, -5f), new Vector3(20f, 20f, 0.5f));
+        Wall(world, new(0f, 0f, -5f), new(20f, 20f, 0.5f));
 
         var provider = new PhysicsOcclusionProvider(world);
 
@@ -124,12 +126,9 @@ public sealed class PhysicsOcclusionTests {
         var provider = new PhysicsOcclusionProvider(world);
 
         foreach (var direction in new[] {
-            new Vector3(0f, 10f, 0f),
-            new Vector3(0f, -10f, 0f),
-            new Vector3(10f, 0f, 0f),
-            new Vector3(0f, 0f, 10f),
-            new Vector3(3f, 4f, 5f)
-        }) {
+                     new Vector3(0f, 10f, 0f), new Vector3(0f, -10f, 0f), new Vector3(10f, 0f, 0f),
+                     new Vector3(0f, 0f, 10f), new Vector3(3f, 4f, 5f)
+                 }) {
             var occlusion = provider.Occlusion(direction, Vector3.Zero);
 
             // Nothing in the world, so nothing is blocked — and no NaN out of a degenerate basis,
@@ -141,12 +140,12 @@ public sealed class PhysicsOcclusionTests {
     [Fact]
     public void OneRayIsAllowedAndIsBinary() {
         using var world = new PhysicsWorld();
-        Wall(world, new Vector3(0f, 0f, -5f), new Vector3(20f, 20f, 0.5f));
+        Wall(world, new(0f, 0f, -5f), new(20f, 20f, 0.5f));
 
         var provider = new PhysicsOcclusionProvider(world) { Rays = 1 };
 
         Assert.Equal(1, provider.Rays);
-        Assert.Equal(1f, provider.Occlusion(new Vector3(0f, 0f, -10f), Vector3.Zero));
+        Assert.Equal(1f, provider.Occlusion(new(0f, 0f, -10f), Vector3.Zero));
         Assert.Equal(1, provider.Casts);
     }
 
@@ -167,10 +166,10 @@ public sealed class PhysicsOcclusionTests {
         using var world = new PhysicsWorld();
         var provider = new PhysicsOcclusionProvider(world);
 
-        provider.Occlusion(new Vector3(0f, 0f, -10f), Vector3.Zero);
+        provider.Occlusion(new(0f, 0f, -10f), Vector3.Zero);
         Assert.Equal(PhysicsOcclusionProvider.MaxRays, provider.Casts);
 
-        provider.Occlusion(new Vector3(0f, 0f, -20f), Vector3.Zero);
+        provider.Occlusion(new(0f, 0f, -20f), Vector3.Zero);
         Assert.Equal(PhysicsOcclusionProvider.MaxRays * 2, provider.Casts);
     }
 
@@ -180,7 +179,7 @@ public sealed class PhysicsOcclusionTests {
         using var world = new PhysicsWorld();
         var provider = new PhysicsOcclusionProvider(world);
 
-        Assert.Equal(0f, AsTheMixerWould(provider, new Vector3(0f, 0f, -10f)));
+        Assert.Equal(0f, AsTheMixerWould(provider, new(0f, 0f, -10f)));
 
         static float AsTheMixerWould(IAudioOcclusionProvider seam, Vector3 source) =>
             seam.Occlusion(source, Vector3.Zero);
@@ -188,5 +187,5 @@ public sealed class PhysicsOcclusionTests {
 
     [Fact]
     public void AWorldIsRequired() =>
-        Assert.Throws<ArgumentNullException>(() => new PhysicsOcclusionProvider(null!));
+        Assert.Throws<ArgumentNullException>(static () => new PhysicsOcclusionProvider(null!));
 }

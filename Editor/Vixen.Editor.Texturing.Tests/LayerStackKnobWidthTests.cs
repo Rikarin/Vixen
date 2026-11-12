@@ -2,10 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Editor.Core;
-using Vixen.Editor.NodeGraph;
 using Vixen.Editor.Texturing.Layers;
 using Vixen.NodeGraph;
-using Vixen.TextureGraph;
 using Vixen.Texturing;
 using Vixen.Texturing.Layers;
 using Vixen.Ui;
@@ -18,8 +16,11 @@ namespace Vixen.Editor.Texturing.Tests;
 /// <summary>How many fields a filter's knob row draws, and what happens to the ones it does not.</summary>
 /// <remarks>
 ///     <para>
-///         <b><a href="https://github.com/Rikarin/Vixen/issues/1097">#1097</a>, and the issue is right
-///         about the defect and wrong about how far away it is.</b> It reads the cap —
+///         <b>
+///             <a href="https://github.com/Rikarin/Vixen/issues/1097">#1097</a>, and the issue is right
+///             about the defect and wrong about how far away it is.
+///         </b>
+///         It reads the cap —
 ///         <c>Math.Min(4, port.Default.Length)</c> — and says nothing declares a port of more than
 ///         four lanes, so the narrowing is a thing a future compound could do. What the cap was
 ///         standing on is the second half of that expression: the lane count came from the
@@ -96,7 +97,7 @@ public class LayerStackKnobWidthTests {
 
         var fields = Fields(Panel(fixture), "Tint");
 
-        Assert.Equal([0.1d, 0.2d, 0.3d, 0.4d], fields.Select(field => Math.Round(field.Number, 3)));
+        Assert.Equal([0.1d, 0.2d, 0.3d, 0.4d], fields.Select(static field => Math.Round(field.Number, 3)));
 
         fields[0].Number = 0.9d;
 
@@ -113,8 +114,12 @@ public class LayerStackKnobWidthTests {
     ///         with a smaller number in it.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Two panels, because "the row drew no fields" and "the panel drew no row" are the
-    ///         same green.</b> The second fixture declares an ordinary <c>Float4</c> under the same
+    ///         ⚠
+    ///         <b>
+    ///             Two panels, because "the row drew no fields" and "the panel drew no row" are the
+    ///             same green.
+    ///         </b>
+    ///         The second fixture declares an ordinary <c>Float4</c> under the same
     ///         name, so the assertion is a differential: a <c>Knobs</c> that dropped the port
     ///         entirely, or a class renamed in the view, goes red on the half that must have fields.
     ///     </para>
@@ -198,7 +203,7 @@ public class LayerStackKnobWidthTests {
         var fields = Fields(Panel(fixture), "Tint");
 
         Assert.Equal(4, fields.Count);
-        Assert.Equal([0.5d, 0.5d, 0.5d, 0.5d], fields.Select(field => Math.Round(field.Number, 3)));
+        Assert.Equal([0.5d, 0.5d, 0.5d, 0.5d], fields.Select(static field => Math.Round(field.Number, 3)));
 
         // And a lane put back where it was still takes the key out, which a comparison against the
         // one-number default could not do.
@@ -296,7 +301,8 @@ public class LayerStackKnobWidthTests {
 
     /// <summary>The filter layer, read back off the document.</summary>
     static LayerAsset Layer(LayerStackDocument document) =>
-        document.Document.Sets[0].Layers.Single(layer => string.Equals(layer.Id, "adjust", StringComparison.Ordinal));
+        document.Document.Sets[0]
+            .Layers.Single(static layer => string.Equals(layer.Id, "adjust", StringComparison.Ordinal));
 
     /// <summary>The panel the module registers, opened.</summary>
     static UiElement Panel(TexturingFixture fixture) {
@@ -322,7 +328,7 @@ public class LayerStackKnobWidthTests {
 
     /// <summary>Every numeric field on that port's row, in the order the row lays them out.</summary>
     static List<NumericInput> Fields(UiElement panel, string port) =>
-        [.. Named(Row(panel, port), "layer-stack-knob-value").Select(Assert.IsType<NumericInput>)];
+        [..Named(Row(panel, port), "layer-stack-knob-value").Select(Assert.IsType<NumericInput>)];
 
     /// <summary>Every element under a tag or a class, which may legitimately be none.</summary>
     static List<UiElement> Named(UiElement root, string name) {

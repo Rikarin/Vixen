@@ -8,8 +8,12 @@ namespace Vixen.Editor.Assets;
 /// <summary>One named search of the project browser: the query, never its result.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>The query and not what it matched, which is the whole difference between this and a
-///         collection.</b> A filter re-runs, so it keeps answering as the project changes; a stored
+///         ⚠
+///         <b>
+///             The query and not what it matched, which is the whole difference between this and a
+///             collection.
+///         </b>
+///         A filter re-runs, so it keeps answering as the project changes; a stored
 ///         list of matches is a snapshot that is wrong the moment somebody imports anything. Doc 20
 ///         § B1 asks for both and they are the same storage question with opposite answers.
 ///     </para>

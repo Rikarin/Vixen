@@ -37,21 +37,23 @@ public static class TerrainStrings {
         [
             // The digit row, bound to slots rather than to named tools because two categories share
             // them — which is why the label is the slot's number and not a tool's name.
-            .. Enumerable.Range(0, TerrainMode.SlotCount)
-                .Select(
-                    slot => new KeyValuePair<string, string>(
+            ..Enumerable.Range(0, TerrainMode.SlotCount)
+                .Select(static slot => new KeyValuePair<string, string>(
                         TerrainMode.SlotCommand(slot),
                         "Tool " + (slot + 1).ToString(System.Globalization.CultureInfo.InvariantCulture)
                     )
                 ),
-            .. TerrainMode.Tools.Select(
-                tool => new KeyValuePair<string, string>(TerrainMode.ToolCommand(tool), tool + " Tool")
+            ..TerrainMode.Tools.Select(static tool => new KeyValuePair<string, string>(
+                    TerrainMode.ToolCommand(tool),
+                    tool + " Tool"
+                )
             ),
-            .. TerrainMode.PaintTools.Select(
-                tool => new KeyValuePair<string, string>(TerrainMode.PaintToolCommand(tool), "Paint " + tool)
+            ..TerrainMode.PaintTools.Select(static tool => new KeyValuePair<string, string>(
+                    TerrainMode.PaintToolCommand(tool),
+                    "Paint " + tool
+                )
             ),
-            .. TerrainMode.Categories.Select(
-                category => new KeyValuePair<string, string>(
+            ..TerrainMode.Categories.Select(static category => new KeyValuePair<string, string>(
                     TerrainMode.CategoryCommand(category),
                     category.ToString()
                 )
@@ -78,15 +80,16 @@ public static class TerrainStrings {
     public static StringFamily FoliageCommands { get; } = new(
         "editor.command.",
         [
-            .. Enumerable.Range(0, FoliageMode.SlotCount)
-                .Select(
-                    slot => new KeyValuePair<string, string>(
+            ..Enumerable.Range(0, FoliageMode.SlotCount)
+                .Select(static slot => new KeyValuePair<string, string>(
                         FoliageMode.SlotCommand(slot),
                         "Tool " + (slot + 1).ToString(System.Globalization.CultureInfo.InvariantCulture)
                     )
                 ),
-            .. FoliageMode.Tools.Select(
-                tool => new KeyValuePair<string, string>(FoliageMode.ToolCommand(tool), tool + " Foliage")
+            ..FoliageMode.Tools.Select(static tool => new KeyValuePair<string, string>(
+                    FoliageMode.ToolCommand(tool),
+                    tool + " Foliage"
+                )
             ),
             new(FoliageMode.GrowBrushCommand, "Grow Brush"),
             new(FoliageMode.ShrinkBrushCommand, "Shrink Brush"),
@@ -148,7 +151,8 @@ public static class TerrainStrings {
     // written against those still finds them.
 
     /// <summary>Create ▸ Terrain Layer.</summary>
-    public static StringId CreateTerrainLayer { get; } = new("editor.command.assets.create-terrain-layer", "Terrain Layer");
+    public static StringId CreateTerrainLayer { get; } =
+        new("editor.command.assets.create-terrain-layer", "Terrain Layer");
 
     /// <summary>Create ▸ Foliage Type.</summary>
     public static StringId CreateFoliageType { get; } = new("editor.command.assets.create-foliage", "Foliage Type");
@@ -163,8 +167,8 @@ public static class TerrainStrings {
     ///     <c>VXS0310</c> counts a <see cref="StringFamily" /> property as a declaration.
     /// </remarks>
     public static IReadOnlyList<StringId> All { get; } = [
-        .. TerrainCommands.All,
-        .. FoliageCommands.All,
+        ..TerrainCommands.All,
+        ..FoliageCommands.All,
         FoliageTypeRemoveUnavailable,
         CategoryTerrain,
         CategoryFoliage,

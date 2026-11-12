@@ -3,8 +3,6 @@
 
 using Vixen.Graphics;
 using Vixen.TextureGraph;
-using Vixen.Texturing.Layers;
-using Vixen.Texturing.Painting;
 
 namespace Vixen.Editor.Texturing.Tests;
 
@@ -25,8 +23,12 @@ namespace Vixen.Editor.Texturing.Tests;
 ///         names by that phrase.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Two counters and not one, because <see cref="Built" /> alone cannot see the other
-///         direction</b> — <a href="https://github.com/Rikarin/Vixen/issues/988">#988</a>. A pane
+///         ⚠
+///         <b>
+///             Two counters and not one, because <see cref="Built" /> alone cannot see the other
+///             direction
+///         </b>
+///         — <a href="https://github.com/Rikarin/Vixen/issues/988">#988</a>. A pane
 ///         that stopped asking and constructed its own evaluator leaves <see cref="Built" /> at one
 ///         and every assertion about it green, which is #978's monotone-the-wrong-way shape moved
 ///         one type along. <see cref="Asks" /> counts the questions rather than the answers, so an
@@ -66,6 +68,6 @@ sealed class LentEvaluator : IDisposable {
 
         Built++;
 
-        return evaluator = new TexturePlanEvaluator(device);
+        return evaluator = new(device);
     }
 }

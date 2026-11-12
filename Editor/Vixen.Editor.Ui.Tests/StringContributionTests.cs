@@ -27,8 +27,12 @@ public class StringContributionTests {
 
     /// <summary>A list nobody registered is in no template; the one that is registered is in every one.</summary>
     /// <remarks>
-    ///     ⚠ <b>This is the assertion that would have been false on the day <c>WaterStrings</c> was
-    ///     written</b>, with the toolset's five <c>All</c> lists standing where
+    ///     ⚠
+    ///     <b>
+    ///         This is the assertion that would have been false on the day <c>WaterStrings</c> was
+    ///         written
+    ///     </b>
+    ///     , with the toolset's five <c>All</c> lists standing where
     ///     <see cref="NeverRegistered" /> stands: declared, in an <c>All</c> list, and read by
     ///     nothing, so <c>Strings.Template</c> exported none of them.
     /// </remarks>

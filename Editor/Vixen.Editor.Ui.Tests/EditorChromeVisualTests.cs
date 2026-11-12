@@ -4,7 +4,6 @@
 using System.Reflection;
 using Microsoft.Extensions.Logging;
 using Vixen.Core.Diagnostics;
-using Vixen.Core.Mathematics;
 using Vixen.Ui;
 using Vixen.Ui.Controls;
 using Vixen.Ui.Controls.Advanced;
@@ -39,8 +38,12 @@ public class EditorChromeVisualTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b><a href="https://github.com/Rikarin/Vixen/issues/500">#500</a>: a skip with no
-    ///         counter-guard is a gate that prints success on the day it does not run.</b> CI sets
+    ///         ⚠
+    ///         <b>
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/500">#500</a>: a skip with no
+    ///             counter-guard is a gate that prints success on the day it does not run.
+    ///         </b>
+    ///         CI sets
     ///         <c>VIXEN_REQUIRE_SCREENSHOTS</c> on the macOS leg — the shape
     ///         <c>VIXEN_REQUIRE_VULKAN</c> has for the device tests — so a predicate narrowed by
     ///         accident, or a runner that stops being the platform it was, is a red build rather than
@@ -48,8 +51,12 @@ public class EditorChromeVisualTests {
     ///         that one is why the Windows leg does not set it yet (#1477).
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Windows compares against the same references as macOS, and that was measured
-    ///         rather than assumed.</b> This gate was macOS-only on the strength of "about eight per
+    ///         ⚠
+    ///         <b>
+    ///             Windows compares against the same references as macOS, and that was measured
+    ///             rather than assumed.
+    ///         </b>
+    ///         This gate was macOS-only on the strength of "about eight per
     ///         cent of the pixels differ, spread over every label" between platforms. Rendered on
     ///         Windows (2026-10-18) against the macOS references, the differing pixels were 0.11 % in
     ///         all four — and <em>every one</em> of them sat in two boxes of the console: its
@@ -146,7 +153,7 @@ public class EditorChromeVisualTests {
     /// </remarks>
     sealed class ChromeFixture : IDisposable {
         public ChromeFixture(ThemeMode mode, float width = 1100f, float height = 680f) {
-            Shell = new EditorShell(width, height, mode);
+            Shell = new(width, height, mode);
             Font(Shell.Document);
 
             Shell.RegisterPanel("hierarchy", Title("Hierarchy"), Hierarchy);
@@ -158,7 +165,7 @@ public class EditorChromeVisualTests {
             Shell.RegisterLayout(
                 "Default",
                 Title("Default"),
-                () => LayoutPresets.Standard(["hierarchy", "project"], ["scene"], ["inspector"], ["console"])
+                static () => LayoutPresets.Standard(["hierarchy", "project"], ["scene"], ["inspector"], ["console"])
             );
 
             Shell.Workspace.Reset();
@@ -185,7 +192,7 @@ public class EditorChromeVisualTests {
 
             // The selection count and the frame time only exist once the shell has ticked, which is
             // also the only way the mean is anything but zero.
-            Shell.SelectionCount = () => 1;
+            Shell.SelectionCount = static () => 1;
 
             Test = UiTest.Adopt(Shell.Document);
 
@@ -202,7 +209,7 @@ public class EditorChromeVisualTests {
         ///     at random and is therefore the suite nobody trusts.
         /// </remarks>
         readonly RingBufferSink logs = new(256) {
-            TimeProvider = new FixedClock(new DateTimeOffset(2026, 3, 14, 9, 26, 53, TimeSpan.Zero))
+            TimeProvider = new FixedClock(new(2026, 3, 14, 9, 26, 53, TimeSpan.Zero))
         };
 
         public UiTest Test { get; }
@@ -230,18 +237,16 @@ public class EditorChromeVisualTests {
         ///     four muted glyphs and says nothing about any of that.
         /// </remarks>
         void Transport() {
-            Play("test.play", "Play", EditorIcons.Play, "transport-play", on: true);
-            Play("test.pause", "Pause", EditorIcons.Pause, "transport-pause", on: false);
-            Play("test.step", "Step Frame", EditorIcons.Step, "transport-step", on: null);
-            Play("test.stop", "Stop", EditorIcons.Stop, "transport-stop", on: null);
+            Play("test.play", "Play", EditorIcons.Play, "transport-play", true);
+            Play("test.pause", "Pause", EditorIcons.Pause, "transport-pause", false);
+            Play("test.step", "Step Frame", EditorIcons.Step, "transport-step", null);
+            Play("test.stop", "Stop", EditorIcons.Stop, "transport-stop", null);
         }
 
         void Play(string id, string title, PathBuilder icon, string className, bool? on) =>
             Shell.Commands.Add(
-                new EditorCommand(id, Title(title), () => { }) {
-                    Icon = icon,
-                    ClassName = className,
-                    Checked = on is { } state ? () => state : null
+                new EditorCommand(id, Title(title), static () => { }) {
+                    Icon = icon, ClassName = className, Checked = on is { } state ? () => state : null
                 }
             );
 
@@ -255,10 +260,11 @@ public class EditorChromeVisualTests {
                 var chosen = mode;
 
                 Shell.Commands.Add(
-                    new EditorCommand("test." + mode, Title(char.ToUpperInvariant(mode[0]) + mode[1..]), () => current = chosen) {
-                        Checked = () => current == chosen,
-                        RadioGroup = "gizmo"
-                    }
+                    new EditorCommand(
+                        "test." + mode,
+                        Title(char.ToUpperInvariant(mode[0]) + mode[1..]),
+                        () => current = chosen
+                    ) { Checked = () => current == chosen, RadioGroup = "gizmo" }
                 );
             }
         }
@@ -332,7 +338,7 @@ public class EditorChromeVisualTests {
             // ⚠ The model first, then the lines. It starts at the sink's current end — a console
             // opened an hour into a session does not replay the hour — so logging before it exists
             // is logging into a console that will never show it.
-            view.Show(new ConsoleModel(logs));
+            view.Show(new(logs));
 
             Say(LogLevel.Information, "Vixen.Editor", "Loaded Main.vxscene — 6 entities");
             Say(LogLevel.Information, "Vixen.Editor.Assets.Content.ContentPipeline", "Imported 24, 3 unchanged");
@@ -356,8 +362,12 @@ public class EditorChromeVisualTests {
         /// <summary>The editor's own font, shipped in this repository.</summary>
         /// <remarks>
         ///     <para>
-        ///         ⚠ <b>The repository's copy rather than the operating system's, because a reference
-        ///         picture cannot be compared against a different font.</b> This searched
+        ///         ⚠
+        ///         <b>
+        ///             The repository's copy rather than the operating system's, because a reference
+        ///             picture cannot be compared against a different font.
+        ///         </b>
+        ///         This searched
         ///         <c>Arial</c>, then <c>DejaVuSans</c>, then <c>segoeui</c> — so the picture it
         ///         produced was a picture of whichever machine ran it. The references were recorded
         ///         on a Mac with Arial, and the Linux leg drew every label in DejaVu and reported
@@ -385,7 +395,9 @@ public class EditorChromeVisualTests {
             // the very failure the paragraph above says this suite exists to stop.
             const string Relative = "Editor/Vixen.Editor.App/Fonts/OpenSans-Regular.ttf";
 
-            for (var directory = new DirectoryInfo(AppContext.BaseDirectory); directory is not null; directory = directory.Parent) {
+            for (var directory = new DirectoryInfo(AppContext.BaseDirectory);
+                 directory is not null;
+                 directory = directory.Parent) {
                 var candidate = Path.Combine(directory.FullName, Relative.Replace('/', Path.DirectorySeparatorChar));
 
                 if (File.Exists(candidate)) {
@@ -396,5 +408,4 @@ public class EditorChromeVisualTests {
             throw new FileNotFoundException($"'{Relative}' was not found above '{AppContext.BaseDirectory}'.");
         }
     }
-
 }

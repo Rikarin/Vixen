@@ -6,14 +6,22 @@ namespace Vixen.Gameplay.Exploration;
 /// <summary>One character's map: what they have found and where they have been.</summary>
 /// <remarks>
 ///     <para>
-///         <b>Doc 28 says why this is its own library:</b> <em>"its state is a bitmap per character per
-///         map and nothing else wants that shape"</em>. A quest counter is an integer, an inventory is
+///         <b>Doc 28 says why this is its own library:</b>
+///         <em>
+///             "its state is a bitmap per character per
+///             map and nothing else wants that shape"
+///         </em>
+///         . A quest counter is an integer, an inventory is
 ///         a list, a reputation is a number — this is thousands of bits that compress well and are
 ///         read as a whole, and putting it anywhere else would make that shape somebody else's problem.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Completion counts only the points a designer marked as counting, and it is computed
-///         from the chart rather than stored.</b> Storing it would mean a patch that adds a point
+///         ⚠
+///         <b>
+///             Completion counts only the points a designer marked as counting, and it is computed
+///             from the chart rather than stored.
+///         </b>
+///         Storing it would mean a patch that adds a point
 ///         leaves ten thousand characters claiming a hundred per cent of a map they have not finished;
 ///         computing it means the number moves, which is the honest behaviour and the reason
 ///         <c>counts</c> is opt-in in the first place.
@@ -200,7 +208,7 @@ public sealed class ExplorationRecord {
             return false;
         }
 
-        var cell = (row * map.Columns) + column;
+        var cell = row * map.Columns + column;
 
         return (bits[cell >> 6] & (1ul << (cell & 63))) != 0ul;
     }
@@ -228,7 +236,7 @@ public sealed class ExplorationRecord {
                     continue;
                 }
 
-                var cell = (y * map.Columns) + x;
+                var cell = y * map.Columns + x;
                 var mask = 1ul << (cell & 63);
 
                 if ((bits[cell >> 6] & mask) != 0ul) {

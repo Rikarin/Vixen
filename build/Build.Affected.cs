@@ -28,8 +28,12 @@ using static Nuke.Common.Tools.DotNet.DotNetTasks;
 ///         sweep on master — keeps checking everything.
 ///     </para>
 ///     <para>
-///         ⚠ <b>A selector that returns the empty set on an unrecognised path reports success by
-///         running nothing</b>, which is the failure shape CLAUDE.md § "How this codebase decides
+///         ⚠
+///         <b>
+///             A selector that returns the empty set on an unrecognised path reports success by
+///             running nothing
+///         </b>
+///         , which is the failure shape CLAUDE.md § "How this codebase decides
 ///         something is proved" names first. So the mapping here is total: every changed file either
 ///         maps to a project — the one containing it, or one that reads it through an item — or matches
 ///         <see cref="AffectedOwnership.OwnedByNoProject" />, and anything else is an
@@ -70,13 +74,24 @@ partial class Build {
         // Fails loudly and immediately on a ref that does not resolve, rather than diffing against
         // something surprising. `git diff` against an unknown ref is an error too, but its message
         // is about a path, which reads as though the path were the problem.
-        GitTasks.Git($"rev-parse --verify --quiet {since}^{{commit}}", RootDirectory, logOutput: false, logInvocation: false);
+        GitTasks.Git(
+            $"rev-parse --verify --quiet {since}^{{commit}}",
+            RootDirectory,
+            logOutput: false,
+            logInvocation: false
+        );
 
-        var changed = GitTasks.Git($"diff --name-only {since}", RootDirectory, logOutput: false, logInvocation: false);
-        var untracked = GitTasks.Git("ls-files --others --exclude-standard", RootDirectory, logOutput: false, logInvocation: false);
+        var changed =
+            GitTasks.Git($"diff --name-only {since}", RootDirectory, logOutput: false, logInvocation: false);
+        var untracked = GitTasks.Git(
+            "ls-files --others --exclude-standard",
+            RootDirectory,
+            logOutput: false,
+            logInvocation: false
+        );
 
         return [
-            .. changed.Concat(untracked)
+            ..changed.Concat(untracked)
                 .Select(line => line.Text.Trim())
                 .Where(line => line.Length > 0)
                 .Distinct(StringComparer.Ordinal)
@@ -97,11 +112,16 @@ partial class Build {
     /// </remarks>
     IReadOnlyList<string> TrimFindingsSince(string since) {
         var diff = GitTasks.Git($"diff -U0 {since}", RootDirectory, logOutput: false, logInvocation: false);
-        var untracked = GitTasks.Git("ls-files --others --exclude-standard", RootDirectory, logOutput: false, logInvocation: false);
+        var untracked = GitTasks.Git(
+            "ls-files --others --exclude-standard",
+            RootDirectory,
+            logOutput: false,
+            logInvocation: false
+        );
 
         return [
-            .. TrimAnnotationDiff.Findings(string.Join('\n', diff.Select(line => line.Text))),
-            .. untracked.Select(line => line.Text.Trim())
+            ..TrimAnnotationDiff.Findings(string.Join('\n', diff.Select(line => line.Text))),
+            ..untracked.Select(line => line.Text.Trim())
                 .Where(line => line.Length > 0 && (RootDirectory / line).FileExists())
                 .SelectMany(line => TrimAnnotationDiff.FindingsInNewFile(line, File.ReadAllText(RootDirectory / line)))
         ];
@@ -121,7 +141,9 @@ partial class Build {
     ///     recorded rather than hidden.
     /// </remarks>
     AbsolutePath? OwningProject(AbsolutePath file) {
-        for (var directory = file.Parent; directory is not null && directory != RootDirectory.Parent; directory = directory.Parent) {
+        for (var directory = file.Parent;
+             directory is not null && directory != RootDirectory.Parent;
+             directory = directory.Parent) {
             var project = directory.GlobFiles("*.csproj").FirstOrDefault();
 
             if (project is not null) {
@@ -191,21 +213,29 @@ partial class Build {
             + string.Join(", ", ownership.Orphans.Take(10))
         );
 
-        return [.. ownership.Projects.Select(project => RootDirectory / project)];
+        return [..ownership.Projects.Select(project => RootDirectory / project)];
     }
 
     /// <summary>
     ///     The projects <c>Vixen.slnx</c> actually contains, by absolute path.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>Narrowing has to be a subset of what the unscoped run checks, or it is not a
-    ///     narrowing at all.</b> The mobile and web heads outside the solution are the case this
+    ///     ⚠
+    ///     <b>
+    ///         Narrowing has to be a subset of what the unscoped run checks, or it is not a
+    ///         narrowing at all.
+    ///     </b>
+    ///     The mobile and web heads outside the solution are the case this
     ///     exists for: only <see cref="CheckArchitecture" /> is supposed to see those, so a
     ///     <c>--since</c> that mapped a changed file to its nearest project would fail a developer
     ///     for code the gate has never looked at.
     ///     <para>
-    ///         ⚠ <b><c>build/_build.csproj</c> used to be the example here and has stopped being
-    ///         one.</b> The claim on this remark was that it carries pre-existing <c>IDE1006</c>
+    ///         ⚠
+    ///         <b>
+    ///             <c>build/_build.csproj</c> used to be the example here and has stopped being
+    ///             one.
+    ///         </b>
+    ///         The claim on this remark was that it carries pre-existing <c>IDE1006</c>
     ///         violations and exits 2 — true when written, and #584's answer was to make it a
     ///         workspace <see cref="CheckFormat" /> points at rather than to leave it uncovered. It
     ///         is still outside the solution and so still outside a narrowed run, which now makes it
@@ -243,30 +273,37 @@ partial class Build {
             );
         }
 
-        return [.. owners.Where(solution.Contains)];
+        return [..owners.Where(solution.Contains)];
     }
 
-    Target AffectedProjects => definition => definition
-        .Description("Prints the projects and test projects a --since run would act on, and runs nothing else")
-        .Requires(() => Since)
-        .Executes(() => {
-                var changed = ChangedFiles(Since);
+    Target AffectedProjects =>
+        definition => definition
+            .Description("Prints the projects and test projects a --since run would act on, and runs nothing else")
+            .Requires(() => Since)
+            .Executes(() => {
+                    var changed = ChangedFiles(Since);
 
-                Log.Information("{Count} file(s) changed since {Since}.", changed.Count, Since);
+                    Log.Information("{Count} file(s) changed since {Since}.", changed.Count, Since);
 
-                foreach (var project in AffectedProjectsSince(Since)) {
-                    Log.Information("  changed: {Project}", RootDirectory.GetRelativePathTo(project).ToUnixRelativePath());
+                    foreach (var project in AffectedProjectsSince(Since)) {
+                        Log.Information(
+                            "  changed: {Project}",
+                            RootDirectory.GetRelativePathTo(project).ToUnixRelativePath()
+                        );
+                    }
+
+                    foreach (var project in AffectedTestProjectsSince(Since)) {
+                        Log.Information(
+                            "  test:    {Project}",
+                            RootDirectory.GetRelativePathTo(project).ToUnixRelativePath()
+                        );
+                    }
+
+                    foreach (var finding in TrimFindingsSince(Since)) {
+                        Log.Information("  aot:     {Finding} — AffectedTests runs CheckAot for this", finding);
+                    }
                 }
-
-                foreach (var project in AffectedTestProjectsSince(Since)) {
-                    Log.Information("  test:    {Project}", RootDirectory.GetRelativePathTo(project).ToUnixRelativePath());
-                }
-
-                foreach (var finding in TrimFindingsSince(Since)) {
-                    Log.Information("  aot:     {Finding} — AffectedTests runs CheckAot for this", finding);
-                }
-            }
-        );
+            );
 
     /// <summary>
     ///     Who references whom, inverted: for each project in the solution, the projects that name
@@ -280,9 +317,13 @@ partial class Build {
     ///         learn the same thing costs minutes.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Nearly every reference in this tree is authored with Windows separators
-    ///         (<c>..\Vixen.Core\Vixen.Core.csproj</c>) and normalising them here would be dead
-    ///         code</b> — that was the first thing sabotaged, and removing the normalisation left
+    ///         ⚠
+    ///         <b>
+    ///             Nearly every reference in this tree is authored with Windows separators
+    ///             (<c>..\Vixen.Core\Vixen.Core.csproj</c>) and normalising them here would be dead
+    ///             code
+    ///         </b>
+    ///         — that was the first thing sabotaged, and removing the normalisation left
     ///         the closure at 96 test projects for <c>Vixen.Ecs</c>, unchanged, because Nuke's
     ///         <c>AbsolutePath</c> combination already handles the separator on macOS. The edge
     ///         count below is the guard that would actually notice: a graph with no edges is a
@@ -360,7 +401,11 @@ partial class Build {
 
         return affected.Count == 0
             ? []
-            : [.. DependentClosure(affected).Where(IsTestProject).OrderBy(project => project.ToString(), StringComparer.Ordinal)];
+            : [
+                ..DependentClosure(affected)
+                    .Where(IsTestProject)
+                    .OrderBy(project => project.ToString(), StringComparer.Ordinal)
+            ];
     }
 
     /// <summary>
@@ -388,89 +433,99 @@ partial class Build {
     ///         exactly what <see cref="Workers" /> was added to take away.
     ///     </para>
     /// </remarks>
-    Target AffectedTests => definition => definition
-        .Description("Runs the test projects reachable from what changed since --since, one at a time")
-        .Requires(() => Since)
-        .Executes(() => {
-                var projects = AffectedTestProjectsSince(Since);
+    Target AffectedTests =>
+        definition => definition
+            .Description("Runs the test projects reachable from what changed since --since, one at a time")
+            .Requires(() => Since)
+            .Executes(() => {
+                    var projects = AffectedTestProjectsSince(Since);
 
-                Log.Information(
-                    "{Count} test project(s) can be reached from what changed since {Since}. ⚠ A "
-                    + "ProjectReference closure cannot see a golden image, a content bundle, an .rvn "
-                    + "import closure or a test that walks the repository — run Test for those.",
-                    projects.Count,
-                    Since
-                );
-
-                // The Vulkan validation layer's loader path, which .runsettings used to carry and
-                // the platform runner cannot read (#560).
-                ExportLayerLibraryPath();
-
-                // ⚠ Every project runs, and the verdict comes at the end (#1332). This used to throw
-                // on the first red project, and on a machine without `spirv-val` that is
-                // Vixen.Fuzz.Tests, second of sixty-seven, every time: the other sixty-five never ran,
-                // and a real census drift in the twelfth hid behind an environmental red for a whole
-                // sweep. The target printed "Failed" whether one project was red or sixty-six were.
-                TestResultsDirectory.CreateOrCleanDirectory();
-
-                var red = new List<(string Project, IReadOnlyList<string> Problems)>();
-
-                foreach (var project in projects) {
-                    var relative = RootDirectory.GetRelativePathTo(project).ToUnixRelativePath().ToString();
-                    var exitCode = 0;
-
-                    Log.Information("Testing {Project}", relative);
-
-                    var output = DotNetTest(settings => settings
-                        .SetProjectFile(project)
-                        .SetConfiguration(Configuration)
-                        .SetResultsDirectory(TestResultsDirectory)
-                        .SetProcessExitHandler(process => exitCode = process.ExitCode)
+                    Log.Information(
+                        "{Count} test project(s) can be reached from what changed since {Since}. ⚠ A "
+                        + "ProjectReference closure cannot see a golden image, a content bundle, an .rvn "
+                        + "import closure or a test that walks the repository — run Test for those.",
+                        projects.Count,
+                        Since
                     );
 
-                    var trx = TestResultsDirectory / (project.NameWithoutExtension + ".trx");
-                    var problems = TestRunSummary.Problems(
-                        [project.NameWithoutExtension],
-                        output.Select(line => line.Text),
-                        exitCode,
-                        trx.FileExists() ? new Dictionary<string, int> { [project.NameWithoutExtension] = TestCaseCount(trx) } : null
+                    // The Vulkan validation layer's loader path, which .runsettings used to carry and
+                    // the platform runner cannot read (#560).
+                    ExportLayerLibraryPath();
+
+                    // ⚠ Every project runs, and the verdict comes at the end (#1332). This used to throw
+                    // on the first red project, and on a machine without `spirv-val` that is
+                    // Vixen.Fuzz.Tests, second of sixty-seven, every time: the other sixty-five never ran,
+                    // and a real census drift in the twelfth hid behind an environmental red for a whole
+                    // sweep. The target printed "Failed" whether one project was red or sixty-six were.
+                    TestResultsDirectory.CreateOrCleanDirectory();
+
+                    var red = new List<(string Project, IReadOnlyList<string> Problems)>();
+
+                    foreach (var project in projects) {
+                        var relative = RootDirectory.GetRelativePathTo(project).ToUnixRelativePath().ToString();
+                        var exitCode = 0;
+
+                        Log.Information("Testing {Project}", relative);
+
+                        var output = DotNetTest(settings => settings
+                            .SetProjectFile(project)
+                            .SetConfiguration(Configuration)
+                            .SetResultsDirectory(TestResultsDirectory)
+                            .SetProcessExitHandler(process => exitCode = process.ExitCode)
+                        );
+
+                        var trx = TestResultsDirectory / (project.NameWithoutExtension + ".trx");
+                        var problems = TestRunSummary.Problems(
+                            [project.NameWithoutExtension],
+                            output.Select(line => line.Text),
+                            exitCode,
+                            trx.FileExists()
+                                ? new Dictionary<string, int> { [project.NameWithoutExtension] = TestCaseCount(trx) }
+                                : null
+                        );
+
+                        if (problems.Count > 0) {
+                            red.Add((relative, problems));
+                            Log.Error(
+                                "{Project} is red — carrying on with the rest: {Problems}",
+                                relative,
+                                string.Join(" ", problems)
+                            );
+                        }
+                    }
+
+                    // ⚠ The one gate here that is not a test project (#1352): an edit to a trim
+                    // annotation or a `Type.BaseType` flow is invisible to the analyzer every build runs
+                    // and visible only to an ahead-of-time publish, so a narrowed run that touches one
+                    // runs that publish rather than reporting success it did not measure.
+                    var trim = TrimFindingsSince(Since);
+
+                    if (trim.Count > 0) {
+                        Log.Information(
+                            "The diff touches what only CheckAot can check, so it runs: {Findings}",
+                            string.Join("; ", trim)
+                        );
+
+                        try {
+                            RunCheckAot();
+                        } catch (Exception exception) {
+                            red.Add(("CheckAot", [exception.Message]));
+                            Log.Error("CheckAot is red — {Message}", exception.Message);
+                        }
+                    }
+
+                    Log.Information("{Ran} test project(s) ran; {Red} red.", projects.Count, red.Count);
+
+                    foreach (var (project, problems) in red) {
+                        Log.Error("  red: {Project} — {Problems}", project, string.Join(" ", problems));
+                    }
+
+                    Assert.True(
+                        red.Count == 0,
+                        $"{red.Count} of {projects.Count} test project(s) are red: "
+                        + string.Join(", ", red.Select(entry => entry.Project))
+                        + ". Every one of them ran; the list above says why each is red."
                     );
-
-                    if (problems.Count > 0) {
-                        red.Add((relative, problems));
-                        Log.Error("{Project} is red — carrying on with the rest: {Problems}", relative, string.Join(" ", problems));
-                    }
                 }
-
-                // ⚠ The one gate here that is not a test project (#1352): an edit to a trim
-                // annotation or a `Type.BaseType` flow is invisible to the analyzer every build runs
-                // and visible only to an ahead-of-time publish, so a narrowed run that touches one
-                // runs that publish rather than reporting success it did not measure.
-                var trim = TrimFindingsSince(Since);
-
-                if (trim.Count > 0) {
-                    Log.Information("The diff touches what only CheckAot can check, so it runs: {Findings}", string.Join("; ", trim));
-
-                    try {
-                        RunCheckAot();
-                    } catch (Exception exception) {
-                        red.Add(("CheckAot", [exception.Message]));
-                        Log.Error("CheckAot is red — {Message}", exception.Message);
-                    }
-                }
-
-                Log.Information("{Ran} test project(s) ran; {Red} red.", projects.Count, red.Count);
-
-                foreach (var (project, problems) in red) {
-                    Log.Error("  red: {Project} — {Problems}", project, string.Join(" ", problems));
-                }
-
-                Assert.True(
-                    red.Count == 0,
-                    $"{red.Count} of {projects.Count} test project(s) are red: "
-                    + string.Join(", ", red.Select(entry => entry.Project))
-                    + ". Every one of them ran; the list above says why each is red."
-                );
-            }
-        );
+            );
 }

@@ -163,8 +163,12 @@ public interface IRequirementContext {
     /// <param name="range">The prefix, resolved.</param>
     /// <returns>Whether it does.</returns>
     /// <remarks>
-    ///     ⚠ <b>The question a requirement actually asks, and it is separate from <see cref="Tags" />
-    ///     so that a context can answer it without owning one set.</b> A character's tags come from
+    ///     ⚠
+    ///     <b>
+    ///         The question a requirement actually asks, and it is separate from <see cref="Tags" />
+    ///         so that a context can answer it without owning one set.
+    ///     </b>
+    ///     A character's tags come from
     ///     several places at once — the effects on it, its progression, the quests it has turned in —
     ///     and each of those is a different object's <see cref="GameplayTagSet" />. Exposing only the
     ///     set forces those to be merged into one, which means copying it whenever any of them changes;
@@ -179,8 +183,11 @@ public interface IRequirementContext {
 /// <remarks>
 ///     <para>
 ///         <b>Doc 28's requirement example needs this to be true.</b>
-///         <c>[ Level >= 80, HasTag(Profession.Smithing), NotHasTag(State.InCombat),
-///         Currency.Gold >= 500 ]</c> asks four questions of four owners: the level and the profession
+///         <c>
+///             [ Level >= 80, HasTag(Profession.Smithing), NotHasTag(State.InCombat),
+///             Currency.Gold >= 500 ]
+///         </c>
+///         asks four questions of four owners: the level and the profession
 ///         are a <c>ProgressionState</c>'s, the combat state is a <see cref="GameplaySubject" />'s
 ///         effects, and the currency is a durable row's. There is no single object that answers all
 ///         four, and the alternative — one god context a game has to assemble and keep current —
@@ -202,7 +209,7 @@ public sealed class CompositeRequirementContext : IRequirementContext {
     public CompositeRequirementContext(params IRequirementContext?[] contexts) {
         ArgumentNullException.ThrowIfNull(contexts);
 
-        this.contexts = [.. contexts.Where(context => context is not null)!];
+        this.contexts = [..contexts.Where(static context => context is not null)!];
     }
 
     /// <summary>How many contexts it asks.</summary>
@@ -249,7 +256,9 @@ public sealed class CompositeRequirementContext : IRequirementContext {
 public sealed class RequirementSet {
     readonly Requirement[] requirements;
 
-    RequirementSet(Requirement[] requirements) => this.requirements = requirements;
+    RequirementSet(Requirement[] requirements) {
+        this.requirements = requirements;
+    }
 
     /// <summary>The set nothing fails.</summary>
     public static RequirementSet Always { get; } = new([]);

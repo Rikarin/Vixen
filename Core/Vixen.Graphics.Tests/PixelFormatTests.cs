@@ -162,8 +162,8 @@ public class PixelFormatTests {
 
     [Fact]
     public void AZeroOrNegativeExtentIsRejected() {
-        Assert.Throws<ArgumentOutOfRangeException>(() => PixelFormat.Rgba8UNorm.LevelSize(0, 4));
-        Assert.Throws<ArgumentOutOfRangeException>(() => PixelFormat.Rgba8UNorm.LevelSize(4, -1));
-        Assert.Throws<ArgumentOutOfRangeException>(() => PixelFormats.MipLevelCount(0, 4));
+        Assert.Throws<ArgumentOutOfRangeException>(static () => PixelFormat.Rgba8UNorm.LevelSize(0, 4));
+        Assert.Throws<ArgumentOutOfRangeException>(static () => PixelFormat.Rgba8UNorm.LevelSize(4, -1));
+        Assert.Throws<ArgumentOutOfRangeException>(static () => PixelFormats.MipLevelCount(0, 4));
     }
 }

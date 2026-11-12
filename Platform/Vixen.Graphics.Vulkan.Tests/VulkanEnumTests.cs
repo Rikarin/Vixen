@@ -264,7 +264,8 @@ public sealed class VulkanEnumTests {
 
         Assert.Equal(
             ColorComponentFlags.RBit | ColorComponentFlags.GBit
-            | ColorComponentFlags.BBit | ColorComponentFlags.ABit,
+            | ColorComponentFlags.BBit
+            | ColorComponentFlags.ABit,
             VulkanEnums.ToVulkan(ColourWriteMask.All)
         );
     }

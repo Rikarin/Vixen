@@ -9,8 +9,11 @@ namespace Vixen.TailwindParity;
 /// <summary>Checks the counts doc 43's prose states against the artefacts that measure them.</summary>
 /// <remarks>
 ///     <para>
-///         <b>Written because the batch that made these numbers measurable left one of them
-///         asserted.</b> Three commits in a row edited <c>docs/plan/43-web-styling-parity.md</c>:
+///         <b>
+///             Written because the batch that made these numbers measurable left one of them
+///             asserted.
+///         </b>
+///         Three commits in a row edited <c>docs/plan/43-web-styling-parity.md</c>:
 ///         the first wrote "163 of v4's 890 static utilities are named by no row", the second shrank
 ///         <c>docs/plan/43-web-styling-unlisted.txt</c> to 150 lines and did not revisit the prose,
 ///         the third edited the same document again and did not either. Nothing could see it —
@@ -106,7 +109,7 @@ static partial class ProseAudit {
         // remark on this class.
         if (matches.Count != 1) {
             findings.Add(
-                new ParityFinding(
+                new(
                     "TWP013",
                     claim,
                     $"{RepositoryFiles.DocumentName} states this {matches.Count} times and it must state it"
@@ -126,7 +129,7 @@ static partial class ProseAudit {
 
             if (stated != count) {
                 findings.Add(
-                    new ParityFinding(
+                    new(
                         "TWP012",
                         claim,
                         $"{RepositoryFiles.DocumentName} says {stated} {what} and {source} has {count}"

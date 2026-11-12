@@ -54,11 +54,13 @@ public class ParserTests {
     /// </summary>
     [Fact]
     public void A_using_directive_parses_an_alias() {
-        var document = Vxml.ParseClean("""
+        var document = Vxml.ParseClean(
+            """
             @component Counter
             @using Prefab = Vixen.Editor.AssetEditors.Prefabs.PrefabSource
             <panel />
-            """);
+            """
+        );
 
         var @using = Assert.Single(document.Usings);
         Assert.Equal("Prefab", @using.Alias!.Text);
@@ -67,11 +69,13 @@ public class ParserTests {
 
     [Fact]
     public void A_using_directive_without_an_alias_has_none() {
-        var document = Vxml.ParseClean("""
+        var document = Vxml.ParseClean(
+            """
             @component Counter
             @using System.Text
             <panel />
-            """);
+            """
+        );
 
         var @using = Assert.Single(document.Usings);
         Assert.Null(@using.Alias);
@@ -121,11 +125,13 @@ public class ParserTests {
     /// </summary>
     [Fact]
     public void An_inject_directive_parses_a_type_and_a_member_name() {
-        var document = Vxml.ParseClean("""
+        var document = Vxml.ParseClean(
+            """
             @component Counter
             @inject Vixen.Ui.ITheme Theme
             <panel />
-            """);
+            """
+        );
 
         var inject = Assert.Single(document.Injects);
         Assert.Equal("Vixen.Ui.ITheme", inject.Type.Text);
@@ -139,15 +145,17 @@ public class ParserTests {
     /// </summary>
     [Fact]
     public void A_file_may_inject_more_than_one_value() {
-        var document = Vxml.ParseClean("""
+        var document = Vxml.ParseClean(
+            """
             @component Counter
             @inject ITheme Theme
             @using System
             @inject ISelection Selection
             <panel />
-            """);
+            """
+        );
 
-        Assert.Equal(["Theme", "Selection"], document.Injects.Select(inject => inject.Name.Text));
+        Assert.Equal(["Theme", "Selection"], document.Injects.Select(static inject => inject.Name.Text));
         Assert.Single(document.Usings);
     }
 
@@ -159,8 +167,12 @@ public class ParserTests {
         Assert.Equal(source, Vxml.Parse(source).GetDocument().ToFullString());
 
     /// <summary>
-    ///     ⚠ <b>The member name is looked for on the directive's own line, and the line break is
-    ///     what stops the scan.</b> Consuming whitespace unconditionally would take the first word
+    ///     ⚠
+    ///     <b>
+    ///         The member name is looked for on the directive's own line, and the line break is
+    ///         what stops the scan.
+    ///     </b>
+    ///     Consuming whitespace unconditionally would take the first word
     ///     of the next line as the member name — a file that compiles, declaring a property nobody
     ///     wrote, out of a word that has vanished from the markup. The half-written directive is a
     ///     diagnostic instead and the line below it is still text.
@@ -188,11 +200,13 @@ public class ParserTests {
     /// </summary>
     [Fact]
     public void A_using_directive_parses_a_static_import() {
-        var document = Vxml.ParseClean("""
+        var document = Vxml.ParseClean(
+            """
             @component Counter
             @using static System.Math
             <panel />
-            """);
+            """
+        );
 
         var @using = Assert.Single(document.Usings);
         Assert.Equal("static", @using.StaticKeyword!.Text);
@@ -232,11 +246,13 @@ public class ParserTests {
 
     [Fact]
     public void A_namespace_directive_parses() {
-        var document = Vxml.ParseClean("""
+        var document = Vxml.ParseClean(
+            """
             @component Counter
             @namespace Game.Screens
             <panel />
-            """);
+            """
+        );
 
         Assert.Equal("Game.Screens", document.Namespace!.Name.Text);
     }
@@ -247,16 +263,18 @@ public class ParserTests {
     /// </summary>
     [Fact]
     public void The_namespace_may_sit_anywhere_among_the_usings() {
-        var document = Vxml.ParseClean("""
+        var document = Vxml.ParseClean(
+            """
             @component Counter
             @using System
             @namespace Game.Screens
             @using System.Text
             <panel />
-            """);
+            """
+        );
 
         Assert.Equal("Game.Screens", document.Namespace!.Name.Text);
-        Assert.Equal(["System", "System.Text"], document.Usings.Select(one => one.Name.Text));
+        Assert.Equal(["System", "System.Text"], document.Usings.Select(static one => one.Name.Text));
     }
 
     /// <summary>
@@ -266,28 +284,32 @@ public class ParserTests {
     /// </summary>
     [Fact]
     public void A_tag_directive_parses_a_hyphenated_name() {
-        var document = Vxml.ParseClean("""
+        var document = Vxml.ParseClean(
+            """
             @component TaskCenter
             @tag task-center
             <panel />
-            """);
+            """
+        );
 
         Assert.Equal("task-center", document.Tag!.Name.Text);
     }
 
     [Fact]
     public void The_tag_may_sit_anywhere_among_the_usings() {
-        var document = Vxml.ParseClean("""
+        var document = Vxml.ParseClean(
+            """
             @component TaskCenter
             @using System
             @tag task-center
             @namespace Game.Screens
             <panel />
-            """);
+            """
+        );
 
         Assert.Equal("task-center", document.Tag!.Name.Text);
         Assert.Equal("Game.Screens", document.Namespace!.Name.Text);
-        Assert.Equal(["System"], document.Usings.Select(one => one.Name.Text));
+        Assert.Equal(["System"], document.Usings.Select(static one => one.Name.Text));
     }
 
     /// <summary>
@@ -299,14 +321,16 @@ public class ParserTests {
     /// </summary>
     [Fact]
     public void The_headers_are_held_in_the_order_the_file_wrote_them() {
-        var document = Vxml.ParseClean("""
+        var document = Vxml.ParseClean(
+            """
             @component Counter
             @using System
             @tag task-center
             @namespace Game.Screens
             @using System.Text
             <panel />
-            """);
+            """
+        );
 
         Assert.Equal(
             [
@@ -316,18 +340,18 @@ public class ParserTests {
                 SyntaxKind.NamespaceDirective,
                 SyntaxKind.UsingDirective
             ],
-            document.Directives.Items().Select(directive => directive.Kind)
+            document.Directives.Items().Select(static directive => directive.Kind)
         );
     }
 
     [Fact]
     public void A_second_tag_directive_is_reported_and_the_first_stands() {
         const string Source = """
-            @component A
-            @tag a-b
-            @tag c-d
-            <panel />
-            """;
+                              @component A
+                              @tag a-b
+                              @tag c-d
+                              <panel />
+                              """;
 
         var tree = Vxml.Parse(Source);
         var document = tree.GetDocument();
@@ -344,11 +368,11 @@ public class ParserTests {
     [Fact]
     public void A_second_namespace_directive_is_reported_and_the_first_stands() {
         const string Source = """
-            @component Counter
-            @namespace Game.Screens
-            @namespace Somewhere.Else
-            <panel />
-            """;
+                              @component Counter
+                              @namespace Game.Screens
+                              @namespace Somewhere.Else
+                              <panel />
+                              """;
 
         var tree = Vxml.Parse(Source);
         var document = tree.GetDocument();
@@ -431,8 +455,8 @@ public class ParserTests {
 
         Assert.Collection(
             value.Content.Items(),
-            part => Assert.Equal("btn ", Assert.IsType<TextSyntax>(part).TextToken.Text),
-            part => Assert.Equal("kind", Assert.IsType<InterpolationSyntax>(part).Expression.Text)
+            static part => Assert.Equal("btn ", Assert.IsType<TextSyntax>(part).TextToken.Text),
+            static part => Assert.Equal("kind", Assert.IsType<InterpolationSyntax>(part).Expression.Text)
         );
     }
 
@@ -453,10 +477,10 @@ public class ParserTests {
     [InlineData("@a.b.c", "a.b.c")]
     [InlineData("@Items[0]", "Items[0]")]
     [InlineData("@Go()", "Go()")]
-    [InlineData("@Go(a, \"b)\")", "Go(a, \"b)\")")]
+    [InlineData("""@Go(a, "b)")""", """Go(a, "b)")""")]
     [InlineData("@a?.b", "a?.b")]
     [InlineData("@(a + b)", "(a + b)")]
-    [InlineData("@(f(\")\"))", "(f(\")\"))")]
+    [InlineData("""@(f(")"))""", """(f(")"))""")]
     [InlineData("@a + b", "a")]
     [InlineData("@a, b", "a")]
     public void An_interpolation_takes_exactly_the_expression_it_should(string written, string expected) {
@@ -467,13 +491,13 @@ public class ParserTests {
     [Fact]
     public void A_code_block_body_survives_a_brace_inside_a_string() {
         var code = First<CodeBlockSyntax>("@component A\n@code { var s = \"}\"; var t = '}'; }");
-        Assert.Equal(" var s = \"}\"; var t = '}'; ", code.Body.Text);
+        Assert.Equal(""" var s = "}"; var t = '}'; """, code.Body.Text);
     }
 
     [Fact]
     public void A_code_block_body_survives_a_brace_inside_a_raw_string() {
         var code = First<CodeBlockSyntax>("@component A\n@code { var s = \"\"\"}\"\"\"; }");
-        Assert.Equal(" var s = \"\"\"}\"\"\"; ", code.Body.Text);
+        Assert.Equal("""" var s = """}"""; """", code.Body.Text);
     }
 
     [Fact]
@@ -494,7 +518,10 @@ public class ParserTests {
         var @if = Assert.IsType<IfSyntax>(Assert.Single(document.Content.Items()));
         var div = @if.Body.Content.Items().OfType<ElementSyntax>().Single();
 
-        Assert.Equal("a } b", string.Concat(div.Content.Items().Select(node => ((TextSyntax)node).TextToken.Text)));
+        Assert.Equal(
+            "a } b",
+            string.Concat(div.Content.Items().Select(static node => ((TextSyntax)node).TextToken.Text))
+        );
     }
 
     [Fact]
@@ -537,8 +564,12 @@ public class ParserTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>The lexer takes an <c>@empty</c> after <i>any</i> block, and the refusal is the
-    ///     parser's.</b> Lexing it only behind a loop would leave this one an interpolation of a
+    ///     ⚠
+    ///     <b>
+    ///         The lexer takes an <c>@empty</c> after <i>any</i> block, and the refusal is the
+    ///         parser's.
+    ///     </b>
+    ///     Lexing it only behind a loop would leave this one an interpolation of a
     ///     variable called <c>empty</c> — a Roslyn error, on generated code, about a name the author
     ///     never wrote.
     /// </summary>
@@ -547,8 +578,12 @@ public class ParserTests {
         Assert.Contains("VXML1007", Vxml.Ids(Vxml.Parse("@component A\n@if (x) { <a /> } @empty { <b /> }")));
 
     /// <summary>
-    ///     ⚠ <b>The instrument: <c>empty</c> is a legal C# identifier, so the keyword is one only
-    ///     when a brace follows.</b> Without that guard this file would stop compiling the day
+    ///     ⚠
+    ///     <b>
+    ///         The instrument: <c>empty</c> is a legal C# identifier, so the keyword is one only
+    ///         when a brace follows.
+    ///     </b>
+    ///     Without that guard this file would stop compiling the day
     ///     somebody interpolated a variable of that name.
     /// </summary>
     [Fact]
@@ -566,9 +601,9 @@ public class ParserTests {
         Assert.Equal("k", @switch.Subject.Text);
         Assert.Collection(
             @switch.Sections.Items(),
-            section => Assert.Equal("1", section.Pattern!.Text),
-            section => Assert.Equal("2", section.Pattern!.Text),
-            section => Assert.Null(section.Pattern)
+            static section => Assert.Equal("1", section.Pattern!.Text),
+            static section => Assert.Equal("2", section.Pattern!.Text),
+            static section => Assert.Null(section.Pattern)
         );
     }
 
@@ -591,9 +626,9 @@ public class ParserTests {
 
         Assert.Collection(
             element.Content.Items(),
-            node => Assert.IsType<ElementSyntax>(node),
-            node => Assert.Equal("  ", Assert.IsType<TextSyntax>(node).TextToken.Text),
-            node => Assert.IsType<ElementSyntax>(node)
+            static node => Assert.IsType<ElementSyntax>(node),
+            static node => Assert.Equal("  ", Assert.IsType<TextSyntax>(node).TextToken.Text),
+            static node => Assert.IsType<ElementSyntax>(node)
         );
     }
 
@@ -614,7 +649,8 @@ public class ParserTests {
     /// <summary>An <c>@rows</c> header splits into its index name and its count, and the block reproduces its file.</summary>
     [Fact]
     public void A_rows_header_splits_into_its_index_and_its_count() {
-        const string Source = "@component A\n<VirtualizingPanel>\n    @rows (var index in Items.Value.Length) { <row /> }\n</VirtualizingPanel>";
+        const string Source =
+            "@component A\n<VirtualizingPanel>\n    @rows (var index in Items.Value.Length) { <row /> }\n</VirtualizingPanel>";
 
         var rows = First<RowsSyntax>(Source);
 

@@ -17,12 +17,12 @@ public sealed class FrameCaptureTests {
             "test",
             [
                 Command(CaptureCommandKind.PushGroup, "shadows"),
-                Command(CaptureCommandKind.BeginPass, "shadow pass", a: 0, b: 1),
+                Command(CaptureCommandKind.BeginPass, "shadow pass", 0, 1),
                 Command(CaptureCommandKind.BindPipeline, a: 7),
                 Command(CaptureCommandKind.Draw, a: 300, b: 1),
                 Command(CaptureCommandKind.EndPass),
                 Command(CaptureCommandKind.PopGroup),
-                Command(CaptureCommandKind.BeginPass, "ui", a: 1),
+                Command(CaptureCommandKind.BeginPass, "ui", 1),
                 Command(CaptureCommandKind.BindPipeline, a: 9),
                 Command(CaptureCommandKind.BindVertexBuffer, a: 0, b: 42),
                 Command(CaptureCommandKind.Draw, a: 6, b: 1)
@@ -120,9 +120,9 @@ public sealed class FrameCaptureTests {
     public void TheStateRowsAreGroupedAndSorted() {
         var rows = Frame().StateAt(9).Rows();
 
-        Assert.Contains(rows, row => row is { Group: "Target", Label: "Render pass", Value: "ui" });
-        Assert.Contains(rows, row => row is { Group: "Pipeline", Label: "Pipeline", Value: "#9" });
-        Assert.Contains(rows, row => row.Group == "Geometry" && row.Value == "#42");
+        Assert.Contains(rows, static row => row is { Group: "Target", Label: "Render pass", Value: "ui" });
+        Assert.Contains(rows, static row => row is { Group: "Pipeline", Label: "Pipeline", Value: "#9" });
+        Assert.Contains(rows, static row => row.Group == "Geometry" && row.Value == "#42");
     }
 
     /// <summary>

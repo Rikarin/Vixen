@@ -116,10 +116,15 @@ public class DistanceFieldTracerTests {
         var (vertices, indices) = Shapes.Sphere(1f, 32, 64);
         var clipmap = new GlobalDistanceField(48, 3f, 1);
 
-        clipmap.Update(Vector3.Zero, [DistanceFieldInstance.At(
-            MeshDistanceFieldBaker.Bake(vertices, indices, new() { Resolution = 32 }),
-            Vector3.Zero
-        )]);
+        clipmap.Update(
+            Vector3.Zero,
+            [
+                DistanceFieldInstance.At(
+                    MeshDistanceFieldBaker.Bake(vertices, indices, new() { Resolution = 32 }),
+                    Vector3.Zero
+                )
+            ]
+        );
 
         var settings = new DistanceFieldTraceSettings { MaxDistance = 6f, SurfaceThreshold = 0.02f };
         var baked = DistanceFieldTracer.Trace(clipmap, new(-2.5f, 0, 0), new(1, 0, 0), settings);
@@ -239,7 +244,7 @@ public class DistanceFieldTracerTests {
         DistanceFieldTracer.AmbientOcclusion(recorder, Vector3.Zero, new(0, 1, 0), 2f, 5, cell: 0.5f);
 
         // First at the cell, last at the radius, three evenly between.
-        Assert.Equal([0.5f, 0.875f, 1.25f, 1.625f, 2f], recorder.Heights.Select(h => MathF.Round(h, 5)));
+        Assert.Equal([0.5f, 0.875f, 1.25f, 1.625f, 2f], recorder.Heights.Select(static h => MathF.Round(h, 5)));
     }
 
     /// <summary>Without a cell the shells are the even spacing they always were.</summary>
@@ -251,9 +256,9 @@ public class DistanceFieldTracerTests {
     public void WithoutACellTheShellsAreEvenlySpaced() {
         var recorder = new Recording(new AnalyticFields.HalfSpace(new(0, 1, 0), 0f));
 
-        DistanceFieldTracer.AmbientOcclusion(recorder, Vector3.Zero, new(0, 1, 0), 2f, 5);
+        DistanceFieldTracer.AmbientOcclusion(recorder, Vector3.Zero, new(0, 1, 0), 2f);
 
-        Assert.Equal([0.4f, 0.8f, 1.2f, 1.6f, 2f], recorder.Heights.Select(h => MathF.Round(h, 5)));
+        Assert.Equal([0.4f, 0.8f, 1.2f, 1.6f, 2f], recorder.Heights.Select(static h => MathF.Round(h, 5)));
     }
 
     /// <summary>
@@ -320,7 +325,7 @@ public class DistanceFieldTracerTests {
             cell: 5f
         );
 
-        Assert.All(recorder.Heights, height => Assert.Equal(1f, height, 0.001f));
+        Assert.All(recorder.Heights, static height => Assert.Equal(1f, height, 0.001f));
         Assert.InRange(occlusion, 0f, 1f);
     }
 
@@ -363,9 +368,7 @@ public class DistanceFieldTracerTests {
 
     [Fact]
     public void TracingNothingIsRejected() =>
-        Assert.Throws<ArgumentNullException>(
-            () => DistanceFieldTracer.Trace(null!, Vector3.Zero, new(1, 0, 0))
-        );
+        Assert.Throws<ArgumentNullException>(static () => DistanceFieldTracer.Trace(null!, Vector3.Zero, new(1, 0, 0)));
 
     [Theory]
     [InlineData(0f, 128, 0.01f, 0.9f)]
@@ -378,16 +381,12 @@ public class DistanceFieldTracerTests {
         float threshold,
         float stepScale
     ) =>
-        Assert.Throws<ArgumentOutOfRangeException>(
-            () => DistanceFieldTracer.Trace(
+        Assert.Throws<ArgumentOutOfRangeException>(() => DistanceFieldTracer.Trace(
                 UnitSphereAtOrigin,
                 Vector3.Zero,
                 new(1, 0, 0),
                 new DistanceFieldTraceSettings {
-                    MaxDistance = maxDistance,
-                    MaxSteps = maxSteps,
-                    SurfaceThreshold = threshold,
-                    StepScale = stepScale
+                    MaxDistance = maxDistance, MaxSteps = maxSteps, SurfaceThreshold = threshold, StepScale = stepScale
                 }
             )
         );

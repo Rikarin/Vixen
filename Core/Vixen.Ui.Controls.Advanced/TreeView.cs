@@ -44,8 +44,12 @@ public sealed partial class TreeRow : Control {
 
     /// <inheritdoc />
     /// <remarks>
-    ///     ⚠ <b>Expandable only when the node <i>has</i> children, on <c>MenuItem</c>'s terms rather
-    ///     than <c>Select</c>'s.</b> A tree is mostly leaves, and marking every row expandable would
+    ///     ⚠
+    ///     <b>
+    ///         Expandable only when the node <i>has</i> children, on <c>MenuItem</c>'s terms rather
+    ///         than <c>Select</c>'s.
+    ///     </b>
+    ///     A tree is mostly leaves, and marking every row expandable would
     ///     tell a user that every one of them opens — which is exactly the distinction the blanked
     ///     chevron makes visually and from the same fact. Selection is read from
     ///     <see cref="ElementState.Checked" />, which the view already sets for the cascade, so
@@ -144,7 +148,7 @@ public sealed partial class TreeRow : Control {
         var colour = tree.GuideColour;
         var bounds = Bounds;
         var origin = Indent.AbsoluteLeft;
-        var middle = bounds.Y + (bounds.Height * 0.5f);
+        var middle = bounds.Y + bounds.Height * 0.5f;
 
         // Each ancestor between the root and this node's parent, and only where the branch carries
         // on below this row.
@@ -163,12 +167,15 @@ public sealed partial class TreeRow : Control {
         var x = Column(depth);
 
         Vertical(x, bounds.Y, HasFollowingSibling(node) ? bounds.Y + bounds.Height : middle);
-        context.FillRectangle(new Rectangle(x, middle - (Thickness * 0.5f), MathF.Max(0f, indent * 0.5f), Thickness), colour);
+        context.FillRectangle(
+            new(x, middle - Thickness * 0.5f, MathF.Max(0f, indent * 0.5f), Thickness),
+            colour
+        );
 
-        float Column(int level) => origin + ((level - 1) * indent) + (indent * 0.5f);
+        float Column(int level) => origin + (level - 1) * indent + indent * 0.5f;
 
         void Vertical(float at, float from, float to) =>
-            context.FillRectangle(new Rectangle(at - (Thickness * 0.5f), from, Thickness, to - from), colour);
+            context.FillRectangle(new(at - Thickness * 0.5f, from, Thickness, to - from), colour);
     }
 
     /// <summary>How wide a guide line is, in pixels.</summary>
@@ -194,11 +201,19 @@ public sealed partial class TreeRow : Control {
 ///         expanded nodes into a list, and binding a row to one.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Rows are positioned absolutely, at a fixed height — this control's choice rather than
-///         the panel's limit.</b> Virtualisation needs to know where row 40 000 is without having
+///         ⚠
+///         <b>
+///             Rows are positioned absolutely, at a fixed height — this control's choice rather than
+///             the panel's limit.
+///         </b>
+///         Virtualisation needs to know where row 40 000 is without having
 ///         measured the 39 999 above it, and a fixed height is what makes that arithmetic instead of a
-///         walk. ⚠ <b>The running-sum index this used to call a different control is
-///         <c>VirtualizingPanel</c>'s own</b>, so a tree that wants a row of its own height says so
+///         walk. ⚠
+///         <b>
+///             The running-sum index this used to call a different control is
+///             <c>VirtualizingPanel</c>'s own
+///         </b>
+///         , so a tree that wants a row of its own height says so
 ///         with <c>Panel.SetRowHeight</c> or turns <c>Panel.MeasureRows</c> on; nothing here needs to
 ///         change and nothing here does, because a tree node is one line of text and uniform is both
 ///         right and cheaper.
@@ -236,8 +251,12 @@ public sealed partial class TreeView : Control {
 
     /// <summary>Whether <see cref="SelectedNodes" /> is being published rather than assigned.</summary>
     /// <remarks>
-    ///     ⚠ <b>One flag rather than two code paths, because the property is written from both
-    ///     ends.</b> <see cref="Restate" /> writes it to report what the pointer and the keyboard
+    ///     ⚠
+    ///     <b>
+    ///         One flag rather than two code paths, because the property is written from both
+    ///         ends.
+    ///     </b>
+    ///     <see cref="Restate" /> writes it to report what the pointer and the keyboard
     ///     did; a caller or a <c>bind:</c> writes it to <i>ask</i> for a selection. Only the second
     ///     may run <see cref="SelectionAssigned" />, and telling them apart by comparing values
     ///     cannot work — the two writes are the same value by construction.
@@ -310,8 +329,7 @@ public sealed partial class TreeView : Control {
     ///     A faint neutral by default rather than the text colour, because a guide that reads as
     ///     loudly as a name is one the eye has to filter out of every row.
     /// </remarks>
-    public Color4 GuideColour =>
-        Document.ColorOf(Style, guideColorId) ?? new Color4(0.5f, 0.5f, 0.55f, 0.35f);
+    public Color4 GuideColour => Document.ColorOf(Style, guideColorId) ?? new Color4(0.5f, 0.5f, 0.55f, 0.35f);
 
     /// <summary>The nodes currently showing, in order, including the ones scrolled past.</summary>
     public IReadOnlyList<TreeNode> Visible => visible;
@@ -331,8 +349,12 @@ public sealed partial class TreeView : Control {
     /// <summary>The same selection as a value, which is the form markup can name.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b><c>change:Selection</c> could never have worked, and this is why rather than a
-    ///         workaround for it.</b> <c>change:</c> and <c>bind:</c> both resolve a name through
+    ///         ⚠
+    ///         <b>
+    ///             <c>change:Selection</c> could never have worked, and this is why rather than a
+    ///             workaround for it.
+    ///         </b>
+    ///         <c>change:</c> and <c>bind:</c> both resolve a name through
     ///         <c>UiPropertyRegistry</c> and both ride <see cref="UiElement.PropertyChanged" />; a
     ///         <see cref="HashSet{T}" /> behind a read-only view is neither registered nor
     ///         comparable, and is the same instance before and after every change, so no property
@@ -393,8 +415,12 @@ public sealed partial class TreeView : Control {
     ///         same row. Every file manager does this and nobody has to be told.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>"Already selected before this press" is what tells the two apart, and it needs no
-    ///         timer.</b> The first click of a double-click lands on a row that was not selected, so
+    ///         ⚠
+    ///         <b>
+    ///             "Already selected before this press" is what tells the two apart, and it needs no
+    ///             timer.
+    ///         </b>
+    ///         The first click of a double-click lands on a row that was not selected, so
     ///         it arms nothing and the second tap activates; a click after a pause lands on a row
     ///         that <i>is</i> selected, and the tap that follows renames. The one case the rule
     ///         cannot separate is a double-click on a row that was already selected — there the
@@ -453,7 +479,7 @@ public sealed partial class TreeView : Control {
             return row;
         };
 
-        Panel.BindRow = (row, index) => Bind((TreeRow) row, visible[index], index);
+        Panel.BindRow = (row, index) => Bind((TreeRow)row, visible[index], index);
 
         DropIndicator = Part("tree-drop-indicator");
         DropIndicator.AddClass("hidden");
@@ -464,10 +490,10 @@ public sealed partial class TreeView : Control {
         // to `PropertyChanged` this early, so the one write costs a notification nobody hears.
         Publish();
 
-        AddHandler<KeyEvent>(static (element, args) => ((TreeView) element).Keyed(args));
-        AddHandler<PointerEvent>(static (element, args) => ((TreeView) element).Pointed(args));
-        AddHandler<TapEvent>(static (element, args) => ((TreeView) element).Tapped(args));
-        AddHandler<DragEvent>(static (element, args) => ((TreeView) element).Dragged(args));
+        AddHandler<KeyEvent>(static (element, args) => ((TreeView)element).Keyed(args));
+        AddHandler<PointerEvent>(static (element, args) => ((TreeView)element).Pointed(args));
+        AddHandler<TapEvent>(static (element, args) => ((TreeView)element).Tapped(args));
+        AddHandler<DragEvent>(static (element, args) => ((TreeView)element).Dragged(args));
     }
 
     /// <summary>Rebuilds the list of visible nodes and realises the rows for it.</summary>
@@ -520,8 +546,12 @@ public sealed partial class TreeView : Control {
     /// <param name="nodes">The nodes.</param>
     /// <param name="expanded">Which.</param>
     /// <remarks>
-    ///     ⚠ <b>For a caller with a list, because <see cref="Expand(TreeNode, bool)" /> refreshes on
-    ///     every call.</b> That is the right shape for a person clicking a chevron and quadratic for
+    ///     ⚠
+    ///     <b>
+    ///         For a caller with a list, because <see cref="Expand(TreeNode, bool)" /> refreshes on
+    ///         every call.
+    ///     </b>
+    ///     That is the right shape for a person clicking a chevron and quadratic for
     ///     a loop: each refresh flattens the whole tree and realises the rows, so expanding N nodes
     ///     one at a time did N of both. An outliner rebuilding a scene of a few hundred roots is what
     ///     found it.
@@ -640,8 +670,7 @@ public sealed partial class TreeView : Control {
 
         editor.Submitted += _ => CommitRename(row, true);
 
-        editor.AddHandler<KeyEvent>(
-            (_, args) => {
+        editor.AddHandler<KeyEvent>((_, args) => {
                 if (args is { Action: KeyAction.Pressed, Key: InputKey.Escape }) {
                     CommitRename(row, false);
                     args.Handled = true;
@@ -654,8 +683,7 @@ public sealed partial class TreeView : Control {
         // actually ends most of the time, and an editor that threw the typed name away then is one
         // that loses a rename every session. Committing is also the safer of the two: a name typed
         // and abandoned can be undone, and a name typed and discarded cannot be recovered.
-        editor.AddHandler<FocusEvent>(
-            (_, args) => {
+        editor.AddHandler<FocusEvent>((_, args) => {
                 // The rename may already have ended — `CommitRename` moves the focus itself, which
                 // raises this on the way out — and asking twice would run the handler twice.
                 if (!args.Gained && row.Editor is not null) {
@@ -818,7 +846,7 @@ public sealed partial class TreeView : Control {
         publishing = true;
 
         try {
-            SelectedNodes = [.. selection];
+            SelectedNodes = [..selection];
         } finally {
             publishing = false;
         }
@@ -982,13 +1010,15 @@ public sealed partial class TreeView : Control {
         // was waiting for: the user meant this row and not the five that were selected.
         if (pending is { } narrowed) {
             pending = null;
-            Select(narrowed, ModifierKeys.None);
+            Select(narrowed);
         }
 
         // A single tap on a row that was already the only one selected. See `RenameOnSecondClick`:
         // the arming happened on the press, before the selection was written, which is what keeps
         // this off the first click of a double-click.
-        if (args.Count == 1 && renaming is { } again && RowAt(args.X, args.Y)?.Node is { } under
+        if (args.Count == 1
+            && renaming is { } again
+            && RowAt(args.X, args.Y)?.Node is { } under
             && ReferenceEquals(again, under)) {
             renaming = null;
 
@@ -1011,7 +1041,7 @@ public sealed partial class TreeView : Control {
             // tap takes it back, and what the user sees is the editor they did not want closing as
             // the file opens.
             if (row.Editor is not null) {
-                CommitRename(row, commit: false);
+                CommitRename(row, false);
             }
 
             if (RenameOnActivate) {
@@ -1146,9 +1176,6 @@ public sealed partial class TreeView : Control {
             case DragStage.Cancelled:
                 Cancel();
                 break;
-
-            default:
-                break;
         }
     }
 
@@ -1174,6 +1201,7 @@ public sealed partial class TreeView : Control {
             Refuse(bounds);
             return;
         }
+
         var fraction = bounds.Height <= 0f ? 0.5f : (y - bounds.Y) / bounds.Height;
 
         dropPosition = fraction switch {
@@ -1189,7 +1217,10 @@ public sealed partial class TreeView : Control {
 
         var into = dropPosition == DropPosition.Into;
 
-        DropIndicator.SetStyle("height", into ? bounds.Height.ToString("0.##", CultureInfo.InvariantCulture) + "px" : "2px");
+        DropIndicator.SetStyle(
+            "height",
+            into ? bounds.Height.ToString("0.##", CultureInfo.InvariantCulture) + "px" : "2px"
+        );
 
         var top = dropPosition switch {
             DropPosition.Before => bounds.Y,

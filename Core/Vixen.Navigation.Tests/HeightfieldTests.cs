@@ -27,7 +27,10 @@ public sealed class HeightfieldTests {
         var field = Rasterize(new NavTestGeometry().Floor(0, 0, 3, 3));
 
         Assert.True(field.SpanCount > 0, "A three-metre floor rasterized into nothing.");
-        Assert.True(field.SpanCount <= field.Width * field.Depth, "There are more spans than columns to hold one each.");
+        Assert.True(
+            field.SpanCount <= field.Width * field.Depth,
+            "There are more spans than columns to hold one each."
+        );
 
         for (var z = 0; z < field.Depth; z++) {
             for (var x = 0; x < field.Width; x++) {
@@ -78,7 +81,8 @@ public sealed class HeightfieldTests {
 
         Assert.True(
             query.FindNearestPoly(new(5, 0, 5), new(0.2f, 0.5f, 0.2f), NavQueryFilter.Default, out _, out _)
-                is var found && !found,
+                is var found
+            && !found,
             "The floor under a one-metre ceiling is not somewhere a two-metre agent can stand."
         );
 

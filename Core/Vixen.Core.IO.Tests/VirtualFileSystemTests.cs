@@ -89,10 +89,10 @@ public class VirtualFileSystemTests {
         vfs.Mount(MountPoints.Data, new MemoryFileProvider());
         var path = new VirtualPath("/data/saves/slot1.json");
 
-        await vfs.WriteAllTextAsync(path, "{\"level\":3}", TestContext.Current.CancellationToken);
+        await vfs.WriteAllTextAsync(path, """{"level":3}""", TestContext.Current.CancellationToken);
 
         Assert.True(vfs.Exists(path));
-        Assert.Equal("{\"level\":3}", await vfs.ReadAllTextAsync(path, TestContext.Current.CancellationToken));
+        Assert.Equal("""{"level":3}""", await vfs.ReadAllTextAsync(path, TestContext.Current.CancellationToken));
         Assert.True(vfs.TryGetEntry(path, out var entry));
         Assert.Equal(path, entry.Path);
         Assert.Equal(11, entry.Length);
@@ -120,9 +120,9 @@ public class VirtualFileSystemTests {
         var entries = vfs.Enumerate(VirtualPath.Root).ToArray();
 
         Assert.Equal(2, entries.Length);
-        Assert.All(entries, entry => Assert.True(entry.IsDirectory));
-        Assert.Contains(entries, entry => entry.Path == MountPoints.App);
-        Assert.Contains(entries, entry => entry.Path == MountPoints.Data);
+        Assert.All(entries, static entry => Assert.True(entry.IsDirectory));
+        Assert.Contains(entries, static entry => entry.Path == MountPoints.App);
+        Assert.Contains(entries, static entry => entry.Path == MountPoints.Data);
     }
 
     [Fact]
@@ -134,12 +134,12 @@ public class VirtualFileSystemTests {
         provider.Seed(new("/b/z.png"), "z");
         vfs.Mount(MountPoints.App, provider);
 
-        var shallow = vfs.Enumerate(new("/app")).Select(entry => entry.Path.Value).ToArray();
+        var shallow = vfs.Enumerate(new("/app")).Select(static entry => entry.Path.Value).ToArray();
         Assert.Equal(["/app/a", "/app/b"], shallow);
 
-        var deep = vfs.Enumerate(new("/app"), recursive: true)
-            .Where(entry => !entry.IsDirectory)
-            .Select(entry => entry.Path.Value)
+        var deep = vfs.Enumerate(new("/app"), true)
+            .Where(static entry => !entry.IsDirectory)
+            .Select(static entry => entry.Path.Value)
             .ToArray();
 
         Assert.Equal(["/app/a/x.png", "/app/a/y.png", "/app/b/z.png"], deep);
@@ -156,9 +156,9 @@ public class VirtualFileSystemTests {
         vfs.Mount(MountPoints.App, app);
         vfs.Mount(new("/app/dlc"), dlc);
 
-        var files = vfs.Enumerate(new("/app"), recursive: true)
-            .Where(entry => !entry.IsDirectory)
-            .Select(entry => entry.Path.Value)
+        var files = vfs.Enumerate(new("/app"), true)
+            .Where(static entry => !entry.IsDirectory)
+            .Select(static entry => entry.Path.Value)
             .ToArray();
 
         Assert.Contains("/app/base.txt", files);
@@ -168,7 +168,7 @@ public class VirtualFileSystemTests {
     [Fact]
     public void AReadOnlyMountRefusesWrites() {
         var vfs = new VirtualFileSystem();
-        vfs.Mount(MountPoints.App, new MemoryFileProvider(isReadOnly: true));
+        vfs.Mount(MountPoints.App, new MemoryFileProvider(true));
 
         Assert.Throws<NotSupportedException>(() => vfs.OpenWrite(new("/app/x")));
         Assert.Throws<NotSupportedException>(() => vfs.Delete(new("/app/x")));
@@ -187,6 +187,9 @@ public class VirtualFileSystemTests {
             Assert.Equal([1, 2, 3, 4], mapped.Memory.ToArray());
         }
 
-        Assert.Equal([1, 2, 3, 4], await vfs.ReadAllBytesAsync(new("/app/x.bin"), TestContext.Current.CancellationToken));
+        Assert.Equal(
+            [1, 2, 3, 4],
+            await vfs.ReadAllBytesAsync(new("/app/x.bin"), TestContext.Current.CancellationToken)
+        );
     }
 }

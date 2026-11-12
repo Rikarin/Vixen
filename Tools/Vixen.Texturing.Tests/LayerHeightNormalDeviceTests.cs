@@ -22,11 +22,13 @@ public sealed class LayerHeightNormalDeviceTests : IDisposable {
     /// <summary>How far from the middle the disc's falloff is steepest: inside its plateau and short of its foot.</summary>
     const int Slope = Radius - 7;
 
-    static readonly TextureLibrary Library = TextureNodeLibrary.Publish(null);
+    static readonly TextureLibrary Library = TextureNodeLibrary.Publish();
 
     readonly string folder = Path.Combine(Path.GetTempPath(), $"vixen-height-{Guid.NewGuid():N}");
 
-    public LayerHeightNormalDeviceTests() => Directory.CreateDirectory(folder);
+    public LayerHeightNormalDeviceTests() {
+        Directory.CreateDirectory(folder);
+    }
 
     public void Dispose() => Directory.Delete(folder, true);
 
@@ -64,15 +66,24 @@ public sealed class LayerHeightNormalDeviceTests : IDisposable {
         using var run = Open(evaluator, channels, method, out var image);
 
         Disc(image);
-        var normal = Normal(run, clean: false);
+        var normal = Normal(run, false);
 
         Assert.Equal((128, 128, 255), Texel(normal, 10, 10));
         Assert.Equal((128, 128, 255), Texel(normal, Middle, Middle));
-        Assert.True(Texel(normal, Middle - Slope, Middle).R < 110, $"left edge {Texel(normal, Middle - Slope, Middle)}");
-        Assert.True(Texel(normal, Middle + Slope, Middle).R > 146, $"right edge {Texel(normal, Middle + Slope, Middle)}");
+        Assert.True(
+            Texel(normal, Middle - Slope, Middle).R < 110,
+            $"left edge {Texel(normal, Middle - Slope, Middle)}"
+        );
+        Assert.True(
+            Texel(normal, Middle + Slope, Middle).R > 146,
+            $"right edge {Texel(normal, Middle + Slope, Middle)}"
+        );
         Assert.True(Texel(normal, Middle, Middle - Slope).G < 110, $"top edge {Texel(normal, Middle, Middle - Slope)}");
-        Assert.True(Texel(normal, Middle, Middle + Slope).G > 146, $"bottom edge {Texel(normal, Middle, Middle + Slope)}");
-        Assert.Equal(normal, Normal(run, clean: true));
+        Assert.True(
+            Texel(normal, Middle, Middle + Slope).G > 146,
+            $"bottom edge {Texel(normal, Middle, Middle + Slope)}"
+        );
+        Assert.Equal(normal, Normal(run, true));
     }
 
     [Fact]
@@ -85,7 +96,7 @@ public sealed class LayerHeightNormalDeviceTests : IDisposable {
         Disc(first);
         Disc(second);
 
-        Assert.NotEqual(Normal(sharp, clean: true), Normal(smooth, clean: true));
+        Assert.NotEqual(Normal(sharp, true), Normal(smooth, true));
     }
 
     /// <summary>A normal channel under the height keeps its own lean where no height was painted.</summary>
@@ -97,7 +108,7 @@ public sealed class LayerHeightNormalDeviceTests : IDisposable {
         using var run = Open(evaluator, ["normal", "height"], LayerHeightNormal.Smooth, out var image, tilted);
 
         Disc(image);
-        var normal = Normal(run, clean: true);
+        var normal = Normal(run, true);
 
         var far = Texel(normal, 10, 10);
         Assert.InRange(far.R, 175, 185);
@@ -105,11 +116,12 @@ public sealed class LayerHeightNormalDeviceTests : IDisposable {
     }
 
     static IReadOnlyList<string> Outputs(LayerStackBuild build) => [
-        ..build.Graph.Nodes.Where(static node => node.Type == "Output/Output").Select(static node => node.Texts["Usage"])
+        ..build.Graph.Nodes.Where(static node => node.Type == "Output/Output")
+            .Select(static node => node.Texts["Usage"])
     ];
 
     static (int R, int G, int B) Texel(byte[] pixels, int x, int y) {
-        var at = ((y * Size) + x) * 4;
+        var at = (y * Size + x) * 4;
 
         return (pixels[at], pixels[at + 1], pixels[at + 2]);
     }
@@ -122,16 +134,20 @@ public sealed class LayerHeightNormalDeviceTests : IDisposable {
 
     static void Disc(PaintImage image) {
         var session = PaintSession.Begin(
-            new(image, PaintCoverage.Everywhere(image.Width, image.Height), Gutter: 0),
+            new(image, PaintCoverage.Everywhere(image.Width, image.Height), 0),
             PaintBrush.Default with { Radius = Radius, Flow = 1f, Falloff = 0.3f },
             0xFFFFFFFFu
         );
 
-        session.Move(new Vector2(Middle, Middle));
+        session.Move(new(Middle, Middle));
         session.End("Disc");
     }
 
-    static TextureSetAsset Set(string[] channels, LayerHeightNormal method = LayerHeightNormal.Smooth, float[]? normal = null) =>
+    static TextureSetAsset Set(
+        string[] channels,
+        LayerHeightNormal method = LayerHeightNormal.Smooth,
+        float[]? normal = null
+    ) =>
         new() {
             Name = "Body",
             HeightNormal = method,
@@ -140,7 +156,7 @@ public sealed class LayerHeightNormalDeviceTests : IDisposable {
                         Usage = usage,
                         Default = usage switch {
                             "normal" => normal ?? [0.5f, 0.5f, 1f, 1f],
-                            "height" => [0.5f, 0.5f, 0.5f, 1f],
+
                             _ => [0.5f, 0.5f, 0.5f, 1f]
                         }
                     }
@@ -148,7 +164,12 @@ public sealed class LayerHeightNormalDeviceTests : IDisposable {
             ]
         };
 
-    static LayerStackAsset Stack(string[] channels, LayerHeightNormal method, out string paint, float[]? normal = null) {
+    static LayerStackAsset Stack(
+        string[] channels,
+        LayerHeightNormal method,
+        out string paint,
+        float[]? normal = null
+    ) {
         paint = $"{Guid.NewGuid():N}.vxpaint";
 
         return new() {
@@ -158,12 +179,7 @@ public sealed class LayerHeightNormalDeviceTests : IDisposable {
             Sets = [
                 Set(channels, method, normal) with {
                     Layers = [
-                        new() {
-                            Id = "painted",
-                            Kind = LayerKind.Paint,
-                            Paint = paint,
-                            Channels = ["height"]
-                        }
+                        new() { Id = "painted", Kind = LayerKind.Paint, Paint = paint, Channels = ["height"] }
                     ]
                 }
             ]

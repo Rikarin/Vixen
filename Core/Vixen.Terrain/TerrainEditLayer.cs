@@ -37,8 +37,11 @@ public enum TerrainLayerKind {
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>[docs/plan/31 § D4], and the reason it is the storage model rather than a feature on
-///         top of one.</b> Unreal added edit layers seven years after Landscape shipped, which is why
+///         <b>
+///             [docs/plan/31 § D4], and the reason it is the storage model rather than a feature on
+///             top of one.
+///         </b>
+///         Unreal added edit layers seven years after Landscape shipped, which is why
 ///         they are still opt-in per landscape there: everything written against the flat heightmap
 ///         had to keep working. Building the composite in from the first commit means no tool ever
 ///         has a flat-heightmap path to preserve, and the reserved-layer mechanism splines and
@@ -80,13 +83,17 @@ public sealed class TerrainEditLayer {
     /// <param name="description">The terrain's shape.</param>
     /// <param name="name">What the layer is called.</param>
     /// <param name="kind">Who owns its contents.</param>
-    public TerrainEditLayer(TerrainDescription description, string name, TerrainLayerKind kind = TerrainLayerKind.Manual) {
+    public TerrainEditLayer(
+        TerrainDescription description,
+        string name,
+        TerrainLayerKind kind = TerrainLayerKind.Manual
+    ) {
         Description = description;
         Name = name;
         Kind = kind;
 
-        chunksX = ((description.SamplesX - 1) / ChunkSize) + 1;
-        chunksZ = ((description.SamplesZ - 1) / ChunkSize) + 1;
+        chunksX = (description.SamplesX - 1) / ChunkSize + 1;
+        chunksZ = (description.SamplesZ - 1) / ChunkSize + 1;
     }
 
     /// <summary>The terrain's shape.</summary>
@@ -138,10 +145,7 @@ public sealed class TerrainEditLayer {
     /// </remarks>
     public TerrainEditLayer Clone() {
         var copy = new TerrainEditLayer(Description, Name, Kind) {
-            HeightAlpha = HeightAlpha,
-            WeightAlpha = WeightAlpha,
-            IsVisible = IsVisible,
-            IsLocked = IsLocked
+            HeightAlpha = HeightAlpha, WeightAlpha = WeightAlpha, IsVisible = IsVisible, IsLocked = IsLocked
         };
 
         foreach (var (index, chunk) in chunks) {
@@ -161,7 +165,7 @@ public sealed class TerrainEditLayer {
         }
 
         return chunks.TryGetValue(ChunkIndex(x, z), out var chunk)
-            ? chunk[((z % ChunkSize) * ChunkSize) + (x % ChunkSize)]
+            ? chunk[z % ChunkSize * ChunkSize + x % ChunkSize]
             : (short)0;
     }
 
@@ -189,7 +193,7 @@ public sealed class TerrainEditLayer {
             chunks[index] = chunk;
         }
 
-        chunk[((z % ChunkSize) * ChunkSize) + (x % ChunkSize)] = delta;
+        chunk[z % ChunkSize * ChunkSize + x % ChunkSize] = delta;
     }
 
     /// <summary>Adds to what this layer moves one sample by, saturating rather than wrapping.</summary>
@@ -238,12 +242,12 @@ public sealed class TerrainEditLayer {
         }
     }
 
-    int ChunkIndex(int x, int z) => (z / ChunkSize * chunksX) + (x / ChunkSize);
+    int ChunkIndex(int x, int z) => z / ChunkSize * chunksX + x / ChunkSize;
 
     /// <summary>Reads a sample's chunk-local delta without the bounds check.</summary>
     internal short DeltaUnchecked(int x, int z) =>
-        chunks.TryGetValue((z / ChunkSize * chunksX) + (x / ChunkSize), out var chunk)
-            ? chunk[((z % ChunkSize) * ChunkSize) + (x % ChunkSize)]
+        chunks.TryGetValue(z / ChunkSize * chunksX + x / ChunkSize, out var chunk)
+            ? chunk[z % ChunkSize * ChunkSize + x % ChunkSize]
             : (short)0;
 
     /// <summary>How many chunks there are along Z, for a caller sizing a walk.</summary>

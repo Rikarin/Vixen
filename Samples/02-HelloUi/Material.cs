@@ -41,25 +41,25 @@ public sealed class Material {
             "SampleMaterial",
             TypeTraits.DataContract | TypeTraits.EditorVisible,
             [
-                Member("Visible", typeof(bool), m => m.Visible, (m, v) => m.Visible = (bool) v!),
-                Member("Name", typeof(string), m => m.Name, (m, v) => m.Name = (string) v!),
+                Member("Visible", typeof(bool), static m => m.Visible, static (m, v) => m.Visible = (bool)v!),
+                Member("Name", typeof(string), static m => m.Name, static (m, v) => m.Name = (string)v!),
                 Member(
                     "Roughness",
                     typeof(float),
-                    m => m.Roughness,
-                    (m, v) => m.Roughness = (float) v!,
+                    static m => m.Roughness,
+                    static (m, v) => m.Roughness = (float)v!,
                     new MemberPresentation(Minimum: 0, Maximum: 1, Step: 0.01, IsEditorVisible: true)
                 ),
                 Member(
                     "Metallic",
                     typeof(float),
-                    m => m.Metallic,
-                    (m, v) => m.Metallic = (float) v!,
+                    static m => m.Metallic,
+                    static (m, v) => m.Metallic = (float)v!,
                     new MemberPresentation(Minimum: 0, Maximum: 1, Step: 0.01, IsEditorVisible: true)
                 ),
-                Member("Samples", typeof(int), m => m.Samples, (m, v) => m.Samples = (int) v!)
+                Member("Samples", typeof(int), static m => m.Samples, static (m, v) => m.Samples = (int)v!)
             ],
-            () => new Material()
+            static () => new Material()
         );
 
     /// <remarks>
@@ -78,8 +78,8 @@ public sealed class Material {
             name,
             type,
             0,
-            instance => get((Material) instance),
-            set is null ? null : (instance, value) => set((Material) instance, value),
+            instance => get((Material)instance),
+            set is null ? null : (instance, value) => set((Material)instance, value),
             presentation ?? new MemberPresentation(IsEditorVisible: true)
         );
 

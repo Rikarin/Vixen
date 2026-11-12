@@ -33,9 +33,9 @@ public sealed class TgaOrientationTests {
 
         for (var y = 0; y < height; y++) {
             for (var x = 0; x < width; x++) {
-                var texel = ((y * width) + x) * 4;
-                pixels[texel] = (byte)(16 + (x * 32));          // R climbs left to right.
-                pixels[texel + 1] = (byte)(16 + (y * 64));      // G climbs top to bottom.
+                var texel = (y * width + x) * 4;
+                pixels[texel] = (byte)(16 + x * 32); // R climbs left to right.
+                pixels[texel + 1] = (byte)(16 + y * 64); // G climbs top to bottom.
                 pixels[texel + 2] = 7;
                 pixels[texel + 3] = 255;
             }
@@ -70,6 +70,6 @@ public sealed class TgaOrientationTests {
     public void TheTwoFilesReallyDoDifferInTheirBytes() {
         var pixels = Asymmetric(4, 3);
 
-        Assert.NotEqual(MinimalTga.Write(4, 3, pixels, topDown: true), MinimalTga.Write(4, 3, pixels, topDown: false));
+        Assert.NotEqual(MinimalTga.Write(4, 3, pixels, true), MinimalTga.Write(4, 3, pixels, false));
     }
 }

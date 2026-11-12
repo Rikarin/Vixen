@@ -69,7 +69,7 @@ public class FlowAnalysisTests {
             """
         );
 
-        Assert.Equal(2, reported.Count(d => d.Id == "RVN2127"));
+        Assert.Equal(2, reported.Count(static d => d.Id == "RVN2127"));
     }
 
     [Theory]
@@ -82,16 +82,24 @@ public class FlowAnalysisTests {
     [InlineData("        var v: float4\n        v.x = 1f\n        return v")]
 
     // Both arms assign, so it is assigned after.
-    [InlineData("        var x: float\n        if (mode > 0) {\n            x = 1f\n        } else {\n            x = 2f\n        }\n        return float4(x, 0, 0, 1)")]
+    [InlineData(
+        "        var x: float\n        if (mode > 0) {\n            x = 1f\n        } else {\n            x = 2f\n        }\n        return float4(x, 0, 0, 1)"
+    )]
 
     // The arm that does not fall through contributes nothing to take away.
-    [InlineData("        var x: float\n        if (mode > 0) {\n            return tint\n        }\n        x = 1f\n        return float4(x, 0, 0, 1)")]
+    [InlineData(
+        "        var x: float\n        if (mode > 0) {\n            return tint\n        }\n        x = 1f\n        return float4(x, 0, 0, 1)"
+    )]
 
     // A `repeat` body runs before the first test, so what it assigns is assigned after.
-    [InlineData("        var x: float\n        repeat {\n            x = 1f\n        } while (mode > 0)\n        return float4(x, 0, 0, 1)")]
+    [InlineData(
+        "        var x: float\n        repeat {\n            x = 1f\n        } while (mode > 0)\n        return float4(x, 0, 0, 1)"
+    )]
 
     // Every section returns and there is a default, so the switch never falls through.
-    [InlineData("        switch (mode) {\n            case 0:\n                return tint\n            default:\n                return tint * 2f\n        }")]
+    [InlineData(
+        "        switch (mode) {\n            case 0:\n                return tint\n            default:\n                return tint * 2f\n        }"
+    )]
     public void What_the_analysis_accepts(string body) => Clean(body);
 
     /// <summary>
@@ -114,8 +122,12 @@ public class FlowAnalysisTests {
 
     /// <summary>A loop body may run zero times, so nothing it assigns is assigned after it.</summary>
     [Theory]
-    [InlineData("        var x: float\n        while (mode > 0) {\n            x = 1f\n        }\n        return float4(x, 0, 0, 1)")]
-    [InlineData("        var x: float\n        for (i in 0 .. mode) {\n            x = 1f\n        }\n        return float4(x, 0, 0, 1)")]
+    [InlineData(
+        "        var x: float\n        while (mode > 0) {\n            x = 1f\n        }\n        return float4(x, 0, 0, 1)"
+    )]
+    [InlineData(
+        "        var x: float\n        for (i in 0 .. mode) {\n            x = 1f\n        }\n        return float4(x, 0, 0, 1)"
+    )]
     public void A_loop_body_does_not_assign_after_the_loop(string body) => Reports("RVN2127", body);
 
     /// <summary>
@@ -178,7 +190,7 @@ public class FlowAnalysisTests {
     public void A_statement_after_a_jump_is_reported(string jump, string reason) {
         var warning = Assert.Single(
             Body($"        {jump}\n        var x = 1f\n"),
-            d => d.Id == "RVN2128"
+            static d => d.Id == "RVN2128"
         );
 
         Assert.False(warning.IsError);
@@ -197,7 +209,7 @@ public class FlowAnalysisTests {
                         var z = 3f
                 """
             ),
-            d => d.Id == "RVN2128"
+            static d => d.Id == "RVN2128"
         );
 
     [Fact]
@@ -230,7 +242,7 @@ public class FlowAnalysisTests {
                         }
                 """
             ),
-            d => d.Id == "RVN2129"
+            static d => d.Id == "RVN2129"
         );
 
         Assert.True(error.IsError);

@@ -45,11 +45,11 @@ static class Program {
         var model = new ShellModel();
 
         return UiApplication.Run(
-            new UiApplicationOptions {
+            new() {
                 Title = "Vixen — Hello UI",
                 Organisation = "Vixen",
                 Application = "HelloUi",
-                Size = new Int2(1280, 800),
+                Size = new(1280, 800),
 
                 // ⚠ **The generated sheet, and there is no code behind that name.**
                 // `Theme/vixen.ui.vcss` is the tokens; every `.vxml` and every `.cs` in this project
@@ -69,7 +69,7 @@ static class Program {
 
                 // Docking, trees and property grids are a second package — see the project file — so
                 // their theme is installed by the assembly that references them, which is this one.
-                Configure = document => AdvancedTheme.Install(document),
+                Configure = static document => AdvancedTheme.Install(document),
 
                 // ⚠ **A factory, and in a development build it is also what a hot reload rebuilds
                 // from.** An edit the runtime cannot patch makes the reload host construct a
@@ -93,7 +93,6 @@ static class Program {
                     model.Diagnostics = panel => app.Diagnostics = panel;
                     model.Quit = () => app.Quit();
                 },
-
                 Stopping = _ => Report(model)
             },
             arguments

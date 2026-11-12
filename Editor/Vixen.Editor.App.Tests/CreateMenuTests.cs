@@ -6,7 +6,6 @@ using Vixen.Core.IO;
 using Vixen.Core.Mathematics;
 using Vixen.Editor.Assets;
 using Vixen.Editor.Core;
-using Vixen.Editor.SceneView;
 using Vixen.Editor.Testing;
 using Vixen.Engine.Cameras;
 using Vixen.Engine.Transforms;
@@ -56,7 +55,10 @@ public class CreateMenuTests {
         // ⚠ The hierarchy's, not "the only one". The toolbar's dropdowns are context menus too and
         // they hang off the document root for the same reason this one does — so "the single context
         // menu in the tree" stopped being an identity the moment the toolbar grew a section.
-        var menu = Assert.Single(Menus(fixture), static candidate => candidate.Items.Any(item => item.Label == "3D Object"));
+        var menu = Assert.Single(
+            Menus(fixture),
+            static candidate => candidate.Items.Any(static item => item.Label == "3D Object")
+        );
         var labels = menu.Items.Select(static item => item.Label).ToList();
 
         Assert.Contains("3D Object", labels);
@@ -119,8 +121,12 @@ public class CreateMenuTests {
     /// <summary>Every file kind doc 34 introduced can be made from the Assets menu.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The check that was missing while three of these had editors and no way to make a
-    ///         file of one.</b> Registering an editor and forgetting the Create line leaves a format
+    ///         ⚠
+    ///         <b>
+    ///             The check that was missing while three of these had editors and no way to make a
+    ///             file of one.
+    ///         </b>
+    ///         Registering an editor and forgetting the Create line leaves a format
     ///         that opens perfectly and that nobody can ever get a file of — and nothing anywhere says
     ///         so, because both halves are individually correct.
     ///     </para>
@@ -148,15 +154,19 @@ public class CreateMenuTests {
 
         Assert.DoesNotContain(
             await Import(path),
-            entry => entry.Severity is ImportSeverity.Error or ImportSeverity.Warning
+            static entry => entry.Severity is ImportSeverity.Error or ImportSeverity.Warning
         );
     }
 
     /// <summary>The four kinds the menu grew on 2026-09-17 import clean, by the real importer.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The starter is the claim, and the material's is the one that could fail
-    ///         silently.</b> <c>MaterialImporterTests.AMaterialWithNoFeaturesIsBuiltAndQuestioned</c>
+    ///         ⚠
+    ///         <b>
+    ///             The starter is the claim, and the material's is the one that could fail
+    ///             silently.
+    ///         </b>
+    ///         <c>MaterialImporterTests.AMaterialWithNoFeaturesIsBuiltAndQuestioned</c>
     ///         pins that a featureless <c>.vxmat</c> builds with a <em>warning</em> — so a
     ///         zero-byte starter, which is what <c>AssetFile.Read</c>'s remarks describe as the old
     ///         way in, would pass the opens-theory above and greet an author with a red mark here.
@@ -188,13 +198,17 @@ public class CreateMenuTests {
 
         Assert.DoesNotContain(
             await Import(path),
-            entry => entry.Severity is ImportSeverity.Error or ImportSeverity.Warning
+            static entry => entry.Severity is ImportSeverity.Error or ImportSeverity.Warning
         );
     }
 
     /// <summary>
-    ///     ⚠ <b>A new harness is the one that imports with an error, and the error is the
-    ///     instructions.</b> A plan naming no clip and no rig is a build step that always passes,
+    ///     ⚠
+    ///     <b>
+    ///         A new harness is the one that imports with an error, and the error is the
+    ///         instructions.
+    ///     </b>
+    ///     A plan naming no clip and no rig is a build step that always passes,
     ///     which is worse than one that says what it is missing — so the two lines an author has to
     ///     fill in are the two the importer complains about the moment the file exists.
     /// </summary>
@@ -210,7 +224,7 @@ public class CreateMenuTests {
 
         Assert.Contains(
             await Import(path),
-            entry => entry.Severity == ImportSeverity.Error
+            static entry => entry.Severity == ImportSeverity.Error
                 && entry.Message.Contains("always passes", StringComparison.Ordinal)
         );
     }
@@ -283,7 +297,8 @@ public class CreateMenuTests {
 
         List<string> unclaimed = [];
 
-        foreach (var kind in fixture.Extensions.All<NewAssetKind>().OrderBy(entry => entry.Extension, StringComparer.Ordinal)) {
+        foreach (var kind in fixture.Extensions.All<NewAssetKind>()
+                     .OrderBy(static entry => entry.Extension, StringComparer.Ordinal)) {
             // ⚠ Asserted as "the fallback claimed it", never as "TryGetForFile returned false".
             // RawImporter takes anything, so the boolean is true either way — which is exactly how
             // seven formats reached master unreachable.

@@ -88,9 +88,9 @@ public sealed class BlockEncoderTests {
         for (var texel = 0; texel < 16; texel++) {
             var white = texel % 3 == 0;
             rgba[texel * 4] = white ? (byte)255 : (byte)0;
-            rgba[(texel * 4) + 1] = white ? (byte)255 : (byte)0;
-            rgba[(texel * 4) + 2] = white ? (byte)255 : (byte)0;
-            rgba[(texel * 4) + 3] = 255;
+            rgba[texel * 4 + 1] = white ? (byte)255 : (byte)0;
+            rgba[texel * 4 + 2] = white ? (byte)255 : (byte)0;
+            rgba[texel * 4 + 3] = 255;
         }
 
         Assert.Equal(rgba, RoundTrip(PixelFormat.Bc1RgbaUNorm, rgba));
@@ -104,16 +104,16 @@ public sealed class BlockEncoderTests {
     [Fact]
     public void OneTexelBelowTheAlphaCutoffMakesTheWholeBc1BlockCutOut() {
         var rgba = Flat(200, 100, 50, 255);
-        rgba[(5 * 4) + 3] = 0;
+        rgba[5 * 4 + 3] = 0;
 
         var decoded = RoundTrip(PixelFormat.Bc1RgbaUNorm, rgba);
 
-        Assert.Equal(0, decoded[(5 * 4) + 3]);
+        Assert.Equal(0, decoded[5 * 4 + 3]);
         Assert.Equal(255, decoded[3]);
 
         for (var texel = 0; texel < 16; texel++) {
             if (texel != 5) {
-                Assert.Equal(255, decoded[(texel * 4) + 3]);
+                Assert.Equal(255, decoded[texel * 4 + 3]);
             }
         }
     }
@@ -130,7 +130,7 @@ public sealed class BlockEncoderTests {
         var decoded = RoundTrip(PixelFormat.Bc1RgbaUNorm, rgba);
 
         for (var texel = 0; texel < 16; texel++) {
-            Assert.Equal(0, decoded[(texel * 4) + 3]);
+            Assert.Equal(0, decoded[texel * 4 + 3]);
         }
     }
 
@@ -149,18 +149,18 @@ public sealed class BlockEncoderTests {
         // measuring the format's resolution instead of whether the two halves interfere.
         for (var texel = 0; texel < 16; texel++) {
             rgba[texel * 4] = (byte)(texel * 4);
-            rgba[(texel * 4) + 1] = 0;
-            rgba[(texel * 4) + 2] = (byte)(200 - (texel * 4));
-            rgba[(texel * 4) + 3] = 0;
+            rgba[texel * 4 + 1] = 0;
+            rgba[texel * 4 + 2] = (byte)(200 - texel * 4);
+            rgba[texel * 4 + 3] = 0;
         }
 
         var decoded = RoundTrip(PixelFormat.Bc3RgbaUNorm, rgba);
 
         for (var texel = 0; texel < 16; texel++) {
-            Assert.Equal(0, decoded[(texel * 4) + 3]);
+            Assert.Equal(0, decoded[texel * 4 + 3]);
         }
 
-        Assert.True(MaxError(rgba, decoded, channels: 3) <= 16, "the colour gradient should survive");
+        Assert.True(MaxError(rgba, decoded, 3) <= 16, "the colour gradient should survive");
     }
 
     /// <summary>
@@ -173,15 +173,15 @@ public sealed class BlockEncoderTests {
         var rgba = new byte[64];
 
         for (var texel = 0; texel < 16; texel++) {
-            rgba[(texel * 4) + 3] = (byte)(texel * 17);
+            rgba[texel * 4 + 3] = (byte)(texel * 17);
         }
 
         var decoded = RoundTrip(PixelFormat.Bc3RgbaUNorm, rgba);
         var previous = -1;
 
         for (var texel = 0; texel < 16; texel++) {
-            var alpha = decoded[(texel * 4) + 3];
-            Assert.True(Math.Abs(alpha - (texel * 17)) <= 20, $"texel {texel}: {alpha} for {texel * 17}");
+            var alpha = decoded[texel * 4 + 3];
+            Assert.True(Math.Abs(alpha - texel * 17) <= 20, $"texel {texel}: {alpha} for {texel * 17}");
             Assert.True(alpha >= previous, "a ramp should stay a ramp");
             previous = alpha;
         }
@@ -200,8 +200,8 @@ public sealed class BlockEncoderTests {
 
         for (var texel = 0; texel < 16; texel++) {
             rgba[texel * 4] = (byte)(texel * 4);
-            rgba[(texel * 4) + 2] = (byte)(200 - (texel * 4));
-            rgba[(texel * 4) + 3] = 0;
+            rgba[texel * 4 + 2] = (byte)(200 - texel * 4);
+            rgba[texel * 4 + 3] = 0;
         }
 
         Span<byte> block = stackalloc byte[16];
@@ -245,18 +245,18 @@ public sealed class BlockEncoderTests {
 
         for (var texel = 0; texel < 16; texel++) {
             rgba[texel * 4] = (byte)(texel * 17);
-            rgba[(texel * 4) + 1] = 128;
-            rgba[(texel * 4) + 2] = 99;      // Not stored: BC5 has two channels.
-            rgba[(texel * 4) + 3] = 7;
+            rgba[texel * 4 + 1] = 128;
+            rgba[texel * 4 + 2] = 99; // Not stored: BC5 has two channels.
+            rgba[texel * 4 + 3] = 7;
         }
 
         var decoded = RoundTrip(PixelFormat.Bc5RgUNorm, rgba);
 
         for (var texel = 0; texel < 16; texel++) {
-            Assert.True(Math.Abs(decoded[texel * 4] - (texel * 17)) <= 20);
-            Assert.Equal(128, decoded[(texel * 4) + 1]);
-            Assert.Equal(0, decoded[(texel * 4) + 2]);
-            Assert.Equal(255, decoded[(texel * 4) + 3]);
+            Assert.True(Math.Abs(decoded[texel * 4] - texel * 17) <= 20);
+            Assert.Equal(128, decoded[texel * 4 + 1]);
+            Assert.Equal(0, decoded[texel * 4 + 2]);
+            Assert.Equal(255, decoded[texel * 4 + 3]);
         }
     }
 
@@ -310,12 +310,12 @@ public sealed class BlockEncoderTests {
 
         for (var texel = 0; texel < 16; texel++) {
             rgba[texel * 4] = 60;
-            rgba[(texel * 4) + 1] = 60;
-            rgba[(texel * 4) + 2] = 60;
-            rgba[(texel * 4) + 3] = (byte)(texel * 17);
+            rgba[texel * 4 + 1] = 60;
+            rgba[texel * 4 + 2] = 60;
+            rgba[texel * 4 + 3] = (byte)(texel * 17);
         }
 
-        Assert.True(MaxError(rgba, RoundTrip(PixelFormat.Bc7RgbaUNorm, rgba), channels: 4) <= 4);
+        Assert.True(MaxError(rgba, RoundTrip(PixelFormat.Bc7RgbaUNorm, rgba), 4) <= 4);
     }
 
     /// <summary>
@@ -360,13 +360,13 @@ public sealed class BlockEncoderTests {
     /// </summary>
     [Fact]
     public void NegativeAndNotANumberAreClampedBeforeTheyReachTheFit() {
-        var texture = new TextureData(PixelFormat.Rgba16Float, 4, 4, levelCount: 1);
+        var texture = new TextureData(PixelFormat.Rgba16Float, 4, 4, 1);
         var pixels = texture.PixelSpan();
 
         for (var texel = 0; texel < 16; texel++) {
             Write(pixels[(texel * 8)..], texel == 0 ? Half.NegativeOne : (Half)2f);
-            Write(pixels[((texel * 8) + 2)..], texel == 1 ? Half.NaN : (Half)2f);
-            Write(pixels[((texel * 8) + 4)..], texel == 2 ? Half.PositiveInfinity : (Half)2f);
+            Write(pixels[(texel * 8 + 2)..], texel == 1 ? Half.NaN : (Half)2f);
+            Write(pixels[(texel * 8 + 4)..], texel == 2 ? Half.PositiveInfinity : (Half)2f);
         }
 
         var decoded = BlockCompressor.Decode(BlockCompressor.Encode(texture, PixelFormat.Bc6HRgbUFloat));
@@ -374,7 +374,7 @@ public sealed class BlockEncoderTests {
 
         for (var texel = 0; texel < 16; texel++) {
             for (var channel = 0; channel < 3; channel++) {
-                var value = (float)Read(back[((texel * 8) + (channel * 2))..]);
+                var value = (float)Read(back[(texel * 8 + channel * 2)..]);
                 Assert.True(value >= 0f && float.IsFinite(value), $"texel {texel} channel {channel} is {value}");
             }
         }
@@ -382,8 +382,7 @@ public sealed class BlockEncoderTests {
         static void Write(Span<byte> destination, Half value) =>
             BitConverter.TryWriteBytes(destination, BitConverter.HalfToUInt16Bits(value));
 
-        static Half Read(ReadOnlySpan<byte> source) =>
-            BitConverter.UInt16BitsToHalf(BitConverter.ToUInt16(source));
+        static Half Read(ReadOnlySpan<byte> source) => BitConverter.UInt16BitsToHalf(BitConverter.ToUInt16(source));
     }
 
     /// <summary>
@@ -410,17 +409,18 @@ public sealed class BlockEncoderTests {
     [InlineData(PixelFormat.Bc7RgbaUNorm, 3, 20)]
     public void TexelsOnALineComeBackCloseToTheLine(PixelFormat format, int channels, int bound) =>
         Gen.Select(Gen.Byte.Array[4], Gen.Byte.Array[4], Gen.Byte[0, 255].Array[16])
-            .Sample(sample => {
+            .Sample(
+                sample => {
                     var (from, to, positions) = sample;
                     var rgba = new byte[64];
 
                     for (var texel = 0; texel < 16; texel++) {
                         for (var channel = 0; channel < 3; channel++) {
-                            rgba[(texel * 4) + channel] =
-                                (byte)(from[channel] + ((to[channel] - from[channel]) * positions[texel] / 255));
+                            rgba[texel * 4 + channel] =
+                                (byte)(from[channel] + (to[channel] - from[channel]) * positions[texel] / 255);
                         }
 
-                        rgba[(texel * 4) + 3] = 255;
+                        rgba[texel * 4 + 3] = 255;
                     }
 
                     var error = MaxError(rgba, RoundTrip(format, rgba), channels);
@@ -443,39 +443,41 @@ public sealed class BlockEncoderTests {
     [InlineData(PixelFormat.Bc5RgUNorm, 2)]
     [InlineData(PixelFormat.Bc7RgbaUNorm, 3)]
     public void AnyBlockIsFittedBetterThanItsOwnMeanColour(PixelFormat format, int channels) =>
-        Gen.Byte.Array[64].Sample(rgba => {
-                for (var texel = 0; texel < 16; texel++) {
-                    rgba[(texel * 4) + 3] = 255;
-                }
-
-                var decoded = RoundTrip(format, rgba);
-                var fitted = 0.0;
-                var flat = 0.0;
-
-                for (var channel = 0; channel < channels; channel++) {
-                    var mean = 0.0;
-
+        Gen.Byte.Array[64]
+            .Sample(
+                rgba => {
                     for (var texel = 0; texel < 16; texel++) {
-                        mean += rgba[(texel * 4) + channel];
+                        rgba[texel * 4 + 3] = 255;
                     }
 
-                    mean /= 16;
+                    var decoded = RoundTrip(format, rgba);
+                    var fitted = 0.0;
+                    var flat = 0.0;
 
-                    for (var texel = 0; texel < 16; texel++) {
-                        var fit = rgba[(texel * 4) + channel] - (double)decoded[(texel * 4) + channel];
-                        var constant = rgba[(texel * 4) + channel] - mean;
-                        fitted += fit * fit;
-                        flat += constant * constant;
+                    for (var channel = 0; channel < channels; channel++) {
+                        var mean = 0.0;
+
+                        for (var texel = 0; texel < 16; texel++) {
+                            mean += rgba[texel * 4 + channel];
+                        }
+
+                        mean /= 16;
+
+                        for (var texel = 0; texel < 16; texel++) {
+                            var fit = rgba[texel * 4 + channel] - (double)decoded[texel * 4 + channel];
+                            var constant = rgba[texel * 4 + channel] - mean;
+                            fitted += fit * fit;
+                            flat += constant * constant;
+                        }
                     }
-                }
 
-                Assert.True(
-                    flat <= 0 || fitted <= flat * 0.9,
-                    $"{format} fitted no better than the block's mean colour: {fitted:F0} against {flat:F0}"
-                );
-            },
-            iter: 2_000
-        );
+                    Assert.True(
+                        flat <= 0 || fitted <= flat * 0.9,
+                        $"{format} fitted no better than the block's mean colour: {fitted:F0} against {flat:F0}"
+                    );
+                },
+                iter: 2_000
+            );
 
     /// <summary>
     ///     The case real content is made of. A gradient is a line, so BC7's sixteen steps along it
@@ -490,13 +492,13 @@ public sealed class BlockEncoderTests {
         var rgba = new byte[64];
 
         for (var texel = 0; texel < 16; texel++) {
-            rgba[texel * 4] = (byte)(20 + (texel * 12));
-            rgba[(texel * 4) + 1] = (byte)(40 + (texel * 6));
-            rgba[(texel * 4) + 2] = (byte)(200 - (texel * 9));
-            rgba[(texel * 4) + 3] = 255;
+            rgba[texel * 4] = (byte)(20 + texel * 12);
+            rgba[texel * 4 + 1] = (byte)(40 + texel * 6);
+            rgba[texel * 4 + 2] = (byte)(200 - texel * 9);
+            rgba[texel * 4 + 3] = 255;
         }
 
-        var error = MaxError(rgba, RoundTrip(format, rgba), channels: 3);
+        var error = MaxError(rgba, RoundTrip(format, rgba), 3);
         Assert.True(error <= bound, $"{format} was off by {error}, and the bound is {bound}");
     }
 
@@ -526,9 +528,9 @@ public sealed class BlockEncoderTests {
 
         for (var texel = 0; texel < 16; texel++) {
             rgba[texel * 4] = (byte)(texel * 16);
-            rgba[(texel * 4) + 1] = 128;
-            rgba[(texel * 4) + 2] = (byte)(240 - (texel * 16));
-            rgba[(texel * 4) + 3] = 255;
+            rgba[texel * 4 + 1] = 128;
+            rgba[texel * 4 + 2] = (byte)(240 - texel * 16);
+            rgba[texel * 4 + 3] = 255;
         }
 
         var decoded = RoundTrip(format, rgba);
@@ -561,11 +563,11 @@ public sealed class BlockEncoderTests {
         var rgb = new ushort[48];
 
         for (var texel = 0; texel < 16; texel++) {
-            rgb[texel * 3] = (ushort)(14000 + (texel * 200));
-            rgb[(texel * 3) + 1] = 15000;
-            rgb[(texel * 3) + 2] = (ushort)(17000 - (texel * 200));
+            rgb[texel * 3] = (ushort)(14000 + texel * 200);
+            rgb[texel * 3 + 1] = 15000;
+            rgb[texel * 3 + 2] = (ushort)(17000 - texel * 200);
 
-            Assert.Equal(46000, rgb[texel * 3] + rgb[(texel * 3) + 1] + rgb[(texel * 3) + 2]);
+            Assert.Equal(46000, rgb[texel * 3] + rgb[texel * 3 + 1] + rgb[texel * 3 + 2]);
         }
 
         var block = new byte[16];
@@ -623,7 +625,7 @@ public sealed class BlockEncoderTests {
         Bc4Block.Encode(values, block);
         Bc4Block.Decode(block, decoded);
 
-        return decoded.ToArray();
+        return [..decoded];
     }
 
     static byte[] RoundTrip(PixelFormat format, ReadOnlySpan<byte> rgba) {
@@ -633,7 +635,7 @@ public sealed class BlockEncoderTests {
         BlockCompressor.EncodeBlock(format, rgba, block[..format.BlockSize()]);
         BlockCompressor.DecodeBlock(format, block[..format.BlockSize()], decoded);
 
-        return decoded.ToArray();
+        return [..decoded];
     }
 
     static byte[] Flat(byte red, byte green, byte blue, byte alpha) {
@@ -641,9 +643,9 @@ public sealed class BlockEncoderTests {
 
         for (var texel = 0; texel < 16; texel++) {
             rgba[texel * 4] = red;
-            rgba[(texel * 4) + 1] = green;
-            rgba[(texel * 4) + 2] = blue;
-            rgba[(texel * 4) + 3] = alpha;
+            rgba[texel * 4 + 1] = green;
+            rgba[texel * 4 + 2] = blue;
+            rgba[texel * 4 + 3] = alpha;
         }
 
         return rgba;
@@ -654,7 +656,7 @@ public sealed class BlockEncoderTests {
 
         for (var texel = 0; texel < 16; texel++) {
             for (var channel = 0; channel < channels; channel++) {
-                var index = (texel * 4) + channel;
+                var index = texel * 4 + channel;
                 worst = Math.Max(worst, Math.Abs(expected[index] - actual[index]));
             }
         }

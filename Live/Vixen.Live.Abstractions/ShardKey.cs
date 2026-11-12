@@ -26,10 +26,10 @@ namespace Vixen.Live;
 /// <param name="Version">The build and content pair a client must match (ADR-022).</param>
 public readonly record struct ShardKey(string Map, string Region, RealmVersion Version) {
     /// <summary>The map's address. Null only on <c>default</c>; see <see cref="RealmInstanceId" />.</summary>
-    public string Map { get; } = Map ?? "";
+    public string Map { get; } = Map ?? string.Empty;
 
     /// <summary>The latency zone. Null only on <c>default</c>.</summary>
-    public string Region { get; } = Region ?? "";
+    public string Region { get; } = Region ?? string.Empty;
 
     /// <summary>Whether this names a placeable set at all.</summary>
     public bool IsValid => !string.IsNullOrEmpty(Map);
@@ -46,7 +46,7 @@ public readonly record struct ShardKey(string Map, string Region, RealmVersion V
     public string SceneName {
         get {
             if (!IsValid) {
-                return "";
+                return string.Empty;
             }
 
             var separator = Map.LastIndexOf('/');
@@ -65,11 +65,11 @@ public readonly record struct ShardKey(string Map, string Region, RealmVersion V
     /// </remarks>
     public bool Equals(ShardKey other) =>
         Version == other.Version
-        && string.Equals(Map ?? "", other.Map ?? "", StringComparison.Ordinal)
-        && string.Equals(Region ?? "", other.Region ?? "", StringComparison.Ordinal);
+        && string.Equals(Map ?? string.Empty, other.Map ?? string.Empty, StringComparison.Ordinal)
+        && string.Equals(Region ?? string.Empty, other.Region ?? string.Empty, StringComparison.Ordinal);
 
     /// <inheritdoc />
-    public override int GetHashCode() => HashCode.Combine(Map ?? "", Region ?? "", Version);
+    public override int GetHashCode() => HashCode.Combine(Map ?? string.Empty, Region ?? string.Empty, Version);
 
     /// <inheritdoc />
     public override string ToString() =>
@@ -176,8 +176,7 @@ public readonly record struct ShardCapacity(int SoftCap, int HardCap) {
     public double FillAt(int population) => SoftCap <= 0 ? 0 : (double)population / SoftCap;
 
     /// <inheritdoc />
-    public override string ToString() =>
-        string.Create(CultureInfo.InvariantCulture, $"soft {SoftCap}, hard {HardCap}");
+    public override string ToString() => string.Create(CultureInfo.InvariantCulture, $"soft {SoftCap}, hard {HardCap}");
 }
 
 /// <summary>Whether a player can be moved right now. Doc 27 § Drain.</summary>

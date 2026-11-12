@@ -29,8 +29,12 @@ namespace Tests;
 ///         round trip or forty, and two textures or forty.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Each of these has a failure that is invisible in a picture and enormous in a
-///         clock.</b> A schedule that gave every op its own texture draws exactly the same image and
+///         ⚠
+///         <b>
+///             Each of these has a failure that is invisible in a picture and enormous in a
+///             clock.
+///         </b>
+///         A schedule that gave every op its own texture draws exactly the same image and
 ///         asks the allocator for 2.6 GB at 4K — which does not fail, it swaps, or it is refused on
 ///         somebody else's machine. An evaluator that ended the frame per op draws exactly the same
 ///         image and pays a full device drain forty times. A variant cache keyed by anything finer
@@ -121,7 +125,7 @@ public class TextureEvaluationCostTests {
     [Fact]
     public void A_chain_costs_two_pooled_textures_however_long_it_is() {
         var lengths = (int[])[2, 3, Forty, 200];
-        var schedules = lengths.Select(length => TexturePoolSchedule.For(Chain(length))).ToArray();
+        var schedules = lengths.Select(static length => TexturePoolSchedule.For(Chain(length))).ToArray();
 
         // The instrument first: a one-op plan pools one image, so the two that a longer chain needs
         // are a number this family actually moves to. Without this the equalities below would also
@@ -145,16 +149,23 @@ public class TextureEvaluationCostTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <b>This is the round-trip count, and it is what a millisecond budget is really
-    ///         about.</b> <c>TexturePlanEvaluator.Run</c> opens one frame, records every dispatch
+    ///         <b>
+    ///             This is the round-trip count, and it is what a millisecond budget is really
+    ///             about.
+    ///         </b>
+    ///         <c>TexturePlanEvaluator.Run</c> opens one frame, records every dispatch
     ///         into one command list, submits once and drains once — so a forty-op bake pays one
     ///         device drain. An evaluator that ended the frame per op would draw the same picture
     ///         and pay forty, which at 4K is the difference between the 54 ms the measurement prints
     ///         and something no criterion could survive.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b><c>FrameCount</c> is the counter because it is the one every backend
-    ///         guarantees</b> — it "changes exactly once per frame", whichever of
+    ///         ⚠
+    ///         <b>
+    ///             <c>FrameCount</c> is the counter because it is the one every backend
+    ///             guarantees
+    ///         </b>
+    ///         — it "changes exactly once per frame", whichever of
     ///         <c>BeginFrame</c>/<c>EndFrame</c> a backend chooses to move it on — so what is read
     ///         here is a difference across one call and never an ordinal.
     ///     </para>

@@ -86,13 +86,17 @@ public class EditorAffordanceTests {
         editor.DoubleClickRow(editor.Assets, "Main.vxscene");
 
         Assert.Null(Find<TextBox>(editor.Assets));
-        Assert.Contains(editor.Panels, panel => panel.Id.StartsWith("asset.", StringComparison.Ordinal));
+        Assert.Contains(editor.Panels, static panel => panel.Id.StartsWith("asset.", StringComparison.Ordinal));
     }
 
     /// <summary>And clicking a row that is already the only one selected renames it.</summary>
     /// <remarks>
-    ///     ⚠ <b>The gesture has to be the one that is not a double-click, because a browser's
-    ///     double-click opens.</b> "Already selected before this press" is what tells them apart with
+    ///     ⚠
+    ///     <b>
+    ///         The gesture has to be the one that is not a double-click, because a browser's
+    ///         double-click opens.
+    ///     </b>
+    ///     "Already selected before this press" is what tells them apart with
     ///     no timer: the first click of a double-click lands on a row that was not selected and arms
     ///     nothing. See <c>TreeView.RenameOnSecondClick</c>.
     /// </remarks>
@@ -138,9 +142,10 @@ public class EditorAffordanceTests {
         editor.ExpandAll(editor.Assets);
         editor.RightClickRow(editor.Assets, "Assets");
 
-        var labels = editor.Ui.Get("menu-item").Elements
+        var labels = editor.Ui.Get("menu-item")
+            .Elements
             .OfType<ButtonBase>()
-            .Select(item => item.Label)
+            .Select(static item => item.Label)
             .ToList();
 
         Assert.Contains("Create", labels);
@@ -159,7 +164,7 @@ public class EditorAffordanceTests {
 
         Assert.True(editor.Shell.Commands.TryGet(command, out _));
 
-        var assets = editor.Shell.Menus.Menus.First(menu => menu.Title.Text == "Assets");
+        var assets = editor.Shell.Menus.Menus.First(static menu => menu.Title.Text == "Assets");
 
         Assert.Contains(command, Ids(assets));
 
@@ -168,7 +173,7 @@ public class EditorAffordanceTests {
 
         Assert.NotNull(
             Descendants(editor.Panel("addressables"))
-                .FirstOrDefault(element => element.Tag == "group-editor")
+                .FirstOrDefault(static element => element.Tag == "group-editor")
         );
     }
 
@@ -184,7 +189,7 @@ public class EditorAffordanceTests {
         editor.Open("inspector");
         editor.Frames(2);
 
-        var row = editor.Inspector.Rows.FirstOrDefault(candidate => candidate.Field.Member.Name == "Address");
+        var row = editor.Inspector.Rows.FirstOrDefault(static candidate => candidate.Field.Member.Name == "Address");
 
         Assert.NotNull(row);
 
@@ -241,8 +246,12 @@ public class EditorAffordanceTests {
     /// <summary>Translated, the two toggles still say two different things.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The caption used to be the command's own string id with a second text, and a
-    ///         catalog looks a string up by id.</b> <c>Caption</c> built
+    ///         ⚠
+    ///         <b>
+    ///             The caption used to be the command's own string id with a second text, and a
+    ///             catalog looks a string up by id.
+    ///         </b>
+    ///         <c>Caption</c> built
     ///         <c>new StringId("editor.command." + id, text)</c> for both states, so the moment any
     ///         language translated that one id, both states read the translation — the "Local Space in
     ///         both spaces" defect <c>EditorCommand.Caption</c> exists to fix, back again under every
@@ -330,9 +339,11 @@ public class EditorAffordanceTests {
             "scene.zoom-to-cursor", "scene.invert-orbit-y", "scene.focus", "scene.frame-all",
             "scene.view-front", "scene.view-back", "scene.view-right", "scene.view-left", "scene.view-top",
             "scene.view-bottom", "scene.orbit-left", "scene.orbit-right", "scene.orbit-up", "scene.orbit-down",
-            .. PrimitiveShapes.All.Select(static kind => "scene.create-" + PrimitiveShapes.NameOf(kind).ToLowerInvariant()),
-            .. Lights.All.Select(static kind => "scene.create-light-" + Lights.NameOf(kind).ToLowerInvariant()),
-            .. PlayerBuild.Variants.Select(static variant => "build.configuration-" + variant.ToLowerInvariant())
+            ..PrimitiveShapes.All.Select(static kind => "scene.create-"
+                + PrimitiveShapes.NameOf(kind).ToLowerInvariant()
+            ),
+            ..Lights.All.Select(static kind => "scene.create-light-" + Lights.NameOf(kind).ToLowerInvariant()),
+            ..PlayerBuild.Variants.Select(static variant => "build.configuration-" + variant.ToLowerInvariant())
         ];
 
         foreach (var id in ids) {
@@ -379,7 +390,7 @@ public class EditorAffordanceTests {
         editor.Open("scene");
         editor.Frames(2);
 
-        var ids = editor.Shell.Toolbar.Items.Where(id => id is not null).ToList();
+        var ids = editor.Shell.Toolbar.Items.Where(static id => id is not null).ToList();
 
         Assert.DoesNotContain("scene.toggle-space", ids);
         Assert.DoesNotContain("scene.toggle-pivot", ids);
@@ -413,11 +424,11 @@ public class EditorAffordanceTests {
         var pane = editor.Viewport!;
         var button = Descendants(pane.Control.Overlay)
             .OfType<ButtonBase>()
-            .First(candidate => candidate.Label == "Rotate");
+            .First(static candidate => candidate.Label == "Rotate");
 
         var bounds = button.Bounds;
 
-        editor.Ui.At(bounds.X + (bounds.Width * 0.5f), bounds.Y + (bounds.Height * 0.5f)).Click();
+        editor.Ui.At(bounds.X + bounds.Width * 0.5f, bounds.Y + bounds.Height * 0.5f).Click();
         editor.Frames(2);
 
         Assert.Equal(GizmoMode.Rotate, pane.Gizmo.Mode);
@@ -439,7 +450,7 @@ public class EditorAffordanceTests {
         editor.ExpandAll(editor.Hierarchy);
         editor.ClickRow(editor.Hierarchy, "Crate");
 
-        var name = editor.Inspector.Rows.First(row => row.Field.Member.Name == "Name");
+        var name = editor.Inspector.Rows.First(static row => row.Field.Member.Name == "Name");
         var box = Find<TextBox>(name)!;
 
         // Typed and committed the way a person does — the drawer records on submit and on focus
@@ -465,14 +476,18 @@ public class EditorAffordanceTests {
         // that had rebuilt for any other reason would leave the old element behind saying anything.
         Assert.Equal(
             "Crate",
-            Find<TextBox>(editor.Inspector.Rows.First(row => row.Field.Member.Name == "Name"))!.Value
+            Find<TextBox>(editor.Inspector.Rows.First(static row => row.Field.Member.Name == "Name"))!.Value
         );
     }
 
     /// <summary>An undo puts a component's number back in the panel that shows it.</summary>
     /// <remarks>
-    ///     ⚠ <b>The component foldouts are not the inspector's rows, and they are where a numeric
-    ///     edit usually lands.</b> <c>SetComponentCommand</c> announces itself only when the *set* of
+    ///     ⚠
+    ///     <b>
+    ///         The component foldouts are not the inspector's rows, and they are where a numeric
+    ///         edit usually lands.
+    ///     </b>
+    ///     <c>SetComponentCommand</c> announces itself only when the *set* of
     ///     components changed — a value edit deliberately says nothing, so that a slider drag does
     ///     not rebuild the panel under the pointer — so the undo changed the world and the viewport
     ///     and left the old number on screen. Reloading the boxes is the other half of
@@ -532,7 +547,7 @@ public class EditorAffordanceTests {
         editor.Frames(2);
 
         var components = Descendants(editor.Panel("inspector")).OfType<ComponentsView>().Single();
-        var light = components.Sections.Single(section => section.Label == "Light");
+        var light = components.Sections.Single(static section => section.Label == "Light");
 
         // ⚠ A `ColorInput` and not a `ColorPicker`: the row is a swatch, and the picker is what
         // clicking it opens. The whole apparatus in the row is what made a material with four tints
@@ -562,7 +577,9 @@ public class EditorAffordanceTests {
 
         editor.Open("project");
 
-        var toggle = Descendants(editor.Panel("project")).OfType<ToggleButton>().First(button => button.Label == "Grid");
+        var toggle = Descendants(editor.Panel("project"))
+            .OfType<ToggleButton>()
+            .First(static button => button.Label == "Grid");
 
         // ⚠ Turned *off* rather than on, because the panel now opens on the grid — and a test that
         // pressed the toggle and asserted it came back pressed would pass just as well against a
@@ -576,7 +593,9 @@ public class EditorAffordanceTests {
         editor.Open("project");
         editor.Frames(2);
 
-        var grid = Descendants(editor.Panel("project")).OfType<ToggleButton>().First(button => button.Label == "Grid");
+        var grid = Descendants(editor.Panel("project"))
+            .OfType<ToggleButton>()
+            .First(static button => button.Label == "Grid");
 
         Assert.False(grid.IsChecked, "the browser came back as a grid after being left as a tree");
     }
@@ -628,7 +647,7 @@ public class EditorAffordanceTests {
         components.Show(editor.Scene.Selection[0]);
         editor.Frames(2);
 
-        var before = components.Sections.Select(section => section.Label ?? string.Empty).ToList();
+        var before = components.Sections.Select(static section => section.Label ?? string.Empty).ToList();
 
         Assert.True(before.Count >= 2, "the entity has fewer than two components to rearrange");
 
@@ -638,8 +657,8 @@ public class EditorAffordanceTests {
         var target = components.Sections[0].Header.Bounds;
 
         editor.Ui
-            .At(handle.X + (handle.Width * 0.5f), handle.Y + (handle.Height * 0.5f))
-            .DragTo(target.X + (target.Width * 0.5f), target.Y + 2f);
+            .At(handle.X + handle.Width * 0.5f, handle.Y + handle.Height * 0.5f)
+            .DragTo(target.X + target.Width * 0.5f, target.Y + 2f);
 
         editor.Frames(2);
 
@@ -698,10 +717,10 @@ public class EditorAffordanceTests {
         // Held down over the top half of the first section, which is where it would land above it —
         // and not released, because the whole point is what the panel says *while* the drag is live.
         editor.Ui
-            .At(handle.X + (handle.Width * 0.5f), handle.Y + (handle.Height * 0.5f))
+            .At(handle.X + handle.Width * 0.5f, handle.Y + handle.Height * 0.5f)
             .Press();
 
-        editor.Ui.MovePointer(first.X + (first.Width * 0.5f), first.Y + 2f);
+        editor.Ui.MovePointer(first.X + first.Width * 0.5f, first.Y + 2f);
         editor.Frames(2);
 
         Assert.False(components.DropIndicator.HasClass("hidden"), "no line while a foldout is being dragged");
@@ -713,7 +732,7 @@ public class EditorAffordanceTests {
         // stopping one short of it — which is the off-by-one a gap-based landing exists to avoid.
         var last = components.Sections[^1].Bounds;
 
-        editor.Ui.MovePointer(last.X + (last.Width * 0.5f), last.Y + last.Height + 4f);
+        editor.Ui.MovePointer(last.X + last.Width * 0.5f, last.Y + last.Height + 4f);
         editor.Frames(2);
 
         Assert.Equal(last.Y + last.Height, components.DropIndicator.Bounds.Y, 1);
@@ -738,20 +757,17 @@ public class EditorAffordanceTests {
                     }
 
                     break;
-
-                default:
-                    break;
             }
         }
     }
 
     /// <summary>The intensity box of the Light foldout, found by member rather than by position.</summary>
     static NumericInput Intensity(ComponentsView components) {
-        var light = components.Sections.Single(section => section.Label == "Light");
+        var light = components.Sections.Single(static section => section.Label == "Light");
 
         var row = Descendants(light)
             .OfType<InspectorRow>()
-            .Single(candidate => candidate.Field.Member.Name == "Intensity");
+            .Single(static candidate => candidate.Field.Member.Name == "Intensity");
 
         return Descendants(row).OfType<NumericInput>().First();
     }
@@ -764,8 +780,7 @@ public class EditorAffordanceTests {
     static TreeRow Row(TreeView tree, string text) =>
         tree.Rows.First(row => !row.HasClass("parked") && row.Node?.Text == text);
 
-    static T? Find<T>(UiElement element) where T : UiElement =>
-        Descendants(element).OfType<T>().FirstOrDefault();
+    static T? Find<T>(UiElement element) where T : UiElement => Descendants(element).OfType<T>().FirstOrDefault();
 
     static IEnumerable<UiElement> Descendants(UiElement element) {
         foreach (var child in element.Children) {

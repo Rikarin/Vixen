@@ -33,7 +33,7 @@ public class ZeroSizedBoxPaintTests {
     /// <summary>An element that draws a 10×10 square whatever its own size is.</summary>
     sealed class Marker : UiElement {
         protected internal override void OnDraw(DrawContext context) =>
-            context.FillRectangle(new Rectangle(300f, 200f, 10f, 10f), new Color4(0f, 1f, 0f, 1f));
+            context.FillRectangle(new(300f, 200f, 10f, 10f), new(0f, 1f, 0f, 1f));
     }
 
     static UiDocument Laid(string css) {
@@ -57,7 +57,9 @@ public class ZeroSizedBoxPaintTests {
 
     /// <summary>The red rectangles in the draw list: the child's background and nothing else.</summary>
     static int ChildRectangles(UiDocument document) =>
-        document.Drawing.Commands.Count(command => command.Kind == DrawCommandKind.Rectangle && command.Color == Red);
+        document.Drawing.Commands.Count(static command => command.Kind == DrawCommandKind.Rectangle
+            && command.Color == Red
+        );
 
     /// <summary>A flex item with <c>container-type: inline-size</c> and no width is 0 wide, and its child is still drawn.</summary>
     /// <remarks>

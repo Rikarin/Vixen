@@ -10,8 +10,12 @@ namespace Vixen.Terrain.Tests;
 public sealed class TerrainPickTests {
     static TerrainDescription Shape() =>
         TerrainDescription.Default with {
-            TileSamples = 32, TilesX = 2, TilesZ = 2,
-            MetresPerQuad = 1f, MinHeight = -100f, MaxHeight = 100f
+            TileSamples = 32,
+            TilesX = 2,
+            TilesZ = 2,
+            MetresPerQuad = 1f,
+            MinHeight = -100f,
+            MaxHeight = 100f
         };
 
     static Terrain Flat(float metres) {
@@ -42,7 +46,7 @@ public sealed class TerrainPickTests {
         var terrain = Flat(0f);
 
         Assert.True(TerrainPick.Cast(terrain, new(11f, 40f, 17f), -Vector3.UnitY, out var hit));
-        Assert.Equal(new Vector2(11f, 17f), hit.Ground);
+        Assert.Equal(new(11f, 17f), hit.Ground);
     }
 
     /// <summary>A slanted ray lands on the slope facing it, not on the plane under it.</summary>
@@ -54,8 +58,12 @@ public sealed class TerrainPickTests {
     ///         which reads as a brush that lags behind the pointer on slopes and nowhere else.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And it lands on the ramp rather than on the plateau, because a heightfield has no
-    ///         vertical faces.</b> "Everything past sample 30 is twenty metres up" is one quad of 45°
+    ///         ⚠
+    ///         <b>
+    ///             And it lands on the ramp rather than on the plateau, because a heightfield has no
+    ///             vertical faces.
+    ///         </b>
+    ///         "Everything past sample 30 is twenty metres up" is one quad of 45°
     ///         ground between samples 29 and 30, not a cliff — so the ray meets it partway up, at the
     ///         intersection of two lines rather than at the top. An expectation of the plateau's
     ///         height is an expectation of geometry the storage cannot hold.
@@ -77,13 +85,11 @@ public sealed class TerrainPickTests {
         terrain.Resolve();
 
         // Aimed from low ground, downwards at 45°, so it would reach x = 40 at height zero.
-        Assert.True(
-            TerrainPick.Cast(terrain, new(10f, 30f, 20f), Vector3.Normalize(new(1f, -1f, 0f)), out var hit)
-        );
+        Assert.True(TerrainPick.Cast(terrain, new(10f, 30f, 20f), Vector3.Normalize(new(1f, -1f, 0f)), out var hit));
 
         // Where the ray y = 40 − x meets the ramp y = 20 (x − 29): x = 620/21, a little under 29.6.
         Assert.Equal(620f / 21f, hit.Position.X, 2);
-        Assert.Equal(40f - (620f / 21f), hit.Position.Y, 2);
+        Assert.Equal(40f - 620f / 21f, hit.Position.Y, 2);
 
         // And nowhere near where a plane at height zero would have answered.
         Assert.True(hit.Position.X < 30f, $"the pick ran past the ridge to {hit.Position.X}.");
@@ -107,8 +113,8 @@ public sealed class TerrainPickTests {
     public void ARayThatRunsOutOfLengthBeforeTheGroundMissesIt() {
         var terrain = Flat(0f);
 
-        Assert.False(TerrainPick.Cast(terrain, new(20f, 100f, 20f), -Vector3.UnitY, out _, maximum: 50f));
-        Assert.True(TerrainPick.Cast(terrain, new(20f, 100f, 20f), -Vector3.UnitY, out _, maximum: 150f));
+        Assert.False(TerrainPick.Cast(terrain, new(20f, 100f, 20f), -Vector3.UnitY, out _, 50f));
+        Assert.True(TerrainPick.Cast(terrain, new(20f, 100f, 20f), -Vector3.UnitY, out _, 150f));
     }
 
     /// <summary>A ray that begins underground answers at once, at its own origin.</summary>
@@ -132,7 +138,7 @@ public sealed class TerrainPickTests {
         var terrain = Flat(0f);
 
         Assert.False(TerrainPick.Cast(terrain, new(20f, 50f, 20f), Vector3.Zero, out _));
-        Assert.False(TerrainPick.Cast(terrain, new(20f, 50f, 20f), -Vector3.UnitY, out _, maximum: 0f));
+        Assert.False(TerrainPick.Cast(terrain, new(20f, 50f, 20f), -Vector3.UnitY, out _, 0f));
     }
 
     // --- The height under a point -------------------------------------------

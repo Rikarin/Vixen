@@ -9,8 +9,11 @@ namespace Vixen.Editor.SceneView;
 /// <summary>One in-editor play session: the loop it steps, and everything that has to be undone.</summary>
 /// <remarks>
 ///     <para>
-///         <b>The seam [11](../../../docs/plan/11-editor.md) § "Play mode runs a system graph" left
-///         open.</b> An <see cref="EngineLoop" />'s default registration is behaviours, coroutines
+///         <b>
+///             The seam [11](../../../docs/plan/11-editor.md) § "Play mode runs a system graph" left
+///             open.
+///         </b>
+///         An <see cref="EngineLoop" />'s default registration is behaviours, coroutines
 ///         and transforms; every other system a game runs — physics, audio, navigation, the render
 ///         extractions — is added by that game's own <c>OnInitialise</c> against a host service.
 ///         There is no <c>AddStandardSystems</c>, so the editor cannot reproduce a game's frame by
@@ -20,8 +23,12 @@ namespace Vixen.Editor.SceneView;
 ///         provided, which is what <see cref="IServiceProvider" /> on this class is for.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Per session, and that is the whole reason this object exists rather than a service in
-///         <c>PluginServices</c>.</b> A <c>PhysicsScene</c> is created when Play is pressed and
+///         ⚠
+///         <b>
+///             Per session, and that is the whole reason this object exists rather than a service in
+///             <c>PluginServices</c>.
+///         </b>
+///         A <c>PhysicsScene</c> is created when Play is pressed and
 ///         destroyed when Stop is, because a body that simulates while somebody drags a gizmo is a
 ///         scene that edits itself — and because the entities its bodies live on must be *inside* the
 ///         snapshot's restore, so that stopping takes them away with everything else a session made.
@@ -159,8 +166,12 @@ public sealed class PlaySession : IServiceProvider {
     /// <typeparam name="T">The contract, which is how they will ask for it.</typeparam>
     /// <param name="value">The value.</param>
     /// <remarks>
-    ///     ⚠ <b>Here because a declaration has to mean the same thing in the editor as in the
-    ///     game.</b> <c>ServiceRegistry.AddValue&lt;T&gt;</c> is what lets a shipped game satisfy a
+    ///     ⚠
+    ///     <b>
+    ///         Here because a declaration has to mean the same thing in the editor as in the
+    ///         game.
+    ///     </b>
+    ///     <c>ServiceRegistry.AddValue&lt;T&gt;</c> is what lets a shipped game satisfy a
     ///     <c>[GameSystem]</c> whose constructor takes an <c>Entity</c> or a handle; without the
     ///     matching call here that same declaration would resolve at boot and sit in
     ///     <c>FrameActivation.Missing</c> for the whole of a play session, which is the asymmetry
@@ -182,15 +193,19 @@ public sealed class PlaySession : IServiceProvider {
     /// <param name="service">The service, if there is one.</param>
     /// <returns>Whether there was.</returns>
     /// <remarks>
-    ///     ⚠ <b>Contributions attach in registration order, so this answers for what came
-    ///     <em>before</em>.</b> A module that needs another module's service must be registered after
+    ///     ⚠
+    ///     <b>
+    ///         Contributions attach in registration order, so this answers for what came
+    ///         <em>before</em>.
+    ///     </b>
+    ///     A module that needs another module's service must be registered after
     ///     it — which for the editor's own features is the order in <c>EditorModules.Standard</c>.
     ///     Answering <see langword="false" /> is the ordinary case and means "run without it", not
     ///     "fail".
     /// </remarks>
     public bool TryGet<T>(out T? service) where T : class {
         if (provided.TryGetValue(typeof(T), out var found)) {
-            service = (T) found;
+            service = (T)found;
 
             return true;
         }
@@ -231,14 +246,21 @@ public sealed class PlaySession : IServiceProvider {
 /// <summary>What adds systems to an in-editor play session.</summary>
 /// <remarks>
 ///     <para>
-///         <b>Contributed to <c>IEditorRegistry</c>, which is the door every other editor extension
-///         comes through</b> — doc 36 § D2. A module registers one in its <c>Activate</c>;
+///         <b>
+///             Contributed to <c>IEditorRegistry</c>, which is the door every other editor extension
+///             comes through
+///         </b>
+///         — doc 36 § D2. A module registers one in its <c>Activate</c>;
 ///         <c>PlayModeController</c> reads them when Play is pressed, so a plugin loaded three
 ///         seconds into a session still reaches the next one.
 ///     </para>
 ///     <para>
-///         ⚠ <b>This is the general mechanism, and it is deliberately not "a project declares its
-///         frame".</b> What this closes is the half of that gap where the <em>editor</em> owns the
+///         ⚠
+///         <b>
+///             This is the general mechanism, and it is deliberately not "a project declares its
+///             frame".
+///         </b>
+///         What this closes is the half of that gap where the <em>editor</em> owns the
 ///         service: a <c>PhysicsScene</c>, an audio engine, a navmesh no longer needs an embedding
 ///         host to add it by hand. The project's half is <c>[GameSystem]</c> — a declaration the
 ///         generator collects, resolved against what these contributions <see cref="PlaySession.Provide{T}" />

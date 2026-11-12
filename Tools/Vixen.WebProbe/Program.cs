@@ -190,9 +190,7 @@ try {
 // and which nothing else in the repository executes. The subject is the page's own index.html,
 // because it is the one file this head is guaranteed to be served next to.
 try {
-    var manifest = WebContentManifest.Parse(
-        "[{\"path\":\"/index.html\",\"length\":4096}]"u8
-    );
+    var manifest = WebContentManifest.Parse("[{\"path\":\"/index.html\",\"length\":4096}]"u8);
 
     var content = new FetchFileProvider(string.Empty, manifest);
 
@@ -272,9 +270,7 @@ try {
     var binding = await BrowserWebGpuBinding.CreateAsync(new() { CanvasSelector = canvasSelector });
     IGraphicsDevice device = new WebGpuDevice(binding);
 
-    Console.WriteLine(
-        $"VIXENPROBE observe gpu adapter={binding.AdapterInfo.Name} device={device.GetType().Name}"
-    );
+    Console.WriteLine($"VIXENPROBE observe gpu adapter={binding.AdapterInfo.Name} device={device.GetType().Name}");
 } catch (Exception exception) {
     Console.WriteLine($"VIXENPROBE observe gpu-unavailable {exception.GetType().Name}: {exception.Message}");
 }
@@ -298,109 +294,111 @@ var resizeObserved = false;
 var loop = new WebFrameLoop();
 
 loop.Start(_ => {
-    frames++;
+        frames++;
 
-    // ⚠ Reported rather than rethrown. WebFrameLoop catches an exception out of the callback,
-    // STOPS the loop, and rethrows it on the browser's task queue — where main.js's
-    // unhandledrejection handler writes it into #result and never calls console.log. That is how
-    // the first real run of this leg presented: eighteen checks, then silence, no frame lines and
-    // no exception anywhere in the console. The cause was `view.fill is not a function` inside
-    // pollGamepads, thrown on frame one. Naming it in the transcript costs nothing and saves the
-    // next person that hour.
-    try {
-        foreach (ref readonly var platformEvent in platform.PumpEvents()) {
-            kindsSeen.Add(platformEvent.Kind);
+        // ⚠ Reported rather than rethrown. WebFrameLoop catches an exception out of the callback,
+        // STOPS the loop, and rethrows it on the browser's task queue — where main.js's
+        // unhandledrejection handler writes it into #result and never calls console.log. That is how
+        // the first real run of this leg presented: eighteen checks, then silence, no frame lines and
+        // no exception anywhere in the console. The cause was `view.fill is not a function` inside
+        // pollGamepads, thrown on frame one. Naming it in the transcript costs nothing and saves the
+        // next person that hour.
+        try {
+            foreach (ref readonly var platformEvent in platform.PumpEvents()) {
+                kindsSeen.Add(platformEvent.Kind);
+            }
+        } catch (Exception exception) {
+            Console.WriteLine($"VIXENPROBE observe pump-threw {exception.GetType().Name}: {exception.Message}");
+            throw;
         }
-    } catch (Exception exception) {
-        Console.WriteLine($"VIXENPROBE observe pump-threw {exception.GetType().Name}: {exception.Message}");
-        throw;
-    }
 
-    // A weak request that the page's layout answers asynchronously through a ResizeObserver, so it
-    // can only be checked over frames — which is exactly why it is checked here and not above.
-    if (frames == 5 && !resizeRequested) {
-        resizeRequested = true;
-        window.ClientSize = new(400, 300);
-    }
+        // A weak request that the page's layout answers asynchronously through a ResizeObserver, so it
+        // can only be checked over frames — which is exactly why it is checked here and not above.
+        if (frames == 5 && !resizeRequested) {
+            resizeRequested = true;
+            window.ClientSize = new(400, 300);
+        }
 
-    if (resizeRequested && window.ClientSize is { X: 400, Y: 300 }) {
-        resizeObserved = true;
-    }
+        if (resizeRequested && window.ClientSize is { X: 400, Y: 300 }) {
+            resizeObserved = true;
+        }
 
-    // ⚠ Frame 1 as well as every 10th, and BOTH numbers were bought with a red leg.
-    //
-    // Frame 1, because the driver takes a baseline from these lines: the Linux CI runner reaches
-    // its input and prints `done` at frame TWELVE where this Mac takes until frame 52, so with a
-    // 30-frame cadence alone the baseline did not exist yet on the slower machine and the driver
-    // read a sentinel. Nothing was wrong with the engine.
-    //
-    // Every 10th rather than every 30th, because the driver has to see the count MOVE, and how
-    // long that takes is the cadence divided by the frame rate. At 30 frames a run below about
-    // 30 fps could go a whole second without crossing a boundary and look stopped — and the rAF
-    // the driver measured for itself on that Linux runner was 38/s. The driver no longer waits a
-    // fixed second either, but a cadence that is small next to the rate is what keeps the two
-    // independent.
-    if (frames == 1 || frames % 10 == 0) {
-        // The driver reads this twice, a second apart, and requires it to have moved. A loop that
-        // ran once and stopped reports a number and then reports it forever.
+        // ⚠ Frame 1 as well as every 10th, and BOTH numbers were bought with a red leg.
         //
-        // `rate` is WebFrameLoop.RefreshRate, which is refreshRate() across the boundary: the
-        // median of the last two seconds' intervals, and 0 until ten of them have gone by. So it
-        // is legitimately 0 on the frame-1 line, and the driver reads it off the LAST line rather
-        // than the first.
-        Console.WriteLine($"VIXENPROBE frames={frames} rate={loop.RefreshRate:0.#}");
+        // Frame 1, because the driver takes a baseline from these lines: the Linux CI runner reaches
+        // its input and prints `done` at frame TWELVE where this Mac takes until frame 52, so with a
+        // 30-frame cadence alone the baseline did not exist yet on the slower machine and the driver
+        // read a sentinel. Nothing was wrong with the engine.
+        //
+        // Every 10th rather than every 30th, because the driver has to see the count MOVE, and how
+        // long that takes is the cadence divided by the frame rate. At 30 frames a run below about
+        // 30 fps could go a whole second without crossing a boundary and look stopped — and the rAF
+        // the driver measured for itself on that Linux runner was 38/s. The driver no longer waits a
+        // fixed second either, but a cadence that is small next to the rate is what keeps the two
+        // independent.
+        if (frames == 1 || frames % 10 == 0) {
+            // The driver reads this twice, a second apart, and requires it to have moved. A loop that
+            // ran once and stopped reports a number and then reports it forever.
+            //
+            // `rate` is WebFrameLoop.RefreshRate, which is refreshRate() across the boundary: the
+            // median of the last two seconds' intervals, and 0 until ten of them have gone by. So it
+            // is legitimately 0 on the frame-1 line, and the driver reads it off the LAST line rather
+            // than the first.
+            Console.WriteLine($"VIXENPROBE frames={frames} rate={loop.RefreshRate:0.#}");
+        }
+
+        if (reported) {
+            return;
+        }
+
+        var sawInput = kindsSeen.Contains(PlatformEventKind.MouseMoved)
+            && kindsSeen.Contains(PlatformEventKind.MouseButtonDown)
+            && kindsSeen.Contains(PlatformEventKind.KeyDown);
+
+        // ⚠ A frame budget rather than an indefinite wait, so that input which never arrives is a
+        // legible failing check instead of the driver's timeout. 300 frames is about five seconds at
+        // 60 Hz and about twelve at the 24 Hz a throttled tab drops to.
+        if (!sawInput && frames < 300) {
+            return;
+        }
+
+        reported = true;
+
+        Check(
+            "events-drained",
+            sawInput,
+            sawInput
+                ? string.Join(",", kindsSeen.Order())
+                : $"after {frames} frames saw only: {string.Join(",", kindsSeen.Order())}"
+        );
+
+        // ⚠ Inside the canvas, NOT at the viewport point the driver dispatched. The driver aims at
+        // (42, 24) in viewport coordinates and the engine reports (34, 16), because a pointer position
+        // is relative to the canvas and the canvas sits 8 px in — the body's default margin. Asserting
+        // the dispatched number here would have been asserting that the translation does NOT happen.
+        // The page checks the answer is on the canvas; the driver checks the arithmetic, because only
+        // it can read the element's rectangle.
+        var pointer = platform.Input.PointerPosition;
+
+        Check(
+            "pointer-position-in-canvas",
+            pointer.X >= 0 && pointer.Y >= 0
+            && pointer.X <= window.ClientSize.X
+            && pointer.Y <= window.ClientSize.Y,
+            $"{pointer.X},{pointer.Y} within {window.ClientSize.X}x{window.ClientSize.Y}"
+        );
+
+        Console.WriteLine($"VIXENPROBE observe pointer-position {pointer.X},{pointer.Y}");
+
+        Check("canvas-resize-observed", resizeObserved, $"{window.ClientSize.X}x{window.ClientSize.Y}");
+
+        Check("frame-loop-is-running", loop.IsRunning && frames > 0, $"{frames} frames");
+
+        Check("frame-count-agrees", loop.FrameCount == frames, $"{loop.FrameCount} vs {frames}");
+
+        Console.WriteLine($"VIXENPROBE done checks={checks} failed={failures}");
     }
-
-    if (reported) {
-        return;
-    }
-
-    var sawInput = kindsSeen.Contains(PlatformEventKind.MouseMoved)
-        && kindsSeen.Contains(PlatformEventKind.MouseButtonDown)
-        && kindsSeen.Contains(PlatformEventKind.KeyDown);
-
-    // ⚠ A frame budget rather than an indefinite wait, so that input which never arrives is a
-    // legible failing check instead of the driver's timeout. 300 frames is about five seconds at
-    // 60 Hz and about twelve at the 24 Hz a throttled tab drops to.
-    if (!sawInput && frames < 300) {
-        return;
-    }
-
-    reported = true;
-
-    Check(
-        "events-drained",
-        sawInput,
-        sawInput
-            ? string.Join(",", kindsSeen.Order())
-            : $"after {frames} frames saw only: {string.Join(",", kindsSeen.Order())}"
-    );
-
-    // ⚠ Inside the canvas, NOT at the viewport point the driver dispatched. The driver aims at
-    // (42, 24) in viewport coordinates and the engine reports (34, 16), because a pointer position
-    // is relative to the canvas and the canvas sits 8 px in — the body's default margin. Asserting
-    // the dispatched number here would have been asserting that the translation does NOT happen.
-    // The page checks the answer is on the canvas; the driver checks the arithmetic, because only
-    // it can read the element's rectangle.
-    var pointer = platform.Input.PointerPosition;
-
-    Check(
-        "pointer-position-in-canvas",
-        pointer.X >= 0 && pointer.Y >= 0
-        && pointer.X <= window.ClientSize.X && pointer.Y <= window.ClientSize.Y,
-        $"{pointer.X},{pointer.Y} within {window.ClientSize.X}x{window.ClientSize.Y}"
-    );
-
-    Console.WriteLine($"VIXENPROBE observe pointer-position {pointer.X},{pointer.Y}");
-
-    Check("canvas-resize-observed", resizeObserved, $"{window.ClientSize.X}x{window.ClientSize.Y}");
-
-    Check("frame-loop-is-running", loop.IsRunning && frames > 0, $"{frames} frames");
-
-    Check("frame-count-agrees", loop.FrameCount == frames, $"{loop.FrameCount} vs {frames}");
-
-    Console.WriteLine($"VIXENPROBE done checks={checks} failed={failures}");
-});
+);
 
 // The line the driver waits for before it synthesises input. It is printed after Start, so a loop
 // that refused to start never gets here and the driver reports a timeout with the transcript.

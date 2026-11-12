@@ -84,7 +84,7 @@ internal sealed class ContourSet {
         // nothing at all, which is the same answer from the point of view of the region being traced.
         for (var z = 0; z < field.Depth; z++) {
             for (var x = 0; x < field.Width; x++) {
-                ref var cell = ref field.Cells[x + (z * field.Width)];
+                ref var cell = ref field.Cells[x + z * field.Width];
 
                 for (var index = cell.Index; index < cell.Index + cell.Count; index++) {
                     if (field.Spans[index].Region == 0 || field.Areas[index] == NavArea.Null) {
@@ -114,7 +114,7 @@ internal sealed class ContourSet {
 
         for (var z = 0; z < field.Depth; z++) {
             for (var x = 0; x < field.Width; x++) {
-                ref var cell = ref field.Cells[x + (z * field.Width)];
+                ref var cell = ref field.Cells[x + z * field.Width];
 
                 for (var index = cell.Index; index < cell.Index + cell.Count; index++) {
                     // Nothing to trace, or a span whose every side is an outline — a single isolated
@@ -144,7 +144,7 @@ internal sealed class ContourSet {
                         continue;
                     }
 
-                    set.Contours.Add(new() { Vertices = [.. simplified], Region = region, Area = area });
+                    set.Contours.Add(new() { Vertices = [..simplified], Region = region, Area = area });
                 }
             }
         }
@@ -164,7 +164,15 @@ internal sealed class ContourSet {
     ///     started, traces the boundary exactly once — including the parts of it that touch at a
     ///     corner, which is why the loop terminates on the direction as well as the position.
     /// </remarks>
-    static void Walk(CompactHeightfield field, byte[] flags, int startX, int startZ, int startIndex, int startDirection, List<int> points) {
+    static void Walk(
+        CompactHeightfield field,
+        byte[] flags,
+        int startX,
+        int startZ,
+        int startIndex,
+        int startDirection,
+        List<int> points
+    ) {
         var x = startX;
         var z = startZ;
         var index = startIndex;
@@ -304,7 +312,7 @@ internal sealed class ContourSet {
         var connected = false;
 
         for (var index = 0; index < count; index++) {
-            if ((raw[(index * 4) + 3] & RegionMask) != 0) {
+            if ((raw[index * 4 + 3] & RegionMask) != 0) {
                 connected = true;
 
                 break;
@@ -316,8 +324,8 @@ internal sealed class ContourSet {
             // side has traced the same corner and will keep it too.
             for (var index = 0; index < count; index++) {
                 var next = (index + 1) % count;
-                var here = raw[(index * 4) + 3];
-                var there = raw[(next * 4) + 3];
+                var here = raw[index * 4 + 3];
+                var there = raw[next * 4 + 3];
 
                 if ((here & RegionMask) != (there & RegionMask) || (here & AreaBorder) != (there & AreaBorder)) {
                     Add(simplified, raw, index);
@@ -333,13 +341,13 @@ internal sealed class ContourSet {
 
             for (var index = 1; index < count; index++) {
                 var x = raw[index * 4];
-                var z = raw[(index * 4) + 2];
+                var z = raw[index * 4 + 2];
 
-                if (x < raw[lowerLeft * 4] || (x == raw[lowerLeft * 4] && z < raw[(lowerLeft * 4) + 2])) {
+                if (x < raw[lowerLeft * 4] || (x == raw[lowerLeft * 4] && z < raw[lowerLeft * 4 + 2])) {
                     lowerLeft = index;
                 }
 
-                if (x > raw[upperRight * 4] || (x == raw[upperRight * 4] && z > raw[(upperRight * 4) + 2])) {
+                if (x > raw[upperRight * 4] || (x == raw[upperRight * 4] && z > raw[upperRight * 4 + 2])) {
                     upperRight = index;
                 }
             }
@@ -355,7 +363,7 @@ internal sealed class ContourSet {
         // which is the traced point's own — the vertices between them were dropped, and they all
         // faced the same neighbour or they would not have been.
         for (var index = 0; index < simplified.Count / 4; index++) {
-            simplified[(index * 4) + 3] = raw[(simplified[(index * 4) + 3] * 4) + 3];
+            simplified[index * 4 + 3] = raw[simplified[index * 4 + 3] * 4 + 3];
         }
     }
 
@@ -367,12 +375,12 @@ internal sealed class ContourSet {
             var next = (index + 1) % (simplified.Count / 4);
 
             var startX = simplified[index * 4];
-            var startZ = simplified[(index * 4) + 2];
-            var startRaw = simplified[(index * 4) + 3];
+            var startZ = simplified[index * 4 + 2];
+            var startRaw = simplified[index * 4 + 3];
 
             var endX = simplified[next * 4];
-            var endZ = simplified[(next * 4) + 2];
-            var endRaw = simplified[(next * 4) + 3];
+            var endZ = simplified[next * 4 + 2];
+            var endRaw = simplified[next * 4 + 3];
 
             int step;
             int current;
@@ -395,9 +403,16 @@ internal sealed class ContourSet {
             var furthest = -1;
             var furthestDistance = 0f;
 
-            if ((raw[(current * 4) + 3] & RegionMask) == 0 || (raw[(current * 4) + 3] & AreaBorder) != 0) {
+            if ((raw[current * 4 + 3] & RegionMask) == 0 || (raw[current * 4 + 3] & AreaBorder) != 0) {
                 while (current != last) {
-                    var distance = DistanceToSegmentSquared(raw[current * 4], raw[(current * 4) + 2], startX, startZ, endX, endZ);
+                    var distance = DistanceToSegmentSquared(
+                        raw[current * 4],
+                        raw[current * 4 + 2],
+                        startX,
+                        startZ,
+                        endX,
+                        endZ
+                    );
 
                     if (distance > furthestDistance) {
                         furthestDistance = distance;
@@ -428,29 +443,29 @@ internal sealed class ContourSet {
             var next = (index + 1) % (simplified.Count / 4);
 
             var startX = simplified[index * 4];
-            var startZ = simplified[(index * 4) + 2];
-            var startRaw = simplified[(index * 4) + 3];
+            var startZ = simplified[index * 4 + 2];
+            var startRaw = simplified[index * 4 + 3];
 
             var endX = simplified[next * 4];
-            var endZ = simplified[(next * 4) + 2];
-            var endRaw = simplified[(next * 4) + 3];
+            var endZ = simplified[next * 4 + 2];
+            var endRaw = simplified[next * 4 + 3];
 
             var middle = -1;
             var following = (startRaw + 1) % count;
 
             // Only walls. A border with another region has to stay exactly as the other region drew
             // it, and splitting it here would be a disagreement about where the two meet.
-            if ((raw[(following * 4) + 3] & RegionMask) == 0) {
+            if ((raw[following * 4 + 3] & RegionMask) == 0) {
                 var dx = endX - startX;
                 var dz = endZ - startZ;
 
-                if ((dx * dx) + (dz * dz) > maxEdgeLength * maxEdgeLength) {
+                if (dx * dx + dz * dz > maxEdgeLength * maxEdgeLength) {
                     var between = endRaw < startRaw ? endRaw + count - startRaw : endRaw - startRaw;
 
                     if (between > 1) {
                         middle = endX > startX || (endX == startX && endZ > startZ)
-                            ? (startRaw + (between / 2)) % count
-                            : (startRaw + ((between + 1) / 2)) % count;
+                            ? (startRaw + between / 2) % count
+                            : (startRaw + (between + 1) / 2) % count;
                     }
                 }
             }
@@ -465,15 +480,15 @@ internal sealed class ContourSet {
 
     static void Add(List<int> simplified, List<int> raw, int rawIndex) {
         simplified.Add(raw[rawIndex * 4]);
-        simplified.Add(raw[(rawIndex * 4) + 1]);
-        simplified.Add(raw[(rawIndex * 4) + 2]);
+        simplified.Add(raw[rawIndex * 4 + 1]);
+        simplified.Add(raw[rawIndex * 4 + 2]);
         simplified.Add(rawIndex);
     }
 
     static void Insert(List<int> simplified, List<int> raw, int position, int rawIndex) {
         simplified.Insert(position * 4, rawIndex);
-        simplified.Insert(position * 4, raw[(rawIndex * 4) + 2]);
-        simplified.Insert(position * 4, raw[(rawIndex * 4) + 1]);
+        simplified.Insert(position * 4, raw[rawIndex * 4 + 2]);
+        simplified.Insert(position * 4, raw[rawIndex * 4 + 1]);
         simplified.Insert(position * 4, raw[rawIndex * 4]);
     }
 
@@ -483,12 +498,12 @@ internal sealed class ContourSet {
         float px = pointX - startX;
         float pz = pointZ - startZ;
 
-        var lengthSquared = (dx * dx) + (dz * dz);
-        var t = lengthSquared > 0 ? Math.Clamp(((px * dx) + (pz * dz)) / lengthSquared, 0f, 1f) : 0f;
+        var lengthSquared = dx * dx + dz * dz;
+        var t = lengthSquared > 0 ? Math.Clamp((px * dx + pz * dz) / lengthSquared, 0f, 1f) : 0f;
 
-        var offsetX = px - (dx * t);
-        var offsetZ = pz - (dz * t);
+        var offsetX = px - dx * t;
+        var offsetZ = pz - dz * t;
 
-        return (offsetX * offsetX) + (offsetZ * offsetZ);
+        return offsetX * offsetX + offsetZ * offsetZ;
     }
 }

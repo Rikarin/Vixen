@@ -18,9 +18,17 @@ namespace Vixen.Editor.App.Tests;
 
 /// <summary>Doc 20's E4, joined to the editor.</summary>
 /// <remarks>
-///     ⚠ <b>Doc 20's Part F asks for a panel-lifecycle test — "every registered panel is built,
-///     docked, floated, closed and rebuilt in one test" — and names <c>A panel's factory runs again
-///     when it is reopened</c> as the hazard it catches.</b> Six new panels is six new chances to
+///     ⚠
+///     <b>
+///         Doc 20's Part F asks for a panel-lifecycle test — "every registered panel is built,
+///         docked, floated, closed and rebuilt in one test" — and names
+///         <c>
+///             A panel's factory runs again
+///             when it is reopened
+///         </c>
+///         as the hazard it catches.
+///     </b>
+///     Six new panels is six new chances to
 ///     put something durable in a factory, so they are held to it here rather than only being
 ///     opened once.
 /// </remarks>
@@ -112,7 +120,7 @@ public class DiagnosticsPanelTests {
         Assert.True(session.Shell.Commands.Execute("view.layout.Profiling"));
         session.Frames(3);
 
-        foreach (var id in (string[]) ["profiler", "gpu", "frame-debugger", "statistics", "memory"]) {
+        foreach (var id in (string[])["profiler", "gpu", "frame-debugger", "statistics", "memory"]) {
             Assert.Contains(session.Panels, panel => panel.Id == id);
         }
     }
@@ -147,7 +155,7 @@ public class DiagnosticsPanelTests {
         model.Stop();
 
         Assert.False(model.Capture.IsEmpty);
-        Assert.Contains(model.Capture.Summary, entry => entry.Name == "Editor.Update");
+        Assert.Contains(model.Capture.Summary, static entry => entry.Name == "Editor.Update");
     }
 
     /// <summary>
@@ -228,8 +236,12 @@ public class DiagnosticsPanelTests {
     /// <summary>A device the host acquires after start-up reaches the GPU timeline.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The same defect as <see cref="A_capture_source_set_after_start_up_reaches_the_frame_debugger" />,
-    ///         one panel along</b> (<a href="https://github.com/Rikarin/Vixen/issues/1231">#1231</a>).
+    ///         ⚠
+    ///         <b>
+    ///             The same defect as <see cref="A_capture_source_set_after_start_up_reaches_the_frame_debugger" />,
+    ///             one panel along
+    ///         </b>
+    ///         (<a href="https://github.com/Rikarin/Vixen/issues/1231">#1231</a>).
     ///         The module read <c>GraphicsDevice</c> once, inside the <c>gpu</c> factory, and
     ///         <c>EditorHost.EnsureDevice</c> assigns it only when the window can present — several
     ///         frames after a restored layout has already opened the panel. So the panel kept "No
@@ -243,8 +255,12 @@ public class DiagnosticsPanelTests {
     ///         covers both directions.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b><see cref="NullDevice" /> is what makes this assertable with no GPU, and that is
-    ///         a fact about the device rather than a convenience</b>: it reports
+    ///         ⚠
+    ///         <b>
+    ///             <see cref="NullDevice" /> is what makes this assertable with no GPU, and that is
+    ///             a fact about the device rather than a convenience
+    ///         </b>
+    ///         : it reports
     ///         <c>HasTimestampQueries</c> and a <c>TimestampPeriod</c> of one, so
     ///         <c>Features.CanTimeFrames</c> is true and the module's answer is <see langword="null" />
     ///         — the *timeable* branch, not merely a different sentence. A device that could not be
@@ -274,7 +290,7 @@ public class DiagnosticsPanelTests {
         // the half that was missing.
         Assert.Contains(
             "Waiting for the GPU",
-            string.Concat(Descendants(view.Status).Select(part => part.Text ?? string.Empty)),
+            string.Concat(Descendants(view.Status).Select(static part => part.Text ?? string.Empty)),
             StringComparison.Ordinal
         );
 
@@ -310,8 +326,12 @@ public class DiagnosticsPanelTests {
     /// <summary>A capture source the host sets after start-up reaches the frame debugger.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The instrument #1208 asks for, and the arrangement that could not see the
-    ///         defect.</b> The panel's own suite sets <c>view.Source</c> itself
+    ///         ⚠
+    ///         <b>
+    ///             The instrument #1208 asks for, and the arrangement that could not see the
+    ///             defect.
+    ///         </b>
+    ///         The panel's own suite sets <c>view.Source</c> itself
     ///         (<c>PortedPanelTests</c>), which asserts the panel and says nothing about whether
     ///         anything ever hands it one — and nothing did: the module read the property once, in a
     ///         factory, and no host in this tree writes it. A test that only opens the panel is
@@ -373,8 +393,8 @@ public class DiagnosticsPanelTests {
 
         var view = Built<NetworkView>(session, "network");
 
-        Assert.Contains(Descendants(view.Root), element => element.Tag == "empty-state");
-        Assert.DoesNotContain(Descendants(view.Root), element => element.Tag == "network-row");
+        Assert.Contains(Descendants(view.Root), static element => element.Tag == "empty-state");
+        Assert.DoesNotContain(Descendants(view.Root), static element => element.Tag == "network-row");
     }
 
     /// <summary>
@@ -392,12 +412,15 @@ public class DiagnosticsPanelTests {
         session.Frames(2);
 
         var lines = Descendants(view.Root)
-            .Where(element => element.Tag == "network-status")
-            .Select(element => string.Concat(Descendants(element).Select(part => part.Text ?? string.Empty)))
+            .Where(static element => element.Tag == "network-status")
+            .Select(static element => string.Concat(
+                    Descendants(element).Select(static part => part.Text ?? string.Empty)
+                )
+            )
             .ToArray();
 
-        Assert.Contains(lines, line => line.Contains("No session running", StringComparison.Ordinal));
-        Assert.DoesNotContain(Descendants(view.Root), element => element.Tag == "network-lane");
+        Assert.Contains(lines, static line => line.Contains("No session running", StringComparison.Ordinal));
+        Assert.DoesNotContain(Descendants(view.Root), static element => element.Tag == "network-lane");
     }
 
     [Fact]
@@ -408,7 +431,7 @@ public class DiagnosticsPanelTests {
 
         Assert.NotNull(view.Statistics);
 
-        var entities = Assert.Single(view.Statistics.Rows, row => row.Label == "Entities");
+        var entities = Assert.Single(view.Statistics.Rows, static row => row.Label == "Entities");
         Assert.Equal(session.Scene.Entities.Count(), entities.Value);
     }
 
@@ -448,7 +471,7 @@ public class DiagnosticsPanelTests {
 
         view.Take();
 
-        var authored = Assert.Single(view.Statistics!.Rows, row => row.Label == "Behaviours · Drifter");
+        var authored = Assert.Single(view.Statistics!.Rows, static row => row.Label == "Behaviours · Drifter");
 
         Assert.Equal(3, authored.Value);
         Assert.Equal(200, authored.Budget);
@@ -459,7 +482,7 @@ public class DiagnosticsPanelTests {
 
         view.Take();
 
-        var live = Assert.Single(view.Statistics!.Rows, row => row.Label == "Behaviours · Drifter");
+        var live = Assert.Single(view.Statistics!.Rows, static row => row.Label == "Behaviours · Drifter");
 
         Assert.Equal(3, live.Value);
 
@@ -571,14 +594,14 @@ public class DiagnosticsPanelTests {
 
         // False first: nothing in this tree launches a player, so the column reads nothing until a
         // host says otherwise. `play.mode-standalone` is the producer, and it is declared planned.
-        Assert.All(before.Devices.Items.Cast<DeviceEntry>(), device => Assert.Null(device.Endpoint));
+        Assert.All(before.Devices.Items.Cast<DeviceEntry>(), static device => Assert.Null(device.Endpoint));
 
         Diagnostics(session).InspectorEndpoint = "127.0.0.1:34567";
         session.Frames(2);
 
         Assert.Contains(
             before.Devices.Items.Cast<DeviceEntry>(),
-            device => string.Equals(device.Endpoint, "127.0.0.1:34567", StringComparison.Ordinal)
+            static device => string.Equals(device.Endpoint, "127.0.0.1:34567", StringComparison.Ordinal)
         );
     }
 
@@ -590,7 +613,7 @@ public class DiagnosticsPanelTests {
     ///     the seam a producer writes into.
     /// </remarks>
     static DiagnosticsModule Diagnostics(EditorSession session) =>
-        session.Editor.Modules.Select(entry => entry.Module).OfType<DiagnosticsModule>().Single();
+        session.Editor.Modules.Select(static entry => entry.Module).OfType<DiagnosticsModule>().Single();
 
     static T Find<T>(EditorSession session, string panel) where T : UiElement {
         session.Open(panel);
@@ -601,13 +624,16 @@ public class DiagnosticsPanelTests {
 
     /// <summary>The same, for a panel written in <c>.vxml</c>.</summary>
     /// <remarks>
-    ///     ⚠ <b>A second finder rather than a wider one, because a component is not in the element
-    ///     tree at all.</b> Doc 36 § F7's first wave made the memory and statistics panels markup, and
+    ///     ⚠
+    ///     <b>
+    ///         A second finder rather than a wider one, because a component is not in the element
+    ///         tree at all.
+    ///     </b>
+    ///     Doc 36 § F7's first wave made the memory and statistics panels markup, and
     ///     a markup <c>Component</c> builds elements without being one, so
     ///     <c>Descendants(…).OfType&lt;T&gt;()</c> cannot see it however the constraint is relaxed.
     ///     What links the two is <see cref="UiDocument.ComponentAt" />: every component registers
     ///     itself against the host element it drew into, which is the element the walk *does* find.
-    ///
     ///     ⚠ And this is the cost <c>@inherits</c> exists to avoid, kept rather than removed. Wave 1b
     ///     ported two panels whose callers hold them as elements, and neither this finder nor any
     ///     assertion in <c>Vixen.Editor.AssetEditors.Tests</c> had to change for them. These two

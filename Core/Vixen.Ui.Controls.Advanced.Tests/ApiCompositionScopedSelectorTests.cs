@@ -40,9 +40,13 @@ public class ApiCompositionScopedSelectorTests {
     ///     Each host part an <c>api</c> reason names, the API that puts a control in it, and the words
     ///     the reason has to use for that API — so a reason edited to name another one is noticed.
     /// </summary>
-    static readonly Dictionary<string, (string Api, Func<UiElement, Type, UiElement> Put)> Hosts = new(StringComparer.Ordinal) {
-        ["field-content"] = ("LabeledContent.Content", static (parent, type) => Add(parent.Add<LabeledContent>().Content, type)),
-        ["key-value-value"] = ("KeyValueRow.Content<T>()", static (parent, type) => Content(parent.Add<KeyValueRow>(), type))
+    static readonly Dictionary<string, (string Api, Func<UiElement, Type, UiElement> Put)> Hosts = new(
+        StringComparer.Ordinal
+    ) {
+        ["field-content"] = ("LabeledContent.Content",
+            static (parent, type) => Add(parent.Add<LabeledContent>().Content, type)),
+        ["key-value-value"] = ("KeyValueRow.Content<T>()",
+            static (parent, type) => Content(parent.Add<KeyValueRow>(), type))
     };
 
     /// <summary>Two rows that must be among the ones asked and matched, so an empty read cannot pass.</summary>
@@ -64,17 +68,23 @@ public class ApiCompositionScopedSelectorTests {
             var compounds = selector.Split(' ', StringSplitOptions.RemoveEmptyEntries);
 
             if (compounds.Length != 2 || !Hosts.TryGetValue(compounds[0], out var host)) {
-                failures.Add($"{selector} — no API here puts a control under '{compounds[0]}'; teach this file the reason's API, or re-file the row");
+                failures.Add(
+                    $"{selector} — no API here puts a control under '{compounds[0]}'; teach this file the reason's API, or re-file the row"
+                );
                 continue;
             }
 
             if (!reason.Contains(host.Api, StringComparison.Ordinal)) {
-                failures.Add($"{selector} — the reason does not name {host.Api}, which is the API this file reaches it through");
+                failures.Add(
+                    $"{selector} — the reason does not name {host.Api}, which is the API this file reaches it through"
+                );
                 continue;
             }
 
             if (!tags.TryGetValue(compounds[1], out var type)) {
-                failures.Add($"{selector} — no public control with a parameterless constructor has the tag '{compounds[1]}'");
+                failures.Add(
+                    $"{selector} — no public control with a parameterless constructor has the tag '{compounds[1]}'"
+                );
                 continue;
             }
 
@@ -85,7 +95,9 @@ public class ApiCompositionScopedSelectorTests {
             var test = UiTest.Adopt(ui.Document);
 
             if (test.Get(selector).Count == 0) {
-                failures.Add($"{selector} — {host.Api} put a <{compounds[1]}> in the tree and the rule does not match it");
+                failures.Add(
+                    $"{selector} — {host.Api} put a <{compounds[1]}> in the tree and the rule does not match it"
+                );
             } else if (test.Get($"{compounds[1]} {compounds[0]}").Count > 0) {
                 failures.Add($"{selector} — its mirror matched too, so the matcher answered nothing");
             } else {
@@ -93,7 +105,10 @@ public class ApiCompositionScopedSelectorTests {
             }
         }
 
-        Assert.True(failures.Count == 0, $"{UnjudgedFile} has api rows whose API does not reach the rule:\n  {string.Join("\n  ", failures)}");
+        Assert.True(
+            failures.Count == 0,
+            $"{UnjudgedFile} has api rows whose API does not reach the rule:\n  {string.Join("\n  ", failures)}"
+        );
 
         foreach (var anchor in Anchors) {
             Assert.Contains(anchor, matched);
@@ -106,13 +121,20 @@ public class ApiCompositionScopedSelectorTests {
     static Dictionary<string, string> ApiRows() {
         var lines = File.ReadAllLines(Path.Combine(Root(), UnjudgedFile));
 
-        Assert.True(lines.Count(static line => line.StartsWith('#')) >= 5, $"{UnjudgedFile} has lost its header, so it was emptied rather than answered.");
+        Assert.True(
+            lines.Count(static line => line.StartsWith('#')) >= 5,
+            $"{UnjudgedFile} has lost its header, so it was emptied rather than answered."
+        );
 
         return lines
             .Where(static line => line.Length != 0 && !line.StartsWith('#'))
             .Select(static line => line.Split('\t'))
             .Where(static columns => columns.Length == 3 && columns[1].Trim() == "api")
-            .ToDictionary(static columns => columns[0].Trim(), static columns => columns[2].Trim(), StringComparer.Ordinal);
+            .ToDictionary(
+                static columns => columns[0].Trim(),
+                static columns => columns[2].Trim(),
+                StringComparer.Ordinal
+            );
     }
 
     /// <summary>
@@ -129,8 +151,13 @@ public class ApiCompositionScopedSelectorTests {
 
         var map = new Dictionary<string, Type>(StringComparer.Ordinal);
 
-        foreach (var type in new[] { typeof(Button).Assembly, typeof(DataGrid).Assembly }.SelectMany(static assembly => assembly.GetTypes())) {
-            if (!type.IsPublic || type.IsAbstract || type.IsGenericTypeDefinition || !typeof(UiElement).IsAssignableFrom(type)
+        foreach (var type in new[] { typeof(Button).Assembly, typeof(DataGrid).Assembly }.SelectMany(static assembly =>
+                     assembly.GetTypes()
+                 )) {
+            if (!type.IsPublic
+                || type.IsAbstract
+                || type.IsGenericTypeDefinition
+                || !typeof(UiElement).IsAssignableFrom(type)
                 || type.GetConstructor(Type.EmptyTypes) is null) {
                 continue;
             }
@@ -145,7 +172,7 @@ public class ApiCompositionScopedSelectorTests {
 
     static UiElement Add(UiElement parent, Type type) =>
         (UiElement)typeof(ApiCompositionScopedSelectorTests)
-            .GetMethod(nameof(AddOf), BindingFlags.NonPublic | BindingFlags.Static)!
+                .GetMethod(nameof(AddOf), BindingFlags.NonPublic | BindingFlags.Static)!
             .MakeGenericMethod(type)
             .Invoke(null, [parent])!;
 
@@ -155,7 +182,9 @@ public class ApiCompositionScopedSelectorTests {
         (UiElement)typeof(KeyValueRow).GetMethod(nameof(KeyValueRow.Content))!.MakeGenericMethod(type).Invoke(row, [])!;
 
     static string Root() {
-        for (var directory = new DirectoryInfo(AppContext.BaseDirectory); directory is not null; directory = directory.Parent) {
+        for (var directory = new DirectoryInfo(AppContext.BaseDirectory);
+             directory is not null;
+             directory = directory.Parent) {
             if (Directory.Exists(Path.Combine(directory.FullName, "Raven", "Library"))) {
                 return directory.FullName;
             }

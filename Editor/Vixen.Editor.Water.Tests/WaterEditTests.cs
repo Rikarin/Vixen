@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core.Mathematics;
-using Vixen.Rendering.Water;
 using Vixen.Water;
 using Xunit;
 
@@ -158,11 +157,13 @@ public sealed class WaterEditTests {
         // A river running along +Z, so its "side" is world X.
         var river = new WaterBody(
             WaterBodyKind.River,
-            new Spline([
-                SplinePoint.Smooth(new(0f, 10f, 0f), new(0f, 0f, 20f)),
-                SplinePoint.Smooth(new(0f, 10f, 20f), new(0f, 0f, 20f)),
-                SplinePoint.Smooth(new(0f, 10f, 40f), new(0f, 0f, 20f))
-            ]),
+            new Spline(
+                [
+                    SplinePoint.Smooth(new(0f, 10f, 0f), new(0f, 0f, 20f)),
+                    SplinePoint.Smooth(new(0f, 10f, 20f), new(0f, 0f, 20f)),
+                    SplinePoint.Smooth(new(0f, 10f, 40f), new(0f, 0f, 20f))
+                ]
+            ),
             defaults: new() { HalfWidth = 6f, Depth = 3f }
         );
 
@@ -194,7 +195,7 @@ public sealed class WaterEditTests {
     [Fact]
     public void The_zone_panel_derives_what_a_resolution_buys() {
         var settings = new WaterZoneSettings { Extent = 512f, Resolution = 257 };
-        var facts = settings.Facts().ToDictionary(fact => fact.Label, fact => fact.Value);
+        var facts = settings.Facts().ToDictionary(static fact => fact.Label, static fact => fact.Value);
 
         // 512 m over 257 samples is two metres exactly — the "power of two plus one" the whole zone
         // is sized around.
@@ -216,7 +217,7 @@ public sealed class WaterEditTests {
     [Fact]
     public void Half_precision_states_its_quantum() {
         var settings = new WaterZoneSettings { Precision = WaterInfoPrecision.Half };
-        var facts = settings.Facts().ToDictionary(fact => fact.Label, fact => fact.Value);
+        var facts = settings.Facts().ToDictionary(static fact => fact.Label, static fact => fact.Value);
 
         Assert.Contains("half precision", facts["Height quantum"]);
         Assert.DoesNotContain("exact", facts["Height quantum"]);

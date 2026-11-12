@@ -10,12 +10,9 @@ using Vixen.Rendering;
 using Vixen.Rendering.Compositor;
 using Vixen.Rendering.DistanceFields;
 using Vixen.Rendering.Lighting;
-using Vixen.Rendering.Materials;
 using Vixen.Rendering.PostFx;
 using Vixen.Shaders;
 using Vixen.Shaders.Generated;
-using Vixen.Ui.Testing.Visual;
-using Xunit;
 
 namespace Vixen.Graphics.Golden.Tests;
 
@@ -49,6 +46,7 @@ sealed class TierScene : IDisposable {
     ///     not with <c>ForwardPlus</c>.
     /// </remarks>
     readonly List<SurfaceVertex> vertices = [];
+
     readonly List<ushort> indices = [];
 
     readonly Fixture fixture;
@@ -59,8 +57,12 @@ sealed class TierScene : IDisposable {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Scene data and not harness wiring, which is why it is built here beside the
-    ///         geometry.</b> <c>CompositorBuilder.DistanceField</c> is a project's to supply — samples
+    ///         ⚠
+    ///         <b>
+    ///             Scene data and not harness wiring, which is why it is built here beside the
+    ///             geometry.
+    ///         </b>
+    ///         <c>CompositorBuilder.DistanceField</c> is a project's to supply — samples
     ///         03 and 13 both set it — and a <c>!GlobalDistanceField</c> node with none returns before
     ///         it uploads anything. What that costs is not a frame without ambient occlusion: the
     ///         clipmap's bindings never reach set 0, and <c>!DistanceFieldAo</c>'s pipeline then draws
@@ -83,9 +85,13 @@ sealed class TierScene : IDisposable {
     ///     Every texture this fixture owns that has to be copied into before the first frame.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>A list rather than the one hard-coded copy that used to be here, because a material
-    ///     that samples is the second reason to own a texture and there is no third place to put the
-    ///     transfer.</b> A copy into a texture cannot be recorded inside a render pass and everything
+    ///     ⚠
+    ///     <b>
+    ///         A list rather than the one hard-coded copy that used to be here, because a material
+    ///         that samples is the second reason to own a texture and there is no third place to put the
+    ///         transfer.
+    ///     </b>
+    ///     A copy into a texture cannot be recorded inside a render pass and everything
     ///     the compositor executes is inside one — the same constraint <c>Fixture.Render</c>'s
     ///     <c>before</c> exists for. <see cref="Frames" /> drains this on frame zero, in the order the
     ///     maps were staged, so a fixture with five maps records five copies and not one.
@@ -132,14 +138,15 @@ sealed class TierScene : IDisposable {
     ///     Square, because the target is: an aspect ratio that disagreed with the target would still
     ///     produce a plausible picture, and the frame's screen-space passes tile the screen.
     /// </remarks>
-    public static RenderCamera Camera => RenderCamera.Default with {
-        Position = new(-3.4f, 2.9f, 4.6f),
-        Forward = Vector3.Normalize(new(0.78f, -0.49f, -1f)),
-        AspectRatio = 1f,
-        FieldOfView = MathF.PI / 3f,
-        NearPlane = 0.2f,
-        FarPlane = 120f
-    };
+    public static RenderCamera Camera =>
+        RenderCamera.Default with {
+            Position = new(-3.4f, 2.9f, 4.6f),
+            Forward = Vector3.Normalize(new(0.78f, -0.49f, -1f)),
+            AspectRatio = 1f,
+            FieldOfView = MathF.PI / 3f,
+            NearPlane = 0.2f,
+            FarPlane = 120f
+        };
 
     /// <summary>Stages the scene on a device and builds the frame a document describes.</summary>
     /// <param name="fixture">The device.</param>
@@ -184,7 +191,13 @@ sealed class TierScene : IDisposable {
         // game and a scratch texture here.
         renderer.Host.Import(
             document.Game is StandardFrameAsset { Output: { Length: > 0 } named } ? named : "SceneColour",
-            new(scene.owned.Texture, scene.owned.View, scene.owned.Description, ResourceState.Undefined, ResourceState.CopySource)
+            new(
+                scene.owned.Texture,
+                scene.owned.View,
+                scene.owned.Description,
+                ResourceState.Undefined,
+                ResourceState.CopySource
+            )
         );
 
         scene.Supply();
@@ -203,19 +216,25 @@ sealed class TierScene : IDisposable {
     ///         never bound at all. Three of them have no producer anywhere in a Standard Frame:
     ///     </para>
     ///     <list type="bullet">
-    ///         <item><description>
-    ///             the sky node's <b>environment cube</b>, which is baked before the graph exists and
-    ///             outlives every frame, so no document can name it;
-    ///         </description></item>
-    ///         <item><description>
-    ///             the caster stage's <b>opacity map, its sampler and a bone palette</b>, which no
-    ///             material in any project has an opinion about — white, because white is "this texel
-    ///             is solid" and undefined is a shadow with holes in it on one driver;
-    ///         </description></item>
-    ///         <item><description>
-    ///             the <b>cluster list</b>, which <c>ForwardPlus</c> declares whether or not the
-    ///             clustered permutation is on.
-    ///         </description></item>
+    ///         <item>
+    ///             <description>
+    ///                 the sky node's <b>environment cube</b>, which is baked before the graph exists and
+    ///                 outlives every frame, so no document can name it;
+    ///             </description>
+    ///         </item>
+    ///         <item>
+    ///             <description>
+    ///                 the caster stage's <b>opacity map, its sampler and a bone palette</b>, which no
+    ///                 material in any project has an opinion about — white, because white is "this texel
+    ///                 is solid" and undefined is a shadow with holes in it on one driver;
+    ///             </description>
+    ///         </item>
+    ///         <item>
+    ///             <description>
+    ///                 the <b>cluster list</b>, which <c>ForwardPlus</c> declares whether or not the
+    ///                 clustered permutation is on.
+    ///             </description>
+    ///         </item>
     ///     </list>
     ///     <para>
     ///         ⚠ After every <c>Load</c> and not once: the nodes are made by the builder, so a rebuilt
@@ -277,7 +296,7 @@ sealed class TierScene : IDisposable {
             for (var y = 0; y < sky.Size; y++) {
                 for (var x = 0; x < sky.Size; x++) {
                     var direction = sky.DirectionOf(image, x, y);
-                    var height = Math.Clamp((direction.Y * 0.5f) + 0.5f, 0f, 1f);
+                    var height = Math.Clamp(direction.Y * 0.5f + 0.5f, 0f, 1f);
 
                     // ⚠ Photometric, in cd/m², and not a 0–1 colour. The frame meters itself and the
                     // tonemap's curve is calibrated in real units, so a sky of 0.4 is a scene twelve
@@ -294,7 +313,7 @@ sealed class TierScene : IDisposable {
             }
         }
 
-        environment = EnvironmentTexture.Bake(device, sky, mipCount: 4, samples: 8);
+        environment = EnvironmentTexture.Bake(device, sky, 4, 8);
 
         cleanup.Add(environment.Dispose);
         Renderer.Environment = environment;
@@ -303,9 +322,7 @@ sealed class TierScene : IDisposable {
         // the background is drawn from — two opinions about one sky is the drift `SkyRenderer`'s
         // remarks describe.
         var light = new EnvironmentLight {
-            MipCount = environment.MipCount,
-            Intensity = 1f,
-            Irradiance = SphericalHarmonics.Project(sky)
+            MipCount = environment.MipCount, Intensity = 1f, Irradiance = SphericalHarmonics.Project(sky)
         };
 
         environment.Apply(light);
@@ -320,15 +337,11 @@ sealed class TierScene : IDisposable {
         // ⚠ Lux, and a low sun's rather than noon's. Twelve thousand is late afternoon: bright enough
         // that the shadow is the darkest thing in frame and dim enough that the lamp below is visible
         // at all, which at noon's ninety thousand it would not be.
-        Renderer.Lighting.Lights.Add(
-            RenderLight.Directional(SunDirection, new(1f, 0.94f, 0.82f), 12_000f)
-        );
+        Renderer.Lighting.Lights.Add(RenderLight.Directional(SunDirection, new(1f, 0.94f, 0.82f), 12_000f));
 
         // One lamp, off to the side and low, so the punctual atlas has a tile to fill and the smooth
         // slab has a highlight that is not the sun's.
-        Renderer.Lighting.Lights.Add(
-            RenderLight.Point(new(2.9f, 1.15f, 1.6f), 7f, new(1f, 0.45f, 0.2f), 9_000f)
-        );
+        Renderer.Lighting.Lights.Add(RenderLight.Point(new(2.9f, 1.15f, 1.6f), 7f, new(1f, 0.45f, 0.2f), 9_000f));
 
         // ⚠ Rgba8UNormSrgb where the expansion declares Bgra8UNormSrgb, because the readback is
         // this fixture's and `Bitmap` is RGBA — a BGRA target would come back with red and blue
@@ -374,18 +387,17 @@ sealed class TierScene : IDisposable {
 
         opaqueSampler = fixture.Sampler(SamplerDescription.LinearClamp with { Name = "Opacity.Opaque" });
 
-        bindPose = device.CreateBuffer(
-            new(64, BufferUsage.Storage, MemoryAccess.HostUpload, "Bones.BindPose")
-        );
+        bindPose = device.CreateBuffer(new(64, BufferUsage.Storage, MemoryAccess.HostUpload, "Bones.BindPose"));
 
         var identity = Matrix4x4.Identity;
 
         device.Write(bindPose, 0, MemoryMarshal.AsBytes(MemoryMarshal.CreateReadOnlySpan(ref identity, 1)));
 
         cleanup.Add(() => {
-            device.Destroy(clusters);
-            device.Destroy(bindPose);
-        });
+                device.Destroy(clusters);
+                device.Destroy(bindPose);
+            }
+        );
     }
 
     /// <summary>
@@ -432,24 +444,24 @@ sealed class TierScene : IDisposable {
 
                 var u = axis switch {
                     0 => new Vector3(0f, 0f, -sign),
-                    1 => new Vector3(sign, 0f, 0f),
+
                     _ => new Vector3(sign, 0f, 0f)
                 };
 
                 var v = Vector3.Cross(normal, u);
-                var origin = centre + (normal * Vector3.Dot(half, Abs(normal)));
+                var origin = centre + normal * Vector3.Dot(half, Abs(normal));
                 var baseIndex = vertices.Count - first;
 
                 foreach (var corner in (Vector2[])[new(-1f, -1f), new(1f, -1f), new(-1f, 1f), new(1f, 1f)]) {
-                    var offset = (u * corner.X * Vector3.Dot(half, Abs(u)))
-                        + (v * corner.Y * Vector3.Dot(half, Abs(v)));
+                    var offset = u * corner.X * Vector3.Dot(half, Abs(u))
+                        + v * corner.Y * Vector3.Dot(half, Abs(v));
 
                     vertices.Add(
                         new() {
                             Position = origin + offset,
                             Normal = normal,
                             Tangent = new(u.X, u.Y, u.Z, 1f),
-                            TexCoord = new((corner.X * 0.5f) + 0.5f, (corner.Y * 0.5f) + 0.5f)
+                            TexCoord = new(corner.X * 0.5f + 0.5f, corner.Y * 0.5f + 0.5f)
                         }
                     );
                 }
@@ -463,7 +475,9 @@ sealed class TierScene : IDisposable {
             }
         }
 
-        Pending.Add(new(first, start, indices.Count - start, centre, Vector3.Distance(Vector3.Zero, half), material, stages));
+        Pending.Add(
+            new(first, start, indices.Count - start, centre, Vector3.Distance(Vector3.Zero, half), material, stages)
+        );
     }
 
     /// <summary>
@@ -512,7 +526,7 @@ sealed class TierScene : IDisposable {
                     var outside = new Vector3(MathF.Max(q.X, 0f), MathF.Max(q.Y, 0f), MathF.Max(q.Z, 0f)).Length();
                     var inside = MathF.Min(MathF.Max(q.X, MathF.Max(q.Y, q.Z)), 0f);
 
-                    distances[(((z * resolution.Y) + y) * resolution.X) + x] = outside + inside;
+                    distances[(z * resolution.Y + y) * resolution.X + x] = outside + inside;
                 }
             }
         }
@@ -559,8 +573,8 @@ sealed class TierScene : IDisposable {
             clipmap.InstancesVersion++;
         }
 
-        var vertexBuffer = fixture.Buffer<SurfaceVertex>(vertices.ToArray(), BufferUsage.Vertex);
-        var indexBuffer = fixture.Buffer<ushort>(indices.ToArray(), BufferUsage.Index);
+        var vertexBuffer = fixture.Buffer(vertices.ToArray(), BufferUsage.Vertex);
+        var indexBuffer = fixture.Buffer(indices.ToArray(), BufferUsage.Index);
 
         View.Stages = viewStages;
         View.Frustum = new(View.ViewProjection);
@@ -569,9 +583,7 @@ sealed class TierScene : IDisposable {
         foreach (var draw in Pending) {
             var id = system.Objects.Add(
                 new() {
-                    Bounds = new(draw.Centre, draw.Radius),
-                    Stages = draw.Stages,
-                    FeatureIndex = Renderer.Meshes.Index
+                    Bounds = new(draw.Centre, draw.Radius), Stages = draw.Stages, FeatureIndex = Renderer.Meshes.Index
                 }
             );
 

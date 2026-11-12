@@ -4,7 +4,6 @@
 using Microsoft.Extensions.Logging;
 using Vixen.Audio.Ecs;
 using Vixen.Core;
-using Vixen.Core.IO;
 using Vixen.Core.IO.Watch;
 using Vixen.Core.Mathematics;
 using Vixen.Core.Threading;
@@ -15,15 +14,12 @@ using Vixen.Editor.Assets.MeshMaps;
 using Vixen.Editor.Core;
 using Vixen.Editor.Core.Scenes;
 using Vixen.Editor.Inspector;
-using Vixen.Editor.Inspector.Drawers;
 using Vixen.Editor.Plugin;
 using Vixen.Editor.SceneView;
 using Vixen.Editor.Ui;
 using Vixen.Editor.Ui.Documents;
-using Vixen.Engine.Behaviors;
 using Vixen.Engine.Cameras;
 using Vixen.Engine.Diagnostics.Overlays;
-using Vixen.Engine.Scenes;
 using Vixen.Engine.Transforms;
 using Vixen.Input;
 using Vixen.Rendering;
@@ -39,7 +35,6 @@ using Vixen.Ui.Reactive;
 // saying that conflating the two is the first way to get prefabs wrong here; the compiler says the
 // same thing as CS0104 the moment both usings are in one file.
 using EditorPrefab = Vixen.Editor.App.Prefab;
-using ViewportControl = Vixen.Ui.Controls.Advanced.Viewport;
 
 namespace Vixen.Editor.App;
 
@@ -94,8 +89,12 @@ sealed partial class EditorApplication : IDisposable {
 
     /// <summary>The scene every command acts on: <see cref="ISceneEditing.Active" />, followed.</summary>
     /// <remarks>
-    ///     ⚠ <b>Not readonly, because doc 20's multi-scene row makes it change — and not this class's
-    ///     to change (#1290).</b> Which scene is active is <see cref="ISceneEditing" />'s; this field is
+    ///     ⚠
+    ///     <b>
+    ///         Not readonly, because doc 20's multi-scene row makes it change — and not this class's
+    ///         to change (#1290).
+    ///     </b>
+    ///     Which scene is active is <see cref="ISceneEditing" />'s; this field is
     ///     what the ~350 reads across the partials already name, written only by <see cref="Followed" />
     ///     when the service raises <see cref="ISceneEditing.ActiveChanged" />. ⚠ Not
     ///     <c>EditorProject.ActiveDocument</c>, refuted by the first slice: an asset editor's tab
@@ -142,6 +141,7 @@ sealed partial class EditorApplication : IDisposable {
     ///     never changes and would otherwise be rebuilt every time somebody closed the scene tab.
     /// </remarks>
     ScenePicker picker;
+
     readonly MeshEdit editing;
 
     /// <summary>What an asset field's button opens.</summary>
@@ -175,8 +175,12 @@ sealed partial class EditorApplication : IDisposable {
 
     /// <summary>What a change on disk did to the open documents, for the suite that asserts about it.</summary>
     /// <remarks>
-    ///     ⚠ <b>Internal, and it is the only honest instrument for "did the watcher reach this
-    ///     document".</b> Every other observable is a proxy that something else also moves:
+    ///     ⚠
+    ///     <b>
+    ///         Internal, and it is the only honest instrument for "did the watcher reach this
+    ///         document".
+    ///     </b>
+    ///     Every other observable is a proxy that something else also moves:
     ///     <c>StandardFrameDocument.Changed</c> is raised by the inspector's own write-back, and
     ///     <c>EditorDocument.IsStale</c> is <em>cleared</em> by a successful reload — so a test
     ///     watching either can be told a reload happened when none did, or told none happened when
@@ -223,8 +227,12 @@ sealed partial class EditorApplication : IDisposable {
 
     /// <summary>What puts doc 48 § D12's baked mesh maps into the project as ordinary assets.</summary>
     /// <remarks>
-    ///     ⚠ <b>Held as well as published, because it has two callers and they are different
-    ///     shapes.</b> A plugin resolves <see cref="IMeshMapBaker" /> out of the service list, the
+    ///     ⚠
+    ///     <b>
+    ///         Held as well as published, because it has two callers and they are different
+    ///         shapes.
+    ///     </b>
+    ///     A plugin resolves <see cref="IMeshMapBaker" /> out of the service list, the
     ///     way the block-out module resolves <c>IMeshBaker</c>; the editor's own Bake Mesh Maps verb
     ///     hands this to <c>ContentTasks</c>, which does the arithmetic on a pool thread and calls
     ///     <c>Write</c> back on the frame thread. Neither could reach it through the other.
@@ -250,7 +258,7 @@ sealed partial class EditorApplication : IDisposable {
     ///     build to look at a level would make the viewport a function of the build rather than the
     ///     files.
     /// </remarks>
-    internal Vixen.Editor.Assets.Content.ProjectMeshSource SceneGeometry => content.Meshes;
+    internal ProjectMeshSource SceneGeometry => content.Meshes;
 
     /// <summary>Where a viewport reads the look of the materials a scene's entities name.</summary>
     /// <remarks>
@@ -259,7 +267,8 @@ sealed partial class EditorApplication : IDisposable {
     ///     nothing happen is the shape of defect that sends an author to the game to find out whether
     ///     the assignment took.
     /// </remarks>
-    internal Vixen.Editor.Assets.Content.ProjectSurfaceSource SceneSurfaces => content.Surfaces;
+    internal ProjectSurfaceSource SceneSurfaces => content.Surfaces;
+
     readonly PluginHost plugins;
 
     /// <summary>The plugin host, and through it what this editor publishes to a plugin.</summary>
@@ -369,8 +378,12 @@ sealed partial class EditorApplication : IDisposable {
     /// <summary>The live components of this editor's interface, and what an edit to a .vxml reaches.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Doc 36 § P4. This existed in <c>Core/Vixen.Ui.HotReload</c> and nothing in the
-    ///         editor had ever created one</b> — so the declarative path was reloadable in principle
+    ///         ⚠
+    ///         <b>
+    ///             Doc 36 § P4. This existed in <c>Core/Vixen.Ui.HotReload</c> and nothing in the
+    ///             editor had ever created one
+    ///         </b>
+    ///         — so the declarative path was reloadable in principle
     ///         and not in this application, which is F7 with an extra step. A markup panel mounted
     ///         through it is rebuilt when <c>dotnet watch</c> replaces the <c>Build</c> body the
     ///         markup compiled to.
@@ -393,14 +406,21 @@ sealed partial class EditorApplication : IDisposable {
     /// <summary>The dev-mode stylesheet watcher, or <see langword="null" /> outside it.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Null unless <c>--hot-reload</c> named a directory, which is the whole of its
-    ///         opt-in.</b> A <c>FileSystemWatcher</c> the editor opened by itself would be a handle
+    ///         ⚠
+    ///         <b>
+    ///             Null unless <c>--hot-reload</c> named a directory, which is the whole of its
+    ///             opt-in.
+    ///         </b>
+    ///         A <c>FileSystemWatcher</c> the editor opened by itself would be a handle
     ///         and a pool callback in every CI run of <c>--frames N</c>, for a channel that run
     ///         cannot use.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>It can be pointed at the editor's own chrome, and an edit there now
-    ///         <i>replaces</i> the shipped sheet rather than layering over it.</b>
+    ///         ⚠
+    ///         <b>
+    ///             It can be pointed at the editor's own chrome, and an edit there now
+    ///             <i>replaces</i> the shipped sheet rather than layering over it.
+    ///         </b>
     ///         <c>Theming/EditorTheme.vcss</c> is a real file since doc 43's <c>@theme</c> work —
     ///         before it there was no <c>.vcss</c> in the tree at all and this channel had nothing to
     ///         watch. What it used to do with one was load it again at <c>Author</c> origin on top of
@@ -469,8 +489,8 @@ sealed partial class EditorApplication : IDisposable {
         IReadOnlyList<(string Id, string Name, IEditorPlugin Module)>? modules = null,
         bool watchAssets = true
     ) {
-        store = new EditorUserStore(directory);
-        console = new EditorConsole(log.Sink);
+        store = new(directory);
+        console = new(log.Sink);
         dataDirectory = directory;
         this.services = services ?? EditorServices.None;
         Extensions = extensions ?? EditorRegistry.Default;
@@ -484,7 +504,7 @@ sealed partial class EditorApplication : IDisposable {
         // "the editor said something" are separable in the console's category filter. The three
         // user-agent sheets are installed inside this constructor, so the logger has to arrive with
         // it rather than be set afterwards.
-        Shell = new EditorShell(width, height, logger: log.Sink.CreateLogger("Vixen.Ui.Styling"));
+        Shell = new(width, height, logger: log.Sink.CreateLogger("Vixen.Ui.Styling"));
 
         // ⚠ Before anything that could notify, which on a first run is the project scan and the
         // plugin loader. A mirror attached afterwards would miss exactly the messages somebody opens
@@ -511,7 +531,7 @@ sealed partial class EditorApplication : IDisposable {
         // have one owner. The close request and the closing flags are handed in rather than moved —
         // closing is the application's — and read on every call, because the prompt answers later.
         session = ProjectSession.Open(
-            new ProjectPaths(projectRoot ?? Path.Combine(directory, "Scratch")),
+            new(projectRoot ?? Path.Combine(directory, "Scratch")),
             (message, severity, detail) => Shell.Notifications.Show(message, severity, detail),
             RequestClose,
             () => IsClosing || closing,
@@ -519,7 +539,7 @@ sealed partial class EditorApplication : IDisposable {
             // ⚠ The recent list is read here and written by `Opened` at the end of this constructor:
             // whether this run is a first one — no history at all — decides whether the startup
             // Project Browser has anything to offer, and opening the project adds this one to it.
-            new ProjectHistory(directory),
+            new(directory),
             log.Write
         );
 
@@ -528,9 +548,7 @@ sealed partial class EditorApplication : IDisposable {
         // One scene per project until there is a file dialog to choose another — see `MainScene`.
         var mainPath = MainScene.PathIn(project.Paths);
 
-        scene = new SceneDocument(project, world, AssetId.Empty, "Main") {
-            Writer = new SceneFileWriter(mainPath)
-        };
+        scene = new(project, world, AssetId.Empty, "Main") { Writer = new SceneFileWriter(mainPath) };
 
         project.Activate(scene);
 
@@ -547,20 +565,20 @@ sealed partial class EditorApplication : IDisposable {
         // `UndoCommands` describes and would be closed off by claiming the root.
         Shell.Document.UndoManager = new ActiveDocumentUndo(project);
 
-        picker = new ScenePicker(scene);
-        probe = new SceneProbe(scene);
+        picker = new(scene);
+        probe = new(scene);
 
         // ⚠ One per editor and handed to every pane, for the reason `snap` is: selecting a face in the
         // perspective view and seeing it highlighted in the top view is what every reference toolset
         // does, and four of these would be four selections of one mesh with nothing reconciling them.
-        editing = new MeshEdit(scene);
+        editing = new(scene);
 
         // ⚠ Handed the document's behaviour store, and a `PlayModeController(world)` would be a Play
         // button that steps the graph and runs none of the scripts — the failure this whole wiring
         // exists to remove, in its quietest form.
         // ⚠ The selection Stop translates back is asked for at Stop, because it is the active
         // scene's and that is this class's answer — see `EditorPlaySession`.
-        play = new EditorPlaySession(new PlayModeController(world, scene.Behaviors, Extensions), () => scene.Selection);
+        play = new EditorPlaySession(new(world, scene.Behaviors, Extensions), () => scene.Selection);
 
         // ⚠ What play does to the rest of the editor is not the session's, so it follows the session
         // rather than living inside it. Leaving tells the outliner here — see `PlayLeft`; the
@@ -583,7 +601,7 @@ sealed partial class EditorApplication : IDisposable {
         // agents, the keyboard — are `PlayModule`'s contributions (#1293). The keyboard's object is
         // built here: every pane's input goes through it ahead of the active mode, and the panes are
         // this class's — see `PlayInput` and `Configure`. #470.
-        playInput = new PlayInput(modeInput = new ModeInput(Shell.Modes));
+        playInput = new(modeInput = new(Shell.Modes));
 
         // ⚠ Not only after this panel's own commands. An *undo* of "remove component" puts the
         // column back with nothing having been clicked, so a view that rebuilt only on its own
@@ -621,8 +639,8 @@ sealed partial class EditorApplication : IDisposable {
         // workspace opens an asset in a tab through this class, because resolving the document is
         // `IDocumentHost`'s and the editor's open scenes', which `Vixen.Editor.Ui` cannot name; the
         // panel id, its placement, the layouts and the theme are the workspace's own (#1294).
-        documentHost = new DocumentHost(project);
-        documentViews = new EditorWorkspace(Shell, store, Open) {
+        documentHost = new(project);
+        documentViews = new(Shell, store, Open) {
             // ⚠ #1494: `document.revert` in a tab is Revert to Saved, which asks first.
             Reverting = document => {
                 if (document is EditorDocument edited) {
@@ -665,13 +683,13 @@ sealed partial class EditorApplication : IDisposable {
         // than a special case beside it. Everything that walks the open scenes — the panel, Save All
         // Scenes, the active-scene switch — would otherwise have to remember that one of them is not
         // in the list, which is exactly the kind of exception that goes wrong once and quietly.
-        sceneFiles = new SceneFiles(Shell, project, sceneEditing, tabs);
+        sceneFiles = new(Shell, project, sceneEditing, tabs);
         world0 = sceneFiles.Track(scene, mainPath).Settings;
 
         // ⚠ With the registry, which is doc 36 § D4's `AddPreview` row: a module or a plugin owning
         // its own file format is the one thing that can draw a picture of it, and without this the
         // grid shows its files the generic glyph for ever.
-        thumbnails = new ThumbnailCache(project, Extensions);
+        thumbnails = new(project, Extensions);
 
         // ⚠ After the first scene has been written, so the editor's own save is not heard as somebody
         // else's. The watcher and the routing to open documents are the session's (#1293).
@@ -736,7 +754,7 @@ sealed partial class EditorApplication : IDisposable {
         };
 
         // Doc 50 § P2f: built before `PluginPoints` publishes it; it follows `BusyChanged` itself.
-        delivery = new PlayerDelivery(project, session, content, Shell.Notifications, log, Extensions);
+        delivery = new(project, session, content, Shell.Notifications, log, Extensions);
 
         // ⚠ And the toolbar, which is the other half of doc 45 step 4. `assets.build`'s enablement
         // reads `content.IsBusy` — a counter a worker thread moves, with no notification of its own —
@@ -773,7 +791,9 @@ sealed partial class EditorApplication : IDisposable {
 
         // ⚠ Sweeps on the session's rescans, not the browser's presence (#1505); the browser only reads it.
         sourceControl = new ProjectSourceControl(
-            project.Paths.Root, session, deferred,
+            project.Paths.Root,
+            session,
+            deferred,
             (message, severity, detail) => Shell.Notifications.Show(message, severity, detail),
             message => log.Write(LogLevel.Debug, message)
         );
@@ -829,11 +849,11 @@ sealed partial class EditorApplication : IDisposable {
         // a grid of type glyphs, which is what a headless run and every test see — and the glyph says
         // what kind of thing a file is where a picture says which one, which is the whole point of a
         // picker over a list.
-        assetPicker = new AssetPicker(project, Shell.Dialogs, thumbnails, Extensions);
+        assetPicker = new(project, Shell.Dialogs, thumbnails, Extensions);
 
         // The other way to fill an asset field, over the same answer about what each one takes: a
         // drop path with its own opinion is one that accepts what the picker would never have listed.
-        assetDrop = new AssetFieldDrop(assetPicker);
+        assetDrop = new(assetPicker);
 
         // ⚠ Withdrawn on Dispose with the other contributions: the drawers are process-wide, and the
         // host builds the next editor in this process. See `AssetPicker.Serve`.
@@ -854,7 +874,7 @@ sealed partial class EditorApplication : IDisposable {
         // *loading* of third-party plugins has to wait, and it still does: see `StartPlugins`.
         // ⚠ Before `PluginPoints`, which publishes it. A module's markup panel asks the host for one
         // and gets whatever this field held when the services were built.
-        hotReload = new HotReloadHost(Shell.Document);
+        hotReload = new(Shell.Document);
         MetadataUpdate.Register(hotReload);
 
         // ⚠ And the shell's own `.vxml` panel, which is the one the host could not have had.
@@ -865,7 +885,7 @@ sealed partial class EditorApplication : IDisposable {
         // the shipped example is. See `EditorShell.RemountTaskCenter`.
         Shell.RemountTaskCenter(hotReload.Mount);
 
-        plugins = new PluginHost(Shell, PluginPoints());
+        plugins = new(Shell, PluginPoints());
 
         // ⚠ The host publishes itself, after construction because it cannot before: `PluginPoints`
         // builds the services the constructor takes. Doc 36 § P5 is why it is published at all — a
@@ -947,8 +967,12 @@ sealed partial class EditorApplication : IDisposable {
 
     /// <summary>Play, pause, step and stop — and what this session's frame is made of.</summary>
     /// <remarks>
-    ///     ⚠ <b>Internal for the tests that assert about the <em>frame</em> rather than the
-    ///     button.</b> Every commands-level assertion goes through <c>play.play</c> and its
+    ///     ⚠
+    ///     <b>
+    ///         Internal for the tests that assert about the <em>frame</em> rather than the
+    ///         button.
+    ///     </b>
+    ///     Every commands-level assertion goes through <c>play.play</c> and its
     ///     neighbours; what needs the object is the question "did physics actually attach", whose
     ///     honest answer is <c>PlayModeController.Session</c> and not a notification's wording.
     /// </remarks>
@@ -970,8 +994,11 @@ sealed partial class EditorApplication : IDisposable {
     /// <summary>Everything the editor has been told about, whoever told it. See doc 36 § D2.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>The process-wide one unless a host hands over another, because that is where a
-    ///         generated registration has to go.</b> A module initializer runs with no editor to be
+    ///         <b>
+    ///             The process-wide one unless a host hands over another, because that is where a
+    ///             generated registration has to go.
+    ///         </b>
+    ///         A module initializer runs with no editor to be
     ///         handed, so a contribution declared next to its code lands in
     ///         <see cref="EditorRegistry.Default" /> and this is what reads it.
     ///     </para>
@@ -1047,8 +1074,12 @@ sealed partial class EditorApplication : IDisposable {
 
     /// <summary>Whether the host should put the project browser up on the first frame.</summary>
     /// <remarks>
-    ///     ⚠ <b>Set by the host and false everywhere else, which is what keeps it out of the
-    ///     tests.</b> Doc 20 calls the startup Project Browser "the first thing a new user sees",
+    ///     ⚠
+    ///     <b>
+    ///         Set by the host and false everywhere else, which is what keeps it out of the
+    ///         tests.
+    ///     </b>
+    ///     Doc 20 calls the startup Project Browser "the first thing a new user sees",
     ///     and it means the <i>first</i> — a browser that opened over a project the user chose last
     ///     time is a dialog they dismiss every launch. So it appears once: on a run with no
     ///     <c>--project</c>, on the scratch project, with nothing in the recent list.
@@ -1083,7 +1114,8 @@ sealed partial class EditorApplication : IDisposable {
     ///         reactive graph is single-threaded by contract, and the editor's sets
     ///         <c>OwningThread</c>, so a read off the UI thread throws. (<c>Strings</c> is no longer
     ///         an exception: since #1413 the node announcing a language change is per thread, and
-    ///         only the language itself — a plain volatile field — is process-wide.) The two seams wired from here are the compositor builder's — whose
+    ///         only the language itself — a plain volatile field — is process-wide.) The two seams wired from here are the
+    ///         compositor builder's — whose
     ///         one consumer is the distance-field clipmap composite — and the render system's cull;
     ///         neither is anywhere near the interface.
     ///     </para>
@@ -1133,7 +1165,7 @@ sealed partial class EditorApplication : IDisposable {
         }
 
         // ⚠ Every build after the first (#1508), before anything steps a behaviour; see `FollowCode`.
-        session.FollowCode(hold: play.IsPlaying);
+        session.FollowCode(play.IsPlaying);
 
         // What a finished import or build had to say, on the thread that owns the panels it is about
         // to rebuild. See `ContentTasks` for why nothing crosses back except a queued value.
@@ -1214,7 +1246,7 @@ sealed partial class EditorApplication : IDisposable {
         // The inspector follows the gizmo. Reload rather than Inspect, because the rows and their
         // handlers already exist and rebuilding would take the focus out of whatever is being typed.
         if (scenePanes.Update(delta)) {
-            inspectorPanels.Reload(sections: false);
+            inspectorPanels.Reload(false);
         }
     }
 
@@ -1268,7 +1300,7 @@ sealed partial class EditorApplication : IDisposable {
         // of components changed — a value edit deliberately says nothing, so that a slider drag does
         // not rebuild the panel under the pointer — which left an undone intensity showing the
         // number it had been undone from.
-        inspectorPanels.Reload(sections: true);
+        inspectorPanels.Reload(true);
     }
 
     /// <summary>Brings every <c>WorldTransform</c> up to date with the local one behind it.</summary>
@@ -1406,15 +1438,23 @@ sealed partial class EditorApplication : IDisposable {
     ///         its focus, its scroll offset and its animation state. Nothing is rebuilt.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Last, and at <c>Author</c> origin — for a sheet the document does not already
-    ///         have.</b> The sheets the editor ships are <c>UserAgent</c>, which loses to
+    ///         ⚠
+    ///         <b>
+    ///             Last, and at <c>Author</c> origin — for a sheet the document does not already
+    ///             have.
+    ///         </b>
+    ///         The sheets the editor ships are <c>UserAgent</c>, which loses to
     ///         <c>Author</c> for every normal declaration, so a rule written in a scratch directory
     ///         beats the shipped one without having to out-specify it. That is what an overlay is
     ///         for and it is still what an unrecognised file gets.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A file that <i>is</i> one of the shipped sheets replaces it in place instead,
-    ///         at its own origin.</b> Every theme in the editor is a <c>.vcss</c> beside its loader
+    ///         ⚠
+    ///         <b>
+    ///             A file that <i>is</i> one of the shipped sheets replaces it in place instead,
+    ///             at its own origin.
+    ///         </b>
+    ///         Every theme in the editor is a <c>.vcss</c> beside its loader
     ///         and embedded from it, so pointing this at the source tree finds the same text twice —
     ///         and loading it twice is the difference between iterating on values and iterating on
     ///         which rules exist. See <c>HotReloadWatcher.Load</c> for how the two copies are
@@ -1447,7 +1487,7 @@ sealed partial class EditorApplication : IDisposable {
         }
 
         try {
-            styleWatcher = new HotReloadWatcher(hotReload, directory);
+            styleWatcher = new(hotReload, directory);
         } catch (Exception exception) when (exception is IOException or UnauthorizedAccessException) {
             log.Write(LogLevel.Warning, $"Could not watch '{directory}' for stylesheets. {exception.Message}");
             return 0;
@@ -1529,8 +1569,12 @@ sealed partial class EditorApplication : IDisposable {
     /// <param name="file">The candidate stylesheet.</param>
     /// <returns><c>true</c> when the file is under an <c>obj</c> or <c>bin</c> segment.</returns>
     /// <remarks>
-    ///     ⚠ <b>The guard <c>DesktopHotReload</c> has and this method did not, which made it the only
-    ///     reader in the tree of a file that is supposed to have none.</b> The utility build step
+    ///     ⚠
+    ///     <b>
+    ///         The guard <c>DesktopHotReload</c> has and this method did not, which made it the only
+    ///         reader in the tree of a file that is supposed to have none.
+    ///     </b>
+    ///     The utility build step
     ///     writes <c>obj/&lt;config&gt;/&lt;tfm&gt;/Vixen/&lt;Assembly&gt;.g.vcss</c>, and that sheet
     ///     is the concatenation the document already holds — so it matches by text and
     ///     <see cref="HotReloadWatcher.Load" /> <i>binds</i> to it, which looks like an improvement
@@ -1546,7 +1590,7 @@ sealed partial class EditorApplication : IDisposable {
     static bool IsBuildOutput(string directory, string file) =>
         Path.GetRelativePath(directory, file)
             .Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
-            .Any(segment =>
+            .Any(static segment =>
                 segment.Equals("obj", StringComparison.OrdinalIgnoreCase)
                 || segment.Equals("bin", StringComparison.OrdinalIgnoreCase)
             );
@@ -1747,8 +1791,12 @@ sealed partial class EditorApplication : IDisposable {
     /// <returns>The services, which the host takes and republishes to every plugin it loads.</returns>
     /// <remarks>
     ///     <para>
-    ///         ✅ <b>Importers are published now, and the change was the one this remark asked
-    ///         for.</b> It used to say there was no registry here to add to, because importers are
+    ///         ✅
+    ///         <b>
+    ///             Importers are published now, and the change was the one this remark asked
+    ///             for.
+    ///         </b>
+    ///         It used to say there was no registry here to add to, because importers are
     ///         built per run — <c>ContentPipeline</c> calls <c>ProjectWorkspace.Importers()</c> inside
     ///         the background task, deliberately, so the editor and the CLI cannot disagree about the
     ///         set. What was needed was a set that <i>outlives</i> a run, in <c>Vixen.Editor.Assets</c>
@@ -1861,7 +1909,7 @@ sealed partial class EditorApplication : IDisposable {
             // on this class (#1298).
             .Add(log.Sink)
             .Add(new EditorDataDirectory(dataDirectory))
-            .Add<IExternalLinks>(links = new ExternalLinks(services, Shell.Notifications))
+            .Add<IExternalLinks>(links = new(services, Shell.Notifications))
 
             // ⚠ And the graphics, which until now were the one thing a plugin could not get at all —
             // doc 36 § F2's gap, found by the first plugin that draws, and #737.
@@ -1870,7 +1918,7 @@ sealed partial class EditorApplication : IDisposable {
             // `GraphicsDevice` is set by the host afterwards, so `.Add(device)` here would publish
             // null for the life of the process — and `PluginServices.Add` throws on a second publish,
             // so there is no later moment to correct it in. See `PluginGraphics`.
-            .Add<IEditorGraphics>(graphicsView = new PluginGraphics(this))
+            .Add<IEditorGraphics>(graphicsView = new(this))
 
             // ⚠ And the asset-editor registry, so a module can hear that a document was opened. That
             // used to be `Bound`, a line in this class — see `AssetEditorsModule`.
@@ -1931,7 +1979,9 @@ sealed partial class EditorApplication : IDisposable {
             )
         );
 
-        foreach (var diagnostic in report.Diagnostics.Where(diagnostic => diagnostic.Severity == PluginSeverity.Error)) {
+        foreach (var diagnostic in report.Diagnostics.Where(static diagnostic => diagnostic.Severity
+                     == PluginSeverity.Error
+                 )) {
             Shell.Notifications.Error(diagnostic.PluginId, diagnostic.Message);
         }
 
@@ -1939,7 +1989,7 @@ sealed partial class EditorApplication : IDisposable {
             Shell.Notifications.Show(
                 $"{report.Activated.Count} plugin(s) loaded",
                 NotificationSeverity.Success,
-                string.Join(", ", report.Activated.Select(plugin => plugin.Manifest.Name))
+                string.Join(", ", report.Activated.Select(static plugin => plugin.Manifest.Name))
             );
         }
     }
@@ -1953,8 +2003,12 @@ sealed partial class EditorApplication : IDisposable {
     ///         nothing about. Restarting the editor is the only cure and the notification says so.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The editor's own modules are left alone, and this is the one place that
-    ///         distinction is made.</b> <c>PluginHost.Reload</c> will re-activate a built-in
+    ///         ⚠
+    ///         <b>
+    ///             The editor's own modules are left alone, and this is the one place that
+    ///             distinction is made.
+    ///         </b>
+    ///         <c>PluginHost.Reload</c> will re-activate a built-in
     ///         perfectly well — that is what the Reload button on its row in the manager does — but
     ///         this command exists for one loop: build a plugin over the folder the editor is
     ///         watching, reload, look. Nothing on disk changed for Blockout or Terrain, so tearing
@@ -1967,8 +2021,8 @@ sealed partial class EditorApplication : IDisposable {
         var leaked = new List<string>();
 
         var installed = plugins.Plugins
-            .Where(plugin => plugin.State == PluginState.Active && !plugin.IsBuiltIn)
-            .Select(plugin => plugin.Id)
+            .Where(static plugin => plugin.State == PluginState.Active && !plugin.IsBuiltIn)
+            .Select(static plugin => plugin.Id)
             .ToList();
 
         foreach (var id in installed) {
@@ -1978,7 +2032,9 @@ sealed partial class EditorApplication : IDisposable {
                 leaked.Add(id);
             }
 
-            foreach (var diagnostic in report.Diagnostics.Where(diagnostic => diagnostic.Severity == PluginSeverity.Error)) {
+            foreach (var diagnostic in report.Diagnostics.Where(static diagnostic => diagnostic.Severity
+                         == PluginSeverity.Error
+                     )) {
                 Shell.Notifications.Error(diagnostic.PluginId, diagnostic.Message);
             }
 
@@ -2016,9 +2072,7 @@ sealed partial class EditorApplication : IDisposable {
         Shell.Commands.Add(
             // Through the same request the window's close button goes through, so the menu, the
             // shortcut and the title-bar button all ask about unsaved work rather than two of three.
-            new EditorCommand("file.exit", EditorStrings.CommandExit, RequestClose) {
-                Category = EditorStrings.CategoryFile
-            }
+            new("file.exit", EditorStrings.CommandExit, RequestClose) { Category = EditorStrings.CategoryFile }
         );
 
         // File ▸ Save and its route's id `document.save` are `SceneModule`'s (#1296), over `SceneFiles.Save`
@@ -2030,14 +2084,15 @@ sealed partial class EditorApplication : IDisposable {
         // Panel, which a bare shell keeps; this application takes it back first, since a chord held
         // by another command refuses a second default rather than sharing it.
         Shell.Commands.Add(
-            new EditorCommand(DocumentCommands.Close, EditorStrings.CommandDocumentClose, () => Shell.Workspace.CloseActive()) {
-                Category = EditorStrings.CategoryFile,
-                Enablement = () => Shell.Workspace.Host.Active is not null
-            }
+            new EditorCommand(
+                DocumentCommands.Close,
+                EditorStrings.CommandDocumentClose,
+                () => Shell.Workspace.CloseActive()
+            ) { Category = EditorStrings.CategoryFile, Enablement = () => Shell.Workspace.Host.Active is not null }
         );
 
         Shell.Keys.SetDefault("view.close-panel", KeyChord.None);
-        Shell.Keys.SetDefault(DocumentCommands.Close, new KeyChord(InputKey.W, ModifierKeys.Control));
+        Shell.Keys.SetDefault(DocumentCommands.Close, new(InputKey.W, ModifierKeys.Control));
 
         // ⚠ **The other predicate that kept the toolbar polled, and it always had a signal to hang
         // this on.** `IsDirty` is an `IReadOnlySignal<bool>` on the scene's command stack — the
@@ -2060,45 +2115,39 @@ sealed partial class EditorApplication : IDisposable {
         // Enabled only while the panel is open, because the browser is what holds the tree — and a
         // rescan with nowhere to show the result is a menu item that appears to do nothing.
         Shell.Commands.Add(
-            new EditorCommand(
+            new(
                 "assets.refresh",
                 EditorStrings.CommandRefreshAssets,
                 RefreshAssets
-            ) {
-                Category = EditorStrings.CategoryFile,
-                Enablement = () => Browser is not null
-            }
+            ) { Category = EditorStrings.CategoryFile, Enablement = () => Browser is not null }
         );
 
-        Shell.Keys.SetDefault("assets.refresh", new KeyChord(InputKey.R, ModifierKeys.Control));
+        Shell.Keys.SetDefault("assets.refresh", new(InputKey.R, ModifierKeys.Control));
 
         // Greyed out while an import or a build is running: they write the same sidecars, artefact
         // store and cache file, and two at once corrupts `Library/` rather than merely producing a
         // worse build. Import Assets is `LibraryModule`'s (#1292), greyed by the same counter through
         // `IContentLibrary.IsImporting`.
         Shell.Commands.Add(
-            new EditorCommand(
+            new(
                 "assets.build",
                 EditorStrings.CommandBuildContent,
                 content.Build
-            ) {
-                Category = EditorStrings.CategoryFile,
-                Enablement = () => !content.IsBusy
-            }
+            ) { Category = EditorStrings.CategoryFile, Enablement = () => !content.IsBusy }
         );
 
-        Shell.Keys.SetDefault("assets.build", new KeyChord(InputKey.B, ModifierKeys.Control | ModifierKeys.Shift));
+        Shell.Keys.SetDefault("assets.build", new(InputKey.B, ModifierKeys.Control | ModifierKeys.Shift));
 
         // The plugin-development loop, reachable from the palette. Enabled only when there is
         // something to reload, so an editor with no plugins does not offer it.
         Shell.Commands.Add(
-            new EditorCommand(
+            new(
                 "plugins.reload",
                 EditorStrings.CommandReloadPlugins,
                 ReloadPlugins
             ) {
                 Category = EditorStrings.CategoryFile,
-                Enablement = () => plugins.Plugins.Any(plugin => plugin.State == PluginState.Active)
+                Enablement = () => plugins.Plugins.Any(static plugin => plugin.State == PluginState.Active)
             }
         );
 
@@ -2115,7 +2164,7 @@ sealed partial class EditorApplication : IDisposable {
         // behind them. E4's are the diagnostics module's, report included (#1298).
         WorldCommands();
 
-        Shell.Keys.SetDefault("file.exit", new KeyChord(InputKey.Q, ModifierKeys.Control));
+        Shell.Keys.SetDefault("file.exit", new(InputKey.Q, ModifierKeys.Control));
 
         // ⚠ Doc 24's D5's last sentence: "the grid I can see" and "the grid I snap to" are one number.
         // Asked of the plane on demand rather than copied into `GridStep` when it changes.
@@ -2163,8 +2212,12 @@ sealed partial class EditorApplication : IDisposable {
     ///         summary said "over whichever document is active" the whole time.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>From the focus and not from the project, which is a stronger answer than
-    ///         <c>ActiveDocument</c> alone.</b> <see cref="UiElement.FindUndoManager" /> walks the
+    ///         ⚠
+    ///         <b>
+    ///             From the focus and not from the project, which is a stronger answer than
+    ///             <c>ActiveDocument</c> alone.
+    ///         </b>
+    ///         <see cref="UiElement.FindUndoManager" /> walks the
     ///         focused element's ancestors and asks the document last, so a panel that owns a stack
     ///         of its own outranks the shell's — the arrangement <c>UndoCommands</c> describes — and
     ///         the document's answer is <c>ActiveDocumentUndo</c>, which is what makes the fallback
@@ -2183,8 +2236,12 @@ sealed partial class EditorApplication : IDisposable {
     ///         Roughness" because the command said so, not because a menu was told.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Registered here rather than left to <c>UndoCommands.Install</c> on the shell's
-    ///         root, and that is a decision rather than an omission.</b> The editor's menu bar, its
+    ///         ⚠
+    ///         <b>
+    ///             Registered here rather than left to <c>UndoCommands.Install</c> on the shell's
+    ///             root, and that is a decision rather than an omission.
+    ///         </b>
+    ///         The editor's menu bar, its
     ///         command palette and its keybindings view are all views over <c>CommandRegistry</c>,
     ///         and a line whose id nothing registered is skipped when the bar is built — so an
     ///         install that gave <c>CommandRoute</c> an answer would have left all three of them with
@@ -2194,21 +2251,19 @@ sealed partial class EditorApplication : IDisposable {
     /// </remarks>
     void EditCommands() {
         Shell.Commands.Add(
-            new EditorCommand("edit.undo", EditorStrings.CommandUndo, () => Perform(m => m.Undo())) {
-                Category = EditorStrings.CategoryEdit,
-                Enablement = () => Undoing() is { CanUndo: true }
+            new EditorCommand("edit.undo", EditorStrings.CommandUndo, () => Perform(static m => m.Undo())) {
+                Category = EditorStrings.CategoryEdit, Enablement = () => Undoing() is { CanUndo: true }
             }
         );
 
         Shell.Commands.Add(
-            new EditorCommand("edit.redo", EditorStrings.CommandRedo, () => Perform(m => m.Redo())) {
-                Category = EditorStrings.CategoryEdit,
-                Enablement = () => Undoing() is { CanRedo: true }
+            new EditorCommand("edit.redo", EditorStrings.CommandRedo, () => Perform(static m => m.Redo())) {
+                Category = EditorStrings.CategoryEdit, Enablement = () => Undoing() is { CanRedo: true }
             }
         );
 
-        Shell.Keys.SetDefault("edit.undo", new KeyChord(InputKey.Z, ModifierKeys.Control));
-        Shell.Keys.SetDefault("edit.redo", new KeyChord(InputKey.Z, ModifierKeys.Control | ModifierKeys.Shift));
+        Shell.Keys.SetDefault("edit.undo", new(InputKey.Z, ModifierKeys.Control));
+        Shell.Keys.SetDefault("edit.redo", new(InputKey.Z, ModifierKeys.Control | ModifierKeys.Shift));
     }
 
     /// <summary>Runs one step of history and tells the menus that the other item's state moved.</summary>
@@ -2255,9 +2310,10 @@ sealed partial class EditorApplication : IDisposable {
         Add(
             "scene.toggle-space",
             EditorStrings.CommandSceneToggleSpace,
-            pane => pane.Gizmo.Space = pane.Gizmo.Space == GizmoSpace.World ? GizmoSpace.Local : GizmoSpace.World,
-            on: pane => pane.Gizmo.Space != GizmoSpace.World,
-            caption: pane => pane.Gizmo.Space == GizmoSpace.World
+            static pane => pane.Gizmo.Space =
+                pane.Gizmo.Space == GizmoSpace.World ? GizmoSpace.Local : GizmoSpace.World,
+            static pane => pane.Gizmo.Space != GizmoSpace.World,
+            caption: static pane => pane.Gizmo.Space == GizmoSpace.World
                 ? EditorStrings.CommandSceneSpaceWorld
                 : EditorStrings.CommandSceneSpaceLocal
         );
@@ -2265,9 +2321,9 @@ sealed partial class EditorApplication : IDisposable {
         Add(
             "scene.toggle-pivot",
             EditorStrings.CommandSceneTogglePivot,
-            pane => pane.Gizmo.Pivot = pane.Gizmo.Pivot == PivotMode.Pivot ? PivotMode.Center : PivotMode.Pivot,
-            on: pane => pane.Gizmo.Pivot == PivotMode.Center,
-            caption: pane => pane.Gizmo.Pivot == PivotMode.Center
+            static pane => pane.Gizmo.Pivot = pane.Gizmo.Pivot == PivotMode.Pivot ? PivotMode.Center : PivotMode.Pivot,
+            static pane => pane.Gizmo.Pivot == PivotMode.Center,
+            caption: static pane => pane.Gizmo.Pivot == PivotMode.Center
                 ? EditorStrings.CommandScenePivotCentre
                 : EditorStrings.CommandScenePivotObject
         );
@@ -2275,14 +2331,14 @@ sealed partial class EditorApplication : IDisposable {
         Add(
             "scene.toggle-snap",
             EditorStrings.CommandSceneToggleSnap,
-            pane => {
+            static pane => {
                 var on = !pane.Gizmo.Snap.SnapPosition;
 
                 pane.Gizmo.Snap.SnapPosition = on;
                 pane.Gizmo.Snap.SnapRotation = on;
                 pane.Gizmo.Snap.SnapScale = on;
             },
-            on: pane => pane.Gizmo.Snap.SnapPosition
+            static pane => pane.Gizmo.Snap.SnapPosition
         );
 
         // ⚠ The show flag, not `SceneGrid.Enabled`. The grid keeps its own switch for a host with no
@@ -2291,8 +2347,8 @@ sealed partial class EditorApplication : IDisposable {
         Add(
             "scene.toggle-grid",
             EditorStrings.CommandSceneToggleGrid,
-            pane => pane.Show ^= SceneShow.Grid,
-            on: pane => (pane.Show & SceneShow.Grid) != 0
+            static pane => pane.Show ^= SceneShow.Grid,
+            static pane => (pane.Show & SceneShow.Grid) != 0
         );
 
         // The rest of doc 20's E2 verbs: view modes, the other show flags, the pane count, camera
@@ -2302,9 +2358,9 @@ sealed partial class EditorApplication : IDisposable {
         Add(
             "scene.toggle-projection",
             EditorStrings.CommandSceneToggleProjection,
-            pane => pane.Camera.IsOrthographic = !pane.Camera.IsOrthographic,
-            on: pane => pane.Camera.IsOrthographic,
-            key: InputKey.Keypad5
+            static pane => pane.Camera.IsOrthographic = !pane.Camera.IsOrthographic,
+            static pane => pane.Camera.IsOrthographic,
+            InputKey.Keypad5
         );
 
         // ⚠ The three navigation preferences, as ticked commands rather than as a dialog. Which
@@ -2315,27 +2371,37 @@ sealed partial class EditorApplication : IDisposable {
         Add(
             "scene.orbit-around-selection",
             EditorStrings.CommandSceneOrbitAroundSelection,
-            pane => pane.OrbitAround =
+            static pane => pane.OrbitAround =
                 pane.OrbitAround == OrbitPivot.Selection ? OrbitPivot.View : OrbitPivot.Selection,
-            on: pane => pane.OrbitAround == OrbitPivot.Selection
+            static pane => pane.OrbitAround == OrbitPivot.Selection
         );
 
         Add(
             "scene.zoom-to-cursor",
             EditorStrings.CommandSceneZoomToCursor,
-            pane => pane.ZoomToCursor = !pane.ZoomToCursor,
-            on: pane => pane.ZoomToCursor
+            static pane => pane.ZoomToCursor = !pane.ZoomToCursor,
+            static pane => pane.ZoomToCursor
         );
 
         Add(
             "scene.invert-orbit-y",
             EditorStrings.CommandSceneInvertOrbitY,
-            pane => pane.Camera.InvertOrbitY = !pane.Camera.InvertOrbitY,
-            on: pane => pane.Camera.InvertOrbitY
+            static pane => pane.Camera.InvertOrbitY = !pane.Camera.InvertOrbitY,
+            static pane => pane.Camera.InvertOrbitY
         );
 
-        Add("scene.focus", EditorStrings.CommandSceneFocus, pane => pane.FocusSelection(SelectionBounds()), key: InputKey.F);
-        Add("scene.frame-all", EditorStrings.CommandSceneFrameAll, pane => pane.Camera.Focus(SceneBounds()), key: InputKey.A);
+        Add(
+            "scene.focus",
+            EditorStrings.CommandSceneFocus,
+            pane => pane.FocusSelection(SelectionBounds()),
+            key: InputKey.F
+        );
+        Add(
+            "scene.frame-all",
+            EditorStrings.CommandSceneFrameAll,
+            pane => pane.Camera.Focus(SceneBounds()),
+            key: InputKey.A
+        );
 
         // ⚠ The one reserved chord in the editor, and it earns it. Focus Selection is pressed several
         // times a minute in every mode, and a mode that bound the same key for its own context —
@@ -2388,11 +2454,14 @@ sealed partial class EditorApplication : IDisposable {
             Func<SceneViewport, StringId>? caption = null
         ) {
             Shell.Commands.Add(
-                new EditorCommand(id, title, () => {
-                    if (Viewport is { } pane) {
-                        action(pane);
+                new EditorCommand(
+                    id,
+                    title,
+                    () => {
+                        if (Viewport is { } pane) {
+                            action(pane);
+                        }
                     }
-                }
                 ) {
                     Category = EditorStrings.CategoryScene,
                     Enablement = () => Viewport is not null,
@@ -2418,7 +2487,7 @@ sealed partial class EditorApplication : IDisposable {
             );
 
             if (key != InputKey.Unknown) {
-                Shell.Keys.SetDefault(id, new KeyChord(key, ModifierKeys.None));
+                Shell.Keys.SetDefault(id, new(key, ModifierKeys.None));
             }
         }
     }
@@ -2531,8 +2600,12 @@ sealed partial class EditorApplication : IDisposable {
     ///         — and there the one that gained something is the click.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The losers this application owns the views for are cleared rather than left
-    ///         highlighted.</b> Two panels showing a selection while the inspector can only show one
+    ///         ⚠
+    ///         <b>
+    ///             The losers this application owns the views for are cleared rather than left
+    ///             highlighted.
+    ///         </b>
+    ///         Two panels showing a selection while the inspector can only show one
     ///         is a picture that lies about which of them the next Delete, the next gizmo drag or the
     ///         next rename will act on. A document opened as an asset is the exception and not an
     ///         oversight: its hierarchy owns its own rows and takes selection outwards only — see
@@ -2762,14 +2835,17 @@ sealed partial class EditorApplication : IDisposable {
     ///     in it and needs no aiming, and an outline round the whole of it during every drag across
     ///     the window would be noise.
     /// </remarks>
-    void Dragging(IReadOnlyList<AssetId> assets, float x, float y) =>
-        assetDrop.Over(Shell.Document.Root, assets, x, y);
+    void Dragging(IReadOnlyList<AssetId> assets, float x, float y) => assetDrop.Over(Shell.Document.Root, assets, x, y);
 
     /// <summary>Resolves a drag released outside the browser: an asset field first, then the scene.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The field is asked first, and a field that <i>refused</i> the drop still consumes
-    ///         it.</b> The alternative is falling through to the scene, so that dragging a texture
+    ///         ⚠
+    ///         <b>
+    ///             The field is asked first, and a field that <i>refused</i> the drop still consumes
+    ///             it.
+    ///         </b>
+    ///         The alternative is falling through to the scene, so that dragging a texture
     ///         onto a mesh field spawns an entity in the middle of the level — a thing the user has to
     ///         notice and then undo, in exchange for an assignment they did not get either way. A drop
     ///         aimed at a field belongs to that field whatever it decides.
@@ -2841,8 +2917,12 @@ sealed partial class EditorApplication : IDisposable {
     ///         drag carefully in.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>What it makes is an entity carrying an <c>AssetInstance</c>, and that is a
-    ///         reference rather than a renderer.</b> Nothing in the runtime turns an asset into
+    ///         ⚠
+    ///         <b>
+    ///             What it makes is an entity carrying an <c>AssetInstance</c>, and that is a
+    ///             reference rather than a renderer.
+    ///         </b>
+    ///         Nothing in the runtime turns an asset into
     ///         geometry yet — see <c>PrimitiveShape</c>'s remarks for why it lives in the editor at all —
     ///         so the crate does not appear in the viewport. What is real is everything else: the
     ///         entity is named after the asset, the reference is authored and saved, the inspector's
@@ -2954,9 +3034,7 @@ sealed partial class EditorApplication : IDisposable {
         List<string> lines = [];
 
         if (report.Written > 0) {
-            lines.Add(
-                $"{report.Written} members took the template's value across {report.Instances} linked entities."
-            );
+            lines.Add($"{report.Written} members took the template's value across {report.Instances} linked entities.");
         }
 
         var added = 0;
@@ -2977,7 +3055,8 @@ sealed partial class EditorApplication : IDisposable {
             lines.Add($"{unresolved.Kind}: {unresolved.Detail}");
         }
 
-        foreach (var problem in report.Reports.Where(entry => entry.Kind != PrefabReportKind.AddedByTemplate).Take(4)) {
+        foreach (var problem in report.Reports.Where(static entry => entry.Kind != PrefabReportKind.AddedByTemplate)
+                     .Take(4)) {
             lines.Add(problem.ToString());
         }
 
@@ -3032,16 +3111,24 @@ sealed partial class EditorApplication : IDisposable {
     /// <summary>The subsystems whose components and behaviours this editor draws.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>One line per subsystem, and a subsystem the editor does not reference is one whose
-    ///         components it could not draw anyway.</b> Rendering brings the meshes and the lights,
+    ///         ⚠
+    ///         <b>
+    ///             One line per subsystem, and a subsystem the editor does not reference is one whose
+    ///             components it could not draw anyway.
+    ///         </b>
+    ///         Rendering brings the meshes and the lights,
     ///         Engine the cameras and the transforms, Audio the sources and listeners — and the audio
     ///         one is the reason this list is needed at all, because nothing in a running editor calls
     ///         into <c>Vixen.Audio</c> until somebody adds a source, so its module initializer would
     ///         otherwise never have run at the moment the menu asked what exists.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Still a list in the application, and doc 36 § D5 said <c>Prime()</c> would "die"
-    ///         when the registry was populated by producers.</b> What actually died is its being a
+    ///         ⚠
+    ///         <b>
+    ///             Still a list in the application, and doc 36 § D5 said <c>Prime()</c> would "die"
+    ///             when the registry was populated by producers.
+    ///         </b>
+    ///         What actually died is its being a
     ///         hardcoded <i>mechanism</i>: it is now a contribution, so a module declares its own and
     ///         a plugin's runtime assembly is declarable by whoever ships it. Eliminating the list
     ///         entirely is not available — a module initializer needs a touch, and the only thing that
@@ -3081,7 +3168,7 @@ sealed partial class EditorApplication : IDisposable {
         var entities = scene.Roots;
 
         return entities.Count == 0
-            ? new BoundingBox(new Vector3(-1f), new Vector3(1f))
+            ? new BoundingBox(new(-1f), new(1f))
             : Around(scene.Entities);
     }
 
@@ -3119,7 +3206,8 @@ sealed partial class EditorApplication : IDisposable {
                     matrix.Right.Length(),
                     matrix.Up.Length(),
                     matrix.Forward.Length()
-                ) * 0.5f
+                )
+                * 0.5f
                 : new Vector3(0.5f);
 
             low = Vector3.Min(low, position - extent);
@@ -3127,7 +3215,7 @@ sealed partial class EditorApplication : IDisposable {
             any = true;
         }
 
-        return any ? new BoundingBox(low, high) : new BoundingBox(new Vector3(-1f), new Vector3(1f));
+        return any ? new BoundingBox(low, high) : new BoundingBox(new(-1f), new(1f));
     }
 
     /// <summary>Rescans the project and says what changed.</summary>
@@ -3167,11 +3255,10 @@ sealed partial class EditorApplication : IDisposable {
             Shell.Notifications.Show(
                 $"{report.Assets} assets, {report.Issues.Count} repaired",
                 NotificationSeverity.Warning,
-                string.Join(Environment.NewLine, report.Issues.Take(5).Select(issue => issue.Message))
+                string.Join(Environment.NewLine, report.Issues.Take(5).Select(static issue => issue.Message))
             );
         } catch (Exception exception) when (exception is IOException or UnauthorizedAccessException) {
             Shell.Notifications.Show("Could not scan the project", NotificationSeverity.Error, exception.Message);
         }
     }
-
 }

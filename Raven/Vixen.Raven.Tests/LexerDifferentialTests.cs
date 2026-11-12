@@ -3,7 +3,6 @@
 
 using Antlr4.Runtime;
 using Vixen.Core.Syntax.Diagnostics;
-using Vixen.Core.Syntax.Parsing;
 using Vixen.Core.Syntax.Text;
 using Vixen.Raven.Parsing;
 using Xunit;
@@ -212,7 +211,8 @@ public class LexerDifferentialTests {
 static class CorpusLocator {
     public static IEnumerable<string> All() {
         var fixtures = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "Fixtures");
-        foreach (var file in Directory.EnumerateFiles(fixtures, "*.rvn").OrderBy(f => f, StringComparer.Ordinal)) {
+        foreach (var file in Directory.EnumerateFiles(fixtures, "*.rvn")
+                     .OrderBy(static f => f, StringComparer.Ordinal)) {
             yield return Path.GetFullPath(file);
         }
 
@@ -222,7 +222,7 @@ static class CorpusLocator {
         // library rather than for the fixtures alone.
         var library = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "Library");
         foreach (var file in Directory.EnumerateFiles(library, "*.rvn", SearchOption.AllDirectories)
-                     .OrderBy(f => f, StringComparer.Ordinal)) {
+                     .OrderBy(static f => f, StringComparer.Ordinal)) {
             yield return Path.GetFullPath(file);
         }
     }

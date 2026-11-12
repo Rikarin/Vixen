@@ -76,8 +76,12 @@ public abstract partial class Behavior {
     ///         when it next comes back through <c>ResumeOnLoop</c> or any other wait, and not before.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>"At its next resume point" is a promise about time, and this makes no promise
-    ///         about memory.</b> Until that drain the scheduler still holds every one of these
+    ///         ⚠
+    ///         <b>
+    ///             "At its next resume point" is a promise about time, and this makes no promise
+    ///             about memory.
+    ///         </b>
+    ///         Until that drain the scheduler still holds every one of these
     ///         continuations. A caller that needs the scheduler to have <i>let go</i> — because it is
     ///         about to unload the assembly the coroutine's state machine is a type in — wants
     ///         <see cref="CoroutineScheduler.Cancel" />, which unwinds them before it returns.

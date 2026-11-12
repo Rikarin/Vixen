@@ -12,8 +12,12 @@ namespace Vixen.Editor.App.Tests;
 /// <summary>Two inspectors, and the members somebody keeps at the top of one.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Doc 20 § B1's first two inspector rows, which are one user need said twice: what the
-///         inspector keeps while the selection moves.</b> The panel already floated and already
+///         ⚠
+///         <b>
+///             Doc 20 § B1's first two inspector rows, which are one user need said twice: what the
+///             inspector keeps while the selection moves.
+///         </b>
+///         The panel already floated and already
 ///         locked; what was missing was a second <i>instance</i>, because the application held one
 ///         view and one component section in two fields and everything that fed them wrote to
 ///         exactly one.
@@ -68,8 +72,8 @@ public class InspectorPanesTests {
         Assert.Equal(light, first.Entity);
         Assert.Equal(crate, second.Entity);
 
-        Assert.Contains(View(editor, "inspector").Targets, target => Named(target) == "Directional Light");
-        Assert.Contains(View(editor, "inspector-2").Targets, target => Named(target) == "Crate");
+        Assert.Contains(View(editor, "inspector").Targets, static target => Named(target) == "Directional Light");
+        Assert.Contains(View(editor, "inspector-2").Targets, static target => Named(target) == "Crate");
 
         // And letting the lock off catches it up, which is what `LockChanged` is subscribed for.
         View(editor, "inspector-2").IsLocked = false;
@@ -79,8 +83,12 @@ public class InspectorPanesTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>A pin is per member of a type, so the claim is about the <i>next</i> object of that
-    ///     type rather than about this one.</b> Moving away and back is the whole assertion: a
+    ///     ⚠
+    ///     <b>
+    ///         A pin is per member of a type, so the claim is about the <i>next</i> object of that
+    ///         type rather than about this one.
+    ///     </b>
+    ///     Moving away and back is the whole assertion: a
     ///     panel that merely reordered the rows it had drawn would pass a test that only looked once.
     /// </summary>
     [Fact]
@@ -111,7 +119,7 @@ public class InspectorPanesTests {
         editor.ClickRow(editor.Hierarchy, "Crate");
         editor.Settle();
 
-        Assert.DoesNotContain(section.Sections, fold => fold.Label == "Light");
+        Assert.DoesNotContain(section.Sections, static fold => fold.Label == "Light");
 
         editor.ClickRow(editor.Hierarchy, "Directional Light");
         editor.Settle();
@@ -122,12 +130,16 @@ public class InspectorPanesTests {
 
         // ⚠ Nothing else moved. A pin is a stable sort on one key, so the rest of the foldout keeps
         // the order the descriptor gave it — and a member's `[Header]` grouping with it.
-        Assert.Equal(before.Where(name => name != "Intensity"), after.Skip(1));
+        Assert.Equal(before.Where(static name => name != "Intensity"), after.Skip(1));
     }
 
     /// <summary>
-    ///     ⚠ <b>A pin is a preference rather than a fact about a panel, so a second inspector has the
-    ///     same ones.</b> Two panels disagreeing about which member is pinned would be two answers to
+    ///     ⚠
+    ///     <b>
+    ///         A pin is a preference rather than a fact about a panel, so a second inspector has the
+    ///         same ones.
+    ///     </b>
+    ///     Two panels disagreeing about which member is pinned would be two answers to
     ///     one question — and the panel that was opened second is the one that would be wrong,
     ///     because its factory reads the preferences file rather than the panel beside it.
     /// </summary>
@@ -174,17 +186,17 @@ public class InspectorPanesTests {
         ?? throw editor.Fail($"the '{panel}' panel has no inspector in it");
 
     /// <summary>What one component's foldout is drawing, by member name and in drawn order.</summary>
-    static List<string> Rows(EditorSession editor, ComponentsView section, string component) =>
-        Descendants(Fold(editor, section, component))
+    static List<string> Rows(EditorSession editor, ComponentsView section, string component) => [
+        ..Descendants(Fold(editor, section, component))
             .OfType<InspectorRow>()
-            .Select(row => row.Field.Member.Name)
-            .ToList();
+            .Select(static row => row.Field.Member.Name)
+    ];
 
     static Expander Fold(EditorSession editor, ComponentsView section, string component) =>
         section.Sections.FirstOrDefault(fold => fold.Label == component)
         ?? throw editor.Fail(
             $"no '{component}' foldout. Showing: "
-            + string.Join(", ", section.Sections.Select(fold => fold.Label ?? "?"))
+            + string.Join(", ", section.Sections.Select(static fold => fold.Label ?? "?"))
             + "."
         );
 
@@ -193,8 +205,12 @@ public class InspectorPanesTests {
     ///     the menu that opens.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>A menu rather than a button in the row, and the button is what this test drove
-    ///     first.</b> A pin control in every inspector row made the panel's content wider than the
+    ///     ⚠
+    ///     <b>
+    ///         A menu rather than a button in the row, and the button is what this test drove
+    ///         first.
+    ///     </b>
+    ///     A pin control in every inspector row made the panel's content wider than the
     ///     panel, and what that broke was three panels away: a foldout's remove button slid outside
     ///     the scroll region's clip and stopped taking clicks. The menu costs no layout.
     /// </remarks>
@@ -206,12 +222,12 @@ public class InspectorPanesTests {
 
         var bounds = row.Bounds;
 
-        editor.Ui.At(bounds.X + (bounds.Width * 0.5f), bounds.Y + (bounds.Height * 0.5f)).RightClick();
+        editor.Ui.At(bounds.X + bounds.Width * 0.5f, bounds.Y + bounds.Height * 0.5f).RightClick();
         editor.Settle();
 
         var menu = Descendants(editor.Document.Root)
                 .OfType<ContextMenu>()
-                .FirstOrDefault(candidate => candidate.IsOpen && candidate.Items.Any(Pins))
+                .FirstOrDefault(static candidate => candidate.IsOpen && candidate.Items.Any(Pins))
             ?? throw editor.Fail($"a right-click on the '{member}' row opened no menu with a pin on it");
 
         var line = menu.Items.First(Pins);

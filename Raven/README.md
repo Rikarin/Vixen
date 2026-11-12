@@ -938,7 +938,7 @@ mentions them. Fourteen doc comments in `Vixen.Ui.Renderer`, `Vixen.Shaders.Gene
 `Vixen.Graphics`, `Vixen.Rendering`, `Vixen.Graphics.OpenGL`, `Vixen.Ui.Desktop` and the editor's
 texture-graph suites cite `BindingPlan` and `StreamPlan` *by name* as the authority for a numbering
 each of them then re-derives by hand — `Core/Vixen.Rendering/VertexSchema.cs:29` and
-`Core/Vixen.Shaders.Generators/BindingsEmitter.cs:234` are the clearest. That is a surface which has
+`Core/Vixen.Shaders.Generators/BindingsEmitter.cs:246` are the clearest. That is a surface which has
 not become an API yet rather than one that leaked, and the repair those comments imply is a host
 *calling* the plan instead of restating it. Narrowing them forecloses it. `ShaderLayout.Size` /
 `Alignment` and `LayoutRule` stay public whatever is decided about the rest.
@@ -946,14 +946,14 @@ not become an API yet rather than one that leaked, and the repair those comments
 **The public constructors — narrow.** "A consumer can construct an empty module and then never fill
 it" is a real trap and not a cosmetic one, and unlike the planners there is nothing an empty
 `IrModule` lets a host do. Every caller is in `Vixen.Raven.Tests`
-(`CodeGenTestBase.cs:88`, `:96`, `IrVerifierTests`, `InOutTests`), which already sees internals.
+(`CodeGenTestBase.cs:87`, `:95`, `IrVerifierTests`, `InOutTests`), which already sees internals.
 
 **`GeneratedSource.Binary` — keep the member, change the type to `ReadOnlyMemory<byte>`, and do it
 now.** It is the one mutable array the whole surface hands out. ⚠ It is also a *positional record
 parameter*, so the change moves the constructor and every backend that builds one — which is why
 "later" is the wrong answer: there is exactly one such backend outside this assembly today and that
 number only grows. The readers are small (`SpirvTestBase.Validate` writes the bytes to a file and
-reads word 1 of the header; `Vixen.Vfx.Gpu.Tests/ParticlePicture.cs:541` returns them) and every one
+reads word 1 of the header; `Vixen.Vfx.Gpu.Tests/ParticlePicture.cs:568` returns them) and every one
 of them has a `Memory` equivalent.
 
 **Separately, and not one of the five:** `LibraryIr`'s own doc comment says the `.rvnlib` reader

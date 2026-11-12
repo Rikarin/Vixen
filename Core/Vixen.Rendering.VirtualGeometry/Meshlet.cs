@@ -212,7 +212,7 @@ public sealed record MeshletMesh {
         }
 
         for (var corner = 0; corner < meshlet.TriangleCount * 3; corner++) {
-            indices[corner] = Vertices[meshlet.VertexOffset + Triangles[(meshlet.TriangleOffset * 3) + corner]];
+            indices[corner] = Vertices[meshlet.VertexOffset + Triangles[meshlet.TriangleOffset * 3 + corner]];
         }
     }
 }

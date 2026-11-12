@@ -15,8 +15,12 @@ namespace Vixen.Graphics.Golden.Tests;
 /// <summary>What <c>ui-text.frag</c> draws when the colour it is given is white, measured on the device.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>The oracle for <a href="https://github.com/Rikarin/Vixen/issues/232">#232</a>'s
-///         missing surface, and a correction to its price.</b> That issue names "a pass that binds
+///         ⚠
+///         <b>
+///             The oracle for <a href="https://github.com/Rikarin/Vixen/issues/232">#232</a>'s
+///             missing surface, and a correction to its price.
+///         </b>
+///         That issue names "a pass that binds
 ///         <c>ui-text.frag</c> with the colour forced to white" as part of a render-pass capability,
 ///         and five audits have repeated it. Half of that is not a capability and is not missing:
 ///         the module already writes <c>varying_colour.rgb · α</c> premultiplied with
@@ -26,8 +30,12 @@ namespace Vixen.Graphics.Golden.Tests;
 ///         surface, and what remains is draw-list shaped.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Measured rather than read off the source, because the claim is about what the device
-///         produces.</b> The target is <c>Rgba8UNorm</c> and holds linear values, so the four
+///         ⚠
+///         <b>
+///             Measured rather than read off the source, because the claim is about what the device
+///             produces.
+///         </b>
+///         The target is <c>Rgba8UNorm</c> and holds linear values, so the four
 ///         channels quantise identically and the identity is exact rather than approximate — which
 ///         is what makes this a closed-form oracle and not an eyeballed picture. A module that
 ///         decoded the atlas as sRGB, took the median of the wrong channels or dropped the
@@ -63,8 +71,12 @@ public sealed class UiTextCoverageTests {
     ///         background by zero.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A fixture each, because <c>Fixture.Render</c> executes the graph and a graph is
-    ///         one frame.</b> The same arrangement <c>UiImageTests.Scaled</c> uses, for its reason.
+    ///         ⚠
+    ///         <b>
+    ///             A fixture each, because <c>Fixture.Render</c> executes the graph and a graph is
+    ///             one frame.
+    ///         </b>
+    ///         The same arrangement <c>UiImageTests.Scaled</c> uses, for its reason.
     ///     </para>
     /// </remarks>
     [Fact]
@@ -103,7 +115,7 @@ public sealed class UiTextCoverageTests {
         // ⚠ The same run in an opaque colour. Its alpha is the coverage and nothing else — the colour
         // multiplies the three chromatic channels and leaves the fourth alone — so this is what says
         // the white frame carries the right number rather than a consistent one.
-        Assert.True(Render(new Color4(1f, 0f, 0f, 1f), out var red), "the second fixture did not open");
+        Assert.True(Render(new(1f, 0f, 0f, 1f), out var red), "the second fixture did not open");
 
         for (var y = 0; y < Side; y++) {
             for (var x = 0; x < Side; x++) {
@@ -121,7 +133,7 @@ public sealed class UiTextCoverageTests {
         // drawn with no colour at all, so the surface a group holding them composites to is empty —
         // which is exactly why `bg-clip-text` cannot be built out of a layer surface, and is the
         // claim #232 rests on. Measured here so the argument is a red line rather than prose.
-        Assert.True(Render(new Color4(1f, 1f, 1f, 0f), out var invisible), "the third fixture did not open");
+        Assert.True(Render(new(1f, 1f, 1f, 0f), out var invisible), "the third fixture did not open");
 
         foreach (var channel in invisible.Pixels) {
             Assert.Equal(0, channel);
@@ -142,7 +154,7 @@ public sealed class UiTextCoverageTests {
         using var owned = fixture!;
         var target = owned.ColourTarget("ui text coverage");
 
-        var cache = new GlyphFieldCache(new GlyphAtlas(256, 256));
+        var cache = new GlyphFieldCache(new(256, 256));
         var geometry = Paint(cache, colour);
 
         var renderer = new UiRenderer(
@@ -158,14 +170,17 @@ public sealed class UiTextCoverageTests {
 
         owned.Owns(renderer.Dispose);
 
-        owned.Graph.AddPass("ui", pass => {
-            // ⚠ Cleared to transparent black rather than to a colour, because the claim is about a
-            // coverage surface and a coloured clear would make every uncovered pixel disagree with
-            // itself. It is also the clear a real coverage pass would use.
-            pass.ColourAttachment(target, LoadAction.Clear, new(0f, 0f, 0f, 0f));
-            pass.SideEffect();
-            pass.Execute(context => renderer.Record(context.CommandList, geometry, new(Side, Side)));
-        });
+        owned.Graph.AddPass(
+            "ui",
+            pass => {
+                // ⚠ Cleared to transparent black rather than to a colour, because the claim is about a
+                // coverage surface and a coloured clear would make every uncovered pixel disagree with
+                // itself. It is also the clear a real coverage pass would use.
+                pass.ColourAttachment(target, LoadAction.Clear, new(0f, 0f, 0f, 0f));
+                pass.SideEffect();
+                pass.Execute(context => renderer.Record(context.CommandList, geometry, new(Side, Side)));
+            }
+        );
 
         image = owned.Render(target, commands => renderer.Upload(commands, geometry, cache.Atlas));
 
@@ -190,11 +205,8 @@ public sealed class UiTextCoverageTests {
         }
 
         list.Add(
-            new DrawCommand(DrawCommandKind.Text, 8, 80, pen, Size, colour, 0, 0) {
-                Offset = list.AddGlyphs(glyphs),
-                Length = glyphs.Count,
-                Font = list.AddFont(font),
-                FontSize = Size
+            new(DrawCommandKind.Text, 8, 80, pen, Size, colour, 0, 0) {
+                Offset = list.AddGlyphs(glyphs), Length = glyphs.Count, Font = list.AddFont(font), FontSize = Size
             }
         );
 
@@ -211,8 +223,8 @@ public sealed class UiTextCoverageTests {
         }
 
         using var stream = typeof(UiTextCoverageTests).Assembly
-                               .GetManifestResourceStream("Vixen.Graphics.Golden.Tests.TestShapeLana.ttf")
-                           ?? throw new InvalidOperationException("no test font is embedded");
+                .GetManifestResourceStream("Vixen.Graphics.Golden.Tests.TestShapeLana.ttf")
+            ?? throw new InvalidOperationException("no test font is embedded");
 
         using var memory = new MemoryStream();
         stream.CopyTo(memory);

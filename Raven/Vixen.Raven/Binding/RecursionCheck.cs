@@ -22,8 +22,12 @@ namespace Vixen.Raven.Binding;
 ///         <c>[VUID-StandaloneSpirv-None-04634] Entry points may not have a call graph with cycles</c>.
 ///     </para>
 ///     <para>
-///         ⚠ <b>That is a driver-level error standing in for a source-level one, and it only appears
-///         where a validator happens to be installed.</b> SPIR-V forbids recursion outright — there is
+///         ⚠
+///         <b>
+///             That is a driver-level error standing in for a source-level one, and it only appears
+///             where a validator happens to be installed.
+///         </b>
+///         SPIR-V forbids recursion outright — there is
 ///         no call stack in the execution model for a call to return down — so a cycle is not
 ///         something a backend can lower badly, it is something the front end must refuse. Reported
 ///         here, before a single instruction is emitted, is the difference between an author reading

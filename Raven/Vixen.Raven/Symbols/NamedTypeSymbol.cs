@@ -50,6 +50,8 @@ public abstract class NamedTypeSymbol : TypeSymbol {
         };
 
         var name = qualifier + Name;
-        return Arity == 0 ? name : $"{name}<{string.Join(", ", TypeArguments.Select(a => a.ToDisplayString()))}>";
+        return Arity == 0
+            ? name
+            : $"{name}<{string.Join(", ", TypeArguments.Select(static a => a.ToDisplayString()))}>";
     }
 }

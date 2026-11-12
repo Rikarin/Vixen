@@ -157,7 +157,7 @@ static class Bc7Block {
             var bits = channel == 3 ? layout.AlphaBits : layout.ColourBits;
 
             for (var endpoint = 0; endpoint < endpoints; endpoint++) {
-                codes[(endpoint * 4) + channel] = (int)reader.Read(bits);
+                codes[endpoint * 4 + channel] = (int)reader.Read(bits);
             }
         }
 
@@ -170,7 +170,7 @@ static class Bc7Block {
             }
         } else if (layout.SharedParity) {
             for (var subset = 0; subset < layout.Subsets; subset++) {
-                parities[subset * 2] = parities[(subset * 2) + 1] = (int)reader.Read(1);
+                parities[subset * 2] = parities[subset * 2 + 1] = (int)reader.Read(1);
             }
         }
 
@@ -182,18 +182,18 @@ static class Bc7Block {
                 var bits = channel == 3 ? layout.AlphaBits : layout.ColourBits;
 
                 if (bits == 0) {
-                    expanded[(endpoint * 4) + channel] = 255;
+                    expanded[endpoint * 4 + channel] = 255;
                     continue;
                 }
 
-                var code = codes[(endpoint * 4) + channel];
+                var code = codes[endpoint * 4 + channel];
 
                 if (hasParity) {
                     code = (code << 1) | parities[endpoint];
                     bits++;
                 }
 
-                expanded[(endpoint * 4) + channel] = Expand(code, bits);
+                expanded[endpoint * 4 + channel] = Expand(code, bits);
             }
         }
 
@@ -221,7 +221,7 @@ static class Bc7Block {
 
         for (var texel = 0; texel < Texels; texel++) {
             var low = expanded.Slice(pattern[texel] * 8, 4);
-            var high = expanded.Slice((pattern[texel] * 8) + 4, 4);
+            var high = expanded.Slice(pattern[texel] * 8 + 4, 4);
             var colourWeight = colourWeights[colourIndices[texel]];
             var alphaWeight = alphaWeights[alphaIndices[texel]];
 
@@ -245,9 +245,9 @@ static class Bc7Block {
             }
 
             rgba[texel * 4] = (byte)r;
-            rgba[(texel * 4) + 1] = (byte)g;
-            rgba[(texel * 4) + 2] = (byte)b;
-            rgba[(texel * 4) + 3] = (byte)a;
+            rgba[texel * 4 + 1] = (byte)g;
+            rgba[texel * 4 + 2] = (byte)b;
+            rgba[texel * 4 + 3] = (byte)a;
         }
     }
 
@@ -296,7 +296,18 @@ static class Bc7Block {
             return;
         }
 
-        TrySeparateAlpha(points, tuning, opaque, ref search, codes, colourIndices, alphaIndices, workCodes, workColour, workAlpha);
+        TrySeparateAlpha(
+            points,
+            tuning,
+            opaque,
+            ref search,
+            codes,
+            colourIndices,
+            alphaIndices,
+            workCodes,
+            workColour,
+            workAlpha
+        );
 
         if (search.Error <= tuning.EnoughError) {
             Finish(points, tuning, ref search, codes, colourIndices, alphaIndices, block);
@@ -318,7 +329,18 @@ static class Bc7Block {
         var modes = opaque ? (ReadOnlySpan<byte>)[1, 3] : [7, 1, 3];
 
         foreach (var partition in kept[..tuning.TwoSubsets]) {
-            TryPartitioned(points, modes, partition, 2, tuning, ref search, codes, colourIndices, workCodes, workColour);
+            TryPartitioned(
+                points,
+                modes,
+                partition,
+                2,
+                tuning,
+                ref search,
+                codes,
+                colourIndices,
+                workCodes,
+                workColour
+            );
 
             if (search.Error <= tuning.EnoughError) {
                 break;
@@ -332,14 +354,36 @@ static class Bc7Block {
             BptcTables.KeepBest(scores, three);
 
             foreach (var partition in three) {
-                TryPartitioned(points, [2], partition, 3, tuning, ref search, codes, colourIndices, workCodes, workColour);
+                TryPartitioned(
+                    points,
+                    [2],
+                    partition,
+                    3,
+                    tuning,
+                    ref search,
+                    codes,
+                    colourIndices,
+                    workCodes,
+                    workColour
+                );
             }
 
             // Mode 0 has more precision than mode 2 and only the first sixteen patterns.
             BptcTables.KeepBest(scores[..16], three);
 
             foreach (var partition in three) {
-                TryPartitioned(points, [0], partition, 3, tuning, ref search, codes, colourIndices, workCodes, workColour);
+                TryPartitioned(
+                    points,
+                    [0],
+                    partition,
+                    3,
+                    tuning,
+                    ref search,
+                    codes,
+                    colourIndices,
+                    workCodes,
+                    workColour
+                );
             }
         }
 
@@ -496,7 +540,16 @@ static class Bc7Block {
                     BptcTables.WeightsOf(selection ? layout.SecondIndexBits : layout.IndexBits)
                 );
 
-                var colourError = FitLine(colour, Everyone, colourSeeds, colourLine, tuning, workCodes[..8], workColour, search.Error);
+                var colourError = FitLine(
+                    colour,
+                    Everyone,
+                    colourSeeds,
+                    colourLine,
+                    tuning,
+                    workCodes[..8],
+                    workColour,
+                    search.Error
+                );
 
                 if (colourError >= search.Error) {
                     continue;
@@ -510,7 +563,14 @@ static class Bc7Block {
                 );
 
                 var alphaError = FitLine(
-                    alpha, Everyone, alphaSeeds, alphaLine, tuning, workCodes.Slice(8, 8), workAlpha, search.Error - colourError
+                    alpha,
+                    Everyone,
+                    alphaSeeds,
+                    alphaLine,
+                    tuning,
+                    workCodes.Slice(8, 8),
+                    workAlpha,
+                    search.Error - colourError
                 );
 
                 if (colourError + alphaError >= search.Error) {
@@ -518,10 +578,7 @@ static class Bc7Block {
                 }
 
                 search = new() {
-                    Mode = mode,
-                    Rotation = rotation,
-                    Selection = selection,
-                    Error = colourError + alphaError
+                    Mode = mode, Rotation = rotation, Selection = selection, Error = colourError + alphaError
                 };
 
                 // One subset, so the alpha line's channel goes in beside the colour line's three.
@@ -624,11 +681,23 @@ static class Bc7Block {
             );
 
             var colourError = WalkLine(
-                colour, Everyone, colourLine, tuning, codes[..8], colourIndices, Score(colour, Everyone, codes[..8], colourLine, colourIndices)
+                colour,
+                Everyone,
+                colourLine,
+                tuning,
+                codes[..8],
+                colourIndices,
+                Score(colour, Everyone, codes[..8], colourLine, colourIndices)
             );
 
             var alphaError = WalkLine(
-                alpha, Everyone, alphaLine, tuning, codes[..8], alphaIndices, Score(alpha, Everyone, codes[..8], alphaLine, alphaIndices)
+                alpha,
+                Everyone,
+                alphaLine,
+                tuning,
+                codes[..8],
+                alphaIndices,
+                Score(alpha, Everyone, codes[..8], alphaLine, alphaIndices)
             );
 
             search.Error = colourError + alphaError;
@@ -728,7 +797,15 @@ static class Bc7Block {
         Span<byte> indices,
         long limit = long.MaxValue
     ) =>
-        Assign(points, members, ExpandEndpoint(codes[..4], line), ExpandEndpoint(codes.Slice(4, 4), line), line.Weights, indices, limit);
+        Assign(
+            points,
+            members,
+            ExpandEndpoint(codes[..4], line),
+            ExpandEndpoint(codes.Slice(4, 4), line),
+            line.Weights,
+            indices,
+            limit
+        );
 
     /// <summary>
     ///     Fits one line through the given texels: quantise, assign, re-solve, round after round.
@@ -822,7 +899,7 @@ static class Bc7Block {
         var step = Vector128.Create(colour, colour, colour, alpha);
         var middle = (low + high) * 0.5f;
 
-        low = middle - (step * (1f / 3f));
+        low = middle - step * (1f / 3f);
         high = low + step;
     }
 
@@ -908,7 +985,7 @@ static class Bc7Block {
     /// <param name="parity">The low bit the code must have, or −1 if free.</param>
     /// <param name="value">The byte.</param>
     /// <returns>The offset into <see cref="Nearest" />.</returns>
-    static int NearestIndex(int bits, int parity, int value) => (((bits * 3) + parity + 1) * 256) + value;
+    static int NearestIndex(int bits, int parity, int value) => (bits * 3 + parity + 1) * 256 + value;
 
     static Vector128<int> ExpandEndpoint(ReadOnlySpan<byte> codes, in Line line) {
         var colour = line.ColourBits;
@@ -940,7 +1017,7 @@ static class Bc7Block {
         for (var entry = 0; entry < entries; entry++) {
             var weight = weights[entry];
 
-            palette[entry] = Vector128.ShiftRightArithmetic((first * (64 - weight)) + (second * weight) + rounding, 6);
+            palette[entry] = Vector128.ShiftRightArithmetic(first * (64 - weight) + second * weight + rounding, 6);
         }
 
         var total = 0L;
@@ -997,7 +1074,7 @@ static class Bc7Block {
             right1 += point * weight;
         }
 
-        var determinant = (a * c) - (b * b);
+        var determinant = a * c - b * b;
 
         if (MathF.Abs(determinant) < 1e-4f) {
             return false;
@@ -1005,8 +1082,8 @@ static class Bc7Block {
 
         var scale = 1f / determinant;
 
-        low = ((right0 * c) - (right1 * b)) * scale;
-        high = ((right1 * a) - (right0 * b)) * scale;
+        low = (right0 * c - right1 * b) * scale;
+        high = (right1 * a - right0 * b) * scale;
 
         return true;
     }
@@ -1031,9 +1108,9 @@ static class Bc7Block {
                 var column = centred * centred[row];
 
                 covariance[row * 4] += column[0];
-                covariance[(row * 4) + 1] += column[1];
-                covariance[(row * 4) + 2] += column[2];
-                covariance[(row * 4) + 3] += column[3];
+                covariance[row * 4 + 1] += column[1];
+                covariance[row * 4 + 2] += column[2];
+                covariance[row * 4 + 3] += column[3];
             }
         }
 
@@ -1046,14 +1123,14 @@ static class Bc7Block {
 
         foreach (var member in members) {
             var centred = Vector128.ConvertToSingle(points[member]) - mean;
-            var along = (centred[0] * axis[0]) + (centred[1] * axis[1]) + (centred[2] * axis[2]) + (centred[3] * axis[3]);
+            var along = centred[0] * axis[0] + centred[1] * axis[1] + centred[2] * axis[2] + centred[3] * axis[3];
 
             lowest = Math.Min(lowest, along);
             highest = Math.Max(highest, along);
         }
 
-        seed[0] = mean + (direction * lowest);
-        seed[1] = mean + (direction * highest);
+        seed[0] = mean + direction * lowest;
+        seed[1] = mean + direction * highest;
     }
 
     /// <summary>Writes a block of one colour in mode 5, which holds any colour exactly.</summary>
@@ -1134,7 +1211,7 @@ static class Bc7Block {
             }
 
             for (var endpoint = 0; endpoint < layout.Subsets * 2; endpoint++) {
-                writer.Write((uint)(codes[(endpoint * 4) + channel] >> drop), bits);
+                writer.Write((uint)(codes[endpoint * 4 + channel] >> drop), bits);
             }
         }
 
@@ -1154,8 +1231,22 @@ static class Bc7Block {
         }
 
         // The first set in the stream is always the narrower one; the selection bit says whose it is.
-        WriteIndices(ref writer, layout.IndexBits, layout, found.Partition, pattern, found.Selection ? alphaIndices : colourIndices);
-        WriteIndices(ref writer, layout.SecondIndexBits, layout, found.Partition, pattern, found.Selection ? colourIndices : alphaIndices);
+        WriteIndices(
+            ref writer,
+            layout.IndexBits,
+            layout,
+            found.Partition,
+            pattern,
+            found.Selection ? alphaIndices : colourIndices
+        );
+        WriteIndices(
+            ref writer,
+            layout.SecondIndexBits,
+            layout,
+            found.Partition,
+            pattern,
+            found.Selection ? colourIndices : alphaIndices
+        );
     }
 
     static void WriteIndices(
@@ -1189,7 +1280,7 @@ static class Bc7Block {
     }
 
     /// <summary>The specification's interpolation, which is exact and leaves nothing to choose.</summary>
-    static int Interpolate(int first, int second, int weight) => (((64 - weight) * first) + (weight * second) + 32) >> 6;
+    static int Interpolate(int first, int second, int weight) => ((64 - weight) * first + weight * second + 32) >> 6;
 
     /// <summary>Widens a code to eight bits by repeating its top bits below it.</summary>
     static byte Expand(int code, int bits) {

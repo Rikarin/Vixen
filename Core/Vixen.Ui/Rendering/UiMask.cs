@@ -43,7 +43,8 @@ public enum MaskComposite {
 /// <param name="Centre">The mask box's centre, in document pixels.</param>
 /// <param name="Half">Half the mask box's size, in document pixels.</param>
 /// <param name="Axis">
-///     The gradient's direction. Its length is not read — <see cref="Coverage(Vixen.Core.Mathematics.Vector2)" /> normalises it — but
+///     The gradient's direction. Its length is not read — <see cref="Coverage(Vixen.Core.Mathematics.Vector2)" />
+///     normalises it — but
 ///     its <i>angle</i> is, and for <see cref="GradientShape.Conic" /> it is the <c>from &lt;angle&gt;</c>.
 /// </param>
 /// <param name="Alphas">The three stops' coverages: <c>X</c> the from, <c>Y</c> the via, <c>Z</c> the to.</param>
@@ -52,40 +53,60 @@ public enum MaskComposite {
 /// <param name="Via">Whether the middle stop is read at all.</param>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Coverage and not colour, and the difference is not a simplification — it is what
-///         <c>mask-image</c> means.</b> CSS masks an element by the <i>alpha</i> of the mask image
+///         ⚠
+///         <b>
+///             Coverage and not colour, and the difference is not a simplification — it is what
+///             <c>mask-image</c> means.
+///         </b>
+///         CSS masks an element by the <i>alpha</i> of the mask image
 ///         (<c>mask-mode: alpha</c>, which is what <c>match-source</c> resolves to for every image
 ///         that is not an SVG <c>&lt;mask&gt;</c>). So the three colours of
 ///         <c>linear-gradient(to right, black, transparent)</c> never reach this type: only their
 ///         alphas do, as <see cref="Alphas" />.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Which is also why there is no <see cref="GradientSpace" /> here, and its absence is
-///         load-bearing rather than owed.</b> A background gradient carries the space its stops are
+///         ⚠
+///         <b>
+///             Which is also why there is no <see cref="GradientSpace" /> here, and its absence is
+///             load-bearing rather than owed.
+///         </b>
+///         A background gradient carries the space its stops are
 ///         interpolated in because Oklab, sRGB and linear RGB disagree about what is halfway between
 ///         two <i>colours</i>. They do not disagree about what is halfway between two alphas: every
 ///         branch of the renderer's <c>MixStops</c> lerps the alpha channel plainly, in every space.
 ///         A mask that stored a space would be storing a field nothing could read differently.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The box is carried, rather than being taken from <see cref="UiLayer.Bounds" />, and a
-///         blur is the reason.</b> A group's bounds are its <i>ink</i>, already outset by the blur's
+///         ⚠
+///         <b>
+///             The box is carried, rather than being taken from <see cref="UiLayer.Bounds" />, and a
+///             blur is the reason.
+///         </b>
+///         A group's bounds are its <i>ink</i>, already outset by the blur's
 ///         kernel radius and already narrowed by the entry clip. CSS resolves <c>mask-image</c>
 ///         against the element's border box, which moves for neither. Reading the layer's bounds would
 ///         make <c>blur-sm mask-linear-to-r</c> draw a different ramp from <c>mask-linear-to-r</c>
 ///         alone — a gradient that slides when you soften it.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Document pixels, and not the group's own UVs, because both executors have to arrive at
-///         one number.</b> Every layer surface is the size of the viewport (see <see cref="UiLayer" />),
+///         ⚠
+///         <b>
+///             Document pixels, and not the group's own UVs, because both executors have to arrive at
+///             one number.
+///         </b>
+///         Every layer surface is the size of the viewport (see <see cref="UiLayer" />),
 ///         so a composite quad's texture coordinate times the surface size needs no origin subtracted
 ///         — on the device and in <c>SoftwareUiRasterizer</c> alike. That leaves neither path an
 ///         origin to subtract and so neither can subtract it differently, which is the same argument
 ///         the viewport-sized surface was chosen for.
 ///     </para>
 ///     <para>
-///         ⚠ <b>That product is a <i>target texel</i> and this remark called it a document pixel until
-///         #1200.</b> A layer surface is <c>ceil(surface × scale)</c> — see <c>UiRenderer.Compose</c> —
+///         ⚠
+///         <b>
+///             That product is a <i>target texel</i> and this remark called it a document pixel until
+///             #1200.
+///         </b>
+///         A layer surface is <c>ceil(surface × scale)</c> — see <c>UiRenderer.Compose</c> —
 ///         so on a 2× display the number the fragment recovers is twice the document pixel, and a mask
 ///         evaluated at it was drawn at half size in the top-left quadrant of its element. The box
 ///         stays in document pixels, because <c>UiRenderer.UploadGeometry</c> writes these entries
@@ -96,22 +117,34 @@ public enum MaskComposite {
 ///         can see the difference.
 ///     </para>
 ///     <para>
-///         ⚠ <b>This does not commute with the Gaussian, and that is the one thing about it that is
-///         genuinely unlike <see cref="UiColorMatrix" />.</b> A colour matrix is the <i>same</i>
+///         ⚠
+///         <b>
+///             This does not commute with the Gaussian, and that is the one thing about it that is
+///             genuinely unlike <see cref="UiColorMatrix" />.
+///         </b>
+///         A colour matrix is the <i>same</i>
 ///         affine map at every pixel, so it passes through a weighted sum — <c>M(Σ wᵢsᵢ) = Σ wᵢM(sᵢ)</c>
 ///         — which is what lets the two executors apply it in two different places and still agree.
 ///         A mask is a scalar that <i>varies</i> with position, so <c>m(p)·Σ wᵢsᵢ ≠ Σ wᵢ·m(pᵢ)·sᵢ</c>
 ///         whenever <c>m</c> is not constant over the kernel, and it does not commute with the
-///         bilinear sampler for the same reason. The consequence is a rule and not a caveat: <b>both
-///         executors apply the mask at the composite draw</b>, after the blur and after the matrix,
+///         bilinear sampler for the same reason. The consequence is a rule and not a caveat:
+///         <b>
+///             both
+///             executors apply the mask at the composite draw
+///         </b>
+///         , after the blur and after the matrix,
 ///         reading the same texture coordinate. Neither may fold it into the surface. See
 ///         <c>UiRenderer.SubmitDraw</c> and <c>SoftwareUiRasterizer.Frame.Execute</c>, which is why
 ///         the software renderer grew a mask lookup beside its surface lookup rather than a
 ///         <c>Masked</c> pass beside its <c>Filtered</c> one.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Applied to premultiplied colour, which means all four channels and not just the
-///         alpha.</b> A layer surface holds premultiplied colour, so scaling coverage by <c>m</c> is
+///         ⚠
+///         <b>
+///             Applied to premultiplied colour, which means all four channels and not just the
+///             alpha.
+///         </b>
+///         A layer surface holds premultiplied colour, so scaling coverage by <c>m</c> is
 ///         <c>(rgb·m, a·m)</c> — the whole vector. Masking a <i>straight</i>-alpha sample would be
 ///         <c>(rgb, a·m)</c>, and reaching for that form here is the premultiply mistake
 ///         <c>ui-image.frag</c>'s <c>varying_shape.x</c> exists to prevent, wearing a new hat.
@@ -129,8 +162,12 @@ public readonly record struct UiMask(
     /// <summary>How this entry combines with the entries below it in the same list.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Init-only and defaulting to <see cref="MaskComposite.Add" />, which is CSS's
-    ///         initial value and not merely the first name in the enum.</b> A <see cref="UiMask" />
+    ///         ⚠
+    ///         <b>
+    ///             Init-only and defaulting to <see cref="MaskComposite.Add" />, which is CSS's
+    ///             initial value and not merely the first name in the enum.
+    ///         </b>
+    ///         A <see cref="UiMask" />
     ///         written by a test or a host that has never heard of lists composites the way a
     ///         one-entry <c>mask-image</c> with no <c>mask-composite</c> beside it does — see
     ///         <see cref="Compose" />, under which every operator is the identity on a list of one.
@@ -151,8 +188,12 @@ public readonly record struct UiMask(
     /// <summary>Half the tile, signed: <c>mask-size</c>, with <c>mask-repeat</c> in the sign.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Zero means the tile is the mask box, and that is the reading every entry written
-    ///         before this pair existed keeps.</b> A <c>mask-size</c> of zero in either axis is a
+    ///         ⚠
+    ///         <b>
+    ///             Zero means the tile is the mask box, and that is the reading every entry written
+    ///             before this pair existed keeps.
+    ///         </b>
+    ///         A <c>mask-size</c> of zero in either axis is a
     ///         layer CSS does not paint at all — Backgrounds 3 § 3.9, which Masking 1 § 4 defers to —
     ///         so nothing real collides with the sentinel, and the fold below can skip the whole
     ///         tiling branch for the overwhelming majority of masks.
@@ -185,15 +226,16 @@ public readonly record struct UiMask(
     ///     declaration and emits no list entry for it. This is here for tests that
     ///     need the degenerate case by name.
     /// </remarks>
-    public static UiMask Hidden => new(
-        Vector2.Zero,
-        Vector2.One,
-        Vector2.UnitX,
-        Vector3.Zero,
-        GradientStops.Default,
-        GradientShape.Linear,
-        Via: false
-    );
+    public static UiMask Hidden =>
+        new(
+            Vector2.Zero,
+            Vector2.One,
+            Vector2.UnitX,
+            Vector3.Zero,
+            GradientStops.Default,
+            GradientShape.Linear,
+            false
+        );
 
     /// <summary>Whether this mask leaves every pixel of the box exactly as it found it.</summary>
     /// <remarks>
@@ -205,7 +247,9 @@ public readonly record struct UiMask(
     ///     one, and it should cost nothing while it says nothing.
     /// </remarks>
     public bool IsOpaque =>
-        Alphas.X >= 1f && Alphas.Z >= 1f && (!Via || Alphas.Y >= 1f)
+        Alphas.X >= 1f
+        && Alphas.Z >= 1f
+        && (!Via || Alphas.Y >= 1f)
 
         // ⚠ And nowhere is opaque outside a tile that does not repeat, however opaque the stops are.
         // Without this clause `Reduce` would drop a `mask-size`d clipping layer as the identity and
@@ -216,8 +260,12 @@ public readonly record struct UiMask(
     /// <summary>The coverage at a point, in document pixels.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A transcription of <c>UiMask.Coverage</c> in <c>Ui.rvn</c>, the module that
-    ///         ships, and of <c>ui-mask.frag</c>'s <c>mask_coverage</c> beside it.</b> The
+    ///         ⚠
+    ///         <b>
+    ///             A transcription of <c>UiMask.Coverage</c> in <c>Ui.rvn</c>, the module that
+    ///             ships, and of <c>ui-mask.frag</c>'s <c>mask_coverage</c> beside it.
+    ///         </b>
+    ///         The
     ///         parameterisation is the shader's, deliberately and to the constant — and so, one step
     ///         over, is <c>SoftwareUiRasterizer.Parameter</c>'s: a <c>mask-image</c> and a
     ///         <c>background-image</c> written with the same gradient have to produce ramps that line
@@ -225,8 +273,12 @@ public readonly record struct UiMask(
     ///         rather than a number that ought to agree.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>"To the constant" used to name only the sibling C# port, and the two ports agreed
-    ///         with each other and not with the shader</b> (#1256): both divided the conic angle by
+    ///         ⚠
+    ///         <b>
+    ///             "To the constant" used to name only the sibling C# port, and the two ports agreed
+    ///             with each other and not with the shader
+    ///         </b>
+    ///         (#1256): both divided the conic angle by
     ///         <see cref="MathF.Tau" /> where both shaders multiply by <c>0.15915494309189535f</c>,
     ///         and a correctly-rounded quotient is not in general the correctly-rounded product by a
     ///         rounded reciprocal. <c>UiCompositingTests</c> compares this against the device at a
@@ -251,10 +303,11 @@ public readonly record struct UiMask(
             // ⚠ Back into document pixels rather than staying tile-relative, because `Centre` is the
             // ramp's own centre *in the first tile* and is absolute. Subtracting one origin twice is
             // the arithmetic error this shape is chosen to make impossible.
-            local = AreaCentre + new Vector2(
-                AreaHalf.X > 0f ? Wrap(inside.X, tile.X) : inside.X,
-                AreaHalf.Y > 0f ? Wrap(inside.Y, tile.Y) : inside.Y
-            );
+            local = AreaCentre
+                + new Vector2(
+                    AreaHalf.X > 0f ? Wrap(inside.X, tile.X) : inside.X,
+                    AreaHalf.Y > 0f ? Wrap(inside.Y, tile.Y) : inside.Y
+                );
         }
 
         var offset = local - Centre;
@@ -292,7 +345,7 @@ public readonly record struct UiMask(
             // from `angle * round(1 / 6.2831855f)` on about one angle in twenty — 162 of 3600
             // measured. The wrap beside it is *not* the same story: C# has no `frac`, and
             // `turns - Floor(turns)` is exactly what `GLSL.std.450 Fract` is defined as. #1256.
-            var turns = (angle * 0.15915494309189535f) + 1f;
+            var turns = angle * 0.15915494309189535f + 1f;
 
             return turns - MathF.Floor(turns);
         }
@@ -300,7 +353,7 @@ public readonly record struct UiMask(
         var axis = Axis.LengthSquared() > 1e-12f ? Vector2.Normalize(Axis) : Vector2.UnitX;
         var reach = MathF.Abs(axis.X * Half.X) + MathF.Abs(axis.Y * Half.Y);
 
-        return ((((offset.X * axis.X) + (offset.Y * axis.Y)) / MathF.Max(reach, 1e-4f)) * 0.5f) + 0.5f;
+        return (offset.X * axis.X + offset.Y * axis.Y) / MathF.Max(reach, 1e-4f) * 0.5f + 0.5f;
     }
 
     /// <summary>Where a point sits inside the tile it lands in, as an offset from that tile's centre.</summary>
@@ -313,7 +366,7 @@ public readonly record struct UiMask(
         var period = half * 2f;
         var shifted = value + half;
 
-        return shifted - (period * MathF.Floor(shifted / period)) - half;
+        return shifted - period * MathF.Floor(shifted / period) - half;
     }
 
     /// <summary>Where <c>t</c> sits between two stops, flat outside them.</summary>
@@ -326,7 +379,9 @@ public readonly record struct UiMask(
 
         return width > 1e-4f
             ? Math.Clamp((t - from) / width, 0f, 1f)
-            : t < from ? 0f : 1f;
+            : t < from
+                ? 0f
+                : 1f;
     }
 
     /// <summary>The coverage a whole mask list gives at a point.</summary>
@@ -335,25 +390,37 @@ public readonly record struct UiMask(
     /// <returns>The composed coverage, clamped to <c>[0, 1]</c>. One for an empty list.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A transcription of <c>ui-mask.frag</c>'s <c>mask_list</c>, down to the direction
-    ///         of the loop, and <c>UiCompositingTests</c> is the only thing that holds the two
-    ///         together.</b> The same bargain <see cref="Coverage(Vixen.Core.Mathematics.Vector2)" /> already makes with
+    ///         ⚠
+    ///         <b>
+    ///             A transcription of <c>ui-mask.frag</c>'s <c>mask_list</c>, down to the direction
+    ///             of the loop, and <c>UiCompositingTests</c> is the only thing that holds the two
+    ///             together.
+    ///         </b>
+    ///         The same bargain <see cref="Coverage(Vixen.Core.Mathematics.Vector2)" /> already makes with
     ///         <c>mask_coverage</c>, and a list makes it matter more rather than less: two
     ///         implementations of a fold can agree on every entry and still disagree on the order
     ///         they fold in, which shows up only where the operators are not commutative — which is
     ///         three of the four.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Bottom-up, because <c>mask-composite</c> describes how a layer meets what is
-    ///         <i>under</i> it.</b> CSS lists mask layers topmost-first, exactly as
+    ///         ⚠
+    ///         <b>
+    ///             Bottom-up, because <c>mask-composite</c> describes how a layer meets what is
+    ///             <i>under</i> it.
+    ///         </b>
+    ///         CSS lists mask layers topmost-first, exactly as
     ///         <c>background-image</c> does, and Masking 1 § 5.4 gives each layer's operator the
     ///         already-composed layers below it as its backdrop. So the walk starts at the last
     ///         entry and works forwards, and the operator that is read at each step is the
     ///         <i>source's</i> — never the backdrop's.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The bottom entry is taken as itself, and this is a deliberate departure from one
-    ///         sentence of the specification.</b> Read literally, the bottom layer composites against
+    ///         ⚠
+    ///         <b>
+    ///             The bottom entry is taken as itself, and this is a deliberate departure from one
+    ///             sentence of the specification.
+    ///         </b>
+    ///         Read literally, the bottom layer composites against
     ///         a transparent-black backdrop, which makes <c>intersect</c> — <c>s·0</c> — erase
     ///         everything. That reading cannot be the one browsers implement, because
     ///         <c>mask-composite: intersect</c> is what Tailwind emits for every one of its edge
@@ -384,7 +451,8 @@ public readonly record struct UiMask(
     /// <param name="backdrop">The composed coverage of the entries below it.</param>
     /// <returns>The combined coverage.</returns>
     /// <remarks>
-    ///     Porter-Duff on the coverage alone. ⚠ Not clamped here — <see cref="Coverage(Vixen.Core.Mathematics.Vector2)" /> clamps
+    ///     Porter-Duff on the coverage alone. ⚠ Not clamped here — <see cref="Coverage(Vixen.Core.Mathematics.Vector2)" />
+    ///     clamps
     ///     once at the end, because clamping every step would quietly turn <c>subtract</c> into a
     ///     different operator on any input a caller had already pushed outside <c>[0, 1]</c>, and
     ///     the shader has to be able to make the same choice.
@@ -393,9 +461,9 @@ public readonly record struct UiMask(
         composite switch {
             MaskComposite.Subtract => source * (1f - backdrop),
             MaskComposite.Intersect => source * backdrop,
-            MaskComposite.Exclude => (source * (1f - backdrop)) + (backdrop * (1f - source)),
-            _ => source + (backdrop * (1f - source))
+            MaskComposite.Exclude => source * (1f - backdrop) + backdrop * (1f - source),
+            _ => source + backdrop * (1f - source)
         };
 
-    static float Lerp(float a, float b, float t) => a + ((b - a) * t);
+    static float Lerp(float a, float b, float t) => a + (b - a) * t;
 }

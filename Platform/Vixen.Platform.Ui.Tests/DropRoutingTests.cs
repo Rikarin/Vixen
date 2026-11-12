@@ -41,7 +41,7 @@ public class DropRoutingTests {
 
         var handled = PlatformInput.Dispatch(
             document,
-            PlatformEvent.Drop(PlatformEventKind.DropFile, 1, 0, "/tmp/scene.vxscene", new Vector2(30f, 40f))
+            PlatformEvent.Drop(PlatformEventKind.DropFile, 1, 0, "/tmp/scene.vxscene", new(30f, 40f))
         );
 
         Assert.True(handled);
@@ -68,7 +68,7 @@ public class DropRoutingTests {
 
         PlatformInput.Dispatch(
             document,
-            PlatformEvent.Drop(PlatformEventKind.DropText, 1, 0, "some dragged words", new Vector2(5f, 5f))
+            PlatformEvent.Drop(PlatformEventKind.DropText, 1, 0, "some dragged words", new(5f, 5f))
         );
 
         Assert.NotNull(seen);
@@ -119,7 +119,7 @@ public class DropRoutingTests {
         return;
 
         bool Dispatch(PlatformEventKind kind, string text) =>
-            PlatformInput.Dispatch(document, PlatformEvent.Drop(kind, 1, 0, text, new Vector2(30f, 40f)));
+            PlatformInput.Dispatch(document, PlatformEvent.Drop(kind, 1, 0, text, new(30f, 40f)));
     }
 
     /// <summary>A backend that sends no brackets still delivers its drops, one each.</summary>
@@ -140,12 +140,12 @@ public class DropRoutingTests {
         foreach (var path in Paths) {
             PlatformInput.Dispatch(
                 document,
-                PlatformEvent.Drop(PlatformEventKind.DropFile, 1, 0, path, new Vector2(30f, 40f))
+                PlatformEvent.Drop(PlatformEventKind.DropFile, 1, 0, path, new(30f, 40f))
             );
         }
 
         Assert.Equal(Paths.Length, drops.Count);
-        Assert.Equal(Paths, drops.Select(drop => Assert.Single(drop.Files)));
+        Assert.Equal(Paths, drops.Select(static drop => Assert.Single(drop.Files)));
     }
 
     /// <summary>A bracket that carried nothing delivers nothing.</summary>
@@ -168,8 +168,12 @@ public class DropRoutingTests {
 
     /// <summary>A group nobody closed does not swallow the next one.</summary>
     /// <remarks>
-    ///     ⚠ <b>The accumulator is static, so an abandoned group is a defect that outlives the drag
-    ///     that caused it</b> — a window closed mid-drag, or a backend that stops mid-run, would
+    ///     ⚠
+    ///     <b>
+    ///         The accumulator is static, so an abandoned group is a defect that outlives the drag
+    ///         that caused it
+    ///     </b>
+    ///     — a window closed mid-drag, or a backend that stops mid-run, would
     ///     otherwise leave every later file joining a group nothing will ever close, and drag-and-drop
     ///     would be dead for the life of the process. A new <c>DropBegin</c> starts a fresh group and
     ///     discards whatever was open, which is the one place that can be recovered from.
@@ -184,7 +188,7 @@ public class DropRoutingTests {
 
         PlatformInput.Dispatch(
             document,
-            PlatformEvent.Drop(PlatformEventKind.DropFile, 1, 0, "/tmp/abandoned.png", new Vector2(30f, 40f))
+            PlatformEvent.Drop(PlatformEventKind.DropFile, 1, 0, "/tmp/abandoned.png", new(30f, 40f))
         );
 
         // The drag went away. The next one begins.
@@ -192,7 +196,7 @@ public class DropRoutingTests {
 
         PlatformInput.Dispatch(
             document,
-            PlatformEvent.Drop(PlatformEventKind.DropFile, 1, 0, "/tmp/wanted.png", new Vector2(30f, 40f))
+            PlatformEvent.Drop(PlatformEventKind.DropFile, 1, 0, "/tmp/wanted.png", new(30f, 40f))
         );
 
         PlatformInput.Dispatch(document, Bracket(PlatformEventKind.DropComplete));
@@ -202,6 +206,5 @@ public class DropRoutingTests {
         Assert.Equal("/tmp/wanted.png", Assert.Single(drop.Files));
     }
 
-    static PlatformEvent Bracket(PlatformEventKind kind) =>
-        PlatformEvent.Drop(kind, 1, 0, string.Empty, new Vector2(30f, 40f));
+    static PlatformEvent Bracket(PlatformEventKind kind) => PlatformEvent.Drop(kind, 1, 0, string.Empty, new(30f, 40f));
 }

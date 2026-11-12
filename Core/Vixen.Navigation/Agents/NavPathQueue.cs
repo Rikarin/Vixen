@@ -126,8 +126,11 @@ public sealed class NavPathQueue {
     ///         assembly where that would be a race rather than a mistake with an obvious symptom.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Deliberately still the only one of the four seams #456 named that nothing in the
-    ///         engine assigns, and the reason is in the paragraph above about cost.</b>
+    ///         ⚠
+    ///         <b>
+    ///             Deliberately still the only one of the four seams #456 named that nothing in the
+    ///             engine assigns, and the reason is in the paragraph above about cost.
+    ///         </b>
     ///         <c>AppGraphics</c> now hands the application's scheduler to <c>RenderSystem</c> and to
     ///         every <c>VfxSystem</c>, and <c>AiSystem</c> hands it to every <c>GoapPlanQueue</c>,
     ///         because each of those has a work item worth a dispatch — a word of sixty-four objects
@@ -345,7 +348,14 @@ public sealed class NavPathQueue {
     }
 
     /// <summary>One query's share of one round. The only thing a worker thread runs.</summary>
-    static void Slice(NavMeshQuery[] queries, int[] assignments, NavPathStatus[] statuses, int[] performed, int query, int share) {
+    static void Slice(
+        NavMeshQuery[] queries,
+        int[] assignments,
+        NavPathStatus[] statuses,
+        int[] performed,
+        int query,
+        int share
+    ) {
         if (assignments[query] < 0) {
             performed[query] = 0;
 
@@ -363,13 +373,14 @@ public sealed class NavPathQueue {
                 continue;
             }
 
-            var status = queries[query].InitSlicedFindPath(
-                slots[index].Start,
-                slots[index].End,
-                slots[index].StartPosition,
-                slots[index].EndPosition,
-                slots[index].Filter!
-            );
+            var status = queries[query]
+                .InitSlicedFindPath(
+                    slots[index].Start,
+                    slots[index].End,
+                    slots[index].StartPosition,
+                    slots[index].EndPosition,
+                    slots[index].Filter!
+                );
 
             if (status == NavPathStatus.Failed) {
                 slots[index].Status = NavPathStatus.Failed;

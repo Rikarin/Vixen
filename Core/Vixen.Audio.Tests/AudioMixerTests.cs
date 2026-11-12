@@ -46,7 +46,7 @@ public sealed class AudioMixerTests {
 
         var music = engine.CreateBus("Music");
         music.Gain = 0.25f;
-        engine.Play(AudioTestData.Constant(256, 1f), new PlaybackSettings { Gain = 1f, Bus = music.Index });
+        engine.Play(AudioTestData.Constant(256, 1f), new() { Gain = 1f, Bus = music.Index });
 
         var rendered = AudioTestData.Render(device, 16);
 
@@ -64,7 +64,7 @@ public sealed class AudioMixerTests {
         stinger.Gain = 0.5f;
         engine.Master.Gain = 0.5f;
 
-        engine.Play(AudioTestData.Constant(256, 1f), new PlaybackSettings { Gain = 1f, Bus = stinger.Index });
+        engine.Play(AudioTestData.Constant(256, 1f), new() { Gain = 1f, Bus = stinger.Index });
         var rendered = AudioTestData.Render(device, 16);
 
         Assert.Equal(0.7071f * 0.125f, rendered[0], 0.001f);
@@ -81,10 +81,7 @@ public sealed class AudioMixerTests {
 
         var music = engine.CreateBus("Music");
         music.Muted = true;
-        var handle = engine.Play(AudioTestData.Constant(4_800, 1f), new PlaybackSettings {
-            Gain = 1f,
-            Bus = music.Index
-        });
+        var handle = engine.Play(AudioTestData.Constant(4_800, 1f), new() { Gain = 1f, Bus = music.Index });
 
         var rendered = AudioTestData.Render(device, 64);
 
@@ -98,7 +95,7 @@ public sealed class AudioMixerTests {
         using var _ = engine;
 
         for (var i = 0; i < 6; i++) {
-            engine.Play(AudioTestData.Constant(256, 1f), new PlaybackSettings { Gain = 1f });
+            engine.Play(AudioTestData.Constant(256, 1f), new() { Gain = 1f });
         }
 
         var rendered = AudioTestData.Render(device, 16);
@@ -127,11 +124,7 @@ public sealed class AudioMixerTests {
         var (engine, device) = AudioTestData.Engine();
         using var _ = engine;
 
-        var handle = engine.Play(AudioTestData.Constant(32, 1f), new PlaybackSettings {
-            Gain = 1f,
-            Pitch = 1f,
-            Loop = true
-        });
+        var handle = engine.Play(AudioTestData.Constant(32, 1f), new() { Gain = 1f, Pitch = 1f, Loop = true });
 
         var rendered = AudioTestData.Render(device, 256);
         engine.Update();
@@ -193,7 +186,7 @@ public sealed class AudioMixerTests {
     /// </summary>
     [Fact]
     public void StoppingFadesOverOneBlockRatherThanCutting() {
-        var (engine, device) = AudioTestData.Engine(channels: 1, bufferFrames: 16);
+        var (engine, device) = AudioTestData.Engine(1, bufferFrames: 16);
         using var _ = engine;
 
         var handle = engine.Play(AudioTestData.Constant(4_800, 1f));
@@ -212,7 +205,7 @@ public sealed class AudioMixerTests {
 
     [Fact]
     public void APausedVoiceProducesSilenceAndKeepsItsPlace() {
-        var (engine, device) = AudioTestData.Engine(channels: 1);
+        var (engine, device) = AudioTestData.Engine(1);
         using var _ = engine;
 
         var handle = engine.Play(AudioTestData.Ramp(4_800));
@@ -235,10 +228,10 @@ public sealed class AudioMixerTests {
     /// </summary>
     [Fact]
     public void AClipAtHalfTheDeviceRateTakesTwiceAsLong() {
-        var (engine, device) = AudioTestData.Engine(channels: 1, sampleRate: 48_000);
+        var (engine, device) = AudioTestData.Engine(1);
         using var _ = engine;
 
-        engine.Play(AudioTestData.Ramp(8, sampleRate: 24_000));
+        engine.Play(AudioTestData.Ramp(8, 24_000));
         var rendered = AudioTestData.Render(device, 16);
 
         // Every second output frame lands exactly on a source frame, so those are the source's own
@@ -258,10 +251,10 @@ public sealed class AudioMixerTests {
 
     [Fact]
     public void PitchIsPlaybackRateAndNotTimeStretch() {
-        var (engine, device) = AudioTestData.Engine(channels: 1);
+        var (engine, device) = AudioTestData.Engine(1);
         using var _ = engine;
 
-        engine.Play(AudioTestData.Ramp(512), new PlaybackSettings { Gain = 1f, Pitch = 2f });
+        engine.Play(AudioTestData.Ramp(512), new() { Gain = 1f, Pitch = 2f });
         var rendered = AudioTestData.Render(device, 64);
 
         // Output frame n is source frame 2n, so the ramp comes out twice as steep. Sampled away from

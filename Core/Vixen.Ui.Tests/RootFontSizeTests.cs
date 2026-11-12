@@ -10,8 +10,12 @@ namespace Vixen.Ui.Tests;
 /// <summary>Changing what <c>rem</c> measures against, which for this document's whole life was fixed.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b><c>rem</c> and <c>em</c> both worked and the root size was a construction-time
-///         constant</b> — a <c>readonly</c> field taken from an optional constructor parameter — so
+///         ⚠
+///         <b>
+///             <c>rem</c> and <c>em</c> both worked and the root size was a construction-time
+///             constant
+///         </b>
+///         — a <c>readonly</c> field taken from an optional constructor parameter — so
 ///         no operating-system text-size preference could reach a single length in the document. The
 ///         setting is real on Windows and on GNOME; what was missing was anywhere to put it.
 ///     </para>
@@ -102,10 +106,12 @@ public class RootFontSizeTests {
         using var document = new UiDocument(400f, 200f);
         document.Fonts.Register("Test", Font());
 
-        document.Load("""
+        document.Load(
+            """
             root { width: 400px; height: 200px; align-items: flex-start; }
             label { font-family: Test; font-size: 1rem; }
-            """);
+            """
+        );
 
         var label = document.Root.Add("label");
         label.Text = "AB";

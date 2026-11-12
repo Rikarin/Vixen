@@ -25,7 +25,7 @@ public class TextureSpaceClaimDeviceTests(ITestOutputHelper output) {
     const int Side = TextureKernelHarness.Side;
 
     static TextureOp Op(string kernel, int output, int input, TextureParameter[] parameters) =>
-        new() { Kernel = kernel, Output = output, Inputs = [input], Parameters = [.. parameters] };
+        new() { Kernel = kernel, Output = output, Inputs = [input], Parameters = [..parameters] };
 
     static TextureParameter[] Flip(float offset) => [
         new("axis", 0f),
@@ -115,8 +115,12 @@ public class TextureSpaceClaimDeviceTests(ITestOutputHelper output) {
     ///         <b>The claim, and the correction.</b> <c>Mirror.rvn</c> said a flip applied twice with
     ///         the same axis and offset is the identity, bit for bit. The arithmetic is
     ///         <c>x ↦ round(2ℓ − x)</c> with <c>ℓ = offset·extent − 0.5</c>, which is an involution
-    ///         wherever it lands inside the image — but the store clamps, and <b>a clamp is not
-    ///         invertible</b>. At <c>offset</c> 0.5 the map is <c>x ↦ extent − 1 − x</c>, a
+    ///         wherever it lands inside the image — but the store clamps, and
+    ///         <b>
+    ///             a clamp is not
+    ///             invertible
+    ///         </b>
+    ///         . At <c>offset</c> 0.5 the map is <c>x ↦ extent − 1 − x</c>, a
     ///         permutation of the texels, and nothing is ever clamped; at any other offset part of
     ///         the image mirrors to a coordinate outside it, every one of those texels collapses onto
     ///         the same edge column, and the second application cannot tell them apart.
@@ -238,17 +242,17 @@ public class TextureSpaceClaimDeviceTests(ITestOutputHelper output) {
             for (var x = 0; x < Side; x += 5) {
                 Assert.Equal(
                     TextureKernelHarness.At(plain, x, y, 0),
-                    TextureKernelHarness.At(plain, x, y + (Side / 2), 0)
+                    TextureKernelHarness.At(plain, x, y + Side / 2, 0)
                 );
             }
         }
 
         // With it, the lower row is the upper one shifted by half a tile: a quarter of the image.
         for (var y = 0; y < Side / 2; y += 3) {
-            for (var x = 0; x + (Side / 4) < Side; x += 5) {
+            for (var x = 0; x + Side / 4 < Side; x += 5) {
                 Assert.Equal(
-                    TextureKernelHarness.At(bonded, x + (Side / 4), y, 0),
-                    TextureKernelHarness.At(bonded, x, y + (Side / 2), 0)
+                    TextureKernelHarness.At(bonded, x + Side / 4, y, 0),
+                    TextureKernelHarness.At(bonded, x, y + Side / 2, 0)
                 );
             }
         }

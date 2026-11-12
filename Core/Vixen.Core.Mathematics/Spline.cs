@@ -75,8 +75,12 @@ public readonly record struct SplineFrame(Vector3 Position, Vector3 Tangent, Vec
 ///         computed, which is what <see cref="SmoothTangents" /> does.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The parameter is not distance, and confusing the two is the classic bug in this
-///         type.</b> <see cref="Evaluate" /> takes a segment-space parameter, where an integer is a
+///         ⚠
+///         <b>
+///             The parameter is not distance, and confusing the two is the classic bug in this
+///             type.
+///         </b>
+///         <see cref="Evaluate" /> takes a segment-space parameter, where an integer is a
 ///         control point; a camera moving at a constant <em>parameter</em> rate speeds up through
 ///         wide-open segments and crawls through tight ones. <see cref="EvaluateAtDistance" /> is the
 ///         one that moves at a constant speed, and it costs a table lookup.
@@ -107,10 +111,10 @@ public sealed class Spline {
             );
         }
 
-        points = controlPoints.ToArray();
+        points = [..controlPoints];
         IsClosed = closed;
 
-        cumulative = new float[(SegmentCount * SamplesPerSegment) + 1];
+        cumulative = new float[SegmentCount * SamplesPerSegment + 1];
         Measure();
     }
 
@@ -150,15 +154,15 @@ public sealed class Spline {
 
         // Hermite basis. The two tangent terms are the point's own offsets, which is why a control
         // point with zero tangents produces a straight line rather than a degenerate curve.
-        var h00 = (2f * l3) - (3f * l2) + 1f;
-        var h10 = l3 - (2f * l2) + local;
-        var h01 = (-2f * l3) + (3f * l2);
+        var h00 = 2f * l3 - 3f * l2 + 1f;
+        var h10 = l3 - 2f * l2 + local;
+        var h01 = -2f * l3 + 3f * l2;
         var h11 = l3 - l2;
 
-        return (start.Position * h00)
-            + (start.TangentOut * h10)
-            + (end.Position * h01)
-            + (-end.TangentIn * h11);
+        return start.Position * h00
+            + start.TangentOut * h10
+            + end.Position * h01
+            + -end.TangentIn * h11;
     }
 
     /// <summary>Which way the curve is heading at a parameter.</summary>
@@ -176,15 +180,15 @@ public sealed class Spline {
 
         var l2 = local * local;
 
-        var d00 = (6f * l2) - (6f * local);
-        var d10 = (3f * l2) - (4f * local) + 1f;
-        var d01 = (-6f * l2) + (6f * local);
-        var d11 = (3f * l2) - (2f * local);
+        var d00 = 6f * l2 - 6f * local;
+        var d10 = 3f * l2 - 4f * local + 1f;
+        var d01 = -6f * l2 + 6f * local;
+        var d11 = 3f * l2 - 2f * local;
 
-        var derivative = (start.Position * d00)
-            + (start.TangentOut * d10)
-            + (end.Position * d01)
-            + (-end.TangentIn * d11);
+        var derivative = start.Position * d00
+            + start.TangentOut * d10
+            + end.Position * d01
+            + -end.TangentIn * d11;
 
         // A segment can be genuinely stationary. Two cases, and they need different answers: a
         // straight segment authored with no tangents has a zero derivative at its own ends and a
@@ -237,8 +241,8 @@ public sealed class Spline {
 
         if (roll != 0f) {
             var (sin, cos) = MathF.SinCos(roll);
-            var rolled = (normal * cos) + (binormal * sin);
-            binormal = (binormal * cos) - (normal * sin);
+            var rolled = normal * cos + binormal * sin;
+            binormal = binormal * cos - normal * sin;
             normal = rolled;
         }
 
@@ -386,7 +390,7 @@ public sealed class Spline {
     float RollAt(float t) {
         var (segment, local) = Locate(t);
         var (start, end) = EndsOf(segment);
-        return start.Roll + ((end.Roll - start.Roll) * local);
+        return start.Roll + (end.Roll - start.Roll) * local;
     }
 
     (SplinePoint Start, SplinePoint End) EndsOf(int segment) =>

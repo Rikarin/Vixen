@@ -28,7 +28,7 @@ internal static class VariationTables {
 
         var header = new SfntReader(fvar) { Position = 4 };
         var arrayOffset = header.U16();
-        header.Position += 2;                              // reserved
+        header.Position += 2; // reserved
         var count = header.U16();
         var size = header.U16();
 
@@ -42,7 +42,7 @@ internal static class VariationTables {
         var axes = ImmutableArray.CreateBuilder<FontAxis>(count);
 
         for (var i = 0; i < count; i++) {
-            var at = arrayOffset + (i * size);
+            var at = arrayOffset + i * size;
             if (at + 20 > fvar.Length) {
                 break;
             }
@@ -55,7 +55,7 @@ internal static class VariationTables {
 
             // A font whose range is inside out is malformed, and the two ends are what everything
             // else divides by. Ordering them here means `Normalize` cannot produce a negative span.
-            axes.Add(new FontAxis(tag, Math.Min(minimum, maximum), initial, Math.Max(minimum, maximum)));
+            axes.Add(new(tag, Math.Min(minimum, maximum), initial, Math.Max(minimum, maximum)));
         }
 
         return axes.ToImmutable();
@@ -102,7 +102,7 @@ internal static class VariationTables {
                 pairs.Add((from, to));
             }
 
-            maps.Add(new AxisSegmentMap(pairs.MoveToImmutable()));
+            maps.Add(new(pairs.MoveToImmutable()));
         }
 
         return maps.ToImmutable();
@@ -121,6 +121,6 @@ internal static class VariationTables {
             characters[i] = (char)reader.U8();
         }
 
-        return new string(characters);
+        return new(characters);
     }
 }

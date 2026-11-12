@@ -3,7 +3,6 @@
 
 using Vixen.Core.Mathematics;
 using Vixen.Testing;
-using Vixen.Vfx;
 using Xunit;
 
 namespace Vixen.Vfx.Tests;
@@ -13,20 +12,21 @@ namespace Vixen.Vfx.Tests;
 /// </summary>
 public sealed class VfxSystemTests {
     /// <summary>A plain fountain: a steady stream, thrown upwards, pulled down, with a finite life.</summary>
-    static VfxCompiledGraph Fountain(int capacity = 256) => VfxCompiledGraph.Compile(
-        [VfxSpawner.AtRate(60f)],
-        [
-            new(VfxOpcode.SetPosition, new Vector4(0f, 0f, 0f, 0f)),
-            new(VfxOpcode.VelocityRandomDirection, new Vector4(2f, 4f, 0f, 0f)),
-            new(VfxOpcode.SetLifetime, new Vector4(1f, 2f, 0f, 0f)),
-            new(VfxOpcode.SetSize, new Vector4(0.1f, 0.2f, 0f, 0f))
-        ],
-        [
-            new(VfxOpcode.Gravity, new Vector4(0f, -9.81f, 0f, 0f)),
-            new(VfxOpcode.Integrate)
-        ],
-        capacity
-    );
+    static VfxCompiledGraph Fountain(int capacity = 256) =>
+        VfxCompiledGraph.Compile(
+            [VfxSpawner.AtRate(60f)],
+            [
+                new(VfxOpcode.SetPosition, new Vector4(0f, 0f, 0f, 0f)),
+                new(VfxOpcode.VelocityRandomDirection, new Vector4(2f, 4f, 0f, 0f)),
+                new(VfxOpcode.SetLifetime, new Vector4(1f, 2f, 0f, 0f)),
+                new(VfxOpcode.SetSize, new Vector4(0.1f, 0.2f, 0f, 0f))
+            ],
+            [
+                new(VfxOpcode.Gravity, new Vector4(0f, -9.81f, 0f, 0f)),
+                new(VfxOpcode.Integrate)
+            ],
+            capacity
+        );
 
     /// <summary>Steps a system for a while.</summary>
     /// <remarks>
@@ -217,7 +217,8 @@ public sealed class VfxSystemTests {
         var offset = new Vector3(10f, -3f, 4f);
 
         using var here = new VfxSystem(graph, 7);
-        using var there = new VfxSystem(graph, 7) { Origin = offset };
+        using var there = new VfxSystem(graph, 7);
+        there.Origin = offset;
 
         Run(here, 0.5f);
         Run(there, 0.5f);
@@ -323,7 +324,10 @@ public sealed class VfxSystemTests {
             }
         }
 
-        Assert.True(identifiers.Count > 50, $"Only {identifiers.Count} particles were seen, which is not enough recycling to prove anything.");
+        Assert.True(
+            identifiers.Count > 50,
+            $"Only {identifiers.Count} particles were seen, which is not enough recycling to prove anything."
+        );
     }
 
     [Fact]
@@ -365,9 +369,9 @@ public sealed class VfxSystemTests {
         // each, then five seconds measured.
         Measured.NothingAllocated(
             Frame,
-            warmUp: 120,
-            passes: 300,
-            because: "Particle storage is native and the graph is read-only, so the only right answer is none."
+            120,
+            300,
+            "Particle storage is native and the graph is read-only, so the only right answer is none."
         );
 
         return;
@@ -404,9 +408,9 @@ public sealed class VfxSystemTests {
 
         Measured.NothingAllocated(
             Frame,
-            warmUp: 120,
-            passes: 300,
-            because: "A field-driven effect reads the field rather than rebuilding it."
+            120,
+            300,
+            "A field-driven effect reads the field rather than rebuilding it."
         );
 
         return;

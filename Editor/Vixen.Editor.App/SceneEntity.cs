@@ -57,8 +57,12 @@ public sealed class SceneEntity {
 
     /// <summary>What it is called.</summary>
     /// <remarks>
-    ///     ⚠ <b><c>SetName</c> and not <c>Rename</c>, because this setter is already inside an undo
-    ///     entry.</b> The inspector wraps every write in a <c>SetMembersCommand</c>; a setter that
+    ///     ⚠
+    ///     <b>
+    ///         <c>SetName</c> and not <c>Rename</c>, because this setter is already inside an undo
+    ///         entry.
+    ///     </b>
+    ///     The inspector wraps every write in a <c>SetMembersCommand</c>; a setter that
     ///     recorded a <c>RenameEntityCommand</c> as well put two entries on the stack for one edit —
     ///     and, worse, pushed the second from inside the first. Undoing then ran this setter again,
     ///     which asked the stack to execute during an undo, which the stack refuses: the entry came

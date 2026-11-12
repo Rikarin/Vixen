@@ -66,10 +66,7 @@ public sealed class StandardFileSystemHostTests : IDisposable {
     [Fact]
     public void TheFourLocationsAreDistinct() {
         var locations = new HashSet<string>(StringComparer.Ordinal) {
-            host.ApplicationDirectory,
-            host.DataDirectory,
-            host.CacheDirectory,
-            host.TemporaryDirectory
+            host.ApplicationDirectory, host.DataDirectory, host.CacheDirectory, host.TemporaryDirectory
         };
 
         Assert.Equal(4, locations.Count);
@@ -95,8 +92,11 @@ public sealed class StandardFileSystemHostTests : IDisposable {
         var fileSystem = new VirtualFileSystem();
         host.MountStandardLocations(fileSystem);
 
-        await Assert.ThrowsAnyAsync<Exception>(
-            async () => await fileSystem.WriteAllTextAsync(MountPoints.App / "no.txt", "no", TestContext.Current.CancellationToken)
+        await Assert.ThrowsAnyAsync<Exception>(async () => await fileSystem.WriteAllTextAsync(
+                MountPoints.App / "no.txt",
+                "no",
+                TestContext.Current.CancellationToken
+            )
         );
     }
 
@@ -120,7 +120,7 @@ public sealed class StandardFileSystemHostTests : IDisposable {
     [Fact]
     public void AnEmptyNameIsRejectedRatherThanProducingAStrangePath() {
         Assert.Throws<ArgumentException>(() => new StandardFileSystemHost(" ", application));
-        Assert.Throws<ArgumentException>(() => new StandardFileSystemHost(Organisation, string.Empty));
+        Assert.Throws<ArgumentException>(static () => new StandardFileSystemHost(Organisation, string.Empty));
     }
 
     public void Dispose() {
@@ -133,12 +133,13 @@ public sealed class StandardFileSystemHostTests : IDisposable {
     static void Delete(string directory) {
         try {
             if (Directory.Exists(directory)) {
-                Directory.Delete(directory, recursive: true);
+                Directory.Delete(directory, true);
             }
         } catch (IOException) {
             // A leftover temp directory is not worth failing a test run over.
         }
     }
+
     /// <summary>
     ///     Every location is absolute.
     /// </summary>

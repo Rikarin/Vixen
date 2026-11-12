@@ -12,12 +12,19 @@ namespace Vixen.Editor.ShaderGraph;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>The limit <a href="https://github.com/Rikarin/Vixen/issues/510">#510</a> names, and
-///         it is a property of the preview's compilation rather than of any node.</b>
+///         ⚠
+///         <b>
+///             The limit <a href="https://github.com/Rikarin/Vixen/issues/510">#510</a> names, and
+///             it is a property of the preview's compilation rather than of any node.
+///         </b>
 ///         <c>ShaderGraphPreviewRenderer</c> passed <c>RavenEffectCompiler.FromSources</c> one text
 ///         — the emitted preview — so nothing in <c>Raven/Library</c> was in scope and a node whose
-///         body calls <c>ComputeColor.ValueNoise</c> failed to bind with <c>RVN2010: The name
-///         'ComputeColor' does not exist in the current context</c>. The same graph compiled
+///         body calls <c>ComputeColor.ValueNoise</c> failed to bind with
+///         <c>
+///             RVN2010: The name
+///             'ComputeColor' does not exist in the current context
+///         </c>
+///         . The same graph compiled
 ///         perfectly as a <em>material</em>, because <c>EditorEffects</c> and <c>ShaderBuildRunner</c>
 ///         both hand Raven the library's import closure. So five shipped nodes declared no preview
 ///         and the next node reaching into the library would have made six.
@@ -30,13 +37,18 @@ namespace Vixen.Editor.ShaderGraph;
 ///         assembly.
 ///     </para>
 ///     <para>
-///         ⚠ <b>And it does not cost the preview a binding, which was the thing to establish before
-///         designing anything.</b> The renderer binds one uniform block and refuses a variant whose
+///         ⚠
+///         <b>
+///             And it does not cost the preview a binding, which was the thing to establish before
+///             designing anything.
+///         </b>
+///         The renderer binds one uniform block and refuses a variant whose
 ///         reflection asks for anything else — see its own remarks — so a prelude that dragged a
 ///         texture or a sampler into scope would have turned "no preview" into "every preview
 ///         refused". These four files declare no resources at all: they are <c>struct</c>s of pure
 ///         functions, and a function nothing calls is unreferenced and does not reach the emitted
-///         module. ⚠ <c>ShaderGraphPreviewTests.A_node_that_calls_the_library_compiles_to_a_variant_that_binds_one_block</c>
+///         module. ⚠
+///         <c>ShaderGraphPreviewTests.A_node_that_calls_the_library_compiles_to_a_variant_that_binds_one_block</c>
 ///         asserts the reflection rather than trusting that paragraph.
 ///     </para>
 ///     <para>
@@ -77,7 +89,7 @@ static class ShaderGraphPreviewPrelude {
     ///     that error is a node that previews in the suite and shows nothing in the editor.
     /// </remarks>
     public static RavenEffectCompiler Compile(string name, string source) =>
-        RavenEffectCompiler.FromSources([.. Sources, (name, source)]);
+        RavenEffectCompiler.FromSources([..Sources, (name, source)]);
 
     static ImmutableArray<(string Name, string Text)> Read() {
         var assembly = typeof(ShaderGraphPreviewPrelude).Assembly;

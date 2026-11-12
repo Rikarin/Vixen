@@ -40,9 +40,9 @@ sealed class ViewFixture : IDisposable {
         Directory.CreateDirectory(root);
 
         Project = new(new ProjectPaths(root));
-        Document = new ScratchDocument(Project);
+        Document = new(Project);
 
-        Ui = new UiDocument(width, height);
+        Ui = new(width, height);
         Ui.Fonts.Register("Test", Font);
 
         ControlTheme.Install(Ui);
@@ -87,7 +87,8 @@ sealed class ViewFixture : IDisposable {
         float y,
         PointerButton button = PointerButton.Primary,
         ModifierKeys modifiers = ModifierKeys.None
-    ) => Send(x, y, PointerAction.Pressed, button, modifiers);
+    ) =>
+        Send(x, y, PointerAction.Pressed, button, modifiers);
 
     public void Move(float x, float y, ModifierKeys modifiers = ModifierKeys.None) =>
         Send(x, y, PointerAction.Moved, PointerButton.None, modifiers);
@@ -97,21 +98,22 @@ sealed class ViewFixture : IDisposable {
         float y,
         PointerButton button = PointerButton.Primary,
         ModifierKeys modifiers = ModifierKeys.None
-    ) => Send(x, y, PointerAction.Released, button, modifiers);
+    ) =>
+        Send(x, y, PointerAction.Released, button, modifiers);
 
     /// <summary>Presses in the middle of an element, drags to a point and releases there.</summary>
     public void DragFrom(UiElement from, float x, float y, ModifierKeys modifiers = ModifierKeys.None) {
         var bounds = from.Bounds;
 
-        Press(bounds.X + (bounds.Width * 0.5f), bounds.Y + (bounds.Height * 0.5f), modifiers: modifiers);
+        Press(bounds.X + bounds.Width * 0.5f, bounds.Y + bounds.Height * 0.5f, modifiers: modifiers);
         Move(x, y, modifiers);
         Release(x, y, modifiers: modifiers);
     }
 
     public void Click(UiElement element, ModifierKeys modifiers = ModifierKeys.None) {
         var bounds = element.Bounds;
-        var x = bounds.X + (bounds.Width * 0.5f);
-        var y = bounds.Y + (bounds.Height * 0.5f);
+        var x = bounds.X + bounds.Width * 0.5f;
+        var y = bounds.Y + bounds.Height * 0.5f;
 
         Press(x, y, modifiers: modifiers);
         Release(x, y, modifiers: modifiers);
@@ -172,7 +174,7 @@ sealed class ViewFixture : IDisposable {
 
     static FontFace LoadFont() {
         using var stream = Assembly.GetExecutingAssembly()
-            .GetManifestResourceStream("Vixen.Editor.NodeGraph.Tests.Fonts.TestShapeLana.ttf")
+                .GetManifestResourceStream("Vixen.Editor.NodeGraph.Tests.Fonts.TestShapeLana.ttf")
             ?? throw new InvalidOperationException("the test font is not embedded");
 
         using var memory = new MemoryStream();

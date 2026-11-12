@@ -44,7 +44,7 @@ public sealed class GoldenUpdateTests {
     [Fact]
     public void AReferenceWithinToleranceIsKept() {
         var committed = Flat(100);
-        var rendered = Drifted(100, 1, every: 4);
+        var rendered = Drifted(100, 1, 4);
         var comparison = GoldenImage.Compare(committed, rendered, Tolerance.Shaded);
 
         // The instrument: this is only a statement about `Decide` if the two pictures are genuinely
@@ -54,11 +54,11 @@ public sealed class GoldenUpdateTests {
         Assert.True(comparison.MeanChannel > 0, "the drift was supposed to move the mean at all");
 
         var decision = GoldenImage.Decide(
-            exists: true,
-            sizeAgrees: true,
+            true,
+            true,
             comparison,
             Tolerance.Shaded,
-            forced: false
+            false
         );
 
         Assert.False(
@@ -78,14 +78,14 @@ public sealed class GoldenUpdateTests {
     /// </remarks>
     [Fact]
     public void AMatchingReferenceIsRecordedWhenForced() {
-        var comparison = GoldenImage.Compare(Flat(100), Drifted(100, 1, every: 4), Tolerance.Shaded);
+        var comparison = GoldenImage.Compare(Flat(100), Drifted(100, 1, 4), Tolerance.Shaded);
 
         var decision = GoldenImage.Decide(
-            exists: true,
-            sizeAgrees: true,
+            true,
+            true,
             comparison,
             Tolerance.Shaded,
-            forced: true
+            true
         );
 
         Assert.True(decision.Record);
@@ -102,11 +102,11 @@ public sealed class GoldenUpdateTests {
         Assert.False(comparison.Matches, "60 levels everywhere was supposed to fail Tolerance.Shaded");
 
         var decision = GoldenImage.Decide(
-            exists: true,
-            sizeAgrees: true,
+            true,
+            true,
             comparison,
             Tolerance.Shaded,
-            forced: false
+            false
         );
 
         Assert.True(decision.Record);
@@ -127,11 +127,11 @@ public sealed class GoldenUpdateTests {
     [Fact]
     public void AMissingReferenceIsRecorded() {
         var decision = GoldenImage.Decide(
-            exists: false,
-            sizeAgrees: false,
+            false,
+            false,
             default,
             Tolerance.Shaded,
-            forced: false
+            false
         );
 
         Assert.True(decision.Record);
@@ -142,11 +142,11 @@ public sealed class GoldenUpdateTests {
     [Fact]
     public void AResizedReferenceIsRecorded() {
         var decision = GoldenImage.Decide(
-            exists: true,
-            sizeAgrees: false,
+            true,
+            false,
             default,
             Tolerance.Shaded,
-            forced: false
+            false
         );
 
         Assert.True(decision.Record);
@@ -188,7 +188,7 @@ public sealed class GoldenUpdateTests {
     /// </remarks>
     [Fact]
     public void HeadroomNamesBothBounds() {
-        var comparison = GoldenImage.Compare(Flat(100), Drifted(100, 1, every: 4), Tolerance.Shaded);
+        var comparison = GoldenImage.Compare(Flat(100), Drifted(100, 1, 4), Tolerance.Shaded);
         var line = GoldenImage.Headroom(comparison, Tolerance.Shaded);
 
         Assert.Contains("of 0.350", line, StringComparison.Ordinal);
@@ -206,13 +206,16 @@ public sealed class GoldenUpdateTests {
     [Fact]
     public void HeadroomRefusesToDivideByAnUnboundedMean() {
         var line = GoldenImage.Headroom(
-            GoldenImage.Compare(Flat(100), Drifted(100, 1, every: 4), Tolerance.Edges),
+            GoldenImage.Compare(Flat(100), Drifted(100, 1, 4), Tolerance.Edges),
             Tolerance.Edges
         );
 
         Assert.Contains("no mean bound", line, StringComparison.Ordinal);
-        Assert.DoesNotContain("of the allowance)", line[..line.IndexOf(';', StringComparison.Ordinal)],
-            StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            "of the allowance)",
+            line[..line.IndexOf(';', StringComparison.Ordinal)],
+            StringComparison.Ordinal
+        );
     }
 
     /// <summary>A flat opaque picture.</summary>

@@ -51,7 +51,7 @@ public class SamplingBenchmarks {
         var state = 12345u;
 
         for (var index = 0; index < seeks.Length; index++) {
-            state = (state * 1664525u) + 1013904223u;
+            state = state * 1664525u + 1013904223u;
             seeks[index] = state / (float)uint.MaxValue * clip.Duration;
         }
     }
@@ -59,7 +59,7 @@ public class SamplingBenchmarks {
     /// <summary>Playing forwards, which is what a frame does.</summary>
     [Benchmark(Baseline = true)]
     public void Sequential() {
-        time = MathUtil.Repeat(time + (1f / 60f), clip.Duration);
+        time = MathUtil.Repeat(time + 1f / 60f, clip.Duration);
         clip.Sample(time, pose);
     }
 

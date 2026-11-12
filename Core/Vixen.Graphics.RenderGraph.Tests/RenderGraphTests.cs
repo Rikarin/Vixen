@@ -38,10 +38,13 @@ public sealed class RenderGraphTests : IDisposable {
         var wasted = graph.CreateTexture(Target("wasted"));
         var ran = false;
 
-        graph.AddPass("wasteful", pass => {
-            pass.Writes(wasted, ResourceState.ColourTarget);
-            pass.Execute(_ => ran = true);
-        });
+        graph.AddPass(
+            "wasteful",
+            pass => {
+                pass.Writes(wasted, ResourceState.ColourTarget);
+                pass.Execute(_ => ran = true);
+            }
+        );
 
         graph.Execute(new TrackingCommandList());
 
@@ -60,22 +63,31 @@ public sealed class RenderGraphTests : IDisposable {
         var third = graph.CreateTexture(Target("third"));
         var ran = new List<string>();
 
-        graph.AddPass("a", pass => {
-            pass.Writes(first, ResourceState.ColourTarget);
-            pass.Execute(_ => ran.Add("a"));
-        });
+        graph.AddPass(
+            "a",
+            pass => {
+                pass.Writes(first, ResourceState.ColourTarget);
+                pass.Execute(_ => ran.Add("a"));
+            }
+        );
 
-        graph.AddPass("b", pass => {
-            pass.Reads(first);
-            pass.Writes(second, ResourceState.ColourTarget);
-            pass.Execute(_ => ran.Add("b"));
-        });
+        graph.AddPass(
+            "b",
+            pass => {
+                pass.Reads(first);
+                pass.Writes(second, ResourceState.ColourTarget);
+                pass.Execute(_ => ran.Add("b"));
+            }
+        );
 
-        graph.AddPass("c", pass => {
-            pass.Reads(second);
-            pass.Writes(third, ResourceState.ColourTarget);
-            pass.Execute(_ => ran.Add("c"));
-        });
+        graph.AddPass(
+            "c",
+            pass => {
+                pass.Reads(second);
+                pass.Writes(third, ResourceState.ColourTarget);
+                pass.Execute(_ => ran.Add("c"));
+            }
+        );
 
         graph.Execute(new TrackingCommandList());
 
@@ -92,10 +104,13 @@ public sealed class RenderGraphTests : IDisposable {
         var imported = graph.ImportTexture(texture, view, description, exitState: ResourceState.Present);
         var ran = false;
 
-        graph.AddPass("present", pass => {
-            pass.ColourAttachment(imported);
-            pass.Execute(_ => ran = true);
-        });
+        graph.AddPass(
+            "present",
+            pass => {
+                pass.ColourAttachment(imported);
+                pass.Execute(_ => ran = true);
+            }
+        );
 
         graph.Execute(new TrackingCommandList());
 
@@ -112,11 +127,14 @@ public sealed class RenderGraphTests : IDisposable {
         var scratch = graph.CreateTexture(Target("scratch"));
         var ran = false;
 
-        graph.AddPass("readback", pass => {
-            pass.Writes(scratch, ResourceState.CopyDestination);
-            pass.SideEffect();
-            pass.Execute(_ => ran = true);
-        });
+        graph.AddPass(
+            "readback",
+            pass => {
+                pass.Writes(scratch, ResourceState.CopyDestination);
+                pass.SideEffect();
+                pass.Execute(_ => ran = true);
+            }
+        );
 
         graph.Execute(new TrackingCommandList());
 
@@ -147,16 +165,22 @@ public sealed class RenderGraphTests : IDisposable {
         var depth = graph.CreateTexture(Depth("depth"));
         var ran = new List<string>();
 
-        graph.AddPass("clear", pass => {
-            pass.DepthAttachment(depth);
-            pass.Execute(_ => ran.Add("clear"));
-        });
+        graph.AddPass(
+            "clear",
+            pass => {
+                pass.DepthAttachment(depth);
+                pass.Execute(_ => ran.Add("clear"));
+            }
+        );
 
-        graph.AddPass("draw", pass => {
-            pass.ColourAttachment(imported);
-            pass.DepthAttachment(depth, LoadAction.Load);
-            pass.Execute(_ => ran.Add("draw"));
-        });
+        graph.AddPass(
+            "draw",
+            pass => {
+                pass.ColourAttachment(imported);
+                pass.DepthAttachment(depth, LoadAction.Load);
+                pass.Execute(_ => ran.Add("draw"));
+            }
+        );
 
         graph.Execute(new TrackingCommandList());
 
@@ -173,21 +197,30 @@ public sealed class RenderGraphTests : IDisposable {
         var accumulation = graph.CreateTexture(Target("accumulation"));
         var ran = new List<string>();
 
-        graph.AddPass("base", pass => {
-            pass.ColourAttachment(accumulation);
-            pass.Execute(_ => ran.Add("base"));
-        });
+        graph.AddPass(
+            "base",
+            pass => {
+                pass.ColourAttachment(accumulation);
+                pass.Execute(_ => ran.Add("base"));
+            }
+        );
 
-        graph.AddPass("accumulate", pass => {
-            pass.ColourAttachment(accumulation, LoadAction.Load);
-            pass.Execute(_ => ran.Add("accumulate"));
-        });
+        graph.AddPass(
+            "accumulate",
+            pass => {
+                pass.ColourAttachment(accumulation, LoadAction.Load);
+                pass.Execute(_ => ran.Add("accumulate"));
+            }
+        );
 
-        graph.AddPass("resolve", pass => {
-            pass.Reads(accumulation);
-            pass.ColourAttachment(imported);
-            pass.Execute(_ => ran.Add("resolve"));
-        });
+        graph.AddPass(
+            "resolve",
+            pass => {
+                pass.Reads(accumulation);
+                pass.ColourAttachment(imported);
+                pass.Execute(_ => ran.Add("resolve"));
+            }
+        );
 
         graph.Execute(new TrackingCommandList());
 
@@ -204,11 +237,14 @@ public sealed class RenderGraphTests : IDisposable {
     public void LoadingADepthTargetNothingWroteIsRefused() {
         var depth = graph.CreateTexture(Depth("depth"));
 
-        graph.AddPass("draw", pass => {
-            pass.DepthAttachment(depth, LoadAction.Load);
-            pass.SideEffect();
-            pass.Execute(_ => { });
-        });
+        graph.AddPass(
+            "draw",
+            pass => {
+                pass.DepthAttachment(depth, LoadAction.Load);
+                pass.SideEffect();
+                pass.Execute(static _ => { });
+            }
+        );
 
         var refused = Assert.Throws<RenderGraphException>(() => graph.Execute(new TrackingCommandList()));
 
@@ -228,27 +264,39 @@ public sealed class RenderGraphTests : IDisposable {
         var unused = graph.CreateTexture(Target("unused"));
         var ran = new List<string>();
 
-        graph.AddPass("shadow", pass => {
-            pass.DepthAttachment(shadow);
-            pass.Execute(_ => ran.Add("shadow"));
-        });
+        graph.AddPass(
+            "shadow",
+            pass => {
+                pass.DepthAttachment(shadow);
+                pass.Execute(_ => ran.Add("shadow"));
+            }
+        );
 
-        graph.AddPass("dead", pass => {
-            pass.Writes(unused, ResourceState.ColourTarget);
-            pass.Execute(_ => ran.Add("dead"));
-        });
+        graph.AddPass(
+            "dead",
+            pass => {
+                pass.Writes(unused, ResourceState.ColourTarget);
+                pass.Execute(_ => ran.Add("dead"));
+            }
+        );
 
-        graph.AddPass("lighting", pass => {
-            pass.Reads(shadow, ResourceState.ShaderRead);
-            pass.ColourAttachment(lit);
-            pass.Execute(_ => ran.Add("lighting"));
-        });
+        graph.AddPass(
+            "lighting",
+            pass => {
+                pass.Reads(shadow);
+                pass.ColourAttachment(lit);
+                pass.Execute(_ => ran.Add("lighting"));
+            }
+        );
 
-        graph.AddPass("blit", pass => {
-            pass.Reads(lit);
-            pass.ColourAttachment(backbuffer);
-            pass.Execute(_ => ran.Add("blit"));
-        });
+        graph.AddPass(
+            "blit",
+            pass => {
+                pass.Reads(lit);
+                pass.ColourAttachment(backbuffer);
+                pass.Execute(_ => ran.Add("blit"));
+            }
+        );
 
         graph.Execute(new TrackingCommandList());
 
@@ -266,16 +314,22 @@ public sealed class RenderGraphTests : IDisposable {
         var backbuffer = graph.ImportTexture(texture, view, description, exitState: ResourceState.Present);
         var scene = graph.CreateTexture(Target("scene"));
 
-        graph.AddPass("draw", pass => {
-            pass.ColourAttachment(scene);
-            pass.Execute(_ => { });
-        });
+        graph.AddPass(
+            "draw",
+            pass => {
+                pass.ColourAttachment(scene);
+                pass.Execute(static _ => { });
+            }
+        );
 
-        graph.AddPass("blit", pass => {
-            pass.Reads(scene);
-            pass.ColourAttachment(backbuffer);
-            pass.Execute(_ => { });
-        });
+        graph.AddPass(
+            "blit",
+            pass => {
+                pass.Reads(scene);
+                pass.ColourAttachment(backbuffer);
+                pass.Execute(static _ => { });
+            }
+        );
 
         var list = new TrackingCommandList();
         graph.Execute(list);
@@ -299,23 +353,32 @@ public sealed class RenderGraphTests : IDisposable {
         var a = graph.CreateTexture(Target("a"));
         var b = graph.CreateTexture(Target("b"));
 
-        graph.AddPass("draw", pass => {
-            pass.ColourAttachment(scene);
-            pass.Execute(_ => { });
-        });
+        graph.AddPass(
+            "draw",
+            pass => {
+                pass.ColourAttachment(scene);
+                pass.Execute(static _ => { });
+            }
+        );
 
-        graph.AddPass("read once", pass => {
-            pass.Reads(scene);
-            pass.ColourAttachment(a);
-            pass.Execute(_ => { });
-        });
+        graph.AddPass(
+            "read once",
+            pass => {
+                pass.Reads(scene);
+                pass.ColourAttachment(a);
+                pass.Execute(static _ => { });
+            }
+        );
 
-        graph.AddPass("read twice", pass => {
-            pass.Reads(scene);
-            pass.ColourAttachment(b);
-            pass.SideEffect();
-            pass.Execute(_ => { });
-        });
+        graph.AddPass(
+            "read twice",
+            pass => {
+                pass.Reads(scene);
+                pass.ColourAttachment(b);
+                pass.SideEffect();
+                pass.Execute(static _ => { });
+            }
+        );
 
         var list = new TrackingCommandList();
         graph.Execute(list);
@@ -336,23 +399,29 @@ public sealed class RenderGraphTests : IDisposable {
     public void AWriteAfterWriteStillGetsABarrier() {
         var target = graph.CreateTexture(Target("target"));
 
-        graph.AddPass("first", pass => {
-            pass.ColourAttachment(target);
-            pass.SideEffect();
-            pass.Execute(_ => { });
-        });
+        graph.AddPass(
+            "first",
+            pass => {
+                pass.ColourAttachment(target);
+                pass.SideEffect();
+                pass.Execute(static _ => { });
+            }
+        );
 
-        graph.AddPass("second", pass => {
-            pass.ColourAttachment(target, LoadAction.Load);
-            pass.SideEffect();
-            pass.Execute(_ => { });
-        });
+        graph.AddPass(
+            "second",
+            pass => {
+                pass.ColourAttachment(target, LoadAction.Load);
+                pass.SideEffect();
+                pass.Execute(static _ => { });
+            }
+        );
 
         var list = new TrackingCommandList();
         graph.Execute(list);
 
         var writes = list.Barriers
-            .Where(barrier => barrier.After == ResourceState.ColourTarget)
+            .Where(static barrier => barrier.After == ResourceState.ColourTarget)
             .ToArray();
 
         Assert.Equal(2, writes.Length);
@@ -370,10 +439,13 @@ public sealed class RenderGraphTests : IDisposable {
         var view = device.CreateTextureView(texture);
         var backbuffer = graph.ImportTexture(texture, view, description, exitState: ResourceState.Present);
 
-        graph.AddPass("draw", pass => {
-            pass.ColourAttachment(backbuffer);
-            pass.Execute(_ => { });
-        });
+        graph.AddPass(
+            "draw",
+            pass => {
+                pass.ColourAttachment(backbuffer);
+                pass.Execute(static _ => { });
+            }
+        );
 
         var list = new TrackingCommandList();
         graph.Execute(list);
@@ -391,26 +463,32 @@ public sealed class RenderGraphTests : IDisposable {
         var b = graph.CreateTexture(Target("b"));
         var c = graph.CreateTexture(Target("c"));
 
-        graph.AddPass("produce", pass => {
-            pass.Writes(a, ResourceState.ColourTarget);
-            pass.Writes(b, ResourceState.ColourTarget);
-            pass.Execute(_ => { });
-        });
+        graph.AddPass(
+            "produce",
+            pass => {
+                pass.Writes(a, ResourceState.ColourTarget);
+                pass.Writes(b, ResourceState.ColourTarget);
+                pass.Execute(static _ => { });
+            }
+        );
 
-        graph.AddPass("consume", pass => {
-            pass.Reads(a);
-            pass.Reads(b);
-            pass.ColourAttachment(c);
-            pass.SideEffect();
-            pass.Execute(_ => { });
-        });
+        graph.AddPass(
+            "consume",
+            pass => {
+                pass.Reads(a);
+                pass.Reads(b);
+                pass.ColourAttachment(c);
+                pass.SideEffect();
+                pass.Execute(static _ => { });
+            }
+        );
 
         var list = new TrackingCommandList();
         graph.Execute(list);
 
         Assert.Equal(2, list.BarrierGroups);
-        Assert.Equal(2, list.Barriers.Count(barrier => barrier.Group == 0));
-        Assert.Equal(3, list.Barriers.Count(barrier => barrier.Group == 1));
+        Assert.Equal(2, list.Barriers.Count(static barrier => barrier.Group == 0));
+        Assert.Equal(3, list.Barriers.Count(static barrier => barrier.Group == 1));
     }
 
     // ── Attachments ─────────────────────────────────────────────────────────────────────────
@@ -426,18 +504,24 @@ public sealed class RenderGraphTests : IDisposable {
         var depth = graph.CreateTexture(Depth("depth"));
         var final = graph.CreateTexture(Target("final"));
 
-        graph.AddPass("scene", pass => {
-            pass.ColourAttachment(scene);
-            pass.DepthAttachment(depth);
-            pass.Execute(_ => { });
-        });
+        graph.AddPass(
+            "scene",
+            pass => {
+                pass.ColourAttachment(scene);
+                pass.DepthAttachment(depth);
+                pass.Execute(static _ => { });
+            }
+        );
 
-        graph.AddPass("tonemap", pass => {
-            pass.Reads(scene);
-            pass.ColourAttachment(final);
-            pass.SideEffect();
-            pass.Execute(_ => { });
-        });
+        graph.AddPass(
+            "tonemap",
+            pass => {
+                pass.Reads(scene);
+                pass.ColourAttachment(final);
+                pass.SideEffect();
+                pass.Execute(static _ => { });
+            }
+        );
 
         var list = new TrackingCommandList();
         graph.Execute(list);
@@ -463,10 +547,13 @@ public sealed class RenderGraphTests : IDisposable {
         var view = device.CreateTextureView(texture);
         var backbuffer = graph.ImportTexture(texture, view, description, exitState: ResourceState.Present);
 
-        graph.AddPass("draw", pass => {
-            pass.ColourAttachment(backbuffer);
-            pass.Execute(_ => { });
-        });
+        graph.AddPass(
+            "draw",
+            pass => {
+                pass.ColourAttachment(backbuffer);
+                pass.Execute(static _ => { });
+            }
+        );
 
         var list = new TrackingCommandList();
         graph.Execute(list);
@@ -479,11 +566,14 @@ public sealed class RenderGraphTests : IDisposable {
     public void AnExplicitStoreActionIsHonoured() {
         var scene = graph.CreateTexture(Target("scene"));
 
-        graph.AddPass("scene", pass => {
-            pass.ColourAttachment(scene, store: StoreAction.Store);
-            pass.SideEffect();
-            pass.Execute(_ => { });
-        });
+        graph.AddPass(
+            "scene",
+            pass => {
+                pass.ColourAttachment(scene, store: StoreAction.Store);
+                pass.SideEffect();
+                pass.Execute(static _ => { });
+            }
+        );
 
         var list = new TrackingCommandList();
         graph.Execute(list);
@@ -496,11 +586,14 @@ public sealed class RenderGraphTests : IDisposable {
     public void DepthClearsToFarUnderReversedZ() {
         var depth = graph.CreateTexture(Depth("depth"));
 
-        graph.AddPass("depth only", pass => {
-            pass.DepthAttachment(depth);
-            pass.SideEffect();
-            pass.Execute(_ => { });
-        });
+        graph.AddPass(
+            "depth only",
+            pass => {
+                pass.DepthAttachment(depth);
+                pass.SideEffect();
+                pass.Execute(static _ => { });
+            }
+        );
 
         var list = new TrackingCommandList();
         graph.Execute(list);
@@ -514,15 +607,18 @@ public sealed class RenderGraphTests : IDisposable {
         var target = graph.CreateTexture(Target("target", 640));
         var area = Int2.Zero;
 
-        graph.AddPass("draw", pass => {
-            pass.ColourAttachment(target);
-            pass.SideEffect();
-            pass.Execute(context => area = context.RenderArea);
-        });
+        graph.AddPass(
+            "draw",
+            pass => {
+                pass.ColourAttachment(target);
+                pass.SideEffect();
+                pass.Execute(context => area = context.RenderArea);
+            }
+        );
 
         graph.Execute(new TrackingCommandList());
 
-        Assert.Equal(new Int2(640, 640), area);
+        Assert.Equal(new(640, 640), area);
     }
 
     // ── Aliasing ────────────────────────────────────────────────────────────────────────────
@@ -537,23 +633,32 @@ public sealed class RenderGraphTests : IDisposable {
         var second = graph.CreateTexture(Target("postfx"));
         var third = graph.CreateTexture(Target("output"));
 
-        graph.AddPass("a", pass => {
-            pass.ColourAttachment(first);
-            pass.Execute(_ => { });
-        });
+        graph.AddPass(
+            "a",
+            pass => {
+                pass.ColourAttachment(first);
+                pass.Execute(static _ => { });
+            }
+        );
 
-        graph.AddPass("b", pass => {
-            pass.Reads(first);
-            pass.ColourAttachment(second);
-            pass.Execute(_ => { });
-        });
+        graph.AddPass(
+            "b",
+            pass => {
+                pass.Reads(first);
+                pass.ColourAttachment(second);
+                pass.Execute(static _ => { });
+            }
+        );
 
-        graph.AddPass("c", pass => {
-            pass.Reads(second);
-            pass.ColourAttachment(third);
-            pass.SideEffect();
-            pass.Execute(_ => { });
-        });
+        graph.AddPass(
+            "c",
+            pass => {
+                pass.Reads(second);
+                pass.ColourAttachment(third);
+                pass.SideEffect();
+                pass.Execute(static _ => { });
+            }
+        );
 
         graph.Execute(new TrackingCommandList());
 
@@ -580,23 +685,32 @@ public sealed class RenderGraphTests : IDisposable {
         var second = graph.CreateTexture(Target("second"));
         var third = graph.CreateTexture(Target("third"));
 
-        graph.AddPass("a", pass => {
-            pass.ColourAttachment(first);
-            pass.Execute(_ => { });
-        });
+        graph.AddPass(
+            "a",
+            pass => {
+                pass.ColourAttachment(first);
+                pass.Execute(static _ => { });
+            }
+        );
 
-        graph.AddPass("b", pass => {
-            pass.Reads(first);
-            pass.ColourAttachment(second);
-            pass.Execute(_ => { });
-        });
+        graph.AddPass(
+            "b",
+            pass => {
+                pass.Reads(first);
+                pass.ColourAttachment(second);
+                pass.Execute(static _ => { });
+            }
+        );
 
-        graph.AddPass("c", pass => {
-            pass.Reads(second);
-            pass.ColourAttachment(third);
-            pass.SideEffect();
-            pass.Execute(_ => { });
-        });
+        graph.AddPass(
+            "c",
+            pass => {
+                pass.Reads(second);
+                pass.ColourAttachment(third);
+                pass.SideEffect();
+                pass.Execute(static _ => { });
+            }
+        );
 
         var list = new TrackingCommandList();
         graph.Execute(list);
@@ -619,19 +733,25 @@ public sealed class RenderGraphTests : IDisposable {
         var b = graph.CreateTexture(Target("b"));
         var c = graph.CreateTexture(Target("c"));
 
-        graph.AddPass("produce", pass => {
-            pass.Writes(a, ResourceState.ColourTarget);
-            pass.Writes(b, ResourceState.ColourTarget);
-            pass.Execute(_ => { });
-        });
+        graph.AddPass(
+            "produce",
+            pass => {
+                pass.Writes(a, ResourceState.ColourTarget);
+                pass.Writes(b, ResourceState.ColourTarget);
+                pass.Execute(static _ => { });
+            }
+        );
 
-        graph.AddPass("consume", pass => {
-            pass.Reads(a);
-            pass.Reads(b);
-            pass.ColourAttachment(c);
-            pass.SideEffect();
-            pass.Execute(_ => { });
-        });
+        graph.AddPass(
+            "consume",
+            pass => {
+                pass.Reads(a);
+                pass.Reads(b);
+                pass.ColourAttachment(c);
+                pass.SideEffect();
+                pass.Execute(static _ => { });
+            }
+        );
 
         graph.Execute(new TrackingCommandList());
 
@@ -649,11 +769,14 @@ public sealed class RenderGraphTests : IDisposable {
         for (var frame = 0; frame < 3; frame++) {
             var target = graph.CreateTexture(Target("target"));
 
-            graph.AddPass("draw", pass => {
-                pass.ColourAttachment(target);
-                pass.SideEffect();
-                pass.Execute(_ => { });
-            });
+            graph.AddPass(
+                "draw",
+                pass => {
+                    pass.ColourAttachment(target);
+                    pass.SideEffect();
+                    pass.Execute(static _ => { });
+                }
+            );
 
             graph.Execute(new TrackingCommandList());
             graph.Reset();
@@ -668,10 +791,13 @@ public sealed class RenderGraphTests : IDisposable {
     public void ACulledPassesResourcesAreNeverAllocated() {
         var wasted = graph.CreateTexture(Target("wasted"));
 
-        graph.AddPass("wasteful", pass => {
-            pass.Writes(wasted, ResourceState.ColourTarget);
-            pass.Execute(_ => { });
-        });
+        graph.AddPass(
+            "wasteful",
+            pass => {
+                pass.Writes(wasted, ResourceState.ColourTarget);
+                pass.Execute(static _ => { });
+            }
+        );
 
         graph.Execute(new TrackingCommandList());
 
@@ -688,11 +814,14 @@ public sealed class RenderGraphTests : IDisposable {
     public void ReadingSomethingNobodyWroteIsRefused() {
         var never = graph.CreateTexture(Target("never written"));
 
-        graph.AddPass("reader", pass => {
-            pass.Reads(never);
-            pass.SideEffect();
-            pass.Execute(_ => { });
-        });
+        graph.AddPass(
+            "reader",
+            pass => {
+                pass.Reads(never);
+                pass.SideEffect();
+                pass.Execute(static _ => { });
+            }
+        );
 
         var thrown = Assert.Throws<RenderGraphException>(graph.Compile);
 
@@ -705,24 +834,32 @@ public sealed class RenderGraphTests : IDisposable {
     public void AProducerDeclaredAfterItsConsumerDoesNotCount() {
         var texture = graph.CreateTexture(Target("late"));
 
-        graph.AddPass("consumer", pass => {
-            pass.Reads(texture);
-            pass.SideEffect();
-            pass.Execute(_ => { });
-        });
+        graph.AddPass(
+            "consumer",
+            pass => {
+                pass.Reads(texture);
+                pass.SideEffect();
+                pass.Execute(static _ => { });
+            }
+        );
 
-        graph.AddPass("producer", pass => {
-            pass.Writes(texture, ResourceState.ColourTarget);
-            pass.Execute(_ => { });
-        });
+        graph.AddPass(
+            "producer",
+            pass => {
+                pass.Writes(texture, ResourceState.ColourTarget);
+                pass.Execute(static _ => { });
+            }
+        );
 
         Assert.Throws<RenderGraphException>(graph.Compile);
     }
 
     [Fact]
     public void APassThatDeclaresNothingIsRefused() {
-        var thrown = Assert.Throws<RenderGraphException>(
-            () => graph.AddPass("empty", pass => pass.Execute(_ => { }))
+        var thrown = Assert.Throws<RenderGraphException>(() => graph.AddPass(
+                "empty",
+                static pass => pass.Execute(static _ => { })
+            )
         );
 
         Assert.Contains("SideEffect", thrown.Message, StringComparison.Ordinal);
@@ -732,8 +869,10 @@ public sealed class RenderGraphTests : IDisposable {
     public void APassWithNoWorkIsRefused() {
         var target = graph.CreateTexture(Target("target"));
 
-        Assert.Throws<RenderGraphException>(
-            () => graph.AddPass("no body", pass => pass.Writes(target, ResourceState.ColourTarget))
+        Assert.Throws<RenderGraphException>(() => graph.AddPass(
+                "no body",
+                pass => pass.Writes(target, ResourceState.ColourTarget)
+            )
         );
     }
 
@@ -746,11 +885,13 @@ public sealed class RenderGraphTests : IDisposable {
         var stale = graph.CreateTexture(Target("stale"));
         graph.Reset();
 
-        var thrown = Assert.Throws<RenderGraphException>(
-            () => graph.AddPass("late", pass => {
-                pass.Reads(stale);
-                pass.Execute(_ => { });
-            })
+        var thrown = Assert.Throws<RenderGraphException>(() => graph.AddPass(
+                "late",
+                pass => {
+                    pass.Reads(stale);
+                    pass.Execute(static _ => { });
+                }
+            )
         );
 
         Assert.Contains("Reset", thrown.Message, StringComparison.Ordinal);
@@ -760,11 +901,14 @@ public sealed class RenderGraphTests : IDisposable {
     public void DeclaringIntoACompiledGraphIsRefused() {
         var target = graph.CreateTexture(Target("target"));
 
-        graph.AddPass("draw", pass => {
-            pass.ColourAttachment(target);
-            pass.SideEffect();
-            pass.Execute(_ => { });
-        });
+        graph.AddPass(
+            "draw",
+            pass => {
+                pass.ColourAttachment(target);
+                pass.SideEffect();
+                pass.Execute(static _ => { });
+            }
+        );
 
         graph.Compile();
 
@@ -776,11 +920,13 @@ public sealed class RenderGraphTests : IDisposable {
     public void AHandleOfTheWrongKindIsRefused() {
         var texture = graph.CreateTexture(Target("texture"));
 
-        Assert.Throws<RenderGraphException>(
-            () => graph.AddPass("confused", pass => {
-                pass.Reads(new GraphBuffer(texture.Index, texture.Generation));
-                pass.Execute(_ => { });
-            })
+        Assert.Throws<RenderGraphException>(() => graph.AddPass(
+                "confused",
+                pass => {
+                    pass.Reads(new GraphBuffer(texture.Index, texture.Generation));
+                    pass.Execute(static _ => { });
+                }
+            )
         );
     }
 
@@ -795,16 +941,22 @@ public sealed class RenderGraphTests : IDisposable {
         var kept = graph.CreateTexture(Target("kept"));
         var dropped = graph.CreateTexture(Target("dropped"));
 
-        graph.AddPass("live", pass => {
-            pass.ColourAttachment(kept);
-            pass.SideEffect();
-            pass.Execute(_ => { });
-        });
+        graph.AddPass(
+            "live",
+            pass => {
+                pass.ColourAttachment(kept);
+                pass.SideEffect();
+                pass.Execute(static _ => { });
+            }
+        );
 
-        graph.AddPass("culled", pass => {
-            pass.Writes(dropped, ResourceState.ColourTarget);
-            pass.Execute(_ => { });
-        });
+        graph.AddPass(
+            "culled",
+            pass => {
+                pass.Writes(dropped, ResourceState.ColourTarget);
+                pass.Execute(static _ => { });
+            }
+        );
 
         var dot = graph.ToGraphviz();
 
@@ -824,17 +976,23 @@ public sealed class RenderGraphTests : IDisposable {
         var scene = graph.CreateTexture(Target("scene"));
         var final = graph.CreateTexture(Target("final"));
 
-        graph.AddPass("draw", pass => {
-            pass.ColourAttachment(scene);
-            pass.Execute(_ => { });
-        });
+        graph.AddPass(
+            "draw",
+            pass => {
+                pass.ColourAttachment(scene);
+                pass.Execute(static _ => { });
+            }
+        );
 
-        graph.AddPass("blit", pass => {
-            pass.Reads(scene);
-            pass.ColourAttachment(final);
-            pass.SideEffect();
-            pass.Execute(_ => { });
-        });
+        graph.AddPass(
+            "blit",
+            pass => {
+                pass.Reads(scene);
+                pass.ColourAttachment(final);
+                pass.SideEffect();
+                pass.Execute(static _ => { });
+            }
+        );
 
         var list = new TrackingCommandList();
         graph.Execute(list);
@@ -856,16 +1014,22 @@ public sealed class RenderGraphTests : IDisposable {
         var backbuffer = graph.ImportTexture(texture, view, description, exitState: ResourceState.Present);
         var shadow = graph.CreateTexture(Depth("shadow"));
 
-        graph.AddPass("shadow", pass => {
-            pass.DepthAttachment(shadow);
-            pass.Execute(context => context.CommandList.Draw(3));
-        });
+        graph.AddPass(
+            "shadow",
+            pass => {
+                pass.DepthAttachment(shadow);
+                pass.Execute(static context => context.CommandList.Draw(3));
+            }
+        );
 
-        graph.AddPass("main", pass => {
-            pass.Reads(shadow, ResourceState.DepthStencilRead);
-            pass.ColourAttachment(backbuffer, LoadAction.Clear, new(0.1f, 0.2f, 0.3f, 1f));
-            pass.Execute(context => context.CommandList.Draw(6));
-        });
+        graph.AddPass(
+            "main",
+            pass => {
+                pass.Reads(shadow, ResourceState.DepthStencilRead);
+                pass.ColourAttachment(backbuffer, LoadAction.Clear, new(0.1f, 0.2f, 0.3f, 1f));
+                pass.Execute(static context => context.CommandList.Draw(6));
+            }
+        );
 
         device.BeginFrame();
         using var list = device.BeginCommandList();

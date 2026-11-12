@@ -15,7 +15,7 @@ public class CameraTests {
         // The engine's forward (Conventions.md § Handedness). A camera whose zero yaw looked the
         // other way would make every numpad view the opposite of what it is labelled.
         Assert.True(Vector3.NearEqual(camera.Forward, Vector3.Forward, 1e-5f));
-        Assert.True(Vector3.NearEqual(camera.Position, new Vector3(0f, 0f, 10f), 1e-4f));
+        Assert.True(Vector3.NearEqual(camera.Position, new(0f, 0f, 10f), 1e-4f));
     }
 
     [Fact]
@@ -82,8 +82,8 @@ public class CameraTests {
 
     [Fact]
     public void Orbiting_around_the_pivot_itself_is_an_ordinary_orbit() {
-        var anchored = new EditorCamera { Pivot = new Vector3(3f, 0f, 1f), Distance = 7f };
-        var plain = new EditorCamera { Pivot = new Vector3(3f, 0f, 1f), Distance = 7f };
+        var anchored = new EditorCamera { Pivot = new(3f, 0f, 1f), Distance = 7f };
+        var plain = new EditorCamera { Pivot = new(3f, 0f, 1f), Distance = 7f };
 
         anchored.OrbitAround(anchored.Pivot, 40f, 25f);
         plain.Orbit(40f, 25f);
@@ -154,7 +154,7 @@ public class CameraTests {
         // Behind the camera, which sits at +10 on z looking down −z. A perspective divide by a
         // negative w answers with a real pixel position on the wrong side of the pane, and nothing
         // downstream can tell it from a real one — see EditorCamera.TryProject.
-        Assert.False(camera.TryProject(new Vector3(0f, 0f, 40f), 1000, 800, out _));
+        Assert.False(camera.TryProject(new(0f, 0f, 40f), 1000, 800, out _));
     }
 
     [Fact]
@@ -164,7 +164,7 @@ public class CameraTests {
         // No divide, so there is nothing to go wrong and nothing to reject. Rejecting it anyway would
         // make the gizmo unclickable in the three orthographic panes of a quad layout, where the
         // camera routinely sits inside the scene.
-        Assert.True(camera.TryProject(new Vector3(0f, 0f, 40f), 1000, 800, out var behind));
+        Assert.True(camera.TryProject(new(0f, 0f, 40f), 1000, 800, out var behind));
         Assert.Equal(500f, behind.X, 2);
     }
 
@@ -242,11 +242,11 @@ public class CameraTests {
         var yaw = camera.Yaw;
         var pitch = camera.Pitch;
 
-        camera.Focus(new BoundingBox(new Vector3(4f, 4f, 4f), new Vector3(6f, 6f, 6f)));
+        camera.Focus(new(new(4f, 4f, 4f), new(6f, 6f, 6f)));
 
         Assert.Equal(yaw, camera.Yaw);
         Assert.Equal(pitch, camera.Pitch);
-        Assert.True(Vector3.NearEqual(camera.Pivot, new Vector3(5f, 5f, 5f), 1e-4f));
+        Assert.True(Vector3.NearEqual(camera.Pivot, new(5f, 5f, 5f), 1e-4f));
     }
 
     [Fact]
@@ -254,7 +254,7 @@ public class CameraTests {
         var camera = new EditorCamera();
 
         // A light, an empty, a camera: things people focus on constantly and which have no bounds.
-        camera.Focus(new BoundingBox(Vector3.Zero, Vector3.Zero));
+        camera.Focus(new(Vector3.Zero, Vector3.Zero));
 
         Assert.True(camera.Distance >= EditorCamera.MinimumDistance);
         Assert.True(float.IsFinite(camera.Distance));
@@ -269,7 +269,7 @@ public class CameraTests {
         var camera = new EditorCamera();
         camera.LookFrom(direction);
 
-        Assert.True(Vector3.NearEqual(camera.Forward, new Vector3(x, y, z), 1e-4f));
+        Assert.True(Vector3.NearEqual(camera.Forward, new(x, y, z), 1e-4f));
     }
 
     [Fact]
@@ -286,10 +286,10 @@ public class CameraTests {
     [Fact]
     public void Switching_projection_does_not_change_how_big_anything_looks() {
         var camera = new EditorCamera { Distance = 25f };
-        var perspective = camera.Project(new Vector3(1f, 0f, 0f), 1000, 800);
+        var perspective = camera.Project(new(1f, 0f, 0f), 1000, 800);
 
         camera.IsOrthographic = true;
-        var orthographic = camera.Project(new Vector3(1f, 0f, 0f), 1000, 800);
+        var orthographic = camera.Project(new(1f, 0f, 0f), 1000, 800);
 
         // The orthographic height is derived from the distance for exactly this: a point at the
         // pivot's depth lands in the same place either way.
@@ -319,7 +319,7 @@ public class CameraTests {
     [Fact]
     public void A_picking_ray_through_the_middle_goes_where_the_camera_looks() {
         var camera = new EditorCamera();
-        var ray = camera.PickingRay(new Vector2(500f, 400f), 1000, 800);
+        var ray = camera.PickingRay(new(500f, 400f), 1000, 800);
 
         Assert.True(Vector3.NearEqual(Vector3.Normalize(ray.Direction), camera.Forward, 1e-3f));
     }
@@ -329,12 +329,12 @@ public class CameraTests {
         var camera = new EditorCamera();
         var world = new Vector3(2f, 1f, -4f);
         var screen = camera.Project(world, 1000, 800);
-        var ray = camera.PickingRay(new Vector2(screen.X, screen.Y), 1000, 800);
+        var ray = camera.PickingRay(new(screen.X, screen.Y), 1000, 800);
 
         // The point has to be somewhere along the ray that comes back through its own pixel.
         var toPoint = world - ray.Origin;
         var along = Vector3.Dot(toPoint, Vector3.Normalize(ray.Direction));
-        var offset = (toPoint - (Vector3.Normalize(ray.Direction) * along)).Length();
+        var offset = (toPoint - Vector3.Normalize(ray.Direction) * along).Length();
 
         Assert.True(offset < 0.01f, $"the point was {offset} off its own ray");
     }

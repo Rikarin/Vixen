@@ -19,9 +19,9 @@ public class LayoutPassTests {
     [Fact]
     public void Laying_out_a_tree_that_did_not_change_allocates_nothing() {
         using var tree = new LayoutTree();
-        var root = BuildPanel(tree, rows: 20, columnsPerRow: 5);
+        var root = BuildPanel(tree, 20, 5);
 
-        Measured.NothingAllocated(Layout, warmUp: 20, passes: 200);
+        Measured.NothingAllocated(Layout, 20, 200);
 
         return;
 
@@ -34,16 +34,16 @@ public class LayoutPassTests {
         // This is the gate that matters, and it is the reason a flex line is a range of children
         // rather than a list of them.
         using var tree = new LayoutTree();
-        var root = BuildPanel(tree, rows: 20, columnsPerRow: 5);
+        var root = BuildPanel(tree, 20, 5);
         var moving = tree.GetChild(tree.GetChild(root, 0), 0);
         var frame = 0;
 
-        Measured.NothingAllocated(Layout, warmUp: 20, passes: 200);
+        Measured.NothingAllocated(Layout, 20, 200);
 
         return;
 
         void Layout() {
-            tree.SetDimension(moving, Dimension.Width, StyleLength.Points(10f + (frame++ % 40)));
+            tree.SetDimension(moving, Dimension.Width, StyleLength.Points(10f + frame++ % 40));
             tree.CalculateLayout(root, 800f, 600f, Direction.Ltr);
         }
     }
@@ -69,12 +69,12 @@ public class LayoutPassTests {
         var toggle = tree.GetChild(root, 0);
         var frame = 0;
 
-        Measured.NothingAllocated(Layout, warmUp: 20, passes: 200);
+        Measured.NothingAllocated(Layout, 20, 200);
 
         return;
 
         void Layout() {
-            tree.SetDimension(toggle, Dimension.Height, StyleLength.Points(40f + (frame++ % 3)));
+            tree.SetDimension(toggle, Dimension.Height, StyleLength.Points(40f + frame++ % 3));
             tree.CalculateLayout(root, float.NaN, float.NaN, Direction.Ltr);
         }
     }
@@ -112,7 +112,7 @@ public class LayoutPassTests {
 
         LayoutSize Count(in MeasureRequest request) {
             measured++;
-            return new LayoutSize((float) (request.Context ?? 0f), 20f);
+            return new((float)(request.Context ?? 0f), 20f);
         }
     }
 
@@ -139,7 +139,7 @@ public class LayoutPassTests {
 
         LayoutSize Count(in MeasureRequest request) {
             measured++;
-            return new LayoutSize((float) (request.Context ?? 0f), 20f);
+            return new((float)(request.Context ?? 0f), 20f);
         }
     }
 
@@ -168,7 +168,7 @@ public class LayoutPassTests {
             }
         }
 
-        Assert.Equal((rows * perRow) + rows + 1, tree.NodeCount);
+        Assert.Equal(rows * perRow + rows + 1, tree.NodeCount);
 
         tree.CalculateLayout(root, 1000f, float.NaN, Direction.Ltr);
 

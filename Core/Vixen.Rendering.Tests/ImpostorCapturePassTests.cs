@@ -83,7 +83,7 @@ public sealed class ImpostorCapturePassTests : IDisposable {
     /// </remarks>
     [Fact]
     public void EachDrawHasItsPipelineAndItsGeometry() {
-        var atlas = Layout(side: 2);
+        var atlas = Layout(2);
 
         using var bake = new ImpostorBake(device, atlas);
         using var pass = Pass(atlas.Grid.CellCount);
@@ -105,8 +105,12 @@ public sealed class ImpostorCapturePassTests : IDisposable {
 
     /// <summary>The whole bake is one render pass, which is what the caller must not break.</summary>
     /// <remarks>
-    ///     ⚠ <b>A caller that opened its own pass per cell would clear and resolve the atlas once per
-    ///     cell</b> — the cost <see cref="ImpostorBake.Record" />'s single pass exists to avoid, and it
+    ///     ⚠
+    ///     <b>
+    ///         A caller that opened its own pass per cell would clear and resolve the atlas once per
+    ///         cell
+    ///     </b>
+    ///     — the cost <see cref="ImpostorBake.Record" />'s single pass exists to avoid, and it
     ///     would also clear away every cell baked before it.
     /// </remarks>
     [Fact]
@@ -139,8 +143,12 @@ public sealed class ImpostorCapturePassTests : IDisposable {
 
     /// <summary>A vertex with no normal is given one rather than a zero.</summary>
     /// <remarks>
-    ///     ⚠ <b>A zero normalises to a NaN, and a NaN in the normal atlas survives the dilation and
-    ///     the whole mip chain.</b> One bad vertex turns a whole impostor black at a distance, which
+    ///     ⚠
+    ///     <b>
+    ///         A zero normalises to a NaN, and a NaN in the normal atlas survives the dilation and
+    ///         the whole mip chain.
+    ///     </b>
+    ///     One bad vertex turns a whole impostor black at a distance, which
     ///     is a very long way from the vertex that caused it.
     /// </remarks>
     [Fact]
@@ -153,7 +161,7 @@ public sealed class ImpostorCapturePassTests : IDisposable {
 
         var normal = MemoryMarshal.Read<Vector3>(bytes.AsSpan(12));
 
-        Assert.Equal(new Vector3(0f, 1f, 0f), normal);
+        Assert.Equal(new(0f, 1f, 0f), normal);
 
         // And a zero normal that *was* supplied is replaced too, which is the case a broken import
         // produces rather than an absent array.
@@ -161,7 +169,7 @@ public sealed class ImpostorCapturePassTests : IDisposable {
 
         ImpostorCapturePass.Pack(positions, zeroed, bytes);
 
-        Assert.Equal(new Vector3(0f, 1f, 0f), MemoryMarshal.Read<Vector3>(bytes.AsSpan(12)));
+        Assert.Equal(new(0f, 1f, 0f), MemoryMarshal.Read<Vector3>(bytes.AsSpan(12)));
     }
 
     /// <summary>A cell's constants are its own, at its own aligned offset.</summary>
@@ -173,6 +181,8 @@ public sealed class ImpostorCapturePassTests : IDisposable {
     [Fact]
     public void EachCellsCameraHasItsOwnAlignedBlock() {
         Assert.Equal(0, ImpostorCapturePass.BlockAlignment % 256);
-        Assert.True(ImpostorCapturePass.BlockAlignment >= Vixen.Shaders.Generated.ImpostorCaptureKeys.ConstantBufferSize);
+        Assert.True(
+            ImpostorCapturePass.BlockAlignment >= Vixen.Shaders.Generated.ImpostorCaptureKeys.ConstantBufferSize
+        );
     }
 }

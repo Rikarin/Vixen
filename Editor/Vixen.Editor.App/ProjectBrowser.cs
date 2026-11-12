@@ -37,8 +37,12 @@ namespace Vixen.Editor.App;
 ///         one, and can be told to ignore a write this program is about to make.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Every verb on content is <see cref="IContentLibrary" />'s, and the panel only names
-///         it</b> (#1304). Renaming a file, moving one, importing a drop and filing assets into a
+///         ⚠
+///         <b>
+///             Every verb on content is <see cref="IContentLibrary" />'s, and the panel only names
+///             it
+///         </b>
+///         (#1304). Renaming a file, moving one, importing a drop and filing assets into a
 ///         collection are operations on the <i>project</i>, and a browser that performed them would be
 ///         the second place that knows how — the first being the library, over
 ///         <see cref="AssetOperations" />, which is where the sidecar invariant is written down and
@@ -65,8 +69,12 @@ sealed class ProjectBrowser {
 
     /// <summary>The button that drops the saved-filter menu.</summary>
     /// <remarks>
-    ///     ⚠ <b>A menu behind one button rather than a fifth control in the bar, and the width is
-    ///     the reason.</b> The bar already carries a search box, a kind dropdown, the view toggle and
+    ///     ⚠
+    ///     <b>
+    ///         A menu behind one button rather than a fifth control in the bar, and the width is
+    ///         the reason.
+    ///     </b>
+    ///     The bar already carries a search box, a kind dropdown, the view toggle and
     ///     the tile-size picker; a saved-filter dropdown beside them is the row that runs out of room
     ///     in a docked panel, which is the failure the inspector's own row hit. A menu also has
     ///     somewhere to put Save and Forget, which a dropdown does not.
@@ -75,8 +83,12 @@ sealed class ProjectBrowser {
 
     /// <summary>The saved-filter menu, built on first use.</summary>
     /// <remarks>
-    ///     ⚠ <b>Lazily, because a <c>ContextMenu</c> is an overlay and belongs to the document rather
-    ///     than to the panel</b> — and the panel may not be in a document yet while its factory runs.
+    ///     ⚠
+    ///     <b>
+    ///         Lazily, because a <c>ContextMenu</c> is an overlay and belongs to the document rather
+    ///         than to the panel
+    ///     </b>
+    ///     — and the panel may not be in a document yet while its factory runs.
     ///     It is filled on every opening for <c>CurvePresetLines</c>'s reason: a menu filled once
     ///     holds the filters that existed when the panel was built, and the first thing anybody does
     ///     after saving one is look for it.
@@ -86,8 +98,11 @@ sealed class ProjectBrowser {
     /// <summary>The folders-only tree beside the grid.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A second view over the same <c>AssetTree</c> rather than the first one turned
-    ///         on, and doc 20 § B1 asks for exactly that: "a folder tree <i>beside</i> the grid".</b>
+    ///         ⚠
+    ///         <b>
+    ///             A second view over the same <c>AssetTree</c> rather than the first one turned
+    ///             on, and doc 20 § B1 asks for exactly that: "a folder tree <i>beside</i> the grid".
+    ///         </b>
     ///         <see cref="tree" /> is the browsing surface in list mode and shows assets as well as
     ///         folders — its selection <i>is</i> the project's selection. This one shows folders
     ///         only and its selection <b>narrows</b> the grid instead. Building the second by
@@ -103,8 +118,12 @@ sealed class ProjectBrowser {
 
     /// <summary>Whether the folder tree is being brought into line rather than clicked in.</summary>
     /// <remarks>
-    ///     ⚠ <b>Selecting a row raises <c>SelectionChanged</c>, and this panel writes that
-    ///     selection from three places</b> — a rebuild, a grid navigation, and the click itself. An
+    ///     ⚠
+    ///     <b>
+    ///         Selecting a row raises <c>SelectionChanged</c>, and this panel writes that
+    ///         selection from three places
+    ///     </b>
+    ///     — a rebuild, a grid navigation, and the click itself. An
     ///     unguarded restore would re-enter <see cref="Populate" /> from inside <see cref="Populate" />
     ///     on every rebuild, which is the round trip `ProjectBrowser.TileSize` already documents one
     ///     harmless instance of.
@@ -136,8 +155,12 @@ sealed class ProjectBrowser {
 
     /// <summary>Raised when the user asks to keep the filter that is set, under a name.</summary>
     /// <remarks>
-    ///     ⚠ <b>The request rather than the filter, for the browser's own rule: every verb goes out
-    ///     as an event.</b> Naming it means a modal prompt and keeping it means a preferences file,
+    ///     ⚠
+    ///     <b>
+    ///         The request rather than the filter, for the browser's own rule: every verb goes out
+    ///         as an event.
+    ///     </b>
+    ///     Naming it means a modal prompt and keeping it means a preferences file,
     ///     and a panel that owned either would be a second writer to the user store. What the host
     ///     reads back is <see cref="Search" /> and <see cref="Kind" />, which are the filter.
     /// </remarks>
@@ -145,8 +168,12 @@ sealed class ProjectBrowser {
 
     /// <summary>Raised when assets are to go into a collection that has to be named first.</summary>
     /// <remarks>
-    ///     ⚠ <b>The request rather than the collection, for the browser's standing rule: every verb
-    ///     goes out as an event.</b> Naming it is a modal prompt and keeping it is a file under
+    ///     ⚠
+    ///     <b>
+    ///         The request rather than the collection, for the browser's standing rule: every verb
+    ///         goes out as an event.
+    ///     </b>
+    ///     Naming it is a modal prompt and keeping it is a file under
     ///     <c>ProjectSettings/</c>, and a panel that owned either would be a second writer to the
     ///     project's own settings. The list may be empty — making an empty collection is how
     ///     somebody produces a row there is anywhere to drop onto.
@@ -177,8 +204,12 @@ sealed class ProjectBrowser {
     /// <summary>Raised when a pointer goes down on the panel, and again when it comes up.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Without this there is no such thing as dragging an asset into an inspector
-    ///         field, and the reason is two panels deep.</b> Pressing a row selects it, a selected
+    ///         ⚠
+    ///         <b>
+    ///             Without this there is no such thing as dragging an asset into an inspector
+    ///             field, and the reason is two panels deep.
+    ///         </b>
+    ///         Pressing a row selects it, a selected
     ///         asset wins the inspector from whatever entity had it, and the panel is rebuilt — so by
     ///         the time the pointer has moved far enough to be a drag at all, the field it was aimed
     ///         at no longer exists. The gesture was not merely awkward; it was impossible.
@@ -218,7 +249,12 @@ sealed class ProjectBrowser {
     ///     assigned afterwards would arrive one panel too late, which is the shape of mistake
     ///     <c>EditorSession</c> already made once with <c>init</c>.
     /// </param>
-    public ProjectBrowser(IProjectSession session, UiElement panel, IContentLibrary library, IEditorRegistry extensions) {
+    public ProjectBrowser(
+        IProjectSession session,
+        UiElement panel,
+        IContentLibrary library,
+        IEditorRegistry extensions
+    ) {
         ArgumentNullException.ThrowIfNull(session);
         ArgumentNullException.ThrowIfNull(panel);
         ArgumentNullException.ThrowIfNull(library);
@@ -245,13 +281,10 @@ sealed class ProjectBrowser {
                     case PointerAction.Released:
                         Grabbing?.Invoke(false);
                         break;
-
-                    default:
-                        break;
                 }
             },
             RoutingStrategy.Capture,
-            handledEventsToo: true
+            true
         );
 
         // ⚠ The first consumer of an OS drop in this repository, and the panel is the target rather
@@ -260,8 +293,7 @@ sealed class ProjectBrowser {
         // row arrives here anyway and `FolderAt` reads what it landed on.
         panel.AllowDrop = true;
 
-        panel.AddHandler<DropEvent>(
-            (_, args) => {
+        panel.AddHandler<DropEvent>((_, args) => {
                 if (args.Files.Count == 0) {
                     return;
                 }
@@ -393,32 +425,30 @@ sealed class ProjectBrowser {
         // ⚠ On the tree as well as the grid, and it has to be the *source* that watches for this:
         // a drop outside the panel never reaches the panel it landed on.
         tree.AddHandler<DragEvent>((_, args) => {
-            var outside = !Inside(tree, args.X, args.Y);
+                var outside = !Inside(tree, args.X, args.Y);
 
-            // ⚠ However it ended. A cancelled drag — a window losing focus mid-gesture — produces no
-            // release, so a host that learned "the gesture is over" from the pointer alone would
-            // never learn it, and what that suspends is the inspector following the selection.
-            if (args.Stage is DragStage.Completed or DragStage.Cancelled) {
-                Grabbing?.Invoke(false);
+                // ⚠ However it ended. A cancelled drag — a window losing focus mid-gesture — produces no
+                // release, so a host that learned "the gesture is over" from the pointer alone would
+                // never learn it, and what that suspends is the inspector following the selection.
+                if (args.Stage is DragStage.Completed or DragStage.Cancelled) {
+                    Grabbing?.Invoke(false);
+                }
+
+                switch (args.Stage) {
+                    case DragStage.Completed when outside:
+                        Escaped(args.X, args.Y);
+                        break;
+
+                    case DragStage.Started or DragStage.Moved when outside:
+                        Hovering(args.X, args.Y);
+                        break;
+
+                    case DragStage.Started or DragStage.Moved or DragStage.Cancelled:
+                        Hovering(float.NaN, float.NaN);
+                        break;
+                }
             }
-
-            switch (args.Stage) {
-                case DragStage.Completed when outside:
-                    Escaped(args.X, args.Y);
-                    break;
-
-                case DragStage.Started or DragStage.Moved when outside:
-                    Hovering(args.X, args.Y);
-                    break;
-
-                case DragStage.Started or DragStage.Moved or DragStage.Cancelled:
-                    Hovering(float.NaN, float.NaN);
-                    break;
-
-                default:
-                    break;
-            }
-        });
+        );
 
         tree.Moved += (_, node) => {
             if (node.Parent?.Tag is AssetTreeNode { IsIndexed: true, IsFolder: true } folder) {
@@ -496,9 +526,6 @@ sealed class ProjectBrowser {
                     shown.Collection = picked.Name;
                     Populate();
                     break;
-
-                default:
-                    break;
             }
         };
 
@@ -506,10 +533,11 @@ sealed class ProjectBrowser {
         // `OpenFilters` builds one: a collection's name is not a command id, and a submenu whose
         // lines are the project's collections cannot come out of a registry keyed by id.
         folders.AddHandler<PointerEvent>((_, args) => {
-            if (args is { Action: PointerAction.Pressed, Button: PointerButton.Secondary }) {
-                OpenCollections(args.X, args.Y);
+                if (args is { Action: PointerAction.Pressed, Button: PointerButton.Secondary }) {
+                    OpenCollections(args.X, args.Y);
+                }
             }
-        });
+        );
 
         // ⚠ Built after the grid and put in the bar all the same, because its handler writes to the
         // grid — a lambda closing over a field the constructor has not reached yet is a null the
@@ -572,8 +600,12 @@ sealed class ProjectBrowser {
 
     /// <summary>What source control says about a project-relative path, for the column.</summary>
     /// <remarks>
-    ///     ⚠ <b>Given to the panel rather than read by it, for the browser's standing rule: every
-    ///     verb is a service's and every fact comes in as a value.</b> A browser that ran
+    ///     ⚠
+    ///     <b>
+    ///         Given to the panel rather than read by it, for the browser's standing rule: every
+    ///         verb is a service's and every fact comes in as a value.
+    ///     </b>
+    ///     A browser that ran
     ///     <c>git</c> would be a panel that starts a process, and the answer belongs to the project
     ///     rather than to whichever view happens to be open — see <c>EditorApplication.Sweep</c>,
     ///     which is where the sweep is taken and what makes it survive the panel being closed.
@@ -601,8 +633,12 @@ sealed class ProjectBrowser {
     /// <param name="node">What it is showing now.</param>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The element is made once per <i>row</i> and found again by its tag, never made per
-    ///         bind.</b> Thirty rows serve a tree of any size and this runs on every rebind, so a
+    ///         ⚠
+    ///         <b>
+    ///             The element is made once per <i>row</i> and found again by its tag, never made per
+    ///             bind.
+    ///         </b>
+    ///         Thirty rows serve a tree of any size and this runs on every rebind, so a
     ///         handler that added an element would add one per scrolled row for the life of the
     ///         panel — <c>TreeView.RowBound</c> says so and the outliner's eye and padlock are the
     ///         same shape one panel over.
@@ -646,8 +682,12 @@ sealed class ProjectBrowser {
     /// <returns>A project-relative folder path, never empty.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The row under the pointer decides, and an <i>asset</i> row means the folder that
-    ///         holds it.</b> Nobody aiming at <c>wood.png</c> means "inside wood.png"; they mean the
+    ///         ⚠
+    ///         <b>
+    ///             The row under the pointer decides, and an <i>asset</i> row means the folder that
+    ///             holds it.
+    ///         </b>
+    ///         Nobody aiming at <c>wood.png</c> means "inside wood.png"; they mean the
     ///         folder they can see it in. Walking up from whatever was hit answers both cases with
     ///         one rule.
     ///     </para>
@@ -774,8 +814,12 @@ sealed class ProjectBrowser {
     /// <summary>Adds the Collections heading and a row per collection, under the folders.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>In the same column as the folders and under them, rather than in a panel of its
-    ///         own.</b> A collection answers the same question a folder does — "show me these" — and
+    ///         ⚠
+    ///         <b>
+    ///             In the same column as the folders and under them, rather than in a panel of its
+    ///             own.
+    ///         </b>
+    ///         A collection answers the same question a folder does — "show me these" — and
     ///         the grid can only be showing one thing, so two columns each with a selection would be
     ///         two answers to it. Underneath because the folders are where somebody looks first.
     ///     </para>
@@ -805,8 +849,12 @@ sealed class ProjectBrowser {
     /// <param name="y">Where, in document space.</param>
     /// <returns>The name, empty for the heading, or null when the point is not on one.</returns>
     /// <remarks>
-    ///     ⚠ <b>The browser resolves this drop itself, exactly as <see cref="FolderAt" /> does, and
-    ///     for the same reason:</b> a drag released over the folder column never reaches the column,
+    ///     ⚠
+    ///     <b>
+    ///         The browser resolves this drop itself, exactly as <see cref="FolderAt" /> does, and
+    ///         for the same reason:
+    ///     </b>
+    ///     a drag released over the folder column never reaches the column,
     ///     because a gesture belongs to the element the press landed on for its whole life. What the
     ///     application would have to be told otherwise is where every row in this panel is.
     /// </remarks>
@@ -842,7 +890,7 @@ sealed class ProjectBrowser {
             menu.Children[^1].Remove();
         }
 
-        List<AssetId> picked = [.. project.Selection];
+        List<AssetId> picked = [..project.Selection];
 
         var made = menu.AddItem(picked.Count > 0 ? "New Collection from Selection…" : "New Collection…");
 
@@ -930,8 +978,12 @@ sealed class ProjectBrowser {
 
     /// <summary>The importer tag the kind dropdown is on, or empty for every kind.</summary>
     /// <remarks>
-    ///     ⚠ <b>Empty rather than <c>All types</c>, because the dropdown's own line is a label and
-    ///     not a tag.</b> A saved filter that stored the label would come back as a filter for assets
+    ///     ⚠
+    ///     <b>
+    ///         Empty rather than <c>All types</c>, because the dropdown's own line is a label and
+    ///         not a tag.
+    ///     </b>
+    ///     A saved filter that stored the label would come back as a filter for assets
     ///     whose importer is called "All types", which is a filter that matches nothing — silently,
     ///     since an empty grid is what a narrow filter looks like.
     /// </remarks>
@@ -941,8 +993,12 @@ sealed class ProjectBrowser {
     /// <param name="query">What to put in the search box.</param>
     /// <param name="kind">The importer tag, or empty for every kind.</param>
     /// <remarks>
-    ///     ⚠ <b>Through the controls rather than around them, which is what makes an applied filter
-    ///     visible.</b> A filter applied to <see cref="Populate" /> alone would narrow the grid while
+    ///     ⚠
+    ///     <b>
+    ///         Through the controls rather than around them, which is what makes an applied filter
+    ///         visible.
+    ///     </b>
+    ///     A filter applied to <see cref="Populate" /> alone would narrow the grid while
     ///     the search box sat empty — a browser showing a fifth of the project with nothing on screen
     ///     saying why, which is the state people restart the editor to get out of.
     ///     <para>
@@ -1031,7 +1087,7 @@ sealed class ProjectBrowser {
     ///     application responsible for knowing where every row in this panel is.
     /// </remarks>
     void Escaped(float x, float y) {
-        List<AssetId> carried = [.. project.Selection];
+        List<AssetId> carried = [..project.Selection];
 
         if (carried.Count == 0) {
             return;
@@ -1058,7 +1114,7 @@ sealed class ProjectBrowser {
     ///     that begins on nothing still has to clear whatever the previous one lit up, and a guard
     ///     that swallowed it here would leave a field outlined until the next successful drop.
     /// </remarks>
-    void Hovering(float x, float y) => DraggedOutside?.Invoke([.. project.Selection], x, y);
+    void Hovering(float x, float y) => DraggedOutside?.Invoke([..project.Selection], x, y);
 
     static bool Inside(UiElement element, float x, float y) {
         var bounds = element.Bounds;
@@ -1139,10 +1195,10 @@ sealed class ProjectBrowser {
         kinds.AddOption(AnyType);
 
         foreach (var tag in project.Assets.Entries
-            .Where(entry => !entry.IsFolder && !string.IsNullOrEmpty(entry.ImporterTag))
-            .Select(entry => entry.ImporterTag!)
-            .Distinct(StringComparer.Ordinal)
-            .OrderBy(tag => tag, StringComparer.Ordinal)) {
+                     .Where(static entry => !entry.IsFolder && !string.IsNullOrEmpty(entry.ImporterTag))
+                     .Select(static entry => entry.ImporterTag!)
+                     .Distinct(StringComparer.Ordinal)
+                     .OrderBy(static tag => tag, StringComparer.Ordinal)) {
             kinds.AddOption(tag);
         }
 
@@ -1166,7 +1222,7 @@ sealed class ProjectBrowser {
             return [];
         }
 
-        return tree.Selection.Contains(node) ? [.. project.Selection] : [asset.Guid];
+        return tree.Selection.Contains(node) ? [..project.Selection] : [asset.Guid];
     }
 
     /// <summary>Which folders are open, by path.</summary>
@@ -1206,7 +1262,9 @@ sealed class ProjectBrowser {
             // ⚠ A collection is shown *through* the same two filters rather than beside them, so the
             // search box narrows inside one. A collection with a filter of its own would be the
             // second browser the view toggle's own remark refuses.
-            tiles.Show(shown.Collection is { } named ? Gather(named, kept) : AssetTree.Find(kept, shown.Folder) ?? kept);
+            tiles.Show(
+                shown.Collection is { } named ? Gather(named, kept) : AssetTree.Find(kept, shown.Folder) ?? kept
+            );
             tiles.Mark(project.Selection);
 
             return;
@@ -1317,13 +1375,21 @@ sealed class ProjectBrowser {
     /// <returns>A synthesised folder holding whatever of the collection survives them.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Gathered from the <em>filtered</em> tree rather than from the database, so the
-    ///         search box and the kind dropdown narrow inside a collection.</b> A collection with a
+    ///         ⚠
+    ///         <b>
+    ///             Gathered from the <em>filtered</em> tree rather than from the database, so the
+    ///             search box and the kind dropdown narrow inside a collection.
+    ///         </b>
+    ///         A collection with a
     ///         filter of its own would be the second browser the view toggle's own remark refuses.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>An id the project no longer has is simply not found, and nothing prunes the
-    ///         stored list.</b> A file that is missing today is one somebody may restore or a branch
+    ///         ⚠
+    ///         <b>
+    ///             An id the project no longer has is simply not found, and nothing prunes the
+    ///             stored list.
+    ///         </b>
+    ///         A file that is missing today is one somebody may restore or a branch
     ///         they may switch back to; a collection that quietly emptied itself over a checkout is
     ///         worse than one showing fewer tiles than it holds.
     ///     </para>

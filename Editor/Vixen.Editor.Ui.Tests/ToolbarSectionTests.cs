@@ -4,7 +4,6 @@
 using Vixen.Input;
 using Vixen.Ui;
 using Vixen.Ui.Controls;
-using Vixen.Ui.Styling;
 using Xunit;
 
 namespace Vixen.Editor.Ui.Tests;
@@ -22,7 +21,9 @@ public class ToolbarSectionTests : IDisposable {
     readonly KeyMap keys = new();
     readonly List<MenuPresenter> presenters = [];
 
-    public ToolbarSectionTests() => ControlTheme.Install(document);
+    public ToolbarSectionTests() {
+        ControlTheme.Install(document);
+    }
 
     public void Dispose() {
         foreach (var presenter in presenters) {
@@ -38,12 +39,7 @@ public class ToolbarSectionTests : IDisposable {
     ToolbarPresenter Toolbar() => new(document.Root, commands, keys);
 
     void Mode(string id, string label, Func<bool> on, Action? run = null) =>
-        commands.Add(
-            new EditorCommand(id, Title(label), run ?? (() => { })) {
-                Checked = on,
-                RadioGroup = "gizmo"
-            }
-        );
+        commands.Add(new(id, Title(label), run ?? (static () => { })) { Checked = on, RadioGroup = "gizmo" });
 
     [Fact]
     public void A_group_is_one_segmented_control_with_the_members_inside_it() {
@@ -89,8 +85,24 @@ public class ToolbarSectionTests : IDisposable {
         var mode = "translate";
         var ran = 0;
 
-        Mode("scene.translate", "Translate", () => mode == "translate", () => { mode = "translate"; ran++; });
-        Mode("scene.rotate", "Rotate", () => mode == "rotate", () => { mode = "rotate"; ran++; });
+        Mode(
+            "scene.translate",
+            "Translate",
+            () => mode == "translate",
+            () => {
+                mode = "translate";
+                ran++;
+            }
+        );
+        Mode(
+            "scene.rotate",
+            "Rotate",
+            () => mode == "rotate",
+            () => {
+                mode = "rotate";
+                ran++;
+            }
+        );
 
         var toolbar = Toolbar();
         toolbar.Show(new ToolbarGroup("scene.translate", "scene.rotate"));
@@ -155,8 +167,8 @@ public class ToolbarSectionTests : IDisposable {
 
     [Fact]
     public void A_box_is_the_run_of_ordinary_buttons_a_group_used_to_be() {
-        commands.Add("play.play", Title("Play"), () => { });
-        commands.Add("play.stop", Title("Stop"), () => { });
+        commands.Add("play.play", Title("Play"), static () => { });
+        commands.Add("play.stop", Title("Stop"), static () => { });
 
         var toolbar = Toolbar();
         toolbar.Show(new ToolbarBox("play.play", "play.stop"));
@@ -165,11 +177,11 @@ public class ToolbarSectionTests : IDisposable {
         // Pause, Step and Stop want the box because a transport is one object; they are four verbs
         // and not four alternatives, so announcing them as a question with one answer — and letting
         // an arrow key "choose" Stop — would be a lie the box does not tell.
-        var box = Assert.Single(toolbar.Strip.Children, child => child.Tag == "toolbar-group");
+        var box = Assert.Single(toolbar.Strip.Children, static child => child.Tag == "toolbar-group");
 
         Assert.Empty(toolbar.Strip.Children.OfType<SegmentedControl>());
         Assert.Equal(2, box.Children.Count);
-        Assert.All(box.Children, child => Assert.IsAssignableFrom<ButtonBase>(child));
+        Assert.All(box.Children, static child => Assert.IsAssignableFrom<ButtonBase>(child));
     }
 
     static void Key(UiElement element, InputKey key) =>
@@ -180,13 +192,11 @@ public class ToolbarSectionTests : IDisposable {
         var ran = 0;
 
         commands.Add("scene.toggle-grid", Title("Grid"), () => ran++);
-        commands.Add("scene.toggle-snap", Title("Snapping"), () => { });
+        commands.Add("scene.toggle-snap", Title("Snapping"), static () => { });
 
         var toolbar = Toolbar();
 
-        toolbar.Show(
-            new ToolbarDropdown(Title("Gizmo"), null, "scene.toggle-grid", null, "scene.toggle-snap")
-        );
+        toolbar.Show(new ToolbarDropdown(Title("Gizmo"), null, "scene.toggle-grid", null, "scene.toggle-snap"));
 
         var button = Assert.Single(toolbar.Strip.Children.OfType<Button>());
         Assert.True(button.HasClass("toolbar-dropdown"));
@@ -200,7 +210,7 @@ public class ToolbarSectionTests : IDisposable {
 
     [Fact]
     public void A_rebuild_takes_the_dropdowns_menus_with_it() {
-        commands.Add("scene.toggle-grid", Title("Grid"), () => { });
+        commands.Add("scene.toggle-grid", Title("Grid"), static () => { });
 
         var toolbar = Toolbar();
         toolbar.Show(new ToolbarDropdown(Title("Gizmo"), null, "scene.toggle-grid"));
@@ -217,7 +227,7 @@ public class ToolbarSectionTests : IDisposable {
 
     [Fact]
     public void The_flat_form_still_describes_a_strip_of_buttons_and_rules() {
-        commands.Add("file.save", Title("Save"), () => { });
+        commands.Add("file.save", Title("Save"), static () => { });
 
         var toolbar = Toolbar();
         toolbar.Show("file.save", null, "plugin.gone");
@@ -229,10 +239,10 @@ public class ToolbarSectionTests : IDisposable {
 
     [Fact]
     public void A_toolbar_button_greys_itself_out_when_its_command_is_out_of_scope() {
-        string? context = "scene";
+        var context = "scene";
 
         commands.FocusedContext = () => context;
-        commands.Add(new EditorCommand("edit.delete", Title("Delete"), () => { }) { Context = "scene" });
+        commands.Add(new EditorCommand("edit.delete", Title("Delete"), static () => { }) { Context = "scene" });
 
         var toolbar = Toolbar();
         toolbar.Show("edit.delete");
@@ -250,10 +260,10 @@ public class ToolbarSectionTests : IDisposable {
 
     [Fact]
     public void A_toggle_gets_a_tick_and_a_radio_member_gets_a_dot() {
-        commands.Add(new EditorCommand("view.grid", Title("Grid"), () => { }) { Checked = () => true });
-        commands.Add("file.save", Title("Save"), () => { });
+        commands.Add(new EditorCommand("view.grid", Title("Grid"), static () => { }) { Checked = static () => true });
+        commands.Add("file.save", Title("Save"), static () => { });
 
-        Mode("scene.translate", "Translate", () => true);
+        Mode("scene.translate", "Translate", static () => true);
 
         var model = new MenuModel();
         model.AddMenu(Title("View")).Add("view.grid", "file.save", "scene.translate");
@@ -270,6 +280,6 @@ public class ToolbarSectionTests : IDisposable {
 
         // And a command that is not a toggle never grows a mark at all, which is what keeps the
         // ordinary menu from being indented by a column of empty ticks.
-        Assert.DoesNotContain(menu.Items[1].Children, child => child is Icon);
+        Assert.DoesNotContain(menu.Items[1].Children, static child => child is Icon);
     }
 }

@@ -22,8 +22,12 @@ public partial class UiElement {
     ///         cheaper answer whenever moving a box is enough.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>It beats every rule, including one marked <c>!important</c> in a user
-    ///         stylesheet.</b> That is what inline means in the cascade, and it is why a control
+    ///         ⚠
+    ///         <b>
+    ///             It beats every rule, including one marked <c>!important</c> in a user
+    ///             stylesheet.
+    ///         </b>
+    ///         That is what inline means in the cascade, and it is why a control
     ///         should write the fewest properties it can: a control that writes <c>height</c>
     ///         because it wanted to write <c>flex-basis</c> has taken the height away from every
     ///         theme that will ever style it.
@@ -41,8 +45,12 @@ public partial class UiElement {
     /// <param name="value">Its value, or <c>null</c> to take the declaration away again.</param>
     /// <param name="important">Whether it outranks an <c>!important</c> rule as well as a plain one.</param>
     /// <remarks>
-    ///     ⚠ <b>An overload rather than an optional parameter, so that no existing call site changes
-    ///     meaning.</b> The flag exists because <c>style="…"</c> in markup can carry an
+    ///     ⚠
+    ///     <b>
+    ///         An overload rather than an optional parameter, so that no existing call site changes
+    ///         meaning.
+    ///     </b>
+    ///     The flag exists because <c>style="…"</c> in markup can carry an
     ///     <c>!important</c> and the cascade already has the tier for it —
     ///     <c>CascadeRanks.ImportantInline</c> — so parsing one and then dropping it would be the
     ///     silent wrong answer this file's neighbours keep getting caught by. Nothing in the engine
@@ -132,8 +140,12 @@ public partial class UiElement {
     ///     defeat the style-sharing key, which carries the handle: two elements that keep taking new
     ///     handles never look alike, however identical their declarations are.
     ///     <para>
-    ///         ⚠ <b>And the handle staying put is what lets the pass be narrowed rather than merely
-    ///         cheap.</b> A block rewritten under a handle the element already owns changes nothing
+    ///         ⚠
+    ///         <b>
+    ///             And the handle staying put is what lets the pass be narrowed rather than merely
+    ///             cheap.
+    ///         </b>
+    ///         A block rewritten under a handle the element already owns changes nothing
     ///         the sharing key is keyed on, so the whole frame's inline writes resolve in one pass.
     ///         See <see cref="UiDocument.InvalidateInline" />.
     ///     </para>

@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Editor.Texturing.Layers;
-using Vixen.Editor.Texturing.Painting;
 using Vixen.Texturing.Layers;
 using Vixen.Texturing.Painting;
 using Xunit;
@@ -12,16 +11,22 @@ namespace Vixen.Editor.Texturing.Tests;
 /// <summary>What a surface does about a canvas that is not there, which is not the same in both cases.</summary>
 /// <remarks>
 ///     <para>
-///         <b><a href="https://github.com/Rikarin/Vixen/issues/976">#976</a>: a missing canvas and an
-///         unmade one look identical to <c>PaintCanvasStore.Open</c> and are opposite situations.</b>
+///         <b>
+///             <a href="https://github.com/Rikarin/Vixen/issues/976">#976</a>: a missing canvas and an
+///             unmade one look identical to <c>PaintCanvasStore.Open</c> and are opposite situations.
+///         </b>
 ///         A layer that names no file has not been painted yet and its first stroke has to make one;
 ///         a layer that names one and does not have it is a stack that was moved without its
 ///         canvases, and an artist needs telling. Inventing a canvas for both was silent in the
 ///         second case.
 ///     </para>
 ///     <para>
-///         ⚠ <b>And the damage was not confined to this type, which is why the assertion below is
-///         about the store rather than about the refusal.</b> An invented canvas is <em>adopted</em>
+///         ⚠
+///         <b>
+///             And the damage was not confined to this type, which is why the assertion below is
+///             about the store rather than about the refusal.
+///         </b>
+///         An invented canvas is <em>adopted</em>
 ///         into the shared store, so refreshing the paint pane created the entry
 ///         <c>TextureExternalImages</c>'s own refusal tests for — and the layers pane then drew the
 ///         layer as empty instead of saying the file was missing. A test that only read the returned
@@ -68,14 +73,14 @@ public class PaintSurfaceTests : IDisposable {
     /// </remarks>
     [Fact]
     public void A_layer_that_names_nothing_is_given_a_canvas_to_paint_into() {
-        var document = Stack("Hull", "");
+        var document = Stack("Hull", string.Empty);
 
         PaintCanvasStore store = new();
 
         var surface = PaintSurface.Open(document, "rust", store, out var refusal);
 
         Assert.NotNull(surface);
-        Assert.Equal("", refusal);
+        Assert.Equal(string.Empty, refusal);
         Assert.True(surface.NeedsNaming);
 
         // Adopted rather than merely returned, which is what makes the second `Open` of one drag —
@@ -99,8 +104,12 @@ public class PaintSurfaceTests : IDisposable {
     ///         a stroke would reach.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Both halves, because the fallback is what makes this change nothing for a
-    ///         single-set stack.</b> An empty <c>PaintSet</c> has to keep meaning the first set;
+    ///         ⚠
+    ///         <b>
+    ///             Both halves, because the fallback is what makes this change nothing for a
+    ///             single-set stack.
+    ///         </b>
+    ///         An empty <c>PaintSet</c> has to keep meaning the first set;
     ///         a test that only set the name could not tell a working resolver from one that had
     ///         stopped falling back.
     ///     </para>
@@ -114,7 +123,7 @@ public class PaintSurfaceTests : IDisposable {
         var first = PaintSurface.Open(document, "rust", store, out var refusal);
 
         Assert.NotNull(first);
-        Assert.Equal("", refusal);
+        Assert.Equal(string.Empty, refusal);
         Assert.Equal("Body", first.Set.Name);
         Assert.Equal("Hull.Body.rust.vxpaint", first.Relative);
 
@@ -123,7 +132,7 @@ public class PaintSurfaceTests : IDisposable {
         var chosen = PaintSurface.Open(document, "rust", store, out refusal);
 
         Assert.NotNull(chosen);
-        Assert.Equal("", refusal);
+        Assert.Equal(string.Empty, refusal);
         Assert.Equal("Head", chosen.Set.Name);
         Assert.Equal("Hull.Head.rust.vxpaint", chosen.Relative);
 
@@ -152,13 +161,17 @@ public class PaintSurfaceTests : IDisposable {
 
     /// <summary>Two sets carrying the same layer id and different canvases.</summary>
     /// <remarks>
-    ///     ⚠ <b>Neither layer names a file, so each resolves to <c>LayerPaint.NameFor</c>'s
-    ///     default</b> — which puts the <em>set's</em> name in it. That is what makes the two
+    ///     ⚠
+    ///     <b>
+    ///         Neither layer names a file, so each resolves to <c>LayerPaint.NameFor</c>'s
+    ///         default
+    ///     </b>
+    ///     — which puts the <em>set's</em> name in it. That is what makes the two
     ///     distinguishable without writing a byte to the disk, and it is the ordinary state of a
     ///     paint layer whose first stroke has not happened.
     /// </remarks>
     LayerStackDocument TwoSets() {
-        var document = Stack("Hull", "");
+        var document = Stack("Hull", string.Empty);
         var stack = document.Document;
 
         // ⚠ Replaced rather than renamed: `TextureSetAsset.Name` is init-only, and `with` shares the

@@ -90,7 +90,9 @@ public class CraftingTests {
     readonly DefinitionCatalog catalog = Content.Catalog();
     readonly CraftingLibrary library;
 
-    public CraftingTests() => library = CraftingLibrary.Compile(catalog);
+    public CraftingTests() {
+        library = CraftingLibrary.Compile(catalog);
+    }
 
     Recipe Recipe(string address) => library.Find(DefId.From(address))!;
 
@@ -103,7 +105,7 @@ public class CraftingTests {
     }
 
     static Dictionary<uint, int> Holding(params (string Item, int Count)[] items) =>
-        items.ToDictionary(entry => DefId.From(entry.Item).Value, entry => entry.Count);
+        items.ToDictionary(static entry => DefId.From(entry.Item).Value, static entry => entry.Count);
 
     [Fact]
     public void TheContentCompilesWithNoProblems() => Assert.Empty(library.Problems);
@@ -179,7 +181,11 @@ public class CraftingTests {
 
         Assert.Equal(
             CraftingRefusal.Requirements,
-            crafter.CanCraft(Recipe(Content.Sword), Station(Content.Forge), Holding(("items/bar", 3), ("items/leather", 1)))
+            crafter.CanCraft(
+                Recipe(Content.Sword),
+                Station(Content.Forge),
+                Holding(("items/bar", 3), ("items/leather", 1))
+            )
         );
     }
 
@@ -221,7 +227,7 @@ public class CraftingTests {
         }
 
         // A quarter chance over two hundred tries, so both outcomes happen and neither dominates.
-        Assert.InRange(qualities.Count(quality => quality), 30, 70);
+        Assert.InRange(qualities.Count(static quality => quality), 30, 70);
     }
 
     [Fact]
@@ -302,13 +308,12 @@ public class CraftingTests {
 
     [Fact]
     public void ARecipeThatTakesOrMakesNothingIsAProblem() {
-        var problems = CraftingLibrary.Compile(
-                new DefinitionCatalogBuilder().Add("recipes/air", new RecipeDefinition()).Build()
-            )
+        var problems = CraftingLibrary
+            .Compile(new DefinitionCatalogBuilder().Add("recipes/air", new RecipeDefinition()).Build())
             .Problems;
 
-        Assert.Contains(problems, problem => problem.Contains("out of air", StringComparison.Ordinal));
-        Assert.Contains(problems, problem => problem.Contains("only destroys", StringComparison.Ordinal));
+        Assert.Contains(problems, static problem => problem.Contains("out of air", StringComparison.Ordinal));
+        Assert.Contains(problems, static problem => problem.Contains("only destroys", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -335,7 +340,7 @@ public class CraftingTests {
             )
             .Problems;
 
-        Assert.Contains(problems, problem => problem.Contains("only one of them", StringComparison.Ordinal));
+        Assert.Contains(problems, static problem => problem.Contains("only one of them", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -355,6 +360,6 @@ public class CraftingTests {
             )
             .Problems;
 
-        Assert.Contains(problems, problem => problem.Contains("never teaches", StringComparison.Ordinal));
+        Assert.Contains(problems, static problem => problem.Contains("never teaches", StringComparison.Ordinal));
     }
 }

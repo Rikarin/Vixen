@@ -57,14 +57,18 @@ public class UvPackPropertyTests {
     static readonly Gen<(IslandRecipe[] Recipes, int[] Order)> PermutedPatches = Permutations(IslandSpace.Patches);
 
     static Gen<(IslandRecipe[] Recipes, int[] Order)> Permutations(Gen<IslandRecipe[]> sets) =>
-        sets.SelectMany(
-            recipes => Gen.Shuffle(Enumerable.Range(0, recipes.Length).ToArray()).Select(order => (recipes, order))
+        sets.SelectMany(static recipes =>
+            Gen.Shuffle(Enumerable.Range(0, recipes.Length).ToArray()).Select(order => (recipes, order))
         );
 
     /// <summary>A sparse set, a resolution and a margin: the case with room left in the atlas.</summary>
     /// <remarks>
-    ///     ⚠ <b>128 and 256 rather than the fixed test's 512 to 4096, and the reason is the rasterizer
-    ///     rather than the packer.</b> <see cref="PackedAtlas.MinimumGap" /> probes a window round
+    ///     ⚠
+    ///     <b>
+    ///         128 and 256 rather than the fixed test's 512 to 4096, and the reason is the rasterizer
+    ///         rather than the packer.
+    ///     </b>
+    ///     <see cref="PackedAtlas.MinimumGap" /> probes a window round
     ///     every boundary texel, so verifying one 4096² atlas costs more than a hundred of these — and
     ///     the margin is counted in texels, so it says the same thing at every resolution.
     ///     <see cref="UvPackMarginTests.TheTexelGapIsTheSameAtEveryResolution" /> is where the large
@@ -74,7 +78,7 @@ public class UvPackPropertyTests {
         IslandSpace.Recipe.Array[2, 20],
         Gen.OneOf(128, 256),
         Gen.Int[1, 8],
-        (recipes, resolution, margin) => (recipes, resolution, margin)
+        static (recipes, resolution, margin) => (recipes, resolution, margin)
     );
 
     /// <summary>The same, with enough islands that the packer has to pack them against each other.</summary>
@@ -82,7 +86,7 @@ public class UvPackPropertyTests {
         IslandSpace.Recipe.Array[24, 64],
         Gen.OneOf(128, 256),
         Gen.Int[1, 8],
-        (recipes, resolution, margin) => (recipes, resolution, margin)
+        static (recipes, resolution, margin) => (recipes, resolution, margin)
     );
 
     static PackSettings Settings(PackQuality quality = PackQuality.Irregular) =>
@@ -98,8 +102,12 @@ public class UvPackPropertyTests {
     ///         over, and therefore the claim that decides whether a permutation re-pages an asset.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Deliberately not "island <i>i</i> keeps its own placement", and the residue is
-    ///         measured rather than assumed.</b> The comparison chain has to end somewhere, and it ends
+    ///         ⚠
+    ///         <b>
+    ///             Deliberately not "island <i>i</i> keeps its own placement", and the residue is
+    ///             measured rather than assumed.
+    ///         </b>
+    ///         The comparison chain has to end somewhere, and it ends
     ///         at the input index — so two islands that are equal by value still exchange slots under a
     ///         permutation. Measured after <c>Packer.Contents</c> landed: 12 to 20 islands per three
     ///         hundred permutations per rung, and not one of them moved a texel, because two islands
@@ -108,8 +116,12 @@ public class UvPackPropertyTests {
     ///         keeps the per-island claim on a corpus where no two islands are alike.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The super-patch rung draws from a different generator, and until it did this row was
-    ///         not testing the rung it names.</b> Grouping only considers an island whose mask fills its
+    ///         ⚠
+    ///         <b>
+    ///             The super-patch rung draws from a different generator, and until it did this row was
+    ///             not testing the rung it names.
+    ///         </b>
+    ///         Grouping only considers an island whose mask fills its
     ///         own bounding box, and <see cref="IslandSpace.Recipe" /> is star-heavy by design — so the
     ///         candidate list came out empty and every case fell through to the irregular path.
     ///         <see cref="IslandSpace.Patches" /> is doc 41 § D13's actual input, quantized quad patches,
@@ -166,7 +178,7 @@ public class UvPackPropertyTests {
     [Fact]
     public void A_permutation_does_not_move_the_report() {
         Permuted.Sample(
-            entry => {
+            static entry => {
                 var (recipes, order) = entry;
                 var islands = IslandSpace.Build(recipes);
                 var shuffled = new UvIsland[order.Length];
@@ -199,15 +211,23 @@ public class UvPackPropertyTests {
     ///         hold for every input.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Inequalities here and equalities in
-    ///         <see cref="The_gap_is_exactly_the_margin_when_the_atlas_is_packed_tightly" />, because a
-    ///         gap wider than the margin is not a defect — it is an atlas with room in it, and two
-    ///         small islands at 256² usually have a great deal of room.</b> What bleeds is a gap
+    ///         ⚠
+    ///         <b>
+    ///             Inequalities here and equalities in
+    ///             <see cref="The_gap_is_exactly_the_margin_when_the_atlas_is_packed_tightly" />, because a
+    ///             gap wider than the margin is not a defect — it is an atlas with room in it, and two
+    ///             small islands at 256² usually have a great deal of room.
+    ///         </b>
+    ///         What bleeds is a gap
     ///         <i>narrower</i> than the margin, and that is what is stated for every input.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>An island the packer had to shrink below one texel is excluded, and that is a
-    ///         measured defect rather than a convenience.</b> Such an island rasterizes to a single
+    ///         ⚠
+    ///         <b>
+    ///             An island the packer had to shrink below one texel is excluded, and that is a
+    ///             measured defect rather than a convenience.
+    ///         </b>
+    ///         Such an island rasterizes to a single
     ///         texel it covers a few per cent of, and where that texel lands is then decided twice by
     ///         different arithmetic — once by the packer, in the island's own frame at
     ///         <c>(coordinate − minimum) × texels</c>, and once here, through
@@ -224,8 +244,12 @@ public class UvPackPropertyTests {
     ///         asserted, so the property cannot pass by excluding everything.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A margin of zero is excluded too, and there it is the oracle rather than the packer
-    ///         that cannot cope.</b> <see cref="PackedAtlas" />' own remarks say the two rasterizations
+    ///         ⚠
+    ///         <b>
+    ///             A margin of zero is excluded too, and there it is the oracle rather than the packer
+    ///             that cannot cope.
+    ///         </b>
+    ///         <see cref="PackedAtlas" />' own remarks say the two rasterizations
     ///         differ by construction — "the packer widens an edge function by a box bound, which
     ///         over-covers slightly at a corner; this projects the triangle and the texel's square onto
     ///         five axes and is exact" — and they are reached by different arithmetic besides, one in
@@ -238,8 +262,13 @@ public class UvPackPropertyTests {
     ///         asserting that two rasterizers agree, which nobody claimed.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The subject is <see cref="UvUnwrap.Pack(IReadOnlyList{UvIsland}, PackSettings)" />'s own placements, and saying so is not
-    ///         pedantry — <see cref="UvStacking" /> is this property's exact negation.</b> § D10's
+    ///         ⚠
+    ///         <b>
+    ///             The subject is <see cref="UvUnwrap.Pack(IReadOnlyList{UvIsland}, PackSettings)" />'s own placements, and
+    ///             saying so is not
+    ///             pedantry — <see cref="UvStacking" /> is this property's exact negation.
+    ///         </b>
+    ///         § D10's
     ///         symmetric stacking <i>deliberately</i> overlaps two mirrored islands so that both halves
     ///         share one region of texture: <see cref="UvStacking.Fold" /> drops the partner before the
     ///         pack and <see cref="UvStacking.Unfold" /> hands it the representative's placement
@@ -290,7 +319,7 @@ public class UvPackPropertyTests {
                 Assert.True(
                     PackedAtlas.MinimumBorder(map, resolution) >= margin,
                     $"{what}: the nearest island is {PackedAtlas.MinimumBorder(map, resolution)} texels "
-                    + $"from the atlas edge."
+                    + "from the atlas edge."
                 );
 
                 var gap = PackedAtlas.MinimumGap(map, resolution, margin + 6);
@@ -308,8 +337,12 @@ public class UvPackPropertyTests {
 
     /// <summary>And the exact half: where two islands do meet, they meet at the margin and not past it.</summary>
     /// <remarks>
-    ///     ⚠ <b>Without this a packer that ignored <see cref="PackSettings.Margin" /> entirely and left
-    ///     a wide gap for some other reason would satisfy every inequality above.</b> Twenty-four
+    ///     ⚠
+    ///     <b>
+    ///         Without this a packer that ignored <see cref="PackSettings.Margin" /> entirely and left
+    ///         a wide gap for some other reason would satisfy every inequality above.
+    ///     </b>
+    ///     Twenty-four
     ///     islands and up at 128² or 256² is dense enough that the scale search closes onto a layout
     ///     where something touches: measured, the minimum gap was exactly the margin in every one of
     ///     120 sampled sets, at margins from zero to eight.
@@ -370,9 +403,10 @@ public class UvPackPropertyTests {
                 Gen.Int[0, 6],
                 Gen.Enum<PackQuality>(),
                 Gen.Enum<PackOverflow>(),
-                (recipes, resolution, margin, quality, overflow) => (recipes, resolution, margin, quality, overflow)
+                static (recipes, resolution, margin, quality, overflow) => (recipes, resolution, margin, quality,
+                    overflow)
             )
-            .Where(entry => (2 * entry.margin) + 1 <= entry.resolution)
+            .Where(static entry => 2 * entry.margin + 1 <= entry.resolution)
             .Sample(
                 entry => {
                     var (recipes, resolution, margin, quality, overflow) = entry;
@@ -437,7 +471,7 @@ public class UvPackPropertyTests {
             }
         }
 
-        return [.. thick];
+        return [..thick];
     }
 
     static UvReport Measure(IReadOnlyList<UvIsland> islands) {

@@ -128,9 +128,9 @@ public sealed class LootTableModel {
     ///     record's shallow <c>with</c> would hand the undo stack the very list the next edit
     ///     mutates.
     /// </remarks>
-    public LootTableDefinition Snapshot() {
-        var copy = Table with {
-            Entries = [.. Table.Entries.Select(Copy)],
+    public LootTableDefinition Snapshot() =>
+        Table with {
+            Entries = [..Table.Entries.Select(Copy)],
             Pity = Table.Pity is { } pity
                 ? new() {
                     AttemptsBefore = pity.AttemptsBefore,
@@ -139,9 +139,6 @@ public sealed class LootTableModel {
                 }
                 : null
         };
-
-        return copy;
-    }
 
     /// <summary>Puts a snapshot back.</summary>
     /// <param name="snapshot">What <see cref="Snapshot" /> produced.</param>
@@ -155,8 +152,12 @@ public sealed class LootTableModel {
     /// <summary>What is wrong with the table, as rows an editor can highlight.</summary>
     /// <returns>The problems, in row order.</returns>
     /// <remarks>
-    ///     ⚠ <b>The same rules <c>LootLibrary.Compile</c> enforces, checked here so a designer sees
-    ///     them while typing rather than at the content build.</b> They are duplicated deliberately
+    ///     ⚠
+    ///     <b>
+    ///         The same rules <c>LootLibrary.Compile</c> enforces, checked here so a designer sees
+    ///         them while typing rather than at the content build.
+    ///     </b>
+    ///     They are duplicated deliberately
     ///     and narrowly: the build's copy is the one that fails, this one only decorates, and
     ///     <c>EveryRuleTheContentBuildEnforcesIsShownWhileTyping</c> asserts the two agree on a table
     ///     that breaks all of them.
@@ -235,14 +236,15 @@ public sealed class LootTableModel {
             UsesPity = entry.UsesPity,
             Minimum = entry.Minimum,
             Maximum = entry.Maximum,
-            Conditions = [.. entry.Conditions.Select(
-                condition => new RequirementDefinition {
-                    Kind = condition.Kind,
-                    Subject = condition.Subject,
-                    Comparison = condition.Comparison,
-                    Value = condition.Value
-                }
-            )]
+            Conditions = [
+                ..entry.Conditions.Select(condition => new RequirementDefinition {
+                        Kind = condition.Kind,
+                        Subject = condition.Subject,
+                        Comparison = condition.Comparison,
+                        Value = condition.Value
+                    }
+                )
+            ]
         };
 
     void Raise() => Changed?.Invoke(this);

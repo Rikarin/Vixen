@@ -4,8 +4,6 @@
 using System.Buffers.Binary;
 using System.IO.Compression;
 using System.IO.Hashing;
-using System.Text;
-using Vixen.Core.Mathematics;
 
 namespace Vixen.Platform.Linux;
 
@@ -106,7 +104,10 @@ static class PngImage {
             }
         }
 
-        if (width <= 0 || height <= 0 || width > MaxDimension || height > MaxDimension
+        if (width <= 0
+            || height <= 0
+            || width > MaxDimension
+            || height > MaxDimension
             || (long)width * height > MaxPixels) {
             return false;
         }
@@ -129,7 +130,7 @@ static class PngImage {
         var raw = new byte[(stride + 1) * height];
 
         try {
-            using var inflate = new ZLibStream(compressed, CompressionMode.Decompress, leaveOpen: true);
+            using var inflate = new ZLibStream(compressed, CompressionMode.Decompress, true);
             inflate.ReadExactly(raw);
         } catch (Exception error) when (error is InvalidDataException or EndOfStreamException) {
             return false;
@@ -184,12 +185,17 @@ static class PngImage {
 
     /// <summary>Encodes straight RGBA8 as a PNG.</summary>
     /// <param name="image">The image, <c>Size.X * Size.Y * 4</c> bytes from the top-left.</param>
-    /// <returns>The file's bytes, or <see langword="null" /> if the image is not the size it says it
-    /// is.</returns>
+    /// <returns>
+    ///     The file's bytes, or <see langword="null" /> if the image is not the size it says it
+    ///     is.
+    /// </returns>
     public static byte[]? Encode(in ClipboardImage image) {
         var (width, height) = (image.Size.X, image.Size.Y);
 
-        if (width <= 0 || height <= 0 || width > MaxDimension || height > MaxDimension
+        if (width <= 0
+            || height <= 0
+            || width > MaxDimension
+            || height > MaxDimension
             || (long)width * height > MaxPixels) {
             return null;
         }
@@ -224,7 +230,7 @@ static class PngImage {
 
         using var deflated = new MemoryStream();
 
-        using (var deflate = new ZLibStream(deflated, CompressionLevel.Fastest, leaveOpen: true)) {
+        using (var deflate = new ZLibStream(deflated, CompressionLevel.Fastest, true)) {
             deflate.Write(raw);
         }
 

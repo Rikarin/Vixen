@@ -37,7 +37,7 @@ public sealed class TypeDescriptorGenerator : IIncrementalGenerator {
         "'{0}' is generic, so it has no single descriptor and is not registered",
         "Vixen.Reflection",
         DiagnosticSeverity.Warning,
-        isEnabledByDefault: true,
+        true,
         "A descriptor names one closed type. A generic definition would need one per instantiation, "
         + "and the generator cannot know which instantiations exist."
     );
@@ -85,7 +85,7 @@ public sealed class TypeDescriptorGenerator : IIncrementalGenerator {
             seen[model.QualifiedName] = model;
         }
 
-        return [.. seen.Values.OrderBy(model => model.SafeName, StringComparer.Ordinal)];
+        return [..seen.Values.OrderBy(static model => model.SafeName, StringComparer.Ordinal)];
     }
 
     /// <summary>The span a refusal about this declaration should land on.</summary>
@@ -133,7 +133,7 @@ public sealed class TypeDescriptorGenerator : IIncrementalGenerator {
         var canCreate = !type.IsAbstract
             && type.TypeKind != TypeKind.Interface
             && (type.IsValueType
-                || type.InstanceConstructors.Any(constructor =>
+                || type.InstanceConstructors.Any(static constructor =>
                     constructor.Parameters.Length == 0 && constructor.DeclaredAccessibility == Accessibility.Public
                 ));
 
@@ -160,7 +160,9 @@ public sealed class TypeDescriptorGenerator : IIncrementalGenerator {
         var order = members.Count;
 
         foreach (var member in type.GetMembers()) {
-            if (member.IsStatic || member.IsImplicitlyDeclared || member.DeclaredAccessibility != Accessibility.Public) {
+            if (member.IsStatic
+                || member.IsImplicitlyDeclared
+                || member.DeclaredAccessibility != Accessibility.Public) {
                 continue;
             }
 
@@ -470,7 +472,8 @@ public sealed class TypeDescriptorGenerator : IIncrementalGenerator {
                 }
             }
 
-            if (attribute.ConstructorArguments.Length == 1 && attribute.ConstructorArguments[0].Value is string positional) {
+            if (attribute.ConstructorArguments.Length == 1
+                && attribute.ConstructorArguments[0].Value is string positional) {
                 return positional;
             }
         }
@@ -537,22 +540,26 @@ public sealed class TypeDescriptorGenerator : IIncrementalGenerator {
         source.AppendLine("#nullable disable");
         source.AppendLine();
         source.AppendLine($"namespace {GeneratedNamespace} {{");
-        source.AppendLine("    /// <summary>Registers this assembly's type descriptors before any of its code runs.</summary>");
+        source.AppendLine(
+            "    /// <summary>Registers this assembly's type descriptors before any of its code runs.</summary>"
+        );
         source.AppendLine("    internal static class TypeRegistration {");
         source.AppendLine("        [global::System.Runtime.CompilerServices.ModuleInitializer]");
         source.AppendLine("        internal static void Initialize() {");
 
         foreach (var model in valid) {
-            source.AppendLine($"            global::Vixen.Core.Reflection.TypeRegistry.Register(Describe_{model.SafeName}());");
+            source.AppendLine(
+                $"            global::Vixen.Core.Reflection.TypeRegistry.Register(Describe_{model.SafeName}());"
+            );
         }
 
         // Distinct, because two members of two types routinely declare the same List<T>, and
         // ordered, because a generator whose output moves for no reason makes every build a diff.
         var factories = valid
-            .SelectMany(model => model.Members)
-            .SelectMany(member => member.CollectionFactories)
+            .SelectMany(static model => model.Members)
+            .SelectMany(static member => member.CollectionFactories)
             .Distinct(StringComparer.Ordinal)
-            .OrderBy(entry => entry, StringComparer.Ordinal);
+            .OrderBy(static entry => entry, StringComparer.Ordinal);
 
         foreach (var factory in factories) {
             source.AppendLine($"            global::Vixen.Core.Reflection.CollectionFactory.Register({factory});");
@@ -572,10 +579,14 @@ public sealed class TypeDescriptorGenerator : IIncrementalGenerator {
     }
 
     static void EmitDescriptor(StringBuilder source, DescriptorModel model) {
-        source.AppendLine($"        static global::Vixen.Core.Reflection.TypeDescriptor Describe_{model.SafeName}() => new(");
+        source.AppendLine(
+            $"        static global::Vixen.Core.Reflection.TypeDescriptor Describe_{model.SafeName}() => new("
+        );
         source.AppendLine($"            typeof({model.QualifiedName}),");
         source.AppendLine($"            {Quote(model.Alias)},");
-        source.AppendLine($"            {string.Join(" | ", model.Traits.Split([" | "], StringSplitOptions.None).Select(trait => "global::Vixen.Core.Reflection.TypeTraits." + trait))},");
+        source.AppendLine(
+            $"            {string.Join(" | ", model.Traits.Split([" | "], StringSplitOptions.None).Select(static trait => "global::Vixen.Core.Reflection.TypeTraits." + trait))},"
+        );
         source.AppendLine("            [");
 
         foreach (var member in model.Members) {

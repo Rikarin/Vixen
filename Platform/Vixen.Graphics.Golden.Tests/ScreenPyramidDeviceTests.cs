@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Runtime.InteropServices;
-using Vixen.Core.Mathematics;
 using Vixen.Graphics.Vulkan;
 using Vixen.Rendering;
 using Vixen.Rendering.ScreenProbes;
@@ -38,7 +37,7 @@ public sealed class ScreenPyramidDeviceTests {
         var seed = 11u;
 
         float Next() {
-            seed = (seed * 1664525u) + 1013904223u;
+            seed = seed * 1664525u + 1013904223u;
 
             return (seed >> 8) * (1f / 16777216f);
         }
@@ -61,13 +60,14 @@ public sealed class ScreenPyramidDeviceTests {
         var effects = new EffectSystem();
 
         effects.AddProvider(
-            new Compiling(loader, _ => RavenEffects.Only(["Core"], Path.Combine("Pipeline", "NearestReduce.rvn")))
+            new Compiling(
+                loader,
+                static _ => RavenEffects.Only(["Core"], Path.Combine("Pipeline", "NearestReduce.rvn"))
+            )
         );
 
         var chain = new HiZPyramid(device) {
-            Reduction = HiZReduction.Nearest,
-            Effects = effects,
-            Pipelines = new ComputePipelineCache(device)
+            Reduction = HiZReduction.Nearest, Effects = effects, Pipelines = new(device)
         };
 
         owned.Owns(chain.Dispose);
@@ -80,7 +80,7 @@ public sealed class ScreenPyramidDeviceTests {
             Height
         );
 
-        var staging = owned.Buffer<float>(depth, BufferUsage.CopySource);
+        var staging = owned.Buffer(depth, BufferUsage.CopySource);
 
         // Every mip back to back, each level's texels at its own offset.
         var texels = 0;
@@ -90,7 +90,12 @@ public sealed class ScreenPyramidDeviceTests {
         }
 
         var readback = device.CreateBuffer(
-            new BufferDescription(texels * 4L, BufferUsage.CopyDestination, MemoryAccess.HostReadback, "nearest-readback")
+            new(
+                texels * 4L,
+                BufferUsage.CopyDestination,
+                MemoryAccess.HostReadback,
+                "nearest-readback"
+            )
         );
 
         device.BeginFrame();
@@ -100,7 +105,7 @@ public sealed class ScreenPyramidDeviceTests {
                 new([], [new TextureBarrier(screen.Texture, ResourceState.Undefined, ResourceState.CopyDestination)])
             );
 
-            commands.CopyBufferToTexture(staging, 0, new TextureRegion(screen.Texture), new(Width, Height, 1));
+            commands.CopyBufferToTexture(staging, 0, new(screen.Texture), new(Width, Height, 1));
 
             commands.Barrier(
                 new([], [new TextureBarrier(screen.Texture, ResourceState.CopyDestination, ResourceState.ShaderRead)])
@@ -118,7 +123,7 @@ public sealed class ScreenPyramidDeviceTests {
                 var size = reference.SizeOf(level);
 
                 commands.CopyTextureToBuffer(
-                    new TextureRegion(chain.Texture, level - 1),
+                    new(chain.Texture, level - 1),
                     new(size.X, size.Y, 1),
                     readback,
                     offset

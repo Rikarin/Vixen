@@ -25,8 +25,12 @@ namespace Vixen.Editor.App.Tests;
 ///         of seven cases, and in none of the four <i>mode</i> contexts, which no press claims.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Four and not five or six, and what moved was the layout rather than the rule —
-///         twice now.</b> Nothing in the editor became focusable either time: first the CSS-initial
+///         ⚠
+///         <b>
+///             Four and not five or six, and what moved was the layout rather than the rule —
+///             twice now.
+///         </b>
+///         Nothing in the editor became focusable either time: first the CSS-initial
 ///         <c>flex-shrink</c> fix (#628) moved the lighting panel's middle by twenty-two pixels onto
 ///         a slider, and then #969 moved every panel the arrangement does not name out of the 20 %
 ///         browser column and into the group with the most room, so three of them now have a
@@ -104,7 +108,7 @@ public class CommandContextTests {
         var commands = fixture.Shell.Commands;
 
         var declared = commands.Commands
-            .Select(command => command.Context)
+            .Select(static command => command.Context)
             .OfType<string>()
             .Distinct(StringComparer.Ordinal)
             .ToList();
@@ -132,7 +136,7 @@ public class CommandContextTests {
         using var fixture = EditorSession.Start();
 
         var commands = fixture.Shell.Commands;
-        var global = commands.Commands.First(command => command.Context is null);
+        var global = commands.Commands.First(static command => command.Context is null);
 
         foreach (var (panel, _) in PanelContexts) {
             fixture.Open(panel);

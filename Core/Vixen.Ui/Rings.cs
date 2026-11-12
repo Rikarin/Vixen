@@ -8,8 +8,12 @@ namespace Vixen.Ui;
 /// <summary>A border ring's centre line, and the marks of a broken one along it.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>A dashed border is a stroked path and a solid one is a distance field, and the two
-///         being different machinery is the whole reason this file exists.</b> The box shader
+///         ⚠
+///         <b>
+///             A dashed border is a stroked path and a solid one is a distance field, and the two
+///             being different machinery is the whole reason this file exists.
+///         </b>
+///         The box shader
 ///         resolves a ring as the difference of two coverages — the outline, and the outline pushed
 ///         <c>thickness</c> inwards — which is exact at any radius and has no notion of *where along
 ///         the ring* a fragment is. A dash needs exactly that: an arc length. So a broken border is
@@ -24,8 +28,12 @@ namespace Vixen.Ui;
 ///         the element, which is an outline rather than a border and overlaps whatever is next to it.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The corners are sampled rather than flattened by <c>PathFlattener</c>, and that is a
-///         choice about who owns the tolerance.</b> The dash walk needs arc <i>length</i>, so it needs
+///         ⚠
+///         <b>
+///             The corners are sampled rather than flattened by <c>PathFlattener</c>, and that is a
+///             choice about who owns the tolerance.
+///         </b>
+///         The dash walk needs arc <i>length</i>, so it needs
 ///         a polyline whatever else happens; sampling here means the same polyline is measured and
 ///         emitted, so the marks cannot be distributed along one curve and drawn along a slightly
 ///         different one. <see cref="CornerSteps" /> is fixed rather than adaptive because a UI radius
@@ -84,18 +92,18 @@ static class Rings {
 
         // Clockwise from just after the top-left corner, which is the order the four `border-*`
         // longhands are interned in and the order a reader traces the box in.
-        into.Add(new Vector2(left + topLeft.X, top));
-        into.Add(new Vector2(right - topRight.X, top));
-        Arc(into, new Vector2(right - topRight.X, top + topRight.Y), topRight, -MathF.PI / 2f, 0f);
+        into.Add(new(left + topLeft.X, top));
+        into.Add(new(right - topRight.X, top));
+        Arc(into, new(right - topRight.X, top + topRight.Y), topRight, -MathF.PI / 2f, 0f);
 
-        into.Add(new Vector2(right, bottom - bottomRight.Y));
-        Arc(into, new Vector2(right - bottomRight.X, bottom - bottomRight.Y), bottomRight, 0f, MathF.PI / 2f);
+        into.Add(new(right, bottom - bottomRight.Y));
+        Arc(into, new(right - bottomRight.X, bottom - bottomRight.Y), bottomRight, 0f, MathF.PI / 2f);
 
-        into.Add(new Vector2(left + bottomLeft.X, bottom));
-        Arc(into, new Vector2(left + bottomLeft.X, bottom - bottomLeft.Y), bottomLeft, MathF.PI / 2f, MathF.PI);
+        into.Add(new(left + bottomLeft.X, bottom));
+        Arc(into, new(left + bottomLeft.X, bottom - bottomLeft.Y), bottomLeft, MathF.PI / 2f, MathF.PI);
 
-        into.Add(new Vector2(left, top + topLeft.Y));
-        Arc(into, new Vector2(left + topLeft.X, top + topLeft.Y), topLeft, MathF.PI, 3f * MathF.PI / 2f);
+        into.Add(new(left, top + topLeft.Y));
+        Arc(into, new(left + topLeft.X, top + topLeft.Y), topLeft, MathF.PI, 3f * MathF.PI / 2f);
     }
 
     /// <summary>Appends a broken line's marks along a closed polyline to a path.</summary>
@@ -198,14 +206,15 @@ static class Rings {
         }
 
         for (var step = 1; step <= CornerSteps; step++) {
-            var angle = from + ((to - from) * step / CornerSteps);
-            into.Add(new Vector2(centre.X + (radii.X * MathF.Cos(angle)), centre.Y + (radii.Y * MathF.Sin(angle))));
+            var angle = from + (to - from) * step / CornerSteps;
+            into.Add(new(centre.X + radii.X * MathF.Cos(angle), centre.Y + radii.Y * MathF.Sin(angle)));
         }
     }
 
     /// <summary>A corner radius moved inwards by the inset, clamped to the box it has to fit in.</summary>
-    static Vector2 Shrink(Vector2 corner, float inset, float halfWidth, float halfHeight) => new(
-        Math.Clamp(corner.X - inset, 0f, halfWidth),
-        Math.Clamp(corner.Y - inset, 0f, halfHeight)
-    );
+    static Vector2 Shrink(Vector2 corner, float inset, float halfWidth, float halfHeight) =>
+        new(
+            Math.Clamp(corner.X - inset, 0f, halfWidth),
+            Math.Clamp(corner.Y - inset, 0f, halfHeight)
+        );
 }

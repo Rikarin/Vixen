@@ -12,8 +12,12 @@ namespace Vixen.Cli;
 ///         <b>docs/plan/48 § 4.8's binding, made visible.</b> A Mesh Map Input node asks for a usage
 ///         and is handed whichever file this project's bake produced; the whole of that lookup is
 ///         <see cref="MeshMapLibrary" />, and the whole of this verb is running it and printing what
-///         came back. So the question an artist actually asks — <i>why is my Curvature Edge Wear
-///         binding nothing on this mesh</i> — has an answer that does not require opening the panel
+///         came back. So the question an artist actually asks —
+///         <i>
+///             why is my Curvature Edge Wear
+///             binding nothing on this mesh
+///         </i>
+///         — has an answer that does not require opening the panel
 ///         that is failing.
 ///     </para>
 ///     <para>
@@ -83,8 +87,8 @@ public static class MeshMapRunner {
         var found = library.Maps
             .Where(map => set.Length == 0 || string.Equals(map.Set, set, StringComparison.Ordinal))
             .Where(map => wanted is null || map.Usage == wanted)
-            .OrderBy(map => map.Set, StringComparer.Ordinal)
-            .ThenBy(map => map.Usage)
+            .OrderBy(static map => map.Set, StringComparer.Ordinal)
+            .ThenBy(static map => map.Usage)
             .ToList();
 
         if (found.Count == 0) {
@@ -99,7 +103,7 @@ public static class MeshMapRunner {
         foreach (var map in found) {
             output.WriteLine(
                 $"{map.Set}  {MeshMapNaming.Suffix(map.Usage)}  {map.Map.Asset}  {map.Path}"
-                + (map.Scale > 0f ? $"  scale={map.Scale.ToString("R", CultureInfo.InvariantCulture)}" : "")
+                + (map.Scale > 0f ? $"  scale={map.Scale.ToString("R", CultureInfo.InvariantCulture)}" : string.Empty)
             );
         }
 
@@ -108,8 +112,12 @@ public static class MeshMapRunner {
 
     /// <summary>What to say when the query matched nothing, which is not one message.</summary>
     /// <remarks>
-    ///     ⚠ <b>"No maps in this project" and "that set has no curvature map" are different problems
-    ///     and the second is the common one.</b> Only the normal and the displacement are always
+    ///     ⚠
+    ///     <b>
+    ///         "No maps in this project" and "that set has no curvature map" are different problems
+    ///         and the second is the common one.
+    ///     </b>
+    ///     Only the normal and the displacement are always
     ///     baked; the seven that cost rays are baked when the settings asked for them, so a generator
     ///     binding nothing is usually a bake that was run with occlusion switched off rather than a
     ///     project with no bake at all.

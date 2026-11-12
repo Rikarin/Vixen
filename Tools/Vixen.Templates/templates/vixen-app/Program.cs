@@ -45,7 +45,6 @@ static class Program {
                 // The root is the one element no markup owns, so its background is set here.
                 // Everything else this application looks like is a class name in AppShell.vxml.
                 RootClasses = { "p-0", "bg-slate-900" },
-
                 Content = () => new AppShell()
             },
             arguments

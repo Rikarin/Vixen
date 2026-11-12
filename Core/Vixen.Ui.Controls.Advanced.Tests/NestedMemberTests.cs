@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core.Reflection;
-using Vixen.Ui.Controls;
 using Xunit;
 
 namespace Vixen.Ui.Controls.Advanced.Tests;
@@ -23,8 +22,11 @@ public sealed class SharedTypeRegistry {
 /// <summary>Editing a struct inside a struct, which used to be shown read-only.</summary>
 /// <remarks>
 ///     <para>
-///         <b>An accessor takes its instance as <c>object</c>, so reading a struct member gives a
-///         box.</b> Writing into that box changes a copy nothing holds — so the grid showed nested
+///         <b>
+///             An accessor takes its instance as <c>object</c>, so reading a struct member gives a
+///             box.
+///         </b>
+///         Writing into that box changes a copy nothing holds — so the grid showed nested
 ///         structs read-only rather than accepting edits that would vanish, and the type's remarks
 ///         said the fix needed <c>ref</c> accessors on the descriptor.
 ///     </para>
@@ -51,14 +53,14 @@ public sealed class SharedTypeRegistry {
 public sealed class NestedMemberTests : IDisposable {
     public NestedMemberTests() {
         TypeRegistry.Clear();
-        TypeRegistry.Register(Describe<Point>("Point", () => new Point(), Members<Point>()));
-        TypeRegistry.Register(Describe<Placement>("Placement", () => new Placement(), Members<Placement>()));
-        TypeRegistry.Register(Describe<Thing>("Thing", () => new Thing(), Members<Thing>()));
+        TypeRegistry.Register(Describe<Point>("Point", static () => new Point(), Members<Point>()));
+        TypeRegistry.Register(Describe<Placement>("Placement", static () => new Placement(), Members<Placement>()));
+        TypeRegistry.Register(Describe<Thing>("Thing", static () => new Thing(), Members<Thing>()));
 
         // ⚠ A descriptor for a type the grid *already* has an editor for, which is the only way to
         // reach the rule that expansion happens where nothing else claimed the member. A `Vector3`
         // in a real application is exactly this: registered, and drawn by three numeric fields.
-        TypeRegistry.Register(Describe<string>("String", static () => "", Members<string>()));
+        TypeRegistry.Register(Describe<string>("String", static () => string.Empty, Members<string>()));
     }
 
     public void Dispose() => TypeRegistry.Clear();
@@ -97,22 +99,23 @@ public sealed class NestedMemberTests : IDisposable {
     static TypeDescriptor Describe<T>(string alias, Func<object> create, MemberDescriptor[] members) =>
         new(typeof(T), alias, TypeTraits.DataContract | TypeTraits.EditorVisible, members, create);
 
-    static MemberDescriptor[] Members<T>() =>
-        typeof(T).GetProperties()
+    static MemberDescriptor[] Members<T>() => [
+        ..typeof(T).GetProperties()
             .Where(static property => property.GetIndexParameters().Length == 0)
             .Select(static (property, order) => new MemberDescriptor(
-                property.Name,
-                property.PropertyType,
-                order,
-                property.GetValue,
-                property.SetValue,
-                new MemberPresentation(IsEditorVisible: true)
-            ))
-            .ToArray();
+                    property.Name,
+                    property.PropertyType,
+                    order,
+                    property.GetValue,
+                    property.SetValue,
+                    new(IsEditorVisible: true)
+                )
+            )
+    ];
 
     static (AdvancedFixture Fixture, PropertyGrid Grid, Thing Target) Inspected() {
         var fixture = new AdvancedFixture();
-        var target = new Thing { Where = new Placement { Origin = new Point { X = 1f, Y = 2f }, Scale = 3f } };
+        var target = new Thing { Where = new() { Origin = new() { X = 1f, Y = 2f }, Scale = 3f } };
         var grid = fixture.Add<PropertyGrid>();
 
         grid.Inspect(target);
@@ -122,7 +125,7 @@ public sealed class NestedMemberTests : IDisposable {
     }
 
     static PropertyRow Row(PropertyGrid grid, params string[] path) =>
-        grid.Rows.Single(row => row.Path.Select(member => member.Name).SequenceEqual(path));
+        grid.Rows.Single(row => row.Path.Select(static member => member.Name).SequenceEqual(path));
 
     [Fact]
     public void A_struct_inside_a_struct_gets_a_row_of_its_own() {
@@ -166,7 +169,7 @@ public sealed class NestedMemberTests : IDisposable {
 
         var y = Row(grid, "Where", "Origin", "Y");
 
-        target.Where = new Placement { Origin = new Point { X = 5f, Y = 6f }, Scale = 7f };
+        target.Where = new() { Origin = new() { X = 5f, Y = 6f }, Scale = 7f };
         grid.Reload();
 
         var x = Assert.IsType<NumericInput>(Row(grid, "Where", "Origin", "X").Editor.Children[0]);
@@ -192,7 +195,7 @@ public sealed class NestedMemberTests : IDisposable {
         // the grid has an editor for is still three numbers, and expanding it would show the value
         // twice and let two controls fight over it.
         Assert.Single(Row(grid, "Name").Editor.Children);
-        Assert.DoesNotContain(grid.Rows, row => row.Path.Count > 1 && row.Path[0].Name == "Name");
+        Assert.DoesNotContain(grid.Rows, static row => row.Path.Count > 1 && row.Path[0].Name == "Name");
     }
 
     [Fact]
@@ -200,8 +203,8 @@ public sealed class NestedMemberTests : IDisposable {
         var fixture = new AdvancedFixture();
         using var owned = fixture;
 
-        var first = new Thing { Where = new Placement { Origin = new Point { X = 1f } } };
-        var second = new Thing { Where = new Placement { Origin = new Point { X = 1f } } };
+        var first = new Thing { Where = new() { Origin = new() { X = 1f } } };
+        var second = new Thing { Where = new() { Origin = new() { X = 1f } } };
 
         var grid = fixture.Add<PropertyGrid>();
         grid.Inspect(first, second);

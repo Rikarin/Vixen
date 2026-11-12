@@ -25,7 +25,7 @@ public sealed class ProjectMeshBakerTests : IDisposable {
     public void Dispose() {
         try {
             if (Directory.Exists(root)) {
-                Directory.Delete(root, recursive: true);
+                Directory.Delete(root, true);
             }
         } catch (IOException) {
             // A file the test wrote and the OS has not let go of. Not what is under test.
@@ -47,9 +47,11 @@ public sealed class ProjectMeshBakerTests : IDisposable {
     }
 
     /// <summary>Baking the same name twice overwrites the file and keeps its identity.</summary>
-    /// <remarks>Its own remarks promise this: "an existing file of the same name is overwritten, and
+    /// <remarks>
+    ///     Its own remarks promise this: "an existing file of the same name is overwritten, and
     ///     it keeps its GUID", so that every entity already pointing at the asset picks up the new
-    ///     shape.</remarks>
+    ///     shape.
+    /// </remarks>
     [Fact]
     public void Re_baking_keeps_the_guid() {
         var project = Project();

@@ -27,12 +27,12 @@ var refused = new List<RefusedFixture>();
 var attributes = new SortedSet<string>(StringComparer.Ordinal);
 var totals = new List<(string Category, int Fixtures, int Nodes)>();
 
-foreach (var directory in Directory.GetDirectories(fixtures).OrderBy(path => path, StringComparer.Ordinal)) {
+foreach (var directory in Directory.GetDirectories(fixtures).OrderBy(static path => path, StringComparer.Ordinal)) {
     var category = Path.GetFileName(directory);
 
     var vetted = Directory
         .GetFiles(directory, "*.xml")
-        .OrderBy(path => path, StringComparer.Ordinal)
+        .OrderBy(static path => path, StringComparer.Ordinal)
         .Select(path => CorpusVetter.Vet(path, category, refused))
         .OfType<VettedFixture>()
         .ToList();
@@ -41,12 +41,12 @@ foreach (var directory in Directory.GetDirectories(fixtures).OrderBy(path => pat
         continue;
     }
 
-    foreach (var attribute in vetted.SelectMany(fixture => fixture.Attributes)) {
+    foreach (var attribute in vetted.SelectMany(static fixture => fixture.Attributes)) {
         attributes.Add(attribute);
     }
 
     File.WriteAllText(Path.Combine(output, category + ".xml"), Consolidate(category, version, vetted));
-    totals.Add((category, vetted.Count, vetted.Sum(fixture => fixture.NodeCount)));
+    totals.Add((category, vetted.Count, vetted.Sum(static fixture => fixture.NodeCount)));
 }
 
 Console.WriteLine($"Taffy {version}");
@@ -54,7 +54,9 @@ foreach (var (category, count, nodes) in totals) {
     Console.WriteLine($"  {category,-10} {count,5} fixtures, {nodes,6} nodes");
 }
 
-Console.WriteLine($"  {"total",-10} {totals.Sum(total => total.Fixtures),5} fixtures, {totals.Sum(total => total.Nodes),6} nodes");
+Console.WriteLine(
+    $"  {"total",-10} {totals.Sum(static total => total.Fixtures),5} fixtures, {totals.Sum(static total => total.Nodes),6} nodes"
+);
 Console.WriteLine();
 Console.WriteLine($"{attributes.Count} distinct style attributes: {string.Join(" ", attributes)}");
 
@@ -75,7 +77,8 @@ static string ReadVersion(string taffy) {
     }
 
     // The first `version = "…"` in the manifest is the package's own.
-    var line = File.ReadLines(manifest).FirstOrDefault(line => line.StartsWith("version = ", StringComparison.Ordinal));
+    var line = File.ReadLines(manifest)
+        .FirstOrDefault(static line => line.StartsWith("version = ", StringComparison.Ordinal));
     return line?.Split('"').ElementAtOrDefault(1) ?? "unknown";
 }
 
@@ -94,7 +97,9 @@ static string ReadVersion(string taffy) {
 static string Consolidate(string category, string version, List<VettedFixture> fixtures) {
     var text = new StringBuilder();
     text.AppendLine("<!--");
-    text.AppendLine($"    Taffy's {category} conformance fixtures, vetted and consolidated by Tools/Vixen.TaffyTestGen.");
+    text.AppendLine(
+        $"    Taffy's {category} conformance fixtures, vetted and consolidated by Tools/Vixen.TaffyTestGen."
+    );
     text.AppendLine();
     text.AppendLine($"    Source: taffy {version}, tests/xml/{category}, MIT licensed — see NOTICE.");
     text.AppendLine("    Each <test> below is one of Taffy's files, embedded verbatim. Taffy generates them from");

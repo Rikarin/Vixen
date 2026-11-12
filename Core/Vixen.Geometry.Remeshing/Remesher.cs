@@ -16,16 +16,24 @@ namespace Vixen.Geometry.Remeshing;
 ///         monolith cannot answer it.
 ///     </para>
 ///     <para>
-///         ⚠ <b>A hard edge is reproduced rather than approximated, and that is a structural claim
-///         rather than a quality one.</b> § D4: feature polylines are chained <i>before</i> the field is
+///         ⚠
+///         <b>
+///             A hard edge is reproduced rather than approximated, and that is a structural claim
+///             rather than a quality one.
+///         </b>
+///         § D4: feature polylines are chained <i>before</i> the field is
 ///         solved and are boundaries of the patch layout, so a crease is a chain of output edges by
 ///         construction. The alternative — extract, then nudge extracted vertices toward what was
 ///         detected — is what produces good-but-wobbly hard surface, and it is why the established tool
 ///         still ships its previous algorithm under a button.
 ///     </para>
 ///     <para>
-///         ⚠ <b>All-quad, and <see cref="RemeshReport.NonQuadCount" /> being non-zero is a bug rather
-///         than a setting.</b> § D8 and § D15: doc 24's <c>MeshOperations</c> is built on the assumption
+///         ⚠
+///         <b>
+///             All-quad, and <see cref="RemeshReport.NonQuadCount" /> being non-zero is a bug rather
+///             than a setting.
+///         </b>
+///         § D8 and § D15: doc 24's <c>MeshOperations</c> is built on the assumption
 ///         that a loop, a ring and a loop cut are statements about four-sided faces, so a
 ///         quad-<i>dominant</i> result has no rings to cut and the mesh kernel's whole vocabulary stops
 ///         working on it.
@@ -191,7 +199,7 @@ public static class Remesher {
         // ⑥ Extract.
         mark = clock.Elapsed;
 
-        var projector = SurfaceProjector.Build(mesh.Positions.ToArray(), mesh.Triangles.ToArray());
+        var projector = SurfaceProjector.Build([..mesh.Positions], [..mesh.Triangles]);
         var extraction = PatchExtractor.Extract(mesh, features, layout, quantization, projector);
         var output = extraction.Mesh;
 
@@ -264,8 +272,12 @@ public static class Remesher {
     /// <summary>Says whether the result's defects were inherited from the input or made here.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A silent hole is the failure class the whole report exists to prevent, and the
-    ///         report had every fact and drew no conclusion.</b> docs/plan/41 § Part 4: "a remesher that
+    ///         ⚠
+    ///         <b>
+    ///             A silent hole is the failure class the whole report exists to prevent, and the
+    ///             report had every fact and drew no conclusion.
+    ///         </b>
+    ///         docs/plan/41 § Part 4: "a remesher that
     ///         cannot tell you it went wrong will be trusted until it embarrasses somebody." Every stage
     ///         counted what <i>it</i> dropped, so a result whose rim came in with the input came back not
     ///         watertight with no line naming a reason — indistinguishable, to a build script, from one
@@ -281,8 +293,12 @@ public static class Remesher {
     ///         counted either.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Two warnings and not one, because "inherited" and "made here" are different facts
-    ///         and only the second is a bug.</b> An open input is a legitimate subject — a rim is what a
+    ///         ⚠
+    ///         <b>
+    ///             Two warnings and not one, because "inherited" and "made here" are different facts
+    ///             and only the second is a bug.
+    ///         </b>
+    ///         An open input is a legitimate subject — a rim is what a
     ///         block-out or a scanned surface has — and § D3 is explicit that conditioning reports rather
     ///         than insists. What is never legitimate is the pipeline adding a defect class the surface
     ///         it was handed did not have.
@@ -325,8 +341,12 @@ public static class Remesher {
     /// <summary>How many times the budget the quantization may plan before the brake engages.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Far above <see cref="BudgetTolerance" /> on purpose, and the gap between the two is
-    ///         the whole design.</b> <see cref="Overspent" /> records that scaling every target down to
+    ///         ⚠
+    ///         <b>
+    ///             Far above <see cref="BudgetTolerance" /> on purpose, and the gap between the two is
+    ///             the whole design.
+    ///         </b>
+    ///         <see cref="Overspent" /> records that scaling every target down to
     ///         <i>hit</i> the count was tried and is worse — it brings a box to 444 quads and takes the
     ///         feature reproduction error from <c>5.1e-5</c> to <c>5.1e-2</c>, because the arcs paying
     ///         for the reduction are the ones running along the creases. That argument is about a
@@ -334,8 +354,12 @@ public static class Remesher {
     ///         reproduction to protect because the mesh is unusable at any tolerance.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Sixty-four is above every measured ordinary overshoot, so the brake cannot fire on
-    ///         the path <see cref="Overspent" /> is written about.</b> At a 400-quad budget the fixtures
+    ///         ⚠
+    ///         <b>
+    ///             Sixty-four is above every measured ordinary overshoot, so the brake cannot fire on
+    ///             the path <see cref="Overspent" /> is written about.
+    ///         </b>
+    ///         At a 400-quad budget the fixtures
     ///         plan 2,678 on a box and 3,000 on a union — 6.7× and 7.5× — and the 16-file real corpus at
     ///         5,000 stays under 1.4×. The case it exists for is the property space's: seed
     ///         <c>9hqwA86TjVk1</c>, a sphere carrying <c>LargeComponent</c>, <c>TinyComponent</c> and
@@ -343,8 +367,12 @@ public static class Remesher {
     ///         half.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>It returns, so nothing that was measuring for a hang or for a non-quad could see
-    ///         it.</b> Every face has four sides and the ledger is well formed; what is unbounded is
+    ///         ⚠
+    ///         <b>
+    ///             It returns, so nothing that was measuring for a hang or for a non-quad could see
+    ///             it.
+    ///         </b>
+    ///         Every face has four sides and the ledger is well formed; what is unbounded is
     ///         <i>growth</i>, and only the allocation reading catches that. A patch's quad count is a
     ///         product of two side lengths, so a partition of snaky patches overshoots quadratically —
     ///         which is why the back-off below is a square root.
@@ -363,9 +391,13 @@ public static class Remesher {
 
     /// <summary>The quantization, re-solved smaller when it planned orders of magnitude over budget.</summary>
     /// <remarks>
-    ///     ⚠ <b>Read off <see cref="Quantizer.QuadCount" /> — the plan — and not off the output, which
-    ///     is the opposite of what <see cref="Overspent" /> does and is right for the opposite
-    ///     reason.</b> The warning is about a mesh that shipped, so it must count the mesh that shipped.
+    ///     ⚠
+    ///     <b>
+    ///         Read off <see cref="Quantizer.QuadCount" /> — the plan — and not off the output, which
+    ///         is the opposite of what <see cref="Overspent" /> does and is right for the opposite
+    ///         reason.
+    ///     </b>
+    ///     The warning is about a mesh that shipped, so it must count the mesh that shipped.
     ///     This has to act <i>before</i> the extraction allocates the thing, so the only number it can
     ///     have is the one the quantization intends.
     /// </remarks>
@@ -378,7 +410,7 @@ public static class Remesher {
             return solved;
         }
 
-        var allowed = (long) settings.TargetQuads * (long) RunawayMultiple;
+        var allowed = (long)settings.TargetQuads * (long)RunawayMultiple;
         var scale = 1f;
 
         for (var attempt = 0; attempt < BrakeAttempts; attempt++) {
@@ -398,7 +430,7 @@ public static class Remesher {
             // Quads go as the square of the target density, so the scaling that brings a plan of P down
             // to an allowance of A is √(A / P). Half again on top of it, because the layout's arcs are
             // integers and rounding always lands above rather than below.
-            scale *= MathF.Sqrt((float) allowed / planned) * 0.5f;
+            scale *= MathF.Sqrt((float)allowed / planned) * 0.5f;
 
             var smaller = Quantizer.Solve(layout, QuantizeMode.Exact, scale);
 
@@ -444,8 +476,12 @@ public static class Remesher {
     ///         somebody pays for whether or not it has four sides.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A patch's quad count is a <i>product</i> of two side lengths, so a partition of
-    ///         snaky patches overshoots the budget quadratically.</b> A region of area <c>A</c> that is
+    ///         ⚠
+    ///         <b>
+    ///             A patch's quad count is a <i>product</i> of two side lengths, so a partition of
+    ///             snaky patches overshoots the budget quadratically.
+    ///         </b>
+    ///         A region of area <c>A</c> that is
     ///         compact has a perimeter of about <c>4√A</c> and quantizes to about <c>A</c> quads; one
     ///         whose perimeter is three times that quantizes to about nine times as many. That was the
     ///         dominant term while the partition still contained slits — a cut with a loose end is
@@ -465,8 +501,12 @@ public static class Remesher {
     ///         field.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Scaling every target down to hit the count was tried and is <i>worse</i>, which is
-    ///         why this only measures.</b> It brings a box to 444 quads and takes the feature
+    ///         ⚠
+    ///         <b>
+    ///             Scaling every target down to hit the count was tried and is <i>worse</i>, which is
+    ///             why this only measures.
+    ///         </b>
+    ///         It brings a box to 444 quads and takes the feature
     ///         reproduction error from <c>5.1e-5</c> to <c>5.1e-2</c>, because the arcs that pay for the
     ///         reduction are the ones running along the creases and a crease quantized to one segment
     ///         cuts every corner it used to follow. docs/plan/41's second exit criterion is the one this
@@ -492,12 +532,16 @@ public static class Remesher {
         List<RemeshStageTiming> stages,
         List<string> warnings
     ) =>
-        new(0, 0, [], 0, 0f, 0f, 0f, 0f, conditioning, new EditMesh().Validate(), stages, [.. warnings]);
+        new(0, 0, [], 0, 0f, 0f, 0f, 0f, conditioning, new EditMesh().Validate(), stages, [..warnings]);
 
     /// <summary>§ D9's base length, off the source's own area.</summary>
     /// <remarks>
-    ///     ⚠ <b>Computed here rather than read from <see cref="DensityField" />, and the ordering is
-    ///     why.</b> The pre-remesh is step six of stage one and the density field is stage three, so the
+    ///     ⚠
+    ///     <b>
+    ///         Computed here rather than read from <see cref="DensityField" />, and the ordering is
+    ///         why.
+    ///     </b>
+    ///     The pre-remesh is step six of stage one and the density field is stage three, so the
     ///     length conditioning needs does not exist yet. It is the same formula — a quad of side
     ///     <c>L</c> covers <c>L²</c>, so <c>L = √(area / quads)</c> — evaluated on the surface as it
     ///     arrived rather than on the one that comes out, which differ by whatever the weld and the

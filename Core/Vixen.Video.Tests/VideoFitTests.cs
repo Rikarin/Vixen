@@ -26,7 +26,7 @@ public sealed class VideoFitTests {
     [Fact]
     public void ContainBarsTheTopAndBottomOfATallBox() {
         // 16:9 in a square: the width is the constraint, so the picture is 200 × 112.5, centred.
-        var placed = VideoFit.Place(VideoScaling.Contain, new Vector2(16, 9), new Rectangle(0, 0, 200, 200));
+        var placed = VideoFit.Place(VideoScaling.Contain, new Vector2(16, 9), new(0, 0, 200, 200));
 
         Assert.Equal(200f, placed.Target.Width, 3);
         Assert.Equal(112.5f, placed.Target.Height, 3);
@@ -41,7 +41,7 @@ public sealed class VideoFitTests {
     [Fact]
     public void ContainBarsTheSidesOfAWideBox() {
         // 1:1 in a 16:9 box: the height is the constraint.
-        var placed = VideoFit.Place(VideoScaling.Contain, new Vector2(100, 100), new Rectangle(0, 0, 320, 180));
+        var placed = VideoFit.Place(VideoScaling.Contain, new Vector2(100, 100), new(0, 0, 320, 180));
 
         Assert.Equal(180f, placed.Target.Width, 3);
         Assert.Equal(180f, placed.Target.Height, 3);
@@ -58,7 +58,7 @@ public sealed class VideoFitTests {
         Assert.Equal(target, placed.Target);
         Assert.Equal(9f / 16f, placed.TextureScale.X, 4);
         Assert.Equal(1f, placed.TextureScale.Y, 4);
-        Assert.Equal((1f - (9f / 16f)) / 2f, placed.TextureOffset.X, 4);
+        Assert.Equal((1f - 9f / 16f) / 2f, placed.TextureOffset.X, 4);
         Assert.Equal(0f, placed.TextureOffset.Y, 4);
     }
 

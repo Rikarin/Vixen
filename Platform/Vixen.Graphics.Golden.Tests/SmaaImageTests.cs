@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core.Imaging;
-using Vixen.Core.Mathematics;
 using Vixen.Rendering;
 using Vixen.Rendering.Compositor;
 using Vixen.Rendering.PostFx;
@@ -141,15 +140,17 @@ public sealed class SmaaImageTests {
 
         PngCodec.Save(
             Path.Combine(GoldenImage.DiffDirectory, $"{name}.aliased.png"),
-            new Bitmap(Fixture.Side, Fixture.Side, aliased)
+            new(Fixture.Side, Fixture.Side, aliased)
         );
 
         PngCodec.Save(Path.Combine(GoldenImage.DiffDirectory, $"{name}.resolved.png"), resolved);
     }
 
     /// <summary>
-    ///     <b>An edge a twentieth as bright is resolved exactly as well, which is what "relative"
-    ///     means.</b>
+    ///     <b>
+    ///         An edge a twentieth as bright is resolved exactly as well, which is what "relative"
+    ///         means.
+    ///     </b>
     /// </summary>
     /// <remarks>
     ///     <para>
@@ -184,11 +185,11 @@ public sealed class SmaaImageTests {
 
         const byte Dim = 12;
 
-        var bright = Aliased(transposed: false);
-        var dim = Aliased(transposed: false, plateau: Dim);
+        var bright = Aliased(false);
+        var dim = Aliased(false, Dim);
 
-        var resolvedBright = Straightness(Render(owned, bright), transposed: false);
-        var resolvedDim = Straightness(Render(owned, dim), transposed: false, plateau: Dim);
+        var resolvedBright = Straightness(Render(owned, bright), false);
+        var resolvedDim = Straightness(Render(owned, dim), false, Dim);
 
         // Wide enough for the coarser quantisation a twelve-level plateau gives the measurement, and
         // nowhere near the 0.289 an absolute threshold would leave the dim edge sitting at.
@@ -216,12 +217,11 @@ public sealed class SmaaImageTests {
 
         var source = fixture.Owned(
             "Source",
-            TextureUsage.Sampled | TextureUsage.CopyDestination,
-            PixelFormat.Rgba8UNorm
+            TextureUsage.Sampled | TextureUsage.CopyDestination
         );
 
         var display = fixture.Owned("Display", TextureUsage.ColourTarget | TextureUsage.CopySource);
-        var staging = fixture.Buffer<byte>(pixels, BufferUsage.CopySource);
+        var staging = fixture.Buffer(pixels, BufferUsage.CopySource);
 
         using var allocator = new DescriptorAllocator(device);
         using var samplers = new SamplerCache(device);
@@ -236,7 +236,7 @@ public sealed class SmaaImageTests {
         effects.AddProvider(
             new Compiling(
                 loader,
-                _ => RavenEffects.Only(
+                static _ => RavenEffects.Only(
                     ["Core", "Geometry"],
                     Path.Combine("PostFx", "Fullscreen.rvn"),
                     Path.Combine("PostFx", "Smaa.rvn")
@@ -258,10 +258,7 @@ public sealed class SmaaImageTests {
             Descriptors = allocator
         };
 
-        var compositor = new GraphicsCompositor(system) {
-            FrameSize = new(Fixture.Side, Fixture.Side),
-            Game = smaa
-        };
+        var compositor = new GraphicsCompositor(system) { FrameSize = new(Fixture.Side, Fixture.Side), Game = smaa };
 
         compositor.Imports["Source"] = new(source.Texture, source.View, source.Description);
 
@@ -334,8 +331,8 @@ public sealed class SmaaImageTests {
                 var across = transposed ? y : x;
                 var along = transposed ? x : y;
 
-                var white = across < 32 + (along / Run);
-                var at = ((y * Fixture.Side) + x) * 4;
+                var white = across < 32 + along / Run;
+                var at = (y * Fixture.Side + x) * 4;
 
                 pixels[at] = pixels[at + 1] = pixels[at + 2] = white ? plateau : (byte)0;
                 pixels[at + 3] = 255;
@@ -382,16 +379,16 @@ public sealed class SmaaImageTests {
             positions.Add((along, sum));
         }
 
-        var meanAlong = positions.Average(entry => entry.Along);
-        var meanPosition = positions.Average(entry => entry.Position);
+        var meanAlong = positions.Average(static entry => entry.Along);
+        var meanPosition = positions.Average(static entry => entry.Position);
 
         var covariance = positions.Sum(e => (e.Along - meanAlong) * (e.Position - meanPosition));
         var variance = positions.Sum(e => (e.Along - meanAlong) * (e.Along - meanAlong));
 
         var slope = covariance / variance;
-        var intercept = meanPosition - (slope * meanAlong);
+        var intercept = meanPosition - slope * meanAlong;
 
-        var squares = positions.Sum(e => Math.Pow(e.Position - ((slope * e.Along) + intercept), 2));
+        var squares = positions.Sum(e => Math.Pow(e.Position - (slope * e.Along + intercept), 2));
 
         return Math.Sqrt(squares / positions.Count);
     }

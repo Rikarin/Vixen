@@ -118,8 +118,12 @@ public readonly record struct CrowdOffMeshTraversal(uint UserId, Vector3 Start, 
 ///         steps decided, it ends the frame standing somewhere it could have walked to.
 ///     </para>
 ///     <para>
-///         That last step is the invariant worth stating on its own: <b>an agent cannot leave the
-///         mesh.</b> Steering and avoidance produce a wish, and <see cref="NavMeshQuery.MoveAlongSurface" />
+///         That last step is the invariant worth stating on its own:
+///         <b>
+///             an agent cannot leave the
+///             mesh.
+///         </b>
+///         Steering and avoidance produce a wish, and <see cref="NavMeshQuery.MoveAlongSurface" />
 ///         is what turns the wish into a position. A bug in avoidance makes an agent walk oddly; it
 ///         cannot make one walk through a wall.
 ///     </para>
@@ -430,7 +434,7 @@ public sealed class Crowd {
                     agent.OffMeshUserId,
                     agent.OffMeshStart,
                     agent.OffMeshEnd,
-                    1f - (agent.OffMeshRemaining / agent.OffMeshTotal)
+                    1f - agent.OffMeshRemaining / agent.OffMeshTotal
                 )
                 : null
         );
@@ -500,7 +504,7 @@ public sealed class Crowd {
                 agent.OffMeshRemaining -= deltaTime;
 
                 if (agent.OffMeshRemaining > 0f) {
-                    var progress = 1f - (agent.OffMeshRemaining / agent.OffMeshTotal);
+                    var progress = 1f - agent.OffMeshRemaining / agent.OffMeshTotal;
                     var moved = Vector3.Lerp(agent.OffMeshStart, agent.OffMeshEnd, progress);
 
                     agent.Velocity = (moved - agent.Position) / deltaTime;
@@ -537,7 +541,10 @@ public sealed class Crowd {
             // Long enough to walk it at the agent's own speed, so a two-metre drop is quick and a
             // twenty-metre zip line is not. Never zero: a connection with coincident ends would
             // otherwise divide by it.
-            agent.OffMeshTotal = MathF.Max(Vector3.Distance(entry, exit) / MathF.Max(agent.Params.MaxSpeed, 0.01f), 0.05f);
+            agent.OffMeshTotal = MathF.Max(
+                Vector3.Distance(entry, exit) / MathF.Max(agent.Params.MaxSpeed, 0.01f),
+                0.05f
+            );
             agent.OffMeshRemaining = agent.OffMeshTotal;
             agent.Position = entry;
         }
@@ -583,7 +590,8 @@ public sealed class Crowd {
             var start = agent.Poly;
             var startPoint = agent.Position;
 
-            if (!IsUsable(start) && !Query.FindNearestPoly(startPoint, SearchExtents, Filter, out start, out startPoint)) {
+            if (!IsUsable(start)
+                && !Query.FindNearestPoly(startPoint, SearchExtents, Filter, out start, out startPoint)) {
                 agent.State = CrowdTargetState.Failed;
 
                 continue;
@@ -754,7 +762,7 @@ public sealed class Crowd {
 
         foreach (var slot in active) {
             var agent = agents[slot];
-            agent.Wanted = agent.Position + (agent.Velocity * deltaTime);
+            agent.Wanted = agent.Position + agent.Velocity * deltaTime;
         }
 
         // Everything below is about the surface, and an agent on a connection is not on it.
@@ -809,7 +817,8 @@ public sealed class Crowd {
                 continue;
             }
 
-            if (!agent.Corridor.MovePosition(agent.Wanted, Query, Filter) && agent.State == CrowdTargetState.Following) {
+            if (!agent.Corridor.MovePosition(agent.Wanted, Query, Filter)
+                && agent.State == CrowdTargetState.Following) {
                 // The agent is somewhere its corridor does not go through. It has still moved, and it
                 // is still on the mesh; what it needs is a new path, next update.
                 agent.State = CrowdTargetState.Requested;
@@ -819,7 +828,11 @@ public sealed class Crowd {
 
             // The velocity the agent actually achieved, which is what avoidance should reason from
             // next frame — not the one it was given, which a wall may have eaten.
-            agent.Velocity = new((moved.X - agent.Position.X) / deltaTime, 0f, (moved.Z - agent.Position.Z) / deltaTime);
+            agent.Velocity = new(
+                (moved.X - agent.Position.X) / deltaTime,
+                0f,
+                (moved.Z - agent.Position.Z) / deltaTime
+            );
             agent.Position = moved;
             agent.Poly = agent.Corridor.FirstPoly;
         }
@@ -851,7 +864,7 @@ public sealed class Crowd {
         var delta = to - from;
         var length = delta.Length();
 
-        return length <= maximumChange || length < 1e-6f ? to : from + (delta / length * maximumChange);
+        return length <= maximumChange || length < 1e-6f ? to : from + delta / length * maximumChange;
     }
 
     bool TryGet(CrowdAgentHandle handle, out Agent agent) {

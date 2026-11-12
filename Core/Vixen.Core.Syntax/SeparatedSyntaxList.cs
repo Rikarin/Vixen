@@ -24,7 +24,7 @@ public readonly struct SeparatedSyntaxList<TNode> : IEnumerable<TNode> where TNo
 
     internal SyntaxNode? Node { get; }
 
-    int SlotCount => Node == null ? 0 : Node.IsList ? Node.SlotCount : 1;
+    int SlotCount => Node is null ? 0 : Node.IsList ? Node.SlotCount : 1;
 
     /// <summary>The element at <paramref name="index" />, skipping separators.</summary>
     public TNode this[int index] => (TNode)SlotAt(index * 2)!;
@@ -34,7 +34,7 @@ public readonly struct SeparatedSyntaxList<TNode> : IEnumerable<TNode> where TNo
     }
 
     /// <summary>Whether the list has any elements.</summary>
-    public bool Any() => Node != null;
+    public bool Any() => Node is not null;
 
     /// <summary>The separator following element <paramref name="index" />.</summary>
     public SyntaxToken GetSeparator(int index) => (SyntaxToken)SlotAt(index * 2 + 1)!;
@@ -67,7 +67,7 @@ public readonly struct SeparatedSyntaxList<TNode> : IEnumerable<TNode> where TNo
     public override int GetHashCode() => Node?.GetHashCode() ?? 0;
 
     SyntaxNode? SlotAt(int slot) {
-        if (Node == null) {
+        if (Node is null) {
             return null;
         }
 

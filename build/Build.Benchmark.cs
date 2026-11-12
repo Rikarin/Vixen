@@ -40,56 +40,57 @@ partial class Build {
     /// </summary>
     const double TimingTolerance = 1.10;
 
-    Target Benchmark => definition => definition
-        .Description("Runs the benchmark projects and judges them against the committed baseline")
-        .Produces(BenchmarkResultsDirectory / "**")
-        .Executes(() => {
-                // Benchmarking a Debug build measures the debugger, and BenchmarkDotNet refuses to
-                // do it. Forcing Release here beats letting somebody discover that after a
-                // twenty-minute run.
-                BenchmarkResultsDirectory.CreateOrCleanDirectory();
+    Target Benchmark =>
+        definition => definition
+            .Description("Runs the benchmark projects and judges them against the committed baseline")
+            .Produces(BenchmarkResultsDirectory / "**")
+            .Executes(() => {
+                    // Benchmarking a Debug build measures the debugger, and BenchmarkDotNet refuses to
+                    // do it. Forcing Release here beats letting somebody discover that after a
+                    // twenty-minute run.
+                    BenchmarkResultsDirectory.CreateOrCleanDirectory();
 
-                var projects = RootDirectory.GlobFiles("Benchmarks/*/*.csproj");
-                Assert.True(projects.Count > 0, "Found no benchmark projects.");
+                    var projects = RootDirectory.GlobFiles("Benchmarks/*/*.csproj");
+                    Assert.True(projects.Count > 0, "Found no benchmark projects.");
 
-                foreach (var project in projects) {
-                    Log.Information("Benchmarking {Project}", project.NameWithoutExtension);
+                    foreach (var project in projects) {
+                        Log.Information("Benchmarking {Project}", project.NameWithoutExtension);
 
-                    // ⚠ A list and not one string, which is what every other DotNetRun in build/
-                    // does and what this one did not. Nuke quotes each element of
-                    // ApplicationArguments, so a whole command line in one element reaches the
-                    // process as ONE argv entry — `-- "--filter * --artifacts ... --exporters json"`
-                    // — and BenchmarkDotNet's own ConfigParser refuses it, prints its help screen
-                    // and runs nothing. Measured against ConfigParser 0.15.8: the blob parses false
-                    // and this form parses true. It is invisible until somebody runs the target,
-                    // which nobody had: `--update-baseline` would have failed with "no reports to
-                    // write a baseline from", naming the symptom and not this.
-                    var arguments = new List<string> {
-                        "--filter",
-                        BenchmarkFilter,
-                        "--artifacts",
-                        BenchmarkResultsDirectory,
-                        "--exporters",
-                        "json"
-                    };
+                        // ⚠ A list and not one string, which is what every other DotNetRun in build/
+                        // does and what this one did not. Nuke quotes each element of
+                        // ApplicationArguments, so a whole command line in one element reaches the
+                        // process as ONE argv entry — `-- "--filter * --artifacts ... --exporters json"`
+                        // — and BenchmarkDotNet's own ConfigParser refuses it, prints its help screen
+                        // and runs nothing. Measured against ConfigParser 0.15.8: the blob parses false
+                        // and this form parses true. It is invisible until somebody runs the target,
+                        // which nobody had: `--update-baseline` would have failed with "no reports to
+                        // write a baseline from", naming the symptom and not this.
+                        var arguments = new List<string> {
+                            "--filter",
+                            BenchmarkFilter,
+                            "--artifacts",
+                            BenchmarkResultsDirectory,
+                            "--exporters",
+                            "json"
+                        };
 
-                    if (Short) {
-                        arguments.Add("--job");
-                        arguments.Add("short");
+                        if (Short) {
+                            arguments.Add("--job");
+                            arguments.Add("short");
+                        }
+
+                        DotNetRun(settings => settings
+                            .SetProjectFile(project)
+                            .SetConfiguration(Configuration.Release)
+                            .SetApplicationArguments(arguments)
+                        );
                     }
 
-                    DotNetRun(settings => settings
-                        .SetProjectFile(project)
-                        .SetConfiguration(Configuration.Release)
-                        .SetApplicationArguments(arguments)
-                    );
+                    Log.Information("Results written to {Directory}", BenchmarkResultsDirectory);
+
+                    JudgeBenchmarks();
                 }
-
-                Log.Information("Results written to {Directory}", BenchmarkResultsDirectory);
-
-                JudgeBenchmarks();
-            }
-        );
+            );
 
     /// <summary>
     ///     The comparison half of <see cref="Benchmark" />, over whatever is already in
@@ -101,9 +102,10 @@ partial class Build {
     ///     watched fail is indistinguishable from one that cannot. Edit a number in
     ///     <c>Benchmarks/baseline.json</c> and run this; it should name the benchmark.
     /// </remarks>
-    Target CheckBenchmarks => definition => definition
-        .Description("Judges the benchmark results already in artifacts/benchmarks against the baseline")
-        .Executes(JudgeBenchmarks);
+    Target CheckBenchmarks =>
+        definition => definition
+            .Description("Judges the benchmark results already in artifacts/benchmarks against the baseline")
+            .Executes(JudgeBenchmarks);
 
     /// <summary>
     ///     Holds the benchmark results against <c>Benchmarks/baseline.json</c>: an allocation may not
@@ -111,8 +113,12 @@ partial class Build {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The two halves are gated differently because only one of them is a property of the
-    ///         code.</b> An allocation count is machine-independent, so it can fail a pull request on a
+    ///         ⚠
+    ///         <b>
+    ///             The two halves are gated differently because only one of them is a property of the
+    ///             code.
+    ///         </b>
+    ///         An allocation count is machine-independent, so it can fail a pull request on a
     ///         shared runner. A mean is not: this repository has attributed a ±14 % swing to machine
     ///         state alone, and wall-clock budgets calibrated on an idle machine are its single largest
     ///         flake source. So a timing regression is reported everywhere and fatal only under
@@ -135,8 +141,12 @@ partial class Build {
     ///         <c>--update-baseline</c> is how the file is written.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And so does one that ran and is in no baseline, which used to be an
-    ///         <c>Information</c> line on a green run</b> (#602). Both directions leave a benchmark
+    ///         ⚠
+    ///         <b>
+    ///             And so does one that ran and is in no baseline, which used to be an
+    ///             <c>Information</c> line on a green run
+    ///         </b>
+    ///         (#602). Both directions leave a benchmark
     ///         outside the intersection the two numeric checks are computed over, so both are a
     ///         benchmark nobody judged; the asymmetry meant every benchmark added after the baseline
     ///         was taken was ungated for ever, and said so where nobody looks. See
@@ -212,9 +222,7 @@ partial class Build {
             var wasMean = node["meanNs"]!.GetValue<double>();
 
             if (actual.BytesPerOperation > wasBytes) {
-                allocations.Add(
-                    $"{name}: {Round(wasBytes)} B/op → {Round(actual.BytesPerOperation)} B/op"
-                );
+                allocations.Add($"{name}: {Round(wasBytes)} B/op → {Round(actual.BytesPerOperation)} B/op");
             }
 
             if (actual.MeanNs > wasMean * TimingTolerance) {
@@ -231,7 +239,9 @@ partial class Build {
             fatal.Add(
                 $"{absent.Count} benchmark(s) are in the baseline and were not run — a renamed, "
                 + "deleted or unlaunched benchmark is judged by nobody, which is what this catches:"
-                + Environment.NewLine + "  " + string.Join(Environment.NewLine + "  ", absent)
+                + Environment.NewLine
+                + "  "
+                + string.Join(Environment.NewLine + "  ", absent)
             );
         } else if (absent.Count > 0) {
             // ⚠ Under a filter every unselected benchmark is absent by construction, so the check
@@ -254,20 +264,26 @@ partial class Build {
                 + "which is the same defect as the line above, pointing the other way. Take a "
                 + "baseline that includes them with `nuke Benchmark --update-baseline`, on hardware "
                 + "that will run it again, and commit the diff:"
-                + Environment.NewLine + "  " + string.Join(Environment.NewLine + "  ", added)
+                + Environment.NewLine
+                + "  "
+                + string.Join(Environment.NewLine + "  ", added)
             );
         }
 
         if (allocations.Count > 0) {
             fatal.Add(
                 "Allocation grew, and an allocation count is the same number on every machine:"
-                + Environment.NewLine + "  " + string.Join(Environment.NewLine + "  ", allocations)
+                + Environment.NewLine
+                + "  "
+                + string.Join(Environment.NewLine + "  ", allocations)
             );
         }
 
         if (timings.Count > 0) {
             var report = $"Slower than the baseline by more than {Round((TimingTolerance - 1) * 100)} %:"
-                + Environment.NewLine + "  " + string.Join(Environment.NewLine + "  ", timings);
+                + Environment.NewLine
+                + "  "
+                + string.Join(Environment.NewLine + "  ", timings);
 
             if (GateTiming && sameMachine) {
                 fatal.Add(report);
@@ -337,10 +353,10 @@ partial class Build {
 
         var benchmarks = new JsonObject();
 
-        foreach (var (name, numbers) in ReadBenchmarkNumbers(reports).OrderBy(pair => pair.Key, StringComparer.Ordinal)) {
+        foreach (var (name, numbers) in ReadBenchmarkNumbers(reports)
+                     .OrderBy(pair => pair.Key, StringComparer.Ordinal)) {
             benchmarks[name] = new JsonObject {
-                ["meanNs"] = numbers.MeanNs,
-                ["bytesPerOperation"] = numbers.BytesPerOperation
+                ["meanNs"] = numbers.MeanNs, ["bytesPerOperation"] = numbers.BytesPerOperation
             };
         }
 
@@ -400,8 +416,8 @@ partial class Build {
         return numbers;
     }
 
-    static string? ProcessorOf(AbsolutePath report)
-        => JsonNode.Parse(report.ReadAllText())?["HostEnvironmentInfo"]?["ProcessorName"]?.GetValue<string>();
+    static string? ProcessorOf(AbsolutePath report) =>
+        JsonNode.Parse(report.ReadAllText())?["HostEnvironmentInfo"]?["ProcessorName"]?.GetValue<string>();
 
     static string Round(double value) => value.ToString("0.##", CultureInfo.InvariantCulture);
 }

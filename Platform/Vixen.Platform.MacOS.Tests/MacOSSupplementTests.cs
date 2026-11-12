@@ -159,10 +159,7 @@ public class MacOSSupplementTests {
 
         var clipboard = new MacOSClipboard(new NothingClipboard());
 
-        var pixels = new byte[] {
-            255, 0, 0, 255, 0, 255, 0, 255,
-            0, 0, 255, 255, 255, 255, 255, 255
-        };
+        var pixels = new byte[] { 255, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255, 255, 255, 255, 255 };
 
         Assert.False(clipboard.SetImage(new(pixels, new(2, 2))));
         Assert.False(clipboard.TryGetImage(out var image));
@@ -205,7 +202,13 @@ public class MacOSSupplementTests {
 
         Assert.Null(await dialogs.OpenFileAsync(new(), null, TestContext.Current.CancellationToken));
         Assert.Empty(await dialogs.OpenFilesAsync(new(), null, TestContext.Current.CancellationToken));
-        Assert.Null(await dialogs.SaveFileAsync(new() { SuggestedFileName = "level.vxscene" }, null, TestContext.Current.CancellationToken));
+        Assert.Null(
+            await dialogs.SaveFileAsync(
+                new() { SuggestedFileName = "level.vxscene" },
+                null,
+                TestContext.Current.CancellationToken
+            )
+        );
         Assert.Null(await dialogs.OpenFolderAsync(new(), null, TestContext.Current.CancellationToken));
     }
 

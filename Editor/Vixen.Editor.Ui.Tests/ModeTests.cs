@@ -150,8 +150,12 @@ public class ModeTests {
     public void A_mode_that_names_a_panel_opens_it_and_closes_it_again() {
         using var shell = new EditorShell(1280f, 800f);
 
-        shell.RegisterPanel("tools", new StringId("test.panel.tools", "Tools"), _ => { });
-        shell.RegisterLayout("Default", new StringId("test.layout", "Default"), () => LayoutPresets.Standard([], [], []));
+        shell.RegisterPanel("tools", new("test.panel.tools", "Tools"), static _ => { });
+        shell.RegisterLayout(
+            "Default",
+            new("test.layout", "Default"),
+            static () => LayoutPresets.Standard([], [], [])
+        );
         shell.Workspace.Reset();
 
         shell.Modes.Add(new Probe("select"));
@@ -170,25 +174,25 @@ public class ModeTests {
     public void The_mode_bar_is_the_buttons_then_the_active_modes_own_strip() {
         using var shell = new EditorShell(1280f, 800f);
 
-        shell.Commands.Add("sculpt.brush", new StringId("test.brush", "Brush"), () => { });
+        shell.Commands.Add("sculpt.brush", new("test.brush", "Brush"), static () => { });
 
         shell.Modes.Add(new Probe("select"));
         shell.Modes.Add(new Probe("sculpt") { Toolbar = [new ToolbarButton("sculpt.brush")] });
 
         // Select has no toolbar, so the strip is the mode buttons and nothing else — not a separator
         // with an empty section after it.
-        Assert.Collection(shell.Modes.Bar(), entry => Assert.IsType<ToolbarGroup>(entry));
+        Assert.Collection(shell.Modes.Bar(), static entry => Assert.IsType<ToolbarGroup>(entry));
 
         shell.Modes.Activate("sculpt");
 
         Assert.Collection(
             shell.Modes.Bar(),
-            entry => Assert.IsType<ToolbarGroup>(entry),
-            entry => Assert.IsType<ToolbarSeparator>(entry),
-            entry => Assert.Equal("sculpt.brush", Assert.IsType<ToolbarButton>(entry).CommandId)
+            static entry => Assert.IsType<ToolbarGroup>(entry),
+            static entry => Assert.IsType<ToolbarSeparator>(entry),
+            static entry => Assert.Equal("sculpt.brush", Assert.IsType<ToolbarButton>(entry).CommandId)
         );
 
-        Assert.Equal(["sculpt.brush"], shell.ModeBar.Items.Where(id => id is not null));
+        Assert.Equal(["sculpt.brush"], shell.ModeBar.Items.Where(static id => id is not null));
     }
 
     [Fact]
@@ -199,12 +203,12 @@ public class ModeTests {
         shell.Modes.Add(new Probe("blockout", "blockout"));
 
         // The bookmark: doc 20's B2 gives 1..9 to view-bookmark recall, with no context at all.
-        shell.Commands.Add("scene.bookmark-go-1", new StringId("test.bookmark", "View 1"), () => { });
-        shell.Keys.SetDefault("scene.bookmark-go-1", new KeyChord(InputKey.Number1, ModifierKeys.None));
+        shell.Commands.Add("scene.bookmark-go-1", new("test.bookmark", "View 1"), static () => { });
+        shell.Keys.SetDefault("scene.bookmark-go-1", new(InputKey.Number1, ModifierKeys.None));
 
         // The mode's: doc 24's B2 gives 1 to vertex mode, in the blockout context.
         shell.Commands.Add(
-            new EditorCommand("blockout.element.vertex", new StringId("test.vertex", "Vertex"), () => { }) {
+            new EditorCommand("blockout.element.vertex", new("test.vertex", "Vertex"), static () => { }) {
                 Context = "blockout"
             }
         );
@@ -212,7 +216,7 @@ public class ModeTests {
         // ⚠ Bound rather than refused, which is the whole claim. Two commands, one key, two contexts.
         Assert.Equal(
             BindResult.Bound,
-            shell.Keys.SetDefault("blockout.element.vertex", new KeyChord(InputKey.Number1, ModifierKeys.None))
+            shell.Keys.SetDefault("blockout.element.vertex", new(InputKey.Number1, ModifierKeys.None))
         );
 
         var chord = new KeyChord(InputKey.Number1, ModifierKeys.None);

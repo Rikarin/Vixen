@@ -86,8 +86,10 @@ public class BlockoutHistoryTests : IDisposable {
 
     string Snapshot(Entity entity) =>
         State(scene.MeshOf(entity))
-        + "|shape:" + (scene.ShapeOf(entity)?.ToString() ?? "none")
-        + "|derived:" + scene.IsDerived(entity);
+        + "|shape:"
+        + (scene.ShapeOf(entity)?.ToString() ?? "none")
+        + "|derived:"
+        + scene.IsDerived(entity);
 
     void Settle() {
         transforms.Resolve(world);
@@ -96,20 +98,21 @@ public class BlockoutHistoryTests : IDisposable {
 
     /// <summary>The verbs a random walk chooses from, each named so a failure says which one.</summary>
     static (string Name, Func<MeshEdit, bool> Run)[] Verbs => [
-        ("extrude", editing => Face(editing) && BlockoutGeometry.Extrude(editing, 0.7f)),
-        ("extrude-individual", editing => Face(editing) && BlockoutGeometry.Extrude(editing, 0.4f, individually: true)),
-        ("inset", editing => Face(editing) && BlockoutGeometry.Inset(editing, 0.2f)),
-        ("bevel", editing => Edge(editing) && BlockoutGeometry.Bevel(editing, 0.1f, 1, out _)),
-        ("loop-cut", editing => Edge(editing) && BlockoutGeometry.LoopCut(editing)),
-        ("subdivide", editing => Face(editing) && BlockoutGeometry.Subdivide(editing)),
-        ("flip", editing => Face(editing) && BlockoutGeometry.Flip(editing)),
-        ("delete", editing => Face(editing) && BlockoutGeometry.Delete(editing)),
-        ("dissolve", editing => Edge(editing) && BlockoutGeometry.Dissolve(editing)),
-        ("weld", editing => Vertex(editing) && BlockoutGeometry.Weld(editing)),
-        ("project", editing => Face(editing) && BlockoutSurfaces.Project(editing)),
-        ("auto-smooth", editing => Face(editing) && BlockoutSurfaces.AutoSmooth(editing)),
-        ("regroup", editing => Face(editing) && BlockoutSurfaces.Regroup(editing)),
-        ("plane-cut", editing => Cut(editing))
+        ("extrude", static editing => Face(editing) && BlockoutGeometry.Extrude(editing, 0.7f)),
+        ("extrude-individual",
+            static editing => Face(editing) && BlockoutGeometry.Extrude(editing, 0.4f, true)),
+        ("inset", static editing => Face(editing) && BlockoutGeometry.Inset(editing, 0.2f)),
+        ("bevel", static editing => Edge(editing) && BlockoutGeometry.Bevel(editing, 0.1f, 1, out _)),
+        ("loop-cut", static editing => Edge(editing) && BlockoutGeometry.LoopCut(editing)),
+        ("subdivide", static editing => Face(editing) && BlockoutGeometry.Subdivide(editing)),
+        ("flip", static editing => Face(editing) && BlockoutGeometry.Flip(editing)),
+        ("delete", static editing => Face(editing) && BlockoutGeometry.Delete(editing)),
+        ("dissolve", static editing => Edge(editing) && BlockoutGeometry.Dissolve(editing)),
+        ("weld", static editing => Vertex(editing) && BlockoutGeometry.Weld(editing)),
+        ("project", static editing => Face(editing) && BlockoutSurfaces.Project(editing)),
+        ("auto-smooth", static editing => Face(editing) && BlockoutSurfaces.AutoSmooth(editing)),
+        ("regroup", static editing => Face(editing) && BlockoutSurfaces.Regroup(editing)),
+        ("plane-cut", static editing => Cut(editing))
     ];
 
     static bool Face(MeshEdit editing) => Pick(editing, MeshElementKind.Face, 1);
@@ -123,7 +126,7 @@ public class BlockoutHistoryTests : IDisposable {
 
         document.Selection.Set(editing.Target);
 
-        return BlockoutBoolean.PlaneCut(document, new Plane(Vector3.UnitY, -0.6f)) > 0;
+        return BlockoutBoolean.PlaneCut(document, new(Vector3.UnitY, -0.6f)) > 0;
     }
 
     /// <summary>Chooses a few elements of a kind, deterministically from the mesh's own size.</summary>
@@ -143,7 +146,7 @@ public class BlockoutHistoryTests : IDisposable {
         List<int> chosen = [];
 
         for (var index = 0; index < count; index++) {
-            chosen.Add((total / (count + 1) * (index + 1)) % total);
+            chosen.Add(total / (count + 1) * (index + 1) % total);
         }
 
         editing.Selection.Set(chosen.Distinct().ToArray());
@@ -177,7 +180,8 @@ public class BlockoutHistoryTests : IDisposable {
         var random = new Random(seed);
         var verbs = Verbs;
 
-        List<(string Name, string State, int History)> steps = [(("start"), Snapshot(entity), scene.Stack.History.Count)];
+        List<(string Name, string State, int History)> steps =
+            [("start", Snapshot(entity), scene.Stack.History.Count)];
 
         for (var step = 0; step < 24; step++) {
             var verb = verbs[random.Next(verbs.Length)];

@@ -56,8 +56,12 @@ public readonly record struct GrassResidencyChange(
 ///         a level that quietly stops having grass at a distance nobody chose.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Not <c>Vixen.Rendering</c>'s <c>PageResidency</c>, and what separates them is the
-///         policy rather than the storage.</b> That service is an LRU under a byte budget: a request
+///         ⚠
+///         <b>
+///             Not <c>Vixen.Rendering</c>'s <c>PageResidency</c>, and what separates them is the
+///             policy rather than the storage.
+///         </b>
+///         That service is an LRU under a byte budget: a request
 ///         that needs room evicts whatever was used longest ago, and it always finds room, because
 ///         only a pinned page refuses. This is a distance ring, where a cell further out than
 ///         everything resident has to <em>lose</em> — <see cref="Reclaim" /> takes a slot only from a
@@ -111,8 +115,7 @@ public sealed class GrassResidency {
     public int Refused { get; private set; }
 
     /// <summary>Every resident cell and its slot.</summary>
-    public IEnumerable<GrassSlot> Resident =>
-        resident.Select(entry => new GrassSlot(entry.Key, entry.Value));
+    public IEnumerable<GrassSlot> Resident => resident.Select(static entry => new GrassSlot(entry.Key, entry.Value));
 
     /// <summary>Which slot a cell is in, if it is resident.</summary>
     /// <param name="cell">The cell.</param>
@@ -198,7 +201,7 @@ public sealed class GrassResidency {
         var dx = MathF.Max(MathF.Max(low.X - position.X, 0f), position.X - high.X);
         var dz = MathF.Max(MathF.Max(low.Y - position.Y, 0f), position.Y - high.Y);
 
-        return MathF.Sqrt((dx * dx) + (dz * dz));
+        return MathF.Sqrt(dx * dx + dz * dz);
     }
 
     /// <summary>

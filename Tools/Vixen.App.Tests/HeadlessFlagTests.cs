@@ -23,8 +23,12 @@ namespace Vixen.App.Tests;
 ///         <c>--vixen-headless</c>.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The second is <em>not</em> what opens a window, and a reader who fixes only that
-///         will believe the bug is gone.</b> Under the headless platform a
+///         ⚠
+///         <b>
+///             The second is <em>not</em> what opens a window, and a reader who fixes only that
+///             will believe the bug is gone.
+///         </b>
+///         Under the headless platform a
 ///         <see cref="HeadlessWindow" /> has no picture whatever <c>WindowOptions.IsVisible</c> says;
 ///         the only consequence is a synthetic <see cref="PlatformEventKind.WindowShown" /> that
 ///         nothing consumes. Both are pinned here so the difference between them stays written down.
@@ -57,7 +61,7 @@ public sealed class HeadlessFlagTests {
         foreach (var file in RepositoryFiles.Files(Path.Combine(Root, "Samples"), "*.cs")) {
             var code = string.Join(
                 '\n',
-                File.ReadLines(file).Where(line => !line.TrimStart().StartsWith("//", StringComparison.Ordinal))
+                File.ReadLines(file).Where(static line => !line.TrimStart().StartsWith("//", StringComparison.Ordinal))
             );
 
             yield return (Path.GetRelativePath(Root, file), code);
@@ -196,7 +200,8 @@ public sealed class HeadlessFlagTests {
 
         Assert.True(sources.Count >= 10, $"Only {sources.Count} sample .cs files were found under Samples/.");
 
-        var throughVixenApp = sources.Count(source => source.Code.Contains("VixenApp.", StringComparison.Ordinal));
+        var throughVixenApp =
+            sources.Count(static source => source.Code.Contains("VixenApp.", StringComparison.Ordinal));
 
         Assert.True(
             throughVixenApp > 0,

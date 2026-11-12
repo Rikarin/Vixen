@@ -6,8 +6,11 @@ namespace Vixen.Editor.AssetEditors.Importing;
 /// <summary>The three sections every import-settings editor has, whatever it is importing.</summary>
 /// <remarks>
 ///     <para>
-///         <b>The panel is <c>ImportSettingsView.vxml</c>; this file exists only to make it public
-///         and sealed.</b> The markup compiler emits a partial class with no accessibility
+///         <b>
+///             The panel is <c>ImportSettingsView.vxml</c>; this file exists only to make it public
+///             and sealed.
+///         </b>
+///         The markup compiler emits a partial class with no accessibility
 ///         modifier, which is <c>internal</c> — deliberately, so that a component is not public API
 ///         by accident.
 ///     </para>

@@ -13,7 +13,7 @@ public sealed class ProcessPlacementTests {
         new() {
             Shard = ShardId.New(),
             Key = new("maps/queensdale", "eu", new("0.1.0", 0xC0FFEE)),
-            Endpoint = endpoint.Host is { Length: > 0 } ? endpoint : new("", 0),
+            Endpoint = endpoint.Host is { Length: > 0 } ? endpoint : new(string.Empty, 0),
             Capacity = new(100, 120)
         };
 
@@ -68,7 +68,7 @@ public sealed class ProcessPlacementTests {
             TestContext.Current.CancellationToken
         );
 
-        Assert.Equal(new RealmEndpoint("10.0.0.4", 30001), instance.Endpoint);
+        Assert.Equal(new("10.0.0.4", 30001), instance.Endpoint);
         Assert.Equal(0, ports.RentedCount);
     }
 
@@ -125,7 +125,7 @@ public sealed class ProcessPlacementTests {
         await placement.StartAsync(Spec(), TestContext.Current.CancellationToken);
         await watch.NextAsync();
 
-        processes.Last.Exit(code: 139);
+        processes.Last.Exit(139);
 
         var lost = await watch.NextAsync();
 
@@ -144,7 +144,7 @@ public sealed class ProcessPlacementTests {
 
         // Doc 27 § Shard kinds: a public shard lives while it is populated, plus a grace. Exiting
         // zero when the last player left is the ordinary end of one, not an incident.
-        processes.Last.Exit(code: 0);
+        processes.Last.Exit();
 
         Assert.Equal(PlacementEventKind.Stopped, (await watch.NextAsync()).Kind);
     }
@@ -221,8 +221,10 @@ public sealed class ProcessPlacementTests {
         var processes = new FakeProcessHost { Refuse = new InvalidOperationException("no such file") };
         using var placement = new ProcessPlacement(Options(ports), processes);
 
-        await Assert.ThrowsAsync<InvalidOperationException>(
-            async () => await placement.StartAsync(Spec(), TestContext.Current.CancellationToken)
+        await Assert.ThrowsAsync<InvalidOperationException>(async () => await placement.StartAsync(
+                Spec(),
+                TestContext.Current.CancellationToken
+            )
         );
 
         // The one machine where starts fail is the one machine where somebody is watching, and a
@@ -237,8 +239,10 @@ public sealed class ProcessPlacementTests {
 
         await placement.StartAsync(Spec(), TestContext.Current.CancellationToken);
 
-        var failure = await Assert.ThrowsAsync<InvalidOperationException>(
-            async () => await placement.StartAsync(Spec(), TestContext.Current.CancellationToken)
+        var failure = await Assert.ThrowsAsync<InvalidOperationException>(async () => await placement.StartAsync(
+                Spec(),
+                TestContext.Current.CancellationToken
+            )
         );
 
         Assert.Contains("exhausted", failure.Message, StringComparison.Ordinal);
@@ -246,10 +250,12 @@ public sealed class ProcessPlacementTests {
 
     [Fact]
     public async Task ALauncherWithNoExecutableRefusesWithSomethingActionable() {
-        using var placement = new ProcessPlacement(new ProcessPlacementOptions(), new FakeProcessHost());
+        using var placement = new ProcessPlacement(new(), new FakeProcessHost());
 
-        var failure = await Assert.ThrowsAsync<InvalidOperationException>(
-            async () => await placement.StartAsync(Spec(), TestContext.Current.CancellationToken)
+        var failure = await Assert.ThrowsAsync<InvalidOperationException>(async () => await placement.StartAsync(
+                Spec(),
+                TestContext.Current.CancellationToken
+            )
         );
 
         Assert.Contains("ProcessPlacementOptions.Executable", failure.Message, StringComparison.Ordinal);
@@ -260,8 +266,10 @@ public sealed class ProcessPlacementTests {
         var processes = new FakeProcessHost();
         using var placement = new ProcessPlacement(Options(), processes);
 
-        await Assert.ThrowsAsync<InvalidOperationException>(
-            async () => await placement.StartAsync(new RealmSpec(), TestContext.Current.CancellationToken)
+        await Assert.ThrowsAsync<InvalidOperationException>(async () => await placement.StartAsync(
+                new(),
+                TestContext.Current.CancellationToken
+            )
         );
 
         Assert.Empty(processes.Started);
@@ -300,10 +308,12 @@ public sealed class ProcessPlacementTests {
         // A launcher that exited leaving realms holding UDP ports is the thing that makes a
         // developer reboot. Surviving a launcher is what the Kubernetes backend's owner reference is
         // for, and it says so explicitly.
-        Assert.All(processes.Started, process => Assert.True(process.WasKilled));
+        Assert.All(processes.Started, static process => Assert.True(process.WasKilled));
 
-        await Assert.ThrowsAsync<ObjectDisposedException>(
-            async () => await placement.StartAsync(Spec(), TestContext.Current.CancellationToken)
+        await Assert.ThrowsAsync<ObjectDisposedException>(async () => await placement.StartAsync(
+                Spec(),
+                TestContext.Current.CancellationToken
+            )
         );
     }
 

@@ -26,8 +26,9 @@ namespace Vixen.Animation.Tests;
 sealed class TableTestSelector : IMoveSelector {
     readonly Dictionary<string, string> table;
 
-    public TableTestSelector(params (string Facets, string Move)[] rows) =>
-        table = rows.ToDictionary(row => row.Facets, row => row.Move, StringComparer.Ordinal);
+    public TableTestSelector(params (string Facets, string Move)[] rows) {
+        table = rows.ToDictionary(static row => row.Facets, static row => row.Move, StringComparer.Ordinal);
+    }
 
     public int ScorerCalls { get; private set; }
 
@@ -58,8 +59,7 @@ sealed class TableTestSelector : IMoveSelector {
 ///     supplies; the shape is the same.
 /// </remarks>
 sealed class AlphabeticalTestScorer : IMoveScorer {
-    public float Score(in MoveCandidate candidate, in MoveQuery query) =>
-        -candidate.Entry.Name[0];
+    public float Score(in MoveCandidate candidate, in MoveQuery query) => -candidate.Entry.Name[0];
 }
 
 /// <summary>A gait model for something with wheels: it never turns on the spot and never strafes.</summary>
@@ -81,7 +81,9 @@ sealed class WheeledTestGaitModel(float wheelbase = 2.4f) : IGaitModel {
 
             // A wheeled body cannot turn faster than its speed and its wheelbase allow, so the
             // animation target is the turn it is *able* to be making rather than the one asked for.
-            TurnRate = wheelbase <= 0f ? 0f : Math.Clamp(state.TurnRate, -MathF.Abs(along) / wheelbase, MathF.Abs(along) / wheelbase)
+            TurnRate = wheelbase <= 0f
+                ? 0f
+                : Math.Clamp(state.TurnRate, -MathF.Abs(along) / wheelbase, MathF.Abs(along) / wheelbase)
         };
     }
 }

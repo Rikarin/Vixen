@@ -53,7 +53,8 @@ public class TextureUploadTests {
     ///     <b>Three halves, and the first two are the instrument.</b> A queue assertion over an empty
     ///     list of recorded commands is vacuously true, so the premise — that the two queues are
     ///     distinguishable at all on this device — and the copy itself are asserted first. On the day
-    ///     <see cref="TextureUploads.Add(TexturePlan, int, int, int, ReadOnlySpan{byte})" /> stops copying anything, this says so rather than passing.
+    ///     <see cref="TextureUploads.Add(TexturePlan, int, int, int, ReadOnlySpan{byte})" /> stops copying anything, this says
+    ///     so rather than passing.
     /// </remarks>
     [Fact]
     public void An_upload_fills_its_texture_from_the_queue_the_evaluator_dispatches_on() {
@@ -125,14 +126,18 @@ public class TextureUploadTests {
             Assert.Contains(1, uploads.Externals)
         );
         Assert.DoesNotContain(0, uploads.Externals);
-        Assert.Equal(new Int2(Side, Side), uploads.SizeOf(1));
+        Assert.Equal(new(Side, Side), uploads.SizeOf(1));
     }
 
     /// <summary>A plan whose CPU op reads an uploaded bitmap is accepted rather than refused.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b><a href="https://github.com/Rikarin/Vixen/issues/744">#744</a>, and it is a claim
-    ///         about a discrete card asserted on a machine that cannot see it.</b> An upload was
+    ///         ⚠
+    ///         <b>
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/744">#744</a>, and it is a claim
+    ///             about a discrete card asserted on a machine that cannot see it.
+    ///         </b>
+    ///         An upload was
     ///         created <c>Sampled | CopyDestination</c> and handed over as a bare handle, so the first
     ///         plan to read one with a <see cref="TextureOp.Cpu" /> op met
     ///         <c>TexturePlanEvaluator</c>'s refusal from the other side — the refusal being the good
@@ -214,8 +219,13 @@ public class TextureUploadTests {
         using var device = new NullDevice();
         using var uploads = new TextureUploads(device);
 
-        var refusal = Assert.Throws<ArgumentException>(
-            () => uploads.Add(Plan(TextureFormat.Rgba8), 1, Side, Side, TextureKernelHarness.Unique(Side))
+        var refusal = Assert.Throws<ArgumentException>(() => uploads.Add(
+                Plan(TextureFormat.Rgba8),
+                1,
+                Side,
+                Side,
+                TextureKernelHarness.Unique(Side)
+            )
         );
 
         Assert.Contains("not external", refusal.Message, StringComparison.Ordinal);
@@ -237,8 +247,11 @@ public class TextureUploadTests {
 
     /// <summary>⚠ A byte count that is not the size times the format's texel is refused.</summary>
     /// <remarks>
-    ///     <b>The interesting case is the second one, where the count is right for a picture and
-    ///     wrong for this image.</b> Four bytes a texel is what a caller has in hand after decoding
+    ///     <b>
+    ///         The interesting case is the second one, where the count is right for a picture and
+    ///         wrong for this image.
+    ///     </b>
+    ///     Four bytes a texel is what a caller has in hand after decoding
     ///     almost anything; handing that to an R8 image would copy the first quarter of it and leave
     ///     the rest of the texture undefined, which reads as a mask whose bottom three rows in four
     ///     are somebody else's memory.
@@ -261,15 +274,23 @@ public class TextureUploadTests {
         using var device = new NullDevice();
         using var uploads = new TextureUploads(device);
 
-        Assert.Throws<ArgumentException>(
-            () => uploads.AddCoverage(Plan(TextureFormat.Rgba8), 0, Side, Side, new float[Side * Side])
+        Assert.Throws<ArgumentException>(() => uploads.AddCoverage(
+                Plan(TextureFormat.Rgba8),
+                0,
+                Side,
+                Side,
+                new float[Side * Side]
+            )
         );
     }
 
     /// <summary>⚠ Coverage is rounded to the nearest level and not truncated.</summary>
     /// <remarks>
-    ///     <b>Asserted here rather than only through a device, because this is the half that skips
-    ///     otherwise.</b> <c>(byte)(c * 255)</c> — the spelling a reader reaches for — gives 127 for
+    ///     <b>
+    ///         Asserted here rather than only through a device, because this is the half that skips
+    ///         otherwise.
+    ///     </b>
+    ///     <c>(byte)(c * 255)</c> — the spelling a reader reaches for — gives 127 for
     ///     a half-covered texel, 254 for 0.999 and 255 only for exactly 1.0, so every value but the
     ///     last comes out a step dark. On a rasterised glyph that is a uniform thinning, which looks
     ///     like a font weight and not like an off-by-one.
@@ -296,8 +317,7 @@ public class TextureUploadTests {
 
         Assert.Equal(0, uploads.Count);
         Assert.Empty(uploads.Externals);
-        Assert.Throws<ObjectDisposedException>(
-            () => uploads.Add(plan, 0, Side, Side, TextureKernelHarness.Unique(Side))
+        Assert.Throws<ObjectDisposedException>(() => uploads.Add(plan, 0, Side, Side, TextureKernelHarness.Unique(Side))
         );
 
         // Twice is a no-op rather than a second round of Destroy calls on dead handles.

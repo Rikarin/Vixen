@@ -138,8 +138,12 @@ public sealed record LibraryIrFunction {
 
     /// <summary>Whether the declaration forbade fusing this body's arithmetic — <c>[NoContraction]</c>.</summary>
     /// <remarks>
-    ///     ⚠ <b>Carried rather than left to the consumer's own declaration, because the consumer has
-    ///     none: a linked function is decoded from here and lowered from nothing.</b> Dropping it
+    ///     ⚠
+    ///     <b>
+    ///         Carried rather than left to the consumer's own declaration, because the consumer has
+    ///         none: a linked function is decoded from here and lowered from nothing.
+    ///     </b>
+    ///     Dropping it
     ///     would mean a library function annotated by its author is fused anyway in every consumer,
     ///     and a request about the last bit of a float is precisely the kind that fails no test.
     ///     Additive, so a reader of an earlier version ignores the property and no version was

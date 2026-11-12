@@ -11,8 +11,12 @@ namespace Vixen.Editor.AssetEditors.Tests;
 
 /// <summary>doc 11 § Input system's input debug panel: four lists over one <c>InputService</c>.</summary>
 /// <remarks>
-///     ⚠ <b>The first test is the important one, and it is the one a panel like this normally does
-///     not have.</b> Every other assertion here is "press something, see it listed"; that one is
+///     ⚠
+///     <b>
+///         The first test is the important one, and it is the one a panel like this normally does
+///         not have.
+///     </b>
+///     Every other assertion here is "press something, see it listed"; that one is
 ///     "publish nothing, and be told that nothing was published". A debug panel whose empty state and
 ///     whose dead state draw the same picture is an instrument that reports success on the day it did
 ///     not run — which for this panel is every day in the shipping editor, because the editor process
@@ -40,7 +44,7 @@ public class InputDebugViewTests {
         using var ui = UiTest.Create();
         var view = ui.Document.Root.Add<InputDebugView>();
 
-        view.Show(new InputService());
+        view.Show(new());
         ui.Frame();
 
         Assert.NotEqual(InputDebugView.Unpublished, view.SourceLine);
@@ -119,16 +123,16 @@ public class InputDebugViewTests {
 
     /// <summary>An action asset with one map and one action bound to one key.</summary>
     const string Asset = """
-        name: Player
-        maps:
-          - name: Gameplay
-            actions:
-              - name: Fire
-                type: button
-                bindings:
-                  - path: <Keyboard>/space
-        """;
+                         name: Player
+                         maps:
+                           - name: Gameplay
+                             actions:
+                               - name: Fire
+                                 type: button
+                                 bindings:
+                                   - path: <Keyboard>/space
+                         """;
 
     /// <summary>Everything a row's cells say, joined — the rows are two text elements deep.</summary>
-    static string Text(UiElement row) => string.Join(' ', row.Children.Select(cell => cell.Text));
+    static string Text(UiElement row) => string.Join(' ', row.Children.Select(static cell => cell.Text));
 }

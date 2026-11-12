@@ -49,7 +49,7 @@ sealed class Ground(
     /// <summary>Ground at a fixed height.</summary>
     /// <param name="metres">How high.</param>
     /// <returns>The surface.</returns>
-    public static Ground At(float metres) => new(height: _ => metres);
+    public static Ground At(float metres) => new(_ => metres);
 }
 
 /// <summary>The types the tests paint with.</summary>

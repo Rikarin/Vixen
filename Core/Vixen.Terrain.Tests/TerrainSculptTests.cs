@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core.Mathematics;
-using Vixen.Terrain;
 using Xunit;
 
 namespace Vixen.Terrain.Tests;
@@ -11,8 +10,12 @@ namespace Vixen.Terrain.Tests;
 public sealed class TerrainSculptTests {
     static TerrainDescription Shape() =>
         TerrainDescription.Default with {
-            TileSamples = 32, TilesX = 2, TilesZ = 2,
-            MetresPerQuad = 1f, MinHeight = -100f, MaxHeight = 100f
+            TileSamples = 32,
+            TilesX = 2,
+            TilesZ = 2,
+            MetresPerQuad = 1f,
+            MinHeight = -100f,
+            MaxHeight = 100f
         };
 
     static (Terrain Terrain, TerrainEditLayer Layer) Build(float height = 0f) {
@@ -43,7 +46,7 @@ public sealed class TerrainSculptTests {
     public void SculptingByMinusWhatItRaisedIsTheIdentity() {
         // The property every reversible tool claims and few have. It holds here because a delta is
         // added to a layer rather than composited into a stored height and re-quantised.
-        var (terrain, layer) = Build(height: 20f);
+        var (terrain, layer) = Build(20f);
         var stamp = new BrushStamp(new(16f, 16f));
 
         TerrainSculpt.Sculpt(terrain, layer, Brush(), stamp, 12.5f);
@@ -62,7 +65,7 @@ public sealed class TerrainSculptTests {
     public void SculptingFallsOffAndTouchesNothingOutsideTheBrush() {
         var (terrain, layer) = Build();
 
-        TerrainSculpt.Sculpt(terrain, layer, Brush(radius: 5f), new(new(16f, 16f)), 10f);
+        TerrainSculpt.Sculpt(terrain, layer, Brush(), new(new(16f, 16f)), 10f);
         terrain.Resolve();
 
         var centre = terrain.Composite.MetresAt(16, 16);
@@ -80,7 +83,7 @@ public sealed class TerrainSculptTests {
 
     [Fact]
     public void SculptingWritesTheLayerAndLeavesTheBaseAlone() {
-        var (terrain, layer) = Build(height: 5f);
+        var (terrain, layer) = Build(5f);
         var before = terrain.Base[16, 16];
 
         TerrainSculpt.Sculpt(terrain, layer, Brush(), new(new(16f, 16f)), 10f);
@@ -93,7 +96,7 @@ public sealed class TerrainSculptTests {
 
     [Fact]
     public void FlatteningPullsTheGroundToTheTargetAtFullWeight() {
-        var (terrain, layer) = Build(height: 30f);
+        var (terrain, layer) = Build(30f);
 
         TerrainSculpt.Flatten(terrain, layer, Brush(falloff: 0f), new(new(16f, 16f)), 5f);
 
@@ -104,7 +107,7 @@ public sealed class TerrainSculptTests {
     public void FlatteningRepeatedlyConvergesRatherThanCreeping() {
         // Rounding rather than truncating in StoreHeight is what makes this true. With truncation
         // each pass loses up to a step and the flattened area sinks for as long as the brush is held.
-        var (terrain, layer) = Build(height: 30f);
+        var (terrain, layer) = Build(30f);
         var stamp = new BrushStamp(new(16f, 16f));
 
         for (var pass = 0; pass < 50; pass++) {
@@ -123,11 +126,11 @@ public sealed class TerrainSculptTests {
         var mountain = terrain.AddLayer("Mountain");
         var flatten = terrain.AddLayer("Pad");
 
-        TerrainSculpt.Sculpt(terrain, mountain, Brush(radius: 12f), new(new(16f, 16f)), 40f);
+        TerrainSculpt.Sculpt(terrain, mountain, Brush(12f), new(new(16f, 16f)), 40f);
         terrain.Resolve();
         Assert.True(terrain.Composite.MetresAt(16, 16) > 30f);
 
-        TerrainSculpt.Flatten(terrain, flatten, Brush(radius: 6f, falloff: 0f), new(new(16f, 16f)), 2f);
+        TerrainSculpt.Flatten(terrain, flatten, Brush(6f, falloff: 0f), new(new(16f, 16f)), 2f);
 
         Assert.Equal(2f, Height(terrain, 16, 16), 1);
         Assert.True(mountain.DeltaAt(16, 16) > 0, "the mountain layer was modified.");
@@ -147,7 +150,7 @@ public sealed class TerrainSculptTests {
         var before = terrain.Composite[16, 16] - terrain.Composite[17, 16];
 
         for (var pass = 0; pass < 5; pass++) {
-            TerrainSculpt.Smooth(terrain, layer, Brush(radius: 6f, falloff: 0f), new(new(16f, 16f)));
+            TerrainSculpt.Smooth(terrain, layer, Brush(6f, falloff: 0f), new(new(16f, 16f)));
             terrain.Resolve();
         }
 
@@ -172,7 +175,7 @@ public sealed class TerrainSculptTests {
         terrain.InvalidateAll();
         terrain.Resolve();
 
-        TerrainSculpt.Smooth(terrain, layer, Brush(radius: 8f, falloff: 0f), new(new(16f, 16f)));
+        TerrainSculpt.Smooth(terrain, layer, Brush(8f, falloff: 0f), new(new(16f, 16f)));
         terrain.Resolve();
 
         for (var offset = 1; offset <= 4; offset++) {
@@ -184,7 +187,7 @@ public sealed class TerrainSculptTests {
 
     [Fact]
     public void SmoothingIsMeanPreservingToWithinRounding() {
-        var (terrain, layer) = Build(height: 10f);
+        var (terrain, layer) = Build(10f);
 
         layer.SetDelta(16, 16, 10_000);
         layer.SetDelta(18, 18, -8_000);
@@ -204,7 +207,7 @@ public sealed class TerrainSculptTests {
         }
 
         var before = Total();
-        TerrainSculpt.Smooth(terrain, layer, Brush(radius: 6f, falloff: 0f), new(new(16f, 16f)));
+        TerrainSculpt.Smooth(terrain, layer, Brush(6f, falloff: 0f), new(new(16f, 16f)));
         terrain.Resolve();
 
         // Within a fraction of a per cent: a 3×3 box filter conserves the mean exactly in the
@@ -219,9 +222,9 @@ public sealed class TerrainSculptTests {
         // The reason it is value noise: the range is exactly the range of the lattice, so an
         // amplitude declared as three metres never exceeds three metres. An artist sculpting beside
         // a building cannot work with "three metres, except occasionally".
-        var (terrain, layer) = Build(height: 50f);
+        var (terrain, layer) = Build(50f);
 
-        TerrainSculpt.Noise(terrain, layer, Brush(radius: 12f, falloff: 0f), new(new(16f, 16f)), 3f, new());
+        TerrainSculpt.Noise(terrain, layer, Brush(12f, falloff: 0f), new(new(16f, 16f)), 3f, new());
         terrain.Resolve();
 
         for (var z = 6; z < 27; z++) {
@@ -256,10 +259,10 @@ public sealed class TerrainSculptTests {
 
     [Fact]
     public void ErosionOnlyMovesGroundSteeperThanTheTalusAngle() {
-        var (terrain, layer) = Build(height: 10f);
+        var (terrain, layer) = Build(10f);
 
         // Flat ground is already below any talus angle, so nothing should move.
-        TerrainSculpt.Erode(terrain, layer, Brush(radius: 8f, falloff: 0f), new(new(16f, 16f)), 1f, 1f);
+        TerrainSculpt.Erode(terrain, layer, Brush(8f, falloff: 0f), new(new(16f, 16f)), 1f, 1f);
         terrain.Resolve();
 
         Assert.Equal(0, layer.DeltaAt(16, 16));
@@ -268,7 +271,7 @@ public sealed class TerrainSculptTests {
 
     [Fact]
     public void ErosionLowersASpikeAndNeverRaisesIt() {
-        var (terrain, layer) = Build(height: 10f);
+        var (terrain, layer) = Build(10f);
 
         layer.SetDelta(16, 16, 15_000);
         terrain.InvalidateAll();
@@ -277,7 +280,7 @@ public sealed class TerrainSculptTests {
         var before = terrain.Composite[16, 16];
 
         for (var pass = 0; pass < 4; pass++) {
-            TerrainSculpt.Erode(terrain, layer, Brush(radius: 8f, falloff: 0f), new(new(16f, 16f)), 0.5f, 1f);
+            TerrainSculpt.Erode(terrain, layer, Brush(8f, falloff: 0f), new(new(16f, 16f)), 0.5f, 1f);
             terrain.Resolve();
         }
 
@@ -286,14 +289,14 @@ public sealed class TerrainSculptTests {
 
     [Fact]
     public void HydroCarvesWithoutRunningAway() {
-        var (terrain, layer) = Build(height: 40f);
+        var (terrain, layer) = Build(40f);
 
         layer.SetDelta(16, 16, 10_000);
         terrain.InvalidateAll();
         terrain.Resolve();
 
         for (var pass = 0; pass < 10; pass++) {
-            TerrainSculpt.Hydro(terrain, layer, Brush(radius: 8f, falloff: 0f), new(new(16f, 16f)), 0.5f);
+            TerrainSculpt.Hydro(terrain, layer, Brush(8f, falloff: 0f), new(new(16f, 16f)), 0.5f);
             terrain.Resolve();
         }
 
@@ -311,7 +314,7 @@ public sealed class TerrainSculptTests {
     public void ARampInterpolatesItsTwoHeightsAlongItsLength() {
         var (terrain, layer) = Build();
 
-        TerrainSculpt.Ramp(terrain, layer, new(8f, 16f), new(24f, 16f), 0f, 16f, halfWidth: 3f, sideFalloff: 0f);
+        TerrainSculpt.Ramp(terrain, layer, new(8f, 16f), new(24f, 16f), 0f, 16f, 3f, 0f);
         terrain.Resolve();
 
         Assert.Equal(0f, terrain.Composite.MetresAt(8, 16), 1);
@@ -323,7 +326,7 @@ public sealed class TerrainSculptTests {
     public void ARampTouchesNothingBeyondItsHalfWidthOrItsEnds() {
         var (terrain, layer) = Build();
 
-        TerrainSculpt.Ramp(terrain, layer, new(8f, 16f), new(24f, 16f), 0f, 16f, halfWidth: 3f, sideFalloff: 0f);
+        TerrainSculpt.Ramp(terrain, layer, new(8f, 16f), new(24f, 16f), 0f, 16f, 3f, 0f);
         terrain.Resolve();
 
         // Stored samples against an untouched corner — see SculptingFallsOff… for why not metres.
@@ -338,7 +341,7 @@ public sealed class TerrainSculptTests {
     public void ARampsSideFalloffIsCosineBlendedAndMonotonic() {
         var (terrain, layer) = Build();
 
-        TerrainSculpt.Ramp(terrain, layer, new(8f, 16f), new(24f, 16f), 20f, 20f, halfWidth: 6f, sideFalloff: 1f);
+        TerrainSculpt.Ramp(terrain, layer, new(8f, 16f), new(24f, 16f), 20f, 20f, 6f, 1f);
         terrain.Resolve();
 
         var previous = float.MaxValue;
@@ -371,7 +374,7 @@ public sealed class TerrainSculptTests {
 
         Assert.True(terrain.Holes.IsEmpty);
 
-        TerrainSculpt.PaintHoles(terrain, Brush(radius: 1f, falloff: 0f), new(new(16f, 16f)), hole: true);
+        TerrainSculpt.PaintHoles(terrain, Brush(1f, falloff: 0f), new(new(16f, 16f)), true);
 
         Assert.False(terrain.Holes.IsEmpty);
         Assert.True(terrain.Holes.IsHole(16, 16));
@@ -385,13 +388,13 @@ public sealed class TerrainSculptTests {
     [Fact]
     public void FillingAHoleBackInRestoresTheCount() {
         var terrain = new Terrain(Shape());
-        var brush = Brush(radius: 2f, falloff: 0f);
+        var brush = Brush(2f, falloff: 0f);
 
-        TerrainSculpt.PaintHoles(terrain, brush, new(new(16f, 16f)), hole: true);
+        TerrainSculpt.PaintHoles(terrain, brush, new(new(16f, 16f)), true);
         var punched = terrain.Holes.HoleCount;
         Assert.True(punched > 0);
 
-        TerrainSculpt.PaintHoles(terrain, brush, new(new(16f, 16f)), hole: false);
+        TerrainSculpt.PaintHoles(terrain, brush, new(new(16f, 16f)), false);
         Assert.Equal(0, terrain.Holes.HoleCount);
         Assert.True(terrain.Holes.IsEmpty);
     }
@@ -400,14 +403,14 @@ public sealed class TerrainSculptTests {
     public void AHoleBecomesTheNoCollisionSentinelInTheCollisionSamples() {
         // The seam to docs/plan/31 § D10: the kernel cannot name a ShapeDescription, so it fills
         // floats and takes the sentinel as an argument.
-        var terrain = new Terrain(Shape(), height: 7f);
+        var terrain = new Terrain(Shape(), 7f);
         terrain.Holes.SetHole(3, 3, true);
 
         var samples = new float[terrain.Description.TileSamples * terrain.Description.TileSamples];
         terrain.Composite.FillCollisionSamples(0, 0, terrain.Holes, float.MaxValue, samples);
 
-        Assert.Equal(float.MaxValue, samples[(3 * terrain.Description.TileSamples) + 3]);
-        Assert.Equal(7f, samples[(4 * terrain.Description.TileSamples) + 4], 2);
+        Assert.Equal(float.MaxValue, samples[3 * terrain.Description.TileSamples + 3]);
+        Assert.Equal(7f, samples[4 * terrain.Description.TileSamples + 4], 2);
     }
 
     [Fact]
@@ -416,7 +419,7 @@ public sealed class TerrainSculptTests {
         var layer = terrain.AddLayer("A");
 
         // Raise a spot inside tile (1, 1) and read that tile back.
-        TerrainSculpt.Sculpt(terrain, layer, Brush(radius: 3f, falloff: 0f), new(new(40f, 40f)), 25f);
+        TerrainSculpt.Sculpt(terrain, layer, Brush(3f, falloff: 0f), new(new(40f, 40f)), 25f);
         terrain.Resolve();
 
         var size = terrain.Description.TileSamples;
@@ -424,6 +427,6 @@ public sealed class TerrainSculptTests {
         terrain.Composite.FillCollisionSamples(1, 1, null, float.MaxValue, samples);
 
         // Tile (1, 1) starts at sample 31, so world 40 is local 9.
-        Assert.Equal(25f, samples[(9 * size) + 9], 1);
+        Assert.Equal(25f, samples[9 * size + 9], 1);
     }
 }

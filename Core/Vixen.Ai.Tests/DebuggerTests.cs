@@ -25,19 +25,17 @@ namespace Vixen.Ai.Tests;
 public class AiDiagnosisExitCriteriaTests {
     [Fact]
     public void AFlappingAgentIsNamedFromTheLogWithNothingElseToLookAt() {
-        var recorder = Record(
-            static (system, world, entity) => {
+        var recorder = Record(static (system, world, entity) => {
                 var danger = 0f;
                 var hide = system.Actions.Register("hide", new AlwaysRuns());
                 var fight = system.Actions.Register("fight", new AlwaysRuns());
                 var set = new UtilitySet(
                     Symbol.Intern("flapper"),
-                    Scored("hide", hide, () => 0.5f),
+                    Scored("hide", hide, static () => 0.5f),
                     Scored("fight", fight, () => danger)
                 ) {
                     // Inertia off: the two mechanisms that exist to stop exactly this.
-                    CommitmentBonus = 0f,
-                    DecisionInterval = 0f
+                    CommitmentBonus = 0f, DecisionInterval = 0f
                 };
 
                 system.Sets.Add(set);
@@ -51,7 +49,7 @@ public class AiDiagnosisExitCriteriaTests {
 
         Assert.True(AiDiagnosis.Analyse(recorder, findings) > 0, AiDiagnosis.Describe(recorder));
 
-        var flapping = findings.Find(finding => finding.Symptom == AiSymptom.Flapping);
+        var flapping = findings.Find(static finding => finding.Symptom == AiSymptom.Flapping);
 
         Assert.Equal(AiSymptom.Flapping, flapping.Symptom);
         Assert.Equal(AiPlanner.Utility, flapping.Planner);
@@ -61,13 +59,12 @@ public class AiDiagnosisExitCriteriaTests {
 
     [Fact]
     public void AnAgentStuckOnOneFailingActionIsNamedAndSoIsTheAction() {
-        var recorder = Record(
-            static (system, world, entity) => {
+        var recorder = Record(static (system, world, entity) => {
                 var action = system.Actions.Register("open-the-locked-door", new AlwaysFails());
 
                 world.Get<AiAgent>(entity) = AiAgent.Running(action);
 
-                return _ => { };
+                return static _ => { };
             }
         );
 
@@ -75,7 +72,7 @@ public class AiDiagnosisExitCriteriaTests {
 
         AiDiagnosis.Analyse(recorder, findings);
 
-        var stuck = findings.Find(finding => finding.Symptom == AiSymptom.StuckFailing);
+        var stuck = findings.Find(static finding => finding.Symptom == AiSymptom.StuckFailing);
 
         Assert.Equal(AiSymptom.StuckFailing, stuck.Symptom);
         Assert.Equal(Symbol.Intern("open-the-locked-door"), stuck.Action);
@@ -89,13 +86,12 @@ public class AiDiagnosisExitCriteriaTests {
     /// </summary>
     [Fact]
     public void AnAgentThatIsWorkingProducesNothingAtAll() {
-        var recorder = Record(
-            static (system, world, entity) => {
+        var recorder = Record(static (system, world, entity) => {
                 var action = system.Actions.Register("patrol", new SucceedsEveryFewTicks(4), sizeof(int));
 
                 world.Get<AiAgent>(entity) = AiAgent.Running(action);
 
-                return _ => { };
+                return static _ => { };
             }
         );
 
@@ -114,7 +110,7 @@ public class AiDiagnosisExitCriteriaTests {
         using var world = new World("diagnosis");
         var entity = world.Create(AiAgent.Running(0));
 
-        registry.Register("idle", new AlwaysRuns(), 0);
+        registry.Register("idle", new AlwaysRuns());
 
         var drive = arrange(system, world, entity);
 
@@ -183,7 +179,7 @@ public class AiBreakpointTests {
         using var harness = TreeHarness.For(
             BehaviorTree.Sequence("root", BehaviorTree.Task("first", "running")),
             BlackboardLayout.Empty,
-            actions => TreeHarness.Probes(actions)
+            static actions => TreeHarness.Probes(actions)
         );
 
         var stops = new AiBreakpoints();
@@ -227,7 +223,7 @@ public class AiBreakpointTests {
                 BehaviorTree.Sequence("branch", BehaviorTree.Task("leaf", "running"))
             ),
             BlackboardLayout.Empty,
-            actions => TreeHarness.Probes(actions)
+            static actions => TreeHarness.Probes(actions)
         );
 
         var stops = new AiBreakpoints();
@@ -246,10 +242,10 @@ public class AiBreakpointTests {
         using var harness = TreeHarness.For(
             BehaviorTree.Sequence("root", BehaviorTree.Task("first", "running")),
             BlackboardLayout.Empty,
-            actions => TreeHarness.Probes(actions)
+            static actions => TreeHarness.Probes(actions)
         );
 
-        harness.Tree.Breakpoints = new AiBreakpoints();
+        harness.Tree.Breakpoints = new();
         harness.Steps(5);
 
         Assert.False(harness.Tree.Halted);
@@ -275,7 +271,7 @@ public class AiSnapshotTests {
         var registry = new AgentActionRegistry();
         var layout = new BlackboardLayoutBuilder().Add("alarmed", BlackboardValueType.Bool).Build();
 
-        registry.Register("stand", new Standing(), 0);
+        registry.Register("stand", new Standing());
 
         var system = new AiSystem(registry, layout);
         var asset = BehaviorTree.Asset(
@@ -304,13 +300,13 @@ public class AiSnapshotTests {
 
         var doing = snapshot.Section(AiDebugSection.Doing).ToList();
 
-        Assert.Contains(doing, row => row.Name == "root");
-        Assert.Contains(doing, row => row is { Name: "stand-guard", Active: true });
-        Assert.Contains(snapshot.Section(AiDebugSection.Why), row => row.Value == "passes");
+        Assert.Contains(doing, static row => row.Name == "root");
+        Assert.Contains(doing, static row => row is { Name: "stand-guard", Active: true });
+        Assert.Contains(snapshot.Section(AiDebugSection.Why), static row => row.Value == "passes");
 
         // ⚠ Set keys only. An unset key and a key holding zero are different states, and the
         // commonest AI bug there is — a sensor that never ran — looks exactly like the second.
-        Assert.Contains(snapshot.Section(AiDebugSection.Data), row => row is { Name: "alarmed", Value: "true" });
+        Assert.Contains(snapshot.Section(AiDebugSection.Data), static row => row is { Name: "alarmed", Value: "true" });
     }
 
     /// <summary>
@@ -342,8 +338,8 @@ public class AiSnapshotTests {
         var layout = new BlackboardLayoutBuilder().Add("alarmed", BlackboardValueType.Bool).Build();
 
         // The decoy, registered first so that index zero is an answer nobody should ever get.
-        registry.Register("idle-decoy", new Standing(), 0);
-        registry.Register("stand", new Standing(), 0);
+        registry.Register("idle-decoy", new Standing());
+        registry.Register("stand", new Standing());
 
         var system = new AiSystem(registry, layout);
         var asset = BehaviorTree.Asset("guard", BehaviorTree.Task("stand-guard", "stand"));
@@ -365,13 +361,13 @@ public class AiSnapshotTests {
     public void AUtilityAgentReportsEveryCandidateAndTheChosenOnesFactors() {
         var registry = new AgentActionRegistry();
 
-        registry.Register("wander", new Standing(), 0);
-        registry.Register("run", new Standing(), 0);
+        registry.Register("wander", new Standing());
+        registry.Register("run", new Standing());
 
         var system = new AiSystem(registry, BlackboardLayout.Empty);
 
         system.Sets.Add(
-            new UtilitySet(
+            new(
                 Symbol.Intern("villager"),
                 Candidate("wander", 0, 0.2f),
                 Candidate("run", 1, 0.9f)
@@ -404,14 +400,12 @@ public class AiSnapshotTests {
     public void TakingASnapshotDoesNotChangeWhatTheAgentDecides() {
         var registry = new AgentActionRegistry();
 
-        registry.Register("wander", new Standing(), 0);
-        registry.Register("run", new Standing(), 0);
+        registry.Register("wander", new Standing());
+        registry.Register("run", new Standing());
 
         var system = new AiSystem(registry, BlackboardLayout.Empty);
 
-        system.Sets.Add(
-            new UtilitySet(Symbol.Intern("villager"), Candidate("wander", 0, 0.2f), Candidate("run", 1, 0.9f))
-        );
+        system.Sets.Add(new(Symbol.Intern("villager"), Candidate("wander", 0, 0.2f), Candidate("run", 1, 0.9f)));
 
         using var world = new World("snapshot-quiet");
         var entity = world.Create(AiAgent.Scoring(0));
@@ -471,7 +465,7 @@ public class AiDebugChannelTests {
             Assert.Equal(AiPlanner.Utility, far.Planner);
             Assert.Equal(Symbol.Intern("villager"), far.Asset);
             Assert.Equal(2, far.CountOf(AiDebugSection.Doing));
-            Assert.Contains(far.Section(AiDebugSection.Doing), row => row.Active);
+            Assert.Contains(far.Section(AiDebugSection.Doing), static row => row.Active);
         }
     }
 
@@ -544,13 +538,13 @@ public class AiDebugChannelTests {
     static (AiSystem System, World World, Entity Entity) Standing() {
         var registry = new AgentActionRegistry();
 
-        registry.Register("wander", new Idle(), 0);
-        registry.Register("run", new Idle(), 0);
+        registry.Register("wander", new Idle());
+        registry.Register("run", new Idle());
 
         var system = new AiSystem(registry, BlackboardLayout.Empty);
 
         system.Sets.Add(
-            new UtilitySet(
+            new(
                 Symbol.Intern("villager"),
                 Candidate("wander", 0, 0.2f),
                 Candidate("run", 1, 0.9f)

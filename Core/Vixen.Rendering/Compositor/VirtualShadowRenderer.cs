@@ -13,8 +13,11 @@ namespace Vixen.Rendering.Compositor;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b><see cref="ShadowMapRenderer" />'s replacement rather than its sibling, and the reason is
-///         the geometry.</b> Four cascades are four fixed resolutions over a whole frustum, and the one
+///         <b>
+///             <see cref="ShadowMapRenderer" />'s replacement rather than its sibling, and the reason is
+///             the geometry.
+///         </b>
+///         Four cascades are four fixed resolutions over a whole frustum, and the one
 ///         a pixel gets is whichever slice it landed in — tolerable when the geometry is an authored LOD
 ///         chain, and absurd when it is a cut chosen to put a cluster's error under a pixel. This node
 ///         fits a <em>clipmap</em> instead: levels doubling in extent, centred on the camera and snapped
@@ -185,8 +188,11 @@ public sealed class VirtualShadowRenderer : SceneRenderer {
     /// <summary>Whether a caster that moved retires the pages it was under and the pages it is under.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>The correctness half of the cache, and it is on by default because the alternative is
-    ///         a wrong picture rather than a slow one.</b> A page is drawn once and kept until
+    ///         <b>
+    ///             The correctness half of the cache, and it is on by default because the alternative is
+    ///             a wrong picture rather than a slow one.
+    ///         </b>
+    ///         A page is drawn once and kept until
     ///         something says its depths are stale; a moved light says so for every page it owns and a
     ///         re-fitted level for every page of that level, but until this existed a moved
     ///         <em>object</em> said nothing at all. Its shadow then stayed exactly where the object had
@@ -265,8 +271,12 @@ public sealed class VirtualShadowRenderer : SceneRenderer {
     ///         they do is a question about the scene's own rates.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b><see cref="RefitLevels" /> is not a share of this, and after task #317 the two
-    ///         come apart.</b> A level that slid laterally is a refit that invalidates the thirty-two
+    ///         ⚠
+    ///         <b>
+    ///             <see cref="RefitLevels" /> is not a share of this, and after task #317 the two
+    ///             come apart.
+    ///         </b>
+    ///         A level that slid laterally is a refit that invalidates the thirty-two
     ///         pages of one column rather than all thousand and twenty-four, because a page is
     ///         addressed toroidally — so a walking camera now refits as often as it ever did and
     ///         throws away a fraction as much.
@@ -287,8 +297,12 @@ public sealed class VirtualShadowRenderer : SceneRenderer {
     ///         large <see cref="MovedCasters" /> is the scene itself.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Counted as <em>published pages lost</em>, which is a hair stricter than the refit's
-    ///         half of the same total.</b> <see cref="Fit" /> counts every resident page it invalidates
+    ///         ⚠
+    ///         <b>
+    ///             Counted as <em>published pages lost</em>, which is a hair stricter than the refit's
+    ///             half of the same total.
+    ///         </b>
+    ///         <see cref="Fit" /> counts every resident page it invalidates
     ///         and each of those exactly once; a caster's span may cover a page a caster earlier in the
     ///         same frame already retired, and counting that twice would report forty where the frame
     ///         lost five. What both halves mean is "a page that has to be drawn again", which is the
@@ -317,8 +331,12 @@ public sealed class VirtualShadowRenderer : SceneRenderer {
     ///         <see cref="ShadowMapRenderer" /> fits its cascades here.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The levels are refitted before the marks are serviced, and a level that moved
-    ///         invalidates its pages.</b> Which of them depends on <em>how</em> it moved: a page's
+    ///         ⚠
+    ///         <b>
+    ///             The levels are refitted before the marks are serviced, and a level that moved
+    ///             invalidates its pages.
+    ///         </b>
+    ///         Which of them depends on <em>how</em> it moved: a page's
     ///         identity is its <see cref="VirtualShadowMap.ToroidalOf" /> address, which a lateral
     ///         slide leaves alone except on the column and row that wrapped, and which every other
     ///         kind of move — the sun's snap stepping, the near plane stepping along the light —
@@ -370,7 +388,7 @@ public sealed class VirtualShadowRenderer : SceneRenderer {
                 continue;
             }
 
-            var within = page - (level * VirtualShadowMap.PagesPerMap);
+            var within = page - level * VirtualShadowMap.PagesPerMap;
 
             // ⚠ **The address back to a window cell, which is the half of the toroidal scheme no
             // shader does.** A page is owed a draw by its address, and PageProjection wants the
@@ -401,7 +419,7 @@ public sealed class VirtualShadowRenderer : SceneRenderer {
             // The light's position rather than the camera's, for ShadowMapRenderer's reason: sorting a
             // depth-only pass front-to-back is front-to-back *from the light*, which is what early-Z
             // rewards. A page's own centre projected back along the light is as close as this gets.
-            view.Position = camera.Position - (Vector3.Normalize(sunward) * Depthrange);
+            view.Position = camera.Position - Vector3.Normalize(sunward) * Depthrange;
             view.MaximumDistance = 0f;
 
             compositor.Use(view, CasterStage);
@@ -419,7 +437,7 @@ public sealed class VirtualShadowRenderer : SceneRenderer {
 
             atlas.Publish(
                 parameters,
-                [.. Passes],
+                [..Passes],
                 Samplers,
                 camera,
                 compositor.FrameSize.Y,
@@ -594,7 +612,7 @@ public sealed class VirtualShadowRenderer : SceneRenderer {
                     continue;
                 }
 
-                if (atlas.Pages.Invalidate(first + (y * VirtualShadowMap.PagesPerSide) + x)) {
+                if (atlas.Pages.Invalidate(first + y * VirtualShadowMap.PagesPerSide + x)) {
                     InvalidatedPages++;
                 }
             }
@@ -604,8 +622,11 @@ public sealed class VirtualShadowRenderer : SceneRenderer {
     /// <summary>Retires the pages every caster that moved was under, and the pages it is under now.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>The object store rather than a stage's node list, and that is the load-bearing
-    ///         choice.</b> <see cref="PunctualShadowRenderer" /> reads the nodes a view collected and
+    ///         <b>
+    ///             The object store rather than a stage's node list, and that is the load-bearing
+    ///             choice.
+    ///         </b>
+    ///         <see cref="PunctualShadowRenderer" /> reads the nodes a view collected and
     ///         has to re-test them, because with device-side culling and no readback the list a host
     ///         is handed is the <em>conservative</em> set — everything that could be visible — which
     ///         nearly made that cache worthless while every counter read healthy. A caster's footprint
@@ -621,8 +642,12 @@ public sealed class VirtualShadowRenderer : SceneRenderer {
     ///         whether it was casting at all rather than being cleared on removal.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The pages are named by <see cref="VirtualShadowMap.ToroidalOf" /> and not by the
-    ///         window cell <see cref="VirtualShadowMap.PageSpan" /> answers.</b> The two agree only
+    ///         ⚠
+    ///         <b>
+    ///             The pages are named by <see cref="VirtualShadowMap.ToroidalOf" /> and not by the
+    ///             window cell <see cref="VirtualShadowMap.PageSpan" /> answers.
+    ///         </b>
+    ///         The two agree only
     ///         while a level's origin is zero, so a version that skipped the conversion would retire
     ///         the right pages until the camera walked one page and somebody else's pages after that
     ///         — a cache corruption that draws perfectly plausible shadows in the wrong place.
@@ -769,8 +794,7 @@ public sealed class VirtualShadowRenderer : SceneRenderer {
                 pass => {
                     pass.SideEffect();
 
-                    pass.Execute(
-                        graphContext => {
+                    pass.Execute(graphContext => {
                             var context = frame.Context(graphContext.CommandList);
                             var previous = context.Output;
 
@@ -802,8 +826,12 @@ public sealed class VirtualShadowRenderer : SceneRenderer {
                 pass.Reads(depth);
                 pass.SideEffect();
 
-                pass.Execute(
-                    graphContext => target.Mark(graphContext.CommandList, graphContext.View(depth), camera, size)
+                pass.Execute(graphContext => target.Mark(
+                        graphContext.CommandList,
+                        graphContext.View(depth),
+                        camera,
+                        size
+                    )
                 );
             }
         );
@@ -837,7 +865,13 @@ public sealed class VirtualShadowRenderer : SceneRenderer {
         list.Barrier(
             new(
                 [],
-                [new(atlas.Texture, atlas.IsBuilt ? ResourceState.ShaderRead : ResourceState.Undefined, ResourceState.DepthStencilWrite)]
+                [
+                    new(
+                        atlas.Texture,
+                        atlas.IsBuilt ? ResourceState.ShaderRead : ResourceState.Undefined,
+                        ResourceState.DepthStencilWrite
+                    )
+                ]
             )
         );
 

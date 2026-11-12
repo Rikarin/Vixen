@@ -7,8 +7,12 @@ namespace Vixen.Geometry.Remeshing.Tests;
 
 /// <summary>The surfaces a transfer test needs, and the measurements it makes on the result.</summary>
 /// <remarks>
-///     ⚠ <b>Every fixture is built at an explicit scale and the tests run each one at three of
-///     them.</b> docs/plan/41 § D3's lesson, which this repository has now paid for five times: a
+///     ⚠
+///     <b>
+///         Every fixture is built at an explicit scale and the tests run each one at three of
+///         them.
+///     </b>
+///     docs/plan/41 § D3's lesson, which this repository has now paid for five times: a
 ///     tolerance that is absolute where it should be relative is invisible at unit scale and total at
 ///     any other.
 /// </remarks>
@@ -33,8 +37,8 @@ static class TransferFixtures {
 
         for (var i = 0; i <= cells; i++) {
             for (var j = 0; j <= cells; j++) {
-                var x = (-size / 2f) + (i * step);
-                var y = (-size / 2f) + (j * step);
+                var x = -size / 2f + i * step;
+                var y = -size / 2f + j * step;
 
                 // Interior vertices only, so the sheet stays a square and its outline is comparable
                 // between two grids of different densities.
@@ -72,13 +76,13 @@ static class TransferFixtures {
     ///     ran the tests in.
     /// </remarks>
     static float Wobble(int i, int j, int channel) {
-        var hash = (uint) ((i * 73856093) ^ (j * 19349663) ^ (channel * 83492791));
+        var hash = (uint)((i * 73856093) ^ (j * 19349663) ^ (channel * 83492791));
 
         hash ^= hash >> 15;
         hash *= 2246822519u;
         hash ^= hash >> 13;
 
-        return ((hash % 2001u) / 1000f) - 1f;
+        return hash % 2001u / 1000f - 1f;
     }
 
     /// <summary>A source sheet whose two groups meet on a straight line.</summary>
@@ -86,8 +90,12 @@ static class TransferFixtures {
     /// <param name="size">Its width.</param>
     /// <returns>The sheet.</returns>
     /// <remarks>
-    ///     ⚠ <b>The line is <c>x = 0</c> and it runs along a grid line, which is not a convenience —
-    ///     it is what makes the fixture measure the transfer rule instead of measuring itself.</b> A
+    ///     ⚠
+    ///     <b>
+    ///         The line is <c>x = 0</c> and it runs along a grid line, which is not a convenience —
+    ///         it is what makes the fixture measure the transfer rule instead of measuring itself.
+    ///     </b>
+    ///     A
     ///     diagonal boundary on a quad grid is a <i>staircase</i> whose steps are one source cell
     ///     tall, and a target quad three cells wide then straddles the steps by about a third of its
     ///     area. Both rules flip on that, so the fixture would report a shred that the source handed
@@ -95,7 +103,7 @@ static class TransferFixtures {
     ///     rule the plan rejects, both branching twice — the fixture said the two rules were the
     ///     same, and what it was actually measuring was its own staircase.
     /// </remarks>
-    public static EditMesh TwoGroups(int cells, float size) => Grid(cells, size, point => point.X < 0f ? 0 : 1);
+    public static EditMesh TwoGroups(int cells, float size) => Grid(cells, size, static point => point.X < 0f ? 0 : 1);
 
     /// <summary>Every edge with two faces of different groups.</summary>
     public static List<MeshEdge> Boundary(EditMesh mesh) {
@@ -177,11 +185,11 @@ static class TransferFixtures {
         var influences = new SkinInfluence[mesh.PositionCount * 4];
 
         for (var vertex = 0; vertex < mesh.PositionCount; vertex++) {
-            var t = Math.Clamp((mesh.Positions[vertex].X / size) + 0.5f, 0f, 1f);
+            var t = Math.Clamp(mesh.Positions[vertex].X / size + 0.5f, 0f, 1f);
 
             // Descending weight, which is the order a binding is defined to be in.
             influences[vertex * 4] = t >= 0.5f ? new(1, t) : new(0, 1f - t);
-            influences[(vertex * 4) + 1] = t >= 0.5f ? new(0, 1f - t) : new(1, t);
+            influences[vertex * 4 + 1] = t >= 0.5f ? new(0, 1f - t) : new(1, t);
         }
 
         return new() { Influences = influences, Stride = 4 };

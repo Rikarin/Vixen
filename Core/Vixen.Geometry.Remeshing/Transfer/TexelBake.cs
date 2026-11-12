@@ -130,7 +130,7 @@ sealed class TexelBake(
     readonly float reach = distances.Unit * MathF.Max(settings.OcclusionRadius, 0f);
     readonly float minimum = distances.Unit * settings.OcclusionMinimum;
     readonly float bias = surface.Diagonal * SelfHitBias;
-    readonly float ground = surface.Bounds.Minimum.Y + (distances.Unit * settings.GroundOffset);
+    readonly float ground = surface.Bounds.Minimum.Y + distances.Unit * settings.GroundOffset;
 
     /// <summary>The square of the sine of the occlusion cone's half-angle, exactly one for the hemisphere.</summary>
     readonly float spread = settings.OcclusionSpread >= 90f
@@ -156,7 +156,7 @@ sealed class TexelBake(
         var ids = samples > 1 && buffers.Ids is not null ? new int[samples] : null;
 
         for (var x = 0; x < resolution; x++) {
-            var index = (row * resolution) + x;
+            var index = row * resolution + x;
 
             if (charts.Owner(index) is not { } triangle) {
                 continue;
@@ -198,9 +198,9 @@ sealed class TexelBake(
 
         for (var column = 0; column < side; column++) {
             for (var line = 0; line < side; line++) {
-                var at = (line * side) + column;
+                var at = line * side + column;
 
-                Vector2 place = new(x + ((column + 0.5f) / side), y + ((line + 0.5f) / side));
+                Vector2 place = new(x + (column + 0.5f) / side, y + (line + 0.5f) / side);
 
                 var holder = other is not null && !Holds(triangle, place) && Holds(other, place) ? other : triangle;
 
@@ -266,7 +266,7 @@ sealed class TexelBake(
     }
 
     static float Side(Vector2 from, Vector2 to, Vector2 place) =>
-        ((to.X - from.X) * (place.Y - from.Y)) - ((to.Y - from.Y) * (place.X - from.X));
+        (to.X - from.X) * (place.Y - from.Y) - (to.Y - from.Y) * (place.X - from.X);
 
     /// <summary>The commonest id, the earliest sample winning a tie.</summary>
     /// <remarks>⚠ An id is a label, so a texel takes one of its samples' ids and never a blend of them.</remarks>
@@ -324,7 +324,7 @@ sealed class TexelBake(
     }
 
     static Vector3 Blend(Vector3[] corners, Vector3 weights) =>
-        (corners[0] * weights.X) + (corners[1] * weights.Y) + (corners[2] * weights.Z);
+        corners[0] * weights.X + corners[1] * weights.Y + corners[2] * weights.Z;
 
     /// <summary>Which way a sample's ray runs: the smoothed direction, leaning by the skew.</summary>
     Vector3 Direction(ChartTriangle triangle, Vector3 weights, Vector3 along, Vector2 place) {
@@ -359,7 +359,7 @@ sealed class TexelBake(
             return Probe(tree, point, direction, stretch);
         }
 
-        var outer = point + ((Blend(cage, weights) - point) * stretch);
+        var outer = point + (Blend(cage, weights) - point) * stretch;
         var offset = outer - point;
         var gap = offset.Length();
 
@@ -373,8 +373,8 @@ sealed class TexelBake(
         var inward = settings.Skew <= 0f ? offset / -gap : -direction;
         // ⚠ Behind the target is the rear distance: the cage is the front, so the front distance has
         // nothing left to say once there is one.
-        var length = gap + (distances.Rear * stretch);
-        var hit = tree.Raycast(point - (inward * gap), inward * length, culling ? RayFacing.Front : RayFacing.Any);
+        var length = gap + distances.Rear * stretch;
+        var hit = tree.Raycast(point - inward * gap, inward * length, culling ? RayFacing.Front : RayFacing.Any);
 
         return hit.Triangle >= 0
             ? new(
@@ -383,7 +383,7 @@ sealed class TexelBake(
                 hit.Barycentric,
                 hit.Point,
                 surface.NormalAt(hit.Triangle, hit.Barycentric),
-                gap - (hit.Distance * length)
+                gap - hit.Distance * length
             )
             : Nearest(tree, point, along);
     }
@@ -465,8 +465,12 @@ sealed class TexelBake(
 
     /// <summary>The further measurements at a sample whose source point the probe already found.</summary>
     /// <remarks>
-    ///     ⚠ <b>Every one of them is made at the <i>source</i>'s point and about the source's
-    ///     normal, never the cage's.</b> The cage is a few thousand quads that deliberately do not
+    ///     ⚠
+    ///     <b>
+    ///         Every one of them is made at the <i>source</i>'s point and about the source's
+    ///         normal, never the cage's.
+    ///     </b>
+    ///     The cage is a few thousand quads that deliberately do not
     ///     have the geometry doing the occluding, and an occlusion measured on it is a picture of the
     ///     cage — which is the failure mode that makes a baked AO map look like a smoothed version of
     ///     the thing it was supposed to capture.
@@ -497,9 +501,9 @@ sealed class TexelBake(
         if (curvature is not null && sample.Triangle >= 0) {
             var slots = surface.PositionsOf(sample.Triangle);
 
-            sum.Curve += (curvature[slots[0]] * sample.Barycentric.X)
-                + (curvature[slots[1]] * sample.Barycentric.Y)
-                + (curvature[slots[2]] * sample.Barycentric.Z);
+            sum.Curve += curvature[slots[0]] * sample.Barycentric.X
+                + curvature[slots[1]] * sample.Barycentric.Y
+                + curvature[slots[2]] * sample.Barycentric.Z;
         }
 
         if (!wantsRays) {
@@ -525,9 +529,9 @@ sealed class TexelBake(
         if (colours.Corners is { } corners) {
             var slots = surface.CornersOf(sample.Triangle);
 
-            colour = (corners[slots[0]] * sample.Barycentric.X)
-                + (corners[slots[1]] * sample.Barycentric.Y)
-                + (corners[slots[2]] * sample.Barycentric.Z);
+            colour = corners[slots[0]] * sample.Barycentric.X
+                + corners[slots[1]] * sample.Barycentric.Y
+                + corners[slots[2]] * sample.Barycentric.Z;
         }
 
         var image = colours.FaceImages is { } faces ? faces[surface.FaceOf(sample.Triangle)] : 0;
@@ -556,8 +560,12 @@ sealed class TexelBake(
     ///         was divided, and <see cref="BakeSettings.OcclusionSamples" /> is what it costs.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The occlusion is the plain mean of the samples and carries no <c>cos θ</c>
-    ///         weight</b>, because <see cref="HemisphereSampler" /> draws the directions <i>from</i>
+    ///         ⚠
+    ///         <b>
+    ///             The occlusion is the plain mean of the samples and carries no <c>cos θ</c>
+    ///             weight
+    ///         </b>
+    ///         , because <see cref="HemisphereSampler" /> draws the directions <i>from</i>
     ///         the cosine density. Weighting them again would compute the cosine-squared integral,
     ///         which is a darker map that still looks plausible.
     ///     </para>
@@ -580,11 +588,11 @@ sealed class TexelBake(
 
         for (var sample = at; sample < count; sample += samples) {
             var local = HemisphereSampler.Local(sample, count, turn, spread, uniform);
-            var direction = (tangent * local.X) + (bitangent * local.Y) + (normal * local.Z);
+            var direction = tangent * local.X + bitangent * local.Y + normal * local.Z;
 
             sum.Cast++;
 
-            var open = 1f - Blocked(whole, point + (normal * bias), direction, span);
+            var open = 1f - Blocked(whole, point + normal * bias, direction, span);
 
             sum.Clear += open;
             total += direction * open;
@@ -595,9 +603,9 @@ sealed class TexelBake(
 
             // The same direction reflected through the tangent plane, which is what makes this the
             // same hemisphere seen from the other side rather than a second set of samples.
-            var inward = direction - (normal * (2f * local.Z));
+            var inward = direction - normal * (2f * local.Z);
 
-            sum.Enclosed += Depth(whole, point - (normal * bias), inward);
+            sum.Enclosed += Depth(whole, point - normal * bias, inward);
         }
 
         var unit = ScaleSafe.Unit(total);
@@ -629,7 +637,7 @@ sealed class TexelBake(
             return 0f;
         }
 
-        var start = origin + (direction * minimum);
+        var start = origin + direction * minimum;
         var distance = float.PositiveInfinity;
 
         if (settings.OcclusionFalloff is OcclusionFalloff.None) {
@@ -640,7 +648,7 @@ sealed class TexelBake(
             var hit = tree.Raycast(start, direction * span, blocking);
 
             if (hit.Triangle >= 0) {
-                distance = minimum + (hit.Distance * span);
+                distance = minimum + hit.Distance * span;
             }
         }
 
@@ -660,7 +668,7 @@ sealed class TexelBake(
 
         return settings.OcclusionFalloff switch {
             OcclusionFalloff.Linear => near,
-            OcclusionFalloff.Smooth => near * near * (3f - (2f * near)),
+            OcclusionFalloff.Smooth => near * near * (3f - 2f * near),
             _ => 1f
         };
     }
@@ -678,7 +686,11 @@ sealed class TexelBake(
 
         // ⚠ The far wall is met from inside, so it is a back face: ignoring backfaces here keeps only
         // those, where the occlusion rays keep only the front ones. The same flag either side.
-        var hit = tree.Raycast(origin, inward * reach, settings.OcclusionIgnoresBackfaces ? RayFacing.Back : RayFacing.Any);
+        var hit = tree.Raycast(
+            origin,
+            inward * reach,
+            settings.OcclusionIgnoresBackfaces ? RayFacing.Back : RayFacing.Any
+        );
 
         return hit.Triangle >= 0 ? hit.Distance : 0f;
     }
@@ -713,8 +725,12 @@ sealed class TexelBake(
     /// <summary>The tangent frame at one point of a triangle, as a renderer's pixel shader builds it.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b><see cref="Measure" /> is the exact inverse of what a renderer does, and that is the
-    ///         whole contract.</b> A shader interpolates the corners' tangent and normal, leaves them
+    ///         ⚠
+    ///         <b>
+    ///             <see cref="Measure" /> is the exact inverse of what a renderer does, and that is the
+    ///             whole contract.
+    ///         </b>
+    ///         A shader interpolates the corners' tangent and normal, leaves them
     ///         unnormalised, makes <c>b = sign × cross(n, t)</c> per pixel, and takes
     ///         <c>normalize(x·t + y·b + z·n)</c>. That frame is not orthonormal, so projecting onto its
     ///         axes is not its inverse; these are the three rows of the true inverse, as the original
@@ -730,7 +746,7 @@ sealed class TexelBake(
         public static Basis At(ChartTriangle triangle, Vector3 weights, Vector3 along) {
             var corners = triangle.Tangents;
             var n = Blend(triangle.Shading, weights);
-            var w = (corners[0] * weights.X) + (corners[1] * weights.Y) + (corners[2] * weights.Z);
+            var w = corners[0] * weights.X + corners[1] * weights.Y + corners[2] * weights.Z;
             var t = new Vector3(w.X, w.Y, w.Z);
 
             if (n.LengthSquared() <= 0f) {

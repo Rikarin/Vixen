@@ -23,8 +23,12 @@ namespace Vixen.Live.Gameplay;
 ///         populated at admission and nothing is derived.
 ///     </para>
 ///     <para>
-///         ⚠ <b>A gameplay <see cref="PlayerId" /> is realm-scoped and must never reach the
-///         database.</b> Doc 28 says a <c>PlayerId</c> is *"stable for as long as a party invite or a
+///         ⚠
+///         <b>
+///             A gameplay <see cref="PlayerId" /> is realm-scoped and must never reach the
+///             database.
+///         </b>
+///         Doc 28 says a <c>PlayerId</c> is *"stable for as long as a party invite or a
 ///         mute list has to be"*, and those two are not the same length: a party lasts a session and
 ///         a mute list outlives every realm the player will ever be on. So durable state is keyed by
 ///         <see cref="PlayerKey" />, this is where the translation happens, and a saved row carrying
@@ -59,7 +63,8 @@ public sealed class GameplayIdentityMap : IGameplayIdentity {
 
     /// <summary>Everybody here, in id order.</summary>
     public IEnumerable<KeyValuePair<PlayerId, PlayerKey>> Players =>
-        byPlayer.OrderBy(pair => pair.Key).Select(pair => new KeyValuePair<PlayerId, PlayerKey>(new(pair.Key), pair.Value));
+        byPlayer.OrderBy(static pair => pair.Key)
+            .Select(static pair => new KeyValuePair<PlayerId, PlayerKey>(new(pair.Key), pair.Value));
 
     /// <summary>Records that somebody was let in.</summary>
     /// <param name="key">Their durable identity.</param>

@@ -171,8 +171,12 @@ public class DisabledStateTests {
 
     /// <summary>An empty field that has the focus still draws a caret.</summary>
     /// <remarks>
-    ///     ⚠ <b>The one field with no visible sign of the focus was the one you were about to type
-    ///     your first character into.</b> `UiElement.Block` answers null for an element with no text,
+    ///     ⚠
+    ///     <b>
+    ///         The one field with no visible sign of the focus was the one you were about to type
+    ///         your first character into.
+    ///     </b>
+    ///     `UiElement.Block` answers null for an element with no text,
     ///     so the caret was skipped — and a click gives `Focus` rather than `FocusVisible`, so the
     ///     ring is not drawn either. Between the two, clicking an empty search box looked exactly
     ///     like clicking nothing, which is what "the search does not take the focus" was.
@@ -201,9 +205,9 @@ public class DisabledStateTests {
         var focused = ui.Capture();
         var changed = 0;
 
-        for (var y = (int) box.AbsoluteTop; y < (int) (box.AbsoluteTop + box.Height); y++) {
-            for (var x = (int) box.AbsoluteLeft; x < (int) (box.AbsoluteLeft + box.Width); x++) {
-                var at = ((y * unfocused.Width) + x) * 4;
+        for (var y = (int)box.AbsoluteTop; y < (int)(box.AbsoluteTop + box.Height); y++) {
+            for (var x = (int)box.AbsoluteLeft; x < (int)(box.AbsoluteLeft + box.Width); x++) {
+                var at = (y * unfocused.Width + x) * 4;
 
                 if (unfocused.Pixels[at] != focused.Pixels[at]
                     || unfocused.Pixels[at + 1] != focused.Pixels[at + 1]

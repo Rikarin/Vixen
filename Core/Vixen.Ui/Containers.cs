@@ -20,8 +20,12 @@ namespace Vixen.Ui;
 ///         wins. <see cref="Recontain()" /> is the caller that was owed.
 ///     </para>
 ///     <para>
-///         ⚠ <b>It runs at the end of <see cref="Arrange" />, which is what makes it answerable at
-///         all.</b> A verdict is about a <i>measured</i> box, so style decides layout and layout
+///         ⚠
+///         <b>
+///             It runs at the end of <see cref="Arrange" />, which is what makes it answerable at
+///             all.
+///         </b>
+///         A verdict is about a <i>measured</i> box, so style decides layout and layout
 ///         decides style — and the only place in the frame where every box is final is after
 ///         <c>CalculateLayout</c>. Reading <c>container-type</c> in <c>Apply</c> as doc 43 § D3
 ///         suggested would be reading the declaration in the one pass that cannot yet see the
@@ -29,8 +33,12 @@ namespace Vixen.Ui;
 ///         <see cref="UiElement.Style" /> that <c>Apply</c> just wrote.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The cycle closes in one extra pass, and the bound is
-///         <see cref="SettlePasses" /> rather than a new mechanism.</b> Pass one cascades with every
+///         ⚠
+///         <b>
+///             The cycle closes in one extra pass, and the bound is
+///             <see cref="SettlePasses" /> rather than a new mechanism.
+///         </b>
+///         Pass one cascades with every
 ///         element at the root scope, lays out, and enters the scopes; the walk sees the scopes move
 ///         and <see cref="Invalidate" />s, so <see cref="Settle" /> runs pass two, which cascades
 ///         with the verdicts in hand and lays out again. For a container whose inline size is a pure
@@ -47,8 +55,12 @@ namespace Vixen.Ui;
 ///         would be.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Which is why <see cref="Settle" /> no longer returns early when nothing is listening
-///         to <see cref="LayoutFinished" />.</b> It used to, and that early return was correct while
+///         ⚠
+///         <b>
+///             Which is why <see cref="Settle" /> no longer returns early when nothing is listening
+///             to <see cref="LayoutFinished" />.
+///         </b>
+///         It used to, and that early return was correct while
 ///         a handler was the only thing that could dirty a document after a layout. This walk is a
 ///         second such thing, and it is one no application registers for — so a document with a
 ///         container query and no <c>LayoutFinished</c> handler would have entered its scopes, marked
@@ -68,8 +80,12 @@ public sealed partial class UiDocument {
     /// <summary>How many chains may be interned before the table is rebuilt from scratch.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The eviction policy <see cref="ContainerScopes" /> deferred to whoever wrote the
-    ///         wiring, and now that the wiring exists the number it wanted is knowable.</b> Scopes are
+    ///         ⚠
+    ///         <b>
+    ///             The eviction policy <see cref="ContainerScopes" /> deferred to whoever wrote the
+    ///             wiring, and now that the wiring exists the number it wanted is knowable.
+    ///         </b>
+    ///         Scopes are
     ///         interned by value, so a container being dragged wider interns one new chain per pixel
     ///         per frame and nothing ever removes one — the previous frame's chain is still in the
     ///         table, still holding its cached verdicts, still keyed. That is bounded by nothing at
@@ -95,8 +111,11 @@ public sealed partial class UiDocument {
     ///         inside the same <see cref="Update" />.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And the re-assign on the next line is an optimisation, not a correctness
-    ///         requirement — which is the opposite of what the comment inside the branch implies.</b>
+    ///         ⚠
+    ///         <b>
+    ///             And the re-assign on the next line is an optimisation, not a correctness
+    ///             requirement — which is the opposite of what the comment inside the branch implies.
+    ///         </b>
     ///         Removing it leaves the document correct, because the settle loop's own next pass
     ///         re-assigns every scope anyway; what it costs is a third pass. That is worth knowing
     ///         because a test asserting only that the document still answers passes that sabotage,
@@ -157,8 +176,11 @@ public sealed partial class UiDocument {
     /// <summary>How many extra chains the last <see cref="Update" /> interned, across all its passes.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Per <see cref="Update" /> and not per <see cref="Arrange" />, which is the
-    ///         difference between a number that means something and one that is always nought.</b>
+    ///         ⚠
+    ///         <b>
+    ///             Per <see cref="Update" /> and not per <see cref="Arrange" />, which is the
+    ///             difference between a number that means something and one that is always nought.
+    ///         </b>
     ///         The settle loop arranges again, and the second arrange of a converged frame interns
     ///         nothing by construction — so a per-arrange counter would report the last pass rather
     ///         than the frame, and a document that interned a chain per element on its first pass
@@ -170,8 +192,12 @@ public sealed partial class UiDocument {
     ///         still.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And that includes an <see cref="Update" /> that ran no pass at all, which is the
-    ///         half that was missing.</b> The early return clears this beside
+    ///         ⚠
+    ///         <b>
+    ///             And that includes an <see cref="Update" /> that ran no pass at all, which is the
+    ///             half that was missing.
+    ///         </b>
+    ///         The early return clears this beside
     ///         <see cref="StylesApplied" />; until #596 it did not, so "nought on a settled frame"
     ///         held only for a frame that had done work and found none — a document standing still
     ///         reported whatever it had last interned, on every frame, for the life of the session.
@@ -181,8 +207,12 @@ public sealed partial class UiDocument {
 
     /// <summary>Enters a container scope for every measured query container, and re-cascades if any moved.</summary>
     /// <remarks>
-    ///     ⚠ <b><see cref="Invalidate" /> rather than <see cref="Forget()" />, and the difference is
-    ///     one full rebuild of every layout style.</b> <c>Remedia</c> forgets, because it predates the
+    ///     ⚠
+    ///     <b>
+    ///         <see cref="Invalidate" /> rather than <see cref="Forget()" />, and the difference is
+    ///         one full rebuild of every layout style.
+    ///     </b>
+    ///     <c>Remedia</c> forgets, because it predates the
     ///     interning being trusted; it does not need to either. A moved verdict changes which rules
     ///     match, which changes the <see cref="ComputedStyle" /> the resolver interns, which changes
     ///     the reference <c>Apply</c> compares — so an element whose style genuinely moved rebuilds
@@ -222,7 +252,6 @@ public sealed partial class UiDocument {
         if (moved) {
             Invalidate();
         }
-
     }
 
     /// <summary>Assigns a subtree's container scopes, returning whether any of them changed.</summary>
@@ -288,8 +317,12 @@ public sealed partial class UiDocument {
     /// <returns>The same context, with this element's box in it if it is a query container.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Read off the style walk and not off <see cref="ContainerScopes" />, which is the
-    ///         one design decision in this method.</b> The scope chain exists to answer
+    ///         ⚠
+    ///         <b>
+    ///             Read off the style walk and not off <see cref="ContainerScopes" />, which is the
+    ///             one design decision in this method.
+    ///         </b>
+    ///         The scope chain exists to answer
     ///         <c>@container</c> rules, and <see cref="Recontain()" /> gives up before entering a
     ///         single scope when no sheet declares a container group — the branch that keeps the
     ///         feature free for documents that do not use it. But a <c>cqw</c> needs no
@@ -306,8 +339,12 @@ public sealed partial class UiDocument {
     ///         claimed.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The box is the previous layout pass's, exactly as <see cref="Recontain()" />'s
-    ///         is.</b> Styles are resolved before layout runs, so a <c>cqw</c> is one pass stale on
+    ///         ⚠
+    ///         <b>
+    ///             The box is the previous layout pass's, exactly as <see cref="Recontain()" />'s
+    ///             is.
+    ///         </b>
+    ///         Styles are resolved before layout runs, so a <c>cqw</c> is one pass stale on
     ///         the frame a container resizes, and the settle loop is what closes it — the same
     ///         staleness, from the same cause, as every <c>@container</c> verdict in this file.
     ///     </para>
@@ -460,23 +497,30 @@ public sealed partial class UiDocument {
         // ⚠ The container's own computed font and the document's root one, which are what a query's
         // `em` and `rem` mean (#1373). Part of the box's equality, so a container whose font changes
         // at one size enters a new scope and its queries are re-asked, as a resize would make them.
-        return new ContainerBox(Math.Max(width, 0f), Math.Max(height, 0f), kind) {
-            FontSize = element.FontSize,
-            RootFontSize = rootFontSize
+        return new(Math.Max(width, 0f), Math.Max(height, 0f), kind) {
+            FontSize = element.FontSize, RootFontSize = rootFontSize
         };
     }
 
     /// <summary>Names the containers that were still moving when the settle loop gave up.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Called from the one branch that sets <see cref="Settled" /> false, and from
-    ///         nowhere else.</b> A container moving is the ordinary case on the way to a fixed point
+    ///         ⚠
+    ///         <b>
+    ///             Called from the one branch that sets <see cref="Settled" /> false, and from
+    ///             nowhere else.
+    ///         </b>
+    ///         A container moving is the ordinary case on the way to a fixed point
     ///         — two levels of nesting legitimately move a box on each of two passes — so the list is
     ///         news only on the pass after which there will be no more passes.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A handler is the other way the budget runs out and this says nothing about
-    ///         it.</b> A document with no <c>@container</c> never walks, so the list is empty and no
+    ///         ⚠
+    ///         <b>
+    ///             A handler is the other way the budget runs out and this says nothing about
+    ///             it.
+    ///         </b>
+    ///         A document with no <c>@container</c> never walks, so the list is empty and no
     ///         line is written; a document with both gets the containers it can name and the handler
     ///         stays <see cref="Settled" />'s business, because nothing here knows which handler
     ///         asked for what.

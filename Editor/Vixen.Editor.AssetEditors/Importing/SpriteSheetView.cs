@@ -3,7 +3,6 @@
 
 using System.Globalization;
 using Vixen.Core.Imaging;
-using Vixen.Core.Mathematics;
 using Vixen.Editor.Assets.Textures;
 using Vixen.Ui;
 using Vixen.Ui.Controls;
@@ -31,8 +30,12 @@ namespace Vixen.Editor.AssetEditors.Importing;
 ///         needs anyway — and the application puts the number in <see cref="Preview" />.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Every rect on the overlay is positioned inline in texels times <see cref="Zoom" />,
-///         not by layout.</b> A stylesheet cannot express "this box is at texel 96 of that picture",
+///         ⚠
+///         <b>
+///             Every rect on the overlay is positioned inline in texels times <see cref="Zoom" />,
+///             not by layout.
+///         </b>
+///         A stylesheet cannot express "this box is at texel 96 of that picture",
 ///         and computing it here rather than reading it back out of the layout is what lets the
 ///         overlay be asserted in a test without a frame having been drawn.
 ///     </para>
@@ -129,8 +132,12 @@ public sealed class SpriteSheetView : Control {
 
     /// <summary>How many screen pixels one texel takes.</summary>
     /// <remarks>
-    ///     ⚠ <b>Settable rather than fitted automatically, and <see cref="FitTo" /> is the other
-    ///     half.</b> A sprite editor is looked at at 1:1 as often as it is looked at whole — a
+    ///     ⚠
+    ///     <b>
+    ///         Settable rather than fitted automatically, and <see cref="FitTo" /> is the other
+    ///         half.
+    ///     </b>
+    ///     A sprite editor is looked at at 1:1 as often as it is looked at whole — a
     ///     32-texel tile inspected for a seam wants magnification, and a 4096 sheet wants to fit —
     ///     and a view that decided for itself would be fighting the person who wanted the other one.
     /// </remarks>
@@ -151,10 +158,10 @@ public sealed class SpriteSheetView : Control {
     /// <summary>The options the toolbar is asking for.</summary>
     public SpriteSliceOptions Options =>
         new(MethodOf(Method.Value)) {
-            CellSize = new((int) CellWidth.Number, (int) CellHeight.Number),
-            CellCount = new((int) CellWidth.Number, (int) CellHeight.Number),
-            Offset = new((int) GridOffsetX.Number, (int) GridOffsetY.Number),
-            Padding = new((int) PaddingX.Number, (int) PaddingY.Number),
+            CellSize = new((int)CellWidth.Number, (int)CellHeight.Number),
+            CellCount = new((int)CellWidth.Number, (int)CellHeight.Number),
+            Offset = new((int)GridOffsetX.Number, (int)GridOffsetY.Number),
+            Padding = new((int)PaddingX.Number, (int)PaddingY.Number),
             Trim = TrimToggle.IsChecked,
             KeepEmpty = KeepEmptyToggle.IsChecked,
             NamePrefix = document is { } open ? Path.GetFileNameWithoutExtension(open.AssetPath) : "sprite"
@@ -180,8 +187,8 @@ public sealed class SpriteSheetView : Control {
         Method.AddOption("automatic", "Automatic");
         Method.SelectionChanged += (_, _) => Relabel();
 
-        CellWidth = Number(bar, "Cell", 32, minimum: 1);
-        CellHeight = Number(bar, "×", 32, minimum: 1);
+        CellWidth = Number(bar, "Cell", 32, 1);
+        CellHeight = Number(bar, "×", 32, 1);
         GridOffsetX = Number(bar, "Offset", 0);
         GridOffsetY = Number(bar, "×", 0);
         PaddingX = Number(bar, "Padding", 0);
@@ -232,7 +239,7 @@ public sealed class SpriteSheetView : Control {
 
         BuildFields();
 
-        AddHandler<ClickEvent>(static (element, args) => ((SpriteSheetView) element).Chosen(args));
+        AddHandler<ClickEvent>(static (element, args) => ((SpriteSheetView)element).Chosen(args));
 
         Relabel();
     }
@@ -268,8 +275,12 @@ public sealed class SpriteSheetView : Control {
 
     /// <summary>Reads the sheet again, for a file that was repainted while this was open.</summary>
     /// <remarks>
-    ///     ⚠ <b>The rects are kept and only the pixels move —
-    ///     <a href="https://github.com/Rikarin/Vixen/issues/1207">#1207</a>.</b> A slice is import
+    ///     ⚠
+    ///     <b>
+    ///         The rects are kept and only the pixels move —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/1207">#1207</a>.
+    ///     </b>
+    ///     A slice is import
     ///     settings and a repaint is not an edit to them, so re-running <see cref="Show" /> would
     ///     drop the author's selection and re-run the whole panel to change one field.
     ///     <c>TexturePreviewImages</c> compares <see cref="Source" /> by reference, so the new
@@ -365,7 +376,7 @@ public sealed class SpriteSheetView : Control {
     /// <summary>Rebuilds the overlay, the list and the fields from the document as it stands.</summary>
     public void Restate() {
         Clear(List);
-        Clear(Canvas, keep: Preview);
+        Clear(Canvas, Preview);
 
         rects.Clear();
         indices.Clear();
@@ -428,10 +439,10 @@ public sealed class SpriteSheetView : Control {
     ///     without the overlay having to know it moved.
     /// </remarks>
     static void Guides(UiElement box, SpriteRect sprite) {
-        Guide(box, vertical: true, sprite.BorderLeft, sprite.Width, far: false);
-        Guide(box, vertical: true, sprite.BorderRight, sprite.Width, far: true);
-        Guide(box, vertical: false, sprite.BorderTop, sprite.Height, far: false);
-        Guide(box, vertical: false, sprite.BorderBottom, sprite.Height, far: true);
+        Guide(box, true, sprite.BorderLeft, sprite.Width, false);
+        Guide(box, true, sprite.BorderRight, sprite.Width, true);
+        Guide(box, false, sprite.BorderTop, sprite.Height, false);
+        Guide(box, false, sprite.BorderBottom, sprite.Height, true);
 
         static void Guide(UiElement box, bool vertical, int border, int extent, bool far) {
             // A border reaching the far edge is not a guide, it is the rect's own outline — and one
@@ -440,7 +451,7 @@ public sealed class SpriteSheetView : Control {
                 return;
             }
 
-            var fraction = (float) border / extent;
+            var fraction = (float)border / extent;
             var guide = box.Add("sprite-guide", null, vertical ? "vertical" : "horizontal");
 
             guide.SetStyle(vertical ? "left" : "top", Percent(far ? 1f - fraction : fraction));
@@ -459,22 +470,24 @@ public sealed class SpriteSheetView : Control {
 
         RectX = Number(region, "X", 0);
         RectY = Number(region, "Y", 0);
-        RectWidth = Number(region, "W", 0, minimum: 0);
-        RectHeight = Number(region, "H", 0, minimum: 0);
+        RectWidth = Number(region, "W", 0, 0);
+        RectHeight = Number(region, "H", 0, 0);
 
         var pivot = Row("Pivot");
 
-        PivotX = Number(pivot, "X", 0.5, minimum: 0, maximum: 1, step: 0.05, decimals: 3);
-        PivotY = Number(pivot, "Y", 0.5, minimum: 0, maximum: 1, step: 0.05, decimals: 3);
+        PivotX = Number(pivot, "X", 0.5, 0, 1, 0.05, 3);
+        PivotY = Number(pivot, "Y", 0.5, 0, 1, 0.05, 3);
 
         var border = Row("Border");
 
-        BorderLeft = Number(border, "L", 0, minimum: 0);
-        BorderTop = Number(border, "T", 0, minimum: 0);
-        BorderRight = Number(border, "R", 0, minimum: 0);
-        BorderBottom = Number(border, "B", 0, minimum: 0);
+        BorderLeft = Number(border, "L", 0, 0);
+        BorderTop = Number(border, "T", 0, 0);
+        BorderRight = Number(border, "R", 0, 0);
+        BorderBottom = Number(border, "B", 0, 0);
 
-        geometry.AddRange([RectX, RectY, RectWidth, RectHeight, PivotX, PivotY, BorderLeft, BorderTop, BorderRight, BorderBottom]);
+        geometry.AddRange(
+            [RectX, RectY, RectWidth, RectHeight, PivotX, PivotY, BorderLeft, BorderTop, BorderRight, BorderBottom]
+        );
 
         foreach (var field in geometry) {
             field.NumberChanged += (_, _) => Commit();
@@ -555,8 +568,11 @@ public sealed class SpriteSheetView : Control {
 
     /// <summary>Writes the fields back onto the selected sprite.</summary>
     /// <remarks>
-    ///     ⚠ <b>Refused wholesale while any geometry field is out of range, and the refusal is the
-    ///     panel's answer to a question the control stopped answering for it.</b>
+    ///     ⚠
+    ///     <b>
+    ///         Refused wholesale while any geometry field is out of range, and the refusal is the
+    ///         panel's answer to a question the control stopped answering for it.
+    ///     </b>
     ///     <see cref="NumericInput" /> used to clamp inside its coerce, so a width read off the field
     ///     could not be negative however it was typed; it now <i>holds and reports</i> the number
     ///     instead, and nothing downstream clamps — <c>UpdateSprite</c> range-checks the index and
@@ -589,16 +605,16 @@ public sealed class SpriteSheetView : Control {
             Selected,
             new() {
                 Name = Name.Value ?? string.Empty,
-                X = (int) RectX.Number,
-                Y = (int) RectY.Number,
-                Width = (int) RectWidth.Number,
-                Height = (int) RectHeight.Number,
-                PivotX = (float) PivotX.Number,
-                PivotY = (float) PivotY.Number,
-                BorderLeft = (int) BorderLeft.Number,
-                BorderTop = (int) BorderTop.Number,
-                BorderRight = (int) BorderRight.Number,
-                BorderBottom = (int) BorderBottom.Number
+                X = (int)RectX.Number,
+                Y = (int)RectY.Number,
+                Width = (int)RectWidth.Number,
+                Height = (int)RectHeight.Number,
+                PivotX = (float)PivotX.Number,
+                PivotY = (float)PivotY.Number,
+                BorderLeft = (int)BorderLeft.Number,
+                BorderTop = (int)BorderTop.Number,
+                BorderRight = (int)BorderRight.Number,
+                BorderBottom = (int)BorderBottom.Number
             }
         );
     }
@@ -666,7 +682,7 @@ public sealed class SpriteSheetView : Control {
 
         // Automatic reads neither the grid nor the padding — it reads the alpha — so the fields that
         // do nothing are disabled rather than left looking as though they apply.
-        foreach (var field in (NumericInput[]) [CellWidth, CellHeight, GridOffsetX, GridOffsetY, PaddingX, PaddingY]) {
+        foreach (var field in (NumericInput[])[CellWidth, CellHeight, GridOffsetX, GridOffsetY, PaddingX, PaddingY]) {
             field.Disabled = automatic;
         }
 
@@ -711,17 +727,16 @@ public sealed class SpriteSheetView : Control {
         return field;
     }
 
-    static SliceMethod MethodOf(string? value) => value switch {
-        "grid-count" => SliceMethod.GridByCount,
-        "automatic" => SliceMethod.Automatic,
-        _ => SliceMethod.GridBySize
-    };
+    static SliceMethod MethodOf(string? value) =>
+        value switch {
+            "grid-count" => SliceMethod.GridByCount,
+            "automatic" => SliceMethod.Automatic,
+            _ => SliceMethod.GridBySize
+        };
 
-    static string Pixels(float value) =>
-        value.ToString("0.##", CultureInfo.InvariantCulture) + "px";
+    static string Pixels(float value) => value.ToString("0.##", CultureInfo.InvariantCulture) + "px";
 
-    static string Percent(float value) =>
-        (value * 100f).ToString("0.####", CultureInfo.InvariantCulture) + "%";
+    static string Percent(float value) => (value * 100f).ToString("0.####", CultureInfo.InvariantCulture) + "%";
 
     static void Clear(UiElement element, UiElement? keep = null) {
         for (var index = element.Children.Count - 1; index >= 0; index--) {

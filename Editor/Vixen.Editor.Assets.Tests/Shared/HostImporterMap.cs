@@ -29,13 +29,20 @@ namespace Vixen.Testing.Importers;
 ///         and the <c>.meta</c> names the importer, not its namespace.
 ///     </para>
 ///     <para>
-///         ⚠ <b>A host's map is built over a set its link method filled, never over the process-wide
-///         one.</b> Three hosts link into one static in a test process, so a map read off it would be
+///         ⚠
+///         <b>
+///             A host's map is built over a set its link method filled, never over the process-wide
+///             one.
+///         </b>
+///         Three hosts link into one static in a test process, so a map read off it would be
 ///         green for a host that linked nothing as long as another host had.
 ///     </para>
 /// </remarks>
 static class HostImporterMap {
-    /// <summary>The map, as <c>extension TypeName</c> lines; <c>-</c> for an importer chosen by name, <c>*</c> for the fallback.</summary>
+    /// <summary>
+    ///     The map, as <c>extension TypeName</c> lines; <c>-</c> for an importer chosen by name, <c>*</c> for the
+    ///     fallback.
+    /// </summary>
     /// <remarks>
     ///     Captured on master at 5f03c9b80, before any importer moved. ⚠ Changed once since, on purpose and
     ///     for every host at once: <c>.vxlayers</c> and <c>.vxtexgraph</c> went from the fallback to
@@ -153,7 +160,7 @@ static class HostImporterMap {
             }
         }
 
-        return [.. lines.Order(StringComparer.Ordinal)];
+        return [..lines.Order(StringComparer.Ordinal)];
     }
 
     /// <summary>Asserts a host's registry has exactly <see cref="Expected" />, naming every difference.</summary>
@@ -166,7 +173,7 @@ static class HostImporterMap {
 
         link(linked);
 
-        var actual = Of(BuiltInImporters.Create(linked, new ImporterContributions()));
+        var actual = Of(BuiltInImporters.Create(linked, new()));
         var missing = Expected.Except(actual, StringComparer.Ordinal).ToList();
         var extra = actual.Except(Expected, StringComparer.Ordinal).ToList();
 
@@ -175,7 +182,8 @@ static class HostImporterMap {
             $"The {host}'s importer registry does not have the map every host must have.\n"
             + $"Missing: {string.Join(", ", missing)}\nUnexpected: {string.Join(", ", extra)}\n"
             + "A missing row is a format this host imports as a byte blob: link the importer's assembly in "
-            + "the host's LinkImporters (#1300). Full map:\n" + string.Join("\n", actual)
+            + "the host's LinkImporters (#1300). Full map:\n"
+            + string.Join("\n", actual)
         );
     }
 }

@@ -3,7 +3,6 @@
 
 using System.Diagnostics;
 using Vixen.Audio.Devices;
-using Vixen.Audio.Mixing;
 using Xunit;
 
 namespace Vixen.Audio.Backend.OpenAL.Tests;
@@ -24,8 +23,12 @@ public sealed class OpenALBackendTests(ITestOutputHelper output) {
 
     /// <summary>Whether a device actually opens, which is a different question to <c>IsAvailable</c>.</summary>
     /// <remarks>
-    ///     ⚠ <b>The library loading and a sound card existing are two separate facts, and only the
-    ///     second one these tests need.</b> <see cref="OpenALBackend.IsAvailable" /> is the first —
+    ///     ⚠
+    ///     <b>
+    ///         The library loading and a sound card existing are two separate facts, and only the
+    ///         second one these tests need.
+    ///     </b>
+    ///     <see cref="OpenALBackend.IsAvailable" /> is the first —
     ///     it is <c>alc is not null</c>, nothing more — and libopenal is present on a headless Linux
     ///     runner because half the desktop stack depends on it. So the guard passed, the test went on
     ///     to open a device, and <c>alcOpenDevice</c> returned nothing because there was no card
@@ -38,7 +41,7 @@ public sealed class OpenALBackendTests(ITestOutputHelper output) {
         }
 
         try {
-            using var probe = backend.OpenDevice(new AudioDeviceOptions { BufferFrames = 256 });
+            using var probe = backend.OpenDevice(new() { BufferFrames = 256 });
 
             return true;
         } catch (AudioDeviceException) {
@@ -56,12 +59,7 @@ public sealed class OpenALBackendTests(ITestOutputHelper output) {
         var bytes = new byte[samples.Length * 4];
         Buffer.BlockCopy(samples, 0, bytes, 0, bytes.Length);
 
-        return new AudioClip {
-            SampleRate = 48_000,
-            Channels = 1,
-            Format = AudioSampleFormat.Float32,
-            Samples = bytes
-        };
+        return new() { SampleRate = 48_000, Channels = 1, Format = AudioSampleFormat.Float32, Samples = bytes };
     }
 
     [Fact]
@@ -102,7 +100,7 @@ public sealed class OpenALBackendTests(ITestOutputHelper output) {
         using var backend = new OpenALBackend();
         Assert.SkipUnless(CanOpenADevice(backend), NoCard);
 
-        using var device = backend.OpenDevice(new AudioDeviceOptions { BufferFrames = 256 });
+        using var device = backend.OpenDevice(new() { BufferFrames = 256 });
 
         Assert.Equal(48_000, device.Format.SampleRate);
         Assert.Equal(2, device.Format.Channels);
@@ -119,9 +117,7 @@ public sealed class OpenALBackendTests(ITestOutputHelper output) {
         using var backend = new OpenALBackend();
         Assert.SkipUnless(CanOpenADevice(backend), NoCard);
 
-        using var device = backend.OpenDevice(new AudioDeviceOptions {
-            Format = new AudioFormat(48_000, 6)
-        });
+        using var device = backend.OpenDevice(new() { Format = new(48_000, 6) });
 
         Assert.Equal(2, device.Format.Channels);
     }
@@ -131,9 +127,7 @@ public sealed class OpenALBackendTests(ITestOutputHelper output) {
         using var backend = new OpenALBackend();
         Assert.SkipUnless(backend.IsAvailable, "OpenAL is not installed on this machine.");
 
-        Assert.Throws<AudioDeviceException>(
-            () => backend.OpenDevice(new AudioDeviceOptions { DeviceId = "not a sound card" })
-        );
+        Assert.Throws<AudioDeviceException>(() => backend.OpenDevice(new() { DeviceId = "not a sound card" }));
     }
 
     [Fact]
@@ -141,13 +135,14 @@ public sealed class OpenALBackendTests(ITestOutputHelper output) {
         using var backend = new OpenALBackend();
         Assert.SkipUnless(backend.IsAvailable, "OpenAL is not installed on this machine.");
 
-        using var engine = AudioEngine.Create(backend, new AudioEngineOptions {
-            Device = new AudioDeviceOptions { BufferFrames = 256 }
-        });
+        using var engine = AudioEngine.Create(
+            backend,
+            new AudioEngineOptions { Device = new() { BufferFrames = 256 } }
+        );
 
         Assert.True(engine.Device.IsRunning);
 
-        var handle = engine.Play(Tone(), new PlaybackSettings { Gain = 0.2f, Pitch = 1f });
+        var handle = engine.Play(Tone(), new() { Gain = 0.2f, Pitch = 1f });
         Assert.True(handle.IsValid);
 
         // The pump runs on its own thread, so this waits for evidence rather than assuming a
@@ -192,7 +187,7 @@ public sealed class OpenALBackendTests(ITestOutputHelper output) {
         Assert.SkipUnless(backend.IsAvailable, "OpenAL is not installed on this machine.");
 
         var engine = AudioEngine.Create(backend);
-        engine.Play(Tone(), new PlaybackSettings { Gain = 0.2f, Pitch = 1f });
+        engine.Play(Tone(), new() { Gain = 0.2f, Pitch = 1f });
         Thread.Sleep(20);
 
         // The join in Stop is what makes this safe: disposing native handles while a thread is still

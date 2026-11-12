@@ -34,8 +34,10 @@ public static class FuzzyMatcher {
     /// <param name="query">What was typed. Case and spaces are ignored.</param>
     /// <param name="candidate">What it might be.</param>
     /// <returns>A score, higher being better, or <see cref="NoMatch" />.</returns>
-    /// <remarks>An empty query matches everything with a score of zero, which is what leaves the
-    ///     palette showing its list in the order the registry gave it.</remarks>
+    /// <remarks>
+    ///     An empty query matches everything with a score of zero, which is what leaves the
+    ///     palette showing its list in the order the registry gave it.
+    /// </remarks>
     public static int Score(string? query, string? candidate) {
         if (string.IsNullOrEmpty(query)) {
             return 0;
@@ -78,7 +80,7 @@ public static class FuzzyMatcher {
         // ⚠ Length is a penalty rather than the tiebreak it looks like. Without it "Save" and
         // "Save Scene As…" score identically for `save` — every query character matched at a word
         // start in both — and the one the user meant is decided by dictionary order.
-        return score - (candidate.Length / 4);
+        return score - candidate.Length / 4;
     }
 
     /// <summary>Whether a candidate matches at all.</summary>

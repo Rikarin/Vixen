@@ -111,7 +111,7 @@ public sealed class ImagePaddingTests {
 
         ImagePadding.Pad(image, coverage, PaddingMode.Diffusion, 1);
 
-        Assert.All(image.Samples, value => Assert.InRange(value, 0f, 1f));
+        Assert.All(image.Samples, static value => Assert.InRange(value, 0f, 1f));
         Assert.True(At(image, 3, 3) < At(image, 13, 13), "A texel by the dark island came out lighter.");
         Assert.True(At(image, 5, 5) is > 0f and < 1f, "Diffusion copied one island instead of blending.");
     }
@@ -121,7 +121,7 @@ public sealed class ImagePaddingTests {
         var (image, coverage) = Picture();
 
         Assert.Equal(0, ImagePadding.Pad(image, coverage, PaddingMode.Colour, 4, [1f]));
-        Assert.All(image.Samples, value => Assert.Equal(Unset, value));
+        Assert.All(image.Samples, static value => Assert.Equal(Unset, value));
     }
 
     [Fact]

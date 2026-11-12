@@ -42,13 +42,13 @@ public static class ModeArt {
     public static IconArt Select { get; } = new(
         new IconPath(
             new PathBuilder()
-                .MoveTo(new Vector2(5f, 3f))
-                .LineTo(new Vector2(5f, 18f))
-                .LineTo(new Vector2(9f, 14f))
-                .LineTo(new Vector2(12f, 20f))
-                .LineTo(new Vector2(15f, 18.5f))
-                .LineTo(new Vector2(12f, 13f))
-                .LineTo(new Vector2(17f, 12f))
+                .MoveTo(new(5f, 3f))
+                .LineTo(new(5f, 18f))
+                .LineTo(new(9f, 14f))
+                .LineTo(new(12f, 20f))
+                .LineTo(new(15f, 18.5f))
+                .LineTo(new(12f, 13f))
+                .LineTo(new(17f, 12f))
                 .Close(),
             IconPaint.Of(Steel)
         )
@@ -58,30 +58,30 @@ public static class ModeArt {
     public static IconArt Blockout { get; } = new(
         new IconPath(
             new PathBuilder()
-                .MoveTo(new Vector2(12f, 3f))
-                .LineTo(new Vector2(20f, 7.5f))
-                .LineTo(new Vector2(12f, 12f))
-                .LineTo(new Vector2(4f, 7.5f))
+                .MoveTo(new(12f, 3f))
+                .LineTo(new(20f, 7.5f))
+                .LineTo(new(12f, 12f))
+                .LineTo(new(4f, 7.5f))
                 .Close(),
             IconPaint.Of(Clay)
         ),
         new IconPath(
             new PathBuilder()
-                .MoveTo(new Vector2(4f, 7.5f))
-                .LineTo(new Vector2(12f, 12f))
-                .LineTo(new Vector2(12f, 21f))
-                .LineTo(new Vector2(4f, 16.5f))
+                .MoveTo(new(4f, 7.5f))
+                .LineTo(new(12f, 12f))
+                .LineTo(new(12f, 21f))
+                .LineTo(new(4f, 16.5f))
                 .Close(),
             IconPaint.Of(Slate)
         ),
         new IconPath(
             new PathBuilder()
-                .MoveTo(new Vector2(20f, 7.5f))
-                .LineTo(new Vector2(20f, 16.5f))
-                .LineTo(new Vector2(12f, 21f))
-                .LineTo(new Vector2(12f, 12f))
+                .MoveTo(new(20f, 7.5f))
+                .LineTo(new(20f, 16.5f))
+                .LineTo(new(12f, 21f))
+                .LineTo(new(12f, 12f))
                 .Close(),
-            IconPaint.Of(new Color4(0.48f, 0.54f, 0.64f, 1f))
+            IconPaint.Of(new(0.48f, 0.54f, 0.64f, 1f))
         )
     );
 
@@ -89,19 +89,19 @@ public static class ModeArt {
     public static IconArt Terrain { get; } = new(
         new IconPath(
             new PathBuilder()
-                .MoveTo(new Vector2(2f, 20f))
-                .LineTo(new Vector2(9f, 9f))
-                .LineTo(new Vector2(14f, 16f))
-                .LineTo(new Vector2(17f, 12f))
-                .LineTo(new Vector2(22f, 20f))
+                .MoveTo(new(2f, 20f))
+                .LineTo(new(9f, 9f))
+                .LineTo(new(14f, 16f))
+                .LineTo(new(17f, 12f))
+                .LineTo(new(22f, 20f))
                 .Close(),
             IconPaint.Of(Earth)
         ),
         new IconPath(
             new PathBuilder()
-                .MoveTo(new Vector2(9f, 9f))
-                .LineTo(new Vector2(12.5f, 14f))
-                .LineTo(new Vector2(5.5f, 14f))
+                .MoveTo(new(9f, 9f))
+                .LineTo(new(12.5f, 14f))
+                .LineTo(new(5.5f, 14f))
                 .Close(),
             IconPaint.Of(Grass)
         )
@@ -111,20 +111,20 @@ public static class ModeArt {
     public static IconArt Foliage { get; } = new(
         new IconPath(
             new PathBuilder()
-                .MoveTo(new Vector2(12f, 3f))
-                .LineTo(new Vector2(18f, 13f))
-                .LineTo(new Vector2(6f, 13f))
+                .MoveTo(new(12f, 3f))
+                .LineTo(new(18f, 13f))
+                .LineTo(new(6f, 13f))
                 .Close(),
             IconPaint.Of(Grass)
         ),
         new IconPath(
             new PathBuilder()
-                .MoveTo(new Vector2(12f, 8f))
-                .LineTo(new Vector2(19.5f, 18f))
-                .LineTo(new Vector2(4.5f, 18f))
+                .MoveTo(new(12f, 8f))
+                .LineTo(new(19.5f, 18f))
+                .LineTo(new(4.5f, 18f))
                 .Close(),
-            IconPaint.Of(new Color4(0.34f, 0.62f, 0.30f, 1f))
+            IconPaint.Of(new(0.34f, 0.62f, 0.30f, 1f))
         ),
-        new IconPath(new PathBuilder().AddRectangle(new Rectangle(10.8f, 18f, 2.4f, 3.5f)), IconPaint.Of(Bark))
+        new IconPath(new PathBuilder().AddRectangle(new(10.8f, 18f, 2.4f, 3.5f)), IconPaint.Of(Bark))
     );
 }

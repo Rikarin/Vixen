@@ -6,7 +6,6 @@ using Vixen.Ai.Diagnostics;
 using Vixen.Ai.Ecs;
 using Vixen.Ai.Nodes;
 using Vixen.Core;
-using Vixen.Ecs;
 
 namespace Vixen.Samples.AiVillage;
 
@@ -20,8 +19,12 @@ namespace Vixen.Samples.AiVillage;
 ///         the intruder was standing when it happened.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Read off <c>AiAgent.Action</c> rather than out of <c>AgentDebugRecorder</c>, on
-///         purpose.</b> The recorder is doc 37 § P7's ring and is off by default — a sample whose
+///         ⚠
+///         <b>
+///             Read off <c>AiAgent.Action</c> rather than out of <c>AgentDebugRecorder</c>, on
+///             purpose.
+///         </b>
+///         The recorder is doc 37 § P7's ring and is off by default — a sample whose
 ///         only evidence came from a diagnostic that a shipped game turns off would be evidence
 ///         about the diagnostic. <c>AiAgent</c> is the component the runtime writes whatever anybody
 ///         is watching, so this reads what the game itself acts on.
@@ -30,8 +33,12 @@ namespace Vixen.Samples.AiVillage;
 ///         ⚠ <b><c>Started</c> and not a non-zero action.</b> <c>AiAgent.Action</c> is zero until a
 ///         planner sets it and zero is a valid registry index, so an agent that has decided nothing
 ///         and an agent running the first-registered action are indistinguishable by the index
-///         alone. Doc 37 § P6 records the runtime side of the same trap: <i>a planner that has
-///         chosen nothing must run nothing</i>, and both P5 and P0 had it the other way.
+///         alone. Doc 37 § P6 records the runtime side of the same trap:
+///         <i>
+///             a planner that has
+///             chosen nothing must run nothing
+///         </i>
+///         , and both P5 and P0 had it the other way.
 ///     </para>
 /// </remarks>
 public sealed class DecisionLog {
@@ -111,7 +118,7 @@ public sealed class DecisionLog {
             }
 
             changes.Add(
-                new Change(
+                new(
                     frame,
                     seconds,
                     name,
@@ -137,5 +144,5 @@ public sealed class DecisionLog {
 
     /// <summary>The whole log as text, one line each — what two runs are compared on.</summary>
     /// <returns>The log.</returns>
-    public string Transcript() => string.Join('\n', changes.Select(change => change.ToString()));
+    public string Transcript() => string.Join('\n', changes.Select(static change => change.ToString()));
 }

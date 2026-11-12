@@ -5,7 +5,6 @@ using Vixen.Core.IO.Watch;
 using Vixen.Editor.Core;
 using Vixen.Editor.Texturing.Layers;
 using Vixen.Texturing;
-using Vixen.Texturing.Layers;
 using Xunit;
 
 namespace Vixen.Editor.Texturing.Tests;
@@ -19,8 +18,11 @@ namespace Vixen.Editor.Texturing.Tests;
 ///         number each reader keeps its own copy of — so that one asks nothing at all.
 ///     </para>
 ///     <para>
-///         ⚠ <b><a href="https://github.com/Rikarin/Vixen/issues/975">#975</a> is the second of
-///         those getting the first one's shape by mistake.</b>
+///         ⚠
+///         <b>
+///             <a href="https://github.com/Rikarin/Vixen/issues/975">#975</a> is the second of
+///             those getting the first one's shape by mistake.
+///         </b>
 ///         <a href="https://github.com/Rikarin/Vixen/issues/954">#954</a> set the picker's flag for a
 ///         path with a <em>model</em> extension, and <c>ProjectMeshSource.Declared</c> — where the
 ///         mesh names come from — reads the <c>.meta</c> sidecar, which does not have one. The write
@@ -87,12 +89,14 @@ public class LayerStackWatchTests {
             "a sidecar outside the compound folder rebuilt the whole node library."
         );
 
-        edits.Apply([
-            new FileChange(
-                new("/" + TextureNodeLibrary.CompoundFolder + "/Grunge" + TextureGraphDocument.Extension),
-                FileChangeKind.Changed
-            )
-        ]);
+        edits.Apply(
+            [
+                new FileChange(
+                    new("/" + TextureNodeLibrary.CompoundFolder + "/Grunge" + TextureGraphDocument.Extension),
+                    FileChangeKind.Changed
+                )
+            ]
+        );
 
         Assert.True(
             document.Republish(),

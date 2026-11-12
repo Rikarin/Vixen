@@ -73,7 +73,7 @@ public class ConformanceCorpusNoticeTests {
     public static readonly Corpus[] Corpora = [
         new("web-platform-tests", "web-platform-tests", "BSD-3-Clause"),
         new("ICU4X", "ICU4X — segmenter CSS-tailoring tests", "Unicode-3.0"),
-        new("Parley", "Parley — Chromium line-break overrides", "Apache-2.0 OR MIT"),
+        new("Parley", "Parley — Chromium line-break overrides", "Apache-2.0 OR MIT")
     ];
 
     public static TheoryData<string> Declared {
@@ -142,8 +142,12 @@ public class ConformanceCorpusNoticeTests {
 
     /// <summary>The NOTICE's "incorporated as data" section, which is the one § T5 speaks about.</summary>
     /// <remarks>
-    ///     ⚠ <b>Sliced rather than read whole, because the reference-material table at the bottom
-    ///     already names most of these projects.</b> A test against the whole file would be satisfied
+    ///     ⚠
+    ///     <b>
+    ///         Sliced rather than read whole, because the reference-material table at the bottom
+    ///         already names most of these projects.
+    ///     </b>
+    ///     A test against the whole file would be satisfied
     ///     by the "read, not incorporated" row — the row that says the opposite of what the corpus
     ///     entry has to say.
     /// </remarks>
@@ -158,7 +162,8 @@ public class ConformanceCorpusNoticeTests {
     }
 
     /// <summary>Every run of whitespace collapsed to one space, so a hard wrap cannot hide a sentence.</summary>
-    static string Unwrapped(string text) => string.Join(' ', text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+    static string Unwrapped(string text) =>
+        string.Join(' ', text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
 
     /// <summary>The repository-relative paths of the test sources naming <paramref name="citation" />.</summary>
     static List<string> CitingFiles(string citation) {
@@ -167,12 +172,13 @@ public class ConformanceCorpusNoticeTests {
         // Every C# file under a test project, as git defines the tree (#1424) — a directory walk
         // pruned by a hand-kept name list read the ignored `references/` clones as well.
         List<string> found = [
-            .. RepositoryFiles.Listed(root)
-                .Where(path => path.EndsWith(".cs", StringComparison.Ordinal) && InTestProject(path))
-                .Where(path => path[(path.LastIndexOf('/') + 1)..] != Self)
+            ..RepositoryFiles.Listed(root)
+                .Where(static path => path.EndsWith(".cs", StringComparison.Ordinal) && InTestProject(path))
+                .Where(static path => path[(path.LastIndexOf('/') + 1)..] != Self)
         ];
 
-        found.RemoveAll(path => !File.ReadAllText(Path.Combine(root, path)).Contains(citation, StringComparison.Ordinal));
+        found.RemoveAll(path => !File.ReadAllText(Path.Combine(root, path)).Contains(citation, StringComparison.Ordinal)
+        );
         found.Sort(StringComparer.Ordinal);
 
         return found;
@@ -185,7 +191,7 @@ public class ConformanceCorpusNoticeTests {
     static bool InTestProject(string path) {
         var segments = path.Split('/');
 
-        return segments[..^1].Any(segment => segment.EndsWith(".Tests", StringComparison.Ordinal));
+        return segments[..^1].Any(static segment => segment.EndsWith(".Tests", StringComparison.Ordinal));
     }
 
     static string RepositoryRoot() {

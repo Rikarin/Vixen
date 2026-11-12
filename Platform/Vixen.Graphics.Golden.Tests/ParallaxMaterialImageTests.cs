@@ -17,15 +17,22 @@ namespace Vixen.Graphics.Golden.Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>A parallax feature that compiles and shades flat is indistinguishable from one that
-///         never ran.</b> The shader binds, the variant lowers, the composition resolves, the pairing
+///         ⚠
+///         <b>
+///             A parallax feature that compiles and shades flat is indistinguishable from one that
+///             never ran.
+///         </b>
+///         The shader binds, the variant lowers, the composition resolves, the pairing
 ///         writes an index and the surface draws — every one of those is equally true of a march whose
 ///         sweep came out zero. That is the whole reason this file exists rather than a test that
 ///         reads the <c>.rvn</c>.
 ///     </para>
 ///     <para>
-///         <b>The oracle is silhouette-free and view-independent, which is what makes it an oracle
-///         rather than an impression.</b> Over a <em>constant</em> height field the march has a closed
+///         <b>
+///             The oracle is silhouette-free and view-independent, which is what makes it an oracle
+///             rather than an impression.
+///         </b>
+///         Over a <em>constant</em> height field the march has a closed
 ///         form: the ray enters at <c>d.uv</c>, leaves at <c>d.uv - sweep</c>, and the field it must
 ///         cross sits at depth <c>1 - height</c> everywhere — so the answer is
 ///         <c>uv - sweep · (1 - height)</c>, and <c>sweep</c> is <c>heightScale</c> times a ratio of
@@ -79,15 +86,16 @@ public class ParallaxMaterialImageTests {
     const float MidHeight = 128f / 255f;
 
     /// <summary>The frame all of these renderings share. Deliberately the tier suite's own.</summary>
-    static StandardFrameAsset Frame => new() {
-        Name = "ParallaxMaterial",
-        Shadows = ShadowMode.Cascades,
-        Gi = GiMode.Off,
-        Reflections = ReflectionsMode.Off,
-        Antialiasing = AntialiasingMode.Fxaa,
-        Exposure = ExposureMode.Automatic,
-        Particles = false
-    };
+    static StandardFrameAsset Frame =>
+        new() {
+            Name = "ParallaxMaterial",
+            Shadows = ShadowMode.Cascades,
+            Gi = GiMode.Off,
+            Reflections = ReflectionsMode.Off,
+            Antialiasing = AntialiasingMode.Fxaa,
+            Exposure = ExposureMode.Automatic,
+            Particles = false
+        };
 
     /// <summary>
     ///     The march moves the coordinate by <c>heightScale · (1 - height)</c>, and by nothing else.
@@ -102,8 +110,12 @@ public class ParallaxMaterialImageTests {
     ///         differ — which says the feature runs.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Then the claim, which neither of those makes: the same displacement reached two
-    ///         ways.</b> Depth zero at scale <c>s</c> and mid-height at scale <c>s / (1 - h)</c> are
+    ///         ⚠
+    ///         <b>
+    ///             Then the claim, which neither of those makes: the same displacement reached two
+    ///             ways.
+    ///         </b>
+    ///         Depth zero at scale <c>s</c> and mid-height at scale <c>s / (1 - h)</c> are
     ///         the same number of UV units, so they are the same picture — while mid-height at scale
     ///         <c>s</c> is about half of it and must not be. A march that ignored the height map
     ///         entirely passes the first pair and fails this one; a march that ignored
@@ -118,20 +130,20 @@ public class ParallaxMaterialImageTests {
 
         using (fixture) {
             var plain = Render(fixture!, Plain);
-            var flat = Render(fixture!, scene => Slab(scene, height: 255, Depth));
+            var flat = Render(fixture!, static scene => Slab(scene, 255, Depth));
 
             var identity = GoldenImage.Compare(plain, flat, Tolerance.Shaded);
 
             Assert.True(
                 identity.Matches,
-                $"A height field at 1 everywhere is the surface itself, so the march has to resolve at "
-                + $"depth zero and draw what the same material draws with no parallax feature — and on "
+                "A height field at 1 everywhere is the surface itself, so the march has to resolve at "
+                + "depth zero and draw what the same material draws with no parallax feature — and on "
                 + $"{Adapter(fixture!)} it did not: {identity.DifferingPixels} of {identity.TotalPixels} "
                 + $"pixels differ, worst channel {identity.WorstChannel} at {identity.WorstAt}, mean "
                 + $"{identity.MeanChannel:F3}."
             );
 
-            var full = Render(fixture!, scene => Slab(scene, height: 0, Depth));
+            var full = Render(fixture!, static scene => Slab(scene, 0, Depth));
 
             Assert.False(
                 GoldenImage.Compare(plain, full, Tolerance.Shaded).Matches,
@@ -143,7 +155,7 @@ public class ParallaxMaterialImageTests {
             // The claim. Zero at `s` and mid-height at `s / (1 - h)` are the same UV displacement at
             // every pixel of every face, because the field is constant and the closed form is linear
             // in both. The tangent-space view vector cancels out of the comparison entirely.
-            var scaled = Render(fixture!, scene => Slab(scene, height: 128, Depth / (1f - MidHeight)));
+            var scaled = Render(fixture!, static scene => Slab(scene, 128, Depth / (1f - MidHeight)));
             var same = GoldenImage.Compare(full, scaled, Tolerance.Shaded);
 
             Assert.True(
@@ -157,7 +169,7 @@ public class ParallaxMaterialImageTests {
             // ⚠ And the half that says the equivalence above is not two frames of one displacement
             // reached by ignoring both knobs: the same field at the *unscaled* depth is roughly half
             // as far and has to be a different picture.
-            var half = Render(fixture!, scene => Slab(scene, height: 128, Depth));
+            var half = Render(fixture!, static scene => Slab(scene, 128, Depth));
 
             Assert.False(
                 GoldenImage.Compare(full, half, Tolerance.Shaded).Matches,
@@ -196,25 +208,25 @@ public class ParallaxMaterialImageTests {
         }
 
         using (fixture) {
-            var coarse = Render(fixture!, scene => Slab(scene, height: 128, Depth, steps: 1));
-            var fine = Render(fixture!, scene => Slab(scene, height: 128, Depth, steps: 64));
+            var coarse = Render(fixture!, static scene => Slab(scene, 128, Depth, 1));
+            var fine = Render(fixture!, static scene => Slab(scene, 128, Depth, 64));
 
             var exact = GoldenImage.Compare(coarse, fine, Tolerance.Shaded);
 
             Assert.True(
                 exact.Matches,
-                $"A flat height field resolved differently at one step and at sixty-four on "
+                "A flat height field resolved differently at one step and at sixty-four on "
                 + $"{Adapter(fixture!)}, so the crossing is being snapped to a step boundary rather "
                 + $"than interpolated between the two samples that straddle it: {exact.DifferingPixels} "
                 + $"of {exact.TotalPixels} pixels differ, worst channel {exact.WorstChannel} at "
                 + $"{exact.WorstAt}, mean {exact.MeanChannel:F3}."
             );
 
-            var floor = Render(fixture!, scene => Slab(scene, height: 0, Depth, steps: 1));
+            var floor = Render(fixture!, static scene => Slab(scene, 0, Depth, 1));
 
             Assert.False(
                 GoldenImage.Compare(coarse, floor, Tolerance.Shaded).Matches,
-                $"At one step a field at mid-height and a field at the floor drew the same frame on "
+                "At one step a field at mid-height and a field at the floor drew the same frame on "
                 + $"{Adapter(fixture!)} — which is what a march with no refinement does, because its "
                 + "only sample sits at depth 1 and every field is below it. The comparison above then "
                 + "holds for a march that always answers with the full sweep."
@@ -248,17 +260,11 @@ public class ParallaxMaterialImageTests {
     ///     </para>
     /// </remarks>
     static Material Slab(TierScene scene, byte height, float scale, int steps = 32) {
-        var parallax = new ParallaxOcclusionFeature {
-            HeightScale = scale,
-            MinSteps = steps,
-            MaxSteps = steps
-        };
+        var parallax = new ParallaxOcclusionFeature { HeightScale = scale, MinSteps = steps, MaxSteps = steps };
 
         var textured = new TexturedMetalRoughnessFeature { Metalness = 0f, Roughness = 0.5f };
 
-        var material = Compiled(
-            new() { ShaderName = "ForwardPlus", Features = [parallax, textured] }
-        );
+        var material = Compiled(new() { ShaderName = "ForwardPlus", Features = [parallax, textured] });
 
         // The pairing the renderer completes: a feature names its map, the host puts the view under
         // that name, and `MaterialRenderFeature` turns it into the slot the shader indexes. ⚠ The two
@@ -305,8 +311,8 @@ public class ParallaxMaterialImageTests {
 
         for (var y = 0; y < Side; y++) {
             for (var x = 0; x < Side; x++) {
-                var texel = ((y * Side) + x) * 4;
-                var dark = ((x / cell) + (y / cell)) % 2 == 0;
+                var texel = (y * Side + x) * 4;
+                var dark = (x / cell + y / cell) % 2 == 0;
 
                 texels[texel] = dark ? (byte)210 : (byte)40;
                 texels[texel + 1] = dark ? (byte)50 : (byte)190;
@@ -342,7 +348,7 @@ public class ParallaxMaterialImageTests {
 
         Assert.False(
             compilation.Failed,
-            string.Join(Environment.NewLine, compilation.Diagnostics.Select(diagnostic => diagnostic.ToString()))
+            string.Join(Environment.NewLine, compilation.Diagnostics.Select(static diagnostic => diagnostic.ToString()))
         );
 
         return compilation.Material!;

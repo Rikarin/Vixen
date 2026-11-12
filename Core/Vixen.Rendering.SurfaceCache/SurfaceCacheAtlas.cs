@@ -10,8 +10,12 @@ namespace Vixen.Rendering.SurfaceCache;
 ///     <para>
 ///         Doc 19 § 6's "texture atlas allocation and residency", CPU half. Shelves because cards
 ///         are rectangles of a handful of quantised sizes: each shelf is a row as tall as the first
-///         card that opened it, filled left to right. <b>Released rectangles go to a free list and
-///         are reused on exact size match only</b> — cards recur at the sizes their meshes generate,
+///         card that opened it, filled left to right.
+///         <b>
+///             Released rectangles go to a free list and
+///             are reused on exact size match only
+///         </b>
+///         — cards recur at the sizes their meshes generate,
 ///         so the exact match is the common case, and a general best-fit packer is an optimisation
 ///         with this as its baseline.
 ///     </para>

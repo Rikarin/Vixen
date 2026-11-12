@@ -117,39 +117,38 @@ public readonly record struct BiquadCoefficients(float B0, float B1, float B2, f
                 break;
 
             case BiquadFilterKind.Peaking:
-                b0 = 1f + (alpha * a);
+                b0 = 1f + alpha * a;
                 b1 = -2f * cos;
-                b2 = 1f - (alpha * a);
-                a0 = 1f + (alpha / a);
+                b2 = 1f - alpha * a;
+                a0 = 1f + alpha / a;
                 a1 = -2f * cos;
-                a2 = 1f - (alpha / a);
+                a2 = 1f - alpha / a;
                 break;
 
             case BiquadFilterKind.LowShelf: {
                 var sqrtA = MathF.Sqrt(a);
                 var shared = 2f * sqrtA * alpha;
-                b0 = a * (a + 1f - ((a - 1f) * cos) + shared);
-                b1 = 2f * a * (a - 1f - ((a + 1f) * cos));
-                b2 = a * (a + 1f - ((a - 1f) * cos) - shared);
-                a0 = a + 1f + ((a - 1f) * cos) + shared;
-                a1 = -2f * (a - 1f + ((a + 1f) * cos));
-                a2 = a + 1f + ((a - 1f) * cos) - shared;
+                b0 = a * (a + 1f - (a - 1f) * cos + shared);
+                b1 = 2f * a * (a - 1f - (a + 1f) * cos);
+                b2 = a * (a + 1f - (a - 1f) * cos - shared);
+                a0 = a + 1f + (a - 1f) * cos + shared;
+                a1 = -2f * (a - 1f + (a + 1f) * cos);
+                a2 = a + 1f + (a - 1f) * cos - shared;
                 break;
             }
 
             case BiquadFilterKind.HighShelf: {
                 var sqrtA = MathF.Sqrt(a);
                 var shared = 2f * sqrtA * alpha;
-                b0 = a * (a + 1f + ((a - 1f) * cos) + shared);
-                b1 = -2f * a * (a - 1f + ((a + 1f) * cos));
-                b2 = a * (a + 1f + ((a - 1f) * cos) - shared);
-                a0 = a + 1f - ((a - 1f) * cos) + shared;
-                a1 = 2f * (a - 1f - ((a + 1f) * cos));
-                a2 = a + 1f - ((a - 1f) * cos) - shared;
+                b0 = a * (a + 1f + (a - 1f) * cos + shared);
+                b1 = -2f * a * (a - 1f + (a + 1f) * cos);
+                b2 = a * (a + 1f + (a - 1f) * cos - shared);
+                a0 = a + 1f - (a - 1f) * cos + shared;
+                a1 = 2f * (a - 1f - (a + 1f) * cos);
+                a2 = a + 1f - (a - 1f) * cos - shared;
                 break;
             }
 
-            case BiquadFilterKind.LowPass:
             default:
                 b0 = (1f - cos) * 0.5f;
                 b1 = 1f - cos;
@@ -161,7 +160,7 @@ public readonly record struct BiquadCoefficients(float B0, float B1, float B2, f
         }
 
         var inverse = 1f / a0;
-        return new BiquadCoefficients(b0 * inverse, b1 * inverse, b2 * inverse, a1 * inverse, a2 * inverse);
+        return new(b0 * inverse, b1 * inverse, b2 * inverse, a1 * inverse, a2 * inverse);
     }
 }
 
@@ -232,19 +231,19 @@ public sealed class BiquadFilterEffect : IAudioEffect {
 
         for (var channel = 0; channel < channels; channel++) {
             var z1 = state[channel * 2];
-            var z2 = state[(channel * 2) + 1];
+            var z2 = state[channel * 2 + 1];
 
             for (var frame = 0; frame < frameCount; frame++) {
-                var index = (frame * channels) + channel;
+                var index = frame * channels + channel;
                 var x = buffer[index];
-                var y = (b0 * x) + z1;
-                z1 = (b1 * x) - (a1 * y) + z2;
-                z2 = (b2 * x) - (a2 * y);
+                var y = b0 * x + z1;
+                z1 = b1 * x - a1 * y + z2;
+                z2 = b2 * x - a2 * y;
                 buffer[index] = y;
             }
 
             state[channel * 2] = z1;
-            state[(channel * 2) + 1] = z2;
+            state[channel * 2 + 1] = z2;
         }
     }
 

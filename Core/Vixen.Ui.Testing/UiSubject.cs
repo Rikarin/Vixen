@@ -83,21 +83,24 @@ public sealed partial class UiSubject {
 
         var query = SelectorQuery.Compile(Test.Document, selector);
 
-        return Derive($"find \"{selector}\"", elements => {
-            var matched = new List<UiElement>();
+        return Derive(
+            $"find \"{selector}\"",
+            elements => {
+                var matched = new List<UiElement>();
 
-            foreach (var element in elements) {
-                foreach (var found in query.Match(Test.Document, element)) {
-                    // The scope itself is a candidate of its own subtree walk, and `find` means
-                    // strictly below. Without this, `Get(".row").Find(".row")` returns the rows.
-                    if (!ReferenceEquals(found, element) && !matched.Contains(found)) {
-                        matched.Add(found);
+                foreach (var element in elements) {
+                    foreach (var found in query.Match(Test.Document, element)) {
+                        // The scope itself is a candidate of its own subtree walk, and `find` means
+                        // strictly below. Without this, `Get(".row").Find(".row")` returns the rows.
+                        if (!ReferenceEquals(found, element) && !matched.Contains(found)) {
+                            matched.Add(found);
+                        }
                     }
                 }
-            }
 
-            return matched;
-        });
+                return matched;
+            }
+        );
     }
 
     /// <summary>Only the ones that also match a selector.</summary>
@@ -144,11 +147,11 @@ public sealed partial class UiSubject {
 
     /// <summary>The first one.</summary>
     /// <returns>A subject over it.</returns>
-    public UiSubject First() => Derive("first", elements => elements.Take(1).ToList());
+    public UiSubject First() => Derive("first", static elements => elements.Take(1).ToList());
 
     /// <summary>The last one.</summary>
     /// <returns>A subject over it.</returns>
-    public UiSubject Last() => Derive("last", elements => elements.TakeLast(1).ToList());
+    public UiSubject Last() => Derive("last", static elements => elements.TakeLast(1).ToList());
 
     /// <summary>The one at an index.</summary>
     /// <param name="index">Which, counting from zero.</param>
@@ -162,12 +165,12 @@ public sealed partial class UiSubject {
     /// <summary>Their parents.</summary>
     /// <returns>A subject over them, without repeats.</returns>
     public UiSubject Parent() =>
-        Derive("parent", elements => Distinct(elements.Select(element => element.Parent)));
+        Derive("parent", static elements => Distinct(elements.Select(static element => element.Parent)));
 
     /// <summary>Their immediate children.</summary>
     /// <returns>A subject over them.</returns>
     public UiSubject Children() =>
-        Derive("children", elements => elements.SelectMany(element => element.Children).ToList());
+        Derive("children", static elements => elements.SelectMany(static element => element.Children).ToList());
 
     /// <summary>The nearest ancestor of each — itself included — that matches a selector.</summary>
     /// <param name="selector">The selector.</param>
@@ -177,15 +180,21 @@ public sealed partial class UiSubject {
 
         var query = SelectorQuery.Compile(Test.Document, selector);
 
-        return Derive($"closest \"{selector}\"", elements => Distinct(elements.Select(element => {
-            for (var candidate = element; candidate is not null; candidate = candidate.Parent) {
-                if (query.Matches(Test.Document, candidate)) {
-                    return candidate;
-                }
-            }
+        return Derive(
+            $"closest \"{selector}\"",
+            elements => Distinct(
+                elements.Select(element => {
+                        for (var candidate = element; candidate is not null; candidate = candidate.Parent) {
+                            if (query.Matches(Test.Document, candidate)) {
+                                return candidate;
+                            }
+                        }
 
-            return null;
-        })));
+                        return null;
+                    }
+                )
+            )
+        );
     }
 
     /// <summary>Waits for exactly one element, then hands it over.</summary>

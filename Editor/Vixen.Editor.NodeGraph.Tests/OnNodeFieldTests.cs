@@ -36,14 +36,16 @@ public class OnNodeFieldTests : IDisposable {
         // ⚠ A wide port with a one-number default. No fixture type has one — every vector default in
         // the tree is written out lane by lane — which is exactly why the disagreement below was
         // never seen: the compiler splats `[0.5]` into a `float3`, and the panel did not.
-        registry.Add(new NodeTypeDefinition(
-            "Test/Splat",
-            [
-                new("Tint", PortDirection.Input, PortKind.Float3, ImmutableArray.Create(0.5f)),
-                new("Out", PortDirection.Output, PortKind.Float3)
-            ],
-            static () => new TestVectorNode()
-        ));
+        registry.Add(
+            new NodeTypeDefinition(
+                "Test/Splat",
+                [
+                    new("Tint", PortDirection.Input, PortKind.Float3, ImmutableArray.Create(0.5f)),
+                    new("Out", PortDirection.Output, PortKind.Float3)
+                ],
+                static () => new TestVectorNode()
+            )
+        );
 
         fixture.Show(graph, registry);
     }

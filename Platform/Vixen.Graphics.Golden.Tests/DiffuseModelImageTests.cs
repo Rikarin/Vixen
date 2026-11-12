@@ -17,8 +17,12 @@ namespace Vixen.Graphics.Golden.Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b><see href="https://github.com/Rikarin/Vixen/issues/1193">#1193</see>'s picture, which
-///         was the half that was owed rather than the wiring.</b> <c>OrenNayarShading</c> and
+///         ⚠
+///         <b>
+///             <see href="https://github.com/Rikarin/Vixen/issues/1193">#1193</see>'s picture, which
+///             was the half that was owed rather than the wiring.
+///         </b>
+///         <c>OrenNayarShading</c> and
 ///         <c>BurleyShading</c> became models a material can name by writing two shaders and two
 ///         entries in <c>MaterialShading.All</c>; what stayed owed is that <c>LibraryTreeTests</c> can
 ///         only say the emitted unit <em>differs</em> from the standard model's, and a unit that
@@ -75,8 +79,12 @@ public class DiffuseModelImageTests {
 
     /// <summary>And nearly smooth, which is the other half of the claim rather than a control.</summary>
     /// <remarks>
-    ///     ⚠ <b>This is what tells a diffuse model from a darker albedo, and the spread across faces
-    ///     is not.</b> Three faces of one box differ in how much specular and ambient they carry, so
+    ///     ⚠
+    ///     <b>
+    ///         This is what tells a diffuse model from a darker albedo, and the spread across faces
+    ///         is not.
+    ///     </b>
+    ///     Three faces of one box differ in how much specular and ambient they carry, so
     ///     <em>any</em> change to the diffuse term — including a flat multiplier — comes back as a
     ///     different ratio on each: sabotaging <c>OrenNayarShading</c> into
     ///     <c>Lambert × 0.75</c> reads 0.966 / 0.978 / 0.993 against the model's own
@@ -97,8 +105,12 @@ public class DiffuseModelImageTests {
 
     /// <summary>How far apart two renders of one scene may be before the margins mean nothing.</summary>
     /// <remarks>
-    ///     ⚠ <b>Zero on the machine this was written on, and written as two rather than zero on
-    ///     purpose.</b> A driver is not obliged to be deterministic, and a fixture asserting bitwise
+    ///     ⚠
+    ///     <b>
+    ///         Zero on the machine this was written on, and written as two rather than zero on
+    ///         purpose.
+    ///     </b>
+    ///     A driver is not obliged to be deterministic, and a fixture asserting bitwise
     ///     equality would be asserting something about MoltenVK. Two codes is far below the smallest
     ///     effect claimed here, which is a 1% move in a mean over 256 pixels.
     /// </remarks>
@@ -111,15 +123,16 @@ public class DiffuseModelImageTests {
     ///     which every material looks the same — measured, not assumed. The cost is that the exposure
     ///     is then shared between the three renders, which is what the floor patch exists to bound.
     /// </remarks>
-    static StandardFrameAsset Frame => new() {
-        Name = "DiffuseModel",
-        Shadows = ShadowMode.Cascades,
-        Gi = GiMode.Off,
-        Reflections = ReflectionsMode.Off,
-        Antialiasing = AntialiasingMode.Fxaa,
-        Exposure = ExposureMode.Automatic,
-        Particles = false
-    };
+    static StandardFrameAsset Frame =>
+        new() {
+            Name = "DiffuseModel",
+            Shadows = ShadowMode.Cascades,
+            Gi = GiMode.Off,
+            Reflections = ReflectionsMode.Off,
+            Antialiasing = AntialiasingMode.Fxaa,
+            Exposure = ExposureMode.Automatic,
+            Particles = false
+        };
 
     /// <summary>One face of the slab, or a patch of the floor, in the rendered frame.</summary>
     /// <param name="Name">What it is, for the failure message.</param>
@@ -174,10 +187,10 @@ public class DiffuseModelImageTests {
             var burley = Render(fixture!, new BurleyShading(), Rough);
 
             // The floor first: the meter did not move, so what follows is about the slab.
-            foreach (var (name, picture) in ((string Name, Bitmap Picture)[])[
-                ("Oren-Nayar", oren),
-                ("Burley", burley)
-            ]) {
+            foreach (var (name, picture) in ((string Name, Bitmap Picture)[]) [
+                         ("Oren-Nayar", oren),
+                         ("Burley", burley)
+                     ]) {
                 var moved = Ratio(standard, picture, Floor);
 
                 Assert.True(
@@ -190,7 +203,7 @@ public class DiffuseModelImageTests {
 
             // Oren-Nayar takes light out of every one of these directions, on a rough surface.
             var deficits = Faces.Select(face => (face.Name, Ratio(standard, oren, face))).ToArray();
-            var darker = string.Join(", ", deficits.Select(pair => $"{pair.Name} {pair.Item2:F4}"));
+            var darker = string.Join(", ", deficits.Select(static pair => $"{pair.Name} {pair.Item2:F4}"));
 
             foreach (var (name, ratio) in deficits) {
                 Assert.True(
@@ -202,20 +215,20 @@ public class DiffuseModelImageTests {
 
             // Burley puts some back, which is the retroreflection it is for.
             var gains = Faces.Select(face => (face.Name, Ratio(standard, burley, face))).ToArray();
-            var brighter = string.Join(", ", gains.Select(pair => $"{pair.Name} {pair.Item2:F4}"));
+            var brighter = string.Join(", ", gains.Select(static pair => $"{pair.Name} {pair.Item2:F4}"));
 
             foreach (var (name, ratio) in gains) {
                 Assert.True(
                     ratio > 0.998,
                     $"Burley darkened the {name} face to {ratio:F4} of Lambert's. Its two scatter "
-                    + $"terms are at least one wherever f90 is, which on a surface this rough it is. "
+                    + "terms are at least one wherever f90 is, which on a surface this rough it is. "
                     + $"Faces: {brighter}."
                 );
             }
 
             Assert.True(
-                gains.Max(pair => pair.Item2) > 1.005,
-                $"Burley put nothing back on any face, and retroreflection is what it is for. "
+                gains.Max(static pair => pair.Item2) > 1.005,
+                "Burley put nothing back on any face, and retroreflection is what it is for. "
                 + $"Faces: {brighter}."
             );
 
@@ -232,8 +245,12 @@ public class DiffuseModelImageTests {
     ///     And on a smooth surface the same model is Lambert, which is what a multiplier is not.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>The assertion that carries the claim, and the one a plausible wrong implementation
-    ///     fails.</b> Everything in the fixture above is satisfied by a shading model that returned a
+    ///     ⚠
+    ///     <b>
+    ///         The assertion that carries the claim, and the one a plausible wrong implementation
+    ///         fails.
+    ///     </b>
+    ///     Everything in the fixture above is satisfied by a shading model that returned a
     ///     constant fraction of Lambert — a darker albedo wearing a model's name — because the three
     ///     faces carry different amounts of specular and ambient and so answer a flat multiplier with
     ///     three different ratios. Oren-Nayar's <c>A</c> and <c>B</c> are functions of the roughness
@@ -251,14 +268,14 @@ public class DiffuseModelImageTests {
             var oren = Render(fixture!, new OrenNayarShading(), Smooth);
 
             var ratios = Faces.Select(face => (face.Name, Ratio(standard, oren, face))).ToArray();
-            var report = string.Join(", ", ratios.Select(pair => $"{pair.Name} {pair.Item2:F4}"));
+            var report = string.Join(", ", ratios.Select(static pair => $"{pair.Name} {pair.Item2:F4}"));
 
             foreach (var (name, ratio) in ratios) {
                 Assert.True(
                     Math.Abs(ratio - 1d) < 0.005,
                     $"On a nearly smooth surface Oren-Nayar drew the {name} face at {ratio:F4} of "
-                    + $"Lambert's, where its own A is 0.9992 and its B is 0.0025 — so what is in the "
-                    + $"shading slot is not Oren-Nayar but something that changes the diffuse term "
+                    + "Lambert's, where its own A is 0.9992 and its B is 0.0025 — so what is in the "
+                    + "shading slot is not Oren-Nayar but something that changes the diffuse term "
                     + $"whatever the roughness. Faces: {report}."
                 );
             }
@@ -298,8 +315,7 @@ public class DiffuseModelImageTests {
     }
 
     /// <summary>How bright one patch is in the second picture, as a fraction of the first.</summary>
-    static double Ratio(in Bitmap first, in Bitmap second, in Patch patch) =>
-        Mean(second, patch) / Mean(first, patch);
+    static double Ratio(in Bitmap first, in Bitmap second, in Patch patch) => Mean(second, patch) / Mean(first, patch);
 
     /// <summary>The mean of a patch's colour channels, alpha excluded.</summary>
     static double Mean(in Bitmap image, in Patch patch) {
@@ -325,7 +341,7 @@ public class DiffuseModelImageTests {
     static Bitmap Render(Fixture fixture, IMaterialShading shading, float roughness) {
         var effects = new EffectSystem();
 
-        effects.AddProvider(new Compiling(new(fixture.Device), _ => RavenEffects.Everything()));
+        effects.AddProvider(new Compiling(new(fixture.Device), static _ => RavenEffects.Everything()));
 
         using var scene = TierScene.Open(fixture, effects, new() { Game = Frame }, QualityTier.High);
 
@@ -364,7 +380,7 @@ public class DiffuseModelImageTests {
 
         Assert.False(
             compilation.Failed,
-            string.Join(Environment.NewLine, compilation.Diagnostics.Select(diagnostic => diagnostic.ToString()))
+            string.Join(Environment.NewLine, compilation.Diagnostics.Select(static diagnostic => diagnostic.ToString()))
         );
 
         return compilation.Material!;

@@ -28,8 +28,11 @@ namespace Vixen.Net.Transport.WebSocket;
 ///         and this project ships no JavaScript at all.
 ///     </para>
 ///     <para>
-///         <b>⚠ Which is also what makes it testable, and that is why the file is written to have no
-///         conditional compilation in it.</b> Every line below compiles and runs unchanged on
+///         <b>
+///             ⚠ Which is also what makes it testable, and that is why the file is written to have no
+///             conditional compilation in it.
+///         </b>
+///         Every line below compiles and runs unchanged on
 ///         <c>net11.0</c>, where <c>ClientWebSocket</c> is the desktop implementation of the same
 ///         API. <c>Vixen.Net.Transport.WebSocket.Browser.Tests</c> links this file as source and
 ///         drives it against a real <c>SystemWebSocketFactory</c> server over loopback — so the
@@ -94,7 +97,7 @@ sealed class BrowserWebSocketChannel : IWebSocketChannel {
         return channel;
     }
 
-    public void Send(ReadOnlySpan<byte> message) => outbound.Writer.TryWrite(message.ToArray());
+    public void Send(ReadOnlySpan<byte> message) => outbound.Writer.TryWrite([..message]);
 
     public bool TryReceive(Span<byte> buffer, out int length) {
         length = 0;
@@ -179,7 +182,7 @@ sealed class BrowserWebSocketChannel : IWebSocketChannel {
                     return;
                 }
 
-                await socket.SendAsync(message, WebSocketMessageType.Binary, endOfMessage: true, token)
+                await socket.SendAsync(message, WebSocketMessageType.Binary, true, token)
                     .ConfigureAwait(false);
             }
 
@@ -199,6 +202,8 @@ sealed class BrowserWebSocketChannel : IWebSocketChannel {
     ///     ends up in a trimmed web build.
     /// </remarks>
     static bool Ended(Exception exception) =>
-        exception is WebSocketException or OperationCanceledException or ObjectDisposedException
+        exception is WebSocketException
+            or OperationCanceledException
+            or ObjectDisposedException
             or InvalidOperationException;
 }

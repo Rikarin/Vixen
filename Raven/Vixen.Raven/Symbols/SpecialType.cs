@@ -72,8 +72,12 @@ public enum SpecialType {
     ///         Appended after <see cref="Sampler" /> rather than filed with the other resources.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The reason this remark used to give is wrong, and it is worth knowing that it
-    ///         is.</b> It said a <c>.rvnlib</c> carries these values as numbers, so inserting one
+    ///         ⚠
+    ///         <b>
+    ///             The reason this remark used to give is wrong, and it is worth knowing that it
+    ///             is.
+    ///         </b>
+    ///         It said a <c>.rvnlib</c> carries these values as numbers, so inserting one
     ///         would retype every resource in every already-built library. A <c>.rvnlib</c> carries
     ///         them as <em>names</em>: <c>CompiledLibraryFormat.Json</c> registers a
     ///         <c>JsonStringEnumConverter</c>, and the bytes of an emitted library contain the word

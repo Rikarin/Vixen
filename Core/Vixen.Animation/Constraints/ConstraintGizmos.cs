@@ -61,8 +61,7 @@ public readonly record struct ConstraintGizmoStyle {
     public bool Readout { get; init; } = true;
 
     /// <summary>Creates the usual style.</summary>
-    public ConstraintGizmoStyle() {
-    }
+    public ConstraintGizmoStyle() { }
 
     /// <summary>How big a frame's axes are, with a zeroed style answering the usual size.</summary>
     public float Extent => Size > 0f ? Size : DefaultSize;
@@ -73,7 +72,9 @@ public readonly record struct ConstraintGizmoStyle {
     public float Severity(in ConstraintResidual residual) {
         var limit = residual.Kind is GoalKind.Position or GoalKind.Distance
             ? Tolerance > 0f ? Tolerance : DefaultTolerance
-            : AngularTolerance > 0f ? AngularTolerance : MathUtil.DegreesToRadians(DefaultAngularTolerance);
+            : AngularTolerance > 0f
+                ? AngularTolerance
+                : MathUtil.DegreesToRadians(DefaultAngularTolerance);
 
         return MathUtil.Saturate(MathF.Abs(residual.Magnitude) / limit);
     }
@@ -194,7 +195,9 @@ public static class ConstraintGizmos {
 
         draw.Cross(effector, size * 0.5f, Idle);
 
-        if (style.Shapes && goal.Goal is SurfaceFrame surface && stack.Shapes is { } shapes
+        if (style.Shapes
+            && goal.Goal is SurfaceFrame surface
+            && stack.Shapes is { } shapes
             && shapes.TryPose(surface.Coordinate.Shape, model, out var posed)) {
             Outline(draw, posed, world, Shape);
         }
@@ -215,7 +218,12 @@ public static class ConstraintGizmos {
         }
 
         if (style.Readout) {
-            draw.Text(effector + new Vector3(0f, size * 1.6f, 0f), Say(goal, residual, resolved.Weight), Grade(style.Severity(residual)), size * 0.9f);
+            draw.Text(
+                effector + new Vector3(0f, size * 1.6f, 0f),
+                Say(goal, residual, resolved.Weight),
+                Grade(style.Severity(residual)),
+                size * 0.9f
+            );
         }
     }
 
@@ -232,14 +240,16 @@ public static class ConstraintGizmos {
         switch (resolved.Goal) {
             case PositionGoal position when position.Mode is GoalMode.Absolute: {
                 var joint = model[position.Effector];
-                var at = joint.Translation + Quaternion.Transform(position.EffectorOffset * joint.Scale, joint.Rotation);
+                var at = joint.Translation
+                    + Quaternion.Transform(position.EffectorOffset * joint.Scale, joint.Rotation);
 
                 return position.Nearest(resolved.Frame, at);
             }
 
             case PositionGoal position: {
                 var joint = model[position.Effector];
-                var at = joint.Translation + Quaternion.Transform(position.EffectorOffset * joint.Scale, joint.Rotation);
+                var at = joint.Translation
+                    + Quaternion.Transform(position.EffectorOffset * joint.Scale, joint.Rotation);
 
                 return at + resolved.Frame.DirectionToModel(position.Offset);
             }
@@ -288,20 +298,20 @@ public static class ConstraintGizmos {
 
         switch (posed.Shape.Kind) {
             case ShapeKind.Sphere:
-                draw.Sphere(new BoundingSphere(centre, MathF.Max(extents.X, MathF.Max(extents.Y, extents.Z))), colour);
+                draw.Sphere(new(centre, MathF.Max(extents.X, MathF.Max(extents.Y, extents.Z))), colour);
                 break;
 
             case ShapeKind.Capsule or ShapeKind.TaperedCapsule or ShapeKind.Cylinder:
-                draw.Capsule(centre - (up * extents.Y), centre + (up * extents.Y), extents.X, colour);
+                draw.Capsule(centre - up * extents.Y, centre + up * extents.Y, extents.X, colour);
                 break;
 
             case ShapeKind.Cone:
-                draw.Cone(centre + (up * extents.Y), -up, extents.X, colour);
+                draw.Cone(centre + up * extents.Y, -up, extents.X, colour);
                 break;
 
             default:
                 draw.Box(
-                    new BoundingBox(-extents, extents),
+                    new(-extents, extents),
                     Matrix4x4.Compose(Vector3.One, Quaternion.Concatenate(at.Rotation, world.Rotation), centre),
                     colour
                 );

@@ -32,8 +32,12 @@ namespace Vixen.Rendering.Compositor;
 ///         sampled it. See <see cref="HiZPyramid" />.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Which is also why the pass declares <see cref="PassKind.Graphics" /> and not
-///         <see cref="PassKind.Compute" />, dispatch though it is.</b> Undeclared production means
+///         ⚠
+///         <b>
+///             Which is also why the pass declares <see cref="PassKind.Graphics" /> and not
+///             <see cref="PassKind.Compute" />, dispatch though it is.
+///         </b>
+///         Undeclared production means
 ///         nothing in the frame can be made to wait for it, and a pass nothing waits for is a pass
 ///         that must not leave the queue whose declaration order already orders it.
 ///     </para>

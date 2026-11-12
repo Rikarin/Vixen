@@ -33,7 +33,6 @@ public readonly record struct BrowserWebGpuOptions() {
     ///     account of why a backend is drawing nothing. The native surface takes a logger for the
     ///     same reason — see <c>NativeWebGpuErrors</c>, whose remarks record the same lesson from
     ///     <c>VulkanDiagnostics</c>: validation output that goes nowhere is not validation.
-    ///
     ///     Null by default rather than required, because this is the boot path of a page and a
     ///     head that has not built its logging yet should still be able to get a device.
     /// </remarks>
@@ -108,10 +107,13 @@ public sealed class BrowserWebGpuBinding : IWebGpuBinding {
     ///         (#1462).
     ///     </para>
     /// </remarks>
-    public WgpuTextureUsage SurfaceUsages => HasSurface
-        ? WgpuTextureUsage.RenderAttachment | WgpuTextureUsage.CopySrc | WgpuTextureUsage.CopyDst
+    public WgpuTextureUsage SurfaceUsages =>
+        HasSurface
+            ? WgpuTextureUsage.RenderAttachment
+            | WgpuTextureUsage.CopySrc
+            | WgpuTextureUsage.CopyDst
             | WgpuTextureUsage.TextureBinding
-        : WgpuTextureUsage.None;
+            : WgpuTextureUsage.None;
 
     /// <inheritdoc />
     public bool HasFeature(WgpuFeatureName feature) => features.Contains(feature);
@@ -119,8 +121,10 @@ public sealed class BrowserWebGpuBinding : IWebGpuBinding {
     /// <summary>Loads the module, asks for an adapter and a device, and configures the canvas.</summary>
     /// <param name="options">What to create.</param>
     /// <returns>The binding.</returns>
-    /// <exception cref="PlatformNotSupportedException">This browser has no WebGPU, or refused a
-    /// device.</exception>
+    /// <exception cref="PlatformNotSupportedException">
+    ///     This browser has no WebGPU, or refused a
+    ///     device.
+    /// </exception>
     /// <remarks>
     ///     Asynchronous because <c>navigator.gpu.requestAdapter</c> is, and no amount of wanting
     ///     changes that: there is nothing to spin on. An application head awaits this once at boot,
@@ -159,8 +163,10 @@ public sealed class BrowserWebGpuBinding : IWebGpuBinding {
         Wrap(WebGpuInterop.CreateBuffer(descriptor.Size, (int)descriptor.Usage, descriptor.Label));
 
     /// <inheritdoc />
-    /// <remarks>Layout: format, width, height, depthOrArrayLayers, mipLevelCount, sampleCount,
-    /// dimension, usage — eight 32-bit integers.</remarks>
+    /// <remarks>
+    ///     Layout: format, width, height, depthOrArrayLayers, mipLevelCount, sampleCount,
+    ///     dimension, usage — eight 32-bit integers.
+    /// </remarks>
     public WebGpuObject CreateTexture(in WgpuTextureDescriptor descriptor) {
         var packed = packer.Reset()
             .Enum((uint)descriptor.Format)
@@ -176,8 +182,10 @@ public sealed class BrowserWebGpuBinding : IWebGpuBinding {
     }
 
     /// <inheritdoc />
-    /// <remarks>Layout: format, dimension, baseMipLevel, mipLevelCount, baseArrayLayer,
-    /// arrayLayerCount, aspect — seven 32-bit integers.</remarks>
+    /// <remarks>
+    ///     Layout: format, dimension, baseMipLevel, mipLevelCount, baseArrayLayer,
+    ///     arrayLayerCount, aspect — seven 32-bit integers.
+    /// </remarks>
     public WebGpuObject CreateTextureView(WebGpuObject texture, in WgpuTextureViewDescriptor descriptor) {
         var packed = packer.Reset()
             .Enum((uint)descriptor.Format)
@@ -192,9 +200,11 @@ public sealed class BrowserWebGpuBinding : IWebGpuBinding {
     }
 
     /// <inheritdoc />
-    /// <remarks>Layout: addressU, addressV, addressW, magFilter, minFilter, mipmapFilter, compare,
-    /// maxAnisotropy — eight 32-bit integers — then lodMinClamp and lodMaxClamp as 32-bit
-    /// floats.</remarks>
+    /// <remarks>
+    ///     Layout: addressU, addressV, addressW, magFilter, minFilter, mipmapFilter, compare,
+    ///     maxAnisotropy — eight 32-bit integers — then lodMinClamp and lodMaxClamp as 32-bit
+    ///     floats.
+    /// </remarks>
     public WebGpuObject CreateSampler(in WgpuSamplerDescriptor descriptor) {
         var packed = packer.Reset()
             .Enum((uint)descriptor.AddressU)
@@ -226,9 +236,7 @@ public sealed class BrowserWebGpuBinding : IWebGpuBinding {
             );
         }
 
-        return Wrap(
-            WebGpuInterop.CreateShaderModule(Encoding.UTF8.GetString(descriptor.Code), descriptor.Label)
-        );
+        return Wrap(WebGpuInterop.CreateShaderModule(Encoding.UTF8.GetString(descriptor.Code), descriptor.Label));
     }
 
     /// <inheritdoc />
@@ -292,25 +300,33 @@ public sealed class BrowserWebGpuBinding : IWebGpuBinding {
     /// <remarks>
     ///     <para>The one big one. Layout, in order:</para>
     ///     <list type="number">
-    ///         <item><description>
-    ///             twelve 32-bit integers — layout, vertexModule, fragmentModule, topology,
-    ///             stripIndexFormat, frontFace, cullMode, unclippedDepth, sampleCount,
-    ///             vertexBufferCount, colourTargetCount, hasDepthStencil;
-    ///         </description></item>
-    ///         <item><description>
-    ///             per vertex buffer — arrayStride as a 64-bit float, then stepMode and an attribute
-    ///             count as integers, then per attribute format and shaderLocation as integers and
-    ///             offset as a 64-bit float;
-    ///         </description></item>
-    ///         <item><description>
-    ///             per colour target — format, blendEnabled, writeMask, colour operation, source and
-    ///             destination, alpha operation, source and destination: nine integers;
-    ///         </description></item>
-    ///         <item><description>
-    ///             the depth-stencil state, when present — format, depthWriteEnabled, depthCompare,
-    ///             stencilReadMask, stencilWriteMask, depthBias, then four integers for each stencil
-    ///             face, then depthBiasSlopeScale and depthBiasClamp as 32-bit floats.
-    ///         </description></item>
+    ///         <item>
+    ///             <description>
+    ///                 twelve 32-bit integers — layout, vertexModule, fragmentModule, topology,
+    ///                 stripIndexFormat, frontFace, cullMode, unclippedDepth, sampleCount,
+    ///                 vertexBufferCount, colourTargetCount, hasDepthStencil;
+    ///             </description>
+    ///         </item>
+    ///         <item>
+    ///             <description>
+    ///                 per vertex buffer — arrayStride as a 64-bit float, then stepMode and an attribute
+    ///                 count as integers, then per attribute format and shaderLocation as integers and
+    ///                 offset as a 64-bit float;
+    ///             </description>
+    ///         </item>
+    ///         <item>
+    ///             <description>
+    ///                 per colour target — format, blendEnabled, writeMask, colour operation, source and
+    ///                 destination, alpha operation, source and destination: nine integers;
+    ///             </description>
+    ///         </item>
+    ///         <item>
+    ///             <description>
+    ///                 the depth-stencil state, when present — format, depthWriteEnabled, depthCompare,
+    ///                 stencilReadMask, stencilWriteMask, depthBias, then four integers for each stencil
+    ///                 face, then depthBiasSlopeScale and depthBiasClamp as 32-bit floats.
+    ///             </description>
+    ///         </item>
     ///     </list>
     /// </remarks>
     public WebGpuObject CreateRenderPipeline(in WgpuRenderPipelineDescriptor descriptor) {
@@ -809,11 +825,12 @@ public sealed class BrowserWebGpuBinding : IWebGpuBinding {
         return new((ulong)handle);
     }
 
-    static string PreferenceName(WgpuPowerPreference preference) => preference switch {
-        WgpuPowerPreference.LowPower => "low-power",
-        WgpuPowerPreference.HighPerformance => "high-performance",
-        _ => ""
-    };
+    static string PreferenceName(WgpuPowerPreference preference) =>
+        preference switch {
+            WgpuPowerPreference.LowPower => "low-power",
+            WgpuPowerPreference.HighPerformance => "high-performance",
+            _ => ""
+        };
 
     /// <summary>The device's limits, in <see cref="WebGpuLimits" />'s declaration order.</summary>
     /// <remarks>
@@ -867,18 +884,19 @@ public sealed class BrowserWebGpuBinding : IWebGpuBinding {
     ///     meet here. Only the ones <see cref="WebGpuCapabilities.Wanted" /> asks for are listed:
     ///     anything else the browser offers is something nothing above reads.
     /// </remarks>
-    static WgpuFeatureName? Named(string name) => name switch {
-        "depth-clip-control" => WgpuFeatureName.DepthClipControl,
-        "depth32float-stencil8" => WgpuFeatureName.Depth32FloatStencil8,
-        "timestamp-query" => WgpuFeatureName.TimestampQuery,
-        "texture-compression-bc" => WgpuFeatureName.TextureCompressionBc,
-        "texture-compression-etc2" => WgpuFeatureName.TextureCompressionEtc2,
-        "texture-compression-astc" => WgpuFeatureName.TextureCompressionAstc,
-        "indirect-first-instance" => WgpuFeatureName.IndirectFirstInstance,
-        "shader-f16" => WgpuFeatureName.ShaderF16,
-        "rg11b10ufloat-renderable" => WgpuFeatureName.Rg11B10UfloatRenderable,
-        "bgra8unorm-storage" => WgpuFeatureName.Bgra8UnormStorage,
-        "float32-filterable" => WgpuFeatureName.Float32Filterable,
-        _ => null
-    };
+    static WgpuFeatureName? Named(string name) =>
+        name switch {
+            "depth-clip-control" => WgpuFeatureName.DepthClipControl,
+            "depth32float-stencil8" => WgpuFeatureName.Depth32FloatStencil8,
+            "timestamp-query" => WgpuFeatureName.TimestampQuery,
+            "texture-compression-bc" => WgpuFeatureName.TextureCompressionBc,
+            "texture-compression-etc2" => WgpuFeatureName.TextureCompressionEtc2,
+            "texture-compression-astc" => WgpuFeatureName.TextureCompressionAstc,
+            "indirect-first-instance" => WgpuFeatureName.IndirectFirstInstance,
+            "shader-f16" => WgpuFeatureName.ShaderF16,
+            "rg11b10ufloat-renderable" => WgpuFeatureName.Rg11B10UfloatRenderable,
+            "bgra8unorm-storage" => WgpuFeatureName.Bgra8UnormStorage,
+            "float32-filterable" => WgpuFeatureName.Float32Filterable,
+            _ => null
+        };
 }

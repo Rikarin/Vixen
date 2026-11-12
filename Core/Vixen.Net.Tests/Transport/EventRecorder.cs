@@ -46,7 +46,7 @@ public sealed class EventRecorder : ITransportEvents {
 
     /// <inheritdoc />
     public void OnData(TransportRole role, ConnectionId connection, Channel channel, ReadOnlySpan<byte> payload) =>
-        Events.Add(new(RecordedKind.Data, role, connection, channel, DisconnectReason.Requested, payload.ToArray()));
+        Events.Add(new(RecordedKind.Data, role, connection, channel, DisconnectReason.Requested, [..payload]));
 
     /// <summary>The connections reported as established on one half.</summary>
     /// <param name="role">The half to look at.</param>

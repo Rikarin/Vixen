@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core.Syntax;
-using Vixen.Raven.Syntax;
 
 namespace Vixen.Raven.Symbols;
 

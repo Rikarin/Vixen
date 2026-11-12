@@ -123,7 +123,7 @@ public readonly struct Color : IEquatable<Color>, IFormattable {
             }
 
             // #abc means #aabbcc: each digit is doubled, so f maps to 255 rather than to 15.
-            channels[i] = compact ? (byte)((value * 16) + value) : value;
+            channels[i] = compact ? (byte)(value * 16 + value) : value;
         }
 
         color = new(channels[0], channels[1], channels[2], channels[3]);

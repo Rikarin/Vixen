@@ -18,8 +18,12 @@ public sealed partial class LayoutTree {
     /// <summary>The rectangle an out-of-flow box resolves its insets, its size and its margins against.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Not always the containing node's padding box, and CSS Grid §9 is the reason this
-    ///         is a rectangle rather than a pair of sizes.</b> For every other parent it <i>is</i> the
+    ///         ⚠
+    ///         <b>
+    ///             Not always the containing node's padding box, and CSS Grid §9 is the reason this
+    ///             is a rectangle rather than a pair of sizes.
+    ///         </b>
+    ///         For every other parent it <i>is</i> the
     ///         padding box, which is what the four fields say when they are filled in by
     ///         <see cref="LayoutTree.PaddingBoxOf" />: the offsets are the borders and the size is the
     ///         border box less them. For an out-of-flow child of a grid container whose placement
@@ -48,8 +52,12 @@ public sealed partial class LayoutTree {
     /// <summary>Whether a node is the containing block of the out-of-flow boxes beneath it.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>This used to be the literal test <c>PositionType != Static</c> written out at five
-    ///         sites</b> — four that begin the walk and one that decides whether to descend through a
+    ///         ⚠
+    ///         <b>
+    ///             This used to be the literal test <c>PositionType != Static</c> written out at five
+    ///             sites
+    ///         </b>
+    ///         — four that begin the walk and one that decides whether to descend through a
     ///         child — and the two halves have to agree or an absolute box is positioned against one
     ///         rectangle and offset from another.
     ///     </para>
@@ -118,8 +126,13 @@ public sealed partial class LayoutTree {
                 // placed on a physical `row` puts every RTL grid child at
                 // `container − child − Position[Right]`, with a stale zero for the right edge.
                 var isPhysicalParent =
-                    styles[currentNode].Display is Display.Block or Display.FlowRoot or Display.Grid or Display.Inline
-                    or Display.Table or Display.TableRow or Display.TableCell;
+                    styles[currentNode].Display is Display.Block
+                        or Display.FlowRoot
+                        or Display.Grid
+                        or Display.Inline
+                        or Display.Table
+                        or Display.TableRow
+                        or Display.TableCell;
                 var parentMainAxis = isPhysicalParent
                     ? FlexDirection.Row
                     : FlexAxis.Resolve(styles[currentNode].FlexDirection, currentNodeDirection);
@@ -144,17 +157,17 @@ public sealed partial class LayoutTree {
                 // The position written above is relative to the containing block where insets were
                 // given, and relative to the parent where they were not. Everything downstream
                 // expects parent-relative, so the difference comes off here.
-                var childLeft = results[child].Position[(int) Edge.Left];
-                var childTop = results[child].Position[(int) Edge.Top];
+                var childLeft = results[child].Position[(int)Edge.Left];
+                var childTop = results[child].Position[(int)Edge.Top];
 
-                results[child].Position[(int) Edge.Left] =
+                results[child].Position[(int)Edge.Left] =
                     HorizontalInsetsDefined(child) ? childLeft - leftOffsetFromContainingBlock : childLeft;
-                results[child].Position[(int) Edge.Top] =
+                results[child].Position[(int)Edge.Top] =
                     VerticalInsetsDefined(child) ? childTop - topOffsetFromContainingBlock : childTop;
             } else if (!EstablishesAbsoluteContainingBlock(child)) {
                 var childDirection = StyleResolution.ResolveDirection(in styles[child], currentNodeDirection);
-                var childLeft = leftOffsetFromContainingBlock + results[child].Position[(int) Edge.Left];
-                var childTop = topOffsetFromContainingBlock + results[child].Position[(int) Edge.Top];
+                var childLeft = leftOffsetFromContainingBlock + results[child].Position[(int)Edge.Left];
+                var childTop = topOffsetFromContainingBlock + results[child].Position[(int)Edge.Top];
 
                 hasNewLayout = LayoutAbsoluteDescendants(
                         containingNode,
@@ -205,8 +218,13 @@ public sealed partial class LayoutTree {
         // child to the wrong physical edge. All three box types are physical: inline is the row,
         // block is the column, and the writing direction is applied by the `Inline*` helpers rather
         // than by the axis.
-        var isPhysicalParent = styles[node].Display is Display.Block or Display.FlowRoot or Display.Grid or Display.Inline
-            or Display.Table or Display.TableRow or Display.TableCell;
+        var isPhysicalParent = styles[node].Display is Display.Block
+            or Display.FlowRoot
+            or Display.Grid
+            or Display.Inline
+            or Display.Table
+            or Display.TableRow
+            or Display.TableCell;
         var mainAxis = isPhysicalParent ? FlexDirection.Row : FlexAxis.Resolve(styles[node].FlexDirection, direction);
         var crossAxis = isPhysicalParent ? FlexDirection.Column : FlexAxis.ResolveCross(mainAxis, direction);
 
@@ -227,26 +245,74 @@ public sealed partial class LayoutTree {
         var heightIsGiven = true;
 
         if (HasDefiniteLength(child, Dimension.Width, containingBlockWidth)) {
-            childWidth = ResolvedDimension(child, Dimension.Width, containingBlockWidth, containingBlockWidth, direction) + marginRow;
+            childWidth = ResolvedDimension(
+                    child,
+                    Dimension.Width,
+                    containingBlockWidth,
+                    containingBlockWidth,
+                    direction
+                )
+                + marginRow;
         } else if (BothInsetsDefined(child, FlexDirection.Row, direction)) {
             // With both edges pinned and no width of its own, the width is what is left between them.
             childWidth = containingBlockWidth
-                - (StyleResolution.FlexStartPosition(in styles[child], FlexDirection.Row, direction, containingBlockWidth)
-                    + StyleResolution.FlexEndPosition(in styles[child], FlexDirection.Row, direction, containingBlockWidth));
+                - (StyleResolution.FlexStartPosition(
+                        in styles[child],
+                        FlexDirection.Row,
+                        direction,
+                        containingBlockWidth
+                    )
+                    + StyleResolution.FlexEndPosition(
+                        in styles[child],
+                        FlexDirection.Row,
+                        direction,
+                        containingBlockWidth
+                    ));
 
-            childWidth = BoundAxis(child, FlexDirection.Row, direction, childWidth, containingBlockWidth, containingBlockWidth);
+            childWidth = BoundAxis(
+                child,
+                FlexDirection.Row,
+                direction,
+                childWidth,
+                containingBlockWidth,
+                containingBlockWidth
+            );
         } else {
             widthIsGiven = false;
         }
 
         if (HasDefiniteLength(child, Dimension.Height, containingBlockHeight)) {
-            childHeight = ResolvedDimension(child, Dimension.Height, containingBlockHeight, containingBlockWidth, direction) + marginColumn;
+            childHeight = ResolvedDimension(
+                    child,
+                    Dimension.Height,
+                    containingBlockHeight,
+                    containingBlockWidth,
+                    direction
+                )
+                + marginColumn;
         } else if (BothInsetsDefined(child, FlexDirection.Column, direction)) {
             childHeight = containingBlockHeight
-                - (StyleResolution.FlexStartPosition(in styles[child], FlexDirection.Column, direction, containingBlockHeight)
-                    + StyleResolution.FlexEndPosition(in styles[child], FlexDirection.Column, direction, containingBlockHeight));
+                - (StyleResolution.FlexStartPosition(
+                        in styles[child],
+                        FlexDirection.Column,
+                        direction,
+                        containingBlockHeight
+                    )
+                    + StyleResolution.FlexEndPosition(
+                        in styles[child],
+                        FlexDirection.Column,
+                        direction,
+                        containingBlockHeight
+                    ));
 
-            childHeight = BoundAxis(child, FlexDirection.Column, direction, childHeight, containingBlockHeight, containingBlockWidth);
+            childHeight = BoundAxis(
+                child,
+                FlexDirection.Column,
+                direction,
+                childHeight,
+                containingBlockHeight,
+                containingBlockWidth
+            );
 
             // ⚠ A FULL SET OF INSETS PLUS A RATIO IS OVER-CONSTRAINED, AND IT IS THE RATIO THAT WINS.
             // Solving both axes from their own insets is what answered 360x270 where Chrome says
@@ -267,9 +333,9 @@ public sealed partial class LayoutTree {
         // An aspect ratio needs exactly one side to anchor to; with both or neither it says nothing.
         if (float.IsNaN(childWidth) != float.IsNaN(childHeight) && hasRatio) {
             if (float.IsNaN(childWidth)) {
-                childWidth = marginRow + ((childHeight - marginColumn) * aspectRatio);
+                childWidth = marginRow + (childHeight - marginColumn) * aspectRatio;
             } else {
-                childHeight = marginColumn + ((childWidth - marginRow) / aspectRatio);
+                childHeight = marginColumn + (childWidth - marginRow) / aspectRatio;
             }
         }
 
@@ -297,8 +363,18 @@ public sealed partial class LayoutTree {
                 childWidth = MathF.Max(
                     0f,
                     containingBlockWidth
-                        - StyleResolution.FlexStartPosition(in styles[child], FlexDirection.Row, direction, containingBlockWidth)
-                        - StyleResolution.FlexEndPosition(in styles[child], FlexDirection.Row, direction, containingBlockWidth)
+                    - StyleResolution.FlexStartPosition(
+                        in styles[child],
+                        FlexDirection.Row,
+                        direction,
+                        containingBlockWidth
+                    )
+                    - StyleResolution.FlexEndPosition(
+                        in styles[child],
+                        FlexDirection.Row,
+                        direction,
+                        containingBlockWidth
+                    )
                 );
                 childWidthSizingMode = SizingMode.FitContent;
             }
@@ -312,13 +388,13 @@ public sealed partial class LayoutTree {
                 childHeightSizingMode,
                 containingBlockWidth,
                 containingBlockHeight,
-                performLayout: false,
+                false,
                 currentDepth
             );
 
-            childWidth = results[child].MeasuredDimensions[(int) Dimension.Width]
+            childWidth = results[child].MeasuredDimensions[(int)Dimension.Width]
                 + StyleResolution.MarginForAxis(in styles[child], FlexDirection.Row, containingBlockWidth);
-            childHeight = results[child].MeasuredDimensions[(int) Dimension.Height]
+            childHeight = results[child].MeasuredDimensions[(int)Dimension.Height]
                 + StyleResolution.MarginForAxis(in styles[child], FlexDirection.Column, containingBlockWidth);
         }
 
@@ -334,7 +410,8 @@ public sealed partial class LayoutTree {
             if (widthIsGiven && heightIsGiven) {
                 // Nothing for the ratio to decide, but the transferred bounds still apply to both.
                 childWidth = ClampBlockChildAxis(childWidth - marginRow, bounds.MinWidth, bounds.MaxWidth) + marginRow;
-                childHeight = ClampBlockChildAxis(childHeight - marginColumn, bounds.MinHeight, bounds.MaxHeight) + marginColumn;
+                childHeight = ClampBlockChildAxis(childHeight - marginColumn, bounds.MinHeight, bounds.MaxHeight)
+                    + marginColumn;
             } else if (heightIsGiven) {
                 var height = ClampBlockChildAxis(childHeight - marginColumn, bounds.MinHeight, bounds.MaxHeight);
                 childHeight = height + marginColumn;
@@ -358,12 +435,30 @@ public sealed partial class LayoutTree {
             SizingMode.StretchFit,
             containingBlockWidth,
             containingBlockHeight,
-            performLayout: true,
+            true,
             currentDepth
         );
 
-        PositionAbsoluteChild(containingNode, node, child, direction, mainAxis, true, in containingBlock, in parentArea);
-        PositionAbsoluteChild(containingNode, node, child, direction, crossAxis, false, in containingBlock, in parentArea);
+        PositionAbsoluteChild(
+            containingNode,
+            node,
+            child,
+            direction,
+            mainAxis,
+            true,
+            in containingBlock,
+            in parentArea
+        );
+        PositionAbsoluteChild(
+            containingNode,
+            node,
+            child,
+            direction,
+            crossAxis,
+            false,
+            in containingBlock,
+            in parentArea
+        );
     }
 
     void PositionAbsoluteChild(
@@ -378,7 +473,7 @@ public sealed partial class LayoutTree {
     ) {
         var containingBlockWidth = containingBlock.Width;
         var containingBlockSize = containingBlock.SizeOn(axis);
-        var flexStart = (int) FlexAxis.FlexStartEdge(axis);
+        var flexStart = (int)FlexAxis.FlexStartEdge(axis);
         var (usedStartMargin, usedEndMargin) = UsedAbsoluteMargins(child, axis, direction, in containingBlock);
 
         // The start inset wins over the end inset when both are set. The result is written to the
@@ -386,28 +481,35 @@ public sealed partial class LayoutTree {
         // positions from.
         if (StyleResolution.IsInlineStartPositionDefined(in styles[child], axis, direction)
             && !StyleResolution.IsInlineStartPositionAuto(in styles[child], axis, direction)) {
-            var relativeToInlineStart = StyleResolution.InlineStartPosition(in styles[child], axis, direction, containingBlockSize)
+            var relativeToInlineStart = StyleResolution.InlineStartPosition(
+                    in styles[child],
+                    axis,
+                    direction,
+                    containingBlockSize
+                )
                 + InlineStartOffsetOf(in containingBlock, containingNode, axis, direction)
                 + usedStartMargin;
 
-            results[child].Position[flexStart] = FlexAxis.InlineStartEdge(axis, direction) != FlexAxis.FlexStartEdge(axis)
-                ? PositionOfOppositeEdge(relativeToInlineStart, axis, containingNode, child)
-                : relativeToInlineStart;
+            results[child].Position[flexStart] =
+                FlexAxis.InlineStartEdge(axis, direction) != FlexAxis.FlexStartEdge(axis)
+                    ? PositionOfOppositeEdge(relativeToInlineStart, axis, containingNode, child)
+                    : relativeToInlineStart;
             return;
         }
 
         if (StyleResolution.IsInlineEndPositionDefined(in styles[child], axis, direction)
             && !StyleResolution.IsInlineEndPositionAuto(in styles[child], axis, direction)) {
-            var dimension = (int) FlexAxis.DimensionOf(axis);
+            var dimension = (int)FlexAxis.DimensionOf(axis);
             var relativeToInlineStart = results[containingNode].MeasuredDimensions[dimension]
                 - results[child].MeasuredDimensions[dimension]
                 - InlineEndOffsetOf(in containingBlock, containingNode, axis, direction)
                 - usedEndMargin
                 - StyleResolution.InlineEndPosition(in styles[child], axis, direction, containingBlockSize);
 
-            results[child].Position[flexStart] = FlexAxis.InlineStartEdge(axis, direction) != FlexAxis.FlexStartEdge(axis)
-                ? PositionOfOppositeEdge(relativeToInlineStart, axis, containingNode, child)
-                : relativeToInlineStart;
+            results[child].Position[flexStart] =
+                FlexAxis.InlineStartEdge(axis, direction) != FlexAxis.FlexStartEdge(axis)
+                    ? PositionOfOppositeEdge(relativeToInlineStart, axis, containingNode, child)
+                    : relativeToInlineStart;
             return;
         }
 
@@ -422,11 +524,14 @@ public sealed partial class LayoutTree {
             var isRow = FlexAxis.IsRow(axis);
             var alignment = isRow
                 ? styles[child].JustifySelf == Align.Auto ? styles[parent].JustifyItems : styles[child].JustifySelf
-                : styles[child].AlignSelf == Align.Auto ? styles[parent].AlignItems : styles[child].AlignSelf;
+                : styles[child].AlignSelf == Align.Auto
+                    ? styles[parent].AlignItems
+                    : styles[child].AlignSelf;
 
             var areaSize = parentArea.SizeOn(axis);
-            var childSize = results[child].MeasuredDimensions[(int) FlexAxis.DimensionOf(axis)];
-            var startMargin = StyleResolution.InlineStartMargin(in styles[child], axis, direction, containingBlockWidth);
+            var childSize = results[child].MeasuredDimensions[(int)FlexAxis.DimensionOf(axis)];
+            var startMargin =
+                StyleResolution.InlineStartMargin(in styles[child], axis, direction, containingBlockWidth);
             var endMargin = StyleResolution.InlineEndMargin(in styles[child], axis, direction, containingBlockWidth);
 
             // ⚠ §4.4 asks for nothing here: this clamp already gives every alignment the `safe`
@@ -436,14 +541,15 @@ public sealed partial class LayoutTree {
             // out-of-flow grid child larger than its own area, so the two cannot be told apart from
             // here and the clamp is left as it is rather than changed blind.
             var free = MathF.Max(0f, areaSize - childSize - startMargin - endMargin);
-            var offsetFromInlineStart = startMargin + alignment switch {
-                Align.Center => free / 2f,
-                Align.FlexEnd => free,
-                _ => 0f
-            };
+            var offsetFromInlineStart = startMargin
+                + alignment switch {
+                    Align.Center => free / 2f,
+                    Align.FlexEnd => free,
+                    _ => 0f
+                };
 
             // The offset is measured from the area's inline-start edge, which in RTL is its right.
-            results[child].Position[(int) (isRow ? Edge.Left : Edge.Top)] = isRow && direction == Direction.Rtl
+            results[child].Position[(int)(isRow ? Edge.Left : Edge.Top)] = isRow && direction == Direction.Rtl
                 ? parentArea.Left + areaSize - offsetFromInlineStart - childSize
                 : parentArea.StartOn(axis) + offsetFromInlineStart;
 
@@ -477,12 +583,12 @@ public sealed partial class LayoutTree {
             var margin = StyleResolution.InlineStartMargin(in styles[child], axis, direction, containingBlockWidth);
 
             if (isRow && direction == Direction.Rtl) {
-                staticValue -= results[child].MeasuredDimensions[(int) Dimension.Width] + margin;
+                staticValue -= results[child].MeasuredDimensions[(int)Dimension.Width] + margin;
             } else {
                 staticValue += margin;
             }
 
-            results[child].Position[(int) staticEdge] = staticValue;
+            results[child].Position[(int)staticEdge] = staticValue;
             return;
         }
 
@@ -526,7 +632,8 @@ public sealed partial class LayoutTree {
         // puts it at y=0, and folding `baseline` into the `else` arm below sent it to y=80 along
         // with `flex-start` and `stretch`, which are flow-relative and do belong there.
         if (styles[parent].FlexWrap == Wrap.WrapReverse && itemAlign != Align.Baseline) {
-            itemAlign = itemAlign == Align.FlexEnd ? Align.FlexStart : itemAlign != Align.Center ? Align.FlexEnd : itemAlign;
+            itemAlign = itemAlign == Align.FlexEnd ? Align.FlexStart :
+                itemAlign != Align.Center ? Align.FlexEnd : itemAlign;
         }
 
         // §4.4, and here the subject really is this child: `align-self` is its own declaration and
@@ -564,9 +671,9 @@ public sealed partial class LayoutTree {
     ///     to run.
     /// </remarks>
     float AbsoluteCrossFreeSpace(int parent, int child, FlexDirection axis, float containingBlockWidth) {
-        var startEdge = (int) FlexAxis.FlexStartEdge(axis);
-        var endEdge = (int) FlexAxis.FlexEndEdge(axis);
-        var dimension = (int) FlexAxis.DimensionOf(axis);
+        var startEdge = (int)FlexAxis.FlexStartEdge(axis);
+        var endEdge = (int)FlexAxis.FlexEndEdge(axis);
+        var dimension = (int)FlexAxis.DimensionOf(axis);
 
         var parentContentBox = results[parent].MeasuredDimensions[dimension]
             - results[parent].Border[startEdge]
@@ -580,28 +687,46 @@ public sealed partial class LayoutTree {
         return parentContentBox - childOuterSize;
     }
 
-    void SetFlexStartLayoutPosition(int parent, int child, Direction direction, FlexDirection axis, float containingBlockWidth) {
-        var edge = (int) FlexAxis.FlexStartEdge(axis);
+    void SetFlexStartLayoutPosition(
+        int parent,
+        int child,
+        Direction direction,
+        FlexDirection axis,
+        float containingBlockWidth
+    ) {
+        var edge = (int)FlexAxis.FlexStartEdge(axis);
         results[child].Position[edge] =
             StyleResolution.FlexStartMargin(in styles[child], axis, direction, containingBlockWidth)
             + results[parent].Border[edge]
             + results[parent].Padding[edge];
     }
 
-    void SetFlexEndLayoutPosition(int parent, int child, Direction direction, FlexDirection axis, float containingBlockWidth) {
-        var endEdge = (int) FlexAxis.FlexEndEdge(axis);
+    void SetFlexEndLayoutPosition(
+        int parent,
+        int child,
+        Direction direction,
+        FlexDirection axis,
+        float containingBlockWidth
+    ) {
+        var endEdge = (int)FlexAxis.FlexEndEdge(axis);
         var flexEndPosition = results[parent].Border[endEdge]
             + results[parent].Padding[endEdge]
             + StyleResolution.FlexEndMargin(in styles[child], axis, direction, containingBlockWidth);
 
-        results[child].Position[(int) FlexAxis.FlexStartEdge(axis)] =
+        results[child].Position[(int)FlexAxis.FlexStartEdge(axis)] =
             PositionOfOppositeEdge(flexEndPosition, axis, parent, child);
     }
 
-    void SetCenterLayoutPosition(int parent, int child, Direction direction, FlexDirection axis, float containingBlockWidth) {
-        var startEdge = (int) FlexAxis.FlexStartEdge(axis);
-        var endEdge = (int) FlexAxis.FlexEndEdge(axis);
-        var dimension = (int) FlexAxis.DimensionOf(axis);
+    void SetCenterLayoutPosition(
+        int parent,
+        int child,
+        Direction direction,
+        FlexDirection axis,
+        float containingBlockWidth
+    ) {
+        var startEdge = (int)FlexAxis.FlexStartEdge(axis);
+        var endEdge = (int)FlexAxis.FlexEndEdge(axis);
+        var dimension = (int)FlexAxis.DimensionOf(axis);
 
         var parentContentBox = results[parent].MeasuredDimensions[dimension]
             - results[parent].Border[startEdge]
@@ -612,7 +737,7 @@ public sealed partial class LayoutTree {
         var childOuterSize = results[child].MeasuredDimensions[dimension]
             + StyleResolution.MarginForAxis(in styles[child], axis, containingBlockWidth);
 
-        results[child].Position[startEdge] = ((parentContentBox - childOuterSize) / 2f)
+        results[child].Position[startEdge] = (parentContentBox - childOuterSize) / 2f
             + results[parent].Border[startEdge]
             + results[parent].Padding[startEdge]
             + StyleResolution.FlexStartMargin(in styles[child], axis, direction, containingBlockWidth);
@@ -624,8 +749,12 @@ public sealed partial class LayoutTree {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Over-constrained is the precondition, and it is why this is not the in-flow auto
-    ///         margin written a second time.</b> An in-flow box has one equation and one unknown, so
+    ///         ⚠
+    ///         <b>
+    ///             Over-constrained is the precondition, and it is why this is not the in-flow auto
+    ///             margin written a second time.
+    ///         </b>
+    ///         An in-flow box has one equation and one unknown, so
     ///         an <c>auto</c> margin is what centres it. An out-of-flow box with both insets and a
     ///         size stated has <i>no</i> unknown left — §10.3.7's equation cannot balance — and CSS
     ///         resolves that by declaring the auto margins the unknowns after all. With neither inset
@@ -634,8 +763,12 @@ public sealed partial class LayoutTree {
     ///         got right by doing nothing.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Negative slack is handed over as readily as positive, and only the both-<c>auto</c>
-    ///         case carves it out.</b> §10.3.7 splits the slack evenly between two auto margins
+    ///         ⚠
+    ///         <b>
+    ///             Negative slack is handed over as readily as positive, and only the both-<c>auto</c>
+    ///             case carves it out.
+    ///         </b>
+    ///         §10.3.7 splits the slack evenly between two auto margins
     ///         "unless that would make them negative, in which case, when the direction is
     ///         left-to-right, set <c>margin-left</c> to zero and solve for <c>margin-right</c>".
     ///         <c>block_absolute_margin_auto_left_child_bigger_than_parent_with_inset</c> is the
@@ -643,8 +776,12 @@ public sealed partial class LayoutTree {
     ///         <c>…_left_right_…</c> is the both-margin half, which lands at x=10 instead.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Written here rather than in the block walk, because it is absolute positioning's
-    ///         rule and not block formatting's.</b> The corpus only exercises it under
+    ///         ⚠
+    ///         <b>
+    ///             Written here rather than in the block walk, because it is absolute positioning's
+    ///             rule and not block formatting's.
+    ///         </b>
+    ///         The corpus only exercises it under
     ///         <c>block/</c> — Yoga does not implement it and the flex corpus has no fixture — so the
     ///         oracle for the flex and grid parents this also reaches is WPT's
     ///         <c>css/css-position/</c> rather than a fixture. Restricting it to block parents would
@@ -652,7 +789,12 @@ public sealed partial class LayoutTree {
     ///         formatting context, and an abspos box's parent has no say in its geometry anyway.
     ///     </para>
     /// </remarks>
-    (float Start, float End) UsedAbsoluteMargins(int child, FlexDirection axis, Direction direction, in AbsoluteContainingBlock block) {
+    (float Start, float End) UsedAbsoluteMargins(
+        int child,
+        FlexDirection axis,
+        Direction direction,
+        in AbsoluteContainingBlock block
+    ) {
         var size = block.SizeOn(axis);
         var start = StyleResolution.InlineStartMargin(in styles[child], axis, direction, size);
         var end = StyleResolution.InlineEndMargin(in styles[child], axis, direction, size);
@@ -667,7 +809,7 @@ public sealed partial class LayoutTree {
         var slack = size
             - StyleResolution.InlineStartPosition(in styles[child], axis, direction, size)
             - StyleResolution.InlineEndPosition(in styles[child], axis, direction, size)
-            - results[child].MeasuredDimensions[(int) FlexAxis.DimensionOf(axis)]
+            - results[child].MeasuredDimensions[(int)FlexAxis.DimensionOf(axis)]
             - (startIsAuto ? 0f : start)
             - (endIsAuto ? 0f : end);
 
@@ -686,8 +828,12 @@ public sealed partial class LayoutTree {
     /// <summary>A node's padding box, which is the containing block of everything below it.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Minus the scrollbar gutter, which is the one place "padding box" is not the whole
-    ///         answer.</b> CSS Position §3 makes the containing block the padding box, and CSS
+    ///         ⚠
+    ///         <b>
+    ///             Minus the scrollbar gutter, which is the one place "padding box" is not the whole
+    ///             answer.
+    ///         </b>
+    ///         CSS Position §3 makes the containing block the padding box, and CSS
     ///         Overflow puts the scrollbar inside that box: an <c>inset: 0</c> child of a scroll
     ///         container stops at the bar rather than sliding under it. Six families across all three
     ///         corpora probe exactly this — every <c>*_overflow_scrollbars_*</c> fixture in the block
@@ -714,12 +860,12 @@ public sealed partial class LayoutTree {
         var bottom = StyleResolution.FlexEndBorder(in styles[node], FlexDirection.Column, Direction.Ltr)
             + ScrollbarGutterAt(node, Edge.Bottom, direction);
 
-        var width = results[node].MeasuredDimensions[(int) Dimension.Width] - left - right;
-        var height = results[node].MeasuredDimensions[(int) Dimension.Height] - top - bottom;
+        var width = results[node].MeasuredDimensions[(int)Dimension.Width] - left - right;
+        var height = results[node].MeasuredDimensions[(int)Dimension.Height] - top - bottom;
 
-        return new AbsoluteContainingBlock(
-            MathF.Min(left, MathF.Max(0f, results[node].MeasuredDimensions[(int) Dimension.Width] - right)),
-            MathF.Min(top, MathF.Max(0f, results[node].MeasuredDimensions[(int) Dimension.Height] - bottom)),
+        return new(
+            MathF.Min(left, MathF.Max(0f, results[node].MeasuredDimensions[(int)Dimension.Width] - right)),
+            MathF.Min(top, MathF.Max(0f, results[node].MeasuredDimensions[(int)Dimension.Height] - bottom)),
             MathF.Max(0f, width),
             MathF.Max(0f, height)
         );
@@ -745,18 +891,28 @@ public sealed partial class LayoutTree {
     ///     How far the containing block's inline-start edge sits from the containing node's, along one
     ///     axis. The containing node's border, for everything but a grid area.
     /// </summary>
-    float InlineStartOffsetOf(in AbsoluteContainingBlock block, int containingNode, FlexDirection axis, Direction direction) =>
+    float InlineStartOffsetOf(
+        in AbsoluteContainingBlock block,
+        int containingNode,
+        FlexDirection axis,
+        Direction direction
+    ) =>
         FlexAxis.InlineStartEdge(axis, direction) switch {
             Edge.Left => block.Left,
             Edge.Top => block.Top,
-            _ => results[containingNode].MeasuredDimensions[(int) FlexAxis.DimensionOf(axis)]
+            _ => results[containingNode].MeasuredDimensions[(int)FlexAxis.DimensionOf(axis)]
                 - block.StartOn(axis)
                 - block.SizeOn(axis)
         };
 
     /// <inheritdoc cref="InlineStartOffsetOf" />
-    float InlineEndOffsetOf(in AbsoluteContainingBlock block, int containingNode, FlexDirection axis, Direction direction) =>
-        results[containingNode].MeasuredDimensions[(int) FlexAxis.DimensionOf(axis)]
+    float InlineEndOffsetOf(
+        in AbsoluteContainingBlock block,
+        int containingNode,
+        FlexDirection axis,
+        Direction direction
+    ) =>
+        results[containingNode].MeasuredDimensions[(int)FlexAxis.DimensionOf(axis)]
         - block.SizeOn(axis)
         - InlineStartOffsetOf(in block, containingNode, axis, direction);
 
@@ -768,19 +924,19 @@ public sealed partial class LayoutTree {
 
     bool HorizontalInsetsDefined(int index) {
         ref readonly var position = ref styles[index].Position;
-        return position[(int) Edge.Left].IsDefined
-            || position[(int) Edge.Right].IsDefined
-            || position[(int) Edge.Start].IsDefined
-            || position[(int) Edge.End].IsDefined
-            || position[(int) Edge.Horizontal].IsDefined
-            || position[(int) Edge.All].IsDefined;
+        return position[(int)Edge.Left].IsDefined
+            || position[(int)Edge.Right].IsDefined
+            || position[(int)Edge.Start].IsDefined
+            || position[(int)Edge.End].IsDefined
+            || position[(int)Edge.Horizontal].IsDefined
+            || position[(int)Edge.All].IsDefined;
     }
 
     bool VerticalInsetsDefined(int index) {
         ref readonly var position = ref styles[index].Position;
-        return position[(int) Edge.Top].IsDefined
-            || position[(int) Edge.Bottom].IsDefined
-            || position[(int) Edge.Vertical].IsDefined
-            || position[(int) Edge.All].IsDefined;
+        return position[(int)Edge.Top].IsDefined
+            || position[(int)Edge.Bottom].IsDefined
+            || position[(int)Edge.Vertical].IsDefined
+            || position[(int)Edge.All].IsDefined;
     }
 }

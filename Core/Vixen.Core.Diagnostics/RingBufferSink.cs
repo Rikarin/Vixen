@@ -80,8 +80,11 @@ public sealed record LogRecord(
 ///         decode on read.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The claim that used to stand here — that logging never happens on a hot path,
-///         because <c>[HotPath]</c> methods are barred from it — was not true, and is still not.</b>
+///         ⚠
+///         <b>
+///             The claim that used to stand here — that logging never happens on a hot path,
+///             because <c>[HotPath]</c> methods are barred from it — was not true, and is still not.
+///         </b>
 ///         The attribute has an analyzer now (<c>VXHP0001</c>, #1161) and members marked with it, but
 ///         that rule is about <i>allocation</i> and says nothing whatever about logging. What is
 ///         actually true is weaker, and is the real reason the cost does not matter: logging
@@ -99,8 +102,12 @@ public sealed class RingBufferSink : LogRecordSink {
 
     /// <summary>How many records have ever been accepted, which is <see cref="Written" />.</summary>
     /// <remarks>
-    ///     ⚠ <b>Counted here rather than derived from <c>OverwrittenCount + Count</c>, because
-    ///     <see cref="Clear" /> makes that sum go backwards.</b> The ring keeps its overwritten count
+    ///     ⚠
+    ///     <b>
+    ///         Counted here rather than derived from <c>OverwrittenCount + Count</c>, because
+    ///         <see cref="Clear" /> makes that sum go backwards.
+    ///     </b>
+    ///     The ring keeps its overwritten count
     ///     across a clear and resets its live count to zero, so the sum drops by however much was in
     ///     it — and the records enqueued afterwards would be handed sequence numbers a reader had
     ///     already seen and would therefore skip. A counter that only ever goes up is the whole
@@ -137,8 +144,9 @@ public sealed class RingBufferSink : LogRecordSink {
     /// <param name="filter">
     ///     The filter to use, or <see langword="null" /> for one of this sink's own.
     /// </param>
-    public RingBufferSink(int capacity = DefaultCapacity, LogFilter? filter = null) : base(filter) =>
+    public RingBufferSink(int capacity = DefaultCapacity, LogFilter? filter = null) : base(filter) {
         records = new(capacity);
+    }
 
     /// <summary>Copies the records out, oldest first.</summary>
     /// <returns>The current contents of the ring.</returns>
@@ -202,8 +210,12 @@ public sealed class RingBufferSink : LogRecordSink {
     ///         buffer the caller keeps.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A caller that falls further behind than the ring is deep loses the difference,
-    ///         silently, and that is the correct behaviour.</b> The records are gone — that is what a
+    ///         ⚠
+    ///         <b>
+    ///             A caller that falls further behind than the ring is deep loses the difference,
+    ///             silently, and that is the correct behaviour.
+    ///         </b>
+    ///         The records are gone — that is what a
     ///         ring is — and <paramref name="sequence" /> is advanced past them so the next call
     ///         returns what still exists rather than looping for ever on records nobody has.
     ///         <see cref="DroppedCount" /> is how a reader notices it happened.
@@ -223,10 +235,10 @@ public sealed class RingBufferSink : LogRecordSink {
             // Clamped at both ends. Below, for a caller that has fallen behind the ring; above, for
             // one holding a sequence from before a `Clear`.
             var from = Math.Clamp(sequence, oldest, written);
-            var take = (int) Math.Min(destination.Length, written - from);
+            var take = (int)Math.Min(destination.Length, written - from);
 
             for (var index = 0; index < take; index++) {
-                destination[index] = records[(int) (from - oldest) + index];
+                destination[index] = records[(int)(from - oldest) + index];
             }
 
             sequence = from + take;

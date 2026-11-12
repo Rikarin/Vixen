@@ -72,11 +72,7 @@ public sealed unsafe partial class VulkanDevice {
         Name(ObjectType.Buffer, handle.Handle, description.Name);
 
         lock (gate) {
-            return new(buffers.Add(new VulkanBuffer {
-                Handle = handle,
-                Memory = memory,
-                Description = description
-            }));
+            return new(buffers.Add(new VulkanBuffer { Handle = handle, Memory = memory, Description = description }));
         }
     }
 
@@ -85,7 +81,7 @@ public sealed unsafe partial class VulkanDevice {
         description.Validate();
         var format = VulkanFormats.ToVulkan(description.Format);
 
-        if (format == Silk.NET.Vulkan.Format.Undefined) {
+        if (format == Format.Undefined) {
             throw new ArgumentException(
                 $"Texture '{description.Name}' asked for {description.Format}, which Vulkan does not have."
             );
@@ -144,12 +140,11 @@ public sealed unsafe partial class VulkanDevice {
         Name(ObjectType.Image, handle.Handle, description.Name);
 
         lock (gate) {
-            return new(textures.Add(new VulkanTexture {
-                Handle = handle,
-                Memory = memory,
-                Description = description,
-                Owned = true
-            }));
+            return new(
+                textures.Add(
+                    new VulkanTexture { Handle = handle, Memory = memory, Description = description, Owned = true }
+                )
+            );
         }
     }
 
@@ -196,16 +191,20 @@ public sealed unsafe partial class VulkanDevice {
         Name(ObjectType.ImageView, handle.Handle, $"{description.Name} view");
 
         lock (gate) {
-            return new(views.Add(new VulkanTextureView {
-                Handle = handle,
-                Texture = texture,
-                Format = viewFormat,
-                Aspect = aspect,
-                BaseMipLevel = baseMipLevel,
-                MipLevelCount = levels,
-                BaseArrayLayer = baseArrayLayer,
-                ArrayLayerCount = layers
-            }));
+            return new(
+                views.Add(
+                    new VulkanTextureView {
+                        Handle = handle,
+                        Texture = texture,
+                        Format = viewFormat,
+                        Aspect = aspect,
+                        BaseMipLevel = baseMipLevel,
+                        MipLevelCount = levels,
+                        BaseArrayLayer = baseArrayLayer,
+                        ArrayLayerCount = layers
+                    }
+                )
+            );
         }
     }
 
@@ -236,11 +235,13 @@ public sealed unsafe partial class VulkanDevice {
         Name(ObjectType.Sampler, handle.Handle, description.Name);
 
         lock (gate) {
-            return new(samplers.Add(new VulkanSampler {
-                Handle = handle,
-                Compares = description.Compare is not null,
-                Name = description.Name
-            }));
+            return new(
+                samplers.Add(
+                    new VulkanSampler {
+                        Handle = handle, Compares = description.Compare is not null, Name = description.Name
+                    }
+                )
+            );
         }
     }
 
@@ -255,9 +256,7 @@ public sealed unsafe partial class VulkanDevice {
 
         fixed (byte* code = bytecode) {
             var create = new ShaderModuleCreateInfo {
-                SType = StructureType.ShaderModuleCreateInfo,
-                CodeSize = (nuint)bytecode.Length,
-                PCode = (uint*)code
+                SType = StructureType.ShaderModuleCreateInfo, CodeSize = (nuint)bytecode.Length, PCode = (uint*)code
             };
 
             ShaderModule handle;
@@ -290,7 +289,7 @@ public sealed unsafe partial class VulkanDevice {
             );
         }
 
-        data.CopyTo(new Span<byte>((void*)(target.Memory.Mapped + (nint)offset), data.Length));
+        data.CopyTo(new((void*)(target.Memory.Mapped + (nint)offset), data.Length));
     }
 
     /// <inheritdoc />
@@ -324,9 +323,10 @@ public sealed unsafe partial class VulkanDevice {
         }
 
         Retire(() => {
-            Api.DestroyBuffer(device, buffer.Handle, null);
-            allocator.Free(buffer.Memory);
-        });
+                Api.DestroyBuffer(device, buffer.Handle, null);
+                allocator.Free(buffer.Memory);
+            }
+        );
     }
 
     /// <inheritdoc />
@@ -342,9 +342,10 @@ public sealed unsafe partial class VulkanDevice {
         }
 
         Retire(() => {
-            Api.DestroyImage(device, texture.Handle, null);
-            allocator.Free(texture.Memory);
-        });
+                Api.DestroyImage(device, texture.Handle, null);
+                allocator.Free(texture.Memory);
+            }
+        );
     }
 
     /// <inheritdoc />
@@ -354,9 +355,10 @@ public sealed unsafe partial class VulkanDevice {
         }
 
         Retire(() => {
-            renderPasses.Invalidate(view.Handle);
-            Api.DestroyImageView(device, view.Handle, null);
-        });
+                renderPasses.Invalidate(view.Handle);
+                Api.DestroyImageView(device, view.Handle, null);
+            }
+        );
     }
 
     /// <inheritdoc />
@@ -562,12 +564,11 @@ public sealed unsafe partial class VulkanDevice {
     /// <summary>Registers a swapchain's image, which the device does not own.</summary>
     internal TextureHandle AdoptSwapChainImage(Image image, in TextureDescription description) {
         lock (gate) {
-            return new(textures.Add(new VulkanTexture {
-                Handle = image,
-                Memory = default,
-                Description = description,
-                Owned = false
-            }));
+            return new(
+                textures.Add(
+                    new VulkanTexture { Handle = image, Memory = default, Description = description, Owned = false }
+                )
+            );
         }
     }
 

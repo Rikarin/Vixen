@@ -212,7 +212,16 @@ public sealed class AssetDatabase {
             candidates.Count,
             index => {
                 claimed[index] = survey.Sidecars.ContainsKey(candidates[index].Absolute);
-                found[index] = Read(candidates[index], survey, previousEntries, previousStamps, previousCutoff, options, issues, written);
+                found[index] = Read(
+                    candidates[index],
+                    survey,
+                    previousEntries,
+                    previousStamps,
+                    previousCutoff,
+                    options,
+                    issues,
+                    written
+                );
             }
         );
 
@@ -247,9 +256,12 @@ public sealed class AssetDatabase {
 
         trustedBeforeUtc = startedUtc;
 
-        return new(Count, clock.Elapsed, [.. issues.OrderBy(issue => issue.Path, StringComparer.Ordinal)], reused) {
-            Written = [.. written.Order(StringComparer.Ordinal)]
-        };
+        return new(
+            Count,
+            clock.Elapsed,
+            [..issues.OrderBy(static issue => issue.Path, StringComparer.Ordinal)],
+            reused
+        ) { Written = [..written.Order(StringComparer.Ordinal)] };
     }
 
     /// <summary>Writes the index to <c>Library/GuidIndex</c>.</summary>
@@ -277,11 +289,9 @@ public sealed class AssetDatabase {
             writer.NewLine = "\n";
             writer.WriteLine(IndexHeader);
 
-            writer.WriteLine(
-                ScannedPrefix + trustedBeforeUtc.ToString("O", CultureInfo.InvariantCulture)
-            );
+            writer.WriteLine(ScannedPrefix + trustedBeforeUtc.ToString("O", CultureInfo.InvariantCulture));
 
-            foreach (var entry in byPath.Values.OrderBy(entry => entry.Path, StringComparer.Ordinal)) {
+            foreach (var entry in byPath.Values.OrderBy(static entry => entry.Path, StringComparer.Ordinal)) {
                 var stamp = stamps.GetValueOrDefault(entry.Path, MetaStamp.Unknown);
 
                 writer.WriteLine(
@@ -295,7 +305,7 @@ public sealed class AssetDatabase {
             writer.WriteLine(string.Create(CultureInfo.InvariantCulture, $"{TerminatorPrefix}{byPath.Count}"));
         }
 
-        File.Move(temporary, Paths.GuidIndexFile, overwrite: true);
+        File.Move(temporary, Paths.GuidIndexFile, true);
     }
 
     /// <summary>Reads the index back, if it is there and it is whole.</summary>
@@ -335,7 +345,11 @@ public sealed class AssetDatabase {
 
         while (reader.ReadLine() is { } line) {
             if (line.StartsWith(TerminatorPrefix, StringComparison.Ordinal)) {
-                terminated = int.TryParse(line[TerminatorPrefix.Length..], CultureInfo.InvariantCulture, out var declared)
+                terminated = int.TryParse(
+                        line[TerminatorPrefix.Length..],
+                        CultureInfo.InvariantCulture,
+                        out var declared
+                    )
                     && declared == entries.Count;
 
                 break;
@@ -347,7 +361,12 @@ public sealed class AssetDatabase {
                 || !AssetId.TryParse(parts[0], out var guid)
                 || !int.TryParse(parts[1], CultureInfo.InvariantCulture, out var version)
                 || !long.TryParse(parts[4], CultureInfo.InvariantCulture, out var length)
-                || !DateTime.TryParse(parts[5], CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var written)) {
+                || !DateTime.TryParse(
+                    parts[5],
+                    CultureInfo.InvariantCulture,
+                    DateTimeStyles.RoundtripKind,
+                    out var written
+                )) {
                 // Skipped, which the terminator then catches: one line fewer than the count the file
                 // declares means the whole index is refused. Salvaging the readable lines would be
                 // the tempting thing and the wrong one — an index missing an entry it does not know
@@ -441,7 +460,10 @@ public sealed class AssetDatabase {
         // DirectoryInfo rather than the string overloads: the enumerator already has each entry's
         // length and write time from the directory read, so the per-entry stamp costs no extra stat.
         // Asking File.GetLastWriteTimeUtc afterwards would be a syscall per file for the same answer.
-        foreach (var info in new DirectoryInfo(Paths.Assets).EnumerateFileSystemInfos("*", SearchOption.AllDirectories)) {
+        foreach (var info in new DirectoryInfo(Paths.Assets).EnumerateFileSystemInfos(
+                     "*",
+                     SearchOption.AllDirectories
+                 )) {
             if (info is FileInfo file && file.Name.EndsWith(AssetMetaFile.Extension, StringComparison.Ordinal)) {
                 // Keyed by the asset it belongs to rather than by its own name, so that asking "what
                 // is the stamp of this asset's sidecar" is a lookup and not a string concatenation
@@ -466,7 +488,12 @@ public sealed class AssetDatabase {
     ///     evidence rather than on a clock. The cutoff then adds what only a clock can say: that
     ///     somebody else's edit landed while that scan was walking.
     /// </remarks>
-    static bool IsFresh(MetaStamp current, string relative, Dictionary<string, MetaStamp> previousStamps, DateTime cutoff) =>
+    static bool IsFresh(
+        MetaStamp current,
+        string relative,
+        Dictionary<string, MetaStamp> previousStamps,
+        DateTime cutoff
+    ) =>
         previousStamps.TryGetValue(relative, out var recorded) && recorded == current && current.WrittenUtc < cutoff;
 
     /// <summary>The project-relative form of a path the walk produced, which is known to be under the root.</summary>
@@ -553,7 +580,13 @@ public sealed class AssetDatabase {
         );
     }
 
-    void Insert(AssetEntry entry, MetaStamp stamp, ScanOptions options, ConcurrentBag<AssetIssue> issues, ConcurrentBag<string> written) {
+    void Insert(
+        AssetEntry entry,
+        MetaStamp stamp,
+        ScanOptions options,
+        ConcurrentBag<AssetIssue> issues,
+        ConcurrentBag<string> written
+    ) {
         byPath[entry.Path] = entry;
         stamps[entry.Path] = stamp;
 
@@ -599,10 +632,18 @@ public sealed class AssetDatabase {
         // write from an edit landing in the same filesystem tick. So it records no stamp at all and
         // the next scan reads the repaired sidecar back, which costs one file and settles it.
         stamps[repaired.Path] = MetaStamp.Unknown;
-        issues.Add(new(AssetIssueKind.DuplicateGuid, loser.Path, $"{message} '{loser.Path}' was re-GUIDed to {minted}."));
+        issues.Add(
+            new(AssetIssueKind.DuplicateGuid, loser.Path, $"{message} '{loser.Path}' was re-GUIDed to {minted}.")
+        );
     }
 
-    void Quarantine(Survey survey, bool[] claimed, ScanOptions options, ConcurrentBag<AssetIssue> issues, ConcurrentBag<string> written) {
+    void Quarantine(
+        Survey survey,
+        bool[] claimed,
+        ScanOptions options,
+        ConcurrentBag<AssetIssue> issues,
+        ConcurrentBag<string> written
+    ) {
         var spokenFor = 0;
 
         foreach (var claim in claimed) {
@@ -649,9 +690,15 @@ public sealed class AssetDatabase {
             var destination = Path.Combine(Paths.OrphanMeta, Paths.Relative(meta));
             Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
             Writes(written, meta);
-            File.Move(meta, destination, overwrite: true);
+            File.Move(meta, destination, true);
             survey.Sidecars.Remove(owner);
-            issues.Add(new(AssetIssueKind.MetaOrphaned, relative, $"Its asset is gone. Moved to '{Paths.Relative(destination)}'."));
+            issues.Add(
+                new(
+                    AssetIssueKind.MetaOrphaned,
+                    relative,
+                    $"Its asset is gone. Moved to '{Paths.Relative(destination)}'."
+                )
+            );
         }
     }
 
@@ -742,8 +789,11 @@ public sealed class AssetDatabase {
 /// <param name="WrittenUtc">When it was last written, UTC.</param>
 /// <remarks>
 ///     <para>
-///         <b>A size and a write time, because the honest answer costs a read and the read is the
-///         thing being avoided.</b> Hashing a sidecar's contents would never be wrong; it would also
+///         <b>
+///             A size and a write time, because the honest answer costs a read and the read is the
+///             thing being avoided.
+///         </b>
+///         Hashing a sidecar's contents would never be wrong; it would also
 ///         mean opening every file in the project on every cold start, which is precisely the work
 ///         the index exists to skip. A size alone is far too weak — a sidecar is mostly fixed-width
 ///         fields, so most edits leave it exactly as long. The pair is the cheapest thing that is
@@ -772,8 +822,12 @@ public sealed class AssetDatabase {
 ///         ⚠ <b>The write-time cutoff is a weaker second filter</b>, and what it adds is the one
 ///         thing the stamps cannot know: an edit by <em>somebody else</em> that raced the recording
 ///         scan. A stamp is only trusted when its write time is strictly earlier than the instant
-///         that scan began. <b>Where the clock is finer-grained than the filesystem's write times it
-///         under-fires</b> — a file written after that instant can carry a write time floored below
+///         that scan began.
+///         <b>
+///             Where the clock is finer-grained than the filesystem's write times it
+///             under-fires
+///         </b>
+///         — a file written after that instant can carry a write time floored below
 ///         it, which is exactly what NTFS and <c>DateTime.UtcNow</c> do to each other — and no cutoff
 ///         can fix that. Flooring it to the filesystem's own resolution would make it sound and would
 ///         also refuse every file written in the tick before a scan, turning an untouched project

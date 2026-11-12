@@ -8,15 +8,23 @@ namespace Vixen.Geometry.Remeshing;
 /// <summary>Normalising a direction without the absolute floor <see cref="Vector3.Normalize" /> has.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b><c>Vector3.Normalize</c> returns zero for anything shorter than
-///         <c>MathUtil.ZeroTolerance</c>, which is <c>1e-6</c> and is an absolute length.</b> That is
+///         ⚠
+///         <b>
+///             <c>Vector3.Normalize</c> returns zero for anything shorter than
+///             <c>MathUtil.ZeroTolerance</c>, which is <c>1e-6</c> and is an absolute length.
+///         </b>
+///         That is
 ///         the failure docs/plan/41 § D3 names and this repository has been bitten by twice, sitting
 ///         in the shared maths — and it is invisible until something is measured at an unusual size,
 ///         because at unit scale nothing is ever that short.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The cross product is where it bites first, because it scales as the <i>square</i> of
-///         the model.</b> A sphere a millimetre across has triangles whose cross products are
+///         ⚠
+///         <b>
+///             The cross product is where it bites first, because it scales as the <i>square</i> of
+///             the model.
+///         </b>
+///         A sphere a millimetre across has triangles whose cross products are
 ///         <c>1e-9</c>, so every triangle normal on it comes back as the zero vector, every vertex
 ///         normal with it, and the field solve, the curvature fit and the singularity extraction all
 ///         quietly return nothing at all rather than failing. Measured: at a thousandth scale the
@@ -77,6 +85,6 @@ static class ScaleSafe {
             return Vector3.Zero;
         }
 
-        return Unit(direction - (normal * Vector3.Dot(direction, normal)));
+        return Unit(direction - normal * Vector3.Dot(direction, normal));
     }
 }

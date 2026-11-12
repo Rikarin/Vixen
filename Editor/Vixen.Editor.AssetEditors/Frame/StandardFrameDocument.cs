@@ -6,7 +6,6 @@ using Vixen.Core.Yaml;
 using Vixen.Editor.Assets.Compositors;
 using Vixen.Editor.Core;
 using Vixen.Editor.SceneView;
-using Vixen.Rendering;
 using Vixen.Rendering.Compositor;
 using Vixen.Rendering.PostFx;
 
@@ -15,15 +14,22 @@ namespace Vixen.Editor.AssetEditors.Frame;
 /// <summary>A frame document open for editing as knobs rather than as a graph.</summary>
 /// <remarks>
 ///     <para>
-///         <b>Doc 39's sequencing step 3, and the file it opens is the same <c>.vxcompositor</c> a
-///         hand-authored frame lives in.</b> There is exactly one document format and this is one
+///         <b>
+///             Doc 39's sequencing step 3, and the file it opens is the same <c>.vxcompositor</c> a
+///             hand-authored frame lives in.
+///         </b>
+///         There is exactly one document format and this is one
 ///         view over it: a document whose <c>game:</c> is a <c>!StandardFrame</c> gets the knobs, and
 ///         one that is a full graph is opened read-only with the resolved stacks still shown — which
 ///         is what makes the explode transition survivable rather than a cliff.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Written back through <see cref="CompositorWriter" />, and only for a document that
-///         still has a frame node.</b> Reserialising an eleven-hundred-line hand-authored document
+///         ⚠
+///         <b>
+///             Written back through <see cref="CompositorWriter" />, and only for a document that
+///             still has a frame node.
+///         </b>
+///         Reserialising an eleven-hundred-line hand-authored document
 ///         would reformat it and drop every comment in it — a save that silently rewrote sample 13's
 ///         frame is a worse outcome than a panel that declines to save. <see cref="CanEdit" /> is
 ///         that refusal, stated where the buttons can read it rather than discovered on the first
@@ -86,8 +92,12 @@ public sealed class StandardFrameDocument : EditorDocument, IViewportFrame {
 
     /// <summary>The tier the document resolves against, with the host's pick standing in.</summary>
     /// <remarks>
-    ///     ⚠ <b>The host's pick is <c>QualityTier.High</c> here because a file on disk has no
-    ///     host.</b> It matches <c>CompositorBuilder.Quality</c>'s own default, which is what a
+    ///     ⚠
+    ///     <b>
+    ///         The host's pick is <c>QualityTier.High</c> here because a file on disk has no
+    ///         host.
+    ///     </b>
+    ///     It matches <c>CompositorBuilder.Quality</c>'s own default, which is what a
     ///     document that declines actually gets from an unconfigured host — so the panel shows the
     ///     ordinary case rather than an invented one, and says which reading it is showing.
     /// </remarks>
@@ -104,8 +114,12 @@ public sealed class StandardFrameDocument : EditorDocument, IViewportFrame {
     ///         reads properties rather than being handed a payload it has to unpack.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>It fires on a reload from disk too, and that is the point of putting it here
-    ///         rather than on the view.</b> A frame edited in a text editor beside the running editor
+    ///         ⚠
+    ///         <b>
+    ///             It fires on a reload from disk too, and that is the point of putting it here
+    ///             rather than on the view.
+    ///         </b>
+    ///         A frame edited in a text editor beside the running editor
     ///         is the case doc 39's hot-reload sentence is about; the panel and a viewport should not
     ///         need two different subscriptions to notice it.
     ///     </para>
@@ -125,7 +139,7 @@ public sealed class StandardFrameDocument : EditorDocument, IViewportFrame {
 
         // ⚠ `Read` rather than `Reload`, because the base's `Reload` clears and marks the undo stack
         // and there is not one yet — a constructor is not a reload, it is the first read.
-        Read(keepOnFailure: false);
+        Read(false);
     }
 
     /// <inheritdoc />
@@ -145,7 +159,7 @@ public sealed class StandardFrameDocument : EditorDocument, IViewportFrame {
     ///     otherwise blank the panel on the first of them. <c>EditorFrames.Reframe</c> makes the same
     ///     trade for the same reason. <see cref="Diagnostics" /> says what was wrong either way.
     /// </remarks>
-    protected override bool ReloadCore() => Read(keepOnFailure: true);
+    protected override bool ReloadCore() => Read(true);
 
     /// <summary>Reads the file and rebuilds everything derived from it.</summary>
     /// <param name="keepOnFailure">Whether a file that will not parse leaves the current document alone.</param>
@@ -184,8 +198,12 @@ public sealed class StandardFrameDocument : EditorDocument, IViewportFrame {
     /// <summary>Pushes what the inspector wrote back onto the node and re-expands.</summary>
     /// <returns>Whether there was a frame node to write to.</returns>
     /// <remarks>
-    ///     ⚠ <b>Whole-node rather than per-member, which is what keeps a <c>record</c> editable at
-    ///     all.</b> The mirrors are the only mutable copy; each carries forward everything it does
+    ///     ⚠
+    ///     <b>
+    ///         Whole-node rather than per-member, which is what keeps a <c>record</c> editable at
+    ///         all.
+    ///     </b>
+    ///     The mirrors are the only mutable copy; each carries forward everything it does
     ///     not model, so applying twice is the same as applying once and nothing the panel cannot
     ///     draw is lost on the way through.
     /// </remarks>
@@ -220,8 +238,12 @@ public sealed class StandardFrameDocument : EditorDocument, IViewportFrame {
     ///         reach for version control.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The document is re-read afterwards, so <see cref="Node" /> becomes null and the
-    ///         panel stops claiming this is a Standard Frame.</b> An inspector still showing knobs
+    ///         ⚠
+    ///         <b>
+    ///             The document is re-read afterwards, so <see cref="Node" /> becomes null and the
+    ///             panel stops claiming this is a Standard Frame.
+    ///         </b>
+    ///         An inspector still showing knobs
     ///         over a file that no longer has them would be a form whose every write was discarded —
     ///         which is exactly the silent kind of destructive this method exists not to be.
     ///     </para>
@@ -315,8 +337,12 @@ public sealed class StandardFrameDocument : EditorDocument, IViewportFrame {
 
     /// <summary>Reads the project's quality preset, which is the waterfall's middle layer.</summary>
     /// <remarks>
-    ///     ⚠ <b>By convention rather than by reference, because the document has no way to name
-    ///     it.</b> A host hands the preset to <c>PostEffectFactory.Preset</c> in code; nothing in the
+    ///     ⚠
+    ///     <b>
+    ///         By convention rather than by reference, because the document has no way to name
+    ///         it.
+    ///     </b>
+    ///     A host hands the preset to <c>PostEffectFactory.Preset</c> in code; nothing in the
     ///     frame file points at it. <c>Assets/RenderQuality.vxpreset</c> is the path the game
     ///     template stamps out and the guide documents, so it is the one the panel looks in — and a
     ///     project that loads its preset from somewhere else sees the engine defaults here, which

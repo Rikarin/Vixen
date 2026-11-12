@@ -9,8 +9,12 @@ namespace Vixen.Ui;
 /// <summary>How a key combination is written down, for everything in the process that writes one.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Neither half of this was ever view state, and living on a <c>Control</c> is what made
-///         it look like it was.</b> <c>KeyboardShortcut</c> is a label that draws a chord, and it
+///         ⚠
+///         <b>
+///             Neither half of this was ever view state, and living on a <c>Control</c> is what made
+///             it look like it was.
+///         </b>
+///         <c>KeyboardShortcut</c> is a label that draws a chord, and it
 ///         carried the process-wide formatter and the key-name table as statics — so a keymap
 ///         wanting to say what <c>Ctrl+Shift+S</c> is called had to reference the controls library to
 ///         ask a view class a question with no element in it. <c>Vixen.Ui</c> does not reference
@@ -70,8 +74,12 @@ public static class ShortcutFormat {
     /// <param name="key">The key.</param>
     /// <returns>The legend a menu prints — <c>1</c>, <c>`</c>, <c>Escape</c>.</returns>
     /// <remarks>
-    ///     ⚠ <b>Public because every alternative formatter needs exactly this and nothing else of
-    ///     <see cref="Describe" />.</b> A Mac formatter writes its own modifier glyphs and then wants
+    ///     ⚠
+    ///     <b>
+    ///         Public because every alternative formatter needs exactly this and nothing else of
+    ///         <see cref="Describe" />.
+    ///     </b>
+    ///     A Mac formatter writes its own modifier glyphs and then wants
     ///     the key's own name; before this it had to call <c>Describe(key, ModifierKeys.None)</c> and
     ///     rely on that being the same thing, which is true and was nowhere stated.
     ///     <para>
@@ -90,7 +98,7 @@ public static class ShortcutFormat {
             InputKey.Equals => "=",
             InputKey.LeftBracket => "[",
             InputKey.RightBracket => "]",
-            InputKey.Backslash => "\\",
+            InputKey.Backslash => """\""",
             InputKey.Semicolon => ";",
             InputKey.Apostrophe => "'",
             InputKey.Comma => ",",

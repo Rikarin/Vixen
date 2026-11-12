@@ -8,8 +8,12 @@ namespace Vixen.Ai.Perception;
 /// <summary>What being able to see means for one kind of agent.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b><see cref="LoseSightRadius" /> is a separate, larger radius, and leaving it out makes
-///         targets flicker.</b> With one radius, a target walking the boundary is perceived, lost,
+///         ⚠
+///         <b>
+///             <see cref="LoseSightRadius" /> is a separate, larger radius, and leaving it out makes
+///             targets flicker.
+///         </b>
+///         With one radius, a target walking the boundary is perceived, lost,
 ///         perceived, lost — several times a second — and every decorator observing the target key
 ///         aborts a branch each time. It is the first thing every hand-rolled implementation gets
 ///         wrong, it looks like a bug in the behaviour tree rather than in the sense, and it costs

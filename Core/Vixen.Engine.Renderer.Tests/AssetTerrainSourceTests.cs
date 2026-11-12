@@ -27,8 +27,12 @@ namespace Tests;
 ///         content format breaks this rather than being discovered in a game.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The grass half exists because the first wiring of this seam never loaded
-///         anything.</b> It asked for the rule as <c>Load&lt;object&gt;</c>, and the database
+///         ⚠
+///         <b>
+///             The grass half exists because the first wiring of this seam never loaded
+///             anything.
+///         </b>
+///         It asked for the rule as <c>Load&lt;object&gt;</c>, and the database
 ///         refuses a chunk read as a type that did not write it — every field in every level would
 ///         have counted as failed, quietly. The rule is a struct, so no typed load can be the
 ///         reader either; the fix is the source opening the payload itself, and this is the test
@@ -150,8 +154,12 @@ public sealed class AssetTerrainSourceTests {
     /// <param name="never">What to say when the source runs out of things to do first.</param>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>No deadline, for the reason <c>AssetWaterSourceTests.Settles</c> now gives at
-    ///         length.</b> Every read here is <see cref="Task.Run{TResult}(Func{Task{TResult}})" />,
+    ///         ⚠
+    ///         <b>
+    ///             No deadline, for the reason <c>AssetWaterSourceTests.Settles</c> now gives at
+    ///             length.
+    ///         </b>
+    ///         Every read here is <see cref="Task.Run{TResult}(Func{Task{TResult}})" />,
     ///         <c>build.sh Test</c> runs every test project at once, and a work item queued into a
     ///         saturated pool waits on .NET's thread injection — about two threads a second. The
     ///         delay is therefore a property of how many workers the whole host has blocked and not
@@ -176,19 +184,25 @@ public sealed class AssetTerrainSourceTests {
         Settling.Until(() => reached = landed(), () => reached, () => source.Reading > 0, never);
     }
 
-    /// <summary>A small terrain that still exercises every stored section: 2×2 tiles, one painted
-    ///     layer, one hole.</summary>
+    /// <summary>
+    ///     A small terrain that still exercises every stored section: 2×2 tiles, one painted
+    ///     layer, one hole.
+    /// </summary>
     static TerrainMap Map() {
         var map = new TerrainMap(
             new() {
-                TileSamples = 8, TilesX = 2, TilesZ = 2,
-                MetresPerQuad = 1f, MinHeight = -10f, MaxHeight = 10f
+                TileSamples = 8,
+                TilesX = 2,
+                TilesZ = 2,
+                MetresPerQuad = 1f,
+                MinHeight = -10f,
+                MaxHeight = 10f
             }
         );
 
         for (var z = 0; z < map.Base.Height; z++) {
             for (var x = 0; x < map.Base.Width; x++) {
-                map.Base[x, z] = (ushort)(30_000 + (x * 100) + z);
+                map.Base[x, z] = (ushort)(30_000 + x * 100 + z);
             }
         }
 
@@ -200,7 +214,12 @@ public sealed class AssetTerrainSourceTests {
     }
 
     /// <summary>A content manager holding the chunks, written the way the build writes them.</summary>
-    static AssetManager Content(TerrainMap terrain, GrassType? grass, FoliageType? foliage = null, byte[]? volume = null) {
+    static AssetManager Content(
+        TerrainMap terrain,
+        GrassType? grass,
+        FoliageType? foliage = null,
+        byte[]? volume = null
+    ) {
         var files = new VirtualFileSystem();
         var storage = new MemoryFileProvider();
 
@@ -253,8 +272,8 @@ public sealed class AssetTerrainSourceTests {
             CatalogFormat.Version,
             default,
             "Windows",
-            [.. entries],
-            [new("Main", "", default, 0, 0, CompressionMethod.None, [])]
+            [..entries],
+            [new("Main", string.Empty, default, 0, 0, CompressionMethod.None, [])]
         );
 
         return new(catalog, new LocalBundleSource(files, new("/bundles")));

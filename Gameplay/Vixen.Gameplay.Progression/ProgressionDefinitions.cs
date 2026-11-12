@@ -101,8 +101,12 @@ public sealed record TalentTreeDefinition : Definition {
 
 /// <summary>A class specialisation: one of a set, chosen and changeable.</summary>
 /// <remarks>
-///     A definition rather than a talent node, because a specialisation is a <em>choice among
-///     alternatives</em> and a tree is a set of independent yeses. Modelling it as a node would need
+///     A definition rather than a talent node, because a specialisation is a
+///     <em>
+///         choice among
+///         alternatives
+///     </em>
+///     and a tree is a set of independent yeses. Modelling it as a node would need
 ///     an "and none of these others" rule the tree does not have.
 /// </remarks>
 [DataContract("SpecialisationDefinition")]

@@ -33,27 +33,30 @@ namespace Vixen.Editor.Texturing.Tests;
 public class SmartMaterialShelfTests {
     /// <summary>A shelf entry: a stack fragment, with no model and nothing painted.</summary>
     const string Shelf = """
-        version: 1
-        name: Rusted Iron
-        baseWidth: 64
-        baseHeight: 64
-        sets:
-          - name: Body
-            channels:
-              - usage: baseColor
-                default: [0, 0, 0, 1]
-            layers:
-              - id: rust
-                name: Rust
-                kind: Fill
-                values:
-                  baseColor: [0.35, 0.15, 0.05, 1]
-        """;
+                         version: 1
+                         name: Rusted Iron
+                         baseWidth: 64
+                         baseHeight: 64
+                         sets:
+                           - name: Body
+                             channels:
+                               - usage: baseColor
+                                 default: [0, 0, 0, 1]
+                             layers:
+                               - id: rust
+                                 name: Rust
+                                 kind: Fill
+                                 values:
+                                   baseColor: [0.35, 0.15, 0.05, 1]
+                         """;
 
     /// <summary>⚠ The registry opens a shelf entry as a layer stack, which is what the file is.</summary>
     /// <remarks>
-    ///     <b>Through <c>IDocumentHost.TryOpen</c> — the double-click's own route — rather than
-    ///     by constructing the document.</b> The claim is that the factory answers for the extension;
+    ///     <b>
+    ///         Through <c>IDocumentHost.TryOpen</c> — the double-click's own route — rather than
+    ///         by constructing the document.
+    ///     </b>
+    ///     The claim is that the factory answers for the extension;
     ///     a test that built a <c>LayerStackDocument</c> over a <c>.vxsmartmat</c> would have passed
     ///     before this change, because the document never cared what the file was called.
     /// </remarks>
@@ -71,7 +74,7 @@ public class SmartMaterialShelfTests {
 
         Assert.Empty(document.LoadDiagnostics);
         Assert.True(document.IsSmartMaterial);
-        Assert.Equal(["rust"], Assert.Single(document.Document.Sets).Layers.Select(layer => layer.Id));
+        Assert.Equal(["rust"], Assert.Single(document.Document.Sets).Layers.Select(static layer => layer.Id));
     }
 
     /// <summary>⚠ And the verb opens it too, or the shelf would be reachable by mouse and not by command.</summary>
@@ -92,13 +95,20 @@ public class SmartMaterialShelfTests {
     /// <summary>⚠ Baking a shelf entry is refused by name, not answered with a wall of mesh-map refusals.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>A smart material has no model, so every mesh-map mask in it has nothing to
-    ///         measure</b> — and it would still write materials, named after a shelf entry nothing in
+    ///         <b>
+    ///             A smart material has no model, so every mesh-map mask in it has nothing to
+    ///             measure
+    ///         </b>
+    ///         — and it would still write materials, named after a shelf entry nothing in
     ///         a scene refers to. The refusal names the file and says what to bake instead.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Device-free deliberately, and the assertion is the sentence rather than the
-    ///         absence of files.</b> This fixture publishes an <c>IEditorGraphics</c> with a null
+    ///         ⚠
+    ///         <b>
+    ///             Device-free deliberately, and the assertion is the sentence rather than the
+    ///             absence of files.
+    ///         </b>
+    ///         This fixture publishes an <c>IEditorGraphics</c> with a null
     ///         device, so "nothing was written" is equally true of a stack the route refused for
     ///         having nothing to run on — which is a refusal that arrives <em>later</em> in the same
     ///         method. The sentence is what says which of the two ran.
@@ -214,7 +224,7 @@ public class SmartMaterialShelfTests {
         fixture.Shell.Notifications.History.Count > 0
             ? string.Join(
                 " · ",
-                fixture.Shell.Notifications.History.Select(one => one.Message + ": " + one.Detail)
+                fixture.Shell.Notifications.History.Select(static one => one.Message + ": " + one.Detail)
             )
             : "The module said nothing at all, which is itself the finding.";
 }

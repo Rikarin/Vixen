@@ -52,7 +52,13 @@ public enum MeshMapKind {
 ///     integer file clips), or zero for a map that has no such scale.
 /// </param>
 /// <param name="Signed">Whether <see cref="Unit" /> has to centre this map on one half.</param>
-public sealed record MeshMapPlane(MeshMapKind Kind, int Resolution, int Channels, float[] Samples, float Scale, bool Signed) {
+public sealed record MeshMapPlane(
+    MeshMapKind Kind,
+    int Resolution,
+    int Channels,
+    float[] Samples,
+    float Scale,
+    bool Signed) {
     /// <summary>A sample as an integer format stores it, in <c>[0, 1]</c>.</summary>
     /// <param name="index">Which sample.</param>
     /// <returns>The stored value, clamped.</returns>
@@ -67,7 +73,7 @@ public sealed record MeshMapPlane(MeshMapKind Kind, int Resolution, int Channels
 
         if (Signed) {
             value = Scale > 0f ? value / Scale : value;
-            value = (value * 0.5f) + 0.5f;
+            value = value * 0.5f + 0.5f;
         }
 
         return Math.Clamp(value, 0f, 1f);
@@ -157,8 +163,8 @@ public static class MeshMapPlanes {
             var value = values[at];
 
             samples[at * 3] = value.X;
-            samples[(at * 3) + 1] = value.Y;
-            samples[(at * 3) + 2] = value.Z;
+            samples[at * 3 + 1] = value.Y;
+            samples[at * 3 + 2] = value.Z;
         }
 
         return samples;

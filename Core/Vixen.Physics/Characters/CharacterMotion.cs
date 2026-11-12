@@ -72,7 +72,8 @@ public static class CharacterMotion {
     /// <remarks>
     ///     <para>
     ///         ⚠ <b>Two thresholds with a gap, and the gap is the whole mechanism</b>
-    ///         ([35 § D11](../../../docs/plan/35-water.md#d11-swimming-is-a-fourth-move-mode-and-immersion-is-the-only-new-number)).
+    ///         ([35 §
+    ///         D11](../../../docs/plan/35-water.md#d11-swimming-is-a-fourth-move-mode-and-immersion-is-the-only-new-number)).
     ///         Entering needs <see cref="CharacterMovement.SwimThreshold" /> and leaving needs the
     ///         immersion to fall all the way back to <see cref="CharacterMovement.WadeThreshold" />, so
     ///         a character standing in chest-deep water with a swell has to actually rise or fall
@@ -166,7 +167,7 @@ public static class CharacterMotion {
                 break;
 
             case CharacterMoveMode.Falling:
-                state.Velocity = WithY(state.Velocity, state.Velocity.Y + (settings.Gravity * deltaTime));
+                state.Velocity = WithY(state.Velocity, state.Velocity.Y + settings.Gravity * deltaTime);
                 break;
 
             case CharacterMoveMode.Flying:
@@ -177,9 +178,6 @@ public static class CharacterMotion {
 
             case CharacterMoveMode.Swimming:
                 Float(settings, ref state, deltaTime);
-                break;
-
-            default:
                 break;
         }
     }
@@ -204,7 +202,7 @@ public static class CharacterMotion {
         var rest = MathF.Max(settings.SwimRestImmersion, 1e-3f);
         var lift = -settings.Gravity * (state.Immersion / rest);
 
-        var vertical = state.Velocity.Y + ((settings.Gravity + lift) * deltaTime);
+        var vertical = state.Velocity.Y + (settings.Gravity + lift) * deltaTime;
 
         vertical -= vertical * Math.Clamp(settings.SwimDrag * deltaTime, 0f, 1f);
 
@@ -240,13 +238,13 @@ public static class CharacterMotion {
             // hang wherever they were instead of surfacing. Diving is the existing vertical axis:
             // WantedVelocity pitches the direction, exactly as it does for a flier.
             var swum = MoveTowards(
-                new Vector3(state.Velocity.X, 0f, state.Velocity.Z),
-                new Vector3(wanted.X, 0f, wanted.Z),
+                new(state.Velocity.X, 0f, state.Velocity.Z),
+                new(wanted.X, 0f, wanted.Z),
                 step
             );
 
             var climb = wanted.Y != 0f
-                ? MoveTowards(new Vector3(0f, state.Velocity.Y, 0f), new Vector3(0f, wanted.Y, 0f), step).Y
+                ? MoveTowards(new(0f, state.Velocity.Y, 0f), new(0f, wanted.Y, 0f), step).Y
                 : state.Velocity.Y;
 
             state.Velocity = new(swum.X, climb, swum.Z);
@@ -258,8 +256,8 @@ public static class CharacterMotion {
         // accelerates *towards* at the movement acceleration, which caps the fall at the walk speed
         // and turns every drop into a float.
         var horizontal = MoveTowards(
-            new Vector3(state.Velocity.X, 0f, state.Velocity.Z),
-            new Vector3(wanted.X, 0f, wanted.Z),
+            new(state.Velocity.X, 0f, state.Velocity.Z),
+            new(wanted.X, 0f, wanted.Z),
             step
         );
 
@@ -320,7 +318,9 @@ public static class CharacterMotion {
 
         var ground = state.IsCrouching
             ? settings.CrouchSpeed
-            : intent.IsHeld(MoveButtons.Sprint) ? settings.SprintSpeed : settings.WalkSpeed;
+            : intent.IsHeld(MoveButtons.Sprint)
+                ? settings.SprintSpeed
+                : settings.WalkSpeed;
 
         return ground * WadeScale(settings, state.Immersion);
     }
@@ -330,8 +330,12 @@ public static class CharacterMotion {
     /// <param name="immersion">How much of the capsule is under the surface, 0…1.</param>
     /// <returns>The multiplier.</returns>
     /// <remarks>
-    ///     ⚠ <b>It reaches its slowest exactly where swimming starts, which is why there is no step in
-    ///     speed at the transition.</b> § D11 asks for "walking, with a speed multiplier from the
+    ///     ⚠
+    ///     <b>
+    ///         It reaches its slowest exactly where swimming starts, which is why there is no step in
+    ///         speed at the transition.
+    ///     </b>
+    ///     § D11 asks for "walking, with a speed multiplier from the
     ///     depth"; a multiplier that bottomed out anywhere else would make the moment a character
     ///     begins to swim a moment it also visibly changes pace, and the two would be blamed on each
     ///     other.
@@ -381,6 +385,6 @@ public static class CharacterMotion {
             return maximum <= 0f ? from : to;
         }
 
-        return distanceSquared <= maximum * maximum ? to : from + (delta * (maximum / MathF.Sqrt(distanceSquared)));
+        return distanceSquared <= maximum * maximum ? to : from + delta * (maximum / MathF.Sqrt(distanceSquared));
     }
 }

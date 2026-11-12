@@ -40,8 +40,10 @@ public enum InputActionType : byte {
 ///     binding that cannot produce the declared shape is a load-time diagnostic, not a silent zero.
 /// </remarks>
 public enum InputControlType : byte {
-    /// <summary>Pressed or not. Read as <see cref="bool" />, or as <see cref="float" /> for its
-    /// analogue amount.</summary>
+    /// <summary>
+    ///     Pressed or not. Read as <see cref="bool" />, or as <see cref="float" /> for its
+    ///     analogue amount.
+    /// </summary>
     Button = 0,
 
     /// <summary>One signed axis. Read as <see cref="float" />.</summary>

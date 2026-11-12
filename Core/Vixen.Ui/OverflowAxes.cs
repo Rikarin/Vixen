@@ -57,7 +57,7 @@ sealed class OverflowReader {
         horizontal = properties.Intern("overflow-x");
         vertical = properties.Intern("overflow-y");
         visible = values.Intern("visible");
-        containment = new ContainmentReader(properties, values);
+        containment = new(properties, values);
     }
 
     /// <summary>Which axes a style cuts.</summary>
@@ -84,9 +84,9 @@ sealed class OverflowReader {
         // has a border, and correcting one without the other would be the disagreement this class
         // was written to prevent.
         if ((containment.Of(style) & Containment.Paint) != 0) {
-            return new ClipAxes(true, true);
+            return new(true, true);
         }
 
-        return new ClipAxes(x, y);
+        return new(x, y);
     }
 }

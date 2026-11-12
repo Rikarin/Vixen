@@ -24,8 +24,12 @@ namespace Vixen.Ui.Layout.Tests.Taffy;
 ///         test went red, and the new number got committed.
 ///     </para>
 ///     <para>
-///         ⚠ <b>That prediction has now been paid out three times, and this file is what is left of
-///         it.</b> It used to say that every block, float and grid fixture was refused at exactly one
+///         ⚠
+///         <b>
+///             That prediction has now been paid out three times, and this file is what is left of
+///             it.
+///         </b>
+///         It used to say that every block, float and grid fixture was refused at exactly one
 ///         point and that the day <see cref="Display" /> grew the keyword they would start answering.
 ///         884 block and 28 blockflex went from 0 passing to 746 in the commit that added
 ///         <c>Block</c>; 2 040 grid, 56 blockgrid and 24 gridflex followed <c>Grid</c>. Each moved to
@@ -33,8 +37,12 @@ namespace Vixen.Ui.Layout.Tests.Taffy;
 ///         instead of being counted.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The 84 <c>float</c> fixtures were the last, and they are the one case the prediction
-///         got wrong in an interesting way.</b> This file said they were refused on the <c>float</c>
+///         ⚠
+///         <b>
+///             The 84 <c>float</c> fixtures were the last, and they are the one case the prediction
+///             got wrong in an interesting way.
+///         </b>
+///         This file said they were refused on the <c>float</c>
 ///         attribute rather than on <c>display</c>, "so they were never waiting on a keyword" — which
 ///         was right about the mechanism and wrong about the consequence. They were waiting on a
 ///         keyword after all: <see cref="FloatSide" />, a keyword the store had no field for at all
@@ -62,10 +70,13 @@ public class TaffyPendingCorporaTests {
     /// </remarks>
     [Fact]
     public void Every_corpus_is_present_and_the_whole_census_is_5524_fixtures() {
-        var counts = TaffyCorpus.Categories.ToDictionary(category => category, category => TaffyCorpus.Load(category).Count);
+        var counts = TaffyCorpus.Categories.ToDictionary(
+            static category => category,
+            static category => TaffyCorpus.Load(category).Count
+        );
 
         Assert.Equal(
-            new Dictionary<string, int> {
+            new() {
                 ["block"] = 884,
                 ["blockflex"] = 28,
                 ["blockgrid"] = 56,
@@ -86,8 +97,12 @@ public class TaffyPendingCorporaTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>This is what replaces the tally, and it is deliberately stated as a property of
-    ///         the corpus rather than as the empty list it currently produces.</b> "There are no
+    ///         ⚠
+    ///         <b>
+    ///             This is what replaces the tally, and it is deliberately stated as a property of
+    ///             the corpus rather than as the empty list it currently produces.
+    ///         </b>
+    ///         "There are no
     ///         pending corpora", written as an empty collection, is a claim nothing can break —
     ///         delete every corpus file and it stays true. Written as "every category the loader
     ///         knows about appears in some suite's list, and every category some suite claims exists",

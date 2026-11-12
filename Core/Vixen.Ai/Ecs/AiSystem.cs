@@ -474,7 +474,7 @@ public sealed class AiSystem : SystemBase, IDeclaredAccess {
     bool Decide(in AgentContext context, ref AiAgent agent, UtilityMemory memory, Span<byte> state, float elapsed) {
         var set = Sets[agent.Asset];
 
-        Span<float> scores = set.Count <= 32 ? stackalloc float[32] : new float[set.Count];
+        var scores = set.Count <= 32 ? stackalloc float[32] : new float[set.Count];
 
         memory.Fit(set.Count);
 
@@ -507,7 +507,7 @@ public sealed class AiSystem : SystemBase, IDeclaredAccess {
 
     /// <summary>Runs the GOAP queues for a step, inside the frame's budget.</summary>
     void Resolve() {
-        var share = Math.Max(1, ResolvesPerStep / Math.Max(1, queues.Count(queue => queue is not null)));
+        var share = Math.Max(1, ResolvesPerStep / Math.Max(1, queues.Count(static queue => queue is not null)));
 
         foreach (var queue in queues) {
             if (queue is null) {
@@ -603,8 +603,8 @@ public sealed class AiSystem : SystemBase, IDeclaredAccess {
     }
 
     /// <summary>Whether a domain action's conditions hold for this agent right now.</summary>
-    bool Runnable(in AgentContext context, GoapDomain domain, int action) {
-        Span<int> world = domain.Keys.Count <= 64 ? stackalloc int[64] : new int[domain.Keys.Count];
+    static bool Runnable(in AgentContext context, GoapDomain domain, int action) {
+        var world = domain.Keys.Count <= 64 ? stackalloc int[64] : new int[domain.Keys.Count];
 
         domain.Keys.Project(in context, world);
 
@@ -685,9 +685,7 @@ public sealed class AiSystem : SystemBase, IDeclaredAccess {
             // Told it was interrupted before its memory goes back, because an action that reserved
             // something outside itself is the case Abort exists for and a destroyed entity is still
             // an interruption.
-            trees[slot]?.Abort(
-                new(world, owners[slot], blackboards[slot]!, Shared, default, 0, Actions, Debug)
-            );
+            trees[slot]?.Abort(new(world, owners[slot], blackboards[slot]!, Shared, default, 0, Actions, Debug));
 
             owners[slot] = Entity.Null;
             blackboards[slot]?.Reset();

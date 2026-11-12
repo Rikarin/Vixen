@@ -27,16 +27,23 @@ public readonly record struct PingPongPair(GraphTexture Read, GraphTexture Write
 ///         to remember. Compute exists and is spent; this is the small piece that did not.
 ///     </para>
 ///     <para>
-///         <b>Imported, not declared, and that is the whole reason this type exists rather than two
-///         <see cref="RenderGraph.CreateTexture" /> calls.</b> The graph's transients are recycled at
+///         <b>
+///             Imported, not declared, and that is the whole reason this type exists rather than two
+///             <see cref="RenderGraph.CreateTexture" /> calls.
+///         </b>
+///         The graph's transients are recycled at
 ///         the end of the frame precisely because their lifetime ends inside it — a ping-pong's does
 ///         not, by definition. Declaring them would give the read target whatever memory the pool
 ///         happened to hand back, which is the previous frame's contents about as often as it is not,
 ///         and therefore looks almost right.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The first read is undefined until something has written it, and
-///         <see cref="HasHistory" /> is how a caller knows.</b> The graph cannot catch this: an import
+///         ⚠
+///         <b>
+///             The first read is undefined until something has written it, and
+///             <see cref="HasHistory" /> is how a caller knows.
+///         </b>
+///         The graph cannot catch this: an import
 ///         counts as produced, so reading one no pass has written is legal and silent. A simulation
 ///         step should either skip the read on its first frame or clear the pair — see
 ///         <see cref="Clear" />, which is the same decision made once rather than per consumer.
@@ -171,8 +178,12 @@ public sealed class PingPongTextures : IDisposable {
     ///         having jumped rather than scrolled.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A render pass rather than a copy, and it therefore needs
-    ///         <see cref="TextureUsage.ColourTarget" />.</b> There is no clear-texture operation on
+    ///         ⚠
+    ///         <b>
+    ///             A render pass rather than a copy, and it therefore needs
+    ///             <see cref="TextureUsage.ColourTarget" />.
+    ///         </b>
+    ///         There is no clear-texture operation on
     ///         <see cref="ICommandList" /> and deliberately so — every backend spells one differently
     ///         and half of them implement it as this. A pair declared for storage alone is refused
     ///         here rather than silently left dirty.
@@ -202,7 +213,7 @@ public sealed class PingPongTextures : IDisposable {
                     // Nothing in this frame reads what the clear wrote — the next step does — so
                     // culling would remove both passes and the pair would stay undefined.
                     pass.SideEffect();
-                    pass.Execute(_ => { });
+                    pass.Execute(static _ => { });
                 }
             );
         }

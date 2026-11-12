@@ -48,7 +48,7 @@ public class CascadeOrderTests {
         var fixture = new CascadeFixture();
 
         // Loaded in the order that would win on document order alone, so origin has to be doing it.
-        fixture.Load("* { color: author }", StyleOrigin.Author);
+        fixture.Load("* { color: author }");
         fixture.Load("* { color: user }", StyleOrigin.User);
         fixture.Load("* { color: agent }", StyleOrigin.UserAgent);
 
@@ -69,7 +69,7 @@ public class CascadeOrderTests {
         // declarations flattened to a single value — it was asserting document order and calling it
         // importance. Found by sabotage, which is the only thing that would have found it.
         fixture.Load("* { color: user !important }", StyleOrigin.User);
-        fixture.Load("* { color: author !important }", StyleOrigin.Author);
+        fixture.Load("* { color: author !important }");
 
         var element = fixture.Tree.CreateElement("div");
 
@@ -100,11 +100,13 @@ public class CascadeOrderTests {
         // rule is three, so without layers the utility loses every time and the only remedy is
         // `!important` on everything the generator emits.
         var fixture = new CascadeFixture();
-        fixture.Load("""
+        fixture.Load(
+            """
             @layer components, utilities;
             @layer components { .card .body .text { color: component } }
             @layer utilities { .text-accent { color: utility } }
-            """);
+            """
+        );
 
         var element = fixture.Tree.CreateElement("div", classNames: ["text", "text-accent"]);
 
@@ -116,11 +118,13 @@ public class CascadeOrderTests {
         // Which is the only reason it exists: the generated utility layer is appended to the file,
         // long after the line that says it loses to components.
         var fixture = new CascadeFixture();
-        fixture.Load("""
+        fixture.Load(
+            """
             @layer utilities, components;
             @layer components { .x { color: component } }
             @layer utilities { .x { color: utility } }
-            """);
+            """
+        );
 
         var element = fixture.Tree.CreateElement("div", classNames: ["x"]);
 
@@ -131,11 +135,13 @@ public class CascadeOrderTests {
     [Fact]
     public void Reopening_a_layer_does_not_move_it() {
         var fixture = new CascadeFixture();
-        fixture.Load("""
+        fixture.Load(
+            """
             @layer base { .x { color: base } }
             @layer theme { .x { color: theme } }
             @layer base { .x { color: base-again } }
-            """);
+            """
+        );
 
         var element = fixture.Tree.CreateElement("div", classNames: ["x"]);
 
@@ -148,11 +154,13 @@ public class CascadeOrderTests {
     [Fact]
     public void Unlayered_styles_beat_every_layer() {
         var fixture = new CascadeFixture();
-        fixture.Load("""
+        fixture.Load(
+            """
             @layer base, theme;
             .x { color: unlayered }
             @layer theme { .x { color: theme } }
-            """);
+            """
+        );
 
         var element = fixture.Tree.CreateElement("div", classNames: ["x"]);
 
@@ -166,22 +174,26 @@ public class CascadeOrderTests {
         // reversal and the unlayered end of it are separate rules, and an implementation can get
         // one without the other.
         var fixture = new CascadeFixture();
-        fixture.Load("""
+        fixture.Load(
+            """
             @layer reset, theme;
             @layer reset { .x { color: reset !important } }
             @layer theme { .x { color: theme !important } }
-            """);
+            """
+        );
 
         var element = fixture.Tree.CreateElement("div", classNames: ["x"]);
 
         Assert.Equal("reset", fixture.Value(element));
 
         var second = new CascadeFixture();
-        second.Load("""
+        second.Load(
+            """
             @layer theme;
             .x { color: unlayered !important }
             @layer theme { .x { color: theme !important } }
-            """);
+            """
+        );
 
         var other = second.Tree.CreateElement("div", classNames: ["x"]);
 
@@ -191,11 +203,13 @@ public class CascadeOrderTests {
     [Fact]
     public void A_nested_layer_orders_inside_its_parent() {
         var fixture = new CascadeFixture();
-        fixture.Load("""
+        fixture.Load(
+            """
             @layer framework.base, framework.overrides;
             @layer framework.overrides { .x { color: overrides } }
             @layer framework.base { .x { color: base } }
-            """);
+            """
+        );
 
         var element = fixture.Tree.CreateElement("div", classNames: ["x"]);
 
@@ -216,7 +230,7 @@ public class CascadeOrderTests {
             }
             @layer base { .x { color: base } }
             """,
-            media: new MediaContext(200, 100)
+            media: new(200, 100)
         );
 
         var element = fixture.Tree.CreateElement("div", classNames: ["x"]);
@@ -250,11 +264,13 @@ public class CascadeOrderTests {
         // `#a, .b { … }` is one block and two rules, and they have different specificities. Treating
         // it as one rule means picking one of the two and being wrong about the other element.
         var fixture = new CascadeFixture();
-        fixture.Load("""
+        fixture.Load(
+            """
             #x, .b { color: shared }
             div { color: type }
             .b { color: class }
-            """);
+            """
+        );
 
         var byId = fixture.Tree.CreateElement("div", id: "x");
         var byClass = fixture.Tree.CreateElement("div", classNames: ["b"]);

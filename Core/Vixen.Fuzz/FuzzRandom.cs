@@ -22,7 +22,9 @@ public sealed class FuzzRandom {
 
     /// <summary>Creates a generator.</summary>
     /// <param name="seed">Where to start. The same seed gives the same sequence, always.</param>
-    public FuzzRandom(ulong seed) => state = seed;
+    public FuzzRandom(ulong seed) {
+        state = seed;
+    }
 
     /// <summary>The next value.</summary>
     /// <returns>Sixty-four bits.</returns>

@@ -16,8 +16,12 @@ namespace Vixen.Ui.Composition;
 ///         ⚠ <b>Why <c>ref</c> could not be made to do this.</b> A <c>ref</c> is one assignment to
 ///         one member and a loop has many rows, so the member would hold whichever row was built
 ///         last — and, because <c>BuildContext.For</c> reuses a surviving key's region and
-///         <i>does not re-run its body</i>, whichever row was built last <i>the first time the
-///         sequence contained it</i>. That is <c>VXML2010</c>. A member holding a <c>List&lt;T&gt;</c>
+///         <i>does not re-run its body</i>, whichever row was built last
+///         <i>
+///             the first time the
+///             sequence contained it
+///         </i>
+///         . That is <c>VXML2010</c>. A member holding a <c>List&lt;T&gt;</c>
 ///         has the same defect: the body appends once per key ever, so a reordered or filtered
 ///         sequence leaves the list in an order nothing corresponds to, silently.
 ///     </para>

@@ -4,7 +4,6 @@
 using System.Collections.Immutable;
 using System.Globalization;
 using System.Text.RegularExpressions;
-using Vixen.Graphics;
 using Vixen.TextureGraph;
 using Xunit;
 
@@ -16,8 +15,12 @@ namespace Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <see href="https://github.com/Rikarin/Vixen/issues/1096">#1096</see>. ⚠ <b>Nothing here
-///         can say whether the numbers are <em>right</em>, and no test could.</b> F0 per metal is
+///         <see href="https://github.com/Rikarin/Vixen/issues/1096">#1096</see>. ⚠
+///         <b>
+///             Nothing here
+///             can say whether the numbers are <em>right</em>, and no test could.
+///         </b>
+///         F0 per metal is
 ///         measured data; every plausible-looking triple draws a plausible metal, so a mistyped digit
 ///         has no oracle short of the published table the kernel's header cites. What is checkable is
 ///         everything <em>around</em> the numbers, and all of it is silent when wrong: a name whose
@@ -29,15 +32,19 @@ namespace Tests;
 ///         table in a test is a second transcription of the thing the kernel's header refuses to have
 ///         two of — <see href="https://github.com/Rikarin/Vixen/issues/1095">#1095</see>'s defect —
 ///         and it would go on agreeing with a kernel that had drifted from the published source. So
-///         the device test asserts <em>this index bakes the row the kernel declares for this
-///         index</em>, which is the half a picture can settle.
+///         the device test asserts
+///         <em>
+///             this index bakes the row the kernel declares for this
+///             index
+///         </em>
+///         , which is the half a picture can settle.
 ///     </para>
 /// </remarks>
 public class TextureMetalReflectanceTests(ITestOutputHelper output) {
     const int Side = 32;
 
     /// <summary>A line comment, doc or plain.</summary>
-    static readonly Regex Comment = new(@"//.*$", RegexOptions.Multiline);
+    static readonly Regex Comment = new("//.*$", RegexOptions.Multiline);
 
     /// <summary>One branch's guard: the index the chain compares <c>metal</c> against.</summary>
     static readonly Regex Guard = new(@"metal\s*==\s*(\d+)");
@@ -59,14 +66,20 @@ public class TextureMetalReflectanceTests(ITestOutputHelper output) {
     static string Source() =>
         string.Join(
             '\n',
-            TextureKernels.Source("MetalReflectance").Split('\n').Select(line => Comment.Replace(line, string.Empty))
+            TextureKernels.Source("MetalReflectance")
+                .Split('\n')
+                .Select(static line => Comment.Replace(line, string.Empty))
         );
 
     /// <summary>The kernel's table, by the index the enum gives each metal.</summary>
     /// <returns>Ten triples, in <see cref="TextureMetal" /> order.</returns>
     /// <remarks>
-    ///     ⚠ <b>The guards are read rather than assumed, which is the whole of the off-by-one
-    ///     check.</b> The chain tests 1 through 9 and falls through to index 0, so a branch inserted
+    ///     ⚠
+    ///     <b>
+    ///         The guards are read rather than assumed, which is the whole of the off-by-one
+    ///         check.
+    ///     </b>
+    ///     The chain tests 1 through 9 and falls through to index 0, so a branch inserted
     ///     in the wrong place or a guard mistyped shows up as a guard sequence that is not
     ///     1…<c>n</c> — and every metal after the mistake would otherwise bake as its neighbour,
     ///     which is a picture nobody would call broken.
@@ -74,23 +87,27 @@ public class TextureMetalReflectanceTests(ITestOutputHelper output) {
     static ImmutableArray<float[]> Table() {
         var source = Source();
 
-        int[] guards = [.. Guard.Matches(source).Select(match => int.Parse(match.Groups[1].Value, CultureInfo.InvariantCulture))];
+        int[] guards = [
+            ..Guard.Matches(source)
+                .Select(static match => int.Parse(match.Groups[1].Value, CultureInfo.InvariantCulture))
+        ];
 
         float[][] returned = [
-            .. Returned
+            ..Returned
                 .Matches(source)
-                .Select(match => Literal
+                .Select(static match => Literal
                     .Matches(match.Groups[1].Value)
-                    .Select(number => float.Parse(number.Value, CultureInfo.InvariantCulture))
-                    .ToArray())
+                    .Select(static number => float.Parse(number.Value, CultureInfo.InvariantCulture))
+                    .ToArray()
+                )
         ];
 
         // The instrument. A regex that matched nothing would build an empty table, and every
         // comparison below over an empty table passes.
         Assert.NotEmpty(returned);
         Assert.Equal(guards.Length + 1, returned.Length);
-        Assert.Equal([.. Enumerable.Range(1, guards.Length)], guards);
-        Assert.All(returned, row => Assert.Equal(3, row.Length));
+        Assert.Equal([..Enumerable.Range(1, guards.Length)], guards);
+        Assert.All(returned, static row => Assert.Equal(3, row.Length));
 
         var table = new float[returned.Length][];
 
@@ -101,7 +118,7 @@ public class TextureMetalReflectanceTests(ITestOutputHelper output) {
         // The fall-through, which is the last `return` in the chain and the entry the enum calls zero.
         table[0] = returned[^1];
 
-        return [.. table];
+        return [..table];
     }
 
     /// <summary>Every named metal has a branch of its own, and no two of them are the same colour.</summary>
@@ -113,8 +130,12 @@ public class TextureMetalReflectanceTests(ITestOutputHelper output) {
     ///         with no name is a row of the table no author can reach.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Distinctness is the assertion that would catch a copy-paste, and it is the one a
-    ///         reviewer of the table cannot make by eye</b> — ten triples of three digits each all
+    ///         ⚠
+    ///         <b>
+    ///             Distinctness is the assertion that would catch a copy-paste, and it is the one a
+    ///             reviewer of the table cannot make by eye
+    ///         </b>
+    ///         — ten triples of three digits each all
     ///         look different at a glance, and two identical rows are exactly what transcribing a
     ///         printed table produces.
     ///     </para>
@@ -128,24 +149,28 @@ public class TextureMetalReflectanceTests(ITestOutputHelper output) {
 
         // Contiguous from zero, which is what makes the enum's ordinal the kernel's index rather
         // than merely looking like it.
-        Assert.Equal([.. Enumerable.Range(0, names.Length)], [.. names.Select(metal => (int)metal)]);
+        Assert.Equal([..Enumerable.Range(0, names.Length)], [..names.Select(static metal => (int)metal)]);
 
         Assert.All(
             table,
-            row => Assert.All(row, channel => Assert.InRange(channel, 0.05f, 1f))
+            static row => Assert.All(row, static channel => Assert.InRange(channel, 0.05f, 1f))
         );
 
         Assert.Equal(
             table.Length,
-            table.Select(row => string.Join(',', row)).Distinct(StringComparer.Ordinal).Count()
+            table.Select(static row => string.Join(',', row)).Distinct(StringComparer.Ordinal).Count()
         );
     }
 
     /// <summary>Each row is the metal it is named after, judged by properties the table does not state.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Written because the sabotage caught this file being useless at exactly the thing
-    ///         it claimed.</b> Swapping gold's and copper's rows in the kernel left every other
+    ///         ⚠
+    ///         <b>
+    ///             Written because the sabotage caught this file being useless at exactly the thing
+    ///             it claimed.
+    ///         </b>
+    ///         Swapping gold's and copper's rows in the kernel left every other
     ///         assertion here green — necessarily, since both the expectation and the picture come
     ///         out of the same file. "This index bakes the row declared for this index" cannot see a
     ///         table whose rows are in the wrong order, which is the commonest way a printed table is
@@ -213,18 +238,24 @@ public class TextureMetalReflectanceTests(ITestOutputHelper output) {
 
     /// <summary>The table's indices, ordered by some measure of their row.</summary>
     static int[] Ordered(IReadOnlyList<float[]> table, Func<float[], float> measure) => [
-        .. Enumerable.Range(0, table.Count).OrderBy(metal => measure(table[metal]))
+        ..Enumerable.Range(0, table.Count).OrderBy(metal => measure(table[metal]))
     ];
 
     /// <summary>One row, for a failure message.</summary>
     static string Show(float[] row) =>
-        "(" + string.Join(", ", row.Select(channel => channel.ToString("0.###", CultureInfo.InvariantCulture))) + ")";
+        "("
+        + string.Join(", ", row.Select(static channel => channel.ToString("0.###", CultureInfo.InvariantCulture)))
+        + ")";
 
     /// <summary>Each name bakes the row the kernel declares for it, on a real device.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Ten bakes rather than one, because the failure this covers is invisible in
-    ///         any one of them.</b> A <c>metal</c> uniform that never reached the shader, an enum
+    ///         ⚠
+    ///         <b>
+    ///             Ten bakes rather than one, because the failure this covers is invisible in
+    ///             any one of them.
+    ///         </b>
+    ///         A <c>metal</c> uniform that never reached the shader, an enum
     ///         whose ordinals stopped being the kernel's indices, and a branch chain off by one all
     ///         produce a perfectly good picture of a perfectly good metal. Only the pairing of a name
     ///         with the row named for it can tell them apart.
@@ -233,8 +264,12 @@ public class TextureMetalReflectanceTests(ITestOutputHelper output) {
     ///         <b><c>Rgba8</c> is linear unorm here and not sRGB</b> — <c>Source/Uniform</c>'s own
     ///         device test reads 0.25 back as 63 — so the expected byte is the declared reflectance
     ///         times 255. The tolerance is two steps, which is quantisation and the half-float the
-    ///         kernel writes through. ⚠ <b>It is not "far below" the gap between two rows, and an
-    ///         earlier version of this remark said so.</b> Chromium and iron are 3.3 steps apart in
+    ///         kernel writes through. ⚠
+    ///         <b>
+    ///             It is not "far below" the gap between two rows, and an
+    ///             earlier version of this remark said so.
+    ///         </b>
+    ///         Chromium and iron are 3.3 steps apart in
     ///         red and 2.3 in green, so a ±2 window is a margin of about one step and it is red
     ///         alone that keeps those two distinguishable. That is enough — the ten rows are paired
     ///         with ten distinct expectations, so a uniform that never arrived is red on every row —
@@ -264,11 +299,7 @@ public class TextureMetalReflectanceTests(ITestOutputHelper output) {
             BaseHeight = Side,
             Images = [new(TextureFormat.Rgba8)],
             Ops = [
-                new() {
-                    Kernel = TextureColourKernels.MetalReflectance,
-                    Output = 0,
-                    Parameters = [new("metal", metal)]
-                }
+                new() { Kernel = TextureColourKernels.MetalReflectance, Output = 0, Parameters = [new("metal", metal)] }
             ],
             Outputs = [0]
         };

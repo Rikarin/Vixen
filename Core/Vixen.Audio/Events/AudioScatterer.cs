@@ -189,11 +189,11 @@ public sealed class AudioScatterer {
 
         var low = minimum * minimum * minimum;
         var high = maximum * maximum * maximum;
-        var distance = MathF.Cbrt(low + ((high - low) * random.NextUnit()));
+        var distance = MathF.Cbrt(low + (high - low) * random.NextUnit());
 
         var angle = random.NextUnit() * 2f * MathF.PI;
         var height = random.NextBipolar() * Math.Clamp(Settings.VerticalSpread, 0f, 1f);
-        var flat = MathF.Sqrt(MathF.Max(1f - (height * height), 0f));
+        var flat = MathF.Sqrt(MathF.Max(1f - height * height, 0f));
 
         var direction = new Vector3(
             MathF.Cos(angle) * flat,
@@ -202,12 +202,12 @@ public sealed class AudioScatterer {
         );
 
         var origin = Settings.FollowListener ? engine.Listener.Position : Origin;
-        return origin + (direction * distance);
+        return origin + direction * distance;
     }
 
     float NextInterval() {
         var shortest = MathF.Max(Settings.MinimumInterval, 0f);
         var longest = MathF.Max(Settings.MaximumInterval, shortest);
-        return shortest + ((longest - shortest) * random.NextUnit());
+        return shortest + (longest - shortest) * random.NextUnit();
     }
 }

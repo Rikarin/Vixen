@@ -74,9 +74,11 @@ public sealed class SurfaceCacheRenderer : SceneRenderer, IDisposable {
     public SceneConstants? SceneConstants { get; set; }
 
     /// <summary>Which passes read this cache through the composed sampler.</summary>
-    /// <remarks>The screen-probe trace alone by default — the pass whose hit branch composes the
+    /// <remarks>
+    ///     The screen-probe trace alone by default — the pass whose hit branch composes the
     ///     slot. Each entry is qualified with <see cref="Source" />, one fewer place to misspell
-    ///     the half that resolves to nothing silently.</remarks>
+    ///     the half that resolves to nothing silently.
+    /// </remarks>
     public IList<string> Passes { get; } = ["ScreenProbeTrace"];
 
     /// <summary>The shader filling the slot, which is the other half of every binding's name.</summary>
@@ -95,13 +97,17 @@ public sealed class SurfaceCacheRenderer : SceneRenderer, IDisposable {
     public int Captured { get; private set; }
 
     /// <summary>How many bounces have been recorded or run since this node was made.</summary>
-    /// <remarks>The convergence counter: a cache that looks single-bounce with this climbing is a
-    ///     gather finding no light, and with this still is a scheduling failure.</remarks>
+    /// <remarks>
+    ///     The convergence counter: a cache that looks single-bounce with this climbing is a
+    ///     gather finding no light, and with this still is a scheduling failure.
+    /// </remarks>
     public int Bounces { get; private set; }
 
     /// <summary>The largest change the last CPU gather saw, per channel maximum.</summary>
-    /// <remarks>The CPU pair's own convergence measure, surfaced so a host can stop iterating; the
-    ///     dispatches' equivalent is a readback, which is a host's decision to pay for.</remarks>
+    /// <remarks>
+    ///     The CPU pair's own convergence measure, surfaced so a host can stop iterating; the
+    ///     dispatches' equivalent is a readback, which is a host's decision to pay for.
+    /// </remarks>
     public float LastChange { get; private set; }
 
     /// <summary>Declares the pass that keeps the cache.</summary>
@@ -182,10 +188,7 @@ public sealed class SurfaceCacheRenderer : SceneRenderer, IDisposable {
             Bounces++;
         }
 
-        Texture ??= new(store) {
-            DirectIsWritten = LightFill is not null,
-            BounceIsWritten = GatherFill is not null
-        };
+        Texture ??= new(store) { DirectIsWritten = LightFill is not null, BounceIsWritten = GatherFill is not null };
 
         Texture.Upload(device, commands);
 
@@ -196,7 +199,10 @@ public sealed class SurfaceCacheRenderer : SceneRenderer, IDisposable {
         if (GatherFill is { } gather) {
             // The cache's own names, with the front as it stands: the bounce reads the previous
             // swap's answer while writing the back, which is the recurrence the CPU pair runs.
-            Texture.Apply(gather.Parameters, $"{SurfaceCacheGatherFill.ShaderName}.{MaterialCompiler.SurfaceCacheShader}");
+            Texture.Apply(
+                gather.Parameters,
+                $"{SurfaceCacheGatherFill.ShaderName}.{MaterialCompiler.SurfaceCacheShader}"
+            );
 
             if (gather.Record(commands, Texture) > 0) {
                 Texture.SwapGather();

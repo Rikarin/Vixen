@@ -11,8 +11,12 @@ namespace Vixen.Ui.Controls.Tests;
 /// <summary><c>filter: drop-shadow()</c>, from the stylesheet to the pixels.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>These are the tests <c>UiCompositingTests</c> cannot be, and the argument is
-///         <c>FilterBlurTests</c>' and <c>FilterColourTests</c>' word for word.</b> Both executors
+///         ⚠
+///         <b>
+///             These are the tests <c>UiCompositingTests</c> cannot be, and the argument is
+///             <c>FilterBlurTests</c>' and <c>FilterColourTests</c>' word for word.
+///         </b>
+///         Both executors
 ///         take the shadow's offset, its kernel and its bounds from the <i>same</i> builder, so a
 ///         displacement with the wrong sign, a silhouette taken from the wrong surface or a bound
 ///         that clipped the halo would be identically wrong on both paths and the comparison over
@@ -42,8 +46,12 @@ public class FilterDropShadowTests {
 
     /// <summary>A red square on a white field, with whatever filter is asked for.</summary>
     /// <remarks>
-    ///     ⚠ <b>A white field rather than the black one next door uses, because black is the shadow's
-    ///     own colour.</b> On black, a shadow that landed in the right place and one that was never
+    ///     ⚠
+    ///     <b>
+    ///         A white field rather than the black one next door uses, because black is the shadow's
+    ///         own colour.
+    ///     </b>
+    ///     On black, a shadow that landed in the right place and one that was never
     ///     drawn are the same picture — which is the fixture mistake this whole file is written
     ///     against. Eighty pixels across so that a shadow displaced by eight and blurred by three
     ///     still lands inside the viewport with room to fall off.
@@ -54,10 +62,10 @@ public class FilterDropShadowTests {
 
         ui.Load(
             $$"""
-            root { width: {{side}}px; height: {{side}}px; background-color: #ffffff; }
-            .box { position: absolute; left: 20px; top: 20px; width: 40px; height: 40px;
-                   background-color: {{Element}}; {{filter}} }
-            """
+              root { width: {{side}}px; height: {{side}}px; background-color: #ffffff; }
+              .box { position: absolute; left: 20px; top: 20px; width: 40px; height: 40px;
+                     background-color: {{Element}}; {{filter}} }
+              """
         );
 
         ui.Create("div", null, "box", "box");
@@ -76,8 +84,12 @@ public class FilterDropShadowTests {
 
     /// <summary>A drop shadow opens a group on an element that is fully opaque.</summary>
     /// <remarks>
-    ///     ⚠ <b>The step that makes the property reachable at all, and it is not optional for the
-    ///     blur's reason rather than the matrix's.</b> A shadow is a function of the rasterised
+    ///     ⚠
+    ///     <b>
+    ///         The step that makes the property reachable at all, and it is not optional for the
+    ///         blur's reason rather than the matrix's.
+    ///     </b>
+    ///     A shadow is a function of the rasterised
     ///     subtree's <i>alpha</i>, so with no surface there is nothing to take a silhouette of. The
     ///     group has to be opened by the shadow alone, on an element whose own opacity is one and
     ///     which would otherwise never have had one.
@@ -103,8 +115,12 @@ public class FilterDropShadowTests {
 
     /// <summary>The shadow's quad is drawn before the group's, which is the whole of "under".</summary>
     /// <remarks>
-    ///     ⚠ <b>Asserted on the order of the draws and not only on a pixel, because the pixel test
-    ///     that would catch it needs the shadow to be opaque where the element is.</b> Paint order is
+    ///     ⚠
+    ///     <b>
+    ///         Asserted on the order of the draws and not only on a pixel, because the pixel test
+    ///         that would catch it needs the shadow to be opaque where the element is.
+    ///     </b>
+    ///     Paint order is
     ///     the only thing putting one surface behind the other — neither executor knows a shadow from
     ///     a nested group's composite — so a builder that appended the quad instead of inserting it
     ///     would paint the silhouette <i>over</i> the element. That is a solid block of the shadow's
@@ -163,8 +179,12 @@ public class FilterDropShadowTests {
 
     /// <summary>It is displaced in the direction it was asked for, and not in the other one.</summary>
     /// <remarks>
-    ///     ⚠ <b>A sign test, and it is worth its own fact because y is the axis this engine gets
-    ///     wrong.</b> Positive y is down in CSS and in the layout, and up in clip space — see
+    ///     ⚠
+    ///     <b>
+    ///         A sign test, and it is worth its own fact because y is the axis this engine gets
+    ///         wrong.
+    ///     </b>
+    ///     Positive y is down in CSS and in the layout, and up in clip space — see
     ///     <c>Conventions.md</c> — so a shadow assembled with the projection's sense rather than the
     ///     document's is a shadow above the element. Reading only one side would pass for a shadow
     ///     with no offset at all, so both are read and they are required to <i>differ</i>.
@@ -182,8 +202,10 @@ public class FilterDropShadowTests {
         Assert.True(above.R > 240, $"something above the element: {above}. The offset's sign is inverted.");
     }
 
-    /// <summary>The silhouette follows the ink and not the box, which is the whole difference from
-    /// <c>box-shadow</c>.</summary>
+    /// <summary>
+    ///     The silhouette follows the ink and not the box, which is the whole difference from
+    ///     <c>box-shadow</c>.
+    /// </summary>
     /// <remarks>
     ///     ⚠ <b>The one assertion that separates this feature from the one it is named after.</b>
     ///     <c>DrawListBuilder.EmitShadow</c> draws a rounded rectangle the shape of the border box; a
@@ -282,7 +304,7 @@ public class FilterDropShadowTests {
         var wide = Assert.Single(far.Geometry.Layers).Bounds;
 
         Assert.Equal(tight.X - difference, wide.X, 3);
-        Assert.Equal(tight.Width + (2 * difference), wide.Width, 3);
+        Assert.Equal(tight.Width + 2 * difference, wide.Width, 3);
 
         // The displacement changes the bounds by nothing at all: same kernel, same rectangle.
         Assert.Equal(tight, Assert.Single(moved.Geometry.Layers).Bounds);
@@ -290,8 +312,12 @@ public class FilterDropShadowTests {
 
     /// <summary>A blur and a drop shadow on one element do not exchange their kernels.</summary>
     /// <remarks>
-    ///     ⚠ <b>The regression this pair is most likely to have, because the two features share the
-    ///     kernel, the scratch and the quad.</b> The bounds are outset by the <i>wider</i> of the two
+    ///     ⚠
+    ///     <b>
+    ///         The regression this pair is most likely to have, because the two features share the
+    ///         kernel, the scratch and the quad.
+    ///     </b>
+    ///     The bounds are outset by the <i>wider</i> of the two
     ///     and not by their sum — the shadow reads the surface, not the shadow, so the reaches do not
     ///     compose — and the composite quad is no longer the draw immediately after the group's
     ///     range. A renderer that convolved through the shadow's quad instead of the group's would
@@ -347,8 +373,11 @@ public class FilterDropShadowTests {
 
     /// <summary>The colour's alpha fades the shadow and does not darken it.</summary>
     /// <remarks>
-    ///     ⚠ <b>Where the alpha goes is the one part of the arithmetic that cannot be read off the
-    ///     matrix, and putting it in the wrong half is a shadow sixteen times too faint.</b>
+    ///     ⚠
+    ///     <b>
+    ///         Where the alpha goes is the one part of the arithmetic that cannot be read off the
+    ///         matrix, and putting it in the wrong half is a shadow sixteen times too faint.
+    ///     </b>
     ///     <see cref="UiDropShadow.Tint" /> has three rows and cannot touch alpha, so a translucent
     ///     shadow colour has to ride the quad — see <c>UiGeometryBuilder.Layer</c>. An implementation
     ///     that premultiplied the colour into the tint <i>and</i> put the alpha on the quad would
@@ -368,8 +397,12 @@ public class FilterDropShadowTests {
 
     /// <summary>A shadow that would paint nothing opens no group.</summary>
     /// <remarks>
-    ///     ⚠ <b>This is the identity <c>UtilityComposition.Filter</c> puts on every element carrying
-    ///     any filter at all, so it is not a corner case — it is the common one.</b> Every other
+    ///     ⚠
+    ///     <b>
+    ///         This is the identity <c>UtilityComposition.Filter</c> puts on every element carrying
+    ///         any filter at all, so it is not a corner case — it is the common one.
+    ///     </b>
+    ///     Every other
     ///     function has a number that means "unchanged"; <c>drop-shadow</c>'s identity is a
     ///     transparent colour. Counted, it would buy every <c>blur-2</c> in the engine a second
     ///     viewport-sized surface and two more render passes to composite nothing.
@@ -381,13 +414,20 @@ public class FilterDropShadowTests {
         using var ui = Square(filter);
 
         Assert.Empty(ui.Geometry.Layers);
-        Assert.DoesNotContain(ui.Document.Drawing.Commands, command => command.Kind == DrawCommandKind.LayerPush);
+        Assert.DoesNotContain(
+            ui.Document.Drawing.Commands,
+            static command => command.Kind == DrawCommandKind.LayerPush
+        );
     }
 
     /// <summary>Shapes this refuses take the whole declaration with them.</summary>
     /// <remarks>
-    ///     ⚠ <b>The rule the rest of <c>DrawListBuilder.Filter</c> already keeps, and it matters more
-    ///     here than anywhere because this function is the one that can arrive half-written.</b> A
+    ///     ⚠
+    ///     <b>
+    ///         The rule the rest of <c>DrawListBuilder.Filter</c> already keeps, and it matters more
+    ///         here than anywhere because this function is the one that can arrive half-written.
+    ///     </b>
+    ///     A
     ///     second <c>drop-shadow</c> is legal CSS and is a second surface and two more passes, so it
     ///     is refused rather than half-applied — drawing the first and dropping the second is the
     ///     silent middle state. A negative blur is invalid CSS. A percentage is not a length. Each
@@ -418,8 +458,12 @@ public class FilterDropShadowTests {
 
     /// <summary>Two lengths and no blur is a hard-edged offset silhouette.</summary>
     /// <remarks>
-    ///     ⚠ <b>The case the device path has to special-case and the software path does not, which is
-    ///     exactly the shape of divergence worth a test of its own.</b> <c>KernelRadius</c> answers
+    ///     ⚠
+    ///     <b>
+    ///         The case the device path has to special-case and the software path does not, which is
+    ///         exactly the shape of divergence worth a test of its own.
+    ///     </b>
+    ///     <c>KernelRadius</c> answers
     ///     zero, so <c>UiRenderer.ShadowSurface</c> runs one pass instead of two and hands the shader
     ///     a sigma it does not use — see its remarks, and the NaN that a real zero would produce.
     ///     Asserted here on the model and on the software picture; the agreement of the two executors
@@ -432,7 +476,7 @@ public class FilterDropShadowTests {
         var shadow = Assert.NotNull(Assert.Single(ui.Geometry.Layers).Shadow);
 
         Assert.Equal(0f, shadow.Blur, 3);
-        Assert.Equal(new Vector2(16f, 16f), shadow.Offset);
+        Assert.Equal(new(16f, 16f), shadow.Offset);
 
         // The box is 20..60 and the shadow 36..76. Two pixels inside its far corner is solid black;
         // two pixels outside is the untouched field, because there is no kernel to fade over.

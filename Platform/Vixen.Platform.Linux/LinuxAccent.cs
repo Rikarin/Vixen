@@ -17,8 +17,12 @@ namespace Vixen.Platform.Linux;
 ///         polled.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The setting is a <i>name</i> and not a colour, so this desktop needs the table macOS
-///         went out of its way to avoid.</b> <c>MacOSAccent</c> is written
+///         ⚠
+///         <b>
+///             The setting is a <i>name</i> and not a colour, so this desktop needs the table macOS
+///             went out of its way to avoid.
+///         </b>
+///         <c>MacOSAccent</c> is written
 ///         against <c>+[NSColor controlAccentColor]</c> precisely so that Apple's eight accent
 ///         colours stay Apple's rather than becoming eight constants in this repository. GNOME
 ///         offers no equivalent — <c>accent-color</c> answers <c>'teal'</c>, and the colour that
@@ -27,8 +31,12 @@ namespace Vixen.Platform.Linux;
 ///         follow. The values are libadwaita's own <c>AdwAccentColor</c> definitions.
 ///     </para>
 ///     <para>
-///         ⚠ <b>White is the text colour for every one of the nine, and that is GNOME's answer
-///         rather than a guess.</b> libadwaita defines a single <c>accent-fg-color</c> of
+///         ⚠
+///         <b>
+///             White is the text colour for every one of the nine, and that is GNOME's answer
+///             rather than a guess.
+///         </b>
+///         libadwaita defines a single <c>accent-fg-color</c> of
 ///         <c>#ffffff</c> and pairs it with all nine accents; the accents are chosen dark enough for
 ///         that to hold. This matters more than it looks: <c>PlatformInput.ApplyAccent</c> puts
 ///         <c>root.system-accent</c> on for the accent <i>and</i> its text or not at all, so a
@@ -36,8 +44,11 @@ namespace Vixen.Platform.Linux;
 ///         <c>--accent</c> exactly where it was.
 ///     </para>
 ///     <para>
-///         <b>A name this does not know is <see cref="SystemAccent.Unknown" /> and not the default
-///         blue.</b> GNOME may add a tenth, and answering a colour for a name whose colour is not
+///         <b>
+///             A name this does not know is <see cref="SystemAccent.Unknown" /> and not the default
+///             blue.
+///         </b>
+///         GNOME may add a tenth, and answering a colour for a name whose colour is not
 ///         known here would be indistinguishable at the destination from having read it —
 ///         <see cref="SystemAccent" />'s own remarks are about exactly that. An older GNOME with no
 ///         such key, a desktop with no <c>gsettings</c>, and a name from the future all land in the

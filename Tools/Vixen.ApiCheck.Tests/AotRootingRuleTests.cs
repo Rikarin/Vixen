@@ -11,8 +11,12 @@ namespace Vixen.ApiCheck.Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>The gate roots 29 of 95 runtime assemblies and its README claimed it rooted them
-///         all</b> (<a href="https://github.com/Rikarin/Vixen/issues/506">#506</a>). The README is
+///         ⚠
+///         <b>
+///             The gate roots 29 of 95 runtime assemblies and its README claimed it rooted them
+///             all
+///         </b>
+///         (<a href="https://github.com/Rikarin/Vixen/issues/506">#506</a>). The README is
 ///         corrected; what this adds is that the correction fails when it stops being true, because
 ///         a paragraph cannot notice a project somebody adds next month.
 ///     </para>
@@ -38,8 +42,7 @@ public class AotRootingRuleTests {
         throw new InvalidOperationException("No Vixen.slnx above the test assembly, so no repository root.");
     }
 
-    static string Probe(string root) =>
-        Path.Combine(root, "Tools", "Vixen.AotProbe", "Vixen.AotProbe.csproj");
+    static string Probe(string root) => Path.Combine(root, "Tools", "Vixen.AotProbe", "Vixen.AotProbe.csproj");
 
     static string Temporary() {
         var path = Path.Combine(Path.GetTempPath(), "vixen-aot-" + Guid.NewGuid().ToString("N"));
@@ -65,7 +68,7 @@ public class AotRootingRuleTests {
         var directory = Path.Combine(root, "Tools", "Vixen.AotProbe");
         Directory.CreateDirectory(directory);
 
-        var items = string.Concat(rooted.Select(name => $"    <TrimmerRootAssembly Include=\"{name}\" />\n"));
+        var items = string.Concat(rooted.Select(static name => $"    <TrimmerRootAssembly Include=\"{name}\" />\n"));
         var path = Path.Combine(directory, "Vixen.AotProbe.csproj");
 
         File.WriteAllText(
@@ -120,8 +123,8 @@ public class AotRootingRuleTests {
                 probe,
                 File.ReadAllText(probe)
                     .Replace(
-                        "<TrimmerRootAssembly Include=\"Vixen.Thing\" />",
-                        "<!-- <TrimmerRootAssembly Include=\"Vixen.Thing\" /> -->",
+                        """<TrimmerRootAssembly Include="Vixen.Thing" />""",
+                        """<!-- <TrimmerRootAssembly Include="Vixen.Thing" /> -->""",
                         StringComparison.Ordinal
                     )
             );
@@ -159,7 +162,7 @@ public class AotRootingRuleTests {
             File.WriteAllText(ledger, "Vixen.Rooted this line is stale\n");
             var stale = AotRootingRule.Violations(root, probe);
             Assert.Equal(2, stale.Count);
-            Assert.Contains(stale, message => message.Contains("can only shrink", StringComparison.Ordinal));
+            Assert.Contains(stale, static message => message.Contains("can only shrink", StringComparison.Ordinal));
         } finally {
             Directory.Delete(root, true);
         }

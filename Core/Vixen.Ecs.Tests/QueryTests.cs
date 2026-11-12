@@ -50,7 +50,7 @@ public sealed class QueryTests {
         world.Create(new Position());
         world.Create(new Health(1));
 
-        Assert.Equal(3, world.Query(new QueryDescription()).EntityCount);
+        Assert.Equal(3, world.Query(new()).EntityCount);
     }
 
     [Fact]
@@ -123,7 +123,7 @@ public sealed class QueryTests {
         }
 
         // 0..99 plus one each.
-        Assert.Equal((99 * 100 / 2) + 100, total);
+        Assert.Equal(99 * 100 / 2 + 100, total);
     }
 
     [Fact]
@@ -159,7 +159,7 @@ public sealed class QueryTests {
         );
 
         Assert.Equal(expected.Count, seen.Count);
-        Assert.Equal([.. expected.Order()], [.. seen.Order()]);
+        Assert.Equal([..expected.Order()], [..seen.Order()]);
     }
 
     [Fact]

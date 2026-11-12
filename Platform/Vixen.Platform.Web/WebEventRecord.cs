@@ -5,8 +5,10 @@ using Vixen.Core.Mathematics;
 
 namespace Vixen.Platform.Web;
 
-/// <summary>The kinds <c>vixen-platform.js</c> raises that are not
-/// <see cref="PlatformEventKind" />s.</summary>
+/// <summary>
+///     The kinds <c>vixen-platform.js</c> raises that are not
+///     <see cref="PlatformEventKind" />s.
+/// </summary>
 /// <remarks>
 ///     They ride the same ring as everything else so that ordering between them and real input is
 ///     preserved — a key press that happened before the tab was hidden must still be seen to have
@@ -23,8 +25,10 @@ internal enum WebEventKind {
     /// <summary><c>pagehide</c>: the document is going away, or into the back/forward cache.</summary>
     PageUnloading = 202,
 
-    /// <summary><c>freeze</c>: Chromium is about to discard the tab. The only memory signal a page
-    /// gets.</summary>
+    /// <summary>
+    ///     <c>freeze</c>: Chromium is about to discard the tab. The only memory signal a page
+    ///     gets.
+    /// </summary>
     MemoryPressure = 203
 }
 
@@ -47,7 +51,9 @@ internal enum WebEventKind {
 internal readonly ref struct WebEventRecord {
     readonly ReadOnlySpan<double> slots;
 
-    public WebEventRecord(ReadOnlySpan<double> slots) => this.slots = slots;
+    public WebEventRecord(ReadOnlySpan<double> slots) {
+        this.slots = slots;
+    }
 
     public int Kind => (int)slots[0];
     public uint WindowId => (uint)slots[1];
@@ -60,8 +66,10 @@ internal readonly ref struct WebEventRecord {
     public Vector2 Second => new((float)slots[6], (float)slots[7]);
     public float Value => (float)slots[8];
 
-    /// <summary>The string handle, for the kinds that carry text. The same slot as
-    /// <see cref="Value" />, which no text-carrying kind uses.</summary>
+    /// <summary>
+    ///     The string handle, for the kinds that carry text. The same slot as
+    ///     <see cref="Value" />, which no text-carrying kind uses.
+    /// </summary>
     public int StringHandle => (int)slots[8];
 
     public int Code => (int)slots[9];
@@ -74,8 +82,10 @@ internal readonly ref struct WebEventRecord {
     /// <summary>The click count, which the DOM reports as <c>detail</c> and never as zero.</summary>
     public int ClickCount => Math.Max(1, Device);
 
-    /// <summary>The browser's own identifier for a finger, stable for the length of the touch and
-    /// reused afterwards — which is why it goes through <see cref="TouchTracker" /> rather than
-    /// into an event.</summary>
+    /// <summary>
+    ///     The browser's own identifier for a finger, stable for the length of the touch and
+    ///     reused afterwards — which is why it goes through <see cref="TouchTracker" /> rather than
+    ///     into an event.
+    /// </summary>
     public long TouchIdentifier => (long)slots[10];
 }

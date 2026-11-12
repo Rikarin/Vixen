@@ -116,7 +116,7 @@ public sealed class TargetOverrideMatrix : Control {
         Empty = Part<EmptyState>();
         Empty.AddClass("hidden");
 
-        AddHandler<ClickEvent>(static (element, args) => ((TargetOverrideMatrix) element).Chosen(args));
+        AddHandler<ClickEvent>(static (element, args) => ((TargetOverrideMatrix)element).Chosen(args));
     }
 
     /// <summary>Shows a document's overrides.</summary>
@@ -182,7 +182,7 @@ public sealed class TargetOverrideMatrix : Control {
             var line = Body.Add("override-row");
             line.Add("override-name").Text = member.DisplayName;
 
-            Cell(line, settings, member, target: null);
+            Cell(line, settings, member, null);
 
             foreach (var row in settings.Overrides) {
                 Cell(line, settings, member, row);

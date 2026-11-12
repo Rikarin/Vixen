@@ -51,8 +51,11 @@ public sealed record TerrainAssetImportSettings : IImportSettings {
 ///         a build over a file somebody is in the middle of.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The layer is written forward as its document; the grass, foliage and spline as their
-///         serialized records, because those three have runtime readers.</b>
+///         ⚠
+///         <b>
+///             The layer is written forward as its document; the grass, foliage and spline as their
+///             serialized records, because those three have runtime readers.
+///         </b>
 ///         <c>AssetTerrainSource</c> opens a <c>.vxgrass</c> or <c>.vxfoliage</c> chunk and hands it
 ///         to the binary serializer, and <c>AssetWaterSource</c> opens a <c>.vxspline</c> the same
 ///         way — a game does not carry the YAML dialect, which is the editor's format — so a text
@@ -72,10 +75,14 @@ public sealed record TerrainAssetImportSettings : IImportSettings {
 [Importer(LayerExtension, FoliageExtension, GrassExtension, SplineExtension, VolumeExtension)]
 public sealed class TerrainAssetImporter : AssetImporter<TerrainAssetImportSettings> {
     /// <summary>The vector forms these documents write — a wind direction, a spline point.</summary>
-    /// <remarks>On <c>MaterialImporter</c>'s terms: registered from a static constructor rather
+    /// <remarks>
+    ///     On <c>MaterialImporter</c>'s terms: registered from a static constructor rather
     ///     than a module initializer, for the reason <see cref="MathScalars" /> gives about a
-    ///     process-wide table.</remarks>
-    static TerrainAssetImporter() => MathScalars.Register();
+    ///     process-wide table.
+    /// </remarks>
+    static TerrainAssetImporter() {
+        MathScalars.Register();
+    }
 
     /// <summary>What a terrain paint layer is written as.</summary>
     public const string LayerExtension = ".vxlayer";
@@ -123,7 +130,7 @@ public sealed class TerrainAssetImporter : AssetImporter<TerrainAssetImportSetti
         // The instances first, because they are the one kind that is not text — reading them
         // through a StreamReader would decode packed floats as UTF-8 and refuse its own magic.
         if (Path.GetExtension(context.SourcePath.ToString())
-                .Equals(VolumeExtension, StringComparison.OrdinalIgnoreCase)) {
+            .Equals(VolumeExtension, StringComparison.OrdinalIgnoreCase)) {
             return await ImportVolumeAsync(context, cancellationToken).ConfigureAwait(false);
         }
 
@@ -210,7 +217,8 @@ public sealed class TerrainAssetImporter : AssetImporter<TerrainAssetImportSetti
             bytes = memory.ToArray();
         }
 
-        if (bytes.Length < FoliageStore.Magic.Length || !bytes.AsSpan(0, FoliageStore.Magic.Length).SequenceEqual(FoliageStore.Magic)) {
+        if (bytes.Length < FoliageStore.Magic.Length
+            || !bytes.AsSpan(0, FoliageStore.Magic.Length).SequenceEqual(FoliageStore.Magic)) {
             context.Report(
                 ImportSeverity.Error,
                 "It does not begin with a foliage file's magic number. Reading it as instances "
@@ -262,9 +270,11 @@ public sealed class TerrainAssetImporter : AssetImporter<TerrainAssetImportSetti
     }
 
     /// <summary>Writes a foliage document as the serialized record <c>AssetTerrainSource</c> opens.</summary>
-    /// <remarks>On <see cref="WriteGrass" />'s terms exactly, one asset kind over — including the
+    /// <remarks>
+    ///     On <see cref="WriteGrass" />'s terms exactly, one asset kind over — including the
     ///     text fallback for a document this build cannot read, and the warning that is how somebody
-    ///     learns which build wrote it.</remarks>
+    ///     learns which build wrote it.
+    /// </remarks>
     static void WriteFoliage(YamlMapping root, string text, ImportContext context) {
         FoliageType type;
 
@@ -295,8 +305,12 @@ public sealed class TerrainAssetImporter : AssetImporter<TerrainAssetImportSetti
     /// <summary>Writes a spline document as the serialized record <c>AssetWaterSource</c> opens.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>This used to be a text chunk, and the class remarks said it would stay one "until
-    ///         a runtime consumer exists".</b> One does: doc 35 § D6 makes a water body a spline
+    ///         ⚠
+    ///         <b>
+    ///             This used to be a text chunk, and the class remarks said it would stay one "until
+    ///             a runtime consumer exists".
+    ///         </b>
+    ///         One does: doc 35 § D6 makes a water body a spline
     ///         reference, and <c>AssetWaterSource</c> is what resolves the name a
     ///         <c>WaterBodyComponent</c> carries. A game does not carry the YAML dialect — that is the
     ///         editor's format — so a text chunk here is a lake that quietly never appears.
@@ -336,8 +350,12 @@ public sealed class TerrainAssetImporter : AssetImporter<TerrainAssetImportSetti
 
     /// <summary>Reads the document as its own type and reports what the type says about itself.</summary>
     /// <remarks>
-    ///     ⚠ <b>A deserialisation failure is a warning rather than an error, and that is the awkward
-    ///     one.</b> The document is carried forward either way, because a field this build does not
+    ///     ⚠
+    ///     <b>
+    ///         A deserialisation failure is a warning rather than an error, and that is the awkward
+    ///         one.
+    ///     </b>
+    ///     The document is carried forward either way, because a field this build does not
     ///     know is exactly what an asset written by a newer editor looks like — and refusing to import
     ///     it would make a project unopenable rather than partly readable. What the warning buys is
     ///     that somebody sees it.

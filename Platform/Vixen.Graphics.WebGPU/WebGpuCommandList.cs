@@ -250,9 +250,7 @@ sealed class WebGpuCommandList : ICommandList {
             );
         }
 
-        commands.Add(
-            new(WebGpuCommandKind.SetScissor, scissor.X, scissor.Y, scissor.Width, scissor.Height)
-        );
+        commands.Add(new(WebGpuCommandKind.SetScissor, scissor.X, scissor.Y, scissor.Width, scissor.Height));
     }
 
     /// <inheritdoc />
@@ -605,7 +603,12 @@ sealed class WebGpuCommandList : ICommandList {
     }
 
     /// <inheritdoc />
-    public void CopyTextureToBuffer(in TextureRegion source, Int3 size, BufferHandle destination, long destinationOffset) {
+    public void CopyTextureToBuffer(
+        in TextureRegion source,
+        Int3 size,
+        BufferHandle destination,
+        long destinationOffset
+    ) {
         ThrowIfCopying();
 
         var from = device.ResolveTexture(source.Texture, "a copy source");
@@ -705,22 +708,23 @@ sealed class WebGpuCommandList : ICommandList {
     }
 
     /// <summary>Where a texture copy touches, with the RHI's defaults resolved.</summary>
-    static WgpuImageCopyTexture Region(WebGpuTexture texture, in TextureRegion region) => new(
-        texture.Handle,
-        region.MipLevel,
-        region.Origin.X,
-        region.Origin.Y,
+    static WgpuImageCopyTexture Region(WebGpuTexture texture, in TextureRegion region) =>
+        new(
+            texture.Handle,
+            region.MipLevel,
+            region.Origin.X,
+            region.Origin.Y,
 
-        // A 2D array's layer is WebGPU's Z origin, and a 3D texture's slice is the same field. The
-        // RHI keeps them apart — ArrayLayer and Origin.Z — and only one of them is ever non-zero.
-        texture.Description.Dimension == TextureDimension.Texture3D ? region.Origin.Z : region.ArrayLayer,
+            // A 2D array's layer is WebGPU's Z origin, and a 3D texture's slice is the same field. The
+            // RHI keeps them apart — ArrayLayer and Origin.Z — and only one of them is ever non-zero.
+            texture.Description.Dimension == TextureDimension.Texture3D ? region.Origin.Z : region.ArrayLayer,
 
-        // A copy names one plane of a combined format, never both. The engine's depth is what gets
-        // copied — a stencil readback would need its own call, and nothing asks for one.
-        texture.Description.Format.HasStencil() && texture.Description.Format.HasDepth()
-            ? WgpuTextureAspect.DepthOnly
-            : WgpuTextureAspect.All
-    );
+            // A copy names one plane of a combined format, never both. The engine's depth is what gets
+            // copied — a stencil readback would need its own call, and nothing asks for one.
+            texture.Description.Format.HasStencil() && texture.Description.Format.HasDepth()
+                ? WgpuTextureAspect.DepthOnly
+                : WgpuTextureAspect.All
+        );
 
     /// <summary>How a texture's texels are laid out in a buffer, per WebGPU's rules.</summary>
     /// <remarks>

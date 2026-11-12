@@ -5,7 +5,6 @@ using Vixen.Core;
 using Vixen.Core.Mathematics;
 using Vixen.Core.Yaml;
 using Vixen.Ecs;
-using Vixen.Editor.Core;
 using Vixen.Editor.SceneView;
 using Vixen.Editor.Ui;
 using Vixen.Engine.Transforms;
@@ -139,8 +138,12 @@ public sealed partial class TerrainModule {
     ///         this would have been the same defect one layer in.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Asked for rather than required, which is <c>PluginServices.TryGet</c>'s own
-    ///         stated case.</b> A scene being sculpted before anybody has pressed play has no physics
+    ///         ⚠
+    ///         <b>
+    ///             Asked for rather than required, which is <c>PluginServices.TryGet</c>'s own
+    ///             stated case.
+    ///         </b>
+    ///         A scene being sculpted before anybody has pressed play has no physics
     ///         world, and <see cref="ITerrainColliders" />' remarks make null "a terrain with no
     ///         collision, not an error". A module that refused a host without one would be a toolset
     ///         that cannot be used until the game runs.
@@ -161,8 +164,12 @@ public sealed partial class TerrainModule {
     ///         it put there itself.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Which is exactly why the editor publishes a switch and not a session's
-    ///         rebuilder.</b> The physics world lives for one play session; this binding lives for the
+    ///         ⚠
+    ///         <b>
+    ///             Which is exactly why the editor publishes a switch and not a session's
+    ///             rebuilder.
+    ///         </b>
+    ///         The physics world lives for one play session; this binding lives for the
     ///         document. A host that published a per-session adapter would leave the tools holding a
     ///         disposed Jolt world for every stroke after the first Stop — and this line would be
     ///         where it was picked up.
@@ -224,10 +231,13 @@ public sealed partial class TerrainModule {
 
     /// <summary>Every entity in the Scene that names a terrain.</summary>
     /// <remarks>
-    ///     ⚠ <b><c>TerrainComponent</c> holds a string, so it lives in the World's managed store and
-    ///     <c>chunk.Values&lt;T&gt;()</c> throws for it.</b> Reading one entity at a time is what the
+    ///     ⚠
+    ///     <b>
+    ///         <c>TerrainComponent</c> holds a string, so it lives in the World's managed store and
+    ///         <c>chunk.Values&lt;T&gt;()</c> throws for it.
+    ///     </b>
+    ///     Reading one entity at a time is what the
     ///     store supports, and a forest of terrains is a handful of entities rather than a hot loop.
-    ///
     ///     ⚠ <b>Collected into a list rather than yielded, and the compiler is right to insist.</b>
     ///     <c>chunk.Entities</c> is a <see cref="ReadOnlySpan{T}" /> over the chunk's storage, which
     ///     cannot cross a <c>yield</c> — and the reason it cannot is the reason this would be a bug if
@@ -309,8 +319,12 @@ public sealed partial class TerrainModule {
 
     /// <summary>The application, seen as the thing that answers "what ground is in this Scene".</summary>
     /// <remarks>
-    ///     ⚠ <b>A nested type rather than <see cref="TerrainModule" /> implementing the interface
-    ///     itself.</b> The module is already several partials wide; adding a presenter-facing
+    ///     ⚠
+    ///     <b>
+    ///         A nested type rather than <see cref="TerrainModule" /> implementing the interface
+    ///         itself.
+    ///     </b>
+    ///     The module is already several partials wide; adding a presenter-facing
     ///     interface to it would put a member called <c>Terrains</c> on the class that already has a
     ///     private <c>Terrains()</c> meaning something different — the entity walk rather than the
     ///     draw list.
@@ -407,8 +421,12 @@ public sealed partial class TerrainModule {
 
     /// <summary>Takes a terrain the create form just built into the session, without re-reading it.</summary>
     /// <remarks>
-    ///     ⚠ <b>Otherwise the next frame reads the file back and replaces the object the mode is
-    ///     already holding.</b> Everything would still work — the bytes are the same — right up until
+    ///     ⚠
+    ///     <b>
+    ///         Otherwise the next frame reads the file back and replaces the object the mode is
+    ///         already holding.
+    ///     </b>
+    ///     Everything would still work — the bytes are the same — right up until
     ///     somebody sculpts between the create and the first save, at which point the stroke is on an
     ///     object nothing points at any more.
     /// </remarks>
@@ -468,8 +486,12 @@ public sealed partial class TerrainModule {
     /// <summary>Writes the Scene's instances beside it.</summary>
     /// <returns>Whether anything was written.</returns>
     /// <remarks>
-    ///     ⚠ <b>A volume with nothing stored in it deletes the file rather than writing an empty
-    ///     one.</b> Every type in the palette may be derived — [§ D8]: grass is a rule, and nothing
+    ///     ⚠
+    ///     <b>
+    ///         A volume with nothing stored in it deletes the file rather than writing an empty
+    ///         one.
+    ///     </b>
+    ///     Every type in the palette may be derived — [§ D8]: grass is a rule, and nothing
     ///     about a derived type is in any file — so "no bytes" is the normal steady state, and a
     ///     zero-instance <c>.vxfol</c> beside every Scene is noise in every diff for ever.
     /// </remarks>
@@ -521,8 +543,12 @@ public sealed partial class TerrainModule {
     /// <param name="value">What it said.</param>
     /// <returns>Whether it could be read.</returns>
     /// <remarks>
-    ///     ⚠ <b>The source text rather than the built artefact, and that is deliberate for a
-    ///     toolset.</b> <c>TerrainAssetImporter</c> writes the same bytes into the content build, so
+    ///     ⚠
+    ///     <b>
+    ///         The source text rather than the built artefact, and that is deliberate for a
+    ///         toolset.
+    ///     </b>
+    ///     <c>TerrainAssetImporter</c> writes the same bytes into the content build, so
     ///     reading the build would be one more thing that has to be up to date before a brush works —
     ///     and the file an author has just edited is the one they mean.
     /// </remarks>
@@ -539,8 +565,11 @@ public sealed partial class TerrainModule {
             value = YamlSerializer.Deserialize<T>(root);
 
             return true;
-        } catch (Exception failure) when (failure is IOException or YamlParseException or ArgumentException
-                                              or InvalidOperationException or FormatException) {
+        } catch (Exception failure) when (failure is IOException
+                                              or YamlParseException
+                                              or ArgumentException
+                                              or InvalidOperationException
+                                              or FormatException) {
             Shell.Notifications.Show($"{relative} could not be read", NotificationSeverity.Warning, failure.Message);
 
             return false;
@@ -597,15 +626,14 @@ public sealed partial class TerrainModule {
                     AddToPalette(type);
                     added++;
                 }
-            } else if (path.EndsWith(".vxgrass", StringComparison.OrdinalIgnoreCase)) {
-                if (ReadAsset<GrassType>(path, out var grassType)) {
-                    // ⚠ Through the grass type's own conversion rather than by copying fields. Grass
-                    // is derived and foliage is stored — [§ D8] — and a palette entry that said
-                    // "stored" for a grass rule would put a million blades into the .vxfol beside the
-                    // Scene, which is precisely the file FoliageStore refuses to write.
-                    AddToPalette(grassType.ToFoliageType());
-                    added++;
-                }
+            } else if (path.EndsWith(".vxgrass", StringComparison.OrdinalIgnoreCase)
+                       && ReadAsset<GrassType>(path, out var grassType)) {
+                // ⚠ Through the grass type's own conversion rather than by copying fields. Grass
+                // is derived and foliage is stored — [§ D8] — and a palette entry that said
+                // "stored" for a grass rule would put a million blades into the .vxfol beside the
+                // Scene, which is precisely the file FoliageStore refuses to write.
+                AddToPalette(grassType.ToFoliageType());
+                added++;
             }
         }
 
@@ -661,7 +689,9 @@ public sealed partial class TerrainModule {
             ? normalised
             : "Assets/" + normalised;
 
-        return Project.Assets.TryGetByPath(candidate, out var entry) ? new AssetReference(entry.Guid) : AssetReference.Null;
+        return Project.Assets.TryGetByPath(candidate, out var entry)
+            ? new AssetReference(entry.Guid)
+            : AssetReference.Null;
     }
 
     /// <summary>Adds a <c>.vxfoliage</c> or <c>.vxgrass</c> to the Scene's palette.</summary>

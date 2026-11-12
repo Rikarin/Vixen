@@ -23,10 +23,7 @@ public sealed class SpatializerTests {
     /// </summary>
     [Fact]
     public void ASourceOnThePositiveXAxisIsToTheListenersRight() {
-        var gains = Gains(new SpatialSettings {
-            Position = new Vector3(10f, 0f, 0f),
-            Attenuation = AttenuationModel.None
-        });
+        var gains = Gains(new() { Position = new(10f, 0f, 0f), Attenuation = AttenuationModel.None });
 
         Assert.True(gains[1] > gains[0]);
         Assert.Equal(0f, gains[0], 0.001f);
@@ -35,10 +32,7 @@ public sealed class SpatializerTests {
 
     [Fact]
     public void ASourceStraightAheadIsCentred() {
-        var gains = Gains(new SpatialSettings {
-            Position = new Vector3(0f, 0f, -10f),
-            Attenuation = AttenuationModel.None
-        });
+        var gains = Gains(new() { Position = new(0f, 0f, -10f), Attenuation = AttenuationModel.None });
 
         Assert.Equal(0.7071f, gains[0], 0.001f);
         Assert.Equal(0.7071f, gains[1], 0.001f);
@@ -51,10 +45,7 @@ public sealed class SpatializerTests {
     /// </summary>
     [Fact]
     public void ASourceBehindTheListenerIsAlsoCentred() {
-        var gains = Gains(new SpatialSettings {
-            Position = new Vector3(0f, 0f, 10f),
-            Attenuation = AttenuationModel.None
-        });
+        var gains = Gains(new() { Position = new(0f, 0f, 10f), Attenuation = AttenuationModel.None });
 
         Assert.Equal(0.7071f, gains[0], 0.001f);
         Assert.Equal(0.7071f, gains[1], 0.001f);
@@ -62,10 +53,7 @@ public sealed class SpatializerTests {
 
     [Fact]
     public void ASourceOverheadIsCentredBecauseItHasNoSideways() {
-        var gains = Gains(new SpatialSettings {
-            Position = new Vector3(0f, 10f, 0f),
-            Attenuation = AttenuationModel.None
-        });
+        var gains = Gains(new() { Position = new(0f, 10f, 0f), Attenuation = AttenuationModel.None });
 
         Assert.Equal(0.7071f, gains[0], 0.001f);
         Assert.Equal(0.7071f, gains[1], 0.001f);
@@ -77,7 +65,7 @@ public sealed class SpatializerTests {
         var facingRight = AudioListener.Default with { Forward = Vector3.Right };
 
         var gains = Gains(
-            new SpatialSettings { Position = new Vector3(10f, 0f, 0f), Attenuation = AttenuationModel.None },
+            new() { Position = new(10f, 0f, 0f), Attenuation = AttenuationModel.None },
             listener: facingRight
         );
 
@@ -89,9 +77,9 @@ public sealed class SpatializerTests {
     public void InverseAttenuationHalvesEveryTimeTheDistanceDoubles() {
         var settings = new SpatialSettings { MinDistance = 1f, MaxDistance = 1_000f };
 
-        var near = Spatializer.Evaluate(AtOrigin, settings with { Position = new Vector3(1f, 0f, 0f) }, 2, new float[2]);
-        var far = Spatializer.Evaluate(AtOrigin, settings with { Position = new Vector3(2f, 0f, 0f) }, 2, new float[2]);
-        var further = Spatializer.Evaluate(AtOrigin, settings with { Position = new Vector3(4f, 0f, 0f) }, 2, new float[2]);
+        var near = Spatializer.Evaluate(AtOrigin, settings with { Position = new(1f, 0f, 0f) }, 2, new float[2]);
+        var far = Spatializer.Evaluate(AtOrigin, settings with { Position = new(2f, 0f, 0f) }, 2, new float[2]);
+        var further = Spatializer.Evaluate(AtOrigin, settings with { Position = new(4f, 0f, 0f) }, 2, new float[2]);
 
         Assert.Equal(1f, near.Attenuation, 0.001f);
         Assert.Equal(0.5f, far.Attenuation, 0.001f);
@@ -105,14 +93,12 @@ public sealed class SpatializerTests {
     [Fact]
     public void LinearAttenuationReachesSilenceAtTheMaximumDistance() {
         var settings = new SpatialSettings {
-            MinDistance = 1f,
-            MaxDistance = 11f,
-            Attenuation = AttenuationModel.Linear
+            MinDistance = 1f, MaxDistance = 11f, Attenuation = AttenuationModel.Linear
         };
 
-        var half = Spatializer.Evaluate(AtOrigin, settings with { Position = new Vector3(6f, 0f, 0f) }, 2, new float[2]);
-        var edge = Spatializer.Evaluate(AtOrigin, settings with { Position = new Vector3(11f, 0f, 0f) }, 2, new float[2]);
-        var past = Spatializer.Evaluate(AtOrigin, settings with { Position = new Vector3(50f, 0f, 0f) }, 2, new float[2]);
+        var half = Spatializer.Evaluate(AtOrigin, settings with { Position = new(6f, 0f, 0f) }, 2, new float[2]);
+        var edge = Spatializer.Evaluate(AtOrigin, settings with { Position = new(11f, 0f, 0f) }, 2, new float[2]);
+        var past = Spatializer.Evaluate(AtOrigin, settings with { Position = new(50f, 0f, 0f) }, 2, new float[2]);
 
         Assert.Equal(0.5f, half.Attenuation, 0.001f);
         Assert.Equal(0f, edge.Attenuation, 0.001f);
@@ -123,7 +109,7 @@ public sealed class SpatializerTests {
     public void NothingGetsQuieterInsideTheReferenceDistance() {
         var settings = new SpatialSettings { MinDistance = 5f };
 
-        var inside = Spatializer.Evaluate(AtOrigin, settings with { Position = new Vector3(1f, 0f, 0f) }, 2, new float[2]);
+        var inside = Spatializer.Evaluate(AtOrigin, settings with { Position = new(1f, 0f, 0f) }, 2, new float[2]);
 
         Assert.Equal(1f, inside.Attenuation, 0.001f);
     }
@@ -134,11 +120,9 @@ public sealed class SpatializerTests {
     /// </summary>
     [Fact]
     public void ASourceTheListenerIsStandingInsideStopsBeingLocalised() {
-        var gains = Gains(new SpatialSettings {
-            Position = new Vector3(0.01f, 0f, 0f),
-            MinDistance = 5f,
-            Attenuation = AttenuationModel.None
-        });
+        var gains = Gains(
+            new() { Position = new(0.01f, 0f, 0f), MinDistance = 5f, Attenuation = AttenuationModel.None }
+        );
 
         Assert.Equal(0.7071f, gains[0], 0.01f);
         Assert.Equal(0.7071f, gains[1], 0.01f);
@@ -149,7 +133,7 @@ public sealed class SpatializerTests {
         // Pointing along −Z, with the listener at the origin and the source in front of it, so the
         // listener is directly behind the cone.
         var settings = new SpatialSettings {
-            Position = new Vector3(0f, 0f, -10f),
+            Position = new(0f, 0f, -10f),
             ConeDirection = Vector3.Forward,
             ConeInnerAngle = 60f,
             ConeOuterAngle = 120f,
@@ -158,7 +142,12 @@ public sealed class SpatializerTests {
         };
 
         var behind = Spatializer.Evaluate(AtOrigin, settings, 2, new float[2]);
-        var facing = Spatializer.Evaluate(AtOrigin, settings with { ConeDirection = Vector3.Backward }, 2, new float[2]);
+        var facing = Spatializer.Evaluate(
+            AtOrigin,
+            settings with { ConeDirection = Vector3.Backward },
+            2,
+            new float[2]
+        );
 
         Assert.Equal(0.1f, behind.ConeGain, 0.001f);
         Assert.Equal(1f, facing.ConeGain, 0.001f);
@@ -173,13 +162,13 @@ public sealed class SpatializerTests {
     public void TheConeAnglesAreFullWidthsAndNotHalfAngles() {
         var settings = new SpatialSettings {
             // 45° off the cone axis: inside a 90° cone, outside a 60° one.
-            Position = new Vector3(0f, 0f, 0f),
-            ConeDirection = new Vector3(1f, 1f, 0f),
+            Position = new(0f, 0f, 0f),
+            ConeDirection = new(1f, 1f, 0f),
             ConeOuterGain = 0f,
             Attenuation = AttenuationModel.None
         };
 
-        var listener = AudioListener.Default with { Position = new Vector3(10f, 0f, 0f) };
+        var listener = AudioListener.Default with { Position = new(10f, 0f, 0f) };
 
         var wide = Spatializer.Evaluate(
             listener,
@@ -201,10 +190,7 @@ public sealed class SpatializerTests {
 
     [Fact]
     public void ASourceApproachingTheListenerIsPitchedUp() {
-        var settings = new SpatialSettings {
-            Position = new Vector3(0f, 0f, -100f),
-            Velocity = new Vector3(0f, 0f, 34.3f)
-        };
+        var settings = new SpatialSettings { Position = new(0f, 0f, -100f), Velocity = new(0f, 0f, 34.3f) };
 
         var result = Spatializer.Evaluate(AtOrigin, settings, 2, new float[2]);
 
@@ -214,10 +200,7 @@ public sealed class SpatializerTests {
 
     [Fact]
     public void ASourceRecedingIsPitchedDown() {
-        var settings = new SpatialSettings {
-            Position = new Vector3(0f, 0f, -100f),
-            Velocity = new Vector3(0f, 0f, -34.3f)
-        };
+        var settings = new SpatialSettings { Position = new(0f, 0f, -100f), Velocity = new(0f, 0f, -34.3f) };
 
         var result = Spatializer.Evaluate(AtOrigin, settings, 2, new float[2]);
 
@@ -226,8 +209,8 @@ public sealed class SpatializerTests {
 
     [Fact]
     public void AListenerChasingASourceHearsItPitchedUp() {
-        var listener = AudioListener.Default with { Velocity = new Vector3(0f, 0f, -34.3f) };
-        var settings = new SpatialSettings { Position = new Vector3(0f, 0f, -100f) };
+        var listener = AudioListener.Default with { Velocity = new(0f, 0f, -34.3f) };
+        var settings = new SpatialSettings { Position = new(0f, 0f, -100f) };
 
         var result = Spatializer.Evaluate(listener, settings, 2, new float[2]);
 
@@ -240,10 +223,7 @@ public sealed class SpatializerTests {
     /// </summary>
     [Fact]
     public void ASourceMovingFasterThanSoundDoesNotProduceInfinity() {
-        var settings = new SpatialSettings {
-            Position = new Vector3(0f, 0f, -100f),
-            Velocity = new Vector3(0f, 0f, 5_000f)
-        };
+        var settings = new SpatialSettings { Position = new(0f, 0f, -100f), Velocity = new(0f, 0f, 5_000f) };
 
         var result = Spatializer.Evaluate(AtOrigin, settings, 2, new float[2]);
 
@@ -254,9 +234,7 @@ public sealed class SpatializerTests {
     [Fact]
     public void DopplerCanBeTurnedOff() {
         var settings = new SpatialSettings {
-            Position = new Vector3(0f, 0f, -100f),
-            Velocity = new Vector3(0f, 0f, 200f),
-            DopplerFactor = 0f
+            Position = new(0f, 0f, -100f), Velocity = new(0f, 0f, 200f), DopplerFactor = 0f
         };
 
         var result = Spatializer.Evaluate(AtOrigin, settings, 2, new float[2]);
@@ -267,8 +245,8 @@ public sealed class SpatializerTests {
     [Fact]
     public void AMonoDeviceGetsOneGainAndNoPanning() {
         var gains = Gains(
-            new SpatialSettings { Position = new Vector3(10f, 0f, 0f), Attenuation = AttenuationModel.None },
-            channels: 1
+            new() { Position = new(10f, 0f, 0f), Attenuation = AttenuationModel.None },
+            1
         );
 
         Assert.Equal(1f, gains[0], 0.001f);
@@ -276,16 +254,9 @@ public sealed class SpatializerTests {
 
     [Fact]
     public void SpreadDissolvesTheDirection() {
-        var point = Gains(new SpatialSettings {
-            Position = new Vector3(10f, 0f, 0f),
-            Attenuation = AttenuationModel.None
-        });
+        var point = Gains(new() { Position = new(10f, 0f, 0f), Attenuation = AttenuationModel.None });
 
-        var spread = Gains(new SpatialSettings {
-            Position = new Vector3(10f, 0f, 0f),
-            Attenuation = AttenuationModel.None,
-            Spread = 1f
-        });
+        var spread = Gains(new() { Position = new(10f, 0f, 0f), Attenuation = AttenuationModel.None, Spread = 1f });
 
         Assert.Equal(0f, point[0], 0.001f);
         Assert.Equal(0.7071f, spread[0], 0.001f);
@@ -297,7 +268,7 @@ public sealed class SpatializerTests {
         var quiet = AudioListener.Default with { Gain = 0.25f };
 
         var gains = Gains(
-            new SpatialSettings { Position = new Vector3(0f, 0f, -10f), Attenuation = AttenuationModel.None },
+            new() { Position = new(0f, 0f, -10f), Attenuation = AttenuationModel.None },
             listener: quiet
         );
 
@@ -306,17 +277,15 @@ public sealed class SpatializerTests {
 
     [Fact]
     public void ADistantSpatialVoiceIsQuieterThanANearOneAllTheWayToTheBuffer() {
-        var (engine, device) = AudioTestData.Engine(channels: 1);
+        var (engine, device) = AudioTestData.Engine(1);
         using var _ = engine;
 
         engine.SetListener(AudioListener.Default);
 
-        engine.Play(AudioTestData.Constant(4_800, 1f), new PlaybackSettings {
-            Gain = 1f,
-            Pitch = 1f,
-            IsSpatial = true,
-            Spatial = new SpatialSettings { Position = new Vector3(0f, 0f, -1f) }
-        });
+        engine.Play(
+            AudioTestData.Constant(4_800, 1f),
+            new() { Gain = 1f, Pitch = 1f, IsSpatial = true, Spatial = new() { Position = new(0f, 0f, -1f) } }
+        );
 
         var near = AudioTestData.Peak(AudioTestData.Render(device, 32));
 
@@ -324,12 +293,10 @@ public sealed class SpatializerTests {
         AudioTestData.Render(device, 64);
         engine.Update();
 
-        engine.Play(AudioTestData.Constant(4_800, 1f), new PlaybackSettings {
-            Gain = 1f,
-            Pitch = 1f,
-            IsSpatial = true,
-            Spatial = new SpatialSettings { Position = new Vector3(0f, 0f, -16f) }
-        });
+        engine.Play(
+            AudioTestData.Constant(4_800, 1f),
+            new() { Gain = 1f, Pitch = 1f, IsSpatial = true, Spatial = new() { Position = new(0f, 0f, -16f) } }
+        );
 
         var far = AudioTestData.Peak(AudioTestData.Render(device, 32));
 
@@ -344,15 +311,12 @@ public sealed class SpatializerTests {
     [Fact]
     public void DistanceDullsTheSoundWhenAirAbsorptionIsAskedFor() {
         var settings = new SpatialSettings {
-            MinDistance = 1f,
-            MaxDistance = 101f,
-            AirAbsorption = 1f,
-            AirAbsorptionCutoff = 700f
+            MinDistance = 1f, MaxDistance = 101f, AirAbsorption = 1f, AirAbsorptionCutoff = 700f
         };
 
-        var near = Spatializer.Evaluate(AtOrigin, settings with { Position = new Vector3(1f, 0f, 0f) }, 2, new float[2]);
-        var far = Spatializer.Evaluate(AtOrigin, settings with { Position = new Vector3(101f, 0f, 0f) }, 2, new float[2]);
-        var middle = Spatializer.Evaluate(AtOrigin, settings with { Position = new Vector3(51f, 0f, 0f) }, 2, new float[2]);
+        var near = Spatializer.Evaluate(AtOrigin, settings with { Position = new(1f, 0f, 0f) }, 2, new float[2]);
+        var far = Spatializer.Evaluate(AtOrigin, settings with { Position = new(101f, 0f, 0f) }, 2, new float[2]);
+        var middle = Spatializer.Evaluate(AtOrigin, settings with { Position = new(51f, 0f, 0f) }, 2, new float[2]);
 
         // Zero and not 20 kHz at the reference distance: no filtering at all is a bypass rather than
         // a filter set wide open, which is a branch saved on every voice that is close enough not to
@@ -369,7 +333,7 @@ public sealed class SpatializerTests {
     /// <summary>Off by default, because it compounds with content that was authored dull already.</summary>
     [Fact]
     public void ThereIsNoFilteringUnlessItIsAskedFor() {
-        var settings = new SpatialSettings { Position = new Vector3(400f, 0f, 0f) };
+        var settings = new SpatialSettings { Position = new(400f, 0f, 0f) };
 
         Assert.Equal(0f, Spatializer.Evaluate(AtOrigin, settings, 2, new float[2]).LowPassHz);
     }
@@ -377,10 +341,7 @@ public sealed class SpatializerTests {
     [Fact]
     public void AbsorptionStrengthScalesHowFarTheFilterTravels() {
         var settings = new SpatialSettings {
-            Position = new Vector3(101f, 0f, 0f),
-            MinDistance = 1f,
-            MaxDistance = 101f,
-            AirAbsorptionCutoff = 700f
+            Position = new(101f, 0f, 0f), MinDistance = 1f, MaxDistance = 101f, AirAbsorptionCutoff = 700f
         };
 
         var half = Spatializer.Evaluate(AtOrigin, settings with { AirAbsorption = 0.5f }, 2, new float[2]);
@@ -395,28 +356,31 @@ public sealed class SpatializerTests {
     public void ADistantVoiceComesOutDullerThanANearOne() {
         var bright = AudioTestData.Tone(6_000f, 4_096, 0.5f);
 
-        var near = Brightness(new Vector3(0f, 0f, -2f));
-        var far = Brightness(new Vector3(0f, 0f, -400f));
+        var near = Brightness(new(0f, 0f, -2f));
+        var far = Brightness(new(0f, 0f, -400f));
 
         Assert.True(far < near * 0.5f, $"near {near:F4}, far {far:F4}");
 
         float Brightness(Vector3 position) {
-            var (engine, device) = AudioTestData.Engine(channels: 1, voices: 2);
+            var (engine, device) = AudioTestData.Engine(1, voices: 2);
             using var _ = engine;
 
             engine.SetListener(AudioListener.Default);
-            engine.Play(bright, new PlaybackSettings {
-                Gain = 1f,
-                Pitch = 1f,
-                IsSpatial = true,
-                Spatial = new SpatialSettings {
-                    Position = position,
-                    Attenuation = AttenuationModel.None,
-                    MinDistance = 1f,
-                    MaxDistance = 400f,
-                    AirAbsorption = 1f
+            engine.Play(
+                bright,
+                new() {
+                    Gain = 1f,
+                    Pitch = 1f,
+                    IsSpatial = true,
+                    Spatial = new() {
+                        Position = position,
+                        Attenuation = AttenuationModel.None,
+                        MinDistance = 1f,
+                        MaxDistance = 400f,
+                        AirAbsorption = 1f
+                    }
                 }
-            });
+            );
 
             // Past the filter's own settling time, so this is the steady state.
             AudioTestData.Render(device, 1_024);

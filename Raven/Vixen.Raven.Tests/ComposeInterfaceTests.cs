@@ -7,7 +7,6 @@ using Vixen.Raven.CodeGen;
 using Vixen.Raven.IR;
 using Vixen.Raven.Lowering;
 using Vixen.Raven.Reflection;
-using Vixen.Raven.Symbols;
 using Vixen.Raven.Syntax;
 using Xunit;
 
@@ -70,7 +69,7 @@ public class ComposeInterfaceTests {
 
         Assert.Equal(
             ["baseColor", "Tinted.tint", "Tinted.albedoMap", "Tinted.albedoSampler"],
-            shader.Bindings.Select(binding => binding.Name)
+            shader.Bindings.Select(static binding => binding.Name)
         );
     }
 
@@ -87,11 +86,11 @@ public class ComposeInterfaceTests {
         var shader = FindShader(Lower(Tinted, "diffuse=Tinted"), "Lit");
         var plan = BindingPlan.Of(shader);
 
-        Assert.Contains(plan, planned => planned.Resource?.Kind == IrBindingKind.Texture);
-        Assert.Contains(plan, planned => planned.Resource?.Kind == IrBindingKind.Sampler);
+        Assert.Contains(plan, static planned => planned.Resource?.Kind == IrBindingKind.Texture);
+        Assert.Contains(plan, static planned => planned.Resource?.Kind == IrBindingKind.Sampler);
 
         // Every binding gets a distinct (set, binding) pair, which is what the host binds against.
-        var pairs = plan.Select(planned => (planned.Set, planned.Binding)).ToArray();
+        var pairs = plan.Select(static planned => (planned.Set, planned.Binding)).ToArray();
         Assert.Equal(pairs.Length, pairs.Distinct().Count());
     }
 
@@ -154,10 +153,10 @@ public class ComposeInterfaceTests {
         var module = Lower(Collides, "diffuse=Tinted");
         var reflection = ReflectionBuilder.Describe(FindShader(module, "Lit"));
 
-        Assert.Equal(["tint", "Tinted.tint"], reflection.Parameters.Select(parameter => parameter.Name));
+        Assert.Equal(["tint", "Tinted.tint"], reflection.Parameters.Select(static parameter => parameter.Name));
 
         // Distinct offsets, which is the thing a host would have got wrong.
-        Assert.Equal(2, reflection.Parameters.Select(parameter => parameter.Offset).Distinct().Count());
+        Assert.Equal(2, reflection.Parameters.Select(static parameter => parameter.Offset).Distinct().Count());
 
         // And the GLSL still compiles: its identifiers are uniquified separately from these names.
         AssertGlslCompiles(Generate(Collides, "diffuse=Tinted", "glsl"));
@@ -220,7 +219,7 @@ public class ComposeInterfaceTests {
 
         Assert.Equal(
             ["baseColor", "Layered.strength", "Layered.Ggx.alpha"],
-            shader.Bindings.Select(binding => binding.Name)
+            shader.Bindings.Select(static binding => binding.Name)
         );
 
         AssertGlslCompiles(Generate(Layered, "glsl", ["diffuse=Layered", "ndf=Ggx"]));
@@ -270,8 +269,8 @@ public class ComposeInterfaceTests {
 
         var diagnostics = Compile(Source, "diffuse=Layered", "ndf=Ggx").GetDiagnostics();
 
-        Assert.DoesNotContain(diagnostics, d => d.Id == "RVN2076");
-        Assert.True(diagnostics.Count == 0, string.Join("\n", diagnostics.Select(d => d.ToString())));
+        Assert.DoesNotContain(diagnostics, static d => d.Id == "RVN2076");
+        Assert.True(diagnostics.Count == 0, string.Join("\n", diagnostics.Select(static d => d.ToString())));
     }
 
     /// <summary>
@@ -310,7 +309,7 @@ public class ComposeInterfaceTests {
         // One entry, not two: the implementation is one shader with one set of storage, so both
         // slots read the same parameter. Per-slot parameters would need the implementation
         // instantiated per slot, which is not what `compose` does.
-        Assert.Equal(["Tinted.tint"], shader.Bindings.Select(binding => binding.Name));
+        Assert.Equal(["Tinted.tint"], shader.Bindings.Select(static binding => binding.Name));
     }
 
     /// <summary>
@@ -340,7 +339,7 @@ public class ComposeInterfaceTests {
                              """;
 
         var shader = FindShader(Lower(Plain), "Lit");
-        Assert.Equal(["baseColor", "roughness"], shader.Bindings.Select(binding => binding.Name));
+        Assert.Equal(["baseColor", "roughness"], shader.Bindings.Select(static binding => binding.Name));
     }
 
     // --- Plumbing ---------------------------------------------------------
@@ -357,12 +356,12 @@ public class ComposeInterfaceTests {
         var compilation = Compile(source, bindings);
 
         var diagnostics = compilation.GetDiagnostics();
-        Assert.True(diagnostics.Count == 0, string.Join("\n", diagnostics.Select(d => d.ToString())));
+        Assert.True(diagnostics.Count == 0, string.Join("\n", diagnostics.Select(static d => d.ToString())));
 
         var bag = new DiagnosticBag();
         var module = Lowerer.Lower(compilation, bag);
-        Assert.True(IrVerifier.Verify(module, bag), string.Join("\n", bag.Select(d => d.ToString())));
-        Assert.True(bag.IsEmpty, string.Join("\n", bag.Select(d => d.ToString())));
+        Assert.True(IrVerifier.Verify(module, bag), string.Join("\n", bag.Select(static d => d.ToString())));
+        Assert.True(bag.IsEmpty, string.Join("\n", bag.Select(static d => d.ToString())));
         return module;
     }
 
@@ -374,8 +373,8 @@ public class ComposeInterfaceTests {
         var bag = new DiagnosticBag();
         var generated = TargetBackends.Create(target)!.Generate(module, bag);
 
-        var errors = bag.ToArray().Where(d => d.IsError).ToArray();
-        Assert.True(errors.Length == 0, string.Join("\n", errors.Select(d => d.ToString())));
+        var errors = bag.ToArray().Where(static d => d.IsError).ToArray();
+        Assert.True(errors.Length == 0, string.Join("\n", errors.Select(static d => d.ToString())));
 
         return generated;
     }
@@ -396,6 +395,5 @@ public class ComposeInterfaceTests {
         }
     }
 
-    static IrShader FindShader(IrModule module, string name) =>
-        module.Shaders.Single(shader => shader.Name == name);
+    static IrShader FindShader(IrModule module, string name) => module.Shaders.Single(shader => shader.Name == name);
 }

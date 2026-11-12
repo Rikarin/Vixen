@@ -74,7 +74,10 @@ public interface IWorkspace {
     /// </remarks>
     UiElement? Show(IEditableDocument document, UiElement panel);
 
-    /// <summary>Opens an asset in a panel of its own — the document a double-click opens, in the tab a double-click brings forward.</summary>
+    /// <summary>
+    ///     Opens an asset in a panel of its own — the document a double-click opens, in the tab a double-click brings
+    ///     forward.
+    /// </summary>
     /// <param name="asset">Which asset.</param>
     /// <returns>Whether anything opened it; a host that could not says why on screen.</returns>
     /// <remarks>
@@ -109,8 +112,12 @@ public interface IWorkspace {
     /// <param name="panelId">The panel.</param>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The cause of a graph vanishing into a 320 px column was the placement and not the
-    ///         stylesheet.</b> A panel the arrangement does not name went wherever the host put new
+    ///         ⚠
+    ///         <b>
+    ///             The cause of a graph vanishing into a 320 px column was the placement and not the
+    ///             stylesheet.
+    ///         </b>
+    ///         A panel the arrangement does not name went wherever the host put new
     ///         panels; a document belongs where the viewport is, which is what every preset's
     ///         <em>centre</em> means. An arrangement already naming the panel, or with no scene panel
     ///         in it, keeps the host's own answer.
@@ -227,8 +234,12 @@ public sealed class EditorWorkspace : IWorkspace {
     /// <param name="asset">The asset it shows.</param>
     /// <returns>Whether it is an asset panel's id.</returns>
     /// <remarks>
-    ///     ⚠ <b>Beside the formatter, because a format written in one place and parsed in another is
-    ///     a format with two owners.</b> The parse is the half a saved layout depends on, and it was
+    ///     ⚠
+    ///     <b>
+    ///         Beside the formatter, because a format written in one place and parsed in another is
+    ///         a format with two owners.
+    ///     </b>
+    ///     The parse is the half a saved layout depends on, and it was
     ///     the half that could drift silently: a mismatch does not fail, it just never restores a
     ///     document.
     /// </remarks>
@@ -454,13 +465,20 @@ public sealed class EditorWorkspace : IWorkspace {
         try {
             Store.Write(EditorUserStore.RecentDocumentsFile, string.Join('\n', list.Locations));
         } catch (Exception exception) when (exception is IOException or UnauthorizedAccessException) {
-            Shell.Notifications.Show("Could not keep the recent documents", NotificationSeverity.Warning, exception.Message);
+            Shell.Notifications.Show(
+                "Could not keep the recent documents",
+                NotificationSeverity.Warning,
+                exception.Message
+            );
         }
     }
 
-    EditorShell Shell => shell ?? throw new InvalidOperationException("This workspace has no shell: it was built as a view list only.");
+    EditorShell Shell =>
+        shell ?? throw new InvalidOperationException("This workspace has no shell: it was built as a view list only.");
 
-    EditorUserStore Store => store ?? throw new InvalidOperationException("This workspace has no user store: it was built as a view list only.");
+    EditorUserStore Store =>
+        store
+        ?? throw new InvalidOperationException("This workspace has no user store: it was built as a view list only.");
 
     sealed class Removal(EditorWorkspace workspace, DocumentView view) : IDisposable {
         bool done;

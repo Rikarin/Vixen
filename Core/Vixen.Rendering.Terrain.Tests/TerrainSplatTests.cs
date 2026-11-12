@@ -13,8 +13,12 @@ public sealed class TerrainSplatTests {
     static TerrainMap Built(params TerrainLayerDescription[] layers) {
         var terrain = new TerrainMap(
             TerrainDescription.Default with {
-                TileSamples = 32, TilesX = 2, TilesZ = 2,
-                MetresPerQuad = 1f, MinHeight = -100f, MaxHeight = 100f
+                TileSamples = 32,
+                TilesX = 2,
+                TilesZ = 2,
+                MetresPerQuad = 1f,
+                MinHeight = -100f,
+                MaxHeight = 100f
             }
         );
 
@@ -65,11 +69,12 @@ public sealed class TerrainSplatTests {
 
         var height = TerrainSplat.Of(
             Built(
-                TerrainLayerDescription.Of("Grass"),
-                TerrainLayerDescription.Of("Rock") with {
-                    Blend = TerrainLayerBlend.Height, Surface = "Textures/rock-orm"
-                }
-            ).Weights
+                    TerrainLayerDescription.Of("Grass"),
+                    TerrainLayerDescription.Of("Rock") with {
+                        Blend = TerrainLayerBlend.Height, Surface = "Textures/rock-orm"
+                    }
+                )
+                .Weights
         );
 
         Assert.True(height.HeightBlend);
@@ -199,7 +204,7 @@ public sealed class TerrainSplatTests {
             2,
             TerrainBrush.Default with { Radius = 6f, Strength = 1f, Falloff = 0f },
             new(new(10f, 10f)),
-            amount: 255
+            255
         );
 
         var rect = new TerrainRect(8, 8, 5, 5);
@@ -208,7 +213,7 @@ public sealed class TerrainSplatTests {
         Assert.Equal(texels.Length, TerrainSplat.Pack(terrain.Weights, 0, rect, texels));
 
         // Sample (10, 10) is the third row and column of the rectangle; layer 2 is the blue channel.
-        var at = (((10 - 8) * 5) + (10 - 8)) * 4;
+        var at = ((10 - 8) * 5 + (10 - 8)) * 4;
 
         Assert.Equal(terrain.Weights.WeightAt(0, 10, 10), texels[at]);
         Assert.Equal(terrain.Weights.WeightAt(2, 10, 10), texels[at + 2]);
@@ -231,8 +236,8 @@ public sealed class TerrainSplatTests {
         TerrainSplat.Pack(terrain.Weights, 0, rect, texels);
 
         for (var texel = 0; texel < rect.Count; texel++) {
-            Assert.Equal(0, texels[(texel * 4) + 2]);
-            Assert.Equal(0, texels[(texel * 4) + 3]);
+            Assert.Equal(0, texels[texel * 4 + 2]);
+            Assert.Equal(0, texels[texel * 4 + 3]);
         }
     }
 
@@ -243,17 +248,15 @@ public sealed class TerrainSplatTests {
         var texels = new byte[rect.Count * 4];
 
         Array.Fill(texels, (byte)0xFF);
-        TerrainSplat.Pack(terrain.Weights, map: 3, rect, texels);
+        TerrainSplat.Pack(terrain.Weights, 3, rect, texels);
 
-        Assert.All(texels, texel => Assert.Equal(0, texel));
+        Assert.All(texels, static texel => Assert.Equal(0, texel));
     }
 
     [Fact]
     public void Too_little_room_to_pack_is_refused() {
         var terrain = Built(TerrainLayerDescription.Of("A"));
 
-        Assert.Throws<ArgumentException>(
-            () => TerrainSplat.Pack(terrain.Weights, 0, new(0, 0, 4, 4), new byte[8])
-        );
+        Assert.Throws<ArgumentException>(() => TerrainSplat.Pack(terrain.Weights, 0, new(0, 0, 4, 4), new byte[8]));
     }
 }

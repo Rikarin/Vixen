@@ -13,8 +13,11 @@ namespace Vixen.Rendering.Water;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>[35 § Part 2 § Debugging](../../docs/plan/35-water.md#debugging), and the half that was
-///         owed.</b> <c>stat water</c> and <c>stat watermesh</c> needed only numbers somebody already
+///         <b>
+///             [35 § Part 2 § Debugging](../../docs/plan/35-water.md#debugging), and the half that was
+///             owed.
+///         </b>
+///         <c>stat water</c> and <c>stat watermesh</c> needed only numbers somebody already
 ///         publishes and shipped with the mode; these needed lines, and water had no seam into a
 ///         viewport line pass. It turns out it did not need one — <see cref="DebugDraw" /> is exactly
 ///         that seam, and it is the accumulator rather than the renderer, so this assembly draws into
@@ -119,8 +122,12 @@ public sealed class WaterDebugDraw {
     /// <summary>`water.showTiles` and `water.showLod`: the patches a frame drew, and their bands.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Coloured by body kind, which is what the doc's table asks for and is the reason
-    ///         the overlay is worth having.</b> A patch is a rectangle over the field, and what is
+    ///         ⚠
+    ///         <b>
+    ///             Coloured by body kind, which is what the doc's table asks for and is the reason
+    ///             the overlay is worth having.
+    ///         </b>
+    ///         A patch is a rectangle over the field, and what is
     ///         under it — a river, a lake, the far skirt over nothing at all — is the thing you cannot
     ///         see from the wireframe. The kind is the highest-priority body whose boundary contains
     ///         the patch's centre; a patch over open water outside every body is the skirt's colour.
@@ -156,8 +163,12 @@ public sealed class WaterDebugDraw {
     /// <param name="farCount">How many of them are the skirt's.</param>
     /// <exception cref="ArgumentNullException">Any reference argument is null.</exception>
     /// <remarks>
-    ///     ⚠ <b>Public and taking the patches rather than reading them off a renderer, so it is
-    ///     testable without a device.</b> The colour rule is the part with a decision in it — highest
+    ///     ⚠
+    ///     <b>
+    ///         Public and taking the patches rather than reading them off a renderer, so it is
+    ///         testable without a device.
+    ///     </b>
+    ///     The colour rule is the part with a decision in it — highest
     ///     priority wins, skirt is its own colour — and a device fixture is the wrong instrument for
     ///     checking a decision. It also lets a tool draw a selection it produced itself.
     /// </remarks>
@@ -173,7 +184,7 @@ public sealed class WaterDebugDraw {
         ArgumentNullException.ThrowIfNull(mesh);
 
         for (var index = 0; index < selected.Length; index++) {
-            Tile(into, mesh, state, in selected[index], skirt: index < farCount);
+            Tile(into, mesh, state, in selected[index], index < farCount);
         }
     }
 
@@ -191,7 +202,12 @@ public sealed class WaterDebugDraw {
         );
 
         // The level as a label, at the patch's centre — which is the number a pop is diagnosed from.
-        into.Text(new(centre.X, height + Lift, centre.Y), node.Level.ToString(), colour, 0.35f * (high.X - low.X) * 0.05f);
+        into.Text(
+            new(centre.X, height + Lift, centre.Y),
+            node.Level.ToString(),
+            colour,
+            0.35f * (high.X - low.X) * 0.05f
+        );
     }
 
     /// <summary>Draws the morph bands as rings about a point — where a pop is diagnosed.</summary>
@@ -287,7 +303,7 @@ public sealed class WaterDebugDraw {
 
             into.Arrow(
                 point + new Vector3(0f, Lift, 0f),
-                point + new Vector3(0f, Lift, 0f) + (forward * profile.Velocity * FlowScale),
+                point + new Vector3(0f, Lift, 0f) + forward * profile.Velocity * FlowScale,
                 SplineColour
             );
         }
@@ -296,8 +312,12 @@ public sealed class WaterDebugDraw {
     /// <summary>`water.showInfo`: the field's four channels, charted separately.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Four rows and not one image, which is what "individually" in the doc's table
-    ///         means.</b> The channels have different units — two heights, a two-component velocity
+    ///         ⚠
+    ///         <b>
+    ///             Four rows and not one image, which is what "individually" in the doc's table
+    ///             means.
+    ///         </b>
+    ///         The channels have different units — two heights, a two-component velocity
     ///         and a coverage — and packing them into an RGBA preview makes a picture whose colours
     ///         are the answer to no question anybody asked. A row per channel, normalised over what is
     ///         actually in the window, is readable.
@@ -349,7 +369,7 @@ public sealed class WaterDebugDraw {
                         top + new Vector2(x * cell.X, 0f),
                         cell,
                         new(colour.R * level, colour.G * level, colour.B * level, 1f),
-                        spacing: 3f
+                        3f
                     );
                 }
 
@@ -399,8 +419,12 @@ public sealed class WaterDebugDraw {
     ///         used and therefore the same answer.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b><see cref="WaterBody.Sample" /> and not <see cref="WaterBody.Contains" />, and
-    ///         the difference is the whole overlay.</b> <c>Contains</c> is an even-odd test on a
+    ///         ⚠
+    ///         <b>
+    ///             <see cref="WaterBody.Sample" /> and not <see cref="WaterBody.Contains" />, and
+    ///             the difference is the whole overlay.
+    ///         </b>
+    ///         <c>Contains</c> is an even-odd test on a
     ///         closed boundary and answers <see langword="false" /> for <em>every</em> open body — so
     ///         a rule written on it colours every river as the skirt, which is precisely the case the
     ///         verb exists for. The contribution is the function the field itself was rasterised from,

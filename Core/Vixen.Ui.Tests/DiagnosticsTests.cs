@@ -91,9 +91,9 @@ public class DiagnosticsTests {
         var regions = document.Diagnostics.DirtyRegions.ToArray();
 
         Assert.Equal(3, document.Diagnostics.RegionsRecorded);
-        Assert.Contains(regions, region => region.Kind == UiInvalidationKind.Class);
-        Assert.Contains(regions, region => region.Kind == UiInvalidationKind.Inline);
-        Assert.Contains(regions, region => region.Kind == UiInvalidationKind.State);
+        Assert.Contains(regions, static region => region.Kind == UiInvalidationKind.Class);
+        Assert.Contains(regions, static region => region.Kind == UiInvalidationKind.Inline);
+        Assert.Contains(regions, static region => region.Kind == UiInvalidationKind.State);
 
         // ⚠ The box as it was, which is the region that has to be repainted — and it is a real box
         // rather than the zero an unlaid-out element would report.

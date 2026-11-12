@@ -71,11 +71,11 @@ public class ReconstructedScreenSurfaceTests {
 
         surface.Normals.Fill(new(0f, 1f, 0f, 0f));
 
-        foreach (var (pixel, deviceDepth) in (ReadOnlySpan<(Int2, float)>)[
-            (new Int2(5, 7), 0.9f),
-            (new Int2(16, 16), 0.5f),
-            (new Int2(30, 2), 0.05f)
-        ]) {
+        foreach (var (pixel, deviceDepth) in (ReadOnlySpan<(Int2, float)>) [
+                     (new Int2(5, 7), 0.9f),
+                     (new Int2(16, 16), 0.5f),
+                     (new Int2(30, 2), 0.05f)
+                 ]) {
             surface.Depth.Fill(deviceDepth);
 
             Assert.True(surface.TrySurface(pixel, out var position, out _));
@@ -87,7 +87,7 @@ public class ReconstructedScreenSurfaceTests {
             var ndc = new Vector3(clip.X, clip.Y, clip.Z) / clip.W;
             // `Transform.NdcToUv` by hand, negation included — the forward half of the round trip
             // has to be the same mapping as the reverse or the conventions cannot cancel.
-            var uv = (new Vector2(ndc.X, -ndc.Y) * 0.5f) + new Vector2(0.5f, 0.5f);
+            var uv = new Vector2(ndc.X, -ndc.Y) * 0.5f + new Vector2(0.5f, 0.5f);
 
             Assert.Equal(pixel.X + 0.5f, uv.X * 32f, 1e-2f);
             Assert.Equal(pixel.Y + 0.5f, uv.Y * 32f, 1e-2f);
@@ -107,7 +107,7 @@ public class ReconstructedScreenSurfaceTests {
         // And only the written half stops being sky.
         for (var y = 0; y < 8; y++) {
             for (var x = 4; x < 8; x++) {
-                surface.Depth[(y * 8) + x] = 0.5f;
+                surface.Depth[y * 8 + x] = 0.5f;
             }
         }
 
@@ -142,7 +142,7 @@ public class ReconstructedScreenSurfaceTests {
 
         for (var y = 0; y < 32; y++) {
             for (var x = 32; x < 64; x++) {
-                surface.Depth[(y * 64) + x] = 0.5f;
+                surface.Depth[y * 64 + x] = 0.5f;
             }
         }
 

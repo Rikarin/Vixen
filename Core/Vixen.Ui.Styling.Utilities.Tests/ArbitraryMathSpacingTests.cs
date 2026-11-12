@@ -9,8 +9,12 @@ namespace Vixen.Ui.Styling.Utilities.Tests;
 /// <summary>An arbitrary value's math functions get the operator spacing a class name cannot hold (#1467).</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>CSS Values 4 requires whitespace around <c>+</c> and <c>-</c> in <c>calc()</c>, and a
-///         class attribute cannot contain whitespace</b>, so Tailwind v4's arbitrary-value decoder
+///         ⚠
+///         <b>
+///             CSS Values 4 requires whitespace around <c>+</c> and <c>-</c> in <c>calc()</c>, and a
+///             class attribute cannot contain whitespace
+///         </b>
+///         , so Tailwind v4's arbitrary-value decoder
 ///         puts it back: <c>mt-[calc(1px+2px)]</c> emits <c>calc(1px + 2px)</c>. Vixen emitted the
 ///         value verbatim, <c>StyleValueParser</c> rightly refused <c>calc(1px+2px)</c>, and the class
 ///         resolved, emitted and computed to nothing.
@@ -85,7 +89,7 @@ public class ArbitraryMathSpacingTests {
         var computed = fixture.Computed([candidate], "margin-top");
         Assert.NotNull(computed);
 
-        var value = new StyleValueParser(new NameTable(), new NameTable()).Parse(computed);
+        var value = new StyleValueParser(new(), new()).Parse(computed);
 
         Assert.Equal(StyleValueKind.Length, value.Kind);
         Assert.Equal(StyleUnit.Pixels, value.Unit);

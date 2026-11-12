@@ -28,19 +28,31 @@ public readonly record struct AssetOperation(bool Ok, string? Message) {
 /// <summary>Renaming, moving and deleting a file the project knows about.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>"Rename with reference fixup" is not a rewrite here, and understanding why is the
-///         whole of this file.</b> Doc 08 chose a GUID in a prefixed scalar over a path, and doc 20
+///         ⚠
+///         <b>
+///             "Rename with reference fixup" is not a rewrite here, and understanding why is the
+///             whole of this file.
+///         </b>
+///         Doc 08 chose a GUID in a prefixed scalar over a path, and doc 20
 ///         calls a naive rename "the fastest way to corrupt a project" — both are true, and together
 ///         they say that the referrers need <i>nothing</i> done to them. A scene points at
 ///         <c>vx:9e8a44c9…</c>, the GUID lives in the sidecar, and the sidecar travels with the file.
-///         The corruption a naive implementation causes is not a stale path: it is <b>leaving the
-///         <c>.meta</c> behind</b>, at which point the next scan finds an asset with no identity,
+///         The corruption a naive implementation causes is not a stale path: it is
+///         <b>
+///             leaving the
+///             <c>.meta</c> behind
+///         </b>
+///         , at which point the next scan finds an asset with no identity,
 ///         mints a new one, and every reference in the project is dangling with nothing having
 ///         reported an error.
 ///     </para>
 ///     <para>
-///         So the invariant is one sentence — <b>the sidecar moves with the asset, atomically enough
-///         that a failure leaves neither moved</b> — and every method here is that sentence plus the
+///         So the invariant is one sentence —
+///         <b>
+///             the sidecar moves with the asset, atomically enough
+///             that a failure leaves neither moved
+///         </b>
+///         — and every method here is that sentence plus the
 ///         bookkeeping to make the database agree afterwards.
 ///     </para>
 ///     <para>
@@ -122,8 +134,12 @@ public static class AssetOperations {
     /// <param name="asset">Which asset.</param>
     /// <returns>What happened.</returns>
     /// <remarks>
-    ///     ⚠ <b>The sidecar goes too, and a delete that left one behind is worse than one that left
-    ///     the asset.</b> An orphaned <c>.meta</c> is quarantined by the next scan — see
+    ///     ⚠
+    ///     <b>
+    ///         The sidecar goes too, and a delete that left one behind is worse than one that left
+    ///         the asset.
+    ///     </b>
+    ///     An orphaned <c>.meta</c> is quarantined by the next scan — see
     ///     <c>AssetDatabase.Quarantine</c> — which is a repair the user did not ask for appearing in
     ///     their working tree.
     /// </remarks>
@@ -142,7 +158,7 @@ public static class AssetOperations {
             Announce(project, path, entry.IsFolder);
 
             if (entry.IsFolder) {
-                Directory.Delete(path, recursive: true);
+                Directory.Delete(path, true);
             } else if (File.Exists(path)) {
                 File.Delete(path);
             }
@@ -227,7 +243,7 @@ public static class AssetOperations {
         ArgumentNullException.ThrowIfNull(project);
         ArgumentNullException.ThrowIfNull(assets);
 
-        HashSet<AssetId> going = [.. assets];
+        HashSet<AssetId> going = [..assets];
         SortedSet<string> broken = new(StringComparer.Ordinal);
 
         foreach (var asset in assets) {
@@ -238,13 +254,17 @@ public static class AssetOperations {
             }
         }
 
-        return [.. broken];
+        return [..broken];
     }
 
     /// <summary>Moves an asset and the sidecar that carries its identity, together.</summary>
     /// <remarks>
-    ///     ⚠ <b>The sidecar is moved <i>after</i> the asset and its failure is reported as a
-    ///     failure.</b> The asset arriving without it is the one state that loses an identity, so a
+    ///     ⚠
+    ///     <b>
+    ///         The sidecar is moved <i>after</i> the asset and its failure is reported as a
+    ///         failure.
+    ///     </b>
+    ///     The asset arriving without it is the one state that loses an identity, so a
     ///     silent catch here would be exactly the corruption this file exists to prevent. Moving the
     ///     sidecar first would be worse: a failure then leaves the identity pointing at nothing.
     /// </remarks>
@@ -303,7 +323,10 @@ public static class AssetOperations {
         return AssetOperation.Done;
     }
 
-    /// <summary>Tells a watcher over <c>Assets/</c> that a file — or a folder and all of it — is about to go, with its sidecar.</summary>
+    /// <summary>
+    ///     Tells a watcher over <c>Assets/</c> that a file — or a folder and all of it — is about to go, with its
+    ///     sidecar.
+    /// </summary>
     static void Announce(EditorProject project, string path, bool isFolder) {
         project.Assets.WillWrite(path);
         project.Assets.WillWrite(AssetMetaFile.PathFor(path));
@@ -343,8 +366,7 @@ public static class AssetOperations {
         project.References.Build(project.Assets);
     }
 
-    static string Combine(string folder, string name) =>
-        string.IsNullOrEmpty(folder) ? name : folder + "/" + name;
+    static string Combine(string folder, string name) => string.IsNullOrEmpty(folder) ? name : folder + "/" + name;
 
     /// <summary>A name that is free, by adding a number until it is.</summary>
     static string Unique(EditorProject project, string folder, string name) {

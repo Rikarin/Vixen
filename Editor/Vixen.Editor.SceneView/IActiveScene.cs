@@ -27,8 +27,11 @@ public interface IActiveScene {
 /// <summary>Which eye the editor is looking through right now.</summary>
 /// <remarks>
 ///     <para>
-///         <b><see cref="IActiveScene" />'s companion, and it exists for one reason: a camera
-///         position is an input to rendering questions, not decoration.</b> Doc 39's resolved volume
+///         <b>
+///             <see cref="IActiveScene" />'s companion, and it exists for one reason: a camera
+///             position is an input to rendering questions, not decoration.
+///         </b>
+///         Doc 39's resolved volume
 ///         stack is per camera because <c>PostProcessVolumeSystem</c> weighs every volume by how far
 ///         the camera is from it — so a panel answering "why does it look like this" has to be able
 ///         to say which eye it answered for, and to move when the user flies somewhere else.

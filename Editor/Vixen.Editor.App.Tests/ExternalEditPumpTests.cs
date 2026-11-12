@@ -5,7 +5,6 @@ using System.Diagnostics;
 using Vixen.Editor.AssetEditors.Frame;
 using Vixen.Editor.Core;
 using Vixen.Editor.Testing;
-using Vixen.Rendering.Compositor;
 using Vixen.Rendering.PostFx;
 using Xunit;
 
@@ -51,26 +50,26 @@ public sealed class ExternalEditPumpTests : IDisposable {
     }
 
     const string Knobs = """
-        version: 2
-        game: !StandardFrame
-          quality: High
-          shadows: Cascades
-          look: !Look
-            settings:
-              ev100: 13
+                         version: 2
+                         game: !StandardFrame
+                           quality: High
+                           shadows: Cascades
+                           look: !Look
+                             settings:
+                               ev100: 13
 
-        """;
+                         """;
 
     const string Changed = """
-        version: 2
-        game: !StandardFrame
-          quality: Low
-          shadows: Off
-          look: !Look
-            settings:
-              ev100: 7
+                           version: 2
+                           game: !StandardFrame
+                             quality: Low
+                             shadows: Off
+                             look: !Look
+                               settings:
+                                 ev100: 7
 
-        """;
+                           """;
 
     /// <summary>An editor with a frame document open, and the path of its file.</summary>
     (EditorSession Session, StandardFrameDocument Document, string Path) Editing() {
@@ -123,7 +122,7 @@ public sealed class ExternalEditPumpTests : IDisposable {
     ///     wait on it would burn the whole budget every time. Four debounce windows is the number
     ///     that makes the answer the same on every machine.
     /// </remarks>
-    static void Quieten(EditorSession session) => Pump(session, () => false, TimeSpan.FromSeconds(1));
+    static void Quieten(EditorSession session) => Pump(session, static () => false, TimeSpan.FromSeconds(1));
 
     /// <summary>
     ///     ⚠ <b>The defect this was filed for.</b> Before it, a <c>.vxcompositor</c> saved by a text
@@ -160,7 +159,7 @@ public sealed class ExternalEditPumpTests : IDisposable {
         Assert.True(document.Apply());
 
         // What an inspector's write leaves behind, which is what makes the document dirty.
-        document.Stack.Execute(new DelegateCommand("Turn a knob", _ => { }, _ => { }));
+        document.Stack.Execute(new DelegateCommand("Turn a knob", static _ => { }, static _ => { }));
 
         Assert.True(document.IsDirty.Value);
 
@@ -179,7 +178,7 @@ public sealed class ExternalEditPumpTests : IDisposable {
         // And it is said out loud rather than only flagged.
         Assert.Contains(
             session.Shell.Notifications.History,
-            entry => entry.Message.Contains("changed on disk", StringComparison.Ordinal)
+            static entry => entry.Message.Contains("changed on disk", StringComparison.Ordinal)
         );
     }
 
@@ -232,7 +231,7 @@ public sealed class ExternalEditPumpTests : IDisposable {
     public void A_save_while_a_write_to_the_same_file_is_still_settling_keeps_the_history() {
         var (session, document, path) = Editing();
 
-        document.Stack.Execute(new DelegateCommand("Turn a knob", _ => { }, _ => { }));
+        document.Stack.Execute(new DelegateCommand("Turn a knob", static _ => { }, static _ => { }));
 
         Assert.Equal(1, document.Stack.Depth.Value);
 
@@ -265,7 +264,7 @@ public sealed class ExternalEditPumpTests : IDisposable {
     public void The_window_title_says_a_kept_document_changed_on_disk() {
         var (session, document, path) = Editing();
 
-        document.Stack.Execute(new DelegateCommand("Turn a knob", _ => { }, _ => { }));
+        document.Stack.Execute(new DelegateCommand("Turn a knob", static _ => { }, static _ => { }));
         session.Frames(1);
 
         var name = document.Title.Peek();
@@ -295,7 +294,7 @@ public sealed class ExternalEditPumpTests : IDisposable {
 
         Assert.True(document.Apply());
 
-        document.Stack.Execute(new DelegateCommand("Turn a knob", _ => { }, _ => { }));
+        document.Stack.Execute(new DelegateCommand("Turn a knob", static _ => { }, static _ => { }));
 
         File.WriteAllText(path, Changed);
 

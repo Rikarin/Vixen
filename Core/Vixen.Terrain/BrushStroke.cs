@@ -91,7 +91,7 @@ public sealed class BrushStroke {
         // between two pointer events as well as within one.
         while (travelled + step <= length) {
             travelled += step;
-            Append(previous + (direction * travelled), Angle(direction), stamps);
+            Append(previous + direction * travelled, Angle(direction), stamps);
         }
 
         carried = length - travelled;
@@ -133,6 +133,6 @@ public sealed class BrushStroke {
         hash *= 0x846CA68Bu;
         hash ^= hash >> 16;
 
-        return (hash / (float)uint.MaxValue) * MathF.Tau;
+        return hash / (float)uint.MaxValue * MathF.Tau;
     }
 }

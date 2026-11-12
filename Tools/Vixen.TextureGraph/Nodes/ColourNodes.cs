@@ -8,8 +8,12 @@ namespace Vixen.TextureGraph.Nodes;
 
 /// <summary>Hue rotation, saturation and lightness.</summary>
 /// <remarks>
-///     ⚠ <b>Its hue is in turns and its lightness is signed, and neither is what a colour picker
-///     shows.</b> <c>Hsl.rvn</c> takes <c>hue</c> as a fraction of the circle, <c>saturation</c> as a
+///     ⚠
+///     <b>
+///         Its hue is in turns and its lightness is signed, and neither is what a colour picker
+///         shows.
+///     </b>
+///     <c>Hsl.rvn</c> takes <c>hue</c> as a fraction of the circle, <c>saturation</c> as a
 ///     multiplier about 1 and <c>lightness</c> as an offset about 0 — so the identity is
 ///     <c>(0, 1, 0)</c> and not <c>(0, 0.5, 0.5)</c>. A node that centred them on a half would be the
 ///     one place in this library where an artist's number and the plan's differ, and the picture
@@ -81,8 +85,12 @@ sealed partial class HslNode : TextureNode {
 ///     </para>
 ///     <para>
 ///         <b>The weights are Rec. 709's and the kernel normalises them by default</b>, so a triple of
-///         ones is a plain mean rather than a treble-bright image. ⚠ <b>By <em>default</em>, since
-///         <a href="https://github.com/Rikarin/Vixen/issues/1100">#1100</a>.</b> The ratio rule made a
+///         ones is a plain mean rather than a treble-bright image. ⚠
+///         <b>
+///             By <em>default</em>, since
+///             <a href="https://github.com/Rikarin/Vixen/issues/1100">#1100</a>.
+///         </b>
+///         The ratio rule made a
 ///         channel <em>difference</em> unauthorable and said nothing about it: (−1, 1, 0) sums to
 ///         zero, so the kernel took its Rec. 709 fallback and drew a completely different picture from
 ///         a triple nothing could call invalid. <see cref="Normalise" /> is how an author asks for the
@@ -167,7 +175,7 @@ sealed partial class GrayscaleNode : TextureNode {
             emitter.Report(
                 TextureDiagnostics.WeightsFoldToNothing,
                 $"The weights ({red}, {green}, {blue}) sum to {total}, which is a hundredth of the "
-                + $"largest of them, so normalising divides by it and scales the picture by about "
+                + "largest of them, so normalising divides by it and scales the picture by about "
                 + $"{MathF.Round(largest / MathF.Abs(total))}×. A weight set that nearly cancels is "
                 + "a difference between channels: turn 'Normalise' off to ask for one.",
                 "Normalise",
@@ -193,8 +201,12 @@ sealed partial class GrayscaleNode : TextureNode {
 
 /// <summary>Per-channel inversion.</summary>
 /// <remarks>
-///     ⚠ <b>Alpha is off by default and the three colour channels are on, which is the kernel's own
-///     default and worth keeping.</b> An inversion that flipped alpha would turn every opaque image
+///     ⚠
+///     <b>
+///         Alpha is off by default and the three colour channels are on, which is the kernel's own
+///         default and worth keeping.
+///     </b>
+///     An inversion that flipped alpha would turn every opaque image
 ///     transparent, and "invert" almost never means that — but it is exactly what a node defaulting
 ///     every flag to the same value would do.
 /// </remarks>
@@ -266,8 +278,12 @@ sealed partial class InvertNode : TextureNode {
 ///         thing it produces is not a function of what it read.
 ///     </para>
 ///     <para>
-///         ⚠ <b>A grey image's green is zero here, and the same grey blended beside a colour has a
-///         green equal to its grey.</b> That is not this node's decision and it cannot be made here:
+///         ⚠
+///         <b>
+///             A grey image's green is zero here, and the same grey blended beside a colour has a
+///             green equal to its grey.
+///         </b>
+///         That is not this node's decision and it cannot be made here:
 ///         when both inputs are single-channel the node resolves to grey and the kernel reads an
 ///         <c>R16Float</c> view, whose G and B read 0 and whose A reads 1; when anything colour
 ///         arrives at the same node, <c>TextureGraphCompiler.Read</c> splats the grey into all three
@@ -276,7 +292,11 @@ sealed partial class InvertNode : TextureNode {
 ///         which case it is in.
 ///     </para>
 /// </remarks>
-[Node("Colour/Channel Shuffle", Preview = true, Summary = "Each output channel taken from a channel of one of two inputs.")]
+[Node(
+    "Colour/Channel Shuffle",
+    Preview = true,
+    Summary = "Each output channel taken from a channel of one of two inputs."
+)]
 sealed partial class ChannelShuffleNode : TextureNode {
     /// <summary>Where red comes from. One of <see cref="TextureChannelSource" />'s ten names.</summary>
     [Setting(Name = "Red From", AcceptedFrom = typeof(TextureChannelSource))]
@@ -364,7 +384,7 @@ sealed partial class ChannelShuffleNode : TextureNode {
 sealed partial class CurveNode : TextureNode {
     /// <summary>The curve asset the table is baked from, or empty for the identity.</summary>
     [Setting(Name = "Curve", Summary = "The curve asset a host resolves. Empty is the identity.")]
-    public string CurveAsset = "";
+    public string CurveAsset = string.Empty;
 
     /// <summary>What to shape.</summary>
     [Input(Name = "Input")]
@@ -427,7 +447,7 @@ sealed partial class CurveNode : TextureNode {
 sealed partial class GradientMapNode : TextureNode {
     /// <summary>The gradient asset the ramp is baked from, or empty for black to white.</summary>
     [Setting(Name = "Ramp", Summary = "The gradient asset a host resolves. Empty is black to white.")]
-    public string RampAsset = "";
+    public string RampAsset = string.Empty;
 
     /// <summary>What to map. A single channel — put a Grayscale in front of a colour.</summary>
     [Input(Name = "Input")]
@@ -477,23 +497,37 @@ sealed partial class GradientMapNode : TextureNode {
 /// <summary>The image stretched onto the full range by its own extremes.</summary>
 /// <remarks>
 ///     <para>
-///         <b>The one node in the catalogue that is a <em>chain</em> whose length depends on the bake
-///         resolution and the size of the image it reads.</b> Finding the extremes of every texel is
+///         <b>
+///             The one node in the catalogue that is a <em>chain</em> whose length depends on the bake
+///             resolution and the size of the image it reads.
+///         </b>
+///         Finding the extremes of every texel is
 ///         a reduction — one <c>MinMaxReduce</c> dispatch per rung down to a 1×1 image, because a
 ///         4K image does not reduce to one texel in one dispatch without a loop no invocation leaves
 ///         — and <see cref="TextureAdjust.AutoLevels" /> is what emits the ladder so that a call site
 ///         cannot be two dispatches short at 4K.
 ///     </para>
 ///     <para>
-///         ⚠ <b>It could not be a node until <a href="https://github.com/Rikarin/Vixen/issues/733">
-///         #733</a>, and the reason is one number.</b> Every rung is an image at a level offset —
+///         ⚠
+///         <b>
+///             It could not be a node until
+///             <a href="https://github.com/Rikarin/Vixen/issues/733">
+///                 #733
+///             </a>
+///             , and the reason is one number.
+///         </b>
+///         Every rung is an image at a level offset —
 ///         3, 6, 9 down from its source — and a node had no way to ask for one: every image any node
 ///         allocated was at the plan's base level, and a reduction whose target is the same size as
 ///         its source has a block of one texel and never converges.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The ladder is measured from the image this node <em>reads</em>, not from the graph's
-///         base.</b> Auto Levels after a half-resolution Resample reduces a half-resolution image, and
+///         ⚠
+///         <b>
+///             The ladder is measured from the image this node <em>reads</em>, not from the graph's
+///             base.
+///         </b>
+///         Auto Levels after a half-resolution Resample reduces a half-resolution image, and
 ///         a ladder counted from the base would start three levels below where its source is — the
 ///         reduction would then read an 8×8 block of an image that is not there and settle on the
 ///         extremes of a corner. <see cref="TextureEmitter.LevelOf" /> is what makes it relative.
@@ -538,8 +572,10 @@ sealed partial class AutoLevelsNode : TextureNode {
 /// <summary>A named metal's normal-incidence reflectance, as a constant image.</summary>
 /// <remarks>
 ///     <para>
-///         <b>Doc 48 § 4.9's Surface row <c>Metal Reflectance ●</c>, "a named-metal lookup", and the
-///         atom under the compound of that name.</b>
+///         <b>
+///             Doc 48 § 4.9's Surface row <c>Metal Reflectance ●</c>, "a named-metal lookup", and the
+///             atom under the compound of that name.
+///         </b>
 ///         <a href="https://github.com/Rikarin/Vixen/issues/1060">#1060</a> called that row the first
 ///         § 4.9 entry that could not be authored at all, because a compound could not expose a name;
 ///         <a href="https://github.com/Rikarin/Vixen/issues/1096">#1096</a> is the finding that when
@@ -555,8 +591,12 @@ sealed partial class AutoLevelsNode : TextureNode {
 ///         content of this node — would be gone.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Here rather than under <c>Surface/</c>, and that is a collision rather than a
-///         taxonomy.</b> A published compound and a node class share one path namespace, and § 4.9's
+///         ⚠
+///         <b>
+///             Here rather than under <c>Surface/</c>, and that is a collision rather than a
+///             taxonomy.
+///         </b>
+///         A published compound and a node class share one path namespace, and § 4.9's
 ///         row wants <c>Surface/Metal Reflectance</c> for the compound: naming the atom that too is
 ///         refused by <c>TextureCompoundLibrary</c> with "Two different node types claim the path" —
 ///         measured, not predicted. It is the arrangement <c>Placement/Tile Sampler</c> already has

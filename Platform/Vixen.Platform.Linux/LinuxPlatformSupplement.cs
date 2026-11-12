@@ -28,8 +28,7 @@ public sealed class LinuxPlatformSupplement : IPlatformSupplement {
     /// <inheritdoc />
     public PlatformServices Augment(in PlatformServices baseline) {
         var services = baseline with {
-            Power = new LinuxPowerInfo(baseline.Power),
-            Processors = new LinuxProcessorTopology()
+            Power = new LinuxPowerInfo(baseline.Power), Processors = new LinuxProcessorTopology()
         };
 
         if (LinuxClipboard.IsAvailable) {

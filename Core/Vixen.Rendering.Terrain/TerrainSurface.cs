@@ -4,10 +4,10 @@
 using Vixen.Core.Mathematics;
 using Vixen.Foliage;
 using Vixen.Terrain;
-
 using TerrainMap = Vixen.Terrain.Terrain;
 
 namespace Vixen.Rendering.Terrain;
+
 /// <summary>
 ///     A heightfield answering the question a scatter asks.
 /// </summary>
@@ -20,8 +20,12 @@ namespace Vixen.Rendering.Terrain;
 ///         an assembly of its own.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Outside the terrain is <see cref="FoliageSurface.Missed" />, and the explicit bounds
-///         test is not redundant.</b> <c>TerrainPick.HeightAt</c> clamps rather than refusing, which
+///         ⚠
+///         <b>
+///             Outside the terrain is <see cref="FoliageSurface.Missed" />, and the explicit bounds
+///             test is not redundant.
+///         </b>
+///         <c>TerrainPick.HeightAt</c> clamps rather than refusing, which
 ///         is right for a brush that has to aim somewhere; used unguarded here it would answer for
 ///         every position in the world, so a field would stretch to the horizon at the height of the
 ///         terrain's border.
@@ -108,8 +112,12 @@ public sealed class TerrainSurface : IFoliageSurface {
 
     /// <summary>The surface normal, by central difference over one quad.</summary>
     /// <remarks>
-    ///     ⚠ <b>The world-space run is in the middle term, and leaving it out is what makes a normal
-    ///     that changes with the resolution rather than with the ground.</b> It is the same expression
+    ///     ⚠
+    ///     <b>
+    ///         The world-space run is in the middle term, and leaving it out is what makes a normal
+    ///         that changes with the resolution rather than with the ground.
+    ///     </b>
+    ///     It is the same expression
     ///     <c>Terrain.rvn</c>'s <c>Normal</c> uses, so a slope rejection here and the shading there
     ///     are reading the same surface.
     /// </remarks>

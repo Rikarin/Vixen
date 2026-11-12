@@ -12,8 +12,11 @@ namespace Vixen.Editor.Scripts.Tests;
 /// <summary>A reflected descriptor and a generated one, for the same type, compared.</summary>
 /// <remarks>
 ///     <para>
-///         <b>The thing standing between an editor script's importer and a content bug with no
-///         error.</b> A settings type moved from a project's <c>Editor/</c> folder into a plugin
+///         <b>
+///             The thing standing between an editor script's importer and a content bug with no
+///             error.
+///         </b>
+///         A settings type moved from a project's <c>Editor/</c> folder into a plugin
 ///         changes which describer produced its <c>TypeDescriptor</c> — and if the two disagree about
 ///         a name or an order, the same <c>.meta</c> reads back as a different set of values.
 ///     </para>
@@ -32,16 +35,18 @@ public class ReflectedTypeTests {
     ///     empty registry — passing or failing for a reason that has nothing to do with the describer.
     ///     It is the same fact <c>AuthoringAssembly</c> exists for, met from the other side.
     /// </remarks>
-    static ReflectedTypeTests() =>
+    static ReflectedTypeTests() {
         System.Runtime.CompilerServices.RuntimeHelpers.RunModuleConstructor(
             typeof(RawImportSettings).Module.ModuleHandle
         );
+    }
 
-    public static TheoryData<Type> Settings => new(
-        typeof(RawImportSettings),
-        typeof(TextureImportSettings),
-        typeof(ModelImportSettings)
-    );
+    public static TheoryData<Type> Settings =>
+        new(
+            typeof(RawImportSettings),
+            typeof(TextureImportSettings),
+            typeof(ModelImportSettings)
+        );
 
     [Theory]
     [MemberData(nameof(Settings))]
@@ -57,13 +62,15 @@ public class ReflectedTypeTests {
         // ⚠ Name *and* order, because YAML is written in member order and a reordering is a diff in
         // every sidecar in a project.
         Assert.Equal(
-            generated.Members.Where(member => member.IsSerialized).Select(member => (member.Name, member.Order)),
-            reflected.Members.Where(member => member.IsSerialized).Select(member => (member.Name, member.Order))
+            generated.Members.Where(static member => member.IsSerialized)
+                .Select(static member => (member.Name, member.Order)),
+            reflected.Members.Where(static member => member.IsSerialized)
+                .Select(static member => (member.Name, member.Order))
         );
 
         Assert.Equal(
-            generated.Members.Select(member => member.MemberType),
-            reflected.Members.Select(member => member.MemberType)
+            generated.Members.Select(static member => member.MemberType),
+            reflected.Members.Select(static member => member.MemberType)
         );
     }
 
@@ -80,14 +87,18 @@ public class ReflectedTypeTests {
         var reflected = ReflectedTypes.Describe(type);
 
         Assert.Equal(
-            generated.Members.Where(member => member.IsSerialized).Select(member => member.Name).Order(),
-            reflected.Members.Where(member => member.IsSerialized).Select(member => member.Name).Order()
+            generated.Members.Where(static member => member.IsSerialized).Select(static member => member.Name).Order(),
+            reflected.Members.Where(static member => member.IsSerialized).Select(static member => member.Name).Order()
         );
     }
 
     /// <summary>
-    ///     ⚠ <b>Reading and writing through the reflected descriptor has to reach the same storage the
-    ///     generated one does.</b> Two descriptors agreeing about a member's name and disagreeing
+    ///     ⚠
+    ///     <b>
+    ///         Reading and writing through the reflected descriptor has to reach the same storage the
+    ///         generated one does.
+    ///     </b>
+    ///     Two descriptors agreeing about a member's name and disagreeing
     ///     about where its value lives is the worst of both.
     /// </summary>
     [Fact]

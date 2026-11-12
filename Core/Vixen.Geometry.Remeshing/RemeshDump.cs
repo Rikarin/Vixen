@@ -30,8 +30,12 @@ public readonly record struct RemeshRegion(int Triangle, int Patch);
 /// <param name="Target">How many the density field asked for, before rounding.</param>
 /// <param name="IsFeature">Whether every one of its edges is a feature edge.</param>
 /// <remarks>
-///     ⚠ <b><see cref="Target" /> travels beside <see cref="Quads" /> because their difference is the
-///     thing the quantization is <i>for</i>.</b> docs/plan/41 § D7's cost is the squared distance
+///     ⚠
+///     <b>
+///         <see cref="Target" /> travels beside <see cref="Quads" /> because their difference is the
+///         thing the quantization is <i>for</i>.
+///     </b>
+///     docs/plan/41 § D7's cost is the squared distance
 ///     between them summed over arcs, so an arc where they are far apart is where the consistency
 ///     system had to spend — and reading the integers alone tells you what happened without telling you
 ///     what it cost.
@@ -48,27 +52,41 @@ public readonly record struct RemeshArcLabel(
 /// <summary>Each of docs/plan/41 § D1's stages as an inspectable artefact, in memory.</summary>
 /// <remarks>
 ///     <para>
-///         <b>docs/plan/41 § D1 and § R4: when a remesh looks wrong, <i>which stage</i> is the first
-///         question, and a monolith cannot answer it.</b> <see cref="RemeshReport" /> says which stage
+///         <b>
+///             docs/plan/41 § D1 and § R4: when a remesh looks wrong, <i>which stage</i> is the first
+///             question, and a monolith cannot answer it.
+///         </b>
+///         <see cref="RemeshReport" /> says which stage
 ///         was slow and which one dropped something; this says <i>what each one produced</i> — the
 ///         conditioned triangles, the field as a line set, the singularities it left, the layout as
 ///         regions and the quantization as a labelled graph.
 ///     </para>
 ///     <para>
-///         ⚠ <b>It returns the data and never writes a file, and that is a rule rather than a
-///         preference.</b> <c>Core/</c> is under the virtual-path rule: no <c>System.IO.Path</c>, no
+///         ⚠
+///         <b>
+///             It returns the data and never writes a file, and that is a rule rather than a
+///             preference.
+///         </b>
+///         <c>Core/</c> is under the virtual-path rule: no <c>System.IO.Path</c>, no
 ///         <c>File</c>. Every field here is a plain array a caller turns into an <c>.obj</c>, a
 ///         <c>.ply</c>, a gizmo batch or an editor overlay, and the format that suits an editor is not
 ///         the one that suits a bug report.
 ///     </para>
 ///     <para>
-///         ⚠ <b>It re-runs the stages rather than reaching into a remesh that already happened, and
-///         that costs what a remesh costs.</b> The alternative is a capture hook threaded through
+///         ⚠
+///         <b>
+///             It re-runs the stages rather than reaching into a remesh that already happened, and
+///             that costs what a remesh costs.
+///         </b>
+///         The alternative is a capture hook threaded through
 ///         <see cref="Remesher" />, which would put a debugging concern in the middle of the pipeline
 ///         every caller pays for. Determinism is what makes re-running legitimate: § D14's gate is that
 ///         the same input and settings give the same answer, so the artefacts captured here are the
 ///         artefacts the remesh had. It stops before extraction, because the extraction's artefact is
-///         the mesh <see cref="Remesher.Remesh(Vixen.Geometry.EditMesh, RemeshSettings, out RemeshReport, Vixen.Core.Threading.JobScheduler?)" /> already returns.
+///         the mesh
+///         <see
+///             cref="Remesher.Remesh(Vixen.Geometry.EditMesh, RemeshSettings, out RemeshReport, Vixen.Core.Threading.JobScheduler?)" />
+///         already returns.
 ///     </para>
 /// </remarks>
 /// <example>
@@ -137,14 +155,26 @@ public sealed class RemeshDump {
     public IReadOnlyList<string> Warnings { get; }
 
     /// <summary>Runs stages ① to ⑤ and keeps what each one produced.</summary>
-    /// <param name="source">The input, exactly as <see cref="Remesher.Remesh(Vixen.Geometry.EditMesh, RemeshSettings, out RemeshReport, Vixen.Core.Threading.JobScheduler?)" /> would take it.</param>
-    /// <param name="settings">The settings, exactly as <see cref="Remesher.Remesh(Vixen.Geometry.EditMesh, RemeshSettings, out RemeshReport, Vixen.Core.Threading.JobScheduler?)" /> would take them.</param>
+    /// <param name="source">
+    ///     The input, exactly as
+    ///     <see
+    ///         cref="Remesher.Remesh(Vixen.Geometry.EditMesh, RemeshSettings, out RemeshReport, Vixen.Core.Threading.JobScheduler?)" />
+    ///     would take it.
+    /// </param>
+    /// <param name="settings">
+    ///     The settings, exactly as
+    ///     <see
+    ///         cref="Remesher.Remesh(Vixen.Geometry.EditMesh, RemeshSettings, out RemeshReport, Vixen.Core.Threading.JobScheduler?)" />
+    ///     would take them.
+    /// </param>
     /// <param name="scheduler">Workers for the field solve, or <see langword="null" /> for the calling thread.</param>
     /// <returns>The artefacts. A stage that refused leaves its own empty and says so in <see cref="Warnings" />.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="source" /> or <paramref name="settings" /> is null.</exception>
     /// <remarks>
     ///     ⚠ <b>A refusal is empty artefacts and a warning, never an exception</b> — the same contract
-    ///     <see cref="Remesher.Remesh(Vixen.Geometry.EditMesh, RemeshSettings, out RemeshReport, Vixen.Core.Threading.JobScheduler?)" /> holds to, and for the same reason: the input this library
+    ///     <see
+    ///         cref="Remesher.Remesh(Vixen.Geometry.EditMesh, RemeshSettings, out RemeshReport, Vixen.Core.Threading.JobScheduler?)" />
+    ///     holds to, and for the same reason: the input this library
     ///     exists for is the input that refuses, and a debugging facility that throws on it is a
     ///     debugging facility that is unavailable exactly when it is wanted.
     /// </remarks>
@@ -159,7 +189,7 @@ public sealed class RemeshDump {
         if (mesh.TriangleCount == 0) {
             warnings.Add("Conditioning left no triangles at all.");
 
-            return new(new(), [], [], [], [], [], [.. warnings]);
+            return new(new(), [], [], [], [], [], [..warnings]);
         }
 
         var conditioned = mesh.ToEditMesh();
@@ -188,7 +218,7 @@ public sealed class RemeshDump {
             SingularityPoints(mesh, extracted),
             Regions(mesh, layout),
             Labels(mesh, layout, quantization),
-            [.. warnings]
+            [..warnings]
         );
     }
 
@@ -217,13 +247,11 @@ public sealed class RemeshDump {
 
         foreach (var polyline in features.Polylines) {
             for (var step = 0; step + 1 < polyline.Vertices.Length; step++) {
-                segments.Add(
-                    new(mesh.Positions[polyline.Vertices[step]], mesh.Positions[polyline.Vertices[step + 1]])
-                );
+                segments.Add(new(mesh.Positions[polyline.Vertices[step]], mesh.Positions[polyline.Vertices[step + 1]]));
             }
         }
 
-        return [.. segments];
+        return [..segments];
     }
 
     static RemeshSegment[] FieldCrosses(ManifoldMesh mesh, CrossField field) {
@@ -240,14 +268,14 @@ public sealed class RemeshDump {
             var origin = mesh.Positions[vertex];
             var across = Vector3.Cross(mesh.VertexNormal(vertex), direction);
 
-            segments.Add(new(origin - (arm * direction), origin + (arm * direction)));
+            segments.Add(new(origin - arm * direction, origin + arm * direction));
 
             if (across.LengthSquared() > 0f) {
-                segments.Add(new(origin - (arm * across), origin + (arm * across)));
+                segments.Add(new(origin - arm * across, origin + arm * across));
             }
         }
 
-        return [.. segments];
+        return [..segments];
     }
 
     static Vector3[] SingularityPoints(ManifoldMesh mesh, List<FieldSingularity> extracted) {

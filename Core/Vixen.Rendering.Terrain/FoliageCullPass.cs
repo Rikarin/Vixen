@@ -129,8 +129,12 @@ public struct FoliageCullViewRecord {
     /// <param name="occluders">The depth pyramid, or <see langword="default" /> for none.</param>
     /// <returns>The record.</returns>
     /// <remarks>
-    ///     ⚠ <b><see cref="BoundingFrustum.AsSpan" />'s order, and the shader's loop does not care what
-    ///     it is</b> — it tests all six. What would matter is the sign convention, which is that a
+    ///     ⚠
+    ///     <b>
+    ///         <see cref="BoundingFrustum.AsSpan" />'s order, and the shader's loop does not care what
+    ///         it is
+    ///     </b>
+    ///     — it tests all six. What would matter is the sign convention, which is that a
     ///     plane's positive side is the inside; <c>Plane.D</c> is carried through unchanged for that
     ///     reason.
     /// </remarks>
@@ -182,8 +186,12 @@ public readonly record struct FoliageOccluders(TextureViewHandle View, Matrix4x4
 ///         <see cref="InstanceCuller" /> is, and both transliterate it.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Two dispatches of one shader, because compaction needs a count before it needs a
-///         slot.</b> The first counts each level's survivors; the second recomputes every verdict and
+///         ⚠
+///         <b>
+///             Two dispatches of one shader, because compaction needs a count before it needs a
+///             slot.
+///         </b>
+///         The first counts each level's survivors; the second recomputes every verdict and
 ///         claims a slot within its level's run. That is <see cref="InstanceCuller" />'s own two-pass
 ///         shape, and it is there for the same reason: one pass cannot make each level's survivors
 ///         contiguous without knowing the earlier levels' sizes.
@@ -748,7 +756,7 @@ public sealed class FoliageCullPass : IDisposable {
             for (var level = 0; level < MaxLevels; level++) {
                 // A level the batch does not have still gets a record, so the stride is constant and
                 // the slot arithmetic is the same on both sides. Its instance count stays zero.
-                arguments[(index * MaxLevels) + level] = level < draw.Levels.Length
+                arguments[index * MaxLevels + level] = level < draw.Levels.Length
                     ? draw.Levels[level] with { InstanceCount = 0u, FirstInstance = 0u }
                     : default;
             }
@@ -847,7 +855,7 @@ public sealed class FoliageCullPass : IDisposable {
         ArgumentOutOfRangeException.ThrowIfNegative(level);
         ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(level, MaxLevels);
 
-        return (((long)batch * MaxLevels) + level) * DrawCommandBytes;
+        return ((long)batch * MaxLevels + level) * DrawCommandBytes;
     }
 
     /// <summary>Where a batch's survivors are, and how many there is room for.</summary>

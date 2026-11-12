@@ -110,22 +110,22 @@ public class ElseIfTests {
     [Fact]
     public void AChainNeedsNoTrailingElse() {
         const string source = """
-                             package A
+                              package A
 
-                             struct S {
-                                 func F(x: int): int {
-                                     var r = 0
-                                     if (x > 1) {
-                                         r = 1
-                                     } else if (x > 0) {
-                                         r = 2
-                                     }
+                              struct S {
+                                  func F(x: int): int {
+                                      var r = 0
+                                      if (x > 1) {
+                                          r = 1
+                                      } else if (x > 0) {
+                                          r = 2
+                                      }
 
-                                     return r
-                                 }
-                             }
+                                      return r
+                                  }
+                              }
 
-                             """;
+                              """;
 
         var tree = SyntaxTree.ParseText(source, path: "Test.rvn");
         Assert.Empty(tree.Diagnostics);

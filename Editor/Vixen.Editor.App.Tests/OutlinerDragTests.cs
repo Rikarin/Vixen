@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core;
-using Vixen.Core.Mathematics;
 using Vixen.Editor.Testing;
 using Vixen.Engine.Transforms;
 using Vixen.Ui.Controls.Advanced;
@@ -106,7 +105,7 @@ public class OutlinerDragTests {
         fixture.Settle();
 
         var tree = fixture.Hierarchy;
-        var rows = Nodes(tree, [.. children, host]);
+        var rows = Nodes(tree, [..children, host]);
         var depth = fixture.Scene.Stack.Depth.Value;
 
         Assert.True(tree.MoveNode(rows[children[0]], rows[host], DropPosition.Into));
@@ -156,11 +155,11 @@ public class OutlinerDragTests {
         for (var index = 0; index < count; index++) {
             fixture.Scene.Add(
                 "Drag Child " + index.ToString(null as IFormatProvider),
-                LocalTransform.At(new Vector3(index, 0f, 0f)),
+                LocalTransform.At(new(index, 0f, 0f)),
                 parent
             );
         }
 
-        return (parent, [.. Children(fixture, parent)]);
+        return (parent, [..Children(fixture, parent)]);
     }
 }

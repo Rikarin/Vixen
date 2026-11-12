@@ -14,7 +14,8 @@ public sealed partial class UvNode : ShaderNode {
     public Float2 Uv;
 
     /// <inheritdoc />
-    protected internal override void Emit(RavenEmitter emitter) => emitter.Assign(Uv.Expression, emitter.Stage(ShaderStageInput.Uv));
+    protected internal override void Emit(RavenEmitter emitter) =>
+        emitter.Assign(Uv.Expression, emitter.Stage(ShaderStageInput.Uv));
 }
 
 /// <summary>The world-space position of the fragment.</summary>

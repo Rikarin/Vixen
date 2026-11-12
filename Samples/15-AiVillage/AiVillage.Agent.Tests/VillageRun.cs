@@ -9,8 +9,11 @@ namespace Vixen.Samples.AiVillage.Tests;
 /// <summary>The sample's village on a real <see cref="EngineLoop" />, with no window and no device.</summary>
 /// <remarks>
 ///     <para>
-///         <b>An <c>EngineLoop</c> and not a hand-written stepping loop, which is the whole reason
-///         this suite is worth having beside <c>VillageSampleTests</c>.</b> That suite steps
+///         <b>
+///             An <c>EngineLoop</c> and not a hand-written stepping loop, which is the whole reason
+///             this suite is worth having beside <c>VillageSampleTests</c>.
+///         </b>
+///         That suite steps
 ///         perception, then the agents, then navigation, in the order it decided on — so it can
 ///         never fail because the engine put them in a different one. Here the systems arrive with
 ///         their phases and their <c>[UpdateBefore]</c> and the scheduler sorts them, which is the
@@ -38,15 +41,15 @@ public sealed class VillageRun : IDisposable {
     ///     failure a hand-stepped fixture cannot see.
     /// </remarks>
     public VillageRun() {
-        Loop = new EngineLoop();
-        Village = new Village(Loop.World);
+        Loop = new();
+        Village = new(Loop.World);
         Village.Register(Loop, Services);
 
         // Only this project's own, because the suite links the sample's sources and nothing else
         // here declares a frame — naming the assembly is what a host embedding two projects does.
         Declared = Loop.AddDeclaredSystems(Services, Ours);
 
-        Decisions = new DecisionLog(Village);
+        Decisions = new(Village);
 
         Village.Agents.Debug.Enabled = true;
     }
@@ -90,6 +93,5 @@ public sealed class VillageRun : IDisposable {
     /// <inheritdoc />
     public void Dispose() => Loop.Dispose();
 
-    static bool Ours(GameSystemDeclaration declaration) =>
-        declaration.SystemType.Assembly == typeof(Village).Assembly;
+    static bool Ours(GameSystemDeclaration declaration) => declaration.SystemType.Assembly == typeof(Village).Assembly;
 }

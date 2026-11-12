@@ -8,14 +8,21 @@ namespace Vixen.TextureGraph.Nodes;
 /// <summary>One colour of an image as a mask — § D12's <c>id</c> bake with one island picked out.</summary>
 /// <remarks>
 ///     <para>
-///         <b>Doc 48 § M8's colour / ID selection mask, and the node an artist reaches for to say
-///         "just the bolts".</b> <c>Source/Mesh Map</c> already binds the <c>id</c> map and already
+///         <b>
+///             Doc 48 § M8's colour / ID selection mask, and the node an artist reaches for to say
+///             "just the bolts".
+///         </b>
+///         <c>Source/Mesh Map</c> already binds the <c>id</c> map and already
 ///         samples it nearest; what was missing was the node that turns that picture of arbitrary
 ///         colours into a mask, so until now the map was readable and unusable.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The setting is a <em>colour</em> and not an id, and that is the one decision in this
-///         node.</b> An id map does not contain an id: <c>MapBaker.IdColour</c> paints island
+///         ⚠
+///         <b>
+///             The setting is a <em>colour</em> and not an id, and that is the one decision in this
+///             node.
+///         </b>
+///         An id map does not contain an id: <c>MapBaker.IdColour</c> paints island
 ///         <c>n</c> with the hue <c>frac(n · φ)</c> and <c>MeshMapBake.Identifiers</c> writes that
 ///         colour into the PNG, so the index never reaches a graph and there is nothing to type a
 ///         number against. The alternative — a free-text "which id" field — is the failure this
@@ -34,8 +41,12 @@ namespace Vixen.TextureGraph.Nodes;
 ///         and a mesh's island count is not.
 ///     </para>
 ///     <para>
-///         ⚠ <b>A tolerance over an index map is nominal, not ordinal, and the kernel is written in
-///         the only space where that is true.</b> Two islands one index apart are a golden angle
+///         ⚠
+///         <b>
+///             A tolerance over an index map is nominal, not ordinal, and the kernel is written in
+///             the only space where that is true.
+///         </b>
+///         Two islands one index apart are a golden angle
 ///         apart in hue — the palette is built that way on purpose — so a comparison written against
 ///         a decoded index with a <c>±</c> would select an island that merely happens to be numbered
 ///         next door. The comparison is a Euclidean distance in linear RGB, and

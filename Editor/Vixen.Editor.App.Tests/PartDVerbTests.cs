@@ -3,7 +3,6 @@
 
 using Vixen.Core;
 using Vixen.Core.Mathematics;
-using Vixen.Ecs;
 using Vixen.Editor.Testing;
 using Vixen.Editor.Ui;
 using Vixen.Engine.Transforms;
@@ -38,7 +37,7 @@ public class PartDVerbTests {
     ];
 
     /// <summary>The same list, as a theory's rows.</summary>
-    public static TheoryData<string> PartD => [.. PartDIds];
+    public static TheoryData<string> PartD => [..PartDIds];
 
     [Theory]
     [MemberData(nameof(PartD))]
@@ -132,9 +131,9 @@ public class PartDVerbTests {
     public void A_transform_is_copied_onto_a_multi_selection_as_one_undoable_step() {
         using var fixture = EditorSession.Start();
 
-        var source = fixture.Scene.Add("Part D Source", LocalTransform.At(new Vector3(3f, 4f, 5f)));
-        var first = fixture.Scene.Add("Part D First", LocalTransform.At(new Vector3(1f, 0f, 0f)));
-        var second = fixture.Scene.Add("Part D Second", LocalTransform.At(new Vector3(2f, 0f, 0f)));
+        var source = fixture.Scene.Add("Part D Source", LocalTransform.At(new(3f, 4f, 5f)));
+        var first = fixture.Scene.Add("Part D First", LocalTransform.At(new(1f, 0f, 0f)));
+        var second = fixture.Scene.Add("Part D Second", LocalTransform.At(new(2f, 0f, 0f)));
 
         fixture.Scene.Selection.Set([source]);
         fixture.Settle();
@@ -151,8 +150,8 @@ public class PartDVerbTests {
 
         fixture.Run("entity.paste-transform").Settle();
 
-        Assert.Equal(new Vector3(3f, 4f, 5f), Position(fixture, first));
-        Assert.Equal(new Vector3(3f, 4f, 5f), Position(fixture, second));
+        Assert.Equal(new(3f, 4f, 5f), Position(fixture, first));
+        Assert.Equal(new(3f, 4f, 5f), Position(fixture, second));
 
         // ⚠ One step for two entities. Two would be the shape of every "undo did not undo what I
         // did" report.
@@ -160,8 +159,8 @@ public class PartDVerbTests {
 
         fixture.Run("edit.undo").Settle();
 
-        Assert.Equal(new Vector3(1f, 0f, 0f), Position(fixture, first));
-        Assert.Equal(new Vector3(2f, 0f, 0f), Position(fixture, second));
+        Assert.Equal(new(1f, 0f, 0f), Position(fixture, first));
+        Assert.Equal(new(2f, 0f, 0f), Position(fixture, second));
 
         fixture.Scene.Selection.Set([first]);
         fixture.Settle();
@@ -172,17 +171,21 @@ public class PartDVerbTests {
 
     /// <summary>Align moves everything onto the last-selected entity's line; Distribute spaces them.</summary>
     /// <remarks>
-    ///     ⚠ <b>The ends do not move, which is the property that makes Distribute a distribute rather
-    ///     than a re-lay-out.</b> A version that moved the outermost objects would change the extent
+    ///     ⚠
+    ///     <b>
+    ///         The ends do not move, which is the property that makes Distribute a distribute rather
+    ///         than a re-lay-out.
+    ///     </b>
+    ///     A version that moved the outermost objects would change the extent
     ///     of a row somebody had already placed.
     /// </remarks>
     [Fact]
     public void Align_uses_the_primary_and_distribute_leaves_the_two_ends_where_they_are() {
         using var fixture = EditorSession.Start();
 
-        var left = fixture.Scene.Add("Part D Left", LocalTransform.At(new Vector3(0f, 0f, 0f)));
-        var middle = fixture.Scene.Add("Part D Middle", LocalTransform.At(new Vector3(1f, 7f, 0f)));
-        var right = fixture.Scene.Add("Part D Right", LocalTransform.At(new Vector3(9f, 0f, 0f)));
+        var left = fixture.Scene.Add("Part D Left", LocalTransform.At(new(0f, 0f, 0f)));
+        var middle = fixture.Scene.Add("Part D Middle", LocalTransform.At(new(1f, 7f, 0f)));
+        var right = fixture.Scene.Add("Part D Right", LocalTransform.At(new(9f, 0f, 0f)));
 
         // Selected last, so it is `Selection.Primary` and the one everything aligns onto.
         fixture.Scene.Selection.Set([left, right, middle]);

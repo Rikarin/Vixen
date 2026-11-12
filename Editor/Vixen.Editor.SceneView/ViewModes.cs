@@ -4,7 +4,6 @@
 using Vixen.Graphics;
 using Vixen.Rendering;
 using Vixen.Rendering.Compositor;
-using Vixen.Rendering.Ecs;
 
 namespace Vixen.Editor.SceneView;
 
@@ -54,8 +53,12 @@ public enum ViewMode {
 ///         <c>FramePresenter</c> for any mode that has one.
 ///     </para>
 ///     <para>
-///         ⚠ <b>What it registers is shaded, and wireframe on a device that reports
-///         <c>HasWireframe</c> — no more.</b> Albedo, unlit, normals and roughness have no tree, and
+///         ⚠
+///         <b>
+///             What it registers is shaded, and wireframe on a device that reports
+///             <c>HasWireframe</c> — no more.
+///         </b>
+///         Albedo, unlit, normals and roughness have no tree, and
 ///         nor does any pane past <c>EditorWorldRenderer.MaxPanes</c> or any pane but the first under
 ///         an authored <c>.vxcompositor</c>. All of those keep the editor's own tool renderer, which
 ///         is <c>SceneMeshes</c> through <c>MeshInstanceRenderer</c>: device-resident shapes, one
@@ -92,8 +95,7 @@ public static class ViewShading {
     /// </remarks>
     /// <param name="mode">The mode.</param>
     /// <returns>Whether it draws something the mode means.</returns>
-    public static bool IsSupported(ViewMode mode) =>
-        mode is not (ViewMode.Overdraw or ViewMode.LightComplexity);
+    public static bool IsSupported(ViewMode mode) => mode is not (ViewMode.Overdraw or ViewMode.LightComplexity);
 
     /// <summary>Whether a mode draws surfaces.</summary>
     public static bool DrawsSurfaces(ViewMode mode) => mode != ViewMode.Wireframe;
@@ -103,8 +105,12 @@ public static class ViewShading {
 
     /// <summary>How much light a surface facing away from the key still receives.</summary>
     /// <remarks>
-    ///     ⚠ <b>One for the three modes that are about the surface's own value rather than about its
-    ///     shape.</b> Shading an albedo view is showing the light and the albedo multiplied together,
+    ///     ⚠
+    ///     <b>
+    ///         One for the three modes that are about the surface's own value rather than about its
+    ///         shape.
+    ///     </b>
+    ///     Shading an albedo view is showing the light and the albedo multiplied together,
     ///     which is the picture the mode exists to take apart.
     /// </remarks>
     /// <param name="mode">The mode.</param>
@@ -128,14 +134,21 @@ public static class ViewShading {
     /// <summary>Whether a surface is coloured by its roughness rather than by what it is.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>A colour written at collect time, where <see cref="ColoursByNormal" /> is a style
-    ///         lane, and the asymmetry is not an oversight.</b> A normal varies per vertex, so only the
+    ///         <b>
+    ///             A colour written at collect time, where <see cref="ColoursByNormal" /> is a style
+    ///             lane, and the asymmetry is not an oversight.
+    ///         </b>
+    ///         A normal varies per vertex, so only the
     ///         vertex stage can know it; a roughness is one number per entity, which the collector has
     ///         in hand — so the mode is a grey on the instance and costs no shader at all.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The instance is also given a neutral surface, which is the part that would be easy
-    ///         to leave out.</b> The point of the view is that the pixel's value <i>is</i> the
+    ///         ⚠
+    ///         <b>
+    ///             The instance is also given a neutral surface, which is the part that would be easy
+    ///             to leave out.
+    ///         </b>
+    ///         The point of the view is that the pixel's value <i>is</i> the
     ///         roughness, so shading it with the roughness would be showing the number multiplied by a
     ///         picture of itself. Ambient goes to one for the same reason — see
     ///         <see cref="AmbientFor" />.
@@ -154,8 +167,7 @@ public static class ViewShading {
     /// </remarks>
     /// <param name="mode">The mode.</param>
     /// <returns>Whether it does.</returns>
-    public static bool IgnoresSelectionColour(ViewMode mode) =>
-        mode is ViewMode.Normal or ViewMode.Roughness;
+    public static bool IgnoresSelectionColour(ViewMode mode) => mode is ViewMode.Normal or ViewMode.Roughness;
 
     /// <summary>What a mode is called in a menu.</summary>
     /// <param name="mode">The mode.</param>
@@ -271,8 +283,12 @@ public sealed class ViewModes {
     ///     <para>
     ///         ⚠ <b>Called once, on a stage of the mode's own, before that stage has ever drawn.</b>
     ///         This paragraph used to say a four-pane layout needs a stage per <em>pane</em>, and that
-    ///         is wrong twice over. <c>PipelineKey</c> is <c>(Effect, Stage.Index, VertexLayout,
-    ///         Output)</c> — the stage's <em>index</em>, not its state — and <c>PipelineCache</c> never
+    ///         is wrong twice over. <c>PipelineKey</c> is
+    ///         <c>
+    ///             (Effect, Stage.Index, VertexLayout,
+    ///             Output)
+    ///         </c>
+    ///         — the stage's <em>index</em>, not its state — and <c>PipelineCache</c> never
     ///         evicts, so the blend, depth and raster set here are read exactly once, by
     ///         <c>EffectPipelineDescriber.Describe</c> on the first cache miss, and baked in. Mutating
     ///         a stage that has already drawn changes the mode and not the picture.

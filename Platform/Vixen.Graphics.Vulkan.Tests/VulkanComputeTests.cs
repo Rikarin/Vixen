@@ -22,35 +22,44 @@ public sealed class VulkanComputeTests {
 
     [Fact]
     public void AComputeShaderReadsAndWritesThroughItsDescriptorSet() {
-        VulkanRequirement.Available(VulkanDevice.TryCreate(new(), out var device, out var reason), reason ?? "no Vulkan");
+        VulkanRequirement.Available(
+            VulkanDevice.TryCreate(new(), out var device, out var reason),
+            reason ?? "no Vulkan"
+        );
         using var owned = device!;
         VulkanDiagnostics.Reset();
 
         var shader = owned.CreateShader(ShaderStage.Compute, TestShaders.Compute, "multiply");
 
-        var setLayout = owned.CreateDescriptorSetLayout(new(
-            DescriptorSetSlot.PerFrame,
-            [new(0, DescriptorKind.StorageBuffer, ShaderStage.Compute)],
-            "data"
-        ));
+        var setLayout = owned.CreateDescriptorSetLayout(
+            new(
+                DescriptorSetSlot.PerFrame,
+                [new(0, DescriptorKind.StorageBuffer, ShaderStage.Compute)],
+                "data"
+            )
+        );
 
-        var layout = owned.CreatePipelineLayout(new(
-            [setLayout],
-            [new(ShaderStage.Compute, 0, sizeof(uint))],
-            "multiply layout"
-        ));
+        var layout = owned.CreatePipelineLayout(
+            new(
+                [setLayout],
+                [new(ShaderStage.Compute, 0, sizeof(uint))],
+                "multiply layout"
+            )
+        );
 
         var pipeline = owned.CreateComputePipeline(new(shader, layout, "multiply"));
 
         // Host-visible storage, so the same buffer is both the input and the readback. Legal, and it
         // keeps the test about compute rather than about staging — which the round-trip test already
         // covers.
-        var data = owned.CreateBuffer(new(
-            Bytes,
-            BufferUsage.Storage | BufferUsage.CopySource | BufferUsage.CopyDestination,
-            MemoryAccess.HostUpload,
-            "data"
-        ));
+        var data = owned.CreateBuffer(
+            new(
+                Bytes,
+                BufferUsage.Storage | BufferUsage.CopySource | BufferUsage.CopyDestination,
+                MemoryAccess.HostUpload,
+                "data"
+            )
+        );
 
         var readback = owned.CreateBuffer(
             new(Bytes, BufferUsage.CopyDestination, MemoryAccess.HostReadback, "readback")
@@ -91,7 +100,7 @@ public sealed class VulkanComputeTests {
         var result = System.Runtime.InteropServices.MemoryMarshal.Cast<byte, uint>(raw);
 
         for (var index = 0; index < Elements; index++) {
-            Assert.Equal((source[index] * Multiplier) + (uint)index, result[index]);
+            Assert.Equal(source[index] * Multiplier + (uint)index, result[index]);
         }
 
         Assert.True(
@@ -112,12 +121,13 @@ public sealed class VulkanComputeTests {
     /// <summary>Compute does not run inside a render pass on any API, and Vulkan does not say so.</summary>
     [Fact]
     public void DispatchingInsideARenderPassIsRefused() {
-        VulkanRequirement.Available(VulkanDevice.TryCreate(new(), out var device, out var reason), reason ?? "no Vulkan");
+        VulkanRequirement.Available(
+            VulkanDevice.TryCreate(new(), out var device, out var reason),
+            reason ?? "no Vulkan"
+        );
         using var owned = device!;
 
-        var target = owned.CreateTexture(
-            new(PixelFormat.Rgba8UNorm, 8, 8, TextureUsage.ColourTarget, Name: "target")
-        );
+        var target = owned.CreateTexture(new(PixelFormat.Rgba8UNorm, 8, 8, TextureUsage.ColourTarget, Name: "target"));
 
         var view = owned.CreateTextureView(target);
 
@@ -147,12 +157,13 @@ public sealed class VulkanComputeTests {
     /// </summary>
     [Fact]
     public void ABarrierInsideARenderPassIsRefused() {
-        VulkanRequirement.Available(VulkanDevice.TryCreate(new(), out var device, out var reason), reason ?? "no Vulkan");
+        VulkanRequirement.Available(
+            VulkanDevice.TryCreate(new(), out var device, out var reason),
+            reason ?? "no Vulkan"
+        );
         using var owned = device!;
 
-        var target = owned.CreateTexture(
-            new(PixelFormat.Rgba8UNorm, 8, 8, TextureUsage.ColourTarget, Name: "target")
-        );
+        var target = owned.CreateTexture(new(PixelFormat.Rgba8UNorm, 8, 8, TextureUsage.ColourTarget, Name: "target"));
 
         var view = owned.CreateTextureView(target);
 
@@ -162,8 +173,8 @@ public sealed class VulkanComputeTests {
             list.Barrier(new([], [new(target, ResourceState.Undefined, ResourceState.ColourTarget)]));
             list.BeginRenderPass(new([new(view)], name: "pass"));
 
-            Assert.Throws<InvalidOperationException>(
-                () => list.Barrier(new([], [new(target, ResourceState.ColourTarget, ResourceState.ShaderRead)]))
+            Assert.Throws<InvalidOperationException>(() =>
+                list.Barrier(new([], [new(target, ResourceState.ColourTarget, ResourceState.ShaderRead)]))
             );
 
             list.EndRenderPass();

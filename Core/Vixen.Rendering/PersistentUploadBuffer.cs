@@ -16,8 +16,12 @@ namespace Vixen.Rendering;
 ///         The sibling of <see cref="UploadBuffer{T}" />, and the difference between them is the
 ///         whole reason this exists. That one is refilled from scratch every frame, which is right
 ///         for a skeleton's matrices or a frame's light list — data the host recomputes anyway, so
-///         retaining it would buy nothing. This one is for data that is <em>mostly the same as last
-///         frame's</em>: a hundred thousand object bounds, of which a frame typically moves a
+///         retaining it would buy nothing. This one is for data that is
+///         <em>
+///             mostly the same as last
+///             frame's
+///         </em>
+///         : a hundred thousand object bounds, of which a frame typically moves a
 ///         handful. Uploading all of them costs three megabytes a frame to say that 99.99% of them
 ///         did not move.
 ///     </para>
@@ -227,7 +231,7 @@ public sealed class PersistentUploadBuffer<T>(string name, BufferUsage usage = B
             }
 
             var bytes = MemoryMarshal.AsBytes(records.AsSpan(start, end - start));
-            Device.Write(buffer, Offset + ((long)start * size), bytes);
+            Device.Write(buffer, Offset + (long)start * size, bytes);
 
             LastUploadBytes += bytes.Length;
             LastUploadRegions++;

@@ -8,8 +8,12 @@ namespace Vixen.Platform.Desktop.Tests;
 /// <summary>The OS end of <c>prefers-reduced-motion</c> and <c>forced-colors</c>.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Ask what this prints on the day the source is disconnected — which is the day
-///         before this file, for every one of these settings.</b> Both media features have evaluated
+///         ⚠
+///         <b>
+///             Ask what this prints on the day the source is disconnected — which is the day
+///             before this file, for every one of these settings.
+///         </b>
+///         Both media features have evaluated
 ///         since they landed and <c>Animator.ReduceMotion</c> has honoured the first for as long, and
 ///         every writer of <c>MediaPreferences</c> in the tree was a test: so an application animated
 ///         at a user who had switched animation off and every assertion in the repository stayed
@@ -54,14 +58,14 @@ public sealed class DesktopAccessibilityTests {
                 reads++;
                 return answer;
             },
-            repeatable: true
+            true
         );
 
         // One read at construction, which is what makes the value readable before the first frame.
         Assert.Equal(1, reads);
         Assert.Equal(false, accessibility.Current.ReduceMotion);
 
-        answer = new SystemAccessibility(true, false);
+        answer = new(true, false);
 
         for (var pump = 1; pump < DesktopAppearance.PumpsBetweenReads; pump++) {
             Assert.False(accessibility.Pump());
@@ -81,7 +85,10 @@ public sealed class DesktopAccessibilityTests {
     /// </remarks>
     [Fact]
     public void ASettingThatDidNotMovePostsNothing() {
-        var accessibility = new DesktopAccessibility(() => new SystemAccessibility(true, true), repeatable: true);
+        var accessibility = new DesktopAccessibility(
+            static () => new(true, true),
+            true
+        );
 
         for (var pump = 0; pump < DesktopAppearance.PumpsBetweenReads * 3; pump++) {
             Assert.False(accessibility.Pump());
@@ -94,7 +101,7 @@ public sealed class DesktopAccessibilityTests {
     /// </summary>
     [Fact]
     public void A_platform_with_no_reader_never_polls() {
-        var accessibility = new DesktopAccessibility(read: null, repeatable: false);
+        var accessibility = new DesktopAccessibility(null, false);
 
         Assert.Equal(SystemAccessibility.Unknown, accessibility.Current);
 

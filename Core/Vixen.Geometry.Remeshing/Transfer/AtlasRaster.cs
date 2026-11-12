@@ -8,8 +8,10 @@ namespace Vixen.Geometry.Remeshing;
 /// <summary>Conservative coverage of a texel grid by a triangle in texture space.</summary>
 /// <remarks>
 ///     <para>
-///         <b>This exists because there is no CPU mesh-to-texture rasterizer in this repository and
-///         the two things that bake a mesh into a texture cannot be reused.</b>
+///         <b>
+///             This exists because there is no CPU mesh-to-texture rasterizer in this repository and
+///             the two things that bake a mesh into a texture cannot be reused.
+///         </b>
 ///         <c>SurfaceCardCapture</c> and <c>ImpostorBake</c> both run on the GPU and both project
 ///         along an <i>axis</i> rather than through a parameterization, so neither answers "which
 ///         texels does this chart cover". The half-space rule that <i>is</i> reusable —
@@ -83,13 +85,13 @@ static class AtlasRaster {
             return false;
         }
 
-        var edge = (axis.X * p.X) + (axis.Y * p.Y);
-        var apex = (axis.X * r.X) + (axis.Y * r.Y);
+        var edge = axis.X * p.X + axis.Y * p.Y;
+        var apex = axis.X * r.X + axis.Y * r.Y;
 
         var centre = (minimum + maximum) * 0.5f;
         var extent = (maximum - minimum) * 0.5f;
-        var middle = (axis.X * centre.X) + (axis.Y * centre.Y);
-        var radius = (MathF.Abs(axis.X) * extent.X) + (MathF.Abs(axis.Y) * extent.Y);
+        var middle = axis.X * centre.X + axis.Y * centre.Y;
+        var radius = MathF.Abs(axis.X) * extent.X + MathF.Abs(axis.Y) * extent.Y;
 
         return MathF.Min(edge, apex) > middle + radius || MathF.Max(edge, apex) < middle - radius;
     }
@@ -102,8 +104,12 @@ static class AtlasRaster {
     /// <returns>Weights summing to one.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Conservative coverage means the texel centre is regularly <i>not</i> inside the
-    ///         triangle</b>, so the edge functions' ratio is not a barycentric coordinate there — it
+    ///         ⚠
+    ///         <b>
+    ///             Conservative coverage means the texel centre is regularly <i>not</i> inside the
+    ///             triangle
+    ///         </b>
+    ///         , so the edge functions' ratio is not a barycentric coordinate there — it
     ///         is an extrapolation, and extrapolating a position along a chart's outermost row puts
     ///         the bake's ray origin off the surface. Clamping to the nearest point on the triangle
     ///         is what makes the outermost row of texels sample the chart's own edge.

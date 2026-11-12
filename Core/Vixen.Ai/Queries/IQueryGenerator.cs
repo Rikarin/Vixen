@@ -3,7 +3,6 @@
 
 using Vixen.Core;
 using Vixen.Core.Mathematics;
-using Vixen.Ecs;
 
 namespace Vixen.Ai;
 
@@ -106,7 +105,8 @@ public static class QueryGenerators {
         int rings = 3,
         int perRing = 12,
         bool aroundQuerier = false
-    ) => new DonutGenerator(inner, outer, rings, perRing, aroundQuerier);
+    ) =>
+        new DonutGenerator(inner, outer, rings, perRing, aroundQuerier);
 
     /// <summary>A fan of points in front of the agent, aimed at the context.</summary>
     /// <param name="degrees">How wide the fan is.</param>
@@ -156,7 +156,7 @@ sealed class GridGenerator(float extent, float spacing, bool aroundQuerier) : IQ
 
     public int Estimate {
         get {
-            var side = (int)(this.extent / this.spacing * 2f) + 1;
+            var side = (int)(extent / spacing * 2f) + 1;
 
             return Math.Min(side * side, QueryGenerators.MaximumPoints);
         }
@@ -198,7 +198,7 @@ sealed class DonutGenerator(float inner, float outer, int rings, int perRing, bo
         var step = rings == 1 ? 0f : (outer - inner) / (rings - 1);
 
         for (var ring = 0; ring < rings; ring++) {
-            var radius = inner + (step * ring);
+            var radius = inner + step * ring;
 
             for (var index = 0; index < perRing; index++) {
                 if (!QueryGenerators.Room(points)) {
@@ -247,7 +247,7 @@ sealed class ConeGenerator(float degrees, float radius, int arcs, int perArc) : 
                 }
 
                 var fraction = perArc == 1 ? 0.5f : index / (float)(perArc - 1);
-                var angle = facing - half + (fraction * half * 2f);
+                var angle = facing - half + fraction * half * 2f;
 
                 points.Add(
                     new(origin.Querier + new Vector3(MathF.Sin(angle) * distance, 0f, MathF.Cos(angle) * distance))

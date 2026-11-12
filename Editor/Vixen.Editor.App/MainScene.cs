@@ -21,8 +21,12 @@ namespace Vixen.Editor.App;
 ///         project, and can be asked without a window.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The subsystems that declare component aliases are registered and touched before
-///         <see cref="LoadOrSeed" /> runs, and that stays the application's ordering</b> — a scene file
+///         ⚠
+///         <b>
+///             The subsystems that declare component aliases are registered and touched before
+///             <see cref="LoadOrSeed" /> runs, and that stays the application's ordering
+///         </b>
+///         — a scene file
 ///         naming a component nothing has loaded does not open at all.
 ///     </para>
 /// </remarks>
@@ -34,7 +38,8 @@ static class MainScene {
     ///     Decided here rather than by the document, because where a scene lives is the shell's answer
     ///     and a document only knows how to write itself.
     /// </remarks>
-    public static string PathIn(ProjectPaths paths) => Path.Combine(paths.Assets, "Scenes", "Main" + SceneSerializer.Extension);
+    public static string PathIn(ProjectPaths paths) =>
+        Path.Combine(paths.Assets, "Scenes", "Main" + SceneSerializer.Extension);
 
     /// <summary>Reads the main scene, or seeds, writes and indexes one when the file has nothing in it.</summary>
     /// <param name="scene">The document, whose writer is the file.</param>
@@ -76,13 +81,15 @@ static class MainScene {
         // neither did. A first run showing a "Directional Light" that is not a light and a "Main
         // Camera" that is not a camera was invisible while nothing drew what was on an entity; it is
         // the first thing somebody clicking those two rows now sees.
-        var sun = scene.Add("Directional Light", LocalTransform.At(new Vector3(0f, 3f, 0f)) with {
-            Rotation = SceneEditing.Aimed.Rotation
-        }, root);
+        var sun = scene.Add(
+            "Directional Light",
+            LocalTransform.At(new(0f, 3f, 0f)) with { Rotation = SceneEditing.Aimed.Rotation },
+            root
+        );
 
         Lights.Attach(world, sun, LightKind.Directional);
 
-        var camera = scene.Add("Main Camera", LocalTransform.At(new Vector3(0f, 1.5f, 6f)), root);
+        var camera = scene.Add("Main Camera", LocalTransform.At(new(0f, 1.5f, 6f)), root);
 
         world.Add(camera, new Camera());
 
@@ -91,8 +98,8 @@ static class MainScene {
         // ⚠ Two of these carry a shape, so a first run shows geometry rather than a grid and four
         // crosses — which is also the only exercise the mesh path gets without somebody having used
         // the menu, and so the way a broken one shows up on launch rather than on a click.
-        Shape("Crate", PrimitiveKind.Cube, new Vector3(1.5f, 0.5f, 0f), Vector3.One, ground);
-        Shape("Barrel", PrimitiveKind.Cylinder, new Vector3(-2f, 0.5f, 1f), new Vector3(0.8f, 1f, 0.8f), ground);
+        Shape("Crate", PrimitiveKind.Cube, new(1.5f, 0.5f, 0f), Vector3.One, ground);
+        Shape("Barrel", PrimitiveKind.Cylinder, new(-2f, 0.5f, 1f), new(0.8f, 1f, 0.8f), ground);
 
         // ⚠ Ground stays an empty, and the temptation is a scaled Plane. Two things go wrong with
         // one. Its children inherit the scale, so a crate at 1.5 metres under a ground scaled
@@ -108,7 +115,7 @@ static class MainScene {
         void Shape(string name, PrimitiveKind kind, Vector3 position, Vector3 scale, Entity parent) {
             var entity = scene.Add(
                 name,
-                new LocalTransform { Position = position, Rotation = Quaternion.Identity, Scale = scale },
+                new() { Position = position, Rotation = Quaternion.Identity, Scale = scale },
                 parent
             );
 

@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core.Syntax;
-using Vixen.Raven.Syntax;
 
 namespace Vixen.Raven.Symbols;
 
@@ -21,7 +20,8 @@ public sealed class ConstructedNamedTypeSymbol : NamedTypeSymbol, IEquatable<Con
     public override string Name => OriginalDefinition.Name;
     public override TypeKind TypeKind => OriginalDefinition.TypeKind;
     public override SpecialType SpecialType => OriginalDefinition.SpecialType;
-    public override Symbol? ContainingSymbol => OriginalDefinition.ContainingSymbol;    public override SyntaxNode? DeclaringSyntax => OriginalDefinition.DeclaringSyntax;
+    public override Symbol? ContainingSymbol => OriginalDefinition.ContainingSymbol;
+    public override SyntaxNode? DeclaringSyntax => OriginalDefinition.DeclaringSyntax;
     public override IReadOnlyList<TypeParameterSymbol> TypeParameters => OriginalDefinition.TypeParameters;
     public override IReadOnlyList<TypeSymbol> TypeArguments => typeArguments;
 
@@ -33,7 +33,7 @@ public sealed class ConstructedNamedTypeSymbol : NamedTypeSymbol, IEquatable<Con
 
     public ConstructedNamedTypeSymbol(NamedTypeSymbol definition, IReadOnlyList<TypeSymbol> typeArguments) {
         OriginalDefinition = definition;
-        this.typeArguments = typeArguments.ToArray();
+        this.typeArguments = [..typeArguments];
         map = new(definition.TypeParameters, this.typeArguments);
     }
 

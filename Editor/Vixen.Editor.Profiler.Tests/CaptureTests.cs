@@ -86,12 +86,12 @@ public sealed class CaptureTests {
                     Sample(Cull, 1, 110, 30),
                     Sample(Frame, 0, 100, 100),
                     Sample(Cull, 1, 310, 50),
-                    Sample(Frame, 0, 300, 100, frame: 1)
+                    Sample(Frame, 0, 300, 100, 1)
                 )
             ]
         );
 
-        var cull = Assert.Single(capture.Summary, entry => entry.Key == Cull);
+        var cull = Assert.Single(capture.Summary, static entry => entry.Key == Cull);
 
         Assert.Equal(2, cull.Calls);
         Assert.True(cull.MaximumMilliseconds > cull.MeanMilliseconds);
@@ -116,12 +116,12 @@ public sealed class CaptureTests {
     public void ComparisonNormalisesByFrameCount() {
         ProfileCapture before = new(
             "Before",
-            [Thread("Main", Sample(Frame, 0, 100, 100), Sample(Frame, 0, 300, 100, frame: 1))]
+            [Thread("Main", Sample(Frame, 0, 100, 100), Sample(Frame, 0, 300, 100, 1))]
         );
 
         ProfileCapture after = new("After", [Thread("Main", Sample(Frame, 0, 100, 100))]);
 
-        var delta = Assert.Single(CaptureComparison.Compare(before, after), entry => entry.Key == Frame);
+        var delta = Assert.Single(CaptureComparison.Compare(before, after), static entry => entry.Key == Frame);
 
         // Both are 100 ticks per frame, so a comparison that ignored the frame count would report the
         // two-frame capture as twice as slow.
@@ -142,7 +142,7 @@ public sealed class CaptureTests {
             [Thread("Main", Sample(Draw, 1, 110, 40), Sample(Frame, 0, 100, 100))]
         );
 
-        var delta = Assert.Single(CaptureComparison.Compare(before, after), entry => entry.Key == Draw);
+        var delta = Assert.Single(CaptureComparison.Compare(before, after), static entry => entry.Key == Draw);
 
         Assert.Null(delta.Ratio);
         Assert.Null(delta.Before);
@@ -158,7 +158,7 @@ public sealed class CaptureTests {
 
         ProfileCapture after = new("After", [Thread("Main", Sample(Frame, 0, 100, 100))]);
 
-        var delta = Assert.Single(CaptureComparison.Compare(before, after), entry => entry.Key == Draw);
+        var delta = Assert.Single(CaptureComparison.Compare(before, after), static entry => entry.Key == Draw);
 
         Assert.Null(delta.After);
         Assert.True(delta.TotalDelta < 0d);
@@ -187,7 +187,7 @@ public sealed class CaptureTests {
     public void AFrameFilterKeepsOnlyThatFramesRoots() {
         ProfileCapture capture = new(
             "Test",
-            [Thread("Main", Sample(Frame, 0, 100, 50), Sample(Frame, 0, 200, 50, frame: 7))]
+            [Thread("Main", Sample(Frame, 0, 100, 50), Sample(Frame, 0, 200, 50, 7))]
         );
 
         var thread = Assert.Single(capture.Threads);

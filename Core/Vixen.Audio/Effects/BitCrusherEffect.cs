@@ -96,7 +96,7 @@ public sealed class BitCrusherEffect : IAudioEffect {
                     held[channel] = MathF.Round(dry * levels) * step;
                 }
 
-                buffer[offset + channel] = dry + ((held[channel] - dry) * mix);
+                buffer[offset + channel] = dry + (held[channel] - dry) * mix;
             }
         }
     }

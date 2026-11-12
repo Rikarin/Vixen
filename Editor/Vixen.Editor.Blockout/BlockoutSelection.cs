@@ -72,17 +72,21 @@ public static class BlockoutSelection {
     /// <param name="editing">The editing state.</param>
     /// <param name="additive">Whether it extends what is selected.</param>
     /// <returns>Whether anything was selected.</returns>
-    /// <remarks>Unreal's "select PolyGroup", and the blockout-specific one: a group is what makes a
-    ///     cube's side one wall rather than two triangles.</remarks>
+    /// <remarks>
+    ///     Unreal's "select PolyGroup", and the blockout-specific one: a group is what makes a
+    ///     cube's side one wall rather than two triangles.
+    /// </remarks>
     public static bool Group(MeshEdit editing, bool additive = false) =>
-        Faces(editing, additive, (mesh, face, into) => MeshTopology.Group(mesh, mesh.Faces[face].Group, into));
+        Faces(editing, additive, static (mesh, face, into) => MeshTopology.Group(mesh, mesh.Faces[face].Group, into));
 
     /// <summary>Selects every face coplanar with and joined to the active one.</summary>
     /// <param name="editing">The editing state.</param>
     /// <param name="additive">Whether it extends what is selected.</param>
     /// <returns>Whether anything was selected.</returns>
-    /// <remarks>The blockout-specific selection doc 24's inventory calls out by name: a wall that has
-    ///     been cut into a dozen faces is still one flat surface, and this is how you get all of it.</remarks>
+    /// <remarks>
+    ///     The blockout-specific selection doc 24's inventory calls out by name: a wall that has
+    ///     been cut into a dozen faces is still one flat surface, and this is how you get all of it.
+    /// </remarks>
     public static bool Coplanar(MeshEdit editing, bool additive = false) =>
         Faces(editing, additive, static (mesh, face, into) => MeshTopology.Coplanar(mesh, face, into));
 
@@ -182,7 +186,7 @@ public static class BlockoutSelection {
 
         var active = editing.Selection.Active;
 
-        if ((uint) active >= (uint) mesh.FaceCount) {
+        if ((uint)active >= (uint)mesh.FaceCount) {
             return false;
         }
 

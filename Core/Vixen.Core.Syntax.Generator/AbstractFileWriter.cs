@@ -22,9 +22,9 @@ abstract class AbstractFileWriter {
         Tree = tree;
         CancellationToken = cancellationToken;
 
-        nodeMap = tree.Types.OfType<Node>().ToDictionary(n => n.Name);
-        typeMap = tree.Types.ToDictionary(n => n.Name);
-        parentMap = tree.Types.ToDictionary(n => n.Name, n => n.Base);
+        nodeMap = tree.Types.OfType<Node>().ToDictionary(static n => n.Name);
+        typeMap = tree.Types.ToDictionary(static n => n.Name);
+        parentMap = tree.Types.ToDictionary(static n => n.Name, static n => n.Base);
         parentMap.Add(tree.Root, null!);
     }
 
@@ -118,7 +118,7 @@ abstract class AbstractFileWriter {
             return true;
         }
 
-        if (derivedTypeName != null && parentMap.TryGetValue(derivedTypeName, out var baseType)) {
+        if (derivedTypeName is not null && parentMap.TryGetValue(derivedTypeName, out var baseType)) {
             return IsDerivedType(typeName, baseType);
         }
 
@@ -127,7 +127,7 @@ abstract class AbstractFileWriter {
 
     protected static string GetFieldType(Field field) {
         if (IsNodeList(field.Type)) {
-            return "SyntaxNode" + (field.IsOptional ? "?" : "");
+            return "SyntaxNode" + (field.IsOptional ? "?" : string.Empty);
         }
 
         return field.Type + (field.IsOptional ? "?" : string.Empty);
@@ -144,8 +144,7 @@ abstract class AbstractFileWriter {
             return string.Empty;
         }
 
-        var sub = typeName.Substring(iStart + 1, iEnd - iStart - 1);
-        return sub;
+        return typeName.Substring(iStart + 1, iEnd - iStart - 1);
     }
 
     protected bool IsDerivedOrListOfDerived(string baseType, string derivedType) =>
@@ -201,11 +200,11 @@ abstract class AbstractFileWriter {
     protected static string Join(string separator, params object[] values) =>
         string.Join(
             separator,
-            values.SelectMany(v => (v switch {
+            values.SelectMany(static v => (v switch {
                     string s => [s],
                     IEnumerable<string> ss => ss,
                     _ => throw new InvalidOperationException("Join must be passed strings or collections of strings")
-                }).Where(s => s.Length != 0)
+                }).Where(static s => s.Length != 0)
             )
         );
 

@@ -20,8 +20,12 @@ namespace Vixen.Editor.ShaderGraph;
 ///         own, no second convention to keep in step.
 ///     </para>
 ///     <para>
-///         ⚠ <b>A property the caller does not name is left <em>out</em> of the feature, and it used
-///         to be written at its type's zero</b> —
+///         ⚠
+///         <b>
+///             A property the caller does not name is left <em>out</em> of the feature, and it used
+///             to be written at its type's zero
+///         </b>
+///         —
 ///         <a href="https://github.com/Rikarin/Vixen/issues/1126">#1126</a>,
 ///         <a href="https://github.com/Rikarin/Vixen/issues/1133">#1133</a>. A
 ///         <c>GraphSurfaceNumber</c> entry <em>overrides</em> the generated shader's declared
@@ -139,12 +143,7 @@ public static class ShaderGraphMaterial {
             }
         }
 
-        return new() {
-            Shader = source.Name,
-            Numbers = [.. numbers],
-            Vectors = [.. vectors],
-            Maps = Maps(source)
-        };
+        return new() { Shader = source.Name, Numbers = [..numbers], Vectors = [..vectors], Maps = Maps(source) };
     }
 
     /// <summary>The texture pairing a material composing this graph carries.</summary>
@@ -153,8 +152,12 @@ public static class ShaderGraphMaterial {
     /// <exception cref="ArgumentNullException"><paramref name="source" /> is null.</exception>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Public because a feature's maps outlive the compilation that first wrote
-    ///         them.</b> <c>MaterialDocument.SetGraphValue</c> now goes through
+    ///         ⚠
+    ///         <b>
+    ///             Public because a feature's maps outlive the compilation that first wrote
+    ///             them.
+    ///         </b>
+    ///         <c>MaterialDocument.SetGraphValue</c> now goes through
     ///         <see cref="Feature" /> for the values — the two rules were reconciled in #1126 — but
     ///         it still keeps the maps a material already carries when the shader has not changed,
     ///         because a <c>.vxmat</c> may name a texture of its own against a slot and re-deriving
@@ -162,8 +165,12 @@ public static class ShaderGraphMaterial {
     ///         keep.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The maps are the half those two do agree on, and they were two spellings of one
-    ///         line</b> — the join from <c>ShaderGraphSource.Maps</c>' texture-and-slot pair to
+    ///         ⚠
+    ///         <b>
+    ///             The maps are the half those two do agree on, and they were two spellings of one
+    ///             line
+    ///         </b>
+    ///         — the join from <c>ShaderGraphSource.Maps</c>' texture-and-slot pair to
     ///         <see cref="GraphSurfaceMap" />. <c>AssetMaterialSource.Pair</c> keys the bindless
     ///         table on <c>{shader}.{chain}.{graph}.{slot}</c>, so a copy that dropped or renamed a
     ///         slot writes nothing for it and every read of that texture falls back to the table's
@@ -173,7 +180,7 @@ public static class ShaderGraphMaterial {
     public static GraphSurfaceMap[] Maps(ShaderGraphSource source) {
         ArgumentNullException.ThrowIfNull(source);
 
-        return [.. source.Maps.Select(map => new GraphSurfaceMap(map.Texture, map.Slot))];
+        return [..source.Maps.Select(static map => new GraphSurfaceMap(map.Texture, map.Slot))];
     }
 
     /// <summary>Every property a material is expected to set, and the width each is.</summary>
@@ -189,7 +196,7 @@ public static class ShaderGraphMaterial {
         ArgumentNullException.ThrowIfNull(source);
 
         return [
-            .. source.Properties.Where(property =>
+            ..source.Properties.Where(static property =>
                 property.Type is "float" or "float4"
             )
         ];

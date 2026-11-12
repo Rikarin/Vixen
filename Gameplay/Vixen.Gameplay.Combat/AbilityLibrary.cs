@@ -137,7 +137,7 @@ public sealed class AbilityLibrary {
 
     /// <summary>Every ability, in address order.</summary>
     public IEnumerable<AbilityTemplate> All =>
-        abilities.Values.OrderBy(ability => ability.Definition.Address, StringComparer.Ordinal);
+        abilities.Values.OrderBy(static ability => ability.Definition.Address, StringComparer.Ordinal);
 
     /// <summary>What did not resolve, and what a definition said that cannot be true at once.</summary>
     public IReadOnlyList<string> Problems => problems;
@@ -183,9 +183,15 @@ public sealed class AbilityLibrary {
                 definition.Id.Value,
                 new(
                     definition,
-                    [.. definition.Costs.Select(cost => new AbilityCost(AttributeId.From(cost.Attribute), cost.Amount))],
+                    [
+                        ..definition.Costs.Select(static cost => new AbilityCost(
+                                AttributeId.From(cost.Attribute),
+                                cost.Amount
+                            )
+                        )
+                    ],
                     RequirementSet.Compile(definition.Requirements, tags),
-                    [.. definition.Tags.Select(tags.Resolve)],
+                    [..definition.Tags.Select(tags.Resolve)],
                     definition.Damage is { School.Length: > 0 } school ? tags.Resolve(school.School) : GameplayTag.None,
                     definition.Damage is { ScalesWith.Length: > 0 } scaling
                         ? AttributeId.From(scaling.ScalesWith)
@@ -196,7 +202,7 @@ public sealed class AbilityLibrary {
             );
         }
 
-        return new(compiled, [.. problems]);
+        return new(compiled, [..problems]);
     }
 
     /// <summary>Finds an ability.</summary>
@@ -236,7 +242,7 @@ public sealed class AbilityLibrary {
             }
         }
 
-        return [.. resolved];
+        return [..resolved];
     }
 }
 

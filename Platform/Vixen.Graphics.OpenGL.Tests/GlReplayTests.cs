@@ -27,10 +27,15 @@ public sealed class GlReplayTests {
         var view = Colour(device, out _);
         gl.Clear();
 
-        Submit(device, commands => {
-            commands.BeginRenderPass(new([new(view, LoadAction.Clear, StoreAction.Store, new(0.25f, 0.5f, 0.75f, 1f))]));
-            commands.EndRenderPass();
-        });
+        Submit(
+            device,
+            commands => {
+                commands.BeginRenderPass(
+                    new([new(view, LoadAction.Clear, StoreAction.Store, new(0.25f, 0.5f, 0.75f, 1f))])
+                );
+                commands.EndRenderPass();
+            }
+        );
 
         Assert.Equal(1, gl.Count("GenFramebuffer"));
         Assert.Equal(1, gl.Count("FramebufferTexture2D"));
@@ -54,10 +59,13 @@ public sealed class GlReplayTests {
         var view = Colour(device, out _);
 
         for (var frame = 0; frame < 4; frame++) {
-            Submit(device, commands => {
-                commands.BeginRenderPass(new([new(view)]));
-                commands.EndRenderPass();
-            });
+            Submit(
+                device,
+                commands => {
+                    commands.BeginRenderPass(new([new(view)]));
+                    commands.EndRenderPass();
+                }
+            );
         }
 
         Assert.Equal(1, device.FramebufferCount);
@@ -75,10 +83,13 @@ public sealed class GlReplayTests {
         using var device = new GlDevice(new(gl));
         var view = Colour(device, out _);
 
-        Submit(device, commands => {
-            commands.BeginRenderPass(new([new(view)]));
-            commands.EndRenderPass();
-        });
+        Submit(
+            device,
+            commands => {
+                commands.BeginRenderPass(new([new(view)]));
+                commands.EndRenderPass();
+            }
+        );
 
         Assert.Equal(1, device.FramebufferCount);
         device.Destroy(view);
@@ -98,10 +109,13 @@ public sealed class GlReplayTests {
         var view = Colour(device, out _);
         gl.Clear();
 
-        Submit(device, commands => {
-            commands.BeginRenderPass(new([new(view, LoadAction.DontCare, StoreAction.DontCare)]));
-            commands.EndRenderPass();
-        });
+        Submit(
+            device,
+            commands => {
+                commands.BeginRenderPass(new([new(view, LoadAction.DontCare, StoreAction.DontCare)]));
+                commands.EndRenderPass();
+            }
+        );
 
         Assert.Equal(0, gl.Count("ClearBufferF"));
 
@@ -117,10 +131,13 @@ public sealed class GlReplayTests {
         var view = Colour(device, out _);
         gl.Clear();
 
-        Submit(device, commands => {
-            commands.BeginRenderPass(new([new(view, LoadAction.Load)]));
-            commands.EndRenderPass();
-        });
+        Submit(
+            device,
+            commands => {
+                commands.BeginRenderPass(new([new(view, LoadAction.Load)]));
+                commands.EndRenderPass();
+            }
+        );
 
         Assert.Equal(0, gl.Count("ClearBufferF"));
         Assert.Equal(0, gl.Count("InvalidateFramebuffer"));
@@ -140,12 +157,15 @@ public sealed class GlReplayTests {
         var depth = Depth(device);
         gl.Clear();
 
-        Submit(device, commands => {
-            commands.BeginRenderPass(new([new(colour)], new DepthStencilAttachment(depth)));
-            commands.EndRenderPass();
-        });
+        Submit(
+            device,
+            commands => {
+                commands.BeginRenderPass(new([new(colour)], new DepthStencilAttachment(depth)));
+                commands.EndRenderPass();
+            }
+        );
 
-        var clear = gl.Named("ClearBufferF").Single(call => Equals(call.Arguments[0], GlConstants.Depth));
+        var clear = gl.Named("ClearBufferF").Single(static call => Equals(call.Arguments[0], GlConstants.Depth));
         Assert.Equal(0f, clear.Arguments[2]);
     }
 
@@ -158,24 +178,29 @@ public sealed class GlReplayTests {
         var layout = Pipelines.Layout(device);
         var pipeline = Pipelines.Handle(device, BlendState.Opaque, DepthStencilState.Disabled, layout: layout);
 
-        var setLayout = device.CreateDescriptorSetLayout(new(
-            DescriptorSetSlot.PerDraw,
-            [new(0, DescriptorKind.DynamicUniformBuffer, ShaderStage.Vertex)],
-            "draw"
-        ));
+        var setLayout = device.CreateDescriptorSetLayout(
+            new(
+                DescriptorSetSlot.PerDraw,
+                [new(0, DescriptorKind.DynamicUniformBuffer, ShaderStage.Vertex)],
+                "draw"
+            )
+        );
 
         var set = device.CreateDescriptorSet(setLayout, "draw");
         var buffer = device.CreateBuffer(new(1024, BufferUsage.Uniform, MemoryAccess.HostUpload, "draw"));
         device.UpdateDescriptorSet(set, [DescriptorWrite.Uniform(0, buffer, 0, 64)]);
         gl.Clear();
 
-        Submit(device, commands => {
-            commands.BeginRenderPass(new([new(view)]));
-            commands.BindPipeline(pipeline);
-            commands.BindDescriptorSet(DescriptorSetSlot.PerDraw, set, [256]);
-            commands.Draw(3);
-            commands.EndRenderPass();
-        });
+        Submit(
+            device,
+            commands => {
+                commands.BeginRenderPass(new([new(view)]));
+                commands.BindPipeline(pipeline);
+                commands.BindDescriptorSet(DescriptorSetSlot.PerDraw, set, [256]);
+                commands.Draw(3);
+                commands.EndRenderPass();
+            }
+        );
 
         var bind = gl.Single("BindBufferRange");
         Assert.Equal(GlConstants.UniformBuffer, bind.Arguments[0]);
@@ -196,11 +221,13 @@ public sealed class GlReplayTests {
         var layout = Pipelines.Layout(device);
         var pipeline = Pipelines.Handle(device, BlendState.Opaque, DepthStencilState.Disabled, layout: layout);
 
-        var setLayout = device.CreateDescriptorSetLayout(new(
-            DescriptorSetSlot.PerMaterial,
-            [new(0, DescriptorKind.SampledTexture, ShaderStage.Fragment)],
-            "material"
-        ));
+        var setLayout = device.CreateDescriptorSetLayout(
+            new(
+                DescriptorSetSlot.PerMaterial,
+                [new(0, DescriptorKind.SampledTexture, ShaderStage.Fragment)],
+                "material"
+            )
+        );
 
         var set = device.CreateDescriptorSet(setLayout, "material");
         var albedo = device.CreateTexture(new(PixelFormat.Rgba8UNorm, 8, 8, TextureUsage.Sampled, Name: "albedo"));
@@ -209,13 +236,16 @@ public sealed class GlReplayTests {
         device.UpdateDescriptorSet(set, [DescriptorWrite.Texture(0, albedoView) with { Sampler = sampler }]);
         gl.Clear();
 
-        Submit(device, commands => {
-            commands.BeginRenderPass(new([new(view)]));
-            commands.BindPipeline(pipeline);
-            commands.BindDescriptorSet(DescriptorSetSlot.PerMaterial, set);
-            commands.Draw(3);
-            commands.EndRenderPass();
-        });
+        Submit(
+            device,
+            commands => {
+                commands.BeginRenderPass(new([new(view)]));
+                commands.BindPipeline(pipeline);
+                commands.BindDescriptorSet(DescriptorSetSlot.PerMaterial, set);
+                commands.Draw(3);
+                commands.EndRenderPass();
+            }
+        );
 
         Assert.Equal([0u], gl.Named("ActiveTexture")[^1].Arguments);
         Assert.Equal(GlConstants.Texture2D, gl.Named("BindTexture")[^1].Arguments[0]);
@@ -239,14 +269,16 @@ public sealed class GlReplayTests {
         var layout = Pipelines.Layout(device);
         var pipeline = Pipelines.Handle(device, BlendState.Opaque, DepthStencilState.Disabled, layout: layout);
 
-        var setLayout = device.CreateDescriptorSetLayout(new(
-            DescriptorSetSlot.PerMaterial,
-            [
-                new(0, DescriptorKind.SampledTexture, ShaderStage.Fragment),
-                new(1, DescriptorKind.Sampler, ShaderStage.Fragment)
-            ],
-            "material"
-        ));
+        var setLayout = device.CreateDescriptorSetLayout(
+            new(
+                DescriptorSetSlot.PerMaterial,
+                [
+                    new(0, DescriptorKind.SampledTexture, ShaderStage.Fragment),
+                    new(1, DescriptorKind.Sampler, ShaderStage.Fragment)
+                ],
+                "material"
+            )
+        );
 
         var set = device.CreateDescriptorSet(setLayout, "material");
         var albedo = device.CreateTexture(new(PixelFormat.Rgba8UNorm, 8, 8, TextureUsage.Sampled, Name: "albedo"));
@@ -260,13 +292,16 @@ public sealed class GlReplayTests {
 
         gl.Clear();
 
-        Submit(device, commands => {
-            commands.BeginRenderPass(new([new(view)]));
-            commands.BindPipeline(pipeline);
-            commands.BindDescriptorSet(DescriptorSetSlot.PerMaterial, set);
-            commands.Draw(3);
-            commands.EndRenderPass();
-        });
+        Submit(
+            device,
+            commands => {
+                commands.BeginRenderPass(new([new(view)]));
+                commands.BindPipeline(pipeline);
+                commands.BindDescriptorSet(DescriptorSetSlot.PerMaterial, set);
+                commands.Draw(3);
+                commands.EndRenderPass();
+            }
+        );
 
         var bind = gl.Single("BindSampler");
         Assert.Equal(0u, bind.Arguments[0]);
@@ -285,13 +320,20 @@ public sealed class GlReplayTests {
 
         var values = new[] { 1f, 2f, 3f, 4f };
 
-        Submit(device, commands => {
-            commands.BeginRenderPass(new([new(view)]));
-            commands.BindPipeline(pipeline);
-            commands.PushConstants(ShaderStage.Vertex, 0, System.Runtime.InteropServices.MemoryMarshal.AsBytes(values.AsSpan()));
-            commands.Draw(3);
-            commands.EndRenderPass();
-        });
+        Submit(
+            device,
+            commands => {
+                commands.BeginRenderPass(new([new(view)]));
+                commands.BindPipeline(pipeline);
+                commands.PushConstants(
+                    ShaderStage.Vertex,
+                    0,
+                    System.Runtime.InteropServices.MemoryMarshal.AsBytes(values.AsSpan())
+                );
+                commands.Draw(3);
+                commands.EndRenderPass();
+            }
+        );
 
         var upload = gl.Single("Uniform4fv");
         Assert.Equal([1f, 2f, 3f, 4f], upload.Arguments[1..]);
@@ -312,13 +354,16 @@ public sealed class GlReplayTests {
         var indices = device.CreateBuffer(new(512, BufferUsage.Index, MemoryAccess.HostUpload, "indices"));
         gl.Clear();
 
-        Submit(device, commands => {
-            commands.BeginRenderPass(new([new(view)]));
-            commands.BindPipeline(pipeline);
-            commands.BindIndexBuffer(indices, IndexFormat.UInt32, 8);
-            commands.DrawIndexed(6, 1, 3, 2);
-            commands.EndRenderPass();
-        });
+        Submit(
+            device,
+            commands => {
+                commands.BeginRenderPass(new([new(view)]));
+                commands.BindPipeline(pipeline);
+                commands.BindIndexBuffer(indices, IndexFormat.UInt32, 8);
+                commands.DrawIndexed(6, 1, 3, 2);
+                commands.EndRenderPass();
+            }
+        );
 
         var draw = gl.Single("DrawElementsInstancedBaseVertex");
         Assert.Equal(6, draw.Arguments[1]);
@@ -349,13 +394,16 @@ public sealed class GlReplayTests {
         Assert.Equal(0, gl.Count("VertexAttribPointer"));
         gl.Clear();
 
-        Submit(device, commands => {
-            commands.BeginRenderPass(new([new(view)]));
-            commands.BindPipeline(pipeline);
-            commands.BindVertexBuffer(0, vertices, 128);
-            commands.Draw(3);
-            commands.EndRenderPass();
-        });
+        Submit(
+            device,
+            commands => {
+                commands.BeginRenderPass(new([new(view)]));
+                commands.BindPipeline(pipeline);
+                commands.BindVertexBuffer(0, vertices, 128);
+                commands.Draw(3);
+                commands.EndRenderPass();
+            }
+        );
 
         var pointers = gl.Named("VertexAttribPointer");
         Assert.Equal(2, pointers.Count);
@@ -393,21 +441,24 @@ public sealed class GlReplayTests {
 
         var values = new[] { 1f, 2f, 3f, 4f };
 
-        Submit(device, commands => {
-            commands.BeginRenderPass(new([new(view)]));
-            commands.BindPipeline(first);
+        Submit(
+            device,
+            commands => {
+                commands.BeginRenderPass(new([new(view)]));
+                commands.BindPipeline(first);
 
-            commands.PushConstants(
-                ShaderStage.Vertex,
-                0,
-                System.Runtime.InteropServices.MemoryMarshal.AsBytes(values.AsSpan())
-            );
+                commands.PushConstants(
+                    ShaderStage.Vertex,
+                    0,
+                    System.Runtime.InteropServices.MemoryMarshal.AsBytes(values.AsSpan())
+                );
 
-            commands.Draw(3);
-            commands.BindPipeline(second);
-            commands.Draw(3);
-            commands.EndRenderPass();
-        });
+                commands.Draw(3);
+                commands.BindPipeline(second);
+                commands.Draw(3);
+                commands.EndRenderPass();
+            }
+        );
 
         Assert.Equal(2, gl.Count("Uniform4fv"));
     }
@@ -426,25 +477,31 @@ public sealed class GlReplayTests {
         using var device = new GlDevice(new(gl));
         var view = Colour(device, out _);
 
-        var perDraw = device.CreateDescriptorSetLayout(new(
-            DescriptorSetSlot.PerDraw,
-            [new(0, DescriptorKind.DynamicUniformBuffer, ShaderStage.Vertex)],
-            "draw"
-        ));
+        var perDraw = device.CreateDescriptorSetLayout(
+            new(
+                DescriptorSetSlot.PerDraw,
+                [new(0, DescriptorKind.DynamicUniformBuffer, ShaderStage.Vertex)],
+                "draw"
+            )
+        );
 
-        var perMaterial = device.CreateDescriptorSetLayout(new(
-            DescriptorSetSlot.PerMaterial,
-            [new(0, DescriptorKind.SampledTexture, ShaderStage.Fragment)],
-            "material"
-        ));
+        var perMaterial = device.CreateDescriptorSetLayout(
+            new(
+                DescriptorSetSlot.PerMaterial,
+                [new(0, DescriptorKind.SampledTexture, ShaderStage.Fragment)],
+                "material"
+            )
+        );
 
         // One extra per-frame uniform block ahead of the per-draw one, so the same binding lands at
         // index 1 rather than index 0 under the second layout.
-        var perFrame = device.CreateDescriptorSetLayout(new(
-            DescriptorSetSlot.PerFrame,
-            [new(0, DescriptorKind.UniformBuffer, ShaderStage.Vertex)],
-            "frame"
-        ));
+        var perFrame = device.CreateDescriptorSetLayout(
+            new(
+                DescriptorSetSlot.PerFrame,
+                [new(0, DescriptorKind.UniformBuffer, ShaderStage.Vertex)],
+                "frame"
+            )
+        );
 
         var narrow = device.CreatePipelineLayout(new([perDraw, perMaterial], null, "narrow"));
         var wide = device.CreatePipelineLayout(new([perFrame, perDraw, perMaterial], null, "wide"));
@@ -457,15 +514,18 @@ public sealed class GlReplayTests {
         device.UpdateDescriptorSet(set, [DescriptorWrite.Uniform(0, buffer)]);
         gl.Clear();
 
-        Submit(device, commands => {
-            commands.BeginRenderPass(new([new(view)]));
-            commands.BindPipeline(first);
-            commands.BindDescriptorSet(DescriptorSetSlot.PerDraw, set);
-            commands.Draw(3);
-            commands.BindPipeline(second);
-            commands.Draw(3);
-            commands.EndRenderPass();
-        });
+        Submit(
+            device,
+            commands => {
+                commands.BeginRenderPass(new([new(view)]));
+                commands.BindPipeline(first);
+                commands.BindDescriptorSet(DescriptorSetSlot.PerDraw, set);
+                commands.Draw(3);
+                commands.BindPipeline(second);
+                commands.Draw(3);
+                commands.EndRenderPass();
+            }
+        );
 
         var binds = gl.Named("BindBufferRange");
         Assert.Equal(2, binds.Count);
@@ -489,11 +549,13 @@ public sealed class GlReplayTests {
         var layout = Pipelines.Layout(device);
         var pipeline = Pipelines.Handle(device, BlendState.Opaque, DepthStencilState.Disabled, layout: layout);
 
-        var setLayout = device.CreateDescriptorSetLayout(new(
-            DescriptorSetSlot.PerDraw,
-            [new(0, DescriptorKind.DynamicUniformBuffer, ShaderStage.Vertex)],
-            "draw"
-        ));
+        var setLayout = device.CreateDescriptorSetLayout(
+            new(
+                DescriptorSetSlot.PerDraw,
+                [new(0, DescriptorKind.DynamicUniformBuffer, ShaderStage.Vertex)],
+                "draw"
+            )
+        );
 
         var set = device.CreateDescriptorSet(setLayout, "draw");
         var buffer = device.CreateBuffer(new(1024, BufferUsage.Uniform, MemoryAccess.HostUpload, "draw"));
@@ -502,13 +564,16 @@ public sealed class GlReplayTests {
         device.UpdateDescriptorSet(set, [DescriptorWrite.Uniform(0, buffer, 0, 64)]);
         gl.Clear();
 
-        Submit(device, commands => {
-            commands.BeginRenderPass(new([new(view)]));
-            commands.BindPipeline(pipeline);
-            commands.BindDescriptorSet(DescriptorSetSlot.PerDraw, set, [256]);
-            commands.Draw(3);
-            commands.EndRenderPass();
-        });
+        Submit(
+            device,
+            commands => {
+                commands.BeginRenderPass(new([new(view)]));
+                commands.BindPipeline(pipeline);
+                commands.BindDescriptorSet(DescriptorSetSlot.PerDraw, set, [256]);
+                commands.Draw(3);
+                commands.EndRenderPass();
+            }
+        );
 
         Assert.Equal(256L, gl.Single("BindBufferRange").Arguments[3]);
     }
@@ -523,20 +588,27 @@ public sealed class GlReplayTests {
     public void ElidesABarrierWithNoIncoherentWrite() {
         var gl = new RecordingGlApi();
         using var device = new GlDevice(new(gl));
-        var texture = device.CreateTexture(new(
-            PixelFormat.Rgba8UNorm,
-            8,
-            8,
-            TextureUsage.ColourTarget | TextureUsage.Sampled,
-            Name: "target"
-        ));
+        var texture = device.CreateTexture(
+            new(
+                PixelFormat.Rgba8UNorm,
+                8,
+                8,
+                TextureUsage.ColourTarget | TextureUsage.Sampled,
+                Name: "target"
+            )
+        );
 
         gl.Clear();
 
-        Submit(device, commands => commands.Barrier(new(
-            [],
-            [new(texture, ResourceState.ColourTarget, ResourceState.ShaderRead)]
-        )));
+        Submit(
+            device,
+            commands => commands.Barrier(
+                new(
+                    [],
+                    [new(texture, ResourceState.ColourTarget, ResourceState.ShaderRead)]
+                )
+            )
+        );
 
         Assert.Equal(0, gl.Count("MemoryBarrier"));
     }
@@ -555,10 +627,15 @@ public sealed class GlReplayTests {
         var buffer = device.CreateBuffer(new(256, BufferUsage.Storage, MemoryAccess.DeviceLocal, "particles"));
         gl.Clear();
 
-        Submit(device, commands => commands.Barrier(new(
-            [new(buffer, ResourceState.ShaderWrite, ResourceState.VertexInput)],
-            []
-        )));
+        Submit(
+            device,
+            commands => commands.Barrier(
+                new(
+                    [new(buffer, ResourceState.ShaderWrite, ResourceState.VertexInput)],
+                    []
+                )
+            )
+        );
 
         var barrier = gl.Single("MemoryBarrier");
         var bits = (uint)barrier.Arguments[0]!;
@@ -581,12 +658,16 @@ public sealed class GlReplayTests {
         var view = Colour(device, out _);
         var pipeline = Pipelines.Handle(device, BlendState.Opaque, DepthStencilState.Disabled);
 
-        var error = Assert.Throws<NotSupportedException>(() => Submit(device, commands => {
-            commands.BeginRenderPass(new([new(view)]));
-            commands.BindPipeline(pipeline);
-            commands.Draw(3, 1, 0, 4);
-            commands.EndRenderPass();
-        }));
+        var error = Assert.Throws<NotSupportedException>(() => Submit(
+                device,
+                commands => {
+                    commands.BeginRenderPass(new([new(view)]));
+                    commands.BindPipeline(pipeline);
+                    commands.Draw(3, 1, 0, 4);
+                    commands.EndRenderPass();
+                }
+            )
+        );
 
         Assert.Contains("dynamic uniform offset", error.Message, StringComparison.Ordinal);
     }
@@ -598,11 +679,15 @@ public sealed class GlReplayTests {
         using var device = new GlDevice(new(gl));
         var view = Colour(device, out _);
 
-        Assert.Throws<InvalidOperationException>(() => Submit(device, commands => {
-            commands.BeginRenderPass(new([new(view)]));
-            commands.Draw(3);
-            commands.EndRenderPass();
-        }));
+        Assert.Throws<InvalidOperationException>(() => Submit(
+                device,
+                commands => {
+                    commands.BeginRenderPass(new([new(view)]));
+                    commands.Draw(3);
+                    commands.EndRenderPass();
+                }
+            )
+        );
     }
 
     /// <summary>A whole-texture transfer is one call each way, with no row flipping.</summary>
@@ -626,27 +711,34 @@ public sealed class GlReplayTests {
         var gl = new RecordingGlApi();
         using var device = new GlDevice(new(gl));
 
-        var texture = device.CreateTexture(new(
-            PixelFormat.Rgba8UNorm,
-            4,
-            4,
-            TextureUsage.CopySource | TextureUsage.CopyDestination | TextureUsage.ColourTarget,
-            Name: "square"
-        ));
+        var texture = device.CreateTexture(
+            new(
+                PixelFormat.Rgba8UNorm,
+                4,
+                4,
+                TextureUsage.CopySource | TextureUsage.CopyDestination | TextureUsage.ColourTarget,
+                Name: "square"
+            )
+        );
 
-        var staging = device.CreateBuffer(new(
-            64,
-            BufferUsage.CopySource | BufferUsage.CopyDestination,
-            MemoryAccess.HostUpload,
-            "staging"
-        ));
+        var staging = device.CreateBuffer(
+            new(
+                64,
+                BufferUsage.CopySource | BufferUsage.CopyDestination,
+                MemoryAccess.HostUpload,
+                "staging"
+            )
+        );
 
         gl.Clear();
 
-        Submit(device, commands => {
-            commands.CopyBufferToTexture(staging, 0, new(texture), new(4, 4, 1));
-            commands.CopyTextureToBuffer(new(texture), new(4, 4, 1), staging, 0);
-        });
+        Submit(
+            device,
+            commands => {
+                commands.CopyBufferToTexture(staging, 0, new(texture), new(4, 4, 1));
+                commands.CopyTextureToBuffer(new(texture), new(4, 4, 1), staging, 0);
+            }
+        );
 
         var upload = gl.Single("TexSubImage2D");
         var read = gl.Single("ReadPixels");
@@ -665,11 +757,14 @@ public sealed class GlReplayTests {
         using var device = new GlDevice(new(gl));
         gl.Clear();
 
-        Submit(device, commands => {
-            commands.PushDebugGroup("shadows");
-            commands.InsertDebugMarker("cascade 0");
-            commands.PopDebugGroup();
-        });
+        Submit(
+            device,
+            static commands => {
+                commands.PushDebugGroup("shadows");
+                commands.InsertDebugMarker("cascade 0");
+                commands.PopDebugGroup();
+            }
+        );
 
         Assert.Equal(expected, gl.Count("PushDebugGroup"));
         Assert.Equal(expected, gl.Count("DebugMarker"));
@@ -697,20 +792,21 @@ public sealed class GlReplayTests {
 
         var set = device.CreateDescriptorSet(setLayout, "material");
 
-        var target = device.CreateTexture(
-            new(PixelFormat.Rgba8UNorm, 8, 8, TextureUsage.Storage, Name: "storage")
-        );
+        var target = device.CreateTexture(new(PixelFormat.Rgba8UNorm, 8, 8, TextureUsage.Storage, Name: "storage"));
 
         device.UpdateDescriptorSet(set, [DescriptorWrite.StorageImage(0, device.CreateTextureView(target))]);
         gl.Clear();
 
-        Submit(device, commands => {
-            commands.BeginRenderPass(new([new(view)]));
-            commands.BindPipeline(pipeline);
-            commands.BindDescriptorSet(DescriptorSetSlot.PerMaterial, set);
-            commands.Draw(3);
-            commands.EndRenderPass();
-        });
+        Submit(
+            device,
+            commands => {
+                commands.BeginRenderPass(new([new(view)]));
+                commands.BindPipeline(pipeline);
+                commands.BindDescriptorSet(DescriptorSetSlot.PerMaterial, set);
+                commands.Draw(3);
+                commands.EndRenderPass();
+            }
+        );
 
         var bind = gl.Single("BindImageTexture");
 
@@ -752,28 +848,30 @@ public sealed class GlReplayTests {
 
         var set = device.CreateDescriptorSet(setLayout, "material");
 
-        var sampled = device.CreateTexture(
-            new(PixelFormat.Rgba8UNorm, 8, 8, TextureUsage.Sampled, Name: "albedo")
-        );
+        var sampled = device.CreateTexture(new(PixelFormat.Rgba8UNorm, 8, 8, TextureUsage.Sampled, Name: "albedo"));
 
-        var stored = device.CreateTexture(
-            new(PixelFormat.Rgba8UNorm, 8, 8, TextureUsage.Storage, Name: "stored")
-        );
+        var stored = device.CreateTexture(new(PixelFormat.Rgba8UNorm, 8, 8, TextureUsage.Storage, Name: "stored"));
 
-        device.UpdateDescriptorSet(set, [
-            DescriptorWrite.Texture(0, device.CreateTextureView(sampled)),
-            DescriptorWrite.StorageImage(1, device.CreateTextureView(stored))
-        ]);
+        device.UpdateDescriptorSet(
+            set,
+            [
+                DescriptorWrite.Texture(0, device.CreateTextureView(sampled)),
+                DescriptorWrite.StorageImage(1, device.CreateTextureView(stored))
+            ]
+        );
 
         gl.Clear();
 
-        Submit(device, commands => {
-            commands.BeginRenderPass(new([new(view)]));
-            commands.BindPipeline(pipeline);
-            commands.BindDescriptorSet(DescriptorSetSlot.PerMaterial, set);
-            commands.Draw(3);
-            commands.EndRenderPass();
-        });
+        Submit(
+            device,
+            commands => {
+                commands.BeginRenderPass(new([new(view)]));
+                commands.BindPipeline(pipeline);
+                commands.BindDescriptorSet(DescriptorSetSlot.PerMaterial, set);
+                commands.Draw(3);
+                commands.EndRenderPass();
+            }
+        );
 
         Assert.Equal(0u, gl.Single("BindImageTexture").Arguments[0]);
         Assert.Equal(0u, gl.Named("ActiveTexture")[^1].Arguments[0]);
@@ -807,32 +905,38 @@ public sealed class GlReplayTests {
         for (var level = 0; level < sets.Length; level++) {
             sets[level] = device.CreateDescriptorSet(setLayout, $"level {level}");
 
-            device.UpdateDescriptorSet(sets[level], [
-                DescriptorWrite.StorageImage(
-                    0,
-                    device.CreateTextureView(pyramid, baseMipLevel: level, mipLevelCount: 1)
-                )
-            ]);
+            device.UpdateDescriptorSet(
+                sets[level],
+                [
+                    DescriptorWrite.StorageImage(
+                        0,
+                        device.CreateTextureView(pyramid, baseMipLevel: level, mipLevelCount: 1)
+                    )
+                ]
+            );
         }
 
         gl.Clear();
 
-        Submit(device, commands => {
-            commands.BeginRenderPass(new([new(view)]));
-            commands.BindPipeline(pipeline);
+        Submit(
+            device,
+            commands => {
+                commands.BeginRenderPass(new([new(view)]));
+                commands.BindPipeline(pipeline);
 
-            foreach (var set in sets) {
-                commands.BindDescriptorSet(DescriptorSetSlot.PerMaterial, set);
-                commands.Draw(3);
+                foreach (var set in sets) {
+                    commands.BindDescriptorSet(DescriptorSetSlot.PerMaterial, set);
+                    commands.Draw(3);
+                }
+
+                commands.EndRenderPass();
             }
-
-            commands.EndRenderPass();
-        });
+        );
 
         var binds = gl.Named("BindImageTexture");
 
         Assert.Equal(3, binds.Count);
-        Assert.Equal([0, 1, 2], binds.Select(call => call.Arguments[2]));
+        Assert.Equal([0, 1, 2], binds.Select(static call => call.Arguments[2]));
     }
 
     /// <summary>And binding the same image twice running costs one call.</summary>
@@ -854,22 +958,23 @@ public sealed class GlReplayTests {
 
         var set = device.CreateDescriptorSet(setLayout, "material");
 
-        var stored = device.CreateTexture(
-            new(PixelFormat.Rgba8UNorm, 8, 8, TextureUsage.Storage, Name: "stored")
-        );
+        var stored = device.CreateTexture(new(PixelFormat.Rgba8UNorm, 8, 8, TextureUsage.Storage, Name: "stored"));
 
         device.UpdateDescriptorSet(set, [DescriptorWrite.StorageImage(0, device.CreateTextureView(stored))]);
         gl.Clear();
 
-        Submit(device, commands => {
-            commands.BeginRenderPass(new([new(view)]));
-            commands.BindPipeline(pipeline);
-            commands.BindDescriptorSet(DescriptorSetSlot.PerMaterial, set);
-            commands.Draw(3);
-            commands.BindDescriptorSet(DescriptorSetSlot.PerMaterial, set);
-            commands.Draw(3);
-            commands.EndRenderPass();
-        });
+        Submit(
+            device,
+            commands => {
+                commands.BeginRenderPass(new([new(view)]));
+                commands.BindPipeline(pipeline);
+                commands.BindDescriptorSet(DescriptorSetSlot.PerMaterial, set);
+                commands.Draw(3);
+                commands.BindDescriptorSet(DescriptorSetSlot.PerMaterial, set);
+                commands.Draw(3);
+                commands.EndRenderPass();
+            }
+        );
 
         Assert.Equal(1, gl.Count("BindImageTexture"));
     }
@@ -886,15 +991,15 @@ public sealed class GlReplayTests {
         GlDevice device,
         params DescriptorBinding[] material
     ) {
-        var perDraw = device.CreateDescriptorSetLayout(new(
-            DescriptorSetSlot.PerDraw,
-            [new(0, DescriptorKind.DynamicUniformBuffer, ShaderStage.Vertex)],
-            "draw"
-        ));
-
-        var perMaterial = device.CreateDescriptorSetLayout(
-            new(DescriptorSetSlot.PerMaterial, material, "material")
+        var perDraw = device.CreateDescriptorSetLayout(
+            new(
+                DescriptorSetSlot.PerDraw,
+                [new(0, DescriptorKind.DynamicUniformBuffer, ShaderStage.Vertex)],
+                "draw"
+            )
         );
+
+        var perMaterial = device.CreateDescriptorSetLayout(new(DescriptorSetSlot.PerMaterial, material, "material"));
 
         var layout = device.CreatePipelineLayout(new([perDraw, perMaterial], null, "material layout"));
 
@@ -905,25 +1010,29 @@ public sealed class GlReplayTests {
     }
 
     static TextureViewHandle Colour(GlDevice device, out TextureHandle texture) {
-        texture = device.CreateTexture(new(
-            PixelFormat.Rgba8UNorm,
-            64,
-            64,
-            TextureUsage.ColourTarget | TextureUsage.CopySource,
-            Name: "colour"
-        ));
+        texture = device.CreateTexture(
+            new(
+                PixelFormat.Rgba8UNorm,
+                64,
+                64,
+                TextureUsage.ColourTarget | TextureUsage.CopySource,
+                Name: "colour"
+            )
+        );
 
         return device.CreateTextureView(texture);
     }
 
     static TextureViewHandle Depth(GlDevice device) {
-        var texture = device.CreateTexture(new(
-            PixelFormat.Depth32Float,
-            64,
-            64,
-            TextureUsage.DepthStencilTarget,
-            Name: "depth"
-        ));
+        var texture = device.CreateTexture(
+            new(
+                PixelFormat.Depth32Float,
+                64,
+                64,
+                TextureUsage.DepthStencilTarget,
+                Name: "depth"
+            )
+        );
 
         return device.CreateTextureView(texture);
     }

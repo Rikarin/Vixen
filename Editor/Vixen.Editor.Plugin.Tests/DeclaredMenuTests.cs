@@ -34,12 +34,13 @@ public class DeclaredMenuTests {
 
     static string Render(MenuGroup group) => string.Join(" ", group.Entries.Select(Render));
 
-    static string Render(MenuEntry entry) => entry switch {
-        MenuCommand(var id) => id,
-        MenuSeparator => "|",
-        MenuSubmenu(var group) => group.Title.Id + "[" + Render(group) + "]",
-        _ => "?"
-    };
+    static string Render(MenuEntry entry) =>
+        entry switch {
+            MenuCommand(var id) => id,
+            MenuSeparator => "|",
+            MenuSubmenu(var group) => group.Title.Id + "[" + Render(group) + "]",
+            _ => "?"
+        };
 
     /// <summary>
     ///     ⚠ <b>The claim the scan's own remark made and did not keep.</b> It said two declarations
@@ -56,8 +57,7 @@ public class DeclaredMenuTests {
         host.Activate(
             "mine",
             "Mine",
-            new Module(
-                context => {
+            new Module(static context => {
                     var menus = new DeclaredMenus(context);
 
                     menus.Command("Tools/My Thing/A", static () => { });
@@ -74,8 +74,7 @@ public class DeclaredMenuTests {
         host.Activate(
             "theirs",
             "Theirs",
-            new Module(
-                context => {
+            new Module(static context => {
                     var menus = new DeclaredMenus(context);
 
                     menus.Command("Tools/My Thing/C", static () => { });
@@ -99,15 +98,14 @@ public class DeclaredMenuTests {
         host.Activate(
             "mine",
             "Mine",
-            new Module(
-                context => {
+            new Module(static context => {
                     var menus = new DeclaredMenus(context);
 
                     // ⚠ Declared in the reverse of the order they end up in, and with the second
                     // placed after the first: the priorities are what order them, and the second's
                     // `after` names a submenu this same pass creates.
-                    menus.Submenu("Scene/Two", Named("mine.two"), after: "mine.one", priority: 2);
-                    menus.Submenu("Scene/One", Named("mine.one"), after: "editor.menu.precision", priority: 1);
+                    menus.Submenu("Scene/Two", Named("mine.two"), "mine.one", 2);
+                    menus.Submenu("Scene/One", Named("mine.one"), "editor.menu.precision", 1);
                     menus.Line("Scene/Two", "mine.b");
                     menus.Line("Scene/One", "mine.a");
                     menus.Apply();
@@ -131,14 +129,13 @@ public class DeclaredMenuTests {
         host.Activate(
             "mine",
             "Mine",
-            new Module(
-                context => {
+            new Module(static context => {
                     var menus = new DeclaredMenus(context);
 
                     menus.Submenu("Scene/Mine", Named("mine.menu"));
-                    menus.Line("Scene/Mine", "mine.c", priority: 3, separator: true);
-                    menus.Line("Scene/Mine", "mine.a", priority: 1, separator: true);
-                    menus.Lines("Scene/Mine", ["mine.b1", "mine.b2"], priority: 2);
+                    menus.Line("Scene/Mine", "mine.c", 3, true);
+                    menus.Line("Scene/Mine", "mine.a", 1, true);
+                    menus.Lines("Scene/Mine", ["mine.b1", "mine.b2"], 2);
                     menus.Apply();
                 }
             )
@@ -146,7 +143,7 @@ public class DeclaredMenuTests {
 
         var mine = Assert.Single(
             scene.Entries.OfType<MenuSubmenu>(),
-            entry => entry.Group.Title.Id == "mine.menu"
+            static entry => entry.Group.Title.Id == "mine.menu"
         );
 
         // The first line's separator is dropped — it has nothing above it to be separated from.
@@ -163,8 +160,7 @@ public class DeclaredMenuTests {
         host.Activate(
             "mine",
             "Mine",
-            new Module(
-                context => {
+            new Module(static context => {
                     var menus = new DeclaredMenus(context);
 
                     menus.Submenu("Scene/Measure", EditorStrings.MenuPrecision);
@@ -202,15 +198,14 @@ public class DeclaredMenuTests {
         host.Activate(
             "mine",
             "Mine",
-            new Module(
-                context => {
+            new Module(static context => {
                     var menus = new DeclaredMenus(context);
 
-                    menus.Submenu("Scene/Mine", Named("mine.menu"), after: "editor.menu.snap");
+                    menus.Submenu("Scene/Mine", Named("mine.menu"), "editor.menu.snap");
                     menus.Submenu("Scene/Mine/Deeper", Named("mine.deeper"));
                     menus.Line("Scene/Mine", "mine.a");
                     menus.Line("Scene/Mine/Deeper", "mine.b", separator: true);
-                    menus.Command("Mine Menu/Go", static () => { }, id: "mine.go");
+                    menus.Command("Mine Menu/Go", static () => { }, "mine.go");
                     menus.Apply();
                 }
             )
@@ -235,7 +230,7 @@ public class DeclaredMenuTests {
         var loaded = host.Activate(
             "mine",
             "Mine",
-            new Module(context => new DeclaredMenus(context).Command("Tools", static () => { }))
+            new Module(static context => new DeclaredMenus(context).Command("Tools", static () => { }))
         );
 
         Assert.Equal(PluginState.Failed, loaded.State);

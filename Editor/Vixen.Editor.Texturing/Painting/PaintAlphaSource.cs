@@ -2,12 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core.Imaging;
-using Vixen.Editor.Assets.Textures;
 using Vixen.Editor.Core;
 using Vixen.Graphics;
 using Vixen.Interchange;
 using Vixen.Terrain;
-using Vixen.Texturing.Layers;
 using Vixen.Texturing.Painting;
 
 namespace Vixen.Editor.Texturing.Painting;
@@ -15,18 +13,25 @@ namespace Vixen.Editor.Texturing.Painting;
 /// <summary>Turns one of a project's own imported pictures into a brush alpha.</summary>
 /// <remarks>
 ///     <para>
-///         <b><a href="https://github.com/Rikarin/Vixen/issues/1090">#1090</a>: the shelf of four
-///         was a stand-in for the thing every reference toolset has, which is an artist pointing the
-///         brush at a texture in their own project.</b> <c>PaintAlphas</c> renders its shapes into
+///         <b>
+///             <a href="https://github.com/Rikarin/Vixen/issues/1090">#1090</a>: the shelf of four
+///             was a stand-in for the thing every reference toolset has, which is an artist pointing the
+///             brush at a texture in their own project.
+///         </b>
+///         <c>PaintAlphas</c> renders its shapes into
 ///         <c>PaintImage</c>s and wraps them in <see cref="PaintImageMask" /> precisely so that this
 ///         needs no new sampling path — an imported picture decodes to the Rgba8 bytes a
 ///         <c>PaintImage</c> already is, and the addressing, the bilinear tap and the unit-square
 ///         contract are the ones the shelf has been exercising.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Which channel carries the weight is decided by <em>inspecting the decoded image</em>
-///         and never by its format, and that is the whole reason this type exists rather than a
-///         two-line call at the panel.</b> Brush alphas in the wild are written both ways: some
+///         ⚠
+///         <b>
+///             Which channel carries the weight is decided by <em>inspecting the decoded image</em>
+///             and never by its format, and that is the whole reason this type exists rather than a
+///             two-line call at the panel.
+///         </b>
+///         Brush alphas in the wild are written both ways: some
 ///         carry the shape in alpha over a black or white RGB, and some are opaque greyscale with no
 ///         meaningful alpha at all. A picture whose alpha channel is one constant — 255 for a PNG
 ///         without transparency, 0 for one exported carelessly — read as an alpha mask is a brush
@@ -36,8 +41,12 @@ namespace Vixen.Editor.Texturing.Painting;
 ///         contract.
 ///     </para>
 ///     <para>
-///         ⚠ <b>A picture with no variation in either is refused with a sentence rather than
-///         loaded.</b> A wholly transparent or wholly black image is a mask that multiplies every
+///         ⚠
+///         <b>
+///             A picture with no variation in either is refused with a sentence rather than
+///             loaded.
+///         </b>
+///         A wholly transparent or wholly black image is a mask that multiplies every
 ///         stamp by zero, which is a brush that appears to be working and deposits nothing — the
 ///         defect this workstream keeps finding, one subsystem along.
 ///     </para>
@@ -61,10 +70,10 @@ static class PaintAlphaSource {
     public static (IBrushMask? Mask, string Message) Resolve(EditorProject project, string? reference) {
         ArgumentNullException.ThrowIfNull(project);
 
-        var path = reference?.Trim() ?? "";
+        var path = reference?.Trim() ?? string.Empty;
 
         if (path.Length == 0) {
-            return (null, "");
+            return (null, string.Empty);
         }
 
         if (!project.Assets.TryGetByPath(path, out var asset)) {
@@ -89,8 +98,10 @@ static class PaintAlphaSource {
             }
 
             decoded = read;
-        } catch (Exception failure) when (failure is IOException or InvalidDataException
-            or UnauthorizedAccessException or NotSupportedException) {
+        } catch (Exception failure) when (failure is IOException
+                                              or InvalidDataException
+                                              or UnauthorizedAccessException
+                                              or NotSupportedException) {
             return (null, $"'{path}' would not read: {failure.Message}");
         }
 
@@ -126,7 +137,7 @@ static class PaintAlphaSource {
         byte highest = 0;
 
         for (var texel = 0; texel < texels; texel++) {
-            var alpha = source[(texel * PaintImage.BytesPerTexel) + 3];
+            var alpha = source[texel * PaintImage.BytesPerTexel + 3];
 
             lowest = Math.Min(lowest, alpha);
             highest = Math.Max(highest, alpha);
@@ -144,9 +155,7 @@ static class PaintAlphaSource {
 
             var weight = opaque
                 ? (byte)Math.Clamp(
-                    (int)MathF.Round(
-                        (source[at] * 0.2126f) + (source[at + 1] * 0.7152f) + (source[at + 2] * 0.0722f)
-                    ),
+                    (int)MathF.Round(source[at] * 0.2126f + source[at + 1] * 0.7152f + source[at + 2] * 0.0722f),
                     0,
                     255
                 )
@@ -161,11 +170,12 @@ static class PaintAlphaSource {
             return (null,
                 $"'{path}' is {(opaque ? "black" : "wholly transparent")} everywhere, so it would be a "
                 + "brush that paints nothing. Pick a picture whose shape is in "
-                + (opaque ? "its brightness" : "its alpha channel") + ".");
+                + (opaque ? "its brightness" : "its alpha channel")
+                + ".");
         }
 
         var read = opaque ? "brightness" : "alpha channel";
-        var flat = weakest == strongest ? ", which is flat, so it stamps a plain square" : "";
+        var flat = weakest == strongest ? ", which is flat, so it stamps a plain square" : string.Empty;
 
         return (new PaintImageMask(image),
             $"'{path}' at {decoded.Width}×{decoded.Height}, weight from its {read}{flat}.");

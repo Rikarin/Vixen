@@ -111,10 +111,5 @@ static class TextureSmoothingFilters {
     /// <param name="threshold">The edge contrast below which a texel is left alone, from nought to one.</param>
     /// <returns>The op.</returns>
     public static TextureOp AntiAliasOp(int output, int source, float threshold) =>
-        new() {
-            Kernel = AntiAlias,
-            Output = output,
-            Inputs = [source],
-            Parameters = [new("threshold", threshold)]
-        };
+        new() { Kernel = AntiAlias, Output = output, Inputs = [source], Parameters = [new("threshold", threshold)] };
 }

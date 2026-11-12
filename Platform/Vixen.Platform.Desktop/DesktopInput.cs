@@ -46,8 +46,7 @@ sealed unsafe class DesktopHaptics(Sdl sdl, DesktopGamepad owner) : IHaptics {
 
     static ushort Strength(float value) => (ushort)(Math.Clamp(value, 0f, 1f) * ushort.MaxValue);
 
-    static uint Milliseconds(TimeSpan duration) =>
-        (uint)Math.Clamp(duration.TotalMilliseconds, 0d, uint.MaxValue);
+    static uint Milliseconds(TimeSpan duration) => (uint)Math.Clamp(duration.TotalMilliseconds, 0d, uint.MaxValue);
 }
 
 /// <summary>One open SDL game controller.</summary>
@@ -88,7 +87,8 @@ sealed unsafe class DesktopGamepad : IGamepad {
     }
 
     public bool IsButtonDown(GamepadButton button) =>
-        IsConnected && button != GamepadButton.None
+        IsConnected
+        && button != GamepadButton.None
         && sdl.GameControllerGetButton(handle, SdlTranslation.ToSdl(button)) != 0;
 
     internal void Close() {

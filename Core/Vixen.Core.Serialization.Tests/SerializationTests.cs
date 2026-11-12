@@ -85,8 +85,12 @@ public class SerializationTests {
 
     /// <summary>A collection of an enum, which had no value that serialised at all.</summary>
     /// <remarks>
-    ///     ⚠ <b>This is not a variation on <see cref="CollectionsRoundTrip" />; it is the shape that
-    ///     threw.</b> An enum <i>member</i> is written inline as its underlying primitive, so no
+    ///     ⚠
+    ///     <b>
+    ///         This is not a variation on <see cref="CollectionsRoundTrip" />; it is the shape that
+    ///         threw.
+    ///     </b>
+    ///     An enum <i>member</i> is written inline as its underlying primitive, so no
     ///     enum type has ever needed a registered serializer — and the generator returns nothing for
     ///     <c>TypeKind.Enum</c> deliberately. An enum <i>element</i> asks the registry, found
     ///     nothing, and threw a <c>SerializationException</c> telling the author to annotate the
@@ -130,12 +134,15 @@ public class SerializationTests {
     public void AnEnumElementIsTheSameBytesAsAnEnumMember() {
         var buffer = new ArrayBufferWriter<byte>();
         var writer = new SerializationWriter(buffer);
-        writer.WriteArray<Facing>([Facing.South, Facing.West]);
-        writer.WriteArray<Tone>([Tone.Cool]);
+        writer.WriteArray([Facing.South, Facing.West]);
+        writer.WriteArray([Tone.Cool]);
         writer.Flush();
 
         // Length + 1 as a varint, then the underlying value at its own width, little-endian.
-        Assert.Equal([3, (byte)Facing.South, (byte)Facing.West, 2, (byte)Tone.Cool, 0, 0, 0], buffer.WrittenSpan.ToArray());
+        Assert.Equal(
+            [3, (byte)Facing.South, (byte)Facing.West, 2, (byte)Tone.Cool, 0, 0, 0],
+            buffer.WrittenSpan.ToArray()
+        );
     }
 
     [Fact]
@@ -190,9 +197,7 @@ public class SerializationTests {
 
     [Fact]
     public void ACollectionOfABaseTypeHoldsWhateverEachElementActuallyIs() {
-        var value = new Drawing {
-            Children = [new Circle { Radius = 1f }, new Box { Width = 2f, Height = 3f }, null]
-        };
+        var value = new Drawing { Children = [new Circle { Radius = 1f }, new Box { Width = 2f, Height = 3f }, null] };
 
         var result = RoundTrip(value);
 
@@ -203,8 +208,7 @@ public class SerializationTests {
     }
 
     [Fact]
-    public void APolymorphicMemberStillHandlesNull() =>
-        Assert.Null(RoundTrip(new Drawing { Root = null }).Root);
+    public void APolymorphicMemberStillHandlesNull() => Assert.Null(RoundTrip(new Drawing { Root = null }).Root);
 
     /// <summary>
     ///     A type carries its serialised name, not its CLR name, so it can be renamed and moved and
@@ -317,8 +321,8 @@ public class SerializationTests {
         writer.WriteInt32(5);
         writer.Flush();
 
-        var thrown = Assert.Throws<SerializationVersionException>(
-            () => Serializer.Read<VersionedClass>(buffer.WrittenSpan)
+        var thrown = Assert.Throws<SerializationVersionException>(() =>
+            Serializer.Read<VersionedClass>(buffer.WrittenSpan)
         );
 
         Assert.Equal(1, thrown.DataVersion);
@@ -409,7 +413,7 @@ public class SerializationTests {
 
     [Fact]
     public void AnUnregisteredTypeSaysHowToRegisterIt() {
-        var thrown = Assert.Throws<SerializationException>(() => Serializer.ToBytes(new Unregistered()));
+        var thrown = Assert.Throws<SerializationException>(static () => Serializer.ToBytes(new Unregistered()));
         Assert.Contains("[DataContract]", thrown.Message, StringComparison.Ordinal);
     }
 
@@ -425,15 +429,16 @@ public class SerializationTests {
     [Fact]
     public void PrimitivesRoundTripForEveryValue() {
         Gen.Int.Sample(value => Assert.Equal(value, RoundTrip(new MutableStruct { Number = value }).Number));
-        Gen.Float.Sample(value => Assert.Equal(
-            BitConverter.SingleToUInt32Bits(value),
-            BitConverter.SingleToUInt32Bits(RoundTrip(new PositionalStruct(0, value, "")).Y)
-        ));
+        Gen.Float.Sample(static value => Assert.Equal(
+                BitConverter.SingleToUInt32Bits(value),
+                BitConverter.SingleToUInt32Bits(RoundTrip(new PositionalStruct(0, value, string.Empty)).Y)
+            )
+        );
     }
 
     [Fact]
     public void VariableLengthIntegersRoundTripForEveryValue() {
-        Gen.ULong.Sample(value => {
+        Gen.ULong.Sample(static value => {
                 var buffer = new ArrayBufferWriter<byte>();
                 var writer = new SerializationWriter(buffer);
                 writer.WriteVarUInt64(value);
@@ -445,7 +450,7 @@ public class SerializationTests {
             }
         );
 
-        Gen.Long.Sample(value => {
+        Gen.Long.Sample(static value => {
                 var buffer = new ArrayBufferWriter<byte>();
                 var writer = new SerializationWriter(buffer);
                 writer.WriteVarInt64(value);

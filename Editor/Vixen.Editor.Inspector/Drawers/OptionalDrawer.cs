@@ -36,8 +36,11 @@ public sealed partial class OptionalEditor : Control {
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>Because "unset" and "zero" are different states, and only one of them is visible
-///         without this.</b> Every optional member in the engine — a post-process volume's settings
+///         <b>
+///             Because "unset" and "zero" are different states, and only one of them is visible
+///             without this.
+///         </b>
+///         Every optional member in the engine — a post-process volume's settings
 ///         are twenty of them — means "I have no opinion" by being null, and a plain number box shows
 ///         null as <c>0</c>. That is the worst available answer: it reads as an override to black, to
 ///         no bloom, to zero saturation. Unreal pairs every one of its post-process properties with a

@@ -60,8 +60,12 @@ public class CalcTests {
 
     /// <summary>Bare numbers fold to a number, which is what the shipped theme's type scale is made of.</summary>
     /// <remarks>
-    ///     <c>vixen.default.vcss</c> writes every line height as a ratio — <c>--text-xs--line-height:
-    ///     calc(1 / 0.75)</c> — because that is how Tailwind v4 states them. Read through a
+    ///     <c>vixen.default.vcss</c> writes every line height as a ratio —
+    ///     <c>
+    ///         --text-xs--line-height:
+    ///         calc(1 / 0.75)
+    ///     </c>
+    ///     — because that is how Tailwind v4 states them. Read through a
     ///     <c>var()</c> those arrived as <see cref="StyleValueKind.Unknown" />.
     /// </remarks>
     [Theory]

@@ -86,7 +86,7 @@ public sealed class BlockLayoutTests {
         ReadOnlySpan<byte> block = [0x00, 0xF8, 0x1F, 0x00, 0xE4, 0xE4, 0xE4, 0xE4];
         Span<byte> rgba = stackalloc byte[64];
 
-        Bc1Block.Decode(block, opaque: false, rgba);
+        Bc1Block.Decode(block, false, rgba);
 
         // Indices run 0,1,2,3 across every row: the two endpoints then (2c0+c1)/3 and (c0+2c1)/3.
         Assert.Equal([255, 0, 0, 255], rgba[..4].ToArray());
@@ -105,7 +105,7 @@ public sealed class BlockLayoutTests {
         ReadOnlySpan<byte> block = [0x1F, 0x00, 0x00, 0xF8, 0xE4, 0xE4, 0xE4, 0xE4];
         Span<byte> rgba = stackalloc byte[64];
 
-        Bc1Block.Decode(block, opaque: false, rgba);
+        Bc1Block.Decode(block, false, rgba);
 
         Assert.Equal([0, 0, 255, 255], rgba[..4].ToArray());
         Assert.Equal([255, 0, 0, 255], rgba[4..8].ToArray());
@@ -129,7 +129,7 @@ public sealed class BlockLayoutTests {
         ReadOnlySpan<byte> block = [0x1F, 0x00, 0x00, 0xF8, 0xE4, 0xE4, 0xE4, 0xE4];
         Span<byte> rgba = stackalloc byte[64];
 
-        Bc1Block.Decode(block, opaque: true, rgba);
+        Bc1Block.Decode(block, true, rgba);
 
         Assert.Equal([85, 0, 170, 255], rgba[8..12].ToArray());
         Assert.Equal([170, 0, 85, 255], rgba[12..16].ToArray());
@@ -201,7 +201,7 @@ public sealed class BlockLayoutTests {
 
         Bc7Block.Decode(block, rgba);
 
-        Assert.All(rgba, value => Assert.Equal(0, value));
+        Assert.All(rgba, static value => Assert.Equal(0, value));
     }
 
     /// <summary>
@@ -214,16 +214,16 @@ public sealed class BlockLayoutTests {
         var writer = new byte[16];
         var bits = new BlockBitWriter(writer);
 
-        bits.Write(1u << 5, 6);     // mode 5
-        bits.Write(1, 2);           // rotation: swap red and alpha
-        bits.Write(0, 7);           // R0
-        bits.Write(127, 7);         // R1
-        bits.Write(127, 7);         // G0
-        bits.Write(127, 7);         // G1
-        bits.Write(0, 7);           // B0
-        bits.Write(0, 7);           // B1
-        bits.Write(10, 8);          // A0
-        bits.Write(250, 8);         // A1
+        bits.Write(1u << 5, 6); // mode 5
+        bits.Write(1, 2); // rotation: swap red and alpha
+        bits.Write(0, 7); // R0
+        bits.Write(127, 7); // R1
+        bits.Write(127, 7); // G0
+        bits.Write(127, 7); // G1
+        bits.Write(0, 7); // B0
+        bits.Write(0, 7); // B1
+        bits.Write(10, 8); // A0
+        bits.Write(250, 8); // A1
 
         for (var texel = 0; texel < 16; texel++) {
             bits.Write(0, texel == 0 ? 1 : 2);
@@ -276,8 +276,8 @@ public sealed class BlockLayoutTests {
     [InlineData(1022, 65440, 31697)]
     [InlineData(1023, 65535, 31743)]
     public void Bc6HWidensAndScalesItsEndpointsInTwoStatedSteps(int endpoint, int widened, int half) {
-        Assert.Equal(widened, Bc6HBlock.Unquantise(endpoint, 10, signed: false));
-        Assert.Equal(half, Bc6HBlock.Finish(widened, signed: false));
+        Assert.Equal(widened, Bc6HBlock.Unquantise(endpoint, 10, false));
+        Assert.Equal(half, Bc6HBlock.Finish(widened, false));
     }
 
     /// <summary>
@@ -317,10 +317,10 @@ public sealed class BlockLayoutTests {
         var decoded = new ushort[48];
 
         foreach (var quality in Enum.GetValues<BlockQuality>()) {
-            Bc6HBlock.Encode(rgb, block, quality, signed: true);
-            Bc6HBlock.Decode(block, decoded, signed: true);
+            Bc6HBlock.Encode(rgb, block, quality, true);
+            Bc6HBlock.Decode(block, decoded, true);
 
-            Assert.All(decoded, value => Assert.True((value & 0x7FFF) <= 0x7BFF, $"{value:X4} is not finite"));
+            Assert.All(decoded, static value => Assert.True((value & 0x7FFF) <= 0x7BFF, $"{value:X4} is not finite"));
         }
     }
 
@@ -339,7 +339,7 @@ public sealed class BlockLayoutTests {
 
         Bc6HBlock.Decode(block, rgb);
 
-        Assert.All(rgb, value => Assert.Equal(0, value));
+        Assert.All(rgb, static value => Assert.Equal(0, value));
     }
 
     /// <summary>
@@ -359,11 +359,14 @@ public sealed class BlockLayoutTests {
                 for (var endpoint = 1; endpoint < mode.Subsets * 2; endpoint++) {
                     var stored = mode.Transformed ? mode.DeltaBits(channel) : mode.EndpointBits;
 
-                    Assert.Equal(stored, mode.Bits.Count(bit => bit.Field == (endpoint * 3) + channel));
+                    Assert.Equal(stored, mode.Bits.Count(bit => bit.Field == endpoint * 3 + channel));
                 }
             }
 
-            Assert.Equal(mode.Subsets == 2 ? 5 : 0, mode.Bits.Count(bit => bit.Field == Bc6HBlock.PartitionField));
+            Assert.Equal(
+                mode.Subsets == 2 ? 5 : 0,
+                mode.Bits.Count(static bit => bit.Field == Bc6HBlock.PartitionField)
+            );
         }
     }
 

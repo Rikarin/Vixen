@@ -67,43 +67,43 @@ public static class VfxShaderPacking {
             }
 
             case VfxAttribute.Colour: {
-                Copy<Vector4>(particles.Colour, count, destination);
+                Copy(particles.Colour, count, destination);
 
                 break;
             }
 
             case VfxAttribute.Size: {
-                Copy<float>(particles.Size, count, destination);
+                Copy(particles.Size, count, destination);
 
                 break;
             }
 
             case VfxAttribute.Lifetime: {
-                Copy<float>(particles.Lifetime, count, destination);
+                Copy(particles.Lifetime, count, destination);
 
                 break;
             }
 
             case VfxAttribute.Age: {
-                Copy<float>(particles.Age, count, destination);
+                Copy(particles.Age, count, destination);
 
                 break;
             }
 
             case VfxAttribute.Rotation: {
-                Copy<float>(particles.Rotation, count, destination);
+                Copy(particles.Rotation, count, destination);
 
                 break;
             }
 
             case VfxAttribute.AngularVelocity: {
-                Copy<float>(particles.AngularVelocity, count, destination);
+                Copy(particles.AngularVelocity, count, destination);
 
                 break;
             }
 
             case VfxAttribute.Identifier: {
-                Copy<uint>(particles.Identifier, count, destination);
+                Copy(particles.Identifier, count, destination);
 
                 break;
             }
@@ -127,7 +127,12 @@ public static class VfxShaderPacking {
     ///     <paramref name="source" /> is too small, or the attribute has no storage in
     ///     <paramref name="particles" />.
     /// </exception>
-    public static void Unpack(ReadOnlySpan<byte> source, in VfxShaderBinding binding, int count, ParticleBuffer particles) {
+    public static void Unpack(
+        ReadOnlySpan<byte> source,
+        in VfxShaderBinding binding,
+        int count,
+        ParticleBuffer particles
+    ) {
         ArgumentNullException.ThrowIfNull(particles);
         Check(binding, count, source.Length);
 
@@ -151,43 +156,43 @@ public static class VfxShaderPacking {
             }
 
             case VfxAttribute.Colour: {
-                Copy<Vector4>(source, count, particles.Colour);
+                Copy(source, count, particles.Colour);
 
                 break;
             }
 
             case VfxAttribute.Size: {
-                Copy<float>(source, count, particles.Size);
+                Copy(source, count, particles.Size);
 
                 break;
             }
 
             case VfxAttribute.Lifetime: {
-                Copy<float>(source, count, particles.Lifetime);
+                Copy(source, count, particles.Lifetime);
 
                 break;
             }
 
             case VfxAttribute.Age: {
-                Copy<float>(source, count, particles.Age);
+                Copy(source, count, particles.Age);
 
                 break;
             }
 
             case VfxAttribute.Rotation: {
-                Copy<float>(source, count, particles.Rotation);
+                Copy(source, count, particles.Rotation);
 
                 break;
             }
 
             case VfxAttribute.AngularVelocity: {
-                Copy<float>(source, count, particles.AngularVelocity);
+                Copy(source, count, particles.AngularVelocity);
 
                 break;
             }
 
             case VfxAttribute.Identifier: {
-                Copy<uint>(source, count, particles.Identifier);
+                Copy(source, count, particles.Identifier);
 
                 break;
             }

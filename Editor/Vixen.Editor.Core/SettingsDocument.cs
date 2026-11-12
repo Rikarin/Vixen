@@ -39,7 +39,7 @@ public sealed class SettingsDocument : EditorDocument {
     /// <param name="project">The project.</param>
     /// <param name="title">What the window and the close prompt call it.</param>
     public SettingsDocument(EditorProject project, string title)
-        : base(project, AssetId.Empty, title, activate: false) {
+        : base(project, AssetId.Empty, title, false) {
         Store = project.Settings;
         Store.Marked += OnMarked;
 

@@ -138,8 +138,7 @@ public sealed class TextureImporter : AssetImporter<TextureImportSettings> {
     }
 
     /// <summary>Whether the decoded pixels carry more range than a byte, and so cannot take the eight-bit path.</summary>
-    static bool IsHighRange(PixelFormat format) =>
-        format is PixelFormat.Rgba32Float or PixelFormat.Rgba16Float;
+    static bool IsHighRange(PixelFormat format) => format is PixelFormat.Rgba32Float or PixelFormat.Rgba16Float;
 
     /// <summary>
     ///     Ships a high-range source as high range: float in, float or BC6H out, and every decision
@@ -147,8 +146,12 @@ public sealed class TextureImporter : AssetImporter<TextureImportSettings> {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>This branch exists because the eight-bit path is not merely lossy for a
-    ///         <c>.hdr</c>, it is wrong.</b> It allocates a four-byte-a-texel buffer and copies a
+    ///         ⚠
+    ///         <b>
+    ///             This branch exists because the eight-bit path is not merely lossy for a
+    ///             <c>.hdr</c>, it is wrong.
+    ///         </b>
+    ///         It allocates a four-byte-a-texel buffer and copies a
     ///         sixteen-byte-a-texel level into it, which for every <c>.hdr</c> anybody has ever
     ///         dropped on the pipeline is a failed import saying "destination is too short" — the
     ///         importer claims <c>.hdr</c>, the guide's decoder table promises <c>Rgba32Float</c>,
@@ -298,17 +301,18 @@ public sealed class TextureImporter : AssetImporter<TextureImportSettings> {
             return;
         }
 
-        var sheet = new SpriteSheet { Name = name, TextureSize = size, Sprites = [.. sprites] };
+        var sheet = new SpriteSheet { Name = name, TextureSize = size, Sprites = [..sprites] };
 
         context.Write(context.DeclareSubAsset("SpriteSheet", name), "SpriteSheet", Serializer.ToBytes(sheet));
     }
 
     /// <summary>How the mip filter should treat this texture, which is the usage restated.</summary>
-    static MipOptions OptionsFor(TextureImportSettings settings) => settings.Content switch {
-        TextureContent.NormalMap => MipOptions.NormalMap,
-        TextureContent.Colour => new() { Srgb = true, AlphaWeighted = settings.AlphaIsTransparency },
-        _ => MipOptions.Linear
-    };
+    static MipOptions OptionsFor(TextureImportSettings settings) =>
+        settings.Content switch {
+            TextureContent.NormalMap => MipOptions.NormalMap,
+            TextureContent.Colour => new() { Srgb = true, AlphaWeighted = settings.AlphaIsTransparency },
+            _ => MipOptions.Linear
+        };
 
     /// <summary>
     ///     Reduces a texture until it fits under the size limit, by halving through the same filter
@@ -330,18 +334,19 @@ public sealed class TextureImporter : AssetImporter<TextureImportSettings> {
 
         var steps = 0;
 
-        while (steps < chain.LevelCount - 1 && Math.Max(chain.Levels[steps].Width, chain.Levels[steps].Height) > settings.MaxSize) {
+        while (steps < chain.LevelCount - 1
+               && Math.Max(chain.Levels[steps].Width, chain.Levels[steps].Height) > settings.MaxSize) {
             steps++;
         }
 
         var described = chain.Levels[steps];
-        var reduced = new TextureData(source.Format, described.Width, described.Height, levelCount: 1);
+        var reduced = new TextureData(source.Format, described.Width, described.Height, 1);
         chain.Level(steps).CopyTo(reduced.LevelSpan(0));
 
         context.Report(
             ImportSeverity.Information,
             $"{source.Width}×{source.Height} is over the {settings.MaxSize} limit, so it ships at "
-            + $"{described.Width}×{described.Height} — halved {steps} time{(steps == 1 ? "" : "s")}."
+            + $"{described.Width}×{described.Height} — halved {steps} time{(steps == 1 ? string.Empty : "s")}."
         );
 
         return reduced;

@@ -12,8 +12,12 @@ namespace Vixen.Editor.App.Tests;
 /// <summary>The subsystems whose components a test reads the registry for, loaded on purpose.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>A test that asks <c>ComponentsView.Default()</c> what it offers has to load the
-///         subsystems first.</b> Each assembly declares its components from a
+///         ⚠
+///         <b>
+///             A test that asks <c>ComponentsView.Default()</c> what it offers has to load the
+///             subsystems first.
+///         </b>
+///         Each assembly declares its components from a
 ///         <c>[ModuleInitializer]</c>, which runs when something first reaches into that assembly, and
 ///         <c>Default()</c> called with no registry reaches into none of them — so without this the
 ///         offered set is whatever the rest of the run happened to load, and the same test passes in a

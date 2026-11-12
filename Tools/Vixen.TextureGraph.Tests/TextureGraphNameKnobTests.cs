@@ -38,7 +38,7 @@ public class TextureGraphNameKnobTests {
     ///     over settings and visible here.
     /// </remarks>
     static float Axis(TexturePlan plan) =>
-        plan.Ops.Single(op => op.Kernel == "Mirror").Parameters.Single(one => one.Name == "axis").Value;
+        plan.Ops.Single(static op => op.Kernel == "Mirror").Parameters.Single(static one => one.Name == "axis").Value;
 
     /// <summary>One name knob over <c>Space/Mirror</c>'s three axes.</summary>
     /// <param name="name">What the knob is called.</param>
@@ -82,10 +82,7 @@ public class TextureGraphNameKnobTests {
         graph.Connect(new(used.Id, "Out"), new(output.Id, "Input"));
 
         TextureGraphCompiler compiler = new(registry) {
-            BaseWidth = 64,
-            BaseHeight = 64,
-            Seed = 3,
-            SubGraphSource = library
+            BaseWidth = 64, BaseHeight = 64, Seed = 3, SubGraphSource = library
         };
 
         return (compiler, graph, used);
@@ -118,10 +115,12 @@ public class TextureGraphNameKnobTests {
     /// </remarks>
     [Fact]
     public void A_compound_forwards_its_knob_into_an_inner_nodes_setting() {
-        var (registry, library) = Published((
-            "Library/Folded",
-            Folding("$Fold", Knob("Fold", "X"))
-        ));
+        var (registry, library) = Published(
+            (
+                "Library/Folded",
+                Folding("$Fold", Knob("Fold", "X"))
+            )
+        );
 
         var (compiler, graph, used) = Containing(library, registry, "Library/Folded");
         var untouched = compiler.Compile(graph);
@@ -139,20 +138,26 @@ public class TextureGraphNameKnobTests {
 
     /// <summary>The knob is a choice at the node, so a picker draws it rather than a text box.</summary>
     /// <remarks>
-    ///     ⚠ <b>The half that makes a name knob an <em>authoring</em> feature rather than a file
-    ///     format.</b> <c>NodeSettingMember</c> offers a dropdown exactly when
+    ///     ⚠
+    ///     <b>
+    ///         The half that makes a name knob an <em>authoring</em> feature rather than a file
+    ///         format.
+    ///     </b>
+    ///     <c>NodeSettingMember</c> offers a dropdown exactly when
     ///     <see cref="SettingDefinition.IsChoice" />, so a list that stopped crossing
     ///     <c>TextureGraphParameters.Settings</c> would leave the compiler working and the artist
     ///     typing <c>Corner</c> into a box.
     /// </remarks>
     [Fact]
     public void The_node_standing_for_the_graph_offers_the_knobs_names() {
-        var (registry, _) = Published((
-            "Library/Folded",
-            Folding("$Fold", Knob("Fold", "X"))
-        ));
+        var (registry, _) = Published(
+            (
+                "Library/Folded",
+                Folding("$Fold", Knob("Fold", "X"))
+            )
+        );
 
-        var setting = Assert.Single(registry.Types.Single(type => type.Path == "Library/Folded").Settings);
+        var setting = Assert.Single(registry.Types.Single(static type => type.Path == "Library/Folded").Settings);
 
         Assert.True(setting.IsChoice);
         Assert.Equal(["X", "Y", "Corner"], setting.Accepted);
@@ -186,9 +191,7 @@ public class TextureGraphNameKnobTests {
         outer.Connect(new(entry.Id, "In"), new(nested.Id, "In"));
         outer.Connect(new(nested.Id, "Out"), new(exit.Id, "Out"));
         nested.SetText("Fold", "$Outward");
-        outer.Parameters.Add(
-            Knob("Outward", "Y")
-        );
+        outer.Parameters.Add(Knob("Outward", "Y"));
 
         var (registry, library) = Published(("Library/Folded", inner), ("Library/Outer", outer));
         var (compiler, graph, used) = Containing(library, registry, "Library/Outer");
@@ -220,36 +223,42 @@ public class TextureGraphNameKnobTests {
 
         var compilation = compiler.Compile(graph);
 
-        Assert.Single(compilation.Diagnostics, one => one.Id == "TG0023");
+        Assert.Single(compilation.Diagnostics, static one => one.Id == "TG0023");
         Assert.Single(
             compilation.Diagnostics,
-            one => one.Id == "TG0010" && one.Message.Contains("$Fold", StringComparison.Ordinal)
+            static one => one.Id == "TG0010" && one.Message.Contains("$Fold", StringComparison.Ordinal)
         );
     }
 
     /// <summary>A name the knob does not accept keeps the declared choice and says so.</summary>
     /// <remarks>
-    ///     ⚠ <b>The refusal is here rather than at the node, which is the point of doing it at
-    ///     all.</b> Substituting <c>Sideways</c> would make the node report a name the author never
+    ///     ⚠
+    ///     <b>
+    ///         The refusal is here rather than at the node, which is the point of doing it at
+    ///         all.
+    ///     </b>
+    ///     Substituting <c>Sideways</c> would make the node report a name the author never
     ///     typed, on a node they never wrote; refusing it here leaves one sentence, about the knob
     ///     they did turn, and a picture that is the declared default rather than an accident.
     /// </remarks>
     [Fact]
     public void A_name_outside_the_knobs_list_keeps_the_default_and_says_so() {
-        var (registry, library) = Published((
-            "Library/Folded",
-            Folding("$Fold", Knob("Fold", "Y"))
-        ));
+        var (registry, library) = Published(
+            (
+                "Library/Folded",
+                Folding("$Fold", Knob("Fold", "Y"))
+            )
+        );
 
         var (compiler, graph, used) = Containing(library, registry, "Library/Folded");
 
         used.SetText("Fold", "Sideways");
 
         var compilation = compiler.Compile(graph);
-        var said = Assert.Single(compilation.Diagnostics, one => one.Id == "TG0023");
+        var said = Assert.Single(compilation.Diagnostics, static one => one.Id == "TG0023");
 
         Assert.Equal(NodeSeverity.Warning, said.Severity);
-        Assert.DoesNotContain(compilation.Diagnostics, one => one.Id == "TG0010");
+        Assert.DoesNotContain(compilation.Diagnostics, static one => one.Id == "TG0010");
         Assert.Equal(1f, Axis(compilation.Value));
     }
 
@@ -262,8 +271,12 @@ public class TextureGraphNameKnobTests {
     ///         attempt to assert it through a plan is a case worth writing down.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The plan cannot see the spelling and a test that asserted through one was green
-    ///         under sabotage.</b> <c>TextureSettings.Enum</c> parses ignoring case, so a
+    ///         ⚠
+    ///         <b>
+    ///             The plan cannot see the spelling and a test that asserted through one was green
+    ///             under sabotage.
+    ///         </b>
+    ///         <c>TextureSettings.Enum</c> parses ignoring case, so a
     ///         substitution that copied <c>corner</c> straight through produces the identical
     ///         <c>axis</c> — the picture is the same and the file is not, which is exactly
     ///         <c>SettingDefinition.Canonical</c>'s finding
@@ -274,10 +287,12 @@ public class TextureGraphNameKnobTests {
     /// </remarks>
     [Fact]
     public void A_name_written_in_another_case_is_stored_as_the_knob_spells_it() {
-        var (registry, library) = Published((
-            "Library/Folded",
-            Folding("$Fold", Knob("Fold", "X"))
-        ));
+        var (registry, library) = Published(
+            (
+                "Library/Folded",
+                Folding("$Fold", Knob("Fold", "X"))
+            )
+        );
 
         var (compiler, graph, used) = Containing(library, registry, "Library/Folded");
 
@@ -334,10 +349,12 @@ public class TextureGraphNameKnobTests {
     /// </remarks>
     [Fact]
     public void A_text_parameter_with_no_list_is_still_a_number() {
-        var parameters = TextureGraphParameters.Declared([
-            new("facing", "0.5", "How far off horizontal.", SettingKind.Text),
-            new("mode", "Max", "How they combine.", SettingKind.Text, Accepted: ["Max", "Add"])
-        ]);
+        var parameters = TextureGraphParameters.Declared(
+            [
+                new("facing", "0.5", "How far off horizontal.", SettingKind.Text),
+                new("mode", "Max", "How they combine.", SettingKind.Text, Accepted: ["Max", "Add"])
+            ]
+        );
 
         Assert.Equal(TextureGraphParameterKind.Scalar, parameters[0].Kind);
         Assert.Equal(0.5f, parameters[0].Default);
@@ -357,9 +374,7 @@ public class TextureGraphNameKnobTests {
     public void A_name_knob_survives_a_save_and_a_load() {
         NodeGraphModel graph = new() { Name = "Knobbed" };
 
-        graph.Parameters.Add(
-            Knob("Fold", "Corner")
-        );
+        graph.Parameters.Add(Knob("Fold", "Corner"));
 
         var reopened = NodeGraphDocument.Load(NodeGraphDocument.Save(graph), out var diagnostics);
 
@@ -398,7 +413,7 @@ public class TextureGraphNameKnobTests {
 
         NodeTypes.Register(registry);
 
-        var library = TextureCompoundLibrary.Publish(registry, folder: null, out var problems);
+        var library = TextureCompoundLibrary.Publish(registry, null, out var problems);
 
         Assert.Empty(problems);
 
@@ -411,10 +426,7 @@ public class TextureGraphNameKnobTests {
         graph.Connect(new(used.Id, "Out"), new(output.Id, "Input"));
 
         TextureGraphCompiler compiler = new(registry) {
-            BaseWidth = 64,
-            BaseHeight = 64,
-            Seed = 3,
-            SubGraphSource = library
+            BaseWidth = 64, BaseHeight = 64, Seed = 3, SubGraphSource = library
         };
 
         var settled = compiler.Compile(graph);
@@ -436,8 +448,8 @@ public class TextureGraphNameKnobTests {
     /// <summary>How the tile sampler was told to combine overlapping instances.</summary>
     static float Accumulation(TexturePlan plan) =>
         plan.Ops
-            .Single(op => op.Kernel == "TileSampler")
-            .Parameters.Single(one => one.Name == "accumulation")
+            .Single(static op => op.Kernel == "TileSampler")
+            .Parameters.Single(static one => one.Name == "accumulation")
             .Value;
 
     /// <summary>A name knob with no list is refused at publish, and the sentence says why.</summary>
@@ -449,15 +461,17 @@ public class TextureGraphNameKnobTests {
     /// </remarks>
     [Fact]
     public void A_name_knob_states_the_names_it_accepts() {
-        var problems = TextureGraphParameters.Check([
-            new("Fold", TextureGraphParameterKind.Name, Choice: "X"),
-            new(
-                "Turn",
-                TextureGraphParameterKind.Name,
-                Choice: "Sideways",
-                Accepted: ImmutableArray.Create("X", "Y")
-            )
-        ]);
+        var problems = TextureGraphParameters.Check(
+            [
+                new("Fold", TextureGraphParameterKind.Name, Choice: "X"),
+                new(
+                    "Turn",
+                    TextureGraphParameterKind.Name,
+                    Choice: "Sideways",
+                    Accepted: ImmutableArray.Create("X", "Y")
+                )
+            ]
+        );
 
         Assert.Equal(2, problems.Length);
         Assert.Contains("states no list", problems[0], StringComparison.Ordinal);
@@ -467,8 +481,11 @@ public class TextureGraphNameKnobTests {
     /// <summary>⚠ Compiling a graph does not rewrite the graph.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>The case a reviewer found missing, and the defect it covers destroys an authored
-    ///         file.</b> The first version of this feature substituted into <c>node.Texts</c> during
+    ///         <b>
+    ///             The case a reviewer found missing, and the defect it covers destroys an authored
+    ///             file.
+    ///         </b>
+    ///         The first version of this feature substituted into <c>node.Texts</c> during
     ///         <c>Begin</c> — and the model reaching <c>Begin</c> is only a <em>copy</em> when
     ///         flattening ran. A graph with no sub-graph node in it is the model the panel has open,
     ///         so every preview compile replaced <c>$Tiling</c> with <c>Wrap</c> and the next save
@@ -503,7 +520,7 @@ public class TextureGraphNameKnobTests {
         TextureGraphCompiler compiler = new(registry) { BaseWidth = 32, BaseHeight = 32, Seed = 7u };
 
         // The graph has no sub-graph node, so nothing flattens and `Begin` is handed this very model.
-        Assert.DoesNotContain(graph.Nodes, node => node.Type.StartsWith("Library/", StringComparison.Ordinal));
+        Assert.DoesNotContain(graph.Nodes, static node => node.Type.StartsWith("Library/", StringComparison.Ordinal));
 
         compiler.Compile(graph);
 

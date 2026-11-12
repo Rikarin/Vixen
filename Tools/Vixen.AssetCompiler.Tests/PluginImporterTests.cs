@@ -48,11 +48,11 @@ namespace Vixen.AssetCompiler.Tests;
 public sealed class PluginImporterTests : IDisposable {
     /// <summary>Everything loaded beside the test, which is what the plugin compiles against.</summary>
     static readonly ImmutableArray<MetadataReference> References = [
-        .. ((string) AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")!)
+        ..((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")!)
             .Split(Path.PathSeparator)
-            .Where(path => path.EndsWith(".dll", StringComparison.OrdinalIgnoreCase))
+            .Where(static path => path.EndsWith(".dll", StringComparison.OrdinalIgnoreCase))
             .Distinct(StringComparer.Ordinal)
-            .Select(path => (MetadataReference) MetadataReference.CreateFromFile(path))
+            .Select(static path => (MetadataReference)MetadataReference.CreateFromFile(path))
     ];
 
     readonly string project = Path.Combine(
@@ -71,7 +71,7 @@ public sealed class PluginImporterTests : IDisposable {
             return;
         }
 
-        Discard(() => Directory.Delete(project, recursive: true));
+        Discard(() => Directory.Delete(project, true));
     }
 
     /// <summary>Removes the fixture's folder, forgiving the one failure that is not a defect.</summary>
@@ -121,10 +121,14 @@ public sealed class PluginImporterTests : IDisposable {
     /// </remarks>
     [Fact]
     public void TheFixtureCleanupForgivesAMappedPluginAndNothingElse() {
-        Discard(() => throw new UnauthorizedAccessException("Access to the path 'WidgetPlugin.dll' is denied."));
-        Discard(() => throw new IOException("The process cannot access the file because it is being used."));
+        Discard(static () => throw new UnauthorizedAccessException("Access to the path 'WidgetPlugin.dll' is denied."));
+        Discard(static () => throw new IOException("The process cannot access the file because it is being used."));
 
-        Assert.Throws<InvalidOperationException>(() => Discard(() => throw new InvalidOperationException("real")));
+        Assert.Throws<InvalidOperationException>(static () => Discard(static () => throw new InvalidOperationException(
+                    "real"
+                )
+            )
+        );
     }
 
     /// <summary>The claim: one asset, two processes, the same bytes.</summary>
@@ -136,10 +140,10 @@ public sealed class PluginImporterTests : IDisposable {
 
         var here = await new InProcessImportExecutor(
             BuiltInImporters.Create(contributions),
-            new PhysicalFileProvider(project, isReadOnly: true)
+            new PhysicalFileProvider(project, true)
         ).ExecuteAsync(Job("WidgetImporter"), Cancellation);
 
-        using var pool = new CompilerPool(project, workers: 1, contributed: contributions);
+        using var pool = new CompilerPool(project, 1, contributed: contributions);
 
         var there = await pool.ExecuteAsync(Job("WidgetImporter"), Cancellation);
 
@@ -160,7 +164,7 @@ public sealed class PluginImporterTests : IDisposable {
     /// </summary>
     [Fact]
     public async Task AWorkerToldAboutNoPluginRefusesTheAssetThatPluginsImporterClaims() {
-        using var pool = new CompilerPool(project, workers: 1, contributed: new ImporterContributions());
+        using var pool = new CompilerPool(project, 1, contributed: new());
 
         var result = await pool.ExecuteAsync(Job("WidgetImporter"), Cancellation);
 
@@ -168,7 +172,7 @@ public sealed class PluginImporterTests : IDisposable {
 
         Assert.Contains(
             result.Diagnostics,
-            diagnostic => diagnostic.Message.Contains("WidgetImporter", StringComparison.Ordinal)
+            static diagnostic => diagnostic.Message.Contains("WidgetImporter", StringComparison.Ordinal)
         );
     }
 
@@ -178,17 +182,23 @@ public sealed class PluginImporterTests : IDisposable {
     ///     instead of waiting for a pipe that will never open.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>Before this, a worker that exited before connecting hung its coordinator for
-    ///     ever.</b> Nothing could exit that early until a worker had work to do at start-up, so a
+    ///     ⚠
+    ///     <b>
+    ///         Before this, a worker that exited before connecting hung its coordinator for
+    ///         ever.
+    ///     </b>
+    ///     Nothing could exit that early until a worker had work to do at start-up, so a
     ///     wait on the pipe alone had never yet been wrong; loading a plugin is that work.
     /// </remarks>
     [Fact]
     public async Task APoolWhoseWorkerExitsBeforeConnectingFailsRatherThanWaiting() {
         // A command that is certainly present, certainly not a worker, and certainly exits.
-        using var pool = new CompilerPool(project, workers: 1, ["dotnet", "--list-runtimes"]);
+        using var pool = new CompilerPool(project, 1, ["dotnet", "--list-runtimes"]);
 
-        var failure = await Assert.ThrowsAsync<InvalidOperationException>(
-            async () => await pool.ExecuteAsync(Job("RawImporter"), Cancellation)
+        var failure = await Assert.ThrowsAsync<InvalidOperationException>(async () => await pool.ExecuteAsync(
+                Job("RawImporter"),
+                Cancellation
+            )
         );
 
         Assert.Contains("before it connected", failure.Message, StringComparison.Ordinal);
@@ -224,8 +234,12 @@ public sealed class PluginImporterTests : IDisposable {
 
     /// <summary>A plugin with one importer, and the module initializer a real plugin's generator writes.</summary>
     /// <remarks>
-    ///     ⚠ <b>The descriptor is registered by hand because this compilation has no generator
-    ///     driver.</b> A plugin built by <c>dotnet build</c> gets
+    ///     ⚠
+    ///     <b>
+    ///         The descriptor is registered by hand because this compilation has no generator
+    ///         driver.
+    ///     </b>
+    ///     A plugin built by <c>dotnet build</c> gets
     ///     <c>Vixen.Core.Reflection.Generator</c> through its own <c>ProjectReference</c>, and this
     ///     initializer is what that generator emits. Without a descriptor an importer has no
     ///     <c>Name</c>, which is the one thing <c>PluginImporters</c> reads eagerly so that the
@@ -287,7 +301,7 @@ public sealed class PluginImporterTests : IDisposable {
     static CSharpCompilation Compilation(string name, string extension) =>
         CSharpCompilation.Create(
             name + "Plugin",
-            [CSharpSyntaxTree.ParseText(Source(name, extension), new CSharpParseOptions(LanguageVersion.Latest))],
+            [CSharpSyntaxTree.ParseText(Source(name, extension), new(LanguageVersion.Latest))],
             References,
             new(OutputKind.DynamicallyLinkedLibrary, nullableContextOptions: NullableContextOptions.Enable)
         );
@@ -296,7 +310,10 @@ public sealed class PluginImporterTests : IDisposable {
         Assert.True(
             result.Success,
             "The test's own plugin source did not compile:\n"
-            + string.Join("\n", result.Diagnostics.Where(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error))
+            + string.Join(
+                "\n",
+                result.Diagnostics.Where(static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error)
+            )
         );
 
     /// <summary>Compiles a plugin to a file, which is the only way one can reach a worker.</summary>
@@ -318,7 +335,7 @@ public sealed class PluginImporterTests : IDisposable {
         bytes.Position = 0;
 
         var assembly = new AssemblyLoadContext(name + "-in-memory").LoadFromStream(bytes);
-        var type = assembly.GetType($"{name}Plugin.{name}Importer", throwOnError: true)!;
+        var type = assembly.GetType($"{name}Plugin.{name}Importer", true)!;
 
         Assert.Empty(assembly.Location);
 
@@ -332,16 +349,15 @@ public sealed class PluginImporterTests : IDisposable {
             new VirtualPath("/Assets/gadget.widget"),
             string.Empty,
             "Windows",
-            EnforceDeclaredReads: true
+            true
         );
 
-    static string Text(ExecutedImport import) =>
-        Encoding.UTF8.GetString(Assert.Single(import.Artifacts).Content.Span);
+    static string Text(ExecutedImport import) => Encoding.UTF8.GetString(Assert.Single(import.Artifacts).Content.Span);
 
     static string Why(ExecutedImport import) =>
         string.Join(
             "\n",
-            import.Diagnostics.Select(diagnostic =>
+            import.Diagnostics.Select(static diagnostic =>
                 string.Create(CultureInfo.InvariantCulture, $"{diagnostic.Severity}: {diagnostic.Message}")
             )
         );

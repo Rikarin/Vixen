@@ -57,8 +57,12 @@ public readonly record struct ResolvedQualityKnob(
 ///         no view that said which one won.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Enumerated from the override schema by reflection, never from a list written
-///         here.</b> <see cref="QualityTierOverrides" />'s nine group records <em>are</em> the knob
+///         ⚠
+///         <b>
+///             Enumerated from the override schema by reflection, never from a list written
+///             here.
+///         </b>
+///         <see cref="QualityTierOverrides" />'s nine group records <em>are</em> the knob
 ///         list — <c>RenderQuality.EngineDefaults</c> is expressed in that same schema and is
 ///         complete — so walking it finds every knob the engine has, and a knob added tomorrow
 ///         appears in this panel without anybody touching this file. A hand-written list of sixty-two
@@ -90,8 +94,7 @@ public static class ResolvedQualityTable {
         RenderQualityAsset? overlay = null
     ) {
         var layers = new (QualityLayer Layer, QualityTierOverrides? Values)[] {
-            (QualityLayer.Document, TierOf(overlay, tier)),
-            (QualityLayer.Project, TierOf(project, tier)),
+            (QualityLayer.Document, TierOf(overlay, tier)), (QualityLayer.Project, TierOf(project, tier)),
             (QualityLayer.Engine, TierOf(RenderQuality.EngineDefaults, tier))
         };
 
@@ -132,7 +135,8 @@ public static class ResolvedQualityTable {
         QualityTier tier,
         RenderQualityAsset? project = null,
         RenderQualityAsset? overlay = null
-    ) => RenderQuality.Resolve(tier, project, overlay);
+    ) =>
+        RenderQuality.Resolve(tier, project, overlay);
 
     /// <summary>How many knobs the table has, which is a fact worth stating rather than counting.</summary>
     public static int Count => Resolve(QualityTier.High).Count;
@@ -163,14 +167,15 @@ public static class ResolvedQualityTable {
         return false;
     }
 
-    static QualityTierOverrides? TierOf(RenderQualityAsset? preset, QualityTier tier) => preset is null
-        ? null
-        : tier switch {
-            QualityTier.Low => preset.Low,
-            QualityTier.Medium => preset.Medium,
-            QualityTier.Epic => preset.Epic,
-            _ => preset.High
-        };
+    static QualityTierOverrides? TierOf(RenderQualityAsset? preset, QualityTier tier) =>
+        preset is null
+            ? null
+            : tier switch {
+                QualityTier.Low => preset.Low,
+                QualityTier.Medium => preset.Medium,
+                QualityTier.Epic => preset.Epic,
+                _ => preset.High
+            };
 
     /// <summary>The document's spelling of a member name, which is its first letter lowered.</summary>
     /// <remarks>
@@ -182,11 +187,12 @@ public static class ResolvedQualityTable {
         name.Length == 0 ? name : string.Concat(char.ToLowerInvariant(name[0]).ToString(), name.AsSpan(1));
 
     /// <summary>A value as the document writes it — invariant, so a comma locale does not lie.</summary>
-    static string Format(object? value) => value switch {
-        null => "—",
-        bool flag => flag ? "true" : "false",
-        float number => number.ToString("0.####", CultureInfo.InvariantCulture),
-        IFormattable formattable => formattable.ToString(null, CultureInfo.InvariantCulture),
-        _ => value.ToString() ?? "—"
-    };
+    static string Format(object? value) =>
+        value switch {
+            null => "—",
+            bool flag => flag ? "true" : "false",
+            float number => number.ToString("0.####", CultureInfo.InvariantCulture),
+            IFormattable formattable => formattable.ToString(null, CultureInfo.InvariantCulture),
+            _ => value.ToString() ?? "—"
+        };
 }

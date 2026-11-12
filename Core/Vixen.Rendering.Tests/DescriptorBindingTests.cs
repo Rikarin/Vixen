@@ -135,10 +135,7 @@ public class DescriptorBindingTests : IDisposable {
         var system = new RenderSystem();
         var opaque = system.AddStage(new("Opaque"));
 
-        var meshes = new MeshRenderFeature {
-            Pipelines = new(device),
-            Describer = new EffectPipelineDescriber(device)
-        };
+        var meshes = new MeshRenderFeature { Pipelines = new(device), Describer = new EffectPipelineDescriber(device) };
 
         var materials = new MaterialRenderFeature { Effects = effects };
 
@@ -166,10 +163,7 @@ public class DescriptorBindingTests : IDisposable {
 
     ComputeRenderer Cull() {
         var node = new ComputeRenderer {
-            Name = "Cull",
-            ShaderName = "ClusterCull",
-            Pipelines = new(device),
-            Groups = new(4, 3, 6)
+            Name = "Cull", ShaderName = "ClusterCull", Pipelines = new(device), Groups = new(4, 3, 6)
         };
 
         node.BufferReads.Add("SceneLights");
@@ -234,9 +228,9 @@ public class DescriptorBindingTests : IDisposable {
         Frame(h);
 
         var stream = device.Recorder!.Commands.ToList();
-        var pipeline = stream.FindIndex(command => command.Kind == RecordedCommandKind.BindPipeline);
-        var bind = stream.FindIndex(command => command.Kind == RecordedCommandKind.BindDescriptorSet);
-        var dispatch = stream.FindIndex(command => command.Kind == RecordedCommandKind.Dispatch);
+        var pipeline = stream.FindIndex(static command => command.Kind == RecordedCommandKind.BindPipeline);
+        var bind = stream.FindIndex(static command => command.Kind == RecordedCommandKind.BindDescriptorSet);
+        var dispatch = stream.FindIndex(static command => command.Kind == RecordedCommandKind.Dispatch);
 
         Assert.True(dispatch > 0, "nothing dispatched");
         Assert.True(bind > pipeline, "the set was bound before the pipeline it belongs to");
@@ -324,8 +318,8 @@ public class DescriptorBindingTests : IDisposable {
         Frame(h);
 
         var stream = device.Recorder!.Commands.ToList();
-        var bind = stream.FindIndex(command => command.Kind == RecordedCommandKind.BindDescriptorSet);
-        var draw = stream.FindIndex(command => command.Kind == RecordedCommandKind.Draw);
+        var bind = stream.FindIndex(static command => command.Kind == RecordedCommandKind.BindDescriptorSet);
+        var draw = stream.FindIndex(static command => command.Kind == RecordedCommandKind.Draw);
 
         Assert.True(draw > 0, "nothing was drawn");
         Assert.True(bind >= 0 && bind < draw, "the pass's set was not bound before its children drew");

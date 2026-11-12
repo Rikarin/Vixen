@@ -19,31 +19,31 @@ namespace Vixen.Editor.AssetEditors.Tests;
 /// </remarks>
 public class ReloadTests : IDisposable {
     const string Knobs = """
-        version: 2
-        game: !StandardFrame
-          quality: High
-          shadows: Cascades
-          look: !Look
-            settings:
-              ev100: 13
-        """;
+                         version: 2
+                         game: !StandardFrame
+                           quality: High
+                           shadows: Cascades
+                           look: !Look
+                             settings:
+                               ev100: 13
+                         """;
 
     const string Changed = """
-        version: 2
-        game: !StandardFrame
-          quality: Low
-          shadows: Off
-          look: !Look
-            settings:
-              ev100: 7
-        """;
+                           version: 2
+                           game: !StandardFrame
+                             quality: Low
+                             shadows: Off
+                             look: !Look
+                               settings:
+                                 ev100: 7
+                           """;
 
     /// <summary>A tag no binder knows, which is what a half-written or hand-broken file looks like.</summary>
     const string Broken = """
-        version: 2
-        game: !ThereIsNoSuchNodeKind
-          nonsense: true
-        """;
+                          version: 2
+                          game: !ThereIsNoSuchNodeKind
+                            nonsense: true
+                          """;
 
     readonly EditorFixture fixture = new();
 
@@ -155,7 +155,7 @@ public class ReloadTests : IDisposable {
 
         // A real entry on the stack, because the knob mirrors are not themselves undoable — an
         // inspector's write is, and this stands in for one.
-        document.Stack.Execute(new DelegateCommand("Turn a knob", _ => { }, _ => { }));
+        document.Stack.Execute(new DelegateCommand("Turn a knob", static _ => { }, static _ => { }));
 
         document.Settings.Quality = FrameQualityChoice.Low;
         document.Apply();

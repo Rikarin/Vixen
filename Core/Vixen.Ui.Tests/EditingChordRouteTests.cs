@@ -66,7 +66,7 @@ public class EditingChordRouteTests {
         var nearest = 0;
         var window = 0;
 
-        field.AddCommandHandler("edit.copy", () => nearest++, () => false);
+        field.AddCommandHandler("edit.copy", () => nearest++, static () => false);
 
         var responder = new CommandResponder();
         responder.Add("edit.copy", () => window++);
@@ -125,7 +125,7 @@ public class EditingChordRouteTests {
         var command = 0;
 
         field.AddCommandHandler("edit.select-all", () => command++);
-        field.AddHandler<KeyEvent>((_, args) => args.Handled = true);
+        field.AddHandler<KeyEvent>(static (_, args) => args.Handled = true);
         document.Focus(field);
 
         document.Dispatch(Chord(InputKey.A, ModifierKeys.Control));
@@ -151,7 +151,7 @@ public class EditingChordRouteTests {
         document.Dispatch(Chord(InputKey.C, ModifierKeys.Meta | ModifierKeys.Shift));
 
         // An auto-repeat is ignored, as the keymap's dispatcher ignores one.
-        document.Dispatch(Chord(InputKey.C, ModifierKeys.Meta, repeat: true));
+        document.Dispatch(Chord(InputKey.C, ModifierKeys.Meta, true));
 
         Assert.Equal(0, selected);
         Assert.Equal(0, copied);
@@ -165,7 +165,8 @@ public class EditingChordRouteTests {
 
     [Fact]
     public void A_document_that_did_not_ask_for_it_routes_nothing() {
-        using var document = new UiDocument(200f, 200f) { EditingKeymap = EditingKeymap.Windows };
+        using var document = new UiDocument(200f, 200f);
+        document.EditingKeymap = EditingKeymap.Windows;
         var view = View(document.Root);
         var copied = 0;
 

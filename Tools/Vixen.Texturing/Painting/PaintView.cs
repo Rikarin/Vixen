@@ -15,14 +15,21 @@ namespace Vixen.Texturing.Painting;
 /// <param name="Height">Its height.</param>
 /// <remarks>
 ///     <para>
-///         <b>The camera is part of the stroke, because a stroke is a function of where the brush went
-///         (Patina's ADR 0009).</b> A position on a picture means nothing once the camera has moved, so a
+///         <b>
+///             The camera is part of the stroke, because a stroke is a function of where the brush went
+///             (Patina's ADR 0009).
+///         </b>
+///         A position on a picture means nothing once the camera has moved, so a
 ///         replay needs the camera the artist was looking through. Pixels and the mesh are all it takes, so
 ///         a client with any camera of its own can say this.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Right is carried rather than crossed from the other two, because which way that cross
-///         points is the handedness of whoever made the camera.</b> A mirrored view is left-handed on
+///         ⚠
+///         <b>
+///             Right is carried rather than crossed from the other two, because which way that cross
+///             points is the handedness of whoever made the camera.
+///         </b>
+///         A mirrored view is left-handed on
 ///         purpose, and <see cref="Mirrored" /> is only a reflection of the three axes because of it.
 ///     </para>
 /// </remarks>
@@ -53,10 +60,10 @@ public readonly record struct PaintView(
     /// <param name="position">Column and row, from the top left.</param>
     /// <returns>The ray, from the eye.</returns>
     public Ray RayAt(Vector2 position) {
-        var across = ((position.X / Width * 2f) - 1f) * HalfWidth;
-        var down = (1f - (position.Y / Height * 2f)) * HalfHeight;
+        var across = (position.X / Width * 2f - 1f) * HalfWidth;
+        var down = (1f - position.Y / Height * 2f) * HalfHeight;
 
-        return new(Eye, Vector3.Normalize(Forward + (Right * across) + (Up * down)));
+        return new(Eye, Vector3.Normalize(Forward + Right * across + Up * down));
     }
 
     /// <summary>Where a point lands on the picture.</summary>
@@ -73,8 +80,8 @@ public readonly record struct PaintView(
         var depth = Vector3.Dot(offset, Forward);
 
         return new(
-            ((Vector3.Dot(offset, Right) / (depth * halfHeight * Width / Height)) + 1f) * 0.5f * Width,
-            (1f - (Vector3.Dot(offset, Up) / (depth * halfHeight))) * 0.5f * Height
+            (Vector3.Dot(offset, Right) / (depth * halfHeight * Width / Height) + 1f) * 0.5f * Width,
+            (1f - Vector3.Dot(offset, Up) / (depth * halfHeight)) * 0.5f * Height
         );
     }
 

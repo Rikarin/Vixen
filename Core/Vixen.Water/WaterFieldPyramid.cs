@@ -49,7 +49,7 @@ public sealed class WaterFieldPyramid {
     public WaterFieldPyramid(int resolution) {
         ArgumentOutOfRangeException.ThrowIfLessThan(resolution, 2);
 
-        for (var width = resolution; ; width = (width + 1) / 2) {
+        for (var width = resolution;; width = (width + 1) / 2) {
             widths.Add(width);
             coverage.Add(new float[width * width]);
             minimum.Add(new float[width * width]);
@@ -94,7 +94,7 @@ public sealed class WaterFieldPyramid {
 
         for (var z = 0; z < Resolution; z++) {
             for (var x = 0; x < Resolution; x++) {
-                var index = (z * Resolution) + x;
+                var index = z * Resolution + x;
                 var sample = field.At(x, z);
 
                 baseCoverage[index] = sample.Coverage;
@@ -155,7 +155,7 @@ public sealed class WaterFieldPyramid {
 
         for (var z = 0; z < width; z++) {
             for (var x = 0; x < width; x++) {
-                var index = (z * width) + x;
+                var index = z * width + x;
 
                 var most = float.NegativeInfinity;
                 var least = float.PositiveInfinity;
@@ -166,9 +166,9 @@ public sealed class WaterFieldPyramid {
                 // window onto its near one.
                 for (var dz = 0; dz < 2; dz++) {
                     for (var dx = 0; dx < 2; dx++) {
-                        var fx = Math.Min((x * 2) + dx, finerWidth - 1);
-                        var fz = Math.Min((z * 2) + dz, finerWidth - 1);
-                        var finer = (fz * finerWidth) + fx;
+                        var fx = Math.Min(x * 2 + dx, finerWidth - 1);
+                        var fz = Math.Min(z * 2 + dz, finerWidth - 1);
+                        var finer = fz * finerWidth + fx;
 
                         most = MathF.Max(most, finerCoverage[finer]);
                         least = MathF.Min(least, finerMinimum[finer]);
@@ -234,7 +234,7 @@ public sealed class WaterFieldPyramid {
 
         for (var z = lz0; z <= lz1; z++) {
             for (var x = lx0; x <= lx1; x++) {
-                into = fold(into, values[(z * width) + x]);
+                into = fold(into, values[z * width + x]);
             }
         }
     }

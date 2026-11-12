@@ -15,8 +15,12 @@ namespace Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>The failure this closes is worse than a missing feature, and doc 48 § D6 walked into
-///         it.</b> The Pixel Processor's compile-time half was finished — a whole <c>.rvn</c>
+///         ⚠
+///         <b>
+///             The failure this closes is worse than a missing feature, and doc 48 § D6 walked into
+///             it.
+///         </b>
+///         The Pixel Processor's compile-time half was finished — a whole <c>.rvn</c>
 ///         generated, put through the real Raven front end, every complaint mapped back to the line
 ///         the author's expression is on — and the op it emitted named a shader
 ///         <c>TexturePlanEvaluator</c> resolved through this assembly's embedded resources. So the
@@ -51,8 +55,11 @@ public class TexturePlanKernelTests {
     ///     applies to it, and the result goes through the real front end.
     /// </summary>
     /// <remarks>
-    ///     <b>This is the assertion that the plan's copy is <em>usable</em> rather than merely
-    ///     present.</b> A field holding the source and a <c>VariantFor</c> that never consulted it
+    ///     <b>
+    ///         This is the assertion that the plan's copy is <em>usable</em> rather than merely
+    ///         present.
+    ///     </b>
+    ///     A field holding the source and a <c>VariantFor</c> that never consulted it
     ///     would satisfy every equality above; what could not be faked is asking
     ///     <see cref="TextureKernels.Variant(string,string,TextureFormat)" /> — the one the evaluator
     ///     calls — for the same three variants a plan can ask of any kernel, and compiling each.
@@ -74,7 +81,7 @@ public class TexturePlanKernelTests {
             .TryGet(EffectKey.Of(kernel));
 
         Assert.NotNull(data);
-        Assert.Single(data.Stages, stage => stage.Stage == ShaderStage.Compute);
+        Assert.Single(data.Stages, static stage => stage.Stage == ShaderStage.Compute);
     }
 
     /// <summary>An embedded kernel still resolves through the assembly, plan or no plan.</summary>

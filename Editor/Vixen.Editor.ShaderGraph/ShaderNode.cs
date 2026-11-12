@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Text;
-using Vixen.Editor.NodeGraph;
 using Vixen.NodeGraph;
 
 namespace Vixen.Editor.ShaderGraph;
@@ -10,8 +9,11 @@ namespace Vixen.Editor.ShaderGraph;
 /// <summary>What shape of Raven a graph compiles to.</summary>
 /// <remarks>
 ///     <para>
-///         <b>The one structural decision a node makes, and until doc 08's material compiler there
-///         was only one of them.</b> A standalone shader is a whole program — a vertex stage, a
+///         <b>
+///             The one structural decision a node makes, and until doc 08's material compiler there
+///             was only one of them.
+///         </b>
+///         A standalone shader is a whole program — a vertex stage, a
 ///         fragment stage and a <c>return</c> — which is what an author can read, hand to
 ///         <c>raven compile</c> and draw a preview thumbnail with, and which nothing in the engine
 ///         can put on a mesh: a draw binds transforms, lights, shadows and a bindless table by
@@ -106,8 +108,12 @@ public sealed class RavenEmitter {
 
     /// <summary>How many lines have been written into the body so far.</summary>
     /// <remarks>
-    ///     ⚠ <b>Counted here rather than measured afterwards, and that is what makes the span map
-    ///     honest.</b> <see cref="ShaderGraphCompiler" /> reads this either side of a node's
+    ///     ⚠
+    ///     <b>
+    ///         Counted here rather than measured afterwards, and that is what makes the span map
+    ///         honest.
+    ///     </b>
+    ///     <see cref="ShaderGraphCompiler" /> reads this either side of a node's
     ///     <see cref="ShaderNode.Emit" /> to learn which lines that node wrote; recovering the same
     ///     thing by scanning the emitted text would mean matching variable names, which is a guess
     ///     about a naming convention rather than a record of what happened.
@@ -138,8 +144,11 @@ public sealed class RavenEmitter {
     /// <exception cref="ArgumentException"><paramref name="package" /> is null or blank.</exception>
     /// <remarks>
     ///     <para>
-    ///         <b>Asked for rather than always emitted, because the two shapes had different
-    ///         answers and neither was right for the other.</b> A surface graph imports the four
+    ///         <b>
+    ///             Asked for rather than always emitted, because the two shapes had different
+    ///             answers and neither was right for the other.
+    ///         </b>
+    ///         A surface graph imports the four
     ///         <c>Vixen.Shaders.*</c> packages unconditionally — it is composed into a pass that has
     ///         them — while a standalone graph imported <em>nothing</em>, which is what a preview
     ///         wants and what a node calling <c>ComputeColor.ValueNoise</c> cannot have.
@@ -226,8 +235,12 @@ public sealed class RavenEmitter {
     /// <exception cref="ArgumentException">The name is empty, or is already a different type.</exception>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The two shapes bind a texture in ways that have nothing in common, and neither is
-    ///         a simplification of the other.</b> A standalone shader owns its bindings, so it
+    ///         ⚠
+    ///         <b>
+    ///             The two shapes bind a texture in ways that have nothing in common, and neither is
+    ///             a simplification of the other.
+    ///         </b>
+    ///         A standalone shader owns its bindings, so it
     ///         declares the texture and a sampler beside it. A material feature owns none — which
     ///         binding index a texture of its own would get is the composed shader's decision, and
     ///         doc 06 records that as the reason a feature could not sample at all until there was a
@@ -236,8 +249,11 @@ public sealed class RavenEmitter {
     ///         feature in <c>Raven/Library/Material</c> does.
     ///     </para>
     ///     <para>
-    ///         <b>The array is indexed directly rather than through <c>SampleSurface</c>, and that is
-    ///         deliberate.</b> That helper samples at <c>d.uv</c> unconditionally, so a graph with a
+    ///         <b>
+    ///             The array is indexed directly rather than through <c>SampleSurface</c>, and that is
+    ///             deliberate.
+    ///         </b>
+    ///         That helper samples at <c>d.uv</c> unconditionally, so a graph with a
     ///         <c>Tiling and Offset</c> node feeding a texture's coordinate would silently sample
     ///         somewhere the author did not ask for — a wrong image with nothing to blame, which is
     ///         the exact defect class a generated shader is worst at surfacing.

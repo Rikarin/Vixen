@@ -18,7 +18,6 @@
 // ======================================================================================
 
 global using ArgumentNullException = Vixen.Generators.Shared.Compat.ArgumentNullException;
-
 using System.Runtime.CompilerServices;
 
 namespace Vixen.Generators.Shared.Compat;

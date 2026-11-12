@@ -21,8 +21,11 @@ namespace Vixen.Rendering.Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>What <c>MorphTargetTests</c> and <c>MorphScatterDeviceTests</c> deliberately do not
-///         cover.</b> Those two are the arithmetic — the quantiser, the packing, and the two
+///         <b>
+///             What <c>MorphTargetTests</c> and <c>MorphScatterDeviceTests</c> deliberately do not
+///             cover.
+///         </b>
+///         Those two are the arithmetic — the quantiser, the packing, and the two
 ///         processors agreeing about <c>v += w·Δ</c>. This is the wiring, and it is a separate claim:
 ///         a kernel that computes the right answer into a buffer no draw reads is exactly the state
 ///         the feature was built out of, and every counter in it said the scene was healthy.
@@ -35,9 +38,13 @@ namespace Vixen.Rendering.Tests;
 ///         numbers those calls produce are <c>MorphScatterDeviceTests</c>' half.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Over a real <see cref="GeometryBuffer" />, a real
-///         <see cref="Graphics.DescriptorAllocator" /> and a real <see cref="ComputePipelineCache" />
-///         on the null device</b>, so the suballocation, the state transitions and the set caching are
+///         ⚠
+///         <b>
+///             Over a real <see cref="GeometryBuffer" />, a real
+///             <see cref="Graphics.DescriptorAllocator" /> and a real <see cref="ComputePipelineCache" />
+///             on the null device
+///         </b>
+///         , so the suballocation, the state transitions and the set caching are
 ///         the ones a frame runs rather than stubs of them. Only the effect provider is a stand-in,
 ///         because compiling Raven here would make this a test of the compiler.
 ///     </para>
@@ -66,15 +73,12 @@ public sealed class MorphRenderFeatureTests : IDisposable {
     readonly RenderStage opaque;
 
     public MorphRenderFeatureTests() {
-        scene = new(device, SurfaceVertex.SizeInBytes, vertexCapacity: 4096, indexCapacity: 8192);
+        scene = new(device, SurfaceVertex.SizeInBytes, 4096, 8192);
         residency = new(scene);
         descriptors = new(device, "Morph.Tests");
 
-        morph = new(device, vertexCapacity: 256, entryCapacity: 1024) {
-            Effects = effects,
-            Pipelines = new(device),
-            Descriptors = descriptors,
-            Source = scene
+        morph = new(device, 256, 1024) {
+            Effects = effects, Pipelines = new(device), Descriptors = descriptors, Source = scene
         };
 
         opaque = system.AddStage(new("Opaque"));
@@ -137,7 +141,7 @@ public sealed class MorphRenderFeatureTests : IDisposable {
     /// <summary>A mesh with no blend shapes is left alone, and that is not a failure.</summary>
     [Fact]
     public void A_mesh_with_no_shapes_keeps_the_scene_buffer() {
-        var mesh = Mesh(shapes: false);
+        var mesh = Mesh(false);
         var key = GeometryKey.Of(Reference(1));
 
         Assert.True(residency.Acquire(key, () => mesh, out var slice, out _));
@@ -335,7 +339,7 @@ public sealed class MorphRenderFeatureTests : IDisposable {
     /// <summary>A frame that cannot resolve the kernel says so rather than drawing a stale face.</summary>
     [Fact]
     public void A_missing_kernel_degrades_and_is_named() {
-        using var own = new Isolated(device, vertexCapacity: 256, entryCapacity: 1024);
+        using var own = new Isolated(device, 256, 1024);
 
         var mesh = Mesh();
         var key = GeometryKey.Of(Reference(9));
@@ -352,7 +356,7 @@ public sealed class MorphRenderFeatureTests : IDisposable {
         Assert.True(own.Morph.Attach(own.System, id, key, mesh, slice, ref draw));
         Assert.True(own.Morph.SetWeights(id, [1f, 1f]));
 
-        using var list = device.BeginCommandList(QueueKind.Graphics);
+        using var list = device.BeginCommandList();
 
         // ⚠ True, and the rest pose was still copied. A frame that could not resolve the kernel has to
         // put the mesh in its buffer anyway — drawing it at rest is a picture, and drawing it out of an
@@ -400,7 +404,7 @@ public sealed class MorphRenderFeatureTests : IDisposable {
     /// </remarks>
     [Fact]
     public void An_instance_that_does_not_fit_draws_at_rest_and_is_counted() {
-        using var own = new Isolated(device, vertexCapacity: Vertices, entryCapacity: 1024);
+        using var own = new Isolated(device, Vertices, 1024);
 
         var mesh = Mesh();
         var key = GeometryKey.Of(Reference(1));
@@ -434,8 +438,11 @@ public sealed class MorphRenderFeatureTests : IDisposable {
     ///     without anything in the test touching the feature.
     /// </summary>
     /// <remarks>
-    ///     <b>The "built but never fed" assertion, and the one this whole change exists to make
-    ///     true.</b> Everything before this drives <see cref="MorphRenderFeature" /> directly, which
+    ///     <b>
+    ///         The "built but never fed" assertion, and the one this whole change exists to make
+    ///         true.
+    ///     </b>
+    ///     Everything before this drives <see cref="MorphRenderFeature" /> directly, which
     ///     proves the feature works and proves nothing about whether a frame reaches it. Here the only
     ///     inputs are a component, a mesh source and two systems — the three things a level actually
     ///     has — and what is asserted is that a dispatch went on the list.
@@ -448,12 +455,11 @@ public sealed class MorphRenderFeatureTests : IDisposable {
         var mesh = Mesh();
 
         var extraction = new MeshExtractionSystem(system, meshes, transforms, materials, residency) {
-            Stages = opaque.Mask,
-            Meshes = new OneMesh(mesh),
-            Morphing = morph
+            Stages = opaque.Mask, Meshes = new OneMesh(mesh), Morphing = morph
         };
 
-        var weights = new MorphWeightSystem { Feature = morph };
+        using var weights = new MorphWeightSystem();
+        weights.Feature = morph;
 
         var entity = world.Create();
 
@@ -506,12 +512,11 @@ public sealed class MorphRenderFeatureTests : IDisposable {
         using var world = new World(nameof(The_weight_system_publishes_what_the_mesh_calls_each_slot));
 
         var extraction = new MeshExtractionSystem(system, meshes, transforms, materials, residency) {
-            Stages = opaque.Mask,
-            Meshes = new OneMesh(Mesh()),
-            Morphing = morph
+            Stages = opaque.Mask, Meshes = new OneMesh(Mesh()), Morphing = morph
         };
 
-        var weights = new MorphWeightSystem { Feature = morph };
+        using var weights = new MorphWeightSystem();
+        weights.Feature = morph;
         var entity = world.Create();
 
         MeshRenderables.Attach(world, entity, MeshRenderables.Default(Reference(11)));
@@ -544,8 +549,7 @@ public sealed class MorphRenderFeatureTests : IDisposable {
 
     static Vector3 Exact(int x, int y, int z) => new(x * Unit, y * Unit, z * Unit);
 
-    static AssetReference Reference(int seed) =>
-        new(new AssetId(new($"{seed:D8}-0000-0000-0000-000000000000")));
+    static AssetReference Reference(int seed) => new(new AssetId(new($"{seed:D8}-0000-0000-0000-000000000000")));
 
     static int Groups(int entries) => (entries + MorphRenderFeature.GroupSize - 1) / MorphRenderFeature.GroupSize;
 
@@ -594,18 +598,17 @@ public sealed class MorphRenderFeatureTests : IDisposable {
             Normals = normals,
             Indices = indices,
             MorphTargets = shapes
-                ?
-                [
+                ? [
                     MorphTargetData.Encode(
                         "jawOpen",
                         jaw,
-                        [.. jaw.Select(v => Exact(32767, -16384, 8192 + (v * 3)))],
-                        [.. jaw.Select(v => Exact(v * 7, -4096, 16384))]
+                        [..jaw.Select(static v => Exact(32767, -16384, 8192 + v * 3))],
+                        [..jaw.Select(static v => Exact(v * 7, -4096, 16384))]
                     ),
                     MorphTargetData.Encode(
                         "browRaise",
                         brow,
-                        [.. brow.Select(v => Exact(-8192, 32767, v * -5))],
+                        [..brow.Select(static v => Exact(-8192, 32767, v * -5))],
                         []
                     )
                 ]
@@ -622,7 +625,7 @@ public sealed class MorphRenderFeatureTests : IDisposable {
     ///     on a frame where the rest pose was never restored at all.
     /// </remarks>
     IReadOnlyList<RecordedCommand> MorphCopies => [
-        .. device.Recorder!.OfKind(RecordedCommandKind.CopyBuffer).Where(copy => copy.C == Packed(morph.Buffer))
+        ..device.Recorder!.OfKind(RecordedCommandKind.CopyBuffer).Where(copy => copy.C == Packed(morph.Buffer))
     ];
 
     RenderObjectId Object() =>
@@ -686,8 +689,7 @@ public sealed class MorphRenderFeatureTests : IDisposable {
             stage = System.AddStage(new("Isolated"));
 
             Morph = new(device, vertexCapacity, entryCapacity) {
-                Pipelines = new(device),
-                Descriptors = new(device, "Isolated")
+                Pipelines = new(device), Descriptors = new(device, "Isolated")
             };
 
             meshes.Add(Morph);
@@ -749,9 +751,7 @@ public sealed class MorphRenderFeatureTests : IDisposable {
             layouts[MorphScatterKeys.ConstantBufferSet] = layout;
 
             return new() {
-                Key = key,
-                SetLayouts = [.. layouts],
-                Stages = [new(ShaderStage.Compute, [1, 2, 3, 4], "main")]
+                Key = key, SetLayouts = [..layouts], Stages = [new(ShaderStage.Compute, [1, 2, 3, 4], "main")]
             };
         }
     }

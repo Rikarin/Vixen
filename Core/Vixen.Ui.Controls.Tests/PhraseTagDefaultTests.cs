@@ -14,8 +14,12 @@ namespace Vixen.Ui.Controls.Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Rich text here is not a run list with styled spans in it, and this file is the pin
-///         on the mechanism it is instead.</b> Markup already emits one <c>text</c> element per
+///         ⚠
+///         <b>
+///             Rich text here is not a run list with styled spans in it, and this file is the pin
+///             on the mechanism it is instead.
+///         </b>
+///         Markup already emits one <c>text</c> element per
 ///         literal stretch (<c>BuildContext.Text</c>) and a nested tag as an element of its own with
 ///         its own cascade, so "which stretch is bold" was answered the day <c>font-weight</c>
 ///         cascaded — what nobody had said was which of those elements is <i>inline</i>. Before the
@@ -23,8 +27,12 @@ namespace Vixen.Ui.Controls.Tests;
 ///         <c>display: inline</c> at all, and three block boxes in a block container are three lines.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The fixture is three distinct faces under one family — 400 upright, 700 upright and
-///         400 italic — and every part of that is load-bearing.</b> One face registered twice draws
+///         ⚠
+///         <b>
+///             The fixture is three distinct faces under one family — 400 upright, 700 upright and
+///             400 italic — and every part of that is load-bearing.
+///         </b>
+///         One face registered twice draws
 ///         identical runs either way, and every assertion about boldness or slant would pass against
 ///         a cascade that never read the property; and with no <c>font-family</c> named,
 ///         <c>FontRegistry.Resolve</c> answers the default face for every weight, so the container
@@ -42,8 +50,12 @@ namespace Vixen.Ui.Controls.Tests;
 ///         <c>FontSlantPixelTests</c> does with two arbitrary faces, is the whole fix.
 ///     </para>
 ///     <para>
-///         ⚠ <b>A block container, deliberately, because in the flex container this store defaults
-///         to, <c>display: inline</c> is a no-op.</b> A flex item, a grid item, a float, an absolutely
+///         ⚠
+///         <b>
+///             A block container, deliberately, because in the flex container this store defaults
+///             to, <c>display: inline</c> is a no-op.
+///         </b>
+///         A flex item, a grid item, a float, an absolutely
 ///         positioned box and the root are blockified — <c>BlockificationTests</c> measures that the
 ///         transformation moves no geometry here — so this default changes nothing about any existing
 ///         panel, which is what made it a default rather than a decision.
@@ -58,14 +70,14 @@ public class PhraseTagDefaultTests {
 
     /// <summary>The family the fixtures name: upright at 400 and 700, and an italic at 400.</summary>
     static void RegisterPhraseFamily(ControlFixture fixture) {
-        fixture.Document.Fonts.Register("Phrase", Regular, 400);
+        fixture.Document.Fonts.Register("Phrase", Regular);
         fixture.Document.Fonts.Register("Phrase", Bold, 700);
         fixture.Document.Fonts.Register("Phrase", Italic, 400, FontStyle.Italic);
     }
 
     static FontFace LoadFont(string name) {
         using var stream = Assembly.GetExecutingAssembly()
-            .GetManifestResourceStream("Vixen.Ui.Controls.Tests.Fonts.TestShapeLana.ttf")
+                .GetManifestResourceStream("Vixen.Ui.Controls.Tests.Fonts.TestShapeLana.ttf")
             ?? throw new InvalidOperationException("the test font is not embedded");
 
         using var memory = new MemoryStream();
@@ -124,7 +136,10 @@ public class PhraseTagDefaultTests {
         var last = after.Bounds;
 
         // The fixture has to have measured something, or three empty boxes agree about everything.
-        Assert.True(first.Width > 0f && middle.Width > 0f && last.Width > 0f, $"widths {first.Width}, {middle.Width}, {last.Width}");
+        Assert.True(
+            first.Width > 0f && middle.Width > 0f && last.Width > 0f,
+            $"widths {first.Width}, {middle.Width}, {last.Width}"
+        );
 
         Assert.Equal(first.Y, middle.Y, Tolerance);
         Assert.Equal(first.Y, last.Y, Tolerance);
@@ -175,8 +190,12 @@ public class PhraseTagDefaultTests {
     ///     and <c>strong</c> in the bold face and the two under <c>i</c> and <c>em</c> in the italic.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>This is the test the issue asked for — "which stretch is bold" from markup — and it
-    ///     goes through the compiler rather than through <c>Add</c>.</b> The three tests above pin
+    ///     ⚠
+    ///     <b>
+    ///         This is the test the issue asked for — "which stretch is bold" from markup — and it
+    ///         goes through the compiler rather than through <c>Add</c>.
+    ///     </b>
+    ///     The three tests above pin
     ///     the mechanism; this one pins that the markup an author writes reaches it: the literal
     ///     stretches arrive as <c>text</c> elements (with the spaces the whitespace policy keeps), the
     ///     tags arrive as elements of their own, and the theme's defaults do the rest. The count is
@@ -185,7 +204,8 @@ public class PhraseTagDefaultTests {
     /// </remarks>
     [Fact]
     public void From_markup_every_stretch_shares_the_line_and_the_bold_ones_are_bold() {
-        using var fixture = new ControlFixture(css: "phrase-paragraph { display: block; width: 780px; font-family: Phrase; }");
+        using var fixture =
+            new ControlFixture(css: "phrase-paragraph { display: block; width: 780px; font-family: Phrase; }");
         RegisterPhraseFamily(fixture);
 
         var sheet = new PhraseSheet();

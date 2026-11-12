@@ -17,8 +17,12 @@ namespace Vixen.Ui.Layout;
 ///         line <i>indices</i> and never to a position: §8 still does the placing.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The parser is the part with an external oracle, and it is the part that is easy to
-///         get plausibly wrong.</b> <c>web-platform-tests</c>'
+///         ⚠
+///         <b>
+///             The parser is the part with an external oracle, and it is the part that is easy to
+///             get plausibly wrong.
+///         </b>
+///         <c>web-platform-tests</c>'
 ///         <c>css/css-grid/grid-definition/grid-support-grid-template-areas-001.html</c> pins
 ///         thirty accepted values <i>with their canonical serialisation</i> and sixteen refused
 ///         ones, and several of the sixteen are values a hand-written parser accepts happily:
@@ -49,8 +53,12 @@ namespace Vixen.Ui.Layout;
 ///         and is what <see cref="Equals(object)" /> reads.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Named lines written into a track list — <c>[main-start] 1fr [main-end]</c> — are a
-///         different feature and are still not implemented.</b> They have no oracle in either
+///         ⚠
+///         <b>
+///             Named lines written into a track list — <c>[main-start] 1fr [main-end]</c> — are a
+///             different feature and are still not implemented.
+///         </b>
+///         They have no oracle in either
 ///         conformance corpus, exactly as this had none, and the WPT files that cover them
 ///         (<c>grid-placement-using-named-grid-lines-00*</c>) are reftests whose geometry is not
 ///         stated. This type covers the half that <i>has</i> an oracle.
@@ -181,7 +189,7 @@ public sealed class GridAreaTemplate {
             return false;
         }
 
-        template = new GridAreaTemplate([.. distinct], [.. flat], bounds, rows, columns);
+        template = new GridAreaTemplate([..distinct], [..flat], bounds, rows, columns);
         return true;
     }
 
@@ -197,8 +205,12 @@ public sealed class GridAreaTemplate {
     ///         like and drifting from the tokeniser this file is judged against.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>It is a NARROWER test than <see cref="TryParse" />'s, and the asymmetry is CSS's
-    ///         rather than a simplification.</b> Inside a string the grammar is a <c>&lt;name&gt;</c>
+    ///         ⚠
+    ///         <b>
+    ///             It is a NARROWER test than <see cref="TryParse" />'s, and the asymmetry is CSS's
+    ///             rather than a simplification.
+    ///         </b>
+    ///         Inside a string the grammar is a <c>&lt;name&gt;</c>
     ///         production, so the conformance oracle accepts an area called <c>10</c> or
     ///         <c>1-st</c>; a placement value is a <c>&lt;custom-ident&gt;</c> <i>token</i>, and no
     ///         ident token starts with a digit. So an area may carry a name nothing can ever refer to
@@ -239,7 +251,7 @@ public sealed class GridAreaTemplate {
             return null;
         }
 
-        var index = cells[(row * Columns) + column];
+        var index = cells[row * Columns + column];
         return index == NullCell ? null : names[index];
     }
 
@@ -268,9 +280,9 @@ public sealed class GridAreaTemplate {
         }
 
         rowStart = bounds[index * 4];
-        rowEnd = bounds[(index * 4) + 1] + 1;
-        columnStart = bounds[(index * 4) + 2];
-        columnEnd = bounds[(index * 4) + 3] + 1;
+        rowEnd = bounds[index * 4 + 1] + 1;
+        columnStart = bounds[index * 4 + 2];
+        columnEnd = bounds[index * 4 + 3] + 1;
 
         return true;
     }
@@ -358,30 +370,30 @@ public sealed class GridAreaTemplate {
 
         for (var area = 0; area < areas; area++) {
             bounds[area * 4] = int.MaxValue;
-            bounds[(area * 4) + 1] = int.MinValue;
-            bounds[(area * 4) + 2] = int.MaxValue;
-            bounds[(area * 4) + 3] = int.MinValue;
+            bounds[area * 4 + 1] = int.MinValue;
+            bounds[area * 4 + 2] = int.MaxValue;
+            bounds[area * 4 + 3] = int.MinValue;
         }
 
         for (var row = 0; row < rows; row++) {
             for (var column = 0; column < columns; column++) {
-                var area = flat[(row * columns) + column];
+                var area = flat[row * columns + column];
 
                 if (area == NullCell) {
                     continue;
                 }
 
                 bounds[area * 4] = int.Min(bounds[area * 4], row);
-                bounds[(area * 4) + 1] = int.Max(bounds[(area * 4) + 1], row);
-                bounds[(area * 4) + 2] = int.Min(bounds[(area * 4) + 2], column);
-                bounds[(area * 4) + 3] = int.Max(bounds[(area * 4) + 3], column);
+                bounds[area * 4 + 1] = int.Max(bounds[area * 4 + 1], row);
+                bounds[area * 4 + 2] = int.Min(bounds[area * 4 + 2], column);
+                bounds[area * 4 + 3] = int.Max(bounds[area * 4 + 3], column);
             }
         }
 
         for (var area = 0; area < areas; area++) {
-            for (var row = bounds[area * 4]; row <= bounds[(area * 4) + 1]; row++) {
-                for (var column = bounds[(area * 4) + 2]; column <= bounds[(area * 4) + 3]; column++) {
-                    if (flat[(row * columns) + column] == area) {
+            for (var row = bounds[area * 4]; row <= bounds[area * 4 + 1]; row++) {
+                for (var column = bounds[area * 4 + 2]; column <= bounds[area * 4 + 3]; column++) {
+                    if (flat[row * columns + column] == area) {
                         continue;
                     }
 
@@ -409,7 +421,7 @@ public sealed class GridAreaTemplate {
                     builder.Append(' ');
                 }
 
-                var index = cells[(row * Columns) + column];
+                var index = cells[row * Columns + column];
                 builder.Append(index == NullCell ? "." : names[index]);
             }
 

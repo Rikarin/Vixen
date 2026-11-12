@@ -50,7 +50,8 @@ public sealed class DefinitionCatalog {
     public uint BuildHash { get; }
 
     /// <summary>Every definition, in address order.</summary>
-    public IEnumerable<Definition> All => byId.Values.OrderBy(definition => definition.Address, StringComparer.Ordinal);
+    public IEnumerable<Definition> All =>
+        byId.Values.OrderBy(static definition => definition.Address, StringComparer.Ordinal);
 
     /// <summary>Whether the catalog has a definition with this id.</summary>
     /// <param name="id">The id.</param>
@@ -88,8 +89,7 @@ public sealed class DefinitionCatalog {
     ///     per-type index would be a second structure to keep correct across a reload for a question
     ///     nothing asks in a frame.
     /// </remarks>
-    public IEnumerable<TDefinition> OfType<TDefinition>() where TDefinition : Definition =>
-        All.OfType<TDefinition>();
+    public IEnumerable<TDefinition> OfType<TDefinition>() where TDefinition : Definition => All.OfType<TDefinition>();
 }
 
 /// <summary>Composes a <see cref="DefinitionCatalog" /> out of what the content build imported.</summary>
@@ -162,7 +162,7 @@ public sealed class DefinitionCatalogBuilder {
 
         // Address order, so the hash is a property of the content rather than of the order an
         // importer happened to walk a directory in.
-        foreach (var definition in byId.Values.OrderBy(entry => entry.Address, StringComparer.Ordinal)) {
+        foreach (var definition in byId.Values.OrderBy(static entry => entry.Address, StringComparer.Ordinal)) {
             foreach (var character in definition.Address) {
                 hash ^= character;
                 hash *= 16777619u;

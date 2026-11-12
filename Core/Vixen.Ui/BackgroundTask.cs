@@ -32,8 +32,11 @@ public enum BackgroundTaskState : byte {
 ///         queue once per frame at a point of the shell's choosing.
 ///     </para>
 ///     <para>
-///         <b>Cancellation is a token, and it is the reason this exists rather than a
-///         <c>Task</c>.</b> Doc 11 asks for "progress with cancellation, never a modal progress
+///         <b>
+///             Cancellation is a token, and it is the reason this exists rather than a
+///             <c>Task</c>.
+///         </b>
+///         Doc 11 asks for "progress with cancellation, never a modal progress
 ///         dialog" — a modal dialog is what an editor grows when its long operations have no way to
 ///         be stopped, because stopping them means killing the editor.
 ///     </para>
@@ -86,8 +89,10 @@ public sealed class BackgroundTask : IDisposable {
     }
 
     /// <summary>How far along it is, from zero to one.</summary>
-    /// <remarks>Meaningless while <see cref="IsIndeterminate" />, which is what a task that has not
-    ///     reported any progress is.</remarks>
+    /// <remarks>
+    ///     Meaningless while <see cref="IsIndeterminate" />, which is what a task that has not
+    ///     reported any progress is.
+    /// </remarks>
     public float Progress {
         get => progress.Value;
         private set => progress.Value = value;
@@ -136,13 +141,14 @@ public sealed class BackgroundTask : IDisposable {
     /// <summary>Says how far along it is.</summary>
     /// <param name="progress">From zero to one.</param>
     /// <param name="status">What it is doing, or <c>null</c> to leave it as it was.</param>
-    /// <remarks>Callable from the thread doing the work; the change lands on the next
-    ///     <see cref="BackgroundTaskManager.Pump" />.</remarks>
+    /// <remarks>
+    ///     Callable from the thread doing the work; the change lands on the next
+    ///     <see cref="BackgroundTaskManager.Pump" />.
+    /// </remarks>
     public void Report(float progress, string? status = null) {
         var clamped = Math.Clamp(progress, 0f, 1f);
 
-        Owner.Post(
-            () => {
+        Owner.Post(() => {
                 Progress = clamped;
                 IsIndeterminate = false;
                 Status = status ?? Status;
@@ -186,8 +192,10 @@ public sealed class BackgroundTask : IDisposable {
     }
 
     /// <summary>Releases what the cancellation cost.</summary>
-    /// <remarks>Called by the manager when the task ends; a caller that finished one itself does
-    ///     not have to.</remarks>
+    /// <remarks>
+    ///     Called by the manager when the task ends; a caller that finished one itself does
+    ///     not have to.
+    /// </remarks>
     public void Dispose() => cancellation.Dispose();
 
     internal void Finish(BackgroundTaskState state, Exception? failure = null) {

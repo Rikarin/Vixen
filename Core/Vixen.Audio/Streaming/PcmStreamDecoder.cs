@@ -97,8 +97,8 @@ public sealed class PcmStreamDecoder : IAudioStreamDecoder {
         var rented = ArrayPool<byte>.Shared.Rent(bytes);
 
         try {
-            stream.Position = dataOffset + (position * bytesPerFrame);
-            var read = stream.ReadAtLeast(rented.AsSpan(0, bytes), bytes, throwOnEndOfStream: false);
+            stream.Position = dataOffset + position * bytesPerFrame;
+            var read = stream.ReadAtLeast(rented.AsSpan(0, bytes), bytes, false);
             var frames = read / bytesPerFrame;
 
             if (frames <= 0) {

@@ -95,9 +95,9 @@ public class TexturePreviewWiringTests {
         var surface = Attach(session);
         var view = Open(session);
 
-        view.SetChannel(TextureChannels.Red, shown: false);
-        view.SetChannel(TextureChannels.Green, shown: false);
-        view.SetChannel(TextureChannels.Blue, shown: false);
+        view.SetChannel(TextureChannels.Red, false);
+        view.SetChannel(TextureChannels.Green, false);
+        view.SetChannel(TextureChannels.Blue, false);
 
         session.Frames(1);
 
@@ -121,7 +121,7 @@ public class TexturePreviewWiringTests {
         var surface = Attach(session);
         var view = Open(session);
 
-        view.SetChannel(TextureChannels.Alpha, shown: false);
+        view.SetChannel(TextureChannels.Alpha, false);
         session.Frames(1);
 
         var uploaded = surface.Uploads[^1];
@@ -233,7 +233,7 @@ public class TexturePreviewWiringTests {
 
         Assert.Equal(Width, uploaded.Width);
         Assert.Equal(Height, uploaded.Height);
-        Assert.Equal(new Vector2(Width, Height), sprites.Preview.IntrinsicSize);
+        Assert.Equal(new(Width, Height), sprites.Preview.IntrinsicSize);
 
         // Level zero with every channel, whatever the pane above is showing.
         Assert.Equal(Red, uploaded.Pixels[0]);
@@ -259,7 +259,7 @@ public class TexturePreviewWiringTests {
 
         Assert.NotEqual(0ul, sheet);
 
-        view.SetChannel(TextureChannels.Alpha, shown: false);
+        view.SetChannel(TextureChannels.Alpha, false);
         view.SetMipLevel(2);
         session.Frames(1);
 
@@ -274,16 +274,24 @@ public class TexturePreviewWiringTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The oracle is the uploaded bytes, because the preview is drawn correctly the
-    ///         whole time — just of the wrong pixels.</b> <c>TextureImportView.Show</c> was the only
+    ///         ⚠
+    ///         <b>
+    ///             The oracle is the uploaded bytes, because the preview is drawn correctly the
+    ///             whole time — just of the wrong pixels.
+    ///         </b>
+    ///         <c>TextureImportView.Show</c> was the only
     ///         thing that ever decoded, and it runs when the tab is created, so a repainted
     ///         <c>.png</c> kept the picture it had when it was opened until the tab was closed and
     ///         reopened. A test that asserted a texture id or that something was drawn would have
     ///         passed against every version of that defect.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The middle assertion asserts the defect, which is what makes the last one
-    ///         meaningful.</b> Nothing has told the panel yet, so it is still showing the old shade —
+    ///         ⚠
+    ///         <b>
+    ///             The middle assertion asserts the defect, which is what makes the last one
+    ///             meaningful.
+    ///         </b>
+    ///         Nothing has told the panel yet, so it is still showing the old shade —
     ///         and the shades are two values neither of which a decoder produces by accident, so a
     ///         path that uploaded nothing at all could not read back as either.
     ///     </para>
@@ -337,7 +345,7 @@ public class TexturePreviewWiringTests {
         Attach(session);
 
         var view = Open(session);
-        var document = (TextureImportDocument)session.Project.Documents.OfType<TextureImportDocument>().Single();
+        var document = session.Project.Documents.OfType<TextureImportDocument>().Single();
 
         document.Texture.MaxSize = 512;
         document.Texture.GenerateMips = false;

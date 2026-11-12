@@ -33,8 +33,11 @@ public sealed record MixerImportSettings : IImportSettings {
 ///         ([#473](https://github.com/Rikarin/Vixen/issues/473)).
 ///     </para>
 ///     <para>
-///         <b>Compiled rather than carried, which is <see cref="Compositors.CompositorImporter" />'s
-///         argument restated.</b> A host reads this with
+///         <b>
+///             Compiled rather than carried, which is <see cref="Compositors.CompositorImporter" />'s
+///             argument restated.
+///         </b>
+///         A host reads this with
 ///         <c>AssetManager.LoadAsync&lt;MixerAsset&gt;</c>, which goes through the binary serializer,
 ///         so shipping the authored YAML would be shipping a document no runtime links a parser for.
 ///         <see cref="NativeFormatImporter" /> carries text only for the two formats whose runtime

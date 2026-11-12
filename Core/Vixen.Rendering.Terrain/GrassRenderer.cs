@@ -47,8 +47,12 @@ public readonly record struct GrassBatch(
 ///         nothing else.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The scatter happens on entry and the cull happens every frame, and keeping those
-///         apart is the whole shape of the feature.</b> Scattering per frame would probe the surface
+///         ⚠
+///         <b>
+///             The scatter happens on entry and the cull happens every frame, and keeping those
+///             apart is the whole shape of the feature.
+///         </b>
+///         Scattering per frame would probe the surface
 ///         for every blade of every cell every frame — which is the cost the ring exists to pay once —
 ///         and culling on entry would draw the far half of every cell for as long as it stayed
 ///         resident.
@@ -277,7 +281,7 @@ public sealed class GrassRenderer {
                 var culled = culler.Cull(
                     CollectionsMarshal.AsSpan(bounds),
                     CollectionsMarshal.AsSpan(source),
-                    new InstanceCullSettings {
+                    new() {
                         Frustum = view,
                         ViewPosition = viewPosition,
                         StartCullDistance = draw.Type.StartCullDistance,
@@ -395,14 +399,7 @@ public sealed class GrassRenderer {
         foreach (var blade in held) {
             bounds.Add(new(blade.Instance.Position, reach * blade.Instance.Scale));
 
-            source.Add(
-                new() {
-                    Tint = blade.Tint,
-                    WindPhase = blade.WindPhase,
-                    Scale = 1f,
-                    Fade = 1f
-                }
-            );
+            source.Add(new() { Tint = blade.Tint, WindPhase = blade.WindPhase, Scale = 1f, Fade = 1f });
         }
     }
 

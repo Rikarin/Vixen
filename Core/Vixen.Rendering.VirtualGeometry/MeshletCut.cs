@@ -45,7 +45,7 @@ public static class MeshletCut {
             }
         }
 
-        return [.. cut];
+        return [..cut];
     }
 
     /// <summary>
@@ -107,7 +107,7 @@ public static class MeshletCut {
         // are the only candidates worth trying.
         var steps = mesh.Groups
             .Where(group => group.Parents.Length > 0 && group.Error >= threshold)
-            .Select(group => group.Error)
+            .Select(static group => group.Error)
             .Distinct()
             .Order()
             .ToArray();

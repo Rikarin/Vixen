@@ -103,10 +103,7 @@ public static class Content {
                     DisplayName = "What Follows",
                     Requirements = [new() { Kind = RequirementKind.HasTag, Subject = Completed }],
                     Stages = [
-                        new() {
-                            Id = "pull",
-                            Objectives = [new() { Type = "Interact", Count = 1, Target = Lever }]
-                        }
+                        new() { Id = "pull", Objectives = [new() { Type = "Interact", Count = 1, Target = Lever }] }
                     ]
                 }
             )

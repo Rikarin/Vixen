@@ -41,9 +41,7 @@ public sealed partial class NodeSearchRow : ButtonBase {
         set {
             category = value;
 
-            if (CategoryPart is not null) {
-                CategoryPart.Text = value;
-            }
+            CategoryPart?.Text = value;
         }
     }
 
@@ -57,9 +55,7 @@ public sealed partial class NodeSearchRow : ButtonBase {
         set {
             port = value;
 
-            if (PortPart is not null) {
-                PortPart.Text = value;
-            }
+            PortPart?.Text = value;
         }
     }
 
@@ -101,8 +97,12 @@ public sealed partial class NodeSearchRow : ButtonBase {
 ///         hand-written popup set the element's own text.
 ///     </para>
 ///     <para>
-///         ⚠ <b><c>internal</c>, and that is the answer to <c>CheckDocs</c> rather than an exemption
-///         line.</b> A port that extracts shared parts creates types by construction, and wave 5
+///         ⚠
+///         <b>
+///             <c>internal</c>, and that is the answer to <c>CheckDocs</c> rather than an exemption
+///             line.
+///         </b>
+///         A port that extracts shared parts creates types by construction, and wave 5
 ///         shipped six of them public with no guide page. The right question is not "what does the
 ///         exemption file say" but "is this surface" — and a caption whose only caller is the
 ///         <c>.vxml</c> beside it is not. <see cref="NodeSearchPopup.EmptyPart" /> is

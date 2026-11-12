@@ -121,7 +121,9 @@ public class RoundTripTests {
     // it built; a block dropped them, and the characters left the tree with them.
     [InlineData("package A.B\n\nshader Foo {\n    func M() {\n        [Unroll] {\n        }\n    }\n}\n")]
     [InlineData("package A.B\n\nshader Foo {\n    func M() {\n        [A] [B] {\n        }\n    }\n}\n")]
-    [InlineData("package A.B\n\nshader Foo {\n    func M() {\n        [Unroll(4)] {\n            a = 1\n        }\n    }\n}\n")]
+    [InlineData(
+        "package A.B\n\nshader Foo {\n    func M() {\n        [Unroll(4)] {\n            a = 1\n        }\n    }\n}\n"
+    )]
     public void ToFullString_reproduces_source(string source) {
         var tree = SyntaxTree.ParseText(source);
         Assert.Equal(source, tree.GetRoot().ToFullString());
@@ -131,8 +133,12 @@ public class RoundTripTests {
 
     /// <summary>A block's attribute lists reach the block, rather than only reaching the text.</summary>
     /// <remarks>
-    ///     ⚠ <b>The round-trip rows above would pass on a fix that put the characters back as
-    ///     trivia</b>, which is not the fix — <c>BlockSyntax.AttributeLists</c> is a slot the grammar
+    ///     ⚠
+    ///     <b>
+    ///         The round-trip rows above would pass on a fix that put the characters back as
+    ///         trivia
+    ///     </b>
+    ///     , which is not the fix — <c>BlockSyntax.AttributeLists</c> is a slot the grammar
     ///     has always declared and the parser never filled, so the attributes were unreachable to
     ///     anything reading the tree. This asserts the slot, not the string. Found by the
     ///     <c>raven</c> fuzz target, whose round-trip oracle it broke thirty-two ways at three
@@ -147,7 +153,7 @@ public class RoundTripTests {
         Assert.Empty(tree.Diagnostics);
 
         var blocks = tree.GetRoot().DescendantNodes().OfType<BlockSyntax>().ToArray();
-        var attributed = Assert.Single(blocks, block => block.AttributeLists.Count > 0);
+        var attributed = Assert.Single(blocks, static block => block.AttributeLists.Count > 0);
 
         Assert.Equal(1, attributed.AttributeLists.Count);
         Assert.Equal("Unroll", attributed.AttributeLists[0]?.Attributes[0]?.Name.ToString());
@@ -170,7 +176,7 @@ public class RoundTripTests {
 
         var diagnostics = Compilation.Create("Test", tree).GetDiagnostics();
 
-        Assert.Contains(diagnostics, diagnostic => diagnostic.Id == "RVN2095");
+        Assert.Contains(diagnostics, static diagnostic => diagnostic.Id == "RVN2095");
     }
 
     /// <summary>Recovery does not lose the source either, which is what the fuzzer actually hit.</summary>

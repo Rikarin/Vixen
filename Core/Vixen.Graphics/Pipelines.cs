@@ -94,9 +94,11 @@ public enum DescriptorKind : byte {
     Sampler = 6,
 
     /// <summary>An acceleration structure a ray query opens against.</summary>
-    /// <remarks>Needs <see cref="GraphicsDeviceFeatures.HasRayTracing" /> — a layout declaring one
+    /// <remarks>
+    ///     Needs <see cref="GraphicsDeviceFeatures.HasRayTracing" /> — a layout declaring one
     ///     on a device without it is refused at creation, which is the loud version of the failure
-    ///     the feature flag exists to prevent.</remarks>
+    ///     the feature flag exists to prevent.
+    /// </remarks>
     AccelerationStructure = 7
 }
 
@@ -105,8 +107,12 @@ public enum DescriptorKind : byte {
 ///     <para>
 ///         The half of a descriptor layout that Vulkan and GL infer and WebGPU insists on being told.
 ///         A Vulkan set layout says "sampled image" and the shader's own type says the rest; a WebGPU
-///         bind group layout has to declare <em>filterable float, unfilterable float, depth, sint or
-///         uint</em> up front, and a texture whose format disagrees is refused at bind time. So the
+///         bind group layout has to declare
+///         <em>
+///             filterable float, unfilterable float, depth, sint or
+///             uint
+///         </em>
+///         up front, and a texture whose format disagrees is refused at bind time. So the
 ///         RHI carries it, the web backend uses it, and the desktop ones read past it.
 ///     </para>
 ///     <para>
@@ -247,9 +253,7 @@ public readonly record struct DescriptorSetLayoutDescription(
 
         foreach (var binding in Bindings) {
             if (!seen.Add(binding.Binding)) {
-                throw new ArgumentException(
-                    $"Descriptor set '{Name}' binds slot {binding.Binding} twice."
-                );
+                throw new ArgumentException($"Descriptor set '{Name}' binds slot {binding.Binding} twice.");
             }
 
             if (binding.Stages == ShaderStage.None) {
@@ -259,9 +263,7 @@ public readonly record struct DescriptorSetLayoutDescription(
             }
 
             if (binding.Count < 0) {
-                throw new ArgumentException(
-                    $"Binding {binding.Binding} in '{Name}' has a negative count."
-                );
+                throw new ArgumentException($"Binding {binding.Binding} in '{Name}' has a negative count.");
             }
 
             // A sample type on a buffer or a storage image is not a harmless extra. A storage image
@@ -378,7 +380,7 @@ public readonly record struct DepthStencilState(
     byte StencilWriteMask = 0xFF
 ) {
     /// <summary>Test and write depth with the engine's reversed comparison.</summary>
-    public static DepthStencilState Default => new(DepthTest: true);
+    public static DepthStencilState Default => new(true);
 
     /// <summary>Test depth but do not write it — what a forward transparency pass wants.</summary>
     public static DepthStencilState TestOnly => new(DepthWrite: false);
@@ -407,17 +409,18 @@ public readonly record struct BlendState(
     ColourWriteMask WriteMask = ColourWriteMask.All
 ) {
     /// <summary>Overwrite. The default.</summary>
-    public static BlendState Opaque => new(Enabled: false);
+    public static BlendState Opaque => new(false);
 
     /// <summary>Straight alpha blending.</summary>
-    public static BlendState AlphaBlend => new(
-        true,
-        BlendFactor.SourceAlpha,
-        BlendFactor.OneMinusSourceAlpha,
-        BlendOperation.Add,
-        BlendFactor.One,
-        BlendFactor.OneMinusSourceAlpha
-    );
+    public static BlendState AlphaBlend =>
+        new(
+            true,
+            BlendFactor.SourceAlpha,
+            BlendFactor.OneMinusSourceAlpha,
+            BlendOperation.Add,
+            BlendFactor.One,
+            BlendFactor.OneMinusSourceAlpha
+        );
 
     /// <summary>Premultiplied alpha blending.</summary>
     /// <remarks>
@@ -425,24 +428,26 @@ public readonly record struct BlendState(
     ///     translucent images has to use: straight alpha produces dark halos wherever a transparent
     ///     texel's colour is interpolated with an opaque one.
     /// </remarks>
-    public static BlendState PremultipliedAlpha => new(
-        true,
-        BlendFactor.One,
-        BlendFactor.OneMinusSourceAlpha,
-        BlendOperation.Add,
-        BlendFactor.One,
-        BlendFactor.OneMinusSourceAlpha
-    );
+    public static BlendState PremultipliedAlpha =>
+        new(
+            true,
+            BlendFactor.One,
+            BlendFactor.OneMinusSourceAlpha,
+            BlendOperation.Add,
+            BlendFactor.One,
+            BlendFactor.OneMinusSourceAlpha
+        );
 
     /// <summary>Additive — particles, glow.</summary>
-    public static BlendState Additive => new(
-        true,
-        BlendFactor.SourceAlpha,
-        BlendFactor.One,
-        BlendOperation.Add,
-        BlendFactor.One,
-        BlendFactor.One
-    );
+    public static BlendState Additive =>
+        new(
+            true,
+            BlendFactor.SourceAlpha,
+            BlendFactor.One,
+            BlendOperation.Add,
+            BlendFactor.One,
+            BlendFactor.One
+        );
 }
 
 /// <summary>One colour target a pipeline writes to.</summary>
@@ -479,16 +484,20 @@ public readonly record struct ColourTargetState(PixelFormat Format, BlendState B
 ///     encounter.
 /// </remarks>
 /// <param name="Vertex">The vertex shader.</param>
-/// <param name="Fragment">The fragment shader, or <see cref="ShaderHandle.Null" /> for a depth-only
-/// pass.</param>
+/// <param name="Fragment">
+///     The fragment shader, or <see cref="ShaderHandle.Null" /> for a depth-only
+///     pass.
+/// </param>
 /// <param name="Layout">The descriptor sets and push constants it expects.</param>
 /// <param name="ColourTargets">The colour targets, in order.</param>
 /// <param name="VertexBuffers">The vertex buffer layouts, in binding order.</param>
 /// <param name="Topology">What the vertices mean.</param>
 /// <param name="Rasterizer">How triangles become fragments.</param>
 /// <param name="DepthStencil">The depth and stencil tests.</param>
-/// <param name="DepthFormat">The depth attachment's format, or
-/// <see cref="PixelFormat.Undefined" /> for none.</param>
+/// <param name="DepthFormat">
+///     The depth attachment's format, or
+///     <see cref="PixelFormat.Undefined" /> for none.
+/// </param>
 /// <param name="SampleCount">How many samples the attachments have.</param>
 /// <param name="Name">A name for the debugger and the validation layers.</param>
 public readonly record struct GraphicsPipelineDescription(
@@ -525,16 +534,12 @@ public readonly record struct GraphicsPipelineDescription(
             }
 
             if (target.Format.IsDepthStencil()) {
-                throw new ArgumentException(
-                    $"Pipeline '{Name}' uses depth format {target.Format} as a colour target."
-                );
+                throw new ArgumentException($"Pipeline '{Name}' uses depth format {target.Format} as a colour target.");
             }
         }
 
         if (DepthFormat != PixelFormat.Undefined && !DepthFormat.IsDepthStencil()) {
-            throw new ArgumentException(
-                $"Pipeline '{Name}' uses colour format {DepthFormat} as its depth attachment."
-            );
+            throw new ArgumentException($"Pipeline '{Name}' uses colour format {DepthFormat} as its depth attachment.");
         }
 
         if (DepthStencil.DepthTest && DepthFormat == PixelFormat.Undefined) {
@@ -563,9 +568,7 @@ public readonly record struct GraphicsPipelineDescription(
 
             foreach (var attribute in buffer.Attributes ?? []) {
                 if (!locations.Add(attribute.Location)) {
-                    throw new ArgumentException(
-                        $"Pipeline '{Name}' binds vertex location {attribute.Location} twice."
-                    );
+                    throw new ArgumentException($"Pipeline '{Name}' binds vertex location {attribute.Location} twice.");
                 }
 
                 if (attribute.Offset < 0 || attribute.Offset >= buffer.Stride) {

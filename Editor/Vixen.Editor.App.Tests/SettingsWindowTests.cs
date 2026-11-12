@@ -25,10 +25,10 @@ public class SettingsWindowTests {
         // last two are pages that open the panel rather than a second copy of it.
         Assert.Equal(
             ["general", "appearance", "scene-view", "keybindings", "plugins"],
-            user.Categories.Select(page => page.Id)
+            user.Categories.Select(static page => page.Id)
         );
 
-        Assert.Equal(["project", "content"], project.Categories.Select(page => page.Id));
+        Assert.Equal(["project", "content"], project.Categories.Select(static page => page.Id));
     }
 
     /// <summary>
@@ -88,7 +88,7 @@ public class SettingsWindowTests {
         Assert.False(fixture.IsClosing);
 
         var dialog = fixture.Shell.Dialogs.Current!;
-        var save = dialog.Footer.Children.OfType<Button>().First(candidate => candidate.Label == "Save");
+        var save = dialog.Footer.Children.OfType<Button>().First(static candidate => candidate.Label == "Save");
 
         fixture.Click(save);
         fixture.Frames(2);
@@ -197,8 +197,12 @@ public class SettingsWindowTests {
     ///     job, and nothing in the editor asserted it.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>A command bound to nothing rather than one of the page's five, because none of the
-    ///     five can refuse.</b> The scene toggles all write the flag their own predicate reads, so a
+    ///     ⚠
+    ///     <b>
+    ///         A command bound to nothing rather than one of the page's five, because none of the
+    ///         five can refuse.
+    ///     </b>
+    ///     The scene toggles all write the flag their own predicate reads, so a
     ///     click on one is always followed; the refusal doc 20 asks about is a command whose check
     ///     state is decided elsewhere — a "wireframe" a 2D viewport will not turn on. This is that
     ///     command, drawn as a bound toggle in the preferences pane so that it resolves through the
@@ -218,12 +222,12 @@ public class SettingsWindowTests {
         fixture.Shell.Commands.Add(
             new EditorCommand(
                 "test.refuses",
-                new StringId("editor.command.test.refuses", "Refuses"),
+                new("editor.command.test.refuses", "Refuses"),
                 () => ran++
             ) {
                 // Runs, changes nothing, and keeps saying no — which is exactly a command whose
                 // check state is not the click's to decide.
-                Checked = () => false
+                Checked = static () => false
             }
         );
 
@@ -278,7 +282,7 @@ public class SettingsWindowTests {
     [Fact]
     public void The_undo_depth_preference_reaches_every_stack() {
         using var scope = new Scratch();
-        using var fixture = EditorSession.Start(new EditorSessionOptions { DataDirectory = scope.Directory });
+        using var fixture = EditorSession.Start(new() { DataDirectory = scope.Directory });
 
         File.WriteAllText(Path.Combine(scope.Directory, EditorUserStore.PreferencesFile), "undoDepth: 9\n");
         fixture.Restart();
@@ -345,7 +349,7 @@ public class SettingsWindowTests {
     }
 
     static UiElement Focusable(UiElement root) =>
-        Descendants(root).FirstOrDefault(element => element.Focusable)
+        Descendants(root).FirstOrDefault(static element => element.Focusable)
         ?? throw new InvalidOperationException("nothing in the settings window takes focus");
 
     /// <summary>Types into the inspector row for a member, the way a person does.</summary>
@@ -360,9 +364,9 @@ public class SettingsWindowTests {
         throw new InvalidOperationException($"no row for '{member}'");
     }
 
-    static Vixen.Ui.Controls.ToggleButton Toggle(UiElement pane, string label) =>
+    static ToggleButton Toggle(UiElement pane, string label) =>
         Descendants(pane)
-            .OfType<Vixen.Ui.Controls.ToggleButton>()
+            .OfType<ToggleButton>()
             .FirstOrDefault(button => button.Label == label)
         ?? throw new InvalidOperationException($"no toggle labelled '{label}'");
 
@@ -375,5 +379,4 @@ public class SettingsWindowTests {
             }
         }
     }
-
 }

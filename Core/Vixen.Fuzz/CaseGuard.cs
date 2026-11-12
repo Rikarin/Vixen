@@ -9,8 +9,11 @@ namespace Vixen.Fuzz;
 /// <summary>Watches the case that is running now, rather than the one that finished.</summary>
 /// <remarks>
 ///     <para>
-///         <b>Every other oracle in this harness is post-hoc, and a post-hoc oracle cannot see the
-///         failure that matters most.</b> <see cref="FuzzFailure.Allocated" /> and
+///         <b>
+///             Every other oracle in this harness is post-hoc, and a post-hoc oracle cannot see the
+///             failure that matters most.
+///         </b>
+///         <see cref="FuzzFailure.Allocated" /> and
 ///         <see cref="FuzzFailure.TookTooLong" /> are both computed from readings taken either side of
 ///         <see cref="IFuzzTarget.Run" />, so an input that makes a decoder loop or grow without bound
 ///         never reaches them: the call does not return, the second reading is never taken, and the
@@ -38,8 +41,12 @@ namespace Vixen.Fuzz;
 ///         sampled once.
 ///     </para>
 ///     <para>
-///         ⚠ <b><c>GC.GetAllocatedBytesForCurrentThread</c> is thread-local and therefore useless
-///         here</b> — a watchdog cannot read the worker's counter, and making the worker poll its own
+///         ⚠
+///         <b>
+///             <c>GC.GetAllocatedBytesForCurrentThread</c> is thread-local and therefore useless
+///             here
+///         </b>
+///         — a watchdog cannot read the worker's counter, and making the worker poll its own
 ///         counter puts the check back inside the call that never returns. The two process-wide
 ///         counters are what a second thread can actually see, and they answer two different questions:
 ///     </para>
@@ -114,9 +121,7 @@ sealed class CaseGuard : IDisposable {
         // first thing a runaway case starves. A watchdog that queues behind the thing it is watching
         // is not a watchdog.
         watchdog = new(Watch) {
-            IsBackground = true,
-            Name = $"fuzz-guard-{target}",
-            Priority = ThreadPriority.AboveNormal
+            IsBackground = true, Name = $"fuzz-guard-{target}", Priority = ThreadPriority.AboveNormal
         };
 
         watchdog.Start();
@@ -303,7 +308,7 @@ sealed class CaseGuard : IDisposable {
             return;
         }
 
-        var written = "";
+        var written = string.Empty;
 
         if (FindingDirectory is not null) {
             try {

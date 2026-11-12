@@ -20,8 +20,12 @@ namespace Vixen.Animation.Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>What these assert is reach, which is the half every existing skinning test leaves
-///         out.</b> <c>SkinningAndInstancingTests</c> and <c>SkinnedClusterTests</c> construct a
+///         ⚠
+///         <b>
+///             What these assert is reach, which is the half every existing skinning test leaves
+///             out.
+///         </b>
+///         <c>SkinningAndInstancingTests</c> and <c>SkinnedClusterTests</c> construct a
 ///         feature and call <c>SetBones</c> on it directly — the correct unit test of a feature, and
 ///         silent about whether anything in a scene ever gets there. <see cref="SkinningSystem" />
 ///         queried a component (<c>SkinnedRenderer</c>) that nothing in the tree ever added, so it
@@ -61,7 +65,9 @@ public sealed class SkinningWiringTests {
         using var device = new NullDevice();
         using var visibility = new GpuClusterVisibility(device);
         using var system = new RenderSystem();
-        using var world = new World(nameof(A_virtualized_entity_gets_its_palette_through_the_handle_the_extraction_wrote));
+        using var world = new World(
+            nameof(A_virtualized_entity_gets_its_palette_through_the_handle_the_extraction_wrote)
+        );
 
         var meshes = new MeshRenderFeature();
         var virtualized = new VirtualGeometryRenderFeature { Visibility = visibility };
@@ -73,7 +79,7 @@ public sealed class SkinningWiringTests {
         var mesh = MeshletBuilder.Build(input);
         var registered = virtualized.Register(mesh, Pages(mesh, input), 0);
 
-        var id = system.Objects.Add(new RenderObject { FeatureIndex = virtualized.Index });
+        var id = system.Objects.Add(new() { FeatureIndex = virtualized.Index });
         system.Objects.Data.Data(virtualized.Draws)[id.Index] = new() { Mesh = registered, Scale = 1f };
 
         var entity = world.Create(
@@ -84,7 +90,9 @@ public sealed class SkinningWiringTests {
         // The phase order, kept: the pose is what PreRender reads and Animation is what wrote it.
         new AnimationSystem().Run(world, 0.25f);
 
-        var skinning = new SkinningSystem { Virtualized = virtualized, Renderer = system };
+        using var skinning = new SkinningSystem();
+        skinning.Virtualized = virtualized;
+        skinning.Renderer = system;
 
         skinning.Run(world);
 
@@ -127,7 +135,8 @@ public sealed class SkinningWiringTests {
         using var world = new World(nameof(An_ordinary_meshs_palette_goes_to_the_feature_that_draws_it));
 
         var meshes = new MeshRenderFeature();
-        using var feature = new SkinningRenderFeature { Device = device };
+        using var feature = new SkinningRenderFeature();
+        feature.Device = device;
         var virtualized = new VirtualGeometryRenderFeature { Visibility = visibility };
 
         meshes.Add(feature);
@@ -141,16 +150,15 @@ public sealed class SkinningWiringTests {
 
         Assert.Equal(0, virtualized.Register(mesh, Pages(mesh, input), 0));
 
-        var id = system.Objects.Add(new RenderObject { FeatureIndex = meshes.Index });
+        var id = system.Objects.Add(new() { FeatureIndex = meshes.Index });
 
         world.Create(new AnimatorComponent { Value = Walking() }, new RenderHandle { Object = id });
         new AnimationSystem().Run(world, 0.25f);
 
-        var skinning = new SkinningSystem {
-            Feature = feature,
-            Virtualized = virtualized,
-            Renderer = system
-        };
+        using var skinning = new SkinningSystem();
+        skinning.Feature = feature;
+        skinning.Virtualized = virtualized;
+        skinning.Renderer = system;
 
         skinning.Run(world);
 
@@ -182,14 +190,16 @@ public sealed class SkinningWiringTests {
 
         system.AddFeature(virtualized);
 
-        var id = system.Objects.Add(new RenderObject { FeatureIndex = virtualized.Index });
+        var id = system.Objects.Add(new() { FeatureIndex = virtualized.Index });
 
         world.Create(
             new AnimatorComponent { Value = Walking() },
             new SkinnedRenderer { RenderObject = id }
         );
 
-        var skinning = new SkinningSystem { Virtualized = virtualized, Renderer = system };
+        using var skinning = new SkinningSystem();
+        skinning.Virtualized = virtualized;
+        skinning.Renderer = system;
 
         skinning.Run(world);
 
@@ -207,7 +217,7 @@ public sealed class SkinningWiringTests {
 
         world.Create(new AnimatorComponent { Value = Walking() }, new RenderHandle { Object = new(0) });
 
-        var skinning = new SkinningSystem();
+        using var skinning = new SkinningSystem();
 
         skinning.Run(world);
 
@@ -257,10 +267,7 @@ public sealed class SkinningWiringTests {
         }
 
         return new() {
-            Positions = [.. positions],
-            Indices = [.. indices],
-            BoneIndices = [.. bones],
-            BoneWeights = [.. weights]
+            Positions = [..positions], Indices = [..indices], BoneIndices = [..bones], BoneWeights = [..weights]
         };
     }
 
@@ -270,11 +277,11 @@ public sealed class SkinningWiringTests {
         var attributes = new byte[input.Positions.Length * stride];
 
         for (var i = 0; i < input.Positions.Length; i++) {
-            var at = (i * stride) + 10;
+            var at = i * stride + 10;
 
             for (var influence = 0; influence < 4; influence++) {
-                attributes[at + influence] = (byte)input.BoneIndices[(i * 4) + influence];
-                attributes[at + 4 + influence] = (byte)MathF.Round(input.BoneWeights[(i * 4) + influence] * 255f);
+                attributes[at + influence] = (byte)input.BoneIndices[i * 4 + influence];
+                attributes[at + 4 + influence] = (byte)MathF.Round(input.BoneWeights[i * 4 + influence] * 255f);
             }
         }
 
@@ -282,7 +289,9 @@ public sealed class SkinningWiringTests {
             mesh,
             input.Positions,
             attributes,
-            new() { PageSize = 8 * 1024, AttributeStride = stride, InfluenceOffset = MeshletPageBuilder.PositionSize + 10 }
+            new() {
+                PageSize = 8 * 1024, AttributeStride = stride, InfluenceOffset = MeshletPageBuilder.PositionSize + 10
+            }
         );
     }
 }

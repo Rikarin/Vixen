@@ -29,9 +29,12 @@ internal enum SpirvCapability {
     ///     A storage image whose format is outside SPIR-V's base set.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>Three of <see cref="Vixen.Raven.Symbols.ImageFormats" />' sixteen need it —
-    ///     <c>rg32f</c>, <c>rg16f</c> and <c>r16f</c> — and the table's own comment claimed for a
-    ///     long time that none did.</b>
+    ///     ⚠
+    ///     <b>
+    ///         Three of <see cref="Vixen.Raven.Symbols.ImageFormats" />' sixteen need it —
+    ///         <c>rg32f</c>, <c>rg16f</c> and <c>r16f</c> — and the table's own comment claimed for a
+    ///         long time that none did.
+    ///     </b>
     ///     Vulkan draws the line in the same place, as <c>shaderStorageImageExtendedFormats</c>:
     ///     a device offers those three for storage only when it is set. Declaring the capability is
     ///     what turns a device that does not have it from undefined into a refusal with a message,
@@ -236,6 +239,7 @@ internal enum SpirvDecoration {
     Location = 30,
     Binding = 33,
     DescriptorSet = 34,
+
     /// <summary>
     ///     Nothing writes this binding: a read-only storage buffer, or a storage image a stage only
     ///     loads. <c>readonly</c> in GLSL.

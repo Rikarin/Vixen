@@ -12,8 +12,12 @@ namespace Vixen.Cli;
 /// <summary>A project on disk, and everything a command needs to work on it.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>The stores themselves are <see cref="ProjectWorkspace" />'s, in
-///         <c>Vixen.Editor.Assets</c>.</b> They moved there when the editor grew import and build
+///         ⚠
+///         <b>
+///             The stores themselves are <see cref="ProjectWorkspace" />'s, in
+///             <c>Vixen.Editor.Assets</c>.
+///         </b>
+///         They moved there when the editor grew import and build
 ///         commands of its own: two ways of opening the same four things is two ways for one of them
 ///         to be pointed at the wrong directory. What is left here is finding the project a command
 ///         is meant to work on, which is a command-line concern and only that.
@@ -48,7 +52,9 @@ public sealed class Project {
     /// <summary>Source files, rooted at the project, which is what an importer's paths are relative to.</summary>
     public IFileProvider Files => Workspace.Files;
 
-    Project(ProjectPaths paths) => Workspace = new(paths);
+    Project(ProjectPaths paths) {
+        Workspace = new(paths);
+    }
 
     /// <summary>Finds the project a command is meant to work on.</summary>
     /// <param name="given">What <c>--project</c> said, or <see langword="null" /> for "work it out".</param>
@@ -66,7 +72,7 @@ public sealed class Project {
         error = string.Empty;
 
         if (given is { Length: > 0 }) {
-            var root = System.IO.Path.GetFullPath(given);
+            var root = Path.GetFullPath(given);
 
             if (!Directory.Exists(root)) {
                 error = $"There is no directory at '{root}'.";

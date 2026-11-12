@@ -23,85 +23,85 @@ namespace Vixen.Editor.Plugin.Generator.Tests;
 public static class DeclaredFixture {
     /// <summary>The C#.</summary>
     public const string Source = """
-        using System;
-        using System.Collections.Generic;
-        using Vixen.Editor.Core;
-        using Vixen.Editor.Inspector;
-        using Vixen.Editor.Plugin;
-        using Vixen.Editor.SceneView;
-        using Vixen.Editor.Ui;
-        using Vixen.Ui;
-        using Vixen.Ui.Controls;
+                                 using System;
+                                 using System.Collections.Generic;
+                                 using Vixen.Editor.Core;
+                                 using Vixen.Editor.Inspector;
+                                 using Vixen.Editor.Plugin;
+                                 using Vixen.Editor.SceneView;
+                                 using Vixen.Editor.Ui;
+                                 using Vixen.Ui;
+                                 using Vixen.Ui.Controls;
 
-        namespace Fixture;
+                                 namespace Fixture;
 
-        public static class FixtureStrings {
-            public static StringId MenuThings { get; } = new("fixture.menu.things", "Things");
+                                 public static class FixtureStrings {
+                                     public static StringId MenuThings { get; } = new("fixture.menu.things", "Things");
 
-            public static StringId CommandBake { get; } = new("fixture.command.bake", "Bake It");
+                                     public static StringId CommandBake { get; } = new("fixture.command.bake", "Bake It");
 
-            public static StringId CreateLedger { get; } = new("fixture.create.ledger", "Ledger Book");
+                                     public static StringId CreateLedger { get; } = new("fixture.create.ledger", "Ledger Book");
 
-            public static StringId OverlayCompass { get; } = new("fixture.overlay.compass", "Compass Rose");
-        }
+                                     public static StringId OverlayCompass { get; } = new("fixture.overlay.compass", "Compass Rose");
+                                 }
 
-        [EditorIcon("M0 0 L10 0 L10 10 Z", Tint = "#ff0000", ViewBox = 10f, Order = 2)]
-        public sealed class Widget {
-            public float Size { get; set; } = 1f;
-        }
+                                 [EditorIcon("M0 0 L10 0 L10 10 Z", Tint = "#ff0000", ViewBox = 10f, Order = 2)]
+                                 public sealed class Widget {
+                                     public float Size { get; set; } = 1f;
+                                 }
 
-        [EditorSubmenu("Tools/Things", Title = nameof(FixtureStrings.MenuThings), After = "editor.menu.nothing", Priority = 1)]
-        public static class Verbs {
-            public static int Baked;
+                                 [EditorSubmenu("Tools/Things", Title = nameof(FixtureStrings.MenuThings), After = "editor.menu.nothing", Priority = 1)]
+                                 public static class Verbs {
+                                     public static int Baked;
 
-            public static int Audited;
+                                     public static int Audited;
 
-            [EditorMenu("Tools/Things/Bake", Title = nameof(FixtureStrings.CommandBake), Id = "fixture.bake", Priority = 20)]
-            public static void Bake() => Baked++;
+                                     [EditorMenu("Tools/Things/Bake", Title = nameof(FixtureStrings.CommandBake), Id = "fixture.bake", Priority = 20)]
+                                     public static void Bake() => Baked++;
 
-            [EditorMenu("Tools/Things/Audit", Priority = 10)]
-            public static void Audit() => Audited++;
+                                     [EditorMenu("Tools/Things/Audit", Priority = 10)]
+                                     public static void Audit() => Audited++;
 
-            [EditorMenu("Tools/Things/Deeper/Sweep", Separator = true)]
-            public static void Sweep() { }
+                                     [EditorMenu("Tools/Things/Deeper/Sweep", Separator = true)]
+                                     public static void Sweep() { }
 
-            [EditorMenu("Tools/Things", Priority = 30, Separator = true)]
-            public const string Existing = "fixture.existing";
+                                     [EditorMenu("Tools/Things", Priority = 30, Separator = true)]
+                                     public const string Existing = "fixture.existing";
 
-            [EditorMenu("Tools/Things/Deeper", Priority = -5)]
-            public static IEnumerable<string> Family() => ["fixture.one", "fixture.two"];
+                                     [EditorMenu("Tools/Things/Deeper", Priority = -5)]
+                                     public static IEnumerable<string> Family() => ["fixture.one", "fixture.two"];
 
-            [CustomInspector(typeof(Widget), Order = 3)]
-            public static void DrawWidget(UiElement body, EditTarget target) { }
+                                     [CustomInspector(typeof(Widget), Order = 3)]
+                                     public static void DrawWidget(UiElement body, EditTarget target) { }
 
-            [CreateAssetMenu("Dialogue Table", ".dialogue", DefaultName = "New Dialogue", Opens = false)]
-            public static string NewDialogue() => "id: 1\n";
+                                     [CreateAssetMenu("Dialogue Table", ".dialogue", DefaultName = "New Dialogue", Opens = false)]
+                                     public static string NewDialogue() => "id: 1\n";
 
-            [Overlay("Declared Overlay", Corner = OverlayCorner.BottomLeft)]
-            public static void BuildOverlay(UiElement host, IViewportPane pane) { }
+                                     [Overlay("Declared Overlay", Corner = OverlayCorner.BottomLeft)]
+                                     public static void BuildOverlay(UiElement host, IViewportPane pane) { }
 
-            [CreateAssetMenu("Ledger", ".ledger", Title = nameof(FixtureStrings.CreateLedger))]
-            public static string NewLedger() => "rows: []\n";
+                                     [CreateAssetMenu("Ledger", ".ledger", Title = nameof(FixtureStrings.CreateLedger))]
+                                     public static string NewLedger() => "rows: []\n";
 
-            [Overlay("Compass", Title = nameof(FixtureStrings.OverlayCompass), Id = "fixture.compass")]
-            public static void BuildCompass(UiElement host, IViewportPane pane) { }
+                                     [Overlay("Compass", Title = nameof(FixtureStrings.OverlayCompass), Id = "fixture.compass")]
+                                     public static void BuildCompass(UiElement host, IViewportPane pane) { }
 
-            [DrawGizmo(typeof(Widget), SelectedOnly = true, Order = 5)]
-            public static void DrawWidgetGizmo(GizmoDraw draw, object component, GizmoPlacement placement, bool selected) { }
-        }
+                                     [DrawGizmo(typeof(Widget), SelectedOnly = true, Order = 5)]
+                                     public static void DrawWidgetGizmo(GizmoDraw draw, object component, GizmoPlacement placement, bool selected) { }
+                                 }
 
-        [CustomDrawer(typeof(decimal))]
-        public sealed class MoneyDrawer : IPropertyDrawer {
-            public UiElement Build(InspectorField field, UiElement parent) => parent;
+                                 [CustomDrawer(typeof(decimal))]
+                                 public sealed class MoneyDrawer : IPropertyDrawer {
+                                     public UiElement Build(InspectorField field, UiElement parent) => parent;
 
-            public void Show(InspectorField field, UiElement editor) { }
-        }
+                                     public void Show(InspectorField field, UiElement editor) { }
+                                 }
 
-        [EditorTool("Sculpt", typeof(Widget), Order = 4)]
-        public sealed class SculptTool : IViewportInput {
-            public bool Pointer(IViewportPane pane, PointerEvent args) => false;
+                                 [EditorTool("Sculpt", typeof(Widget), Order = 4)]
+                                 public sealed class SculptTool : IViewportInput {
+                                     public bool Pointer(IViewportPane pane, PointerEvent args) => false;
 
-            public bool Key(IViewportPane pane, KeyEvent args) => false;
-        }
-        """;
+                                     public bool Key(IViewportPane pane, KeyEvent args) => false;
+                                 }
+                                 """;
 }

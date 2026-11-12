@@ -6,7 +6,6 @@ using Vixen.Editor.Plugin;
 using Vixen.Editor.Testing;
 using Vixen.Editor.Tests;
 using Vixen.Editor.Ui.Documents;
-using Vixen.Ui;
 using Xunit;
 
 namespace Vixen.Editor.App.Tests;
@@ -63,13 +62,11 @@ public class DocumentPairingTests {
         public void Activate(PluginContext context) =>
             context.Owns(context.Services.Require<IDocumentHost>().Add(new HalfKind()));
 
-        public void Deactivate() {
-        }
+        public void Deactivate() { }
     }
 
     sealed class HalfDocument(EditorProject project) : EditorDocument(project, default, "Half") {
-        protected override void SaveCore() {
-        }
+        protected override void SaveCore() { }
     }
 
     sealed class HalfKind : DocumentKind {

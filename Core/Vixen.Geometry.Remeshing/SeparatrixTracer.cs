@@ -7,8 +7,12 @@ namespace Vixen.Geometry.Remeshing;
 
 /// <summary>Why a traced separatrix stopped.</summary>
 /// <remarks>
-///     ⚠ <b><see cref="Exhausted" /> is the one that is a defect, and it is a value rather than an
-///     exception on purpose.</b> docs/plan/41's robustness criterion says a broken input produces a
+///     ⚠
+///     <b>
+///         <see cref="Exhausted" /> is the one that is a defect, and it is a value rather than an
+///         exception on purpose.
+///     </b>
+///     docs/plan/41's robustness criterion says a broken input produces a
 ///     result or a report naming the stage that refused, and <i>never</i> an exception or a hang — so a
 ///     walk that cycles has to be a number the layout can read and the report can carry.
 /// </remarks>
@@ -39,8 +43,12 @@ enum TraceStop : byte {
 /// <param name="Vertices">The walk, in order. A single entry is a walk that never left its seed.</param>
 /// <param name="Stop">Why it ended.</param>
 /// <remarks>
-///     ⚠ <b>Vertices of the mesh and never points inside triangles, and that is what makes the
-///     partition exact.</b> A separatrix integrated through triangle interiors has to be intersected
+///     ⚠
+///     <b>
+///         Vertices of the mesh and never points inside triangles, and that is what makes the
+///         partition exact.
+///     </b>
+///     A separatrix integrated through triangle interiors has to be intersected
 ///     against every other one, and two curves that cross at a shared point computed twice do not agree
 ///     to the last bit — which is how a motorcycle graph acquires a patch that does not close. Walking
 ///     edges makes every crossing a vertex index, every patch boundary a chain of mesh edges, and the
@@ -54,15 +62,22 @@ readonly record struct TracedCurve(int[] Vertices, TraceStop Stop) {
 /// <summary>docs/plan/41 § D7's tracing: separatrices out of every singularity, along the field.</summary>
 /// <remarks>
 ///     <para>
-///         <b>Out of each singularity, in all its directions, until it hits another singularity, a
-///         feature line or a boundary.</b> The arrangement of what comes back, plus the feature
+///         <b>
+///             Out of each singularity, in all its directions, until it hits another singularity, a
+///             feature line or a boundary.
+///         </b>
+///         The arrangement of what comes back, plus the feature
 ///         polylines, is the motorcycle-graph-style partition (Eppstein, Goodrich, Kim and Tamstorf,
 ///         2008) that <see cref="PatchLayout" /> floods.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Which ring sector the direction falls into is decided by
-///         <see cref="ExactPredicates.Orient2D" /> and never by a float cross product, and docs/plan/41
-///         § D14 names this specifically.</b> A cross product compared against zero is not even
+///         ⚠
+///         <b>
+///             Which ring sector the direction falls into is decided by
+///             <see cref="ExactPredicates.Orient2D" /> and never by a float cross product, and docs/plan/41
+///             § D14 names this specifically.
+///         </b>
+///         A cross product compared against zero is not even
 ///         antisymmetric on near-collinear input — three points on <c>y = 3x</c> with float-exact
 ///         coordinates evaluate to <c>+16</c> in one argument order and <c>-67108864</c> in another —
 ///         so a direction lying almost exactly along a ring edge is inside two adjacent sectors, or
@@ -118,7 +133,7 @@ static class SeparatrixTracer {
         Array.Fill(visited, -1);
 
         foreach (var seed in seeds) {
-            if ((uint) seed < (uint) singular.Length) {
+            if ((uint)seed < (uint)singular.Length) {
                 singular[seed] = true;
             }
         }
@@ -167,8 +182,12 @@ static class SeparatrixTracer {
     /// <param name="singularities">What <see cref="SingularityPass.Extract" /> found.</param>
     /// <returns>One vertex per singular triangle, deduplicated.</returns>
     /// <remarks>
-    ///     ⚠ <b>A singularity is a property of a <i>triangle</i> here and a separatrix leaves a
-    ///     <i>vertex</i>, and the lowest-index corner is the bridge.</b> The turning a cross field
+    ///     ⚠
+    ///     <b>
+    ///         A singularity is a property of a <i>triangle</i> here and a separatrix leaves a
+    ///         <i>vertex</i>, and the lowest-index corner is the bridge.
+    ///     </b>
+    ///     The turning a cross field
     ///     accumulates round a triangle is not attributable to any one of its three corners, so any
     ///     choice is arbitrary — and an arbitrary choice that is a function of the input alone is all
     ///     § D14 asks for. Picking the corner with the largest angle defect instead reads better and is
@@ -185,7 +204,7 @@ static class SeparatrixTracer {
             var corners = mesh.Corners(singularity.Triangle);
             var lowest = Math.Min(corners[0], Math.Min(corners[1], corners[2]));
 
-            if ((uint) lowest < (uint) seen.Length && !seen[lowest]) {
+            if ((uint)lowest < (uint)seen.Length && !seen[lowest]) {
                 seen[lowest] = true;
                 seeds.Add(lowest);
             }
@@ -209,7 +228,7 @@ static class SeparatrixTracer {
         Vector3 direction
     ) {
         var chain = new List<int> { seed };
-        var budget = (StepBudget * mesh.VertexCount) + 4;
+        var budget = mesh.VertexCount + 4;
         var previous = -1;
         var current = seed;
 
@@ -219,7 +238,7 @@ static class SeparatrixTracer {
             var next = Step(mesh, current, previous, direction, out var half);
 
             if (next < 0) {
-                return new([.. chain], TraceStop.Stalled);
+                return new([..chain], TraceStop.Stalled);
             }
 
             chain.Add(next);
@@ -228,31 +247,31 @@ static class SeparatrixTracer {
             // trace at all, and marking as it goes would leave half a separatrix in the cut set —
             // which is a slit in the partition rather than a cut through it.
             if (next == seed) {
-                return new([.. chain], TraceStop.Closed);
+                return new([..chain], TraceStop.Closed);
             }
 
             if (visited[next] == walk) {
                 // It came back onto itself without closing on the seed, which is a cycle by any other
                 // name. Reported as exhausted so the layout counts it with the other defects.
-                return new([.. chain], TraceStop.Exhausted);
+                return new([..chain], TraceStop.Exhausted);
             }
 
             visited[next] = walk;
 
             if (features.IsFeatureVertex(next)) {
-                return new([.. chain], TraceStop.Feature);
+                return new([..chain], TraceStop.Feature);
             }
 
             if (mesh.IsBoundary(next)) {
-                return new([.. chain], TraceStop.Boundary);
+                return new([..chain], TraceStop.Boundary);
             }
 
             if (singular[next]) {
-                return new([.. chain], TraceStop.Singularity);
+                return new([..chain], TraceStop.Singularity);
             }
 
             if (OnCut(mesh, cut, next)) {
-                return new([.. chain], TraceStop.Traced);
+                return new([..chain], TraceStop.Traced);
             }
 
             // The field is followed rather than the straight line: transport what we were going into
@@ -265,7 +284,7 @@ static class SeparatrixTracer {
             );
 
             if (direction.LengthSquared() <= 0f) {
-                return new([.. chain], TraceStop.Stalled);
+                return new([..chain], TraceStop.Stalled);
             }
 
             previous = current;
@@ -274,22 +293,30 @@ static class SeparatrixTracer {
             _ = half;
         }
 
-        return new([.. chain], TraceStop.Exhausted);
+        return new([..chain], TraceStop.Exhausted);
     }
 
     /// <summary>One step: which ring neighbour the direction points at.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The sector test is <see cref="ExactPredicates.Orient2D" /> and the choice
-    ///         <i>within</i> a sector is a dot product, and the split is deliberate.</b> "Which of the
+    ///         ⚠
+    ///         <b>
+    ///             The sector test is <see cref="ExactPredicates.Orient2D" /> and the choice
+    ///             <i>within</i> a sector is a dot product, and the split is deliberate.
+    ///         </b>
+    ///         "Which of the
     ///         ring's wedges contains this direction" is a question with a right answer that a float
     ///         cross product gets wrong on collinear input; "which of this wedge's two edges is nearer"
     ///         is a question about quality where either answer leaves the walk on the surface. Only the
     ///         first is a predicate, and only the first is exact.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Exactly along a ring edge is answered by the predicate's zero rather than by an
-    ///         epsilon</b>, which is what makes a walk down a straight crease take the same edge every
+    ///         ⚠
+    ///         <b>
+    ///             Exactly along a ring edge is answered by the predicate's zero rather than by an
+    ///             epsilon
+    ///         </b>
+    ///         , which is what makes a walk down a straight crease take the same edge every
     ///         time regardless of which end it started from.
     ///     </para>
     /// </remarks>
@@ -309,7 +336,7 @@ static class SeparatrixTracer {
             return -1;
         }
 
-        Span<Vector2> chart = ring.Length <= 32 ? stackalloc Vector2[ring.Length] : new Vector2[ring.Length];
+        var chart = ring.Length <= 32 ? stackalloc Vector2[ring.Length] : new Vector2[ring.Length];
 
         for (var at = 0; at < ring.Length; at++) {
             chart[at] = Chart(frame, mesh.Positions[ring[at]] - mesh.Positions[vertex]);
@@ -331,7 +358,7 @@ static class SeparatrixTracer {
                 continue;
             }
 
-            foreach (var corner in (int[]) [at, next]) {
+            foreach (var corner in (int[])[at, next]) {
                 if (ring[corner] == previous || chart[corner] == Vector2.Zero) {
                     continue;
                 }
@@ -406,15 +433,16 @@ static class SeparatrixTracer {
 
     /// <summary>The seed direction: the field's own representative at the singular vertex.</summary>
     static Vector3 Start(ManifoldMesh mesh, CrossField field, int vertex) =>
-        (uint) vertex >= (uint) mesh.VertexCount ? Vector3.Zero : field.Direction(vertex);
+        (uint)vertex >= (uint)mesh.VertexCount ? Vector3.Zero : field.Direction(vertex);
 
     /// <summary>One of the four directions a cross stands for.</summary>
-    static Vector3 Turn(Vector3 direction, Vector3 normal, int quarter) => quarter switch {
-        0 => direction,
-        1 => Vector3.Cross(normal, direction),
-        2 => -direction,
-        _ => -Vector3.Cross(normal, direction)
-    };
+    static Vector3 Turn(Vector3 direction, Vector3 normal, int quarter) =>
+        quarter switch {
+            0 => direction,
+            1 => Vector3.Cross(normal, direction),
+            2 => -direction,
+            _ => -Vector3.Cross(normal, direction)
+        };
 
     /// <summary>Whether any half-edge at a vertex has been cut.</summary>
     static bool OnCut(ManifoldMesh mesh, bool[] cut, int vertex) {

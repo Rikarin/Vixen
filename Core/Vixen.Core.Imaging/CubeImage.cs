@@ -43,7 +43,7 @@ public sealed class CubeImage {
     public Span<Vector3> Face(CubeFace face) => pixels.AsSpan((int)face * Size * Size, Size * Size);
 
     /// <summary>One texel, by face and integer coordinates.</summary>
-    public ref Vector3 At(CubeFace face, int x, int y) => ref pixels[(((int)face * Size) + y) * Size + x];
+    public ref Vector3 At(CubeFace face, int x, int y) => ref pixels[((int)face * Size + y) * Size + x];
 
     /// <summary>Where the centre of a texel looks.</summary>
     public Vector3 DirectionOf(CubeFace face, int x, int y) {
@@ -54,7 +54,7 @@ public sealed class CubeImage {
     /// <summary>How much of the sphere a texel covers, in steradians.</summary>
     public float SolidAngleOf(int x, int y) {
         var texel = 2f / Size;
-        return CubeMapping.SolidAngle((x * texel) - 1f, (y * texel) - 1f, texel);
+        return CubeMapping.SolidAngle(x * texel - 1f, y * texel - 1f, texel);
     }
 
     /// <summary>The texel a direction lands on.</summary>
@@ -68,8 +68,8 @@ public sealed class CubeImage {
     public Vector3 Sample(Vector3 direction) {
         var (face, u, v) = CubeMapping.Locate(direction);
 
-        var x = Math.Clamp((int)(((u + 1f) * 0.5f) * Size), 0, Size - 1);
-        var y = Math.Clamp((int)(((v + 1f) * 0.5f) * Size), 0, Size - 1);
+        var x = Math.Clamp((int)((u + 1f) * 0.5f * Size), 0, Size - 1);
+        var y = Math.Clamp((int)((v + 1f) * 0.5f * Size), 0, Size - 1);
 
         return At(face, x, y);
     }
@@ -84,6 +84,6 @@ public sealed class CubeImage {
     /// <summary>The centre of texel (x, y) in face coordinates, −1 to 1.</summary>
     (float U, float V) Coordinates(int x, int y) {
         var texel = 2f / Size;
-        return (((x + 0.5f) * texel) - 1f, ((y + 0.5f) * texel) - 1f);
+        return ((x + 0.5f) * texel - 1f, (y + 0.5f) * texel - 1f);
     }
 }

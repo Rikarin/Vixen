@@ -9,8 +9,12 @@ namespace Vixen.TextureGraph;
 /// <summary>The one op chain in doc 48 § 4.2, which is <c>Auto Levels</c>.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>A builder for the same reason <see cref="TextureAnalysis" /> is one, and it was owed
-///         for a batch</b> — <a href="https://github.com/Rikarin/Vixen/issues/713">#713</a>.
+///         ⚠
+///         <b>
+///             A builder for the same reason <see cref="TextureAnalysis" /> is one, and it was owed
+///             for a batch
+///         </b>
+///         — <a href="https://github.com/Rikarin/Vixen/issues/713">#713</a>.
 ///         <c>Auto Levels</c> is <em>one dispatch per reduction level plus the map</em>, so how many
 ///         ops it is depends on the resolution the plan is baked at; written out at a call site, the
 ///         chain is one editor session away from being two dispatches short at 4K, which stops the
@@ -26,8 +30,12 @@ namespace Vixen.TextureGraph;
 ///         the very bake it was emitted for.
 ///     </para>
 ///     <para>
-///         ⚠ <b>And every op of this chain says separately that it cannot be evaluated in
-///         tiles</b> — <see cref="TextureOp.DependsOnEveryTexel" />, which is
+///         ⚠
+///         <b>
+///             And every op of this chain says separately that it cannot be evaluated in
+///             tiles
+///         </b>
+///         — <see cref="TextureOp.DependsOnEveryTexel" />, which is
 ///         <a href="https://github.com/Rikarin/Vixen/issues/636">#636</a>. A tiled evaluator would
 ///         otherwise stretch each tile by its own extremes: a plausible picture per tile and a
 ///         different contrast across every seam. ⚠ It is <em>not</em> the same property as the stamp
@@ -38,8 +46,12 @@ namespace Vixen.TextureGraph;
 internal static class TextureAdjust {
     /// <summary>How far one <c>MinMaxReduce</c> dispatch reduces each axis.</summary>
     /// <remarks>
-    ///     ⚠ <b>The contract with <c>Shaders/MinMaxReduce.rvn</c>'s <c>MaxBlock</c>, which is a
-    ///     ceiling on its own loop and therefore on how many levels one dispatch may skip.</b> A
+    ///     ⚠
+    ///     <b>
+    ///         The contract with <c>Shaders/MinMaxReduce.rvn</c>'s <c>MaxBlock</c>, which is a
+    ///         ceiling on its own loop and therefore on how many levels one dispatch may skip.
+    ///     </b>
+    ///     A
     ///     ladder built for a wider block than the kernel loops over reads only the first 8×8 of each
     ///     block and finds the extremes of a corner — a plausible pair. <c>TextureAdjustTests</c>
     ///     asserts the two numbers agree by reading the source.

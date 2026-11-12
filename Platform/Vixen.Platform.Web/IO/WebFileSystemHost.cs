@@ -13,28 +13,36 @@ namespace Vixen.Platform.Web;
 ///     </para>
 ///     <list type="table">
 ///         <item>
-///             <term><c>/app</c></term>
+///             <term>
+///                 <c>/app</c>
+///             </term>
 ///             <description>
 ///                 <see cref="FetchFileProvider" /> — HTTP, read-only, with range requests so a
 ///                 bundle streams rather than downloads.
 ///             </description>
 ///         </item>
 ///         <item>
-///             <term><c>/data</c></term>
+///             <term>
+///                 <c>/data</c>
+///             </term>
 ///             <description>
 ///                 <see cref="IndexedDbFileProvider" /> — saves and settings, evicted last of
 ///                 everything a browser evicts.
 ///             </description>
 ///         </item>
 ///         <item>
-///             <term><c>/cache</c></term>
+///             <term>
+///                 <c>/cache</c>
+///             </term>
 ///             <description>
 ///                 A second <see cref="IndexedDbFileProvider" />, in its own database so that
 ///                 clearing the cache does not go near the saves.
 ///             </description>
 ///         </item>
 ///         <item>
-///             <term><c>/temp</c></term>
+///             <term>
+///                 <c>/temp</c>
+///             </term>
 ///             <description>
 ///                 <see cref="MemoryFileProvider" /> — which is exactly right here. Temporary means
 ///                 "need not survive the session", a page's session ends when the tab closes, and
@@ -43,8 +51,11 @@ namespace Vixen.Platform.Web;
 ///         </item>
 ///     </list>
 ///     <para>
-///         <b>Everything is asynchronous, and that is why this has a factory rather than a
-///         constructor.</b> <see cref="IFileProvider" />'s metadata half is synchronous, on purpose:
+///         <b>
+///             Everything is asynchronous, and that is why this has a factory rather than a
+///             constructor.
+///         </b>
+///         <see cref="IFileProvider" />'s metadata half is synchronous, on purpose:
 ///         every other provider answers it from a directory, a dictionary or a bundle catalog. A
 ///         browser has none of those, and cannot block to go and look — the WebAssembly runtime
 ///         shares its thread with the event loop, so waiting for a fetch prevents the fetch. So the
@@ -98,10 +109,11 @@ public sealed class WebFileSystemHost : IFileSystemHost, IDisposable {
         if (options.MountContent) {
             var baseUrl = options.ContentBaseUrl ?? "content/";
             var manifest = await ReadManifestAsync(
-                baseUrl,
-                options.ContentManifest ?? "manifest.json",
-                cancellationToken
-            ).ConfigureAwait(false);
+                    baseUrl,
+                    options.ContentManifest ?? "manifest.json",
+                    cancellationToken
+                )
+                .ConfigureAwait(false);
 
             content = new(baseUrl, manifest);
         }

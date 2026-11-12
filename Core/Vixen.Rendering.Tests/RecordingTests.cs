@@ -35,7 +35,7 @@ public class RecordingTests {
             RenderDrawContext context,
             ReadOnlySpan<RenderNode> nodes
         ) {
-            Runs.Add(nodes.ToArray().Select(node => node.Object).ToArray());
+            Runs.Add([..nodes.ToArray().Select(static node => node.Object)]);
             Context.Add((context.View!.Name, context.Stage!.Name));
 
             // A plausible draw, so the command list has something to have recorded.
@@ -54,10 +54,7 @@ public class RecordingTests {
 
     static RenderObject At(float z, RenderStageMask stages, int feature, uint group = 0) =>
         new() {
-            Bounds = new(new Vector3(0f, 0f, z), 0.5f),
-            Stages = stages,
-            FeatureIndex = feature,
-            SortGroup = group
+            Bounds = new(new Vector3(0f, 0f, z), 0.5f), Stages = stages, FeatureIndex = feature, SortGroup = group
         };
 
     /// <summary>
@@ -172,7 +169,7 @@ public class RecordingTests {
         var feature = system.AddFeature(new SpyFeature("Meshes"));
 
         for (var i = 0; i < 8; i++) {
-            system.Objects.Add(At(10f + i, opaque.Mask, feature.Index, group: 1));
+            system.Objects.Add(At(10f + i, opaque.Mask, feature.Index, 1));
         }
 
         var camera = Camera(opaque.Mask);

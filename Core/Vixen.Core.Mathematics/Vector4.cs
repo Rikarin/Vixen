@@ -18,7 +18,7 @@ namespace Vixen.Core.Mathematics;
 /// </remarks>
 [DataContract]
 [StructLayout(LayoutKind.Sequential)]
-public readonly struct Vector4 : IEquatable<Vector4>, IFormattable, ISpanFormattable {
+public readonly struct Vector4 : IEquatable<Vector4>, ISpanFormattable {
     /// <summary>Number of components.</summary>
     public const int ComponentCount = 4;
 
@@ -131,7 +131,7 @@ public readonly struct Vector4 : IEquatable<Vector4>, IFormattable, ISpanFormatt
 
     /// <summary>The squared length, which avoids a square root where only comparison matters.</summary>
     /// <returns>The squared length.</returns>
-    public float LengthSquared() => (X * X) + (Y * Y) + (Z * Z) + (W * W);
+    public float LengthSquared() => X * X + Y * Y + Z * Z + W * W;
 
     /// <summary>Whether every component is zero.</summary>
     public bool IsZero => X == 0f && Y == 0f && Z == 0f && W == 0f;
@@ -154,7 +154,7 @@ public readonly struct Vector4 : IEquatable<Vector4>, IFormattable, ISpanFormatt
     /// <param name="right">The second vector.</param>
     /// <returns>The scalar product.</returns>
     public static float Dot(Vector4 left, Vector4 right) =>
-        (left.X * right.X) + (left.Y * right.Y) + (left.Z * right.Z) + (left.W * right.W);
+        left.X * right.X + left.Y * right.Y + left.Z * right.Z + left.W * right.W;
 
     /// <summary>The distance between two points.</summary>
     /// <param name="left">The first point.</param>
@@ -167,7 +167,7 @@ public readonly struct Vector4 : IEquatable<Vector4>, IFormattable, ISpanFormatt
     /// <param name="to">The vector at <paramref name="amount" /> = 1.</param>
     /// <param name="amount">The interpolant. Not clamped.</param>
     /// <returns>The interpolated vector.</returns>
-    public static Vector4 Lerp(Vector4 from, Vector4 to, float amount) => from + ((to - from) * amount);
+    public static Vector4 Lerp(Vector4 from, Vector4 to, float amount) => from + (to - from) * amount;
 
     /// <summary>The component-wise minimum.</summary>
     /// <param name="left">The first vector.</param>
@@ -273,14 +273,12 @@ public readonly struct Vector4 : IEquatable<Vector4>, IFormattable, ISpanFormatt
     /// <summary>Converts to the BCL vector, which has the same layout.</summary>
     /// <param name="value">The vector to convert.</param>
     /// <returns>The equivalent <see cref="System.Numerics.Vector4" />.</returns>
-    public static implicit operator System.Numerics.Vector4(Vector4 value) =>
-        new(value.X, value.Y, value.Z, value.W);
+    public static implicit operator System.Numerics.Vector4(Vector4 value) => new(value.X, value.Y, value.Z, value.W);
 
     /// <summary>Converts from the BCL vector, which has the same layout.</summary>
     /// <param name="value">The vector to convert.</param>
     /// <returns>The equivalent <see cref="Vector4" />.</returns>
-    public static implicit operator Vector4(System.Numerics.Vector4 value) =>
-        new(value.X, value.Y, value.Z, value.W);
+    public static implicit operator Vector4(System.Numerics.Vector4 value) => new(value.X, value.Y, value.Z, value.W);
 
     /// <summary>Splits the vector into its components.</summary>
     /// <param name="x">The X component.</param>

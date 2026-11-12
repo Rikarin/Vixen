@@ -281,7 +281,7 @@ public sealed class MeshRenderFeature : RootRenderFeature, Compositor.IDrawArgum
         // — see MergeableRunAt.
         var merging = Arguments is { IsCompacted: true }
             && context.View is not null
-            && !SubFeatures.Any(feature => feature is IDrawSubFeature { IsRecording: true });
+            && !SubFeatures.Any(static feature => feature is IDrawSubFeature { IsRecording: true });
 
         var remaining = 0;
 

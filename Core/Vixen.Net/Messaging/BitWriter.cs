@@ -36,7 +36,7 @@ public ref struct BitWriter {
     public readonly int BytesWritten => (bits + 7) >> 3;
 
     /// <summary>How many bits are left.</summary>
-    public readonly int BitsRemaining => (buffer.Length * 8) - bits;
+    public readonly int BitsRemaining => buffer.Length * 8 - bits;
 
     /// <summary>Whether a write did not fit. Once set, nothing more is written.</summary>
     public bool Overflowed { get; private set; }
@@ -109,8 +109,11 @@ public ref struct BitWriter {
     /// <param name="value">The value.</param>
     /// <remarks>
     ///     <para>
-    ///         <b>Two fixed halves rather than a variable-length integer, and the reason is what
-    ///         64-bit numbers are actually used for.</b> A varint costs one byte for a small number
+    ///         <b>
+    ///             Two fixed halves rather than a variable-length integer, and the reason is what
+    ///             64-bit numbers are actually used for.
+    ///         </b>
+    ///         A varint costs one byte for a small number
     ///         and ten for a large one, and the thing a game puts in a <c>ulong</c> is an account id,
     ///         a snowflake or a hash — which is to say the large case, every time. Making the
     ///         documented use 80 bits to save 56 on a case that does not arise is the wrong trade.

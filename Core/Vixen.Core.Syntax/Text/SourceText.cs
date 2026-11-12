@@ -115,7 +115,7 @@ public sealed class SourceText {
             return changes;
         }
 
-        return [new TextChangeRange(new TextSpan(0, oldText.Length), Length)];
+        return [new TextChangeRange(new(0, oldText.Length), Length)];
     }
 
     /// <summary>The substring covered by <paramref name="span" />.</summary>
@@ -200,6 +200,6 @@ public sealed class SourceText {
             }
         }
 
-        return starts.ToArray();
+        return [..starts];
     }
 }

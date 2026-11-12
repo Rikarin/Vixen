@@ -140,7 +140,7 @@ public sealed class Chunk {
             ComponentType<T>.Info.IsTag
                 ? $"{typeof(T).Name} is a tag and stores no values. Every entity in this chunk has it."
                 : $"This chunk's archetype {Archetype.Signature} has no {typeof(T).Name}. A query that "
-                + $"reads it has to require it — add it to the description's `all` set."
+                + "reads it has to require it — add it to the description's `all` set."
         );
     }
 
@@ -157,7 +157,7 @@ public sealed class Chunk {
 
         ref var start = ref Unsafe.Add(
             ref MemoryMarshal.GetArrayDataReference(Buffer),
-            Archetype.Offsets[column] + (row * Archetype.Sizes[column])
+            Archetype.Offsets[column] + row * Archetype.Sizes[column]
         );
 
         return ref Unsafe.As<byte, T>(ref start);
@@ -165,7 +165,7 @@ public sealed class Chunk {
 
     internal Span<byte> RawRow(int column, int row) {
         var size = Archetype.Sizes[column];
-        return Buffer.AsSpan(Archetype.Offsets[column] + (row * size), size);
+        return Buffer.AsSpan(Archetype.Offsets[column] + row * size, size);
     }
 
     /// <summary>The version at which a column was last handed out for writing.</summary>

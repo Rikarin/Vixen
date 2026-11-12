@@ -20,7 +20,7 @@ public class ScreenProbeHistoryTests {
 
     [Fact]
     public void AConstantSceneConvergesToItselfExactly() {
-        var atlas = Seeded(_ => 0.6f);
+        var atlas = Seeded(static _ => 0.6f);
         var history = new ScreenProbeHistory(atlas.Layout);
 
         for (var frame = 0; frame < 5; frame++) {
@@ -39,8 +39,8 @@ public class ScreenProbeHistoryTests {
     [Fact]
     public void AFlippedLightFollowsTheRunningMean() {
         var history = new ScreenProbeHistory(new ScreenProbeAtlas(new(new(64, 64))).Layout);
-        var bright = Seeded(_ => 1f);
-        var dark = Seeded(_ => 0f);
+        var bright = Seeded(static _ => 1f);
+        var dark = Seeded(static _ => 0f);
 
         for (var frame = 0; frame < 3; frame++) {
             history.Accumulate(bright, Camera);
@@ -60,8 +60,8 @@ public class ScreenProbeHistoryTests {
     [Fact]
     public void TheCapAgesTheOldestFramesOut() {
         var history = new ScreenProbeHistory(new ScreenProbeAtlas(new(new(64, 64))).Layout) { MaxFrames = 4 };
-        var bright = Seeded(_ => 1f);
-        var dark = Seeded(_ => 0f);
+        var bright = Seeded(static _ => 1f);
+        var dark = Seeded(static _ => 0f);
 
         for (var frame = 0; frame < 10; frame++) {
             history.Accumulate(bright, Camera);
@@ -80,7 +80,7 @@ public class ScreenProbeHistoryTests {
     [Fact]
     public void ADisocclusionStartsOver() {
         var history = new ScreenProbeHistory(new ScreenProbeAtlas(new(new(64, 64))).Layout);
-        var floor = Seeded(_ => 1f);
+        var floor = Seeded(static _ => 1f);
 
         for (var frame = 0; frame < 3; frame++) {
             history.Accumulate(floor, Camera);
@@ -88,7 +88,7 @@ public class ScreenProbeHistoryTests {
 
         // One probe's surface jumps a unit closer to the camera — a doorway opened — while its
         // neighbours stand where they stood.
-        var moved = Seeded(_ => 0f);
+        var moved = Seeded(static _ => 0f);
         var probe = new Int2(1, 1);
         var anchor = moved.Layout.Anchor(probe);
 
@@ -115,7 +115,7 @@ public class ScreenProbeHistoryTests {
         var layout = new ScreenProbeAtlas(new(new(64, 64))).Layout;
         var history = new ScreenProbeHistory(layout);
 
-        history.Accumulate(Seeded(probe => probe.X), Camera);
+        history.Accumulate(Seeded(static probe => probe.X), Camera);
 
         var panned = Matrix4x4.FromTranslation(new(1f, 0f, 0f)) * Camera;
         var after = new ScreenProbeAtlas(new(new(64, 64)));
@@ -147,7 +147,7 @@ public class ScreenProbeHistoryTests {
     public void TheFilterLeavesAUniformFieldAlone() {
         var history = new ScreenProbeHistory(new ScreenProbeAtlas(new(new(64, 64))).Layout);
 
-        history.Accumulate(Seeded(_ => 0.6f), Camera);
+        history.Accumulate(Seeded(static _ => 0.6f), Camera);
 
         var filtered = new SphericalHarmonicsL1[history.Layout.ProbeCount];
 
@@ -165,7 +165,7 @@ public class ScreenProbeHistoryTests {
         var history = new ScreenProbeHistory(new ScreenProbeAtlas(new(new(64, 64))).Layout);
 
         // One bright probe in a dark field, all on one plane.
-        history.Accumulate(Seeded(probe => probe == new Int2(1, 1) ? 1f : 0f), Camera);
+        history.Accumulate(Seeded(static probe => probe == new Int2(1, 1) ? 1f : 0f), Camera);
 
         var filtered = new SphericalHarmonicsL1[history.Layout.ProbeCount];
 
@@ -184,7 +184,7 @@ public class ScreenProbeHistoryTests {
 
     [Fact]
     public void ADepthEdgeStopsTheSpread() {
-        var atlas = Seeded(probe => probe.X <= 1 ? 1f : 0f);
+        var atlas = Seeded(static probe => probe.X <= 1 ? 1f : 0f);
         var layout = atlas.Layout;
 
         // Columns 2 and 3 stand on a nearer plane — the bright half is a different surface.
@@ -233,7 +233,7 @@ public class ScreenProbeHistoryTests {
         var up = new Vector3(0f, 0f, 1f);
 
         for (var frame = 0; frame < 2; frame++) {
-            history.Accumulate(Unprojected(layout, probe => probe.Y), Camera);
+            history.Accumulate(Unprojected(layout, static probe => probe.Y), Camera);
         }
 
         for (var y = 0; y < layout.GridSize.Y; y++) {
@@ -263,7 +263,7 @@ public class ScreenProbeHistoryTests {
         var history = new ScreenProbeHistory(layout);
 
         for (var frame = 0; frame < 2; frame++) {
-            history.Accumulate(Unprojected(layout, _ => 1f, probe => -5f + (probe.Y * 0.5f)), Camera);
+            history.Accumulate(Unprojected(layout, static _ => 1f, static probe => -5f + probe.Y * 0.5f), Camera);
         }
 
         Assert.Equal(0, history.Rejected);
@@ -301,7 +301,7 @@ public class ScreenProbeHistoryTests {
                 var depth = Matrix4x4.TransformVector4(new(0f, 0f, plane?.Invoke(probe) ?? -5f, 1f), Camera);
 
                 var uv = new Vector2((anchor.X + 0.5f) / layout.Viewport.X, (anchor.Y + 0.5f) / layout.Viewport.Y);
-                var ndc = new Vector2((uv.X * 2f) - 1f, ((1f - uv.Y) * 2f) - 1f);
+                var ndc = new Vector2(uv.X * 2f - 1f, (1f - uv.Y) * 2f - 1f);
                 var clip = Matrix4x4.TransformVector4(new(ndc.X, ndc.Y, depth.Z / depth.W, 1f), inverse);
 
                 atlas.SetSurface(probe, new Vector3(clip.X, clip.Y, clip.Z) / clip.W, new(0f, 0f, 1f));

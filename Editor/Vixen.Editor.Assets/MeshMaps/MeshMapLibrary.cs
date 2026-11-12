@@ -43,8 +43,12 @@ public readonly record struct MeshMapAsset(
 ///         this project's bake produced — so the binding is a query, and this is the query.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Over the sidecar keys and not over the file names, which is the whole reason it is a
-///         type rather than a <c>Path.Combine</c>.</b> <see cref="MeshMapNaming" />'s own remarks say
+///         ⚠
+///         <b>
+///             Over the sidecar keys and not over the file names, which is the whole reason it is a
+///             type rather than a <c>Path.Combine</c>.
+///         </b>
+///         <see cref="MeshMapNaming" />'s own remarks say
 ///         which of the two wins: a file somebody renamed still knows what it measures, and doc 08's
 ///         argument is that a path is a fact about today. A resolver built on
 ///         <see cref="MeshMapNaming.FileName" /> would silently stop finding a map the moment an
@@ -71,7 +75,7 @@ public sealed class MeshMapLibrary {
 
     MeshMapLibrary(List<MeshMapAsset> maps) {
         Maps = maps;
-        Sets = [.. maps.Select(map => map.Set).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal)];
+        Sets = [..maps.Select(static map => map.Set).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal)];
 
         foreach (var map in maps) {
             // ⚠ First wins, and a duplicate is not silently dropped: `Sets` below is what says how
@@ -93,8 +97,12 @@ public sealed class MeshMapLibrary {
     /// <returns>The library.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="assets" /> is null.</exception>
     /// <remarks>
-    ///     ⚠ <b>Every indexed <c>.png</c> is a candidate and the sidecar decides, which is the cost
-    ///     of binding by usage rather than by folder.</b> A map an artist moved out of
+    ///     ⚠
+    ///     <b>
+    ///         Every indexed <c>.png</c> is a candidate and the sidecar decides, which is the cost
+    ///         of binding by usage rather than by folder.
+    ///     </b>
+    ///     A map an artist moved out of
     ///     <see cref="MeshMapNaming.DefaultFolder" /> is still a map — the folder is a default and
     ///     not the identity — so the index cannot be narrowed to it without reintroducing exactly
     ///     the path dependence the sidecar exists to remove.
@@ -212,20 +220,24 @@ public sealed class MeshMapLibrary {
         model.IsEmpty
             ? []
             : [
-                .. Maps.Where(map => map.Model == model)
-                    .Select(map => map.Set)
+                ..Maps.Where(map => map.Model == model)
+                    .Select(static map => map.Set)
                     .Distinct(StringComparer.Ordinal)
                     .Order(StringComparer.Ordinal)
             ];
 
     /// <summary>The stem of a file name, for a set whose sidecar does not name one.</summary>
     static string Stem(string path) =>
-        MeshMapNaming.TryParseFileName(path, out var mesh, out _) ? mesh : System.IO.Path.GetFileName(path);
+        MeshMapNaming.TryParseFileName(path, out var mesh, out _) ? mesh : Path.GetFileName(path);
 
     /// <summary>The sidecar beside a file, or null where there is not one that can be read.</summary>
     /// <remarks>
-    ///     ⚠ <b>An unreadable sidecar is skipped rather than raised, and that is not the same
-    ///     decision <c>ProjectMeshMapBaker</c> makes about writing one.</b> Indexing walks every PNG
+    ///     ⚠
+    ///     <b>
+    ///         An unreadable sidecar is skipped rather than raised, and that is not the same
+    ///         decision <c>ProjectMeshMapBaker</c> makes about writing one.
+    ///     </b>
+    ///     Indexing walks every PNG
     ///     in a project, so one file written by a newer editor would otherwise stop a graph from
     ///     binding any map at all. What it costs is a map that silently does not appear — which is
     ///     the state the database is already in for that file, since a sidecar it cannot read is a
@@ -238,7 +250,7 @@ public sealed class MeshMapLibrary {
             return File.Exists(path) ? AssetMetaFile.ReadFile(path) : null;
         } catch (Exception failure)
             when (failure is IOException or YamlParseException or YamlBindingException or MetaVersionException) {
-            return null;
-        }
+                return null;
+            }
     }
 }

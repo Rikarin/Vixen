@@ -15,8 +15,12 @@ namespace Vixen.Samples.Multiplayer;
 ///         constructor, written from ordinary game code, and never marked dirty by hand.
 ///     </para>
 ///     <para>
-///         ⚠ <b>It is here because until now nothing outside a test authored against this style at
-///         all.</b> <c>SyncVar</c>, <c>SyncList</c> and the sweep that marks them were exercised only
+///         ⚠
+///         <b>
+///             It is here because until now nothing outside a test authored against this style at
+///             all.
+///         </b>
+///         <c>SyncVar</c>, <c>SyncList</c> and the sweep that marks them were exercised only
 ///         by <c>Vixen.Net.Engine.Tests</c>, which is a claim that the machinery works and not that
 ///         it is usable — and the two come apart exactly where this sample found them to: a sample
 ///         that replicates has to reference <c>Vixen.Net.Engine</c> and therefore <c>Vixen.Engine</c>,
@@ -69,7 +73,9 @@ internal sealed class FighterScore : NetworkBehaviour {
     ///     Declares the list. In the constructor, because the order lists are declared in <i>is</i>
     ///     the wire format — see <see cref="NetworkBehaviour.Lists" />.
     /// </summary>
-    public FighterScore() => Victims = DeclareList(new SyncList<uint>(), nameof(Victims));
+    public FighterScore() {
+        Victims = DeclareList(new SyncList<uint>(), nameof(Victims));
+    }
 
     /// <summary>The sheet, for a client that wants to read it.</summary>
     /// <remarks>
@@ -103,8 +109,11 @@ internal sealed class FighterScore : NetworkBehaviour {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <b>Deliberately a read of <see cref="Vitals" /> rather than a call from
-    ///         <see cref="Arena" />.</b> The arena already knows who died and could say so, which is
+    ///         <b>
+    ///             Deliberately a read of <see cref="Vitals" /> rather than a call from
+    ///             <see cref="Arena" />.
+    ///         </b>
+    ///         The arena already knows who died and could say so, which is
     ///         what the rest of this sample does — this is the one place that shows the shape a
     ///         behaviour is <i>for</i>: state the game wrote somewhere else, noticed here, turned into
     ///         state the wire carries, with no wiring between the two.

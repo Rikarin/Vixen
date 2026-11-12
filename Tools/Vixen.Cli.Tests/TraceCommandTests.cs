@@ -21,12 +21,14 @@ namespace Vixen.Cli.Tests;
 public sealed class TraceCommandTests : IDisposable {
     readonly string root = Path.Combine(Path.GetTempPath(), "vixen-trace-tests", Guid.NewGuid().ToString("N"));
 
-    public TraceCommandTests() => Directory.CreateDirectory(Path.Combine(root, "Assets"));
+    public TraceCommandTests() {
+        Directory.CreateDirectory(Path.Combine(root, "Assets"));
+    }
 
     public void Dispose() {
         try {
             if (Directory.Exists(root)) {
-                Directory.Delete(root, recursive: true);
+                Directory.Delete(root, true);
             }
         } catch (IOException) {
             // A temporary directory that would not go is not a test failure.
@@ -36,9 +38,9 @@ public sealed class TraceCommandTests : IDisposable {
     /// <summary>The verb exists, rather than parsing and apologising.</summary>
     [Fact]
     public void TheVerbIsPresent() {
-        var trace = Assert.Single(VixenCommand.Create().Subcommands, command => command.Name == "trace");
+        var trace = Assert.Single(VixenCommand.Create().Subcommands, static command => command.Name == "trace");
 
-        Assert.Contains(trace.Subcommands, command => command.Name == "record");
+        Assert.Contains(trace.Subcommands, static command => command.Name == "record");
     }
 
     /// <summary>Every duration form doc 13's line could be written in.</summary>
@@ -85,7 +87,11 @@ public sealed class TraceCommandTests : IDisposable {
     /// <summary>What the child is told, and in which order.</summary>
     [Fact]
     public void TheChildIsToldWhereToWriteAndHowLongToRun() {
-        var composed = VixenCommand.TraceArguments("/tmp/run.json", TimeSpan.FromSeconds(2.5), ["--vixen-scene", "arena"]);
+        var composed = VixenCommand.TraceArguments(
+            "/tmp/run.json",
+            TimeSpan.FromSeconds(2.5),
+            ["--vixen-scene", "arena"]
+        );
 
         Assert.Equal(["--vixen-trace", "/tmp/run.json", "--vixen-run-for", "2.5", "--vixen-scene", "arena"], composed);
     }
@@ -121,7 +127,7 @@ public sealed class TraceCommandTests : IDisposable {
 
         Assert.Equal(ExitCode.UsageError, code);
         Assert.Contains("soon", error, StringComparison.Ordinal);
-        Assert.Equal("", output);
+        Assert.Equal(string.Empty, output);
     }
 
     /// <summary>And a project with nothing to run says so rather than recording nothing.</summary>
@@ -140,7 +146,8 @@ public sealed class TraceCommandTests : IDisposable {
         var parsed = VixenCommand.Create(output, error).Parse(args);
 
         if (parsed.Errors.Count > 0) {
-            return (ExitCode.UsageError, output.ToString(), string.Join("\n", parsed.Errors.Select(e => e.Message)));
+            return (ExitCode.UsageError, output.ToString(),
+                string.Join("\n", parsed.Errors.Select(static e => e.Message)));
         }
 
         var code = await parsed.InvokeAsync(null, TestContext.Current.CancellationToken);

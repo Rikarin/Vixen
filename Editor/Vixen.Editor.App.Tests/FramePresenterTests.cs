@@ -62,8 +62,12 @@ public sealed class FramePresenterTests : IDisposable {
     ///     the stage the document declared.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>The ordering this whole increment turns on, asserted on the entities the application's
-    ///     own loop extracted rather than on ones the test placed.</b> A stage's index is assigned when
+    ///     ⚠
+    ///     <b>
+    ///         The ordering this whole increment turns on, asserted on the entities the application's
+    ///         own loop extracted rather than on ones the test placed.
+    ///     </b>
+    ///     A stage's index is assigned when
     ///     a document declares it, and the mask is copied into each render object as it is created —
     ///     so a document built by whichever pane opens first is a document built after the first
     ///     <c>ExtractFrame</c>, and every object already in the scene carries a mask of none. That
@@ -165,7 +169,7 @@ public sealed class FramePresenterTests : IDisposable {
 
         // A frame of somebody else's, naming a stage the editor's document does not.
         frame.Reload(
-            new GraphicsCompositorAsset {
+            new() {
                 Version = CompositorBuilder.SupportedVersion,
                 Stages = [new() { Name = "Authored" }],
                 Resources = [
@@ -178,7 +182,9 @@ public sealed class FramePresenterTests : IDisposable {
                 Game = new SequenceAsset {
                     Name = "Authored frame",
                     Children = [
-                        new SkyAsset { Name = "Sky", Output = FramePresenter.ColourTarget, View = EditorWorldRenderer.CameraView },
+                        new SkyAsset {
+                            Name = "Sky", Output = FramePresenter.ColourTarget, View = EditorWorldRenderer.CameraView
+                        },
                         new RenderPassAsset {
                             Name = "Shade",
                             ColourTargets = [FramePresenter.ColourTarget],
@@ -186,9 +192,7 @@ public sealed class FramePresenterTests : IDisposable {
                             DepthTarget = FramePresenter.DepthTarget,
                             Children = [
                                 new SingleStageAsset {
-                                    Name = "Authored draw",
-                                    View = EditorWorldRenderer.CameraView,
-                                    Stage = "Authored"
+                                    Name = "Authored draw", View = EditorWorldRenderer.CameraView, Stage = "Authored"
                                 }
                             ]
                         }
@@ -225,8 +229,12 @@ public sealed class FramePresenterTests : IDisposable {
 
     /// <summary>Opening a frame document points the panes at it, and editing it moves them again.</summary>
     /// <remarks>
-    ///     ⚠ <b>Through the registry's <c>Opened</c> and the document's <c>Changed</c>, which both
-    ///     existed and neither of which the viewport listened to.</b> This is the wiring rather than
+    ///     ⚠
+    ///     <b>
+    ///         Through the registry's <c>Opened</c> and the document's <c>Changed</c>, which both
+    ///         existed and neither of which the viewport listened to.
+    ///     </b>
+    ///     This is the wiring rather than
     ///     the rebuild — <see cref="A_frame_document_reloaded_reaches_the_objects_that_were_already_extracted" />
     ///     is the rebuild — and it is separable because a seam that is built and never fed is this
     ///     tree's commonest defect.
@@ -248,27 +256,27 @@ public sealed class FramePresenterTests : IDisposable {
         File.WriteAllText(
             path,
             $"""
-            version: {CompositorBuilder.SupportedVersion}
-            stages:
-              - name: Authored
-            resources:
-              - name: SceneDepth
-                format: Depth32Float
-                usage: DepthStencilTarget
-            game: !Sequence
-              name: Authored frame
-              children:
-                - !RenderPass
-                  name: Shade
-                  colourTargets: [SceneColour]
-                  depthTarget: SceneDepth
-                  children:
-                    - !SingleStage
-                      name: Authored draw
-                      view: Camera
-                      stage: Authored
+             version: {CompositorBuilder.SupportedVersion}
+             stages:
+               - name: Authored
+             resources:
+               - name: SceneDepth
+                 format: Depth32Float
+                 usage: DepthStencilTarget
+             game: !Sequence
+               name: Authored frame
+               children:
+                 - !RenderPass
+                   name: Shade
+                   colourTargets: [SceneColour]
+                   depthTarget: SceneDepth
+                   children:
+                     - !SingleStage
+                       name: Authored draw
+                       view: Camera
+                       stage: Authored
 
-            """
+             """
         );
 
         session.Project.Assets.Scan();
@@ -280,8 +288,14 @@ public sealed class FramePresenterTests : IDisposable {
 
         var stages = frame.Renderer.Host.Builder.Stages;
 
-        Assert.True(stages.TryGetValue("Authored", out var authored), "opening the document did not reach the viewport");
-        Assert.True(frame.Stages.Contains(authored!.Index), "the panes are not extracting into the opened frame's stage");
+        Assert.True(
+            stages.TryGetValue("Authored", out var authored),
+            "opening the document did not reach the viewport"
+        );
+        Assert.True(
+            frame.Stages.Contains(authored!.Index),
+            "the panes are not extracting into the opened frame's stage"
+        );
 
         // ⚠ And the modes were re-registered, so no pane still holds a subtree of the compositor that
         // was replaced. The document declares no wireframe, so that mode goes back to the tool renderer.
@@ -294,8 +308,12 @@ public sealed class FramePresenterTests : IDisposable {
 
     /// <summary>A frame document this build cannot read is a warning, not a dead editor.</summary>
     /// <remarks>
-    ///     ⚠ <b>Found by writing the test above with the wrong version number in it, which is the only
-    ///     reason it is here.</b> <c>CompositorBuilder.Build</c> throws <c>NotSupportedException</c> for
+    ///     ⚠
+    ///     <b>
+    ///         Found by writing the test above with the wrong version number in it, which is the only
+    ///         reason it is here.
+    ///     </b>
+    ///     <c>CompositorBuilder.Build</c> throws <c>NotSupportedException</c> for
     ///     a document written by another version of the engine — a <em>file's</em> fault rather than a
     ///     bug — and the rebuild is reached from <c>IDocumentHost.Opened</c>, which is reached
     ///     from a double-click in the project browser. Uncaught, opening an old <c>.vxcompositor</c>
@@ -315,11 +333,11 @@ public sealed class FramePresenterTests : IDisposable {
         File.WriteAllText(
             path,
             $"""
-            version: {CompositorBuilder.SupportedVersion + 1}
-            stages:
-              - name: Ancient
+             version: {CompositorBuilder.SupportedVersion + 1}
+             stages:
+               - name: Ancient
 
-            """
+             """
         );
 
         session.Project.Assets.Scan();
@@ -340,8 +358,12 @@ public sealed class FramePresenterTests : IDisposable {
 
     /// <summary>Wireframe is a stage of its own rather than the shaded stage mutated.</summary>
     /// <remarks>
-    ///     ⚠ <b>Because <c>PipelineKey</c> is <c>(Effect, Stage.Index, VertexLayout, Output)</c> and
-    ///     <c>PipelineCache</c> never evicts.</b> A stage's rasterizer is read once, by
+    ///     ⚠
+    ///     <b>
+    ///         Because <c>PipelineKey</c> is <c>(Effect, Stage.Index, VertexLayout, Output)</c> and
+    ///         <c>PipelineCache</c> never evicts.
+    ///     </b>
+    ///     A stage's rasterizer is read once, by
     ///     <c>EffectPipelineDescriber.Describe</c> on the first draw that misses the cache, and baked
     ///     into a pipeline the key cannot tell from any other state on that stage — so
     ///     <c>ViewModes.ApplyTo</c> against a stage that has already drawn changes the mode and not the
@@ -422,7 +444,7 @@ public sealed class FramePresenterTests : IDisposable {
             ResourceState.ShaderRead
         );
 
-        frame.Aim(new EditorCamera { Distance = 8f }, 1f);
+        frame.Aim(new() { Distance = 8f }, 1f);
 
         for (var pass = 0; pass < 3; pass++) {
             using var commands = device.BeginCommandList(QueueKind.Graphics, "frame");
@@ -474,7 +496,7 @@ public sealed class FramePresenterTests : IDisposable {
         var frame = session.Application.Frame!;
         var graph = new RenderGraph(recording);
 
-        frame.Aim(new EditorCamera { Distance = 8f }, 1f);
+        frame.Aim(new() { Distance = 8f }, 1f);
 
         for (var pass = 0; pass < 3; pass++) {
             using var commands = recording.BeginCommandList(QueueKind.Graphics, "frame");
@@ -495,7 +517,9 @@ public sealed class FramePresenterTests : IDisposable {
         Assert.NotEmpty(writes);
 
         foreach (var write in writes) {
-            var named = write.TextureView.IsValid || write.Buffer.IsValid || write.Sampler.IsValid
+            var named = write.TextureView.IsValid
+                || write.Buffer.IsValid
+                || write.Sampler.IsValid
                 || write.Structure.IsValid;
 
             Assert.True(named, $"binding {write.Binding} was written naming nothing at all");
@@ -506,8 +530,12 @@ public sealed class FramePresenterTests : IDisposable {
 
     /// <summary>The pane's tool pass is the last thing in the frame, and it loads what it draws over.</summary>
     /// <remarks>
-    ///     ⚠ <b>Both load actions, because they are what make the tools a viewport rather than a
-    ///     decal.</b> A pass that cleared the colour would wipe the composition the frame spent itself
+    ///     ⚠
+    ///     <b>
+    ///         Both load actions, because they are what make the tools a viewport rather than a
+    ///         decal.
+    ///     </b>
+    ///     A pass that cleared the colour would wipe the composition the frame spent itself
     ///     producing; one that cleared — or never declared — the depth would draw the grid straight
     ///     through the geometry standing on it.
     ///     <c>Platform/Vixen.Graphics.Golden.Tests/ViewportOverlayImageTests</c> renders both frames
@@ -530,7 +558,7 @@ public sealed class FramePresenterTests : IDisposable {
         // ⚠ Both modes, because the tool pass follows whichever tree the mode resolved to. A pass
         // appended to one tree at construction is a wireframe pane with no grid, no markers and no
         // gizmo — the modes would differ in a way the mode's name does not mean.
-        foreach (var mode in (ViewMode[]) [ViewMode.Shaded, ViewMode.Wireframe]) {
+        foreach (var mode in (ViewMode[])[ViewMode.Shaded, ViewMode.Wireframe]) {
             viewport.Modes.Current = mode;
 
             var graph = new RenderGraph(device);
@@ -573,8 +601,12 @@ public sealed class FramePresenterTests : IDisposable {
 
     /// <summary>The texture handed to the interface is the one the pane lent the frame.</summary>
     /// <remarks>
-    ///     ⚠ <b>An import wins over a same-named declaration, and this is that rule being relied
-    ///     on.</b> The default frame declares <c>SceneColour</c> and <c>SceneDepth</c> itself; if the
+    ///     ⚠
+    ///     <b>
+    ///         An import wins over a same-named declaration, and this is that rule being relied
+    ///         on.
+    ///     </b>
+    ///     The default frame declares <c>SceneColour</c> and <c>SceneDepth</c> itself; if the
     ///     declaration won instead, the frame would draw into a transient the interface has no view
     ///     of and the pane would sample a target nothing ever wrote.
     /// </remarks>
@@ -604,7 +636,7 @@ public sealed class FramePresenterTests : IDisposable {
             pass => {
                 pass.SideEffect();
                 pass.Reads(target);
-                pass.Execute(_ => { });
+                pass.Execute(static _ => { });
             }
         );
 
@@ -637,9 +669,7 @@ public sealed class FramePresenterTests : IDisposable {
             Stage(ShaderStage.Fragment, "ui.box"),
             Stage(ShaderStage.Fragment, "ui.text"),
             Stage(ShaderStage.Fragment, "ui.solid")
-        ) {
-            Image = Stage(ShaderStage.Fragment, "ui.image")
-        };
+        ) { Image = Stage(ShaderStage.Fragment, "ui.image") };
 
     ShaderHandle Stage(ShaderStage stage, string name) => device.CreateShader(stage, [1, 2, 3, 4], name);
 }

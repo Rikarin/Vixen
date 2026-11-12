@@ -11,14 +11,13 @@ public class GraphFurnitureIdentityTests {
     [Fact]
     public void A_file_with_no_identities_gets_them_and_the_next_read_keeps_them() {
         NodeGraphAsset old = new() {
-            Groups = [new() { Title = "A" }, new() { Title = "B" }],
-            Comments = [new() { Text = "why" }]
+            Groups = [new() { Title = "A" }, new() { Title = "B" }], Comments = [new() { Text = "why" }]
         };
 
         var first = NodeGraphDocument.Save(NodeGraphDocument.Load(old, out _));
         var second = NodeGraphDocument.Save(NodeGraphDocument.Load(first, out _));
 
-        int[] ids = [.. first.Groups.Select(static group => group.Id), .. first.Comments.Select(static note => note.Id)];
+        int[] ids = [..first.Groups.Select(static group => group.Id), ..first.Comments.Select(static note => note.Id)];
 
         Assert.All(ids, static id => Assert.True(id > 0));
         Assert.Equal(3, ids.Distinct().Count());
@@ -91,7 +90,10 @@ public class GraphFurnitureIdentityTests {
         graph.Connect(new(between.Id, "Out"), new(last.Id, "In"));
 
         Assert.Throws<ArgumentException>(() => SubGraphs.Extract(graph, [first.Id, last.Id], "Inner"));
-        Assert.Equal(new[] { first.Id, between.Id }, SubGraphs.Extract(graph, [first.Id, between.Id], "Inner").Extracted);
+        Assert.Equal(
+            new[] { first.Id, between.Id },
+            SubGraphs.Extract(graph, [first.Id, between.Id], "Inner").Extracted
+        );
     }
 
     sealed class Touched : Vixen.Authoring.ICommandContext {

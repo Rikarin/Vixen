@@ -13,8 +13,11 @@ namespace Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>Improvement 4 of <c>docs/plan/22-virtualized-geometry.md</c>, and the reason it names a CPU
-///         reference rasterizer specifically.</b> The two ways a rasterizer is wrong are both invisible
+///         <b>
+///             Improvement 4 of <c>docs/plan/22-virtualized-geometry.md</c>, and the reason it names a CPU
+///             reference rasterizer specifically.
+///         </b>
+///         The two ways a rasterizer is wrong are both invisible
 ///         in a still: cover one pixel too many along a shared edge and the seam is drawn twice, which
 ///         for a visibility buffer means an identity decided by whichever atomic won; cover one too few
 ///         and there is a line of background through a solid surface. Neither reads as a rasterizer bug
@@ -39,8 +42,8 @@ public class SoftwareRasterTests {
     /// </remarks>
     static Vector4 Clip(float px, float py, float depth = 0.5f, float w = 1f) =>
         new(
-            ((px / Screen.X * 2f) - 1f) * w,
-            -(((py / Screen.Y * 2f) - 1f)) * w,
+            (px / Screen.X * 2f - 1f) * w,
+            -(py / Screen.Y * 2f - 1f) * w,
             depth * w,
             w
         );
@@ -50,7 +53,7 @@ public class SoftwareRasterTests {
         var depths = new ulong[Screen.X * Screen.Y];
         SoftwareRaster.Rasterize(a, b, c, Screen, identity, depths);
 
-        return [.. depths.Select(key => key != 0uL)];
+        return [..depths.Select(static key => key != 0uL)];
     }
 
     // --- Coverage against the definition -------------------------------------
@@ -98,7 +101,7 @@ public class SoftwareRasterTests {
 
                     var inside = (e0 > 0f && e1 > 0f && e2 > 0f) || (e0 < 0f && e1 < 0f && e2 < 0f);
 
-                    Assert.Equal(inside, covered[(y * Screen.X) + x]);
+                    Assert.Equal(inside, covered[y * Screen.X + x]);
                 }
             }
         }
@@ -109,8 +112,11 @@ public class SoftwareRasterTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <b>The assertion the top-left rule exists for, and the diagonal is chosen to run through
-    ///         pixel centres.</b> A quad from a corner to a corner in whole pixels has the line
+    ///         <b>
+    ///             The assertion the top-left rule exists for, and the diagonal is chosen to run through
+    ///             pixel centres.
+    ///         </b>
+    ///         A quad from a corner to a corner in whole pixels has the line
     ///         <c>y = x</c> passing exactly through <c>(0.5, 0.5)</c>, <c>(1.5, 1.5)</c> and every centre
     ///         after them — so every one of those pixels has an edge function of exactly zero for both
     ///         triangles, and which of them takes it is decided by a rule rather than by arithmetic.
@@ -132,7 +138,7 @@ public class SoftwareRasterTests {
 
         for (var y = 0; y < 16; y++) {
             for (var x = 0; x < 16; x++) {
-                var index = (y * Screen.X) + x;
+                var index = y * Screen.X + x;
 
                 if (lower[index] && upper[index]) {
                     both++;
@@ -172,7 +178,7 @@ public class SoftwareRasterTests {
         var reversed = Covered(Clip(4f, 4f), Clip(12f, 44f), Clip(40f, 12f));
 
         Assert.Equal(forward, reversed);
-        Assert.True(forward.Count(covered => covered) > 128);
+        Assert.True(forward.Count(static covered => covered) > 128);
     }
 
     // --- Depth ---------------------------------------------------------------
@@ -203,7 +209,7 @@ public class SoftwareRasterTests {
             }
 
             // A pixel comfortably inside both.
-            var key = depths[(4 * Screen.X) + 4];
+            var key = depths[4 * Screen.X + 4];
 
             Assert.Equal(3u, GpuClusterSoftwareRaster.IdentityOf(key));
             Assert.Equal(0.8f, GpuClusterSoftwareRaster.DepthOf(key), 4);
@@ -223,7 +229,7 @@ public class SoftwareRasterTests {
     [Fact]
     public void The_resolved_depth_is_the_triangles_own_plane() {
         // Three corners with three different w, so the divide matters.
-        var a = Clip(2f, 2f, 0.9f, 1f);
+        var a = Clip(2f, 2f, 0.9f);
         var b = Clip(60f, 2f, 0.3f, 3f);
         var c = Clip(2f, 60f, 0.6f, 2f);
 
@@ -239,7 +245,7 @@ public class SoftwareRasterTests {
 
         for (var y = 0; y < Screen.Y; y++) {
             for (var x = 0; x < Screen.X; x++) {
-                var key = depths[(y * Screen.X) + x];
+                var key = depths[y * Screen.X + x];
 
                 if (key == 0uL) {
                     continue;
@@ -248,9 +254,9 @@ public class SoftwareRasterTests {
                 var point = new Vector2(x + 0.5f, y + 0.5f);
 
                 var expected =
-                    ((SoftwareRaster.Edge(p1, p2, point) * (a.Z / a.W))
-                        + (SoftwareRaster.Edge(p2, p0, point) * (b.Z / b.W))
-                        + (SoftwareRaster.Edge(p0, p1, point) * (c.Z / c.W)))
+                    (SoftwareRaster.Edge(p1, p2, point) * (a.Z / a.W)
+                        + SoftwareRaster.Edge(p2, p0, point) * (b.Z / b.W)
+                        + SoftwareRaster.Edge(p0, p1, point) * (c.Z / c.W))
                     / area;
 
                 // The tolerance is the key's own quantization and nothing else: a depth is stored as a
@@ -334,9 +340,9 @@ public class SoftwareRasterTests {
 
             for (var triangle = 0; triangle < meshlet.TriangleCount; triangle++) {
                 SoftwareRaster.Rasterize(
-                    Project(input.Positions[corners[(triangle * 3) + 0]], camera),
-                    Project(input.Positions[corners[(triangle * 3) + 1]], camera),
-                    Project(input.Positions[corners[(triangle * 3) + 2]], camera),
+                    Project(input.Positions[corners[triangle * 3]], camera),
+                    Project(input.Positions[corners[triangle * 3 + 1]], camera),
+                    Project(input.Positions[corners[triangle * 3 + 2]], camera),
                     screen,
                     GpuClusterRaster.Pack(slot, (uint)triangle),
                     depths
@@ -346,7 +352,7 @@ public class SoftwareRasterTests {
             slot++;
         }
 
-        var covered = depths.Count(key => key != 0uL);
+        var covered = depths.Count(static key => key != 0uL);
         Assert.True(covered > 1000, $"The cut covered {covered} pixels, which is not a sphere.");
 
         // A pixel is interior when its four neighbours are covered too; an interior pixel that is not
@@ -355,7 +361,7 @@ public class SoftwareRasterTests {
 
         for (var y = 1; y < screen.Y - 1; y++) {
             for (var x = 1; x < screen.X - 1; x++) {
-                var at = (y * screen.X) + x;
+                var at = y * screen.X + x;
 
                 if (depths[at] != 0uL) {
                     continue;
@@ -399,7 +405,7 @@ public class SoftwareRasterTests {
 
         for (var ring = 0; ring < rings; ring++) {
             for (var segment = 0; segment < segments; segment++) {
-                var a = (ring * (segments + 1)) + segment;
+                var a = ring * (segments + 1) + segment;
                 var b = a + segments + 1;
 
                 indices.AddRange([a, b, a + 1]);
@@ -407,7 +413,7 @@ public class SoftwareRasterTests {
             }
         }
 
-        return new() { Positions = [.. positions], Indices = [.. indices] };
+        return new() { Positions = [..positions], Indices = [..indices] };
     }
 
     // --- The shader ----------------------------------------------------------
@@ -447,7 +453,9 @@ public class SoftwareRasterTests {
 
     /// <summary>A shipped shader's source, found by walking up rather than by counting directories.</summary>
     static string Source(string folder, string file) {
-        for (var directory = new DirectoryInfo(AppContext.BaseDirectory); directory is not null; directory = directory.Parent) {
+        for (var directory = new DirectoryInfo(AppContext.BaseDirectory);
+             directory is not null;
+             directory = directory.Parent) {
             var candidate = Path.Combine(directory.FullName, "Raven", "Library", folder, file);
 
             if (File.Exists(candidate)) {
@@ -455,6 +463,8 @@ public class SoftwareRasterTests {
             }
         }
 
-        throw new FileNotFoundException($"Raven/Library/{folder}/{file} was not found above '{AppContext.BaseDirectory}'.");
+        throw new FileNotFoundException(
+            $"Raven/Library/{folder}/{file} was not found above '{AppContext.BaseDirectory}'."
+        );
     }
 }

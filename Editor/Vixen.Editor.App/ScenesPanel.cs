@@ -93,7 +93,7 @@ sealed class ScenesPanel : IDisposable {
     /// <summary>Registers the panel, its toggle and the two verbs, through the module's context.</summary>
     /// <param name="module">What the module was activated with.</param>
     public void Register(PluginContext module) {
-        module.AddPanel(new PanelDescriptor(PanelId, EditorStrings.PanelScenes, Build) { Closed = () => list = null });
+        module.AddPanel(new(PanelId, EditorStrings.PanelScenes, Build) { Closed = () => list = null });
 
         module.AddCommand(
             new EditorCommand("scene.scenes", EditorStrings.CommandSceneScenes, () => shell.Workspace.Toggle(PanelId)) {
@@ -102,9 +102,8 @@ sealed class ScenesPanel : IDisposable {
         );
 
         module.AddCommand(
-            new EditorCommand("scene.open-additive", EditorStrings.CommandSceneOpenAdditive, Pick) {
-                Category = EditorStrings.CategoryScene,
-                Enablement = () => dialogs is not null
+            new("scene.open-additive", EditorStrings.CommandSceneOpenAdditive, Pick) {
+                Category = EditorStrings.CategoryScene, Enablement = () => dialogs is not null
             }
         );
 
@@ -125,7 +124,8 @@ sealed class ScenesPanel : IDisposable {
             Picked(picked);
         }
 
-        if (list is not null && !drawn.SequenceEqual(editing.Scenes.Select(scene => scene.HasUnsavedChanges.Value))) {
+        if (list is not null
+            && !drawn.SequenceEqual(editing.Scenes.Select(static scene => scene.HasUnsavedChanges.Value))) {
             Refresh();
         }
     }
@@ -179,7 +179,7 @@ sealed class ScenesPanel : IDisposable {
         }
 
         picking = dialogs.OpenFileAsync(
-                new FileDialogOptions {
+                new() {
                     Title = "Open Scene Additively",
                     InitialDirectory = folder(),
                     Filters = [new FileFilter("Vixen scene", SceneSerializer.Extension.TrimStart('.'))]
@@ -239,7 +239,8 @@ sealed class ScenesPanel : IDisposable {
             }
 
             var name = row.Add("scene-name");
-            name.Text = Path.GetFileNameWithoutExtension(FileOf(open)) + (open.HasUnsavedChanges.Value ? " *" : string.Empty);
+            name.Text = Path.GetFileNameWithoutExtension(FileOf(open))
+                + (open.HasUnsavedChanges.Value ? " *" : string.Empty);
 
             var visible = row.Add<CheckBox>();
             visible.IsChecked = state.IsVisible;
@@ -267,8 +268,7 @@ sealed class ScenesPanel : IDisposable {
                 remarked();
             };
 
-            row.AddHandler<PointerEvent>(
-                (_, args) => {
+            row.AddHandler<PointerEvent>((_, args) => {
                     if (args.Action == PointerAction.Pressed) {
                         editing.Activate(open);
                     }

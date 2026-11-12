@@ -86,9 +86,9 @@ public class EditingCommandsTests {
     public void Shift_does_not_change_which_command_a_chord_is() {
         foreach (var keymap in (ReadOnlySpan<EditingKeymap>)[EditingKeymap.Windows, EditingKeymap.MacOs]) {
             foreach (var key in (ReadOnlySpan<InputKey>)[InputKey.Left, InputKey.Right, InputKey.Home, InputKey.Up]) {
-                foreach (var modifiers in (ReadOnlySpan<ModifierKeys>)[
-                    ModifierKeys.None, ModifierKeys.Control, ModifierKeys.Alt, ModifierKeys.Meta
-                ]) {
+                foreach (var modifiers in (ReadOnlySpan<ModifierKeys>) [
+                             ModifierKeys.None, ModifierKeys.Control, ModifierKeys.Alt, ModifierKeys.Meta
+                         ]) {
                     Assert.Equal(
                         EditingCommands.Resolve(key, modifiers, keymap),
                         EditingCommands.Resolve(key, modifiers | ModifierKeys.Shift, keymap)
@@ -154,9 +154,9 @@ public class EditingCommandsTests {
 
         foreach (var keymap in (ReadOnlySpan<EditingKeymap>)[EditingKeymap.Windows, EditingKeymap.MacOs]) {
             foreach (var key in Enum.GetValues<InputKey>()) {
-                foreach (var modifiers in (ReadOnlySpan<ModifierKeys>)[
-                    ModifierKeys.None, ModifierKeys.Control, ModifierKeys.Alt, ModifierKeys.Meta
-                ]) {
+                foreach (var modifiers in (ReadOnlySpan<ModifierKeys>) [
+                             ModifierKeys.None, ModifierKeys.Control, ModifierKeys.Alt, ModifierKeys.Meta
+                         ]) {
                     reached.Add(EditingCommands.Resolve(key, modifiers, keymap));
                 }
             }

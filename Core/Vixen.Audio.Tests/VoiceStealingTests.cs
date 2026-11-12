@@ -3,7 +3,6 @@
 
 using Vixen.Audio.Mixing;
 using Vixen.Audio.Spatial;
-using Vixen.Core.Mathematics;
 using Xunit;
 
 namespace Vixen.Audio.Tests;
@@ -19,7 +18,7 @@ public sealed class VoiceStealingTests {
 
     [Fact]
     public void AFullPoolMakesRoomInsteadOfRefusing() {
-        var (engine, device) = AudioTestData.Engine(channels: 1, voices: 2);
+        var (engine, device) = AudioTestData.Engine(1, voices: 2);
         using var _ = engine;
 
         engine.Play(AudioTestData.Constant(48_000, 1f), Playing());
@@ -42,7 +41,7 @@ public sealed class VoiceStealingTests {
     /// </summary>
     [Fact]
     public void TheQuietestVoiceIsTheOneThatGoes() {
-        var (engine, device) = AudioTestData.Engine(channels: 1, voices: 3);
+        var (engine, device) = AudioTestData.Engine(1, voices: 3);
         using var _ = engine;
 
         var loud = engine.Play(AudioTestData.Constant(48_000, 1f), Playing(0.9f));
@@ -63,20 +62,20 @@ public sealed class VoiceStealingTests {
     /// </summary>
     [Fact]
     public void ADistantSpatialVoiceLosesToANearOneAtTheSameGain() {
-        var (engine, device) = AudioTestData.Engine(channels: 1, voices: 2);
+        var (engine, device) = AudioTestData.Engine(1, voices: 2);
         using var _ = engine;
 
         engine.SetListener(AudioListener.Default);
 
-        var near = engine.Play(AudioTestData.Constant(48_000, 1f), Playing() with {
-            IsSpatial = true,
-            Spatial = new SpatialSettings { Position = new Vector3(0f, 0f, -1f) }
-        });
+        var near = engine.Play(
+            AudioTestData.Constant(48_000, 1f),
+            Playing() with { IsSpatial = true, Spatial = new() { Position = new(0f, 0f, -1f) } }
+        );
 
-        var far = engine.Play(AudioTestData.Constant(48_000, 1f), Playing() with {
-            IsSpatial = true,
-            Spatial = new SpatialSettings { Position = new Vector3(0f, 0f, -300f) }
-        });
+        var far = engine.Play(
+            AudioTestData.Constant(48_000, 1f),
+            Playing() with { IsSpatial = true, Spatial = new() { Position = new(0f, 0f, -300f) } }
+        );
 
         // One block, so the spatialiser has worked out how far away each of them is.
         AudioTestData.Render(device, 64);
@@ -88,11 +87,11 @@ public sealed class VoiceStealingTests {
 
     [Fact]
     public void PriorityBeatsLoudness() {
-        var (engine, device) = AudioTestData.Engine(channels: 1, voices: 2);
+        var (engine, device) = AudioTestData.Engine(1, voices: 2);
         using var _ = engine;
 
-        var quietButImportant = engine.Play(AudioTestData.Constant(48_000, 1f), Playing(0.01f, priority: 10));
-        var loudButNot = engine.Play(AudioTestData.Constant(48_000, 1f), Playing(1f));
+        var quietButImportant = engine.Play(AudioTestData.Constant(48_000, 1f), Playing(0.01f, 10));
+        var loudButNot = engine.Play(AudioTestData.Constant(48_000, 1f), Playing());
 
         AudioTestData.Render(device, 64);
         engine.Play(AudioTestData.Constant(48_000, 1f), Playing());
@@ -103,7 +102,7 @@ public sealed class VoiceStealingTests {
 
     [Fact]
     public void ASoundCanDisplaceOneOfEqualPriority() {
-        var (engine, device) = AudioTestData.Engine(channels: 1, voices: 1);
+        var (engine, device) = AudioTestData.Engine(1, voices: 1);
         using var _ = engine;
 
         var first = engine.Play(AudioTestData.Constant(48_000, 1f), Playing(priority: 5));
@@ -122,7 +121,7 @@ public sealed class VoiceStealingTests {
     /// </summary>
     [Fact]
     public void TheStealInvalidatesTheDisplacedHandleAtOnce() {
-        var (engine, device) = AudioTestData.Engine(channels: 1, voices: 1);
+        var (engine, device) = AudioTestData.Engine(1, voices: 1);
         using var _ = engine;
 
         var victim = engine.Play(AudioTestData.Constant(48_000, 1f), Playing());
@@ -146,7 +145,7 @@ public sealed class VoiceStealingTests {
     /// </summary>
     [Fact]
     public void TheNewSoundStartsFromItsOwnBeginning() {
-        var (engine, device) = AudioTestData.Engine(channels: 1, voices: 1, bufferFrames: 32);
+        var (engine, device) = AudioTestData.Engine(1, voices: 1, bufferFrames: 32);
         using var _ = engine;
 
         engine.Play(AudioTestData.Constant(48_000, 1f), Playing());
@@ -165,7 +164,7 @@ public sealed class VoiceStealingTests {
 
     [Fact]
     public void APausedVoiceCanBeStolenToo() {
-        var (engine, device) = AudioTestData.Engine(channels: 1, voices: 1);
+        var (engine, device) = AudioTestData.Engine(1, voices: 1);
         using var _ = engine;
 
         var held = engine.Play(AudioTestData.Constant(48_000, 1f), Playing());
@@ -181,11 +180,11 @@ public sealed class VoiceStealingTests {
 
     [Fact]
     public void StealingLeavesTheEngineConsistent() {
-        var (engine, device) = AudioTestData.Engine(channels: 1, voices: 4);
+        var (engine, device) = AudioTestData.Engine(1, voices: 4);
         using var _ = engine;
 
         for (var i = 0; i < 40; i++) {
-            engine.Play(AudioTestData.Constant(48_000, 0.2f), Playing(0.1f + (i % 5 * 0.1f)));
+            engine.Play(AudioTestData.Constant(48_000, 0.2f), Playing(0.1f + i % 5 * 0.1f));
             AudioTestData.Render(device, 32);
             engine.Update();
         }

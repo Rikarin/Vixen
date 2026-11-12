@@ -61,7 +61,7 @@ public sealed class ApiDialectTests {
     [Theory]
     [InlineData("static Sample.A.operator !=(Sample.A left, Sample.A right) -> bool")]
     [InlineData("static Sample.A.operator !(Sample.A value) -> bool")]
-    [InlineData("const Sample.A.Greeting = \"Hello!\" -> string")]
+    [InlineData("""const Sample.A.Greeting = "Hello!" -> string""")]
     [InlineData("const Sample.A.Bang = '!' -> char")]
     [InlineData("Sample.A.Name.get -> string?")]
     [InlineData("#nullable enable")]
@@ -79,7 +79,9 @@ public sealed class ApiDialectTests {
         Assert.True(baselines.Count > 200, $"Found {baselines.Count} PublicAPI.*.txt files, which is not this tree.");
 
         var errors = baselines
-            .SelectMany(path => ApiDialect.Errors(File.ReadAllLines(Path.Combine(root, path))).Select(error => error.Describe(path)))
+            .SelectMany(path =>
+                ApiDialect.Errors(File.ReadAllLines(Path.Combine(root, path))).Select(error => error.Describe(path))
+            )
             .ToList();
 
         Assert.True(errors.Count == 0, string.Join('\n', errors));
@@ -88,9 +90,7 @@ public sealed class ApiDialectTests {
     static List<string> CommittedBaselines(string root) {
         using var git = Process.Start(
             new ProcessStartInfo("git", "ls-files -- \"*PublicAPI.Shipped.txt\" \"*PublicAPI.Unshipped.txt\"") {
-                WorkingDirectory = root,
-                RedirectStandardOutput = true,
-                UseShellExecute = false
+                WorkingDirectory = root, RedirectStandardOutput = true, UseShellExecute = false
             }
         );
 
@@ -101,7 +101,7 @@ public sealed class ApiDialectTests {
 
         Assert.Equal(0, git.ExitCode);
 
-        return [.. output.Split('\n').Select(line => line.Trim()).Where(line => line.Length > 0)];
+        return [..output.Split('\n').Select(static line => line.Trim()).Where(static line => line.Length > 0)];
     }
 
     static string RepositoryRoot() {

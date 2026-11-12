@@ -20,8 +20,12 @@ namespace Vixen.Cli;
 ///         is a fact rather than an intention.
 ///     </para>
 ///     <para>
-///         ⚠ <b>It reads maps from a folder and does not evaluate a graph, and the reason this file
-///         used to give for that had become a stale claim that argued against fixing it</b> —
+///         ⚠
+///         <b>
+///             It reads maps from a folder and does not evaluate a graph, and the reason this file
+///             used to give for that had become a stale claim that argued against fixing it
+///         </b>
+///         —
 ///         <a href="https://github.com/Rikarin/Vixen/issues/1009">#1009</a>. It said a
 ///         <c>.vxtexgraph</c> "is M4's document and does not exist yet". It exists:
 ///         <c>TextureCompoundLibrary.Extension</c> is that extension, <c>TextureGraphEditorFactory</c>
@@ -30,8 +34,12 @@ namespace Vixen.Cli;
 ///         called from the editor as a second caller rather than copied.
 ///     </para>
 ///     <para>
-///         ⚠ <b>And <c>--graph</c> is the other half of this verb now, rather than the thing this
-///         file explained the absence of</b> —
+///         ⚠
+///         <b>
+///             And <c>--graph</c> is the other half of this verb now, rather than the thing this
+///             file explained the absence of
+///         </b>
+///         —
 ///         <a href="https://github.com/Rikarin/Vixen/issues/1020">#1020</a>.
 ///         <see cref="TextureGraphRunner" /> compiles and evaluates one, on a device
 ///         <c>HeadlessGraphics</c> refuses to fake, and ends in this type's own baker. What is here
@@ -40,8 +48,12 @@ namespace Vixen.Cli;
 ///         material out of it.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The inputs are named by <i>usage</i> and the outputs by <i>file</i>, which are not
-///         the same vocabulary.</b> <c>hull_roughness.png</c> is an input and <c>hull_orm.png</c> is
+///         ⚠
+///         <b>
+///             The inputs are named by <i>usage</i> and the outputs by <i>file</i>, which are not
+///             the same vocabulary.
+///         </b>
+///         <c>hull_roughness.png</c> is an input and <c>hull_orm.png</c> is
 ///         an output, so re-reading a bake's own output folder does not round-trip — the packed map
 ///         is three inputs and one output by construction. The alternative, naming inputs after the
 ///         files, would mean asking an artist to pack the ORM map themselves, which is the work this
@@ -103,10 +115,7 @@ public static class TextureRunner {
         // source-keying guard was real and unreachable from here — every run adopted whatever set was
         // under --name, so two --from folders under one name overwrote each other and shared GUIDs.
         // See #725, which is #621's shape: a fix the only caller bypasses.
-        var record = new MaterialBakeRecord {
-            Source = Relative(project, from),
-            Adapter = adapter
-        };
+        var record = new MaterialBakeRecord { Source = Relative(project, from), Adapter = adapter };
 
         MaterialBakeSet set;
 
@@ -176,7 +185,7 @@ public static class TextureRunner {
         var named = new Dictionary<MaterialMapUsage, string>();
 
         foreach (var file in Directory.EnumerateFiles(from, "*" + MaterialMapNaming.PortableExtension)
-            .OrderBy(file => file, StringComparer.Ordinal)) {
+                     .OrderBy(static file => file, StringComparer.Ordinal)) {
             var stem = Path.GetFileNameWithoutExtension(file);
             var split = stem.LastIndexOf('_');
 
@@ -215,7 +224,8 @@ public static class TextureRunner {
         var root = Path.GetFullPath(project.Paths.Root);
 
         return full.StartsWith(root, StringComparison.Ordinal)
-            ? full[root.Length..].TrimStart(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+            ? full[root.Length..]
+                .TrimStart(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
                 .Replace(Path.DirectorySeparatorChar, '/')
             : full;
     }

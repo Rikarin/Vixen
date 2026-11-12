@@ -53,7 +53,7 @@ public sealed class VideoPlayerTests {
 
     [Fact]
     public void DroppingTheMasterResumesFromWhereItLeftOff() {
-        var clock = new VideoClock { Master = () => TimeSpan.FromSeconds(7) };
+        var clock = new VideoClock { Master = static () => TimeSpan.FromSeconds(7) };
 
         clock.Start();
         clock.Advance(TimeSpan.Zero);
@@ -168,7 +168,7 @@ public sealed class VideoPlayerTests {
         }
 
         Assert.Equal(VideoPlaybackState.Playing, player.State);
-        Assert.Equal(seen.OrderBy(time => time), seen);
+        Assert.Equal(seen.OrderBy(static time => time), seen);
         Assert.Contains(TimeSpan.FromMilliseconds(160), seen);
         Assert.Equal(0, player.FramesDropped);
     }
@@ -280,7 +280,7 @@ public sealed class VideoPlayerTests {
             }
 
             destination.Reset(Format);
-            destination.Plane(0).Fill((byte)(16 + (next % 200)));
+            destination.Plane(0).Fill((byte)(16 + next % 200));
             destination.Timestamp = TimeSpan.FromMilliseconds(40 * next);
             destination.IsKeyFrame = true;
             Position = destination.Timestamp;

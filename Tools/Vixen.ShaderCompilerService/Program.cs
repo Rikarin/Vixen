@@ -70,7 +70,9 @@ var sources = new List<string>();
 
 foreach (var root in roots) {
     if (Directory.Exists(root)) {
-        sources.AddRange(Directory.EnumerateFiles(root, "*.rvn", SearchOption.AllDirectories).Order(StringComparer.Ordinal));
+        sources.AddRange(
+            Directory.EnumerateFiles(root, "*.rvn", SearchOption.AllDirectories).Order(StringComparer.Ordinal)
+        );
         continue;
     }
 
@@ -87,7 +89,9 @@ if (sources.Count == 0) {
     return 2;
 }
 
-Console.WriteLine($"{sources.Count} shader source{(sources.Count == 1 ? "" : "s")}, default target {target}.");
+Console.WriteLine(
+    $"{sources.Count} shader source{(sources.Count == 1 ? string.Empty : "s")}, default target {target}."
+);
 
 using var server = new ShaderCompilerServer(address, port, Open) { Log = Console.Out };
 server.Start();
@@ -137,7 +141,8 @@ IEffectSource? Open(string requested) {
 }
 
 static void Usage() {
-    Console.WriteLine("""
+    Console.WriteLine(
+        """
         vixen-shader-compiler — compiles shader variants for a device that has no compiler.
 
           <path>...             directories to search for .rvn files, or the files themselves
@@ -150,5 +155,6 @@ static void Usage() {
 
         A development tool: no TLS, no authentication, no access control. Anything that reaches the
         port gets whatever this can compile. Keep it behind a firewall.
-        """);
+        """
+    );
 }

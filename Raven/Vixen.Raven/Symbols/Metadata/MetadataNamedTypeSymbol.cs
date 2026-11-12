@@ -82,10 +82,11 @@ internal sealed class MetadataNamedTypeSymbol : NamedTypeSymbol {
 
         // Eager, and only the names: a constraint may name this very type, so nothing that needs
         // a lookup can happen while the symbol is still being constructed.
-        typeParameters = declaration.TypeParameters
-            .OrderBy(p => p.Ordinal)
-            .Select(p => new TypeParameterSymbol(this, p.Name, p.Ordinal))
-            .ToArray();
+        typeParameters = [
+            ..declaration.TypeParameters
+                .OrderBy(static p => p.Ordinal)
+                .Select(p => new TypeParameterSymbol(this, p.Name, p.Ordinal))
+        ];
     }
 
     public override IReadOnlyList<Symbol> GetMembers() {
@@ -126,7 +127,7 @@ internal sealed class MetadataNamedTypeSymbol : NamedTypeSymbol {
                 continue;
             }
 
-            parameter.SetConstraintTypes([.. model.Constraints.Select(c => Resolve(c))]);
+            parameter.SetConstraintTypes([..model.Constraints.Select(c => Resolve(c))]);
         }
 
         return typeParameters;
@@ -139,16 +140,18 @@ internal sealed class MetadataNamedTypeSymbol : NamedTypeSymbol {
 
         basesResolved = true;
 
-        if (Declaration.BaseType is { } declaredBase && Resolve(declaredBase) is NamedTypeSymbol resolved
+        if (Declaration.BaseType is { } declaredBase
+            && Resolve(declaredBase) is NamedTypeSymbol resolved
             && !resolved.IsErrorType) {
             baseType = resolved;
         }
 
-        interfaces = Declaration.Interfaces
-            .Select(declared => Resolve(declared))
-            .OfType<NamedTypeSymbol>()
-            .Where(type => !type.IsErrorType)
-            .ToArray();
+        interfaces = [
+            ..Declaration.Interfaces
+                .Select(declared => Resolve(declared))
+                .OfType<NamedTypeSymbol>()
+                .Where(static type => !type.IsErrorType)
+        ];
     }
 
     void EnsureMembers() {
@@ -175,9 +178,9 @@ internal sealed class MetadataNamedTypeSymbol : NamedTypeSymbol {
 
         built.AddRange(nestedTypes);
 
-        members = built.ToArray();
+        members = [..built];
         membersByName = built
-            .GroupBy(m => m.Name, StringComparer.Ordinal)
-            .ToDictionary(g => g.Key, g => g.ToArray(), StringComparer.Ordinal);
+            .GroupBy(static m => m.Name, StringComparer.Ordinal)
+            .ToDictionary(static g => g.Key, static g => g.ToArray(), StringComparer.Ordinal);
     }
 }

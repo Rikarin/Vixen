@@ -12,9 +12,12 @@ namespace Vixen.Rendering.Compositor;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>What
-///         [35 § B1](../../../docs/plan/35-water.md#b1-there-is-no-shading-model-that-can-read-the-scene-behind-it)
-///         turned out to need, and it is not the pass.</b> The compositor could already express "run
+///         <b>
+///             What
+///             [35 § B1](../../../docs/plan/35-water.md#b1-there-is-no-shading-model-that-can-read-the-scene-behind-it)
+///             turned out to need, and it is not the pass.
+///         </b>
+///         The compositor could already express "run
 ///         after deferred lighting, read the scene colour, write the scene colour" —
 ///         <c>ReflectionTrace</c> binds <c>sceneColor</c> today. What it could not express is the part
 ///         that makes that legal: sampling a target a pass is also writing is undefined behaviour, so
@@ -118,8 +121,7 @@ public sealed class TextureCopyRenderer : SceneRenderer {
                 pass.Reads(source, ResourceState.CopySource);
                 pass.Writes(destination, ResourceState.CopyDestination);
 
-                pass.Execute(
-                    context => context.CommandList.CopyTexture(
+                pass.Execute(context => context.CommandList.CopyTexture(
                         new(context.Texture(source)),
                         new(context.Texture(destination)),
                         size

@@ -7,7 +7,6 @@ using Vixen.Editor.Core;
 using Vixen.Editor.Testing;
 using Vixen.Engine.Transforms;
 using Vixen.Ui.Controls;
-using Vixen.Ui.Controls.Advanced;
 using Xunit;
 
 namespace Vixen.Editor.App.Tests;
@@ -65,21 +64,21 @@ public class ScenarioTests {
         // ── edit a property ─────────────────────────────────────────────────────────────────────
         editor.Step("edit a property").ClickRow(editor.Hierarchy, "Cube");
 
-        var position = editor.Inspector.Rows.Single(row => row.Field.Member.Name == "Position");
+        var position = editor.Inspector.Rows.Single(static row => row.Field.Member.Name == "Position");
 
         Assert.True(position.Field.Write(new Vector3(4f, 5f, 6f)));
         editor.Settle();
 
-        Assert.Equal(new Vector3(4f, 5f, 6f), new Transform(editor.Scene.World, cube).Position);
+        Assert.Equal(new(4f, 5f, 6f), new Transform(editor.Scene.World, cube).Position);
 
         // ── undo ────────────────────────────────────────────────────────────────────────────────
         editor.Step("undo it").Run("edit.undo");
 
-        Assert.NotEqual(new Vector3(4f, 5f, 6f), new Transform(editor.Scene.World, cube).Position);
+        Assert.NotEqual(new(4f, 5f, 6f), new Transform(editor.Scene.World, cube).Position);
 
         // And put it back, so that what is saved is what was typed rather than what undo left.
         editor.Run("edit.redo");
-        Assert.Equal(new Vector3(4f, 5f, 6f), new Transform(editor.Scene.World, cube).Position);
+        Assert.Equal(new(4f, 5f, 6f), new Transform(editor.Scene.World, cube).Position);
 
         // ── save ────────────────────────────────────────────────────────────────────────────────
         editor.Step("save").Run("file.save");
@@ -97,7 +96,7 @@ public class ScenarioTests {
 
         var reopened = editor.Scene.Entities.First(entity => editor.Scene.NameOf(entity) == "Cube");
 
-        Assert.Equal(new Vector3(4f, 5f, 6f), new Transform(editor.Scene.World, reopened).Position);
+        Assert.Equal(new(4f, 5f, 6f), new Transform(editor.Scene.World, reopened).Position);
 
         // The asset came back with it, under the same identity — which is what everything else in
         // the project refers to it by.
@@ -109,8 +108,12 @@ public class ScenarioTests {
     ///     E1's second exit scenario: the asset is renamed and the scene still resolves it.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>Doc 20 calls a naive rename "the fastest way to corrupt a project", and this is the
-    ///     test of which naivety.</b> Not a stale path — doc 08 chose a GUID over one, so a referrer
+    ///     ⚠
+    ///     <b>
+    ///         Doc 20 calls a naive rename "the fastest way to corrupt a project", and this is the
+    ///         test of which naivety.
+    ///     </b>
+    ///     Not a stale path — doc 08 chose a GUID over one, so a referrer
     ///     needs nothing done to it. The corruption is leaving the sidecar behind: the next scan
     ///     finds an asset with no identity, mints a new one, and every reference dangles with nothing
     ///     having reported an error. That failure is invisible until a scene is opened, which is
@@ -167,8 +170,11 @@ public class ScenarioTests {
 
         // The reference was never rewritten and never needed to be. What had to be true is that the
         // sidecar moved with the file, which is the only thing that keeps the GUID attached to it.
-        Assert.Contains(crate, editor.Project.References.ReferencesFrom(Guid(editor, "Assets/Materials/Crate.vxmat"))
-            .Select(reference => reference.Asset));
+        Assert.Contains(
+            crate,
+            editor.Project.References.ReferencesFrom(Guid(editor, "Assets/Materials/Crate.vxmat"))
+                .Select(static reference => reference.Asset)
+        );
     }
 
     /// <summary>

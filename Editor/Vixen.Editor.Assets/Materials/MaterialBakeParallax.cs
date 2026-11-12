@@ -10,8 +10,11 @@ namespace Vixen.Editor.Assets.Materials;
 /// <summary>The ask a <em>first</em> bake had no way to make: turn the height march on.</summary>
 /// <remarks>
 ///     <para>
-///         <b><a href="https://github.com/Rikarin/Vixen/issues/1103">#1103</a>'s remainder, and it is
-///         an authoring route rather than a rendering change.</b> A bake writes a height map for
+///         <b>
+///             <a href="https://github.com/Rikarin/Vixen/issues/1103">#1103</a>'s remainder, and it is
+///             an authoring route rather than a rendering change.
+///         </b>
+///         A bake writes a height map for
 ///         whatever wants it and composes no <see cref="ParallaxOcclusionFeature" /> for it, because
 ///         composing one would put a per-pixel march on <em>every</em> material any graph ever
 ///         emitted a height output from. What <see cref="MaterialBake.Material" /> does instead is
@@ -21,8 +24,12 @@ namespace Vixen.Editor.Assets.Materials;
 ///         paste. A route a tool describes is not a route the tool offers; this is the offer.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Nothing here decides where the feature goes, and that is the whole of why it is
-///         safe.</b> <see cref="ParallaxOcclusionFeature" /> declares
+///         ⚠
+///         <b>
+///             Nothing here decides where the feature goes, and that is the whole of why it is
+///             safe.
+///         </b>
+///         <see cref="ParallaxOcclusionFeature" /> declares
 ///         <see cref="MaterialFeatureStage.Coordinate" /> and <c>MaterialCompiler</c> refuses a
 ///         coordinate feature listed behind one that samples — so a naive "append it" writes a
 ///         <c>.vxmat</c> the bake itself produced and the importer then rejects. This asks
@@ -44,8 +51,12 @@ namespace Vixen.Editor.Assets.Materials;
 ///         existed.
 ///     </para>
 ///     <para>
-///         ⚠ <b>It lives here rather than in <c>Vixen.Cli</c>, which is where it shipped, and the move
-///         is what let the editor have it.</b> <c>Vixen.Cli</c> is an executable and
+///         ⚠
+///         <b>
+///             It lives here rather than in <c>Vixen.Cli</c>, which is where it shipped, and the move
+///             is what let the editor have it.
+///         </b>
+///         <c>Vixen.Cli</c> is an executable and
 ///         <c>build/Build.ArchitectureRules.cs</c> treats <c>Editor</c> and <c>Tools</c> as peers, so
 ///         the editor could not reference the rule and a second copy of it in
 ///         <c>Vixen.Editor.Texturing</c> would be a second answer to "where does a coordinate feature
@@ -76,25 +87,37 @@ public static class MaterialBakeParallax {
     /// <exception cref="ArgumentNullException"><paramref name="set" /> is null.</exception>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The rewrite is announced on its own, not covered by the bake's announcement
-    ///         (#1497).</b> The bake said it would write this file, and a watcher suppresses a path
+    ///         ⚠
+    ///         <b>
+    ///             The rewrite is announced on its own, not covered by the bake's announcement
+    ///             (#1497).
+    ///         </b>
+    ///         The bake said it would write this file, and a watcher suppresses a path
     ///         for a window of time rather than for one event — so a rewrite that lands after the
     ///         bake's scan of a large project has run past it echoed as somebody else's edit: a
     ///         second scan, a source-control sweep and a <c>ChangedOnDisk</c> to every module.
     ///     </para>
     ///     <para>
-    ///     ⚠ <b>An <c>out</c> sentence rather than a <c>TextWriter</c>, which is what it took while
-    ///     this lived in the command line.</b> A writer is one host's answer: the editor has no
-    ///     stderr, and its bake verbs put every refusal in a notification's detail. Both hosts can
-    ///     take a sentence.
+    ///         ⚠
+    ///         <b>
+    ///             An <c>out</c> sentence rather than a <c>TextWriter</c>, which is what it took while
+    ///             this lived in the command line.
+    ///         </b>
+    ///         A writer is one host's answer: the editor has no
+    ///         stderr, and its bake verbs put every refusal in a notification's detail. Both hosts can
+    ///         take a sentence.
     ///     </para>
     /// </remarks>
-    public static IReadOnlyList<string> Requested(MaterialBakeSet set, out string? refused, AssetDatabase? assets = null) {
+    public static IReadOnlyList<string> Requested(
+        MaterialBakeSet set,
+        out string? refused,
+        AssetDatabase? assets = null
+    ) {
         ArgumentNullException.ThrowIfNull(set);
 
         refused = null;
 
-        var file = set.Files.FirstOrDefault(written =>
+        var file = set.Files.FirstOrDefault(static written =>
             written.EndsWith(MaterialImporter.Extension, StringComparison.Ordinal)
         );
 
@@ -121,23 +144,23 @@ public static class MaterialBakeParallax {
             written = YamlSerializer.Parse<MaterialContent>(File.ReadAllText(file));
         } catch (Exception failure)
             when (failure is YamlParseException or YamlBindingException or NotSupportedException or IOException) {
-            refused = $"Parallax could not re-read the material this bake wrote: {failure.Message}";
+                refused = $"Parallax could not re-read the material this bake wrote: {failure.Message}";
 
-            return set.Warnings;
-        }
+                return set.Warnings;
+            }
 
-        if (Array.Exists(written.Features, feature => feature is ParallaxOcclusionFeature)) {
+        if (Array.Exists(written.Features, static feature => feature is ParallaxOcclusionFeature)) {
             // A re-bake of a material whose author already asked. The bake kept and fed it, so there
             // is nothing to add and no warning to drop.
             return set.Warnings;
         }
 
-        var asked = written with { Features = [new ParallaxOcclusionFeature(), .. written.Features] };
+        var asked = written with { Features = [new ParallaxOcclusionFeature(), ..written.Features] };
 
         assets?.WillWrite(file);
         File.WriteAllText(file, YamlSerializer.ToYaml(MaterialBake.Material(set.Maps, asked)));
 
-        return [.. set.Warnings.Where(warning => !Unfed(warning))];
+        return [..set.Warnings.Where(static warning => !Unfed(warning))];
     }
 
     /// <summary>Whether a warning is the one a parallax feature makes false.</summary>

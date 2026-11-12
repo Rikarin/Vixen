@@ -13,5 +13,7 @@ public sealed class TooltipAttribute : Attribute {
 
     /// <summary>Attaches <paramref name="text" /> to the annotated element.</summary>
     /// <param name="text">The text to show.</param>
-    public TooltipAttribute(string text) => Text = text;
+    public TooltipAttribute(string text) {
+        Text = text;
+    }
 }

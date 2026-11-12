@@ -9,7 +9,6 @@ using Vixen.Engine.Transforms;
 using Vixen.Net.Replication;
 using Vixen.Net.Rpc;
 using Vixen.Net.Rules;
-using Vixen.Net.Sessions;
 using Xunit;
 
 namespace Vixen.Net.Engine.Content.Tests;
@@ -33,8 +32,7 @@ public sealed class NetworkRulesContentTests {
     /// <summary>The worked example from doc 16: a dropped weapon anybody may take and nobody may steal.</summary>
     static NetworkRulesAsset Pickup(string name = "Pickup") =>
         new() {
-            Name = name,
-            Rules = new() { ChangeOwner = RuleAudience.Everyone, Claim = OwnershipClaim.WhenUnowned }
+            Name = name, Rules = new() { ChangeOwner = RuleAudience.Everyone, Claim = OwnershipClaim.WhenUnowned }
         };
 
     static NetworkRulesAsset Named(string name, NetworkRules rules) => new() { Name = name, Rules = rules };
@@ -204,8 +202,7 @@ public sealed class NetworkRulesContentTests {
     public async Task AnAddressThatIsNotInTheCatalogThrows() {
         var shipped = new Shipped().Rules("rules/pickup", Pickup()).Build();
 
-        await Assert.ThrowsAsync<AddressNotFoundException>(
-            async () => await NetworkRulesContent.LoadFromAsync(
+        await Assert.ThrowsAsync<AddressNotFoundException>(async () => await NetworkRulesContent.LoadFromAsync(
                 registry,
                 shipped.Assets,
                 ["rules/pickup", "rules/typo"],

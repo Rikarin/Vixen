@@ -117,7 +117,7 @@ public readonly struct OverlayRegion {
     public float RowHeight => surface?.RowHeight ?? 0f;
 
     /// <summary>How wide the area inside the padding is.</summary>
-    public float ContentWidth => surface is null ? 0f : Size.X - (2f * surface.Theme.Padding);
+    public float ContentWidth => surface is null ? 0f : Size.X - 2f * surface.Theme.Padding;
 
     /// <summary>How tall the area inside the padding and below the title is.</summary>
     public float ContentHeight => surface is null ? 0f : Origin.Y + Size.Y - surface.Theme.Padding - Content.Y;
@@ -200,7 +200,7 @@ public readonly struct OverlayRegion {
         Text(row, label, surface.Theme.Text);
         TextRight(row, value, colour);
 
-        var top = ((row + 1) * RowHeight) - (RowHeight * 0.28f);
+        var top = (row + 1) * RowHeight - RowHeight * 0.28f;
         var height = RowHeight * 0.16f;
         var full = ContentWidth;
 
@@ -259,7 +259,7 @@ public sealed class OverlaySurface {
     /// <param name="titled">Whether it has a title.</param>
     /// <returns>The height, in pixels.</returns>
     public float HeightForRows(int rows, bool titled = true) =>
-        (2f * Theme.Padding) + ((rows + (titled ? 1 : 0)) * RowHeight);
+        2f * Theme.Padding + (rows + (titled ? 1 : 0)) * RowHeight;
 
     /// <summary>Takes a panel out of a corner's stack.</summary>
     /// <param name="anchor">Which corner.</param>
@@ -274,12 +274,13 @@ public sealed class OverlaySurface {
     ///     is toggled on and does nothing. An empty region draws nothing and says so.
     /// </remarks>
     public OverlayRegion Panel(OverlayAnchor anchor, float width, float height, ReadOnlySpan<char> title = default) {
-        var cursor = cursors[(int) anchor];
+        var cursor = cursors[(int)anchor];
         var used = cursor + height + (cursor > 0f ? Theme.Gap : 0f);
 
-        if (width <= 0f || height <= 0f
-            || width + (2f * Theme.Margin) > Viewport.X
-            || used + (2f * Theme.Margin) > Viewport.Y) {
+        if (width <= 0f
+            || height <= 0f
+            || width + 2f * Theme.Margin > Viewport.X
+            || used + 2f * Theme.Margin > Viewport.Y) {
             return default;
         }
 
@@ -294,7 +295,7 @@ public sealed class OverlaySurface {
                 : Viewport.Y - top - height
         );
 
-        cursors[(int) anchor] = used;
+        cursors[(int)anchor] = used;
 
         var size = new Vector2(width, height);
 
@@ -308,7 +309,7 @@ public sealed class OverlaySurface {
         if (!title.IsEmpty) {
             Text(content, title, Theme.Heading);
 
-            var rule = content.Y + (RowHeight * 0.82f);
+            var rule = content.Y + RowHeight * 0.82f;
             Draw.ScreenLine(new(content.X, rule), new(origin.X + width - Theme.Padding, rule), Theme.Border);
 
             content = new(content.X, content.Y + RowHeight);

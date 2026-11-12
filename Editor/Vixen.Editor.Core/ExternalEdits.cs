@@ -114,8 +114,12 @@ public sealed class ExternalEdits : IDisposable {
     ///     relative to. Defaults to the project's <c>Assets/</c>, which is what the editor watches.
     /// </param>
     /// <remarks>
-    ///     ⚠ <b>The directory is a parameter because <see cref="IFileWatcher" /> does not publish
-    ///     it.</b> The interface gives the virtual root and not the OS directory it is mounted at, so
+    ///     ⚠
+    ///     <b>
+    ///         The directory is a parameter because <see cref="IFileWatcher" /> does not publish
+    ///         it.
+    ///     </b>
+    ///     The interface gives the virtual root and not the OS directory it is mounted at, so
     ///     the two halves of the mapping cannot both be derived from it. Guessing would be a second
     ///     opinion of a decision <c>EditorApplication.Watch</c> already made.
     /// </remarks>
@@ -181,8 +185,12 @@ public sealed class ExternalEdits : IDisposable {
     ///         is happening anyway.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A dirty document is left alone <em>and not marked stale</em>, which is the one
-    ///         place this differs from <see cref="Apply" />.</b> An overflow says events were lost,
+    ///         ⚠
+    ///         <b>
+    ///             A dirty document is left alone <em>and not marked stale</em>, which is the one
+    ///             place this differs from <see cref="Apply" />.
+    ///         </b>
+    ///         An overflow says events were lost,
     ///         not that this file changed. Marking every unsaved document conflicted because
     ///         something somewhere wrote a burst of files would put a prompt in front of somebody
     ///         about a file nothing touched — and a prompt that is usually wrong is one that gets
@@ -298,8 +306,12 @@ public sealed class ExternalEdits : IDisposable {
     /// <summary>Reads a document's file again, and survives it not working.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Four exceptions, and the list is <c>EditorFrames.Reframe</c>'s plus the two a
-    ///         file being written under one causes.</b> This runs from the frame, on a path that
+    ///         ⚠
+    ///         <b>
+    ///             Four exceptions, and the list is <c>EditorFrames.Reframe</c>'s plus the two a
+    ///             file being written under one causes.
+    ///         </b>
+    ///         This runs from the frame, on a path that
     ///         begins with somebody else's text editor pressing Ctrl+S — so an exception out of it
     ///         is an editor taken down by an external program, which is not a failure mode any
     ///         document should be able to have.
@@ -324,11 +336,11 @@ public sealed class ExternalEdits : IDisposable {
             return document.Reload();
         } catch (Exception failure)
             when (failure is IOException
-                or UnauthorizedAccessException
-                or InvalidOperationException
-                or NotSupportedException) {
-            return false;
-        }
+                      or UnauthorizedAccessException
+                      or InvalidOperationException
+                      or NotSupportedException) {
+                return false;
+            }
     }
 
     /// <summary>Tells the watcher to ignore the path a document is about to write.</summary>

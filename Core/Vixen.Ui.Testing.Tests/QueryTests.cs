@@ -15,16 +15,18 @@ public class QueryTests {
     static UiTest Fixture() {
         var ui = UiTest.Create(400f, 300f);
 
-        ui.Load("""
-            root { width: 400px; height: 300px; }
+        ui.Load(
+            """
+                root { width: 400px; height: 300px; }
 
-            /* ⚠ Stated, not assumed. CSS's initial flex-direction is `row`, so a list that did not
-               say this would lay its rows out side by side — which is correct and is not what the
-               word "list" leads anybody to expect. */
-            .list { width: 300px; height: 200px; flex-direction: column; }
-            .row { width: 300px; height: 20px; }
-            .row:nth-child(odd) { background-color: #222; }
-        """);
+                /* ⚠ Stated, not assumed. CSS's initial flex-direction is `row`, so a list that did not
+                   say this would lay its rows out side by side — which is correct and is not what the
+                   word "list" leads anybody to expect. */
+                .list { width: 300px; height: 200px; flex-direction: column; }
+                .row { width: 300px; height: 20px; }
+                .row:nth-child(odd) { background-color: #222; }
+            """
+        );
 
         var list = ui.Create("div", ui.Document.Root, "items", "list");
 
@@ -44,7 +46,7 @@ public class QueryTests {
         var rows = ui.Get(".row").Elements;
 
         Assert.Equal(4, rows.Count);
-        Assert.Equal(["Row 0", "Row 1", "Row 2", "Row 3"], rows.Select(row => row.Text));
+        Assert.Equal(["Row 0", "Row 1", "Row 2", "Row 3"], rows.Select(static row => row.Text));
     }
 
     [Fact]
@@ -56,7 +58,7 @@ public class QueryTests {
         // right or wrong independently of the stylesheet that draws the stripes.
         var odd = ui.Get(".row:nth-child(odd)").Elements;
 
-        Assert.Equal(["Row 0", "Row 2"], odd.Select(row => row.Text));
+        Assert.Equal(["Row 0", "Row 2"], odd.Select(static row => row.Text));
     }
 
     [Fact]
@@ -146,7 +148,7 @@ public class QueryTests {
         using var ui = Fixture();
 
         ui.Get(".row")
-            .Where(row => row.Top >= 40f, "below the second row")
+            .Where(static row => row.Top >= 40f, "below the second row")
             .ShouldHaveCount(2);
     }
 }

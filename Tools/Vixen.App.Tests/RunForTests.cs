@@ -12,8 +12,12 @@ namespace Vixen.App.Tests;
 ///     <c>vixen trace record --duration 10s</c> is built on.
 /// </summary>
 /// <remarks>
-///     ⚠ <b>The stop is measured on the frame clock, which is the only thing that makes it
-///     assertable.</b> A wall-clock budget is this repository's largest flake source and fifteen
+///     ⚠
+///     <b>
+///         The stop is measured on the frame clock, which is the only thing that makes it
+///         assertable.
+///     </b>
+///     A wall-clock budget is this repository's largest flake source and fifteen
 ///     agents share this machine; under <c>--vixen-fixed-step</c> — which <see cref="TestApp" />
 ///     always passes — frame <i>N</i> is the same instant of simulated time whatever the box is
 ///     doing, so "it stopped within one frame of the mark" is a property of the code rather than of

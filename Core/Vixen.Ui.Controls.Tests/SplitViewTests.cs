@@ -254,8 +254,12 @@ public class SplitViewTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>A disabled split takes its bar out of the tab order, and no base class does that for
-    ///     a part.</b> <c>Control</c> clears its own <c>Focusable</c>; <c>UiDocument.TabOrder</c> knows
+    ///     ⚠
+    ///     <b>
+    ///         A disabled split takes its bar out of the tab order, and no base class does that for
+    ///         a part.
+    ///     </b>
+    ///     <c>Control</c> clears its own <c>Focusable</c>; <c>UiDocument.TabOrder</c> knows
     ///     about <c>display: none</c> and nothing about a disabled ancestor. The capture-leg refusal
     ///     already stops the keys — a tab stop that answers nothing is the half it cannot reach.
     /// </summary>
@@ -278,7 +282,7 @@ public class SplitViewTests {
 
     static (ControlFixture Fixture, SplitView Split) Opened(string? extra = null) {
         var fixture = new ControlFixture(
-            css: $"split-view {{ width: {Width}px; height: 200px; }}" + (extra is null ? "" : " " + extra)
+            css: $"split-view {{ width: {Width}px; height: 200px; }}" + (extra is null ? string.Empty : " " + extra)
         );
 
         var split = fixture.Add<SplitView>();

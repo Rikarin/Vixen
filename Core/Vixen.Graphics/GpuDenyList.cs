@@ -21,8 +21,11 @@ namespace Vixen.Graphics;
 /// </param>
 /// <remarks>
 ///     <para>
-///         <b>A substring rather than an exact name, because a driver's name for itself is not a
-///         stable identifier.</b> The same GPU reports <c>Mali-G78</c> on one device and
+///         <b>
+///             A substring rather than an exact name, because a driver's name for itself is not a
+///             stable identifier.
+///         </b>
+///         The same GPU reports <c>Mali-G78</c> on one device and
 ///         <c>Mali-G78 MC14</c> on another, and Adreno adds and drops the vendor prefix between
 ///         driver branches. A rule keyed on equality is a rule that stops matching after an OTA
 ///         update, which is worse than no rule because it looks like coverage.
@@ -53,9 +56,12 @@ public readonly record struct GpuDenyRule(string Adapter, string? DriverVersion,
 /// <summary>The adapters a backend is known to be broken on, keyed on GPU and driver version.</summary>
 /// <remarks>
 ///     <para>
-///         <b>What <a href="../../docs/plan/10-platforms.md">doc 10</a> § Android asks for by name:
-///         "the device-capability database (a curated deny-list keyed on GPU/driver version, shipped
-///         as content and updatable)".</b> Android driver fragmentation is the reason — a device
+///         <b>
+///             What <a href="../../docs/plan/10-platforms.md">doc 10</a> § Android asks for by name:
+///             "the device-capability database (a curated deny-list keyed on GPU/driver version, shipped
+///             as content and updatable)".
+///         </b>
+///         Android driver fragmentation is the reason — a device
 ///         reports Vulkan, passes every capability query the engine knows how to ask, and then fails
 ///         on a specific extension in a specific driver branch. There is no query for "this driver
 ///         lies"; there is only a list somebody wrote down.
@@ -69,8 +75,12 @@ public readonly record struct GpuDenyRule(string Adapter, string? DriverVersion,
 ///         cleared a bit there would be lying in the other direction.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Empty denies nothing, and that is the state every machine is in until content says
-///         otherwise.</b> The failure mode this whole type has to avoid is a deny-list that refuses
+///         ⚠
+///         <b>
+///             Empty denies nothing, and that is the state every machine is in until content says
+///             otherwise.
+///         </b>
+///         The failure mode this whole type has to avoid is a deny-list that refuses
 ///         a device nobody meant to refuse, because the symptom is a black screen on hardware that
 ///         works — so <see cref="Parse" /> reports a malformed line rather than dropping it, and
 ///         refuses a rule that matches every adapter and every driver.
@@ -104,7 +114,7 @@ public sealed class GpuDenyList {
     public GpuDenyList(IEnumerable<GpuDenyRule> rules) {
         ArgumentNullException.ThrowIfNull(rules);
 
-        this.rules = [.. rules];
+        this.rules = [..rules];
 
         foreach (var rule in this.rules) {
             if (IsCatchAll(rule)) {
@@ -128,8 +138,12 @@ public sealed class GpuDenyList {
     ///     names the line number.
     /// </exception>
     /// <remarks>
-    ///     ⚠ <b>Throws rather than skipping, which is the whole reason it is worth having a parser
-    ///     at all.</b> A deny-list is read to protect a device from a driver, and the one outcome
+    ///     ⚠
+    ///     <b>
+    ///         Throws rather than skipping, which is the whole reason it is worth having a parser
+    ///         at all.
+    ///     </b>
+    ///     A deny-list is read to protect a device from a driver, and the one outcome
     ///     nobody can see is a rule that was silently dropped: the run is green, the log is quiet,
     ///     and the device it was written for is exactly as broken as before. A file that will not
     ///     parse is a file somebody has to look at.
@@ -220,10 +234,8 @@ public sealed class GpuDenyList {
         + "machine, which is one typo away from a content update that black-screens a shipped game. "
         + "Name the adapter or the driver version.";
 
-    static bool IsCatchAll(in GpuDenyRule rule) =>
-        rule.Adapter == Any && rule.DriverVersion is null or Any;
+    static bool IsCatchAll(in GpuDenyRule rule) => rule.Adapter == Any && rule.DriverVersion is null or Any;
 
-    static FormatException Malformed(int line, string what) => new(
-        string.Format(CultureInfo.InvariantCulture, "Deny-list line {0}: {1}.", line, what)
-    );
+    static FormatException Malformed(int line, string what) =>
+        new(string.Format(CultureInfo.InvariantCulture, "Deny-list line {0}: {1}.", line, what));
 }

@@ -268,7 +268,8 @@ public class SwitchTests {
 
     static int Occurrences(string text, string needle) {
         var count = 0;
-        for (var i = text.IndexOf(needle, StringComparison.Ordinal); i >= 0;
+        for (var i = text.IndexOf(needle, StringComparison.Ordinal);
+             i >= 0;
              i = text.IndexOf(needle, i + needle.Length, StringComparison.Ordinal)) {
             count++;
         }

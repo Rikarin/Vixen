@@ -9,8 +9,11 @@ namespace Vixen.Texturing.Painting;
 /// <summary>A brush alpha read out of a <see cref="PaintImage" />, one channel of it, bilinearly.</summary>
 /// <remarks>
 ///     <para>
-///         <b>⚠ The first implementation of <c>IBrushMask</c> anywhere in this tree, which is why
-///         the rotation knob was unreachable</b> —
+///         <b>
+///             ⚠ The first implementation of <c>IBrushMask</c> anywhere in this tree, which is why
+///             the rotation knob was unreachable
+///         </b>
+///         —
 ///         <a href="https://github.com/Rikarin/Vixen/issues/1083">#1083</a>. <c>Vixen.Terrain</c>
 ///         declared the interface and every caller in the repository passed null, so
 ///         <c>BrushShape.Alpha</c> and <c>BrushRotation</c> were settings whose effect was
@@ -18,16 +21,24 @@ namespace Vixen.Texturing.Painting;
 ///         and a disc turned is a disc.
 ///     </para>
 ///     <para>
-///         ⚠ <b>A <see cref="PaintImage" /> and not a decoded file, and that is what makes this the
-///         path an artist's own alpha will take.</b> <see cref="PaintAlphas" /> renders the shipped
+///         ⚠
+///         <b>
+///             A <see cref="PaintImage" /> and not a decoded file, and that is what makes this the
+///             path an artist's own alpha will take.
+///         </b>
+///         <see cref="PaintAlphas" /> renders the shipped
 ///         shelf into images and wraps them here rather than sampling its shapes analytically — so
 ///         the sampling, the addressing and the unit-square contract are exercised by the shelf
 ///         today and are not a second implementation waiting for the day a texture picker arrives.
 ///         An imported picture is Rgba8 bytes, which is what a <see cref="PaintImage" /> is.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Outside the unit square it is zero, because <c>IBrushMask</c> says so and because
-///         the alternative silently changes the stamp's shape.</b> Clamping the address instead
+///         ⚠
+///         <b>
+///             Outside the unit square it is zero, because <c>IBrushMask</c> says so and because
+///             the alternative silently changes the stamp's shape.
+///         </b>
+///         Clamping the address instead
 ///         would smear the mask's border row over everything the footprint reaches past the square —
 ///         and the footprint rectangle is <c>√2</c> radii, so there is always such a region.
 ///     </para>
@@ -67,8 +78,8 @@ public sealed class PaintImageMask : IBrushMask {
             return 0f;
         }
 
-        var x = (uv.X * image.Width) - 0.5f;
-        var y = (uv.Y * image.Height) - 0.5f;
+        var x = uv.X * image.Width - 0.5f;
+        var y = uv.Y * image.Height - 0.5f;
         var x0 = (int)MathF.Floor(x);
         var y0 = (int)MathF.Floor(y);
         var fx = x - x0;
@@ -82,8 +93,12 @@ public sealed class PaintImageMask : IBrushMask {
 
     /// <summary>One tap, as the one byte it is.</summary>
     /// <remarks>
-    ///     ⚠ <b>Straight out of the byte array rather than through <c>PaintImage.At</c> and
-    ///     <c>PaintImage.Channel</c>.</b> Those two assemble a texel out of four bytes so that this
+    ///     ⚠
+    ///     <b>
+    ///         Straight out of the byte array rather than through <c>PaintImage.At</c> and
+    ///         <c>PaintImage.Channel</c>.
+    ///     </b>
+    ///     Those two assemble a texel out of four bytes so that this
     ///     can shift three of them straight back out — four times per texel painted, in the inner
     ///     loop of a stamp whose footprint is already twice a disc's. One load against four loads,
     ///     three shifts, three ors, a shift and a mask, for the same number.
@@ -101,15 +116,18 @@ public sealed class PaintImageMask : IBrushMask {
         return PaintImage.Channel(image.At(column, row), channel);
     }
 
-    static float Lerp(float from, float to, float amount) => from + ((to - from) * amount);
+    static float Lerp(float from, float to, float amount) => from + (to - from) * amount;
 }
 
 /// <summary>The brush alphas the editor ships, by name.</summary>
 /// <remarks>
 ///     <para>
-///         <b>⚠ The "somewhere for the artist to choose one" half of
-///         <a href="https://github.com/Rikarin/Vixen/issues/1083">#1083</a>, and it is a fixed shelf
-///         rather than a picker for a stated reason.</b> The three shapes on the table were a
+///         <b>
+///             ⚠ The "somewhere for the artist to choose one" half of
+///             <a href="https://github.com/Rikarin/Vixen/issues/1083">#1083</a>, and it is a fixed shelf
+///             rather than a picker for a stated reason.
+///         </b>
+///         The three shapes on the table were a
 ///         brush-preset asset, a picker over the project's own images, and this. A picker is the one
 ///         an artist eventually wants and it is also the one that cannot be built here yet:
 ///         <c>PaintBrushInspector</c>'s remarks record why that column is C# rather than
@@ -120,15 +138,23 @@ public sealed class PaintImageMask : IBrushMask {
 ///         <a href="https://github.com/Rikarin/Vixen/issues/1090">#1090</a> is the picker.
 ///     </para>
 ///     <para>
-///         ⚠ <b><see cref="Round" /> is a name for <see langword="null" /> and not an image of a
-///         disc.</b> A round brush is the falloff on its own, which is exactly what a null alpha
+///         ⚠
+///         <b>
+///             <see cref="Round" /> is a name for <see langword="null" /> and not an image of a
+///             disc.
+///         </b>
+///         A round brush is the falloff on its own, which is exactly what a null alpha
 ///         gives — and it is cheaper, since it skips the mask tap per texel. Shipping a disc image
 ///         would be a second, slightly different circle: <c>TerrainBrush</c>'s whole argument
 ///         against a second falloff, in miniature.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Every shape here fills the square rather than fitting inside the disc, which is the
-///         point.</b> A mask whose support is inside the inscribed circle would be a shape whose
+///         ⚠
+///         <b>
+///             Every shape here fills the square rather than fitting inside the disc, which is the
+///             point.
+///         </b>
+///         A mask whose support is inside the inscribed circle would be a shape whose
 ///         rotation an artist could not see at the edges. The corners are reachable as of #1083.
 ///     </para>
 /// </remarks>
@@ -183,7 +209,8 @@ public static class PaintAlphas {
                 MathF.Max(
                     MathF.Min(Band(u, 0.5f, soft), Band(v, 0.18f, soft)),
                     MathF.Min(Band(v, 0.5f, soft), Band(u, 0.18f, soft))
-                ))
+                )
+            )
         };
 
     /// <summary>Renders a shape into an image and wraps it as a mask.</summary>
@@ -204,7 +231,7 @@ public static class PaintAlphas {
                 var u = (x + 0.5f) / Resolution;
                 var v = (y + 0.5f) / Resolution;
 
-                image[(y * Resolution) + x] = PaintImage.Pack(0f, 0f, 0f, shape(u - 0.5f, v - 0.5f, Soft));
+                image[y * Resolution + x] = PaintImage.Pack(0f, 0f, 0f, shape(u - 0.5f, v - 0.5f, Soft));
             }
         }
 
@@ -217,5 +244,5 @@ public static class PaintAlphas {
     /// <param name="soft">How wide the feather is.</param>
     /// <returns>The coverage, 0…1.</returns>
     static float Band(float offset, float half, float soft) =>
-        Math.Clamp(((half - MathF.Abs(offset)) / soft) + 0.5f, 0f, 1f);
+        Math.Clamp((half - MathF.Abs(offset)) / soft + 0.5f, 0f, 1f);
 }

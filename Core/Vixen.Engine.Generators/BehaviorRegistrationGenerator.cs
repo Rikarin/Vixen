@@ -17,16 +17,23 @@ sealed record BehaviorModel(string QualifiedName, string? Warning);
 /// <summary>Declares every behaviour this assembly can put in a scene, before any of its code runs.</summary>
 /// <remarks>
 ///     <para>
-///         <b><c>ComponentRegistrationGenerator</c>'s twin, keyed off <c>[DataContract]</c> rather
-///         than <c>[Component]</c>.</b> A behaviour is a class and carries no <c>[Component]</c> —
+///         <b>
+///             <c>ComponentRegistrationGenerator</c>'s twin, keyed off <c>[DataContract]</c> rather
+///             than <c>[Component]</c>.
+///         </b>
+///         A behaviour is a class and carries no <c>[Component]</c> —
 ///         the ECS never attaches it to an entity, <c>BehaviorStore</c> does — so what declares one
 ///         authorable is that it is a <c>Behavior</c> and that it can be described. Both halves are
 ///         necessary: a behaviour with no contract is one a scene could name and not restore, which
 ///         is worse than one it cannot name.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Started from the attribute rather than from the base type, because that is what an
-///         incremental generator can index.</b> <c>ForAttributeWithMetadataName</c> is driven by a
+///         ⚠
+///         <b>
+///             Started from the attribute rather than from the base type, because that is what an
+///             incremental generator can index.
+///         </b>
+///         <c>ForAttributeWithMetadataName</c> is driven by a
 ///         table the compiler already keeps; asking "does this class derive from <c>Behavior</c>"
 ///         over every type in the compilation is a walk per keystroke. The base-type check is then a
 ///         cheap filter on the handful of types that carry the attribute at all.
@@ -53,7 +60,7 @@ public sealed class BehaviorRegistrationGenerator : IIncrementalGenerator {
         "'{0}' is a described behaviour with no public parameterless constructor, so a scene cannot restore it",
         "Vixen.Engine",
         DiagnosticSeverity.Warning,
-        isEnabledByDefault: true,
+        true,
         "The editor constructs one when somebody adds it and the loader constructs one before filling "
         + "it in, so a behaviour a scene may name has to be constructible with no arguments. Give it a "
         + "public parameterless constructor, or drop [DataContract] if it is not meant to be authored."
@@ -65,7 +72,7 @@ public sealed class BehaviorRegistrationGenerator : IIncrementalGenerator {
         "'{0}' is generic, so a scene cannot name it and it is not registered",
         "Vixen.Engine",
         DiagnosticSeverity.Warning,
-        isEnabledByDefault: true,
+        true,
         "A scene carries a behaviour's [DataContract] alias and nothing else, so one name would have "
         + "to stand for every instantiation. Declare the closed types the scene needs."
     );
@@ -76,15 +83,15 @@ public sealed class BehaviorRegistrationGenerator : IIncrementalGenerator {
             .ForAttributeWithMetadataName(
                 ContractAttribute,
                 static (node, _) => node is Microsoft.CodeAnalysis.CSharp.Syntax.ClassDeclarationSyntax,
-                static (syntaxContext, _) => Describe((INamedTypeSymbol) syntaxContext.TargetSymbol)
+                static (syntaxContext, _) => Describe((INamedTypeSymbol)syntaxContext.TargetSymbol)
             )
             .Where(static model => model is not null)
             .Collect();
 
         // Selected down to a bool, which is `ComponentRegistrationGenerator`'s note: the compilation
         // changes on every keystroke and a bool compares equal to the last one.
-        var reachable = context.CompilationProvider.Select(
-            static (compilation, _) => compilation.GetTypeByMetadataName(RegistryType) is not null
+        var reachable = context.CompilationProvider.Select(static (compilation, _) =>
+            compilation.GetTypeByMetadataName(RegistryType) is not null
         );
 
         context.RegisterSourceOutput(
@@ -131,9 +138,8 @@ public sealed class BehaviorRegistrationGenerator : IIncrementalGenerator {
     ///     reports as an ordinary parameterless instance constructor — so the two cases are one test.
     /// </remarks>
     static bool HasParameterlessConstructor(INamedTypeSymbol type) =>
-        type.InstanceConstructors.Any(
-            constructor => constructor.Parameters.Length == 0
-                && constructor.DeclaredAccessibility == Accessibility.Public
+        type.InstanceConstructors.Any(constructor => constructor.Parameters.Length == 0
+            && constructor.DeclaredAccessibility == Accessibility.Public
         );
 
     static void Emit(SourceProductionContext context, ImmutableArray<BehaviorModel> models, bool reachable) {
@@ -164,7 +170,9 @@ public sealed class BehaviorRegistrationGenerator : IIncrementalGenerator {
         source.AppendLine("#nullable disable");
         source.AppendLine();
         source.AppendLine($"namespace {GeneratedNamespace} {{");
-        source.AppendLine("    /// <summary>Declares this assembly's scene behaviours before any of its code runs.</summary>");
+        source.AppendLine(
+            "    /// <summary>Declares this assembly's scene behaviours before any of its code runs.</summary>"
+        );
         source.AppendLine("    internal static class BehaviorRegistration {");
         source.AppendLine("        [global::System.Runtime.CompilerServices.ModuleInitializer]");
         source.AppendLine("        internal static void Initialize() {");

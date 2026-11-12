@@ -19,7 +19,7 @@ public class ChildArenaTests {
         // Two parents filled a child at a time, which is what a reconciler walking a keyed list does
         // and what the old implementation was worst at: neither run is ever the last thing in the
         // arena when it is asked to grow, so every append relocated the whole run.
-        var tree = new StyleTree(new NameTable());
+        var tree = new StyleTree(new());
         var root = tree.CreateElement("root", null, null, []);
         var left = tree.CreateElement("div", root, null, []);
         var right = tree.CreateElement("div", root, null, []);
@@ -47,7 +47,7 @@ public class ChildArenaTests {
 
     [Fact]
     public void A_run_that_grows_where_it_stands_costs_nothing_extra() {
-        var tree = new StyleTree(new NameTable());
+        var tree = new StyleTree(new());
         var root = tree.CreateElement("root", null, null, []);
         var parent = tree.CreateElement("div", root, null, []);
 
@@ -63,7 +63,7 @@ public class ChildArenaTests {
     public void Every_child_comes_back_in_the_order_it_went_in() {
         // The correctness half. Reserved slots hold whatever the arena had there before, so a reader
         // bounded by the arena rather than by the count would return them.
-        var tree = new StyleTree(new NameTable());
+        var tree = new StyleTree(new());
         var root = tree.CreateElement("root", null, null, []);
         var left = tree.CreateElement("div", root, null, []);
         var right = tree.CreateElement("div", root, null, []);
@@ -84,50 +84,52 @@ public class ChildArenaTests {
 
     [Fact]
     public void Removing_and_appending_keep_the_run_consistent() {
-        Gen.Select(Gen.Int[0, 100_000], Gen.Int[4, 40]).Sample(shape => {
-                var (seed, operations) = shape;
-                var random = new Random(seed);
+        Gen.Select(Gen.Int[0, 100_000], Gen.Int[4, 40])
+            .Sample(
+                static shape => {
+                    var (seed, operations) = shape;
+                    var random = new Random(seed);
 
-                var tree = new StyleTree(new NameTable());
-                var root = tree.CreateElement("root", null, null, []);
-                var parents = new[] {
-                    tree.CreateElement("div", root, null, []),
-                    tree.CreateElement("div", root, null, [])
-                };
+                    var tree = new StyleTree(new());
+                    var root = tree.CreateElement("root", null, null, []);
+                    var parents = new[] {
+                        tree.CreateElement("div", root, null, []), tree.CreateElement("div", root, null, [])
+                    };
 
-                var expected = new List<StyleNodeId>[] { [], [] };
+                    var expected = new List<StyleNodeId>[] { [], [] };
 
-                for (var op = 0; op < operations; op++) {
-                    var which = random.Next(2);
+                    for (var op = 0; op < operations; op++) {
+                        var which = random.Next(2);
 
-                    if (expected[which].Count > 0 && random.Next(4) == 0) {
-                        var at = random.Next(expected[which].Count);
-                        tree.Remove(expected[which][at]);
-                        expected[which].RemoveAt(at);
-                        continue;
+                        if (expected[which].Count > 0 && random.Next(4) == 0) {
+                            var at = random.Next(expected[which].Count);
+                            tree.Remove(expected[which][at]);
+                            expected[which].RemoveAt(at);
+                            continue;
+                        }
+
+                        expected[which].Add(tree.CreateElement("div", parents[which], null, []));
                     }
 
-                    expected[which].Add(tree.CreateElement("div", parents[which], null, []));
-                }
+                    // A removal shifts the run down inside its own space and an append writes at the end
+                    // of the count — the two together are where an off-by-one in the capacity scheme
+                    // lands, and where a run can start reading its own reserved slots.
+                    for (var which = 0; which < 2; which++) {
+                        Assert.Equal(expected[which].Count, tree.GetChildCount(parents[which]));
 
-                // A removal shifts the run down inside its own space and an append writes at the end
-                // of the count — the two together are where an off-by-one in the capacity scheme
-                // lands, and where a run can start reading its own reserved slots.
-                for (var which = 0; which < 2; which++) {
-                    Assert.Equal(expected[which].Count, tree.GetChildCount(parents[which]));
-
-                    for (var i = 0; i < expected[which].Count; i++) {
-                        Assert.Equal(expected[which][i], tree.GetChild(parents[which], i));
-                        Assert.Equal(i, tree.IndexInParentOf(expected[which][i].Index));
+                        for (var i = 0; i < expected[which].Count; i++) {
+                            Assert.Equal(expected[which][i], tree.GetChild(parents[which], i));
+                            Assert.Equal(i, tree.IndexInParentOf(expected[which][i].Index));
+                        }
                     }
-                }
-            }, iter: 200
-        );
+                },
+                iter: 200
+            );
     }
 
     [Fact]
     public void Compaction_packs_the_runs_tight_again() {
-        var tree = new StyleTree(new NameTable());
+        var tree = new StyleTree(new());
         var root = tree.CreateElement("root", null, null, []);
         var parent = tree.CreateElement("div", root, null, []);
 
@@ -148,6 +150,6 @@ public class ChildArenaTests {
         // Compaction is the moment reservation is given back — a compacted tree is one nobody is
         // part-way through building, so a tight run is right and the next append will reserve again.
         Assert.True(tree.ChildArenaLength < before);
-        Assert.Equal(50, tree.GetChildCount(new StyleNodeId(remap[parent.Index])));
+        Assert.Equal(50, tree.GetChildCount(new(remap[parent.Index])));
     }
 }

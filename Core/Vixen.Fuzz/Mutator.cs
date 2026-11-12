@@ -43,7 +43,9 @@ public sealed class Mutator {
 
     /// <summary>Creates a mutator.</summary>
     /// <param name="seed">What to start the generator at. The same seed replays the same run.</param>
-    public Mutator(ulong seed) => random = new(seed);
+    public Mutator(ulong seed) {
+        random = new(seed);
+    }
 
     /// <summary>Produces a mutant of an input, possibly spliced with another.</summary>
     /// <param name="input">What to start from.</param>
@@ -65,7 +67,7 @@ public sealed class Mutator {
             length = Apply(length, other);
         }
 
-        return scratch.AsSpan(0, length).ToArray();
+        return [..scratch.AsSpan(0, length)];
     }
 
     /// <summary>Produces an input from nothing, for the cases a corpus would never suggest.</summary>

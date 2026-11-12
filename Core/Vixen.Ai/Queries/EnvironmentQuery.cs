@@ -101,7 +101,7 @@ public sealed class EnvironmentQuery : IScoredCandidateSet<QueryPoint> {
 
         results.Generated = candidates.Count;
 
-        Span<float> factors = tests.Length <= 32 ? stackalloc float[32] : new float[tests.Length];
+        var factors = tests.Length <= 32 ? stackalloc float[32] : new float[tests.Length];
 
         foreach (var point in candidates) {
             factors.Clear();
@@ -162,7 +162,7 @@ public sealed class EnvironmentQuery : IScoredCandidateSet<QueryPoint> {
         var point = candidates[index];
         var origin = LastOrigin;
 
-        Span<float> factors = tests.Length <= 32 ? stackalloc float[32] : new float[tests.Length];
+        var factors = tests.Length <= 32 ? stackalloc float[32] : new float[tests.Length];
         var scoring = 0;
 
         for (var test = 0; test < tests.Length; test++) {

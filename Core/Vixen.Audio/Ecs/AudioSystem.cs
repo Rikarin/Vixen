@@ -15,8 +15,12 @@ namespace Vixen.Audio.Ecs;
 /// <summary>Makes the mixer agree with the world, once a frame.</summary>
 /// <remarks>
 ///     <para>
-///         <b>Declarative, not imperative.</b> Game code writes <c>source.Playback =
-///         AudioPlayback.Playing</c> and this reconciles: it starts what should be playing, stops
+///         <b>Declarative, not imperative.</b> Game code writes
+///         <c>
+///             source.Playback =
+///             AudioPlayback.Playing
+///         </c>
+///         and this reconciles: it starts what should be playing, stops
 ///         what should not, pushes the gain and the position of everything that is, and writes
 ///         <see cref="AudioPlayback.Stopped" /> back when a sound runs out. So a sound survives a
 ///         save and a reload — it is a component value, not a handle somebody has to have kept — and
@@ -175,15 +179,17 @@ public sealed class AudioSystem(AudioEngine engine) : SystemBase, IDeclaredAcces
                 // Velocity is tracked for every listener, including the ones past the cap: it is the
                 // component's own state, and skipping it would leave a listener that came back inside
                 // the cap deriving its velocity from wherever it was when it dropped out.
-                var velocity = Track(ref component.Velocity,
+                var velocity = Track(
+                    ref component.Velocity,
                     ref component.PreviousPosition,
                     ref component.HasPreviousPosition,
                     component.AutoVelocity,
                     position,
-                    deltaSeconds);
+                    deltaSeconds
+                );
 
                 set.TryAdd(
-                    new AudioListener {
+                    new() {
                         Position = position,
                         Forward = matrix.Forward,
                         Up = matrix.Up,
@@ -215,15 +221,17 @@ public sealed class AudioSystem(AudioEngine engine) : SystemBase, IDeclaredAcces
                 var matrix = transforms[i].Value;
                 var position = matrix.Translation;
 
-                Track(ref spatial.Velocity,
+                Track(
+                    ref spatial.Velocity,
                     ref spatial.PreviousPosition,
                     ref spatial.HasPreviousPosition,
                     spatial.AutoVelocity,
                     position,
-                    deltaSeconds);
+                    deltaSeconds
+                );
 
                 var settings = spatial.ToSettings(position, matrix.Forward);
-                Reconcile(ref source, world.Read<AudioClipRef>(entities[i]).Clip, null, spatial: true, settings);
+                Reconcile(ref source, world.Read<AudioClipRef>(entities[i]).Clip, null, true, settings);
             }
         }
     }
@@ -238,7 +246,7 @@ public sealed class AudioSystem(AudioEngine engine) : SystemBase, IDeclaredAcces
                     ref sources[i],
                     world.Read<AudioClipRef>(entities[i]).Clip,
                     null,
-                    spatial: false,
+                    false,
                     default
                 );
             }
@@ -258,18 +266,20 @@ public sealed class AudioSystem(AudioEngine engine) : SystemBase, IDeclaredAcces
                 var matrix = transforms[i].Value;
                 var position = matrix.Translation;
 
-                Track(ref spatial.Velocity,
+                Track(
+                    ref spatial.Velocity,
                     ref spatial.PreviousPosition,
                     ref spatial.HasPreviousPosition,
                     spatial.AutoVelocity,
                     position,
-                    deltaSeconds);
+                    deltaSeconds
+                );
 
                 // The entity supplies where and how fast; the event supplies everything else about
                 // how that place sounds. AudioSpatial's own rolloff and cone are not read here.
                 var sound = world.Read<AudioEventRef>(entities[i]).Event;
                 var settings = sound?.Place(position, spatial.Velocity, matrix.Forward) ?? default;
-                Reconcile(ref source, null, sound, spatial: true, settings);
+                Reconcile(ref source, null, sound, true, settings);
             }
         }
     }
@@ -284,7 +294,7 @@ public sealed class AudioSystem(AudioEngine engine) : SystemBase, IDeclaredAcces
                     ref sources[i],
                     null,
                     world.Read<AudioEventRef>(entities[i]).Event,
-                    spatial: false,
+                    false,
                     default
                 );
             }
@@ -314,13 +324,15 @@ public sealed class AudioSystem(AudioEngine engine) : SystemBase, IDeclaredAcces
         switch (source.Playback) {
             case AudioPlayback.Playing when !alive:
                 if (sound is not null) {
-                    source.Voice = sound.Play(new AudioEventPlayback {
-                        Position = settings.Position,
-                        Velocity = settings.Velocity,
-                        ConeDirection = settings.ConeDirection,
-                        Gain = source.Gain,
-                        Pitch = source.Pitch
-                    });
+                    source.Voice = sound.Play(
+                        new AudioEventPlayback {
+                            Position = settings.Position,
+                            Velocity = settings.Velocity,
+                            ConeDirection = settings.ConeDirection,
+                            Gain = source.Gain,
+                            Pitch = source.Pitch
+                        }
+                    );
 
                     // What the event chose for this play, so the per-frame push can scale it rather
                     // than overwrite it. A refused play leaves them alone; nothing reads them.
@@ -332,16 +344,19 @@ public sealed class AudioSystem(AudioEngine engine) : SystemBase, IDeclaredAcces
                     source.VoiceGainScale = 1f;
                     source.VoicePitchScale = 1f;
 
-                    source.Voice = engine.Play(clip, new PlaybackSettings {
-                        Bus = source.Bus,
-                        Gain = source.Gain,
-                        Pitch = source.Pitch,
-                        Pan = source.Pan,
-                        Loop = source.Loop,
-                        Priority = source.Priority,
-                        IsSpatial = spatial,
-                        Spatial = settings
-                    });
+                    source.Voice = engine.Play(
+                        clip,
+                        new() {
+                            Bus = source.Bus,
+                            Gain = source.Gain,
+                            Pitch = source.Pitch,
+                            Pan = source.Pan,
+                            Loop = source.Loop,
+                            Priority = source.Priority,
+                            IsSpatial = spatial,
+                            Spatial = settings
+                        }
+                    );
                 }
 
                 break;
@@ -365,9 +380,6 @@ public sealed class AudioSystem(AudioEngine engine) : SystemBase, IDeclaredAcces
             case AudioPlayback.Stopped when alive:
                 engine.Stop(source.Voice);
                 source.Voice = VoiceHandle.None;
-                break;
-
-            default:
                 break;
         }
     }

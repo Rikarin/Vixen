@@ -29,7 +29,7 @@ public class OverflowTests {
 
     static FontFace LoadFont() {
         using var stream = Assembly.GetExecutingAssembly()
-            .GetManifestResourceStream("Vixen.Ui.Tests.Fonts.TestShapeLana.ttf")
+                .GetManifestResourceStream("Vixen.Ui.Tests.Fonts.TestShapeLana.ttf")
             ?? throw new InvalidOperationException("the test font is not embedded");
 
         using var memory = new MemoryStream();
@@ -48,7 +48,7 @@ public class OverflowTests {
     }
 
     static DrawCommand Push(UiDocument document) =>
-        Assert.Single(document.Drawing.Commands, command => command.Kind == DrawCommandKind.ClipPush);
+        Assert.Single(document.Drawing.Commands, static command => command.Kind == DrawCommandKind.ClipPush);
 
     [Fact]
     public void A_scroll_container_reserves_its_scrollbar_out_of_the_room_its_children_get() {
@@ -59,7 +59,7 @@ public class OverflowTests {
                     overflow: scroll; scrollbar-width: 10px; }
             .fill { height: 8px; }
             """,
-            document => document.Root.Add("div", classNames: "port").Add("div", classNames: "fill")
+            static document => document.Root.Add("div", classNames: "port").Add("div", classNames: "fill")
         );
 
         var stretched = document.Root.Children[0].Children[0];
@@ -81,7 +81,7 @@ public class OverflowTests {
                     overflow: hidden; scrollbar-width: 10px; }
             .fill { height: 8px; }
             """,
-            document => document.Root.Add("div", classNames: "port").Add("div", classNames: "fill")
+            static document => document.Root.Add("div", classNames: "port").Add("div", classNames: "fill")
         );
 
         Assert.Equal(70f, document.Root.Children[0].Children[0].Width, Tolerance);
@@ -94,7 +94,7 @@ public class OverflowTests {
             root { width: 400px; height: 300px; }
             .clip { width: 80px; height: 80px; overflow-y: hidden; background-color: #111; }
             """,
-            document => document.Root.Add("div", classNames: "clip")
+            static document => document.Root.Add("div", classNames: "clip")
         );
 
         var push = Push(document);
@@ -114,7 +114,7 @@ public class OverflowTests {
             root { width: 400px; height: 300px; }
             .clip { width: 80px; height: 80px; overflow-x: hidden; background-color: #111; }
             """,
-            document => document.Root.Add("div", classNames: "clip")
+            static document => document.Root.Add("div", classNames: "clip")
         );
 
         var push = Push(document);
@@ -132,7 +132,7 @@ public class OverflowTests {
             root { width: 400px; height: 300px; }
             .clip { width: 80px; height: 60px; overflow-x: hidden; overflow-y: scroll; background-color: #111; }
             """,
-            document => document.Root.Add("div", classNames: "clip")
+            static document => document.Root.Add("div", classNames: "clip")
         );
 
         var push = Push(document);
@@ -150,7 +150,7 @@ public class OverflowTests {
             root { width: 400px; height: 300px; }
             .clip { width: 80px; height: 60px; overflow: hidden; overflow-y: visible; background-color: #111; }
             """,
-            document => document.Root.Add("div", classNames: "clip")
+            static document => document.Root.Add("div", classNames: "clip")
         );
 
         var push = Push(document);
@@ -166,21 +166,23 @@ public class OverflowTests {
             root { width: 400px; height: 300px; }
             .clip { width: 80px; height: 60px; overflow-x: visible; overflow-y: visible; background-color: #111; }
             """,
-            document => document.Root.Add("div", classNames: "clip")
+            static document => document.Root.Add("div", classNames: "clip")
         );
 
-        Assert.DoesNotContain(document.Drawing.Commands, command => command.Kind == DrawCommandKind.ClipPush);
+        Assert.DoesNotContain(document.Drawing.Commands, static command => command.Kind == DrawCommandKind.ClipPush);
     }
 
     [Fact]
     public void A_one_axis_clip_only_takes_the_clicks_on_the_axis_it_clips() {
         var document = new UiDocument(400f, 300f);
-        document.Load("""
-            root { width: 400px; height: 300px; }
-            .clip { width: 20px; height: 20px; overflow-y: hidden; }
-            .right { position: absolute; left: 100px; top: 0px; width: 40px; height: 20px; }
-            .below { position: absolute; left: 0px; top: 100px; width: 20px; height: 40px; }
-        """);
+        document.Load(
+            """
+                root { width: 400px; height: 300px; }
+                .clip { width: 20px; height: 20px; overflow-y: hidden; }
+                .right { position: absolute; left: 100px; top: 0px; width: 40px; height: 20px; }
+                .below { position: absolute; left: 0px; top: 100px; width: 20px; height: 40px; }
+            """
+        );
 
         var parent = document.Root.Add("div", classNames: "clip");
         var right = parent.Add("div", classNames: "right");
@@ -231,7 +233,7 @@ public class OverflowTests {
         // `auto` was a keyword the bridge did not know, every `overflow: auto` panel in the editor
         // kept the floor: it refused to shrink, pushed its neighbours out of the pane, and the draw
         // list clipped the result at the *window* rather than at the panel.
-        Assert.True(LabelWidth("") > 100f, "without an opt-out the item stops at its content");
+        Assert.True(LabelWidth(string.Empty) > 100f, "without an opt-out the item stops at its content");
         Assert.Equal(100f, LabelWidth("overflow: auto;"), Tolerance);
     }
 
@@ -276,7 +278,7 @@ public class OverflowTests {
                     overflow: clip; scrollbar-width: 10px; }
             .fill { height: 8px; }
             """,
-            document => document.Root.Add("div", classNames: "port").Add("div", classNames: "fill")
+            static document => document.Root.Add("div", classNames: "port").Add("div", classNames: "fill")
         );
 
         Assert.Equal(70f, document.Root.Children[0].Children[0].Width, Tolerance);
@@ -289,7 +291,7 @@ public class OverflowTests {
         // anything that is not `visible` — so the picture looked right and the box laid out as though
         // it had said nothing, keeping the §4.5 content floor that the `hidden` beside it drops. Two
         // boxes styled to do the same thing, laying out differently, with a correct picture of each.
-        Assert.True(LabelWidth("") > 100f, "without an opt-out the item stops at its content");
+        Assert.True(LabelWidth(string.Empty) > 100f, "without an opt-out the item stops at its content");
         Assert.Equal(100f, LabelWidth("overflow: clip;"), Tolerance);
         Assert.Equal(LabelWidth("overflow: hidden;"), LabelWidth("overflow: clip;"), Tolerance);
     }
@@ -301,7 +303,7 @@ public class OverflowTests {
             root { width: 400px; height: 300px; }
             .clip { width: 80px; height: 60px; overflow: clip; background-color: #111; }
             """,
-            document => document.Root.Add("div", classNames: "clip")
+            static document => document.Root.Add("div", classNames: "clip")
         );
 
         using var hidden = Drawn(
@@ -309,7 +311,7 @@ public class OverflowTests {
             root { width: 400px; height: 300px; }
             .clip { width: 80px; height: 60px; overflow: hidden; background-color: #111; }
             """,
-            document => document.Root.Add("div", classNames: "clip")
+            static document => document.Root.Add("div", classNames: "clip")
         );
 
         var a = Push(clipped);
@@ -325,10 +327,12 @@ public class OverflowTests {
     static float LabelWidth(string declarations) {
         var document = new UiDocument(400f, 300f);
         document.Fonts.Register("Test", Font);
-        document.Load($$"""
-            root { width: 100px; height: 50px; flex-direction: row; align-items: flex-start; }
-            label { flex-shrink: 1; white-space: nowrap; {{declarations}} }
-        """);
+        document.Load(
+            $$"""
+                  root { width: 100px; height: 50px; flex-direction: row; align-items: flex-start; }
+                  label { flex-shrink: 1; white-space: nowrap; {{declarations}} }
+              """
+        );
 
         var label = document.Root.Add("label");
         label.Text = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";

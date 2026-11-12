@@ -88,7 +88,7 @@ public static class GraphicsHost {
 
         // Copied rather than aliased: `IList<T>` does not derive from `IReadOnlyList<T>`, and at
         // four entries once per process the copy is not worth a second code path to avoid.
-        IReadOnlyList<GraphicsBackend> order = options.Backends.Count > 0 ? [.. options.Backends] : Default;
+        var order = options.Backends.Count > 0 ? [..options.Backends] : Default;
         var refusals = new List<string>(order.Count);
 
         // ⚠ Asking for a picture, or saying so outright, is what buys a device with no surface. See
@@ -142,7 +142,7 @@ public static class GraphicsHost {
     /// <param name="reason">Why the device cannot present, when it cannot.</param>
     /// <returns>The device. Never null: <see cref="Default" /> ends in Null, which always opens.</returns>
     public static IGraphicsDevice Create(IWindow? window, ILoggerFactory? logs, out string? reason) =>
-        Create(new GraphicsOptions(), window, logs, out reason)
+        Create(new(), window, logs, out reason)
         ?? throw new InvalidOperationException(
             "The default backend order ends in GraphicsBackend.Null, which cannot fail to open, so "
             + "reaching here means GraphicsHost.Default was changed and the guarantee this overload "
@@ -169,8 +169,10 @@ public static class GraphicsHost {
     /// <param name="options">Unused; kept so the pair reads alike at a call site.</param>
     /// <returns>The size to build a swapchain at.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="window" /> is null.</exception>
-    /// <remarks>See <see cref="AppGraphics.FramebufferOf" /> for why it is clamped and why it is
-    ///     the framebuffer rather than the client size.</remarks>
+    /// <remarks>
+    ///     See <see cref="AppGraphics.FramebufferOf" /> for why it is clamped and why it is
+    ///     the framebuffer rather than the client size.
+    /// </remarks>
     public static Int2 Framebuffer(IWindow window, GraphicsOptions options) {
         ArgumentNullException.ThrowIfNull(options);
 
@@ -366,8 +368,12 @@ public static class GraphicsHost {
     /// </remarks>
     /// <param name="backend">The backend that opened.</param>
     /// <param name="offscreen">
-    ///     Why there is no surface — <c>a capture was asked for</c>, <c>offscreen rendering was
-    ///     asked for</c> — or <see langword="null" /> when the device can present. ⚠ The wording is
+    ///     Why there is no surface — <c>a capture was asked for</c>,
+    ///     <c>
+    ///         offscreen rendering was
+    ///         asked for
+    ///     </c>
+    ///     — or <see langword="null" /> when the device can present. ⚠ The wording is
     ///     quoted verbatim by <c>docs/guide/rendering/capturing-a-frame.md</c> and sample 13's
     ///     README as the line to read before believing a headless number, so the capture phrasing is
     ///     the one it always was.
@@ -397,16 +403,23 @@ public static class GraphicsHost {
     /// <returns>Whether a context was created.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>One request was made and it was for 4.5 core, which is a request no phone,
-    ///         no ANGLE build and no GLES-only Mesa can satisfy.</b> <see cref="ProfileOf" /> has
+    ///         ⚠
+    ///         <b>
+    ///             One request was made and it was for 4.5 core, which is a request no phone,
+    ///             no ANGLE build and no GLES-only Mesa can satisfy.
+    ///         </b>
+    ///         <see cref="ProfileOf" /> has
     ///         always been able to answer <c>Es30</c> or <c>Es32</c> and nothing could ever make it
     ///         do so, because the only context ever asked for was a desktop one — so the GLES half
     ///         of this backend, which is the half doc 10 makes mandatory on Android, was
     ///         unreachable from a head rather than merely untested.
     ///     </para>
     ///     <para>
-    ///         <b>Core first, because a driver with both should give the profile with
-    ///         <c>glClipControl</c>.</b> That is the one thing that makes GL's clip space Vulkan's
+    ///         <b>
+    ///             Core first, because a driver with both should give the profile with
+    ///             <c>glClipControl</c>.
+    ///         </b>
+    ///         That is the one thing that makes GL's clip space Vulkan's
     ///         without the vertex-shader fixup, and a machine that has 4.5 core taking GLES instead
     ///         would take the fallback path forever without saying so — the same argument
     ///         <c>EglContext</c>'s version ladder makes one rung down.
@@ -446,8 +459,12 @@ public static class GraphicsHost {
     /// <returns>The entry points.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>This was <see cref="SilkGlApi" /> unconditionally, and the profile it was handed
-    ///         could already be a GLES one.</b> The two bindings are over two libraries — libGL and
+    ///         ⚠
+    ///         <b>
+    ///             This was <see cref="SilkGlApi" /> unconditionally, and the profile it was handed
+    ///             could already be a GLES one.
+    ///         </b>
+    ///         The two bindings are over two libraries — libGL and
     ///         libGLESv2 have different entry-point tables, which is why there are two Silk packages
     ///         and two files — so an embedded context loaded through the desktop binding resolves
     ///         its table out of a library that on Android is not installed at all, and on a desktop
@@ -481,19 +498,18 @@ public static class GraphicsHost {
             // backend has and the thing that makes it viable is glClipControl — without it GL's
             // clip space is not Vulkan's and every shader would need the fixup path that only the
             // GLES profiles carry. A 4.1 context is not "nearly 4.5"; it is a different target.
-            return version is ( > 4, _) or (4, >= 5) ? GlProfile.Core45 : null;
+            return version is (> 4, _) or (4, >= 5) ? GlProfile.Core45 : null;
         }
 
         return version switch {
-            ( > 3, _) or (3, >= 2) => GlProfile.Es32,
+            (> 3, _) or (3, >= 2) => GlProfile.Es32,
             (3, >= 0) => GlProfile.Es30,
             _ => null
         };
     }
 
     /// <summary>The name an operator would have typed for a backend.</summary>
-    static string Spell(GraphicsBackend backend) =>
-        backend.ToString().ToLower(CultureInfo.InvariantCulture);
+    static string Spell(GraphicsBackend backend) => backend.ToString().ToLower(CultureInfo.InvariantCulture);
 
     sealed class Backend : IGraphicsBackend {
         public IGraphicsDevice? Create(
@@ -501,6 +517,7 @@ public static class GraphicsHost {
             IWindow? window,
             ILoggerFactory? logs,
             out string? reason
-        ) => GraphicsHost.Create(options, window, logs, out reason);
+        ) =>
+            GraphicsHost.Create(options, window, logs, out reason);
     }
 }

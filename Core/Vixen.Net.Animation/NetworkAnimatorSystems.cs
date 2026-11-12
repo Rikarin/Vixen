@@ -3,7 +3,6 @@
 
 using Vixen.Animation;
 using Vixen.Animation.Ecs;
-using Vixen.Core;
 using Vixen.Core.Threading;
 using Vixen.Ecs;
 using Vixen.Ecs.Systems;
@@ -94,7 +93,7 @@ public sealed class NetworkAnimatorCaptureSystem : SystemBase, IDeclaredAccess {
     public bool IsAuthority(NetworkId id) =>
         Rules is { } rules
             ? rules.MayWrite(id, Local)
-            : NetworkRules.Allows(RuleAudience.ServerOnly, Local, isOwner: false);
+            : NetworkRules.Allows(RuleAudience.ServerOnly, Local, false);
 
     static void Read(Animator animator, ref NetworkAnimator state, ref NetworkAnimatorParameters parameters) {
         state.Speed = animator.Speed;
@@ -210,7 +209,7 @@ public sealed class NetworkAnimatorApplySystem : SystemBase, IDeclaredAccess {
     public bool IsAuthority(NetworkId id) =>
         Rules is { } rules
             ? rules.MayWrite(id, Local)
-            : NetworkRules.Allows(RuleAudience.ServerOnly, Local, isOwner: false);
+            : NetworkRules.Allows(RuleAudience.ServerOnly, Local, false);
 
     void Drive(Animator animator, in NetworkAnimator state, in NetworkAnimatorParameters parameters) {
         animator.Speed = state.Speed;

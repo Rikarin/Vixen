@@ -82,8 +82,10 @@ public readonly record struct WgpuTextureViewDescriptor(
 /// <param name="MipmapFilter">How to filter between levels.</param>
 /// <param name="LodMinClamp">The lowest level to sample.</param>
 /// <param name="LodMaxClamp">The highest level to sample.</param>
-/// <param name="Compare">The shadow comparison, or
-/// <see cref="WgpuCompareFunction.Undefined" /> for an ordinary sampler.</param>
+/// <param name="Compare">
+///     The shadow comparison, or
+///     <see cref="WgpuCompareFunction.Undefined" /> for an ordinary sampler.
+/// </param>
 /// <param name="MaxAnisotropy">How many anisotropic samples.</param>
 /// <param name="Label">A name for the debugger.</param>
 public readonly record struct WgpuSamplerDescriptor(
@@ -266,8 +268,10 @@ public readonly record struct WgpuDepthStencilState(
 /// <param name="VertexModule">The vertex shader module.</param>
 /// <param name="VertexEntryPoint">Its entry point.</param>
 /// <param name="VertexBuffers">The vertex buffer layouts, in binding order.</param>
-/// <param name="FragmentModule">The fragment shader module, or
-/// <see cref="WebGpuObject.Null" /> for a depth-only pipeline.</param>
+/// <param name="FragmentModule">
+///     The fragment shader module, or
+///     <see cref="WebGpuObject.Null" /> for a depth-only pipeline.
+/// </param>
 /// <param name="FragmentEntryPoint">Its entry point.</param>
 /// <param name="ColourTargets">The colour targets, in order.</param>
 /// <param name="Topology">What the vertices mean.</param>
@@ -275,8 +279,10 @@ public readonly record struct WgpuDepthStencilState(
 /// <param name="FrontFace">Which winding is front.</param>
 /// <param name="CullMode">Which faces to discard.</param>
 /// <param name="UnclippedDepth">Whether depth is clamped rather than clipped.</param>
-/// <param name="DepthStencil">The depth and stencil state, or <see langword="null" /> for
-/// none.</param>
+/// <param name="DepthStencil">
+///     The depth and stencil state, or <see langword="null" /> for
+///     none.
+/// </param>
 /// <param name="SampleCount">How many samples the attachments have.</param>
 /// <param name="Label">A name for the debugger.</param>
 public readonly record struct WgpuRenderPipelineDescriptor(
@@ -518,22 +524,23 @@ public readonly record struct WebGpuLimits {
     ///     offering exactly this, which is the set the specification says a conforming one has to
     ///     offer, and which a browser on a phone frequently reports verbatim.
     /// </remarks>
-    public static WebGpuLimits Guaranteed => new() {
-        MaxTextureDimension2D = 8192,
-        MaxTextureDimension3D = 2048,
-        MaxTextureArrayLayers = 256,
-        MaxBindGroups = 4,
-        MaxUniformBufferBindingSize = 65536,
-        MinUniformBufferOffsetAlignment = 256,
-        MaxVertexBuffers = 8,
-        MaxBufferSize = 268435456,
-        MaxVertexAttributes = 16,
-        MaxColorAttachments = 8,
-        MaxDynamicUniformBuffersPerPipelineLayout = 8,
-        MaxComputeWorkgroupSizeX = 256,
-        MaxComputeWorkgroupSizeY = 256,
-        MaxComputeWorkgroupSizeZ = 64
-    };
+    public static WebGpuLimits Guaranteed =>
+        new() {
+            MaxTextureDimension2D = 8192,
+            MaxTextureDimension3D = 2048,
+            MaxTextureArrayLayers = 256,
+            MaxBindGroups = 4,
+            MaxUniformBufferBindingSize = 65536,
+            MinUniformBufferOffsetAlignment = 256,
+            MaxVertexBuffers = 8,
+            MaxBufferSize = 268435456,
+            MaxVertexAttributes = 16,
+            MaxColorAttachments = 8,
+            MaxDynamicUniformBuffersPerPipelineLayout = 8,
+            MaxComputeWorkgroupSizeX = 256,
+            MaxComputeWorkgroupSizeY = 256,
+            MaxComputeWorkgroupSizeZ = 64
+        };
 }
 
 /// <summary>What a WebGPU implementation says about the adapter it is running on.</summary>

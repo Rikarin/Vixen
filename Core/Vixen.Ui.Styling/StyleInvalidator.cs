@@ -64,8 +64,12 @@ sealed class InvalidationEntry {
 ///         <c>.cell</c>s in the subtree".
 ///     </para>
 ///     <para>
-///         ⚠ <b>This used to say that nothing needs to look upward, and <c>:has()</c> is what
-///         changed it.</b> The old reasoning was sound and its premise expired: a selector could only
+///         ⚠
+///         <b>
+///             This used to say that nothing needs to look upward, and <c>:has()</c> is what
+///             changed it.
+///         </b>
+///         The old reasoning was sound and its premise expired: a selector could only
 ///         reach downward and rightward because Vixen refused <c>:has()</c> — doc 09's P2 decision,
 ///         and invalidation was the second thing that refusal bought after match cost. It is
 ///         supported now, so a name that appears inside a <c>:has()</c> argument carries
@@ -74,8 +78,12 @@ sealed class InvalidationEntry {
 ///         element state and set explicitly, so it arrives as a change like any other.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The upward direction is narrowed by name but not by depth, and that asymmetry is
-///         deliberate.</b> A downward reach can be cut at the changed element's subtree; an upward
+///         ⚠
+///         <b>
+///             The upward direction is narrowed by name but not by depth, and that asymmetry is
+///             deliberate.
+///         </b>
+///         A downward reach can be cut at the changed element's subtree; an upward
 ///         one cannot, because the <c>:has()</c> may sit on the document root and every rule hanging
 ///         off it reaches back down. So a change to a <c>:has()</c>-mentioned name walks to the top
 ///         and then collects by feature from there — which is a pass over the document with a
@@ -206,7 +214,7 @@ public sealed class StyleInvalidator {
             for (var sibling = NextSibling(tree, index); sibling >= 0; sibling = NextSibling(tree, sibling)) {
                 // A sibling rule can carry on into that sibling's subtree — `.selected + .row .cell`
                 // is one selector, and stopping at the sibling would miss its cells.
-                CollectSubtree(tree, sibling, features, everything, roots, includeSelf: true);
+                CollectSubtree(tree, sibling, features, everything, roots, true);
             }
         }
 
@@ -222,16 +230,16 @@ public sealed class StyleInvalidator {
             var top = index;
 
             for (var ancestor = tree.ParentOf(index); ancestor >= 0; ancestor = tree.ParentOf(ancestor)) {
-                roots.Add(new StyleNodeId(ancestor));
+                roots.Add(new(ancestor));
                 top = ancestor;
             }
 
             if (top != index) {
-                CollectSubtree(tree, top, AncestorFeatures, AncestorReachesEverything, roots, includeSelf: true);
+                CollectSubtree(tree, top, AncestorFeatures, AncestorReachesEverything, roots, true);
             }
         }
 
-        roots.Sort((left, right) => left.Index.CompareTo(right.Index));
+        roots.Sort(static (left, right) => left.Index.CompareTo(right.Index));
 
         // ⚠ The ancestor walk and the collection below it can name the same element twice, and the
         // contract this method has always published is "without duplicates". `StyleUpdater` dedupes
@@ -256,14 +264,14 @@ public sealed class StyleInvalidator {
         List<StyleNodeId> roots,
         bool includeSelf = false
     ) {
-        var children = tree.GetChildCount(new StyleNodeId(root));
+        var children = tree.GetChildCount(new(root));
 
         if (includeSelf && Wanted(tree, root, features, everything)) {
-            roots.Add(new StyleNodeId(root));
+            roots.Add(new(root));
         }
 
         for (var i = 0; i < children; i++) {
-            var child = tree.GetChild(new StyleNodeId(root), i);
+            var child = tree.GetChild(new(root), i);
 
             if (Wanted(tree, child.Index, features, everything)) {
                 roots.Add(child);
@@ -313,38 +321,41 @@ public sealed class StyleInvalidator {
             // is decided by the combinator on `c + 1`.
             var reach = isRightmost ? Combinator.None : table.Compound(c + 1).Combinator;
 
-            ForEachName(compound, name => {
-                var entry = Entry(name);
+            ForEachName(
+                compound,
+                name => {
+                    var entry = Entry(name);
 
-                if (isRightmost) {
-                    entry.MatchesSelf = true;
-                    return;
-                }
+                    if (isRightmost) {
+                        entry.MatchesSelf = true;
+                        return;
+                    }
 
-                switch (reach) {
-                    case Combinator.Descendant or Combinator.Child:
+                    switch (reach) {
+                        case Combinator.Descendant or Combinator.Child:
+                            entry.ReachesDescendants = true;
+                            break;
+                        case Combinator.NextSibling or Combinator.SubsequentSibling:
+                            entry.ReachesSiblings = true;
+                            break;
+                        default:
+                            break;
+                    }
+
+                    // A rule reaching sideways can carry on downward afterwards — in `.a + .b .c` the
+                    // `.a` reaches a sibling's descendants — so anything that is not the rightmost
+                    // compound contributes the far end's features either way.
+                    if (far.Count == 0) {
+                        entry.ReachesEverything = true;
+                    } else {
+                        entry.Features.UnionWith(far);
+                    }
+
+                    if (reach is Combinator.NextSibling or Combinator.SubsequentSibling && selector.Count > c + 2) {
                         entry.ReachesDescendants = true;
-                        break;
-                    case Combinator.NextSibling or Combinator.SubsequentSibling:
-                        entry.ReachesSiblings = true;
-                        break;
-                    default:
-                        break;
+                    }
                 }
-
-                // A rule reaching sideways can carry on downward afterwards — in `.a + .b .c` the
-                // `.a` reaches a sibling's descendants — so anything that is not the rightmost
-                // compound contributes the far end's features either way.
-                if (far.Count == 0) {
-                    entry.ReachesEverything = true;
-                } else {
-                    entry.Features.UnionWith(far);
-                }
-
-                if (reach is Combinator.NextSibling or Combinator.SubsequentSibling && selector.Count > c + 2) {
-                    entry.ReachesDescendants = true;
-                }
-            });
+            );
         }
 
         // ⚠ The upward direction, and it is read off the *argument* of every `:has()` rather than off
@@ -434,9 +445,6 @@ public sealed class StyleInvalidator {
 
                     break;
                 }
-
-                default:
-                    break;
             }
         }
 
@@ -475,7 +483,7 @@ public sealed class StyleInvalidator {
             return entry;
         }
 
-        entry = new InvalidationEntry();
+        entry = new();
         entries[name] = entry;
         return entry;
     }

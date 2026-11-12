@@ -10,8 +10,12 @@ namespace Vixen.DocGen;
 /// <remarks>
 ///     <para>
 ///         This is the half of the taxonomy that earns it. Knowing a type is a component is a label;
-///         knowing it is <b>eight bytes, written by <c>MovementSystem</c> in <c>FixedUpdate</c>, sent
-///         unreliably at 20 Hz and quantised to 16 bits</b> is documentation — and every one of those
+///         knowing it is
+///         <b>
+///             eight bytes, written by <c>MovementSystem</c> in <c>FixedUpdate</c>, sent
+///             unreliably at 20 Hz and quantised to 16 bits
+///         </b>
+///         is documentation — and every one of those
 ///         is already declared, in an attribute the engine reads at compile time.
 ///     </para>
 ///     <para>
@@ -63,7 +67,7 @@ static class Facets {
     static DocFacets Component(INamedTypeSymbol type) {
         var size = TypeLayout.SizeOf(type);
 
-        return new DocFacets {
+        return new() {
             SizeBytes = size,
             // What a chunk holds when this component is the only one on the archetype — an upper
             // bound, and the number that says whether a component is cheap to iterate. A real
@@ -80,14 +84,14 @@ static class Facets {
         // it is the one the scheduler consumes.
         var (reads, writes) = DeclaredAccessOf(type, compilation);
 
-        return new DocFacets {
-        // Without [UpdateInGroup] a system lands in Update, which the attribute's own documentation
-        // says — so the absence is a fact rather than a blank.
+        return new() {
+            // Without [UpdateInGroup] a system lands in Update, which the attribute's own documentation
+            // says — so the absence is a fact rather than a blank.
             Phase = Find(type, UpdateInGroup) is { ConstructorArguments.Length: > 0 } group
                 ? EnumName(group.ConstructorArguments[0])
                 : "Update",
-            Reads = Some([.. Types(type, Reads).Concat(reads).Distinct(StringComparer.Ordinal)]),
-            Writes = Some([.. Types(type, Writes).Concat(writes).Distinct(StringComparer.Ordinal)]),
+            Reads = Some([..Types(type, Reads).Concat(reads).Distinct(StringComparer.Ordinal)]),
+            Writes = Some([..Types(type, Writes).Concat(writes).Distinct(StringComparer.Ordinal)]),
             RunsBefore = Some(Types(type, UpdateBefore)),
             RunsAfter = Some(Types(type, UpdateAfter))
         };
@@ -107,8 +111,9 @@ static class Facets {
         Compilation? compilation
     ) {
         if (compilation is null
-            || !type.AllInterfaces.Any(candidate =>
-                string.Equals(candidate.ToDisplayString(), DeclaredAccess, StringComparison.Ordinal))) {
+            || !type.AllInterfaces.Any(static candidate =>
+                string.Equals(candidate.ToDisplayString(), DeclaredAccess, StringComparison.Ordinal)
+            )) {
             return ([], []);
         }
 
@@ -116,14 +121,14 @@ static class Facets {
         var writes = new List<string>();
 
         foreach (var reference in type.GetMembers("Access")
-            .SelectMany(member => member.DeclaringSyntaxReferences)) {
+                     .SelectMany(static member => member.DeclaringSyntaxReferences)) {
             var node = reference.GetSyntax();
             var model = compilation.GetSemanticModel(node.SyntaxTree);
 
             foreach (var invocation in node.DescendantNodes().OfType<InvocationExpressionSyntax>()) {
                 if (invocation.Expression is not MemberAccessExpressionSyntax {
-                    Name: GenericNameSyntax { TypeArgumentList.Arguments.Count: 1 } name
-                }) {
+                        Name: GenericNameSyntax { TypeArgumentList.Arguments.Count: 1 } name
+                    }) {
                     continue;
                 }
 
@@ -152,32 +157,40 @@ static class Facets {
             return null;
         }
 
-        var named = replicated.NamedArguments.ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal);
+        var named = replicated.NamedArguments.ToDictionary(
+            static pair => pair.Key,
+            static pair => pair.Value,
+            StringComparer.Ordinal
+        );
 
-        return new DocFacets {
+        return new() {
             Channel = named.TryGetValue("Channel", out var channel) ? EnumName(channel) : "Unreliable",
             SendRate = named.TryGetValue("SendRate", out var rate) ? rate.Value as int? : 0,
             Priority = named.TryGetValue("Priority", out var priority) ? priority.Value as int? : 0,
-            Quantized = Some([
-                .. type.GetMembers()
-                    .Select(member => (member, quantize: Find(member, Quantize)))
-                    .Where(pair => pair.quantize is { ConstructorArguments.Length: 3 })
-                    .Select(pair => new DocQuantized(
-                        pair.member.Name,
-                        Convert.ToSingle(pair.quantize!.ConstructorArguments[0].Value, Culture),
-                        Convert.ToSingle(pair.quantize.ConstructorArguments[1].Value, Culture),
-                        Convert.ToInt32(pair.quantize.ConstructorArguments[2].Value, Culture)))
-            ])
+            Quantized = Some(
+                [
+                    ..type.GetMembers()
+                        .Select(static member => (member, quantize: Find(member, Quantize)))
+                        .Where(pair => pair.quantize is { ConstructorArguments.Length: 3 })
+                        .Select(static pair => new DocQuantized(
+                                pair.member.Name,
+                                Convert.ToSingle(pair.quantize!.ConstructorArguments[0].Value, Culture),
+                                Convert.ToSingle(pair.quantize.ConstructorArguments[1].Value, Culture),
+                                Convert.ToInt32(pair.quantize.ConstructorArguments[2].Value, Culture)
+                            )
+                        )
+                ]
+            )
         };
     }
 
     static DocFacets GraphNode(INamedTypeSymbol type) {
         var node = Find(type, Node);
         var summary = node?.NamedArguments
-            .FirstOrDefault(pair => string.Equals(pair.Key, "Summary", StringComparison.Ordinal))
+            .FirstOrDefault(static pair => string.Equals(pair.Key, "Summary", StringComparison.Ordinal))
             .Value.Value as string;
 
-        return new DocFacets {
+        return new() {
             MenuPath = node is { ConstructorArguments.Length: > 0 }
                 ? node.ConstructorArguments[0].Value as string
                 : null,
@@ -188,13 +201,13 @@ static class Facets {
     static DocFacets Annotation(INamedTypeSymbol type) {
         var usage = Find(type, AttributeUsage);
 
-        return new DocFacets {
+        return new() {
             // What the attribute may be put on, which is the first thing anybody looks up about one.
             Targets = usage is { ConstructorArguments.Length: > 0 }
                 ? Some(AttributeTargetNames(Convert.ToInt64(usage.ConstructorArguments[0].Value, Culture)))
                 : null,
             AllowMultiple = usage?.NamedArguments
-                .FirstOrDefault(pair => string.Equals(pair.Key, "AllowMultiple", StringComparison.Ordinal))
+                .FirstOrDefault(static pair => string.Equals(pair.Key, "AllowMultiple", StringComparison.Ordinal))
                 .Value.Value as bool?
         };
     }
@@ -210,7 +223,7 @@ static class Facets {
 
         return flags == 32767
             ? ["All"]
-            : [.. targets.Where(target => (flags & target.Flag) != 0).Select(target => target.Name)];
+            : [..targets.Where(target => (flags & target.Flag) != 0).Select(static target => target.Name)];
     }
 
     /// <summary>
@@ -234,20 +247,24 @@ static class Facets {
     static IReadOnlyList<T>? Some<T>(IReadOnlyList<T> values) => values.Count == 0 ? null : values;
 
     static AttributeData? Find(ISymbol symbol, string attribute) =>
-        symbol.GetAttributes().FirstOrDefault(candidate =>
-            string.Equals(candidate.AttributeClass?.ToDisplayString(), attribute, StringComparison.Ordinal));
+        symbol.GetAttributes()
+            .FirstOrDefault(candidate =>
+                string.Equals(candidate.AttributeClass?.ToDisplayString(), attribute, StringComparison.Ordinal)
+            );
 
     /// <summary>The documentation ids of a `params Type[]` attribute's arguments.</summary>
     static IReadOnlyList<string> Types(ISymbol symbol, string attribute) => [
-        .. symbol.GetAttributes()
+        ..symbol.GetAttributes()
             .Where(candidate =>
-                string.Equals(candidate.AttributeClass?.ToDisplayString(), attribute, StringComparison.Ordinal))
-            .SelectMany(candidate => candidate.ConstructorArguments)
-            .SelectMany(argument => argument.Kind == TypedConstantKind.Array && !argument.Values.IsDefault
-                ? argument.Values
-                : [argument])
-            .Select(argument => (argument.Value as ITypeSymbol)?.GetDocumentationCommentId())
-            .Where(id => id is not null)
+                string.Equals(candidate.AttributeClass?.ToDisplayString(), attribute, StringComparison.Ordinal)
+            )
+            .SelectMany(static candidate => candidate.ConstructorArguments)
+            .SelectMany(static argument => argument.Kind == TypedConstantKind.Array && !argument.Values.IsDefault
+                    ? argument.Values
+                    : [argument]
+            )
+            .Select(static argument => (argument.Value as ITypeSymbol)?.GetDocumentationCommentId())
+            .Where(static id => id is not null)
             .Distinct(StringComparer.Ordinal)!
     ];
 
@@ -264,8 +281,13 @@ static class Facets {
         return argument.Kind == TypedConstantKind.Array
             ? argument.Values.IsDefault
                 ? []
-                : [.. argument.Values.Select(value => value.Value as string).Where(value => value is not null)!]
-            : argument.Value is string single ? [single] : [];
+                : [
+                    ..argument.Values.Select(static value => value.Value as string)
+                        .Where(static value => value is not null)!
+                ]
+            : argument.Value is string single
+                ? [single]
+                : [];
     }
 
     static readonly IFormatProvider Culture = global::System.Globalization.CultureInfo.InvariantCulture;
@@ -284,7 +306,7 @@ static class TypeLayout {
     /// <summary>`Vixen.Core.Entity` — two ints and a short, which the entity column costs per row.</summary>
     public const int EntityBytes = 12;
 
-    public static int? SizeOf(INamedTypeSymbol type) => SizeOf(type, depth: 0);
+    public static int? SizeOf(INamedTypeSymbol type) => SizeOf(type, 0);
 
     static int? SizeOf(ITypeSymbol type, int depth) {
         if (depth > 8) {
@@ -295,19 +317,25 @@ static class TypeLayout {
             return primitive;
         }
 
-        if (type.TypeKind != TypeKind.Struct || type.IsReferenceType || type is INamedTypeSymbol { IsGenericType: true }) {
+        if (type.TypeKind != TypeKind.Struct
+            || type.IsReferenceType
+            || type is INamedTypeSymbol { IsGenericType: true }) {
             return null;
         }
 
-        if (type.GetAttributes().Any(attribute =>
-            attribute.AttributeClass?.Name == "StructLayoutAttribute")) {
+        if (type.GetAttributes()
+            .Any(static attribute =>
+                attribute.AttributeClass?.Name == "StructLayoutAttribute"
+            )) {
             return null;
         }
 
         var offset = 0;
         var alignment = 1;
 
-        foreach (var field in type.GetMembers().OfType<IFieldSymbol>().Where(field => !field.IsStatic && !field.IsConst)) {
+        foreach (var field in type.GetMembers()
+                     .OfType<IFieldSymbol>()
+                     .Where(static field => !field.IsStatic && !field.IsConst)) {
             var size = SizeOf(field.Type, depth + 1);
 
             if (size is not { } bytes) {
@@ -331,14 +359,15 @@ static class TypeLayout {
 
     static int Align(int offset, int alignment) => (offset + alignment - 1) / alignment * alignment;
 
-    static int? Primitive(ITypeSymbol type) => type.SpecialType switch {
-        SpecialType.System_Boolean or SpecialType.System_Byte or SpecialType.System_SByte => 1,
-        SpecialType.System_Char or SpecialType.System_Int16 or SpecialType.System_UInt16 => 2,
-        SpecialType.System_Int32 or SpecialType.System_UInt32 or SpecialType.System_Single => 4,
-        SpecialType.System_Int64 or SpecialType.System_UInt64 or SpecialType.System_Double => 8,
-        SpecialType.System_IntPtr or SpecialType.System_UIntPtr => 8,
-        _ => type.TypeKind == TypeKind.Enum && type is INamedTypeSymbol { EnumUnderlyingType: { } underlying }
-            ? Primitive(underlying)
-            : null
-    };
+    static int? Primitive(ITypeSymbol type) =>
+        type.SpecialType switch {
+            SpecialType.System_Boolean or SpecialType.System_Byte or SpecialType.System_SByte => 1,
+            SpecialType.System_Char or SpecialType.System_Int16 or SpecialType.System_UInt16 => 2,
+            SpecialType.System_Int32 or SpecialType.System_UInt32 or SpecialType.System_Single => 4,
+            SpecialType.System_Int64 or SpecialType.System_UInt64 or SpecialType.System_Double => 8,
+            SpecialType.System_IntPtr or SpecialType.System_UIntPtr => 8,
+            _ => type.TypeKind == TypeKind.Enum && type is INamedTypeSymbol { EnumUnderlyingType: { } underlying }
+                ? Primitive(underlying)
+                : null
+        };
 }

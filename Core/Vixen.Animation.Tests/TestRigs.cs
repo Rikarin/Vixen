@@ -3,7 +3,6 @@
 
 using Vixen.Core.Mathematics;
 using Vixen.Geometry;
-using Vixen.Rendering;
 using Xunit;
 
 namespace Vixen.Animation.Tests;
@@ -110,11 +109,7 @@ static class TestRigs {
             Name = name,
             Duration = duration,
             Channels = [
-                new() {
-                    Target = joint,
-                    PositionTimes = [0f, duration],
-                    Positions = [from, to]
-                }
+                new() { Target = joint, PositionTimes = [0f, duration], Positions = [from, to] }
             ]
         };
 
@@ -130,11 +125,7 @@ static class TestRigs {
             Name = name,
             Duration = duration,
             Channels = [
-                new() {
-                    Target = joint,
-                    RotationTimes = [0f, duration],
-                    Rotations = [from, to]
-                }
+                new() { Target = joint, RotationTimes = [0f, duration], Rotations = [from, to] }
             ]
         };
 

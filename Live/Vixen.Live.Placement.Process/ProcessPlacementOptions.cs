@@ -11,7 +11,7 @@ public sealed record ProcessPlacementOptions {
     ///     <c>dotnet run</c> development loop produces; a published realm is its own executable and
     ///     is what a deployment uses. The backend does not care and deliberately does not inspect it.
     /// </remarks>
-    public string Executable { get; init; } = "";
+    public string Executable { get; init; } = string.Empty;
 
     /// <summary>
     ///     Arguments to put before the encoded <see cref="RealmSpec" />, in order.

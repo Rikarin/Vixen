@@ -12,16 +12,22 @@ namespace Vixen.Raven.Gpu.Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>Doc 07's per-backend layout gate, and the failure it exists for has happened
-///         twice.</b> The golden images caught a composed material parameter whose qualified name
+///         <b>
+///             Doc 07's per-backend layout gate, and the failure it exists for has happened
+///             twice.
+///         </b>
+///         The golden images caught a composed material parameter whose qualified name
 ///         depended on lowering order, and one Raven struct used in both a uniform block and a
 ///         storage buffer collapsing to a single MSL type — a padded <c>float3</c> won and the
 ///         fragment stage read a light four bytes late. Both produced valid SPIR-V, no validation
 ///         message, and a wrong picture. Neither is findable by compiling.
 ///     </para>
 ///     <para>
-///         <b>The method is the whole of it: the host writes bytes at the offsets the reflection
-///         reports, and the shader reads the members by name and writes back what it got.</b> A
+///         <b>
+///             The method is the whole of it: the host writes bytes at the offsets the reflection
+///             reports, and the shader reads the members by name and writes back what it got.
+///         </b>
+///         A
 ///         member that agrees round-trips its own value. A member whose reflected offset is not the
 ///         offset the compiler gave the module comes back holding a neighbour's value — or padding —
 ///         and says so by name. Nothing here asserts what the offsets *should* be, because that is
@@ -100,8 +106,8 @@ public sealed class LayoutGateTests {
         var (_, reflection) = ShaderRun.Compile(Block, []);
 
         var block = Assert.Single(
-            reflection.Sets.SelectMany(set => set.Bindings),
-            binding => binding.Type == DescriptorType.UniformBuffer
+            reflection.Sets.SelectMany(static set => set.Bindings),
+            static binding => binding.Type == DescriptorType.UniformBuffer
         );
 
         Assert.NotEmpty(block.Members);
@@ -110,7 +116,7 @@ public sealed class LayoutGateTests {
         // observe.** If this block came back as six members on tidy sixteen-byte boundaries, every
         // assertion below would still pass and none of them would be about std140 at all. Measured:
         // alpha@0, direction@16, beta@28, tint@32, weights@48 stride 16, transform@112 stride 16.
-        var members = block.Members.ToDictionary(member => member.Name, StringComparer.Ordinal);
+        var members = block.Members.ToDictionary(static member => member.Name, StringComparer.Ordinal);
 
         Assert.True(
             members["beta"].Offset == members["direction"].Offset + 12,
@@ -144,7 +150,7 @@ public sealed class LayoutGateTests {
             Write(bytes, member, values);
         }
 
-        var run = ShaderRun.Run(Block, [], 17, groups: 1, bytes);
+        var run = ShaderRun.Run(Block, [], 17, 1, bytes);
 
         Assert.NotNull(run);
 
@@ -176,18 +182,18 @@ public sealed class LayoutGateTests {
         var (_, reflection) = ShaderRun.Compile(Block, []);
 
         var block = Assert.Single(
-            reflection.Sets.SelectMany(set => set.Bindings),
-            binding => binding.Type == DescriptorType.UniformBuffer
+            reflection.Sets.SelectMany(static set => set.Bindings),
+            static binding => binding.Type == DescriptorType.UniformBuffer
         );
 
-        var tint = block.Members.Single(member => member.Name == "tint");
+        var tint = block.Members.Single(static member => member.Name == "tint");
         var bytes = new byte[block.Size];
 
         // Four bytes late: what a `float3` treated as twelve bytes rather than as a sixteen-byte
         // slot does to everything after it.
         Write(bytes, tint with { Offset = tint.Offset + 4 }, [101f, 102f, 103f, 104f]);
 
-        var run = ShaderRun.Run(Block, [], 17, groups: 1, bytes);
+        var run = ShaderRun.Run(Block, [], 17, 1, bytes);
 
         Assert.NotNull(run);
 
@@ -217,8 +223,11 @@ public sealed class LayoutGateTests {
         if (member.Type.IsMatrix) {
             for (var column = 0; column < member.Type.Columns; column++) {
                 for (var row = 0; row < member.Type.Rows; row++) {
-                    Put(bytes, member.Offset + (column * member.MatrixStride) + (row * sizeof(float)),
-                        values[(column * member.Type.Rows) + row]);
+                    Put(
+                        bytes,
+                        member.Offset + column * member.MatrixStride + row * sizeof(float),
+                        values[column * member.Type.Rows + row]
+                    );
                 }
             }
 
@@ -228,8 +237,11 @@ public sealed class LayoutGateTests {
         if (member.Type.IsArray) {
             for (var element = 0; element < member.Type.ArrayLength!.Value; element++) {
                 for (var component = 0; component < member.Type.Rows; component++) {
-                    Put(bytes, member.Offset + (element * member.ArrayStride) + (component * sizeof(float)),
-                        values[(element * member.Type.Rows) + component]);
+                    Put(
+                        bytes,
+                        member.Offset + element * member.ArrayStride + component * sizeof(float),
+                        values[element * member.Type.Rows + component]
+                    );
                 }
             }
 
@@ -237,12 +249,11 @@ public sealed class LayoutGateTests {
         }
 
         for (var component = 0; component < member.Type.Rows; component++) {
-            Put(bytes, member.Offset + (component * sizeof(float)), values[component]);
+            Put(bytes, member.Offset + component * sizeof(float), values[component]);
         }
     }
 
-    static void Put(byte[] bytes, int offset, float value) =>
-        BitConverter.TryWriteBytes(bytes.AsSpan(offset), value);
+    static void Put(byte[] bytes, int offset, float value) => BitConverter.TryWriteBytes(bytes.AsSpan(offset), value);
 
     static void Check(float[] values, int index, float expected, string what) =>
         Assert.True(

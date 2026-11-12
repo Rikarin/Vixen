@@ -8,8 +8,12 @@ namespace Vixen.Ui.Tests;
 /// <summary>That a parent owning a window can still have its children moved around.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>A surface root is in the element tree and the style tree and not in the layout
-///         tree.</b> <c>UiDocument.CreateSurface</c> takes it out of the layout tree's child list on
+///         ⚠
+///         <b>
+///             A surface root is in the element tree and the style tree and not in the layout
+///             tree.
+///         </b>
+///         <c>UiDocument.CreateSurface</c> takes it out of the layout tree's child list on
 ///         purpose — a second window is not a flex item of the first — and leaves it in the other
 ///         two, because the style tree needs the parent link for inheritance and the element tree is
 ///         what a routed event climbs. So a parent that owns <i>n</i> windows has <i>n</i> more
@@ -17,8 +21,12 @@ namespace Vixen.Ui.Tests;
 ///         position 2 means.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Both writers that convert one into the other had it wrong, and the second is the
-///         one worth the file.</b> <c>Reparent</c> threw outright, which at least said something;
+///         ⚠
+///         <b>
+///             Both writers that convert one into the other had it wrong, and the second is the
+///             one worth the file.
+///         </b>
+///         <c>Reparent</c> threw outright, which at least said something;
 ///         <c>Move</c> threw only when the index ran past the shorter list and otherwise put the
 ///         element in the wrong place quietly. <c>Move</c> is reached by <c>HotReloadHost</c>
 ///         putting a rebuilt component back where the old one was, by <c>MenuPresenter</c> and
@@ -35,12 +43,12 @@ namespace Vixen.Ui.Tests;
 public class SurfaceIndexTests {
     /// <summary>A column of three differently sized boxes, so that order is readable off the tops.</summary>
     const string Column = """
-        root { flex-direction: column; }
-        ui-surface { flex-direction: column; }
-        .a { height: 20px; }
-        .b { height: 30px; }
-        .c { height: 40px; }
-        """;
+                          root { flex-direction: column; }
+                          ui-surface { flex-direction: column; }
+                          .a { height: 20px; }
+                          .b { height: 30px; }
+                          .c { height: 40px; }
+                          """;
 
     static UiDocument Document() {
         var document = new UiDocument(1000f, 600f);
@@ -111,7 +119,7 @@ public class SurfaceIndexTests {
         document.Reparent(moved, document.Root, 2);
         document.Update();
 
-        Assert.Equal(3, document.Root.Children.Count(child => child.SurfaceRoot is null));
+        Assert.Equal(3, document.Root.Children.Count(static child => child.SurfaceRoot is null));
         Assert.Equal(0f, first.Top, 0.001f);
         Assert.Equal(20f, moved.Top, 0.001f);
         Assert.Equal(60f, last.Top, 0.001f);

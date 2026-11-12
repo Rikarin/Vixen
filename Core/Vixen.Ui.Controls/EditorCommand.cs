@@ -79,8 +79,12 @@ public sealed class EditorCommand {
     /// <summary>Which focus context it belongs to, or <c>null</c> for "anywhere".</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Delete means one thing in the outliner and another in the content browser, and
-    ///         this is what tells them apart.</b> Both are Delete, both want the Delete key, and
+    ///         ⚠
+    ///         <b>
+    ///             Delete means one thing in the outliner and another in the content browser, and
+    ///             this is what tells them apart.
+    ///         </b>
+    ///         Both are Delete, both want the Delete key, and
     ///         guessing from an enablement predicate — "is anything selected in the scene?" — gets it
     ///         wrong the moment both have a selection, which after clicking an asset and then a row
     ///         is most of the time. A command declares the context it belongs to, the shell tracks
@@ -99,8 +103,12 @@ public sealed class EditorCommand {
 
     /// <summary>Which set of mutually-exclusive choices it is one of, or <c>null</c>.</summary>
     /// <remarks>
-    ///     ⚠ <b>Translate, Rotate and Scale are a choice, and three ticks is not how a choice
-    ///     reads.</b> A command in a radio group draws a dot rather than a tick, so a menu shows one
+    ///     ⚠
+    ///     <b>
+    ///         Translate, Rotate and Scale are a choice, and three ticks is not how a choice
+    ///         reads.
+    ///     </b>
+    ///     A command in a radio group draws a dot rather than a tick, so a menu shows one
     ///     mark against the mode that is current instead of a column the reader has to interpret.
     ///     Setting this without <see cref="Checked" /> marks nothing: the group says how the state is
     ///     drawn and the predicate is still what says which member holds it.
@@ -112,8 +120,12 @@ public sealed class EditorCommand {
 
     /// <summary>Coloured art for it, drawn with its title underneath.</summary>
     /// <remarks>
-    ///     ⚠ <b>Beside <see cref="Icon" /> rather than instead of it, and the two are different
-    ///     claims.</b> An <see cref="Icon" /> is a glyph in the theme's foreground on a strip of
+    ///     ⚠
+    ///     <b>
+    ///         Beside <see cref="Icon" /> rather than instead of it, and the two are different
+    ///         claims.
+    ///     </b>
+    ///     An <see cref="Icon" /> is a glyph in the theme's foreground on a strip of
     ///     glyphs — a toolbar's usual currency, and the right thing for twenty verbs that have to fit
     ///     in a row. Art is a picture that carries its own colours and is captioned, which is what a
     ///     short list of *destinations* wants: the mode strip has four entries, they are the biggest
@@ -145,16 +157,24 @@ public sealed class EditorCommand {
     /// <summary>Why it cannot be run at all yet, or the default for one that can.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Doc 20's first bar: a verb that is not implemented is <i>visibly</i> not
-    ///         implemented rather than absent.</b> A menu line that is missing reads as an application
+    ///         ⚠
+    ///         <b>
+    ///             Doc 20's first bar: a verb that is not implemented is <i>visibly</i> not
+    ///             implemented rather than absent.
+    ///         </b>
+    ///         A menu line that is missing reads as an application
     ///         that cannot do the thing; a line that is there and greyed reads as one that will
     ///         — and it is the difference between somebody filing "there is no Build and Run" and
     ///         somebody reading why. Setting this disables the command wherever it appears and gives
     ///         the palette and the refusal notice the sentence to show.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>It is not a substitute for <see cref="Enablement" /> and does not compose with
-    ///         it.</b> "Nothing is selected" is enablement and changes second by second; this is
+    ///         ⚠
+    ///         <b>
+    ///             It is not a substitute for <see cref="Enablement" /> and does not compose with
+    ///             it.
+    ///         </b>
+    ///         "Nothing is selected" is enablement and changes second by second; this is
     ///         "there is no sequencer yet" and changes when somebody writes one. A command carrying
     ///         both would be one whose predicate nobody ever reaches.
     ///     </para>

@@ -3,7 +3,6 @@
 
 using Vixen.Core.Syntax;
 using Vixen.Raven.Symbols;
-using Vixen.Raven.Syntax;
 
 namespace Vixen.Raven.Binding;
 

@@ -16,8 +16,12 @@ namespace Vixen.Engine.Behaviors;
 ///         core.
 ///     </para>
 ///     <para>
-///         ⚠ <b>What it promises is that <em>this type's</em> <c>Update</c> is safe to run on
-///         several threads at once, and nothing checks that at runtime.</b> What checks it is
+///         ⚠
+///         <b>
+///             What it promises is that <em>this type's</em> <c>Update</c> is safe to run on
+///             several threads at once, and nothing checks that at runtime.
+///         </b>
+///         What checks it is
 ///         <c>VXS0417</c>, an error: inside a marked type's <c>Update</c> or <c>LateUpdate</c>, the
 ///         calls that reach unsynchronised store-wide or world-wide state — the lifecycle queues, the
 ///         coroutine scheduler, structural change, and <c>Get&lt;T&gt;</c> of a managed component,

@@ -53,11 +53,12 @@ public static class ShaderLayout {
             // align to four, which is why a vec3 leaves a hole behind it. A one-lane vector
             // aligns like the scalar it is — Raven collapses those to scalars, so this arm is
             // for completeness rather than for code it currently sees.
-            IrVectorType vector => ScalarSize(vector.Component) * vector.Size switch {
-                <= 1 => 1,
-                2 => 2,
-                _ => 4
-            },
+            IrVectorType vector => ScalarSize(vector.Component)
+                * vector.Size switch {
+                    <= 1 => 1,
+                    2 => 2,
+                    _ => 4
+                },
 
             IrMatrixType matrix => MatrixStride(matrix, rule),
 
@@ -77,7 +78,7 @@ public static class ShaderLayout {
             IrVectorType vector => ScalarSize(vector.Component) * vector.Size,
             IrMatrixType matrix => MatrixStride(matrix, rule) * matrix.Columns,
             IrArrayType array => ArrayStride(array, rule) * (array.Length ?? 0),
-            IrStructType structType => Members([.. structType.Fields.Select(f => f.Type)], rule).Size,
+            IrStructType structType => Members([..structType.Fields.Select(static f => f.Type)], rule).Size,
             _ => 4
         };
 
@@ -126,8 +127,7 @@ public static class ShaderLayout {
     ///     std140 rounds aggregates up to 16 bytes; std430 leaves them at their natural
     ///     alignment. This single difference is the whole of the divergence between the two.
     /// </summary>
-    static int Round(int alignment, LayoutRule rule) =>
-        rule == LayoutRule.Std140 ? RoundUp(alignment, 16) : alignment;
+    static int Round(int alignment, LayoutRule rule) => rule == LayoutRule.Std140 ? RoundUp(alignment, 16) : alignment;
 
     /// <summary>
     ///     Four bytes, or eight for the 64-bit scalars.

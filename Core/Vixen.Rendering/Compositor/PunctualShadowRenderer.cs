@@ -6,7 +6,6 @@ using System.Runtime.InteropServices;
 using Vixen.Core.Imaging;
 using Vixen.Core.Mathematics;
 using Vixen.Graphics;
-using Vixen.Graphics.RenderGraph;
 using Vixen.Shaders;
 
 namespace Vixen.Rendering.Compositor;
@@ -88,8 +87,11 @@ public sealed class PunctualShadowRenderer : SceneRenderer, IDisposable {
     /// <summary>Everything a tile's depth is a function of, except the casters.</summary>
     /// <remarks>
     ///     <para>
-    ///         <strong>The cache's key, and it is the light itself rather than an identity the host
-    ///         supplies.</strong> A punctual light's shadow projection is decided entirely by these
+    ///         <strong>
+    ///             The cache's key, and it is the light itself rather than an identity the host
+    ///             supplies.
+    ///         </strong>
+    ///         A punctual light's shadow projection is decided entirely by these
     ///         six values — a spot's frustum <em>is</em> its cone, a point's is six of them — so two
     ///         frames in which they are bit-identical are two frames whose tile would rasterise the
     ///         same depth. That makes "the lamp has not moved" the same statement as "the key is
@@ -136,6 +138,7 @@ public sealed class PunctualShadowRenderer : SceneRenderer, IDisposable {
     // Where each light key lived at the end of last frame, rebuilt from `resident` every Collect
     // rather than carried, so a slot handed to a different light cannot leave a home pointing at it.
     readonly Dictionary<TileKey, int> homes = [];
+
     // ⚠ 1280 rather than the default 256, and it is load-bearing rather than tidy: a tile's index
     // carries the ring's own offset (see Collect), so the region stride has to be a whole number of
     // records. 1280 is the least common multiple of the eighty-byte record and the 256-byte binding
@@ -267,15 +270,21 @@ public sealed class PunctualShadowRenderer : SceneRenderer, IDisposable {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <strong>The whole cache is this one switch, and off is the path this node always
-    ///         had</strong> — one pass, a cleared atlas, every tile of every lamp rasterised again.
+    ///         <strong>
+    ///             The whole cache is this one switch, and off is the path this node always
+    ///             had
+    ///         </strong>
+    ///         — one pass, a cleared atlas, every tile of every lamp rasterised again.
     ///         Turning it on makes the node <em>own</em> its atlas: the depth in a tile is about the
     ///         world rather than about a frame, and a graph-declared resource is pooled memory whose
     ///         contents are undefined the moment the last pass that read it ended.
     ///     </para>
     ///     <para>
-    ///         <strong>Why this is not <see cref="ShadowMapRenderer.StaticCasterStage" />'s
-    ///         shape.</strong> A cascade is fitted to the camera, so its projection moves whenever
+    ///         <strong>
+    ///             Why this is not <see cref="ShadowMapRenderer.StaticCasterStage" />'s
+    ///             shape.
+    ///         </strong>
+    ///         A cascade is fitted to the camera, so its projection moves whenever
     ///         the player does and only the <em>static half</em> of its content is worth keeping —
     ///         which is why that cache needs a second stage, a second atlas and a full-atlas copy
     ///         every frame to put the two halves back together. A punctual light has a position of
@@ -286,8 +295,12 @@ public sealed class PunctualShadowRenderer : SceneRenderer, IDisposable {
     ///         the copy this avoids would have been 31 MB read and 31 MB written every frame.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The atlas the document declares under <see cref="Atlas" /> is replaced, not
-    ///         written.</b> The node publishes its own texture into the frame under that name before
+    ///         ⚠
+    ///         <b>
+    ///             The atlas the document declares under <see cref="Atlas" /> is replaced, not
+    ///             written.
+    ///         </b>
+    ///         The node publishes its own texture into the frame under that name before
     ///         any shading pass resolves it, so a reader sees the cache. The declaration is still
     ///         read, and its extent still checked against <see cref="AtlasSize" />, because a
     ///         document that disagrees with the node about the atlas's shape is a mistake worth
@@ -531,7 +544,7 @@ public sealed class PunctualShadowRenderer : SceneRenderer, IDisposable {
             placed = new bool[Math.Max(Lights.Count, 8)];
         }
 
-        if (Cached && TryPack(capacity, retain: true)) {
+        if (Cached && TryPack(capacity, true)) {
             return;
         }
 
@@ -545,7 +558,7 @@ public sealed class PunctualShadowRenderer : SceneRenderer, IDisposable {
         Array.Clear(claimed, 0, capacity);
         Array.Clear(slotUsed, 0, capacity);
         DroppedLights = 0;
-        TryPack(capacity, retain: false);
+        TryPack(capacity, false);
     }
 
     /// <summary>One packing attempt. False when it fragmented and has to be redone densely.</summary>
@@ -829,8 +842,7 @@ public sealed class PunctualShadowRenderer : SceneRenderer, IDisposable {
                 pass => {
                     pass.DepthAttachment(atlas);
 
-                    pass.Execute(
-                        graphContext => {
+                    pass.Execute(graphContext => {
                             var context = frame.Context(graphContext.CommandList);
                             var previous = context.Output;
                             context.Output = new([], format);
@@ -934,8 +946,7 @@ public sealed class PunctualShadowRenderer : SceneRenderer, IDisposable {
                 pass.Writes(cache, ResourceState.DepthStencilWrite);
                 pass.SideEffect();
 
-                pass.Execute(
-                    graphContext => {
+                pass.Execute(graphContext => {
                         var list = graphContext.CommandList;
                         var view = graphContext.View(cache);
                         var context = frame.Context(list);

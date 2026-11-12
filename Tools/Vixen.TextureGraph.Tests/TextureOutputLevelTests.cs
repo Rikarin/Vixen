@@ -10,8 +10,12 @@ namespace Tests;
 /// <summary>What an <c>Output</c> node means by a size, which is the graph's and not its branch's.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b><a href="https://github.com/Rikarin/Vixen/issues/805">#805</a>, and it is a decision
-///         rather than a repair.</b> #779 made a node's output the size of what it reads — one rule,
+///         ⚠
+///         <b>
+///             <a href="https://github.com/Rikarin/Vixen/issues/805">#805</a>, and it is a decision
+///             rather than a repair.
+///         </b>
+///         #779 made a node's output the size of what it reads — one rule,
 ///         everywhere inside a graph, and right there. At the <em>terminus</em> that rule says
 ///         something the rest of the tree contradicts: a texture set is one material's maps over one
 ///         atlas, so <c>MaterialBake</c> refuses maps of two sizes, and a graph with
@@ -28,8 +32,12 @@ namespace Tests;
 ///         The terminus is one more such meeting, and what it meets is the texture set.
 ///     </para>
 ///     <para>
-///         ⚠ <b>So the image is brought back to the base and the author is <em>told</em>, which is
-///         the half neither shape in #805 had.</b> Refusing would make a legal-looking graph illegal;
+///         ⚠
+///         <b>
+///             So the image is brought back to the base and the author is <em>told</em>, which is
+///             the half neither shape in #805 had.
+///         </b>
+///         Refusing would make a legal-looking graph illegal;
 ///         rescaling in silence would undo what the author wrote with nothing on screen. A warning
 ///         naming the Output node is what makes the rescale a fact the author can see and act on,
 ///         and a bake that draws a picture rather than throwing is what the rest of this tree does
@@ -41,8 +49,12 @@ public class TextureOutputLevelTests {
 
     /// <summary>Two Output nodes at two levels keep two images of the graph's one size.</summary>
     /// <remarks>
-    ///     ⚠ <b>#805's own input, and the assertion is over <c>plan.Outputs</c> rather than over the
-    ///     ops.</b> Before this rule the two entries measured 128² and 256², both maps baked, and the
+    ///     ⚠
+    ///     <b>
+    ///         #805's own input, and the assertion is over <c>plan.Outputs</c> rather than over the
+    ///         ops.
+    ///     </b>
+    ///     Before this rule the two entries measured 128² and 256², both maps baked, and the
     ///     throw came out of <c>MaterialBake.Extent</c> — a stack trace where a picture was asked
     ///     for. Asserting the op sizes would have missed it entirely: every op in that plan was the
     ///     right size for what it read.
@@ -94,14 +106,17 @@ public class TextureOutputLevelTests {
     public void An_output_below_the_base_is_a_warning_naming_the_node_and_not_a_refusal() {
         var graph = Graph("Source/Noise", out var noise);
         var resample = graph.Add("Space/Resample");
-        var output = Assert.Single(graph.Nodes, node => string.Equals(node.Type, "Output/Output", StringComparison.Ordinal));
+        var output = Assert.Single(
+            graph.Nodes,
+            static node => string.Equals(node.Type, "Output/Output", StringComparison.Ordinal)
+        );
 
         graph.Connect(new(noise.Id, "Out"), new(resample.Id, "Input"));
         graph.Disconnect(new(output.Id, "Input"));
         graph.Connect(new(resample.Id, "Out"), new(output.Id, "Input"));
 
         var compilation = Compiler().Compile(graph);
-        var caution = Assert.Single(compilation.Diagnostics, diagnostic => diagnostic.Id == "TG0022");
+        var caution = Assert.Single(compilation.Diagnostics, static diagnostic => diagnostic.Id == "TG0022");
 
         Assert.Equal(output.Id, caution.Node);
         Assert.Equal("Usage", caution.Port);
@@ -124,8 +139,11 @@ public class TextureOutputLevelTests {
     /// <summary>⚠ And the terminus rescale of a magnified branch is boxed, because it goes down.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/829">#829</a>, and the aliasing was
-    ///         already in the tree.</b> A level offset is signed: <c>Resample(Quadruple)</c> is level
+    ///         <b>
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/829">#829</a>, and the aliasing was
+    ///             already in the tree.
+    ///         </b>
+    ///         A level offset is signed: <c>Resample(Quadruple)</c> is level
     ///         −2, so a terminus that brings it back to zero is a <b>4:1 minification</b> — the first
     ///         one <c>Rescale</c> has ever been asked for, and it passed <c>Bilinear</c>, which reads
     ///         four texels of sixteen and drops the other twelve. <c>Resample.rvn</c>'s header names
@@ -133,8 +151,12 @@ public class TextureOutputLevelTests {
     ///         down".
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The two <c>Resample</c> ops are told apart by the size they write and not by
-    ///         their order</b>, because the node's own resample and the compiler's rescale run the
+    ///         ⚠
+    ///         <b>
+    ///             The two <c>Resample</c> ops are told apart by the size they write and not by
+    ///             their order
+    ///         </b>
+    ///         , because the node's own resample and the compiler's rescale run the
     ///         same kernel: the node writes the 1024² image and the terminus writes the 256² one.
     ///     </para>
     /// </remarks>
@@ -142,7 +164,10 @@ public class TextureOutputLevelTests {
     public void The_terminus_rescale_of_a_magnified_branch_is_boxed() {
         var graph = Graph("Source/Noise", out var noise);
         var resample = graph.Add("Space/Resample");
-        var output = Assert.Single(graph.Nodes, node => string.Equals(node.Type, "Output/Output", StringComparison.Ordinal));
+        var output = Assert.Single(
+            graph.Nodes,
+            static node => string.Equals(node.Type, "Output/Output", StringComparison.Ordinal)
+        );
 
         resample.SetText("Size", "Quadruple");
         graph.Connect(new(noise.Id, "Out"), new(resample.Id, "Input"));
@@ -169,7 +194,10 @@ public class TextureOutputLevelTests {
     public void A_rescale_that_goes_up_is_still_bilinear() {
         var graph = Graph("Source/Noise", out var noise);
         var resample = graph.Add("Space/Resample");
-        var output = Assert.Single(graph.Nodes, node => string.Equals(node.Type, "Output/Output", StringComparison.Ordinal));
+        var output = Assert.Single(
+            graph.Nodes,
+            static node => string.Equals(node.Type, "Output/Output", StringComparison.Ordinal)
+        );
 
         resample.SetText("Size", "Half");
         graph.Connect(new(noise.Id, "Out"), new(resample.Id, "Input"));
@@ -196,7 +224,7 @@ public class TextureOutputLevelTests {
         var plan = Compiler().Compile(Graph("Source/Noise", out _)).Value;
 
         Assert.Empty(compiler.Compile(Graph("Source/Noise", out _)).Diagnostics);
-        Assert.DoesNotContain(plan.Ops, op => op.Kernel == "Resample");
+        Assert.DoesNotContain(plan.Ops, static op => op.Kernel == "Resample");
         Assert.Equal(new(Side, Side), plan.SizeOf(Assert.Single(plan.Outputs)));
     }
 
@@ -211,17 +239,17 @@ public class TextureOutputLevelTests {
     public void A_bake_above_the_authoring_resolution_keeps_its_outputs_at_the_bakes_size() {
         var graph = Graph("Source/Noise", out var noise);
         var resample = graph.Add("Space/Resample");
-        var output = Assert.Single(graph.Nodes, node => string.Equals(node.Type, "Output/Output", StringComparison.Ordinal));
+        var output = Assert.Single(
+            graph.Nodes,
+            static node => string.Equals(node.Type, "Output/Output", StringComparison.Ordinal)
+        );
 
         graph.Connect(new(noise.Id, "Out"), new(resample.Id, "Input"));
         graph.Disconnect(new(output.Id, "Input"));
         graph.Connect(new(resample.Id, "Out"), new(output.Id, "Input"));
 
         TextureGraphCompiler compiler = new(Registry()) {
-            BaseWidth = Side,
-            BaseHeight = Side,
-            Seed = 5150,
-            BakeLevelOffset = -2
+            BaseWidth = Side, BaseHeight = Side, Seed = 5150, BakeLevelOffset = -2
         };
 
         var plan = compiler.Compile(graph).Artefact!;
@@ -233,16 +261,24 @@ public class TextureOutputLevelTests {
     /// <summary>A node that both reads an image and bakes a table never resamples the table.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The one shape that could reach <c>Rescale</c>'s external short-circuit, which is
-    ///         why this test replaces it.</b> That branch read as a design rule — "an external is
+    ///         ⚠
+    ///         <b>
+    ///             The one shape that could reach <c>Rescale</c>'s external short-circuit, which is
+    ///             why this test replaces it.
+    ///         </b>
+    ///         That branch read as a design rule — "an external is
     ///         never rescaled" — and was a guard nothing could execute:
     ///         <c>TextureGraphCompiler.External</c> hands an index straight back to the node and
     ///         never puts it in <c>imageOf</c>, and <c>Rescale</c> is only ever reached from
     ///         <c>Upstream</c>, which reads nothing else.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>An unreachable branch is a claim, and a claim belongs in a test rather than in
-    ///         code that cannot run.</b> <c>Colour/Gradient Map</c> is the shape that comes closest:
+    ///         ⚠
+    ///         <b>
+    ///             An unreachable branch is a claim, and a claim belongs in a test rather than in
+    ///             code that cannot run.
+    ///         </b>
+    ///         <c>Colour/Gradient Map</c> is the shape that comes closest:
     ///         it reads an image port <em>and</em> bakes a 256×1 ramp, so downstream of a resample it
     ///         is a node at level 1 holding an image at level 0. The ramp is a dispatch input rather
     ///         than a port, so it never passes through <c>Read</c> at all — and if that ever changed,
@@ -256,7 +292,10 @@ public class TextureOutputLevelTests {
         var graph = Graph("Source/Noise", out var noise);
         var resample = graph.Add("Space/Resample");
         var map = graph.Add("Colour/Gradient Map");
-        var output = Assert.Single(graph.Nodes, node => string.Equals(node.Type, "Output/Output", StringComparison.Ordinal));
+        var output = Assert.Single(
+            graph.Nodes,
+            static node => string.Equals(node.Type, "Output/Output", StringComparison.Ordinal)
+        );
 
         graph.Connect(new(noise.Id, "Out"), new(resample.Id, "Input"));
         graph.Connect(new(resample.Id, "Out"), new(map.Id, "Input"));
@@ -265,7 +304,7 @@ public class TextureOutputLevelTests {
 
         var plan = compiler.Compile(graph).Artefact!;
         var ramp = Assert.Single(compiler.Externals).Image;
-        var table = Assert.Single(plan.Ops, op => op.Kernel == "GradientMap");
+        var table = Assert.Single(plan.Ops, static op => op.Kernel == "GradientMap");
 
         Assert.Empty(plan.Validate());
 
@@ -291,8 +330,7 @@ public class TextureOutputLevelTests {
         return graph;
     }
 
-    static TextureGraphCompiler Compiler() =>
-        new(Registry()) { BaseWidth = Side, BaseHeight = Side, Seed = 5150 };
+    static TextureGraphCompiler Compiler() => new(Registry()) { BaseWidth = Side, BaseHeight = Side, Seed = 5150 };
 
     static NodeTypeRegistry Registry() {
         NodeTypeRegistry registry = new();

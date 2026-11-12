@@ -138,7 +138,7 @@ sealed class AtlasGrid {
 
         for (var row = 0; row < mask.Height; row++) {
             var source = row * maskStride;
-            var target = ((y + row) * stride) + baseWord;
+            var target = (y + row) * stride + baseWord;
 
             for (var word = 0; word < maskStride; word++) {
                 var bits = raw[source + word];
@@ -204,7 +204,7 @@ sealed class AtlasGrid {
             }
 
             var source = row * grownStride;
-            var destination = (target * stride) + baseWord;
+            var destination = target * stride + baseWord;
 
             for (var word = 0; word < grownStride; word++) {
                 var bits = grown[source + word];
@@ -252,7 +252,7 @@ sealed class AtlasGrid {
     ///     is bounded by the islands already placed rather than by the resolution.
     /// </remarks>
     public int[] Breakpoints() {
-        var breaks = new List<int>(Math.Min(Resolution, (Count * 2) + 2)) { Margin };
+        var breaks = new List<int>(Math.Min(Resolution, Count * 2 + 2)) { Margin };
 
         for (var column = Margin + 1; column < Resolution - Margin; column++) {
             if (Skyline[column] != Skyline[column - 1]) {
@@ -260,6 +260,6 @@ sealed class AtlasGrid {
             }
         }
 
-        return [.. breaks];
+        return [..breaks];
     }
 }

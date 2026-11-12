@@ -3,7 +3,6 @@
 
 using Vixen.Core;
 using Vixen.Core.Mathematics;
-using Vixen.Ecs;
 
 namespace Vixen.Ai;
 
@@ -46,8 +45,12 @@ public interface IGoapTargetSensor {
 ///         <c>AgentActionRegistry</c>, the same thing a behaviour-tree task and a utility action name.
 ///     </para>
 ///     <para>
-///         ⚠ <b><see cref="BaseCost" /> is what a designer tunes and the distance is what the world
-///         adds.</b> An action set whose costs are all one plans by depth, which is the default and is
+///         ⚠
+///         <b>
+///             <see cref="BaseCost" /> is what a designer tunes and the distance is what the world
+///             adds.
+///         </b>
+///         An action set whose costs are all one plans by depth, which is the default and is
 ///         usually right; a set that wants "shooting is cheaper than punching" says so here rather
 ///         than in a heuristic.
 ///     </para>
@@ -202,7 +205,7 @@ public sealed class GoapDomain {
         }
 
         offsets[pairs] = edges.Count;
-        servers = [.. edges];
+        servers = [..edges];
 
         // Where each action's conditions start in the pair table, so a condition's servers are one
         // addition away rather than a scan.

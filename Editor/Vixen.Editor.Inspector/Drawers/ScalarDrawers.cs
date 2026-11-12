@@ -78,9 +78,9 @@ public sealed class NumberDrawer : IPropertyDrawer {
 
         if (field.Member.Range is { } range) {
             var slider = parent.Add<Slider>();
-            slider.Minimum = (float) range.Minimum;
-            slider.Maximum = (float) range.Maximum;
-            slider.Step = (float) (range.Step > 0 ? range.Step : IsIntegral(type) ? 1d : 0d);
+            slider.Minimum = (float)range.Minimum;
+            slider.Maximum = (float)range.Maximum;
+            slider.Step = (float)(range.Step > 0 ? range.Step : IsIntegral(type) ? 1d : 0d);
             slider.Disabled = !field.CanWrite;
             slider.ValueChanged += (_, value) => field.Write(Convert(value, type));
 
@@ -88,10 +88,11 @@ public sealed class NumberDrawer : IPropertyDrawer {
             // that happened to land on a different value would still merge — until the user did
             // something else — and undo after a drag would go back further than the drag did.
             slider.AddHandler<PointerEvent>((_, args) => {
-                if (args.Action == PointerAction.Released) {
-                    field.Seal();
+                    if (args.Action == PointerAction.Released) {
+                        field.Seal();
+                    }
                 }
-            });
+            );
 
             return slider;
         }
@@ -159,15 +160,18 @@ public sealed class NumberDrawer : IPropertyDrawer {
 
                 numeric.Placeholder = mixed ? "—" : null;
                 break;
-
-            default:
-                break;
         }
     }
 
     static bool IsIntegral(Type type) =>
-        type == typeof(int) || type == typeof(uint) || type == typeof(long) || type == typeof(ulong)
-        || type == typeof(short) || type == typeof(ushort) || type == typeof(byte) || type == typeof(sbyte);
+        type == typeof(int)
+        || type == typeof(uint)
+        || type == typeof(long)
+        || type == typeof(ulong)
+        || type == typeof(short)
+        || type == typeof(ushort)
+        || type == typeof(byte)
+        || type == typeof(sbyte);
 
     static object Convert(double value, Type type) =>
         System.Convert.ChangeType(value, type, CultureInfo.InvariantCulture);
@@ -194,10 +198,9 @@ public sealed class StringDrawer : PropertyDrawer<string, TextBox> {
         // box that kept the typing on screen while writing nothing reads as the edit having landed.
         // `Write` is a no-op when the value has not changed, so a click through a field nobody typed
         // in records nothing.
-        box.AddHandler<FocusEvent>(
-            (element, args) => {
+        box.AddHandler<FocusEvent>((element, args) => {
                 if (!args.Gained && ReferenceEquals(args.Source, element)) {
-                    Commit((TextBox) element);
+                    Commit((TextBox)element);
                 }
             }
         );
@@ -232,8 +235,11 @@ public sealed class MultilineDrawer : PropertyDrawer<string, TextArea> {
 
         // How tall it starts is a theme decision the attribute parameterises, not something this
         // sets in pixels: `textarea.lines-6` is a selector a user's own stylesheet can reach.
-        area.AddClass("lines-" + (field.Member.Lines > 0 ? field.Member.Lines : 4)
-            .ToString(CultureInfo.InvariantCulture));
+        area.AddClass(
+            "lines-"
+            + (field.Member.Lines > 0 ? field.Member.Lines : 4)
+            .ToString(CultureInfo.InvariantCulture)
+        );
 
         area.ValueChanged += (control, _) => field.Write(control.Value ?? string.Empty);
         area.Submitted += _ => field.Seal();
@@ -241,8 +247,7 @@ public sealed class MultilineDrawer : PropertyDrawer<string, TextArea> {
         // The value is already written per keystroke here, so what focus loss ends is the undo entry
         // — the same thing Enter ends. Without it, everything typed before clicking away merges with
         // whatever is typed next.
-        area.AddHandler<FocusEvent>(
-            (element, args) => {
+        area.AddHandler<FocusEvent>((element, args) => {
                 if (!args.Gained && ReferenceEquals(args.Source, element)) {
                     field.Seal();
                 }
@@ -264,15 +269,23 @@ public sealed class MultilineDrawer : PropertyDrawer<string, TextArea> {
 /// <summary>A dropdown over the values a member states it accepts.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b><c>EnumDrawer</c> for a set of legal values that is not a CLR type —
-///         <a href="https://github.com/Rikarin/Vixen/issues/964">#964</a>.</b> A node setting is one
+///         ⚠
+///         <b>
+///             <c>EnumDrawer</c> for a set of legal values that is not a CLR type —
+///             <a href="https://github.com/Rikarin/Vixen/issues/964">#964</a>.
+///         </b>
+///         A node setting is one
 ///         of nine measurements, a plugin's own row is one of the names a library published: legal
 ///         sets both, enumerable both, and neither is an <see langword="enum" />, so both drew as a
 ///         text box in which a typo is a diagnostic instead of an impossibility.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Registered for <see langword="string" /> after <see cref="StringDrawer" /> and
-///         declining when there is no list</b>, which is the registry's own idiom: the most recently
+///         ⚠
+///         <b>
+///             Registered for <see langword="string" /> after <see cref="StringDrawer" /> and
+///             declining when there is no list
+///         </b>
+///         , which is the registry's own idiom: the most recently
 ///         registered wins and what it declines falls through untouched. So a string member that
 ///         states nothing is a text box exactly as it was, and this file adds no behaviour to any
 ///         member that did not ask for it.
@@ -421,9 +434,6 @@ public sealed class EnumDrawer : IPropertyDrawer {
                 select.Placeholder = mixed ? "—" : null;
 
                 break;
-
-            default:
-                break;
         }
     }
 
@@ -431,7 +441,7 @@ public sealed class EnumDrawer : IPropertyDrawer {
         var accumulated = 0L;
 
         foreach (var name in names) {
-            accumulated |= System.Convert.ToInt64(Enum.Parse(type, name), CultureInfo.InvariantCulture);
+            accumulated |= Convert.ToInt64(Enum.Parse(type, name), CultureInfo.InvariantCulture);
         }
 
         return Enum.ToObject(type, accumulated);
@@ -442,11 +452,11 @@ public sealed class EnumDrawer : IPropertyDrawer {
             return [];
         }
 
-        var bits = System.Convert.ToInt64(value, CultureInfo.InvariantCulture);
+        var bits = Convert.ToInt64(value, CultureInfo.InvariantCulture);
         List<string> chosen = [];
 
         foreach (var name in Enum.GetNames(type)) {
-            var flag = System.Convert.ToInt64(Enum.Parse(type, name), CultureInfo.InvariantCulture);
+            var flag = Convert.ToInt64(Enum.Parse(type, name), CultureInfo.InvariantCulture);
 
             // Zero is "None" and is only shown when the whole value is zero — otherwise every
             // selection would include it, because zero is a subset of everything.
@@ -455,7 +465,7 @@ public sealed class EnumDrawer : IPropertyDrawer {
             }
         }
 
-        return [.. chosen];
+        return [..chosen];
     }
 }
 

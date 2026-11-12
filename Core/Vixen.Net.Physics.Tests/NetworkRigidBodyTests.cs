@@ -36,7 +36,7 @@ public sealed class NetworkRigidBodyTests {
     [Fact]
     public void ABodyAtRestIsPublishedAsExactlyZero() {
         using var world = new World("rigid-rest");
-        var capture = new NetworkRigidBodyCaptureSystem();
+        using var capture = new NetworkRigidBodyCaptureSystem();
 
         var entity = world.Create(
             new NetworkId(1),
@@ -58,7 +58,7 @@ public sealed class NetworkRigidBodyTests {
     [Fact]
     public void AMovingBodyPublishesItsVelocity() {
         using var world = new World("rigid-moving");
-        var capture = new NetworkRigidBodyCaptureSystem();
+        using var capture = new NetworkRigidBodyCaptureSystem();
 
         var entity = world.Create(
             new NetworkId(1),
@@ -72,8 +72,8 @@ public sealed class NetworkRigidBodyTests {
         var body = world.Read<NetworkRigidBody>(entity);
 
         Assert.False(body.IsResting);
-        Assert.Equal(new Vector3(3f, -9.8f, 0f), body.LinearVelocity);
-        Assert.Equal(new Vector3(0f, 2f, 0f), body.AngularVelocity);
+        Assert.Equal(new(3f, -9.8f, 0f), body.LinearVelocity);
+        Assert.Equal(new(0f, 2f, 0f), body.AngularVelocity);
     }
 
     /// <summary>The velocity survives the wire to within its quantisation and no worse.</summary>
@@ -123,13 +123,14 @@ public sealed class NetworkRigidBodyTests {
     [Fact]
     public void ABodyBehindIsSteeredToTheAuthorityWithoutOvershooting() {
         using var world = new World("rigid-correct");
-        var correction = new NetworkRigidBodyCorrectionSystem { Local = Receiving };
+        using var correction = new NetworkRigidBodyCorrectionSystem();
+        correction.Local = Receiving;
 
         var entity = Corrected(
             world,
-            new NetworkRigidBody { LinearVelocity = Vector3.Zero },
-            new NetworkTransform { Position = new(1f, 0f, 0f), Rotation = Quaternion.Identity },
-            new LocalTransform { Position = Vector3.Zero, Rotation = Quaternion.Identity, Scale = Vector3.One }
+            new() { LinearVelocity = Vector3.Zero },
+            new() { Position = new(1f, 0f, 0f), Rotation = Quaternion.Identity },
+            new() { Position = Vector3.Zero, Rotation = Quaternion.Identity, Scale = Vector3.One }
         );
 
         var previous = 1f;
@@ -157,30 +158,35 @@ public sealed class NetworkRigidBodyTests {
     [Fact]
     public void ABodyBeyondTheSnapDistanceIsTeleported() {
         using var world = new World("rigid-snap");
-        var correction = new NetworkRigidBodyCorrectionSystem { Local = Receiving };
+        using var correction = new NetworkRigidBodyCorrectionSystem();
+        correction.Local = Receiving;
 
         var entity = Corrected(
             world,
-            new NetworkRigidBody { LinearVelocity = new(1f, 0f, 0f) },
-            new NetworkTransform { Position = new(500f, 0f, 0f), Rotation = Quaternion.Identity },
-            new LocalTransform { Position = Vector3.Zero, Rotation = Quaternion.Identity, Scale = Vector3.One }
+            new() { LinearVelocity = new(1f, 0f, 0f) },
+            new() { Position = new(500f, 0f, 0f), Rotation = Quaternion.Identity },
+            new() { Position = Vector3.Zero, Rotation = Quaternion.Identity, Scale = Vector3.One }
         );
 
         correction.Correct(world, Step);
 
-        Assert.Equal(new Vector3(500f, 0f, 0f), world.Read<LocalTransform>(entity).Position);
+        Assert.Equal(new(500f, 0f, 0f), world.Read<LocalTransform>(entity).Position);
         Assert.Equal(1, correction.SnappedCount);
 
         // And it is marked, so nothing draws it sliding five hundred metres to get there.
-        Assert.True(world.Has<global::Vixen.Physics.Ecs.PhysicsTeleport>(entity));
+        Assert.True(world.Has<PhysicsTeleport>(entity));
 
         // The velocity is the authority's, not a correction toward a target it has already reached.
-        Assert.Equal(new Vector3(1f, 0f, 0f), world.Read<PhysicsLinearVelocity>(entity).Value);
+        Assert.Equal(new(1f, 0f, 0f), world.Read<PhysicsLinearVelocity>(entity).Value);
     }
 
     /// <summary>
-    ///     ⚠ <b>And the sentence above — "so nothing draws it sliding five hundred metres" — held only
-    ///     as far as the tag.</b> This is the rest of the sentence, against a real simulation.
+    ///     ⚠
+    ///     <b>
+    ///         And the sentence above — "so nothing draws it sliding five hundred metres" — held only
+    ///         as far as the tag.
+    ///     </b>
+    ///     This is the rest of the sentence, against a real simulation.
     /// </summary>
     /// <remarks>
     ///     <para>
@@ -208,7 +214,8 @@ public sealed class NetworkRigidBodyTests {
 
         loop.AddPhysics(scene);
 
-        var correction = new NetworkRigidBodyCorrectionSystem { Local = Receiving };
+        using var correction = new NetworkRigidBodyCorrectionSystem();
+        correction.Local = Receiving;
 
         var entity = loop.World.Create(LocalTransform.At(Vector3.Zero));
         loop.World.Add(entity, new NetworkId(1));
@@ -260,18 +267,19 @@ public sealed class NetworkRigidBodyTests {
     [Fact]
     public void ABodyInTheRightPlaceKeepsTheVelocityItWasSent() {
         using var world = new World("rigid-agreeing");
-        var correction = new NetworkRigidBodyCorrectionSystem { Local = Receiving };
+        using var correction = new NetworkRigidBodyCorrectionSystem();
+        correction.Local = Receiving;
 
         var entity = Corrected(
             world,
-            new NetworkRigidBody { LinearVelocity = new(0f, -9.8f, 4f) },
-            new NetworkTransform { Position = new(2f, 3f, 4f), Rotation = Quaternion.Identity },
-            new LocalTransform { Position = new(2f, 3f, 4f), Rotation = Quaternion.Identity, Scale = Vector3.One }
+            new() { LinearVelocity = new(0f, -9.8f, 4f) },
+            new() { Position = new(2f, 3f, 4f), Rotation = Quaternion.Identity },
+            new() { Position = new(2f, 3f, 4f), Rotation = Quaternion.Identity, Scale = Vector3.One }
         );
 
         correction.Correct(world, Step);
 
-        Assert.Equal(new Vector3(0f, -9.8f, 4f), world.Read<PhysicsLinearVelocity>(entity).Value);
+        Assert.Equal(new(0f, -9.8f, 4f), world.Read<PhysicsLinearVelocity>(entity).Value);
     }
 
     /// <summary>A rotation is corrected the short way round.</summary>
@@ -283,7 +291,8 @@ public sealed class NetworkRigidBodyTests {
     [Fact]
     public void ARotationIsCorrectedTheShortWayRound() {
         using var world = new World("rigid-rotation");
-        var correction = new NetworkRigidBodyCorrectionSystem { Local = Receiving };
+        using var correction = new NetworkRigidBodyCorrectionSystem();
+        correction.Local = Receiving;
 
         var almost = Quaternion.FromAxisAngle(Vector3.UnitY, 3.0f);
         var target = Quaternion.FromAxisAngle(Vector3.UnitY, -3.0f);
@@ -291,8 +300,8 @@ public sealed class NetworkRigidBodyTests {
         var entity = Corrected(
             world,
             default,
-            new NetworkTransform { Position = Vector3.Zero, Rotation = target },
-            new LocalTransform { Position = Vector3.Zero, Rotation = almost, Scale = Vector3.One }
+            new() { Position = Vector3.Zero, Rotation = target },
+            new() { Position = Vector3.Zero, Rotation = almost, Scale = Vector3.One }
         );
 
         correction.Correct(world, Step);
@@ -323,22 +332,23 @@ public sealed class NetworkRigidBodyTests {
     [Fact]
     public void ABodyTheAuthorityHasDeclaredAsleepStopsBeingSteered() {
         using var world = new World("rigid-resting");
-        var correction = new NetworkRigidBodyCorrectionSystem { Local = Receiving };
+        using var correction = new NetworkRigidBodyCorrectionSystem();
+        correction.Local = Receiving;
 
         // Ten centimetres out, which is well inside the snap distance and exactly the residual a
         // quantised position leaves behind when a body comes to rest.
         var asleep = Corrected(
             world,
-            new NetworkRigidBody { LinearVelocity = Vector3.Zero, IsResting = true },
-            new NetworkTransform { Position = new(0.1f, 0f, 0f), Rotation = Quaternion.Identity },
-            new LocalTransform { Position = Vector3.Zero, Rotation = Quaternion.Identity, Scale = Vector3.One }
+            new() { LinearVelocity = Vector3.Zero, IsResting = true },
+            new() { Position = new(0.1f, 0f, 0f), Rotation = Quaternion.Identity },
+            new() { Position = Vector3.Zero, Rotation = Quaternion.Identity, Scale = Vector3.One }
         );
 
         var awake = Corrected(
             world,
-            new NetworkRigidBody { LinearVelocity = Vector3.Zero, IsResting = false },
-            new NetworkTransform { Position = new(0.1f, 0f, 0f), Rotation = Quaternion.Identity },
-            new LocalTransform { Position = Vector3.Zero, Rotation = Quaternion.Identity, Scale = Vector3.One }
+            new() { LinearVelocity = Vector3.Zero, IsResting = false },
+            new() { Position = new(0.1f, 0f, 0f), Rotation = Quaternion.Identity },
+            new() { Position = Vector3.Zero, Rotation = Quaternion.Identity, Scale = Vector3.One }
         );
 
         for (var tick = 0; tick < 60; tick++) {
@@ -368,16 +378,14 @@ public sealed class NetworkRigidBodyTests {
     [Fact]
     public void ASettledBodyStopsTurningAsWellAsMoving() {
         using var world = new World("rigid-resting-spin");
-        var correction = new NetworkRigidBodyCorrectionSystem { Local = Receiving };
+        using var correction = new NetworkRigidBodyCorrectionSystem();
+        correction.Local = Receiving;
 
         var entity = Corrected(
             world,
-            new NetworkRigidBody { IsResting = true },
-            new NetworkTransform {
-                Position = Vector3.Zero,
-                Rotation = Quaternion.FromAxisAngle(Vector3.UnitY, 0.2f)
-            },
-            new LocalTransform { Position = Vector3.Zero, Rotation = Quaternion.Identity, Scale = Vector3.One }
+            new() { IsResting = true },
+            new() { Position = Vector3.Zero, Rotation = Quaternion.FromAxisAngle(Vector3.UnitY, 0.2f) },
+            new() { Position = Vector3.Zero, Rotation = Quaternion.Identity, Scale = Vector3.One }
         );
 
         world.Get<PhysicsAngularVelocity>(entity).Value = new(0f, 3f, 0f);
@@ -402,15 +410,16 @@ public sealed class NetworkRigidBodyTests {
     [InlineData(0.2f, false)]
     public void ABodyRotatedPastTheSnapAngleIsSnapped(float radians, bool snaps) {
         using var world = new World("rigid-snap-angle");
-        var correction = new NetworkRigidBodyCorrectionSystem { Local = Receiving };
+        using var correction = new NetworkRigidBodyCorrectionSystem();
+        correction.Local = Receiving;
         var wanted = Quaternion.FromAxisAngle(Vector3.UnitY, radians);
 
         // In the right place, so nothing the distance threshold could explain is in the answer.
         var entity = Corrected(
             world,
             default,
-            new NetworkTransform { Position = Vector3.Zero, Rotation = wanted },
-            new LocalTransform { Position = Vector3.Zero, Rotation = Quaternion.Identity, Scale = Vector3.One }
+            new() { Position = Vector3.Zero, Rotation = wanted },
+            new() { Position = Vector3.Zero, Rotation = Quaternion.Identity, Scale = Vector3.One }
         );
 
         correction.Correct(world, Step);
@@ -422,11 +431,11 @@ public sealed class NetworkRigidBodyTests {
             // Placed, tagged so nothing draws it spinning there, and given the authority's motion.
             Assert.Equal(wanted.Y, world.Read<LocalTransform>(entity).Rotation.Y, 4);
             Assert.Equal(wanted.W, world.Read<LocalTransform>(entity).Rotation.W, 4);
-            Assert.True(world.Has<global::Vixen.Physics.Ecs.PhysicsTeleport>(entity));
+            Assert.True(world.Has<PhysicsTeleport>(entity));
             Assert.Equal(Vector3.Zero, world.Read<PhysicsAngularVelocity>(entity).Value);
         } else {
             Assert.Equal(Quaternion.Identity, world.Read<LocalTransform>(entity).Rotation);
-            Assert.False(world.Has<global::Vixen.Physics.Ecs.PhysicsTeleport>(entity));
+            Assert.False(world.Has<PhysicsTeleport>(entity));
             Assert.True(world.Read<PhysicsAngularVelocity>(entity).Value.Length() > 0f);
         }
     }
@@ -455,15 +464,21 @@ public sealed class NetworkRigidBodyTests {
         ownership.SetOwner(new(1), mine);
         rules.Set(new(1), NetworkRules.OwnerAuthoritative);
 
-        var capture = new NetworkRigidBodyCaptureSystem { Rules = rules, Local = mine };
-        var correction = new NetworkRigidBodyCorrectionSystem { Rules = rules, Local = mine };
+        using var capture = new NetworkRigidBodyCaptureSystem();
+        capture.Rules = rules;
+        capture.Local = mine;
+        using var correction = new NetworkRigidBodyCorrectionSystem();
+        correction.Rules = rules;
+        correction.Local = mine;
 
         // The owner decides, so it publishes and is not corrected.
         Assert.True(capture.IsAuthority(new(1)));
         Assert.True(correction.IsAuthority(new(1)));
 
         // Somebody else's client does the opposite, on the same rule.
-        var theirs = new NetworkRigidBodyCaptureSystem { Rules = rules, Local = new(5) };
+        using var theirs = new NetworkRigidBodyCaptureSystem();
+        theirs.Rules = rules;
+        theirs.Local = new(5);
         Assert.False(theirs.IsAuthority(new(1)));
 
         // And an object nobody claimed is the server's, which is what the default says.
@@ -477,7 +492,9 @@ public sealed class NetworkRigidBodyTests {
 
         var ownership = new NetworkOwnership();
         var rules = new NetworkRulesRegistry(ownership);
-        var capture = new NetworkRigidBodyCaptureSystem { Rules = rules, Local = new(4) };
+        using var capture = new NetworkRigidBodyCaptureSystem();
+        capture.Rules = rules;
+        capture.Local = new(4);
 
         // Server-authoritative by default, and this peer is a client.
         world.Create(
@@ -497,7 +514,12 @@ public sealed class NetworkRigidBodyTests {
     ///     World.Create takes four components at most, which is fewer than a corrected body needs —
     ///     so the rest are added. Worth a helper rather than four copies of the same six lines.
     /// </remarks>
-    static Entity Corrected(World world, in NetworkRigidBody body, in NetworkTransform target, in LocalTransform local) {
+    static Entity Corrected(
+        World world,
+        in NetworkRigidBody body,
+        in NetworkTransform target,
+        in LocalTransform local
+    ) {
         var entity = world.Create(new NetworkId(1), body, target, local);
 
         world.Add(entity, NetworkRigidBodyCorrection.Default);

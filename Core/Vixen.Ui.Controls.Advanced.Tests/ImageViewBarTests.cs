@@ -8,8 +8,12 @@ namespace Vixen.Ui.Controls.Advanced.Tests;
 
 /// <summary>The strip that offers what <see cref="ImageView" />'s two toggles were asking for.</summary>
 /// <remarks>
-///     ⚠ <b>Every assertion here reads the <em>draw command</em> and not the control's property back
-///     — <a href="https://github.com/Rikarin/Vixen/issues/1012">#1012</a>'s own instruction.</b> A
+///     ⚠
+///     <b>
+///         Every assertion here reads the <em>draw command</em> and not the control's property back
+///         — <a href="https://github.com/Rikarin/Vixen/issues/1012">#1012</a>'s own instruction.
+///     </b>
+///     A
 ///     binding that sets the property and a binding that reaches the picture are the same assertion
 ///     only until somebody stops passing <c>view:</c> at the <c>DrawImage</c> call, and the property
 ///     read-back would stay green through that whole regression. Reading
@@ -44,8 +48,12 @@ public class ImageViewBarTests {
 
     /// <summary>Clicking a channel segment changes the channel the image is drawn with.</summary>
     /// <remarks>
-    ///     ⚠ <b>Green rather than red, because red is the first isolate and an off-by-one that always
-    ///     picked the first non-default answer would pass on it.</b> <c>UiImageChannel</c>'s members
+    ///     ⚠
+    ///     <b>
+    ///         Green rather than red, because red is the first isolate and an off-by-one that always
+    ///         picked the first non-default answer would pass on it.
+    ///     </b>
+    ///     <c>UiImageChannel</c>'s members
     ///     are ordered <c>All, Red, Green, Blue, Alpha</c> and <c>ImageChannels</c>' are
     ///     <c>Rgb, Red, Green, Blue, Alpha</c>, so the two happen to line up — which is exactly the
     ///     coincidence a test asserting the second member could not tell from a translation.
@@ -60,7 +68,7 @@ public class ImageViewBarTests {
         fixture.Click(Named(Strip(bar, "image-view-channels"), nameof(ImageChannels.Green)));
         fixture.Update();
 
-        Assert.Equal(new UiImageView(UiImageChannel.Green, false), Drawn(fixture));
+        Assert.Equal(new(UiImageChannel.Green, false), Drawn(fixture));
     }
 
     /// <summary>Choosing "Linear" makes the image draw as stored.</summary>
@@ -76,7 +84,7 @@ public class ImageViewBarTests {
         fixture.Click(Named(Strip(bar, "image-view-space"), nameof(ImageColorSpace.Linear)));
         fixture.Update();
 
-        Assert.Equal(new UiImageView(UiImageChannel.All, true), Drawn(fixture));
+        Assert.Equal(new(UiImageChannel.All, true), Drawn(fixture));
     }
 
     /// <summary>Both strips answer at once, which is why they are two controls.</summary>
@@ -94,7 +102,7 @@ public class ImageViewBarTests {
         fixture.Click(Named(Strip(bar, "image-view-space"), nameof(ImageColorSpace.Linear)));
         fixture.Update();
 
-        Assert.Equal(new UiImageView(UiImageChannel.Alpha, true), Drawn(fixture));
+        Assert.Equal(new(UiImageChannel.Alpha, true), Drawn(fixture));
     }
 
     /// <summary>A strip attached to a view that already holds an answer shows that answer.</summary>
@@ -125,7 +133,7 @@ public class ImageViewBarTests {
 
         Assert.Equal(nameof(ImageChannels.Blue), Strip(bar, "image-view-channels").Value);
         Assert.Equal(nameof(ImageColorSpace.Linear), Strip(bar, "image-view-space").Value);
-        Assert.Equal(new UiImageView(UiImageChannel.Blue, true), Drawn(fixture));
+        Assert.Equal(new(UiImageChannel.Blue, true), Drawn(fixture));
     }
 
     /// <summary>A strip driving nothing is inert rather than a crash.</summary>

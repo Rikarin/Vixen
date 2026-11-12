@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core.Mathematics;
-using Vixen.Ui.Styling;
 using Xunit;
 
 namespace Vixen.Ui.Styling.Utilities.Tests;
@@ -24,7 +23,7 @@ public class ThemeAndScannerTests {
         Assert.Equal("8px", tokens.Radius["lg"]);
         Assert.Equal(600f, tokens.FontWeight["semibold"]);
         Assert.Equal(StyleValue.FromLength(768f, StyleUnit.Pixels), tokens.Screens["md"]);
-        Assert.Equal(new FontSizeToken(17f, 24f), tokens.FontSize["lg"]);
+        Assert.Equal(new(17f, 24f), tokens.FontSize["lg"]);
     }
 
     /// <summary>The engine's shipped tokens are v4's, in the oklch they were authored in.</summary>
@@ -46,7 +45,7 @@ public class ThemeAndScannerTests {
         Assert.Equal("#fff", tokens.Colors["white"]);
 
         // 26 ramps of 11, plus black and white.
-        Assert.Equal((26 * 11) + 2, tokens.Colors.Count);
+        Assert.Equal(26 * 11 + 2, tokens.Colors.Count);
 
         // `rem` is resolved at 16px, because there is no root font size downstream to resolve it
         // against — the one documented divergence from v4's emission.
@@ -60,7 +59,7 @@ public class ThemeAndScannerTests {
 
         // `--text-sm: 0.875rem` with `--text-sm--line-height: calc(1.25 / 0.875)`: 14px, and a ratio
         // of 1.4286 multiplied out rather than carried.
-        Assert.Equal(new FontSizeToken(14f, 20f), tokens.FontSize["sm"]);
+        Assert.Equal(new(14f, 20f), tokens.FontSize["sm"]);
     }
 
     /// <summary>A namespace can be emptied, which is how a project opts out of the shipped default.</summary>
@@ -137,7 +136,7 @@ public class ThemeAndScannerTests {
         var tokens = ThemeTokens.Parse($"@theme {{ --*: initial; {declarations} }}");
 
         Assert.Empty(tokens.Diagnostics);
-        Assert.Equal(new FontSizeToken(14f, 20f), tokens.FontSize["sm"]);
+        Assert.Equal(new(14f, 20f), tokens.FontSize["sm"]);
     }
 
     /// <summary>
@@ -149,12 +148,16 @@ public class ThemeAndScannerTests {
     public void A_line_height_with_a_unit_is_a_length_and_not_a_multiplier() {
         var tokens = ThemeTokens.Parse("@theme { --text-sm: 11px; --text-sm--line-height: 16px; }");
 
-        Assert.Equal(new FontSizeToken(11f, 16f), tokens.FontSize["sm"]);
+        Assert.Equal(new(11f, 16f), tokens.FontSize["sm"]);
     }
 
     /// <summary>
-    ///     ⚠ <b>A radius token can be a reference now, and that is the whole of a limitation the
-    ///     editor's theme file carried in its own comments.</b> <c>ThemeTokens.Radius</c> was a
+    ///     ⚠
+    ///     <b>
+    ///         A radius token can be a reference now, and that is the whole of a limitation the
+    ///         editor's theme file carried in its own comments.
+    ///     </b>
+    ///     <c>ThemeTokens.Radius</c> was a
     ///     <c>Dictionary&lt;string, float&gt;</c>, so <c>var(--radius-row)</c> was rejected with a
     ///     diagnostic rather than stored — and the editor, whose three radii are custom properties on
     ///     the root, therefore declared no radius tokens at all.
@@ -176,8 +179,12 @@ public class ThemeAndScannerTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>Text that is not a theme is not an error, and that is the difference the format
-    ///     makes.</b> A YAML reader had a cliff — a malformed tag threw out of it and stopped whoever
+    ///     ⚠
+    ///     <b>
+    ///         Text that is not a theme is not an error, and that is the difference the format
+    ///         makes.
+    ///     </b>
+    ///     A YAML reader had a cliff — a malformed tag threw out of it and stopped whoever
     ///     was building a stylesheet — and its own remarks called that the likeliest failure of all.
     ///     A stylesheet has no cliff: a block that does not close is a block that yields no
     ///     declarations, and a file with no <c>@theme</c> in it is most files.
@@ -206,7 +213,8 @@ public class ThemeAndScannerTests {
                 --shadow-two: 0 1px 2px rgb(0 0 0 / 0.1),
                     0 2px 4px rgb(0 0 0 / 0.1);
             }
-            """);
+            """
+        );
 
         Assert.Empty(tokens.Diagnostics);
         Assert.Equal("#123456", tokens.Colors["brand"]);
@@ -214,8 +222,11 @@ public class ThemeAndScannerTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>The whole deliverable, end to end and through the real cascade: a class name nobody
-    ///     configured reaches an element as a colour outside sRGB, and the mapper repairs it.</b>
+    ///     ⚠
+    ///     <b>
+    ///         The whole deliverable, end to end and through the real cascade: a class name nobody
+    ///         configured reaches an element as a colour outside sRGB, and the mapper repairs it.
+    ///     </b>
     /// </summary>
     /// <remarks>
     ///     <para>
@@ -224,8 +235,12 @@ public class ThemeAndScannerTests {
     ///         be thrown away and none of them would fail if it were.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The out-of-gamut assertion is the load-bearing one, and it is here because a
-    ///         reference that clamps looks exactly like a reference that agrees.</b> doc 43 § D4
+    ///         ⚠
+    ///         <b>
+    ///             The out-of-gamut assertion is the load-bearing one, and it is here because a
+    ///             reference that clamps looks exactly like a reference that agrees.
+    ///         </b>
+    ///         doc 43 § D4
     ///         records that trap costing real time: a test asserting three v4 colours were fine
     ///         <i>looked</i> verified against an implementation that clamped before printing. Two of
     ///         these three are outside sRGB — <c>blue-500</c> past white in linear blue,
@@ -243,13 +258,16 @@ public class ThemeAndScannerTests {
     [InlineData("blue-500", false)]
     [InlineData("emerald-500", false)]
     [InlineData("red-500", true)]
-    public void A_shipped_colour_reaches_an_element_unclamped_and_is_mapped_at_presentation(string token, bool showable) {
+    public void A_shipped_colour_reaches_an_element_unclamped_and_is_mapped_at_presentation(
+        string token,
+        bool showable
+    ) {
         var fixture = new UtilityFixture(string.Empty);
         var computed = fixture.Computed([$"bg-{token}"], "background-color");
 
         Assert.NotNull(computed);
 
-        var colour = new StyleValueParser(new NameTable(), new NameTable()).Parse(computed);
+        var colour = new StyleValueParser(new(), new()).Parse(computed);
         var linear = new Vector3(colour.Color.R, colour.Color.G, colour.Color.B);
 
         Assert.Equal(StyleValueKind.Color, colour.Kind);
@@ -257,7 +275,10 @@ public class ThemeAndScannerTests {
 
         var mapped = GamutMap.Map(linear, ColorGamut.Srgb);
 
-        Assert.True(GamutMap.InGamut(mapped, ColorGamut.Srgb), "the mapper returned a colour that still cannot be shown");
+        Assert.True(
+            GamutMap.InGamut(mapped, ColorGamut.Srgb),
+            "the mapper returned a colour that still cannot be shown"
+        );
 
         // A colour already inside the gamut is returned untouched — the early-out — and one outside
         // it comes back different, which is the pair that says the mapping happened rather than that
@@ -289,9 +310,9 @@ public class ThemeAndScannerTests {
         CandidateScanner.Scan("""var classes = "bg-accent hover:bg-accent-hover";""", found);
 
         foreach (var expected in new[] {
-            "flex", "items-center", "gap-2", "p-4", "text-lg", "font-semibold",
-            "bg-accent", "hover:bg-accent-hover"
-        }) {
+                     "flex", "items-center", "gap-2", "p-4", "text-lg", "font-semibold", "bg-accent",
+                     "hover:bg-accent-hover"
+                 }) {
             Assert.Contains(expected, found);
         }
     }
@@ -338,7 +359,7 @@ public class ThemeAndScannerTests {
 
         Assert.DoesNotContain("1..", css, StringComparison.Ordinal);
         Assert.DoesNotContain("text", css, StringComparison.Ordinal);
-        Assert.Contains(".w-\\[37px\\] { width: 37px; }", css, StringComparison.Ordinal);
+        Assert.Contains(""".w-\[37px\] { width: 37px; }""", css, StringComparison.Ordinal);
 
         Assert.Equal(1, fixture.Generator.RuleCount);
 
@@ -426,16 +447,24 @@ public class ThemeAndScannerTests {
     }
 
     /// <summary>
-    ///     ⚠ <b><c>@</c> is admitted as a candidate character and the at-keywords are still refused,
-    ///     by grammar rather than by a list of names.</b> A container variant is the only class name
+    ///     ⚠
+    ///     <b>
+    ///         <c>@</c> is admitted as a candidate character and the at-keywords are still refused,
+    ///         by grammar rather than by a list of names.
+    ///     </b>
+    ///     A container variant is the only class name
     ///     with an <c>@</c> in it and it always carries a colon — the colon is what makes it a
     ///     variant — where an at-keyword never does. So the rule is "an <c>@</c> without a
     ///     <c>:</c> is not a class name", and nobody has to remember to add <c>@custom-variant</c>
     ///     to a list the day it is invented.
     ///     <para>
-    ///         ⚠ <b>With one name on a list after all: <c>@container</c>, the marker family, which
-    ///         v4 spells as a class with no colon and which is letter for letter the at-rule that
-    ///         queries it.</b> The grammar cannot tell the two apart, so the scanner takes the
+    ///         ⚠
+    ///         <b>
+    ///             With one name on a list after all: <c>@container</c>, the marker family, which
+    ///             v4 spells as a class with no colon and which is letter for letter the at-rule that
+    ///             queries it.
+    ///         </b>
+    ///         The grammar cannot tell the two apart, so the scanner takes the
     ///         candidate from either — an at-rule in a sheet costs the one unused rule every false
     ///         positive costs — and every other at-keyword stays refused. The name is followed by
     ///         nothing, a hyphen or a slash, so a longer word beginning with it is still a keyword.
@@ -475,7 +504,10 @@ public class ThemeAndScannerTests {
     [Fact]
     public void The_container_marker_is_a_candidate_in_all_three_of_its_spellings() {
         var found = new HashSet<string>(StringComparer.Ordinal);
-        CandidateScanner.Scan("""<Panel class="@@container @@container-normal @@container/main @@custom-variant" />""", found);
+        CandidateScanner.Scan(
+            """<Panel class="@@container @@container-normal @@container/main @@custom-variant" />""",
+            found
+        );
 
         Assert.Contains("@container", found);
         Assert.Contains("@container-normal", found);
@@ -484,8 +516,12 @@ public class ThemeAndScannerTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>The doubled sigil is <c>.vxml</c>'s, not the class list's, and this is where it is
-    ///     undone.</b> <c>@</c> opens an interpolation inside a markup attribute value, so
+    ///     ⚠
+    ///     <b>
+    ///         The doubled sigil is <c>.vxml</c>'s, not the class list's, and this is where it is
+    ///         undone.
+    ///     </b>
+    ///     <c>@</c> opens an interpolation inside a markup attribute value, so
     ///     <c>class="@sm:p-4"</c> interpolates an expression called <c>sm</c> and the author has to
     ///     write <c>@@sm:p-4</c> — which the binder decodes, leaving the element carrying v4's own
     ///     spelling. This scanner reads the <i>file</i> and would otherwise generate a rule for a
@@ -501,15 +537,19 @@ public class ThemeAndScannerTests {
         Assert.DoesNotContain("@@sm:p-4", found);
 
         // And the rule that comes out selects the class the binder will actually put on the element.
-        var css = new UtilityFixture("").Generate([.. found]);
+        var css = new UtilityFixture(string.Empty).Generate([..found]);
 
         Assert.Contains(@".\@sm\:p-4", css, StringComparison.Ordinal);
         Assert.DoesNotContain(@"\@\@", css, StringComparison.Ordinal);
     }
 
     /// <summary>
-    ///     ⚠ <b><c>@apply p-4 flex;</c> is a statement inside a block whose value <i>is</i> a list of
-    ///     class names, and it is the exception the exclusion has to get right.</b> The test is
+    ///     ⚠
+    ///     <b>
+    ///         <c>@apply p-4 flex;</c> is a statement inside a block whose value <i>is</i> a list of
+    ///         class names, and it is the exception the exclusion has to get right.
+    ///     </b>
+    ///     The test is
     ///     written against a variant, because that is the form with a colon in it — sabotage the rule
     ///     to "skip from any <c>:</c> inside a block" and <c>flex</c> disappears, which is exactly the
     ///     silent false negative the over-inclusive design exists to prevent. Verified by doing it:
@@ -593,7 +633,10 @@ public class ThemeAndScannerTests {
     [Fact]
     public void Source_text_is_not_narrowed_the_way_a_stylesheet_is() {
         var found = new HashSet<string>(StringComparer.Ordinal);
-        CandidateScanner.Scan("""{ var css = "position: absolute"; element.AddClass(on ? "flex" : "hidden"); }""", found);
+        CandidateScanner.Scan(
+            """{ var css = "position: absolute"; element.AddClass(on ? "flex" : "hidden"); }""",
+            found
+        );
 
         Assert.Contains("absolute", found);
         Assert.Contains("flex", found);

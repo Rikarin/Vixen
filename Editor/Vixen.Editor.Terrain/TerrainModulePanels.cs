@@ -2,19 +2,15 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Globalization;
-using Vixen.Authoring;
 using Vixen.Core;
-using Vixen.Core.Mathematics;
 using Vixen.Editor.Core;
 using Vixen.Editor.Inspector;
 using Vixen.Editor.Plugin;
-using Vixen.Editor.SceneView;
 using Vixen.Editor.Ui;
 using Vixen.Engine.Transforms;
 using Vixen.Foliage;
 using Vixen.Rendering.Terrain;
 using Vixen.Terrain;
-using Vixen.Ui;
 using Vixen.Ui.Controls;
 using Vixen.Ui.Controls.Advanced;
 using TerrainMap = Vixen.Terrain.Terrain;
@@ -31,8 +27,12 @@ namespace Vixen.Editor.Terrain;
 ///         says what they cost.
 ///     </para>
 ///     <para>
-///         ⚠ <b><c>[Inspector]</c> is the whole of it, and the <c>[DataContract]</c> those types also
-///         carried was decoration</b> —
+///         ⚠
+///         <b>
+///             <c>[Inspector]</c> is the whole of it, and the <c>[DataContract]</c> those types also
+///             carried was decoration
+///         </b>
+///         —
 ///         <a href="https://github.com/Rikarin/Vixen/issues/989">#989</a>.
 ///         <c>InspectorDescriptorGenerator</c> keys on <c>[Inspector]</c>; the serialisation
 ///         attribute registered nothing at all here, because this assembly names neither generator
@@ -40,8 +40,12 @@ namespace Vixen.Editor.Terrain;
 ///         without them.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Two of them are <em>mode</em> panels, which is why they are not on a menu by
-///         habit.</b> <see cref="TerrainMode.Panel" /> and <see cref="FoliageMode.Panel" /> name
+///         ⚠
+///         <b>
+///             Two of them are <em>mode</em> panels, which is why they are not on a menu by
+///             habit.
+///         </b>
+///         <see cref="TerrainMode.Panel" /> and <see cref="FoliageMode.Panel" /> name
 ///         them, so entering the mode opens the panel and leaving it closes it — a settings panel
 ///         left behind for a tool nobody is holding is the thing <c>IEditorMode.Panel</c> exists to
 ///         prevent. The growth and spline panels are ordinary panels, because they are batch verbs
@@ -168,7 +172,11 @@ public sealed partial class TerrainModule {
 
                 Section(panel, "Target layers");
 
-                Verbs(panel, ("Add target", TerrainMode.AddTargetCommand), ("Remove target", TerrainMode.RemoveTargetCommand));
+                Verbs(
+                    panel,
+                    ("Add target", TerrainMode.AddTargetCommand),
+                    ("Remove target", TerrainMode.RemoveTargetCommand)
+                );
 
                 Section(panel, "Brush");
 
@@ -327,8 +335,12 @@ public sealed partial class TerrainModule {
     ///         rule whose memory is invisible is one somebody turns up until the editor stops.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>It reads and no longer draws, which is the whole of what the port to
-    ///         <see cref="FactBlock" /> changed here.</b> The rows are the part's, so this is a list
+    ///         ⚠
+    ///         <b>
+    ///             It reads and no longer draws, which is the whole of what the port to
+    ///             <see cref="FactBlock" /> changed here.
+    ///         </b>
+    ///         The rows are the part's, so this is a list
     ///         of pairs and not four calls that each build three elements — and the same method now
     ///         serves the first reading and every later one, where a <c>Clear</c> plus a rebuild had
     ///         to be trusted to agree with itself.
@@ -358,8 +370,12 @@ public sealed partial class TerrainModule {
 
     /// <summary>Creates a terrain, or says why it cannot.</summary>
     /// <remarks>
-    ///     ⚠ <b>The command is enabled only while the mode is active, and a panel can be open without
-    ///     it.</b> Terrain and Foliage open their panels when their mode is entered, but a panel is
+    ///     ⚠
+    ///     <b>
+    ///         The command is enabled only while the mode is active, and a panel can be open without
+    ///         it.
+    ///     </b>
+    ///     Terrain and Foliage open their panels when their mode is entered, but a panel is
     ///     also an ordinary dockable thing somebody can open from the menu — and in that state every
     ///     verb on it is disabled. Saying so is the difference between a button that is broken and one
     ///     that is not reachable yet.
@@ -386,8 +402,12 @@ public sealed partial class TerrainModule {
     /// <summary>Puts a newly created terrain into the Scene, so the viewport has something to draw.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Written to the Project and then named, because a Scene names a terrain rather than
-    ///         holding one.</b> <see cref="TerrainComponent.Terrain" /> is a reference and a reference
+    ///         ⚠
+    ///         <b>
+    ///             Written to the Project and then named, because a Scene names a terrain rather than
+    ///             holding one.
+    ///         </b>
+    ///         <see cref="TerrainComponent.Terrain" /> is a reference and a reference
     ///         in a Scene is a name — a handle names a slot in a World that has not run yet. So the
     ///         asset has to exist on disk before an entity can point at it, which is what
     ///         <see cref="TerrainStore" /> is for and what the first version of this panel left out
@@ -441,7 +461,7 @@ public sealed partial class TerrainModule {
 
     /// <summary>A name nothing in the folder is already called.</summary>
     static string Unique(string directory) {
-        for (var index = 1; ; index++) {
+        for (var index = 1;; index++) {
             var name = index == 1 ? "Terrain" : $"Terrain {index}";
 
             if (!File.Exists(Path.Combine(directory, name + TerrainExtension))) {
@@ -455,8 +475,12 @@ public sealed partial class TerrainModule {
 
     /// <summary>Registers the two modes the panels belong to.</summary>
     /// <remarks>
-    ///     ⚠ <b>The document is handed over rather than made, because a mode outlives every Scene the
-    ///     editor opens</b> — the same reason <c>BlockoutMode.Editing</c> is passed in. What the mode
+    ///     ⚠
+    ///     <b>
+    ///         The document is handed over rather than made, because a mode outlives every Scene the
+    ///         editor opens
+    ///     </b>
+    ///     — the same reason <c>BlockoutMode.Editing</c> is passed in. What the mode
     ///     needs from the application is where to push an undo record, and that is a property of the
     ///     Scene rather than of the tool.
     /// </remarks>
@@ -473,8 +497,7 @@ public sealed partial class TerrainModule {
         // ⚠ Unsubscribed, because the modes are fields and a reload re-runs `Activate` on this same
         // instance: three anonymous handlers that were never removed would have run twice per stroke
         // after one Reload, three times after two.
-        context.OnUnload(
-            () => {
+        context.OnUnload(() => {
                 terrain.Committed -= TerrainCommitted;
                 terrain.Created -= Placed;
                 foliage.Committed -= FoliageCommitted;
@@ -512,7 +535,7 @@ public sealed partial class TerrainModule {
         // as "the editor is broken".
         facts.Show(
             terrain.Create.Validate() is { } refusal
-                ? [.. terrain.Create.Facts.Rows(), ("Refused", refusal)]
+                ? [..terrain.Create.Facts.Rows(), ("Refused", refusal)]
                 : terrain.Create.Facts.Rows()
         );
     }
@@ -594,14 +617,14 @@ public sealed partial class TerrainModule {
     /// </remarks>
     void Choose(int type, bool on) {
         if (on) {
-            foliage.Editing.Choose(type, add: true);
+            foliage.Editing.Choose(type, true);
         } else if (foliage.Editing.Chosen.Contains(type)) {
             var rest = foliage.Editing.Chosen.Where(entry => entry != type).ToArray();
 
             foliage.Editing.Choose(-1);
 
             foreach (var entry in rest) {
-                foliage.Editing.Choose(entry, add: true);
+                foliage.Editing.Choose(entry, true);
             }
         }
     }
@@ -644,7 +667,11 @@ public sealed partial class TerrainModule {
             grown = FoliageGrowth.Simulate(volume, surface, growth.ToSettings());
             hasGrown = true;
         } catch (ArgumentException exception) {
-            Shell.Notifications.Show("The growth simulation was refused", NotificationSeverity.Error, exception.Message);
+            Shell.Notifications.Show(
+                "The growth simulation was refused",
+                NotificationSeverity.Error,
+                exception.Message
+            );
 
             return;
         }
@@ -722,7 +749,11 @@ public sealed partial class TerrainModule {
                 roads.Select(road => (road.Curve, splines.ToProfile()))
             );
         } catch (ArgumentException exception) {
-            Shell.Notifications.Show("The roads could not be regenerated", NotificationSeverity.Error, exception.Message);
+            Shell.Notifications.Show(
+                "The roads could not be regenerated",
+                NotificationSeverity.Error,
+                exception.Message
+            );
 
             return;
         }

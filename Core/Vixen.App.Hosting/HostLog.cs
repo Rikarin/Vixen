@@ -95,8 +95,12 @@ static partial class HostLog {
     ///         rays also march twice as far in texels.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b><see cref="GraphicsStarted" /> reports the result, not that it differs from the
-    ///         request.</b> Nothing else in the run does either, so the only way to discover that the
+    ///         ⚠
+    ///         <b>
+    ///             <see cref="GraphicsStarted" /> reports the result, not that it differs from the
+    ///             request.
+    ///         </b>
+    ///         Nothing else in the run does either, so the only way to discover that the
     ///         frame is four times the size somebody picked is to notice the number and do the
     ///         division — which is exactly what nobody does, and which has already cost this repo an
     ///         afternoon once, when stand-in frame targets were imported at the logical size into a
@@ -163,7 +167,7 @@ static partial class HostLog {
         EventId = 13029,
         Level = LogLevel.Warning,
         Message = "--vixen-capture was given without --vixen-frames, so there is no last frame to "
-        + "capture and nothing will be written to {Path}."
+            + "capture and nothing will be written to {Path}."
     )]
     public static partial void CaptureWithoutFrameCount(ILogger logger, string path);
 
@@ -173,8 +177,12 @@ static partial class HostLog {
     ///     a window renders every frame, prints every counter, exits zero and writes no file.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b><c>--vixen-headless</c> and not <c>--vixen-offscreen</c>, which is a correction to
-    ///     what <a href="https://github.com/Rikarin/Vixen/issues/1108">#1108</a> proposed.</b> The
+    ///     ⚠
+    ///     <b>
+    ///         <c>--vixen-headless</c> and not <c>--vixen-offscreen</c>, which is a correction to
+    ///         what <a href="https://github.com/Rikarin/Vixen/issues/1108">#1108</a> proposed.
+    ///     </b>
+    ///     The
     ///     two flags are orthogonal and <c>AppArguments</c> says so where it parses them: offscreen
     ///     decides <em>which device opens</em> — it is what refuses the Null fall-through — and
     ///     touches neither the window nor the surface, so a desktop run given it opens a window and
@@ -186,8 +194,8 @@ static partial class HostLog {
         EventId = 13033,
         Level = LogLevel.Warning,
         Message = "--vixen-capture was given but this run has a surface to present to, so nothing "
-        + "will be written to {Path}. Add --vixen-headless (⚠ not --vixen-offscreen, which chooses "
-        + "the device and not the surface), or leave AppConfig.Window null."
+            + "will be written to {Path}. Add --vixen-headless (⚠ not --vixen-offscreen, which chooses "
+            + "the device and not the surface), or leave AppConfig.Window null."
     )]
     public static partial void CaptureWithASurface(ILogger logger, string path);
 
@@ -201,7 +209,7 @@ static partial class HostLog {
         EventId = 13030,
         Level = LogLevel.Information,
         Message = "The clock is fixed at {Milliseconds} ms a frame, so frame N is the same instant "
-        + "on every run and no wall time reaches the simulation."
+            + "on every run and no wall time reaches the simulation."
     )]
     public static partial void FixedFrameTime(ILogger logger, double milliseconds);
 

@@ -8,7 +8,6 @@ using System.Runtime.InteropServices;
 using System.Text;
 using Vixen.Core.Mathematics;
 using Vixen.Graphics;
-using Vixen.Shaders;
 
 namespace Vixen.TextureGraph;
 
@@ -54,8 +53,12 @@ public sealed partial class TexturePlanEvaluator {
     ///         does not run wherever it is.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A key is computed for every op on every evaluation, so a kernel the plan names is
-    ///         compiled even if it is answered from the cache.</b> The key reads the uniform block as
+    ///         ⚠
+    ///         <b>
+    ///             A key is computed for every op on every evaluation, so a kernel the plan names is
+    ///             compiled even if it is answered from the cache.
+    ///         </b>
+    ///         The key reads the uniform block as
     ///         the kernel declares it, which is reflection, and that is what lets it hash what the GPU
     ///         would actually receive: a parameter the kernel ignores cannot cost a miss, an
     ///         <c>int</c> uniform that truncates to the same number cannot either, and a kernel with
@@ -64,8 +67,12 @@ public sealed partial class TexturePlanEvaluator {
     ///         three.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>An op with no reader that matters does not run here and does on the whole-plan
-    ///         path</b>, so <see cref="TextureBake.Dispatches" /> is not comparable between the two.
+    ///         ⚠
+    ///         <b>
+    ///             An op with no reader that matters does not run here and does on the whole-plan
+    ///             path
+    ///         </b>
+    ///         , so <see cref="TextureBake.Dispatches" /> is not comparable between the two.
     ///         Every image either can return is byte-identical on one device, which is what
     ///         <c>TextureIncrementalPropertyTests</c> holds it to.
     ///     </para>
@@ -73,7 +80,8 @@ public sealed partial class TexturePlanEvaluator {
     public TextureBake EvaluateIncremental(
         TexturePlan plan,
         IReadOnlyDictionary<int, TextureExternal> externals
-    ) => EvaluateIncremental(plan, externals, null);
+    ) =>
+        EvaluateIncremental(plan, externals, null);
 
     /// <summary>
     ///     An evaluation that runs only where something changed, when it can, rather than running each
@@ -138,7 +146,7 @@ public sealed partial class TexturePlanEvaluator {
         }
 
         List<TextureViewHandle> owned = [];
-        List<TextureResultCache.Entry> pinned = [.. decision.Reads.Values];
+        List<TextureResultCache.Entry> pinned = [..decision.Reads.Values];
 
         void Release() {
             foreach (var entry in pinned) {
@@ -166,10 +174,10 @@ public sealed partial class TexturePlanEvaluator {
             Release
         ) {
             Warnings = cautions,
-            Keys = [.. keys],
+            Keys = [..keys],
             Reused = decision.Reused,
             Repaired = decision.Regions.Count,
-            Repairs = decision.InPlace.Keys.ToDictionary(image => image, image => decision.Regions[image])
+            Repairs = decision.InPlace.Keys.ToDictionary(static image => image, image => decision.Regions[image])
         };
 
         try {
@@ -204,7 +212,7 @@ public sealed partial class TexturePlanEvaluator {
                 Run(plan, schedule, bake, slotViews, views, supplied, decision.Regions, decision.InPlace);
             }
 
-            bake.Ran = [.. Enumerable.Range(0, plan.Ops.Length).Where(index => decision.Runs[index])];
+            bake.Ran = [..Enumerable.Range(0, plan.Ops.Length).Where(index => decision.Runs[index])];
 
             // ⚠ After the run and not before it. A result that is filed is a result the next
             // evaluation will trust, and a run that threw has filed nothing.
@@ -230,8 +238,12 @@ public sealed partial class TexturePlanEvaluator {
     ///         for whole, or over rectangles, and the answer decides what its op asks of its inputs.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>An image asked for whole and repaired needs its inputs only over the rectangles
-    ///         that changed</b>, and that is what stops a whole output demanding every image above
+    ///         ⚠
+    ///         <b>
+    ///             An image asked for whole and repaired needs its inputs only over the rectangles
+    ///             that changed
+    ///         </b>
+    ///         , and that is what stops a whole output demanding every image above
     ///         the stroke whole in turn.
     ///     </para>
     /// </remarks>
@@ -253,7 +265,7 @@ public sealed partial class TexturePlanEvaluator {
         for (var image = 0; image < plan.Images.Length; image++) {
             if (plan.Images[image].External) {
                 if (regions.Changed.TryGetValue(image, out var rects)) {
-                    changed[image] = [.. rects];
+                    changed[image] = [..rects];
                 } else {
                     whole[image] = keys[image] != regions.Previous[image];
                 }
@@ -267,7 +279,9 @@ public sealed partial class TexturePlanEvaluator {
 
             if (Reach(plan, externals, op) is { } reach
                 && !op.Inputs.Any(input => whole[input])
-                && Grown(op.Inputs.SelectMany(input => changed[input] ?? []), reach, plan.SizeOf(op.Output)) is { Count: > 0 } grown) {
+                && Grown(op.Inputs.SelectMany(input => changed[input] ?? []), reach, plan.SizeOf(op.Output)) is {
+                    Count: > 0
+                } grown) {
                 changed[op.Output] = grown;
             } else {
                 whole[op.Output] = true;
@@ -314,9 +328,9 @@ public sealed partial class TexturePlanEvaluator {
                 if (!demand[image].Whole) {
                     over = demand[image].Rects;
                 } else if (!whole[image]
-                    && changed[image] is { Count: > 0 } repair
-                    && Results.Find(regions.Previous[image], shape) is { Pins: 0 } prior
-                    && !inPlace.ContainsValue(prior)) {
+                           && changed[image] is { Count: > 0 } repair
+                           && Results.Find(regions.Previous[image], shape) is { Pins: 0 } prior
+                           && !inPlace.ContainsValue(prior)) {
                     over = repair;
                     inPlace[image] = prior;
                 }
@@ -330,13 +344,13 @@ public sealed partial class TexturePlanEvaluator {
                 continue;
             }
 
-            rectangles[image] = [.. over];
+            rectangles[image] = [..over];
 
             var asked = Grown(over, reach!.Value, plan.SizeOf(image));
 
             foreach (var input in op.Inputs) {
                 if (!demand[input].Whole) {
-                    demand[input] = new(false, [.. demand[input].Rects ?? [], .. asked]);
+                    demand[input] = new(false, [..demand[input].Rects ?? [], ..asked]);
                 }
             }
         }
@@ -699,9 +713,13 @@ public sealed partial class TexturePlanEvaluator {
     /// <summary>What a kernel is, as a number.</summary>
     /// <remarks>
     ///     ⚠ <b>The source rather than a version somebody bumps</b>, so there is nothing to forget, and
-    ///     the library with it: <c>Random.Hash</c> changing changes every <c>Noise</c>. ⚠ <b>The text
-    ///     before <see cref="TextureKernels.Variant(string,string,TextureFormat)" /> rewrites the
-    ///     format into it</b>, because hashing the rewritten text would put the format in here twice
+    ///     the library with it: <c>Random.Hash</c> changing changes every <c>Noise</c>. ⚠
+    ///     <b>
+    ///         The text
+    ///         before <see cref="TextureKernels.Variant(string,string,TextureFormat)" /> rewrites the
+    ///         format into it
+    ///     </b>
+    ///     , because hashing the rewritten text would put the format in here twice
     ///     and leave <see cref="TextureKeyParts.Format" /> with nothing to prove.
     /// </remarks>
     static TextureResultKey SourceIdentity(string source) {

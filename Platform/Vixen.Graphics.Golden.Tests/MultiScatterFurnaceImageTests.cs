@@ -4,7 +4,6 @@
 using System.Runtime.InteropServices;
 using Vixen.Core.Imaging;
 using Vixen.Core.Mathematics;
-using Vixen.Graphics.RenderGraph;
 using Vixen.Rendering;
 using Vixen.Rendering.Compositor;
 using Vixen.Rendering.PostFx;
@@ -31,8 +30,12 @@ namespace Vixen.Graphics.Golden.Tests;
 ///         <c>Ibl.EnvironmentDfg</c> at normal incidence a white metal keeps 1.000 of the light at
 ///         mirror roughness, 0.835 at 0.3, 0.670 at 0.6 and 0.450 at 1. So every rough metal in the
 ///         engine was rendered at up to half the radiance it sends, and darker the rougher it got,
-///         which is backwards. <c>docs/plan/06</c> described the compensation for that as <em>on by
-///         default</em>; <c>SpecularModels.MultiScatter</c> existed and had no caller anywhere.
+///         which is backwards. <c>docs/plan/06</c> described the compensation for that as
+///         <em>
+///             on by
+///             default
+///         </em>
+///         ; <c>SpecularModels.MultiScatter</c> existed and had no caller anywhere.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>And the function itself was wrong, which is the part no audit had reached.</b> Its
@@ -200,7 +203,7 @@ public sealed class MultiScatterFurnaceImageTests {
             var roughness = (y + 0.5f) / Side;
 
             for (var x = 0; x < Side; x++) {
-                var index = (y * Side) + x;
+                var index = y * Side + x;
                 var metal = x < Side / 2 ? 1f : 0f;
 
                 direct[index] = new(0f, 0f, 0f, 1f);
@@ -230,7 +233,7 @@ public sealed class MultiScatterFurnaceImageTests {
         effects.AddProvider(
             new Compiling(
                 loader,
-                _ => RavenEffects.Only(
+                static _ => RavenEffects.Only(
                     ["Core", "Geometry", "Shading"],
                     Path.Combine("PostFx", "Fullscreen.rvn"),
                     Path.Combine("PostFx", "AmbientCombine.rvn")
@@ -292,7 +295,7 @@ public sealed class MultiScatterFurnaceImageTests {
         string name,
         Vector4[] texels
     ) =>
-        fixture.Sampled(name, Side, MemoryMarshal.AsBytes<Vector4>(texels), PixelFormat.Rgba32Float);
+        fixture.Sampled(name, Side, MemoryMarshal.AsBytes(texels), PixelFormat.Rgba32Float);
 
     static ImportedTexture Import(
         (TextureHandle Texture, TextureViewHandle View, BufferHandle Staging) plane,

@@ -8,8 +8,11 @@ namespace Vixen.Rendering;
 /// <summary>What an author's light intensity is measured in.</summary>
 /// <remarks>
 ///     <para>
-///         <b>A light has a physical brightness and a number an author types, and they are not the
-///         same thing.</b> A shader wants luminous intensity in candela — that is what divides by the
+///         <b>
+///             A light has a physical brightness and a number an author types, and they are not the
+///             same thing.
+///         </b>
+///         A shader wants luminous intensity in candela — that is what divides by the
 ///         square of the distance — and nobody buys a lamp in candela. A bulb's box says lumens, a
 ///         light meter reads lux, a screen is specified in nits, and each of those is the natural unit
 ///         for a different <em>kind</em> of light. So the unit is carried beside the number and the
@@ -122,16 +125,16 @@ public static class Photometry {
         var inverse3 = inverse2 * inverse;
 
         var x = t <= 4000f
-            ? (-0.2661239e9f * inverse3) - (0.2343589e6f * inverse2) + (0.8776956e3f * inverse) + 0.179910f
-            : (-3.0258469e9f * inverse3) + (2.1070379e6f * inverse2) + (0.2226347e3f * inverse) + 0.240390f;
+            ? -0.2661239e9f * inverse3 - 0.2343589e6f * inverse2 + 0.8776956e3f * inverse + 0.179910f
+            : -3.0258469e9f * inverse3 + 2.1070379e6f * inverse2 + 0.2226347e3f * inverse + 0.240390f;
 
         var x2 = x * x;
         var x3 = x2 * x;
 
         var y = t switch {
-            <= 2222f => (-1.1063814f * x3) - (1.34811020f * x2) + (2.18555832f * x) - 0.20219683f,
-            <= 4000f => (-0.9549476f * x3) - (1.37418593f * x2) + (2.09137015f * x) - 0.16748867f,
-            _ => (3.0817580f * x3) - (5.87338670f * x2) + (3.75112997f * x) - 0.37001483f
+            <= 2222f => -1.1063814f * x3 - 1.34811020f * x2 + 2.18555832f * x - 0.20219683f,
+            <= 4000f => -0.9549476f * x3 - 1.37418593f * x2 + 2.09137015f * x - 0.16748867f,
+            _ => 3.0817580f * x3 - 5.87338670f * x2 + 3.75112997f * x - 0.37001483f
         };
 
         // xyY with Y = 1, which is what makes the normalisation below a division by a number near 1
@@ -140,21 +143,21 @@ public static class Photometry {
         var bigX = x * scale;
         var bigZ = (1f - x - y) * scale;
 
-        var red = (3.2404542f * bigX) - 1.5371385f - (0.4985314f * bigZ);
-        var green = (-0.9692660f * bigX) + 1.8760108f + (0.0415560f * bigZ);
-        var blue = (0.0556434f * bigX) - 0.2040259f + (1.0572252f * bigZ);
+        var red = 3.2404542f * bigX - 1.5371385f - 0.4985314f * bigZ;
+        var green = -0.9692660f * bigX + 1.8760108f + 0.0415560f * bigZ;
+        var blue = 0.0556434f * bigX - 0.2040259f + 1.0572252f * bigZ;
 
         red = MathF.Max(red, 0f);
         green = MathF.Max(green, 0f);
         blue = MathF.Max(blue, 0f);
 
-        var luminance = (0.2126f * red) + (0.7152f * green) + (0.0722f * blue);
+        var luminance = 0.2126f * red + 0.7152f * green + 0.0722f * blue;
 
         if (luminance <= 1e-4f) {
-            return new Color3(1f, 1f, 1f);
+            return new(1f, 1f, 1f);
         }
 
-        return new Color3(red / luminance, green / luminance, blue / luminance);
+        return new(red / luminance, green / luminance, blue / luminance);
     }
 
     /// <summary>What to multiply a frame by so a given illuminant renders as white.</summary>
@@ -168,8 +171,11 @@ public static class Photometry {
     /// <returns>A per-channel scale of unit luminance.</returns>
     /// <remarks>
     ///     <para>
-    ///         <b>The inverse of <see cref="FromTemperature" />, and that is the whole point of it
-    ///         being here rather than in the tonemapper.</b> A lamp declaring 3200 K and a grade
+    ///         <b>
+    ///             The inverse of <see cref="FromTemperature" />, and that is the whole point of it
+    ///             being here rather than in the tonemapper.
+    ///         </b>
+    ///         A lamp declaring 3200 K and a grade
     ///         balancing to 3200 K have to cancel exactly, and they can only be relied on to cancel if
     ///         they are the same curve read in two directions. Two fits of the Planckian locus that
     ///         nearly agree is a scene that is nearly neutral, which is worse than one that is
@@ -201,10 +207,10 @@ public static class Photometry {
         var shift = Math.Clamp(tint, -1f, 1f) * 0.5f;
 
         green *= 1f - shift;
-        red *= 1f + (shift * 0.5f);
-        blue *= 1f + (shift * 0.5f);
+        red *= 1f + shift * 0.5f;
+        blue *= 1f + shift * 0.5f;
 
-        var luminance = (0.2126f * red) + (0.7152f * green) + (0.0722f * blue);
+        var luminance = 0.2126f * red + 0.7152f * green + 0.0722f * blue;
 
         return luminance <= 1e-4f
             ? new Color3(1f, 1f, 1f)
@@ -284,7 +290,7 @@ public static class Photometry {
     /// <param name="radius">Its radius.</param>
     /// <param name="halfLength">Half the length of the cylindrical part.</param>
     public static float CapsuleArea(float radius, float halfLength) =>
-        (4f * MathF.PI * radius * halfLength) + (4f * MathF.PI * radius * radius);
+        4f * MathF.PI * radius * halfLength + 4f * MathF.PI * radius * radius;
 
     /// <summary>The linear multiplier that takes a scene's luminance to display-referred values.</summary>
     /// <param name="ev100">The exposure value at ISO 100.</param>
@@ -306,8 +312,7 @@ public static class Photometry {
 
     /// <summary>The exposure value a linear multiplier corresponds to.</summary>
     /// <param name="exposure">The multiplier.</param>
-    public static float Ev100FromExposure(float exposure) =>
-        MathF.Log2(1f / (MiddleGrey * MathF.Max(exposure, 1e-9f)));
+    public static float Ev100FromExposure(float exposure) => MathF.Log2(1f / (MiddleGrey * MathF.Max(exposure, 1e-9f)));
 
     /// <summary>The exposure value a photographic camera's three settings give.</summary>
     /// <param name="aperture">The f-number — f/1.4, f/16.</param>

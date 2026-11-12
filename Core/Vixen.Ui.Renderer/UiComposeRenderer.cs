@@ -2,9 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core;
-using Vixen.Core.Mathematics;
 using Vixen.Graphics;
-using Vixen.Graphics.RenderGraph;
 using Vixen.Rendering.Compositor;
 
 namespace Vixen.Ui.Renderer;
@@ -12,8 +10,12 @@ namespace Vixen.Ui.Renderer;
 /// <summary>Where a document composes its interface: after the scene, over the target it names.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>A HUD's top-level <c>mix-blend-mode</c> and <c>backdrop-filter</c> read the scene only
-///         when the frame says where the scene is</b> (#1378). <c>WorldRenderer.Draw</c> composes an
+///         ⚠
+///         <b>
+///             A HUD's top-level <c>mix-blend-mode</c> and <c>backdrop-filter</c> read the scene only
+///             when the frame says where the scene is
+///         </b>
+///         (#1378). <c>WorldRenderer.Draw</c> composes an
 ///         interface's groups in its prologue, before any pass of the frame has run, so a group that
 ///         reads what lies beneath it reads the interface over transparent black: a multiplied panel
 ///         lands as its own flat colour on the world and a glass panel blurs nothing.
@@ -32,14 +34,22 @@ namespace Vixen.Ui.Renderer;
 ///         wrote the scene.
 ///     </para>
 ///     <para>
-///         ⚠ <b><see cref="Source" /> has to be sampleable, and what decides that is the usage the
-///         resource is declared or imported with — which, for the window, is the host's.</b> The node
+///         ⚠
+///         <b>
+///             <see cref="Source" /> has to be sampleable, and what decides that is the usage the
+///             resource is declared or imported with — which, for the window, is the host's.
+///         </b>
+///         The node
 ///         refuses a target without <c>Sampled</c> at build time rather than binding one a driver may
 ///         or may not sample.
 ///     </para>
 ///     <para>
-///         ⚠ <b>In a game the default <see cref="Source" /> is the window, and until #1419 it was
-///         refused there.</b> <c>AppGraphics.Lend</c> imports the acquired swapchain image under
+///         ⚠
+///         <b>
+///             In a game the default <see cref="Source" /> is the window, and until #1419 it was
+///             refused there.
+///         </b>
+///         <c>AppGraphics.Lend</c> imports the acquired swapchain image under
 ///         <c>GraphicsOptions.Output</c> — by default <c>SceneColour</c>, which is also
 ///         <c>!StandardFrame</c>'s default output — and an import wins over a declaration of the same
 ///         name. It used to import it as <c>TextureUsage.ColourTarget</c> and nothing else, on every
@@ -82,13 +92,21 @@ public sealed record UiComposeAsset : ISceneRendererAsset {
 ///         would draw every group from a surface nothing had composed this frame.
 ///     </para>
 ///     <para>
-///         ⚠ <b><c>WorldRenderer.Draw</c> skips its own compose for a frame that has one of these,
-///         enabled, on an enabled path</b> — see <see cref="PathTo" />. Composing twice would cost a
+///         ⚠
+///         <b>
+///             <c>WorldRenderer.Draw</c> skips its own compose for a frame that has one of these,
+///             enabled, on an enabled path
+///         </b>
+///         — see <see cref="PathTo" />. Composing twice would cost a
 ///         pass per group, and whichever ran second would decide the picture.
 ///     </para>
 ///     <para>
-///         ⚠ <b>One per frame, and nothing refuses a second — <c>UiRenderFeature.Recomposed</c> counts
-///         it</b> (#1461). Two nodes composing the same feature
+///         ⚠
+///         <b>
+///             One per frame, and nothing refuses a second — <c>UiRenderFeature.Recomposed</c> counts
+///             it
+///         </b>
+///         (#1461). Two nodes composing the same feature
 ///         both run, each rendering every group's surface again, and the later one decides the
 ///         picture. The same waste happens where the host cannot see the node: <see cref="PathTo" />
 ///         walks <see cref="SceneRenderer.Nested" />, so a node a parent builds through
@@ -118,8 +136,12 @@ public sealed class UiComposeRenderer : SceneRenderer {
     /// <returns>The path, root first and the node last, or empty when the frame has no such node.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A path and not a yes, because every node on it has to be enabled for the node to
-    ///         run.</b> A disabled sequence does not run its children, so a host that checked the node's
+    ///         ⚠
+    ///         <b>
+    ///             A path and not a yes, because every node on it has to be enabled for the node to
+    ///             run.
+    ///         </b>
+    ///         A disabled sequence does not run its children, so a host that checked the node's
     ///         own flag alone would skip its own compose in a frame where nothing composed at all, and
     ///         every faded panel would be drawn from a surface nothing had filled this frame. The
     ///         flags can change between frames and the tree does not, so a host walks this once per
@@ -132,7 +154,7 @@ public sealed class UiComposeRenderer : SceneRenderer {
 
         var path = new List<SceneRenderer>();
 
-        return root is not null && Walk(root, feature, path) ? [.. path] : [];
+        return root is not null && Walk(root, feature, path) ? [..path] : [];
     }
 
     static bool Walk(SceneRenderer node, UiRenderFeature feature, List<SceneRenderer> path) {
@@ -171,19 +193,18 @@ public sealed class UiComposeRenderer : SceneRenderer {
             );
         }
 
-        Degrade(Feature.Mismatched(new Int2(described.Width, described.Height)));
+        Degrade(Feature.Mismatched(new(described.Width, described.Height)));
 
         frame.Graph.AddPass(
             ToString(),
             pass => {
-                pass.Reads(source, ResourceState.ShaderRead);
+                pass.Reads(source);
                 pass.SideEffect();
 
-                pass.Execute(
-                    context => {
+                pass.Execute(context => {
                         Feature.Compose(
                             context.CommandList,
-                            new UiBackdropSource(new Color4(0f, 0f, 0f, 0f)) { Image = context.View(source) }
+                            new(new(0f, 0f, 0f, 0f)) { Image = context.View(source) }
                         );
 
                         ComposeCount++;
@@ -209,10 +230,7 @@ public sealed class UiComposeFactory(UiRenderFeature feature) : ISceneRendererFa
     public SceneRenderer? Create(ISceneRendererAsset declared, CompositorBuilder builder) =>
         declared is UiComposeAsset asset
             ? new UiComposeRenderer {
-                Name = asset.Name,
-                Enabled = asset.Enabled,
-                Feature = feature,
-                Source = asset.Source
+                Name = asset.Name, Enabled = asset.Enabled, Feature = feature, Source = asset.Source
             }
             : null;
 }

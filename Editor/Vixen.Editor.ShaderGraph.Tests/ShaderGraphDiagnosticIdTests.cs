@@ -10,11 +10,14 @@ namespace Vixen.Editor.ShaderGraph.Tests;
 /// <summary>One id means one thing across the whole <c>SG</c> family, in both assemblies that report it.</summary>
 /// <remarks>
 ///     <para>
-///         <b>The shape <a href="https://github.com/Rikarin/Vixen/issues/804">#804</a>,
-///         <a href="https://github.com/Rikarin/Vixen/issues/936">#936</a> and
-///         <a href="https://github.com/Rikarin/Vixen/issues/963">#963</a> gave three assemblies, at
-///         the scope <a href="https://github.com/Rikarin/Vixen/issues/982">#982</a> says it should
-///         have had.</b> A diagnostic family is what an author filters, suppresses and links help on;
+///         <b>
+///             The shape <a href="https://github.com/Rikarin/Vixen/issues/804">#804</a>,
+///             <a href="https://github.com/Rikarin/Vixen/issues/936">#936</a> and
+///             <a href="https://github.com/Rikarin/Vixen/issues/963">#963</a> gave three assemblies, at
+///             the scope <a href="https://github.com/Rikarin/Vixen/issues/982">#982</a> says it should
+///             have had.
+///         </b>
+///         A diagnostic family is what an author filters, suppresses and links help on;
 ///         it is not a compilation unit. <c>SG</c> was declared in two places that could not
 ///         enumerate each other, so the collision each of those three gates exists to stop was
 ///         reachable in the one family that spanned a seam.
@@ -42,8 +45,12 @@ public class ShaderGraphDiagnosticIdTests {
     ///         repository are for and not a second call site. Only a string literal reports anything.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b><c>SGP</c> is tried before <c>SG</c>, because the alternation is ordered and
-    ///         <c>SG</c> would match <c>SGP0001</c>'s first two letters.</b> It still ends up
+    ///         ⚠
+    ///         <b>
+    ///             <c>SGP</c> is tried before <c>SG</c>, because the alternation is ordered and
+    ///             <c>SG</c> would match <c>SGP0001</c>'s first two letters.
+    ///         </b>
+    ///         It still ends up
     ///         matching through the backtrack, but relying on that is one regex edit away from a
     ///         detector that quietly stops seeing the preview family.
     ///     </para>
@@ -58,8 +65,12 @@ public class ShaderGraphDiagnosticIdTests {
 
     /// <summary>Every source file one production project owns, without what the build wrote.</summary>
     /// <remarks>
-    ///     ⚠ <b><c>.vxml</c> as well as <c>.cs</c>, and leaving it out is a live blind spot rather
-    ///     than a nicety.</b> <c>Vixen.Editor.AssetEditors</c> carries twenty-five <c>.vxml</c> views
+    ///     ⚠
+    ///     <b>
+    ///         <c>.vxml</c> as well as <c>.cs</c>, and leaving it out is a live blind spot rather
+    ///         than a nicety.
+    ///     </b>
+    ///     <c>Vixen.Editor.AssetEditors</c> carries twenty-five <c>.vxml</c> views
     ///     whose C# code blocks are where its diagnostic rendering actually lives — so a walk over
     ///     <c>*.cs</c> alone reports a clean sweep of a tree it has read most of the wrong half of.
     ///     A <c>--include="*.cs"</c> grep of exactly this shape produced a filed issue claiming five
@@ -68,16 +79,23 @@ public class ShaderGraphDiagnosticIdTests {
     /// </remarks>
     /// <param name="project">The project directory name.</param>
     /// <returns>Each file's name and its text.</returns>
-    static (string Name, string Text)[] Production(string project) =>
-        Directory.GetFiles(Path.Combine(Editors(), project), "*.*", SearchOption.AllDirectories)
-            .Where(path => path.EndsWith(".cs", StringComparison.Ordinal)
-                || path.EndsWith(".vxml", StringComparison.Ordinal))
-            .Where(path => !path.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}",
-                StringComparison.Ordinal))
-            .Where(path => !path.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}",
-                StringComparison.Ordinal))
-            .Select(path => (Name: Path.GetFileName(path), Text: File.ReadAllText(path)))
-            .ToArray();
+    static (string Name, string Text)[] Production(string project) => [
+        ..Directory.GetFiles(Path.Combine(Editors(), project), "*.*", SearchOption.AllDirectories)
+            .Where(static path => path.EndsWith(".cs", StringComparison.Ordinal)
+                || path.EndsWith(".vxml", StringComparison.Ordinal)
+            )
+            .Where(static path => !path.Contains(
+                    $"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}",
+                    StringComparison.Ordinal
+                )
+            )
+            .Where(static path => !path.Contains(
+                    $"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}",
+                    StringComparison.Ordinal
+                )
+            )
+            .Select(static path => (Name: Path.GetFileName(path), Text: File.ReadAllText(path)))
+    ];
 
     /// <summary>⚠ No id is declared twice, which a compiler cannot tell you.</summary>
     /// <remarks>
@@ -98,11 +116,11 @@ public class ShaderGraphDiagnosticIdTests {
             + "`const string`."
         );
 
-        Assert.All(ids, id => Assert.Matches("^SGP?[0-9]{4}$", id));
+        Assert.All(ids, static id => Assert.Matches("^SGP?[0-9]{4}$", id));
 
-        var repeated = ids.GroupBy(id => id, StringComparer.Ordinal)
-            .Where(group => group.Count() > 1)
-            .Select(group => group.Key)
+        var repeated = ids.GroupBy(static id => id, StringComparer.Ordinal)
+            .Where(static group => group.Count() > 1)
+            .Select(static group => group.Key)
             .Order(StringComparer.Ordinal)
             .ToArray();
 
@@ -157,8 +175,8 @@ public class ShaderGraphDiagnosticIdTests {
         // Both halves of the family are really being read: the compiler raises SG0001…SG0004 and the
         // document raises SG0000 and SG0100, so a walk that lost either project would still find one
         // set of ids and look like a clean run.
-        Assert.Contains(mine, source => source.Name == "ShaderGraphCompiler.cs");
-        Assert.Contains(theirs, source => source.Name == "ShaderGraphDocument.cs");
+        Assert.Contains(mine, static source => source.Name == "ShaderGraphCompiler.cs");
+        Assert.Contains(theirs, static source => source.Name == "ShaderGraphDocument.cs");
 
         Assert.True(
             mine.Length >= 12 && theirs.Length >= 70,
@@ -167,10 +185,10 @@ public class ShaderGraphDiagnosticIdTests {
             + "finding almost nothing, which is a pass over no work rather than two clean assemblies."
         );
 
-        var declaring = Assert.Single(mine, source => source.Name == "ShaderGraphDiagnostics.cs");
+        var declaring = Assert.Single(mine, static source => source.Name == "ShaderGraphDiagnostics.cs");
 
         var found = Literal.Matches(declaring.Text)
-            .Select(match => match.Groups[1].Value)
+            .Select(static match => match.Groups[1].Value)
             .Distinct(StringComparer.Ordinal)
             .Order(StringComparer.Ordinal)
             .ToArray();
@@ -178,9 +196,10 @@ public class ShaderGraphDiagnosticIdTests {
         Assert.Equal(ShaderGraphDiagnostics.Ids, found);
 
         var strays = mine.Concat(theirs)
-            .Where(source => source.Name != "ShaderGraphDiagnostics.cs")
-            .SelectMany(source => Literal.Matches(source.Text)
-                .Select(match => $"{source.Name}: {match.Groups[1].Value}"))
+            .Where(static source => source.Name != "ShaderGraphDiagnostics.cs")
+            .SelectMany(static source => Literal.Matches(source.Text)
+                    .Select(match => $"{source.Name}: {match.Groups[1].Value}")
+            )
             .Order(StringComparer.Ordinal)
             .ToArray();
 

@@ -9,10 +9,13 @@ namespace Vixen.Geometry.Uv.Tests;
 /// <summary>The property the exhaustion floor's whole determinism argument rests on, asserted rather than reasoned.</summary>
 /// <remarks>
 ///     <para>
-///         <b><see cref="ConjugateGradient.Exhausted" /> is defended on the grounds that it "is not
-///         the tolerance docs/plan/42 § D5 forbids" — because it sits where a <c>double</c> has
-///         stopped carrying information, so which side of it a platform lands on cannot change the
-///         answer.</b> That argument is correct only while the floor fires <i>after</i> the iteration
+///         <b>
+///             <see cref="ConjugateGradient.Exhausted" /> is defended on the grounds that it "is not
+///             the tolerance docs/plan/42 § D5 forbids" — because it sits where a <c>double</c> has
+///             stopped carrying information, so which side of it a platform lands on cannot change the
+///             answer.
+///         </b>
+///         That argument is correct only while the floor fires <i>after</i> the iteration
 ///         has stopped making progress. A floor that fired mid-descent would put the stopping
 ///         iteration back under the control of a floating-point comparison, which is exactly the
 ///         failure § B6 exists to prevent, and it would do it invisibly — the coordinates would still
@@ -61,7 +64,7 @@ public class ExhaustionFloorTests {
                     right[index] = PoissonGrid.Eigenvalue(extent, mode, mode) * answer[index];
                 }
 
-                var initial = Math.Sqrt(right.Sum(value => value * value));
+                var initial = Math.Sqrt(right.Sum(static value => value * value));
                 var solution = new double[answer.Length];
                 var report = new ConjugateGradient(matrix, kind).Solve(right, solution, DefaultBudget);
 
@@ -123,7 +126,7 @@ public class ExhaustionFloorTests {
                     right[index] = PoissonGrid.Eigenvalue(extent, mode, mode) * answer[index];
                 }
 
-                var initial = Math.Sqrt(right.Sum(value => value * value));
+                var initial = Math.Sqrt(right.Sum(static value => value * value));
                 var solution = new double[answer.Length];
 
                 var report = new LeastSquaresSolver(matrix, preconditioned)
@@ -168,7 +171,7 @@ public class ExhaustionFloorTests {
         var right = new double[Extent * Extent];
 
         for (var index = 0; index < right.Length; index++) {
-            right[index] = ((index * 37) % 101) - 50;
+            right[index] = index * 37 % 101 - 50;
         }
 
         var report = new ConjugateGradient(matrix, PreconditionerKind.None)
@@ -199,7 +202,7 @@ public class ExhaustionFloorTests {
         var right = new double[Extent * Extent];
 
         for (var index = 0; index < right.Length; index++) {
-            right[index] = ((index * 37) % 101) - 50;
+            right[index] = index * 37 % 101 - 50;
         }
 
         var report = new LeastSquaresSolver(matrix, preconditioned)

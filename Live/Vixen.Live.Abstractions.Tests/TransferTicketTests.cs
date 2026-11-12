@@ -23,7 +23,10 @@ public sealed class TransferTicketTests {
 
     static TransferTicket Unsigned() =>
         new() {
-            Player = new(Guid.Parse("11111111-1111-1111-1111-111111111111"), Guid.Parse("22222222-2222-2222-2222-222222222222")),
+            Player = new(
+                Guid.Parse("11111111-1111-1111-1111-111111111111"),
+                Guid.Parse("22222222-2222-2222-2222-222222222222")
+            ),
             Target = Target,
             Endpoint = new("10.0.0.4", 7777),
             LeaseEpoch = 41,
@@ -46,7 +49,7 @@ public sealed class TransferTicketTests {
         var ticket = signer.Sign(Unsigned());
 
         Assert.True(TransferTicket.TryDecode(ticket.Encode(), out var carried, out var error));
-        Assert.Equal("", error);
+        Assert.Equal(string.Empty, error);
         Assert.Equal(ticket, carried);
         Assert.Equal(TicketStatus.Valid, signer.Validate(carried!, Target, Now));
     }
@@ -118,9 +121,7 @@ public sealed class TransferTicketTests {
     public void AKeyShorterThanTheHashIsRefusedAtConstruction() {
         // Not a weaker configuration — a mistake. HMAC pads anything shorter, so a four-character key
         // looks like it works and is guessable.
-        var failure = Assert.Throws<ArgumentException>(
-            () => new TransferTicketSigner("too short"u8)
-        );
+        var failure = Assert.Throws<ArgumentException>(static () => new TransferTicketSigner("too short"u8));
 
         Assert.Contains("at least 32 bytes", failure.Message, StringComparison.Ordinal);
     }
@@ -144,9 +145,18 @@ public sealed class TransferTicketTests {
     [Theory]
     [InlineData("player=nonsense;target=x;at=y;epoch=1;expires=1;sig=", "`player` is missing")]
     [InlineData(GoodPlayer + ";target=nonsense;at=y;epoch=1;expires=1;sig=", "`target` is missing")]
-    [InlineData(GoodPlayer + ";target=0f8fad5b-d9cb-469f-a165-70867728950e;at=nowhere;epoch=1;expires=1;sig=", "`at` is missing")]
-    [InlineData(GoodPlayer + ";target=0f8fad5b-d9cb-469f-a165-70867728950e;at=h:1;epoch=x;expires=1;sig=", "`epoch` is missing")]
-    [InlineData(GoodPlayer + ";target=0f8fad5b-d9cb-469f-a165-70867728950e;at=h:1;epoch=1;expires=x;sig=", "`expires` is missing")]
+    [InlineData(
+        GoodPlayer + ";target=0f8fad5b-d9cb-469f-a165-70867728950e;at=nowhere;epoch=1;expires=1;sig=",
+        "`at` is missing"
+    )]
+    [InlineData(
+        GoodPlayer + ";target=0f8fad5b-d9cb-469f-a165-70867728950e;at=h:1;epoch=x;expires=1;sig=",
+        "`epoch` is missing"
+    )]
+    [InlineData(
+        GoodPlayer + ";target=0f8fad5b-d9cb-469f-a165-70867728950e;at=h:1;epoch=1;expires=x;sig=",
+        "`expires` is missing"
+    )]
     public void MalformedTicketsAreRefusedWithAReason(string text, string expected) {
         Assert.False(TransferTicket.TryDecode(text, out var ticket, out var error));
         Assert.Null(ticket);

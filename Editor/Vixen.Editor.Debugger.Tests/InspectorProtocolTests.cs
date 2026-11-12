@@ -18,12 +18,12 @@ public sealed class InspectorProtocolTests {
         ArrayBufferWriter<byte> writer = new(256);
         write(writer);
 
-        return writer.WrittenSpan.ToArray();
+        return [..writer.WrittenSpan];
     }
 
     [Fact]
     public void AGreetingRoundTrips() {
-        var payload = Written(writer => InspectorProtocol.WriteHello(writer, "Vixen Editor"));
+        var payload = Written(static writer => InspectorProtocol.WriteHello(writer, "Vixen Editor"));
 
         Assert.True(InspectorProtocol.TryReadKind(payload, out var kind));
         Assert.Equal(InspectorMessage.Hello, kind);
@@ -35,8 +35,10 @@ public sealed class InspectorProtocolTests {
 
     [Fact]
     public void AnEntityRoundTripsWithItsComponents() {
-        var payload = Written(
-            writer => InspectorProtocol.WriteEntity(writer, new(9, 4, "Camera", ["Transform", "Camera"]))
+        var payload = Written(static writer => InspectorProtocol.WriteEntity(
+                writer,
+                new(9, 4, "Camera", ["Transform", "Camera"])
+            )
         );
 
         Assert.True(InspectorProtocol.TryReadEntity(payload, out var entity));
@@ -50,7 +52,7 @@ public sealed class InspectorProtocolTests {
 
     [Fact]
     public void AnEntityWithNoComponentsRoundTrips() {
-        var payload = Written(writer => InspectorProtocol.WriteEntity(writer, new(1, 0, "Empty", [])));
+        var payload = Written(static writer => InspectorProtocol.WriteEntity(writer, new(1, 0, "Empty", [])));
 
         Assert.True(InspectorProtocol.TryReadEntity(payload, out var entity));
         Assert.Empty(entity!.Components);
@@ -58,7 +60,8 @@ public sealed class InspectorProtocolTests {
 
     [Fact]
     public void AWriteRoundTrips() {
-        var payload = Written(writer => InspectorProtocol.WriteSetValue(writer, 3, "Transform.Position", "1 2 3"));
+        var payload = Written(static writer => InspectorProtocol.WriteSetValue(writer, 3, "Transform.Position", "1 2 3")
+        );
 
         Assert.True(InspectorProtocol.TryReadSetValue(payload, out var entity, out var member, out var value));
         Assert.Equal(3ul, entity);
@@ -68,7 +71,7 @@ public sealed class InspectorProtocolTests {
 
     [Fact]
     public void ACounterRoundTripsWithItsFraction() {
-        var payload = Written(writer => InspectorProtocol.WriteCounter(writer, new("frame.ms", 16.6667)));
+        var payload = Written(static writer => InspectorProtocol.WriteCounter(writer, new("frame.ms", 16.6667)));
 
         Assert.True(InspectorProtocol.TryReadCounter(payload, out var counter));
         Assert.Equal("frame.ms", counter.Name);
@@ -77,7 +80,11 @@ public sealed class InspectorProtocolTests {
 
     [Fact]
     public void NonAsciiSurvivesTheRoundTrip() {
-        var payload = Written(writer => InspectorProtocol.WriteEntity(writer, new(1, 0, "Kamera – 光", ["Ubersetzung"])));
+        var payload = Written(static writer => InspectorProtocol.WriteEntity(
+                writer,
+                new(1, 0, "Kamera – 光", ["Ubersetzung"])
+            )
+        );
 
         Assert.True(InspectorProtocol.TryReadEntity(payload, out var entity));
         Assert.Equal("Kamera – 光", entity!.Name);
@@ -94,7 +101,8 @@ public sealed class InspectorProtocolTests {
 
     [Fact]
     public void ATruncatedEntityIsRefusedRatherThanReadPast() {
-        var payload = Written(writer => InspectorProtocol.WriteEntity(writer, new(9, 4, "Camera", ["Transform"])));
+        var payload = Written(static writer => InspectorProtocol.WriteEntity(writer, new(9, 4, "Camera", ["Transform"]))
+        );
 
         for (var length = 1; length < payload.Length; length++) {
             Assert.False(InspectorProtocol.TryReadEntity(payload.AsSpan(0, length), out _));
@@ -103,7 +111,7 @@ public sealed class InspectorProtocolTests {
 
     [Fact]
     public void ATruncatedCounterIsRefused() {
-        var payload = Written(writer => InspectorProtocol.WriteCounter(writer, new("fps", 60)));
+        var payload = Written(static writer => InspectorProtocol.WriteCounter(writer, new("fps", 60)));
 
         Assert.False(InspectorProtocol.TryReadCounter(payload.AsSpan(0, payload.Length - 1), out _));
     }
@@ -115,11 +123,10 @@ public sealed class InspectorProtocolTests {
     /// </summary>
     [Fact]
     public void AStringLongerThanTheCeilingIsTruncatedOnTheWayOut() {
-        var payload = Written(
-            writer => InspectorProtocol.WriteText(
+        var payload = Written(static writer => InspectorProtocol.WriteText(
                 writer,
                 InspectorMessage.Command,
-                new string('x', InspectorProtocol.MaximumStringBytes * 2)
+                new('x', InspectorProtocol.MaximumStringBytes * 2)
             )
         );
 
@@ -136,8 +143,7 @@ public sealed class InspectorProtocolTests {
     public void TruncationDoesNotSplitASurrogatePair() {
         // Every character is a surrogate pair, so a cut at any even index is safe and a cut at any
         // odd index is not — which means the guard is exercised whichever way the arithmetic lands.
-        var payload = Written(
-            writer => InspectorProtocol.WriteText(
+        var payload = Written(static writer => InspectorProtocol.WriteText(
                 writer,
                 InspectorMessage.Command,
                 string.Concat(Enumerable.Repeat("😀", InspectorProtocol.MaximumStringBytes))
@@ -146,6 +152,6 @@ public sealed class InspectorProtocolTests {
 
         Assert.True(InspectorProtocol.TryReadText(payload, out var text));
         Assert.DoesNotContain('�', text);
-        Assert.All(text.EnumerateRunes(), rune => Assert.Equal(0x1F600, rune.Value));
+        Assert.All(text.EnumerateRunes(), static rune => Assert.Equal(0x1F600, rune.Value));
     }
 }

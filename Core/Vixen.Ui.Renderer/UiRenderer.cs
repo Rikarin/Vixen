@@ -41,8 +41,12 @@ public readonly record struct UiShaders(
     /// <summary>One axis of the separable Gaussian a group's <c>filter: blur()</c> is made of.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Optional on the same terms as <see cref="Image" />, and the consequence of
-    ///         leaving it out is a picture rather than a failure.</b> A host with no blur stage
+    ///         ⚠
+    ///         <b>
+    ///             Optional on the same terms as <see cref="Image" />, and the consequence of
+    ///             leaving it out is a picture rather than a failure.
+    ///         </b>
+    ///         A host with no blur stage
     ///         composites every group unblurred: the surfaces are still rendered, the opacities are
     ///         still right, and a <c>filter: blur()</c> in a stylesheet draws sharp. That is the
     ///         honest behaviour, and it is a materially better one than <see cref="Image" />'s
@@ -60,24 +64,36 @@ public readonly record struct UiShaders(
     /// <summary>The composite of a group whose <c>filter</c> carries a colour transform.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Optional on the same terms as <see cref="Blur" />, and the consequence is again a
-    ///         picture rather than a failure.</b> A host with no colour stage composites every group
+    ///         ⚠
+    ///         <b>
+    ///             Optional on the same terms as <see cref="Blur" />, and the consequence is again a
+    ///             picture rather than a failure.
+    ///         </b>
+    ///         A host with no colour stage composites every group
     ///         through <see cref="Image" /> instead, which draws it in full colour: the surfaces are
     ///         still rendered, the opacities are still right, and a <c>filter: grayscale(1)</c> in a
     ///         stylesheet draws untouched. <c>UiRenderer.Filtered</c> is what says so out loud, and it
     ///         is the reason that count exists.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A module of its own rather than a branch in <see cref="Image" />, and the reason
-    ///         is what the branch would cost everything else.</b> <c>ui-image.frag</c> draws every
+    ///         ⚠
+    ///         <b>
+    ///             A module of its own rather than a branch in <see cref="Image" />, and the reason
+    ///             is what the branch would cost everything else.
+    ///         </b>
+    ///         <c>ui-image.frag</c> draws every
     ///         viewport, thumbnail and video frame the interface has; giving it a push-constant block
     ///         would put an identity matrix on the wire for all of them. A group with a filter is
     ///         rare enough that one pipeline switch for the one draw that has one is the cheaper
     ///         side.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>No second surface and no extra pass, which is the whole design and is worth
-    ///         stating where a reader will meet it.</b> The matrix is per pixel, so unlike
+    ///         ⚠
+    ///         <b>
+    ///             No second surface and no extra pass, which is the whole design and is worth
+    ///             stating where a reader will meet it.
+    ///         </b>
+    ///         The matrix is per pixel, so unlike
     ///         <see cref="Blur" /> it has nothing to read from a neighbour and can be folded into the
     ///         composite draw the group was going to make anyway — see <c>UiRenderer.Compose</c>, whose
     ///         viewport-sized targets a filter does not add to.
@@ -88,15 +104,23 @@ public readonly record struct UiShaders(
     /// <summary>The composite of a group whose <c>mask-image</c> fades it out.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Optional on <see cref="Colour" />'s terms, and its absence looks like <c>mask-*</c>
-    ///         doing nothing.</b> A host without this stage composites masked groups through
+    ///         ⚠
+    ///         <b>
+    ///             Optional on <see cref="Colour" />'s terms, and its absence looks like <c>mask-*</c>
+    ///             doing nothing.
+    ///         </b>
+    ///         A host without this stage composites masked groups through
     ///         <see cref="Image" /> — the surfaces are still rendered and the opacities are still
     ///         right, and the mask simply is not applied. <c>UiRenderer.Masked</c> is what says so out
     ///         loud.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>It carries the colour matrix as well as the mask, and that is forced rather than
-    ///         chosen.</b> A pipeline is bound once per draw, so a group with both a <c>filter</c> and
+    ///         ⚠
+    ///         <b>
+    ///             It carries the colour matrix as well as the mask, and that is forced rather than
+    ///             chosen.
+    ///         </b>
+    ///         A pipeline is bound once per draw, so a group with both a <c>filter</c> and
     ///         a <c>mask-image</c> must be served by one module that does both — two modules would
     ///         silently drop whichever lost. The consequence for a host is worth stating: supplying
     ///         this and not <see cref="Colour" /> makes <c>grayscale</c> work on masked elements and
@@ -114,8 +138,12 @@ public readonly record struct UiShaders(
     /// <summary>The composite of a group whose <c>mix-blend-mode</c> is not <c>normal</c>.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Optional on <see cref="Colour" />'s terms, and its absence is the divergence #783
-    ///         was filed about.</b> A host without this stage composites a blended group source-over —
+    ///         ⚠
+    ///         <b>
+    ///             Optional on <see cref="Colour" />'s terms, and its absence is the divergence #783
+    ///             was filed about.
+    ///         </b>
+    ///         A host without this stage composites a blended group source-over —
     ///         a picture rather than a fault, the one the frame would have had without the
     ///         declaration — and <c>UiRenderer.Unblended</c> counts every such draw.
     ///     </para>
@@ -144,15 +172,23 @@ public readonly record struct UiShaders(
 /// <summary>What the host had already painted where the interface is about to be drawn.</summary>
 /// <param name="Colour">
 ///     What the host's own pass clears its target to, in the same linear space the geometry's colours
-///     are. ⚠ <b>Premultiplied, which for the opaque frame every host actually draws means "alpha
-///     one".</b> A clear writes the colour to the attachment as it stands and
+///     are. ⚠
+///     <b>
+///         Premultiplied, which for the opaque frame every host actually draws means "alpha
+///         one".
+///     </b>
+///     A clear writes the colour to the attachment as it stands and
 ///     <c>SoftwareUiRasterizer</c> premultiplies its background into a float target, so the two agree
 ///     exactly at alpha one and differ by the alpha below it.
 /// </param>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>The parameter <c>backdrop-filter</c> could not be built without, and its absence is
-///         not a missing optimisation but two wrong pictures.</b> <c>UiRenderer.Compose</c> can
+///         ⚠
+///         <b>
+///             The parameter <c>backdrop-filter</c> could not be built without, and its absence is
+///             not a missing optimisation but two wrong pictures.
+///         </b>
+///         <c>UiRenderer.Compose</c> can
 ///         re-render the interface's own draw list and nothing else, so a backdrop captured from that
 ///         alone is <i>the interface behind the element and nothing else</i> — a glass panel over a
 ///         3D scene would blur nothing, which is the commonest reason to reach for the feature. Worse,
@@ -161,8 +197,12 @@ public readonly record struct UiShaders(
 ///         <i>replaces</i> the backdrop within the element's bounds.
 ///     </para>
 ///     <para>
-///         ⚠ <b>A colour and a texture rather than only a texture, because all three call sites in
-///         this repository have the first and none has the second.</b> The editor, the app template
+///         ⚠
+///         <b>
+///             A colour and a texture rather than only a texture, because all three call sites in
+///             this repository have the first and none has the second.
+///         </b>
+///         The editor, the app template
 ///         and the golden fixture each begin the interface's pass with a <c>LoadAction.Clear</c>; what
 ///         they have "already painted" is that colour. <see cref="Image" /> is for the host that has
 ///         genuinely rendered something — a scene, a video, a previous frame — into a texture of the
@@ -170,8 +210,12 @@ public readonly record struct UiShaders(
 ///         over: the frame's scene target, the same frame, from inside the render graph (#1378).
 ///     </para>
 ///     <para>
-///         ⚠ <b>Only a <i>top-level</i> group's backdrop reads this, and that is Filter Effects 2's
-///         rule rather than a shortcut.</b> Every <c>UiLayer</c> is a backdrop root — a group exists
+///         ⚠
+///         <b>
+///             Only a <i>top-level</i> group's backdrop reads this, and that is Filter Effects 2's
+///             rule rather than a shortcut.
+///         </b>
+///         Every <c>UiLayer</c> is a backdrop root — a group exists
 ///         here only for a filter, an opacity, a mask or a backdrop — so a nested group's backdrop is
 ///         its parent's own surface so far, which starts from transparent black and has never seen the
 ///         host's frame. A capture that put this under a nested group would paint the host's
@@ -185,14 +229,22 @@ public readonly record struct UiBackdropSource(Color4 Colour) {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Sampled with the interface's own clamped linear sampler and read as
-    ///         <i>premultiplied</i></b>, which is what every surface this renderer produces holds. An
+    ///         ⚠
+    ///         <b>
+    ///             Sampled with the interface's own clamped linear sampler and read as
+    ///             <i>premultiplied</i>
+    ///         </b>
+    ///         , which is what every surface this renderer produces holds. An
     ///         opaque scene target is the same picture either way; one with real transparency in it
     ///         would need premultiplying by the host.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>It must already hold what it is claimed to hold when <c>Compose</c> is called, and
-    ///         that is a constraint on the host's pass order rather than on this.</b> The group passes
+    ///         ⚠
+    ///         <b>
+    ///             It must already hold what it is claimed to hold when <c>Compose</c> is called, and
+    ///             that is a constraint on the host's pass order rather than on this.
+    ///         </b>
+    ///         The group passes
     ///         are recorded <i>before</i> the host's frame pass begins, so a texture the host is about
     ///         to render into this frame holds the previous frame's picture — which is a one-frame lag
     ///         in the backdrop and not an error. A host that wants this frame's scene has to record the
@@ -250,8 +302,12 @@ public sealed class UiRenderer : IDisposable {
     /// <summary>How many bytes one <see cref="UiShape" /> is.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Taken from the type rather than written down, and it was written down in three
-    ///         places until the record grew.</b> <c>UiShape</c> went from eighty bytes to a hundred and
+    ///         ⚠
+    ///         <b>
+    ///             Taken from the type rather than written down, and it was written down in three
+    ///             places until the record grew.
+    ///         </b>
+    ///         <c>UiShape</c> went from eighty bytes to a hundred and
     ///         twelve when gradients gained a middle stop and two round shapes, and the literal
     ///         <c>80</c> here sized the storage buffer, strided the upload and bounded the descriptor
     ///         range. What that produced was not a validation error: the buffer was allocated at
@@ -271,8 +327,12 @@ public sealed class UiRenderer : IDisposable {
 
     /// <summary>How many <c>mask-image</c> layers one frame may carry, across every masked group.</summary>
     /// <remarks>
-    ///     ⚠ <b>A frame budget and not a per-group one, and a frame that exceeds it composites the
-    ///     groups past the line <i>unmasked</i> rather than wrongly.</b> Eight layers is the most one
+    ///     ⚠
+    ///     <b>
+    ///         A frame budget and not a per-group one, and a frame that exceeds it composites the
+    ///         groups past the line <i>unmasked</i> rather than wrongly.
+    ///     </b>
+    ///     Eight layers is the most one
     ///     group can ask for — see <c>GradientReader.MostLayers</c> — so this is sixteen fully masked
     ///     groups in one frame, against an interface where a masked group at all is rare. The
     ///     fail-open answer is the one <c>DrawListBuilder</c> already gives an unreadable mask, and
@@ -293,6 +353,7 @@ public sealed class UiRenderer : IDisposable {
     /// <summary>How many bytes one frame's region of each buffer is.</summary>
     /// <remarks>Per region, not per buffer: each buffer is this many bytes times <see cref="slots" />.</remarks>
     int vertexCapacity;
+
     int indexCapacity;
     int boxCapacity;
 
@@ -335,8 +396,12 @@ public sealed class UiRenderer : IDisposable {
 
     /// <summary>A registered texture: one set per frame in flight, and which of them are stale.</summary>
     /// <remarks>
-    ///     ⚠ <b>A ring and not one set, for the same reason <see cref="staleBoxes" /> is a flag per
-    ///     frame.</b> Re-registering a number — which is what a viewport does every time it is resized
+    ///     ⚠
+    ///     <b>
+    ///         A ring and not one set, for the same reason <see cref="staleBoxes" /> is a flag per
+    ///         frame.
+    ///     </b>
+    ///     Re-registering a number — which is what a viewport does every time it is resized
     ///     — points the set at a new view, and one set shared by every frame in flight is one there is
     ///     no safe moment to write: <c>VUID-vkUpdateDescriptorSets-None-03047</c>. A set per frame has
     ///     one, and it is the moment <see cref="slot" /> comes round to it.
@@ -370,8 +435,12 @@ public sealed class UiRenderer : IDisposable {
     ///         nothing was reading it.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A recycled ring is handed back stale, and that is the one thing that separates it
-    ///         from a fresh one.</b> A fresh ring can be written on the spot because it was allocated
+    ///         ⚠
+    ///         <b>
+    ///             A recycled ring is handed back stale, and that is the one thing that separates it
+    ///             from a fresh one.
+    ///         </b>
+    ///         A fresh ring can be written on the spot because it was allocated
     ///         a line ago and no submitted frame can be reading it. A recycled one was being read by
     ///         a frame that may still be in flight — a host unregisters between frames, like it
     ///         registers — so writing it here is
@@ -395,9 +464,13 @@ public sealed class UiRenderer : IDisposable {
 
     /// <summary>The colour matrix each composed group's composite draw has to be put through.</summary>
     /// <remarks>
-    ///     ⚠ <b>Here rather than on <see cref="UiDraw" />, and the difference is fifty-two bytes on
-    ///     every draw in every frame against a dictionary with as many entries as the frame has
-    ///     filtered groups — which is almost always none.</b> A composite draw is an ordinary
+    ///     ⚠
+    ///     <b>
+    ///         Here rather than on <see cref="UiDraw" />, and the difference is fifty-two bytes on
+    ///         every draw in every frame against a dictionary with as many entries as the frame has
+    ///         filtered groups — which is almost always none.
+    ///     </b>
+    ///     A composite draw is an ordinary
     ///     <see cref="BatchKind.Image" /> naming its surface by number, so <see cref="SubmitDraw" />
     ///     already has the only key it needs; putting the matrix on the draw would widen a struct
     ///     the frame holds thousands of to carry a value a handful of them ever set.
@@ -419,8 +492,12 @@ public sealed class UiRenderer : IDisposable {
 
     /// <summary>Each blended group's mode, keyed by its surface number the way the filters are.</summary>
     /// <remarks>
-    ///     ⚠ <b>It gates a pipeline now, and until #783 it was a record of what this renderer was
-    ///     <i>not</i> doing.</b> <c>mix-blend-mode</c> reaches the frame as <see cref="UiLayer.Blend" />;
+    ///     ⚠
+    ///     <b>
+    ///         It gates a pipeline now, and until #783 it was a record of what this renderer was
+    ///         <i>not</i> doing.
+    ///     </b>
+    ///     <c>mix-blend-mode</c> reaches the frame as <see cref="UiLayer.Blend" />;
     ///     a group in this map whose capture exists in <see cref="blendCaptures" /> is composited
     ///     through <see cref="blendPipeline" />, and one whose capture does not — a host that handed
     ///     over no blend stage — still goes out source-over and <see cref="SubmitDraw" /> says so in
@@ -462,8 +539,12 @@ public sealed class UiRenderer : IDisposable {
 
     /// <summary>Each blended group's capture, keyed by the group's own surface number.</summary>
     /// <remarks>
-    ///     ⚠ <b>Keyed by <see cref="UiLayer.Image" /> and outside that number space, like
-    ///     <see cref="scratch" /></b> — a capture is never named by a draw, only bound at set 1 by the
+    ///     ⚠
+    ///     <b>
+    ///         Keyed by <see cref="UiLayer.Image" /> and outside that number space, like
+    ///         <see cref="scratch" />
+    ///     </b>
+    ///     — a capture is never named by a draw, only bound at set 1 by the
     ///     composite of the group it belongs to, so it needs a set and not a number. Kept between
     ///     frames and destroyed with the layer surfaces on a resize, for <see cref="layerSurfaces" />'
     ///     reason.
@@ -472,8 +553,12 @@ public sealed class UiRenderer : IDisposable {
 
     /// <summary>Which of this frame's groups <see cref="EnsureSurfaces" /> found blendable.</summary>
     /// <remarks>
-    ///     ⚠ <b>Per frame, and not "has a capture", because a capture outlives the group that made
-    ///     it.</b> <see cref="blendCaptures" /> is keyed by a surface number and numbers are reused by
+    ///     ⚠
+    ///     <b>
+    ///         Per frame, and not "has a capture", because a capture outlives the group that made
+    ///         it.
+    ///     </b>
+    ///     <see cref="blendCaptures" /> is keyed by a surface number and numbers are reused by
     ///     position from frame to frame, so a capture made for last frame's plain blended group is still
     ///     there when this frame's group at that number is rotated or filtered. Reading the dictionary
     ///     alone would put that group through <c>UiBlend</c> against the wrong texels. Cleared by
@@ -483,8 +568,12 @@ public sealed class UiRenderer : IDisposable {
 
     /// <summary>Which of <see cref="blendable" /> are under a transform, and so read their backdrop at the pixel.</summary>
     /// <remarks>
-    ///     ⚠ <b>The composite quad of a transformed group carries the <i>untransformed</i> surface
-    ///     coordinate</b> — right for the group's own texels, which is why every other composite stage
+    ///     ⚠
+    ///     <b>
+    ///         The composite quad of a transformed group carries the <i>untransformed</i> surface
+    ///         coordinate
+    ///     </b>
+    ///     — right for the group's own texels, which is why every other composite stage
     ///     needs nothing here, and wrong for what lies under the pixel. So <c>UiBlend</c> is told to
     ///     read the capture at <c>SV_Position</c> instead, through <c>operation.zw</c>, and its capture
     ///     is taken over the whole surface rather than over <see cref="UiLayer.Bounds" />, which stays
@@ -526,8 +615,12 @@ public sealed class UiRenderer : IDisposable {
     /// <summary>What an image set's storage binding points at, and it is never the box buffer.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A buffer of its own precisely so that it never has to be rewritten, and it is
-    ///         now the one buffer that <i>is</i> read through an image set.</b> The image shader
+    ///         ⚠
+    ///         <b>
+    ///             A buffer of its own precisely so that it never has to be rewritten, and it is
+    ///             now the one buffer that <i>is</i> read through an image set.
+    ///         </b>
+    ///         The image shader
     ///         still ignores the binding — the layout only declares it — but <c>ui-mask.frag</c>
     ///         reads its mask list out of it, and a composite draw binds an image set. Pointing this
     ///         at the box buffer instead would mean rewriting every image set each time that buffer
@@ -542,8 +635,12 @@ public sealed class UiRenderer : IDisposable {
     ///         kilobytes and it is never replaced.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Allocated in the constructor rather than on first use, which the dummy it replaced
-    ///         did not need to be.</b> <see cref="UploadGeometry" /> writes this frame's mask entries
+    ///         ⚠
+    ///         <b>
+    ///             Allocated in the constructor rather than on first use, which the dummy it replaced
+    ///             did not need to be.
+    ///         </b>
+    ///         <see cref="UploadGeometry" /> writes this frame's mask entries
     ///         and runs <i>before</i> <see cref="Compose" /> registers any layer surface, so the first
     ///         masked frame would otherwise write to a handle nothing had created yet.
     ///     </para>
@@ -569,9 +666,13 @@ public sealed class UiRenderer : IDisposable {
     /// <summary>One surface per composited group, keyed by the number its composite draw names it by.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Keyed by <see cref="UiLayer.Image" /> and <i>not</i> by the group's position in
-    ///         <see cref="UiGeometry.Layers" />, which are not the same number and look like they
-    ///         are.</b> The list is sorted in pre-order — outermost group first — while the number is
+    ///         ⚠
+    ///         <b>
+    ///             Keyed by <see cref="UiLayer.Image" /> and <i>not</i> by the group's position in
+    ///             <see cref="UiGeometry.Layers" />, which are not the same number and look like they
+    ///             are.
+    ///         </b>
+    ///         The list is sorted in pre-order — outermost group first — while the number is
     ///         handed out by a counter that ticks when a group <i>closes</i>, and groups close
     ///         innermost first. So in a frame with a group inside a group, the outer one is
     ///         <c>Layers[0]</c> and carries <c>LayerImage(1)</c>. Indexing the surfaces by position
@@ -580,8 +681,12 @@ public sealed class UiRenderer : IDisposable {
     ///         still open as a colour attachment.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Kept between frames rather than allocated per frame, and <i>one</i> each rather
-    ///         than one per frame in flight.</b> A viewport-sized colour target is the most expensive
+    ///         ⚠
+    ///         <b>
+    ///             Kept between frames rather than allocated per frame, and <i>one</i> each rather
+    ///             than one per frame in flight.
+    ///         </b>
+    ///         A viewport-sized colour target is the most expensive
     ///         thing this renderer owns, so a ring of them would multiply the cost of a translucent
     ///         group by <see cref="slots" /> to solve a hazard a barrier already solves: the
     ///         transition back to <see cref="ResourceState.ColourTarget" /> at the top of
@@ -599,8 +704,12 @@ public sealed class UiRenderer : IDisposable {
     /// <summary>Where the first axis of a blur lands, on its way back into the group's own surface.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>One for the whole frame, and not one per blurred group — which is the cost this
-    ///         arrangement was expected to have and does not.</b> A separable blur cannot read and
+    ///         ⚠
+    ///         <b>
+    ///             One for the whole frame, and not one per blurred group — which is the cost this
+    ///             arrangement was expected to have and does not.
+    ///         </b>
+    ///         A separable blur cannot read and
     ///         write one attachment, so a blurred group does need a second target; but it needs it
     ///         only for the two passes between its own pass ending and its <c>ShaderRead</c> barrier,
     ///         and those are finished before the next group's begin. So the scratch is borrowed and
@@ -628,8 +737,12 @@ public sealed class UiRenderer : IDisposable {
     /// <summary>The quad a capture pass draws <see cref="UiBackdropSource.Image" /> through.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>This renderer's own four vertices, and it is the only geometry in the file that
-    ///         does not come out of the frame's one upload.</b> Every other pass here borrows a quad
+    ///         ⚠
+    ///         <b>
+    ///             This renderer's own four vertices, and it is the only geometry in the file that
+    ///             does not come out of the frame's one upload.
+    ///         </b>
+    ///         Every other pass here borrows a quad
     ///         the geometry already holds — the composite quad serves the blur, the shadow and the
     ///         backdrop alike, which is what <c>BlurSurface</c>'s remark argues for. There is no quad
     ///         in a draw list that covers the <i>whole viewport</i>, and inventing one in
@@ -643,8 +756,12 @@ public sealed class UiRenderer : IDisposable {
     ///         vertices per frame in flight is a few hundred bytes.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Allocated only on the first frame that has a backdrop <i>and</i> a host texture to
-    ///         put under it.</b> A host that hands over a colour alone needs no draw at all — the
+    ///         ⚠
+    ///         <b>
+    ///             Allocated only on the first frame that has a backdrop <i>and</i> a host texture to
+    ///             put under it.
+    ///         </b>
+    ///         A host that hands over a colour alone needs no draw at all — the
     ///         capture pass's clear is the whole of it.
     ///     </para>
     /// </remarks>
@@ -689,15 +806,26 @@ public sealed class UiRenderer : IDisposable {
 
     /// <summary>How many of this frame's groups <see cref="Compose" /> actually rendered.</summary>
     /// <remarks>
-    ///     ⚠ <b>Zero is the honest answer and not a failure, and it is what keeps a host that never
-    ///     calls <see cref="Compose" /> from throwing or half-drawing.</b> <see cref="Record" /> skips
+    ///     ⚠
+    ///     <b>
+    ///         Zero is the honest answer and not a failure, and it is what keeps a host that never
+    ///         calls <see cref="Compose" /> from throwing or half-drawing.
+    ///     </b>
+    ///     <see cref="Record" /> skips
     ///     a group's own draws only when its surface exists; with none, the walk is the flat one over
     ///     every draw in order that this renderer has always done, and the composite quads are skipped
     ///     for want of a registered texture.
     ///     <para>
-    ///         ⚠ <b><s>and the frame is the un-isolated approximation
-    ///         <c>DrawListBuilder.Compositing</c> being off produces anyway.</s> It is not, and that
-    ///         sentence was the reason turning the gate on looked like one change.</b> The
+    ///         ⚠
+    ///         <b>
+    ///             <s>
+    ///                 and the frame is the un-isolated approximation
+    ///                 <c>DrawListBuilder.Compositing</c> being off produces anyway.
+    ///             </s>
+    ///             It is not, and that
+    ///             sentence was the reason turning the gate on looked like one change.
+    ///         </b>
+    ///         The
     ///         approximation fades each of a group's children by the group's alpha; what this produces
     ///         instead is those children at <i>full</i> strength, because the builder emits a group's
     ///         contents with alpha one precisely so the surface can carry the fade — see
@@ -717,8 +845,12 @@ public sealed class UiRenderer : IDisposable {
 
     /// <summary>How many of those groups <see cref="Compose" /> also cast a drop shadow from.</summary>
     /// <remarks>
-    ///     ⚠ <b>Counted where the work happens and not where the quad is drawn, which is the
-    ///     opposite of <see cref="filtered" /> and is right for the opposite reason.</b> A tinted
+    ///     ⚠
+    ///     <b>
+    ///         Counted where the work happens and not where the quad is drawn, which is the
+    ///         opposite of <see cref="filtered" /> and is right for the opposite reason.
+    ///     </b>
+    ///     A tinted
     ///     composite is a draw and can be counted as one; a shadow is two render passes into a
     ///     surface, and the quad that samples it is an ordinary image draw that no amount of
     ///     inspection at <see cref="SubmitDraw" /> distinguishes from a nested group's. So this
@@ -733,8 +865,11 @@ public sealed class UiRenderer : IDisposable {
 
     /// <summary>How many composite draws the frame put a colour matrix through.</summary>
     /// <remarks>
-    ///     ⚠ <b>Reset by <see cref="Compose" /> and incremented by <see cref="SubmitDraw" />, which
-    ///     is the one arrangement that counts each of a frame's filtered composites exactly once.</b>
+    ///     ⚠
+    ///     <b>
+    ///         Reset by <see cref="Compose" /> and incremented by <see cref="SubmitDraw" />, which
+    ///         is the one arrangement that counts each of a frame's filtered composites exactly once.
+    ///     </b>
     ///     A group's composite is submitted by whichever pass contains it — the frame's, recorded in
     ///     <see cref="Record" />, or a parent group's, recorded inside <see cref="Compose" /> — so
     ///     resetting in <see cref="Record" /> would throw away every nested one, and resetting in
@@ -743,6 +878,7 @@ public sealed class UiRenderer : IDisposable {
     ///     at zero, which is the honest answer for a frame with no composited group in it.
     /// </remarks>
     int filtered;
+
     int unblended;
     int blended;
 
@@ -750,8 +886,12 @@ public sealed class UiRenderer : IDisposable {
 
     /// <summary>How many composite draws the last <see cref="Record" /> put a mask through.</summary>
     /// <remarks>
-    ///     ⚠ <b>The observer a silently-skipped mask has, and it needs one for a reason the colour
-    ///     matrix's fourth case only hints at.</b> All four of <see cref="filtered" />'s ways to be
+    ///     ⚠
+    ///     <b>
+    ///         The observer a silently-skipped mask has, and it needs one for a reason the colour
+    ///         matrix's fourth case only hints at.
+    ///     </b>
+    ///     All four of <see cref="filtered" />'s ways to be
     ///     skipped apply — no <c>UiShaders.Mask</c>, no <c>UiLayer.Mask</c>, a group collapsed before
     ///     it became a layer, and contents the ramp happens not to touch. The comparison of the two
     ///     executors cannot see any of them either, because both read the same plan. This can.
@@ -877,9 +1017,7 @@ public sealed class UiRenderer : IDisposable {
         // incompatible, and un-binds the atlas for every UI draw after the blend. That is the same
         // undefined-behaviour-a-golden-cannot-see class this comment opens with, reached from the
         // other direction.
-        layout = device.CreatePipelineLayout(
-            new([atlasLayout], [new(PushStages, 0, 128)], "ui")
-        );
+        layout = device.CreatePipelineLayout(new([atlasLayout], [new(PushStages, 0, 128)], "ui"));
 
         // ⚠ Linear filtering and clamped, and never an sRGB view. The atlas holds distances, not
         // light: decoding them as colour is the classic mistake and shows as text that is too thin.
@@ -949,8 +1087,10 @@ public sealed class UiRenderer : IDisposable {
 
     /// <summary>What white is worth in a pass of this format, in that pass's own units.</summary>
     /// <param name="format">The pass's colour format.</param>
-    /// <returns><c>1</c> for a display-referred target and <see cref="ReferenceWhite" /> for a
-    /// scene-referred one.</returns>
+    /// <returns>
+    ///     <c>1</c> for a display-referred target and <see cref="ReferenceWhite" /> for a
+    ///     scene-referred one.
+    /// </returns>
     /// <remarks>
     ///     <para>
     ///         ⚠ <b>One derivation, because the failure of getting it wrong is invisible.</b> The
@@ -995,15 +1135,23 @@ public sealed class UiRenderer : IDisposable {
 
     /// <summary>How many groups the last <see cref="Compose" /> rendered a surface for.</summary>
     /// <remarks>
-    ///     ⚠ <b>The only observer the whole arrangement has, and a test that does not read it can
-    ///     pass without a single group having been composited.</b> A frame whose groups were left
+    ///     ⚠
+    ///     <b>
+    ///         The only observer the whole arrangement has, and a test that does not read it can
+    ///         pass without a single group having been composited.
+    ///     </b>
+    ///     A frame whose groups were left
     ///     uncomposed still draws — it draws the un-isolated approximation, which on anything opaque
     ///     is the same picture. So "the two renderers agree" is a claim about nothing unless this is
     ///     also non-zero. It is the count of surfaces and so also the count of extra render passes
     ///     the frame cost, which is the other thing worth being able to check.
     ///     <para>
-    ///         ⚠ <b><s>It is the count of surfaces and so also the count of extra render passes.</s>
-    ///         It is the count of surfaces and no longer the count of passes</b>, because a blurred
+    ///         ⚠
+    ///         <b>
+    ///             <s>It is the count of surfaces and so also the count of extra render passes.</s>
+    ///             It is the count of surfaces and no longer the count of passes
+    ///         </b>
+    ///         , because a blurred
     ///         group costs two more of the second and none of the first — see <see cref="Blurred" />,
     ///         which is the other half of the arithmetic. The whole frame's extra passes are
     ///         <c>Composited + 2 × Blurred</c>; its extra viewport-sized targets are
@@ -1026,8 +1174,12 @@ public sealed class UiRenderer : IDisposable {
 
     /// <summary>How many of those groups the last <see cref="Compose" /> also cast a drop shadow from.</summary>
     /// <remarks>
-    ///     ⚠ <b>The observer a silently-skipped drop shadow has, and it needs one more than a blur
-    ///     because a shadow can be skipped by a stage it does not obviously depend on.</b> All of
+    ///     ⚠
+    ///     <b>
+    ///         The observer a silently-skipped drop shadow has, and it needs one more than a blur
+    ///         because a shadow can be skipped by a stage it does not obviously depend on.
+    ///     </b>
+    ///     All of
     ///     <see cref="Blurred" />'s ways apply — no <c>UiShaders.Blur</c>, no <c>UiLayer.Shadow</c>, a
     ///     group collapsed before it became a layer — and so does a fourth: a host with a blur stage
     ///     and no <c>UiShaders.Colour</c> gets no shadow at all, because
@@ -1046,8 +1198,12 @@ public sealed class UiRenderer : IDisposable {
     /// <summary>How many of those groups the last <see cref="Compose" /> also captured a backdrop for.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The observer a silently-skipped backdrop has, and it is the one counter on this
-    ///         class that a <i>correct-looking</i> frame most needs.</b> Every other filter has at
+    ///         ⚠
+    ///         <b>
+    ///             The observer a silently-skipped backdrop has, and it is the one counter on this
+    ///             class that a <i>correct-looking</i> frame most needs.
+    ///         </b>
+    ///         Every other filter has at
     ///         least one way of being visible when it runs: a blur softens, a matrix shifts colour, a
     ///         shadow adds ink. <b>A backdrop filter over a flat field is the identity</b> — blurring
     ///         a uniform colour returns it, and so does greying an already-grey one — so a fixture
@@ -1076,8 +1232,12 @@ public sealed class UiRenderer : IDisposable {
     /// <summary>How many composite draws the last <see cref="Record" /> put a colour matrix through.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The observer a silently-skipped colour filter has, and it has one more way of
-    ///         being skipped than a blur does.</b> The three <see cref="Blurred" /> lists all apply —
+    ///         ⚠
+    ///         <b>
+    ///             The observer a silently-skipped colour filter has, and it has one more way of
+    ///             being skipped than a blur does.
+    ///         </b>
+    ///         The three <see cref="Blurred" /> lists all apply —
     ///         no <c>UiShaders.Colour</c>, no <c>UiLayer.Filter</c>, a group collapsed before it
     ///         became a layer — and a fourth is peculiar to this: the frame draws <i>identically</i>
     ///         with the filter missing whenever the group's contents happen not to exercise the
@@ -1086,8 +1246,12 @@ public sealed class UiRenderer : IDisposable {
     ///         executors. This can.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Per <i>draw</i> and not per group, and it therefore spans both halves of the
-    ///         frame.</b> A group's composite is submitted once, but it is submitted by whichever
+    ///         ⚠
+    ///         <b>
+    ///             Per <i>draw</i> and not per group, and it therefore spans both halves of the
+    ///             frame.
+    ///         </b>
+    ///         A group's composite is submitted once, but it is submitted by whichever
     ///         pass contains it — the frame's, in <see cref="Record" />, or a parent group's, inside
     ///         <see cref="Compose" /> — so the count is reset once, by <see cref="Compose" />, and
     ///         then accumulated across both. A composite that was scissored away contributes nothing
@@ -1099,8 +1263,12 @@ public sealed class UiRenderer : IDisposable {
     /// <summary>How many composite draws went out source-over despite carrying a blend mode.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Zero on a blended frame since #783, and what it counts now is the cases the device
-    ///         path declines.</b> <c>mix-blend-mode</c> reaches the frame as <see cref="UiLayer.Blend" />;
+    ///         ⚠
+    ///         <b>
+    ///             Zero on a blended frame since #783, and what it counts now is the cases the device
+    ///             path declines.
+    ///         </b>
+    ///         <c>mix-blend-mode</c> reaches the frame as <see cref="UiLayer.Blend" />;
     ///         <c>SoftwareUiRasterizer</c> applies it by reading the buffer it owns, and this renderer
     ///         applies it with <c>UiBlend</c> — the group's surface and a capture of what its composite
     ///         lands on, mixed by § 5.1's arithmetic and composited source-over. See
@@ -1117,8 +1285,12 @@ public sealed class UiRenderer : IDisposable {
     ///         on.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A group under <c>rotate</c>/<c>scale</c>/<c>perspective</c> was the fourth, and
-    ///         the reason given for it was false</b> (#1379): its quad carries the untransformed surface
+    ///         ⚠
+    ///         <b>
+    ///             A group under <c>rotate</c>/<c>scale</c>/<c>perspective</c> was the fourth, and
+    ///             the reason given for it was false
+    ///         </b>
+    ///         (#1379): its quad carries the untransformed surface
     ///         coordinate, and the fragment stage was said to have no position input to recover the
     ///         target texel from. Raven has read a fragment's <c>SV_Position</c> since 289b50247, so
     ///         <c>UiBlend</c> reads the capture there for such a group — see <see cref="placedBlends" />.
@@ -1129,8 +1301,12 @@ public sealed class UiRenderer : IDisposable {
     ///         <c>SoftwareUiRasterizer</c> both order it.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>What this does <i>not</i> count: a top-level blended group in a world renderer
-    ///         composed by <c>WorldRenderer.Draw</c>'s prologue.</b> That compose passes no
+    ///         ⚠
+    ///         <b>
+    ///             What this does <i>not</i> count: a top-level blended group in a world renderer
+    ///             composed by <c>WorldRenderer.Draw</c>'s prologue.
+    ///         </b>
+    ///         That compose passes no
     ///         <c>beneath</c>, because the scene is not drawn when its passes are recorded — a frame
     ///         that names <c>!UiCompose</c> composes after the scene instead and passes it (#1378) — so
     ///         such a group blends through <c>UiBlend</c> — and
@@ -1146,8 +1322,12 @@ public sealed class UiRenderer : IDisposable {
     ///         that passed nothing, so it is the one party that can.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>History worth keeping, because two refusals were written here as blockers and both
-    ///         were false.</b> "The UI pass has no subpass input, no framebuffer fetch and no copy of the
+    ///         ⚠
+    ///         <b>
+    ///             History worth keeping, because two refusals were written here as blockers and both
+    ///             were false.
+    ///         </b>
+    ///         "The UI pass has no subpass input, no framebuffer fetch and no copy of the
     ///         attachment it is writing" was true and was never the blocker — § 5.1 is a change of
     ///         <i>source</i> colour followed by an ordinary source-over, and the backdrop arrives as a
     ///         texture. And "a fourth binding on the shared <c>ui atlas</c> layout" is unreachable,
@@ -1189,9 +1369,17 @@ public sealed class UiRenderer : IDisposable {
     /// <summary>How many rounded backdrops went out square for want of a colour stage.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>It counted every rounded backdrop there is until 2026-09-09, and now it counts a
-    ///         degradation.</b> CSS clips a filtered backdrop to the element's border box <i>including
-    ///         its radius</i>, so <c>rounded-2xl backdrop-blur-md bg-white/30</c> — the canonical use
+    ///         ⚠
+    ///         <b>
+    ///             It counted every rounded backdrop there is until 2026-09-09, and now it counts a
+    ///             degradation.
+    ///         </b>
+    ///         CSS clips a filtered backdrop to the element's border box
+    ///         <i>
+    ///             including
+    ///             its radius
+    ///         </i>
+    ///         , so <c>rounded-2xl backdrop-blur-md bg-white/30</c> — the canonical use
     ///         of the feature — must show a curve where the panel has one.
     ///         <c>SoftwareUiRasterizer</c> has drawn that curve since 2026-09-08 and this renderer
     ///         drew a rectangle, because a composite fragment was told nothing about the box it was
@@ -1209,9 +1397,13 @@ public sealed class UiRenderer : IDisposable {
     ///         this is where it is counted.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The channel was a push constant all along, and "the push constants are at
-    ///         Vulkan's guaranteed 128 bytes" is the false sentence that stood in five places and cost
-    ///         four audits the expensive answer.</b> The widest composite block was 80 bytes of 128
+    ///         ⚠
+    ///         <b>
+    ///             The channel was a push constant all along, and "the push constants are at
+    ///             Vulkan's guaranteed 128 bytes" is the false sentence that stood in five places and cost
+    ///             four audits the expensive answer.
+    ///         </b>
+    ///         The widest composite block was 80 bytes of 128
     ///         and is 112 now that the box is in it; <c>UiImage</c> still declares none. The fourth
     ///         <c>MaskEntry</c> shape, and the routing of every rounded backdrop through the mask
     ///         pipeline that it would have cost, was never needed. What is genuinely at the ceiling is
@@ -1221,8 +1413,12 @@ public sealed class UiRenderer : IDisposable {
     ///         bytes landed rather than that there was room for them.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Non-zero is a claim about this renderer rather than about the frame, and it exists
-    ///         because a picture cannot make the claim on its own.</b> A backdrop's corner is the
+    ///         ⚠
+    ///         <b>
+    ///             Non-zero is a claim about this renderer rather than about the frame, and it exists
+    ///             because a picture cannot make the claim on its own.
+    ///         </b>
+    ///         A backdrop's corner is the
     ///         filtered scene against the unfiltered scene, which over a flat background is the
     ///         identity — the same trap <see cref="Unblended" /> and <see cref="Backdropped" /> both
     ///         record. A fixture that could not tell would pass either way.
@@ -1232,8 +1428,12 @@ public sealed class UiRenderer : IDisposable {
 
     /// <summary>How many composite draws the last <see cref="Record" /> put a mask through.</summary>
     /// <remarks>
-    ///     ⚠ <b>Counted separately from <see cref="Filtered" /> even though one pipeline serves
-    ///     both.</b> A group with a mask and a matrix increments both, because both were applied; a
+    ///     ⚠
+    ///     <b>
+    ///         Counted separately from <see cref="Filtered" /> even though one pipeline serves
+    ///         both.
+    ///     </b>
+    ///     A group with a mask and a matrix increments both, because both were applied; a
     ///     single count would make "the mask ran" and "the matrix ran" indistinguishable on exactly
     ///     the draw where the two-in-one shader is most likely to have dropped one of them.
     /// </remarks>
@@ -1320,8 +1520,12 @@ public sealed class UiRenderer : IDisposable {
     /// <param name="geometry">The frame's geometry.</param>
     /// <param name="atlas">The glyph atlas the text draws from.</param>
     /// <remarks>
-    ///     ⚠ <b>Separate from <see cref="Record" /> because a texture copy cannot happen inside a
-    ///     render pass.</b> Both halves take a command list and it would be tempting to merge them;
+    ///     ⚠
+    ///     <b>
+    ///         Separate from <see cref="Record" /> because a texture copy cannot happen inside a
+    ///         render pass.
+    ///     </b>
+    ///     Both halves take a command list and it would be tempting to merge them;
     ///     the validation layers would reject the result, and only when a glyph the frame had not
     ///     drawn before appeared.
     /// </remarks>
@@ -1379,15 +1583,19 @@ public sealed class UiRenderer : IDisposable {
         ThrowIfNeverUploaded(nameof(Record));
 
         var bound = default(Bindings);
-        Submit(commands, geometry, self: -1, surface, scale, ref bound);
+        Submit(commands, geometry, -1, surface, scale, ref bound);
     }
 
     /// <summary>Refuses to record a frame into a ring no <see cref="Upload" /> has created.</summary>
     /// <param name="caller">Which of the two recording entry points was reached first.</param>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A throw and not a counter, and the difference from every other degradation in
-    ///         this file is deliberate</b> (#1377). <see cref="Unblended" />, <c>Filtered</c> and
+    ///         ⚠
+    ///         <b>
+    ///             A throw and not a counter, and the difference from every other degradation in
+    ///             this file is deliberate
+    ///         </b>
+    ///         (#1377). <see cref="Unblended" />, <c>Filtered</c> and
     ///         <c>UiRenderFeature.Dim</c> count because each is a <i>document</i> asking for something
     ///         this device or this pass cannot give it — a legitimate frame, drawn as well as it can
     ///         be, that must not be killed over an authoring choice. A frame recorded before its
@@ -1427,8 +1635,12 @@ public sealed class UiRenderer : IDisposable {
     /// <param name="scale">How many framebuffer pixels one of those units is. As <see cref="Record" />.</param>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>An entry point of its own, in the shape of <see cref="Upload" />, because a render
-    ///         pass cannot be opened inside one.</b> A group is a pass — it clears a surface, draws a
+    ///         ⚠
+    ///         <b>
+    ///             An entry point of its own, in the shape of <see cref="Upload" />, because a render
+    ///             pass cannot be opened inside one.
+    ///         </b>
+    ///         A group is a pass — it clears a surface, draws a
     ///         subtree into it and stores the result — and <see cref="Record" /> is called by a host
     ///         that has already begun the frame's pass. Recursing there would be
     ///         <c>"'…' began while '…' already had a pass open. Passes do not nest."</c> from the
@@ -1444,20 +1656,31 @@ public sealed class UiRenderer : IDisposable {
     ///         and no picture is left half-drawn.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b><s>Innermost first, which is what reverse pre-order buys.</s> Post-order, and the
-    ///         change was forced by the backdrop rather than chosen.</b>
+    ///         ⚠
+    ///         <b>
+    ///             <s>Innermost first, which is what reverse pre-order buys.</s> Post-order, and the
+    ///             change was forced by the backdrop rather than chosen.
+    ///         </b>
     ///         <see cref="UiGeometry.Layers" /> is sorted so that a group comes before every group
     ///         nested in it. Walking it <i>backwards</i> renders every group's children before the
     ///         group itself, which is the one ordering the old loop needed — an outer group's pass
-    ///         samples its children's surfaces — but it also renders every group's <b>later siblings
-    ///         before its earlier ones</b>, which is the exact opposite of what a capture needs:
+    ///         samples its children's surfaces — but it also renders every group's
+    ///         <b>
+    ///             later siblings
+    ///             before its earlier ones
+    ///         </b>
+    ///         , which is the exact opposite of what a capture needs:
     ///         everything painted behind a group has to be finished before the group's backdrop is
     ///         captured. <b>Post-order satisfies both</b> — each child subtree in document order, then
     ///         the parent — so the loop was replaced rather than extended. See <see cref="Forest" />.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Nothing else in the loop depended on the old order, and that was checked rather
-    ///         than assumed.</b> Each group's turn is self-contained: one barrier in, a pass, an
+    ///         ⚠
+    ///         <b>
+    ///             Nothing else in the loop depended on the old order, and that was checked rather
+    ///             than assumed.
+    ///         </b>
+    ///         Each group's turn is self-contained: one barrier in, a pass, an
     ///         optional blur and shadow that borrow the shared scratch and hand it back, one barrier
     ///         out. No two turns share state but <see cref="scratch" />, whose borrow begins and ends
     ///         inside one of them, and <see cref="LayerSurface.State" />, which is per surface. So
@@ -1465,8 +1688,12 @@ public sealed class UiRenderer : IDisposable {
     ///         different one.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A colour filter costs this method nothing, and that is a claim about the two
-    ///         paragraphs above rather than about the matrix.</b> <see cref="UiLayer.Filter" /> is not
+    ///         ⚠
+    ///         <b>
+    ///             A colour filter costs this method nothing, and that is a claim about the two
+    ///             paragraphs above rather than about the matrix.
+    ///         </b>
+    ///         <see cref="UiLayer.Filter" /> is not
     ///         read here at all beyond being copied into <see cref="layerFilters" />: it adds no pass,
     ///         no surface, no barrier and no widening of <see cref="Confine" />'s region, because a
     ///         per-pixel transform has nothing to read from a neighbour and can therefore be folded
@@ -1477,8 +1704,12 @@ public sealed class UiRenderer : IDisposable {
     ///         neighbourhood operation's price for something that is not one.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And this is where <c>backdrop-filter</c> <s>stops</s> starts, because the thing it
-    ///         needs turned out not to be a capability the backend lacks.</b> A backdrop filter reads
+    ///         ⚠
+    ///         <b>
+    ///             And this is where <c>backdrop-filter</c> <s>stops</s> starts, because the thing it
+    ///             needs turned out not to be a capability the backend lacks.
+    ///         </b>
+    ///         A backdrop filter reads
     ///         the destination the group is about to composite into, and at the moment a group's
     ///         surface is rendered that destination has not been drawn — these passes are recorded
     ///         <i>before</i> the caller's own begins, because a pass cannot be opened inside one. Nor
@@ -1494,8 +1725,12 @@ public sealed class UiRenderer : IDisposable {
     /// </remarks>
     /// <param name="beneath">
     ///     What the host had already painted where the interface will be drawn, for the top-level
-    ///     groups whose <c>backdrop-filter</c> reads it. ⚠ <b>Its default is "nothing at all", which
-    ///     is a <i>degraded</i> backdrop and not merely an unspecified one</b> — a glass panel over a
+    ///     groups whose <c>backdrop-filter</c> reads it. ⚠
+    ///     <b>
+    ///         Its default is "nothing at all", which
+    ///         is a <i>degraded</i> backdrop and not merely an unspecified one
+    ///     </b>
+    ///     — a glass panel over a
     ///     scene blurs only the interface above it, and the capture is transparent where it should be
     ///     opaque, which leaves a blurred copy composited over the sharp original instead of replacing
     ///     it. A frame with no backdrop group in it is unaffected. See <see cref="UiBackdropSource" />.
@@ -1696,7 +1931,18 @@ public sealed class UiRenderer : IDisposable {
             }
         }
 
-        Forest(commands, geometry, parent: -1, from: 0, to: geometry.Layers.Count, surface, scale, width, height, beneath);
+        Forest(
+            commands,
+            geometry,
+            -1,
+            0,
+            geometry.Layers.Count,
+            surface,
+            scale,
+            width,
+            height,
+            beneath
+        );
     }
 
     /// <summary>Renders one run of sibling groups and their descendants, post-order.</summary>
@@ -1715,16 +1961,24 @@ public sealed class UiRenderer : IDisposable {
     /// <param name="beneath">What the host had already painted. Read only at the top level.</param>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Post-order, which is two constraints at once and neither of them is obvious from
-    ///         the shape of the recursion.</b> Children before their parent, because an outer group's
+    ///         ⚠
+    ///         <b>
+    ///             Post-order, which is two constraints at once and neither of them is obvious from
+    ///             the shape of the recursion.
+    ///         </b>
+    ///         Children before their parent, because an outer group's
     ///         pass <i>samples</i> its children's surfaces — that is the one the reverse pre-order walk
     ///         this replaced already met. Earlier siblings before later ones, because a group's
     ///         backdrop is a replay of everything painted behind it and every earlier sibling's
     ///         composite is part of that. The old walk met the first and inverted the second.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A subtree is a contiguous run, which is what <see cref="UiGeometry.Layers" />'
-    ///         sort buys and the only reason this needs no search.</b> The list is pre-order and the
+    ///         ⚠
+    ///         <b>
+    ///             A subtree is a contiguous run, which is what <see cref="UiGeometry.Layers" />'
+    ///             sort buys and the only reason this needs no search.
+    ///         </b>
+    ///         The list is pre-order and the
     ///         ranges nest rather than overlap, so every descendant of <c>from</c> is an entry after it
     ///         whose <c>First</c> is inside its range — and the first entry that is not is the next
     ///         sibling, whose <c>First</c> is at or past the parent's end. A frame whose ranges
@@ -1792,7 +2046,20 @@ public sealed class UiRenderer : IDisposable {
         // has nothing to do with, and a reader should not have to check.
         if (layer.Backdrop is { } behind
             && layerSurfaces.TryGetValue(layer.BackdropImage, out var captured)
-            && Capture(commands, geometry, layer, behind, captured, index, parent, surface, scale, width, height, beneath)) {
+            && Capture(
+                commands,
+                geometry,
+                layer,
+                behind,
+                captured,
+                index,
+                parent,
+                surface,
+                scale,
+                width,
+                height,
+                beneath
+            )) {
             backdropped++;
         }
 
@@ -1895,9 +2162,7 @@ public sealed class UiRenderer : IDisposable {
             shadowed++;
         }
 
-        commands.Barrier(
-            new([], [new(target.Texture, ResourceState.ColourTarget, ResourceState.ShaderRead)])
-        );
+        commands.Barrier(new([], [new(target.Texture, ResourceState.ColourTarget, ResourceState.ShaderRead)]));
 
         target.State = ResourceState.ShaderRead;
 
@@ -1924,8 +2189,12 @@ public sealed class UiRenderer : IDisposable {
     /// <param name="beneath">What the host had already painted. Drawn only at the top level.</param>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b><see cref="Capture" />'s replay with a later stop and no filter, and the stop is
-    ///         the difference that matters.</b> A <c>backdrop-filter</c> reads what is painted behind
+    ///         ⚠
+    ///         <b>
+    ///             <see cref="Capture" />'s replay with a later stop and no filter, and the stop is
+    ///             the difference that matters.
+    ///         </b>
+    ///         A <c>backdrop-filter</c> reads what is painted behind
     ///         the element, so its replay stops at <see cref="UiLayer.First" />; a blend reads what the
     ///         <i>composite</i> lands on, so this one stops at <see cref="UiLayer.Composite" /> — past
     ///         the group's own range, which <see cref="Submit" /> skips in favour of nothing because
@@ -1937,9 +2206,13 @@ public sealed class UiRenderer : IDisposable {
     ///         the surface is cleared and never read.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>At the top level, the backdrop is <paramref name="beneath" /> and the interface's
-    ///         own prefix — and inside a world renderer that is less than the frame unless the frame
-    ///         names <c>!UiCompose</c>.</b> <c>WorldRenderer.Draw</c>'s prologue passes no
+    ///         ⚠
+    ///         <b>
+    ///             At the top level, the backdrop is <paramref name="beneath" /> and the interface's
+    ///             own prefix — and inside a world renderer that is less than the frame unless the frame
+    ///             names <c>!UiCompose</c>.
+    ///         </b>
+    ///         <c>WorldRenderer.Draw</c>'s prologue passes no
     ///         <paramref name="beneath" />, because the scene has not been drawn when these passes are
     ///         recorded, so a top-level blended HUD panel blends with the interface under it and
     ///         composites source-over onto the world — the limitation <c>backdrop-filter</c> has there,
@@ -1988,13 +2261,11 @@ public sealed class UiRenderer : IDisposable {
             Fullscreen(commands, surface, region);
         }
 
-        Submit(commands, geometry, parent, surface, scale, ref bound, stop: layer.Composite);
+        Submit(commands, geometry, parent, surface, scale, ref bound, layer.Composite);
 
         commands.EndRenderPass();
 
-        commands.Barrier(
-            new([], [new(captured.Texture, ResourceState.ColourTarget, ResourceState.ShaderRead)])
-        );
+        commands.Barrier(new([], [new(captured.Texture, ResourceState.ColourTarget, ResourceState.ShaderRead)]));
 
         captured.State = ResourceState.ShaderRead;
     }
@@ -2017,8 +2288,12 @@ public sealed class UiRenderer : IDisposable {
     /// <param name="beneath">What the host had already painted. Drawn only at the top level.</param>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A re-render of the prefix and not a read-back, which is the whole design and the
-    ///         thing the old note here said was impossible.</b> What the group will composite into is
+    ///         ⚠
+    ///         <b>
+    ///             A re-render of the prefix and not a read-back, which is the whole design and the
+    ///             thing the old note here said was impossible.
+    ///         </b>
+    ///         What the group will composite into is
     ///         <i>the host's frame, plus the parent's draws from its first up to this group's first</i>
     ///         — and <see cref="Submit" /> already walks exactly that range, skipping nested groups in
     ///         favour of their composites. So this is that walk with a <c>stop</c>, into a target of
@@ -2026,24 +2301,36 @@ public sealed class UiRenderer : IDisposable {
     ///         is post-order.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b><paramref name="beneath" /> is drawn only when <paramref name="parent" /> is
-    ///         -1.</b> Filter Effects 2 § 2 makes every <c>UiLayer</c> a backdrop root, so a nested
+    ///         ⚠
+    ///         <b>
+    ///             <paramref name="beneath" /> is drawn only when <paramref name="parent" /> is
+    ///             -1.
+    ///         </b>
+    ///         Filter Effects 2 § 2 makes every <c>UiLayer</c> a backdrop root, so a nested
     ///         group's backdrop starts from transparent black and holds its parent's prefix and nothing
     ///         else — which is exactly what <c>SoftwareUiRasterizer</c> gets by cloning the buffer it
     ///         was handed. Putting the host's frame under a nested capture would paint the window's
     ///         background inside a translucent panel, and the two executors would disagree by it.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The colour is a <i>clear</i> and the texture is a <i>draw</i>, and both are needed
-    ///         rather than one being a convenience.</b> A clear cannot put a picture down and a draw
+    ///         ⚠
+    ///         <b>
+    ///             The colour is a <i>clear</i> and the texture is a <i>draw</i>, and both are needed
+    ///             rather than one being a convenience.
+    ///         </b>
+    ///         A clear cannot put a picture down and a draw
     ///         needs a quad; the clear also has to happen whatever else does, because the region
     ///         outside the group's box is otherwise the previous frame's. See
     ///         <see cref="Fullscreen" />, which is the four vertices the draw needs and the only
     ///         geometry in this file that is not the frame's.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The region is the group's <i>border box</i> outset by the backdrop's kernel, and
-    ///         not <see cref="UiLayer.Bounds" />.</b> The bounds are the group's ink, which a child
+    ///         ⚠
+    ///         <b>
+    ///             The region is the group's <i>border box</i> outset by the backdrop's kernel, and
+    ///             not <see cref="UiLayer.Bounds" />.
+    ///         </b>
+    ///         The bounds are the group's ink, which a child
     ///         overflowing the element makes larger — see <see cref="UiLayer.BackdropBounds" />. What
     ///         the quad samples is the box; what the blur reads is the box plus its reach; so one
     ///         <see cref="Confine" /> over the box covers both, exactly as the group's own passes share
@@ -2098,7 +2385,7 @@ public sealed class UiRenderer : IDisposable {
         // are load-bearing.</b> A group's backdrop is what its own parent has painted so far — not
         // the whole frame, which would put the parent's earlier siblings inside a nested capture, and
         // not this group's own range, which is empty behind it by definition.
-        Submit(commands, geometry, parent, surface, scale, ref bound, stop: layer.First);
+        Submit(commands, geometry, parent, surface, scale, ref bound, layer.First);
 
         commands.EndRenderPass();
 
@@ -2115,7 +2402,7 @@ public sealed class UiRenderer : IDisposable {
                 // ⚠ Not `layer.BackdropDraw`, and the difference is the panel's whole rim — see the
                 // remark on the parameter. A backdrop's quad is the border box with no outset, so the
                 // second axis would read the cleared scratch just outside it.
-                quadDraw: -1,
+                -1,
                 behind.Blur,
                 layer.BackdropImage,
                 captured,
@@ -2127,9 +2414,7 @@ public sealed class UiRenderer : IDisposable {
             blurred++;
         }
 
-        commands.Barrier(
-            new([], [new(captured.Texture, ResourceState.ColourTarget, ResourceState.ShaderRead)])
-        );
+        commands.Barrier(new([], [new(captured.Texture, ResourceState.ColourTarget, ResourceState.ShaderRead)]));
 
         captured.State = ResourceState.ShaderRead;
 
@@ -2141,9 +2426,13 @@ public sealed class UiRenderer : IDisposable {
 
     /// <summary>Draws <see cref="UiBackdropSource.Image" /> over the whole target.</summary>
     /// <remarks>
-    ///     ⚠ <b>Four vertices of this renderer's own, written into this frame's region and drawn
-    ///     through the image pipeline with <c>shape.x</c> set — see <see cref="fullscreenVertices" />
-    ///     for why the frame's own geometry cannot supply them.</b> The one is what tells
+    ///     ⚠
+    ///     <b>
+    ///         Four vertices of this renderer's own, written into this frame's region and drawn
+    ///         through the image pipeline with <c>shape.x</c> set — see <see cref="fullscreenVertices" />
+    ///         for why the frame's own geometry cannot supply them.
+    ///     </b>
+    ///     The one is what tells
     ///     <c>ui-image.frag</c> the sample is already premultiplied, which is what
     ///     <see cref="UiBackdropSource.Image" /> promises.
     /// </remarks>
@@ -2152,8 +2441,8 @@ public sealed class UiRenderer : IDisposable {
             return;
         }
 
-        commands.BindVertexBuffer(0, fullscreenVertices, (long) slot * FullscreenVertexBytes);
-        commands.BindIndexBuffer(fullscreenIndices, IndexFormat.UInt32, 0);
+        commands.BindVertexBuffer(0, fullscreenVertices, (long)slot * FullscreenVertexBytes);
+        commands.BindIndexBuffer(fullscreenIndices, IndexFormat.UInt32);
         commands.BindPipeline(imagePipeline);
 
         Span<float> projection = [2f / surface.X, -2f / surface.Y, -1f, 1f];
@@ -2177,9 +2466,13 @@ public sealed class UiRenderer : IDisposable {
 
     /// <summary>How many bytes one <see cref="UiVertex" /> is in the buffer the vertex stage reads.</summary>
     /// <remarks>
-    ///     ⚠ <b>Fifty-two, since the vertex gained its <c>w</c> (#548), and this is the one number the
-    ///     record's layout, the attribute offsets below and the shader's declaration order all have
-    ///     to agree on.</b> <c>MemoryMarshal.AsBytes</c> writes the struct as declared — two
+    ///     ⚠
+    ///     <b>
+    ///         Fifty-two, since the vertex gained its <c>w</c> (#548), and this is the one number the
+    ///         record's layout, the attribute offsets below and the shader's declaration order all have
+    ///         to agree on.
+    ///     </b>
+    ///     <c>MemoryMarshal.AsBytes</c> writes the struct as declared — two
     ///     <c>Vector2</c>s, a <c>Color4</c>, a <c>Vector4</c>, a float — and a stride of forty-eight
     ///     over that would read every vertex after the first from four bytes into its predecessor,
     ///     which draws an interface from shifted memory rather than failing.
@@ -2219,7 +2512,7 @@ public sealed class UiRenderer : IDisposable {
         if (!fullscreenVertices.IsValid) {
             fullscreenVertices = device.CreateBuffer(
                 new(
-                    (long) FullscreenVertexBytes * slots,
+                    (long)FullscreenVertexBytes * slots,
                     BufferUsage.Vertex,
                     MemoryAccess.HostUpload,
                     "ui backdrop quad"
@@ -2252,7 +2545,7 @@ public sealed class UiRenderer : IDisposable {
             corners[2] = new(new(surface.X, surface.Y), new(1f, 1f), Color4.White, new(1f, 0f, 0f, 0f));
             corners[3] = new(new(0f, surface.Y), new(0f, 1f), Color4.White, new(1f, 0f, 0f, 0f));
 
-            device.Write(fullscreenVertices, (long) slot * FullscreenVertexBytes, MemoryMarshal.AsBytes<UiVertex>(corners));
+            device.Write(fullscreenVertices, (long)slot * FullscreenVertexBytes, MemoryMarshal.AsBytes(corners));
             fullscreenSurfaces[slot] = surface;
         }
 
@@ -2318,8 +2611,12 @@ public sealed class UiRenderer : IDisposable {
     /// </param>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The quad is the group's own composite quad, drawn twice with a different
-    ///         pipeline.</b> It already covers exactly the rectangle the blur has to fill — that is
+    ///         ⚠
+    ///         <b>
+    ///             The quad is the group's own composite quad, drawn twice with a different
+    ///             pipeline.
+    ///         </b>
+    ///         It already covers exactly the rectangle the blur has to fill — that is
     ///         what <c>UiGeometryBuilder.Layer</c>'s outset is for — and its texture coordinates
     ///         already map that rectangle onto the viewport-sized surface. Emitting a quad here
     ///         instead would mean a vertex buffer of this renderer's own, uploaded outside the one
@@ -2327,8 +2624,12 @@ public sealed class UiRenderer : IDisposable {
     ///         was.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Both axes clear rather than load, and that is what makes a pass <i>replace</i>
-    ///         instead of blending over what was there.</b> The second axis writes back into the
+    ///         ⚠
+    ///         <b>
+    ///             Both axes clear rather than load, and that is what makes a pass <i>replace</i>
+    ///             instead of blending over what was there.
+    ///         </b>
+    ///         The second axis writes back into the
     ///         surface the group's unblurred contents are still sitting in; premultiplied source-over
     ///         onto a cleared attachment is the identity, so the clear is the whole of the
     ///         difference between a blurred group and a blurred group composited over a sharp copy of
@@ -2428,7 +2729,20 @@ public sealed class UiRenderer : IDisposable {
 
         through.State = ResourceState.ShaderRead;
 
-        Sweep(commands, target, quad, fullscreen, scissor, region, scratchSet, surface, 0f, 1f / layerHeight, sigma, reach);
+        Sweep(
+            commands,
+            target,
+            quad,
+            fullscreen,
+            scissor,
+            region,
+            scratchSet,
+            surface,
+            0f,
+            1f / layerHeight,
+            sigma,
+            reach
+        );
 
         return true;
     }
@@ -2447,8 +2761,12 @@ public sealed class UiRenderer : IDisposable {
     /// <param name="region">The part of every target these passes are confined to, already widened.</param>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The group's own composite quad, not the shadow's, and picking the wrong one is a
-    ///         picture rather than an error.</b> These passes fill the region of the shadow's surface
+    ///         ⚠
+    ///         <b>
+    ///             The group's own composite quad, not the shadow's, and picking the wrong one is a
+    ///             picture rather than an error.
+    ///         </b>
+    ///         These passes fill the region of the shadow's surface
     ///         that the shadow's quad will <i>sample</i>, and that region is where the group is —
     ///         un-displaced. The offset lives entirely in the shadow quad's vertices, whose texture
     ///         coordinates are taken from where it would have been without one; see
@@ -2456,16 +2774,24 @@ public sealed class UiRenderer : IDisposable {
     ///         silhouette twice.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Two passes and not three, and it is a different ping-pong from
-    ///         <see cref="BlurSurface" />'s.</b> That one has to land back in the surface it started
+    ///         ⚠
+    ///         <b>
+    ///             Two passes and not three, and it is a different ping-pong from
+    ///             <see cref="BlurSurface" />'s.
+    ///         </b>
+    ///         That one has to land back in the surface it started
     ///         from, so it goes target → scratch → target. This one has somewhere else to be, so the
     ///         second axis writes straight into the shadow's surface and the group's own is only ever
     ///         read. A drop shadow therefore costs exactly what a blur costs — two passes and no
     ///         copy — plus the surface.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A shadow with no blur is one pass and a sigma of one, which is not the lie it
-    ///         looks like.</b> <c>drop-shadow(2px 2px)</c> is a legal, offset, hard-edged silhouette,
+    ///         ⚠
+    ///         <b>
+    ///             A shadow with no blur is one pass and a sigma of one, which is not the lie it
+    ///             looks like.
+    ///         </b>
+    ///         <c>drop-shadow(2px 2px)</c> is a legal, offset, hard-edged silhouette,
     ///         and <c>KernelRadius</c> answers zero for it. <c>ui-blur.frag</c> with a reach of zero
     ///         takes exactly one tap, whose weight is <c>exp(0/2σ²)/1</c> — one, for every σ that is
     ///         not itself zero. Passing the real zero would make that <c>exp(-0/0)</c>, which is a
@@ -2590,7 +2916,20 @@ public sealed class UiRenderer : IDisposable {
 
         through.State = ResourceState.ShaderRead;
 
-        Sweep(commands, cast, quad, fullscreen, scissor, region, scratchSet, surface, 0f, 1f / layerHeight, sigma, reach);
+        Sweep(
+            commands,
+            cast,
+            quad,
+            fullscreen,
+            scissor,
+            region,
+            scratchSet,
+            surface,
+            0f,
+            1f / layerHeight,
+            sigma,
+            reach
+        );
 
         // ⚠ Both in one barrier, and the group's surface is put *back* to being a colour target
         // rather than left readable. The loop that called this ends with one barrier taking it from
@@ -2615,14 +2954,21 @@ public sealed class UiRenderer : IDisposable {
     /// <returns>Always false — nothing was cast, and the caller counts casts.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Every way out of <see cref="ShadowSurface" /> has to come through here, and the
-    ///         reason is a validation error rather than a picture.</b> The shadow's quad is in the
+    ///         ⚠
+    ///         <b>
+    ///             Every way out of <see cref="ShadowSurface" /> has to come through here, and the
+    ///             reason is a validation error rather than a picture.
+    ///         </b>
+    ///         The shadow's quad is in the
     ///         geometry and names a surface <see cref="EnsureSurfaces" /> has already created and
     ///         registered, so <see cref="SubmitDraw" /> will sample it whatever this method decided. A
     ///         plain <c>return false</c> leaves the texture in <c>Undefined</c> on the first frame it
     ///         exists, and the layers report exactly that:
-    ///         <c>"expects VkImage … to be in layout VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL —
-    ///         instead, current layout is VK_IMAGE_LAYOUT_UNDEFINED"</c>. ⚠ It is a <i>first-frame</i>
+    ///         <c>
+    ///             "expects VkImage … to be in layout VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL —
+    ///             instead, current layout is VK_IMAGE_LAYOUT_UNDEFINED"
+    ///         </c>
+    ///         . ⚠ It is a <i>first-frame</i>
     ///         fault and no other, because the surface is reused and holds the previous frame's
     ///         contents afterwards — which is the shape of defect that survives every test run twice.
     ///         Found by breaking the unblurred branch on purpose and reading what the fixture said.
@@ -2681,11 +3027,11 @@ public sealed class UiRenderer : IDisposable {
         );
 
         if (fullscreen) {
-            commands.BindVertexBuffer(0, fullscreenVertices, (long) slot * FullscreenVertexBytes);
-            commands.BindIndexBuffer(fullscreenIndices, IndexFormat.UInt32, 0);
+            commands.BindVertexBuffer(0, fullscreenVertices, (long)slot * FullscreenVertexBytes);
+            commands.BindIndexBuffer(fullscreenIndices, IndexFormat.UInt32);
         } else {
-            commands.BindVertexBuffer(0, vertices, (long) slot * vertexCapacity);
-            commands.BindIndexBuffer(indices, IndexFormat.UInt32, (long) slot * indexCapacity);
+            commands.BindVertexBuffer(0, vertices, (long)slot * vertexCapacity);
+            commands.BindIndexBuffer(indices, IndexFormat.UInt32, (long)slot * indexCapacity);
         }
 
         commands.BindPipeline(blurPipeline);
@@ -2726,8 +3072,12 @@ public sealed class UiRenderer : IDisposable {
     /// <param name="stop">
     ///     One past the last draw to submit, or -1 for the whole of <paramref name="self" />'s range.
     ///     <para>
-    ///         ⚠ <b>What turned <c>backdrop-filter</c> from a capability the backend lacks into a
-    ///         scheduling problem.</b> A group's backdrop is its parent's draws from the parent's first
+    ///         ⚠
+    ///         <b>
+    ///             What turned <c>backdrop-filter</c> from a capability the backend lacks into a
+    ///             scheduling problem.
+    ///         </b>
+    ///         A group's backdrop is its parent's draws from the parent's first
     ///         up to the group's own first — which is this walk with an earlier end, including the
     ///         skipping of nested groups in favour of their composites, and that skipping is the half
     ///         that would have been rewritten wrong. See <see cref="Capture" />.
@@ -2739,8 +3089,12 @@ public sealed class UiRenderer : IDisposable {
     ///     </para>
     /// </param>
     /// <remarks>
-    ///     ⚠ <b>A group already rendered into a surface contributes its <i>composite</i> and not its
-    ///     contents, and drawing both is the failure this walk exists to prevent.</b> The composite
+    ///     ⚠
+    ///     <b>
+    ///         A group already rendered into a surface contributes its <i>composite</i> and not its
+    ///         contents, and drawing both is the failure this walk exists to prevent.
+    ///     </b>
+    ///     The composite
     ///     quad sits immediately after the group's own draws — see <c>UiGeometryBuilder.Layer</c> — so
     ///     jumping to the end of the range puts the group on screen exactly once. Drawing the contents
     ///     as well would paint the subtree twice, at full opacity underneath and faded on top, which
@@ -2905,8 +3259,8 @@ public sealed class UiRenderer : IDisposable {
             // ⚠ At this frame's region, and once per pass. The indices stay zero-based because the
             // vertex binding moves with them — an index is relative to the bound vertex offset, which
             // is exactly why the ring costs nothing downstream.
-            commands.BindVertexBuffer(0, vertices, (long) slot * vertexCapacity);
-            commands.BindIndexBuffer(indices, IndexFormat.UInt32, (long) slot * indexCapacity);
+            commands.BindVertexBuffer(0, vertices, (long)slot * vertexCapacity);
+            commands.BindIndexBuffer(indices, IndexFormat.UInt32, (long)slot * indexCapacity);
             bound.Geometry = true;
         }
 
@@ -2944,7 +3298,7 @@ public sealed class UiRenderer : IDisposable {
             var masking = mask ?? (0, 0);
 
             Span<float> operation = [
-                (float) blend!.Value,
+                (float)blend!.Value,
                 blendWhite,
                 placed ? 1f / layerWidth : 0f,
                 placed ? 1f / layerHeight : 0f,
@@ -2952,7 +3306,7 @@ public sealed class UiRenderer : IDisposable {
                 filter.Red.X, filter.Red.Y, filter.Red.Z, filter.Red.W,
                 filter.Green.X, filter.Green.Y, filter.Green.Z, filter.Green.W,
                 filter.Blue.X, filter.Blue.Y, filter.Blue.Z, filter.Blue.W,
-                mask is null ? 0f : (slot * MaskCapacity) + masking.First, masking.Count, scale, 0f
+                mask is null ? 0f : slot * MaskCapacity + masking.First, masking.Count, scale, 0f
             ];
 
             commands.PushConstants(PushStages, 16, MemoryMarshal.AsBytes(operation));
@@ -2992,7 +3346,7 @@ public sealed class UiRenderer : IDisposable {
                 identity.Red.X, identity.Red.Y, identity.Red.Z, identity.Red.W,
                 identity.Green.X, identity.Green.Y, identity.Green.Z, identity.Green.W,
                 identity.Blue.X, identity.Blue.Y, identity.Blue.Z, identity.Blue.W,
-                (slot * MaskCapacity) + list.First, list.Count, scale, blendWhite,
+                slot * MaskCapacity + list.First, list.Count, scale, blendWhite,
                 corner.CentreX, corner.CentreY, corner.HalfX, corner.HalfY,
 
                 // ⚠ And whether there is a matrix at all, in the third lane: `UiMask` skips
@@ -3041,7 +3395,9 @@ public sealed class UiRenderer : IDisposable {
         // the comparison is what keeps the old behaviour rather than a flag that used to.
         var registered = draw.Kind == BatchKind.Image
             ? imageDescriptors.TryGetValue(draw.Image, out var found) ? found.Sets[slot] : default
-            : atlasDescriptors.Length > slot ? atlasDescriptors[slot] : default;
+            : atlasDescriptors.Length > slot
+                ? atlasDescriptors[slot]
+                : default;
 
         if (!registered.IsValid) {
             // An image nobody registered. Drawing it would sample the atlas through the image
@@ -3101,17 +3457,25 @@ public sealed class UiRenderer : IDisposable {
     /// <param name="scale">Framebuffer pixels per document pixel, which the box is multiplied by.</param>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Centre and half rather than the rectangle's own origin and size, because that is
-    ///         what a signed distance wants and what <c>MaskEntry.box</c> beside it already
-    ///         carries.</b> Two records in one push block describing a box two different ways is how a
+    ///         ⚠
+    ///         <b>
+    ///             Centre and half rather than the rectangle's own origin and size, because that is
+    ///             what a signed distance wants and what <c>MaskEntry.box</c> beside it already
+    ///             carries.
+    ///         </b>
+    ///         Two records in one push block describing a box two different ways is how a
     ///         transcription drifts. The radius rides its own <c>float4</c> and zero is the whole of
     ///         the "not a rounded backdrop" test — see the block's remark in <c>ui-colour.frag</c> for
     ///         why it must be a number that is pushed rather than a push that is skipped.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Pre-multiplied by <paramref name="scale" />, so what the fragment reads is in
-    ///         <i>target texels</i> and not in document pixels — and that is a correction rather than
-    ///         a convention (#1200).</b> A layer surface is <c>ceil(surface × scale)</c> — see
+    ///         ⚠
+    ///         <b>
+    ///             Pre-multiplied by <paramref name="scale" />, so what the fragment reads is in
+    ///             <i>target texels</i> and not in document pixels — and that is a correction rather than
+    ///             a convention (#1200).
+    ///         </b>
+    ///         A layer surface is <c>ceil(surface × scale)</c> — see
     ///         <see cref="Compose" /> — so <c>varying_texcoord × textureSize(source)</c> is a
     ///         framebuffer pixel, whatever the two shaders' remarks used to claim. Pushing the box in
     ///         document pixels therefore put every rounded backdrop at half size in the top-left
@@ -3119,9 +3483,17 @@ public sealed class UiRenderer : IDisposable {
     ///         fixture composes at a scale of one, where the two spaces are the same number.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The box is scaled rather than the point divided, and the antialiasing is the
-    ///         reason.</b> <c>backdrop_coverage</c> is <c>clamp(0.5 - d)</c>, a band one <i>unit of
-    ///         its own argument</i> wide, and it is a one-texel band only when that argument is a
+    ///         ⚠
+    ///         <b>
+    ///             The box is scaled rather than the point divided, and the antialiasing is the
+    ///             reason.
+    ///         </b>
+    ///         <c>backdrop_coverage</c> is <c>clamp(0.5 - d)</c>, a band one
+    ///         <i>
+    ///             unit of
+    ///             its own argument
+    ///         </i>
+    ///         wide, and it is a one-texel band only when that argument is a
     ///         texel. Dividing the point down into document pixels instead would leave the curve in
     ///         the right place with a band <paramref name="scale" /> texels wide — a soft edge that
     ///         grows with the display, which is exactly the kind of near-miss a comparison at a scale
@@ -3141,8 +3513,8 @@ public sealed class UiRenderer : IDisposable {
         var halfY = rounded.Box.Height * 0.5f * scale;
 
         return (
-            (rounded.Box.X * scale) + halfX,
-            (rounded.Box.Y * scale) + halfY,
+            rounded.Box.X * scale + halfX,
+            rounded.Box.Y * scale + halfY,
             halfX,
             halfY,
             rounded.Radius * scale
@@ -3151,8 +3523,12 @@ public sealed class UiRenderer : IDisposable {
 
     /// <summary>Makes sure there is a surface per group, at the size the frame is being drawn at.</summary>
     /// <remarks>
-    ///     ⚠ <b>Recreating one re-registers its number, and this frame's set is written here rather
-    ///     than left for the next.</b> <see cref="RegisterImage" /> marks every frame's set stale and
+    ///     ⚠
+    ///     <b>
+    ///         Recreating one re-registers its number, and this frame's set is written here rather
+    ///         than left for the next.
+    ///     </b>
+    ///     <see cref="RegisterImage" /> marks every frame's set stale and
     ///     leaves the writing to <see cref="UploadGeometry" />, because a host registers <i>between</i>
     ///     frames — before <see cref="slot" /> has advanced — and writing the set the just-submitted
     ///     frame is reading is the hazard the ring exists to avoid. Here the opposite holds:
@@ -3161,8 +3537,12 @@ public sealed class UiRenderer : IDisposable {
     ///     next frame would bind a set pointing at the view this one just destroyed.
     /// </remarks>
     /// <remarks>
-    ///     ⚠ <b>A size change destroys the old surfaces immediately, and a frame in flight may still
-    ///     be sampling them.</b> That is the same hazard <c>DestroyAtlas</c> takes when the glyph
+    ///     ⚠
+    ///     <b>
+    ///         A size change destroys the old surfaces immediately, and a frame in flight may still
+    ///         be sampling them.
+    ///     </b>
+    ///     That is the same hazard <c>DestroyAtlas</c> takes when the glyph
     ///     atlas is repacked to a new size, and it is taken here for the same reason: the alternative
     ///     is a deferred-destruction queue for a case that happens when a window is resized, which is
     ///     already the frame every other resource in the host is being rebuilt on. It is written down
@@ -3240,7 +3620,7 @@ public sealed class UiRenderer : IDisposable {
                 new(layerFormat, width, height, TextureUsage.ColourTarget | TextureUsage.Sampled, Name: name)
             );
 
-            var surface = new LayerSurface(texture, device.CreateTextureView(texture), Image: 0);
+            var surface = new LayerSurface(texture, device.CreateTextureView(texture), 0);
             var set = device.CreateDescriptorSet(atlasLayout, name);
 
             Write(set, surface.View);
@@ -3282,8 +3662,12 @@ public sealed class UiRenderer : IDisposable {
 
     /// <summary>The shared blur scratch, made on the first frame that asks for one.</summary>
     /// <remarks>
-    ///     ⚠ <b>Not registered through <see cref="RegisterImage" />, and deliberately outside the
-    ///     number space <c>UiGeometryBuilder.LayerImage</c> hands out.</b> That space is counted down
+    ///     ⚠
+    ///     <b>
+    ///         Not registered through <see cref="RegisterImage" />, and deliberately outside the
+    ///         number space <c>UiGeometryBuilder.LayerImage</c> hands out.
+    ///     </b>
+    ///     That space is counted down
     ///     from the top and this would have to be given a number in it that no frame could ever reach
     ///     — an argument about how many groups a frame can have, in place of no argument at all. It is
     ///     never named by a draw, only bound by <see cref="BlurSurface" />, so it needs a set and not
@@ -3298,7 +3682,7 @@ public sealed class UiRenderer : IDisposable {
             new(layerFormat, width, height, TextureUsage.ColourTarget | TextureUsage.Sampled, Name: "ui blur scratch")
         );
 
-        scratch = new LayerSurface(texture, device.CreateTextureView(texture), Image: 0);
+        scratch = new(texture, device.CreateTextureView(texture), 0);
 
         scratchSet = device.CreateDescriptorSet(atlasLayout, "ui blur scratch");
         Write(scratchSet, scratch.View);
@@ -3490,7 +3874,7 @@ public sealed class UiRenderer : IDisposable {
         // the sweep below has nothing of theirs left to destroy twice.
         DestroySurfaces();
 
-        foreach (var set in imageDescriptors.Values.SelectMany(entry => entry.Sets)) {
+        foreach (var set in imageDescriptors.Values.SelectMany(static entry => entry.Sets)) {
             device.Destroy(set);
         }
 
@@ -3606,7 +3990,12 @@ public sealed class UiRenderer : IDisposable {
                 shaders.Vertex,
                 fragment,
                 through.IsValid ? through : layout,
-                [new(output.ColourCount > 0 ? output.ColourFormats[0] : PixelFormat.Rgba8UNorm, BlendState.PremultipliedAlpha)],
+                [
+                    new(
+                        output.ColourCount > 0 ? output.ColourFormats[0] : PixelFormat.Rgba8UNorm,
+                        BlendState.PremultipliedAlpha
+                    )
+                ],
                 [
                     new(
                         // Five attributes in the order `UiVertex` declares them: position, texture,
@@ -3678,7 +4067,9 @@ public sealed class UiRenderer : IDisposable {
         return true;
     }
 
-    /// <summary>Uploads a frame this <see cref="Upload" /> skipped, because a later step needs to write at <see cref="slot" />.</summary>
+    /// <summary>
+    ///     Uploads a frame this <see cref="Upload" /> skipped, because a later step needs to write at <see cref="slot" />.
+    /// </summary>
     /// <param name="geometry">The frame's geometry — the same one <see cref="Upload" /> was handed.</param>
     /// <remarks>
     ///     ⚠ <b>The escape from the skip, and the reason the skip is safe to take at all.</b>
@@ -3716,7 +4107,13 @@ public sealed class UiRenderer : IDisposable {
         // The return is ignored for these two: they are bound by handle in `Record`, every frame, so
         // a replacement is picked up without anything having to be rewritten. Only the storage
         // buffer is reached through a descriptor set.
-        Grow(ref vertices, ref vertexCapacity, geometry.Vertices.Count * VertexBytes, BufferUsage.Vertex, "ui vertices");
+        Grow(
+            ref vertices,
+            ref vertexCapacity,
+            geometry.Vertices.Count * VertexBytes,
+            BufferUsage.Vertex,
+            "ui vertices"
+        );
         Grow(ref indices, ref indexCapacity, geometry.Indices.Count * 4, BufferUsage.Index, "ui indices");
 
         // ⚠ At least one record, even in a frame with no boxes in it. A storage buffer with no
@@ -3746,7 +4143,7 @@ public sealed class UiRenderer : IDisposable {
         if (geometry.Shapes.Count > 0) {
             var shapeBytes = new UiShape[geometry.Shapes.Count];
             geometry.Shapes.CopyToArray(shapeBytes);
-            device.Write(boxes, (long) slot * boxCapacity, MemoryMarshal.AsBytes<UiShape>(shapeBytes));
+            device.Write(boxes, (long)slot * boxCapacity, MemoryMarshal.AsBytes(shapeBytes));
         }
 
         // ⚠ Here rather than in `Compose`, beside the boxes and for their reason: this is the call
@@ -3763,8 +4160,8 @@ public sealed class UiRenderer : IDisposable {
 
             device.Write(
                 maskEntries,
-                (long) slot * MaskCapacity * MaskFloats * 4,
-                MemoryMarshal.AsBytes<float>(block)
+                (long)slot * MaskCapacity * MaskFloats * 4,
+                MemoryMarshal.AsBytes(block)
             );
         }
 
@@ -3777,8 +4174,8 @@ public sealed class UiRenderer : IDisposable {
         var indexBytes = new uint[geometry.Indices.Count];
         geometry.Indices.CopyToArray(indexBytes);
 
-        device.Write(vertices, (long) slot * vertexCapacity, MemoryMarshal.AsBytes<UiVertex>(vertexBytes));
-        device.Write(indices, (long) slot * indexCapacity, MemoryMarshal.AsBytes<uint>(indexBytes));
+        device.Write(vertices, (long)slot * vertexCapacity, MemoryMarshal.AsBytes(vertexBytes));
+        device.Write(indices, (long)slot * indexCapacity, MemoryMarshal.AsBytes(indexBytes));
     }
 
     /// <summary>Writes one mask into the twenty floats <c>ui-mask.frag</c>'s <c>MaskEntry</c> is.</summary>
@@ -3786,15 +4183,23 @@ public sealed class UiRenderer : IDisposable {
     /// <param name="into">Exactly <see cref="MaskFloats" /> floats.</param>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Written out rather than blitted, because <see cref="UiMask" />'s field order is
-    ///         C#'s business and std430's is the wire's.</b> The record has a <c>bool</c> and two
+    ///         ⚠
+    ///         <b>
+    ///             Written out rather than blitted, because <see cref="UiMask" />'s field order is
+    ///             C#'s business and std430's is the wire's.
+    ///         </b>
+    ///         The record has a <c>bool</c> and two
     ///         enums in it; a <c>MemoryMarshal.Cast</c> over it would compile, produce a block of the
     ///         right length on this machine, and be a mask drawn from the wrong bytes the first time
     ///         a field was reordered or the layout rules differed.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The shape goes out as <see cref="GradientShape" />'s own number and the operator
-    ///         as <see cref="MaskComposite" />'s.</b> Neither is renumbered here and the shader
+    ///         ⚠
+    ///         <b>
+    ///             The shape goes out as <see cref="GradientShape" />'s own number and the operator
+    ///             as <see cref="MaskComposite" />'s.
+    ///         </b>
+    ///         Neither is renumbered here and the shader
     ///         branches on the same values. Renumbering one of them to something "cleaner" on the way
     ///         out is the afternoon <c>ui-mask.frag</c>'s <c>ramp</c> comment records: a linear mask
     ///         arriving as a radial one draws a plausible round fade that nothing but
@@ -3809,7 +4214,7 @@ public sealed class UiRenderer : IDisposable {
 
         into[4] = mask.Axis.X;
         into[5] = mask.Axis.Y;
-        into[6] = (float) mask.Shape;
+        into[6] = (float)mask.Shape;
         into[7] = mask.Via ? 1f : 0f;
 
         into[8] = mask.Alphas.X;
@@ -3819,7 +4224,7 @@ public sealed class UiRenderer : IDisposable {
 
         into[12] = mask.Stops.Via;
         into[13] = mask.Stops.To;
-        into[14] = (float) mask.Composite;
+        into[14] = (float)mask.Composite;
         into[15] = 0f;
 
         // ⚠ Appended, and its zero is what the entry meant before the lane existed: no tile, so no
@@ -3854,7 +4259,7 @@ public sealed class UiRenderer : IDisposable {
 
         device.UpdateDescriptorSet(
             atlasDescriptors[index],
-            [DescriptorWrite.Storage(2, boxes, (long) index * boxCapacity, boxCapacity)]
+            [DescriptorWrite.Storage(2, boxes, (long)index * boxCapacity, boxCapacity)]
         );
 
         staleBoxes[index] = false;
@@ -3894,7 +4299,7 @@ public sealed class UiRenderer : IDisposable {
 
             atlasBytes[i] = channel == 3
                 ? byte.MaxValue
-                : (byte)Math.Clamp((int)((atlas.Pixels[(pixel * 3) + channel] * 255f) + 0.5f), 0, 255);
+                : (byte)Math.Clamp((int)(atlas.Pixels[pixel * 3 + channel] * 255f + 0.5f), 0, 255);
         }
 
         device.Write(atlasStaging, 0, atlasBytes);
@@ -3907,9 +4312,7 @@ public sealed class UiRenderer : IDisposable {
 
         commands.CopyBufferToTexture(atlasStaging, 0, new(atlasTexture), new(atlas.Width, atlas.Height, 1));
 
-        commands.Barrier(
-            new([], [new(atlasTexture, ResourceState.CopyDestination, ResourceState.ShaderRead)])
-        );
+        commands.Barrier(new([], [new(atlasTexture, ResourceState.CopyDestination, ResourceState.ShaderRead)]));
 
         atlasState = ResourceState.ShaderRead;
         AtlasUploads++;
@@ -3943,7 +4346,10 @@ public sealed class UiRenderer : IDisposable {
         atlasDescriptors = new DescriptorSetHandle[slots];
 
         for (var index = 0; index < slots; index++) {
-            atlasDescriptors[index] = device.CreateDescriptorSet(atlasLayout, "ui atlas " + index.ToString(CultureInfo.InvariantCulture));
+            atlasDescriptors[index] = device.CreateDescriptorSet(
+                atlasLayout,
+                "ui atlas " + index.ToString(CultureInfo.InvariantCulture)
+            );
 
             // ⚠ Every set written here and not only the current frame's, which is the one place that
             // is safe: these sets were allocated a line ago, so no submitted frame can be reading one.
@@ -3954,7 +4360,7 @@ public sealed class UiRenderer : IDisposable {
                     ? [
                         DescriptorWrite.Texture(0, atlasView),
                         DescriptorWrite.SamplerAt(1, sampler),
-                        DescriptorWrite.Storage(2, boxes, (long) index * boxCapacity, boxCapacity)
+                        DescriptorWrite.Storage(2, boxes, (long)index * boxCapacity, boxCapacity)
                     ]
                     : [DescriptorWrite.Texture(0, atlasView), DescriptorWrite.SamplerAt(1, sampler)]
             );
@@ -3997,8 +4403,12 @@ public sealed class UiRenderer : IDisposable {
     /// <summary>Makes sure a buffer has room for <paramref name="bytes" /> in every region.</summary>
     /// <returns>Whether the buffer was replaced, which is what invalidates a descriptor pointing at it.</returns>
     /// <remarks>
-    ///     ⚠ <b><paramref name="capacity" /> is one region, and the allocation is that many times
-    ///     <see cref="slots" />.</b> Rounded up to <see cref="Alignment" /> so that region <c>n</c>
+    ///     ⚠
+    ///     <b>
+    ///         <paramref name="capacity" /> is one region, and the allocation is that many times
+    ///         <see cref="slots" />.
+    ///     </b>
+    ///     Rounded up to <see cref="Alignment" /> so that region <c>n</c>
     ///     starts at an offset a storage-buffer descriptor may legally be bound at — a
     ///     <c>minStorageBufferOffsetAlignment</c> of 256 is common, and an unaligned binding is a
     ///     validation error rather than a slow path.
@@ -4018,7 +4428,7 @@ public sealed class UiRenderer : IDisposable {
         capacity = Math.Max(bytes, capacity * 2);
         capacity = (capacity + Alignment - 1) / Alignment * Alignment;
 
-        buffer = device.CreateBuffer(new((long) capacity * slots, usage, MemoryAccess.HostUpload, name));
+        buffer = device.CreateBuffer(new((long)capacity * slots, usage, MemoryAccess.HostUpload, name));
         return true;
     }
 
@@ -4048,9 +4458,13 @@ public sealed class UiRenderer : IDisposable {
     ///         a target the passes touch.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Everything outside this rectangle is left holding the <i>previous</i> frame's
-    ///         pixels, not transparent black — so it has to be a superset of everything anything
-    ///         samples.</b> Three readers, and the widest of them decides:
+    ///         ⚠
+    ///         <b>
+    ///             Everything outside this rectangle is left holding the <i>previous</i> frame's
+    ///             pixels, not transparent black — so it has to be a superset of everything anything
+    ///             samples.
+    ///         </b>
+    ///         Three readers, and the widest of them decides:
     ///         <list type="bullet">
     ///             <item>
     ///                 the composite quad, which covers <paramref name="bounds" /> exactly — plus one
@@ -4083,8 +4497,12 @@ public sealed class UiRenderer : IDisposable {
     ///         kept for the fractional scale a DPI-scaled window draws at, where they do.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b><paramref name="reach" /> is recomputed at <paramref name="scale" /> rather than
-    ///         read off the bounds.</b> <c>UiGeometryBuilder.Layer</c> outsets the bounds by the
+    ///         ⚠
+    ///         <b>
+    ///             <paramref name="reach" /> is recomputed at <paramref name="scale" /> rather than
+    ///             read off the bounds.
+    ///         </b>
+    ///         <c>UiGeometryBuilder.Layer</c> outsets the bounds by the
     ///         kernel at a scale of one, in document pixels; the executor's kernel is
     ///         <see cref="UiLayer.KernelRadius" /> at the scale it is drawing at. Those are the same
     ///         number only at 1:1, and the halo is the thing that goes missing when they are not.
@@ -4117,8 +4535,12 @@ public sealed class UiRenderer : IDisposable {
     /// <param name="scale">How many framebuffer pixels one of those units is.</param>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>This is the one place the two spaces are not the same, which is why the scale is
-    ///         a parameter and not an assumption.</b> The projection above is a pure mapping from
+    ///         ⚠
+    ///         <b>
+    ///             This is the one place the two spaces are not the same, which is why the scale is
+    ///             a parameter and not an assumption.
+    ///         </b>
+    ///         The projection above is a pure mapping from
     ///         geometry units to clip space and does not care how big a pixel is; a scissor is
     ///         submitted to Vulkan in <i>framebuffer</i> pixels and cares about nothing else. They
     ///         are equal at 1:1 and only at 1:1 — so an interface laid out in device-independent
@@ -4149,7 +4571,10 @@ public sealed class UiRenderer : IDisposable {
         return new(left, top, right - left, bottom - top);
     }
 
-    /// <summary>The size in framebuffer pixels of an interface <paramref name="surface" /> units across at <paramref name="scale" />.</summary>
+    /// <summary>
+    ///     The size in framebuffer pixels of an interface <paramref name="surface" /> units across at
+    ///     <paramref name="scale" />.
+    /// </summary>
     /// <param name="surface">The geometry's extent, in its own units.</param>
     /// <param name="scale">How many framebuffer pixels one of those units is.</param>
     /// <returns>The size every group surface of that interface is allocated at.</returns>

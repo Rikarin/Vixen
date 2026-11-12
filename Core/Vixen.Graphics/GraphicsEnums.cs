@@ -54,18 +54,22 @@ public enum BufferUsage {
     CopyDestination = 1 << 6,
 
     /// <summary>Geometry an acceleration-structure build reads — vertices, indices or instances.</summary>
-    /// <remarks>Needs <see cref="GraphicsDeviceFeatures.HasRayTracing" />, and implies the buffer
+    /// <remarks>
+    ///     Needs <see cref="GraphicsDeviceFeatures.HasRayTracing" />, and implies the buffer
     ///     must also carry <see cref="ShaderDeviceAddress" />: a build addresses its inputs by GPU
-    ///     address, not by binding.</remarks>
+    ///     address, not by binding.
+    /// </remarks>
     AccelerationStructureInput = 1 << 7,
 
     /// <summary>Backs an acceleration structure — created by the backend, not usually by hand.</summary>
     AccelerationStructureStorage = 1 << 8,
 
     /// <summary>The buffer's GPU address may be taken and handed to a shader or a build.</summary>
-    /// <remarks>A property of the buffer's <em>allocation</em>, not only its handle — a backend has
+    /// <remarks>
+    ///     A property of the buffer's <em>allocation</em>, not only its handle — a backend has
     ///     to place it in memory allocated for addressing, which is why it is declared at creation
-    ///     like every other usage rather than asked for later.</remarks>
+    ///     like every other usage rather than asked for later.
+    /// </remarks>
     ShaderDeviceAddress = 1 << 9
 }
 
@@ -489,8 +493,12 @@ public enum StoreAction : byte {
 /// <summary>How the samples of a multisampled depth attachment become one depth value.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>A depth resolve is not an average, and there is deliberately no option to make it
-///         one.</b> Colour averages because the average of four colours is a colour; the average of
+///         ⚠
+///         <b>
+///             A depth resolve is not an average, and there is deliberately no option to make it
+///             one.
+///         </b>
+///         Colour averages because the average of four colours is a colour; the average of
 ///         four depths is a surface that is behind nothing and in front of nothing, so every consumer
 ///         of the resolved buffer — reprojection, screen-space tracing, fog, the depth test of a
 ///         later pass — reads a plane that no geometry occupies. That is why
@@ -498,8 +506,12 @@ public enum StoreAction : byte {
 ///         exists.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Under the engine's reversed-Z convention the near plane is depth 1 and the far plane
-///         is 0</b>, so <see cref="Max" /> is the sample <em>nearest the camera</em> and
+///         ⚠
+///         <b>
+///             Under the engine's reversed-Z convention the near plane is depth 1 and the far plane
+///             is 0
+///         </b>
+///         , so <see cref="Max" /> is the sample <em>nearest the camera</em> and
 ///         <see cref="Min" /> is the farthest. This is the inversion that makes a wrong choice here
 ///         so expensive: both render a plausible picture, and only the passes that read the resolved
 ///         depth go quietly wrong.
@@ -539,16 +551,22 @@ public enum PresentMode : byte {
     /// <summary>
     ///     Wait for the vertical blank, queueing at most one frame ahead. Never tears.
     /// </summary>
-    /// <remarks>The only mode every backend and every driver is required to support, which is why
-    /// it is the default and the fallback.</remarks>
+    /// <remarks>
+    ///     The only mode every backend and every driver is required to support, which is why
+    ///     it is the default and the fallback.
+    /// </remarks>
     Fifo = 0,
 
-    /// <summary>Like <see cref="Fifo" />, but a frame that misses the blank is shown immediately —
-    /// so it tears rather than stuttering.</summary>
+    /// <summary>
+    ///     Like <see cref="Fifo" />, but a frame that misses the blank is shown immediately —
+    ///     so it tears rather than stuttering.
+    /// </summary>
     FifoRelaxed = 1,
 
-    /// <summary>Replace the queued frame with the newest one. No tearing, no waiting, dropped
-    /// frames.</summary>
+    /// <summary>
+    ///     Replace the queued frame with the newest one. No tearing, no waiting, dropped
+    ///     frames.
+    /// </summary>
     Mailbox = 2,
 
     /// <summary>Present as soon as the frame is ready. Tears; the lowest latency there is.</summary>

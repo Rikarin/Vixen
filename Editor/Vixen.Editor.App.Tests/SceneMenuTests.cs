@@ -27,7 +27,7 @@ public class SceneMenuTests {
         editor.Run("scene.radial-menu");
         editor.Frames(2);
 
-        return Descendants(editor.Document.Root).OfType<RadialMenu>().FirstOrDefault(menu => menu.IsOpen)
+        return Descendants(editor.Document.Root).OfType<RadialMenu>().FirstOrDefault(static menu => menu.IsOpen)
             ?? throw editor.Fail("the radial menu did not open");
     }
 
@@ -36,7 +36,7 @@ public class SceneMenuTests {
         using var editor = Scene();
 
         var expected = editor.Extensions.All<SceneMenuItem>()
-            .Count(entry => (entry.Surface & SceneMenuSurface.Radial) != 0 && entry.Mode is null);
+            .Count(static entry => (entry.Surface & SceneMenuSurface.Radial) != 0 && entry.Mode is null);
 
         var menu = Radial(editor);
 
@@ -47,8 +47,8 @@ public class SceneMenuTests {
         // direction is measured from.
         var pointer = editor.Viewport!.PointerPosition;
 
-        Assert.Equal(pointer.X, menu.Bounds.X + (menu.Bounds.Width * 0.5f), 1);
-        Assert.Equal(pointer.Y, menu.Bounds.Y + (menu.Bounds.Height * 0.5f), 1);
+        Assert.Equal(pointer.X, menu.Bounds.X + menu.Bounds.Width * 0.5f, 1);
+        Assert.Equal(pointer.Y, menu.Bounds.Y + menu.Bounds.Height * 0.5f, 1);
     }
 
     /// <summary>
@@ -62,8 +62,8 @@ public class SceneMenuTests {
 
         var menu = Radial(editor);
         var centre = new Vector2(
-            menu.Bounds.X + (menu.Bounds.Width * 0.5f),
-            menu.Bounds.Y + (menu.Bounds.Height * 0.5f)
+            menu.Bounds.X + menu.Bounds.Width * 0.5f,
+            menu.Bounds.Y + menu.Bounds.Height * 0.5f
         );
 
         // ⚠ To within a pixel rather than exactly. The offsets are written as text and the layout
@@ -73,8 +73,8 @@ public class SceneMenuTests {
             menu.Items,
             item => {
                 var middle = new Vector2(
-                    item.Bounds.X + (item.Bounds.Width * 0.5f),
-                    item.Bounds.Y + (item.Bounds.Height * 0.5f)
+                    item.Bounds.X + item.Bounds.Width * 0.5f,
+                    item.Bounds.Y + item.Bounds.Height * 0.5f
                 );
 
                 var distance = (middle - centre).Length();
@@ -97,7 +97,7 @@ public class SceneMenuTests {
         // layout's own quantum, so a tighter bound here is not a stricter test of the geometry — it
         // is a test of the rounding, which is what the comment above says not to write.
         var first = menu.Items[0];
-        var middleOfFirst = first.Bounds.X + (first.Bounds.Width * 0.5f);
+        var middleOfFirst = first.Bounds.X + first.Bounds.Width * 0.5f;
 
         Assert.True(
             MathF.Abs(middleOfFirst - centre.X) <= 0.5f,
@@ -119,13 +119,13 @@ public class SceneMenuTests {
         var menu = Radial(editor);
         var count = menu.Items.Count;
 
-        Assert.Equal(0, menu.WedgeAt(new Vector2(0f, -400f)));
-        Assert.Equal(count / 4, menu.WedgeAt(new Vector2(400f, 0f)));
-        Assert.Equal(count / 2, menu.WedgeAt(new Vector2(0f, 400f)));
+        Assert.Equal(0, menu.WedgeAt(new(0f, -400f)));
+        Assert.Equal(count / 4, menu.WedgeAt(new(400f, 0f)));
+        Assert.Equal(count / 2, menu.WedgeAt(new(0f, 400f)));
 
         // Nothing at all near the centre, which is what makes releasing without moving safe.
         Assert.Equal(-1, menu.WedgeAt(Vector2.Zero));
-        Assert.Equal(-1, menu.WedgeAt(new Vector2(menu.DeadZone * 0.5f, 0f)));
+        Assert.Equal(-1, menu.WedgeAt(new(menu.DeadZone * 0.5f, 0f)));
     }
 
     /// <summary>Pressing the key, moving, and letting go runs the wedge that was aimed at.</summary>
@@ -197,16 +197,16 @@ public class SceneMenuTests {
         editor.Frames(2);
 
         var menu = Descendants(editor.Document.Root)
-            .OfType<ContextMenu>()
-            .FirstOrDefault(candidate => candidate.IsOpen && candidate.Items.Count > 0)
+                .OfType<ContextMenu>()
+                .FirstOrDefault(static candidate => candidate.IsOpen && candidate.Items.Count > 0)
             ?? throw editor.Fail("the scene context menu did not open");
 
         var expected = editor.Extensions.All<SceneMenuItem>()
-            .Count(entry => (entry.Surface & SceneMenuSurface.Context) != 0 && entry.Mode is null);
+            .Count(static entry => (entry.Surface & SceneMenuSurface.Context) != 0 && entry.Mode is null);
 
         Assert.Equal(expected, menu.Items.Count);
 
-        menu.Close(CloseReason.Code);
+        menu.Close();
         editor.Settle();
     }
 
@@ -221,20 +221,18 @@ public class SceneMenuTests {
 
         var before = Radial(editor).Items.Count;
 
-        editor.Document.Root.Children.OfType<RadialMenu>().First().Close(CloseReason.Code);
+        editor.Document.Root.Children.OfType<RadialMenu>().First().Close();
         editor.Settle();
 
         // A verb belonging to a mode nothing has activated.
-        editor.Shell.Commands.Add(
-            new EditorCommand("test.carve", new StringId("test.carve", "Carve"), static () => { })
-        );
+        editor.Shell.Commands.Add(new EditorCommand("test.carve", new("test.carve", "Carve"), static () => { }));
 
         editor.Extensions.Add(new SceneMenuItem("test.carve", SceneMenuSurface.Radial) { Mode = "test.sculpting" });
         editor.Settle();
 
         Assert.Equal(before, Radial(editor).Items.Count);
 
-        editor.Document.Root.Children.OfType<RadialMenu>().First().Close(CloseReason.Code);
+        editor.Document.Root.Children.OfType<RadialMenu>().First().Close();
         editor.Settle();
 
         // And the same entry, once its mode is the active one.
@@ -246,7 +244,7 @@ public class SceneMenuTests {
         var after = Radial(editor);
 
         Assert.Equal(before + 1, after.Items.Count);
-        Assert.Contains(after.Items, item => item.Label == "Carve");
+        Assert.Contains(after.Items, static item => item.Label == "Carve");
     }
 
     /// <summary>A mode with nothing but an id and a name, for the test above.</summary>

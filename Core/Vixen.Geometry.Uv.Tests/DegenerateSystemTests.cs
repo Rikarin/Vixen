@@ -9,8 +9,12 @@ namespace Vixen.Geometry.Uv.Tests;
 /// <summary>Every input where zero means something, and what the answer is when it does.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>This engine has the general form of this bug written down: a frame that draws and
-///         looks wrong, because a struct field was left zero and its zero means disabled.</b> A solver
+///         ⚠
+///         <b>
+///             This engine has the general form of this bug written down: a frame that draws and
+///             looks wrong, because a struct field was left zero and its zero means disabled.
+///         </b>
+///         A solver
 ///         has four of them and they all arrive as ordinary geometry — a chart with one vertex nothing
 ///         references, a mesh whose conditioning pass dropped the only triangle touching an unknown, a
 ///         local–global step whose right-hand side came out exactly zero because nothing moved. None
@@ -40,18 +44,18 @@ public class DegenerateSystemTests {
 
         Assert.Equal(0, report.Iterations);
         Assert.True(report.StoppedEarly);
-        Assert.All(solution, value => Assert.Equal(0d, value));
+        Assert.All(solution, static value => Assert.Equal(0d, value));
     }
 
     /// <summary>The same right-hand side from a warm start that is wrong: it must come back to zero.</summary>
     [Fact]
     public void A_zero_right_hand_side_from_a_wrong_start_converges_to_zero() {
         var matrix = PoissonGrid.Matrix(6);
-        var solution = Enumerable.Range(0, matrix.RowCount).Select(index => 1d + (index % 5)).ToArray();
+        var solution = Enumerable.Range(0, matrix.RowCount).Select(static index => 1d + index % 5).ToArray();
 
         new ConjugateGradient(matrix).Solve(new double[matrix.RowCount], solution, matrix.RowCount * 2);
 
-        Assert.All(solution, value => Assert.Equal(0d, value, 10));
+        Assert.All(solution, static value => Assert.Equal(0d, value, 10));
     }
 
     /// <summary>
@@ -92,7 +96,7 @@ public class DegenerateSystemTests {
         var solution = new double[3];
         var report = new ConjugateGradient(builder.Build(), kind).Solve([2d, 1d, 8d], solution, 16);
 
-        Assert.All(solution, value => Assert.True(double.IsFinite(value), $"{value} is not finite."));
+        Assert.All(solution, static value => Assert.True(double.IsFinite(value), $"{value} is not finite."));
         Assert.True(double.IsFinite(report.Residual));
     }
 
@@ -109,7 +113,7 @@ public class DegenerateSystemTests {
         var report = new ConjugateGradient(builder.Build()).Solve([1d, 2d, 3d, 4d], solution, 32);
 
         Assert.True(report.StoppedEarly);
-        Assert.All(solution, value => Assert.True(double.IsFinite(value), $"{value} is not finite."));
+        Assert.All(solution, static value => Assert.True(double.IsFinite(value), $"{value} is not finite."));
     }
 
     /// <summary>
@@ -145,13 +149,13 @@ public class DegenerateSystemTests {
     [InlineData(1e+3d)]
     public void Scaling_the_right_hand_side_scales_the_answer(double scale) {
         var matrix = PoissonGrid.Matrix(8);
-        var right = Enumerable.Range(0, matrix.RowCount).Select(index => Math.Cos(index * 0.37d)).ToArray();
+        var right = Enumerable.Range(0, matrix.RowCount).Select(static index => Math.Cos(index * 0.37d)).ToArray();
 
         var plain = new double[matrix.RowCount];
         new ConjugateGradient(matrix).Solve(right, plain, matrix.RowCount);
 
         var scaled = new double[matrix.RowCount];
-        new ConjugateGradient(matrix).Solve(right.Select(value => value * scale).ToArray(), scaled, matrix.RowCount);
+        new ConjugateGradient(matrix).Solve([..right.Select(value => value * scale)], scaled, matrix.RowCount);
 
         for (var index = 0; index < plain.Length; index++) {
             Assert.Equal(plain[index] * scale, scaled[index], Math.Abs(plain[index] * scale * 1e-8d) + 1e-12d);

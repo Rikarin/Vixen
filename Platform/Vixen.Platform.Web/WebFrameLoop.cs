@@ -8,8 +8,11 @@ namespace Vixen.Platform.Web;
 /// <summary>The frame loop, driven by <c>requestAnimationFrame</c>.</summary>
 /// <remarks>
 ///     <para>
-///         <b>A browser application does not own its main loop, and this is where that becomes
-///         visible.</b> Every other platform runs <c>while (running) { Pump(); Update(); Render(); }</c>
+///         <b>
+///             A browser application does not own its main loop, and this is where that becomes
+///             visible.
+///         </b>
+///         Every other platform runs <c>while (running) { Pump(); Update(); Render(); }</c>
 ///         from <c>Main</c>. A WebAssembly <c>Main</c> that did the same would never return to the
 ///         browser's event loop, so no DOM event would ever be delivered, no <c>fetch</c> would ever
 ///         complete, and the tab would be reported as unresponsive within a few seconds. The frame
@@ -138,9 +141,10 @@ public sealed class WebFrameLoop : IDisposable {
             // through the interop boundary — where it would arrive as an opaque rejection with no
             // managed stack on it.
             _ = Task.Run(() => throw new InvalidOperationException(
-                "The frame callback threw, so the loop has been stopped. See the inner exception.",
-                exception
-            ));
+                    "The frame callback threw, so the loop has been stopped. See the inner exception.",
+                    exception
+                )
+            );
         }
     }
 }

@@ -261,8 +261,7 @@ public sealed class InstanceCuller {
             var run = runs[level];
 
             commands[level] = mesh[level] with {
-                InstanceCount = (uint)run.Count,
-                FirstInstance = firstInstance + (uint)run.First
+                InstanceCount = (uint)run.Count, FirstInstance = firstInstance + (uint)run.First
             };
         }
     }

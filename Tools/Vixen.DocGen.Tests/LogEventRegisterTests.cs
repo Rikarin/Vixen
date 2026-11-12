@@ -40,12 +40,12 @@ public sealed class LogEventRegisterTests {
     }
 
     static IReadOnlyList<DocNode> Rows() =>
-        [.. NonCSharpNodes.LogEvents(Root, new SourceLinks(Root, "https://github.com/rikarin/Vixen", null))];
+        [..NonCSharpNodes.LogEvents(Root, new(Root, "https://github.com/rikarin/Vixen", null))];
 
     static IReadOnlyList<(string Id, string Page)> Claims() {
-        var (pages, _) = GuideReader.Read(Root, new SourceLinks(Root, "https://github.com/rikarin/Vixen", null));
+        var (pages, _) = GuideReader.Read(Root, new(Root, "https://github.com/rikarin/Vixen", null));
 
-        return [.. pages.SelectMany(page => page.Front.Api.Select(id => (id, page.Front.Slug)))];
+        return [..pages.SelectMany(static page => page.Front.Api.Select(id => (id, page.Front.Slug)))];
     }
 
     /// <summary>
@@ -58,13 +58,15 @@ public sealed class LogEventRegisterTests {
             Rows(),
             LogEventRegister.Sites(Root),
             LogEventRegister.Ranges(Root),
-            Claims());
+            Claims()
+        );
 
         Assert.True(
             problems.Count == 0,
             $"{problems.Count} problem(s) between docs/manual/log-events.md, the [LoggerMessage] "
             + $"attributes and the guide pages:{Environment.NewLine}  "
-            + string.Join(Environment.NewLine + "  ", problems));
+            + string.Join(Environment.NewLine + "  ", problems)
+        );
     }
 
     /// <summary>
@@ -83,7 +85,8 @@ public sealed class LogEventRegisterTests {
         Assert.True(
             uncovered.Count == 0,
             $"{uncovered.Count} log event(s) with neither a page nor an exemption:{Environment.NewLine}  "
-            + string.Join(Environment.NewLine + "  ", uncovered));
+            + string.Join(Environment.NewLine + "  ", uncovered)
+        );
     }
 
     /// <summary>The register is not empty, so a green run cannot mean the parser stopped matching.</summary>
@@ -98,7 +101,7 @@ public sealed class LogEventRegisterTests {
         Assert.True(Rows().Count > 50, "the register parser found almost no rows");
         Assert.True(LogEventRegister.Sites(Root).Count > 50, "the call-site scanner found almost no attributes");
         Assert.True(LogEventRegister.Ranges(Root).Count > 10, "the range table parser found almost no ranges");
-        Assert.Contains(Claims(), claim => claim.Id.StartsWith("L:", StringComparison.Ordinal));
+        Assert.Contains(Claims(), static claim => claim.Id.StartsWith("L:", StringComparison.Ordinal));
     }
 
     /// <summary>A test project's ids are its own, and are not the register's business.</summary>
@@ -106,27 +109,28 @@ public sealed class LogEventRegisterTests {
     public void TestProjectsAreOutOfScope() {
         var sites = LogEventRegister.Sites(Root);
 
-        Assert.DoesNotContain(sites, site => site.Path.Contains(".Tests/", StringComparison.Ordinal));
+        Assert.DoesNotContain(sites, static site => site.Path.Contains(".Tests/", StringComparison.Ordinal));
 
         // Vixen.Core.Diagnostics.Tests logs under 1–5 and under 2001, which is Vulkan's. Both would be
         // failures if the scanner counted them, and neither is a defect.
-        Assert.Single(sites, site => site.Id == 2001);
+        Assert.Single(sites, static site => site.Id == 2001);
     }
 
     // ── The shapes the tree does not currently have ─────────────────────────────────────────────
 
-    static DocNode Row(string id, string since = "0.1.0") => new() {
-        Id = $"L:{id}",
-        Kind = DocKind.LogEvent,
-        Name = id,
-        QualifiedName = id,
-        Namespace = "LogEvents",
-        Assembly = "Vixen.App",
-        Area = "Core",
-        Slug = $"log-events/{id}",
-        Signature = [],
-        Facets = new DocFacets { Level = "Information", Since = since }
-    };
+    static DocNode Row(string id, string since = "0.1.0") =>
+        new() {
+            Id = $"L:{id}",
+            Kind = DocKind.LogEvent,
+            Name = id,
+            QualifiedName = id,
+            Namespace = "LogEvents",
+            Assembly = "Vixen.App",
+            Area = "Core",
+            Slug = $"log-events/{id}",
+            Signature = [],
+            Facets = new() { Level = "Information", Since = since }
+        };
 
     static LogEventSite Site(int id, string project = "Vixen.App.Hosting", string area = "Core", int line = 1) =>
         new(id, "Information", "message", project, area, $"{area}/{project}/Log.cs", line);
@@ -139,23 +143,33 @@ public sealed class LogEventRegisterTests {
             [Row("13026")],
             [Site(13026, line: 10), Site(13026, line: 20)],
             AppRange,
-            []);
+            []
+        );
 
-        Assert.Contains(problems, problem => problem.Contains("13026 is claimed by 2 call sites", StringComparison.Ordinal));
+        Assert.Contains(
+            problems,
+            static problem => problem.Contains("13026 is claimed by 2 call sites", StringComparison.Ordinal)
+        );
     }
 
     [Fact]
     public void AnIdWithNoRowFails() {
         var problems = LogEventRegister.Check([], [Site(13026)], AppRange, []);
 
-        Assert.Contains(problems, problem => problem.Contains("has no row in docs/manual/log-events.md", StringComparison.Ordinal));
+        Assert.Contains(
+            problems,
+            static problem => problem.Contains("has no row in docs/manual/log-events.md", StringComparison.Ordinal)
+        );
     }
 
     [Fact]
     public void ARowWithNoCallSiteFails() {
         var problems = LogEventRegister.Check([Row("13026")], [], AppRange, []);
 
-        Assert.Contains(problems, problem => problem.Contains("has a row and no [LoggerMessage]", StringComparison.Ordinal));
+        Assert.Contains(
+            problems,
+            static problem => problem.Contains("has a row and no [LoggerMessage]", StringComparison.Ordinal)
+        );
     }
 
     /// <summary>
@@ -168,9 +182,10 @@ public sealed class LogEventRegisterTests {
             [Row("13026", "0.1.0, retired in 0.2.0")],
             [],
             AppRange,
-            []);
+            []
+        );
 
-        Assert.DoesNotContain(problems, problem => problem.Contains("13026", StringComparison.Ordinal));
+        Assert.DoesNotContain(problems, static problem => problem.Contains("13026", StringComparison.Ordinal));
     }
 
     /// <summary>The other half of permanence: a retired id is never given to a new call site.</summary>
@@ -180,9 +195,13 @@ public sealed class LogEventRegisterTests {
             [Row("13026", "0.1.0, retired in 0.2.0")],
             [Site(13026)],
             AppRange,
-            []);
+            []
+        );
 
-        Assert.Contains(problems, problem => problem.Contains("is marked retired and is", StringComparison.Ordinal));
+        Assert.Contains(
+            problems,
+            static problem => problem.Contains("is marked retired and is", StringComparison.Ordinal)
+        );
     }
 
     [Fact]
@@ -191,50 +210,74 @@ public sealed class LogEventRegisterTests {
             [Row("13027")],
             [Site(13027)],
             AppRange,
-            [("L:13027", "rendering/capturing-a-frame"), ("L:13027", "rendering/diagnostic-overlays")]);
+            [("L:13027", "rendering/capturing-a-frame"), ("L:13027", "rendering/diagnostic-overlays")]
+        );
 
-        Assert.Contains(problems, problem =>
-            problem.Contains("`api: L:13027` is claimed by", StringComparison.Ordinal)
-            && problem.Contains("capturing-a-frame", StringComparison.Ordinal)
-            && problem.Contains("diagnostic-overlays", StringComparison.Ordinal));
+        Assert.Contains(
+            problems,
+            static problem =>
+                problem.Contains("`api: L:13027` is claimed by", StringComparison.Ordinal)
+                && problem.Contains("capturing-a-frame", StringComparison.Ordinal)
+                && problem.Contains("diagnostic-overlays", StringComparison.Ordinal)
+        );
     }
 
     [Fact]
     public void APageClaimingAnUnregisteredEventFails() {
         var problems = LogEventRegister.Check([], [], AppRange, [("L:13030", "rendering/capturing-a-frame")]);
 
-        Assert.Contains(problems, problem =>
-            problem.Contains("`api: L:13030` names no row", StringComparison.Ordinal));
+        Assert.Contains(
+            problems,
+            static problem =>
+                problem.Contains("`api: L:13030` names no row", StringComparison.Ordinal)
+        );
     }
 
     /// <summary>A `T:` id is the graph's business and not this gate's.</summary>
     [Fact]
     public void SymbolClaimsAreIgnored() {
-        var problems = LogEventRegister.Check([], [], [], [
-            ("T:Vixen.App.VixenApp", "engine/one"), ("T:Vixen.App.VixenApp", "engine/two")
-        ]);
+        var problems = LogEventRegister.Check(
+            [],
+            [],
+            [],
+            [
+                ("T:Vixen.App.VixenApp", "engine/one"), ("T:Vixen.App.VixenApp", "engine/two")
+            ]
+        );
 
         Assert.Empty(problems);
     }
 
     [Fact]
     public void AnIdOutsideEveryRangeFails() {
-        var problems = LogEventRegister.Check([Row("27001")], [Site(27001, "Vixen.Live.Orchestrator", "Live")], AppRange, []);
+        var problems = LogEventRegister.Check(
+            [Row("27001")],
+            [Site(27001, "Vixen.Live.Orchestrator", "Live")],
+            AppRange,
+            []
+        );
 
-        Assert.Contains(problems, problem =>
-            problem.Contains("is in no range the register allocates", StringComparison.Ordinal));
+        Assert.Contains(
+            problems,
+            static problem =>
+                problem.Contains("is in no range the register allocates", StringComparison.Ordinal)
+        );
     }
 
     [Fact]
     public void AnIdLoggedFromTheWrongAssemblyFails() {
         var problems = LogEventRegister.Check(
             [Row("13026")],
-            [Site(13026, "Vixen.Rendering", "Core")],
+            [Site(13026, "Vixen.Rendering")],
             AppRange,
-            []);
+            []
+        );
 
-        Assert.Contains(problems, problem =>
-            problem.Contains("is logged from `Vixen.Rendering`", StringComparison.Ordinal));
+        Assert.Contains(
+            problems,
+            static problem =>
+                problem.Contains("is logged from `Vixen.Rendering`", StringComparison.Ordinal)
+        );
     }
 
     /// <summary>
@@ -242,7 +285,7 @@ public sealed class LogEventRegisterTests {
     /// </summary>
     [Fact]
     public void ARangeOwnsItsPrefixAndNotAWordThatStartsTheSame() {
-        Assert.True(AppRange[0].Owns(Site(13026, "Vixen.App.Hosting")));
+        Assert.True(AppRange[0].Owns(Site(13026)));
         Assert.True(AppRange[0].Owns(Site(13026, "Vixen.App")));
         Assert.False(AppRange[0].Owns(Site(13026, "Vixen.Application")));
     }
@@ -253,7 +296,7 @@ public sealed class LogEventRegisterTests {
         LogEventRange samples = new(14000, 14999, ["Samples/"], true);
 
         Assert.True(samples.Owns(Site(14001, "11-VideoPlayback", "Samples")));
-        Assert.False(samples.Owns(Site(14001, "Vixen.App.Hosting", "Core")));
+        Assert.False(samples.Owns(Site(14001)));
     }
 
     [Fact]
@@ -262,15 +305,22 @@ public sealed class LogEventRegisterTests {
             [Row("13026")],
             [Site(13026)],
             [new LogEventRange(13000, 13999, ["Vixen.App"], false)],
-            []);
+            []
+        );
 
-        Assert.Contains(problems, problem => problem.Contains("is marked reserved and is", StringComparison.Ordinal));
+        Assert.Contains(
+            problems,
+            static problem => problem.Contains("is marked reserved and is", StringComparison.Ordinal)
+        );
     }
 
     [Fact]
     public void ARangeMarkedInUseThatNothingLogsInFails() {
         var problems = LogEventRegister.Check([], [], AppRange, []);
 
-        Assert.Contains(problems, problem => problem.Contains("is marked **in use** and", StringComparison.Ordinal));
+        Assert.Contains(
+            problems,
+            static problem => problem.Contains("is marked **in use** and", StringComparison.Ordinal)
+        );
     }
 }

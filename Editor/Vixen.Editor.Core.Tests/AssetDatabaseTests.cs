@@ -60,7 +60,7 @@ public sealed class AssetDatabaseTests {
         // is inherited from.
         Assert.Contains(
             report.Issues,
-            issue => issue is { Kind: AssetIssueKind.MetaCreated, Path: "Assets/Textures/hero.png" }
+            static issue => issue is { Kind: AssetIssueKind.MetaCreated, Path: "Assets/Textures/hero.png" }
         );
     }
 
@@ -78,7 +78,7 @@ public sealed class AssetDatabaseTests {
 
         Assert.False(File.Exists(project.Paths.Absolute("Assets/Textures/gone.png.meta")));
         Assert.True(File.Exists(Path.Combine(project.Paths.OrphanMeta, "Assets/Textures/gone.png.meta")));
-        Assert.Single(report.Issues, issue => issue.Kind == AssetIssueKind.MetaOrphaned);
+        Assert.Single(report.Issues, static issue => issue.Kind == AssetIssueKind.MetaOrphaned);
     }
 
     /// <summary>
@@ -92,8 +92,8 @@ public sealed class AssetDatabaseTests {
 
         // The copy is at the alphabetically earlier path, so a rule based on path order alone would
         // pick the wrong one — which is what makes this test about the hash.
-        project.Add("Assets/Copy/hero.png", "different bytes", shared, sourceHash: ProjectFixture.HashOf("original"));
-        project.Add("Assets/Original/hero.png", "original", shared, sourceHash: ProjectFixture.HashOf("original"));
+        project.Add("Assets/Copy/hero.png", "different bytes", shared, ProjectFixture.HashOf("original"));
+        project.Add("Assets/Original/hero.png", "original", shared, ProjectFixture.HashOf("original"));
 
         var database = new AssetDatabase(project.Paths);
         var report = database.Scan();
@@ -101,19 +101,27 @@ public sealed class AssetDatabaseTests {
         Assert.True(database.TryGetByGuid(shared, out var kept));
         Assert.Equal("Assets/Original/hero.png", kept.Path);
 
-        var issue = Assert.Single(report.Issues, issue => issue.Kind == AssetIssueKind.DuplicateGuid);
+        var issue = Assert.Single(report.Issues, static issue => issue.Kind == AssetIssueKind.DuplicateGuid);
         Assert.Contains("Assets/Copy/hero.png", issue.Message, StringComparison.Ordinal);
         Assert.Contains("Assets/Original/hero.png", issue.Message, StringComparison.Ordinal);
 
         // And the loser really was re-GUIDed on disk, not just in memory.
         Assert.True(database.TryGetByPath("Assets/Copy/hero.png", out var loser));
         Assert.NotEqual(shared, loser.Guid);
-        Assert.Contains(loser.Guid.ToString(), File.ReadAllText(project.Paths.Absolute("Assets/Copy/hero.png.meta")), StringComparison.Ordinal);
+        Assert.Contains(
+            loser.Guid.ToString(),
+            File.ReadAllText(project.Paths.Absolute("Assets/Copy/hero.png.meta")),
+            StringComparison.Ordinal
+        );
     }
 
     /// <summary>
-    ///     ⚠ <b>Every sidecar a scan writes or moves is in <see cref="ScanReport.Written" />, and nothing
-    ///     else is (#1488).</b> It is what a watcher over <c>Assets/</c> is told to ignore, so a write
+    ///     ⚠
+    ///     <b>
+    ///         Every sidecar a scan writes or moves is in <see cref="ScanReport.Written" />, and nothing
+    ///         else is (#1488).
+    ///     </b>
+    ///     It is what a watcher over <c>Assets/</c> is told to ignore, so a write
     ///     missing from it echoes back as an outside change and a path it names wrongly hides one.
     /// </summary>
     [Fact]
@@ -145,8 +153,12 @@ public sealed class AssetDatabaseTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>Every sidecar a scan writes or moves is announced through <see cref="AssetDatabase.Writing" />
-    ///     before it is touched (#1497)</b>, so a watcher told by the event never sees the write first —
+    ///     ⚠
+    ///     <b>
+    ///         Every sidecar a scan writes or moves is announced through <see cref="AssetDatabase.Writing" />
+    ///         before it is touched (#1497)
+    ///     </b>
+    ///     , so a watcher told by the event never sees the write first —
     ///     whichever of the editor's dozen scanning call sites ran the scan.
     /// </summary>
     [Fact]
@@ -254,7 +266,7 @@ public sealed class AssetDatabaseTests {
         var report = database.Scan();
 
         Assert.Equal("this is not a sidecar\n", File.ReadAllText(project.Paths.Absolute("Assets/hero.png.meta")));
-        Assert.Single(report.Issues, issue => issue.Kind == AssetIssueKind.MetaUnreadable);
+        Assert.Single(report.Issues, static issue => issue.Kind == AssetIssueKind.MetaUnreadable);
         Assert.False(database.TryGetByPath("Assets/hero.png", out _));
     }
 
@@ -405,7 +417,7 @@ public sealed class AssetDatabaseTests {
 
         Assert.Equal(1, report.Assets);
         Assert.False(loaded.TryGetByGuid(doomed, out _));
-        Assert.Single(report.Issues, issue => issue.Kind == AssetIssueKind.MetaOrphaned);
+        Assert.Single(report.Issues, static issue => issue.Kind == AssetIssueKind.MetaOrphaned);
     }
 
     /// <summary>
@@ -467,13 +479,16 @@ public sealed class AssetDatabaseTests {
         database.Save();
 
         var text = File.ReadAllText(project.Paths.GuidIndexFile);
-        var entry = text.Split('\n').Single(line => line.Contains("Assets/hero.png", StringComparison.Ordinal));
+        var entry = text.Split('\n').Single(static line => line.Contains("Assets/hero.png", StringComparison.Ordinal));
         var columns = entry.Split('\t');
 
         Assert.StartsWith("vixen-guid-index 2\nscanned\t", text, StringComparison.Ordinal);
         Assert.Equal(hero.ToString(), columns[0]);
         Assert.Equal("TextureImporter", columns[3]);
-        Assert.Equal(new FileInfo(project.Paths.Absolute("Assets/hero.png.meta")).Length, long.Parse(columns[4], CultureInfo.InvariantCulture));
+        Assert.Equal(
+            new FileInfo(project.Paths.Absolute("Assets/hero.png.meta")).Length,
+            long.Parse(columns[4], CultureInfo.InvariantCulture)
+        );
         Assert.EndsWith("Z", columns[5], StringComparison.Ordinal);
         Assert.Equal("Assets/hero.png", columns[6]);
         Assert.Contains("\nend\t1\n", text, StringComparison.Ordinal);
@@ -496,8 +511,12 @@ public sealed class AssetDatabaseTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The property three issues accused this scan of breaking, held here rather than
-    ///         four hundred seconds away.</b> #748, #751 and #769 all report
+    ///         ⚠
+    ///         <b>
+    ///             The property three issues accused this scan of breaking, held here rather than
+    ///             four hundred seconds away.
+    ///         </b>
+    ///         #748, #751 and #769 all report
     ///         <c>GridViewTests.A_folder_of_thousands_costs_a_pool_rather_than_thousands_of_elements</c>
     ///         counting 1 999 of 2 000, and #751's reading is that "the lost entry is inside the scan
     ///         or inside what the browser keeps". Nothing in this assembly covered the shape that test
@@ -528,12 +547,12 @@ public sealed class AssetDatabaseTests {
 
         // The two thousand files and the folder holding them, which is an asset too.
         Assert.Equal(2001, minting.Assets);
-        Assert.All(minting.Issues, issue => Assert.Equal(AssetIssueKind.MetaCreated, issue.Kind));
+        Assert.All(minting.Issues, static issue => Assert.Equal(AssetIssueKind.MetaCreated, issue.Kind));
         Assert.Equal(2001, minting.Issues.Count);
 
         Assert.Equal(
             2000,
-            database.Entries.Count(entry =>
+            database.Entries.Count(static entry =>
                 !entry.IsFolder && entry.Path.StartsWith("Assets/Many/", StringComparison.Ordinal)
             )
         );
@@ -561,8 +580,12 @@ public sealed class AssetDatabaseTests {
     ///     read whole documents again, not to police a machine's disk.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>A wall-clock threshold under a parallel test run measures the machine as much as the
-    ///     code</b>, which is why the assertion that carries the meaning is
+    ///     ⚠
+    ///     <b>
+    ///         A wall-clock threshold under a parallel test run measures the machine as much as the
+    ///         code
+    ///     </b>
+    ///     , which is why the assertion that carries the meaning is
     ///     <see cref="ScanReport.Rescanned" /> and not <see cref="ScanReport.Elapsed" />: how many
     ///     sidecars a scan opened is a property of the algorithm and is the same on every machine,
     ///     where the ten seconds is a smoke alarm with the batteries deliberately half out.
@@ -689,7 +712,7 @@ public sealed class AssetDatabaseTests {
 
         var row = Assert.Single(
             File.ReadAllLines(project.Paths.GuidIndexFile),
-            line => line.EndsWith("\tAssets/hero.png", StringComparison.Ordinal)
+            static line => line.EndsWith("\tAssets/hero.png", StringComparison.Ordinal)
         );
 
         // Field 4 is the recorded length. -1 is MetaStamp.Unknown, which matches no real file.

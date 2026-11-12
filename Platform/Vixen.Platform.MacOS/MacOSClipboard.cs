@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Diagnostics.CodeAnalysis;
-using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
 
 namespace Vixen.Platform.MacOS;
@@ -18,8 +17,11 @@ namespace Vixen.Platform.MacOS;
 ///         map onto three real ones would help nobody.
 ///     </para>
 ///     <para>
-///         <b>Reading an image goes through <c>NSBitmapImageRep</c> and then reads its bytes
-///         directly.</b> The alternative — drawing the representation into a second one of a known
+///         <b>
+///             Reading an image goes through <c>NSBitmapImageRep</c> and then reads its bytes
+///             directly.
+///         </b>
+///         The alternative — drawing the representation into a second one of a known
 ///         layout — is what a graphics application does and needs a graphics context, a saved state
 ///         and an <c>NSRect</c> through <c>objc_msgSend</c>. Reading the bytes handles what a
 ///         pasteboard actually contains: eight bits a sample, interleaved, three or four samples.
@@ -202,8 +204,7 @@ public sealed unsafe class MacOSClipboard(IClipboard fallback) : IClipboard {
         }
     }
 
-    static nint Pasteboard() =>
-        ObjC.Send(ObjC.GetClass("NSPasteboard"), ObjC.Selector("generalPasteboard"));
+    static nint Pasteboard() => ObjC.Send(ObjC.GetClass("NSPasteboard"), ObjC.Selector("generalPasteboard"));
 
     /// <summary>The <c>NSData</c> the pasteboard holds for a type, or nothing.</summary>
     static nint Data(string type) {
@@ -226,7 +227,7 @@ public sealed unsafe class MacOSClipboard(IClipboard fallback) : IClipboard {
             return [];
         }
 
-        return new ReadOnlySpan<byte>((void*)pointer, length).ToArray();
+        return [..new ReadOnlySpan<byte>((void*)pointer, length)];
     }
 
     /// <summary>Puts one type on the pasteboard, replacing what was there.</summary>
@@ -269,8 +270,14 @@ public sealed unsafe class MacOSClipboard(IClipboard fallback) : IClipboard {
         var planar = ObjC.SendBool(representation, ObjC.Selector("isPlanar"));
         var source = ObjC.Send(representation, ObjC.Selector("bitmapData"));
 
-        if (width <= 0 || height <= 0 || bitsPerSample != 8 || samples is not (3 or 4) || planar
-            || (format & FloatingPoint) != 0 || source == 0 || stride < width * samples) {
+        if (width <= 0
+            || height <= 0
+            || bitsPerSample != 8
+            || samples is not (3 or 4)
+            || planar
+            || (format & FloatingPoint) != 0
+            || source == 0
+            || stride < width * samples) {
             return false;
         }
 
@@ -308,6 +315,5 @@ public sealed unsafe class MacOSClipboard(IClipboard fallback) : IClipboard {
         return true;
     }
 
-    static byte Unpremultiply(byte channel, byte alpha) =>
-        (byte)Math.Min(255, (channel * 255 + alpha / 2) / alpha);
+    static byte Unpremultiply(byte channel, byte alpha) => (byte)Math.Min(255, (channel * 255 + alpha / 2) / alpha);
 }

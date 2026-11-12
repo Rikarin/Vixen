@@ -8,26 +8,30 @@ namespace Vixen.Editor.Plugin.Generator.Tests;
 
 /// <summary>Doc 50 § D5: what the generator writes for an in-tree module, and what it refuses.</summary>
 /// <remarks>
-///     ⚠ <b>Whether the generated registration does the same thing as the scan is not asserted
-///     here</b> — that needs the scan, which lives in <c>Vixen.Editor.App</c>, and is
+///     ⚠
+///     <b>
+///         Whether the generated registration does the same thing as the scan is not asserted
+///         here
+///     </b>
+///     — that needs the scan, which lives in <c>Vixen.Editor.App</c>, and is
 ///     <c>DeclaredParityTests</c> there. What is here is the generator alone: that it writes code that
 ///     compiles, writes nothing when there is nothing to write, and turns every way a declaration can
 ///     be wrong into a compile error with its own id.
 /// </remarks>
 public class DeclaredRegistrationTests {
     const string Usings = """
-        using System;
-        using System.Collections.Generic;
-        using Vixen.Editor.Core;
-        using Vixen.Editor.Inspector;
-        using Vixen.Editor.Plugin;
-        using Vixen.Editor.SceneView;
-        using Vixen.Editor.Ui;
-        using Vixen.Ui;
+                          using System;
+                          using System.Collections.Generic;
+                          using Vixen.Editor.Core;
+                          using Vixen.Editor.Inspector;
+                          using Vixen.Editor.Plugin;
+                          using Vixen.Editor.SceneView;
+                          using Vixen.Editor.Ui;
+                          using Vixen.Ui;
 
-        namespace Fixture;
+                          namespace Fixture;
 
-        """;
+                          """;
 
     [Fact]
     public void The_fixture_with_every_attribute_generates_a_register_that_compiles() {
@@ -40,7 +44,11 @@ public class DeclaredRegistrationTests {
 
         Assert.Contains("namespace Fixture;", source, StringComparison.Ordinal);
         Assert.Contains("internal static partial class Declared", source, StringComparison.Ordinal);
-        Assert.Contains("public static void Register(global::Vixen.Editor.Plugin.PluginContext context)", source, StringComparison.Ordinal);
+        Assert.Contains(
+            "public static void Register(global::Vixen.Editor.Plugin.PluginContext context)",
+            source,
+            StringComparison.Ordinal
+        );
 
         // ⚠ Every kind is in it, by the record or the call it ends in. A generator that silently
         // dropped one kind would still compile.
@@ -81,19 +89,71 @@ public class DeclaredRegistrationTests {
     [InlineData("""[EditorMenu("Tools/Go")] public static int Go() => 1;""", "VXP0001", "returns Int32")]
     [InlineData("""[EditorMenu("Tools/Go")] static void Go() { }""", "VXP0001", "not public and static")]
     [InlineData("""[EditorMenu("Tools")] public const int Go = 1;""", "VXP0001", "is not a string")]
-    [InlineData("""[EditorMenu("Tools")] public static void Go() { }""", "VXP0004", "'Tools' is not a path to a menu line")]
-    [InlineData("""[EditorMenu("Tools", Id = "x")] public const string Go = "x";""", "VXP0005", "names an Id or a Title")]
-    [InlineData("""[EditorMenu("Tools/Go", Title = "Nowhere")] public static void Go() { }""", "VXP0003", "declares a public static StringId called Nowhere")]
-    [InlineData("""[EditorMenu("Tools/Go", Strings = typeof(EditorStrings))] public static void Go() { }""", "VXP0003", "no Title to find in it")]
-    [InlineData("""[CustomInspector(typeof(string))] public static void Draw(UiElement body) { }""", "VXP0001", "static void (UiElement body, EditTarget target)")]
-    [InlineData("""[CreateAssetMenu("Thing", "thing")] public static string Make() => "";""", "VXP0001", "'thing' is not an extension")]
-    [InlineData("""[Overlay("Over")] public static void Build(UiElement host) { }""", "VXP0001", "static void (UiElement host, IViewportPane pane)")]
-    [InlineData("""[Overlay("Over")] public static void Build(UiElement host, SceneViewport pane) { }""", "VXP0001", "static void (UiElement host, IViewportPane pane)")]
-    [InlineData("""[DrawGizmo(typeof(string))] public static void Draw(GizmoDraw draw) { }""", "VXP0001", "GizmoPlacement placement")]
-    [InlineData("""[CreateAssetMenu("Thing", ".thing", Title = "Nowhere")] public static string Make() => "";""", "VXP0003", "declares a public static StringId called Nowhere")]
-    [InlineData("""[CreateAssetMenu("Thing", ".thing", Strings = typeof(EditorStrings))] public static string Make() => "";""", "VXP0003", "no Title to find in it")]
-    [InlineData("""[Overlay("Over", Title = "Nowhere")] public static void Build(UiElement host, IViewportPane pane) { }""", "VXP0003", "declares a public static StringId called Nowhere")]
-    [InlineData("""[Overlay("Over", Strings = typeof(EditorStrings))] public static void Build(UiElement host, IViewportPane pane) { }""", "VXP0003", "no Title to find in it")]
+    [InlineData(
+        """[EditorMenu("Tools")] public static void Go() { }""",
+        "VXP0004",
+        "'Tools' is not a path to a menu line"
+    )]
+    [InlineData(
+        """[EditorMenu("Tools", Id = "x")] public const string Go = "x";""",
+        "VXP0005",
+        "names an Id or a Title"
+    )]
+    [InlineData(
+        """[EditorMenu("Tools/Go", Title = "Nowhere")] public static void Go() { }""",
+        "VXP0003",
+        "declares a public static StringId called Nowhere"
+    )]
+    [InlineData(
+        """[EditorMenu("Tools/Go", Strings = typeof(EditorStrings))] public static void Go() { }""",
+        "VXP0003",
+        "no Title to find in it"
+    )]
+    [InlineData(
+        """[CustomInspector(typeof(string))] public static void Draw(UiElement body) { }""",
+        "VXP0001",
+        "static void (UiElement body, EditTarget target)"
+    )]
+    [InlineData(
+        """[CreateAssetMenu("Thing", "thing")] public static string Make() => "";""",
+        "VXP0001",
+        "'thing' is not an extension"
+    )]
+    [InlineData(
+        """[Overlay("Over")] public static void Build(UiElement host) { }""",
+        "VXP0001",
+        "static void (UiElement host, IViewportPane pane)"
+    )]
+    [InlineData(
+        """[Overlay("Over")] public static void Build(UiElement host, SceneViewport pane) { }""",
+        "VXP0001",
+        "static void (UiElement host, IViewportPane pane)"
+    )]
+    [InlineData(
+        """[DrawGizmo(typeof(string))] public static void Draw(GizmoDraw draw) { }""",
+        "VXP0001",
+        "GizmoPlacement placement"
+    )]
+    [InlineData(
+        """[CreateAssetMenu("Thing", ".thing", Title = "Nowhere")] public static string Make() => "";""",
+        "VXP0003",
+        "declares a public static StringId called Nowhere"
+    )]
+    [InlineData(
+        """[CreateAssetMenu("Thing", ".thing", Strings = typeof(EditorStrings))] public static string Make() => "";""",
+        "VXP0003",
+        "no Title to find in it"
+    )]
+    [InlineData(
+        """[Overlay("Over", Title = "Nowhere")] public static void Build(UiElement host, IViewportPane pane) { }""",
+        "VXP0003",
+        "declares a public static StringId called Nowhere"
+    )]
+    [InlineData(
+        """[Overlay("Over", Strings = typeof(EditorStrings))] public static void Build(UiElement host, IViewportPane pane) { }""",
+        "VXP0003",
+        "no Title to find in it"
+    )]
     public void A_wrong_declaration_is_a_compile_error_with_its_own_id(string member, string id, string says) {
         var result = GeneratorHarness.Run(Usings + "public static class Holder {\n    " + member + "\n}\n");
 
@@ -115,13 +175,14 @@ public class DeclaredRegistrationTests {
     [Fact]
     public void A_title_two_declaration_classes_have_is_refused_rather_than_guessed() {
         var result = GeneratorHarness.Run(
-            Usings + """
-                public static class OneStrings { public static StringId Go { get; } = new("one.go", "Go"); }
-                public static class TwoStrings { public static StringId Go { get; } = new("two.go", "Go"); }
-                public static class Holder {
-                    [EditorMenu("Tools/Go", Title = "Go")] public static void Go() { }
-                }
-                """
+            Usings
+            + """
+              public static class OneStrings { public static StringId Go { get; } = new("one.go", "Go"); }
+              public static class TwoStrings { public static StringId Go { get; } = new("two.go", "Go"); }
+              public static class Holder {
+                  [EditorMenu("Tools/Go", Title = "Go")] public static void Go() { }
+              }
+              """
         );
 
         var diagnostic = Assert.Single(result.Generator);
@@ -133,30 +194,36 @@ public class DeclaredRegistrationTests {
     [Fact]
     public void Strings_names_the_class_when_the_title_is_another_assemblys() {
         var result = GeneratorHarness.Run(
-            Usings + """
-                public static class Holder {
-                    [EditorMenu("Scene/Geometry", Title = nameof(EditorStrings.MenuGeometry), Strings = typeof(EditorStrings))]
-                    public static void Go() { }
-                }
-                """
+            Usings
+            + """
+              public static class Holder {
+                  [EditorMenu("Scene/Geometry", Title = nameof(EditorStrings.MenuGeometry), Strings = typeof(EditorStrings))]
+                  public static void Go() { }
+              }
+              """
         );
 
         Assert.Empty(result.Generator);
         Assert.Empty(result.Errors);
-        Assert.Contains("global::Vixen.Editor.Ui.EditorStrings.MenuGeometry", Assert.Single(result.Sources), StringComparison.Ordinal);
+        Assert.Contains(
+            "global::Vixen.Editor.Ui.EditorStrings.MenuGeometry",
+            Assert.Single(result.Sources),
+            StringComparison.Ordinal
+        );
     }
 
     /// <summary>The scan would skip it; the generated class could not name it. Refused either way.</summary>
     [Fact]
     public void A_declaration_in_a_type_the_generated_class_cannot_name_is_refused() {
         var result = GeneratorHarness.Run(
-            Usings + """
-                public static class Outer {
-                    static class Hidden {
-                        [EditorMenu("Tools/Go")] public static void Go() { }
-                    }
-                }
-                """
+            Usings
+            + """
+              public static class Outer {
+                  static class Hidden {
+                      [EditorMenu("Tools/Go")] public static void Go() { }
+                  }
+              }
+              """
         );
 
         Assert.Equal("VXP0002", Assert.Single(result.Generator).Id);
@@ -164,7 +231,8 @@ public class DeclaredRegistrationTests {
 
     [Fact]
     public void A_drawer_that_is_not_one_is_refused() {
-        var result = GeneratorHarness.Run(Usings + "[CustomDrawer(typeof(decimal))] public sealed class NotADrawer { }");
+        var result =
+            GeneratorHarness.Run(Usings + "[CustomDrawer(typeof(decimal))] public sealed class NotADrawer { }");
 
         var diagnostic = Assert.Single(result.Generator);
 
@@ -183,14 +251,15 @@ public class DeclaredRegistrationTests {
     [Fact]
     public void A_partial_type_registers_its_submenus_once() {
         var result = GeneratorHarness.Run(
-            Usings + """
-                [EditorSubmenu("Tools/Things")]
-                public static partial class Holder { }
+            Usings
+            + """
+              [EditorSubmenu("Tools/Things")]
+              public static partial class Holder { }
 
-                public static partial class Holder {
-                    [EditorMenu("Tools/Things")] public const string Go = "go";
-                }
-                """
+              public static partial class Holder {
+                  [EditorMenu("Tools/Things")] public const string Go = "go";
+              }
+              """
         );
 
         var source = Assert.Single(result.Sources);
@@ -206,17 +275,18 @@ public class DeclaredRegistrationTests {
     [Fact]
     public void Attributes_on_any_part_of_a_partial_type_register_once_each() {
         var result = GeneratorHarness.Run(
-            Usings + """
-                public static partial class Holder {
-                    [EditorMenu("Tools/Things")] public const string Go = "go";
-                }
+            Usings
+            + """
+              public static partial class Holder {
+                  [EditorMenu("Tools/Things")] public const string Go = "go";
+              }
 
-                [EditorSubmenu("Tools/Things")]
-                public static partial class Holder { }
+              [EditorSubmenu("Tools/Things")]
+              public static partial class Holder { }
 
-                [EditorSubmenu("Tools/Others")]
-                public static partial class Holder { }
-                """
+              [EditorSubmenu("Tools/Others")]
+              public static partial class Holder { }
+              """
         );
 
         var source = Assert.Single(result.Sources);

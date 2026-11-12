@@ -10,8 +10,12 @@ namespace Vixen.Ui.Tests;
 /// <summary><c>tab-size</c>: where the stops are, what lands on them, and what the caret says.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>The oracle throughout is a string of spaces, and it is closed form in the sense this
-///         repo means.</b> CSS Text 3 § 6.1 defines the <c>&lt;number&gt;</c> form as that many
+///         ⚠
+///         <b>
+///             The oracle throughout is a string of spaces, and it is closed form in the sense this
+///             repo means.
+///         </b>
+///         CSS Text 3 § 6.1 defines the <c>&lt;number&gt;</c> form as that many
 ///         advances of the element's own space, so <c>"\tx"</c> under <c>tab-8</c> must draw the
 ///         same picture as eight spaces and an <c>x</c> — a comparison that knows nothing about
 ///         <c>NextStop</c>, about the pen array, or about which pass measured what. An
@@ -34,7 +38,7 @@ public class TabSizeTests {
 
     static FontFace LoadFont() {
         using var stream = Assembly.GetExecutingAssembly()
-            .GetManifestResourceStream("Vixen.Ui.Tests.Fonts.OpenSans-Regular.ttf")
+                .GetManifestResourceStream("Vixen.Ui.Tests.Fonts.OpenSans-Regular.ttf")
             ?? throw new InvalidOperationException("the test font is not embedded");
 
         using var memory = new MemoryStream();
@@ -93,8 +97,7 @@ public class TabSizeTests {
     ///     styled one right.
     /// </remarks>
     [Fact]
-    public void A_tab_is_eight_spaces_by_default() =>
-        Assert.Equal(Width("        x"), Width("\tx"), Tolerance);
+    public void A_tab_is_eight_spaces_by_default() => Assert.Equal(Width("        x"), Width("\tx"), Tolerance);
 
     /// <summary>The count is the property's, so four spaces under <c>tab-size: 4</c>.</summary>
     [Fact]
@@ -105,15 +108,18 @@ public class TabSizeTests {
 
     /// <summary>Two tabs in a row are two columns, not one.</summary>
     /// <remarks>
-    ///     ⚠ <b>The assertion that separates "the next stop strictly after the pen" from "the
-    ///     nearest stop at or after it", and the two rules agree everywhere else.</b> Under the
+    ///     ⚠
+    ///     <b>
+    ///         The assertion that separates "the next stop strictly after the pen" from "the
+    ///         nearest stop at or after it", and the two rules agree everywhere else.
+    ///     </b>
+    ///     Under the
     ///     second reading the first tab lands exactly on stop one, the second finds itself already
     ///     on a stop and advances nothing — so a tabbed table's second column collapses onto its
     ///     first and it reads as a dropped character rather than a wrong width.
     /// </remarks>
     [Fact]
-    public void Two_tabs_are_two_columns() =>
-        Assert.Equal(Width("                x"), Width("\t\tx"), Tolerance);
+    public void Two_tabs_are_two_columns() => Assert.Equal(Width("                x"), Width("\t\tx"), Tolerance);
 
     /// <summary>A tab that begins exactly on a stop still advances a whole one.</summary>
     /// <remarks>
@@ -127,13 +133,16 @@ public class TabSizeTests {
 
     /// <summary>A tab in the middle of a word snaps to the grid rather than adding to the pen.</summary>
     /// <remarks>
-    ///     ⚠ <b>This is the one an "advance by N spaces" implementation fails, and it is the whole
-    ///     difference between a tab and a wide space.</b> Neither `a` nor `ab` is a whole number of
+    ///     ⚠
+    ///     <b>
+    ///         This is the one an "advance by N spaces" implementation fails, and it is the whole
+    ///         difference between a tab and a wide space.
+    ///     </b>
+    ///     Neither `a` nor `ab` is a whole number of
     ///     spaces wide, so if the tab added eight spaces the `x` would land at two different
     ///     arbitrary offsets; a stop makes it land at exactly eight spaces from the line's start
     ///     whatever precedes it. Two prefixes of different widths therefore put the `x` in the
     ///     *same* place, which is what a column is.
-    ///
     ///     ⚠ <b>Both prefixes have to be inside the same column for that to be the claim.</b> `abcd`
     ///     is 36px in Open Sans at 16px and a stop is 33.25px, so a first draft of this test used a
     ///     prefix that had already overflowed into column two and asserted the implementation was
@@ -180,13 +189,16 @@ public class TabSizeTests {
 
     /// <summary>A negative count clamps to zero rather than running the pen backwards.</summary>
     [Fact]
-    public void A_negative_count_clamps() =>
-        Assert.Equal(Width("ax"), Width("a\tx", "tab-size: -4;"), Tolerance);
+    public void A_negative_count_clamps() => Assert.Equal(Width("ax"), Width("a\tx", "tab-size: -4;"), Tolerance);
 
     /// <summary>A length is refused, so the element keeps the initial eight.</summary>
     /// <remarks>
-    ///     ⚠ <b>Refused rather than resolved, and the test asserts the refusal is the *documented*
-    ///     one.</b> A browser drops a declaration it cannot use and the element keeps the initial
+    ///     ⚠
+    ///     <b>
+    ///         Refused rather than resolved, and the test asserts the refusal is the *documented*
+    ///         one.
+    ///     </b>
+    ///     A browser drops a declaration it cannot use and the element keeps the initial
     ///     value; a reader that fell back to zero instead would make <c>tab-size: 20px</c> delete
     ///     every tab in the paragraph, which is a much worse answer than ignoring it.
     /// </remarks>
@@ -200,8 +212,12 @@ public class TabSizeTests {
 
     /// <summary>A tab puts no glyph on the line, whatever the face mapped U+0009 to.</summary>
     /// <remarks>
-    ///     ⚠ <b>This is the defect the feature actually fixes, and it was visible before any
-    ///     class was written.</b> HarfBuzz runs U+0009 through the cmap like anything else, Open
+    ///     ⚠
+    ///     <b>
+    ///         This is the defect the feature actually fixes, and it was visible before any
+    ///         class was written.
+    ///     </b>
+    ///     HarfBuzz runs U+0009 through the cmap like anything else, Open
     ///     Sans has no glyph for it, and the result is .notdef — a tofu box in the middle of the
     ///     label. Counted as glyphs rather than asserted as a picture because the claim is about
     ///     what is emitted at all; <see cref="A_tab_is_a_gap_and_not_a_box" /> is the pixels.
@@ -295,8 +311,12 @@ public class TabSizeTests {
 
     /// <summary>The wrapper measures the stop too, so a tab moves the break.</summary>
     /// <remarks>
-    ///     ⚠ <b>The measure and the draw are two passes over different data and both had to learn
-    ///     the rule.</b> A tab measured as a glyph in <c>LineWrapper</c> and as a stop in
+    ///     ⚠
+    ///     <b>
+    ///         The measure and the draw are two passes over different data and both had to learn
+    ///         the rule.
+    ///     </b>
+    ///     A tab measured as a glyph in <c>LineWrapper</c> and as a stop in
     ///     <c>TextLine</c> gives a paragraph that breaks where it would have fitted and draws past
     ///     the edge it was broken for — the failure this file's siblings call "breaks in one place,
     ///     draws in another". The oracle is the same string of spaces: the tabbed text and the
@@ -320,8 +340,12 @@ public class TabSizeTests {
 
     /// <summary>A tab's column is measured from the line box, so an indent does not shift the grid.</summary>
     /// <remarks>
-    ///     ⚠ <b><c>TextLine</c> counts from <c>Offset</c> and <c>LineWrapper</c> from its own origin,
-    ///     and the two arithmetics have to agree.</b> CSS lays the stops out from the start edge of
+    ///     ⚠
+    ///     <b>
+    ///         <c>TextLine</c> counts from <c>Offset</c> and <c>LineWrapper</c> from its own origin,
+    ///         and the two arithmetics have to agree.
+    ///     </b>
+    ///     CSS lays the stops out from the start edge of
     ///     the line box, so an indented first line's columns are the block's columns — which is what
     ///     makes a tabbed table under a hanging indent readable. A pen that started at the glyphs
     ///     instead would put every indented tabbed line a fraction of a stop out.
@@ -346,7 +370,7 @@ public class TabSizeTests {
         var block = element.Block(width);
         Assert.NotNull(block);
 
-        return [.. block.Lines];
+        return [..block.Lines];
     }
 
     // ────────────────────────────────────────────────────────────────────────────────────────
@@ -420,8 +444,12 @@ public class TabSizeTests {
 
     /// <summary>Text with no tab in it measures identically whatever the count says.</summary>
     /// <remarks>
-    ///     ⚠ <b>The regression this property is most likely to cause, and it is asserted rather than
-    ///     assumed.</b> <c>UiElement.TabStop</c> returns zero for a string with no tab, which takes
+    ///     ⚠
+    ///     <b>
+    ///         The regression this property is most likely to cause, and it is asserted rather than
+    ///         assumed.
+    ///     </b>
+    ///     <c>UiElement.TabStop</c> returns zero for a string with no tab, which takes
     ///     the wrapper's and the line's original paths — so every existing paragraph in the engine
     ///     measures to the same number it did before. If it did not, the layout corpora would be the
     ///     ones to say so, in four places each.

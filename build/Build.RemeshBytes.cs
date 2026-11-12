@@ -18,8 +18,12 @@ using static Nuke.Common.Tools.DotNet.DotNetTasks;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>The gap this fills.</b> § Exit 3 asks for <i>"ten runs × {1, 4, 16} threads × three
-///         platforms, byte-identical output"</i>. <c>RemeshDeterminismTests</c> covers the first two
+///         <b>The gap this fills.</b> § Exit 3 asks for
+///         <i>
+///             "ten runs × {1, 4, 16} threads × three
+///             platforms, byte-identical output"
+///         </i>
+///         . <c>RemeshDeterminismTests</c> covers the first two
 ///         axes honestly and the third has never been measured: every assertion in it is self-relative,
 ///         so all three legs of <c>ci.yml</c>'s <c>test</c> job would pass while producing three
 ///         different meshes. Unlike the wire format, whose oracle is bytes committed in
@@ -40,7 +44,8 @@ using static Nuke.Common.Tools.DotNet.DotNetTasks;
 ///         ⚠ <b>Nothing here is imported, and that rules out <c>vixen remesh</c>.</b> A CLI run would
 ///         have been the closer parallel to <c>ContentBytes</c>, but its input goes through
 ///         <c>ModelReader</c> and therefore Assimp — and the legs open different builds of it:
-///         <c>Ultz.Native.Assimp</c> carries a 5 for Linux and macOS and a 6 for Windows. Mesh bytes differing between two builds of a native library is a real thing to
+///         <c>Ultz.Native.Assimp</c> carries a 5 for Linux and macOS and a 6 for Windows. Mesh bytes differing between two
+///         builds of a native library is a real thing to
 ///         know and is not a determinism defect in Vixen; it would have made this leg red on day one
 ///         for the wrong reason. <c>ContentBytes</c> refused a model in its fixture for the same
 ///         reason, in its own words. The fixture is <c>MeshShapes</c>' sphere, built from arithmetic.
@@ -59,8 +64,12 @@ using static Nuke.Common.Tools.DotNet.DotNetTasks;
 ///         the split the two halves are for.
 ///     </para>
 ///     <para>
-///         ⚠ <b><c>--no-build</c> means a stale assembly writes a stale manifest, and locally that
-///         bites.</b> In CI the job's own <c>Test</c> step has just compiled the tree, so the binary is
+///         ⚠
+///         <b>
+///             <c>--no-build</c> means a stale assembly writes a stale manifest, and locally that
+///             bites.
+///         </b>
+///         In CI the job's own <c>Test</c> step has just compiled the tree, so the binary is
 ///         the checkout; a developer running <c>nuke RemeshBytes --skip Compile</c> after editing a
 ///         stage will hash the previous build and read it as a result. Measured while this was being
 ///         written — a one-part-in-ten-million change in <c>SurfaceProjector</c> survived a revert
@@ -74,49 +83,56 @@ partial class Build {
 
     AbsolutePath RemeshBytesDirectory => ArtifactsDirectory / "remesh-bytes";
 
-    Target RemeshBytes => definition => definition
-        .Description("Remeshes the determinism fixture at every worker count and writes a manifest of the bytes it produced")
-        .DependsOn(Compile)
-        .Produces(RemeshBytesDirectory / "**")
-        .Executes(() => {
-                RemeshBytesDirectory.CreateOrCleanDirectory();
+    Target RemeshBytes =>
+        definition => definition
+            .Description(
+                "Remeshes the determinism fixture at every worker count and writes a manifest of the bytes it produced"
+            )
+            .DependsOn(Compile)
+            .Produces(RemeshBytesDirectory / "**")
+            .Executes(() => {
+                    RemeshBytesDirectory.CreateOrCleanDirectory();
 
-                // Set on this process so the test host inherits it, which is what GoldenImages does
-                // and for the same reason: Nuke's typed environment API has moved between versions
-                // and the inherited environment has not.
-                Environment.SetEnvironmentVariable("VIXEN_REMESH_BYTES", RemeshBytesDirectory);
+                    // Set on this process so the test host inherits it, which is what GoldenImages does
+                    // and for the same reason: Nuke's typed environment API has moved between versions
+                    // and the inherited environment has not.
+                    Environment.SetEnvironmentVariable("VIXEN_REMESH_BYTES", RemeshBytesDirectory);
 
-                DotNetTest(settings => settings
-                    .SetProjectFile(RootDirectory / "Core" / "Vixen.Geometry.Remeshing.Tests"
-                        / "Vixen.Geometry.Remeshing.Tests.csproj")
-                    .SetConfiguration(Configuration)
-                    .EnableNoRestore()
-                    .EnableNoBuild()
-                    .SetFilter("FullyQualifiedName~RemeshBytesTests")
-                    .SetResultsDirectory(TestResultsDirectory)
-                );
+                    DotNetTest(settings => settings
+                        .SetProjectFile(
+                            RootDirectory
+                            / "Core"
+                            / "Vixen.Geometry.Remeshing.Tests"
+                            / "Vixen.Geometry.Remeshing.Tests.csproj"
+                        )
+                        .SetConfiguration(Configuration)
+                        .EnableNoRestore()
+                        .EnableNoBuild()
+                        .SetFilter("FullyQualifiedName~RemeshBytesTests")
+                        .SetResultsDirectory(TestResultsDirectory)
+                    );
 
-                var manifest = RemeshBytesDirectory / "manifest.txt";
+                    var manifest = RemeshBytesDirectory / "manifest.txt";
 
-                Assert.True(
-                    manifest.FileExists(),
-                    $"no manifest at '{manifest}'. The test ran without VIXEN_REMESH_BYTES reaching it, "
-                    + "so there is nothing for the comparison job to compare and it would have reported agreement."
-                );
+                    Assert.True(
+                        manifest.FileExists(),
+                        $"no manifest at '{manifest}'. The test ran without VIXEN_REMESH_BYTES reaching it, "
+                        + "so there is nothing for the comparison job to compare and it would have reported agreement."
+                    );
 
-                var lines = File.ReadAllLines(manifest);
+                    var lines = File.ReadAllLines(manifest);
 
-                // ⚠ Four lines and four *well-formed* lines are two different claims, and a
-                // half-written manifest satisfies the second on its own. Three of those diff clean.
-                var hashed = lines.Count(line => Regex.IsMatch(line, "^[0-9a-f]{64}  [^ ]+$"));
+                    // ⚠ Four lines and four *well-formed* lines are two different claims, and a
+                    // half-written manifest satisfies the second on its own. Three of those diff clean.
+                    var hashed = lines.Count(line => Regex.IsMatch(line, "^[0-9a-f]{64}  [^ ]+$"));
 
-                Assert.True(
-                    lines.Length == RemeshBytesLegs && hashed == RemeshBytesLegs,
-                    $"the manifest has {lines.Length} lines of which {hashed} name a hashed leg, and there are "
-                    + $"{RemeshBytesLegs} legs. Nothing worth comparing between runners was produced."
-                );
+                    Assert.True(
+                        lines.Length == RemeshBytesLegs && hashed == RemeshBytesLegs,
+                        $"the manifest has {lines.Length} lines of which {hashed} name a hashed leg, and there are "
+                        + $"{RemeshBytesLegs} legs. Nothing worth comparing between runners was produced."
+                    );
 
-                Log.Information("Remesh manifest:\n{Manifest}", string.Join("\n", lines));
-            }
-        );
+                    Log.Information("Remesh manifest:\n{Manifest}", string.Join("\n", lines));
+                }
+            );
 }

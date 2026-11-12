@@ -169,7 +169,7 @@ public sealed class ServiceRegistry : IServiceProvider {
     /// </remarks>
     public bool TryGetValue<T>(out T value) where T : struct {
         if (services.TryGetValue(typeof(T), out var found)) {
-            value = (T) found;
+            value = (T)found;
 
             return true;
         }
@@ -182,8 +182,7 @@ public sealed class ServiceRegistry : IServiceProvider {
     /// <summary>Looks up the service registered under <typeparamref name="T" />, or null.</summary>
     /// <typeparam name="T">The service type.</typeparam>
     /// <returns>The registered instance, or <see langword="null" />.</returns>
-    public T? GetOrDefault<T>() where T : class =>
-        services.TryGetValue(typeof(T), out var service) ? (T)service : null;
+    public T? GetOrDefault<T>() where T : class => services.TryGetValue(typeof(T), out var service) ? (T)service : null;
 
     /// <summary>Whether anything is registered under <typeparamref name="T" />.</summary>
     /// <typeparam name="T">The service type.</typeparam>

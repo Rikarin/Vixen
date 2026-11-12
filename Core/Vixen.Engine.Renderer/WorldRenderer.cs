@@ -73,6 +73,7 @@ public sealed class WorldRenderer : IDisposable {
 
     /// <summary>The checker slot zero of <see cref="Table" /> holds, and the bytes behind it.</summary>
     readonly TextureHandle missingMap;
+
     readonly TextureViewHandle missingMapView;
     readonly BufferHandle missingMapStaging;
 
@@ -228,10 +229,7 @@ public sealed class WorldRenderer : IDisposable {
         // index is the whole of the agreement between this table and `VfxExtractionSystem`.
         describer.VertexSchemas.Add(MeshParticleVertices.Schema);
 
-        Meshes = new() {
-            Pipelines = new(device),
-            Describer = describer
-        };
+        Meshes = new() { Pipelines = new(device), Describer = describer };
 
         Host.Builder.SceneConstants = SceneBlock;
         Host.Builder.ViewConstants = ViewBlock;
@@ -308,10 +306,7 @@ public sealed class WorldRenderer : IDisposable {
         // needs is the number of *active* shapes over morphed instances, which changes every frame a
         // character opens its mouth.
         Morphing = new(device) {
-            Effects = effects,
-            Pipelines = new(device),
-            Descriptors = MaterialDescriptors,
-            Source = Geometry
+            Effects = effects, Pipelines = new(device), Descriptors = MaterialDescriptors, Source = Geometry
         };
 
         Meshes.Add(Morphing);
@@ -504,8 +499,12 @@ public sealed class WorldRenderer : IDisposable {
     ///     Which level of each authored LOD group a view sees, and which it hides.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>Fed by <see cref="LodExtractionSystem" />, which is what this feature spent its whole
-    ///     life without.</b> It was complete and tested and named by neither renderer, so no group
+    ///     ⚠
+    ///     <b>
+    ///         Fed by <see cref="LodExtractionSystem" />, which is what this feature spent its whole
+    ///         life without.
+    ///     </b>
+    ///     It was complete and tested and named by neither renderer, so no group
     ///     was ever registered and no level was ever hidden — a scene with a three-level rock drew
     ///     all three, on top of each other, at every distance. Constructed here rather than in either
     ///     renderer because the editor's renderer builds one of these, so a feature added here
@@ -579,8 +578,12 @@ public sealed class WorldRenderer : IDisposable {
     ///         <see cref="UiRenderFeature.Set" /> every frame, with the geometry the document's
     ///         builder produced — the geometry holds the builder's own lists and is valid for one
     ///         frame, which is why it is pushed per frame rather than held — and with
-    ///         <see cref="UiInterface.Scale" />, ⚠ <b>which is not optional on a display that has
-    ///         more than one pixel per layout unit</b>: it defaults to one, and one is right only
+    ///         <see cref="UiInterface.Scale" />, ⚠
+    ///         <b>
+    ///             which is not optional on a display that has
+    ///             more than one pixel per layout unit
+    ///         </b>
+    ///         : it defaults to one, and one is right only
     ///         for a document laid out in physical pixels. A HUD in points on a 2× display drawn at
     ///         a scale of one clips to the top-left quarter of the window and takes the pointer with
     ///         it, because hit testing is done against a layout that is right. ⚠ The builder that
@@ -589,8 +592,12 @@ public sealed class WorldRenderer : IDisposable {
     ///         <see cref="UiRenderFeature.Soft" /> counts a frame where it did not get it (#1343).
     ///     </para>
     ///     <para>
-    ///         ⚠ <b><see cref="UiRenderFeature.Upload" /> and <see cref="UiRenderFeature.Compose(ICommandList)" />
-    ///         are no longer the host's</b> (#627): <see cref="Draw" /> makes both, before the
+    ///         ⚠
+    ///         <b>
+    ///             <see cref="UiRenderFeature.Upload" /> and <see cref="UiRenderFeature.Compose(ICommandList)" />
+    ///             are no longer the host's
+    ///         </b>
+    ///         (#627): <see cref="Draw" /> makes both, before the
     ///         frame's passes and outside any of them. They were steps four and five of a five-step
     ///         contract, neither optional and each failing differently. ⚠ Skipping <c>Upload</c> was
     ///         described here as drawing the interface out of a buffer nothing wrote; on a real device
@@ -617,15 +624,19 @@ public sealed class WorldRenderer : IDisposable {
     ///         belongs to as often as over it.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>No game head in this repository performs those three steps, and the first of them
-    ///         is why</b> (#627). <c>Vixen.App.Hosting.AppGraphics</c> is the one thing that builds a
+    ///         ⚠
+    ///         <b>
+    ///             No game head in this repository performs those three steps, and the first of them
+    ///             is why
+    ///         </b>
+    ///         (#627). <c>Vixen.App.Hosting.AppGraphics</c> is the one thing that builds a
     ///         game's renderer from data — it resolves the camera's stage, the caster stages and the
     ///         particle stage by name out of the frame document — and it names no interface stage,
     ///         assigns no <see cref="UiRenderFeature.Renderer" /> and mounts nothing. It cannot: a
     ///         <c>UiRenderer</c> needs the shader modules, the only thing that loads them is
     ///         <c>UiShaderLibrary</c> in <c>Platform/Vixen.Ui.Desktop</c>, and a <c>Core/</c>
     ///         assembly referencing <c>Platform/</c> is a <c>CheckArchitecture</c> violation
-    ///         (<c>build/Build.ArchitectureRules.cs:231</c>). So the interface stage is a stage a
+    ///         (<c>build/Build.ArchitectureRules.cs:250</c>). So the interface stage is a stage a
     ///         <i>game's own head</i> declares and drives, the way <c>EditorHost</c> does for the
     ///         editor — and until one does, everything below this line is proved by
     ///         <c>Core/Vixen.Engine.Renderer.Tests/InterfaceInAWorldTests.cs</c> and by nothing that
@@ -633,8 +644,8 @@ public sealed class WorldRenderer : IDisposable {
     ///     </para>
     ///     <para>
     ///         The precedent to copy is already written twice, and neither copy is in the editor
-    ///         alone: <c>Editor/Vixen.Editor.Host/EditorHost.cs:1278</c> and
-    ///         <c>Platform/Vixen.Ui.Desktop/UiApplication.cs:1252</c> both open a device and call
+    ///         alone: <c>Editor/Vixen.Editor.Host/EditorHost.cs:1315</c> and
+    ///         <c>Platform/Vixen.Ui.Desktop/UiApplication.cs:1296</c> both open a device and call
     ///         <c>UiShaderLibrary.Load</c> once per device, sharing the table across every surface.
     ///         Both sit <i>above</i> <c>Core/</c> and <c>Platform/</c> rather than inside either, so
     ///         a game's head can do the same without moving anything — which is what makes the open
@@ -673,9 +684,13 @@ public sealed class WorldRenderer : IDisposable {
     ///         answers.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And one the source <see cref="Mount" /> built has refused for good is drawn in
-    ///         <see cref="MeshExtractionSystem.Material" /> too, but only because the extraction is not
-    ///         handed this property directly</b> (<a href="https://github.com/Rikarin/Vixen/issues/509">#509</a>).
+    ///         ⚠
+    ///         <b>
+    ///             And one the source <see cref="Mount" /> built has refused for good is drawn in
+    ///             <see cref="MeshExtractionSystem.Material" /> too, but only because the extraction is not
+    ///             handed this property directly
+    ///         </b>
+    ///         (<a href="https://github.com/Rikarin/Vixen/issues/509">#509</a>).
     ///         This remark used to promise that for every miss while the extraction waited on a refusal
     ///         for ever; it now asks through a <see cref="FallbackMaterialSource" /> over the mounted
     ///         source, and <see cref="MaterialsFellBack" /> counts what took it. A source a project sets
@@ -879,8 +894,11 @@ public sealed class WorldRenderer : IDisposable {
     /// <summary>What an effect authored as a mesh renderer is drawn with.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b><see cref="ParticleMaterial" />'s counterpart, and a second material rather than a
-    ///         setting on the first.</b> <c>ParticleSprite</c> reads the frame's expanded quads and
+    ///         <b>
+    ///             <see cref="ParticleMaterial" />'s counterpart, and a second material rather than a
+    ///             setting on the first.
+    ///         </b>
+    ///         <c>ParticleSprite</c> reads the frame's expanded quads and
     ///         <c>ParticleMesh</c> reads a mesh's own vertices with a per-instance transform beside
     ///         them, so the two are different vertex layouts and therefore different pipelines. An
     ///         effect drawn with the wrong one has nothing to bind its instance stream to.
@@ -890,7 +908,7 @@ public sealed class WorldRenderer : IDisposable {
     ///         the sprite one.
     ///     </para>
     /// </remarks>
-    public Material MeshParticleMaterial { get; set; } = Vixen.Rendering.Vfx.ParticleMeshMaterial.Default();
+    public Material MeshParticleMaterial { get; set; } = ParticleMeshMaterial.Default();
 
     /// <summary>Points the renderer at a content manager, so mesh references resolve.</summary>
     /// <param name="assets">Where the meshes come from.</param>
@@ -916,9 +934,7 @@ public sealed class WorldRenderer : IDisposable {
                 assets,
                 (long)Math.Max(0, Textures.PoolMegabytes) * 1024 * 1024,
                 Textures.MipBias
-            ) {
-                Logger = logger
-            };
+            ) { Logger = logger };
         // ⚠ `Materials` and not only the texture source: a graph-authored surface's slots are data, so
         // nothing in `Paired` above could have named them and until this line a graph with a sample
         // node drew the fallback checker. See AssetMaterialSource.Materials and #493.
@@ -1077,13 +1093,7 @@ public sealed class WorldRenderer : IDisposable {
         // VirtualGeometryRenderFeature's path and never reaches MorphRenderFeature.Attach, which is
         // how a head with twenty shapes came to draw at rest with every weight applied to nothing and
         // every counter reading healthy.
-        loop.Add(
-            new MorphWeightSystem {
-                Feature = Morphing,
-                Virtualized = Clusters?.Feature,
-                Renderer = Host.System
-            }
-        );
+        loop.Add(new MorphWeightSystem { Feature = Morphing, Virtualized = Clusters?.Feature, Renderer = Host.System });
 
         // ⚠ And the producer `LodRenderFeature` never had. The feature is complete and was named by
         // neither renderer, so no group was ever registered and no level was ever hidden — a scene
@@ -1099,7 +1109,8 @@ public sealed class WorldRenderer : IDisposable {
     /// <exception cref="ArgumentNullException"><paramref name="commands" /> is null.</exception>
     /// <remarks>
     ///     ⚠ <b>The texture copies go on the list before anything samples them</b>, which is the whole
-    ///     reason this exists rather than callers reaching for <see cref="SceneRenderHost.Draw(Vixen.Graphics.ICommandList)" />
+    ///     reason this exists rather than callers reaching for
+    ///     <see cref="SceneRenderHost.Draw(Vixen.Graphics.ICommandList)" />
     ///     directly: a host that draws without this leaves every textured material sampling the table's
     ///     fallback for ever, which is a picture rather than a failure and reads as "all my materials
     ///     are the same flat colour".
@@ -1298,13 +1309,21 @@ public sealed class WorldRenderer : IDisposable {
     ///         material's texture.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The material-side name is the feature's default and not whatever the material
-    ///         chose.</b> <see cref="TexturedMetalRoughnessFeature.BaseColorMap" /> is authorable and
+    ///         ⚠
+    ///         <b>
+    ///             The material-side name is the feature's default and not whatever the material
+    ///             chose.
+    ///         </b>
+    ///         <see cref="TexturedMetalRoughnessFeature.BaseColorMap" /> is authorable and
     ///         this pairing is one entry, so a material that renamed its map to <c>bark</c> samples the
     ///         fallback. That is the shape of the pairing rather than an oversight — a table keyed by
     ///         one name cannot hold two — and closing it means keying the pairing per material, which is
-    ///         a cost every material would pay for the few that rename. ⚠ <b>So it was closed from the
-    ///         other end on 2026-09-09 and the per-material key stays unbuilt</b>:
+    ///         a cost every material would pay for the few that rename. ⚠
+    ///         <b>
+    ///             So it was closed from the
+    ///             other end on 2026-09-09 and the per-material key stays unbuilt
+    ///         </b>
+    ///         :
     ///         <c>MaterialDiagnosticId.RenamedTextureMap</c> refuses the rename where there is an
     ///         author to tell — an error at import, a warning at load, because a compiler change moves
     ///         no importer version and refusing at load would take a shipped mesh off screen. Nothing
@@ -1317,8 +1336,12 @@ public sealed class WorldRenderer : IDisposable {
     ///         than a slot.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Every sampling feature has to be listed, and a feature that is not listed fails
-    ///         exactly like a renamed map.</b> Its index is never written, so it stays zero, so the map
+    ///         ⚠
+    ///         <b>
+    ///             Every sampling feature has to be listed, and a feature that is not listed fails
+    ///             exactly like a renamed map.
+    ///         </b>
+    ///         Its index is never written, so it stays zero, so the map
     ///         is read from slot zero and the surface is shaded by a checker — which for a normal map
     ///         is a lit surface whose shading is wrong rather than a surface that is obviously
     ///         untextured. <c>MaterialRenderFeature.UnresolvedTextureCount</c> is what says so.
@@ -1378,7 +1401,7 @@ public sealed class WorldRenderer : IDisposable {
 
         void Pair(string index, string map) =>
             materials.TextureIndices[ParameterKeys.New<uint>(index)] =
-                ParameterKeys.New<TextureViewHandle>(map);
+            ParameterKeys.New<TextureViewHandle>(map);
     }
 
     /// <summary>
@@ -1388,8 +1411,12 @@ public sealed class WorldRenderer : IDisposable {
     /// <param name="shader">The shading pass its materials are authored against.</param>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A layered material sets <c>LayerCount</c> and, until this existed, nothing put the
-    ///         key in the effect key</b> — so a three-layer material resolved the variant compiled for
+    ///         ⚠
+    ///         <b>
+    ///             A layered material sets <c>LayerCount</c> and, until this existed, nothing put the
+    ///             key in the effect key
+    ///         </b>
+    ///         — so a three-layer material resolved the variant compiled for
     ///         the shader's declared default of two, wrote <c>layers[2]</c> into a block sized for
     ///         two, and blended the first two layers. The unregistered-permutation trap exactly:
     ///         <see cref="MaterialKeys" />' own remarks say a host that draws layered materials adds
@@ -1404,8 +1431,12 @@ public sealed class WorldRenderer : IDisposable {
     ///         frame's value instead of its own.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Registering it here was not enough on its own, and the reason is an ordering
-    ///         nothing about this call site shows.</b> This runs in the constructor; both shipping
+    ///         ⚠
+    ///         <b>
+    ///             Registering it here was not enough on its own, and the reason is an ordering
+    ///             nothing about this call site shows.
+    ///         </b>
+    ///         This runs in the constructor; both shipping
     ///         samples and five golden device suites then assign
     ///         <c>Materials.PermutationKeys["ForwardPlus"] = ForwardPlusKeys.UsedPermutationKeys</c>
     ///         afterwards — correctly, because that array is what the pass's own reflection reports,
@@ -1450,8 +1481,12 @@ public sealed class WorldRenderer : IDisposable {
     ///     </para>
     ///     <para>
     ///         ⚠ And <c>EffectSetWriter</c> fills a set whole or not at all, so that was not a
-    ///         material sampled through a default filter: it was <em>every draw in the shading
-    ///         pass</em> refused, on a frame whose every other counter reported success. Only the
+    ///         material sampled through a default filter: it was
+    ///         <em>
+    ///             every draw in the shading
+    ///             pass
+    ///         </em>
+    ///         refused, on a frame whose every other counter reported success. Only the
     ///         textured variants, which is worse than all of them — the untextured half of the level
     ///         drew and the textured half did not.
     ///     </para>
@@ -1483,8 +1518,12 @@ public sealed class WorldRenderer : IDisposable {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>What is in slot zero decides whether a missing map reads as an error or as
-    ///         lighting.</b> <see cref="Paired" /> pairs one name with one name, and an unmatched pair
+    ///         ⚠
+    ///         <b>
+    ///             What is in slot zero decides whether a missing map reads as an error or as
+    ///             lighting.
+    ///         </b>
+    ///         <see cref="Paired" /> pairs one name with one name, and an unmatched pair
     ///         leaves the index at zero — so slot zero is what a renamed map, a texture that failed to
     ///         load and a feature nobody paired all sample.
     ///     </para>
@@ -1522,7 +1561,7 @@ public sealed class WorldRenderer : IDisposable {
 
         for (var y = 0; y < MissingMapSize; y++) {
             for (var x = 0; x < MissingMapSize; x++) {
-                var at = ((y * MissingMapSize) + x) * 4;
+                var at = (y * MissingMapSize + x) * 4;
                 var lit = ((x / block) ^ (y / block)) == 0;
 
                 // Full-intensity magenta rather than a dimmed one: this is read through whatever

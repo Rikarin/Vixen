@@ -48,8 +48,11 @@ public sealed class SingleStageRenderer : SceneRenderer {
     /// <inheritdoc />
     /// <remarks>
     ///     <para>
-    ///         <b>Declares no pass — it is here to carry the features' degrades into the frame's
-    ///         list.</b> <see cref="RootRenderFeature.Degraded" /> is a feature's answer to the same
+    ///         <b>
+    ///             Declares no pass — it is here to carry the features' degrades into the frame's
+    ///             list.
+    ///         </b>
+    ///         <see cref="RootRenderFeature.Degraded" /> is a feature's answer to the same
     ///         question <see cref="SceneRenderer.Degraded" /> is a node's, and a feature is not in the
     ///         compositor tree, so nothing could ever collect one. This node is the smallest thing
     ///         that knows both which features exist and which stage they drew into.
@@ -125,13 +128,20 @@ public sealed class SingleStageRenderer : SceneRenderer {
     /// <returns>Whether the viewport was moved, and therefore has to be put back.</returns>
     /// <remarks>
     ///     <para>
-    ///         <b>Here rather than on the pass, because a pass may draw several views and a viewport
-    ///         is one of them.</b> This node is the smallest thing that knows both which view and
+    ///         <b>
+    ///             Here rather than on the pass, because a pass may draw several views and a viewport
+    ///             is one of them.
+    ///         </b>
+    ///         This node is the smallest thing that knows both which view and
     ///         which command list — the same reason <see cref="Constants" /> is bound here.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The rect is a fraction of <see cref="RenderDrawContext.Viewport" />, not of the
-    ///         window.</b> See <see cref="RenderView.ViewportRect" />: the plane a scene is drawn into
+    ///         ⚠
+    ///         <b>
+    ///             The rect is a fraction of <see cref="RenderDrawContext.Viewport" />, not of the
+    ///             window.
+    ///         </b>
+    ///         See <see cref="RenderView.ViewportRect" />: the plane a scene is drawn into
     ///         is a render scale times the window, so anything measured in the window's pixels is off
     ///         the edge of a target rendered below one — with nothing anywhere to say so.
     ///     </para>
@@ -152,8 +162,8 @@ public sealed class SingleStageRenderer : SceneRenderer {
         Apply(
             context,
             new(
-                whole.X + (rect.X * whole.Width),
-                whole.Y + (rect.Y * whole.Height),
+                whole.X + rect.X * whole.Width,
+                whole.Y + rect.Y * whole.Height,
                 rect.Width * whole.Width,
                 rect.Height * whole.Height,
                 whole.MinDepth,

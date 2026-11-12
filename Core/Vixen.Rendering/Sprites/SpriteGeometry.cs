@@ -12,8 +12,12 @@ namespace Vixen.Rendering.Sprites;
 /// <param name="Colour">The tint, multiplied into the sample.</param>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>The same three attributes as <c>ParticleVertex</c>, and deliberately not the same
-///         type.</b> They agree today because a textured quad has nothing else in it, and a shared
+///         ⚠
+///         <b>
+///             The same three attributes as <c>ParticleVertex</c>, and deliberately not the same
+///             type.
+///         </b>
+///         They agree today because a textured quad has nothing else in it, and a shared
 ///         struct would make the next thing either of them needs — a second UV set for a sprite's
 ///         normal map, a per-particle random — a change to both. What they can share is the
 ///         <i>layout</i>: a project that wants one pipeline for both registers one entry in
@@ -135,8 +139,12 @@ public readonly record struct SpriteAppearance {
 ///         one <c>UiGeometryBuilder</c> makes on the other side of the engine.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The nine-slice arithmetic itself is <c>NineSlice</c>'s, in
-///         <c>Vixen.Core.Mathematics</c>, and it is shared with the interface.</b> A panel stretched
+///         ⚠
+///         <b>
+///             The nine-slice arithmetic itself is <c>NineSlice</c>'s, in
+///             <c>Vixen.Core.Mathematics</c>, and it is shared with the interface.
+///         </b>
+///         A panel stretched
 ///         by a stylesheet and a sprite stretched by a scene are the same nine pairs of rectangles,
 ///         and the two assemblies cannot see each other. What this adds on top is everything that
 ///         needs to know a texture's pixel size: the conversion from texels to world units, and
@@ -402,17 +410,21 @@ public static class SpriteGeometry {
         float natural,
         int repeat
     ) {
-        var start = near + (repeat * natural);
+        var start = near + repeat * natural;
         var end = MathF.Min(start + natural, far);
         var fraction = natural > 0f ? MathF.Min((end - start) / natural, 1f) : 1f;
 
-        return (start, end, sourceNear, sourceNear + ((sourceFar - sourceNear) * fraction));
+        return (start, end, sourceNear, sourceNear + (sourceFar - sourceNear) * fraction);
     }
 
     /// <summary>Four corners, wound counter-clockwise from the bottom left.</summary>
     /// <remarks>
-    ///     ⚠ <b>A flip mirrors the positions about the pivot and swaps the texture coordinates, both
-    ///     at once.</b> Either alone is wrong in a way that only shows on a nine-slice: mirroring the
+    ///     ⚠
+    ///     <b>
+    ///         A flip mirrors the positions about the pivot and swaps the texture coordinates, both
+    ///         at once.
+    ///     </b>
+    ///     Either alone is wrong in a way that only shows on a nine-slice: mirroring the
     ///     positions without the UVs draws the sprite's own art back to front in mirrored places, and
     ///     swapping the UVs without the positions mirrors each cell where it stands. Doing both keeps
     ///     the winding, which is why this can flip without the pipeline having to disable culling.

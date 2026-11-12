@@ -21,9 +21,7 @@ public sealed class PhysicsConstraintTests {
             BodyDescription.Dynamic(world.Shapes.Sphere(0.25f), new(0f, 4f, 0f)) with { Mass = 1f }
         );
 
-        var joint = world.CreateConstraint(
-            ConstraintDescription.Point(anchor, hanging, new(0f, 4.5f, 0f))
-        );
+        var joint = world.CreateConstraint(ConstraintDescription.Point(anchor, hanging, new(0f, 4.5f, 0f)));
 
         Assert.True(world.IsAlive(joint));
         Assert.Equal(1, world.ConstraintCount);
@@ -67,9 +65,7 @@ public sealed class PhysicsConstraintTests {
             BodyDescription.Dynamic(world.Shapes.Sphere(0.25f), new(0f, 5f, 0f)) with { Mass = 1f }
         );
 
-        var joint = world.CreateConstraint(
-            ConstraintDescription.Point(weight, BodyHandle.None, new(0f, 5f, 0f))
-        );
+        var joint = world.CreateConstraint(ConstraintDescription.Point(weight, BodyHandle.None, new(0f, 5f, 0f)));
 
         world.GetConstraintBodies(joint, out var first, out var second);
         Assert.Equal(weight, first);
@@ -89,15 +85,12 @@ public sealed class PhysicsConstraintTests {
         var post = world.CreateBody(BodyDescription.Static(world.Shapes.Box(0.1f), Vector3.Zero));
 
         var arm = world.CreateBody(
-            BodyDescription.Dynamic(world.Shapes.Box(new Vector3(1f, 0.1f, 0.1f)), new(1f, 0f, 0f)) with {
-                Mass = 1f
-            }
+            BodyDescription.Dynamic(world.Shapes.Box(new Vector3(1f, 0.1f, 0.1f)), new(1f, 0f, 0f)) with { Mass = 1f }
         );
 
         world.CreateConstraint(
             ConstraintDescription.Hinge(post, arm, Vector3.Zero, Vector3.UnitZ) with {
-                LimitMinimum = -0.1f,
-                LimitMaximum = 0.1f
+                LimitMinimum = -0.1f, LimitMaximum = 0.1f
             }
         );
 
@@ -117,16 +110,12 @@ public sealed class PhysicsConstraintTests {
         var post = world.CreateBody(BodyDescription.Static(world.Shapes.Box(0.1f), Vector3.Zero));
 
         var wheel = world.CreateBody(
-            BodyDescription.Dynamic(world.Shapes.Box(new Vector3(1f, 0.1f, 0.1f)), new(1f, 0f, 0f)) with {
-                Mass = 1f
-            }
+            BodyDescription.Dynamic(world.Shapes.Box(new Vector3(1f, 0.1f, 0.1f)), new(1f, 0f, 0f)) with { Mass = 1f }
         );
 
         var joint = world.CreateConstraint(
             ConstraintDescription.Hinge(post, wheel, Vector3.Zero, Vector3.UnitZ) with {
-                Motor = ConstraintMotor.Velocity,
-                MotorTarget = 5f,
-                MotorMaximum = 1000f
+                Motor = ConstraintMotor.Velocity, MotorTarget = 5f, MotorMaximum = 1000f
             }
         );
 
@@ -158,9 +147,7 @@ public sealed class PhysicsConstraintTests {
 
         var joint = world.CreateConstraint(ConstraintDescription.Point(first, second, Vector3.Zero));
 
-        Assert.Throws<PhysicsHandleException>(
-            () => world.SetConstraintMotor(joint, ConstraintMotor.Velocity, 1f)
-        );
+        Assert.Throws<PhysicsHandleException>(() => world.SetConstraintMotor(joint, ConstraintMotor.Velocity, 1f));
     }
 
     [Fact]
@@ -173,9 +160,7 @@ public sealed class PhysicsConstraintTests {
             BodyDescription.Dynamic(world.Shapes.Sphere(0.25f), new(0f, 9f, 0f)) with { Mass = 1f }
         );
 
-        var joint = world.CreateConstraint(
-            ConstraintDescription.Point(anchor, weight, new(0f, 9.5f, 0f))
-        );
+        var joint = world.CreateConstraint(ConstraintDescription.Point(anchor, weight, new(0f, 9.5f, 0f)));
 
         for (var step = 0; step < 60; step++) {
             world.Step(Step);
@@ -217,8 +202,8 @@ public sealed class PhysicsConstraintTests {
         Assert.Equal(joint, Assert.Single(world.ConstraintHandles.ToArray()));
 
         world.GetConstraintAnchors(joint, out var first, out var second);
-        Assert.Equal(new Vector3(0f, 4.5f, 0f), first);
-        Assert.Equal(new Vector3(0f, 4.5f, 0f), second);
+        Assert.Equal(new(0f, 4.5f, 0f), first);
+        Assert.Equal(new(0f, 4.5f, 0f), second);
 
         // A hinge about Z keeps its axis pointing along Z, and the anchors stay together while the
         // arm swings around them.
@@ -232,7 +217,7 @@ public sealed class PhysicsConstraintTests {
 
         world.GetConstraintAnchors(joint, out var movedFirst, out var movedSecond);
         Assert.True((movedFirst - movedSecond).Length() < 0.05f);
-        Assert.NotEqual(new Vector3(0f, 4f, 0f), world.GetPosition(hanging));
+        Assert.NotEqual(new(0f, 4f, 0f), world.GetPosition(hanging));
     }
 
     [Fact]

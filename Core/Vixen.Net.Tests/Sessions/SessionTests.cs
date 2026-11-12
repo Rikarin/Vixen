@@ -98,7 +98,7 @@ public sealed class SessionTests {
         using var harness = new SessionHarness();
         var server = harness.StartServer(authenticator: authenticator);
         var client = harness.StartClient();
-        var told = "";
+        var told = string.Empty;
         client.Rejected += (_, text) => told = text;
 
         harness.Pump();
@@ -358,7 +358,7 @@ public sealed class SessionTests {
     [Fact]
     public void AnOfflineSessionIsAHostThatSaysWhatItIs() {
         using var harness = new SessionHarness();
-        var offline = harness.Add(new LocalTransport(new LocalNetwork()), "offline");
+        var offline = harness.Add(new LocalTransport(new()), "offline");
 
         offline.StartOffline();
         SessionHarness.PumpOnly(offline, 8);
@@ -414,7 +414,7 @@ public sealed class SessionTests {
         var simulated = new NetworkSimulation(
             harness.RawTransport(),
             new() { Latency = TimeSpan.FromMilliseconds(50) },
-            seed: 3
+            3
         );
 
         var client = harness.Add(simulated, "far-away", new() { PingInterval = TimeSpan.FromMilliseconds(100) });
@@ -488,7 +488,7 @@ public sealed class SessionTests {
         harness.Pump();
         Assert.Single(client.Players);
 
-        var events = (ITransportEvents)client;
+        ITransportEvents events = client;
 
         for (var id = 100u; id < 110; id++) {
             events.OnDisconnected(TransportRole.Client, ConnectionId.None, DisconnectReason.Requested);
@@ -501,7 +501,7 @@ public sealed class SessionTests {
             events.OnData(TransportRole.Client, ConnectionId.None, Channel.Reliable, Accepted(id));
 
             Assert.NotNull(client.LocalPlayer);
-            Assert.Equal(new PlayerId(id), client.LocalPlayer.Id);
+            Assert.Equal(new(id), client.LocalPlayer.Id);
             Assert.Single(client.Players);
         }
     }
@@ -519,7 +519,7 @@ public sealed class SessionTests {
 
         // Just under a second of frames at sixty a second is just under thirty ticks at thirty.
         Assert.InRange(ticks, 28, 30);
-        Assert.Equal(new Tick((uint)ticks), server.Tick);
+        Assert.Equal(new((uint)ticks), server.Tick);
     }
 
     /// <summary>Encodes the acceptance a server sends, for a test that wants to send a bad one.</summary>

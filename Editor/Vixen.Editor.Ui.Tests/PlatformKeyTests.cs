@@ -38,7 +38,7 @@ public class PlatformKeyTests : IDisposable {
 
     public PlatformKeyTests() {
         ControlTheme.Install(document);
-        dispatcher = new CommandDispatcher(commands, keys);
+        dispatcher = new(commands, keys);
     }
 
     public void Dispose() {
@@ -53,7 +53,7 @@ public class PlatformKeyTests : IDisposable {
         var saved = 0;
 
         commands.Add("file.save", Title("Save"), () => saved++);
-        keys.SetDefault("file.save", new KeyChord(InputKey.S, ModifierKeys.Control));
+        keys.SetDefault("file.save", new(InputKey.S, ModifierKeys.Control));
 
         // What a user of *this* machine presses: ⌘S on a Mac, Ctrl+S everywhere else.
         Press(new KeyChord(InputKey.S, ModifierKeys.Control).ForPlatform());
@@ -66,7 +66,7 @@ public class PlatformKeyTests : IDisposable {
         var saved = 0;
 
         commands.Add("file.save", Title("Save"), () => saved++);
-        keys.SetDefault("file.save", new KeyChord(InputKey.S, ModifierKeys.Control));
+        keys.SetDefault("file.save", new(InputKey.S, ModifierKeys.Control));
 
         // ⚠ On a Mac this is a real Ctrl+S, which means something else entirely there and must not
         // save. On a PC the swap is the identity, so this *is* the shortcut — which is why the
@@ -82,7 +82,7 @@ public class PlatformKeyTests : IDisposable {
         var ran = 0;
 
         commands.Add("file.save-as", Title("Save As"), () => ran++);
-        keys.SetDefault("file.save-as", new KeyChord(InputKey.S, ModifierKeys.Control | ModifierKeys.Shift));
+        keys.SetDefault("file.save-as", new(InputKey.S, ModifierKeys.Control | ModifierKeys.Shift));
 
         Press(new KeyChord(InputKey.S, ModifierKeys.Control | ModifierKeys.Shift).ForPlatform());
 
@@ -96,7 +96,10 @@ public class PlatformKeyTests : IDisposable {
 
         // ⚠ Both ways. Mapping ⌘ onto Ctrl and leaving Ctrl alone would make a Mac answer to both.
         Assert.Equal(ModifierKeys.Meta | ModifierKeys.Alt, swapped.Modifiers);
-        Assert.Equal(ModifierKeys.Control | ModifierKeys.Alt, new KeyChord(InputKey.S, ModifierKeys.Meta | ModifierKeys.Alt).ForPlatform(ModifierKeys.Meta).Modifiers);
+        Assert.Equal(
+            ModifierKeys.Control | ModifierKeys.Alt,
+            new KeyChord(InputKey.S, ModifierKeys.Meta | ModifierKeys.Alt).ForPlatform(ModifierKeys.Meta).Modifiers
+        );
 
         Assert.Equal(chord, swapped.ForPlatform(ModifierKeys.Meta));
     }
@@ -112,7 +115,13 @@ public class PlatformKeyTests : IDisposable {
         // Glyphs, in the platform's fixed order, with no separators — what its own menus have
         // written since 1984 and what a user reads without stopping.
         Assert.Equal("⇧⌘S", KeyChord.MacFormat(InputKey.S, ModifierKeys.Meta | ModifierKeys.Shift));
-        Assert.Equal("⌃⌥⇧⌘S", KeyChord.MacFormat(InputKey.S, ModifierKeys.Control | ModifierKeys.Alt | ModifierKeys.Shift | ModifierKeys.Meta));
+        Assert.Equal(
+            "⌃⌥⇧⌘S",
+            KeyChord.MacFormat(
+                InputKey.S,
+                ModifierKeys.Control | ModifierKeys.Alt | ModifierKeys.Shift | ModifierKeys.Meta
+            )
+        );
 
         // The key's own name still comes from the control set, which is where the list of exceptions
         // lives — `Number1` is the `1` key.
@@ -131,16 +140,19 @@ public class PlatformKeyTests : IDisposable {
 
         // The platform's names, not the event's: a Mac user reading "Meta+S" has to translate, and
         // the whole point of adapting is that they should not have to.
-        Assert.Equal("Ctrl+Opt+Shift+Cmd+S", KeyChord.MacWords(
-            InputKey.S,
-            ModifierKeys.Control | ModifierKeys.Alt | ModifierKeys.Shift | ModifierKeys.Meta
-        ));
+        Assert.Equal(
+            "Ctrl+Opt+Shift+Cmd+S",
+            KeyChord.MacWords(
+                InputKey.S,
+                ModifierKeys.Control | ModifierKeys.Alt | ModifierKeys.Shift | ModifierKeys.Meta
+            )
+        );
     }
 
     [Fact]
     public void The_keymap_file_stays_portable() {
-        keys.SetDefault("file.save", new KeyChord(InputKey.S, ModifierKeys.Control));
-        keys.Bind("file.save", new KeyChord(InputKey.K, ModifierKeys.Control), replace: true);
+        keys.SetDefault("file.save", new(InputKey.S, ModifierKeys.Control));
+        keys.Bind("file.save", new(InputKey.K, ModifierKeys.Control), true);
 
         // ⚠ `Ctrl+K` on every platform. The swap happens at the keyboard and at the label; what is
         // stored — and what somebody may check into a repository their colleagues open on Linux —
@@ -152,6 +164,6 @@ public class PlatformKeyTests : IDisposable {
     void Press(KeyChord chord) =>
         dispatcher.Pressed(
             document,
-            new KeyEvent { Key = chord.Key, Modifiers = chord.Modifiers, Action = KeyAction.Pressed }
+            new() { Key = chord.Key, Modifiers = chord.Modifiers, Action = KeyAction.Pressed }
         );
 }

@@ -15,7 +15,7 @@ public class AnimatorTests {
     ClipMotion Held(string name, string joint, float x) => Held(skeleton, name, joint, x);
 
     static ClipMotion Held(Skeleton rig, string name, string joint, float x) =>
-        new(AnimationClip.Create(TestRigs.Hold(name, joint, new Vector3(x, 0f, 0f)), rig));
+        new(AnimationClip.Create(TestRigs.Hold(name, joint, new(x, 0f, 0f)), rig));
 
     static AnimationStateMachine Single(string name, Motion motion) => new([new AnimationState(name, motion)]);
 

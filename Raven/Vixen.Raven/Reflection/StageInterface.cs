@@ -72,8 +72,12 @@ public static class StageInterface {
     ///         answer for an integer.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>This paragraph used to go on to say "and no legal way to ask for it on a float",
-    ///         and that half is wrong</b> — it is the reason nothing was built. <c>noperspective</c>
+    ///         ⚠
+    ///         <b>
+    ///             This paragraph used to go on to say "and no legal way to ask for it on a float",
+    ///             and that half is wrong
+    ///         </b>
+    ///         — it is the reason nothing was built. <c>noperspective</c>
     ///         is legal on a float varying and means something different from the default, and so is
     ///         a deliberately-<c>flat</c> float, which is how a per-primitive value rides the
     ///         provoking vertex. What is true is narrower: the compiler already knows the only

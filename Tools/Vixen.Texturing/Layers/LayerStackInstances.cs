@@ -15,7 +15,8 @@ namespace Vixen.Texturing.Layers;
 ///     </para>
 ///     <para>
 ///         <b>An anchor point a copy reads is the source's.</b> In the source's own set the copy reads it where the source
-///         does, so the instance renders as its source does, above the point as any reader must be. A source in another set
+///         does, so the instance renders as its source does, above the point as any reader must be. A source in another
+///         set
 ///         that reads one is refused with a warning and shows nothing, since that set's anchor points are not this one's.
 ///     </para>
 ///     <para>
@@ -89,17 +90,23 @@ public static class LayerStackInstances {
         return found;
     }
 
-    static bool Reaches(LayerStackAsset stack, (string Set, string Layer) at, HashSet<(string, string)> seen, int depth) {
+    static bool Reaches(
+        LayerStackAsset stack,
+        (string Set, string Layer) at,
+        HashSet<(string, string)> seen,
+        int depth
+    ) {
         if (!seen.Add(at) || depth > MaxDepth) {
             return true;
         }
 
-        if (stack.SetNamed(at.Set) is not { } set || LayerStackEdit.Find(stack, new(set.Name, at.Layer)) is not { } layer) {
+        if (stack.SetNamed(at.Set) is not { } set
+            || LayerStackEdit.Find(stack, new(set.Name, at.Layer)) is not { } layer) {
             return false;
         }
 
         foreach (var instance in Walk([layer])) {
-            if (Reaches(stack, Key(at.Set, instance.Instance), [.. seen], depth + 1)) {
+            if (Reaches(stack, Key(at.Set, instance.Instance), [..seen], depth + 1)) {
                 return true;
             }
         }
@@ -130,7 +137,8 @@ public static class LayerStackInstances {
         List<LayerAsset> layers,
         List<(string, string)> path,
         List<LayerStackProblem> problems
-    ) => [.. layers.Select(layer => Layer(stack, set, layer, path, problems))];
+    ) =>
+        [..layers.Select(layer => Layer(stack, set, layer, path, problems))];
 
     static LayerAsset Layer(
         LayerStackAsset stack,
@@ -173,7 +181,7 @@ public static class LayerStackInstances {
         }
 
         // The source as it compiles, instances inside it resolved in its own set.
-        var resolved = Layer(stack, key.Set, source, [.. path, key], problems);
+        var resolved = Layer(stack, key.Set, source, [..path, key], problems);
 
         // ⚠ An anchor point is a picture of its own set's stack, so another set's source that reads one would read
         // whatever this set publishes under that name, or nothing. Refused here, by name, rather than either.
@@ -231,7 +239,7 @@ public static class LayerStackInstances {
         layer with {
             Children = [
                 ..layer.Children.Select(child => Prefixed(Owned(child), prefix) with {
-                        Id = $"{prefix}/{child.Id}", AnchorPoint = ""
+                        Id = $"{prefix}/{child.Id}", AnchorPoint = string.Empty
                     }
                 )
             ]
@@ -249,17 +257,17 @@ public static class LayerStackInstances {
             // A decal's box and a path's points are arrays and a list too (Patina #133, #130).
             Decal = layer.Decal is { } decal
                 ? decal with {
-                    Centre = [.. decal.Centre],
-                    Facing = [.. decal.Facing],
-                    Up = [.. decal.Up],
-                    Box = [.. decal.Box],
-                    Warp = [.. decal.Warp]
+                    Centre = [..decal.Centre],
+                    Facing = [..decal.Facing],
+                    Up = [..decal.Up],
+                    Box = [..decal.Box],
+                    Warp = [..decal.Warp]
                 }
                 : null,
             SurfacePath = layer.SurfacePath is { } curve
-                ? curve with { Points = [.. curve.Points], Box = [.. curve.Box] }
+                ? curve with { Points = [..curve.Points], Box = [..curve.Box] }
                 : null,
-            Channels = [.. layer.Channels],
+            Channels = [..layer.Channels],
             Values = Numbers(layer.Values),
             Textures = new(layer.Textures, StringComparer.Ordinal),
             Settings = Numbers(layer.Settings),
@@ -295,8 +303,7 @@ public static class LayerStackInstances {
         inputs.ToDictionary(
             static entry => entry.Key,
             static entry => entry.Value with {
-                Values = Numbers(entry.Value.Values),
-                Texts = new(entry.Value.Texts, StringComparer.Ordinal)
+                Values = Numbers(entry.Value.Values), Texts = new(entry.Value.Texts, StringComparer.Ordinal)
             },
             StringComparer.Ordinal
         );

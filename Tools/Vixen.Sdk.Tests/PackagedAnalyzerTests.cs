@@ -15,12 +15,20 @@ namespace Vixen.Sdk.Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>No build inside this repository can state this property, and that is the whole
-///         reason it is a test rather than a note.</b> Every in-repo consumer of every generator
+///         ⚠
+///         <b>
+///             No build inside this repository can state this property, and that is the whole
+///             reason it is a test rather than a note.
+///         </b>
+///         Every in-repo consumer of every generator
 ///         names it as a <c>ProjectReference</c> with <c>OutputItemType="Analyzer"</c>, and
 ///         analyzers are not transitive through one — so each project that wants a generator says
-///         so, the generator runs, and every test of every generator is green <i>whatever the
-///         package contains</i>. <c>Vixen.Shaders</c> shipped with no generator in it for as long as
+///         so, the generator runs, and every test of every generator is green
+///         <i>
+///             whatever the
+///             package contains
+///         </i>
+///         . <c>Vixen.Shaders</c> shipped with no generator in it for as long as
 ///         the generator existed, and nothing in the tree was red.
 ///     </para>
 ///     <para>
@@ -31,8 +39,12 @@ namespace Vixen.Sdk.Tests;
 ///         reference assembly and no generator. Both directions are asserted.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The census is read out of the project files rather than typed here, because the
-///         defect was found twice by two people who happened to think about the archive.</b> Two
+///         ⚠
+///         <b>
+///             The census is read out of the project files rather than typed here, because the
+///             defect was found twice by two people who happened to think about the archive.
+///         </b>
+///         Two
 ///         packages had a gate and five did not, and which five depended on nobody. A package that
 ///         starts carrying a generator tomorrow is covered by this the day it does, with nothing to
 ///         remember — and <see cref="EveryPackageKnownToShipOneStillDoes" /> is the other half, so
@@ -87,7 +99,7 @@ public sealed class PackagedAnalyzerTests : IDisposable {
     public void Dispose() {
         try {
             if (Directory.Exists(root)) {
-                Directory.Delete(root, recursive: true);
+                Directory.Delete(root, true);
             }
         } catch (IOException) {
             // A temporary directory that would not go is not a test failure.
@@ -98,7 +110,7 @@ public sealed class PackagedAnalyzerTests : IDisposable {
     public static TheoryData<string> PackagesCarryingAGenerator() {
         var data = new TheoryData<string>();
 
-        foreach (var package in Carriers().Keys.OrderBy(name => name, StringComparer.Ordinal)) {
+        foreach (var package in Carriers().Keys.OrderBy(static name => name, StringComparer.Ordinal)) {
             data.Add(package);
         }
 
@@ -178,8 +190,14 @@ public sealed class PackagedAnalyzerTests : IDisposable {
         var carriers = new Dictionary<string, IReadOnlyList<string>>(StringComparer.Ordinal);
 
         foreach (var project in Directory.GetFiles(core, "*.csproj", SearchOption.AllDirectories)) {
-            if (project.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.Ordinal)
-                || project.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}", StringComparison.Ordinal)) {
+            if (project.Contains(
+                    $"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}",
+                    StringComparison.Ordinal
+                )
+                || project.Contains(
+                    $"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}",
+                    StringComparison.Ordinal
+                )) {
                 continue;
             }
 
@@ -187,8 +205,12 @@ public sealed class PackagedAnalyzerTests : IDisposable {
 
             var targets = document
                 .Descendants("TargetsForTfmSpecificContentInPackage")
-                .SelectMany(element => element.Value.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
-                .Where(name => !name.StartsWith('$'))
+                .SelectMany(static element => element.Value.Split(
+                        ';',
+                        StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries
+                    )
+                )
+                .Where(static name => !name.StartsWith('$'))
                 .ToHashSet(StringComparer.Ordinal);
 
             if (targets.Count == 0) {
@@ -198,17 +220,24 @@ public sealed class PackagedAnalyzerTests : IDisposable {
             var generators = document
                 .Descendants("Target")
                 .Where(element => targets.Contains(element.Attribute("Name")?.Value ?? string.Empty))
-                .SelectMany(element => element.Descendants("MSBuild"))
-                .Select(element => element.Attribute("Projects")?.Value ?? string.Empty)
-                .SelectMany(value => value.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+                .SelectMany(static element => element.Descendants("MSBuild"))
+                .Select(static element => element.Attribute("Projects")?.Value ?? string.Empty)
+                .SelectMany(static value => value.Split(
+                        ';',
+                        StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries
+                    )
+                )
 
                 // ⚠ Split by hand rather than with Path.GetFileNameWithoutExtension. A project file
                 // writes `..\Name\Name.csproj`, and a backslash is an ordinary filename character on
                 // Unix — so the framework call returns the whole path there and the right answer on
                 // Windows, which is a test that passes on one machine and not the other.
-                .Select(value => value.Replace('\\', '/').Split('/')[^1])
-                .Select(name => name.EndsWith(".csproj", StringComparison.OrdinalIgnoreCase) ? name[..^".csproj".Length] : name)
-                .Where(name => name.Length > 0)
+                .Select(static value => value.Replace('\\', '/').Split('/')[^1])
+                .Select(static name => name.EndsWith(".csproj", StringComparison.OrdinalIgnoreCase)
+                        ? name[..^".csproj".Length]
+                        : name
+                )
+                .Where(static name => name.Length > 0)
                 .Distinct(StringComparer.Ordinal)
                 .ToList();
 
@@ -258,12 +287,14 @@ public sealed class PackagedAnalyzerTests : IDisposable {
 
         using var opened = ZipFile.OpenRead(archive);
 
-        return opened.Entries.Select(entry => entry.FullName).ToHashSet(StringComparer.Ordinal);
+        return opened.Entries.Select(static entry => entry.FullName).ToHashSet(StringComparer.Ordinal);
     }
 
     static (bool Succeeded, string Output) Run(params string[] arguments) {
         var process = new Process {
-            StartInfo = new("dotnet") { RedirectStandardOutput = true, RedirectStandardError = true, UseShellExecute = false }
+            StartInfo = new("dotnet") {
+                RedirectStandardOutput = true, RedirectStandardError = true, UseShellExecute = false
+            }
         };
 
         foreach (var argument in arguments) {

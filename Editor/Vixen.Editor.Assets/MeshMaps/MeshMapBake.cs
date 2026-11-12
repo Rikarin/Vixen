@@ -45,8 +45,12 @@ public static class MeshMapBake {
     /// <exception cref="ArgumentNullException">Any argument is null.</exception>
     /// <exception cref="ArgumentException">The target has no atlas.</exception>
     /// <remarks>
-    ///     ⚠ <b><paramref name="source" /> and <paramref name="target" /> may be the same mesh, and
-    ///     usually are.</b> A separate high-poly is the retopology case; asking for the ambient
+    ///     ⚠
+    ///     <b>
+    ///         <paramref name="source" /> and <paramref name="target" /> may be the same mesh, and
+    ///         usually are.
+    ///     </b>
+    ///     A separate high-poly is the retopology case; asking for the ambient
     ///     occlusion, the curvature and the thickness <i>of the mesh you are texturing</i> is the
     ///     ordinary one, and it is what every generator in § 4.8 reads. The bake is the same either
     ///     way — the rays are cast from the target's atlas at whatever surface it is handed.
@@ -65,8 +69,12 @@ public static class MeshMapBake {
     /// <exception cref="ArgumentNullException"><paramref name="maps" /> is null.</exception>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Nothing here knows what the set is called, and that is a fix rather than a
-    ///         simplification.</b> An encoded image used to carry the file name a caller's mesh name
+    ///         ⚠
+    ///         <b>
+    ///             Nothing here knows what the set is called, and that is a fix rather than a
+    ///             simplification.
+    ///         </b>
+    ///         An encoded image used to carry the file name a caller's mesh name
     ///         produced, which fixed the one part of a bake that is a person's typing before the only
     ///         thing that can make it safe — the writer — had seen it. A mesh named <c>../Wall</c>
     ///         then wrote nine PNGs outside <c>Assets/</c>. Naming is
@@ -101,7 +109,7 @@ public static class MeshMapBake {
         // the compression back to automatic.
         var normalContent = maps.Space == BakeSpace.Tangent ? TextureContent.NormalMap : TextureContent.Linear;
 
-        made.Add(Vector(MeshMapUsage.Normal, size, maps.Normals, signed: true, normalContent));
+        made.Add(Vector(MeshMapUsage.Normal, size, maps.Normals, true, normalContent));
         made.Add(Signed(MeshMapUsage.Displacement, size, maps.Displacement, maps.DisplacementRange));
 
         if (maps.AmbientOcclusion is { } occlusion) {
@@ -109,7 +117,7 @@ public static class MeshMapBake {
         }
 
         if (maps.BentNormal is { } bent) {
-            made.Add(Vector(MeshMapUsage.BentNormal, size, bent, signed: true, TextureContent.Linear));
+            made.Add(Vector(MeshMapUsage.BentNormal, size, bent, true, TextureContent.Linear));
         }
 
         if (maps.Curvature is { } curvature) {
@@ -121,11 +129,11 @@ public static class MeshMapBake {
         }
 
         if (maps.Position is { } position) {
-            made.Add(Vector(MeshMapUsage.Position, size, position, signed: false, TextureContent.Linear));
+            made.Add(Vector(MeshMapUsage.Position, size, position, false, TextureContent.Linear));
         }
 
         if (maps.WorldNormal is { } world) {
-            made.Add(Vector(MeshMapUsage.WorldNormal, size, world, signed: true, TextureContent.Linear));
+            made.Add(Vector(MeshMapUsage.WorldNormal, size, world, true, TextureContent.Linear));
         }
 
         if (maps.Ids is { } ids) {
@@ -140,29 +148,34 @@ public static class MeshMapBake {
     /// <returns>The settings.</returns>
     static TextureImportSettings Common(TextureContent content) =>
         new() {
-            Content = content,
-            Compression = TextureCompression.None,
-            GenerateMips = false,
-            AlphaIsTransparency = false
+            Content = content, Compression = TextureCompression.None, GenerateMips = false, AlphaIsTransparency = false
         };
 
     static MeshMapImage Scalar(MeshMapUsage usage, int size, IReadOnlyList<float> values) {
         var pixels = Blank(size);
 
-        Fill(size, values.Count, (index, at) => {
-            var level = Byte(values[index]);
-            pixels[at] = level;
-            pixels[at + 1] = level;
-            pixels[at + 2] = level;
-        });
+        Fill(
+            size,
+            values.Count,
+            (index, at) => {
+                var level = Byte(values[index]);
+                pixels[at] = level;
+                pixels[at + 1] = level;
+                pixels[at + 2] = level;
+            }
+        );
 
         return Made(usage, size, pixels, Common(TextureContent.Linear), 0f);
     }
 
     /// <summary>A measurement that is signed and in the model's own units, remapped about a half.</summary>
     /// <remarks>
-    ///     ⚠ <b>A range of zero writes a flat half and a scale of zero, and that is the honest
-    ///     answer.</b> A perfectly flat displacement or a sphere with no curvature to speak of would
+    ///     ⚠
+    ///     <b>
+    ///         A range of zero writes a flat half and a scale of zero, and that is the honest
+    ///         answer.
+    ///     </b>
+    ///     A perfectly flat displacement or a sphere with no curvature to speak of would
     ///     otherwise divide by nothing; a half everywhere decodes to zero everywhere, which is what
     ///     was measured.
     /// </remarks>
@@ -171,12 +184,16 @@ public static class MeshMapBake {
         var scale = range > 0f ? range : 0f;
         var inverse = scale > 0f ? 1f / scale : 0f;
 
-        Fill(size, values.Count, (index, at) => {
-            var level = Byte(0.5f + (0.5f * values[index] * inverse));
-            pixels[at] = level;
-            pixels[at + 1] = level;
-            pixels[at + 2] = level;
-        });
+        Fill(
+            size,
+            values.Count,
+            (index, at) => {
+                var level = Byte(0.5f + 0.5f * values[index] * inverse);
+                pixels[at] = level;
+                pixels[at + 1] = level;
+                pixels[at + 2] = level;
+            }
+        );
 
         return Made(usage, size, pixels, Common(TextureContent.Linear), scale);
     }
@@ -190,17 +207,21 @@ public static class MeshMapBake {
     ) {
         var pixels = Blank(size);
 
-        Fill(size, values.Count, (index, at) => {
-            var value = values[index];
+        Fill(
+            size,
+            values.Count,
+            (index, at) => {
+                var value = values[index];
 
-            if (signed) {
-                value = (value * 0.5f) + new Vector3(0.5f);
+                if (signed) {
+                    value = value * 0.5f + new Vector3(0.5f);
+                }
+
+                pixels[at] = Byte(value.X);
+                pixels[at + 1] = Byte(value.Y);
+                pixels[at + 2] = Byte(value.Z);
             }
-
-            pixels[at] = Byte(value.X);
-            pixels[at + 1] = Byte(value.Y);
-            pixels[at + 2] = Byte(value.Z);
-        });
+        );
 
         return Made(usage, size, pixels, Common(content), 0f);
     }
@@ -216,12 +237,16 @@ public static class MeshMapBake {
     static MeshMapImage Identifiers(int size, IReadOnlyList<int> ids) {
         var pixels = Blank(size);
 
-        Fill(size, ids.Count, (index, at) => {
-            var colour = MapBaker.IdColour(ids[index]);
-            pixels[at] = Byte(colour.X);
-            pixels[at + 1] = Byte(colour.Y);
-            pixels[at + 2] = Byte(colour.Z);
-        });
+        Fill(
+            size,
+            ids.Count,
+            (index, at) => {
+                var colour = MapBaker.IdColour(ids[index]);
+                pixels[at] = Byte(colour.X);
+                pixels[at + 1] = Byte(colour.Y);
+                pixels[at + 2] = Byte(colour.Z);
+            }
+        );
 
         return Made(MeshMapUsage.Id, size, pixels, Common(TextureContent.Linear), 0f);
     }
@@ -233,12 +258,7 @@ public static class MeshMapBake {
         TextureImportSettings settings,
         float scale
     ) =>
-        new() {
-            Usage = usage,
-            Png = PngCodec.Encode(new Bitmap(size, size, pixels)),
-            Settings = settings,
-            Scale = scale
-        };
+        new() { Usage = usage, Png = PngCodec.Encode(new(size, size, pixels)), Settings = settings, Scale = scale };
 
     /// <summary>Opaque black, which is what a texel no measurement reached looks like.</summary>
     static byte[] Blank(int size) {

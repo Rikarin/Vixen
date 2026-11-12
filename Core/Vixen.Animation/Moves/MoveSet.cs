@@ -8,8 +8,11 @@ namespace Vixen.Animation.Moves;
 /// <summary>A character's whole movement vocabulary: a flat list, and no hierarchy at all.</summary>
 /// <remarks>
 ///     <para>
-///         <b>Flat because a hierarchy forces an author to pick an axis to be primary, and there is
-///         never one.</b> The moment a style is a container, every question crossing two axes needs a
+///         <b>
+///             Flat because a hierarchy forces an author to pick an axis to be primary, and there is
+///             never one.
+///         </b>
+///         The moment a style is a container, every question crossing two axes needs a
 ///         nesting order — is the injured walk in snow inside <c>injured</c> or inside <c>snow</c>? —
 ///         and no answer is right. Facets have no order, so the question does not arise.
 ///     </para>
@@ -206,7 +209,7 @@ public sealed class MoveSet {
         var high = entries.Length - 1;
 
         while (low <= high) {
-            var middle = low + ((high - low) / 2);
+            var middle = low + (high - low) / 2;
             var order = entries[middle].Key.CompareTo(key);
 
             if (order == 0) {

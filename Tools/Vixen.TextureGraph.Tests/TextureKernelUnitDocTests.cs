@@ -7,15 +7,23 @@ using Xunit;
 
 namespace Tests;
 
-/// <summary>A builder's <c>&lt;param&gt;</c> docs and the <c>.rvn</c> uniform they write are one
-/// description, so they agree on the unit.</summary>
+/// <summary>
+///     A builder's <c>&lt;param&gt;</c> docs and the <c>.rvn</c> uniform they write are one
+///     description, so they agree on the unit.
+/// </summary>
 /// <remarks>
 ///     <para>
-///         <b><a href="https://github.com/Rikarin/Vixen/issues/797">#797</a>, which is
-///         <a href="https://github.com/Rikarin/Vixen/issues/735">#735</a>'s other half.</b>
+///         <b>
+///             <a href="https://github.com/Rikarin/Vixen/issues/797">#797</a>, which is
+///             <a href="https://github.com/Rikarin/Vixen/issues/735">#735</a>'s other half.
+///         </b>
 ///         <c>TextureAngleUnitTests</c> closed the <c>.rvn</c> side mechanically — every uniform whose
-///         name is an angle must say radians in its own doc comment. ⚠ <b>The C# side had no such
-///         check and was wrong for three batches after the fix</b>: six <c>&lt;param&gt;</c> docs in
+///         name is an angle must say radians in its own doc comment. ⚠
+///         <b>
+///             The C# side had no such
+///             check and was wrong for three batches after the fix
+///         </b>
+///         : six <c>&lt;param&gt;</c> docs in
 ///         <c>TextureKernels.Placement.cs</c> said "in turns" for values the same commit had made
 ///         radians, and they are what a C# caller reads. A builder and the kernel it dispatches are
 ///         two descriptions of one parameter and only one of them was gated.
@@ -117,12 +125,12 @@ public class TextureKernelUnitDocTests {
 
     /// <summary>One <c>&lt;param&gt;</c> line of a doc block.</summary>
     static readonly Regex Param = new(
-        @"<param name=""(?<name>[A-Za-z_][A-Za-z0-9_]*)""\s*>(?<text>.*?)</param>",
+        """<param name="(?<name>[A-Za-z_][A-Za-z0-9_]*)"\s*>(?<text>.*?)</param>""",
         RegexOptions.Singleline
     );
 
     /// <summary>Which kernel a builder writes, as it is spelled in the initializer.</summary>
-    static readonly Regex Writes = new(@"\bKernel\s*=\s*(?<kernel>[A-Za-z_][A-Za-z0-9_.]*|""[^""]+"")");
+    static readonly Regex Writes = new("""\bKernel\s*=\s*(?<kernel>[A-Za-z_][A-Za-z0-9_.]*|"[^"]+")""");
 
     /// <summary>A string constant anywhere in the project, so a kernel name spelled as one resolves.</summary>
     static readonly Regex Constant = new(@"\bconst string (?<name>[A-Za-z_][A-Za-z0-9_]*)\s*=\s*""(?<value>[^""]*)""");
@@ -276,8 +284,12 @@ public class TextureKernelUnitDocTests {
 
     /// <summary>Every documented method in the kernel-builder files, with its doc block and body.</summary>
     /// <remarks>
-    ///     ⚠ <b>Bounded by the next member as well as by a closing brace at a member's
-    ///     indentation</b>, and the brace alone is not enough: an expression-bodied overload ends in
+    ///     ⚠
+    ///     <b>
+    ///         Bounded by the next member as well as by a closing brace at a member's
+    ///         indentation
+    ///     </b>
+    ///     , and the brace alone is not enough: an expression-bodied overload ends in
     ///     <c>);</c> and has no such brace, so its body ran on into the next builder and took that
     ///     one's <c>Kernel =</c> with it — which is how every <c>Tile Sampler</c> parameter came out
     ///     paired against <c>Splatter</c>'s uniforms, silently and with a full pair list.
@@ -295,11 +307,13 @@ public class TextureKernelUnitDocTests {
                 var brace = text.IndexOf("\n    }", from, StringComparison.Ordinal);
                 var to = brace < 0 || brace > limit ? limit : brace;
 
-                methods.Add((
-                    found[index].Groups["name"].Value,
-                    found[index].Groups["doc"].Value,
-                    text[from..to]
-                ));
+                methods.Add(
+                    (
+                        found[index].Groups["name"].Value,
+                        found[index].Groups["doc"].Value,
+                        text[from..to]
+                    )
+                );
             }
         }
 

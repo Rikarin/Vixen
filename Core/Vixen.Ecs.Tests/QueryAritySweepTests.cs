@@ -16,14 +16,22 @@ namespace Vixen.Ecs.Tests;
 /// <remarks>
 ///     <para>
 ///         <c>docs/plan/12</c> § "Coverage, reported and not gated" refuses a percentage floor and
-///         says what should stand in its place: <i>an executable claim that a named path is
-///         exercised, which is a test and not a threshold</i>. This is that claim for the first of
+///         says what should stand in its place:
+///         <i>
+///             an executable claim that a named path is
+///             exercised, which is a test and not a threshold
+///         </i>
+///         . This is that claim for the first of
 ///         the three places [#338](https://github.com/Rikarin/Vixen/issues/338) names — the query
 ///         surface — and it is two halves that need each other.
 ///     </para>
 ///     <para>
-///         ⚠️ <b>The surface is about six hundred generated members and the suite was exercising one
-///         arity of one family.</b> <c>QueryArityGenerator</c> emits sixteen arities of four
+///         ⚠️
+///         <b>
+///             The surface is about six hundred generated members and the suite was exercising one
+///             arity of one family.
+///         </b>
+///         <c>QueryArityGenerator</c> emits sixteen arities of four
 ///         iteration families and four description builders — "roughly two thousand lines of code
 ///         whose only variable is a number", as its own remarks put it — and before this file the
 ///         whole of <c>Vixen.Ecs.Tests</c> called exactly one of them,
@@ -110,10 +118,10 @@ public sealed class QueryAritySweepTests {
         Assert.NotEmpty(called);
 
         var missing = surface.Where(member => !called.Contains(member))
-            .OrderBy(member => member.Type, StringComparer.Ordinal)
-            .ThenBy(member => member.Name, StringComparer.Ordinal)
-            .ThenBy(member => member.Arity)
-            .Select(member => $"{member.Type}.{member.Name}<{member.Arity}>")
+            .OrderBy(static member => member.Type, StringComparer.Ordinal)
+            .ThenBy(static member => member.Name, StringComparer.Ordinal)
+            .ThenBy(static member => member.Arity)
+            .Select(static member => $"{member.Type}.{member.Name}<{member.Arity}>")
             .ToList();
 
         Assert.True(
@@ -144,7 +152,10 @@ public sealed class QueryAritySweepTests {
     static HashSet<(string Type, string Name, int Arity)> CalledHere() {
         var location = typeof(QueryAritySweepTests).Assembly.Location;
 
-        Assert.True(File.Exists(location), $"this assembly is not a file on disk, so its IL cannot be read: {location}");
+        Assert.True(
+            File.Exists(location),
+            $"this assembly is not a file on disk, so its IL cannot be read: {location}"
+        );
 
         var called = new HashSet<(string, string, int)>();
 
@@ -196,25 +207,26 @@ public sealed class QueryAritySweepTests {
     /// <param name="entity">The entity.</param>
     /// <param name="index">Which of the sweep's components.</param>
     /// <returns>The count the sweep left behind.</returns>
-    static int TouchesOf(World world, Entity entity, int index) => index switch {
-        0 => world.Get<A0>(entity).Touches,
-        1 => world.Get<A1>(entity).Touches,
-        2 => world.Get<A2>(entity).Touches,
-        3 => world.Get<A3>(entity).Touches,
-        4 => world.Get<A4>(entity).Touches,
-        5 => world.Get<A5>(entity).Touches,
-        6 => world.Get<A6>(entity).Touches,
-        7 => world.Get<A7>(entity).Touches,
-        8 => world.Get<A8>(entity).Touches,
-        9 => world.Get<A9>(entity).Touches,
-        10 => world.Get<A10>(entity).Touches,
-        11 => world.Get<A11>(entity).Touches,
-        12 => world.Get<A12>(entity).Touches,
-        13 => world.Get<A13>(entity).Touches,
-        14 => world.Get<A14>(entity).Touches,
-        15 => world.Get<A15>(entity).Touches,
-        _ => throw new ArgumentOutOfRangeException(nameof(index))
-    };
+    static int TouchesOf(World world, Entity entity, int index) =>
+        index switch {
+            0 => world.Get<A0>(entity).Touches,
+            1 => world.Get<A1>(entity).Touches,
+            2 => world.Get<A2>(entity).Touches,
+            3 => world.Get<A3>(entity).Touches,
+            4 => world.Get<A4>(entity).Touches,
+            5 => world.Get<A5>(entity).Touches,
+            6 => world.Get<A6>(entity).Touches,
+            7 => world.Get<A7>(entity).Touches,
+            8 => world.Get<A8>(entity).Touches,
+            9 => world.Get<A9>(entity).Touches,
+            10 => world.Get<A10>(entity).Touches,
+            11 => world.Get<A11>(entity).Touches,
+            12 => world.Get<A12>(entity).Touches,
+            13 => world.Get<A13>(entity).Touches,
+            14 => world.Get<A14>(entity).Touches,
+            15 => world.Get<A15>(entity).Touches,
+            _ => throw new ArgumentOutOfRangeException(nameof(index))
+        };
 
     /// <summary>Gives an entity every one of the sweep's components, each knowing whose it is.</summary>
     /// <param name="world">The world.</param>
@@ -257,8 +269,14 @@ public sealed class QueryAritySweepTests {
         Assert.Equal(Entities, world.Query(new QueryDescription().WithAny<A0>()).EntityCount);
         Assert.Equal(0, world.Query(new QueryDescription().WithNone<A0>()).EntityCount);
         Assert.True(new QueryDescription().WithChanged<A0>().HasChangeFilter);
-        world.Query(all1, (ref A0 a0) => { a0.Touches++; });
-        world.QueryWithEntity(all1, (Entity entity, ref A0 a0) => { Assert.Equal(entities[a0.Owner], entity); a0.Touches++; });
+        world.Query(all1, static (ref A0 a0) => { a0.Touches++; });
+        world.QueryWithEntity(
+            all1,
+            (Entity entity, ref A0 a0) => {
+                Assert.Equal(entities[a0.Owner], entity);
+                a0.Touches++;
+            }
+        );
         world.ForEach<Visits, A0>(all1, ref visitor);
         world.ForEachWithEntity<VisitsWithEntity, A0>(all1, ref visitorWithEntity);
 
@@ -267,8 +285,21 @@ public sealed class QueryAritySweepTests {
         Assert.Equal(Entities, world.Query(new QueryDescription().WithAny<A0, A1>()).EntityCount);
         Assert.Equal(0, world.Query(new QueryDescription().WithNone<A0, A1>()).EntityCount);
         Assert.True(new QueryDescription().WithChanged<A0, A1>().HasChangeFilter);
-        world.Query(all2, (ref A0 a0, ref A1 a1) => { a0.Touches++; a1.Touches++; });
-        world.QueryWithEntity(all2, (Entity entity, ref A0 a0, ref A1 a1) => { Assert.Equal(entities[a0.Owner], entity); a0.Touches++; a1.Touches++; });
+        world.Query(
+            all2,
+            static (ref A0 a0, ref A1 a1) => {
+                a0.Touches++;
+                a1.Touches++;
+            }
+        );
+        world.QueryWithEntity(
+            all2,
+            (Entity entity, ref A0 a0, ref A1 a1) => {
+                Assert.Equal(entities[a0.Owner], entity);
+                a0.Touches++;
+                a1.Touches++;
+            }
+        );
         world.ForEach<Visits, A0, A1>(all2, ref visitor);
         world.ForEachWithEntity<VisitsWithEntity, A0, A1>(all2, ref visitorWithEntity);
 
@@ -277,8 +308,23 @@ public sealed class QueryAritySweepTests {
         Assert.Equal(Entities, world.Query(new QueryDescription().WithAny<A0, A1, A2>()).EntityCount);
         Assert.Equal(0, world.Query(new QueryDescription().WithNone<A0, A1, A2>()).EntityCount);
         Assert.True(new QueryDescription().WithChanged<A0, A1, A2>().HasChangeFilter);
-        world.Query(all3, (ref A0 a0, ref A1 a1, ref A2 a2) => { a0.Touches++; a1.Touches++; a2.Touches++; });
-        world.QueryWithEntity(all3, (Entity entity, ref A0 a0, ref A1 a1, ref A2 a2) => { Assert.Equal(entities[a0.Owner], entity); a0.Touches++; a1.Touches++; a2.Touches++; });
+        world.Query(
+            all3,
+            static (ref A0 a0, ref A1 a1, ref A2 a2) => {
+                a0.Touches++;
+                a1.Touches++;
+                a2.Touches++;
+            }
+        );
+        world.QueryWithEntity(
+            all3,
+            (Entity entity, ref A0 a0, ref A1 a1, ref A2 a2) => {
+                Assert.Equal(entities[a0.Owner], entity);
+                a0.Touches++;
+                a1.Touches++;
+                a2.Touches++;
+            }
+        );
         world.ForEach<Visits, A0, A1, A2>(all3, ref visitor);
         world.ForEachWithEntity<VisitsWithEntity, A0, A1, A2>(all3, ref visitorWithEntity);
 
@@ -287,8 +333,25 @@ public sealed class QueryAritySweepTests {
         Assert.Equal(Entities, world.Query(new QueryDescription().WithAny<A0, A1, A2, A3>()).EntityCount);
         Assert.Equal(0, world.Query(new QueryDescription().WithNone<A0, A1, A2, A3>()).EntityCount);
         Assert.True(new QueryDescription().WithChanged<A0, A1, A2, A3>().HasChangeFilter);
-        world.Query(all4, (ref A0 a0, ref A1 a1, ref A2 a2, ref A3 a3) => { a0.Touches++; a1.Touches++; a2.Touches++; a3.Touches++; });
-        world.QueryWithEntity(all4, (Entity entity, ref A0 a0, ref A1 a1, ref A2 a2, ref A3 a3) => { Assert.Equal(entities[a0.Owner], entity); a0.Touches++; a1.Touches++; a2.Touches++; a3.Touches++; });
+        world.Query(
+            all4,
+            static (ref A0 a0, ref A1 a1, ref A2 a2, ref A3 a3) => {
+                a0.Touches++;
+                a1.Touches++;
+                a2.Touches++;
+                a3.Touches++;
+            }
+        );
+        world.QueryWithEntity(
+            all4,
+            (Entity entity, ref A0 a0, ref A1 a1, ref A2 a2, ref A3 a3) => {
+                Assert.Equal(entities[a0.Owner], entity);
+                a0.Touches++;
+                a1.Touches++;
+                a2.Touches++;
+                a3.Touches++;
+            }
+        );
         world.ForEach<Visits, A0, A1, A2, A3>(all4, ref visitor);
         world.ForEachWithEntity<VisitsWithEntity, A0, A1, A2, A3>(all4, ref visitorWithEntity);
 
@@ -297,8 +360,27 @@ public sealed class QueryAritySweepTests {
         Assert.Equal(Entities, world.Query(new QueryDescription().WithAny<A0, A1, A2, A3, A4>()).EntityCount);
         Assert.Equal(0, world.Query(new QueryDescription().WithNone<A0, A1, A2, A3, A4>()).EntityCount);
         Assert.True(new QueryDescription().WithChanged<A0, A1, A2, A3, A4>().HasChangeFilter);
-        world.Query(all5, (ref A0 a0, ref A1 a1, ref A2 a2, ref A3 a3, ref A4 a4) => { a0.Touches++; a1.Touches++; a2.Touches++; a3.Touches++; a4.Touches++; });
-        world.QueryWithEntity(all5, (Entity entity, ref A0 a0, ref A1 a1, ref A2 a2, ref A3 a3, ref A4 a4) => { Assert.Equal(entities[a0.Owner], entity); a0.Touches++; a1.Touches++; a2.Touches++; a3.Touches++; a4.Touches++; });
+        world.Query(
+            all5,
+            static (ref A0 a0, ref A1 a1, ref A2 a2, ref A3 a3, ref A4 a4) => {
+                a0.Touches++;
+                a1.Touches++;
+                a2.Touches++;
+                a3.Touches++;
+                a4.Touches++;
+            }
+        );
+        world.QueryWithEntity(
+            all5,
+            (Entity entity, ref A0 a0, ref A1 a1, ref A2 a2, ref A3 a3, ref A4 a4) => {
+                Assert.Equal(entities[a0.Owner], entity);
+                a0.Touches++;
+                a1.Touches++;
+                a2.Touches++;
+                a3.Touches++;
+                a4.Touches++;
+            }
+        );
         world.ForEach<Visits, A0, A1, A2, A3, A4>(all5, ref visitor);
         world.ForEachWithEntity<VisitsWithEntity, A0, A1, A2, A3, A4>(all5, ref visitorWithEntity);
 
@@ -307,8 +389,29 @@ public sealed class QueryAritySweepTests {
         Assert.Equal(Entities, world.Query(new QueryDescription().WithAny<A0, A1, A2, A3, A4, A5>()).EntityCount);
         Assert.Equal(0, world.Query(new QueryDescription().WithNone<A0, A1, A2, A3, A4, A5>()).EntityCount);
         Assert.True(new QueryDescription().WithChanged<A0, A1, A2, A3, A4, A5>().HasChangeFilter);
-        world.Query(all6, (ref A0 a0, ref A1 a1, ref A2 a2, ref A3 a3, ref A4 a4, ref A5 a5) => { a0.Touches++; a1.Touches++; a2.Touches++; a3.Touches++; a4.Touches++; a5.Touches++; });
-        world.QueryWithEntity(all6, (Entity entity, ref A0 a0, ref A1 a1, ref A2 a2, ref A3 a3, ref A4 a4, ref A5 a5) => { Assert.Equal(entities[a0.Owner], entity); a0.Touches++; a1.Touches++; a2.Touches++; a3.Touches++; a4.Touches++; a5.Touches++; });
+        world.Query(
+            all6,
+            static (ref A0 a0, ref A1 a1, ref A2 a2, ref A3 a3, ref A4 a4, ref A5 a5) => {
+                a0.Touches++;
+                a1.Touches++;
+                a2.Touches++;
+                a3.Touches++;
+                a4.Touches++;
+                a5.Touches++;
+            }
+        );
+        world.QueryWithEntity(
+            all6,
+            (Entity entity, ref A0 a0, ref A1 a1, ref A2 a2, ref A3 a3, ref A4 a4, ref A5 a5) => {
+                Assert.Equal(entities[a0.Owner], entity);
+                a0.Touches++;
+                a1.Touches++;
+                a2.Touches++;
+                a3.Touches++;
+                a4.Touches++;
+                a5.Touches++;
+            }
+        );
         world.ForEach<Visits, A0, A1, A2, A3, A4, A5>(all6, ref visitor);
         world.ForEachWithEntity<VisitsWithEntity, A0, A1, A2, A3, A4, A5>(all6, ref visitorWithEntity);
 
@@ -317,101 +420,742 @@ public sealed class QueryAritySweepTests {
         Assert.Equal(Entities, world.Query(new QueryDescription().WithAny<A0, A1, A2, A3, A4, A5, A6>()).EntityCount);
         Assert.Equal(0, world.Query(new QueryDescription().WithNone<A0, A1, A2, A3, A4, A5, A6>()).EntityCount);
         Assert.True(new QueryDescription().WithChanged<A0, A1, A2, A3, A4, A5, A6>().HasChangeFilter);
-        world.Query(all7, (ref A0 a0, ref A1 a1, ref A2 a2, ref A3 a3, ref A4 a4, ref A5 a5, ref A6 a6) => { a0.Touches++; a1.Touches++; a2.Touches++; a3.Touches++; a4.Touches++; a5.Touches++; a6.Touches++; });
-        world.QueryWithEntity(all7, (Entity entity, ref A0 a0, ref A1 a1, ref A2 a2, ref A3 a3, ref A4 a4, ref A5 a5, ref A6 a6) => { Assert.Equal(entities[a0.Owner], entity); a0.Touches++; a1.Touches++; a2.Touches++; a3.Touches++; a4.Touches++; a5.Touches++; a6.Touches++; });
+        world.Query(
+            all7,
+            static (ref A0 a0, ref A1 a1, ref A2 a2, ref A3 a3, ref A4 a4, ref A5 a5, ref A6 a6) => {
+                a0.Touches++;
+                a1.Touches++;
+                a2.Touches++;
+                a3.Touches++;
+                a4.Touches++;
+                a5.Touches++;
+                a6.Touches++;
+            }
+        );
+        world.QueryWithEntity(
+            all7,
+            (Entity entity, ref A0 a0, ref A1 a1, ref A2 a2, ref A3 a3, ref A4 a4, ref A5 a5, ref A6 a6) => {
+                Assert.Equal(entities[a0.Owner], entity);
+                a0.Touches++;
+                a1.Touches++;
+                a2.Touches++;
+                a3.Touches++;
+                a4.Touches++;
+                a5.Touches++;
+                a6.Touches++;
+            }
+        );
         world.ForEach<Visits, A0, A1, A2, A3, A4, A5, A6>(all7, ref visitor);
         world.ForEachWithEntity<VisitsWithEntity, A0, A1, A2, A3, A4, A5, A6>(all7, ref visitorWithEntity);
 
         var all8 = new QueryDescription().WithAll<A0, A1, A2, A3, A4, A5, A6, A7>();
         Assert.Equal(Entities, world.Query(all8).EntityCount);
-        Assert.Equal(Entities, world.Query(new QueryDescription().WithAny<A0, A1, A2, A3, A4, A5, A6, A7>()).EntityCount);
+        Assert.Equal(
+            Entities,
+            world.Query(new QueryDescription().WithAny<A0, A1, A2, A3, A4, A5, A6, A7>()).EntityCount
+        );
         Assert.Equal(0, world.Query(new QueryDescription().WithNone<A0, A1, A2, A3, A4, A5, A6, A7>()).EntityCount);
         Assert.True(new QueryDescription().WithChanged<A0, A1, A2, A3, A4, A5, A6, A7>().HasChangeFilter);
-        world.Query(all8, (ref A0 a0, ref A1 a1, ref A2 a2, ref A3 a3, ref A4 a4, ref A5 a5, ref A6 a6, ref A7 a7) => { a0.Touches++; a1.Touches++; a2.Touches++; a3.Touches++; a4.Touches++; a5.Touches++; a6.Touches++; a7.Touches++; });
-        world.QueryWithEntity(all8, (Entity entity, ref A0 a0, ref A1 a1, ref A2 a2, ref A3 a3, ref A4 a4, ref A5 a5, ref A6 a6, ref A7 a7) => { Assert.Equal(entities[a0.Owner], entity); a0.Touches++; a1.Touches++; a2.Touches++; a3.Touches++; a4.Touches++; a5.Touches++; a6.Touches++; a7.Touches++; });
+        world.Query(
+            all8,
+            static (ref A0 a0, ref A1 a1, ref A2 a2, ref A3 a3, ref A4 a4, ref A5 a5, ref A6 a6, ref A7 a7) => {
+                a0.Touches++;
+                a1.Touches++;
+                a2.Touches++;
+                a3.Touches++;
+                a4.Touches++;
+                a5.Touches++;
+                a6.Touches++;
+                a7.Touches++;
+            }
+        );
+        world.QueryWithEntity(
+            all8,
+            (Entity entity, ref A0 a0, ref A1 a1, ref A2 a2, ref A3 a3, ref A4 a4, ref A5 a5, ref A6 a6, ref A7 a7) => {
+                Assert.Equal(entities[a0.Owner], entity);
+                a0.Touches++;
+                a1.Touches++;
+                a2.Touches++;
+                a3.Touches++;
+                a4.Touches++;
+                a5.Touches++;
+                a6.Touches++;
+                a7.Touches++;
+            }
+        );
         world.ForEach<Visits, A0, A1, A2, A3, A4, A5, A6, A7>(all8, ref visitor);
         world.ForEachWithEntity<VisitsWithEntity, A0, A1, A2, A3, A4, A5, A6, A7>(all8, ref visitorWithEntity);
 
         var all9 = new QueryDescription().WithAll<A0, A1, A2, A3, A4, A5, A6, A7, A8>();
         Assert.Equal(Entities, world.Query(all9).EntityCount);
-        Assert.Equal(Entities, world.Query(new QueryDescription().WithAny<A0, A1, A2, A3, A4, A5, A6, A7, A8>()).EntityCount);
+        Assert.Equal(
+            Entities,
+            world.Query(new QueryDescription().WithAny<A0, A1, A2, A3, A4, A5, A6, A7, A8>()).EntityCount
+        );
         Assert.Equal(0, world.Query(new QueryDescription().WithNone<A0, A1, A2, A3, A4, A5, A6, A7, A8>()).EntityCount);
         Assert.True(new QueryDescription().WithChanged<A0, A1, A2, A3, A4, A5, A6, A7, A8>().HasChangeFilter);
-        world.Query(all9, (ref A0 a0, ref A1 a1, ref A2 a2, ref A3 a3, ref A4 a4, ref A5 a5, ref A6 a6, ref A7 a7, ref A8 a8) => { a0.Touches++; a1.Touches++; a2.Touches++; a3.Touches++; a4.Touches++; a5.Touches++; a6.Touches++; a7.Touches++; a8.Touches++; });
-        world.QueryWithEntity(all9, (Entity entity, ref A0 a0, ref A1 a1, ref A2 a2, ref A3 a3, ref A4 a4, ref A5 a5, ref A6 a6, ref A7 a7, ref A8 a8) => { Assert.Equal(entities[a0.Owner], entity); a0.Touches++; a1.Touches++; a2.Touches++; a3.Touches++; a4.Touches++; a5.Touches++; a6.Touches++; a7.Touches++; a8.Touches++; });
+        world.Query(
+            all9,
+            static (
+                ref A0 a0,
+                ref A1 a1,
+                ref A2 a2,
+                ref A3 a3,
+                ref A4 a4,
+                ref A5 a5,
+                ref A6 a6,
+                ref A7 a7,
+                ref A8 a8
+            ) => {
+                a0.Touches++;
+                a1.Touches++;
+                a2.Touches++;
+                a3.Touches++;
+                a4.Touches++;
+                a5.Touches++;
+                a6.Touches++;
+                a7.Touches++;
+                a8.Touches++;
+            }
+        );
+        world.QueryWithEntity(
+            all9,
+            (
+                Entity entity,
+                ref A0 a0,
+                ref A1 a1,
+                ref A2 a2,
+                ref A3 a3,
+                ref A4 a4,
+                ref A5 a5,
+                ref A6 a6,
+                ref A7 a7,
+                ref A8 a8
+            ) => {
+                Assert.Equal(entities[a0.Owner], entity);
+                a0.Touches++;
+                a1.Touches++;
+                a2.Touches++;
+                a3.Touches++;
+                a4.Touches++;
+                a5.Touches++;
+                a6.Touches++;
+                a7.Touches++;
+                a8.Touches++;
+            }
+        );
         world.ForEach<Visits, A0, A1, A2, A3, A4, A5, A6, A7, A8>(all9, ref visitor);
         world.ForEachWithEntity<VisitsWithEntity, A0, A1, A2, A3, A4, A5, A6, A7, A8>(all9, ref visitorWithEntity);
 
         var all10 = new QueryDescription().WithAll<A0, A1, A2, A3, A4, A5, A6, A7, A8, A9>();
         Assert.Equal(Entities, world.Query(all10).EntityCount);
-        Assert.Equal(Entities, world.Query(new QueryDescription().WithAny<A0, A1, A2, A3, A4, A5, A6, A7, A8, A9>()).EntityCount);
-        Assert.Equal(0, world.Query(new QueryDescription().WithNone<A0, A1, A2, A3, A4, A5, A6, A7, A8, A9>()).EntityCount);
+        Assert.Equal(
+            Entities,
+            world.Query(new QueryDescription().WithAny<A0, A1, A2, A3, A4, A5, A6, A7, A8, A9>()).EntityCount
+        );
+        Assert.Equal(
+            0,
+            world.Query(new QueryDescription().WithNone<A0, A1, A2, A3, A4, A5, A6, A7, A8, A9>()).EntityCount
+        );
         Assert.True(new QueryDescription().WithChanged<A0, A1, A2, A3, A4, A5, A6, A7, A8, A9>().HasChangeFilter);
-        world.Query(all10, (ref A0 a0, ref A1 a1, ref A2 a2, ref A3 a3, ref A4 a4, ref A5 a5, ref A6 a6, ref A7 a7, ref A8 a8, ref A9 a9) => { a0.Touches++; a1.Touches++; a2.Touches++; a3.Touches++; a4.Touches++; a5.Touches++; a6.Touches++; a7.Touches++; a8.Touches++; a9.Touches++; });
-        world.QueryWithEntity(all10, (Entity entity, ref A0 a0, ref A1 a1, ref A2 a2, ref A3 a3, ref A4 a4, ref A5 a5, ref A6 a6, ref A7 a7, ref A8 a8, ref A9 a9) => { Assert.Equal(entities[a0.Owner], entity); a0.Touches++; a1.Touches++; a2.Touches++; a3.Touches++; a4.Touches++; a5.Touches++; a6.Touches++; a7.Touches++; a8.Touches++; a9.Touches++; });
+        world.Query(
+            all10,
+            static (
+                ref A0 a0,
+                ref A1 a1,
+                ref A2 a2,
+                ref A3 a3,
+                ref A4 a4,
+                ref A5 a5,
+                ref A6 a6,
+                ref A7 a7,
+                ref A8 a8,
+                ref A9 a9
+            ) => {
+                a0.Touches++;
+                a1.Touches++;
+                a2.Touches++;
+                a3.Touches++;
+                a4.Touches++;
+                a5.Touches++;
+                a6.Touches++;
+                a7.Touches++;
+                a8.Touches++;
+                a9.Touches++;
+            }
+        );
+        world.QueryWithEntity(
+            all10,
+            (
+                Entity entity,
+                ref A0 a0,
+                ref A1 a1,
+                ref A2 a2,
+                ref A3 a3,
+                ref A4 a4,
+                ref A5 a5,
+                ref A6 a6,
+                ref A7 a7,
+                ref A8 a8,
+                ref A9 a9
+            ) => {
+                Assert.Equal(entities[a0.Owner], entity);
+                a0.Touches++;
+                a1.Touches++;
+                a2.Touches++;
+                a3.Touches++;
+                a4.Touches++;
+                a5.Touches++;
+                a6.Touches++;
+                a7.Touches++;
+                a8.Touches++;
+                a9.Touches++;
+            }
+        );
         world.ForEach<Visits, A0, A1, A2, A3, A4, A5, A6, A7, A8, A9>(all10, ref visitor);
         world.ForEachWithEntity<VisitsWithEntity, A0, A1, A2, A3, A4, A5, A6, A7, A8, A9>(all10, ref visitorWithEntity);
 
         var all11 = new QueryDescription().WithAll<A0, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10>();
         Assert.Equal(Entities, world.Query(all11).EntityCount);
-        Assert.Equal(Entities, world.Query(new QueryDescription().WithAny<A0, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10>()).EntityCount);
-        Assert.Equal(0, world.Query(new QueryDescription().WithNone<A0, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10>()).EntityCount);
+        Assert.Equal(
+            Entities,
+            world.Query(new QueryDescription().WithAny<A0, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10>()).EntityCount
+        );
+        Assert.Equal(
+            0,
+            world.Query(new QueryDescription().WithNone<A0, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10>()).EntityCount
+        );
         Assert.True(new QueryDescription().WithChanged<A0, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10>().HasChangeFilter);
-        world.Query(all11, (ref A0 a0, ref A1 a1, ref A2 a2, ref A3 a3, ref A4 a4, ref A5 a5, ref A6 a6, ref A7 a7, ref A8 a8, ref A9 a9, ref A10 a10) => { a0.Touches++; a1.Touches++; a2.Touches++; a3.Touches++; a4.Touches++; a5.Touches++; a6.Touches++; a7.Touches++; a8.Touches++; a9.Touches++; a10.Touches++; });
-        world.QueryWithEntity(all11, (Entity entity, ref A0 a0, ref A1 a1, ref A2 a2, ref A3 a3, ref A4 a4, ref A5 a5, ref A6 a6, ref A7 a7, ref A8 a8, ref A9 a9, ref A10 a10) => { Assert.Equal(entities[a0.Owner], entity); a0.Touches++; a1.Touches++; a2.Touches++; a3.Touches++; a4.Touches++; a5.Touches++; a6.Touches++; a7.Touches++; a8.Touches++; a9.Touches++; a10.Touches++; });
+        world.Query(
+            all11,
+            static (
+                ref A0 a0,
+                ref A1 a1,
+                ref A2 a2,
+                ref A3 a3,
+                ref A4 a4,
+                ref A5 a5,
+                ref A6 a6,
+                ref A7 a7,
+                ref A8 a8,
+                ref A9 a9,
+                ref A10 a10
+            ) => {
+                a0.Touches++;
+                a1.Touches++;
+                a2.Touches++;
+                a3.Touches++;
+                a4.Touches++;
+                a5.Touches++;
+                a6.Touches++;
+                a7.Touches++;
+                a8.Touches++;
+                a9.Touches++;
+                a10.Touches++;
+            }
+        );
+        world.QueryWithEntity(
+            all11,
+            (
+                Entity entity,
+                ref A0 a0,
+                ref A1 a1,
+                ref A2 a2,
+                ref A3 a3,
+                ref A4 a4,
+                ref A5 a5,
+                ref A6 a6,
+                ref A7 a7,
+                ref A8 a8,
+                ref A9 a9,
+                ref A10 a10
+            ) => {
+                Assert.Equal(entities[a0.Owner], entity);
+                a0.Touches++;
+                a1.Touches++;
+                a2.Touches++;
+                a3.Touches++;
+                a4.Touches++;
+                a5.Touches++;
+                a6.Touches++;
+                a7.Touches++;
+                a8.Touches++;
+                a9.Touches++;
+                a10.Touches++;
+            }
+        );
         world.ForEach<Visits, A0, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10>(all11, ref visitor);
-        world.ForEachWithEntity<VisitsWithEntity, A0, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10>(all11, ref visitorWithEntity);
+        world.ForEachWithEntity<VisitsWithEntity, A0, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10>(
+            all11,
+            ref visitorWithEntity
+        );
 
         var all12 = new QueryDescription().WithAll<A0, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11>();
         Assert.Equal(Entities, world.Query(all12).EntityCount);
-        Assert.Equal(Entities, world.Query(new QueryDescription().WithAny<A0, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11>()).EntityCount);
-        Assert.Equal(0, world.Query(new QueryDescription().WithNone<A0, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11>()).EntityCount);
-        Assert.True(new QueryDescription().WithChanged<A0, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11>().HasChangeFilter);
-        world.Query(all12, (ref A0 a0, ref A1 a1, ref A2 a2, ref A3 a3, ref A4 a4, ref A5 a5, ref A6 a6, ref A7 a7, ref A8 a8, ref A9 a9, ref A10 a10, ref A11 a11) => { a0.Touches++; a1.Touches++; a2.Touches++; a3.Touches++; a4.Touches++; a5.Touches++; a6.Touches++; a7.Touches++; a8.Touches++; a9.Touches++; a10.Touches++; a11.Touches++; });
-        world.QueryWithEntity(all12, (Entity entity, ref A0 a0, ref A1 a1, ref A2 a2, ref A3 a3, ref A4 a4, ref A5 a5, ref A6 a6, ref A7 a7, ref A8 a8, ref A9 a9, ref A10 a10, ref A11 a11) => { Assert.Equal(entities[a0.Owner], entity); a0.Touches++; a1.Touches++; a2.Touches++; a3.Touches++; a4.Touches++; a5.Touches++; a6.Touches++; a7.Touches++; a8.Touches++; a9.Touches++; a10.Touches++; a11.Touches++; });
+        Assert.Equal(
+            Entities,
+            world.Query(new QueryDescription().WithAny<A0, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11>()).EntityCount
+        );
+        Assert.Equal(
+            0,
+            world.Query(new QueryDescription().WithNone<A0, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11>()).EntityCount
+        );
+        Assert.True(
+            new QueryDescription().WithChanged<A0, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11>().HasChangeFilter
+        );
+        world.Query(
+            all12,
+            static (
+                ref A0 a0,
+                ref A1 a1,
+                ref A2 a2,
+                ref A3 a3,
+                ref A4 a4,
+                ref A5 a5,
+                ref A6 a6,
+                ref A7 a7,
+                ref A8 a8,
+                ref A9 a9,
+                ref A10 a10,
+                ref A11 a11
+            ) => {
+                a0.Touches++;
+                a1.Touches++;
+                a2.Touches++;
+                a3.Touches++;
+                a4.Touches++;
+                a5.Touches++;
+                a6.Touches++;
+                a7.Touches++;
+                a8.Touches++;
+                a9.Touches++;
+                a10.Touches++;
+                a11.Touches++;
+            }
+        );
+        world.QueryWithEntity(
+            all12,
+            (
+                Entity entity,
+                ref A0 a0,
+                ref A1 a1,
+                ref A2 a2,
+                ref A3 a3,
+                ref A4 a4,
+                ref A5 a5,
+                ref A6 a6,
+                ref A7 a7,
+                ref A8 a8,
+                ref A9 a9,
+                ref A10 a10,
+                ref A11 a11
+            ) => {
+                Assert.Equal(entities[a0.Owner], entity);
+                a0.Touches++;
+                a1.Touches++;
+                a2.Touches++;
+                a3.Touches++;
+                a4.Touches++;
+                a5.Touches++;
+                a6.Touches++;
+                a7.Touches++;
+                a8.Touches++;
+                a9.Touches++;
+                a10.Touches++;
+                a11.Touches++;
+            }
+        );
         world.ForEach<Visits, A0, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11>(all12, ref visitor);
-        world.ForEachWithEntity<VisitsWithEntity, A0, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11>(all12, ref visitorWithEntity);
+        world.ForEachWithEntity<VisitsWithEntity, A0, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11>(
+            all12,
+            ref visitorWithEntity
+        );
 
         var all13 = new QueryDescription().WithAll<A0, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12>();
         Assert.Equal(Entities, world.Query(all13).EntityCount);
-        Assert.Equal(Entities, world.Query(new QueryDescription().WithAny<A0, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12>()).EntityCount);
-        Assert.Equal(0, world.Query(new QueryDescription().WithNone<A0, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12>()).EntityCount);
-        Assert.True(new QueryDescription().WithChanged<A0, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12>().HasChangeFilter);
-        world.Query(all13, (ref A0 a0, ref A1 a1, ref A2 a2, ref A3 a3, ref A4 a4, ref A5 a5, ref A6 a6, ref A7 a7, ref A8 a8, ref A9 a9, ref A10 a10, ref A11 a11, ref A12 a12) => { a0.Touches++; a1.Touches++; a2.Touches++; a3.Touches++; a4.Touches++; a5.Touches++; a6.Touches++; a7.Touches++; a8.Touches++; a9.Touches++; a10.Touches++; a11.Touches++; a12.Touches++; });
-        world.QueryWithEntity(all13, (Entity entity, ref A0 a0, ref A1 a1, ref A2 a2, ref A3 a3, ref A4 a4, ref A5 a5, ref A6 a6, ref A7 a7, ref A8 a8, ref A9 a9, ref A10 a10, ref A11 a11, ref A12 a12) => { Assert.Equal(entities[a0.Owner], entity); a0.Touches++; a1.Touches++; a2.Touches++; a3.Touches++; a4.Touches++; a5.Touches++; a6.Touches++; a7.Touches++; a8.Touches++; a9.Touches++; a10.Touches++; a11.Touches++; a12.Touches++; });
+        Assert.Equal(
+            Entities,
+            world.Query(new QueryDescription().WithAny<A0, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12>())
+                .EntityCount
+        );
+        Assert.Equal(
+            0,
+            world.Query(new QueryDescription().WithNone<A0, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12>())
+                .EntityCount
+        );
+        Assert.True(
+            new QueryDescription().WithChanged<A0, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12>().HasChangeFilter
+        );
+        world.Query(
+            all13,
+            static (
+                ref A0 a0,
+                ref A1 a1,
+                ref A2 a2,
+                ref A3 a3,
+                ref A4 a4,
+                ref A5 a5,
+                ref A6 a6,
+                ref A7 a7,
+                ref A8 a8,
+                ref A9 a9,
+                ref A10 a10,
+                ref A11 a11,
+                ref A12 a12
+            ) => {
+                a0.Touches++;
+                a1.Touches++;
+                a2.Touches++;
+                a3.Touches++;
+                a4.Touches++;
+                a5.Touches++;
+                a6.Touches++;
+                a7.Touches++;
+                a8.Touches++;
+                a9.Touches++;
+                a10.Touches++;
+                a11.Touches++;
+                a12.Touches++;
+            }
+        );
+        world.QueryWithEntity(
+            all13,
+            (
+                Entity entity,
+                ref A0 a0,
+                ref A1 a1,
+                ref A2 a2,
+                ref A3 a3,
+                ref A4 a4,
+                ref A5 a5,
+                ref A6 a6,
+                ref A7 a7,
+                ref A8 a8,
+                ref A9 a9,
+                ref A10 a10,
+                ref A11 a11,
+                ref A12 a12
+            ) => {
+                Assert.Equal(entities[a0.Owner], entity);
+                a0.Touches++;
+                a1.Touches++;
+                a2.Touches++;
+                a3.Touches++;
+                a4.Touches++;
+                a5.Touches++;
+                a6.Touches++;
+                a7.Touches++;
+                a8.Touches++;
+                a9.Touches++;
+                a10.Touches++;
+                a11.Touches++;
+                a12.Touches++;
+            }
+        );
         world.ForEach<Visits, A0, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12>(all13, ref visitor);
-        world.ForEachWithEntity<VisitsWithEntity, A0, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12>(all13, ref visitorWithEntity);
+        world.ForEachWithEntity<VisitsWithEntity, A0, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12>(
+            all13,
+            ref visitorWithEntity
+        );
 
         var all14 = new QueryDescription().WithAll<A0, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13>();
         Assert.Equal(Entities, world.Query(all14).EntityCount);
-        Assert.Equal(Entities, world.Query(new QueryDescription().WithAny<A0, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13>()).EntityCount);
-        Assert.Equal(0, world.Query(new QueryDescription().WithNone<A0, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13>()).EntityCount);
-        Assert.True(new QueryDescription().WithChanged<A0, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13>().HasChangeFilter);
-        world.Query(all14, (ref A0 a0, ref A1 a1, ref A2 a2, ref A3 a3, ref A4 a4, ref A5 a5, ref A6 a6, ref A7 a7, ref A8 a8, ref A9 a9, ref A10 a10, ref A11 a11, ref A12 a12, ref A13 a13) => { a0.Touches++; a1.Touches++; a2.Touches++; a3.Touches++; a4.Touches++; a5.Touches++; a6.Touches++; a7.Touches++; a8.Touches++; a9.Touches++; a10.Touches++; a11.Touches++; a12.Touches++; a13.Touches++; });
-        world.QueryWithEntity(all14, (Entity entity, ref A0 a0, ref A1 a1, ref A2 a2, ref A3 a3, ref A4 a4, ref A5 a5, ref A6 a6, ref A7 a7, ref A8 a8, ref A9 a9, ref A10 a10, ref A11 a11, ref A12 a12, ref A13 a13) => { Assert.Equal(entities[a0.Owner], entity); a0.Touches++; a1.Touches++; a2.Touches++; a3.Touches++; a4.Touches++; a5.Touches++; a6.Touches++; a7.Touches++; a8.Touches++; a9.Touches++; a10.Touches++; a11.Touches++; a12.Touches++; a13.Touches++; });
+        Assert.Equal(
+            Entities,
+            world.Query(new QueryDescription().WithAny<A0, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13>())
+                .EntityCount
+        );
+        Assert.Equal(
+            0,
+            world.Query(new QueryDescription().WithNone<A0, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13>())
+                .EntityCount
+        );
+        Assert.True(
+            new QueryDescription().WithChanged<A0, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13>()
+                .HasChangeFilter
+        );
+        world.Query(
+            all14,
+            static (
+                ref A0 a0,
+                ref A1 a1,
+                ref A2 a2,
+                ref A3 a3,
+                ref A4 a4,
+                ref A5 a5,
+                ref A6 a6,
+                ref A7 a7,
+                ref A8 a8,
+                ref A9 a9,
+                ref A10 a10,
+                ref A11 a11,
+                ref A12 a12,
+                ref A13 a13
+            ) => {
+                a0.Touches++;
+                a1.Touches++;
+                a2.Touches++;
+                a3.Touches++;
+                a4.Touches++;
+                a5.Touches++;
+                a6.Touches++;
+                a7.Touches++;
+                a8.Touches++;
+                a9.Touches++;
+                a10.Touches++;
+                a11.Touches++;
+                a12.Touches++;
+                a13.Touches++;
+            }
+        );
+        world.QueryWithEntity(
+            all14,
+            (
+                Entity entity,
+                ref A0 a0,
+                ref A1 a1,
+                ref A2 a2,
+                ref A3 a3,
+                ref A4 a4,
+                ref A5 a5,
+                ref A6 a6,
+                ref A7 a7,
+                ref A8 a8,
+                ref A9 a9,
+                ref A10 a10,
+                ref A11 a11,
+                ref A12 a12,
+                ref A13 a13
+            ) => {
+                Assert.Equal(entities[a0.Owner], entity);
+                a0.Touches++;
+                a1.Touches++;
+                a2.Touches++;
+                a3.Touches++;
+                a4.Touches++;
+                a5.Touches++;
+                a6.Touches++;
+                a7.Touches++;
+                a8.Touches++;
+                a9.Touches++;
+                a10.Touches++;
+                a11.Touches++;
+                a12.Touches++;
+                a13.Touches++;
+            }
+        );
         world.ForEach<Visits, A0, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13>(all14, ref visitor);
-        world.ForEachWithEntity<VisitsWithEntity, A0, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13>(all14, ref visitorWithEntity);
+        world.ForEachWithEntity<VisitsWithEntity, A0, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13>(
+            all14,
+            ref visitorWithEntity
+        );
 
         var all15 = new QueryDescription().WithAll<A0, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14>();
         Assert.Equal(Entities, world.Query(all15).EntityCount);
-        Assert.Equal(Entities, world.Query(new QueryDescription().WithAny<A0, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14>()).EntityCount);
-        Assert.Equal(0, world.Query(new QueryDescription().WithNone<A0, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14>()).EntityCount);
-        Assert.True(new QueryDescription().WithChanged<A0, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14>().HasChangeFilter);
-        world.Query(all15, (ref A0 a0, ref A1 a1, ref A2 a2, ref A3 a3, ref A4 a4, ref A5 a5, ref A6 a6, ref A7 a7, ref A8 a8, ref A9 a9, ref A10 a10, ref A11 a11, ref A12 a12, ref A13 a13, ref A14 a14) => { a0.Touches++; a1.Touches++; a2.Touches++; a3.Touches++; a4.Touches++; a5.Touches++; a6.Touches++; a7.Touches++; a8.Touches++; a9.Touches++; a10.Touches++; a11.Touches++; a12.Touches++; a13.Touches++; a14.Touches++; });
-        world.QueryWithEntity(all15, (Entity entity, ref A0 a0, ref A1 a1, ref A2 a2, ref A3 a3, ref A4 a4, ref A5 a5, ref A6 a6, ref A7 a7, ref A8 a8, ref A9 a9, ref A10 a10, ref A11 a11, ref A12 a12, ref A13 a13, ref A14 a14) => { Assert.Equal(entities[a0.Owner], entity); a0.Touches++; a1.Touches++; a2.Touches++; a3.Touches++; a4.Touches++; a5.Touches++; a6.Touches++; a7.Touches++; a8.Touches++; a9.Touches++; a10.Touches++; a11.Touches++; a12.Touches++; a13.Touches++; a14.Touches++; });
+        Assert.Equal(
+            Entities,
+            world.Query(
+                    new QueryDescription().WithAny<A0, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14>()
+                )
+                .EntityCount
+        );
+        Assert.Equal(
+            0,
+            world.Query(
+                    new QueryDescription().WithNone<A0, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14>()
+                )
+                .EntityCount
+        );
+        Assert.True(
+            new QueryDescription().WithChanged<A0, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14>()
+                .HasChangeFilter
+        );
+        world.Query(
+            all15,
+            static (
+                ref A0 a0,
+                ref A1 a1,
+                ref A2 a2,
+                ref A3 a3,
+                ref A4 a4,
+                ref A5 a5,
+                ref A6 a6,
+                ref A7 a7,
+                ref A8 a8,
+                ref A9 a9,
+                ref A10 a10,
+                ref A11 a11,
+                ref A12 a12,
+                ref A13 a13,
+                ref A14 a14
+            ) => {
+                a0.Touches++;
+                a1.Touches++;
+                a2.Touches++;
+                a3.Touches++;
+                a4.Touches++;
+                a5.Touches++;
+                a6.Touches++;
+                a7.Touches++;
+                a8.Touches++;
+                a9.Touches++;
+                a10.Touches++;
+                a11.Touches++;
+                a12.Touches++;
+                a13.Touches++;
+                a14.Touches++;
+            }
+        );
+        world.QueryWithEntity(
+            all15,
+            (
+                Entity entity,
+                ref A0 a0,
+                ref A1 a1,
+                ref A2 a2,
+                ref A3 a3,
+                ref A4 a4,
+                ref A5 a5,
+                ref A6 a6,
+                ref A7 a7,
+                ref A8 a8,
+                ref A9 a9,
+                ref A10 a10,
+                ref A11 a11,
+                ref A12 a12,
+                ref A13 a13,
+                ref A14 a14
+            ) => {
+                Assert.Equal(entities[a0.Owner], entity);
+                a0.Touches++;
+                a1.Touches++;
+                a2.Touches++;
+                a3.Touches++;
+                a4.Touches++;
+                a5.Touches++;
+                a6.Touches++;
+                a7.Touches++;
+                a8.Touches++;
+                a9.Touches++;
+                a10.Touches++;
+                a11.Touches++;
+                a12.Touches++;
+                a13.Touches++;
+                a14.Touches++;
+            }
+        );
         world.ForEach<Visits, A0, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14>(all15, ref visitor);
-        world.ForEachWithEntity<VisitsWithEntity, A0, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14>(all15, ref visitorWithEntity);
+        world.ForEachWithEntity<VisitsWithEntity, A0, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14>(
+            all15,
+            ref visitorWithEntity
+        );
 
-        var all16 = new QueryDescription().WithAll<A0, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15>();
+        var all16 =
+            new QueryDescription().WithAll<A0, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15>();
         Assert.Equal(Entities, world.Query(all16).EntityCount);
-        Assert.Equal(Entities, world.Query(new QueryDescription().WithAny<A0, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15>()).EntityCount);
-        Assert.Equal(0, world.Query(new QueryDescription().WithNone<A0, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15>()).EntityCount);
-        Assert.True(new QueryDescription().WithChanged<A0, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15>().HasChangeFilter);
-        world.Query(all16, (ref A0 a0, ref A1 a1, ref A2 a2, ref A3 a3, ref A4 a4, ref A5 a5, ref A6 a6, ref A7 a7, ref A8 a8, ref A9 a9, ref A10 a10, ref A11 a11, ref A12 a12, ref A13 a13, ref A14 a14, ref A15 a15) => { a0.Touches++; a1.Touches++; a2.Touches++; a3.Touches++; a4.Touches++; a5.Touches++; a6.Touches++; a7.Touches++; a8.Touches++; a9.Touches++; a10.Touches++; a11.Touches++; a12.Touches++; a13.Touches++; a14.Touches++; a15.Touches++; });
-        world.QueryWithEntity(all16, (Entity entity, ref A0 a0, ref A1 a1, ref A2 a2, ref A3 a3, ref A4 a4, ref A5 a5, ref A6 a6, ref A7 a7, ref A8 a8, ref A9 a9, ref A10 a10, ref A11 a11, ref A12 a12, ref A13 a13, ref A14 a14, ref A15 a15) => { Assert.Equal(entities[a0.Owner], entity); a0.Touches++; a1.Touches++; a2.Touches++; a3.Touches++; a4.Touches++; a5.Touches++; a6.Touches++; a7.Touches++; a8.Touches++; a9.Touches++; a10.Touches++; a11.Touches++; a12.Touches++; a13.Touches++; a14.Touches++; a15.Touches++; });
+        Assert.Equal(
+            Entities,
+            world.Query(
+                    new QueryDescription().WithAny<A0, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14,
+                        A15>()
+                )
+                .EntityCount
+        );
+        Assert.Equal(
+            0,
+            world.Query(
+                    new QueryDescription().WithNone<A0, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14,
+                        A15>()
+                )
+                .EntityCount
+        );
+        Assert.True(
+            new QueryDescription().WithChanged<A0, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15>()
+                .HasChangeFilter
+        );
+        world.Query(
+            all16,
+            static (
+                ref A0 a0,
+                ref A1 a1,
+                ref A2 a2,
+                ref A3 a3,
+                ref A4 a4,
+                ref A5 a5,
+                ref A6 a6,
+                ref A7 a7,
+                ref A8 a8,
+                ref A9 a9,
+                ref A10 a10,
+                ref A11 a11,
+                ref A12 a12,
+                ref A13 a13,
+                ref A14 a14,
+                ref A15 a15
+            ) => {
+                a0.Touches++;
+                a1.Touches++;
+                a2.Touches++;
+                a3.Touches++;
+                a4.Touches++;
+                a5.Touches++;
+                a6.Touches++;
+                a7.Touches++;
+                a8.Touches++;
+                a9.Touches++;
+                a10.Touches++;
+                a11.Touches++;
+                a12.Touches++;
+                a13.Touches++;
+                a14.Touches++;
+                a15.Touches++;
+            }
+        );
+        world.QueryWithEntity(
+            all16,
+            (
+                Entity entity,
+                ref A0 a0,
+                ref A1 a1,
+                ref A2 a2,
+                ref A3 a3,
+                ref A4 a4,
+                ref A5 a5,
+                ref A6 a6,
+                ref A7 a7,
+                ref A8 a8,
+                ref A9 a9,
+                ref A10 a10,
+                ref A11 a11,
+                ref A12 a12,
+                ref A13 a13,
+                ref A14 a14,
+                ref A15 a15
+            ) => {
+                Assert.Equal(entities[a0.Owner], entity);
+                a0.Touches++;
+                a1.Touches++;
+                a2.Touches++;
+                a3.Touches++;
+                a4.Touches++;
+                a5.Touches++;
+                a6.Touches++;
+                a7.Touches++;
+                a8.Touches++;
+                a9.Touches++;
+                a10.Touches++;
+                a11.Touches++;
+                a12.Touches++;
+                a13.Touches++;
+                a14.Touches++;
+                a15.Touches++;
+            }
+        );
         world.ForEach<Visits, A0, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15>(all16, ref visitor);
-        world.ForEachWithEntity<VisitsWithEntity, A0, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15>(all16, ref visitorWithEntity);
-
+        world.ForEachWithEntity<VisitsWithEntity, A0, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15>(
+            all16,
+            ref visitorWithEntity
+        );
     }
 }
 
@@ -421,7 +1165,7 @@ public sealed class QueryAritySweepTests {
 ///     overloads differ in parameter count, so they do not collide, and a visitor that accumulated
 ///     would then be one accumulator rather than sixteen.
 /// </remarks>
-public struct Visits :
+public readonly struct Visits :
     IForEach<A0>,
     IForEach<A0, A1>,
     IForEach<A0, A1, A2>,
@@ -440,25 +1184,39 @@ public struct Visits :
     IForEach<A0, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15> {
     /// <summary>Visits 1 component(s).</summary>
     /// <param name="a0">A reference into the chunk.</param>
-    public void Execute(ref A0 a0) { a0.Touches++; }
+    public void Execute(ref A0 a0) {
+        a0.Touches++;
+    }
 
     /// <summary>Visits 2 component(s).</summary>
     /// <param name="a0">A reference into the chunk.</param>
     /// <param name="a1">A reference into the chunk.</param>
-    public void Execute(ref A0 a0, ref A1 a1) { a0.Touches++; a1.Touches++; }
+    public void Execute(ref A0 a0, ref A1 a1) {
+        a0.Touches++;
+        a1.Touches++;
+    }
 
     /// <summary>Visits 3 component(s).</summary>
     /// <param name="a0">A reference into the chunk.</param>
     /// <param name="a1">A reference into the chunk.</param>
     /// <param name="a2">A reference into the chunk.</param>
-    public void Execute(ref A0 a0, ref A1 a1, ref A2 a2) { a0.Touches++; a1.Touches++; a2.Touches++; }
+    public void Execute(ref A0 a0, ref A1 a1, ref A2 a2) {
+        a0.Touches++;
+        a1.Touches++;
+        a2.Touches++;
+    }
 
     /// <summary>Visits 4 component(s).</summary>
     /// <param name="a0">A reference into the chunk.</param>
     /// <param name="a1">A reference into the chunk.</param>
     /// <param name="a2">A reference into the chunk.</param>
     /// <param name="a3">A reference into the chunk.</param>
-    public void Execute(ref A0 a0, ref A1 a1, ref A2 a2, ref A3 a3) { a0.Touches++; a1.Touches++; a2.Touches++; a3.Touches++; }
+    public void Execute(ref A0 a0, ref A1 a1, ref A2 a2, ref A3 a3) {
+        a0.Touches++;
+        a1.Touches++;
+        a2.Touches++;
+        a3.Touches++;
+    }
 
     /// <summary>Visits 5 component(s).</summary>
     /// <param name="a0">A reference into the chunk.</param>
@@ -466,7 +1224,13 @@ public struct Visits :
     /// <param name="a2">A reference into the chunk.</param>
     /// <param name="a3">A reference into the chunk.</param>
     /// <param name="a4">A reference into the chunk.</param>
-    public void Execute(ref A0 a0, ref A1 a1, ref A2 a2, ref A3 a3, ref A4 a4) { a0.Touches++; a1.Touches++; a2.Touches++; a3.Touches++; a4.Touches++; }
+    public void Execute(ref A0 a0, ref A1 a1, ref A2 a2, ref A3 a3, ref A4 a4) {
+        a0.Touches++;
+        a1.Touches++;
+        a2.Touches++;
+        a3.Touches++;
+        a4.Touches++;
+    }
 
     /// <summary>Visits 6 component(s).</summary>
     /// <param name="a0">A reference into the chunk.</param>
@@ -475,7 +1239,14 @@ public struct Visits :
     /// <param name="a3">A reference into the chunk.</param>
     /// <param name="a4">A reference into the chunk.</param>
     /// <param name="a5">A reference into the chunk.</param>
-    public void Execute(ref A0 a0, ref A1 a1, ref A2 a2, ref A3 a3, ref A4 a4, ref A5 a5) { a0.Touches++; a1.Touches++; a2.Touches++; a3.Touches++; a4.Touches++; a5.Touches++; }
+    public void Execute(ref A0 a0, ref A1 a1, ref A2 a2, ref A3 a3, ref A4 a4, ref A5 a5) {
+        a0.Touches++;
+        a1.Touches++;
+        a2.Touches++;
+        a3.Touches++;
+        a4.Touches++;
+        a5.Touches++;
+    }
 
     /// <summary>Visits 7 component(s).</summary>
     /// <param name="a0">A reference into the chunk.</param>
@@ -485,7 +1256,15 @@ public struct Visits :
     /// <param name="a4">A reference into the chunk.</param>
     /// <param name="a5">A reference into the chunk.</param>
     /// <param name="a6">A reference into the chunk.</param>
-    public void Execute(ref A0 a0, ref A1 a1, ref A2 a2, ref A3 a3, ref A4 a4, ref A5 a5, ref A6 a6) { a0.Touches++; a1.Touches++; a2.Touches++; a3.Touches++; a4.Touches++; a5.Touches++; a6.Touches++; }
+    public void Execute(ref A0 a0, ref A1 a1, ref A2 a2, ref A3 a3, ref A4 a4, ref A5 a5, ref A6 a6) {
+        a0.Touches++;
+        a1.Touches++;
+        a2.Touches++;
+        a3.Touches++;
+        a4.Touches++;
+        a5.Touches++;
+        a6.Touches++;
+    }
 
     /// <summary>Visits 8 component(s).</summary>
     /// <param name="a0">A reference into the chunk.</param>
@@ -496,7 +1275,16 @@ public struct Visits :
     /// <param name="a5">A reference into the chunk.</param>
     /// <param name="a6">A reference into the chunk.</param>
     /// <param name="a7">A reference into the chunk.</param>
-    public void Execute(ref A0 a0, ref A1 a1, ref A2 a2, ref A3 a3, ref A4 a4, ref A5 a5, ref A6 a6, ref A7 a7) { a0.Touches++; a1.Touches++; a2.Touches++; a3.Touches++; a4.Touches++; a5.Touches++; a6.Touches++; a7.Touches++; }
+    public void Execute(ref A0 a0, ref A1 a1, ref A2 a2, ref A3 a3, ref A4 a4, ref A5 a5, ref A6 a6, ref A7 a7) {
+        a0.Touches++;
+        a1.Touches++;
+        a2.Touches++;
+        a3.Touches++;
+        a4.Touches++;
+        a5.Touches++;
+        a6.Touches++;
+        a7.Touches++;
+    }
 
     /// <summary>Visits 9 component(s).</summary>
     /// <param name="a0">A reference into the chunk.</param>
@@ -508,7 +1296,27 @@ public struct Visits :
     /// <param name="a6">A reference into the chunk.</param>
     /// <param name="a7">A reference into the chunk.</param>
     /// <param name="a8">A reference into the chunk.</param>
-    public void Execute(ref A0 a0, ref A1 a1, ref A2 a2, ref A3 a3, ref A4 a4, ref A5 a5, ref A6 a6, ref A7 a7, ref A8 a8) { a0.Touches++; a1.Touches++; a2.Touches++; a3.Touches++; a4.Touches++; a5.Touches++; a6.Touches++; a7.Touches++; a8.Touches++; }
+    public void Execute(
+        ref A0 a0,
+        ref A1 a1,
+        ref A2 a2,
+        ref A3 a3,
+        ref A4 a4,
+        ref A5 a5,
+        ref A6 a6,
+        ref A7 a7,
+        ref A8 a8
+    ) {
+        a0.Touches++;
+        a1.Touches++;
+        a2.Touches++;
+        a3.Touches++;
+        a4.Touches++;
+        a5.Touches++;
+        a6.Touches++;
+        a7.Touches++;
+        a8.Touches++;
+    }
 
     /// <summary>Visits 10 component(s).</summary>
     /// <param name="a0">A reference into the chunk.</param>
@@ -521,7 +1329,29 @@ public struct Visits :
     /// <param name="a7">A reference into the chunk.</param>
     /// <param name="a8">A reference into the chunk.</param>
     /// <param name="a9">A reference into the chunk.</param>
-    public void Execute(ref A0 a0, ref A1 a1, ref A2 a2, ref A3 a3, ref A4 a4, ref A5 a5, ref A6 a6, ref A7 a7, ref A8 a8, ref A9 a9) { a0.Touches++; a1.Touches++; a2.Touches++; a3.Touches++; a4.Touches++; a5.Touches++; a6.Touches++; a7.Touches++; a8.Touches++; a9.Touches++; }
+    public void Execute(
+        ref A0 a0,
+        ref A1 a1,
+        ref A2 a2,
+        ref A3 a3,
+        ref A4 a4,
+        ref A5 a5,
+        ref A6 a6,
+        ref A7 a7,
+        ref A8 a8,
+        ref A9 a9
+    ) {
+        a0.Touches++;
+        a1.Touches++;
+        a2.Touches++;
+        a3.Touches++;
+        a4.Touches++;
+        a5.Touches++;
+        a6.Touches++;
+        a7.Touches++;
+        a8.Touches++;
+        a9.Touches++;
+    }
 
     /// <summary>Visits 11 component(s).</summary>
     /// <param name="a0">A reference into the chunk.</param>
@@ -535,7 +1365,31 @@ public struct Visits :
     /// <param name="a8">A reference into the chunk.</param>
     /// <param name="a9">A reference into the chunk.</param>
     /// <param name="a10">A reference into the chunk.</param>
-    public void Execute(ref A0 a0, ref A1 a1, ref A2 a2, ref A3 a3, ref A4 a4, ref A5 a5, ref A6 a6, ref A7 a7, ref A8 a8, ref A9 a9, ref A10 a10) { a0.Touches++; a1.Touches++; a2.Touches++; a3.Touches++; a4.Touches++; a5.Touches++; a6.Touches++; a7.Touches++; a8.Touches++; a9.Touches++; a10.Touches++; }
+    public void Execute(
+        ref A0 a0,
+        ref A1 a1,
+        ref A2 a2,
+        ref A3 a3,
+        ref A4 a4,
+        ref A5 a5,
+        ref A6 a6,
+        ref A7 a7,
+        ref A8 a8,
+        ref A9 a9,
+        ref A10 a10
+    ) {
+        a0.Touches++;
+        a1.Touches++;
+        a2.Touches++;
+        a3.Touches++;
+        a4.Touches++;
+        a5.Touches++;
+        a6.Touches++;
+        a7.Touches++;
+        a8.Touches++;
+        a9.Touches++;
+        a10.Touches++;
+    }
 
     /// <summary>Visits 12 component(s).</summary>
     /// <param name="a0">A reference into the chunk.</param>
@@ -550,7 +1404,33 @@ public struct Visits :
     /// <param name="a9">A reference into the chunk.</param>
     /// <param name="a10">A reference into the chunk.</param>
     /// <param name="a11">A reference into the chunk.</param>
-    public void Execute(ref A0 a0, ref A1 a1, ref A2 a2, ref A3 a3, ref A4 a4, ref A5 a5, ref A6 a6, ref A7 a7, ref A8 a8, ref A9 a9, ref A10 a10, ref A11 a11) { a0.Touches++; a1.Touches++; a2.Touches++; a3.Touches++; a4.Touches++; a5.Touches++; a6.Touches++; a7.Touches++; a8.Touches++; a9.Touches++; a10.Touches++; a11.Touches++; }
+    public void Execute(
+        ref A0 a0,
+        ref A1 a1,
+        ref A2 a2,
+        ref A3 a3,
+        ref A4 a4,
+        ref A5 a5,
+        ref A6 a6,
+        ref A7 a7,
+        ref A8 a8,
+        ref A9 a9,
+        ref A10 a10,
+        ref A11 a11
+    ) {
+        a0.Touches++;
+        a1.Touches++;
+        a2.Touches++;
+        a3.Touches++;
+        a4.Touches++;
+        a5.Touches++;
+        a6.Touches++;
+        a7.Touches++;
+        a8.Touches++;
+        a9.Touches++;
+        a10.Touches++;
+        a11.Touches++;
+    }
 
     /// <summary>Visits 13 component(s).</summary>
     /// <param name="a0">A reference into the chunk.</param>
@@ -566,7 +1446,35 @@ public struct Visits :
     /// <param name="a10">A reference into the chunk.</param>
     /// <param name="a11">A reference into the chunk.</param>
     /// <param name="a12">A reference into the chunk.</param>
-    public void Execute(ref A0 a0, ref A1 a1, ref A2 a2, ref A3 a3, ref A4 a4, ref A5 a5, ref A6 a6, ref A7 a7, ref A8 a8, ref A9 a9, ref A10 a10, ref A11 a11, ref A12 a12) { a0.Touches++; a1.Touches++; a2.Touches++; a3.Touches++; a4.Touches++; a5.Touches++; a6.Touches++; a7.Touches++; a8.Touches++; a9.Touches++; a10.Touches++; a11.Touches++; a12.Touches++; }
+    public void Execute(
+        ref A0 a0,
+        ref A1 a1,
+        ref A2 a2,
+        ref A3 a3,
+        ref A4 a4,
+        ref A5 a5,
+        ref A6 a6,
+        ref A7 a7,
+        ref A8 a8,
+        ref A9 a9,
+        ref A10 a10,
+        ref A11 a11,
+        ref A12 a12
+    ) {
+        a0.Touches++;
+        a1.Touches++;
+        a2.Touches++;
+        a3.Touches++;
+        a4.Touches++;
+        a5.Touches++;
+        a6.Touches++;
+        a7.Touches++;
+        a8.Touches++;
+        a9.Touches++;
+        a10.Touches++;
+        a11.Touches++;
+        a12.Touches++;
+    }
 
     /// <summary>Visits 14 component(s).</summary>
     /// <param name="a0">A reference into the chunk.</param>
@@ -583,7 +1491,37 @@ public struct Visits :
     /// <param name="a11">A reference into the chunk.</param>
     /// <param name="a12">A reference into the chunk.</param>
     /// <param name="a13">A reference into the chunk.</param>
-    public void Execute(ref A0 a0, ref A1 a1, ref A2 a2, ref A3 a3, ref A4 a4, ref A5 a5, ref A6 a6, ref A7 a7, ref A8 a8, ref A9 a9, ref A10 a10, ref A11 a11, ref A12 a12, ref A13 a13) { a0.Touches++; a1.Touches++; a2.Touches++; a3.Touches++; a4.Touches++; a5.Touches++; a6.Touches++; a7.Touches++; a8.Touches++; a9.Touches++; a10.Touches++; a11.Touches++; a12.Touches++; a13.Touches++; }
+    public void Execute(
+        ref A0 a0,
+        ref A1 a1,
+        ref A2 a2,
+        ref A3 a3,
+        ref A4 a4,
+        ref A5 a5,
+        ref A6 a6,
+        ref A7 a7,
+        ref A8 a8,
+        ref A9 a9,
+        ref A10 a10,
+        ref A11 a11,
+        ref A12 a12,
+        ref A13 a13
+    ) {
+        a0.Touches++;
+        a1.Touches++;
+        a2.Touches++;
+        a3.Touches++;
+        a4.Touches++;
+        a5.Touches++;
+        a6.Touches++;
+        a7.Touches++;
+        a8.Touches++;
+        a9.Touches++;
+        a10.Touches++;
+        a11.Touches++;
+        a12.Touches++;
+        a13.Touches++;
+    }
 
     /// <summary>Visits 15 component(s).</summary>
     /// <param name="a0">A reference into the chunk.</param>
@@ -601,7 +1539,39 @@ public struct Visits :
     /// <param name="a12">A reference into the chunk.</param>
     /// <param name="a13">A reference into the chunk.</param>
     /// <param name="a14">A reference into the chunk.</param>
-    public void Execute(ref A0 a0, ref A1 a1, ref A2 a2, ref A3 a3, ref A4 a4, ref A5 a5, ref A6 a6, ref A7 a7, ref A8 a8, ref A9 a9, ref A10 a10, ref A11 a11, ref A12 a12, ref A13 a13, ref A14 a14) { a0.Touches++; a1.Touches++; a2.Touches++; a3.Touches++; a4.Touches++; a5.Touches++; a6.Touches++; a7.Touches++; a8.Touches++; a9.Touches++; a10.Touches++; a11.Touches++; a12.Touches++; a13.Touches++; a14.Touches++; }
+    public void Execute(
+        ref A0 a0,
+        ref A1 a1,
+        ref A2 a2,
+        ref A3 a3,
+        ref A4 a4,
+        ref A5 a5,
+        ref A6 a6,
+        ref A7 a7,
+        ref A8 a8,
+        ref A9 a9,
+        ref A10 a10,
+        ref A11 a11,
+        ref A12 a12,
+        ref A13 a13,
+        ref A14 a14
+    ) {
+        a0.Touches++;
+        a1.Touches++;
+        a2.Touches++;
+        a3.Touches++;
+        a4.Touches++;
+        a5.Touches++;
+        a6.Touches++;
+        a7.Touches++;
+        a8.Touches++;
+        a9.Touches++;
+        a10.Touches++;
+        a11.Touches++;
+        a12.Touches++;
+        a13.Touches++;
+        a14.Touches++;
+    }
 
     /// <summary>Visits 16 component(s).</summary>
     /// <param name="a0">A reference into the chunk.</param>
@@ -620,8 +1590,41 @@ public struct Visits :
     /// <param name="a13">A reference into the chunk.</param>
     /// <param name="a14">A reference into the chunk.</param>
     /// <param name="a15">A reference into the chunk.</param>
-    public void Execute(ref A0 a0, ref A1 a1, ref A2 a2, ref A3 a3, ref A4 a4, ref A5 a5, ref A6 a6, ref A7 a7, ref A8 a8, ref A9 a9, ref A10 a10, ref A11 a11, ref A12 a12, ref A13 a13, ref A14 a14, ref A15 a15) { a0.Touches++; a1.Touches++; a2.Touches++; a3.Touches++; a4.Touches++; a5.Touches++; a6.Touches++; a7.Touches++; a8.Touches++; a9.Touches++; a10.Touches++; a11.Touches++; a12.Touches++; a13.Touches++; a14.Touches++; a15.Touches++; }
-
+    public void Execute(
+        ref A0 a0,
+        ref A1 a1,
+        ref A2 a2,
+        ref A3 a3,
+        ref A4 a4,
+        ref A5 a5,
+        ref A6 a6,
+        ref A7 a7,
+        ref A8 a8,
+        ref A9 a9,
+        ref A10 a10,
+        ref A11 a11,
+        ref A12 a12,
+        ref A13 a13,
+        ref A14 a14,
+        ref A15 a15
+    ) {
+        a0.Touches++;
+        a1.Touches++;
+        a2.Touches++;
+        a3.Touches++;
+        a4.Touches++;
+        a5.Touches++;
+        a6.Touches++;
+        a7.Touches++;
+        a8.Touches++;
+        a9.Touches++;
+        a10.Touches++;
+        a11.Touches++;
+        a12.Touches++;
+        a13.Touches++;
+        a14.Touches++;
+        a15.Touches++;
+    }
 }
 
 /// <summary>The entity-carrying struct-visitor half, which also checks the entity it was handed.</summary>
@@ -631,7 +1634,7 @@ public struct Visits :
 ///     of visits can see. Every component knows its owner's index, so the visitor can say so.
 /// </remarks>
 /// <param name="entities">The entities, in creation order.</param>
-public struct VisitsWithEntity(Entity[] entities) :
+public readonly struct VisitsWithEntity(Entity[] entities) :
     IForEachWithEntity<A0>,
     IForEachWithEntity<A0, A1>,
     IForEachWithEntity<A0, A1, A2>,
@@ -662,7 +1665,8 @@ public struct VisitsWithEntity(Entity[] entities) :
     /// <param name="a1">A reference into the chunk.</param>
     public void Execute(Entity entity, ref A0 a0, ref A1 a1) {
         Assert.Equal(entities[a0.Owner], entity);
-        a0.Touches++; a1.Touches++;
+        a0.Touches++;
+        a1.Touches++;
     }
 
     /// <summary>Visits one entity's 3 component(s).</summary>
@@ -672,7 +1676,9 @@ public struct VisitsWithEntity(Entity[] entities) :
     /// <param name="a2">A reference into the chunk.</param>
     public void Execute(Entity entity, ref A0 a0, ref A1 a1, ref A2 a2) {
         Assert.Equal(entities[a0.Owner], entity);
-        a0.Touches++; a1.Touches++; a2.Touches++;
+        a0.Touches++;
+        a1.Touches++;
+        a2.Touches++;
     }
 
     /// <summary>Visits one entity's 4 component(s).</summary>
@@ -683,7 +1689,10 @@ public struct VisitsWithEntity(Entity[] entities) :
     /// <param name="a3">A reference into the chunk.</param>
     public void Execute(Entity entity, ref A0 a0, ref A1 a1, ref A2 a2, ref A3 a3) {
         Assert.Equal(entities[a0.Owner], entity);
-        a0.Touches++; a1.Touches++; a2.Touches++; a3.Touches++;
+        a0.Touches++;
+        a1.Touches++;
+        a2.Touches++;
+        a3.Touches++;
     }
 
     /// <summary>Visits one entity's 5 component(s).</summary>
@@ -695,7 +1704,11 @@ public struct VisitsWithEntity(Entity[] entities) :
     /// <param name="a4">A reference into the chunk.</param>
     public void Execute(Entity entity, ref A0 a0, ref A1 a1, ref A2 a2, ref A3 a3, ref A4 a4) {
         Assert.Equal(entities[a0.Owner], entity);
-        a0.Touches++; a1.Touches++; a2.Touches++; a3.Touches++; a4.Touches++;
+        a0.Touches++;
+        a1.Touches++;
+        a2.Touches++;
+        a3.Touches++;
+        a4.Touches++;
     }
 
     /// <summary>Visits one entity's 6 component(s).</summary>
@@ -708,7 +1721,12 @@ public struct VisitsWithEntity(Entity[] entities) :
     /// <param name="a5">A reference into the chunk.</param>
     public void Execute(Entity entity, ref A0 a0, ref A1 a1, ref A2 a2, ref A3 a3, ref A4 a4, ref A5 a5) {
         Assert.Equal(entities[a0.Owner], entity);
-        a0.Touches++; a1.Touches++; a2.Touches++; a3.Touches++; a4.Touches++; a5.Touches++;
+        a0.Touches++;
+        a1.Touches++;
+        a2.Touches++;
+        a3.Touches++;
+        a4.Touches++;
+        a5.Touches++;
     }
 
     /// <summary>Visits one entity's 7 component(s).</summary>
@@ -722,7 +1740,13 @@ public struct VisitsWithEntity(Entity[] entities) :
     /// <param name="a6">A reference into the chunk.</param>
     public void Execute(Entity entity, ref A0 a0, ref A1 a1, ref A2 a2, ref A3 a3, ref A4 a4, ref A5 a5, ref A6 a6) {
         Assert.Equal(entities[a0.Owner], entity);
-        a0.Touches++; a1.Touches++; a2.Touches++; a3.Touches++; a4.Touches++; a5.Touches++; a6.Touches++;
+        a0.Touches++;
+        a1.Touches++;
+        a2.Touches++;
+        a3.Touches++;
+        a4.Touches++;
+        a5.Touches++;
+        a6.Touches++;
     }
 
     /// <summary>Visits one entity's 8 component(s).</summary>
@@ -735,9 +1759,26 @@ public struct VisitsWithEntity(Entity[] entities) :
     /// <param name="a5">A reference into the chunk.</param>
     /// <param name="a6">A reference into the chunk.</param>
     /// <param name="a7">A reference into the chunk.</param>
-    public void Execute(Entity entity, ref A0 a0, ref A1 a1, ref A2 a2, ref A3 a3, ref A4 a4, ref A5 a5, ref A6 a6, ref A7 a7) {
+    public void Execute(
+        Entity entity,
+        ref A0 a0,
+        ref A1 a1,
+        ref A2 a2,
+        ref A3 a3,
+        ref A4 a4,
+        ref A5 a5,
+        ref A6 a6,
+        ref A7 a7
+    ) {
         Assert.Equal(entities[a0.Owner], entity);
-        a0.Touches++; a1.Touches++; a2.Touches++; a3.Touches++; a4.Touches++; a5.Touches++; a6.Touches++; a7.Touches++;
+        a0.Touches++;
+        a1.Touches++;
+        a2.Touches++;
+        a3.Touches++;
+        a4.Touches++;
+        a5.Touches++;
+        a6.Touches++;
+        a7.Touches++;
     }
 
     /// <summary>Visits one entity's 9 component(s).</summary>
@@ -751,9 +1792,28 @@ public struct VisitsWithEntity(Entity[] entities) :
     /// <param name="a6">A reference into the chunk.</param>
     /// <param name="a7">A reference into the chunk.</param>
     /// <param name="a8">A reference into the chunk.</param>
-    public void Execute(Entity entity, ref A0 a0, ref A1 a1, ref A2 a2, ref A3 a3, ref A4 a4, ref A5 a5, ref A6 a6, ref A7 a7, ref A8 a8) {
+    public void Execute(
+        Entity entity,
+        ref A0 a0,
+        ref A1 a1,
+        ref A2 a2,
+        ref A3 a3,
+        ref A4 a4,
+        ref A5 a5,
+        ref A6 a6,
+        ref A7 a7,
+        ref A8 a8
+    ) {
         Assert.Equal(entities[a0.Owner], entity);
-        a0.Touches++; a1.Touches++; a2.Touches++; a3.Touches++; a4.Touches++; a5.Touches++; a6.Touches++; a7.Touches++; a8.Touches++;
+        a0.Touches++;
+        a1.Touches++;
+        a2.Touches++;
+        a3.Touches++;
+        a4.Touches++;
+        a5.Touches++;
+        a6.Touches++;
+        a7.Touches++;
+        a8.Touches++;
     }
 
     /// <summary>Visits one entity's 10 component(s).</summary>
@@ -768,9 +1828,30 @@ public struct VisitsWithEntity(Entity[] entities) :
     /// <param name="a7">A reference into the chunk.</param>
     /// <param name="a8">A reference into the chunk.</param>
     /// <param name="a9">A reference into the chunk.</param>
-    public void Execute(Entity entity, ref A0 a0, ref A1 a1, ref A2 a2, ref A3 a3, ref A4 a4, ref A5 a5, ref A6 a6, ref A7 a7, ref A8 a8, ref A9 a9) {
+    public void Execute(
+        Entity entity,
+        ref A0 a0,
+        ref A1 a1,
+        ref A2 a2,
+        ref A3 a3,
+        ref A4 a4,
+        ref A5 a5,
+        ref A6 a6,
+        ref A7 a7,
+        ref A8 a8,
+        ref A9 a9
+    ) {
         Assert.Equal(entities[a0.Owner], entity);
-        a0.Touches++; a1.Touches++; a2.Touches++; a3.Touches++; a4.Touches++; a5.Touches++; a6.Touches++; a7.Touches++; a8.Touches++; a9.Touches++;
+        a0.Touches++;
+        a1.Touches++;
+        a2.Touches++;
+        a3.Touches++;
+        a4.Touches++;
+        a5.Touches++;
+        a6.Touches++;
+        a7.Touches++;
+        a8.Touches++;
+        a9.Touches++;
     }
 
     /// <summary>Visits one entity's 11 component(s).</summary>
@@ -786,9 +1867,32 @@ public struct VisitsWithEntity(Entity[] entities) :
     /// <param name="a8">A reference into the chunk.</param>
     /// <param name="a9">A reference into the chunk.</param>
     /// <param name="a10">A reference into the chunk.</param>
-    public void Execute(Entity entity, ref A0 a0, ref A1 a1, ref A2 a2, ref A3 a3, ref A4 a4, ref A5 a5, ref A6 a6, ref A7 a7, ref A8 a8, ref A9 a9, ref A10 a10) {
+    public void Execute(
+        Entity entity,
+        ref A0 a0,
+        ref A1 a1,
+        ref A2 a2,
+        ref A3 a3,
+        ref A4 a4,
+        ref A5 a5,
+        ref A6 a6,
+        ref A7 a7,
+        ref A8 a8,
+        ref A9 a9,
+        ref A10 a10
+    ) {
         Assert.Equal(entities[a0.Owner], entity);
-        a0.Touches++; a1.Touches++; a2.Touches++; a3.Touches++; a4.Touches++; a5.Touches++; a6.Touches++; a7.Touches++; a8.Touches++; a9.Touches++; a10.Touches++;
+        a0.Touches++;
+        a1.Touches++;
+        a2.Touches++;
+        a3.Touches++;
+        a4.Touches++;
+        a5.Touches++;
+        a6.Touches++;
+        a7.Touches++;
+        a8.Touches++;
+        a9.Touches++;
+        a10.Touches++;
     }
 
     /// <summary>Visits one entity's 12 component(s).</summary>
@@ -805,9 +1909,34 @@ public struct VisitsWithEntity(Entity[] entities) :
     /// <param name="a9">A reference into the chunk.</param>
     /// <param name="a10">A reference into the chunk.</param>
     /// <param name="a11">A reference into the chunk.</param>
-    public void Execute(Entity entity, ref A0 a0, ref A1 a1, ref A2 a2, ref A3 a3, ref A4 a4, ref A5 a5, ref A6 a6, ref A7 a7, ref A8 a8, ref A9 a9, ref A10 a10, ref A11 a11) {
+    public void Execute(
+        Entity entity,
+        ref A0 a0,
+        ref A1 a1,
+        ref A2 a2,
+        ref A3 a3,
+        ref A4 a4,
+        ref A5 a5,
+        ref A6 a6,
+        ref A7 a7,
+        ref A8 a8,
+        ref A9 a9,
+        ref A10 a10,
+        ref A11 a11
+    ) {
         Assert.Equal(entities[a0.Owner], entity);
-        a0.Touches++; a1.Touches++; a2.Touches++; a3.Touches++; a4.Touches++; a5.Touches++; a6.Touches++; a7.Touches++; a8.Touches++; a9.Touches++; a10.Touches++; a11.Touches++;
+        a0.Touches++;
+        a1.Touches++;
+        a2.Touches++;
+        a3.Touches++;
+        a4.Touches++;
+        a5.Touches++;
+        a6.Touches++;
+        a7.Touches++;
+        a8.Touches++;
+        a9.Touches++;
+        a10.Touches++;
+        a11.Touches++;
     }
 
     /// <summary>Visits one entity's 13 component(s).</summary>
@@ -825,9 +1954,36 @@ public struct VisitsWithEntity(Entity[] entities) :
     /// <param name="a10">A reference into the chunk.</param>
     /// <param name="a11">A reference into the chunk.</param>
     /// <param name="a12">A reference into the chunk.</param>
-    public void Execute(Entity entity, ref A0 a0, ref A1 a1, ref A2 a2, ref A3 a3, ref A4 a4, ref A5 a5, ref A6 a6, ref A7 a7, ref A8 a8, ref A9 a9, ref A10 a10, ref A11 a11, ref A12 a12) {
+    public void Execute(
+        Entity entity,
+        ref A0 a0,
+        ref A1 a1,
+        ref A2 a2,
+        ref A3 a3,
+        ref A4 a4,
+        ref A5 a5,
+        ref A6 a6,
+        ref A7 a7,
+        ref A8 a8,
+        ref A9 a9,
+        ref A10 a10,
+        ref A11 a11,
+        ref A12 a12
+    ) {
         Assert.Equal(entities[a0.Owner], entity);
-        a0.Touches++; a1.Touches++; a2.Touches++; a3.Touches++; a4.Touches++; a5.Touches++; a6.Touches++; a7.Touches++; a8.Touches++; a9.Touches++; a10.Touches++; a11.Touches++; a12.Touches++;
+        a0.Touches++;
+        a1.Touches++;
+        a2.Touches++;
+        a3.Touches++;
+        a4.Touches++;
+        a5.Touches++;
+        a6.Touches++;
+        a7.Touches++;
+        a8.Touches++;
+        a9.Touches++;
+        a10.Touches++;
+        a11.Touches++;
+        a12.Touches++;
     }
 
     /// <summary>Visits one entity's 14 component(s).</summary>
@@ -846,9 +2002,38 @@ public struct VisitsWithEntity(Entity[] entities) :
     /// <param name="a11">A reference into the chunk.</param>
     /// <param name="a12">A reference into the chunk.</param>
     /// <param name="a13">A reference into the chunk.</param>
-    public void Execute(Entity entity, ref A0 a0, ref A1 a1, ref A2 a2, ref A3 a3, ref A4 a4, ref A5 a5, ref A6 a6, ref A7 a7, ref A8 a8, ref A9 a9, ref A10 a10, ref A11 a11, ref A12 a12, ref A13 a13) {
+    public void Execute(
+        Entity entity,
+        ref A0 a0,
+        ref A1 a1,
+        ref A2 a2,
+        ref A3 a3,
+        ref A4 a4,
+        ref A5 a5,
+        ref A6 a6,
+        ref A7 a7,
+        ref A8 a8,
+        ref A9 a9,
+        ref A10 a10,
+        ref A11 a11,
+        ref A12 a12,
+        ref A13 a13
+    ) {
         Assert.Equal(entities[a0.Owner], entity);
-        a0.Touches++; a1.Touches++; a2.Touches++; a3.Touches++; a4.Touches++; a5.Touches++; a6.Touches++; a7.Touches++; a8.Touches++; a9.Touches++; a10.Touches++; a11.Touches++; a12.Touches++; a13.Touches++;
+        a0.Touches++;
+        a1.Touches++;
+        a2.Touches++;
+        a3.Touches++;
+        a4.Touches++;
+        a5.Touches++;
+        a6.Touches++;
+        a7.Touches++;
+        a8.Touches++;
+        a9.Touches++;
+        a10.Touches++;
+        a11.Touches++;
+        a12.Touches++;
+        a13.Touches++;
     }
 
     /// <summary>Visits one entity's 15 component(s).</summary>
@@ -868,9 +2053,40 @@ public struct VisitsWithEntity(Entity[] entities) :
     /// <param name="a12">A reference into the chunk.</param>
     /// <param name="a13">A reference into the chunk.</param>
     /// <param name="a14">A reference into the chunk.</param>
-    public void Execute(Entity entity, ref A0 a0, ref A1 a1, ref A2 a2, ref A3 a3, ref A4 a4, ref A5 a5, ref A6 a6, ref A7 a7, ref A8 a8, ref A9 a9, ref A10 a10, ref A11 a11, ref A12 a12, ref A13 a13, ref A14 a14) {
+    public void Execute(
+        Entity entity,
+        ref A0 a0,
+        ref A1 a1,
+        ref A2 a2,
+        ref A3 a3,
+        ref A4 a4,
+        ref A5 a5,
+        ref A6 a6,
+        ref A7 a7,
+        ref A8 a8,
+        ref A9 a9,
+        ref A10 a10,
+        ref A11 a11,
+        ref A12 a12,
+        ref A13 a13,
+        ref A14 a14
+    ) {
         Assert.Equal(entities[a0.Owner], entity);
-        a0.Touches++; a1.Touches++; a2.Touches++; a3.Touches++; a4.Touches++; a5.Touches++; a6.Touches++; a7.Touches++; a8.Touches++; a9.Touches++; a10.Touches++; a11.Touches++; a12.Touches++; a13.Touches++; a14.Touches++;
+        a0.Touches++;
+        a1.Touches++;
+        a2.Touches++;
+        a3.Touches++;
+        a4.Touches++;
+        a5.Touches++;
+        a6.Touches++;
+        a7.Touches++;
+        a8.Touches++;
+        a9.Touches++;
+        a10.Touches++;
+        a11.Touches++;
+        a12.Touches++;
+        a13.Touches++;
+        a14.Touches++;
     }
 
     /// <summary>Visits one entity's 16 component(s).</summary>
@@ -891,9 +2107,41 @@ public struct VisitsWithEntity(Entity[] entities) :
     /// <param name="a13">A reference into the chunk.</param>
     /// <param name="a14">A reference into the chunk.</param>
     /// <param name="a15">A reference into the chunk.</param>
-    public void Execute(Entity entity, ref A0 a0, ref A1 a1, ref A2 a2, ref A3 a3, ref A4 a4, ref A5 a5, ref A6 a6, ref A7 a7, ref A8 a8, ref A9 a9, ref A10 a10, ref A11 a11, ref A12 a12, ref A13 a13, ref A14 a14, ref A15 a15) {
+    public void Execute(
+        Entity entity,
+        ref A0 a0,
+        ref A1 a1,
+        ref A2 a2,
+        ref A3 a3,
+        ref A4 a4,
+        ref A5 a5,
+        ref A6 a6,
+        ref A7 a7,
+        ref A8 a8,
+        ref A9 a9,
+        ref A10 a10,
+        ref A11 a11,
+        ref A12 a12,
+        ref A13 a13,
+        ref A14 a14,
+        ref A15 a15
+    ) {
         Assert.Equal(entities[a0.Owner], entity);
-        a0.Touches++; a1.Touches++; a2.Touches++; a3.Touches++; a4.Touches++; a5.Touches++; a6.Touches++; a7.Touches++; a8.Touches++; a9.Touches++; a10.Touches++; a11.Touches++; a12.Touches++; a13.Touches++; a14.Touches++; a15.Touches++;
+        a0.Touches++;
+        a1.Touches++;
+        a2.Touches++;
+        a3.Touches++;
+        a4.Touches++;
+        a5.Touches++;
+        a6.Touches++;
+        a7.Touches++;
+        a8.Touches++;
+        a9.Touches++;
+        a10.Touches++;
+        a11.Touches++;
+        a12.Touches++;
+        a13.Touches++;
+        a14.Touches++;
+        a15.Touches++;
     }
-
 }

@@ -88,8 +88,7 @@ public sealed class VxInputGenerator : IIncrementalGenerator {
 
     /// <inheritdoc />
     public void Initialize(IncrementalGeneratorInitializationContext context) {
-        var options = context.AnalyzerConfigOptionsProvider.Select(
-            static (provider, _) => {
+        var options = context.AnalyzerConfigOptionsProvider.Select(static (provider, _) => {
                 provider.GlobalOptions.TryGetValue("build_property.projectdir", out var directory);
                 provider.GlobalOptions.TryGetValue("build_property.rootnamespace", out var @namespace);
                 return new ProjectOptions(directory ?? string.Empty, @namespace ?? string.Empty);
@@ -288,7 +287,7 @@ public sealed class VxInputGenerator : IIncrementalGenerator {
             "{0}",
             "VxInput",
             DiagnosticSeverity.Error,
-            isEnabledByDefault: true
+            true
         );
 
         // The reader counts from one and Roslyn from zero. A diagnostic that lands a line late is
@@ -298,7 +297,7 @@ public sealed class VxInputGenerator : IIncrementalGenerator {
 
         var location = Location.Create(
             diagnostic.FilePath,
-            new TextSpan(0, 0),
+            new(0, 0),
             new LinePositionSpan(new(line, column), new(line, column))
         );
 

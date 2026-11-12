@@ -62,8 +62,12 @@ public static class DocumentClosePrompt {
     ///         window close, an application quit and a test that counts.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A quit asks about every dirty document under <paramref name="element" />, and
-    ///         then quits once — or is cancelled as a whole (#1504).</b> The focused one is asked
+    ///         ⚠
+    ///         <b>
+    ///             A quit asks about every dirty document under <paramref name="element" />, and
+    ///             then quits once — or is cancelled as a whole (#1504).
+    ///         </b>
+    ///         The focused one is asked
     ///         first, the rest in tree order. A Cancel, or a save that refused, stops there and the
     ///         application stays; <paramref name="close" /> runs only after the last answer allowed
     ///         it. A request that is a document's own (<see cref="UiCloseReason.DocumentClosed" />)
@@ -86,7 +90,8 @@ public static class DocumentClosePrompt {
         DialogService dialogs,
         Action close,
         Action<DocumentCloseAnswer>? answered = null
-    ) => Listen(element, dialogs, close, answered, quits: true);
+    ) =>
+        Listen(element, dialogs, close, answered, true);
 
     /// <summary>Makes one document's element — a tab, a panel — ask before that document is closed.</summary>
     /// <param name="element">The element that hosts the document and raises its close.</param>
@@ -109,7 +114,8 @@ public static class DocumentClosePrompt {
         DialogService dialogs,
         Action close,
         Action<DocumentCloseAnswer>? answered = null
-    ) => Listen(element, dialogs, close, answered, quits: false);
+    ) =>
+        Listen(element, dialogs, close, answered, false);
 
     static Removal Listen(
         UiElement element,
@@ -159,7 +165,8 @@ public static class DocumentClosePrompt {
             // *document's* fallback and answer for it in a window holding two panels and two
             // documents. `Source` is where the request was raised, which is the focus.
             var first = (args.Source ?? reached).FindHostedDocument();
-            var pending = quitting ? Unsaved(element, first) : first is not null && DocumentCommands.HasUnsavedChanges(first) ? [first] : [];
+            var pending = quitting ? Unsaved(element, first) :
+                first is not null && DocumentCommands.HasUnsavedChanges(first) ? [first] : [];
 
             if (pending.Count == 0) {
                 return;
@@ -225,7 +232,7 @@ public static class DocumentClosePrompt {
 
         element.AddHandler<CloseRequestEvent>(Handle);
 
-        return new Removal(element, Handle);
+        return new(element, Handle);
     }
 
     /// <summary>Every document with unsaved changes the application would close over, the focused one first.</summary>
@@ -261,6 +268,7 @@ public static class DocumentClosePrompt {
             }
         }
     }
+
     /// <remarks>
     ///     A named type rather than a lambda-shaped disposable, because <c>RemoveHandler</c> compares
     ///     the delegate — the handle has to hold the same instance that was added, and a fresh

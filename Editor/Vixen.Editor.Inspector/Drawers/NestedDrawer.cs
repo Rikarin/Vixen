@@ -78,8 +78,12 @@ public sealed class NestedDrawer : IPropertyDrawer {
 
     /// <summary>How deep the current build is, counted across the recursion.</summary>
     /// <remarks>
-    ///     ⚠ <b>An instance field on a shared drawer, which is safe only because a build is
-    ///     synchronous and the document tree is single-threaded.</b> It is incremented and decremented
+    ///     ⚠
+    ///     <b>
+    ///         An instance field on a shared drawer, which is safe only because a build is
+    ///         synchronous and the document tree is single-threaded.
+    ///     </b>
+    ///     It is incremented and decremented
     ///     around the recursive call in <see cref="Build" /> and is zero between rows.
     /// </remarks>
     int depth;

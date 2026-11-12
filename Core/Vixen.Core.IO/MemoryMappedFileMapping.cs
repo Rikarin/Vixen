@@ -3,7 +3,6 @@
 
 using System.Buffers;
 using System.IO.MemoryMappedFiles;
-using System.Runtime.InteropServices;
 
 namespace Vixen.Core.IO;
 
@@ -40,11 +39,11 @@ sealed unsafe class MemoryMappedFileMapping : MemoryManager<byte>, IMappedFile {
     internal static MemoryMappedFileMapping Open(string osPath, int length) {
         var file = MemoryMappedFile.CreateFromFile(
             new FileStream(osPath, FileMode.Open, FileAccess.Read, FileShare.Read),
-            mapName: null,
-            capacity: 0,
+            null,
+            0,
             MemoryMappedFileAccess.Read,
             HandleInheritability.None,
-            leaveOpen: false
+            false
         );
 
         MemoryMappedViewAccessor? accessor = null;

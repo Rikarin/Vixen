@@ -18,8 +18,12 @@ namespace Vixen.Editor.Assets.Content;
 ///         content in it and no error. Opening them as a unit is what makes that unrepresentable.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Here rather than in the CLI, which is where it was, because the editor needs the same
-///         four.</b> Two orchestrations over the same components drift, and the way this particular
+///         ⚠
+///         <b>
+///             Here rather than in the CLI, which is where it was, because the editor needs the same
+///             four.
+///         </b>
+///         Two orchestrations over the same components drift, and the way this particular
 ///         drift shows up is the editor and <c>vixen content build</c> producing different output for
 ///         one project — which reads as a machine problem for as long as it takes somebody to compare
 ///         two catalogs by hand. This assembly's whole stated job is the part shared with the CLI.
@@ -47,7 +51,7 @@ public sealed class ProjectWorkspace {
     public ImportCache Cache { get; } = new();
 
     /// <summary>Where the import cache is written.</summary>
-    public string CacheFile => System.IO.Path.Combine(Paths.Library, "ImportCache");
+    public string CacheFile => Path.Combine(Paths.Library, "ImportCache");
 
     /// <summary>Source files, rooted at the project, which is what an importer's paths are relative to.</summary>
     public IFileProvider Files { get; }
@@ -75,8 +79,12 @@ public sealed class ProjectWorkspace {
     /// <summary>Opens the stores for a project.</summary>
     /// <param name="paths">The project's directories.</param>
     /// <remarks>
-    ///     ⚠ <b>The database is its own, and an editor sharing the one its panels read would be a
-    ///     race.</b> <see cref="AssetDatabase.Scan" /> clears and repopulates its dictionaries, and an
+    ///     ⚠
+    ///     <b>
+    ///         The database is its own, and an editor sharing the one its panels read would be a
+    ///         race.
+    ///     </b>
+    ///     <see cref="AssetDatabase.Scan" /> clears and repopulates its dictionaries, and an
     ///     import runs on a background thread — so a browser enumerating <c>Entries</c> mid-scan gets
     ///     an exception at best. A workspace scanning privately and the editor rescanning afterwards,
     ///     on the thread that owns its panels, costs one extra walk and is correct.
@@ -93,7 +101,7 @@ public sealed class ProjectWorkspace {
 
         Chunks = new FileOdbBackend(files, new("/library/ArtifactDb"));
         Artifacts = new(Chunks);
-        Files = new PhysicalFileProvider(paths.Root, isReadOnly: true);
+        Files = new PhysicalFileProvider(paths.Root, true);
         Cache.TryLoad(CacheFile);
     }
 
@@ -122,7 +130,7 @@ public sealed class ProjectWorkspace {
     /// <returns>The directory.</returns>
     public string DefaultOutput(string target) {
         ArgumentException.ThrowIfNullOrEmpty(target);
-        return System.IO.Path.Combine(Paths.Build, target.Replace('/', '-'));
+        return Path.Combine(Paths.Build, target.Replace('/', '-'));
     }
 
     /// <summary>Reads every <c>.vxgroup</c> the project defines.</summary>
@@ -141,8 +149,12 @@ public sealed class ProjectWorkspace {
             return groups;
         }
 
-        foreach (var file in Directory.EnumerateFiles(Paths.Assets, "*" + AddressableGroup.Extension, SearchOption.AllDirectories)
-                     .OrderBy(path => path, StringComparer.Ordinal)) {
+        foreach (var file in Directory.EnumerateFiles(
+                         Paths.Assets,
+                         "*" + AddressableGroup.Extension,
+                         SearchOption.AllDirectories
+                     )
+                     .OrderBy(static path => path, StringComparer.Ordinal)) {
             try {
                 var group = YamlSerializer.Parse<AddressableGroup>(File.ReadAllText(file));
 
@@ -157,12 +169,11 @@ public sealed class ProjectWorkspace {
             }
         }
 
-        var duplicates = groups.GroupBy(group => group.Name, StringComparer.Ordinal).Where(named => named.Count() > 1);
+        var duplicates = groups.GroupBy(static group => group.Name, StringComparer.Ordinal)
+            .Where(static named => named.Count() > 1);
 
         foreach (var duplicate in duplicates) {
-            failures.Add(
-                $"Two .vxgroup files both define '{duplicate.Key}'. A group's policy has to have one answer."
-            );
+            failures.Add($"Two .vxgroup files both define '{duplicate.Key}'. A group's policy has to have one answer.");
         }
 
         groups.Sort(static (left, right) => string.CompareOrdinal(left.Name, right.Name));
@@ -196,5 +207,5 @@ public sealed class ProjectWorkspace {
     /// </remarks>
     public static bool IsProject(string directory) =>
         ProjectMarker.TryFind(directory, out _)
-        || Directory.Exists(System.IO.Path.Combine(directory, "Assets"));
+        || Directory.Exists(Path.Combine(directory, "Assets"));
 }

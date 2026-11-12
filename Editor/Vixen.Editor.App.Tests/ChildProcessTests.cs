@@ -6,7 +6,10 @@ using Xunit;
 
 namespace Vixen.Editor.App.Tests;
 
-/// <summary>The one way the editor runs git and <c>dotnet</c>: both streams at once, and a hang check that can fire (#1512).</summary>
+/// <summary>
+///     The one way the editor runs git and <c>dotnet</c>: both streams at once, and a hang check that can fire
+///     (#1512).
+/// </summary>
 /// <remarks>
 ///     ⚠ <b>A real child process, because the defect is the platform's pipe.</b> A child that writes more
 ///     than the pipe holds to stderr before closing stdout blocks on the write; a parent reading stdout to
@@ -26,15 +29,20 @@ public class ChildProcessTests {
     /// </remarks>
     [Fact]
     public async Task A_child_that_fills_stderr_first_is_read_to_the_end() {
-        var running = Task.Run(() => ChildProcess.Run(Shell($"{Stderr(Flood)}; {Stdout("done")}"), TimeSpan.FromMinutes(1)), TestContext.Current.CancellationToken);
+        var running = Task.Run(
+            static () => ChildProcess.Run(Shell($"{Stderr(Flood)}; {Stdout("done")}"), TimeSpan.FromMinutes(1)),
+            TestContext.Current.CancellationToken
+        );
 
         // A hang check: a deadlocked read throws `TimeoutException` here rather than hanging the suite.
-        var result = Assert.NotNull(await running.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken));
+        var result = Assert.NotNull(
+            await running.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken)
+        );
 
         Assert.True(result.Finished);
         Assert.Equal(0, result.Code);
         Assert.Equal("done", result.Output.Trim());
-        Assert.Equal(Flood, result.Error.Count(character => character == 'x'));
+        Assert.Equal(Flood, result.Error.Count(static character => character == 'x'));
     }
 
     /// <summary>A child that never finishes is killed when the patience runs out, though it holds its streams open.</summary>
@@ -46,10 +54,15 @@ public class ChildProcessTests {
     [Fact]
     public async Task A_child_that_does_not_finish_is_given_up_on() {
         var clock = Stopwatch.StartNew();
-        var running = Task.Run(() => ChildProcess.Run(Shell($"{Stderr(Flood)}; {Sleep(60)}"), TimeSpan.FromSeconds(1)), TestContext.Current.CancellationToken);
+        var running = Task.Run(
+            static () => ChildProcess.Run(Shell($"{Stderr(Flood)}; {Sleep(60)}"), TimeSpan.FromSeconds(1)),
+            TestContext.Current.CancellationToken
+        );
 
         // A hang check: patience that never fires throws `TimeoutException` here.
-        var result = Assert.NotNull(await running.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken));
+        var result = Assert.NotNull(
+            await running.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken)
+        );
 
         Assert.False(result.Finished);
         Assert.Equal(-1, result.Code);

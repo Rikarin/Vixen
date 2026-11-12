@@ -103,7 +103,7 @@ public class SurfaceTests {
 
         var second = document.CreateSurface(400f, 200f);
 
-        UiElement Card(UiElement parent) {
+        static UiElement Card(UiElement parent) {
             var card = parent.Add("box");
 
             card.SetStyle("width", "50px");
@@ -127,10 +127,13 @@ public class SurfaceTests {
         document.Draw();
 
         static (float Offset, float Blur, float Drop) Read(UiSurface surface, UiElement card) {
-            var shadow = Assert.Single(surface.Drawing.Commands, command => command.Kind == DrawCommandKind.Shadow);
+            var shadow = Assert.Single(
+                surface.Drawing.Commands,
+                static command => command.Kind == DrawCommandKind.Shadow
+            );
             var layer = Assert.Single(
                 surface.Drawing.Commands,
-                command => command.Kind == DrawCommandKind.LayerPush && command.Shadow is not null
+                static command => command.Kind == DrawCommandKind.LayerPush && command.Shadow is not null
             );
 
             return (shadow.Y - card.AbsoluteTop, layer.Blur, layer.Shadow!.Value.Offset.Y);
@@ -170,8 +173,11 @@ public class SurfaceTests {
         // Two lists, and neither carries the other's box. The two rectangles overlap exactly — both
         // are at the top-left of their own window — so a walk that did not stop at the boundary
         // would put the torn-off panel's contents in the main window's corner.
-        Assert.Equal(1, document.Primary.Drawing.Commands.Count(command => command.Kind == DrawCommandKind.Rectangle));
-        Assert.Equal(1, second.Drawing.Commands.Count(command => command.Kind == DrawCommandKind.Rectangle));
+        Assert.Equal(
+            1,
+            document.Primary.Drawing.Commands.Count(static command => command.Kind == DrawCommandKind.Rectangle)
+        );
+        Assert.Equal(1, second.Drawing.Commands.Count(static command => command.Kind == DrawCommandKind.Rectangle));
 
         Assert.Same(here, document.HitTest(50f, 50f));
         Assert.Same(there, document.HitTest(second, 50f, 50f));
@@ -302,7 +308,7 @@ public class SurfaceTests {
 
         var second = document.CreateSurface(400f, 300f);
 
-        var ran = "";
+        var ran = string.Empty;
         document.Root.AddCommandHandler("edit.copy", () => ran = "main");
         second.Root.AddCommandHandler("edit.copy", () => ran = "inspector");
 
@@ -338,7 +344,10 @@ public class SurfaceTests {
         field.Focusable = true;
 
         Assert.True(document.Focus(field));
-        Assert.Same(second.Root, document.Dispatch(new KeyEvent { Key = Input.InputKey.F5, Action = KeyAction.Pressed }));
+        Assert.Same(
+            second.Root,
+            document.Dispatch(new KeyEvent { Key = Input.InputKey.F5, Action = KeyAction.Pressed })
+        );
 
         // The focus in the key window does outrank its root, which is the half that was always true.
         var probe = second.Root.Add("div");
@@ -368,7 +377,10 @@ public class SurfaceTests {
         // throws on one of those — so a key surface left pointing at a closed window turns the next
         // keystroke into an exception rather than a misrouted key.
         Assert.Null(document.KeySurface);
-        Assert.Same(document.Root, document.Dispatch(new KeyEvent { Key = Input.InputKey.F5, Action = KeyAction.Pressed }));
+        Assert.Same(
+            document.Root,
+            document.Dispatch(new KeyEvent { Key = Input.InputKey.F5, Action = KeyAction.Pressed })
+        );
     }
 
     [Fact]

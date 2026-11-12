@@ -39,8 +39,9 @@ public sealed class NodeSearchPopupKeyTests : IDisposable {
     readonly ViewFixture fixture = new();
     readonly NodeTypeRegistry registry = new();
 
-    public NodeSearchPopupKeyTests() =>
+    public NodeSearchPopupKeyTests() {
         Vixen.Editor.NodeGraph.Tests.NodeTypes.Register(registry);
+    }
 
     public void Dispose() => fixture.Dispose();
 
@@ -83,8 +84,12 @@ public sealed class NodeSearchPopupKeyTests : IDisposable {
     }
 
     /// <summary>
-    ///     ⚠ <b>A key something else has claimed moves nothing, which is the assertion that this
-    ///     popup was <i>not</i> given <c>.handled</c>.</b> Three of the five capture-leg panels must
+    ///     ⚠
+    ///     <b>
+    ///         A key something else has claimed moves nothing, which is the assertion that this
+    ///         popup was <i>not</i> given <c>.handled</c>.
+    ///     </b>
+    ///     Three of the five capture-leg panels must
     ///     not have the modifier and two must; a port that spread it across all five would pass every
     ///     other test in this file. Enter is used rather than Down because the harm is concrete here:
     ///     with <c>handled</c> the popup would create a node on a keystroke another handler had
@@ -116,17 +121,23 @@ public sealed class NodeSearchPopupKeyTests : IDisposable {
     }
 
     /// <summary>
-    ///     ⚠ <b>The assertion that <c>&lt;self /&gt;</c> is on the host and not on the first root,
-    ///     and the only one in this file that can tell the two apart.</b>
+    ///     ⚠
+    ///     <b>
+    ///         The assertion that <c>&lt;self /&gt;</c> is on the host and not on the first root,
+    ///         and the only one in this file that can tell the two apart.
+    ///     </b>
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>The three tests above do <i>not</i> distinguish them, and it is worth saying why
-    ///     rather than deleting them.</b> <c>Show</c> focuses the <c>SearchBox</c>, so the route runs
+    ///     ⚠
+    ///     <b>
+    ///         The three tests above do <i>not</i> distinguish them, and it is worth saying why
+    ///         rather than deleting them.
+    ///     </b>
+    ///     <c>Show</c> focuses the <c>SearchBox</c>, so the route runs
     ///     root → popup → box and a capture handler written on the box is on that route as its
     ///     target — a handler in the wrong place still hears every key those tests press, and
     ///     moving the attribute onto <c>&lt;SearchBox&gt;</c> leaves all three green. That was
     ///     checked rather than assumed.
-    ///
     ///     What separates them is a key that arrives somewhere <i>else</i> in the panel, which is
     ///     the README's own example: "a key arriving while the focus is on the result list would
     ///     never reach it". The list is not an ancestor of the box, so a handler on the box is not
@@ -160,7 +171,7 @@ public sealed class NodeSearchPopupKeyTests : IDisposable {
 
         Assert.Equal(
             ["search-box", "node-search-list", "node-search-empty"],
-            popup.Children.Select(child => child.Tag)
+            popup.Children.Select(static child => child.Tag)
         );
     }
 

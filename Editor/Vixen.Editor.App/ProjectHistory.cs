@@ -33,7 +33,7 @@ sealed class ProjectHistory {
     public ProjectHistory(string directory) {
         ArgumentException.ThrowIfNullOrEmpty(directory);
 
-        store = new EditorUserStore(directory);
+        store = new(directory);
         Load();
     }
 
@@ -55,7 +55,7 @@ sealed class ProjectHistory {
         // `C:\Game` and `c:\game` becoming two entries for one project. `OrdinalIgnoreCase` on Linux
         // would merge two directories that genuinely differ, so the comparison follows the platform.
         entries.RemoveAll(entry => string.Equals(entry.Path, full, PathComparison));
-        entries.Insert(0, new RecentProject(full, now));
+        entries.Insert(0, new(full, now));
 
         Trim();
         Save();
@@ -87,11 +87,16 @@ sealed class ProjectHistory {
                 }
 
                 var opened = entry["opened"] is YamlScalar when
-                    && DateTime.TryParse(when.Value, CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal, out var parsed)
+                    && DateTime.TryParse(
+                        when.Value,
+                        CultureInfo.InvariantCulture,
+                        DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal,
+                        out var parsed
+                    )
                         ? parsed
                         : DateTime.UnixEpoch;
 
-                entries.Add(new RecentProject(path, opened));
+                entries.Add(new(path, opened));
             }
 
             Trim();
@@ -109,7 +114,10 @@ sealed class ProjectHistory {
                     .Set("path", new YamlScalar(entry.Path, YamlScalarStyle.DoubleQuoted))
                     .Set(
                         "opened",
-                        new YamlScalar(entry.Opened.ToString("O", CultureInfo.InvariantCulture), YamlScalarStyle.DoubleQuoted)
+                        new YamlScalar(
+                            entry.Opened.ToString("O", CultureInfo.InvariantCulture),
+                            YamlScalarStyle.DoubleQuoted
+                        )
                     )
             );
         }

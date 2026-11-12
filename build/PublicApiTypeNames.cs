@@ -2,8 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 
@@ -13,9 +11,16 @@ using System.Text.RegularExpressions;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>This used to skip every line containing <c>-&gt;</c> as "a member, not a type", and
-///         that is how this repository spells a type declaration.</b> <c>Vixen.Ecs.Archetype
-///         -&gt; sealed class</c> is the declaration; the arrow separates the name from the kind
+///         ⚠
+///         <b>
+///             This used to skip every line containing <c>-&gt;</c> as "a member, not a type", and
+///             that is how this repository spells a type declaration.
+///         </b>
+///         <c>
+///             Vixen.Ecs.Archetype
+///             -&gt; sealed class
+///         </c>
+///         is the declaration; the arrow separates the name from the kind
 ///         exactly as it separates a property from its type. The only type lines that survived the
 ///         skip were the ones that also name a base or an interface — <c>X : System.IDisposable</c>
 ///         — so the check that reads this saw <b>2 398 of the 4 711 types</b> in the committed
@@ -54,7 +59,7 @@ static class PublicApiTypeNames {
     /// </remarks>
     static readonly HashSet<string> KindWords = [
         "sealed", "static", "abstract", "readonly", "ref", "partial", "unsafe",
-        "class", "struct", "interface", "enum", "record", "delegate",
+        "class", "struct", "interface", "enum", "record", "delegate"
     ];
 
     /// <summary>The type ids a <c>PublicAPI</c> baseline's lines declare.</summary>
@@ -65,9 +70,11 @@ static class PublicApiTypeNames {
     /// </remarks>
     public static IEnumerable<string> BaselinedIds(IEnumerable<string> lines) =>
         lines
-            .Select(line => line.Trim())
-            .Where(line => line.Length > 0 && !line.StartsWith('#')
-                && !line.StartsWith("*REMOVED*", StringComparison.Ordinal))
+            .Select(static line => line.Trim())
+            .Where(static line => line.Length > 0
+                && !line.StartsWith('#')
+                && !line.StartsWith("*REMOVED*", StringComparison.Ordinal)
+            )
             .Select(DocumentationId)
             .OfType<string>();
 
@@ -78,9 +85,9 @@ static class PublicApiTypeNames {
     /// </remarks>
     public static IEnumerable<string> ExemptedIds(IEnumerable<string> lines) =>
         lines
-            .Select(line => line.Trim())
-            .Where(line => line.StartsWith("T:", StringComparison.Ordinal))
-            .Select(line => line.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries)[0]["T:".Length..]);
+            .Select(static line => line.Trim())
+            .Where(static line => line.StartsWith("T:", StringComparison.Ordinal))
+            .Select(static line => line.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries)[0]["T:".Length..]);
 
     /// <summary>The type ids a guide page names in the <c>api:</c> list of its front matter.</summary>
     /// <remarks>
@@ -89,13 +96,13 @@ static class PublicApiTypeNames {
     /// </remarks>
     public static IEnumerable<string> PageIds(IEnumerable<string> lines) =>
         lines
-            .TakeWhile(line => !line.StartsWith("##", StringComparison.Ordinal))
-            .Select(line => Regex.Match(line, @"^api:\s*\[(?<ids>[^\]]*)\]"))
-            .Where(match => match.Success)
-            .SelectMany(match => match.Groups["ids"].Value.Split(','))
-            .Select(id => id.Trim())
-            .Where(id => id.StartsWith("T:", StringComparison.Ordinal))
-            .Select(id => id["T:".Length..]);
+            .TakeWhile(static line => !line.StartsWith("##", StringComparison.Ordinal))
+            .Select(static line => Regex.Match(line, @"^api:\s*\[(?<ids>[^\]]*)\]"))
+            .Where(static match => match.Success)
+            .SelectMany(static match => match.Groups["ids"].Value.Split(','))
+            .Select(static id => id.Trim())
+            .Where(static id => id.StartsWith("T:", StringComparison.Ordinal))
+            .Select(static id => id["T:".Length..]);
 
     /// <summary>
     ///     A documentation id as <c>DocsExempt.txt</c> and a page's <c>api:</c> list spell it, or
@@ -109,7 +116,7 @@ static class PublicApiTypeNames {
     ///     than at a kind.
     /// </remarks>
     public static string? DocumentationId(string line) {
-        var declaration = line.Split(" : ", StringSplitOptions.None)[0].Trim();
+        var declaration = line.Split(" : ")[0].Trim();
 
         // `Type.Method(...)` and `Type.this[int index].get -> T`, whose arrow points at a type.
         if (declaration.Length == 0 || line.Contains('(')) {

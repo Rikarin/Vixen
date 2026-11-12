@@ -5,7 +5,10 @@ using Xunit;
 
 namespace Vixen.Ui.Tests;
 
-/// <summary>The recent-documents list one level below the editor, keyed on <see cref="IEditableDocument.Location" /> (#656).</summary>
+/// <summary>
+///     The recent-documents list one level below the editor, keyed on <see cref="IEditableDocument.Location" />
+///     (#656).
+/// </summary>
 public class RecentDocumentsTests {
     sealed class Note(string name, string? location = null) : EditableDocument(name, location) {
         protected override bool OnSave() => true;
@@ -33,7 +36,7 @@ public class RecentDocumentsTests {
 
     [Fact]
     public void The_oldest_falls_off_past_the_capacity() {
-        var recent = new RecentDocuments(capacity: 2);
+        var recent = new RecentDocuments(2);
 
         recent.Note("/p/a.txt");
         recent.Note("/p/b.txt");
@@ -44,9 +47,9 @@ public class RecentDocumentsTests {
 
     [Fact]
     public void A_restored_list_keeps_its_order_without_duplicates_or_empties() {
-        var recent = new RecentDocuments(capacity: 3);
+        var recent = new RecentDocuments(3);
 
-        recent.Restore(["/p/b.txt", "", "/p/a.txt", "/p/b.txt", "/p/c.txt", "/p/d.txt"]);
+        recent.Restore(["/p/b.txt", string.Empty, "/p/a.txt", "/p/b.txt", "/p/c.txt", "/p/d.txt"]);
 
         Assert.Equal(["/p/b.txt", "/p/a.txt", "/p/c.txt"], recent.Locations);
         Assert.True(recent.Forget("/p/a.txt"));

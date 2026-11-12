@@ -36,7 +36,7 @@ static class IslandCorpus {
             // A fourth power turns a flat draw into the distribution a real atlas has: a few islands
             // that own most of the area, and a great many that have to be swept into what is left.
             var spread = Unit(ref state);
-            var radius = 0.02f + (0.34f * spread * spread * spread * spread);
+            var radius = 0.02f + 0.34f * spread * spread * spread * spread;
             var points = new Vector2[corners];
 
             for (var corner = 0; corner < corners; corner++) {
@@ -45,8 +45,8 @@ static class IslandCorpus {
                 // Every third corner cuts inward, which is what makes the island non-convex — and a
                 // non-convex island is the entire reason the irregular rung exists.
                 var reach = corner % 3 == 2
-                    ? radius * (0.28f + (0.18f * Unit(ref state)))
-                    : radius * (0.62f + (0.75f * Unit(ref state)));
+                    ? radius * (0.28f + 0.18f * Unit(ref state))
+                    : radius * (0.62f + 0.75f * Unit(ref state));
 
                 points[corner] = new(reach * MathF.Cos(angle), reach * MathF.Sin(angle));
             }
@@ -65,8 +65,8 @@ static class IslandCorpus {
                 coordinates.Add(b);
 
                 indices.Add(corner * 3);
-                indices.Add((corner * 3) + 1);
-                indices.Add((corner * 3) + 2);
+                indices.Add(corner * 3 + 1);
+                indices.Add(corner * 3 + 2);
 
                 minimum = new(MathF.Min(minimum.X, MathF.Min(a.X, b.X)), MathF.Min(minimum.Y, MathF.Min(a.Y, b.Y)));
                 maximum = new(MathF.Max(maximum.X, MathF.Max(a.X, b.X)), MathF.Max(maximum.Y, MathF.Max(a.Y, b.Y)));
@@ -123,7 +123,7 @@ static class IslandCorpus {
         return (shuffled, order);
     }
 
-    static uint Next(ref uint state) => state = (state * 1664525u) + 1013904223u;
+    static uint Next(ref uint state) => state = state * 1664525u + 1013904223u;
 
     static float Unit(ref uint state) => (Next(ref state) >> 8) / 16777216f;
 }

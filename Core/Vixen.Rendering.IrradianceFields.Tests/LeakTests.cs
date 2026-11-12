@@ -25,8 +25,7 @@ namespace Vixen.Rendering.IrradianceFields.Tests;
 public class LeakTests {
     const float Outside = 10f;
 
-    static IrradianceField Room() =>
-        new(new BoundingBox(new(0f), new(16f)), new(4));
+    static IrradianceField Room() => new(new BoundingBox(new(0f), new(16f)), new(4));
 
     /// <summary>
     ///     <b>Doc 19's stated exit criterion for L2: a closed box lit from outside stays dark.</b> The
@@ -45,7 +44,7 @@ public class LeakTests {
     [InlineData(2)]
     [InlineData(8)]
     public void AClosedBoxStaysDark(int passes) {
-        var field = Boxed(interior: 0f);
+        var field = Boxed(0f);
 
         field.Dilate(passes);
         field.SyncBorders();
@@ -71,11 +70,14 @@ public class LeakTests {
         field.AllocateAll();
 
         // Bright on one side, dark on the other, and a single invalid plane between them.
-        Fill(field, position => position.X switch {
-            < 8f => Probes.Of(Outside),
-            > 8f => Probes.Of(0f),
-            _ => IrradianceProbe.Empty
-        });
+        Fill(
+            field,
+            static position => position.X switch {
+                < 8f => Probes.Of(Outside),
+                > 8f => Probes.Of(0f),
+                _ => IrradianceProbe.Empty
+            }
+        );
 
         field.Dilate();
         field.SyncBorders();
@@ -99,7 +101,7 @@ public class LeakTests {
         field.AllocateAll();
 
         // The wall occupies 8.1 to 8.7, so probes at 8 and 9 are both outside it and both valid.
-        Fill(field, position => Probes.Of(position.X < 8.4f ? Outside : 0f));
+        Fill(field, static position => Probes.Of(position.X < 8.4f ? Outside : 0f));
 
         Assert.Equal(0, field.Dilate(4));
 
@@ -145,8 +147,8 @@ public class LeakTests {
     /// </summary>
     [Fact]
     public void DilationReachesOneProbeFurtherPerPass() {
-        var once = Boxed(interior: 1f);
-        var twice = Boxed(interior: 1f);
+        var once = Boxed(1f);
+        var twice = Boxed(1f);
 
         once.Dilate();
         twice.Dilate(2);
@@ -163,7 +165,7 @@ public class LeakTests {
         var field = Room();
 
         field.AllocateAll();
-        Fill(field, _ => Probes.Of(1f));
+        Fill(field, static _ => Probes.Of(1f));
 
         Assert.Equal(0, field.Dilate(4));
     }
@@ -171,7 +173,7 @@ public class LeakTests {
     /// <summary>A repair travels only as far as there are holes, and stops rather than looping.</summary>
     [Fact]
     public void DilationStopsWhenItRunsOutOfHoles() {
-        var field = Boxed(interior: 1f);
+        var field = Boxed(1f);
 
         var first = field.Dilate(16);
         var second = field.Dilate(16);
@@ -191,7 +193,7 @@ public class LeakTests {
         var field = Room();
 
         field.AllocateAll();
-        Fill(field, position => Probes.Of(position.X));
+        Fill(field, static position => Probes.Of(position.X));
         field.SyncBorders();
 
         var at = new Vector3(8f, 8f, 8f);
@@ -236,7 +238,7 @@ public class LeakTests {
         var field = Room();
 
         field.AllocateAll();
-        Fill(field, position => Probes.Of(position.X));
+        Fill(field, static position => Probes.Of(position.X));
         field.SyncBorders();
 
         var at = new Vector3(8f, 8f, 8f);
@@ -279,13 +281,16 @@ public class LeakTests {
 
         field.AllocateAll();
 
-        Fill(field, position => {
-            if (Air(position)) {
-                return Probes.Of(interior);
-            }
+        Fill(
+            field,
+            position => {
+                if (Air(position)) {
+                    return Probes.Of(interior);
+                }
 
-            return Solid(position) ? IrradianceProbe.Empty : Probes.Of(Outside);
-        });
+                return Solid(position) ? IrradianceProbe.Empty : Probes.Of(Outside);
+            }
+        );
 
         return field;
     }

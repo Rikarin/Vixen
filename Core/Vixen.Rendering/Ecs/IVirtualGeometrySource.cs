@@ -62,8 +62,10 @@ public interface IVirtualGeometrySource {
     ClusterState TryGet(AssetReference reference, out int mesh, out BoundingSphere bounds);
 
     /// <summary>The caster geometry a registered mesh falls back to, as source-vertex indices.</summary>
-    /// <param name="reference">Which mesh. Only meaningful once <see cref="TryGet" /> answered
-    /// <see cref="ClusterState.Ready" /> for it.</param>
+    /// <param name="reference">
+    ///     Which mesh. Only meaningful once <see cref="TryGet" /> answered
+    ///     <see cref="ClusterState.Ready" /> for it.
+    /// </param>
     /// <param name="triangles">
     ///     Three indices per triangle, into the same vertex arrays the mesh's own
     ///     <c>MeshData</c> carries.
@@ -79,8 +81,11 @@ public interface IVirtualGeometrySource {
     ///         through <c>MeshletMesh.Fallback</c>, which phase 1 generates for precisely this case.
     ///     </para>
     ///     <para>
-    ///         <b>Indices into the source mesh's vertices, and that is what makes a morphed caster
-    ///         possible at all.</b> Simplification here only ever collapses a vertex onto a vertex that
+    ///         <b>
+    ///             Indices into the source mesh's vertices, and that is what makes a morphed caster
+    ///             possible at all.
+    ///         </b>
+    ///         Simplification here only ever collapses a vertex onto a vertex that
     ///         already existed, so the fallback shares the numbering the blend-shape deltas and the
     ///         skinning weights are written against — a caster built from it is deformed by the ordinary
     ///         pre-pass, on the same vertices, rather than by a second implementation that could

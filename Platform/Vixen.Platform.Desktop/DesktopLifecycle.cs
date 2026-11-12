@@ -18,8 +18,10 @@ public sealed class DesktopLifecycle(PlatformEventBuffer events) : ILifecycle {
     /// <inheritdoc />
     public ApplicationState State { get; private set; } = ApplicationState.Running;
 
-    /// <summary>Always <see cref="Platform.MemoryPressure.Normal" />: no desktop reports memory
-    /// pressure to a process.</summary>
+    /// <summary>
+    ///     Always <see cref="Platform.MemoryPressure.Normal" />: no desktop reports memory
+    ///     pressure to a process.
+    /// </summary>
     /// <remarks>
     ///     Not because memory pressure does not exist on a desktop, but because the OS deals with it
     ///     by swapping rather than by asking. A subsystem that responds to this is exercised by

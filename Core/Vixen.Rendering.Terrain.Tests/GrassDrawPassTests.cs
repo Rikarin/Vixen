@@ -11,8 +11,12 @@ namespace Vixen.Rendering.Terrain.Tests;
 
 /// <summary>The grass draw — [docs/plan/31 § T6]'s missing half.</summary>
 /// <remarks>
-///     ⚠ <b><see cref="GrassDispatch.RecordDraws" /> binds nothing, and for a long time nothing else
-///     did either.</b> The dispatch's own tests pass over a field that records indirect draws with no
+///     ⚠
+///     <b>
+///         <see cref="GrassDispatch.RecordDraws" /> binds nothing, and for a long time nothing else
+///         did either.
+///     </b>
+///     The dispatch's own tests pass over a field that records indirect draws with no
 ///     pipeline, no vertex buffer and no descriptor set bound — which on a real backend is a refused
 ///     draw and on this one is a command stream that looks complete. What is asserted here is
 ///     everything a draw needs being present beside the draw.
@@ -61,18 +65,18 @@ public sealed class GrassDrawPassTests : IDisposable {
             device.CreateSampler(new()),
             device.CreateSampler(new()),
             device.CreateSampler(new()),
-            WeightChannel: 1,
-            HeightMapSize: new(64f, 64f),
-            HeightRange: new(-100f, 100f),
-            MetresPerQuad: 1f,
-            Origin: Vector3.Zero,
-            TileSamples: 64f,
-            TileQuads: 63f,
-            AtlasTiles: new(1f, 1f)
+            1,
+            new(64f, 64f),
+            new(-100f, 100f),
+            1f,
+            Vector3.Zero,
+            64f,
+            63f,
+            new(1f, 1f)
         );
 
     static GrassSlot[] Resident(int count) =>
-        [.. Enumerable.Range(0, count).Select(index => new GrassSlot(new(index, 0), index))];
+        [..Enumerable.Range(0, count).Select(static index => new GrassSlot(new(index, 0), index))];
 
     static TerrainView View() {
         var at = new Vector3(10f, 5f, 10f);
@@ -118,8 +122,12 @@ public sealed class GrassDrawPassTests : IDisposable {
 
     /// <summary>The blade's index count reaches the indirect template, whatever the call order.</summary>
     /// <remarks>
-    ///     ⚠ <b>An indirect command whose <c>IndexCount</c> is zero draws nothing however many
-    ///     instances survived the cull</b>, and every counter in the frame still reads healthy: the
+    ///     ⚠
+    ///     <b>
+    ///         An indirect command whose <c>IndexCount</c> is zero draws nothing however many
+    ///         instances survived the cull
+    ///     </b>
+    ///     , and every counter in the frame still reads healthy: the
     ///     scatter ran, the cells were resident, the draws were recorded. It is the one failure in this
     ///     path that is completely invisible from the host, which is why the template rides
     ///     <see cref="GrassDispatch.Prepare" /> as a parameter — computed from the blade at the moment
@@ -141,8 +149,12 @@ public sealed class GrassDrawPassTests : IDisposable {
 
     /// <summary>The default albedo's texels are uploaded on the first frame, once.</summary>
     /// <remarks>
-    ///     ⚠ <b>A texture created <c>Undefined</c> and never written samples as garbage, not as
-    ///     white</b> — the comment on the default promised white and nothing delivered it. The upload is
+    ///     ⚠
+    ///     <b>
+    ///         A texture created <c>Undefined</c> and never written samples as garbage, not as
+    ///         white
+    ///     </b>
+    ///     — the comment on the default promised white and nothing delivered it. The upload is
     ///     a recorded copy fenced on both sides, because the texture needs a layout transition into
     ///     the copy and out to sampling.
     /// </remarks>
@@ -158,8 +170,8 @@ public sealed class GrassDrawPassTests : IDisposable {
         device.GraphicsQueue.Submit([commands]);
 
         var recorded = device.Recorder!.Commands.ToList();
-        var copy = recorded.FindIndex(entry => entry.Kind == RecordedCommandKind.CopyBufferToTexture);
-        var barriers = recorded.Count(entry => entry.Kind == RecordedCommandKind.Barrier);
+        var copy = recorded.FindIndex(static entry => entry.Kind == RecordedCommandKind.CopyBufferToTexture);
+        var barriers = recorded.Count(static entry => entry.Kind == RecordedCommandKind.Barrier);
 
         Assert.True(copy >= 0, "the default albedo's texels were never uploaded.");
         Assert.True(barriers >= 2, $"only {barriers} barriers around a copy into an undefined-layout texture.");

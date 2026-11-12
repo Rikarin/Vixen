@@ -118,7 +118,7 @@ public class JobSchedulerTests {
     public void ParallelForVisitsEveryIndexExactlyOnce() {
         using var scheduler = new JobScheduler(4);
 
-        foreach (var length in (int[]) [1, 2, 7, 63, 64, 65, 1000, 10_007]) {
+        foreach (var length in (int[])[1, 2, 7, 63, 64, 65, 1000, 10_007]) {
             var visits = new int[length];
             scheduler.ParallelFor(new VisitJob(visits), length);
 
@@ -458,12 +458,12 @@ public class JobSchedulerTests {
         // warm-up pass and one measured one.
         var rounds = 0;
 
-        Measured.NothingAllocated(Chain, warmUp: 1, passes: 1);
+        Measured.NothingAllocated(Chain, 1, 1);
 
         // Counted rather than predicted: a non-zero reading is measured again, so the chain may have
         // run more than the two passes asked for. It has to be read after the measurement for the
         // second reason too — a reading that fails is explained by running the chain again.
-        Assert.Equal((64 * rounds) + 1, counter.Value);
+        Assert.Equal(64 * rounds + 1, counter.Value);
 
         return;
 
@@ -520,14 +520,14 @@ public class JobSchedulerTests {
         }
     }
 
-    struct GatedThrowingJob(ManualResetEventSlim gate) : IJob {
+    readonly struct GatedThrowingJob(ManualResetEventSlim gate) : IJob {
         public void Execute() {
             gate.Wait();
             throw new InvalidOperationException("The job threw on purpose.");
         }
     }
 
-    struct RecordThreadJob(
+    readonly struct RecordThreadJob(
         int[] threads,
         ConcurrentDictionary<int, bool> announced,
         ManualResetEventSlim twoArrived
@@ -547,7 +547,7 @@ public class JobSchedulerTests {
         }
     }
 
-    struct SelfWaitingJob(JobHandle[] handle, ManualResetEventSlim ready, Exception?[] caught) : IJob {
+    readonly struct SelfWaitingJob(JobHandle[] handle, ManualResetEventSlim ready, Exception?[] caught) : IJob {
         public void Execute() {
             ready.Wait();
 
@@ -559,7 +559,7 @@ public class JobSchedulerTests {
         }
     }
 
-    struct ForkJob(JobScheduler scheduler, StrongBox<int> counter, int depth) : IJob {
+    readonly struct ForkJob(JobScheduler scheduler, StrongBox<int> counter, int depth) : IJob {
         public void Execute() {
             Interlocked.Increment(ref counter.Value);
 

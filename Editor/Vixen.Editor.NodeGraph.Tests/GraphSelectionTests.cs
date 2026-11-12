@@ -28,7 +28,6 @@ public sealed class GraphSelectionTests : IDisposable {
 
     public void Dispose() {
         fixture.Dispose();
-        GC.SuppressFinalize(this);
     }
 
     NodeGraphView View => fixture.View;

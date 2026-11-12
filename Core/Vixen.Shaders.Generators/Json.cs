@@ -88,7 +88,7 @@ abstract class JsonValue {
 
                 if (position >= text.Length || text[position] == '}') {
                     position++;
-                    return new JsonObject(members);
+                    return new(members);
                 }
 
                 var name = ReadString();
@@ -118,7 +118,7 @@ abstract class JsonValue {
 
                 if (position >= text.Length || text[position] == ']') {
                     position++;
-                    return new JsonArray(items);
+                    return new(items);
                 }
 
                 items.Add(ReadValue());
@@ -150,7 +150,13 @@ abstract class JsonValue {
                     case 'b': builder.Append('\b'); break;
                     case 'f': builder.Append('\f'); break;
                     case 'u':
-                        builder.Append((char)ushort.Parse(text.Substring(position, 4), NumberStyles.HexNumber, CultureInfo.InvariantCulture));
+                        builder.Append(
+                            (char)ushort.Parse(
+                                text.Substring(position, 4),
+                                NumberStyles.HexNumber,
+                                CultureInfo.InvariantCulture
+                            )
+                        );
                         position += 4;
                         break;
                     default: builder.Append(escape); break;
@@ -164,7 +170,7 @@ abstract class JsonValue {
         JsonBool ReadKeyword() {
             var isTrue = text[position] == 't';
             position += isTrue ? 4 : 5;
-            return new JsonBool(isTrue);
+            return new(isTrue);
         }
 
         JsonNull ReadNull() {
@@ -179,7 +185,12 @@ abstract class JsonValue {
                 position++;
             }
 
-            return double.TryParse(text.Substring(start, position - start), NumberStyles.Float, CultureInfo.InvariantCulture, out var value)
+            return double.TryParse(
+                text.Substring(start, position - start),
+                NumberStyles.Float,
+                CultureInfo.InvariantCulture,
+                out var value
+            )
                 ? new JsonNumber(value)
                 : JsonNull.Instance;
         }

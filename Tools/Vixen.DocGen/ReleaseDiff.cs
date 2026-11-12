@@ -83,15 +83,15 @@ static class ReleaseDiff {
 
         var removedTypes = previous.Values
             .Where(entry => entry.Owner is null && !current.ContainsKey(entry.Id))
-            .Select(entry => entry.Id)
+            .Select(static entry => entry.Id)
             .ToHashSet(StringComparer.Ordinal);
 
         var addedTypes = current.Values
             .Where(entry => entry.Owner is null && !previous.ContainsKey(entry.Id))
-            .Select(entry => entry.Id)
+            .Select(static entry => entry.Id)
             .ToHashSet(StringComparer.Ordinal);
 
-        foreach (var entry in current.Values.OrderBy(entry => entry.Id, StringComparer.Ordinal)) {
+        foreach (var entry in current.Values.OrderBy(static entry => entry.Id, StringComparer.Ordinal)) {
             if (previous.TryGetValue(entry.Id, out var was)) {
                 changes.AddRange(Compare(was, entry));
 
@@ -102,30 +102,35 @@ static class ReleaseDiff {
                 continue;
             }
 
-            changes.Add(new Change(ChangeKind.Added, entry.Id, entry.Display, entry.Taxonomy, After: entry.Signature));
+            changes.Add(new(ChangeKind.Added, entry.Id, entry.Display, entry.Taxonomy, After: entry.Signature));
         }
 
         foreach (var entry in previous.Values
-            .Where(entry => !current.ContainsKey(entry.Id))
-            .OrderBy(entry => entry.Id, StringComparer.Ordinal)) {
+                     .Where(entry => !current.ContainsKey(entry.Id))
+                     .OrderBy(static entry => entry.Id, StringComparer.Ordinal)) {
             if (entry.Owner is not null && removedTypes.Contains(entry.Owner)) {
                 continue;
             }
 
-            changes.Add(new Change(
-                ChangeKind.Removed,
-                entry.Id,
-                entry.Display,
-                entry.Taxonomy,
-                Before: entry.Signature,
-                Note: entry.Owner is null ? "the type is gone" : "the member is gone"));
+            changes.Add(
+                new(
+                    ChangeKind.Removed,
+                    entry.Id,
+                    entry.Display,
+                    entry.Taxonomy,
+                    entry.Signature,
+                    Note: entry.Owner is null ? "the type is gone" : "the member is gone"
+                )
+            );
         }
 
         foreach (var (slug, text) in semantic ?? []) {
-            changes.Add(new Change(ChangeKind.SemanticBreak, slug, text, "guide", Note: $"declared by `{slug}`"));
+            changes.Add(new(ChangeKind.SemanticBreak, slug, text, "guide", Note: $"declared by `{slug}`"));
         }
 
-        return [.. changes.OrderBy(change => change.Kind).ThenBy(change => change.Id, StringComparer.Ordinal)];
+        return [
+            ..changes.OrderBy(static change => change.Kind).ThenBy(static change => change.Id, StringComparer.Ordinal)
+        ];
     }
 
     static IEnumerable<Change> Compare(Entry was, Entry now) {
@@ -136,7 +141,8 @@ static class ReleaseDiff {
                 now.Display,
                 now.Taxonomy,
                 After: now.Signature,
-                Note: now.Obsolete);
+                Note: now.Obsolete
+            );
         }
 
         var shape = now.Node is null || was.Node is null ? null : ShapeChange(was.Node, now.Node);
@@ -149,7 +155,8 @@ static class ReleaseDiff {
                 now.Taxonomy,
                 was.Signature,
                 now.Signature,
-                shape);
+                shape
+            );
         } else if (!string.Equals(was.Signature, now.Signature, StringComparison.Ordinal)) {
             yield return new Change(
                 ChangeKind.SignatureBreak,
@@ -158,7 +165,8 @@ static class ReleaseDiff {
                 now.Taxonomy,
                 was.Signature,
                 now.Signature,
-                was.Owner is null ? "the declaration changed" : "the signature changed");
+                was.Owner is null ? "the declaration changed" : "the signature changed"
+            );
         }
 
         if (was.Node is not null && now.Node is not null) {
@@ -170,7 +178,8 @@ static class ReleaseDiff {
                     now.Id,
                     now.Display,
                     now.Taxonomy,
-                    Note: engine);
+                    Note: engine
+                );
             }
         }
     }
@@ -192,7 +201,9 @@ static class ReleaseDiff {
             return "a ref struct — it can no longer be boxed, stored in a field or captured";
         }
 
-        if (now.Kind == DocKind.Enum && Underlying(was) is var wasUnderlying && Underlying(now) is var nowUnderlying
+        if (now.Kind == DocKind.Enum
+            && Underlying(was) is var wasUnderlying
+            && Underlying(now) is var nowUnderlying
             && !string.Equals(wasUnderlying, nowUnderlying, StringComparison.Ordinal)) {
             return $"underlying type {wasUnderlying} → {nowUnderlying} — every serialised value changes width";
         }
@@ -263,40 +274,42 @@ static class ReleaseDiff {
 
     static bool Modifier(DocNode node, string keyword) =>
         node.Signature.Any(span =>
-            span.Kind == "keyword" && string.Equals(span.Text, keyword, StringComparison.Ordinal));
+            span.Kind == "keyword" && string.Equals(span.Text, keyword, StringComparison.Ordinal)
+        );
 
     static Dictionary<string, Entry> Entries(DocGraph graph) {
         var entries = new Dictionary<string, Entry>(StringComparer.Ordinal);
 
         foreach (var node in graph.Nodes) {
-            entries[node.Id] = new Entry(
+            entries[node.Id] = new(
                 node.Id,
                 node.QualifiedName,
                 Taxonomy.Slug(node.Kind),
                 Text(node.Signature),
                 node.Obsolete,
                 null,
-                node);
+                node
+            );
 
             foreach (var member in node.Members) {
                 // Overloads share a name and not an id, which is exactly why the id is the key and
                 // the name is only what the row is called.
-                entries[member.Id] = new Entry(
+                entries[member.Id] = new(
                     member.Id,
                     $"{node.QualifiedName}.{member.Name}",
                     member.MemberKind,
                     Text(member.Signature),
                     member.Obsolete,
                     node.Id,
-                    null);
+                    null
+                );
             }
         }
 
         return entries;
     }
 
-    static string Text(IReadOnlyList<DocSpan> signature) =>
-        string.Concat(signature.Select(span => span.Text));
+    static string Text(IReadOnlyList<DocSpan> signature) => string.Concat(signature.Select(static span => span.Text));
 
     static string Short(string id) {
         var name = id.StartsWith("T:", StringComparison.Ordinal) ? id[2..] : id;
@@ -328,18 +341,20 @@ static class ReleaseDiff {
         IReadOnlyList<Change> changes
     ) {
         var builder = new StringBuilder();
-        var breaking = changes.Count(change => change.IsBreaking);
+        var breaking = changes.Count(static change => change.IsBreaking);
 
         builder.Append("## ").Append(version).Append(" — ").Append(date).Append("\n\n");
 
-        builder.Append(previousVersion is null
+        builder.Append(
+            previousVersion is null
                 ? "The first release. There is nothing before it to compare against, so what this "
                 + "section records is that the surface begins here — everything in it is new by "
                 + "definition, and the next release is the first one with a table.\n\n"
-                : $"Compared with {previousVersion}: **{changes.Count(change => change.Kind == ChangeKind.Added)} "
-                + $"added**, {changes.Count(change => change.Kind == ChangeKind.Removed)} removed, "
-                + $"{changes.Count(change => change.Kind == ChangeKind.Deprecated)} deprecated, "
-                + $"**{breaking} breaking**.\n\n");
+                : $"Compared with {previousVersion}: **{changes.Count(static change => change.Kind == ChangeKind.Added)} "
+                + $"added**, {changes.Count(static change => change.Kind == ChangeKind.Removed)} removed, "
+                + $"{changes.Count(static change => change.Kind == ChangeKind.Deprecated)} deprecated, "
+                + $"**{breaking} breaking**.\n\n"
+        );
 
         if (changes.Count == 0) {
             if (previousVersion is not null) {
@@ -360,12 +375,18 @@ static class ReleaseDiff {
             builder.Append("| | Symbol | What changed |\n|---|---|---|\n");
 
             foreach (var row in rows.Take(SectionLimit)) {
-                builder.Append("| `").Append(row.Taxonomy).Append("` | `").Append(row.Display).Append("` | ")
-                    .Append(Cell(row)).Append(" |\n");
+                builder.Append("| `")
+                    .Append(row.Taxonomy)
+                    .Append("` | `")
+                    .Append(row.Display)
+                    .Append("` | ")
+                    .Append(Cell(row))
+                    .Append(" |\n");
             }
 
             if (rows.Count > SectionLimit) {
-                builder.Append("| | | …and ").Append(rows.Count - SectionLimit)
+                builder.Append("| | | …and ")
+                    .Append(rows.Count - SectionLimit)
                     .Append(" more, in the release's JSON |\n");
             }
 
@@ -387,5 +408,5 @@ static class ReleaseDiff {
     }
 
     /// <summary>A signature has pipes in it — `Func&lt;A, B&gt;` does not, but `a \| b` in a default does.</summary>
-    static string Escape(string text) => text.Replace("|", "\\|", StringComparison.Ordinal);
+    static string Escape(string text) => text.Replace("|", """\|""", StringComparison.Ordinal);
 }

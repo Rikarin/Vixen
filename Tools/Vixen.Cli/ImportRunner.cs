@@ -66,13 +66,14 @@ public static class ImportRunner {
         }
 
         return await ContentPipeline.ImportAsync(
-            project.Workspace,
-            target,
-            diagnostic => ContentBuildRunner.Write(output, diagnostic),
-            verbose ? step => Verbose(output, step) : null,
-            pool,
-            cancellationToken
-        ).ConfigureAwait(false);
+                project.Workspace,
+                target,
+                diagnostic => ContentBuildRunner.Write(output, diagnostic),
+                verbose ? step => Verbose(output, step) : null,
+                pool,
+                cancellationToken
+            )
+            .ConfigureAwait(false);
     }
 
     /// <summary>Names one asset under <c>--verbose</c>.</summary>

@@ -28,8 +28,11 @@ namespace Vixen.Ui.Styling.Tests;
 ///         found by the tag direction alone.
 ///     </para>
 ///     <para>
-///         ⚠ <b>A class is composed at run time far more often than a tag is, which is why the tag
-///         direction landed first and why this one needs a rule the other did not.</b>
+///         ⚠
+///         <b>
+///             A class is composed at run time far more often than a tag is, which is why the tag
+///             direction landed first and why this one needs a rule the other did not.
+///         </b>
 ///         <c>group.AddClass("axis-" + Axes[axis].ToLowerInvariant())</c> is in this tree, and
 ///         <c>InspectorTheme.vcss</c> declares <c>.axis-x</c> through <c>.axis-w</c> — four rules that
 ///         work, whose names appear in no source. A census that could not see them would accuse four
@@ -38,8 +41,12 @@ namespace Vixen.Ui.Styling.Tests;
 ///         <i>prefix</i> and reaches every class that starts with it — see <see cref="Sources.Prefixes" />.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The prefix rule is deliberately line-local, and the loose version of it is nearly
-///         useless.</b> Taking every hyphen-terminated literal in the repository gives 87 prefixes,
+///         ⚠
+///         <b>
+///             The prefix rule is deliberately line-local, and the loose version of it is nearly
+///             useless.
+///         </b>
+///         Taking every hyphen-terminated literal in the repository gives 87 prefixes,
 ///         which between them excuse most of the vocabulary; requiring the literal to sit on a line
 ///         that says <c>AddClass</c>, <c>RemoveClass</c>, <c>ToggleClass</c>, <c>HasClass</c> or
 ///         <c>classNames</c> gives <b>two</b> — <c>axis-</c> and <c>lines-</c> — and both of them are
@@ -56,8 +63,11 @@ namespace Vixen.Ui.Styling.Tests;
 ///         green.
 ///     </para>
 ///     <para>
-///         ⚠ <b>A <c>.vxml</c> is scanned for quoted names as well as for its <c>class</c>
-///         attributes, and the attribute scan alone is not enough.</b>
+///         ⚠
+///         <b>
+///             A <c>.vxml</c> is scanned for quoted names as well as for its <c>class</c>
+///             attributes, and the attribute scan alone is not enough.
+///         </b>
 ///         <c>class="@(Alive ? "add-component" : "add-component hidden")"</c> is real —
 ///         <c>ComponentsView.vxml</c> — and a <c>class\s*=\s*"([^"]*)"</c> over it captures
 ///         <c>@(Alive ?</c> and nothing else, because the value's own quotes end the match. The
@@ -132,7 +142,7 @@ public partial class ClassSelectorReachTests {
 
         var unreached = Declared
             .Where(candidate => !Reached(written, candidate.Name))
-            .Select(candidate => candidate.Name)
+            .Select(static candidate => candidate.Name)
             .Order(StringComparer.Ordinal)
             .ToList();
 
@@ -147,7 +157,7 @@ public partial class ClassSelectorReachTests {
              The census of class selectors nothing writes is out of date.
 
              Declared by a sheet and written by nothing, and not in {CensusFile}:
-             {Lines(arrived.Select(name => $"{name}  — declared in {Declared.First(d => d.Name == name).Sheet}"))}
+             {Lines(arrived.Select(static name => $"{name}  — declared in {Declared.First(d => d.Name == name).Sheet}"))}
 
              In {CensusFile}, and now written after all — delete the row:
              {Lines(departed)}
@@ -194,12 +204,12 @@ public partial class ClassSelectorReachTests {
         Assert.True(written.Prefixes.ContainsKey("axis-"), "'axis-' was not recognised as a class prefix.");
         Assert.False(written.Names.ContainsKey("axis-x"), "'axis-x' is written outright now, so it proves nothing.");
         Assert.True(Reached(written, "axis-x"), "'axis-x' was not reached through its prefix.");
-        Assert.Contains(Declared, candidate => candidate.Name == "axis-x");
+        Assert.Contains(Declared, static candidate => candidate.Name == "axis-x");
 
         // ⚠ And the rule is not vacuous in the other direction: a class-shaped name nobody writes and
         // no prefix covers is still unreached, which is the state the census is a list of.
         Assert.False(Reached(written, "asset-picker-row"), "the scan reaches a name #778 deleted.");
-        Assert.DoesNotContain(Declared, candidate => candidate.Name == "asset-picker-row");
+        Assert.DoesNotContain(Declared, static candidate => candidate.Name == "asset-picker-row");
     }
 
     /// <summary>
@@ -238,16 +248,20 @@ public partial class ClassSelectorReachTests {
     /// </remarks>
     [Fact]
     public void A_class_named_only_in_prose_is_not_written() {
-        var names = MarkupNames([
-            "<!--",
-            "    Used as <Demo class=\"from-a-header\" /> the day a panel is ported.",
-            "-->",
-            "<Demo class=\"real-row\" /> <!-- note: not \"from-a-trailer\" -->",
-            "@code {",
-            "    /// <summary>Styled by <see cref=\"from-a-doc-comment\" />.</summary>",
-            "    void Build() => AddClass(\"from-code\");",
-            "}"
-        ]).Select(static found => found.Name).ToHashSet(StringComparer.Ordinal);
+        var names = MarkupNames(
+                [
+                    "<!--",
+                    """    Used as <Demo class="from-a-header" /> the day a panel is ported.""",
+                    "-->",
+                    """<Demo class="real-row" /> <!-- note: not "from-a-trailer" -->""",
+                    "@code {",
+                    """    /// <summary>Styled by <see cref="from-a-doc-comment" />.</summary>""",
+                    """    void Build() => AddClass("from-code");""",
+                    "}"
+                ]
+            )
+            .Select(static found => found.Name)
+            .ToHashSet(StringComparer.Ordinal);
 
         Assert.DoesNotContain("from-a-header", names);
         Assert.DoesNotContain("from-a-trailer", names);
@@ -274,7 +288,7 @@ public partial class ClassSelectorReachTests {
         // answered file and a truncated one are both zero rows, and only one of them still carries
         // the header saying what the file is for.
         Assert.True(
-            lines.Count(line => line.StartsWith('#')) >= 5,
+            lines.Count(static line => line.StartsWith('#')) >= 5,
             $"{CensusFile} has lost its header, so it was emptied rather than answered."
         );
 
@@ -299,7 +313,7 @@ public partial class ClassSelectorReachTests {
     }
 
     static string Lines(IEnumerable<string> names) {
-        var joined = string.Join("\n", names.Select(name => $"  {name}"));
+        var joined = string.Join("\n", names.Select(static name => $"  {name}"));
 
         return joined.Length == 0 ? "  (none)" : joined;
     }
@@ -350,7 +364,7 @@ public partial class ClassSelectorReachTests {
             }
         }
 
-        return new Sources(names, prefixes);
+        return new(names, prefixes);
     }
 
     /// <summary>Every name a <c>.vxml</c> writes where a class could be, with the line it is on.</summary>
@@ -373,18 +387,21 @@ public partial class ClassSelectorReachTests {
             }
 
             foreach (Match match in MarkupClasses.Matches(text)) {
-                foreach (var name in match.Groups["names"].Value.Split(
-                             ' ',
-                             StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries
-                         )) {
+                foreach (var name in match.Groups["names"]
+                             .Value.Split(
+                                 ' ',
+                                 StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries
+                             )) {
                     yield return (name, line);
                 }
             }
         }
     }
 
-    /// <summary>Whether a source file is one of the repository-wide censuses, which write every name
-    /// they discuss.</summary>
+    /// <summary>
+    ///     Whether a source file is one of the repository-wide censuses, which write every name
+    ///     they discuss.
+    /// </summary>
     /// <param name="path">The file.</param>
     /// <returns><see langword="true" /> when its names are prose about tags rather than uses of them.</returns>
     internal static bool Census(string path) =>
@@ -399,7 +416,7 @@ public partial class ClassSelectorReachTests {
 
         foreach (var path in RepositoryScan.Files("*.vcss")) {
             var engine = new StyleEngine();
-            engine.Load(File.ReadAllText(path), StyleOrigin.Author);
+            engine.Load(File.ReadAllText(path));
 
             var sheet = Path.GetRelativePath(root, path);
 

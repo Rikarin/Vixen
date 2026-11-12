@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Ui.Rendering;
-using Vixen.Ui.Styling;
 using Xunit;
 
 namespace Vixen.Ui.Styling.Utilities.Tests;
@@ -50,7 +49,10 @@ public class AssembledReaderProbeTests {
     public void A_slot_value_the_reader_refuses_is_declined_and_takes_the_witness_with_it() {
         const string refused = "translate-z-[50%]";
 
-        Assert.True(AssembledReaderProbe.FillsASlot(refused, Tokens), $"{refused} should resolve into a transform slot");
+        Assert.True(
+            AssembledReaderProbe.FillsASlot(refused, Tokens),
+            $"{refused} should resolve into a transform slot"
+        );
         Assert.True(AssembledReaderProbe.Declines(refused));
         Assert.Null(AssembledReaderProbe.TransformOf(Tokens, refused, AssembledReaderProbe.Witness));
     }
@@ -63,7 +65,10 @@ public class AssembledReaderProbeTests {
     [InlineData("-skew-y-6")]
     [InlineData("rotate-x-180")]
     public void A_slot_value_the_reader_takes_is_not_declined(string utility) {
-        Assert.True(AssembledReaderProbe.FillsASlot(utility, Tokens), $"{utility} should resolve into a transform slot");
+        Assert.True(
+            AssembledReaderProbe.FillsASlot(utility, Tokens),
+            $"{utility} should resolve into a transform slot"
+        );
         Assert.False(AssembledReaderProbe.Declines(utility));
     }
 
@@ -88,7 +93,10 @@ public class AssembledReaderProbeTests {
     public void A_filter_slot_value_the_executor_refuses_is_declined() {
         const string refused = "blur-[200ms]";
 
-        Assert.True(AssembledReaderProbe.FillsASlot(refused, Tokens, out var property, out _), $"{refused} should resolve into a filter slot");
+        Assert.True(
+            AssembledReaderProbe.FillsASlot(refused, Tokens, out var property, out _),
+            $"{refused} should resolve into a filter slot"
+        );
         Assert.Equal("filter", property);
         Assert.True(AssembledReaderProbe.Declines(refused));
         Assert.True(AssembledReaderProbe.Refuses(AssembledReaderProbe.RefusalsOf(Tokens, refused), "filter"));
@@ -103,7 +111,10 @@ public class AssembledReaderProbeTests {
     [InlineData("backdrop-blur-probe", "backdrop-filter")]
     [InlineData("backdrop-opacity-50", "backdrop-filter")]
     public void A_filter_slot_value_the_executor_runs_is_not_declined(string utility, string expected) {
-        Assert.True(AssembledReaderProbe.FillsASlot(utility, Tokens, out var property, out _), $"{utility} should resolve into a slot");
+        Assert.True(
+            AssembledReaderProbe.FillsASlot(utility, Tokens, out var property, out _),
+            $"{utility} should resolve into a slot"
+        );
         Assert.Equal(expected, property);
         Assert.False(AssembledReaderProbe.Declines(utility));
     }
@@ -113,8 +124,12 @@ public class AssembledReaderProbeTests {
     ///     negative — the defect the three-list probe found on its first run.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>Every negative of fourteen filter and backdrop families resolved, and the executor
-    ///     refused every one.</b> <c>TryNegate</c> flips any value that starts with a digit, and a
+    ///     ⚠
+    ///     <b>
+    ///         Every negative of fourteen filter and backdrop families resolved, and the executor
+    ///         refused every one.
+    ///     </b>
+    ///     <c>TryNegate</c> flips any value that starts with a digit, and a
     ///     filter fragment is a bare number, so <c>-brightness-50</c> became
     ///     <c>brightness(-0.5)</c> — a function the executor cannot run, which drops the whole
     ///     <c>filter</c> and every slot beside it. The ledger read <c>works</c> for all seven rows.
@@ -204,9 +219,15 @@ public class AssembledReaderProbeTests {
         Assert.Null(AssembledReaderProbe.ScaledOf(Tokens, $"{UtilityComposition.ScaleY}: 150%;"));
 
         // Beside a class, it replaces that slot and leaves the class's own: the spacing unit is 4px here.
-        Assert.Equal((8f, 0f), AssembledReaderProbe.TranslationOf(Tokens, "", "translate-x-2"));
-        Assert.Equal((8f, 16f), AssembledReaderProbe.TranslationOf(Tokens, $"{UtilityComposition.TranslateY}: 16px;", "translate-x-2"));
-        Assert.Equal((16f, 8f), AssembledReaderProbe.TranslationOf(Tokens, $"{UtilityComposition.TranslateX}: 16px;", "translate-2"));
+        Assert.Equal((8f, 0f), AssembledReaderProbe.TranslationOf(Tokens, string.Empty, "translate-x-2"));
+        Assert.Equal(
+            (8f, 16f),
+            AssembledReaderProbe.TranslationOf(Tokens, $"{UtilityComposition.TranslateY}: 16px;", "translate-x-2")
+        );
+        Assert.Equal(
+            (16f, 8f),
+            AssembledReaderProbe.TranslationOf(Tokens, $"{UtilityComposition.TranslateX}: 16px;", "translate-2")
+        );
         Assert.NotNull(AssembledReaderProbe.ScaledOf(Tokens, $"{UtilityComposition.ScaleY}: 150%;", "scale-x-100"));
     }
 
@@ -227,14 +248,22 @@ public class AssembledReaderProbeTests {
     [InlineData("translate-[calc(100%_-_4px)]", "translate")]
     [InlineData("scale-x-[calc(100%_-_1rem)]", "scale")]
     [InlineData("scale-y-[foo(2)]", "scale")]
-    public void A_translate_or_scale_component_the_parser_cannot_read_takes_the_other_axis_with_it(string refused, string expected) {
-        Assert.True(AssembledReaderProbe.FillsASlot(refused, Tokens, out var property, out var slots), $"{refused} should resolve into a slot");
+    public void A_translate_or_scale_component_the_parser_cannot_read_takes_the_other_axis_with_it(
+        string refused,
+        string expected
+    ) {
+        Assert.True(
+            AssembledReaderProbe.FillsASlot(refused, Tokens, out var property, out var slots),
+            $"{refused} should resolve into a slot"
+        );
         Assert.Equal(expected, property);
         Assert.True(AssembledReaderProbe.Declines(refused));
 
         if (property == "translate") {
             // The witness goes in a slot the refused value is not in, and comes out as no movement.
-            var other = slots.Contains(UtilityComposition.TranslateX) ? UtilityComposition.TranslateY : UtilityComposition.TranslateX;
+            var other = slots.Contains(UtilityComposition.TranslateX)
+                ? UtilityComposition.TranslateY
+                : UtilityComposition.TranslateX;
             Assert.Equal((0f, 0f), AssembledReaderProbe.TranslationOf(Tokens, $"{other}: 16px;", refused));
         }
     }
@@ -247,7 +276,10 @@ public class AssembledReaderProbeTests {
     public void A_shadow_slot_the_draw_list_refuses_is_declined_and_takes_the_shadow_beside_it() {
         const string refused = "ring-[50%]";
 
-        Assert.True(AssembledReaderProbe.FillsASlot(refused, Tokens, out var property, out _), $"{refused} should resolve into a slot");
+        Assert.True(
+            AssembledReaderProbe.FillsASlot(refused, Tokens, out var property, out _),
+            $"{refused} should resolve into a slot"
+        );
         Assert.Equal("box-shadow", property);
         Assert.True(AssembledReaderProbe.Declines(refused));
         Assert.True(AssembledReaderProbe.Refuses(AssembledReaderProbe.RefusalsOf(Tokens, refused), "box-shadow"));
@@ -273,21 +305,24 @@ public class AssembledReaderProbeTests {
     [InlineData("inset-shadow-probe", "box-shadow")]
     [InlineData("shadow-none", "box-shadow")]
     public void A_translate_scale_or_shadow_value_the_reader_takes_is_not_declined(string utility, string expected) {
-        Assert.True(AssembledReaderProbe.FillsASlot(utility, Tokens, out var property, out _), $"{utility} should resolve into a slot");
+        Assert.True(
+            AssembledReaderProbe.FillsASlot(utility, Tokens, out var property, out _),
+            $"{utility} should resolve into a slot"
+        );
         Assert.Equal(expected, property);
         Assert.False(AssembledReaderProbe.Declines(utility));
     }
 
     static int ShadowsDrawn(params string[] classes) {
         using var document = new UiDocument(200f, 100f);
-        document.Load(new UtilityGenerator(Tokens).Generate(classes), StyleOrigin.Author);
-        document.Load("#probe { width: 20px; height: 20px; background-color: #4f7cff; }", StyleOrigin.Author);
+        document.Load(new UtilityGenerator(Tokens).Generate(classes));
+        document.Load("#probe { width: 20px; height: 20px; background-color: #4f7cff; }");
 
         document.Create("div", document.Root, "probe", classes);
         document.Update();
         document.Draw();
 
-        return document.Drawing.Commands.Count(c => c.Kind == DrawCommandKind.Shadow);
+        return document.Drawing.Commands.Count(static c => c.Kind == DrawCommandKind.Shadow);
     }
 
     /// <summary>
@@ -296,8 +331,12 @@ public class AssembledReaderProbeTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>With a floor, because a candidate list that offered no slot class would pass this
-    ///         over an empty loop.</b> Every transform, filter and backdrop slot family, over the scale
+    ///         ⚠
+    ///         <b>
+    ///             With a floor, because a candidate list that offered no slot class would pass this
+    ///             over an empty loop.
+    ///         </b>
+    ///         Every transform, filter and backdrop slot family, over the scale
     ///         vocabulary and both signs: 659 classes when this was written.
     ///     </para>
     ///     <para>
@@ -321,7 +360,7 @@ public class AssembledReaderProbeTests {
             measured.Declined.Count == 0,
             "Classes the resolver answers and the reader declines — each one drops every other slot of its "
             + "transform, filter, translate, scale or shadow list on its element (#1348, #1328, #1386):\n  "
-            + string.Join("\n  ", measured.Declined.Select(p => $"{p.Key}: {string.Join(' ', p.Value)}"))
+            + string.Join("\n  ", measured.Declined.Select(static p => $"{p.Key}: {string.Join(' ', p.Value)}"))
         );
 
         Assert.True(probed >= 500, $"only {probed} class(es) fill a slot of an assembled list");

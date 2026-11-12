@@ -4,7 +4,6 @@
 using System.Runtime.InteropServices;
 using Vixen.Core.Imaging;
 using Vixen.Core.Mathematics;
-using Vixen.Graphics.RenderGraph;
 using Vixen.Rendering;
 using Vixen.Rendering.Compositor;
 using Vixen.Rendering.PostFx;
@@ -27,15 +26,22 @@ namespace Vixen.Graphics.Golden.Tests;
 ///         audit was wrong that it had landed.
 ///     </para>
 ///     <para>
-///         <b>What makes the integral worth asserting is not accuracy at a horizon but the
-///         normalisation.</b> Each slice is weighted by how much of the surface normal lies in it, and
+///         <b>
+///             What makes the integral worth asserting is not accuracy at a horizon but the
+///             normalisation.
+///         </b>
+///         Each slice is weighted by how much of the surface normal lies in it, and
 ///         the weights sum so that an <em>unoccluded</em> surface reads exactly one whatever direction
 ///         it faces — at eight directions, to four decimal places, at every tilt. That is a closed-form
 ///         answer a picture can be held to, and it is what the two flat-plane fixtures below are.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Neither flat-plane fixture tells the two estimators apart, and saying so is the
-///         point.</b> On any flat surface every sample lies in the tangent plane, so the old
+///         ⚠
+///         <b>
+///             Neither flat-plane fixture tells the two estimators apart, and saying so is the
+///             point.
+///         </b>
+///         On any flat surface every sample lies in the tangent plane, so the old
 ///         estimator's elevation term is nought and it reads one as well — both of these were run
 ///         against the previous shader and both passed. What they discriminate against is a
 ///         <em>wrong integral</em>, and both sabotages were run. Lifting the screen direction into
@@ -56,9 +62,11 @@ namespace Vixen.Graphics.Golden.Tests;
 ///         scene below, rendered through both on MoltenVK:
 ///     </para>
 ///     <para>
-///         <c>row 90 (wall, 7 cm up): 0.676 → 0.781 · row 92 (the corner): 0.754 → 0.713 ·
-///         row 96 (floor, 59 cm out): 0.842 → 0.884 · row 100 (96 cm): 0.880 → 0.925 ·
-///         row 126 (2.2 m): 0.950 → 0.944 · whole frame: 0.9441 → 0.9653</c>
+///         <c>
+///             row 90 (wall, 7 cm up): 0.676 → 0.781 · row 92 (the corner): 0.754 → 0.713 ·
+///             row 96 (floor, 59 cm out): 0.842 → 0.884 · row 100 (96 cm): 0.880 → 0.925 ·
+///             row 126 (2.2 m): 0.950 → 0.944 · whole frame: 0.9441 → 0.9653
+///         </c>
 ///     </para>
 ///     <para>
 ///         Which is the predicted signature and not a wash: <c>1 − sin(e)/2</c> against
@@ -69,12 +77,19 @@ namespace Vixen.Graphics.Golden.Tests;
 ///         worst single pixel moved forty levels of two hundred and fifty five.
 ///     </para>
 ///     <para>
-///         <b>And what it comes to in a real frame, which is a smaller number than the corner scene
-///         suggests.</b> <c>StandardFrameTierImageTests.ASplitFrameLooksLikeItsReference</c> renders a
+///         <b>
+///             And what it comes to in a real frame, which is a smaller number than the corner scene
+///             suggests.
+///         </b>
+///         <c>StandardFrameTierImageTests.ASplitFrameLooksLikeItsReference</c> renders a
 ///         whole High-tier frame with the ambient split on, and its committed reference was recorded
 ///         under the old estimator — so re-rendering it against the new one is a free A/B over lit
-///         geometry rather than over a fixture. <b>20.7% of the frame moves, by a mean of 0.230 of
-///         255, with not one pixel past 12 levels.</b> <c>Tolerance.Shaded</c> allows a mean of 0.350,
+///         geometry rather than over a fixture.
+///         <b>
+///             20.7% of the frame moves, by a mean of 0.230 of
+///             255, with not one pixel past 12 levels.
+///         </b>
+///         <c>Tolerance.Shaded</c> allows a mean of 0.350,
 ///         so that reference did not have to be re-recorded and no golden in the suite did.
 ///     </para>
 ///     <para>
@@ -246,7 +261,7 @@ public sealed class GtaoImageTests {
         }
 
         using var owned = fixture!;
-        var image = Render(owned, new(0f, 0f, 1f), wall: true, falloff: WallFalloff);
+        var image = Render(owned, new(0f, 0f, 1f), true, WallFalloff);
 
         // The corner projects to row 92 — the floor is a metre down and the wall four metres out, and
         // this projection puts their meeting there. Below it is floor running back toward the camera,
@@ -290,8 +305,12 @@ public sealed class GtaoImageTests {
     ///         the floor's normal again.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The far-field half is the load-bearing one, and it caught a real defect the first
-    ///         time it ran.</b> A bent normal that leaned toward the wall everywhere would satisfy the
+    ///         ⚠
+    ///         <b>
+    ///             The far-field half is the load-bearing one, and it caught a real defect the first
+    ///             time it ran.
+    ///         </b>
+    ///         A bent normal that leaned toward the wall everywhere would satisfy the
     ///         contact assertion perfectly and be the same defect a halo is — a direction taken from
     ///         horizons the surface cannot see. The open floor came back at
     ///         <c>(0.005, 0.933, 0.359)</c>: 21° off its own normal, at a pixel whose occlusion reads
@@ -313,7 +332,7 @@ public sealed class GtaoImageTests {
         }
 
         using var owned = fixture!;
-        var image = Render(owned, new(0f, 0f, 1f), wall: true, falloff: WallFalloff, bentNormal: true);
+        var image = Render(owned, new(0f, 0f, 1f), true, WallFalloff, true);
 
         var contact = Direction(image, 94);
         var open = Direction(image, 126);
@@ -354,7 +373,7 @@ public sealed class GtaoImageTests {
 
         GoldenImage.Verify(
             "gtao-wall-contact",
-            Render(owned, new(0f, 0f, 1f), wall: true, falloff: WallFalloff),
+            Render(owned, new(0f, 0f, 1f), true, WallFalloff),
             new(10, 0.02, 0.5)
         );
     }
@@ -417,7 +436,7 @@ public sealed class GtaoImageTests {
                 var uv = new Vector2((x + 0.5f) / Side, (y + 0.5f) / Side);
 
                 // Clip y = +1 is the TOP and texel row zero is the top row, so the fold negates y.
-                var ndc = new Vector3((uv.X * 2f) - 1f, 1f - (uv.Y * 2f), 0.5f);
+                var ndc = new Vector3(uv.X * 2f - 1f, 1f - uv.Y * 2f, 0.5f);
                 var ray = Unproject(inverse, ndc);
 
                 Vector3 hit;
@@ -437,18 +456,18 @@ public sealed class GtaoImageTests {
                     surface = normal;
                 }
 
-                var index = (y * Side) + x;
+                var index = y * Side + x;
                 depths[index] = DeviceDepth(projection, hit);
                 normals[index] = new(surface, 0f);
             }
         }
 
-        var depthPlane = fixture.Sampled("depth", Side, MemoryMarshal.AsBytes<float>(depths), PixelFormat.R32Float);
+        var depthPlane = fixture.Sampled("depth", Side, MemoryMarshal.AsBytes(depths), PixelFormat.R32Float);
 
         var normalPlane = fixture.Sampled(
             "normals",
             Side,
-            MemoryMarshal.AsBytes<Vector4>(normals),
+            MemoryMarshal.AsBytes(normals),
             PixelFormat.Rgba32Float
         );
 
@@ -465,7 +484,7 @@ public sealed class GtaoImageTests {
         effects.AddProvider(
             new Compiling(
                 loader,
-                _ => RavenEffects.Only(
+                static _ => RavenEffects.Only(
                     ["Core", "Geometry"],
                     Path.Combine("PostFx", "Fullscreen.rvn"),
                     Path.Combine("PostFx", "Ssao.rvn")
@@ -513,10 +532,7 @@ public sealed class GtaoImageTests {
             Allocator = allocator
         };
 
-        var compositor = new GraphicsCompositor(system) {
-            FrameSize = new(Side, Side),
-            Game = ao
-        };
+        var compositor = new GraphicsCompositor(system) { FrameSize = new(Side, Side), Game = ao };
 
         compositor.Imports["Depth"] = Import(depthPlane, "depth", PixelFormat.R32Float);
         compositor.Imports["Normals"] = Import(normalPlane, "normals", PixelFormat.Rgba32Float);
@@ -632,9 +648,9 @@ public sealed class GtaoImageTests {
             var at = image.Offset(x, y);
 
             total += new Vector3(
-                (image.Pixels[at] / 255f * 2f) - 1f,
-                (image.Pixels[at + 1] / 255f * 2f) - 1f,
-                (image.Pixels[at + 2] / 255f * 2f) - 1f
+                image.Pixels[at] / 255f * 2f - 1f,
+                image.Pixels[at + 1] / 255f * 2f - 1f,
+                image.Pixels[at + 2] / 255f * 2f - 1f
             );
         }
 

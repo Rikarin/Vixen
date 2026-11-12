@@ -3,7 +3,6 @@
 
 using Vixen.Core.Mathematics;
 using Vixen.Ui.Rendering;
-using Vixen.Ui.Text.Rasterizing;
 using Xunit;
 
 namespace Vixen.Ui.Tests;
@@ -11,8 +10,11 @@ namespace Vixen.Ui.Tests;
 /// <summary>What a curve costs in <i>device</i> pixels, which is the unit the eye reads it in.</summary>
 /// <remarks>
 ///     <para>
-///         <b><see cref="UiGeometryBuilder.Tolerance" /> and <see cref="UiGeometryBuilder.Fringe" />
-///         are authored in document pixels and spent inside the triangles</b>, and the projection
+///         <b>
+///             <see cref="UiGeometryBuilder.Tolerance" /> and <see cref="UiGeometryBuilder.Fringe" />
+///             are authored in document pixels and spent inside the triangles
+///         </b>
+///         , and the projection
 ///         magnifies both along with everything else. So neither number is the quantity anybody cares
 ///         about: what a 2× display shows is the product of the number and the scale, and holding
 ///         <i>that</i> still is what <see cref="UiGeometryBuilder.ToleranceFor" /> and
@@ -34,9 +36,7 @@ public class FlatteningScaleTests {
     static readonly Rectangle Viewport = new(0f, 0f, 160f, 160f);
 
     static PathBuilder Circle() =>
-        new PathBuilder().AddEllipse(
-            new Rectangle(Centre.X - Radius, Centre.Y - Radius, Radius * 2f, Radius * 2f)
-        );
+        new PathBuilder().AddEllipse(new(Centre.X - Radius, Centre.Y - Radius, Radius * 2f, Radius * 2f));
 
     /// <summary>The worst distance between the flattened outline and the circle it replaces.</summary>
     /// <remarks>
@@ -59,7 +59,7 @@ public class FlatteningScaleTests {
         foreach (var contour in contours) {
             for (var i = 0; i < contour.Count; i++) {
                 var from = points[contour.First + i];
-                var to = points[contour.First + ((i + 1) % contour.Count)];
+                var to = points[contour.First + (i + 1) % contour.Count];
                 var middle = (from + to) * 0.5f;
 
                 worst = MathF.Max(worst, Radius - (middle - Centre).Length());
@@ -98,9 +98,8 @@ public class FlatteningScaleTests {
         list.BeginFrame();
 
         list.Add(
-            new DrawCommand(DrawCommandKind.Path, 0f, 0f, 0f, 0f, Color4.White, 0f, 0f) {
-                Offset = list.AddPath(path),
-                Length = path.Count
+            new(DrawCommandKind.Path, 0f, 0f, 0f, 0f, Color4.White, 0f, 0f) {
+                Offset = list.AddPath(path), Length = path.Count
             }
         );
 
@@ -109,7 +108,7 @@ public class FlatteningScaleTests {
         // ⚠ The tolerance is held at its 1× value on purpose: a finer flattening moves the outline
         // outward towards the true circle as well, and this fixture is about the fringe alone.
         var builder = new UiGeometryBuilder { Tolerance = UiGeometryBuilder.ToleranceFor(1f), Fringe = fringe };
-        var geometry = builder.Build(list, new GlyphFieldCache(new GlyphAtlas(64, 64)), Viewport);
+        var geometry = builder.Build(list, new(new(64, 64)), Viewport);
 
         Assert.NotEmpty(geometry.Draws);
 

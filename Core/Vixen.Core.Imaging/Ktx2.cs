@@ -61,7 +61,8 @@ public sealed class Ktx2Exception(string message) : Exception(message);
 /// </remarks>
 public static class Ktx2 {
     /// <summary>The twelve bytes every KTX2 file starts with.</summary>
-    public static ReadOnlySpan<byte> Identifier => [0xAB, 0x4B, 0x54, 0x58, 0x20, 0x32, 0x30, 0xBB, 0x0D, 0x0A, 0x1A, 0x0A];
+    public static ReadOnlySpan<byte> Identifier =>
+        [0xAB, 0x4B, 0x54, 0x58, 0x20, 0x32, 0x30, 0xBB, 0x0D, 0x0A, 0x1A, 0x0A];
 
     /// <summary>How long the header is, up to and including the supercompression global data pointers.</summary>
     public const int HeaderLength = 80;
@@ -125,7 +126,7 @@ public static class Ktx2 {
         for (var level = 0; level < texture.LevelCount; level++) {
             var described = texture.Levels[level];
 
-            var entry = span[(levelIndexOffset + (level * LevelIndexEntryLength))..];
+            var entry = span[(levelIndexOffset + level * LevelIndexEntryLength)..];
             BinaryPrimitives.WriteUInt64LittleEndian(entry, (ulong)offsets[level]);
             BinaryPrimitives.WriteUInt64LittleEndian(entry[8..], (ulong)described.Length);
             BinaryPrimitives.WriteUInt64LittleEndian(entry[16..], (ulong)described.Length);
@@ -175,15 +176,19 @@ public static class Ktx2 {
 
         var levelCount = Math.Max(1, (int)BinaryPrimitives.ReadUInt32LittleEndian(head[(Identifier.Length + 28)..]));
 
-        return HeaderLength + (levelCount * LevelIndexEntryLength);
+        return HeaderLength + levelCount * LevelIndexEntryLength;
     }
 
     /// <summary>Reads what a file says about itself, without reading a pixel of it.</summary>
     /// <param name="file">The file's bytes, or at least <see cref="LayoutLength" /> of the front of it.</param>
     /// <returns>The layout.</returns>
     /// <remarks>
-    ///     ⚠ <b>This validates the level index against the format and the extents, and not against
-    ///     the file's length.</b> A caller holding only the head has no length to check against, and
+    ///     ⚠
+    ///     <b>
+    ///         This validates the level index against the format and the extents, and not against
+    ///         the file's length.
+    ///     </b>
+    ///     A caller holding only the head has no length to check against, and
     ///     one holding the whole file gets the check from <see cref="Read" /> and
     ///     <see cref="ReadTail" /> where the copy happens. What is checked here is the part a short
     ///     read cannot excuse: a level whose declared size disagrees with what its extent and format
@@ -212,7 +217,7 @@ public static class Ktx2 {
             );
         }
 
-        var indexEnd = HeaderLength + (levelCount * LevelIndexEntryLength);
+        var indexEnd = HeaderLength + levelCount * LevelIndexEntryLength;
 
         if (file.Length < indexEnd) {
             throw new Ktx2Exception(
@@ -225,7 +230,7 @@ public static class Ktx2 {
         var levels = new Ktx2Level[levelCount];
 
         for (var level = 0; level < levelCount; level++) {
-            var entry = file[(HeaderLength + (level * LevelIndexEntryLength))..];
+            var entry = file[(HeaderLength + level * LevelIndexEntryLength)..];
             var offset = (long)BinaryPrimitives.ReadUInt64LittleEndian(entry);
             var length = (long)BinaryPrimitives.ReadUInt64LittleEndian(entry[8..]);
 
@@ -402,9 +407,7 @@ public static class Ktx2 {
             var got = await stream.ReadAsync(buffer[read..], cancellation).ConfigureAwait(false);
 
             if (got == 0) {
-                throw new Ktx2Exception(
-                    $"The file ended after {read} of the {buffer.Length} bytes this read wanted."
-                );
+                throw new Ktx2Exception($"The file ended after {read} of the {buffer.Length} bytes this read wanted.");
             }
 
             read += got;
@@ -453,10 +456,17 @@ public static class Ktx2 {
         format.IsCompressed()
             ? 1u
             : format switch {
-                PixelFormat.Rgba16Float or PixelFormat.Rg16Float or PixelFormat.R16Float
-                    or PixelFormat.Rgba16UNorm or PixelFormat.Rg16UNorm or PixelFormat.R16UNorm => 2u,
-                PixelFormat.Rgba32Float or PixelFormat.Rg32Float or PixelFormat.R32Float
-                    or PixelFormat.Rgba32UInt or PixelFormat.R32UInt => 4u,
+                PixelFormat.Rgba16Float
+                    or PixelFormat.Rg16Float
+                    or PixelFormat.R16Float
+                    or PixelFormat.Rgba16UNorm
+                    or PixelFormat.Rg16UNorm
+                    or PixelFormat.R16UNorm => 2u,
+                PixelFormat.Rgba32Float
+                    or PixelFormat.Rg32Float
+                    or PixelFormat.R32Float
+                    or PixelFormat.Rgba32UInt
+                    or PixelFormat.R32UInt => 4u,
                 _ => 1u
             };
 }

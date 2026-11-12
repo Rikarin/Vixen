@@ -12,14 +12,21 @@ namespace Vixen.Ui.Controls.Advanced.Tests;
 /// <summary>Doc 09 § Testing's Perf row, as a gate rather than as a number in a table.</summary>
 /// <remarks>
 ///     <para>
-///         <b>"Editor-shell benchmark is the gate: 5 panels + viewport + 500-node graph + a 10⁶-row
-///         virtualised grid holds the budget."</b> The benchmark that measures it lives in
+///         <b>
+///             "Editor-shell benchmark is the gate: 5 panels + viewport + 500-node graph + a 10⁶-row
+///             virtualised grid holds the budget."
+///         </b>
+///         The benchmark that measures it lives in
 ///         <c>Vixen.Benchmarks.Ui</c> and reports milliseconds; a benchmark cannot fail, so it is not
 ///         a gate. This is, and it holds the same scene to properties expressed as <i>work</i>.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Work and not wall-clock, and that is this repository's own rule rather than a
-///         preference.</b> A millisecond budget calibrated on an idle machine is its single largest
+///         ⚠
+///         <b>
+///             Work and not wall-clock, and that is this repository's own rule rather than a
+///             preference.
+///         </b>
+///         A millisecond budget calibrated on an idle machine is its single largest
 ///         flake source, and — worse here — it does not fail for the reason anybody cares about: a
 ///         frame that got slower because it realised a million rows and a frame that got slower
 ///         because the machine was busy print the same number. Elements realised, styles recomputed
@@ -175,8 +182,12 @@ public class EditorShellBudgetTests {
     ///         <c>Restyle</c>, with <c>StylesResolved</c> reading the shell's whole element count.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The element count is asserted unchanged, and that is the half #598 got
-    ///         wrong.</b> It read the cold pass as rows being realised and released. They are not —
+    ///         ⚠
+    ///         <b>
+    ///             The element count is asserted unchanged, and that is the half #598 got
+    ///             wrong.
+    ///         </b>
+    ///         It read the cold pass as rows being realised and released. They are not —
     ///         <c>DataGrid.Realise</c> pools its rows and parks the surplus, so the shell holds the
     ///         same 561 elements before a scroll and after it, on every frame of one. What bought
     ///         the cold pass was the rebinding: an inline <c>top</c> on each recycled row and a
@@ -259,16 +270,28 @@ public class EditorShellBudgetTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Verify the instrument first, and this is the one question #992 asks that no
-    ///         amount of re-running the budget can answer.</b> That issue's whole case is that the
-    ///         red is not a proof — "8 120 bytes over ten frames is real allocation <i>somewhere in
-    ///         the process</i>, and whatever it reads is a thread-local counter that a test class
+    ///         ⚠
+    ///         <b>
+    ///             Verify the instrument first, and this is the one question #992 asks that no
+    ///             amount of re-running the budget can answer.
+    ///         </b>
+    ///         That issue's whole case is that the
+    ///         red is not a proof — "8 120 bytes over ten frames is real allocation
+    ///         <i>
+    ///             somewhere in
+    ///             the process
+    ///         </i>
+    ///         , and whatever it reads is a thread-local counter that a test class
     ///         running in parallel beside it can move". If that were true the bound below would be a
     ///         gate whose failure means nothing, and no number of green runs would show it.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The allocation half is false and the collection half turned out to be TRUE, and
-    ///         this test used to claim both.</b> A neighbour thread's allocations land in that
+    ///         ⚠
+    ///         <b>
+    ///             The allocation half is false and the collection half turned out to be TRUE, and
+    ///             this test used to claim both.
+    ///         </b>
+    ///         A neighbour thread's allocations land in that
     ///         thread's own allocation context and cannot reach this one — which is what the window
     ///         below measures, and it measures zero. But a neighbour's <em>collection</em> is not
     ///         confined to a thread at all: a GC retires every allocation context on the heap, this
@@ -287,9 +310,13 @@ public class EditorShellBudgetTests {
     ///         discards any frame a collection landed in and measures another.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And this paragraph used to say the measuring thread "allocates nothing by
-    ///         construction", so it holds no partly-consumed context for a collection to retire. That
-    ///         was false.</b> The <em>windows</em> allocate nothing; the thread does not — it builds
+    ///         ⚠
+    ///         <b>
+    ///             And this paragraph used to say the measuring thread "allocates nothing by
+    ///             construction", so it holds no partly-consumed context for a collection to retire. That
+    ///             was false.
+    ///         </b>
+    ///         The <em>windows</em> allocate nothing; the thread does not — it builds
     ///         the two reading arrays, the neighbour's closure and its <c>Thread</c>, after whatever
     ///         xunit allocated on it — so it entered the first window holding a live context, which
     ///         is the control arm's condition broken. A forced, blocking gen-0 now runs after
@@ -339,14 +366,15 @@ public class EditorShellBudgetTests {
         var windows = 0;
 
         var neighbour = new Thread(() => {
-            while (Volatile.Read(ref running)) {
-                for (var i = 0; i < 2_000; i++) {
-                    _ = new byte[1024];
-                }
+                while (Volatile.Read(ref running)) {
+                    for (var i = 0; i < 2_000; i++) {
+                        _ = new byte[1024];
+                    }
 
-                GC.Collect(0, GCCollectionMode.Forced, blocking: false);
+                    GC.Collect(0, GCCollectionMode.Forced, false);
+                }
             }
-        }) { IsBackground = true };
+        ) { IsBackground = true };
 
         // Warmed, so that nothing in the window below is a first call.
         _ = GC.GetAllocatedBytesForCurrentThread();
@@ -361,7 +389,7 @@ public class EditorShellBudgetTests {
         // thread carries a partly-used context into the loop, which on macOS arm64 is what a
         // neighbour's collection can move (#1428; on Windows x64 it measured as harmless — see the
         // remarks). Blocking, so the retirement has happened when the call returns.
-        GC.Collect(0, GCCollectionMode.Forced, blocking: true);
+        GC.Collect(0, GCCollectionMode.Forced, true);
 
         try {
             // ⚠ Counted from the windows themselves rather than from `GC.CollectionCount(0)` at the
@@ -458,8 +486,12 @@ public class EditorShellBudgetTests {
     ///         timing would have separated from noise.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Zero, and it used to be a ceiling of eight kilobytes because the shell settled at
-    ///         504 bytes.</b> #597 filed that gap as "a settled editor-shell frame allocates where a
+    ///         ⚠
+    ///         <b>
+    ///             Zero, and it used to be a ceiling of eight kilobytes because the shell settled at
+    ///             504 bytes.
+    ///         </b>
+    ///         #597 filed that gap as "a settled editor-shell frame allocates where a
     ///         plain document does not", and the answer was three more boxed enumerators of exactly
     ///         <c>UiElement.PaintOrder</c>'s kind: an icon walking <c>PathBuilder.Segments</c>, the
     ///         node minimap walking <c>NodeGraph.Nodes</c> twice, and the wire layer walking
@@ -468,22 +500,34 @@ public class EditorShellBudgetTests {
     ///         <c>IReadOnlyList&lt;T&gt;</c>, which is what makes a <c>foreach</c> over it box.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A ceiling would not have caught any of them, and that is the argument for the
-    ///         zero.</b> 504 bytes is four per cent of an eight-kilobyte bound; the gate that held
+    ///         ⚠
+    ///         <b>
+    ///             A ceiling would not have caught any of them, and that is the argument for the
+    ///             zero.
+    ///         </b>
+    ///         504 bytes is four per cent of an eight-kilobyte bound; the gate that held
     ///         that bound was green for the whole time the defect existed. Nothing between "the frame
     ///         asked the allocator for something" and "the frame asked for a lot" is a property worth
     ///         stating — a settled frame doing no work has no reason to allocate a single byte, so
     ///         the honest bound is the one that goes red the first time it does.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The floor under it is <see cref="A_settled_shell_does_nothing_and_draws_the_same_frame" />,
-    ///         and without it this is met by a shell that draws nothing.</b> Zero bytes is what a
+    ///         ⚠
+    ///         <b>
+    ///             The floor under it is <see cref="A_settled_shell_does_nothing_and_draws_the_same_frame" />,
+    ///             and without it this is met by a shell that draws nothing.
+    ///         </b>
+    ///         Zero bytes is what a
     ///         broken document reports too; that test is what says this one is measuring a frame that
     ///         emits several hundred draw commands.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Which frame it measures is the whole of #703, and <c>while (Update()) Draw();</c>
-    ///         is not the warm-up it reads as.</b> The body runs only on iterations where
+    ///         ⚠
+    ///         <b>
+    ///             Which frame it measures is the whole of #703, and <c>while (Update()) Draw();</c>
+    ///             is not the warm-up it reads as.
+    ///         </b>
+    ///         The body runs only on iterations where
     ///         <c>Update</c> returned <c>true</c>, so a document that is <i>already</i> settled — and
     ///         <c>EditorShellScene.Build</c> ends with one <c>Update</c> and one <c>Draw</c>, so this
     ///         one always is — settles in zero iterations and never draws. The first measured frame
@@ -493,8 +537,12 @@ public class EditorShellBudgetTests {
     ///         that what this measures is the third draw and after.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>"A neighbour moved the counter" is refuted, and the two halves it was one
-    ///         question in are separated instead.</b> #992 saw this red once in a loaded worktree and
+    ///         ⚠
+    ///         <b>
+    ///             "A neighbour moved the counter" is refuted, and the two halves it was one
+    ///             question in are separated instead.
+    ///         </b>
+    ///         #992 saw this red once in a loaded worktree and
     ///         green alone, and read the byte count as the noisy half —
     ///         <c>GC.GetAllocatedBytesForCurrentThread</c> "is a thread-local counter that a test
     ///         class running in parallel beside it can move". It is not: it reports the calling
@@ -509,8 +557,12 @@ public class EditorShellBudgetTests {
     ///         not build.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And the half of that refutation which had only been argued turns out to be the
-    ///         half that is wrong.</b> A neighbour's <em>collection</em> is not confined to a thread
+    ///         ⚠
+    ///         <b>
+    ///             And the half of that refutation which had only been argued turns out to be the
+    ///             half that is wrong.
+    ///         </b>
+    ///         A neighbour's <em>collection</em> is not confined to a thread
     ///         the way its allocations are — a GC retires every allocation context, this one
     ///         included — and the retired context's <i>unconsumed remainder</i> is what the
     ///         accounting jumps by. Measured in Release on macOS arm64, twice: a thread that
@@ -526,16 +578,24 @@ public class EditorShellBudgetTests {
     ///         really proves.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>So a frame a collection landed in is discarded and measured again, rather than
-    ///         the bound being widened.</b> That is what makes the red a proof without giving up the
+    ///         ⚠
+    ///         <b>
+    ///             So a frame a collection landed in is discarded and measured again, rather than
+    ///             the bound being widened.
+    ///         </b>
+    ///         That is what makes the red a proof without giving up the
     ///         zero: a per-frame allocation shows in the collection-free frames too, because every
     ///         frame is one. And the retry is ordered by <i>work</i> — a bounded number of attempts,
     ///         not a deadline — and it cannot pass vacuously: if the attempts do not yield ten clean
     ///         frames the test fails saying so, instead of asserting a zero over an empty sample.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Two readings the earlier breakdown suggested are refuted by the same
-    ///         experiment.</b> "Something on the draw walk re-fills what a GC emptied" predicts that
+    ///         ⚠
+    ///         <b>
+    ///             Two readings the earlier breakdown suggested are refuted by the same
+    ///             experiment.
+    ///         </b>
+    ///         "Something on the draw walk re-fills what a GC emptied" predicts that
     ///         the frame after a collection pays: forcing a blocking gen-2 (twice, with finalizers
     ///         drained) immediately before a measured frame cost <b>zero</b>, in 20 measured frames
     ///         and again mid-run in a sweep of 20 000. And in 20 000 consecutive measured frames
@@ -552,8 +612,11 @@ public class EditorShellBudgetTests {
     ///         no work, <i>and</i> they cost nothing. A red says which.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And the bytes are counted per frame rather than across ten, because the sum
-    ///         cannot tell a per-frame object from a one-off and the message asserts that it can.</b>
+    ///         ⚠
+    ///         <b>
+    ///             And the bytes are counted per frame rather than across ten, because the sum
+    ///             cannot tell a per-frame object from a one-off and the message asserts that it can.
+    ///         </b>
     ///         "Something on the draw walk is asking the allocator for a per-frame object" is one
     ///         reading of a non-zero total; a single frame paying once for a cache, a pool that
     ///         missed, or a buffer that grew is the other, and it is the reading that fits a failure
@@ -590,8 +653,12 @@ public class EditorShellBudgetTests {
     ///         before anything is read, which retires this thread's context and takes the charge
     ///         outside the window; a settled frame allocates nothing and so takes no new context for
     ///         a foreign collection to charge it for. Ordered by work, once per attempt, and the same
-    ///         shape as the discard beside it rather than a wider bound. ⚠ <b>The elimination is
-    ///         argued from the mechanism and not proved by sampling</b> — a charge lands on a
+    ///         shape as the discard beside it rather than a wider bound. ⚠
+    ///         <b>
+    ///             The elimination is
+    ///             argued from the mechanism and not proved by sampling
+    ///         </b>
+    ///         — a charge lands on a
     ///         measured frame about once in 200 000 windows, so no affordable run tells the two
     ///         worlds apart — but the mechanism is now measured rather than supposed, and a context
     ///         that does not exist has no unconsumed remainder to be charged for.
@@ -599,8 +666,12 @@ public class EditorShellBudgetTests {
     ///     <para>
     ///         ⚠ <b>Two of the three candidates #1330 lists are eliminated by measurement.</b> The JIT
     ///         is not indistinguishable from a real cost: <c>JitInfo.GetCompiledMethodCount</c> takes
-    ///         a <c>currentThread</c> argument, it reads <b>0 compilations across 2 000 settled
-    ///         frames</b>, and a first call of a fresh method compiles two methods for <b>0 bytes</b>
+    ///         a <c>currentThread</c> argument, it reads
+    ///         <b>
+    ///             0 compilations across 2 000 settled
+    ///             frames
+    ///         </b>
+    ///         , and a first call of a fresh method compiles two methods for <b>0 bytes</b>
     ///         on this thread's counter — so the column is in the failure message and the next red
     ///         can say whether anything was warming. And a no-GC region, the obvious way to make the
     ///         artifact impossible rather than rare, is unusable here: a 16 MB region held 100 of 100
@@ -734,8 +805,12 @@ public class EditorShellBudgetTests {
     /// <returns>What was seen.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The forced collection is the guard #1330 asks for and it is first in the loop,
-    ///         before anything is read.</b> It retires this thread's allocation context; a frame that
+    ///         ⚠
+    ///         <b>
+    ///             The forced collection is the guard #1330 asks for and it is first in the loop,
+    ///             before anything is read.
+    ///         </b>
+    ///         It retires this thread's allocation context; a frame that
     ///         allocates nothing then takes no new one, so a foreign thread's collection has nothing
     ///         of ours to account for. The artifact it is aimed at is a jump in
     ///         <c>GC.GetAllocatedBytesForCurrentThread</c> on a thread that allocated nothing —
@@ -743,8 +818,12 @@ public class EditorShellBudgetTests {
     ///         collection at all, which is why the discard below cannot be the whole guard.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And this repository had worked that out already, in a helper this file never
-    ///         used.</b> <c>Testing/Measured.cs</c> collects before its window for exactly this
+    ///         ⚠
+    ///         <b>
+    ///             And this repository had worked that out already, in a helper this file never
+    ///             used.
+    ///         </b>
+    ///         <c>Testing/Measured.cs</c> collects before its window for exactly this
     ///         reason, in as many words — "it hands the loop an <i>empty</i> allocation context, and
     ///         work that allocates nothing never asks for another one" — and a dozen test projects
     ///         opt into it by naming the file. This one measures its own frames because it needs a
@@ -770,20 +849,21 @@ public class EditorShellBudgetTests {
             // charged for losing it.
             // ⚠ First, and the whole of #1330's guard: no context to lose means nothing to be
             // charged for losing it.
-            GC.Collect(0, GCCollectionMode.Forced, blocking: true);
+            GC.Collect(0, GCCollectionMode.Forced, true);
             reading.Retired++;
 
             var gen0 = GC.CollectionCount(0);
             var gen1 = GC.CollectionCount(1);
             var gen2 = GC.CollectionCount(2);
-            var jit = JitInfo.GetCompiledMethodCount(currentThread: true);
+            var jit = JitInfo.GetCompiledMethodCount(true);
             var before = GC.GetAllocatedBytesForCurrentThread();
 
             var dirty = frame();
 
             var spent = GC.GetAllocatedBytesForCurrentThread() - before;
-            var compiled = JitInfo.GetCompiledMethodCount(currentThread: true) - jit;
-            var collected = GC.CollectionCount(0) - gen0
+            var compiled = JitInfo.GetCompiledMethodCount(true) - jit;
+            var collected = GC.CollectionCount(0)
+                - gen0
                 + (GC.CollectionCount(1) - gen1)
                 + (GC.CollectionCount(2) - gen2);
 
@@ -856,8 +936,12 @@ public class EditorShellBudgetTests {
     ///         thread held no context while the frame ran.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Counting the collections does not say they came first, and this test used to do
-    ///         only that.</b> Moving <see cref="Measure" />'s
+    ///         ⚠
+    ///         <b>
+    ///             Counting the collections does not say they came first, and this test used to do
+    ///             only that.
+    ///         </b>
+    ///         Moving <see cref="Measure" />'s
     ///         <c>GC.Collect</c> from the top of the loop to just after <c>frame()</c> keeps one
     ///         collection per attempt and left the count assertion green — the position, which is the
     ///         whole of #1330's guard, was pinned by the byte tests elsewhere in this file and by
@@ -925,15 +1009,23 @@ public class EditorShellBudgetTests {
     /// <returns>The sentence to put after the numbers.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The third reading this used to have is gone, because the frames it described are
-    ///         no longer measured.</b> "Every paying frame is a frame a collection landed in, so look
+    ///         ⚠
+    ///         <b>
+    ///             The third reading this used to have is gone, because the frames it described are
+    ///             no longer measured.
+    ///         </b>
+    ///         "Every paying frame is a frame a collection landed in, so look
     ///         for something the draw walk re-fills after a GC" was the reading of #992 for a while,
     ///         and it is refuted: forcing a blocking gen-2 immediately before a measured frame costs
     ///         zero, and the correlation was the instrument rather than the code.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And the sentence that replaced it — "anything that reaches here was measured
-    ///         cleanly" — is refuted too (#1330).</b> The charge for a retired allocation context
+    ///         ⚠
+    ///         <b>
+    ///             And the sentence that replaced it — "anything that reaches here was measured
+    ///             cleanly" — is refuted too (#1330).
+    ///         </b>
+    ///         The charge for a retired allocation context
     ///         does not arrive with a collection this window can count: three of nine whole-suite
     ///         runs saw one frame pay 2 952 bytes with <c>GC.CollectionCount</c> flat across it. The
     ///         discard is half the guard; retiring this thread's context before the frame is the
@@ -954,16 +1046,24 @@ public class EditorShellBudgetTests {
     /// <summary>And the one draw that does allocate is buying the list's previous-frame snapshot.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The 479 KB #703 found is not on the draw walk at all, and it is not #597's kind of
-    ///         defect.</b> <c>DrawList.BeginFrame</c> keeps the finished frame for comparison, which is
+    ///         ⚠
+    ///         <b>
+    ///             The 479 KB #703 found is not on the draw walk at all, and it is not #597's kind of
+    ///             defect.
+    ///         </b>
+    ///         <c>DrawList.BeginFrame</c> keeps the finished frame for comparison, which is
     ///         what lets <c>EndFrame</c> answer "did the drawing change" without re-walking anything.
     ///         The two buffers are a double buffer and it swaps them, so on the <b>second</b> draw of a
     ///         list the buffer swapped in is the empty one it started with and it grows once to its
     ///         frame's size. Every draw after that reuses capacity and allocates nothing.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The swap did not remove this allocation, which #750 predicted it would, and left
-    ///         alone it <i>tripled</i> it.</b> The copy it replaced sized its destination in one
+    ///         ⚠
+    ///         <b>
+    ///             The swap did not remove this allocation, which #750 predicted it would, and left
+    ///             alone it <i>tripled</i> it.
+    ///         </b>
+    ///         The copy it replaced sized its destination in one
     ///         <c>AddRange</c>; a buffer filled by <c>Add</c> doubles its way up instead and pays the
     ///         geometric series — 1 471 296 bytes here against the 479 280 that was measured. The
     ///         <c>EnsureCapacity(previous.Count)</c> in <c>DrawList.Swap</c> is what buys the single
@@ -999,17 +1099,17 @@ public class EditorShellBudgetTests {
         // The floor, and without it every bound below is met by a document that drew nothing.
         Assert.True(commands > 100, $"the shell emitted {commands} draw commands, which is not a populated shell");
 
-        var snapshot = (commands * Unsafe.SizeOf<DrawCommand>())
-            + (drawing.Glyphs.Count * Unsafe.SizeOf<PositionedGlyph>())
-            + (segments * Unsafe.SizeOf<PathSegment>())
-            + (drawing.Boxes.Count * Unsafe.SizeOf<BoxStyle>())
-            + (drawing.Masks.Count * Unsafe.SizeOf<UiMask>());
+        var snapshot = commands * Unsafe.SizeOf<DrawCommand>()
+            + drawing.Glyphs.Count * Unsafe.SizeOf<PositionedGlyph>()
+            + segments * Unsafe.SizeOf<PathSegment>()
+            + drawing.Boxes.Count * Unsafe.SizeOf<BoxStyle>()
+            + drawing.Masks.Count * Unsafe.SizeOf<UiMask>();
 
         // ⚠ The same guard the loop above takes, and for the same reason (#1330): this thread must
         // hold no allocation context while it measures, or a collection on any other thread can
         // charge it that context's unconsumed remainder — 3 688 bytes, measured, which is most of
         // the headroom this assertion has.
-        GC.Collect(0, GCCollectionMode.Forced, blocking: true);
+        GC.Collect(0, GCCollectionMode.Forced, true);
 
         var before = GC.GetAllocatedBytesForCurrentThread();
 
@@ -1028,7 +1128,7 @@ public class EditorShellBudgetTests {
 
         // And the third draw and every one after it is free, which is what makes the second a
         // property of the list's life rather than of the frame.
-        GC.Collect(0, GCCollectionMode.Forced, blocking: true);
+        GC.Collect(0, GCCollectionMode.Forced, true);
 
         before = GC.GetAllocatedBytesForCurrentThread();
 

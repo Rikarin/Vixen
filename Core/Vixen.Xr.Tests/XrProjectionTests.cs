@@ -83,17 +83,17 @@ public sealed class XrProjectionTests {
 
     [Fact]
     public void AFrustumWithNoVolumeIsRefused() =>
-        Assert.Throws<ArgumentException>(
-            () => XrProjection.FromFieldOfView(new XrFieldOfView(0.5f, -0.5f, 0.5f, -0.5f))
+        Assert.Throws<ArgumentException>(static () =>
+            XrProjection.FromFieldOfView(new(0.5f, -0.5f, 0.5f, -0.5f))
         );
 
     [Fact]
     public void ANearPlaneOfZeroIsRefused() =>
-        Assert.Throws<ArgumentOutOfRangeException>(() => XrProjection.FromFieldOfView(Fov(), 0f));
+        Assert.Throws<ArgumentOutOfRangeException>(static () => XrProjection.FromFieldOfView(Fov(), 0f));
 
     [Fact]
     public void AFarPlaneNearerThanTheNearOneIsRefused() =>
-        Assert.Throws<ArgumentOutOfRangeException>(() => XrProjection.FromFieldOfView(Fov(), 1f, 0.5f));
+        Assert.Throws<ArgumentOutOfRangeException>(static () => XrProjection.FromFieldOfView(Fov(), 1f, 0.5f));
 
     static XrFieldOfView Fov() =>
         XrFieldOfView.Symmetric(MathUtil.DegreesToRadians(100f), MathUtil.DegreesToRadians(90f));
@@ -107,24 +107,25 @@ public sealed class XrProjectionTests {
     }
 
     static float ProjectX(in Matrix4x4 projection, float tangent, float distance) {
-        var clip = Transform(in projection, new Vector4(tangent * distance, 0f, -distance, 1f));
+        var clip = Transform(in projection, new(tangent * distance, 0f, -distance, 1f));
 
         return clip.X / clip.W;
     }
 
     static float ProjectY(in Matrix4x4 projection, float tangent, float distance) {
-        var clip = Transform(in projection, new Vector4(0f, tangent * distance, -distance, 1f));
+        var clip = Transform(in projection, new(0f, tangent * distance, -distance, 1f));
 
         return clip.Y / clip.W;
     }
 
     /// <summary>A row vector times the matrix, which is this engine's convention.</summary>
-    static Vector4 Transform(in Matrix4x4 m, Vector4 v) => new(
-        (v.X * m.M11) + (v.Y * m.M21) + (v.Z * m.M31) + (v.W * m.M41),
-        (v.X * m.M12) + (v.Y * m.M22) + (v.Z * m.M32) + (v.W * m.M42),
-        (v.X * m.M13) + (v.Y * m.M23) + (v.Z * m.M33) + (v.W * m.M43),
-        (v.X * m.M14) + (v.Y * m.M24) + (v.Z * m.M34) + (v.W * m.M44)
-    );
+    static Vector4 Transform(in Matrix4x4 m, Vector4 v) =>
+        new(
+            v.X * m.M11 + v.Y * m.M21 + v.Z * m.M31 + v.W * m.M41,
+            v.X * m.M12 + v.Y * m.M22 + v.Z * m.M32 + v.W * m.M42,
+            v.X * m.M13 + v.Y * m.M23 + v.Z * m.M33 + v.W * m.M43,
+            v.X * m.M14 + v.Y * m.M24 + v.Z * m.M34 + v.W * m.M44
+        );
 
     static void AssertClose(in Matrix4x4 expected, in Matrix4x4 actual) {
         Assert.Equal(expected.M11, actual.M11, 4);

@@ -3,7 +3,6 @@
 
 using System.Globalization;
 using Vixen.Core.Mathematics;
-using Vixen.Editor.Texturing.Layers;
 using Vixen.NodeGraph;
 using Vixen.TextureGraph;
 using Vixen.Texturing.Layers;
@@ -54,9 +53,7 @@ public class LayerSurfaceProjectionTests {
             BaseHeight = 32,
             Sets = [
                 new() {
-                    Name = "S",
-                    Channels = [new() { Usage = "baseColor", Default = [0f, 0f, 0f, 1f] }],
-                    Layers = [layer]
+                    Name = "S", Channels = [new() { Usage = "baseColor", Default = [0f, 0f, 0f, 1f] }], Layers = [layer]
                 }
             ]
         };
@@ -88,14 +85,29 @@ public class LayerSurfaceProjectionTests {
         Assert.Equal(Placed.Box, read.Decal.Box);
         Assert.Equal(Placed.Warp, read.Decal.Warp);
         Assert.Equal(
-            Placed with { Centre = None, Facing = None, Up = None, Box = None, Warp = None },
-            read.Decal with { Centre = None, Facing = None, Up = None, Box = None, Warp = None }
+            Placed with {
+                Centre = None,
+                Facing = None,
+                Up = None,
+                Box = None,
+                Warp = None
+            },
+            read.Decal with {
+                Centre = None,
+                Facing = None,
+                Up = None,
+                Box = None,
+                Warp = None
+            }
         );
 
         Assert.NotNull(read.SurfacePath);
         Assert.Equal(Drawn.Points, read.SurfacePath.Points);
         Assert.Equal(Drawn.Box, read.SurfacePath.Box);
-        Assert.Equal(Drawn with { Points = NoPoints, Box = None }, read.SurfacePath with { Points = NoPoints, Box = None });
+        Assert.Equal(
+            Drawn with { Points = NoPoints, Box = None },
+            read.SurfacePath with { Points = NoPoints, Box = None }
+        );
 
         // ⚠ And a layer with neither writes neither key, so every stack that exists reads and writes as it did.
         var bare = LayerStackYaml.Write(Stack(Fill(LayerProjection.Uv)));
@@ -129,7 +141,7 @@ public class LayerSurfaceProjectionTests {
         Assert.NotNull(compilation.Plan);
         Assert.Equal(
             ["meshmap:position", "meshmap:world"],
-            compilation.Externals.Select(external => external.Asset).Order(StringComparer.Ordinal).ToArray()
+            compilation.Externals.Select(static external => external.Asset).Order(StringComparer.Ordinal).ToArray()
         );
 
         var node = Node(build, "Space/Decal");
@@ -145,7 +157,7 @@ public class LayerSurfaceProjectionTests {
         Assert.Equal(18, node.Texts["Warp"].Split(' ').Length);
 
         // And the op squared the frame: right, up and forward are unit and square to one another.
-        var op = Assert.Single(compilation.Plan.Ops, op => op.Kernel == "Decal");
+        var op = Assert.Single(compilation.Plan.Ops, static op => op.Kernel == "Decal");
         Vector3 Axis(string name) => new(Value(op, name + "X"), Value(op, name + "Y"), Value(op, name + "Z"));
 
         foreach (var (first, second) in new[] { ("right", "up"), ("up", "forward"), ("forward", "right") }) {
@@ -169,29 +181,38 @@ public class LayerSurfaceProjectionTests {
         var compilation = LayerStackCompiler.Compile(stack, stack.Sets[0]);
 
         Assert.NotNull(compilation.Plan);
-        Assert.Contains(compilation.Problems, problem => problem.Message.Contains("covers nothing", StringComparison.Ordinal));
-        Assert.DoesNotContain(compilation.Plan.Ops, op => op.Kernel is "Decal" or "SurfacePath");
+        Assert.Contains(
+            compilation.Problems,
+            static problem => problem.Message.Contains("covers nothing", StringComparison.Ordinal)
+        );
+        Assert.DoesNotContain(compilation.Plan.Ops, static op => op.Kernel is "Decal" or "SurfacePath");
 
         // ⚠ And what the layer composites is transparency, not the fill's red: a fill with no box would cover the whole
         // mesh. The red is still compiled, unread, so the blend's own foreground is what has to be asked.
-        var blend = Assert.Single(compilation.Plan.Ops, op => op.Kernel == "Blend");
+        var blend = Assert.Single(compilation.Plan.Ops, static op => op.Kernel == "Blend");
         var foreground = Assert.Single(compilation.Plan.Ops, op => op.Output == blend.Inputs[1]);
 
         Assert.Equal("Uniform", foreground.Kernel);
-        Assert.Equal(0f, foreground.Parameters.Single(parameter => parameter.Name == "alpha").Value);
+        Assert.Equal(0f, foreground.Parameters.Single(static parameter => parameter.Name == "alpha").Value);
         Assert.Contains(
             compilation.Plan.Ops,
-            op => op.Kernel == "Uniform" && op.Parameters.Any(parameter => parameter is { Name: "red", Value: 1f })
+            static op => op.Kernel == "Uniform"
+                && op.Parameters.Any(static parameter => parameter is { Name: "red", Value: 1f })
         );
     }
 
     /// <summary>A decal on a paint layer is warned about and composited through the atlas, for the other projections' reason.</summary>
     [Fact]
     public void A_decal_on_a_paint_layer_is_warned_about() {
-        var stack = Stack(Fill(LayerProjection.Decal, Placed) with { Kind = LayerKind.Paint, Values = [], Paint = "Test.S.l.vxpaint" });
+        var stack = Stack(
+            Fill(LayerProjection.Decal, Placed) with { Kind = LayerKind.Paint, Values = [], Paint = "Test.S.l.vxpaint" }
+        );
         var compilation = LayerStackCompiler.Compile(stack, stack.Sets[0]);
 
-        Assert.Contains(compilation.Problems, problem => problem.Message.Contains("does nothing there", StringComparison.Ordinal));
+        Assert.Contains(
+            compilation.Problems,
+            static problem => problem.Message.Contains("does nothing there", StringComparison.Ordinal)
+        );
     }
 
     /// <summary>
@@ -210,29 +231,31 @@ public class LayerSurfaceProjectionTests {
         var node = Node(build, "Space/Surface Path");
         var points = node.Texts["Points"]
             .Split(';')
-            .Select(point => point.Split(' ', StringSplitOptions.RemoveEmptyEntries)
-                .Select(number => float.Parse(number, CultureInfo.InvariantCulture))
-                .ToArray()
+            .Select(static point => point.Split(' ', StringSplitOptions.RemoveEmptyEntries)
+                    .Select(static number => float.Parse(number, CultureInfo.InvariantCulture))
+                    .ToArray()
             )
             .ToArray();
 
         Assert.Equal("Ribbon", node.Texts["Mode"]);
         Assert.Equal(0.3f, node.Values["Repeat"][0]);
         Assert.True(points.Length > Drawn.Points.Count, $"the curve was {points.Length} points, which is no curve");
-        Assert.All(points, point => Assert.Equal(7, point.Length));
+        Assert.All(points, static point => Assert.Equal(7, point.Length));
 
         // Through each clicked point, carrying that point's own normal and pressure.
         foreach (var clicked in Drawn.Points) {
             Assert.Contains(
                 points,
-                point => MathF.Abs(point[0] - clicked.X) < 1e-5f && MathF.Abs(point[1] - clicked.Y) < 1e-5f
-                    && MathF.Abs(point[5] - clicked.NormalZ) < 1e-5f && MathF.Abs(point[6] - clicked.Pressure) < 1e-5f
+                point => MathF.Abs(point[0] - clicked.X) < 1e-5f
+                    && MathF.Abs(point[1] - clicked.Y) < 1e-5f
+                    && MathF.Abs(point[5] - clicked.NormalZ) < 1e-5f
+                    && MathF.Abs(point[6] - clicked.Pressure) < 1e-5f
             );
         }
 
         // Between the first two, the pressure falls from one to a half and never leaves that range.
-        Assert.All(points.Where(point => point[0] < 1f), point => Assert.InRange(point[6], 0.5f, 1f));
-        Assert.Contains(points, point => point[6] is > 0.5f and < 1f);
+        Assert.All(points.Where(static point => point[0] < 1f), static point => Assert.InRange(point[6], 0.5f, 1f));
+        Assert.Contains(points, static point => point[6] is > 0.5f and < 1f);
     }
 
     /// <summary>
@@ -252,8 +275,13 @@ public class LayerSurfaceProjectionTests {
         List<Vector3> raised = [];
         List<float> along = [];
 
-        flat.Sample(drawn, PaintPath.Tolerance);
-        PaintPath.Sample([.. clicked.Select(static point => new Vector3(point.X, point.Y, 0f))], PaintPath.Tolerance, raised, along);
+        flat.Sample(drawn);
+        PaintPath.Sample(
+            [..clicked.Select(static point => new Vector3(point.X, point.Y, 0f))],
+            PaintPath.Tolerance,
+            raised,
+            along
+        );
 
         Assert.Equal(drawn.Count, raised.Count);
         Assert.Equal(raised.Count, along.Count);
@@ -266,7 +294,10 @@ public class LayerSurfaceProjectionTests {
 
         Assert.Equal(0f, along[0]);
         Assert.Equal(clicked.Length - 1f, along[^1]);
-        Assert.True(along.Zip(along.Skip(1)).All(pair => pair.Second >= pair.First), "a sample went back along the path");
+        Assert.True(
+            along.Zip(along.Skip(1)).All(static pair => pair.Second >= pair.First),
+            "a sample went back along the path"
+        );
     }
 
     static float Value(TextureOp op, string name) => op.Parameters.Single(parameter => parameter.Name == name).Value;

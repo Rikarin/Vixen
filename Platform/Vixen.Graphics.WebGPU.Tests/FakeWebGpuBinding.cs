@@ -14,7 +14,7 @@ public readonly record struct WebGpuCall(string Name, long[] Values, string Text
     public override string ToString() =>
         Values.Length == 0 && Text.Length == 0
             ? Name
-            : $"{Name}({string.Join(", ", Values)}{(Text.Length > 0 ? $" '{Text}'" : "")})";
+            : $"{Name}({string.Join(", ", Values)}{(Text.Length > 0 ? $" '{Text}'" : string.Empty)})";
 }
 
 /// <summary>A WebGPU implementation that records what it was asked to do.</summary>
@@ -49,7 +49,7 @@ public sealed class FakeWebGpuBinding : IWebGpuBinding {
         bool hasSurface = false
     ) {
         Limits = limits ?? WebGpuLimits.Guaranteed;
-        this.features = [.. features ?? []];
+        this.features = [..features ?? []];
         HasSurface = hasSurface;
         PreferredSurfaceFormat = hasSurface ? WgpuTextureFormat.Bgra8Unorm : WgpuTextureFormat.Undefined;
     }
@@ -85,8 +85,10 @@ public sealed class FakeWebGpuBinding : IWebGpuBinding {
     public WgpuTextureFormat PreferredSurfaceFormat { get; }
 
     /// <inheritdoc />
-    /// <remarks>Settable, so a test can offer a surface that does or does not take sampling; by
-    /// default what the native binding reports.</remarks>
+    /// <remarks>
+    ///     Settable, so a test can offer a surface that does or does not take sampling; by
+    ///     default what the native binding reports.
+    /// </remarks>
     public WgpuTextureUsage SurfaceUsages {
         get => HasSurface ? field : WgpuTextureUsage.None;
         init;
@@ -97,10 +99,10 @@ public sealed class FakeWebGpuBinding : IWebGpuBinding {
 
     /// <summary>Every call of one name.</summary>
     /// <param name="name">The call's name.</param>
-    public IReadOnlyList<WebGpuCall> OfName(string name) => [.. calls.Where(call => call.Name == name)];
+    public IReadOnlyList<WebGpuCall> OfName(string name) => [..calls.Where(call => call.Name == name)];
 
     /// <summary>The names of every call, in order — what an assertion on a sequence reads.</summary>
-    public string[] Names() => [.. calls.Select(call => call.Name)];
+    public string[] Names() => [..calls.Select(static call => call.Name)];
 
     /// <summary>Forgets everything recorded so far.</summary>
     public void Clear() => calls.Clear();
@@ -186,14 +188,17 @@ public sealed class FakeWebGpuBinding : IWebGpuBinding {
             values.Add((long)entry.TextureSampleType);
         }
 
-        return Create("CreateBindGroupLayout", [.. values], descriptor.Label);
+        return Create("CreateBindGroupLayout", [..values], descriptor.Label);
     }
 
     /// <inheritdoc />
     public WebGpuObject CreatePipelineLayout(in WgpuPipelineLayoutDescriptor descriptor) =>
         Create(
             "CreatePipelineLayout",
-            [descriptor.BindGroupLayouts.Length, .. descriptor.BindGroupLayouts.Select(group => (long)group.Value)],
+            [
+                descriptor.BindGroupLayouts.Length,
+                ..descriptor.BindGroupLayouts.Select(static group => (long)group.Value)
+            ],
             descriptor.Label
         );
 
@@ -244,7 +249,7 @@ public sealed class FakeWebGpuBinding : IWebGpuBinding {
 
     /// <inheritdoc />
     public void WriteBuffer(WebGpuObject buffer, long offset, ReadOnlySpan<byte> data) {
-        LastWrite = data.ToArray();
+        LastWrite = [..data];
         Record("WriteBuffer", [(long)buffer.Value, offset, data.Length]);
     }
 
@@ -364,8 +369,7 @@ public sealed class FakeWebGpuBinding : IWebGpuBinding {
         );
 
     /// <inheritdoc />
-    public void EncoderPushDebugGroup(WebGpuObject encoder, string name) =>
-        Record("EncoderPushDebugGroup", [], name);
+    public void EncoderPushDebugGroup(WebGpuObject encoder, string name) => Record("EncoderPushDebugGroup", [], name);
 
     /// <inheritdoc />
     public void EncoderPopDebugGroup(WebGpuObject encoder) => Record("EncoderPopDebugGroup", []);
@@ -378,10 +382,7 @@ public sealed class FakeWebGpuBinding : IWebGpuBinding {
 
     /// <inheritdoc />
     public WebGpuObject BeginRenderPass(WebGpuObject encoder, in WgpuRenderPassDescriptor descriptor) {
-        var values = new List<long> {
-            descriptor.ColourAttachmentCount,
-            descriptor.DepthStencil is null ? 0 : 1
-        };
+        var values = new List<long> { descriptor.ColourAttachmentCount, descriptor.DepthStencil is null ? 0 : 1 };
 
         for (var index = 0; index < descriptor.ColourAttachmentCount; index++) {
             var attachment = descriptor.ColourAttachments[index];
@@ -391,7 +392,7 @@ public sealed class FakeWebGpuBinding : IWebGpuBinding {
             values.Add((long)attachment.ResolveTarget.Value);
         }
 
-        return Create("BeginRenderPass", [.. values], descriptor.Label);
+        return Create("BeginRenderPass", [..values], descriptor.Label);
     }
 
     /// <inheritdoc />
@@ -413,7 +414,7 @@ public sealed class FakeWebGpuBinding : IWebGpuBinding {
     ) =>
         Record(
             "RenderPassSetBindGroup",
-            [group, (long)bindGroup.Value, .. dynamicOffsets.ToArray().Select(offset => (long)offset)]
+            [group, (long)bindGroup.Value, ..dynamicOffsets.ToArray().Select(static offset => (long)offset)]
         );
 
     /// <inheritdoc />
@@ -493,8 +494,7 @@ public sealed class FakeWebGpuBinding : IWebGpuBinding {
     // ── Compute passes ──────────────────────────────────────────────────────────────────────
 
     /// <inheritdoc />
-    public WebGpuObject BeginComputePass(WebGpuObject encoder, string label) =>
-        Create("BeginComputePass", [], label);
+    public WebGpuObject BeginComputePass(WebGpuObject encoder, string label) => Create("BeginComputePass", [], label);
 
     /// <inheritdoc />
     public void EndComputePass(WebGpuObject pass) {
@@ -515,7 +515,7 @@ public sealed class FakeWebGpuBinding : IWebGpuBinding {
     ) =>
         Record(
             "ComputePassSetBindGroup",
-            [group, (long)bindGroup.Value, .. dynamicOffsets.ToArray().Select(offset => (long)offset)]
+            [group, (long)bindGroup.Value, ..dynamicOffsets.ToArray().Select(static offset => (long)offset)]
         );
 
     /// <inheritdoc />
@@ -562,7 +562,7 @@ public sealed class FakeWebGpuBinding : IWebGpuBinding {
             return NextSurfaceStatus;
         }
 
-        texture = Create("AcquireSurfaceTexture", [], "");
+        texture = Create("AcquireSurfaceTexture", [], string.Empty);
         return WgpuSurfaceStatus.Success;
     }
 

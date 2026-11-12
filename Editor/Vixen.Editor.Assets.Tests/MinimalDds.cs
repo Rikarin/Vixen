@@ -57,7 +57,7 @@ static class MinimalDds {
         // The pixel format says "look in the extension header" and nothing else.
         var pixelFormat = file.AsSpan(0x4C);
         BinaryPrimitives.WriteUInt32LittleEndian(pixelFormat, 32);
-        BinaryPrimitives.WriteUInt32LittleEndian(pixelFormat[4..], 0x4);   // DDPF_FOURCC
+        BinaryPrimitives.WriteUInt32LittleEndian(pixelFormat[4..], 0x4); // DDPF_FOURCC
         Encoding.ASCII.GetBytes("DX10", pixelFormat[8..]);
 
         var extension = file.AsSpan(128);
@@ -87,11 +87,11 @@ static class MinimalDds {
         int mipCount = 1
     ) {
         var file = new byte[128 + payload.Length];
-        Header(file, width, height, mipCount, depth: 1, caps2: 0);
+        Header(file, width, height, mipCount, 1, 0);
 
         var pixelFormat = file.AsSpan(0x4C);
         BinaryPrimitives.WriteUInt32LittleEndian(pixelFormat, 32);
-        BinaryPrimitives.WriteUInt32LittleEndian(pixelFormat[4..], 0x4);   // DDPF_FOURCC
+        BinaryPrimitives.WriteUInt32LittleEndian(pixelFormat[4..], 0x4); // DDPF_FOURCC
         Encoding.ASCII.GetBytes(fourCc, pixelFormat[8..]);
 
         payload.CopyTo(file.AsSpan(128));
@@ -114,7 +114,7 @@ static class MinimalDds {
         ReadOnlySpan<byte> payload
     ) {
         var file = new byte[128 + payload.Length];
-        Header(file, width, height, mipCount: 1, depth: 1, caps2: 0);
+        Header(file, width, height, 1, 1, 0);
 
         var pixelFormat = file.AsSpan(0x4C);
         BinaryPrimitives.WriteUInt32LittleEndian(pixelFormat, 32);
@@ -135,7 +135,7 @@ static class MinimalDds {
     static void Header(Span<byte> file, int width, int height, int mipCount, int depth, uint caps2) {
         Encoding.ASCII.GetBytes("DDS ", file);
 
-        BinaryPrimitives.WriteUInt32LittleEndian(file[4..], 124);                    // dwSize
+        BinaryPrimitives.WriteUInt32LittleEndian(file[4..], 124); // dwSize
 
         // DDSD_CAPS | DDSD_HEIGHT | DDSD_WIDTH | DDSD_PIXELFORMAT, plus DDSD_MIPMAPCOUNT and
         // DDSD_DEPTH when there is anything to say. The flags are advisory in practice — every
@@ -148,13 +148,13 @@ static class MinimalDds {
         BinaryPrimitives.WriteUInt32LittleEndian(file[8..], flags);
         BinaryPrimitives.WriteUInt32LittleEndian(file[12..], (uint)height);
         BinaryPrimitives.WriteUInt32LittleEndian(file[16..], (uint)width);
-        BinaryPrimitives.WriteUInt32LittleEndian(file[20..], 0);                     // dwPitchOrLinearSize
+        BinaryPrimitives.WriteUInt32LittleEndian(file[20..], 0); // dwPitchOrLinearSize
         BinaryPrimitives.WriteUInt32LittleEndian(file[24..], (uint)depth);
         BinaryPrimitives.WriteUInt32LittleEndian(file[28..], (uint)mipCount);
 
         // 0x20..0x4B is dwReserved1[11], and stays zero.
         // 0x4C..0x6B is the pixel format, which the caller fills in.
-        BinaryPrimitives.WriteUInt32LittleEndian(file[0x6C..], 0x1000);              // DDSCAPS_TEXTURE
+        BinaryPrimitives.WriteUInt32LittleEndian(file[0x6C..], 0x1000); // DDSCAPS_TEXTURE
         BinaryPrimitives.WriteUInt32LittleEndian(file[0x70..], caps2);
     }
 }

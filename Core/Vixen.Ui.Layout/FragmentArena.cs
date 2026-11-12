@@ -8,9 +8,13 @@ namespace Vixen.Ui.Layout;
 /// <summary>Every fragmented node's extra boxes, in one array.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Grid needed variable-length <i>input</i> and got <see cref="TrackArena" />; this is the
-///         same shape on the <i>output</i> side, and it is the third and last thing the store has had
-///         to grow for an algorithm.</b> Block cost three output fields, grid cost an input arena,
+///         ⚠
+///         <b>
+///             Grid needed variable-length <i>input</i> and got <see cref="TrackArena" />; this is the
+///             same shape on the <i>output</i> side, and it is the third and last thing the store has had
+///             to grow for an algorithm.
+///         </b>
+///         Block cost three output fields, grid cost an input arena,
 ///         inline cost one output field — and then this, because CSS Display §2.2 lets one node
 ///         produce an arbitrary number of boxes and <see cref="LayoutResult" /> is a fixed-size
 ///         unmanaged struct in a <c>NativeArray</c> precisely so that a hundred thousand nodes are a
@@ -25,8 +29,12 @@ namespace Vixen.Ui.Layout;
 ///         that actually crosses a line — so the overwhelmingly common answer stays the cheap one.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Blocks are reused on a same-or-smaller rewrite, and that is load-bearing rather than
-///         tidy.</b> <c>LayoutPassTests</c> asserts that re-laying a tree every frame allocates
+///         ⚠
+///         <b>
+///             Blocks are reused on a same-or-smaller rewrite, and that is load-bearing rather than
+///             tidy.
+///         </b>
+///         <c>LayoutPassTests</c> asserts that re-laying a tree every frame allocates
 ///         <i>zero</i> bytes, and a fragmented span re-fragments on every single pass. Growing the
 ///         arena each time would fail that gate within twenty frames. So the steady state — same
 ///         span, same two fragments, new numbers — writes into the block it already has and touches
@@ -72,7 +80,7 @@ sealed class FragmentArena {
 
         Free(offset, capacity);
 
-        var wanted = int.Max(MinimumBlock, (int) BitOperations.RoundUpToPowerOf2((uint) fragments.Length));
+        var wanted = int.Max(MinimumBlock, (int)BitOperations.RoundUpToPowerOf2((uint)fragments.Length));
         var next = Allocate(wanted);
         fragments.CopyTo(storage.AsSpan(next, fragments.Length));
 
@@ -112,5 +120,5 @@ sealed class FragmentArena {
         return allocated;
     }
 
-    static int BucketOf(int size) => BitOperations.TrailingZeroCount((uint) size) - MinimumBlockLog2;
+    static int BucketOf(int size) => BitOperations.TrailingZeroCount((uint)size) - MinimumBlockLog2;
 }

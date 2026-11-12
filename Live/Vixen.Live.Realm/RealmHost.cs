@@ -33,7 +33,7 @@ public sealed record RealmHostOptions {
     public TimeSpan IdleGrace { get; init; } = TimeSpan.FromSeconds(10);
 
     /// <summary>The realm's clock. Replaceable so a test does not have to wait.</summary>
-    public Func<DateTimeOffset> Now { get; init; } = () => DateTimeOffset.UtcNow;
+    public Func<DateTimeOffset> Now { get; init; } = static () => DateTimeOffset.UtcNow;
 
     /// <summary>How long each step of a transfer may take before it is given up on.</summary>
     /// <remarks>
@@ -46,8 +46,12 @@ public sealed record RealmHostOptions {
 
     /// <summary>The meter the realm publishes into, or null for one of its own.</summary>
     /// <remarks>
-    ///     ⚠ <b>Supplied by a host that already has one, because two meters is the failure this
-    ///     avoids.</b> <c>NetworkTelemetry.Start</c> builds a <see cref="NetworkMetrics" /> and the
+    ///     ⚠
+    ///     <b>
+    ///         Supplied by a host that already has one, because two meters is the failure this
+    ///         avoids.
+    ///     </b>
+    ///     <c>NetworkTelemetry.Start</c> builds a <see cref="NetworkMetrics" /> and the
     ///     exporter's provider around it — it has to, because an observable instrument registered
     ///     after the provider was built is one the provider never collects — so a realm that created
     ///     a second one would publish every number twice under one meter name and export neither
@@ -67,8 +71,12 @@ public sealed record RealmHostOptions {
 ///         plane is ever called.
 ///     </para>
 ///     <para>
-///         ⚠ <b><see cref="Update" /> is the realm's <c>PreUpdate</c> and runs before the game's own
-///         step.</b> The order inside it is load-bearing: answers from the control plane are applied
+///         ⚠
+///         <b>
+///             <see cref="Update" /> is the realm's <c>PreUpdate</c> and runs before the game's own
+///             step.
+///         </b>
+///         The order inside it is load-bearing: answers from the control plane are applied
 ///         first, so a frame sees a consistent view of decisions taken since the last one; signals
 ///         are read next, because a drain that arrived should stop admitting before the session is
 ///         polled; and health is sampled last, over a tick that has actually happened.
@@ -121,8 +129,11 @@ public sealed class RealmHost : IDisposable {
     ///         Every instrument was registered, tested and read by nothing.
     ///     </para>
     ///     <para>
-    ///         <b><see cref="NetworkMetrics.Session" /> and <see cref="NetworkMetrics.Transport" />
-    ///         are attached here and the other three are not</b>, and that split is this class's own
+    ///         <b>
+    ///             <see cref="NetworkMetrics.Session" /> and <see cref="NetworkMetrics.Transport" />
+    ///             are attached here and the other three are not
+    ///         </b>
+    ///         , and that split is this class's own
     ///         rule rather than an omission: a realm owns the session and the socket under it, and
     ///         <i>does not own the game</i> — replication, RPC and the bandwidth ledger belong to the
     ///         realm's systems, so a realm that reached for them would be reaching past the boundary
@@ -134,8 +145,12 @@ public sealed class RealmHost : IDisposable {
     ///     host.Metrics.Ledger = ledger;
     ///     </code>
     ///     <para>
-    ///         ⚠ <b>Sampled once per <see cref="Update" />, which is the only place all of it is
-    ///         known to be still.</b> The instruments are observable and are called back on the
+    ///         ⚠
+    ///         <b>
+    ///             Sampled once per <see cref="Update" />, which is the only place all of it is
+    ///             known to be still.
+    ///         </b>
+    ///         The instruments are observable and are called back on the
     ///         collector's thread; <c>NetworkMetrics.Sample</c> copies the session's players into
     ///         plain fields on the realm's own thread so that a scrape landing mid-join does not walk
     ///         a list that is being written. Calling it anywhere else would put a background thread
@@ -179,16 +194,20 @@ public sealed class RealmHost : IDisposable {
     ///     the two things a realm cannot be allowed to get wrong. The event hands the decision to the
     ///     game once, at a defined point in the frame, rather than leaving it to be inferred.
     /// </remarks>
-    public event Action<Vixen.Live.Transfer.SourceTransfer>? Finished;
+    public event Action<SourceTransfer>? Finished;
 
     /// <summary>Decides whether a player can be moved right now. Doc 27 § Drain.</summary>
     /// <remarks>
-    ///     ⚠ <b>The engine ships a default that says everybody, always, and does not pretend to know
-    ///     better.</b> "In a scripted encounter" is a sentence only the game can finish, and a
+    ///     ⚠
+    ///     <b>
+    ///         The engine ships a default that says everybody, always, and does not pretend to know
+    ///         better.
+    ///     </b>
+    ///     "In a scripted encounter" is a sentence only the game can finish, and a
     ///     built-in guess would be wrong in the direction that matters — a raid interrupted by a
     ///     rollout is the failure this hook exists to make impossible.
     /// </remarks>
-    public Func<RealmPlayer, TransferReadiness> Readiness { get; set; } = _ => TransferReadiness.Ready;
+    public Func<RealmPlayer, TransferReadiness> Readiness { get; set; } = static _ => TransferReadiness.Ready;
 
     /// <summary>Stands a realm up.</summary>
     /// <param name="spec">What this shard is.</param>
@@ -206,8 +225,12 @@ public sealed class RealmHost : IDisposable {
     /// </exception>
     /// <exception cref="ArgumentException"><paramref name="spec" /> is not runnable.</exception>
     /// <remarks>
-    ///     ⚠ <b>The session arrives as a factory rather than as a session, because it needs the door
-    ///     to be built first.</b> <c>NetworkSession</c> takes its <c>ISessionAuthenticator</c> at
+    ///     ⚠
+    ///     <b>
+    ///         The session arrives as a factory rather than as a session, because it needs the door
+    ///         to be built first.
+    ///     </b>
+    ///     <c>NetworkSession</c> takes its <c>ISessionAuthenticator</c> at
     ///     construction — doc 16's design, and the right one: an authenticator installed later would
     ///     mean a window in which a session is listening and admitting everybody. So the host builds
     ///     <see cref="PlayerAdmission" /> out of the spec, hands it over, and takes back the session
@@ -282,8 +305,12 @@ public sealed class RealmHost : IDisposable {
     /// </param>
     /// <returns>How many messages the session handled.</returns>
     /// <remarks>
-    ///     ⚠ <b>This is the realm's only <c>Session.Update</c>, so a game's payload handler has to
-    ///     arrive here.</b> A realm that called <c>Session.Update</c> again from its own step would
+    ///     ⚠
+    ///     <b>
+    ///         This is the realm's only <c>Session.Update</c>, so a game's payload handler has to
+    ///         arrive here.
+    ///     </b>
+    ///     A realm that called <c>Session.Update</c> again from its own step would
     ///     advance the session twice a frame — two ticks of clock drift correction, two rounds of
     ///     timeouts — which is a class of bug that presents as a session that ages twice as fast as
     ///     the world in it.

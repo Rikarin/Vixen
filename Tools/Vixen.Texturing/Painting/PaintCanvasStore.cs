@@ -21,17 +21,24 @@ namespace Vixen.Texturing.Painting;
 ///         problem. It is the same problem with the writer's half unused.
 ///     </para>
 ///     <para>
-///         <b>One store because <a href="https://github.com/Rikarin/Vixen/issues/948">#948</a> and
-///         <a href="https://github.com/Rikarin/Vixen/issues/885">#885</a> are one piece of work, and
-///         the last batch stopped rather than do half of it.</b> A paint stroke read the whole file
+///         <b>
+///             One store because <a href="https://github.com/Rikarin/Vixen/issues/948">#948</a> and
+///             <a href="https://github.com/Rikarin/Vixen/issues/885">#885</a> are one piece of work, and
+///             the last batch stopped rather than do half of it.
+///         </b>
+///         A paint stroke read the whole file
 ///         off disk twice — <c>PaintSurface.Open</c> at pointer-down for the target and again at
 ///         pointer-up to put the layer's pixels back in the pane — before
 ///         <c>TextureExternalImages</c> read it a third time on the way to the map. At 4K that is
 ///         three times 67 MB of read and of allocation per channel per stroke.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Neither half was worth doing alone, and the design finding is why the cache is
-///         <em>here</em>.</b> #885 asked for a cache in the preview's resolver and refused to write
+///         ⚠
+///         <b>
+///             Neither half was worth doing alone, and the design finding is why the cache is
+///             <em>here</em>.
+///         </b>
+///         #885 asked for a cache in the preview's resolver and refused to write
 ///         one, correctly: a live session writes <c>PaintImage.Texels</c> in memory and does not
 ///         touch the file until pointer-up, so a pane serving its own cached copy of the file would
 ///         show the picture from before the stroke. A store of <em>open canvases</em> has the
@@ -40,8 +47,12 @@ namespace Vixen.Texturing.Painting;
 ///         store rather than a cache.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Invalidated by the file's own <c>(LastWriteTimeUtc, Length)</c> and not by anything
-///         this process knows.</b> A <c>.vxpaint</c> is a file in a project other tools touch — a
+///         ⚠
+///         <b>
+///             Invalidated by the file's own <c>(LastWriteTimeUtc, Length)</c> and not by anything
+///             this process knows.
+///         </b>
+///         A <c>.vxpaint</c> is a file in a project other tools touch — a
 ///         version-control checkout, a second editor, an artist copying one in — and the stamp is
 ///         what makes a canvas nobody here changed come back changed. ⚠ Read the direction of it
 ///         carefully: while the file is untouched the <em>in-memory</em> canvas wins, strokes and
@@ -129,8 +140,12 @@ public sealed class PaintCanvasStore {
 
     /// <summary>How many times a canvas or a picture was read off the disk over this store's life.</summary>
     /// <remarks>
-    ///     ⚠ <b>The number #948 is about, and it is a counter rather than a wall clock for this
-    ///     repository's usual reason.</b> A stroke that reads the file three times and a stroke that
+    ///     ⚠
+    ///     <b>
+    ///         The number #948 is about, and it is a counter rather than a wall clock for this
+    ///         repository's usual reason.
+    ///     </b>
+    ///     A stroke that reads the file three times and a stroke that
     ///     reads it once produce the same picture and the same file, so the picture cannot be the
     ///     test — and a millisecond budget calibrated on an idle machine is this repository's largest
     ///     single flake source.
@@ -146,8 +161,12 @@ public sealed class PaintCanvasStore {
 
     /// <summary>How many times this store was asked for anything at all.</summary>
     /// <remarks>
-    ///     ⚠ <b>Neither <see cref="Reads" /> nor <see cref="Hits" /> can see a caller that stopped
-    ///     asking, and that is the direction a wiring regression goes</b> —
+    ///     ⚠
+    ///     <b>
+    ///         Neither <see cref="Reads" /> nor <see cref="Hits" /> can see a caller that stopped
+    ///         asking, and that is the direction a wiring regression goes
+    ///     </b>
+    ///     —
     ///     <a href="https://github.com/Rikarin/Vixen/issues/978">#978</a>. A call site restored to
     ///     <c>File.OpenRead</c> makes <see cref="Reads" /> <em>smaller</em>, so an assertion that
     ///     wants it at zero passes; it makes <see cref="Hits" /> smaller too, so a threshold passes
@@ -169,8 +188,12 @@ public sealed class PaintCanvasStore {
     /// <exception cref="IOException">The file would not open.</exception>
     /// <exception cref="InvalidDataException">It is not a <c>.vxpaint</c> this build can read.</exception>
     /// <remarks>
-    ///     ⚠ <b>Every failure is thrown rather than returned, which is the opposite of the rule the
-    ///     callers follow — and it is deliberate.</b> <c>PaintSurface.Open</c> and
+    ///     ⚠
+    ///     <b>
+    ///         Every failure is thrown rather than returned, which is the opposite of the rule the
+    ///         callers follow — and it is deliberate.
+    ///     </b>
+    ///     <c>PaintSurface.Open</c> and
     ///     <c>TextureExternalImages</c> each turn a failure into a different sentence, naming the
     ///     layer and the relative path an artist wrote; a store that returned a message would be
     ///     writing one of those sentences for both, in a type that knows neither.
@@ -211,7 +234,7 @@ public sealed class PaintCanvasStore {
         // handle held across a 4K inflate is a handle an artist's save runs into, and on Windows a
         // writer that asks for the file alone is refused while any reader has it open.
         var bytes = ReadShared(absolute);
-        var canvas = PaintCanvas.Read(new MemoryStream(bytes, writable: false));
+        var canvas = PaintCanvas.Read(new MemoryStream(bytes, false));
 
         Reads++;
 
@@ -239,15 +262,21 @@ public sealed class PaintCanvasStore {
     /// <exception cref="ArgumentException"><paramref name="absolute" /> is blank.</exception>
     /// <remarks>
     ///     <para>
-    ///         <b>The last bullet of <a href="https://github.com/Rikarin/Vixen/issues/885">#885</a>,
-    ///         and it is worth as much as the canvas half because a preview runs on every edit.</b>
+    ///         <b>
+    ///             The last bullet of <a href="https://github.com/Rikarin/Vixen/issues/885">#885</a>,
+    ///             and it is worth as much as the canvas half because a preview runs on every edit.
+    ///         </b>
     ///         <c>TextureExternalImages</c> opened and decoded a texture-fill layer's PNG once per
     ///         evaluation — so a stack with four imported pictures decoded four of them per frame of
     ///         an opacity drag, none of which had changed.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Nothing is held for a file that does not exist, which is the asymmetry with a
-    ///         canvas.</b> An adopted canvas with no file is a layer whose first stroke is under the
+    ///         ⚠
+    ///         <b>
+    ///             Nothing is held for a file that does not exist, which is the asymmetry with a
+    ///             canvas.
+    ///         </b>
+    ///         An adopted canvas with no file is a layer whose first stroke is under the
     ///         pointer and is the whole point of <see cref="Adopt" />; an imported picture has no
     ///         in-memory writer, so an entry with no file could only ever be one nobody can refresh —
     ///         and it would be served as current for the rest of the session.
@@ -302,8 +331,12 @@ public sealed class PaintCanvasStore {
     /// <exception cref="ArgumentNullException">The canvas is null.</exception>
     /// <exception cref="ArgumentException">The path is blank.</exception>
     /// <remarks>
-    ///     ⚠ <b>A paint layer's first stroke creates its canvas in memory, and without this the
-    ///     second <c>PaintSurface.Open</c> of that same drag would create a second one.</b> The
+    ///     ⚠
+    ///     <b>
+    ///         A paint layer's first stroke creates its canvas in memory, and without this the
+    ///         second <c>PaintSurface.Open</c> of that same drag would create a second one.
+    ///     </b>
+    ///     The
     ///     stroke would then land in whichever of the two the pointer happened to be holding and the
     ///     pane would show the other.
     /// </remarks>
@@ -348,8 +381,12 @@ public sealed class PaintCanvasStore {
     /// <summary>Keeps one canvas whatever the budget says, or nothing.</summary>
     /// <param name="absolute">The path to hold, or <see langword="null" /> to hold none.</param>
     /// <remarks>
-    ///     ⚠ <b>What is pinned is the canvas a <c>PaintSurface</c> is painting into, and there is at
-    ///     most one.</b> A drag holds a <see cref="PaintCanvas" /> for as long as the pointer is
+    ///     ⚠
+    ///     <b>
+    ///         What is pinned is the canvas a <c>PaintSurface</c> is painting into, and there is at
+    ///         most one.
+    ///     </b>
+    ///     A drag holds a <see cref="PaintCanvas" /> for as long as the pointer is
     ///     down; an eviction of that entry would not lose the strokes — the surface holds the object
     ///     — but the next open would read the file and produce a <em>second</em> canvas for the same
     ///     layer, which is the divergence this whole type exists to remove.
@@ -374,8 +411,12 @@ public sealed class PaintCanvasStore {
 
     /// <summary>Drops every canvas.</summary>
     /// <remarks>
-    ///     ⚠ <b>Called when the module goes and when the open stack is replaced, because a canvas is
-    ///     the largest thing this plugin ever allocates.</b> <c>TexturingModule.Deactivate</c> says
+    ///     ⚠
+    ///     <b>
+    ///         Called when the module goes and when the open stack is replaced, because a canvas is
+    ///         the largest thing this plugin ever allocates.
+    ///     </b>
+    ///     <c>TexturingModule.Deactivate</c> says
     ///     the same of the one surface it holds; this is that decision for the rest of them.
     /// </remarks>
     public void Clear() {
@@ -423,8 +464,12 @@ public sealed class PaintCanvasStore {
     /// <param name="seen">The file's time and length now, from <see cref="Look" />.</param>
     /// <returns>Whether the entry may be served.</returns>
     /// <remarks>
-    ///     ⚠ <b>A digest that cannot be taken answers by the stamp, as the store did before it had
-    ///     one.</b> The file is there with the stamp it had — <see cref="Look" /> just saw it — so a
+    ///     ⚠
+    ///     <b>
+    ///         A digest that cannot be taken answers by the stamp, as the store did before it had
+    ///         one.
+    ///     </b>
+    ///     The file is there with the stamp it had — <see cref="Look" /> just saw it — so a
     ///     read that fails now is another program holding it, and a miss would throw away the open
     ///     canvas, the object a pinned surface is painting into, for a file nobody has shown changed.
     ///     The digest is kept, so the next ask checks again.

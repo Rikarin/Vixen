@@ -37,7 +37,7 @@ public class RasterizerTests {
         var ui = UiTest.Create(
             Side,
             Side,
-            new UiTestOptions { Background = Background }
+            new() { Background = Background }
         );
 
         ui.Load($"root {{ width: {Side}px; height: {Side}px; }} {css}");
@@ -90,28 +90,33 @@ public class RasterizerTests {
         using var ui = UiTest.Create(
             8,
             8,
-            new UiTestOptions { Background = new Color4(0.25f, 0.5f, 0.75f, 1f) }
+            new() { Background = new(0.25f, 0.5f, 0.75f, 1f) }
         );
 
         var image = ui.Capture();
 
         Assert.All(
             Enumerable.Range(0, 64),
-            i => Assert.Equal((Quantised(0.25f), Quantised(0.5f), Quantised(0.75f), (byte)255), Pixel(image, i % 8, i / 8))
+            i => Assert.Equal(
+                (Quantised(0.25f), Quantised(0.5f), Quantised(0.75f), (byte)255),
+                Pixel(image, i % 8, i / 8)
+            )
         );
     }
 
     [Fact]
     public void A_border_is_hollow() {
-        using var ui = Opened("""
-            .framed {
-                width: 30px;
-                height: 30px;
-                border-width: 3px;
-                border-style: solid;
-                border-color: #ffffff;
-            }
-        """);
+        using var ui = Opened(
+            """
+                .framed {
+                    width: 30px;
+                    height: 30px;
+                    border-width: 3px;
+                    border-style: solid;
+                    border-color: #ffffff;
+                }
+            """
+        );
 
         ui.Create("div", ui.Document.Root, null, "framed");
         ui.Frame();
@@ -143,10 +148,12 @@ public class RasterizerTests {
 
     [Fact]
     public void A_clip_removes_what_is_outside_it() {
-        using var ui = Opened("""
-            .window { width: 20px; height: 20px; overflow: hidden; }
-            .wide { position: absolute; left: 0; top: 0; width: 60px; height: 10px; background-color: #ffffff; }
-        """);
+        using var ui = Opened(
+            """
+                .window { width: 20px; height: 20px; overflow: hidden; }
+                .wide { position: absolute; left: 0; top: 0; width: 60px; height: 10px; background-color: #ffffff; }
+            """
+        );
 
         var window = ui.Create("div", ui.Document.Root, null, "window");
         ui.Create("div", window, null, "wide");
@@ -162,7 +169,9 @@ public class RasterizerTests {
 
     [Fact]
     public void Text_draws_ink_where_a_glyph_run_says_and_nowhere_else() {
-        using var ui = Opened(".label { width: 60px; height: 20px; font-family: Test; font-size: 16px; color: #ffffff; }");
+        using var ui = Opened(
+            ".label { width: 60px; height: 20px; font-family: Test; font-size: 16px; color: #ffffff; }"
+        );
         ui.Document.Fonts.Register("Test", LoadFont());
 
         var label = ui.Create("div", ui.Document.Root, null, "label");
@@ -231,8 +240,12 @@ public class RasterizerTests {
 
     /// <summary>An outline is drawn outside the border box, and the box keeps its own colour.</summary>
     /// <remarks>
-    ///     ⚠ <b>The claim a draw-list assertion cannot make, and the one an outline gets wrong in the
-    ///     way that is hardest to see.</b> A ring emitted at the right size and the wrong place — the
+    ///     ⚠
+    ///     <b>
+    ///         The claim a draw-list assertion cannot make, and the one an outline gets wrong in the
+    ///         way that is hardest to see.
+    ///     </b>
+    ///     A ring emitted at the right size and the wrong place — the
     ///     border box instead of outside it — produces a draw list with a <c>Border</c> command in it
     ///     of exactly the expected thickness and colour, so every assertion short of a pixel passes
     ///     while the picture is an ordinary border. The three positions below are what separate them:
@@ -241,14 +254,16 @@ public class RasterizerTests {
     /// </remarks>
     [Fact]
     public void An_outline_is_drawn_outside_the_box_and_not_on_it() {
-        using var ui = Opened("""
-            .ringed {
-                position: absolute; left: 20px; top: 20px; width: 20px; height: 20px;
-                background-color: #808080;
-                outline-width: 4px;
-                outline-color: #ffffff;
-            }
-        """);
+        using var ui = Opened(
+            """
+                .ringed {
+                    position: absolute; left: 20px; top: 20px; width: 20px; height: 20px;
+                    background-color: #808080;
+                    outline-width: 4px;
+                    outline-color: #ffffff;
+                }
+            """
+        );
 
         ui.Create("div", ui.Document.Root, null, "ringed");
         ui.Frame();
@@ -297,15 +312,17 @@ public class RasterizerTests {
     /// </remarks>
     [Fact]
     public void An_outline_offset_leaves_a_gap_between_the_box_and_the_ring() {
-        using var ui = Opened("""
-            .ringed {
-                position: absolute; left: 20px; top: 20px; width: 20px; height: 20px;
-                background-color: #808080;
-                outline-width: 2px;
-                outline-offset: 4px;
-                outline-color: #ffffff;
-            }
-        """);
+        using var ui = Opened(
+            """
+                .ringed {
+                    position: absolute; left: 20px; top: 20px; width: 20px; height: 20px;
+                    background-color: #808080;
+                    outline-width: 2px;
+                    outline-offset: 4px;
+                    outline-color: #ffffff;
+                }
+            """
+        );
 
         ui.Create("div", ui.Document.Root, null, "ringed");
         ui.Frame();
@@ -328,8 +345,12 @@ public class RasterizerTests {
     /// <summary>A logical corner radius follows the direction, rather than naming a fixed corner.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>This is the test that separates a reader from a rename, and nothing cheaper does
-    ///         it.</b> <c>border-start-start-radius</c> mapped statically onto
+    ///         ⚠
+    ///         <b>
+    ///             This is the test that separates a reader from a rename, and nothing cheaper does
+    ///             it.
+    ///         </b>
+    ///         <c>border-start-start-radius</c> mapped statically onto
     ///         <c>border-top-left-radius</c> passes every assertion about the <c>ltr</c> case — the
     ///         cascade carries the right length, the draw list carries the right corner, the picture
     ///         is right. It is wrong only under <c>direction: rtl</c>, where the inline axis is
@@ -388,8 +409,12 @@ public class RasterizerTests {
     /// <summary>Four different corners, checked by the area they remove rather than by four pixels.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A closed-form oracle, because a picture is what this is about and a pixel probe is
-    ///         not enough.</b> A quarter disc of radius <i>r</i> cut out of the square corner it sits
+    ///         ⚠
+    ///         <b>
+    ///             A closed-form oracle, because a picture is what this is about and a pixel probe is
+    ///             not enough.
+    ///         </b>
+    ///         A quarter disc of radius <i>r</i> cut out of the square corner it sits
     ///         in removes exactly <c>r²(1 − π/4)</c>, so a box with four different radii covers
     ///         <c>W·H − Σ rᵢ²(1 − π/4)</c> and nothing else — a number that moves when <i>any one</i>
     ///         corner does. Four probe pixels say only that something is missing near each corner;
@@ -438,7 +463,7 @@ public class RasterizerTests {
         Assert.Equal(4f, corners.BottomRight.X);
         Assert.Equal(0f, corners.BottomLeft.X);
 
-        var expected = (40f * 40f) - (Cut(16f) + Cut(8f) + Cut(4f) + Cut(0f));
+        var expected = 40f * 40f - (Cut(16f) + Cut(8f) + Cut(4f) + Cut(0f));
 
         Assert.Equal(expected, Covered(ui.Capture()), 2f);
     }
@@ -478,7 +503,7 @@ public class RasterizerTests {
     }
 
     /// <summary>How much area a quarter disc of this radius takes out of the corner it sits in.</summary>
-    static float Cut(float radius) => radius * radius * (1f - (MathF.PI / 4f));
+    static float Cut(float radius) => radius * radius * (1f - MathF.PI / 4f);
 
     /// <summary>The white box's area, summed from the coverage the rasteriser wrote.</summary>
     /// <remarks>
@@ -500,7 +525,7 @@ public class RasterizerTests {
 
     static FontFace LoadFont() {
         using var stream = Assembly.GetExecutingAssembly()
-            .GetManifestResourceStream("Vixen.Ui.Testing.Tests.Fonts.TestShapeLana.ttf")
+                .GetManifestResourceStream("Vixen.Ui.Testing.Tests.Fonts.TestShapeLana.ttf")
             ?? throw new InvalidOperationException("the test font is not embedded");
 
         using var memory = new MemoryStream();

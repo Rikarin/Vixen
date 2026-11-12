@@ -120,8 +120,8 @@ public static class TerrainWeightmap {
         var fx = sourceX - x0;
         var fz = sourceZ - z0;
 
-        var top = float.Lerp(bytes[(z0 * width) + x0], bytes[(z0 * width) + x1], fx);
-        var bottom = float.Lerp(bytes[(z1 * width) + x0], bytes[(z1 * width) + x1], fx);
+        var top = float.Lerp(bytes[z0 * width + x0], bytes[z0 * width + x1], fx);
+        var bottom = float.Lerp(bytes[z1 * width + x0], bytes[z1 * width + x1], fx);
 
         return (byte)Math.Clamp(MathF.Round(float.Lerp(top, bottom, fz)), 0f, TerrainWeights.Total);
     }

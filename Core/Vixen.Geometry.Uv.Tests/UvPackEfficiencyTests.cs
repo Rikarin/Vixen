@@ -15,8 +15,12 @@ namespace Vixen.Geometry.Uv.Tests;
 ///         twenty-five-thousand-triangle mesh measures at.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The criterion names <c>EffectiveEfficiency</c> and that field cannot carry the
-///         comparison, which is a finding rather than an excuse.</b> <see cref="UvReport" /> defines
+///         ⚠
+///         <b>
+///             The criterion names <c>EffectiveEfficiency</c> and that field cannot carry the
+///             comparison, which is a finding rather than an excuse.
+///         </b>
+///         <see cref="UvReport" /> defines
 ///         the pair as island-area-over-atlas before the margin and the same after it, so the second
 ///         one counts each island <i>plus the band it reserves</i> — and a bounding-box packer's band
 ///         is drawn around a bounding box. Measured on this corpus the rectangle rung reaches
@@ -55,9 +59,15 @@ public class UvPackEfficiencyTests(ITestOutputHelper output) {
         );
 
         output.WriteLine($"islands            {islands.Length}");
-        output.WriteLine($"rectangle  raw     {rectangle.PackingEfficiency:P2}   effective {rectangle.EffectiveEfficiency:P2}");
-        output.WriteLine($"irregular  raw     {irregular.PackingEfficiency:P2}   effective {irregular.EffectiveEfficiency:P2}");
-        output.WriteLine($"superpatch raw     {patched.PackingEfficiency:P2}   effective {patched.EffectiveEfficiency:P2}");
+        output.WriteLine(
+            $"rectangle  raw     {rectangle.PackingEfficiency:P2}   effective {rectangle.EffectiveEfficiency:P2}"
+        );
+        output.WriteLine(
+            $"irregular  raw     {irregular.PackingEfficiency:P2}   effective {irregular.EffectiveEfficiency:P2}"
+        );
+        output.WriteLine(
+            $"superpatch raw     {patched.PackingEfficiency:P2}   effective {patched.EffectiveEfficiency:P2}"
+        );
         output.WriteLine($"margin cost        {irregular.EffectiveEfficiency - irregular.PackingEfficiency:P2}");
 
         Assert.True(

@@ -43,57 +43,64 @@ partial class Build {
     /// </summary>
     const string ApiFramework = "net11.0";
 
-    Target CheckApi => definition => definition
-        .Description("Fails if a packable assembly's public surface differs from its committed baseline")
-        // Release, whatever `--configuration` says, and this gate is the reason CompileRelease
-        // hard-codes it. A public surface is a promise about a shipped package, `Pack` ships
-        // Release, and the two configurations do not agree: the engine has `public const bool`
-        // feature flags — LeakTracker.IsSupported, JobScheduler.SafetyChecksEnabled — whose values
-        // are `#if DEBUG`, exactly as intended. Baselining Debug would record `IsSupported = true`
-        // as the promise and fail every CI run; baselining Release and checking whatever the
-        // developer last built would fail on their machine instead. So the gate has one subject.
-        .DependsOn(CompileRelease)
-        .Executes(() => {
-                var projects = ApiCheckedProjects();
+    Target CheckApi =>
+        definition => definition
+            .Description("Fails if a packable assembly's public surface differs from its committed baseline")
+            // Release, whatever `--configuration` says, and this gate is the reason CompileRelease
+            // hard-codes it. A public surface is a promise about a shipped package, `Pack` ships
+            // Release, and the two configurations do not agree: the engine has `public const bool`
+            // feature flags — LeakTracker.IsSupported, JobScheduler.SafetyChecksEnabled — whose values
+            // are `#if DEBUG`, exactly as intended. Baselining Debug would record `IsSupported = true`
+            // as the promise and fail every CI run; baselining Release and checking whatever the
+            // developer last built would fail on their machine instead. So the gate has one subject.
+            .DependsOn(CompileRelease)
+            .Executes(() => {
+                    var projects = ApiCheckedProjects();
 
-                Assert.True(projects.Count > 0, "Found no packable projects to check — the glob is wrong.");
+                    Assert.True(projects.Count > 0, "Found no packable projects to check — the glob is wrong.");
 
-                var arguments = new List<string>();
+                    var arguments = new List<string>();
 
-                if (UpdateApi) {
-                    arguments.Add("--update");
-                }
+                    if (UpdateApi) {
+                        arguments.Add("--update");
+                    }
 
-                foreach (var project in projects) {
-                    var assembly = project.Parent / "bin" / Configuration.Release.ToString() / ApiFramework
-                        / $"{AssemblyNameOf(project)}.dll";
+                    foreach (var project in projects) {
+                        var assembly = project.Parent
+                            / "bin"
+                            / Configuration.Release.ToString()
+                            / ApiFramework
+                            / $"{AssemblyNameOf(project)}.dll";
 
-                    // Not a warning. An assembly that is not where the build put every other one is
-                    // either a project the glob should not have matched or a build that did not
-                    // happen, and both make this target pass by checking less than it says it does.
-                    Assert.FileExists(assembly, $"{project.NameWithoutExtension} has no built assembly at {assembly}.");
+                        // Not a warning. An assembly that is not where the build put every other one is
+                        // either a project the glob should not have matched or a build that did not
+                        // happen, and both make this target pass by checking less than it says it does.
+                        Assert.FileExists(
+                            assembly,
+                            $"{project.NameWithoutExtension} has no built assembly at {assembly}."
+                        );
 
-                    arguments.Add(assembly);
-                }
+                        arguments.Add(assembly);
+                    }
 
-                Log.Information("Checking the public surface of {Count} assemblies.", projects.Count);
+                    Log.Information("Checking the public surface of {Count} assemblies.", projects.Count);
 
-                DotNetRun(settings => settings
-                    .SetProjectFile(RootDirectory / "Tools" / "Vixen.ApiCheck" / "Vixen.ApiCheck.csproj")
-                    .SetConfiguration(Configuration.Release)
-                    .EnableNoRestore()
-                    .EnableNoBuild()
-                    .SetApplicationArguments(arguments)
-                );
-
-                if (UpdateApi) {
-                    Log.Warning(
-                        "The API baselines have been rewritten. Read the diff before committing: the "
-                        + "point of the file is that somebody approved what is in it."
+                    DotNetRun(settings => settings
+                        .SetProjectFile(RootDirectory / "Tools" / "Vixen.ApiCheck" / "Vixen.ApiCheck.csproj")
+                        .SetConfiguration(Configuration.Release)
+                        .EnableNoRestore()
+                        .EnableNoBuild()
+                        .SetApplicationArguments(arguments)
                     );
+
+                    if (UpdateApi) {
+                        Log.Warning(
+                            "The API baselines have been rewritten. Read the diff before committing: the "
+                            + "point of the file is that somebody approved what is in it."
+                        );
+                    }
                 }
-            }
-        );
+            );
 
     /// <summary>
     ///     The projects whose public surface is a promise: the RUNTIME profile of
@@ -117,8 +124,12 @@ partial class Build {
     ///         build, which is exactly the subject of this gate.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>"<c>Editor/</c> is applications" is true of three projects and false of
-    ///         twenty-two, which is #641 and is not settled here.</b> The <c>TOOLING</c> profile in
+    ///         ⚠
+    ///         <b>
+    ///             "<c>Editor/</c> is applications" is true of three projects and false of
+    ///             twenty-two, which is #641 and is not settled here.
+    ///         </b>
+    ///         The <c>TOOLING</c> profile in
     ///         <c>Directory.Build.props</c> sets no <c>IsPackable</c> at all, so every Editor project
     ///         takes the SDK's default of <em>true</em>: only <c>Vixen.Editor.App</c>,
     ///         <c>Vixen.Editor.Host</c> and <c>Vixen.Editor.Testing</c> opt out, and the two
@@ -154,8 +165,12 @@ partial class Build {
     ///     <para>
     ///         And <c>Vixen.Raven</c>, which is the second named exception. <c>Raven/</c> is
     ///         build-time tooling and is not covered as a folder — but the compiler is not the CLI
-    ///         around it. Its own <c>.csproj</c> says so: <em>"Shipped package: the compiler is
-    ///         useful on its own, without the engine"</em>, with a description, package tags and a
+    ///         around it. Its own <c>.csproj</c> says so:
+    ///         <em>
+    ///             "Shipped package: the compiler is
+    ///             useful on its own, without the engine"
+    ///         </em>
+    ///         , with a description, package tags and a
     ///         readme. It is the assembly with the most churn in the tree, and it was the one whose
     ///         entire surface — 4 913 entries — was approved by nothing, so every addition, removal
     ///         and signature change in it passed silently. The tests and the ANTLR oracle beside it

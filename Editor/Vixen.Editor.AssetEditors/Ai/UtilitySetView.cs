@@ -11,8 +11,12 @@ namespace Vixen.Editor.AssetEditors.Ai;
 /// <summary>A utility set, open for editing: a table of actions, a table of considerations, and a curve.</summary>
 /// <remarks>
 ///     <para>
-///         doc 37 § Part 5's utility editor, and the shape is the argument. <b>A utility set has no
-///         edges</b>: drawing it on a canvas would be a canvas whose wires all run from a column of
+///         doc 37 § Part 5's utility editor, and the shape is the argument.
+///         <b>
+///             A utility set has no
+///             edges
+///         </b>
+///         : drawing it on a canvas would be a canvas whose wires all run from a column of
 ///         inputs to a column of actions and carry nothing. So it is a two-pane table — actions on the
 ///         left with their scores as bars, the selected action's considerations on the right — and
 ///         under it the selected consideration's response curve.

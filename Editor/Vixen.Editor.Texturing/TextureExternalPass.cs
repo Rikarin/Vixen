@@ -2,8 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core.Imaging;
-using Vixen.Editor.Texturing.Painting;
-using Vixen.Texturing.Layers;
 using Vixen.Texturing.Painting;
 
 namespace Vixen.Editor.Texturing;
@@ -11,8 +9,11 @@ namespace Vixen.Editor.Texturing;
 /// <summary>What one fill has already asked the session's pixels about, keyed by absolute path.</summary>
 /// <remarks>
 ///     <para>
-///         <b><a href="https://github.com/Rikarin/Vixen/issues/981">#981</a>, and the syscalls it
-///         saves are the smaller half.</b> A plan carries one external per channel a layer writes,
+///         <b>
+///             <a href="https://github.com/Rikarin/Vixen/issues/981">#981</a>, and the syscalls it
+///             saves are the smaller half.
+///         </b>
+///         A plan carries one external per channel a layer writes,
 ///         and an unrestricted paint layer writes all seven of
 ///         <c>LayerStackDocument.DefaultChannels</c> — so <see cref="TextureExternalImages.Fill" />
 ///         asked <see cref="PaintCanvasStore" /> about the same file seven times per evaluation.
@@ -20,8 +21,12 @@ namespace Vixen.Editor.Texturing;
 ///         rather than a read, which is why this is worth a type rather than an alarm.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The half that is a correctness bug: seven stamps inside one evaluation can straddle
-///         a write.</b> A <c>.vxpaint</c> is a file other tools touch — a version-control checkout,
+///         ⚠
+///         <b>
+///             The half that is a correctness bug: seven stamps inside one evaluation can straddle
+///             a write.
+///         </b>
+///         A <c>.vxpaint</c> is a file other tools touch — a version-control checkout,
 ///         a second editor — and the store is honest about that by design: it re-reads whatever the
 ///         stamp says has changed. Asked twice across a write it therefore answers with two
 ///         <em>different</em> canvases, correctly, and the evaluation that asked builds one map out
@@ -29,8 +34,12 @@ namespace Vixen.Editor.Texturing;
 ///         see one file.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Failures are memoised too, and that is the same requirement rather than a
-///         nicety.</b> An unmemoised throw is a question re-asked, so a file that appears or goes
+///         ⚠
+///         <b>
+///             Failures are memoised too, and that is the same requirement rather than a
+///             nicety.
+///         </b>
+///         An unmemoised throw is a question re-asked, so a file that appears or goes
 ///         mid-pass splits the evaluation exactly as a rewrite does — and the caller composes the
 ///         sentence, so what is held here is the exception's message and not the sentence. Two
 ///         channels of one file are one answer whichever way that answer came out.
@@ -62,7 +71,9 @@ sealed class TextureExternalPass(PaintCanvasStore canvases) {
         try {
             answer = (canvases.Open(absolute), null);
         } catch (Exception failure) when (failure is IOException
-            or InvalidDataException or UnauthorizedAccessException or EndOfStreamException) {
+                                              or InvalidDataException
+                                              or UnauthorizedAccessException
+                                              or EndOfStreamException) {
             answer = (null, failure.Message);
         }
 
@@ -86,8 +97,10 @@ sealed class TextureExternalPass(PaintCanvasStore canvases) {
                     return true;
                 }
             } catch (Exception failure) when (failure is IOException
-                or InvalidDataException or NotSupportedException or ArgumentException
-                or UnauthorizedAccessException) {
+                                                  or InvalidDataException
+                                                  or NotSupportedException
+                                                  or ArgumentException
+                                                  or UnauthorizedAccessException) {
                 return true;
             }
         }
@@ -109,8 +122,10 @@ sealed class TextureExternalPass(PaintCanvasStore canvases) {
         try {
             answer = (canvases.Picture(absolute, decode), null);
         } catch (Exception failure) when (failure is IOException
-            or InvalidDataException or NotSupportedException or ArgumentException
-            or UnauthorizedAccessException) {
+                                              or InvalidDataException
+                                              or NotSupportedException
+                                              or ArgumentException
+                                              or UnauthorizedAccessException) {
             answer = (null, failure.Message);
         }
 

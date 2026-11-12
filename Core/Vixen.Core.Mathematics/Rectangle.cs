@@ -78,7 +78,7 @@ public readonly struct Rectangle : IEquatable<Rectangle>, IFormattable {
     public Vector2 Size => new(Width, Height);
 
     /// <summary>The midpoint.</summary>
-    public Vector2 Center => new(X + (Width * 0.5f), Y + (Height * 0.5f));
+    public Vector2 Center => new(X + Width * 0.5f, Y + Height * 0.5f);
 
     /// <summary>Whether the rectangle encloses nothing.</summary>
     public bool IsEmpty => Width <= 0f || Height <= 0f;
@@ -90,8 +90,7 @@ public readonly struct Rectangle : IEquatable<Rectangle>, IFormattable {
     ///     Half-open: the top and left edges are inside, the bottom and right are not. That is what
     ///     makes adjacent rectangles tile without a seam and without double-counting a hit.
     /// </remarks>
-    public bool Contains(Vector2 point) =>
-        point.X >= X && point.X < Right && point.Y >= Y && point.Y < Bottom;
+    public bool Contains(Vector2 point) => point.X >= X && point.X < Right && point.Y >= Y && point.Y < Bottom;
 
     /// <summary>Whether another rectangle is entirely inside this one.</summary>
     /// <param name="other">The rectangle to test.</param>
@@ -145,8 +144,8 @@ public readonly struct Rectangle : IEquatable<Rectangle>, IFormattable {
         new(
             rectangle.X - horizontal,
             rectangle.Y - vertical,
-            rectangle.Width + (horizontal * 2f),
-            rectangle.Height + (vertical * 2f)
+            rectangle.Width + horizontal * 2f,
+            rectangle.Height + vertical * 2f
         );
 
     /// <summary>Moves the rectangle.</summary>

@@ -14,16 +14,23 @@ namespace Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>The half of <a href="https://github.com/Rikarin/Vixen/issues/709">#709</a> that was left
-///         over.</b> The atlas bleed was fixed in both kernels and <c>TileSampler</c>'s nine silent
+///         <b>
+///             The half of <a href="https://github.com/Rikarin/Vixen/issues/709">#709</a> that was left
+///             over.
+///         </b>
+///         The atlas bleed was fixed in both kernels and <c>TileSampler</c>'s nine silent
 ///         uniforms were given closed forms; <c>Splatter</c> got the <c>patternCount</c> row of that
 ///         and nothing else, so its scale jitter, rotation, rotation jitter, colour jitter, size map
 ///         and placement map still had no behavioural assertion anywhere — a kernel ignoring any of
 ///         them passed.
 ///     </para>
 ///     <para>
-///         ⚠ <b>They are not <c>TileSampler</c>'s tests with a different builder, because the two
-///         kernels differ where it matters here.</b> A <c>TileSampler</c> instance sits at a cell
+///         ⚠
+///         <b>
+///             They are not <c>TileSampler</c>'s tests with a different builder, because the two
+///             kernels differ where it matters here.
+///         </b>
+///         A <c>TileSampler</c> instance sits at a cell
 ///         centre, so a 1×1 grid at full scale puts the stamp exactly on the image and its rotation
 ///         can be asserted as an exact transpose. A <c>Splatter</c> instance sits wherever its seed
 ///         put it, so every assertion in this file has to be <b>invariant under a translation</b> —
@@ -48,8 +55,11 @@ public class TextureSplatterParameterDeviceTests(ITestOutputHelper output) {
     /// <summary>How bright the pattern is, and ⚠ the reason none of these numbers is 0.25.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>A splatter is Poisson and an <c>Rgba8</c> target clamps, so a white pattern does not
-    ///         have the closed form it looks like it has.</b> Instances land independently rather than
+    ///         <b>
+    ///             A splatter is Poisson and an <c>Rgba8</c> target clamps, so a white pattern does not
+    ///             have the closed form it looks like it has.
+    ///         </b>
+    ///         Instances land independently rather than
     ///         one to a cell, so at a coverage of <c>λ</c> a texel carries <c>Poisson(λ)</c> stamps and
     ///         the sum that survives the store is <c>E[min(X, 1)] = 1 − e^(−λ)</c>: for
     ///         <c>λ = 0.25</c> that is 0.2212, and the first version of this file measured 0.2210
@@ -104,16 +114,16 @@ public class TextureSplatterParameterDeviceTests(ITestOutputHelper output) {
         try {
             using var evaluator = new TexturePlanEvaluator(device);
 
-            var still = Mean(Bake(evaluator, texture, mask: 0, placementAmount: 0f, map: 0f), 0);
-            var pushed = Mean(Bake(evaluator, texture, mask: 0, placementAmount: 1f, map: 1f), 0);
-            var unmasked = Mean(Bake(evaluator, texture, mask: 1, placementAmount: 0f, map: 0f), 0);
+            var still = Mean(Bake(evaluator, texture, 0, 0f, 0f), 0);
+            var pushed = Mean(Bake(evaluator, texture, 0, 1f, 1f), 0);
+            var unmasked = Mean(Bake(evaluator, texture, 1, 0f, 0f), 0);
 
             output.WriteLine($"still {still:0.0000}, pushed {pushed:0.0000}, unmasked {unmasked:0.0000}");
 
             Assert.True(
                 unmasked - still > still * 0.4f,
                 $"the masked bake covers {still:0.0000} and the unmasked one {unmasked:0.0000}, which is not a "
-                + $"mask that culls anything — so this fixture cannot see the defect it is about "
+                + "mask that culls anything — so this fixture cannot see the defect it is about "
                 + $"({TextureKernelHarness.Adapter(device)})"
             );
 
@@ -121,7 +131,7 @@ public class TextureSplatterParameterDeviceTests(ITestOutputHelper output) {
                 Math.Abs(pushed - still) <= still * 0.1f,
                 $"pushing every instance by exactly one period covers {pushed:0.0000} against {still:0.0000} "
                 + $"unpushed, and {unmasked:0.0000} is what reading the mask's clamped corner for every "
-                + $"instance gives — so the map lookup does not wrap with the geometry "
+                + "instance gives — so the map lookup does not wrap with the geometry "
                 + $"({TextureKernelHarness.Adapter(device)})"
             );
         } finally {
@@ -195,7 +205,7 @@ public class TextureSplatterParameterDeviceTests(ITestOutputHelper output) {
         Assert.True(
             different <= Side * Side / 100,
             $"{different} of {Side * Side} texels disagree with the same picture slid {Shift} texels, so the "
-            + $"placement map does not move an instance by what it decodes to "
+            + "placement map does not move an instance by what it decodes to "
             + $"({TextureKernelHarness.Adapter(device)})"
         );
     }
@@ -224,9 +234,9 @@ public class TextureSplatterParameterDeviceTests(ITestOutputHelper output) {
             TexturePlacement.Splatter(
                 1,
                 0,
-                count: Many,
-                scale: Small,
-                scaleJitter: jitter,
+                Many,
+                Small,
+                jitter,
                 accumulation: TexturePlacementAccumulation.Add
             ),
             0
@@ -261,8 +271,8 @@ public class TextureSplatterParameterDeviceTests(ITestOutputHelper output) {
         var op = TexturePlacement.Splatter(
             1,
             0,
-            count: Many,
-            scale: Small,
+            Many,
+            Small,
             colourJitter: jitter,
             accumulation: TexturePlacementAccumulation.Add
         );
@@ -310,13 +320,13 @@ public class TextureSplatterParameterDeviceTests(ITestOutputHelper output) {
                 TextureSources.Uniform(1, 0.5f),
                 TexturePlacement.Splatter(
                     2,
-                    pattern: 0,
-                    mask: 0,
-                    sizeMap: 1,
-                    rotationMap: 1,
-                    placement: 1,
-                    count: Many,
-                    scale: Small,
+                    0,
+                    0,
+                    1,
+                    1,
+                    1,
+                    Many,
+                    Small,
                     sizeMapAmount: amount,
                     accumulation: TexturePlacementAccumulation.Add
                 )
@@ -374,8 +384,8 @@ public class TextureSplatterParameterDeviceTests(ITestOutputHelper output) {
         try {
             using var evaluator = new TexturePlanEvaluator(device);
 
-            var upright = Bake(turn: false);
-            var turned = Bake(turn: true);
+            var upright = Bake(false);
+            var turned = Bake(true);
 
             var (uprightX, uprightY) = Variation(upright);
             var (turnedX, turnedY) = Variation(turned);
@@ -411,13 +421,13 @@ public class TextureSplatterParameterDeviceTests(ITestOutputHelper output) {
                         TextureSources.Uniform(1, turn && mapped ? 0.25f : 0f),
                         TexturePlacement.Splatter(
                             2,
-                            pattern: 0,
-                            mask: 0,
-                            sizeMap: 0,
-                            rotationMap: 1,
-                            placement: 1,
-                            count: 1,
-                            scale: 1f,
+                            0,
+                            0,
+                            0,
+                            1,
+                            1,
+                            1,
+                            1f,
                             rotation: turn && !mapped ? MathF.PI / 2f : 0f,
                             alphaCoverage: true,
                             rotationMapAmount: mapped ? MathF.Tau : 0f
@@ -500,8 +510,8 @@ public class TextureSplatterParameterDeviceTests(ITestOutputHelper output) {
                         TexturePlacement.Splatter(
                             1,
                             0,
-                            count: 32,
-                            scale: 0.125f,
+                            32,
+                            0.125f,
                             rotationJitter: jitter,
                             alphaCoverage: true,
                             accumulation: TexturePlacementAccumulation.Add
@@ -545,13 +555,13 @@ public class TextureSplatterParameterDeviceTests(ITestOutputHelper output) {
                 TextureSources.Uniform(2, map),
                 TexturePlacement.Splatter(
                     3,
-                    pattern: 1,
-                    mask: mask,
-                    sizeMap: 1,
-                    rotationMap: 1,
-                    placement: 2,
-                    count: Many,
-                    scale: Small,
+                    1,
+                    mask,
+                    1,
+                    1,
+                    2,
+                    Many,
+                    Small,
                     maskThreshold: 0.5f,
                     placementAmount: placementAmount,
                     accumulation: TexturePlacementAccumulation.Add
@@ -579,13 +589,13 @@ public class TextureSplatterParameterDeviceTests(ITestOutputHelper output) {
                 TextureSources.Uniform(1, map),
                 TexturePlacement.Splatter(
                     2,
-                    pattern: 0,
-                    mask: 0,
-                    sizeMap: 0,
-                    rotationMap: 1,
-                    placement: 1,
-                    count: 16,
-                    scale: 0.25f,
+                    0,
+                    0,
+                    0,
+                    1,
+                    1,
+                    16,
+                    0.25f,
                     placementAmount: placementAmount
                 )
             ],
@@ -651,8 +661,8 @@ public class TextureSplatterParameterDeviceTests(ITestOutputHelper output) {
 
         for (var y = 0; y < side; y++) {
             for (var x = 0; x < side; x++) {
-                var at = ((y * side) + x) * 4;
-                var value = (byte)((x / 8) % 2 == 0 ? 0 : 255);
+                var at = (y * side + x) * 4;
+                var value = (byte)(x / 8 % 2 == 0 ? 0 : 255);
 
                 pixels[at] = value;
                 pixels[at + 1] = value;
@@ -670,7 +680,7 @@ public class TextureSplatterParameterDeviceTests(ITestOutputHelper output) {
 
         for (var y = 0; y < side; y++) {
             for (var x = 0; x < side; x++) {
-                var at = ((y * side) + x) * 4;
+                var at = (y * side + x) * 4;
                 var value = (byte)(x < side / 2 ? 0 : 255);
 
                 pixels[at] = value;

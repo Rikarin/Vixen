@@ -20,8 +20,12 @@ namespace Vixen.ApiCheck.Tests;
 ///         (<a href="https://github.com/Rikarin/Vixen/issues/1165">#1165</a>).
 ///     </para>
 ///     <para>
-///         ⚠ <b>Both directions, and a subject set, because a rule with no positives is satisfied by
-///         exactly the defect it is meant to catch.</b> The fixtures below make it fire and make it
+///         ⚠
+///         <b>
+///             Both directions, and a subject set, because a rule with no positives is satisfied by
+///             exactly the defect it is meant to catch.
+///         </b>
+///         The fixtures below make it fire and make it
 ///         go quiet; the repository pass asserts that the subject set is non-empty <em>and</em> that
 ///         something is actually packaged, so a walk that stopped understanding
 ///         <c>TargetsForTfmSpecificContentInPackage</c> reports "everything is an offender" rather
@@ -178,7 +182,7 @@ public class GeneratorPackagingRuleTests {
                 root,
                 "Vixen.Fixture",
                 "  <Target Name=\"PackIt\">\n"
-                + "    <MSBuild Projects=\"..\\Vixen.Fixture.Generators\\Vixen.Fixture.Generators.csproj\" "
+                + """    <MSBuild Projects="..\Vixen.Fixture.Generators\Vixen.Fixture.Generators.csproj" """
                 + "Targets=\"GetTargetPath\" />\n"
                 + "  </Target>\n"
             );
@@ -205,7 +209,7 @@ public class GeneratorPackagingRuleTests {
                 root,
                 "Vixen.Fixture",
                 "  <ItemGroup>\n"
-                + "    <ProjectReference Include=\"..\\Vixen.Fixture.Generators\\Vixen.Fixture.Generators.csproj\" "
+                + """    <ProjectReference Include="..\Vixen.Fixture.Generators\Vixen.Fixture.Generators.csproj" """
                 + "OutputItemType=\"Analyzer\" ReferenceOutputAssembly=\"false\" />\n"
                 + "  </ItemGroup>\n"
             );
@@ -247,7 +251,7 @@ public class GeneratorPackagingRuleTests {
             File.WriteAllText(list, "Vixen.Other.Generators a library packs it, so this line is stale\n");
             var stale = GeneratorPackagingRule.Violations(root, projects);
             Assert.Equal(2, stale.Count);
-            Assert.Contains(stale, message => message.Contains("can only shrink", StringComparison.Ordinal));
+            Assert.Contains(stale, static message => message.Contains("can only shrink", StringComparison.Ordinal));
         } finally {
             Directory.Delete(root, true);
         }
@@ -279,8 +283,12 @@ public class GeneratorPackagingRuleTests {
     ///     The libraries that carry a generator today, named rather than counted.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>The list a reader of #1165's table would want, and the one thing a count cannot
-    ///     say.</b> Ten of the thirteen generators in the tree are packed by a library; the three
+    ///     ⚠
+    ///     <b>
+    ///         The list a reader of #1165's table would want, and the one thing a count cannot
+    ///         say.
+    ///     </b>
+    ///     Ten of the thirteen generators in the tree are packed by a library; the three
     ///     that are not are in <c>docs/GeneratorPackagingExempt.txt</c> with a reason each. A
     ///     generator added without either is a violation above; this case is what makes a generator
     ///     silently dropped from a pack target fail with the name of the generator rather than with a

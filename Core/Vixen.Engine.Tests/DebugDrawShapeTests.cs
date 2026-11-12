@@ -169,7 +169,7 @@ public sealed class DebugDrawShapeTests {
     [Fact]
     public void AFillIsScanlinesInsideTheRectangle() {
         var draw = new DebugDraw();
-        draw.ScreenFill(new(10f, 20f), new(100f, 10f), Color4.White, spacing: 2f);
+        draw.ScreenFill(new(10f, 20f), new(100f, 10f), Color4.White, 2f);
 
         Assert.Equal(5, draw.ScreenCount);
 
@@ -183,7 +183,7 @@ public sealed class DebugDrawShapeTests {
     [Fact]
     public void ScreenTextBecomesScreenLinesImmediately() {
         var draw = new DebugDraw();
-        draw.ScreenText(new(4f, 8f), "AB", Color4.White, size: 10f);
+        draw.ScreenText(new(4f, 8f), "AB", Color4.White, 10f);
 
         Assert.Equal(DebugFont.SegmentCount("AB"), draw.ScreenCount);
         Assert.Equal(0, draw.TextCount);
@@ -217,7 +217,7 @@ public sealed class DebugDrawShapeTests {
     [Fact]
     public void TimedScreenGeometryAndLabelsOutliveAFrame() {
         var draw = new DebugDraw();
-        draw.ScreenLine(Vector2.Zero, Vector2.One, Color4.White, seconds: 1f);
+        draw.ScreenLine(Vector2.Zero, Vector2.One, Color4.White, 1f);
         draw.Text(Vector3.Zero, "hello", Color4.White, seconds: 1f);
 
         draw.Advance(1f / 60f);

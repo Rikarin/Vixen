@@ -36,10 +36,10 @@ public class AnimationTests {
     ///     ⚠ <c>#box</c> declares a height and no width; the width exists only in the keyframes.
     /// </summary>
     const string Css = """
-        root { width: 400px; height: 200px; }
-        @keyframes grow { from { width: 10px } to { width: 110px } }
-        #box { height: 20px; animation: grow 200ms linear; }
-        """;
+                       root { width: 400px; height: 200px; }
+                       @keyframes grow { from { width: 10px } to { width: 110px } }
+                       #box { height: 20px; animation: grow 200ms linear; }
+                       """;
 
     static UiElement Settled(UiDocument document, string css) {
         document.Load(css);
@@ -83,8 +83,12 @@ public class AnimationTests {
     /// <summary>The element's own declaration is what the animation overrides, when it has one.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The mirror of the test above, and it is what stops the fix being "append whatever
-    ///         the keyframes name".</b> A property the cascade <i>did</i> set must still be overlaid
+    ///         ⚠
+    ///         <b>
+    ///             The mirror of the test above, and it is what stops the fix being "append whatever
+    ///             the keyframes name".
+    ///         </b>
+    ///         A property the cascade <i>did</i> set must still be overlaid
     ///         in place rather than appended a second time — <c>ComputedStyle</c> is a sorted table
     ///         read by binary search, and a duplicated key resolves to whichever of the pair the
     ///         search happens to land on.

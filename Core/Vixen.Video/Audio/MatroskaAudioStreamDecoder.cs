@@ -199,7 +199,7 @@ public sealed class MatroskaAudioStreamDecoder : IAudioStreamDecoder {
             return false;
         }
 
-        stream = new MatroskaAudioStreamDecoder(demuxer, track, decoder);
+        stream = new(demuxer, track, decoder);
 
         return true;
     }

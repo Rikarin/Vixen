@@ -41,7 +41,7 @@ public sealed class ScriptedWalkTests {
         var walk = ScriptedWalk.Parse("14");
 
         Assert.Equal(14f, walk.Duration);
-        Assert.Equal(new ScriptedWalk.Leg(14f), Assert.Single(walk.Legs));
+        Assert.Equal(new(14f), Assert.Single(walk.Legs));
     }
 
     [Fact]
@@ -49,8 +49,8 @@ public sealed class ScriptedWalkTests {
         var walk = ScriptedWalk.Parse("2:0:0:90; 6:1:0.5:-20:5");
 
         Assert.Equal(8f, walk.Duration);
-        Assert.Equal(new ScriptedWalk.Leg(2f, 0f, 0f, 90f), walk.Legs[0]);
-        Assert.Equal(new ScriptedWalk.Leg(6f, 1f, 0.5f, -20f, 5f), walk.Legs[1]);
+        Assert.Equal(new(2f, 0f, 0f, 90f), walk.Legs[0]);
+        Assert.Equal(new(6f, 1f, 0.5f, -20f, 5f), walk.Legs[1]);
     }
 
     [Theory]
@@ -101,7 +101,7 @@ public sealed class ScriptedWalkTests {
         walk.Sample(ref rotation, ref intent, 0f);
 
         Assert.Equal(0d, walk.Elapsed);
-        Assert.Equal(new Vector2(0f, 1f), intent.Move);
+        Assert.Equal(new(0f, 1f), intent.Move);
     }
 
     [Fact]

@@ -15,8 +15,8 @@ public class MeshSurfaceTests {
         var small = MeshShapes.Create(new ShapeParameters { Kind = ShapeKind.Box, Size = new(2f, 3f, 0.2f) });
         var large = MeshShapes.Create(new ShapeParameters { Kind = ShapeKind.Box, Size = new(8f, 3f, 0.2f) });
 
-        MeshSurfaces.Project(small, null, UvProjection.World);
-        MeshSurfaces.Project(large, null, UvProjection.World);
+        MeshSurfaces.Project(small, null);
+        MeshSurfaces.Project(large, null);
 
         Assert.Equal(Span(small, MeshShapes.GroupFront).Y, Span(large, MeshShapes.GroupFront).Y, 3);
 
@@ -50,7 +50,7 @@ public class MeshSurfaceTests {
     public void Only_the_faces_named_are_mapped() {
         var mesh = MeshShapes.Create(ShapeKind.Box);
 
-        MeshSurfaces.Project(mesh, [0], UvProjection.Box, scale: 0.5f);
+        MeshSurfaces.Project(mesh, [0], UvProjection.Box, 0.5f);
 
         var untouched = mesh.Faces[1];
 
@@ -66,8 +66,8 @@ public class MeshSurfaceTests {
         var one = MeshShapes.Create(new ShapeParameters { Kind = ShapeKind.Box, Size = new(4f, 4f, 4f) });
         var two = MeshShapes.Create(new ShapeParameters { Kind = ShapeKind.Box, Size = new(4f, 4f, 4f) });
 
-        MeshSurfaces.Project(one, null, UvProjection.Box, scale: 1f);
-        MeshSurfaces.Project(two, null, UvProjection.Box, scale: 2f);
+        MeshSurfaces.Project(one, null, UvProjection.Box);
+        MeshSurfaces.Project(two, null, UvProjection.Box, 2f);
 
         Assert.Equal(Span(one, MeshShapes.GroupFront).X / 2f, Span(two, MeshShapes.GroupFront).X, 3);
     }
@@ -122,7 +122,7 @@ public class MeshSurfaceTests {
         var neighbour = mesh.TexCoords[mesh.Faces[1].Start];
         var before = mesh.TexCoords[mesh.Faces[0].Start];
 
-        MeshSurfaces.Transform(mesh, [0], offset: new(0.25f, -0.5f));
+        MeshSurfaces.Transform(mesh, [0], new(0.25f, -0.5f));
 
         Assert.Equal(before + new Vector2(0.25f, -0.5f), mesh.TexCoords[mesh.Faces[0].Start]);
         Assert.Equal(neighbour, mesh.TexCoords[mesh.Faces[1].Start]);
@@ -140,14 +140,14 @@ public class MeshSurfaceTests {
         // difference between a cylinder and a very lumpy sphere.
         Assert.Equal(1, groups);
 
-        var wall = mesh.Faces.Where(face => face.Group == MeshShapes.GroupSide).ToList();
+        var wall = mesh.Faces.Where(static face => face.Group == MeshShapes.GroupSide).ToList();
 
         Assert.Equal(24, wall.Count);
-        Assert.All(wall, face => Assert.NotEqual(0, face.Smoothing));
+        Assert.All(wall, static face => Assert.NotEqual(0, face.Smoothing));
 
         Assert.All(
-            mesh.Faces.Where(face => face.Group != MeshShapes.GroupSide),
-            face => Assert.Equal(0, face.Smoothing)
+            mesh.Faces.Where(static face => face.Group != MeshShapes.GroupSide),
+            static face => Assert.Equal(0, face.Smoothing)
         );
     }
 
@@ -156,7 +156,7 @@ public class MeshSurfaceTests {
         var mesh = MeshShapes.Create(ShapeKind.Box);
 
         Assert.Equal(0, MeshSurfaces.AutoSmooth(mesh));
-        Assert.All(mesh.Faces, face => Assert.Equal(0, face.Smoothing));
+        Assert.All(mesh.Faces, static face => Assert.Equal(0, face.Smoothing));
     }
 
     [Fact]
@@ -171,8 +171,8 @@ public class MeshSurfaceTests {
 
         var smooth = MeshSurfaces.Normals(mesh);
 
-        var wall = mesh.Faces.Index().First(entry => entry.Item.Group == MeshShapes.GroupSide);
-        var cap = mesh.Faces.Index().First(entry => entry.Item.Group == MeshShapes.GroupTop);
+        var wall = mesh.Faces.Index().First(static entry => entry.Item.Group == MeshShapes.GroupSide);
+        var cap = mesh.Faces.Index().First(static entry => entry.Item.Group == MeshShapes.GroupTop);
 
         // The wall's corners moved off the face normal, which is the whole of what smoothing is.
         Assert.NotEqual(flat[wall.Item.Start], smooth[wall.Item.Start]);
@@ -191,14 +191,14 @@ public class MeshSurfaceTests {
 
         MeshSurfaces.AutoSmooth(mesh);
 
-        var top = mesh.Faces.Index().First(entry => entry.Item.Group == MeshShapes.GroupTop);
+        var top = mesh.Faces.Index().First(static entry => entry.Item.Group == MeshShapes.GroupTop);
 
         MeshOperations.Extrude(mesh, [top.Index], 2f);
 
         // ⚠ A verb that carried the group and dropped the smoothing would give back a cylinder that
         // is materialled correctly and faceted, which reads as a renderer bug rather than as the
         // extrude that caused it. Every operation carries both — see `MeshLoop`.
-        Assert.Contains(mesh.Faces, face => face.Group == MeshShapes.GroupSide && face.Smoothing != 0);
+        Assert.Contains(mesh.Faces, static face => face.Group == MeshShapes.GroupSide && face.Smoothing != 0);
     }
 
     /// <summary>How far a group's coordinates run, on each axis.</summary>

@@ -82,6 +82,7 @@ public class PipelineCachePathTests {
         public ValueTask<bool> RequestPermissionAsync(
             PermissionKind permission,
             CancellationToken cancellationToken = default
-        ) => ValueTask.FromResult(true);
+        ) =>
+            ValueTask.FromResult(true);
     }
 }

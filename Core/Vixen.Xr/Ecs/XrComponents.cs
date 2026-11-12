@@ -80,9 +80,6 @@ public struct XrTrackedPose {
     /// <summary>Following a device with both position and rotation.</summary>
     /// <param name="device">What to follow.</param>
     /// <returns>The component.</returns>
-    public static XrTrackedPose Following(XrTrackedDevice device) => new() {
-        Device = device,
-        ApplyPosition = true,
-        ApplyRotation = true
-    };
+    public static XrTrackedPose Following(XrTrackedDevice device) =>
+        new() { Device = device, ApplyPosition = true, ApplyRotation = true };
 }

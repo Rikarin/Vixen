@@ -49,7 +49,7 @@ public sealed class VideoRenderTarget : IDisposable {
     /// <param name="name">A name for the debugger and captures.</param>
     /// <exception cref="ArgumentNullException"><paramref name="device" /> is null.</exception>
     public VideoRenderTarget(IGraphicsDevice device, VideoShaders shaders, string name = "video target")
-        : this(device, new VideoRenderer(device, shaders, new RenderOutput([Format]), name), true, name) { }
+        : this(device, new(device, shaders, new RenderOutput([Format]), name), true, name) { }
 
     /// <summary>Builds a target over a renderer somebody else owns.</summary>
     /// <param name="device">Where it lives.</param>
@@ -144,7 +144,7 @@ public sealed class VideoRenderTarget : IDisposable {
                 // Cleared rather than loaded: the video covers the whole target by construction, so
                 // there is nothing underneath worth keeping and a load is a read of the whole texture
                 // to be overwritten.
-                [new ColourAttachment(View, LoadAction.Clear, StoreAction.Store, new Color4(0f, 0f, 0f, 1f))],
+                [new ColourAttachment(View, LoadAction.Clear, StoreAction.Store, new(0f, 0f, 0f, 1f))],
                 name: name
             )
         );
@@ -153,7 +153,7 @@ public sealed class VideoRenderTarget : IDisposable {
 
         var drawn = renderer.Record(
             commands,
-            VideoDraw.Filling(planes, new Rectangle(0, 0, size.X, size.Y)),
+            VideoDraw.Filling(planes, new(0, 0, size.X, size.Y)),
             size
         );
 
@@ -193,7 +193,7 @@ public sealed class VideoRenderTarget : IDisposable {
         Destroy();
 
         Texture = device.CreateTexture(
-            new TextureDescription(
+            new(
                 Format,
                 size.X,
                 size.Y,

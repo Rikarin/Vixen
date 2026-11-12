@@ -4,7 +4,6 @@
 using Vixen.Core;
 using Vixen.Core.Mathematics;
 using Vixen.Core.Threading;
-using Vixen.Ecs;
 using Vixen.Ecs.Systems;
 using Vixen.Engine.Transforms;
 using Vixen.Physics.Ecs;
@@ -16,8 +15,12 @@ namespace Vixen.Terrain.Physics;
 /// <summary>Gives every terrain in the world a collider: one height-field shape per tile.</summary>
 /// <remarks>
 ///     <para>
-///         <b>[31 § D10](../../docs/plan/31-terrain-grass-and-trees.md#d10-collision-is-the-heightfield-and-trees-are-collided-within-a-radius),
-///         and the call that was missing.</b> Every piece of this path was built and tested and
+///         <b>
+///             [31 §
+///             D10](../../docs/plan/31-terrain-grass-and-trees.md#d10-collision-is-the-heightfield-and-trees-are-collided-within-a-radius),
+///             and the call that was missing.
+///         </b>
+///         Every piece of this path was built and tested and
 ///         nothing joined them: <c>PhysicsShapes.HeightField</c> registers the Jolt shape,
 ///         <c>TerrainSamples.FillCollisionSamples</c> produces exactly the span it consumes — metres,
 ///         row-major, holes as the caller's sentinel — and <c>ITerrainPlacements</c> says where the
@@ -37,8 +40,12 @@ namespace Vixen.Terrain.Physics;
 ///         and an overlap is two surfaces at identical heights, which Jolt resolves as one.
 ///     </para>
 ///     <para>
-///         ⚠ <b>It asks every frame rather than building once, and that is the whole reason it is a
-///         system.</b> A <c>.vxterrain</c> is tens of megabytes: <c>ITerrainAssetSource</c> starts a
+///         ⚠
+///         <b>
+///             It asks every frame rather than building once, and that is the whole reason it is a
+///             system.
+///         </b>
+///         A <c>.vxterrain</c> is tens of megabytes: <c>ITerrainAssetSource</c> starts a
 ///         load and answers null for several frames, so a one-shot call at level load gets nothing
 ///         and builds nothing, silently. Once a terrain has bodies the per-frame cost is one integer
 ///         compare per tile.
@@ -222,8 +229,12 @@ public sealed class TerrainColliderSystem(PhysicsScene scene, ITerrainPlacements
     /// <param name="rect">Which samples moved.</param>
     /// <returns>Whether the terrain had colliders to rebuild.</returns>
     /// <remarks>
-    ///     ⚠ <b>Through <see cref="TerrainDescription.TilesOf" />, which answers with <em>both</em>
-    ///     tiles for a sample on a boundary.</b> A stroke along a tile edge that rebuilt only one side
+    ///     ⚠
+    ///     <b>
+    ///         Through <see cref="TerrainDescription.TilesOf" />, which answers with <em>both</em>
+    ///         tiles for a sample on a boundary.
+    ///     </b>
+    ///     A stroke along a tile edge that rebuilt only one side
     ///     leaves a strip of collision that disagrees with the ground beside it by whatever the stroke
     ///     moved — a lip the player trips on, on a seam nothing draws.
     /// </remarks>
@@ -302,7 +313,7 @@ public sealed class TerrainColliderSystem(PhysicsScene scene, ITerrainPlacements
         var description = terrain.Description;
 
         if (!built.TryGetValue(terrain, out var tiles)) {
-            tiles = new Tiles(new Entity[description.TileCount], new int[description.TileCount], origin) {
+            tiles = new(new Entity[description.TileCount], new int[description.TileCount], origin) {
                 // ⚠ Deliberately not the terrain's real count, so the first pass builds every tile
                 // whether or not the terrain has holes. Starting at the true value would be correct
                 // and would also be a stamp that matches before anything has been built.
@@ -331,7 +342,7 @@ public sealed class TerrainColliderSystem(PhysicsScene scene, ITerrainPlacements
 
         for (var tileZ = 0; tileZ < description.TilesZ; tileZ++) {
             for (var tileX = 0; tileX < description.TilesX; tileX++) {
-                var index = (tileZ * description.TilesX) + tileX;
+                var index = tileZ * description.TilesX + tileX;
 
                 if (!holed && tiles.Revisions[index] == terrain.RevisionOf(tileX, tileZ)) {
                     if (moved) {
@@ -350,8 +361,12 @@ public sealed class TerrainColliderSystem(PhysicsScene scene, ITerrainPlacements
     /// <summary>Builds or replaces one tile's shape, and the entity carrying it.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The tile's own corner goes in the shape's offset, not in the entity's
-    ///         transform.</b> Both would place it and only one survives more than one tile: a shape is
+    ///         ⚠
+    ///         <b>
+    ///             The tile's own corner goes in the shape's offset, not in the entity's
+    ///             transform.
+    ///         </b>
+    ///         Both would place it and only one survives more than one tile: a shape is
     ///         interned by its description, so four flat tiles at four transforms over one description
     ///         are <em>one</em> shape drawn four times in the same place. The offset is part of the
     ///         description, so the four are four.
@@ -395,7 +410,7 @@ public sealed class TerrainColliderSystem(PhysicsScene scene, ITerrainPlacements
             new(description.MetresPerQuad, 1f, description.MetresPerQuad)
         );
 
-        var index = (tileZ * description.TilesX) + tileX;
+        var index = tileZ * description.TilesX + tileX;
         var entity = tiles.Entities[index];
 
         if (entity == default || !scene.Entities.IsAlive(entity)) {

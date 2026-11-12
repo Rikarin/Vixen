@@ -25,12 +25,14 @@ namespace Vixen.Cli.Tests;
 public sealed class VixenCommandTests : IDisposable {
     readonly string root = Path.Combine(Path.GetTempPath(), "vixen-cli-tests", Guid.NewGuid().ToString("N"));
 
-    public VixenCommandTests() => Directory.CreateDirectory(Path.Combine(root, "Assets"));
+    public VixenCommandTests() {
+        Directory.CreateDirectory(Path.Combine(root, "Assets"));
+    }
 
     public void Dispose() {
         try {
             if (Directory.Exists(root)) {
-                Directory.Delete(root, recursive: true);
+                Directory.Delete(root, true);
             }
         } catch (IOException) {
             // A temporary directory that would not go is not a test failure.
@@ -39,7 +41,7 @@ public sealed class VixenCommandTests : IDisposable {
 
     [Fact]
     public async Task ImportingWritesTheIndexAndTheCache() {
-        Asset("hero.txt", "hero", address: "ui/hero", group: "UiCore");
+        Asset("hero.txt", "hero", "ui/hero", "UiCore");
         Group("UiCore");
 
         var (code, output) = await Run("import");
@@ -53,7 +55,7 @@ public sealed class VixenCommandTests : IDisposable {
     /// <summary>A second run does nothing, which is the whole point of the cache being on disk.</summary>
     [Fact]
     public async Task ASecondImportIsAllCache() {
-        Asset("hero.txt", "hero", address: "ui/hero", group: "UiCore");
+        Asset("hero.txt", "hero", "ui/hero", "UiCore");
         Group("UiCore");
 
         await Run("import");
@@ -86,10 +88,16 @@ public sealed class VixenCommandTests : IDisposable {
         var (code, output) = await Run("import");
 
         Assert.True(code == ExitCode.Success, output);
-        Assert.Contains("!VfxImporter", File.ReadAllText(Path.Combine(root, "Assets", "Embers.vxvfx.meta")), StringComparison.Ordinal);
+        Assert.Contains(
+            "!VfxImporter",
+            File.ReadAllText(Path.Combine(root, "Assets", "Embers.vxvfx.meta")),
+            StringComparison.Ordinal
+        );
 
         static string Repository() {
-            for (var directory = new DirectoryInfo(AppContext.BaseDirectory); directory is not null; directory = directory.Parent) {
+            for (var directory = new DirectoryInfo(AppContext.BaseDirectory);
+                 directory is not null;
+                 directory = directory.Parent) {
                 if (File.Exists(Path.Combine(directory.FullName, "Vixen.slnx"))) {
                     return directory.FullName;
                 }
@@ -101,7 +109,7 @@ public sealed class VixenCommandTests : IDisposable {
 
     [Fact]
     public async Task AContentBuildWritesBundlesACatalogAndItsHash() {
-        Asset("hero.txt", "hero", address: "ui/hero", group: "UiCore");
+        Asset("hero.txt", "hero", "ui/hero", "UiCore");
         Group("UiCore");
 
         var (code, _) = await Run("content", "build");
@@ -127,8 +135,8 @@ public sealed class VixenCommandTests : IDisposable {
     /// </summary>
     [Fact]
     public async Task TwoBuildsOfTheSameContentAreByteIdentical() {
-        Asset("hero.txt", "hero", address: "ui/hero", group: "UiCore");
-        Asset("villain.txt", "villain", address: "ui/villain", group: "UiCore", labels: ["hd"]);
+        Asset("hero.txt", "hero", "ui/hero", "UiCore");
+        Asset("villain.txt", "villain", "ui/villain", "UiCore", ["hd"]);
         Group("UiCore");
 
         var first = Path.Combine(root, "out-1");
@@ -160,8 +168,12 @@ public sealed class VixenCommandTests : IDisposable {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The assets share their GUIDs, and that is the assertion changing rather than the
-    ///         assertion weakening.</b> This used to give each project fresh ones and call the match
+    ///         ⚠
+    ///         <b>
+    ///             The assets share their GUIDs, and that is the assertion changing rather than the
+    ///             assertion weakening.
+    ///         </b>
+    ///         This used to give each project fresh ones and call the match
     ///         proof of doc 08's "the GUID is the authoring identity and never appears in a shipped
     ///         build". That sentence stopped being true on purpose: a component holds an
     ///         <c>AssetId</c> — it is what survives renaming the file, which an address does not — so
@@ -216,13 +228,16 @@ public sealed class VixenCommandTests : IDisposable {
     /// </remarks>
     [Fact]
     public async Task TheSameContentBuiltForTwoTargetsIsNotTheSameBytes() {
-        Asset("hero.txt", "hero", address: "ui/hero", group: "UiCore");
+        Asset("hero.txt", "hero", "ui/hero", "UiCore");
         Group("UiCore");
 
         var windows = Path.Combine(root, "out-windows");
         var linux = Path.Combine(root, "out-linux");
 
-        Assert.Equal(ExitCode.Success, (await Run("content", "build", "--target", "Windows", "--output", windows)).Code);
+        Assert.Equal(
+            ExitCode.Success,
+            (await Run("content", "build", "--target", "Windows", "--output", windows)).Code
+        );
         Assert.Equal(ExitCode.Success, (await Run("content", "build", "--target", "Linux", "--output", linux)).Code);
 
         var forWindows = Files(windows);
@@ -247,7 +262,10 @@ public sealed class VixenCommandTests : IDisposable {
         Assert.Equal(ExitCode.Success, (await Run("content", "build", "--target", "Windows", "--output", again)).Code);
 
         foreach (var (name, bytes) in Files(again)) {
-            Assert.True(bytes.SequenceEqual(forWindows[name]), $"'{name}' differs between two builds for one named target.");
+            Assert.True(
+                bytes.SequenceEqual(forWindows[name]),
+                $"'{name}' differs between two builds for one named target."
+            );
         }
     }
 
@@ -258,7 +276,7 @@ public sealed class VixenCommandTests : IDisposable {
     /// </summary>
     [Fact]
     public async Task ABundleFromAnEarlierBuildIsNotLeftBehind() {
-        Asset("hero.txt", "hero", address: "ui/hero", group: "UiCore");
+        Asset("hero.txt", "hero", "ui/hero", "UiCore");
         Group("UiCore");
 
         await Run("content", "build");
@@ -277,7 +295,7 @@ public sealed class VixenCommandTests : IDisposable {
     /// <summary>Something a person put in the build directory is not this tool's to delete.</summary>
     [Fact]
     public async Task AnythingElseInTheBuildDirectoryIsLeftAlone() {
-        Asset("hero.txt", "hero", address: "ui/hero", group: "UiCore");
+        Asset("hero.txt", "hero", "ui/hero", "UiCore");
         Group("UiCore");
 
         var directory = Build();
@@ -291,7 +309,7 @@ public sealed class VixenCommandTests : IDisposable {
 
     [Fact]
     public async Task AnAddressInAGroupNothingDefinesFailsTheBuild() {
-        Asset("hero.txt", "hero", address: "ui/hero", group: "Missing");
+        Asset("hero.txt", "hero", "ui/hero", "Missing");
 
         var (code, output) = await Run("content", "build");
 
@@ -339,7 +357,7 @@ public sealed class VixenCommandTests : IDisposable {
     /// </remarks>
     [Fact]
     public async Task TheMsbuildFormatCarriesAnAbsolutePathAndACode() {
-        Asset("hero.txt", "hero", address: "ui/hero", group: "Missing");
+        Asset("hero.txt", "hero", "ui/hero", "Missing");
 
         var (code, output) = await Run("content", "build", "--format", "msbuild");
 
@@ -407,9 +425,9 @@ public sealed class VixenCommandTests : IDisposable {
     /// </summary>
     [Fact]
     public async Task AServerBuildLeavesOutTheGroupsAServerWasToldItDoesNotNeed() {
-        Asset("hero.txt", "hero", address: "ui/hero", group: "Pixels");
-        Asset("sword.txt", "sword", address: "items/sword", group: "Rules");
-        Group("Pixels", onServer: false);
+        Asset("hero.txt", "hero", "ui/hero", "Pixels");
+        Asset("sword.txt", "sword", "items/sword", "Rules");
+        Group("Pixels", false);
         Group("Rules");
 
         var client = Path.Combine(root, "out-client");
@@ -439,8 +457,8 @@ public sealed class VixenCommandTests : IDisposable {
     /// </summary>
     [Fact]
     public async Task AGroupAServerDoesNotNeedIsStillInTheClientBuild() {
-        Asset("hero.txt", "hero", address: "ui/hero", group: "Pixels");
-        Group("Pixels", onServer: false);
+        Asset("hero.txt", "hero", "ui/hero", "Pixels");
+        Group("Pixels", false);
 
         var (code, _) = await Run("content", "build");
 
@@ -454,7 +472,7 @@ public sealed class VixenCommandTests : IDisposable {
     /// </summary>
     [Fact]
     public async Task AnUnknownVariantIsAUsageError() {
-        Asset("hero.txt", "hero", address: "ui/hero", group: "UiCore");
+        Asset("hero.txt", "hero", "ui/hero", "UiCore");
         Group("UiCore");
 
         var (code, _, error) = await RunFull("content", "build", "--project", root, "--variant", "Dreamcast");
@@ -469,7 +487,7 @@ public sealed class VixenCommandTests : IDisposable {
     /// </summary>
     [Fact]
     public async Task NoImportSkipsTheImportAndStillBuilds() {
-        Asset("hero.txt", "hero", address: "ui/hero", group: "UiCore");
+        Asset("hero.txt", "hero", "ui/hero", "UiCore");
         Group("UiCore");
 
         await Run("import");
@@ -482,7 +500,7 @@ public sealed class VixenCommandTests : IDisposable {
 
     [Fact]
     public async Task DoctorOnAnImportedProjectFindsNothingBroken() {
-        Asset("hero.txt", "hero", address: "ui/hero", group: "UiCore");
+        Asset("hero.txt", "hero", "ui/hero", "UiCore");
         Group("UiCore");
         await Run("content", "build");
 
@@ -509,11 +527,11 @@ public sealed class VixenCommandTests : IDisposable {
     /// </summary>
     [Fact]
     public async Task DoctorFindsAnAddressableAssetThatWasNeverImported() {
-        Asset("hero.txt", "hero", address: "ui/hero", group: "UiCore");
+        Asset("hero.txt", "hero", "ui/hero", "UiCore");
         Group("UiCore");
         await Run("import");
 
-        Asset("villain.txt", "villain", address: "ui/villain", group: "UiCore");
+        Asset("villain.txt", "villain", "ui/villain", "UiCore");
 
         var (code, output) = await Run("doctor");
 
@@ -541,7 +559,7 @@ public sealed class VixenCommandTests : IDisposable {
 
     [Fact]
     public async Task DoctorNamesABundleTheCatalogClaimsAndTheDirectoryDoesNotHave() {
-        Asset("hero.txt", "hero", address: "ui/hero", group: "UiCore");
+        Asset("hero.txt", "hero", "ui/hero", "UiCore");
         Group("UiCore");
         await Run("content", "build");
 
@@ -562,7 +580,7 @@ public sealed class VixenCommandTests : IDisposable {
 
         Assert.Equal(ExitCode.UsageError, code);
         Assert.Contains("no Assets/ directory", error, StringComparison.Ordinal);
-        Assert.Equal("", output);
+        Assert.Equal(string.Empty, output);
     }
 
     [Fact]
@@ -576,7 +594,7 @@ public sealed class VixenCommandTests : IDisposable {
     /// <summary>Run it from a subdirectory and it finds the project above, the way git does.</summary>
     [Fact]
     public async Task TheProjectIsFoundByWalkingUpFromTheWorkingDirectory() {
-        Asset("UI/hero.txt", "hero", address: "ui/hero", group: "UiCore");
+        Asset("UI/hero.txt", "hero", "ui/hero", "UiCore");
         Group("UiCore");
 
         var was = Environment.CurrentDirectory;
@@ -605,7 +623,7 @@ public sealed class VixenCommandTests : IDisposable {
     /// </remarks>
     [Fact]
     public async Task ABuildCompilesTheShaderManifestIntoABundle() {
-        Asset("hero.txt", "hero", address: "ui/hero", group: "UiCore");
+        Asset("hero.txt", "hero", "ui/hero", "UiCore");
         Group("UiCore");
         Shader("Tint.rvn");
         Manifest("""{ "Effects": [ { "Shader": "Tint", "Permutations": { "Tint.Bright": "true" } } ] }""");
@@ -649,7 +667,7 @@ public sealed class VixenCommandTests : IDisposable {
     /// </remarks>
     [Fact]
     public async Task AServerBuildCompilesNoShaderBundleAndClearsAStaleOne() {
-        Asset("hero.txt", "hero", address: "ui/hero", group: "UiCore");
+        Asset("hero.txt", "hero", "ui/hero", "UiCore");
         Group("UiCore");
         Shader("Tint.rvn");
         Manifest("""{ "Effects": [ { "Shader": "Tint", "Permutations": { "Tint.Bright": "true" } } ] }""");
@@ -676,16 +694,24 @@ public sealed class VixenCommandTests : IDisposable {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The "finished thing nothing calls" assertion, and the reason it lives in the
-    ///         CLI's suite.</b> <c>ShaderGraphSources</c> can be perfect and this runner never call
+    ///         ⚠
+    ///         <b>
+    ///             The "finished thing nothing calls" assertion, and the reason it lives in the
+    ///             CLI's suite.
+    ///         </b>
+    ///         <c>ShaderGraphSources</c> can be perfect and this runner never call
     ///         it — which is exactly the state the shader graph shipped in for its whole life,
     ///         emitting correct Raven that no compilation in the process had ever seen. Testing the
     ///         enumerator proves the enumerator; only this proves the build asks it, and only this
     ///         proves the answer reaches the bundle a shipping run loads.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>It also depends on the engine's library being beside the CLI, which it was
-    ///         not.</b> A graph's surface imports <c>Vixen.Shaders.Material</c>, and this runner
+    ///         ⚠
+    ///         <b>
+    ///             It also depends on the engine's library being beside the CLI, which it was
+    ///             not.
+    ///         </b>
+    ///         A graph's surface imports <c>Vixen.Shaders.Material</c>, and this runner
     ///         compiled a project's own <c>*.rvn</c> and nothing else — so every project shader that
     ///         imports the engine library was unbakeable, and the editor could compile a shader the
     ///         build could not. That gap is older than the graph and this test is what holds it shut.
@@ -693,7 +719,7 @@ public sealed class VixenCommandTests : IDisposable {
     /// </remarks>
     [Fact]
     public async Task ABuildCompilesAGraphAuthoredMaterialIntoTheBundle() {
-        Asset("hero.txt", "hero", address: "ui/hero", group: "UiCore");
+        Asset("hero.txt", "hero", "ui/hero", "UiCore");
         Group("UiCore");
 
         var graph = new Vixen.NodeGraph.NodeGraphModel { Name = "Painted" };
@@ -726,9 +752,7 @@ public sealed class VixenCommandTests : IDisposable {
         Assert.Contains("Compiled 1 shader variant", output, StringComparison.Ordinal);
 
         var store = new EffectStore(
-            Serializer.Read<EffectBundle>(
-                File.ReadAllBytes(Path.Combine(Build(), ShaderBuildRunner.BundleFileName))
-            )
+            Serializer.Read<EffectBundle>(File.ReadAllBytes(Path.Combine(Build(), ShaderBuildRunner.BundleFileName)))
         );
 
         var key = Assert.Single(store.Keys);
@@ -752,7 +776,7 @@ public sealed class VixenCommandTests : IDisposable {
     /// </remarks>
     [Fact]
     public async Task ABuildReportsAShaderGraphThatDoesNotCompile() {
-        Asset("hero.txt", "hero", address: "ui/hero", group: "UiCore");
+        Asset("hero.txt", "hero", "ui/hero", "UiCore");
         Group("UiCore");
         Shader("Tint.rvn");
         Manifest("""{ "Effects": [ { "Shader": "Tint", "Permutations": { "Tint.Bright": "true" } } ] }""");
@@ -784,7 +808,7 @@ public sealed class VixenCommandTests : IDisposable {
     /// </remarks>
     [Fact]
     public async Task ABuildWithNoShaderManifestSaysWhatToDo() {
-        Asset("hero.txt", "hero", address: "ui/hero", group: "UiCore");
+        Asset("hero.txt", "hero", "ui/hero", "UiCore");
         Group("UiCore");
 
         var (code, output) = await Run("content", "build");
@@ -802,7 +826,7 @@ public sealed class VixenCommandTests : IDisposable {
     /// </remarks>
     [Fact]
     public async Task AStaleShaderManifestWarnsRatherThanFailing() {
-        Asset("hero.txt", "hero", address: "ui/hero", group: "UiCore");
+        Asset("hero.txt", "hero", "ui/hero", "UiCore");
         Group("UiCore");
         Shader("Tint.rvn");
         Manifest("""{ "Effects": [ { "Shader": "Deleted" } ] }""");
@@ -816,7 +840,7 @@ public sealed class VixenCommandTests : IDisposable {
     /// <summary>A shader that does not compile fails the build, saying what the compiler said.</summary>
     [Fact]
     public async Task AShaderThatDoesNotCompileFailsTheBuild() {
-        Asset("hero.txt", "hero", address: "ui/hero", group: "UiCore");
+        Asset("hero.txt", "hero", "ui/hero", "UiCore");
         Group("UiCore");
         Asset("Broken.rvn", "package Game\n\nshader Broken {\n    var tint: float3 = nonsense\n}\n");
         Manifest("""{ "Effects": [ { "Shader": "Broken" } ] }""");
@@ -833,7 +857,7 @@ public sealed class VixenCommandTests : IDisposable {
     /// </summary>
     [Fact]
     public async Task ServingWithNoBuildSaysSoRatherThanServingNothing() {
-        Asset("hero.txt", "hero", address: "ui/hero", group: "UiCore");
+        Asset("hero.txt", "hero", "ui/hero", "UiCore");
         Group("UiCore");
 
         var (code, _, error) = await RunFull("content", "serve", "--project", root);
@@ -942,7 +966,7 @@ public sealed class VixenCommandTests : IDisposable {
     [Fact]
     public async Task AnAdvisoryImportStillWritesTheAddressConstantsAFailedAssetUsedToCost() {
         SceneNamingAnUndeclaredComponent("Scenes/Arena.vxscene");
-        Asset("sword.txt", "sword", address: "items/sword", group: "Core");
+        Asset("sword.txt", "sword", "items/sword", "Core");
         Group("Core");
 
         var into = Path.Combine(root, "obj", "Addresses.g.cs");
@@ -951,14 +975,14 @@ public sealed class VixenCommandTests : IDisposable {
         Assert.Equal(ExitCode.Success, code);
 
         var source = await File.ReadAllTextAsync(into, TestContext.Current.CancellationToken);
-        Assert.Contains("public const string Address = \"items/sword\";", source, StringComparison.Ordinal);
+        Assert.Contains("""public const string Address = "items/sword";""", source, StringComparison.Ordinal);
     }
 
     /// <summary>The same run without the flag, which is what the file above used to be.</summary>
     [Fact]
     public async Task AFailedAssetStillCostsTheAddressConstantsWithoutTheFlag() {
         SceneNamingAnUndeclaredComponent("Scenes/Arena.vxscene");
-        Asset("sword.txt", "sword", address: "items/sword", group: "Core");
+        Asset("sword.txt", "sword", "items/sword", "Core");
         Group("Core");
 
         var into = Path.Combine(root, "obj", "Addresses.g.cs");
@@ -978,8 +1002,8 @@ public sealed class VixenCommandTests : IDisposable {
     /// </summary>
     [Fact]
     public async Task ImportingWritesTheAddressConstantsWhenAskedTo() {
-        Asset("sword.txt", "sword", address: "items/weapons/flamebrand", group: "Core");
-        Asset("map.txt", "map", address: "maps/greenmarch", group: "Core");
+        Asset("sword.txt", "sword", "items/weapons/flamebrand", "Core");
+        Asset("map.txt", "map", "maps/greenmarch", "Core");
         Group("Core");
 
         var into = Path.Combine(root, "obj", "Addresses.g.cs");
@@ -990,14 +1014,18 @@ public sealed class VixenCommandTests : IDisposable {
         var source = await File.ReadAllTextAsync(into, TestContext.Current.CancellationToken);
 
         Assert.Contains("namespace MyGame;", source, StringComparison.Ordinal);
-        Assert.Contains("public const string Address = \"items/weapons/flamebrand\";", source, StringComparison.Ordinal);
-        Assert.Contains("public const string Address = \"maps/greenmarch\";", source, StringComparison.Ordinal);
+        Assert.Contains(
+            """public const string Address = "items/weapons/flamebrand";""",
+            source,
+            StringComparison.Ordinal
+        );
+        Assert.Contains("""public const string Address = "maps/greenmarch";""", source, StringComparison.Ordinal);
     }
 
     /// <summary>Nothing is written unless asked, because most projects are not gameplay projects.</summary>
     [Fact]
     public async Task ImportingWritesNoConstantsByDefault() {
-        Asset("sword.txt", "sword", address: "items/sword", group: "Core");
+        Asset("sword.txt", "sword", "items/sword", "Core");
         Group("Core");
 
         var (code, _) = await Run("import");
@@ -1012,7 +1040,7 @@ public sealed class VixenCommandTests : IDisposable {
     /// </summary>
     [Fact]
     public async Task ASecondImportDoesNotTouchAnUnchangedFile() {
-        Asset("sword.txt", "sword", address: "items/sword", group: "Core");
+        Asset("sword.txt", "sword", "items/sword", "Core");
         Group("Core");
 
         var into = Path.Combine(root, "obj", "Addresses.g.cs");
@@ -1030,16 +1058,24 @@ public sealed class VixenCommandTests : IDisposable {
     /// <summary>The DefId half is opt-in, or a game that declined doc 28 gets a file it cannot compile.</summary>
     [Fact]
     public async Task TheDefIdHalfIsOptIn() {
-        Asset("sword.txt", "sword", address: "items/sword", group: "Core");
+        Asset("sword.txt", "sword", "items/sword", "Core");
         Group("Core");
 
         var into = Path.Combine(root, "obj", "Addresses.g.cs");
 
         await Run("import", "--addresses", into);
-        Assert.DoesNotContain("Vixen.Gameplay", await File.ReadAllTextAsync(into, TestContext.Current.CancellationToken), StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            "Vixen.Gameplay",
+            await File.ReadAllTextAsync(into, TestContext.Current.CancellationToken),
+            StringComparison.Ordinal
+        );
 
         await Run("import", "--addresses", into, "--address-ids");
-        Assert.Contains("using Vixen.Gameplay;", await File.ReadAllTextAsync(into, TestContext.Current.CancellationToken), StringComparison.Ordinal);
+        Assert.Contains(
+            "using Vixen.Gameplay;",
+            await File.ReadAllTextAsync(into, TestContext.Current.CancellationToken),
+            StringComparison.Ordinal
+        );
     }
 
     string Build() => Path.Combine(root, "Build", Project.HostTarget.Replace('/', '-'));
@@ -1063,10 +1099,7 @@ public sealed class VixenCommandTests : IDisposable {
 
             AssetMetaFile.WriteFile(
                 AssetMetaFile.PathFor(file),
-                new() {
-                    Guid = IdentityOf(asset),
-                    Addressable = new() { Address = $"ui/{asset}", Group = "UiCore" }
-                }
+                new() { Guid = IdentityOf(asset), Addressable = new() { Address = $"ui/{asset}", Group = "UiCore" } }
             );
         }
 
@@ -1082,7 +1115,13 @@ public sealed class VixenCommandTests : IDisposable {
     }
 
     /// <summary>Writes an asset and the sidecar that says where it appears in a build.</summary>
-    void Asset(string relativePath, string content, string? address = null, string? group = null, string[]? labels = null) {
+    void Asset(
+        string relativePath,
+        string content,
+        string? address = null,
+        string? group = null,
+        string[]? labels = null
+    ) {
         var absolute = Path.Combine(root, "Assets", relativePath.Replace('/', Path.DirectorySeparatorChar));
         Directory.CreateDirectory(Path.GetDirectoryName(absolute)!);
         File.WriteAllText(absolute, content);
@@ -1094,8 +1133,7 @@ public sealed class VixenCommandTests : IDisposable {
         AssetMetaFile.WriteFile(
             AssetMetaFile.PathFor(absolute),
             new() {
-                Guid = AssetId.New(),
-                Addressable = new() { Address = address, Group = group, Labels = labels ?? [] }
+                Guid = AssetId.New(), Addressable = new() { Address = address, Group = group, Labels = labels ?? [] }
             }
         );
     }
@@ -1167,7 +1205,7 @@ public sealed class VixenCommandTests : IDisposable {
 
     static Dictionary<string, byte[]> Files(string directory) =>
         Directory.GetFiles(directory)
-            .ToDictionary(file => Path.GetFileName(file), File.ReadAllBytes, StringComparer.Ordinal);
+            .ToDictionary(static file => Path.GetFileName(file), File.ReadAllBytes, StringComparer.Ordinal);
 
     // ── vixen new ───────────────────────────────────────────────────────────────────────────────
 
@@ -1197,7 +1235,11 @@ public sealed class VixenCommandTests : IDisposable {
         Assert.True(File.Exists(Path.Combine(where, "Program.cs")));
         Assert.True(File.Exists(Path.Combine(where, "AsteroidsGame.cs")));
         Assert.True(File.Exists(Path.Combine(where, "Assets", "Default.vxgroup")));
-        Assert.Contains("Library/", await File.ReadAllTextAsync(Path.Combine(where, ".gitignore"), TestContext.Current.CancellationToken), StringComparison.Ordinal);
+        Assert.Contains(
+            "Library/",
+            await File.ReadAllTextAsync(Path.Combine(where, ".gitignore"), TestContext.Current.CancellationToken),
+            StringComparison.Ordinal
+        );
     }
 
     /// <summary>
@@ -1209,8 +1251,14 @@ public sealed class VixenCommandTests : IDisposable {
 
         await RunFull("new", "game", "Asteroids", "-o", where);
 
-        var program = await File.ReadAllTextAsync(Path.Combine(where, "Program.cs"), TestContext.Current.CancellationToken);
-        var game = await File.ReadAllTextAsync(Path.Combine(where, "AsteroidsGame.cs"), TestContext.Current.CancellationToken);
+        var program = await File.ReadAllTextAsync(
+            Path.Combine(where, "Program.cs"),
+            TestContext.Current.CancellationToken
+        );
+        var game = await File.ReadAllTextAsync(
+            Path.Combine(where, "AsteroidsGame.cs"),
+            TestContext.Current.CancellationToken
+        );
 
         Assert.Contains("VixenApp.Run<AsteroidsGame>(args)", program, StringComparison.Ordinal);
         Assert.Contains("using Asteroids;", program, StringComparison.Ordinal);
@@ -1236,7 +1284,10 @@ public sealed class VixenCommandTests : IDisposable {
 
         Assert.Equal(ExitCode.UsageError, code);
         Assert.Contains("Nothing was written", output, StringComparison.Ordinal);
-        Assert.Equal("mine", await File.ReadAllTextAsync(Path.Combine(where, "Program.cs"), TestContext.Current.CancellationToken));
+        Assert.Equal(
+            "mine",
+            await File.ReadAllTextAsync(Path.Combine(where, "Program.cs"), TestContext.Current.CancellationToken)
+        );
         Assert.False(File.Exists(Path.Combine(where, "Asteroids.csproj")));
     }
 
@@ -1269,7 +1320,10 @@ public sealed class VixenCommandTests : IDisposable {
 
         Assert.Equal(ExitCode.Success, code);
 
-        var project = await File.ReadAllTextAsync(Path.Combine(where, "Physics.csproj"), TestContext.Current.CancellationToken);
+        var project = await File.ReadAllTextAsync(
+            Path.Combine(where, "Physics.csproj"),
+            TestContext.Current.CancellationToken
+        );
 
         Assert.Contains("Microsoft.NET.Sdk", project, StringComparison.Ordinal);
         Assert.DoesNotContain("Vixen.Sdk", project, StringComparison.Ordinal);
@@ -1278,10 +1332,14 @@ public sealed class VixenCommandTests : IDisposable {
     /// <summary>An application head, and what a scaffolded one is now made of.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>This asserted that <c>Shaders/ui.vert.spv</c> came out with its SPIR-V magic
-    ///         number intact — a module written byte for byte rather than decoded as text and written
-    ///         back, because one that went through a string is a device lost rather than a compile
-    ///         error. There is no such file any more.</b> <c>vixen-app</c> carried eight committed
+    ///         ⚠
+    ///         <b>
+    ///             This asserted that <c>Shaders/ui.vert.spv</c> came out with its SPIR-V magic
+    ///             number intact — a module written byte for byte rather than decoded as text and written
+    ///             back, because one that went through a string is a device lost rather than a compile
+    ///             error. There is no such file any more.
+    ///         </b>
+    ///         <c>vixen-app</c> carried eight committed
     ///         modules because it carried its own frame loop; it takes <c>Vixen.Ui.Desktop</c> now,
     ///         which embeds them, so the whole <c>Shaders/</c> folder went with the four hundred lines
     ///         of C# around it.
@@ -1328,8 +1386,12 @@ public sealed class VixenCommandTests : IDisposable {
     ///     A batch head, and the sentence a scaffolded one cannot say for itself.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>A new <c>vixen-tool</c> project run as-is reports that there is nothing to check,
-    ///     which reads exactly like a broken scaffold.</b> It is not: a batch head reads the content
+    ///     ⚠
+    ///     <b>
+    ///         A new <c>vixen-tool</c> project run as-is reports that there is nothing to check,
+    ///         which reads exactly like a broken scaffold.
+    ///     </b>
+    ///     It is not: a batch head reads the content
     ///     beside its own binary and a project one minute old has none. Where content comes from is
     ///     the one thing about this template that is in no file it writes, so `new` says it — the
     ///     same argument the `vixen-plugin` and `vixen-mmo` blocks above are there for.
@@ -1420,7 +1482,7 @@ public sealed class VixenCommandTests : IDisposable {
 
     /// <summary>Runs a command against this test's project.</summary>
     async Task<(ExitCode Code, string Output)> Run(params string[] args) {
-        var (code, output, _) = await RunFull([.. args, "--project", root]);
+        var (code, output, _) = await RunFull([..args, "--project", root]);
         return (code, output);
     }
 
@@ -1432,7 +1494,8 @@ public sealed class VixenCommandTests : IDisposable {
         var parsed = VixenCommand.Create(output, error).Parse(args);
 
         if (parsed.Errors.Count > 0) {
-            return (ExitCode.UsageError, output.ToString(), string.Join("\n", parsed.Errors.Select(e => e.Message)));
+            return (ExitCode.UsageError, output.ToString(),
+                string.Join("\n", parsed.Errors.Select(static e => e.Message)));
         }
 
         var code = await parsed.InvokeAsync(null, TestContext.Current.CancellationToken);

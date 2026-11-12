@@ -102,16 +102,26 @@ public class IndependentTransformDepthTests {
     /// </summary>
     [Fact]
     public void A_z_translation_and_an_axis_rotation_compose_in_the_specifications_order() {
-        var (document, card, twin) = Pair("translate: 0px 0px 50px; rotate: x 30deg", "translateZ(50px) rotateX(30deg)");
+        var (document, card, twin) = Pair(
+            "translate: 0px 0px 50px; rotate: x 30deg",
+            "translateZ(50px) rotateX(30deg)"
+        );
         using var _ = document;
 
         Same(Assert.IsType<UiTransform>(twin.Transform), Assert.IsType<UiTransform>(card.Transform));
 
         // The instrument: the other order really is a different picture, so the equality above is
         // about the order and not about two products that happen to agree.
-        var (other, again, reversed) = Pair("translate: 0px 0px 50px; rotate: x 30deg", "rotateX(30deg) translateZ(50px)");
+        var (other, again, reversed) = Pair(
+            "translate: 0px 0px 50px; rotate: x 30deg",
+            "rotateX(30deg) translateZ(50px)"
+        );
         using var __ = other;
-        Assert.NotEqual(Assert.IsType<UiTransform>(again.Transform).Dy, Assert.IsType<UiTransform>(reversed.Transform).Dy, 0.01f);
+        Assert.NotEqual(
+            Assert.IsType<UiTransform>(again.Transform).Dy,
+            Assert.IsType<UiTransform>(reversed.Transform).Dy,
+            0.01f
+        );
     }
 
     /// <summary>
@@ -120,12 +130,15 @@ public class IndependentTransformDepthTests {
     /// </summary>
     [Fact]
     public void A_y_axis_half_turn_shows_its_back() {
-        var (document, card, twin) = Pair("rotate: y 180deg; backface-visibility: hidden", "rotateY(180deg); backface-visibility: hidden");
+        var (document, card, twin) = Pair(
+            "rotate: y 180deg; backface-visibility: hidden",
+            "rotateY(180deg); backface-visibility: hidden"
+        );
         using var _ = document;
 
         Assert.True(twin.BackfaceHidden, "the instrument: the function's card has turned away");
         Assert.True(card.BackfaceHidden);
-        Assert.Equal(0, document.Drawing.Commands.Count(command => command.Kind == DrawCommandKind.Rectangle));
+        Assert.Equal(0, document.Drawing.Commands.Count(static command => command.Kind == DrawCommandKind.Rectangle));
     }
 
     /// <summary>

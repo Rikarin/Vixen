@@ -3,7 +3,6 @@
 
 using Vixen.Core.Mathematics;
 using Vixen.Geometry;
-using Vixen.Rendering;
 
 namespace Vixen.Editor.SceneView;
 
@@ -11,8 +10,12 @@ namespace Vixen.Editor.SceneView;
 /// <param name="A">The lower of the two position indices.</param>
 /// <param name="B">The higher.</param>
 /// <remarks>
-///     ⚠ <b>Ordered, so that the edge a triangle walks one way and its neighbour walks the other is
-///     one edge.</b> An unordered pair would give a cube twenty-four edges where it has twelve, and
+///     ⚠
+///     <b>
+///         Ordered, so that the edge a triangle walks one way and its neighbour walks the other is
+///         one edge.
+///     </b>
+///     An unordered pair would give a cube twenty-four edges where it has twelve, and
 ///     every one of them would be drawn twice and selectable twice.
 /// </remarks>
 public readonly record struct MeshEdge(int A, int B);
@@ -94,26 +97,32 @@ public sealed class MeshElements {
     /// <param name="triangle">Its index — a third of the way into <see cref="Triangles" />.</param>
     /// <returns>The face index.</returns>
     /// <remarks>
-    ///     ⚠ <b>The identity when these were derived from geometry that has no faces bigger than a
-    ///     triangle, and a real mapping when they came from an <c>EditMesh</c>.</b> A quad is two
+    ///     ⚠
+    ///     <b>
+    ///         The identity when these were derived from geometry that has no faces bigger than a
+    ///         triangle, and a real mapping when they came from an <c>EditMesh</c>.
+    ///     </b>
+    ///     A quad is two
     ///     triangles and one face, and a designer who clicks either half selected the wall — so the
     ///     answer a pick hands back has to be the number the kernel and the selection both use, or a
     ///     highlight is drawn round half a wall and an extrude acts on a sliver.
     /// </remarks>
-    public int FaceOf(int triangle) => (uint) triangle < (uint) faces.Length ? faces[triangle] : triangle;
+    public int FaceOf(int triangle) => (uint)triangle < (uint)faces.Length ? faces[triangle] : triangle;
 
     /// <summary>Which triangles a face is drawn as.</summary>
     /// <param name="face">The face index.</param>
     /// <param name="into">The triangle indices. Cleared first.</param>
-    /// <remarks>What a face highlight is drawn from: a face has no vertices of its own, so the only
-    ///     way to shade one is to shade the triangles it was fanned into.</remarks>
+    /// <remarks>
+    ///     What a face highlight is drawn from: a face has no vertices of its own, so the only
+    ///     way to shade one is to shade the triangles it was fanned into.
+    /// </remarks>
     public void TrianglesOf(int face, List<int> into) {
         ArgumentNullException.ThrowIfNull(into);
 
         into.Clear();
 
         if (faces.Length == 0) {
-            if ((uint) face < (uint) TriangleCount) {
+            if ((uint)face < (uint)TriangleCount) {
                 into.Add(face);
             }
 
@@ -145,8 +154,12 @@ public sealed class MeshElements {
     /// </param>
     /// <returns>The elements.</returns>
     /// <remarks>
-    ///     ⚠ <b>A degenerate triangle — one that names the same position twice after welding — is kept
-    ///     as a face and contributes no edge.</b> Dropping it would renumber every face after it, so a
+    ///     ⚠
+    ///     <b>
+    ///         A degenerate triangle — one that names the same position twice after welding — is kept
+    ///         as a face and contributes no edge.
+    ///     </b>
+    ///     Dropping it would renumber every face after it, so a
     ///     selection made against the drawn mesh would name a different one; and an edge from a
     ///     position to itself is a segment with no direction, which every downstream distance test
     ///     divides by zero on.
@@ -164,7 +177,7 @@ public sealed class MeshElements {
             triangles[index] = remap[mesh.Indices[index]];
         }
 
-        return new MeshElements(shared, triangles, Edged(triangles));
+        return new(shared, triangles, Edged(triangles));
     }
 
     /// <summary>The elements of an editable mesh, which already has them.</summary>
@@ -172,8 +185,12 @@ public sealed class MeshElements {
     /// <returns>The elements.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Nothing is welded and nothing is derived, and that is the whole difference from
-    ///         the <c>MeshData</c> door.</b> An <c>EditMesh</c> <i>is</i> the position graph — doc 24's
+    ///         ⚠
+    ///         <b>
+    ///             Nothing is welded and nothing is derived, and that is the whole difference from
+    ///             the <c>MeshData</c> door.
+    ///         </b>
+    ///         An <c>EditMesh</c> <i>is</i> the position graph — doc 24's
     ///         D2 — so its positions, its edge table and its face indices come straight across. Welding
     ///         them again would move the numbers a pick answers with off the numbers the kernel and a
     ///         selection use, which is the one thing this whole path exists to keep aligned.
@@ -202,7 +219,7 @@ public sealed class MeshElements {
             }
         }
 
-        return new(mesh.Positions.ToArray(), triangles, edged, owners);
+        return new([..mesh.Positions], triangles, edged, owners);
     }
 
     /// <summary>The unique edges of a triangle list.</summary>
@@ -216,7 +233,7 @@ public sealed class MeshElements {
             Add(triangles[index + 2], triangles[index]);
         }
 
-        return [.. ordered];
+        return [..ordered];
 
         void Add(int a, int b) {
             if (a == b) {
@@ -235,8 +252,12 @@ public sealed class MeshElements {
 
     /// <summary>Collapses coincident positions, and says where each original one went.</summary>
     /// <remarks>
-    ///     ⚠ <b>A grid of cells the size of the tolerance, and the twenty-seven around each one are
-    ///     searched.</b> Hashing the rounded position alone is one line shorter and wrong in exactly
+    ///     ⚠
+    ///     <b>
+    ///         A grid of cells the size of the tolerance, and the twenty-seven around each one are
+    ///         searched.
+    ///     </b>
+    ///     Hashing the rounded position alone is one line shorter and wrong in exactly
     ///     the case this exists for: two positions a hair apart either side of a cell boundary land in
     ///     different buckets and are never compared, so the seam it was written to close stays open on
     ///     whichever meshes happen to straddle one.
@@ -259,7 +280,7 @@ public sealed class MeshElements {
                 remap[index] = at;
             }
 
-            return [.. shared];
+            return [..shared];
         }
 
         var cells = new Dictionary<(long X, long Y, long Z), List<int>>();
@@ -301,10 +322,10 @@ public sealed class MeshElements {
             remap[index] = at;
         }
 
-        return [.. shared];
+        return [..shared];
     }
 
     static (long X, long Y, long Z) Cell(Vector3 position, float size) =>
-        ((long) MathF.Floor(position.X / size), (long) MathF.Floor(position.Y / size),
-            (long) MathF.Floor(position.Z / size));
+        ((long)MathF.Floor(position.X / size), (long)MathF.Floor(position.Y / size),
+            (long)MathF.Floor(position.Z / size));
 }

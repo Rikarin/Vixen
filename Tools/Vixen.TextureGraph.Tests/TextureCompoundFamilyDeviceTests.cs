@@ -15,8 +15,12 @@ namespace Tests;
 ///         hand-written file that wired the wrong port or got a constant wrong moves one of those.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The noise compounds are held to properties instead, and that is a weaker claim stated as
-///         one.</b> Their seeds come from where their nodes sit inside the compound, which no graph in a test
+///         ⚠
+///         <b>
+///             The noise compounds are held to properties instead, and that is a weaker claim stated as
+///             one.
+///         </b>
+///         Their seeds come from where their nodes sit inside the compound, which no graph in a test
 ///         can reproduce, so there is no second bake to compare a texel with. What is left is what the file
 ///         says the picture is — spots that cover π r² of a cell, streaks that vary sixteen times faster down
 ///         than across, a warp that only moves values it already had — each of which a wrong wire breaks.
@@ -25,7 +29,12 @@ namespace Tests;
 public class TextureCompoundFamilyDeviceTests(ITestOutputHelper output) {
     const int Side = 256;
 
-    static Lanes Compound(Vixen.Graphics.Vulkan.VulkanDevice device, string path, Action<GraphNode>? numbers = null, int side = Side) =>
+    static Lanes Compound(
+        Vixen.Graphics.Vulkan.VulkanDevice device,
+        string path,
+        Action<GraphNode>? numbers = null,
+        int side = Side
+    ) =>
         Bake(device, path, side, side, [], numbers);
 
     static float Fraction(Lanes picture, Func<float, bool> test) {
@@ -72,7 +81,11 @@ public class TextureCompoundFamilyDeviceTests(ITestOutputHelper output) {
     }
 
     static float At(Lanes picture, float u, float v) =>
-        picture.At(Math.Clamp((int)(u * picture.Width), 0, picture.Width - 1), Math.Clamp((int)(v * picture.Height), 0, picture.Height - 1), 0);
+        picture.At(
+            Math.Clamp((int)(u * picture.Width), 0, picture.Width - 1),
+            Math.Clamp((int)(v * picture.Height), 0, picture.Height - 1),
+            0
+        );
 
     [Fact]
     public void Stripes_are_where_their_period_and_width_put_them() {
@@ -80,11 +93,15 @@ public class TextureCompoundFamilyDeviceTests(ITestOutputHelper output) {
 
         output.WriteLine($"adapter: {TextureKernelHarness.Adapter(device)}");
 
-        var stripes = Compound(device, "Patterns/Stripes", node => {
-            node.SetValue("Count", 8f);
-            node.SetText("width", "0.3");
-            node.SetText("softness", "0");
-        });
+        var stripes = Compound(
+            device,
+            "Patterns/Stripes",
+            static node => {
+                node.SetValue("Count", 8f);
+                node.SetText("width", "0.3");
+                node.SetText("softness", "0");
+            }
+        );
 
         var checkedTexels = 0;
 
@@ -103,7 +120,7 @@ public class TextureCompoundFamilyDeviceTests(ITestOutputHelper output) {
         }
 
         Assert.True(checkedTexels > 5000);
-        Assert.Equal(0.3f, Fraction(stripes, value => value > 0.5f), 0.02f);
+        Assert.Equal(0.3f, Fraction(stripes, static value => value > 0.5f), 0.02f);
     }
 
     [Fact]
@@ -124,20 +141,29 @@ public class TextureCompoundFamilyDeviceTests(ITestOutputHelper output) {
 
                 for (var y = 3; y < Cell - 3; y++) {
                     for (var x = 3; x < Cell - 3; x++) {
-                        var at = weave.At((column * Cell) + x, (row * Cell) + y, 0);
+                        var at = weave.At(column * Cell + x, row * Cell + y, 0);
 
-                        alongX = MathF.Max(alongX, MathF.Abs(weave.At((column * Cell) + x + 1, (row * Cell) + y, 0) - at));
-                        alongY = MathF.Max(alongY, MathF.Abs(weave.At((column * Cell) + x, (row * Cell) + y + 1, 0) - at));
+                        alongX = MathF.Max(
+                            alongX,
+                            MathF.Abs(weave.At(column * Cell + x + 1, row * Cell + y, 0) - at)
+                        );
+                        alongY = MathF.Max(
+                            alongY,
+                            MathF.Abs(weave.At(column * Cell + x, row * Cell + y + 1, 0) - at)
+                        );
                     }
                 }
 
                 // One axis is flat to rounding and the other is a thread's profile.
                 var axis = alongX < 0.002f ? 0 : 1;
 
-                Assert.True(MathF.Min(alongX, alongY) < 0.002f && MathF.Max(alongX, alongY) > 0.02f, $"square ({column}, {row}) is {alongX} along x and {alongY} along y");
+                Assert.True(
+                    MathF.Min(alongX, alongY) < 0.002f && MathF.Max(alongX, alongY) > 0.02f,
+                    $"square ({column}, {row}) is {alongX} along x and {alongY} along y"
+                );
 
                 // The crown of the thread on top is in the middle of the square.
-                Assert.True(weave.At((column * Cell) + (Cell / 2), (row * Cell) + (Cell / 2), 0) > 0.95f);
+                Assert.True(weave.At(column * Cell + Cell / 2, row * Cell + Cell / 2, 0) > 0.95f);
 
                 if (column > 0) {
                     Assert.NotEqual(previous, axis);
@@ -153,22 +179,34 @@ public class TextureCompoundFamilyDeviceTests(ITestOutputHelper output) {
         using var device = TextureKernelHarness.Open();
 
         // Eight columns, so round(8 / √3) = 5 rows of tiles, each two rows of hexagons.
-        var hex = Compound(device, "Patterns/Hex Cells", node => node.SetText("bevel", "0.05"), 512);
+        var hex = Compound(device, "Patterns/Hex Cells", static node => node.SetText("bevel", "0.05"), 512);
 
         for (var j = 0; j < 5; j++) {
             for (var i = 0; i < 8; i++) {
                 // The two centres a tile holds, its corner and its middle.
                 Assert.True(At(hex, i / 8f, j / 5f) > 0.9f, $"the hexagon at tile ({i}, {j})'s corner is dark");
-                Assert.True(At(hex, (i + 0.5f) / 8f, (j + 0.5f) / 5f) > 0.9f, $"the hexagon in tile ({i}, {j}) is dark");
+                Assert.True(
+                    At(hex, (i + 0.5f) / 8f, (j + 0.5f) / 5f) > 0.9f,
+                    $"the hexagon in tile ({i}, {j}) is dark"
+                );
 
                 // And it reaches out to its flank: its apothem is 0.45 of a tile once widened by √3, so
                 // four tenths of a tile right of its centre is still inside, and a narrower one ends sooner.
-                Assert.True(At(hex, (i + 0.9f) / 8f, (j + 0.5f) / 5f) > 0.9f, $"the hexagon in tile ({i}, {j}) is too narrow");
+                Assert.True(
+                    At(hex, (i + 0.9f) / 8f, (j + 0.5f) / 5f) > 0.9f,
+                    $"the hexagon in tile ({i}, {j}) is too narrow"
+                );
 
                 // The joint between two side by side, and the slanted one between a hexagon and the one
                 // below and to the right of it.
-                Assert.True(At(hex, (i + 1f) / 8f, (j + 0.5f) / 5f) < 0.1f, $"the joint right of tile ({i}, {j})'s hexagon is lit");
-                Assert.True(At(hex, (i + 0.25f) / 8f, (j + 0.25f) / 5f) < 0.1f, $"the slanted joint in tile ({i}, {j}) is lit");
+                Assert.True(
+                    At(hex, (i + 1f) / 8f, (j + 0.5f) / 5f) < 0.1f,
+                    $"the joint right of tile ({i}, {j})'s hexagon is lit"
+                );
+                Assert.True(
+                    At(hex, (i + 0.25f) / 8f, (j + 0.25f) / 5f) < 0.1f,
+                    $"the slanted joint in tile ({i}, {j}) is lit"
+                );
             }
         }
     }
@@ -180,10 +218,15 @@ public class TextureCompoundFamilyDeviceTests(ITestOutputHelper output) {
         // Four bands are eight rows, and round(4√3) = 7 columns.
         // A wide joint, so that a point-up triangle's apex starts a fifth of a row below the row's top while the
         // point-down triangle beside it already has its base there.
-        var grid = Compound(device, "Patterns/Triangle Grid", node => {
-            node.SetText("bevel", "0.02");
-            node.SetText("gap", "0.3");
-        }, 512);
+        var grid = Compound(
+            device,
+            "Patterns/Triangle Grid",
+            static node => {
+                node.SetText("bevel", "0.02");
+                node.SetText("gap", "0.3");
+            },
+            512
+        );
 
         for (var j = 0; j < 8; j++) {
             // Every other row is shifted half a triangle, so its point-up centroids sit on whole columns.
@@ -193,11 +236,17 @@ public class TextureCompoundFamilyDeviceTests(ITestOutputHelper output) {
                 var upU = (i + up) / 7f;
                 var downU = (i + up + 0.5f) / 7f;
 
-                Assert.True(At(grid, upU, (j + (2f / 3f)) / 8f) > 0.9f, $"the point-up triangle at ({i}, {j}) is dark");
-                Assert.True(At(grid, downU, (j + (1f / 3f)) / 8f) > 0.9f, $"the point-down triangle at ({i}, {j}) is dark");
+                Assert.True(At(grid, upU, (j + 2f / 3f) / 8f) > 0.9f, $"the point-up triangle at ({i}, {j}) is dark");
+                Assert.True(
+                    At(grid, downU, (j + 1f / 3f) / 8f) > 0.9f,
+                    $"the point-down triangle at ({i}, {j}) is dark"
+                );
 
                 // The slanted edge they share, and the horizontal edge on top of the row.
-                Assert.True(At(grid, (upU + downU) / 2f, (j + 0.5f) / 8f) < 0.1f, $"the edge between them at ({i}, {j}) is lit");
+                Assert.True(
+                    At(grid, (upU + downU) / 2f, (j + 0.5f) / 8f) < 0.1f,
+                    $"the edge between them at ({i}, {j}) is lit"
+                );
                 Assert.True(At(grid, upU, j / 8f) < 0.1f, $"the top of row {j} is lit at column {i}");
 
                 // ⚠ Which row is shifted is what makes the rows one lattice, and every point above is the same in a
@@ -214,11 +263,15 @@ public class TextureCompoundFamilyDeviceTests(ITestOutputHelper output) {
         using var device = TextureKernelHarness.Open();
 
         Lanes Bricks(string variation) =>
-            Compound(device, "Patterns/Varied Brick", node => {
-                node.SetValue("Columns", 4f);
-                node.SetValue("Rows", 8f);
-                node.SetText("variation", variation);
-            });
+            Compound(
+                device,
+                "Patterns/Varied Brick",
+                node => {
+                    node.SetValue("Columns", 4f);
+                    node.SetValue("Rows", 8f);
+                    node.SetText("variation", variation);
+                }
+            );
 
         var plain = Bricks("0");
         var varied = Bricks("0.5");
@@ -226,11 +279,11 @@ public class TextureCompoundFamilyDeviceTests(ITestOutputHelper output) {
 
         for (var y = 0; y < Side; y++) {
             var row = y * 8 / Side;
-            var down = ((y + 0.5f) * 8f / Side) % 1f;
+            var down = (y + 0.5f) * 8f / Side % 1f;
 
             for (var x = 0; x < Side; x++) {
                 // Courses alternate by half a brick; which way does not matter to which texels share a brick.
-                var along = ((x + 0.5f) * 4f / Side) + (row % 2 == 0 ? 0f : 0.5f);
+                var along = (x + 0.5f) * 4f / Side + (row % 2 == 0 ? 0f : 0.5f);
                 var across = along % 1f;
 
                 if (MathF.Abs(across - 0.5f) > 0.25f || MathF.Abs(down - 0.5f) > 0.25f) {
@@ -260,8 +313,8 @@ public class TextureCompoundFamilyDeviceTests(ITestOutputHelper output) {
     public void Clouds_span_the_range_and_roughness_breaks_them_up() {
         using var device = TextureKernelHarness.Open();
 
-        var soft = Compound(device, "Noise/Clouds", node => node.SetText("roughness", "0.2"));
-        var rough = Compound(device, "Noise/Clouds", node => node.SetText("roughness", "0.9"));
+        var soft = Compound(device, "Noise/Clouds", static node => node.SetText("roughness", "0.2"));
+        var rough = Compound(device, "Noise/Clouds", static node => node.SetText("roughness", "0.9"));
 
         Assert.Equal((0f, 1f), Range(soft));
 
@@ -278,10 +331,10 @@ public class TextureCompoundFamilyDeviceTests(ITestOutputHelper output) {
     public void Cell_walls_are_thin_bright_lines_that_widen_with_their_width() {
         using var device = TextureKernelHarness.Open();
 
-        var thin = Compound(device, "Noise/Cell Walls", node => node.SetText("width", "0.03"));
-        var wide = Compound(device, "Noise/Cell Walls", node => node.SetText("width", "0.15"));
-        var thinShare = Fraction(thin, value => value > 0.5f);
-        var wideShare = Fraction(wide, value => value > 0.5f);
+        var thin = Compound(device, "Noise/Cell Walls", static node => node.SetText("width", "0.03"));
+        var wide = Compound(device, "Noise/Cell Walls", static node => node.SetText("width", "0.15"));
+        var thinShare = Fraction(thin, static value => value > 0.5f);
+        var wideShare = Fraction(wide, static value => value > 0.5f);
 
         output.WriteLine($"thin {thinShare}, wide {wideShare}");
 
@@ -299,8 +352,8 @@ public class TextureCompoundFamilyDeviceTests(ITestOutputHelper output) {
     public void Fractal_cells_add_finer_cells_with_each_octave() {
         using var device = TextureKernelHarness.Open();
 
-        var one = Compound(device, "Noise/Fractal Cells", node => node.SetValue("Octaves", 1f));
-        var three = Compound(device, "Noise/Fractal Cells", node => node.SetValue("Octaves", 3f));
+        var one = Compound(device, "Noise/Fractal Cells", static node => node.SetValue("Octaves", 1f));
+        var three = Compound(device, "Noise/Fractal Cells", static node => node.SetValue("Octaves", 3f));
 
         static int Pits(Lanes picture) {
             var pits = 0;
@@ -339,7 +392,7 @@ public class TextureCompoundFamilyDeviceTests(ITestOutputHelper output) {
         using var device = TextureKernelHarness.Open();
 
         var streaks = Compound(device, "Noise/Streaks");
-        var plain = Compound(device, "Noise/Streaks", node => node.SetValue("Stretch", 1f));
+        var plain = Compound(device, "Noise/Streaks", static node => node.SetValue("Stretch", 1f));
         var (acrossStreak, downStreak) = Steps(streaks);
         var (acrossPlain, downPlain) = Steps(plain);
 
@@ -356,11 +409,16 @@ public class TextureCompoundFamilyDeviceTests(ITestOutputHelper output) {
 
         float Covered(string radius) =>
             Fraction(
-                Compound(device, "Noise/Spots", node => {
-                    node.SetValue("Cells", 16f);
-                    node.SetText("radius", radius);
-                }, 512),
-                value => value > 0.5f
+                Compound(
+                    device,
+                    "Noise/Spots",
+                    node => {
+                        node.SetValue("Cells", 16f);
+                        node.SetText("radius", radius);
+                    },
+                    512
+                ),
+                static value => value > 0.5f
             );
 
         var small = Covered("0.1");
@@ -378,7 +436,7 @@ public class TextureCompoundFamilyDeviceTests(ITestOutputHelper output) {
     public void A_liquid_only_moves_the_values_its_noise_already_had() {
         using var device = TextureKernelHarness.Open();
 
-        var still = Compound(device, "Noise/Liquid", node => node.SetText("flow", "0"));
+        var still = Compound(device, "Noise/Liquid", static node => node.SetText("flow", "0"));
         var stirred = Compound(device, "Noise/Liquid");
         var (low, high) = Range(still);
         var moved = 0.0;

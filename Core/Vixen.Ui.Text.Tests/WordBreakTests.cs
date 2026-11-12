@@ -8,8 +8,12 @@ namespace Vixen.Ui.Text.Tests;
 /// <summary>CSS Text 3 § 5.2's <c>word-break</c>, at both of the stages it touches.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Measured with hand-written advances rather than with a shaped face, and that is the
-///         only way half of this file can exist at all.</b> <c>keep-all</c> is a rule about CJK — it
+///         ⚠
+///         <b>
+///             Measured with hand-written advances rather than with a shaped face, and that is the
+///             only way half of this file can exist at all.
+///         </b>
+///         <c>keep-all</c> is a rule about CJK — it
 ///         suppresses the opportunities UAX#14 finds between two ideographs and between two Hangul
 ///         syllables, and there is no such opportunity anywhere in Latin, because LB28 already forbids
 ///         a break between two letters. None of the fourteen embedded test fonts covers a CJK code
@@ -18,8 +22,11 @@ namespace Vixen.Ui.Text.Tests;
 ///         test rather than a property of a font that does not exist here.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Every wrapping assertion below distinguishes <c>word-break</c> from
-///         <c>overflow-wrap</c>, which is the mistake this feature exists not to make.</b>
+///         ⚠
+///         <b>
+///             Every wrapping assertion below distinguishes <c>word-break</c> from
+///             <c>overflow-wrap</c>, which is the mistake this feature exists not to make.
+///         </b>
 ///         <see cref="TextWrapMode.Anywhere" /> is consulted in one branch — "nothing fits: one
 ///         unbreakable run is wider than the whole line" — so it can only ever break a word that had
 ///         nowhere else to go, and it breaks it at the <i>start</i> of a fresh line. <c>break-all</c>
@@ -50,7 +57,7 @@ public class WordBreakTests {
         var lines = new List<WrappedLine>();
         LineWrapper.Wrap(text, advances, width, lines, mode, wordBreak);
 
-        return lines.Select(line => text[line.Start..line.End]).ToList();
+        return [..lines.Select(line => text[line.Start..line.End])];
     }
 
     [Fact]
@@ -62,9 +69,12 @@ public class WordBreakTests {
         Assert.Equal([1, 2, 3, 4, 5], Opportunities("hello", WordBreakMode.BreakAll));
 
     /// <summary>
-    ///     ⚠ <b><c>break-all</c> keeps every UAX#14 rule that is not about letters, and this is the
-    ///     assertion that says the implementation is a class substitution rather than a scattering of
-    ///     boundaries.</b>
+    ///     ⚠
+    ///     <b>
+    ///         <c>break-all</c> keeps every UAX#14 rule that is not about letters, and this is the
+    ///         assertion that says the implementation is a class substitution rather than a scattering of
+    ///         boundaries.
+    ///     </b>
     /// </summary>
     /// <remarks>
     ///     A line may not begin with a comma — LB15d — and the naive implementation of this property,
@@ -136,8 +146,12 @@ public class WordBreakTests {
         Assert.Contains(2, Opportunities("中\n文", WordBreakMode.KeepAll));
 
     /// <summary>
-    ///     ⚠ <b>Latin is byte-identical under <c>keep-all</c>, and that is the correct answer rather
-    ///     than a gap.</b> LB28 already forbids a break between two letters, so there is nothing for
+    ///     ⚠
+    ///     <b>
+    ///         Latin is byte-identical under <c>keep-all</c>, and that is the correct answer rather
+    ///         than a gap.
+    ///     </b>
+    ///     LB28 already forbids a break between two letters, so there is nothing for
     ///     the property to suppress — which is exactly why every other <c>keep-all</c> assertion in
     ///     this file is written in CJK.
     /// </summary>
@@ -152,8 +166,11 @@ public class WordBreakTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>The difference between <c>word-break</c> and <c>overflow-wrap</c>, as two different
-    ///     sets of lines from one string and one width.</b>
+    ///     ⚠
+    ///     <b>
+    ///         The difference between <c>word-break</c> and <c>overflow-wrap</c>, as two different
+    ///         sets of lines from one string and one width.
+    ///     </b>
     /// </summary>
     /// <remarks>
     ///     <c>anywhere</c> reaches its branch only once the long word is alone on a line, so the line
@@ -191,8 +208,11 @@ public class WordBreakTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>The two properties compose, and this is the combination one merged enum could not have
-    ///     expressed.</b>
+    ///     ⚠
+    ///     <b>
+    ///         The two properties compose, and this is the combination one merged enum could not have
+    ///         expressed.
+    ///     </b>
     /// </summary>
     /// <remarks>
     ///     <c>word-break: keep-all</c> with <c>overflow-wrap: anywhere</c> is what a narrow CJK column
@@ -231,7 +251,7 @@ public class WordBreakTests {
         for (var width = 0f; width <= 12f; width += 1f) {
             var pieces = Wrap(Text, width, TextWrapMode.Word, mode);
             Assert.Equal(Text, string.Concat(pieces));
-            Assert.All(pieces, piece => Assert.NotEqual(string.Empty, piece));
+            Assert.All(pieces, static piece => Assert.NotEqual(string.Empty, piece));
         }
     }
 }

@@ -46,13 +46,10 @@ public class AuthorableNodeTests {
     [Fact]
     public void ACompositeConditionIsAuthoredAsNestedRows() {
         var content = Tree(
-            new BehaviorAttachmentContent {
+            new() {
                 Type = "Composite",
                 Fields = { ["Logic"] = nameof(DecoratorLogic.And), ["Aborts"] = nameof(ObserverAborts.Both) },
-                Children = {
-                    Blackboard("visible", BlackboardTest.IsSet),
-                    Blackboard("armed", BlackboardTest.IsSet)
-                }
+                Children = { Blackboard("visible", BlackboardTest.IsSet), Blackboard("armed", BlackboardTest.IsSet) }
             }
         );
 
@@ -72,46 +69,48 @@ public class AuthorableNodeTests {
 
     [Fact]
     public void ACompositeConditionWithNothingUnderItIsADiagnostic() {
-        var content = Tree(new BehaviorAttachmentContent { Type = "Composite" });
+        var content = Tree(new() { Type = "Composite" });
 
         Assert.False(Refused(content, out var problems));
-        Assert.Contains(problems, problem => problem.Message.Contains("joins nothing", StringComparison.Ordinal));
+        Assert.Contains(
+            problems,
+            static problem => problem.Message.Contains("joins nothing", StringComparison.Ordinal)
+        );
     }
 
     /// <summary>⚠ One level. An expression tree of arbitrary depth is a thing the inspector cannot draw.</summary>
     [Fact]
     public void ACompositeConditionMayNotContainAnother() {
         var content = Tree(
-            new BehaviorAttachmentContent {
+            new() {
                 Type = "Composite",
                 Children = {
-                    Blackboard("visible", BlackboardTest.IsSet),
-                    new BehaviorAttachmentContent { Type = "Composite" }
+                    Blackboard("visible", BlackboardTest.IsSet), new BehaviorAttachmentContent { Type = "Composite" }
                 }
             }
         );
 
         Assert.False(Refused(content, out var problems));
-        Assert.Contains(problems, problem => problem.Message.Contains("cannot be nested", StringComparison.Ordinal));
+        Assert.Contains(
+            problems,
+            static problem => problem.Message.Contains("cannot be nested", StringComparison.Ordinal)
+        );
     }
 
     [Fact]
     public void AConditionalLoopTakesExactlyOneDecoratorToTest() {
         var content = Tree(
-            new BehaviorAttachmentContent {
-                Type = "ConditionalLoop",
-                Children = { Blackboard("hungry", BlackboardTest.IsSet) }
-            }
+            new() { Type = "ConditionalLoop", Children = { Blackboard("hungry", BlackboardTest.IsSet) } }
         );
 
         Assert.True(BehaviorTreeContentCompiler.TryCompile(content, Resolver(), out var problems, out var template));
         Assert.Empty(problems);
         Assert.IsType<ConditionalLoopDecorator>(template!.Decorators[0].Decorator);
 
-        var none = Tree(new BehaviorAttachmentContent { Type = "ConditionalLoop" });
+        var none = Tree(new() { Type = "ConditionalLoop" });
 
         Assert.False(Refused(none, out var refused));
-        Assert.Contains(refused, problem => problem.Message.Contains("exactly one", StringComparison.Ordinal));
+        Assert.Contains(refused, static problem => problem.Message.Contains("exactly one", StringComparison.Ordinal));
     }
 
     /// <summary>
@@ -157,29 +156,28 @@ public class AuthorableNodeTests {
 
         Assert.False(BehaviorTreeContentCompiler.TryCompile(content, Resolver(), out var problems, out var template));
         Assert.NotNull(template);
-        Assert.Contains(problems, problem => problem.Message.Contains("No utility set called", StringComparison.Ordinal));
+        Assert.Contains(
+            problems,
+            static problem => problem.Message.Contains("No utility set called", StringComparison.Ordinal)
+        );
     }
 
     static BehaviorAttachmentContent Blackboard(string key, BlackboardTest test) =>
         new() { Type = "Blackboard", Fields = { ["Key"] = key, ["Test"] = test.ToString() } };
 
     /// <summary>A one-task tree with one decorator on it, and three keys the operands can read.</summary>
-    static BehaviorTreeContent Tree(BehaviorAttachmentContent decorator) => new() {
-        Name = "brain",
-        Root = new() {
-            Name = "act",
-            Type = "Wait",
-            Fields = { ["Seconds"] = "1" },
-            Decorators = { decorator }
-        },
-        Keys = {
-            new() { Name = "visible", Type = BlackboardValueType.Bool },
-            new() { Name = "armed", Type = BlackboardValueType.Bool },
-            new() { Name = "hungry", Type = BlackboardValueType.Bool }
-        }
-    };
+    static BehaviorTreeContent Tree(BehaviorAttachmentContent decorator) =>
+        new() {
+            Name = "brain",
+            Root = new() { Name = "act", Type = "Wait", Fields = { ["Seconds"] = "1" }, Decorators = { decorator } },
+            Keys = {
+                new() { Name = "visible", Type = BlackboardValueType.Bool },
+                new() { Name = "armed", Type = BlackboardValueType.Bool },
+                new() { Name = "hungry", Type = BlackboardValueType.Bool }
+            }
+        };
 
-    static BehaviorTreeResolver Resolver() => new() { Schema = new BehaviorNodeSchema() };
+    static BehaviorTreeResolver Resolver() => new() { Schema = new() };
 
     static bool Refused(BehaviorTreeContent content, out IReadOnlyList<BehaviorTreeDiagnostic> problems) =>
         BehaviorTreeContentCompiler.TryCompile(content, Resolver(), out problems, out _);

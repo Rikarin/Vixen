@@ -4,7 +4,6 @@
 using Vixen.Core.Mathematics;
 using Vixen.Graphics;
 using Vixen.Rendering.Compositor;
-using Vixen.Shaders;
 using Vixen.Shaders.Generated;
 
 namespace Vixen.Rendering.PostFx;
@@ -158,8 +157,12 @@ public sealed class BloomRenderer : SceneRenderer, IDisposable, IPostProcessTarg
 
     /// <inheritdoc />
     /// <remarks>
-    ///     ⚠ <b>The chain's nine passes are not in <see cref="SceneRenderer.Nested" />, so their answer
-    ///     is carried out by hand.</b> A chain that declines leaves <see cref="Output" /> holding
+    ///     ⚠
+    ///     <b>
+    ///         The chain's nine passes are not in <see cref="SceneRenderer.Nested" />, so their answer
+    ///         is carried out by hand.
+    ///     </b>
+    ///     A chain that declines leaves <see cref="Output" /> holding
     ///     whatever the graph last aliased into it and <see cref="PassCount" /> at zero — a number a
     ///     host would have to know to ask for. The reason is the thing it can be asked.
     /// </remarks>
@@ -275,7 +278,7 @@ public sealed class BloomRenderer : SceneRenderer, IDisposable, IPostProcessTarg
         // and using the target's would make the downsample's taps land half a texel apart and the
         // upsample's tent twice as wide as it should be — a bloom that is subtly too soft, which is
         // exactly the kind of wrong nobody can point at.
-        pass.Parameters.Set(BloomKeys.TexelSize, new Vector2(1f / Math.Max(sourceSize.X, 1), 1f / Math.Max(sourceSize.Y, 1)));
+        pass.Parameters.Set(BloomKeys.TexelSize, new(1f / Math.Max(sourceSize.X, 1), 1f / Math.Max(sourceSize.Y, 1)));
         pass.Parameters.Set(BloomKeys.Threshold, applied.BloomThreshold?.Over(Threshold) ?? Threshold);
         pass.Parameters.Set(BloomKeys.Knee, applied.BloomKnee?.Over(Knee) ?? Knee);
         pass.Parameters.Set(BloomKeys.FilterRadius, FilterRadius);
@@ -335,8 +338,7 @@ public sealed class BloomRenderer : SceneRenderer, IDisposable, IPostProcessTarg
         return levels;
     }
 
-    static Int2 Halve(Int2 size, int times) =>
-        new(Math.Max(size.X >> times, 1), Math.Max(size.Y >> times, 1));
+    static Int2 Halve(Int2 size, int times) => new(Math.Max(size.X >> times, 1), Math.Max(size.Y >> times, 1));
 
     string Down(int level) => $"{this}.Down{level}";
 
@@ -358,11 +360,12 @@ public sealed class BloomRenderer : SceneRenderer, IDisposable, IPostProcessTarg
     ///     sharing it costs <see cref="Configure" />'s recreate-on-rename nothing — a slot can move
     ///     between prefilter, downsample and upsample, but never between the two downsamples.
     /// </remarks>
-    static string Describe(int mode) => mode switch {
-        PrefilterMode => "Prefilter",
-        FirstDownsampleMode or DownsampleMode => "Down",
-        _ => "Up"
-    };
+    static string Describe(int mode) =>
+        mode switch {
+            PrefilterMode => "Prefilter",
+            FirstDownsampleMode or DownsampleMode => "Down",
+            _ => "Up"
+        };
 
     /// <inheritdoc />
     public void Dispose() {

@@ -4,7 +4,6 @@
 using System.Collections.Concurrent;
 using System.Globalization;
 using Vixen.Core;
-using Vixen.Editor.Assets;
 using Vixen.Editor.Assets.Content;
 using Vixen.Editor.Assets.MeshMaps;
 using Vixen.Editor.Core;
@@ -103,8 +102,12 @@ sealed class ContentTasks {
     /// <summary>What "publish" means, which is <c>dotnet publish</c> and once is something else.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A seam for one reason, stated rather than disguised: the after-build steps are
-    ///         otherwise a call site nothing can reach.</b> This suite deliberately never shells out —
+    ///         ⚠
+    ///         <b>
+    ///             A seam for one reason, stated rather than disguised: the after-build steps are
+    ///             otherwise a call site nothing can reach.
+    ///         </b>
+    ///         This suite deliberately never shells out —
     ///         see <c>BuildSettingsTests</c> — so a <see cref="BuildStage.AfterBuild" /> step could be
     ///         registered, ordered and unit-tested while the line in <see cref="BuildPlayer" /> that
     ///         runs it had never once executed. That is this repository's commonest defect shape and
@@ -125,7 +128,7 @@ sealed class ContentTasks {
             request.Variant,
             request.Output,
             log,
-            capture: true,
+            true,
             cancellationToken
         );
 
@@ -145,12 +148,13 @@ sealed class ContentTasks {
             "Importing assets",
             async (task, diagnostics) => {
                 var summary = await ContentPipeline.ImportAsync(
-                    workspace,
-                    Target,
-                    diagnostics.Add,
-                    step => task.Report(step.Fraction, step.Path),
-                    cancellationToken: task.Cancellation
-                ).ConfigureAwait(false);
+                        workspace,
+                        Target,
+                        diagnostics.Add,
+                        step => task.Report(step.Fraction, step.Path),
+                        cancellationToken: task.Cancellation
+                    )
+                    .ConfigureAwait(false);
 
                 return new(
                     summary.Succeeded ? NotificationSeverity.Success : NotificationSeverity.Error,
@@ -178,8 +182,12 @@ sealed class ContentTasks {
     ///         and minutes on a hero asset — the same argument <see cref="Import" /> is here for.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The arithmetic is on the pool and the project write is not, and the split is not
-    ///         cosmetic.</b> Writing the files means <c>AssetDatabase.Scan</c>, which rewrites the
+    ///         ⚠
+    ///         <b>
+    ///             The arithmetic is on the pool and the project write is not, and the split is not
+    ///             cosmetic.
+    ///         </b>
+    ///         Writing the files means <c>AssetDatabase.Scan</c>, which rewrites the
     ///         index the browser, the inspector and every asset field are reading — from a pool
     ///         thread that is a tearing read in a panel rather than an exception anybody can find. So
     ///         what crosses back is the encoded PNGs, and <see cref="Pump" /> puts them in the
@@ -188,16 +196,24 @@ sealed class ContentTasks {
     ///     <para>
     ///         ⚠ <b>It takes the same one-at-a-time guard as an import</b>, because it writes into
     ///         <c>Assets/</c> and an import running over the same folder would read the files
-    ///         half-written. ⚠ <b>So the guard is held until <see cref="Landed" /> has written
-    ///         them</b>, not until the pool task ends: the arithmetic is what takes the minutes and
+    ///         half-written. ⚠
+    ///         <b>
+    ///             So the guard is held until <see cref="Landed" /> has written
+    ///             them
+    ///         </b>
+    ///         , not until the pool task ends: the arithmetic is what takes the minutes and
     ///         the write is what touches the project, and releasing between the two — which is what
     ///         this did — left the whole of the write unguarded while the remark above claimed
     ///         otherwise. The one thing a bake has to be exclusive against is the one thing it was
     ///         not.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Cancel stops the casting, and until
-    ///         <a href="https://github.com/Rikarin/Vixen/issues/700">#700</a> it did not.</b> The
+    ///         ⚠
+    ///         <b>
+    ///             Cancel stops the casting, and until
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/700">#700</a> it did not.
+    ///         </b>
+    ///         The
     ///         remark here used to say so — <c>MapBaker.Bake</c> was one call that returned when every
     ///         texel was done, so the token was read on either side of it and nowhere inside, and the
     ///         bar moved exactly twice. Honesty about a dead button is better than a lie about a live
@@ -296,13 +312,21 @@ sealed class ContentTasks {
             var wrote = string.Create(CultureInfo.InvariantCulture, $"{set.Files.Count} maps for {set.Mesh}");
 
             if (set.Warnings.Count > 0) {
-                shell.Notifications.Show(wrote, NotificationSeverity.Warning, string.Join(Environment.NewLine, set.Warnings));
+                shell.Notifications.Show(
+                    wrote,
+                    NotificationSeverity.Warning,
+                    string.Join(Environment.NewLine, set.Warnings)
+                );
                 return;
             }
 
             shell.Notifications.Success(wrote);
         } catch (Exception failure) when (failure is IOException or UnauthorizedAccessException) {
-            shell.Notifications.Show("Could not write " + mesh + "'s mesh maps", NotificationSeverity.Error, failure.Message);
+            shell.Notifications.Show(
+                "Could not write " + mesh + "'s mesh maps",
+                NotificationSeverity.Error,
+                failure.Message
+            );
         } finally {
             Volatile.Write(ref running, 0);
             Baked?.Invoke();
@@ -319,8 +343,12 @@ sealed class ContentTasks {
 
     /// <summary>What the last mesh-map bake produced, or null before one has finished.</summary>
     /// <remarks>
-    ///     ⚠ <b>Held here rather than handed to <see cref="Baked" />, because a panel opened after a
-    ///     bake has to be able to ask.</b> A panel's factory runs on every reopen — see
+    ///     ⚠
+    ///     <b>
+    ///         Held here rather than handed to <see cref="Baked" />, because a panel opened after a
+    ///         bake has to be able to ask.
+    ///     </b>
+    ///     A panel's factory runs on every reopen — see
     ///     <c>PlayerDelivery</c>'s pulled answers — and an event is only heard by whoever was listening.
     /// </remarks>
     public MeshMapSet? LastBake { get; private set; }
@@ -338,12 +366,13 @@ sealed class ContentTasks {
                 task.Report(0f, "Importing");
 
                 var imported = await ContentPipeline.ImportAsync(
-                    workspace,
-                    Target,
-                    diagnostics.Add,
-                    step => task.Report(step.Fraction * 0.8f, step.Path),
-                    cancellationToken: task.Cancellation
-                ).ConfigureAwait(false);
+                        workspace,
+                        Target,
+                        diagnostics.Add,
+                        step => task.Report(step.Fraction * 0.8f, step.Path),
+                        cancellationToken: task.Cancellation
+                    )
+                    .ConfigureAwait(false);
 
                 if (!imported.Succeeded) {
                     return new(
@@ -378,8 +407,11 @@ sealed class ContentTasks {
     /// <param name="completed">Told whether it worked, on the frame thread.</param>
     /// <remarks>
     ///     <para>
-    ///         <b>Doc 20's B7 asks for a Build Settings window "over <c>Tools/Vixen.Cli</c>'s existing
-    ///         calls", and this is the sequence that command runs</b> — import, pack, publish — with
+    ///         <b>
+    ///             Doc 20's B7 asks for a Build Settings window "over <c>Tools/Vixen.Cli</c>'s existing
+    ///             calls", and this is the sequence that command runs
+    ///         </b>
+    ///         — import, pack, publish — with
     ///         <see cref="PlayerBuild" /> as the shared half. It is here rather than beside the panel
     ///         for the reason this class exists at all: it is the one place that knows two of these
     ///         must not run at once, and a player build writes the same <c>Library/</c> an import does.
@@ -391,15 +423,23 @@ sealed class ContentTasks {
     ///         exactly the case where they must not be one field. See <c>PlayerBuildSettings</c>.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A launch is awaited, so the task stays in the task centre for as long as the game
-    ///         is up.</b> That is the useful shape rather than an accident of the call: the progress
+    ///         ⚠
+    ///         <b>
+    ///             A launch is awaited, so the task stays in the task centre for as long as the game
+    ///             is up.
+    ///         </b>
+    ///         That is the useful shape rather than an accident of the call: the progress
     ///         entry is what says a player is running, its Cancel is what stops one that has hung with
     ///         no window, and the notification at the end carries the game's own exit code — which is
     ///         the thing somebody wants after a crash and would otherwise have to find in a terminal.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>No shader bundle, and the difference from <c>vixen build</c> is stated rather than
-    ///         left to be discovered.</b> The ahead-of-time compile is <c>ShaderBuildRunner</c>'s,
+    ///         ⚠
+    ///         <b>
+    ///             No shader bundle, and the difference from <c>vixen build</c> is stated rather than
+    ///             left to be discovered.
+    ///         </b>
+    ///         The ahead-of-time compile is <c>ShaderBuildRunner</c>'s,
     ///         which links Raven's compiler — a build-time library the editor deliberately does not
     ///         carry. A project with a <c>Shaders.effects.json</c> is told so in the build log; one
     ///         without has no bundle either way and nothing to be told.
@@ -440,12 +480,13 @@ sealed class ContentTasks {
                 task.Report(0f, "Importing");
 
                 var imported = await ContentPipeline.ImportAsync(
-                    workspace,
-                    request.Target,
-                    diagnostics.Add,
-                    step => task.Report(step.Fraction * ImportShare, step.Path),
-                    cancellationToken: task.Cancellation
-                ).ConfigureAwait(false);
+                        workspace,
+                        request.Target,
+                        diagnostics.Add,
+                        step => task.Report(step.Fraction * ImportShare, step.Path),
+                        cancellationToken: task.Cancellation
+                    )
+                    .ConfigureAwait(false);
 
                 if (!imported.Succeeded) {
                     return new(
@@ -511,13 +552,14 @@ sealed class ContentTasks {
                 task.Report(LaunchShare, "Running");
 
                 var exit = await PlayerBuild.LaunchAsync(
-                    request.Output,
-                    Path.GetFileNameWithoutExtension(request.ProjectFile),
-                    [],
-                    log,
-                    capture: true,
-                    task.Cancellation
-                ).ConfigureAwait(false);
+                        request.Output,
+                        Path.GetFileNameWithoutExtension(request.ProjectFile),
+                        [],
+                        log,
+                        true,
+                        task.Cancellation
+                    )
+                    .ConfigureAwait(false);
 
                 return exit == 0
                     ? new(NotificationSeverity.Success, "The player exited normally", request.Output)
@@ -634,8 +676,12 @@ sealed class ContentTasks {
 
     /// <summary>What to do when work starts or stops, for a panel whose buttons say which.</summary>
     /// <remarks>
-    ///     ⚠ <b>Raised from <see cref="Pump" /> by comparing, rather than from the two places that
-    ///     write the flag.</b> One of those places is on a pool thread and the other is not, and
+    ///     ⚠
+    ///     <b>
+    ///         Raised from <see cref="Pump" /> by comparing, rather than from the two places that
+    ///         write the flag.
+    ///     </b>
+    ///     One of those places is on a pool thread and the other is not, and
     ///     there are four ways out of a task — finished, failed, refused, cancelled — of which
     ///     cancellation produces no result at all. A bool compared once a frame catches every one of
     ///     them and cannot be forgotten by a fifth way out being added later.
@@ -718,7 +764,7 @@ sealed class ContentTasks {
     /// <summary>The detail line: what the task said, plus what went wrong along the way.</summary>
     static string Detail(Finished result, List<ContentDiagnostic> diagnostics) {
         var loud = diagnostics
-            .Where(diagnostic => diagnostic.Severity != ImportSeverity.Information)
+            .Where(static diagnostic => diagnostic.Severity != ImportSeverity.Information)
             .ToList();
 
         if (loud.Count == 0) {
@@ -727,14 +773,18 @@ sealed class ContentTasks {
 
         var lines = loud
             .Take(3)
-            .Select(diagnostic => diagnostic.Path.Length == 0 ? diagnostic.Message : $"{diagnostic.Path}: {diagnostic.Message}");
+            .Select(static diagnostic => diagnostic.Path.Length == 0
+                    ? diagnostic.Message
+                    : $"{diagnostic.Path}: {diagnostic.Message}"
+            );
 
         var more = loud.Count > 3 ? $"{Environment.NewLine}and {loud.Count - 3} more" : string.Empty;
 
         return string.Join(
-            Environment.NewLine,
-            [result.Detail, .. lines]
-        ) + more;
+                Environment.NewLine,
+                [result.Detail, ..lines]
+            )
+            + more;
     }
 
     /// <summary>What a finished task wants said.</summary>
@@ -757,8 +807,12 @@ sealed class ContentTasks {
 ///         minutes later would produce an artefact nobody asked for.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Which is why the steps travel here too, rather than being read from
-///         <c>IEditorRegistry</c> inside the task.</b> A plugin can be unloaded while a build runs —
+///         ⚠
+///         <b>
+///             Which is why the steps travel here too, rather than being read from
+///             <c>IEditorRegistry</c> inside the task.
+///         </b>
+///         A plugin can be unloaded while a build runs —
 ///         that is the whole point of the collectible load context — and a step list read on a pool
 ///         thread two minutes in is a list that may name a delegate over an assembly that has gone.
 ///     </para>

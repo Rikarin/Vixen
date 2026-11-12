@@ -17,8 +17,12 @@ namespace Vixen.Editor.Assets.MeshMaps;
 ///         does not know which mesh it is about to be baked for.
 ///     </para>
 ///     <para>
-///         ⚠ <b>So the grammar is a scheme — <c>meshmap:curvature</c> — and it is deliberately not a
-///         path.</b> A path would have to be a lie about some particular mesh, and a host reading one
+///         ⚠
+///         <b>
+///             So the grammar is a scheme — <c>meshmap:curvature</c> — and it is deliberately not a
+///             path.
+///         </b>
+///         A path would have to be a lie about some particular mesh, and a host reading one
 ///         could not tell the lie from a real reference to a file an artist happened to wire in by
 ///         hand. The scheme makes the two kinds of external distinguishable by looking, which is what
 ///         lets a bake with no mesh refuse a generator with a sentence rather than fail to open
@@ -64,8 +68,11 @@ public static class MeshMapReference {
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>This is the half of <a href="https://github.com/Rikarin/Vixen/issues/702">#702</a> that
-///         a graph actually calls, and <see cref="MeshMapLibrary" /> is the half under it.</b> The
+///         <b>
+///             This is the half of <a href="https://github.com/Rikarin/Vixen/issues/702">#702</a> that
+///             a graph actually calls, and <see cref="MeshMapLibrary" /> is the half under it.
+///         </b>
+///         The
 ///         library is every map a project holds; a binding is the one set a bake is for, which is
 ///         where the mesh finally enters. Doc 48 § 4.8 puts it here on purpose: the graph names the
 ///         measurement, the bake names the mesh, and neither knows the other's half.
@@ -129,7 +136,7 @@ public sealed class MeshMapBinding {
         ArgumentNullException.ThrowIfNull(library);
 
         binding = null;
-        problem = "";
+        problem = string.Empty;
 
         if (model.IsEmpty) {
             problem = "No model was named, and an empty asset id is what a sidecar naming no model reads back as — "
@@ -152,7 +159,7 @@ public sealed class MeshMapBinding {
                 return true;
             default:
                 problem = $"That model has {sets.Count} texture sets ({string.Join(", ", sets)}), so \"the "
-                    + "curvature map of this model\" has that many answers. Name the set to bake.";
+                    + """curvature map of this model" has that many answers. Name the set to bake.""";
 
                 return false;
         }
@@ -164,8 +171,12 @@ public sealed class MeshMapBinding {
     /// <param name="problem">Why it does not, or an empty string.</param>
     /// <returns>Whether it resolved.</returns>
     /// <remarks>
-    ///     ⚠ <b><see langword="false" /> with an empty <paramref name="problem" /> means "not mine",
-    ///     and a caller has to tell that apart from a failure.</b> A compilation's external list mixes
+    ///     ⚠
+    ///     <b>
+    ///         <see langword="false" /> with an empty <paramref name="problem" /> means "not mine",
+    ///         and a caller has to tell that apart from a failure.
+    ///     </b>
+    ///     A compilation's external list mixes
     ///     imported bitmaps with mesh maps; a host walks it once and each entry is one or the other,
     ///     so a resolver that reported a bitmap's path as an unresolvable mesh map would make every
     ///     graph containing a <c>Source/Bitmap</c> look broken. <see cref="MeshMapReference.IsMeshMap" />
@@ -173,7 +184,7 @@ public sealed class MeshMapBinding {
     /// </remarks>
     public bool TryResolve(string? reference, out MeshMapAsset map, out string problem) {
         map = default;
-        problem = "";
+        problem = string.Empty;
 
         if (!MeshMapReference.IsMeshMap(reference)) {
             return false;

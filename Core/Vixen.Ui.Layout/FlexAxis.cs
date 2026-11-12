@@ -19,8 +19,7 @@ static class FlexAxis {
     /// <param name="direction">The axis.</param>
     /// <returns>Whether it is a row.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static bool IsRow(FlexDirection direction) =>
-        direction is FlexDirection.Row or FlexDirection.RowReverse;
+    public static bool IsRow(FlexDirection direction) => direction is FlexDirection.Row or FlexDirection.RowReverse;
 
     /// <summary>Whether the axis runs vertically.</summary>
     /// <param name="direction">The axis.</param>
@@ -57,22 +56,24 @@ static class FlexAxis {
     /// <summary>The physical edge an axis starts at.</summary>
     /// <param name="direction">The axis.</param>
     /// <returns>The edge.</returns>
-    public static Edge FlexStartEdge(FlexDirection direction) => direction switch {
-        FlexDirection.Column => Edge.Top,
-        FlexDirection.ColumnReverse => Edge.Bottom,
-        FlexDirection.Row => Edge.Left,
-        _ => Edge.Right
-    };
+    public static Edge FlexStartEdge(FlexDirection direction) =>
+        direction switch {
+            FlexDirection.Column => Edge.Top,
+            FlexDirection.ColumnReverse => Edge.Bottom,
+            FlexDirection.Row => Edge.Left,
+            _ => Edge.Right
+        };
 
     /// <summary>The physical edge an axis ends at.</summary>
     /// <param name="direction">The axis.</param>
     /// <returns>The edge.</returns>
-    public static Edge FlexEndEdge(FlexDirection direction) => direction switch {
-        FlexDirection.Column => Edge.Bottom,
-        FlexDirection.ColumnReverse => Edge.Top,
-        FlexDirection.Row => Edge.Right,
-        _ => Edge.Left
-    };
+    public static Edge FlexEndEdge(FlexDirection direction) =>
+        direction switch {
+            FlexDirection.Column => Edge.Bottom,
+            FlexDirection.ColumnReverse => Edge.Top,
+            FlexDirection.Row => Edge.Right,
+            _ => Edge.Left
+        };
 
     /// <summary>The physical edge the writing direction starts at.</summary>
     /// <param name="axis">The axis.</param>

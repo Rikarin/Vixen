@@ -99,13 +99,20 @@ public static class BlockoutCreate {
     /// <returns>The entity, or <see cref="Entity.Null" /> for an outline with fewer than three points.</returns>
     /// <remarks>
     ///     <para>
-    ///         <b>Doc 24's poly shape, and its own words for what it is for: how every irregular room
-    ///         gets made.</b> Click a polygon, drag the height. The arithmetic is
+    ///         <b>
+    ///             Doc 24's poly shape, and its own words for what it is for: how every irregular room
+    ///             gets made.
+    ///         </b>
+    ///         Click a polygon, drag the height. The arithmetic is
     ///         <see cref="MeshShapes.Sweep" />, which is also what a staircase and a ramp are.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A poly shape is a plain mesh from birth rather than a parametric one, and that is
-    ///         a decision rather than an omission.</b> Its parameters would be a polygon of arbitrary
+    ///         ⚠
+    ///         <b>
+    ///             A poly shape is a plain mesh from birth rather than a parametric one, and that is
+    ///             a decision rather than an omission.
+    ///         </b>
+    ///         Its parameters would be a polygon of arbitrary
     ///         length and a height, which is not six numbers — so it would need a record of its own in
     ///         the scene format, a drawer of its own in the inspector, and an editing gesture of its own
     ///         to be worth having. What a designer actually does to one afterwards is move its corners,
@@ -166,12 +173,14 @@ public static class BlockoutCreate {
     /// <param name="offset">How far to move each copy.</param>
     /// <param name="into">The copies. Cleared first, or null to not report them.</param>
     /// <returns>How many were copied.</returns>
-    /// <remarks>Doc 24's <c>Ctrl+D</c>. The copy is selected afterwards, because the next thing
-    ///     anybody does to a duplicate is move it.</remarks>
+    /// <remarks>
+    ///     Doc 24's <c>Ctrl+D</c>. The copy is selected afterwards, because the next thing
+    ///     anybody does to a duplicate is move it.
+    /// </remarks>
     public static int Duplicate(SceneDocument document, Vector3 offset = default, List<Entity>? into = null) {
         ArgumentNullException.ThrowIfNull(document);
 
-        List<Entity> made = into ?? [];
+        var made = into ?? [];
 
         if (SceneClone.Duplicate(document, document.Selection.Items.ToArray(), offset, made) == 0) {
             return 0;
@@ -193,8 +202,12 @@ public static class BlockoutCreate {
     ///         after realising the first half took ten minutes.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The geometry is reflected and the winding is flipped, rather than the transform
-    ///         being given a negative scale.</b> A negative scale is the cheap answer and it is wrong in
+    ///         ⚠
+    ///         <b>
+    ///             The geometry is reflected and the winding is flipped, rather than the transform
+    ///             being given a negative scale.
+    ///         </b>
+    ///         A negative scale is the cheap answer and it is wrong in
     ///         two places at once: every face of the object is then inside out as far as the renderer's
     ///         culling is concerned, and every later extrude on it goes the wrong way. Reflecting the
     ///         positions and flipping the faces produces geometry that is right on its own terms.
@@ -246,8 +259,10 @@ public static class BlockoutCreate {
     /// <param name="count">How many copies, beyond the original.</param>
     /// <param name="into">The copies. Cleared first, or null.</param>
     /// <returns>How many were made.</returns>
-    /// <remarks>Doc 24's linear array. The count is copies rather than total, because "give me five
-    ///     more columns" is what somebody looking at one column means.</remarks>
+    /// <remarks>
+    ///     Doc 24's linear array. The count is copies rather than total, because "give me five
+    ///     more columns" is what somebody looking at one column means.
+    /// </remarks>
     public static int Array(
         SceneDocument document,
         Entity entity,
@@ -257,7 +272,7 @@ public static class BlockoutCreate {
     ) {
         ArgumentNullException.ThrowIfNull(document);
 
-        List<Entity> made = into ?? [];
+        var made = into ?? [];
 
         made.Clear();
 
@@ -304,7 +319,7 @@ public static class BlockoutCreate {
     ) {
         ArgumentNullException.ThrowIfNull(document);
 
-        List<Entity> made = into ?? [];
+        var made = into ?? [];
 
         made.Clear();
 
@@ -378,7 +393,7 @@ public static class BlockoutCreate {
         for (var position = 0; position < mesh.PositionCount; position++) {
             var point = mesh.Positions[position];
 
-            mesh.MovePosition(position, point - (axis * (2f * Vector3.Dot(axis, point))));
+            mesh.MovePosition(position, point - axis * (2f * Vector3.Dot(axis, point)));
         }
 
         // Reflecting the positions turns every face inside out, so the faces are turned back.
@@ -395,7 +410,7 @@ public static class BlockoutCreate {
         for (var point = 0; point < outline.Length; point++) {
             var next = outline[(point + 1) % outline.Length];
 
-            total += (outline[point].X * next.Y) - (next.X * outline[point].Y);
+            total += outline[point].X * next.Y - next.X * outline[point].Y;
         }
 
         return total;

@@ -71,7 +71,7 @@ public sealed class BehaviorStateAnalyzer : DiagnosticAnalyzer {
         + "written down.",
         "Vixen.Engine",
         DiagnosticSeverity.Error,
-        isEnabledByDefault: true,
+        true,
         "docs/plan/04-ecs-and-scripting.md: a Behavior may not hold a List<Entity> of 'its children' "
         + "— it asks the hierarchy. A [DataContract] behaviour holding one writes a stale slot "
         + "number into the .vxscene and reads it back as a handle into a different world, which "
@@ -86,7 +86,7 @@ public sealed class BehaviorStateAnalyzer : DiagnosticAnalyzer {
         + "answers.",
         "Vixen.Engine",
         DiagnosticSeverity.Error,
-        isEnabledByDefault: true,
+        true,
         "docs/plan/04-ecs-and-scripting.md: a behaviour that keeps what the world already knows — a "
         + "cached transform, a copy of a component — is the shape that makes the ECS decoration. It "
         + "is also a copy nothing invalidates: a system writing the chunk leaves the behaviour's "
@@ -105,8 +105,7 @@ public sealed class BehaviorStateAnalyzer : DiagnosticAnalyzer {
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
         context.EnableConcurrentExecution();
 
-        context.RegisterCompilationStartAction(
-            start => {
+        context.RegisterCompilationStartAction(static start => {
                 var behavior = start.Compilation.GetTypeByMetadataName(BehaviorMetadataName);
                 var entity = start.Compilation.GetTypeByMetadataName(EntityMetadataName);
 

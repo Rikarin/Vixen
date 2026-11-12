@@ -47,7 +47,7 @@ public class GridTests {
 
         // Panned by half a step, which is what used to move the emphasis by a whole line: the "every
         // tenth" test was on the loop index, and the loop starts wherever the pivot snapped to.
-        camera.Pivot = new Vector3(spacing * 3.5f, 0f, 0f);
+        camera.Pivot = new(spacing * 3.5f, 0f, 0f);
 
         var after = Emphasised(grid, camera, spacing);
 
@@ -64,8 +64,14 @@ public class GridTests {
 
         // A line at constant x running along z *is* the z axis when x is zero, and a line at constant
         // z running along x is the x axis. Blue and red, which is what the corner cross says too.
-        Assert.Contains(lines, line => Near(line.From.X, 0f) && Near(line.To.X, 0f) && Same(line.Colour, grid.AxisZColour));
-        Assert.Contains(lines, line => Near(line.From.Z, 0f) && Near(line.To.Z, 0f) && Same(line.Colour, grid.AxisXColour));
+        Assert.Contains(
+            lines,
+            line => Near(line.From.X, 0f) && Near(line.To.X, 0f) && Same(line.Colour, grid.AxisZColour)
+        );
+        Assert.Contains(
+            lines,
+            line => Near(line.From.Z, 0f) && Near(line.To.Z, 0f) && Same(line.Colour, grid.AxisXColour)
+        );
     }
 
     [Fact]
@@ -78,7 +84,7 @@ public class GridTests {
         // A level is a finite number of finite lines, and without this its far edge is a hard
         // rectangle drawn across the scene. Each line is emitted as two halves meeting under the
         // pivot: solid where you are looking, gone at the rim.
-        Assert.All(lines, line => Assert.True(line.ToColour.A < line.Colour.A || line.Colour.A == 0f));
+        Assert.All(lines, static line => Assert.True(line.ToColour.A < line.Colour.A || line.Colour.A == 0f));
     }
 
     [Fact]
@@ -96,8 +102,8 @@ public class GridTests {
             seen.Add(grid.Levels(camera, Height).Fade);
         }
 
-        Assert.Contains(seen, fade => fade > 0.9f);
-        Assert.Contains(seen, fade => fade < 0.1f);
+        Assert.Contains(seen, static fade => fade > 0.9f);
+        Assert.Contains(seen, static fade => fade < 0.1f);
     }
 
     [Fact]
@@ -117,7 +123,7 @@ public class GridTests {
         foreach (var distance in new[] { 0.5f, 10f, 1000f }) {
             var camera = Camera(distance);
             var lines = grid.Build(camera, Height);
-            var reach = lines.Max(line => (line.To - line.From).Length());
+            var reach = lines.Max(static line => (line.To - line.From).Length());
 
             // In screen-heights rather than world units or line counts, so it is the same at every
             // zoom: a floor that runs off every edge of the pane with room to spare.
@@ -161,17 +167,18 @@ public class GridTests {
     static IReadOnlyList<float> Emphasised(SceneGrid grid, EditorCamera camera, float spacing) =>
         grid.Build(camera, Height)
             .Where(line => SameHue(line.Colour, grid.MajorColour) && line.Colour.A > 0f && Near(line.From.X, line.To.X))
-            .Select(line => line.From.X)
+            .Select(static line => line.From.X)
             .ToArray();
 
     static bool IsMultiple(float value, float step) =>
-        MathF.Abs(value - (MathF.Round(value / step) * step)) < step * 1e-2f;
+        MathF.Abs(value - MathF.Round(value / step) * step) < step * 1e-2f;
 
     static bool Near(float left, float right) => MathF.Abs(left - right) < 1e-3f;
 
     static bool Same(Color4 left, Color4 right) => SameHue(left, right) && MathF.Abs(left.A - right.A) < 1e-4f;
 
     static bool SameHue(Color4 left, Color4 right) =>
-        MathF.Abs(left.R - right.R) < 1e-4f && MathF.Abs(left.G - right.G) < 1e-4f
+        MathF.Abs(left.R - right.R) < 1e-4f
+        && MathF.Abs(left.G - right.G) < 1e-4f
         && MathF.Abs(left.B - right.B) < 1e-4f;
 }

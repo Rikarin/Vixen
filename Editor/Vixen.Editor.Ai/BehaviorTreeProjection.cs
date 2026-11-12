@@ -194,8 +194,8 @@ public sealed class BehaviorTreeProjection {
             ? new Rectangle(
                 bounds.X - padding,
                 bounds.Y - padding,
-                bounds.Width + (padding * 2f),
-                bounds.Height + (padding * 2f)
+                bounds.Width + padding * 2f,
+                bounds.Height + padding * 2f
             )
             : Rectangle.Empty;
     }
@@ -230,7 +230,7 @@ public sealed class BehaviorTreeProjection {
                     model.TypeOf(service)?.Label ?? service.Type,
                     Interval(service),
                     "service",
-                    Above: false
+                    false
                 )
             );
         }
@@ -248,6 +248,9 @@ public sealed class BehaviorTreeProjection {
 
     static string Interval(BehaviorAttachmentContent service) =>
         service.RandomDeviation > 0f
-            ? string.Create(CultureInfo.InvariantCulture, $"every {service.Interval:0.##} s ± {service.RandomDeviation:0.##}")
+            ? string.Create(
+                CultureInfo.InvariantCulture,
+                $"every {service.Interval:0.##} s ± {service.RandomDeviation:0.##}"
+            )
             : string.Create(CultureInfo.InvariantCulture, $"every {service.Interval:0.##} s");
 }

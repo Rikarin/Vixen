@@ -35,7 +35,7 @@ public class PlayerDeliveryTests {
 
         var finished = 0;
 
-        Assert.True(delivery.Build(launch: false, () => finished++));
+        Assert.True(delivery.Build(false, () => finished++));
 
         Until(session, () => finished == 1, "the build never reported that it had ended.");
 
@@ -60,7 +60,7 @@ public class PlayerDeliveryTests {
 
         var finished = 0;
 
-        Assert.False(delivery.Build(launch: false, () => finished++));
+        Assert.False(delivery.Build(false, () => finished++));
 
         session.Frames(4);
 
@@ -85,7 +85,10 @@ public class PlayerDeliveryTests {
         Publishable(session);
 
         var view = session.Control<DeviceManagerView>("devices");
-        var local = Assert.Single(view.Devices.Items.Cast<DeviceEntry>(), device => device.Kind is DeviceKind.Local);
+        var local = Assert.Single(
+            view.Devices.Items.Cast<DeviceEntry>(),
+            static device => device.Kind is DeviceKind.Local
+        );
 
         Assert.Null(view.CanDeploy!(local));
 
@@ -126,7 +129,10 @@ public class PlayerDeliveryTests {
 
         Until(session, () => Volatile.Read(ref published) == 1, "Deploy never reached the publish.");
 
-        var row = Assert.Single(view.Devices.Items.Cast<DeviceEntry>(), device => device.Kind is DeviceKind.Local);
+        var row = Assert.Single(
+            view.Devices.Items.Cast<DeviceEntry>(),
+            static device => device.Kind is DeviceKind.Local
+        );
 
         Assert.Equal(DeviceStatus.Deploying, row.Status);
 
@@ -134,7 +140,7 @@ public class PlayerDeliveryTests {
 
         Until(
             session,
-            () => view.Devices.Items.Cast<DeviceEntry>().Single(device => device.Kind is DeviceKind.Local).Status
+            () => view.Devices.Items.Cast<DeviceEntry>().Single(static device => device.Kind is DeviceKind.Local).Status
                 is DeviceStatus.Available,
             "the row was left reading Deploying after the build ended."
         );

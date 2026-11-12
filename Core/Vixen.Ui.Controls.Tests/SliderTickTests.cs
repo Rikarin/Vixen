@@ -14,7 +14,8 @@ namespace Vixen.Ui.Controls.Tests;
 ///         half a thumb, so over a 214-pixel slider with the theme's 14-pixel thumb it runs from column
 ///         7 for 200 pixels, and tick <c>i</c> of <c>n</c> is the column
 ///         <c>min(floor(7 + 200 · i / (n − 1)), 206)</c> — the last column <i>of</i> the rail, not the
-///         one after it, which is where an unclamped floor put the maximum's tick (#1444). A scan of one pixel row just above the rail — inside a
+///         one after it, which is where an unclamped floor put the maximum's tick (#1444). A scan of one pixel row just
+///         above the rail — inside a
 ///         tick's reach and outside the rail, the fill and, away from the value, the thumb — must find
 ///         exactly those columns dark and nothing else. A tick drawn off by a pixel, a tick drawn
 ///         twice or a tick not drawn all fail it, and a slider with no ticks is the empty row that
@@ -31,9 +32,9 @@ public class SliderTickTests {
     const int Row = 6;
 
     static readonly string Css = $$"""
-        root   { background-color: var(--surface); }
-        slider { position: absolute; left: 0px; top: 0px; width: {{Width}}px; height: {{Height}}px; }
-        """;
+                                   root   { background-color: var(--surface); }
+                                   slider { position: absolute; left: 0px; top: 0px; width: {{Width}}px; height: {{Height}}px; }
+                                   """;
 
     [Fact]
     public void Five_ticks_mark_the_quarters_of_the_rail_and_nothing_else() {
@@ -74,13 +75,17 @@ public class SliderTickTests {
         slider.TickCount = 1;
         ui.Frame();
 
-        Assert.Equal([(int)MathF.Floor(RailStart + (RailLength * 0.5f))], DarkColumns(ui));
+        Assert.Equal([(int)MathF.Floor(RailStart + RailLength * 0.5f)], DarkColumns(ui));
     }
 
     /// <summary>A range slider draws the same marks, under both of its thumbs.</summary>
     [Fact]
     public void A_range_slider_draws_the_same_marks() {
-        using var ui = ControlHarness.Open(Width, Height, Css.Replace("slider {", "range-slider {", StringComparison.Ordinal));
+        using var ui = ControlHarness.Open(
+            Width,
+            Height,
+            Css.Replace("slider {", "range-slider {", StringComparison.Ordinal)
+        );
         var slider = ui.Add<RangeSlider>("span");
 
         slider.TickCount = 5;
@@ -134,8 +139,8 @@ public class SliderTickTests {
         Assert.Equal(0.25f, slider.Value);
 
         // A press a little past the three-quarter mark lands on it.
-        var x = RailStart + (RailLength * 0.8f);
-        ui.Drag(x, Height * 0.5f, x, Height * 0.5f, steps: 1);
+        var x = RailStart + RailLength * 0.8f;
+        ui.Drag(x, Height * 0.5f, x, Height * 0.5f, 1);
         Assert.Equal(0.75f, slider.Value);
     }
 
@@ -152,7 +157,15 @@ public class SliderTickTests {
     /// </remarks>
     [Fact]
     public void A_vertical_slider_marks_its_rail_from_the_bottom_up() {
-        using var ui = ControlHarness.Open(Height, Width, Css.Replace($"width: {Width}px; height: {Height}px", $"width: {Height}px; height: {Width}px", StringComparison.Ordinal));
+        using var ui = ControlHarness.Open(
+            Height,
+            Width,
+            Css.Replace(
+                $"width: {Width}px; height: {Height}px",
+                $"width: {Height}px; height: {Width}px",
+                StringComparison.Ordinal
+            )
+        );
         var slider = ui.Add<Slider>("fader");
 
         slider.Orientation = Orientation.Vertical;
@@ -163,8 +176,12 @@ public class SliderTickTests {
         // At the maximum the thumb sits at the top and covers the last tick; the bottom one, the
         // minimum's, is the last row of the rail and not the row below it.
         int[] expected = [
-            .. Enumerable.Range(0, 5)
-                .Select(index => (int)MathF.Min(MathF.Floor(RailStart + (RailLength * (1f - (index / 4f)))), RailStart + RailLength - 1))
+            ..Enumerable.Range(0, 5)
+                .Select(static index => (int)MathF.Min(
+                        MathF.Floor(RailStart + RailLength * (1f - index / 4f)),
+                        RailStart + RailLength - 1
+                    )
+                )
                 .Order()
         ];
         Assert.Equal([57, 107, 157, 206], expected.Skip(1));
@@ -172,8 +189,14 @@ public class SliderTickTests {
     }
 
     /// <summary>The columns tick <c>i</c> of <paramref name="count" /> must occupy.</summary>
-    static int[] Expected(int count) =>
-        [.. Enumerable.Range(0, count).Select(index => (int)MathF.Min(MathF.Floor(RailStart + (RailLength * index / (count - 1))), RailStart + RailLength - 1))];
+    static int[] Expected(int count) => [
+        ..Enumerable.Range(0, count)
+            .Select(index => (int)MathF.Min(
+                    MathF.Floor(RailStart + RailLength * index / (count - 1)),
+                    RailStart + RailLength - 1
+                )
+            )
+    ];
 
     /// <summary>The rows of column <see cref="Row" /> drawn much darker than the surface, on a vertical slider.</summary>
     static List<int> DarkRows(UiTest ui) {
@@ -182,7 +205,7 @@ public class SliderTickTests {
         var value = ((Slider)ui.Document.Root.Children[0]).Value;
 
         for (var y = 0; y < image.Height; y++) {
-            if (MathF.Abs(y - (RailStart + (RailLength * (1f - value)))) <= 8f) {
+            if (MathF.Abs(y - (RailStart + RailLength * (1f - value))) <= 8f) {
                 continue;
             }
 
@@ -215,7 +238,7 @@ public class SliderTickTests {
         };
 
         for (var x = 0; x < image.Width; x++) {
-            if (value.Any(fraction => MathF.Abs(x - (RailStart + (RailLength * fraction))) <= 8f)) {
+            if (value.Any(fraction => MathF.Abs(x - (RailStart + RailLength * fraction)) <= 8f)) {
                 continue;
             }
 

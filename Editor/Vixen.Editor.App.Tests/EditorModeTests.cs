@@ -27,7 +27,7 @@ public class EditorModeTests {
         // sculpts a valley and then lays a lake in it.
         Assert.Equal(
             [SelectMode.ModeId, BlockoutMode.ModeId, TerrainMode.ModeId, FoliageMode.ModeId, WaterMode.ModeId],
-            fixture.Shell.Modes.Modes.Select(mode => mode.Id)
+            fixture.Shell.Modes.Modes.Select(static mode => mode.Id)
         );
 
         Assert.Equal(SelectMode.ModeId, fixture.Shell.Modes.Active?.Id);
@@ -41,7 +41,7 @@ public class EditorModeTests {
     public void The_mode_bar_carries_a_button_per_mode_and_the_active_modes_tools() {
         using var fixture = EditorSession.Start();
 
-        Assert.Collection(fixture.Shell.Modes.Bar(), entry => Assert.IsType<ToolbarGroup>(entry));
+        Assert.Collection(fixture.Shell.Modes.Bar(), static entry => Assert.IsType<ToolbarGroup>(entry));
 
         // And it is on screen rather than only in the model: one segmented group holding the two
         // mode buttons, in the chrome between the menu bar and the toolbar.
@@ -121,19 +121,19 @@ public class EditorModeTests {
         pane.Camera.Distance = 3f;
 
         var corner = pane.Camera.Project(
-            new Vector3(0.5f, 0.5f, 0.5f),
+            new(0.5f, 0.5f, 0.5f),
             pane.Control.RenderWidth,
             pane.Control.RenderHeight
         );
 
-        var hit = pane.PickSubObject(cube, new Vector2(corner.X, corner.Y));
+        var hit = pane.PickSubObject(cube, new(corner.X, corner.Y));
 
         Assert.Equal(SubObjectKind.Vertex, hit.Kind);
 
         // And a pane with nothing wired answers nothing rather than throwing, which is every pane in
         // a test that never set one up.
         pane.SubObjects = null;
-        Assert.False(pane.PickSubObject(cube, new Vector2(corner.X, corner.Y)).IsHit);
+        Assert.False(pane.PickSubObject(cube, new(corner.X, corner.Y)).IsHit);
     }
 
     [Fact]

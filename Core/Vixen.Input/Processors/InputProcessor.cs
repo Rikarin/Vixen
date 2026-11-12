@@ -34,8 +34,10 @@ public interface IInputProcessor {
 ///     Cuts out the centre of a stick's range and rescales what is left, radially.
 /// </summary>
 /// <param name="Min">How far from centre the live range starts.</param>
-/// <param name="Max">Where it saturates — below <c>1</c> because a real stick never reaches its
-/// corners.</param>
+/// <param name="Max">
+///     Where it saturates — below <c>1</c> because a real stick never reaches its
+///     corners.
+/// </param>
 /// <remarks>
 ///     <para>
 ///         <b>Radial, on the magnitude, not per axis.</b> An axial dead zone applied to each
@@ -94,8 +96,7 @@ public sealed record InvertProcessor(bool X = true, bool Y = true) : IInputProce
     public string Name => "invert";
 
     /// <inheritdoc />
-    public Vector2 Process(Vector2 value, int dimensions) =>
-        new(X ? -value.X : value.X, Y ? -value.Y : value.Y);
+    public Vector2 Process(Vector2 value, int dimensions) => new(X ? -value.X : value.X, Y ? -value.Y : value.Y);
 }
 
 /// <summary>Multiplies by a constant.</summary>
@@ -178,8 +179,10 @@ public static class InputProcessorFactory {
     /// <summary>Adds a processor this build understands.</summary>
     /// <param name="name">What it is written as in a <c>.vxinput</c>.</param>
     /// <param name="factory">Builds one from its arguments.</param>
-    /// <remarks>Called at boot, before any asset is loaded. Replacing a built-in is allowed and is
-    /// how a game changes what <c>stickDeadzone</c> means for all of its bindings at once.</remarks>
+    /// <remarks>
+    ///     Called at boot, before any asset is loaded. Replacing a built-in is allowed and is
+    ///     how a game changes what <c>stickDeadzone</c> means for all of its bindings at once.
+    /// </remarks>
     public static void Register(string name, Func<ProcessorArguments, IInputProcessor> factory) {
         ArgumentException.ThrowIfNullOrEmpty(name);
         ArgumentNullException.ThrowIfNull(factory);
@@ -244,7 +247,9 @@ public static class InputProcessorFactory {
 public sealed class ProcessorArguments {
     readonly Dictionary<string, string> values;
 
-    ProcessorArguments(Dictionary<string, string> values) => this.values = values;
+    ProcessorArguments(Dictionary<string, string> values) {
+        this.values = values;
+    }
 
     /// <summary>No arguments at all.</summary>
     public static ProcessorArguments Empty { get; } = new(new(StringComparer.OrdinalIgnoreCase));
@@ -270,8 +275,10 @@ public sealed class ProcessorArguments {
     /// <summary>Reads a flag, or a default.</summary>
     /// <param name="name">The argument's name.</param>
     /// <param name="fallback">What to use when it is absent.</param>
-    /// <remarks>A bare name with no <c>=</c> — <c>invert(y)</c> — is <see langword="true" />, which
-    /// is how a flag reads naturally.</remarks>
+    /// <remarks>
+    ///     A bare name with no <c>=</c> — <c>invert(y)</c> — is <see langword="true" />, which
+    ///     is how a flag reads naturally.
+    /// </remarks>
     public bool Flag(string name, bool fallback) {
         if (!values.TryGetValue(name, out var text)) {
             return fallback;

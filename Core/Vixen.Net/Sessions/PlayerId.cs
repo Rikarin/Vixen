@@ -8,8 +8,11 @@ namespace Vixen.Net.Sessions;
 /// <summary>Who, as the session numbers them.</summary>
 /// <remarks>
 ///     <para>
-///         <b>Not a <see cref="ConnectionId" />, and the difference is the whole reason this type
-///         exists.</b> A connection is a socket, or a slot in the local transport's table, and it
+///         <b>
+///             Not a <see cref="ConnectionId" />, and the difference is the whole reason this type
+///             exists.
+///         </b>
+///         A connection is a socket, or a slot in the local transport's table, and it
 ///         ends the moment a train goes into a tunnel. A player is who was holding it: the same
 ///         <see cref="PlayerId" /> comes back on the other side of the tunnel with their entities,
 ///         their ownership and their score, because the reconnect token they present says so.

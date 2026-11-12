@@ -4,7 +4,6 @@
 using Vixen.Core.Mathematics;
 using Vixen.Engine.Diagnostics;
 using Vixen.Graphics;
-using Vixen.Graphics.RenderGraph;
 using Vixen.Rendering;
 using Vixen.Rendering.Compositor;
 
@@ -41,8 +40,12 @@ namespace Vixen.Engine.Renderer;
 ///         which is what the editor's viewport does.
 ///     </para>
 ///     <para>
-///         ⚠ <b><see cref="DebugDrawRenderer.Upload" /> happens in the build phase, which is outside
-///         every render pass.</b> That is the only place it can be: the accumulator is drained before the
+///         ⚠
+///         <b>
+///             <see cref="DebugDrawRenderer.Upload" /> happens in the build phase, which is outside
+///             every render pass.
+///         </b>
+///         That is the only place it can be: the accumulator is drained before the
 ///         graph starts executing and the writes must not land inside a pass.
 ///     </para>
 /// </remarks>

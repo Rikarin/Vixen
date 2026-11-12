@@ -97,12 +97,13 @@ public struct RigidBody {
 
     /// <summary>A dynamic body with the engine's defaults.</summary>
     /// <returns>The component.</returns>
-    public static RigidBody Dynamic() => new() {
-        Motion = BodyMotion.Dynamic,
-        GravityFactor = 1f,
-        DegreesOfFreedom = BodyDegreesOfFreedom.All,
-        AllowSleeping = true
-    };
+    public static RigidBody Dynamic() =>
+        new() {
+            Motion = BodyMotion.Dynamic,
+            GravityFactor = 1f,
+            DegreesOfFreedom = BodyDegreesOfFreedom.All,
+            AllowSleeping = true
+        };
 
     /// <summary>A kinematic body — moved by its owner, and pushing whatever is in the way.</summary>
     /// <returns>The component.</returns>
@@ -125,8 +126,12 @@ public struct RigidBody {
 ///         The bridge rebuilds this from <see cref="Collider" /> on the first sync after a load.
 ///     </para>
 ///     <para>
-///         ⚠ <b>That absence is also what keeps it out of <c>SceneComponentRegistry</c>, and it is
-///         load-bearing.</b> A scene component is one carrying <c>[Component]</c> <i>and</i>
+///         ⚠
+///         <b>
+///             That absence is also what keeps it out of <c>SceneComponentRegistry</c>, and it is
+///             load-bearing.
+///         </b>
+///         A scene component is one carrying <c>[Component]</c> <i>and</i>
 ///         <c>[DataContract]</c>; this deliberately has neither, so nothing has to remember to exclude
 ///         it. Adding either to make it inspectable would make a compiled scene able to name it, which
 ///         is the failure the paragraph above describes.
@@ -218,8 +223,12 @@ public struct PhysicsInterpolation {
     ///         Recording the exact value written is what lets the bridge tell its own smoothing's pose
     ///         from a pose somebody else wrote, without guessing from geometry. The obvious guess — is
     ///         the transform on the segment between the two poses — swallows the commonest correction
-    ///         there is, because a client that mispredicts along its own path is corrected <i>along
-    ///         that segment</i>.
+    ///         there is, because a client that mispredicts along its own path is corrected
+    ///         <i>
+    ///             along
+    ///             that segment
+    ///         </i>
+    ///         .
     ///     </para>
     ///     <para>
     ///         Position and no rotation, because a character's rotation is owned by its controller and
@@ -275,4 +284,4 @@ public struct PhysicsInterpolation {
 ///         that entity again. <c>PhysicsScene.StepCharacters</c> takes it off.
 ///     </para>
 /// </remarks>
-public struct PhysicsTeleport : ITagComponent;
+public readonly struct PhysicsTeleport : ITagComponent;

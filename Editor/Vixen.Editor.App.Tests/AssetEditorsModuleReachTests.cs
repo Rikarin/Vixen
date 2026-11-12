@@ -88,8 +88,8 @@ public sealed class AssetEditorsModuleReachTests {
         session.Run("assets.create-material").Settle();
 
         // The material's tab was built by the module's view, so its join ran.
-        Assert.Contains(session.Project.Documents, document => document.GetType().Name == "MaterialDocument");
+        Assert.Contains(session.Project.Documents, static document => document.GetType().Name == "MaterialDocument");
 
-        return new WeakReference(module);
+        return new(module);
     }
 }

@@ -17,8 +17,8 @@ public class SphericalHarmonicsL1Tests {
         var directions = new Vector3[count];
 
         for (var index = 0; index < count; index++) {
-            var z = 1f - (2f * (index + 0.5f) / count);
-            var radius = MathF.Sqrt(MathF.Max(0f, 1f - (z * z)));
+            var z = 1f - 2f * (index + 0.5f) / count;
+            var radius = MathF.Sqrt(MathF.Max(0f, 1f - z * z));
             var angle = index * GoldenAngle;
 
             directions[index] = new(radius * MathF.Cos(angle), radius * MathF.Sin(angle), z);
@@ -46,8 +46,8 @@ public class SphericalHarmonicsL1Tests {
         }
 
         foreach (var normal in (Vector3[]) [
-            new(0, 1, 0), new(0, -1, 0), new(1, 0, 0), Vector3.Normalize(new(1, 2, -3))
-        ]) {
+                     new(0, 1, 0), new(0, -1, 0), new(1, 0, 0), Vector3.Normalize(new(1, 2, -3))
+                 ]) {
             var lit = probe.Irradiance(normal);
 
             Assert.Equal(radiance, lit.X, 0.002f);
@@ -93,8 +93,8 @@ public class SphericalHarmonicsL1Tests {
         var best = probe.Irradiance(light).X;
 
         foreach (var other in (Vector3[]) [
-            new(1, 0, 0), new(-1, 0, 0), new(0, 1, 0), new(0, -1, 0), new(0, 0, 1), new(0, 0, -1)
-        ]) {
+                     new(1, 0, 0), new(-1, 0, 0), new(0, 1, 0), new(0, -1, 0), new(0, 0, 1), new(0, 0, -1)
+                 ]) {
             if (other == light) {
                 continue;
             }
@@ -148,7 +148,7 @@ public class SphericalHarmonicsL1Tests {
             }
         }
 
-        var narrowed = SphericalHarmonicsL1.From(new SphericalHarmonicsL2(coefficients));
+        var narrowed = SphericalHarmonicsL1.From(new(coefficients));
 
         Assert.Equal(narrow.L00.X, narrowed.L00.X, 4);
         Assert.Equal(narrow.L1m1.X, narrowed.L1m1.X, 4);
@@ -222,20 +222,23 @@ public class SphericalHarmonicsL1Tests {
 
         foreach (var direction in directions) {
             uniform = uniform.Accumulated(direction, new(Baseline), solidAngle);
-            linear = linear.Accumulated(direction, new(Baseline + (Tilt * direction.Y)), solidAngle);
+            linear = linear.Accumulated(direction, new(Baseline + Tilt * direction.Y), solidAngle);
         }
 
-        foreach (var direction in new Vector3[] { new(0, 1, 0), new(1, 0, 0), Vector3.Normalize(new(1f, -0.5f, 0.25f)) }) {
+        foreach (var direction in new Vector3[] {
+                     new(0, 1, 0), new(1, 0, 0), Vector3.Normalize(new(1f, -0.5f, 0.25f))
+                 }) {
             Assert.Equal(Baseline, uniform.Radiance(direction).X, 1e-3f);
-            Assert.Equal(Baseline + (Tilt * direction.Y), linear.Radiance(direction).X, 1e-3f);
+            Assert.Equal(Baseline + Tilt * direction.Y, linear.Radiance(direction).X, 1e-3f);
         }
     }
 
     [Fact]
     public void TooLittleRoomForTheBasisIsRejected() {
-        Assert.Throws<ArgumentException>(() => {
-            Span<float> basis = stackalloc float[3];
-            SphericalHarmonicsL1.Evaluate(new(0, 1, 0), basis);
-        });
+        Assert.Throws<ArgumentException>(static () => {
+                Span<float> basis = stackalloc float[3];
+                SphericalHarmonicsL1.Evaluate(new(0, 1, 0), basis);
+            }
+        );
     }
 }

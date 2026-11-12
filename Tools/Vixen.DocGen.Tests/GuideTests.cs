@@ -12,7 +12,7 @@ public class GuideTests : IDisposable {
 
     public void Dispose() {
         if (Directory.Exists(root)) {
-            Directory.Delete(root, recursive: true);
+            Directory.Delete(root, true);
         }
 
         GC.SuppressFinalize(this);
@@ -64,7 +64,7 @@ public class GuideTests : IDisposable {
     }
 
     (IReadOnlyList<GuidePage> Pages, IReadOnlyList<string> Errors) Read() =>
-        GuideReader.Read(root, new SourceLinks(root, "https://github.com/rikarin/Vixen", "abc123"));
+        GuideReader.Read(root, new(root, "https://github.com/rikarin/Vixen", "abc123"));
 
     // ── Front matter ────────────────────────────────────────────────────────────────────────────
 
@@ -104,63 +104,78 @@ public class GuideTests : IDisposable {
 
     [Fact]
     public void AnUnknownKindIsReported() {
-        Write("docs/guide/ecs/queries.md", (Front + Body).Replace("kind: guide", "kind: essay", StringComparison.Ordinal));
+        Write(
+            "docs/guide/ecs/queries.md",
+            (Front + Body).Replace("kind: guide", "kind: essay", StringComparison.Ordinal)
+        );
 
-        Assert.Contains(Read().Errors, error => error.Contains("essay", StringComparison.Ordinal));
+        Assert.Contains(Read().Errors, static error => error.Contains("essay", StringComparison.Ordinal));
     }
 
     // ── The contract ────────────────────────────────────────────────────────────────────────────
 
     [Fact]
     public void AMissingContractHeadingIsReported() {
-        Write("docs/guide/ecs/queries.md",
-            (Front + Body).Replace("## What it is for\n\nReading component data in bulk.\n", string.Empty, StringComparison.Ordinal));
+        Write(
+            "docs/guide/ecs/queries.md",
+            (Front + Body).Replace(
+                "## What it is for\n\nReading component data in bulk.\n",
+                string.Empty,
+                StringComparison.Ordinal
+            )
+        );
 
-        Assert.Contains(Read().Errors, error => error.Contains("What it is for", StringComparison.Ordinal));
+        Assert.Contains(Read().Errors, static error => error.Contains("What it is for", StringComparison.Ordinal));
     }
 
     [Fact]
     public void AnEmptyContractSectionIsReported() {
-        Write("docs/guide/ecs/queries.md",
-            (Front + Body).Replace("Reading component data in bulk.", string.Empty, StringComparison.Ordinal));
+        Write(
+            "docs/guide/ecs/queries.md",
+            (Front + Body).Replace("Reading component data in bulk.", string.Empty, StringComparison.Ordinal)
+        );
 
-        Assert.Contains(Read().Errors, error => error.Contains("nothing under it", StringComparison.Ordinal));
+        Assert.Contains(Read().Errors, static error => error.Contains("nothing under it", StringComparison.Ordinal));
     }
 
     [Fact]
     public void HeadingsOutOfOrderAreReported() {
-        Write("docs/guide/ecs/queries.md",
-            Front + """
+        Write(
+            "docs/guide/ecs/queries.md",
+            Front
+            + """
 
-            ## What it is for
+              ## What it is for
 
-            Reading component data in bulk.
+              Reading component data in bulk.
 
-            ## What it is
+              ## What it is
 
-            A description of a set of components.
+              A description of a set of components.
 
-            ## Using it
+              ## Using it
 
-            Describe the set.
+              Describe the set.
 
-            ## Examples
+              ## Examples
 
-            Nothing yet.
+              Nothing yet.
 
-            ## See also
+              ## See also
 
-            - Nothing yet.
-            """);
+              - Nothing yet.
+              """
+        );
 
-        Assert.Contains(Read().Errors, error => error.Contains("out of order", StringComparison.Ordinal));
+        Assert.Contains(Read().Errors, static error => error.Contains("out of order", StringComparison.Ordinal));
     }
 
     // ── Snippets ────────────────────────────────────────────────────────────────────────────────
 
     [Fact]
     public void ASnippetIsReplacedByTheRegionItNames() {
-        Write("Samples/Thing/Program.cs",
+        Write(
+            "Samples/Thing/Program.cs",
             """
             public static class Program {
                 public static void Main() {
@@ -169,11 +184,17 @@ public class GuideTests : IDisposable {
                     // #endregion
                 }
             }
-            """);
+            """
+        );
 
-        Write("docs/guide/ecs/queries.md",
-            (Front + Body).Replace("Nothing yet.\n\n## See also",
-                "{{ snippet Samples/Thing/Program.cs#docs:query }}\n\n## See also", StringComparison.Ordinal));
+        Write(
+            "docs/guide/ecs/queries.md",
+            (Front + Body).Replace(
+                "Nothing yet.\n\n## See also",
+                "{{ snippet Samples/Thing/Program.cs#docs:query }}\n\n## See also",
+                StringComparison.Ordinal
+            )
+        );
 
         var page = Assert.Single(Read().Pages);
 
@@ -185,11 +206,16 @@ public class GuideTests : IDisposable {
     public void ASnippetNamingAMissingRegionIsReported() {
         Write("Samples/Thing/Program.cs", "public static class Program { }");
 
-        Write("docs/guide/ecs/queries.md",
-            (Front + Body).Replace("Nothing yet.\n\n## See also",
-                "{{ snippet Samples/Thing/Program.cs#docs:absent }}\n\n## See also", StringComparison.Ordinal));
+        Write(
+            "docs/guide/ecs/queries.md",
+            (Front + Body).Replace(
+                "Nothing yet.\n\n## See also",
+                "{{ snippet Samples/Thing/Program.cs#docs:absent }}\n\n## See also",
+                StringComparison.Ordinal
+            )
+        );
 
-        Assert.Contains(Read().Errors, error => error.Contains("docs:absent", StringComparison.Ordinal));
+        Assert.Contains(Read().Errors, static error => error.Contains("docs:absent", StringComparison.Ordinal));
     }
 
     // ── Fences ──────────────────────────────────────────────────────────────────────────────────
@@ -200,10 +226,14 @@ public class GuideTests : IDisposable {
     /// </summary>
     [Fact]
     public void ANoCompileReasonSurvivesItsSpaces() {
-        Write("docs/guide/ecs/queries.md",
-            (Front + Body).Replace("Nothing yet.\n\n## See also",
+        Write(
+            "docs/guide/ecs/queries.md",
+            (Front + Body).Replace(
+                "Nothing yet.\n\n## See also",
                 "```csharp no-compile=\"the managed store is not public yet\"\nvar x = 1;\n```\n\n## See also",
-                StringComparison.Ordinal));
+                StringComparison.Ordinal
+            )
+        );
 
         var page = Assert.Single(Read().Pages);
         var example = Assert.Single(page.Examples);
@@ -213,18 +243,31 @@ public class GuideTests : IDisposable {
 
     [Fact]
     public void ACSharpFenceThatSaysNeitherIsReported() {
-        Write("docs/guide/ecs/queries.md",
-            (Front + Body).Replace("Nothing yet.\n\n## See also",
-                "```csharp\nvar x = 1;\n```\n\n## See also", StringComparison.Ordinal));
+        Write(
+            "docs/guide/ecs/queries.md",
+            (Front + Body).Replace(
+                "Nothing yet.\n\n## See also",
+                "```csharp\nvar x = 1;\n```\n\n## See also",
+                StringComparison.Ordinal
+            )
+        );
 
-        Assert.Contains(Read().Errors, error => error.Contains("neither `compile` nor", StringComparison.Ordinal));
+        Assert.Contains(
+            Read().Errors,
+            static error => error.Contains("neither `compile` nor", StringComparison.Ordinal)
+        );
     }
 
     [Fact]
     public void ACompileFenceIsMarkedForTheBuild() {
-        Write("docs/guide/ecs/queries.md",
-            (Front + Body).Replace("Nothing yet.\n\n## See also",
-                "```csharp compile\npublic sealed class Thing;\n```\n\n## See also", StringComparison.Ordinal));
+        Write(
+            "docs/guide/ecs/queries.md",
+            (Front + Body).Replace(
+                "Nothing yet.\n\n## See also",
+                "```csharp compile\npublic sealed class Thing;\n```\n\n## See also",
+                StringComparison.Ordinal
+            )
+        );
 
         var example = Assert.Single(Assert.Single(Read().Pages).Examples);
 
@@ -241,7 +284,8 @@ public class GuideTests : IDisposable {
     /// </summary>
     [Fact]
     public void AFenceIsNumberedByItsLineInTheFileBelowFrontMatterAndAnExpandedSnippet() {
-        Write("Samples/Thing/Program.cs",
+        Write(
+            "Samples/Thing/Program.cs",
             """
             public static class Program {
                 public static void Main() {
@@ -254,20 +298,27 @@ public class GuideTests : IDisposable {
                     // #endregion
                 }
             }
-            """);
+            """
+        );
 
         var text = (Front + Body)
-            .Replace("Describe the set, then iterate.",
+            .Replace(
+                "Describe the set, then iterate.",
                 "Describe the set, then iterate.\n\n{{ snippet Samples/Thing/Program.cs#docs:query }}",
-                StringComparison.Ordinal)
-            .Replace("Nothing yet.\n\n## See also",
-                "```csharp compile\npublic sealed class Thing;\n```\n\n## See also", StringComparison.Ordinal);
+                StringComparison.Ordinal
+            )
+            .Replace(
+                "Nothing yet.\n\n## See also",
+                "```csharp compile\npublic sealed class Thing;\n```\n\n## See also",
+                StringComparison.Ordinal
+            );
 
         Write("docs/guide/ecs/queries.md", text);
 
         var lines = text.Split('\n');
-        var include = Array.FindIndex(lines, line => line.StartsWith("{{ snippet", StringComparison.Ordinal)) + 1;
-        var fence = Array.FindIndex(lines, line => line == "```csharp compile") + 1;
+        var include = Array.FindIndex(lines, static line => line.StartsWith("{{ snippet", StringComparison.Ordinal))
+            + 1;
+        var fence = Array.FindIndex(lines, static line => line == "```csharp compile") + 1;
 
         var (pages, errors) = Read();
 
@@ -276,13 +327,19 @@ public class GuideTests : IDisposable {
         var examples = Assert.Single(pages).Examples;
 
         Assert.Equal(2, examples.Count);
-        Assert.Equal((include, "snippet"), (examples[0].Line, examples[0].Code.Contains("var e = 5;") ? "snippet" : "?"));
+        Assert.Equal(
+            (include, "snippet"),
+            (examples[0].Line, examples[0].Code.Contains("var e = 5;") ? "snippet" : "?")
+        );
         Assert.Equal(fence, examples[1].Line);
 
         // And the problems that print a line print the same one.
         Write("docs/guide/ecs/queries.md", text.Replace("```csharp compile", "```csharp", StringComparison.Ordinal));
 
-        Assert.Contains(Read().Errors, error => error.Contains($"the C# fence at line {fence} ", StringComparison.Ordinal));
+        Assert.Contains(
+            Read().Errors,
+            error => error.Contains($"the C# fence at line {fence} ", StringComparison.Ordinal)
+        );
     }
 
     [Fact]
@@ -290,6 +347,6 @@ public class GuideTests : IDisposable {
         Write("docs/guide/ecs/queries.md", Front + Body);
         Write("docs/guide/ecs/other.md", Front + Body);
 
-        Assert.Contains(Read().Errors, error => error.Contains("claim the slug", StringComparison.Ordinal));
+        Assert.Contains(Read().Errors, static error => error.Contains("claim the slug", StringComparison.Ordinal));
     }
 }

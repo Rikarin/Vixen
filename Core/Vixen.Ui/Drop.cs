@@ -12,8 +12,11 @@ namespace Vixen.Ui;
 ///         reaches the list first and the page only if the list did not handle it.
 ///     </para>
 ///     <para>
-///         <b>Both representations are on the event <i>and</i> reachable as a
-///         <see cref="DataObject" />.</b> An OS drag-in cannot negotiate: the source is another
+///         <b>
+///             Both representations are on the event <i>and</i> reachable as a
+///             <see cref="DataObject" />.
+///         </b>
+///         An OS drag-in cannot negotiate: the source is another
 ///         process, the flavours were decided before this application was involved, and what arrives
 ///         is a path or a string — so <see cref="Files" /> and <see cref="Text" /> are the honest
 ///         shape for it and stay. ⚠ <see cref="Data" /> is <i>materialised from them on demand</i>
@@ -26,13 +29,21 @@ namespace Vixen.Ui;
 ///         hand it over that way — SDL 2 posts an <c>SDL_DROPFILE</c> per path with no coordinates,
 ///         and the browser posts one per name — so the grouping is reconstructed from the brackets
 ///         SDL puts round a run (<c>SDL_DROPBEGIN</c>/<c>SDL_DROPCOMPLETE</c>, mirrored on the web)
-///         and coalesced in <c>PlatformInput</c>. ⚠ <b>Until that landed a handler that created a
-///         document per drop created five for one gesture</b>, and it was invisible because five
+///         and coalesced in <c>PlatformInput</c>. ⚠
+///         <b>
+///             Until that landed a handler that created a
+///             document per drop created five for one gesture
+///         </b>
+///         , and it was invisible because five
 ///         windows is what a user who dragged five files half expects.
 ///     </para>
 ///     <para>
-///         ⚠ <b>A single-file drop from a backend with no brackets is still one event with one
-///         file, and that is the arrangement rather than an accident.</b> The coalescing only ever
+///         ⚠
+///         <b>
+///             A single-file drop from a backend with no brackets is still one event with one
+///             file, and that is the arrangement rather than an accident.
+///         </b>
+///         The coalescing only ever
 ///         starts when a group is opened, so a platform that cannot bracket loses nothing — which is
 ///         the opposite of the failure a delivery deferred to <c>DropComplete</c> unconditionally
 ///         would have had, where a backend that never sends one delivers no drops at all.
@@ -70,8 +81,12 @@ public sealed class DropEvent : UiEvent {
 
     /// <summary>What was dropped, as formats a handler can ask for by name.</summary>
     /// <remarks>
-    ///     ⚠ <b>Materialised from <see cref="Files" /> and <see cref="Text" /> when nothing set
-    ///     it</b>, so a producer that only knows about the two OS representations does not have to
+    ///     ⚠
+    ///     <b>
+    ///         Materialised from <see cref="Files" /> and <see cref="Text" /> when nothing set
+    ///         it
+    ///     </b>
+    ///     , so a producer that only knows about the two OS representations does not have to
     ///     know this exists, and a handler written against this never has to ask which kind of drag
     ///     it was. An in-app drag sets it directly, and then <see cref="Files" /> is empty and
     ///     <see cref="Text" /> is whatever the source offered under <see cref="DataFormats.Text" />.
@@ -83,8 +98,12 @@ public sealed class DropEvent : UiEvent {
 
     /// <summary>The element the drag started on, or <see langword="null" /> if it came from outside.</summary>
     /// <remarks>
-    ///     ⚠ <b>Not <see cref="UiEvent.Source" />, which on a routed event is the element the event
-    ///     is <i>about</i> — here the drop target.</b> The two are different elements and naming
+    ///     ⚠
+    ///     <b>
+    ///         Not <see cref="UiEvent.Source" />, which on a routed event is the element the event
+    ///         is <i>about</i> — here the drop target.
+    ///     </b>
+    ///     The two are different elements and naming
     ///     this one <c>Source</c> would have shadowed the base property with the opposite meaning.
     ///     <see langword="null" /> is exactly the test for "this came from another application".
     /// </remarks>
@@ -124,8 +143,12 @@ public sealed class DropEvent : UiEvent {
 ///         the original. Flags rather than two enums because the two vocabularies are the same one.
 ///     </para>
 ///     <para>
-///         ⚠ <b><see cref="None" /> is a refusal and is the one value that means something is
-///         wrong.</b> A target that leaves it there gets no <see cref="DropEvent" /> at all, which
+///         ⚠
+///         <b>
+///             <see cref="None" /> is a refusal and is the one value that means something is
+///             wrong.
+///         </b>
+///         A target that leaves it there gets no <see cref="DropEvent" /> at all, which
 ///         is how a drop target refuses one particular payload without giving up being a target.
 ///     </para>
 /// </remarks>
@@ -196,8 +219,12 @@ public sealed class DragOverEvent : UiEvent {
 
     /// <summary>What this target would do, which it may narrow or refuse.</summary>
     /// <remarks>
-    ///     ⚠ <b>It arrives already set to the best of <see cref="Allowed" />, unlike the DOM's
-    ///     <c>dragover</c>, which arrives refusing.</b> The web has to start from a refusal because
+    ///     ⚠
+    ///     <b>
+    ///         It arrives already set to the best of <see cref="Allowed" />, unlike the DOM's
+    ///         <c>dragover</c>, which arrives refusing.
+    ///     </b>
+    ///     The web has to start from a refusal because
     ///     every element is a potential target and only <c>preventDefault</c> distinguishes them;
     ///     here <see cref="UiElement.AllowDrop" /> is already that opt-in, so a second one would
     ///     mean a target that declared itself a target and silently was not — this repository's
@@ -217,8 +244,12 @@ public partial class UiElement {
     ///         labels, icons and backgrounds inside the row need to know nothing.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>It does not gate <see cref="DropEvent" /> from <i>outside</i> the
-    ///         application.</b> An OS drag-in has no enter and no over — SDL delivers no motion at
+    ///         ⚠
+    ///         <b>
+    ///             It does not gate <see cref="DropEvent" /> from <i>outside</i> the
+    ///             application.
+    ///         </b>
+    ///         An OS drag-in has no enter and no over — SDL delivers no motion at
     ///         all while the window system owns the pointer — so there is no pass over the tree in
     ///         which a target could have been chosen, and the drop is raised on the hit-test result
     ///         and bubbles as it always did. Setting this and handling <c>on:drop</c> catches both.
@@ -323,7 +354,7 @@ public sealed partial class UiDocument {
         // something that is no longer happening.
         CancelDrag();
 
-        drag = new DragSession(source, data, allowed);
+        drag = new(source, data, allowed);
         return drag;
     }
 
@@ -431,25 +462,29 @@ public sealed partial class UiDocument {
         // its own drop handler inserts something into it. A leave afterwards would undo the drop's
         // own arrangement.
         session.Target = null;
-        target.Raise(new DragOverEvent {
-            Stage = DragOverStage.Left,
-            X = x,
-            Y = y,
-            Data = session.Data,
-            DragSource = session.Source,
-            Allowed = session.Allowed,
-            Effect = session.Effect
-        });
+        target.Raise(
+            new DragOverEvent {
+                Stage = DragOverStage.Left,
+                X = x,
+                Y = y,
+                Data = session.Data,
+                DragSource = session.Source,
+                Allowed = session.Allowed,
+                Effect = session.Effect
+            }
+        );
 
-        target.Raise(new DropEvent {
-            X = x,
-            Y = y,
-            Data = session.Data,
-            Text = session.Data.Text,
-            Files = session.Data.Files,
-            DragSource = session.Source,
-            Effect = session.Effect
-        });
+        target.Raise(
+            new DropEvent {
+                X = x,
+                Y = y,
+                Data = session.Data,
+                Text = session.Data.Text,
+                Files = session.Data.Files,
+                DragSource = session.Source,
+                Effect = session.Effect
+            }
+        );
 
         return target;
     }
@@ -477,12 +512,11 @@ public sealed partial class UiDocument {
         session.Target = null;
         session.Effect = DropEffect.None;
 
-        target.Raise(new DragOverEvent {
-            Stage = DragOverStage.Left,
-            Data = session.Data,
-            DragSource = session.Source,
-            Allowed = session.Allowed
-        });
+        target.Raise(
+            new DragOverEvent {
+                Stage = DragOverStage.Left, Data = session.Data, DragSource = session.Source, Allowed = session.Allowed
+            }
+        );
     }
 
     UiElement? DropTargetAt(UiSurface surface, float x, float y) => DropTargetAbove(HitTest(surface, x, y));
@@ -507,12 +541,16 @@ public sealed partial class UiDocument {
     ///     this, and nowhere in particular".
     /// </remarks>
     static (float X, float Y) CentreOf(UiElement element) =>
-        (element.AbsoluteLeft + (element.Width / 2f), element.AbsoluteTop + (element.Height / 2f));
+        (element.AbsoluteLeft + element.Width / 2f, element.AbsoluteTop + element.Height / 2f);
 
     /// <summary>Moves the drag in progress to wherever the focus now is.</summary>
     /// <remarks>
-    ///     ⚠ <b>Called from every focus change, and a pointer drag is unaffected because a pointer
-    ///     drag does not move the focus.</b> The press that preceded it already did; a move does
+    ///     ⚠
+    ///     <b>
+    ///         Called from every focus change, and a pointer drag is unaffected because a pointer
+    ///         drag does not move the focus.
+    ///     </b>
+    ///     The press that preceded it already did; a move does
     ///     not, and the source has the pointer captured. So this is the keyboard's half of driving a
     ///     drag without being a second mode that the rest of the model has to know about.
     /// </remarks>

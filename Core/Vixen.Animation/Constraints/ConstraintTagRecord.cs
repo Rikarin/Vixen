@@ -141,7 +141,7 @@ public sealed class ConstraintFrameRecord {
         };
 
         if (Origin is not (OriginSource.Limb or OriginSource.Joint)) {
-            return new SurfaceFrame(coordinate);
+            return new(coordinate);
         }
 
         var from = skeleton.IndexOf(LimbFrom);
@@ -273,8 +273,12 @@ public sealed class ConstraintTagRecord {
     /// <param name="ladder">The project's priority names, or <see langword="null" /> for zero.</param>
     /// <returns>The tag, or <see langword="null" /> when it names a joint this rig does not have.</returns>
     /// <remarks>
-    ///     ⚠ <b>A tag naming a joint the rig does not have resolves to nothing rather than to joint
-    ///     zero.</b> Joint zero is the character's root, and a contact resolving there is a hand in
+    ///     ⚠
+    ///     <b>
+    ///         A tag naming a joint the rig does not have resolves to nothing rather than to joint
+    ///         zero.
+    ///     </b>
+    ///     Joint zero is the character's root, and a contact resolving there is a hand in
     ///     somebody's pelvis — much harder to diagnose than a contact that does nothing.
     /// </remarks>
     public ConstraintTag? Bake(Skeleton skeleton, PriorityLadder? ladder = null) {
@@ -418,6 +422,6 @@ public sealed class ConstraintTagRecord {
             unresolved?.Add(record.Name.Length > 0 ? record.Name : record.Effector);
         }
 
-        return built.Count == 0 ? null : new ConstraintTrack([.. built]);
+        return built.Count == 0 ? null : new ConstraintTrack([..built]);
     }
 }

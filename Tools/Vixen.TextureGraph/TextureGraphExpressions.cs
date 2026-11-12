@@ -58,8 +58,12 @@ readonly record struct TextureExpressionValue(NodeId Node, string Port, float Va
 ///         <c>TextureGraphCompiler.Collect</c> groups by expansion, because two instances of one
 ///         compound are two sets of numbers, so a graph containing compounds that hold expressions
 ///         is that many calls to this and not one
-///         (<a href="https://github.com/Rikarin/Vixen/issues/931">#931</a>). ⚠ <b>Both halves of that
-///         are counted now</b> — <c>TextureGraphCompiler.ExpressionCompilations</c> and
+///         (<a href="https://github.com/Rikarin/Vixen/issues/931">#931</a>). ⚠
+///         <b>
+///             Both halves of that
+///             are counted now
+///         </b>
+///         — <c>TextureGraphCompiler.ExpressionCompilations</c> and
 ///         <c>TextureExpressionCostTests</c> — because until
 ///         <a href="https://github.com/Rikarin/Vixen/issues/940">#940</a> this paragraph and the one
 ///         it restates were the only record of a number nothing measured, and the version of it that
@@ -106,7 +110,7 @@ public static class TextureGraphExpressions {
             return true;
         }
 
-        port = "";
+        port = string.Empty;
 
         return false;
     }
@@ -119,8 +123,12 @@ public static class TextureGraphExpressions {
     /// <returns>One value per expression, in the order given.</returns>
     /// <exception cref="ArgumentNullException">Any argument is null.</exception>
     /// <remarks>
-    ///     ⚠ <b>An expression that did not fold answers <see cref="TextureExpressionValue.Folded" />
-    ///     false rather than zero, and the caller keeps the port's own number.</b> Zero is a
+    ///     ⚠
+    ///     <b>
+    ///         An expression that did not fold answers <see cref="TextureExpressionValue.Folded" />
+    ///         false rather than zero, and the caller keeps the port's own number.
+    ///     </b>
+    ///     Zero is a
     ///     valid-looking radius, a valid-looking amount and a valid-looking gamma; a graph that
     ///     silently lost one is a graph whose picture changed for a reason nothing anywhere states.
     /// </remarks>
@@ -152,7 +160,7 @@ public static class TextureGraphExpressions {
         }
 
         Write("package Vixen.TextureGraph.Expressions");
-        Write("");
+        Write(string.Empty);
         Write($"shader {TypeName} {{");
 
         foreach (var parameter in parameters) {
@@ -165,8 +173,10 @@ public static class TextureGraphExpressions {
                 continue;
             }
 
-            Write($"    const val {parameter.Name}: {Spelling(parameter.Kind)} = "
-                  + $"{parameter.RavenLiteral(values.GetValueOrDefault(parameter.Name, parameter.Default))}");
+            Write(
+                $"    const val {parameter.Name}: {Spelling(parameter.Kind)} = "
+                + $"{parameter.RavenLiteral(values.GetValueOrDefault(parameter.Name, parameter.Default))}"
+            );
         }
 
         // Which line each expression's declaration is on, so a complaint about a line names the port
@@ -181,12 +191,14 @@ public static class TextureGraphExpressions {
             var text = expression.Text.Trim();
 
             if (Refuse(text) is { } reason) {
-                problems.Add(new(
-                    TextureDiagnostics.ExpressionRefused,
-                    $"'{expression.Port}' is an expression that {reason}",
-                    expression.Node,
-                    expression.Port
-                ));
+                problems.Add(
+                    new(
+                        TextureDiagnostics.ExpressionRefused,
+                        $"'{expression.Port}' is an expression that {reason}",
+                        expression.Node,
+                        expression.Port
+                    )
+                );
 
                 refused[index] = true;
                 lineOf[index] = -1;
@@ -212,20 +224,22 @@ public static class TextureGraphExpressions {
             var at = diagnostic.Location.IsNone ? -1 : diagnostic.Location.GetLineSpan().Start.Line;
             var owner = Owner(lineOf, at);
 
-            problems.Add(new(
-                TextureDiagnostics.ExpressionDoesNotCompile,
-                owner < 0
-                    ? $"The graph's parameters do not compile: {diagnostic.Id}: {diagnostic.GetMessage()}"
-                    : $"'{expressions[owner].Port}' does not compile: {diagnostic.Id}: {diagnostic.GetMessage()}",
-                owner < 0 ? NodeId.None : expressions[owner].Node,
-                owner < 0 ? "" : expressions[owner].Port,
-                NodeSeverity.Error,
+            problems.Add(
+                new(
+                    TextureDiagnostics.ExpressionDoesNotCompile,
+                    owner < 0
+                        ? $"The graph's parameters do not compile: {diagnostic.Id}: {diagnostic.GetMessage()}"
+                        : $"'{expressions[owner].Port}' does not compile: {diagnostic.Id}: {diagnostic.GetMessage()}",
+                    owner < 0 ? NodeId.None : expressions[owner].Node,
+                    owner < 0 ? string.Empty : expressions[owner].Port,
+                    NodeSeverity.Error,
 
-                // The line the complaint is on rather than the whole declaration list, because what a
-                // pane showing the generated text would squiggle is one line — `ShaderGraphDocument`
-                // makes the same choice for the same reason.
-                at < 0 ? NodeSpan.None : new NodeSpan(at, 1)
-            ));
+                    // The line the complaint is on rather than the whole declaration list, because what a
+                    // pane showing the generated text would squiggle is one line — `ShaderGraphDocument`
+                    // makes the same choice for the same reason.
+                    at < 0 ? NodeSpan.None : new NodeSpan(at, 1)
+                )
+            );
 
             if (owner >= 0) {
                 refused[owner] = true;
@@ -244,14 +258,16 @@ public static class TextureGraphExpressions {
             }
 
             if (Value(members, NameOf(index)) is not { } value) {
-                problems.Add(new(
-                    TextureDiagnostics.ExpressionDoesNotFold,
-                    $"'{expression.Port}' is '{expression.Text.Trim()}', which Raven binds and cannot fold to a "
-                    + "number at compile time. A plan's parameter is one float, so an expression here is "
-                    + "literals, parameters, and arithmetic over them — a function call is not folded.",
-                    expression.Node,
-                    expression.Port
-                ));
+                problems.Add(
+                    new(
+                        TextureDiagnostics.ExpressionDoesNotFold,
+                        $"'{expression.Port}' is '{expression.Text.Trim()}', which Raven binds and cannot fold to a "
+                        + "number at compile time. A plan's parameter is one float, so an expression here is "
+                        + "literals, parameters, and arithmetic over them — a function call is not folded.",
+                        expression.Node,
+                        expression.Port
+                    )
+                );
 
                 folded.Add(new(expression.Node, expression.Port, 0f, false));
 
@@ -288,17 +304,17 @@ public static class TextureGraphExpressions {
             // stays because this method is the contract for anything else that folds an expression,
             // and an empty `const val` initializer is a parse error blamed on the next line's node.
             return "is empty, so there is nothing to fold. An empty field means the port keeps the "
-                   + "number typed on it.";
+                + "number typed on it.";
         }
 
         if (text.Contains('\n', StringComparison.Ordinal) || text.Contains('\r', StringComparison.Ordinal)) {
             return "runs over more than one line. A newline ends a statement in Raven, so the second line "
-                   + "would not be part of it — write it as one line.";
+                + "would not be part of it — write it as one line.";
         }
 
         if (text.Contains('{', StringComparison.Ordinal) || text.Contains('}', StringComparison.Ordinal)) {
             return "contains a brace. An expression here is arithmetic over the graph's parameters, and a "
-                   + "block would close the declaration it is written into.";
+                + "block would close the declaration it is written into.";
         }
 
         return null;

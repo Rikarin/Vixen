@@ -9,8 +9,11 @@ namespace Vixen.Rendering.Ecs;
 /// <summary>Where the effect a <see cref="VfxEmitter" /> names comes from.</summary>
 /// <remarks>
 ///     <para>
-///         <b><see cref="IMaterialSource" />'s shape, one asset kind along, and for the same reason:
-///         <c>Vixen.Rendering</c> links no asset manager.</b> An extraction system asks for a graph by
+///         <b>
+///             <see cref="IMaterialSource" />'s shape, one asset kind along, and for the same reason:
+///             <c>Vixen.Rendering</c> links no asset manager.
+///         </b>
+///         An extraction system asks for a graph by
 ///         reference and is told whether it is ready; what turns a reference into an address and an
 ///         address into bytes is the content stack's business, which sits above this one.
 ///     </para>

@@ -13,21 +13,33 @@ namespace Vixen.Ui.Styling.Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b><c>Rikarin/Vixen#1349</c>: the gate that proves a child-combinator rule reachable
-///         worked, and was in the wrong assembly.</b> The domain is this suite's
+///         ⚠
+///         <b>
+///             <c>Rikarin/Vixen#1349</c>: the gate that proves a child-combinator rule reachable
+///             worked, and was in the wrong assembly.
+///         </b>
+///         The domain is this suite's
 ///         <c>CombinatorPairs.txt</c>; the proofs are four editor censuses in
 ///         <c>Vixen.Editor.App.Tests</c>, a project that takes about ten minutes to build and run,
 ///         and two control censuses in <c>Vixen.Ui.Controls.Advanced.Tests</c>. So an <c>A &gt; B</c>
 ///         added to <c>ControlTheme.vcss</c> went red here, was regenerated here — which is what this
 ///         suite's own message tells its reader to do — and was then green everywhere its author would
-///         think to look. The editor suite was red on master for weeks that way: <c>console-detail
-///         &gt; scroll-content</c> and <c>message-log-detail &gt; scroll-content</c> reached the domain
+///         think to look. The editor suite was red on master for weeks that way:
+///         <c>
+///             console-detail
+///             &gt; scroll-content
+///         </c>
+///         and <c>message-log-detail &gt; scroll-content</c> reached the domain
 ///         and no editor census, and a later sweep regenerated the censuses as a by-product without
 ///         anybody attributing the red.
 ///     </para>
 ///     <para>
-///         ⚠ <b>A join over committed files, which is exactly as strong as the live one on a green
-///         tree and needs nothing built.</b> Each of the six proof censuses is held exactly and in
+///         ⚠
+///         <b>
+///             A join over committed files, which is exactly as strong as the live one on a green
+///             tree and needs nothing built.
+///         </b>
+///         Each of the six proof censuses is held exactly and in
 ///         both directions against its own sweep by its own suite, so on the day those suites are
 ///         green each file IS its sweep. What only this suite can see is the sheets moving
 ///         underneath them — and it sees that against the MEASURED pairs, not the domain file, so
@@ -61,7 +73,10 @@ public class CombinatorCensusDriftTests {
     /// <summary>The editor's scoped census: every type-only selector, and the shallowest depth that matched it.</summary>
     const string ScopedFile = "Editor/Vixen.Editor.App.Tests/ScopedSelectors.txt";
 
-    /// <summary>The controls' scoped census: every type-only selector the two control sheets declare, and whether a bare control matched it.</summary>
+    /// <summary>
+    ///     The controls' scoped census: every type-only selector the two control sheets declare, and whether a bare
+    ///     control matched it.
+    /// </summary>
     const string ControlScopedFile = "Core/Vixen.Ui.Controls.Advanced.Tests/ControlScopedSelectors.txt";
 
     /// <summary>The scoped residue: every type-only selector neither scoped census credits, its kind, and what builds it.</summary>
@@ -77,7 +92,10 @@ public class CombinatorCensusDriftTests {
     ///     was not read at all at first, so every continuation in the file was taken on trust while
     ///     the rule claimed each cited line had to be there.
     /// </remarks>
-    static readonly Regex Cited = new(@"(?:(?<file>(?:[\w.-]+/)*[\w.-]+\.(?:cs|vxml|vcss))|(?<![\w/])):(?<line>\d+)", RegexOptions.Compiled);
+    static readonly Regex Cited = new(
+        @"(?:(?<file>(?:[\w.-]+/)*[\w.-]+\.(?:cs|vxml|vcss))|(?<![\w/])):(?<line>\d+)",
+        RegexOptions.Compiled
+    );
 
     /// <summary>The two sheets whose selectors that census answers for, as <c>LiveCombinatorPairTests</c> names them.</summary>
     static readonly string[] ControlSheets = [
@@ -87,15 +105,15 @@ public class CombinatorCensusDriftTests {
 
     /// <summary>Where to send somebody whose sheet edit this suite has just refused.</summary>
     const string Remedy = """
-        Run the suite that owns the census rather than editing it by hand:
+                          Run the suite that owns the census rather than editing it by hand:
 
-          dotnet test Core/Vixen.Ui.Controls.Advanced.Tests --filter "FullyQualifiedName~LiveCombinatorPairTests"
-          dotnet test Editor/Vixen.Editor.App.Tests --filter "FullyQualifiedName~EditorCombinatorPairTests"
+                            dotnet test Core/Vixen.Ui.Controls.Advanced.Tests --filter "FullyQualifiedName~LiveCombinatorPairTests"
+                            dotnet test Editor/Vixen.Editor.App.Tests --filter "FullyQualifiedName~EditorCombinatorPairTests"
 
-        with VIXEN_REGENERATE=1 once you have read why they fail. A pairing no sweep builds is named in
-        Editor/Vixen.Editor.App.Tests/UnprovedCombinatorPairs.txt with the file:line that builds it —
-        or, if nothing builds it, the rule is dead and wants correcting, as `palette-row > text` did.
-        """;
+                          with VIXEN_REGENERATE=1 once you have read why they fail. A pairing no sweep builds is named in
+                          Editor/Vixen.Editor.App.Tests/UnprovedCombinatorPairs.txt with the file:line that builds it —
+                          or, if nothing builds it, the rule is dead and wants correcting, as `palette-row > text` did.
+                          """;
 
     /// <summary>
     ///     Every pairing the sheets declare now is proved by a committed census or named in the
@@ -183,9 +201,14 @@ public class CombinatorCensusDriftTests {
         var root = RepositoryScan.Root();
         var declared = TypeOnlySelectors.Read(root);
 
-        Assert.True(declared.Count >= 150, $"the sheets declare only {declared.Count} type-only selectors, against 195 measured.");
+        Assert.True(
+            declared.Count >= 150,
+            $"the sheets declare only {declared.Count} type-only selectors, against 195 measured."
+        );
 
-        var census = Rows(root, ScopedFile).Select(static row => row.Split('\t')[0].Trim()).ToHashSet(StringComparer.Ordinal);
+        var census = Rows(root, ScopedFile)
+            .Select(static row => row.Split('\t')[0].Trim())
+            .ToHashSet(StringComparer.Ordinal);
 
         var arrived = declared.Keys.Where(selector => !census.Contains(selector))
             .Order(StringComparer.Ordinal)
@@ -232,9 +255,14 @@ public class CombinatorCensusDriftTests {
             .Where(static row => ControlSheets.Contains(row.Value, StringComparer.Ordinal))
             .ToDictionary(static row => row.Key, static row => row.Value, StringComparer.Ordinal);
 
-        Assert.True(declared.Count >= 30, $"the control sheets declare only {declared.Count} type-only selectors, against 55 measured.");
+        Assert.True(
+            declared.Count >= 30,
+            $"the control sheets declare only {declared.Count} type-only selectors, against 55 measured."
+        );
 
-        var census = Rows(root, ControlScopedFile).Select(static row => row.Split('\t')[0].Trim()).ToHashSet(StringComparer.Ordinal);
+        var census = Rows(root, ControlScopedFile)
+            .Select(static row => row.Split('\t')[0].Trim())
+            .ToHashSet(StringComparer.Ordinal);
 
         var arrived = declared.Keys.Where(selector => !census.Contains(selector))
             .Order(StringComparer.Ordinal)
@@ -269,8 +297,12 @@ public class CombinatorCensusDriftTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The negative half of the scoped question, which both scoped censuses' headers said
-    ///         nobody had made</b> (<c>Rikarin/Vixen#531</c>). A <c>-</c> in <c>ScopedSelectors.txt</c>
+    ///         ⚠
+    ///         <b>
+    ///             The negative half of the scoped question, which both scoped censuses' headers said
+    ///             nobody had made
+    ///         </b>
+    ///         (<c>Rikarin/Vixen#531</c>). A <c>-</c> in <c>ScopedSelectors.txt</c>
     ///         meant "unjudged" and nothing more, and with no file saying why, a rule that had died
     ///         read exactly like one waiting for content. The residue is the editor's <c>-</c> rows
     ///         less those <c>ControlScopedSelectors.txt</c> reads <c>Bare</c> or <c>Seeded</c> — the controls' sweeps
@@ -294,13 +326,16 @@ public class CombinatorCensusDriftTests {
         // `Seeded` credits as `Bare` does: the controls' seeded sweep refuses every element its seed
         // introduced at every compound but the leftmost, as the seeded pair census refuses them as
         // children, and the pair gate already counts that census as a proof.
-        var residue = editor.Where(row => row.Value == "-" && control.GetValueOrDefault(row.Key) is not ("Bare" or "Seeded"))
+        var residue = editor
+            .Where(row => row.Value == "-" && control.GetValueOrDefault(row.Key) is not ("Bare" or "Seeded"))
             .Select(static row => row.Key)
             .ToHashSet(StringComparer.Ordinal);
 
         var named = Unjudged(root);
 
-        var unexplained = residue.Where(selector => !named.ContainsKey(selector)).Order(StringComparer.Ordinal).ToList();
+        var unexplained = residue.Where(selector => !named.ContainsKey(selector))
+            .Order(StringComparer.Ordinal)
+            .ToList();
         var expired = named.Keys.Where(selector => !residue.Contains(selector)).Order(StringComparer.Ordinal).ToList();
 
         Assert.True(
@@ -371,7 +406,10 @@ public class CombinatorCensusDriftTests {
     public void The_joins_read_the_real_censuses() {
         var root = RepositoryScan.Root();
 
-        Assert.True(Declared().Count >= 60, $"the sheets declare only {Declared().Count} pairings, which is not the real table.");
+        Assert.True(
+            Declared().Count >= 60,
+            $"the sheets declare only {Declared().Count} pairings, which is not the real table."
+        );
 
         Assert.Contains("editor-shell > menu-bar", Rows(root, EditorCensusFiles[0]));
         Assert.Contains("split-view > split-bar", Rows(root, ControlCensusFiles[0]));
@@ -380,8 +418,14 @@ public class CombinatorCensusDriftTests {
 
         // The scoped residue: the editor's census has `-` rows, the controls' credits some of them,
         // and the whole-selector row only this file can hold is named.
-        Assert.True(Verdicts(root, ScopedFile).Count(static row => row.Value == "-") >= 20, $"{ScopedFile} has too few `-` rows to be the real census.");
-        Assert.True(Verdicts(root, ControlScopedFile).Count(static row => row.Value == "Bare") >= 20, $"{ControlScopedFile} credits too few selectors to be the real census.");
+        Assert.True(
+            Verdicts(root, ScopedFile).Count(static row => row.Value == "-") >= 20,
+            $"{ScopedFile} has too few `-` rows to be the real census."
+        );
+        Assert.True(
+            Verdicts(root, ControlScopedFile).Count(static row => row.Value == "Bare") >= 20,
+            $"{ControlScopedFile} credits too few selectors to be the real census."
+        );
         Assert.Equal("unreached", Unjudged(root)["shape-fields fact-value > numeric-input"].Kind);
 
         foreach (var file in EditorCensusFiles) {
@@ -415,7 +459,11 @@ public class CombinatorCensusDriftTests {
     static Dictionary<string, string> Verdicts(string root, string file) =>
         Rows(root, file)
             .Select(static row => row.Split('\t'))
-            .ToDictionary(static columns => columns[0].Trim(), static columns => columns.Length > 1 ? columns[1].Trim() : "", StringComparer.Ordinal);
+            .ToDictionary(
+                static columns => columns[0].Trim(),
+                static columns => columns.Length > 1 ? columns[1].Trim() : string.Empty,
+                StringComparer.Ordinal
+            );
 
     /// <summary>The scoped residue's rows: selector to its kind and its reason.</summary>
     static Dictionary<string, (string Kind, string Reason)> Unjudged(string root) {
@@ -444,9 +492,10 @@ public class CombinatorCensusDriftTests {
             $"{file} has lost its header, so it was emptied rather than answered."
         );
 
-        return lines.Select(static line => line.Trim())
-            .Where(static line => line.Length != 0 && !line.StartsWith('#'))
-            .ToList();
+        return [
+            ..lines.Select(static line => line.Trim())
+                .Where(static line => line.Length != 0 && !line.StartsWith('#'))
+        ];
     }
 
     static string Lines(IEnumerable<string> rows) {

@@ -8,8 +8,12 @@ namespace Vixen.Ai;
 /// <summary>How many factors a candidate has, and what each of them reads.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>A struct with a generic constraint rather than an interface reference, so the loop
-///         devirtualises and nothing is allocated to score a candidate.</b> A utility agent scores a
+///         ⚠
+///         <b>
+///             A struct with a generic constraint rather than an interface reference, so the loop
+///             devirtualises and nothing is allocated to score a candidate.
+///         </b>
+///         A utility agent scores a
 ///         handful of actions five times a second; an environment query scores every factor of every
 ///         generated point, of which there may be hundreds. One boxed reader per point per query
 ///         would be an allocation in the middle of the frame the whole design exists to avoid.
@@ -126,8 +130,12 @@ public static class CandidateScoring {
     /// <param name="weight">The candidate's multiplier.</param>
     /// <returns>The score.</returns>
     /// <remarks>
-    ///     ⚠ <b>The one implementation of the mean, and everything else in the engine forwards to
-    ///     it.</b> <see cref="UtilityScoring.Combine" /> is this under the name a utility set knows it
+    ///     ⚠
+    ///     <b>
+    ///         The one implementation of the mean, and everything else in the engine forwards to
+    ///         it.
+    ///     </b>
+    ///     <see cref="UtilityScoring.Combine" /> is this under the name a utility set knows it
     ///     by, and <see cref="EnvironmentQuery" /> calls it directly — which is what makes doc 37
     ///     § D14's "the same scorer serves both" a fact about the call graph rather than a comment.
     /// </remarks>

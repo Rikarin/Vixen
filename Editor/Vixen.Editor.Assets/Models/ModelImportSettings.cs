@@ -39,8 +39,12 @@ public sealed record ModelImportSettings : IImportSettings, IModelReadOptions {
 
     /// <inheritdoc />
     /// <remarks>
-    ///     ⚠ <b>The importer that most needs it, because a model is the asset whose sub-asset names
-    ///     the author least controls.</b> A <c>.glb</c> from an asset store arrives with two meshes
+    ///     ⚠
+    ///     <b>
+    ///         The importer that most needs it, because a model is the asset whose sub-asset names
+    ///         the author least controls.
+    ///     </b>
+    ///     A <c>.glb</c> from an asset store arrives with two meshes
     ///     called <c>Cube</c> and no way to fix it short of a round trip through Blender; the import
     ///     names the second one <c>Cube_1</c> so the asset still loads, and this is how it gets a name
     ///     worth reading. A sprite's name comes from the slicer and a video has one track, so neither
@@ -274,8 +278,11 @@ public sealed record ModelImportSettings : IImportSettings, IModelReadOptions {
 
     /// <summary>When to generate texture coordinates for the model's meshes.</summary>
     /// <remarks>
-    ///     <b>docs/plan/42 § D13's importer row: "generate when the source has no UVs, or always, or
-    ///     never".</b> <see cref="UnwrapMode.WhenMissing" /> is the one worth defaulting to if a
+    ///     <b>
+    ///         docs/plan/42 § D13's importer row: "generate when the source has no UVs, or always, or
+    ///         never".
+    ///     </b>
+    ///     <see cref="UnwrapMode.WhenMissing" /> is the one worth defaulting to if a
     ///     project ever does — it fixes the generated-mesh case and leaves an artist's atlas alone —
     ///     and it is still off here for the reason <see cref="Retopologize" /> is.
     /// </remarks>
@@ -283,8 +290,12 @@ public sealed record ModelImportSettings : IImportSettings, IModelReadOptions {
 
     /// <summary>The atlas resolution the unwrap packs for.</summary>
     /// <remarks>
-    ///     ⚠ <b>The packer needs this because the margin is in texels and packing happens in UV
-    ///     units</b> — docs/plan/42 § B4 and § D8. A margin expressed as a fraction of UV space is a
+    ///     ⚠
+    ///     <b>
+    ///         The packer needs this because the margin is in texels and packing happens in UV
+    ///         units
+    ///     </b>
+    ///     — docs/plan/42 § B4 and § D8. A margin expressed as a fraction of UV space is a
     ///     margin that means a different number of texels on every island of every atlas.
     /// </remarks>
     public int UnwrapResolution { get; init; } = 1024;
@@ -319,8 +330,12 @@ public sealed record ModelImportSettings : IImportSettings, IModelReadOptions {
     /// <param name="guides">The curves the guide references resolved to, or empty.</param>
     /// <returns>The remesh settings.</returns>
     /// <remarks>
-    ///     ⚠ <b>The mapper rather than a nullable <c>RemeshSettings</c> on the record, which is what
-    ///     docs/plan/41 § D16 asks for.</b> The section was written before anybody opened this file:
+    ///     ⚠
+    ///     <b>
+    ///         The mapper rather than a nullable <c>RemeshSettings</c> on the record, which is what
+    ///         docs/plan/41 § D16 asks for.
+    ///     </b>
+    ///     The section was written before anybody opened this file:
     ///     every other expensive stage here is a flat <c>bool</c> plus its dials plus a
     ///     <c>To…Settings()</c>, because a <c>.meta</c> is authored by hand as often as by the
     ///     inspector and a nested record is a second level of indentation for every one of them. The
@@ -348,11 +363,7 @@ public sealed record ModelImportSettings : IImportSettings, IModelReadOptions {
     /// <summary>These as the packer wants them.</summary>
     /// <returns>The pack settings.</returns>
     public PackSettings ToPackSettings() =>
-        new() {
-            Resolution = UnwrapResolution,
-            Margin = UnwrapMargin,
-            TexelDensity = UnwrapTexelDensity
-        };
+        new() { Resolution = UnwrapResolution, Margin = UnwrapMargin, TexelDensity = UnwrapTexelDensity };
 }
 
 /// <summary>Which plane through the origin a retopology mirrors across.</summary>
@@ -397,8 +408,12 @@ public enum UnwrapMode {
 ///         AI pipeline consists of.
 ///     </para>
 ///     <para>
-///         ⚠ <b>A <c>[DataContract]</c> record with settable properties, on <c>SubAssetRename</c>'s
-///         shape, and not a positional <c>readonly record struct</c>.</b> The YAML serializer refuses a
+///         ⚠
+///         <b>
+///             A <c>[DataContract]</c> record with settable properties, on <c>SubAssetRename</c>'s
+///             shape, and not a positional <c>readonly record struct</c>.
+///         </b>
+///         The YAML serializer refuses a
 ///         type it has no descriptor for and the descriptor generator wants the attribute — which
 ///         showed up here as "RetopologyGuideReference has no descriptor" on the first round trip, and
 ///         would otherwise have showed up as a list of guides that silently never reached the meta.

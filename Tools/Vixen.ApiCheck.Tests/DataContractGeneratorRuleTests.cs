@@ -22,8 +22,12 @@ namespace Vixen.ApiCheck.Tests;
 ///         projects are in that state" (#1005).
 ///     </para>
 ///     <para>
-///         ⚠ <b>Both directions, because a text rule with no positives is satisfied by exactly the
-///         defect it is meant to catch.</b> The fixtures below make it fire and make it go quiet, and
+///         ⚠
+///         <b>
+///             Both directions, because a text rule with no positives is satisfied by exactly the
+///             defect it is meant to catch.
+///         </b>
+///         The fixtures below make it fire and make it go quiet, and
 ///         the repository pass asserts the rule's <em>subject set</em> is non-empty — a walk that
 ///         found no application anywhere would report "no violations" and mean "I read nothing".
 ///     </para>
@@ -95,12 +99,18 @@ public class DataContractGeneratorRuleTests {
 
     [Theory]
     [InlineData(
-        "    <ProjectReference Include=\"..\\" + DataContractGeneratorRule.SerializationGenerator
-        + "\\" + DataContractGeneratorRule.SerializationGenerator + ".csproj\" OutputItemType=\"Analyzer\" />\n"
+        """    <ProjectReference Include="..\"""
+        + DataContractGeneratorRule.SerializationGenerator
+        + """\"""
+        + DataContractGeneratorRule.SerializationGenerator
+        + ".csproj\" OutputItemType=\"Analyzer\" />\n"
     )]
     [InlineData(
-        "    <ProjectReference Include=\"..\\" + DataContractGeneratorRule.ReflectionGenerator
-        + "\\" + DataContractGeneratorRule.ReflectionGenerator + ".csproj\" OutputItemType=\"Analyzer\" />\n"
+        """    <ProjectReference Include="..\"""
+        + DataContractGeneratorRule.ReflectionGenerator
+        + """\"""
+        + DataContractGeneratorRule.ReflectionGenerator
+        + ".csproj\" OutputItemType=\"Analyzer\" />\n"
     )]
     [InlineData("    <PackageReference Include=\"" + DataContractGeneratorRule.Package + "\" />\n")]
     public void Either_generator_or_the_package_makes_it_clean(string references) {
@@ -168,7 +178,7 @@ public class DataContractGeneratorRuleTests {
     ///     ⚠ <b>Set equality in both directions, which is what makes the list only ever shrink.</b> An
     ///     exempted project that has become clean fails here, so a line that has done its job cannot
     ///     sit there hiding the next project to break the same way — the property
-    ///     <c>docs/WhitespaceExempt.txt</c> and <c>docs/DocCommentExempt.txt</c> have.
+    ///     <c>docs/DocsExempt.txt</c> and <c>docs/DocCommentExempt.txt</c> have.
     /// </remarks>
     [Fact]
     public void The_repository_agrees_with_the_exemption_file() {

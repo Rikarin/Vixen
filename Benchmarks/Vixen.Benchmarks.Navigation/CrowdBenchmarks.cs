@@ -97,7 +97,7 @@ public class CrowdBenchmarks {
         handles.Clear();
 
         for (var index = 0; index < Agents; index++) {
-            var handle = crowd.AddAgent(new(6f + (index % columns * 1.4f), 0, 6f + (index / columns * 1.4f)), parameters);
+            var handle = crowd.AddAgent(new(6f + index % columns * 1.4f, 0, 6f + index / columns * 1.4f), parameters);
 
             if (!handle.IsNull) {
                 handles.Add(handle);
@@ -156,7 +156,8 @@ public class CrowdBenchmarks {
         crowd.Update(1f / 60f);
 
         foreach (var handle in handles) {
-            if (crowd.TryGetState(handle, out var state) && state.State is CrowdTargetState.Arrived or CrowdTargetState.Failed) {
+            if (crowd.TryGetState(handle, out var state)
+                && state.State is CrowdTargetState.Arrived or CrowdTargetState.Failed) {
                 crowd.SetTarget(handle, state.Target == north ? south : north);
             }
         }

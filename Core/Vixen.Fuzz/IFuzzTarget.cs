@@ -52,8 +52,11 @@ public interface IFuzzTarget {
     /// <summary>Whether a behaviour nothing produced before is worth keeping the input for.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>True for a decoder and false for a compiler, and the difference is the size of the
-    ///         behaviour space rather than a preference.</b> A packet reader has a few dozen outcomes,
+    ///         <b>
+    ///             True for a decoder and false for a compiler, and the difference is the size of the
+    ///             behaviour space rather than a preference.
+    ///         </b>
+    ///         A packet reader has a few dozen outcomes,
     ///         so "this input did something new" is a strong signal and a corpus selected on it is a
     ///         set of representatives. A compiler has a behaviour for every combination of
     ///         declarations, types and diagnostics there is; nearly every input looks new, the
@@ -107,8 +110,11 @@ public interface IFuzzTarget {
     ///         its own exceptions is a target that proves nothing.
     ///     </para>
     ///     <para>
-    ///         <b>The signature is about the case, not about the run, and getting that wrong is
-    ///         silent.</b> A decoder's counters are lifetime totals, so a signature folded from them
+    ///         <b>
+    ///             The signature is about the case, not about the run, and getting that wrong is
+    ///             silent.
+    ///         </b>
+    ///         A decoder's counters are lifetime totals, so a signature folded from them
     ///         strictly increases and <i>every</i> case looks like a behaviour never seen before —
     ///         which is not a fuzzer with excellent coverage, it is a fuzzer with no guidance at all
     ///         and a corpus that keeps everything. One target here kept a million inputs in a second
@@ -133,7 +139,7 @@ public interface IFuzzTarget {
     ///         and say why, because the number is the claim.
     ///     </para>
     /// </remarks>
-    long AllowanceFor(int inputLength) => 4096 + (32L * inputLength);
+    long AllowanceFor(int inputLength) => 4096 + 32L * inputLength;
 
     /// <summary>How many things the decoder is currently holding on to.</summary>
     /// <remarks>

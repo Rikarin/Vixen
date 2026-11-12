@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core.Syntax;
-using Vixen.Raven.Syntax;
 
 namespace Vixen.Raven.Symbols;
 
@@ -56,9 +55,10 @@ public sealed class SubstitutedPropertySymbol : PropertySymbol {
         OriginalDefinition = definition;
         ContainingSymbol = container;
         Type = map.Substitute(definition.Type);
-        parameters = definition.Parameters
-            .Select(p => (ParameterSymbol)new SubstitutedParameterSymbol(p, this, map))
-            .ToArray();
+        parameters = [
+            ..definition.Parameters
+                .Select(p => (ParameterSymbol)new SubstitutedParameterSymbol(p, this, map))
+        ];
     }
 }
 
@@ -96,9 +96,10 @@ public sealed class SubstitutedMethodSymbol : MethodSymbol {
         ContainingSymbol = container;
         ReturnType = map.Substitute(definition.ReturnType);
         TypeArguments = typeArguments;
-        parameters = definition.Parameters
-            .Select(p => (ParameterSymbol)new SubstitutedParameterSymbol(p, this, map))
-            .ToArray();
+        parameters = [
+            ..definition.Parameters
+                .Select(p => (ParameterSymbol)new SubstitutedParameterSymbol(p, this, map))
+        ];
     }
 }
 

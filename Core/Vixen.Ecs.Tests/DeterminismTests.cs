@@ -200,5 +200,4 @@ public sealed class DeterminismTests {
             (ref Position position, ref Velocity velocity) => position.X += velocity.X * delta
         );
     }
-
 }

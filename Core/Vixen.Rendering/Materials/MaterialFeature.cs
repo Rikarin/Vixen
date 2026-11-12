@@ -69,8 +69,12 @@ public interface IMaterialFeature {
     ///         <a href="https://github.com/Rikarin/Vixen/issues/1123">#1123</a> is where it was found.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Declared by the features rather than listed in the compiler, because a list is
-    ///         the second copy a new workflow silently is not on.</b> A feature added to
+    ///         ⚠
+    ///         <b>
+    ///             Declared by the features rather than listed in the compiler, because a list is
+    ///             the second copy a new workflow silently is not on.
+    ///         </b>
+    ///         A feature added to
     ///         <c>MaterialFeatures.cs</c> that assigns the surface says so here, next to the
     ///         assignment; a rule that read a type list in <see cref="MaterialCompiler" /> would
     ///         admit that feature beside every other base surface with nothing reported — which is
@@ -101,8 +105,12 @@ public interface IMaterialFeature {
 ///         material's <see cref="MaterialDescriptor.Features" /> list happens to be in.
 ///     </para>
 ///     <para>
-///         ⚠ <b>A feature that writes the coordinate inverts that, and the failure is a plausible
-///         frame.</b> Parallax occlusion reads <c>d.uv</c> and writes it back displaced; placed third,
+///         ⚠
+///         <b>
+///             A feature that writes the coordinate inverts that, and the failure is a plausible
+///             frame.
+///         </b>
+///         Parallax occlusion reads <c>d.uv</c> and writes it back displaced; placed third,
 ///         it displaces the coordinate the two features before it already sampled at, so half the
 ///         material is parallaxed and half is not — no device reports anything, and the surface merely
 ///         looks wrong in a way that gets blamed on the map. See
@@ -167,8 +175,12 @@ public enum MaterialDiagnosticId {
 
     /// <summary>A layered material has more layers than its splat map has painted channels.</summary>
     /// <remarks>
-    ///     ⚠ <b>A warning rather than an error, and it stands in for a picture nobody could have
-    ///     read.</b> The layer is simply unpainted, which is a stack short of a layer — where the
+    ///     ⚠
+    ///     <b>
+    ///         A warning rather than an error, and it stands in for a picture nobody could have
+    ///         read.
+    ///     </b>
+    ///     The layer is simply unpainted, which is a stack short of a layer — where the
     ///     alternative, reading a channel the map does not have, is a fourth layer weighted 1 at every
     ///     texel and therefore the whole surface after normalisation. See
     ///     <see cref="TexturedMaterialLayersFeature.PaintedChannels" />.
@@ -189,8 +201,12 @@ public enum MaterialDiagnosticId {
     /// <summary>A feature's map is called something other than the one name a host pairs.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>An error, and the only one here whose subject is a string an author is free to
-    ///         type.</b> A host joins a sampling shader's <c>uint</c> slot to a material-side texture
+    ///         ⚠
+    ///         <b>
+    ///             An error, and the only one here whose subject is a string an author is free to
+    ///             type.
+    ///         </b>
+    ///         A host joins a sampling shader's <c>uint</c> slot to a material-side texture
     ///         name, and it keys that join off the feature's <em>default</em> — one static entry per
     ///         name, built from <c>new TexturedMetalRoughnessFeature()</c> and its siblings, because
     ///         the pairing is one table for the whole frame and cannot be per material. So a material
@@ -218,8 +234,12 @@ public enum MaterialDiagnosticId {
     /// <summary>Two base workflows are in one chain, so the later one writes over the earlier's albedo.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>An error, and the picture it refuses is a fully lit, plausible surface of the
-    ///         wrong material.</b> Every base workflow is
+    ///         ⚠
+    ///         <b>
+    ///             An error, and the picture it refuses is a fully lit, plausible surface of the
+    ///             wrong material.
+    ///         </b>
+    ///         Every base workflow is
     ///         <see cref="MaterialFeatureStage.Surface" /> and each <em>assigns</em> the same fields
     ///         of <c>MaterialData</c>, so two of them compose into two
     ///         <c>CompositeSurface</c> slots, the composition resolves, the material compiles, and at
@@ -284,7 +304,7 @@ public sealed class MaterialCompilationContext {
     string? containing;
 
     /// <summary>What a parameter set here is prefixed with.</summary>
-    string prefix = string.Empty;
+    string prefix;
 
     internal MaterialCompilationContext(
         string shaderName,
@@ -314,8 +334,12 @@ public sealed class MaterialCompilationContext {
     /// <summary>Whether a defect in the authored content refuses the material or only warns.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The same compiler runs at import and at load, and those two want different
-    ///         answers to "this material is wrong".</b> At import there is an author to tell, the
+    ///         ⚠
+    ///         <b>
+    ///             The same compiler runs at import and at load, and those two want different
+    ///             answers to "this material is wrong".
+    ///         </b>
+    ///         At import there is an author to tell, the
     ///         content has not shipped yet, and a refusal is the whole point. At load the material is
     ///         already in a bundle somebody built, and a compiler that started refusing what it used
     ///         to accept takes the mesh off screen — for content the importer will not re-check,

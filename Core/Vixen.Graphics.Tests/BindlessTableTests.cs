@@ -191,8 +191,10 @@ public class BindlessTableTests : IDisposable {
 
         device.UpdateDescriptorSet(table.Set, [DescriptorWrite.Texture(0, albedo, 7)]);
 
-        Assert.Throws<ArgumentOutOfRangeException>(
-            () => device.UpdateDescriptorSet(table.Set, [DescriptorWrite.Texture(0, albedo, 8)])
+        Assert.Throws<ArgumentOutOfRangeException>(() => device.UpdateDescriptorSet(
+                table.Set,
+                [DescriptorWrite.Texture(0, albedo, 8)]
+            )
         );
     }
 
@@ -212,8 +214,10 @@ public class BindlessTableTests : IDisposable {
     /// <summary>A capacity the device cannot reach is refused where the number is, not where it is used.</summary>
     [Fact]
     public void A_capacity_past_the_devices_limit_is_refused() =>
-        Assert.Throws<ArgumentOutOfRangeException>(
-            () => new BindlessTable(device, capacity: device.Features.MaxBindlessDescriptors + 1)
+        Assert.Throws<ArgumentOutOfRangeException>(() => new BindlessTable(
+                device,
+                capacity: device.Features.MaxBindlessDescriptors + 1
+            )
         );
 
     /// <summary>

@@ -52,8 +52,11 @@ public struct VideoSurface {
 /// <summary>Where on the screen an entity's video is drawn.</summary>
 /// <remarks>
 ///     <para>
-///         <b>Separate from <see cref="VideoSurface" /> because playing and drawing are separate
-///         things.</b> A video with no placement still decodes — which is what a game wants for the
+///         <b>
+///             Separate from <see cref="VideoSurface" /> because playing and drawing are separate
+///             things.
+///         </b>
+///         A video with no placement still decodes — which is what a game wants for the
 ///         one it is about to cut to, and for the one whose sound is playing under a menu — and a
 ///         placement with no player draws nothing. Adding this component is what puts the picture on
 ///         the screen.
@@ -90,8 +93,7 @@ public struct VideoScreenPlacement {
     public Color4 Tint;
 
     /// <summary>A placement covering the whole target, untinted.</summary>
-    public static VideoScreenPlacement Opaque =>
-        new() { Scaling = VideoScaling.Contain, Tint = Color4.White };
+    public static VideoScreenPlacement Opaque => new() { Scaling = VideoScaling.Contain, Tint = Color4.White };
 }
 
 /// <summary>What the player did this frame.</summary>

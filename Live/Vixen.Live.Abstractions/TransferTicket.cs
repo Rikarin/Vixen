@@ -59,8 +59,10 @@ public sealed record TransferTicket {
 
     /// <summary>Reads a ticket back, or says what was wrong with it.</summary>
     /// <param name="text">What <see cref="Encode" /> wrote.</param>
-    /// <param name="ticket">The ticket, on success. <b>Unverified</b> — see
-    /// <see cref="TransferTicketSigner.Validate" />.</param>
+    /// <param name="ticket">
+    ///     The ticket, on success. <b>Unverified</b> — see
+    ///     <see cref="TransferTicketSigner.Validate" />.
+    /// </param>
     /// <param name="error">Why not, otherwise.</param>
     /// <returns>Whether it decoded.</returns>
     /// <remarks>
@@ -109,7 +111,7 @@ public sealed record TransferTicket {
         byte[] signature;
 
         try {
-            signature = Convert.FromHexString(fields.GetValueOrDefault("sig", ""));
+            signature = Convert.FromHexString(fields.GetValueOrDefault("sig", string.Empty));
         } catch (FormatException) {
             error = "`sig` is not hexadecimal";
 
@@ -237,7 +239,7 @@ public sealed class TransferTicketSigner : IDisposable {
             );
         }
 
-        key = clusterKey.ToArray();
+        key = [..clusterKey];
     }
 
     /// <summary>Signs a ticket.</summary>
@@ -293,6 +295,5 @@ public sealed class TransferTicketSigner : IDisposable {
         CryptographicOperations.ZeroMemory(key);
     }
 
-    byte[] Mac(TransferTicket ticket) =>
-        HMACSHA256.HashData(key, Encoding.UTF8.GetBytes(ticket.Canonical()));
+    byte[] Mac(TransferTicket ticket) => HMACSHA256.HashData(key, Encoding.UTF8.GetBytes(ticket.Canonical()));
 }

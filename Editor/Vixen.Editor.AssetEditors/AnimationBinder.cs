@@ -4,7 +4,6 @@
 using Vixen.Animation;
 using Vixen.Animation.Constraints;
 using Vixen.Animation.Moves;
-using Vixen.Core.Mathematics;
 using Vixen.Core.Yaml;
 using Vixen.Core.Yaml.Meta;
 using Vixen.Editor.AssetEditors.Animation;
@@ -27,8 +26,12 @@ namespace Vixen.Editor.AssetEditors;
 ///         a project supplies it. This is that somebody.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The panels are inert without it, which is what makes this the last mile rather than
-///         a nicety.</b> Unbound, the shape viewport draws nothing, Run says it has no project and
+///         ⚠
+///         <b>
+///             The panels are inert without it, which is what makes this the last mile rather than
+///             a nicety.
+///         </b>
+///         Unbound, the shape viewport draws nothing, Run says it has no project and
 ///         Propose Contacts says it has no scene — all three honest, all three useless. Every one of
 ///         those messages is a sentence about this class not having been constructed.
 ///     </para>
@@ -46,8 +49,12 @@ namespace Vixen.Editor.AssetEditors;
 internal sealed class AnimationBinder(EditorProject project) {
     /// <summary>Rigs already read, by path, with what the file looked like when they were read.</summary>
     /// <remarks>
-    ///     ⚠ <b>Cached because reading one is Assimp opening a character, and stamped because a cache
-    ///     nothing invalidates is a rig that never updates.</b> A miss is recorded as a null entry
+    ///     ⚠
+    ///     <b>
+    ///         Cached because reading one is Assimp opening a character, and stamped because a cache
+    ///         nothing invalidates is a rig that never updates.
+    ///     </b>
+    ///     A miss is recorded as a null entry
     ///     rather than left out: the shape panel asks on every keystroke, and a body whose model has
     ///     not been exported yet would otherwise re-open the same missing file a hundred times a
     ///     second. Re-exporting the model changes the stamp, so the next ask reads it again.
@@ -179,8 +186,12 @@ internal sealed class AnimationBinder(EditorProject project) {
     /// <returns>One effector per shape worth watching.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The places somebody modelled are the places worth watching, and nothing else in
-    ///         the project says which those are.</b> A proxy shape is a named point on the body that
+    ///         ⚠
+    ///         <b>
+    ///             The places somebody modelled are the places worth watching, and nothing else in
+    ///             the project says which those are.
+    ///         </b>
+    ///         A proxy shape is a named point on the body that
     ///         an author cared enough to write down — a palm, a fingertip, a heel — which is exactly
     ///         what an effector is. Deriving them means the list is right by construction: adding a
     ///         palm to the set adds a palm to the pass.
@@ -234,7 +245,8 @@ internal sealed class AnimationBinder(EditorProject project) {
     ///     is the one output nobody can review.
     /// </remarks>
     ProposalInputs? Proposals(AnimationClipDocument document) {
-        if (document.Clip.AuthoringContext.Length == 0 || Sequence(document.Clip.AuthoringContext) is not { } sequence) {
+        if (document.Clip.AuthoringContext.Length == 0
+            || Sequence(document.Clip.AuthoringContext) is not { } sequence) {
             return null;
         }
 
@@ -269,7 +281,10 @@ internal sealed class AnimationBinder(EditorProject project) {
 
         try {
             return SequenceAsset.FromYaml(File.ReadAllText(absolute));
-        } catch (Exception exception) when (exception is YamlBindingException or YamlParseException or NotSupportedException or IOException) {
+        } catch (Exception exception) when (exception is YamlBindingException
+                                                or YamlParseException
+                                                or NotSupportedException
+                                                or IOException) {
             return null;
         }
     }
@@ -311,7 +326,9 @@ internal sealed class AnimationBinder(EditorProject project) {
             // ⚠ The asset's own settings, off its sidecar. Scale and axis conversion are import
             // settings, so a rig read with the defaults would be a different rig from the one the
             // game plays — the same shapes, in the wrong places, on a body a metre tall.
-            var meta = File.Exists(AssetMetaFile.PathFor(absolute)) ? AssetMetaFile.ReadFile(AssetMetaFile.PathFor(absolute)) : null;
+            var meta = File.Exists(AssetMetaFile.PathFor(absolute))
+                ? AssetMetaFile.ReadFile(AssetMetaFile.PathFor(absolute))
+                : null;
             var settings = meta?.Importer as ModelImportSettings ?? new ModelImportSettings();
 
             var read = ModelReader.Read(
@@ -322,7 +339,10 @@ internal sealed class AnimationBinder(EditorProject project) {
             );
 
             return read.Skeleton is { } data && Skeleton.TryCreate(data, out var rig, out _) ? rig : null;
-        } catch (Exception exception) when (exception is ModelFormatException or IOException or YamlParseException or YamlBindingException) {
+        } catch (Exception exception) when (exception is ModelFormatException
+                                                or IOException
+                                                or YamlParseException
+                                                or YamlBindingException) {
             return null;
         }
     }

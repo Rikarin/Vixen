@@ -10,8 +10,12 @@ namespace Vixen.Ui.Controls.Tests;
 /// <summary>Cut, copy and paste in a text field, over a clipboard that is not the editor's.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>What these asserted before the wire existed: nothing, because there was nothing to
-///         ask.</b> <c>IClipboard</c> had real backends on macOS, Windows and Linux and no caller
+///         ⚠
+///         <b>
+///             What these asserted before the wire existed: nothing, because there was nothing to
+///             ask.
+///         </b>
+///         <c>IClipboard</c> had real backends on macOS, Windows and Linux and no caller
 ///         above <c>Vixen.Platform</c> at all, so ⌘C in a Vixen text box put nothing anywhere — in
 ///         every application including the editor, whose own <c>PropertyClipboard</c> is an
 ///         in-process object store that never reaches the OS pasteboard.
@@ -95,7 +99,7 @@ public class ClipboardTests {
         using var _ = fixture;
 
         field.MoveCaret(0);
-        field.MoveCaret(4, extend: true);
+        field.MoveCaret(4, true);
 
         fixture.Type(InputKey.C, ModifierKeys.Control);
 
@@ -110,7 +114,7 @@ public class ClipboardTests {
         using var _ = fixture;
 
         field.MoveCaret(0);
-        field.MoveCaret(4, extend: true);
+        field.MoveCaret(4, true);
 
         fixture.Type(InputKey.X, ModifierKeys.Control);
 
@@ -146,7 +150,7 @@ public class ClipboardTests {
         clipboard.Text = "Byron";
 
         field.MoveCaret(0);
-        field.MoveCaret(4, extend: true);
+        field.MoveCaret(4, true);
 
         fixture.Type(InputKey.V, ModifierKeys.Control);
 
@@ -219,10 +223,11 @@ public class ClipboardTests {
 
         var seen = 0;
         fixture.Document.Root.AddHandler<KeyEvent>((_, args) => {
-            if (args is { Key: InputKey.C, Action: KeyAction.Pressed }) {
-                seen++;
+                if (args is { Key: InputKey.C, Action: KeyAction.Pressed }) {
+                    seen++;
+                }
             }
-        });
+        );
 
         field.MoveCaret(3);
 
@@ -233,7 +238,7 @@ public class ClipboardTests {
         // And with a selection the field takes it, so the ancestor's handler is the only difference
         // between the two halves.
         field.MoveCaret(0);
-        field.MoveCaret(4, extend: true);
+        field.MoveCaret(4, true);
 
         fixture.Type(InputKey.C, ModifierKeys.Control);
 

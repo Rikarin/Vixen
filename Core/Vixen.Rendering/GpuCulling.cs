@@ -153,8 +153,7 @@ public static class GpuCulling {
     ///         rather than a device that loses itself the first time somebody profiles on Vulkan.
     ///     </para>
     /// </remarks>
-    public static uint[] SetBindings =>
-    [
+    public static uint[] SetBindings => [
         CullingKeys.ObjectsBinding,
         CullingKeys.ViewsBinding,
         CullingKeys.VisibilityBinding,
@@ -193,7 +192,8 @@ public static class GpuCulling {
     /// <param name="level">Which level it is in.</param>
     /// <returns>The furthest depth in that texel's footprint.</returns>
     /// <remarks>
-    ///     What <see cref="IsOccluded(in CullObject, in CullView, Int2, OccluderDepth)" /> reads the pyramid through, so that the mirror of the shader
+    ///     What <see cref="IsOccluded(in CullObject, in CullView, Int2, OccluderDepth)" /> reads the pyramid through, so that
+    ///     the mirror of the shader
     ///     can be evaluated against a pyramid a test built rather than against a device.
     /// </remarks>
     public delegate float OccluderDepth(int x, int y, int level);
@@ -237,8 +237,11 @@ public static class GpuCulling {
     ///         <em>value</em> rather than in their shape.
     ///     </para>
     ///     <para>
-    ///         <strong><see cref="CullPhase.Late" /> without <paramref name="occlusion" /> is a real
-    ///         variant</strong>, and it is the one a two-phase frame runs before it has ever built a
+    ///         <strong>
+    ///             <see cref="CullPhase.Late" /> without <paramref name="occlusion" /> is a real
+    ///             variant
+    ///         </strong>
+    ///         , and it is the one a two-phase frame runs before it has ever built a
     ///         pyramid. It re-runs the frustum test, subtracts what the main pass already drew, and
     ///         reaches an empty difference — which is the answer, and is not the same thing as not
     ///         dispatching. Skipping it would leave the main pass's bits in the argument buffer for
@@ -263,11 +266,10 @@ public static class GpuCulling {
         );
 
     /// <summary>How many device words a store of this many objects needs.</summary>
-    public static int WordsFor(int objectCount) => objectCount <= 0 ? 0 : ((objectCount + WordSize - 1) / WordSize);
+    public static int WordsFor(int objectCount) => objectCount <= 0 ? 0 : (objectCount + WordSize - 1) / WordSize;
 
     /// <summary>How many workgroups cover one view's words.</summary>
-    public static int Groups(int wordCount) =>
-        wordCount <= 0 ? 0 : ((wordCount + WorkgroupSize - 1) / WorkgroupSize);
+    public static int Groups(int wordCount) => wordCount <= 0 ? 0 : (wordCount + WorkgroupSize - 1) / WorkgroupSize;
 
     /// <summary>How many bytes a frame's answer occupies.</summary>
     /// <param name="viewCount">How many views.</param>
@@ -415,7 +417,12 @@ public static class GpuCulling {
     ///         <see cref="IsOccluded(in CullObject, in CullView, Int2, OccluderDepth)" />.
     ///     </para>
     /// </remarks>
-    public static bool ScreenBounds(in CullObject candidate, in CullView view, out Vector3 minimum, out Vector3 maximum) =>
+    public static bool ScreenBounds(
+        in CullObject candidate,
+        in CullView view,
+        out Vector3 minimum,
+        out Vector3 maximum
+    ) =>
         ScreenBounds(candidate.Center, candidate.Radius, view, out minimum, out maximum);
 
     /// <summary>
@@ -460,7 +467,7 @@ public static class GpuCulling {
             }
 
             var ndc = clip.Xyz / clip.W;
-            var point = new Vector3((ndc.X * 0.5f) + 0.5f, (ndc.Y * 0.5f) + 0.5f, ndc.Z);
+            var point = new Vector3(ndc.X * 0.5f + 0.5f, ndc.Y * 0.5f + 0.5f, ndc.Z);
 
             minimum = started ? Vector3.Min(minimum, point) : point;
             maximum = started ? Vector3.Max(maximum, point) : point;
@@ -573,7 +580,8 @@ public static class GpuCulling {
         bool drawn,
         Int2 size,
         OccluderDepth depth
-    ) => !drawn && IsVisible(candidate, view) && !IsOccluded(candidate, view, size, depth);
+    ) =>
+        !drawn && IsVisible(candidate, view) && !IsOccluded(candidate, view, size, depth);
 
     /// <summary>
     ///     Reassembles one view's device words into the host's 64-bit bitset.
@@ -589,7 +597,7 @@ public static class GpuCulling {
 
         for (var i = 0; i < count; i++) {
             var low = words[i * 2];
-            var high = (i * 2) + 1 < words.Length ? words[(i * 2) + 1] : 0u;
+            var high = i * 2 + 1 < words.Length ? words[i * 2 + 1] : 0u;
 
             destination[i] = low | ((ulong)high << 32);
         }

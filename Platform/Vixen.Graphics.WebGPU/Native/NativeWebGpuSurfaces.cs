@@ -70,8 +70,7 @@ static unsafe class NativeWebGpuSurfaces {
                 // Vulkan, and for the same reason: going through the view lets the implementation
                 // create the layer itself and take the pixel format and display sync with it.
                 var chained = new SurfaceDescriptorFromMetalLayer {
-                    Chain = new() { SType = SType.SurfaceDescriptorFromMetalLayer },
-                    Layer = (void*)handle.Handle
+                    Chain = new() { SType = SType.SurfaceDescriptorFromMetalLayer }, Layer = (void*)handle.Handle
                 };
 
                 surface = Create(api, instance, &chained.Chain);
@@ -116,7 +115,10 @@ static unsafe class NativeWebGpuSurfaces {
     /// <summary>Which of these a WebGPU implementation could present to at all.</summary>
     /// <param name="kind">The windowing system.</param>
     public static bool CanPresent(SurfaceKind kind) =>
-        kind is SurfaceKind.Win32 or SurfaceKind.Xlib or SurfaceKind.Wayland or SurfaceKind.Metal
+        kind is SurfaceKind.Win32
+            or SurfaceKind.Xlib
+            or SurfaceKind.Wayland
+            or SurfaceKind.Metal
             or SurfaceKind.Android;
 
     static Surface* Create(Silk.NET.WebGPU.WebGPU api, Instance* instance, ChainedStruct* chain) {

@@ -8,8 +8,11 @@ namespace Vixen.Geometry.Remeshing.Tests;
 /// <summary>docs/plan/41 § D4's structural promise, asserted over the partition rather than argued.</summary>
 /// <remarks>
 ///     <para>
-///         <b>§ D4: "the polylines are then boundaries of the layout, not a post-process snap", and the
-///         whole hard-surface claim rests on it.</b> The promise has an exact form that can be counted:
+///         <b>
+///             § D4: "the polylines are then boundaries of the layout, not a post-process snap", and the
+///             whole hard-surface claim rests on it.
+///         </b>
+///         The promise has an exact form that can be counted:
 ///         for every feature edge of the conditioned mesh, the two triangles either side of it must
 ///         belong to <i>different</i> patches. A feature edge with the same patch on both sides is a
 ///         crease running through a patch's interior, which is the promise broken and — since the grid

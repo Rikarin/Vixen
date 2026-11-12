@@ -2,11 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core.Mathematics;
-using Vixen.Editor.NodeGraph;
 using Vixen.NodeGraph;
 using Vixen.Texturing;
-using Vixen.Texturing.Layers;
-using Vixen.Texturing.Painting;
 using Xunit;
 
 namespace Vixen.Editor.Texturing.Tests;
@@ -24,8 +21,8 @@ public class TextureGraphDocumentTests {
         // ⚠ Both halves, and the wire. A graph with no `Output` produces no images at all, so a file
         // that opened with just a source node would report nothing to bake — which reads as a broken
         // evaluator rather than as an unfinished graph.
-        Assert.Contains(document.Graph.Nodes, node => node.Type == "Source/Uniform");
-        Assert.Contains(document.Graph.Nodes, node => node.Type == "Output/Output");
+        Assert.Contains(document.Graph.Nodes, static node => node.Type == "Source/Uniform");
+        Assert.Contains(document.Graph.Nodes, static node => node.Type == "Output/Output");
         Assert.Single(document.Graph.Edges);
     }
 
@@ -39,8 +36,8 @@ public class TextureGraphDocumentTests {
         // teaches whoever added it to change the number; these eight are the ones a graph saved today
         // can contain, and one of them disappearing is a saved graph that no longer loads.
         foreach (var path in new[] {
-                     "Source/Uniform", "Source/Noise", "Colour/Blend", "Colour/Levels",
-                     "Filters/Blur", "Space/Transform 2D", "Analysis/Distance", "Output/Output"
+                     "Source/Uniform", "Source/Noise", "Colour/Blend", "Colour/Levels", "Filters/Blur",
+                     "Space/Transform 2D", "Analysis/Distance", "Output/Output"
                  }) {
             Assert.True(document.Registry.TryGet(path, out _), path + " is not in the library");
         }
@@ -65,7 +62,7 @@ public class TextureGraphDocumentTests {
 
         // The position too, because a graph whose layout does not survive a save is a graph an author
         // rearranges once.
-        Assert.Equal(new Vector2(200f, 300f), read.Graph.Nodes.Single(node => node.Id == noise.Id).Position);
+        Assert.Equal(new(200f, 300f), read.Graph.Nodes.Single(node => node.Id == noise.Id).Position);
     }
 
     /// <summary>⚠ A file this build cannot read opens, and says so, rather than throwing.</summary>
@@ -118,25 +115,25 @@ public class TextureGraphDocumentTests {
 
         var document = Open(fixture, "Compounds");
 
-        Assert.NotEmpty(global::Vixen.TextureGraph.TextureCompoundLibrary.Shipped);
+        Assert.NotEmpty(Vixen.TextureGraph.TextureCompoundLibrary.Shipped);
 
         Assert.All(
-            global::Vixen.TextureGraph.TextureCompoundLibrary.Shipped,
+            Vixen.TextureGraph.TextureCompoundLibrary.Shipped,
             path => Assert.True(document.Registry.TryGet(path, out _), path + " is not in the library")
         );
 
         // The whole point of the pair: the compound is placed and its contents actually reach the
         // plan. Its image inputs are fed, because an unwired one is a TG0002 about this graph rather
         // than anything to do with publishing.
-        var compound = document.Graph.Add(global::Vixen.TextureGraph.TextureCompoundLibrary.Shipped[0]);
-        var output = document.Graph.Nodes.Single(node => node.Type == "Output/Output");
+        var compound = document.Graph.Add(Vixen.TextureGraph.TextureCompoundLibrary.Shipped[0]);
+        var output = document.Graph.Nodes.Single(static node => node.Type == "Output/Output");
 
         document.Graph.Connect(new(compound.Id, "Out"), new(output.Id, "Input"));
 
         foreach (var port in document.Registry.Types
-            .Single(type => type.Path == compound.Type)
-            .Ports
-            .Where(port => port is { Direction: PortDirection.Input, Kind: PortKind.Image })) {
+                     .Single(type => type.Path == compound.Type)
+                     .Ports
+                     .Where(static port => port is { Direction: PortDirection.Input, Kind: PortKind.Image })) {
             document.Graph.Connect(new(document.Graph.Add("Source/Noise").Id, "Out"), new(compound.Id, port.Name));
         }
 
@@ -170,7 +167,7 @@ public class TextureGraphDocumentTests {
         Assert.Null(document.SubGraphs);
 
         Assert.All(
-            global::Vixen.TextureGraph.TextureCompoundLibrary.Shipped,
+            Vixen.TextureGraph.TextureCompoundLibrary.Shipped,
             path => Assert.False(document.Registry.TryGet(path, out _), path + " should not be published here")
         );
 
@@ -182,8 +179,12 @@ public class TextureGraphDocumentTests {
     /// <summary>A compound saved in another tab reaches the graph that contains it.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The remainder of <a href="https://github.com/Rikarin/Vixen/issues/803">#803</a>:
-    ///         a document published once, in its constructor.</b> An author who edited a compound and
+    ///         ⚠
+    ///         <b>
+    ///             The remainder of <a href="https://github.com/Rikarin/Vixen/issues/803">#803</a>:
+    ///             a document published once, in its constructor.
+    ///         </b>
+    ///         An author who edited a compound and
     ///         came back to the material saw the version that was on disk when the material opened —
     ///         the old ports, the old defaults, the old contents inlined into every bake — and
     ///         reopening the graph was the only cure. Nothing said so.
@@ -259,9 +260,7 @@ public class TextureGraphDocumentTests {
     static TextureGraphDocument Compound(TexturingFixture fixture, string name) {
         var relative = TextureNodeLibrary.CompoundFolder + "/" + name;
 
-        Directory.CreateDirectory(
-            System.IO.Path.Combine(fixture.Paths.Assets, TextureNodeLibrary.CompoundFolder)
-        );
+        Directory.CreateDirectory(System.IO.Path.Combine(fixture.Paths.Assets, TextureNodeLibrary.CompoundFolder));
 
         var document = new TextureGraphDocument(
             fixture.Project,

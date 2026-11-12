@@ -27,8 +27,12 @@ namespace Vixen.Graphics.Golden.Tests;
 ///         so naming the adapter there names it for every device test here including the next one.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The instrument is the assertion before the finding: this test writes nothing
-///         itself.</b> Its own output is empty until <c>TryOpen</c> is called, so the adapter's name
+///         ⚠
+///         <b>
+///             The instrument is the assertion before the finding: this test writes nothing
+///             itself.
+///         </b>
+///         Its own output is empty until <c>TryOpen</c> is called, so the adapter's name
 ///         being there afterwards is the fixture's doing and cannot be this test's. Without a device
 ///         it skips, loudly, like every other device test here.
 ///     </para>

@@ -153,7 +153,7 @@ public static class ModelReader {
     ///     tool does, and disposing it while another import is in flight is the one way to turn a
     ///     malformed mesh into a crash the pipeline cannot catch.
     /// </remarks>
-    static readonly Lazy<AssimpApi> Api = new(AssimpLoader.Load, isThreadSafe: true);
+    static readonly Lazy<AssimpApi> Api = new(AssimpLoader.Load, true);
 
     /// <summary>The Assimp library this process reads models with, opening it if nothing has yet.</summary>
     /// <remarks>
@@ -311,7 +311,7 @@ public static class ModelReader {
         var parts = new List<ModelPart>();
         var world = new List<Matrix4x4>();
 
-        Flatten(scene->MRootNode, parent: -1, name, file, settings.Scale, nodes, world, parts, scene);
+        Flatten(scene->MRootNode, -1, name, file, settings.Scale, nodes, world, parts, scene);
 
         var materials = new string[scene->MNumMaterials];
         var factors = new ModelMaterialFactors[scene->MNumMaterials];
@@ -331,28 +331,39 @@ public static class ModelReader {
         var taken = new HashSet<string>(StringComparer.Ordinal);
 
         for (var index = 0u; index < scene->MNumMeshes; index++) {
-            meshes[index] = ReadMesh(scene->MMeshes[index], Unique(taken, Name(scene->MMeshes[index]->MName, $"{name}_{index}")), joints, settings, report);
+            meshes[index] = ReadMesh(
+                scene->MMeshes[index],
+                Unique(taken, Name(scene->MMeshes[index]->MName, $"{name}_{index}")),
+                joints,
+                settings,
+                report
+            );
         }
 
         // Each part names its mesh rather than indexing it, so the names have to be settled before
         // the parts are. Flatten recorded the index; this is where it becomes an address.
         for (var index = 0; index < parts.Count; index++) {
-            parts[index] = parts[index] with { Mesh = meshes[int.Parse(parts[index].Mesh, System.Globalization.CultureInfo.InvariantCulture)].Name };
+            parts[index] = parts[index] with {
+                Mesh = meshes[int.Parse(parts[index].Mesh, System.Globalization.CultureInfo.InvariantCulture)].Name
+            };
         }
 
         var skeleton = joints.Count == 0
             ? null
-            : new SkeletonData { Name = $"{name}_Skeleton", Joints = [.. joints.Values.OrderBy(joint => joint.Order).Select(joint => joint.Joint)] };
+            : new SkeletonData {
+                Name = $"{name}_Skeleton",
+                Joints = [..joints.Values.OrderBy(static joint => joint.Order).Select(static joint => joint.Joint)]
+            };
 
         var animations = settings.ImportAnimations ? ReadAnimations(scene, report) : [];
 
         var model = new ModelData {
             Name = name,
-            Nodes = [.. nodes],
-            Parts = [.. parts],
+            Nodes = [..nodes],
+            Parts = [..parts],
             Materials = materials,
             Skeleton = skeleton?.Name ?? string.Empty,
-            Animations = [.. animations.Select(clip => clip.Name)],
+            Animations = [..animations.Select(static clip => clip.Name)],
             Bounds = Bounds(meshes, parts, world)
         };
 
@@ -448,7 +459,7 @@ public static class ModelReader {
         return images;
     }
 
-    static unsafe ModelMaterialTextures Textures(AssimpApi assimp, Silk.NET.Assimp.Material* material, ModelTexture?[] embedded) {
+    static unsafe ModelMaterialTextures Textures(AssimpApi assimp, Material* material, ModelTexture?[] embedded) {
         var metallic = Texture(assimp, material, TextureType.Unknown, embedded)
             ?? Texture(assimp, material, TextureType.Metalness, embedded)
             ?? Texture(assimp, material, TextureType.DiffuseRoughness, embedded);
@@ -468,7 +479,7 @@ public static class ModelReader {
 
     static unsafe ModelTexture? Texture(
         AssimpApi assimp,
-        Silk.NET.Assimp.Material* material,
+        Material* material,
         TextureType type,
         ModelTexture?[] embedded
     ) {
@@ -496,10 +507,17 @@ public static class ModelReader {
     }
 
     /// <remarks>⚠ glTF's occlusion strength has no twin here: Assimp's importer reads it and does not keep it.</remarks>
-    static unsafe float NormalScale(AssimpApi assimp, Silk.NET.Assimp.Material* material) {
+    static unsafe float NormalScale(AssimpApi assimp, Material* material) {
         var value = 1f;
         var one = 1u;
-        var read = assimp.GetMaterialFloatArray(material, "$tex.scale", (uint)TextureType.Normals, 0, ref value, ref one);
+        var read = assimp.GetMaterialFloatArray(
+            material,
+            "$tex.scale",
+            (uint)TextureType.Normals,
+            0,
+            ref value,
+            ref one
+        );
 
         return read == Return.Success ? value : 1f;
     }
@@ -511,7 +529,7 @@ public static class ModelReader {
     ///     metallic and roughness have no equivalent, so those keep glTF's defaults rather than a
     ///     guess converted from a specular exponent.
     /// </remarks>
-    static unsafe ModelMaterialFactors Factors(AssimpApi assimp, Silk.NET.Assimp.Material* material) {
+    static unsafe ModelMaterialFactors Factors(AssimpApi assimp, Material* material) {
         var factors = ModelMaterialFactors.Default;
         var colour = new NumericsVector4(1f, 1f, 1f, 1f);
         var read = 4u;
@@ -530,7 +548,8 @@ public static class ModelReader {
 
         one = 1u;
 
-        if (assimp.GetMaterialFloatArray(material, "$mat.roughnessFactor", 0, 0, ref value, ref one) == Return.Success) {
+        if (assimp.GetMaterialFloatArray(material, "$mat.roughnessFactor", 0, 0, ref value, ref one)
+            == Return.Success) {
             factors = factors with { Roughness = value };
         }
 
@@ -564,9 +583,10 @@ public static class ModelReader {
                 // were handed over rather than anything in the file (a memory import's was
                 // `$$$___magic___$$$`). Nobody wants to see that in an inspector.
                 Name = parent < 0
-                    && (node->MName.AsString == file || node->MName.AsString.StartsWith("$$$", StringComparison.Ordinal))
-                    ? modelName
-                    : Name(node->MName, $"Node{index}"),
+                    && (node->MName.AsString == file
+                        || node->MName.AsString.StartsWith("$$$", StringComparison.Ordinal))
+                        ? modelName
+                        : Name(node->MName, $"Node{index}"),
                 Parent = parent,
                 Transform = local
             }
@@ -638,11 +658,7 @@ public static class ModelReader {
                 own = joints.Count;
 
                 joints[nodeName] = new(
-                    new SkeletonJoint {
-                        Name = nodeName,
-                        Parent = parent,
-                        InverseBindPose = Convert(offset, scale)
-                    },
+                    new SkeletonJoint { Name = nodeName, Parent = parent, InverseBindPose = Convert(offset, scale) },
                     own,
                     own
                 );
@@ -742,7 +758,7 @@ public static class ModelReader {
             Tangents = tangents,
             TexCoords = uvs,
             Colours = colours,
-            Indices = [.. indices],
+            Indices = [..indices],
             BoneIndices = boneIndices,
             BoneWeights = boneWeights,
             MaterialIndex = (int)mesh->MMaterialIndex,
@@ -824,7 +840,7 @@ public static class ModelReader {
             }
 
             for (var vertex = 0; vertex < count; vertex++) {
-                deltaPositions[vertex] = (Convert(shape->MVertices[vertex]) * settings.Scale) - positions[vertex];
+                deltaPositions[vertex] = Convert(shape->MVertices[vertex]) * settings.Scale - positions[vertex];
             }
 
             var hasNormals = shape->MNormals is not null && normals.Length == count;
@@ -856,7 +872,7 @@ public static class ModelReader {
         }
 
         if (targets.Count > 0) {
-            var bytes = targets.Sum(target => target.SizeInBytes);
+            var bytes = targets.Sum(static target => target.SizeInBytes);
 
             report?.Invoke(
                 ImportSeverity.Information,
@@ -864,7 +880,7 @@ public static class ModelReader {
             );
         }
 
-        return [.. targets];
+        return [..targets];
     }
 
     /// <summary>What each of a mesh's <c>aiAnimMesh</c> slots is called, by slot.</summary>
@@ -979,8 +995,8 @@ public static class ModelReader {
             }
 
             for (var slot = 0; slot < kept; slot++) {
-                indices[(vertex * MaximumInfluences) + slot] = list[slot].Joint;
-                weights[(vertex * MaximumInfluences) + slot] = total > 0f ? list[slot].Weight / total : 0f;
+                indices[vertex * MaximumInfluences + slot] = list[slot].Joint;
+                weights[vertex * MaximumInfluences + slot] = total > 0f ? list[slot].Weight / total : 0f;
             }
         }
 
@@ -1054,7 +1070,7 @@ public static class ModelReader {
             clips[index] = new() {
                 Name = Unique(taken, Name(animation->MName, $"Clip{index}")),
                 Duration = (float)(animation->MDuration / rate),
-                Channels = [.. channels]
+                Channels = [..channels]
             };
         }
 
@@ -1150,8 +1166,8 @@ public static class ModelReader {
                     new() {
                         Target = target,
                         Shape = names[ordinal]!,
-                        WeightTimes = [.. curve.Times],
-                        Weights = [.. curve.Values]
+                        WeightTimes = [..curve.Times],
+                        Weights = [..curve.Values]
                     }
                 );
             }
@@ -1280,14 +1296,25 @@ public static class ModelReader {
     /// </remarks>
     static Matrix4x4 Convert(NumericsMatrix value, float scale) =>
         new(
-            value.M11, value.M21, value.M31, value.M41,
-            value.M12, value.M22, value.M32, value.M42,
-            value.M13, value.M23, value.M33, value.M43,
-            value.M14 * scale, value.M24 * scale, value.M34 * scale, value.M44
+            value.M11,
+            value.M21,
+            value.M31,
+            value.M41,
+            value.M12,
+            value.M22,
+            value.M32,
+            value.M42,
+            value.M13,
+            value.M23,
+            value.M33,
+            value.M43,
+            value.M14 * scale,
+            value.M24 * scale,
+            value.M34 * scale,
+            value.M44
         );
 
-    static string Name(AssimpString value, string fallback) =>
-        value.AsString is { Length: > 0 } text ? text : fallback;
+    static string Name(AssimpString value, string fallback) => value.AsString is { Length: > 0 } text ? text : fallback;
 
     /// <summary>
     ///     A name nothing else has taken.
@@ -1303,7 +1330,7 @@ public static class ModelReader {
             return name;
         }
 
-        for (var suffix = 1; ; suffix++) {
+        for (var suffix = 1;; suffix++) {
             var candidate = $"{name}_{suffix}";
 
             if (taken.Add(candidate)) {

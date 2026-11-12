@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Audio.Ecs;
-using Vixen.Core.Mathematics;
 using Vixen.Editor.Ui;
 using Vixen.Engine.Cameras;
 using Vixen.Engine.Transforms;
@@ -35,8 +34,12 @@ namespace Vixen.Editor.App;
 ///         read at a glance, which is most of what a grid view is for.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The type icons are <c>IconPaint.Foreground</c> and the asset icons are literals, and
-///         that is not an inconsistency.</b> An outliner row is a line of text with a glyph at the
+///         ⚠
+///         <b>
+///             The type icons are <c>IconPaint.Foreground</c> and the asset icons are literals, and
+///             that is not an inconsistency.
+///         </b>
+///         An outliner row is a line of text with a glyph at the
 ///         front and reads as one thing; a grid tile is a picture with a caption under it. The first
 ///         wants the row's colour — including when the row is selected, where a literal would stop
 ///         contrasting with the highlight — and the second wants to be sortable by eye.
@@ -53,13 +56,17 @@ static class StandardIcons {
     public static IconArt Folder => MaterialIcons.Folder;
 
     /// <summary>What something nothing claims shows.</summary>
-    public static IconArt Unknown { get; } = MaterialIcons.Page(new Color4(0.55f, 0.58f, 0.64f, 1f));
+    public static IconArt Unknown { get; } = MaterialIcons.Page(new(0.55f, 0.58f, 0.64f, 1f));
 
     /// <summary>The pictures more than one key shares.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Above the lists that name them, because a static initializer runs in source
-    ///         order.</b> Below them each of these is null at the moment the list is built, and what
+    ///         ⚠
+    ///         <b>
+    ///             Above the lists that name them, because a static initializer runs in source
+    ///             order.
+    ///         </b>
+    ///         Below them each of these is null at the moment the list is built, and what
     ///         that looks like is a Project panel drawing nothing for half its file kinds.
     ///     </para>
     ///     <para>
@@ -69,15 +76,15 @@ static class StandardIcons {
     ///         kind, which is the arrangement every file manager arrived at independently.
     ///     </para>
     /// </remarks>
-    static IconArt Texture { get; } = MaterialIcons.Page(new Color4(0.30f, 0.62f, 0.92f, 1f), MaterialIcons.Marks.Texture);
+    static IconArt Texture { get; } = MaterialIcons.Page(new(0.30f, 0.62f, 0.92f, 1f), MaterialIcons.Marks.Texture);
 
-    static IconArt Scene { get; } = MaterialIcons.Page(new Color4(0.36f, 0.72f, 0.42f, 1f), MaterialIcons.Marks.Scene);
+    static IconArt Scene { get; } = MaterialIcons.Page(new(0.36f, 0.72f, 0.42f, 1f), MaterialIcons.Marks.Scene);
 
-    static IconArt Model { get; } = MaterialIcons.Page(new Color4(0.67f, 0.44f, 0.86f, 1f), MaterialIcons.Marks.Model);
+    static IconArt Model { get; } = MaterialIcons.Page(new(0.67f, 0.44f, 0.86f, 1f), MaterialIcons.Marks.Model);
 
-    static IconArt Material { get; } = MaterialIcons.Page(new Color4(0.93f, 0.55f, 0.28f, 1f), MaterialIcons.Marks.Material);
+    static IconArt Material { get; } = MaterialIcons.Page(new(0.93f, 0.55f, 0.28f, 1f), MaterialIcons.Marks.Material);
 
-    static IconArt Audio { get; } = MaterialIcons.Page(new Color4(0.90f, 0.35f, 0.52f, 1f), MaterialIcons.Marks.Audio);
+    static IconArt Audio { get; } = MaterialIcons.Page(new(0.90f, 0.35f, 0.52f, 1f), MaterialIcons.Marks.Audio);
 
     /// <summary>The picture for each importer the editor ships.</summary>
     /// <remarks>
@@ -92,8 +99,8 @@ static class StandardIcons {
         new("ModelImporter", Model),
         new("MaterialImporter", Material),
         new("AudioImporter", Audio),
-        new("VideoImporter", MaterialIcons.Page(new Color4(0.55f, 0.48f, 0.90f, 1f), MaterialIcons.Marks.Video)),
-        new("NativeFormatImporter", MaterialIcons.Page(new Color4(0.45f, 0.55f, 0.66f, 1f), MaterialIcons.Marks.Native)),
+        new("VideoImporter", MaterialIcons.Page(new(0.55f, 0.48f, 0.90f, 1f), MaterialIcons.Marks.Video)),
+        new("NativeFormatImporter", MaterialIcons.Page(new(0.45f, 0.55f, 0.66f, 1f), MaterialIcons.Marks.Native)),
 
         // ⚠ And the same pictures by extension, because a file has a name before it has a tag. A
         // project is indexed in the background: for the seconds between a scene appearing on disk and
@@ -102,7 +109,7 @@ static class StandardIcons {
         // be a panel that looks broken exactly while something is happening. Same instances, so the
         // two keys cannot drift into two pictures for one kind of file.
         new(".vxscene", Scene),
-        new(".vxprefab", MaterialIcons.Page(new Color4(0.24f, 0.68f, 0.64f, 1f), MaterialIcons.Marks.Model)),
+        new(".vxprefab", MaterialIcons.Page(new(0.24f, 0.68f, 0.64f, 1f), MaterialIcons.Marks.Model)),
         new(".vxmat", Material),
         new(".vxmesh", Model),
         new(".png", Texture),
@@ -124,8 +131,12 @@ static class StandardIcons {
     ///         plugin's component takes this same list's place by registering one of its own.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The entries below <c>Order 0</c> are for the <i>inspector</i> and are ordered so
-    ///         that they cannot change an outliner row.</b> An icon serves both surfaces —
+    ///         ⚠
+    ///         <b>
+    ///             The entries below <c>Order 0</c> are for the <i>inspector</i> and are ordered so
+    ///             that they cannot change an outliner row.
+    ///         </b>
+    ///         An icon serves both surfaces —
     ///         <c>EditorArt.Of</c> is one lookup — but the two ask different questions of it. A
     ///         foldout asks "what is this component", which every component has an answer to; a row
     ///         asks "what is this entity mostly", and there <c>LocalTransform</c> is the worst
@@ -140,16 +151,16 @@ static class StandardIcons {
         // type's remarks — so these follow `color`, including when the row is selected and the
         // background under them has gone dark. Everything below is for the panels where a picture is
         // a picture.
-        new(typeof(Light), IconArt.Of(EditorIcons.Light), Order: 10),
-        new(typeof(Camera), IconArt.Of(EditorIcons.Camera), Order: 10),
-        new(typeof(PrimitiveShape), IconArt.Of(EditorIcons.Cube), Order: 10),
+        new(typeof(Light), IconArt.Of(EditorIcons.Light), 10),
+        new(typeof(Camera), IconArt.Of(EditorIcons.Camera), 10),
+        new(typeof(PrimitiveShape), IconArt.Of(EditorIcons.Cube), 10),
 
-        new(typeof(LocalTransform), IconArt.Of(EditorIcons.Entity), Order: -100),
+        new(typeof(LocalTransform), IconArt.Of(EditorIcons.Entity), -100),
 
         // And a picture for every component the editor ships — see `MaterialIcons`. Below the three
         // above on purpose: an entity carrying a light draws the light glyph in the outliner and its
         // component foldout draws the coloured one, which is each surface getting the picture that
         // suits it.
-        .. MaterialIcons.Components
+        ..MaterialIcons.Components
     ];
 }

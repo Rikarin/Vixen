@@ -39,7 +39,9 @@ public sealed class MainThreadDispatcher {
 
     /// <summary>Creates a dispatcher bound to a chosen thread.</summary>
     /// <param name="threadId">The <see cref="Environment.CurrentManagedThreadId" /> to bind to.</param>
-    public MainThreadDispatcher(int threadId) => ThreadId = threadId;
+    public MainThreadDispatcher(int threadId) {
+        ThreadId = threadId;
+    }
 
     /// <summary>Queues work for the main thread and returns immediately.</summary>
     /// <param name="action">What to run.</param>
@@ -66,7 +68,15 @@ public sealed class MainThreadDispatcher {
     /// </remarks>
     public void Post<TState>(Action<TState> action, TState state) {
         ArgumentNullException.ThrowIfNull(action);
-        queue.Enqueue(new(static boxed => ((Tuple<Action<TState>, TState>)boxed!).Item1(((Tuple<Action<TState>, TState>)boxed).Item2), Tuple.Create(action, state), null));
+        queue.Enqueue(
+            new(
+                static boxed => ((Tuple<Action<TState>, TState>)boxed!).Item1(
+                    ((Tuple<Action<TState>, TState>)boxed).Item2
+                ),
+                Tuple.Create(action, state),
+                null
+            )
+        );
     }
 
     /// <summary>Queues work for the main thread and waits for it, rethrowing whatever it threw.</summary>

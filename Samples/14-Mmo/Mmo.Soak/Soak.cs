@@ -2,10 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Diagnostics;
-using System.Globalization;
 using Vixen.Gameplay;
 using Vixen.Gameplay.Economy;
-using Vixen.Gameplay.Instances;
 using Vixen.Live;
 using Vixen.Samples.Mmo.Contracts;
 using Vixen.Samples.Mmo.Rules;
@@ -81,11 +79,11 @@ public sealed class Soak(SoakSettings settings) {
         Write($"minted {minted:N0} gold across {fleet.Population:N0} players");
 
         // Everything below is steady state, so the build above is not counted as the run's.
-        var settled = GC.GetTotalMemory(forceFullCollection: true);
+        var settled = GC.GetTotalMemory(true);
         var beforeAllocated = GC.GetAllocatedBytesForCurrentThread();
         var beforeGen0 = GC.CollectionCount(0);
         var watch = new Stopwatch();
-        var rollout = new Rollout(version: 2);
+        var rollout = new Rollout(2);
         var violations = 0;
         var upgraded = 0;
 
@@ -107,7 +105,9 @@ public sealed class Soak(SoakSettings settings) {
                 violations++;
 
                 if (violations == 1) {
-                    Write($"⚠ conservation broken at tick {tick:N0}: {fleet.Total(MmoAddresses.Gold):N0} of {minted:N0}");
+                    Write(
+                        $"⚠ conservation broken at tick {tick:N0}: {fleet.Total(MmoAddresses.Gold):N0} of {minted:N0}"
+                    );
                 }
             }
 
@@ -124,9 +124,9 @@ public sealed class Soak(SoakSettings settings) {
             durations,
             violations,
             upgraded,
-            new Cost {
+            new() {
                 Settled = settled,
-                Live = GC.GetTotalMemory(forceFullCollection: true),
+                Live = GC.GetTotalMemory(true),
                 Allocated = GC.GetAllocatedBytesForCurrentThread() - beforeAllocated,
                 Gen0 = GC.CollectionCount(0) - beforeGen0
             }
@@ -179,7 +179,7 @@ public sealed class Soak(SoakSettings settings) {
                 var shard = fleet.Shards[shardId];
 
                 shard.Lockouts.Save(
-                    new Lockout(shard.Identity.PlayerFor(key), MmoAddresses.Barrowdeep, "normal", tick + 2_700, 1)
+                    new(shard.Identity.PlayerFor(key), MmoAddresses.Barrowdeep, "normal", tick + 2_700, 1)
                 );
             }
         }
@@ -212,16 +212,16 @@ public sealed class Soak(SoakSettings settings) {
     int Report(Fleet fleet, long[] durations, int violations, int upgraded, Cost cost) {
         Array.Sort(durations);
 
-        var frequency = (double)Stopwatch.Frequency;
+        double frequency = Stopwatch.Frequency;
         var mean = TimeSpan.FromSeconds(durations.Average() / frequency);
         var p99 = TimeSpan.FromSeconds(durations[(int)(durations.Length * 0.99)] / frequency);
         var worst = TimeSpan.FromSeconds(durations[^1] / frequency);
         var perTick = cost.Allocated / (double)settings.Ticks;
 
-        var cold = fleet.Shards.Sum(shard => shard.Lockouts.ColdReads + shard.Social.ColdReads);
-        var spread = fleet.Shards.Select(shard => shard.Version).Distinct().Count() - 1;
-        var divergences = fleet.Shards.Sum(shard => shard.Ledger.Divergences);
-        var stateWrites = fleet.Shards.Sum(shard => shard.Social.StateWrites);
+        var cold = fleet.Shards.Sum(static shard => shard.Lockouts.ColdReads + shard.Social.ColdReads);
+        var spread = fleet.Shards.Select(static shard => shard.Version).Distinct().Count() - 1;
+        var divergences = fleet.Shards.Sum(static shard => shard.Ledger.Divergences);
+        var stateWrites = fleet.Shards.Sum(static shard => shard.Social.StateWrites);
 
         Write(string.Empty);
         Write($"transfers      {fleet.Transfers:N0} ({fleet.Refused:N0} refused, which is a player who stayed)");
@@ -235,8 +235,10 @@ public sealed class Soak(SoakSettings settings) {
         Write($"allocated      {perTick / 1024:N1} KB a tick ({cost.Allocated / 1_048_576.0:N1} MB over the run)");
         Write($"gen0           {cost.Gen0:N0}");
         Write($"live           {(cost.Live - cost.Settled) / 1_048_576.0:N1} MB grown");
-        Write($"ledger keys    {fleet.Shards.Sum(shard => shard.Keys):N0} held, {fleet.Shards.Sum(shard => shard.Forgotten):N0} aged out past {Shard.RetryWindow.TotalMinutes:N0} min of retries");
-        Write($"outbox         {fleet.Shards.Sum(shard => shard.Ledger.Pending):N0} unsettled");
+        Write(
+            $"ledger keys    {fleet.Shards.Sum(static shard => shard.Keys):N0} held, {fleet.Shards.Sum(static shard => shard.Forgotten):N0} aged out past {Shard.RetryWindow.TotalMinutes:N0} min of retries"
+        );
+        Write($"outbox         {fleet.Shards.Sum(static shard => shard.Ledger.Pending):N0} unsettled");
         Write(string.Empty);
 
         // ⚠ The four that have to be zero, and they are zero for four different reasons — which is
@@ -253,12 +255,20 @@ public sealed class Soak(SoakSettings settings) {
         // would mean the horizon had dropped a key before the write carrying it was durable — which
         // LedgerBridge catches, and which is the only reason that would be a counter rather than a
         // purse that had quietly doubled.
-        failed += Budget("replays answered by the outbox", fleet.Shards.Sum(shard => shard.Ledger.Deduplicated), 0);
+        failed += Budget(
+            "replays answered by the outbox",
+            fleet.Shards.Sum(static shard => shard.Ledger.Deduplicated),
+            0
+        );
 
         // ⚠ Not zero — a tick's own writes are legitimately in flight — but bounded. An outbox that
         // grows is a realm that drains and forgets to settle, which is a leak that looks like nothing
         // at all for the first ten minutes. It cost this soak two hundred megabytes to find.
-        failed += Budget("outbox left unsettled", fleet.Shards.Sum(shard => shard.Ledger.Pending), settings.Shards * 8);
+        failed += Budget(
+            "outbox left unsettled",
+            fleet.Shards.Sum(static shard => shard.Ledger.Pending),
+            settings.Shards * 8
+        );
 
         // ⚠ Doc 27's own two assertions about a rollout, and they are separate on purpose: a rollout
         // that finished by disconnecting everybody would reach a spread of zero.

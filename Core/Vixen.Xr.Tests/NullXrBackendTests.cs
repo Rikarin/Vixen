@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core.Mathematics;
-using Vixen.Graphics;
 using Vixen.Graphics.Null;
 using Vixen.Xr.Input;
 using Xunit;
@@ -13,14 +12,13 @@ namespace Vixen.Xr.Tests;
 public sealed class NullXrBackendTests {
     [Fact]
     public void ABackendWithNoDeviceSaysSoRatherThanThrowing() {
-        using var backend = new NullXrBackend { PretendUnavailable = true };
+        using var backend = new NullXrBackend();
+        backend.PretendUnavailable = true;
 
         Assert.False(backend.IsAvailable);
         Assert.False(backend.TryGetSystem(out _));
         Assert.NotEmpty(backend.UnavailableReason);
-        Assert.Throws<InvalidOperationException>(
-            () => backend.CreateSession(default, new XrSessionOptions())
-        );
+        Assert.Throws<InvalidOperationException>(() => backend.CreateSession(default, new()));
     }
 
     [Fact]
@@ -28,7 +26,7 @@ public sealed class NullXrBackendTests {
         // A game that assumes focus on the first frame is caught here rather than on a headset,
         // where the symptom is input being ignored for the first second of every session.
         using var backend = new NullXrBackend();
-        using var session = backend.CreateSession(default, new XrSessionOptions());
+        using var session = backend.CreateSession(default, new());
 
         var states = new List<XrSessionState> { session.State };
 
@@ -52,7 +50,7 @@ public sealed class NullXrBackendTests {
     [Fact]
     public void NoFrameIsBegunBeforeTheSessionIsRunning() {
         using var backend = new NullXrBackend();
-        using var session = backend.CreateSession(default, new XrSessionOptions());
+        using var session = backend.CreateSession(default, new());
 
         Assert.False(session.BeginFrame(out _));
 
@@ -69,7 +67,7 @@ public sealed class NullXrBackendTests {
         // The state that catches people out: running, so frames are compulsory, but not visible, so
         // drawing them is wasted. A game that skips the whole loop here stalls the compositor.
         using var backend = new NullXrBackend();
-        using var session = backend.CreateSession(default, new XrSessionOptions());
+        using var session = backend.CreateSession(default, new());
 
         session.PollEvents();
         session.PollEvents();
@@ -85,7 +83,7 @@ public sealed class NullXrBackendTests {
     [Fact]
     public void AFrameLeftOpenIsAnError() {
         using var backend = new NullXrBackend();
-        using var session = backend.CreateSession(default, new XrSessionOptions());
+        using var session = backend.CreateSession(default, new());
 
         Focus(session);
         session.BeginFrame(out _);
@@ -96,7 +94,7 @@ public sealed class NullXrBackendTests {
     [Fact]
     public void EndingAFrameThatWasNeverBegunIsAnError() {
         using var backend = new NullXrBackend();
-        using var session = backend.CreateSession(default, new XrSessionOptions());
+        using var session = backend.CreateSession(default, new());
 
         Focus(session);
 
@@ -108,7 +106,7 @@ public sealed class NullXrBackendTests {
         // A stereo bug that produces two identical views is invisible on a monitor and immediately
         // obvious in a headset. Asserted here so it is neither.
         using var backend = new NullXrBackend();
-        using var session = (NullXrSession)backend.CreateSession(default, new XrSessionOptions());
+        using var session = (NullXrSession)backend.CreateSession(default, new());
 
         Focus(session);
         session.BeginFrame(out var frame);
@@ -128,15 +126,15 @@ public sealed class NullXrBackendTests {
     [Fact]
     public void TheEyesFollowTheHeadThroughItsOwnRotation() {
         using var backend = new NullXrBackend();
-        using var session = (NullXrSession)backend.CreateSession(default, new XrSessionOptions());
+        using var session = (NullXrSession)backend.CreateSession(default, new());
 
         Focus(session);
 
         // Turned a quarter turn to the left about Y: the eye separation, which was along X, is now
         // along Z. A rig that added the offset without rotating it would still have it on X.
-        session.HeadPose = new XrPose(
-            new Vector3(1f, 1.7f, -2f),
-            Quaternion.FromAxisAngle(new Vector3(0f, 1f, 0f), MathF.PI / 2f)
+        session.HeadPose = new(
+            new(1f, 1.7f, -2f),
+            Quaternion.FromAxisAngle(new(0f, 1f, 0f), MathF.PI / 2f)
         );
 
         session.BeginFrame(out var frame);
@@ -153,11 +151,9 @@ public sealed class NullXrBackendTests {
     public void ASwapchainCyclesThroughItsImages() {
         using var device = new NullDevice();
         using var backend = new NullXrBackend(device);
-        using var session = backend.CreateSession(default, new XrSessionOptions());
+        using var session = backend.CreateSession(default, new());
 
-        using var swapchain = session.CreateSwapchain(
-            new XrSwapchainDescription(new Int2(512, 512), Name: "eye")
-        );
+        using var swapchain = session.CreateSwapchain(new(new(512, 512), Name: "eye"));
 
         Assert.True(swapchain.ImageCount > 1);
         Assert.Equal(-1, swapchain.AcquiredIndex);
@@ -178,9 +174,9 @@ public sealed class NullXrBackendTests {
     [Fact]
     public void AnImageCannotBeAcquiredTwiceOrReleasedTwice() {
         using var backend = new NullXrBackend();
-        using var session = backend.CreateSession(default, new XrSessionOptions());
+        using var session = backend.CreateSession(default, new());
 
-        using var swapchain = session.CreateSwapchain(new XrSwapchainDescription(new Int2(64, 64)));
+        using var swapchain = session.CreateSwapchain(new(new(64, 64)));
 
         swapchain.AcquireImage();
 
@@ -195,11 +191,11 @@ public sealed class NullXrBackendTests {
     public void SubmittedFramesAreCountedAndEmptyOnesAreNot() {
         using var device = new NullDevice();
         using var backend = new NullXrBackend(device);
-        using var session = (NullXrSession)backend.CreateSession(default, new XrSessionOptions());
+        using var session = (NullXrSession)backend.CreateSession(default, new());
 
         Focus(session);
 
-        using var swapchain = session.CreateSwapchain(new XrSwapchainDescription(new Int2(64, 64)));
+        using var swapchain = session.CreateSwapchain(new(new(64, 64)));
 
         session.BeginFrame(out var first);
         session.EndFrame(in first, []);
@@ -222,7 +218,7 @@ public sealed class NullXrBackendTests {
     [Fact]
     public void AnUnfocusedSessionsActionsAreInactive() {
         using var backend = new NullXrBackend();
-        using var session = backend.CreateSession(default, new XrSessionOptions());
+        using var session = backend.CreateSession(default, new());
 
         var set = new XrActionSet("gameplay");
         var fire = set.CreateAction("fire", XrActionType.Boolean);
@@ -248,7 +244,7 @@ public sealed class NullXrBackendTests {
     [Fact]
     public void AnInactiveSetIsNotSynced() {
         using var backend = new NullXrBackend();
-        using var session = backend.CreateSession(default, new XrSessionOptions());
+        using var session = backend.CreateSession(default, new());
 
         var set = new XrActionSet("menu") { IsActive = false };
         var confirm = set.CreateAction("confirm", XrActionType.Boolean);
@@ -263,7 +259,7 @@ public sealed class NullXrBackendTests {
     [Fact]
     public void ActionSetsAreAttachedOnceAndFrozenAfterwards() {
         using var backend = new NullXrBackend();
-        using var session = backend.CreateSession(default, new XrSessionOptions());
+        using var session = backend.CreateSession(default, new());
 
         var set = new XrActionSet("gameplay");
 
@@ -278,7 +274,7 @@ public sealed class NullXrBackendTests {
     [Fact]
     public void HapticsAreRecordedRatherThanIgnored() {
         using var backend = new NullXrBackend();
-        using var session = (NullXrSession)backend.CreateSession(default, new XrSessionOptions());
+        using var session = (NullXrSession)backend.CreateSession(default, new());
 
         var set = new XrActionSet("gameplay");
         var rumble = set.CreateAction("rumble", XrActionType.Haptic);
@@ -294,7 +290,7 @@ public sealed class NullXrBackendTests {
     [Fact]
     public void RequestingAnExitWalksTheSessionDownRatherThanStoppingDead() {
         using var backend = new NullXrBackend();
-        using var session = backend.CreateSession(default, new XrSessionOptions());
+        using var session = backend.CreateSession(default, new());
 
         Focus(session);
         session.RequestExit();

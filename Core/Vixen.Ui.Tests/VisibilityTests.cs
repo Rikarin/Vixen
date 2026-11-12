@@ -10,8 +10,11 @@ namespace Vixen.Ui.Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>The <c>shown</c> branch in <see cref="DrawListBuilder" /> had no test at all, and
-///         that is the reason this file exists rather than the keyword being a one-line change.</b>
+///         ⚠
+///         <b>
+///             The <c>shown</c> branch in <see cref="DrawListBuilder" /> had no test at all, and
+///             that is the reason this file exists rather than the keyword being a one-line change.
+///         </b>
 ///         The property was read; nothing anywhere asserted that reading it did anything, so the
 ///         difference between "honoured" and "parsed and dropped" was invisible to the suite. Two of
 ///         the four behaviours below turned out to be missing when they were finally written down.
@@ -44,7 +47,7 @@ public class VisibilityTests {
             root { width: 400px; height: 300px; }
             .box { width: 60px; height: 40px; background-color: #ff0000; }
             """,
-            document => document.Root.Add("div", classNames: "box")
+            static document => document.Root.Add("div", classNames: "box")
         );
 
         var command = Assert.Single(document.Drawing.Commands);
@@ -66,7 +69,7 @@ public class VisibilityTests {
             .box { width: 60px; height: 40px; background-color: #ff0000; visibility: hidden; }
             .after { width: 10px; height: 25px; background-color: #00ff00; }
             """,
-            document => {
+            static document => {
                 document.Root.Add("div", classNames: "box");
                 document.Root.Add("div", classNames: "after");
             }
@@ -97,7 +100,7 @@ public class VisibilityTests {
             root { width: 400px; height: 300px; }
             .box { width: 60px; height: 40px; background-color: #ff0000; visibility: collapse; }
             """,
-            document => document.Root.Add("div", classNames: "box")
+            static document => document.Root.Add("div", classNames: "box")
         );
 
         Assert.Empty(document.Drawing.Commands);
@@ -122,7 +125,7 @@ public class VisibilityTests {
             .parent { width: 100px; height: 80px; background-color: #ff0000; visibility: hidden; }
             .child { width: 20px; height: 15px; background-color: #0000ff; visibility: visible; }
             """,
-            document => document.Root.Add("div", classNames: "parent").Add("div", classNames: "child")
+            static document => document.Root.Add("div", classNames: "parent").Add("div", classNames: "child")
         );
 
         var command = Assert.Single(document.Drawing.Commands);
@@ -139,7 +142,7 @@ public class VisibilityTests {
             .parent { width: 100px; height: 80px; background-color: #ff0000; visibility: hidden; }
             .child { width: 20px; height: 15px; background-color: #0000ff; }
             """,
-            document => document.Root.Add("div", classNames: "parent").Add("div", classNames: "child")
+            static document => document.Root.Add("div", classNames: "parent").Add("div", classNames: "child")
         );
 
         Assert.Empty(document.Drawing.Commands);
@@ -157,7 +160,7 @@ public class VisibilityTests {
             .under { position: absolute; left: 0px; top: 0px; width: 100px; height: 100px; }
             .over { position: absolute; left: 0px; top: 0px; width: 100px; height: 100px; visibility: hidden; }
             """,
-            document => {
+            static document => {
                 document.Root.Add("div", classNames: "under");
                 document.Root.Add("div", classNames: "over");
             }
@@ -186,7 +189,7 @@ public class VisibilityTests {
             .parent { width: 100px; height: 80px; visibility: hidden; }
             .child { width: 40px; height: 30px; visibility: visible; }
             """,
-            document => document.Root.Add("div", classNames: "parent").Add("div", classNames: "child")
+            static document => document.Root.Add("div", classNames: "parent").Add("div", classNames: "child")
         );
 
         var parent = document.Root.Children[0];
@@ -205,7 +208,7 @@ public class VisibilityTests {
             root { width: 400px; height: 300px; }
             .box { width: 100px; height: 80px; visibility: collapse; }
             """,
-            document => document.Root.Add("div", classNames: "box")
+            static document => document.Root.Add("div", classNames: "box")
         );
 
         Assert.False(document.Root.Children[0].IsHitTestVisible);

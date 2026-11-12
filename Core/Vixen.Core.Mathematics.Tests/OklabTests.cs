@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using CsCheck;
-using Vixen.Core.Mathematics;
 using Xunit;
 
 namespace Vixen.Core.Mathematics.Tests;
@@ -37,7 +36,7 @@ public class OklabTests {
         float a,
         float bb
     ) {
-        var lab = Oklab.FromLinear(new Vector3(r, g, b));
+        var lab = Oklab.FromLinear(new(r, g, b));
 
         Assert.Equal(l, lab.L, Tolerance);
         Assert.Equal(a, lab.A, Tolerance);
@@ -49,16 +48,19 @@ public class OklabTests {
         // The inverse matrices are a separate transcription and need a separate check. A round trip
         // over randomised colours catches a wrong coefficient in either direction, including the
         // ones that happen to be right for the five colours above.
-        Gen.Select(Gen.Float[0f, 1f], Gen.Float[0f, 1f], Gen.Float[0f, 1f]).Sample(colour => {
-                var (r, g, b) = colour;
-                var original = new Vector3(r, g, b);
-                var round = Oklab.FromLinear(original).ToLinear();
+        Gen.Select(Gen.Float[0f, 1f], Gen.Float[0f, 1f], Gen.Float[0f, 1f])
+            .Sample(
+                static colour => {
+                    var (r, g, b) = colour;
+                    var original = new Vector3(r, g, b);
+                    var round = Oklab.FromLinear(original).ToLinear();
 
-                Assert.Equal(original.X, round.X, Tolerance);
-                Assert.Equal(original.Y, round.Y, Tolerance);
-                Assert.Equal(original.Z, round.Z, Tolerance);
-            }, iter: 1000
-        );
+                    Assert.Equal(original.X, round.X, Tolerance);
+                    Assert.Equal(original.Y, round.Y, Tolerance);
+                    Assert.Equal(original.Z, round.Z, Tolerance);
+                },
+                iter: 1000
+            );
     }
 
     [Fact]
@@ -96,16 +98,19 @@ public class OklabTests {
 
     [Fact]
     public void Interpolating_a_colour_with_itself_returns_it() {
-        Gen.Select(Gen.Float[0f, 1f], Gen.Float[0f, 1f], Gen.Float[0f, 1f], Gen.Float[0f, 1f]).Sample(sample => {
-                var (r, g, b, t) = sample;
-                var colour = new Color4(r, g, b, 1f);
-                var mixed = Oklab.Lerp(colour, colour, t);
+        Gen.Select(Gen.Float[0f, 1f], Gen.Float[0f, 1f], Gen.Float[0f, 1f], Gen.Float[0f, 1f])
+            .Sample(
+                static sample => {
+                    var (r, g, b, t) = sample;
+                    var colour = new Color4(r, g, b, 1f);
+                    var mixed = Oklab.Lerp(colour, colour, t);
 
-                Assert.Equal(colour.R, mixed.R, Tolerance);
-                Assert.Equal(colour.G, mixed.G, Tolerance);
-                Assert.Equal(colour.B, mixed.B, Tolerance);
-            }, iter: 500
-        );
+                    Assert.Equal(colour.R, mixed.R, Tolerance);
+                    Assert.Equal(colour.G, mixed.G, Tolerance);
+                    Assert.Equal(colour.B, mixed.B, Tolerance);
+                },
+                iter: 500
+            );
     }
 
     [Fact]
@@ -113,8 +118,8 @@ public class OklabTests {
         // What "perceptually uniform" has to mean at minimum: a fade never brightens on its way to
         // something darker. A wrong sign in the inverse matrix passes every round-trip test and
         // fails this.
-        var from = Oklab.FromLinear(new Vector3(0.05f, 0.05f, 0.4f));
-        var to = Oklab.FromLinear(new Vector3(0.9f, 0.85f, 0.2f));
+        var from = Oklab.FromLinear(new(0.05f, 0.05f, 0.4f));
+        var to = Oklab.FromLinear(new(0.9f, 0.85f, 0.2f));
         var previous = float.NegativeInfinity;
 
         for (var i = 0; i <= 20; i++) {

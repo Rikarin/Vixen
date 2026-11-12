@@ -12,8 +12,12 @@ namespace Vixen.Live.Gate;
 
 /// <summary>The routes, and nothing else.</summary>
 /// <remarks>
-///     ⚠ <b>Every handler here reads a header, calls one <see cref="GateService" /> method and writes
-///     the answer.</b> That is deliberate and it is the same shape the grains took over their state
+///     ⚠
+///     <b>
+///         Every handler here reads a header, calls one <see cref="GateService" /> method and writes
+///         the answer.
+///     </b>
+///     That is deliberate and it is the same shape the grains took over their state
 ///     machines: a decision made inside an ASP.NET handler is one that needs a web host to assert,
 ///     and doc 27 § Testing's whole strategy is that the interesting things run in one process on a
 ///     laptop. If a rule ever appears in this file, it is in the wrong file.
@@ -39,7 +43,10 @@ public static class GateEndpoints {
 
                 return request is null
                     ? Problem(400, "malformed", "That was not a sign-in request.")
-                    : Answer(await gate.SignInAsync(request, cancellation).ConfigureAwait(false), GateJson.Default.SignInResponse);
+                    : Answer(
+                        await gate.SignInAsync(request, cancellation).ConfigureAwait(false),
+                        GateJson.Default.SignInResponse
+                    );
             }
         );
 
@@ -47,7 +54,10 @@ public static class GateEndpoints {
             "/characters",
             async (HttpContext context, GateService gate, CancellationToken cancellation) =>
                 Authenticated(context, gate, out var session, out var refusal)
-                    ? Answer(await gate.CharactersAsync(session!, cancellation).ConfigureAwait(false), GateJson.Default.CharacterList)
+                    ? Answer(
+                        await gate.CharactersAsync(session!, cancellation).ConfigureAwait(false),
+                        GateJson.Default.CharacterList
+                    )
                     : refusal!
         );
 
@@ -146,11 +156,12 @@ public static class GateEndpoints {
                     // request belongs on a request — a socket that also carried commands would need
                     // its own authorisation, rate limiting and closed-set deserialization, which is
                     // the whole security surface doc 16 built once already.
-                    await subscriber.PostAsync(new("pong", "", DateTimeOffset.UtcNow)).ConfigureAwait(false);
+                    await subscriber.PostAsync(new("pong", string.Empty, DateTimeOffset.UtcNow)).ConfigureAwait(false);
                 } catch (OperationCanceledException) when (idle.IsCancellationRequested) {
                     // Nothing said for a while. Say something, so whatever is between the gate and
                     // the player does not decide the connection is finished with.
-                    await subscriber.PostAsync(new("keep-alive", "", DateTimeOffset.UtcNow)).ConfigureAwait(false);
+                    await subscriber.PostAsync(new("keep-alive", string.Empty, DateTimeOffset.UtcNow))
+                        .ConfigureAwait(false);
                 }
             }
         } catch (Exception failure) when (failure is WebSocketException or OperationCanceledException) {
@@ -180,5 +191,5 @@ public static class GateEndpoints {
             : Results.Json(answer.Problem, GateJson.Default.GateProblem, statusCode: answer.Status);
 
     static IResult Problem(int status, string code, string detail) =>
-        Results.Json(new GateProblem(code, detail), GateJson.Default.GateProblem, statusCode: status);
+        Results.Json(new(code, detail), GateJson.Default.GateProblem, statusCode: status);
 }

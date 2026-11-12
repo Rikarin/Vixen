@@ -43,8 +43,12 @@ sealed record TaffyFixture(
 /// </summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>The corpus is committed as XML rather than translated into C#, and that is the one
-///         structural decision worth defending.</b> Yoga's fixtures had to be translated because they
+///         ⚠
+///         <b>
+///             The corpus is committed as XML rather than translated into C#, and that is the one
+///             structural decision worth defending.
+///         </b>
+///         Yoga's fixtures had to be translated because they
 ///         were C++ — there was no way to run them otherwise. Taffy's are already language-neutral, so
 ///         translating them would <i>add</i> a step whose bugs are indistinguishable from layout bugs,
 ///         which is precisely the failure mode this corpus exists to catch. It is also a tenth the
@@ -100,7 +104,7 @@ static class TaffyCorpus {
         var input = test.Element("input")!.Elements().Single();
         var expected = test.Element("expectations")!.Elements().Single();
 
-        return new TaffyFixture(
+        return new(
             category,
             test.Attribute("name")!.Value,
             (bool?)test.Attribute("use-rounding") ?? true,
@@ -113,7 +117,9 @@ static class TaffyCorpus {
 
     /// <summary><c>max-content</c> — or an absent attribute — is an undefined available size.</summary>
     static float ReadViewport(string? value) =>
-        value is null or "max-content" ? float.NaN : Number(value.EndsWith("px", StringComparison.Ordinal) ? value[..^2] : value);
+        value is null or "max-content"
+            ? float.NaN
+            : Number(value.EndsWith("px", StringComparison.Ordinal) ? value[..^2] : value);
 
     static TaffyInput ReadInput(XElement element) {
         var isText = element.Name.LocalName == "text";
@@ -122,10 +128,11 @@ static class TaffyCorpus {
         // Only a childless <text> carries measurable content; Taffy reads the text of leaves only.
         var text = isText && children.Count == 0 ? element.Value.Trim() : null;
 
-        return new TaffyInput(
+        return new(
             isText,
             text,
-            element.Attributes().ToFrozenDictionary(attribute => attribute.Name.LocalName, attribute => attribute.Value),
+            element.Attributes()
+                .ToFrozenDictionary(static attribute => attribute.Name.LocalName, static attribute => attribute.Value),
             children
         );
     }

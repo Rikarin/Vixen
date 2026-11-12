@@ -71,10 +71,10 @@ public class MonospaceFixtureTests {
         editor.Refresh();
         fixture.Update();
 
-        var row = editor.Pool.First(line => line.Index == 0);
+        var row = editor.Pool.First(static line => line.Index == 0);
         var shaped = row.Spans
-            .Where(span => !span.HasClass("parked"))
-            .Sum(span => span.Block()?.Lines[0].Width ?? 0f);
+            .Where(static span => !span.HasClass("parked"))
+            .Sum(static span => span.Block()?.Lines[0].Width ?? 0f);
 
         Assert.Equal(text.Length * editor.CharacterWidth, shaped, 0.05f);
     }

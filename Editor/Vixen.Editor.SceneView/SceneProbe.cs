@@ -3,7 +3,6 @@
 
 using Vixen.Core;
 using Vixen.Core.Mathematics;
-using Vixen.Ecs;
 using Vixen.Engine.Transforms;
 using Vixen.Geometry;
 using Vixen.Rendering;
@@ -111,8 +110,12 @@ public interface ISceneProbe : ISurfaceProbe {
 ///         fallback rather than the answer.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The ray goes into local space and the vertices do not come out of it — except for the
-///         vertex query, which has to.</b> A ray test survives the transform; "which vertex is nearest
+///         ⚠
+///         <b>
+///             The ray goes into local space and the vertices do not come out of it — except for the
+///             vertex query, which has to.
+///         </b>
+///         A ray test survives the transform; "which vertex is nearest
 ///         the pointer <i>on screen</i>" does not, because screen space is on the other side of the
 ///         projection. So the surface half is one inversion per entity and the vertex half is one
 ///         projection per vertex, and the second is why it is bounded by a screen-space rejection
@@ -244,8 +247,12 @@ public sealed class SceneProbe : ISceneProbe {
 
     /// <inheritdoc />
     /// <remarks>
-    ///     ⚠ <b>The elements of a mesh rather than its drawing vertices, which is what unblocked
-    ///     this.</b> Doc 24's B5 said vertex snapping was waiting for "the mesh under the pointer with
+    ///     ⚠
+    ///     <b>
+    ///         The elements of a mesh rather than its drawing vertices, which is what unblocked
+    ///         this.
+    ///     </b>
+    ///     Doc 24's B5 said vertex snapping was waiting for "the mesh under the pointer with
     ///     an indexed vertex list", and <see cref="MeshElements" /> is one: a cube's eight corners
     ///     rather than the twenty-four entries <c>MeshData</c> splits them into, and the twelve edges
     ///     that are not in the drawing structure at all. Without the welding, snapping to a cube's
@@ -283,7 +290,7 @@ public sealed class SceneProbe : ISceneProbe {
 
             if (element == SnapElements.Face) {
                 if (Raycast(ray, ignore, out var surface)) {
-                    hit = new SnapHit(surface.Point, surface.Normal, SnapElements.Face);
+                    hit = new(surface.Point, surface.Normal, SnapElements.Face);
                     return true;
                 }
 
@@ -293,7 +300,7 @@ public sealed class SceneProbe : ISceneProbe {
             if (TryElement(element, pointer, camera, width, height, snap, origin, ignore, out var point)) {
                 // ⚠ No normal. A vertex is a point and an edge is a line; neither says which way
                 // anything faces, so `AlignToTarget` has nothing to align to and the drag is a move.
-                hit = new SnapHit(point, null, element);
+                hit = new(point, null, element);
                 return true;
             }
         }
@@ -440,7 +447,7 @@ public sealed class SceneProbe : ISceneProbe {
 
         return length <= MathUtil.ZeroTolerance
             ? from
-            : from + (span * Math.Clamp(Vector3.Dot(point - from, span) / length, 0f, 1f));
+            : from + span * Math.Clamp(Vector3.Dot(point - from, span) / length, 0f, 1f);
     }
 
     /// <summary>How far along a screen segment the point nearest the pointer is, clamped to it.</summary>
@@ -516,11 +523,12 @@ public sealed class SceneProbe : ISceneProbe {
         var any = false;
 
         for (var index = 0; index < 8; index++) {
-            var local = centre + new Vector3(
-                (index & 1) == 0 ? -extent.X : extent.X,
-                (index & 2) == 0 ? -extent.Y : extent.Y,
-                (index & 4) == 0 ? -extent.Z : extent.Z
-            );
+            var local = centre
+                + new Vector3(
+                    (index & 1) == 0 ? -extent.X : extent.X,
+                    (index & 2) == 0 ? -extent.Y : extent.Y,
+                    (index & 4) == 0 ? -extent.Z : extent.Z
+                );
 
             if (!camera.TryProject(Matrix4x4.TransformPosition(local, transform), width, height, out var point)) {
                 continue;
@@ -618,7 +626,7 @@ public sealed class SceneProbe : ISceneProbe {
             facing = -facing;
         }
 
-        hit = new SurfaceHit(
+        hit = new(
             point,
             facing.LengthSquared() > MathUtil.ZeroTolerance ? Vector3.Normalize(facing) : Vector3.UnitY,
             reach

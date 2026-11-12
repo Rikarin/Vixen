@@ -13,8 +13,12 @@ namespace Vixen.TextureGraph.Nodes;
 ///         sidecar under <c>meshMap.usage</c>, and the whole binding is that the two agree.
 ///     </para>
 ///     <para>
-///         ⚠ <b>They are written down twice, and that is forced by the assembly graph rather than
-///         chosen.</b> The vocabulary's home is <c>Vixen.Editor.Assets</c>, which references Assimp,
+///         ⚠
+///         <b>
+///             They are written down twice, and that is forced by the assembly graph rather than
+///             chosen.
+///         </b>
+///         The vocabulary's home is <c>Vixen.Editor.Assets</c>, which references Assimp,
 ///         <c>Vixen.Engine</c> and every importer in the tree; this assembly's csproj spends four
 ///         paragraphs keeping its closure to twenty-nine projects, and referencing the asset
 ///         database from a compiler that runs on every edit would undo all of it. The reverse edge —
@@ -30,8 +34,11 @@ namespace Vixen.TextureGraph.Nodes;
 static class TextureMeshMaps {
     /// <summary>The scheme a mesh-map reference is written under.</summary>
     /// <remarks>
-    ///     ⚠ <b>A scheme rather than a path, because a mesh map is the one external image a graph
-    ///     asks for <em>by what it is</em> rather than by which file it is.</b>
+    ///     ⚠
+    ///     <b>
+    ///         A scheme rather than a path, because a mesh map is the one external image a graph
+    ///         asks for <em>by what it is</em> rather than by which file it is.
+    ///     </b>
     ///     <c>TextureGraphExternal.Asset</c> carries a project-relative path for a
     ///     <c>Source/Bitmap</c> — <c>Assets/Textures/rust.png</c> — and a host resolves it by
     ///     opening that file. A generator names no file at all, so what crosses is
@@ -44,8 +51,12 @@ static class TextureMeshMaps {
     /// <summary>The ten a <c>Mesh Map</c> node may name.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Read off the node's own declaration rather than written here —
-    ///         <a href="https://github.com/Rikarin/Vixen/issues/964">#964</a>.</b> Until
+    ///         ⚠
+    ///         <b>
+    ///             Read off the node's own declaration rather than written here —
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/964">#964</a>.
+    ///         </b>
+    ///         Until
     ///         <c>SettingDefinition.Accepted</c> existed the list was written down twice inside this
     ///         one file: as this array, and as the <c>Summary</c> prose a node inspector shows. A
     ///         plugin that wanted to <em>offer</em> them could reach neither and drew a text box, and
@@ -64,8 +75,12 @@ static class TextureMeshMaps {
 
     /// <summary>The <c>[Setting]</c> the ten are declared on.</summary>
     /// <remarks>
-    ///     ⚠ <b>The declaration itself and no longer just its list, because
-    ///     <see cref="Canonical" /> is now the declaration's own answer</b> —
+    ///     ⚠
+    ///     <b>
+    ///         The declaration itself and no longer just its list, because
+    ///         <see cref="Canonical" /> is now the declaration's own answer
+    ///     </b>
+    ///     —
     ///     <a href="https://github.com/Rikarin/Vixen/issues/1044">#1044</a>. The refusal that reads
     ///     an empty list as a fault has to stay <em>here</em>: <c>SettingDefinition.Canonical</c>
     ///     answers a setting that states nothing with the value itself, which is right for a setting
@@ -103,9 +118,13 @@ static class TextureMeshMaps {
     /// <param name="usage">What the author typed.</param>
     /// <returns>The spelling <see cref="Known" /> holds, or an empty string.</returns>
     /// <remarks>
-    ///     ⚠ <b>The declaration's own answer since
-    ///     <a href="https://github.com/Rikarin/Vixen/issues/1044">#1044</a>, and it used to be eight
-    ///     lines here and eight more in <c>TextureUsages</c>.</b> Both walked
+    ///     ⚠
+    ///     <b>
+    ///         The declaration's own answer since
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/1044">#1044</a>, and it used to be eight
+    ///         lines here and eight more in <c>TextureUsages</c>.
+    ///     </b>
+    ///     Both walked
     ///     <c>SettingDefinition.Accepted</c> comparing ignoring case, which is what
     ///     <c>SettingDefinition.Accepts</c> did too — three transcriptions of one rule, of which the
     ///     public one had no caller because it answered <c>bool</c> where these need the spelling.
@@ -123,15 +142,22 @@ static class TextureMeshMaps {
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>Doc 48 § 4.8's Mesh Map Input, and the reason one generator compound works on every
-///         mesh.</b> A Curvature Edge Wear graph asks for <c>curvature</c> and is handed whichever
+///         <b>
+///             Doc 48 § 4.8's Mesh Map Input, and the reason one generator compound works on every
+///             mesh.
+///         </b>
+///         A Curvature Edge Wear graph asks for <c>curvature</c> and is handed whichever
 ///         file this project's bake produced for the mesh being textured. That is Painter's automatic
 ///         connection, and it is the difference between a library of generators and a library of
 ///         graphs each hard-wired to one barrel.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The design question this node answers is "how does a graph name the mesh it is for",
-///         and the answer is that it does not and must not.</b> A texture graph carries a name, nodes,
+///         ⚠
+///         <b>
+///             The design question this node answers is "how does a graph name the mesh it is for",
+///             and the answer is that it does not and must not.
+///         </b>
+///         A texture graph carries a name, nodes,
 ///         edges, an interface and § D8's settings — there is nowhere to put a mesh, and putting one
 ///         there would be the bug: a generator that named a mesh would be a generator that works on
 ///         one. So the mesh enters where <c>BakeLevelOffset</c> enters, at the <em>evaluation</em>,
@@ -142,9 +168,13 @@ static class TextureMeshMaps {
 ///         bind <em>different</em> files rather than merely that both compile.
 ///     </para>
 ///     <para>
-///         ⚠ <b>What is on the other side of the reference is a host, and until one walks
-///         <c>TextureGraphCompiler.Externals</c> a graph containing this node compiles and does not
-///         bake</b> — which is <c>BitmapNode</c>'s state and the same sentence.
+///         ⚠
+///         <b>
+///             What is on the other side of the reference is a host, and until one walks
+///             <c>TextureGraphCompiler.Externals</c> a graph containing this node compiles and does not
+///             bake
+///         </b>
+///         — which is <c>BitmapNode</c>'s state and the same sentence.
 ///         <c>Vixen.Editor.Assets.MeshMaps.MeshMapBinding</c> is the resolver
 ///         (<a href="https://github.com/Rikarin/Vixen/issues/702">#702</a>); the panel and the CLI
 ///         verb that would call it are
@@ -244,13 +274,13 @@ sealed partial class MeshMapInputNode : TextureNode {
                 // over one would bend it into a plausible wrong number. `Source/Bitmap` has the setting
                 // because an imported asset's space is a fact about the asset; a mesh map's is a fact
                 // about the bake, which writes measurements linear and the colour map in sRGB.
-                srgb: string.Equals(usage, TextureMeshMaps.Colour, StringComparison.Ordinal),
+                string.Equals(usage, TextureMeshMaps.Colour, StringComparison.Ordinal),
                 // ⚠ Point for the id map, and this is § D12's own sentence made mechanical: an id is
                 // "nearest-sampled and never filtered", because interpolating two material indices
                 // produces a third that belongs to no material — the same hairline the gutter
                 // dilation is excluded from, arriving instead from the resample into the graph's
                 // resolution. Everything else is a continuous measurement and is interpolated.
-                bilinear: !string.Equals(usage, "id", StringComparison.Ordinal)
+                !string.Equals(usage, "id", StringComparison.Ordinal)
             )
         );
     }

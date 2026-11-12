@@ -2,8 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core.Mathematics;
-using Vixen.Editor.Texturing.Painting;
-using Vixen.Texturing.Layers;
 using Vixen.Texturing.Painting;
 using Xunit;
 
@@ -139,15 +137,22 @@ public class PaintMeshRasterTests {
     /// <summary>A partial retexture leaves exactly the picture a whole one would have made.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>The strongest thing this file says, and it is what a locality counter alone cannot
-    ///         say.</b> <c>Retexture</c> looks a stamp up in a bucketing built from the texel each
+    ///         <b>
+    ///             The strongest thing this file says, and it is what a locality counter alone cannot
+    ///             say.
+    ///         </b>
+    ///         <c>Retexture</c> looks a stamp up in a bucketing built from the texel each
     ///         pixel reads; the trap is that the bucket and the texel can round differently, and the
     ///         symptom is one column of pixels that never updates for the whole stroke — which no
     ///         assertion about how <em>few</em> pixels were shaded could ever see.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The layout is stretched and the atlas is not a power of two, because the trap is
-    ///         a rounding one.</b> With a coordinate that maps to a whole number of texels, and a
+    ///         ⚠
+    ///         <b>
+    ///             The layout is stretched and the atlas is not a power of two, because the trap is
+    ///             a rounding one.
+    ///         </b>
+    ///         With a coordinate that maps to a whole number of texels, and a
     ///         texel count that divides the cell count, the two roundings agree by construction and
     ///         the fixture proves nothing. 100 texels across 32 cells is where they part.
     ///     </para>
@@ -171,7 +176,7 @@ public class PaintMeshRasterTests {
         foreach (var stamp in stamps) {
             for (var y = stamp.Y; y < stamp.EndY; y++) {
                 for (var x = stamp.X; x < stamp.EndX; x++) {
-                    atlas[(y * atlas.Width) + x] = 0xFF00FF00u;
+                    atlas[y * atlas.Width + x] = 0xFF00FF00u;
                 }
             }
 
@@ -221,7 +226,7 @@ public class PaintMeshRasterTests {
 
         for (var y = stamp.Y; y < stamp.EndY; y++) {
             for (var x = stamp.X; x < stamp.EndX; x++) {
-                atlas[(y * atlas.Width) + x] = 0xFF00FF00u;
+                atlas[y * atlas.Width + x] = 0xFF00FF00u;
             }
         }
 
@@ -256,15 +261,23 @@ public class PaintMeshRasterTests {
     ///         of the framed <em>sphere</em> and an open shell's surface is nowhere near its sphere.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The oracle is the raycast and not a pixel count, because a pixel count cannot say
-    ///         which pixels.</b> Coverage is decided by the projection and the hit by
+    ///         ⚠
+    ///         <b>
+    ///             The oracle is the raycast and not a pixel count, because a pixel count cannot say
+    ///             which pixels.
+    ///         </b>
+    ///         Coverage is decided by the projection and the hit by
     ///         <c>PaintProjection.TryHit</c>, which knows nothing about a near plane — so "a ray that
     ///         hits and a pixel that shows nothing" is exactly the hole this issue is about, stated
     ///         without a reference picture and without a number written down beside it.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And the fixture is asserted to reach the defect before anything else is asserted
-    ///         at all.</b> A floor placed where no triangle straddles the eye plane draws the same
+    ///         ⚠
+    ///         <b>
+    ///             And the fixture is asserted to reach the defect before anything else is asserted
+    ///             at all.
+    ///         </b>
+    ///         A floor placed where no triangle straddles the eye plane draws the same
     ///         picture with the clip and without it, and would be a case that passes against the code
     ///         it was written to refute. The straddle is counted through the camera's own frame,
     ///         which is where the plane is a plane.
@@ -365,8 +378,12 @@ public class PaintMeshRasterTests {
     ///         degeneracy epsilon written in units does the same thing at the other end.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The small scale is chosen to <em>cross</em> the threshold rather than to look
-    ///         small, and that arithmetic is the whole value of the case.</b> The fixture's edges are
+    ///         ⚠
+    ///         <b>
+    ///             The small scale is chosen to <em>cross</em> the threshold rather than to look
+    ///             small, and that arithmetic is the whole value of the case.
+    ///         </b>
+    ///         The fixture's edges are
     ///         about 3.3 units long, so at 1e-4 they are 3.3e-4 and their cross product is 1.1e-7 —
     ///         under the absolute 1e-6 at which <c>Vector3.Normalize</c> answers zero. At 1e-3 it
     ///         would be 1.1e-5, comfortably above it, and the case would pass against a rasteriser
@@ -415,21 +432,26 @@ public class PaintMeshRasterTests {
 
     /// <summary>The picture the unit-scale fixture draws, which the other two scales must match.</summary>
     /// <remarks>
-    ///     ⚠ <b>Computed rather than written down, and the theory above includes the scale it was
-    ///     computed at.</b> A golden array here would be a second claim about the rasteriser that
+    ///     ⚠
+    ///     <b>
+    ///         Computed rather than written down, and the theory above includes the scale it was
+    ///         computed at.
+    ///     </b>
+    ///     A golden array here would be a second claim about the rasteriser that
     ///     nothing keeps up to date; the property being asserted is that the three agree, and a
     ///     reference one of them produced states exactly that and nothing more.
     /// </remarks>
-    static readonly Lazy<(int Covered, uint[] Picture)> Reference = new(() => {
-        var mesh = Tilted();
-        var camera = Framed(mesh);
-        PaintMeshRaster raster = new();
+    static readonly Lazy<(int Covered, uint[] Picture)> Reference = new(static () => {
+            var mesh = Tilted();
+            var camera = Framed(mesh);
+            PaintMeshRaster raster = new();
 
-        raster.Draw(mesh, camera, 64, 64);
-        raster.Texture(new(32, 32, 0xFFFFFFFFu));
+            raster.Draw(mesh, camera, 64, 64);
+            raster.Texture(new(32, 32, 0xFFFFFFFFu));
 
-        return (raster.Covered, Pixels(raster));
-    });
+            return (raster.Covered, Pixels(raster));
+        }
+    );
 
     /// <summary>A quad tilted away from the camera, whose layout is the whole unit square.</summary>
     /// <param name="scale">How big the model is, in its own units.</param>
@@ -454,14 +476,19 @@ public class PaintMeshRasterTests {
     ///     <para>
     ///         ⚠ <b>The cost cliff the near clip opened, measured as work rather than as a clock.</b>
     ///         A corner the clip writes onto the plane projects to tens of thousands of pane pixels,
-    ///         so a bounding box taken from the three corners and then clamped is the <em>whole
-    ///         pane</em> for every straddling triangle — and the picture is pixel-identical either
+    ///         so a bounding box taken from the three corners and then clamped is the
+    ///         <em>
+    ///             whole
+    ///             pane
+    ///         </em>
+    ///         for every straddling triangle — and the picture is pixel-identical either
     ///         way, because the barycentric test rejects all the surplus. Before
     ///         <a href="https://github.com/Rikarin/Vixen/issues/1105">#1105</a> those triangles were
     ///         dropped and cost nothing, so the fix for the hole is what could have paid for it.
     ///     </para>
     ///     <para>
-    ///         The camera is the one <see cref="Every_pixel_whose_ray_hits_the_model_shows_it_with_the_eye_inside_an_open_shell" />
+    ///         The camera is the one
+    ///         <see cref="Every_pixel_whose_ray_hits_the_model_shows_it_with_the_eye_inside_an_open_shell" />
     ///         uses, for the same reason: the straddle is what the case is about, and this fixture is
     ///         coarse enough that a straddling triangle is a large share of the pane rather than a
     ///         few pixels.
@@ -503,11 +530,16 @@ public class PaintMeshRasterTests {
         // And the pass did happen: a bound alone is satisfied by a rasteriser that draws nothing.
         Assert.True(raster.Covered > 0);
     }
+
     /// <summary>A big flat grid in the y = 0 plane, as an open shell an eye can get inside.</summary>
     /// <returns>The projection.</returns>
     /// <remarks>
-    ///     ⚠ <b>Coarse on purpose: sixteen cells over sixteen units, so a cell is four units and a
-    ///     triangle that straddles the eye plane covers a large part of the pane.</b> A finely
+    ///     ⚠
+    ///     <b>
+    ///         Coarse on purpose: sixteen cells over sixteen units, so a cell is four units and a
+    ///         triangle that straddles the eye plane covers a large part of the pane.
+    ///     </b>
+    ///     A finely
     ///     tessellated floor straddles too, but each dropped triangle is then a few pixels — inside
     ///     the silhouette allowance the assertion needs for its own reasons, so the case would pass
     ///     against the defect it was written for.
@@ -525,21 +557,21 @@ public class PaintMeshRasterTests {
                 var u = (float)column / Cells;
                 var v = (float)row / Cells;
 
-                points.Add(new(((u * 2f) - 1f) * Half, 0f, ((v * 2f) - 1f) * Half));
+                points.Add(new((u * 2f - 1f) * Half, 0f, (v * 2f - 1f) * Half));
                 layout.Add(new(u, v));
             }
         }
 
         for (var row = 0; row < Cells; row++) {
             for (var column = 0; column < Cells; column++) {
-                var corner = (row * (Cells + 1)) + column;
+                var corner = row * (Cells + 1) + column;
 
                 indices.AddRange([corner, corner + 1, corner + Cells + 2]);
                 indices.AddRange([corner, corner + Cells + 2, corner + Cells + 1]);
             }
         }
 
-        return PaintProjection.Over([.. points], [.. layout], [.. indices]);
+        return PaintProjection.Over([..points], [..layout], [..indices]);
     }
 
     /// <summary>A quad square to the camera, whose layout is the whole unit square.</summary>
@@ -570,7 +602,7 @@ public class PaintMeshRasterTests {
         int[] far = [0, 1, 2, 0, 2, 3];
         int[] near = [4, 5, 6, 4, 6, 7];
 
-        return PaintProjection.Over(points, layout, nearFirst ? [.. near, .. far] : [.. far, .. near]);
+        return PaintProjection.Over(points, layout, nearFirst ? [..near, ..far] : [..far, ..near]);
     }
 
     /// <summary>A camera looking straight down the z axis at a mesh, framed on it.</summary>

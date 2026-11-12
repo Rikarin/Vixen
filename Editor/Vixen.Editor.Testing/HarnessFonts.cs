@@ -10,8 +10,12 @@ namespace Vixen.Editor.Testing;
 /// <summary>The fixed-pitch face an editor under test draws its code in.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Four declarations in three of this tree's stylesheets write
-///         <c>font-family: monospace</c></b> — <c>AdvancedTheme.vcss</c> on <c>code-editor</c>,
+///         ⚠
+///         <b>
+///             Four declarations in three of this tree's stylesheets write
+///             <c>font-family: monospace</c>
+///         </b>
+///         — <c>AdvancedTheme.vcss</c> on <c>code-editor</c>,
 ///         <c>EditorTheme.vcss</c> on the errors panel and the revisions patch,
 ///         <c>AssetEditorTheme.vcss</c> on the asset editors' code views — and
 ///         <c>FontRegistry</c> has no generic families, so each of them is an ordinary
@@ -23,8 +27,12 @@ namespace Vixen.Editor.Testing;
 ///         a <c>CodeEditor</c> expectation is computed the way the control computes it.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The synthetic face and not the machine's, which is the one thing this must not
-///         borrow.</b> <c>Vixen.Editor.App</c>'s <c>Fonts</c> embeds Open Sans precisely so that
+///         ⚠
+///         <b>
+///             The synthetic face and not the machine's, which is the one thing this must not
+///             borrow.
+///         </b>
+///         <c>Vixen.Editor.App</c>'s <c>Fonts</c> embeds Open Sans precisely so that
 ///         three platforms measure, wrap and photograph identically;
 ///         <c>SystemFonts.InstallMonospace</c> would hand this harness Consolas on Windows, Menlo
 ///         on macOS and whatever a container has on Linux, and the golden images would follow.
@@ -60,8 +68,12 @@ static class HarnessFonts {
     ///         whatever it was.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And the order this is called in is <i>not</i> what keeps that from happening,
-    ///         which a sabotage said and a reading of <c>Fonts.Install</c> did not.</b> Moving the
+    ///         ⚠
+    ///         <b>
+    ///             And the order this is called in is <i>not</i> what keeps that from happening,
+    ///             which a sabotage said and a reading of <c>Fonts.Install</c> did not.
+    ///         </b>
+    ///         Moving the
     ///         call ahead of <c>Fonts.Install</c> in <c>EditorSession</c> leaves
     ///         <c>HarnessMonospaceTests</c> green, because that method assigns
     ///         <c>document.Fonts.Default</c> outright rather than relying on being first. So the

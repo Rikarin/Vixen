@@ -21,7 +21,7 @@ public class BidiTests {
 
         Assert.Equal(0, result.ParagraphLevel);
         Assert.Equal([0, 1, 2, 3, 4], result.VisualOrder);
-        Assert.All(result.Levels, level => Assert.Equal(0, level));
+        Assert.All(result.Levels, static level => Assert.Equal(0, level));
     }
 
     [Fact]
@@ -70,13 +70,13 @@ public class BidiTests {
         var digits = Enumerable.Range(5, 4).Select(i => result.Levels[i]).ToArray();
 
         Assert.Equal(1, result.ParagraphLevel);
-        Assert.All(digits, level => Assert.Equal(2, level));
+        Assert.All(digits, static level => Assert.Equal(2, level));
 
         // And they stay in reading order within the reversed paragraph.
         var order = result.VisualOrder;
         var positions = digits.Select((_, i) => Array.IndexOf(order, 5 + i)).ToArray();
 
-        Assert.Equal(positions.OrderBy(p => p), positions);
+        Assert.Equal(positions.OrderBy(static p => p), positions);
     }
 
     [Fact]
@@ -96,14 +96,14 @@ public class BidiTests {
         var result = BidiAlgorithm.Resolve($"{Hebrew}   ");
 
         Assert.Equal(1, result.ParagraphLevel);
-        Assert.All(result.Levels[^3..], level => Assert.Equal(1, level));
+        Assert.All(result.Levels[^3..], static level => Assert.Equal(1, level));
     }
 
     [Fact]
     public void An_isolate_keeps_what_is_inside_it_from_affecting_what_is_outside() {
         // The reason isolates were added in Unicode 6.3 and the reason to prefer them to embeddings:
         // a Hebrew name in a first-strong isolate must not turn the whole paragraph around.
-        var isolated = BidiAlgorithm.Resolve($"⁨{Hebrew}⁩ and then");
+        var isolated = BidiAlgorithm.Resolve($"\u2068{Hebrew}\u2069 and then");
         var embedded = BidiAlgorithm.Resolve($"{Hebrew} and then");
 
         Assert.Equal(0, isolated.ParagraphLevel);
@@ -114,7 +114,7 @@ public class BidiTests {
     public void The_embedding_controls_are_removed_from_the_visual_order() {
         // X9 and L3. They are instructions, not characters, and drawing them would put a blank where
         // the text should be.
-        var result = BidiAlgorithm.Resolve($"a‫{Hebrew}‬b");
+        var result = BidiAlgorithm.Resolve($"a\u202B{Hebrew}\u202Cb");
 
         Assert.DoesNotContain(1, result.VisualOrder);
         Assert.DoesNotContain(6, result.VisualOrder);

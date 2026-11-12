@@ -8,7 +8,6 @@ using Vixen.Live.Gameplay;
 using Vixen.Live.Persistence;
 using Vixen.Samples.Mmo.Contracts;
 using Vixen.Samples.Mmo.Rules;
-using NetworkPlayerId = Vixen.Net.Sessions.PlayerId;
 
 namespace Vixen.Samples.Mmo.Soak;
 
@@ -80,20 +79,31 @@ public sealed class Shard {
     /// <returns>How many writes were settled.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The soak grew two hundred megabytes over thirty minutes before this existed, and
-    ///         that was the bridge behaving exactly as documented.</b> "A drained write is not
+    ///         ⚠
+    ///         <b>
+    ///             The soak grew two hundred megabytes over thirty minutes before this existed, and
+    ///             that was the bridge behaving exactly as documented.
+    ///         </b>
+    ///         "A drained write is not
     ///         removed — in flight is not done, and losing a ledger intent is losing an item." Nothing
     ///         was settling them, so the outbox was every intent the fleet had ever posted.
     ///     </para>
     ///     <para>
-    ///         Which makes it worth saying plainly: <b>a realm that drains and forgets to settle has
-    ///         an unbounded leak that looks like nothing at all for the first ten minutes.</b>
+    ///         Which makes it worth saying plainly:
+    ///         <b>
+    ///             a realm that drains and forgets to settle has
+    ///             an unbounded leak that looks like nothing at all for the first ten minutes.
+    ///         </b>
     ///         <see cref="LedgerBridge.Pending" /> is the number that says so, and a fleet should
     ///         alarm on it.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Settling here is a stand-in for a database round trip and does not pretend
-    ///         otherwise.</b> What a real realm settles with is the verdict the journal came back
+    ///         ⚠
+    ///         <b>
+    ///             Settling here is a stand-in for a database round trip and does not pretend
+    ///             otherwise.
+    ///         </b>
+    ///         What a real realm settles with is the verdict the journal came back
     ///         with, and the interesting case is <c>Insufficient</c> — which is a <em>defect</em>
     ///         rather than a refusal, because the projection already checked. The soak asserts
     ///         <see cref="LedgerBridge.Divergences" /> stays at zero, which is that check.
@@ -112,8 +122,12 @@ public sealed class Shard {
 
     /// <summary>How many idempotency keys the projection is still holding.</summary>
     /// <remarks>
-    ///     ⚠ <b>This is the number that only ever went up, and it was the whole of the soak's memory
-    ///     growth.</b> The set is what makes a retried trade write nothing the second time, so it
+    ///     ⚠
+    ///     <b>
+    ///         This is the number that only ever went up, and it was the whole of the soak's memory
+    ///         growth.
+    ///     </b>
+    ///     The set is what makes a retried trade write nothing the second time, so it
     ///     cannot simply be cleared — but a key older than the longest retry anybody will attempt is
     ///     a key guarding against nothing. It is bounded now, and what bounds it is
     ///     <see cref="RetryWindow" /> rather than a size.
@@ -127,8 +141,12 @@ public sealed class Shard {
     /// <param name="now">The realm's clock.</param>
     /// <returns>How many were dropped.</returns>
     /// <remarks>
-    ///     ⚠ <b>Beside <see cref="Flush" /> because it is the same kind of thing: housekeeping a realm
-    ///     does off the frame path.</b> It is cheap enough to call every tick and correct to call once
+    ///     ⚠
+    ///     <b>
+    ///         Beside <see cref="Flush" /> because it is the same kind of thing: housekeeping a realm
+    ///         does off the frame path.
+    ///     </b>
+    ///     It is cheap enough to call every tick and correct to call once
     ///     a minute — the horizon is measured in <paramref name="now" />, not in calls — and the reason
     ///     it is not called from <c>Post</c> is that a rule mid-frame must not pay for it.
     /// </remarks>
@@ -166,11 +184,11 @@ public sealed class Shard {
     ///     transfer create money, which is precisely the thing the oracle is looking for.
     /// </remarks>
     public PlayerId Admit(PlayerKey key, uint session, long purse) {
-        var player = Identity.Admit(key, new NetworkPlayerId(session));
+        var player = Identity.Admit(key, new(session));
 
         Ledger.Restore(new(player, string.Empty), MmoAddresses.Gold, purse);
         Lockouts.Warmed(player, []);
-        Social.Warmed(player, row: null);
+        Social.Warmed(player, null);
         Social.Warmed(key, []);
         Social.Admitted(key, player);
 
@@ -238,7 +256,7 @@ public sealed class Fleet {
         ArgumentNullException.ThrowIfNull(maps);
 
         for (var id = 0; id < shardCount; id++) {
-            shards.Add(new(id, maps[id % maps.Count], version: 1, epoch: 1));
+            shards.Add(new(id, maps[id % maps.Count], 1, 1));
         }
     }
 
@@ -359,8 +377,12 @@ public sealed class Fleet {
     /// <returns>How many moved.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A few, and not all of them, which is the difference between a drain and a
-    ///         kick.</b> Doc 27: <em>"existing players are moved at safe moments"</em> — a drain that
+    ///         ⚠
+    ///         <b>
+    ///             A few, and not all of them, which is the difference between a drain and a
+    ///             kick.
+    ///         </b>
+    ///         Doc 27: <em>"existing players are moved at safe moments"</em> — a drain that
     ///         emptied a shard in one tick would move two hundred people mid-fight, and it would also
     ///         land two hundred admissions on one target in one tick, which is the spike a rollout is
     ///         supposed to avoid.
@@ -430,8 +452,12 @@ public sealed class Fleet {
 /// <summary>A rolling upgrade: one shard at a time, drained and never killed.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Stepped over many ticks rather than done in one, because a rollout that finished
-///         inside a tick would not be a rollout.</b> Doc 27's assertion is that it happens
+///         ⚠
+///         <b>
+///             Stepped over many ticks rather than done in one, because a rollout that finished
+///             inside a tick would not be a rollout.
+///         </b>
+///         Doc 27's assertion is that it happens
 ///         <em>with players in flight</em> — the interesting state is the middle, where half the
 ///         fleet is on the old build, one shard is draining, and players are still trading and
 ///         travelling across the seam.
@@ -466,7 +492,7 @@ public sealed class Rollout(int version) {
         if (draining is null) {
             draining = fleet.Shards
                 .Where(shard => shard.Version != version)
-                .OrderBy(shard => shard.Population)
+                .OrderBy(static shard => shard.Population)
                 .FirstOrDefault();
 
             if (draining is null) {
@@ -477,7 +503,7 @@ public sealed class Rollout(int version) {
         // Four a tick at 30 Hz is a shard of two hundred emptied in under two seconds of wall clock,
         // which is faster than a real grace and slow enough that the fleet is never asked to admit a
         // crowd in one tick.
-        fleet.DrainSome(draining, most: 4);
+        fleet.DrainSome(draining, 4);
 
         if (draining.Population > 0) {
             Waited++;

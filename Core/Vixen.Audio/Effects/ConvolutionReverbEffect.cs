@@ -85,7 +85,7 @@ public sealed class ConvolutionReverbEffect : IAudioEffect {
             var samples = new float[frames];
 
             for (var frame = 0; frame < frames; frame++) {
-                samples[frame] = interleaved[(frame * response.Channels) + channel];
+                samples[frame] = interleaved[frame * response.Channels + channel];
             }
 
             impulse[channel] = samples;
@@ -138,8 +138,8 @@ public sealed class ConvolutionReverbEffect : IAudioEffect {
         // what overlap-add adds back.
         partition = Fft.NextSize(Math.Max(maxFrames, 64));
         transform = partition * 2;
-        fft = new Fft(transform);
-        partitionCount = ((ResponseFrames + partition - 1) / partition);
+        fft = new(transform);
+        partitionCount = (ResponseFrames + partition - 1) / partition;
 
         partitionsReal = new float[ResponseChannels * partitionCount][];
         partitionsImaginary = new float[ResponseChannels * partitionCount][];
@@ -157,8 +157,8 @@ public sealed class ConvolutionReverbEffect : IAudioEffect {
                 impulse[channel].AsSpan(start, length).CopyTo(real);
 
                 fft.Forward(real, imaginary);
-                partitionsReal[(channel * partitionCount) + index] = [.. real];
-                partitionsImaginary[(channel * partitionCount) + index] = [.. imaginary];
+                partitionsReal[channel * partitionCount + index] = [..real];
+                partitionsImaginary[channel * partitionCount + index] = [..imaginary];
             }
         }
 
@@ -203,8 +203,8 @@ public sealed class ConvolutionReverbEffect : IAudioEffect {
 
             for (var channel = 0; channel < channels; channel++) {
                 var value = buffer[offset + channel];
-                input[(drained * channels) + channel] = value;
-                buffer[offset + channel] = (value * dry) + (output[(drained * channels) + channel] * wet);
+                input[drained * channels + channel] = value;
+                buffer[offset + channel] = value * dry + output[drained * channels + channel] * wet;
             }
 
             drained++;
@@ -302,7 +302,7 @@ public sealed class ConvolutionReverbEffect : IAudioEffect {
             Array.Clear(newestImaginary);
 
             for (var frame = 0; frame < filled; frame++) {
-                newestReal[frame] = input[(frame * channelCount) + channel];
+                newestReal[frame] = input[frame * channelCount + channel];
             }
 
             fft!.Forward(newestReal, newestImaginary);
@@ -322,8 +322,8 @@ public sealed class ConvolutionReverbEffect : IAudioEffect {
                 var pi = partitionsImaginary[responseSlots + index];
 
                 for (var bin = 0; bin < transform; bin++) {
-                    accumulatorReal[bin] += (hr[bin] * pr[bin]) - (hi[bin] * pi[bin]);
-                    accumulatorImaginary[bin] += (hr[bin] * pi[bin]) + (hi[bin] * pr[bin]);
+                    accumulatorReal[bin] += hr[bin] * pr[bin] - hi[bin] * pi[bin];
+                    accumulatorImaginary[bin] += hr[bin] * pi[bin] + hi[bin] * pr[bin];
                 }
             }
 
@@ -332,7 +332,7 @@ public sealed class ConvolutionReverbEffect : IAudioEffect {
             fft.Inverse(scratchReal, scratchImaginary);
 
             for (var frame = 0; frame < partition; frame++) {
-                var index = (frame * channelCount) + channel;
+                var index = frame * channelCount + channel;
                 output[index] = scratchReal[frame] + overlap[index];
                 overlap[index] = scratchReal[partition + frame];
             }

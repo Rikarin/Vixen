@@ -41,7 +41,7 @@ public sealed class SystemAccessSafetyTests {
         using var world = new World();
         using var runner = new SystemRunner(world, scheduler);
 
-        runner.Add(new SchedulingWriterSystem(new(), drop: false));
+        runner.Add(new SchedulingWriterSystem(new(), false));
         runner.RunPhase(SystemPhase.Update, default);
 
         // ⚠ The first thing to check, and the reason it is public. Without it a run in which the
@@ -63,12 +63,10 @@ public sealed class SystemAccessSafetyTests {
         // Both write Position, so the graph orders the second after the first — by making the
         // second's job depend on whatever handle the first returned. The first returns `dependency`,
         // so there is no edge and the two jobs may run together.
-        runner.Add(new SchedulingWriterSystem(counter, drop: true))
+        runner.Add(new SchedulingWriterSystem(counter, true))
             .Add(new SecondSchedulingWriterSystem(counter));
 
-        var failure = Assert.Throws<InvalidOperationException>(
-            () => runner.RunPhase(SystemPhase.Update, default)
-        );
+        var failure = Assert.Throws<InvalidOperationException>(() => runner.RunPhase(SystemPhase.Update, default));
 
         Assert.Contains("conflict", failure.Message, StringComparison.Ordinal);
         Assert.True(scheduler.AccessComparisons >= 1);
@@ -83,7 +81,7 @@ public sealed class SystemAccessSafetyTests {
         using var runner = new SystemRunner(world, scheduler);
         var counter = new StrongBox<int>();
 
-        runner.Add(new SchedulingWriterSystem(counter, drop: false))
+        runner.Add(new SchedulingWriterSystem(counter, false))
             .Add(new SecondSchedulingWriterSystem(counter));
 
         runner.RunPhase(SystemPhase.Update, default);
@@ -104,7 +102,7 @@ public sealed class SystemAccessSafetyTests {
         // The one that drops its handle writes Position; the one after it writes Health. Disjoint,
         // so the graph gives the second no edge either — and the detector must agree, or it is a
         // predicate that fires on everything and proves nothing.
-        runner.Add(new SchedulingWriterSystem(counter, drop: true)).Add(new SchedulingHealerSystem(counter));
+        runner.Add(new SchedulingWriterSystem(counter, true)).Add(new SchedulingHealerSystem(counter));
 
         runner.RunPhase(SystemPhase.Update, default);
 
@@ -127,14 +125,14 @@ public sealed class SystemAccessSafetyTests {
 
         Assert.Equal([ComponentType<Position>.Id.Value], access.JobAccess.Writes);
         Assert.Equal(
-            [.. new[] { ComponentType<Health>.Id.Value, ComponentType<Position>.Id.Value }.Order()],
+            [..new[] { ComponentType<Health>.Id.Value, ComponentType<Position>.Id.Value }.Order()],
             access.JobAccess.Reads
         );
     }
 
     // ---------------------------------------------------------------- systems under test
 
-    struct CountingJob(StrongBox<int> counter) : IJob {
+    readonly struct CountingJob(StrongBox<int> counter) : IJob {
         public void Execute() => Interlocked.Increment(ref counter.Value);
     }
 

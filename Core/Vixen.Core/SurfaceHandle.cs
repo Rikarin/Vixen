@@ -23,20 +23,28 @@ public enum SurfaceKind : byte {
     /// </remarks>
     None = 0,
 
-    /// <summary>Win32. <see cref="SurfaceHandle.Display" /> is the <c>HINSTANCE</c>,
-    /// <see cref="SurfaceHandle.Handle" /> the <c>HWND</c>.</summary>
+    /// <summary>
+    ///     Win32. <see cref="SurfaceHandle.Display" /> is the <c>HINSTANCE</c>,
+    ///     <see cref="SurfaceHandle.Handle" /> the <c>HWND</c>.
+    /// </summary>
     Win32 = 1,
 
-    /// <summary>X11. <see cref="SurfaceHandle.Display" /> is the <c>Display*</c>,
-    /// <see cref="SurfaceHandle.Handle" /> the <c>Window</c> XID.</summary>
+    /// <summary>
+    ///     X11. <see cref="SurfaceHandle.Display" /> is the <c>Display*</c>,
+    ///     <see cref="SurfaceHandle.Handle" /> the <c>Window</c> XID.
+    /// </summary>
     Xlib = 2,
 
-    /// <summary>Wayland. <see cref="SurfaceHandle.Display" /> is the <c>wl_display*</c>,
-    /// <see cref="SurfaceHandle.Handle" /> the <c>wl_surface*</c>.</summary>
+    /// <summary>
+    ///     Wayland. <see cref="SurfaceHandle.Display" /> is the <c>wl_display*</c>,
+    ///     <see cref="SurfaceHandle.Handle" /> the <c>wl_surface*</c>.
+    /// </summary>
     Wayland = 3,
 
-    /// <summary>Apple. <see cref="SurfaceHandle.Handle" /> is a <c>CAMetalLayer*</c>, which is what
-    /// <c>VK_EXT_metal_surface</c> wants and what MoltenVK presents through.</summary>
+    /// <summary>
+    ///     Apple. <see cref="SurfaceHandle.Handle" /> is a <c>CAMetalLayer*</c>, which is what
+    ///     <c>VK_EXT_metal_surface</c> wants and what MoltenVK presents through.
+    /// </summary>
     /// <remarks>
     ///     Deliberately the layer and not the <c>NSView</c>/<c>UIView</c>: the older
     ///     <c>VK_MVK_*_surface</c> extensions take a view and are deprecated, and going through the
@@ -107,7 +115,7 @@ public readonly record struct SurfaceHandle(SurfaceKind Kind, nint Display, nint
 
     /// <summary>A surface with no window behind it, for a run that wants the presenting path anyway.</summary>
     /// <remarks>See <see cref="SurfaceKind.Headless" />. Both handles are zero and neither is read.</remarks>
-    public static SurfaceHandle Windowless => new(SurfaceKind.Headless, Display: 0, Handle: 0);
+    public static SurfaceHandle Windowless => new(SurfaceKind.Headless, 0, 0);
 
     /// <summary>Whether this handle can back a swapchain.</summary>
     /// <remarks>

@@ -12,8 +12,11 @@ namespace Vixen.Ui.Controls.Advanced.Tests;
 /// <summary>Every container in the set, built the way markup builds one.</summary>
 /// <remarks>
 ///     <para>
-///         <b>A nested tag is <c>parent.ContentHost.Add&lt;T&gt;()</c> followed by property
-///         assignments, and that is the whole of what the VXML emitter does.</b> So these tests build
+///         <b>
+///             A nested tag is <c>parent.ContentHost.Add&lt;T&gt;()</c> followed by property
+///             assignments, and that is the whole of what the VXML emitter does.
+///         </b>
+///         So these tests build
 ///         by hand in exactly that order and assert the control ended up in the state its
 ///         <c>AddX</c> method would have produced — which is the property the two routes have to
 ///         share, and the one that was silently false for every control here.
@@ -45,17 +48,17 @@ public class NestedTagTests {
 
         // ⚠ The value is set *before* the options exist, which is the ordinary case for a group built
         // from saved settings — and the case a snapshot alone cannot serve.
-        foreach (var value in (string[]) ["low", "medium", "high"]) {
+        foreach (var value in (string[])["low", "medium", "high"]) {
             var option = Tag<RadioButton>(group);
             option.Value = value;
             option.Label = value;
         }
 
         Assert.Equal(3, group.Options.Count);
-        Assert.Equal("medium", group.Options.Single(option => option.IsChecked).Value);
+        Assert.Equal("medium", group.Options.Single(static option => option.IsChecked).Value);
 
         // The roving tab index: one stop, and it is the chosen one.
-        Assert.Equal([-1, 0, -1], group.Options.Select(option => option.TabIndex));
+        Assert.Equal([-1, 0, -1], group.Options.Select(static option => option.TabIndex));
     }
 
     [Fact]
@@ -66,7 +69,7 @@ public class NestedTagTests {
         var option = Tag<RadioButton>(group);
         option.Value = "high";
 
-        var reported = (string?) null;
+        var reported = (string?)null;
         group.ValueChanged += (_, value) => reported = value;
 
         option.Raise(new ClickEvent());
@@ -83,7 +86,7 @@ public class NestedTagTests {
         select.Placeholder = "Blend mode";
         select.Value = "cutout";
 
-        foreach (var (value, label) in ((string, string)[]) [("opaque", "Opaque"), ("cutout", "Cutout")]) {
+        foreach (var (value, label) in ((string, string)[])[("opaque", "Opaque"), ("cutout", "Cutout")]) {
             var option = Tag<Option>(select);
             option.Value = value;
             option.Label = label;
@@ -104,7 +107,7 @@ public class NestedTagTests {
 
         var trail = fixture.Add<Breadcrumb>();
 
-        foreach (var label in (string[]) ["Assets", "Materials", "Standard"]) {
+        foreach (var label in (string[])["Assets", "Materials", "Standard"]) {
             var step = Tag<BreadcrumbItem>(trail);
             step.Label = label;
             step.Value = label;
@@ -116,7 +119,7 @@ public class NestedTagTests {
         // *before* the step that asked for it is.
         Assert.Equal(
             ["breadcrumb-item", "icon", "breadcrumb-item", "icon", "breadcrumb-item"],
-            trail.Children.Select(child => child.Tag)
+            trail.Children.Select(static child => child.Tag)
         );
 
         Assert.Equal(ElementState.None, trail.Steps[0].State & ElementState.Checked);
@@ -135,14 +138,14 @@ public class NestedTagTests {
         var item = Tag<MenuItem>(file);
         item.Label = "New";
 
-        Assert.Equal(["File"], bar.Items.Select(entry => entry.Label));
+        Assert.Equal(["File"], bar.Items.Select(static entry => entry.Label));
         Assert.Same(file, bar.Items[0].Menu);
 
         // ⚠ At the root, not inside the bar. A dropdown parented to the strip that drops it is a
         // dropdown clipped by it.
         Assert.Same(fixture.Document.Root, file.Parent);
 
-        Assert.Equal(["New"], file.Items.Select(entry => entry.Label));
+        Assert.Equal(["New"], file.Items.Select(static entry => entry.Label));
     }
 
     [Fact]
@@ -157,7 +160,7 @@ public class NestedTagTests {
         var recent = Tag<Menu>(file);
         recent.Label = "Open Recent";
 
-        Assert.Equal(["Open Recent"], file.Items.Select(entry => entry.Label));
+        Assert.Equal(["Open Recent"], file.Items.Select(static entry => entry.Label));
         Assert.Same(recent, file.Items[0].Submenu);
         Assert.Same(file, recent.ParentMenu);
         Assert.Same(fixture.Document.Root, recent.Parent);
@@ -179,13 +182,17 @@ public class NestedTagTests {
         fixture.Update();
 
         // The tab the arrangement built for it, carrying the title assigned after the id.
-        Assert.Equal(["Hierarchy"], host.Groups[0].Tabs.Children.OfType<DockTab>().Select(tab => tab.Label));
+        Assert.Equal(["Hierarchy"], host.Groups[0].Tabs.Children.OfType<DockTab>().Select(static tab => tab.Label));
     }
 
     /// <summary>The bar built from nested tags opens, hovers and closes like one built by hand.</summary>
     /// <remarks>
-    ///     ⚠ <b>Driven through the event system rather than by asserting the tree, because the tree
-    ///     was never the thing that broke.</b> A nested <c>&lt;MenuItem&gt;</c> drew perfectly well
+    ///     ⚠
+    ///     <b>
+    ///         Driven through the event system rather than by asserting the tree, because the tree
+    ///         was never the thing that broke.
+    ///     </b>
+    ///     A nested <c>&lt;MenuItem&gt;</c> drew perfectly well
     ///     before any of this; what it did not do was open the submenu it was in front of, because
     ///     the hover handler was attached by <c>AddItem</c> and nothing had called it.
     /// </remarks>
@@ -215,7 +222,7 @@ public class NestedTagTests {
         Assert.True(recent.IsOpen);
 
         // And the whole chain goes down together.
-        file.Close(CloseReason.Code);
+        file.Close();
         Assert.False(recent.IsOpen);
     }
 

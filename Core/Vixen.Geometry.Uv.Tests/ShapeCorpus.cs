@@ -9,8 +9,12 @@ namespace Vixen.Geometry.Uv.Tests;
 /// <remarks>
 ///     <para>
 ///         docs/plan/42's first exit criterion compares against xatlas's published figures on a
-///         500-mesh corpus, and that comparison cannot be run here. What can be run is a <b>baseline
-///         the next phase has to move</b>: six shapes chosen so that each one fails a different way —
+///         500-mesh corpus, and that comparison cannot be run here. What can be run is a
+///         <b>
+///             baseline
+///             the next phase has to move
+///         </b>
+///         : six shapes chosen so that each one fails a different way —
 ///         a sphere for area distortion, a cylinder for the developable control, a torus for curvature
 ///         of both signs, a hemisphere for the pole, a saddle for negative curvature, and a forty-to-one
 ///         strip for aspect ratio.
@@ -40,7 +44,7 @@ static class ShapeCorpus {
             false,
             (u, v) => {
                 var phi = u * MathF.Tau;
-                var theta = (0.1f + (v * 0.8f)) * MathF.PI;
+                var theta = (0.1f + v * 0.8f) * MathF.PI;
 
                 return scale
                     * new Vector3(
@@ -60,7 +64,7 @@ static class ShapeCorpus {
             12,
             false,
             false,
-            (u, v) => scale * new Vector3(MathF.Cos(u * MathF.Tau), (v * 2f) - 1f, MathF.Sin(u * MathF.Tau))
+            (u, v) => scale * new Vector3(MathF.Cos(u * MathF.Tau), v * 2f - 1f, MathF.Sin(u * MathF.Tau))
         );
 
     /// <summary>The same tube with its slit closed — an annulus, which has no injective disk map.</summary>
@@ -72,7 +76,7 @@ static class ShapeCorpus {
             12,
             true,
             false,
-            (u, v) => scale * new Vector3(MathF.Cos(u * MathF.Tau), (v * 2f) - 1f, MathF.Sin(u * MathF.Tau))
+            (u, v) => scale * new Vector3(MathF.Cos(u * MathF.Tau), v * 2f - 1f, MathF.Sin(u * MathF.Tau))
         );
 
     /// <summary>A torus slit both ways, which is what it takes to make a genus-one surface a disk.</summary>
@@ -161,10 +165,10 @@ static class ShapeCorpus {
             false,
             false,
             (u, v) => {
-                var x = (u * 2f) - 1f;
-                var y = (v * 2f) - 1f;
+                var x = u * 2f - 1f;
+                var y = v * 2f - 1f;
 
-                return scale * new Vector3(x, (x * x) - (y * y), y);
+                return scale * new Vector3(x, x * x - y * y, y);
             }
         );
 
@@ -209,10 +213,10 @@ static class ShapeCorpus {
 
         for (var column = 0; column <= across; column++) {
             for (var row = 0; row <= down; row++) {
-                var x = ((column + (shear * row)) * step) - 1f;
+                var x = (column + shear * row) * step - 1f;
                 var y = row * rise;
 
-                index[column, row] = mesh.AddPosition(new(x, 0.5f * ((x * x) - (y * y)), y));
+                index[column, row] = mesh.AddPosition(new(x, 0.5f * (x * x - y * y), y));
             }
         }
 
@@ -249,7 +253,7 @@ static class ShapeCorpus {
             false,
             (u, v) => {
                 var phi = u * MathF.Tau;
-                var theta = (0.004f + (v * 0.992f)) * MathF.PI;
+                var theta = (0.004f + v * 0.992f) * MathF.PI;
 
                 return scale
                     * new Vector3(
@@ -267,8 +271,12 @@ static class ShapeCorpus {
     /// <returns>The mesh, which is a closed surface of genus zero.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The resolution is a parameter because a determinism sweep pays for it linearly and
-    ///         gains nothing from it.</b> Ten runs at each of twelve configurations is a hundred and
+    ///         ⚠
+    ///         <b>
+    ///             The resolution is a parameter because a determinism sweep pays for it linearly and
+    ///             gains nothing from it.
+    ///         </b>
+    ///         Ten runs at each of twelve configurations is a hundred and
     ///         twenty unwraps, and what they need from the fixture is that it charts into several
     ///         islands and splits across sixteen workers — not that it is finely tessellated. The
     ///         defaults are the shape every other test in this corpus was written against and are
@@ -299,7 +307,7 @@ static class ShapeCorpus {
         static Vector3 Point(float along, float around) {
             var theta = along * MathF.PI;
             var phi = around * MathF.Tau;
-            var radius = MathF.Sin(theta) * (0.10f + (0.90f * MathF.Cos(theta) * MathF.Cos(theta)));
+            var radius = MathF.Sin(theta) * (0.10f + 0.90f * MathF.Cos(theta) * MathF.Cos(theta));
 
             return new(-MathF.Cos(theta), radius * MathF.Cos(phi), radius * MathF.Sin(phi));
         }
@@ -356,11 +364,15 @@ static class ShapeCorpus {
     ///     ⚠ <b>Flat on purpose, so that nothing but the group boundary can justify a cut.</b> A plate
     ///     is isometric, so the distortion recursion has no reason to split it and the merge-back pass
     ///     has every reason to put it back together — which makes the chart count a clean statement about
-    ///     whether docs/plan/42 § D3's <i>"material and face-group boundaries partition first and
-    ///     unconditionally"</i> is actually unconditional.
+    ///     whether docs/plan/42 § D3's
+    ///     <i>
+    ///         "material and face-group boundaries partition first and
+    ///         unconditionally"
+    ///     </i>
+    ///     is actually unconditional.
     /// </remarks>
     public static EditMesh GroupedPlate(float scale = 1f) {
-        var mesh = Grid(12, 8, false, false, (u, v) => scale * new Vector3((u * 2f) - 1f, 0f, (v * 2f) - 1f));
+        var mesh = Grid(12, 8, false, false, (u, v) => scale * new Vector3(u * 2f - 1f, 0f, v * 2f - 1f));
 
         for (var face = 0; face < mesh.FaceCount; face++) {
             var loop = mesh.CornersOf(face);
@@ -582,7 +594,7 @@ static class ShapeCorpus {
     static Vector3 TorusPoint(float u, float v) {
         var around = u * MathF.Tau;
         var through = v * MathF.Tau;
-        var radius = 2f + (0.6f * MathF.Cos(through));
+        var radius = 2f + 0.6f * MathF.Cos(through);
 
         return new(radius * MathF.Cos(around), 0.6f * MathF.Sin(through), radius * MathF.Sin(around));
     }
@@ -619,5 +631,5 @@ static class ShapeCorpus {
         return mesh;
     }
 
-    static uint Next(ref uint state) => state = (state * 1664525u) + 1013904223u;
+    static uint Next(ref uint state) => state = state * 1664525u + 1013904223u;
 }

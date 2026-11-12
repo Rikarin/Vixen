@@ -28,16 +28,23 @@ namespace Vixen.Rendering.Ecs;
 ///         out at the edge of the frustum.
 ///     </para>
 ///     <para>
-///         <b>Each drawable takes the material it names, and <see cref="Material" /> is what a
-///         drawable that names none gets.</b> That fallback is not a stopgap: a block-out mesh dropped
+///         <b>
+///             Each drawable takes the material it names, and <see cref="Material" /> is what a
+///             drawable that names none gets.
+///         </b>
+///         That fallback is not a stopgap: a block-out mesh dropped
 ///         into a level before anybody has made a material for it has to draw in something neutral, and
 ///         <see cref="MeshRenderable.Material" /> being null is how an author says so. A reference that
 ///         names a material this frame cannot supply yet is waited for exactly as a mesh is — see
 ///         <see cref="Materials" />.
 ///     </para>
 ///     <para>
-///         ⚠ <b>What this is still not is doc 06's "a mesh with three materials is three render
-///         objects".</b> One entity is one render object with one material; a model whose sub-meshes
+///         ⚠
+///         <b>
+///             What this is still not is doc 06's "a mesh with three materials is three render
+///             objects".
+///         </b>
+///         One entity is one render object with one material; a model whose sub-meshes
 ///         want different materials needs one entity each, which is what a prefab already produces.
 ///     </para>
 ///     <para>
@@ -176,8 +183,11 @@ public sealed class MeshExtractionSystem : SystemBase, IDeclaredAccess {
     ///         scene at once, silently, which is a worse failure than the one this fixes.
     ///     </para>
     ///     <para>
-    ///         <b><see cref="PrimitiveShape" /> has no such flag and is always drawn into all of
-    ///         them.</b> Adding one would change a component's layout, which every saved scene is a
+    ///         <b>
+    ///             <see cref="PrimitiveShape" /> has no such flag and is always drawn into all of
+    ///             them.
+    ///         </b>
+    ///         Adding one would change a component's layout, which every saved scene is a
     ///         copy of; a block-out cube that must not cast a shadow is a mesh entity, not a
     ///         primitive.
     ///     </para>
@@ -188,8 +198,10 @@ public sealed class MeshExtractionSystem : SystemBase, IDeclaredAccess {
     /// <inheritdoc cref="MeshExtractionSystem" path="/remarks/para[3]" />
     public Material? Material { get; set; }
 
-    /// <summary>Where the material a reference names comes from. Null draws everything in
-    /// <see cref="Material" />.</summary>
+    /// <summary>
+    ///     Where the material a reference names comes from. Null draws everything in
+    ///     <see cref="Material" />.
+    /// </summary>
     /// <remarks>
     ///     <para>
     ///         <b>Until this was settable, every object in the scene was drawn with one material</b> —
@@ -215,7 +227,7 @@ public sealed class MeshExtractionSystem : SystemBase, IDeclaredAccess {
     ///     every mesh takes the ordinary one and a virtualized model draws through its fallback mesh —
     ///     which is a correct picture and the reason this needs saying: nothing looks wrong.
     /// </remarks>
-    public Features.VirtualGeometryRenderFeature? Virtualized { get; set; }
+    public VirtualGeometryRenderFeature? Virtualized { get; set; }
 
     /// <summary>Where the cluster hierarchy a mesh reference names comes from.</summary>
     /// <inheritdoc cref="Virtualized" path="/remarks" />
@@ -358,8 +370,10 @@ public sealed class MeshExtractionSystem : SystemBase, IDeclaredAccess {
         return true;
     }
 
-    /// <summary>Unsettles every extracted entity, so the next <see cref="Extract" /> stamps them
-    /// afresh.</summary>
+    /// <summary>
+    ///     Unsettles every extracted entity, so the next <see cref="Extract" /> stamps them
+    ///     afresh.
+    /// </summary>
     /// <param name="world">The world.</param>
     /// <exception cref="ArgumentNullException"><paramref name="world" /> is null.</exception>
     /// <remarks>
@@ -537,7 +551,7 @@ public sealed class MeshExtractionSystem : SystemBase, IDeclaredAccess {
 
             // Always a caster: a primitive carries no flag to say otherwise, and `CasterStages`
             // explains why it does not get one.
-            Add(world, entity, GeometryKey.Of(kind), () => MeshPrimitives.Create(kind), material, casts: true);
+            Add(world, entity, GeometryKey.Of(kind), () => MeshPrimitives.Create(kind), material, true);
         }
     }
 
@@ -666,7 +680,12 @@ public sealed class MeshExtractionSystem : SystemBase, IDeclaredAccess {
     ///         <c>docs/plan/22-virtualized-geometry.md</c> phase 7, which names that as what is owed.
     ///     </para>
     /// </remarks>
-    RenderObjectId? Caster(in MeshRenderable renderable, in BoundingSphere bounds, RenderStageMask stages, Material? material) {
+    RenderObjectId? Caster(
+        in MeshRenderable renderable,
+        in BoundingSphere bounds,
+        RenderStageMask stages,
+        Material? material
+    ) {
         if (stages.IsEmpty || Clusters is null) {
             return RenderObjectId.Invalid;
         }
@@ -719,8 +738,10 @@ public sealed class MeshExtractionSystem : SystemBase, IDeclaredAccess {
         return id;
     }
 
-    /// <summary>Which stages this entity is drawn in — the movers' set, or the level's, less the
-    /// shadow ones when it casts none.</summary>
+    /// <summary>
+    ///     Which stages this entity is drawn in — the movers' set, or the level's, less the
+    ///     shadow ones when it casts none.
+    /// </summary>
     /// <param name="world">The world.</param>
     /// <param name="entity">The entity.</param>
     /// <param name="casts">Whether it is drawn into the shadow stages at all.</param>
@@ -751,8 +772,12 @@ public sealed class MeshExtractionSystem : SystemBase, IDeclaredAccess {
 
     /// <summary>Records a material the resolve pass will have to dispatch for.</summary>
     /// <remarks>
-    ///     ⚠ <b>Index zero, for every virtualized object in the scene, and that is the honest state of
-    ///     the format rather than a shortcut here.</b> A cluster carries the material index its meshlet
+    ///     ⚠
+    ///     <b>
+    ///         Index zero, for every virtualized object in the scene, and that is the honest state of
+    ///         the format rather than a shortcut here.
+    ///     </b>
+    ///     A cluster carries the material index its meshlet
     ///     was built with, and nothing maps that index back to an asset reference — the page format does
     ///     not carry one — so a scene's virtualized geometry resolves with the first material assigned to
     ///     any of it. A model with one material, which is nearly all of them, is drawn correctly; a model
@@ -886,8 +911,6 @@ public sealed class MeshExtractionSystem : SystemBase, IDeclaredAccess {
 
         return new(Matrix4x4.TransformPosition(local.Center, matrix), local.Radius * scale);
 
-        static float Row(float x, float y, float z) => (x * x) + (y * y) + (z * z);
+        static float Row(float x, float y, float z) => x * x + y * y + z * z;
     }
-
-
 }

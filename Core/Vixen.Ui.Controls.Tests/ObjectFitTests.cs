@@ -10,8 +10,12 @@ namespace Vixen.Ui.Controls.Tests;
 /// <summary>A picture placed in a box that is not its shape, read off the draw command.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>The draw command rather than a picture, and this is the one family in the compositing
-///         cluster where that is the <i>stronger</i> evidence.</b> A blend or a mask has to be read as
+///         ⚠
+///         <b>
+///             The draw command rather than a picture, and this is the one family in the compositing
+///             cluster where that is the <i>stronger</i> evidence.
+///         </b>
+///         A blend or a mask has to be read as
 ///         pixels because the arithmetic is what is in question; here the arithmetic is two
 ///         rectangles, and the rectangles are the answer — a screenshot of a stretched texture and a
 ///         screenshot of a fitted one differ only where the texture has detail, and no texture is
@@ -19,8 +23,12 @@ namespace Vixen.Ui.Controls.Tests;
 ///         number it does not know, so a pixel assertion here would be a picture of a blank.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Every number below is worked out from CSS Images 3 § 5.5 by hand against a 64 × 16
-///         picture in a 40 × 40 box</b> — a 4:1 ratio against 1:1, chosen so that <c>contain</c>,
+///         ⚠
+///         <b>
+///             Every number below is worked out from CSS Images 3 § 5.5 by hand against a 64 × 16
+///             picture in a 40 × 40 box
+///         </b>
+///         — a 4:1 ratio against 1:1, chosen so that <c>contain</c>,
 ///         <c>cover</c> and <c>none</c> are three different rectangles rather than two. The
 ///         destination and the source are asserted together, always: <c>contain</c> moves the
 ///         destination and leaves the source whole, <c>cover</c> does the reverse, and a test that
@@ -34,9 +42,9 @@ public class ObjectFitTests {
 
         ui.Load(
             $$"""
-            root  { width: 60px; height: 60px; }
-            image { position: absolute; left: 0; top: 0; width: 40px; height: 40px; {{style}} }
-            """
+              root  { width: 60px; height: 60px; }
+              image { position: absolute; left: 0; top: 0; width: 40px; height: 40px; {{style}} }
+              """
         );
 
         var picture = ui.Document.Create<Image>(null, ui.Document.Root);
@@ -45,7 +53,7 @@ public class ObjectFitTests {
         // when this is zero, so the command under test would not exist — and the number names nothing,
         // because what is being measured is the geometry the command carries.
         picture.Texture = 7;
-        picture.IntrinsicSize = new Vector2(64f, 16f);
+        picture.IntrinsicSize = new(64f, 16f);
 
         ui.Frame();
 
@@ -54,7 +62,7 @@ public class ObjectFitTests {
 
     /// <summary>The one image command in the frame, as (destination, source).</summary>
     static (Rectangle Destination, Rectangle Source) Drawn(UiTest ui) {
-        var command = ui.Document.Drawing.Commands.Single(c => c.Kind == DrawCommandKind.Image);
+        var command = ui.Document.Drawing.Commands.Single(static c => c.Kind == DrawCommandKind.Image);
 
         return (
             new Rectangle(command.X, command.Y, command.Width, command.Height),
@@ -85,8 +93,8 @@ public class ObjectFitTests {
 
         var (destination, source) = Drawn(ui);
 
-        Same(new Rectangle(0f, 0f, 40f, 40f), destination, "destination");
-        Same(new Rectangle(0f, 0f, 1f, 1f), source, "source");
+        Same(new(0f, 0f, 40f, 40f), destination, "destination");
+        Same(new(0f, 0f, 1f, 1f), source, "source");
     }
 
     /// <summary>An intrinsic size nobody supplied is <c>fill</c>, whatever the stylesheet asks for.</summary>
@@ -115,8 +123,8 @@ public class ObjectFitTests {
 
         var (destination, source) = Drawn(ui);
 
-        Same(new Rectangle(0f, 0f, 40f, 40f), destination, "destination");
-        Same(new Rectangle(0f, 0f, 1f, 1f), source, "source");
+        Same(new(0f, 0f, 40f, 40f), destination, "destination");
+        Same(new(0f, 0f, 1f, 1f), source, "source");
     }
 
     /// <summary><c>contain</c> shrinks the destination and keeps the whole picture.</summary>
@@ -130,14 +138,18 @@ public class ObjectFitTests {
 
         var (destination, source) = Drawn(ui);
 
-        Same(new Rectangle(0f, 15f, 40f, 10f), destination, "destination");
-        Same(new Rectangle(0f, 0f, 1f, 1f), source, "source");
+        Same(new(0f, 15f, 40f, 10f), destination, "destination");
+        Same(new(0f, 0f, 1f, 1f), source, "source");
     }
 
     /// <summary><c>cover</c> keeps the destination and crops the source.</summary>
     /// <remarks>
-    ///     ⚠ <b>The mirror image of <c>contain</c>, and the pair is what proves the implementation is
-    ///     not simply scaling a quad.</b> The scale is <c>max(40/64, 40/16) = 2.5</c>, so the picture
+    ///     ⚠
+    ///     <b>
+    ///         The mirror image of <c>contain</c>, and the pair is what proves the implementation is
+    ///         not simply scaling a quad.
+    ///     </b>
+    ///     The scale is <c>max(40/64, 40/16) = 2.5</c>, so the picture
     ///     is 160 × 40 and 120 pixels of it are outside the box — 60 on each side under the initial
     ///     centring, which is <c>60/160 = 0.375</c> of the picture cropped from the left and the same
     ///     from the right.
@@ -148,8 +160,8 @@ public class ObjectFitTests {
 
         var (destination, source) = Drawn(ui);
 
-        Same(new Rectangle(0f, 0f, 40f, 40f), destination, "destination");
-        Same(new Rectangle(0.375f, 0f, 0.25f, 1f), source, "source");
+        Same(new(0f, 0f, 40f, 40f), destination, "destination");
+        Same(new(0.375f, 0f, 0.25f, 1f), source, "source");
     }
 
     /// <summary><c>none</c> overflows on one axis and underfills on the other, at once.</summary>
@@ -167,8 +179,8 @@ public class ObjectFitTests {
 
         var (destination, source) = Drawn(ui);
 
-        Same(new Rectangle(0f, 12f, 40f, 16f), destination, "destination");
-        Same(new Rectangle(0.1875f, 0f, 0.625f, 1f), source, "source");
+        Same(new(0f, 12f, 40f, 16f), destination, "destination");
+        Same(new(0.1875f, 0f, 0.625f, 1f), source, "source");
     }
 
     /// <summary><c>scale-down</c> is <c>contain</c> where the picture is too big for the box.</summary>
@@ -182,7 +194,7 @@ public class ObjectFitTests {
     [Fact]
     public void Scale_down_never_enlarges() {
         using (var small = Placed("object-fit: scale-down;")) {
-            Same(new Rectangle(0f, 15f, 40f, 10f), Drawn(small).Destination, "shrunk");
+            Same(new(0f, 15f, 40f, 10f), Drawn(small).Destination, "shrunk");
         }
 
         using var big = UiTest.Create(200f, 200f);
@@ -197,20 +209,24 @@ public class ObjectFitTests {
 
         var picture = big.Document.Create<Image>(null, big.Document.Root);
         picture.Texture = 7;
-        picture.IntrinsicSize = new Vector2(64f, 16f);
+        picture.IntrinsicSize = new(64f, 16f);
 
         big.Frame();
 
         // `contain` here would be a scale of 2.5 and a 160 × 40 destination. The picture stays 64 × 16
         // and sits in the middle of the 160 × 160 box.
-        Same(new Rectangle(48f, 72f, 64f, 16f), Drawn(big).Destination, "unscaled");
+        Same(new(48f, 72f, 64f, 16f), Drawn(big).Destination, "unscaled");
     }
 
     /// <summary><c>object-position</c> spends the slack, and a corner keyword is two words.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The two-word values are the half of this root that needed a new reader, not a new
-    ///         table.</b> <c>object-left-top</c> computes to <c>left top</c>, and
+    ///         ⚠
+    ///         <b>
+    ///             The two-word values are the half of this root that needed a new reader, not a new
+    ///             table.
+    ///         </b>
+    ///         <c>object-left-top</c> computes to <c>left top</c>, and
     ///         <c>UiDocument.KeywordOf</c> answers <c>null</c> to anything that is not one bare
     ///         identifier — so four of Tailwind's nine position classes were unreadable by every
     ///         accessor <c>StyleAccess</c> had. <c>left top</c> and <c>top</c> are asserted together
@@ -234,7 +250,7 @@ public class ObjectFitTests {
     public void A_position_places_the_picture_in_the_slack(string position, float top) {
         using var ui = Placed($"object-fit: contain; object-position: {position};");
 
-        Same(new Rectangle(0f, top, 40f, 10f), Drawn(ui).Destination, position);
+        Same(new(0f, top, 40f, 10f), Drawn(ui).Destination, position);
     }
 
     /// <summary>A cut of a sheet fits by the cut's ratio, not by the sheet's.</summary>
@@ -259,21 +275,25 @@ public class ObjectFitTests {
 
         var picture = ui.Document.Create<Image>(null, ui.Document.Root);
         picture.Texture = 7;
-        picture.IntrinsicSize = new Vector2(64f, 16f);
-        picture.SourceRectangle = new Rectangle(0f, 0f, 0.25f, 1f);
+        picture.IntrinsicSize = new(64f, 16f);
+        picture.SourceRectangle = new(0f, 0f, 0.25f, 1f);
 
         ui.Frame();
 
         var (destination, source) = Drawn(ui);
 
-        Same(new Rectangle(0f, 0f, 40f, 40f), destination, "destination");
-        Same(new Rectangle(0f, 0f, 0.25f, 1f), source, "source");
+        Same(new(0f, 0f, 40f, 40f), destination, "destination");
+        Same(new(0f, 0f, 0.25f, 1f), source, "source");
     }
 
     /// <summary>A mirrored cut still fits, and stays mirrored.</summary>
     /// <remarks>
-    ///     ⚠ <b>A negative extent is how this engine spells a flipped sample — <c>Viewport</c> flips
-    ///     vertically with one — so the fit arithmetic has to be affine rather than clamped.</b> The
+    ///     ⚠
+    ///     <b>
+    ///         A negative extent is how this engine spells a flipped sample — <c>Viewport</c> flips
+    ///         vertically with one — so the fit arithmetic has to be affine rather than clamped.
+    ///     </b>
+    ///     The
     ///     tempting defensive line is to normalise the source rectangle before doing anything with it,
     ///     which silently un-flips every flipped image the moment somebody adds an <c>object-fit</c>
     ///     to its stylesheet. Here <c>cover</c> crops 0.375 from each side of a source that runs
@@ -292,15 +312,15 @@ public class ObjectFitTests {
 
         var picture = ui.Document.Create<Image>(null, ui.Document.Root);
         picture.Texture = 7;
-        picture.IntrinsicSize = new Vector2(64f, 16f);
-        picture.SourceRectangle = new Rectangle(1f, 0f, -1f, 1f);
+        picture.IntrinsicSize = new(64f, 16f);
+        picture.SourceRectangle = new(1f, 0f, -1f, 1f);
 
         ui.Frame();
 
         var (destination, source) = Drawn(ui);
 
-        Same(new Rectangle(0f, 0f, 40f, 40f), destination, "destination");
-        Same(new Rectangle(0.625f, 0f, -0.25f, 1f), source, "source");
+        Same(new(0f, 0f, 40f, 40f), destination, "destination");
+        Same(new(0.625f, 0f, -0.25f, 1f), source, "source");
     }
 
     /// <summary>A picture pushed entirely outside its box draws nothing at all.</summary>
@@ -323,10 +343,10 @@ public class ObjectFitTests {
 
         var picture = ui.Document.Create<Image>(null, ui.Document.Root);
         picture.Texture = 7;
-        picture.IntrinsicSize = new Vector2(64f, 16f);
+        picture.IntrinsicSize = new(64f, 16f);
 
         ui.Frame();
 
-        Assert.DoesNotContain(ui.Document.Drawing.Commands, c => c.Kind == DrawCommandKind.Image);
+        Assert.DoesNotContain(ui.Document.Drawing.Commands, static c => c.Kind == DrawCommandKind.Image);
     }
 }

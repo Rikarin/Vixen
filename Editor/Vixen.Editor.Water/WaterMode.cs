@@ -2,8 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core.Mathematics;
-using Vixen.Ecs;
-using Vixen.Editor.Core;
 using Vixen.Editor.SceneView;
 using Vixen.Editor.Ui;
 using Vixen.Engine.Transforms;
@@ -25,8 +23,12 @@ namespace Vixen.Editor.Water;
 ///         is editing a <em>spline</em> — so this mode exists for the three things that are neither.
 ///     </para>
 ///     <para>
-///         ⚠ <b>That paragraph used to end "and the editor already does both", and the second half is
-///         false.</b> <c>SplineEdit</c> and <c>SplineCommand</c> are instantiated by nothing outside
+///         ⚠
+///         <b>
+///             That paragraph used to end "and the editor already does both", and the second half is
+///             false.
+///         </b>
+///         <c>SplineEdit</c> and <c>SplineCommand</c> are instantiated by nothing outside
 ///         their own tests, so nobody can move a body's control point in any viewport — see
 ///         <see href="https://github.com/Rikarin/Vixen/issues/118">#118</see>. The scope argument
 ///         survives it (shape editing is not water's job) but the capability it leans on does not
@@ -99,7 +101,7 @@ public sealed class WaterMode : IEditorMode, IViewportInput {
 
     /// <inheritdoc />
     public IReadOnlyList<ToolbarEntry> Toolbar { get; } = [
-        new ToolbarGroup([.. Tools.Select(ToolCommand)])
+        new ToolbarGroup([..Tools.Select(ToolCommand)])
     ];
 
     /// <summary>The three tools, in the order the strip lists them.</summary>
@@ -142,8 +144,12 @@ public sealed class WaterMode : IEditorMode, IViewportInput {
 
     /// <summary>What a body's spline name means, or null while nothing can say.</summary>
     /// <remarks>
-    ///     ⚠ <b>The Profile tool cannot work without it, and it is a seam rather than a reference to
-    ///     the asset database</b> — <c>IWaterScene</c>'s own argument. A handle sits on the curve, the
+    ///     ⚠
+    ///     <b>
+    ///         The Profile tool cannot work without it, and it is a seam rather than a reference to
+    ///         the asset database
+    ///     </b>
+    ///     — <c>IWaterScene</c>'s own argument. A handle sits on the curve, the
     ///     curve is a name in a component, and turning a name into geometry means reading a file. What
     ///     supplies one here is <c>WaterModule.WaterScene</c>, which is the same object the viewport
     ///     draws the water from — so the handles are on the surface the author is looking at rather
@@ -259,7 +265,7 @@ public sealed class WaterMode : IEditorMode, IViewportInput {
                 }
             );
 
-            shell.Keys.SetDefault(id, new KeyChord((InputKey)((int)InputKey.Number1 + slot), ModifierKeys.None));
+            shell.Keys.SetDefault(id, new((InputKey)((int)InputKey.Number1 + slot), ModifierKeys.None));
         }
 
         foreach (var tool in Tools) {
@@ -293,7 +299,7 @@ public sealed class WaterMode : IEditorMode, IViewportInput {
             }
         );
 
-        shell.Keys.SetDefault(FinishCommand, new KeyChord(InputKey.Enter, ModifierKeys.None));
+        shell.Keys.SetDefault(FinishCommand, new(InputKey.Enter, ModifierKeys.None));
 
         Verb(UndoPointCommand, () => Editing.Undo(), InputKey.Backspace);
         Verb(CancelCommand, Editing.Cancel, InputKey.Escape);
@@ -329,14 +335,12 @@ public sealed class WaterMode : IEditorMode, IViewportInput {
 
         void Verb(string id, Action run, InputKey key) {
             shell.Commands.Add(
-                new EditorCommand(id, WaterStrings.Commands[id], run) {
-                    Category = WaterStrings.CategoryWater,
-                    Context = WaterContext,
-                    Enablement = IsActive
+                new(id, WaterStrings.Commands[id], run) {
+                    Category = WaterStrings.CategoryWater, Context = WaterContext, Enablement = IsActive
                 }
             );
 
-            shell.Keys.SetDefault(id, new KeyChord(key, ModifierKeys.None));
+            shell.Keys.SetDefault(id, new(key, ModifierKeys.None));
         }
     }
 
@@ -365,8 +369,7 @@ public sealed class WaterMode : IEditorMode, IViewportInput {
     }
 
     /// <inheritdoc />
-    public void Activated() {
-    }
+    public void Activated() { }
 
     /// <inheritdoc />
     /// <remarks>
@@ -376,8 +379,12 @@ public sealed class WaterMode : IEditorMode, IViewportInput {
     ///         idea a curve was in flight.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And the carve preview goes back on, which is the one thing here that touches a
-    ///         document.</b> <see cref="WaterEdit.CarvePreview" /> hides the terrain's reserved water
+    ///         ⚠
+    ///         <b>
+    ///             And the carve preview goes back on, which is the one thing here that touches a
+    ///             document.
+    ///         </b>
+    ///         <see cref="WaterEdit.CarvePreview" /> hides the terrain's reserved water
     ///         layer, and <c>TerrainEditLayer.IsVisible</c> is <em>saved</em> — so an author who left
     ///         the mode with the preview off would reopen the project to ground with no riverbeds in
     ///         it and nothing anywhere saying why. A view state that outlives the view it belongs to
@@ -399,8 +406,12 @@ public sealed class WaterMode : IEditorMode, IViewportInput {
     /// <inheritdoc />
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Each tool is asked for what it actually wants, and one of the three wants
-    ///         nothing.</b> A mode that returned true for every event in every tool would swallow the
+    ///         ⚠
+    ///         <b>
+    ///             Each tool is asked for what it actually wants, and one of the three wants
+    ///             nothing.
+    ///         </b>
+    ///         A mode that returned true for every event in every tool would swallow the
     ///         pane's navigation, its marquee and its gizmo for the whole time it is active — which is
     ///         why this reads as three cases rather than as one guard being widened.
     ///     </para>
@@ -439,8 +450,12 @@ public sealed class WaterMode : IEditorMode, IViewportInput {
 
     /// <summary>The profile gesture: grab a handle, drag it, and commit one undo entry on release.</summary>
     /// <remarks>
-    ///     ⚠ <b>The hover is tracked and <em>not</em> taken — the <c>return false</c> is
-    ///     load-bearing.</b> <c>TerrainMode.Pointer</c>'s rule: the pane's own hover is what highlights
+    ///     ⚠
+    ///     <b>
+    ///         The hover is tracked and <em>not</em> taken — the <c>return false</c> is
+    ///         load-bearing.
+    ///     </b>
+    ///     <c>TerrainMode.Pointer</c>'s rule: the pane's own hover is what highlights
     ///     whatever a click would select, and a mode that swallowed every move to draw three crosses
     ///     would turn that highlight off for the whole time the tool is armed.
     /// </remarks>
@@ -574,8 +589,12 @@ public sealed class WaterMode : IEditorMode, IViewportInput {
     ///         editing" — and the two would disagree the first time somebody used the outliner.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Liveness first, and <c>World.Has</c> throws rather than answering false for a
-    ///         destroyed entity.</b> A selection outlives the thing it names for one frame after an
+    ///         ⚠
+    ///         <b>
+    ///             Liveness first, and <c>World.Has</c> throws rather than answering false for a
+    ///             destroyed entity.
+    ///         </b>
+    ///         A selection outlives the thing it names for one frame after an
     ///         undo that removed it, which is <c>TerrainModuleSession.Bound</c>'s note and the same
     ///         crash on Ctrl-Z.
     ///     </para>
@@ -640,8 +659,12 @@ public sealed class WaterMode : IEditorMode, IViewportInput {
 
     /// <summary>Draws the curve and its handles. Read every frame, so it reads fields and allocates nothing.</summary>
     /// <remarks>
-    ///     ⚠ <b>The centre line first, and it is what the three handles per point are measured
-    ///     from.</b> Without it the Profile tool draws two bars and a cross at each control point and
+    ///     ⚠
+    ///     <b>
+    ///         The centre line first, and it is what the three handles per point are measured
+    ///         from.
+    ///     </b>
+    ///     Without it the Profile tool draws two bars and a cross at each control point and
     ///     nothing between them — so a river with a bend in it reads as a row of unrelated markers,
     ///     and the author widening it cannot see the shape they are widening. <c>SplineOverlay</c> is
     ///     the one that knows how to sample a curve, and it samples by arc length rather than by
@@ -732,7 +755,9 @@ public sealed class WaterMode : IEditorMode, IViewportInput {
             && Document is { } document
             && document.World.IsAlive(body.Entity)
             && (body.Component.HalfWidth != profiledBefore.HalfWidth || body.Component.Depth != profiledBefore.Depth)) {
-            document.Stack.Execute(new WaterProfileCommand(document.World, body.Entity, profiledBefore, body.Component));
+            document.Stack.Execute(
+                new WaterProfileCommand(document.World, body.Entity, profiledBefore, body.Component)
+            );
         }
 
         Editing.Release();

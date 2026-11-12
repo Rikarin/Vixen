@@ -13,10 +13,18 @@ using System.Text.Json;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <c>docs/plan/12</c> asks <c>Pack</c> to <i>"validate package contents against an
-///         expected-files manifest (a package that silently stops shipping its native asset is a real
-///         failure mode)"</i>. ⚠ <b>The expected-files manifest already exists inside every such
-///         package and is written by the build:</b> a framework-dependent tool's <c>.deps.json</c> is
+///         <c>docs/plan/12</c> asks <c>Pack</c> to
+///         <i>
+///             "validate package contents against an
+///             expected-files manifest (a package that silently stops shipping its native asset is a real
+///             failure mode)"
+///         </i>
+///         . ⚠
+///         <b>
+///             The expected-files manifest already exists inside every such
+///             package and is written by the build:
+///         </b>
+///         a framework-dependent tool's <c>.deps.json</c> is
 ///         the exact list of assemblies and per-RID native payloads the host will look for at run
 ///         time. A hand-written table beside it would be a second source of truth that goes stale the
 ///         first time a dependency is added — the drift
@@ -24,8 +32,12 @@ using System.Text.Json;
 ///         it would have to be written by reading the very file this reads.
 ///     </para>
 ///     <para>
-///         ⚠ <b>It is the generalisation of <c>CheckStyleGenIsShippable</c> and would have caught the
-///         failure that check was written from.</b> That package shipped <c>Vixen.StyleGen.dll</c>
+///         ⚠
+///         <b>
+///             It is the generalisation of <c>CheckStyleGenIsShippable</c> and would have caught the
+///             failure that check was written from.
+///         </b>
+///         That package shipped <c>Vixen.StyleGen.dll</c>
 ///         alone, with neither <c>Vixen.Ui.Styling.Utilities.dll</c> nor the <c>.deps.json</c> — and
 ///         every one of the missing assemblies is named in the <c>.deps.json</c> of the build that
 ///         produced it. The five files that check names are the five that were missing that day; this
@@ -137,7 +149,7 @@ static class PackageContents {
         }
 
         // ⚠ An exemption that has stopped being needed is a problem of its own, the way
-        // `docs/WhitespaceExempt.txt` and `docs/DocCommentExempt.txt` work: the list can only
+        // `docs/DocsExempt.txt` and `docs/DocCommentExempt.txt` work: the list can only
         // shrink. A package that started carrying a file somebody wrote a reason for not carrying
         // is a reason that has outlived itself, and an allow-list nobody prunes is how the next
         // genuinely missing file goes unreported.
@@ -232,8 +244,12 @@ static class PackageContents {
     ///     Whether a file a manifest names has to be in the package for the tool to start.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>A <c>.pdb</c> never is, and six of the twenty-one problems the first CI run to reach
-    ///     `pack` reported were native debug symbols.</b> <c>runtimeTargets</c> lists whatever the
+    ///     ⚠
+    ///     <b>
+    ///         A <c>.pdb</c> never is, and six of the twenty-one problems the first CI run to reach
+    ///         `pack` reported were native debug symbols.
+    ///     </b>
+    ///     <c>runtimeTargets</c> lists whatever the
     ///     dependency package put under <c>runtimes/</c>, symbols included — <c>HarfBuzzSharp</c>
     ///     ships <c>libHarfBuzzSharp.pdb</c> beside each Windows native — and <c>Vixen.Sdk</c> drops
     ///     <c>.pdb</c> deliberately, 67 MB of symbols for an assembly nobody debugs from a package.
@@ -242,8 +258,7 @@ static class PackageContents {
     ///     categorical rather than a line in the exemption list, because it is true of every package
     ///     rather than a decision one of them made.
     /// </remarks>
-    static bool IsRequiredToStart(string path) =>
-        !path.EndsWith(".pdb", StringComparison.OrdinalIgnoreCase);
+    static bool IsRequiredToStart(string path) => !path.EndsWith(".pdb", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>One section's asset paths, with NuGet's empty-folder placeholder dropped.</summary>
     static IEnumerable<string> Assets(JsonElement library, string section) {

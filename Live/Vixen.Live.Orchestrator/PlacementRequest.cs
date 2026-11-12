@@ -38,14 +38,13 @@ public sealed record PlacementRequest {
     ///     Guild Wars 2's most-underrated placement term, and one the engine has no business having
     ///     an opinion about beyond "the same string scores".
     /// </remarks>
-    public string Locale { get; init; } = "";
+    public string Locale { get; init; } = string.Empty;
 
     /// <summary>The shard they were just moved off, if any.</summary>
     public ShardId CameFrom { get; init; }
 
     /// <inheritdoc />
-    public override string ToString() =>
-        string.Create(CultureInfo.InvariantCulture, $"{Player} → {Key}");
+    public override string ToString() => string.Create(CultureInfo.InvariantCulture, $"{Player} → {Key}");
 }
 
 /// <summary>A shard as placement sees it: a few numbers, and no roster.</summary>
@@ -102,7 +101,7 @@ public sealed record ShardCandidate {
     public int Friends { get; init; }
 
     /// <summary>The language most of this shard is speaking.</summary>
-    public string Locale { get; init; } = "";
+    public string Locale { get; init; } = string.Empty;
 
     /// <summary>How full it is, as a percentage of its soft cap.</summary>
     public double FillPercent => Capacity.SoftCap <= 0 ? 0 : Population * 100.0 / Capacity.SoftCap;

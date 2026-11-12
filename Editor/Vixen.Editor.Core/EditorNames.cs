@@ -14,9 +14,13 @@ namespace Vixen.Editor.Core;
 ///         same convention in the same panel, an inch apart.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Here rather than in <c>Vixen.Editor.Inspector</c>, because
-///         <c>Vixen.Editor.SceneView</c> cannot see that assembly and is where a component bridge
-///         lives.</b> This one is the layer both of them already reference, which is what makes it
+///         ⚠
+///         <b>
+///             Here rather than in <c>Vixen.Editor.Inspector</c>, because
+///             <c>Vixen.Editor.SceneView</c> cannot see that assembly and is where a component bridge
+///             lives.
+///         </b>
+///         This one is the layer both of them already reference, which is what makes it
 ///         the answer rather than a copy in each.
 ///     </para>
 /// </remarks>

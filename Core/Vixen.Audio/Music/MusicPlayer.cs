@@ -219,15 +219,18 @@ public sealed class MusicPlayer {
         ArgumentNullException.ThrowIfNull(clip);
         var now = engine.RenderedFrames;
 
-        return engine.Play(clip, new PlaybackSettings {
-            Bus = Bus,
-            Gain = gainDb == 0f ? 1f : Effects.Decibels.ToLinear(gainDb),
+        return engine.Play(
+            clip,
+            new() {
+                Bus = Bus,
+                Gain = gainDb == 0f ? 1f : Effects.Decibels.ToLinear(gainDb),
 
-            // Below the music, which is the one thing that must never be displaced, and above
-            // everything else — a stinger that lost its slot to a footstep would be worse than none.
-            Priority = int.MaxValue - 1,
-            StartFrame = Current is null ? now : Transport.NextBoundary(now, quantize, SegmentFrames(Current))
-        });
+                // Below the music, which is the one thing that must never be displaced, and above
+                // everything else — a stinger that lost its slot to a footstep would be worse than none.
+                Priority = int.MaxValue - 1,
+                StartFrame = Current is null ? now : Transport.NextBoundary(now, quantize, SegmentFrames(Current))
+            }
+        );
     }
 
     /// <summary>Stops the music.</summary>
@@ -261,7 +264,7 @@ public sealed class MusicPlayer {
             var start = QueuedAtFrame;
             Queued = null;
             QueuedAtFrame = 0;
-            Begin(queued, start, alreadyStarted: true);
+            Begin(queued, start, true);
         }
 
         Notify(now);
@@ -419,7 +422,7 @@ public sealed class MusicPlayer {
     /// <summary>Makes a segment the current one, from a frame.</summary>
     void Begin(MusicSegment segment, long start, bool alreadyStarted = false) {
         Current = segment;
-        Transport.Start(start, new MusicTempoMap(segment.Tempo, segment.TempoChanges, Transport.SampleRate));
+        Transport.Start(start, new(segment.Tempo, segment.TempoChanges, Transport.SampleRate));
         lastBeat = long.MinValue;
         lastBar = long.MinValue;
         lastMarker = -1;
@@ -430,7 +433,7 @@ public sealed class MusicPlayer {
 
         currentEnd = segment.LoopCount < 0 || frames <= 0
             ? long.MaxValue
-            : start + (frames * (segment.LoopCount + 1));
+            : start + frames * (segment.LoopCount + 1);
 
         if (alreadyStarted) {
             voice = queuedVoice;
@@ -444,14 +447,17 @@ public sealed class MusicPlayer {
 
     VoiceHandle Start(MusicSegment segment, long at) =>
         segment.Clip is { } clip
-            ? engine.Play(clip, new PlaybackSettings {
-                Bus = Bus,
-                Loop = segment.LoopCount != 0,
+            ? engine.Play(
+                clip,
+                new() {
+                    Bus = Bus,
+                    Loop = segment.LoopCount != 0,
 
-                // Music is the last thing that should ever be displaced, and it is one voice.
-                Priority = int.MaxValue,
-                StartFrame = at
-            })
+                    // Music is the last thing that should ever be displaced, and it is one voice.
+                    Priority = int.MaxValue,
+                    StartFrame = at
+                }
+            )
             : VoiceHandle.None;
 
     /// <summary>Lets the current voice go, over the crossfade.</summary>

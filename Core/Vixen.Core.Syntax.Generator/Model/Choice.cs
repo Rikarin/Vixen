@@ -13,5 +13,6 @@ public class Choice : TreeTypeChild {
     [XmlElement(ElementName = "Sequence", Type = typeof(Sequence))]
     public List<TreeTypeChild> Children { get; set; }
 
-    [XmlAttribute] public bool Optional { get; set; }
+    [XmlAttribute]
+    public bool Optional { get; set; }
 }

@@ -83,9 +83,13 @@ public sealed record FuzzFinding(string Target, FuzzFailure Failure, byte[] Inpu
 
 /// <summary>Why a run ended.</summary>
 /// <remarks>
-///     ⚠ <b>Internal, and a phrase rather than a type on <see cref="FuzzOutcome" />, because
-///     <c>Vixen.Fuzz</c>'s public surface is gated by <c>CheckDocs</c> and a new public type there
-///     owes a guide page the harness does not have.</b> The distinction is worth keeping in the code
+///     ⚠
+///     <b>
+///         Internal, and a phrase rather than a type on <see cref="FuzzOutcome" />, because
+///         <c>Vixen.Fuzz</c>'s public surface is gated by <c>CheckDocs</c> and a new public type there
+///         owes a guide page the harness does not have.
+///     </b>
+///     The distinction is worth keeping in the code
 ///     regardless: the summary line has to name one of exactly four things, and a string built at
 ///     four call sites is a string that eventually says five.
 /// </remarks>
@@ -133,8 +137,12 @@ enum FuzzStop {
 ///     How many cases read over <see cref="FuzzSession.CaseBudget" /> and then did not, when asked
 ///     again.
 ///     <para>
-///         ⚠ <b>Printed because an oracle that quietly stops accusing anybody is indistinguishable
-///         from an oracle that has nothing to accuse.</b> Each of these is a case the machine made look
+///         ⚠
+///         <b>
+///             Printed because an oracle that quietly stops accusing anybody is indistinguishable
+///             from an oracle that has nothing to accuse.
+///         </b>
+///         Each of these is a case the machine made look
 ///         like a defect and that re-measuring exonerated — so a run of a dozen is a loaded host and a
 ///         run of none is a quiet one, and neither is visible from "clean" alone. It is also the only
 ///         number that would move if <see cref="FuzzSession.CaseBudgetConfirmations" /> ever started
@@ -163,8 +171,8 @@ public sealed record FuzzOutcome(
             $"{Target,-10} {Cases,9:N0} cases  {Signatures,5:N0} behaviours  {CorpusSize,4:N0} kept  "
             + $"{Cases / Math.Max(0.001, Elapsed.TotalSeconds),9:N0}/s  "
             + $"{(Clean ? "clean" : $"{Findings.Count} FINDING(S)")}"
-            + $"{(Suppressed > 0 ? $" (+{Suppressed:N0} repeats)" : "")}"
-            + $"{(Acquitted > 0 ? $" ({Acquitted:N0} acquitted on a second reading)" : "")}"
+            + $"{(Suppressed > 0 ? $" (+{Suppressed:N0} repeats)" : string.Empty)}"
+            + $"{(Acquitted > 0 ? $" ({Acquitted:N0} acquitted on a second reading)" : string.Empty)}"
             + $"  stopped on {Stopped}"
         );
 }
@@ -181,8 +189,12 @@ public sealed record FuzzOutcome(
 ///         without disturbing any of them.
 ///     </para>
 ///     <para>
-///         ⚠ <b>All four are computed after <see cref="IFuzzTarget.Run" /> returns, and that is a hole
-///         rather than a detail.</b> An input that makes a decoder loop, or grow the heap without
+///         ⚠
+///         <b>
+///             All four are computed after <see cref="IFuzzTarget.Run" /> returns, and that is a hole
+///             rather than a detail.
+///         </b>
+///         An input that makes a decoder loop, or grow the heap without
 ///         bound, never lets it return — so the readings that would have caught it are never taken and
 ///         the run is ended by the operating system killing the machine instead. A fifth,
 ///         <see cref="FuzzFailure.RanAway" />, is watched for <i>during</i> the call by
@@ -203,15 +215,22 @@ public sealed record FuzzOutcome(
 ///         is there so a target that throws on everything does not fill memory with the evidence.
 ///     </para>
 ///     <para>
-///         ⚠ <b>That cap ends the run, and not only the collecting — reaffirmed rather than assumed,
-///         because it is what hid a compiler bug for weeks.</b> The argument for bounding stored
+///         ⚠
+///         <b>
+///             That cap ends the run, and not only the collecting — reaffirmed rather than assumed,
+///             because it is what hid a compiler bug for weeks.
+///         </b>
+///         The argument for bounding stored
 ///         evidence does not by itself argue for stopping, and while the dedup key was the whole
 ///         detail string it very nearly was not: one defect minted a fresh finding per byte offset,
 ///         thirty-two of them filled the cap in five and a half minutes, and <c>raven</c> never once
 ///         spent more than that of its two-hour nightly. The cap stays a stopping condition now that
 ///         a finding means a distinct defect again, for a reason the old arithmetic did not have:
-///         <b>past thirty-two of those there is nothing left to learn, and going on makes the search
-///         worse rather than longer</b> — every failing input is offered to the corpus, so the
+///         <b>
+///             past thirty-two of those there is nothing left to learn, and going on makes the search
+///             worse rather than longer
+///         </b>
+///         — every failing input is offered to the corpus, so the
 ///         mutator settles into the broken region and stops reaching anything else. What was
 ///         actually missing was not more running but the ability to see that it had stopped, which
 ///         is <see cref="FuzzOutcome.Stopped" />.
@@ -256,8 +275,12 @@ public sealed class FuzzSession {
     ///         normally speaks.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The number is not what makes this survive a loaded machine —
-    ///         <see cref="CaseBudgetConfirmations" /> is.</b> No wall-clock threshold can separate a
+    ///         ⚠
+    ///         <b>
+    ///             The number is not what makes this survive a loaded machine —
+    ///             <see cref="CaseBudgetConfirmations" /> is.
+    ///         </b>
+    ///         No wall-clock threshold can separate a
     ///         slow input from a stalled thread from one reading, and this one was set "generously"
     ///         twice on that assumption. Read that property before changing this one; raising this
     ///         alone is the same defect with a longer fuse.
@@ -268,8 +291,11 @@ public sealed class FuzzSession {
     /// <summary>How many further readings an over-budget case gets before it is called a finding.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>A single reading of a wall clock is not evidence about an input, and treating it as
-    ///         evidence is what made this oracle flaky.</b> "This input is slow" is a claim about the
+    ///         <b>
+    ///             A single reading of a wall clock is not evidence about an input, and treating it as
+    ///             evidence is what made this oracle flaky.
+    ///         </b>
+    ///         "This input is slow" is a claim about the
     ///         input, so it is tested the way any claim about an input is tested — by running the input
     ///         again. A scheduler stall or a collector pause does not recur on demand and the next
     ///         reading collapses to what the decode actually costs; a decoder that has genuinely gone
@@ -427,7 +453,7 @@ public sealed class FuzzSession {
                 input = domain is null ? mutator.Fresh() : domain.Fresh(shaper);
             }
 
-            Execute(input, ++executed > WarmUpCases, keep: true);
+            Execute(input, ++executed > WarmUpCases, true);
         }
 
         clock.Stop();
@@ -510,7 +536,7 @@ public sealed class FuzzSession {
                 return;
             }
 
-            Execute(entry, measure: false, keep: false);
+            Execute(entry, false, false);
         }
     }
 
@@ -671,8 +697,11 @@ public sealed class FuzzSession {
     /// <summary>Adds a case to the allocation window, and reports the window if it went over.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>Over a window rather than per case, for two reasons that both make a per-case check
-    ///         lie.</b> The first is amortisation: a list that doubles pays for the next thousand
+    ///         <b>
+    ///             Over a window rather than per case, for two reasons that both make a per-case check
+    ///             lie.
+    ///         </b>
+    ///         The first is amortisation: a list that doubles pays for the next thousand
     ///         appends in one, and charging the whole doubling to whichever packet triggered it
     ///         reports a decoder that allocates four bytes an item as one that allocates four
     ///         kilobytes. The second is the measurement itself —
@@ -681,8 +710,12 @@ public sealed class FuzzSession {
     ///         contain a Gen0 collection reads several kilobytes high through no fault of its own.
     ///     </para>
     ///     <para>
-    ///         The property worth defending survives both: <b>a stream of hostile packets must not
-    ///         cost memory out of proportion to the stream</b>. A window of
+    ///         The property worth defending survives both:
+    ///         <b>
+    ///             a stream of hostile packets must not
+    ///             cost memory out of proportion to the stream
+    ///         </b>
+    ///         . A window of
     ///         <see cref="WindowCases" /> is long enough that one doubling and one collection are
     ///         noise in it, and short enough that a decoder amplifying every packet is over the line
     ///         within a millisecond of running.
@@ -732,7 +765,9 @@ public sealed class FuzzSession {
     /// </remarks>
     static string Describe(Exception exception) {
         var frames = exception.StackTrace?.Split('\n') ?? [];
-        var top = frames.Length == 0 ? "" : $" at{frames[0].AsSpan().TrimStart().TrimStart("at".AsSpan())}".TrimEnd();
+        var top = frames.Length == 0
+            ? string.Empty
+            : $" at{frames[0].AsSpan().TrimStart().TrimStart("at".AsSpan())}".TrimEnd();
 
         return $"{exception.GetType().Name}: {exception.Message}{top}";
     }
@@ -756,8 +791,12 @@ public sealed class FuzzSession {
     ///         minutes, and the target's two-hour nightly had never once run longer than that.
     ///     </para>
     ///     <para>
-    ///         So the key is <b>the failure and the detail with the input's own values taken out of
-    ///         it</b> — digit runs and quoted spans blanked. For the failure that matters, that is
+    ///         So the key is
+    ///         <b>
+    ///             the failure and the detail with the input's own values taken out of
+    ///             it
+    ///         </b>
+    ///         — digit runs and quoted spans blanked. For the failure that matters, that is
     ///         where it was thrown: <see cref="Describe" /> puts the exception's type and top frame in
     ///         the detail precisely so two throwing sites stay two findings, and blanking values
     ///         leaves both standing. What collapses is only the part that varies per input, which is

@@ -111,7 +111,7 @@ public static class CurveEvaluation {
         var t = (time - from.Time) / span;
 
         if (from.Mode == TangentMode.Linear && to.Mode == TangentMode.Linear) {
-            return from.Value + ((to.Value - from.Value) * t);
+            return from.Value + (to.Value - from.Value) * t;
         }
 
         var (outgoing, incoming) = Slopes(keys, index);
@@ -121,10 +121,10 @@ public static class CurveEvaluation {
         var t2 = t * t;
         var t3 = t2 * t;
 
-        return (((2f * t3) - (3f * t2) + 1f) * from.Value)
-            + ((t3 - (2f * t2) + t) * outgoing * span)
-            + (((-2f * t3) + (3f * t2)) * to.Value)
-            + ((t3 - t2) * incoming * span);
+        return (2f * t3 - 3f * t2 + 1f) * from.Value
+            + (t3 - 2f * t2 + t) * outgoing * span
+            + (-2f * t3 + 3f * t2) * to.Value
+            + (t3 - t2) * incoming * span;
     }
 
     /// <summary>The two slopes that actually govern a segment, after the modes have had their say.</summary>

@@ -8,8 +8,11 @@ namespace Vixen.Gameplay.Economy;
 /// <summary>How long an applied idempotency key goes on being remembered.</summary>
 /// <remarks>
 ///     <para>
-///         <b>A ledger's key set is the only unbounded thing in a realm that cannot simply be
-///         cleared.</b> It is what makes a retried trade write nothing the second time, so every key
+///         <b>
+///             A ledger's key set is the only unbounded thing in a realm that cannot simply be
+///             cleared.
+///         </b>
+///         It is what makes a retried trade write nothing the second time, so every key
 ///         it drops is a retry it will silently apply twice — and a shard that runs for a week
 ///         otherwise keeps every key of that week. <c>Samples/14-Mmo</c>'s soak measured it as roughly
 ///         a megabyte a minute, for ever.
@@ -31,8 +34,12 @@ namespace Vixen.Gameplay.Economy;
 ///         exists to make unrepresentable.
 ///     </para>
 ///     <para>
-///         ⚠ <b><see cref="Guaranteed" /> is the number that matters, and it is not
-///         <see cref="Length" />.</b> Forgetting happens a bucket at a time, so a key added just after
+///         ⚠
+///         <b>
+///             <see cref="Guaranteed" /> is the number that matters, and it is not
+///             <see cref="Length" />.
+///         </b>
+///         Forgetting happens a bucket at a time, so a key added just after
 ///         a rotation is dropped nearly a full <see cref="Length" /> later and one added just before
 ///         it is dropped one <see cref="Interval" /> sooner. The <em>worst</em> case is what a safety
 ///         argument is made of, and it is the one asserted against the retry window.
@@ -57,7 +64,9 @@ public readonly record struct KeyHorizon {
     /// </remarks>
     public const int Windows = 4;
 
-    KeyHorizon(TimeSpan retryWindow) => RetryWindow = retryWindow;
+    KeyHorizon(TimeSpan retryWindow) {
+        RetryWindow = retryWindow;
+    }
 
     /// <summary>Forget nothing. What a ledger has until somebody says otherwise.</summary>
     public static KeyHorizon Never => default;

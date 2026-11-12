@@ -40,8 +40,12 @@ public sealed record BloomAsset : ISceneRendererAsset {
     /// <summary>Luminance above which a pixel contributes, in the source's units.</summary>
     /// <remarks>
     ///     ⚠ <b>Photometric, and it was one until 2026-09-10.</b> The renderer works in cd/m² and
-    ///     nothing in a physically lit frame is near one, so a threshold of one passes the <i>entire
-    ///     picture</i> through the bright pass: the glow stops being light spilling off a highlight
+    ///     nothing in a physically lit frame is near one, so a threshold of one passes the
+    ///     <i>
+    ///         entire
+    ///         picture
+    ///     </i>
+    ///     through the bright pass: the glow stops being light spilling off a highlight
     ///     and becomes a blurred second copy of the frame added back over it. Three thousand is what
     ///     sample 13's hand-authored frame gives this node, with its own argument written beside it —
     ///     about two stops over what its exposure calls middle grey and about twice its brightest
@@ -52,8 +56,12 @@ public sealed record BloomAsset : ISceneRendererAsset {
 
     /// <summary>How soft that threshold is, in the same units.</summary>
     /// <remarks>
-    ///     ⚠ <b>It moves with <see cref="Threshold" /> and is half of it, because a knee is a
-    ///     <i>width</i> in the source's units rather than a fraction.</b> Half a candela either side
+    ///     ⚠
+    ///     <b>
+    ///         It moves with <see cref="Threshold" /> and is half of it, because a knee is a
+    ///         <i>width</i> in the source's units rather than a fraction.
+    ///     </b>
+    ///     Half a candela either side
     ///     of three thousand is a hard threshold with a soft-knee shader evaluating it, which is the
     ///     popping the knee exists to stop.
     /// </remarks>
@@ -121,7 +129,7 @@ public sealed record TonemapAsset : ISceneRendererAsset {
     public string Source { get; init; } = string.Empty;
 
     /// <summary>A 3D colour lookup table, or empty for none.</summary>
-    public string Lut { get; init; } = "";
+    public string Lut { get; init; } = string.Empty;
 
     /// <summary>The name the result is published under.</summary>
     public string Output { get; init; } = "Tonemapped";
@@ -199,7 +207,7 @@ public sealed record TonemapAsset : ISceneRendererAsset {
     ///         null. Appending is the change the format supports; reordering is not.
     ///     </para>
     /// </remarks>
-    public string Bloom { get; init; } = "";
+    public string Bloom { get; init; } = string.Empty;
 
     /// <summary>How much of that pyramid reaches the image.</summary>
     public float BloomIntensity { get; init; } = 0.2f;
@@ -238,21 +246,25 @@ public sealed record TonemapAsset : ISceneRendererAsset {
     public Vector3 BloomTint { get; init; } = Vector3.One;
 
     /// <summary>A lens-dirt texture that brightens the bloom, or empty for a clean lens.</summary>
-    public string BloomDirt { get; init; } = "";
+    public string BloomDirt { get; init; } = string.Empty;
 
     /// <summary>How much that dirt brightens it.</summary>
     public float BloomDirtIntensity { get; init; }
 
     /// <summary>The view whose lens sets the exposure, or empty for an authored one.</summary>
     /// <remarks>
-    ///     ⚠ <b>It fills in for <see cref="Exposure" /> and <see cref="Ev100" /> rather than beating
-    ///     them.</b> Naming a view here and leaving both of those alone is how a document says "expose
+    ///     ⚠
+    ///     <b>
+    ///         It fills in for <see cref="Exposure" /> and <see cref="Ev100" /> rather than beating
+    ///         them.
+    ///     </b>
+    ///     Naming a view here and leaving both of those alone is how a document says "expose
     ///     this frame the way the camera's aperture, shutter and ISO say to". Naming a view <em>and</em>
     ///     an exposure keeps the authored one, because that is a decision somebody made about this
     ///     level and a lens silently overriding it would move the frame by however many stops the
     ///     aperture happens to be.
     /// </remarks>
-    public string View { get; init; } = "";
+    public string View { get; init; } = string.Empty;
 
     /// <summary>Whether the four-range colour decision list runs.</summary>
     /// <remarks>
@@ -286,8 +298,12 @@ public sealed record TonemapAsset : ISceneRendererAsset {
 /// <remarks>
 ///     <para>
 ///         [19](../../../docs/plan/19-lighting-and-global-illumination.md) § L1's consumer.
-///         <c>GlobalDistanceField</c> composites the clipmap and this reads it — and ⚠ <b>the two have
-///         to name the same shader</b>, because that name is the compose-slot prefix one writes its
+///         <c>GlobalDistanceField</c> composites the clipmap and this reads it — and ⚠
+///         <b>
+///             the two have
+///             to name the same shader
+///         </b>
+///         , because that name is the compose-slot prefix one writes its
 ///         bindings under and the other reads them from. They are separate strings on purpose: a frame
 ///         may march a field a different node composited, or none at all.
 ///     </para>
@@ -460,8 +476,10 @@ public sealed record ScreenProbeGatherAsset : ISceneRendererAsset {
     public int Latency { get; init; }
 
     /// <summary>How far off a probe's plane a pixel may stand and still read it, in world units.</summary>
-    /// <remarks>Zero keeps the bilinear taps. Above zero it needs the host to have supplied an
-    ///     accumulator, because the surface planes the taps test against are the history's.</remarks>
+    /// <remarks>
+    ///     Zero keeps the bilinear taps. Above zero it needs the host to have supplied an
+    ///     accumulator, because the surface planes the taps test against are the history's.
+    /// </remarks>
     public float PlaneTolerance { get; init; }
 }
 
@@ -507,8 +525,10 @@ public sealed record ReflectionsAsset : ISceneRendererAsset {
     public string Target { get; init; } = "Reflections";
 
     /// <summary>The view whose camera drew the frame, or empty for a host that feeds matrices.</summary>
-    /// <remarks>⚠ On <see cref="ScreenProbeGatherAsset.View" />'s terms: left empty with nothing
-    ///     else driving the matrices, every ray reflects a frame drawn by an identity camera.</remarks>
+    /// <remarks>
+    ///     ⚠ On <see cref="ScreenProbeGatherAsset.View" />'s terms: left empty with nothing
+    ///     else driving the matrices, every ray reflects a frame drawn by an identity camera.
+    /// </remarks>
     public string View { get; init; } = string.Empty;
 
     /// <summary>The roughness at and above which the field answers instead of the trace.</summary>
@@ -598,8 +618,12 @@ public sealed record AmbientCombineAsset : ISceneRendererAsset {
     ///     what <c>!Ssao</c> writes with its own <c>BentNormal</c> on.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>It has to be said twice, once on each node, and the document is what keeps the two
-    ///     agreeing.</b> The producer's permutation decides the layout and this decides how it is
+    ///     ⚠
+    ///     <b>
+    ///         It has to be said twice, once on each node, and the document is what keeps the two
+    ///         agreeing.
+    ///     </b>
+    ///     The producer's permutation decides the layout and this decides how it is
     ///     read; setting only the producer's moves the occlusion into a channel nothing reads and
     ///     leaves the direction being multiplied into the ambient term as though it were occlusion.
     ///     There is no third place that knows both, because the two nodes are separate assets.

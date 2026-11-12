@@ -59,10 +59,10 @@ public sealed class RunUtilitySetTask(UtilitySet set, AgentActionRegistry action
 
         ref var header = ref MemoryMarshal.AsRef<UtilityState>(state);
         var cooldowns = MemoryMarshal.Cast<byte, float>(state.Slice(UtilitySet.HeaderSize, set.Count * sizeof(float)));
-        var inner = state[(UtilitySet.HeaderSize + (set.Count * sizeof(float)))..];
+        var inner = state[(UtilitySet.HeaderSize + set.Count * sizeof(float))..];
         var running = header.Current;
 
-        Span<float> scores = set.Count <= 32 ? stackalloc float[32] : new float[set.Count];
+        var scores = set.Count <= 32 ? stackalloc float[32] : new float[set.Count];
 
         var chosen = set.Choose(in context, ref header, cooldowns, delta, scores);
 
@@ -102,7 +102,7 @@ public sealed class RunUtilitySetTask(UtilitySet set, AgentActionRegistry action
         ref var header = ref MemoryMarshal.AsRef<UtilityState>(state);
 
         if (header.Current >= 0) {
-            var inner = state[(UtilitySet.HeaderSize + (set.Count * sizeof(float)))..];
+            var inner = state[(UtilitySet.HeaderSize + set.Count * sizeof(float))..];
 
             actions[set[header.Current].Action].Abort(in context, inner);
         }

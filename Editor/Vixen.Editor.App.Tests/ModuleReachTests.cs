@@ -36,8 +36,12 @@ namespace Vixen.Editor.App.Tests;
 ///         the manifest holds is a registration that stopped reaching the user.
 ///     </para>
 ///     <para>
-///         ⚠ <b>A line a module leaves behind on unload is attributed to <c>editor</c>, not to the
-///         module</b>, and that is a finding rather than a defect of the test: it is exactly the panel
+///         ⚠
+///         <b>
+///             A line a module leaves behind on unload is attributed to <c>editor</c>, not to the
+///             module
+///         </b>
+///         , and that is a finding rather than a defect of the test: it is exactly the panel
 ///         or mode the module registered round <c>PluginContext</c> (see
 ///         <c>docs/ModuleRegistrationExempt.txt</c>). When P1 moves those through the contract, their
 ///         lines move to the module's name in the regenerated manifest.
@@ -67,7 +71,8 @@ public class ModuleReachTests {
     /// <summary>The family a recent document's command id belongs to; the rest of the id is a hash of a path.</summary>
     const string RecentDocument = "file.recent-document.";
 
-    static readonly Regex Declared = new("""const\s+string\s+ModuleId\s*=\s*"([^"]+)"\s*;""", RegexOptions.CultureInvariant);
+    static readonly Regex Declared =
+        new("""const\s+string\s+ModuleId\s*=\s*"([^"]+)"\s*;""", RegexOptions.CultureInvariant);
 
     /// <summary>Every module id production source under <c>Editor/</c> declares, as git lists it (#1424).</summary>
     static SortedSet<string> DeclaredModules(string root) {
@@ -76,7 +81,7 @@ public class ModuleReachTests {
         foreach (var file in RepositoryFiles.Files(Path.Combine(root, "Editor"), "*.cs")) {
             var relative = Path.GetRelativePath(root, file).Replace('\\', '/');
 
-            if (relative.Split('/').Any(part => part.EndsWith(".Tests", StringComparison.Ordinal))) {
+            if (relative.Split('/').Any(static part => part.EndsWith(".Tests", StringComparison.Ordinal))) {
                 continue;
             }
 
@@ -165,7 +170,10 @@ public class ModuleReachTests {
         }
 
         foreach (var (id, _, _) in standard.Reverse()) {
-            Assert.True(editor.Plugins.Unload(id), $"The standard module '{id}' could not be unloaded, so its reach cannot be attributed.");
+            Assert.True(
+                editor.Plugins.Unload(id),
+                $"The standard module '{id}' could not be unloaded, so its reach cannot be attributed."
+            );
             editor.Frame();
 
             var after = Reach(editor);
@@ -177,13 +185,13 @@ public class ModuleReachTests {
             before = after;
         }
 
-        return [.. owner.Select(row => $"{row.Value} {row.Key}").Order(StringComparer.Ordinal)];
+        return [..owner.Select(static row => $"{row.Value} {row.Key}").Order(StringComparer.Ordinal)];
     }
 
     [Fact]
     public void Every_module_the_editor_declares_ships_in_the_standard_list_or_says_why_not() {
         var declared = DeclaredModules(RepositoryFiles.Root);
-        var standard = EditorModules.Standard().Select(module => module.Id).ToHashSet(StringComparer.Ordinal);
+        var standard = EditorModules.Standard().Select(static module => module.Id).ToHashSet(StringComparer.Ordinal);
 
         // The instrument: a grep that stopped matching would find nothing and agree with anything.
         Assert.Contains("vixen.blockout", declared);
@@ -193,13 +201,17 @@ public class ModuleReachTests {
 
         Assert.True(
             missing.Count == 0,
-            "Declared by a module and activated by nothing a user launches: " + string.Join(", ", missing)
+            "Declared by a module and activated by nothing a user launches: "
+            + string.Join(", ", missing)
             + ". Add it to EditorModules.Standard(), or to NotStandard with the reason it ships some other way."
         );
 
         var shipped = NotStandard.Keys.Where(standard.Contains).ToList();
 
-        Assert.True(shipped.Count == 0, "In Standard() and still on NotStandard: " + string.Join(", ", shipped) + ". Delete the line.");
+        Assert.True(
+            shipped.Count == 0,
+            "In Standard() and still on NotStandard: " + string.Join(", ", shipped) + ". Delete the line."
+        );
 
         // And the reverse: Standard() naming an id nothing declares is a list that has drifted from
         // the modules it lists.
@@ -218,10 +230,10 @@ public class ModuleReachTests {
 
         // The instrument first: a reach walk that read nothing, or attributed nothing, agrees with an
         // empty manifest. The editor's own menus are read, and every module's unload is accounted for.
-        Assert.Contains(measured, line => line.StartsWith("editor menu ", StringComparison.Ordinal));
+        Assert.Contains(measured, static line => line.StartsWith("editor menu ", StringComparison.Ordinal));
 
         var silent = EditorModules.Standard()
-            .Select(module => module.Id)
+            .Select(static module => module.Id)
             .Where(id => !measured.Any(line => line.StartsWith(id + " ", StringComparison.Ordinal)))
             .ToList();
 
@@ -233,7 +245,7 @@ public class ModuleReachTests {
         );
 
         var recorded = File.Exists(path)
-            ? File.ReadAllLines(path).Where(line => line.Length > 0 && !line.StartsWith('#')).ToList()
+            ? File.ReadAllLines(path).Where(static line => line.Length > 0 && !line.StartsWith('#')).ToList()
             : [];
 
         var lost = recorded.Except(measured).ToList();
@@ -245,10 +257,10 @@ public class ModuleReachTests {
              What the editor reaches is not what {ManifestFile} records.
 
              ⚠ In the manifest and not in the editor — a registration that stopped reaching the user:
-             {string.Join("\n", lost.Select(line => "  " + line))}
+             {string.Join("\n", lost.Select(static line => "  " + line))}
 
              In the editor and not in the manifest — new reach; regenerate after reading:
-             {string.Join("\n", gained.Select(line => "  " + line))}
+             {string.Join("\n", gained.Select(static line => "  " + line))}
 
              Re-run with VIXEN_REGENERATE=1 to write it back, once the first list is understood.
              """
@@ -261,8 +273,11 @@ public class ModuleReachTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <b>Against the same manifest as the positive half, so the expectation is still measured
-    ///         rather than written.</b> Each module is switched off through the manager's own button —
+    ///         <b>
+    ///             Against the same manifest as the positive half, so the expectation is still measured
+    ///             rather than written.
+    ///         </b>
+    ///         Each module is switched off through the manager's own button —
     ///         which is what writes the user's list — and the editor is restarted on the same data
     ///         directory, the way a person relaunches it. Every line the manifest attributes to the
     ///         module must be gone; every other line must be there.
@@ -280,11 +295,11 @@ public class ModuleReachTests {
     public void A_module_switched_off_in_the_plugin_manager_contributes_nothing_to_the_next_session() {
         var path = Path.Combine(RepositoryFiles.Root, ManifestFile.Replace('/', Path.DirectorySeparatorChar));
         var manifest = File.ReadAllLines(path)
-            .Where(line => line.Length > 0 && !line.StartsWith('#'))
-            .Select(line => line.Split(' ', 2))
+            .Where(static line => line.Length > 0 && !line.StartsWith('#'))
+            .Select(static line => line.Split(' ', 2))
             .ToList();
 
-        var everything = manifest.Select(row => row[1]).ToHashSet(StringComparer.Ordinal);
+        var everything = manifest.Select(static row => row[1]).ToHashSet(StringComparer.Ordinal);
         var failures = new StringBuilder();
 
         using var editor = EditorSession.Start();
@@ -300,7 +315,9 @@ public class ModuleReachTests {
             editor.Restart();
 
             var reach = Reach(editor);
-            var owned = manifest.Where(row => row[0] == id).Select(row => row[1]).ToHashSet(StringComparer.Ordinal);
+            var owned = manifest.Where(row => row[0] == id)
+                .Select(static row => row[1])
+                .ToHashSet(StringComparer.Ordinal);
             var left = owned.Where(reach.Contains).ToList();
             var lost = everything.Except(owned).Where(line => !reach.Contains(line)).ToList();
 
@@ -342,9 +359,15 @@ public class ModuleReachTests {
     static string Render(IEnumerable<string> lines) {
         var text = new StringBuilder();
 
-        text.Append("# What the editor a user launches reaches, by module (doc 50 § D6, #1280). Measured by ModuleReachTests\n")
-            .Append("# from an EditorSession opened the way EditorHost opens one, and attributed by unloading each standard\n")
-            .Append("# module in turn: `<owner> <kind> <id>`. A line owned by `editor` that names a feature is one its module\n")
+        text.Append(
+                "# What the editor a user launches reaches, by module (doc 50 § D6, #1280). Measured by ModuleReachTests\n"
+            )
+            .Append(
+                "# from an EditorSession opened the way EditorHost opens one, and attributed by unloading each standard\n"
+            )
+            .Append(
+                "# module in turn: `<owner> <kind> <id>`. A line owned by `editor` that names a feature is one its module\n"
+            )
             .Append("# left behind on unload. Regenerate with VIXEN_REGENERATE=1 on that test, and read the diff.\n\n");
 
         foreach (var line in lines) {

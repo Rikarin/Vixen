@@ -21,10 +21,13 @@ namespace Vixen.Editor.Ui.Tests;
 ///         list. All twenty-four are closed now; the paragraphs below say how.
 ///     </para>
 ///     <para>
-///         <b>This is the build-time half of the report; <c>UiDocument</c>'s 7009 is the run-time
-///         half</b> and names each box as it is styled. The two answer different questions: the log
+///         <b>
+///             This is the build-time half of the report; <c>UiDocument</c>'s 7009 is the run-time
+///             half
+///         </b>
+///         and names each box as it is styled. The two answer different questions: the log
 ///         says which box on <i>this</i> screen is cut off, and this says which rules in the tree
-///         still ask for it. Written like <c>docs/WhitespaceExempt.txt</c> — the remaining sites are
+///         still ask for it. Written like <c>docs/DocCommentExempt.txt</c> — the remaining sites are
 ///         named, a new one fails, and a converted one that is still listed fails too, so the ledger
 ///         cannot drift from the sheets.
 ///     </para>
@@ -49,21 +52,33 @@ public class OverflowLedgerTests {
     /// <remarks>
     ///     <para>
     ///         Each is a plain element declaring a scroll container it will never be. The cure for
-    ///         each is a <c>ScrollView</c> — the element under the tag, with <c>overflow: hidden;
-    ///         position: relative</c> written on the rule since the user-agent rule cannot reach it
+    ///         each is a <c>ScrollView</c> — the element under the tag, with
+    ///         <c>
+    ///             overflow: hidden;
+    ///             position: relative
+    ///         </c>
+    ///         written on the rule since the user-agent rule cannot reach it
     ///         — and never a taller box, which moves the first unreachable row rather than reaching
     ///         it.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Sixteen became seven, and the nine that went were one shape: the asset editors'
-    ///         fixed-width <c>*-side</c> field columns.</b> Every one of them sits in a
+    ///         ⚠
+    ///         <b>
+    ///             Sixteen became seven, and the nine that went were one shape: the asset editors'
+    ///             fixed-width <c>*-side</c> field columns.
+    ///         </b>
+    ///         Every one of them sits in a
     ///         <c>flex-direction: row</c> body, so the column's height is its parent's and a
     ///         <c>ScrollView</c> there fills and scrolls without needing a <c>flex-basis</c> — which
     ///         is what makes them one batch rather than nine judgements.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b><c>settings-rail</c> and <c>settings-pane</c> went next, and their reason was
-    ///         the child combinators.</b> A <c>ScrollView</c> puts a <c>scroll-content</c> between the
+    ///         ⚠
+    ///         <b>
+    ///             <c>settings-rail</c> and <c>settings-pane</c> went next, and their reason was
+    ///             the child combinators.
+    ///         </b>
+    ///         A <c>ScrollView</c> puts a <c>scroll-content</c> between the
     ///         box and its rows, so <c>settings-rail &gt; button.settings-tab</c> and
     ///         <c>settings-pane &gt; .filtered-out</c> became <c>… &gt; scroll-content &gt; …</c> — and
     ///         the picture caught a third thing the combinators did not: the tabs' <c>width: 100%</c>
@@ -71,16 +86,24 @@ public class OverflowLedgerTests {
     ///         highlight shrank to its label. <c>ScrollingPanelPictureTests</c> holds the page.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b><c>sprite-list</c> was the first of the column ones, and the column was not the
-    ///         hard part.</b> The list got its <c>flex-basis: 0px</c>, and still could not scroll,
+    ///         ⚠
+    ///         <b>
+    ///             <c>sprite-list</c> was the first of the column ones, and the column was not the
+    ///             hard part.
+    ///         </b>
+    ///         The list got its <c>flex-basis: 0px</c>, and still could not scroll,
     ///         because nothing above it was height-bound: the texture document's tab set was not a
     ///         <c>document-tabs</c> set, so the sprite editor grew to 1 512 px in a 555 px tab and
     ///         the dock panel did the clipping. It is one now, and the picture test opens a real
     ///         texture on its Sprites tab and holds the list to the bottom of its document.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b><c>compiled-scene-blocks</c> and <c>compiled-scene-diagnostics</c> were closed
-    ///         by removing the declaration, and the ledger's premise for them was wrong.</b> They never
+    ///         ⚠
+    ///         <b>
+    ///             <c>compiled-scene-blocks</c> and <c>compiled-scene-diagnostics</c> were closed
+    ///             by removing the declaration, and the ledger's premise for them was wrong.
+    ///         </b>
+    ///         They never
     ///         lost a row: the scene document's dock panel scrolls as a whole and
     ///         <c>dock-panel.scrolls &gt; *</c> keeps the tab set from shrinking, so the tables were
     ///         always as tall as their rows and the panel's bar reached the last one. A
@@ -94,8 +117,12 @@ public class OverflowLedgerTests {
     ///         120 px floor (142 px measured, in a 521 px mixer).
     ///     </para>
     ///     <para>
-    ///         ⚠ <b><c>input-debug</c> went the compiled scene's way, and its recorded reason was
-    ///         beside the point.</b> It was held back because a component's host cannot be given a
+    ///         ⚠
+    ///         <b>
+    ///             <c>input-debug</c> went the compiled scene's way, and its recorded reason was
+    ///             beside the point.
+    ///         </b>
+    ///         It was held back because a component's host cannot be given a
     ///         control's type from the sheet — true, and irrelevant: its dock panel scrolls as a whole,
     ///         the view is the panel's direct child and so never shrinks, and the panel's bar reached
     ///         every row. The declaration went; the panel is pixel-identical and the 7009 line is gone.
@@ -148,19 +175,19 @@ public class OverflowLedgerTests {
     [Fact]
     public void The_sweep_reads_the_shorthand_and_both_longhands_and_passes_a_named_clip_by() {
         const string sheet = """
-            /* a comment saying overflow: auto is not a rule */
-            a-list { flex-direction: column; overflow: auto; }
-            b-list { overflow-y: auto; }
-            c-list,
-            d-list { height: 10px; overflow-x: scroll; }
-            e-pane {
-                width: 10px;
-                overflow: hidden;
-                position: relative;
-            }
-            f-pane { overflow: clip; }
-            g-pane { overflow-anchor: none; }
-            """;
+                             /* a comment saying overflow: auto is not a rule */
+                             a-list { flex-direction: column; overflow: auto; }
+                             b-list { overflow-y: auto; }
+                             c-list,
+                             d-list { height: 10px; overflow-x: scroll; }
+                             e-pane {
+                                 width: 10px;
+                                 overflow: hidden;
+                                 position: relative;
+                             }
+                             f-pane { overflow: clip; }
+                             g-pane { overflow-anchor: none; }
+                             """;
 
         Assert.Equal(["a-list", "b-list", "c-list, d-list"], ScrollingSelectors(sheet));
     }
@@ -168,9 +195,13 @@ public class OverflowLedgerTests {
     /// <summary>The same defect spelt as a utility class, which a sweep of the sheets cannot see.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b><c>overflow-y-auto</c> is a real class here and produces the identical
-    ///         unreachable tail.</b> The utility families register all five keywords on all three
-    ///         properties (<c>UtilityFamilies.cs:2893-2903</c>), so
+    ///         ⚠
+    ///         <b>
+    ///             <c>overflow-y-auto</c> is a real class here and produces the identical
+    ///             unreachable tail.
+    ///         </b>
+    ///         The utility families register all five keywords on all three
+    ///         properties (<c>UtilityFamilies.cs:3310-3344</c>), so
     ///         <c>class="overflow-y-auto"</c> on a panel asks for exactly what the sixteen ledger
     ///         rules ask for — and the ledger above, which parses <c>.vcss</c> rule blocks, would
     ///         stay green while the box clipped. Only the run-time 7009 line would say so.
@@ -207,17 +238,17 @@ public class OverflowLedgerTests {
     [Fact]
     public void The_class_sweep_reads_markup_and_code_and_passes_prose_about_the_class_by() {
         const string markup = """
-            <!-- a comment mentioning overflow-y-auto is not a use of it -->
-            <Panel class="gap-2 overflow-y-auto rounded" />
-            <Panel class="overflow-hidden" />
-            """;
+                              <!-- a comment mentioning overflow-y-auto is not a use of it -->
+                              <Panel class="gap-2 overflow-y-auto rounded" />
+                              <Panel class="overflow-hidden" />
+                              """;
 
         const string code = """
-            // and neither is overflow-x-scroll in a line comment
-            /* nor overflow-auto in a block one */
-            list.AddClass("overflow-scroll");
-            list.AddClass("overflow-clip");
-            """;
+                            // and neither is overflow-x-scroll in a line comment
+                            /* nor overflow-auto in a block one */
+                            list.AddClass("overflow-scroll");
+                            list.AddClass("overflow-clip");
+                            """;
 
         Assert.Equal(["overflow-y-auto"], ScrollingClasses(markup));
         Assert.Equal(["overflow-scroll"], ScrollingClasses(code));
@@ -246,7 +277,7 @@ public class OverflowLedgerTests {
     /// <summary>Every scrolling utility class named in a source file, once each.</summary>
     /// <remarks>
     ///     Comments first, in all three spellings this tree writes them, so prose <i>about</i> the
-    ///     class is not read as a use of it: <c>UtilityFamilies.cs:2891</c> names
+    ///     class is not read as a use of it: <c>UtilityFamilies.cs:3308</c> names
     ///     <c>overflow-auto</c> while explaining what it used to be, and is the only place in
     ///     production that says the word at all.
     /// </remarks>
@@ -254,20 +285,20 @@ public class OverflowLedgerTests {
         var text = Regex.Replace(source, @"/\*.*?\*/|<!--.*?-->", string.Empty, RegexOptions.Singleline);
         text = Regex.Replace(text, @"//[^\r\n]*", string.Empty);
 
-        return Regex
-            .Matches(text, @"(?<![\w-])overflow(?:-[xy])?-(?:auto|scroll)(?![\w-])")
-            .Select(match => match.Value)
-            .Distinct(StringComparer.Ordinal)
-            .Order(StringComparer.Ordinal)
-            .ToList();
+        return [
+            ..Regex
+                .Matches(text, @"(?<![\w-])overflow(?:-[xy])?-(?:auto|scroll)(?![\w-])")
+                .Select(static match => match.Value)
+                .Distinct(StringComparer.Ordinal)
+                .Order(StringComparer.Ordinal)
+        ];
     }
 
     /// <summary>Every production stylesheet: the tree minus tests, build output and samples' data.</summary>
     static IEnumerable<string> Sheets(string root) => Production(root, "*.vcss");
 
     /// <summary>Every production source file a class can be written in — ⚠ <c>.vxml</c> as well as <c>.cs</c>.</summary>
-    static IEnumerable<string> Sources(string root) =>
-        Production(root, "*.cs").Concat(Production(root, "*.vxml"));
+    static IEnumerable<string> Sources(string root) => Production(root, "*.cs").Concat(Production(root, "*.vxml"));
 
     static IEnumerable<string> Production(string root, string pattern) {
         foreach (var top in new[] { "Core", "Editor", "Samples", "Tools" }) {

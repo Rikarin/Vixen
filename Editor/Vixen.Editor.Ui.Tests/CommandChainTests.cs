@@ -51,7 +51,7 @@ public class CommandChainTests {
     public void An_element_in_the_tree_still_outranks_the_application() {
         using var shell = new EditorShell(1280f, 800f);
 
-        var ran = "";
+        var ran = string.Empty;
         shell.Commands.Add("edit.copy", Title("Copy"), () => ran = "application");
 
         var view = shell.Document.Root.Add("div");
@@ -103,7 +103,9 @@ public class CommandChainTests {
     public void A_command_out_of_scope_is_answered_and_refused_rather_than_unhandled() {
         using var shell = new EditorShell(1280f, 800f);
 
-        shell.Commands.Add(new EditorCommand("test.scoped", Title("Scoped"), () => { }) { Context = "outliner" });
+        shell.Commands.Add(
+            new EditorCommand("test.scoped", Title("Scoped"), static () => { }) { Context = "outliner" }
+        );
 
         shell.Context = "console";
         Assert.NotNull(CommandRoute.Resolve(shell.Document, "test.scoped"));
@@ -117,7 +119,7 @@ public class CommandChainTests {
     public void Removing_a_command_takes_it_out_of_the_chain_too() {
         using var shell = new EditorShell(1280f, 800f);
 
-        shell.Commands.Add("test.verb", Title("Verb"), () => { });
+        shell.Commands.Add("test.verb", Title("Verb"), static () => { });
         Assert.NotNull(CommandRoute.Resolve(shell.Document, "test.verb"));
 
         // ⚠ The unload case. A handler left behind for a command that is gone is a menu line that
@@ -147,7 +149,7 @@ public class CommandChainTests {
         // ⚠ Forty registrations, one raise. A plugin load is the case this exists for: without the
         // coalescing every visible command would be re-asked forty times for one answer.
         for (var i = 0; i < 40; i++) {
-            shell.Commands.Add($"test.verb-{i}", Title("Verb"), () => { });
+            shell.Commands.Add($"test.verb-{i}", Title("Verb"), static () => { });
         }
 
         Frame();
@@ -170,7 +172,7 @@ public class CommandChainTests {
 
         // And the registry works afterwards, so the teardown took the subscription off rather than
         // breaking the table.
-        shell.Commands.Add("test.after-dispose", Title("Verb"), () => { });
+        shell.Commands.Add("test.after-dispose", Title("Verb"), static () => { });
         Assert.True(shell.Commands.TryGetCommandHandler("test.after-dispose", out _));
     }
 
@@ -190,7 +192,7 @@ public class CommandChainTests {
         var raised = 0;
         registry.Changed += _ => raised++;
 
-        registry.Add("test.after-dispose", Title("Verb"), () => { });
+        registry.Add("test.after-dispose", Title("Verb"), static () => { });
 
         // One subscriber left, and it is the one this test added. Had the shell's survived, the
         // registry would still be driving a disposed document's invalidation every time a plugin

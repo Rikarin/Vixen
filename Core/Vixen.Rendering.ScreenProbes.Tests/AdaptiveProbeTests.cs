@@ -19,27 +19,27 @@ namespace Vixen.Rendering.ScreenProbes.Tests;
 public class AdaptiveProbeTests {
     [Fact]
     public void TheAdaptiveRegionSitsBelowTheGrid() {
-        var layout = new ScreenProbeLayout(new(64, 48), 16, 8, adaptiveRows: 2);
+        var layout = new ScreenProbeLayout(new(64, 48), 16, 8, 2);
 
-        Assert.Equal(new Int2(4, 3), layout.GridSize);
+        Assert.Equal(new(4, 3), layout.GridSize);
         Assert.Equal(8, layout.AdaptiveCapacity);
 
         // Two more rows of maps, and the grid's own addressing has not moved.
-        Assert.Equal(new Int2(32, 40), layout.AtlasSize);
-        Assert.Equal(new Int2(8, 8), layout.AtlasOrigin(new(1, 1)));
+        Assert.Equal(new(32, 40), layout.AtlasSize);
+        Assert.Equal(new(8, 8), layout.AtlasOrigin(new(1, 1)));
 
-        Assert.Equal(new Int2(0, 24), layout.AdaptiveOrigin(0));
-        Assert.Equal(new Int2(8, 32), layout.AdaptiveOrigin(5));
+        Assert.Equal(new(0, 24), layout.AdaptiveOrigin(0));
+        Assert.Equal(new(8, 32), layout.AdaptiveOrigin(5));
         Assert.Throws<ArgumentOutOfRangeException>(() => layout.AdaptiveOrigin(8));
 
         // No rows is today's layout exactly.
         Assert.Equal(0, new ScreenProbeLayout(new(64, 48)).AdaptiveCapacity);
-        Assert.Equal(new Int2(32, 24), new ScreenProbeLayout(new(64, 48)).AtlasSize);
+        Assert.Equal(new(32, 24), new ScreenProbeLayout(new(64, 48)).AtlasSize);
     }
 
     [Fact]
     public void TheCapacityIsABudgetNotAPromise() {
-        var atlas = new ScreenProbeAtlas(new(new(64, 32), 16, 8, adaptiveRows: 1));
+        var atlas = new ScreenProbeAtlas(new(new(64, 32), 16, 8, 1));
 
         for (var i = 0; i < 4; i++) {
             Assert.Equal(i, atlas.PlaceAdaptive(new(i, 0), new(0f, 1f, 0f), new(0f, 1f, 0f)));
@@ -50,23 +50,23 @@ public class AdaptiveProbeTests {
         Assert.Equal(4, atlas.AdaptiveCount);
 
         atlas.AdaptiveSurface(2, out var pixel, out var position, out var normal);
-        Assert.Equal(new Int2(2, 0), pixel);
+        Assert.Equal(new(2, 0), pixel);
         Assert.Equal(1f, position.Y);
         Assert.Equal(1f, normal.Y);
 
         atlas.ClearAdaptive();
         Assert.Equal(0, atlas.AdaptiveCount);
-        Assert.Throws<ArgumentOutOfRangeException>(() => atlas[0, new Int2(0, 0)]);
+        Assert.Throws<ArgumentOutOfRangeException>(() => atlas[0, new(0, 0)]);
     }
 
     [Fact]
     public void AnAdaptiveMapResolvesLikeAnyOther() {
-        var atlas = new ScreenProbeAtlas(new(new(64, 32), 16, 8, adaptiveRows: 1));
+        var atlas = new ScreenProbeAtlas(new(new(64, 32), 16, 8, 1));
         var index = atlas.PlaceAdaptive(new(31, 8), new(0f, 1f, 0f), new(0f, 1f, 0f));
 
         for (var ty = 0; ty < 8; ty++) {
             for (var tx = 0; tx < 8; tx++) {
-                atlas[index, new Int2(tx, ty)] = new(0.5f);
+                atlas[index, new(tx, ty)] = new(0.5f);
             }
         }
 
@@ -83,7 +83,7 @@ public class AdaptiveProbeTests {
     public void AMismatchedPixelReadsItsOwnProbe() {
         // Grid probes on the floor plane y = 0 holding radiance one; an adaptive probe on a ledge
         // at y = 1 holding two. The pixel's position decides which surface it belongs to.
-        var atlas = new ScreenProbeAtlas(new(new(64, 32), 16, 8, adaptiveRows: 1));
+        var atlas = new ScreenProbeAtlas(new(new(64, 32), 16, 8, 1));
         var layout = atlas.Layout;
 
         for (var y = 0; y < layout.GridSize.Y; y++) {
@@ -105,7 +105,7 @@ public class AdaptiveProbeTests {
 
         for (var ty = 0; ty < 8; ty++) {
             for (var tx = 0; tx < 8; tx++) {
-                atlas[ledge, new Int2(tx, ty)] = new(2f);
+                atlas[ledge, new(tx, ty)] = new(2f);
             }
         }
 
@@ -138,7 +138,7 @@ public class AdaptiveProbeTests {
             new ScreenProbeGatherSettings { AdaptiveTolerance = 0.1f }
         );
 
-        var atlas = new ScreenProbeAtlas(new(new(64, 32), 16, 8, adaptiveRows: 2));
+        var atlas = new ScreenProbeAtlas(new(new(64, 32), 16, 8, 2));
 
         gather.Fill(atlas, new Ledge());
 
@@ -156,7 +156,7 @@ public class AdaptiveProbeTests {
         }
 
         // A smaller budget stops quietly at the budget.
-        var small = new ScreenProbeAtlas(new(new(64, 32), 16, 8, adaptiveRows: 1));
+        var small = new ScreenProbeAtlas(new(new(64, 32), 16, 8, 1));
 
         gather.Fill(small, new Ledge());
 

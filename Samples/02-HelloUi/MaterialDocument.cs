@@ -9,8 +9,12 @@ namespace Vixen.Samples.HelloUi;
 /// <summary>The material the inspector edits, seen as something that can be dirty and saved.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>The first thing in the repository to be an <c>IEditableDocument</c>, and that is the
-///         point of it.</b> <c>DocumentCommands.Install</c>, <c>UiElement.HostedDocument</c> and the
+///         ⚠
+///         <b>
+///             The first thing in the repository to be an <c>IEditableDocument</c>, and that is the
+///             point of it.
+///         </b>
+///         <c>DocumentCommands.Install</c>, <c>UiElement.HostedDocument</c> and the
 ///         whole dirty-state model existed with no production caller at all — the defect this
 ///         repository meets most often, and the one a sample is the cheapest cure for. Save and
 ///         Revert in the File menu are bound to <c>document.save</c> and <c>document.revert</c> and to
@@ -26,8 +30,12 @@ namespace Vixen.Samples.HelloUi;
 ///         effect compares equal, so nothing has to remember that it is the first.
 ///     </para>
 ///     <para>
-///         ⚠ <b><see cref="IEditableDocument.Location" /> is null and stays null, because this sample
-///         has no file system in it.</b> Null is the framework's way of saying "never saved", which is
+///         ⚠
+///         <b>
+///             <see cref="IEditableDocument.Location" /> is null and stays null, because this sample
+///             has no file system in it.
+///         </b>
+///         Null is the framework's way of saying "never saved", which is
 ///         what makes Save mean Save As — a real application checks it and shows a file dialog first.
 ///         Saving here takes a snapshot and reverting puts it back, so the round trip is real; what is
 ///         absent is the disk, and inventing a path would be exactly the lie a sample exists not to

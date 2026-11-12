@@ -60,7 +60,7 @@ public sealed class VoiceSender : IDisposable {
     /// <param name="frameMilliseconds">How long each packet is.</param>
     /// <param name="bitrate">Bits a second.</param>
     public VoiceSender(int channels = 1, int frameMilliseconds = 20, int bitrate = 24_000)
-        : this(new OpusPacketEncoder(channels, frameMilliseconds, bitrate)) { }
+        : this(new(channels, frameMilliseconds, bitrate)) { }
 
     /// <summary>A sender over an encoder somebody else configured.</summary>
     /// <param name="encoder">It. Disposed with this sender.</param>
@@ -70,7 +70,7 @@ public sealed class VoiceSender : IDisposable {
         this.encoder = encoder;
 
         pending = new float[encoder.FrameSize * encoder.Format.Channels];
-        gate = new GateEffect { ThresholdDb = -45f, HoldSeconds = 0.15f, RangeDb = -80f };
+        gate = new() { ThresholdDb = -45f, HoldSeconds = 0.15f, RangeDb = -80f };
         gate.Prepare(encoder.Format, encoder.FrameSize);
 
         for (var i = 0; i < Backlog; i++) {
@@ -228,7 +228,7 @@ public sealed class VoiceSender : IDisposable {
         }
 
         lengths[slot] = written;
-        headers[slot] = new VoicePacketHeader(sequence, at);
+        headers[slot] = new(sequence, at);
         sequence++;
         Sent++;
 

@@ -3,7 +3,6 @@
 
 using System.Runtime.CompilerServices;
 using Vixen.Core;
-
 using Vixen.Engine.Coroutines;
 using Vixen.Testing;
 using Xunit;
@@ -207,6 +206,5 @@ public sealed class CoroutineAllocationTests {
     ///     The same, asserted rather than returned, so that a failure names the types the frame
     ///     allocated and not only how many bytes they came to.
     /// </summary>
-    static void AllocatesNothing(Action frame)
-        => Measured.NothingAllocated(frame, WarmUpFrames, MeasuredFrames);
+    static void AllocatesNothing(Action frame) => Measured.NothingAllocated(frame, WarmUpFrames, MeasuredFrames);
 }

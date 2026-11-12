@@ -14,8 +14,11 @@ namespace Vixen.Rendering.IrradianceFields;
 ///         point-sampled index texture followed by a linearly-filtered pool fetch.
 ///     </para>
 ///     <para>
-///         <b>This is the shape doc 06's tetrahedral light probes failed at, chosen because it cannot
-///         fail the same way.</b> A Delaunay tetrahedralisation needs robust predicates, degenerates
+///         <b>
+///             This is the shape doc 06's tetrahedral light probes failed at, chosen because it cannot
+///             fail the same way.
+///         </b>
+///         A Delaunay tetrahedralisation needs robust predicates, degenerates
 ///         on co-planar probes, and answers a "which cell am I in" question with a walk. Every one of
 ///         those is a way to be wrong that a grid does not have. Doc 19 § 3 makes that explicit: no
 ///         Delaunay, no predicates, no repeat.
@@ -69,8 +72,7 @@ public sealed class IrradianceIndirection {
     public Int3 Resolution { get; }
 
     /// <summary>How big one finest cell is, in world units.</summary>
-    public Vector3 CellSize =>
-        Bounds.Size / new Vector3(Resolution.X, Resolution.Y, Resolution.Z);
+    public Vector3 CellSize => Bounds.Size / new Vector3(Resolution.X, Resolution.Y, Resolution.Z);
 
     /// <summary>Every cell, in the order a volume copy wants them.</summary>
     public ReadOnlySpan<IrradianceCell> Cells => cells;
@@ -176,15 +178,18 @@ public sealed class IrradianceIndirection {
     /// <param name="cell">The cell.</param>
     /// <returns>Whether it is.</returns>
     public bool Holds(Int3 cell) =>
-        cell.X >= 0 && cell.X < Resolution.X
-        && cell.Y >= 0 && cell.Y < Resolution.Y
-        && cell.Z >= 0 && cell.Z < Resolution.Z;
+        cell.X >= 0
+        && cell.X < Resolution.X
+        && cell.Y >= 0
+        && cell.Y < Resolution.Y
+        && cell.Z >= 0
+        && cell.Z < Resolution.Z;
 
     /// <summary>The box one finest cell covers.</summary>
     /// <param name="cell">The cell.</param>
     /// <returns>The box.</returns>
     public BoundingBox CellBounds(Int3 cell) {
-        var minimum = Bounds.Minimum + (CellSize * new Vector3(cell.X, cell.Y, cell.Z));
+        var minimum = Bounds.Minimum + CellSize * new Vector3(cell.X, cell.Y, cell.Z);
 
         return new(minimum, minimum + CellSize);
     }
@@ -208,9 +213,12 @@ public sealed class IrradianceIndirection {
             size.Z > 0 ? offset.Z / size.Z : 0
         );
 
-        return voxel.X >= 0 && voxel.X <= Resolution.X
-            && voxel.Y >= 0 && voxel.Y <= Resolution.Y
-            && voxel.Z >= 0 && voxel.Z <= Resolution.Z;
+        return voxel.X >= 0
+            && voxel.X <= Resolution.X
+            && voxel.Y >= 0
+            && voxel.Y <= Resolution.Y
+            && voxel.Z >= 0
+            && voxel.Z <= Resolution.Z;
     }
 
     /// <summary>Which cell a world position falls in.</summary>
@@ -279,7 +287,7 @@ public sealed class IrradianceIndirection {
             throw new ArgumentOutOfRangeException(nameof(cell), cell, $"The grid is {Resolution} cells.");
         }
 
-        return cell.X + (Resolution.X * (cell.Y + (Resolution.Y * cell.Z)));
+        return cell.X + Resolution.X * (cell.Y + Resolution.Y * cell.Z);
     }
 
     /// <summary>Writes one entry into every cell of a cube, skipping what falls outside the grid.</summary>

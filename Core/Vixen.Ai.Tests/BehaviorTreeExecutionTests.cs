@@ -268,7 +268,7 @@ public class BehaviorTreeCompositeTests {
     }
 
     static TreeHarness Build(BehaviorNodeDefinition root) =>
-        TreeHarness.For(root, Layout, actions => TreeHarness.Probes(actions));
+        TreeHarness.For(root, Layout, static actions => TreeHarness.Probes(actions));
 
     static BehaviorNodeDefinition Task(string name, string action) => BehaviorTree.Task(name, action);
 }
@@ -301,8 +301,8 @@ public class BehaviorTreeDecoratorTests {
     /// <summary>⚠ Top to bottom, first failure stops the rest — the author's ordering is honoured.</summary>
     [Fact]
     public void DecoratorsEvaluateTopToBottomAndStopAtTheFirstFailure() {
-        var counted = new CountingDecorator(passes: false);
-        var after = new CountingDecorator(passes: true);
+        var counted = new CountingDecorator(false);
+        var after = new CountingDecorator(true);
 
         using var harness = Build(
             BehaviorTree.Selector("root", Task("gated", "succeed").With(counted).With(after), Task("other", "succeed"))
@@ -316,9 +316,7 @@ public class BehaviorTreeDecoratorTests {
 
     [Fact]
     public void AnInverterTurnsTheResultOver() {
-        using var harness = Build(
-            BehaviorTree.Sequence("root", Task("a", "fail").With(new InverterDecorator()))
-        );
+        using var harness = Build(BehaviorTree.Sequence("root", Task("a", "fail").With(new InverterDecorator())));
 
         Assert.Equal(ActionStatus.Succeeded, harness.Step());
     }
@@ -391,9 +389,7 @@ public class BehaviorTreeDecoratorTests {
 
     [Fact]
     public void ALoopRunsTheNodeAFixedNumberOfTimes() {
-        using var harness = Build(
-            BehaviorTree.Sequence("root", Task("a", "succeed").With(new LoopDecorator(3)))
-        );
+        using var harness = Build(BehaviorTree.Sequence("root", Task("a", "succeed").With(new LoopDecorator(3))));
 
         Assert.Equal(ActionStatus.Succeeded, harness.Step());
         Assert.Equal(3, harness.TotalStarts("succeed"));
@@ -482,14 +478,15 @@ public class BehaviorTreeDecoratorTests {
         using var harness = Build(
             BehaviorTree.Selector(
                 "root",
-                Task("both", "succeed").With(
-                    new CompositeDecorator(
-                        DecoratorLogic.And,
-                        ObserverAborts.None,
-                        BlackboardDecorator.Bool(gate),
-                        BlackboardDecorator.Number(count, BlackboardTest.GreaterOrEqual, 3f)
-                    )
-                ),
+                Task("both", "succeed")
+                    .With(
+                        new CompositeDecorator(
+                            DecoratorLogic.And,
+                            ObserverAborts.None,
+                            BlackboardDecorator.Bool(gate),
+                            BlackboardDecorator.Number(count, BlackboardTest.GreaterOrEqual, 3f)
+                        )
+                    ),
                 Task("fallback", "succeed")
             )
         );
@@ -575,7 +572,7 @@ public class BehaviorTreeDecoratorTests {
     }
 
     static TreeHarness Build(BehaviorNodeDefinition root) =>
-        TreeHarness.For(root, Layout, actions => TreeHarness.Probes(actions));
+        TreeHarness.For(root, Layout, static actions => TreeHarness.Probes(actions));
 
     static BehaviorNodeDefinition Task(string name, string action) => BehaviorTree.Task(name, action);
 

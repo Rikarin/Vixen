@@ -21,8 +21,12 @@ public readonly record struct BehaviorTreeDiagnostic(Symbol Node, string Message
 /// <summary>Turns an authored tree into the flat, immutable thing a thousand agents share.</summary>
 /// <remarks>
 ///     <para>
-///         The whole of the layout decision lives here: nodes are written out <b>depth-first in
-///         pre-order</b>, so an index is a priority; each one records its
+///         The whole of the layout decision lives here: nodes are written out
+///         <b>
+///             depth-first in
+///             pre-order
+///         </b>
+///         , so an index is a priority; each one records its
 ///         <see cref="BehaviorNode.LastDescendant" />, so a subtree is a contiguous range and the
 ///         abort test is two comparisons; and every node, decorator and service is assigned a byte
 ///         range in one block whose total size is known before a single agent exists.
@@ -187,11 +191,11 @@ public static class BehaviorTreeCompiler {
 
             var resultBits = offset;
 
-            offset += ((decorators.Count + 63) / 64) * 8;
+            offset += (decorators.Count + 63) / 64 * 8;
 
             var evaluatedBits = offset;
 
-            offset += ((decorators.Count + 63) / 64) * 8;
+            offset += (decorators.Count + 63) / 64 * 8;
 
             var serviceTimers = offset;
 
@@ -228,27 +232,25 @@ public static class BehaviorTreeCompiler {
 
             var distinct = keys.Distinct().ToArray();
             var tags = decorators
-                .Select(slot => slot.Decorator)
+                .Select(static slot => slot.Decorator)
                 .OfType<ITagCooldown>()
-                .Select(cooldown => cooldown.Tag)
+                .Select(static cooldown => cooldown.Tag)
                 .Distinct()
                 .ToArray();
 
             return new(
                 name,
-                [.. nodes],
-                [.. decorators],
-                [.. services],
-                [.. keys],
+                [..nodes],
+                [..decorators],
+                [..services],
+                [..keys],
                 distinct,
                 tags,
                 blackboard,
                 offset,
                 nested
             ) {
-                ResultBitsOffset = resultBits,
-                EvaluatedBitsOffset = evaluatedBits,
-                ServiceTimerOffset = serviceTimers
+                ResultBitsOffset = resultBits, EvaluatedBitsOffset = evaluatedBits, ServiceTimerOffset = serviceTimers
             };
         }
 
@@ -377,8 +379,11 @@ public static class BehaviorTreeCompiler {
 
             if (definition.Children[0].Kind != BehaviorNodeKind.Task || definition.Children[0].Subtree is not null) {
                 Diagnostics.Add(
-                    new(definition.Name, "A parallel's first child must be a task. Unreal's restriction, and kept: "
-                        + "two branches whose decorators can abort each other make the abort scope undefinable.")
+                    new(
+                        definition.Name,
+                        "A parallel's first child must be a task. Unreal's restriction, and kept: "
+                        + "two branches whose decorators can abort each other make the abort scope undefinable."
+                    )
                 );
             }
         }

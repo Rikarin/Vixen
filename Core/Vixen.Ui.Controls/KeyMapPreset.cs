@@ -29,8 +29,12 @@ namespace Vixen.Ui.Controls;
 ///         somebody as a preset.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The format is not here, and that is what let this class come down out of the
-///         editor.</b> A preset is a named table of chords; writing one as YAML is a choice about
+///         ⚠
+///         <b>
+///             The format is not here, and that is what let this class come down out of the
+///             editor.
+///         </b>
+///         A preset is a named table of chords; writing one as YAML is a choice about
 ///         where an application keeps its preferences, and a control library that made it would put
 ///         a YAML parser in the dependency closure of every application that has a button.
 ///         <c>Vixen.Ui.Controls.Advanced.KeyMapYaml</c> is one answer, and a game with a settings
@@ -66,7 +70,7 @@ public sealed class KeyMapPreset {
         ArgumentException.ThrowIfNullOrEmpty(name);
         ArgumentNullException.ThrowIfNull(bindings);
 
-        return new KeyMapPreset(name, new Dictionary<string, KeyChord>(bindings, StringComparer.Ordinal));
+        return new(name, new(bindings, StringComparer.Ordinal));
     }
 
     /// <inheritdoc />

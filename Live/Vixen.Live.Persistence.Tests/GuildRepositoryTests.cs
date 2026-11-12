@@ -28,7 +28,7 @@ public sealed class GuildRepositoryTests : IAsyncDisposable {
             id,
             "guilds/charter",
             name,
-            members.Length > 0 ? [.. members] : [new(Leader, 0, DateTimeOffset.UnixEpoch)],
+            members.Length > 0 ? [..members] : [new(Leader, 0, DateTimeOffset.UnixEpoch)],
             ImmutableDictionary<int, string>.Empty,
             DateTimeOffset.UnixEpoch,
             revision
@@ -54,11 +54,11 @@ public sealed class GuildRepositoryTests : IAsyncDisposable {
         // ⚠ The fence, and it is the revision rather than a lease epoch because a guild has no
         // lease — its single writer is the grain's own turn. What this guards is a stale writer
         // after a reactivation.
-        await store.Guilds.WriteAsync(Row(revision: 5), Token);
+        await store.Guilds.WriteAsync(Row(5), Token);
 
-        Assert.Equal(WriteOutcome.Superseded, await store.Guilds.WriteAsync(Row(revision: 5), Token));
-        Assert.Equal(WriteOutcome.Superseded, await store.Guilds.WriteAsync(Row(revision: 4), Token));
-        Assert.Equal(WriteOutcome.Written, await store.Guilds.WriteAsync(Row(revision: 6), Token));
+        Assert.Equal(WriteOutcome.Superseded, await store.Guilds.WriteAsync(Row(5), Token));
+        Assert.Equal(WriteOutcome.Superseded, await store.Guilds.WriteAsync(Row(4), Token));
+        Assert.Equal(WriteOutcome.Written, await store.Guilds.WriteAsync(Row(6), Token));
     }
 
     [Fact]
@@ -73,7 +73,7 @@ public sealed class GuildRepositoryTests : IAsyncDisposable {
     [Fact]
     public async Task RenamingAGuildFreesItsOldName() {
         await store.Guilds.WriteAsync(Row(), Token);
-        await store.Guilds.WriteAsync(Row(revision: 2, name: "The Company"), Token);
+        await store.Guilds.WriteAsync(Row(2, "The Company"), Token);
 
         var other = Row() with { Id = Guid.NewGuid() };
 
@@ -102,7 +102,7 @@ public sealed class GuildRepositoryTests : IAsyncDisposable {
             Token
         );
 
-        await store.Guilds.WriteAsync(Row(revision: 2, members: [new(Leader, 0, DateTimeOffset.UnixEpoch)]), Token);
+        await store.Guilds.WriteAsync(Row(2, members: [new(Leader, 0, DateTimeOffset.UnixEpoch)]), Token);
 
         var stored = await store.Guilds.ReadAsync(id, Token);
 
@@ -129,16 +129,14 @@ public sealed class GuildRepositoryTests : IAsyncDisposable {
     [Fact]
     public async Task GuildsComeBackOldestFirst() {
         var first = Row() with { Id = Guid.NewGuid(), Founded = DateTimeOffset.UnixEpoch, Name = "First" };
-        var second = Row() with {
-            Id = Guid.NewGuid(), Founded = DateTimeOffset.UnixEpoch.AddDays(1), Name = "Second"
-        };
+        var second = Row() with { Id = Guid.NewGuid(), Founded = DateTimeOffset.UnixEpoch.AddDays(1), Name = "Second" };
 
         await store.Guilds.WriteAsync(second, Token);
         await store.Guilds.WriteAsync(first, Token);
 
         Assert.Equal(
             ["First", "Second"],
-            (await store.Guilds.ForAccountAsync(Leader.Account, Token)).Select(row => row.Name)
+            (await store.Guilds.ForAccountAsync(Leader.Account, Token)).Select(static row => row.Name)
         );
     }
 
@@ -146,8 +144,12 @@ public sealed class GuildRepositoryTests : IAsyncDisposable {
     public async Task TheSchemaHasAStepForThis() {
         // The migration is a step of its own rather than an edit to step 1: a deployment that has
         // already run 1 must not be asked to run it again.
-        Assert.Contains(Schema.Steps, step => step.Version == 2);
-        Assert.Contains(Schema.Steps, step => step.Statements.Any(sql => sql.Contains("live_guild_member", StringComparison.Ordinal)));
+        Assert.Contains(Schema.Steps, static step => step.Version == 2);
+        Assert.Contains(
+            Schema.Steps,
+            static step => step.Statements.Any(static sql => sql.Contains("live_guild_member", StringComparison.Ordinal)
+            )
+        );
 
         Assert.Equal(2, await store.MigrateAsync(Token));
     }

@@ -51,7 +51,7 @@ public class ReflectedEditingTests {
         // would satisfy "two members" and be wrong about both of them.
         Assert.Equal(
             ["Device", "Volume"],
-            target.Members.Select(member => member.Name).Order(StringComparer.Ordinal)
+            target.Members.Select(static member => member.Name).Order(StringComparer.Ordinal)
         );
     }
 
@@ -72,7 +72,7 @@ public class ReflectedEditingTests {
         Assert.Equal(0.75f, settings.Volume);
 
         // And reading it back goes through the same member rather than through the object.
-        Assert.Equal(new EditValue(0.75f, false), property.Read());
+        Assert.Equal(new(0.75f, false), property.Read());
     }
 
     /// <summary>Resolution by name works for the same type, which is what a markup binding uses.</summary>

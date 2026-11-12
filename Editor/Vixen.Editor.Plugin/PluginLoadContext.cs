@@ -17,8 +17,12 @@ namespace Vixen.Editor.Plugin;
 ///         a collectible context and an ahead-of-time-compiled process are not compatible ideas.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Anything shared with the host resolves to the host's copy, and getting this wrong is
-///         the classic failure.</b> If a plugin's folder contains <c>Vixen.Editor.Plugin.dll</c> and
+///         ⚠
+///         <b>
+///             Anything shared with the host resolves to the host's copy, and getting this wrong is
+///             the classic failure.
+///         </b>
+///         If a plugin's folder contains <c>Vixen.Editor.Plugin.dll</c> and
 ///         this context loads it, the plugin's <c>IEditorPlugin</c> is a <i>different type</i> from
 ///         the host's — same name, same assembly name, different load context — so the cast in the
 ///         loader fails with a message that reads like a lie ("cannot cast IEditorPlugin to
@@ -26,14 +30,22 @@ namespace Vixen.Editor.Plugin;
 ///         <c>Vixen.*</c>, comes from the default context.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Nothing in a plugin's folder is mapped from disk — the entry assembly and every
-///         library beside it are read into memory.</b> <c>LoadFromAssemblyPath</c> holds the file
+///         ⚠
+///         <b>
+///             Nothing in a plugin's folder is mapped from disk — the entry assembly and every
+///             library beside it are read into memory.
+///         </b>
+///         <c>LoadFromAssemblyPath</c> holds the file
 ///         open until the context is collected, which on Windows means the developer's next build
 ///         fails to write the DLL it has just been asked to reload. This used to be true of the
 ///         entry assembly only, so a plugin that changed a library beside itself needed a restart
-///         and the fix was written down as "shadow-copy the folder" — ⚠ <b>but a shadow copy is a
-///         second copy on disk to keep in step, and reading the bytes is the same guarantee with
-///         nothing to keep in step.</b> A plugin's dependency is loaded exactly the way its entry
+///         and the fix was written down as "shadow-copy the folder" — ⚠
+///         <b>
+///             but a shadow copy is a
+///             second copy on disk to keep in step, and reading the bytes is the same guarantee with
+///             nothing to keep in step.
+///         </b>
+///         A plugin's dependency is loaded exactly the way its entry
 ///         assembly always was.
 ///     </para>
 ///     <para>
@@ -68,20 +80,20 @@ public sealed class PluginLoadContext : AssemblyLoadContext {
     /// <param name="assemblyPath">The plugin's assembly. Its folder is where dependencies come from.</param>
     /// <param name="name">What the context is called in a debugger and in a stack trace.</param>
     public PluginLoadContext(string assemblyPath, string? name = null)
-        : base(name ?? "vixen-plugin:" + Path.GetFileNameWithoutExtension(assemblyPath), isCollectible: true) {
+        : base(name ?? "vixen-plugin:" + Path.GetFileNameWithoutExtension(assemblyPath), true) {
         ArgumentException.ThrowIfNullOrEmpty(assemblyPath);
 
         AssemblyPath = assemblyPath;
-        resolver = new AssemblyDependencyResolver(assemblyPath);
+        resolver = new(assemblyPath);
 
         // Snapshotted rather than asked each time. What the host has loaded grows while it runs —
         // opening a shader graph loads assemblies the editor had not touched at start-up — and a
         // rule that changed underneath a plugin would make "does this resolve to the host's copy"
         // depend on which panels the user had opened, which is not a thing anybody could debug.
         shared = Default.Assemblies
-            .Select(assembly => assembly.GetName().Name)
-            .Where(assemblyName => assemblyName is not null)
-            .Select(assemblyName => assemblyName!)
+            .Select(static assembly => assembly.GetName().Name)
+            .Where(static assemblyName => assemblyName is not null)
+            .Select(static assemblyName => assemblyName!)
             .ToHashSet(StringComparer.Ordinal);
     }
 

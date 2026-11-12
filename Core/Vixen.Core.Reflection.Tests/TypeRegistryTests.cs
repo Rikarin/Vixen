@@ -39,7 +39,7 @@ public class TypeRegistryTests {
 
     [Fact]
     public void QueryingByTraitIsWhatUsedToBeAnAssemblyScan() {
-        var components = TypeRegistry.With(TypeTraits.Component).Select(descriptor => descriptor.Type).ToArray();
+        var components = TypeRegistry.With(TypeTraits.Component).Select(static descriptor => descriptor.Type).ToArray();
 
         Assert.Contains(typeof(Tag), components);
         Assert.Contains(typeof(Transform2D), components);
@@ -49,7 +49,7 @@ public class TypeRegistryTests {
 
     [Fact]
     public void QueryingByBaseTypeFindsTheSubtypes() {
-        var behaviours = TypeRegistry.AssignableTo<Behaviour>().Select(descriptor => descriptor.Type).ToArray();
+        var behaviours = TypeRegistry.AssignableTo<Behaviour>().Select(static descriptor => descriptor.Type).ToArray();
 
         Assert.Contains(typeof(Spinner), behaviours);
         Assert.Contains(typeof(Behaviour), behaviours);
@@ -190,7 +190,7 @@ public class TypeRegistryTests {
     public void ADerivedTypeDescribesItsBaseMembersFirst() {
         Assert.True(TypeRegistry.TryGet<Spinner>(out var descriptor));
 
-        Assert.Equal(["Enabled", "Speed"], descriptor.Members.Select(member => member.Name));
+        Assert.Equal(["Enabled", "Speed"], descriptor.Members.Select(static member => member.Name));
     }
 
     [Fact]

@@ -35,15 +35,22 @@ public sealed partial class RadialItem : ButtonBase {
 /// <summary>A pie menu: wedges round a centre, aimed with the pointer.</summary>
 /// <remarks>
 ///     <para>
-///         <b>Blender's pie menu, which is the fastest menu anybody has shipped and is fast for one
-///         reason.</b> A drop-down costs a read — the items are in an order you have to scan — and a
+///         <b>
+///             Blender's pie menu, which is the fastest menu anybody has shipped and is fast for one
+///             reason.
+///         </b>
+///         A drop-down costs a read — the items are in an order you have to scan — and a
 ///         pie costs a direction. After a week the direction is muscle memory and the menu is a
 ///         flick; the items being in fixed positions is the whole mechanism, which is why nothing
 ///         here sorts or filters what it was given.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Two gestures, and both have to work or neither is used.</b> <i>Press the key, then
-///         click a wedge</i> is what somebody does the first fifty times, while they are still
+///         ⚠ <b>Two gestures, and both have to work or neither is used.</b>
+///         <i>
+///             Press the key, then
+///             click a wedge
+///         </i>
+///         is what somebody does the first fifty times, while they are still
 ///         reading the labels. <i>Hold the key, flick, release</i> is what they do afterwards, and it
 ///         is the one that makes the menu worth having. They are the same menu in the same place —
 ///         see <see cref="Hold" />.
@@ -114,7 +121,7 @@ public sealed partial class RadialMenu : Overlay {
         // so a handler on this element would hear nothing until the pointer had already crossed a
         // wedge. This is the one control in the set that has to watch the whole document.
         aimed = (_, args) => Aimed(args);
-        Document.Root.AddHandler(aimed, RoutingStrategy.Capture, handledEventsToo: true);
+        Document.Root.AddHandler(aimed, RoutingStrategy.Capture, true);
 
         // ⚠ And the key going up, on the root for the same reason. The gesture this menu is for is
         // "hold a key, flick, let go" — so the commit is a key *release*, which arrives wherever the
@@ -122,10 +129,10 @@ public sealed partial class RadialMenu : Overlay {
         // what makes the held-key form work at all; without it the menu would open on the press and
         // then sit there waiting for a click nobody is going to make.
         lifted = (_, args) => Lifted(args);
-        Document.Root.AddHandler(lifted, RoutingStrategy.Capture, handledEventsToo: true);
+        Document.Root.AddHandler(lifted, RoutingStrategy.Capture, true);
 
-        AddHandler<ClickEvent>(static (element, args) => ((RadialMenu) element).Chosen(args));
-        AddHandler<KeyEvent>(static (element, args) => ((RadialMenu) element).Keyed(args));
+        AddHandler<ClickEvent>(static (element, args) => ((RadialMenu)element).Chosen(args));
+        AddHandler<KeyEvent>(static (element, args) => ((RadialMenu)element).Keyed(args));
     }
 
     Action<UiElement, PointerEvent>? aimed;
@@ -195,9 +202,9 @@ public sealed partial class RadialMenu : Overlay {
         // The pass that gives the wedges a size, so that placing them has something to measure.
         Document.Update();
 
-        centre = new Vector2(x, y);
+        centre = new(x, y);
 
-        MoveTo(x - (Bounds.Width * 0.5f), y - (Bounds.Height * 0.5f));
+        MoveTo(x - Bounds.Width * 0.5f, y - Bounds.Height * 0.5f);
 
         // ⚠ Placed, laid out, and placed again — which is one pass more than it looks like it needs.
         // Writing `left` on an absolutely positioned child changes how much room is left to its
@@ -258,13 +265,17 @@ public sealed partial class RadialMenu : Overlay {
 
         var step = MathF.Tau / items.Count;
 
-        return (int) MathF.Round(angle / step) % items.Count;
+        return (int)MathF.Round(angle / step) % items.Count;
     }
 
     /// <summary>Puts each wedge on the ring.</summary>
     /// <remarks>
-    ///     ⚠ <b>Positioned by an inline offset rather than by a rule, because the ring's geometry is
-    ///     arithmetic no stylesheet can do.</b> The radius is a property, the count is whatever was
+    ///     ⚠
+    ///     <b>
+    ///         Positioned by an inline offset rather than by a rule, because the ring's geometry is
+    ///         arithmetic no stylesheet can do.
+    ///     </b>
+    ///     The radius is a property, the count is whatever was
     ///     added, and each wedge has to be centred on its own point rather than starting at it — an
     ///     item placed by its top-left corner makes a ring that leans down and to the right by half a
     ///     button.
@@ -281,8 +292,8 @@ public sealed partial class RadialMenu : Overlay {
 
             var point = middle + new Vector2(MathF.Sin(angle) * Radius, -MathF.Cos(angle) * Radius);
 
-            item.SetStyle("left", Px(point.X - (item.Bounds.Width * 0.5f)));
-            item.SetStyle("top", Px(point.Y - (item.Bounds.Height * 0.5f)));
+            item.SetStyle("left", Px(point.X - item.Bounds.Width * 0.5f));
+            item.SetStyle("top", Px(point.Y - item.Bounds.Height * 0.5f));
         }
     }
 
@@ -304,7 +315,7 @@ public sealed partial class RadialMenu : Overlay {
         }
 
         if (args.Action is PointerAction.Moved or PointerAction.Pressed) {
-            Aim(WedgeAt(new Vector2(args.X - centre.X, args.Y - centre.Y)));
+            Aim(WedgeAt(new(args.X - centre.X, args.Y - centre.Y)));
             return;
         }
 
@@ -373,19 +384,19 @@ public sealed partial class RadialMenu : Overlay {
 
         switch (args.Key) {
             case InputKey.Up:
-                Aim(WedgeAt(new Vector2(0f, -Radius)));
+                Aim(WedgeAt(new(0f, -Radius)));
                 break;
 
             case InputKey.Down:
-                Aim(WedgeAt(new Vector2(0f, Radius)));
+                Aim(WedgeAt(new(0f, Radius)));
                 break;
 
             case InputKey.Left:
-                Aim(WedgeAt(new Vector2(-Radius, 0f)));
+                Aim(WedgeAt(new(-Radius, 0f)));
                 break;
 
             case InputKey.Right:
-                Aim(WedgeAt(new Vector2(Radius, 0f)));
+                Aim(WedgeAt(new(Radius, 0f)));
                 break;
 
             case InputKey.Tab:

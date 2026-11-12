@@ -25,7 +25,7 @@ internal abstract partial class Binder {
                 return BindConstruction(type.ReferencedType, arguments, syntax);
 
             case BoundErrorExpression:
-                return new BoundErrorExpression(syntax, arguments.Select(a => a.Expression).ToArray());
+                return new BoundErrorExpression(syntax, arguments.Select(static a => a.Expression).ToArray());
 
             // ⚠ Before the `IsErrorType` guard below, and the reason it has to be its own arm. A
             // namespace reports its type as the error type — it has no type, and there is nothing
@@ -37,14 +37,14 @@ internal abstract partial class Binder {
             // position was reported and only a call was not.
             case BoundNamespaceExpression ns:
                 Report(SemanticDiagnostics.NotInvocable, syntax, ns.Namespace.ToDisplayString());
-                return new BoundErrorExpression(syntax, arguments.Select(a => a.Expression).ToArray());
+                return new BoundErrorExpression(syntax, arguments.Select(static a => a.Expression).ToArray());
 
             default:
                 if (!callee.Type.IsErrorType) {
                     Report(SemanticDiagnostics.NotInvocable, syntax, syntax.Expression.ToString().Trim());
                 }
 
-                return new BoundErrorExpression(syntax, arguments.Select(a => a.Expression).ToArray());
+                return new BoundErrorExpression(syntax, arguments.Select(static a => a.Expression).ToArray());
         }
     }
 
@@ -96,14 +96,14 @@ internal abstract partial class Binder {
 
         if (applicable.Count == 0) {
             // Stay quiet when an argument already failed to bind.
-            if (!arguments.Any(a => a.Expression.Type.IsErrorType)) {
+            if (!arguments.Any(static a => a.Expression.Type.IsErrorType)) {
                 ReportNoOverload(group.Methods, arguments, name, syntax);
             }
 
-            return new BoundErrorExpression(syntax, arguments.Select(a => a.Expression).ToArray());
+            return new BoundErrorExpression(syntax, arguments.Select(static a => a.Expression).ToArray());
         }
 
-        var best = applicable.MinBy(c => c.Cost);
+        var best = applicable.MinBy(static c => c.Cost);
         var tied = applicable.Where(c => c.Cost == best.Cost).ToArray();
 
         if (tied.Length > 1) {
@@ -111,9 +111,9 @@ internal abstract partial class Binder {
                 SemanticDiagnostics.AmbiguousInvocation,
                 syntax,
                 name,
-                string.Join(" and ", tied.Take(2).Select(c => c.Method.ToDisplayString()))
+                string.Join(" and ", tied.Take(2).Select(static c => c.Method.ToDisplayString()))
             );
-            return new BoundErrorExpression(syntax, arguments.Select(a => a.Expression).ToArray());
+            return new BoundErrorExpression(syntax, arguments.Select(static a => a.Expression).ToArray());
         }
 
         CheckInOutArguments(best.Method, best.Arguments, arguments, syntax);
@@ -137,8 +137,12 @@ internal abstract partial class Binder {
     ///     <para>
     ///         <b>And it has to be storage the dispatch shares.</b> An atomic on memory only one
     ///         invocation can reach has nothing to be indivisible against, and GLSL refuses it in so
-    ///         many words — <i>"only l-values corresponding to shader block storage or shared
-    ///         variables"</i> — so a local target would bind here and fail in one backend. Two
+    ///         many words —
+    ///         <i>
+    ///             "only l-values corresponding to shader block storage or shared
+    ///             variables"
+    ///         </i>
+    ///         — so a local target would bind here and fail in one backend. Two
     ///         roots satisfy it: a writable resource, which the whole dispatch reaches, and a
     ///         <c>groupshared</c> variable, which one workgroup does.
     ///     </para>
@@ -167,7 +171,8 @@ internal abstract partial class Binder {
 
         foreach (var supplied in arguments) {
             if (ReferenceEquals(supplied.Expression, target)
-                || (target is BoundConversionExpression converted && ReferenceEquals(supplied.Expression, converted.Operand))) {
+                || (target is BoundConversionExpression converted
+                    && ReferenceEquals(supplied.Expression, converted.Operand))) {
                 location = supplied.Syntax;
 
                 break;
@@ -318,7 +323,7 @@ internal abstract partial class Binder {
             return;
         }
 
-        var signature = string.Join(", ", arguments.Select(a => a.Expression.Type.ToDisplayString()));
+        var signature = string.Join(", ", arguments.Select(static a => a.Expression.Type.ToDisplayString()));
         Report(SemanticDiagnostics.NoApplicableOverload, syntax, name, signature);
     }
 
@@ -401,7 +406,7 @@ internal abstract partial class Binder {
         IReadOnlyList<BoundArgument> arguments,
         ExpressionSyntax syntax
     ) {
-        var values = arguments.Select(a => a.Expression).ToArray();
+        var values = arguments.Select(static a => a.Expression).ToArray();
 
         if (type.IsErrorType) {
             return new BoundErrorExpression(syntax, values);
@@ -438,7 +443,7 @@ internal abstract partial class Binder {
             return new BoundErrorExpression(syntax, values);
         }
 
-        var best = applicable.MinBy(c => c.Cost);
+        var best = applicable.MinBy(static c => c.Cost);
         return new BoundObjectCreationExpression(syntax, named, best.Method, best.Arguments);
     }
 
@@ -468,7 +473,7 @@ internal abstract partial class Binder {
         IReadOnlyList<BoundArgument> arguments,
         ExpressionSyntax syntax
     ) {
-        var values = arguments.Select(a => a.Expression).ToArray();
+        var values = arguments.Select(static a => a.Expression).ToArray();
 
         // Only a struct is data. A shader is a pipeline, a protocol has no storage, and an
         // enum's members are constants.
@@ -477,7 +482,7 @@ internal abstract partial class Binder {
             return new BoundErrorExpression(syntax, values);
         }
 
-        var fields = type.GetMembers().OfType<FieldSymbol>().Where(f => !f.IsConst && !f.IsCompose).ToArray();
+        var fields = type.GetMembers().OfType<FieldSymbol>().Where(static f => !f.IsConst && !f.IsCompose).ToArray();
 
         if (fields.Length != arguments.Count) {
             Report(
@@ -514,7 +519,7 @@ internal abstract partial class Binder {
             converted.Add(Convert(values[i], fields[i].Type, arguments[i].Syntax));
         }
 
-        return new BoundObjectCreationExpression(syntax, type, null, [.. converted]);
+        return new BoundObjectCreationExpression(syntax, type, null, [..converted]);
     }
 
     BoundExpression BindPrimitiveConstruction(
@@ -522,7 +527,7 @@ internal abstract partial class Binder {
         IReadOnlyList<BoundArgument> arguments,
         ExpressionSyntax syntax
     ) {
-        var values = arguments.Select(a => a.Expression).ToArray();
+        var values = arguments.Select(static a => a.Expression).ToArray();
 
         // A single scalar broadcasts across every lane: `float3(0)`, `mat3(1)`.
         if (values.Length == 1
@@ -578,7 +583,7 @@ internal abstract partial class Binder {
     BoundExpression BindElementAccess(ElementAccessExpressionSyntax syntax) {
         var receiver = BindValue(syntax.Expression);
         var arguments = BindArguments(syntax.ArgumentList.Arguments);
-        var indices = arguments.Select(a => a.Expression).ToArray();
+        var indices = arguments.Select(static a => a.Expression).ToArray();
 
         if (receiver.Type.IsErrorType) {
             return new BoundErrorExpression(syntax, indices);

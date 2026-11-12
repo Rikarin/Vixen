@@ -33,7 +33,7 @@ sealed class StepDecoder(int frames, int channels = 1, int sampleRate = 48_000) 
 
         for (var frame = 0; frame < wanted; frame++) {
             for (var channel = 0; channel < channels; channel++) {
-                destination[(frame * channels) + channel] = (position + frame) * AudioTestData.RampStep;
+                destination[frame * channels + channel] = (position + frame) * AudioTestData.RampStep;
             }
         }
 
@@ -175,7 +175,7 @@ public sealed class StreamingTests {
 
     [Fact]
     public void ALoopingStreamNeverEnds() {
-        using var provider = new StreamingSampleProvider(new StepDecoder(6), loop: true, bufferedFrames: 64);
+        using var provider = new StreamingSampleProvider(new StepDecoder(6), true, 64);
         provider.Fill();
 
         var destination = new float[64];
@@ -193,7 +193,7 @@ public sealed class StreamingTests {
     public void AStreamThatCannotSeekCannotLoop() {
         var decoder = new StepDecoder(10) { CanSeek = false };
 
-        Assert.Throws<ArgumentException>(() => new StreamingSampleProvider(decoder, loop: true));
+        Assert.Throws<ArgumentException>(() => new StreamingSampleProvider(decoder, true));
     }
 
     /// <summary>
@@ -217,10 +217,10 @@ public sealed class StreamingTests {
 
     [Fact]
     public void AStreamPlaysThroughTheMixerAndFinishes() {
-        var (engine, device) = AudioTestData.Engine(channels: 1);
+        var (engine, device) = AudioTestData.Engine(1);
         using var _ = engine;
 
-        var handle = engine.PlayStream(new StepDecoder(64), new PlaybackSettings { Gain = 1f, Pitch = 1f });
+        var handle = engine.PlayStream(new StepDecoder(64), new() { Gain = 1f, Pitch = 1f });
 
         Assert.True(handle.IsValid);
         Assert.Equal(1, engine.Streams.StreamCount);
@@ -245,7 +245,7 @@ public sealed class StreamingTests {
 
         using var decoder = new PcmStreamDecoder(
             stream,
-            new AudioFormat(clip.SampleRate, clip.Channels),
+            new(clip.SampleRate, clip.Channels),
             AudioSampleFormat.Float32
         );
 
@@ -279,7 +279,7 @@ public sealed class StreamingTests {
     public void APcmDecoderSeeksWithinItsRegion() {
         var clip = AudioTestData.Ramp(64);
         using var stream = new MemoryStream(clip.Samples);
-        using var decoder = new PcmStreamDecoder(stream, new AudioFormat(48_000, 1), AudioSampleFormat.Float32);
+        using var decoder = new PcmStreamDecoder(stream, new(48_000, 1), AudioSampleFormat.Float32);
 
         decoder.Seek(32);
         var destination = new float[4];
@@ -336,7 +336,7 @@ public sealed class LiveSampleProviderTests {
     /// </summary>
     [Fact]
     public void PushingFasterThanRealTimeDropsTheOverflowAndCountsIt() {
-        var live = new LiveSampleProvider(AudioFormat.Mono48k, bufferedFrames: 4);
+        var live = new LiveSampleProvider(AudioFormat.Mono48k, 4);
 
         Assert.Equal(4, live.Write([1f, 2f, 3f, 4f, 5f, 6f]));
         Assert.Equal(2, live.DroppedFrames);
@@ -357,13 +357,13 @@ public sealed class LiveSampleProviderTests {
 
     [Fact]
     public void ALiveVoicePlaysThroughTheMixerAndEndsWhenTheSpeakerLeaves() {
-        var (engine, device) = AudioTestData.Engine(channels: 1);
+        var (engine, device) = AudioTestData.Engine(1);
         using var _ = engine;
 
         var live = new LiveSampleProvider(AudioFormat.Mono48k);
         live.Write(Enumerable.Repeat(0.5f, 512).ToArray());
 
-        var handle = engine.Play(live, new PlaybackSettings { Gain = 1f, Pitch = 1f });
+        var handle = engine.Play(live, new() { Gain = 1f, Pitch = 1f });
         var rendered = AudioTestData.Render(device, 256);
 
         Assert.Equal(0.5f, AudioTestData.Peak(rendered), 0.001f);

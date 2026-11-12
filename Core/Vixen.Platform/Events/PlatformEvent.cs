@@ -83,12 +83,16 @@ public readonly struct PlatformEvent {
     public long Timestamp => timestamp;
 
     /// <summary>The modifier keys held at the time.</summary>
-    /// <remarks>Meaningful for the keyboard and pointer kinds; <see cref="KeyModifiers.None" />
-    /// elsewhere.</remarks>
+    /// <remarks>
+    ///     Meaningful for the keyboard and pointer kinds; <see cref="KeyModifiers.None" />
+    ///     elsewhere.
+    /// </remarks>
     public KeyModifiers Modifiers => modifiers;
 
-    /// <summary>The key, for <see cref="PlatformEventKind.KeyDown" /> and
-    /// <see cref="PlatformEventKind.KeyUp" />.</summary>
+    /// <summary>
+    ///     The key, for <see cref="PlatformEventKind.KeyDown" /> and
+    ///     <see cref="PlatformEventKind.KeyUp" />.
+    /// </summary>
     public Key Key {
         get {
             AssertKind(PlatformEventKind.KeyDown, PlatformEventKind.KeyUp);
@@ -96,8 +100,10 @@ public readonly struct PlatformEvent {
         }
     }
 
-    /// <summary>Whether a <see cref="PlatformEventKind.KeyDown" /> is auto-repeat rather than a
-    /// fresh press.</summary>
+    /// <summary>
+    ///     Whether a <see cref="PlatformEventKind.KeyDown" /> is auto-repeat rather than a
+    ///     fresh press.
+    /// </summary>
     /// <remarks>A game reads presses and ignores repeats; a text field wants both.</remarks>
     public bool IsRepeat {
         get {
@@ -106,8 +112,10 @@ public readonly struct PlatformEvent {
         }
     }
 
-    /// <summary>The button, for <see cref="PlatformEventKind.MouseButtonDown" /> and
-    /// <see cref="PlatformEventKind.MouseButtonUp" />.</summary>
+    /// <summary>
+    ///     The button, for <see cref="PlatformEventKind.MouseButtonDown" /> and
+    ///     <see cref="PlatformEventKind.MouseButtonUp" />.
+    /// </summary>
     public MouseButton MouseButton {
         get {
             AssertKind(PlatformEventKind.MouseButtonDown, PlatformEventKind.MouseButtonUp);
@@ -115,8 +123,10 @@ public readonly struct PlatformEvent {
         }
     }
 
-    /// <summary>How many clicks this one completes: 1 for a single click, 2 for the second click of
-    /// a double-click, and so on for as far as the OS counts.</summary>
+    /// <summary>
+    ///     How many clicks this one completes: 1 for a single click, 2 for the second click of
+    ///     a double-click, and so on for as far as the OS counts.
+    /// </summary>
     /// <remarks>
     ///     The platform decides, using the user's configured double-click interval and slop. An
     ///     engine that re-derives this from timestamps gets a different answer from every other
@@ -129,8 +139,10 @@ public readonly struct PlatformEvent {
         }
     }
 
-    /// <summary>Whether a <see cref="PlatformEventKind.MouseWheel" /> came from a notched wheel
-    /// rather than from a continuous surface such as a trackpad.</summary>
+    /// <summary>
+    ///     Whether a <see cref="PlatformEventKind.MouseWheel" /> came from a notched wheel
+    ///     rather than from a continuous surface such as a trackpad.
+    /// </summary>
     /// <remarks>
     ///     <para>
     ///         ⚠ <b>Only <see langword="true" /> is a claim.</b> False means "a continuous device,
@@ -153,8 +165,10 @@ public readonly struct PlatformEvent {
         }
     }
 
-    /// <summary>The button, for <see cref="PlatformEventKind.GamepadButtonDown" /> and
-    /// <see cref="PlatformEventKind.GamepadButtonUp" />.</summary>
+    /// <summary>
+    ///     The button, for <see cref="PlatformEventKind.GamepadButtonDown" /> and
+    ///     <see cref="PlatformEventKind.GamepadButtonUp" />.
+    /// </summary>
     public GamepadButton GamepadButton {
         get {
             AssertKind(PlatformEventKind.GamepadButtonDown, PlatformEventKind.GamepadButtonUp);
@@ -184,8 +198,10 @@ public readonly struct PlatformEvent {
         }
     }
 
-    /// <summary>Which device this came from: a gamepad's id, or a finger's id for the duration of
-    /// its touch.</summary>
+    /// <summary>
+    ///     Which device this came from: a gamepad's id, or a finger's id for the duration of
+    ///     its touch.
+    /// </summary>
     public int DeviceId {
         get {
             AssertKind(
@@ -203,8 +219,10 @@ public readonly struct PlatformEvent {
         }
     }
 
-    /// <summary>Where the pointer or finger is, relative to the window's top-left, in logical
-    /// points.</summary>
+    /// <summary>
+    ///     Where the pointer or finger is, relative to the window's top-left, in logical
+    ///     points.
+    /// </summary>
     /// <remarks>
     ///     Fractional on trackpads, high-resolution mice and touchscreens, so it is a
     ///     <see cref="Vector2" /> rather than an <see cref="Int2" />. Meaningless in
@@ -234,8 +252,10 @@ public readonly struct PlatformEvent {
         }
     }
 
-    /// <summary>How far it moved since the previous event, in logical points — or in wheel notches
-    /// for <see cref="PlatformEventKind.MouseWheel" />.</summary>
+    /// <summary>
+    ///     How far it moved since the previous event, in logical points — or in wheel notches
+    ///     for <see cref="PlatformEventKind.MouseWheel" />.
+    /// </summary>
     public Vector2 Delta {
         get {
             AssertKind(
@@ -248,8 +268,10 @@ public readonly struct PlatformEvent {
         }
     }
 
-    /// <summary>The window's new top-left in desktop coordinates, for
-    /// <see cref="PlatformEventKind.WindowMoved" />.</summary>
+    /// <summary>
+    ///     The window's new top-left in desktop coordinates, for
+    ///     <see cref="PlatformEventKind.WindowMoved" />.
+    /// </summary>
     public Int2 WindowPosition {
         get {
             AssertKind(PlatformEventKind.WindowMoved);
@@ -257,8 +279,10 @@ public readonly struct PlatformEvent {
         }
     }
 
-    /// <summary>The client area's new size in logical points, for
-    /// <see cref="PlatformEventKind.WindowResized" />.</summary>
+    /// <summary>
+    ///     The client area's new size in logical points, for
+    ///     <see cref="PlatformEventKind.WindowResized" />.
+    /// </summary>
     public Int2 Size {
         get {
             AssertKind(PlatformEventKind.WindowResized);
@@ -266,9 +290,11 @@ public readonly struct PlatformEvent {
         }
     }
 
-    /// <summary>The framebuffer's new size in physical pixels, for
-    /// <see cref="PlatformEventKind.WindowResized" /> — which is what a swapchain is rebuilt
-    /// from.</summary>
+    /// <summary>
+    ///     The framebuffer's new size in physical pixels, for
+    ///     <see cref="PlatformEventKind.WindowResized" /> — which is what a swapchain is rebuilt
+    ///     from.
+    /// </summary>
     public Int2 PixelSize {
         get {
             AssertKind(PlatformEventKind.WindowResized);
@@ -276,8 +302,10 @@ public readonly struct PlatformEvent {
         }
     }
 
-    /// <summary>The window's new scale factor, for
-    /// <see cref="PlatformEventKind.WindowDpiChanged" />.</summary>
+    /// <summary>
+    ///     The window's new scale factor, for
+    ///     <see cref="PlatformEventKind.WindowDpiChanged" />.
+    /// </summary>
     public float DpiScale {
         get {
             AssertKind(PlatformEventKind.WindowDpiChanged);
@@ -285,8 +313,10 @@ public readonly struct PlatformEvent {
         }
     }
 
-    /// <summary>The text: committed input, a composition string, a dropped path, or dropped
-    /// text.</summary>
+    /// <summary>
+    ///     The text: committed input, a composition string, a dropped path, or dropped
+    ///     text.
+    /// </summary>
     public string Text {
         get {
             AssertKind(
@@ -300,8 +330,10 @@ public readonly struct PlatformEvent {
         }
     }
 
-    /// <summary>Where the composition cursor sits within <see cref="Text" />, for
-    /// <see cref="PlatformEventKind.TextEditing" />.</summary>
+    /// <summary>
+    ///     Where the composition cursor sits within <see cref="Text" />, for
+    ///     <see cref="PlatformEventKind.TextEditing" />.
+    /// </summary>
     public int SelectionStart {
         get {
             AssertKind(PlatformEventKind.TextEditing);
@@ -309,8 +341,10 @@ public readonly struct PlatformEvent {
         }
     }
 
-    /// <summary>How much of <see cref="Text" /> the composition has selected, for
-    /// <see cref="PlatformEventKind.TextEditing" />.</summary>
+    /// <summary>
+    ///     How much of <see cref="Text" /> the composition has selected, for
+    ///     <see cref="PlatformEventKind.TextEditing" />.
+    /// </summary>
     public int SelectionLength {
         get {
             AssertKind(PlatformEventKind.TextEditing);
@@ -403,8 +437,10 @@ public readonly struct PlatformEvent {
         );
 
     /// <summary>A wheel or trackpad scroll, in notches.</summary>
-    /// <remarks><c>notched</c> is passed <see langword="true" /> only where the backend can say the
-    /// delta came from a notched wheel; see <see cref="IsNotched" />.</remarks>
+    /// <remarks>
+    ///     <c>notched</c> is passed <see langword="true" /> only where the backend can say the
+    ///     delta came from a notched wheel; see <see cref="IsNotched" />.
+    /// </remarks>
     public static PlatformEvent MouseWheel(
         uint windowId,
         long timestamp,
@@ -452,21 +488,30 @@ public readonly struct PlatformEvent {
     public static PlatformEvent GamepadAxisMoved(long timestamp, int deviceId, GamepadAxis axis, float position) =>
         new(PlatformEventKind.GamepadAxisMoved, 0, timestamp, value: position, code: (int)axis, device: deviceId);
 
-    /// <summary>An event that belongs to the application rather than to any window: a suspend, a
-    /// resume, a memory warning, a quit, a display change.</summary>
+    /// <summary>
+    ///     An event that belongs to the application rather than to any window: a suspend, a
+    ///     resume, a memory warning, a quit, a display change.
+    /// </summary>
     public static PlatformEvent Application(PlatformEventKind kind, long timestamp) => new(kind, 0, timestamp);
 
     /// <summary>Something dropped onto a window.</summary>
-    public static PlatformEvent Drop(PlatformEventKind kind, uint windowId, long timestamp, string text, Vector2 position) =>
+    public static PlatformEvent Drop(
+        PlatformEventKind kind,
+        uint windowId,
+        long timestamp,
+        string text,
+        Vector2 position
+    ) =>
         new(kind, windowId, timestamp, position, text: text);
 
     /// <inheritdoc />
-    public override string ToString() => Kind switch {
-        PlatformEventKind.KeyDown or PlatformEventKind.KeyUp => $"{Kind} {Key} {Modifiers}",
-        PlatformEventKind.WindowResized => $"{Kind} #{WindowId} {Size} ({PixelSize} px)",
-        PlatformEventKind.TextInput or PlatformEventKind.TextEditing => $"{Kind} \"{Text}\"",
-        _ => WindowId == 0 ? Kind.ToString() : $"{Kind} #{WindowId}"
-    };
+    public override string ToString() =>
+        Kind switch {
+            PlatformEventKind.KeyDown or PlatformEventKind.KeyUp => $"{Kind} {Key} {Modifiers}",
+            PlatformEventKind.WindowResized => $"{Kind} #{WindowId} {Size} ({PixelSize} px)",
+            PlatformEventKind.TextInput or PlatformEventKind.TextEditing => $"{Kind} \"{Text}\"",
+            _ => WindowId == 0 ? Kind.ToString() : $"{Kind} #{WindowId}"
+        };
 
     /// <summary>
     ///     Catches the one mistake this design makes possible — reading a payload that belongs to a

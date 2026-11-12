@@ -10,8 +10,11 @@ namespace Vixen.Texturing.Painting;
 /// <param name="Offset">How far along that normal the plane is from the origin.</param>
 /// <remarks>
 ///     <para>
-///         <b>⚠ The mirror is applied to the <em>ray</em> and never to the atlas, and
-///         <c>PaintSession</c>'s own remarks say why that is a result rather than a shortcut.</b> A
+///         <b>
+///             ⚠ The mirror is applied to the <em>ray</em> and never to the atlas, and
+///             <c>PaintSession</c>'s own remarks say why that is a result rather than a shortcut.
+///         </b>
+///         A
 ///         plane mirrors a point in object space; the mirrored point lands on a different triangle,
 ///         which is in a different chart, at an unrelated place in the atlas. There is no transform
 ///         of the atlas that performs it — so symmetry is the one stroke-level effect that can only
@@ -66,18 +69,22 @@ public readonly record struct PaintSymmetry(Vector3 Normal, float Offset) {
     /// <summary>The reflection of a point.</summary>
     /// <param name="point">The point.</param>
     /// <returns>Its mirror.</returns>
-    public Vector3 Mirror(Vector3 point) => point - (2f * (Vector3.Dot(Normal, point) - Offset) * Normal);
+    public Vector3 Mirror(Vector3 point) => point - 2f * (Vector3.Dot(Normal, point) - Offset) * Normal;
 
     /// <summary>The reflection of a direction, which the offset does not touch.</summary>
     /// <param name="direction">The direction.</param>
     /// <returns>Its mirror.</returns>
     /// <remarks>
-    ///     ⚠ <b>Without the offset, because a direction is a difference of two points and the offset
-    ///     cancels.</b> Reflecting a ray's direction as though it were a point is the classic version
+    ///     ⚠
+    ///     <b>
+    ///         Without the offset, because a direction is a difference of two points and the offset
+    ///         cancels.
+    ///     </b>
+    ///     Reflecting a ray's direction as though it were a point is the classic version
     ///     of this bug: it is invisible for a plane through the origin, which is the only plane
     ///     anybody tests with.
     /// </remarks>
-    public Vector3 MirrorDirection(Vector3 direction) => direction - (2f * Vector3.Dot(Normal, direction) * Normal);
+    public Vector3 MirrorDirection(Vector3 direction) => direction - 2f * Vector3.Dot(Normal, direction) * Normal;
 
     /// <summary>The reflection of a ray: its origin mirrored as a point, its direction as a direction.</summary>
     /// <param name="ray">The ray.</param>
@@ -140,7 +147,7 @@ public readonly record struct PaintIsometry(Vector3 X, Vector3 Y, Vector3 Z, Vec
     /// <summary>A direction moved, which the shift does not touch.</summary>
     /// <param name="direction">The direction.</param>
     /// <returns>Where it points now.</returns>
-    public Vector3 Direction(Vector3 direction) => (X * direction.X) + (Y * direction.Y) + (Z * direction.Z);
+    public Vector3 Direction(Vector3 direction) => X * direction.X + Y * direction.Y + Z * direction.Z;
 
     /// <summary>A point moved.</summary>
     /// <param name="point">The point.</param>
@@ -149,7 +156,7 @@ public readonly record struct PaintIsometry(Vector3 X, Vector3 Y, Vector3 Z, Vec
 
     /// <summary>Rodrigues: a vector keeps its part along the axis and turns the rest.</summary>
     static Vector3 Turn(Vector3 v, Vector3 unit, float sin, float cos) =>
-        (v * cos) + (Vector3.Cross(unit, v) * sin) + (unit * (Vector3.Dot(unit, v) * (1f - cos)));
+        v * cos + Vector3.Cross(unit, v) * sin + unit * (Vector3.Dot(unit, v) * (1f - cos));
 
     static Vector3 Unit(Vector3 direction) {
         var length = direction.Length();
@@ -187,7 +194,9 @@ public sealed class PaintSymmetryGroup {
 
     readonly PaintIsometry[] copies;
 
-    PaintSymmetryGroup(PaintIsometry[] copies) => this.copies = copies;
+    PaintSymmetryGroup(PaintIsometry[] copies) {
+        this.copies = copies;
+    }
 
     /// <summary>The copies, in order.</summary>
     public IReadOnlyList<PaintIsometry> Copies => copies;

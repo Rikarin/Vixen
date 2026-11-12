@@ -75,9 +75,9 @@ public abstract class ComponentDrawer<TValue> : IPropertyDrawer where TValue : s
                 // with several selected the other components differ, and rebuilding the value from
                 // the boxes would write the primary object's X to all twenty.
                 var (value, mixed) = field.Read();
-                var current = mixed ? default : (TValue) (value ?? default(TValue));
+                var current = mixed ? default : (TValue)(value ?? default(TValue));
 
-                field.Write(Replace(current, which, (float) number));
+                field.Write(Replace(current, which, (float)number));
             };
 
             box.Submitted += _ => field.Seal();
@@ -171,7 +171,11 @@ public sealed class Vector3Drawer : ComponentDrawer<Vector3> {
 
     /// <inheritdoc />
     protected override float Component(Vector3 value, int axis) =>
-        axis switch { 0 => value.X, 1 => value.Y, _ => value.Z };
+        axis switch {
+            0 => value.X,
+            1 => value.Y,
+            _ => value.Z
+        };
 
     /// <inheritdoc />
     protected override Vector3 Replace(Vector3 value, int axis, float component) =>
@@ -189,7 +193,12 @@ public sealed class Vector4Drawer : ComponentDrawer<Vector4> {
 
     /// <inheritdoc />
     protected override float Component(Vector4 value, int axis) =>
-        axis switch { 0 => value.X, 1 => value.Y, 2 => value.Z, _ => value.W };
+        axis switch {
+            0 => value.X,
+            1 => value.Y,
+            2 => value.Z,
+            _ => value.W
+        };
 
     /// <inheritdoc />
     protected override Vector4 Replace(Vector4 value, int axis, float component) =>
@@ -216,7 +225,11 @@ public sealed class QuaternionDrawer : ComponentDrawer<Quaternion> {
     protected override float Component(Quaternion value, int axis) {
         var degrees = EulerAngles.FromRotation(value);
 
-        return axis switch { 0 => degrees.X, 1 => degrees.Y, _ => degrees.Z };
+        return axis switch {
+            0 => degrees.X,
+            1 => degrees.Y,
+            _ => degrees.Z
+        };
     }
 
     /// <inheritdoc />

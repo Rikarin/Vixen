@@ -8,7 +8,6 @@ using Vixen.Engine.Scenes;
 using Vixen.Engine.Transforms;
 using Vixen.Net.Motion;
 using Vixen.Net.Replication;
-using Vixen.Net.Rpc;
 using Vixen.Net.Sessions;
 using Xunit;
 
@@ -170,7 +169,7 @@ public sealed class NetworkSpawnTests : IDisposable {
         Assert.False(client.IsAlive(standIn));
 
         // The wire's position, not the prefab's — and the prefab's own components are all there.
-        Assert.Equal(new Vector3(11f, 12f, 13f), client.Read<NetworkTransform>(root).Position);
+        Assert.Equal(new(11f, 12f, 13f), client.Read<NetworkTransform>(root).Position);
         Assert.Equal(Marker, client.Read<LocalTransform>(root).Position);
         Assert.Equal(2, CountChildren(client, root));
     }
@@ -207,9 +206,7 @@ public sealed class NetworkSpawnTests : IDisposable {
 
         client.Add(
             standIn,
-            new NetworkSpawn {
-                Prefab = prefabs.Require(Address).Id.Value, Scene = NetworkSceneId.From("Level1").Value
-            }
+            new NetworkSpawn { Prefab = prefabs.Require(Address).Id.Value, Scene = NetworkSceneId.From("Level1").Value }
         );
 
         Assert.Equal(0, building.Build(client));

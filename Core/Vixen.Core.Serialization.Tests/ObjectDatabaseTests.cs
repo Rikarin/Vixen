@@ -51,7 +51,7 @@ public class ObjectDatabaseTests {
     /// </summary>
     [Fact]
     public void CompressionDoesNotChangeTheId() {
-        var payload = new CollectionsClass { Names = [.. Enumerable.Repeat("compressible", 200)] };
+        var payload = new CollectionsClass { Names = [..Enumerable.Repeat("compressible", 200)] };
 
         var raw = InMemory();
         raw.DefaultCompression = CompressionMethod.None;
@@ -75,7 +75,7 @@ public class ObjectDatabaseTests {
 
     [Fact]
     public void CompressibleContentActuallyGetsSmaller() {
-        var payload = new CollectionsClass { Names = [.. Enumerable.Repeat("compressible", 500)] };
+        var payload = new CollectionsClass { Names = [..Enumerable.Repeat("compressible", 500)] };
 
         var raw = InMemory();
         raw.DefaultCompression = CompressionMethod.None;
@@ -207,15 +207,17 @@ public class ObjectDatabaseTests {
 
         // Two levels: the first byte of the id names a directory, so no directory ever holds every
         // artefact in the project.
-        var path = files.Enumerate(MountPoints.Database, recursive: true).Single(entry => !entry.IsDirectory).Path;
-        Assert.Equal(3, path.Value.Count(character => character == '/'));
+        var path = files.Enumerate(MountPoints.Database, true)
+            .Single(static entry => !entry.IsDirectory)
+            .Path;
+        Assert.Equal(3, path.Value.Count(static character => character == '/'));
     }
 
     [Fact]
     public void AReadOnlyBackendRefusesToBeWrittenTo() {
         var files = new VirtualFileSystem();
         files.Mount(MountPoints.Database, new MemoryFileProvider());
-        var database = new ObjectDatabase(new FileOdbBackend(files, MountPoints.Database, isReadOnly: true));
+        var database = new ObjectDatabase(new FileOdbBackend(files, MountPoints.Database, true));
 
         Assert.Throws<NotSupportedException>(() => database.Write(new SettableClass { Id = 1 }));
     }
@@ -234,7 +236,7 @@ public class ObjectDatabaseTests {
         writer.AddAll(source);
         var bundle = writer.Build();
 
-        using var backend = new BundleOdbBackend(bundle, verifyChecksum: true);
+        using var backend = new BundleOdbBackend(bundle, true);
         var runtime = new ObjectDatabase(backend);
 
         Assert.Equal(50, backend.Count);
@@ -259,7 +261,7 @@ public class ObjectDatabaseTests {
 
         // Enumeration is in id order, which is what makes the search valid.
         var ids = backend.Enumerate().ToArray();
-        Assert.Equal(ids.OrderBy(id => id).ToArray(), ids);
+        Assert.Equal(ids.OrderBy(static id => id).ToArray(), ids);
 
         foreach (var id in ids) {
             Assert.True(backend.Exists(id));
@@ -290,7 +292,7 @@ public class ObjectDatabaseTests {
         using var backend = new BundleOdbBackend(writer.Build());
         var ids = backend.Enumerate().ToArray();
 
-        Assert.Equal(ids.OrderBy(id => id).ToArray(), ids);
+        Assert.Equal(ids.OrderBy(static id => id).ToArray(), ids);
 
         // And every one of them is still findable, which is what the sort was for.
         foreach (var id in staged) {
@@ -300,7 +302,7 @@ public class ObjectDatabaseTests {
 
     [Fact]
     public void AnEmptyBundleIsValid() {
-        using var backend = new BundleOdbBackend(new BundleWriter().Build(), verifyChecksum: true);
+        using var backend = new BundleOdbBackend(new BundleWriter().Build(), true);
 
         Assert.Equal(0, backend.Count);
         Assert.Empty(backend.Enumerate());
@@ -318,14 +320,14 @@ public class ObjectDatabaseTests {
         var bundle = writer.Build();
         bundle[^1] ^= 0xFF;
 
-        var thrown = Assert.Throws<SerializationException>(() => new BundleOdbBackend(bundle, verifyChecksum: true));
+        var thrown = Assert.Throws<SerializationException>(() => new BundleOdbBackend(bundle, true));
         Assert.Contains("checksum", thrown.Message, StringComparison.Ordinal);
     }
 
     [Fact]
     public void SomethingThatIsNotABundleIsRejectedImmediately() {
-        Assert.Throws<SerializationException>(() => new BundleOdbBackend(new byte[64]));
-        Assert.Throws<SerializationException>(() => new BundleOdbBackend(new byte[3]));
+        Assert.Throws<SerializationException>(static () => new BundleOdbBackend(new byte[64]));
+        Assert.Throws<SerializationException>(static () => new BundleOdbBackend(new byte[3]));
     }
 
     [Fact]
@@ -352,13 +354,14 @@ public class ObjectDatabaseTests {
         // first, in one atomic step.
         var byId = new System.Collections.Concurrent.ConcurrentDictionary<ObjectId, string>();
 
-        Gen.Byte.Array[0, 64].Sample(bytes => {
-                var id = ContentHash.Compute(bytes);
-                Assert.Equal(id, ContentHash.Compute(bytes));
-                var content = Convert.ToHexString(bytes);
-                Assert.Equal(content, byId.GetOrAdd(id, content));
-            }
-        );
+        Gen.Byte.Array[0, 64]
+            .Sample(bytes => {
+                    var id = ContentHash.Compute(bytes);
+                    Assert.Equal(id, ContentHash.Compute(bytes));
+                    var content = Convert.ToHexString(bytes);
+                    Assert.Equal(content, byId.GetOrAdd(id, content));
+                }
+            );
     }
 
     [Fact]

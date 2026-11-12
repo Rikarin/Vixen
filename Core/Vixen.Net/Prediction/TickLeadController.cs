@@ -42,7 +42,8 @@ public readonly record struct PredictionHealth(int Depth, int Starved, int Late)
     public static bool TryRead(ref BitReader reader, out PredictionHealth value) {
         value = default;
 
-        if (!reader.TryRead(6, out var depth) || !reader.TryRead(6, out var starved)
+        if (!reader.TryRead(6, out var depth)
+            || !reader.TryRead(6, out var starved)
             || !reader.TryRead(6, out var late)) {
             return false;
         }

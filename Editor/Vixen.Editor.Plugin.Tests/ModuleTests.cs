@@ -36,8 +36,11 @@ public class ModuleTests {
         using var shell = new EditorShell(1280f, 800f);
         var host = new PluginHost(shell);
 
-        var module = new Module(
-            context => context.AddCommand("terrain.sculpt", Named("terrain.sculpt"), static () => { })
+        var module = new Module(static context => context.AddCommand(
+                "terrain.sculpt",
+                Named("terrain.sculpt"),
+                static () => { }
+            )
         );
 
         var loaded = host.Activate("terrain", "Terrain", module);
@@ -55,8 +58,11 @@ public class ModuleTests {
         using var shell = new EditorShell(1280f, 800f);
         var host = new PluginHost(shell);
 
-        var module = new Module(
-            context => context.AddCommand("terrain.sculpt", Named("terrain.sculpt"), static () => { })
+        var module = new Module(static context => context.AddCommand(
+                "terrain.sculpt",
+                Named("terrain.sculpt"),
+                static () => { }
+            )
         );
 
         host.Activate("terrain", "Terrain", module);
@@ -72,8 +78,7 @@ public class ModuleTests {
         using var shell = new EditorShell(1280f, 800f);
         var host = new PluginHost(shell);
 
-        var module = new Module(
-            context => {
+        var module = new Module(static context => {
                 context.AddCommand("terrain.sculpt", Named("terrain.sculpt"), static () => { });
 
                 throw new InvalidOperationException("this host has no terrain renderer");
@@ -85,7 +90,10 @@ public class ModuleTests {
         // ⚠ Half a built-in is harder to spot than half a plugin, because nobody thinks to look.
         Assert.Equal(PluginState.Failed, loaded.State);
         Assert.Null(shell.Commands["terrain.sculpt"]);
-        Assert.Contains(host.Diagnostics, entry => entry.PluginId == "terrain" && entry.Severity == PluginSeverity.Error);
+        Assert.Contains(
+            host.Diagnostics,
+            static entry => entry.PluginId == "terrain" && entry.Severity == PluginSeverity.Error
+        );
     }
 
     /// <summary>
@@ -98,8 +106,11 @@ public class ModuleTests {
         using var shell = new EditorShell(1280f, 800f);
         var host = new PluginHost(shell);
 
-        var module = new Module(
-            context => context.AddCommand("terrain.sculpt", Named("terrain.sculpt"), static () => { })
+        var module = new Module(static context => context.AddCommand(
+                "terrain.sculpt",
+                Named("terrain.sculpt"),
+                static () => { }
+            )
         );
 
         host.Activate("terrain", "Terrain", module);
@@ -160,7 +171,10 @@ public class ModuleTests {
         host.Activate(
             "terrain",
             "Terrain",
-            new Module(context => context.AddSearchSource(new DelegatePaletteSource("Brush", () => ["Sculpt Brush"], _ => { })))
+            new Module(static context => context.AddSearchSource(
+                    new DelegatePaletteSource("Brush", static () => ["Sculpt Brush"], static _ => { })
+                )
+            )
         );
 
         host.Reload("terrain");
@@ -169,14 +183,14 @@ public class ModuleTests {
         search.Field.Value = "sculpt";
         search.Refresh();
 
-        Assert.Single(search.Results, item => item.Category == "Brush");
+        Assert.Single(search.Results, static item => item.Category == "Brush");
 
         Assert.True(host.Unload("terrain"));
 
         // ⚠ Without a refresh here: the palette is open, and a row it already shows from a source that
         // has gone is a row whose action runs code nobody stands behind any more.
-        Assert.DoesNotContain(search.Results, item => item.Category == "Brush");
-        Assert.DoesNotContain(search.Sources, source => source.Category == "Brush");
+        Assert.DoesNotContain(search.Results, static item => item.Category == "Brush");
+        Assert.DoesNotContain(search.Sources, static source => source.Category == "Brush");
     }
 
     /// <summary>
@@ -189,8 +203,11 @@ public class ModuleTests {
         using var shell = new EditorShell(1280f, 800f);
         var host = new PluginHost(shell);
 
-        var module = new Module(
-            context => context.AddCommand("terrain.sculpt", Named("terrain.sculpt"), static () => { })
+        var module = new Module(static context => context.AddCommand(
+                "terrain.sculpt",
+                Named("terrain.sculpt"),
+                static () => { }
+            )
         );
 
         host.Suppress(["terrain"]);
@@ -222,8 +239,11 @@ public class ModuleTests {
         using var shell = new EditorShell(1280f, 800f);
         var host = new PluginHost(shell);
 
-        var module = new Module(
-            context => context.AddCommand("terrain.sculpt", Named("terrain.sculpt"), static () => { })
+        var module = new Module(static context => context.AddCommand(
+                "terrain.sculpt",
+                Named("terrain.sculpt"),
+                static () => { }
+            )
         );
 
         host.Activate("terrain", "Terrain", module);
@@ -255,8 +275,7 @@ public class ModuleTests {
         var scene = shell.Menus.AddMenu(EditorStrings.MenuScene);
         var host = new PluginHost(shell);
 
-        var module = new Module(
-            context => {
+        var module = new Module(static context => {
                 context.AddCommand("blockout.extrude", Named("blockout.extrude"), static () => { });
 
                 // ⚠ Not a menu of its own. A top-level heading per feature is a menu bar that grows
@@ -307,8 +326,7 @@ public class ModuleTests {
         using var shell = new EditorShell(1280f, 800f);
         var host = new PluginHost(shell);
 
-        var module = new Module(
-            context => {
+        var module = new Module(static context => {
                 context.AddCommand("terrain.sculpt", Named("terrain.sculpt"), static () => { });
                 context.OnUpdate(static _ => throw new InvalidOperationException("no terrain renderer"));
             }
@@ -321,7 +339,7 @@ public class ModuleTests {
         // is the interesting one.
         Assert.Equal(PluginState.Failed, host.Find("terrain")!.State);
         Assert.Null(shell.Commands["terrain.sculpt"]);
-        Assert.Contains(host.Diagnostics, entry => entry.Message.Contains("per-frame"));
+        Assert.Contains(host.Diagnostics, static entry => entry.Message.Contains("per-frame"));
 
         // And it stays down rather than being retried every frame.
         host.Update(TimeSpan.FromMilliseconds(16));
@@ -336,12 +354,12 @@ public class ModuleTests {
         host.Activate(
             "blockout",
             "Blockout",
-            new Module(context => Assert.Null(context.FindMenu("editor.menu.scene")))
+            new Module(static context => Assert.Null(context.FindMenu("editor.menu.scene")))
         );
 
         // ⚠ Creating one would put the plugin's entries in a second "Scene" menu, which is somewhere
         // nobody looks — and a misspelt id would be silent rather than reported. The shell's own
         // File/Edit/View/Help are still there; what must not have appeared is a Scene.
-        Assert.DoesNotContain(shell.Menus.Menus, menu => menu.Title.Id == "editor.menu.scene");
+        Assert.DoesNotContain(shell.Menus.Menus, static menu => menu.Title.Id == "editor.menu.scene");
     }
 }

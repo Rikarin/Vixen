@@ -3,7 +3,6 @@
 
 using Vixen.Core;
 using Vixen.Core.Mathematics;
-using Vixen.Ecs;
 using Vixen.Editor.SceneView;
 using Vixen.Geometry;
 using Vixen.Rendering.Ecs;
@@ -65,7 +64,7 @@ public static class BlockoutHandoff {
                 }
 
                 var label = name ?? document.NameOf(entity);
-                var pieces = MeshExport.Pieces(document, [entity], centre: entity);
+                var pieces = MeshExport.Pieces(document, [entity], entity);
 
                 var reference = baker.Bake(label, ".obj", MeshExport.Obj(pieces, label));
 
@@ -139,8 +138,12 @@ public static class BlockoutHandoff {
     ///         entity pointing at the asset it came from rather than at nothing.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>What comes back is welded and n-gonned as far as the tolerance allows, which is not
-    ///         the mesh the artist authored.</b> A <c>MeshData</c> is one vertex per corner and
+    ///         ⚠
+    ///         <b>
+    ///             What comes back is welded and n-gonned as far as the tolerance allows, which is not
+    ///             the mesh the artist authored.
+    ///         </b>
+    ///         A <c>MeshData</c> is one vertex per corner and
     ///         triangles only; <c>EditMesh.FromTriangles</c> welds the positions back into a graph and
     ///         <c>Regroup</c> puts coplanar neighbours in a group, but two triangles that were a quad
     ///         are two triangles. That is stated rather than hidden: an imported mesh made editable is
@@ -189,8 +192,12 @@ public static class BlockoutHandoff {
     ///         query. <see cref="MeshCollision" /> says why a shell rather than a convex piece.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Boxes rather than <c>ShapeDescription</c>s, and that is a layering decision rather
-    ///         than a missing step.</b> A hull, a mesh or a compound is registered <i>by its data</i>
+    ///         ⚠
+    ///         <b>
+    ///             Boxes rather than <c>ShapeDescription</c>s, and that is a layering decision rather
+    ///             than a missing step.
+    ///         </b>
+    ///         A hull, a mesh or a compound is registered <i>by its data</i>
     ///         with a live <c>PhysicsWorld</c> and the description holds the index it hands back — see
     ///         <c>ShapeDescription</c>'s own remarks — so the thing that can turn these into shapes is
     ///         the host that has a world. A blockout mode that referenced the physics engine to
@@ -211,8 +218,10 @@ public static class BlockoutHandoff {
     /// <param name="document">The scene.</param>
     /// <param name="entity">The entity.</param>
     /// <returns>The positions and triangle indices, or empty arrays for an entity with no mesh.</returns>
-    /// <remarks>⚠ <b>Static only</b>, because a concave mesh has no usable inertia tensor — which is
-    ///     what <c>ShapeDescription.CanBeDynamic</c> reports and is why the boxes are the default.</remarks>
+    /// <remarks>
+    ///     ⚠ <b>Static only</b>, because a concave mesh has no usable inertia tensor — which is
+    ///     what <c>ShapeDescription.CanBeDynamic</c> reports and is why the boxes are the default.
+    /// </remarks>
     public static (Vector3[] Positions, int[] Indices) CollisionMesh(SceneDocument document, Entity entity) {
         ArgumentNullException.ThrowIfNull(document);
 

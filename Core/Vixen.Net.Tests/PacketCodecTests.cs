@@ -52,7 +52,7 @@ public sealed class PacketCodecTests {
         Assert.Equal(0xDEADBEEF, dword);
         Assert.Equal(-77, signed);
         Assert.Equal(0.5f, real);
-        Assert.Equal(new Tick(1234), tick);
+        Assert.Equal(new(1234), tick);
         Assert.Equal(300u, variable);
         Assert.Equal([1, 2, 3], blob.ToArray());
         Assert.Equal("héllo", text);

@@ -17,8 +17,12 @@ namespace Vixen.Core.Serialization;
 ///         deliberately, on exactly that reasoning.
 ///     </para>
 ///     <para>
-///         ⚠ <b>An enum <em>element</em> takes the other path, and there was no value of that
-///         member shape that serialised.</b> <c>WriteArray&lt;T&gt;</c>,
+///         ⚠
+///         <b>
+///             An enum <em>element</em> takes the other path, and there was no value of that
+///             member shape that serialised.
+///         </b>
+///         <c>WriteArray&lt;T&gt;</c>,
 ///         <c>WriteList&lt;T&gt;</c> and <c>WriteDictionary&lt;K,V&gt;</c> ask the registry and
 ///         then call <c>WriteElement</c>, which for a value type with no serializer throws — and
 ///         the exception told the author to annotate the enum with <c>[DataContract]</c>, which

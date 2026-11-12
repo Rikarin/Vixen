@@ -5,7 +5,6 @@ using Vixen.Core.Syntax.Diagnostics;
 using Vixen.Raven;
 using Vixen.Raven.CodeGen;
 using Vixen.Raven.CodeGen.Glsl;
-using Vixen.Raven.Diagnostics;
 using Vixen.Raven.IR;
 using Vixen.Raven.Lowering;
 using Vixen.Raven.Syntax;
@@ -109,8 +108,8 @@ public class GoldenGlslTests(ITestOutputHelper output) {
 
         var generated = TargetBackends.Create("glsl")!.Generate(module, bag);
 
-        var errors = bag.ToArray().Where(d => d.IsError).ToArray();
-        Assert.True(errors.Length == 0, string.Join("\n", errors.Select(d => d.ToString())));
+        var errors = bag.ToArray().Where(static d => d.IsError).ToArray();
+        Assert.True(errors.Length == 0, string.Join("\n", errors.Select(static d => d.ToString())));
 
         return generated;
     }

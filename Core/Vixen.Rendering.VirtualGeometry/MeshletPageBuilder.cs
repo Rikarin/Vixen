@@ -209,9 +209,9 @@ public static class MeshletPageBuilder {
         }
 
         return new() {
-            Pages = [.. pages],
+            Pages = [..pages],
             Clusters = placements,
-            Data = [.. data],
+            Data = [..data],
             PageSize = settings.PageSize,
             VertexStride = stride,
             InfluenceOffset = settings.InfluenceOffset,
@@ -259,7 +259,7 @@ public static class MeshletPageBuilder {
 
         // Descending level, because level zero is the original mesh and the roots are the highest
         // level there is. A stable sort, so the partitioner's spatial order survives inside a level.
-        return [.. order.OrderByDescending(index => mesh.Meshlets[index].Level)];
+        return [..order.OrderByDescending(index => mesh.Meshlets[index].Level)];
     }
 
     /// <summary>Writes one cluster's vertices and corners, and says where they went.</summary>
@@ -360,7 +360,13 @@ public static class MeshletPageBuilder {
             data.Add(0);
         }
 
-        return new() { Offset = start, Size = used, FirstCluster = first, ClusterCount = clusters, CoarsestLevel = coarsest };
+        return new() {
+            Offset = start,
+            Size = used,
+            FirstCluster = first,
+            ClusterCount = clusters,
+            CoarsestLevel = coarsest
+        };
     }
 
     /// <summary>Four-byte alignment, so a cluster's corners start where a word does.</summary>

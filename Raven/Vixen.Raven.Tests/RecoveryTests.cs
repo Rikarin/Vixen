@@ -48,7 +48,7 @@ public class RecoveryTests {
     public void Errors_name_what_was_expected() {
         var tree = SyntaxTree.ParseText("package A\n\nshader S {\n    func M( {\n    }\n}\n");
 
-        Assert.Contains(tree.Diagnostics, d => d.GetMessage().Contains("expected"));
+        Assert.Contains(tree.Diagnostics, static d => d.GetMessage().Contains("expected"));
     }
 
     [Fact]

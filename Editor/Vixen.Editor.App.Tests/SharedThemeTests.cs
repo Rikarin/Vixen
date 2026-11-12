@@ -7,7 +7,6 @@ using Vixen.Editor.Inspector;
 using Vixen.Editor.NodeGraph;
 using Vixen.Editor.Profiler;
 using Vixen.Editor.Ui;
-using Vixen.NodeGraph;
 using Xunit;
 
 namespace Vixen.Editor.App.Tests;
@@ -15,8 +14,11 @@ namespace Vixen.Editor.App.Tests;
 /// <summary>One theme across many assemblies: every participant compiled against the same tokens.</summary>
 /// <remarks>
 ///     <para>
-///         <b>This suite exists because no suite inside a single project can hold the claim it
-///         makes.</b> The utility build step runs per project — it globs that project's sources and
+///         <b>
+///             This suite exists because no suite inside a single project can hold the claim it
+///             makes.
+///         </b>
+///         The utility build step runs per project — it globs that project's sources and
 ///         finds that project's token file — so "the editor's chrome is one design" is a statement
 ///         about a dozen assemblies at once and every existing test is scoped to one of them.
 ///         <c>UtilityConsumptionGateTests</c> in particular is a strong gate on what a family may
@@ -35,8 +37,12 @@ namespace Vixen.Editor.App.Tests;
 ///         by hand in a component sheet is what an assembly boundary in a token system costs.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Two canaries rather than one, because "the sheet is not empty" cannot tell the two
-///         failures apart.</b> Most of what the scanner finds are bare English words out of prose and
+///         ⚠
+///         <b>
+///             Two canaries rather than one, because "the sheet is not empty" cannot tell the two
+///             failures apart.
+///         </b>
+///         Most of what the scanner finds are bare English words out of prose and
 ///         CSS declarations — <c>flex</c>, <c>hidden</c>, <c>block</c>, <c>relative</c> — so an
 ///         assembly wired to no tokens at all still emits a dozen plausible rules. The pair below is
 ///         chosen so that each side names a different wrong answer: <c>bg-surface</c> absent means
@@ -61,19 +67,31 @@ public class SharedThemeTests {
     ///     has silently done nothing.
     /// </remarks>
     /// <remarks>
-    ///     ⚠ <b>This list is also the ledger of which assemblies have opted in, and it is deliberately
-    ///     hand-written.</b> Joining is one <c>Import</c> in the <c>.csproj</c> and one line here, and
+    ///     ⚠
+    ///     <b>
+    ///         This list is also the ledger of which assemblies have opted in, and it is deliberately
+    ///         hand-written.
+    ///     </b>
+    ///     Joining is one <c>Import</c> in the <c>.csproj</c> and one line here, and
     ///     the reason there is no reflection over "every assembly with a theme" is that opting in is a
     ///     decision — a project with a design of its own should declare its own tokens and must not be
     ///     swept into the editor's.
     /// </remarks>
     /// <remarks>
-    ///     ⚠ <b>This note used to say "nine or so editor assemblies still do not take part", and the
-    ///     number was a guess that turned into an issue title.</b> Counted rather than estimated: of
+    ///     ⚠
+    ///     <b>
+    ///         This note used to say "nine or so editor assemblies still do not take part", and the
+    ///         number was a guess that turned into an issue title.
+    ///     </b>
+    ///     Counted rather than estimated: of
     ///     the 49 projects under <c>Editor/</c>, exactly five held a <c>.vxml</c> or a <c>.vcss</c>
     ///     and were not participating — <c>App</c>, <c>Inspector</c>, <c>NodeGraph</c>,
-    ///     <c>Terrain</c> and <c>Water</c>. Three of them are here now. <b><c>Terrain</c> and
-    ///     <c>Water</c> are deliberately not</b>, and the reason is the one this remark already
+    ///     <c>Terrain</c> and <c>Water</c>. Three of them are here now.
+    ///     <b>
+    ///         <c>Terrain</c> and
+    ///         <c>Water</c> are deliberately not
+    ///     </b>
+    ///     , and the reason is the one this remark already
     ///     gives: neither writes a single <c>class</c> attribute in any of its six <c>.vxml</c>
     ///     files, and neither declares a <c>.vcss</c> or an <c>Install</c> — so joining them means
     ///     inventing a loader in each to publish a sheet with nothing in it, which is the sweep this
@@ -108,7 +126,8 @@ public class SharedThemeTests {
             string.IsNullOrWhiteSpace(utilities),
             $"{assembly} produced no utility sheet at all. The build step is conditioned on a token "
             + "source, so a project that names none does not run it and says nothing — import "
-            + "Editor/Vixen.Editor.Ui/build/Vixen.Editor.Ui.Styling.targets.");
+            + "Editor/Vixen.Editor.Ui/build/Vixen.Editor.Ui.Styling.targets."
+        );
 
         Assert.Contains(".bg-surface", utilities, StringComparison.Ordinal);
 
@@ -120,8 +139,12 @@ public class SharedThemeTests {
 
     /// <summary>And they are the editor's tokens rather than the shipped defaults.</summary>
     /// <remarks>
-    ///     ⚠ <b>This is the assertion that would have caught the wrong-palette hazard, and it is
-    ///     worth stating why it is a separate test.</b> A project with no token source falls back to
+    ///     ⚠
+    ///     <b>
+    ///         This is the assertion that would have caught the wrong-palette hazard, and it is
+    ///         worth stating why it is a separate test.
+    ///     </b>
+    ///     A project with no token source falls back to
     ///     <c>ThemeTokens.CreateDefault()</c>, which is Tailwind's own palette — so the two ways to be
     ///     misconfigured are "no tokens" and "somebody else's tokens", and only the first is loud.
     ///     The editor's theme empties the colour namespace before declaring its own, so
@@ -138,7 +161,8 @@ public class SharedThemeTests {
             utilities.Contains(".bg-blue-500", StringComparison.Ordinal),
             $"{assembly} emitted .bg-blue-500. The editor's theme clears the colour namespace before "
             + "declaring its own, so that class can only resolve against ThemeTokens.CreateDefault() "
-            + "— this assembly is compiled against Tailwind's palette rather than the editor's.");
+            + "— this assembly is compiled against Tailwind's palette rather than the editor's."
+        );
 
     /// <summary>The sheets compose: every one of them is layered, so their union is order-free.</summary>
     /// <remarks>
@@ -172,11 +196,13 @@ public class SharedThemeTests {
         Assert.True(
             text.StartsWith("@layer base, components, utilities;", StringComparison.Ordinal),
             $"{assembly}'s sheet does not open with the ladder, so where its utilities sort depends "
-            + "on which assembly's sheet a document happened to load first.");
+            + "on which assembly's sheet a document happened to load first."
+        );
 
         var blocks = new List<string>();
 
-        for (var i = text.IndexOf("@layer", StringComparison.Ordinal); i >= 0;
+        for (var i = text.IndexOf("@layer", StringComparison.Ordinal);
+             i >= 0;
              i = text.IndexOf("@layer", i + 1, StringComparison.Ordinal)) {
             var terminator = text.IndexOfAny(['{', ';'], i);
 
@@ -188,6 +214,7 @@ public class SharedThemeTests {
         Assert.True(
             blocks is ["@layer utilities"],
             $"{assembly}'s sheet opens {string.Join(", ", blocks)} rather than @layer utilities alone; "
-            + "the union of these is only order-free while every rule in all of them is in one layer.");
+            + "the union of these is only order-free while every rule in all of them is in one layer."
+        );
     }
 }

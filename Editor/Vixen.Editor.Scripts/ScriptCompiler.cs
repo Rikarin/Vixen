@@ -5,7 +5,6 @@ using System.Reflection;
 using System.Runtime.Loader;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
-using Microsoft.CodeAnalysis.Emit;
 
 namespace Vixen.Editor.Scripts;
 
@@ -17,18 +16,28 @@ namespace Vixen.Editor.Scripts;
 /// <param name="Id">The compiler's own code — <c>CS0103</c>.</param>
 /// <param name="Message">What it said.</param>
 /// <remarks>
-///     ⚠ <b>A span rather than a line of console text, which is the whole reason this path uses
-///     Roslyn in process.</b> <c>ProjectAssemblies</c> runs <c>dotnet build</c> and hands back
+///     ⚠
+///     <b>
+///         A span rather than a line of console text, which is the whole reason this path uses
+///         Roslyn in process.
+///     </b>
+///     <c>ProjectAssemblies</c> runs <c>dotnet build</c> and hands back
 ///     everything the console said, because a caller reporting a game build's failure has nowhere
 ///     better to put it. A panel listing errors somebody can click is a different thing and needs the
 ///     file, the line and the column as data.
 /// </remarks>
-public readonly record struct ScriptDiagnostic(bool IsError, string File, int Line, int Column, string Id, string Message) {
+public readonly record struct ScriptDiagnostic(
+    bool IsError,
+    string File,
+    int Line,
+    int Column,
+    string Id,
+    string Message) {
     /// <summary>The one-line form a console shows.</summary>
     public override string ToString() =>
         string.IsNullOrEmpty(File)
             ? $"{Id}: {Message}"
-            : $"{System.IO.Path.GetFileName(File)}({Line},{Column}): {Id}: {Message}";
+            : $"{Path.GetFileName(File)}({Line},{Column}): {Id}: {Message}";
 }
 
 /// <summary>What compiling a project's <c>Editor/</c> folder produced.</summary>
@@ -47,8 +56,12 @@ public sealed record ScriptBuild(string? AssemblyPath, IReadOnlyList<ScriptDiagn
 
     /// <summary>How many of the sources this build had to parse, rather than reuse.</summary>
     /// <remarks>
-    ///     ⚠ <b>The honest measure of what <see cref="ScriptWorkspace" /> buys, and it is work rather
-    ///     than time.</b> Doc 36 § P5's own bound — "tens of milliseconds for a dozen files, and
+    ///     ⚠
+    ///     <b>
+    ///         The honest measure of what <see cref="ScriptWorkspace" /> buys, and it is work rather
+    ///         than time.
+    ///     </b>
+    ///     Doc 36 § P5's own bound — "tens of milliseconds for a dozen files, and
     ///     nothing here measures a project with hundreds" — is a wall-clock claim, and a wall-clock
     ///     assertion calibrated on an idle machine is this repository's largest flake source. This is
     ///     the same property said as a count: a rebuild after one edit parses one file, and a rebuild
@@ -61,7 +74,7 @@ public sealed record ScriptBuild(string? AssemblyPath, IReadOnlyList<ScriptDiagn
     public bool Failed => Sources > 0 && AssemblyPath is null;
 
     /// <summary>Just the errors, which is what a panel leads with.</summary>
-    public IEnumerable<ScriptDiagnostic> Errors => Diagnostics.Where(diagnostic => diagnostic.IsError);
+    public IEnumerable<ScriptDiagnostic> Errors => Diagnostics.Where(static diagnostic => diagnostic.IsError);
 }
 
 /// <summary>The C# compiler, pointed at a project's own editor scripts.</summary>
@@ -163,8 +176,12 @@ public static class ScriptCompiler {
     /// <returns>What happened.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Written to disk rather than kept as bytes, because <c>PluginLoadContext</c> takes
-    ///         a path.</b> That is not a workaround — the context reads the file into memory rather
+    ///         ⚠
+    ///         <b>
+    ///             Written to disk rather than kept as bytes, because <c>PluginLoadContext</c> takes
+    ///             a path.
+    ///         </b>
+    ///         That is not a workaround — the context reads the file into memory rather
     ///         than mapping it, precisely so the next build can overwrite what it just loaded, and a
     ///         file on disk is also what a debugger attaches symbols to.
     ///     </para>
@@ -174,7 +191,8 @@ public static class ScriptCompiler {
     ///         usable; the cost is a file the editor deletes with the assembly.
     ///     </para>
     /// </remarks>
-    public static ScriptBuild Compile(string projectRoot, string output) => new ScriptWorkspace().Compile(projectRoot, output);
+    public static ScriptBuild Compile(string projectRoot, string output) =>
+        new ScriptWorkspace().Compile(projectRoot, output);
 
     /// <summary>The language the scripts are compiled as.</summary>
     /// <remarks>

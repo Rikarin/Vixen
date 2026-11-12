@@ -211,9 +211,14 @@ public class MorphIndexTests {
         var mesh = Mesh();
 
         MorphTargetData[] targets = [
-            MorphTargetData.Encode("jawOpen", [0, 1, 2, 3], [
-                Exact(32767, 0, 0), Exact(0, 32767, 0), Exact(0, 0, 32767), Exact(-32767, 0, 0)
-            ], [])
+            MorphTargetData.Encode(
+                "jawOpen",
+                [0, 1, 2, 3],
+                [
+                    Exact(32767, 0, 0), Exact(0, 32767, 0), Exact(0, 0, 32767), Exact(-32767, 0, 0)
+                ],
+                []
+            )
         ];
 
         var index = MorphIndex.Build(targets, mesh.Length);

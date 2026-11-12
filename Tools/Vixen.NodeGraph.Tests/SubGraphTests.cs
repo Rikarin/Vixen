@@ -117,7 +117,7 @@ public class SubGraphTests {
         // Three nodes: the colour, the sink, and the one Combine that was inside the sub-graph. No
         // boundary nodes and no sub-graph node survive.
         Assert.Equal(3, flat.Nodes.Count);
-        Assert.DoesNotContain(flat.Nodes, node => node.Type.StartsWith("Sub-graph", StringComparison.Ordinal));
+        Assert.DoesNotContain(flat.Nodes, static node => node.Type.StartsWith("Sub-graph", StringComparison.Ordinal));
 
         var inlined = Assert.Single(flat.Nodes, node => node.Id != colour.Id && node.Id != sink.Id);
 
@@ -207,7 +207,7 @@ public class SubGraphTests {
 
         SubGraphs.Flatten(host, library, out var diagnostics);
 
-        Assert.Contains(diagnostics, diagnostic => diagnostic.Id == "NG0111");
+        Assert.Contains(diagnostics, static diagnostic => diagnostic.Id == "NG0111");
     }
 
     [Fact]
@@ -237,7 +237,7 @@ public class SubGraphTests {
 
         Assert.Empty(diagnostics);
         Assert.Equal(2, flat.Nodes.Count);
-        Assert.All(flat.Nodes, node => Assert.Equal("Test/Combine", node.Type));
+        Assert.All(flat.Nodes, static node => Assert.Equal("Test/Combine", node.Type));
 
         // The chain survives two levels of inlining: the second copy still reads the first's output.
         Assert.Single(flat.Edges);
@@ -258,7 +258,7 @@ public class SubGraphTests {
 
         // ⚠ One input, not two. An external output feeding two selected nodes is one thing the
         // sub-graph reads, which is what the author drew.
-        var input = Assert.Single(extraction.Graph.Interface, port => port.Direction == PortDirection.Input);
+        var input = Assert.Single(extraction.Graph.Interface, static port => port.Direction == PortDirection.Input);
 
         Assert.Equal(2, extraction.Incoming.Length);
         Assert.Equal(input.Name, Assert.Single(extraction.Inputs.Values));
@@ -276,7 +276,7 @@ public class SubGraphTests {
         graph.Connect(new(texture.Id, "Out"), new(inside.Id, "A"));
 
         var extraction = SubGraphs.Extract(graph, [inside.Id], "Inner", Library());
-        var port = Assert.Single(extraction.Graph.Interface, entry => entry.Direction == PortDirection.Input);
+        var port = Assert.Single(extraction.Graph.Interface, static entry => entry.Direction == PortDirection.Input);
 
         Assert.Equal(PortKind.Texture, port.Kind);
     }
@@ -351,8 +351,12 @@ public class SubGraphTests {
 
     /// <summary>An extraction carries the knobs the texts it copies are written against.</summary>
     /// <remarks>
-    ///     ⚠ <b>It did not, and the loss was silent both ways —
-    ///     <a href="https://github.com/Rikarin/Vixen/issues/802">#802</a>.</b> The node's text
+    ///     ⚠
+    ///     <b>
+    ///         It did not, and the loss was silent both ways —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/802">#802</a>.
+    ///     </b>
+    ///     The node's text
     ///     crossed and the declaration behind it did not, so a published sub-graph carried
     ///     <c>amount * 32f</c> and declared no <c>amount</c>; nothing refused it, and the containing
     ///     graph reported an undefined name about a graph that had compiled a moment earlier. This is
@@ -419,7 +423,7 @@ public class SubGraphTests {
 
         Assert.Single(loaded.Interface);
         Assert.Equal(PortKind.Float, loaded.Interface[0].Kind);
-        Assert.Contains(diagnostics, diagnostic => diagnostic.Id == "NG0103");
+        Assert.Contains(diagnostics, static diagnostic => diagnostic.Id == "NG0103");
     }
 
     [Fact]
@@ -452,7 +456,7 @@ public class SubGraphTests {
         var compiled = new ListingCompiler(Library()).Compile(host);
 
         Assert.False(compiled.Succeeded);
-        Assert.Contains(compiled.Diagnostics, diagnostic => diagnostic.Id == "NG0001");
+        Assert.Contains(compiled.Diagnostics, static diagnostic => diagnostic.Id == "NG0001");
     }
 
     /// <summary>The settings a sub-graph node carried survive the node itself.</summary>
@@ -486,7 +490,7 @@ public class SubGraphTests {
         // the key is an expansion rather than the type.
         Assert.Equal(2, inlining.Expansions.Count);
 
-        var inlined = inlining.Origins.Keys.OrderBy(node => node.Value).ToArray();
+        var inlined = inlining.Origins.Keys.OrderBy(static node => node.Value).ToArray();
 
         Assert.Equal(2, inlined.Length);
 
@@ -569,8 +573,12 @@ public class SubGraphTests {
 
     /// <summary>And a graph with no sub-graph node in it still answers with nothing.</summary>
     /// <remarks>
-    ///     ⚠ <b>The other half, without which the one above is satisfied by never returning
-    ///     <c>Empty</c>.</b> A widened condition that let every flattening carry a table would pass
+    ///     ⚠
+    ///     <b>
+    ///         The other half, without which the one above is satisfied by never returning
+    ///         <c>Empty</c>.
+    ///     </b>
+    ///     A widened condition that let every flattening carry a table would pass
     ///     the test above and be a worse answer than the defect it replaced.
     /// </remarks>
     [Fact]
@@ -600,7 +608,7 @@ sealed class ListingCompiler(NodeTypeRegistry registry) : NodeGraphCompiler<List
     protected override void Visit(GraphNode node, NodeTypeDefinition definition, Node instance, NodeBinding binding) =>
         visited.Add(node.Type);
 
-    protected override List<string>? Finish(NodeGraphModel graph) => [.. visited];
+    protected override List<string>? Finish(NodeGraphModel graph) => [..visited];
 
     protected override string Constant(ReadOnlySpan<float> value, PortKind kind) => "0";
 

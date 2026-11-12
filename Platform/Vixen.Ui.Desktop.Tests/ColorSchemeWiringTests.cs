@@ -13,8 +13,12 @@ namespace Vixen.Ui.Desktop.Tests;
 /// <summary>That the operating system's appearance reaches <c>@media (prefers-color-scheme: …)</c>.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>The query has worked since doc 43's F11 and until this file existed nothing outside a
-///         test had ever written to it.</b> <c>MediaQuery</c> evaluates <c>prefers-color-scheme</c>,
+///         ⚠
+///         <b>
+///             The query has worked since doc 43's F11 and until this file existed nothing outside a
+///             test had ever written to it.
+///         </b>
+///         <c>MediaQuery</c> evaluates <c>prefers-color-scheme</c>,
 ///         <c>UiSurface.ColorScheme</c> holds it per surface, and the <i>only</i> two writers in the
 ///         whole repository were <c>MediaContextTests</c> and <c>PerSurfaceMediaTests</c>. F11 fed
 ///         width, height, resolution and gamut and left this one behind, so every application
@@ -46,16 +50,16 @@ public class ColorSchemeWiringTests {
     ///     preference" observable rather than indistinguishable from light.
     /// </remarks>
     const string Sheet = """
-        .probe-panel { width: 10px; height: 20px; }
+                         .probe-panel { width: 10px; height: 20px; }
 
-        @media (prefers-color-scheme: dark) {
-            .probe-panel { width: 300px; }
-        }
+                         @media (prefers-color-scheme: dark) {
+                             .probe-panel { width: 300px; }
+                         }
 
-        @media (prefers-color-scheme: light) {
-            .probe-panel { width: 200px; }
-        }
-        """;
+                         @media (prefers-color-scheme: light) {
+                             .probe-panel { width: 200px; }
+                         }
+                         """;
 
     sealed class Probe : Component {
         public UiElement Panel { get; private set; } = null!;
@@ -78,7 +82,7 @@ public class ColorSchemeWiringTests {
 
         var options = new UiApplicationOptions {
             Title = "test",
-            Size = new Int2(400, 300),
+            Size = new(400, 300),
             Frames = frames,
             InstallSystemFont = false,
             InstallControlTheme = false,
@@ -88,7 +92,7 @@ public class ColorSchemeWiringTests {
             Frame = each is null ? null : (_, _) => each(platform, frame++)
         };
 
-        var window = platform.CreateWindow(new WindowOptions { Title = "test", Size = new Int2(400, 300) });
+        var window = platform.CreateWindow(new() { Title = "test", Size = new(400, 300) });
 
         // ⚠ The platform's scheme is set before the loop starts, because the seed is read before the
         // first frame. A test that set it afterwards would be exercising the event path while
@@ -145,8 +149,8 @@ public class ColorSchemeWiringTests {
 
         var (application, probe) = Run(
             SystemColorScheme.Light,
-            frames: 4,
-            each: (platform, frame) => {
+            4,
+            (platform, frame) => {
                 if (frame != 0) {
                     return;
                 }
@@ -175,9 +179,9 @@ public class ColorSchemeWiringTests {
 
         var (application, _) = Run(
             SystemColorScheme.Light,
-            frames: 4,
+            4,
             started: app => second = app.Document.CreateSurface(200f, 150f),
-            each: (platform, frame) => {
+            each: static (platform, frame) => {
                 if (frame == 0) {
                     platform.ColorScheme = SystemColorScheme.Dark;
                 }

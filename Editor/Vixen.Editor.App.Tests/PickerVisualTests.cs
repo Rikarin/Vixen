@@ -18,8 +18,12 @@ namespace Vixen.Editor.App.Tests;
 ///         whose host element collapses is still bound, still hit-testable and still wrong.
 ///     </para>
 ///     <para>
-///         ⚠ <b>This is also the first thing in the tree that photographs a panel of the editor
-///         <i>as the application assembles it</i>.</b> <c>EditorChromeVisualTests</c> builds its own
+///         ⚠
+///         <b>
+///             This is also the first thing in the tree that photographs a panel of the editor
+///             <i>as the application assembles it</i>.
+///         </b>
+///         <c>EditorChromeVisualTests</c> builds its own
 ///         shell with five test panels, so what it holds is the palette and the chrome; nothing until
 ///         now held any real surface. That gap is <a href="https://github.com/Rikarin/Vixen/issues/500">#500</a>,
 ///         and one picture does not close it.
@@ -33,8 +37,12 @@ public class PickerVisualTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>macOS and Windows, which <c>EditorChromeVisualTests</c> measured to shape this font
-    ///         identically</b>, so the per-platform-glyphs argument holds for Linux only. Windows was
+    ///         ⚠
+    ///         <b>
+    ///             macOS and Windows, which <c>EditorChromeVisualTests</c> measured to shape this font
+    ///             identically
+    ///         </b>
+    ///         , so the per-platform-glyphs argument holds for Linux only. Windows was
     ///         held back while the reference was stale (#1477), and the staleness turned out to be what
     ///         this test exists to catch: two strings that had started to WRAP. The inspector's
     ///         "Build Settings" tab title wrapped to two lines and stretched its whole tab strip ten
@@ -74,12 +82,12 @@ public class PickerVisualTests {
     public void The_asset_picker_is_a_grid_of_tiles() {
         SkipWhereTheReferenceDoesNotApply();
 
-        using var editor = EditorSession.Start(new EditorSessionOptions { Width = 900f, Height = 700f });
+        using var editor = EditorSession.Start(new() { Width = 900f, Height = 700f });
 
         var descriptor = InspectorRegistry.Find(typeof(PickerFixture))
             ?? throw editor.Fail("the generator registered no descriptor for PickerFixture");
 
-        var member = descriptor.Members.Single(candidate => candidate.Name == "Anything");
+        var member = descriptor.Members.Single(static candidate => candidate.Name == "Anything");
 
         new AssetPicker(editor.Project, editor.Shell.Dialogs).Open(
             new InspectorField(descriptor, member, [new PickerFixture()], editor.Scene)

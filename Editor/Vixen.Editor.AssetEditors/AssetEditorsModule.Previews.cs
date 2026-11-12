@@ -22,10 +22,18 @@ namespace Vixen.Editor.AssetEditors;
 ///         back.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Built in <see cref="PluginContext.OnUpdate" />, because the device arrives after
-///         activation</b> — the editor builds its plugin host in its constructor and is handed a device
-///         when the window can present. ⚠ <b>Drawn in <see cref="PluginContext.OnFrame" />, not in
-///         <c>OnUpdate</c></b>: the renderer records and submits a command list of its own, and one
+///         ⚠
+///         <b>
+///             Built in <see cref="PluginContext.OnUpdate" />, because the device arrives after
+///             activation
+///         </b>
+///         — the editor builds its plugin host in its constructor and is handed a device
+///         when the window can present. ⚠
+///         <b>
+///             Drawn in <see cref="PluginContext.OnFrame" />, not in
+///             <c>OnUpdate</c>
+///         </b>
+///         : the renderer records and submits a command list of its own, and one
 ///         recorded outside <c>BeginFrame</c>/<c>EndFrame</c> races the next frame's pool reset.
 ///     </para>
 /// </remarks>
@@ -64,10 +72,11 @@ public sealed partial class AssetEditorsModule {
         }
 
         context.OnUpdate(_ => {
-            if (previews is null && graphics.Device is { } device) {
-                Hand(new ShaderGraphPreviewRenderer(device, ShaderNodeLibrary.Create(), new ShownImages(graphics)));
+                if (previews is null && graphics.Device is { } device) {
+                    Hand(new(device, ShaderNodeLibrary.Create(), new ShownImages(graphics)));
+                }
             }
-        });
+        );
 
         context.OnFrame(_ => previews?.Update());
         context.OnDeviceLost(_ => Release());
@@ -83,7 +92,11 @@ public sealed partial class AssetEditorsModule {
     ///     refused, under a message about the library.
     /// </remarks>
     sealed class ShaderGraphEffectSources : IEffectSourceProvider {
-        public void Collect(string assets, ICollection<(string Path, string Text)> sources, ICollection<string> refusals) {
+        public void Collect(
+            string assets,
+            ICollection<(string Path, string Text)> sources,
+            ICollection<string> refusals
+        ) {
             ArgumentNullException.ThrowIfNull(sources);
             ArgumentNullException.ThrowIfNull(refusals);
 

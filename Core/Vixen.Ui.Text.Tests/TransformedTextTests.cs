@@ -8,8 +8,12 @@ namespace Vixen.Ui.Text.Tests;
 /// <summary><c>text-transform</c>'s character mapping and the index map that comes with it.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>The premise this file exists to hold up was measured, not assumed, and half of it was
-///         wrong.</b> doc 43 and issue #237 say a case mapping changes the UTF-16 length. That is
+///         ⚠
+///         <b>
+///             The premise this file exists to hold up was measured, not assumed, and half of it was
+///             wrong.
+///         </b>
+///         doc 43 and issue #237 say a case mapping changes the UTF-16 length. That is
 ///         true of Unicode's <i>full</i> mappings, which is what CSS Text 3 § 2.1 specifies — and
 ///         false of every case API .NET has: <c>string.ToUpperInvariant</c>, <c>ToUpper</c> in every
 ///         culture, and <c>Rune.ToUpperInvariant</c> over all 1 112 064 scalars are the <i>simple</i>
@@ -171,8 +175,12 @@ public class TransformedTextTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>And a Greek iota-subscript letter, whose titlecase both differs from its uppercase
-    ///     <i>and</i> expands.</b> Together with the digraphs above this is the pair of reasons the
+    ///     ⚠
+    ///     <b>
+    ///         And a Greek iota-subscript letter, whose titlecase both differs from its uppercase
+    ///         <i>and</i> expands.
+    ///     </b>
+    ///     Together with the digraphs above this is the pair of reasons the
     ///     title column is not the upper column: one is in the generated table and one is not.
     /// </summary>
     [Fact]

@@ -105,7 +105,8 @@ public class LinkedSignalTests {
         var tab = new LinkedSignal<string, int>(() => selection.Value, static (_, _) => 0);
         var runs = 0;
 
-        using var effect = new Effect(() => {
+        using var effect = new Effect(
+            () => {
                 runs++;
                 _ = tab.Value;
             },

@@ -3,7 +3,6 @@
 
 using Vixen.Core.Mathematics;
 using Vixen.Input;
-using Vixen.Ui;
 using Vixen.Ui.Controls;
 using Vixen.Ui.Styling;
 using Xunit;
@@ -43,10 +42,10 @@ public class KeyBindingsViewTests : IDisposable {
         ControlTheme.Install(document);
         AdvancedTheme.Install(document);
 
-        commands.Add("file.save", new StringId("cmd.save", "Save Scene"), static () => { });
-        commands.Add("scene.frame-all", new StringId("cmd.frame", "Frame All"), static () => { });
+        commands.Add("file.save", new("cmd.save", "Save Scene"), static () => { });
+        commands.Add("scene.frame-all", new("cmd.frame", "Frame All"), static () => { });
 
-        keys.Bind("file.save", new KeyChord(InputKey.S, ModifierKeys.Control));
+        keys.Bind("file.save", new(InputKey.S, ModifierKeys.Control));
 
         view = document.Root.Add<KeyBindingsView>();
         view.Show(commands, keys);
@@ -74,7 +73,7 @@ public class KeyBindingsViewTests : IDisposable {
         var shell = Assert.Single(view.Children);
 
         Assert.Equal("toolbar-grid-shell", shell.Tag);
-        Assert.Equal(["slot", "slot", "slot"], shell.Children.Select(child => child.Tag));
+        Assert.Equal(["slot", "slot", "slot"], shell.Children.Select(static child => child.Tag));
 
         Assert.Equal("keybindings-toolbar", Assert.Single(shell.Children[0].Children).Tag);
         Assert.IsType<DataGrid>(Assert.Single(shell.Children[1].Children));
@@ -138,7 +137,7 @@ public class KeyBindingsViewTests : IDisposable {
 
         var calm = Drawn(view.Status);
 
-        Assert.Equal(BindResult.Conflict, view.Rebind(new KeyChord(InputKey.S, ModifierKeys.Control)));
+        Assert.Equal(BindResult.Conflict, view.Rebind(new(InputKey.S, ModifierKeys.Control)));
 
         Settle();
 
@@ -148,10 +147,16 @@ public class KeyBindingsViewTests : IDisposable {
 
         var refused = Drawn(view.Status);
         Assert.NotEqual(calm, refused);
-        Assert.True(refused.R > refused.G + 0.3f && refused.R > refused.B + 0.3f, $"the refusal is drawn in {refused}, which is not red");
+        Assert.True(
+            refused.R > refused.G + 0.3f && refused.R > refused.B + 0.3f,
+            $"the refusal is drawn in {refused}, which is not red"
+        );
 
         // The second press takes it, and the line goes back to its calm colour.
-        Assert.NotEqual(BindResult.Conflict, view.Rebind(new KeyChord(InputKey.S, ModifierKeys.Control), replace: true));
+        Assert.NotEqual(
+            BindResult.Conflict,
+            view.Rebind(new(InputKey.S, ModifierKeys.Control), true)
+        );
 
         Settle();
 
@@ -200,7 +205,7 @@ public class KeyBindingsViewTests : IDisposable {
 
         // The editor's Unity and Unreal were baked into the picker while it was the editor's. An
         // application that names none gets the one choice that is always true.
-        Assert.Equal([KeyMap.NoPreset], view.Presets.Options.Select(option => option.Value));
+        Assert.Equal([KeyMap.NoPreset], view.Presets.Options.Select(static option => option.Value));
     }
 
     /// <summary>
@@ -211,7 +216,9 @@ public class KeyBindingsViewTests : IDisposable {
     public void Naming_the_presets_after_Show_keeps_the_one_in_force() {
         var studio = KeyMapPreset.Of(
             "Studio",
-            new Dictionary<string, KeyChord>(StringComparer.Ordinal) { ["scene.frame-all"] = new(InputKey.F, ModifierKeys.None) }
+            new Dictionary<string, KeyChord>(StringComparer.Ordinal) {
+                ["scene.frame-all"] = new(InputKey.F, ModifierKeys.None)
+            }
         );
 
         keys.PresetSource = name => string.Equals(name, studio.Name, StringComparison.Ordinal) ? studio : null;
@@ -221,7 +228,7 @@ public class KeyBindingsViewTests : IDisposable {
         view.PresetNames = [KeyMap.NoPreset, studio.Name];
         Settle();
 
-        Assert.Equal([KeyMap.NoPreset, studio.Name], view.Presets.Options.Select(option => option.Value));
+        Assert.Equal([KeyMap.NoPreset, studio.Name], view.Presets.Options.Select(static option => option.Value));
         Assert.Equal(studio.Name, view.Presets.Value);
         Assert.Equal(studio.Name, keys.PresetName);
 
@@ -243,7 +250,7 @@ public class KeyBindingsViewTests : IDisposable {
 
     void Choose(string id) {
         var index = view.Grid.Items
-            .Select((item, at) => (Row: item as KeyBindingRow, At: at))
+            .Select(static (item, at) => (Row: item as KeyBindingRow, At: at))
             .First(entry => entry.Row?.Id == id)
             .At;
 

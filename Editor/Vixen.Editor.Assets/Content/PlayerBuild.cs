@@ -26,8 +26,12 @@ public readonly record struct TargetShape(string Rid, string Framework, string A
 ///         that cannot be built by <c>dotnet</c> alone is a project this tool has captured.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Here rather than in <c>Tools/Vixen.Cli</c>, which is where it was, and for
-///         <see cref="ProjectWorkspace" />'s reason.</b> Doc 20's B7 asks for a Build Settings window
+///         ⚠
+///         <b>
+///             Here rather than in <c>Tools/Vixen.Cli</c>, which is where it was, and for
+///             <see cref="ProjectWorkspace" />'s reason.
+///         </b>
+///         Doc 20's B7 asks for a Build Settings window
 ///         "over <c>Tools/Vixen.Cli</c>'s existing calls", and the only way for a window to be over
 ///         those calls rather than beside them is for the calls to live somewhere both heads can
 ///         reach. Two orchestrations over one <c>dotnet publish</c> drift, and the way this
@@ -78,7 +82,8 @@ public static class PlayerBuild {
     ///     make a project that sets the property unbuildable. The names are
     ///     <c>Vixen.App.BuildVariant</c>'s own.
     /// </remarks>
-    public static IReadOnlyList<string> KnownVariants { get; } = ["Editor", "Debug", "Development", "Release", "Server"];
+    public static IReadOnlyList<string> KnownVariants { get; } =
+        ["Editor", "Debug", "Development", "Release", "Server"];
 
     /// <summary>Whether a variant's content build is a dedicated server's.</summary>
     /// <param name="variant">A variant name, as <c>--variant</c> and <c>VixenVariant</c> spell it.</param>
@@ -115,11 +120,16 @@ public static class PlayerBuild {
         ArgumentNullException.ThrowIfNull(target);
 
         shape = target.ToLowerInvariant() switch {
-            "windows" => new("win-x64", "", "a folder with the executable in it", Runnable: OperatingSystem.IsWindows()),
-            "linux" => new("linux-x64", "", "a folder with the executable in it", Runnable: OperatingSystem.IsLinux()),
-            "macos" => new(HostMacRid(), "", "a folder with the executable in it", Runnable: OperatingSystem.IsMacOS()),
-            "android" => new("", "net11.0-android", "an APK", Runnable: false),
-            "ios" => new("ios-arm64", "net11.0-ios", "an .ipa", Runnable: false),
+            "windows" => new(
+                "win-x64",
+                string.Empty,
+                "a folder with the executable in it",
+                OperatingSystem.IsWindows()
+            ),
+            "linux" => new("linux-x64", string.Empty, "a folder with the executable in it", OperatingSystem.IsLinux()),
+            "macos" => new(HostMacRid(), string.Empty, "a folder with the executable in it", OperatingSystem.IsMacOS()),
+            "android" => new(string.Empty, "net11.0-android", "an APK", false),
+            "ios" => new("ios-arm64", "net11.0-ios", "an .ipa", false),
             _ => default
         };
 
@@ -256,7 +266,9 @@ public static class PlayerBuild {
         var executable = Path.Combine(directory, OperatingSystem.IsWindows() ? $"{assemblyName}.exe" : assemblyName);
 
         if (!File.Exists(executable)) {
-            log.WriteLine($"  The publish produced no executable named '{Path.GetFileName(executable)}' in {directory}.");
+            log.WriteLine(
+                $"  The publish produced no executable named '{Path.GetFileName(executable)}' in {directory}."
+            );
             return NoExecutable;
         }
 
@@ -284,8 +296,7 @@ public static class PlayerBuild {
     public static string ConfigurationFor(string variant) =>
         string.Equals(variant, "Debug", StringComparison.OrdinalIgnoreCase) ? "Debug" : "Release";
 
-    static string HostMacRid() =>
-        RuntimeInformation.OSArchitecture is Architecture.Arm64 ? "osx-arm64" : "osx-x64";
+    static string HostMacRid() => RuntimeInformation.OSArchitecture is Architecture.Arm64 ? "osx-arm64" : "osx-x64";
 
     /// <summary>Runs a process and forwards everything it says.</summary>
     /// <remarks>
@@ -295,8 +306,12 @@ public static class PlayerBuild {
     ///         turn this into a command that appears to hang.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>When <paramref name="capture" /> is set the writer is written from the process's
-    ///         own reader threads</b>, which is why it is locked here rather than left to the caller:
+    ///         ⚠
+    ///         <b>
+    ///             When <paramref name="capture" /> is set the writer is written from the process's
+    ///             own reader threads
+    ///         </b>
+    ///         , which is why it is locked here rather than left to the caller:
     ///         a build log that interleaves two half-lines is a build log somebody reports as a
     ///         compiler bug.
     ///     </para>
@@ -309,9 +324,7 @@ public static class PlayerBuild {
         CancellationToken cancellationToken
     ) {
         var start = new ProcessStartInfo(file) {
-            UseShellExecute = false,
-            RedirectStandardOutput = capture,
-            RedirectStandardError = capture
+            UseShellExecute = false, RedirectStandardOutput = capture, RedirectStandardError = capture
         };
 
         foreach (var argument in arguments) {
@@ -335,7 +348,7 @@ public static class PlayerBuild {
             // Killed rather than left running. A cancelled build that leaves the game on screen is a
             // process somebody has to find in a task manager.
             if (!process.HasExited) {
-                process.Kill(entireProcessTree: true);
+                process.Kill(true);
             }
 
             throw;

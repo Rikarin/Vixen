@@ -470,7 +470,8 @@ public sealed class VfxGeometryBuilder {
 
     /// <summary>The renderer a system draws with, or an explanation of why it cannot be drawn.</summary>
     static VfxRenderer Renderer(VfxSystem system) =>
-        system.Graph.Renderer ?? throw new InvalidOperationException(
+        system.Graph.Renderer
+        ?? throw new InvalidOperationException(
             "The graph declares no renderer, so it has no size and no colour to draw with. A graph that is "
             + "drawn has to say so when it is compiled, because that is what makes it allocate the attributes "
             + "drawing reads."
@@ -490,7 +491,13 @@ public sealed class VfxGeometryBuilder {
     ///         streak seen end-on from collapsing to a line of zero width.
     ///     </para>
     /// </remarks>
-    static (Vector3 Right, Vector3 Up) Basis(VfxRenderer renderer, in VfxCamera camera, Vector3 centre, Vector3 velocity, float half) {
+    static (Vector3 Right, Vector3 Up) Basis(
+        VfxRenderer renderer,
+        in VfxCamera camera,
+        Vector3 centre,
+        Vector3 velocity,
+        float half
+    ) {
         switch (renderer.Alignment) {
             case VfxBillboardAlignment.Velocity: {
                 var speed = velocity.Length();
@@ -503,7 +510,7 @@ public sealed class VfxGeometryBuilder {
 
                 var along = velocity / speed;
 
-                return (Across(along, camera, centre) * half, along * (half + (speed * renderer.Stretch * 0.5f)));
+                return (Across(along, camera, centre) * half, along * (half + speed * renderer.Stretch * 0.5f));
             }
 
             case VfxBillboardAlignment.FixedAxis: {
@@ -532,7 +539,7 @@ public sealed class VfxGeometryBuilder {
         var cosine = MathF.Cos(angle);
         var sine = MathF.Sin(angle);
 
-        return ((right * cosine) + (up * sine), (up * cosine) - (right * sine));
+        return (right * cosine + up * sine, up * cosine - right * sine);
     }
 
     /// <summary>Fills the draw order, sorting it if the renderer asked.</summary>

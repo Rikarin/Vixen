@@ -72,12 +72,13 @@ sealed record DocumentationComment(
         return Empty;
     }
 
-    static ISymbol? Overridden(ISymbol symbol) => symbol switch {
-        IMethodSymbol method => method.OverriddenMethod,
-        IPropertySymbol property => property.OverriddenProperty,
-        IEventSymbol @event => @event.OverriddenEvent,
-        _ => null
-    };
+    static ISymbol? Overridden(ISymbol symbol) =>
+        symbol switch {
+            IMethodSymbol method => method.OverriddenMethod,
+            IPropertySymbol property => property.OverriddenProperty,
+            IEventSymbol @event => @event.OverriddenEvent,
+            _ => null
+        };
 
     static IEnumerable<ISymbol> Inherited(ISymbol symbol) {
         switch (symbol) {
@@ -102,10 +103,13 @@ sealed record DocumentationComment(
                 // is the common case in this engine: the interface carries the prose and the class
                 // carries the code.
                 foreach (var member in symbol.ContainingType?.AllInterfaces
-                    .SelectMany(@interface => @interface.GetMembers(symbol.Name))
-                    .Where(candidate => SymbolEqualityComparer.Default.Equals(
-                        symbol.ContainingType.FindImplementationForInterfaceMember(candidate), symbol))
-                    ?? []) {
+                             .SelectMany(@interface => @interface.GetMembers(symbol.Name))
+                             .Where(candidate => SymbolEqualityComparer.Default.Equals(
+                                     symbol.ContainingType.FindImplementationForInterfaceMember(candidate),
+                                     symbol
+                                 )
+                             )
+                         ?? []) {
                     yield return member;
                 }
 
@@ -134,13 +138,13 @@ sealed record DocumentationComment(
         }
 
         var seeAlso = root.Descendants()
-            .Where(element => element.Name.LocalName is "see" or "seealso")
-            .Select(element => element.Attribute("cref")?.Value ?? string.Empty)
-            .Where(cref => cref.Length > 0)
+            .Where(static element => element.Name.LocalName is "see" or "seealso")
+            .Select(static element => element.Attribute("cref")?.Value ?? string.Empty)
+            .Where(static cref => cref.Length > 0)
             .Distinct(StringComparer.Ordinal)
             .ToList();
 
-        return new DocumentationComment(
+        return new(
             Text(root.Element("summary")),
             Text(root.Element("remarks")),
             Text(root.Element("returns")),
@@ -192,8 +196,12 @@ sealed record DocumentationComment(
 
         var joined = string.Join(string.Empty, parts);
         var paragraphs = joined.Split("\n\n", StringSplitOptions.RemoveEmptyEntries)
-            .Select(paragraph => string.Join(' ', paragraph.Split((char[]?) null, StringSplitOptions.RemoveEmptyEntries)))
-            .Where(paragraph => paragraph.Length > 0);
+            .Select(static paragraph => string.Join(
+                    ' ',
+                    paragraph.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries)
+                )
+            )
+            .Where(static paragraph => paragraph.Length > 0);
 
         var result = string.Join("\n\n", paragraphs);
 

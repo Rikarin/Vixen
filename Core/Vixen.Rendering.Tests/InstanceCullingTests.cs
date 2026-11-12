@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core.Mathematics;
-using Vixen.Rendering;
 using Vixen.Rendering.Features;
 using Xunit;
 
@@ -26,7 +25,7 @@ public sealed class InstanceCullingTests {
 
     /// <summary>Instances marching away down +Z, one per metre from `first`.</summary>
     static InstanceBounds[] Line(int count, float first = 1f, float radius = 0.5f) =>
-        [.. Enumerable.Range(0, count).Select(i => new InstanceBounds(new(0f, 0f, first + i), radius))];
+        [..Enumerable.Range(0, count).Select(i => new InstanceBounds(new(0f, 0f, first + i), radius))];
 
     [Fact]
     public void EverythingInFrontSurvivesAWideOpenCull() {
@@ -35,7 +34,7 @@ public sealed class InstanceCullingTests {
 
         Assert.Equal(20, culler.Cull(instances, [], Settings(), []));
         Assert.Equal(1, culler.LevelCount);
-        Assert.Equal([.. Enumerable.Range(0, 20).Select(i => (uint)i)], culler.Survivors.ToArray());
+        Assert.Equal([..Enumerable.Range(0, 20).Select(static i => (uint)i)], culler.Survivors.ToArray());
     }
 
     [Fact]
@@ -64,7 +63,7 @@ public sealed class InstanceCullingTests {
             new(new(0f, 0f, 120f), 1f)
         ];
 
-        Assert.Equal(2, culler.Cull(instances, [], Settings(end: 100f), []));
+        Assert.Equal(2, culler.Cull(instances, [], Settings(100f), []));
         Assert.Equal([0u, 1u], culler.Survivors.ToArray());
     }
 
@@ -100,7 +99,7 @@ public sealed class InstanceCullingTests {
 
         foreach (var run in runs) {
             var slice = survivors[run.First..(run.First + run.Count)];
-            Assert.Equal(slice.OrderBy(index => index), slice);
+            Assert.Equal(slice.OrderBy(static index => index), slice);
         }
     }
 
@@ -110,7 +109,7 @@ public sealed class InstanceCullingTests {
         // by index instead of reading back which levels happened to survive.
         var culler = new InstanceCuller();
 
-        culler.Cull(Line(3, first: 1f), [], Settings(), [100f, 200f]);
+        culler.Cull(Line(3), [], Settings(), [100f, 200f]);
 
         Assert.Equal(3, culler.LevelCount);
         Assert.Equal(3, culler.Runs[0].Count);
@@ -142,9 +141,7 @@ public sealed class InstanceCullingTests {
     public void ParametersMustMatchTheInstancesOrBeAbsent() {
         var culler = new InstanceCuller();
 
-        Assert.Throws<ArgumentException>(
-            () => culler.Cull(Line(4), new InstanceParameters[3], Settings(), [])
-        );
+        Assert.Throws<ArgumentException>(() => culler.Cull(Line(4), new InstanceParameters[3], Settings(), []));
     }
 
     // --- Parameters and fading ----------------------------------------------
@@ -168,8 +165,8 @@ public sealed class InstanceCullingTests {
         culler.Cull(instances, authored, Settings(), []);
 
         // The middle instance was culled, so the survivors' parameters must be 0 and 2 — not 0 and 1.
-        Assert.Equal([0f, 2f], culler.Parameters.ToArray().Select(p => p.Tint));
-        Assert.Equal([0f, 20f], culler.Parameters.ToArray().Select(p => p.WindPhase));
+        Assert.Equal([0f, 2f], culler.Parameters.ToArray().Select(static p => p.Tint));
+        Assert.Equal([0f, 20f], culler.Parameters.ToArray().Select(static p => p.WindPhase));
     }
 
     [Fact]
@@ -180,7 +177,7 @@ public sealed class InstanceCullingTests {
 
         Assert.All(
             culler.Parameters.ToArray(),
-            parameter => {
+            static parameter => {
                 Assert.Equal(1f, parameter.Scale);
                 Assert.Equal(1f, parameter.Fade);
             }
@@ -197,11 +194,11 @@ public sealed class InstanceCullingTests {
             new(new(0f, 0f, 90f), 0f)
         ];
 
-        var settings = Settings(end: 100f, start: 80f) with { Fade = true };
+        var settings = Settings(100f, 80f) with { Fade = true };
 
         culler.Cull(instances, [], settings, []);
 
-        var fades = culler.Parameters.ToArray().Select(p => p.Fade).ToArray();
+        var fades = culler.Parameters.ToArray().Select(static p => p.Fade).ToArray();
 
         Assert.Equal(1f, fades[0], 4);
         Assert.Equal(1f, fades[1], 4);
@@ -212,9 +209,9 @@ public sealed class InstanceCullingTests {
     public void WithoutFadingEverySurvivorIsFullyPresent() {
         var culler = new InstanceCuller();
 
-        culler.Cull(Line(5, first: 90f), [], Settings(end: 100f, start: 80f), []);
+        culler.Cull(Line(5, 90f), [], Settings(100f, 80f), []);
 
-        Assert.All(culler.Parameters.ToArray(), parameter => Assert.Equal(1f, parameter.Fade));
+        Assert.All(culler.Parameters.ToArray(), static parameter => Assert.Equal(1f, parameter.Fade));
     }
 
     // --- Density ------------------------------------------------------------
@@ -224,7 +221,7 @@ public sealed class InstanceCullingTests {
         var culler = new InstanceCuller();
 
         var instances = Enumerable.Range(0, 4000)
-            .Select(i => new InstanceBounds(new(i % 40 * 0.5f, 0f, 10f + (i / 40 * 0.5f)), 0.1f))
+            .Select(static i => new InstanceBounds(new(i % 40 * 0.5f, 0f, 10f + i / 40 * 0.5f), 0.1f))
             .ToArray();
 
         var full = culler.Cull(instances, [], Settings(), []);
@@ -248,7 +245,7 @@ public sealed class InstanceCullingTests {
         var culler = new InstanceCuller();
 
         var instances = Enumerable.Range(0, 2000)
-            .Select(i => new InstanceBounds(new(i % 50 * 0.4f, 0f, 10f + (i / 50 * 0.4f)), 0.1f))
+            .Select(static i => new InstanceBounds(new(i % 50 * 0.4f, 0f, 10f + i / 50 * 0.4f), 0.1f))
             .ToArray();
 
         uint[] At(float density) {
@@ -271,7 +268,7 @@ public sealed class InstanceCullingTests {
         var culler = new InstanceCuller();
 
         var instances = Enumerable.Range(0, 500)
-            .Select(i => new InstanceBounds(new(i % 25 * 0.7f, 0f, 10f + (i / 25 * 0.7f)), 0.1f))
+            .Select(static i => new InstanceBounds(new(i % 25 * 0.7f, 0f, 10f + i / 25 * 0.7f), 0.1f))
             .ToArray();
 
         var settings = Settings() with { DensityScale = 0.4f };
@@ -365,7 +362,7 @@ public sealed class InstanceCullingTests {
         var culler = new InstanceCuller();
 
         foreach (var count in new[] { 0, 1, 7, 64, 513 }) {
-            culler.Cull(Line(count), [], Settings(end: 300f), [5f, 12f, 40f]);
+            culler.Cull(Line(count), [], Settings(300f), [5f, 12f, 40f]);
 
             var total = 0;
             var expected = 0;

@@ -26,8 +26,11 @@ public enum MeshElementKind : byte {
 /// <summary>What is selected in one mesh: a kind, and the indices of that kind.</summary>
 /// <remarks>
 ///     <para>
-///         <b>Doc 24's P2, and it is in the kernel rather than in the editor for the reason the
-///         queries are.</b> Converting a face selection to the vertices it covers is a walk over the
+///         <b>
+///             Doc 24's P2, and it is in the kernel rather than in the editor for the reason the
+///             queries are.
+///         </b>
+///         Converting a face selection to the vertices it covers is a walk over the
 ///         corner table; growing an edge selection is a walk over the incidence tables. Both are
 ///         arithmetic with a right answer, both are what a test can assert against a cube, and neither
 ///         needs a viewport.
@@ -41,8 +44,12 @@ public enum MeshElementKind : byte {
 ///         reproduce.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Coarser-to-finer takes everything and finer-to-coarser takes only what is fully
-///         covered.</b> Three faces converted to vertices is every corner of them; those vertices
+///         ⚠
+///         <b>
+///             Coarser-to-finer takes everything and finer-to-coarser takes only what is fully
+///             covered.
+///         </b>
+///         Three faces converted to vertices is every corner of them; those vertices
 ///         converted back is the three faces again, because each has all its corners. A rule that took
 ///         partially covered faces would make the round trip grow the selection every time it was
 ///         made, and switching modes twice is something people do without meaning anything by it.
@@ -62,8 +69,12 @@ public sealed class MeshSelection {
 
     /// <summary>What is selected, in the order it was selected in.</summary>
     /// <remarks>
-    ///     ⚠ <b>Ordered, because "weld to last" and "the active element" both mean the most recent
-    ///     one.</b> A hash set's order is the hash's, which would make the snap base doc 24's D4 calls
+    ///     ⚠
+    ///     <b>
+    ///         Ordered, because "weld to last" and "the active element" both mean the most recent
+    ///         one.
+    ///     </b>
+    ///     A hash set's order is the hash's, which would make the snap base doc 24's D4 calls
     ///     "the active element" a different element on every rebuild.
     /// </remarks>
     public IReadOnlyList<int> Indices => ordered;
@@ -116,8 +127,10 @@ public sealed class MeshSelection {
     /// <summary>Selects an element if it is not, and deselects it if it is.</summary>
     /// <param name="index">Which.</param>
     /// <returns>Whether it ended up selected.</returns>
-    /// <remarks>What <c>Shift</c>+click does, for the reason <c>SceneViewport.Select</c> gives: one
-    ///     modifier for both halves of one idea.</remarks>
+    /// <remarks>
+    ///     What <c>Shift</c>+click does, for the reason <c>SceneViewport.Select</c> gives: one
+    ///     modifier for both halves of one idea.
+    /// </remarks>
     public bool Toggle(int index) => !Remove(index) && Add(index);
 
     /// <summary>Replaces everything with one element.</summary>
@@ -191,8 +204,10 @@ public sealed class MeshSelection {
     /// <summary>Changes which kind of element is selected, converting what is selected to it.</summary>
     /// <param name="mesh">The mesh.</param>
     /// <param name="kind">The kind to change to.</param>
-    /// <remarks>See this type's own remarks for the rule: coarser to finer takes everything, finer to
-    ///     coarser takes only what is fully covered.</remarks>
+    /// <remarks>
+    ///     See this type's own remarks for the rule: coarser to finer takes everything, finer to
+    ///     coarser takes only what is fully covered.
+    /// </remarks>
     public void Convert(EditMesh mesh, MeshElementKind kind) {
         ArgumentNullException.ThrowIfNull(mesh);
 
@@ -209,8 +224,12 @@ public sealed class MeshSelection {
     /// <summary>Takes in everything touching what is already selected.</summary>
     /// <param name="mesh">The mesh.</param>
     /// <remarks>
-    ///     ⚠ <b>Touching means "shares the thing one rank down", which is a different join per
-    ///     kind.</b> Faces grow across shared <i>edges</i> and not across shared corners, so a
+    ///     ⚠
+    ///     <b>
+    ///         Touching means "shares the thing one rank down", which is a different join per
+    ///         kind.
+    ///     </b>
+    ///     Faces grow across shared <i>edges</i> and not across shared corners, so a
     ///     selection does not leap the diagonal where two walls meet at a point; vertices and edges
     ///     grow through shared positions, because that is the only join they have.
     /// </remarks>
@@ -374,7 +393,7 @@ public sealed class MeshSelection {
         var dropped = false;
 
         for (var index = ordered.Count - 1; index >= 0; index--) {
-            if ((uint) ordered[index] < (uint) total) {
+            if ((uint)ordered[index] < (uint)total) {
                 continue;
             }
 
@@ -412,20 +431,17 @@ public sealed class MeshSelection {
                     Take(index);
                     break;
 
-                case MeshElementKind.Edge when (uint) index < (uint) mesh.Edges.Count:
+                case MeshElementKind.Edge when (uint)index < (uint)mesh.Edges.Count:
                     Take(mesh.Edges[index].A);
                     Take(mesh.Edges[index].B);
 
                     break;
 
-                case MeshElementKind.Face when (uint) index < (uint) mesh.FaceCount:
+                case MeshElementKind.Face when (uint)index < (uint)mesh.FaceCount:
                     foreach (var corner in mesh.CornersOf(index)) {
                         Take(corner);
                     }
 
-                    break;
-
-                default:
                     break;
             }
         }
@@ -483,8 +499,10 @@ public sealed class MeshSelection {
     /// <param name="mesh">The mesh.</param>
     /// <param name="kind">The kind to read it as.</param>
     /// <returns>The indices.</returns>
-    /// <remarks>What an operation that acts on faces does when the designer is in edge mode: extrude
-    ///     with two edges selected is an edge extrude, and with the four edges of a quad it is not.</remarks>
+    /// <remarks>
+    ///     What an operation that acts on faces does when the designer is in edge mode: extrude
+    ///     with two edges selected is an edge extrude, and with the four edges of a quad it is not.
+    /// </remarks>
     public IReadOnlyList<int> Converted(EditMesh mesh, MeshElementKind kind) {
         ArgumentNullException.ThrowIfNull(mesh);
 

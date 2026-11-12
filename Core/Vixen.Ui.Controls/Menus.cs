@@ -28,9 +28,13 @@ public sealed partial class MenuItem : ButtonBase {
 
     /// <inheritdoc />
     /// <remarks>
-    ///     ⚠ <b><see cref="AccessibleStates.Expandable" /> only when there <i>is</i> a submenu,
-    ///     which is the opposite of the rule a combo box follows and is right for the opposite
-    ///     reason.</b> A combo box always opens something, so a missing <c>aria-expanded</c> would
+    ///     ⚠
+    ///     <b>
+    ///         <see cref="AccessibleStates.Expandable" /> only when there <i>is</i> a submenu,
+    ///         which is the opposite of the rule a combo box follows and is right for the opposite
+    ///         reason.
+    ///     </b>
+    ///     A combo box always opens something, so a missing <c>aria-expanded</c> would
     ///     be a lie; a menu line usually runs a command, and marking every line expandable would
     ///     tell a user that every one of them leads somewhere. It is exactly the distinction the
     ///     arrow glyph makes visually, from the same fact.
@@ -79,8 +83,12 @@ public sealed partial class MenuItem : ButtonBase {
 
     /// <summary>A quiet word at the right saying what kind of thing the line is.</summary>
     /// <remarks>
-    ///     ⚠ <b>For a menu whose lines are not all the same kind of thing, which is the case that
-    ///     needs it.</b> A list of components and behaviours sorted together is one list because
+    ///     ⚠
+    ///     <b>
+    ///         For a menu whose lines are not all the same kind of thing, which is the case that
+    ///         needs it.
+    ///     </b>
+    ///     A list of components and behaviours sorted together is one list because
     ///     that is how somebody looks for a thing by name — and it is unreadable if there is no way
     ///     to see that <c>PlayerController</c> is a script and <c>Light</c> is not. It occupies the
     ///     same right-hand column a shortcut does, and like a shortcut it is created on demand: an
@@ -115,16 +123,27 @@ public sealed partial class MenuItem : ButtonBase {
     /// <returns>The label, or <see langword="null" /> where the command has no chord.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The overload that makes <a href="https://github.com/Rikarin/Vixen/issues/650">
-    ///         #650</a>'s opening sentence unwritable.</b> "Draws ⌘S and nothing dispatches it" is
+    ///         ⚠
+    ///         <b>
+    ///             The overload that makes
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/650">
+    ///                 #650
+    ///             </a>
+    ///             's opening sentence unwritable.
+    ///         </b>
+    ///         "Draws ⌘S and nothing dispatches it" is
     ///         possible because the two halves come from different places: the chord above is
     ///         whatever the caller passes and the keystroke is resolved against a
     ///         <see cref="KeyMap" />. This one reads the map that will answer, so a row can only
     ///         show a chord that table holds.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Three things every caller had to get right, and the fourth caller got two of
-    ///         them wrong.</b> <c>MenuPresenter</c>, <c>SceneMenus</c> and
+    ///         ⚠
+    ///         <b>
+    ///             Three things every caller had to get right, and the fourth caller got two of
+    ///             them wrong.
+    ///         </b>
+    ///         <c>MenuPresenter</c>, <c>SceneMenus</c> and
     ///         <c>Samples/02-HelloUi</c> each wrote the same three lines; the scene context menu
     ///         omitted <see cref="KeyChord.ForPlatform()" /> and guarded with <c>is { }</c>, which
     ///         matches every value of a struct — so it drew the literal word <c>Unknown</c> beside
@@ -159,8 +178,12 @@ public sealed partial class MenuItem : ButtonBase {
 
     /// <inheritdoc />
     /// <remarks>
-    ///     ⚠ <b>The gutter as well as the state, and the tick is only created for a command that has
-    ///     one.</b> <see cref="Mark" /> is a part that exists once something asks for it, so a menu
+    ///     ⚠
+    ///     <b>
+    ///         The gutter as well as the state, and the tick is only created for a command that has
+    ///         one.
+    ///     </b>
+    ///     <see cref="Mark" /> is a part that exists once something asks for it, so a menu
     ///     of ordinary commands never grows one and is not indented by a column of empty ticks —
     ///     which is why this asks <c>checkable</c> before it touches anything, rather than creating
     ///     the mark and hiding it.
@@ -233,7 +256,7 @@ public partial class Menu : Overlay {
     ///     when it was clicked. <c>Accordion.Sections</c> is the same arrangement for the same
     ///     reasons, and <see cref="OnChildAdded" /> does the part a snapshot cannot.
     /// </remarks>
-    public IReadOnlyList<MenuItem> Items => [.. Children.OfType<MenuItem>()];
+    public IReadOnlyList<MenuItem> Items => [..Children.OfType<MenuItem>()];
 
     /// <summary>The menu this one opened out of, if it is a submenu.</summary>
     public Menu? ParentMenu { get; internal set; }
@@ -249,8 +272,12 @@ public partial class Menu : Overlay {
 
     /// <summary>What the item that drops this menu says.</summary>
     /// <remarks>
-    ///     ⚠ <b>A property on the menu rather than on the item, because markup nests a menu and not
-    ///     an item:</b> <c>&lt;Menu Label="File"&gt;</c> is what a reader writes and what a menu bar
+    ///     ⚠
+    ///     <b>
+    ///         A property on the menu rather than on the item, because markup nests a menu and not
+    ///         an item:
+    ///     </b>
+    ///     <c>&lt;Menu Label="File"&gt;</c> is what a reader writes and what a menu bar
     ///     looks like. The item is made by the bar — or by the menu above — and is not a tag anybody
     ///     writes, so it has nowhere to be given a name.
     ///     <para>
@@ -281,8 +308,8 @@ public partial class Menu : Overlay {
         // each other by design: the focus goes in, and the command route does not follow it.
         IsCommandTransparent = true;
 
-        AddHandler<ClickEvent>(static (element, args) => ((Menu) element).Chosen(args));
-        AddHandler<KeyEvent>(static (element, args) => ((Menu) element).Keyed(args));
+        AddHandler<ClickEvent>(static (element, args) => ((Menu)element).Chosen(args));
+        AddHandler<KeyEvent>(static (element, args) => ((Menu)element).Keyed(args));
 
         // ⚠ On the way open, so that a menu is right the instant it is on screen rather than on the
         // frame after. `UiDocument.CommandsInvalidated` is what keeps a *persistently visible*
@@ -291,7 +318,7 @@ public partial class Menu : Overlay {
         // itself and that pass would draw the previous answer.
         OpenChanged += static (overlay, isOpen) => {
             if (isOpen) {
-                ((Menu) overlay).RefreshCommands();
+                ((Menu)overlay).RefreshCommands();
             }
         };
     }
@@ -344,8 +371,12 @@ public partial class Menu : Overlay {
     /// <inheritdoc />
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The hover handler is on the item and <see cref="RoutingStrategy.Direct" />, not on
-    ///         the menu</b>, because a pointer entering an element is raised once per element that it
+    ///         ⚠
+    ///         <b>
+    ///             The hover handler is on the item and <see cref="RoutingStrategy.Direct" />, not on
+    ///             the menu
+    ///         </b>
+    ///         , because a pointer entering an element is raised once per element that it
     ///         entered rather than routed — see <c>EventRouter.Direct</c> — so a handler up here would
     ///         never hear about it. The same arrangement <see cref="MenuBar" /> uses.
     ///     </para>
@@ -377,9 +408,6 @@ public partial class Menu : Overlay {
 
             case Menu submenu:
                 Promote(submenu);
-                break;
-
-            default:
                 break;
         }
     }
@@ -428,8 +456,12 @@ public partial class Menu : Overlay {
 
     /// <inheritdoc />
     /// <remarks>
-    ///     ⚠ <b>A submenu is a sibling, not a child, so removing a menu left every submenu it opened
-    ///     in the document.</b> That is the cost of the root-child arrangement and there was no way to
+    ///     ⚠
+    ///     <b>
+    ///         A submenu is a sibling, not a child, so removing a menu left every submenu it opened
+    ///         in the document.
+    ///     </b>
+    ///     That is the cost of the root-child arrangement and there was no way to
     ///     pay it until <see cref="UiElement.OnRemoved" /> existed. The recursion is the point — a
     ///     submenu has submenus — and it terminates because <c>Remove</c> announces before it detaches,
     ///     so each one is announced exactly once on the way down.
@@ -491,7 +523,7 @@ public partial class Menu : Overlay {
 
     /// <summary>Closes this menu and every one it opened out of.</summary>
     public void CloseChain(CloseReason reason) {
-        for (Menu? menu = this; menu is not null; menu = menu.ParentMenu) {
+        for (var menu = this; menu is not null; menu = menu.ParentMenu) {
             menu.Close(reason);
         }
     }
@@ -506,8 +538,12 @@ public partial class Menu : Overlay {
     ///         seen from the other side.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Closed on entering a sibling rather than on leaving the item, and the difference
-    ///         is the whole gesture.</b> A submenu is placed beside its parent item, so the pointer
+    ///         ⚠
+    ///         <b>
+    ///             Closed on entering a sibling rather than on leaving the item, and the difference
+    ///             is the whole gesture.
+    ///         </b>
+    ///         A submenu is placed beside its parent item, so the pointer
     ///         going to it <i>leaves</i> that item — a close on exit would shut the menu the user is
     ///         reaching for, every time, and there would be no way to reach a nested command with the
     ///         mouse at all.
@@ -524,7 +560,7 @@ public partial class Menu : Overlay {
 
         foreach (var other in Items) {
             if (!ReferenceEquals(other, item) && other.Submenu is { IsOpen: true } open) {
-                open.Close(CloseReason.Code);
+                open.Close();
             }
         }
 
@@ -609,8 +645,12 @@ public partial class Menu : Overlay {
 
 /// <summary>A menu opened at a point rather than beside an element.</summary>
 /// <remarks>
-///     ⚠ <b>Not a <see cref="Menu" /> with a different opening method — a distinct type, because the
-///     placement rule differs.</b> A menu beside an anchor flips to the other side of it when there
+///     ⚠
+///     <b>
+///         Not a <see cref="Menu" /> with a different opening method — a distinct type, because the
+///         placement rule differs.
+///     </b>
+///     A menu beside an anchor flips to the other side of it when there
 ///     is no room; a context menu has no side to be on, so it is pinned to the cursor and pushed
 ///     back inside the viewport. Sharing one type would mean a menu that sometimes appears above the
 ///     cursor by a rule that makes no sense for a cursor.
@@ -639,8 +679,7 @@ public sealed partial class ContextMenu : Menu {
     public void Attach(UiElement target) {
         ArgumentNullException.ThrowIfNull(target);
 
-        target.AddHandler<PointerEvent>(
-            (element, args) => {
+        target.AddHandler<PointerEvent>((element, args) => {
                 if (args is { Action: PointerAction.Pressed, Button: PointerButton.Secondary }) {
                     OpenAt(args.X, args.Y);
                     args.Handled = true;
@@ -700,7 +739,7 @@ public sealed partial class MenuBar : Control {
     ///     ⚠ Read from the children rather than kept, on <see cref="Menu.Items" />' terms and for its
     ///     reasons — a <c>&lt;Menu Label="File"&gt;</c> nested in a bar is a name on that bar.
     /// </remarks>
-    public IReadOnlyList<MenuBarItem> Items => [.. Children.OfType<MenuBarItem>()];
+    public IReadOnlyList<MenuBarItem> Items => [..Children.OfType<MenuBarItem>()];
 
     /// <summary>The menu currently dropped, if any.</summary>
     public Menu? Current { get; private set; }
@@ -714,7 +753,7 @@ public sealed partial class MenuBar : Control {
         // only the `Menu` would leave the route resolving from the word "Edit".
         IsCommandTransparent = true;
 
-        AddHandler<ClickEvent>(static (element, args) => ((MenuBar) element).Chosen(args));
+        AddHandler<ClickEvent>(static (element, args) => ((MenuBar)element).Chosen(args));
     }
 
     /// <summary>Adds a name and the menu it drops.</summary>
@@ -766,14 +805,14 @@ public sealed partial class MenuBar : Control {
         item.Menu = menu;
         menu.Opener = item;
 
-        menu.OpenChanged += (opened, isOpen) => Current = isOpen ? (Menu) opened : Current == opened ? null : Current;
+        menu.OpenChanged += (opened, isOpen) => Current = isOpen ? (Menu)opened : Current == opened ? null : Current;
 
         item.AddHandler<PointerEvent>(
             (element, args) => {
                 // Only while something is already open. A hover with the bar at rest is just a
                 // pointer crossing a word.
                 if (args.Action == PointerAction.Entered && Current is not null && !ReferenceEquals(Current, menu)) {
-                    Current.Close(CloseReason.Code);
+                    Current.Close();
                     menu.Open(item);
                 }
             },
@@ -816,7 +855,7 @@ public sealed partial class MenuBar : Control {
         // what the overlay's light dismiss would otherwise fight: the press closes it, and then the
         // click would reopen it.
         if (item.Menu.IsOpen) {
-            item.Menu.Close(CloseReason.Code);
+            item.Menu.Close();
         } else {
             item.Menu.Open(item);
         }

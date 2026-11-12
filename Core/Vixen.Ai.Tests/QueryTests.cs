@@ -13,8 +13,12 @@ namespace Vixen.Ai.Tests;
 ///     asserted by construction rather than by comment.
 /// </summary>
 /// <remarks>
-///     ⚠ <b>doc 37 § D14 claims that "where should I stand" and "what should I do" are the same
-///     machine.</b> That is either checkable or it is a remark somebody will contradict in six months
+///     ⚠
+///     <b>
+///         doc 37 § D14 claims that "where should I stand" and "what should I do" are the same
+///         machine.
+///     </b>
+///     That is either checkable or it is a remark somebody will contradict in six months
 ///     by writing a second mean. These tests are the check: both hosts implement one interface, both
 ///     go through one combining routine, and one curve object literally scores in both.
 /// </remarks>
@@ -81,8 +85,12 @@ public class QueryScorerExitCriteriaTests {
             var query = new EnvironmentQuery(
                 Symbol.Intern("vetoed"),
                 [QueryGenerators.CurrentLocation()],
-                new QueryTest(QueryTests.From("nothing", static (in AgentContext c, in QueryOrigin o, in QueryPoint p) => 0f)),
-                new QueryTest(QueryTests.From("everything", static (in AgentContext c, in QueryOrigin o, in QueryPoint p) => 1f))
+                new QueryTest(
+                    QueryTests.From("nothing", static (in AgentContext c, in QueryOrigin o, in QueryPoint p) => 0f)
+                ),
+                new QueryTest(
+                    QueryTests.From("everything", static (in AgentContext c, in QueryOrigin o, in QueryPoint p) => 1f)
+                )
             );
 
             var results = new QueryResults();
@@ -99,8 +107,12 @@ public class QueryScorerExitCriteriaTests {
     ///     query.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>The trace is a lambda here and a physics raycast in a game, and that is the seam
-    ///     working.</b> <c>IQueryTest</c> is the thing a project replaces; the wall in this test is
+    ///     ⚠
+    ///     <b>
+    ///         The trace is a lambda here and a physics raycast in a game, and that is the seam
+    ///         working.
+    ///     </b>
+    ///     <c>IQueryTest</c> is the thing a project replaces; the wall in this test is
     ///     three lines of arithmetic, and swapping it for <c>WorldQueryTests.Trace</c> changes the
     ///     query's behaviour not at all.
     /// </remarks>
@@ -116,16 +128,11 @@ public class QueryScorerExitCriteriaTests {
                 Symbol.Intern("cover"),
                 [QueryGenerators.Grid(8f, 2f)],
                 // Must be able to see the target at all.
-                new QueryTest(QueryTests.From("sight", Sight)) {
-                    Purpose = QueryTestPurpose.Filter,
-                    Floor = 0.5f
-                },
+                new QueryTest(QueryTests.From("sight", Sight)) { Purpose = QueryTestPurpose.Filter, Floor = 0.5f },
                 // Prefer somewhere close to the agent: a falling line, which is what "less is better"
                 // is in every one of the six shapes.
                 new QueryTest(QueryTests.Distance(), new ResponseCurve { Slope = -1f, Shift = 1f }) {
-                    Purpose = QueryTestPurpose.Both,
-                    Maximum = 8f,
-                    Ceiling = 8f
+                    Purpose = QueryTestPurpose.Both, Maximum = 8f, Ceiling = 8f
                 },
                 // And prefer somewhere far from the target.
                 new QueryTest(QueryTests.Distance(QueryDistanceFrom.Context)) { Minimum = 0f, Maximum = 30f }
@@ -181,7 +188,7 @@ public class QueryScorerExitCriteriaTests {
         );
 
     internal static AgentContext Context(out World world) {
-        world = new World("queries");
+        world = new("queries");
 
         return new(world, new(5, 1, world.Id), new(BlackboardLayout.Empty), null, GameTime.Zero, 0);
     }
@@ -191,12 +198,12 @@ public class QueryScorerExitCriteriaTests {
 public class QueryGeneratorTests {
     [Fact]
     public void AGridIsSquareAndCentredOnWhereItWasTold() {
-        var points = Generate(QueryGenerators.Grid(2f, 1f), new(new(10f, 0f, 10f), Vector3.Zero));
+        var points = Generate(QueryGenerators.Grid(2f), new(new(10f, 0f, 10f), Vector3.Zero));
 
         // Five along each side: −2, −1, 0, 1, 2.
         Assert.Equal(25, points.Count);
-        Assert.Contains(points, point => point.Position == new Vector3(10f, 0f, 10f));
-        Assert.All(points, point => Assert.True(MathF.Abs(point.Position.X - 10f) <= 2.001f));
+        Assert.Contains(points, static point => point.Position == new Vector3(10f, 0f, 10f));
+        Assert.All(points, static point => Assert.True(MathF.Abs(point.Position.X - 10f) <= 2.001f));
     }
 
     [Fact]
@@ -218,7 +225,10 @@ public class QueryGeneratorTests {
         var points = Generate(QueryGenerators.Cone(90f, 5f, 2, 3), new(Vector3.Zero, Vector3.Zero));
 
         Assert.Equal(6, points.Count);
-        Assert.All(points, point => Assert.False(float.IsNaN(point.Position.X) || float.IsNaN(point.Position.Z)));
+        Assert.All(
+            points,
+            static point => Assert.False(float.IsNaN(point.Position.X) || float.IsNaN(point.Position.Z))
+        );
     }
 
     /// <summary>
@@ -240,7 +250,7 @@ public class QueryGeneratorTests {
         );
 
         Assert.Equal(7, points.Count);
-        Assert.Equal(new Vector3(1f, 0f, 1f), points[0].Position);
+        Assert.Equal(new(1f, 0f, 1f), points[0].Position);
     }
 
     static List<QueryPoint> Generate(IQueryGenerator generator, QueryOrigin origin) {
@@ -328,7 +338,7 @@ public class QueryTestPurposeTests {
 
             var query = new EnvironmentQuery(
                 Symbol.Intern("ordered"),
-                [QueryGenerators.Grid(2f, 1f)],
+                [QueryGenerators.Grid(2f)],
                 new QueryTest(QueryTests.Distance()) { Purpose = QueryTestPurpose.Filter, Ceiling = 0.5f },
                 new QueryTest(
                     QueryTests.From(
@@ -359,17 +369,20 @@ public class QueryContentTests {
     public void AQueryCompilesOutOfItsFile() {
         var content = new QueryContent { Name = "Cover" };
 
-        content.Generators.Add(new() { Kind = QueryGeneratorKind.Donut, Inner = 2f, Extent = 6f, Rings = 2, Points = 8 });
-        content.Tests.Add(
+        content.Generators.Add(
             new() {
-                Kind = QueryTestKind.Distance,
-                Purpose = QueryTestPurpose.Both,
-                Maximum = 6f,
-                Ceiling = 6f
+                Kind = QueryGeneratorKind.Donut,
+                Inner = 2f,
+                Extent = 6f,
+                Rings = 2,
+                Points = 8
             }
         );
+        content.Tests.Add(
+            new() { Kind = QueryTestKind.Distance, Purpose = QueryTestPurpose.Both, Maximum = 6f, Ceiling = 6f }
+        );
 
-        Assert.True(QueryContentCompiler.TryCompile(content, new BehaviorTreeResolver(), out var problems, out var query));
+        Assert.True(QueryContentCompiler.TryCompile(content, new(), out var problems, out var query));
         Assert.Empty(problems);
         Assert.NotNull(query);
         Assert.Equal(16, query.Estimate);
@@ -386,8 +399,11 @@ public class QueryContentTests {
         content.Generators.Add(new() { Kind = QueryGeneratorKind.Grid, Extent = 2f, Inner = 1f });
         content.Tests.Add(new() { Kind = QueryTestKind.Registered, Source = "cover-value" });
 
-        Assert.False(QueryContentCompiler.TryCompile(content, new BehaviorTreeResolver(), out var problems, out var query));
-        Assert.Contains(problems, problem => problem.Message.Contains("No query test called", StringComparison.Ordinal));
+        Assert.False(QueryContentCompiler.TryCompile(content, new(), out var problems, out var query));
+        Assert.Contains(
+            problems,
+            static problem => problem.Message.Contains("No query test called", StringComparison.Ordinal)
+        );
 
         var context = QueryScorerExitCriteriaTests.Context(out var world);
 
@@ -405,7 +421,10 @@ public class QueryContentTests {
         var resolver = new BehaviorTreeResolver();
 
         resolver.AddGenerator("perch", QueryGenerators.Circle(3f, 4));
-        resolver.AddTest("height", QueryTests.From("height", static (in AgentContext c, in QueryOrigin o, in QueryPoint p) => p.Position.Y));
+        resolver.AddTest(
+            "height",
+            QueryTests.From("height", static (in AgentContext c, in QueryOrigin o, in QueryPoint p) => p.Position.Y)
+        );
 
         var content = new QueryContent { Name = "Perches" };
 

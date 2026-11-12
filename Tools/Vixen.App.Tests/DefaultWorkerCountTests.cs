@@ -49,7 +49,7 @@ public sealed class DefaultWorkerCountTests {
     [InlineData(1)]
     [InlineData(8)]
     public void ABrowserHeadAsksForNoWorkers(int availableProcessors) =>
-        Assert.Equal(0, AppBuilder.DefaultWorkerCount(availableProcessors, isBrowser: true));
+        Assert.Equal(0, AppBuilder.DefaultWorkerCount(availableProcessors, true));
 
     /// <summary>Everywhere else, one worker per available processor beyond the calling thread.</summary>
     /// <remarks>
@@ -61,7 +61,7 @@ public sealed class DefaultWorkerCountTests {
     [InlineData(4, 3)]
     [InlineData(2, 1)]
     public void ADesktopHeadLeavesOneProcessorForTheCallingThread(int availableProcessors, int expected) =>
-        Assert.Equal(expected, AppBuilder.DefaultWorkerCount(availableProcessors, isBrowser: false));
+        Assert.Equal(expected, AppBuilder.DefaultWorkerCount(availableProcessors, false));
 
     /// <summary>
     ///     ⚠ And the floor stays where it is off the browser, which is why it cannot simply be
@@ -75,6 +75,5 @@ public sealed class DefaultWorkerCountTests {
     ///     reader knows it was looked at.
     /// </remarks>
     [Fact]
-    public void ASingleProcessorMachineStillGetsOneWorker() =>
-        Assert.Equal(1, AppBuilder.DefaultWorkerCount(1, isBrowser: false));
+    public void ASingleProcessorMachineStillGetsOneWorker() => Assert.Equal(1, AppBuilder.DefaultWorkerCount(1, false));
 }

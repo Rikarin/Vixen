@@ -56,11 +56,11 @@ sealed class TestMember(
     public bool AreEqual(object? left, object? right) =>
         Comparison is null ? Equals(left, right) : Comparison(left, right);
 
-    public object? Read(object owner) => read((Widget) owner);
+    public object? Read(object owner) => read((Widget)owner);
 
-    public void Write(object owner, object? value) => write((Widget) owner, value);
+    public void Write(object owner, object? value) => write((Widget)owner, value);
 
-    public Vixen.Authoring.IAuthoringCommand CreateSetCommand(
+    public IAuthoringCommand CreateSetCommand(
         IReadOnlyList<object> targets,
         object? value,
         EditorDocument? document
@@ -78,14 +78,24 @@ sealed class TestMember(
 /// <summary>The two members of <see cref="Widget" />, by name.</summary>
 sealed class TestProvider : IEditProvider {
     readonly IEditMember[] members = [
-        new TestMember("Size", static widget => widget.Size, static (widget, value) => widget.Size = (float) value!, true),
-        new TestMember("Label", static widget => widget.Label, static (widget, value) => widget.Label = (string) value!, false),
+        new TestMember(
+            "Size",
+            static widget => widget.Size,
+            static (widget, value) => widget.Size = (float)value!,
+            true
+        ),
+        new TestMember(
+            "Label",
+            static widget => widget.Label,
+            static (widget, value) => widget.Label = (string)value!,
+            false
+        ),
 
         // The default comparison: reference identity, because `Detent` has no equality.
         new TestMember(
             "Alias",
             static widget => widget.Setting,
-            static (widget, value) => widget.Setting = (Detent) value!,
+            static (widget, value) => widget.Setting = (Detent)value!,
             false
         ),
 
@@ -93,11 +103,9 @@ sealed class TestProvider : IEditProvider {
         new TestMember(
             "Setting",
             static widget => widget.Setting,
-            static (widget, value) => widget.Setting = (Detent) value!,
+            static (widget, value) => widget.Setting = (Detent)value!,
             false
-        ) {
-            Comparison = static (left, right) => (left as Detent)?.Notch == (right as Detent)?.Notch
-        }
+        ) { Comparison = static (left, right) => (left as Detent)?.Notch == (right as Detent)?.Notch }
     ];
 
     public IReadOnlyList<IEditMember> MembersOf(Type type) => type == typeof(Widget) ? members : [];
@@ -126,7 +134,7 @@ public class EditPipelineTests {
     public void Objects_that_agree_read_as_one_value_and_objects_that_disagree_read_as_mixed() {
         var (_, agreeing) = Bound(new Widget { Size = 2f }, new Widget { Size = 2f });
 
-        Assert.Equal(new EditValue(2f, false), Property(agreeing, "Size").Read());
+        Assert.Equal(new(2f, false), Property(agreeing, "Size").Read());
 
         var (_, disagreeing) = Bound(new Widget { Size = 2f }, new Widget { Size = 5f });
         var mixed = Property(disagreeing, "Size").Read();
@@ -139,8 +147,12 @@ public class EditPipelineTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>The member says how its values compare, and until <c>AreEqual</c> existed every
-    ///     reference-typed member was mixed unless the objects shared one instance (#443).</b> The
+    ///     ⚠
+    ///     <b>
+    ///         The member says how its values compare, and until <c>AreEqual</c> existed every
+    ///         reference-typed member was mixed unless the objects shared one instance (#443).
+    ///     </b>
+    ///     The
     ///     two members here read the same field: one takes the default comparison and one overrides
     ///     it, so the difference in what <c>Read</c> answers is the seam and nothing else.
     /// </summary>
@@ -151,7 +163,7 @@ public class EditPipelineTests {
         // Identical values in different objects. `Equals` says these differ, because `Detent` has no
         // equality override and a member initialised `= new Detent(1)` gives each instance its own.
         Assert.True(Property(target, "Alias").Read().IsMixed);
-        Assert.Equal(new EditValue(null, true), Property(target, "Alias").Read());
+        Assert.Equal(new(null, true), Property(target, "Alias").Read());
 
         var agreed = Property(target, "Setting").Read();
 
@@ -169,8 +181,12 @@ public class EditPipelineTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>And the same comparison is what stops a write and a per-object write from recording
-    ///     an edit that changes nothing.</b> A reference-typed member never de-duplicated a write, so
+    ///     ⚠
+    ///     <b>
+    ///         And the same comparison is what stops a write and a per-object write from recording
+    ///         an edit that changes nothing.
+    ///     </b>
+    ///     A reference-typed member never de-duplicated a write, so
     ///     every redraw of its row pushed another entry onto the undo stack.
     /// </summary>
     [Fact]

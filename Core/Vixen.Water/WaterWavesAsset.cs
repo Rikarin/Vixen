@@ -8,23 +8,31 @@ namespace Vixen.Water;
 /// <summary>A sea state as a file: what a <c>.vxwaves</c> holds.</summary>
 /// <remarks>
 ///     <para>
-///         <b>The one new asset kind
-///         [35 § D6](../../docs/plan/35-water.md#d6-a-water-body-is-a-spline-and-a-profile-and-there-is-no-new-spline)
-///         admits, and the reason it is admitted is sharing.</b> Every other water thing a scene
+///         <b>
+///             The one new asset kind
+///             [35 § D6](../../docs/plan/35-water.md#d6-a-water-body-is-a-spline-and-a-profile-and-there-is-no-new-spline)
+///             admits, and the reason it is admitted is sharing.
+///         </b>
+///         Every other water thing a scene
 ///         carries is per-body or per-zone, so it goes in a component and moves with the entity. A sea
 ///         state is neither: it is shared between every body in a region <em>and between levels</em>,
 ///         so a coastline authored across four streamed sublevels would otherwise hold four copies of
 ///         one wind and drift out of step the first time somebody edited three of them.
 ///     </para>
 ///     <para>
-///         ⚠ <b>A wrapper around <see cref="WaterWaveSpectrum" /> rather than the spectrum itself, and
-///         the wrapper is what carries the name.</b> A scene names this asset by name — see
+///         ⚠
+///         <b>
+///             A wrapper around <see cref="WaterWaveSpectrum" /> rather than the spectrum itself, and
+///             the wrapper is what carries the name.
+///         </b>
+///         A scene names this asset by name — see
 ///         <c>WaterZoneComponent.WaveAsset</c> for why a name and not a handle — so the file has to
 ///         hold one, and a bare spectrum has nowhere to put it.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>It is deliberately not a list of waves.</b>
-///         [§ D7](../../docs/plan/35-water.md#d7-waves-are-a-spectrum-summed-as-gerstner-and-the-fft-is-deferred-with-arithmetic)
+///         [§
+///         D7](../../docs/plan/35-water.md#d7-waves-are-a-spectrum-summed-as-gerstner-and-the-fft-is-deferred-with-arithmetic)
 ///         is explicit: wind, a spread, a wavelength range and a seed are the things somebody
 ///         describing a sea has words for, and thirty-two amplitudes and phases are not. The waves are
 ///         <em>derived</em>, on every host, from <see cref="WaterWaveSpectrum.Seed" /> — which is what

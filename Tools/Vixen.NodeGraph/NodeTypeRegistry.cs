@@ -88,7 +88,10 @@ public sealed class NodeTypeRegistry {
     /// </remarks>
     static void Validate(NodeTypeDefinition definition) {
         if (string.IsNullOrWhiteSpace(definition.Path)) {
-            throw new ArgumentException("A node type needs a path; it is what a saved graph stores.", nameof(definition));
+            throw new ArgumentException(
+                "A node type needs a path; it is what a saved graph stores.",
+                nameof(definition)
+            );
         }
 
         HashSet<string> inputs = new(StringComparer.Ordinal);

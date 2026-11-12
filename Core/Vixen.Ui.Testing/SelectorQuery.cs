@@ -86,19 +86,21 @@ sealed class SelectorQuery {
             // being asked for.
             var reasons = document.Styles.Compiler.Diagnostics
                 .Skip(before)
-                .Select(diagnostic => $"{diagnostic.Text}: {diagnostic.Reason}")
+                .Select(static diagnostic => $"{diagnostic.Text}: {diagnostic.Reason}")
                 .ToArray();
 
             throw new UiTestException(
                 $"\"{selector}\" compiled to nothing, so it can never match."
-                + (reasons.Length > 0 ? Environment.NewLine + "  " + string.Join(Environment.NewLine + "  ", reasons) : string.Empty)
+                + (reasons.Length > 0
+                    ? Environment.NewLine + "  " + string.Join(Environment.NewLine + "  ", reasons)
+                    : string.Empty)
             );
         }
 
         // ⚠ A `::before` compiles now, and its compounds describe the ORIGINATING element — so a
         // query that ran them would answer "the paragraph" to `p::before`, which is doc 43's F6 in a
         // test helper. A generated box is not an element and cannot be what a query finds.
-        if (compiled.Any(part => part.PseudoElement != PseudoElement.None)) {
+        if (compiled.Any(static part => part.PseudoElement != PseudoElement.None)) {
             throw new UiTestException(
                 $"\"{selector}\" names a pseudo-element, and a generated box is not an element a query can "
                 + "find. Query the element that generates it."

@@ -42,7 +42,7 @@ public class DrawListTests {
 
     static Text.FontFace LoadFace() {
         using var stream = System.Reflection.Assembly.GetExecutingAssembly()
-            .GetManifestResourceStream("Vixen.Ui.Tests.Fonts.TestShapeLana.ttf")
+                .GetManifestResourceStream("Vixen.Ui.Tests.Fonts.TestShapeLana.ttf")
             ?? throw new InvalidOperationException("the test font is not embedded");
 
         using var memory = new MemoryStream();
@@ -58,7 +58,7 @@ public class DrawListTests {
             root { width: 400px; height: 300px; padding-left: 20px; padding-top: 10px; }
             .box { width: 60px; height: 40px; background-color: #ff0000; }
             """,
-            document => document.Root.Add("div", classNames: "box")
+            static document => document.Root.Add("div", classNames: "box")
         );
 
         var command = Assert.Single(document.Drawing.Commands);
@@ -79,7 +79,7 @@ public class DrawListTests {
     public void An_element_with_nothing_to_draw_produces_nothing() {
         using var document = Drawn(
             "root { width: 400px; height: 300px; } .box { width: 10px; height: 10px; }",
-            document => document.Root.Add("div", classNames: "box")
+            static document => document.Root.Add("div", classNames: "box")
         );
 
         Assert.Empty(document.Drawing.Commands);
@@ -93,7 +93,7 @@ public class DrawListTests {
             .gone { display: none; width: 50px; height: 50px; background-color: #f00; border-radius: 4px; }
             .kept { width: 10px; height: 10px; background-color: #0f0; }
             """,
-            document => {
+            static document => {
                 document.Root.Add("div", classNames: "gone");
                 document.Root.Add("div", classNames: "kept");
             }
@@ -113,13 +113,13 @@ public class DrawListTests {
             root { width: 400px; height: 300px; }
             .box { width: 50px; height: 50px; background-color: #00ff00; border-width: 3px; border-color: #0000ff; }
             """,
-            document => document.Root.Add("div", classNames: "box")
+            static document => document.Root.Add("div", classNames: "box")
         );
 
         Assert.Collection(
             document.Drawing.Commands,
-            command => Assert.Equal(DrawCommandKind.Rectangle, command.Kind),
-            command => {
+            static command => Assert.Equal(DrawCommandKind.Rectangle, command.Kind),
+            static command => {
                 Assert.Equal(DrawCommandKind.Border, command.Kind);
                 Assert.Equal(3f, command.Thickness, Tolerance);
             }
@@ -146,7 +146,7 @@ public class DrawListTests {
             root { width: 400px; height: 300px; --border: #0000ff; }
             .box { width: 50px; height: 50px; background-color: #00ff00; border-width: 3px; border-color: var(--border); }
             """,
-            document => document.Root.Add("div", classNames: "box")
+            static document => document.Root.Add("div", classNames: "box")
         );
 
         // The longhand by name, because that is the thing the shorthand was not reaching. The
@@ -159,8 +159,8 @@ public class DrawListTests {
 
         Assert.Collection(
             document.Drawing.Commands,
-            command => Assert.Equal(DrawCommandKind.Rectangle, command.Kind),
-            command => {
+            static command => Assert.Equal(DrawCommandKind.Rectangle, command.Kind),
+            static command => {
                 Assert.Equal(DrawCommandKind.Border, command.Kind);
                 Assert.Equal(3f, command.Thickness, Tolerance);
 
@@ -179,7 +179,7 @@ public class DrawListTests {
             root { width: 400px; height: 300px; }
             .box { width: 50px; height: 50px; background-color: #fff; border-radius: 8px; }
             """,
-            document => document.Root.Add("div", classNames: "box")
+            static document => document.Root.Add("div", classNames: "box")
         );
 
         Assert.Equal(8f, Assert.Single(document.Drawing.Commands).Radius, Tolerance);
@@ -194,7 +194,7 @@ public class DrawListTests {
             .under { background-color: #111; }
             .over { background-color: #222; }
             """,
-            document => {
+            static document => {
                 document.Root.Add("div", classNames: ["layer", "under"]);
                 document.Root.Add("div", classNames: ["layer", "over"]);
             }
@@ -219,14 +219,14 @@ public class DrawListTests {
             .inner { width: 20px; height: 20px; background-color: #222; }
             .after { width: 20px; height: 20px; background-color: #333; }
             """,
-            document => {
+            static document => {
                 var clip = document.Root.Add("div", classNames: "clip");
                 clip.Add("div", classNames: "inner");
                 document.Root.Add("div", classNames: "after");
             }
         );
 
-        var kinds = document.Drawing.Commands.Select(command => command.Kind).ToList();
+        var kinds = document.Drawing.Commands.Select(static command => command.Kind).ToList();
 
         // ⚠ The pop comes after the children and before the next sibling. A list whose pushes and
         // pops do not pair is not a drawing with a mistake in it — it is a clip stack that never
@@ -251,7 +251,7 @@ public class DrawListTests {
             root { width: 400px; height: 300px; overflow: hidden; background-color: #010101; }
             .clip { width: 80px; height: 80px; overflow: hidden; background-color: #111; }
             """,
-            document => {
+            static document => {
                 var outer = document.Root.Add("div", classNames: "clip");
                 var middle = outer.Add("div", classNames: "clip");
                 middle.Add("div", classNames: "clip");
@@ -285,8 +285,12 @@ public class DrawListTests {
     ///         <c>overflow: hidden</c> on a text-bearing element believing otherwise.
     ///     </para>
     ///     <para>
-    ///         It survived every kind of test the framework had because <b>a clip is invisible to
-    ///         the element tree</b>: the box was the right size, the text was the right text, and the
+    ///         It survived every kind of test the framework had because
+    ///         <b>
+    ///             a clip is invisible to
+    ///             the element tree
+    ///         </b>
+    ///         : the box was the right size, the text was the right text, and the
     ///         glyphs went somewhere nothing was looking. It took a picture of a key/value row to
     ///         find, and this is the assertion that would have found it — the *order* of the
     ///         commands, which is the whole of what a clip is.
@@ -307,10 +311,10 @@ public class DrawListTests {
                 white-space: nowrap;
             }
             """,
-            document => document.Root.Add("div", classNames: "box").Text = "far too long for forty pixels"
+            static document => document.Root.Add("div", classNames: "box").Text = "far too long for forty pixels"
         );
 
-        var kinds = document.Drawing.Commands.Select(command => command.Kind).ToList();
+        var kinds = document.Drawing.Commands.Select(static command => command.Kind).ToList();
 
         // The background and the border are outside the clip; the text is inside it. Asserted as a
         // sequence rather than as "a Text exists between two clip markers", because the position of
@@ -341,10 +345,10 @@ public class DrawListTests {
             root { width: 400px; height: 300px; }
             .box { width: 200px; height: 20px; }
             """,
-            document => document.Root.Add("div", classNames: "box").Text = "visible"
+            static document => document.Root.Add("div", classNames: "box").Text = "visible"
         );
 
-        Assert.Equal([DrawCommandKind.Text], document.Drawing.Commands.Select(command => command.Kind));
+        Assert.Equal([DrawCommandKind.Text], document.Drawing.Commands.Select(static command => command.Kind));
     }
 
     [Fact]
@@ -354,7 +358,7 @@ public class DrawListTests {
             root { width: 400px; height: 300px; }
             .box { width: 50px; height: 50px; background-color: #abc; }
             """,
-            document => document.Root.Add("div", classNames: "box")
+            static document => document.Root.Add("div", classNames: "box")
         );
 
         var version = document.Drawing.Version;
@@ -376,7 +380,7 @@ public class DrawListTests {
             .box { width: 50px; height: 50px; background-color: #abc; }
             .box.big { width: 90px; }
             """,
-            document => document.Root.Add("div", classNames: "box")
+            static document => document.Root.Add("div", classNames: "box")
         );
 
         var version = document.Drawing.Version;
@@ -397,7 +401,7 @@ public class DrawListTests {
             .box { width: 50px; height: 50px; background-color: #abc; }
             .box.same { width: 50px; }
             """,
-            document => document.Root.Add("div", classNames: "box")
+            static document => document.Root.Add("div", classNames: "box")
         );
 
         var version = document.Drawing.Version;
@@ -423,7 +427,7 @@ public class DrawListTests {
             root { width: 400px; height: 300px; }
             .box { width: 50px; height: 50px; background-color: #ff0000; opacity: 0.5; }
             """,
-            document => document.Root.Add("div", classNames: "box")
+            static document => document.Root.Add("div", classNames: "box")
         );
 
         var command = Assert.Single(document.Drawing.Commands);
@@ -524,7 +528,7 @@ public class DrawListTests {
             .outer { width: 100px; height: 100px; background-color: #ff0000; opacity: 0; }
             .inner { width: 50px; height: 50px; background-color: #00ff00; }
             """,
-            document => document.Root.Add("div", classNames: "outer").Add("div", classNames: "inner")
+            static document => document.Root.Add("div", classNames: "outer").Add("div", classNames: "inner")
         );
 
         Assert.Empty(document.Drawing.Commands);
@@ -539,7 +543,7 @@ public class DrawListTests {
             root { width: 400px; height: 300px; }
             .box { width: 50px; height: 50px; background-color: #ff000080; }
             """,
-            document => document.Root.Add("div", classNames: "box")
+            static document => document.Root.Add("div", classNames: "box")
         );
 
         Assert.Equal(0.5f, Assert.Single(document.Drawing.Commands).Color.A, 0.01f);
@@ -555,7 +559,7 @@ public class DrawListTests {
                 box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.5);
             }
             """,
-            document => document.Root.Add("div", classNames: "card")
+            static document => document.Root.Add("div", classNames: "card")
         );
 
         Assert.Equal(2, document.Drawing.Commands.Count);
@@ -589,7 +593,7 @@ public class DrawListTests {
                 box-shadow: 0px 0px 0px 5px #000000;
             }
             """,
-            document => document.Root.Add("div", classNames: "card")
+            static document => document.Root.Add("div", classNames: "card")
         );
 
         var shadow = document.Drawing.Commands[0];
@@ -604,8 +608,12 @@ public class DrawListTests {
     /// <summary>An <c>inset</c> shadow is the box's own rectangle, with the second one in the record.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>This asserted a refusal until 2026-09-06 — one <c>Rectangle</c> and no shadow at
-    ///         all</b>, because an inset shadow drawn as an outer one is not a near miss but a shadow
+    ///         ⚠
+    ///         <b>
+    ///             This asserted a refusal until 2026-09-06 — one <c>Rectangle</c> and no shadow at
+    ///             all
+    ///         </b>
+    ///         , because an inset shadow drawn as an outer one is not a near miss but a shadow
     ///         outside the box that was asked to have one inside it, and nothing was better than that.
     ///     </para>
     ///     <para>
@@ -627,7 +635,7 @@ public class DrawListTests {
                 box-shadow: inset 0px 4px 12px 5px #000000;
             }
             """,
-            document => document.Root.Add("div", classNames: "card")
+            static document => document.Root.Add("div", classNames: "card")
         );
 
         var commands = document.Drawing.Commands;
@@ -679,7 +687,7 @@ public class DrawListTests {
                 box-shadow: 0px 4px 12px #000000 inset;
             }
             """,
-            document => document.Root.Add("div", classNames: "card")
+            static document => document.Root.Add("div", classNames: "card")
         );
 
         var shadow = document.Drawing.Commands[1];
@@ -691,16 +699,24 @@ public class DrawListTests {
     /// <summary>The two other things a <c>box-shadow</c> can say that this refuses whole.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Recorded because they are blockers other work is filed against, and an unrecorded
-    ///         refusal is indistinguishable from an oversight the day somebody registers a family on
-    ///         top of it.</b> <c>inset-shadow-*</c>, <c>inset-ring-*</c> and <c>ring-offset-*</c> are
+    ///         ⚠
+    ///         <b>
+    ///             Recorded because they are blockers other work is filed against, and an unrecorded
+    ///             refusal is indistinguishable from an oversight the day somebody registers a family on
+    ///             top of it.
+    ///         </b>
+    ///         <c>inset-shadow-*</c>, <c>inset-ring-*</c> and <c>ring-offset-*</c> are
     ///         three utility roots that cannot be spelt until these change, and <c>box-shadow</c>
     ///         <i>is</i> read — so a registration would score green in the consumption gate over a
     ///         class that paints nothing at all. See `Rikarin/Vixen#279`.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The list is no longer one of them, and how it was refused is what made it
-    ///         cheap.</b> The refusal was never a branch in <c>EmitShadow</c>: <c>StyleValueParser</c>
+    ///         ⚠
+    ///         <b>
+    ///             The list is no longer one of them, and how it was refused is what made it
+    ///             cheap.
+    ///         </b>
+    ///         The refusal was never a branch in <c>EmitShadow</c>: <c>StyleValueParser</c>
     ///         splits a value on top-level <i>whitespace</i> only, so <c>#000,</c> is one token, is
     ///         not a colour, and takes the whole value to <c>Unknown</c> before that method sees it.
     ///         Supporting a list was therefore <i>adding a depth-aware comma split</i> there — not
@@ -708,9 +724,13 @@ public class DrawListTests {
     ///         property in this engine depends on.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b><c>calc()</c> is no longer one of them either, and the sentence that used to
-    ///         stand here — "nothing in <c>StyleValueParser</c> reads <c>calc</c>" — was true until
-    ///         it folded.</b> The rows below are what survives: an expression whose two summands have
+    ///         ⚠
+    ///         <b>
+    ///             <c>calc()</c> is no longer one of them either, and the sentence that used to
+    ///             stand here — "nothing in <c>StyleValueParser</c> reads <c>calc</c>" — was true until
+    ///             it folded.
+    ///         </b>
+    ///         The rows below are what survives: an expression whose two summands have
     ///         different units. That one is valid CSS and is still refused, because a
     ///         <c>StyleValue</c> is one number and one unit and resolving a percentage needs the
     ///         containing block. See <c>Vixen.Ui.Styling.Tests.CalcTests</c> for the folding half.
@@ -727,13 +747,13 @@ public class DrawListTests {
     public void A_calculated_length_is_refused_whole(string shadow) {
         using var document = Drawn(
             $$"""
-            root { width: 400px; height: 300px; }
-            .card {
-                width: 100px; height: 60px; background-color: #ffffff;
-                box-shadow: {{shadow}};
-            }
-            """,
-            document => document.Root.Add("div", classNames: "card")
+              root { width: 400px; height: 300px; }
+              .card {
+                  width: 100px; height: 60px; background-color: #ffffff;
+                  box-shadow: {{shadow}};
+              }
+              """,
+            static document => document.Root.Add("div", classNames: "card")
         );
 
         // ⚠ The second row is the half that a list makes newly expressible and that CSS is strict
@@ -769,13 +789,13 @@ public class DrawListTests {
     public void A_spread_written_as_an_expression_grows_the_shadow_by_what_it_folds_to(string spread) {
         using var document = Drawn(
             $$"""
-            root { width: 400px; height: 300px; }
-            .card {
-                width: 100px; height: 60px; background-color: #ffffff;
-                box-shadow: 0 0 0 {{spread}} #000000;
-            }
-            """,
-            document => document.Root.Add("div", classNames: "card")
+              root { width: 400px; height: 300px; }
+              .card {
+                  width: 100px; height: 60px; background-color: #ffffff;
+                  box-shadow: 0 0 0 {{spread}} #000000;
+              }
+              """,
+            static document => document.Root.Add("div", classNames: "card")
         );
 
         var commands = document.Drawing.Commands;
@@ -815,7 +835,7 @@ public class DrawListTests {
                 box-shadow: 0px 4px 12px #ff0000, 0px 8px 24px #0000ff;
             }
             """,
-            document => document.Root.Add("div", classNames: "card")
+            static document => document.Root.Add("div", classNames: "card")
         );
 
         var commands = document.Drawing.Commands;
@@ -837,8 +857,12 @@ public class DrawListTests {
 
     /// <summary>The commas inside a colour are not the commas the list is split on.</summary>
     /// <remarks>
-    ///     ⚠ <b>The shipped theme is written this way</b> — <c>--shadow: 0px 1px 2px rgba(0, 0, 0,
-    ///     0.3)</c> — so a split that counted every comma would make four items of one shadow, none
+    ///     ⚠ <b>The shipped theme is written this way</b> —
+    ///     <c>
+    ///         --shadow: 0px 1px 2px rgba(0, 0, 0,
+    ///         0.3)
+    ///     </c>
+    ///     — so a split that counted every comma would make four items of one shadow, none
     ///     of them readable, and refuse a declaration the engine has drawn since before this list
     ///     existed. Two of them side by side is the case that needs both halves at once.
     /// </remarks>
@@ -852,7 +876,7 @@ public class DrawListTests {
                 box-shadow: 0px 1px 2px rgba(0, 0, 0, 0.3), 0px 8px 24px rgba(0, 0, 0, 0.45);
             }
             """,
-            document => document.Root.Add("div", classNames: "card")
+            static document => document.Root.Add("div", classNames: "card")
         );
 
         var commands = document.Drawing.Commands;
@@ -873,7 +897,7 @@ public class DrawListTests {
                 box-shadow: 0 0 0 var(--ring) #000000;
             }
             """,
-            document => document.Root.Add("div", classNames: "card")
+            static document => document.Root.Add("div", classNames: "card")
         );
 
         var shadow = document.Drawing.Commands[0];
@@ -886,8 +910,12 @@ public class DrawListTests {
     /// <summary><c>currentcolor</c> is the keyword either way it is spelt, and one way was silent.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A hand-written <c>box-shadow: 0 0 0 2px currentcolor</c> painted NOTHING, while
-    ///         <c>ring-2</c> — the same keyword in the same position — painted perfectly.</b> A CSS
+    ///         ⚠
+    ///         <b>
+    ///             A hand-written <c>box-shadow: 0 0 0 2px currentcolor</c> painted NOTHING, while
+    ///             <c>ring-2</c> — the same keyword in the same position — painted perfectly.
+    ///         </b>
+    ///         A CSS
     ///         keyword is ASCII case-insensitive and <c>StyleValueParser</c> interns the identifier's
     ///         text verbatim, so the two spellings are two ids. ExCSS canonicalises an author's
     ///         <c>currentcolor</c> to <c>currentColor</c> while parsing the sheet; the lowercase one
@@ -897,8 +925,12 @@ public class DrawListTests {
     ///         declaration, and the frame looked exactly like an element with no <c>box-shadow</c>.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The <c>var()</c> row is the control and it is the half that makes the pair a
-    ///         test.</b> Both rows red is a broken reader; the lowercase row alone red is what the
+    ///         ⚠
+    ///         <b>
+    ///             The <c>var()</c> row is the control and it is the half that makes the pair a
+    ///             test.
+    ///         </b>
+    ///         Both rows red is a broken reader; the lowercase row alone red is what the
     ///         defect looked like, and it is invisible to any fixture that only ever writes the
     ///         utility.
     ///     </para>
@@ -912,18 +944,18 @@ public class DrawListTests {
     public void A_shadow_in_the_current_colour_paints_however_the_keyword_is_spelt(string colour) {
         using var document = Drawn(
             $$"""
-            root { width: 400px; height: 300px; }
-            .card {
-                width: 100px; height: 60px; background-color: #ffffff; color: #00ff00;
-                box-shadow: 0 0 0 2px {{colour}};
-            }
-            """,
-            document => document.Root.Add("div", classNames: "card")
+              root { width: 400px; height: 300px; }
+              .card {
+                  width: 100px; height: 60px; background-color: #ffffff; color: #00ff00;
+                  box-shadow: 0 0 0 2px {{colour}};
+              }
+              """,
+            static document => document.Root.Add("div", classNames: "card")
         );
 
         var shadow = Assert.Single(
             document.Drawing.Commands,
-            command => command.Kind == DrawCommandKind.Shadow
+            static command => command.Kind == DrawCommandKind.Shadow
         );
 
         // The element's own `color`, which is what CSS Color 4 § 6.2 says the keyword means — and not
@@ -936,8 +968,12 @@ public class DrawListTests {
     /// <summary>An inner shadow with nothing between its two rectangles is not a faint ring.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>CSS renders nothing for <c>inset 0 0 0 0</c>, and the fragment stage cannot say
-    ///         so.</b> The region is the border box minus the border box displaced by the offset and
+    ///         ⚠
+    ///         <b>
+    ///             CSS renders nothing for <c>inset 0 0 0 0</c>, and the fragment stage cannot say
+    ///             so.
+    ///         </b>
+    ///         The region is the border box minus the border box displaced by the offset and
     ///         shrunk by the spread — with all three zero, the same rectangle twice. What the shader
     ///         computes is one minus the inner rectangle's coverage masked to the box, and at an
     ///         antialiased edge both numbers are a half, so a quarter of the colour survives all the
@@ -958,28 +994,32 @@ public class DrawListTests {
     public void An_inner_shadow_with_no_region_between_its_rectangles_is_dropped(string shadow) {
         using var document = Drawn(
             $$"""
-            root { width: 400px; height: 300px; }
-            .card {
-                width: 100px; height: 60px; background-color: #ffffff; color: #00ff00;
-                box-shadow: {{shadow}};
-            }
-            """,
-            document => document.Root.Add("div", classNames: "card")
+              root { width: 400px; height: 300px; }
+              .card {
+                  width: 100px; height: 60px; background-color: #ffffff; color: #00ff00;
+                  box-shadow: {{shadow}};
+              }
+              """,
+            static document => document.Root.Add("div", classNames: "card")
         );
 
         // The background and nothing else. ⚠ Asserted as the absence of a `Shadow` command rather
         // than as a count, because the count is also one for a declaration that was refused whole —
         // and a refusal is a different bug with the same picture.
-        Assert.DoesNotContain(document.Drawing.Commands, command => command.Kind == DrawCommandKind.Shadow);
+        Assert.DoesNotContain(document.Drawing.Commands, static command => command.Kind == DrawCommandKind.Shadow);
         Assert.Single(document.Drawing.Commands);
     }
 
     /// <summary>And the outer twin, which is where the shape was actually wrong.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>CSS Backgrounds 3 § 7.1.1 clips an <i>outer</i> shadow to outside the border box,
-    ///         so a shadow that is exactly the border box has no region left and a browser renders
-    ///         nothing for it. This engine painted the rectangle.</b> It was invisible for as long as
+    ///         ⚠
+    ///         <b>
+    ///             CSS Backgrounds 3 § 7.1.1 clips an <i>outer</i> shadow to outside the border box,
+    ///             so a shadow that is exactly the border box has no region left and a browser renders
+    ///             nothing for it. This engine painted the rectangle.
+    ///         </b>
+    ///         It was invisible for as long as
     ///         every element carrying one had an opaque background — which is the argument
     ///         <c>UtilityComposition.RingWidth</c>'s remark recorded as acceptable, and it is only
     ///         true of the elements somebody happened to look at.
@@ -1011,13 +1051,13 @@ public class DrawListTests {
     public void An_outer_shadow_with_no_region_outside_the_box_is_dropped(string shadow, bool painted) {
         using var document = Drawn(
             $$"""
-            root { width: 400px; height: 300px; }
-            .card {
-                width: 100px; height: 60px; background-color: #ffffff;
-                box-shadow: {{shadow}};
-            }
-            """,
-            document => document.Root.Add("div", classNames: "card")
+              root { width: 400px; height: 300px; }
+              .card {
+                  width: 100px; height: 60px; background-color: #ffffff;
+                  box-shadow: {{shadow}};
+              }
+              """,
+            static document => document.Root.Add("div", classNames: "card")
         );
 
         // ⚠ The absence of a `Shadow` command rather than a count, for the inner twin's reason: the
@@ -1026,7 +1066,7 @@ public class DrawListTests {
         // refusal would drop those too.
         Assert.Equal(
             painted,
-            document.Drawing.Commands.ToArray().Any(command => command.Kind == DrawCommandKind.Shadow)
+            document.Drawing.Commands.ToArray().Any(static command => command.Kind == DrawCommandKind.Shadow)
         );
     }
 
@@ -1047,12 +1087,12 @@ public class DrawListTests {
                 box-shadow: inset 0 0 4px #ff0000;
             }
             """,
-            document => document.Root.Add("div", classNames: "card")
+            static document => document.Root.Add("div", classNames: "card")
         );
 
         var shadow = Assert.Single(
             document.Drawing.Commands,
-            command => command.Kind == DrawCommandKind.Shadow
+            static command => command.Kind == DrawCommandKind.Shadow
         );
 
         // Half the CSS blur radius, which is what says the falloff reached the command at all.
@@ -1062,9 +1102,13 @@ public class DrawListTests {
     /// <summary>A shadow measured in something that is not a distance draws nothing.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Every row here <i>drew a shadow</i> before <c>EmitShadow</c> stopped reading its
-    ///         lengths through <c>LengthContext.PixelsPer</c>, and that is what makes them worth
-    ///         four rows rather than one.</b> That method answers zero for a unit that measures no
+    ///         ⚠
+    ///         <b>
+    ///             Every row here <i>drew a shadow</i> before <c>EmitShadow</c> stopped reading its
+    ///             lengths through <c>LengthContext.PixelsPer</c>, and that is what makes them worth
+    ///             four rows rather than one.
+    ///         </b>
+    ///         That method answers zero for a unit that measures no
     ///         distance, so each of these resolved to a perfectly well-formed shadow with one of its
     ///         four numbers quietly replaced by nothing: an offset that does not offset, a blur that
     ///         does not blur, a spread of no width. No diagnostic, no clamp, no exception — and every
@@ -1072,8 +1116,12 @@ public class DrawListTests {
     ///         there is nothing about the resulting frame that says the declaration was misread.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Refused rather than resolved, which is the choice the rest of this method already
-    ///         made.</b> <c>inset</c> takes the whole declaration with it and so does a fifth length;
+    ///         ⚠
+    ///         <b>
+    ///             Refused rather than resolved, which is the choice the rest of this method already
+    ///             made.
+    ///         </b>
+    ///         <c>inset</c> takes the whole declaration with it and so does a fifth length;
     ///         a unit CSS does not allow on this property is the same kind of mistake and gets the
     ///         same answer. The percentage row is not a near miss either — CSS has no percentage in
     ///         <c>box-shadow</c>'s grammar, and the containing block a percentage would resolve
@@ -1088,13 +1136,13 @@ public class DrawListTests {
     public void A_shadow_length_in_a_unit_that_is_not_a_distance_is_refused(string shadow) {
         using var document = Drawn(
             $$"""
-            root { width: 400px; height: 300px; }
-            .card {
-                width: 100px; height: 60px; background-color: #ffffff;
-                box-shadow: {{shadow}};
-            }
-            """,
-            document => document.Root.Add("div", classNames: "card")
+              root { width: 400px; height: 300px; }
+              .card {
+                  width: 100px; height: 60px; background-color: #ffffff;
+                  box-shadow: {{shadow}};
+              }
+              """,
+            static document => document.Root.Add("div", classNames: "card")
         );
 
         Assert.Equal(DrawCommandKind.Rectangle, Assert.Single(document.Drawing.Commands).Kind);
@@ -1118,7 +1166,7 @@ public class DrawListTests {
                 box-shadow: 0.5em 1em 2em 0.25em #000000;
             }
             """,
-            document => document.Root.Add("div", classNames: "card")
+            static document => document.Root.Add("div", classNames: "card")
         );
 
         var shadow = document.Drawing.Commands[0];
@@ -1146,7 +1194,7 @@ public class DrawListTests {
                 box-shadow: 0px 4px 12px #000000;
             }
             """,
-            document => document.Root.Add("div", classNames: "card")
+            static document => document.Root.Add("div", classNames: "card")
         );
 
         Assert.Equal(0.5f, Assert.Single(document.Drawing.Commands).Color.A, Tolerance);
@@ -1162,7 +1210,7 @@ public class DrawListTests {
             .second { background-color: #00ff00; }
             .third { background-color: #0000ff; }
             """,
-            document => {
+            static document => {
                 document.Root.Add("div", classNames: "first");
                 document.Root.Add("div", classNames: "second");
                 document.Root.Add("div", classNames: "third");
@@ -1171,10 +1219,12 @@ public class DrawListTests {
 
         // Document order is red, green, blue; paint order is green, blue, red.
         var painted = document.Drawing.Commands.Select(static command => command.Color.G > 0.5f
-            ? "green"
-            : command.Color.B > 0.5f
-                ? "blue"
-                : "red").ToArray();
+                    ? "green"
+                    : command.Color.B > 0.5f
+                        ? "blue"
+                        : "red"
+            )
+            .ToArray();
 
         Assert.Equal(["green", "blue", "red"], painted);
     }
@@ -1192,7 +1242,7 @@ public class DrawListTests {
             .b { background-color: #00ff00; }
             .c { background-color: #0000ff; }
             """,
-            document => {
+            static document => {
                 document.Root.Add("div", classNames: "a");
                 document.Root.Add("div", classNames: "b");
                 document.Root.Add("div", classNames: "c");
@@ -1213,7 +1263,7 @@ public class DrawListTests {
             .front { background-color: #ff0000; }
             .back { background-color: #00ff00; z-index: -1; }
             """,
-            document => {
+            static document => {
                 document.Root.Add("div", classNames: "front");
                 document.Root.Add("div", classNames: "back");
             }
@@ -1234,7 +1284,7 @@ public class DrawListTests {
             .b { background-color: #00ff00; }
             .a.lift { z-index: 3; }
             """,
-            document => {
+            static document => {
                 document.Root.Add("div", classNames: "a");
                 document.Root.Add("div", classNames: "b");
             }
@@ -1252,9 +1302,13 @@ public class DrawListTests {
     /// <summary>Every side buffer holds this frame's contents, on both parities of the frame counter.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b><c>BeginFrame</c> keeps the finished frame for the diff by <i>swapping</i> two
-    ///         references, so the object behind <c>Commands</c> alternates between two instances where
-    ///         it used to be one for the life of the list.</b> A swap written the wrong way round, or a
+    ///         ⚠
+    ///         <b>
+    ///             <c>BeginFrame</c> keeps the finished frame for the diff by <i>swapping</i> two
+    ///             references, so the object behind <c>Commands</c> alternates between two instances where
+    ///             it used to be one for the life of the list.
+    ///         </b>
+    ///         A swap written the wrong way round, or a
     ///         buffer left unswapped, gives a list that is correct on every other frame — and a fixture
     ///         that draws once cannot tell. This draws five, so every assertion is made at both
     ///         parities.
@@ -1308,12 +1362,12 @@ public class DrawListTests {
         list.BeginFrame();
 
         list.AddGlyphs([new PositionedGlyph((ushort)frame, 0f, 0f)]);
-        list.AddBox(new BoxStyle(default, default, new Vector2(frame, 0f)));
-        list.AddMasks([default(UiMask) with { Centre = new Vector2(frame, 0f) }]);
+        list.AddBox(new BoxStyle(default, default, new(frame, 0f)));
+        list.AddMasks([default(UiMask) with { Centre = new(frame, 0f) }]);
 
         path.Clear();
-        path.MoveTo(new Vector2(frame, 0f));
-        path.LineTo(new Vector2(frame, 1f));
+        path.MoveTo(new(frame, 0f));
+        path.LineTo(new(frame, 1f));
         list.AddPath(path);
 
         list.Add(new DrawCommand(DrawCommandKind.Rectangle, frame, 0f, 1f, 1f, default, 0f, 0f));

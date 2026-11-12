@@ -32,7 +32,7 @@ public sealed class WorktreeSafetyTests {
     /// </summary>
     [Fact]
     public void MergedCleanUnlockedAndIdleIsTheOnlyRemovableState() =>
-        Assert.Empty(Reasons(locked: null, head: "abc", merged: true, clean: true, written: Now.AddHours(-4)));
+        Assert.Empty(Reasons(null, "abc", true, true, Now.AddHours(-4)));
 
     /// <summary>Each condition refuses on its own, with a reason somebody can act on.</summary>
     [Theory]
@@ -71,18 +71,18 @@ public sealed class WorktreeSafetyTests {
         var asked = false;
 
         var reasons = WorktreeSafety.KeepReasons(
-            locked: null,
-            head: "   ",
-            isMergedIntoMaster: _ => {
+            null,
+            "   ",
+            _ => {
                 asked = true;
 
                 return true;
             },
-            isClean: () => true,
-            footprintRead: true,
-            newestWrite: Now.AddHours(-4),
-            now: Now,
-            idleMinutes: 30
+            static () => true,
+            true,
+            Now.AddHours(-4),
+            Now,
+            30
         );
 
         Assert.False(asked, "an empty head was passed to git, which would answer about a different worktree.");
@@ -106,11 +106,20 @@ public sealed class WorktreeSafetyTests {
 
         Assert.Equal(
             ["written 2 min ago, inside --idle-minutes 30"],
-            Reasons(locked: null, head: "abc", merged: true, clean: true, written: justMerged)
+            Reasons(null, "abc", true, true, justMerged)
         );
 
         Assert.Empty(
-            WorktreeSafety.KeepReasons(null, "abc", _ => true, () => true, true, justMerged, Now, idleMinutes: 0)
+            WorktreeSafety.KeepReasons(
+                null,
+                "abc",
+                static _ => true,
+                static () => true,
+                true,
+                justMerged,
+                Now,
+                0
+            )
         );
     }
 
@@ -134,7 +143,7 @@ public sealed class WorktreeSafetyTests {
     /// <summary>Two failed conditions are both reported, so one fix does not reveal the next.</summary>
     [Fact]
     public void EveryFailedConditionIsNamedRatherThanTheFirst() {
-        var reasons = Reasons("claude agent (pid 3)", "abc", merged: false, clean: false, written: Now.AddMinutes(-1));
+        var reasons = Reasons("claude agent (pid 3)", "abc", false, false, Now.AddMinutes(-1));
 
         Assert.Equal(4, reasons.Count);
     }
@@ -161,14 +170,14 @@ public sealed class WorktreeSafetyTests {
     [Fact]
     public void AWorktreeWhoseFilesCouldNotBeWalkedIsKeptRatherThanCalledIdle() {
         var unreadable = WorktreeSafety.KeepReasons(
-            locked: null,
-            head: "abc",
-            isMergedIntoMaster: _ => true,
-            isClean: () => true,
-            footprintRead: false,
-            newestWrite: null,
-            now: Now,
-            idleMinutes: 30
+            null,
+            "abc",
+            static _ => true,
+            static () => true,
+            false,
+            null,
+            Now,
+            30
         );
 
         Assert.Equal(["its files could not be walked, so the idle check could not run"], unreadable);
@@ -177,14 +186,32 @@ public sealed class WorktreeSafetyTests {
         // completed and found nothing is a real answer, and `--idle-minutes 0` still turns the whole
         // condition off rather than being overridden by it.
         Assert.Empty(
-            WorktreeSafety.KeepReasons(null, "abc", _ => true, () => true, true, null, Now, idleMinutes: 30)
+            WorktreeSafety.KeepReasons(
+                null,
+                "abc",
+                static _ => true,
+                static () => true,
+                true,
+                null,
+                Now,
+                30
+            )
         );
 
         Assert.Empty(
-            WorktreeSafety.KeepReasons(null, "abc", _ => true, () => true, false, null, Now, idleMinutes: 0)
+            WorktreeSafety.KeepReasons(
+                null,
+                "abc",
+                static _ => true,
+                static () => true,
+                false,
+                null,
+                Now,
+                0
+            )
         );
     }
 
     static IReadOnlyList<string> Reasons(string? locked, string head, bool merged, bool clean, DateTime written) =>
-        WorktreeSafety.KeepReasons(locked, head, _ => merged, () => clean, true, written, Now, idleMinutes: 30);
+        WorktreeSafety.KeepReasons(locked, head, _ => merged, () => clean, true, written, Now, 30);
 }

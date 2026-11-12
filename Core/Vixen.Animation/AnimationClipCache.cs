@@ -55,7 +55,7 @@ public static class AnimationClipCache {
         ArgumentNullException.ThrowIfNull(content);
         ArgumentNullException.ThrowIfNull(skeleton);
 
-        var entry = Table.GetValue(content, static _ => new Entry());
+        var entry = Table.GetValue(content, static _ => new());
 
         lock (entry.Gate) {
             foreach (var baked in entry.Baked) {

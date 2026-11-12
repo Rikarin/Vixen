@@ -7,7 +7,6 @@ using Vixen.Editor.SceneView;
 using Vixen.Foliage;
 using Vixen.Graphics;
 using Vixen.Graphics.Null;
-using Vixen.Rendering;
 using Vixen.Rendering.Terrain;
 using Vixen.Water;
 using Xunit;
@@ -18,8 +17,12 @@ namespace Vixen.Editor.App.Tests;
 /// <summary>A pane draws whatever the editor's registry holds now, not what it held when the pane was made.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>The host used to copy the three scene seams onto a pane once, when it made the
-///         pane</b> — <c>presenter.TerrainScene = editor.TerrainScene</c> and its two siblings. So a
+///         ⚠
+///         <b>
+///             The host used to copy the three scene seams onto a pane once, when it made the
+///             pane
+///         </b>
+///         — <c>presenter.TerrainScene = editor.TerrainScene</c> and its two siblings. So a
 ///         module unloaded after that went on being drawn by every open pane, and the pane's
 ///         reference was what kept the unloaded module reachable: <c>WaterSceneSource</c> holds its
 ///         module. The reach tests could not see it, because <c>EditorSession</c> has no host and no
@@ -46,7 +49,10 @@ public sealed class PaneContributionTests : IDisposable {
         var vegetation = new NoVegetation();
         var water = new NoWater();
 
-        var removals = new[] { registry.Add<ITerrainScene>(terrain), registry.Add<IVegetationScene>(vegetation), registry.Add<IWaterScene>(water) };
+        var removals = new[] {
+            registry.Add<ITerrainScene>(terrain), registry.Add<IVegetationScene>(vegetation),
+            registry.Add<IWaterScene>(water)
+        };
 
         Assert.Same(terrain, presenter.TerrainScene);
         Assert.Same(vegetation, presenter.VegetationScene);
@@ -86,15 +92,14 @@ public sealed class PaneContributionTests : IDisposable {
     }
 
     ScenePresenter Presenter() {
-        ShaderHandle Stage(ShaderStage stage, string name) => device.CreateShader(stage, [1, 2, 3, 4], name);
-
-        return new ScenePresenter(
+        return new(
             device,
-            new LineShaders(Stage(ShaderStage.Vertex, "line.vs"), Stage(ShaderStage.Fragment, "line.fs")),
-            new MeshShaders(Stage(ShaderStage.Vertex, "mesh.vs"), Stage(ShaderStage.Fragment, "mesh.fs")),
-            new MeshInstanceShaders(Stage(ShaderStage.Vertex, "inst.vs"), Stage(ShaderStage.Fragment, "inst.fs")),
+            new(Stage(ShaderStage.Vertex, "line.vs"), Stage(ShaderStage.Fragment, "line.fs")),
+            new(Stage(ShaderStage.Vertex, "mesh.vs"), Stage(ShaderStage.Fragment, "mesh.fs")),
+            new(Stage(ShaderStage.Vertex, "inst.vs"), Stage(ShaderStage.Fragment, "inst.fs")),
             PixelFormat.Rgba8UNorm
         );
+        ShaderHandle Stage(ShaderStage stage, string name) => device.CreateShader(stage, [1, 2, 3, 4], name);
     }
 
     sealed class NoTerrain : ITerrainScene {

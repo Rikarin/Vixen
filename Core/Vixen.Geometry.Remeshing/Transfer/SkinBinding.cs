@@ -17,8 +17,11 @@ public readonly record struct SkinInfluence(int Bone, float Weight);
 /// <summary>Skinning weights for a whole mesh, as a flat block with a fixed stride.</summary>
 /// <remarks>
 ///     <para>
-///         <b><see cref="EditMesh" /> has no weight channel, so the transfer returns one
-///         alongside the mesh rather than inside it.</b> That is the choice
+///         <b>
+///             <see cref="EditMesh" /> has no weight channel, so the transfer returns one
+///             alongside the mesh rather than inside it.
+///         </b>
+///         That is the choice
 ///         <c>docs/plan/41-automatic-retopology.md</c> § D12 leaves open and it is made here:
 ///         parallel arrays, indexed by the mesh's own position indices, so a caller holds the mesh
 ///         and the binding together and neither one knows about the other. Adding a channel to the
@@ -32,8 +35,12 @@ public readonly record struct SkinInfluence(int Bone, float Weight);
 ///         <i>goes</i>, and two corners at one position that moved differently would tear the mesh.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Flat with a stride rather than jagged, because a jagged array is a heap allocation
-///         per vertex</b> and because the stride <i>is</i> the influence limit a target declares.
+///         ⚠
+///         <b>
+///             Flat with a stride rather than jagged, because a jagged array is a heap allocation
+///             per vertex
+///         </b>
+///         and because the stride <i>is</i> the influence limit a target declares.
 ///         Unused slots are <c>(0, 0)</c> and a reader stops at the first zero weight — every
 ///         producer here sorts by descending weight, so the zeros are always at the end.
 ///     </para>
@@ -57,7 +64,7 @@ public sealed record SkinBinding {
         ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(vertex, VertexCount);
 
         for (var slot = 0; slot < Stride; slot++) {
-            yield return Influences[(vertex * Stride) + slot];
+            yield return Influences[vertex * Stride + slot];
         }
     }
 
@@ -77,7 +84,7 @@ public sealed record SkinBinding {
         var sum = 0f;
 
         for (var slot = 0; slot < Stride; slot++) {
-            sum += Influences[(vertex * Stride) + slot].Weight;
+            sum += Influences[vertex * Stride + slot].Weight;
         }
 
         return sum;

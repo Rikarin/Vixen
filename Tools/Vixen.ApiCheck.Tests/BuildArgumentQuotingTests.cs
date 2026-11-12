@@ -66,7 +66,9 @@ public sealed class BuildArgumentQuotingTests {
             "Nuke quotes each element of ApplicationArguments, so a whole command line in one string "
             + "reaches the process as ONE argv entry and the tool refuses or ignores it — silently, "
             + "until somebody runs the target. Pass a List<string> with one element per argument:"
-            + Environment.NewLine + "  " + string.Join(Environment.NewLine + "  ", offenders)
+            + Environment.NewLine
+            + "  "
+            + string.Join(Environment.NewLine + "  ", offenders)
         );
     }
 
@@ -103,7 +105,9 @@ public sealed class BuildArgumentQuotingTests {
             + "the literal text alone. A command line built into a string first arrives as one hole "
             + "and is quoted whole, so the process gets a single argument, runs nothing and exits "
             + "non-zero in under a second. Write the interpolated string at the call:"
-            + Environment.NewLine + "  " + string.Join(Environment.NewLine + "  ", offenders)
+            + Environment.NewLine
+            + "  "
+            + string.Join(Environment.NewLine + "  ", offenders)
         );
     }
 
@@ -117,8 +121,8 @@ public sealed class BuildArgumentQuotingTests {
 
         Assert.True(sources.Count > 10, $"Only {sources.Count} files under build/ — the walk is wrong.");
 
-        Assert.NotEmpty(sources.SelectMany(source => Calls(source.Root, "SetApplicationArguments")));
-        Assert.NotEmpty(sources.SelectMany(source => Calls(source.Root, "DotNet")));
+        Assert.NotEmpty(sources.SelectMany(static source => Calls(source.Root, "SetApplicationArguments")));
+        Assert.NotEmpty(sources.SelectMany(static source => Calls(source.Root, "DotNet")));
     }
 
     /// <summary>
@@ -135,7 +139,8 @@ public sealed class BuildArgumentQuotingTests {
             LiteralExpressionSyntax literal when literal.IsKind(SyntaxKind.StringLiteralExpression) =>
                 literal.Token.ValueText,
             InterpolatedStringExpressionSyntax interpolated => string.Concat(
-                interpolated.Contents.OfType<InterpolatedStringTextSyntax>().Select(text => text.TextToken.ValueText)
+                interpolated.Contents.OfType<InterpolatedStringTextSyntax>()
+                    .Select(static text => text.TextToken.ValueText)
             ),
             _ => null
         };
@@ -157,19 +162,21 @@ public sealed class BuildArgumentQuotingTests {
 
     static List<(string File, SyntaxNode Root)> BuildSources() =>
         // What git calls build/, not what the disk holds (#1424): its bin/ and obj/ carry generated C#.
-        RepositoryFiles.Files(Path.Combine(RepositoryRoot(), "build"), "*.cs")
-            .Order(StringComparer.Ordinal)
-            .Select(file => (
-                File: Path.GetFileName(file),
-                Root: CSharpSyntaxTree.ParseText(System.IO.File.ReadAllText(file)).GetRoot()
-            ))
-            .ToList();
+        [
+            ..RepositoryFiles.Files(Path.Combine(RepositoryRoot(), "build"), "*.cs")
+                .Order(StringComparer.Ordinal)
+                .Select(static file => (
+                        File: Path.GetFileName(file),
+                        Root: CSharpSyntaxTree.ParseText(File.ReadAllText(file)).GetRoot()
+                    )
+                )
+        ];
 
     static string RepositoryRoot() {
         var directory = AppContext.BaseDirectory;
 
         while (directory is not null) {
-            if (System.IO.File.Exists(Path.Combine(directory, "Vixen.slnx"))) {
+            if (File.Exists(Path.Combine(directory, "Vixen.slnx"))) {
                 return directory;
             }
 

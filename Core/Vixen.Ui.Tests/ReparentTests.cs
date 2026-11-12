@@ -10,7 +10,9 @@ namespace Vixen.Ui.Tests;
 public class ReparentTests {
     const float Tolerance = 0.001f;
 
-    static UiDocument Documented(string css = "root { width: 400px; height: 300px; } .box { width: 40px; height: 20px; }") {
+    static UiDocument Documented(
+        string css = "root { width: 400px; height: 300px; } .box { width: 40px; height: 20px; }"
+    ) {
         var document = new UiDocument(400f, 300f);
         document.Load(css);
 
@@ -19,12 +21,14 @@ public class ReparentTests {
 
     [Fact]
     public void It_moves_the_element_in_all_three_stores() {
-        using var document = Documented("""
-            root { width: 400px; height: 300px; }
-            .left { width: 100px; height: 100px; }
-            .right { width: 200px; height: 100px; }
-            .box { width: 40px; height: 20px; }
-        """);
+        using var document = Documented(
+            """
+                root { width: 400px; height: 300px; }
+                .left { width: 100px; height: 100px; }
+                .right { width: 200px; height: 100px; }
+                .box { width: 40px; height: 20px; }
+            """
+        );
 
         var left = document.Root.Add("div", classNames: "left");
         var right = document.Root.Add("div", classNames: "right");
@@ -47,11 +51,13 @@ public class ReparentTests {
 
     [Fact]
     public void The_cascade_sees_it_under_its_new_parent() {
-        using var document = Documented("""
-            root { width: 400px; height: 300px; }
-            .box { width: 40px; height: 20px; }
-            .wide .box { width: 111px; }
-        """);
+        using var document = Documented(
+            """
+                root { width: 400px; height: 300px; }
+                .box { width: 40px; height: 20px; }
+                .wide .box { width: 111px; }
+            """
+        );
 
         var plain = document.Root.Add("div");
         var wide = document.Root.Add("div", classNames: "wide");

@@ -65,7 +65,7 @@ static class RecordingBackend {
     /// <param name="kind">Which call.</param>
     /// <returns>A cursor at the first match, for the ordering assertions.</returns>
     public static CommandLogCursor ShouldContain(this CommandRecorder log, RecordedCommandKind kind) =>
-        log.ShouldContain(kind, _ => true, kind.ToString());
+        log.ShouldContain(kind, static _ => true, kind.ToString());
 
     /// <summary>At least one call of this kind, matching this predicate, was recorded.</summary>
     /// <param name="log">The stream.</param>
@@ -240,14 +240,14 @@ static class RecordingBackend {
             return $"no {kind} at all";
         }
 
-        var listed = string.Join(", ", ofKind.Select(command => command.ToString()));
+        var listed = string.Join(", ", ofKind.Select(static command => command.ToString()));
         return $"{ofKind.Length} × {kind}, none matching: {listed}";
     }
 
     static string Indent(string text) =>
         string.Join(
             Environment.NewLine,
-            text.Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries).Select(line => "  " + line)
+            text.Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries).Select(static line => "  " + line)
         );
 }
 

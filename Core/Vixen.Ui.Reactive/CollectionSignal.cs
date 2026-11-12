@@ -78,7 +78,7 @@ public sealed class CollectionSignal<T> : ReactiveNode, IReadOnlyList<T> {
         ArgumentNullException.ThrowIfNull(initial);
         ArgumentOutOfRangeException.ThrowIfLessThan(changeLogCapacity, 1);
 
-        items = [.. initial];
+        items = [..initial];
         log = new CollectionChange[changeLogCapacity];
     }
 
@@ -113,7 +113,7 @@ public sealed class CollectionSignal<T> : ReactiveNode, IReadOnlyList<T> {
         set {
             ReactiveGraph.AssertOwningThread();
             items[index] = value;
-            Record(new CollectionChange(CollectionChangeKind.Replaced, index));
+            Record(new(CollectionChangeKind.Replaced, index));
         }
     }
 
@@ -126,7 +126,7 @@ public sealed class CollectionSignal<T> : ReactiveNode, IReadOnlyList<T> {
     public void Add(T item) {
         ReactiveGraph.AssertOwningThread();
         items.Add(item);
-        Record(new CollectionChange(CollectionChangeKind.Inserted, items.Count - 1));
+        Record(new(CollectionChangeKind.Inserted, items.Count - 1));
     }
 
     /// <summary>Inserts an item.</summary>
@@ -135,7 +135,7 @@ public sealed class CollectionSignal<T> : ReactiveNode, IReadOnlyList<T> {
     public void Insert(int index, T item) {
         ReactiveGraph.AssertOwningThread();
         items.Insert(index, item);
-        Record(new CollectionChange(CollectionChangeKind.Inserted, index));
+        Record(new(CollectionChangeKind.Inserted, index));
     }
 
     /// <summary>Removes the item at <paramref name="index" />.</summary>
@@ -143,7 +143,7 @@ public sealed class CollectionSignal<T> : ReactiveNode, IReadOnlyList<T> {
     public void RemoveAt(int index) {
         ReactiveGraph.AssertOwningThread();
         items.RemoveAt(index);
-        Record(new CollectionChange(CollectionChangeKind.Removed, index));
+        Record(new(CollectionChangeKind.Removed, index));
     }
 
     /// <summary>Removes the first occurrence of <paramref name="item" />.</summary>
@@ -182,7 +182,7 @@ public sealed class CollectionSignal<T> : ReactiveNode, IReadOnlyList<T> {
         var item = items[from];
         items.RemoveAt(from);
         items.Insert(to, item);
-        Record(new CollectionChange(CollectionChangeKind.Moved, from, to));
+        Record(new(CollectionChangeKind.Moved, from, to));
     }
 
     /// <summary>Removes everything.</summary>
@@ -199,7 +199,7 @@ public sealed class CollectionSignal<T> : ReactiveNode, IReadOnlyList<T> {
         var count = items.Count;
         items.Clear();
         for (var index = count - 1; index >= 0; index--) {
-            Append(new CollectionChange(CollectionChangeKind.Removed, index));
+            Append(new(CollectionChangeKind.Removed, index));
         }
 
         Changed();
@@ -229,8 +229,8 @@ public sealed class CollectionSignal<T> : ReactiveNode, IReadOnlyList<T> {
 
         // The log is a ring. A run that does not wrap is handed back as one span; one that does is
         // compacted into the scratch buffer, which is reused rather than allocated per read.
-        var start = (int) ((Revision - pending) % log.Length);
-        var count = (int) pending;
+        var start = (int)((Revision - pending) % log.Length);
+        var count = (int)pending;
         if (start + count <= log.Length) {
             changes = log.AsSpan(start, count);
             return true;
@@ -265,7 +265,7 @@ public sealed class CollectionSignal<T> : ReactiveNode, IReadOnlyList<T> {
     }
 
     void Append(CollectionChange change) {
-        log[(int) (Revision % log.Length)] = change;
+        log[(int)(Revision % log.Length)] = change;
         Revision++;
     }
 

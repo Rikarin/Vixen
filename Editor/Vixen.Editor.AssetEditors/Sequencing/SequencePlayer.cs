@@ -4,12 +4,8 @@
 using Vixen.Core;
 using Vixen.Core.Curves;
 using Vixen.Core.Mathematics;
-using Vixen.Ecs;
-using Vixen.Editor.Core;
-using Vixen.Editor.Core.Scenes;
 using Vixen.Editor.SceneView;
 using Vixen.Engine.Transforms;
-using Vixen.Ui.Controls.Advanced;
 
 namespace Vixen.Editor.AssetEditors.Sequencing;
 
@@ -22,15 +18,22 @@ public readonly record struct SequenceSignal(string Name, float Time, string Tra
 /// <summary>Puts a scene into the state a sequence describes at a time.</summary>
 /// <remarks>
 ///     <para>
-///         <b>Scrubbing and playing are the same operation, which is the decision this class is
-///         built around.</b> A player that stepped forward by a delta would give a different answer
+///         <b>
+///             Scrubbing and playing are the same operation, which is the decision this class is
+///             built around.
+///         </b>
+///         A player that stepped forward by a delta would give a different answer
 ///         when scrubbed backwards, and "drag the playhead and watch" is what a sequencer is *for*.
 ///         So <see cref="Apply" /> is a pure function of the time: every track is evaluated from its
 ///         own keys, nothing accumulates, and dragging left is exactly as correct as dragging right.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Events fire on the interval that was crossed, and that is the one thing a pure
-///         evaluation cannot express.</b> An event is not a state, it is a moment — so
+///         ⚠
+///         <b>
+///             Events fire on the interval that was crossed, and that is the one thing a pure
+///             evaluation cannot express.
+///         </b>
+///         An event is not a state, it is a moment — so
 ///         <see cref="Apply" /> takes the previous time as well and reports the events strictly
 ///         between the two. A scrub backwards reports nothing, deliberately: an editor that fired a
 ///         footstep because somebody dragged the playhead over it would make a scrub audibly
@@ -160,7 +163,10 @@ public sealed class SequencePlayer {
                     break;
 
                 case SequenceTrackKind.Activation when Resolve(track) is { } entity:
-                    Scene.SetHidden(entity, Held(track, clamped) is { } key && key.Value is [var shown, ..] && shown == 0f);
+                    Scene.SetHidden(
+                        entity,
+                        Held(track, clamped) is { } key && key.Value is [var shown, ..] && shown == 0f
+                    );
                     applied++;
 
                     break;

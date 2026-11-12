@@ -9,8 +9,12 @@ namespace Vixen.Editor.Profiler;
 /// <summary>Where a capture's samples come from.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Doc 20 is blunt that "the profiler must be able to profile the editor", and this
-///         interface is the whole of the mechanism.</b> An editor that could only profile the game
+///         ⚠
+///         <b>
+///             Doc 20 is blunt that "the profiler must be able to profile the editor", and this
+///             interface is the whole of the mechanism.
+///         </b>
+///         An editor that could only profile the game
 ///         cannot answer why the editor is slow — and doc 00's editor-shell performance bar is a
 ///         claim about the editor. So the panel never touches <see cref="Vixen.Core.Diagnostics.Profiler" />
 ///         directly: it asks a source, and which source is a dropdown.
@@ -153,7 +157,7 @@ public sealed record ProfileThread(
 /// </remarks>
 public sealed class ProfileCapture {
     /// <summary>The capture with nothing in it, which is what a panel shows before the first press.</summary>
-    public static ProfileCapture Empty { get; } = new("", []);
+    public static ProfileCapture Empty { get; } = new(string.Empty, []);
 
     readonly ProfileThread[] threads;
 
@@ -197,9 +201,9 @@ public sealed class ProfileCapture {
 
         // Ordered longest-busy first, so the thread that did the work is the one at the top of the
         // panel rather than whichever one happened to register its ring first.
-        built.Sort((left, right) => Busy(right).CompareTo(Busy(left)));
+        built.Sort(static (left, right) => Busy(right).CompareTo(Busy(left)));
 
-        threads = [.. built];
+        threads = [..built];
         SampleCount = total;
 
         BeginTicks = start == long.MaxValue ? 0 : start;

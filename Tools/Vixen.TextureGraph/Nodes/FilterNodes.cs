@@ -14,7 +14,12 @@ namespace Vixen.TextureGraph.Nodes;
 ///     over a grey stays grey, one channel wide, all the way down. Without that rule the library needs
 ///     a <c>BlendGrayscale</c> beside this, which is the cost § Part 4 names.
 /// </remarks>
-[Node("Colour/Blend", Preview = true, Adjustment = false, Summary = "Two images composited under one of thirty operators.")]
+[Node(
+    "Colour/Blend",
+    Preview = true,
+    Adjustment = false,
+    Summary = "Two images composited under one of thirty operators."
+)]
 sealed partial class BlendNode : TextureNode {
     /// <summary>Which operator. One of <c>TextureBlendMode</c>'s thirty names.</summary>
     [Setting(AcceptedFrom = typeof(TextureBlendMode))]
@@ -25,8 +30,11 @@ sealed partial class BlendNode : TextureNode {
     ///     <c>Atop</c>. One of <c>TextureBlendCoverage</c>'s two names.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>A different question from <see cref="Mode" />, and the default is the only answer that
-    ///     was expressible before <a href="https://github.com/Rikarin/Vixen/issues/845">#845</a>.</b>
+    ///     ⚠
+    ///     <b>
+    ///         A different question from <see cref="Mode" />, and the default is the only answer that
+    ///         was expressible before <a href="https://github.com/Rikarin/Vixen/issues/845">#845</a>.
+    ///     </b>
     ///     A graph author reaches for <c>Atop</c> when the foreground is an <em>adjustment</em> of the
     ///     background — the same image, filtered — because <c>Over</c>'s alpha rule can only raise
     ///     coverage and would have the adjustment cover more than the thing it adjusts. A layer stack
@@ -74,16 +82,23 @@ sealed partial class BlendNode : TextureNode {
 /// <summary>Two images composited into one through a per-texel mask.</summary>
 /// <remarks>
 ///     <para>
-///         <b><see cref="BlendNode" /> with the opacity read out of an image instead of a
-///         number</b>, which is the one node doc 48 § 4.9's compound library had to spell with four
+///         <b>
+///             <see cref="BlendNode" /> with the opacity read out of an image instead of a
+///             number
+///         </b>
+///         , which is the one node doc 48 § 4.9's compound library had to spell with four
 ///         — <a href="https://github.com/Rikarin/Vixen/issues/1059">#1059</a>.
 ///         <c>offset·(1 − m) + original·m</c> authored out of the atomic set is an
 ///         <c>Colour/Invert</c> and three <c>Colour/Blend</c>s: three intermediate images, three
 ///         round trips through <c>rgba16f</c>, and a summing <c>Add</c> that clamps.
 ///     </para>
 ///     <para>
-///         ⚠ <b>It does not widen <see cref="BlendNode" />, and that is the whole shape of the
-///         change.</b> <c>Blend.rvn</c> refuses a mask input by name — a <em>layer's</em> mask has a
+///         ⚠
+///         <b>
+///             It does not widen <see cref="BlendNode" />, and that is the whole shape of the
+///             change.
+///         </b>
+///         <c>Blend.rvn</c> refuses a mask input by name — a <em>layer's</em> mask has a
 ///         stack of its own and anchors into other layers, and bolting a third texture onto a blend
 ///         would be a shape doc 48 § M7 then has to undo. That argument is about a layer; a graph's
 ///         mask is whatever image the author wired, and the two are different questions. So § M7's
@@ -217,8 +232,8 @@ sealed partial class BlurNode : TextureNode {
 
         var radius = emitter.Number(nameof(Radius));
 
-        emitter.Dispatch(Pass(scratch, source, radius, vertical: false));
-        emitter.Dispatch(Pass(target, scratch, radius, vertical: true));
+        emitter.Dispatch(Pass(scratch, source, radius, false));
+        emitter.Dispatch(Pass(target, scratch, radius, true));
     }
 
     /// <summary>One axis of the box.</summary>
@@ -278,8 +293,12 @@ sealed partial class LevelsNode : TextureNode {
     /// <remarks>
     ///     ⚠ <b>Zero by default, and it was one.</b> That was written for a graph ending in an 8-bit
     ///     file, and a graph computes in 16 or 32-bit float. Noise of one step between neighbouring
-    ///     texels is a slope, so a default Levels over flat grey reached <c>Surface/Height to
-    ///     Normal</c> as a surface tilted by up to 51° at 1024, and doubled at 2048. Dithering
+    ///     texels is a slope, so a default Levels over flat grey reached
+    ///     <c>
+    ///         Surface/Height to
+    ///         Normal
+    ///     </c>
+    ///     as a surface tilted by up to 51° at 1024, and doubled at 2048. Dithering
     ///     belongs where the eight bits are, which is the encode.
     /// </remarks>
     [Input(SoftMinimum = 0f)]
@@ -321,8 +340,12 @@ sealed partial class LevelsNode : TextureNode {
 /// <summary>Rotate, scale, offset and shear.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Its rotation is in radians, and it was in turns until
-///         <a href="https://github.com/Rikarin/Vixen/issues/735">#735</a>.</b> An exposed 0…1
+///         ⚠
+///         <b>
+///             Its rotation is in radians, and it was in turns until
+///             <a href="https://github.com/Rikarin/Vixen/issues/735">#735</a>.
+///         </b>
+///         An exposed 0…1
 ///         parameter covering the circle exactly once is what a slider wants, and it is still the
 ///         better argument of the two — what it did not survive is being the *only* kernel that took
 ///         one, next to a <c>Source/Shape</c> whose identical-looking number meant a sixth of a
@@ -330,8 +353,12 @@ sealed partial class LevelsNode : TextureNode {
 ///         plan, everywhere in this assembly.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Its two settings used to name enums declared in this namespace, which shadowed the
-///         assembly's own</b> — <a href="https://github.com/Rikarin/Vixen/issues/727">#727</a>. The
+///         ⚠
+///         <b>
+///             Its two settings used to name enums declared in this namespace, which shadowed the
+///             assembly's own
+///         </b>
+///         — <a href="https://github.com/Rikarin/Vixen/issues/727">#727</a>. The
 ///         shadowing <c>TextureFilter</c> had two members where
 ///         <see cref="TextureGraph.TextureFilter" /> has three, so <c>Box</c> was not a name this
 ///         setting would take and the message listing what it <em>would</em> take said so. Deleting
@@ -340,7 +367,11 @@ sealed partial class LevelsNode : TextureNode {
 ///         refuses <c>Box</c> by name rather than silently drawing the bilinear picture under it.
 ///     </para>
 /// </remarks>
-[Node("Space/Transform 2D", Preview = true, Summary = "Rotate, scale, offset and shear, with a mip-correct minification.")]
+[Node(
+    "Space/Transform 2D",
+    Preview = true,
+    Summary = "Rotate, scale, offset and shear, with a mip-correct minification."
+)]
 sealed partial class Transform2DNode : TextureNode {
     /// <summary>What is read outside the source: <c>Clamp</c>, <c>Wrap</c> or <c>Mirror</c>.</summary>
     [Setting(AcceptedFrom = typeof(TextureTiling))]
@@ -348,8 +379,12 @@ sealed partial class Transform2DNode : TextureNode {
 
     /// <summary>How a sub-sample reads: <c>Point</c> or <c>Bilinear</c>. ⚠ Not <c>Box</c>.</summary>
     /// <remarks>
-    ///     ⚠ <b>Listed rather than <c>AcceptedFrom = typeof(TextureFilter)</c>, because this node
-    ///     refuses the enum's third member.</b> A picker generated off the whole enum would offer
+    ///     ⚠
+    ///     <b>
+    ///         Listed rather than <c>AcceptedFrom = typeof(TextureFilter)</c>, because this node
+    ///         refuses the enum's third member.
+    ///     </b>
+    ///     A picker generated off the whole enum would offer
     ///     <c>Box</c> and the compiler would then refuse it — which is the defect
     ///     <c>[Setting(Accepted = …)]</c> exists to remove, arriving from the other side.
     ///     <c>TextureSettingChoiceTests</c> holds the narrowing to a real refusal rather than to an
@@ -452,15 +487,22 @@ sealed partial class Transform2DNode : TextureNode {
 /// <summary>The distance from every texel to the nearest edge of a mask.</summary>
 /// <remarks>
 ///     <para>
-///         <b>The multi-dispatch node, and the reason a node appends ops rather than returning
-///         one.</b> A jump flood is <c>log2</c> of the image's longer side, each pass writing its own
+///         <b>
+///             The multi-dispatch node, and the reason a node appends ops rather than returning
+///             one.
+///         </b>
+///         A jump flood is <c>log2</c> of the image's longer side, each pass writing its own
 ///         scratch — because an image in a plan is written exactly once — and then one read. So this
 ///         node's op count depends on the resolution the graph is being <em>baked</em> at, which is
 ///         the only node here that does.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Its mask port is measured rather than composited, so a colour arriving at it is a type
-///         error naming the port</b> — doc 48 § Part 4's second half. There is no luminance a colour
+///         ⚠
+///         <b>
+///             Its mask port is measured rather than composited, so a colour arriving at it is a type
+///             error naming the port
+///         </b>
+///         — doc 48 § Part 4's second half. There is no luminance a colour
 ///         and a mask agree on, and picking one would be a distance field measured from a boundary
 ///         the author never chose.
 ///     </para>
@@ -522,8 +564,11 @@ sealed partial class DistanceNode : TextureNode {
 /// <summary>How far every texel is from a mask, measured along one direction only.</summary>
 /// <remarks>
 ///     <para>
-///         <b><c>Distance</c> asks how far the nearest point of the shape is in any direction; this asks how far a
-///         texel would walk back against <c>Angle</c> before reaching it</b> (Patina #174's directional distance).
+///         <b>
+///             <c>Distance</c> asks how far the nearest point of the shape is in any direction; this asks how far a
+///             texel would walk back against <c>Angle</c> before reaching it
+///         </b>
+///         (Patina #174's directional distance).
 ///         So the field is the shape smeared one way and fading: a cast shadow, a streak behind a rivet, the side
 ///         of an extrusion. It keeps <c>Distance</c>'s convention — nought on the shape, one past
 ///         <c>Max Distance</c> — so a <c>Levels</c> written for one reads the other.
@@ -534,7 +579,11 @@ sealed partial class DistanceNode : TextureNode {
 ///         1024 graph the default reach is 256 texels and every one is visited.
 ///     </para>
 /// </remarks>
-[Node("Analysis/Directional Distance", Preview = true, Summary = "How far each texel is from a mask along one direction, like a cast shadow.")]
+[Node(
+    "Analysis/Directional Distance",
+    Preview = true,
+    Summary = "How far each texel is from a mask along one direction, like a cast shadow."
+)]
 sealed partial class DirectionalDistanceNode : TextureNode {
     /// <summary>The mask to measure from. A single channel.</summary>
     [Input(Name = "Mask")]
@@ -582,8 +631,11 @@ sealed partial class DirectionalDistanceNode : TextureNode {
 /// <summary>The colour of the nearest point of a mask's shape, spread outwards by jump flood.</summary>
 /// <remarks>
 ///     <para>
-///         <b>Every texel within <c>Max Distance</c> of the shape takes <c>Source</c>'s colour at the
-///         nearest texel inside it, and every texel beyond is transparent black</b> — Patina #174's
+///         <b>
+///             Every texel within <c>Max Distance</c> of the shape takes <c>Source</c>'s colour at the
+///             nearest texel inside it, and every texel beyond is transparent black
+///         </b>
+///         — Patina #174's
 ///         distance with a source colour. It is a dilation by colour: padding round islands so mips do
 ///         not bleed the background in, or an outline the colour of what it outlines. <c>Fade</c>
 ///         multiplies the colour by the falling distance. Inside the shape a texel keeps its own colour.

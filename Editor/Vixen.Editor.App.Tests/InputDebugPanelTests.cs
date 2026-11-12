@@ -20,8 +20,12 @@ namespace Vixen.Editor.App.Tests;
 ///         repeating.
 ///     </para>
 ///     <para>
-///         ⚠ <b><see cref="It_reads_the_service_the_editor_publishes_and_keeps_reading_it" /> is the
-///         one that matters.</b> Until #470 the shipping editor published no
+///         ⚠
+///         <b>
+///             <see cref="It_reads_the_service_the_editor_publishes_and_keeps_reading_it" /> is the
+///             one that matters.
+///         </b>
+///         Until #470 the shipping editor published no
 ///         <see cref="InputService" /> and this panel was dark by construction; it publishes the one a
 ///         play session's focused pane feeds now, so the panel is live from the first frame. The
 ///         unpublished sentence is still the view's to say, and <c>InputDebugViewTests</c> holds it.
@@ -35,7 +39,7 @@ public class InputDebugPanelTests {
         session.Open(AssetEditorsModule.InputDebugPanelId);
         session.Frames(2);
 
-        Assert.Contains(session.Panels, panel => panel.Id == AssetEditorsModule.InputDebugPanelId);
+        Assert.Contains(session.Panels, static panel => panel.Id == AssetEditorsModule.InputDebugPanelId);
     }
 
     /// <summary>Registering a panel registers its verb, and the View menu is built from those.</summary>
@@ -52,7 +56,7 @@ public class InputDebugPanelTests {
 
         session.Frames(2);
 
-        Assert.Contains(session.Panels, panel => panel.Id == AssetEditorsModule.InputDebugPanelId);
+        Assert.Contains(session.Panels, static panel => panel.Id == AssetEditorsModule.InputDebugPanelId);
     }
 
     /// <summary>⚠ The panel reads the service the shipping editor publishes, and keeps reading it.</summary>

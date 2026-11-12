@@ -16,8 +16,12 @@ namespace Tests;
 ///     <para>
 ///         <b>doc 07 § G's last open row, in the only form it can honestly take.</b> That row asks for
 ///         a gate on "&lt; 500 ms incremental recompile of a leaf shader", and the 500 ms is
-///         [doc 00](../plan/00-vision-and-principles.md)'s shader hot-reload budget. ⚠ <b>A wall-clock
-///         assertion is the wrong instrument for it</b> and this repository has the scar tissue to
+///         [doc 00](../plan/00-vision-and-principles.md)'s shader hot-reload budget. ⚠
+///         <b>
+///             A wall-clock
+///             assertion is the wrong instrument for it
+///         </b>
+///         and this repository has the scar tissue to
 ///         prove it: a budget calibrated on an idle machine is its single largest flake source, and a
 ///         parse on a loaded CI runner is exactly that shape. What the incremental path <em>promises</em>
 ///         is not a duration — it is that an edit inside one member re-parses that member and reuses
@@ -81,7 +85,7 @@ public class IncrementalParseWorkTests {
     /// </remarks>
     [Fact]
     public void A_keystroke_reparses_a_fraction_of_what_a_full_parse_builds() {
-        var (incremental, full) = Measure(reusable: true);
+        var (incremental, full) = Measure(true);
 
         // Non-vacuous in both directions: a trivial file, or a walk that found nothing, would make
         // every ratio below true and mean nothing.
@@ -118,7 +122,7 @@ public class IncrementalParseWorkTests {
     /// </remarks>
     [Fact]
     public void A_reparse_that_can_reuse_nothing_fails_that_bound() {
-        var (incremental, full) = Measure(reusable: false);
+        var (incremental, full) = Measure(false);
 
         Assert.True(
             incremental * 8 >= full,
@@ -132,8 +136,12 @@ public class IncrementalParseWorkTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The prerequisite the incremental path has and nothing in this repository
-    ///         supplies</b>, and it is the reason a hot reload cannot simply start calling
+    ///         ⚠
+    ///         <b>
+    ///             The prerequisite the incremental path has and nothing in this repository
+    ///             supplies
+    ///         </b>
+    ///         , and it is the reason a hot reload cannot simply start calling
     ///         <see cref="SyntaxTree.WithChangedText" />.
     ///         <c>SourceText.GetChangeRanges</c> answers with the real ranges only when the old text
     ///         is <em>the immediate predecessor</em> of the new one — reference-identical, one link
@@ -252,11 +260,14 @@ public class IncrementalParseWorkTests {
         Walk(oldTree.GetRoot().Green, node => known.Add(node));
 
         var incremental = 0;
-        Walk(reparsed.GetRoot().Green, node => {
-            if (!known.Contains(node)) {
-                incremental++;
+        Walk(
+            reparsed.GetRoot().Green,
+            node => {
+                if (!known.Contains(node)) {
+                    incremental++;
+                }
             }
-        });
+        );
 
         var fresh = SyntaxTree.ParseText(newText.ToString(), path: "Tonemap.rvn");
         var full = 0;

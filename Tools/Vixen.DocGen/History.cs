@@ -55,7 +55,7 @@ static class History {
 
         var releases = JsonSerializer.Deserialize<List<ReleaseRecord>>(File.ReadAllText(path), IndexOptions) ?? [];
 
-        return [.. releases.OrderBy(release => release.Version, VersionOrder.Instance)];
+        return [..releases.OrderBy(static release => release.Version, VersionOrder.Instance)];
     }
 
     /// <summary>Reads one archived graph back, or null when that version was never archived.</summary>
@@ -93,13 +93,14 @@ static class History {
             date,
             graph.Commit,
             graph.Nodes.Count,
-            graph.Nodes.Sum(node => node.Members.Count),
-            new FileInfo(path).Length);
+            graph.Nodes.Sum(static node => node.Members.Count),
+            new FileInfo(path).Length
+        );
 
         var releases = Read(repositoryRoot)
             .Where(other => !string.Equals(other.Version, version, StringComparison.Ordinal))
             .Append(record)
-            .OrderBy(release => release.Version, VersionOrder.Instance)
+            .OrderBy(static release => release.Version, VersionOrder.Instance)
             .ToList();
 
         File.WriteAllText(IndexPath(repositoryRoot), JsonSerializer.Serialize(releases, IndexOptions) + "\n");
@@ -111,11 +112,10 @@ static class History {
     public static ReleaseRecord? Previous(IReadOnlyList<ReleaseRecord> releases, string version) =>
         releases
             .Where(release => VersionOrder.Instance.Compare(release.Version, version) < 0)
-            .OrderBy(release => release.Version, VersionOrder.Instance)
+            .OrderBy(static release => release.Version, VersionOrder.Instance)
             .LastOrDefault();
 
-    static string IndexPath(string repositoryRoot) =>
-        Path.Combine(repositoryRoot, "docs", "api-history", "index.json");
+    static string IndexPath(string repositoryRoot) => Path.Combine(repositoryRoot, "docs", "api-history", "index.json");
 
     static string GraphPath(string repositoryRoot, string version) =>
         Path.Combine(repositoryRoot, "docs", "api-history", version, "graph.json.br");
@@ -163,7 +163,7 @@ static class History {
             var head = dash < 0 ? version : version[..dash];
             var tail = dash < 0 ? null : version[(dash + 1)..];
 
-            return ([.. head.Split('.').Select(part => int.TryParse(part, out var value) ? value : 0)], tail);
+            return ([..head.Split('.').Select(static part => int.TryParse(part, out var value) ? value : 0)], tail);
         }
     }
 }

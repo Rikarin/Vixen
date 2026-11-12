@@ -45,19 +45,19 @@ public sealed class TickTests {
 
     [Fact]
     public void CountingPastTheEndComesBackToTheStart() {
-        Assert.Equal(new Tick(0), new Tick(uint.MaxValue).Next);
-        Assert.Equal(new Tick(uint.MaxValue), new Tick(0).Previous);
-        Assert.Equal(new Tick(1), new Tick(uint.MaxValue).Add(2));
-        Assert.Equal(new Tick(uint.MaxValue), new Tick(1).Subtract(2));
+        Assert.Equal(new(0), new Tick(uint.MaxValue).Next);
+        Assert.Equal(new(uint.MaxValue), new Tick(0).Previous);
+        Assert.Equal(new(1), new Tick(uint.MaxValue).Add(2));
+        Assert.Equal(new(uint.MaxValue), new Tick(1).Subtract(2));
     }
 
     [Fact]
     public void AddingAndSubtractingAreTheOperatorsToo() {
         var tick = new Tick(10);
 
-        Assert.Equal(new Tick(13), tick + 3);
-        Assert.Equal(new Tick(7), tick - 3);
-        Assert.Equal(new Tick(7), tick + -3);
+        Assert.Equal(new(13), tick + 3);
+        Assert.Equal(new(7), tick - 3);
+        Assert.Equal(new(7), tick + -3);
     }
 
     [Fact]

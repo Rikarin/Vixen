@@ -27,8 +27,11 @@ public readonly record struct IrradianceFillSettings {
     /// <summary>How much of the previous answer survives a fill, from zero to one.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>Zero — take the new answer whole — is the default because it is the one that can be
-    ///         tested.</b> A single fill then has a closed form: sixty-four rays into a uniform
+    ///         <b>
+    ///             Zero — take the new answer whole — is the default because it is the one that can be
+    ///             tested.
+    ///         </b>
+    ///         A single fill then has a closed form: sixty-four rays into a uniform
     ///         environment of radiance <i>L</i> give a probe that lights everything with exactly
     ///         <i>L</i>, and a blend against whatever was there before would hide a projection error
     ///         behind a convergence rate.
@@ -81,8 +84,11 @@ public readonly record struct IrradianceFillSettings {
 ///         choice, for the same reason, as the sign vote in the distance-field bake.
 ///     </para>
 ///     <para>
-///         <b>Validity comes from the field's sign, with the backface vote behind it — and which of
-///         those two answers depends on how good the field is.</b> A negative sample <i>is</i>
+///         <b>
+///             Validity comes from the field's sign, with the backface vote behind it — and which of
+///             those two answers depends on how good the field is.
+///         </b>
+///         A negative sample <i>is</i>
 ///         "inside", so a probe the field calls solid is invalid before any ray is cast. Against an
 ///         <i>exact</i> field that is the end of it: sphere tracing stops where the field crosses zero
 ///         on the way down, and the gradient there always opposes the ray, so no ray can report a
@@ -247,7 +253,7 @@ public sealed class TracedIrradianceFiller {
             projection = projection.Accumulated(direction, arriving, solidAngle);
         }
 
-        var validity = Math.Clamp(1f - ((float)backfaces / directions.Length), 0f, 1f);
+        var validity = Math.Clamp(1f - (float)backfaces / directions.Length, 0f, 1f);
 
         return new(projection, validity, Sun(position));
     }
@@ -284,8 +290,8 @@ public sealed class TracedIrradianceFiller {
         var result = new Vector3[count];
 
         for (var index = 0; index < count; index++) {
-            var z = 1f - (2f * (index + 0.5f) / count);
-            var radius = MathF.Sqrt(MathF.Max(0f, 1f - (z * z)));
+            var z = 1f - 2f * (index + 0.5f) / count;
+            var radius = MathF.Sqrt(MathF.Max(0f, 1f - z * z));
             var angle = index * GoldenAngle;
 
             result[index] = new(radius * MathF.Cos(angle), radius * MathF.Sin(angle), z);

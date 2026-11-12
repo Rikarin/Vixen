@@ -3,10 +3,8 @@
 
 using System.Diagnostics.CodeAnalysis;
 using Vixen.Core;
-using Vixen.Ecs;
 using Vixen.Editor.Core;
 using Vixen.Editor.Core.Scenes;
-using Vixen.Editor.Inspector;
 using Vixen.Editor.SceneView;
 
 namespace Vixen.Editor.App;
@@ -26,7 +24,7 @@ public static class Prefab {
     /// </remarks>
     public static bool Claims(string path) =>
         !string.IsNullOrEmpty(path)
-        && System.IO.Path.GetExtension(path).Equals(Extension, StringComparison.OrdinalIgnoreCase);
+        && Path.GetExtension(path).Equals(Extension, StringComparison.OrdinalIgnoreCase);
 
     /// <summary>Places an instance of a prefab in a scene, undoably.</summary>
     /// <param name="scene">The scene to place it in.</param>
@@ -44,8 +42,12 @@ public static class Prefab {
     ///         finished consumer that nothing called.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Through <see cref="SceneDocument.Place" />, so one Ctrl+Z takes the instance
-    ///         back.</b> A prefab is a subtree of however many entities the file holds, and one placed
+    ///         ⚠
+    ///         <b>
+    ///             Through <see cref="SceneDocument.Place" />, so one Ctrl+Z takes the instance
+    ///             back.
+    ///         </b>
+    ///         A prefab is a subtree of however many entities the file holds, and one placed
     ///         with <c>Add</c> would be a dozen entities the undo stack has never heard of.
     ///     </para>
     ///     <para>
@@ -90,7 +92,7 @@ public static class Prefab {
         }
 
         var label = assets.TryGetByGuid(asset, out var entry)
-            ? System.IO.Path.GetFileNameWithoutExtension(entry.Name)
+            ? Path.GetFileNameWithoutExtension(entry.Name)
             : string.Empty;
 
         root = scene.Place(
@@ -116,8 +118,12 @@ public static class Prefab {
     ///         runs. A file with none is the same refusal from the other side.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A link the prefab file already carried is not overwritten, and that is what makes
-    ///         a nested prefab a nested prefab.</b> A <c>.vxprefab</c> may hold an instance of another
+    ///         ⚠
+    ///         <b>
+    ///             A link the prefab file already carried is not overwritten, and that is what makes
+    ///             a nested prefab a nested prefab.
+    ///         </b>
+    ///         A <c>.vxprefab</c> may hold an instance of another
     ///         one — doc 47 § 6 — whose entities arrive here already carrying the <i>inner</i> link,
     ///         put there by <see cref="SceneSerializer" /> as it read them. Recording the outer link
     ///         over the top would flatten one level of nesting on every placement, silently: the
@@ -192,4 +198,3 @@ public static class Prefab {
         return null;
     }
 }
-

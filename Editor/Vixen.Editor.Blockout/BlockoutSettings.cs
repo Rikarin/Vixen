@@ -11,13 +11,20 @@ namespace Vixen.Editor.Blockout;
 /// <summary>The retopology section of the blockout settings panel.</summary>
 /// <remarks>
 ///     <para>
-///         <b>An editable class beside <see cref="RemeshSettings" />, and doc 36 § P1's last blockout
-///         row is why it exists.</b> Nothing in the editor drew the remesher's settings at all: they
+///         <b>
+///             An editable class beside <see cref="RemeshSettings" />, and doc 36 § P1's last blockout
+///             row is why it exists.
+///         </b>
+///         Nothing in the editor drew the remesher's settings at all: they
 ///         are a <c>Core/</c> record, and a record is the wrong shape twice over for a panel.
 ///     </para>
 ///     <para>
-///         ⚠ <b>A class rather than an annotation on the record, and there are three separate reasons
-///         — any one of them decisive.</b> The record is <c>init</c>-only, and the inspector's
+///         ⚠
+///         <b>
+///             A class rather than an annotation on the record, and there are three separate reasons
+///             — any one of them decisive.
+///         </b>
+///         The record is <c>init</c>-only, and the inspector's
 ///         generator emits <c>owner.Property = value</c> for anything with a setter, which for an
 ///         <c>init</c> property is a compiler error in generated code the author never sees. The
 ///         record lives in <c>Core/Vixen.Geometry.Remeshing</c>, which cannot reference an editor
@@ -35,8 +42,11 @@ namespace Vixen.Editor.Blockout;
 ///         a caller that has one passes it beside these rather than through them.
 ///     </para>
 ///     <para>
-///         ⚠ <b>And <em>not</em> a <c>[DataContract]</c>, which all three of these carried until
-///         <a href="https://github.com/Rikarin/Vixen/issues/1025">#1025</a>.</b>
+///         ⚠
+///         <b>
+///             And <em>not</em> a <c>[DataContract]</c>, which all three of these carried until
+///             <a href="https://github.com/Rikarin/Vixen/issues/1025">#1025</a>.
+///         </b>
 ///         <c>Vixen.Editor.Blockout.csproj</c> names neither <c>Vixen.Core.Reflection.Generator</c>
 ///         nor <c>Vixen.Core.Serialization.Generator</c>, and analyzers do not flow through a
 ///         <c>ProjectReference</c> — so the aliases they stated registered nothing at all and the
@@ -122,8 +132,12 @@ public sealed class BlockoutRetopologySettings {
 
 /// <summary>The charting-and-flattening section of the blockout settings panel.</summary>
 /// <remarks>
-///     ⚠ <b><see cref="UvSettings.Decomposition" /> and <see cref="UvSettings.SeamCost" /> are not
-///     here.</b> The first is an interface — a plug point for a learned part field, not a number —
+///     ⚠
+///     <b>
+///         <see cref="UvSettings.Decomposition" /> and <see cref="UvSettings.SeamCost" /> are not
+///         here.
+///     </b>
+///     The first is an interface — a plug point for a learned part field, not a number —
 ///     and the second is a nested record of weights that belongs in a section of its own the first
 ///     time somebody asks for it. <see cref="ToUvSettings" /> leaves both at the record's defaults,
 ///     which is the built-in decomposition and the built-in seam cost.
@@ -175,8 +189,12 @@ public sealed class BlockoutChartSettings {
 
 /// <summary>The packing section of the blockout settings panel.</summary>
 /// <remarks>
-///     ⚠ <b><see cref="PackSettings.Resolution" /> is <c>required</c> on the record and has a default
-///     here.</b> That is not a disagreement: a required member exists so that a caller in code cannot
+///     ⚠
+///     <b>
+///         <see cref="PackSettings.Resolution" /> is <c>required</c> on the record and has a default
+///         here.
+///     </b>
+///     That is not a disagreement: a required member exists so that a caller in code cannot
 ///     forget the number the margin is counted against, and a panel cannot forget it — it is a field
 ///     with a value in it from the moment it is drawn.
 /// </remarks>

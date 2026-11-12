@@ -17,8 +17,11 @@ namespace Vixen.Rendering.Terrain;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>What <c>!Terrain</c> builds to — the runtime reachability the whole stack was
-///         missing.</b> <see cref="TerrainRenderer" />, <see cref="GrassDispatch" /> and
+///         <b>
+///             What <c>!Terrain</c> builds to — the runtime reachability the whole stack was
+///             missing.
+///         </b>
+///         <see cref="TerrainRenderer" />, <see cref="GrassDispatch" /> and
 ///         <see cref="GrassDrawPass" /> are complete and tested and had no caller outside the
 ///         editor; this is the caller. It reads the frame's terrains from a
 ///         <see cref="TerrainSceneSource" /> the extraction system fills, owns one draw set per
@@ -55,17 +58,21 @@ namespace Vixen.Rendering.Terrain;
 /// </remarks>
 public sealed class TerrainSceneRenderer : SceneRenderer, IDisposable {
     /// <summary>The cell grid every grass field scatters over, in metres.</summary>
-    /// <remarks>The editor's foliage volume uses the same 32 m cell, and the two must agree the day
-    ///     painted foliage and derived grass share a residency.</remarks>
+    /// <remarks>
+    ///     The editor's foliage volume uses the same 32 m cell, and the two must agree the day
+    ///     painted foliage and derived grass share a residency.
+    /// </remarks>
     public const float GrassCellSize = 32f;
 
     /// <summary>How far grass cells stay resident when neither component nor document says.</summary>
     public const float DefaultGrassRange = 160f;
 
     /// <summary>How far foliage cells stay uploaded when neither component nor document says.</summary>
-    /// <remarks>Wider than the grass's, because a tree is visible from further than a blade — the
+    /// <remarks>
+    ///     Wider than the grass's, because a tree is visible from further than a blade — the
     ///     default type's cull distance is 250 m and a residency inside it uploads cells only to
-    ///     cull every instance in them.</remarks>
+    ///     cull every instance in them.
+    /// </remarks>
     public const float DefaultFoliageRange = 320f;
 
     readonly Dictionary<TerrainMap, TerrainDrawSet?> sets = [];
@@ -274,8 +281,10 @@ public sealed class TerrainSceneRenderer : SceneRenderer, IDisposable {
     /// </remarks>
     public bool MotionVectors { get; private set; }
 
-    /// <summary>How many reprojection draws the sibling recorded last frame — terrains, grass
-    ///     fields' indirect commands and foliage batches' together.</summary>
+    /// <summary>
+    ///     How many reprojection draws the sibling recorded last frame — terrains, grass
+    ///     fields' indirect commands and foliage batches' together.
+    /// </summary>
     public int VelocityDraws { get; private set; }
 
     /// <summary>The velocity sibling the factory paired, or null in a frame with no velocity pass.</summary>
@@ -325,20 +334,26 @@ public sealed class TerrainSceneRenderer : SceneRenderer, IDisposable {
             // The consequence spelled out, because it is the half a reader cannot infer: the preview
             // shaders return a reflectance in [0, 1] where the frame wants cd/m², which against a
             // daylight sky is about one nit in a picture metered for thousands.
-            said.Add($"the ground is preview-shaded rather than lit — {preview} — so it is drawn in "
+            said.Add(
+                $"the ground is preview-shaded rather than lit — {preview} — so it is drawn in "
                 + "[0,1] reflectance where the frame is metered in cd/m², which is black ground "
-                + "under a correct sky");
+                + "under a correct sky"
+            );
         }
 
         if (WaitingForShaders) {
-            said.Add("a terrain, grass or foliage shader has not resolved, so what it draws is "
+            said.Add(
+                "a terrain, grass or foliage shader has not resolved, so what it draws is "
                 + "missing rather than wrong — for the first frames of a development run, or for "
-                + "ever on a bundle without the variants");
+                + "ever on a bundle without the variants"
+            );
         }
 
         if (VegetationUnsupported) {
-            said.Add("the device does not report drawIndirectFirstInstance, so grass and foliage are "
-                + "off entirely rather than drawn in the wrong places");
+            said.Add(
+                "the device does not report drawIndirectFirstInstance, so grass and foliage are "
+                + "off entirely rather than drawn in the wrong places"
+            );
         }
 
         return said.Count == 0 ? null : string.Join("; and ", said);
@@ -525,8 +540,7 @@ public sealed class TerrainSceneRenderer : SceneRenderer, IDisposable {
                     pass.Reads(atlas);
                 }
 
-                pass.Execute(
-                    context => {
+                pass.Execute(context => {
                         if (Lit) {
                             // The handles are the frame's and arrive at execute: the atlas from the
                             // graph, the cluster buffers from what the shading pass last published.
@@ -562,7 +576,7 @@ public sealed class TerrainSceneRenderer : SceneRenderer, IDisposable {
                     pass.ColourAttachment(frame.Texture(ToString(), Specular), LoadAction.Load, default);
                 }
 
-                pass.DepthAttachment(depth, LoadAction.Load, 0f);
+                pass.DepthAttachment(depth, LoadAction.Load);
 
                 if (Lit) {
                     // The barrier half: the shadow passes wrote the atlas, and the ground samples
@@ -570,8 +584,7 @@ public sealed class TerrainSceneRenderer : SceneRenderer, IDisposable {
                     pass.Reads(atlas);
                 }
 
-                pass.Execute(
-                    context => {
+                pass.Execute(context => {
                         foreach (var (set, _) in drawn) {
                             set.Surface.Record(context.CommandList);
                             TerrainsDrawn++;
@@ -798,7 +811,14 @@ public sealed class TerrainSceneRenderer : SceneRenderer, IDisposable {
     }
 
     /// <summary>Stages one terrain's frame: the surface, its reprojection, then its grass field.</summary>
-    void Upload(ICommandList commands, TerrainDrawSet set, in TerrainSceneEntry entry, RenderView view, float time, float previousTime) {
+    void Upload(
+        ICommandList commands,
+        TerrainDrawSet set,
+        in TerrainSceneEntry entry,
+        RenderView view,
+        float time,
+        float previousTime
+    ) {
         // The placement rides the view matrix, because the shader has no field for one — the
         // editor's UploadTerrain states the whole argument. The frustum comes from the combined
         // matrix so culling happens in the terrain's own space.
@@ -822,7 +842,13 @@ public sealed class TerrainSceneRenderer : SceneRenderer, IDisposable {
             // frame's camera selection — the same patches, the same morph, and therefore the same
             // depths the velocity node's read-only test compares. The sibling records the draw
             // after the frame's velocity pass has cleared the plane.
-            set.Velocity ??= new(Device!, set.Surface, terrainVelocityShaders, velocityFormats.Motion, velocityFormats.Depth);
+            set.Velocity ??= new(
+                Device!,
+                set.Surface,
+                terrainVelocityShaders,
+                velocityFormats.Motion,
+                velocityFormats.Depth
+            );
 
             set.Velocity.Upload(placedMatrix, Matrix4x4.FromTranslation(entry.Origin) * PreviousOf(view));
         }
@@ -896,10 +922,12 @@ public sealed class TerrainSceneRenderer : SceneRenderer, IDisposable {
     }
 
     /// <summary>Last frame's matrix, or this frame's on the frame nobody has advanced yet.</summary>
-    /// <remarks>The zero matrix a fresh view reports would project every vertex to the origin and
+    /// <remarks>
+    ///     The zero matrix a fresh view reports would project every vertex to the origin and
     ///     hand the whole ground a vector pointing at screen centre — the substitution
     ///     <c>MotionVectorRenderFeature</c> makes for an object's first sight, made here for the
-    ///     view's.</remarks>
+    ///     view's.
+    /// </remarks>
     static Matrix4x4 PreviousOf(RenderView view) =>
         view.PreviousViewProjection == default ? view.ViewProjection : view.PreviousViewProjection;
 
@@ -935,7 +963,7 @@ public sealed class TerrainSceneRenderer : SceneRenderer, IDisposable {
                 terrainShaders,
                 output,
                 Vixen.Terrain.TerrainLodRanges.Default with { NearRange = nearRange },
-                lit: Lit
+                Lit
             );
 
             var description = entry.Terrain.Description;
@@ -1033,7 +1061,7 @@ public sealed class TerrainSceneRenderer : SceneRenderer, IDisposable {
             Math.Max(1, Vegetation.GrassBladesPerCell)
         );
 
-        var draw = new GrassDrawPass(Device!, shaders.Draw, output, lit: Lit);
+        var draw = new GrassDrawPass(Device!, shaders.Draw, output, Lit);
 
         set.Field = new(
             type,
@@ -1047,9 +1075,13 @@ public sealed class TerrainSceneRenderer : SceneRenderer, IDisposable {
     /// <summary>The view a vegetation rule's texture name resolves to, or none.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b><see langword="default" /> for both "the rule named nothing" and "the rule named
-    ///         something that has not arrived", and the two are deliberately not distinguished
-    ///         here.</b> Both leave the draw pass on its white 1×1, which is the right picture for the
+    ///         ⚠
+    ///         <b>
+    ///             <see langword="default" /> for both "the rule named nothing" and "the rule named
+    ///             something that has not arrived", and the two are deliberately not distinguished
+    ///             here.
+    ///         </b>
+    ///         Both leave the draw pass on its white 1×1, which is the right picture for the
     ///         first and a temporary one for the second — a texture becomes resolvable a frame or two
     ///         after it is asked for, and a field that refused to draw until then would flicker in
     ///         rather than fade in.
@@ -1065,8 +1097,12 @@ public sealed class TerrainSceneRenderer : SceneRenderer, IDisposable {
 
     /// <summary>The one albedo a volume's stand binds: the first type in its palette that names one.</summary>
     /// <remarks>
-    ///     ⚠ <b>One for the whole palette, because the pass has one <c>albedoMap</c> binding and draws
-    ///     every type through one descriptor set.</b> See <see cref="FoliageType.Albedo" /> — the field
+    ///     ⚠
+    ///     <b>
+    ///         One for the whole palette, because the pass has one <c>albedoMap</c> binding and draws
+    ///         every type through one descriptor set.
+    ///     </b>
+    ///     See <see cref="FoliageType.Albedo" /> — the field
     ///     is per type because that is where the authored intent belongs, and this is where the
     ///     pass's shape narrows it. First rather than, say, the most common: an order somebody can
     ///     predict from the file beats a rule they would have to work out.
@@ -1078,15 +1114,19 @@ public sealed class TerrainSceneRenderer : SceneRenderer, IDisposable {
             }
         }
 
-        return "";
+        return string.Empty;
     }
 
-    /// <summary>How many cells one volume's streamer may keep uploaded, or zero for a volume that
-    ///     fits its budget and streams nothing — the tier's number, for a test.</summary>
+    /// <summary>
+    ///     How many cells one volume's streamer may keep uploaded, or zero for a volume that
+    ///     fits its budget and streams nothing — the tier's number, for a test.
+    /// </summary>
     internal int FoliageCellsOf(FoliageVolume volume) => stands.GetValueOrDefault(volume)?.Streamer?.Cells ?? 0;
 
-    /// <summary>How many tile slots one terrain's streamer holds, or zero for a terrain that fits by
-    ///     construction and streams nothing — the tier's byte budget divided down, for a test.</summary>
+    /// <summary>
+    ///     How many tile slots one terrain's streamer holds, or zero for a terrain that fits by
+    ///     construction and streams nothing — the tier's byte budget divided down, for a test.
+    /// </summary>
     internal int TerrainTileSlotsOf(TerrainMap terrain) =>
         sets.GetValueOrDefault(terrain)?.Surface.Streaming?.Pages.SlotCount ?? 0;
 
@@ -1122,7 +1162,7 @@ public sealed class TerrainSceneRenderer : SceneRenderer, IDisposable {
 
             cull.Streaming = streamer;
 
-            stand = new(Device!, cull, new(Device!, shaders.Draw, output, lit: Lit), streamer);
+            stand = new(Device!, cull, new(Device!, shaders.Draw, output, Lit), streamer);
         } catch (ArgumentException) {
             // A volume the pass refuses is one shape of asset, not the whole frame — the terrain
             // path's own trade. Extraction validates the palette, so this is belt over braces.
@@ -1351,7 +1391,12 @@ public sealed class TerrainSceneRenderer : SceneRenderer, IDisposable {
     sealed class FoliageStand : IDisposable {
         readonly IGraphicsDevice device;
 
-        public FoliageStand(IGraphicsDevice device, FoliageCullPass cull, FoliageDrawPass draw, FoliageStreamer? streamer) {
+        public FoliageStand(
+            IGraphicsDevice device,
+            FoliageCullPass cull,
+            FoliageDrawPass draw,
+            FoliageStreamer? streamer
+        ) {
             this.device = device;
             Cull = cull;
             Draw = draw;
@@ -1572,7 +1617,13 @@ public sealed class TerrainSceneRenderer : SceneRenderer, IDisposable {
 
     /// <summary>One grass rule over one terrain: the ring, the dispatch and the draw.</summary>
     sealed class GrassField : IDisposable {
-        public GrassField(GrassType type, int layer, GrassResidency residency, GrassDispatch dispatch, GrassDrawPass draw) {
+        public GrassField(
+            GrassType type,
+            int layer,
+            GrassResidency residency,
+            GrassDispatch dispatch,
+            GrassDrawPass draw
+        ) {
             Type = type;
             Layer = layer;
             Residency = residency;

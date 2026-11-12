@@ -24,8 +24,11 @@ namespace Vixen.Engine.Generators;
 ///         out of it.
 ///     </para>
 ///     <para>
-///         <b>Both attributes are the trigger, because both together are what makes a component
-///         reach a file.</b> <c>SceneComponentRegistry</c> declares a type carrying the pair, and
+///         <b>
+///             Both attributes are the trigger, because both together are what makes a component
+///             reach a file.
+///         </b>
+///         <c>SceneComponentRegistry</c> declares a type carrying the pair, and
 ///         <c>WorldSerializer</c> writes a column for exactly those; a component with only
 ///         <c>[Component]</c> lives entirely in a running world and may hold whatever it likes.
 ///     </para>
@@ -57,7 +60,7 @@ public sealed class SerializedHandleAnalyzer : DiagnosticAnalyzer {
         + "it is read back into. Drop [DataContract], or hold something that survives the trip.",
         "Vixen.Engine",
         DiagnosticSeverity.Error,
-        isEnabledByDefault: true,
+        true,
         "docs/plan/04-ecs-and-scripting.md § Determinism and persistence: entity ids are dense and "
         + "reused, so never serialise a raw Entity. WorldSerializer keeps this for the hierarchy by "
         + "refusing to write Parent, Child and Sibling and rebuilding the links from a table of "
@@ -78,8 +81,7 @@ public sealed class SerializedHandleAnalyzer : DiagnosticAnalyzer {
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
         context.EnableConcurrentExecution();
 
-        context.RegisterCompilationStartAction(
-            start => {
+        context.RegisterCompilationStartAction(static start => {
                 var entity = start.Compilation.GetTypeByMetadataName(EntityMetadataName);
                 var component = start.Compilation.GetTypeByMetadataName(ComponentAttributeMetadataName);
                 var contract = start.Compilation.GetTypeByMetadataName(DataContractAttributeMetadataName);

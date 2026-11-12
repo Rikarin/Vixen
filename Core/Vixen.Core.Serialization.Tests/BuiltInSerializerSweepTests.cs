@@ -12,10 +12,17 @@ namespace Vixen.Core.Serialization.Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>The shape <a href="https://github.com/Rikarin/Vixen/issues/338">#338</a> asks for in the
-///         serializers, which is an executable claim that a named path is exercised rather than a
-///         percentage.</b> ⚠ <b>Twenty of the twenty-five built-ins had never been serialized by this
-///         suite</b>, and the reason is that every contract in <c>Contracts.cs</c> is built out of
+///         <b>
+///             The shape <a href="https://github.com/Rikarin/Vixen/issues/338">#338</a> asks for in the
+///             serializers, which is an executable claim that a named path is exercised rather than a
+///             percentage.
+///         </b>
+///         ⚠
+///         <b>
+///             Twenty of the twenty-five built-ins had never been serialized by this
+///             suite
+///         </b>
+///         , and the reason is that every contract in <c>Contracts.cs</c> is built out of
 ///         <c>int</c>, <c>float</c>, <c>double</c>, <c>string</c>, an enum and collections of those —
 ///         so <c>sbyte</c>, <c>ushort</c>, <c>char</c>, <see cref="Half" />, <see cref="decimal" />,
 ///         <see cref="Guid" />, <see cref="DateTime" />, <see cref="DateTimeOffset" />,
@@ -82,7 +89,6 @@ public sealed class BuiltInSerializerSweepTests {
             RoundTrips(decimal.MinValue, decimal.MaxValue, decimal.MinusOne, 0.1m);
             Assert.Equal(decimal.GetBits(1.00m), decimal.GetBits(RoundTrip(1.00m)));
         },
-
         [typeof(string)] = static () => RoundTrips(string.Empty, "a", "ünïcödé", new string('x', 1024)),
         [typeof(Guid)] = static () => RoundTrips(Guid.Empty, Guid.Parse("0f1e2d3c-4b5a-6978-8796-a5b4c3d2e1f0")),
 
@@ -116,8 +122,10 @@ public sealed class BuiltInSerializerSweepTests {
             }
         },
         [typeof(TimeSpan)] = static () => RoundTrips(TimeSpan.MinValue, TimeSpan.MaxValue, TimeSpan.FromTicks(-1)),
-
-        [typeof(AssetId)] = static () => RoundTrips(default, new AssetId(Guid.Parse("0f1e2d3c-4b5a-6978-8796-a5b4c3d2e1f0"))),
+        [typeof(AssetId)] = static () => RoundTrips(
+            default,
+            new AssetId(Guid.Parse("0f1e2d3c-4b5a-6978-8796-a5b4c3d2e1f0"))
+        ),
         [typeof(SubAssetId)] = static () => RoundTrips(default, new SubAssetId(uint.MaxValue)),
         [typeof(AssetReference)] = static () => RoundTrips(
             default,
@@ -126,7 +134,8 @@ public sealed class BuiltInSerializerSweepTests {
 
         // Both halves, in order: an id written high-then-low and read low-then-high is a perfectly
         // symmetrical bug that only an asymmetric value can see.
-        [typeof(ObjectId)] = static () => RoundTrips(default, new ObjectId(1UL, 2UL), new ObjectId(ulong.MaxValue, 0UL)),
+        [typeof(ObjectId)] =
+            static () => RoundTrips(default, new ObjectId(1UL, 2UL), new ObjectId(ulong.MaxValue, 0UL)),
 
         // The world id is the half that is easy to drop: it is a second field on a struct whose
         // packed form already looks complete.
@@ -138,7 +147,8 @@ public sealed class BuiltInSerializerSweepTests {
         ),
 
         // Variable-length, so the wide values are the ones that exercise the continuation bytes.
-        [typeof(ComponentTypeId)] = static () => RoundTrips(default, new ComponentTypeId(1), new ComponentTypeId(int.MaxValue))
+        [typeof(ComponentTypeId)] =
+            static () => RoundTrips(default, new ComponentTypeId(1), new ComponentTypeId(int.MaxValue))
     };
 
     /// <summary>Every built-in serializer round-trips the edges of the type it is for.</summary>
@@ -167,7 +177,7 @@ public sealed class BuiltInSerializerSweepTests {
     public void TheSweepCoversEveryBuiltInSerializerTheFileDeclares() {
         var builtIns = typeof(SerializerRegistry).Assembly.GetType(
             "Vixen.Core.Serialization.BuiltInSerializers",
-            throwOnError: true
+            true
         )!;
 
         var declared = builtIns

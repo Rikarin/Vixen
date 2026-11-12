@@ -36,8 +36,12 @@ public enum BooleanOperation : byte {
 ///         disagreement that opens a crack between a wall and the floor it is coplanar with.
 ///     </para>
 ///     <para>
-///         ⚠ <b>A vertex made by a split <i>remembers</i> the plane it was made on, and that is what
-///         keeps the cut closed.</b> Its position is arithmetic and so is inexact; its membership is
+///         ⚠
+///         <b>
+///             A vertex made by a split <i>remembers</i> the plane it was made on, and that is what
+///             keeps the cut closed.
+///         </b>
+///         Its position is arithmetic and so is inexact; its membership is
 ///         not. Asked which side of that plane it is on, it answers "on it" from the record rather
 ///         than from a subtraction — for ever, through every later split — so the two faces either
 ///         side of a cut can never be told apart by it. A point on a segment also lies on every plane
@@ -160,8 +164,11 @@ public static class MeshBoolean {
     /// <returns>The result, or <see langword="null" /> when nothing survived.</returns>
     /// <remarks>
     ///     <para>
-    ///         <b>Doc 24's plane cut, and it is the boolean with a half-space as the second
-    ///         operand.</b> Written as its own routine rather than by building a very large box,
+    ///         <b>
+    ///             Doc 24's plane cut, and it is the boolean with a half-space as the second
+    ///             operand.
+    ///         </b>
+    ///         Written as its own routine rather than by building a very large box,
     ///         because the box would have to be bigger than the mesh and choosing "bigger" is a
     ///         number nobody can defend — and because a half-space has one plane, so the classification
     ///         is one predicate per vertex rather than a tree walk.
@@ -245,8 +252,12 @@ public static class MeshBoolean {
     /// <param name="transform">Where the cutter sits in the mesh's space, or null for the same space.</param>
     /// <returns>The result, or <see langword="null" /> when nothing survived.</returns>
     /// <remarks>
-    ///     ⚠ <b>Doc 24's own words for why this is not just a subtract: "cheaper, and what most 'cut a
-    ///     doorway' actually wants".</b> A subtract closes the hole it makes with the cutter's inside
+    ///     ⚠
+    ///     <b>
+    ///         Doc 24's own words for why this is not just a subtract: "cheaper, and what most 'cut a
+    ///         doorway' actually wants".
+    ///     </b>
+    ///     A subtract closes the hole it makes with the cutter's inside
     ///     surface, so subtracting a box from a wall gives you a doorway with a reveal. A trim removes
     ///     the material and leaves the opening bare, which is what somebody trimming a wall against a
     ///     terrain or a roofline means — and it is the difference between a wall with a hole in it and
@@ -358,9 +369,10 @@ public static class MeshBoolean {
         for (var second = 1; second < corners.Length; second++) {
             for (var third = second + 1; third < corners.Length; third++) {
                 var area = Vector3.Cross(
-                    corners[second].Position - corners[0].Position,
-                    corners[third].Position - corners[0].Position
-                ).LengthSquared();
+                        corners[second].Position - corners[0].Position,
+                        corners[third].Position - corners[0].Position
+                    )
+                    .LengthSquared();
 
                 if (area > best) {
                     best = area;
@@ -460,11 +472,11 @@ public static class MeshBoolean {
                 }
 
                 if (ahead.Count >= 3) {
-                    front?.Add(face with { Corners = [.. ahead] });
+                    front?.Add(face with { Corners = [..ahead] });
                 }
 
                 if (behind.Count >= 3) {
-                    back?.Add(face with { Corners = [.. behind] });
+                    back?.Add(face with { Corners = [..behind] });
                 }
 
                 Rim(planes, plane, ahead, rim);
@@ -567,15 +579,17 @@ public static class MeshBoolean {
                 // ⚠ The cap is wound against the half being kept, because it is the new *outside* of
                 // the solid: the opening faces away from the material that is left. Group `CapGroup`
                 // so that "select the face the cut made" is one click.
-                into.Add(new([.. loop], plane, CapGroup, 0));
+                into.Add(new([..loop], plane, CapGroup, 0));
             }
         }
     }
 
     /// <summary>The face group a plane cut's cap goes in.</summary>
-    /// <remarks>High enough that it does not collide with a hand-made group on either operand, and
+    /// <remarks>
+    ///     High enough that it does not collide with a hand-made group on either operand, and
     ///     the same number every time so that a material assigned to a cut face survives the next
-    ///     cut.</remarks>
+    ///     cut.
+    /// </remarks>
     public const int CapGroup = 1000;
 
     /// <summary>The reading of the two operands' groups that survives a boolean.</summary>
@@ -624,7 +638,7 @@ public static class MeshBoolean {
             }
 
             if (loop.Count >= 3) {
-                mesh.AddFace([.. loop], face.Group, face.Smoothing);
+                mesh.AddFace([..loop], face.Group, face.Smoothing);
             }
         }
 
@@ -667,9 +681,9 @@ public static class MeshBoolean {
 
         public static Quantised Of(Vector3 point) =>
             new(
-                (long) MathF.Round(point.X * Grid),
-                (long) MathF.Round(point.Y * Grid),
-                (long) MathF.Round(point.Z * Grid)
+                (long)MathF.Round(point.X * Grid),
+                (long)MathF.Round(point.Y * Grid),
+                (long)MathF.Round(point.Z * Grid)
             );
     }
 }
@@ -835,7 +849,7 @@ sealed class PlaneTable {
             }
         }
 
-        return new(position, [.. shared]);
+        return new(position, [..shared]);
     }
 
     /// <summary>Whether a recorded plane is the same surface as three given points.</summary>
@@ -850,11 +864,11 @@ sealed class PlaneTable {
     static long Bucket(Vector3 normal) {
         const float Grid = 64f;
 
-        var x = (long) MathF.Round(normal.X * Grid);
-        var y = (long) MathF.Round(normal.Y * Grid);
-        var z = (long) MathF.Round(normal.Z * Grid);
+        var x = (long)MathF.Round(normal.X * Grid);
+        var y = (long)MathF.Round(normal.Y * Grid);
+        var z = (long)MathF.Round(normal.Z * Grid);
 
-        return ((x + 128) * 1_000_000) + ((y + 128) * 1_000) + z + 128;
+        return (x + 128) * 1_000_000 + (y + 128) * 1_000 + z + 128;
     }
 }
 
@@ -867,8 +881,12 @@ sealed class BspNode {
 
     /// <summary>Adds faces to the tree, choosing this node's plane from the first of them.</summary>
     /// <remarks>
-    ///     ⚠ <b>The first face's plane rather than a balanced choice, which is csg.js's arrangement
-    ///     and is deliberate here.</b> A splitting heuristic that minimises cuts makes a smaller tree
+    ///     ⚠
+    ///     <b>
+    ///         The first face's plane rather than a balanced choice, which is csg.js's arrangement
+    ///         and is deliberate here.
+    ///     </b>
+    ///     A splitting heuristic that minimises cuts makes a smaller tree
     ///     and makes the result depend on the order the faces arrived in — so a boolean would give
     ///     different geometry for the same two solids depending on which was authored first. Block-out
     ///     operands are tens of faces, where the tree's shape costs nothing and its determinism is
@@ -914,14 +932,18 @@ sealed class BspNode {
 
     /// <summary>What is left of some faces once the parts inside this solid are taken away.</summary>
     /// <remarks>
-    ///     ⚠ <b>A node with no back child drops everything behind it, and that is the whole
-    ///     definition of "inside".</b> The tree is a convex decomposition of the solid's interior:
+    ///     ⚠
+    ///     <b>
+    ///         A node with no back child drops everything behind it, and that is the whole
+    ///         definition of "inside".
+    ///     </b>
+    ///     The tree is a convex decomposition of the solid's interior:
     ///     falling out of the back of every plane with nothing below means the point is enclosed by
     ///     all of them.
     /// </remarks>
     public List<BooleanFace> Clip(PlaneTable planes, List<BooleanFace> input) {
         if (plane < 0) {
-            return [.. input];
+            return [..input];
         }
 
         List<BooleanFace> ahead = [];

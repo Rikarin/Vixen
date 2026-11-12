@@ -67,8 +67,12 @@ public sealed class Terrain {
 
     /// <summary>The heights the world actually has. Derived; do not write.</summary>
     /// <remarks>
-    ///     ⚠ <b>Rewritten a sample at a time by <see cref="Resolve" />, so a reader that is not the
-    ///     thread which resolves needs <see cref="RevisionOf" /> as well as this.</b> Nothing here
+    ///     ⚠
+    ///     <b>
+    ///         Rewritten a sample at a time by <see cref="Resolve" />, so a reader that is not the
+    ///         thread which resolves needs <see cref="RevisionOf" /> as well as this.
+    ///     </b>
+    ///     Nothing here
     ///     tears, and that is what makes the failure hard to see: what a concurrent read comes away
     ///     with is a perfectly well-formed heightfield that is half one terrain and half another.
     /// </remarks>
@@ -259,7 +263,7 @@ public sealed class Terrain {
 
         for (var tileZ = tiles.Z; tileZ < tiles.EndZ; tileZ++) {
             for (var tileX = tiles.X; tileX < tiles.EndX; tileX++) {
-                tileDirty[(tileZ * Description.TilesX) + tileX] = true;
+                tileDirty[tileZ * Description.TilesX + tileX] = true;
             }
         }
     }
@@ -271,7 +275,7 @@ public sealed class Terrain {
     /// <param name="tileX">Its X index.</param>
     /// <param name="tileZ">Its Z index.</param>
     /// <returns>Whether it is stale.</returns>
-    public bool IsTileDirty(int tileX, int tileZ) => tileDirty[(tileZ * Description.TilesX) + tileX];
+    public bool IsTileDirty(int tileX, int tileZ) => tileDirty[tileZ * Description.TilesX + tileX];
 
     /// <summary>What a tile's composite is at, as a number that changes whenever it is rewritten.</summary>
     /// <param name="tileX">Its X index.</param>
@@ -279,8 +283,12 @@ public sealed class Terrain {
     /// <returns>A count of how many times <see cref="Resolve" /> has recomputed that tile.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>What a reader on another thread checks its bytes against, and the only member here
-    ///         a thread that does not own the terrain may touch.</b> <see cref="Resolve" /> rewrites
+    ///         ⚠
+    ///         <b>
+    ///             What a reader on another thread checks its bytes against, and the only member here
+    ///             a thread that does not own the terrain may touch.
+    ///         </b>
+    ///         <see cref="Resolve" /> rewrites
     ///         <see cref="Composite" /> a sample at a time, so anything reading a tile's samples from
     ///         elsewhere — the renderer's tile page source is the one that does — can come away with a
     ///         tile half as it was and half as it became. That is not a torn <em>sample</em>, which
@@ -288,8 +296,11 @@ public sealed class Terrain {
     ///         that half took the stroke.
     ///     </para>
     ///     <para>
-    ///         <b>The discipline is: read this before the samples, and compare it again on the thread
-    ///         that owns the terrain once the bytes are back.</b> Equal means no recomposite overlapped
+    ///         <b>
+    ///             The discipline is: read this before the samples, and compare it again on the thread
+    ///             that owns the terrain once the bytes are back.
+    ///         </b>
+    ///         Equal means no recomposite overlapped
     ///         the read and the bytes describe one terrain; different means they may describe two and
     ///         have to be thrown away. It cannot say which samples came from which, and it is not meant
     ///         to — a mixture is refused, never repaired.
@@ -303,8 +314,7 @@ public sealed class Terrain {
     ///         asks. A caller that resolves from two threads has a larger problem than this counter.
     ///     </para>
     /// </remarks>
-    public int RevisionOf(int tileX, int tileZ) =>
-        Volatile.Read(ref tileRevision[(tileZ * Description.TilesX) + tileX]);
+    public int RevisionOf(int tileX, int tileZ) => Volatile.Read(ref tileRevision[tileZ * Description.TilesX + tileX]);
 
     /// <summary>Recomposites every stale tile.</summary>
     /// <returns>How many tiles were recomputed.</returns>
@@ -318,7 +328,7 @@ public sealed class Terrain {
 
         for (var tileZ = 0; tileZ < Description.TilesZ; tileZ++) {
             for (var tileX = 0; tileX < Description.TilesX; tileX++) {
-                var index = (tileZ * Description.TilesX) + tileX;
+                var index = tileZ * Description.TilesX + tileX;
 
                 if (!tileDirty[index]) {
                     continue;
@@ -342,7 +352,7 @@ public sealed class Terrain {
     ///     tile's bounding box is and a frame asks every tile for it.
     /// </remarks>
     public (float Minimum, float Maximum) HeightRangeOf(int tileX, int tileZ) {
-        var index = (tileZ * Description.TilesX) + tileX;
+        var index = tileZ * Description.TilesX + tileX;
         return (Description.HeightOf(tileMinimum[index]), Description.HeightOf(tileMaximum[index]));
     }
 
@@ -374,7 +384,7 @@ public sealed class Terrain {
 
         for (var tileZ = minTileZ; tileZ <= maxTileZ; tileZ++) {
             for (var tileX = minTileX; tileX <= maxTileX; tileX++) {
-                var index = (tileZ * Description.TilesX) + tileX;
+                var index = tileZ * Description.TilesX + tileX;
                 minimum = Math.Min(minimum, tileMinimum[index]);
                 maximum = Math.Max(maximum, tileMaximum[index]);
             }
@@ -395,7 +405,7 @@ public sealed class Terrain {
     ///     the cached value looks perfectly reasonable, it is just old.
     /// </remarks>
     public ushort CompositeAt(int x, int z) {
-        var total = (int)Base[x, z];
+        int total = Base[x, z];
 
         foreach (var layer in layers) {
             if (!layer.IsVisible || layer.HeightAlpha == 0f) {

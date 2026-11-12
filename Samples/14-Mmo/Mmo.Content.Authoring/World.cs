@@ -27,8 +27,7 @@ sealed partial class World(string root) {
     /// <summary>How many of a prefix.</summary>
     /// <param name="prefix">The address prefix.</param>
     /// <returns>The count.</returns>
-    public int CountOf(string prefix) =>
-        written.Count(address => address.StartsWith(prefix, StringComparison.Ordinal));
+    public int CountOf(string prefix) => written.Count(address => address.StartsWith(prefix, StringComparison.Ordinal));
 
     void Write(string address, string extension, Yaml yaml) {
         var path = Path.Combine(root, address.Replace('/', Path.DirectorySeparatorChar) + extension);

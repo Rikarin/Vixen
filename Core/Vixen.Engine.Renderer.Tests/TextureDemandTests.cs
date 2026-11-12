@@ -3,13 +3,11 @@
 
 using Vixen.Assets;
 using Vixen.Core;
-using Vixen.Core.Imaging;
 using Vixen.Core.IO;
+using Vixen.Core.Imaging;
 using Vixen.Core.Mathematics;
-using Vixen.Core.Serialization;
 using Vixen.Core.Serialization.Storage;
 using Vixen.Core.Yaml;
-using Vixen.Ecs;
 using Vixen.Engine.Frames;
 using Vixen.Engine.Renderer;
 using Vixen.Engine.Transforms;
@@ -50,29 +48,29 @@ public sealed class TextureDemandTests : IDisposable {
     readonly EffectSystem effects = new();
 
     const string Document = """
-        version: 2
-        resources:
-          - name: SceneColour
-            format: Rgba16Float
-            usage: ColourTarget, Sampled
-          - name: SceneDepth
-            format: Depth32Float
-            usage: DepthStencilTarget
-        stages:
-          - name: Opaque
-        game: !Sequence
-          name: Frame
-          children:
-            - !RenderPass
-              name: Main
-              colourTargets: [SceneColour]
-              depthTarget: SceneDepth
-              children:
-                - !SingleStage
-                  name: OpaqueDraw
-                  view: Camera
-                  stage: Opaque
-        """;
+                            version: 2
+                            resources:
+                              - name: SceneColour
+                                format: Rgba16Float
+                                usage: ColourTarget, Sampled
+                              - name: SceneDepth
+                                format: Depth32Float
+                                usage: DepthStencilTarget
+                            stages:
+                              - name: Opaque
+                            game: !Sequence
+                              name: Frame
+                              children:
+                                - !RenderPass
+                                  name: Main
+                                  colourTargets: [SceneColour]
+                                  depthTarget: SceneDepth
+                                  children:
+                                    - !SingleStage
+                                      name: OpaqueDraw
+                                      view: Camera
+                                      stage: Opaque
+                            """;
 
     /// <summary>How many pixels tall the frame is, which is what turns a projected size into texels.</summary>
     const int Height = 512;
@@ -91,8 +89,12 @@ public sealed class TextureDemandTests : IDisposable {
     ///         to bytes being held.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And writing it found that the row's first half cannot be violated, which is worth
-    ///         more than the test.</b> <c>TextureStreamer</c> derives its slot count <em>from</em> the
+    ///         ⚠
+    ///         <b>
+    ///             And writing it found that the row's first half cannot be violated, which is worth
+    ///             more than the test.
+    ///         </b>
+    ///         <c>TextureStreamer</c> derives its slot count <em>from</em> the
     ///         budget — <c>slots = ceil(budgetBytes / pageSize)</c> — and <c>PageResidency</c> then
     ///         clamps <c>Budget</c> to <c>slots * pageSize</c>. Residency is a count of occupied slots,
     ///         so <c>ResidentBytes &lt;= Budget</c> is enforced by the free-slot stack whatever the
@@ -102,16 +104,23 @@ public sealed class TextureDemandTests : IDisposable {
     ///         which the byte budget is the binding constraint rather than the slot count.
     ///     </para>
     ///     <para>
-    ///         <b>So the ceiling is asserted as a consistency check and is not what this test is
-    ///         for.</b> It is checked <em>every frame</em> rather than at the end, because the one way
+    ///         <b>
+    ///             So the ceiling is asserted as a consistency check and is not what this test is
+    ///             for.
+    ///         </b>
+    ///         It is checked <em>every frame</em> rather than at the end, because the one way
     ///         it could still break is a transient — pages placed before their victims are evicted —
     ///         and a check after the loop would miss that. What carries the test is the other three:
     ///         the path is a path, it evicted, and the frame came out of it still sampling a streamed
     ///         image. Each of those has been shown to go red.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Not asserted: "no visible pop beyond a tolerance", the row's other half — and it
-    ///         is now the only part of the row that is real work.</b> That needs a picture: no counter
+    ///         ⚠
+    ///         <b>
+    ///             Not asserted: "no visible pop beyond a tolerance", the row's other half — and it
+    ///             is now the only part of the row that is real work.
+    ///         </b>
+    ///         That needs a picture: no counter
     ///         distinguishes a mip swapping at the right distance from one swapping in the viewer's
     ///         face, and this suite draws to a <c>NullDevice</c>.
     ///     </para>
@@ -122,7 +131,7 @@ public sealed class TextureDemandTests : IDisposable {
 
         // One megabyte against a 1024² R8 chain, which is over 1.3 MB of level data: the path cannot
         // be walked without evicting.
-        using var renderer = Build(loop, out var view, pool: 1);
+        using var renderer = Build(loop, out _, 1);
 
         var entity = Place(loop, Near, Vector3.Zero);
 
@@ -134,7 +143,7 @@ public sealed class TextureDemandTests : IDisposable {
         // ⚠ Or the loop below would be sixty-four assertions about a pool with nothing in it. A
         // budget "respected" by a streamer that never ran is the shape of instrument this repository
         // keeps finding.
-        Resident(loop, renderer, level: 2);
+        Resident(loop, renderer, 2);
 
         Assert.True(streaming.ResidentBytes > 0, "nothing ever became resident, so the walk is vacuous");
 
@@ -188,7 +197,7 @@ public sealed class TextureDemandTests : IDisposable {
     [Fact]
     public void AnObjectsScreenSizeIsWhatItsTextureIsWantedAt() {
         using var loop = new EngineLoop();
-        using var renderer = Build(loop, out var view);
+        using var renderer = Build(loop, out _);
 
         var entity = Place(loop, Near, Vector3.Zero);
 
@@ -224,7 +233,7 @@ public sealed class TextureDemandTests : IDisposable {
     [Fact]
     public void ATextureIsWantedAtTheSizeOfItsNearestUser() {
         using var loop = new EngineLoop();
-        using var renderer = Build(loop, out var view);
+        using var renderer = Build(loop, out _);
 
         var near = Place(loop, Near, Vector3.Zero);
         var far = Place(loop, Far, Vector3.Zero);
@@ -279,7 +288,7 @@ public sealed class TextureDemandTests : IDisposable {
     [Fact]
     public void ATextureThatLeavesTheViewStopsBeingWanted() {
         using var loop = new EngineLoop();
-        using var renderer = Build(loop, out var view);
+        using var renderer = Build(loop, out _);
 
         var entity = Place(loop, Near, Vector3.Zero);
 
@@ -328,7 +337,7 @@ public sealed class TextureDemandTests : IDisposable {
     [Fact]
     public void AWidthDriftingAcrossARungDoesNotOscillate() {
         using var loop = new EngineLoop();
-        using var renderer = Build(loop, out var view);
+        using var renderer = Build(loop, out _);
 
         var entity = Place(loop, Near, Vector3.Zero);
 
@@ -349,7 +358,7 @@ public sealed class TextureDemandTests : IDisposable {
         // its pinned floor into the level it was asked for swaps on the way up, and those swaps are
         // the feature working — counting them as churn would fail this test for the one thing it is
         // supposed to allow. 256 texels of a 1024 chain is level two.
-        Resident(loop, renderer, level: 2);
+        Resident(loop, renderer, 2);
 
         // ⚠ And then until the demand stops moving, which residency alone does not imply. The level
         // being here says the pages arrived; the promotions the arrival caused are recorded a frame
@@ -422,7 +431,7 @@ public sealed class TextureDemandTests : IDisposable {
     [Fact]
     public void WithNoPoolNothingIsSurveyedAtAll() {
         using var loop = new EngineLoop();
-        using var renderer = Build(loop, out _, pool: 0);
+        using var renderer = Build(loop, out _, 0);
 
         Place(loop, Near, Vector3.Zero);
         Settle(loop, renderer);
@@ -445,8 +454,12 @@ public sealed class TextureDemandTests : IDisposable {
     /// </summary>
     /// <remarks>
     ///     ⚠ The failure this rules out is silent and is a quality drop: with no pixels there is no
-    ///     texel count, and a survey that ran anyway would ask for zero texels — which means <em>the
-    ///     smallest level</em> — for every texture in the scene. Wanting nothing leaves each texture
+    ///     texel count, and a survey that ran anyway would ask for zero texels — which means
+    ///     <em>
+    ///         the
+    ///         smallest level
+    ///     </em>
+    ///     — for every texture in the scene. Wanting nothing leaves each texture
     ///     in the branch it was in before any of this existed.
     /// </remarks>
     [Fact]
@@ -542,20 +555,31 @@ public sealed class TextureDemandTests : IDisposable {
     ///         one after the other rather than together.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Five quiet frames is not quiescence, and believing it was is what made this the
-    ///         most-failed test in the assembly.</b> Three counters holding still says only that
+    ///         ⚠
+    ///         <b>
+    ///             Five quiet frames is not quiescence, and believing it was is what made this the
+    ///             most-failed test in the assembly.
+    ///         </b>
+    ///         Three counters holding still says only that
     ///         nothing landed in the last five frames — and a page whose loader task has not been
     ///         scheduled yet moves no counter at all. It lands later, inside the breathing loop, and
     ///         is counted as churn the band was supposed to have prevented. Reproduced 2026-08-18, one
     ///         run in ten with the assembly under load, and the instrument caught the cause in the
     ///         same run: <see cref="TextureStreamer.Loading" /> read <b>1</b> where the other nine runs
     ///         read 0, and the failure was
-    ///         <see cref="AWidthDriftingAcrossARungDoesNotOscillate" />'s swap count — <b>2 expected,
-    ///         3 seen</b>.
+    ///         <see cref="AWidthDriftingAcrossARungDoesNotOscillate" />'s swap count —
+    ///         <b>
+    ///             2 expected,
+    ///             3 seen
+    ///         </b>
+    ///         .
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>So the wait is on the streamer's own idleness, which is a fact rather than an
-    ///         interval, and the counters are only believed once it holds.</b>
+    ///         ⚠
+    ///         <b>
+    ///             So the wait is on the streamer's own idleness, which is a fact rather than an
+    ///             interval, and the counters are only believed once it holds.
+    ///         </b>
     ///         <c>Loading == 0 &amp;&amp; PendingRequests == 0</c> is the predicate
     ///         <see cref="PageResidency.Loading" />'s remarks say "every settle loop in the tree waits
     ///         for" — and it is trustworthy precisely because that counter was taught to include
@@ -563,8 +587,12 @@ public sealed class TextureDemandTests : IDisposable {
     ///         repository's test suite". This loop was the one left not using it.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And then no budget at all, which is the third and last thing this loop has given
-    ///         up on.</b> Six hundred frames of a millisecond was a wall-clock budget wearing a frame
+    ///         ⚠
+    ///         <b>
+    ///             And then no budget at all, which is the third and last thing this loop has given
+    ///             up on.
+    ///         </b>
+    ///         Six hundred frames of a millisecond was a wall-clock budget wearing a frame
     ///         count; thirty seconds was the same budget said honestly. Both are claims about how
     ///         fast a thread pool dispatches a page read, and <c>build.sh Test</c> runs a hundred and
     ///         seventy assemblies at once — see <see cref="Settling" />. What is asserted is that the
@@ -661,18 +689,30 @@ public sealed class TextureDemandTests : IDisposable {
     ///         first frame.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Thirty-two frames of five milliseconds was the tightest deadline in this file and
-    ///         it is not one this suite has any business making.</b> Measured 2026-08-18 over fifty
-    ///         settles, idle and with the assembly under fortyfold load: <b>two frames used, every
-    ///         time</b>. That is not evidence the budget was right — it is evidence nobody knew what
+    ///         ⚠
+    ///         <b>
+    ///             Thirty-two frames of five milliseconds was the tightest deadline in this file and
+    ///             it is not one this suite has any business making.
+    ///         </b>
+    ///         Measured 2026-08-18 over fifty
+    ///         settles, idle and with the assembly under fortyfold load:
+    ///         <b>
+    ///             two frames used, every
+    ///             time
+    ///         </b>
+    ///         . That is not evidence the budget was right — it is evidence nobody knew what
     ///         it was, because a hundred and sixty milliseconds is a claim about how fast a thread
     ///         pool dispatches a decode and the answer on a loaded runner is "later than that". It
     ///         became thirty seconds and then nothing at all: the wait is now the mesh, the material
     ///         and the texture having nothing left on their way. See <see cref="Settling" />.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The no-pool case is decided inside the loop rather than after it, which is a fix
-    ///         and not a tidy-up.</b> It used to fall through to a failure, so
+    ///         ⚠
+    ///         <b>
+    ///             The no-pool case is decided inside the loop rather than after it, which is a fix
+    ///             and not a tidy-up.
+    ///         </b>
+    ///         It used to fall through to a failure, so
     ///         <see cref="WithNoPoolNothingIsSurveyedAtAll" /> spent the entire budget every run
     ///         waiting for a survey that by construction never exists. It costs nothing now — a
     ///         renderer with no pool has no streamer, so the objects landing is the whole wait.
@@ -690,7 +730,7 @@ public sealed class TextureDemandTests : IDisposable {
 
     /// <summary>A renderer over mounted content, looking down the negative Z axis.</summary>
     WorldRenderer Build(EngineLoop loop, out RenderView view, int pool = 8) {
-        var renderer = new WorldRenderer(device, effects, vertexCapacity: 4096, indexCapacity: 8192);
+        var renderer = new WorldRenderer(device, effects, 4096, 8192);
 
         // ⚠ Before Mount, because the pool is sized when the texture source is built.
         renderer.Textures = new() { PoolMegabytes = pool };
@@ -711,7 +751,7 @@ public sealed class TextureDemandTests : IDisposable {
 
         var stages = renderer.Host.Builder.Stages.Values.Aggregate(
             RenderStageMask.None,
-            (mask, stage) => mask | stage.Mask
+            static (mask, stage) => mask | stage.Mask
         );
 
         renderer.Register(loop, stages);
@@ -765,15 +805,13 @@ public sealed class TextureDemandTests : IDisposable {
         // texture rather than about a material.
         var near = database.Write(
             new MaterialContent {
-                Features = [new TexturedMetalRoughnessFeature()],
-                Textures = [new("baseColorMap", Bark)]
+                Features = [new TexturedMetalRoughnessFeature()], Textures = [new("baseColorMap", Bark)]
             }
         );
 
         var far = database.Write(
             new MaterialContent {
-                Features = [new TexturedMetalRoughnessFeature()],
-                Textures = [new("baseColorMap", Bark)]
+                Features = [new TexturedMetalRoughnessFeature()], Textures = [new("baseColorMap", Bark)]
             }
         );
 
@@ -789,12 +827,12 @@ public sealed class TextureDemandTests : IDisposable {
             default,
             "Windows",
             [
-                new("bark", texture, "Main", ContentProvider.Local, [], [], 0, Reference: Bark),
-                new("near", near, "Main", ContentProvider.Local, [], [], 0, Reference: Near),
-                new("far", far, "Main", ContentProvider.Local, [], [], 0, Reference: Far),
-                new("rock", mesh, "Main", ContentProvider.Local, [], [], 0, Reference: Rock)
+                new("bark", texture, "Main", ContentProvider.Local, [], [], 0, Bark),
+                new("near", near, "Main", ContentProvider.Local, [], [], 0, Near),
+                new("far", far, "Main", ContentProvider.Local, [], [], 0, Far),
+                new("rock", mesh, "Main", ContentProvider.Local, [], [], 0, Rock)
             ],
-            [new("Main", "", default, 0, 0, CompressionMethod.None, [])]
+            [new("Main", string.Empty, default, 0, 0, CompressionMethod.None, [])]
         );
 
         return new(catalog, new LocalBundleSource(files, new("/bundles")));

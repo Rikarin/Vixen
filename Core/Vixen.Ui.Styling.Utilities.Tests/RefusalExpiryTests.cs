@@ -19,8 +19,12 @@ namespace Vixen.Ui.Styling.Utilities.Tests;
 ///         replaced three weeks before. Every one of those is a condition filed as a verdict.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The allow-list next door already solves this and cannot be copied, and the reason is
-///         worth stating exactly.</b> <c>InertProperties.txt</c> expires on its condition:
+///         ⚠
+///         <b>
+///             The allow-list next door already solves this and cannot be copied, and the reason is
+///             worth stating exactly.
+///         </b>
+///         <c>InertProperties.txt</c> expires on its condition:
 ///         <see cref="UtilityConsumptionGateTests.No_allow_list_entry_outlives_the_gap_it_names" />
 ///         measures whether anything reads the property and fails the exemption the moment something
 ///         does. That works because its condition is <i>measurable</i> — a property either moves one of
@@ -41,8 +45,12 @@ namespace Vixen.Ui.Styling.Utilities.Tests;
 ///         date — and for that shape the mechanism is airtight.
 ///     </para>
 ///     <para>
-///         ⚠ <b><c>[expires-on &lt;Namespace.Type&gt;.&lt;Member&gt;]</c> — a tripwire, and it can be
-///         walked around.</b> The refusal stands only while that member does not exist. The weakness is
+///         ⚠
+///         <b>
+///             <c>[expires-on &lt;Namespace.Type&gt;.&lt;Member&gt;]</c> — a tripwire, and it can be
+///             walked around.
+///         </b>
+///         The refusal stands only while that member does not exist. The weakness is
 ///         plain and is written here rather than discovered later: whoever eventually builds the thing
 ///         picks the name, and if they pick a different one the clause stays green for ever. It is
 ///         here because some refusals have no ledger root to hang on — <c>mix-blend</c>'s surviving
@@ -52,8 +60,12 @@ namespace Vixen.Ui.Styling.Utilities.Tests;
 ///         root is the one to name.
 ///     </para>
 ///     <para>
-///         ⚠ <b>That weakness stopped being hypothetical one day after it was written, and the worked
-///         case is worth more than the warning.</b> <c>ring-offset-*</c> was refused partly because
+///         ⚠
+///         <b>
+///             That weakness stopped being hypothetical one day after it was written, and the worked
+///             case is worth more than the warning.
+///         </b>
+///         <c>ring-offset-*</c> was refused partly because
 ///         <c>StyleValueParser</c> read no <c>calc()</c>, and its clause was
 ///         <c>[expires-on Vixen.Ui.Styling.StyleValueKind.Calculation]</c> — the most likely name for
 ///         the thing somebody would build. What was built instead <i>folds</i> the expression to an
@@ -79,8 +91,11 @@ namespace Vixen.Ui.Styling.Utilities.Tests;
 ///         commonest defect wearing a mechanism's clothes.
 ///     </para>
 ///     <para>
-///         <b><c>[expires-when-read &lt;css-property&gt;]</c> — exact, and it is the other file #288
-///         names.</b> The refusal stands only while nothing in the engine reads that property. Its
+///         <b>
+///             <c>[expires-when-read &lt;css-property&gt;]</c> — exact, and it is the other file #288
+///             names.
+///         </b>
+///         The refusal stands only while nothing in the engine reads that property. Its
 ///         condition is the <i>same measurement</i> <c>InertProperties.txt</c> expires on — the probe
 ///         runs the frame and reports which properties moved a channel — so a ledger note resting on an
 ///         allow-list line is now one dependency edge out from that line's own expiry rather than
@@ -90,8 +105,12 @@ namespace Vixen.Ui.Styling.Utilities.Tests;
 ///         see <see cref="RefusalExpiry.Gapped" />, where the difference is argued.
 ///     </para>
 ///     <para>
-///         ⚠ <b><c>expires-on</c> may sit on a <c>partial</c> row too, and it took a rotted sentence
-///         to find that out.</b> <c>hyphens</c>' <c>auto</c> keyword was refused on two things: no
+///         ⚠
+///         <b>
+///             <c>expires-on</c> may sit on a <c>partial</c> row too, and it took a rotted sentence
+///             to find that out.
+///         </b>
+///         <c>hyphens</c>' <c>auto</c> keyword was refused on two things: no
 ///         Liang pattern set, and nothing carrying a language. #600 landed the language, and nothing
 ///         went red — the row is <c>partial</c> because <c>none</c> and <c>manual</c> shipped, so it
 ///         could carry no clause at all, and the stale half of the reason stood in three files.
@@ -111,8 +130,12 @@ namespace Vixen.Ui.Styling.Utilities.Tests;
 ///         condition in exactly the same clause a note does.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Widening the sweep would not have caught those four and it is worth being exact about
-///         why.</b> None of them declared a clause; a clause-reader catches only conditions somebody
+///         ⚠
+///         <b>
+///             Widening the sweep would not have caught those four and it is worth being exact about
+///             why.
+///         </b>
+///         None of them declared a clause; a clause-reader catches only conditions somebody
 ///         wrote down. What the widening buys is that a prose refusal now <i>can</i> be written down —
 ///         <c>Core/Vixen.Ui</c>'s <c>box-shadow</c> paragraph is the first, resting its <c>inset</c>
 ///         half on <c>inset-shadow-*</c> — where before there was nowhere to put the condition but a
@@ -154,13 +177,16 @@ namespace Vixen.Ui.Styling.Utilities.Tests;
 /// </remarks>
 public class RefusalExpiryTests {
     /// <summary>Set <c>VIXEN_REGENERATE=1</c> to write the census back instead of asserting it.</summary>
-    static bool Regenerating =>
-        Environment.GetEnvironmentVariable("VIXEN_REGENERATE") is "1";
+    static bool Regenerating => Environment.GetEnvironmentVariable("VIXEN_REGENERATE") is "1";
 
     /// <summary>The census names every clause the ledger declares, and no others.</summary>
     /// <remarks>
-    ///     ⚠ <b>This is the test that answers "what happens on the day nothing runs", so it is an
-    ///     equality and not a floor.</b> Adding a clause fails until the census records it, which is
+    ///     ⚠
+    ///     <b>
+    ///         This is the test that answers "what happens on the day nothing runs", so it is an
+    ///         equality and not a floor.
+    ///     </b>
+    ///     Adding a clause fails until the census records it, which is
     ///     the review step; deleting one fails too, which is the half a floor cannot do and the half
     ///     that matters — a refusal quietly losing its condition is exactly the event this whole suite
     ///     exists to notice. The shape is borrowed from
@@ -183,14 +209,18 @@ public class RefusalExpiryTests {
             TestContext.Current.TestOutputHelper?.WriteLine(line);
         }
 
-        Assert.Equal(census, declared.Select(clause => clause.Line).ToList());
+        Assert.Equal(census, [..declared.Select(static clause => clause.Line)]);
     }
 
     /// <summary>A row that emits and is read by nothing declares the condition that ends it.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The gate the census cannot be, and it exists because a clause was lost exactly
-    ///         the way the census is blind to.</b> <c>5103da9b3</c> gave <c>select</c> a second
+    ///         ⚠
+    ///         <b>
+    ///             The gate the census cannot be, and it exists because a clause was lost exactly
+    ///             the way the census is blind to.
+    ///         </b>
+    ///         <c>5103da9b3</c> gave <c>select</c> a second
     ///         clause — <c>expires-on Vixen.Ui.UiDocument.Selection</c> — with the argument that its
     ///         first one, <c>expires-when-read user-select</c>, comes due on the cheap close the
     ///         note spends a paragraph declining, so the row's only tripwire would have certified
@@ -199,8 +229,12 @@ public class RefusalExpiryTests {
     ///         <c>b68f80aba</c> regenerated the census, which dropped its own copy to match.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>So both halves of the guard went, in the one direction the equality above
-    ///         cannot see.</b> That equality does catch a clause deleted on its own — sabotaging
+    ///         ⚠
+    ///         <b>
+    ///             So both halves of the guard went, in the one direction the equality above
+    ///             cannot see.
+    ///         </b>
+    ///         That equality does catch a clause deleted on its own — sabotaging
     ///         this row reddens it verbatim. What it cannot catch is a deletion followed by a
     ///         regeneration, because the census is <i>derived</i> from the ledger: the run that
     ///         writes it back is the run that makes the two files agree about having lost the
@@ -263,18 +297,25 @@ public class RefusalExpiryTests {
     }
 
     /// <summary>The <c>inert</c> rows no clause names, by root.</summary>
-    static List<string> Bare(IEnumerable<ParityRow> rows, IReadOnlyList<ExpiryClause> clauses) =>
-        rows
-            .Where(row => string.Equals(row.State, "inert", StringComparison.Ordinal))
-            .Where(row => !clauses.Any(clause => !clause.Prose && string.Equals(clause.Root, row.Root, StringComparison.Ordinal)))
-            .Select(row => row.Root)
+    static List<string> Bare(IEnumerable<ParityRow> rows, IReadOnlyList<ExpiryClause> clauses) => [
+        ..rows
+            .Where(static row => string.Equals(row.State, "inert", StringComparison.Ordinal))
+            .Where(row => !clauses.Any(clause => !clause.Prose
+                    && string.Equals(clause.Root, row.Root, StringComparison.Ordinal)
+                )
+            )
+            .Select(static row => row.Root)
             .Order(StringComparer.Ordinal)
-            .ToList();
+    ];
 
     /// <summary>Every clause that opened parsed, so a mistyped one is a failure and not an exemption.</summary>
     /// <remarks>
-    ///     ⚠ <b>Quotations are on the right-hand side, and leaving them off would have exempted the
-    ///     half of the grammar that has no other guard at all.</b> A quotation resolves no anchor and
+    ///     ⚠
+    ///     <b>
+    ///         Quotations are on the right-hand side, and leaving them off would have exempted the
+    ///         half of the grammar that has no other guard at all.
+    ///     </b>
+    ///     A quotation resolves no anchor and
     ///     expires on no condition — there is nothing else in this file that ever looks at one — so
     ///     being counted here is the whole of what holds it to a shape. <c>[~expires-</c> does not
     ///     contain <c>[expires-</c>, so this is not automatic: <see cref="RefusalExpiry.Opened" />'s
@@ -294,13 +335,21 @@ public class RefusalExpiryTests {
     /// <summary>A note that talks about a clause does not thereby declare a second one.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The defect this pair is written against, which was found in the tree rather than
-    ///         imagined</b> (#1325). The <c>select</c> row's note narrates the commit that gave it its
+    ///         ⚠
+    ///         <b>
+    ///             The defect this pair is written against, which was found in the tree rather than
+    ///             imagined
+    ///         </b>
+    ///         (#1325). The <c>select</c> row's note narrates the commit that gave it its
     ///         <c>expires-on</c> clause and the merge that took it away seventy-seven minutes later —
     ///         the ordinary way this repository records why a refusal is worded as it is, and the thing
     ///         the census header asks for when it says clauses live "next to the prose they formalise".
-    ///         Written in the only spelling the grammar had, that sentence <i>declared a second real
-    ///         clause</i>, off the same cell as the live one, and the census recorded the same line
+    ///         Written in the only spelling the grammar had, that sentence
+    ///         <i>
+    ///             declared a second real
+    ///             clause
+    ///         </i>
+    ///         , off the same cell as the live one, and the census recorded the same line
     ///         twice.
     ///     </para>
     ///     <para>
@@ -354,8 +403,11 @@ public class RefusalExpiryTests {
     /// <summary>No root declares the same condition twice.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The question no other test in this file can ask, and the reason the duplicate
-    ///         #1325 found sat green.</b>
+    ///         ⚠
+    ///         <b>
+    ///             The question no other test in this file can ask, and the reason the duplicate
+    ///             #1325 found sat green.
+    ///         </b>
     ///         <see cref="The_census_is_exactly_the_clauses_the_ledger_and_the_prose_declare" /> is a
     ///         list equality against a list the same sweep produced, so a repeated line is consistent
     ///         with itself; <see cref="No_refusal_outlives_the_condition_it_names" /> evaluates the
@@ -428,7 +480,7 @@ public class RefusalExpiryTests {
         cells[1] = root;
         cells[12] = note;
 
-        return new ParityRow { Cells = cells };
+        return new() { Cells = cells };
     }
 
     /// <summary>An anchor names a root the ledger has, or a type an assembly has.</summary>
@@ -439,7 +491,7 @@ public class RefusalExpiryTests {
     [Fact]
     public void Every_clause_is_anchored_on_something_that_is_really_there() {
         var (_, rows) = ParityLedger.Read(ParityLedger.Locate());
-        var roots = rows.Select(row => row.Root).ToHashSet(StringComparer.Ordinal);
+        var roots = rows.Select(static row => row.Root).ToHashSet(StringComparer.Ordinal);
 
         foreach (var clause in RefusalExpiry.All(rows, RefusalExpiry.Root())) {
             if (clause.Kind == ExpiryKind.With) {
@@ -491,14 +543,19 @@ public class RefusalExpiryTests {
     ///         authoritative for a year.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Every clause is evaluated and they are reported together, which is not a tidying
-    ///         of the message.</b> This asserted per clause until 2026-09-10, so the first expiry
+    ///         ⚠
+    ///         <b>
+    ///             Every clause is evaluated and they are reported together, which is not a tidying
+    ///             of the message.
+    ///         </b>
+    ///         This asserted per clause until 2026-09-10, so the first expiry
     ///         threw and the rest of the sweep never ran — and <c>RefusalExpiry.txt</c>'s own header
     ///         says the pattern to look for is <i>rows sharing an anchor</i>, because "when that
     ///         premise closes, they all rot at once and the suite reports only the first". The
     ///         instrument had exactly the defect the census it reads on warns about. Three rows name
     ///         <c>UiVertex.W</c> directly (until #548 landed it and they moved to
-    ///         <c>expires-on Vixen.Ui.TransformReader.perspective</c>) and four more reach it through <c>expires-with</c>, so the
+    ///         <c>expires-on Vixen.Ui.TransformReader.perspective</c>) and four more reach it through <c>expires-with</c>, so
+    ///         the
     ///         day #548 lands this used to print one root's name; a reader would size a seven-row
     ///         decision as a one-row one, fix the row they were shown, and be told about the next
     ///         one on the next run. It was measured on that exact anchor rather than predicted
@@ -508,7 +565,7 @@ public class RefusalExpiryTests {
     [Fact]
     public void No_refusal_outlives_the_condition_it_names() {
         var (_, rows) = ParityLedger.Read(ParityLedger.Locate());
-        var state = rows.ToDictionary(row => row.Root, row => row.State, StringComparer.Ordinal);
+        var state = rows.ToDictionary(static row => row.Root, static row => row.State, StringComparer.Ordinal);
         var expired = new List<string>();
 
         // ⚠ The sweep is the WIDE one — the ledger plus every README and doc comment — because a

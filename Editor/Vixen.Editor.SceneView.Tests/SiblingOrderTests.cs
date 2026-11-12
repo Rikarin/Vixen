@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core;
-using Vixen.Core.Mathematics;
 using Vixen.Ecs;
 using Vixen.Editor.Core;
 using Vixen.Engine.Transforms;
@@ -13,8 +12,11 @@ namespace Vixen.Editor.SceneView.Tests;
 /// <summary>Doc 20 § Part D's second ⛔: reordering among siblings, which had no way in.</summary>
 /// <remarks>
 ///     <para>
-///         <b><c>Hierarchy.SetParentAfter</c> has existed since the outliner did, and
-///         <see cref="ReparentCommand" /> used it to <i>undo</i> a move.</b> What nothing could say
+///         <b>
+///             <c>Hierarchy.SetParentAfter</c> has existed since the outliner did, and
+///             <see cref="ReparentCommand" /> used it to <i>undo</i> a move.
+///         </b>
+///         What nothing could say
 ///         was where a move should <i>land</i>: <c>Do</c> placed every entity with no neighbour,
 ///         which links — and linking prepends. So a drop landed at the head of its new parent's
 ///         children whatever the pointer had aimed at, and a drop between two rows of one parent was
@@ -32,8 +34,8 @@ public sealed class SiblingOrderTests : IDisposable {
     readonly SceneDocument document;
 
     public SiblingOrderTests() {
-        var project = new EditorProject(new ProjectPaths(Path.Combine(Path.GetTempPath(), "vixen-sibling-order")));
-        document = new SceneDocument(project, world, AssetId.Empty, "Test");
+        var project = new EditorProject(new(Path.Combine(Path.GetTempPath(), "vixen-sibling-order")));
+        document = new(project, world, AssetId.Empty, "Test");
     }
 
     public void Dispose() => world.Dispose();
@@ -141,11 +143,11 @@ public sealed class SiblingOrderTests : IDisposable {
         for (var index = 0; index < count; index++) {
             document.Add(
                 "Child " + index.ToString(null as IFormatProvider),
-                LocalTransform.At(new Vector3(index, 0f, 0f)),
+                LocalTransform.At(new(index, 0f, 0f)),
                 parent
             );
         }
 
-        return (parent, [.. Children(parent)]);
+        return (parent, [..Children(parent)]);
     }
 }

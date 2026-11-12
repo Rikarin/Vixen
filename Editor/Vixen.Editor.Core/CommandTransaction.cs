@@ -19,7 +19,9 @@ public sealed class CommandTransaction : IDisposable {
     readonly CommandStack stack;
     bool closed;
 
-    internal CommandTransaction(CommandStack stack) => this.stack = stack;
+    internal CommandTransaction(CommandStack stack) {
+        this.stack = stack;
+    }
 
     /// <summary>Records everything collected as one entry.</summary>
     /// <remarks>

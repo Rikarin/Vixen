@@ -28,7 +28,7 @@ public sealed class ContentBuilderTests {
         var bundle = Assert.Single(built.Bundles);
         Assert.Equal("UiCore", bundle.Name);
         Assert.Equal(3, built.Catalog.Count);
-        Assert.All(built.Catalog.Entries, entry => Assert.Equal("UiCore", entry.Bundle));
+        Assert.All(built.Catalog.Entries, static entry => Assert.Equal("UiCore", entry.Bundle));
     }
 
     /// <summary>
@@ -53,13 +53,13 @@ public sealed class ContentBuilderTests {
     [Fact]
     public void PackSeparatelyGivesEachAssetItsOwnBundle() {
         var built = Build(
-            [Group("UiCore", packing: BundlePacking.PackSeparately)],
+            [Group("UiCore", BundlePacking.PackSeparately)],
             [Asset("ui/hero", "UiCore"), Asset("ui/villain", "UiCore")]
         );
 
         Assert.Equal(2, built.Bundles.Length);
-        Assert.All(built.Bundles, bundle => Assert.DoesNotContain('/', bundle.FileName));
-        Assert.Equal(2, built.Catalog.Entries.Select(entry => entry.Bundle).Distinct().Count());
+        Assert.All(built.Bundles, static bundle => Assert.DoesNotContain('/', bundle.FileName));
+        Assert.Equal(2, built.Catalog.Entries.Select(static entry => entry.Bundle).Distinct().Count());
     }
 
     /// <summary>
@@ -69,18 +69,18 @@ public sealed class ContentBuilderTests {
     [Fact]
     public void PackByLabelGivesEachLabelABundle() {
         var built = Build(
-            [Group("Level1", packing: BundlePacking.PackTogetherByLabel)],
+            [Group("Level1", BundlePacking.PackTogetherByLabel)],
             [
-                Asset("level1/rock", "Level1", labels: ["props"]),
-                Asset("level1/tree", "Level1", labels: ["props"]),
-                Asset("level1/sky", "Level1", labels: ["backdrop"]),
+                Asset("level1/rock", "Level1", ["props"]),
+                Asset("level1/tree", "Level1", ["props"]),
+                Asset("level1/sky", "Level1", ["backdrop"]),
                 Asset("level1/loose", "Level1")
             ]
         );
 
         Assert.Equal(
             ["Level1", "Level1_backdrop", "Level1_props"],
-            built.Bundles.Select(bundle => bundle.Name).Order(StringComparer.Ordinal)
+            built.Bundles.Select(static bundle => bundle.Name).Order(StringComparer.Ordinal)
         );
 
         Assert.Equal("Level1_props", built.Catalog.Get("level1/rock").Bundle);
@@ -95,8 +95,8 @@ public sealed class ContentBuilderTests {
     [Fact]
     public void AnAssetWithTwoLabelsGoesInTheFirstAndTheBuildSaysSo() {
         var built = Build(
-            [Group("Level1", packing: BundlePacking.PackTogetherByLabel)],
-            [Asset("level1/rock", "Level1", labels: ["props", "boot"])]
+            [Group("Level1", BundlePacking.PackTogetherByLabel)],
+            [Asset("level1/rock", "Level1", ["props", "boot"])]
         );
 
         Assert.Equal("Level1_boot", built.Catalog.Get("level1/rock").Bundle);
@@ -161,7 +161,10 @@ public sealed class ContentBuilderTests {
 
         Assert.Equal(1, built.Catalog.Count);
         Assert.False(built.Catalog.Contains("wip/thing"));
-        Assert.Contains(built.Diagnostics, note => note.Message.Contains("turned off", StringComparison.Ordinal));
+        Assert.Contains(
+            built.Diagnostics,
+            static note => note.Message.Contains("turned off", StringComparison.Ordinal)
+        );
     }
 
     /// <summary>
@@ -170,8 +173,10 @@ public sealed class ContentBuilderTests {
     /// </summary>
     [Fact]
     public void AnAssetInAGroupNothingDefinesStopsTheBuild() {
-        var failure = Assert.Throws<ArgumentException>(
-            () => Build([Group("UiCore")], [Asset("ui/hero", "Missing")])
+        var failure = Assert.Throws<ArgumentException>(static () => Build(
+                [Group("UiCore")],
+                [Asset("ui/hero", "Missing")]
+            )
         );
 
         Assert.Contains("Missing", failure.Message, StringComparison.Ordinal);
@@ -210,13 +215,11 @@ public sealed class ContentBuilderTests {
     [Fact]
     public void TheSameContentInAnyOrderBuildsTheSameBytes() {
         var assets = new[] {
-            Asset("ui/hero", "UiCore", labels: ["ui"]),
-            Asset("ui/villain", "UiCore"),
-            Asset("ui/shader", "UiCore")
+            Asset("ui/hero", "UiCore", ["ui"]), Asset("ui/villain", "UiCore"), Asset("ui/shader", "UiCore")
         };
 
         var forwards = Build([Group("UiCore")], assets);
-        var backwards = Build([Group("UiCore")], [.. assets.Reverse()]);
+        var backwards = Build([Group("UiCore")], [..assets.Reverse()]);
 
         Assert.Equal(
             Assert.Single(forwards.Bundles).Bytes.ToArray(),
@@ -256,8 +259,8 @@ public sealed class ContentBuilderTests {
         // Nothing wrote any of these chunks, so each one is reported.
         Assert.Equal(3, forwards.Diagnostics.Length);
         Assert.Equal(
-            forwards.Diagnostics.Select(note => note.Message),
-            backwards.Diagnostics.Select(note => note.Message)
+            forwards.Diagnostics.Select(static note => note.Message),
+            backwards.Diagnostics.Select(static note => note.Message)
         );
 
         Assert.Contains("aardvark", forwards.Diagnostics[0].Message, StringComparison.Ordinal);
@@ -342,8 +345,14 @@ public sealed class ContentBuilderTests {
         string[]? dependencies = null,
         AssetReference reference = default
     ) =>
-        new(address, ContentHash.Compute(Encoding.UTF8.GetBytes(address)), group, [.. labels ?? []],
-            [.. dependencies ?? []], reference);
+        new(
+            address,
+            ContentHash.Compute(Encoding.UTF8.GetBytes(address)),
+            group,
+            [..labels ?? []],
+            [..dependencies ?? []],
+            reference
+        );
 
     /// <summary>Writes a chunk for every asset, so the builder has something real to pack.</summary>
     static ContentBuildResult Build(AddressableGroup[] groups, BuildableAsset[] assets) {

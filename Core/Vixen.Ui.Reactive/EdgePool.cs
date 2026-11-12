@@ -64,14 +64,17 @@ static class EdgePool {
     /// <summary>Buckets for lengths 4 … 2²⁵. Anything longer is allocated and not pooled.</summary>
     const int BucketCount = 24;
 
-    [ThreadStatic] static Edge[][][]? free;
-    [ThreadStatic] static int[]? freeCount;
+    [ThreadStatic]
+    static Edge[][][]? free;
+
+    [ThreadStatic]
+    static int[]? freeCount;
 
     /// <summary>An array of at least <paramref name="minimumLength" /> zeroed edges.</summary>
     /// <param name="minimumLength">The number of edges the caller needs to store.</param>
     /// <returns>A pooled or newly allocated array, every slot of which is <see langword="default" />.</returns>
     public static Edge[] Rent(int minimumLength) {
-        var length = int.Max(MinimumLength, (int) BitOperations.RoundUpToPowerOf2((uint) minimumLength));
+        var length = int.Max(MinimumLength, (int)BitOperations.RoundUpToPowerOf2((uint)minimumLength));
         var bucket = BucketOf(length);
 
         if (bucket < BucketCount && freeCount is not null && freeCount[bucket] > 0) {
@@ -117,5 +120,5 @@ static class EdgePool {
         freeCount[bucket] = count + 1;
     }
 
-    static int BucketOf(int length) => BitOperations.TrailingZeroCount((uint) length) - MinimumLengthLog2;
+    static int BucketOf(int length) => BitOperations.TrailingZeroCount((uint)length) - MinimumLengthLog2;
 }

@@ -51,10 +51,22 @@ public sealed class NavMeshBakeTests {
         // Every vertex has to be at least a radius inside the floor, because that is the whole
         // promise erosion makes: a point on the mesh is a place a body of that width fits.
         foreach (var vertex in tile.Vertices) {
-            Assert.True(vertex.X >= Settings.AgentRadius - Settings.CellSize, $"{vertex} is too close to the west edge.");
-            Assert.True(vertex.X <= 10 - Settings.AgentRadius + Settings.CellSize, $"{vertex} is too close to the east edge.");
-            Assert.True(vertex.Z >= Settings.AgentRadius - Settings.CellSize, $"{vertex} is too close to the south edge.");
-            Assert.True(vertex.Z <= 10 - Settings.AgentRadius + Settings.CellSize, $"{vertex} is too close to the north edge.");
+            Assert.True(
+                vertex.X >= Settings.AgentRadius - Settings.CellSize,
+                $"{vertex} is too close to the west edge."
+            );
+            Assert.True(
+                vertex.X <= 10 - Settings.AgentRadius + Settings.CellSize,
+                $"{vertex} is too close to the east edge."
+            );
+            Assert.True(
+                vertex.Z >= Settings.AgentRadius - Settings.CellSize,
+                $"{vertex} is too close to the south edge."
+            );
+            Assert.True(
+                vertex.Z <= 10 - Settings.AgentRadius + Settings.CellSize,
+                $"{vertex} is too close to the north edge."
+            );
         }
     }
 
@@ -113,7 +125,7 @@ public sealed class NavMeshBakeTests {
                 }
 
                 var start = tile.PolyVertices[first + edge];
-                var end = tile.PolyVertices[first + ((edge + 1) % count)];
+                var end = tile.PolyVertices[first + (edge + 1) % count];
                 var matched = false;
 
                 var neighbourFirst = tile.Polys[neighbour].FirstVertex;
@@ -121,7 +133,7 @@ public sealed class NavMeshBakeTests {
 
                 for (var other = 0; other < neighbourCount; other++) {
                     var otherStart = tile.PolyVertices[neighbourFirst + other];
-                    var otherEnd = tile.PolyVertices[neighbourFirst + ((other + 1) % neighbourCount)];
+                    var otherEnd = tile.PolyVertices[neighbourFirst + (other + 1) % neighbourCount];
 
                     if (otherStart == end && otherEnd == start && tile.PolyNeighbours[neighbourFirst + other] == poly) {
                         matched = true;
@@ -130,7 +142,10 @@ public sealed class NavMeshBakeTests {
                     }
                 }
 
-                Assert.True(matched, $"Polygon {poly} claims {neighbour} across edge {edge}, which does not claim it back.");
+                Assert.True(
+                    matched,
+                    $"Polygon {poly} claims {neighbour} across edge {edge}, which does not claim it back."
+                );
             }
         }
     }

@@ -284,9 +284,13 @@ internal sealed class WebPower : IPowerInfo {
 ///         <c>WasmEnableThreads</c> in the head's project file.
 ///     </para>
 ///     <para>
-///         ⚠ <b>This read cross-origin isolation and reported <c>hardwareConcurrency</c> when it was
-///         set, and that was a number derived from a proxy for the thing rather than from the
-///         thing</b> (<a href="https://github.com/Rikarin/Vixen/issues/486">#486</a>). Nothing in
+///         ⚠
+///         <b>
+///             This read cross-origin isolation and reported <c>hardwareConcurrency</c> when it was
+///             set, and that was a number derived from a proxy for the thing rather than from the
+///             thing
+///         </b>
+///         (<a href="https://github.com/Rikarin/Vixen/issues/486">#486</a>). Nothing in
 ///         this repository sets <c>WasmEnableThreads</c> — not
 ///         <c>Platform/Vixen.Platform.Web/build/</c>, not <c>Tools/Vixen.WebProbe</c>, not any
 ///         workflow — so the published head links the single-threaded runtime pack and has one
@@ -295,8 +299,12 @@ internal sealed class WebPower : IPowerInfo {
 ///         COOP and COEP, so that was the case CI exercised.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The question <see cref="AvailableProcessors" /> answers is "does this runtime have
-///         threads", and isolation is evidence for that rather than an answer to it.</b> When
+///         ⚠
+///         <b>
+///             The question <see cref="AvailableProcessors" /> answers is "does this runtime have
+///             threads", and isolation is evidence for that rather than an answer to it.
+///         </b>
+///         When
 ///         <c>WasmEnableThreads</c> arrives — a different runtime pack, a different trimming profile
 ///         and an emcc relink, so not a small change — this is where the two halves get conjoined,
 ///         and <see cref="IsCrossOriginIsolated" /> is already here as one of them.
@@ -318,13 +326,17 @@ internal sealed class WebProcessors : IProcessorTopology {
     public int AvailableProcessors => 1;
 
     /// <inheritdoc />
-    /// <remarks>What the browser claims the machine has, which is a hint rather than a count. See
-    /// the type's remarks.</remarks>
+    /// <remarks>
+    ///     What the browser claims the machine has, which is a hint rather than a count. See
+    ///     the type's remarks.
+    /// </remarks>
     public int PhysicalCores { get; } = Math.Max(1, WebInterop.HardwareConcurrency());
 
     /// <inheritdoc />
-    /// <remarks>Zero. A page is not told which cores are performance cores, and on a phone that is
-    /// exactly the split that would matter.</remarks>
+    /// <remarks>
+    ///     Zero. A page is not told which cores are performance cores, and on a phone that is
+    ///     exactly the split that would matter.
+    /// </remarks>
     public int PerformanceCores => 0;
 
     /// <inheritdoc />

@@ -10,15 +10,22 @@ namespace Vixen.App.Tests;
 /// <summary>Which context is asked for, and which of the two GL bindings the answer is loaded through.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>The GLES half of <c>Vixen.Graphics.OpenGL</c> was unreachable from a head, and both
-///         halves of the reason are asserted here.</b> <c>GraphicsHost</c> asked its window for one
+///         ⚠
+///         <b>
+///             The GLES half of <c>Vixen.Graphics.OpenGL</c> was unreachable from a head, and both
+///             halves of the reason are asserted here.
+///         </b>
+///         <c>GraphicsHost</c> asked its window for one
 ///         context and it was 4.5 core — so <c>ProfileOf</c>'s <c>Es30</c> and <c>Es32</c> arms could
 ///         never fire — and then loaded whatever came back through <c>SilkGlApi</c>, the binding over
 ///         <c>libGL</c>, whatever profile it had just decided on.
 ///     </para>
 ///     <para>
-///         <b>Two entry points rather than <c>Create</c>, because the rest of that path needs a
-///         driver.</b> <c>GlDevice</c>'s constructor calls <c>glGetString</c> before it returns
+///         <b>
+///             Two entry points rather than <c>Create</c>, because the rest of that path needs a
+///             driver.
+///         </b>
+///         <c>GlDevice</c>'s constructor calls <c>glGetString</c> before it returns
 ///         anything, so a fake proc address that answers zero crashes rather than reporting — which
 ///         is GL's rule, not a shortcoming of the fake. What is decidable with no driver is which
 ///         request was made and which binding type was built, and that is what these check.
@@ -28,7 +35,7 @@ public sealed class GlBindingSelectionTests {
     /// <summary>Desktop core is asked for first, and a window that has it is asked once.</summary>
     [Fact]
     public void ADesktopWindowIsAskedForCoreAndNothingElse() {
-        var source = new RecordingGlWindow(embeddedOnly: false);
+        var source = new RecordingGlWindow(false);
 
         Assert.True(GraphicsHost.TryCreateContext(source, out var context, out var reason));
         Assert.NotNull(context);
@@ -52,7 +59,7 @@ public sealed class GlBindingSelectionTests {
     /// </remarks>
     [Fact]
     public void AWindowWithNoDesktopGlIsAskedForGlesNext() {
-        var source = new RecordingGlWindow(embeddedOnly: true);
+        var source = new RecordingGlWindow(true);
 
         Assert.True(GraphicsHost.TryCreateContext(source, out var context, out _));
         Assert.NotNull(context);
@@ -67,7 +74,7 @@ public sealed class GlBindingSelectionTests {
     /// <summary>Core is tried before GLES, so a driver with both keeps <c>glClipControl</c>.</summary>
     [Fact]
     public void CoreIsPreferredOverGles() {
-        var source = new RecordingGlWindow(embeddedOnly: false);
+        var source = new RecordingGlWindow(false);
 
         Assert.True(GraphicsHost.TryCreateContext(source, out var context, out _));
         Assert.NotNull(context);
@@ -83,7 +90,7 @@ public sealed class GlBindingSelectionTests {
     /// </remarks>
     [Fact]
     public void NeitherContextLeavesBothRefusalsInTheReason() {
-        var source = new RecordingGlWindow(embeddedOnly: false) { Refuse = true };
+        var source = new RecordingGlWindow(false) { Refuse = true };
 
         Assert.False(GraphicsHost.TryCreateContext(source, out var context, out var reason));
         Assert.Null(context);
@@ -105,7 +112,7 @@ public sealed class GlBindingSelectionTests {
     [InlineData(GlProfile.Es30)]
     [InlineData(GlProfile.Es32)]
     public void AGlesProfileLoadsTheGlesBinding(GlProfile profile) {
-        using var api = (IDisposable)GraphicsHost.BindingFor(profile, _ => 0);
+        using var api = (IDisposable)GraphicsHost.BindingFor(profile, static _ => 0);
 
         Assert.IsType<SilkGlesApi>(api);
         Assert.Equal(profile, ((SilkGlesApi)api).Profile);
@@ -114,7 +121,7 @@ public sealed class GlBindingSelectionTests {
     /// <summary>And a desktop profile still loads the desktop one.</summary>
     [Fact]
     public void TheDesktopProfileLoadsTheDesktopBinding() {
-        using var api = (IDisposable)GraphicsHost.BindingFor(GlProfile.Core45, _ => 0);
+        using var api = (IDisposable)GraphicsHost.BindingFor(GlProfile.Core45, static _ => 0);
 
         Assert.IsType<SilkGlApi>(api);
     }

@@ -181,8 +181,7 @@ public sealed class SensorSet {
     /// <summary>What a global target sensor last found.</summary>
     /// <param name="index">Its index among the globals.</param>
     /// <returns>The target.</returns>
-    public SensorTarget TargetOf(int index) =>
-        (uint)index < (uint)targets.Count ? targets[index] : SensorTarget.None;
+    public SensorTarget TargetOf(int index) => (uint)index < (uint)targets.Count ? targets[index] : SensorTarget.None;
 
     /// <summary>
     ///     Writes a target's place and thing, or clears both when nothing was found.

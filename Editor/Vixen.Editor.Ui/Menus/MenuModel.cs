@@ -48,7 +48,9 @@ public sealed class MenuGroup {
 
     /// <summary>Creates a group.</summary>
     /// <param name="title">What its name says.</param>
-    public MenuGroup(StringId title) => Title = title;
+    public MenuGroup(StringId title) {
+        Title = title;
+    }
 
     /// <summary>What its name says.</summary>
     public StringId Title { get; }

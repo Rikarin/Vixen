@@ -16,8 +16,12 @@ namespace Vixen.Geometry.Uv.Tests;
 ///         margin, the rung and the rotation count.
 ///     </para>
 ///     <para>
-///         ⚠ <b>And it records what <see cref="PackOverflow.NextTile" /> does when no density is
-///         pinned, which is nothing.</b> <c>Packer</c> opens tiles only in uniform mode: with
+///         ⚠
+///         <b>
+///             And it records what <see cref="PackOverflow.NextTile" /> does when no density is
+///             pinned, which is nothing.
+///         </b>
+///         <c>Packer</c> opens tiles only in uniform mode: with
 ///         <see cref="PackSettings.TexelDensity" /> at its default of zero there is no density to fail
 ///         to meet, so the scale search shrinks into one tile and the caller's stated choice is not
 ///         taken — <i>and no warning says so</i>. The behaviour is defensible; the silence is the
@@ -54,10 +58,10 @@ public class UvUdimTests {
             out var report
         );
 
-        var tiles = placements.Select(placement => placement.Tile).Distinct().ToList();
+        var tiles = placements.Select(static placement => placement.Tile).Distinct().ToList();
 
         Assert.True(tiles.Count > 1, $"{resolution}²/{margin}: the corpus fitted one tile, so nothing straddled.");
-        Assert.Contains(report.Warnings, warning => warning.Contains("UDIM", StringComparison.Ordinal));
+        Assert.Contains(report.Warnings, static warning => warning.Contains("UDIM", StringComparison.Ordinal));
 
         foreach (var tile in tiles) {
             // ⚠ Integer offsets, and never a fraction. A UDIM tile is `1001 + u + 10v` by convention,
@@ -112,8 +116,11 @@ public class UvUdimTests {
             out var report
         );
 
-        Assert.True(placements.Select(placement => placement.Tile).Distinct().Count() > 1, "one tile proves nothing");
-        Assert.Contains(report.Warnings, warning => warning.Contains("UDIM", StringComparison.Ordinal));
+        Assert.True(
+            placements.Select(static placement => placement.Tile).Distinct().Count() > 1,
+            "one tile proves nothing"
+        );
+        Assert.Contains(report.Warnings, static warning => warning.Contains("UDIM", StringComparison.Ordinal));
 
         for (var index = 0; index < placements.Count; index++) {
             var placement = placements[index];
@@ -130,8 +137,12 @@ public class UvUdimTests {
 
     /// <summary>A tile holds no overlaps of its own, which spilling could otherwise hide.</summary>
     /// <remarks>
-    ///     ⚠ <b>A packer that opened a tile too eagerly would pass every straddle check and still be
-    ///     wrong.</b> The occupancy grid is per tile, so the failure a spill invites is two islands in
+    ///     ⚠
+    ///     <b>
+    ///         A packer that opened a tile too eagerly would pass every straddle check and still be
+    ///         wrong.
+    ///     </b>
+    ///     The occupancy grid is per tile, so the failure a spill invites is two islands in
     ///     one tile that were checked against different grids — which shows up as overlap and as
     ///     nothing else.
     /// </remarks>
@@ -144,7 +155,7 @@ public class UvUdimTests {
             new() { Resolution = 256, Margin = 2, TexelDensity = 900f, Overflow = PackOverflow.NextTile }
         );
 
-        var tiles = placements.Select(placement => placement.Tile).Distinct().ToList();
+        var tiles = placements.Select(static placement => placement.Tile).Distinct().ToList();
 
         Assert.True(tiles.Count > 1);
 
@@ -166,14 +177,19 @@ public class UvUdimTests {
         var scaled = UvUnwrap.Pack(islands, Settings(PackOverflow.Scale), out var scaledReport);
         var spilled = UvUnwrap.Pack(islands, Settings(PackOverflow.NextTile), out _);
 
-        Assert.Single(scaled.Select(placement => placement.Tile).Distinct());
-        Assert.True(spilled.Select(placement => placement.Tile).Distinct().Count() > 1);
+        Assert.Single(scaled.Select(static placement => placement.Tile).Distinct());
+        Assert.True(spilled.Select(static placement => placement.Tile).Distinct().Count() > 1);
 
-        Assert.Contains(scaledReport.Warnings, warning => warning.Contains("scaled to", StringComparison.Ordinal));
+        Assert.Contains(
+            scaledReport.Warnings,
+            static warning => warning.Contains("scaled to", StringComparison.Ordinal)
+        );
         Assert.True(scaledReport.TexelDensity.Maximum < 900f, "Scale mode claimed it met the density it did not.");
 
-        var refusal = Assert.Throws<InvalidOperationException>(
-            () => UvUnwrap.Pack(islands, Settings(PackOverflow.Refuse))
+        var refusal = Assert.Throws<InvalidOperationException>(() => UvUnwrap.Pack(
+                islands,
+                Settings(PackOverflow.Refuse)
+            )
         );
 
         Assert.Contains("do not fit", refusal.Message, StringComparison.Ordinal);
@@ -207,7 +223,7 @@ public class UvUdimTests {
             out var report
         );
 
-        Assert.Single(placements.Select(placement => placement.Tile).Distinct());
+        Assert.Single(placements.Select(static placement => placement.Tile).Distinct());
         Assert.Equal(Int2.Zero, placements[0].Tile);
         Assert.Empty(report.Warnings);
 
@@ -218,6 +234,6 @@ public class UvUdimTests {
             new() { Resolution = 256, Margin = 2, TexelDensity = 900f, Overflow = PackOverflow.NextTile }
         );
 
-        Assert.True(spilled.Select(placement => placement.Tile).Distinct().Count() > 1);
+        Assert.True(spilled.Select(static placement => placement.Tile).Distinct().Count() > 1);
     }
 }

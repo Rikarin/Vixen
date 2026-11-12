@@ -33,10 +33,7 @@ public sealed class VirtualCameraTests {
         public Entity Place(Vector3 position) => Hierarchy.CreateTransform(World, LocalTransform.At(position));
 
         public Entity Place(Vector3 position, Quaternion rotation) =>
-            Hierarchy.CreateTransform(World, LocalTransform.Identity with {
-                Position = position,
-                Rotation = rotation
-            });
+            Hierarchy.CreateTransform(World, LocalTransform.Identity with { Position = position, Rotation = rotation });
 
         public Entity Shot(Entity target, Vector3 at = default) =>
             VirtualCameras.Create(
@@ -111,7 +108,7 @@ public sealed class VirtualCameraTests {
         using var rig = new Rig();
         var target = rig.Place(Vector3.Zero);
         var shot = rig.Shot(target);
-        rig.World.Add(shot, FollowBody.Behind(5f, 2f, damping: 0f));
+        rig.World.Add(shot, FollowBody.Behind(5f, 2f, 0f));
 
         rig.Tick();
         AssertNear(new(0f, 2f, 5f), rig.Read(shot).Position);
@@ -151,11 +148,7 @@ public sealed class VirtualCameraTests {
 
         rig.World.Add(
             shot,
-            new FollowBody {
-                Offset = new(0f, 0f, 10f),
-                Binding = CameraBinding.World,
-                Damping = new(0.5f, 0.5f, 0.5f)
-            }
+            new FollowBody { Offset = new(0f, 0f, 10f), Binding = CameraBinding.World, Damping = new(0.5f, 0.5f, 0.5f) }
         );
 
         // The first evaluation snaps: there is no previous state to damp from.
@@ -212,7 +205,7 @@ public sealed class VirtualCameraTests {
         using var rig = new Rig();
         var target = rig.Place(new(3f, 0f, -10f));
         var shot = rig.Shot(target);
-        rig.World.Add(shot, FramingBody.At(10f, damping: 0f) with { DeadZone = Vector2.Zero });
+        rig.World.Add(shot, FramingBody.At(10f, 0f) with { DeadZone = Vector2.Zero });
 
         rig.Tick();
 
@@ -225,7 +218,7 @@ public sealed class VirtualCameraTests {
         using var rig = new Rig();
         var target = rig.Place(new(0f, 0f, -10f));
         var shot = rig.Shot(target);
-        rig.World.Add(shot, FramingBody.At(10f, damping: 0f));
+        rig.World.Add(shot, FramingBody.At(10f, 0f));
 
         rig.Tick();
         var settled = rig.Read(shot).Position;
@@ -257,7 +250,7 @@ public sealed class VirtualCameraTests {
         using var rig = new Rig();
         var target = rig.Place(new(0f, 0f, -10f));
         var shot = rig.Shot(target);
-        rig.World.Add(shot, ComposerAim.Centred(damping: 0f));
+        rig.World.Add(shot, ComposerAim.Centred(0f));
 
         rig.Tick();
         var settled = rig.Read(shot).Rotation;
@@ -279,7 +272,7 @@ public sealed class VirtualCameraTests {
         using var rig = new Rig();
         var target = rig.Place(new(0f, 0f, -10f));
         var shot = rig.Shot(target);
-        rig.World.Add(shot, ComposerAim.Centred(damping: 0f) with { DeadZone = new(0.2f, 0.2f) });
+        rig.World.Add(shot, ComposerAim.Centred(0f) with { DeadZone = new(0.2f, 0.2f) });
 
         rig.Tick();
 
@@ -358,7 +351,7 @@ public sealed class VirtualCameraTests {
                 return false;
             }
 
-            hit = subject + (direction / length * distance);
+            hit = subject + direction / length * distance;
             return true;
         }
     }
@@ -411,8 +404,7 @@ public sealed class VirtualCameraTests {
         rig.World.Add(
             shot,
             CameraNoise.Handheld with {
-                PositionAmplitude = new(0.05f, 0.05f, 0.05f),
-                PositionFrequency = new(3f, 5f, 7f)
+                PositionAmplitude = new(0.05f, 0.05f, 0.05f), PositionFrequency = new(3f, 5f, 7f)
             }
         );
 
@@ -479,9 +471,7 @@ public sealed class VirtualCameraTests {
     public void AnImpulseIsFeltLessFurtherAway() {
         var impulses = new CameraImpulses();
 
-        impulses.Emit(
-            CameraImpulse.Bump(Vector3.Zero, new(0f, 5f, 0f), duration: 1f, dissipation: 100f)
-        );
+        impulses.Emit(CameraImpulse.Bump(Vector3.Zero, new(0f, 5f, 0f), 1f, 100f));
 
         impulses.Advance(0.02f);
 
@@ -495,7 +485,7 @@ public sealed class VirtualCameraTests {
     [Fact]
     public void AnImpulseEndsExactlyWhenItSaysItWill() {
         var impulses = new CameraImpulses();
-        impulses.Emit(CameraImpulse.Bump(Vector3.Zero, new(0f, 5f, 0f), duration: 0.5f));
+        impulses.Emit(CameraImpulse.Bump(Vector3.Zero, new(0f, 5f, 0f)));
 
         for (var step = 0; step < 25; step++) {
             impulses.Advance(0.02f);
@@ -510,9 +500,8 @@ public sealed class VirtualCameraTests {
         var impulses = new CameraImpulses();
 
         impulses.Emit(
-            CameraImpulse.Bump(Vector3.Zero, new(0f, 5f, 0f), duration: 1f) with {
-                PropagationSpeed = 10f,
-                DissipationDistance = 100f
+            CameraImpulse.Bump(Vector3.Zero, new(0f, 5f, 0f), 1f) with {
+                PropagationSpeed = 10f, DissipationDistance = 100f
             }
         );
 
@@ -529,7 +518,7 @@ public sealed class VirtualCameraTests {
         var shot = rig.Shot(Entity.Null);
         rig.World.Add(shot, CameraImpulseListener.Default);
 
-        rig.System.Impulses.Emit(CameraImpulse.Bump(Vector3.Zero, new(0f, 10f, 0f), duration: 1f));
+        rig.System.Impulses.Emit(CameraImpulse.Bump(Vector3.Zero, new(0f, 10f, 0f), 1f));
         rig.Tick(0.03f);
 
         var shake = rig.Read(shot).ShakePosition;

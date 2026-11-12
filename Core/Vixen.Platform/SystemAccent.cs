@@ -15,8 +15,11 @@ namespace Vixen.Platform;
 /// </param>
 /// <remarks>
 ///     <para>
-///         <b>One role rather than a palette, because one role is what every desktop can answer and
-///         what the control theme already draws with.</b> <c>ControlTheme.vcss</c>'s <c>--accent</c>
+///         <b>
+///             One role rather than a palette, because one role is what every desktop can answer and
+///             what the control theme already draws with.
+///         </b>
+///         <c>ControlTheme.vcss</c>'s <c>--accent</c>
 ///         is the focus ring, the switch, the spinner and the selection — thirty-one declarations in
 ///         one sheet — and until this type existed nothing anywhere read the operating system's
 ///         choice into it. The wider platform palette (AppKit's <c>labelColor</c> and the rest) is a
@@ -40,8 +43,12 @@ namespace Vixen.Platform;
 ///         the next appearance change.
 ///     </para>
 ///     <para>
-///         ⚠ <b><see cref="Text" /> is nullable separately, and a platform answering the accent
-///         without it is the normal case.</b> macOS has <c>alternateSelectedControlTextColor</c>
+///         ⚠
+///         <b>
+///             <see cref="Text" /> is nullable separately, and a platform answering the accent
+///             without it is the normal case.
+///         </b>
+///         macOS has <c>alternateSelectedControlTextColor</c>
 ///         and Windows has a text colour beside its accent; a hex string out of a GNOME setting has
 ///         nothing of the kind. Leaving it <c>null</c> keeps <c>AccentColorText</c> on the default
 ///         table, which is the pairing rule <see cref="SystemAccessibility" />'s neighbour

@@ -10,8 +10,12 @@ namespace Vixen.Ui.Layout.Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Every assertion here is on a resolved box and not on a style, because the defect
-///         these close was invisible to a style-shaped test.</b> <c>width: min-content</c> reached
+///         ⚠
+///         <b>
+///             Every assertion here is on a resolved box and not on a style, because the defect
+///             these close was invisible to a style-shaped test.
+///         </b>
+///         <c>width: min-content</c> reached
 ///         <c>LayoutStyle.Dimensions</c> as a perfectly good <see cref="LayoutUnit" />, cascaded,
 ///         round-tripped, and then meant nothing at all: <see cref="StyleLength.Resolve" /> answers
 ///         NaN for a keyword, so the algorithm read the declaration as its own absence. A test that
@@ -54,7 +58,7 @@ public class ContentSizingTests {
         var perLine = MathF.Max(1f, MathF.Floor(width / word));
         var lines = MathF.Ceiling(words / perLine);
 
-        return new LayoutSize(width, request.HeightMode == MeasureMode.Exactly ? request.AvailableHeight : lines * lineHeight);
+        return new(width, request.HeightMode == MeasureMode.Exactly ? request.AvailableHeight : lines * lineHeight);
     }
 
     static (LayoutTree Tree, LayoutNodeId Root, LayoutNodeId Box, LayoutNodeId Text) Fixture(float rootWidth) {
@@ -258,7 +262,7 @@ public class ContentSizingTests {
         tree.SetDimension(box, Dimension.Width, StyleLength.Keyword(LayoutUnit.MaxContent));
         tree.CalculateLayout(root, float.NaN, float.NaN, Direction.Ltr);
 
-        Assert.Equal(LayoutUnit.MaxContent, tree.GetStyle(box).Dimensions[(int) Dimension.Width].Unit);
+        Assert.Equal(LayoutUnit.MaxContent, tree.GetStyle(box).Dimensions[(int)Dimension.Width].Unit);
     }
 
     [Fact]
@@ -272,8 +276,11 @@ public class ContentSizingTests {
         tree.CalculateLayout(root, float.NaN, float.NaN, Direction.Ltr);
         Assert.Equal(30f, tree.GetWidth(box), Tolerance);
 
-        tree.SetMeasureFunction(text, static (in MeasureRequest request) =>
-            new LayoutSize(request.WidthMode == MeasureMode.Exactly ? request.AvailableWidth : 70f, 10f));
+        tree.SetMeasureFunction(
+            text,
+            static (in MeasureRequest request) =>
+                new(request.WidthMode == MeasureMode.Exactly ? request.AvailableWidth : 70f, 10f)
+        );
 
         tree.CalculateLayout(root, float.NaN, float.NaN, Direction.Ltr);
         Assert.Equal(70f, tree.GetWidth(box), Tolerance);

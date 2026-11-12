@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core.Mathematics;
-using Vixen.Graphics.RenderGraph;
 using Vixen.Rendering;
 using Xunit;
 
@@ -139,7 +138,7 @@ public sealed class ShadowAtlasTileDeviceTests {
         var ndc = new Vector2(clip.X / clip.W, clip.Y / clip.W);
 
         // Transform.NdcToUv, negation and all.
-        var uv = new Vector2((ndc.X * 0.5f) + 0.5f, (-ndc.Y * 0.5f) + 0.5f);
+        var uv = new Vector2(ndc.X * 0.5f + 0.5f, -ndc.Y * 0.5f + 0.5f);
         var texel = (X: (int)(uv.X * Side), Y: (int)(uv.Y * Side));
 
         Assert.True(
@@ -168,28 +167,32 @@ public sealed class ShadowAtlasTileDeviceTests {
 
         var viewport = ShadowCascades.TileViewport(index, Cascades, Resolution);
 
-        fixture.Graph.AddPass($"tile {index}", pass => {
-            pass.ColourAttachment(colour, LoadAction.Clear, new(0f, 0f, 0f, 1f));
-            pass.SideEffect();
+        fixture.Graph.AddPass(
+            $"tile {index}",
+            pass => {
+                pass.ColourAttachment(colour, LoadAction.Clear, new(0f, 0f, 0f, 1f));
+                pass.SideEffect();
 
-            pass.Execute(context => {
-                context.CommandList.SetViewport(viewport);
+                pass.Execute(context => {
+                        context.CommandList.SetViewport(viewport);
 
-                context.CommandList.SetScissor(
-                    new((int)viewport.X, (int)viewport.Y, (int)viewport.Width, (int)viewport.Height)
+                        context.CommandList.SetScissor(
+                            new((int)viewport.X, (int)viewport.Y, (int)viewport.Width, (int)viewport.Height)
+                        );
+
+                        context.CommandList.BindPipeline(pipeline);
+                        context.CommandList.Draw(3);
+                    }
                 );
-
-                context.CommandList.BindPipeline(pipeline);
-                context.CommandList.Draw(3);
-            });
-        });
+            }
+        );
 
         var bitmap = fixture.Render(colour);
         var painted = new HashSet<(int X, int Y)>();
 
         for (var y = 0; y < Side; y++) {
             for (var x = 0; x < Side; x++) {
-                var offset = ((y * Side) + x) * 4;
+                var offset = (y * Side + x) * 4;
 
                 if (bitmap.Pixels[offset] > 8 || bitmap.Pixels[offset + 1] > 8 || bitmap.Pixels[offset + 2] > 8) {
                     painted.Add((x, y));

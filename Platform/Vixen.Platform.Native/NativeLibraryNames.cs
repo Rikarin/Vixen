@@ -27,7 +27,7 @@ public static class NativeLibraryNames {
     /// <param name="versions">Soname versions to try, in order — <c>1</c> for <c>libvulkan.so.1</c>.</param>
     /// <returns>The candidates.</returns>
     public static IEnumerable<string> For(string library, params ReadOnlySpan<string> versions) =>
-        ForPlatform(library, OperatingSystem.IsWindows(), OperatingSystem.IsMacOS(), [.. versions]);
+        ForPlatform(library, OperatingSystem.IsWindows(), OperatingSystem.IsMacOS(), [..versions]);
 
     /// <summary>The same, for a platform that is not this one.</summary>
     /// <param name="library">The library.</param>

@@ -175,22 +175,22 @@ static class WireCodec {
     public static bool TryLanes(in WireValue value, List<string> lanes) {
         switch (value.Kind) {
             case WireKind.Boolean:
-                lanes.Add(Lane(value.Name, 1, offset: false));
+                lanes.Add(Lane(value.Name, 1, false));
 
                 return true;
 
             case WireKind.Byte or WireKind.SByte:
-                lanes.Add(Lane(value.Name, 8, offset: false));
+                lanes.Add(Lane(value.Name, 8, false));
 
                 return true;
 
             case WireKind.Int16 or WireKind.UInt16:
-                lanes.Add(Lane(value.Name, 16, offset: true));
+                lanes.Add(Lane(value.Name, 16, true));
 
                 return true;
 
             case WireKind.Int32 or WireKind.UInt32:
-                lanes.Add(Lane(value.Name, 32, offset: true));
+                lanes.Add(Lane(value.Name, 32, true));
 
                 return true;
 
@@ -199,39 +199,39 @@ static class WireCodec {
             // that never changes costs one bit for its high half and one for its low, and a counter
             // that advances leaves the high half alone.
             case WireKind.Int64 or WireKind.UInt64:
-                lanes.Add(Lane($"{value.Name}.Low", 32, offset: true));
-                lanes.Add(Lane($"{value.Name}.High", 32, offset: true));
+                lanes.Add(Lane($"{value.Name}.Low", 32, true));
+                lanes.Add(Lane($"{value.Name}.High", 32, true));
 
                 return true;
 
             // A float's bits are not a number you may subtract. Sent whole when it changes, which is
             // exactly what a component that wanted a difference should have declared a range for.
             case WireKind.Single:
-                lanes.Add(Lane(value.Name, 32, offset: false));
+                lanes.Add(Lane(value.Name, 32, false));
 
                 return true;
 
             case WireKind.QuantizedSingle:
-                lanes.Add(Lane(value.Name, value.Bits, offset: true));
+                lanes.Add(Lane(value.Name, value.Bits, true));
 
                 return true;
 
             case WireKind.Vector3:
                 foreach (var axis in Axes) {
-                    lanes.Add(Lane($"{value.Name}.{axis}", 32, offset: false));
+                    lanes.Add(Lane($"{value.Name}.{axis}", 32, false));
                 }
 
                 return true;
 
             case WireKind.QuantizedVector3:
                 foreach (var axis in Axes) {
-                    lanes.Add(Lane($"{value.Name}.{axis}", value.Bits, offset: true));
+                    lanes.Add(Lane($"{value.Name}.{axis}", value.Bits, true));
                 }
 
                 return true;
 
             case WireKind.Rotation:
-                lanes.Add(Lane($"{value.Name}.Dropped", 2, offset: false));
+                lanes.Add(Lane($"{value.Name}.Dropped", 2, false));
 
                 foreach (var part in RotationParts) {
                     lanes.Add(

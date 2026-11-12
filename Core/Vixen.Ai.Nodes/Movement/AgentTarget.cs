@@ -109,6 +109,6 @@ public static class AgentTarget {
         var dx = to.X - from.X;
         var dz = to.Z - from.Z;
 
-        return MathF.Sqrt((dx * dx) + (dz * dz));
+        return MathF.Sqrt(dx * dx + dz * dz);
     }
 }

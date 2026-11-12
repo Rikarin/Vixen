@@ -105,7 +105,9 @@ public class PlayerProfileTests {
 
     [Fact]
     public void BytesThatAreNotAProfileAreRefusedRatherThanRead() {
-        Assert.Throws<ProfileFormatException>(() => PlayerProfile.Read(new byte[] { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12 }));
+        Assert.Throws<ProfileFormatException>(static () =>
+            PlayerProfile.Read(new byte[] { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12 })
+        );
     }
 
     [Fact]
@@ -159,7 +161,7 @@ public class PlayerProfileTests {
 
     [Fact]
     public void ASectionWithNoNameIsRefused() =>
-        Assert.Throws<InvalidOperationException>(() => new ProfileBinder().Add(new Slice("")));
+        Assert.Throws<InvalidOperationException>(static () => new ProfileBinder().Add(new Slice(string.Empty)));
 
     // ── The checkpoint ────────────────────────────────────────────────────────────────────────
 
@@ -269,7 +271,7 @@ public class PlayerProfileTests {
         var key = new PityKey(7, DefId.From("loot/skarr"));
 
         for (var attempt = 0; attempt < 12; attempt++) {
-            store.Record(key, hit: false);
+            store.Record(key, false);
         }
 
         new ProfileBinder().Add(store).Save(profile);
@@ -288,9 +290,9 @@ public class PlayerProfileTests {
         var store = new ProfilePityStore();
         var key = new PityKey(7, DefId.From("loot/skarr"));
 
-        store.Record(key, hit: false);
-        store.Record(key, hit: false);
-        store.Record(key, hit: true);
+        store.Record(key, false);
+        store.Record(key, false);
+        store.Record(key, true);
 
         Assert.Equal(0, store.AttemptsOf(key));
         Assert.Equal(0, store.Count);
@@ -305,7 +307,7 @@ public class PlayerProfileTests {
 
         Assert.False(policy.IsDirty);
 
-        store.Record(new(7, DefId.From("loot/skarr")), hit: false);
+        store.Record(new(7, DefId.From("loot/skarr")), false);
 
         Assert.True(policy.IsDirty);
     }

@@ -2,8 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core.Mathematics;
-using Vixen.Input;
-using Vixen.Ui.Styling;
 
 namespace Vixen.Ui.Controls.Advanced;
 
@@ -80,13 +78,13 @@ public sealed class ViewportGizmo : UiElement {
 
         foreach (var axis in order) {
             var direction = Axis(basis, axis);
-            var end = new Vector2(centre.X + (direction.X * radius), centre.Y - (direction.Y * radius));
+            var end = new Vector2(centre.X + direction.X * radius, centre.Y - direction.Y * radius);
 
             path.Clear().MoveTo(centre).LineTo(end);
             context.Stroke(path, viewport.AxisColor(axis), 2f, cap: LineCap.Round);
 
             context.FillRectangle(
-                new Rectangle(end.X - 2.5f, end.Y - 2.5f, 5f, 5f),
+                new(end.X - 2.5f, end.Y - 2.5f, 5f, 5f),
                 viewport.AxisColor(axis),
                 2.5f
             );
@@ -155,10 +153,15 @@ public sealed partial class Viewport : Control {
 
     /// <inheritdoc />
     /// <remarks>
-    ///     ⚠ <b>ARIA <c>application</c>, and it is a role with a cost that is worth paying
-    ///     here.</b> It tells assistive technology to stop intercepting the keyboard and pass every
+    ///     ⚠
+    ///     <b>
+    ///         ARIA <c>application</c>, and it is a role with a cost that is worth paying
+    ///         here.
+    ///     </b>
+    ///     It tells assistive technology to stop intercepting the keyboard and pass every
     ///     key through, because this element has a keyboard model of its own that no generic widget
-    ///     vocabulary describes. That is exactly true of a direct-manipulation surface — a scene flown through with the mouse and the arrow keys — and it
+    ///     vocabulary describes. That is exactly true of a direct-manipulation surface — a scene flown through with the mouse
+    ///     and the arrow keys — and it
     ///     is exactly false of a text field, which is why <c>CodeEditor</c> is a <c>textbox</c>
     ///     instead. Unnamed by default: what this one is a view of is the application's sentence,
     ///     and it is usually the panel title above it.
@@ -254,8 +257,12 @@ public sealed partial class Viewport : Control {
     ///         (<c>Conventions.md</c> § UV origin). Sampling it as it stands is right.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Turning it on mirrors the picture about the horizon, and almost nothing looks
-    ///         wrong.</b> A grid is symmetric, a scene of markers is nearly so, and the corner axis
+    ///         ⚠
+    ///         <b>
+    ///             Turning it on mirrors the picture about the horizon, and almost nothing looks
+    ///             wrong.
+    ///         </b>
+    ///         A grid is symmetric, a scene of markers is nearly so, and the corner axis
     ///         cross is an interface element that does not flip with it — so what a reader notices is
     ///         not "upside down" but that the gizmo cannot be clicked near the top or bottom of the
     ///         pane, that hover lights up a handle the cursor is not on, and that a vertical pan goes
@@ -276,7 +283,7 @@ public sealed partial class Viewport : Control {
     public int RenderHeight => renderHeight;
 
     /// <summary>The shape of it, for a projection matrix.</summary>
-    public float AspectRatio => renderHeight <= 0 ? 1f : (float) renderWidth / renderHeight;
+    public float AspectRatio => renderHeight <= 0 ? 1f : (float)renderWidth / renderHeight;
 
     /// <summary>Whether every pointer event is coming here.</summary>
     public bool IsCapturing { get; private set; }
@@ -334,8 +341,8 @@ public sealed partial class Viewport : Control {
         // remember to ask was a host that forgot on the frame a splitter settled.
         WhenResized(() => Refresh());
 
-        AddHandler<PointerEvent>(static (element, args) => ((Viewport) element).Pointed(args));
-        AddHandler<WheelEvent>(static (element, args) => ((Viewport) element).Wheeled(args));
+        AddHandler<PointerEvent>(static (element, args) => ((Viewport)element).Pointed(args));
+        AddHandler<WheelEvent>(static (element, args) => ((Viewport)element).Wheeled(args));
     }
 
     /// <summary>Brings the render size up to date and raises <see cref="Resized" /> if it moved.</summary>
@@ -349,8 +356,8 @@ public sealed partial class Viewport : Control {
     /// </remarks>
     /// <returns>Whether the size changed.</returns>
     public bool Refresh() {
-        var width = (int) MathF.Round(Width * RenderScale);
-        var height = (int) MathF.Round(Height * RenderScale);
+        var width = (int)MathF.Round(Width * RenderScale);
+        var height = (int)MathF.Round(Height * RenderScale);
 
         if (width == renderWidth && height == renderHeight) {
             return false;
@@ -405,8 +412,7 @@ public sealed partial class Viewport : Control {
     /// <param name="x">Its x, in document space.</param>
     /// <param name="y">Its y.</param>
     /// <returns>The point.</returns>
-    public Vector2 ToRender(float x, float y) =>
-        new((x - AbsoluteLeft) * RenderScale, (y - AbsoluteTop) * RenderScale);
+    public Vector2 ToRender(float x, float y) => new((x - AbsoluteLeft) * RenderScale, (y - AbsoluteTop) * RenderScale);
 
     /// <summary>The colour of one of the gizmo's arms.</summary>
     /// <param name="axis">0 for x, 1 for y, 2 for z.</param>
@@ -478,7 +484,7 @@ public sealed partial class Viewport : Control {
             case PointerAction.Moved when dragging:
                 Dragged?.Invoke(
                     this,
-                    new ViewportDrag(
+                    new(
                         held,
                         args.Modifiers,
                         point.X,

@@ -13,8 +13,12 @@ namespace Vixen.Ui.Controls.Tests;
 ///         perfectly and allocates forty thousand tiles.
 ///     </para>
 ///     <para>
-///         ⚠ <b>What a grid has that a list does not is the column count, and most of these are
-///         about it.</b> It comes from the <i>measured</i> width, so it changes when the panel is
+///         ⚠
+///         <b>
+///             What a grid has that a list does not is the column count, and most of these are
+///             about it.
+///         </b>
+///         It comes from the <i>measured</i> width, so it changes when the panel is
 ///         resized — and every position and the whole content height change with it.
 ///     </para>
 /// </remarks>
@@ -23,7 +27,10 @@ public class VirtualizingGridTests {
 
     /// <summary>A grid over forty thousand items, 300 wide and 200 tall, with 50-pixel tiles.</summary>
     /// <remarks>Six columns across, ten lines of viewport — chosen so both are easy to count.</remarks>
-    static (ControlFixture Fixture, VirtualizingGrid Grid, List<int> Bound) Gridded(int count = Items, float width = 300f) {
+    static (ControlFixture Fixture, VirtualizingGrid Grid, List<int> Bound) Gridded(
+        int count = Items,
+        float width = 300f
+    ) {
         var fixture = new ControlFixture(
             600f,
             400f,
@@ -108,7 +115,7 @@ public class VirtualizingGridTests {
 
     [Fact]
     public void An_item_is_placed_at_its_column_and_its_line() {
-        var (fixture, grid, _) = Gridded(count: 20);
+        var (fixture, grid, _) = Gridded(20);
         using var owned = fixture;
 
         // Item seven of six columns is line one, column one: 50 across and 20 down.
@@ -131,7 +138,10 @@ public class VirtualizingGridTests {
 
         Assert.Equal(before, grid.Tiles.Count);
         Assert.NotEmpty(bound);
-        Assert.All(bound, item => Assert.True(item > 1000, "a scroll to the middle rebound an item near the start"));
+        Assert.All(
+            bound,
+            static item => Assert.True(item > 1000, "a scroll to the middle rebound an item near the start")
+        );
     }
 
     /// <summary>
@@ -187,7 +197,7 @@ public class VirtualizingGridTests {
 
     [Fact]
     public void An_empty_grid_realises_nothing_and_does_not_throw() {
-        var (fixture, grid, _) = Gridded(count: 0);
+        var (fixture, grid, _) = Gridded(0);
         using var owned = fixture;
 
         Assert.Null(grid.TileOf(0));

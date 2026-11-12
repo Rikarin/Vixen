@@ -20,15 +20,23 @@ namespace Vixen.Editor.App;
 ///         editor, so nothing in the editor could resolve a mesh, a material or a texture by address.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The same addresses a shipped build resolves, which is the property that makes any of
-///         this worth testing against.</b> The catalog comes from the same <c>BuildPlanner</c> reading
+///         ⚠
+///         <b>
+///             The same addresses a shipped build resolves, which is the property that makes any of
+///             this worth testing against.
+///         </b>
+///         The catalog comes from the same <c>BuildPlanner</c> reading
 ///         the same sidecars; what differs is that an entry names no bundle and the chunks stay where
 ///         the import wrote them.
 ///     </para>
 ///     <para>
-///         ⚠ <b>This paragraph used to end "a viewport drawing from a second, editor-shaped path
-///         would be a viewport that agrees with the game by coincidence", and as an argument about
-///         <em>geometry</em> that is wrong.</b> It is wrong because a catalog is what <em>ships</em>
+///         ⚠
+///         <b>
+///             This paragraph used to end "a viewport drawing from a second, editor-shaped path
+///             would be a viewport that agrees with the game by coincidence", and as an argument about
+///             <em>geometry</em> that is wrong.
+///         </b>
+///         It is wrong because a catalog is what <em>ships</em>
 ///         and the editor has to draw what is in the project, which is a larger set.
 ///         <c>BuildPlanner.AddressOf</c> gives an excluded asset no address, so it gets no entry here
 ///         and an <c>AssetMeshSource</c> over this manager cannot resolve it — while
@@ -41,8 +49,11 @@ namespace Vixen.Editor.App;
 ///         is what holds that decision in place.
 ///     </para>
 ///     <para>
-///         <b>What is still owed here is the other half of a frame, and it is the reason this type
-///         is worth keeping.</b> <c>WorldRenderer.Mount</c> is the only thing in the engine that
+///         <b>
+///             What is still owed here is the other half of a frame, and it is the reason this type
+///             is worth keeping.
+///         </b>
+///         <c>WorldRenderer.Mount</c> is the only thing in the engine that
 ///         builds an <c>IMaterialSource</c>, an <c>AssetTextureSource</c>, a vfx source and the two
 ///         terrain seams, and it takes exactly one argument: an <see cref="AssetManager" />. The
 ///         editor has no editor-shaped equivalent for any of them — <c>ProjectSurfaceSource</c> is
@@ -121,8 +132,12 @@ sealed class EditorContent : IDisposable {
     /// <param name="report">Where the planner's diagnostics go.</param>
     /// <returns>Whether there is content to draw from.</returns>
     /// <remarks>
-    ///     ⚠ <b>Separate from <see cref="Refresh" /> because writing is not free and reopening
-    ///     is.</b> A frame that only wants to see a newly imported asset re-reads; a build that has
+    ///     ⚠
+    ///     <b>
+    ///         Separate from <see cref="Refresh" /> because writing is not free and reopening
+    ///         is.
+    ///     </b>
+    ///     A frame that only wants to see a newly imported asset re-reads; a build that has
     ///     just imported writes first. Conflating them would put the planner on the frame thread.
     /// </remarks>
     public bool Rebuild(Action<ContentDiagnostic>? report = null) {
@@ -148,7 +163,7 @@ sealed class EditorContent : IDisposable {
                 diagnostic => {
                     report?.Invoke(diagnostic);
 
-                    if (diagnostic.Severity == Vixen.Interchange.ImportSeverity.Error) {
+                    if (diagnostic.Severity == ImportSeverity.Error) {
                         problems.Add(diagnostic.Message);
                     }
                 }
@@ -182,7 +197,10 @@ sealed class EditorContent : IDisposable {
             }
 
             if (!mounted) {
-                files.Mount(MountPoint, new PhysicalFileProvider(Path.GetFullPath(project.Paths.Library), isReadOnly: true));
+                files.Mount(
+                    MountPoint,
+                    new PhysicalFileProvider(Path.GetFullPath(project.Paths.Library), true)
+                );
                 mounted = true;
             }
 

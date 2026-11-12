@@ -31,7 +31,7 @@ internal struct CompactSpan {
     public byte Drop;
 
     /// <summary>The surface height, in <see cref="HeightfieldSpan.DropScale" />ths of a voxel.</summary>
-    public readonly int Surface => (Y * HeightfieldSpan.DropScale) - Drop;
+    public readonly int Surface => Y * HeightfieldSpan.DropScale - Drop;
 
     /// <summary>Which region it was partitioned into, or zero.</summary>
     public ushort Region;
@@ -128,7 +128,8 @@ internal sealed class CompactHeightfield {
     /// <param name="span">The span.</param>
     /// <param name="direction">The direction, 0 to 3.</param>
     /// <returns>The neighbour's offset within its column, or <see cref="NotConnected" />.</returns>
-    public static int GetConnection(in CompactSpan span, int direction) => (int)((span.Connections >> (direction * 6)) & 0x3f);
+    public static int GetConnection(in CompactSpan span, int direction) =>
+        (int)((span.Connections >> (direction * 6)) & 0x3f);
 
     /// <summary>Writes one direction of a span's connections.</summary>
     /// <param name="span">The span.</param>
@@ -152,7 +153,7 @@ internal sealed class CompactHeightfield {
             return -1;
         }
 
-        return Cells[x + OffsetX[direction] + ((z + OffsetZ[direction]) * Width)].Index + connection;
+        return Cells[x + OffsetX[direction] + (z + OffsetZ[direction]) * Width].Index + connection;
     }
 
     /// <summary>Builds the walkable surface from a solid heightfield.</summary>
@@ -173,12 +174,19 @@ internal sealed class CompactHeightfield {
             }
         }
 
-        var compact = new CompactHeightfield(field.Width, field.Depth, field.Bounds, field.CellSize, field.CellHeight, count);
+        var compact = new CompactHeightfield(
+            field.Width,
+            field.Depth,
+            field.Bounds,
+            field.CellSize,
+            field.CellHeight,
+            count
+        );
         var next = 0;
 
         for (var z = 0; z < field.Depth; z++) {
             for (var x = 0; x < field.Width; x++) {
-                var column = x + (z * field.Width);
+                var column = x + z * field.Width;
                 compact.Cells[column].Index = next;
 
                 for (var index = field.First(x, z); index >= 0; index = field.Span(index).Next) {
@@ -256,7 +264,7 @@ internal sealed class CompactHeightfield {
 
         for (var z = minimumZ; z <= maximumZ; z++) {
             for (var x = minimumX; x <= maximumX; x++) {
-                ref var cell = ref Cells[x + (z * Width)];
+                ref var cell = ref Cells[x + z * Width];
 
                 for (var index = cell.Index; index < cell.Index + cell.Count; index++) {
                     if (Areas[index] == NavArea.Null) {
@@ -266,9 +274,9 @@ internal sealed class CompactHeightfield {
                     // The column's centre rather than its corner, so a volume drawn along a cell
                     // boundary does not depend on which side of it the arithmetic lands.
                     var point = new Vector3(
-                        Bounds.Minimum.X + ((x + 0.5f) * CellSize),
-                        Bounds.Minimum.Y + (Spans[index].Y * CellHeight),
-                        Bounds.Minimum.Z + ((z + 0.5f) * CellSize)
+                        Bounds.Minimum.X + (x + 0.5f) * CellSize,
+                        Bounds.Minimum.Y + Spans[index].Y * CellHeight,
+                        Bounds.Minimum.Z + (z + 0.5f) * CellSize
                     );
 
                     if (volume.Contains(point)) {
@@ -340,7 +348,7 @@ internal sealed class CompactHeightfield {
             ushort sweepCount = 1;
 
             for (var x = 0; x < Width; x++) {
-                ref var cell = ref Cells[x + (z * Width)];
+                ref var cell = ref Cells[x + z * Width];
 
                 for (var index = cell.Index; index < cell.Index + cell.Count; index++) {
                     if (Areas[index] == NavArea.Null) {
@@ -402,7 +410,7 @@ internal sealed class CompactHeightfield {
             }
 
             for (var x = 0; x < Width; x++) {
-                ref var cell = ref Cells[x + (z * Width)];
+                ref var cell = ref Cells[x + z * Width];
 
                 for (var index = cell.Index; index < cell.Index + cell.Count; index++) {
                     if (regions[index] > 0 && regions[index] < sweepCount) {
@@ -457,7 +465,7 @@ internal sealed class CompactHeightfield {
     void Connect(int walkableHeight, int walkableClimb) {
         for (var z = 0; z < Depth; z++) {
             for (var x = 0; x < Width; x++) {
-                ref var cell = ref Cells[x + (z * Width)];
+                ref var cell = ref Cells[x + z * Width];
 
                 for (var index = cell.Index; index < cell.Index + cell.Count; index++) {
                     ref var span = ref Spans[index];
@@ -472,9 +480,11 @@ internal sealed class CompactHeightfield {
                             continue;
                         }
 
-                        ref var neighbourCell = ref Cells[neighbourX + (neighbourZ * Width)];
+                        ref var neighbourCell = ref Cells[neighbourX + neighbourZ * Width];
 
-                        for (var other = neighbourCell.Index; other < neighbourCell.Index + neighbourCell.Count; other++) {
+                        for (var other = neighbourCell.Index;
+                             other < neighbourCell.Index + neighbourCell.Count;
+                             other++) {
                             ref var neighbour = ref Spans[other];
 
                             var bottom = Math.Max(span.Y, neighbour.Y);
@@ -508,7 +518,7 @@ internal sealed class CompactHeightfield {
 
         for (var z = 0; z < Depth; z++) {
             for (var x = 0; x < Width; x++) {
-                ref var cell = ref Cells[x + (z * Width)];
+                ref var cell = ref Cells[x + z * Width];
 
                 for (var index = cell.Index; index < cell.Index + cell.Count; index++) {
                     if (Areas[index] == NavArea.Null) {
@@ -534,8 +544,8 @@ internal sealed class CompactHeightfield {
             }
         }
 
-        Sweep(distance, forward: true);
-        Sweep(distance, forward: false);
+        Sweep(distance, true);
+        Sweep(distance, false);
 
         return distance;
     }
@@ -550,7 +560,7 @@ internal sealed class CompactHeightfield {
         var secondDiagonal = forward ? 2 : 0;
 
         for (var step = 0; step < Width * Depth; step++) {
-            var column = forward ? step : (Width * Depth) - 1 - step;
+            var column = forward ? step : Width * Depth - 1 - step;
             var x = column % Width;
             var z = column / Width;
 
@@ -594,7 +604,7 @@ internal sealed class CompactHeightfield {
 
         for (var z = 0; z < Depth; z++) {
             for (var x = 0; x < Width; x++) {
-                ref var cell = ref Cells[x + (z * Width)];
+                ref var cell = ref Cells[x + z * Width];
 
                 for (var index = cell.Index; index < cell.Index + cell.Count; index++) {
                     var centre = distance[index];

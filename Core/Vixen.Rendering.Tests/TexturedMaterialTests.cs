@@ -41,7 +41,7 @@ public class TexturedMaterialTests {
     [Fact]
     public void The_index_is_named_by_the_composition_path() {
         var material = Compiled(new TexturedMetalRoughnessFeature());
-        var names = material.Parameters.Keys.Select(key => key.Name).ToArray();
+        var names = material.Parameters.Keys.Select(static key => key.Name).ToArray();
 
         Assert.Contains("ForwardPlus.CompositeSurface.TexturedMetalRoughnessSurface.baseColorIndex", names);
         Assert.Contains("ForwardPlus.CompositeSurface.TexturedMetalRoughnessSurface.baseColor", names);
@@ -61,7 +61,7 @@ public class TexturedMaterialTests {
             "ForwardPlus.CompositeSurface.TexturedMetalRoughnessSurface."
         );
 
-        Assert.Contains(expected, material.Parameters.Keys.Select(key => key.Name));
+        Assert.Contains(expected, material.Parameters.Keys.Select(static key => key.Name));
     }
 
     /// <summary>
@@ -76,9 +76,7 @@ public class TexturedMaterialTests {
     public void The_index_defaults_to_a_slot_that_exists() {
         var material = Compiled(new TexturedMetalRoughnessFeature());
 
-        var key = ParameterKeys.New<uint>(
-            "ForwardPlus.CompositeSurface.TexturedMetalRoughnessSurface.baseColorIndex"
-        );
+        var key = ParameterKeys.New<uint>("ForwardPlus.CompositeSurface.TexturedMetalRoughnessSurface.baseColorIndex");
 
         Assert.True(material.Parameters.Has(key));
         Assert.Equal(0u, material.Parameters.Get(key));
@@ -112,7 +110,7 @@ public class TexturedMaterialTests {
             new EmissiveFeature()
         );
 
-        var names = material.Parameters.Keys.Select(key => key.Name).ToArray();
+        var names = material.Parameters.Keys.Select(static key => key.Name).ToArray();
 
         Assert.Contains("ForwardPlus.CompositeSurface.TexturedMetalRoughnessSurface.baseColorIndex", names);
         Assert.Contains("ForwardPlus.CompositeSurface.EmissiveSurface.intensity", names);
@@ -129,7 +127,7 @@ public class TexturedMaterialTests {
     [Fact]
     public void A_normal_map_is_named_by_its_own_composition_path() {
         var material = Compiled(new TexturedNormalMapFeature());
-        var names = material.Parameters.Keys.Select(key => key.Name).ToArray();
+        var names = material.Parameters.Keys.Select(static key => key.Name).ToArray();
 
         Assert.Contains("ForwardPlus.CompositeSurface.TexturedNormalMapSurface.normalIndex", names);
         Assert.Contains("ForwardPlus.CompositeSurface.TexturedNormalMapSurface.strength", names);
@@ -174,7 +172,7 @@ public class TexturedMaterialTests {
             new TexturedNormalMapFeature()
         );
 
-        var names = material.Parameters.Keys.Select(key => key.Name).ToArray();
+        var names = material.Parameters.Keys.Select(static key => key.Name).ToArray();
 
         Assert.Contains("ForwardPlus.CompositeSurface.TexturedMetalRoughnessSurface.baseColorIndex", names);
         Assert.Contains("ForwardPlus.CompositeSurface.TexturedNormalMapSurface.normalIndex", names);
@@ -198,7 +196,7 @@ public class TexturedMaterialTests {
     [Fact]
     public void A_packed_map_is_named_by_its_own_composition_path() {
         var material = Compiled(new TexturedOrmFeature());
-        var names = material.Parameters.Keys.Select(key => key.Name).ToArray();
+        var names = material.Parameters.Keys.Select(static key => key.Name).ToArray();
 
         Assert.Contains("ForwardPlus.CompositeSurface.TexturedOrmSurface.ormIndex", names);
         Assert.Contains("ForwardPlus.CompositeSurface.TexturedOrmSurface.occlusionStrength", names);
@@ -218,8 +216,12 @@ public class TexturedMaterialTests {
     /// <summary>Occlusion alone is a sampling feature, and it composes where the packed one cannot.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Composed <em>behind a layered surface</em>, which is the whole reason this feature
-    ///         exists</b> — <a href="https://github.com/Rikarin/Vixen/issues/1130">#1130</a>.
+    ///         ⚠
+    ///         <b>
+    ///             Composed <em>behind a layered surface</em>, which is the whole reason this feature
+    ///             exists
+    ///         </b>
+    ///         — <a href="https://github.com/Rikarin/Vixen/issues/1130">#1130</a>.
     ///         <c>TexturedOrmSurface</c> assigns <c>d.perceptualRoughness</c> and splits the albedo by
     ///         the map's metalness, both of which <c>TexturedMaterialLayersSurface</c> has already
     ///         done per layer, so the bake drops it there and the baked occlusion went with it. This
@@ -233,7 +235,7 @@ public class TexturedMaterialTests {
     [Fact]
     public void Occlusion_from_a_map_composes_behind_a_layered_surface() {
         var material = Compiled(new TexturedMaterialLayersFeature(), new TexturedOcclusionFeature());
-        var names = material.Parameters.Keys.Select(key => key.Name).ToArray();
+        var names = material.Parameters.Keys.Select(static key => key.Name).ToArray();
 
         Assert.Contains("ForwardPlus.CompositeSurface.TexturedOcclusionSurface.occlusionIndex", names);
         Assert.Contains("ForwardPlus.CompositeSurface.TexturedOcclusionSurface.occlusionStrength", names);
@@ -276,7 +278,7 @@ public class TexturedMaterialTests {
             new TexturedOrmFeature()
         );
 
-        var names = material.Parameters.Keys.Select(key => key.Name).ToArray();
+        var names = material.Parameters.Keys.Select(static key => key.Name).ToArray();
 
         Assert.Contains("ForwardPlus.CompositeSurface.TexturedMetalRoughnessSurface.baseColorIndex", names);
         Assert.Contains("ForwardPlus.CompositeSurface.TexturedNormalMapSurface.normalIndex", names);
@@ -301,7 +303,7 @@ public class TexturedMaterialTests {
     [Fact]
     public void The_emissive_and_opacity_maps_are_named_by_their_own_composition_paths() {
         var material = Compiled(new TexturedEmissiveFeature(), new TexturedOpacityFeature());
-        var names = material.Parameters.Keys.Select(key => key.Name).ToArray();
+        var names = material.Parameters.Keys.Select(static key => key.Name).ToArray();
 
         Assert.Contains("ForwardPlus.CompositeSurface.TexturedEmissiveSurface.emissiveIndex", names);
         Assert.Contains("ForwardPlus.CompositeSurface.TexturedOpacitySurface.opacityIndex", names);
@@ -344,14 +346,14 @@ public class TexturedMaterialTests {
         var material = Compiled(
             new TexturedMaterialLayersFeature {
                 Layers = [
-                    new(Vector3.One, 0f, 0.8f, Weight: 1f),
-                    new(new(0.2f, 0.4f, 0.2f), 0f, 0.6f, Weight: 1f),
-                    new(new(0.9f, 0.9f, 0.9f), 0f, 0.3f, Weight: 1f)
+                    new(Vector3.One, 0f, 0.8f, 1f),
+                    new(new(0.2f, 0.4f, 0.2f), 0f, 0.6f, 1f),
+                    new(new(0.9f, 0.9f, 0.9f), 0f, 0.3f, 1f)
                 ]
             }
         );
 
-        var names = material.Parameters.Keys.Select(key => key.Name).ToArray();
+        var names = material.Parameters.Keys.Select(static key => key.Name).ToArray();
 
         Assert.Contains("ForwardPlus.CompositeSurface.TexturedMaterialLayersSurface.splatIndex", names);
         Assert.Contains("ForwardPlus.CompositeSurface.TexturedMaterialLayersSurface.layers[2].baseColor", names);
@@ -377,8 +379,11 @@ public class TexturedMaterialTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <b>This asserted the damage and named "do not author that material" as the fix, which
-    ///         is a fix nothing enforced</b> — a permutation is resolved by name across a compilation,
+    ///         <b>
+    ///             This asserted the damage and named "do not author that material" as the fix, which
+    ///             is a fix nothing enforced
+    ///         </b>
+    ///         — a permutation is resolved by name across a compilation,
     ///         so a material carrying a constant layer stack and a painted one sets one
     ///         <c>LayerCount</c> twice, last write wins, and the loser's layers are read out of a
     ///         block sized for the winner.
@@ -414,7 +419,7 @@ public class TexturedMaterialTests {
         Assert.True(compilation.Failed);
         Assert.Contains(
             compilation.Diagnostics,
-            diagnostic => diagnostic.Id == MaterialDiagnosticId.TwoBaseSurfaces && diagnostic.IsError
+            static diagnostic => diagnostic.Id == MaterialDiagnosticId.TwoBaseSurfaces && diagnostic.IsError
         );
     }
 
@@ -445,10 +450,10 @@ public class TexturedMaterialTests {
                 Features = [
                     new TexturedMaterialLayersFeature {
                         Layers = [
-                            new(Vector3.One, 0f, 0.8f, Weight: 1f),
-                            new(Vector3.One, 0f, 0.6f, Weight: 1f),
-                            new(Vector3.One, 0f, 0.4f, Weight: 1f),
-                            new(Vector3.One, 0f, 0.2f, Weight: 1f)
+                            new(Vector3.One, 0f, 0.8f, 1f),
+                            new(Vector3.One, 0f, 0.6f, 1f),
+                            new(Vector3.One, 0f, 0.4f, 1f),
+                            new(Vector3.One, 0f, 0.2f, 1f)
                         ]
                     }
                 ]
@@ -458,16 +463,17 @@ public class TexturedMaterialTests {
         // A warning, so the material still compiles and draws the three layers its map paints.
         Assert.False(compilation.Failed);
 
-        var diagnostic = Assert.Single(compilation.Diagnostics, d => d.Id == MaterialDiagnosticId.UnpaintedLayer);
+        var diagnostic = Assert.Single(
+            compilation.Diagnostics,
+            static d => d.Id == MaterialDiagnosticId.UnpaintedLayer
+        );
 
         Assert.False(diagnostic.IsError);
 
         Assert.Equal(
             3,
             compilation.Material!.Parameters.Get(
-                ParameterKeys.New<int>(
-                    "ForwardPlus.CompositeSurface.TexturedMaterialLayersSurface.paintedChannels"
-                )
+                ParameterKeys.New<int>("ForwardPlus.CompositeSurface.TexturedMaterialLayersSurface.paintedChannels")
             )
         );
     }
@@ -485,24 +491,22 @@ public class TexturedMaterialTests {
                     new TexturedMaterialLayersFeature {
                         PaintedChannels = 4,
                         Layers = [
-                            new(Vector3.One, 0f, 0.8f, Weight: 1f),
-                            new(Vector3.One, 0f, 0.6f, Weight: 1f),
-                            new(Vector3.One, 0f, 0.4f, Weight: 1f),
-                            new(Vector3.One, 0f, 0.2f, Weight: 1f)
+                            new(Vector3.One, 0f, 0.8f, 1f),
+                            new(Vector3.One, 0f, 0.6f, 1f),
+                            new(Vector3.One, 0f, 0.4f, 1f),
+                            new(Vector3.One, 0f, 0.2f, 1f)
                         ]
                     }
                 ]
             }
         );
 
-        Assert.DoesNotContain(compilation.Diagnostics, d => d.Id == MaterialDiagnosticId.UnpaintedLayer);
+        Assert.DoesNotContain(compilation.Diagnostics, static d => d.Id == MaterialDiagnosticId.UnpaintedLayer);
 
         Assert.Equal(
             4,
             compilation.Material!.Parameters.Get(
-                ParameterKeys.New<int>(
-                    "ForwardPlus.CompositeSurface.TexturedMaterialLayersSurface.paintedChannels"
-                )
+                ParameterKeys.New<int>("ForwardPlus.CompositeSurface.TexturedMaterialLayersSurface.paintedChannels")
             )
         );
     }
@@ -512,8 +516,11 @@ public class TexturedMaterialTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <b>Doc 48 § B1's height map, in the one of its three readings that is a surface
-    ///         feature</b> — see <see cref="TexturedMaterialLayersFeature.HeightBlended" /> and
+    ///         <b>
+    ///             Doc 48 § B1's height map, in the one of its three readings that is a surface
+    ///             feature
+    ///         </b>
+    ///         — see <see cref="TexturedMaterialLayersFeature.HeightBlended" /> and
     ///         <a href="https://github.com/Rikarin/Vixen/issues/615">#615</a>, which separated them.
     ///     </para>
     ///     <para>
@@ -531,9 +538,9 @@ public class TexturedMaterialTests {
                 HeightContrast = 0.4f,
                 HeightTransition = 0.05f,
                 Layers = [
-                    new(Vector3.One, 0f, 0.8f, Weight: 1f),
-                    new(new(0.2f, 0.4f, 0.2f), 0f, 0.6f, Weight: 1f),
-                    new(new(0.9f, 0.9f, 0.9f), 0f, 0.3f, Weight: 1f)
+                    new(Vector3.One, 0f, 0.8f, 1f),
+                    new(new(0.2f, 0.4f, 0.2f), 0f, 0.6f, 1f),
+                    new(new(0.9f, 0.9f, 0.9f), 0f, 0.3f, 1f)
                 ]
             }
         );
@@ -542,7 +549,7 @@ public class TexturedMaterialTests {
 
         Assert.Equal(path + "heightIndex", TexturedMaterialLayersFeature.HeightIndexParameter(path));
 
-        var names = material.Parameters.Keys.Select(key => key.Name).ToArray();
+        var names = material.Parameters.Keys.Select(static key => key.Name).ToArray();
 
         Assert.Contains(path + "heightIndex", names);
         Assert.Contains(path + "heightContrast", names);
@@ -586,7 +593,7 @@ public class TexturedMaterialTests {
             }
         );
 
-        var names = material.Parameters.Keys.Select(key => key.Name).ToArray();
+        var names = material.Parameters.Keys.Select(static key => key.Name).ToArray();
 
         Assert.Contains("ForwardPlus.CompositeSurface.TexturedMaterialLayersSurface.splatIndex", names);
 
@@ -620,7 +627,7 @@ public class TexturedMaterialTests {
     [Fact]
     public void The_parallax_height_slot_is_not_the_layered_features() {
         var material = Compiled(new ParallaxOcclusionFeature());
-        var names = material.Parameters.Keys.Select(key => key.Name).ToArray();
+        var names = material.Parameters.Keys.Select(static key => key.Name).ToArray();
 
         Assert.Contains("ForwardPlus.CompositeSurface.ParallaxSurface.heightIndex", names);
         Assert.DoesNotContain("ForwardPlus.CompositeSurface.TexturedMaterialLayersSurface.heightIndex", names);
@@ -661,16 +668,12 @@ public class TexturedMaterialTests {
 
         Assert.Equal(
             1f,
-            material.Parameters.Get(
-                ParameterKeys.New<float>("ForwardPlus.CompositeSurface.ParallaxSurface.minSteps")
-            )
+            material.Parameters.Get(ParameterKeys.New<float>("ForwardPlus.CompositeSurface.ParallaxSurface.minSteps"))
         );
 
         Assert.Equal(
             (float)ParallaxOcclusionFeature.StepCeiling,
-            material.Parameters.Get(
-                ParameterKeys.New<float>("ForwardPlus.CompositeSurface.ParallaxSurface.maxSteps")
-            )
+            material.Parameters.Get(ParameterKeys.New<float>("ForwardPlus.CompositeSurface.ParallaxSurface.maxSteps"))
         );
     }
 
@@ -706,7 +709,7 @@ public class TexturedMaterialTests {
 
         Assert.False(
             compilation.Failed,
-            string.Join("\n", compilation.Diagnostics.Select(diagnostic => diagnostic.ToString()))
+            string.Join("\n", compilation.Diagnostics.Select(static diagnostic => diagnostic.ToString()))
         );
 
         return compilation.Material!;

@@ -67,7 +67,14 @@ public class NativeWebGpuTests {
 
         var buffer = device.CreateBuffer(new(1024, BufferUsage.Vertex | BufferUsage.CopyDestination, Name: "Mesh"));
         var texture = device.CreateTexture(
-            new(PixelFormat.Rgba8UNorm, 64, 64, TextureUsage.Sampled | TextureUsage.CopyDestination, MipLevels: 4, Name: "Albedo")
+            new(
+                PixelFormat.Rgba8UNorm,
+                64,
+                64,
+                TextureUsage.Sampled | TextureUsage.CopyDestination,
+                MipLevels: 4,
+                Name: "Albedo"
+            )
         );
 
         var view = device.CreateTextureView(texture);
@@ -308,13 +315,9 @@ public class NativeWebGpuTests {
         var pipeline = device.CreateComputePipeline(new(shader, layout, "Compute"));
 
         var uniform = device.CreateBuffer(new(16, BufferUsage.Uniform, MemoryAccess.HostUpload, "Constants"));
-        var storage = device.CreateBuffer(
-            new(64, BufferUsage.Storage | BufferUsage.CopySource, Name: "Output")
-        );
+        var storage = device.CreateBuffer(new(64, BufferUsage.Storage | BufferUsage.CopySource, Name: "Output"));
 
-        var readback = device.CreateBuffer(
-            new(64, BufferUsage.CopyDestination, MemoryAccess.HostReadback, "Readback")
-        );
+        var readback = device.CreateBuffer(new(64, BufferUsage.CopyDestination, MemoryAccess.HostReadback, "Readback"));
 
         var set = device.CreateDescriptorSet(setLayout, "Compute");
         device.UpdateDescriptorSet(set, [DescriptorWrite.Uniform(0, uniform), DescriptorWrite.Storage(1, storage)]);
@@ -380,7 +383,6 @@ public class NativeWebGpuTests {
     ///     culling front faces and culling back faces may produce a picture. If the front-face
     ///     convention and the viewport's Y flip disagreed, both would cull or neither would — and
     ///     every other test in this file would still pass.
-    ///
     ///     Which of the two survives is deliberately not asserted: that is a fact about WebGPU's
     ///     framebuffer orientation, and pinning it here would be writing down whatever the
     ///     implementation happened to do.
@@ -412,7 +414,6 @@ public class NativeWebGpuTests {
     ///     other. A backend that bound the block at the wrong group, wrote it at the wrong offset, or
     ///     handed the wrong dynamic offset would draw the triangle in its unmoved position — and a
     ///     recorded stream would have shown a bind either way.
-    ///
     ///     X rather than Y: clip-space X reaches the framebuffer without a flip on any API, so this
     ///     asserts the constant arrived rather than which way up the viewport is.
     /// </remarks>
@@ -436,8 +437,8 @@ public class NativeWebGpuTests {
             )
         );
 
-        var left = Render(device, pipeline, push: -0.5f);
-        var right = Render(device, pipeline, push: 0.5f);
+        var left = Render(device, pipeline, -0.5f);
+        var right = Render(device, pipeline, 0.5f);
 
         Assert.Equal(Green, left.At(16, 36));
         Assert.Equal(Red, left.At(48, 36));
@@ -491,7 +492,7 @@ public class NativeWebGpuTests {
             ColourAttachment[] attachments = [new(view, LoadAction.Clear, StoreAction.Store, new(1f, 0f, 0f, 1f))];
 
             list.BeginRenderPass(new(attachments, null, "Offscreen"));
-            list.SetViewport(new Viewport(0, 0, size, size));
+            list.SetViewport(new(0, 0, size, size));
             list.SetScissor(new(0, 0, size, size));
             list.BindPipeline(pipeline);
 
@@ -523,6 +524,6 @@ public class NativeWebGpuTests {
         /// <summary>The pixel at a position, as <c>0xAABBGGRR</c>.</summary>
         /// <param name="x">The column.</param>
         /// <param name="y">The row, from the top.</param>
-        public uint At(int x, int y) => BitConverter.ToUInt32(Bytes, ((y * Size) + x) * 4);
+        public uint At(int x, int y) => BitConverter.ToUInt32(Bytes, (y * Size + x) * 4);
     }
 }

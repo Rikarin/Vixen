@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core;
-using Vixen.Ecs;
 using Vixen.Editor.AssetEditors.Content;
 using Vixen.Editor.AssetEditors.Importing;
 using Vixen.Editor.AssetEditors.Materials;
@@ -12,7 +11,6 @@ using Vixen.Editor.Assets.Content;
 using Vixen.Editor.Core;
 using Vixen.Editor.Plugin;
 using Vixen.Editor.SceneView;
-using Vixen.Editor.ShaderGraph;
 using Vixen.Editor.Ui;
 using Vixen.Editor.Ui.Documents;
 using Vixen.Ui;
@@ -57,7 +55,7 @@ public sealed partial class AssetEditorsModule {
         // not in the level.
         var world = context.Services.Require<SceneDocument>().World;
 
-        foreach (var kind in StandardEditors.Kinds(_ => world, _ => new World("Prefab"))) {
+        foreach (var kind in StandardEditors.Kinds(_ => world, static _ => new("Prefab"))) {
             context.Owns(host.Add(kind));
 
             // ⚠ A sequence drives the scene being edited, and which scene that is is the scene
@@ -127,14 +125,15 @@ public sealed partial class AssetEditorsModule {
         }
 
         context.OnUnload(() => {
-            workspace.Shown -= Joined;
+                workspace.Shown -= Joined;
 
-            if (graphics is not null && feed is not null) {
-                graphics.SurfaceChanged -= feed.Restate;
+                if (graphics is not null && feed is not null) {
+                    graphics.SurfaceChanged -= feed.Restate;
+                }
+
+                feed?.Release();
             }
-
-            feed?.Release();
-        });
+        );
     }
 
     /// <summary>Opens the shader graph a material names when its button asks.</summary>
@@ -200,6 +199,6 @@ public sealed partial class AssetEditorsModule {
 
         workspace.Database.Writing += project.Assets.WillWrite;
         workspace.Database.Scan();
-        return ContentPipeline.Analyse(workspace, _ => { });
+        return ContentPipeline.Analyse(workspace, static _ => { });
     }
 }

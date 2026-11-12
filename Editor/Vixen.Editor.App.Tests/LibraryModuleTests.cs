@@ -55,7 +55,8 @@ public class LibraryModuleTests {
 
         Assert.Equal(PluginState.Active, editor.Plugins.Find(LibraryModule.ModuleId)!.State);
 
-        string[] Shown() => [.. editor.Extensions.All<NewAssetKind>().OrderBy(static kind => kind.Order).Select(static kind => kind.Id)];
+        string[] Shown() =>
+            [..editor.Extensions.All<NewAssetKind>().OrderBy(static kind => kind.Order).Select(static kind => kind.Id)];
 
         Assert.Equal(BuiltIn, Shown().Where(BuiltIn.Contains));
 
@@ -101,7 +102,7 @@ public class LibraryModuleTests {
 
         editor.Plugins.Services.Require<IProjectSession>().Rescan();
 
-        var user = editor.Project.Assets.Entries.Single(entry => entry.Name == "Uses.yaml").Guid;
+        var user = editor.Project.Assets.Entries.Single(static entry => entry.Name == "Uses.yaml").Guid;
 
         editor.Project.Selection.Set([made.Guid]);
         editor.Run("assets.find-references");
@@ -239,14 +240,16 @@ public class LibraryModuleTests {
         editor.Settle();
 
         var box = Descendants(editor.Panel(ContentBrowsing.PanelId))
-            .OfType<TextBox>()
-            .SingleOrDefault(candidate => candidate.HasClass("tree-editor") && OnScreen(candidate))
+                .OfType<TextBox>()
+                .SingleOrDefault(static candidate => candidate.HasClass("tree-editor") && OnScreen(candidate))
             ?? throw editor.Fail("New Folder did not open an editor on the new row.");
 
         Assert.Equal("New Folder 2", box.Value);
 
         box.Value = "Props";
-        editor.Ui.Get("textbox").Where(element => ReferenceEquals(element, box), "the rename box").PressKey(Vixen.Input.InputKey.Enter);
+        editor.Ui.Get("textbox")
+            .Where(element => ReferenceEquals(element, box), "the rename box")
+            .PressKey(Vixen.Input.InputKey.Enter);
         editor.Settle();
 
         Assert.True(editor.Project.Assets.TryGetByPath("Assets/Props", out var renamed));
@@ -295,7 +298,10 @@ public class LibraryModuleTests {
         Assert.Equal("Assets/Props/crate.png", moved.Path);
     }
 
-    /// <summary>Whether nothing between an element and the root is hidden — an editor in a hidden tree is one nobody can type into.</summary>
+    /// <summary>
+    ///     Whether nothing between an element and the root is hidden — an editor in a hidden tree is one nobody can type
+    ///     into.
+    /// </summary>
     static bool OnScreen(UiElement element) {
         for (var walk = element; walk is not null; walk = walk.Parent) {
             if (walk.HasClass("hidden")) {

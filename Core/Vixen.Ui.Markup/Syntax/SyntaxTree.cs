@@ -71,7 +71,7 @@ public sealed class SyntaxTree : ISyntaxTree {
     /// <param name="encoding">The encoding it was read with, if known.</param>
     /// <returns>A tree. Always — a file that does not parse still produces one, with diagnostics.</returns>
     public static SyntaxTree ParseText(string text, string? path = "", Encoding? encoding = default) =>
-        ParseText(text, path, encoding, blender: null);
+        ParseText(text, path, encoding, null);
 
     static SyntaxTree ParseText(string text, string? path, Encoding? encoding, Blender? blender) {
         ArgumentNullException.ThrowIfNull(text);
@@ -80,9 +80,7 @@ public sealed class SyntaxTree : ISyntaxTree {
         var filePath = path ?? string.Empty;
         var bag = new DiagnosticBag();
 
-        var tree = new SyntaxTree {
-            Encoding = encoding, FilePath = filePath, Length = text.Length, Text = sourceText
-        };
+        var tree = new SyntaxTree { Encoding = encoding, FilePath = filePath, Length = text.Length, Text = sourceText };
 
         var lexed = VxmlLexer.Lex(text, bag, sourceText, filePath);
         tree.tokens = lexed;

@@ -67,7 +67,7 @@ public class MaterialRecordTests {
     /// <summary>The marker turns the per-material block into a record, at the same binding.</summary>
     [Fact]
     public void The_marker_makes_the_block_a_record() {
-        var block = Assert.Single(Plan(Indexed), b => b.IsBlock && b.Set == ResourceSet.PerMaterial);
+        var block = Assert.Single(Plan(Indexed), static b => b.IsBlock && b.Set == ResourceSet.PerMaterial);
 
         Assert.True(block.IsRecord);
         Assert.Equal(0, block.Binding);
@@ -82,7 +82,7 @@ public class MaterialRecordTests {
     /// </remarks>
     [Fact]
     public void Without_it_the_block_is_a_block() {
-        var block = Assert.Single(Plan(Bound), b => b.IsBlock && b.Set == ResourceSet.PerMaterial);
+        var block = Assert.Single(Plan(Bound), static b => b.IsBlock && b.Set == ResourceSet.PerMaterial);
 
         Assert.False(block.IsRecord);
         Assert.Null(block.RecordIndex);
@@ -102,8 +102,8 @@ public class MaterialRecordTests {
     [Fact]
     public void The_reflection_reports_a_storage_buffer() {
         var record = Assert.Single(
-            Reflect(Indexed).Sets.SelectMany(s => s.Bindings),
-            b => b.Name == "SPerMaterialUniforms"
+            Reflect(Indexed).Sets.SelectMany(static s => s.Bindings),
+            static b => b.Name == "SPerMaterialUniforms"
         );
 
         Assert.Equal(DescriptorType.StorageBuffer, record.Type);
@@ -118,8 +118,8 @@ public class MaterialRecordTests {
         Assert.Equal(16, record.Members[1].Offset);
 
         var block = Assert.Single(
-            Reflect(Bound).Sets.SelectMany(s => s.Bindings),
-            b => b.Name == "SPerMaterialUniforms"
+            Reflect(Bound).Sets.SelectMany(static s => s.Bindings),
+            static b => b.Name == "SPerMaterialUniforms"
         );
 
         Assert.Equal(DescriptorType.UniformBuffer, block.Type);
@@ -230,7 +230,7 @@ public class MaterialRecordTests {
     [InlineData(false)]
     public void A_conditional_marker_follows_its_permutation(bool enabled) {
         var values = PermutationValues.Create([new("UseRecords", enabled)]);
-        var block = Assert.Single(Plan(Conditional, values), b => b.IsBlock && b.Set == ResourceSet.PerMaterial);
+        var block = Assert.Single(Plan(Conditional, values), static b => b.IsBlock && b.Set == ResourceSet.PerMaterial);
 
         Assert.Equal(enabled, block.IsRecord);
     }
@@ -240,7 +240,7 @@ public class MaterialRecordTests {
     public void An_unsupplied_condition_is_a_block() {
         var block = Assert.Single(
             Plan(Conditional, PermutationValues.Empty),
-            b => b.IsBlock && b.Set == ResourceSet.PerMaterial
+            static b => b.IsBlock && b.Set == ResourceSet.PerMaterial
         );
 
         Assert.False(block.IsRecord);
@@ -258,7 +258,7 @@ public class MaterialRecordTests {
         var bag = new DiagnosticBag();
         var module = Lowerer.Lower(compilation, bag);
         IrVerifier.Verify(module, bag);
-        Assert.DoesNotContain(bag.ToArray(), d => d.IsError);
+        Assert.DoesNotContain(bag.ToArray(), static d => d.IsError);
 
         return FindShader(module, "S");
     }

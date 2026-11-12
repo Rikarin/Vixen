@@ -25,16 +25,24 @@ using static Nuke.Common.Tools.DotNet.DotNetTasks;
 ///         hold a terrain it had no module to draw with.
 ///     </para>
 ///     <para>
-///         ⚠ <b>A shader's import closure is one compilation, which is what <c>raven --source</c> is
-///         for.</b> The alternative is a chain of <c>.rvnlib</c> in dependency order — a second build
+///         ⚠
+///         <b>
+///             A shader's import closure is one compilation, which is what <c>raven --source</c> is
+///             for.
+///         </b>
+///         The alternative is a chain of <c>.rvnlib</c> in dependency order — a second build
 ///         graph, written down in a second place, that has to agree with the <c>import</c> lines.
 ///         Raven's own <c>LibraryReflectionTests</c> binds the library as one compilation for the
 ///         same reason; the closure is that, minus the packages whose <c>compose</c> slots a host has
 ///         to fill. See <see cref="SourcesFor" />.
 ///     </para>
 ///     <para>
-///         ⚠ <b><c>--shader</c> is not an optimisation, it is the difference between one module and
-///         ninety.</b> Generation runs over the whole module, so without it every shader in the
+///         ⚠
+///         <b>
+///             <c>--shader</c> is not an optimisation, it is the difference between one module and
+///             ninety.
+///         </b>
+///         Generation runs over the whole module, so without it every shader in the
 ///         library would be written into the editor's resources.
 ///     </para>
 ///     <para>
@@ -118,8 +126,11 @@ partial class Build {
     /// <returns>The directory each source sits in, repository-relative, and the source's own name.</returns>
     /// <remarks>
     ///     <para>
-    ///         <b>The gap this closes: nothing recompiled these, so a source edit and a stale binary
-    ///         could sit in one commit.</b> <see cref="EditorShaders" /> is the shaders the editor
+    ///         <b>
+    ///             The gap this closes: nothing recompiled these, so a source edit and a stale binary
+    ///             could sit in one commit.
+    ///         </b>
+    ///         <see cref="EditorShaders" /> is the shaders the editor
     ///         loads out of <c>Raven/Library</c>; these are written beside a project and are what the
     ///         check half of this target was always described as covering. <c>Ui.rvn</c> is the one
     ///         that made it matter: <c>UiShape</c> grew to a hundred and twelve bytes, and a source
@@ -136,8 +147,12 @@ partial class Build {
     ///         hand edits is a rule somebody turns off.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Standalone, which is why they can be compiled one file each — and that is read
-    ///         out of the file.</b> None of these <c>import</c>s anything —
+    ///         ⚠
+    ///         <b>
+    ///             Standalone, which is why they can be compiled one file each — and that is read
+    ///             out of the file.
+    ///         </b>
+    ///         None of these <c>import</c>s anything —
     ///         <c>Shaders/README.md</c> spells out why the block-out BRDF is written by hand rather
     ///         than taken from the library — so they need no <see cref="SourcesFor" /> closure, and
     ///         passing one would parse the same declarations twice. A discovered source that *does*
@@ -166,8 +181,9 @@ partial class Build {
 
         var blind = EditorSourceFloor
             .Where(directory => !found.Exists(source =>
-                source.StartsWith($"{directory}/", System.StringComparison.Ordinal)
-            ))
+                    source.StartsWith($"{directory}/", System.StringComparison.Ordinal)
+                )
+            )
             .ToList();
 
         Assert.True(
@@ -211,9 +227,10 @@ partial class Build {
 
         var derived = found
             .Select(source => (
-                Directory: source[..source.LastIndexOf('/')],
-                Source: System.IO.Path.GetFileNameWithoutExtension(source)
-            ))
+                    Directory: source[..source.LastIndexOf('/')],
+                    Source: System.IO.Path.GetFileNameWithoutExtension(source)
+                )
+            )
             .ToList();
 
         Log.Information(
@@ -233,8 +250,12 @@ partial class Build {
     /// <returns>The files, sorted.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The import closure, not the whole library — and the difference is not
-    ///         performance.</b> Compiling everything means compiling <c>Pipeline/ForwardPlus.rvn</c>,
+    ///         ⚠
+    ///         <b>
+    ///             The import closure, not the whole library — and the difference is not
+    ///             performance.
+    ///         </b>
+    ///         Compiling everything means compiling <c>Pipeline/ForwardPlus.rvn</c>,
     ///         whose <c>compose</c> slots have no implementation bound unless a caller says which one
     ///         to use. Those bindings are a <em>host's</em> decision about a material, so a target
     ///         that compiled the library wholesale would have to carry a copy of them — a second place
@@ -304,274 +325,279 @@ partial class Build {
             }
         }
 
-        return
-        [
-            .. files
+        return [
+            ..files
                 .Where(file => wanted.Contains(file.Parent.Name))
                 .OrderBy(path => path.ToString(), System.StringComparer.Ordinal)
         ];
     }
 
-    Target CheckShaders => definition => definition
-        .Description(
-            "Fails if a committed editor shader module differs from what Raven produces now, or if a "
-            + "committed one is produced by nothing"
-        )
-        .DependsOn(Restore)
-        .Executes(() => {
-                // ⚠ Before the compiler is built, because this one needs no compiler and its two
-                // refusals cannot be answered by regenerating: a walk that has gone blind and a source
-                // that is not standalone are both states where `--update-shaders` would rewrite every
-                // module it can still see and report success over the ones it cannot.
-                var editorSources = DiscoverEditorSources();
+    Target CheckShaders =>
+        definition => definition
+            .Description(
+                "Fails if a committed editor shader module differs from what Raven produces now, or if a "
+                + "committed one is produced by nothing"
+            )
+            .DependsOn(Restore)
+            .Executes(() => {
+                    // ⚠ Before the compiler is built, because this one needs no compiler and its two
+                    // refusals cannot be answered by regenerating: a walk that has gone blind and a source
+                    // that is not standalone are both states where `--update-shaders` would rewrite every
+                    // module it can still see and report success over the ones it cannot.
+                    var editorSources = DiscoverEditorSources();
 
-                var compiler = RootDirectory / "Raven" / "Vixen.Raven.Cli" / "Vixen.Raven.Cli.csproj";
+                    var compiler = RootDirectory / "Raven" / "Vixen.Raven.Cli" / "Vixen.Raven.Cli.csproj";
 
-                DotNetBuild(settings => settings
-                    .SetProjectFile(compiler)
-                    .SetConfiguration(Configuration.Release)
-                    .EnableNoRestore()
-                    .AddProcessAdditionalArguments(WorkerArguments)
-                );
-
-                var staging = TemporaryDirectory / "shaders";
-
-                staging.CreateOrCleanDirectory();
-
-                // What was produced, against the name it is committed under — which differs from the
-                // unit's own name exactly when the entry is a renamed permutation.
-                var produced = new List<(AbsolutePath File, string Committed)>();
-
-                for (var index = 0; index < EditorShaders.Length; index++) {
-                    var (package, shader, defines, output) = EditorShaders[index];
-                    var sources = SourcesFor(package);
-
-                    Assert.True(sources.Count > 0, $"Found no sources for {package} — the glob is wrong.");
-
-                    // ⚠ A directory per entry, because two permutations of one shader produce two
-                    // binaries with one name — into a shared directory the second silently wins.
-                    var into = staging / $"{index:00}-{output}";
-
-                    into.CreateOrCleanDirectory();
-
-                    var arguments = new List<string> {
-                        "compile",
-                        (RootDirectory / "Raven" / "Library" / package / $"{shader}.rvn").ToString(),
-                        into.ToString(),
-                        "--target",
-                        "spirv",
-                        "--shader",
-                        shader,
-                        "--no-color"
-                    };
-
-                    foreach (var define in defines) {
-                        arguments.Add("--define");
-                        arguments.Add(define);
-                    }
-
-                    // ⚠ Every library file except the one that is already the input. Passing it twice
-                    // parses it twice into one compilation, which is every declaration in it declared
-                    // twice.
-                    foreach (var file in sources.Where(path => path.NameWithoutExtension != shader)) {
-                        arguments.Add("--source");
-                        arguments.Add(file.ToString());
-                    }
-
-                    DotNetRun(settings => settings
+                    DotNetBuild(settings => settings
                         .SetProjectFile(compiler)
                         .SetConfiguration(Configuration.Release)
                         .EnableNoRestore()
-                        .EnableNoBuild()
-                        .SetApplicationArguments(arguments)
+                        .AddProcessAdditionalArguments(WorkerArguments)
                     );
 
-                    var before = produced.Count;
+                    var staging = TemporaryDirectory / "shaders";
 
-                    foreach (var file in into.GlobFiles("*.spv").OrderBy(path => path.Name, System.StringComparer.Ordinal)) {
-                        // The backend names a unit `<shader>.<stage>`; the committed file swaps the
-                        // shader for the entry's output name and keeps the stage.
-                        //
-                        // ⚠ Prefixed with the directory, like the entries below, because the
-                        // comparison is against the repository root now rather than against one
-                        // shader folder — there are two of those since the interface's own modules
-                        // moved to `Platform/Vixen.Ui.Desktop`.
-                        produced.Add((file, $"Editor/Vixen.Editor.Host/Shaders/{output}{file.Name[shader.Length..]}"));
-                    }
+                    staging.CreateOrCleanDirectory();
 
-                    // ⚠ An entry that emitted nothing has to fail here, because everything after this
-                    // loop is a comparison and a comparison of nothing passes. The compiler is loud
-                    // about most of the ways that happens — it refuses a `--shader` it did not
-                    // generate — but the glob is a second place the two names have to agree, and a
-                    // backend that changed its extension would leave this entry silently unchecked.
-                    Assert.True(
-                        produced.Count > before,
-                        $"{shader} in {package} compiled and wrote no .spv into {into} — nothing was "
-                        + "compared for this entry."
-                    );
-                }
+                    // What was produced, against the name it is committed under — which differs from the
+                    // unit's own name exactly when the entry is a renamed permutation.
+                    var produced = new List<(AbsolutePath File, string Committed)>();
 
-                // ⚠ The editor's own sources, compiled whole. `--emit-reflection` because the
-                // committed `.reflect.json` beside each module is what the host reads its bindings
-                // and its struct offsets out of — a module regenerated without it leaves the
-                // reflection saying the old layout, which is the exact failure `UiShapeLayoutTests`
-                // is on the other side of.
-                // ⚠ A directory per source for the same reason the entries above have one: the
-                // sources are discovered across projects, and two of them can name a module the same
-                // — `Platform/Vixen.Ui.Desktop` and any second interface host would both write a
-                // `UiBox.frag.spv`, and into a shared directory the second silently wins.
-                for (var index = 0; index < editorSources.Count; index++) {
-                    var (directory, source) = editorSources[index];
-                    var beside = RootDirectory / directory;
-                    // ⚠ The dots come out as well as the slashes, and that is not tidiness: the
-                    // compiler decides "directory or file" by whether the path has an extension, so
-                    // `src-00-Editor-Vixen.Editor.Host-Ui` is read as a single file called `Host-Ui`
-                    // and refused — with a good message, which is how this was found.
-                    var into = staging / $"src-{index:00}-{directory.Replace('/', '-').Replace('.', '-')}-{source}";
+                    for (var index = 0; index < EditorShaders.Length; index++) {
+                        var (package, shader, defines, output) = EditorShaders[index];
+                        var sources = SourcesFor(package);
 
-                    into.CreateOrCleanDirectory();
+                        Assert.True(sources.Count > 0, $"Found no sources for {package} — the glob is wrong.");
 
-                    DotNetRun(settings => settings
-                        .SetProjectFile(compiler)
-                        .SetConfiguration(Configuration.Release)
-                        .EnableNoRestore()
-                        .EnableNoBuild()
-                        .SetApplicationArguments(
+                        // ⚠ A directory per entry, because two permutations of one shader produce two
+                        // binaries with one name — into a shared directory the second silently wins.
+                        var into = staging / $"{index:00}-{output}";
+
+                        into.CreateOrCleanDirectory();
+
+                        var arguments = new List<string> {
                             "compile",
-                            (beside / $"{source}.rvn").ToString(),
+                            (RootDirectory / "Raven" / "Library" / package / $"{shader}.rvn").ToString(),
                             into.ToString(),
                             "--target",
                             "spirv",
-                            "--emit-reflection",
+                            "--shader",
+                            shader,
                             "--no-color"
-                        )
-                    );
+                        };
 
-                    var before = produced.Count;
+                        foreach (var define in defines) {
+                            arguments.Add("--define");
+                            arguments.Add(define);
+                        }
 
-                    foreach (var file in into.GlobFiles("*.spv", "*.reflect.json")
-                                 .OrderBy(path => path.Name, System.StringComparer.Ordinal)) {
-                        // ⚠ The name carries its directory now, because two projects both produce a
-                        // `UiBox.frag.spv` and a flat name would compare the host's module against
-                        // the editor's — which differ, and are meant to.
-                        produced.Add((file, $"{directory}/{file.Name}"));
-                    }
+                        // ⚠ Every library file except the one that is already the input. Passing it twice
+                        // parses it twice into one compilation, which is every declaration in it declared
+                        // twice.
+                        foreach (var file in sources.Where(path => path.NameWithoutExtension != shader)) {
+                            arguments.Add("--source");
+                            arguments.Add(file.ToString());
+                        }
 
-                    Assert.True(
-                        produced.Count > before,
-                        $"{directory}/{source}.rvn compiled and wrote nothing into {into} — "
-                        + "nothing was compared for this source."
-                    );
-                }
+                        DotNetRun(settings => settings
+                            .SetProjectFile(compiler)
+                            .SetConfiguration(Configuration.Release)
+                            .EnableNoRestore()
+                            .EnableNoBuild()
+                            .SetApplicationArguments(arguments)
+                        );
 
-                // ⚠ The other direction, and it is the floor this target did not have. Everything
-                // above compiles what it found and compares that, so a committed module nothing
-                // produces — a shader renamed, a permutation entry deleted, a source deleted while
-                // its binaries stayed — was never opened, and the check reported green over a binary
-                // the editor still loads. Nothing to compare is not the same as nothing wrong, which
-                // is the shape of every "three empty manifests are identical" failure here.
-                //
-                // ⚠ `Editor/Vixen.Editor.Host/Shaders` is seeded rather than derived because
-                // `EditorShaders` writes its library modules there and has no `.rvn` beside them for
-                // the walk to find.
-                var directories = new SortedSet<string>(System.StringComparer.Ordinal) {
-                    "Editor/Vixen.Editor.Host/Shaders"
-                };
+                        var before = produced.Count;
 
-                foreach (var (directory, _) in editorSources) {
-                    directories.Add(directory);
-                }
+                        foreach (var file in into.GlobFiles("*.spv")
+                                     .OrderBy(path => path.Name, System.StringComparer.Ordinal)) {
+                            // The backend names a unit `<shader>.<stage>`; the committed file swaps the
+                            // shader for the entry's output name and keeps the stage.
+                            //
+                            // ⚠ Prefixed with the directory, like the entries below, because the
+                            // comparison is against the repository root now rather than against one
+                            // shader folder — there are two of those since the interface's own modules
+                            // moved to `Platform/Vixen.Ui.Desktop`.
+                            produced.Add(
+                                (file, $"Editor/Vixen.Editor.Host/Shaders/{output}{file.Name[shader.Length..]}")
+                            );
+                        }
 
-                var names = produced
-                    .Select(entry => entry.Committed)
-                    .ToHashSet(System.StringComparer.Ordinal);
-
-                var uncovered = new List<string>();
-
-                foreach (var directory in directories) {
-                    var artefacts = (RootDirectory / directory).GlobFiles("*.spv", "*.reflect.json");
-
-                    // The same floor `CheckLicenceHeaders` carries, for the same reason: move or
-                    // rename one of these directories and the glob quietly returns nothing, which
-                    // leaves a gate reporting success over a tree it can no longer see.
-                    Assert.True(
-                        artefacts.Count > 0,
-                        $"{directory} holds no committed .spv, which cannot be right — the directory "
-                        + "has moved and this target is checking nothing in it."
-                    );
-
-                    uncovered.AddRange(artefacts
-                        .Select(file => $"{directory}/{file.Name}")
-                        .Where(name => !names.Contains(name))
-                        .OrderBy(name => name, System.StringComparer.Ordinal)
-                    );
-                }
-
-                var differing = new List<string>();
-
-                foreach (var (file, name) in produced) {
-                    var committed = RootDirectory / name;
-
-                    if (UpdateShaders) {
-                        file.Copy(committed, ExistsPolicy.FileOverwrite);
-                        continue;
-                    }
-
-                    if (!committed.FileExists()) {
-                        differing.Add($"{name} is not committed");
-                        continue;
-                    }
-
-                    if (!System.IO.File.ReadAllBytes(committed).AsSpan()
-                            .SequenceEqual(System.IO.File.ReadAllBytes(file))) {
-                        differing.Add($"{name} differs from what the compiler produces");
-                    }
-                }
-
-                if (UpdateShaders) {
-                    Log.Warning(
-                        "The editor's shader modules have been rewritten. `spirv-val --target-env "
-                        + "vulkan1.2` over them is worth running: Raven's SPIR-V is checked against the "
-                        + "validator in its own tests, but these are the modules the editor loads."
-                    );
-
-                    // ⚠ Said rather than fixed, because rewriting cannot fix it: nothing here
-                    // produces these, so the answer is to delete them or to add the entry that does.
-                    if (uncovered.Count > 0) {
-                        Log.Warning(
-                            "{Count} committed file(s) were left untouched because nothing in this "
-                            + "target produces them:\n  {Files}",
-                            uncovered.Count,
-                            string.Join("\n  ", uncovered)
+                        // ⚠ An entry that emitted nothing has to fail here, because everything after this
+                        // loop is a comparison and a comparison of nothing passes. The compiler is loud
+                        // about most of the ways that happens — it refuses a `--shader` it did not
+                        // generate — but the glob is a second place the two names have to agree, and a
+                        // backend that changed its extension would leave this entry silently unchecked.
+                        Assert.True(
+                            produced.Count > before,
+                            $"{shader} in {package} compiled and wrote no .spv into {into} — nothing was "
+                            + "compared for this entry."
                         );
                     }
 
-                    return;
+                    // ⚠ The editor's own sources, compiled whole. `--emit-reflection` because the
+                    // committed `.reflect.json` beside each module is what the host reads its bindings
+                    // and its struct offsets out of — a module regenerated without it leaves the
+                    // reflection saying the old layout, which is the exact failure `UiShapeLayoutTests`
+                    // is on the other side of.
+                    // ⚠ A directory per source for the same reason the entries above have one: the
+                    // sources are discovered across projects, and two of them can name a module the same
+                    // — `Platform/Vixen.Ui.Desktop` and any second interface host would both write a
+                    // `UiBox.frag.spv`, and into a shared directory the second silently wins.
+                    for (var index = 0; index < editorSources.Count; index++) {
+                        var (directory, source) = editorSources[index];
+                        var beside = RootDirectory / directory;
+                        // ⚠ The dots come out as well as the slashes, and that is not tidiness: the
+                        // compiler decides "directory or file" by whether the path has an extension, so
+                        // `src-00-Editor-Vixen.Editor.Host-Ui` is read as a single file called `Host-Ui`
+                        // and refused — with a good message, which is how this was found.
+                        var into = staging / $"src-{index:00}-{directory.Replace('/', '-').Replace('.', '-')}-{source}";
+
+                        into.CreateOrCleanDirectory();
+
+                        DotNetRun(settings => settings
+                            .SetProjectFile(compiler)
+                            .SetConfiguration(Configuration.Release)
+                            .EnableNoRestore()
+                            .EnableNoBuild()
+                            .SetApplicationArguments(
+                                "compile",
+                                (beside / $"{source}.rvn").ToString(),
+                                into.ToString(),
+                                "--target",
+                                "spirv",
+                                "--emit-reflection",
+                                "--no-color"
+                            )
+                        );
+
+                        var before = produced.Count;
+
+                        foreach (var file in into.GlobFiles("*.spv", "*.reflect.json")
+                                     .OrderBy(path => path.Name, System.StringComparer.Ordinal)) {
+                            // ⚠ The name carries its directory now, because two projects both produce a
+                            // `UiBox.frag.spv` and a flat name would compare the host's module against
+                            // the editor's — which differ, and are meant to.
+                            produced.Add((file, $"{directory}/{file.Name}"));
+                        }
+
+                        Assert.True(
+                            produced.Count > before,
+                            $"{directory}/{source}.rvn compiled and wrote nothing into {into} — "
+                            + "nothing was compared for this source."
+                        );
+                    }
+
+                    // ⚠ The other direction, and it is the floor this target did not have. Everything
+                    // above compiles what it found and compares that, so a committed module nothing
+                    // produces — a shader renamed, a permutation entry deleted, a source deleted while
+                    // its binaries stayed — was never opened, and the check reported green over a binary
+                    // the editor still loads. Nothing to compare is not the same as nothing wrong, which
+                    // is the shape of every "three empty manifests are identical" failure here.
+                    //
+                    // ⚠ `Editor/Vixen.Editor.Host/Shaders` is seeded rather than derived because
+                    // `EditorShaders` writes its library modules there and has no `.rvn` beside them for
+                    // the walk to find.
+                    var directories = new SortedSet<string>(System.StringComparer.Ordinal) {
+                        "Editor/Vixen.Editor.Host/Shaders"
+                    };
+
+                    foreach (var (directory, _) in editorSources) {
+                        directories.Add(directory);
+                    }
+
+                    var names = produced
+                        .Select(entry => entry.Committed)
+                        .ToHashSet(System.StringComparer.Ordinal);
+
+                    var uncovered = new List<string>();
+
+                    foreach (var directory in directories) {
+                        var artefacts = (RootDirectory / directory).GlobFiles("*.spv", "*.reflect.json");
+
+                        // The same floor `CheckLicenceHeaders` carries, for the same reason: move or
+                        // rename one of these directories and the glob quietly returns nothing, which
+                        // leaves a gate reporting success over a tree it can no longer see.
+                        Assert.True(
+                            artefacts.Count > 0,
+                            $"{directory} holds no committed .spv, which cannot be right — the directory "
+                            + "has moved and this target is checking nothing in it."
+                        );
+
+                        uncovered.AddRange(
+                            artefacts
+                                .Select(file => $"{directory}/{file.Name}")
+                                .Where(name => !names.Contains(name))
+                                .OrderBy(name => name, System.StringComparer.Ordinal)
+                        );
+                    }
+
+                    var differing = new List<string>();
+
+                    foreach (var (file, name) in produced) {
+                        var committed = RootDirectory / name;
+
+                        if (UpdateShaders) {
+                            file.Copy(committed, ExistsPolicy.FileOverwrite);
+                            continue;
+                        }
+
+                        if (!committed.FileExists()) {
+                            differing.Add($"{name} is not committed");
+                            continue;
+                        }
+
+                        if (!System.IO.File.ReadAllBytes(committed)
+                                .AsSpan()
+                                .SequenceEqual(System.IO.File.ReadAllBytes(file))) {
+                            differing.Add($"{name} differs from what the compiler produces");
+                        }
+                    }
+
+                    if (UpdateShaders) {
+                        Log.Warning(
+                            "The editor's shader modules have been rewritten. `spirv-val --target-env "
+                            + "vulkan1.2` over them is worth running: Raven's SPIR-V is checked against the "
+                            + "validator in its own tests, but these are the modules the editor loads."
+                        );
+
+                        // ⚠ Said rather than fixed, because rewriting cannot fix it: nothing here
+                        // produces these, so the answer is to delete them or to add the entry that does.
+                        if (uncovered.Count > 0) {
+                            Log.Warning(
+                                "{Count} committed file(s) were left untouched because nothing in this "
+                                + "target produces them:\n  {Files}",
+                                uncovered.Count,
+                                string.Join("\n  ", uncovered)
+                            );
+                        }
+
+                        return;
+                    }
+
+                    Assert.True(
+                        differing.Count == 0,
+                        "The committed editor shader modules are stale:\n  "
+                        + string.Join("\n  ", differing)
+                        + "\nRun `./build.sh CheckShaders --update-shaders` and read the diff."
+                    );
+
+                    Assert.True(
+                        uncovered.Count == 0,
+                        "These committed files are compared with nothing, because neither EditorShaders "
+                        + "nor any source this target discovered produces them:\n  "
+                        + string.Join("\n  ", uncovered)
+                        + "\nEither EditorShaders lost an entry it should still name, or the source that "
+                        + "produced these is gone and the files are leftovers to delete — a module nothing "
+                        + "recompiles is a module nobody notices going stale."
+                    );
+
+                    Log.Information(
+                        "{Count} editor shader modules match their sources, and every committed module in "
+                        + "{Directories} is one of them.",
+                        produced.Count,
+                        string.Join(", ", directories)
+                    );
                 }
-
-                Assert.True(
-                    differing.Count == 0,
-                    "The committed editor shader modules are stale:\n  "
-                    + string.Join("\n  ", differing)
-                    + "\nRun `./build.sh CheckShaders --update-shaders` and read the diff."
-                );
-
-                Assert.True(
-                    uncovered.Count == 0,
-                    "These committed files are compared with nothing, because neither EditorShaders "
-                    + "nor any source this target discovered produces them:\n  "
-                    + string.Join("\n  ", uncovered)
-                    + "\nEither EditorShaders lost an entry it should still name, or the source that "
-                    + "produced these is gone and the files are leftovers to delete — a module nothing "
-                    + "recompiles is a module nobody notices going stale."
-                );
-
-                Log.Information(
-                    "{Count} editor shader modules match their sources, and every committed module in "
-                    + "{Directories} is one of them.",
-                    produced.Count,
-                    string.Join(", ", directories)
-                );
-            }
-        );
+            );
 }

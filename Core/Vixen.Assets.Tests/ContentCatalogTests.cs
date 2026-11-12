@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Collections.Immutable;
-using Vixen.Core;
 using Vixen.Core.Serialization.Storage;
 using Xunit;
 
@@ -12,7 +11,7 @@ namespace Vixen.Assets.Tests;
 public sealed class ContentCatalogTests {
     [Fact]
     public void AnAddressResolvesToItsChunk() {
-        var catalog = Build(Entry("ui/hero", bundle: "UiCore", size: 4096));
+        var catalog = Build(Entry("ui/hero", "UiCore", size: 4096));
 
         Assert.True(catalog.TryGet("ui/hero", out var entry));
         Assert.Equal("UiCore", entry.Bundle);
@@ -27,7 +26,7 @@ public sealed class ContentCatalogTests {
     /// </summary>
     [Fact]
     public void AnAddressNothingAnswersToNamesItself() {
-        var failure = Assert.Throws<AddressNotFoundException>(() => Build().Get("ui/missing"));
+        var failure = Assert.Throws<AddressNotFoundException>(static () => Build().Get("ui/missing"));
 
         Assert.Equal("ui/missing", failure.Address);
         Assert.Contains("ui/missing", failure.Message, StringComparison.Ordinal);
@@ -39,8 +38,10 @@ public sealed class ContentCatalogTests {
     /// </summary>
     [Fact]
     public void TwoEntriesCannotShareAnAddress() {
-        var failure = Assert.Throws<ArgumentException>(
-            () => Build(Entry("ui/hero"), Entry("ui/hero", bundle: "Other"))
+        var failure = Assert.Throws<ArgumentException>(static () => Build(
+                Entry("ui/hero"),
+                Entry("ui/hero", "Other")
+            )
         );
 
         Assert.Contains("ui/hero", failure.Message, StringComparison.Ordinal);
@@ -171,11 +172,11 @@ public sealed class ContentCatalogTests {
     public void ADownloadIsCountedPerBundleAndNotPerAddress() {
         var catalog = Build(
             [
-                Entry("dlc/a", bundle: "Dlc", provider: ContentProvider.Remote, size: 1_000_000),
-                Entry("dlc/b", bundle: "Dlc", provider: ContentProvider.Remote, size: 1_000_000),
-                Entry("ui/hero", bundle: "UiCore", size: 500_000)
+                Entry("dlc/a", "Dlc", ContentProvider.Remote, 1_000_000),
+                Entry("dlc/b", "Dlc", ContentProvider.Remote, 1_000_000),
+                Entry("ui/hero", "UiCore", size: 500_000)
             ],
-            [Bundle("Dlc", size: 4_000_000), Bundle("UiCore", size: 9_000_000)]
+            [Bundle("Dlc", 4_000_000), Bundle("UiCore", 9_000_000)]
         );
 
         Assert.Equal(4_000_000, catalog.DownloadSize(["dlc/a", "dlc/b"]));
@@ -185,8 +186,8 @@ public sealed class ContentCatalogTests {
     [Fact]
     public void LocalContentCostsNothingToDownload() {
         var catalog = Build(
-            [Entry("ui/hero", bundle: "UiCore", size: 500_000)],
-            [Bundle("UiCore", size: 9_000_000)]
+            [Entry("ui/hero", "UiCore", size: 500_000)],
+            [Bundle("UiCore", 9_000_000)]
         );
 
         Assert.Equal(0, catalog.DownloadSize(["ui/hero"]));
@@ -195,12 +196,12 @@ public sealed class ContentCatalogTests {
     [Fact]
     public void ABundleAlreadyOnTheDeviceIsNotCountedAgain() {
         var catalog = Build(
-            [Entry("dlc/a", bundle: "Dlc", provider: ContentProvider.Remote)],
-            [Bundle("Dlc", size: 4_000_000)]
+            [Entry("dlc/a", "Dlc", ContentProvider.Remote)],
+            [Bundle("Dlc", 4_000_000)]
         );
 
-        Assert.Equal(0, catalog.DownloadSize(["dlc/a"], bundle => bundle.Name == "Dlc"));
-        Assert.Equal(4_000_000, catalog.DownloadSize(["dlc/a"], _ => false));
+        Assert.Equal(0, catalog.DownloadSize(["dlc/a"], static bundle => bundle.Name == "Dlc"));
+        Assert.Equal(4_000_000, catalog.DownloadSize(["dlc/a"], static _ => false));
     }
 
     /// <summary>
@@ -211,10 +212,10 @@ public sealed class ContentCatalogTests {
     public void ARemoteDependencyOfALocalAddressIsStillADownload() {
         var catalog = Build(
             [
-                Entry("scene", bundle: "Boot", dependencies: ["dlc/prop"]),
-                Entry("dlc/prop", bundle: "Dlc", provider: ContentProvider.Remote)
+                Entry("scene", "Boot", dependencies: ["dlc/prop"]),
+                Entry("dlc/prop", "Dlc", ContentProvider.Remote)
             ],
-            [Bundle("Boot", size: 100), Bundle("Dlc", size: 4_000_000)]
+            [Bundle("Boot", 100), Bundle("Dlc", 4_000_000)]
         );
 
         Assert.Equal(4_000_000, catalog.DownloadSize(["scene"]));
@@ -235,11 +236,11 @@ public sealed class ContentCatalogTests {
     [Fact]
     public void AnUpdateReplacesWhatItMentionsAndLeavesTheRest() {
         var shipped = Build(
-            Entry("ui/hero", bundle: "UiCore", size: 100),
-            Entry("ui/villain", bundle: "UiCore", size: 200)
+            Entry("ui/hero", "UiCore", size: 100),
+            Entry("ui/villain", "UiCore", size: 200)
         );
 
-        var update = Build(Entry("ui/hero", bundle: "UiCore_v2", size: 150));
+        var update = Build(Entry("ui/hero", "UiCore_v2", size: 150));
 
         var merged = shipped.MergedWith(update);
 
@@ -251,19 +252,19 @@ public sealed class ContentCatalogTests {
 
     [Fact]
     public void AnUpdateBringsItsOwnBundlesAndItsOwnBuildHash() {
-        var shipped = Build([Entry("ui/hero", bundle: "UiCore")], [Bundle("UiCore", size: 10)]);
+        var shipped = Build([Entry("ui/hero", "UiCore")], [Bundle("UiCore", 10)]);
 
         var update = new ContentCatalog(
             CatalogFormat.Version,
             new(7, 7),
             "Windows",
-            [Entry("ui/hero", bundle: "Patch")],
-            [Bundle("Patch", size: 20)]
+            [Entry("ui/hero", "Patch")],
+            [Bundle("Patch", 20)]
         );
 
         var merged = shipped.MergedWith(update);
 
-        Assert.Equal(new ObjectId(7, 7), merged.BuildHash);
+        Assert.Equal(new(7, 7), merged.BuildHash);
         Assert.True(merged.TryGetBundle("Patch", out _));
         Assert.True(merged.TryGetBundle("UiCore", out _));
     }
@@ -297,8 +298,8 @@ public sealed class ContentCatalogTests {
     /// <summary>Merging produces a third catalog; neither input is touched.</summary>
     [Fact]
     public void MergingChangesNeitherInput() {
-        var shipped = Build(Entry("ui/hero", bundle: "UiCore"));
-        var update = Build(Entry("ui/hero", bundle: "Patch"));
+        var shipped = Build(Entry("ui/hero", "UiCore"));
+        var update = Build(Entry("ui/hero", "Patch"));
 
         shipped.MergedWith(update);
 
@@ -333,8 +334,8 @@ public sealed class ContentCatalogTests {
 
     [Fact]
     public void AndSoAreTwoBundles() {
-        var one = Bundle("Dlc", size: 10) with { Dependencies = ["UiCore"] };
-        var other = Bundle("Dlc", size: 10) with { Dependencies = ["UiCore"] };
+        var one = Bundle("Dlc", 10) with { Dependencies = ["UiCore"] };
+        var other = Bundle("Dlc", 10) with { Dependencies = ["UiCore"] };
 
         Assert.Equal(one, other);
         Assert.Equal(one.GetHashCode(), other.GetHashCode());
@@ -349,7 +350,7 @@ public sealed class ContentCatalogTests {
         string[]? dependencies = null,
         string[]? labels = null
     ) =>
-        new(address, default, bundle, provider, [.. dependencies ?? []], [.. labels ?? []], size);
+        new(address, default, bundle, provider, [..dependencies ?? []], [..labels ?? []], size);
 
     static CatalogBundle Bundle(string name, long size) =>
         new(name, $"https://cdn.example/{name}", default, size, 0, CompressionMethod.Lz4, []);

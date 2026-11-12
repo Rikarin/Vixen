@@ -5,9 +5,7 @@ using System.Collections.Immutable;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Vixen.Core;
-using Vixen.Gameplay;
 using Vixen.Gameplay.Content;
-using Vixen.Gameplay.Social;
 using Vixen.Live;
 using Vixen.Live.Gameplay;
 using Vixen.Live.Realms;
@@ -23,8 +21,11 @@ namespace Vixen.Samples.Mmo.Realms;
 ///         should say what the project is, and the base type is called what the document calls it.
 ///     </para>
 ///     <para>
-///         <b>What this class is for is composition, and composition is the whole point of the
-///         sample.</b> Doc 28 ships twenty-odd packages so that a game can decline most of them; this
+///         <b>
+///             What this class is for is composition, and composition is the whole point of the
+///             sample.
+///         </b>
+///         Doc 28 ships twenty-odd packages so that a game can decline most of them; this
 ///         is the first thing that proves all twenty go together — that the tag table bakes across
 ///         the lot, that no two libraries claim one definition alias, and that a realm can hold the
 ///         resulting object graph without it becoming a god class.
@@ -42,7 +43,7 @@ namespace Vixen.Samples.Mmo.Realms;
 ///         talks to the cluster at all.
 ///     </para>
 /// </remarks>
-public sealed class MmoRealm : Vixen.Live.Realms.Realm {
+public sealed class MmoRealm : Realm {
     readonly GameplayIdentityMap identity = new();
 
     LockoutBridge? lockouts;
@@ -87,7 +88,7 @@ public sealed class MmoRealm : Vixen.Live.Realms.Realm {
     ///     </para>
     /// </remarks>
     /// <exception cref="InvalidOperationException">The content did not compile clean.</exception>
-    public void Compose(MmoLibraries libraries) => Compose(libraries, [], seed: 0);
+    public void Compose(MmoLibraries libraries) => Compose(libraries, [], 0);
 
     /// <summary>Composes, compiles and builds the bridges, over content that was read from a build.</summary>
     /// <param name="libraries">The compiled content, from wherever the realm read it.</param>
@@ -98,8 +99,12 @@ public sealed class MmoRealm : Vixen.Live.Realms.Realm {
     /// </param>
     /// <param name="seed">What the world's spawn streams start from.</param>
     /// <remarks>
-    ///     ⚠ <b>The seed is a parameter and not read from <see cref="Realm.Spec" />, and that is not a
-    ///     style choice.</b> The whole argument for this method being public is that everything below
+    ///     ⚠
+    ///     <b>
+    ///         The seed is a parameter and not read from <see cref="Realm.Spec" />, and that is not a
+    ///         style choice.
+    ///     </b>
+    ///     The whole argument for this method being public is that everything below
     ///     it is ordinary objects — a realm that could only be composed inside a running shard is a
     ///     realm nobody tests — and <c>Spec</c> throws until the host has bound one. Reaching for it
     ///     here made exactly that promise false, and the existing test caught it.
@@ -110,12 +115,15 @@ public sealed class MmoRealm : Vixen.Live.Realms.Realm {
 
         var problems = loading.IsDefaultOrEmpty
             ? libraries.Problems
-            : [.. loading.Select(problem => "Content: " + problem), .. libraries.Problems];
+            : [..loading.Select(static problem => "Content: " + problem), ..libraries.Problems];
 
         if (problems.Length > 0) {
             throw new InvalidOperationException(
                 $"This build's content has {problems.Length} problems and a shard will not "
-                + "start on it:" + Environment.NewLine + "  " + string.Join(Environment.NewLine + "  ", problems)
+                + "start on it:"
+                + Environment.NewLine
+                + "  "
+                + string.Join(Environment.NewLine + "  ", problems)
             );
         }
 
@@ -134,8 +142,12 @@ public sealed class MmoRealm : Vixen.Live.Realms.Realm {
     ///         server; it is one that can be told what to be and asked to stop.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The content arrives here, synchronously, and the blocking read is the right
-    ///         trade.</b> Nothing in the realm lifecycle is async — every hook returns void — and this
+    ///         ⚠
+    ///         <b>
+    ///             The content arrives here, synchronously, and the blocking read is the right
+    ///             trade.
+    ///         </b>
+    ///         Nothing in the realm lifecycle is async — every hook returns void — and this
     ///         runs after the startup scene and before the first frame, which is the only window in
     ///         which "composed before anybody plays" is a fact rather than a hope. The alternative,
     ///         asking off-thread and applying on a later tick through <c>Host.Directory</c>, buys
@@ -234,7 +246,7 @@ public sealed class MmoRealm : Vixen.Live.Realms.Realm {
         // the same absence in a view and must not be the same fact. The real lists arrive from the
         // grains, asked for at admission and applied when they come back.
         lockouts?.Warmed(gameplay, []);
-        social?.Warmed(gameplay, row: null);
+        social?.Warmed(gameplay, null);
         social?.Warmed(player.Key, []);
         social?.Admitted(player.Key, gameplay);
     }

@@ -90,7 +90,8 @@ public sealed class Effect {
     /// </remarks>
     public EffectBlock BlockOf(DescriptorSetSlot slot) {
         foreach (var binding in Bindings) {
-            if (binding.Set != slot || binding.Kind is not (DescriptorKind.UniformBuffer or DescriptorKind.DynamicUniformBuffer)) {
+            if (binding.Set != slot
+                || binding.Kind is not (DescriptorKind.UniformBuffer or DescriptorKind.DynamicUniformBuffer)) {
                 continue;
             }
 
@@ -258,8 +259,12 @@ public readonly record struct EffectBinding(
     /// <summary>How many descriptors the binding holds; one for all but an array binding.</summary>
     /// <remarks>
     ///     <para>
-    ///         <see cref="EffectLoader" /> already needed it to build a layout — <c>probes:
-    ///         TextureCube[ProbeCount]</c> is one binding of four descriptors — and it stopped there,
+    ///         <see cref="EffectLoader" /> already needed it to build a layout —
+    ///         <c>
+    ///             probes:
+    ///             TextureCube[ProbeCount]
+    ///         </c>
+    ///         is one binding of four descriptors — and it stopped there,
     ///         so the plan a host <em>fills</em> the set from described the array as a single
     ///         resource. Filling one element and leaving three unwritten is a validation error on
     ///         Vulkan and a sampled nothing elsewhere, which is the failure this makes visible.

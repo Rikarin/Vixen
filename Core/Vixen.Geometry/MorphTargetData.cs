@@ -15,8 +15,11 @@ namespace Vixen.Geometry;
 ///         hundred zero deltas per target. Twenty targets stored densely is more bytes than the mesh.
 ///     </para>
 ///     <para>
-///         <b>An entry is a vertex index and two deltas, and the deltas are quantised against a range
-///         this target carries.</b> Sixteen-bit signed normals against
+///         <b>
+///             An entry is a vertex index and two deltas, and the deltas are quantised against a range
+///             this target carries.
+///         </b>
+///         Sixteen-bit signed normals against
 ///         <see cref="PositionScale" />/<see cref="NormalScale" /> rather than floats: a delta's
 ///         magnitude is bounded by the shape's own extent, so the quantum is a ten-thousandth of the
 ///         largest movement in <em>this</em> target — which for a face is a few micrometres — and the
@@ -96,9 +99,9 @@ public sealed record MorphTargetData {
     ///     "is it resident" is yes and the answer for a crowd is one shared mesh.
     /// </remarks>
     public long SizeInBytes =>
-        (Indices.Length * (long)sizeof(int))
-        + (Positions.Length * (long)sizeof(short))
-        + (Normals.Length * (long)sizeof(short));
+        Indices.Length * (long)sizeof(int)
+        + Positions.Length * (long)sizeof(short)
+        + Normals.Length * (long)sizeof(short);
 
     /// <summary>The position delta of one entry, dequantised.</summary>
     /// <param name="entry">Which entry, in <c>[0, <see cref="Count" />)</c>.</param>
@@ -158,7 +161,7 @@ public sealed record MorphTargetData {
 
         return new() {
             Name = name,
-            Indices = indices.ToArray(),
+            Indices = [..indices],
             PositionScale = positionScale,
             Positions = Quantize(positions, positionScale),
             NormalScale = normalScale,
@@ -179,8 +182,12 @@ public sealed record MorphTargetData {
     /// <exception cref="ArgumentException"><paramref name="normals" /> disagrees in length.</exception>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The threshold is absolute and is the caller's, because there is no scale-free
-    ///         answer.</b> A millimetre is a rounding error on a building and the whole of an eyelid
+    ///         ⚠
+    ///         <b>
+    ///             The threshold is absolute and is the caller's, because there is no scale-free
+    ///             answer.
+    ///         </b>
+    ///         A millimetre is a rounding error on a building and the whole of an eyelid
     ///         shape; an importer knows the unit scale it applied and this does not. What it must not
     ///         be is zero-by-default: an exporter writes a delta for every vertex of the mesh, so a
     ///         zero threshold keeps every one of them and there is nothing sparse about the result.
@@ -231,7 +238,7 @@ public sealed record MorphTargetData {
             }
         }
 
-        return Encode(name, [.. kept], keptPositions, keptNormals);
+        return Encode(name, [..kept], keptPositions, keptNormals);
     }
 
     /// <summary>The largest absolute component over a run of deltas, which is the target's range.</summary>
@@ -263,9 +270,9 @@ public sealed record MorphTargetData {
         var scale = Quantum / range;
 
         for (var index = 0; index < deltas.Length; index++) {
-            packed[(index * 3) + 0] = Component(deltas[index].X, scale);
-            packed[(index * 3) + 1] = Component(deltas[index].Y, scale);
-            packed[(index * 3) + 2] = Component(deltas[index].Z, scale);
+            packed[index * 3] = Component(deltas[index].X, scale);
+            packed[index * 3 + 1] = Component(deltas[index].Y, scale);
+            packed[index * 3 + 2] = Component(deltas[index].Z, scale);
         }
 
         return packed;
@@ -288,9 +295,9 @@ public sealed record MorphTargetData {
         var step = scale / Quantum;
 
         return new(
-            packed[(entry * 3) + 0] * step,
-            packed[(entry * 3) + 1] * step,
-            packed[(entry * 3) + 2] * step
+            packed[entry * 3] * step,
+            packed[entry * 3 + 1] * step,
+            packed[entry * 3 + 2] * step
         );
     }
 }

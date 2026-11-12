@@ -25,7 +25,11 @@ public class MeshSimplifierTests {
         var locked = Topology.BoundaryEdges(mesh.Indices, welded, all);
 
         var result = Simplify(mesh, locked, mesh.TriangleCount / 8);
-        var after = Topology.BoundaryEdges(result.Corners, welded, Enumerable.Range(0, result.Corners.Length / 3).ToArray());
+        var after = Topology.BoundaryEdges(
+            result.Corners,
+            welded,
+            Enumerable.Range(0, result.Corners.Length / 3).ToArray()
+        );
 
         Assert.Equal(locked, after);
     }
@@ -37,7 +41,11 @@ public class MeshSimplifierTests {
         var before = Topology.BoundaryEdges(mesh.Indices, welded, Enumerable.Range(0, mesh.TriangleCount).ToArray());
 
         var result = Simplify(mesh, [], mesh.TriangleCount / 8);
-        var after = Topology.BoundaryEdges(result.Corners, welded, Enumerable.Range(0, result.Corners.Length / 3).ToArray());
+        var after = Topology.BoundaryEdges(
+            result.Corners,
+            welded,
+            Enumerable.Range(0, result.Corners.Length / 3).ToArray()
+        );
 
         // The other half of the test above: it passes because the lock does something, not because
         // a grid's outline happens to survive a simplification.
@@ -54,8 +62,8 @@ public class MeshSimplifierTests {
         // — it measures distance to planes and does not know which side of one it is on.
         for (var triangle = 0; triangle < result.Corners.Length / 3; triangle++) {
             var a = mesh.Positions[result.Corners[triangle * 3]];
-            var b = mesh.Positions[result.Corners[(triangle * 3) + 1]];
-            var c = mesh.Positions[result.Corners[(triangle * 3) + 2]];
+            var b = mesh.Positions[result.Corners[triangle * 3 + 1]];
+            var c = mesh.Positions[result.Corners[triangle * 3 + 2]];
 
             Assert.True(Vector3.Dot(Vector3.Cross(b - a, c - a), (a + b + c) / 3f) > 0);
         }
@@ -106,14 +114,12 @@ public class MeshSimplifierTests {
         }
 
         for (var x = 0; x < 8; x++) {
-            indices.AddRange([(x * 4) + 0, (x * 4) + 1, (x * 4) + 4, (x * 4) + 4, (x * 4) + 1, (x * 4) + 5]);
-            indices.AddRange([(x * 4) + 2, (x * 4) + 3, (x * 4) + 6, (x * 4) + 6, (x * 4) + 3, (x * 4) + 7]);
+            indices.AddRange([x * 4, x * 4 + 1, x * 4 + 4, x * 4 + 4, x * 4 + 1, x * 4 + 5]);
+            indices.AddRange([x * 4 + 2, x * 4 + 3, x * 4 + 6, x * 4 + 6, x * 4 + 3, x * 4 + 7]);
         }
 
         var mesh = new MeshletBuildInput {
-            Positions = [.. positions],
-            TexCoords = [.. texcoords],
-            Indices = [.. indices]
+            Positions = [..positions], TexCoords = [..texcoords], Indices = [..indices]
         };
 
         var result = Simplify(mesh, [], 4);
@@ -126,7 +132,7 @@ public class MeshSimplifierTests {
         // up as a triangle with a corner in each.
         for (var triangle = 0; triangle < result.Corners.Length / 3; triangle++) {
             var charts = Enumerable.Range(0, 3)
-                .Select(corner => result.Corners[(triangle * 3) + corner] % 4 < 2)
+                .Select(corner => result.Corners[triangle * 3 + corner] % 4 < 2)
                 .Distinct()
                 .Count();
 

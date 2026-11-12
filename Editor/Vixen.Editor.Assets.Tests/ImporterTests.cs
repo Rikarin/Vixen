@@ -11,7 +11,7 @@ using Xunit;
 namespace Vixen.Editor.Assets.Tests;
 
 public sealed class ImporterTests {
-    static readonly VirtualPath Source = new VirtualPath("/Assets/hero.png");
+    static readonly VirtualPath Source = new("/Assets/hero.png");
 
     [Fact]
     public void AnImportersNameIsItsSettingsContractName() {
@@ -44,14 +44,15 @@ public sealed class ImporterTests {
         var files = Provider(("/Assets/hero.png", "PNG"), ("/Assets/shared.pal", "palette"));
         var context = Context(files, new PaletteImporter());
 
-        var failure = await Assert.ThrowsAsync<UnregisteredReadException>(
-            async () => await new PaletteImporter { Declare = false }.ImportAsync(
+        var failure = await Assert.ThrowsAsync<UnregisteredReadException>(async () => await new PaletteImporter {
+                Declare = false
+            }.ImportAsync(
                 context,
                 TestContext.Current.CancellationToken
             )
         );
 
-        Assert.Equal(new VirtualPath("/Assets/shared.pal"), failure.Path);
+        Assert.Equal(new("/Assets/shared.pal"), failure.Path);
         Assert.Contains("DependsOnFile", failure.Message, StringComparison.Ordinal);
     }
 
@@ -63,7 +64,7 @@ public sealed class ImporterTests {
         var result = await new PaletteImporter().ImportAsync(context, TestContext.Current.CancellationToken);
 
         Assert.True(result.Succeeded);
-        Assert.Contains(new VirtualPath("/Assets/shared.pal"), context.FileDependencies);
+        Assert.Contains(new("/Assets/shared.pal"), context.FileDependencies);
     }
 
     /// <summary>
@@ -76,14 +77,14 @@ public sealed class ImporterTests {
         var files = Provider(("/Assets/hero.png", "PNG"), ("/Assets/shared.pal", "palette"));
         var context = Context(files, new PaletteImporter());
 
-        Assert.True(context.Files.Exists(new VirtualPath("/Assets/shared.pal")));
-        Assert.DoesNotContain(new VirtualPath("/Assets/shared.pal"), context.FileDependencies);
+        Assert.True(context.Files.Exists(new("/Assets/shared.pal")));
+        Assert.DoesNotContain(new("/Assets/shared.pal"), context.FileDependencies);
     }
 
     [Fact]
     public async Task TheCheckCanBeTurnedOffAndThenNothingIsRefused() {
         var files = Provider(("/Assets/hero.png", "PNG"), ("/Assets/shared.pal", "palette"));
-        var context = Context(files, new PaletteImporter(), enforce: false);
+        var context = Context(files, new PaletteImporter(), false);
 
         var result = await new PaletteImporter { Declare = false }.ImportAsync(
             context,
@@ -125,10 +126,10 @@ public sealed class ImporterTests {
 
         var result = context.Finish();
 
-        Assert.Equal(["swatch", "swatch_1"], result.SubAssets.Select(entry => entry.Name));
+        Assert.Equal(["swatch", "swatch_1"], result.SubAssets.Select(static entry => entry.Name));
 
         // The second one records what the file called it, which is the key a rename is stored under.
-        Assert.Equal(["", "swatch"], result.SubAssets.Select(entry => entry.Source));
+        Assert.Equal([string.Empty, "swatch"], result.SubAssets.Select(static entry => entry.Source));
 
         // And it is said out loud, because the suffix depends on the order they appear in the file —
         // the one property a derived id exists to avoid, and the one case where it cannot.
@@ -155,7 +156,7 @@ public sealed class ImporterTests {
 
         Assert.Equal(
             ["swatch", "swatch_1", "swatch_2"],
-            context.Finish().SubAssets.Select(entry => entry.Name)
+            context.Finish().SubAssets.Select(static entry => entry.Name)
         );
 
         await Task.CompletedTask;
@@ -173,13 +174,17 @@ public sealed class ImporterTests {
         context.DeclareSubAsset("Palette", "Body");
         context.DeclareSubAsset("Mesh", "Body");
 
-        Assert.Equal(["Body", "Body"], context.Finish().SubAssets.Select(entry => entry.Name));
+        Assert.Equal(["Body", "Body"], context.Finish().SubAssets.Select(static entry => entry.Name));
         await Task.CompletedTask;
     }
 
     /// <summary>
-    ///     ⚠ <b>The author's rename lands before the id is derived, and is keyed by what the file
-    ///     calls the thing.</b> That is what makes it survive a re-export that reorders the meshes —
+    ///     ⚠
+    ///     <b>
+    ///         The author's rename lands before the id is derived, and is keyed by what the file
+    ///         calls the thing.
+    ///     </b>
+    ///     That is what makes it survive a re-export that reorders the meshes —
     ///     which is the whole reason an id comes from a name rather than a position.
     /// </summary>
     [Fact]
@@ -201,7 +206,7 @@ public sealed class ImporterTests {
 
         // Both go through the rename, because the file cannot tell them apart — so the second one
         // still takes a suffix, off the renamed stem rather than the original.
-        Assert.Equal(["Body", "Body_1"], result.SubAssets.Select(entry => entry.Name));
+        Assert.Equal(["Body", "Body_1"], result.SubAssets.Select(static entry => entry.Name));
         Assert.Equal(SubAssets.Derive("ModelImporter", "Mesh", "Body"), result.SubAssets[0].Id);
 
         await Task.CompletedTask;
@@ -236,7 +241,7 @@ public sealed class ImporterTests {
         var provider = new MemoryFileProvider();
 
         foreach (var (path, content) in files) {
-            provider.Seed(new VirtualPath(path), content);
+            provider.Seed(new(path), content);
         }
 
         return provider;
@@ -308,7 +313,7 @@ public sealed class PaletteImporter : AssetImporter<PaletteImportSettings> {
         context.DependsOn(DependsOnAsset);
 
         if (ReadsEveryPeer) {
-            foreach (var peer in context.Files.Enumerate(new VirtualPath("/Assets"), recursive: true)) {
+            foreach (var peer in context.Files.Enumerate(new("/Assets"), true)) {
                 if (!peer.IsDirectory && peer.Path.ToString().EndsWith(".pal", StringComparison.Ordinal)) {
                     await using var opened = await context.Files.OpenReadAsync(peer.Path, cancellationToken)
                         .ConfigureAwait(false);

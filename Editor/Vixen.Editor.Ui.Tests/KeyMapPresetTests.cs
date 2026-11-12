@@ -41,14 +41,14 @@ public class KeyMapPresetTests {
 
         keys.UsePreset(KeyMapYaml.ReadPreset("Test", "bindings:\n  file.save: \"Ctrl+W\"\n"));
 
-        Assert.Equal(new KeyChord(InputKey.W, ModifierKeys.Control), keys.ChordFor("file.save"));
+        Assert.Equal(new(InputKey.W, ModifierKeys.Control), keys.ChordFor("file.save"));
         Assert.Equal(BindingSource.Preset, keys.SourceOf("file.save"));
 
         // The shipped default is still what the application declared, which is what makes taking the
         // preset off a restoration rather than a guess.
         Assert.Equal(Save, keys.Defaults["file.save"]);
 
-        keys.UsePreset((KeyMapPreset?) null);
+        keys.UsePreset((KeyMapPreset?)null);
         Assert.Equal(Save, keys.ChordFor("file.save"));
     }
 
@@ -57,15 +57,20 @@ public class KeyMapPresetTests {
     public void Rebinding_one_key_leaves_the_rest_following_the_preset() {
         var keys = Shipped();
 
-        keys.UsePreset(KeyMapYaml.ReadPreset("Test", "bindings:\n  file.save: \"Ctrl+W\"\n  file.save-all: \"Ctrl+Shift+S\"\n"));
-        keys.Bind("file.save", new KeyChord(InputKey.K, ModifierKeys.Control));
+        keys.UsePreset(
+            KeyMapYaml.ReadPreset("Test", "bindings:\n  file.save: \"Ctrl+W\"\n  file.save-all: \"Ctrl+Shift+S\"\n")
+        );
+        keys.Bind("file.save", new(InputKey.K, ModifierKeys.Control));
 
         Assert.Equal(BindingSource.User, keys.SourceOf("file.save"));
 
         // The other one is still the preset's, and — the half that matters — it is still *marked* as
         // the preset's, so a later preset update reaches it.
         Assert.Equal(BindingSource.Preset, keys.SourceOf("file.save-all"));
-        Assert.Equal(new KeyChord(InputKey.S, ModifierKeys.Control | ModifierKeys.Shift), keys.ChordFor("file.save-all"));
+        Assert.Equal(
+            new(InputKey.S, ModifierKeys.Control | ModifierKeys.Shift),
+            keys.ChordFor("file.save-all")
+        );
     }
 
     [Fact]
@@ -104,14 +109,14 @@ public class KeyMapPresetTests {
         var keys = Shipped();
 
         keys.UsePreset(KeyMapYaml.ReadPreset("Test", "bindings:\n  file.save: \"Ctrl+W\"\n"));
-        keys.Bind("file.save", new KeyChord(InputKey.K, ModifierKeys.Control));
+        keys.Bind("file.save", new(InputKey.K, ModifierKeys.Control));
 
         keys.Reset();
 
         // ⚠ Not the shipped default. "Reset" means "undo what I changed", and somebody who chose a
         // preset and then made a mess of three keys is asking for the preset back rather than for a
         // keymap they have never used.
-        Assert.Equal(new KeyChord(InputKey.W, ModifierKeys.Control), keys.ChordFor("file.save"));
+        Assert.Equal(new(InputKey.W, ModifierKeys.Control), keys.ChordFor("file.save"));
         Assert.Equal("Test", keys.PresetName);
         Assert.False(keys.IsCustomised("file.save"));
     }
@@ -124,7 +129,7 @@ public class KeyMapPresetTests {
 
         // ⚠ Not Ctrl+K, which the Unity preset gives to the palette — binding it would be refused,
         // which is the conflict rule working and would make this test about the wrong thing.
-        Assert.Equal(BindResult.Bound, keys.Bind("file.save", new KeyChord(InputKey.J, ModifierKeys.Control)));
+        Assert.Equal(BindResult.Bound, keys.Bind("file.save", new(InputKey.J, ModifierKeys.Control)));
 
         var text = KeyMapYaml.Write(keys);
 
@@ -139,10 +144,10 @@ public class KeyMapPresetTests {
         KeyMapYaml.Read(reloaded, text);
 
         Assert.Equal(KeyMapPresets.Unity, reloaded.PresetName);
-        Assert.Equal(new KeyChord(InputKey.J, ModifierKeys.Control), reloaded.ChordFor("file.save"));
+        Assert.Equal(new(InputKey.J, ModifierKeys.Control), reloaded.ChordFor("file.save"));
 
         // And the preset is still in force underneath, which is what the name in the file is for.
-        Assert.Equal(new KeyChord(InputKey.K, ModifierKeys.Control), reloaded.ChordFor("view.palette"));
+        Assert.Equal(new(InputKey.K, ModifierKeys.Control), reloaded.ChordFor("view.palette"));
     }
 
     [Fact]
@@ -155,7 +160,7 @@ public class KeyMapPresetTests {
         // that has not got it must not be an editor that will not start. What survives is the part
         // this editor can honour.
         Assert.Equal(KeyMapPresets.Vixen, keys.PresetName);
-        Assert.Equal(new KeyChord(InputKey.K, ModifierKeys.Control), keys.ChordFor("file.save"));
+        Assert.Equal(new(InputKey.K, ModifierKeys.Control), keys.ChordFor("file.save"));
     }
 
     [Fact]
@@ -163,11 +168,11 @@ public class KeyMapPresetTests {
         var keys = Shipped();
 
         keys.UsePreset(KeyMapYaml.ReadPreset("Test", "bindings:\n  file.save: \"Ctrl+W\"\n"));
-        keys.Bind("file.save", new KeyChord(InputKey.K, ModifierKeys.Control));
+        keys.Bind("file.save", new(InputKey.K, ModifierKeys.Control));
 
         Assert.True(keys.ResetBinding("file.save"));
 
-        Assert.Equal(new KeyChord(InputKey.W, ModifierKeys.Control), keys.ChordFor("file.save"));
+        Assert.Equal(new(InputKey.W, ModifierKeys.Control), keys.ChordFor("file.save"));
         Assert.Equal(BindingSource.Preset, keys.SourceOf("file.save"));
         Assert.False(keys.ResetBinding("file.save"));
     }
@@ -194,7 +199,7 @@ public class KeyMapPresetTests {
 
         // A chord that would not parse is silently dropped by `Parse`, so an entry that survived is
         // one that means something — and every one of ours has to.
-        Assert.All(preset.Bindings.Values, chord => Assert.True(chord.IsBound));
+        Assert.All(preset.Bindings.Values, static chord => Assert.True(chord.IsBound));
     }
 
     /// <summary>

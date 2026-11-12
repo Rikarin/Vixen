@@ -44,7 +44,8 @@ public static class VirtualCameras {
     ///     loop does not call it: see <see cref="VirtualCamera" />'s remarks for why a mistake made
     ///     once is not worth an archetype interrogation sixty times a second.
     /// </remarks>
-    public static bool Validate(World world, Entity entity) => BodyCount(world, entity) <= 1
+    public static bool Validate(World world, Entity entity) =>
+        BodyCount(world, entity) <= 1
         && AimCount(world, entity) <= 1;
 
     /// <summary>How many body stages a shot carries. More than one is a configuration error.</summary>

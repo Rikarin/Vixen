@@ -12,7 +12,6 @@ using Vixen.Engine.Renderer;
 using Vixen.Engine.Scenes;
 using Vixen.Engine.Transforms;
 using Vixen.Graphics;
-using Vixen.Physics;
 using Vixen.Physics.Ecs;
 using Vixen.Physics.Shapes;
 using Vixen.Rendering;
@@ -25,7 +24,6 @@ using Vixen.Rendering.Materials;
 using Vixen.Shaders;
 using Vixen.Shaders.Generated;
 using Vixen.Terrain.Physics;
-using Vixen.Vfx;
 using Vixen.Water.Physics;
 
 namespace Vixen.Samples.ThirdPersonShooter;
@@ -58,8 +56,12 @@ public sealed class Arena : IDisposable {
     ///         was not what was wrong.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Off now, because the frame has exactly one ambient-occlusion march and this is
-    ///         the one that lost.</b> Under <c>SplitOutputs</c> the in-material march lands in the
+    ///         ⚠
+    ///         <b>
+    ///             Off now, because the frame has exactly one ambient-occlusion march and this is
+    ///             the one that lost.
+    ///         </b>
+    ///         Under <c>SplitOutputs</c> the in-material march lands in the
     ///         albedo target's alpha, and <c>!AmbientCombine</c> multiplies that alpha <em>and</em>
     ///         the <c>!DistanceFieldAo</c> plane into the same rebuilt ambient — the same clipmap
     ///         marched twice and the room's occlusion applied squared, which reads as dirt in every
@@ -105,8 +107,12 @@ public sealed class Arena : IDisposable {
     ///         downstream that is not a shadow at all, and inferring which has failed repeatedly.
     ///     </para>
     ///     <para>
-    ///         Red, green, blue and yellow are cascades zero to three. <b>Magenta is a fragment inside
-    ///         none of them</b> — the case <c>Shadow</c> answers "fully lit", which would draw a hard
+    ///         Red, green, blue and yellow are cascades zero to three.
+    ///         <b>
+    ///             Magenta is a fragment inside
+    ///             none of them
+    ///         </b>
+    ///         — the case <c>Shadow</c> answers "fully lit", which would draw a hard
     ///         edge doing it. So: bands along colour boundaries is a transition problem, bands that
     ///         are magenta is a fit that does not cover what it claims to, and bands cutting across
     ///         one flat colour means the cascades are innocent and it is something else on the floor.
@@ -126,8 +132,12 @@ public sealed class Arena : IDisposable {
     ///     <para>
     ///         ⚠ <b>Off, and off is a question.</b> The sky is baked at 48² a face over five levels,
     ///         so the chain is 48, 24, 12, 6, 3 — and <c>Ibl.SpecularLod</c> picks the level from
-    ///         roughness, which for this floor's 0.88 is between the last two. <b>Three to six texels
-    ///         a face.</b> On a large flat surface the reflected direction sweeps that cube as the
+    ///         roughness, which for this floor's 0.88 is between the last two.
+    ///         <b>
+    ///             Three to six texels
+    ///             a face.
+    ///         </b>
+    ///         On a large flat surface the reflected direction sweeps that cube as the
     ///         camera moves, so those few enormous texels — and the seams between the cube's faces,
     ///         which nothing filters across at that size — project onto the floor as broad regions
     ///         with straight boundaries that slide with the view.
@@ -205,8 +215,12 @@ public sealed class Arena : IDisposable {
 
     /// <summary>What floats the raft, or null if there is no renderer to fold the lake.</summary>
     /// <remarks>
-    ///     ⚠ <b><c>Floating</c> at zero with <c>Pontoons</c> above it is the reading that says the
-    ///     water is somewhere else.</b> It is buoyancy's version of <c>ZonelessBodies</c>: a body
+    ///     ⚠
+    ///     <b>
+    ///         <c>Floating</c> at zero with <c>Pontoons</c> above it is the reading that says the
+    ///         water is somewhere else.
+    ///     </b>
+    ///     It is buoyancy's version of <c>ZonelessBodies</c>: a body
     ///     outside every zone's window simply falls, and nothing about the falling says why. See
     ///     <c>SampleLog.RaftFloated</c>, which is where the three numbers are printed.
     /// </remarks>
@@ -223,15 +237,19 @@ public sealed class Arena : IDisposable {
     ///     adding it buys is that the console verb has something to find — see
     ///     <c>PhysicsSystems.AddPhysicsOverlay</c> for how long it did not.
     /// </remarks>
-    public Physics.Ecs.PhysicsDebugDrawSystem? PhysicsOverlay { get; private set; }
+    public PhysicsDebugDrawSystem? PhysicsOverlay { get; private set; }
 
     /// <summary>The water's bed, or null if there is no terrain source.</summary>
     public TerrainGroundSystem? Ground => ground;
 
     /// <summary>What gives the heightfield its collision, or null headless of a renderer.</summary>
     /// <remarks>
-    ///     ⚠ <b><c>TileCount</c> at zero with a terrain in the scene is the whole failure this sample
-    ///     was the first thing in the tree to notice.</b> The ground draws perfectly and stops nothing,
+    ///     ⚠
+    ///     <b>
+    ///         <c>TileCount</c> at zero with a terrain in the scene is the whole failure this sample
+    ///         was the first thing in the tree to notice.
+    ///     </b>
+    ///     The ground draws perfectly and stops nothing,
     ///     and <c>RespawnWhenBelow</c> turns that into a camera cycling below the surface rather than
     ///     into an error.
     /// </remarks>
@@ -338,12 +356,17 @@ public sealed class Arena : IDisposable {
         return arena;
     }
 
-    /// <summary>Puts the outskirts under the level: one entity carrying the heightfield and its
-    ///     grass rule, which is all the <c>!Terrain</c> node needs from a world.</summary>
+    /// <summary>
+    ///     Puts the outskirts under the level: one entity carrying the heightfield and its
+    ///     grass rule, which is all the <c>!Terrain</c> node needs from a world.
+    /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <b>Spawned in code rather than authored into <c>Arena.vxscene</c>, and the reason is
-    ///         the placement.</b> The terrain's grid starts at its own origin and grows positive, so
+    ///         <b>
+    ///             Spawned in code rather than authored into <c>Arena.vxscene</c>, and the reason is
+    ///             the placement.
+    ///         </b>
+    ///         The terrain's grid starts at its own origin and grows positive, so
     ///         an entity at the world origin would put 252 m of ground to the north-east of an arena
     ///         centred on it. The translation below is what centres the two, and it is
     ///         <see cref="TerrainSeed.HalfExtent" /> — the same constant the seed's own arithmetic
@@ -445,7 +468,7 @@ public sealed class Arena : IDisposable {
             // for why the two cannot reference each other and why a host is where the copy belongs.
             // `graphics.Debug` is the accumulator the frame's debug node already drains.
             if (graphics.Debug is { } debug) {
-                BuoyancyDebug = new(Buoyancy, debug) { Show = () => Rendering.Water.WaterDebug.ShowBuoyancy };
+                BuoyancyDebug = new(Buoyancy, debug) { Show = static () => Rendering.Water.WaterDebug.ShowBuoyancy };
                 loop.Add(BuoyancyDebug);
 
                 // ⚠ **doc 13 § Diagnostic overlays lists a physics overlay, and the engine has had a
@@ -497,7 +520,10 @@ public sealed class Arena : IDisposable {
             return;
         }
 
-        foreach (var line in script.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)) {
+        foreach (var line in script.Split(
+                     ';',
+                     StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries
+                 )) {
             // ⚠ Outside the log call, because it is the *typing*. Passed as an argument it would be
             // an expensive-and-side-effecting expression the logger is entitled to skip — so a build
             // with information logging off would silently run none of the verbs.
@@ -614,8 +640,12 @@ public sealed class Arena : IDisposable {
     ///         a frame — a feature that is on, costs a copy, and saves exactly nothing.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>"Everything the level file placed" is a claim about <em>this</em> level, not a
-    ///         rule.</b> It is true here because the arena is walls, crates, lamp posts and houses,
+    ///         ⚠
+    ///         <b>
+    ///             "Everything the level file placed" is a claim about <em>this</em> level, not a
+    ///             rule.
+    ///         </b>
+    ///         It is true here because the arena is walls, crates, lamp posts and houses,
     ///         and every single thing that moves — the player, its weapon, its parts — is spawned by
     ///         <c>PlayerRig.Spawn</c> after this runs. A level with a lift, a door or a drifting prop
     ///         in the scene file would need those excluded, and getting it wrong is not a crash: the
@@ -757,8 +787,8 @@ public sealed class Arena : IDisposable {
         // GraphicsOptions.Factories, because the first build of this document happened before this
         // method existed and would have thrown without it. The builder keeps them across a reload.
 
-        if (services.Assets?.Load<GraphicsCompositorAsset>(ThirdPersonShooterGame.CompositorAddress).Result is
-            { } document) {
+        if (services.Assets?.Load<GraphicsCompositorAsset>(ThirdPersonShooterGame.CompositorAddress)
+                .Result is { } document) {
             graphics.Renderer.Host.Load(document);
             SampleLog.FrameRebuilt(logger, ThirdPersonShooterGame.CompositorAddress);
         }
@@ -803,12 +833,18 @@ public sealed class Arena : IDisposable {
         }
     }
 
-    /// <summary>Gives the water its curves, its sea state and the ground its depth is measured
-    ///     against — the three things <c>WaterZoneSystem</c> has no way to find on its own.</summary>
+    /// <summary>
+    ///     Gives the water its curves, its sea state and the ground its depth is measured
+    ///     against — the three things <c>WaterZoneSystem</c> has no way to find on its own.
+    /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>All three are null-or-flat until a game sets them, and no host in the engine
-    ///         does.</b> <c>AppGraphics</c> constructs the <c>WaterZoneSystem</c> and the
+    ///         ⚠
+    ///         <b>
+    ///             All three are null-or-flat until a game sets them, and no host in the engine
+    ///             does.
+    ///         </b>
+    ///         <c>AppGraphics</c> constructs the <c>WaterZoneSystem</c> and the
     ///         <c>WaterClockSystem</c> for every project — so the clock is not this sample's problem —
     ///         and then leaves <c>Splines</c> null, <c>Waves</c> null and <c>Ground</c> at
     ///         <c>FlatWaterGround(0)</c>. <c>AssetWaterSource</c> is the implementation of the first
@@ -821,8 +857,12 @@ public sealed class Arena : IDisposable {
     ///         — 1.2 m of water everywhere, over a bed the terrain dug to 3.8.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b><see cref="ground" /> is handed over before it has a heightfield, and that is the
-    ///         point of it being an object rather than a value.</b> The <c>.vxterrain</c> loads
+    ///         ⚠
+    ///         <b>
+    ///             <see cref="ground" /> is handed over before it has a heightfield, and that is the
+    ///             point of it being an object rather than a value.
+    ///         </b>
+    ///         The <c>.vxterrain</c> loads
     ///         asynchronously and the fold runs from the first frame; a ground read once at start-up
     ///         would be a lake rasterised over whatever the terrain was not yet. See
     ///         <see cref="TerrainGroundSystem.HeightAt" /> for what it answers meanwhile and why it is
@@ -848,7 +888,7 @@ public sealed class Arena : IDisposable {
         graphics.Water.Waves = source;
 
         if (graphics.Renderer.Terrains is { } terrains && services.Engine is not null) {
-            ground = new TerrainGroundSystem(terrains);
+            ground = new(terrains);
             graphics.Water.Ground = ground;
         }
     }
@@ -916,16 +956,23 @@ public sealed class Arena : IDisposable {
     /// <summary>Bakes a field for every box the level authored and hands them to the clipmap.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Without this the whole occlusion path is a walk over an empty clipmap that returns
-    ///         "nothing is near" for every sample.</b> The composition is bound, the march is
+    ///         ⚠
+    ///         <b>
+    ///             Without this the whole occlusion path is a walk over an empty clipmap that returns
+    ///             "nothing is near" for every sample.
+    ///         </b>
+    ///         The composition is bound, the march is
     ///         compiled, the bindings are filled, every counter reports success and the picture is
     ///         exactly the one with no occlusion in it. <c>GlobalDistanceField</c> is a
     ///         <em>composite</em> — it holds no geometry of its own and is assembled from the
     ///         instances the node is given.
     ///     </para>
     ///     <para>
-    ///         <b>Baked analytically from <see cref="BoxCollision" /> rather than loaded from the
-    ///         model importer's fields, and that is a decision this level earns.</b> Every solid thing
+    ///         <b>
+    ///             Baked analytically from <see cref="BoxCollision" /> rather than loaded from the
+    ///             model importer's fields, and that is a decision this level earns.
+    ///         </b>
+    ///         Every solid thing
     ///         here is a box whose exact half-extents the scene already states — so the signed
     ///         distance has a closed form, and a closed form has no bake error, no resolution
     ///         artefacts at the corners and no asset to resolve. A level of real meshes would take the
@@ -1098,7 +1145,7 @@ public sealed class Arena : IDisposable {
 
                     var within = MathF.Min(MathF.Max(outside.X, MathF.Max(outside.Y, outside.Z)), 0f);
 
-                    distances[(z * resolution.Y * resolution.X) + (y * resolution.X) + x] = beyond + within;
+                    distances[z * resolution.Y * resolution.X + y * resolution.X + x] = beyond + within;
                 }
             }
         }
@@ -1126,9 +1173,7 @@ public sealed class Arena : IDisposable {
 
             for (var index = 0; index < chunk.Count; index++) {
                 if (lights[index].Kind is LightKind.Directional) {
-                    return Vector3.Normalize(
-                        Quaternion.Transform(Vector3.Forward, transforms[index].Rotation)
-                    );
+                    return Vector3.Normalize(Quaternion.Transform(Vector3.Forward, transforms[index].Rotation));
                 }
             }
         }
@@ -1139,8 +1184,12 @@ public sealed class Arena : IDisposable {
     /// <summary>Gives the level's sun the brightness and the colour its own elevation implies.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Written back onto the light rather than left to the scene file, and that is the
-    ///         whole demonstration.</b> A scene that names a sun direction <i>and</i> a sun brightness
+    ///         ⚠
+    ///         <b>
+    ///             Written back onto the light rather than left to the scene file, and that is the
+    ///             whole demonstration.
+    ///         </b>
+    ///         A scene that names a sun direction <i>and</i> a sun brightness
     ///         can be a sunset sky over a noon sun, and nothing anywhere reports it — the two are only
     ///         related by whoever typed them. Here the direction is authored and the illuminance and
     ///         the tint come out of the same air mass the sky above was computed for, so moving the
@@ -1251,7 +1300,9 @@ public sealed class Arena : IDisposable {
                 // One grey metal-roughness surface for whatever names no material of its own. Nine
                 // .vxmat files cover the level and the character, so in a normal run this is drawn
                 // exactly never — it is what a renderable with a broken reference gets.
-                Features = [new MetalRoughnessFeature { BaseColor = new(0.62f, 0.63f, 0.66f), Metalness = 0f, Roughness = 0.7f }]
+                Features = [
+                    new MetalRoughnessFeature { BaseColor = new(0.62f, 0.63f, 0.66f), Metalness = 0f, Roughness = 0.7f }
+                ]
             },
             slots
         );
@@ -1259,7 +1310,7 @@ public sealed class Arena : IDisposable {
         if (compilation.Failed || compilation.Material is not { } material) {
             SampleLog.NoMaterial(
                 logger,
-                string.Join("; ", compilation.Diagnostics.Select(diagnostic => diagnostic.ToString()))
+                string.Join("; ", compilation.Diagnostics.Select(static diagnostic => diagnostic.ToString()))
             );
 
             return;
@@ -1684,8 +1735,12 @@ public sealed class Arena : IDisposable {
     /// <summary>Where the raft ended up, against where the solver said the water was under it.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The surface comes off <c>BuoyancyState</c> and is not asked for again here, and
-    ///         the first version of this got that wrong.</b> Two heights only subtract to something
+    ///         ⚠
+    ///         <b>
+    ///             The surface comes off <c>BuoyancyState</c> and is not asked for again here, and
+    ///             the first version of this got that wrong.
+    ///         </b>
+    ///         Two heights only subtract to something
     ///         meaningful if they are the same instant: the pose is the last <em>fixed</em> step's and
     ///         the water is a moving swell, so re-querying the fold at render time compares a raft at
     ///         tick N with a surface at frame N and reports the difference — a few centimetres of
@@ -1693,8 +1748,12 @@ public sealed class Arena : IDisposable {
     ///         solver itself used, at the body's origin, on the step that produced this pose.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And the submerged fraction beside it is the one that is comparable to arithmetic
-    ///         somebody can do on paper.</b> The offset is a height on a lake with waves on it and
+    ///         ⚠
+    ///         <b>
+    ///             And the submerged fraction beside it is the one that is comparable to arithmetic
+    ///             somebody can do on paper.
+    ///         </b>
+    ///         The offset is a height on a lake with waves on it and
     ///         moves with them; the mean fraction is what the authored mass, coefficient and pontoon
     ///         volumes predict — 0.42 for this raft, worked out beside the entity in
     ///         <c>Arena.vxscene</c> — and it is the number that says the waterline is <em>right</em>
@@ -1743,8 +1802,12 @@ public sealed class Arena : IDisposable {
     /// <summary>The frame's GPU cost, pass by pass, most expensive first.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Sorted by cost rather than shown in declaration order, because the question this
-    ///         is opened with is "what is the frame spending its time on".</b> The declaration order
+    ///         ⚠
+    ///         <b>
+    ///             Sorted by cost rather than shown in declaration order, because the question this
+    ///             is opened with is "what is the frame spending its time on".
+    ///         </b>
+    ///         The declaration order
     ///         is what the editor's timeline draws — a bar per pass along a time axis — and reading
     ///         it off a log would mean counting rows. The rank makes the answer the first line.
     ///     </para>

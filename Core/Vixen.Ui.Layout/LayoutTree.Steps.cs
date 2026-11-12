@@ -33,11 +33,15 @@ public sealed partial class LayoutTree {
         // room the content does not get to measure into, and it is room the border box has to carry
         // afterwards. `leaf_overflow_scrollbars_take_up_space_both_axis` measures 20x10 of Ahem text
         // and expects 35x25.
-        var insetRow = layout.Padding[(int) Edge.Left] + layout.Padding[(int) Edge.Right]
-            + layout.Border[(int) Edge.Left] + layout.Border[(int) Edge.Right]
+        var insetRow = layout.Padding[(int)Edge.Left]
+            + layout.Padding[(int)Edge.Right]
+            + layout.Border[(int)Edge.Left]
+            + layout.Border[(int)Edge.Right]
             + StyleResolution.ScrollbarGutterForAxis(in styles[index], FlexDirection.Row);
-        var insetColumn = layout.Padding[(int) Edge.Top] + layout.Padding[(int) Edge.Bottom]
-            + layout.Border[(int) Edge.Top] + layout.Border[(int) Edge.Bottom]
+        var insetColumn = layout.Padding[(int)Edge.Top]
+            + layout.Padding[(int)Edge.Bottom]
+            + layout.Border[(int)Edge.Top]
+            + layout.Border[(int)Edge.Bottom]
             + StyleResolution.ScrollbarGutterForAxis(in styles[index], FlexDirection.Column);
 
         var innerWidth = float.IsNaN(availableWidth) ? availableWidth : MathF.Max(0f, availableWidth - insetRow);
@@ -46,11 +50,25 @@ public sealed partial class LayoutTree {
         if (widthSizingMode == SizingMode.StretchFit && heightSizingMode == SizingMode.StretchFit) {
             // Both sizes are already decided, so there is nothing the content could tell us.
             SetMeasuredDimension(index, FlexDirection.Row, direction, availableWidth, ownerWidth, ownerWidth, true);
-            SetMeasuredDimension(index, FlexDirection.Column, direction, availableHeight, ownerHeight, ownerWidth, true);
+            SetMeasuredDimension(
+                index,
+                FlexDirection.Column,
+                direction,
+                availableHeight,
+                ownerHeight,
+                ownerWidth,
+                true
+            );
             return;
         }
 
-        var measured = Measure(index, innerWidth, MeasureModeOf(widthSizingMode), innerHeight, MeasureModeOf(heightSizingMode));
+        var measured = Measure(
+            index,
+            innerWidth,
+            MeasureModeOf(widthSizingMode),
+            innerHeight,
+            MeasureModeOf(heightSizingMode)
+        );
 
         SetMeasuredDimension(
             index,
@@ -96,7 +114,7 @@ public sealed partial class LayoutTree {
             index,
             FlexDirection.Column,
             direction,
-            HeightAcrossRatio(index, direction, results[index].MeasuredDimensions[(int) Dimension.Width], ownerWidth),
+            HeightAcrossRatio(index, direction, results[index].MeasuredDimensions[(int)Dimension.Width], ownerWidth),
             ownerHeight,
             ownerWidth
         );
@@ -120,21 +138,41 @@ public sealed partial class LayoutTree {
             // ⚠ Including the gutter, which is what makes an EMPTY scroll container as wide as its
             // own scrollbar. `leaf_overflow_scrollbars_overridden_by_max_size` needs it: the box has
             // no content and no width, so 15 is the only number `max-width: 2px` has to clamp.
-            width = layout.Padding[(int) Edge.Left] + layout.Padding[(int) Edge.Right]
-                + layout.Border[(int) Edge.Left] + layout.Border[(int) Edge.Right]
+            width = layout.Padding[(int)Edge.Left]
+                + layout.Padding[(int)Edge.Right]
+                + layout.Border[(int)Edge.Left]
+                + layout.Border[(int)Edge.Right]
                 + StyleResolution.ScrollbarGutterForAxis(in styles[index], FlexDirection.Row);
         }
 
-        SetMeasuredDimension(index, FlexDirection.Row, direction, width, ownerWidth, ownerWidth, widthSizingMode == SizingMode.StretchFit);
+        SetMeasuredDimension(
+            index,
+            FlexDirection.Row,
+            direction,
+            width,
+            ownerWidth,
+            ownerWidth,
+            widthSizingMode == SizingMode.StretchFit
+        );
 
         var height = availableHeight;
         if (heightSizingMode is SizingMode.MaxContent or SizingMode.FitContent) {
-            height = layout.Padding[(int) Edge.Top] + layout.Padding[(int) Edge.Bottom]
-                + layout.Border[(int) Edge.Top] + layout.Border[(int) Edge.Bottom]
+            height = layout.Padding[(int)Edge.Top]
+                + layout.Padding[(int)Edge.Bottom]
+                + layout.Border[(int)Edge.Top]
+                + layout.Border[(int)Edge.Bottom]
                 + StyleResolution.ScrollbarGutterForAxis(in styles[index], FlexDirection.Column);
         }
 
-        SetMeasuredDimension(index, FlexDirection.Column, direction, height, ownerHeight, ownerWidth, heightSizingMode == SizingMode.StretchFit);
+        SetMeasuredDimension(
+            index,
+            FlexDirection.Column,
+            direction,
+            height,
+            ownerHeight,
+            ownerWidth,
+            heightSizingMode == SizingMode.StretchFit
+        );
     }
 
     /// <summary>Answers a measure-only request whose answer the styles already fix.</summary>
@@ -278,14 +316,15 @@ public sealed partial class LayoutTree {
                     availableInnerWidth,
                     widthSizingMode,
                     availableInnerHeight,
-                    HasCyclicPercentageMinWidth(index, child, mainAxis, widthSizingMode) ? float.NaN : availableInnerWidth,
+                    HasCyclicPercentageMinWidth(index, child, mainAxis, widthSizingMode)
+                        ? float.NaN
+                        : availableInnerWidth,
                     ItemOwnerHeight(child, mainAxis, itemMainOwnerSize, availableInnerHeight),
                     heightSizingMode,
                     direction,
                     currentDepth
                 );
             }
-
         }
     }
 
@@ -316,8 +355,12 @@ public sealed partial class LayoutTree {
     ///         and the re-entry resolves them all.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>In a row the minimum is on the MAIN axis, so withholding the item's own basis is
-    ///         not enough</b>: the row clamps its items' hypothetical and final sizes itself, and those
+    ///         ⚠
+    ///         <b>
+    ///             In a row the minimum is on the MAIN axis, so withholding the item's own basis is
+    ///             not enough
+    ///         </b>
+    ///         : the row clamps its items' hypothetical and final sizes itself, and those
     ///         clamps read the basis <c>LayoutTree.Layout</c> calls <c>itemMainOwnerSize</c>, which is
     ///         NaN for the whole pass when this is true of any item.
     ///     </para>
@@ -325,7 +368,7 @@ public sealed partial class LayoutTree {
     bool HasCyclicPercentageMinWidth(int index, int child, FlexDirection mainAxis, SizingMode widthSizingMode) =>
         widthSizingMode != SizingMode.StretchFit
         && styles[index].FlexWrap == Wrap.NoWrap
-        && styles[child].MinDimensions[(int) Dimension.Width].Unit == LayoutUnit.Percent;
+        && styles[child].MinDimensions[(int)Dimension.Width].Unit == LayoutUnit.Percent;
 
     /// <summary>
     ///     The owner height a flex item is laid out with: the container's available inner height, except
@@ -341,8 +384,8 @@ public sealed partial class LayoutTree {
     /// </remarks>
     float ItemOwnerHeight(int child, FlexDirection mainAxis, float itemMainOwnerSize, float availableInnerHeight) =>
         !FlexAxis.IsRow(mainAxis)
-        && (styles[child].MinDimensions[(int) Dimension.Height].Unit == LayoutUnit.Percent
-            || styles[child].MaxDimensions[(int) Dimension.Height].Unit == LayoutUnit.Percent)
+        && (styles[child].MinDimensions[(int)Dimension.Height].Unit == LayoutUnit.Percent
+            || styles[child].MaxDimensions[(int)Dimension.Height].Unit == LayoutUnit.Percent)
             ? itemMainOwnerSize
             : availableInnerHeight;
 
@@ -488,16 +531,29 @@ public sealed partial class LayoutTree {
         if (!float.IsNaN(resolvedFlexBasis)
             && !contributesContent
             && (!float.IsNaN(mainAxisSize) || (!isMainAxisRow && processedFlexBasis.Unit != LayoutUnit.Percent))) {
-            var paddingAndBorder = StyleResolution.PaddingAndBorderForAxis(in styles[child], mainAxis, direction, ownerWidth);
+            var paddingAndBorder =
+                StyleResolution.PaddingAndBorderForAxis(in styles[child], mainAxis, direction, ownerWidth);
             results[child].ComputedFlexBasis = MathF.Max(resolvedFlexBasis, paddingAndBorder);
         } else if (isMainAxisRow && isRowStyleDimDefined) {
-            var paddingAndBorder = StyleResolution.PaddingAndBorderForAxis(in styles[child], FlexDirection.Row, direction, ownerWidth);
+            var paddingAndBorder =
+                StyleResolution.PaddingAndBorderForAxis(in styles[child], FlexDirection.Row, direction, ownerWidth);
             results[child].ComputedFlexBasis =
-                MathF.Max(ResolvedDimension(child, Dimension.Width, ownerWidth, ownerWidth, direction), paddingAndBorder);
+                MathF.Max(
+                    ResolvedDimension(child, Dimension.Width, ownerWidth, ownerWidth, direction),
+                    paddingAndBorder
+                );
         } else if (!isMainAxisRow && isColumnStyleDimDefined) {
-            var paddingAndBorder = StyleResolution.PaddingAndBorderForAxis(in styles[child], FlexDirection.Column, direction, ownerWidth);
+            var paddingAndBorder = StyleResolution.PaddingAndBorderForAxis(
+                in styles[child],
+                FlexDirection.Column,
+                direction,
+                ownerWidth
+            );
             results[child].ComputedFlexBasis =
-                MathF.Max(ResolvedDimension(child, Dimension.Height, ownerHeight, ownerWidth, direction), paddingAndBorder);
+                MathF.Max(
+                    ResolvedDimension(child, Dimension.Height, ownerHeight, ownerWidth, direction),
+                    paddingAndBorder
+                );
         } else {
             results[child].FlexBasisFromContent = true;
 
@@ -510,7 +566,8 @@ public sealed partial class LayoutTree {
             }
 
             if (isColumnStyleDimDefined) {
-                childHeight = ResolvedDimension(child, Dimension.Height, ownerHeight, ownerWidth, direction) + marginColumn;
+                childHeight = ResolvedDimension(child, Dimension.Height, ownerHeight, ownerWidth, direction)
+                    + marginColumn;
                 childHeightSizingMode = SizingMode.StretchFit;
             }
 
@@ -522,11 +579,9 @@ public sealed partial class LayoutTree {
             // `overflow: scroll` does to a column — and that answer is Yoga's conformance suite
             // rather than a judgement this change gets to make.
             var mainOverflow = OverflowOn(index, FlexAxis.DimensionOf(mainAxis));
-            if (!isMainAxisRow || mainOverflow != Overflow.Scroll) {
-                if (float.IsNaN(childWidth) && !float.IsNaN(width)) {
-                    childWidth = width;
-                    childWidthSizingMode = SizingMode.FitContent;
-                }
+            if ((!isMainAxisRow || mainOverflow != Overflow.Scroll) && float.IsNaN(childWidth) && !float.IsNaN(width)) {
+                childWidth = width;
+                childWidthSizingMode = SizingMode.FitContent;
             }
 
             if (float.IsNaN(childHeight) && !float.IsNaN(height)) {
@@ -537,10 +592,10 @@ public sealed partial class LayoutTree {
             var aspectRatio = styles[child].AspectRatio;
             if (!float.IsNaN(aspectRatio)) {
                 if (!isMainAxisRow && childWidthSizingMode == SizingMode.StretchFit) {
-                    childHeight = marginColumn + ((childWidth - marginRow) / aspectRatio);
+                    childHeight = marginColumn + (childWidth - marginRow) / aspectRatio;
                     childHeightSizingMode = SizingMode.StretchFit;
                 } else if (isMainAxisRow && childHeightSizingMode == SizingMode.StretchFit) {
-                    childWidth = marginRow + ((childHeight - marginColumn) * aspectRatio);
+                    childWidth = marginRow + (childHeight - marginColumn) * aspectRatio;
                     childWidthSizingMode = SizingMode.StretchFit;
                 }
             }
@@ -571,16 +626,48 @@ public sealed partial class LayoutTree {
                 }
             }
 
-            ConstrainMaxSizeForMode(child, direction, FlexDirection.Row, ownerWidth, ownerWidth, ref childWidthSizingMode, ref childWidth);
-            ConstrainMaxSizeForMode(child, direction, FlexDirection.Column, ownerHeight, ownerWidth, ref childHeightSizingMode, ref childHeight);
+            ConstrainMaxSizeForMode(
+                child,
+                direction,
+                FlexDirection.Row,
+                ownerWidth,
+                ownerWidth,
+                ref childWidthSizingMode,
+                ref childWidth
+            );
+            ConstrainMaxSizeForMode(
+                child,
+                direction,
+                FlexDirection.Column,
+                ownerHeight,
+                ownerWidth,
+                ref childHeightSizingMode,
+                ref childHeight
+            );
 
             // ⚠ …and the minimum, which §5.1 clamps by just as hard. See ConstrainMinSizeForMode:
             // the other axis is measured off this one, so both of the item's own clamps have to be
             // applied to the offer before the measurement rather than to the answer after it. After
             // the maxima on purpose — §5.1 orders the two clamps max-then-min, so a minimum above a
             // maximum wins, which is the rule BoundAxisWithinMinAndMax already implements.
-            ConstrainMinSizeForMode(child, direction, FlexDirection.Row, ownerWidth, ownerWidth, childWidthSizingMode, ref childWidth);
-            ConstrainMinSizeForMode(child, direction, FlexDirection.Column, ownerHeight, ownerWidth, childHeightSizingMode, ref childHeight);
+            ConstrainMinSizeForMode(
+                child,
+                direction,
+                FlexDirection.Row,
+                ownerWidth,
+                ownerWidth,
+                childWidthSizingMode,
+                ref childWidth
+            );
+            ConstrainMinSizeForMode(
+                child,
+                direction,
+                FlexDirection.Column,
+                ownerHeight,
+                ownerWidth,
+                childHeightSizingMode,
+                ref childHeight
+            );
 
             // ⚠ <b>§9.2 step 3E's flex base is the item's MAX-CONTENT size, and the offer above is
             // not a max-content constraint — it is the container's available space.</b> The two
@@ -669,11 +756,11 @@ public sealed partial class LayoutTree {
                     isMainAxisRow ? childHeightSizingMode : SizingMode.MaxContent,
                     ownerWidth,
                     ownerHeight,
-                    performLayout: false,
+                    false,
                     currentDepth
                 );
 
-                contentBase = results[child].UnclampedMeasuredDimensions[(int) FlexAxis.DimensionOf(mainAxis)];
+                contentBase = results[child].UnclampedMeasuredDimensions[(int)FlexAxis.DimensionOf(mainAxis)];
             }
 
             CalculateLayoutInternal(
@@ -685,7 +772,7 @@ public sealed partial class LayoutTree {
                 childHeightSizingMode,
                 ownerWidth,
                 ownerHeight,
-                performLayout: false,
+                false,
                 currentDepth
             );
 
@@ -699,7 +786,7 @@ public sealed partial class LayoutTree {
             // Chrome freezes it at 60 and gives the other 40 to its sibling.
             results[child].ComputedFlexBasis = MathF.Max(
                 float.IsNaN(contentBase)
-                    ? results[child].UnclampedMeasuredDimensions[(int) FlexAxis.DimensionOf(mainAxis)]
+                    ? results[child].UnclampedMeasuredDimensions[(int)FlexAxis.DimensionOf(mainAxis)]
                     : contentBase,
                 StyleResolution.PaddingAndBorderForAxis(in styles[child], mainAxis, direction, ownerWidth)
             );
@@ -816,8 +903,12 @@ public sealed partial class LayoutTree {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A row container sized at max-content answers two questions in one walk, and
-    ///         until this ran it answered the second with the first's number.</b> While the
+    ///         ⚠
+    ///         <b>
+    ///             A row container sized at max-content answers two questions in one walk, and
+    ///             until this ran it answered the second with the first's number.
+    ///         </b>
+    ///         While the
     ///         container's own main size is indefinite, <see cref="ComputeFlexBasisForChild" />
     ///         deliberately refuses a declared <c>flex-basis</c> and measures instead, because
     ///         §9.9.3 makes an item's max-content contribution its own outer max-content size — the
@@ -947,8 +1038,12 @@ public sealed partial class LayoutTree {
     /// <summary>CSS Flexbox §9.7 step 3: the free space the distribution passes start from.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>This is a different sum from <see cref="FlexLine.SizeConsumed" /> and the
-    ///         difference is the whole of the §9.7 bucket.</b> §9.3 breaks lines by each item's outer
+    ///         ⚠
+    ///         <b>
+    ///             This is a different sum from <see cref="FlexLine.SizeConsumed" /> and the
+    ///             difference is the whole of the §9.7 bucket.
+    ///         </b>
+    ///         §9.3 breaks lines by each item's outer
     ///         HYPOTHETICAL main size — its flex base clamped by its used min and max. §9.7 step 3
     ///         subtracts the FROZEN items' target sizes and the unfrozen items' <i>flex base</i>
     ///         sizes, unclamped. Vixen used the §9.3 sum for both, so a clamp was charged twice: once
@@ -962,8 +1057,12 @@ public sealed partial class LayoutTree {
     ///         20, and the line overflows its own container by 20. The pool is 100: the first pass
     ///         finds the first item violating its minimum, freezes it at 60 and takes it out of the
     ///         pool, and the 40 that is left all goes to its sibling. 60 and 40, which is Chrome's
-    ///         answer. ⚠ <b>The heading this bucket carried blamed a missing re-distribution loop.
-    ///         That loop is present and correct</b> — <see cref="DistributeFreeSpaceFirstPass" /> is
+    ///         answer. ⚠
+    ///         <b>
+    ///             The heading this bucket carried blamed a missing re-distribution loop.
+    ///             That loop is present and correct
+    ///         </b>
+    ///         — <see cref="DistributeFreeSpaceFirstPass" /> is
     ///         exactly it. What it was given was a pool that had already paid for the clamp.
     ///     </para>
     ///     <para>
@@ -1039,8 +1138,12 @@ public sealed partial class LayoutTree {
     ///     from: its flex base size while it can still flex, its hypothetical main size once frozen.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>Step 2's "size inflexible items" is the reason the §4.5 leftovers close here rather
-    ///     than in a line of their own.</b> An item with no usable flex factor in the direction being
+    ///     ⚠
+    ///     <b>
+    ///         Step 2's "size inflexible items" is the reason the §4.5 leftovers close here rather
+    ///         than in a line of their own.
+    ///     </b>
+    ///     An item with no usable flex factor in the direction being
     ///     resolved is frozen at its HYPOTHETICAL main size, and that size has §4.5's automatic
     ///     minimum in it. <c>flex_basis_smaller_than_content_row</c> is <c>flex-basis: 50px</c> on a
     ///     column wrapping a 100px box with nothing to grow and nothing to shrink: it freezes at 100,
@@ -1057,7 +1160,14 @@ public sealed partial class LayoutTree {
         bool useGrow
     ) =>
         IsFrozenByInflexibility(child, direction, mainAxis, ownerWidth, mainAxisOwnerSize, useGrow)
-            ? HypotheticalMainSize(child, direction, mainAxis, results[child].ComputedFlexBasis, mainAxisOwnerSize, ownerWidth)
+            ? HypotheticalMainSize(
+                child,
+                direction,
+                mainAxis,
+                results[child].ComputedFlexBasis,
+                mainAxisOwnerSize,
+                ownerWidth
+            )
             : results[child].ComputedFlexBasis;
 
     /// <summary>CSS Flexbox §9.7 step 2: whether an item cannot flex in the direction being used.</summary>
@@ -1117,13 +1227,22 @@ public sealed partial class LayoutTree {
         int currentDepth
     ) {
         var originalFreeSpace = line.RemainingFreeSpace;
-        var children = ChildIds(index);
+        _ = ChildIds(index);
 
         // ⚠ CSS Flexbox §4.5's automatic minimum is NOT computed here any more. It is the used
         // minimum in §9.2's hypothetical main size, which §9.3 needs before it can break lines, so
         // it is computed once per node in STEP 4's caller instead. Computing it here made it
         // invisible to line breaking and to any item that never flexed.
-        DistributeFreeSpaceFirstPass(index, ref line, direction, mainAxis, ownerWidth, mainAxisOwnerSize, availableInnerMainDim, availableInnerWidth);
+        DistributeFreeSpaceFirstPass(
+            index,
+            ref line,
+            direction,
+            mainAxis,
+            ownerWidth,
+            mainAxisOwnerSize,
+            availableInnerMainDim,
+            availableInnerWidth
+        );
 
         var distributed = DistributeFreeSpaceSecondPass(
             index,
@@ -1149,8 +1268,12 @@ public sealed partial class LayoutTree {
 
     /// <summary>Freezes the items whose min or max triggers, and takes them out of the pool.</summary>
     /// <remarks>
-    ///     ⚠ <b>Every item in this pass is distributed from the SAME pool and the SAME factor sum,
-    ///     and the freezing happens after the loop rather than inside it.</b> §9.7 step 4 hands out
+    ///     ⚠
+    ///     <b>
+    ///         Every item in this pass is distributed from the SAME pool and the SAME factor sum,
+    ///         and the freezing happens after the loop rather than inside it.
+    ///     </b>
+    ///     §9.7 step 4 hands out
     ///     step 4b's remaining free space to all the unfrozen items at once (4c), clamps them all
     ///     (4d), and only then freezes the violators and starts a new iteration (4e) — so an item
     ///     frozen part-way through cannot change what its later siblings were offered in the
@@ -1205,7 +1328,14 @@ public sealed partial class LayoutTree {
             // ⚠ The same number InitialFreeSpace counted this item as. If the two disagree the pool
             // and the sizes drawn from it are measured from different baselines, and the line
             // silently over- or under-fills; see DistributionStartSize.
-            var childFlexBasis = DistributionStartSize(child, direction, mainAxis, ownerWidth, mainAxisOwnerSize, line.UseGrow);
+            var childFlexBasis = DistributionStartSize(
+                child,
+                direction,
+                mainAxis,
+                ownerWidth,
+                mainAxisOwnerSize,
+                line.UseGrow
+            );
 
             if (line.RemainingFreeSpace < 0f) {
                 var shrinkScaled = -StyleResolution.ResolveFlexShrink(in styles[child], isRoot) * childFlexBasis;
@@ -1213,8 +1343,15 @@ public sealed partial class LayoutTree {
                     continue;
                 }
 
-                var baseMainSize = childFlexBasis + (line.RemainingFreeSpace / shrinkDivisor * shrinkScaled);
-                var boundMainSize = BoundAxisWithAutoMin(child, mainAxis, direction, baseMainSize, availableInnerMainDim, availableInnerWidth);
+                var baseMainSize = childFlexBasis + line.RemainingFreeSpace / shrinkDivisor * shrinkScaled;
+                var boundMainSize = BoundAxisWithAutoMin(
+                    child,
+                    mainAxis,
+                    direction,
+                    baseMainSize,
+                    availableInnerMainDim,
+                    availableInnerWidth
+                );
 
                 if (!float.IsNaN(baseMainSize) && !float.IsNaN(boundMainSize) && baseMainSize != boundMainSize) {
                     // Excluding this item from the pool makes its constraint trigger again in the
@@ -1229,7 +1366,7 @@ public sealed partial class LayoutTree {
                     continue;
                 }
 
-                var baseMainSize = childFlexBasis + (line.RemainingFreeSpace / growDivisor * growFactor);
+                var baseMainSize = childFlexBasis + line.RemainingFreeSpace / growDivisor * growFactor;
 
                 // ⚠ <b>§9.7 step 4b clamps by the USED minimum, and for a flex item `min-width: auto`
                 // resolves to §4.5's automatic one — when GROWING as well as when shrinking.</b> The
@@ -1247,7 +1384,14 @@ public sealed partial class LayoutTree {
                 // a 70-point box and a 20-point one. The pool splits 50/50, the first violates its
                 // 70-point floor, and Chrome freezes it there and gives the whole remaining 30 to its
                 // sibling. Detecting the violation is what makes the second item 30 rather than 50.
-                var boundMainSize = BoundAxisWithAutoMin(child, mainAxis, direction, baseMainSize, availableInnerMainDim, availableInnerWidth);
+                var boundMainSize = BoundAxisWithAutoMin(
+                    child,
+                    mainAxis,
+                    direction,
+                    baseMainSize,
+                    availableInnerMainDim,
+                    availableInnerWidth
+                );
 
                 if (!float.IsNaN(baseMainSize) && !float.IsNaN(boundMainSize) && baseMainSize != boundMainSize) {
                     deltaFreeSpace += boundMainSize - childFlexBasis;
@@ -1296,13 +1440,27 @@ public sealed partial class LayoutTree {
             // ⚠ The same number InitialFreeSpace counted this item as. If the two disagree the pool
             // and the sizes drawn from it are measured from different baselines, and the line
             // silently over- or under-fills; see DistributionStartSize.
-            var childFlexBasis = DistributionStartSize(child, direction, mainAxis, ownerWidth, mainAxisOwnerSize, line.UseGrow);
+            var childFlexBasis = DistributionStartSize(
+                child,
+                direction,
+                mainAxis,
+                ownerWidth,
+                mainAxisOwnerSize,
+                line.UseGrow
+            );
 
             // ⚠ A frozen item's size IS its hypothetical main size, and this is where §4.5's
             // automatic minimum finally reaches an item that never flexes. It used to be handed back
             // its flex base size untouched, which is why flex_basis_smaller_than_content_row stayed
             // 50 wide around a 100px box.
-            var frozen = IsFrozenByInflexibility(child, direction, mainAxis, ownerWidth, mainAxisOwnerSize, line.UseGrow);
+            var frozen = IsFrozenByInflexibility(
+                child,
+                direction,
+                mainAxis,
+                ownerWidth,
+                mainAxisOwnerSize,
+                line.UseGrow
+            );
             var updatedMainSize = childFlexBasis;
 
             if (frozen) {
@@ -1312,9 +1470,16 @@ public sealed partial class LayoutTree {
                 if (shrinkScaled != 0f) {
                     var childSize = line.TotalFlexShrinkScaledFactors == 0f
                         ? childFlexBasis + shrinkScaled
-                        : childFlexBasis + (line.RemainingFreeSpace / line.TotalFlexShrinkScaledFactors * shrinkScaled);
+                        : childFlexBasis + line.RemainingFreeSpace / line.TotalFlexShrinkScaledFactors * shrinkScaled;
 
-                    updatedMainSize = BoundAxisWithAutoMin(child, mainAxis, direction, childSize, availableInnerMainDim, availableInnerWidth);
+                    updatedMainSize = BoundAxisWithAutoMin(
+                        child,
+                        mainAxis,
+                        direction,
+                        childSize,
+                        availableInnerMainDim,
+                        availableInnerWidth
+                    );
                 }
             } else if (!float.IsNaN(line.RemainingFreeSpace) && line.RemainingFreeSpace > 0f) {
                 var growFactor = StyleResolution.ResolveFlexGrow(in styles[child], isRoot);
@@ -1323,7 +1488,7 @@ public sealed partial class LayoutTree {
                         child,
                         mainAxis,
                         direction,
-                        childFlexBasis + (line.RemainingFreeSpace / line.TotalFlexGrowFactors * growFactor),
+                        childFlexBasis + line.RemainingFreeSpace / line.TotalFlexGrowFactors * growFactor,
                         availableInnerMainDim,
                         availableInnerWidth
                     );
@@ -1350,34 +1515,40 @@ public sealed partial class LayoutTree {
                 childCrossSizingMode = SizingMode.StretchFit;
                 childCrossSize += marginCross;
             } else if (!float.IsNaN(availableInnerCrossDim)
-                && !HasDefiniteLength(child, crossDimension, availableInnerCrossDim)
-                && sizingModeCrossDim == SizingMode.StretchFit
-                // ⚠ <b>An item in a MULTI-LINE container is stretched to its LINE, and its line has
-                // not been measured yet.</b> §9.4 step 7 is the rule that hands a stretched item the
-                // container's inner cross size, and it says "if the flex container is single-line" —
-                // step 8 sizes a multi-line container's lines from the largest HYPOTHETICAL cross
-                // size on each, which is the unstretched one. Stretching here instead answers the
-                // question the line is about to ask with the number the line was supposed to
-                // produce. This used to read `!(isNodeFlexWrap && mainAxisOverflows)`, which is
-                // Yoga's guard and only declines to stretch when the line already overflowed.
-                //
-                // `align_content_stretch_row_wrap` is one line in a `flex-wrap: wrap` box, which is
-                // multi-line whether or not anything wrapped: a 150-point-tall grandchild in a
-                // 100-point container. Chrome's line is 150 and the item overflows; pre-stretching
-                // measured the item at the container's 100, the line took 100 from it, and
-                // `align-content: stretch` then had nothing to stretch. The item is stretched to the
-                // line in LayoutTree.Align, which is where it always belonged.
-                && !isNodeFlexWrap
-                && ResolveChildAlignment(index, child) == Align.Stretch
-                && !StyleResolution.FlexStartMarginIsAuto(in styles[child], crossAxis, direction)
-                && !StyleResolution.FlexEndMarginIsAuto(in styles[child], crossAxis, direction)) {
+                       && !HasDefiniteLength(child, crossDimension, availableInnerCrossDim)
+                       && sizingModeCrossDim == SizingMode.StretchFit
+                       // ⚠ <b>An item in a MULTI-LINE container is stretched to its LINE, and its line has
+                       // not been measured yet.</b> §9.4 step 7 is the rule that hands a stretched item the
+                       // container's inner cross size, and it says "if the flex container is single-line" —
+                       // step 8 sizes a multi-line container's lines from the largest HYPOTHETICAL cross
+                       // size on each, which is the unstretched one. Stretching here instead answers the
+                       // question the line is about to ask with the number the line was supposed to
+                       // produce. This used to read `!(isNodeFlexWrap && mainAxisOverflows)`, which is
+                       // Yoga's guard and only declines to stretch when the line already overflowed.
+                       //
+                       // `align_content_stretch_row_wrap` is one line in a `flex-wrap: wrap` box, which is
+                       // multi-line whether or not anything wrapped: a 150-point-tall grandchild in a
+                       // 100-point container. Chrome's line is 150 and the item overflows; pre-stretching
+                       // measured the item at the container's 100, the line took 100 from it, and
+                       // `align-content: stretch` then had nothing to stretch. The item is stretched to the
+                       // line in LayoutTree.Align, which is where it always belonged.
+                       && !isNodeFlexWrap
+                       && ResolveChildAlignment(index, child) == Align.Stretch
+                       && !StyleResolution.FlexStartMarginIsAuto(in styles[child], crossAxis, direction)
+                       && !StyleResolution.FlexEndMarginIsAuto(in styles[child], crossAxis, direction)) {
                 childCrossSize = availableInnerCrossDim;
                 childCrossSizingMode = SizingMode.StretchFit;
             } else if (!HasDefiniteLength(child, crossDimension, availableInnerCrossDim)) {
                 childCrossSize = availableInnerCrossDim;
                 childCrossSizingMode = float.IsNaN(childCrossSize) ? SizingMode.MaxContent : SizingMode.FitContent;
             } else {
-                childCrossSize = ResolvedDimension(child, crossDimension, availableInnerCrossDim, availableInnerWidth, direction)
+                childCrossSize = ResolvedDimension(
+                        child,
+                        crossDimension,
+                        availableInnerCrossDim,
+                        availableInnerWidth,
+                        direction
+                    )
                     + marginCross;
                 var isLoosePercentageMeasurement =
                     StyleResolution.ProcessedDimension(in styles[child], crossDimension).Unit == LayoutUnit.Percent
@@ -1387,8 +1558,24 @@ public sealed partial class LayoutTree {
                     : SizingMode.StretchFit;
             }
 
-            ConstrainMaxSizeForMode(child, direction, mainAxis, availableInnerMainDim, availableInnerWidth, ref childMainSizingMode, ref childMainSize);
-            ConstrainMaxSizeForMode(child, direction, crossAxis, availableInnerCrossDim, availableInnerWidth, ref childCrossSizingMode, ref childCrossSize);
+            ConstrainMaxSizeForMode(
+                child,
+                direction,
+                mainAxis,
+                availableInnerMainDim,
+                availableInnerWidth,
+                ref childMainSizingMode,
+                ref childMainSize
+            );
+            ConstrainMaxSizeForMode(
+                child,
+                direction,
+                crossAxis,
+                availableInnerCrossDim,
+                availableInnerWidth,
+                ref childCrossSizingMode,
+                ref childCrossSize
+            );
 
             var requiresStretchLayout = !HasDefiniteLength(child, crossDimension, availableInnerCrossDim)
                 && ResolveChildAlignment(index, child) == Align.Stretch

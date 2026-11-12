@@ -45,8 +45,12 @@ public sealed partial class Button : ButtonBase {
     ///     routed at all — so this is for the form that is not an overlay: an inline editor, a
     ///     sheet drawn by hand, a login screen.
     ///     <para>
-    ///         ⚠ <b>Which is why it has no production caller today, and that is the paragraph above
-    ///         rather than an oversight.</b> Every confirm-and-cancel pair in this tree is built by
+    ///         ⚠
+    ///         <b>
+    ///             Which is why it has no production caller today, and that is the paragraph above
+    ///             rather than an oversight.
+    ///         </b>
+    ///         Every confirm-and-cancel pair in this tree is built by
     ///         <c>DialogService</c> inside an <see cref="Overlay" />, so setting this on one of them
     ///         would be a flag that never runs: the close is already decided a leg earlier. The
     ///         editor's hand-rolled Escape handlers — <c>KeyBindingsView</c> leaving capture,
@@ -134,9 +138,13 @@ public sealed partial class ToggleButton : ToggleBase {
 
     /// <inheritdoc />
     /// <remarks>
-    ///     ⚠ <b><see cref="AccessibleStates.Pressed" /> rather than the base's
-    ///     <see cref="AccessibleStates.Checked" />, and it is the same distinction the first
-    ///     paragraph above makes.</b> This is a button that stays in, so ARIA's word for it is
+    ///     ⚠
+    ///     <b>
+    ///         <see cref="AccessibleStates.Pressed" /> rather than the base's
+    ///         <see cref="AccessibleStates.Checked" />, and it is the same distinction the first
+    ///         paragraph above makes.
+    ///     </b>
+    ///     This is a button that stays in, so ARIA's word for it is
     ///     <c>aria-pressed</c> and a screen reader says "pressed"; a checkbox is
     ///     <c>aria-checked</c> and it says "ticked". The role stays
     ///     <see cref="AccessibleRole.Button" />, which is what makes the bold-italic-underline strip

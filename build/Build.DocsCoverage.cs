@@ -14,8 +14,12 @@ using Serilog;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>A subsystem landing with public types and no <c>DocsExempt.txt</c> line has redded
-///         <see cref="CheckDocs" /> four times in one week</b> (#480, and commit 75e113bf before
+///         ⚠
+///         <b>
+///             A subsystem landing with public types and no <c>DocsExempt.txt</c> line has redded
+///             <see cref="CheckDocs" /> four times in one week
+///         </b>
+///         (#480, and commit 75e113bf before
 ///         it). Every one of those was found by a full gate sweep and fixed afterwards by somebody
 ///         who had not written the types and did not know what four of them were for — which is the
 ///         opposite of what <c>DocsExempt.txt</c>'s own header asks for: "a new public type is
@@ -32,8 +36,12 @@ using Serilog;
 ///         an exemption, and two uncovered when the reader was fixed.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The "2 368 baselined types" this paragraph used to quote was the defect, not the
-///         tree.</b> <see cref="PublicApiTypeNames.DocumentationId" /> skipped every line containing
+///         ⚠
+///         <b>
+///             The "2 368 baselined types" this paragraph used to quote was the defect, not the
+///             tree.
+///         </b>
+///         <see cref="PublicApiTypeNames.DocumentationId" /> skipped every line containing
 ///         <c>-&gt;</c> as a member, and <c>Vixen.Ecs.Archetype -&gt; sealed class</c> is how this
 ///         repository's baselines spell a type — so the only types this saw were the ones that
 ///         additionally name a base or an interface on a line of their own. Half the subject, a
@@ -46,8 +54,12 @@ using Serilog;
 ///         records about itself — and the blind spot that remains is bigger than "some of the
 ///         solution": this sees only the projects that keep a <c>PublicAPI</c> baseline, which is
 ///         132 of the 421 <c>.csproj</c> in the tree, while <see cref="CheckDocs" /> sees every
-///         public type in the graph. ⚠ <b>So a green run here is not "the commonest way to red
-///         CheckDocs has not happened", which is what this used to claim.</b> Of the six types that
+///         public type in the graph. ⚠
+///         <b>
+///             So a green run here is not "the commonest way to red
+///             CheckDocs has not happened", which is what this used to claim.
+///         </b>
+///         Of the six types that
 ///         redded <c>CheckDocs</c> on 2026-09-03, four were in baselined projects and this would
 ///         have named them; the other two were in <c>Vixen.Editor.Assets</c>, which packs, keeps no
 ///         baseline, and is one of the thirty-one projects <c>build/ApiUncovered.txt</c> enumerates
@@ -98,32 +110,35 @@ partial class Build {
         return exemptions.Concat(pages).ToHashSet(StringComparer.Ordinal);
     }
 
-    Target CheckDocsCoverage => definition => definition
-        .Description("Fails, without building anything, when a type in a PublicAPI baseline has no guide page and no DocsExempt.txt line")
-        .Executes(() => {
-            var baselined = BaselinedTypes();
-            var documented = DocumentedTypes();
+    Target CheckDocsCoverage =>
+        definition => definition
+            .Description(
+                "Fails, without building anything, when a type in a PublicAPI baseline has no guide page and no DocsExempt.txt line"
+            )
+            .Executes(() => {
+                    var baselined = BaselinedTypes();
+                    var documented = DocumentedTypes();
 
-            var uncovered = baselined
-                .Where(type => !documented.Contains(type))
-                .OrderBy(type => type, StringComparer.Ordinal)
-                .ToList();
+                    var uncovered = baselined
+                        .Where(type => !documented.Contains(type))
+                        .OrderBy(type => type, StringComparer.Ordinal)
+                        .ToList();
 
-            Log.Information(
-                "{Baselined} baselined type(s) against {Documented} with a page or an exemption.",
-                baselined.Count,
-                documented.Count
+                    Log.Information(
+                        "{Baselined} baselined type(s) against {Documented} with a page or an exemption.",
+                        baselined.Count,
+                        documented.Count
+                    );
+
+                    Assert.True(
+                        uncovered.Count == 0,
+                        $"{uncovered.Count} public type(s) have neither a guide page naming them in `api:` "
+                        + $"nor a line in docs/DocsExempt.txt:{Environment.NewLine}  T:"
+                        + string.Join($"{Environment.NewLine}  T:", uncovered)
+                        + $"{Environment.NewLine}Write the page in this commit — its author is the one person "
+                        + "who knows what the type is for — or add a line with a reason. CheckDocs is the "
+                        + "gate and will say the same thing eleven minutes later."
+                    );
+                }
             );
-
-            Assert.True(
-                uncovered.Count == 0,
-                $"{uncovered.Count} public type(s) have neither a guide page naming them in `api:` "
-                + $"nor a line in docs/DocsExempt.txt:{Environment.NewLine}  T:"
-                + string.Join($"{Environment.NewLine}  T:", uncovered)
-                + $"{Environment.NewLine}Write the page in this commit — its author is the one person "
-                + "who knows what the type is for — or add a line with a reason. CheckDocs is the "
-                + "gate and will say the same thing eleven minutes later."
-            );
-        }
-        );
 }

@@ -37,9 +37,7 @@ public sealed partial class PaletteRow : ButtonBase {
         set {
             category = value;
 
-            if (CategoryPart is not null) {
-                CategoryPart.Text = value;
-            }
+            CategoryPart?.Text = value;
         }
     }
 
@@ -49,9 +47,7 @@ public sealed partial class PaletteRow : ButtonBase {
         set {
             detail = value;
 
-            if (DetailPart is not null) {
-                DetailPart.Text = value;
-            }
+            DetailPart?.Text = value;
         }
     }
 
@@ -95,8 +91,12 @@ public sealed partial class PaletteRow : ButtonBase {
 ///         localisation table wants.
 ///     </para>
 ///     <para>
-///         ⚠ <b><c>internal</c>, and that is the answer to <c>CheckDocs</c> rather than an exemption
-///         line.</b> See <c>NodeSearchEmpty</c>: a caption whose only caller is the <c>.vxml</c>
+///         ⚠
+///         <b>
+///             <c>internal</c>, and that is the answer to <c>CheckDocs</c> rather than an exemption
+///             line.
+///         </b>
+///         See <c>NodeSearchEmpty</c>: a caption whose only caller is the <c>.vxml</c>
 ///         beside it is not public surface, and <see cref="CommandPalette.PreviewPart" /> is
 ///         <c>UiElement</c>.
 ///     </para>
@@ -142,8 +142,12 @@ internal readonly record struct PaletteRowData(int Index, string Title, string C
 ///     <para>
 ///         ⚠ <b>Rows are rebuilt per query and capped.</b> Ten results is what fits and what anybody
 ///         reads; a palette that realised a thousand rows to show ten would be the tree view's
-///         virtualisation problem without the tree view's payoff. ⚠ <b>They are no longer
-///         <i>pooled</i>, which wave 6 deleted</b> — a keyed <c>@for</c> is the pool, and
+///         virtualisation problem without the tree view's payoff. ⚠
+///         <b>
+///             They are no longer
+///             <i>pooled</i>, which wave 6 deleted
+///         </b>
+///         — a keyed <c>@for</c> is the pool, and
 ///         <c>palette-row.parked</c> is now reached by nothing in this assembly.
 ///     </para>
 /// </remarks>

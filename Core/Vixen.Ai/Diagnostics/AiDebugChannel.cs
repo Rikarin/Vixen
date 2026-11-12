@@ -5,7 +5,6 @@ using System.Buffers;
 using System.Buffers.Binary;
 using System.Text;
 using Vixen.Core;
-using Vixen.Core.Mathematics;
 using Vixen.Ecs;
 
 namespace Vixen.Ai.Diagnostics;

@@ -23,15 +23,16 @@ sealed unsafe class VulkanAdapter : IGraphicsAdapter {
     public string Name { get; }
 
     /// <inheritdoc />
-    public AdapterKind Kind => Properties.DeviceType switch {
-        PhysicalDeviceType.DiscreteGpu => AdapterKind.Discrete,
-        PhysicalDeviceType.IntegratedGpu => AdapterKind.Integrated,
-        PhysicalDeviceType.Cpu or PhysicalDeviceType.VirtualGpu => AdapterKind.Software,
-        _ => AdapterKind.Unknown
-    };
+    public AdapterKind Kind =>
+        Properties.DeviceType switch {
+            PhysicalDeviceType.DiscreteGpu => AdapterKind.Discrete,
+            PhysicalDeviceType.IntegratedGpu => AdapterKind.Integrated,
+            PhysicalDeviceType.Cpu or PhysicalDeviceType.VirtualGpu => AdapterKind.Software,
+            _ => AdapterKind.Unknown
+        };
 
     /// <inheritdoc />
-    public string DriverVersion { get; private init; } = "";
+    public string DriverVersion { get; private init; } = string.Empty;
 
     /// <inheritdoc />
     public ulong DeviceMemory { get; private init; }
@@ -202,8 +203,8 @@ sealed unsafe class VulkanAdapter : IGraphicsAdapter {
             Supported = supported,
             Extensions = extensions,
             Queues = plan,
-            HasGraphicsQueue = planned || families.Any(f => (f.Flags & QueueFlags.GraphicsBit) != 0),
-            CanPresent = families.Any(f => f.CanPresent),
+            HasGraphicsQueue = planned || families.Any(static f => (f.Flags & QueueFlags.GraphicsBit) != 0),
+            CanPresent = families.Any(static f => f.CanPresent),
             Features = VulkanFeatures.Translate(
                 supported,
                 properties.Limits,
@@ -259,8 +260,7 @@ sealed unsafe class VulkanAdapter : IGraphicsAdapter {
         };
 
         var properties = new PhysicalDeviceProperties2 {
-            SType = StructureType.PhysicalDeviceProperties2,
-            PNext = &resolve
+            SType = StructureType.PhysicalDeviceProperties2, PNext = &resolve
         };
 
         api.GetPhysicalDeviceProperties2(device, &properties);
@@ -296,10 +296,7 @@ sealed unsafe class VulkanAdapter : IGraphicsAdapter {
             SType = StructureType.PhysicalDeviceShaderAtomicInt64Features
         };
 
-        var features = new PhysicalDeviceFeatures2 {
-            SType = StructureType.PhysicalDeviceFeatures2,
-            PNext = &atomics
-        };
+        var features = new PhysicalDeviceFeatures2 { SType = StructureType.PhysicalDeviceFeatures2, PNext = &atomics };
 
         api.GetPhysicalDeviceFeatures2(device, &features);
 
@@ -316,8 +313,12 @@ sealed unsafe class VulkanAdapter : IGraphicsAdapter {
     /// <param name="extensions">Its device extensions.</param>
     /// <param name="usable">The version actually reachable through this instance.</param>
     /// <remarks>
-    ///     One call and no limits, the <see cref="AtomicInt64" /> shape. ⚠ <b>1.2 is not the
-    ///     answer.</b> Timeline semaphores went core in 1.2, which makes the structure exist and
+    ///     One call and no limits, the <see cref="AtomicInt64" /> shape. ⚠
+    ///     <b>
+    ///         1.2 is not the
+    ///         answer.
+    ///     </b>
+    ///     Timeline semaphores went core in 1.2, which makes the structure exist and
     ///     leaves the bit optional — and reading the version instead of the bit is what made
     ///     <c>HasTimelineSemaphores</c> a claim no device had ever been asked to keep.
     /// </remarks>
@@ -336,10 +337,7 @@ sealed unsafe class VulkanAdapter : IGraphicsAdapter {
             SType = StructureType.PhysicalDeviceTimelineSemaphoreFeatures
         };
 
-        var features = new PhysicalDeviceFeatures2 {
-            SType = StructureType.PhysicalDeviceFeatures2,
-            PNext = &timeline
-        };
+        var features = new PhysicalDeviceFeatures2 { SType = StructureType.PhysicalDeviceFeatures2, PNext = &timeline };
 
         api.GetPhysicalDeviceFeatures2(device, &features);
 
@@ -374,10 +372,7 @@ sealed unsafe class VulkanAdapter : IGraphicsAdapter {
             SType = StructureType.PhysicalDeviceDescriptorIndexingFeatures
         };
 
-        var features = new PhysicalDeviceFeatures2 {
-            SType = StructureType.PhysicalDeviceFeatures2,
-            PNext = &indexing
-        };
+        var features = new PhysicalDeviceFeatures2 { SType = StructureType.PhysicalDeviceFeatures2, PNext = &indexing };
 
         api.GetPhysicalDeviceFeatures2(device, &features);
 
@@ -386,8 +381,7 @@ sealed unsafe class VulkanAdapter : IGraphicsAdapter {
         };
 
         var properties = new PhysicalDeviceProperties2 {
-            SType = StructureType.PhysicalDeviceProperties2,
-            PNext = &indexingLimits
+            SType = StructureType.PhysicalDeviceProperties2, PNext = &indexingLimits
         };
 
         api.GetPhysicalDeviceProperties2(device, &properties);
@@ -418,7 +412,7 @@ sealed unsafe class VulkanAdapter : IGraphicsAdapter {
         PhysicalDeviceAccelerationStructureFeaturesKHR Acceleration,
         PhysicalDeviceRayQueryFeaturesKHR RayQuery,
         PhysicalDeviceBufferDeviceAddressFeatures Addressing
-        ) RayTracing(Vk api, PhysicalDevice device, IReadOnlySet<string> extensions, uint usable) {
+    ) RayTracing(Vk api, PhysicalDevice device, IReadOnlySet<string> extensions, uint usable) {
         if (usable < AdapterSelection.MinimumApiVersion
             || !VulkanFeatures.HasRayTracingExtensions(extensions, usable)) {
             return (default, default, default);
@@ -429,18 +423,15 @@ sealed unsafe class VulkanAdapter : IGraphicsAdapter {
         };
 
         var rayQuery = new PhysicalDeviceRayQueryFeaturesKHR {
-            SType = StructureType.PhysicalDeviceRayQueryFeaturesKhr,
-            PNext = &acceleration
+            SType = StructureType.PhysicalDeviceRayQueryFeaturesKhr, PNext = &acceleration
         };
 
         var addressing = new PhysicalDeviceBufferDeviceAddressFeatures {
-            SType = StructureType.PhysicalDeviceBufferDeviceAddressFeatures,
-            PNext = &rayQuery
+            SType = StructureType.PhysicalDeviceBufferDeviceAddressFeatures, PNext = &rayQuery
         };
 
         var features = new PhysicalDeviceFeatures2 {
-            SType = StructureType.PhysicalDeviceFeatures2,
-            PNext = &addressing
+            SType = StructureType.PhysicalDeviceFeatures2, PNext = &addressing
         };
 
         api.GetPhysicalDeviceFeatures2(device, &features);

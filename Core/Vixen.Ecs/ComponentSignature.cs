@@ -99,8 +99,7 @@ public readonly struct ComponentSignature : IEquatable<ComponentSignature> {
     }
 
     /// <inheritdoc />
-    public bool Equals(ComponentSignature other) =>
-        hash == other.hash && Ids.SequenceEqual(other.Ids);
+    public bool Equals(ComponentSignature other) => hash == other.hash && Ids.SequenceEqual(other.Ids);
 
     /// <inheritdoc />
     public override bool Equals([NotNullWhen(true)] object? obj) => obj is ComponentSignature other && Equals(other);
@@ -123,5 +122,5 @@ public readonly struct ComponentSignature : IEquatable<ComponentSignature> {
     /// <summary>Renders the set as the component type names it holds.</summary>
     /// <returns>The set in text.</returns>
     public override string ToString() =>
-        Count == 0 ? "{}" : "{" + string.Join(", ", ids.Select(id => ComponentRegistry.Get(id).Type.Name)) + "}";
+        Count == 0 ? "{}" : "{" + string.Join(", ", ids.Select(static id => ComponentRegistry.Get(id).Type.Name)) + "}";
 }

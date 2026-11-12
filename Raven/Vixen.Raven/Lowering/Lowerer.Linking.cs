@@ -87,7 +87,7 @@ public sealed partial class Lowerer {
                 names.Add($"{type.Name}.<init>");
             }
 
-            foreach (var (name, _, _) in MemberBodies(type, report: false)) {
+            foreach (var (name, _, _) in MemberBodies(type, false)) {
                 names.Add(name);
             }
         }

@@ -4,10 +4,8 @@
 using Vixen.Core.Imaging;
 using Vixen.Core.Mathematics;
 using Vixen.Engine.Diagnostics;
-using Vixen.Engine.Diagnostics.Overlays;
 using Vixen.Engine.Renderer;
 using Vixen.Rendering;
-using Vixen.Ui.Testing.Visual;
 using Xunit;
 
 namespace Vixen.Graphics.Golden.Tests;
@@ -57,15 +55,18 @@ public sealed class DebugDrawImageTests {
         // and which way round the projection is, and a centred one would say neither.
         draw.ScreenFill(new(8f, 8f), new(72f, 40f), new(0.10f, 0.14f, 0.30f, 1f));
         draw.ScreenRect(new(8f, 8f), new(72f, 40f), new(0.45f, 0.60f, 0.95f, 1f));
-        draw.ScreenText(new(14f, 16f), "AB", new(1f, 0.85f, 0.35f, 1f), size: 22f);
+        draw.ScreenText(new(14f, 16f), "AB", new(1f, 0.85f, 0.35f, 1f), 22f);
 
-        renderer.Upload(draw, Matrix4x4.Identity, new Vector2(Side, Side));
+        renderer.Upload(draw, Matrix4x4.Identity, new(Side, Side));
 
-        owned.Graph.AddPass("debug overlay", pass => {
-            pass.ColourAttachment(colour, LoadAction.Clear, new(0.05f, 0.05f, 0.06f, 1f));
-            pass.SideEffect();
-            pass.Execute(context => renderer.RecordScreen(context.CommandList));
-        });
+        owned.Graph.AddPass(
+            "debug overlay",
+            pass => {
+                pass.ColourAttachment(colour, LoadAction.Clear, new(0.05f, 0.05f, 0.06f, 1f));
+                pass.SideEffect();
+                pass.Execute(context => renderer.RecordScreen(context.CommandList));
+            }
+        );
 
         var image = owned.Render(colour);
 
@@ -105,7 +106,7 @@ public sealed class DebugDrawImageTests {
 
         draw.Box(new(new(-0.7f, -0.7f, -0.7f), new(0.7f, 0.7f, 0.7f)), new(0.35f, 0.85f, 0.45f, 1f));
         draw.Arrow(Vector3.Zero, new(0f, 1.4f, 0f), new(0.95f, 0.4f, 0.4f, 1f));
-        draw.Text(new(-1.5f, -1.3f, 0f), "OK", new(1f, 1f, 1f, 1f), size: 0.5f);
+        draw.Text(new(-1.5f, -1.3f, 0f), "OK", new(1f, 1f, 1f, 1f), 0.5f);
 
         var eye = new Vector3(0f, 0f, 4f);
         var view = Matrix4x4.LookAt(eye, Vector3.Zero, Vector3.UnitY);
@@ -113,11 +114,14 @@ public sealed class DebugDrawImageTests {
 
         renderer.Upload(draw, view, Vector2.Zero);
 
-        owned.Graph.AddPass("debug world", pass => {
-            pass.ColourAttachment(colour, LoadAction.Clear, new(0.05f, 0.05f, 0.06f, 1f));
-            pass.SideEffect();
-            pass.Execute(context => renderer.Record(context.CommandList, view * projection));
-        });
+        owned.Graph.AddPass(
+            "debug world",
+            pass => {
+                pass.ColourAttachment(colour, LoadAction.Clear, new(0.05f, 0.05f, 0.06f, 1f));
+                pass.SideEffect();
+                pass.Execute(context => renderer.Record(context.CommandList, view * projection));
+            }
+        );
 
         var image = owned.Render(colour);
 

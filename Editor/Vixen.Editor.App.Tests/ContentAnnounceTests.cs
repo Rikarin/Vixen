@@ -11,8 +11,11 @@ namespace Vixen.Editor.App.Tests;
 /// <summary>An import run from inside the editor is told to the documents that are open.</summary>
 /// <remarks>
 ///     <para>
-///         <b><a href="https://github.com/Rikarin/Vixen/issues/1006">#1006</a>'s second box, and it
-///         is a near miss rather than an oversight.</b> <c>ContentTasks.Pump</c> already announced a
+///         <b>
+///             <a href="https://github.com/Rikarin/Vixen/issues/1006">#1006</a>'s second box, and it
+///             is a near miss rather than an oversight.
+///         </b>
+///         <c>ContentTasks.Pump</c> already announced a
 ///         finished import to four things — the project browser's rescan, the build panel, the
 ///         viewport's mount and two <c>Invalidate</c> calls — and not one of them reaches a document.
 ///         <c>ExternalEdits.Rescan</c> <em>does</em> announce, but the <c>Rescan</c> delegate
@@ -114,8 +117,7 @@ public sealed class ContentAnnounceTests {
     /// <summary>A document that does nothing but count being told a project file changed.</summary>
     sealed class Listener : EditorDocument {
         public Listener(EditorProject project)
-            : base(project, AssetId.Empty, "Listener") {
-        }
+            : base(project, AssetId.Empty, "Listener") { }
 
         /// <summary>How many announcements this has been given.</summary>
         public int Heard { get; private set; }
@@ -132,7 +134,6 @@ public sealed class ContentAnnounceTests {
         }
 
         /// <inheritdoc />
-        protected override void SaveCore() {
-        }
+        protected override void SaveCore() { }
     }
 }

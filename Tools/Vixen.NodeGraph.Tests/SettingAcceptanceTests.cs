@@ -12,8 +12,12 @@ namespace Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b><see cref="SettingDefinition.Accepts" /> still has no production caller, and
-///         <c>Canonical</c> is the shape that got two</b> —
+///         ⚠
+///         <b>
+///             <see cref="SettingDefinition.Accepts" /> still has no production caller, and
+///             <c>Canonical</c> is the shape that got two
+///         </b>
+///         —
 ///         <a href="https://github.com/Rikarin/Vixen/issues/1044">#1044</a>. They share an index, so
 ///         this suite covers both; it is not an argument that the predicate is reached. The
 ///         predicate
@@ -75,18 +79,21 @@ public class SettingAcceptanceTests {
     /// </remarks>
     [Fact]
     public void A_setting_that_declares_no_list_accepts_anything() {
-        SettingDefinition free = new("Ramp", "");
+        SettingDefinition free = new("Ramp", string.Empty);
 
         Assert.True(free.Accepts("anything at all"));
-        Assert.True(free.Accepts(""));
+        Assert.True(free.Accepts(string.Empty));
         Assert.False(free.IsChoice);
     }
 
     /// <summary>⚠ A name written in another case comes back in the case the setting states.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>The answer the two refusals needed and <see cref="SettingDefinition.Accepts" />
-    ///         could not give</b> — <a href="https://github.com/Rikarin/Vixen/issues/1044">#1044</a>.
+    ///         <b>
+    ///             The answer the two refusals needed and <see cref="SettingDefinition.Accepts" />
+    ///             could not give
+    ///         </b>
+    ///         — <a href="https://github.com/Rikarin/Vixen/issues/1044">#1044</a>.
     ///         A graph written <c>multiply</c> and one written <c>Multiply</c> have to compile to one
     ///         thing, and what makes that true is that the compiler stores the declaration's
     ///         spelling rather than the author's.
@@ -116,23 +123,26 @@ public class SettingAcceptanceTests {
     [InlineData("Multiplyy")]
     [InlineData("")]
     public void A_name_nothing_declares_canonicalises_to_nothing(string written) =>
-        Assert.Equal("", Mode.Canonical(written), StringComparer.Ordinal);
+        Assert.Equal(string.Empty, Mode.Canonical(written), StringComparer.Ordinal);
 
     /// <summary>⚠ And a setting that states no list answers with the value, not with nothing.</summary>
     /// <remarks>
-    ///     <b>The trap #1044 names, and the reason the two methods share an index rather than one
-    ///     calling the other.</b> <c>Canonical("")</c> on a setting with no list has to answer
+    ///     <b>
+    ///         The trap #1044 names, and the reason the two methods share an index rather than one
+    ///         calling the other.
+    ///     </b>
+    ///     <c>Canonical("")</c> on a setting with no list has to answer
     ///     <c>""</c> <em>and</em> <c>Accepts("")</c> has to stay true — so
     ///     <c>Accepts(v) == Canonical(v).Length > 0</c> is not an identity, and writing one as the
     ///     other would have made a free-text setting refuse the empty string it plainly accepts.
     /// </remarks>
     [Fact]
     public void A_setting_that_declares_no_list_canonicalises_to_what_it_was_given() {
-        SettingDefinition free = new("Ramp", "");
+        SettingDefinition free = new("Ramp", string.Empty);
 
         Assert.Equal("anything at all", free.Canonical("anything at all"), StringComparer.Ordinal);
-        Assert.Equal("", free.Canonical(""), StringComparer.Ordinal);
-        Assert.True(free.Accepts(""));
+        Assert.Equal(string.Empty, free.Canonical(string.Empty), StringComparer.Ordinal);
+        Assert.True(free.Accepts(string.Empty));
     }
 
     /// <summary>⚠ And a list that states the empty string accepts it, which the shared index buys.</summary>
@@ -145,10 +155,10 @@ public class SettingAcceptanceTests {
     /// </remarks>
     [Fact]
     public void A_list_that_states_the_empty_string_accepts_it() {
-        SettingDefinition optional = new("Ramp", "", Accepted: ["", "Linear", "Smooth"]);
+        SettingDefinition optional = new("Ramp", string.Empty, Accepted: [string.Empty, "Linear", "Smooth"]);
 
-        Assert.True(optional.Accepts(""));
-        Assert.Equal("", optional.Canonical(""), StringComparer.Ordinal);
+        Assert.True(optional.Accepts(string.Empty));
+        Assert.Equal(string.Empty, optional.Canonical(string.Empty), StringComparer.Ordinal);
         Assert.False(optional.Accepts("Bezier"));
     }
 }

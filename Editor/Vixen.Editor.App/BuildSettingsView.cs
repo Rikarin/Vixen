@@ -31,8 +31,12 @@ namespace Vixen.Editor.App;
 ///         None of those three is expressible as a property attribute.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Nothing on this panel is bound, and the <c>.vxml</c>'s header is where that is
-///         argued.</b> Its short form: an effect runs at the frame's flush, and this panel's callers
+///         ⚠
+///         <b>
+///             Nothing on this panel is bound, and the <c>.vxml</c>'s header is where that is
+///             argued.
+///         </b>
+///         Its short form: an effect runs at the frame's flush, and this panel's callers
 ///         read <c>BuildButton.Disabled</c> back on the line after <c>Rebuild()</c>.
 ///     </para>
 /// </remarks>

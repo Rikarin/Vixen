@@ -59,7 +59,7 @@ public class TimelineTests {
 
         // ⚠ A tick every 0.037 seconds is arithmetically fine and unreadable. Every ruler anybody
         // has used walks a 1-2-5 ladder so the labels are numbers a person can hold.
-        foreach (var scale in (float[]) [10f, 37f, 100f, 250f, 1_000f]) {
+        foreach (var scale in (float[])[10f, 37f, 100f, 250f, 1_000f]) {
             timeline.PixelsPerSecond = scale;
 
             var step = timeline.TickStep;
@@ -108,7 +108,7 @@ public class TimelineTests {
             timeline.Refresh();
             fixture.Update();
 
-            live = timeline.Ruler.Children.Where(static child => !child.HasClass("parked")).ToList();
+            live = [..timeline.Ruler.Children.Where(static child => !child.HasClass("parked"))];
             var rightmost = live.MaxBy(static label => label.Bounds.X)!;
             if (timeline.Ruler.Bounds.Right - rightmost.Bounds.X < rightmost.Bounds.Width - 2f) {
                 break;
@@ -161,7 +161,7 @@ public class TimelineTests {
         timeline.SnapToFrames = true;
 
         var y = AdvancedFixture.Centre(timeline.Ruler).Y;
-        var x = timeline.ToScreen(1.0f + (1f / 24f * 0.4f));
+        var x = timeline.ToScreen(1.0f + 1f / 24f * 0.4f);
 
         fixture.Press(x, y);
         fixture.Release(x, y);
@@ -218,7 +218,11 @@ public class TimelineTests {
         fixture.Move(timeline.ToScreen(key.Time + 0.25f), y);
         fixture.Release(timeline.ToScreen(key.Time + 0.25f), y);
 
-        Assert.Equal(before.Select(static time => time + 0.25f), track.Keys.Select(static entry => entry.Time), new Approximately());
+        Assert.Equal(
+            before.Select(static time => time + 0.25f),
+            track.Keys.Select(static entry => entry.Time),
+            new Approximately()
+        );
     }
 
     [Fact]
@@ -329,7 +333,7 @@ public class TimelineTests {
     [Fact]
     public void Only_the_tracks_on_screen_have_header_elements() {
         using var fixture = new AdvancedFixture(css: "timeline { height: 200px; }");
-        var timeline = Built(fixture, tracks: 500, keys: 1);
+        var timeline = Built(fixture, 500, 1);
 
         Assert.Equal(500, timeline.Tracks.Count);
         Assert.True(timeline.HeaderRows.Count < 20, $"realised {timeline.HeaderRows.Count} headers");
@@ -338,7 +342,7 @@ public class TimelineTests {
     [Fact]
     public void Scrolling_rebinds_the_headers_rather_than_making_new_ones() {
         using var fixture = new AdvancedFixture(css: "timeline { height: 200px; }");
-        var timeline = Built(fixture, tracks: 500, keys: 1);
+        var timeline = Built(fixture, 500, 1);
 
         var before = timeline.HeaderRows.Count;
         var element = timeline.HeaderRows[0];
@@ -354,7 +358,7 @@ public class TimelineTests {
     [Fact]
     public void The_wheel_zooms_about_the_pointer_and_shift_scrolls_the_tracks() {
         using var fixture = new AdvancedFixture(css: "timeline { height: 200px; }");
-        var timeline = Built(fixture, tracks: 100, keys: 1);
+        var timeline = Built(fixture, 100, 1);
 
         var before = timeline.ToTime(400f);
 
@@ -365,7 +369,13 @@ public class TimelineTests {
         Assert.Equal(before, timeline.ToTime(400f), 3);
 
         fixture.Document.Dispatch(
-            new WheelEvent { X = 400f, Y = 150f, DeltaY = 120f, Modifiers = ModifierKeys.Shift, Timestamp = TimeSpan.Zero }
+            new WheelEvent {
+                X = 400f,
+                Y = 150f,
+                DeltaY = 120f,
+                Modifiers = ModifierKeys.Shift,
+                Timestamp = TimeSpan.Zero
+            }
         );
 
         fixture.Update();
@@ -396,7 +406,7 @@ public class TimelineTests {
         timeline.Time = 1f;
 
         fixture.Type(InputKey.Right);
-        Assert.Equal(1f + (1f / 25f), timeline.Time, 4);
+        Assert.Equal(1f + 1f / 25f, timeline.Time, 4);
 
         fixture.Type(InputKey.Left);
         Assert.Equal(1f, timeline.Time, 4);
@@ -409,9 +419,18 @@ public class TimelineTests {
     }
 
     static float LaneY(Timeline timeline, int track) =>
-        timeline.Lanes.AbsoluteTop + (track * timeline.TrackHeight) + (timeline.TrackHeight * 0.5f) - timeline.ScrollTop;
+        timeline.Lanes.AbsoluteTop
+        + track * timeline.TrackHeight
+        + timeline.TrackHeight * 0.5f
+        - timeline.ScrollTop;
 
-    static void Press(AdvancedFixture fixture, Timeline timeline, int track, float time, ModifierKeys modifiers = ModifierKeys.None) {
+    static void Press(
+        AdvancedFixture fixture,
+        Timeline timeline,
+        int track,
+        float time,
+        ModifierKeys modifiers = ModifierKeys.None
+    ) {
         var x = timeline.ToScreen(time);
         var y = LaneY(timeline, track);
 

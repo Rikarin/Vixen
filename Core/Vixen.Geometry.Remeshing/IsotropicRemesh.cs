@@ -16,8 +16,12 @@ namespace Vixen.Geometry.Remeshing;
 ///         four-operator loop; QuadWild's <c>do_remesh</c> exists for the same reason.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The relaxation is reprojected onto the original surface every round, and without that
-///         the step is a shrink.</b> Tangential relaxation moves a vertex toward the centroid of its
+///         ⚠
+///         <b>
+///             The relaxation is reprojected onto the original surface every round, and without that
+///             the step is a shrink.
+///         </b>
+///         Tangential relaxation moves a vertex toward the centroid of its
 ///         ring, and on a convex surface that centroid is <i>inside</i> the surface. Five rounds of it
 ///         visibly deflates a sphere and rounds every hard corner off a boolean result. The mesh
 ///         becomes beautifully isotropic and stops being the model.
@@ -34,8 +38,10 @@ namespace Vixen.Geometry.Remeshing;
 /// </remarks>
 static class IsotropicRemesh {
     /// <summary>The upper edge-length band, as a multiple of the target: above this an edge splits.</summary>
-    /// <remarks>Four thirds and four fifths are Botsch and Kobbelt's, and the pair is chosen so a
-    ///     split cannot immediately produce an edge short enough to be collapsed back.</remarks>
+    /// <remarks>
+    ///     Four thirds and four fifths are Botsch and Kobbelt's, and the pair is chosen so a
+    ///     split cannot immediately produce an edge short enough to be collapsed back.
+    /// </remarks>
     public const float SplitAbove = 4f / 3f;
 
     /// <summary>The lower band: below this an edge collapses.</summary>
@@ -93,8 +99,12 @@ static class IsotropicRemesh {
     /// <param name="soup">The mesh.</param>
     /// <returns>The mean, or zero when there are no edges with length.</returns>
     /// <remarks>
-    ///     ⚠ The default target when the caller names none, and it is a length taken <i>from the
-    ///     mesh</i> — so the whole step is scale-free, which is what lets the same input at a
+    ///     ⚠ The default target when the caller names none, and it is a length taken
+    ///     <i>
+    ///         from the
+    ///         mesh
+    ///     </i>
+    ///     — so the whole step is scale-free, which is what lets the same input at a
     ///     thousandth and a thousand times the size condition to the same topology.
     /// </remarks>
     public static float MeanEdgeLength(TriangleSoup soup) {
@@ -113,7 +123,7 @@ static class IsotropicRemesh {
             }
         }
 
-        return count == 0 ? 0f : (float) (total / count);
+        return count == 0 ? 0f : (float)(total / count);
     }
 
     /// <summary>Inserts a midpoint into every edge longer than the bound, in one pass over the triangles.</summary>
@@ -173,12 +183,12 @@ static class IsotropicRemesh {
         for (var triangle = 0; triangle < count; triangle++) {
             Emit(
                 soup,
-                triangles[(triangle * 3) + 0],
-                triangles[(triangle * 3) + 1],
-                triangles[(triangle * 3) + 2],
-                midpoints[(triangle * 3) + 0],
-                midpoints[(triangle * 3) + 1],
-                midpoints[(triangle * 3) + 2],
+                triangles[triangle * 3],
+                triangles[triangle * 3 + 1],
+                triangles[triangle * 3 + 2],
+                midpoints[triangle * 3],
+                midpoints[triangle * 3 + 1],
+                midpoints[triangle * 3 + 2],
                 groups[triangle]
             );
         }
@@ -425,11 +435,15 @@ static class IsotropicRemesh {
                 continue;
             }
 
-            var before = Deviation(view, valence, a) + Deviation(view, valence, b)
-                + Deviation(view, valence, c) + Deviation(view, valence, d);
+            var before = Deviation(view, valence, a)
+                + Deviation(view, valence, b)
+                + Deviation(view, valence, c)
+                + Deviation(view, valence, d);
 
-            var after = Deviation(view, valence, a, -1) + Deviation(view, valence, b, -1)
-                + Deviation(view, valence, c, 1) + Deviation(view, valence, d, 1);
+            var after = Deviation(view, valence, a, -1)
+                + Deviation(view, valence, b, -1)
+                + Deviation(view, valence, c, 1)
+                + Deviation(view, valence, d, 1);
 
             if (after >= before) {
                 continue;
@@ -458,13 +472,13 @@ static class IsotropicRemesh {
                 continue;
             }
 
-            triangles[(half / 3 * 3) + 0] = c;
-            triangles[(half / 3 * 3) + 1] = a;
-            triangles[(half / 3 * 3) + 2] = d;
+            triangles[half / 3 * 3] = c;
+            triangles[half / 3 * 3 + 1] = a;
+            triangles[half / 3 * 3 + 2] = d;
 
-            triangles[(twin / 3 * 3) + 0] = c;
-            triangles[(twin / 3 * 3) + 1] = d;
-            triangles[(twin / 3 * 3) + 2] = b;
+            triangles[twin / 3 * 3] = c;
+            triangles[twin / 3 * 3 + 1] = d;
+            triangles[twin / 3 * 3 + 2] = b;
 
             valence[a]--;
             valence[b]--;
@@ -547,9 +561,9 @@ static class IsotropicRemesh {
         soup.Groups.Clear();
 
         for (var triangle = 0; triangle * 3 < triangles.Length; triangle++) {
-            var a = Root(remap, triangles[(triangle * 3) + 0]);
-            var b = Root(remap, triangles[(triangle * 3) + 1]);
-            var c = Root(remap, triangles[(triangle * 3) + 2]);
+            var a = Root(remap, triangles[triangle * 3]);
+            var b = Root(remap, triangles[triangle * 3 + 1]);
+            var c = Root(remap, triangles[triangle * 3 + 2]);
 
             if (a != b && b != c && c != a) {
                 soup.Add(a, b, c, groups[triangle]);
@@ -566,5 +580,4 @@ static class IsotropicRemesh {
 
         return vertex;
     }
-
 }

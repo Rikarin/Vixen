@@ -2,13 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
-using Microsoft.CodeAnalysis.Text;
 
 namespace Vixen.Build;
 
@@ -18,8 +14,12 @@ namespace Vixen.Build;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Two of these landed in one batch and every instrument this repository owns was green
-///         over them</b> (<a href="https://github.com/Rikarin/Vixen/issues/866">#866</a>). An agent
+///         ⚠
+///         <b>
+///             Two of these landed in one batch and every instrument this repository owns was green
+///             over them
+///         </b>
+///         (<a href="https://github.com/Rikarin/Vixen/issues/866">#866</a>). An agent
 ///         inserted a new member between an existing comment and the member it documented, twice: in
 ///         <c>LayerStackPreview.cs</c> a <c>Refused</c> block ended up heading <c>Resolve</c>, giving
 ///         it two <c>&lt;summary&gt;</c>, two <c>&lt;returns&gt;</c> and a <c>&lt;param&gt;</c> naming
@@ -40,7 +40,7 @@ namespace Vixen.Build;
 ///         this rule is for.
 ///     </para>
 ///     <para>
-///         <b>The shape is <c>CheckWhitespace</c>'s: a folder walk with no MSBuild workspace.</b>
+///         <b>The shape is <c>CheckPathCase</c>'s: a folder walk with no MSBuild workspace.</b>
 ///         Nothing here needs a compilation — "this block has two summaries" and "this
 ///         <c>&lt;param&gt;</c> names a parameter the following member does not have" are both
 ///         answerable from the syntax of one file. Parsing is Roslyn's rather than a regular
@@ -70,8 +70,12 @@ static class DocCommentRule {
     ///     The tags a member may carry at most one of.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b><c>summary</c> is the one that caught the batch-9 stapleing and <c>returns</c> is the
-    ///     one that would have caught it a second way.</b> They are singletons because a member has
+    ///     ⚠
+    ///     <b>
+    ///         <c>summary</c> is the one that caught the batch-9 stapleing and <c>returns</c> is the
+    ///         one that would have caught it a second way.
+    ///     </b>
+    ///     They are singletons because a member has
     ///     one description and one return value; a block with two of either has been given a second
     ///     member's documentation, which is what a staple <em>is</em>. <c>value</c> joins them for the
     ///     same reason and costs nothing.
@@ -95,9 +99,13 @@ static class DocCommentRule {
 
     /// <summary>The other checkouts of this repository, and only the other ones.</summary>
     /// <remarks>
-    ///     ⚠ <b>Anchored at the root and never matched as a substring, and that is the whole
-    ///     difference between a walk that skips the sibling checkouts and one that cannot run inside a
-    ///     worktree at all.</b> An agent's own <c>RootDirectory</c> <em>is</em>
+    ///     ⚠
+    ///     <b>
+    ///         Anchored at the root and never matched as a substring, and that is the whole
+    ///         difference between a walk that skips the sibling checkouts and one that cannot run inside a
+    ///         worktree at all.
+    ///     </b>
+    ///     An agent's own <c>RootDirectory</c> <em>is</em>
     ///     <c>…/.claude/worktrees/&lt;name&gt;</c>, so every path under it contains <c>/.claude/</c> —
     ///     a substring test excludes the entire tree and the rule then reports a clean repository
     ///     having read nothing. Measured here rather than reasoned about: the first run of this walk
@@ -114,31 +122,50 @@ static class DocCommentRule {
 
         var normalised = root.Replace('\\', '/').TrimEnd('/');
 
-        return Directory
-            .EnumerateFiles(normalised, "*.cs", SearchOption.AllDirectories)
-            .Select(path => path.Replace('\\', '/'))
-            .Where(path => !SkippedFragments.Any(fragment => path.Contains(fragment, StringComparison.Ordinal)))
-            .Where(path => !SkippedRoots.Any(directory => path.StartsWith($"{normalised}/{directory}", StringComparison.Ordinal)))
-            .Order(StringComparer.Ordinal)
-            .ToList();
+        return [
+            ..Directory
+                .EnumerateFiles(normalised, "*.cs", SearchOption.AllDirectories)
+                .Select(static path => path.Replace('\\', '/'))
+                .Where(static path => !SkippedFragments.Any(fragment => path.Contains(
+                            fragment,
+                            StringComparison.Ordinal
+                        )
+                    )
+                )
+                .Where(path => !SkippedRoots.Any(directory => path.StartsWith(
+                            $"{normalised}/{directory}",
+                            StringComparison.Ordinal
+                        )
+                    )
+                )
+                .Order(StringComparer.Ordinal)
+        ];
     }
 
     /// <summary>Where the files this rule is not asked about today are listed.</summary>
     /// <remarks>
-    ///     ⚠ <b>Sixty-four blocks in fifty-one files were already wrong when this rule was written,
-    ///     and one of them was a live production staple</b> — <c>KeyChord.MacFormat</c>'s whole block
+    ///     ⚠
+    ///     <b>
+    ///         Sixty-four blocks in fifty-one files were already wrong when this rule was written,
+    ///         and one of them was a live production staple
+    ///     </b>
+    ///     — <c>KeyChord.MacFormat</c>'s whole block
     ///     headed <c>MacWords</c>, so the glyph formatter was undocumented and the words formatter was
     ///     described twice. All sixty-four have since been moved onto the member they describe and the
     ///     list is empty (#879).
     ///     <para>
-    ///         ⚠ <b>Emptying it took an instrument with it, and both callers were changed in the same
-    ///         commit.</b> Each proved the rule still fires by asserting that a non-empty list implies
+    ///         ⚠
+    ///         <b>
+    ///             Emptying it took an instrument with it, and both callers were changed in the same
+    ///             commit.
+    ///         </b>
+    ///         Each proved the rule still fires by asserting that a non-empty list implies
     ///         a non-empty finding set — true for exactly as long as the list was non-empty, and
     ///         vacuous on the day the tree is clean, which is the day it is needed. Each now runs the
     ///         rule over a stapled fixture instead.
     ///     </para>
     ///     <para>
-    ///         The exemption is per file and committed, on <c>docs/WhitespaceExempt.txt</c>'s terms —
+    ///         The exemption is per file and committed, on <c>docs/DocsExempt.txt</c>'s terms —
     ///         the list may only shrink, a file on it that has become clean is an error rather than a
     ///         line that rots, and rewriting it is a command somebody runs rather than something the
     ///         gate does for itself. A gate that wrote its own exemptions would fail on nothing,
@@ -158,8 +185,8 @@ static class DocCommentRule {
         return File.Exists(file)
             ? File
                 .ReadAllLines(file)
-                .Select(line => line.Trim())
-                .Where(line => line.Length > 0 && !line.StartsWith('#'))
+                .Select(static line => line.Trim())
+                .Where(static line => line.Length > 0 && !line.StartsWith('#'))
                 .ToHashSet(StringComparer.Ordinal)
             : new HashSet<string>(StringComparer.Ordinal);
     }
@@ -173,7 +200,7 @@ static class DocCommentRule {
     /// <remarks>
     ///     ⚠ <b>Both halves, because a list that may only grow is a number nothing measures.</b> A
     ///     file that has become clean has to leave the list in the same commit that cleaned it — the
-    ///     rule <c>docs/WhitespaceExempt.txt</c> established after a count in
+    ///     rule <c>docs/DocsExempt.txt</c> established after a count in
     ///     <c>Directory.Build.targets</c> managed to be wrong four times running.
     /// </remarks>
     public static (List<string> Unexpected, List<string> Stale) Review(
@@ -183,7 +210,7 @@ static class DocCommentRule {
         ArgumentNullException.ThrowIfNull(findings);
         ArgumentNullException.ThrowIfNull(exempt);
 
-        var offending = findings.Select(finding => finding.File).ToHashSet(StringComparer.Ordinal);
+        var offending = findings.Select(static finding => finding.File).ToHashSet(StringComparer.Ordinal);
 
         return (
             offending.Except(exempt, StringComparer.Ordinal).Order(StringComparer.Ordinal).ToList(),
@@ -255,18 +282,25 @@ static class DocCommentRule {
             }
 
             var documented = elements
-                .Where(element => string.Equals(element.Name, "param", StringComparison.Ordinal))
-                .Select(element => element.Attribute)
-                .Where(name => name is not null)
-                .Select(name => name!)
+                .Where(static element => string.Equals(element.Name, "param", StringComparison.Ordinal))
+                .Select(static element => element.Attribute)
+                .Where(static name => name is not null)
+                .Select(static name => name!)
                 .ToList();
 
-            foreach (var duplicate in documented.GroupBy(name => name, StringComparer.Ordinal).Where(group => group.Count() > 1)) {
-                findings.Add(new(file, line, $"this doc comment block documents the parameter `{duplicate.Key}` {duplicate.Count()} times."));
+            foreach (var duplicate in documented.GroupBy(static name => name, StringComparer.Ordinal)
+                         .Where(static group => group.Count() > 1)) {
+                findings.Add(
+                    new(
+                        file,
+                        line,
+                        $"this doc comment block documents the parameter `{duplicate.Key}` {duplicate.Count()} times."
+                    )
+                );
             }
 
             foreach (var (position, escape) in Escapes(block)) {
-                findings.Add(new(file, tree.GetLineSpan(new TextSpan(position, 0)).StartLinePosition.Line + 1, Escaped(escape)));
+                findings.Add(new(file, tree.GetLineSpan(new(position, 0)).StartLinePosition.Line + 1, Escaped(escape)));
             }
 
             if (Owner(trivia) is not { } owner) {
@@ -315,7 +349,7 @@ static class DocCommentRule {
             }
         }
 
-        return findings.OrderBy(finding => finding.Line).ToList();
+        return [..findings.OrderBy(static finding => finding.Line)];
     }
 
     /// <summary>What to say about a block the compiler throws away.</summary>
@@ -323,8 +357,12 @@ static class DocCommentRule {
     /// <returns>The message the gate fails with.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A <c>///</c> block on a local function is CS1587 and the compiler discards
-    ///         it</b> (<a href="https://github.com/Rikarin/Vixen/issues/1219">#1219</a>). The prose
+    ///         ⚠
+    ///         <b>
+    ///             A <c>///</c> block on a local function is CS1587 and the compiler discards
+    ///             it
+    ///         </b>
+    ///         (<a href="https://github.com/Rikarin/Vixen/issues/1219">#1219</a>). The prose
     ///         is in the file and reads as documentation to anybody opening it; it reaches no XML
     ///         file, no IDE tooltip and no doc generator. Two were found the moment
     ///         <c>GenerateDocumentationFile</c> was turned on for their projects, and one of them —
@@ -354,8 +392,12 @@ static class DocCommentRule {
     /// <returns>The message the gate fails with.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>An escape is a construct of a string or char literal, and a doc comment has
-    ///         none</b> (<a href="https://github.com/Rikarin/Vixen/issues/1347">#1347</a>). Inside
+    ///         ⚠
+    ///         <b>
+    ///             An escape is a construct of a string or char literal, and a doc comment has
+    ///             none
+    ///         </b>
+    ///         (<a href="https://github.com/Rikarin/Vixen/issues/1347">#1347</a>). Inside
     ///         <c>///</c> a backslash-u sequence is six characters — ten for the eight-digit form —
     ///         and that is what a tooltip and the doc generator draw. <c>TransformedText.cs</c>
     ///         carried ten of them in its casing remarks: a warning sign, three em dashes, and the
@@ -382,8 +424,12 @@ static class DocCommentRule {
     /// <remarks>
     ///     <para>
     ///         <b>Text nodes only, so an attribute value is not read</b> — a <c>cref</c> or a
-    ///         <c>name</c> is resolved by the compiler, not drawn — and <b>a <c>&lt;code&gt;</c>
-    ///         sample is skipped</b>, because a sample is source and an escape in source is spelled
+    ///         <c>name</c> is resolved by the compiler, not drawn — and
+    ///         <b>
+    ///             a <c>&lt;code&gt;</c>
+    ///             sample is skipped
+    ///         </b>
+    ///         , because a sample is source and an escape in source is spelled
     ///         exactly that way. <c>&lt;c&gt;</c> is not skipped: every one of the ten escapes
     ///         #1347 found that sat inside an element sat inside a <c>&lt;c&gt;</c>, and meant the
     ///         character.
@@ -396,7 +442,10 @@ static class DocCommentRule {
     /// </remarks>
     static IEnumerable<(int Position, string Escape)> Escapes(DocumentationCommentTriviaSyntax block) {
         foreach (var node in block.DescendantNodes().OfType<XmlTextSyntax>()) {
-            if (node.Ancestors().OfType<XmlElementSyntax>().Any(element => string.Equals(element.StartTag.Name.ToString(), "code", StringComparison.Ordinal))) {
+            if (node.Ancestors()
+                .OfType<XmlElementSyntax>()
+                .Any(static element => string.Equals(element.StartTag.Name.ToString(), "code", StringComparison.Ordinal)
+                )) {
                 continue;
             }
 
@@ -419,7 +468,9 @@ static class DocCommentRule {
                         continue;
                     }
 
-                    if (digits == 0 || i + 2 + digits > text.Length || !text.Substring(i + 2, digits).All(char.IsAsciiHexDigit)) {
+                    if (digits == 0
+                        || i + 2 + digits > text.Length
+                        || !text.Substring(i + 2, digits).All(char.IsAsciiHexDigit)) {
                         continue;
                     }
 
@@ -442,7 +493,8 @@ static class DocCommentRule {
     static IEnumerable<(string Name, string? Attribute)> TopLevelElements(DocumentationCommentTriviaSyntax block) {
         foreach (var node in block.Content) {
             var (name, attributes) = node switch {
-                XmlElementSyntax element => (element.StartTag.Name.ToString(), (IEnumerable<XmlAttributeSyntax>)element.StartTag.Attributes),
+                XmlElementSyntax element => (element.StartTag.Name.ToString(),
+                    (IEnumerable<XmlAttributeSyntax>)element.StartTag.Attributes),
                 XmlEmptyElementSyntax empty => (empty.Name.ToString(), empty.Attributes),
                 _ => (null, null)
             };
@@ -453,7 +505,7 @@ static class DocCommentRule {
 
             var value = attributes!
                 .OfType<XmlNameAttributeSyntax>()
-                .Select(attribute => attribute.Identifier.Identifier.ValueText)
+                .Select(static attribute => attribute.Identifier.Identifier.ValueText)
                 .FirstOrDefault();
 
             yield return (name, value);
@@ -485,8 +537,12 @@ static class DocCommentRule {
     /// <param name="owner">The declaration, from <see cref="Owner" />.</param>
     /// <returns>The names, or <c>null</c>.</returns>
     /// <remarks>
-    ///     ⚠ <b>No parameter list and an empty parameter list are different answers and the rule needs
-    ///     both.</b> A <c>[Fact]</c> that documents a parameter is the second batch-9 staple, and a
+    ///     ⚠
+    ///     <b>
+    ///         No parameter list and an empty parameter list are different answers and the rule needs
+    ///         both.
+    ///     </b>
+    ///     A <c>[Fact]</c> that documents a parameter is the second batch-9 staple, and a
     ///     field or an enum member that documents one is the same defect — but a class with a primary
     ///     constructor <em>does</em> have parameters, and a record's positional members are documented
     ///     with <c>&lt;param&gt;</c> by convention. Returning the empty set for the first and
@@ -494,11 +550,20 @@ static class DocCommentRule {
     /// </remarks>
     static HashSet<string>? Parameters(SyntaxNode owner) {
         var list = owner switch {
-            BaseMethodDeclarationSyntax method => method.ParameterList.Parameters.Select(parameter => parameter.Identifier.ValueText),
-            DelegateDeclarationSyntax method => method.ParameterList.Parameters.Select(parameter => parameter.Identifier.ValueText),
-            LocalFunctionStatementSyntax method => method.ParameterList.Parameters.Select(parameter => parameter.Identifier.ValueText),
-            IndexerDeclarationSyntax indexer => indexer.ParameterList.Parameters.Select(parameter => parameter.Identifier.ValueText),
-            TypeDeclarationSyntax type when type.ParameterList is { } parameters => parameters.Parameters.Select(parameter => parameter.Identifier.ValueText),
+            BaseMethodDeclarationSyntax method => method.ParameterList.Parameters.Select(static parameter =>
+                parameter.Identifier.ValueText
+            ),
+            DelegateDeclarationSyntax method => method.ParameterList.Parameters.Select(static parameter =>
+                parameter.Identifier.ValueText
+            ),
+            LocalFunctionStatementSyntax method => method.ParameterList.Parameters.Select(static parameter =>
+                parameter.Identifier.ValueText
+            ),
+            IndexerDeclarationSyntax indexer => indexer.ParameterList.Parameters.Select(static parameter =>
+                parameter.Identifier.ValueText
+            ),
+            TypeDeclarationSyntax type when type.ParameterList is { } parameters =>
+                parameters.Parameters.Select(static parameter => parameter.Identifier.ValueText),
             _ => null
         };
 
@@ -519,7 +584,10 @@ static class DocCommentRule {
             EnumMemberDeclarationSyntax member => member.Identifier.ValueText,
             ConstructorDeclarationSyntax constructor => constructor.Identifier.ValueText,
             IndexerDeclarationSyntax => "this[]",
-            BaseFieldDeclarationSyntax field => string.Join(", ", field.Declaration.Variables.Select(variable => variable.Identifier.ValueText)),
+            BaseFieldDeclarationSyntax field => string.Join(
+                ", ",
+                field.Declaration.Variables.Select(static variable => variable.Identifier.ValueText)
+            ),
             AccessorDeclarationSyntax accessor => accessor.Keyword.ValueText,
             _ => "it"
         };

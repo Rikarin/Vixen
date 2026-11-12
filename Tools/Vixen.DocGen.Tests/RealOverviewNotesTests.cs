@@ -11,8 +11,11 @@ namespace Vixen.DocGen.Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>A cap applied by character count rather than at a sentence boundary left 282 note
-///         cells ending mid-sentence</b>
+///         ⚠
+///         <b>
+///             A cap applied by character count rather than at a sentence boundary left 282 note
+///             cells ending mid-sentence
+///         </b>
 ///         (<a href="https://github.com/Rikarin/Vixen/issues/440">#440</a>), and the file the working
 ///         agreement calls the state is the worst place for that: a row whose qualifier was the half
 ///         that got cut still <em>wins</em> against a plan document, with the qualifier missing.
@@ -93,7 +96,7 @@ public class RealOverviewNotesTests {
 
             for (var at = 1; at < line.Length; at++) {
                 if (line[at] == '\\' && at + 1 < line.Length && line[at + 1] == '|') {
-                    cell.Append("\\|");
+                    cell.Append("""\|""");
                     at++;
                 } else if (line[at] == '|') {
                     cells.Add(cell.ToString().Trim());
@@ -103,7 +106,7 @@ public class RealOverviewNotesTests {
                 }
             }
 
-            rows.Add((index + 1, [.. cells]));
+            rows.Add((index + 1, [..cells]));
         }
 
         return rows;
@@ -114,16 +117,17 @@ public class RealOverviewNotesTests {
     public void No_cell_ends_where_a_character_cap_stopped_it() {
         var rows = Rows();
         var cut = rows
-            .SelectMany(row => row.Cells.Select(cell => (row.Line, Cell: cell)))
-            .Where(entry => entry.Cell.EndsWith('…'))
-            .Select(entry => $"{RelativePath}:{entry.Line}: …{entry.Cell[^Math.Min(70, entry.Cell.Length)..]}")
+            .SelectMany(static row => row.Cells.Select(cell => (row.Line, Cell: cell)))
+            .Where(static entry => entry.Cell.EndsWith('…'))
+            .Select(static entry => $"{RelativePath}:{entry.Line}: …{entry.Cell[^Math.Min(70, entry.Cell.Length)..]}")
             .ToList();
 
         Assert.True(rows.Count >= Floor, $"only {rows.Count} rows read out of {OverviewPath}");
         Assert.True(
             cut.Count == 0,
             "Cells cut off mid-sentence — re-cap at the last whole sentence that fits, and keep the "
-            + "⚠ clause that followed the cut where there is one:\n" + string.Join('\n', cut)
+            + "⚠ clause that followed the cut where there is one:\n"
+            + string.Join('\n', cut)
         );
     }
 
@@ -151,41 +155,46 @@ public class RealOverviewNotesTests {
         var guide = Path.Combine(root, "docs", "guide");
         var areas = Directory.GetDirectories(guide)
             .ToDictionary(
-                directory => Path.GetFileName(directory)!,
-                directory => Directory.GetFiles(directory, "*.md", SearchOption.AllDirectories).Length);
+                static directory => Path.GetFileName(directory)!,
+                static directory => Directory.GetFiles(directory, "*.md", SearchOption.AllDirectories).Length
+            );
 
         var row = File.ReadAllLines(OverviewPath)
-            .FirstOrDefault(line => line.Contains("](guide) holds", StringComparison.Ordinal))
+                .FirstOrDefault(static line => line.Contains("](guide) holds", StringComparison.Ordinal))
             ?? throw new InvalidOperationException("§ 1.15's guide row is gone, or its link is written differently.");
 
         var stated = System.Text.RegularExpressions.Regex.Match(
-            row, @"\*\*(?<pages>\d+) pages across (?<areas>\w+) areas\*\* \((?<list>[^)]*)\)");
+            row,
+            @"\*\*(?<pages>\d+) pages across (?<areas>\w+) areas\*\* \((?<list>[^)]*)\)"
+        );
 
         Assert.True(stated.Success, $"§ 1.15's guide row does not state its counts the usual way: {row[..120]}");
         Assert.Equal(areas.Values.Sum(), int.Parse(stated.Groups["pages"].Value));
 
-        var listed = stated.Groups["list"].Value
+        var listed = stated.Groups["list"]
+            .Value
             .Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
-            .Select(entry => entry.Split(' '))
-            .ToDictionary(parts => parts[0], parts => int.Parse(parts[1]));
+            .Select(static entry => entry.Split(' '))
+            .ToDictionary(static parts => parts[0], static parts => int.Parse(parts[1]));
 
-        Assert.Equal(areas.OrderBy(pair => pair.Key), listed.OrderBy(pair => pair.Key));
+        Assert.Equal(areas.OrderBy(static pair => pair.Key), listed.OrderBy(static pair => pair.Key));
 
         var exempt = File.ReadAllLines(Path.Combine(root, "docs", "DocsExempt.txt"));
-        var types = exempt.Count(line => line.StartsWith("T:", StringComparison.Ordinal));
+        var types = exempt.Count(static line => line.StartsWith("T:", StringComparison.Ordinal));
         var statedTypes = System.Text.RegularExpressions.Regex.Match(row, @"\(([\d  ]+)`T:` lines");
 
         Assert.True(statedTypes.Success, "§ 1.15's guide row no longer states a `T:` count.");
         Assert.Equal(
             types,
-            int.Parse(statedTypes.Groups[1].Value.Replace(" ", string.Empty).Replace(" ", string.Empty)));
+            int.Parse(statedTypes.Groups[1].Value.Replace(" ", string.Empty).Replace("\u00A0", string.Empty))
+        );
     }
 
     /// <summary>A row with more cells than its table has columns is a row nothing renders.</summary>
     [Fact]
     public void Every_row_has_its_table_s_column_count() {
         var rows = Rows();
-        var byLine = rows.ToDictionary(row => row.Line, row => row.Cells);
+        var byLine = rows.ToDictionary(static row => row.Line, static row => row.Cells);
         var wrong = new List<string>();
         var columns = 0;
         var previous = -1;
@@ -200,7 +209,7 @@ public class RealOverviewNotesTests {
             previous = line;
 
             var separator = cells.Length > 0
-                && cells.All(cell => cell.Length > 0 && cell.Trim(['-', ':', ' ']).Length == 0);
+                && cells.All(static cell => cell.Length > 0 && cell.Trim(['-', ':', ' ']).Length == 0);
 
             if (separator) {
                 columns = byLine.TryGetValue(line - 1, out var header) ? header.Length : 0;
@@ -209,8 +218,10 @@ public class RealOverviewNotesTests {
             }
 
             if (columns > 0 && cells.Length != columns) {
-                wrong.Add($"{RelativePath}:{line}: {cells.Length} cells against {columns} columns — "
-                    + $"{cells[0]}");
+                wrong.Add(
+                    $"{RelativePath}:{line}: {cells.Length} cells against {columns} columns — "
+                    + $"{cells[0]}"
+                );
             }
         }
 
@@ -218,7 +229,8 @@ public class RealOverviewNotesTests {
         Assert.True(
             wrong.Count == 0,
             "Rows whose cell count disagrees with their table's header — an unescaped `|` inside a "
-            + "cell is the way this happens:\n" + string.Join('\n', wrong)
+            + "cell is the way this happens:\n"
+            + string.Join('\n', wrong)
         );
     }
 }

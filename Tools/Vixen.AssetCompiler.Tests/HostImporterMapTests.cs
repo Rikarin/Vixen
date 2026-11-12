@@ -15,5 +15,6 @@ namespace Vixen.AssetCompiler.Tests;
 public sealed class HostImporterMapTests {
     /// <summary>The gate.</summary>
     [Fact]
-    public void The_workers_registry_has_every_hosts_map() => HostImporterMap.AssertHost("compiler worker", WorkerHost.LinkImporters);
+    public void The_workers_registry_has_every_hosts_map() =>
+        HostImporterMap.AssertHost("compiler worker", WorkerHost.LinkImporters);
 }

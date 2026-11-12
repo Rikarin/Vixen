@@ -55,7 +55,9 @@ public sealed class ReferenceIndex {
 
         var found = new ConcurrentBag<(AssetId From, AssetReference To)>();
 
-        Parallel.ForEach(database.Entries, entry => {
+        Parallel.ForEach(
+            database.Entries,
+            entry => {
                 if (entry.IsFolder) {
                     return;
                 }
@@ -67,7 +69,9 @@ public sealed class ReferenceIndex {
                 // The sidecar is scanned as part of the asset it belongs to, so a reference written
                 // in import settings is attributed to the asset rather than to a file nobody thinks
                 // of as one.
-                foreach (var reference in ScanFile(Vixen.Core.Yaml.Meta.AssetMetaFile.PathFor(database.Paths.Absolute(entry.Path)))) {
+                foreach (var reference in ScanFile(
+                             Vixen.Core.Yaml.Meta.AssetMetaFile.PathFor(database.Paths.Absolute(entry.Path))
+                         )) {
                     found.Add((entry.Guid, reference));
                 }
             }

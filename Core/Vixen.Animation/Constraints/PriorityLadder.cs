@@ -13,8 +13,7 @@ namespace Vixen.Animation.Constraints;
 [DataContract("PriorityRungRecord")]
 public sealed record PriorityRungRecord(string Name, int Value, string Meaning) {
     /// <summary>A record with nothing filled in.</summary>
-    public PriorityRungRecord() : this("", 0, "") {
-    }
+    public PriorityRungRecord() : this(string.Empty, 0, string.Empty) { }
 }
 
 /// <summary>The names a project's authors pick priorities from.</summary>
@@ -67,18 +66,19 @@ public sealed class PriorityLadderContent {
     ///     cost. Deliberately short: a ladder with fifteen rungs is one where nobody can say what the
     ///     difference between two adjacent ones is.
     /// </remarks>
-    public static PriorityLadderContent Default => new() {
-        Name = "default",
-        Step = 100,
-        Rungs = [
-            new("flourish", 0, "A secondary motion. First thing to lose."),
-            new("look", 100, "Where the character is looking."),
-            new("aim", 200, "Where a weapon or a tool is pointing."),
-            new("balance", 300, "Keeping the body over its feet."),
-            new("interaction", 400, "A hand on the thing the character is using."),
-            new("contact", 500, "A contact the eye reads as touching. Must not be violated.")
-        ]
-    };
+    public static PriorityLadderContent Default =>
+        new() {
+            Name = "default",
+            Step = 100,
+            Rungs = [
+                new("flourish", 0, "A secondary motion. First thing to lose."),
+                new("look", 100, "Where the character is looking."),
+                new("aim", 200, "Where a weapon or a tool is pointing."),
+                new("balance", 300, "Keeping the body over its feet."),
+                new("interaction", 400, "A hand on the thing the character is using."),
+                new("contact", 500, "A contact the eye reads as touching. Must not be violated.")
+            ]
+        };
 }
 
 /// <summary>A priority ladder, as a bake reads it.</summary>

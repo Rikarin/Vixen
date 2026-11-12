@@ -3,7 +3,6 @@
 
 using System.Collections.Immutable;
 using System.Runtime.InteropServices;
-using Vixen.Core.Imaging;
 using Vixen.Graphics;
 using Vixen.NodeGraph;
 using Vixen.TextureGraph;
@@ -53,7 +52,7 @@ public class TextureFloodReachDeviceTests(ITestOutputHelper output) {
 
         for (var row = 0; row < CellsPerSide; row++) {
             for (var column = 0; column < CellsPerSide; column++) {
-                var (x, y) = ((column * cell) + (cell / 2), (row * cell) + (cell / 2));
+                var (x, y) = (column * cell + cell / 2, row * cell + cell / 2);
 
                 if (TextureKernelHarness.At(picture, x, y, 2) == 0) {
                     continue;
@@ -112,7 +111,7 @@ public class TextureFloodReachDeviceTests(ITestOutputHelper output) {
                 Ops = TextureAnalysis.FloodFill(
                     read,
                     0,
-                    [.. Enumerable.Range(1, Budget)],
+                    [..Enumerable.Range(1, Budget)],
                     Width,
                     Height,
                     TextureFloodOutput.BoundingBox
@@ -128,7 +127,7 @@ public class TextureFloodReachDeviceTests(ITestOutputHelper output) {
             var boxes = MemoryMarshal.Cast<byte, float>(bake.ReadRaw(read).Texels);
 
             foreach (var x in (int[])[4001, 4003]) {
-                var at = ((2 * Width) + x) * 4;
+                var at = (2 * Width + x) * 4;
 
                 Assert.Equal(x / (float)Width, boxes[at]);
                 Assert.Equal(x / (float)Width, boxes[at + 2]);
@@ -152,7 +151,7 @@ public class TextureFloodReachDeviceTests(ITestOutputHelper output) {
         const int Height = 32;
 
         // Four texels each side of the seam, past the budget's reach were it counted in texels.
-        (int, int)[] band = [.. Rectangle(60, 10, 8, 4, Width, Height)];
+        (int, int)[] band = [..Rectangle(60, 10, 8, 4, Width, Height)];
 
         var boxes = Flood(device, Width, Height, band, TextureFloodOutput.BoundingBox, wrapX, wrapY);
         var size = Flood(device, Width, Height, band, TextureFloodOutput.Size, wrapX, wrapY);
@@ -188,7 +187,7 @@ public class TextureFloodReachDeviceTests(ITestOutputHelper output) {
         const int Width = 48;
         const int Height = 32;
 
-        (int, int)[] patch = [.. Rectangle(44, 28, 10, 8, Width, Height)];
+        (int, int)[] patch = [..Rectangle(44, 28, 10, 8, Width, Height)];
 
         var boxes = Flood(device, Width, Height, patch, TextureFloodOutput.BoundingBox, true, true);
         var uv = Flood(device, Width, Height, patch, TextureFloodOutput.LocalUv, true, true);
@@ -219,8 +218,8 @@ public class TextureFloodReachDeviceTests(ITestOutputHelper output) {
         using var device = TextureKernelHarness.Open();
 
         (int X, int Y)[] line = [
-            .. Enumerable.Range(0, 8)
-                .Select(at => (Wrap(width - 4 + (at * run), width), Wrap(height - 4 + at, height)))
+            ..Enumerable.Range(0, 8)
+                .Select(at => (Wrap(width - 4 + at * run, width), Wrap(height - 4 + at, height)))
         ];
 
         var joined = Flood(device, width, height, line, TextureFloodOutput.Size, true, true, true);
@@ -241,7 +240,7 @@ public class TextureFloodReachDeviceTests(ITestOutputHelper output) {
         const int Width = 32;
         const int Height = 16;
 
-        (int, int)[] ring = [.. Rectangle(0, 5, Width, 2, Width, Height)];
+        (int, int)[] ring = [..Rectangle(0, 5, Width, 2, Width, Height)];
 
         var boxes = Flood(device, Width, Height, ring, TextureFloodOutput.BoundingBox, true, false);
 
@@ -263,9 +262,9 @@ public class TextureFloodReachDeviceTests(ITestOutputHelper output) {
 
         // Two uprights, joined by one foot over the seam, with nothing in the middle of the image.
         (int, int)[] shape = [
-            .. Rectangle(2, 4, 1, 12, Width, Height),
-            .. Rectangle(28, 10, 1, 12, Width, Height),
-            .. Rectangle(28, 12, 7, 1, Width, Height)
+            ..Rectangle(2, 4, 1, 12, Width, Height),
+            ..Rectangle(28, 10, 1, 12, Width, Height),
+            ..Rectangle(28, 12, 7, 1, Width, Height)
         ];
 
         var boxes = Flood(device, Width, Height, shape, TextureFloodOutput.BoundingBox, true, true);
@@ -332,7 +331,7 @@ public class TextureFloodReachDeviceTests(ITestOutputHelper output) {
                 Ops = TextureAnalysis.Distance(
                     read,
                     0,
-                    [.. Enumerable.Range(1, dispatches)],
+                    [..Enumerable.Range(1, dispatches)],
                     Width,
                     Height,
                     TextureDistanceMode.Outside,
@@ -348,7 +347,7 @@ public class TextureFloodReachDeviceTests(ITestOutputHelper output) {
 
             var field = MemoryMarshal.Cast<byte, float>(bake.ReadRaw(read).Texels);
 
-            Assert.Equal(3001f, field[((2 * Width) + 3001) * 4] * Width, 0.01f);
+            Assert.Equal(3001f, field[(2 * Width + 3001) * 4] * Width, 0.01f);
         } finally {
             device.Destroy(staging);
             device.Destroy(texture);
@@ -435,7 +434,7 @@ public class TextureFloodReachDeviceTests(ITestOutputHelper output) {
         return (compiler, compilation.Value, compiler.Outputs[0].Image);
     }
 
-    static int Wrap(int value, int extent) => ((value % extent) + extent) % extent;
+    static int Wrap(int value, int extent) => (value % extent + extent) % extent;
 
     /// <summary>The texels of a rectangle that may go over the edges, folded back onto the image.</summary>
     static IEnumerable<(int X, int Y)> Rectangle(int left, int top, int across, int down, int width, int height) =>
@@ -477,7 +476,7 @@ public class TextureFloodReachDeviceTests(ITestOutputHelper output) {
                 Ops = TextureAnalysis.FloodFill(
                     read,
                     0,
-                    [.. Enumerable.Range(1, Budget)],
+                    [..Enumerable.Range(1, Budget)],
                     width,
                     height,
                     kind,
@@ -491,7 +490,7 @@ public class TextureFloodReachDeviceTests(ITestOutputHelper output) {
             using var evaluator = new TexturePlanEvaluator(device);
             using var bake = evaluator.Evaluate(plan, new Dictionary<int, TextureHandle> { [0] = texture });
 
-            return new(MemoryMarshal.Cast<byte, float>(bake.ReadRaw(read).Texels).ToArray(), width);
+            return new([..MemoryMarshal.Cast<byte, float>(bake.ReadRaw(read).Texels)], width);
         } finally {
             device.Destroy(staging);
             device.Destroy(texture);
@@ -500,7 +499,7 @@ public class TextureFloodReachDeviceTests(ITestOutputHelper output) {
 
     /// <summary>A read-back RGBA picture as floats.</summary>
     sealed record Floats(float[] Lanes, int Width) {
-        public float At(int x, int y, int lane) => Lanes[(((y * Width) + x) * 4) + lane];
+        public float At(int x, int y, int lane) => Lanes[(y * Width + x) * 4 + lane];
     }
 
     /// <summary>A black image with some single white texels.</summary>
@@ -508,11 +507,11 @@ public class TextureFloodReachDeviceTests(ITestOutputHelper output) {
         var pixels = new byte[width * height * 4];
 
         for (var texel = 0; texel < width * height; texel++) {
-            pixels[(texel * 4) + 3] = 255;
+            pixels[texel * 4 + 3] = 255;
         }
 
         foreach (var (x, y) in lit) {
-            pixels.AsSpan(((y * width) + x) * 4, 3).Fill(255);
+            pixels.AsSpan((y * width + x) * 4, 3).Fill(255);
         }
 
         return pixels;

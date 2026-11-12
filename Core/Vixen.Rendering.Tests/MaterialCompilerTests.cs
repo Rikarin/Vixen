@@ -29,21 +29,20 @@ namespace Tests;
 ///     </para>
 /// </remarks>
 public class MaterialCompilerTests {
-    static MaterialDescriptor Standard(params IMaterialFeature[] features) =>
-        new() { Features = features };
+    static MaterialDescriptor Standard(params IMaterialFeature[] features) => new() { Features = features };
 
     static Material Compiled(MaterialDescriptor descriptor) {
         var compilation = MaterialCompiler.Compile(descriptor);
 
         Assert.False(
             compilation.Failed,
-            string.Join("\n", compilation.Diagnostics.Select(diagnostic => diagnostic.ToString()))
+            string.Join("\n", compilation.Diagnostics.Select(static diagnostic => diagnostic.ToString()))
         );
 
         return compilation.Material!;
     }
 
-    static IEnumerable<string> Names(Material material) => material.Parameters.Keys.Select(key => key.Name);
+    static IEnumerable<string> Names(Material material) => material.Parameters.Keys.Select(static key => key.Name);
 
     // --- Composition -------------------------------------------------------
 
@@ -56,9 +55,7 @@ public class MaterialCompilerTests {
     /// </remarks>
     [Fact]
     public void FeaturesFillTheChainsSlotsInOrder() {
-        var material = Compiled(
-            Standard(new MetalRoughnessFeature(), new NormalMapFeature(), new EmissiveFeature())
-        );
+        var material = Compiled(Standard(new MetalRoughnessFeature(), new NormalMapFeature(), new EmissiveFeature()));
 
         Assert.Equal("CompositeSurface", material.Composition.Resolve("surface"));
         Assert.Equal("MetalRoughnessSurface", material.Composition.Resolve("CompositeSurface.first"));
@@ -87,10 +84,7 @@ public class MaterialCompilerTests {
     [Fact]
     public void TheShadingModelFillsItsOwnSlot() {
         var material = Compiled(
-            new MaterialDescriptor {
-                Features = [new MetalRoughnessFeature(), new ClearCoatFeature()],
-                Shading = new ClearCoatShading()
-            }
+            new() { Features = [new MetalRoughnessFeature(), new ClearCoatFeature()], Shading = new ClearCoatShading() }
         );
 
         Assert.Equal("ClearCoatShading", material.Composition.Resolve("shading"));
@@ -148,13 +142,9 @@ public class MaterialCompilerTests {
             Standard(new MetalRoughnessFeature { BaseColor = new(0.25f, 0.5f, 0.75f), Roughness = 0.125f })
         );
 
-        var baseColor = ParameterKeys.New<Vector3>(
-            "ForwardPlus.CompositeSurface.MetalRoughnessSurface.baseColor"
-        );
+        var baseColor = ParameterKeys.New<Vector3>("ForwardPlus.CompositeSurface.MetalRoughnessSurface.baseColor");
 
-        var roughness = ParameterKeys.New<float>(
-            "ForwardPlus.CompositeSurface.MetalRoughnessSurface.roughness"
-        );
+        var roughness = ParameterKeys.New<float>("ForwardPlus.CompositeSurface.MetalRoughnessSurface.roughness");
 
         Assert.Equal(new(0.25f, 0.5f, 0.75f), material.Parameters.Get(baseColor));
         Assert.Equal(0.125f, material.Parameters.Get(roughness));
@@ -164,10 +154,7 @@ public class MaterialCompilerTests {
     [Fact]
     public void AShadingModelsParametersAreNamedAfterIt() {
         var material = Compiled(
-            new MaterialDescriptor {
-                Features = [new MetalRoughnessFeature()],
-                Shading = new CelShading { Steps = 4f }
-            }
+            new() { Features = [new MetalRoughnessFeature()], Shading = new CelShading { Steps = 4f } }
         );
 
         var steps = ParameterKeys.New<float>("ForwardPlus.CelShading.steps");
@@ -419,7 +406,7 @@ public class MaterialCompilerTests {
 
             var diagnostic = Assert.Single(
                 compilation.Errors,
-                error => error.Id == MaterialDiagnosticId.RenamedTextureMap
+                static error => error.Id == MaterialDiagnosticId.RenamedTextureMap
             );
 
             // Both names, because "this is wrong" is only actionable beside what it should have been.
@@ -433,8 +420,12 @@ public class MaterialCompilerTests {
     ///     <para>
     ///         <b>The same compiler runs at import and at load, and the two want different answers.</b>
     ///         At import there is an author, the content has not shipped, and refusing is the point.
-    ///         At load the material is in a bundle somebody built — and ⚠ <b>a compiler change moves
-    ///         no importer version</b>, so an already-imported material is re-checked by nothing. A
+    ///         At load the material is in a bundle somebody built — and ⚠
+    ///         <b>
+    ///             a compiler change moves
+    ///             no importer version
+    ///         </b>
+    ///         , so an already-imported material is re-checked by nothing. A
     ///         refusal there would take the mesh off screen, silently, because
     ///         <c>AssetMaterialSource</c> reads no diagnostics.
     ///     </para>
@@ -453,7 +444,7 @@ public class MaterialCompilerTests {
         // The instrument, and it is the whole claim: the same feature, the same descriptor, one flag.
         Assert.True(MaterialCompiler.Compile(descriptor).Failed);
 
-        var loaded = MaterialCompiler.Compile(descriptor, slots: null, strict: false);
+        var loaded = MaterialCompiler.Compile(descriptor, null, false);
 
         Assert.False(
             loaded.Failed,
@@ -466,7 +457,7 @@ public class MaterialCompilerTests {
         // Said, and not merely allowed: a warning nobody emits is the silence this whole rule is about.
         var warning = Assert.Single(
             loaded.Diagnostics,
-            diagnostic => diagnostic.Id == MaterialDiagnosticId.RenamedTextureMap
+            static diagnostic => diagnostic.Id == MaterialDiagnosticId.RenamedTextureMap
         );
 
         Assert.False(warning.IsError);
@@ -496,8 +487,8 @@ public class MaterialCompilerTests {
         List<(Type, PropertyInfo, string)> names = [];
 
         var features = typeof(IMaterialFeature).Assembly.GetTypes()
-            .Where(type => type.IsClass && !type.IsAbstract && typeof(IMaterialFeature).IsAssignableFrom(type))
-            .Where(type => type.GetConstructor(Type.EmptyTypes) is not null);
+            .Where(static type => type.IsClass && !type.IsAbstract && typeof(IMaterialFeature).IsAssignableFrom(type))
+            .Where(static type => type.GetConstructor(Type.EmptyTypes) is not null);
 
         foreach (var type in features) {
             var fresh = Activator.CreateInstance(type);
@@ -553,7 +544,7 @@ public class MaterialCompilerTests {
         ];
 
         var found = MapNames()
-            .Select(name => $"{name.Type.Name}.{name.Property.Name}")
+            .Select(static name => $"{name.Type.Name}.{name.Property.Name}")
             .Order(StringComparer.Ordinal)
             .ToArray();
 
@@ -562,8 +553,12 @@ public class MaterialCompilerTests {
 
     /// <summary>And the two maps called "height" are refused for each other's name.</summary>
     /// <remarks>
-    ///     ⚠ <b>The case that already happened, and the reason this is an error rather than a
-    ///     warning.</b> A re-bake copied its own texture entry's name onto a preserved
+    ///     ⚠
+    ///     <b>
+    ///         The case that already happened, and the reason this is an error rather than a
+    ///         warning.
+    ///     </b>
+    ///     A re-bake copied its own texture entry's name onto a preserved
     ///     <see cref="ParallaxOcclusionFeature" />, which bound a real single-channel texture under
     ///     <c>heightMap</c> — the <em>layered</em> feature's four-channel per-layer bundle — leaving
     ///     the parallax index at zero and marching the checker as a height field. Both spellings
@@ -571,16 +566,14 @@ public class MaterialCompilerTests {
     /// </remarks>
     [Fact]
     public void TheTwoHeightMapsAreRefusedForEachOthersName() {
-        var parallax = MaterialCompiler.Compile(
-            Standard(new ParallaxOcclusionFeature { HeightMap = "heightMap" })
-        );
+        var parallax = MaterialCompiler.Compile(Standard(new ParallaxOcclusionFeature { HeightMap = "heightMap" }));
 
         var layered = MaterialCompiler.Compile(
             Standard(new TexturedMaterialLayersFeature { HeightMap = "parallaxHeightMap" })
         );
 
-        Assert.Contains(parallax.Errors, error => error.Id == MaterialDiagnosticId.RenamedTextureMap);
-        Assert.Contains(layered.Errors, error => error.Id == MaterialDiagnosticId.RenamedTextureMap);
+        Assert.Contains(parallax.Errors, static error => error.Id == MaterialDiagnosticId.RenamedTextureMap);
+        Assert.Contains(layered.Errors, static error => error.Id == MaterialDiagnosticId.RenamedTextureMap);
     }
 
     /// <summary>A map set to nothing at all is refused too, rather than falling out unexamined.</summary>
@@ -591,11 +584,9 @@ public class MaterialCompilerTests {
     /// </remarks>
     [Fact]
     public void AMapNamedNothingIsRefused() {
-        var compilation = MaterialCompiler.Compile(
-            Standard(new TexturedNormalMapFeature { NormalMap = null! })
-        );
+        var compilation = MaterialCompiler.Compile(Standard(new TexturedNormalMapFeature { NormalMap = null! }));
 
-        Assert.Contains(compilation.Errors, error => error.Id == MaterialDiagnosticId.RenamedTextureMap);
+        Assert.Contains(compilation.Errors, static error => error.Id == MaterialDiagnosticId.RenamedTextureMap);
     }
 
     /// <summary>The names the features ship with compile, which is the half that must not be loud.</summary>
@@ -617,7 +608,7 @@ public class MaterialCompilerTests {
         Assert.False(compilation.Failed);
         Assert.DoesNotContain(
             compilation.Diagnostics,
-            diagnostic => diagnostic.Id == MaterialDiagnosticId.RenamedTextureMap
+            static diagnostic => diagnostic.Id == MaterialDiagnosticId.RenamedTextureMap
         );
     }
 

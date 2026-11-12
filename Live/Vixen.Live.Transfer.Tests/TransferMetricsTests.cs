@@ -64,7 +64,7 @@ public class TransferMetricsTests {
 
         Assert.Equal(3, metrics.AbortsFor(TransferAbort.ClientNeverArrived));
         Assert.Equal(0, metrics.AbortsFor(TransferAbort.HandoffLost));
-        Assert.DoesNotContain(histogram, entry => entry.Reason == TransferAbort.None);
+        Assert.DoesNotContain(histogram, static entry => entry.Reason == TransferAbort.None);
     }
 
     /// <summary>

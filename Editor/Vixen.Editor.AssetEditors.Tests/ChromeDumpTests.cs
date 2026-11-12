@@ -27,8 +27,12 @@ namespace Vixen.Editor.AssetEditors.Tests;
 ///         carrying a binding that could not work, which is what <c>UiTest.Flags</c> exists for.
 ///     </para>
 ///     <para>
-///         ⚠ <b>And every <c>change:</c> the four files declare is exercised through its
-///         control.</b> Wave 7's dumps drove their panels from the model, which is the leg that
+///         ⚠
+///         <b>
+///             And every <c>change:</c> the four files declare is exercised through its
+///             control.
+///         </b>
+///         Wave 7's dumps drove their panels from the model, which is the leg that
 ///         cannot fail. There are three here — the VFX transport's Play, the shader graph's
 ///         Generated-code toggle, and the property node's rename box — and each is written by
 ///         setting the control's own property.
@@ -53,26 +57,32 @@ public sealed class ChromeDumpTests {
             ("shader", "Opened compiles: 3 node(s), 1 uniform(s), 42 lines of Raven.")
         ];
 
-        var handWritten = Dump(harness, host => {
-            foreach (var (stage, message) in notes) {
-                var row = host.Add("analysis-row");
+        var handWritten = Dump(
+            harness,
+            host => {
+                foreach (var (stage, message) in notes) {
+                    var row = host.Add("analysis-row");
 
-                row.Add("analysis-stage").Text = stage;
-                row.Add("analysis-message").Text = message;
+                    row.Add("analysis-stage").Text = stage;
+                    row.Add("analysis-message").Text = message;
+                }
             }
-        });
+        );
 
-        var part = Dump(harness, host => {
-            foreach (var (stage, message) in notes) {
-                var row = host.Add<AnalysisRow>();
+        var part = Dump(
+            harness,
+            host => {
+                foreach (var (stage, message) in notes) {
+                    var row = host.Add<AnalysisRow>();
 
-                row.Stage = stage;
-                row.Message = message;
+                    row.Stage = stage;
+                    row.Message = message;
+                }
             }
-        });
+        );
 
         Assert.Equal(handWritten, part);
-        Assert.NotEqual("", part.Tree);
+        Assert.NotEqual(string.Empty, part.Tree);
 
         // ⚠ And the cells are the two children the tests index positionally. `ShaderGraphTests`
         // reads `row.Children[0].Text` and `row.Children[^1].Text`, so a part that wrapped either
@@ -106,8 +116,12 @@ public sealed class ChromeDumpTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>The Generated-code toggle is a <c>change:IsChecked</c> leg, driven through the
-    ///     control.</b> It used to be a <c>CheckedChanged</c> handler calling
+    ///     ⚠
+    ///     <b>
+    ///         The Generated-code toggle is a <c>change:IsChecked</c> leg, driven through the
+    ///         control.
+    ///     </b>
+    ///     It used to be a <c>CheckedChanged</c> handler calling
     ///     <c>Pane.AddClass</c>/<c>RemoveClass</c>; it writes a signal now and the class is a function
     ///     of it. A binding over a plain field would compile, run once and never re-run — so this
     ///     toggles it twice, because a one-way defect passes a one-way test.
@@ -149,7 +163,7 @@ public sealed class ChromeDumpTests {
         // ⚠ The second node is added here rather than hoped for. A test that skipped its own second
         // half when a fixture happened to hold one property node would pass every day and check the
         // thing it was written for on none of them.
-        var first = document.Graph.Nodes.First(node => node.Type == "Input/Colour Property");
+        var first = document.Graph.Nodes.First(static node => node.Type == "Input/Colour Property");
         var second = document.Graph.Add("Input/Colour Property", new(80f, 400f));
 
         harness.Ui.Frame();
@@ -171,7 +185,7 @@ public sealed class ChromeDumpTests {
         view.GraphView.Select([second.Id]);
         harness.Ui.Frame();
 
-        Assert.Equal("", view.PropertyName!.Value ?? "");
+        Assert.Equal(string.Empty, view.PropertyName!.Value ?? string.Empty);
 
         view.PropertyName!.Value = "second";
         harness.Ui.Frame();
@@ -213,14 +227,14 @@ public sealed class ChromeDumpTests {
         // Said on success too: a list that empties itself when everything is fine cannot be told
         // apart from one that never ran.
         Assert.NotEmpty(view.Diagnostics.Children);
-        Assert.All(view.Diagnostics.Children, row => Assert.Equal("analysis-row", row.Tag));
-        Assert.Contains(view.Diagnostics.Children, row => row.Children[0].Text == "frame");
+        Assert.All(view.Diagnostics.Children, static row => Assert.Equal("analysis-row", row.Tag));
+        Assert.Contains(view.Diagnostics.Children, static row => row.Children[0].Text == "frame");
 
         Assert.Contains("Label=\"Compile frame\"", harness.Ui.Flags(view), StringComparison.Ordinal);
 
         // ⚠ The caption is one element that changes its text rather than one that comes and goes,
         // and it is deliberately still imperative — so it is right on the line after `Show`.
-        Assert.Contains("Select a node", view.Caption.Text ?? "", StringComparison.Ordinal);
+        Assert.Contains("Select a node", view.Caption.Text ?? string.Empty, StringComparison.Ordinal);
     }
 
     // ── The VFX graph ────────────────────────────────────────────────────────

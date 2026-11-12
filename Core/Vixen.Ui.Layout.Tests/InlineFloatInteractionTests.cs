@@ -10,8 +10,12 @@ namespace Vixen.Ui.Layout.Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Every expected number in this file was read out of a real Chrome, and the reason it
-///         had to be is the whole story of the bug.</b> Floats were implemented against Taffy's 84
+///         ⚠
+///         <b>
+///             Every expected number in this file was read out of a real Chrome, and the reason it
+///             had to be is the whole story of the bug.
+///         </b>
+///         Floats were implemented against Taffy's 84
 ///         float fixtures and all 84 pass — but <c>grep -c '&lt;text' Corpus/float.xml</c> is 0, so
 ///         the corpus named after the feature contains no inline content and cannot test the one
 ///         behaviour a non-specialist would name if asked what a float does. <c>WalkInlineLines</c>
@@ -20,8 +24,11 @@ namespace Vixen.Ui.Layout.Tests;
 ///         <c>Taffy/FloatKnownGaps.txt</c>, which is a page about the same hole.
 ///     </para>
 ///     <para>
-///         <b>How the numbers were obtained, so that the next reader can redo it rather than trust
-///         it.</b> Each case below was written as an HTML fixture, served over <c>http://localhost</c>
+///         <b>
+///             How the numbers were obtained, so that the next reader can redo it rather than trust
+///             it.
+///         </b>
+///         Each case below was written as an HTML fixture, served over <c>http://localhost</c>
 ///         and laid out by <b>Chrome 148.0.7778.280</b>, and every box's
 ///         <c>getBoundingClientRect()</c> was differenced against its container's to give the
 ///         container-relative rectangle this store reports. Not one number here was computed from
@@ -170,8 +177,12 @@ public class InlineFloatInteractionTests {
     ///     A float shorter than the line box still narrows it, which a zero-height probe would miss.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>This is the case that decides how the band is asked for, and it is why the walk
-    ///     probes twice.</b> <c>FloatBandAt</c> deliberately excludes a float whose top edge is
+    ///     ⚠
+    ///     <b>
+    ///         This is the case that decides how the band is asked for, and it is why the walk
+    ///         probes twice.
+    ///     </b>
+    ///     <c>FloatBandAt</c> deliberately excludes a float whose top edge is
     ///     exactly the slice's top — that strictness is what lets a cleared box sit flush against
     ///     what it cleared — so a zero-height probe at the first line's top sees no float whatsoever.
     ///     Chrome puts three items at <c>x = 50, 100, 150</c> beside a float only 10 points tall, and
@@ -495,8 +506,12 @@ public class InlineFloatInteractionTests {
 
     /// <summary>An RTL line beside a left float keeps its start edge and loses width.</summary>
     /// <remarks>
-    ///     ⚠ <b>The float's side is physical and the line's start edge is not, which is why these are
-    ///     two tests rather than one with a mirrored expectation.</b> A left float in an RTL container
+    ///     ⚠
+    ///     <b>
+    ///         The float's side is physical and the line's start edge is not, which is why these are
+    ///         two tests rather than one with a mirrored expectation.
+    ///     </b>
+    ///     A left float in an RTL container
     ///     takes the far end of the line, so the line still begins at the right content edge: Chrome
     ///     answers <c>x = 150, 100, 50</c> — three items, one short of the four an unshortened line
     ///     would have held — and puts the fourth back at <c>x = 150</c>.
@@ -607,8 +622,12 @@ public class InlineFloatInteractionTests {
     ///     A floated <c>inline-block</c> in a run answers exactly as a floated <c>block</c> does.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>This is CSS 2.1 §9.7 as a test, and before rules 5 and 6 landed it was the worse of
-    ///     the two bugs.</b> A floated <c>block</c> at least reached <c>PlaceFloatChild</c> and got
+    ///     ⚠
+    ///     <b>
+    ///         This is CSS 2.1 §9.7 as a test, and before rules 5 and 6 landed it was the worse of
+    ///         the two bugs.
+    ///     </b>
+    ///     A floated <c>block</c> at least reached <c>PlaceFloatChild</c> and got
     ///     into the exclusion list, one line lower than Chrome puts it. A floated
     ///     <c>inline-block</c> answered <c>IsInlineLevel</c> with <c>true</c>, so
     ///     <c>AnonymousRunEnd</c> swallowed it into the run as an ORDINARY ATOMIC ITEM: it was laid
@@ -735,8 +754,12 @@ public class InlineFloatInteractionTests {
     ///     they share a row.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>This is the third item <c>InlineKnownGaps.txt</c> owed, and it is a sum rather than a
-    ///     maximum.</b> <c>DetermineInlineContentWidth</c> used to skip a float entirely, so a
+    ///     ⚠
+    ///     <b>
+    ///         This is the third item <c>InlineKnownGaps.txt</c> owed, and it is a sum rather than a
+    ///         maximum.
+    ///     </b>
+    ///     <c>DetermineInlineContentWidth</c> used to skip a float entirely, so a
     ///     shrink-to-fit box came out the width it would have had with no float in it — 50 here, and
     ///     the float then wrapped the run onto three rows inside a box that had refused to make room
     ///     for it. A float takes horizontal room away from every line it crosses, so max-content is
@@ -772,8 +795,12 @@ public class InlineFloatInteractionTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>"Content" in §9.5 is the item <i>and</i> what the line will spend finishing the
-    ///         boxes it is in.</b> A 130-wide item in a span padded 30 at its end does not fit the 140
+    ///         ⚠
+    ///         <b>
+    ///             "Content" in §9.5 is the item <i>and</i> what the line will spend finishing the
+    ///             boxes it is in.
+    ///         </b>
+    ///         A 130-wide item in a span padded 30 at its end does not fit the 140
     ///         a 60-wide float leaves, even though the item alone would — and Chrome drops the whole
     ///         line below the float rather than placing the item beside it and hanging the padding off
     ///         the right.

@@ -40,15 +40,23 @@ public abstract partial class Behavior : ICoroutineOwner {
     /// <summary>The entity this is attached to.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Not this behaviour's data, so a <c>[DataContract]</c> subclass does not write
-    ///         it.</b> The serialization generator walks base types and takes every public member it
+    ///         ⚠
+    ///         <b>
+    ///             Not this behaviour's data, so a <c>[DataContract]</c> subclass does not write
+    ///             it.
+    ///         </b>
+    ///         The serialization generator walks base types and takes every public member it
     ///         can set — which without this would put the store's own plumbing, and the entity's
     ///         transform, into every serialised behaviour. See <see cref="Behavior" />'s remarks on
     ///         what a behaviour is allowed to hold.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And <c>[EditorVisible(false)]</c> beside it, because the two answer different
-    ///         questions.</b> <c>TypeDescriptorGenerator</c> says so out loud: a member is shown
+    ///         ⚠
+    ///         <b>
+    ///             And <c>[EditorVisible(false)]</c> beside it, because the two answer different
+    ///             questions.
+    ///         </b>
+    ///         <c>TypeDescriptorGenerator</c> says so out loud: a member is shown
     ///         unless something hides it, and being left out of the file is not being left out of the
     ///         panel. Here the answer happens to be the same — an inspector drawing a behaviour's
     ///         <c>World</c>, or a second copy of the entity's position, is showing plumbing.

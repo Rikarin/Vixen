@@ -64,7 +64,7 @@ public sealed class HudModel {
 /// <summary>A unit frame's worth of somebody: the player, their target, a party member.</summary>
 public sealed class UnitModel {
     /// <summary>What to call them.</summary>
-    public Signal<string> Name { get; } = new("");
+    public Signal<string> Name { get; } = new(string.Empty);
 
     /// <summary>Their level.</summary>
     public Signal<int> Level { get; } = new(1);
@@ -94,7 +94,7 @@ public sealed class UnitModel {
     public Signal<bool> IsElite { get; } = new(false);
 
     /// <summary>What they are casting, or nothing.</summary>
-    public Signal<string> Casting { get; } = new("");
+    public Signal<string> Casting { get; } = new(string.Empty);
 
     /// <summary>How far through the cast, nought to one.</summary>
     public Signal<float> CastProgress { get; } = new(0f);
@@ -114,17 +114,16 @@ public sealed class UnitModel {
     /// <summary>Whether a cast bar should be showing.</summary>
     public bool IsCasting => Casting.Value.Length > 0;
 
-    static float Fraction(int value, int maximum) =>
-        maximum <= 0 ? 0f : Math.Clamp(value / (float)maximum, 0f, 1f);
+    static float Fraction(int value, int maximum) => maximum <= 0 ? 0f : Math.Clamp(value / (float)maximum, 0f, 1f);
 }
 
 /// <summary>One button on the action bar.</summary>
 public sealed class ActionSlot {
     /// <summary>What the key is called, for the corner of the button.</summary>
-    public Signal<string> Binding { get; } = new("");
+    public Signal<string> Binding { get; } = new(string.Empty);
 
     /// <summary>What the ability is called.</summary>
-    public Signal<string> Name { get; } = new("");
+    public Signal<string> Name { get; } = new(string.Empty);
 
     /// <summary>What it costs.</summary>
     public Signal<int> Cost { get; } = new(0);
@@ -136,7 +135,7 @@ public sealed class ActionSlot {
     public Signal<bool> Usable { get; } = new(true);
 
     /// <summary>Why not, when they cannot.</summary>
-    public Signal<string> Refusal { get; } = new("");
+    public Signal<string> Refusal { get; } = new(string.Empty);
 
     /// <summary>Whether it is off cooldown.</summary>
     public bool IsReady => Cooldown.Value <= 0f;
@@ -151,7 +150,7 @@ public sealed class ActionBarModel {
 /// <summary>One objective inside a tracked quest.</summary>
 public sealed class ObjectiveEntry {
     /// <summary>What to do.</summary>
-    public Signal<string> Text { get; } = new("");
+    public Signal<string> Text { get; } = new(string.Empty);
 
     /// <summary>How many are done.</summary>
     public Signal<int> Have { get; } = new(0);
@@ -166,10 +165,10 @@ public sealed class ObjectiveEntry {
 /// <summary>A quest as the tracker shows it.</summary>
 public sealed class QuestEntry {
     /// <summary>Its name.</summary>
-    public Signal<string> Title { get; } = new("");
+    public Signal<string> Title { get; } = new(string.Empty);
 
     /// <summary>Which stage the player is on.</summary>
-    public Signal<string> Stage { get; } = new("");
+    public Signal<string> Stage { get; } = new(string.Empty);
 
     /// <summary>What is left to do.</summary>
     public CollectionSignal<ObjectiveEntry> Objectives { get; } = new();
@@ -187,7 +186,7 @@ public sealed class QuestTrackerModel {
 /// <summary>One square of a bag.</summary>
 public sealed class BagSlot {
     /// <summary>What is in it, or nothing.</summary>
-    public Signal<string> Name { get; } = new("");
+    public Signal<string> Name { get; } = new(string.Empty);
 
     /// <summary>How many.</summary>
     public Signal<int> Count { get; } = new(0);
@@ -216,13 +215,13 @@ public sealed class BagModel {
 /// <summary>One line of a vendor's stock.</summary>
 public sealed class VendorRow {
     /// <summary>What is for sale.</summary>
-    public Signal<string> Name { get; } = new("");
+    public Signal<string> Name { get; } = new(string.Empty);
 
     /// <summary>What it costs.</summary>
     public Signal<long> Price { get; } = new(0);
 
     /// <summary>What it costs it in.</summary>
-    public Signal<string> Currency { get; } = new("");
+    public Signal<string> Currency { get; } = new(string.Empty);
 
     /// <summary>Its rarity's text class.</summary>
     public Signal<string> RarityClass { get; } = new("text-common");
@@ -234,7 +233,7 @@ public sealed class VendorRow {
     public Signal<bool> Locked { get; } = new(false);
 
     /// <summary>What requirement, in a sentence.</summary>
-    public Signal<string> LockReason { get; } = new("");
+    public Signal<string> LockReason { get; } = new(string.Empty);
 
     /// <summary>Whether the buy button does anything.</summary>
     /// <remarks>
@@ -252,7 +251,7 @@ public sealed class VendorModel {
     public Signal<bool> Open { get; } = new(false);
 
     /// <summary>Whose shop.</summary>
-    public Signal<string> Title { get; } = new("");
+    public Signal<string> Title { get; } = new(string.Empty);
 
     /// <summary>What is on the shelves.</summary>
     public CollectionSignal<VendorRow> Stock { get; } = new();
@@ -264,13 +263,13 @@ public sealed class VendorModel {
 /// <summary>One line of chat.</summary>
 public sealed class ChatEntry {
     /// <summary>Which channel it came in on.</summary>
-    public string Channel { get; init; } = "";
+    public string Channel { get; init; } = string.Empty;
 
     /// <summary>Who said it.</summary>
-    public string Speaker { get; init; } = "";
+    public string Speaker { get; init; } = string.Empty;
 
     /// <summary>What they said.</summary>
-    public string Text { get; init; } = "";
+    public string Text { get; init; } = string.Empty;
 
     /// <summary>The whole text class for the channel's colour.</summary>
     public string ChannelClass { get; init; } = "text-ink-100";
@@ -291,7 +290,7 @@ public sealed class ChatModel {
     public int Capacity { get; init; } = 128;
 
     /// <summary>What is typed and not yet sent.</summary>
-    public Signal<string> Draft { get; } = new("");
+    public Signal<string> Draft { get; } = new(string.Empty);
 
     /// <summary>Adds a line, dropping the oldest if the log is full.</summary>
     /// <param name="entry">What was said.</param>
@@ -325,7 +324,7 @@ public sealed class LootRollModel {
     public Signal<bool> Open { get; } = new(false);
 
     /// <summary>What dropped.</summary>
-    public Signal<string> Item { get; } = new("");
+    public Signal<string> Item { get; } = new(string.Empty);
 
     /// <summary>Its rarity's text class.</summary>
     public Signal<string> RarityClass { get; } = new("text-common");

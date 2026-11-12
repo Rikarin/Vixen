@@ -10,9 +10,12 @@ namespace Vixen.Rendering.Vfx;
 /// <summary>The material a particle is drawn with, with every parameter its shader declares.</summary>
 /// <remarks>
 ///     <para>
-///         <b>One place, because a host that builds this by hand and forgets a parameter gets an
-///         effect that simulates, expands, uploads, binds a material set and draws — and produces
-///         nothing on the screen.</b> Every counter reads healthy. That is what happened when the
+///         <b>
+///             One place, because a host that builds this by hand and forgets a parameter gets an
+///             effect that simulates, expands, uploads, binds a material set and draws — and produces
+///             nothing on the screen.
+///         </b>
+///         Every counter reads healthy. That is what happened when the
 ///         embers stopped appearing.
 ///     </para>
 ///     <para>
@@ -51,8 +54,11 @@ public static class ParticleSpriteMaterial {
     ///         unbound. So it still names the defaults, exactly as <c>FullScreenRenderer</c> does.
     ///     </para>
     ///     <para>
-    ///         <b>Every parameter, including the ones whose generated key already carries a
-    ///         default</b> — which, since the compiler learned to fold a vector construction, is all
+    ///         <b>
+    ///             Every parameter, including the ones whose generated key already carries a
+    ///             default
+    ///         </b>
+    ///         — which, since the compiler learned to fold a vector construction, is all
     ///         of them. See the type's remarks for why that is still worth writing out.
     ///     </para>
     ///     <para>
@@ -62,9 +68,7 @@ public static class ParticleSpriteMaterial {
     ///     </para>
     /// </remarks>
     public static Material Default() {
-        var material = new Material(ParticleSpriteKeys.ShaderName) {
-            Composition = MaterialCompiler.PassComposition()
-        };
+        var material = new Material(ParticleSpriteKeys.ShaderName) { Composition = MaterialCompiler.PassComposition() };
 
         material.Parameters.Set(ParticleSpriteKeys.Tint, NeutralTint);
         material.Parameters.Set(ParticleSpriteKeys.Emissive, 1f);

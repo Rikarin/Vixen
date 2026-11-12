@@ -116,8 +116,12 @@ public struct GrassInstanceRecord {
 ///         previous population out of its current bytes.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The candidate grid is clamped so a cell can never generate more candidates than its
-///         run holds, and that clamp is what makes the field the same field twice.</b> The kernel's
+///         ⚠
+///         <b>
+///             The candidate grid is clamped so a cell can never generate more candidates than its
+///             run holds, and that clamp is what makes the field the same field twice.
+///         </b>
+///         The kernel's
 ///         <c>atomicAdd</c> hands out places in the order the invocations happen to arrive, and the
 ///         ones past the end return without writing — so on an oversubscribed cell the survivors are
 ///         whichever blades the scheduler ran first, re-decided on every dispatch. The count came out
@@ -134,8 +138,12 @@ public sealed class GrassDispatch : IDisposable {
 
     /// <summary>What each ring slot's block is aligned to.</summary>
     /// <remarks>
-    ///     ⚠ <b>256, which is the largest <c>minUniformBufferOffsetAlignment</c> and
-    ///     <c>minStorageBufferOffsetAlignment</c> in practice</b> — <c>ImpostorCapturePass</c>'s
+    ///     ⚠
+    ///     <b>
+    ///         256, which is the largest <c>minUniformBufferOffsetAlignment</c> and
+    ///         <c>minStorageBufferOffsetAlignment</c> in practice
+    ///     </b>
+    ///     — <c>ImpostorCapturePass</c>'s
     ///     number, for its reason: an offset a device refuses is a descriptor write that fails, and a
     ///     block read from an address the host did not write is a frame scattered with another
     ///     frame's cells.
@@ -327,8 +335,12 @@ public sealed class GrassDispatch : IDisposable {
     /// <param name="bladesPerCell">How many blades the run holds.</param>
     /// <returns>The side, at least one.</returns>
     /// <remarks>
-    ///     ⚠ <b>Floor of the square root, computed as a comparison rather than trusted from
-    ///     <see cref="Math.Sqrt" />.</b> The rounding of a double at the boundary is the difference
+    ///     ⚠
+    ///     <b>
+    ///         Floor of the square root, computed as a comparison rather than trusted from
+    ///         <see cref="Math.Sqrt" />.
+    ///     </b>
+    ///     The rounding of a double at the boundary is the difference
     ///     between a grid that fits and one that overflows by a single candidate, and a single
     ///     candidate is enough to put the race back — the last place is then claimed by whichever
     ///     invocation reached the atomic first, which is a blade that appears and disappears.
@@ -370,9 +382,13 @@ public sealed class GrassDispatch : IDisposable {
 
     /// <summary>The candidate grid the last <see cref="Prepare" /> scattered a cell over, per axis.</summary>
     /// <remarks>
-    ///     ⚠ <b><see cref="Vixen.Foliage.GrassType.GridOf" />'s answer, clamped by
-    ///     <see cref="SideThatFits" /> — and the clamp is the difference between a field and a
-    ///     flicker.</b> The class remarks say why: a cell with more candidates than places races for
+    ///     ⚠
+    ///     <b>
+    ///         <see cref="Vixen.Foliage.GrassType.GridOf" />'s answer, clamped by
+    ///         <see cref="SideThatFits" /> — and the clamp is the difference between a field and a
+    ///         flicker.
+    ///     </b>
+    ///     The class remarks say why: a cell with more candidates than places races for
     ///     them, and the race is re-run on every dispatch. Squared, this is never more than
     ///     <see cref="BladesPerCell" />.
     /// </remarks>
@@ -556,7 +572,7 @@ public sealed class GrassDispatch : IDisposable {
         barriers[2] = new(counts, ResourceState.ShaderRead, ResourceState.ShaderRead);
         commands.Barrier(new(barriers, []));
 
-        return (Groups.X * Groups.Y * Groups.Z) + CellCount;
+        return Groups.X * Groups.Y * Groups.Z + CellCount;
     }
 
     /// <summary>Issues one indirect draw per resident cell.</summary>
@@ -598,8 +614,12 @@ public sealed class GrassDispatch : IDisposable {
     /// <exception cref="ArgumentOutOfRangeException">There is no such record.</exception>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The record index, not the ring slot — and <see cref="RunOf" /> is the other
-    ///         one.</b> The commands are indexed the way the shader indexes <c>cells</c>, which is
+    ///         ⚠
+    ///         <b>
+    ///             The record index, not the ring slot — and <see cref="RunOf" /> is the other
+    ///             one.
+    ///         </b>
+    ///         The commands are indexed the way the shader indexes <c>cells</c>, which is
     ///         this frame's list; the blades are indexed by the slot the cell has kept across frames.
     ///         Confusing the two draws the right number of blades from the wrong place.
     ///     </para>
@@ -612,7 +632,7 @@ public sealed class GrassDispatch : IDisposable {
         ArgumentOutOfRangeException.ThrowIfNegative(index);
         ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(index, Capacity);
 
-        return (slot * commandStride) + ((long)index * DrawCommandBytes);
+        return slot * commandStride + (long)index * DrawCommandBytes;
     }
 
     /// <summary>Where a cell's blades are, for the draw that reads them.</summary>

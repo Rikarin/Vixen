@@ -25,8 +25,8 @@ public class SnapCommandTests {
         Assert.False(snap.SnapsToGeometry);
 
         foreach (var element in (SnapElements[]) [
-            SnapElements.Vertex, SnapElements.Edge, SnapElements.EdgeCentre, SnapElements.Face
-        ]) {
+                     SnapElements.Vertex, SnapElements.Edge, SnapElements.EdgeCentre, SnapElements.Face
+                 ]) {
             var id = EditorApplication.ViewportIds.SnapElement(element);
 
             Assert.True(fixture.CanRun(id));
@@ -96,6 +96,6 @@ public class SnapCommandTests {
 
         // Turned on once, and the drop that stands a crate up on a ramp agrees with the drag that
         // does — which is the disagreement one context was built to make impossible.
-        Assert.All(panes, pane => Assert.True(pane.Placement.Snap.SnapToSurface));
+        Assert.All(panes, static pane => Assert.True(pane.Placement.Snap.SnapToSurface));
     }
 }

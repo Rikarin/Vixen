@@ -8,8 +8,12 @@ namespace Vixen.Terrain;
 /// <summary>How a paint layer's texels combine with the layers under it.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>A different axis from <see cref="TerrainBlend" />, and the design calls both of them
-///         "blend mode".</b> <see cref="TerrainBlend" /> is a <em>storage</em> question — whether the
+///         ⚠
+///         <b>
+///             A different axis from <see cref="TerrainBlend" />, and the design calls both of them
+///             "blend mode".
+///         </b>
+///         <see cref="TerrainBlend" /> is a <em>storage</em> question — whether the
 ///         layer takes part in the sum-to-one budget — and this is a <em>shading</em> one: given the
 ///         weight the storage produced, how does the material combine this layer's albedo with the
 ///         rest. A layer can be weight-blended in storage and height-blended in shading, and the
@@ -104,8 +108,12 @@ public readonly record struct TerrainLayerDescription(
 
     /// <summary>Why this layer cannot be used, or <see langword="null" /> if it can.</summary>
     /// <remarks>
-    ///     ⚠ <b>A missing albedo is a warning rather than a refusal, and a missing height map for a
-    ///     height blend is a refusal.</b> A layer with no albedo draws as its own flat colour, which
+    ///     ⚠
+    ///     <b>
+    ///         A missing albedo is a warning rather than a refusal, and a missing height map for a
+    ///         height blend is a refusal.
+    ///     </b>
+    ///     A layer with no albedo draws as its own flat colour, which
     ///     is a reasonable placeholder while somebody is still painting; a height blend with nothing
     ///     to read the height from silently degrades to a weight blend, which is the class of failure
     ///     that gets reported as "the height blending does not work".

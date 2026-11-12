@@ -3,7 +3,6 @@
 
 using Vixen.Core;
 using Vixen.Core.Imaging;
-using Vixen.Core.Serialization;
 using Vixen.Core.Yaml.Meta;
 using Vixen.Interchange;
 

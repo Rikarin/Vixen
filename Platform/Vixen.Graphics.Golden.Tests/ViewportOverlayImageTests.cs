@@ -6,8 +6,6 @@ using Vixen.Core.Imaging;
 using Vixen.Core.Mathematics;
 using Vixen.Rendering;
 using Vixen.Rendering.Compositor;
-using Vixen.Shaders;
-using Vixen.Ui.Testing.Visual;
 using Xunit;
 
 namespace Vixen.Graphics.Golden.Tests;
@@ -79,7 +77,7 @@ public sealed class ViewportOverlayImageTests {
         }
 
         using var owned = fixture!;
-        var image = Compose(owned, sharesDepth: true);
+        var image = Compose(owned, true);
 
         // The three claims the picture makes, checked before it is trusted — a reference image
         // committed from a first run is a reference to whatever came out first.
@@ -98,8 +96,12 @@ public sealed class ViewportOverlayImageTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Because two conformant drivers disagree about the last fragment of a line, and
-    ///         this is measured rather than assumed.</b> The reference was rendered on MoltenVK; on
+    ///         ⚠
+    ///         <b>
+    ///             Because two conformant drivers disagree about the last fragment of a line, and
+    ///             this is measured rather than assumed.
+    ///         </b>
+    ///         The reference was rendered on MoltenVK; on
     ///         lavapipe — the Linux leg's driver, and the only leg that runs these fixtures, since
     ///         macOS and Windows CI have no Vulkan and skip them — exactly one pixel of 16 384
     ///         differs: <c>(83, 6)</c>, amber on lavapipe and background on MoltenVK. That is the
@@ -131,8 +133,12 @@ public sealed class ViewportOverlayImageTests {
     ///     depth link would draw.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>Kept as a rendered frame rather than as a sentence, because it is the only thing that
-    ///     makes the fixture above an assertion.</b> Both pictures contain both lines and the same
+    ///     ⚠
+    ///     <b>
+    ///         Kept as a rendered frame rather than as a sentence, because it is the only thing that
+    ///         makes the fixture above an assertion.
+    ///     </b>
+    ///     Both pictures contain both lines and the same
     ///     quad; they differ in the 64 pixels of row 79 that the quad covers — columns 32 to 95, its
     ///     extent exactly — and a reader who has not seen the second one has no way to know the first
     ///     was not drawn by an overlay that simply ignores depth. That 64 is measured, by comparing
@@ -147,7 +153,7 @@ public sealed class ViewportOverlayImageTests {
         }
 
         using var owned = fixture!;
-        var image = Compose(owned, sharesDepth: false);
+        var image = Compose(owned, false);
 
         // The line that the fixture above hides is whole here, over the middle of the quad.
         Assert.True(IsLine(image, 64, Row(BehindLine)), "the sabotaged frame hid the line anyway");
@@ -170,9 +176,10 @@ public sealed class ViewportOverlayImageTests {
         var shaders = LineShaders.Default(device);
 
         fixture.Owns(() => {
-            device.Destroy(shaders.Vertex);
-            device.Destroy(shaders.Fragment);
-        });
+                device.Destroy(shaders.Vertex);
+                device.Destroy(shaders.Fragment);
+            }
+        );
 
         // ⚠ The output the overlay's pipelines are built against has to be the pane's, not a
         // convenient one: a line pipeline created for a depth format the pass does not have is a
@@ -184,15 +191,17 @@ public sealed class ViewportOverlayImageTests {
 
         using var lines = new LineRenderer(device, shaders, output);
 
-        lines.Upload([
-            // Behind the quad, all the way across.
-            new(new(-0.9f, BehindLine, BehindDepth), Cyan),
-            new(new(0.9f, BehindLine, BehindDepth), Cyan),
+        lines.Upload(
+            [
+                // Behind the quad, all the way across.
+                new(new(-0.9f, BehindLine, BehindDepth), Cyan),
+                new(new(0.9f, BehindLine, BehindDepth), Cyan),
 
-            // In front of it, all the way down.
-            new(new(FrontLine, -0.9f, FrontDepth), Amber),
-            new(new(FrontLine, 0.9f, FrontDepth), Amber)
-        ]);
+                // In front of it, all the way down.
+                new(new(FrontLine, -0.9f, FrontDepth), Amber),
+                new(new(FrontLine, 0.9f, FrontDepth), Amber)
+            ]
+        );
 
         var surface = fixture.Pipeline(
             fixture.Shader("scene.vert.spv", ShaderStage.Vertex),
@@ -209,14 +218,14 @@ public sealed class ViewportOverlayImageTests {
             targets: [new(display.Description.Format, BlendState.Opaque)]
         );
 
-        var vertices = fixture.Buffer<Vertex>(Vertex.Quad.AsSpan(), BufferUsage.Vertex);
+        var vertices = fixture.Buffer(Vertex.Quad.AsSpan(), BufferUsage.Vertex);
         var indices = fixture.Buffer<ushort>([0, 1, 2, 2, 1, 3], BufferUsage.Index);
 
         var world = new Matrix4x4(
-            new Vector4(1f, 0f, 0f, 0f),
-            new Vector4(0f, 1f, 0f, 0f),
-            new Vector4(0f, 0f, 1f, 0f),
-            new Vector4(0f, 0f, QuadDepth, 1f)
+            new(1f, 0f, 0f, 0f),
+            new(0f, 1f, 0f, 0f),
+            new(0f, 0f, 1f, 0f),
+            new(0f, 0f, QuadDepth, 1f)
         );
 
         var scene = new RenderPassRenderer {
@@ -242,7 +251,7 @@ public sealed class ViewportOverlayImageTests {
                     );
 
                     context.CommandList.BindVertexBuffer(0, vertices);
-                    context.CommandList.BindIndexBuffer(indices, IndexFormat.UInt16);
+                    context.CommandList.BindIndexBuffer(indices);
                     context.CommandList.DrawIndexed(6);
                 }
             }
@@ -267,7 +276,7 @@ public sealed class ViewportOverlayImageTests {
         overlay.Children.Add(
             new DelegateSceneRenderer {
                 OnRecord = (_, context) =>
-                    lines.Record(context.CommandList, Matrix4x4.Identity, depthTested: sharesDepth)
+                    lines.Record(context.CommandList, Matrix4x4.Identity, sharesDepth)
             }
         );
 
@@ -277,11 +286,7 @@ public sealed class ViewportOverlayImageTests {
         };
 
         compositor.Resources.Add(
-            new() {
-                Name = "SceneDepth",
-                Format = PixelFormat.Depth32Float,
-                Usage = TextureUsage.DepthStencilTarget
-            }
+            new() { Name = "SceneDepth", Format = PixelFormat.Depth32Float, Usage = TextureUsage.DepthStencilTarget }
         );
 
         compositor.Imports["Display"] = new(
@@ -292,7 +297,7 @@ public sealed class ViewportOverlayImageTests {
             ResourceState.CopySource
         );
 
-        var frame = compositor.Build(fixture.Graph, new EffectSystem(), device);
+        var frame = compositor.Build(fixture.Graph, new(), device);
 
         return fixture.Render(frame.Texture("harness", "Display"));
     }
@@ -354,7 +359,7 @@ public sealed class ViewportOverlayImageTests {
     }
 
     static (float R, float G, float B) At(in Bitmap image, int x, int y) {
-        var at = ((y * image.Width) + x) * 4;
+        var at = (y * image.Width + x) * 4;
         var pixels = image.Pixels;
 
         return (pixels[at] / 255f, pixels[at + 1] / 255f, pixels[at + 2] / 255f);
@@ -372,8 +377,7 @@ public sealed class ViewportOverlayImageTests {
         public Vector3 Position;
         public Vector4 Colour;
 
-        static Vertex At(float x, float y) =>
-            new() { Position = new(x, y, 0f), Colour = new(0.8f, 0.15f, 0.15f, 1f) };
+        static Vertex At(float x, float y) => new() { Position = new(x, y, 0f), Colour = new(0.8f, 0.15f, 0.15f, 1f) };
 
         /// <summary>A square in the middle, which both lines cross.</summary>
         public static Vertex[] Quad => [

@@ -12,16 +12,24 @@ public sealed class SplineAssetTests {
     /// <summary>A spline is readable by the YAML binder, which is what makes a `.vxspline` content.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A <c>[DataContract]</c> is not enough on its own — the registry is populated by
-    ///         <c>Vixen.Core.Reflection.Generator</c>, and an analyzer does not flow through a project
-    ///         reference.</b> Three of this toolset's four assets shipped unbindable for exactly that
+    ///         ⚠
+    ///         <b>
+    ///             A <c>[DataContract]</c> is not enough on its own — the registry is populated by
+    ///             <c>Vixen.Core.Reflection.Generator</c>, and an analyzer does not flow through a project
+    ///             reference.
+    ///         </b>
+    ///         Three of this toolset's four assets shipped unbindable for exactly that
     ///         reason, and the symptom is a file that imports without complaint and deserialises to a
     ///         default.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>This is why <c>Vixen.Core.Mathematics</c> references <c>Vixen.Core.Reflection</c>,
-    ///         which looked like a change to the dependency graph of the assembly holding
-    ///         <c>Vector3</c>.</b> It is not: reflection references <c>Vixen.Core</c> and
+    ///         ⚠
+    ///         <b>
+    ///             This is why <c>Vixen.Core.Mathematics</c> references <c>Vixen.Core.Reflection</c>,
+    ///             which looked like a change to the dependency graph of the assembly holding
+    ///             <c>Vector3</c>.
+    ///         </b>
+    ///         It is not: reflection references <c>Vixen.Core</c> and
     ///         <c>Vixen.Core.Serialization</c> and nothing else, and this project already had both — so
     ///         the transitive closure does not grow by one assembly.
     ///     </para>
@@ -36,13 +44,13 @@ public sealed class SplineAssetTests {
 
         // The two members a spline file is: what it is called, and whether it closes. The points
         // themselves are a collection, which the binder reaches through the same descriptor.
-        Assert.Contains(asset.Members, member => member.Name == "Name");
-        Assert.Contains(asset.Members, member => member.Name == "IsClosed");
+        Assert.Contains(asset.Members, static member => member.Name == "Name");
+        Assert.Contains(asset.Members, static member => member.Name == "IsClosed");
 
         // And a control point is a position and two tangents.
-        Assert.Contains(point.Members, member => member.Name == "Position");
-        Assert.Contains(point.Members, member => member.Name == "TangentIn");
-        Assert.Contains(point.Members, member => member.Name == "TangentOut");
+        Assert.Contains(point.Members, static member => member.Name == "Position");
+        Assert.Contains(point.Members, static member => member.Name == "TangentIn");
+        Assert.Contains(point.Members, static member => member.Name == "TangentOut");
     }
 
     static SplineAsset Road =>
@@ -112,7 +120,7 @@ public sealed class SplineAssetTests {
     public void AnUnmirroredTangentIsACorner() {
         var asset = Road;
 
-        asset.SetTangentOut(1, new(0f, 0f, 10f), mirror: false);
+        asset.SetTangentOut(1, new(0f, 0f, 10f), false);
 
         var point = asset[1];
 
@@ -149,7 +157,7 @@ public sealed class SplineAssetTests {
         var asset = SplineAsset.Through(
             "Loop",
             [new(0f, 0f, 0f), new(10f, 0f, 0f), new(10f, 0f, 10f), new(0f, 0f, 10f)],
-            closed: true
+            true
         );
 
         var tail = asset.Split(2);
@@ -162,8 +170,12 @@ public sealed class SplineAssetTests {
 
     /// <summary>Joining two paths that meet merges the shared point.</summary>
     /// <remarks>
-    ///     ⚠ <b>Two control points at the same place make a segment of zero length, which has no
-    ///     direction.</b> A road joined without the merge has a frame that flips at the seam and a
+    ///     ⚠
+    ///     <b>
+    ///         Two control points at the same place make a segment of zero length, which has no
+    ///         direction.
+    ///     </b>
+    ///     A road joined without the merge has a frame that flips at the seam and a
     ///     mesh placement that stacks everything it puts there.
     /// </remarks>
     [Fact]
@@ -181,9 +193,9 @@ public sealed class SplineAssetTests {
         var first = SplineAsset.Through("A", [new(0f, 0f, 0f), new(10f, 0f, 0f)]);
         var second = SplineAsset.Through("B", [new(30f, 0f, 0f), new(10f, 0f, 0f)]);
 
-        Assert.True(first.Join(second, reversed: true));
+        Assert.True(first.Join(second, true));
         Assert.Equal(3, first.Count);
-        Assert.Equal(new Vector3(30f, 0f, 0f), first[^1].Position);
+        Assert.Equal(new(30f, 0f, 0f), first[^1].Position);
     }
 
     [Fact]
@@ -191,7 +203,7 @@ public sealed class SplineAssetTests {
         var loop = SplineAsset.Through(
             "Loop",
             [new(0f, 0f, 0f), new(10f, 0f, 0f), new(10f, 0f, 10f)],
-            closed: true
+            true
         );
 
         Assert.False(loop.Join(SplineAsset.Through("B", [new(10f, 0f, 10f), new(20f, 0f, 20f)])));
@@ -204,7 +216,7 @@ public sealed class SplineAssetTests {
 
         asset.MoveTo(1, new(25f, 5f, 15f));
 
-        Assert.Equal(new Vector3(25f, 5f, 15f), asset[1].Position);
+        Assert.Equal(new(25f, 5f, 15f), asset[1].Position);
         Assert.Equal(before.TangentIn, asset[1].TangentIn);
         Assert.Equal(before.TangentOut, asset[1].TangentOut);
     }
@@ -234,7 +246,7 @@ public sealed class SplineAssetTests {
         asset.Set(1, asset[1] with { Roll = 0.4f });
         asset.Smooth();
 
-        Assert.Equal(new Vector3(20f, 0f, 10f), asset[1].Position);
+        Assert.Equal(new(20f, 0f, 10f), asset[1].Position);
         Assert.Equal(0.4f, asset[1].Roll, 4);
         Assert.Equal(-asset[1].TangentOut, asset[1].TangentIn);
     }

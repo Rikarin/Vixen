@@ -90,8 +90,12 @@ public sealed class DataObject {
     /// <param name="value">The value, if it was offered as a <typeparamref name="T" />.</param>
     /// <returns><see langword="false" /> if it was not offered, or was offered as something else.</returns>
     /// <remarks>
-    ///     ⚠ <b>A format offered as the wrong type answers <see langword="false" /> rather than
-    ///     throwing</b>, which is the same answer as not offering it at all — and is right, because
+    ///     ⚠
+    ///     <b>
+    ///         A format offered as the wrong type answers <see langword="false" /> rather than
+    ///         throwing
+    ///     </b>
+    ///     , which is the same answer as not offering it at all — and is right, because
     ///     a target asking for a format it understands and a target asking for a format some other
     ///     source spelled the same way are indistinguishable here, and the second must not take the
     ///     application down.

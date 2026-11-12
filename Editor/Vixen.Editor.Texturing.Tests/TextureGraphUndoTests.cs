@@ -4,10 +4,6 @@
 using Vixen.Core;
 using Vixen.Editor.NodeGraph;
 using Vixen.NodeGraph;
-using Vixen.Texturing.Layers;
-using Vixen.Texturing.Painting;
-using Vixen.Ui;
-using Vixen.Ui.Controls.Advanced;
 using Xunit;
 
 namespace Vixen.Editor.Texturing.Tests;
@@ -15,9 +11,12 @@ namespace Vixen.Editor.Texturing.Tests;
 /// <summary>What an undo taken outside the texture-graph pane does to the pane.</summary>
 /// <remarks>
 ///     <para>
-///         <b><a href="https://github.com/Rikarin/Vixen/issues/965">#965</a> predicted
-///         <a href="https://github.com/Rikarin/Vixen/issues/933">#933</a>'s gap one pane along, and
-///         these two tests refute it.</b> The prediction was drawn from a grep — nothing in
+///         <b>
+///             <a href="https://github.com/Rikarin/Vixen/issues/965">#965</a> predicted
+///             <a href="https://github.com/Rikarin/Vixen/issues/933">#933</a>'s gap one pane along, and
+///             these two tests refute it.
+///         </b>
+///         The prediction was drawn from a grep — nothing in
 ///         <c>Vixen.Editor.NodeGraph</c> reads <c>CommandStack.Depth</c>, which is still true — and
 ///         the inference from it was that the canvas therefore cannot hear an undo. It does, by a
 ///         route the grep could not see: <c>NodeGraphCommand.Undo</c> calls
@@ -144,8 +143,8 @@ public class TextureGraphUndoTests {
 
         fixture.Shell.RegisterPanel(
             Panel,
-            new StringId("editor.panel." + Panel, "Texture Graph"),
-            panel => built = new TextureGraphView(panel)
+            new("editor.panel." + Panel, "Texture Graph"),
+            panel => built = new(panel)
         );
 
         fixture.Shell.Workspace.Open(Panel);

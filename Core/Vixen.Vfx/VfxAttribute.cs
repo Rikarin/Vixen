@@ -90,8 +90,12 @@ public enum VfxAttributeType {
 ///         decides — <see cref="VfxCompiledGraph.Compile" /> does, once.
 ///     </para>
 ///     <para>
-///         Slots are assigned by declaration order, which means <b>reordering the declarations is a
-///         different graph</b>. That is the same rule the salts follow and for the same reason: a
+///         Slots are assigned by declaration order, which means
+///         <b>
+///             reordering the declarations is a
+///             different graph
+///         </b>
+///         . That is the same rule the salts follow and for the same reason: a
 ///         compiled artefact that changed meaning depending on how it was written down would not be
 ///         comparable in a golden test.
 ///     </para>
@@ -101,8 +105,7 @@ public readonly record struct VfxCustomAttribute(string Name, VfxAttributeType T
 /// <summary>What each attribute is made of, and how to talk about a set of them.</summary>
 public static class VfxAttributes {
     /// <summary>Every attribute, in bit order.</summary>
-    public static ReadOnlySpan<VfxAttribute> All =>
-    [
+    public static ReadOnlySpan<VfxAttribute> All => [
         VfxAttribute.Position,
         VfxAttribute.Velocity,
         VfxAttribute.Size,
@@ -118,14 +121,18 @@ public static class VfxAttributes {
     /// <param name="attribute">The attribute. Exactly one bit.</param>
     /// <returns>Its type.</returns>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="attribute" /> is not a single known attribute.</exception>
-    public static VfxAttributeType TypeOf(VfxAttribute attribute) => attribute switch {
-        VfxAttribute.Position or VfxAttribute.Velocity => VfxAttributeType.Float3,
-        VfxAttribute.Colour => VfxAttributeType.Float4,
-        VfxAttribute.Size or VfxAttribute.Lifetime or VfxAttribute.Age
-            or VfxAttribute.Rotation or VfxAttribute.AngularVelocity => VfxAttributeType.Float,
-        VfxAttribute.Identifier => VfxAttributeType.UInt,
-        _ => throw new ArgumentOutOfRangeException(nameof(attribute), attribute, "Not a single known attribute.")
-    };
+    public static VfxAttributeType TypeOf(VfxAttribute attribute) =>
+        attribute switch {
+            VfxAttribute.Position or VfxAttribute.Velocity => VfxAttributeType.Float3,
+            VfxAttribute.Colour => VfxAttributeType.Float4,
+            VfxAttribute.Size
+                or VfxAttribute.Lifetime
+                or VfxAttribute.Age
+                or VfxAttribute.Rotation
+                or VfxAttribute.AngularVelocity => VfxAttributeType.Float,
+            VfxAttribute.Identifier => VfxAttributeType.UInt,
+            _ => throw new ArgumentOutOfRangeException(nameof(attribute), attribute, "Not a single known attribute.")
+        };
 
     /// <summary>How many floats one particle's worth of a type occupies.</summary>
     /// <param name="type">The type.</param>
@@ -135,11 +142,12 @@ public static class VfxAttributes {
     ///     particle's value ends and the next begins. A <see cref="VfxAttributeType.UInt" /> has one
     ///     lane and no float meaning, which is why a custom attribute cannot be one.
     /// </remarks>
-    public static int Lanes(VfxAttributeType type) => type switch {
-        VfxAttributeType.Float3 => 3,
-        VfxAttributeType.Float4 => 4,
-        _ => 1
-    };
+    public static int Lanes(VfxAttributeType type) =>
+        type switch {
+            VfxAttributeType.Float3 => 3,
+            VfxAttributeType.Float4 => 4,
+            _ => 1
+        };
 
     /// <summary>How many bytes one particle's worth of a set occupies.</summary>
     /// <param name="set">The set.</param>

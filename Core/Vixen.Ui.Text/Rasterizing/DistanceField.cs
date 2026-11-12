@@ -17,7 +17,7 @@ public readonly record struct DistanceFieldBitmap(int Width, int Height, float R
     /// <param name="y">Row.</param>
     public (float R, float G, float B) this[int x, int y] {
         get {
-            var at = ((y * Width) + x) * 3;
+            var at = (y * Width + x) * 3;
             return (Channels[at], Channels[at + 1], Channels[at + 2]);
         }
     }
@@ -75,7 +75,7 @@ public static class DistanceField {
         var channels = new float[width * height * 3];
         if (outline.IsEmpty) {
             Array.Fill(channels, 0f);
-            return new DistanceFieldBitmap(width, height, range, channels);
+            return new(width, height, range, channels);
         }
 
         // Flattened finely relative to a pixel, because the field's own resolution is what decides
@@ -103,8 +103,8 @@ public static class DistanceField {
             for (var x = 0; x < width; x++) {
                 // The pixel's centre, back in the outline's own units.
                 var point = new Vector2(
-                    ((x + 0.5f) / scale) + origin.X,
-                    ((height - 1 - y + 0.5f) / scale) + origin.Y
+                    (x + 0.5f) / scale + origin.X,
+                    (height - 1 - y + 0.5f) / scale + origin.Y
                 );
 
                 // ⚠ <b>Each channel carries its own sign, and that is the mechanism rather than a
@@ -127,19 +127,19 @@ public static class DistanceField {
                     blueDistance = -blueDistance;
                 }
 
-                var at = ((y * width) + x) * 3;
+                var at = (y * width + x) * 3;
                 channels[at] = Encode(redDistance, scale, range);
                 channels[at + 1] = Encode(greenDistance, scale, range);
                 channels[at + 2] = Encode(blueDistance, scale, range);
             }
         }
 
-        return new DistanceFieldBitmap(width, height, range, channels);
+        return new(width, height, range, channels);
     }
 
     /// <summary>Maps a signed distance in outline units into the texture's <c>[0, 1]</c>.</summary>
     static float Encode(float distance, float scale, float range) =>
-        Math.Clamp((distance * scale / range) + 0.5f, 0f, 1f);
+        Math.Clamp(distance * scale / range + 0.5f, 0f, 1f);
 
     static float Median(float a, float b, float c) => Math.Max(Math.Min(a, b), Math.Min(Math.Max(a, b), c));
 
@@ -158,8 +158,12 @@ public static class DistanceField {
     ///     between them rather than the distance.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>Proportional and never absolute, because the same outline is encoded at a font's
-    ///     design units and at an icon's document pixels.</b> The two edges meeting at a corner are
+    ///     ⚠
+    ///     <b>
+    ///         Proportional and never absolute, because the same outline is encoded at a font's
+    ///         design units and at an icon's document pixels.
+    ///     </b>
+    ///     The two edges meeting at a corner are
     ///     exactly equidistant from every point in its exterior wedge — that is what a corner is —
     ///     but they reach that point from opposite ends of themselves, so the arithmetic differs in
     ///     the last bit or two. A fixed epsilon would be the whole shape at one scale and nothing at
@@ -177,8 +181,12 @@ public static class DistanceField {
     ///         distance, so a distant edge's line cannot win.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Which of two equidistant edges wins is the corner, and picking the first of them
-    ///         drew a phantom bar across every icon.</b> Every point in the exterior wedge of a convex
+    ///         ⚠
+    ///         <b>
+    ///             Which of two equidistant edges wins is the corner, and picking the first of them
+    ///             drew a phantom bar across every icon.
+    ///         </b>
+    ///         Every point in the exterior wedge of a convex
     ///         corner is equidistant from <i>both</i> edges that meet there, because both of them
     ///         clamp to the shared vertex — so the ordinary distance cannot separate them and whichever
     ///         happened to be listed first supplied the pseudo-distance for the whole wedge. Above a
@@ -192,8 +200,12 @@ public static class DistanceField {
     ///         notice because its band has nothing to bridge.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The tie goes to the edge most perpendicular to the point, which is msdfgen's
-    ///         <c>SignedDistance</c> ordering and not an invention here.</b> Of the two edges at a
+    ///         ⚠
+    ///         <b>
+    ///             The tie goes to the edge most perpendicular to the point, which is msdfgen's
+    ///             <c>SignedDistance</c> ordering and not an invention here.
+    ///         </b>
+    ///         Of the two edges at a
     ///         corner, the one the point lies most nearly <i>alongside</i> is the one whose line is
     ///         being extended past its own end; the one it lies most nearly <i>off the side of</i> is
     ///         the one still describing a real boundary. Taking that one makes the median in the wedge
@@ -251,7 +263,7 @@ public static class DistanceField {
             // by addition loses the last bit, which is enough to turn an exact tie into a near one —
             // and the whole of the rule below is about what happens at that tie. The near end needs
             // no such care: <c>t</c> is nought there and the addition is exact.
-            var closest = t >= 1f ? edge.To : edge.From + (t * edge.Direction);
+            var closest = t >= 1f ? edge.To : edge.From + t * edge.Direction;
             var offset = point - closest;
             var distanceSquared = offset.LengthSquared();
 
@@ -310,19 +322,19 @@ public static class DistanceField {
             var length = MathF.Sqrt(lengthSquared);
 
             prepared.Add(
-                new Prepared(
+                new(
                     edge.From,
                     edge.To,
                     direction,
                     1f / lengthSquared,
                     1f / length,
-                    edge.From + (direction * 0.5f),
+                    edge.From + direction * 0.5f,
                     length * 0.5f
                 )
             );
         }
 
-        return [.. prepared];
+        return [..prepared];
     }
 
     /// <summary>One edge, with the parts that do not depend on the pixel already computed.</summary>
@@ -336,5 +348,5 @@ public static class DistanceField {
         float HalfLength
     );
 
-    static float Cross(Vector2 a, Vector2 b) => (a.X * b.Y) - (a.Y * b.X);
+    static float Cross(Vector2 a, Vector2 b) => a.X * b.Y - a.Y * b.X;
 }

@@ -47,7 +47,9 @@ static class EditorModules {
     // `EditorApplication`'s constructor, and that constructor builds `AssetPicker`, whose field
     // initializer builds an importer registry. A link made any later would leave that registry
     // importing the linked formats as byte blobs (#1300).
-    static EditorModules() => LinkImporters(ImporterContributions.Linked);
+    static EditorModules() {
+        LinkImporters(ImporterContributions.Linked);
+    }
 
     /// <summary>Puts the importers out of the assemblies this editor links into a set.</summary>
     /// <param name="linked">The set — <see cref="ImporterContributions.Linked" />, or a test's own.</param>

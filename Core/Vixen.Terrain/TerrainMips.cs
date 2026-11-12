@@ -14,8 +14,12 @@ namespace Vixen.Terrain;
 ///         shimmering as the camera moves.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Reduced by the <em>maximum</em>, not the average, and this is the decision the whole
-///         file is about.</b> An averaged mip sinks a ridge: four samples of which one is a peak
+///         ⚠
+///         <b>
+///             Reduced by the <em>maximum</em>, not the average, and this is the decision the whole
+///             file is about.
+///         </b>
+///         An averaged mip sinks a ridge: four samples of which one is a peak
 ///         average to a quarter of it, so a mountain gets shorter every level and the silhouette a
 ///         distant patch draws is not the mountain's. A maximum keeps the ridge and raises the
 ///         valleys, which errs towards geometry being <em>above</em> where it should be — the
@@ -29,8 +33,12 @@ namespace Vixen.Terrain;
 ///         each reduces its own copy of it and the two agree by construction.
 ///     </para>
 ///     <para>
-///         ⚠ <b>A tile's sample count is a power of two <em>plus one</em>, so a level is not half
-///         its parent.</b> A 129-sample tile reduces to 65, then 33 — <c>(n + 1) / 2</c> — which is
+///         ⚠
+///         <b>
+///             A tile's sample count is a power of two <em>plus one</em>, so a level is not half
+///             its parent.
+///         </b>
+///         A 129-sample tile reduces to 65, then 33 — <c>(n + 1) / 2</c> — which is
 ///         what keeps the boundary sample on the boundary at every level. Halving the count instead
 ///         drops the last row, and the seam it opens is one texel wide and permanent.
 ///     </para>
@@ -53,7 +61,7 @@ public static class TerrainMips {
         var samples = tileSamples;
 
         for (var step = 0; step < level && samples > MinimumSamples; step++) {
-            samples = ((samples + 1) / 2) is var next && next >= MinimumSamples ? next : MinimumSamples;
+            samples = (samples + 1) / 2 is var next && next >= MinimumSamples ? next : MinimumSamples;
         }
 
         return Math.Max(samples, MinimumSamples);
@@ -99,8 +107,12 @@ public static class TerrainMips {
     /// <exception cref="ArgumentNullException">There is no terrain.</exception>
     /// <exception cref="ArgumentException">There is not room for the chain.</exception>
     /// <remarks>
-    ///     ⚠ <b>Level 0 is read from <see cref="Terrain.Composite" />, the cache, and the caller is
-    ///     expected to have resolved it.</b> Building a mip chain is what happens after a stroke, in
+    ///     ⚠
+    ///     <b>
+    ///         Level 0 is read from <see cref="Terrain.Composite" />, the cache, and the caller is
+    ///         expected to have resolved it.
+    ///     </b>
+    ///     Building a mip chain is what happens after a stroke, in
     ///     the frame that uploads the tile — reading the definition instead would walk the layer stack
     ///     once per sample per level, which for a 129-sample tile is a hundred and fifty thousand
     ///     walks to answer a question the cache already holds.
@@ -163,11 +175,11 @@ public static class TerrainMips {
                 var z1 = Math.Min(z0 + 1, parentSize - 1);
 
                 var highest = Math.Max(
-                    Math.Max(chain[parentAt + (z0 * parentSize) + x0], chain[parentAt + (z0 * parentSize) + x1]),
-                    Math.Max(chain[parentAt + (z1 * parentSize) + x0], chain[parentAt + (z1 * parentSize) + x1])
+                    Math.Max(chain[parentAt + z0 * parentSize + x0], chain[parentAt + z0 * parentSize + x1]),
+                    Math.Max(chain[parentAt + z1 * parentSize + x0], chain[parentAt + z1 * parentSize + x1])
                 );
 
-                chain[childAt + (z * childSize) + x] = highest;
+                chain[childAt + z * childSize + x] = highest;
             }
         }
     }

@@ -6,8 +6,11 @@ namespace Vixen.Editor.Plugin;
 /// <summary>Which version of the plugin contract this editor implements.</summary>
 /// <remarks>
 ///     <para>
-///         <b>A plugin declares the version it was built against and the loader refuses one it
-///         cannot honour.</b> The alternative — load it and find out — is a
+///         <b>
+///             A plugin declares the version it was built against and the loader refuses one it
+///             cannot honour.
+///         </b>
+///         The alternative — load it and find out — is a
 ///         <c>MissingMethodException</c> from inside somebody else's code, on a machine that is not
 ///         yours, with a stack trace that names neither the plugin nor the change that broke it.
 ///     </para>

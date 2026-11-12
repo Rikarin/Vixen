@@ -31,8 +31,10 @@ namespace Vixen.Platform;
 /// </remarks>
 public interface IWindow : IDisposable {
     /// <summary>This window's id, as it appears in <see cref="PlatformEvent.WindowId" />.</summary>
-    /// <remarks>Never <c>0</c>, which is reserved for events that belong to no window, and never
-    /// reused within a session.</remarks>
+    /// <remarks>
+    ///     Never <c>0</c>, which is reserved for events that belong to no window, and never
+    ///     reused within a session.
+    /// </remarks>
     uint Id { get; }
 
     /// <summary>The title bar text.</summary>
@@ -41,10 +43,14 @@ public interface IWindow : IDisposable {
     /// <summary>The client area's size in logical points.</summary>
     Int2 ClientSize { get; set; }
 
-    /// <summary>The framebuffer's size in physical pixels — <see cref="ClientSize" /> times
-    /// <see cref="DpiScale" />, subject to the platform's rounding.</summary>
-    /// <remarks>Read it rather than computing it: the rounding is the platform's, and being one
-    /// pixel out is a swapchain that fails validation.</remarks>
+    /// <summary>
+    ///     The framebuffer's size in physical pixels — <see cref="ClientSize" /> times
+    ///     <see cref="DpiScale" />, subject to the platform's rounding.
+    /// </summary>
+    /// <remarks>
+    ///     Read it rather than computing it: the rounding is the platform's, and being one
+    ///     pixel out is a swapchain that fails validation.
+    /// </remarks>
     Int2 FramebufferSize { get; }
 
     /// <summary>The top-left corner in desktop coordinates.</summary>
@@ -104,8 +110,10 @@ public interface IWindow : IDisposable {
     /// <summary>Centres the window on its display.</summary>
     void Centre();
 
-    /// <summary>Asks the OS to draw attention to the window — a bouncing dock icon, a flashing
-    /// taskbar button.</summary>
+    /// <summary>
+    ///     Asks the OS to draw attention to the window — a bouncing dock icon, a flashing
+    ///     taskbar button.
+    /// </summary>
     void RequestAttention();
 
     /// <summary>Sets the window and taskbar icon from straight (non-premultiplied) RGBA8 pixels.</summary>
@@ -118,7 +126,9 @@ public interface IWindow : IDisposable {
     ///     runtime assembly carrying an image codec — which ADR-015 keeps out of shipping builds for
     ///     exactly this class of convenience.
     /// </remarks>
-    /// <exception cref="ArgumentException"><paramref name="pixels" /> is not
-    /// <paramref name="size" />'s worth of RGBA8.</exception>
+    /// <exception cref="ArgumentException">
+    ///     <paramref name="pixels" /> is not
+    ///     <paramref name="size" />'s worth of RGBA8.
+    /// </exception>
     void SetIcon(ReadOnlySpan<byte> pixels, Int2 size);
 }

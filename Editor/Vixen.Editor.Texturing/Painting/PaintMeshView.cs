@@ -3,9 +3,6 @@
 
 using Vixen.Authoring;
 using Vixen.Core.Mathematics;
-using Vixen.Editor.Core;
-using Vixen.Input;
-using Vixen.Texturing.Layers;
 using Vixen.Texturing.Painting;
 using Vixen.Ui;
 using Vixen.Ui.Controls;
@@ -19,16 +16,22 @@ namespace Vixen.Editor.Texturing.Painting;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>The place to stand that
-///         <a href="https://github.com/Rikarin/Vixen/issues/1063">#1063</a> is about.</b>
+///         <b>
+///             The place to stand that
+///             <a href="https://github.com/Rikarin/Vixen/issues/1063">#1063</a> is about.
+///         </b>
 ///         <c>PaintProjection</c>, <c>PaintFootprint</c>, <c>PaintSymmetry</c>,
 ///         <c>PaintProjector</c> and <c>LayerStackMesh.Projection</c> all landed across two batches
 ///         with no caller between them, because the missing piece was a viewport rather than more
 ///         arithmetic. This is that viewport.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The plugin's own pane and deliberately not the scene viewport, which is the issue's
-///         own recommendation and its reasons are worth keeping here.</b> A <c>.vxlayers</c> names a
+///         ⚠
+///         <b>
+///             The plugin's own pane and deliberately not the scene viewport, which is the issue's
+///             own recommendation and its reasons are worth keeping here.
+///         </b>
+///         A <c>.vxlayers</c> names a
 ///         model <em>asset path</em>; nothing maps that to an entity in the open scene, and an
 ///         artist opening one has no reason to have the model in a scene at all. The scene
 ///         viewport's ray comes back in <b>world</b> space while <c>PaintProjection</c> works in the
@@ -38,9 +41,13 @@ namespace Vixen.Editor.Texturing.Painting;
 ///         a paint view exists not to be.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The brush radius means <em>pane pixels</em> here and atlas texels in
-///         <c>PaintUvView</c>, and that is the whole difference between the two front ends rather
-///         than an inconsistency.</b> <c>PaintBrush.Radius</c> is authored in texels because the 2D
+///         ⚠
+///         <b>
+///             The brush radius means <em>pane pixels</em> here and atlas texels in
+///             <c>PaintUvView</c>, and that is the whole difference between the two front ends rather
+///             than an inconsistency.
+///         </b>
+///         <c>PaintBrush.Radius</c> is authored in texels because the 2D
 ///         pane paints in texels; a 3D view has a disc on the screen and the texels it covers are a
 ///         property of the chart under it, which is exactly what <c>PaintFootprint</c> computes.
 ///         <c>PaintProjector.Begin</c> is where the conversion happens and the ellipse it hands back
@@ -49,8 +56,12 @@ namespace Vixen.Editor.Texturing.Painting;
 ///         brush.
 ///     </para>
 ///     <para>
-///         ⚠ <b>There are two pixel sizes here and the conversion between them is one number,
-///         <see cref="Scale" />.</b> The pointer, the drag deltas and the brush's authored radius are
+///         ⚠
+///         <b>
+///             There are two pixel sizes here and the conversion between them is one number,
+///             <see cref="Scale" />.
+///         </b>
+///         The pointer, the drag deltas and the brush's authored radius are
 ///         in <em>layout</em> pixels; the picture, the camera's rays and the footprint are in the
 ///         <em>picture's</em> pixels, which <see cref="RasterSize" /> caps at
 ///         <see cref="RasterLimit" />. Below the cap the two are the same number and every one of
@@ -59,8 +70,12 @@ namespace Vixen.Editor.Texturing.Painting;
 ///         magnification the compositor performs and not a change of coordinate system.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Which of the two a quantity is in is not a detail: it is the whole of what
-///         <c>PaintEye.Perspective</c>'s remarks warn about.</b> An eye built from a layout height
+///         ⚠
+///         <b>
+///             Which of the two a quantity is in is not a detail: it is the whole of what
+///             <c>PaintEye.Perspective</c>'s remarks warn about.
+///         </b>
+///         An eye built from a layout height
 ///         over a picture rasterised at another reports a brush of the wrong size, silently, and
 ///         reads as a broken brush rather than as a mismatched unit. <see cref="Begin" /> converts
 ///         the authored radius into the picture's pixels for exactly that reason, and
@@ -71,8 +86,12 @@ namespace Vixen.Editor.Texturing.Painting;
 sealed class PaintMeshView {
     /// <summary>The axis names the symmetry picker offers, in the order it offers them.</summary>
     /// <remarks>
-    ///     ⚠ <b>Named planes and not an arbitrary one, because the model is in its own space and its
-    ///     own space is where a rig is symmetric.</b> <c>PaintSymmetry.Across</c> takes any plane and
+    ///     ⚠
+    ///     <b>
+    ///         Named planes and not an arbitrary one, because the model is in its own space and its
+    ///         own space is where a rig is symmetric.
+    ///     </b>
+    ///     <c>PaintSymmetry.Across</c> takes any plane and
     ///     nothing in a <c>.vxlayers</c> says where a model's mirror is; the three axes through the
     ///     origin are what a character exported down its own axis actually needs, and an arbitrary
     ///     plane is a gizmo rather than a picker.
@@ -82,16 +101,23 @@ sealed class PaintMeshView {
     /// <summary>The longest side the model is rasterised at, in the picture's own pixels.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/1107">#1107</a>, and the number is
-    ///         measured rather than chosen.</b> <c>PaintMeshCostTests</c> times one geometry pass at
+    ///         <b>
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/1107">#1107</a>, and the number is
+    ///             measured rather than chosen.
+    ///         </b>
+    ///         <c>PaintMeshCostTests</c> times one geometry pass at
     ///         both sizes on the same machine in the same second: a maximised 4K pane costs about
     ///         two and a half times what a 1280×720 one does over an eighteen-thousand-triangle
     ///         model, and an orbit pays that <em>per pointer move</em>. A cap at 1600 across is most
     ///         of that difference back.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A softness and not a lie, which is the whole reason a cap is allowed here at
-    ///         all.</b> The pane is a viewport onto a model rather than an image being authored — the
+    ///         ⚠
+    ///         <b>
+    ///             A softness and not a lie, which is the whole reason a cap is allowed here at
+    ///             all.
+    ///         </b>
+    ///         The pane is a viewport onto a model rather than an image being authored — the
     ///         thing an artist is judging is the atlas, which the 2D pane shows at its own
     ///         resolution — so a picture magnified by the compositor loses sharpness and nothing
     ///         else. It would not be allowed one pane across.
@@ -201,7 +227,7 @@ sealed class PaintMeshView {
         Image.AddHandler<PointerEvent>((_, args) => Pointed(args), RoutingStrategy.Capture);
         Image.AddHandler<WheelEvent>((_, args) => Wheeled(args), RoutingStrategy.Capture);
 
-        Status = "";
+        Status = string.Empty;
     }
 
     /// <summary>What size to rasterise a pane at, capped at <see cref="RasterLimit" />.</summary>
@@ -265,8 +291,12 @@ sealed class PaintMeshView {
 
     /// <summary>Told there is a whole new picture, for a caller to upload.</summary>
     /// <remarks>
-    ///     ⚠ <b>An upload and not a rectangle, because the picture is a different set of pixels
-    ///     everywhere.</b> This fires for a camera move, a resize and a new mesh — the three things
+    ///     ⚠
+    ///     <b>
+    ///         An upload and not a rectangle, because the picture is a different set of pixels
+    ///         everywhere.
+    ///     </b>
+    ///     This fires for a camera move, a resize and a new mesh — the three things
     ///     that change what every pane pixel shows — and never during a stroke, which is
     ///     <see cref="Patched" />'s whole reason for existing beside it.
     /// </remarks>
@@ -335,16 +365,28 @@ sealed class PaintMeshView {
     /// <exception cref="ArgumentNullException"><paramref name="picture" /> is null.</exception>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Driven by whoever owns the stroke rather than from inside this view's own
-    ///         pointer handler, and that is what makes a stroke made in the <em>other</em> pane show
-    ///         up on the model.</b> The two panes are two pictures of one layer; a 3D view that only
+    ///         ⚠
+    ///         <b>
+    ///             Driven by whoever owns the stroke rather than from inside this view's own
+    ///             pointer handler, and that is what makes a stroke made in the <em>other</em> pane show
+    ///             up on the model.
+    ///         </b>
+    ///         The two panes are two pictures of one layer; a 3D view that only
     ///         repainted for its own drags would go stale the moment an artist fixed a seam in the
     ///         2D one, which is exactly the pane pairing doc 48 § D13 asks for.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>What is handed back through <see cref="Patched" /> is the <em>bounding box of
-    ///         the pane pixels that moved</em>, which has no relation to the atlas rectangle that
-    ///         came in.</b> A stamp on a chart the model shows twice moves two clumps of pixels far
+    ///         ⚠
+    ///         <b>
+    ///             What is handed back through <see cref="Patched" /> is the
+    ///             <em>
+    ///                 bounding box of
+    ///                 the pane pixels that moved
+    ///             </em>
+    ///             , which has no relation to the atlas rectangle that
+    ///             came in.
+    ///         </b>
+    ///         A stamp on a chart the model shows twice moves two clumps of pixels far
     ///         apart, and a stamp on a chart nothing is showing moves none at all — which is an
     ///         empty answer and not a failure.
     ///     </para>
@@ -398,9 +440,13 @@ sealed class PaintMeshView {
 
     /// <summary>How many of the picture's pixels one of the pane's layout pixels is worth.</summary>
     /// <remarks>
-    ///     One below the cap, and under one above it. ⚠ <b>Read off the rasteriser rather than
-    ///     recomputed from <see cref="RasterSize" />, because what a coordinate has to agree with is the
-    ///     picture that was actually drawn</b> — a pane resized between a draw and a press would
+    ///     One below the cap, and under one above it. ⚠
+    ///     <b>
+    ///         Read off the rasteriser rather than
+    ///         recomputed from <see cref="RasterSize" />, because what a coordinate has to agree with is the
+    ///         picture that was actually drawn
+    ///     </b>
+    ///     — a pane resized between a draw and a press would
     ///     otherwise convert against a size nothing on screen has yet.
     /// </remarks>
     float Scale => Image.Height > 0f && raster.Height > 0 ? raster.Height / Image.Height : 1f;
@@ -609,17 +655,15 @@ sealed class PaintMeshView {
         projector = aimed;
         session = PaintSession.Begin(
             target,
-            tool.Brush with {
-                Radius = footprint.Radius,
-                Aspect = footprint.Aspect,
-                AspectAngle = footprint.Angle
-            },
+            tool.Brush with { Radius = footprint.Radius, Aspect = footprint.Aspect, AspectAngle = footprint.Angle },
             tool.Colour,
             tool.Lazy
         );
 
-        Say($"Painting: {footprint.Radius:F1} texels from {tool.Brush.Radius:F0} px, "
-            + $"aspect {footprint.Aspect:F2}. {Describe()}");
+        Say(
+            $"Painting: {footprint.Radius:F1} texels from {tool.Brush.Radius:F0} px, "
+            + $"aspect {footprint.Aspect:F2}. {Describe()}"
+        );
 
         return true;
     }

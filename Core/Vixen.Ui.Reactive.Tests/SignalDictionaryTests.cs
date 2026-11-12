@@ -65,8 +65,7 @@ public class SignalDictionaryTests {
     public void Removing_and_clearing_allocate_nothing() {
         var counters = new SignalDictionary<string, double>(StringComparer.Ordinal);
 
-        Measured.NothingAllocated(
-            () => {
+        Measured.NothingAllocated(() => {
                 counters["fps"] = 60;
                 counters.Remove("fps");
                 counters["draws"] = 1;
@@ -94,8 +93,11 @@ public class SignalDictionaryTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>The other four read shapes, because a map has four ways of being asked and a
-    ///     subscription that only covers the indexer is the silent half of the bug.</b>
+    ///     ⚠
+    ///     <b>
+    ///         The other four read shapes, because a map has four ways of being asked and a
+    ///         subscription that only covers the indexer is the silent half of the bug.
+    ///     </b>
     ///     <c>ContainsKey</c> is the one worth naming: "has the counter arrived yet" is a question
     ///     whose answer changes, and the write that changes it is the one that adds the key — so a
     ///     <c>ContainsKey</c> that did not subscribe would answer "no" for ever.
@@ -110,11 +112,12 @@ public class SignalDictionaryTests {
         var counters = new SignalDictionary<string, double>(StringComparer.Ordinal);
         var answer = double.NaN;
 
-        using var effect = new Effect(() => answer = shape switch {
+        using var effect = new Effect(
+            () => answer = shape switch {
                 "count" => counters.Count,
                 "contains" => counters.ContainsKey("fps") ? 1 : 0,
                 "try" => counters.TryGetValue("fps", out var reading) ? reading : -1,
-                _ => counters.Sum(entry => entry.Value)
+                _ => counters.Sum(static entry => entry.Value)
             },
             scheduler
         );
@@ -140,7 +143,8 @@ public class SignalDictionaryTests {
         var counters = new SignalDictionary<string, double>(StringComparer.Ordinal) { ["fps"] = 59.5 };
         var runs = 0;
 
-        using var effect = new Effect(() => {
+        using var effect = new Effect(
+            () => {
                 runs++;
                 _ = counters["fps"];
             },
@@ -166,7 +170,8 @@ public class SignalDictionaryTests {
         var counters = new SignalDictionary<string, double>(StringComparer.Ordinal) { ["fps"] = 59.5 };
         var runs = 0;
 
-        using var effect = new Effect(() => {
+        using var effect = new Effect(
+            () => {
                 runs++;
                 _ = counters.Count;
             },
@@ -192,7 +197,8 @@ public class SignalDictionaryTests {
         var counters = new SignalDictionary<string, double>(StringComparer.Ordinal);
         var runs = 0;
 
-        using var effect = new Effect(() => {
+        using var effect = new Effect(
+            () => {
                 runs++;
                 _ = counters.Count;
             },
@@ -219,7 +225,8 @@ public class SignalDictionaryTests {
         var counters = new SignalDictionary<string, double>(StringComparer.Ordinal) { ["fps"] = 59.5 };
         var runs = 0;
 
-        using var effect = new Effect(() => {
+        using var effect = new Effect(
+            () => {
                 runs++;
                 _ = counters.TryPeek("fps", out _);
                 _ = counters.Peek().Count;
@@ -286,7 +293,8 @@ public class SignalDictionaryTests {
         };
         var runs = 0;
 
-        using var effect = new Effect(() => {
+        using var effect = new Effect(
+            () => {
                 runs++;
                 _ = always.Count;
             },

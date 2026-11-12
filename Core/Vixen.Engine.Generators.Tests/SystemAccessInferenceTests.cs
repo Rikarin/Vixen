@@ -16,29 +16,29 @@ namespace Vixen.Engine.Generators.Tests;
 /// </remarks>
 public sealed class SystemAccessInferenceTests {
     const string Components = """
-        public struct Position { public float X; }
-        public struct Velocity { public float X; }
-        public struct Frozen { public bool Value; }
-        """;
+                              public struct Position { public float X; }
+                              public struct Velocity { public float X; }
+                              public struct Frozen { public bool Value; }
+                              """;
 
     const string Body = """
-            public override JobHandle Update(in SystemContext context, JobHandle dependency) => dependency;
-        """;
+                            public override JobHandle Update(in SystemContext context, JobHandle dependency) => dependency;
+                        """;
 
     [Fact]
     public void AnInferredAccessOnSomethingThatIsNotASystemIsVXS0407() {
         var (diagnostics, sources) = GeneratorHarness.Run(
             new SystemAccessInferenceGenerator(),
             $$"""
-            {{GeneratorHarness.Preamble}}
+              {{GeneratorHarness.Preamble}}
 
-            [InferAccess]
-            public partial class NotASystem {
-            }
-            """
+              [InferAccess]
+              public partial class NotASystem {
+              }
+              """
         );
 
-        Assert.Single(diagnostics, diagnostic => diagnostic.Id == "VXS0407");
+        Assert.Single(diagnostics, static diagnostic => diagnostic.Id == "VXS0407");
         Assert.Empty(sources);
     }
 
@@ -54,16 +54,16 @@ public sealed class SystemAccessInferenceTests {
         var (diagnostics, _) = GeneratorHarness.Run(
             new SystemAccessInferenceGenerator(),
             $$"""
-            {{GeneratorHarness.Preamble}}
+              {{GeneratorHarness.Preamble}}
 
-            [InferAccess]
-            public class NeitherOne {
-            }
-            """
+              [InferAccess]
+              public class NeitherOne {
+              }
+              """
         );
 
-        Assert.Single(diagnostics, diagnostic => diagnostic.Id == "VXS0407");
-        Assert.DoesNotContain(diagnostics, diagnostic => diagnostic.Id == "VXS0408");
+        Assert.Single(diagnostics, static diagnostic => diagnostic.Id == "VXS0407");
+        Assert.DoesNotContain(diagnostics, static diagnostic => diagnostic.Id == "VXS0408");
     }
 
     [Theory]
@@ -73,16 +73,16 @@ public sealed class SystemAccessInferenceTests {
         var (diagnostics, sources) = GeneratorHarness.Run(
             new SystemAccessInferenceGenerator(),
             $$"""
-            {{GeneratorHarness.Preamble}}
+              {{GeneratorHarness.Preamble}}
 
-            [InferAccess]
-            {{declaration}}
-            {{Body}}
-            }
-            """
+              [InferAccess]
+              {{declaration}}
+              {{Body}}
+              }
+              """
         );
 
-        Assert.Single(diagnostics, diagnostic => diagnostic.Id == "VXS0408");
+        Assert.Single(diagnostics, static diagnostic => diagnostic.Id == "VXS0408");
         Assert.Empty(sources);
     }
 
@@ -93,18 +93,18 @@ public sealed class SystemAccessInferenceTests {
         var (diagnostics, _) = GeneratorHarness.Run(
             new SystemAccessInferenceGenerator(),
             $$"""
-            {{GeneratorHarness.Preamble}}
+              {{GeneratorHarness.Preamble}}
 
-            public static partial class Outer {
-                [InferAccess]
-                public partial class Inner : SystemBase {
-                {{Body}}
-                }
-            }
-            """
+              public static partial class Outer {
+                  [InferAccess]
+                  public partial class Inner : SystemBase {
+                  {{Body}}
+                  }
+              }
+              """
         );
 
-        Assert.Single(diagnostics, diagnostic => diagnostic.Id == "VXS0408");
+        Assert.Single(diagnostics, static diagnostic => diagnostic.Id == "VXS0408");
     }
 
     /// <summary>The VXS0408 negative: a partial top-level class is not refused.</summary>
@@ -117,24 +117,24 @@ public sealed class SystemAccessInferenceTests {
         var (diagnostics, sources) = GeneratorHarness.Run(
             new SystemAccessInferenceGenerator(),
             $$"""
-            {{GeneratorHarness.Preamble}}
+              {{GeneratorHarness.Preamble}}
 
-            {{Components}}
+              {{Components}}
 
-            [InferAccess]
-            public partial class MoveSystem : SystemBase {
-                public override JobHandle Update(in SystemContext context, JobHandle dependency) {
-                    foreach (var chunk in context.World.Chunks(new QueryDescription().WithAll<Position>())) {
-                        var positions = chunk.Values<Position>();
-                    }
+              [InferAccess]
+              public partial class MoveSystem : SystemBase {
+                  public override JobHandle Update(in SystemContext context, JobHandle dependency) {
+                      foreach (var chunk in context.World.Chunks(new QueryDescription().WithAll<Position>())) {
+                          var positions = chunk.Values<Position>();
+                      }
 
-                    return dependency;
-                }
-            }
-            """
+                      return dependency;
+                  }
+              }
+              """
         );
 
-        Assert.DoesNotContain(diagnostics, diagnostic => diagnostic.Id == "VXS0408");
+        Assert.DoesNotContain(diagnostics, static diagnostic => diagnostic.Id == "VXS0408");
         Assert.NotEmpty(sources);
     }
 
@@ -143,20 +143,20 @@ public sealed class SystemAccessInferenceTests {
         var (diagnostics, sources) = GeneratorHarness.Run(
             new SystemAccessInferenceGenerator(),
             $$"""
-            {{GeneratorHarness.Preamble}}
+              {{GeneratorHarness.Preamble}}
 
-            {{Components}}
+              {{Components}}
 
-            [InferAccess]
-            public partial class MoveSystem : SystemBase, IDeclaredAccess {
-                public SystemAccess Access { get; } = SystemAccess.Declare().Write<Position>().Build();
+              [InferAccess]
+              public partial class MoveSystem : SystemBase, IDeclaredAccess {
+                  public SystemAccess Access { get; } = SystemAccess.Declare().Write<Position>().Build();
 
-            {{Body}}
-            }
-            """
+              {{Body}}
+              }
+              """
         );
 
-        Assert.Single(diagnostics, diagnostic => diagnostic.Id == "VXS0409");
+        Assert.Single(diagnostics, static diagnostic => diagnostic.Id == "VXS0409");
 
         // ⚠ And nothing emitted, which is the point: a second Access property would not compile, and
         // dropping it silently would leave the attribute looking like it did something.
@@ -170,25 +170,25 @@ public sealed class SystemAccessInferenceTests {
         var (diagnostics, sources) = GeneratorHarness.Run(
             new SystemAccessInferenceGenerator(),
             $$"""
-            {{GeneratorHarness.Preamble}}
+              {{GeneratorHarness.Preamble}}
 
-            {{Components}}
+              {{Components}}
 
-            [InferAccess]
-            {{attribute}}
-            public partial class MoveSystem : SystemBase {
-                public override JobHandle Update(in SystemContext context, JobHandle dependency) {
-                    foreach (var chunk in context.World.Chunks(new QueryDescription().WithAll<Position>())) {
-                        var positions = chunk.Values<Position>();
-                    }
+              [InferAccess]
+              {{attribute}}
+              public partial class MoveSystem : SystemBase {
+                  public override JobHandle Update(in SystemContext context, JobHandle dependency) {
+                      foreach (var chunk in context.World.Chunks(new QueryDescription().WithAll<Position>())) {
+                          var positions = chunk.Values<Position>();
+                      }
 
-                    return dependency;
-                }
-            }
-            """
+                      return dependency;
+                  }
+              }
+              """
         );
 
-        Assert.Single(diagnostics, diagnostic => diagnostic.Id == "VXS0410");
+        Assert.Single(diagnostics, static diagnostic => diagnostic.Id == "VXS0410");
         Assert.Empty(sources);
     }
 
@@ -203,25 +203,25 @@ public sealed class SystemAccessInferenceTests {
         var (diagnostics, sources) = GeneratorHarness.Run(
             new SystemAccessInferenceGenerator(),
             $$"""
-            {{GeneratorHarness.Preamble}}
+              {{GeneratorHarness.Preamble}}
 
-            {{Components}}
+              {{Components}}
 
-            [InferAccess]
-            [UpdateInGroup(SystemPhase.FixedUpdate)]
-            public partial class MoveSystem : SystemBase {
-                public override JobHandle Update(in SystemContext context, JobHandle dependency) {
-                    foreach (var chunk in context.World.Chunks(new QueryDescription().WithAll<Position>())) {
-                        var positions = chunk.Values<Position>();
-                    }
+              [InferAccess]
+              [UpdateInGroup(SystemPhase.FixedUpdate)]
+              public partial class MoveSystem : SystemBase {
+                  public override JobHandle Update(in SystemContext context, JobHandle dependency) {
+                      foreach (var chunk in context.World.Chunks(new QueryDescription().WithAll<Position>())) {
+                          var positions = chunk.Values<Position>();
+                      }
 
-                    return dependency;
-                }
-            }
-            """
+                      return dependency;
+                  }
+              }
+              """
         );
 
-        Assert.DoesNotContain(diagnostics, diagnostic => diagnostic.Id == "VXS0410");
+        Assert.DoesNotContain(diagnostics, static diagnostic => diagnostic.Id == "VXS0410");
         Assert.NotEmpty(sources);
     }
 
@@ -230,16 +230,16 @@ public sealed class SystemAccessInferenceTests {
         var (diagnostics, sources) = GeneratorHarness.Run(
             new SystemAccessInferenceGenerator(),
             $$"""
-            {{GeneratorHarness.Preamble}}
+              {{GeneratorHarness.Preamble}}
 
-            [InferAccess]
-            public partial class EmptySystem : SystemBase {
-            {{Body}}
-            }
-            """
+              [InferAccess]
+              public partial class EmptySystem : SystemBase {
+              {{Body}}
+              }
+              """
         );
 
-        Assert.Single(diagnostics, diagnostic => diagnostic.Id == "VXS0411");
+        Assert.Single(diagnostics, static diagnostic => diagnostic.Id == "VXS0411");
 
         // An empty declaration is indistinguishable from an unannotated system — the runner reads
         // both as "conflicts with everything" — so emitting one would be worse than emitting none.
@@ -248,8 +248,12 @@ public sealed class SystemAccessInferenceTests {
 
     /// <summary>The VXS0411 negative: one visible query is enough, and it lands as a read.</summary>
     /// <remarks>
-    ///     ⚠ <b>The widening that matters here is not deleting the rule but widening the
-    ///     collection.</b> Adding <c>QueryDescriptionType when name is "WithNone" =&gt; reads</c> to
+    ///     ⚠
+    ///     <b>
+    ///         The widening that matters here is not deleting the rule but widening the
+    ///         collection.
+    ///     </b>
+    ///     Adding <c>QueryDescriptionType when name is "WithNone" =&gt; reads</c> to
     ///     <c>Collect</c> makes a filter count as access — VXS0411 stops firing on
     ///     <see cref="AFilterOnlySystemIsVXS0411" /> below, which goes red while this one stays
     ///     green. Deleting the whole <c>Chunk</c> arm instead turns this one red. Both reverted.
@@ -259,24 +263,24 @@ public sealed class SystemAccessInferenceTests {
         var (diagnostics, sources) = GeneratorHarness.Run(
             new SystemAccessInferenceGenerator(),
             $$"""
-            {{GeneratorHarness.Preamble}}
+              {{GeneratorHarness.Preamble}}
 
-            {{Components}}
+              {{Components}}
 
-            [InferAccess]
-            public partial class ReadSystem : SystemBase {
-                public override JobHandle Update(in SystemContext context, JobHandle dependency) {
-                    foreach (var chunk in context.World.Chunks(new QueryDescription().WithAll<Position>())) {
-                        var positions = chunk.ReadValues<Position>();
-                    }
+              [InferAccess]
+              public partial class ReadSystem : SystemBase {
+                  public override JobHandle Update(in SystemContext context, JobHandle dependency) {
+                      foreach (var chunk in context.World.Chunks(new QueryDescription().WithAll<Position>())) {
+                          var positions = chunk.ReadValues<Position>();
+                      }
 
-                    return dependency;
-                }
-            }
-            """
+                      return dependency;
+                  }
+              }
+              """
         );
 
-        Assert.DoesNotContain(diagnostics, diagnostic => diagnostic.Id == "VXS0411");
+        Assert.DoesNotContain(diagnostics, static diagnostic => diagnostic.Id == "VXS0411");
 
         var emitted = Assert.Single(sources);
 
@@ -291,22 +295,22 @@ public sealed class SystemAccessInferenceTests {
         var (diagnostics, _) = GeneratorHarness.Run(
             new SystemAccessInferenceGenerator(),
             $$"""
-            {{GeneratorHarness.Preamble}}
+              {{GeneratorHarness.Preamble}}
 
-            {{Components}}
+              {{Components}}
 
-            [InferAccess]
-            public partial class FilterSystem : SystemBase {
-                public override JobHandle Update(in SystemContext context, JobHandle dependency) {
-                    var query = new QueryDescription().WithNone<Frozen>();
+              [InferAccess]
+              public partial class FilterSystem : SystemBase {
+                  public override JobHandle Update(in SystemContext context, JobHandle dependency) {
+                      var query = new QueryDescription().WithNone<Frozen>();
 
-                    return dependency;
-                }
-            }
-            """
+                      return dependency;
+                  }
+              }
+              """
         );
 
-        Assert.Single(diagnostics, diagnostic => diagnostic.Id == "VXS0411");
+        Assert.Single(diagnostics, static diagnostic => diagnostic.Id == "VXS0411");
     }
 
     [Fact]
@@ -315,22 +319,22 @@ public sealed class SystemAccessInferenceTests {
         var (_, sources) = GeneratorHarness.Run(
             new SystemAccessInferenceGenerator(),
             $$"""
-            {{GeneratorHarness.Preamble}}
+              {{GeneratorHarness.Preamble}}
 
-            {{Components}}
+              {{Components}}
 
-            [InferAccess]
-            public partial class MoveSystem : SystemBase {
-                public override JobHandle Update(in SystemContext context, JobHandle dependency) {
-                    foreach (var chunk in context.World.Chunks(new QueryDescription().WithAll<Position, Velocity>())) {
-                        var positions = chunk.Values<Position>();
-                        var velocities = chunk.ReadValues<Velocity>();
-                    }
+              [InferAccess]
+              public partial class MoveSystem : SystemBase {
+                  public override JobHandle Update(in SystemContext context, JobHandle dependency) {
+                      foreach (var chunk in context.World.Chunks(new QueryDescription().WithAll<Position, Velocity>())) {
+                          var positions = chunk.Values<Position>();
+                          var velocities = chunk.ReadValues<Velocity>();
+                      }
 
-                    return dependency;
-                }
-            }
-            """
+                      return dependency;
+                  }
+              }
+              """
         );
 
         var emitted = Assert.Single(sources);
@@ -350,22 +354,22 @@ public sealed class SystemAccessInferenceTests {
         var (_, sources) = GeneratorHarness.Run(
             new SystemAccessInferenceGenerator(),
             $$"""
-            {{GeneratorHarness.Preamble}}
+              {{GeneratorHarness.Preamble}}
 
-            {{Components}}
+              {{Components}}
 
-            [InferAccess]
-            public partial class MoveSystem : SystemBase {
-                public override JobHandle Update(in SystemContext context, JobHandle dependency) {
-                    context.World.Query(
-                        new QueryDescription().WithAll<Position, Velocity>(),
-                        (ref Position position, ref Velocity velocity) => { }
-                    );
+              [InferAccess]
+              public partial class MoveSystem : SystemBase {
+                  public override JobHandle Update(in SystemContext context, JobHandle dependency) {
+                      context.World.Query(
+                          new QueryDescription().WithAll<Position, Velocity>(),
+                          (ref Position position, ref Velocity velocity) => { }
+                      );
 
-                    return dependency;
-                }
-            }
-            """
+                      return dependency;
+                  }
+              }
+              """
         );
 
         var emitted = Assert.Single(sources);
@@ -380,21 +384,21 @@ public sealed class SystemAccessInferenceTests {
         var (_, sources) = GeneratorHarness.Run(
             new SystemAccessInferenceGenerator(),
             $$"""
-            {{GeneratorHarness.Preamble}}
+              {{GeneratorHarness.Preamble}}
 
-            {{Components}}
+              {{Components}}
 
-            [InferAccess]
-            public partial class ReadSystem : SystemBase {
-                public override JobHandle Update(in SystemContext context, JobHandle dependency) {
-                    foreach (var chunk in context.World.Chunks(new QueryDescription().WithAll<Position>())) {
-                        var positions = chunk.ReadValues<Position>();
-                    }
+              [InferAccess]
+              public partial class ReadSystem : SystemBase {
+                  public override JobHandle Update(in SystemContext context, JobHandle dependency) {
+                      foreach (var chunk in context.World.Chunks(new QueryDescription().WithAll<Position>())) {
+                          var positions = chunk.ReadValues<Position>();
+                      }
 
-                    return dependency;
-                }
-            }
-            """
+                      return dependency;
+                  }
+              }
+              """
         );
 
         var emitted = Assert.Single(sources);
@@ -409,34 +413,34 @@ public sealed class SystemAccessInferenceTests {
         // a confidently under-declared IDeclaredAccess, which the runner hands to the job
         // scheduler's safety system — an under-declared system is a data race, not a slow one.
         var source = $$"""
-            {{GeneratorHarness.Preamble}}
+                       {{GeneratorHarness.Preamble}}
 
-            {{Components}}
+                       {{Components}}
 
-            public static class Helper {
-                public static void Sweep(World world) {
-                    foreach (var chunk in world.Chunks(new QueryDescription().WithAll<Velocity>())) {
-                        var velocities = chunk.Values<Velocity>();
-                    }
-                }
-            }
+                       public static class Helper {
+                           public static void Sweep(World world) {
+                               foreach (var chunk in world.Chunks(new QueryDescription().WithAll<Velocity>())) {
+                                   var velocities = chunk.Values<Velocity>();
+                               }
+                           }
+                       }
 
-            [InferAccess]
-            public partial class MoveSystem : SystemBase {
-                public override JobHandle Update(in SystemContext context, JobHandle dependency) {
-                    foreach (var chunk in context.World.Chunks(new QueryDescription().WithAll<Position>())) {
-                        var positions = chunk.Values<Position>();
-                    }
+                       [InferAccess]
+                       public partial class MoveSystem : SystemBase {
+                           public override JobHandle Update(in SystemContext context, JobHandle dependency) {
+                               foreach (var chunk in context.World.Chunks(new QueryDescription().WithAll<Position>())) {
+                                   var positions = chunk.Values<Position>();
+                               }
 
-                    Helper.Sweep(context.World);
+                               Helper.Sweep(context.World);
 
-                    return dependency;
-                }
-            }
-            """;
+                               return dependency;
+                           }
+                       }
+                       """;
 
         var (diagnostics, sources) = GeneratorHarness.Run(new SystemAccessInferenceGenerator(), source);
-        var warning = Assert.Single(diagnostics, diagnostic => diagnostic.Id == "VXS0412");
+        var warning = Assert.Single(diagnostics, static diagnostic => diagnostic.Id == "VXS0412");
 
         Assert.Contains("Sweep", warning.GetMessage());
 
@@ -466,30 +470,30 @@ public sealed class SystemAccessInferenceTests {
         var (diagnostics, _) = GeneratorHarness.Run(
             new SystemAccessInferenceGenerator(),
             $$"""
-            {{GeneratorHarness.Preamble}}
+              {{GeneratorHarness.Preamble}}
 
-            {{Components}}
+              {{Components}}
 
-            public abstract class Sweeping : SystemBase {
-                protected void SweepAll(in SystemContext context) { }
-            }
+              public abstract class Sweeping : SystemBase {
+                  protected void SweepAll(in SystemContext context) { }
+              }
 
-            [InferAccess]
-            public partial class MoveSystem : Sweeping {
-                public override JobHandle Update(in SystemContext context, JobHandle dependency) {
-                    foreach (var chunk in context.World.Chunks(new QueryDescription().WithAll<Position>())) {
-                        var positions = chunk.Values<Position>();
-                    }
+              [InferAccess]
+              public partial class MoveSystem : Sweeping {
+                  public override JobHandle Update(in SystemContext context, JobHandle dependency) {
+                      foreach (var chunk in context.World.Chunks(new QueryDescription().WithAll<Position>())) {
+                          var positions = chunk.Values<Position>();
+                      }
 
-                    SweepAll(context);
+                      SweepAll(context);
 
-                    return dependency;
-                }
-            }
-            """
+                      return dependency;
+                  }
+              }
+              """
         );
 
-        Assert.Single(diagnostics, diagnostic => diagnostic.Id == "VXS0412");
+        Assert.Single(diagnostics, static diagnostic => diagnostic.Id == "VXS0412");
     }
 
     /// <summary>The VXS0412 negative: a private helper on the same class is not a blind spot.</summary>
@@ -507,28 +511,28 @@ public sealed class SystemAccessInferenceTests {
         var (diagnostics, sources) = GeneratorHarness.Run(
             new SystemAccessInferenceGenerator(),
             $$"""
-            {{GeneratorHarness.Preamble}}
+              {{GeneratorHarness.Preamble}}
 
-            {{Components}}
+              {{Components}}
 
-            [InferAccess]
-            public partial class MoveSystem : SystemBase {
-                public override JobHandle Update(in SystemContext context, JobHandle dependency) {
-                    Sweep(context.World);
+              [InferAccess]
+              public partial class MoveSystem : SystemBase {
+                  public override JobHandle Update(in SystemContext context, JobHandle dependency) {
+                      Sweep(context.World);
 
-                    return dependency;
-                }
+                      return dependency;
+                  }
 
-                void Sweep(World world) {
-                    foreach (var chunk in world.Chunks(new QueryDescription().WithAll<Velocity>())) {
-                        var velocities = chunk.Values<Velocity>();
-                    }
-                }
-            }
-            """
+                  void Sweep(World world) {
+                      foreach (var chunk in world.Chunks(new QueryDescription().WithAll<Velocity>())) {
+                          var velocities = chunk.Values<Velocity>();
+                      }
+                  }
+              }
+              """
         );
 
-        Assert.DoesNotContain(diagnostics, diagnostic => diagnostic.Id == "VXS0412");
+        Assert.DoesNotContain(diagnostics, static diagnostic => diagnostic.Id == "VXS0412");
 
         // And the proof that it is not a blind spot: what the helper queries is in the declaration.
         Assert.Contains(".Write<global::Subject.Velocity>()", Assert.Single(sources));
@@ -546,32 +550,32 @@ public sealed class SystemAccessInferenceTests {
         var (diagnostics, _) = GeneratorHarness.Run(
             new SystemAccessInferenceGenerator(),
             $$"""
-            {{GeneratorHarness.Preamble}}
+              {{GeneratorHarness.Preamble}}
 
-            {{Components}}
+              {{Components}}
 
-            public static class Helper {
-                public static float Scale(float value) => value * 2f;
-            }
+              public static class Helper {
+                  public static float Scale(float value) => value * 2f;
+              }
 
-            [InferAccess]
-            public partial class MoveSystem : SystemBase {
-                public override JobHandle Update(in SystemContext context, JobHandle dependency) {
-                    foreach (var chunk in context.World.Chunks(new QueryDescription().WithAll<Position>())) {
-                        var positions = chunk.Values<Position>();
+              [InferAccess]
+              public partial class MoveSystem : SystemBase {
+                  public override JobHandle Update(in SystemContext context, JobHandle dependency) {
+                      foreach (var chunk in context.World.Chunks(new QueryDescription().WithAll<Position>())) {
+                          var positions = chunk.Values<Position>();
 
-                        for (var index = 0; index < chunk.Count; index++) {
-                            positions[index].X = Helper.Scale(positions[index].X);
-                        }
-                    }
+                          for (var index = 0; index < chunk.Count; index++) {
+                              positions[index].X = Helper.Scale(positions[index].X);
+                          }
+                      }
 
-                    return dependency;
-                }
-            }
-            """
+                      return dependency;
+                  }
+              }
+              """
         );
 
-        Assert.DoesNotContain(diagnostics, diagnostic => diagnostic.Id == "VXS0412");
+        Assert.DoesNotContain(diagnostics, static diagnostic => diagnostic.Id == "VXS0412");
     }
 
     [Fact]
@@ -581,27 +585,27 @@ public sealed class SystemAccessInferenceTests {
         var (diagnostics, _) = GeneratorHarness.Run(
             new SystemAccessInferenceGenerator(),
             $$"""
-            {{GeneratorHarness.Preamble}}
+              {{GeneratorHarness.Preamble}}
 
-            {{Components}}
+              {{Components}}
 
-            public static class Helper {
-                public static void Sweep(World world) { }
-            }
+              public static class Helper {
+                  public static void Sweep(World world) { }
+              }
 
-            [InferAccess]
-            public partial class EmptySystem : SystemBase {
-                public override JobHandle Update(in SystemContext context, JobHandle dependency) {
-                    Helper.Sweep(context.World);
+              [InferAccess]
+              public partial class EmptySystem : SystemBase {
+                  public override JobHandle Update(in SystemContext context, JobHandle dependency) {
+                      Helper.Sweep(context.World);
 
-                    return dependency;
-                }
-            }
-            """
+                      return dependency;
+                  }
+              }
+              """
         );
 
-        Assert.Single(diagnostics, diagnostic => diagnostic.Id == "VXS0411");
-        Assert.DoesNotContain(diagnostics, diagnostic => diagnostic.Id == "VXS0412");
+        Assert.Single(diagnostics, static diagnostic => diagnostic.Id == "VXS0411");
+        Assert.DoesNotContain(diagnostics, static diagnostic => diagnostic.Id == "VXS0412");
     }
 
     [Fact]
@@ -612,24 +616,24 @@ public sealed class SystemAccessInferenceTests {
         var diagnostics = GeneratorHarness.CompileWithGeneratedCode(
             new SystemAccessInferenceGenerator(),
             $$"""
-            {{GeneratorHarness.Preamble}}
+              {{GeneratorHarness.Preamble}}
 
-            {{Components}}
+              {{Components}}
 
-            [InferAccess]
-            public partial class MoveSystem : SystemBase {
-                public override JobHandle Update(in SystemContext context, JobHandle dependency) {
-                    foreach (var chunk in context.World.Chunks(new QueryDescription().WithAll<Position, Velocity>())) {
-                        var positions = chunk.Values<Position>();
-                        var velocities = chunk.ReadValues<Velocity>();
-                    }
+              [InferAccess]
+              public partial class MoveSystem : SystemBase {
+                  public override JobHandle Update(in SystemContext context, JobHandle dependency) {
+                      foreach (var chunk in context.World.Chunks(new QueryDescription().WithAll<Position, Velocity>())) {
+                          var positions = chunk.Values<Position>();
+                          var velocities = chunk.ReadValues<Velocity>();
+                      }
 
-                    return dependency;
-                }
-            }
-            """
+                      return dependency;
+                  }
+              }
+              """
         );
 
-        Assert.Empty(diagnostics.Where(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error));
+        Assert.Empty(diagnostics.Where(static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error));
     }
 }

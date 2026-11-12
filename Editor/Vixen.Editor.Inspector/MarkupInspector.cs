@@ -17,8 +17,12 @@ namespace Vixen.Editor.Inspector;
 ///         <c>dotnet watch</c> has replaced the <c>Build</c> body the markup compiled to.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Mounted through the reload host rather than built directly, and that is the whole
-///         difference between "markup works" and "markup is the authoring path".</b> A declarative
+///         ⚠
+///         <b>
+///             Mounted through the reload host rather than built directly, and that is the whole
+///             difference between "markup works" and "markup is the authoring path".
+///         </b>
+///         A declarative
 ///         layout you have to restart the editor to see is a slower way to write C#. What makes it
 ///         worth adopting is the loop: change the file, the panel is different a second later.
 ///     </para>
@@ -78,7 +82,7 @@ public static class MarkupInspector {
                 return;
             }
 
-            Watched.Add(host, new object());
+            Watched.Add(host, new());
         }
 
         // ⚠ The handler captures the host it is stored on, which is a cycle rather than a leak: the

@@ -12,8 +12,11 @@ namespace Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b><a href="https://github.com/Rikarin/Vixen/issues/1011">#1011</a>, and the reason it
-///         needed a sweep rather than three more lines.</b>
+///         ⚠
+///         <b>
+///             <a href="https://github.com/Rikarin/Vixen/issues/1011">#1011</a>, and the reason it
+///             needed a sweep rather than three more lines.
+///         </b>
 ///         <a href="https://github.com/Rikarin/Vixen/issues/678">#678</a> built the walk that reports
 ///         a plan whose resolved length is past a kernel's own loop bound, and built its table on
 ///         <c>TextureFilters</c> — where it covered the Filters family and nothing else. Three
@@ -61,8 +64,12 @@ public class TextureCeilingTests {
 
     /// <summary>Every parameter some kernel clamps against a constant of its own, with that constant.</summary>
     /// <remarks>
-    ///     ⚠ <b>Comment lines are dropped before the sweep, and that is load-bearing rather than
-    ///     tidy.</b> Every one of these kernels explains its ceiling in prose directly above it —
+    ///     ⚠
+    ///     <b>
+    ///         Comment lines are dropped before the sweep, and that is load-bearing rather than
+    ///         tidy.
+    ///     </b>
+    ///     Every one of these kernels explains its ceiling in prose directly above it —
     ///     <c>Sharpen.rvn</c>'s header quotes its own <c>clamp</c> — so a sweep over the raw text
     ///     would find pairs that no code performs and would then demand table entries for them. The
     ///     failure would be a demand to write down a ceiling that does not exist, which is a worse
@@ -74,12 +81,15 @@ public class TextureCeilingTests {
                 '\n',
                 TextureKernels.Source(kernel)
                     .Split('\n')
-                    .Where(line => !line.TrimStart().StartsWith("//", StringComparison.Ordinal))
+                    .Where(static line => !line.TrimStart().StartsWith("//", StringComparison.Ordinal))
             );
 
-            var parameters = Parameter.Matches(source).Select(match => match.Groups[1].Value).ToArray();
+            var parameters = Parameter.Matches(source).Select(static match => match.Groups[1].Value).ToArray();
             var constants = Constant.Matches(source)
-                .ToDictionary(match => match.Groups[1].Value, match => int.Parse(match.Groups[2].Value, null));
+                .ToDictionary(
+                    static match => match.Groups[1].Value,
+                    static match => int.Parse(match.Groups[2].Value, null)
+                );
 
             foreach (Match clamp in Clamp.Matches(source)) {
                 var arguments = clamp.Groups[1].Value;
@@ -121,7 +131,7 @@ public class TextureCeilingTests {
     /// </remarks>
     [Fact]
     public void Every_clamped_texels_at_base_parameter_has_a_ceiling() {
-        var clipped = Clipped().Select(entry => entry.Key).Distinct().Order().ToArray();
+        var clipped = Clipped().Select(static entry => entry.Key).Distinct().Order().ToArray();
 
         Assert.NotEmpty(clipped);
 
@@ -176,9 +186,9 @@ public class TextureCeilingTests {
     /// </remarks>
     [Fact]
     public void A_curvature_radius_that_fits_at_one_bake_is_reported_at_four_times_it() {
-        Assert.Empty(TextureKernelCeilings.Verify(Plan(0, TextureSurfaces.Curvature(1, 0, radius: 100f))));
+        Assert.Empty(TextureKernelCeilings.Verify(Plan(0, TextureSurfaces.Curvature(1, 0, 100f))));
 
-        var problems = TextureKernelCeilings.Verify(Plan(-2, TextureSurfaces.Curvature(1, 0, radius: 100f)));
+        var problems = TextureKernelCeilings.Verify(Plan(-2, TextureSurfaces.Curvature(1, 0, 100f)));
 
         var line = Assert.Single(problems);
 
@@ -199,14 +209,14 @@ public class TextureCeilingTests {
         var plan = Plan(
             -2,
             TextureSurfaces.HeightToNormal(1, 0, width: 100f),
-            TextureAnalysis.EdgeDetect(2, 1, width: 100f)
+            TextureAnalysis.EdgeDetect(2, 1, 100f)
         );
 
         var problems = TextureKernelCeilings.Verify(plan);
 
         Assert.Equal(2, problems.Length);
-        Assert.Contains(problems, line => line.Contains("HeightToNormal", StringComparison.Ordinal));
-        Assert.Contains(problems, line => line.Contains("EdgeDetect", StringComparison.Ordinal));
+        Assert.Contains(problems, static line => line.Contains("HeightToNormal", StringComparison.Ordinal));
+        Assert.Contains(problems, static line => line.Contains("EdgeDetect", StringComparison.Ordinal));
     }
 
     /// <summary>The name the plan and the filter suites still call, answering out of the one table.</summary>
@@ -218,7 +228,7 @@ public class TextureCeilingTests {
     /// </remarks>
     [Fact]
     public void The_filters_entry_point_answers_out_of_the_one_table() {
-        var plan = Plan(-2, TextureSurfaces.Curvature(1, 0, radius: 100f));
+        var plan = Plan(-2, TextureSurfaces.Curvature(1, 0, 100f));
 
         Assert.Equal(TextureKernelCeilings.Verify(plan), TextureFilters.Verify(plan));
         Assert.NotEmpty(TextureFilters.Verify(plan));
@@ -234,7 +244,7 @@ public class TextureCeilingTests {
                 new(TextureFormat.Rgba16Float),
                 new(TextureFormat.Rgba16Float)
             ],
-            Ops = [.. ops],
+            Ops = [..ops],
             Outputs = [1]
         };
 }

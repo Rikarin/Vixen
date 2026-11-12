@@ -11,8 +11,12 @@ namespace Vixen.Ui.Controls.Tests;
 /// <summary><c>mask-image</c>, from the stylesheet to the pixels.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>These are the tests <c>UiCompositingTests</c> cannot be, and the argument is
-///         <c>FilterColourTests</c>' one word for word.</b> That file's job is that the device and the
+///         ⚠
+///         <b>
+///             These are the tests <c>UiCompositingTests</c> cannot be, and the argument is
+///             <c>FilterColourTests</c>' one word for word.
+///         </b>
+///         That file's job is that the device and the
 ///         software renderer draw the same frame, and both of them take the mask from the <i>same</i>
 ///         builder — so a <c>to right</c> that came out as a <c>to left</c> would be identically wrong
 ///         on both paths and the comparison would pass. What a mask <i>is</i> has to be asserted here,
@@ -26,8 +30,12 @@ namespace Vixen.Ui.Controls.Tests;
 ///         the thing to fix either, because the draw list is where the gate stops.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The relations are chosen to fail for the <i>neighbouring</i> case and not only for no
-///         mask at all.</b> A test that asserted "the pixel changed" would pass with every direction
+///         ⚠
+///         <b>
+///             The relations are chosen to fail for the <i>neighbouring</i> case and not only for no
+///             mask at all.
+///         </b>
+///         A test that asserted "the pixel changed" would pass with every direction
 ///         wired to every keyword. So <c>to right</c> must keep the left and lose the right,
 ///         <c>to left</c> must do the opposite on the same fixture, <c>to bottom</c> must move the ramp
 ///         onto the other axis, a stop must move the edge to where it was written, a hard pair of
@@ -35,8 +43,12 @@ namespace Vixen.Ui.Controls.Tests;
 ///         outwards where a linear one fades sideways.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Every square here is drawn on black, which is what makes the premultiply assertion
-///         possible at all.</b> A layer surface holds premultiplied colour, so a mask has to scale all
+///         ⚠
+///         <b>
+///             Every square here is drawn on black, which is what makes the premultiply assertion
+///             possible at all.
+///         </b>
+///         A layer surface holds premultiplied colour, so a mask has to scale all
 ///         four channels. An implementation that scaled the alpha alone — the straight-alpha
 ///         convention, and the one mistake this feature was most likely to make — composites
 ///         `rgb + dst·(1−a·m)` over black and lands on the *unmasked* colour at full strength, at
@@ -59,10 +71,10 @@ public class MaskGradientTests {
 
         ui.Load(
             $$"""
-            root { width: 40px; height: 40px; background-color: #000000; }
-            .box { position: absolute; left: 10px; top: 10px; width: 20px; height: 20px;
-                   background-color: #3366cc; {{mask}} {{extra}} }
-            """
+              root { width: 40px; height: 40px; background-color: #000000; }
+              .box { position: absolute; left: 10px; top: 10px; width: 20px; height: 20px;
+                     background-color: #3366cc; {{mask}} {{extra}} }
+              """
         );
 
         ui.Create("div", null, "box", "box");
@@ -93,7 +105,7 @@ public class MaskGradientTests {
     ///     colour moves the expectations with it.
     /// </remarks>
     static int Unmasked() {
-        using var bare = Square("");
+        using var bare = Square(string.Empty);
 
         return Blue(bare, 20, 20);
     }
@@ -101,8 +113,12 @@ public class MaskGradientTests {
     /// <summary>An <c>at &lt;position&gt;</c> moves a mask layer's centre, and its reach with it.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The comparison is between the two corners of the square, because "the centre is
-    ///         ignored" produces a perfectly good radial mask.</b> A centred radial fades outwards
+    ///         ⚠
+    ///         <b>
+    ///             The comparison is between the two corners of the square, because "the centre is
+    ///             ignored" produces a perfectly good radial mask.
+    ///         </b>
+    ///         A centred radial fades outwards
     ///         symmetrically, so both corners read the same; only an honoured centre makes the near
     ///         corner opaque and the far one faded. An assertion phrased as "the top left is bright"
     ///         passes against the unmoved mask on a fixture where the ramp happens to be shallow.
@@ -146,8 +162,12 @@ public class MaskGradientTests {
     ///         property would leave the square untouched.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b><c>match-source</c> is asserted to be the <i>alpha</i> reading and not a third
-    ///         one.</b> CSS resolves it to luminance only for an SVG <c>&lt;mask&gt;</c> element,
+    ///         ⚠
+    ///         <b>
+    ///             <c>match-source</c> is asserted to be the <i>alpha</i> reading and not a third
+    ///             one.
+    ///         </b>
+    ///         CSS resolves it to luminance only for an SVG <c>&lt;mask&gt;</c> element,
     ///         which is not a thing this engine has — so a reading that treated it as luminance would
     ///         make <c>mask-match</c> quietly mean the opposite of what it means in a browser.
     ///     </para>
@@ -179,16 +199,24 @@ public class MaskGradientTests {
     /// <summary>A mask tile repeats across the box unless <c>mask-repeat</c> says otherwise.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The repeating and the clipping case are one test, because either alone is
-    ///         satisfied by an implementation that is wrong in the other direction.</b> A reader that
+    ///         ⚠
+    ///         <b>
+    ///             The repeating and the clipping case are one test, because either alone is
+    ///             satisfied by an implementation that is wrong in the other direction.
+    ///         </b>
+    ///         A reader that
     ///         ignored <c>mask-size</c> draws one ramp across the whole square, which passes any
     ///         assertion phrased as "the left side fades"; a reader that clipped every layer passes
     ///         the <c>no-repeat</c> half while breaking every mask in the interface. What separates
     ///         them is comparing two points one whole period apart.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Outside a <c>no-repeat</c> tile the coverage is <i>zero</i> and not the ramp's end
-    ///         value.</b> CSS paints nothing where the layer is not, and a mask layer that is not
+    ///         ⚠
+    ///         <b>
+    ///             Outside a <c>no-repeat</c> tile the coverage is <i>zero</i> and not the ramp's end
+    ///             value.
+    ///         </b>
+    ///         CSS paints nothing where the layer is not, and a mask layer that is not
     ///         painted is transparent — so the square disappears there rather than keeping whatever
     ///         the last stop was. Clamping is what a shader gets for free by doing nothing, and on
     ///         this fixture it leaves the square fully visible, which is the reading this asserts
@@ -249,8 +277,12 @@ public class MaskGradientTests {
 
     /// <summary>The columns of the square, and the two facts about them that the readings depend on.</summary>
     /// <remarks>
-    ///     ⚠ <b>The square spans <i>x</i> 10 to 30, so its pixels are columns 10 to 29 and its centre
-    ///     is 20.0 — which means column 11 mirrors column 28 and <i>not</i> column 29.</b> A pair
+    ///     ⚠
+    ///     <b>
+    ///         The square spans <i>x</i> 10 to 30, so its pixels are columns 10 to 29 and its centre
+    ///         is 20.0 — which means column 11 mirrors column 28 and <i>not</i> column 29.
+    ///     </b>
+    ///     A pair
     ///     picked as "one in from each end" is off by half a pixel each way, and on a ramp across
     ///     twenty pixels that is a five percent difference: enough to fail an exact-mirror assertion
     ///     while the mask is perfectly correct. This tripped the first draft of this file.
@@ -262,8 +294,12 @@ public class MaskGradientTests {
 
     /// <summary>A mask opens a group where an opacity of one would not.</summary>
     /// <remarks>
-    ///     ⚠ <b>The same step <c>FilterColourTests</c> checks for the matrix, and it is not optional
-    ///     for the same reason.</b> CSS masks the group's <i>rendered result</i>, so a mask pushed down
+    ///     ⚠
+    ///     <b>
+    ///         The same step <c>FilterColourTests</c> checks for the matrix, and it is not optional
+    ///         for the same reason.
+    ///     </b>
+    ///     CSS masks the group's <i>rendered result</i>, so a mask pushed down
     ///     onto each command's alpha would be right on a bare panel and wrong the moment two of the
     ///     group's children overlap with partial coverage. The group has to be opened by the mask
     ///     alone, on an element that is fully opaque and would never otherwise have had one.
@@ -290,7 +326,10 @@ public class MaskGradientTests {
     [Fact]
     public void A_mask_does_not_move_the_bounds_the_way_a_blur_does() {
         using var masked = Square("mask-image: linear-gradient(to right, #000000, transparent);");
-        using var blurred = Square("mask-image: linear-gradient(to right, #000000, transparent);", "filter: blur(4px);");
+        using var blurred = Square(
+            "mask-image: linear-gradient(to right, #000000, transparent);",
+            "filter: blur(4px);"
+        );
 
         var plain = Assert.Single(masked.Geometry.Layers);
         var gaussian = Assert.Single(blurred.Geometry.Layers);
@@ -298,7 +337,7 @@ public class MaskGradientTests {
         // ⚠ A pixel out on each side, which is the box quad's own antialiasing margin and not the
         // mask's — see `UiGeometryBuilder.BoxMargin`. What is being asserted is that the mask adds
         // nothing further, and the blur below is what makes that falsifiable.
-        Assert.Equal(new Rectangle(9f, 9f, 22f, 22f), plain.Bounds);
+        Assert.Equal(new(9f, 9f, 22f, 22f), plain.Bounds);
         Assert.True(
             gaussian.Bounds.Width > plain.Bounds.Width,
             $"a blur beside the mask must still outset: {gaussian.Bounds} against {plain.Bounds}"
@@ -307,8 +346,12 @@ public class MaskGradientTests {
 
     /// <summary>The mask box is the element's border box and does not move when a blur is added.</summary>
     /// <remarks>
-    ///     ⚠ <b>The trap this exists for is reading <see cref="UiLayer.Bounds" /> for the mask's
-    ///     box.</b> Those bounds are the ink and a blur has already outset them, so a mask resolved
+    ///     ⚠
+    ///     <b>
+    ///         The trap this exists for is reading <see cref="UiLayer.Bounds" /> for the mask's
+    ///         box.
+    ///     </b>
+    ///     Those bounds are the ink and a blur has already outset them, so a mask resolved
     ///     against them would run its ramp across a wider rectangle the moment a blur appeared beside
     ///     it — the gradient would slide sideways, which reads as the blur being mis-centred rather
     ///     than as the mask being wrong.
@@ -316,7 +359,10 @@ public class MaskGradientTests {
     [Fact]
     public void The_mask_box_is_the_border_box_and_a_blur_beside_it_does_not_move_it() {
         using var plain = Square("mask-image: linear-gradient(to right, #000000, transparent);");
-        using var blurred = Square("mask-image: linear-gradient(to right, #000000, transparent);", "filter: blur(4px);");
+        using var blurred = Square(
+            "mask-image: linear-gradient(to right, #000000, transparent);",
+            "filter: blur(4px);"
+        );
 
         var one = Only(plain);
         var two = Only(blurred);
@@ -328,8 +374,12 @@ public class MaskGradientTests {
     /// <summary>The declaration a <c>mask-t-from-*</c> generates fades the element out at the top.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Two levels of <c>var()</c> and six layers, which is what the whole edge-ramp
-    ///         arrangement rests on and what no other test here exercises.</b> The
+    ///         ⚠
+    ///         <b>
+    ///             Two levels of <c>var()</c> and six layers, which is what the whole edge-ramp
+    ///             arrangement rests on and what no other test here exercises.
+    ///         </b>
+    ///         The
     ///         <c>mask-image</c> names three shape layers; the linear one resolves to four edge
     ///         layers; each of those resolves to a gradient assembled from four stop fragments.
     ///         <c>UtilityFamilyTests</c> proves the class emits this text and the ledger proves the
@@ -351,10 +401,24 @@ public class MaskGradientTests {
             + "--tw-mask-top: linear-gradient(to top, "
             + "var(--tw-mask-top-from, black) var(--tw-mask-top-from-position, 0%), "
             + "var(--tw-mask-top-to, transparent) var(--tw-mask-top-to-position, 100%)); "
-            + "--tw-mask-linear: var(--tw-mask-top, " + Opaque + "), var(--tw-mask-right, " + Opaque + "), "
-            + "var(--tw-mask-bottom, " + Opaque + "), var(--tw-mask-left, " + Opaque + "); "
-            + "mask-image: var(--tw-mask-linear, " + Opaque + "), var(--tw-mask-radial, " + Opaque + "), "
-            + "var(--tw-mask-conic, " + Opaque + "); "
+            + "--tw-mask-linear: var(--tw-mask-top, "
+            + Opaque
+            + "), var(--tw-mask-right, "
+            + Opaque
+            + "), "
+            + "var(--tw-mask-bottom, "
+            + Opaque
+            + "), var(--tw-mask-left, "
+            + Opaque
+            + "); "
+            + "mask-image: var(--tw-mask-linear, "
+            + Opaque
+            + "), var(--tw-mask-radial, "
+            + Opaque
+            + "), "
+            + "var(--tw-mask-conic, "
+            + Opaque
+            + "); "
             + "mask-composite: intersect;";
 
         using var ui = Square(Generated);
@@ -384,8 +448,12 @@ public class MaskGradientTests {
 
     /// <summary>Two gradients in one <c>mask-image</c> are two entries, in the order written.</summary>
     /// <remarks>
-    ///     ⚠ <b>Topmost first, exactly as written, because that is CSS's order for every
-    ///     comma-separated <c>mask-*</c> and for <c>background-image</c> before it.</b> The fold that
+    ///     ⚠
+    ///     <b>
+    ///         Topmost first, exactly as written, because that is CSS's order for every
+    ///         comma-separated <c>mask-*</c> and for <c>background-image</c> before it.
+    ///     </b>
+    ///     The fold that
     ///     turns the range into one coverage runs the other way — see <c>UiMask.Coverage</c> — and
     ///     reversing the entries here instead would put the reversal somewhere the two executors could
     ///     disagree about.
@@ -405,8 +473,12 @@ public class MaskGradientTests {
 
     /// <summary>An absent <c>mask-composite</c> is <c>add</c>, which is CSS's initial value.</summary>
     /// <remarks>
-    ///     ⚠ <b>The default is the part of this feature most likely to be wrong, because the two
-    ///     plausible answers both look reasonable.</b> Tailwind writes <c>intersect</c> on every mask
+    ///     ⚠
+    ///     <b>
+    ///         The default is the part of this feature most likely to be wrong, because the two
+    ///         plausible answers both look reasonable.
+    ///     </b>
+    ///     Tailwind writes <c>intersect</c> on every mask
     ///     utility it emits, so a reader who learned the property from generated CSS would call that
     ///     the default; CSS Masking 1 § 5.4 says <c>add</c>. The difference is visible on any list
     ///     whose layers disagree: <c>add</c> unions them, so a pixel either ramp covers is covered.
@@ -475,8 +547,12 @@ public class MaskGradientTests {
 
     /// <summary><c>subtract</c> is the one operator that is not symmetric, so the order is asserted.</summary>
     /// <remarks>
-    ///     ⚠ <b>Three of the four operators commute and this one does not, which makes it the only
-    ///     thing that can pin the fold's direction.</b> <c>s(1 - b)</c> is not <c>b(1 - s)</c>, so a
+    ///     ⚠
+    ///     <b>
+    ///         Three of the four operators commute and this one does not, which makes it the only
+    ///         thing that can pin the fold's direction.
+    ///     </b>
+    ///     <c>s(1 - b)</c> is not <c>b(1 - s)</c>, so a
     ///     fold that walked the list top-down would produce a picture that is bright where this one is
     ///     dark. The two ramps here run in opposite directions so that the asymmetry lands on the two
     ///     ends rather than cancelling in the middle.
@@ -537,9 +613,7 @@ public class MaskGradientTests {
     /// </remarks>
     [Fact]
     public void One_unreadable_layer_leaves_the_element_unmasked() {
-        using var ui = Square(
-            "mask-image: linear-gradient(to right, #000000, transparent), url(nothing.png);"
-        );
+        using var ui = Square("mask-image: linear-gradient(to right, #000000, transparent), url(nothing.png);");
 
         Assert.Empty(ui.Geometry.Layers);
         Assert.Equal(Unmasked(), Blue(ui, 20, 20));
@@ -576,8 +650,12 @@ public class MaskGradientTests {
 
     /// <summary>A mask the engine cannot paint masks nothing rather than everything.</summary>
     /// <remarks>
-    ///     ⚠ <b>Failing open, and it is the opposite of what <c>background-image</c> does with the
-    ///     same refusal.</b> An unpaintable background is left out and the element keeps its colour; an
+    ///     ⚠
+    ///     <b>
+    ///         Failing open, and it is the opposite of what <c>background-image</c> does with the
+    ///         same refusal.
+    ///     </b>
+    ///     An unpaintable background is left out and the element keeps its colour; an
     ///     unresolvable mask left to fail closed would erase the element, and a blank rectangle is
     ///     indistinguishable from a layout collapse. Masking 1 § 4.1 agrees.
     /// </remarks>
@@ -587,7 +665,7 @@ public class MaskGradientTests {
     [InlineData("repeating-linear-gradient(to right, #000000, transparent)")]
     public void A_mask_the_engine_cannot_paint_leaves_the_element_alone(string image) {
         using var refused = Square($"mask-image: {image};");
-        using var bare = Square("");
+        using var bare = Square(string.Empty);
 
         Assert.Empty(refused.Geometry.Layers);
         Assert.Equal(Blue(bare, 20, 20), Blue(refused, 20, 20));
@@ -595,8 +673,12 @@ public class MaskGradientTests {
 
     /// <summary>A rightward ramp keeps the left of the square and loses the right.</summary>
     /// <remarks>
-    ///     ⚠ <b>Both ends asserted and the middle between them, because each catches a different
-    ///     wrong answer.</b> Only checking that the right end faded would pass for a mask that faded
+    ///     ⚠
+    ///     <b>
+    ///         Both ends asserted and the middle between them, because each catches a different
+    ///         wrong answer.
+    ///     </b>
+    ///     Only checking that the right end faded would pass for a mask that faded
     ///     everything; only checking the left would pass for no mask at all; and a monotone middle is
     ///     what separates a ramp from a step. The columns are 11 and 29 rather than 10 and 30 — one
     ///     pixel inside the square, so the square's own antialiased border is not what is being
@@ -721,7 +803,7 @@ public class MaskGradientTests {
     /// </remarks>
     [Fact]
     public void A_mask_dims_the_colour_and_not_only_the_coverage() {
-        using var unmasked = Square("");
+        using var unmasked = Square(string.Empty);
         using var masked = Square("mask-image: linear-gradient(to right, #000000, transparent);");
 
         var full = Blue(unmasked, 20, 20);
@@ -732,7 +814,7 @@ public class MaskGradientTests {
         // Roughly half of it, and emphatically not all of it. The bound that matters is the upper
         // one: an alpha-only mask returns `full` exactly.
         Assert.True(half < full - 40, $"a mask at half coverage must dim the colour: {half} against {full}");
-        Assert.InRange(half, (full / 2) - 20, (full / 2) + 20);
+        Assert.InRange(half, full / 2 - 20, full / 2 + 20);
     }
 
     /// <summary>A round mask fades outwards where a linear one fades sideways.</summary>
@@ -759,8 +841,12 @@ public class MaskGradientTests {
 
     /// <summary>A conic mask sweeps around the centre.</summary>
     /// <remarks>
-    ///     ⚠ <b>Two points at the same radius and different angles, which is what separates a sweep
-    ///     from a ring.</b> A conic mask evaluated as a radial one would give these two the same
+    ///     ⚠
+    ///     <b>
+    ///         Two points at the same radius and different angles, which is what separates a sweep
+    ///         from a ring.
+    ///     </b>
+    ///     A conic mask evaluated as a radial one would give these two the same
     ///     answer — and the radial test one method up would still pass, so the pair is what pins
     ///     which is which.
     /// </remarks>
@@ -808,9 +894,13 @@ public class MaskGradientTests {
     /// <summary>The declaration the <c>mask-*</c> utilities generate reaches the pixels.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The assembled text, <c>var()</c> fallbacks and all, rather than the tidy CSS the
-    ///         rest of this file writes — and it is a different claim from either of the two tests
-    ///         that surround it.</b> <c>UtilityFamilyTests</c> proves <c>mask-linear-from-50%</c>
+    ///         ⚠
+    ///         <b>
+    ///             The assembled text, <c>var()</c> fallbacks and all, rather than the tidy CSS the
+    ///             rest of this file writes — and it is a different claim from either of the two tests
+    ///             that surround it.
+    ///         </b>
+    ///         <c>UtilityFamilyTests</c> proves <c>mask-linear-from-50%</c>
     ///         emits this string; the consumption gate proves the string moves the draw list. Neither
     ///         proves it produces the <i>right</i> ramp, because a mask whose stops came out swapped
     ///         opens exactly the same group and emits exactly the same text.
@@ -865,8 +955,12 @@ public class MaskGradientTests {
     ///         along its ramp as the horizontal one.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The generated text and not tidy CSS, which is the whole point of this test's
-    ///         existing sibling and one step further.</b> <c>UtilityFamilyTests</c> pins what
+    ///         ⚠
+    ///         <b>
+    ///             The generated text and not tidy CSS, which is the whole point of this test's
+    ///             existing sibling and one step further.
+    ///         </b>
+    ///         <c>UtilityFamilyTests</c> pins what
     ///         <c>mask-circle</c> emits, and the shape only reaches the reader through a
     ///         <c>var(--tw-mask-radial-shape, ellipse)</c> the cascade has to substitute inside an
     ///         already-assembled <c>radial-gradient</c> prelude. A fragment that failed to
@@ -927,6 +1021,6 @@ public class MaskGradientTests {
         using var ui = Square("mask-image: linear-gradient(to right, #000000, transparent);");
 
         Assert.Single(ui.Geometry.Layers);
-        Assert.Contains(ui.Document.Drawing.Commands, command => command.Kind == DrawCommandKind.LayerPush);
+        Assert.Contains(ui.Document.Drawing.Commands, static command => command.Kind == DrawCommandKind.LayerPush);
     }
 }

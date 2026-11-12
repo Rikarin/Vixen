@@ -171,9 +171,7 @@ public sealed class YamlDialectTests {
     public void TheRootIsAlwaysABlockHoweverSmallItIs() =>
         Assert.Equal(
             "guid: abc\n",
-            YamlWriter.Write(
-                new YamlMapping { Style = YamlCollectionStyle.Flow }.Set("guid", new YamlScalar("abc"))
-            )
+            YamlWriter.Write(new YamlMapping { Style = YamlCollectionStyle.Flow }.Set("guid", new YamlScalar("abc")))
         );
 
     /// <summary>
@@ -186,9 +184,7 @@ public sealed class YamlDialectTests {
     public void APlainStyleThatWouldBreakTheDocumentIsQuotedAnyway() =>
         Assert.Equal(
             "key: 'red # not a comment'\n",
-            YamlWriter.Write(
-                new YamlMapping().Set("key", new YamlScalar("red # not a comment", YamlScalarStyle.Plain))
-            )
+            YamlWriter.Write(new YamlMapping().Set("key", new YamlScalar("red # not a comment", YamlScalarStyle.Plain)))
         );
 
     [Fact]
@@ -204,8 +200,8 @@ public sealed class YamlDialectTests {
     /// </summary>
     [Fact]
     public void AnAliasIsRefusedRatherThanQuietlyExpanded() {
-        var failure = Assert.Throws<YamlParseException>(
-            () => YamlReader.Read("base: &anchor\n  a: 1\nderived: *anchor\n")
+        var failure = Assert.Throws<YamlParseException>(static () =>
+            YamlReader.Read("base: &anchor\n  a: 1\nderived: *anchor\n")
         );
 
         Assert.Contains("vx:", failure.Message, StringComparison.Ordinal);
@@ -213,7 +209,7 @@ public sealed class YamlDialectTests {
 
     [Fact]
     public void AComplexKeyIsRefusedRatherThanFlattened() {
-        var failure = Assert.Throws<YamlParseException>(() => YamlReader.Read("? [a, b]\n: value\n"));
+        var failure = Assert.Throws<YamlParseException>(static () => YamlReader.Read("? [a, b]\n: value\n"));
 
         Assert.Contains("Complex keys", failure.Message, StringComparison.Ordinal);
     }
@@ -228,7 +224,7 @@ public sealed class YamlDialectTests {
     /// </summary>
     [Fact]
     public void AnEmptyKeyIsAParseErrorRatherThanAnArgumentException() {
-        var failure = Assert.Throws<YamlParseException>(() => YamlReader.Read(":"));
+        var failure = Assert.Throws<YamlParseException>(static () => YamlReader.Read(":"));
 
         Assert.Contains("must have a name", failure.Message, StringComparison.Ordinal);
     }
@@ -276,7 +272,7 @@ public sealed class YamlDialectTests {
     [Theory]
     // The escape is what a UTF-8 decode makes of the stray byte the fuzzer actually found.
     [InlineData("# rwr1\uFFFD")]
-    [InlineData("a: \"unterminated")]
+    [InlineData("""a: "unterminated""")]
     [InlineData("guid: 0123\nimporter: !T\n  v: [1, 2")]
     public void AMalformedDocumentIsAParseErrorWhateverTheLibraryThrew(string text) =>
         Assert.Throws<YamlParseException>(() => YamlReader.Read(text));
@@ -365,7 +361,11 @@ public sealed class YamlDialectTests {
         replacement.LeadingComments.Add("minted by the duplicate repair");
         root.Set("guid", replacement);
 
-        Assert.Contains("# minted by the duplicate repair\nguid: ghi", YamlWriter.Write(root), StringComparison.Ordinal);
+        Assert.Contains(
+            "# minted by the duplicate repair\nguid: ghi",
+            YamlWriter.Write(root),
+            StringComparison.Ordinal
+        );
         Assert.DoesNotContain("assigned once", YamlWriter.Write(root), StringComparison.Ordinal);
     }
 
@@ -377,13 +377,15 @@ public sealed class YamlDialectTests {
     /// </summary>
     [Fact]
     public void WriteThenReadThenWriteIsAFixedPointForAnyDocument() =>
-        Gen.Select(GenNode(3), Gen.Const(0)).Sample(pair => {
-                var once = YamlWriter.Write(pair.Item1);
-                var twice = YamlWriter.Write(YamlReader.Read(once));
-                Assert.Equal(once, twice);
-            },
-            iter: 2_000
-        );
+        Gen.Select(GenNode(3), Gen.Const(0))
+            .Sample(
+                static pair => {
+                    var once = YamlWriter.Write(pair.Item1);
+                    var twice = YamlWriter.Write(YamlReader.Read(once));
+                    Assert.Equal(once, twice);
+                },
+                iter: 2_000
+            );
 
     static Gen<YamlNode> GenNode(int depth) =>
         depth == 0
@@ -396,7 +398,7 @@ public sealed class YamlDialectTests {
 
     static Gen<YamlNode> GenScalar() =>
         Gen.Select(GenText(), Gen.Int[0, 3])
-            .Select(pair => (YamlNode)new YamlScalar(
+            .Select(static pair => (YamlNode)new YamlScalar(
                     pair.Item1,
                     pair.Item2 switch {
                         0 => YamlScalarStyle.Any,
@@ -427,8 +429,8 @@ public sealed class YamlDialectTests {
             "width: 2048",
             "red # not a comment",
             "it's fine",
-            "back\\slash",
-            "quote\"inside",
+            """back\slash""",
+            """quote"inside""",
             "  padded  ",
             string.Empty,
             "[bracketed]",
@@ -438,7 +440,8 @@ public sealed class YamlDialectTests {
 
     static Gen<YamlNode> GenMapping(int depth) =>
         Gen.Select(GenKey().List[0, 4], Gen.Int[0, 2])
-            .SelectMany(pair => GenNode(depth - 1).List[pair.Item1.Count, pair.Item1.Count]
+            .SelectMany(pair => GenNode(depth - 1)
+                .List[pair.Item1.Count, pair.Item1.Count]
                 .Select(values => {
                         var mapping = new YamlMapping { Style = StyleOf(pair.Item2) };
 

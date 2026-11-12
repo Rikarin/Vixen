@@ -20,12 +20,12 @@ public class ShadowListTransitionTests {
     static UiElement Settled(UiDocument document, string rest, string on) {
         document.Load(
             $$"""
-            root { width: 200px; height: 100px; }
-            #box { width: 40px; height: 20px; background-color: #ffffff;
-                   transition-property: box-shadow; transition-duration: 1s;
-                   transition-timing-function: linear; {{rest}} }
-            #box.on { {{on}} }
-            """
+              root { width: 200px; height: 100px; }
+              #box { width: 40px; height: 20px; background-color: #ffffff;
+                     transition-property: box-shadow; transition-duration: 1s;
+                     transition-timing-function: linear; {{rest}} }
+              #box.on { {{on}} }
+              """
         );
 
         var box = document.Create("div", document.Root, "box");
@@ -50,7 +50,10 @@ public class ShadowListTransitionTests {
     ///     the draw side splits it, so the test reads exactly what a frame paints.
     /// </summary>
     static StyleValue[] Shadows(UiDocument document, UiElement box) {
-        Assert.True(box.Style.TryGet(document.Styles.Properties.Lookup("box-shadow"), out var value), "box-shadow never arrived");
+        Assert.True(
+            box.Style.TryGet(document.Styles.Properties.Lookup("box-shadow"), out var value),
+            "box-shadow never arrived"
+        );
 
         var text = document.Styles.Values.NameOf(value);
         var parser = new StyleValueParser(document.Styles.Values, document.Styles.Names);
@@ -68,7 +71,7 @@ public class ShadowListTransitionTests {
             }
         }
 
-        return [.. shadows];
+        return [..shadows];
     }
 
     /// <summary>The blur of a shadow written <c>[inset] x y blur color</c>.</summary>
@@ -83,7 +86,11 @@ public class ShadowListTransitionTests {
     [Fact]
     public void Two_lists_with_equal_colours_interpolate_every_blur() {
         using var document = new UiDocument(200f, 100f);
-        var box = Settled(document, "box-shadow: 0 0 2px #ff0000, 0 0 2px #0000ff;", "box-shadow: 0 0 8px #ff0000, 0 0 8px #0000ff;");
+        var box = Settled(
+            document,
+            "box-shadow: 0 0 2px #ff0000, 0 0 2px #0000ff;",
+            "box-shadow: 0 0 8px #ff0000, 0 0 8px #0000ff;"
+        );
 
         var shadows = Shadows(document, box);
 
@@ -99,7 +106,11 @@ public class ShadowListTransitionTests {
     [Fact]
     public void A_changed_colour_in_a_list_interpolates() {
         using var document = new UiDocument(200f, 100f);
-        var box = Settled(document, "box-shadow: 0 0 2px #ff0000, 0 0 2px #0000ff;", "box-shadow: 0 0 8px #00ff00, 0 0 8px #0000ff;");
+        var box = Settled(
+            document,
+            "box-shadow: 0 0 2px #ff0000, 0 0 2px #0000ff;",
+            "box-shadow: 0 0 8px #00ff00, 0 0 8px #0000ff;"
+        );
 
         var shadows = Shadows(document, box);
 
@@ -181,7 +192,11 @@ public class ShadowListTransitionTests {
     [Fact]
     public void Padding_against_an_inset_shadow_is_inset() {
         using var document = new UiDocument(200f, 100f);
-        var box = Settled(document, "box-shadow: inset 0 0 2px #ff0000;", "box-shadow: inset 0 0 8px #ff0000, inset 0 0 8px #0000ff;");
+        var box = Settled(
+            document,
+            "box-shadow: inset 0 0 2px #ff0000;",
+            "box-shadow: inset 0 0 8px #ff0000, inset 0 0 8px #0000ff;"
+        );
 
         var shadows = Shadows(document, box);
 
@@ -198,7 +213,11 @@ public class ShadowListTransitionTests {
     [Fact]
     public void An_inset_mismatch_at_the_second_position_does_not_interpolate() {
         using var document = new UiDocument(200f, 100f);
-        var box = Settled(document, "box-shadow: 0 0 2px #ff0000, 0 0 2px #0000ff;", "box-shadow: 0 0 8px #ff0000, inset 0 0 8px #0000ff;");
+        var box = Settled(
+            document,
+            "box-shadow: 0 0 2px #ff0000, 0 0 2px #0000ff;",
+            "box-shadow: 0 0 8px #ff0000, inset 0 0 8px #0000ff;"
+        );
 
         var shadows = Shadows(document, box);
 
@@ -214,9 +233,11 @@ public class ShadowListTransitionTests {
         Settled(document, "box-shadow: none;", "box-shadow: 0 0 8px #ff0000, 0 0 8px #0000ff;");
 
         document.Draw();
-        var drawn = document.Drawing.Commands.ToArray().Where(command => command.Kind == DrawCommandKind.Shadow).ToArray();
+        var drawn = document.Drawing.Commands.ToArray()
+            .Where(static command => command.Kind == DrawCommandKind.Shadow)
+            .ToArray();
 
         Assert.Equal(2, drawn.Length);
-        Assert.All(drawn, shadow => Assert.Equal(0.5f, shadow.Color.A, Tolerance));
+        Assert.All(drawn, static shadow => Assert.Equal(0.5f, shadow.Color.A, Tolerance));
     }
 }

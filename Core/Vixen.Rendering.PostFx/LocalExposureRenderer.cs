@@ -4,7 +4,6 @@
 using Vixen.Core.Mathematics;
 using Vixen.Graphics;
 using Vixen.Rendering.Compositor;
-using Vixen.Shaders;
 using Vixen.Shaders.Generated;
 
 namespace Vixen.Rendering.PostFx;
@@ -132,7 +131,7 @@ public sealed class LocalExposureRenderer : SceneRenderer, IDisposable, IPostPro
     ///         wrong middle.
     ///     </para>
     /// </remarks>
-    public string ExposureBuffer { get; init; } = "";
+    public string ExposureBuffer { get; init; } = string.Empty;
 
     /// <summary>The view whose lens supplies the exposure value, or null for <see cref="Ev100" />.</summary>
     public RenderView? View { get; set; }
@@ -162,8 +161,12 @@ public sealed class LocalExposureRenderer : SceneRenderer, IDisposable, IPostPro
     ///         <see cref="TonemapRenderer" /> resolves in, and <see cref="Ev100" />'s otherwise.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The exposure, not the pivot — the shader turns one into the other now, and that
-    ///         is a correction rather than a tidy-up.</b> This used to hand over
+    ///         ⚠
+    ///         <b>
+    ///             The exposure, not the pivot — the shader turns one into the other now, and that
+    ///             is a correction rather than a tidy-up.
+    ///         </b>
+    ///         This used to hand over
     ///         <c>log2(Photometry.MiddleGrey / exposure)</c>, and
     ///         <see cref="Photometry.MiddleGrey" /> is 1.2: ISO 2720's calibration constant, the
     ///         factor in <c>exposure = 1 / (1.2 · 2^EV)</c>. The scene luminance that renders as
@@ -184,8 +187,12 @@ public sealed class LocalExposureRenderer : SceneRenderer, IDisposable, IPostPro
 
     /// <inheritdoc />
     /// <remarks>
-    ///     ⚠ <b>The two passes are not in <see cref="SceneRenderer.Nested" />, so their answer is
-    ///     carried out by hand.</b> See <see cref="BloomRenderer" /> for the shape.
+    ///     ⚠
+    ///     <b>
+    ///         The two passes are not in <see cref="SceneRenderer.Nested" />, so their answer is
+    ///         carried out by hand.
+    ///     </b>
+    ///     See <see cref="BloomRenderer" /> for the shape.
     /// </remarks>
     protected override void Build(GraphicsCompositor compositor, CompositorFrame frame) {
         ArgumentNullException.ThrowIfNull(compositor);
@@ -299,45 +306,55 @@ public sealed class LocalExposureRenderer : SceneRenderer, IDisposable, IPostPro
 
         pass.Descriptors.Bindings.Clear();
 
-        pass.Descriptors.Bindings.Add(new() {
-            Binding = LocalExposureKeys.SourceBinding, Kind = DescriptorKind.SampledTexture, Resource = source
-        });
+        pass.Descriptors.Bindings.Add(
+            new() { Binding = LocalExposureKeys.SourceBinding, Kind = DescriptorKind.SampledTexture, Resource = source }
+        );
 
-        pass.Descriptors.Bindings.Add(new() {
-            Binding = LocalExposureKeys.SourceSamplerBinding,
-            Kind = DescriptorKind.Sampler,
-            Sampler = Samplers!.LinearClamp
-        });
+        pass.Descriptors.Bindings.Add(
+            new() {
+                Binding = LocalExposureKeys.SourceSamplerBinding,
+                Kind = DescriptorKind.Sampler,
+                Sampler = Samplers!.LinearClamp
+            }
+        );
 
         // The blur points this at its own source rather than at its target, which nothing reads —
         // pointing it at the target would be a pass declaring a read of what it writes.
-        pass.Descriptors.Bindings.Add(new() {
-            Binding = LocalExposureKeys.BaseLuminanceBinding,
-            Kind = DescriptorKind.SampledTexture,
-            Resource = mode == 1 ? blurred : source
-        });
+        pass.Descriptors.Bindings.Add(
+            new() {
+                Binding = LocalExposureKeys.BaseLuminanceBinding,
+                Kind = DescriptorKind.SampledTexture,
+                Resource = mode == 1 ? blurred : source
+            }
+        );
 
-        pass.Descriptors.Bindings.Add(new() {
-            Binding = LocalExposureKeys.BaseSamplerBinding,
-            Kind = DescriptorKind.Sampler,
-            Sampler = Samplers!.LinearClamp
-        });
+        pass.Descriptors.Bindings.Add(
+            new() {
+                Binding = LocalExposureKeys.BaseSamplerBinding,
+                Kind = DescriptorKind.Sampler,
+                Sampler = Samplers!.LinearClamp
+            }
+        );
 
         // The meter's buffer where there is one, and a stand-in where there is not — `TonemapRenderer`
         // verbatim, and for the identical reason: the permutation folds the read and leaves the
         // binding, so an unmetered frame that skipped this would draw with a descriptor nothing wrote.
         if (measured) {
-            pass.Descriptors.Bindings.Add(new() {
-                Binding = LocalExposureKeys.ExposureBufferBinding,
-                Kind = DescriptorKind.StorageBuffer,
-                Resource = ExposureBuffer
-            });
+            pass.Descriptors.Bindings.Add(
+                new() {
+                    Binding = LocalExposureKeys.ExposureBufferBinding,
+                    Kind = DescriptorKind.StorageBuffer,
+                    Resource = ExposureBuffer
+                }
+            );
         } else if (StandIn() is { IsValid: true } spare) {
-            pass.Descriptors.Bindings.Add(new() {
-                Binding = LocalExposureKeys.ExposureBufferBinding,
-                Kind = DescriptorKind.StorageBuffer,
-                Buffer = spare
-            });
+            pass.Descriptors.Bindings.Add(
+                new() {
+                    Binding = LocalExposureKeys.ExposureBufferBinding,
+                    Kind = DescriptorKind.StorageBuffer,
+                    Buffer = spare
+                }
+            );
         }
     }
 
@@ -388,7 +405,9 @@ public sealed class LocalExposureRenderer : SceneRenderer, IDisposable, IPostPro
 
         frame.Add(
             name,
-            frame.Graph.CreateTexture(new(format, size.X, size.Y, TextureUsage.ColourTarget | TextureUsage.Sampled, Name: name)),
+            frame.Graph.CreateTexture(
+                new(format, size.X, size.Y, TextureUsage.ColourTarget | TextureUsage.Sampled, Name: name)
+            ),
             format
         );
     }

@@ -331,8 +331,10 @@ public sealed class HeadlessLifecycle(PlatformEventBuffer events) : ILifecycle {
     public void CancelQuit() => IsQuitRequested = false;
 
     /// <summary>Suspends the application, as a mobile OS would.</summary>
-    /// <remarks>Does nothing if it is already suspended, which is what a real platform guarantees
-    /// and what a fault-injection loop would otherwise have to remember.</remarks>
+    /// <remarks>
+    ///     Does nothing if it is already suspended, which is what a real platform guarantees
+    ///     and what a fault-injection loop would otherwise have to remember.
+    /// </remarks>
     public void Suspend() {
         if (State == ApplicationState.Suspended) {
             return;
@@ -362,8 +364,10 @@ public sealed class HeadlessLifecycle(PlatformEventBuffer events) : ILifecycle {
         State = background ? ApplicationState.Background : ApplicationState.Running;
     }
 
-    /// <summary>Reports memory pressure, as iOS's memory warning and Android's
-    /// <c>onTrimMemory</c> do.</summary>
+    /// <summary>
+    ///     Reports memory pressure, as iOS's memory warning and Android's
+    ///     <c>onTrimMemory</c> do.
+    /// </summary>
     /// <param name="pressure">How much pressure to report.</param>
     public void ReportMemoryPressure(MemoryPressure pressure) {
         MemoryPressure = pressure;

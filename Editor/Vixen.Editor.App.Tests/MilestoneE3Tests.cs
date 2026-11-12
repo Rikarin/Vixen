@@ -4,7 +4,6 @@
 using Vixen.Editor.Testing;
 using Vixen.Editor.Ui;
 using Vixen.Ui;
-using Vixen.Ui.Controls;
 using Xunit;
 
 namespace Vixen.Editor.App.Tests;
@@ -37,7 +36,7 @@ public class MilestoneE3Tests {
         Assert.Equal(preset, fixture.Shell.Keys.PresetName);
 
         // The preset has actually moved something, rather than being selected and inert.
-        var moved = KeyMapPresets.Find(preset)!.Bindings.First(entry => entry.Value.IsBound);
+        var moved = KeyMapPresets.Find(preset)!.Bindings.First(static entry => entry.Value.IsBound);
 
         Assert.Equal(moved.Value, fixture.Shell.Keys.ChordFor(moved.Key));
     }
@@ -84,7 +83,11 @@ public class MilestoneE3Tests {
         fixture.Step("open the scene as an asset document")
             .Open("project");
 
-        var scene = fixture.Project.Assets.Entries.First(entry => entry.Path.EndsWith(".vxscene", StringComparison.Ordinal));
+        var scene = fixture.Project.Assets.Entries.First(static entry => entry.Path.EndsWith(
+                ".vxscene",
+                StringComparison.Ordinal
+            )
+        );
         var panel = "asset." + scene.Guid;
 
         fixture.Project.Selection.Set([scene.Guid]);
@@ -101,11 +104,15 @@ public class MilestoneE3Tests {
     [Fact]
     public void Turning_the_preference_off_leaves_the_documents_closed() {
         using var scope = new Scratch();
-        using var fixture = EditorSession.Start(new EditorSessionOptions { DataDirectory = scope.Directory });
+        using var fixture = EditorSession.Start(new() { DataDirectory = scope.Directory });
 
         fixture.Open("project");
 
-        var scene = fixture.Project.Assets.Entries.First(entry => entry.Path.EndsWith(".vxscene", StringComparison.Ordinal));
+        var scene = fixture.Project.Assets.Entries.First(static entry => entry.Path.EndsWith(
+                ".vxscene",
+                StringComparison.Ordinal
+            )
+        );
         var panel = "asset." + scene.Guid;
 
         fixture.Project.Selection.Set([scene.Guid]);
@@ -129,8 +136,12 @@ public class MilestoneE3Tests {
     ///     and offers the three verbs disabled rather than absent when there is nothing to act on.
     ///     The enable/disable path itself is asserted against a real plugin in that suite.
     ///     <para>
-    ///         ⚠ <b>The detail line is read through its children rather than off its own
-    ///         <c>Text</c>.</b> Doc 36 § F7 wave 1b moved this panel into <c>.vxml</c>, and a markup
+    ///         ⚠
+    ///         <b>
+    ///             The detail line is read through its children rather than off its own
+    ///             <c>Text</c>.
+    ///         </b>
+    ///         Doc 36 § F7 wave 1b moved this panel into <c>.vxml</c>, and a markup
     ///         interpolation emits a <c>text</c> child rather than setting the parent's string — so
     ///         <c>Detail.Text</c> is null on a line that is showing a sentence. Every markup panel in
     ///         the tree behaves this way and <c>NetworkViewTests</c> has the same walker for the same
@@ -216,7 +227,7 @@ public class MilestoneE3Tests {
         search.Field.Value = "Main";
         fixture.Settle();
 
-        var found = Assert.Single(search.Results, item => item.Category == "Asset");
+        var found = Assert.Single(search.Results, static item => item.Category == "Asset");
 
         Assert.Contains("Main", found.Title, StringComparison.Ordinal);
         Assert.NotNull(found.Preview);
@@ -237,7 +248,7 @@ public class MilestoneE3Tests {
         fixture.Shell.Search.Field.Value = "Crate";
         fixture.Settle();
 
-        var found = Assert.Single(fixture.Shell.Search.Results, item => item.Category == "Entity");
+        var found = Assert.Single(fixture.Shell.Search.Results, static item => item.Category == "Entity");
 
         found.Run();
         fixture.Settle();
@@ -254,7 +265,11 @@ public class MilestoneE3Tests {
 
         fixture.Open("project");
 
-        var scene = fixture.Project.Assets.Entries.First(entry => entry.Path.EndsWith(".vxscene", StringComparison.Ordinal));
+        var scene = fixture.Project.Assets.Entries.First(static entry => entry.Path.EndsWith(
+                ".vxscene",
+                StringComparison.Ordinal
+            )
+        );
 
         fixture.Project.Selection.Set([scene.Guid]);
         fixture.Settle();
@@ -265,7 +280,10 @@ public class MilestoneE3Tests {
         // Nothing references the seeded scene, so the honest answer is a message and a selection
         // left alone — replacing it with an empty one reads exactly like the command having failed.
         Assert.Single(fixture.Project.Selection);
-        Assert.Contains(fixture.Shell.Notifications.History, entry => entry.Message.Contains("references", StringComparison.Ordinal));
+        Assert.Contains(
+            fixture.Shell.Notifications.History,
+            static entry => entry.Message.Contains("references", StringComparison.Ordinal)
+        );
     }
 
     /// <summary>Doc 20's A7: the place the toasts accumulate once they have gone.</summary>
@@ -331,17 +349,27 @@ public class MilestoneE3Tests {
     ///     assigning to elements that had left the tree.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>Asserted on the scheduler, because assigning to a removed element does not
-    ///     complain.</b> A panel that looks right after it has been closed proves nothing; what a
+    ///     ⚠
+    ///     <b>
+    ///         Asserted on the scheduler, because assigning to a removed element does not
+    ///         complain.
+    ///     </b>
+    ///     A panel that looks right after it has been closed proves nothing; what a
     ///     live binding does is queue.
-    ///
-    ///     ⚠ <b>And the edit is made against the stack rather than through <c>Run</c>, because
-    ///     <c>Run</c> settles.</b> The first version of this test ran a command and asserted an
+    ///     ⚠
+    ///     <b>
+    ///         And the edit is made against the stack rather than through <c>Run</c>, because
+    ///         <c>Run</c> settles.
+    ///     </b>
+    ///     The first version of this test ran a command and asserted an
     ///     empty queue, which passes with the whole fix deleted: settling flushes, and a queue that
     ///     has been drained says nothing about what was in it.
-    ///
-    ///     ⚠ <b>Against a control editor rather than against zero, and the premise moved rather than
-    ///     the claim.</b> This asserted an empty queue, which was the panel's own count only while
+    ///     ⚠
+    ///     <b>
+    ///         Against a control editor rather than against zero, and the premise moved rather than
+    ///         the claim.
+    ///     </b>
+    ///     This asserted an empty queue, which was the panel's own count only while
     ///     nothing else in the editor watched the stack. Since #430 the application keeps one
     ///     standing effect on the scene's dirty signal — that is what greys Save without the toolbar
     ///     being polled every frame — and an undo moves it. A literal zero would now be asserting
@@ -415,8 +443,12 @@ public class MilestoneE3Tests {
 
     /// <summary>Part F's panel-lifecycle row, over every panel the shell and the editor register.</summary>
     /// <remarks>
-    ///     ⚠ <b>"A panel's factory runs again when it is reopened" is a documented hazard and nothing
-    ///     proved a given panel survives it.</b> The four this milestone adds are exactly the shape
+    ///     ⚠
+    ///     <b>
+    ///         "A panel's factory runs again when it is reopened" is a documented hazard and nothing
+    ///         proved a given panel survives it.
+    ///     </b>
+    ///     The four this milestone adds are exactly the shape
     ///     that gets it wrong — each holds a model the application owns and each subscribes to
     ///     something — so closing and reopening every registered panel is the cheapest proof that
     ///     none of them left a subscription behind or came back empty.
@@ -436,6 +468,4 @@ public class MilestoneE3Tests {
             Assert.NotEmpty(fixture.Panel(descriptor.Id).Children);
         }
     }
-
-
 }

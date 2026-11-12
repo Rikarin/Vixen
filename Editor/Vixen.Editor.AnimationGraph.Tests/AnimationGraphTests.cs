@@ -32,24 +32,27 @@ public class AnimationGraphTests {
 
         move.Motion = new() { Kind = AnimationMotionKind.Blend1D, ParameterX = "Speed" };
 
-        idle.Transitions.Add(new() {
-            To = "Move",
-            Conditions = [new() { Parameter = "Speed", Mode = AnimationConditionMode.Greater, Threshold = 0.1f }]
-        });
+        idle.Transitions.Add(
+            new() {
+                To = "Move",
+                Conditions = [new() { Parameter = "Speed", Mode = AnimationConditionMode.Greater, Threshold = 0.1f }]
+            }
+        );
 
-        move.Transitions.Add(new() {
-            To = "Idle",
-            Conditions = [new() { Parameter = "Speed", Mode = AnimationConditionMode.Less, Threshold = 0.1f }]
-        });
+        move.Transitions.Add(
+            new() {
+                To = "Idle",
+                Conditions = [new() { Parameter = "Speed", Mode = AnimationConditionMode.Less, Threshold = 0.1f }]
+            }
+        );
 
         layer.States.Add(idle);
         layer.States.Add(move);
         layer.States.Add(jump);
 
-        layer.AnyState.Add(new() {
-            To = "Jump",
-            Conditions = [new() { Parameter = "Jump", Mode = AnimationConditionMode.If }]
-        });
+        layer.AnyState.Add(
+            new() { To = "Jump", Conditions = [new() { Parameter = "Jump", Mode = AnimationConditionMode.If }] }
+        );
 
         graph.Layers.Add(layer);
         return graph;
@@ -91,7 +94,7 @@ public class AnimationGraphTests {
 
         var artefact = AnimationGraphCompiler.Build(graph);
 
-        Assert.Contains(artefact.Diagnostics, diagnostic => diagnostic.Id == "AG0011");
+        Assert.Contains(artefact.Diagnostics, static diagnostic => diagnostic.Id == "AG0011");
         Assert.Single(artefact.Layers);
 
         // The good transition survives the bad one, which is what "reports rather than refuses"
@@ -105,7 +108,10 @@ public class AnimationGraphTests {
 
         graph.Layers[0].States[2].Transitions.Add(new() { To = "Idle" });
 
-        Assert.Contains(AnimationGraphCompiler.Build(graph).Diagnostics, diagnostic => diagnostic.Id == "AG0013");
+        Assert.Contains(
+            AnimationGraphCompiler.Build(graph).Diagnostics,
+            static diagnostic => diagnostic.Id == "AG0013"
+        );
     }
 
     [Fact]
@@ -116,7 +122,7 @@ public class AnimationGraphTests {
 
         var artefact = AnimationGraphCompiler.Build(graph);
 
-        Assert.Contains(artefact.Diagnostics, diagnostic => diagnostic.Id == "AG0016");
+        Assert.Contains(artefact.Diagnostics, static diagnostic => diagnostic.Id == "AG0016");
         Assert.Equal(3, artefact.Layers[0].States.Machine.States.Length);
     }
 
@@ -128,7 +134,7 @@ public class AnimationGraphTests {
 
         var artefact = AnimationGraphCompiler.Build(graph);
 
-        Assert.Contains(artefact.Diagnostics, diagnostic => diagnostic.Id == "AG0009");
+        Assert.Contains(artefact.Diagnostics, static diagnostic => diagnostic.Id == "AG0009");
         Assert.Null(artefact.Layers[0].Mask);
     }
 
@@ -140,7 +146,7 @@ public class AnimationGraphTests {
 
         var artefact = AnimationGraphCompiler.Build(graph);
 
-        Assert.Contains(artefact.Diagnostics, diagnostic => diagnostic.Id == "AG0008");
+        Assert.Contains(artefact.Diagnostics, static diagnostic => diagnostic.Id == "AG0008");
         Assert.Equal(0, artefact.Layers[0].States.Machine.DefaultState);
     }
 
@@ -169,9 +175,9 @@ public class AnimationGraphTests {
 
     [Fact]
     public void AGraphWithNoLayersIsReportedRatherThanThrowing() {
-        var artefact = AnimationGraphCompiler.Build(new AnimationGraphAsset());
+        var artefact = AnimationGraphCompiler.Build(new());
 
         Assert.Empty(artefact.Layers);
-        Assert.Contains(artefact.Diagnostics, diagnostic => diagnostic.Id == "AG0003");
+        Assert.Contains(artefact.Diagnostics, static diagnostic => diagnostic.Id == "AG0003");
     }
 }

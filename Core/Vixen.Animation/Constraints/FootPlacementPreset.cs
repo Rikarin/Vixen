@@ -54,7 +54,7 @@ public sealed class FootPlacementPreset {
         ArgumentNullException.ThrowIfNull(feet);
 
         this.stack = stack;
-        this.feet = [.. feet];
+        this.feet = [..feet];
 
         Pelvis = pelvis;
         Label = label.IsSome ? label : Symbol.Intern("foot");
@@ -170,7 +170,7 @@ public sealed class FootPlacementPreset {
                 : model[parent].Rotation;
 
             local[Pelvis].Translation += Quaternion.Transform(
-                new Vector3(0f, drop, 0f),
+                new(0f, drop, 0f),
                 Quaternion.Conjugate(parentRotation)
             );
 
@@ -220,6 +220,6 @@ public sealed class FootPlacementPreset {
             ? Vector3.Normalize(contact.Normal)
             : Vector3.Up;
 
-        return contact.Position + (normal * soleOffset);
+        return contact.Position + normal * soleOffset;
     }
 }

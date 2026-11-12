@@ -84,7 +84,7 @@ public class ConventionTests {
         // GLSL loads the uniform into a local first, so the operand order has to be read through
         // that local's declared type rather than off the matrix's name.
         var glsl = GenerateOne(Transform);
-        var product = Assert.Single(glsl.Split('\n'), line => line.Contains(" * ", StringComparison.Ordinal));
+        var product = Assert.Single(glsl.Split('\n'), static line => line.Contains(" * ", StringComparison.Ordinal));
         var left = product.Split('(')[1].Split(' ')[0];
 
         Assert.Contains($"mat4 {left} = world;", glsl, StringComparison.Ordinal);
@@ -127,7 +127,7 @@ public class ConventionTests {
         var listing = GeneratePixelSpirv(Body, "    var v: float3\n");
         var matrix = Assert.Single(
             listing.Split('\n'),
-            line => line.Contains("OpTypeMatrix", StringComparison.Ordinal)
+            static line => line.Contains("OpTypeMatrix", StringComparison.Ordinal)
         );
 
         var column = matrix.Split(' ')[^2];
@@ -186,7 +186,7 @@ public class ConventionTests {
         var shader = new float[4, 4];
         for (var j = 0; j < 4; j++) {
             for (var i = 0; i < 4; i++) {
-                shader[i, j] = bytes[(j * lanes) + i];
+                shader[i, j] = bytes[j * lanes + i];
             }
         }
 
@@ -267,7 +267,8 @@ public class ConventionTests {
 
     static int Occurrences(string text, string needle) {
         var count = 0;
-        for (var i = text.IndexOf(needle, StringComparison.Ordinal); i >= 0;
+        for (var i = text.IndexOf(needle, StringComparison.Ordinal);
+             i >= 0;
              i = text.IndexOf(needle, i + needle.Length, StringComparison.Ordinal)) {
             count++;
         }
@@ -282,7 +283,9 @@ public class ConventionTests {
 
     /// <summary>The id of the laid-out block struct.</summary>
     static string BlockOf(string listing) =>
-        Assert.Single(listing.Split('\n'), line => line.EndsWith(" Block", StringComparison.Ordinal)).Split(' ')[1];
+        Assert.Single(listing.Split('\n'), static line => line.EndsWith(" Block", StringComparison.Ordinal)).Split(
+            ' '
+        )[1];
 
     /// <summary>The <c>MatrixStride</c> the module declares for member 0 of a block.</summary>
     static int Stride(string listing, string block) {

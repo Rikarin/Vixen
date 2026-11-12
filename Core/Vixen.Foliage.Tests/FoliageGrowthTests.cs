@@ -17,8 +17,7 @@ public sealed class FoliageGrowthTests {
             Ecology = FoliageEcology.Tree with { SeedDensity = 0.004f, SpreadDistance = 10f }
         };
 
-    static FoliageGrowthSettings Field =>
-        FoliageGrowthSettings.Over(new(0f, 0f), new(200f, 200f)) with { Steps = 6 };
+    static FoliageGrowthSettings Field => FoliageGrowthSettings.Over(new(0f, 0f), new(200f, 200f)) with { Steps = 6 };
 
     static (FoliageVolume Volume, int Type) Sown(FoliageType? type = null) {
         var volume = new FoliageVolume(new(32f));
@@ -211,13 +210,11 @@ public sealed class FoliageGrowthTests {
     [Fact]
     public void PriorityDisplacesRatherThanTies() {
         var scrub = FoliageType.Of("Scrub") with {
-            Radius = 3f,
-            Ecology = FoliageEcology.Tree with { SeedDensity = 0.01f, Priority = 1, ShadeTolerance = 1f }
+            Radius = 3f, Ecology = FoliageEcology.Tree with { SeedDensity = 0.01f, Priority = 1, ShadeTolerance = 1f }
         };
 
         var oak = FoliageType.Of("Oak") with {
-            Radius = 3f,
-            Ecology = FoliageEcology.Tree with { SeedDensity = 0.004f, Priority = 20, ShadeTolerance = 1f }
+            Radius = 3f, Ecology = FoliageEcology.Tree with { SeedDensity = 0.004f, Priority = 20, ShadeTolerance = 1f }
         };
 
         var volume = new FoliageVolume(new(32f));
@@ -265,7 +262,7 @@ public sealed class FoliageGrowthTests {
         FoliageGrowth.Simulate(volume, Ground.Flat, Field);
 
         Assert.True(volume.InstanceCount > withClearing);
-        Assert.Contains(Positions(volume), at => Vector2.Distance(at, new(100f, 100f)) < 30f);
+        Assert.Contains(Positions(volume), static at => Vector2.Distance(at, new(100f, 100f)) < 30f);
     }
 
     [Fact]
@@ -288,11 +285,11 @@ public sealed class FoliageGrowthTests {
         // measures nothing.
         FoliageGrowth.Simulate(volume, Ground.Flat, Field with { Steps = 6 });
 
-        var scales = volume.Chunks.SelectMany(chunk => chunk.Instances).Select(i => i.Scale).ToArray();
+        var scales = volume.Chunks.SelectMany(static chunk => chunk.Instances).Select(static i => i.Scale).ToArray();
 
         Assert.True(scales.Length > 10);
         Assert.True(scales.Min() < scales.Max(), "every plant is the same size; age is not scaling.");
-        Assert.All(scales, scale => Assert.InRange(scale, 0.01f, 1.01f));
+        Assert.All(scales, static scale => Assert.InRange(scale, 0.01f, 1.01f));
     }
 
     /// <summary>A species that never matures never spreads, and the counters say so.</summary>
@@ -321,8 +318,11 @@ public sealed class FoliageGrowthTests {
     public void ARegionWithNoAreaIsRefused() {
         var (volume, _) = Sown();
 
-        var thrown = Assert.Throws<ArgumentException>(
-            () => FoliageGrowth.Simulate(volume, Ground.Flat, Field with { Size = new(0f, 100f) })
+        var thrown = Assert.Throws<ArgumentException>(() => FoliageGrowth.Simulate(
+                volume,
+                Ground.Flat,
+                Field with { Size = new(0f, 100f) }
+            )
         );
 
         Assert.Contains("no area", thrown.Message, StringComparison.Ordinal);
@@ -338,12 +338,13 @@ public sealed class FoliageGrowthTests {
         Assert.Equal(0, volume.CountOf(type));
     }
 
-    static Vector2[] Positions(FoliageVolume volume) =>
-        [.. volume.Chunks
-            .SelectMany(chunk => chunk.Instances)
-            .Select(instance => new Vector2(instance.Position.X, instance.Position.Z))
-            .OrderBy(at => at.X)
-            .ThenBy(at => at.Y)];
+    static Vector2[] Positions(FoliageVolume volume) => [
+        ..volume.Chunks
+            .SelectMany(static chunk => chunk.Instances)
+            .Select(static instance => new Vector2(instance.Position.X, instance.Position.Z))
+            .OrderBy(static at => at.X)
+            .ThenBy(static at => at.Y)
+    ];
 
     /// <summary>Clark and Evans's ratio: below 0.5 is clumped, above it is over-dispersed.</summary>
     static float ClarkEvans(Vector2[] points, float area) =>
@@ -359,7 +360,7 @@ public sealed class FoliageGrowthTests {
             var x = Math.Clamp((int)((point.X - region.Origin.X) / cellSize), 0, across - 1);
             var z = Math.Clamp((int)((point.Y - region.Origin.Y) / cellSize), 0, down - 1);
 
-            counts[(z * across) + x]++;
+            counts[z * across + x]++;
         }
 
         var mean = (float)counts.Average();

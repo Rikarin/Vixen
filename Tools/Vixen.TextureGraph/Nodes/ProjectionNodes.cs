@@ -31,8 +31,11 @@ namespace Vixen.TextureGraph.Nodes;
 ///         looks like a noisy blend and not like a wrong input.
 ///     </para>
 ///     <para>
-///         <b>Both mesh-map ports are ordinary image inputs rather than something this node fetches
-///         itself</b>, which is <c>Source/Mesh Map</c>'s design and not a shortcut: a graph names no
+///         <b>
+///             Both mesh-map ports are ordinary image inputs rather than something this node fetches
+///             itself
+///         </b>
+///         , which is <c>Source/Mesh Map</c>'s design and not a shortcut: a graph names no
 ///         mesh, the bake decides which mesh a <c>meshmap:position</c> resolves to, and a node that
 ///         reached for a map directly would be a second path to the same external table.
 ///     </para>

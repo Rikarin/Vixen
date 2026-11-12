@@ -9,8 +9,12 @@ namespace Vixen.Live.Matchmaking;
 /// <remarks>
 ///     ⚠ <b>Two numbers even for Elo, which only uses one.</b> A rating type per model would put the
 ///     choice of model into every signature that carries a rating — a ticket, a pool filter, a match
-///     proposal — and doc 28 is explicit that <em>"the framework does not pick; the queue definition
-///     does"</em>. Elo leaves <see cref="Deviation" /> at zero and nothing else has to care.
+///     proposal — and doc 28 is explicit that
+///     <em>
+///         "the framework does not pick; the queue definition
+///         does"
+///     </em>
+///     . Elo leaves <see cref="Deviation" /> at zero and nothing else has to care.
 /// </remarks>
 public readonly record struct Rating(double Mean, double Deviation = 0d) {
     /// <summary>What a rating is worth when somebody has to be matched on one number.</summary>
@@ -19,11 +23,10 @@ public readonly record struct Rating(double Mean, double Deviation = 0d) {
     ///     deviation is treated conservatively rather than optimistically, so they are not matched
     ///     against experts on the strength of a guess.
     /// </remarks>
-    public double Conservative => Mean - (3d * Deviation);
+    public double Conservative => Mean - 3d * Deviation;
 
     /// <inheritdoc />
-    public override string ToString() =>
-        Deviation > 0d ? $"{Mean:0.###}±{Deviation:0.###}" : $"{Mean:0.###}";
+    public override string ToString() => Deviation > 0d ? $"{Mean:0.###}±{Deviation:0.###}" : $"{Mean:0.###}";
 }
 
 /// <summary>How ratings change and how well two sides are matched.</summary>
@@ -74,9 +77,18 @@ static class Gaussian {
             return p <= 0d ? double.NegativeInfinity : double.PositiveInfinity;
         }
 
-        double[] a = [-3.969683028665376e+01, 2.209460984245205e+02, -2.759285104469687e+02, 1.383577518672690e+02, -3.066479806614716e+01, 2.506628277459239e+00];
-        double[] b = [-5.447609879822406e+01, 1.615858368580409e+02, -1.556989798598866e+02, 6.680131188771972e+01, -1.328068155288572e+01];
-        double[] c = [-7.784894002430293e-03, -3.223964580411365e-01, -2.400758277161838e+00, -2.549732539343734e+00, 4.374664141464968e+00, 2.938163982698783e+00];
+        double[] a = [
+            -3.969683028665376e+01, 2.209460984245205e+02, -2.759285104469687e+02, 1.383577518672690e+02,
+            -3.066479806614716e+01, 2.506628277459239e+00
+        ];
+        double[] b = [
+            -5.447609879822406e+01, 1.615858368580409e+02, -1.556989798598866e+02, 6.680131188771972e+01,
+            -1.328068155288572e+01
+        ];
+        double[] c = [
+            -7.784894002430293e-03, -3.223964580411365e-01, -2.400758277161838e+00, -2.549732539343734e+00,
+            4.374664141464968e+00, 2.938163982698783e+00
+        ];
         double[] d = [7.784695709041462e-03, 3.224671290700398e-01, 2.445134137142996e+00, 3.754408661907416e+00];
 
         const double Low = 0.02425d;
@@ -91,7 +103,8 @@ static class Gaussian {
             var q = p - 0.5d;
             var r = q * q;
 
-            x = (((((a[0] * r + a[1]) * r + a[2]) * r + a[3]) * r + a[4]) * r + a[5]) * q
+            x = (((((a[0] * r + a[1]) * r + a[2]) * r + a[3]) * r + a[4]) * r + a[5])
+                * q
                 / (((((b[0] * r + b[1]) * r + b[2]) * r + b[3]) * r + b[4]) * r + 1d);
         } else {
             var q = Math.Sqrt(-2d * Math.Log(1d - p));
@@ -103,13 +116,13 @@ static class Gaussian {
         var error = Cumulative(x) - p;
         var step = error * Sqrt2Pi * Math.Exp(x * x / 2d);
 
-        return x - (step / (1d + (x * step / 2d)));
+        return x - step / (1d + x * step / 2d);
     }
 
     static double Erfc(double x) {
         var z = Math.Abs(x);
         var t = 2d / (2d + z);
-        var y = (4d * t) - 2d;
+        var y = 4d * t - 2d;
 
         double[] coefficients = [
             -1.3026537197817094e+00, 6.4196979235649026e-01, 1.9476473204185836e-02, -9.561514786808631e-03,
@@ -126,11 +139,11 @@ static class Gaussian {
         for (var index = coefficients.Length - 1; index > 0; index--) {
             var tmp = d;
 
-            d = (y * d) - dd + coefficients[index];
+            d = y * d - dd + coefficients[index];
             dd = tmp;
         }
 
-        var answer = t * Math.Exp((-z * z) + (0.5d * (coefficients[0] + (y * d))) - dd);
+        var answer = t * Math.Exp(-z * z + 0.5d * (coefficients[0] + y * d) - dd);
 
         return x >= 0d ? answer : 2d - answer;
     }
@@ -194,7 +207,7 @@ public sealed class EloRatingModel : IRatingModel {
             expected += Expected(rating, opponent);
         }
 
-        return rating + (K * (score - expected));
+        return rating + K * (score - expected);
     }
 
     /// <inheritdoc />
@@ -229,7 +242,7 @@ public sealed class EloRatingModel : IRatingModel {
         }
 
         // One at an even match, falling away as the expectation leaves a half.
-        return 1d - (2d * Math.Abs(Expected(Mean(teams[0]), Mean(teams[1])) - 0.5d));
+        return 1d - 2d * Math.Abs(Expected(Mean(teams[0]), Mean(teams[1])) - 0.5d);
     }
 
     static double Mean(Rating[] team) {
@@ -331,7 +344,7 @@ public sealed class BayesianRatingModel : IRatingModel {
         var (loserMean, loserVariance) = Totals(teams[loser]);
 
         var players = teams[0].Length + teams[1].Length;
-        var c = Math.Sqrt(winnerVariance + loserVariance + (players * Beta * Beta));
+        var c = Math.Sqrt(winnerVariance + loserVariance + players * Beta * Beta);
         var epsilon = Margin(players);
         var t = (winnerMean - loserMean) / c;
         var alpha = epsilon / c;
@@ -373,8 +386,7 @@ public sealed class BayesianRatingModel : IRatingModel {
         return Math.Sqrt(beta / total) * Math.Exp(-difference * difference / (2d * total));
     }
 
-    double Margin(int players) =>
-        Gaussian.Quantile((DrawProbability + 1d) / 2d) * Math.Sqrt(players) * Beta;
+    double Margin(int players) => Gaussian.Quantile((DrawProbability + 1d) / 2d) * Math.Sqrt(players) * Beta;
 
     (double Mean, double Variance) Totals(Rating[] team) {
         var mean = 0d;
@@ -385,7 +397,7 @@ public sealed class BayesianRatingModel : IRatingModel {
 
             // The uncertainty a game adds back, applied before it is used rather than after — a
             // rating that had converged to nothing could otherwise never move again.
-            variance += (rating.Deviation * rating.Deviation) + (Tau * Tau);
+            variance += rating.Deviation * rating.Deviation + Tau * Tau;
         }
 
         return (mean, variance);
@@ -395,11 +407,11 @@ public sealed class BayesianRatingModel : IRatingModel {
         var after = new Rating[team.Length];
 
         for (var index = 0; index < team.Length; index++) {
-            var variance = (team[index].Deviation * team[index].Deviation) + (Tau * Tau);
+            var variance = team[index].Deviation * team[index].Deviation + Tau * Tau;
 
             after[index] = new(
-                team[index].Mean + (direction * (variance / c) * v),
-                Math.Sqrt(Math.Max(1e-9d, variance * (1d - (variance / (c * c) * w))))
+                team[index].Mean + direction * (variance / c) * v,
+                Math.Sqrt(Math.Max(1e-9d, variance * (1d - variance / (c * c) * w)))
             );
         }
 
@@ -441,9 +453,9 @@ public sealed class BayesianRatingModel : IRatingModel {
 
         var v = DrawV(t, alpha);
 
-        return (v * v)
-            + (((alpha - absolute) * Gaussian.Density(alpha - absolute)
-                    + ((alpha + absolute) * Gaussian.Density(alpha + absolute)))
-                / denominator);
+        return v * v
+            + ((alpha - absolute) * Gaussian.Density(alpha - absolute)
+                + (alpha + absolute) * Gaussian.Density(alpha + absolute))
+            / denominator;
     }
 }

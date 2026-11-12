@@ -18,8 +18,12 @@ namespace Vixen.Geometry.Remeshing.Tests;
 public class MapBakerTests {
     /// <summary>A chart thinner than a texel covers texels, which a pixel-centre rule does not.</summary>
     /// <remarks>
-    ///     ⚠ <b><c>SoftwareRaster</c>'s half-space rule is the reusable part and it is pixel-centre
-    ///     only.</b> That is the correct rule for a framebuffer, where a triangle covering no centre
+    ///     ⚠
+    ///     <b>
+    ///         <c>SoftwareRaster</c>'s half-space rule is the reusable part and it is pixel-centre
+    ///         only.
+    ///     </b>
+    ///     That is the correct rule for a framebuffer, where a triangle covering no centre
     ///     covers no pixel by definition, and it is the wrong one for an atlas, where the outermost
     ///     row of texels along every chart is exactly the row whose centres the chart misses. This
     ///     asserts the difference rather than describing it: the same sliver, both rules.
@@ -82,7 +86,7 @@ public class MapBakerTests {
 
         for (var y = 0; y < maps.Resolution; y++) {
             for (var x = 0; x < maps.Resolution; x++) {
-                var index = (y * maps.Resolution) + x;
+                var index = y * maps.Resolution + x;
 
                 if (!maps.Coverage[index]) {
                     continue;
@@ -109,10 +113,10 @@ public class MapBakerTests {
     /// </remarks>
     [Fact]
     public void A_flat_bake_of_the_same_surface_is_the_identity_normal() {
-        var source = TransferFixtures.Grid(16, 2f, _ => 0);
-        var target = Lifted(TransferFixtures.Grid(4, 2f, _ => 0), 0.02f);
+        var source = TransferFixtures.Grid(16, 2f, static _ => 0);
+        var target = Lifted(TransferFixtures.Grid(4, 2f, static _ => 0), 0.02f);
 
-        Halves(target, whole: true);
+        Halves(target, true);
 
         var maps = MapBaker.Bake(source, target, new() { Resolution = 32, Gutter = 2 });
 
@@ -143,24 +147,30 @@ public class MapBakerTests {
 
     /// <summary>Displacement reads the bump the output smoothed over.</summary>
     /// <remarks>
-    ///     <b>The half of § D12 that makes a five-thousand-quad cage as good as four million
-    ///     triangles.</b> The source carries a cone the flat target has no vertices for, and the bake
+    ///     <b>
+    ///         The half of § D12 that makes a five-thousand-quad cage as good as four million
+    ///         triangles.
+    ///     </b>
+    ///     The source carries a cone the flat target has no vertices for, and the bake
     ///     is what puts it back.
     /// </remarks>
     [Fact]
     public void The_displacement_map_carries_a_feature_the_cage_has_no_vertices_for() {
         var source = Cone(32, 2f, 0.25f);
-        var target = TransferFixtures.Grid(4, 2f, _ => 0);
+        var target = TransferFixtures.Grid(4, 2f, static _ => 0);
 
-        Halves(target, whole: true);
+        Halves(target, true);
 
         var maps = MapBaker.Bake(source, target, new() { Resolution = 64, Gutter = 2, SearchRadius = 0.4f });
 
         Assert.True(maps.Covered > 0, string.Join(" · ", maps.Warnings));
-        Assert.True(maps.DisplacementRange > 0.1f, $"The cone is 0.25 tall and the bake found {maps.DisplacementRange}.");
+        Assert.True(
+            maps.DisplacementRange > 0.1f,
+            $"The cone is 0.25 tall and the bake found {maps.DisplacementRange}."
+        );
 
         // The middle of the atlas is the middle of the sheet, which is the top of the cone.
-        var centre = ((maps.Resolution / 2) * maps.Resolution) + (maps.Resolution / 2);
+        var centre = maps.Resolution / 2 * maps.Resolution + maps.Resolution / 2;
 
         Assert.True(
             maps.Displacement[centre] > 0.15f,
@@ -170,8 +180,12 @@ public class MapBakerTests {
 
     /// <summary>The bake answers the same at a thousandth and a thousand times scale.</summary>
     /// <remarks>
-    ///     ⚠ <b>The search radius is a fraction of the source's diagonal for exactly this
-    ///     reason.</b> A cage measured in metres finds nothing on the same model exported in
+    ///     ⚠
+    ///     <b>
+    ///         The search radius is a fraction of the source's diagonal for exactly this
+    ///         reason.
+    ///     </b>
+    ///     A cage measured in metres finds nothing on the same model exported in
     ///     centimetres, and the failure is silent — every texel takes the closest-point fallback and
     ///     the map looks plausible.
     /// </remarks>
@@ -179,7 +193,7 @@ public class MapBakerTests {
     public void The_bake_answers_the_same_at_a_thousandth_and_a_thousand_times_scale() {
         var baseline = Baked(1f);
 
-        foreach (var scale in (float[]) [1e-3f, 1e+3f]) {
+        foreach (var scale in (float[])[1e-3f, 1e+3f]) {
             var scaled = Baked(scale);
 
             // Coverage is a function of the coordinates and the resolution alone, so it is exact.
@@ -241,9 +255,9 @@ public class MapBakerTests {
     [Fact]
     public void A_cancelled_bake_stops_casting_rather_than_finishing_first() {
         var source = Cone(32, 2f, 0.25f);
-        var target = TransferFixtures.Grid(4, 2f, _ => 0);
+        var target = TransferFixtures.Grid(4, 2f, static _ => 0);
 
-        Halves(target, whole: true);
+        Halves(target, true);
 
         BakeSettings settings = new() { Resolution = 64, Gutter = 2, SearchRadius = 0.4f };
 
@@ -256,8 +270,7 @@ public class MapBakerTests {
         using CancellationTokenSource cancellation = new();
         var reports = 0;
 
-        Assert.ThrowsAny<OperationCanceledException>(
-            () => MapBaker.Bake(
+        Assert.ThrowsAny<OperationCanceledException>(() => MapBaker.Bake(
                 source,
                 target,
                 settings,
@@ -286,9 +299,9 @@ public class MapBakerTests {
     [Fact]
     public void Progress_rises_through_the_casting_and_ends_at_one() {
         var source = Cone(32, 2f, 0.25f);
-        var target = TransferFixtures.Grid(4, 2f, _ => 0);
+        var target = TransferFixtures.Grid(4, 2f, static _ => 0);
 
-        Halves(target, whole: true);
+        Halves(target, true);
 
         List<float> said = [];
 
@@ -311,16 +324,20 @@ public class MapBakerTests {
     /// <summary>A target with no coordinates is refused rather than baked into nothing.</summary>
     [Fact]
     public void A_target_with_no_atlas_is_refused() {
-        var source = TransferFixtures.Grid(4, 2f, _ => 0);
-        var target = TransferFixtures.Grid(2, 2f, _ => 0);
+        var source = TransferFixtures.Grid(4, 2f, static _ => 0);
+        var target = TransferFixtures.Grid(2, 2f, static _ => 0);
 
         Assert.Throws<ArgumentException>(() => MapBaker.Bake(source, target, new() { Resolution = 8 }));
     }
 
     /// <summary>One bake of the cone fixture at a given scale.</summary>
     /// <remarks>
-    ///     ⚠ <b>The coordinates are assigned before the scaling and carried through it, so the two
-    ///     runs are handed the same atlas rather than one computed twice.</b> Deriving them on each
+    ///     ⚠
+    ///     <b>
+    ///         The coordinates are assigned before the scaling and carried through it, so the two
+    ///         runs are handed the same atlas rather than one computed twice.
+    ///     </b>
+    ///     Deriving them on each
     ///     scaled copy instead made the two disagree about one texel out of 293 — the division by a
     ///     thousand-times extent rounds elsewhere — and a coverage test that measures its own
     ///     fixture's rounding cannot say anything about the baker's.
@@ -331,9 +348,9 @@ public class MapBakerTests {
         // the bake then measures the closest-point fallback rather than the cast. Unlifted, 293 of
         // this fixture's 467 texels took the fallback, and two of the three scales disagreed about
         // one of them.
-        var target = Lifted(TransferFixtures.Grid(4, 2f, _ => 0), 0.05f);
+        var target = Lifted(TransferFixtures.Grid(4, 2f, static _ => 0), 0.05f);
 
-        Halves(target, whole: true);
+        Halves(target, true);
 
         return MapBaker.Bake(
             TransferFixtures.Scaled(Cone(24, 2f, 0.25f), scale),
@@ -369,12 +386,12 @@ public class MapBakerTests {
                 // narrower than the gutter — so one chart's dilation runs into the other's content
                 // and the test is about whether it overwrites it.
                 coordinates[entry.Start + index] = whole
-                    ? new((u * 0.9f) + 0.05f, (v * 0.9f) + 0.05f)
+                    ? new(u * 0.9f + 0.05f, v * 0.9f + 0.05f)
                     : new(
                         point.Z > (bounds.Minimum.Z + bounds.Maximum.Z) * 0.5f
-                            ? 0.52f + (u * 0.46f)
-                            : 0.02f + (u * 0.46f),
-                        (v * 0.9f) + 0.05f
+                            ? 0.52f + u * 0.46f
+                            : 0.02f + u * 0.46f,
+                        v * 0.9f + 0.05f
                     );
             }
         }
@@ -392,7 +409,7 @@ public class MapBakerTests {
 
             for (var i = 0; i < 5; i++) {
                 for (var j = 0; j < 5; j++) {
-                    indices[i, j] = mesh.AddPosition(new((i / 2f) - 1f, (j / 2f) - 1f, z));
+                    indices[i, j] = mesh.AddPosition(new(i / 2f - 1f, j / 2f - 1f, z));
                 }
             }
 
@@ -423,15 +440,19 @@ public class MapBakerTests {
     static EditMesh Cone(int cells, float size, float height) =>
         Smoothed(
             Raised(
-                TransferFixtures.Grid(cells, size, _ => 0),
-                point => MathF.Max(0f, height * (1f - (new Vector2(point.X, point.Y).Length() / (size * 0.35f))))
+                TransferFixtures.Grid(cells, size, static _ => 0),
+                point => MathF.Max(0f, height * (1f - new Vector2(point.X, point.Y).Length() / (size * 0.35f)))
             )
         );
 
     /// <summary>Area-weighted vertex normals, written into the per-corner layer.</summary>
     /// <remarks>
-    ///     ⚠ <b>Without these the fixture is faceted, and a faceted source makes the
-    ///     scale-invariance test measure the wrong thing.</b> With no normal layer the transfer
+    ///     ⚠
+    ///     <b>
+    ///         Without these the fixture is faceted, and a faceted source makes the
+    ///         scale-invariance test measure the wrong thing.
+    ///     </b>
+    ///     With no normal layer the transfer
     ///     falls back to the struck triangle's own flat normal, so a ray grazing the join between two
     ///     facets of the cone returns one of two visibly different answers — measured, a 0.08 swing
     ///     at one texel out of 467, which reads exactly like an absolute tolerance and is a faceted
@@ -486,5 +507,5 @@ public class MapBakerTests {
 
     /// <summary>Twice the signed area of a triangle, which is what a half-space rule tests.</summary>
     static float Edge(Vector2 a, Vector2 b, Vector2 point) =>
-        ((b.X - a.X) * (point.Y - a.Y)) - ((b.Y - a.Y) * (point.X - a.X));
+        (b.X - a.X) * (point.Y - a.Y) - (b.Y - a.Y) * (point.X - a.X);
 }

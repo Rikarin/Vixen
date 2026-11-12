@@ -123,8 +123,10 @@ public sealed class GlCommandListTests {
     }
 
     /// <summary>Submitting twice is refused.</summary>
-    /// <remarks>A list is a one-shot recording; replaying it again would replay it against state the
-    /// first replay left behind.</remarks>
+    /// <remarks>
+    ///     A list is a one-shot recording; replaying it again would replay it against state the
+    ///     first replay left behind.
+    /// </remarks>
     [Fact]
     public void RefusesASecondSubmission() {
         var gl = new RecordingGlApi();
@@ -174,13 +176,15 @@ public sealed class GlCommandListTests {
     }
 
     static TextureHandle Target(GlDevice device, out TextureViewHandle view) {
-        var texture = device.CreateTexture(new(
-            PixelFormat.Rgba8UNorm,
-            64,
-            64,
-            TextureUsage.ColourTarget | TextureUsage.CopySource,
-            Name: "target"
-        ));
+        var texture = device.CreateTexture(
+            new(
+                PixelFormat.Rgba8UNorm,
+                64,
+                64,
+                TextureUsage.ColourTarget | TextureUsage.CopySource,
+                Name: "target"
+            )
+        );
 
         view = device.CreateTextureView(texture);
         return texture;

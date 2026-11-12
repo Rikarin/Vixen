@@ -83,13 +83,21 @@ public readonly record struct SocialLink(PlayerKey Player, SocialTie Tie);
 ///         is answered from a view and the change is posted.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The roster this realm holds is only the members it can name, and a 500-member guild
-///         has maybe thirty of them online.</b> A gameplay <see cref="PlayerId" /> is a session id
+///         ⚠
+///         <b>
+///             The roster this realm holds is only the members it can name, and a 500-member guild
+///             has maybe thirty of them online.
+///         </b>
+///         A gameplay <see cref="PlayerId" /> is a session id
 ///         widened (see <see cref="GameplayIdentityMap.From" />), so somebody who is not connected to
 ///         <em>this realm</em> has no gameplay id at all and cannot be seated. That is not a defect
 ///         to engineer around — it is the same partial view <see cref="LedgerBridge" /> already keeps
-///         of a balance — but it makes one thing lethal: <b>a partial roster must never be written
-///         back as the whole truth</b>, or the write deletes everybody who was offline.
+///         of a balance — but it makes one thing lethal:
+///         <b>
+///             a partial roster must never be written
+///             back as the whole truth
+///         </b>
+///         , or the write deletes everybody who was offline.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>So a guild is written as operations, and there is no state-shaped save.</b>
@@ -172,10 +180,16 @@ public sealed class SocialBridge : ISocialStore {
     public int StateWrites { get; private set; }
 
     /// <summary>Raised when a guild or a graph is read for somebody who was never loaded.</summary>
-    public event Action<PlayerId>? Cold { add => cold += value; remove => cold -= value; }
+    public event Action<PlayerId>? Cold {
+        add => cold += value;
+        remove => cold -= value;
+    }
 
     /// <summary>Raised when the grain refused an edit the view had already applied.</summary>
-    public event Action<GuildEdit>? Refused { add => refused += value; remove => refused -= value; }
+    public event Action<GuildEdit>? Refused {
+        add => refused += value;
+        remove => refused -= value;
+    }
 
     // ── Loading ───────────────────────────────────────────────────────────────────────────────
 
@@ -195,8 +209,12 @@ public sealed class SocialBridge : ISocialStore {
     ///         the same absence in the view and must not be the same fact.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A guild already in the view is not rebuilt from the row — only this player is
-    ///         seated into it.</b> Rebuilding would throw away every edit made since it was loaded
+    ///         ⚠
+    ///         <b>
+    ///             A guild already in the view is not rebuilt from the row — only this player is
+    ///             seated into it.
+    ///         </b>
+    ///         Rebuilding would throw away every edit made since it was loaded
     ///         and not yet written down, which is a kick that comes back.
     ///     </para>
     /// </remarks>
@@ -234,8 +252,12 @@ public sealed class SocialBridge : ISocialStore {
     /// <param name="links">Their ties. Empty is a real answer and marks them warm.</param>
     /// <returns>The graph as this realm holds it, or null when the owner is not on this realm.</returns>
     /// <remarks>
-    ///     ⚠ <b>The durable set is kept whole and the graph is a projection of the nameable part of
-    ///     it.</b> Most of a friends list is offline, and a graph that held only the online part
+    ///     ⚠
+    ///     <b>
+    ///         The durable set is kept whole and the graph is a projection of the nameable part of
+    ///         it.
+    ///     </b>
+    ///     Most of a friends list is offline, and a graph that held only the online part
     ///     would lose the rest the first time it was saved. It matters most for a <em>block</em>: the
     ///     person blocked is usually not here, and a block that is not in the graph when they arrive
     ///     is a block that has leaked — which is why <see cref="Admitted" /> exists.
@@ -318,8 +340,12 @@ public sealed class SocialBridge : ISocialStore {
     ///         go cold.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Their graph goes, and so does every seat they hold in somebody else's — this is
-    ///         the exact mirror of <see cref="Admitted" />.</b> A gameplay id is a realm-scoped
+    ///         ⚠
+    ///         <b>
+    ///             Their graph goes, and so does every seat they hold in somebody else's — this is
+    ///             the exact mirror of <see cref="Admitted" />.
+    ///         </b>
+    ///         A gameplay id is a realm-scoped
     ///         integer that is never issued twice, so a tie left pointing at a departed one is dead
     ///         weight that a re-admission does not replace: they come back as a different number and
     ///         get seated again beside the old one. Over map travel that is a leak in every graph at
@@ -540,9 +566,9 @@ public sealed class SocialBridge : ISocialStore {
         var write = new PendingGraph(
             owner,
             [
-                .. set.OrderBy(pair => pair.Key.Account)
-                    .ThenBy(pair => pair.Key.Character)
-                    .Select(pair => new SocialLink(pair.Key, pair.Value))
+                ..set.OrderBy(static pair => pair.Key.Account)
+                    .ThenBy(static pair => pair.Key.Character)
+                    .Select(static pair => new SocialLink(pair.Key, pair.Value))
             ]
         );
 
@@ -561,11 +587,11 @@ public sealed class SocialBridge : ISocialStore {
 
     /// <summary>Takes every guild edit waiting to be written down.</summary>
     /// <returns>Them, oldest first. Not removed — see <see cref="Settle(GuildEdit)" />.</returns>
-    public ImmutableArray<GuildEdit> Drain() => [.. edits];
+    public ImmutableArray<GuildEdit> Drain() => [..edits];
 
     /// <summary>Takes every graph waiting to be written down.</summary>
     /// <returns>Them, oldest first. Not removed — see <see cref="Settle(PendingGraph)" />.</returns>
-    public ImmutableArray<PendingGraph> DrainGraphs() => [.. writes];
+    public ImmutableArray<PendingGraph> DrainGraphs() => [..writes];
 
     /// <summary>Says an edit landed.</summary>
     /// <param name="edit">Which.</param>

@@ -24,8 +24,12 @@ namespace Vixen.Rendering.Materials;
 ///         picture"; the rest of that distance is the compositor's and stays there.
 ///     </para>
 ///     <para>
-///         ⚠ <b><see cref="Default" /> is fully rough and not <see cref="MetalRoughnessFeature" />'s
-///         half-rough default</b>, and the two answer different questions. A feature's default is what a
+///         ⚠
+///         <b>
+///             <see cref="Default" /> is fully rough and not <see cref="MetalRoughnessFeature" />'s
+///             half-rough default
+///         </b>
+///         , and the two answer different questions. A feature's default is what a
 ///         material that has a metal-roughness feature and did not set its roughness means. This one is
 ///         what an entity naming <em>no material at all</em> means — and a fully rough dielectric shades
 ///         to one directional term, which is exactly the picture the viewport drew before it could read
@@ -39,7 +43,7 @@ namespace Vixen.Rendering.Materials;
 public readonly record struct MaterialSurface(Color4 BaseColour, float Metalness, float Roughness, Color3 Emissive) {
     /// <summary>What an entity naming no material is shaded as: a fully rough dielectric.</summary>
     /// <inheritdoc cref="MaterialSurface" path="/remarks/para[3]" />
-    public static MaterialSurface Default { get; } = new(Color4.White, Metalness: 0f, Roughness: 1f, Color3.Black);
+    public static MaterialSurface Default { get; } = new(Color4.White, 0f, 1f, Color3.Black);
 
     /// <summary>The surface a material's features add up to.</summary>
     /// <param name="features">The features, in the order they contribute.</param>
@@ -204,7 +208,7 @@ public readonly record struct MaterialSurface(Color4 BaseColour, float Metalness
 
     static Color4 Albedo(Vector3 colour) => new(colour.X, colour.Y, colour.Z, 1f);
 
-    static float Luminance(Vector3 colour) => (0.2126f * colour.X) + (0.7152f * colour.Y) + (0.0722f * colour.Z);
+    static float Luminance(Vector3 colour) => 0.2126f * colour.X + 0.7152f * colour.Y + 0.0722f * colour.Z;
 
     static float Saturate(float value) => Math.Clamp(value, 0f, 1f);
 

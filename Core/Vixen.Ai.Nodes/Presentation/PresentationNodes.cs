@@ -60,7 +60,9 @@ public sealed class PlayAnimationTask(string layer, string stateName, float cros
 
         var target = layer.Length > 0
             ? animator.Layer(layer)
-            : animator.Layers.Count > 0 ? animator.Layers[0] : null;
+            : animator.Layers.Count > 0
+                ? animator.Layers[0]
+                : null;
 
         if (target is null) {
             return ActionStatus.Failed;

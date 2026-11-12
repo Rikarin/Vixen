@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core.IO;
-using Vixen.Core.Mathematics;
 using Xunit;
 
 namespace Vixen.Platform.Headless.Tests;
@@ -31,7 +30,7 @@ public sealed class HeadlessLifecycleTests : IDisposable {
         platform.Lifecycle.RequestQuit();
 
         Assert.True(platform.Lifecycle.IsQuitRequested);
-        Assert.Single(platform.PumpEvents().ToArray(), item => item.Kind == PlatformEventKind.Quit);
+        Assert.Single(platform.PumpEvents().ToArray(), static item => item.Kind == PlatformEventKind.Quit);
 
         platform.Lifecycle.CancelQuit();
         Assert.False(platform.Lifecycle.IsQuitRequested);
@@ -54,7 +53,7 @@ public sealed class HeadlessLifecycleTests : IDisposable {
             Assert.Equal(ApplicationState.Running, platform.Lifecycle.State);
         }
 
-        var kinds = platform.PumpEvents().ToArray().Select(item => item.Kind).ToArray();
+        var kinds = platform.PumpEvents().ToArray().Select(static item => item.Kind).ToArray();
 
         Assert.Equal(200, kinds.Length);
 
@@ -77,7 +76,7 @@ public sealed class HeadlessLifecycleTests : IDisposable {
         platform.Simulation.Resume();
         platform.Simulation.Resume();
 
-        var kinds = platform.PumpEvents().ToArray().Select(item => item.Kind).ToArray();
+        var kinds = platform.PumpEvents().ToArray().Select(static item => item.Kind).ToArray();
 
         Assert.Equal([PlatformEventKind.Suspending, PlatformEventKind.Resumed], kinds);
     }
@@ -89,7 +88,7 @@ public sealed class HeadlessLifecycleTests : IDisposable {
         platform.Simulation.ReportMemoryPressure(MemoryPressure.Critical);
 
         Assert.Equal(MemoryPressure.Critical, platform.Lifecycle.MemoryPressure);
-        Assert.Single(platform.PumpEvents().ToArray(), item => item.Kind == PlatformEventKind.LowMemory);
+        Assert.Single(platform.PumpEvents().ToArray(), static item => item.Kind == PlatformEventKind.LowMemory);
 
         // Still latched a frame later, so code that reads it rather than the event still sees it.
         Assert.Equal(MemoryPressure.Critical, platform.Lifecycle.MemoryPressure);
@@ -119,8 +118,8 @@ public sealed class HeadlessLifecycleTests : IDisposable {
     /// </summary>
     [Fact]
     public void HeldKeysCanBeSetAndReleasedWithoutAKeyboard() {
-        platform.SimulatedInput.SetKey(Key.W, down: true);
-        platform.SimulatedInput.SetMouseButton(MouseButton.Primary, down: true);
+        platform.SimulatedInput.SetKey(Key.W, true);
+        platform.SimulatedInput.SetMouseButton(MouseButton.Primary, true);
 
         Assert.True(platform.Input.IsKeyDown(Key.W));
         Assert.True(platform.Input.IsMouseButtonDown(MouseButton.Primary));
@@ -172,7 +171,7 @@ public sealed class HeadlessLifecycleTests : IDisposable {
         platform.TextInput.SetCandidateArea(window, new(10f, 20f, 2f, 16f));
 
         Assert.True(platform.TextInput.IsActive);
-        Assert.Equal(new Rectangle(10f, 20f, 2f, 16f), text.CandidateArea);
+        Assert.Equal(new(10f, 20f, 2f, 16f), text.CandidateArea);
 
         platform.TextInput.Deactivate();
         Assert.False(platform.TextInput.IsActive);

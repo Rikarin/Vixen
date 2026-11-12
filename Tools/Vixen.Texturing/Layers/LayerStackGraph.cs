@@ -209,8 +209,12 @@ public static class LayerStackGraph {
 
     /// <summary>How far a whole height stands, as a share of the atlas's side: a height of 1 is a sixty-fourth.</summary>
     /// <remarks>
-    ///     ⚠ <b>The slope <c>Height to Normal</c> measures is per unit of UV, so this is what turns a painted 0 to 1
-    ///     into a surface.</b> At 1 a soft brush's rise over a few dozen texels is a near-vertical wall; at a
+    ///     ⚠
+    ///     <b>
+    ///         The slope <c>Height to Normal</c> measures is per unit of UV, so this is what turns a painted 0 to 1
+    ///         into a surface.
+    ///     </b>
+    ///     At 1 a soft brush's rise over a few dozen texels is a near-vertical wall; at a
     ///     sixty-fourth, half a height over a sixty-fourth of the atlas leans the normal by about 27°, which reads as
     ///     a bump and not as a cliff. A per-set height scale is the texture set settings' work.
     /// </remarks>
@@ -309,10 +313,7 @@ public static class LayerStackGraph {
         }
 
         Builder builder = new(stack, LayerStackInstances.Resolve(stack, set, out var found), registry) {
-            Drafting = draft,
-            SubGraphs = subGraphs,
-            Found = found,
-            Baked = baked ?? new HashSet<string>()
+            Drafting = draft, SubGraphs = subGraphs, Found = found, Baked = baked ?? new HashSet<string>()
         };
 
         return builder.Run();
@@ -368,9 +369,7 @@ public static class LayerStackGraph {
         }
 
         Builder builder = new(stack, LayerStackInstances.Resolve(stack, set, out var found), registry) {
-            Weighing = true,
-            SubGraphs = subGraphs,
-            Found = found
+            Weighing = true, SubGraphs = subGraphs, Found = found
         };
 
         return builder.Run();
@@ -399,8 +398,12 @@ public static class LayerStackGraph {
     ///         left out.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The layer and the folders around it composite with <c>Copy</c> over opaque black rather than over
-    ///         what is beneath.</b> What a layer covers is <c>opacity · mask · alpha</c>, and over black a white
+    ///         ⚠
+    ///         <b>
+    ///             The layer and the folders around it composite with <c>Copy</c> over opaque black rather than over
+    ///             what is beneath.
+    ///         </b>
+    ///         What a layer covers is <c>opacity · mask · alpha</c>, and over black a white
     ///         content composited by that amount <em>is</em> the amount, whatever colour the picture beneath has; a
     ///         folder's own amount multiplies it the same way. A folder still isolates or passes through as its own
     ///         operator says, so what its children read beneath is the picture's. Patina's Find Layer asks this.
@@ -449,13 +452,13 @@ public static class LayerStackGraph {
             if (one.Id == layer) {
                 around.Add(one.Id);
 
-                return [.. layers.Take(at + 1)];
+                return [..layers.Take(at + 1)];
             }
 
             if (Beneath(one.Children, layer, around) is { } inside) {
                 around.Add(one.Id);
 
-                return [.. layers.Take(at), one with { Children = inside }];
+                return [..layers.Take(at), one with { Children = inside }];
             }
         }
 
@@ -621,7 +624,7 @@ public static class LayerStackGraph {
                     port.Summary,
                     subject,
                     !subject && TextureImageInputs.Optional(registry, subGraphs, type.Path, port.Name),
-                    Usages.Contains(port.Name) ? port.Name : ""
+                    Usages.Contains(port.Name) ? port.Name : string.Empty
                 )
             );
         }
@@ -635,7 +638,7 @@ public static class LayerStackGraph {
     static HashSet<string> Usage() {
         NodeTypeRegistry registry = new();
 
-        TextureGraph.NodeTypes.Register(registry);
+        NodeTypes.Register(registry);
 
         return new(registry.Get("Output/Output").Setting("Usage")!.Accepted, StringComparer.Ordinal);
     }
@@ -659,9 +662,7 @@ public static class LayerStackGraph {
     ///     picture of nothing. A stack reaches them through a fill's graph, where the port is wired to a mesh map.
     /// </remarks>
     static readonly HashSet<string> ReadsNoPicture = new(StringComparer.Ordinal) {
-        "Source/Volume Gradient",
-        "Source/Volume Mask",
-        "Source/Volume Noise"
+        "Source/Volume Gradient", "Source/Volume Mask", "Source/Volume Noise"
     };
 
     /// <summary>One-image nodes the compile would take and that cannot change a stack's picture.</summary>
@@ -673,8 +674,7 @@ public static class LayerStackGraph {
     ///     defect a menu read off the registry is supposed to make impossible.
     /// </remarks>
     static readonly HashSet<string> IdentityOnAStack = new(StringComparer.Ordinal) {
-        "Colour/Premultiply",
-        "Colour/Unpremultiply"
+        "Colour/Premultiply", "Colour/Unpremultiply"
     };
 
     /// <summary>The walk, with the graph it is filling and the problems it is collecting.</summary>
@@ -724,10 +724,7 @@ public static class LayerStackGraph {
         // whether or not a mesh map appears in the graph.
         readonly NodeGraphModel graph = new() {
             Name = set.Name.Length > 0 ? $"{stack.Name} · {set.Name}" : stack.Name,
-            Settings = {
-                [TextureGraphSettings.TilingX] = "false",
-                [TextureGraphSettings.TilingY] = "false"
-            }
+            Settings = { [TextureGraphSettings.TilingX] = "false", [TextureGraphSettings.TilingY] = "false" }
         };
 
         float column;
@@ -753,7 +750,7 @@ public static class LayerStackGraph {
         ///     The group whose own composite is the output of every channel, or empty for the stack's picture — see
         ///     <see cref="LayerStackGraph.Capture" />.
         /// </summary>
-        public string Capturing { get; init; } = "";
+        public string Capturing { get; init; } = string.Empty;
 
         /// <summary>Whether a pass-through <see cref="Capturing" /> keeps what is beneath it, rather than isolating.</summary>
         public bool Backdrop { get; init; }
@@ -762,7 +759,7 @@ public static class LayerStackGraph {
         public IReadOnlyList<LayerStackProblem> Found { get; init; } = [];
 
         /// <summary>The layer whose amount every output is, or empty — see <see cref="Amount" />.</summary>
-        public string Asked { get; init; } = "";
+        public string Asked { get; init; } = string.Empty;
 
         /// <summary>The mesh maps the host's bake holds — see <see cref="Build" />'s <c>baked</c>.</summary>
         public IReadOnlySet<string> Baked { get; init; } = new HashSet<string>();
@@ -796,7 +793,7 @@ public static class LayerStackGraph {
         ///     later would silently emit unowned nodes. Set once, by <see cref="Layer" />, it is
         ///     right for everything reached from there including a method nobody has written yet.
         /// </remarks>
-        string owner = "";
+        string owner = string.Empty;
 
         /// <summary>The channel whose chain is being built, which is the other half of a node's name.</summary>
         /// <remarks>
@@ -805,7 +802,7 @@ public static class LayerStackGraph {
         ///     copy of a layer would want the same id and <see cref="Named" /> would spend the whole
         ///     stack in its collision probe.
         /// </remarks>
-        string usage = "";
+        string usage = string.Empty;
 
         public LayerStackBuild Run() {
             problems.AddRange(Found);
@@ -813,7 +810,7 @@ public static class LayerStackGraph {
             if (set.Channels.Count == 0) {
                 problems.Add(
                     LayerStackProblem.Refusal(
-                        "",
+                        string.Empty,
                         $"Texture set '{set.Name}' declares no channels, so there is nothing for its layers to write. "
                         + "A set's channel list is doc 48 § D11's, and a stack with none compiles to a plan with no "
                         + "outputs — which evaluates and produces nothing anybody can look at."
@@ -827,7 +824,7 @@ public static class LayerStackGraph {
                 if (!seen.Add(channel.Usage)) {
                     problems.Add(
                         LayerStackProblem.Refusal(
-                            "",
+                            string.Empty,
                             $"Texture set '{set.Name}' declares the channel '{channel.Usage}' twice. Two Output nodes "
                             + "under one usage is two maps a bake would write to one file, last one winning."
                         )
@@ -858,7 +855,7 @@ public static class LayerStackGraph {
             Anchors();
             Beneaths();
 
-            return new(graph, [.. problems], [.. notes]) { Layers = owners.ToImmutableDictionary() };
+            return new(graph, [..problems], [..notes]) { Layers = owners.ToImmutableDictionary() };
         }
 
         /// <summary>Refuses two layers sharing an identity, because an anchor names one of them.</summary>
@@ -928,7 +925,7 @@ public static class LayerStackGraph {
             } else {
                 var start = Add("Source/Uniform");
 
-                start.SetValue("Colour", Colour(channel.Default, channel.Usage, ""));
+                start.SetValue("Colour", Colour(channel.Default, channel.Usage, string.Empty));
                 cursor = new(start.Id, "Out");
             }
 
@@ -957,7 +954,10 @@ public static class LayerStackGraph {
 
         /// <summary>Whether the set's height reaches its normal, which it does for a picture and not for coverage.</summary>
         bool Relieved =>
-            !Weighing && Asked.Length == 0 && Capturing.Length == 0 && set.Channels.Exists(static channel => channel.Usage == HeightUsage);
+            !Weighing
+            && Asked.Length == 0
+            && Capturing.Length == 0
+            && set.Channels.Exists(static channel => channel.Usage == HeightUsage);
 
         /// <summary>The set's <c>normal</c> output: the height's slope, over the normal channel when there is one.</summary>
         /// <param name="height">The end of the height channel's chain.</param>
@@ -1039,7 +1039,9 @@ public static class LayerStackGraph {
 
                 output.SetText("Usage", baked);
                 graph.Connect(BakedPicture(baked), new(output.Id, "Input"));
-                notes.Add(new(output.Id, $"The bake's {baked} of texture set '{set.Name}', which has no such channel."));
+                notes.Add(
+                    new(output.Id, $"The bake's {baked} of texture set '{set.Name}', which has no such channel.")
+                );
             }
         }
 
@@ -1056,7 +1058,7 @@ public static class LayerStackGraph {
             var (mix, map) = asked switch {
                 NormalUsage => (set.BakedNormal, NormalMap),
                 OcclusionUsage => (set.BakedOcclusion, OcclusionMap),
-                _ => (LayerBakeMix.Off, "")
+                _ => (LayerBakeMix.Off, string.Empty)
             };
 
             return mix != LayerBakeMix.Off && Baked.Contains(map) ? mix : null;
@@ -1073,13 +1075,13 @@ public static class LayerStackGraph {
             map.SetText("Map", normal ? NormalMap : OcclusionMap);
 
             if (!normal) {
-                return Opaque(new MaskSlot(new PortRef(map.Id, "Out"), false)).Port;
+                return Opaque(new(new(map.Id, "Out"), false)).Port;
             }
 
             var turn = Add("Surface/Normal Transform");
 
             turn.SetValue("Flip Green", 1f);
-            graph.Connect(new PortRef(map.Id, "Out"), new(turn.Id, "Input"));
+            graph.Connect(new(map.Id, "Out"), new(turn.Id, "Input"));
 
             return new(turn.Id, "Out");
         }
@@ -1119,7 +1121,7 @@ public static class LayerStackGraph {
             if (depth >= MaxGroupDepth) {
                 problems.Add(
                     LayerStackProblem.Refusal(
-                        "",
+                        string.Empty,
                         $"Groups nest more than {MaxGroupDepth} deep in texture set '{set.Name}'. That is a hang "
                         + "check rather than a design limit — a hand-edited .vxlayers can name a group inside itself."
                     )
@@ -1278,8 +1280,8 @@ public static class LayerStackGraph {
                     blend.Id,
                     $"Layer '{(layer.Name.Length > 0 ? layer.Name : layer.Id)}' · {layer.Kind} · {layer.Blend} at "
                     + $"{(layer.Opacity * 100f).ToString("0.#", CultureInfo.InvariantCulture)}%"
-                    + (layer.Mask.Source == LayerMaskSource.None ? "" : $" · {layer.Mask.Source} mask")
-                    + (folded is null ? "" : ", folded into the opacity")
+                    + (layer.Mask.Source == LayerMaskSource.None ? string.Empty : $" · {layer.Mask.Source} mask")
+                    + (folded is null ? string.Empty : ", folded into the opacity")
                     + $" · channel '{channel.Usage}'."
                 )
             );
@@ -1330,8 +1332,12 @@ public static class LayerStackGraph {
         /// <summary>What a canvas's strokes cover, for a coverage: its alpha in the channel weighed, or in all of them.</summary>
         /// <remarks>
         ///     <para>
-        ///         ⚠ <b>A coverage compiles one channel called <c>mask</c>, which no stroke on a layer ever
-        ///         writes</b> — <c>LayerStackSplat.Coverage</c>'s set has that one channel. Read under it, as
+        ///         ⚠
+        ///         <b>
+        ///             A coverage compiles one channel called <c>mask</c>, which no stroke on a layer ever
+        ///             writes
+        ///         </b>
+        ///         — <c>LayerStackSplat.Coverage</c>'s set has that one channel. Read under it, as
         ///         <see cref="Paint" /> reads a canvas under the channel being compiled, a paint layer read an
         ///         absent channel, which the upload fills with transparency, and weighed <b>zero</b> everywhere
         ///         however much of the atlas its strokes covered (Patina's wave 5 found it through its Find Layer
@@ -1348,7 +1354,9 @@ public static class LayerStackGraph {
         PortRef? Strokes(LayerAsset layer, ChannelAsset channel) {
             var usages = stack.Sets.Find(one => one.Name == set.Name)?.Channels ?? set.Channels;
 
-            if (layer.Paint.Trim().Length == 0 || usages.Exists(one => one.Usage == channel.Usage) || usages.Count == 0) {
+            if (layer.Paint.Trim().Length == 0
+                || usages.Exists(one => one.Usage == channel.Usage)
+                || usages.Count == 0) {
                 return Paint(layer, channel);
             }
 
@@ -1934,7 +1942,7 @@ public static class LayerStackGraph {
                     text.Append(';');
                 }
 
-                foreach (var number in (ReadOnlySpan<float>)[
+                foreach (var number in (ReadOnlySpan<float>) [
                              into[index].X, into[index].Y, into[index].Z,
                              float.Lerp(from.NormalX, to.NormalX, share),
                              float.Lerp(from.NormalY, to.NormalY, share),
@@ -1952,7 +1960,7 @@ public static class LayerStackGraph {
         const int TextureSurfacePathLimit = 1024;
 
         static void Box(GraphNode node, float[] box) {
-            float[] whole = box.Length == 6 ? box : [0f, 0f, 0f, 1f, 1f, 1f];
+            var whole = box.Length == 6 ? box : [0f, 0f, 0f, 1f, 1f, 1f];
 
             Triple(node, "Box Min", whole.AsSpan(0, 3));
             Triple(node, "Box Max", whole.AsSpan(3, 3));
@@ -2754,7 +2762,7 @@ public static class LayerStackGraph {
                         );
                     }
 
-                    plan.Add((port, null, ""));
+                    plan.Add((port, null, string.Empty));
 
                     continue;
                 }
@@ -2776,7 +2784,7 @@ public static class LayerStackGraph {
                 }
 
                 if (own && cursor is not null) {
-                    plan.Add((port, null, ""));
+                    plan.Add((port, null, string.Empty));
 
                     continue;
                 }
@@ -2908,7 +2916,7 @@ public static class LayerStackGraph {
                         return null;
                     }
 
-                    return "";
+                    return string.Empty;
                 }
 
                 case LayerInputSource.Texture:
@@ -2918,7 +2926,7 @@ public static class LayerStackGraph {
                         return null;
                     }
 
-                    return "";
+                    return string.Empty;
 
                 case LayerInputSource.Bake:
                     if (input.Map.Trim().Length == 0) {
@@ -2927,10 +2935,14 @@ public static class LayerStackGraph {
                         return null;
                     }
 
-                    return "";
+                    return string.Empty;
 
                 default:
-                    throw new ArgumentOutOfRangeException(nameof(input), input.Source, "Not an input this build knows.");
+                    throw new ArgumentOutOfRangeException(
+                        nameof(input),
+                        input.Source,
+                        "Not an input this build knows."
+                    );
             }
         }
 
@@ -2965,7 +2977,10 @@ public static class LayerStackGraph {
                     foreach (var (port, value) in input.Values) {
                         if (type!.Port(port, PortDirection.Input) is not { Kind: not PortKind.Image }) {
                             problems.Add(
-                                LayerStackProblem.Warning(layerId, $"'{port}' is not a number '{path}' takes, so it is dropped.")
+                                LayerStackProblem.Warning(
+                                    layerId,
+                                    $"'{port}' is not a number '{path}' takes, so it is dropped."
+                                )
                             );
 
                             continue;
@@ -3765,7 +3780,9 @@ public static class LayerStackGraph {
 
             // ⚠ A constant's alpha is the layer's own alpha, folded in here rather than carried in the picture — so
             // Replace, which does not read it, has to say so here as well as in `Solid` (Patina #104).
-            if (layer.Kind != LayerKind.Fill || layer.Fill != LayerFillSource.Constant || layer.Blend == LayerBlendMode.Replace) {
+            if (layer.Kind != LayerKind.Fill
+                || layer.Fill != LayerFillSource.Constant
+                || layer.Blend == LayerBlendMode.Replace) {
                 return opacity;
             }
 
@@ -3923,14 +3940,14 @@ public static class LayerStackGraph {
                 hash = unchecked((hash ^ character) * 16777619u);
             }
 
-            hash = unchecked(((hash ^ '\n') * 16777619u) + (uint)ordinal);
+            hash = unchecked((hash ^ '\n') * 16777619u + (uint)ordinal);
 
             // Kept well inside `int`, because `NodeGraphModel.Add(NodeId, …)` raises its own counter
             // to the largest id it has seen and a sub-graph inlining then allocates above that.
             var id = new NodeId((int)(hash % 0x3FFFFFFFu) + 1);
 
             while (graph.TryGet(id, out _)) {
-                id = new NodeId(id.Value % 0x3FFFFFFF + 1);
+                id = new(id.Value % 0x3FFFFFFF + 1);
             }
 
             return id;

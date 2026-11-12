@@ -4,7 +4,6 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Text;
 using Vixen.Core.Collections;
-using Vixen.Core.Mathematics;
 
 namespace Vixen.Graphics.OpenGL;
 
@@ -36,8 +35,10 @@ sealed class GlAdapter(GlProfile profile, string name, string driverVersion) : I
     public string DriverVersion => driverVersion;
 
     /// <summary>Always zero.</summary>
-    /// <remarks>Core GL has no memory query at all; <c>NVX_gpu_memory_info</c> and
-    /// <c>ATI_meminfo</c> are vendor extensions that disagree about units.</remarks>
+    /// <remarks>
+    ///     Core GL has no memory query at all; <c>NVX_gpu_memory_info</c> and
+    ///     <c>ATI_meminfo</c> are vendor extensions that disagree about units.
+    /// </remarks>
     public ulong DeviceMemory => 0;
 
     public GraphicsDeviceFeatures Features { get; } = profile.Features();
@@ -106,8 +107,12 @@ public sealed partial class GlDevice : IGraphicsDevice {
     ///     </para>
     ///     <para>
     ///         ⚠ <b>What this cannot do is find a GL context.</b>
-    ///         <see cref="GlDeviceOptions.Api" /> is entry points <i>already current on this
-    ///         thread</i>, and making them current is the platform's job — one no
+    ///         <see cref="GlDeviceOptions.Api" /> is entry points
+    ///         <i>
+    ///             already current on this
+    ///             thread
+    ///         </i>
+    ///         , and making them current is the platform's job — one no
     ///         <c>Vixen.Platform</c> implementation does yet, which is why an app head cannot boot on
     ///         this backend however it is asked. Handing in null is therefore the ordinary way to
     ///         arrive here rather than a programming error, and it is reported as a sentence instead
@@ -209,8 +214,15 @@ public sealed partial class GlDevice : IGraphicsDevice {
     public int LiveResourceCount {
         get {
             lock (gate) {
-                return buffers.Count + textures.Count + views.Count + samplers.Count + shaders.Count
-                    + pipelines.Count + pipelineLayouts.Count + setLayouts.Count + descriptorSets.Count;
+                return buffers.Count
+                    + textures.Count
+                    + views.Count
+                    + samplers.Count
+                    + shaders.Count
+                    + pipelines.Count
+                    + pipelineLayouts.Count
+                    + setLayouts.Count
+                    + descriptorSets.Count;
             }
         }
     }
@@ -289,9 +301,7 @@ public sealed partial class GlDevice : IGraphicsDevice {
         var target = Buffer(buffer);
 
         if (target.Description.Access != MemoryAccess.HostReadback) {
-            throw new InvalidOperationException(
-                $"Buffer '{target.Description.Name}' is not a readback buffer."
-            );
+            throw new InvalidOperationException($"Buffer '{target.Description.Name}' is not a readback buffer.");
         }
 
         state.BindBuffer(GlConstants.CopyReadBuffer, target.Name);
@@ -396,14 +406,18 @@ public sealed partial class GlDevice : IGraphicsDevice {
         }
 
         lock (gate) {
-            return new(views.Add(new GlTextureView(
-                texture,
-                effective,
-                baseMipLevel,
-                mipLevelCount > 0 ? mipLevelCount : description.EffectiveMipLevels - baseMipLevel,
-                baseArrayLayer,
-                arrayLayerCount > 0 ? arrayLayerCount : description.ArrayLayers - baseArrayLayer
-            )));
+            return new(
+                views.Add(
+                    new GlTextureView(
+                        texture,
+                        effective,
+                        baseMipLevel,
+                        mipLevelCount > 0 ? mipLevelCount : description.EffectiveMipLevels - baseMipLevel,
+                        baseArrayLayer,
+                        arrayLayerCount > 0 ? arrayLayerCount : description.ArrayLayers - baseArrayLayer
+                    )
+                )
+            );
         }
     }
 
@@ -579,9 +593,7 @@ public sealed partial class GlDevice : IGraphicsDevice {
         );
 
         var vertexArray = BuildVertexArray(description.VertexBuffers ?? []);
-        var pipeline = new GlPipeline(program, description, layout, vertexArray) {
-            PushConstantLocation = push
-        };
+        var pipeline = new GlPipeline(program, description, layout, vertexArray) { PushConstantLocation = push };
 
         if (pipeline.IndependentBlend && !Features.HasIndependentBlend) {
             gl.DeleteVertexArray(vertexArray);
@@ -620,9 +632,7 @@ public sealed partial class GlDevice : IGraphicsDevice {
         );
 
         lock (gate) {
-            return new(pipelines.Add(new GlPipeline(program, description, layout) {
-                PushConstantLocation = push
-            }));
+            return new(pipelines.Add(new GlPipeline(program, description, layout) { PushConstantLocation = push }));
         }
     }
 
@@ -654,9 +664,7 @@ public sealed partial class GlDevice : IGraphicsDevice {
 
     /// <inheritdoc />
     public bool TryResolveQueries(QueryPoolHandle pool, int first, Span<ulong> results) =>
-        throw new NotSupportedException(
-            "The OpenGL backend has no timestamp queries, so no pool exists to resolve."
-        );
+        throw new NotSupportedException("The OpenGL backend has no timestamp queries, so no pool exists to resolve.");
 
     /// <inheritdoc />
     /// <remarks>

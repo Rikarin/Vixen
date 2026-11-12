@@ -164,8 +164,10 @@ public interface INativeDialogs {
     /// <param name="options">What to show.</param>
     /// <param name="owner">The window to attach the sheet to, where the platform has sheets.</param>
     /// <param name="cancellationToken">Dismisses the dialog, where the platform allows it.</param>
-    /// <returns>Which button was pressed, or <see cref="MessageBoxResult.None" /> if the box could
-    /// not be shown.</returns>
+    /// <returns>
+    ///     Which button was pressed, or <see cref="MessageBoxResult.None" /> if the box could
+    ///     not be shown.
+    /// </returns>
     ValueTask<MessageBoxResult> ShowMessageAsync(
         MessageBoxOptions options,
         IWindow? owner = null,

@@ -63,8 +63,10 @@ public enum PixelFormat : ushort {
     Rgba8UNormSrgb = 21,
 
     /// <summary>Four 8-bit channels in blue-green-red-alpha order, <c>[0, 1]</c>.</summary>
-    /// <remarks>What a Windows swapchain usually hands back, which is why it is named rather than
-    /// swizzled at upload.</remarks>
+    /// <remarks>
+    ///     What a Windows swapchain usually hands back, which is why it is named rather than
+    ///     swizzled at upload.
+    /// </remarks>
     Bgra8UNorm = 22,
 
     /// <summary>Four 8-bit channels in blue-green-red-alpha order, sRGB-encoded.</summary>
@@ -83,13 +85,17 @@ public enum PixelFormat : ushort {
     R32UInt = 27,
 
     /// <summary>Ten bits each for red, green and blue and two for alpha, <c>[0, 1]</c>.</summary>
-    /// <remarks>The HDR swapchain format on every desktop, and the usual choice for a normal buffer
-    /// where the extra precision earns its place.</remarks>
+    /// <remarks>
+    ///     The HDR swapchain format on every desktop, and the usual choice for a normal buffer
+    ///     where the extra precision earns its place.
+    /// </remarks>
     Rgb10A2UNorm = 28,
 
     /// <summary>Eleven bits each for red and green and ten for blue, as small floats.</summary>
-    /// <remarks>The standard HDR colour target: no alpha, no sign, and half the memory of
-    /// <see cref="Rgba16Float" />.</remarks>
+    /// <remarks>
+    ///     The standard HDR colour target: no alpha, no sign, and half the memory of
+    ///     <see cref="Rgba16Float" />.
+    /// </remarks>
     Rg11B10Float = 29,
 
     /// <summary>Two 16-bit channels, <c>[0, 1]</c>.</summary>
@@ -196,57 +202,82 @@ public static class PixelFormats {
     /// <summary>Bytes per block — per pixel for uncompressed formats.</summary>
     /// <param name="format">The format.</param>
     /// <returns><c>0</c> for <see cref="PixelFormat.Undefined" />.</returns>
-    public static int BlockSize(this PixelFormat format) => format switch {
-        PixelFormat.R8UNorm or PixelFormat.R8SNorm or PixelFormat.R8UInt or PixelFormat.R8SInt => 1,
+    public static int BlockSize(this PixelFormat format) =>
+        format switch {
+            PixelFormat.R8UNorm or PixelFormat.R8SNorm or PixelFormat.R8UInt or PixelFormat.R8SInt => 1,
 
-        PixelFormat.Rg8UNorm or PixelFormat.Rg8SNorm or PixelFormat.R16Float or PixelFormat.R16UInt
-            or PixelFormat.R16UNorm or PixelFormat.Depth16UNorm => 2,
+            PixelFormat.Rg8UNorm
+                or PixelFormat.Rg8SNorm
+                or PixelFormat.R16Float
+                or PixelFormat.R16UInt
+                or PixelFormat.R16UNorm
+                or PixelFormat.Depth16UNorm => 2,
 
-        PixelFormat.Depth24UNormStencil8 => 4,
+            PixelFormat.Depth24UNormStencil8 => 4,
 
-        PixelFormat.Rgba8UNorm or PixelFormat.Rgba8UNormSrgb or PixelFormat.Bgra8UNorm
-            or PixelFormat.Bgra8UNormSrgb or PixelFormat.Rgba8SNorm or PixelFormat.Rg16Float
-            or PixelFormat.R32Float or PixelFormat.R32UInt or PixelFormat.Rgb10A2UNorm
-            or PixelFormat.Rg11B10Float or PixelFormat.Depth32Float or PixelFormat.Rg16UNorm => 4,
+            PixelFormat.Rgba8UNorm
+                or PixelFormat.Rgba8UNormSrgb
+                or PixelFormat.Bgra8UNorm
+                or PixelFormat.Bgra8UNormSrgb
+                or PixelFormat.Rgba8SNorm
+                or PixelFormat.Rg16Float
+                or PixelFormat.R32Float
+                or PixelFormat.R32UInt
+                or PixelFormat.Rgb10A2UNorm
+                or PixelFormat.Rg11B10Float
+                or PixelFormat.Depth32Float
+                or PixelFormat.Rg16UNorm => 4,
 
-        // Five bytes of data in an eight-byte slot on every real implementation, and it is the
-        // allocation size that matters here rather than the useful bits.
-        PixelFormat.Depth32FloatStencil8 => 8,
+            // Five bytes of data in an eight-byte slot on every real implementation, and it is the
+            // allocation size that matters here rather than the useful bits.
+            PixelFormat.Depth32FloatStencil8 => 8,
 
-        PixelFormat.Rgba16Float or PixelFormat.Rg32Float or PixelFormat.Rgba16UNorm => 8,
+            PixelFormat.Rgba16Float or PixelFormat.Rg32Float or PixelFormat.Rgba16UNorm => 8,
 
-        PixelFormat.Rgba32Float or PixelFormat.Rgba32UInt => 16,
+            PixelFormat.Rgba32Float or PixelFormat.Rgba32UInt => 16,
 
-        // 4×4 blocks at half a byte per pixel.
-        PixelFormat.Bc1RgbaUNorm or PixelFormat.Bc1RgbaUNormSrgb or PixelFormat.Bc4RUNorm
-            or PixelFormat.Etc2Rgb8A1UNorm => 8,
+            // 4×4 blocks at half a byte per pixel.
+            PixelFormat.Bc1RgbaUNorm
+                or PixelFormat.Bc1RgbaUNormSrgb
+                or PixelFormat.Bc4RUNorm
+                or PixelFormat.Etc2Rgb8A1UNorm => 8,
 
-        // 4×4 blocks at a byte per pixel.
-        PixelFormat.Bc3RgbaUNorm or PixelFormat.Bc3RgbaUNormSrgb or PixelFormat.Bc5RgUNorm
-            or PixelFormat.Bc6HRgbUFloat or PixelFormat.Bc6HRgbSFloat or PixelFormat.Bc7RgbaUNorm
-            or PixelFormat.Bc7RgbaUNormSrgb
-            or PixelFormat.Etc2Rgba8UNorm or PixelFormat.Astc4X4UNorm or PixelFormat.Astc4X4UNormSrgb
-            or PixelFormat.Astc8X8UNorm or PixelFormat.Astc8X8UNormSrgb => 16,
+            // 4×4 blocks at a byte per pixel.
+            PixelFormat.Bc3RgbaUNorm
+                or PixelFormat.Bc3RgbaUNormSrgb
+                or PixelFormat.Bc5RgUNorm
+                or PixelFormat.Bc6HRgbUFloat
+                or PixelFormat.Bc6HRgbSFloat
+                or PixelFormat.Bc7RgbaUNorm
+                or PixelFormat.Bc7RgbaUNormSrgb
+                or PixelFormat.Etc2Rgba8UNorm
+                or PixelFormat.Astc4X4UNorm
+                or PixelFormat.Astc4X4UNormSrgb
+                or PixelFormat.Astc8X8UNorm
+                or PixelFormat.Astc8X8UNormSrgb => 16,
 
-        _ => 0
-    };
+            _ => 0
+        };
 
     /// <summary>How many pixels wide and tall one block covers.</summary>
     /// <param name="format">The format.</param>
     /// <returns><c>(1, 1)</c> for uncompressed formats.</returns>
-    public static (int Width, int Height) BlockExtent(this PixelFormat format) => format switch {
-        PixelFormat.Astc8X8UNorm or PixelFormat.Astc8X8UNormSrgb => (8, 8),
-        _ when format.IsCompressed() => (4, 4),
-        _ => (1, 1)
-    };
+    public static (int Width, int Height) BlockExtent(this PixelFormat format) =>
+        format switch {
+            PixelFormat.Astc8X8UNorm or PixelFormat.Astc8X8UNormSrgb => (8, 8),
+            _ when format.IsCompressed() => (4, 4),
+            _ => (1, 1)
+        };
 
     /// <summary>Whether the format is block-compressed.</summary>
     public static bool IsCompressed(this PixelFormat format) => format >= PixelFormat.Bc1RgbaUNorm;
 
     /// <summary>Whether the format carries depth.</summary>
     public static bool HasDepth(this PixelFormat format) =>
-        format is PixelFormat.Depth16UNorm or PixelFormat.Depth32Float
-            or PixelFormat.Depth24UNormStencil8 or PixelFormat.Depth32FloatStencil8;
+        format is PixelFormat.Depth16UNorm
+            or PixelFormat.Depth32Float
+            or PixelFormat.Depth24UNormStencil8
+            or PixelFormat.Depth32FloatStencil8;
 
     /// <summary>Whether the format carries stencil.</summary>
     public static bool HasStencil(this PixelFormat format) =>
@@ -291,11 +322,12 @@ public static class PixelFormats {
     ///     do with them, which is the sampler binding's business rather than the texture's — so this
     ///     answers the question a backend has at bind time, and no more of it than that.
     /// </remarks>
-    public static bool Accepts(this DescriptorSampleType declared, PixelFormat format) => declared switch {
-        DescriptorSampleType.Float or DescriptorSampleType.UnfilterableFloat =>
-            format.SampleTypeOf() == DescriptorSampleType.Float,
-        _ => format.SampleTypeOf() == declared
-    };
+    public static bool Accepts(this DescriptorSampleType declared, PixelFormat format) =>
+        declared switch {
+            DescriptorSampleType.Float or DescriptorSampleType.UnfilterableFloat =>
+                format.SampleTypeOf() == DescriptorSampleType.Float,
+            _ => format.SampleTypeOf() == declared
+        };
 
     /// <summary>Whether the hardware converts to and from sRGB on access.</summary>
     /// <remarks>
@@ -305,34 +337,39 @@ public static class PixelFormats {
     ///     by eye.
     /// </remarks>
     public static bool IsSrgb(this PixelFormat format) =>
-        format is PixelFormat.Rgba8UNormSrgb or PixelFormat.Bgra8UNormSrgb
-            or PixelFormat.Bc1RgbaUNormSrgb or PixelFormat.Bc3RgbaUNormSrgb
-            or PixelFormat.Bc7RgbaUNormSrgb or PixelFormat.Astc4X4UNormSrgb
+        format is PixelFormat.Rgba8UNormSrgb
+            or PixelFormat.Bgra8UNormSrgb
+            or PixelFormat.Bc1RgbaUNormSrgb
+            or PixelFormat.Bc3RgbaUNormSrgb
+            or PixelFormat.Bc7RgbaUNormSrgb
+            or PixelFormat.Astc4X4UNormSrgb
             or PixelFormat.Astc8X8UNormSrgb;
 
     /// <summary>The sRGB form of a format, or the format itself if it has none.</summary>
-    public static PixelFormat ToSrgb(this PixelFormat format) => format switch {
-        PixelFormat.Rgba8UNorm => PixelFormat.Rgba8UNormSrgb,
-        PixelFormat.Bgra8UNorm => PixelFormat.Bgra8UNormSrgb,
-        PixelFormat.Bc1RgbaUNorm => PixelFormat.Bc1RgbaUNormSrgb,
-        PixelFormat.Bc3RgbaUNorm => PixelFormat.Bc3RgbaUNormSrgb,
-        PixelFormat.Bc7RgbaUNorm => PixelFormat.Bc7RgbaUNormSrgb,
-        PixelFormat.Astc4X4UNorm => PixelFormat.Astc4X4UNormSrgb,
-        PixelFormat.Astc8X8UNorm => PixelFormat.Astc8X8UNormSrgb,
-        _ => format
-    };
+    public static PixelFormat ToSrgb(this PixelFormat format) =>
+        format switch {
+            PixelFormat.Rgba8UNorm => PixelFormat.Rgba8UNormSrgb,
+            PixelFormat.Bgra8UNorm => PixelFormat.Bgra8UNormSrgb,
+            PixelFormat.Bc1RgbaUNorm => PixelFormat.Bc1RgbaUNormSrgb,
+            PixelFormat.Bc3RgbaUNorm => PixelFormat.Bc3RgbaUNormSrgb,
+            PixelFormat.Bc7RgbaUNorm => PixelFormat.Bc7RgbaUNormSrgb,
+            PixelFormat.Astc4X4UNorm => PixelFormat.Astc4X4UNormSrgb,
+            PixelFormat.Astc8X8UNorm => PixelFormat.Astc8X8UNormSrgb,
+            _ => format
+        };
 
     /// <summary>The linear form of a format, or the format itself if it is already linear.</summary>
-    public static PixelFormat ToLinear(this PixelFormat format) => format switch {
-        PixelFormat.Rgba8UNormSrgb => PixelFormat.Rgba8UNorm,
-        PixelFormat.Bgra8UNormSrgb => PixelFormat.Bgra8UNorm,
-        PixelFormat.Bc1RgbaUNormSrgb => PixelFormat.Bc1RgbaUNorm,
-        PixelFormat.Bc3RgbaUNormSrgb => PixelFormat.Bc3RgbaUNorm,
-        PixelFormat.Bc7RgbaUNormSrgb => PixelFormat.Bc7RgbaUNorm,
-        PixelFormat.Astc4X4UNormSrgb => PixelFormat.Astc4X4UNorm,
-        PixelFormat.Astc8X8UNormSrgb => PixelFormat.Astc8X8UNorm,
-        _ => format
-    };
+    public static PixelFormat ToLinear(this PixelFormat format) =>
+        format switch {
+            PixelFormat.Rgba8UNormSrgb => PixelFormat.Rgba8UNorm,
+            PixelFormat.Bgra8UNormSrgb => PixelFormat.Bgra8UNorm,
+            PixelFormat.Bc1RgbaUNormSrgb => PixelFormat.Bc1RgbaUNorm,
+            PixelFormat.Bc3RgbaUNormSrgb => PixelFormat.Bc3RgbaUNorm,
+            PixelFormat.Bc7RgbaUNormSrgb => PixelFormat.Bc7RgbaUNorm,
+            PixelFormat.Astc4X4UNormSrgb => PixelFormat.Astc4X4UNorm,
+            PixelFormat.Astc8X8UNormSrgb => PixelFormat.Astc8X8UNorm,
+            _ => format
+        };
 
     /// <summary>How many bytes one mip level of a texture occupies, tightly packed.</summary>
     /// <param name="format">The format.</param>

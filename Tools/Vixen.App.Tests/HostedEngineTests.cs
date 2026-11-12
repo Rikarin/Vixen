@@ -209,7 +209,7 @@ public sealed class HostedEngineTests : IDisposable {
 
     VixenApplication Build(Game game) =>
         VixenApp.Create(["--vixen-workers", "1", "--vixen-frame-limit", "0"])
-            .WithPlatform(new HeadlessPlatform(new HeadlessPlatformOptions { FileSystem = files }))
+            .WithPlatform(new HeadlessPlatform(new() { FileSystem = files }))
             .Build(game);
 
     class SilentGame : Game {

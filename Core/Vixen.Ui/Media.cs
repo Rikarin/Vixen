@@ -9,8 +9,12 @@ namespace Vixen.Ui;
 /// <summary>What this document tells <c>@media</c> about the surfaces it is on.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Three of the five axes were always known here and none of them was ever handed
-///         over.</b> <c>StyleEngine.Load</c> has taken a <see cref="MediaContext" /> since the cascade
+///         ⚠
+///         <b>
+///             Three of the five axes were always known here and none of them was ever handed
+///             over.
+///         </b>
+///         <c>StyleEngine.Load</c> has taken a <see cref="MediaContext" /> since the cascade
 ///         was written and <see cref="UiDocument.Load" /> passed nothing, so every sheet in every real
 ///         document was evaluated against <c>default</c> — a surface nought pixels wide, at 1×, with
 ///         no colour-scheme preference and an sRGB gamut. Every responsive variant was dead, every
@@ -51,8 +55,12 @@ namespace Vixen.Ui;
 public sealed partial class UiDocument {
     /// <summary>What the primary surface can actually show, which decides <c>@media (color-gamut: …)</c>.</summary>
     /// <remarks>
-    ///     ⚠ <b>The swapchain's <i>granted</i> gamut, read back from <c>ISwapChain.Gamut</c>, never the
-    ///     one that was asked for and never the display's specification sheet.</b> A surface that
+    ///     ⚠
+    ///     <b>
+    ///         The swapchain's <i>granted</i> gamut, read back from <c>ISwapChain.Gamut</c>, never the
+    ///         one that was asked for and never the display's specification sheet.
+    ///     </b>
+    ///     A surface that
     ///     offered no wide colour space with enough precision behind it stays in sRGB whatever was
     ///     requested, and a stylesheet told otherwise picks colours that the presentation then maps
     ///     away again — so the rule that <c>UiGeometryBuilder.Gamut</c> follows is the rule this
@@ -83,8 +91,12 @@ public sealed partial class UiDocument {
 
     /// <summary>The platform's accessibility settings, on the primary surface.</summary>
     /// <remarks>
-    ///     ⚠ <b>A sixth axis that has to be given and cannot be discovered, joining the two the
-    ///     paragraph above names.</b> Reduced motion, contrast, forced colours, inverted colours and
+    ///     ⚠
+    ///     <b>
+    ///         A sixth axis that has to be given and cannot be discovered, joining the two the
+    ///         paragraph above names.
+    ///     </b>
+    ///     Reduced motion, contrast, forced colours, inverted colours and
     ///     what is pointing at the window are all platform settings, and a document has no way to
     ///     read any of them — so the whole group defaults to "nothing unusual" and waits, exactly as
     ///     the gamut waits at sRGB. ⚠ And the wait is real: nothing in this repository sets this
@@ -104,15 +116,23 @@ public sealed partial class UiDocument {
     /// <param name="surface">The surface.</param>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b><see cref="Forget()" /> only when a verdict actually moved, and the <c>if</c> is
-    ///         the whole reason a window drag is affordable.</b> <c>StyleEngine.SetMedia</c> evaluates
+    ///         ⚠
+    ///         <b>
+    ///             <see cref="Forget()" /> only when a verdict actually moved, and the <c>if</c> is
+    ///             the whole reason a window drag is affordable.
+    ///         </b>
+    ///         <c>StyleEngine.SetMedia</c> evaluates
     ///         the groups the loader registered and returns false unless one of them changed its
     ///         mind, so a document with no <c>@media</c> in it — which is every stylesheet this
     ///         repository ships — compares one boolean and keeps every computed style it had.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>No diagnostic drain here any more, and that is a consequence of the fix rather
-    ///         than a hole in it.</b> This used to reload, and a reload could refuse a <c>@media</c>
+    ///         ⚠
+    ///         <b>
+    ///             No diagnostic drain here any more, and that is a consequence of the fix rather
+    ///             than a hole in it.
+    ///         </b>
+    ///         This used to reload, and a reload could refuse a <c>@media</c>
     ///         block for the first time — the block having been dropped unread at a narrower size.
     ///         Nothing is dropped unread now: the loader recurses into every conditional group
     ///         whatever the verdict, so a condition it cannot read is refused once, at load, where

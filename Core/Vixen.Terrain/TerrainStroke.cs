@@ -82,8 +82,12 @@ public sealed class TerrainStroke {
     /// <param name="stamp">Where it is about to land.</param>
     /// <returns>The samples the stamp can reach.</returns>
     /// <remarks>
-    ///     ⚠ <b>The safe way to use a stroke, and the reason it exists rather than only
-    ///     <see cref="Extend" />.</b> A record holds what the ground <em>was</em>, so it has to be
+    ///     ⚠
+    ///     <b>
+    ///         The safe way to use a stroke, and the reason it exists rather than only
+    ///         <see cref="Extend" />.
+    ///     </b>
+    ///     A record holds what the ground <em>was</em>, so it has to be
     ///     taken before the kernel runs — and a caller who has to fetch the rectangle from the
     ///     kernel's return value can only take it afterwards, which records what the kernel wrote and
     ///     produces an undo that restores the stroke it was supposed to remove. This computes the

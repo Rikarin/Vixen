@@ -62,8 +62,7 @@ public sealed class TestCostDriftTests {
         Assert.Empty(
             TestCostDrift.Find(
                 new Dictionary<string, double>(StringComparer.Ordinal) {
-                    ["Vixen.Editor.App.Tests"] = 329.5,
-                    ["Vixen.Ecs.Tests"] = 2.0
+                    ["Vixen.Editor.App.Tests"] = 329.5, ["Vixen.Ecs.Tests"] = 2.0
                 },
                 [("Vixen.Editor.App.Tests", 331.9), ("Vixen.Ecs.Tests", 2.4)]
             )
@@ -129,13 +128,12 @@ public sealed class TestCostDriftTests {
     public void AZeroCostDriftsAndTheWorstIsReportedFirst() {
         var drifted = TestCostDrift.Find(
             new Dictionary<string, double>(StringComparer.Ordinal) {
-                ["Vixen.Zero.Tests"] = 0.0,
-                ["Vixen.Bigger.Tests"] = 400.0
+                ["Vixen.Zero.Tests"] = 0.0, ["Vixen.Bigger.Tests"] = 400.0
             },
             [("Vixen.Zero.Tests", 90.0), ("Vixen.Bigger.Tests", 100.0)]
         );
 
-        Assert.Equal(["Vixen.Bigger.Tests", "Vixen.Zero.Tests"], drifted.Select(entry => entry.Project));
+        Assert.Equal(["Vixen.Bigger.Tests", "Vixen.Zero.Tests"], drifted.Select(static entry => entry.Project));
         Assert.Equal(double.PositiveInfinity, drifted[1].Ratio);
     }
 
@@ -313,8 +311,7 @@ public sealed class TestCostDriftTests {
     [Fact]
     public void ALoadTooSmallToBelieveIsSaidRatherThanAssumed() {
         var committed = new Dictionary<string, double>(StringComparer.Ordinal) {
-            ["Vixen.A.Tests"] = 100.0,
-            ["Vixen.B.Tests"] = 100.0
+            ["Vixen.A.Tests"] = 100.0, ["Vixen.B.Tests"] = 100.0
         };
 
         (string, double)[] measured = [("Vixen.A.Tests", 220.0), ("Vixen.B.Tests", 220.0)];
@@ -462,9 +459,9 @@ public sealed class TestCostDriftTests {
 
         var costs = lines
             .Skip(blank)
-            .Select(line => line.Trim())
-            .Where(line => line.Length > 0 && !line.StartsWith('#'))
-            .Select(line => double.Parse(line.Split(' ')[0], CultureInfo.InvariantCulture))
+            .Select(static line => line.Trim())
+            .Where(static line => line.Length > 0 && !line.StartsWith('#'))
+            .Select(static line => double.Parse(line.Split(' ')[0], CultureInfo.InvariantCulture))
             .ToList();
 
         var written = TestCostDrift.Header(

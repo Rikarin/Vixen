@@ -25,14 +25,22 @@ public sealed record ShaderGraphImportSettings : IImportSettings {
 /// <summary>Checks a <c>.vxshadergraph</c>, and writes nothing.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>One of the five extensions the editor's own Create menu writes, opens and saves and
-///         no importer claimed</b> — <c>docs/overview.md</c> records the set, and
+///         ⚠
+///         <b>
+///             One of the five extensions the editor's own Create menu writes, opens and saves and
+///             no importer claimed
+///         </b>
+///         — <c>docs/overview.md</c> records the set, and
 ///         <c>CreateAssetMenuAttribute</c>'s remarks state the contract it broke. Without this the
 ///         fallback took a graph as a <c>Blob</c> no typed reader resolves.
 ///     </para>
 ///     <para>
-///         ⚠ <b>It writes no artefact, and that is the one place it departs from every other
-///         importer in this assembly.</b> What a shader graph produces is Raven <em>source</em>, and
+///         ⚠
+///         <b>
+///             It writes no artefact, and that is the one place it departs from every other
+///             importer in this assembly.
+///         </b>
+///         What a shader graph produces is Raven <em>source</em>, and
 ///         source is not content: it is an input to a shader compilation, which
 ///         <see cref="ShaderGraphSources" /> assembles for the editor and for
 ///         <c>ShaderBuildRunner</c> at the moment one is needed. Writing the text into the artefact

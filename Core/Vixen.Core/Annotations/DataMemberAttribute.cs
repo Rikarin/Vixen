@@ -27,9 +27,13 @@ public sealed class DataMemberAttribute : Attribute {
 
     /// <summary>Serialises the member with an explicit sort key.</summary>
     /// <param name="order">The sort key; see <see cref="Order" />.</param>
-    public DataMemberAttribute(int order) => Order = order;
+    public DataMemberAttribute(int order) {
+        Order = order;
+    }
 
     /// <summary>Serialises the member under an explicit name.</summary>
     /// <param name="name">The name written to the serialised form.</param>
-    public DataMemberAttribute(string name) => Name = name;
+    public DataMemberAttribute(string name) {
+        Name = name;
+    }
 }

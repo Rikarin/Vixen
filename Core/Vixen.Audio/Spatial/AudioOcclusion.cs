@@ -42,7 +42,9 @@ public sealed class AudioOcclusion {
 
     /// <summary>An occlusion pass over a voice pool.</summary>
     /// <param name="capacity">How many voices the pool has.</param>
-    public AudioOcclusion(int capacity) => targets = new float[capacity];
+    public AudioOcclusion(int capacity) {
+        targets = new float[capacity];
+    }
 
     /// <summary>Who answers the question. Null turns the whole thing off.</summary>
     public IAudioOcclusionProvider? Provider { get; set; }
@@ -157,7 +159,7 @@ public sealed class AudioOcclusion {
 
             voice.Occlusion = MathF.Abs(target - current) <= step
                 ? target
-                : current + (MathF.Sign(target - current) * step);
+                : current + MathF.Sign(target - current) * step;
         }
     }
 }

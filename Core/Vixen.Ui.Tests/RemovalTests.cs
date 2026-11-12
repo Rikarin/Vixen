@@ -15,10 +15,12 @@ public class RemovalTests {
 
         // Stacked, because CSS's initial `flex-direction` is `row` and a list of rows laid out
         // across the screen would make every assertion about a top edge read zero.
-        document.Load("""
-            root { width: 100px; height: 100px; flex-direction: column; }
-            row { width: 100px; height: 20px; }
-        """);
+        document.Load(
+            """
+                root { width: 100px; height: 100px; flex-direction: column; }
+                row { width: 100px; height: 20px; }
+            """
+        );
 
         for (var i = 0; i < count; i++) {
             document.Root.Add("row");
@@ -51,10 +53,12 @@ public class RemovalTests {
     public void A_removed_element_stops_being_drawn() {
         using var document = new UiDocument(100f, 100f);
 
-        document.Load("""
-            root { width: 100px; height: 100px; flex-direction: column; }
-            row { width: 100px; height: 20px; background-color: #ffffff; }
-        """);
+        document.Load(
+            """
+                root { width: 100px; height: 100px; flex-direction: column; }
+                row { width: 100px; height: 20px; background-color: #ffffff; }
+            """
+        );
 
         var first = document.Root.Add("row");
         document.Root.Add("row");
@@ -72,7 +76,7 @@ public class RemovalTests {
 
     [Fact]
     public void The_subtree_goes_with_it() {
-        using var document = Rows(count: 0);
+        using var document = Rows(0);
 
         var panel = document.Root.Add("row");
         var child = panel.Add("row");
@@ -135,11 +139,13 @@ public class RemovalTests {
     public void The_siblings_after_it_learn_their_new_positions() {
         using var document = new UiDocument(100f, 100f);
 
-        document.Load("""
-            root { width: 100px; height: 100px; flex-direction: column; }
-            row { width: 100px; height: 20px; }
-            row:first-child { height: 50px; }
-        """);
+        document.Load(
+            """
+                root { width: 100px; height: 100px; flex-direction: column; }
+                row { width: 100px; height: 20px; }
+                row:first-child { height: 50px; }
+            """
+        );
 
         var first = document.Root.Add("row");
         var second = document.Root.Add("row");
@@ -159,7 +165,7 @@ public class RemovalTests {
 
     [Fact]
     public void Removing_the_focused_element_clears_the_focus() {
-        using var document = Rows(count: 0);
+        using var document = Rows(0);
 
         var panel = document.Root.Add("row");
         var field = panel.Add("row");
@@ -199,13 +205,15 @@ public class RemovalTests {
         var drags = 0;
         row.AddHandler<DragEvent>((_, _) => drags++);
 
-        document.Dispatch(new PointerEvent {
-            Action = PointerAction.Pressed, X = 10f, Y = 10f, Timestamp = TimeSpan.Zero
-        });
+        document.Dispatch(
+            new PointerEvent { Action = PointerAction.Pressed, X = 10f, Y = 10f, Timestamp = TimeSpan.Zero }
+        );
 
-        document.Dispatch(new PointerEvent {
-            Action = PointerAction.Moved, X = 60f, Y = 10f, Timestamp = TimeSpan.FromMilliseconds(20)
-        });
+        document.Dispatch(
+            new PointerEvent {
+                Action = PointerAction.Moved, X = 60f, Y = 10f, Timestamp = TimeSpan.FromMilliseconds(20)
+            }
+        );
 
         Assert.Equal(1, drags);
         row.Remove();
@@ -213,9 +221,11 @@ public class RemovalTests {
         // ⚠ Silently rather than as a cancellation: a cancelled drag tells its target to put back
         // what it was carrying, and the target is the thing being deleted. Raising an event on an
         // element mid-removal hands a handler a half-detached tree to react to.
-        document.Dispatch(new PointerEvent {
-            Action = PointerAction.Moved, X = 70f, Y = 10f, Timestamp = TimeSpan.FromMilliseconds(40)
-        });
+        document.Dispatch(
+            new PointerEvent {
+                Action = PointerAction.Moved, X = 70f, Y = 10f, Timestamp = TimeSpan.FromMilliseconds(40)
+            }
+        );
 
         Assert.Equal(1, drags);
     }
@@ -252,11 +262,13 @@ public class RemovalTests {
     public void What_is_left_still_cascades_correctly() {
         using var document = new UiDocument(100f, 100f);
 
-        document.Load("""
-            root { width: 100px; height: 100px; flex-direction: column; font-size: 10px; }
-            panel { width: 100px; height: 50px; font-size: 2em; }
-            row { width: 4em; height: 10px; }
-        """);
+        document.Load(
+            """
+                root { width: 100px; height: 100px; flex-direction: column; font-size: 10px; }
+                panel { width: 100px; height: 50px; font-size: 2em; }
+                row { width: 4em; height: 10px; }
+            """
+        );
 
         var doomed = document.Root.Add("panel");
         doomed.Add("row");
@@ -302,7 +314,7 @@ public class RemovalTests {
     /// </summary>
     [Fact]
     public void Building_and_tearing_down_a_list_stops_growing() {
-        using var document = Rows(count: 0);
+        using var document = Rows(0);
 
         for (var round = 0; round < 20; round++) {
             for (var i = 0; i < 30; i++) {
@@ -331,8 +343,12 @@ public class RemovalTests {
     ///     made entirely of styles some element really has.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>The removed run is in the middle, and the first version of this took it off the
-    ///     end.</b> Removing a tail moves nothing: every survivor keeps the slot it already had, so
+    ///     ⚠
+    ///     <b>
+    ///         The removed run is in the middle, and the first version of this took it off the
+    ///         end.
+    ///     </b>
+    ///     Removing a tail moves nothing: every survivor keeps the slot it already had, so
     ///     the mapping is the identity and deleting the remap broke nothing at all. A compaction test
     ///     whose survivors do not move cannot see the only thing compaction does.
     /// </remarks>
@@ -340,11 +356,13 @@ public class RemovalTests {
     public void Compaction_leaves_every_surviving_element_styled_as_it_was() {
         using var document = new UiDocument(200f, 4000f);
 
-        document.Load("""
-            root { width: 200px; height: 4000px; flex-direction: column; }
-            row { width: 200px; height: 10px; }
-            .tall { height: 40px; }
-        """);
+        document.Load(
+            """
+                root { width: 200px; height: 4000px; flex-direction: column; }
+                row { width: 200px; height: 10px; }
+                .tall { height: 40px; }
+            """
+        );
 
         var rows = new List<UiElement>();
 
@@ -366,7 +384,7 @@ public class RemovalTests {
             rows[i].Remove();
         }
 
-        var survivors = rows.Where((_, i) => i < 5 || i > 75).ToList();
+        var survivors = rows.Where(static (_, i) => i is < 5 or > 75).ToList();
         var before = document.StyleCompactions;
         document.Update();
 
@@ -400,7 +418,7 @@ public class RemovalTests {
     /// </summary>
     [Fact]
     public void A_few_removals_do_not_compact() {
-        using var document = Rows(count: 40);
+        using var document = Rows(40);
 
         for (var i = 39; i >= 30; i--) {
             document.Root.Children[i].Remove();
@@ -414,7 +432,7 @@ public class RemovalTests {
 
     [Fact]
     public void Compacting_by_hand_works_whatever_the_heuristic_thinks() {
-        using var document = Rows(count: 4);
+        using var document = Rows(4);
 
         document.Root.Children[1].Remove();
 
@@ -429,7 +447,7 @@ public class RemovalTests {
 
     [Fact]
     public void A_removed_element_is_not_resolved_again() {
-        using var document = Rows(count: 10);
+        using var document = Rows(10);
 
         var applied = document.Update();
         Assert.False(applied);
@@ -467,11 +485,13 @@ public class RemovalTests {
     public void A_state_change_after_a_removal_still_reaches_the_right_element() {
         using var document = new UiDocument(100f, 100f);
 
-        document.Load("""
-            root { width: 100px; height: 100px; flex-direction: column; }
-            row { width: 100px; height: 20px; }
-            row.tall { height: 60px; }
-        """);
+        document.Load(
+            """
+                root { width: 100px; height: 100px; flex-direction: column; }
+                row { width: 100px; height: 20px; }
+                row.tall { height: 60px; }
+            """
+        );
 
         var doomed = document.Root.Add("row");
         var kept = document.Root.Add("row");

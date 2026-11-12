@@ -87,7 +87,7 @@ public sealed unsafe class MacOSProcessorTopology : IProcessorTopology {
     /// </remarks>
     static long? Read(string name) {
         long value = 0;
-        var size = (nuint)sizeof(long);
+        nuint size = sizeof(long);
 
         if (Sysctl.ByName(name, &value, &size, null, 0) != 0) {
             return null;
@@ -104,7 +104,11 @@ public sealed unsafe class MacOSProcessorTopology : IProcessorTopology {
 /// <summary>The one libc call this assembly needs.</summary>
 [SupportedOSPlatform("macos")]
 static unsafe partial class Sysctl {
-    [LibraryImport("libc", EntryPoint = "sysctlbyname", SetLastError = true,
-        StringMarshalling = StringMarshalling.Utf8)]
+    [LibraryImport(
+        "libc",
+        EntryPoint = "sysctlbyname",
+        SetLastError = true,
+        StringMarshalling = StringMarshalling.Utf8
+    )]
     public static partial int ByName(string name, void* output, nuint* size, void* input, nuint inputSize);
 }

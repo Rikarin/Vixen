@@ -29,55 +29,58 @@ namespace Vixen.Ui.Styling.Tests;
 public class IncrementalRestyleOracleTests {
     [Fact]
     public void An_incremental_restyle_produces_exactly_what_a_cold_one_produces() {
-        Gen.Select(Gen.Int[0, 100_000], Gen.Int[2, 4], Gen.Int[1, 3], Gen.Int[1, 6]).Sample(shape => {
-                var (seed, depth, breadth, mutations) = shape;
-                var css = BuildStylesheet(seed);
-                var random = new Random(seed ^ 0x7717);
+        Gen.Select(Gen.Int[0, 100_000], Gen.Int[2, 4], Gen.Int[1, 3], Gen.Int[1, 6])
+            .Sample(
+                static shape => {
+                    var (seed, depth, breadth, mutations) = shape;
+                    var css = BuildStylesheet(seed);
+                    var random = new Random(seed ^ 0x7717);
 
-                var live = new CascadeFixture();
-                live.Load(css);
-                BuildTree(live, seed, depth, breadth);
+                    var live = new CascadeFixture();
+                    live.Load(css);
+                    BuildTree(live, seed, depth, breadth);
 
-                var updater = new StyleUpdater(live.Engine);
-                updater.ResolveAll();
+                    var updater = new StyleUpdater(live.Engine);
+                    updater.ResolveAll();
 
-                for (var m = 0; m < mutations; m++) {
-                    var mutation = Mutate(live, random);
+                    for (var m = 0; m < mutations; m++) {
+                        var mutation = Mutate(live, random);
 
-                    if (mutation.IsState) {
-                        updater.StateChanged(mutation.Element);
-                    } else {
-                        updater.ClassChanged(mutation.Element, mutation.ClassName!);
+                        if (mutation.IsState) {
+                            updater.StateChanged(mutation.Element);
+                        } else {
+                            updater.ClassChanged(mutation.Element, mutation.ClassName!);
+                        }
                     }
-                }
 
-                // The oracle: a second engine with the same stylesheet, and a tree built *directly*
-                // in the state the mutations left the first one in.
-                //
-                // Not "the same tree with the same mutations replayed" — that was the first version
-                // of this and it was weaker than it looked. Replaying the mutations means both sides
-                // reach their final state through the same mutation code, so anything that code gets
-                // wrong is wrong identically on both and the comparison sees nothing. It let a
-                // sabotage through: deleting the ancestor-bloom propagation in `AddClass` broke
-                // matching and this test stayed green, because the oracle's blooms were broken the
-                // same way. Built from scratch, the oracle's blooms are right by construction.
-                var cold = new CascadeFixture();
-                cold.Load(css);
-                CopyTree(live, cold);
+                    // The oracle: a second engine with the same stylesheet, and a tree built *directly*
+                    // in the state the mutations left the first one in.
+                    //
+                    // Not "the same tree with the same mutations replayed" — that was the first version
+                    // of this and it was weaker than it looked. Replaying the mutations means both sides
+                    // reach their final state through the same mutation code, so anything that code gets
+                    // wrong is wrong identically on both and the comparison sees nothing. It let a
+                    // sabotage through: deleting the ancestor-bloom propagation in `AddClass` broke
+                    // matching and this test stayed green, because the oracle's blooms were broken the
+                    // same way. Built from scratch, the oracle's blooms are right by construction.
+                    var cold = new CascadeFixture();
+                    cold.Load(css);
+                    CopyTree(live, cold);
 
-                var reference = new StyleUpdater(cold.Engine);
-                reference.ResolveAll();
+                    var reference = new StyleUpdater(cold.Engine);
+                    reference.ResolveAll();
 
-                for (var i = 0; i < live.Tree.Count; i++) {
-                    var element = new StyleNodeId(i);
+                    for (var i = 0; i < live.Tree.Count; i++) {
+                        var element = new StyleNodeId(i);
 
-                    Assert.Equal(
-                        Describe(cold, reference.StyleOf(element)),
-                        Describe(live, updater.StyleOf(element))
-                    );
-                }
-            }, iter: 300
-        );
+                        Assert.Equal(
+                            Describe(cold, reference.StyleOf(element)),
+                            Describe(live, updater.StyleOf(element))
+                        );
+                    }
+                },
+                iter: 300
+            );
     }
 
     [Fact]
@@ -92,54 +95,57 @@ public class IncrementalRestyleOracleTests {
         // test rather than merely unreachable.
         var sharedPasses = 0;
 
-        Gen.Select(Gen.Int[0, 100_000], Gen.Int[2, 4], Gen.Int[2, 3], Gen.Int[1, 6]).Sample(shape => {
-                var (seed, depth, breadth, mutations) = shape;
-                var css = BuildStylesheet(seed, sharingSafe: true);
-                var random = new Random(seed ^ 0x4C4C);
+        Gen.Select(Gen.Int[0, 100_000], Gen.Int[2, 4], Gen.Int[2, 3], Gen.Int[1, 6])
+            .Sample(
+                shape => {
+                    var (seed, depth, breadth, mutations) = shape;
+                    var css = BuildStylesheet(seed, true);
+                    var random = new Random(seed ^ 0x4C4C);
 
-                var live = new CascadeFixture();
-                live.Load(css);
-                BuildTree(live, seed, depth, breadth);
+                    var live = new CascadeFixture();
+                    live.Load(css);
+                    BuildTree(live, seed, depth, breadth);
 
-                Assert.True(
-                    live.Engine.Rules.SharingIsSound(
-                        live.Engine.Scopes.VerdictsOf(MediaScopes.Document),
-                        live.Engine.ContainerScopes.VerdictsOf(ContainerScopes.Root)
-                    )
-                );
-
-                var updater = new StyleUpdater(live.Engine);
-                updater.ResolveAll();
-
-                for (var m = 0; m < mutations; m++) {
-                    var mutation = Mutate(live, random);
-
-                    if (mutation.IsState) {
-                        updater.StateChanged(mutation.Element);
-                    } else {
-                        updater.ClassChanged(mutation.Element, mutation.ClassName!);
-                    }
-                }
-
-                Interlocked.Add(ref sharedPasses, live.Engine.Resolver.SharingHits);
-
-                var cold = new CascadeFixture();
-                cold.Load(css);
-                CopyTree(live, cold);
-
-                var reference = new StyleUpdater(cold.Engine);
-                reference.ResolveAll();
-
-                for (var i = 0; i < live.Tree.Count; i++) {
-                    var element = new StyleNodeId(i);
-
-                    Assert.Equal(
-                        Describe(cold, reference.StyleOf(element)),
-                        Describe(live, updater.StyleOf(element))
+                    Assert.True(
+                        live.Engine.Rules.SharingIsSound(
+                            live.Engine.Scopes.VerdictsOf(MediaScopes.Document),
+                            live.Engine.ContainerScopes.VerdictsOf(ContainerScopes.Root)
+                        )
                     );
-                }
-            }, iter: 300
-        );
+
+                    var updater = new StyleUpdater(live.Engine);
+                    updater.ResolveAll();
+
+                    for (var m = 0; m < mutations; m++) {
+                        var mutation = Mutate(live, random);
+
+                        if (mutation.IsState) {
+                            updater.StateChanged(mutation.Element);
+                        } else {
+                            updater.ClassChanged(mutation.Element, mutation.ClassName!);
+                        }
+                    }
+
+                    Interlocked.Add(ref sharedPasses, live.Engine.Resolver.SharingHits);
+
+                    var cold = new CascadeFixture();
+                    cold.Load(css);
+                    CopyTree(live, cold);
+
+                    var reference = new StyleUpdater(cold.Engine);
+                    reference.ResolveAll();
+
+                    for (var i = 0; i < live.Tree.Count; i++) {
+                        var element = new StyleNodeId(i);
+
+                        Assert.Equal(
+                            Describe(cold, reference.StyleOf(element)),
+                            Describe(live, updater.StyleOf(element))
+                        );
+                    }
+                },
+                iter: 300
+            );
 
         Assert.True(sharedPasses > 0, "the sharing cache never fired, so the property proved nothing about it");
     }
@@ -206,9 +212,9 @@ public class IncrementalRestyleOracleTests {
         var element = new StyleNodeId(random.Next(fixture.Tree.Count));
 
         if (random.Next(4) == 0) {
-            var state = (ElementState) (1u << random.Next(6));
+            var state = (ElementState)(1u << random.Next(6));
             fixture.Tree.SetState(element, state);
-            return new Mutation(element, true, null, state, true);
+            return new(element, true, null, state, true);
         }
 
         var className = Classes[random.Next(Classes.Length)];
@@ -220,7 +226,7 @@ public class IncrementalRestyleOracleTests {
             fixture.Tree.RemoveClass(element, className);
         }
 
-        return new Mutation(element, false, className, ElementState.None, add);
+        return new(element, false, className, ElementState.None, add);
     }
 
     /// <summary>Builds a fresh tree in exactly the state another one is currently in.</summary>
@@ -289,11 +295,11 @@ public class IncrementalRestyleOracleTests {
                     tags[random.Next(tags.Length)],
                     parent,
                     random.Next(6) == 0 ? $"id{random.Next(3)}" : null,
-                    [.. chosen]
+                    [..chosen]
                 );
 
                 if (random.Next(5) == 0) {
-                    fixture.Tree.SetState(element, (ElementState) (1u << random.Next(6)));
+                    fixture.Tree.SetState(element, (ElementState)(1u << random.Next(6)));
                 }
 
                 // Nothing in this test ever changes it — a text change is a cold pass, so there is
@@ -324,11 +330,9 @@ public class IncrementalRestyleOracleTests {
                 ":not(.selected)", ":is(.row, .cell)"
             ]
             : new[] {
-                "div", "span", "li", "Button", "*",
-                ".row", ".cell", ".selected", ".dark", ".sidebar", ".label",
-                "#id0", "#id1",
-                ":hover", ":focus", ":disabled", ":first-child", ":nth-child(2n)", ":empty",
-                ":not(.selected)", ":is(.row, .cell)",
+                "div", "span", "li", "Button", "*", ".row", ".cell", ".selected", ".dark", ".sidebar", ".label", "#id0",
+                "#id1", ":hover", ":focus", ":disabled", ":first-child", ":nth-child(2n)", ":empty", ":not(.selected)",
+                ":is(.row, .cell)",
 
                 // ⚠ `:has()` is the only piece here that makes a style depend on what is *below* the
                 // element, and it is the reason this generator earns its keep twice over: the
@@ -372,7 +376,8 @@ public class IncrementalRestyleOracleTests {
             builder.Append(" { ");
             var declarations = 1 + random.Next(3);
             for (var d = 0; d < declarations; d++) {
-                builder.Append(CultureInfo.InvariantCulture,
+                builder.Append(
+                    CultureInfo.InvariantCulture,
                     $"{properties[random.Next(properties.Length)]}: {values[random.Next(values.Length)]}"
                 );
 

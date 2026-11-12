@@ -41,7 +41,7 @@ public sealed class CraftingLibrary {
 
     /// <summary>Every recipe, in address order.</summary>
     public IEnumerable<Recipe> Recipes =>
-        recipes.Values.OrderBy(recipe => recipe.Definition.Address, StringComparer.Ordinal);
+        recipes.Values.OrderBy(static recipe => recipe.Definition.Address, StringComparer.Ordinal);
 
     /// <summary>What did not resolve, and what a definition said that cannot be true at once.</summary>
     public IReadOnlyList<string> Problems => problems;
@@ -101,12 +101,12 @@ public sealed class CraftingLibrary {
             }
         }
 
-        return new(recipes, bySignature, [.. problems]);
+        return new(recipes, bySignature, [..problems]);
 
         static RecipeItem[] Items(List<RecipeItemDefinition> items) => [
-            .. items
-                .Select(item => new RecipeItem(DefId.From(item.Item), item.Item, Math.Max(1, item.Count)))
-                .OrderBy(item => item.Item.Value)
+            ..items
+                .Select(static item => new RecipeItem(DefId.From(item.Item), item.Item, Math.Max(1, item.Count)))
+                .OrderBy(static item => item.Item.Value)
         ];
     }
 
@@ -126,21 +126,24 @@ public sealed class CraftingLibrary {
     public Recipe? Discover(IReadOnlyList<RecipeItem> ingredients) {
         ArgumentNullException.ThrowIfNull(ingredients);
 
-        return bySignature.GetValueOrDefault(SignatureOf([.. ingredients.OrderBy(item => item.Item.Value)]));
+        return bySignature.GetValueOrDefault(SignatureOf([..ingredients.OrderBy(static item => item.Item.Value)]));
     }
 
     static string SignatureOf(IReadOnlyList<RecipeItem> items) =>
         string.Join(
             ',',
-            items.Select(item => string.Create(CultureInfo.InvariantCulture, $"{item.Item.Value}x{item.Count}"))
+            items.Select(static item => string.Create(CultureInfo.InvariantCulture, $"{item.Item.Value}x{item.Count}"))
         );
 }
 
 /// <summary>One character's crafting: what they know, and what they can make right now.</summary>
 /// <remarks>
 ///     <para>
-///         <b>Doc 28: "nothing here is technically hard; the value is in it being <em>the same</em>
-///         system as gathering and using the same requirement algebra".</b> A station is a tag query,
+///         <b>
+///             Doc 28: "nothing here is technically hard; the value is in it being <em>the same</em>
+///             system as gathering and using the same requirement algebra".
+///         </b>
+///         A station is a tag query,
 ///         so a forge and an enchanted forge both satisfy one recipe; a skill is a number a
 ///         <c>ProgressionState</c> already answers; a gate is a <see cref="RequirementSet" />.
 ///     </para>

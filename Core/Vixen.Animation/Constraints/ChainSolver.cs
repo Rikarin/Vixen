@@ -59,8 +59,12 @@ public interface IChainSolver {
 ///         bones; so is almost everything an author puts a contact on.
 ///     </para>
 ///     <para>
-///         ⚠ <b>A chain longer than two bones is solved over its last two, and that is a documented
-///         limitation rather than a hidden one.</b> Distributing error up a spine towards the root is
+///         ⚠
+///         <b>
+///             A chain longer than two bones is solved over its last two, and that is a documented
+///             limitation rather than a hidden one.
+///         </b>
+///         Distributing error up a spine towards the root is
 ///         a different and much larger solver, and it is what the seam exists for. What this does
 ///         instead is produce something reasonable and report the shortfall as a residual, so an
 ///         author sees a number rather than a limb that quietly did not reach.
@@ -164,8 +168,12 @@ public sealed class DefaultChainSolver : IChainSolver {
     /// <summary>Which way the middle joint bends when nobody said.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A goal with no pole is the common case, and getting this wrong makes the solve do
-    ///         nothing at all.</b> <see cref="TwoBoneIk" /> takes the bend plane from the pole, falls
+    ///         ⚠
+    ///         <b>
+    ///             A goal with no pole is the common case, and getting this wrong makes the solve do
+    ///             nothing at all.
+    ///         </b>
+    ///         <see cref="TwoBoneIk" /> takes the bend plane from the pole, falls
     ///         back to the chain's own current plane, and refuses the solve when both are degenerate
     ///         — which a perfectly straight chain, which is what a bind pose usually is, makes them.
     ///         A "sensible" pole extrapolated along the chain is exactly the degenerate one.
@@ -204,7 +212,7 @@ public sealed class DefaultChainSolver : IChainSolver {
         }
 
         var toTarget = target - from;
-        var sideways = toTarget - (axis * (Vector3.Dot(toTarget, axis) / length));
+        var sideways = toTarget - axis * (Vector3.Dot(toTarget, axis) / length);
 
         if (sideways.LengthSquared() > 1e-8f) {
             return bend + Vector3.Normalize(sideways);

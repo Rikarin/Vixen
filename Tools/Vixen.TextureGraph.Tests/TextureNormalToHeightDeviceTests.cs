@@ -29,8 +29,11 @@ namespace Tests;
 ///         is the only thing a device can add to a solve that never touches it.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The source is uploaded by <see cref="TextureKernelHarness.Upload" /> and not by
-///         <see cref="TextureUploads" />, and that is a finding rather than a preference.</b>
+///         ⚠
+///         <b>
+///             The source is uploaded by <see cref="TextureKernelHarness.Upload" /> and not by
+///             <see cref="TextureUploads" />, and that is a finding rather than a preference.
+///         </b>
 ///         <c>TextureUploads</c> creates every texture <c>Sampled | CopyDestination</c> and its
 ///         <c>Externals</c> declares <c>Sampled</c> — but a CPU op <em>copies out of</em> the image
 ///         it reads, which needs <c>CopySource</c> both on the texture and in the declaration, and
@@ -80,13 +83,13 @@ public class TextureNormalToHeightDeviceTests(ITestOutputHelper output) {
         // other half is not black, and it reads the *expected* array so that it is a statement about
         // the fixture rather than about the thing under test.
         Assert.True(
-            expected.Count(level => level > 8) > Side * Side / 8,
+            expected.Count(static level => level > 8) > Side * Side / 8,
             "the fixture's own answer is nearly all black, so the comparison below would prove nothing"
         );
 
         for (var y = 0; y < Side; y++) {
             for (var x = 0; x < Side; x++) {
-                Assert.Equal(expected[(y * Side) + x], TextureKernelHarness.At(picture, x, y, 0));
+                Assert.Equal(expected[y * Side + x], TextureKernelHarness.At(picture, x, y, 0));
             }
         }
 
@@ -100,17 +103,24 @@ public class TextureNormalToHeightDeviceTests(ITestOutputHelper output) {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <b>The refusal is the whole of what this asserts, and it is asserted because the
-    ///         refusal is the only thing standing between a plan and undefined contents on a discrete
-    ///         card.</b> A Vulkan image may be transitioned to <c>TRANSFER_SRC_OPTIMAL</c> only if it
+    ///         <b>
+    ///             The refusal is the whole of what this asserts, and it is asserted because the
+    ///             refusal is the only thing standing between a plan and undefined contents on a discrete
+    ///             card.
+    ///         </b>
+    ///         A Vulkan image may be transitioned to <c>TRANSFER_SRC_OPTIMAL</c> only if it
     ///         was created with that usage; MoltenVK has no image layouts at all and reads it either
     ///         way, so this is the class of defect
     ///         <a href="https://github.com/Rikarin/Vixen/issues/722">#722</a> already shipped once,
     ///         past a green device test on this machine.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>It pinned down a gap between two batches' work, and a third closed it in the same
-    ///         batch this was written.</b> <c>TextureUploads</c> is the only thing in this assembly
+    ///         ⚠
+    ///         <b>
+    ///             It pinned down a gap between two batches' work, and a third closed it in the same
+    ///             batch this was written.
+    ///         </b>
+    ///         <c>TextureUploads</c> is the only thing in this assembly
     ///         that produces an external image and a CPU op is one of exactly two things that read
     ///         one, so the combination was impossible and the refusal was the only way anybody found
     ///         out — <a href="https://github.com/Rikarin/Vixen/issues/744">#744</a> gave the uploaded
@@ -153,7 +163,6 @@ public class TextureNormalToHeightDeviceTests(ITestOutputHelper output) {
         Assert.Equal(8, picture.Width);
         Assert.Equal(8, picture.Height);
         Assert.NotEmpty(picture.Pixels);
-
     }
 
     /// <summary>The same operation over the same bytes, with no device between.</summary>
@@ -191,16 +200,16 @@ public class TextureNormalToHeightDeviceTests(ITestOutputHelper output) {
         var texels = new byte[width * height * 4];
 
         // ∂h/∂u of 0.8 across the picture and none down it, so n = normalize(−0.8, 0, 1).
-        var length = Math.Sqrt((0.8 * 0.8) + 1d);
+        var length = Math.Sqrt(0.8 * 0.8 + 1d);
 
-        var red = Level((-0.8 / length * 0.5) + 0.5);
-        var blue = Level((1d / length * 0.5) + 0.5);
+        var red = Level(-0.8 / length * 0.5 + 0.5);
+        var blue = Level(1d / length * 0.5 + 0.5);
 
         for (var at = 0; at < width * height; at++) {
-            texels[(at * 4) + 0] = red;
-            texels[(at * 4) + 1] = 128;
-            texels[(at * 4) + 2] = blue;
-            texels[(at * 4) + 3] = 255;
+            texels[at * 4] = red;
+            texels[at * 4 + 1] = 128;
+            texels[at * 4 + 2] = blue;
+            texels[at * 4 + 3] = 255;
         }
 
         return texels;

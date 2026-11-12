@@ -114,13 +114,13 @@ public static class LibraryBuilder {
     /// </remarks>
     static Dictionary<IrFunction, Unexportable> FindUnexportable(LoweringResult lowered) {
         var streams = lowered.Module.Shaders
-            .SelectMany(shader => shader.Streams)
-            .Select(stream => stream.Variable)
+            .SelectMany(static shader => shader.Streams)
+            .Select(static stream => stream.Variable)
             .ToHashSet();
 
         var shared = lowered.Module.Shaders
-            .SelectMany(shader => shader.SharedVariables)
-            .Select(variable => variable.Variable)
+            .SelectMany(static shader => shader.SharedVariables)
+            .Select(static variable => variable.Variable)
             .ToHashSet();
 
         Dictionary<IrFunction, Unexportable> unexportable = [];
@@ -207,7 +207,7 @@ public static class LibraryBuilder {
             case IrLoopStatement loop: {
                 IrBlock?[] parts = [loop.Condition, loop.Body, loop.Continue];
 
-                foreach (var root in parts.Where(p => p is not null).SelectMany(p => Globals(p!))) {
+                foreach (var root in parts.Where(static p => p is not null).SelectMany(static p => Globals(p!))) {
                     yield return root;
                 }
 
@@ -223,10 +223,12 @@ public static class LibraryBuilder {
     static string HashSources(Compilation compilation) {
         var joined = string.Join(
             "\n",
-            compilation.SyntaxTrees.Select(tree => tree.Text?.ToString() ?? string.Empty)
+            compilation.SyntaxTrees.Select(static tree => tree.Text?.ToString() ?? string.Empty)
         );
 
-        return joined.Length == 0 ? string.Empty : Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(joined)));
+        return joined.Length == 0
+            ? string.Empty
+            : Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(joined)));
     }
 
     /// <summary>Carries the per-build state the type walk needs.</summary>
@@ -251,8 +253,7 @@ public static class LibraryBuilder {
         ///     the artefact that declared it exports it — so the call has to travel under the key
         ///     that artefact used, which is what a linked function's artefact name is.
         /// </remarks>
-        public string Key(IrFunction function) =>
-            keys.GetValueOrDefault(function) ?? lowered.ArtefactName(function);
+        public string Key(IrFunction function) => keys.GetValueOrDefault(function) ?? lowered.ArtefactName(function);
 
         public LibraryType BuildType(NamedTypeSymbol type) {
             // Null for anything with no storage — a shader, a protocol, an enum — and for a struct
@@ -271,11 +272,11 @@ public static class LibraryBuilder {
                 ContainingType = type.ContainingType is { } outer ? QualifiedName(outer) : null,
                 Kind = type.TypeKind,
                 BaseType = type.BaseType is { } baseType ? Reference(baseType) : null,
-                Interfaces = [.. type.Interfaces.Select(Reference)],
-                TypeParameters = [.. type.TypeParameters.Select(TypeParameter)],
-                Fields = [.. type.GetMembers().OfType<FieldSymbol>().Select(Field)],
-                Properties = [.. type.GetMembers().OfType<PropertySymbol>().Select(Property)],
-                Methods = [.. type.GetMembers().OfType<MethodSymbol>().Select(m => Method(type, m))],
+                Interfaces = [..type.Interfaces.Select(Reference)],
+                TypeParameters = [..type.TypeParameters.Select(TypeParameter)],
+                Fields = [..type.GetMembers().OfType<FieldSymbol>().Select(Field)],
+                Properties = [..type.GetMembers().OfType<PropertySymbol>().Select(Property)],
+                Methods = [..type.GetMembers().OfType<MethodSymbol>().Select(m => Method(type, m))],
                 IrStruct = irStruct
             };
         }
@@ -345,8 +346,8 @@ public static class LibraryBuilder {
                 Name = method.Name,
                 MethodKind = method.MethodKind,
                 ReturnType = Reference(method.ReturnType),
-                Parameters = [.. method.Parameters.Select(Parameter)],
-                TypeParameters = [.. method.TypeParameters.Select(TypeParameter)],
+                Parameters = [..method.Parameters.Select(Parameter)],
+                TypeParameters = [..method.TypeParameters.Select(TypeParameter)],
                 IsStatic = method.IsStatic,
                 Stage = method.Stage,
                 SemanticName = method.SemanticName,
@@ -422,7 +423,7 @@ public static class LibraryBuilder {
             new() {
                 Name = parameter.Name,
                 Ordinal = parameter.Ordinal,
-                Constraints = [.. parameter.ConstraintTypes.Select(Reference)]
+                Constraints = [..parameter.ConstraintTypes.Select(Reference)]
             };
 
         /// <summary>
@@ -440,9 +441,7 @@ public static class LibraryBuilder {
                 BuiltInNamedTypeSymbol builtIn => new() {
                     Kind = LibraryTypeKind.BuiltIn, Special = builtIn.SpecialType
                 },
-                TypeParameterSymbol parameter => new() {
-                    Kind = LibraryTypeKind.TypeParameter, Name = parameter.Name
-                },
+                TypeParameterSymbol parameter => new() { Kind = LibraryTypeKind.TypeParameter, Name = parameter.Name },
                 ArrayTypeSymbol array => new() {
                     Kind = LibraryTypeKind.Array,
                     Element = Reference(array.ElementType),
@@ -450,20 +449,18 @@ public static class LibraryBuilder {
                     Length = array.Length
                 },
                 BufferTypeSymbol buffer => new() {
-                    Kind = LibraryTypeKind.Buffer,
-                    Element = Reference(buffer.ElementType),
-                    Writable = buffer.IsWritable
+                    Kind = LibraryTypeKind.Buffer, Element = Reference(buffer.ElementType), Writable = buffer.IsWritable
                 },
                 TupleTypeSymbol tuple => new() {
                     Kind = LibraryTypeKind.Tuple,
-                    Elements = [.. tuple.ElementTypes.Select(Reference)],
-                    ElementNames = [.. tuple.ElementNames]
+                    Elements = [..tuple.ElementTypes.Select(Reference)],
+                    ElementNames = [..tuple.ElementNames]
                 },
                 NamedTypeSymbol { IsErrorType: true } => LibraryTypeReference.ErrorType,
                 NamedTypeSymbol { IsConstructed: true } constructed => new() {
                     Kind = LibraryTypeKind.Named,
                     Name = QualifiedName(constructed.OriginalDefinition),
-                    TypeArguments = [.. constructed.TypeArguments.Select(Reference)]
+                    TypeArguments = [..constructed.TypeArguments.Select(Reference)]
                 },
                 NamedTypeSymbol named => new() { Kind = LibraryTypeKind.Named, Name = QualifiedName(named) },
                 _ => LibraryTypeReference.ErrorType

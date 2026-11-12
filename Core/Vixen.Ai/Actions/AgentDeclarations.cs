@@ -46,8 +46,12 @@ public readonly record struct AgentActionDeclaration(
 ///         same shape for agent actions.
 ///     </para>
 ///     <para>
-///         ⚠ <b><c>[GameSystem]</c>'s route is a generator emitting a <c>[ModuleInitializer]</c> per
-///         declaring assembly, not a reflection scan</b> — which is what survives trimming and what
+///         ⚠
+///         <b>
+///             <c>[GameSystem]</c>'s route is a generator emitting a <c>[ModuleInitializer]</c> per
+///             declaring assembly, not a reflection scan
+///         </b>
+///         — which is what survives trimming and what
 ///         lets the editor read a project's frame without running it. So the way in here is a call
 ///         from the project's own <c>[ModuleInitializer]</c>, which runs when the assembly is loaded
 ///         and independently of anything calling <c>Game.OnInitialise</c>.

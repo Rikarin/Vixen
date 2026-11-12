@@ -29,7 +29,9 @@ public class PaintTransferTests {
         Vector2[] layout = [new(0f, 0f), new(0.5f, 0f), new(0.5f, 0.5f), new(0f, 0.5f)];
         Vector3[] sculpted = [new(0f, 0f, 0.2f), new(1f, 0f, 0f), new(1.1f, 1f, 0f), new(0f, 1f, 0.4f)];
 
-        Assert.True(PaintTransfer.SameLayout(Plane(layout), PaintProjection.Over(sculpted, layout, [0, 1, 2, 0, 2, 3])));
+        Assert.True(
+            PaintTransfer.SameLayout(Plane(layout), PaintProjection.Over(sculpted, layout, [0, 1, 2, 0, 2, 3]))
+        );
     }
 
     [Fact]
@@ -110,7 +112,7 @@ public class PaintTransferTests {
             }
         }
 
-        var to = PaintProjection.Over([.. points], [.. layout], [.. indices]);
+        var to = PaintProjection.Over([..points], [..layout], [..indices]);
         PaintCanvas canvas = new(Side, Side);
         for (var x = 40; x < 50; x++) {
             for (var y = 10; y < 20; y++) {

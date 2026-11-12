@@ -43,8 +43,12 @@ public sealed class SharedDrawerRegistry {
 ///         they did not: the first worked only in a script and the rest nowhere.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Seven here and eight in Unity's set, because <c>[Importer]</c> is asserted where its
-///         effects are.</b> An importer's registration is a claim about the asset database rather than
+///         ⚠
+///         <b>
+///             Seven here and eight in Unity's set, because <c>[Importer]</c> is asserted where its
+///             effects are.
+///         </b>
+///         An importer's registration is a claim about the asset database rather than
 ///         about the editor's chrome — <c>EditorScriptTests</c> drives it through a real import and a
 ///         <c>.meta</c> round trip, which is a stronger statement than "the record is in the
 ///         registry" and does not belong in a file about declaration.
@@ -61,87 +65,87 @@ public sealed class SharedDrawerRegistry {
 public class DeclaredContributionTests {
     /// <summary>One file declaring all seven, which is the whole surface in one place.</summary>
     const string Declarations = """
-        using System;
-        using System.Threading;
-        using Vixen.Editor.Core;
-        using Vixen.Editor.Inspector;
-        using Vixen.Editor.Plugin;
-        using Vixen.Editor.SceneView;
-        using Vixen.Ui;
-        using Vixen.Ui.Controls;
+                                using System;
+                                using System.Threading;
+                                using Vixen.Editor.Core;
+                                using Vixen.Editor.Inspector;
+                                using Vixen.Editor.Plugin;
+                                using Vixen.Editor.SceneView;
+                                using Vixen.Ui;
+                                using Vixen.Ui.Controls;
 
-        public sealed class Widget {
-            public float Size { get; set; } = 1f;
-        }
+                                public sealed class Widget {
+                                    public float Size { get; set; } = 1f;
+                                }
 
-        public static class Declared {
-            [EditorMenu("Tools/Bake", Priority = 200)]
-            public static void Bake() { }
+                                public static class Declared {
+                                    [EditorMenu("Tools/Bake", Priority = 200)]
+                                    public static void Bake() { }
 
-            [EditorMenu("Tools/Audit", Priority = 100)]
-            public static void Audit() { }
+                                    [EditorMenu("Tools/Audit", Priority = 100)]
+                                    public static void Audit() { }
 
-            [CustomInspector(typeof(Widget))]
-            public static void DrawWidget(UiElement body, EditTarget target) {
-                var label = body.Add<TextBlock>(null, null, Array.Empty<string>());
+                                    [CustomInspector(typeof(Widget))]
+                                    public static void DrawWidget(UiElement body, EditTarget target) {
+                                        var label = body.Add<TextBlock>(null, null, Array.Empty<string>());
 
-                label.AddClass("declared-inspector");
-                label.Text = "Widget, drawn by a declaration";
-            }
+                                        label.AddClass("declared-inspector");
+                                        label.Text = "Widget, drawn by a declaration";
+                                    }
 
-            /// <summary>
-            ///     Counts its own calls, which is how the test tells "evaluated once when the
-            ///     plugin loaded" from "evaluated per file". A starter document carrying an
-            ///     identifier is the case that breaks under the first.
-            /// </summary>
-            public static int Made;
+                                    /// <summary>
+                                    ///     Counts its own calls, which is how the test tells "evaluated once when the
+                                    ///     plugin loaded" from "evaluated per file". A starter document carrying an
+                                    ///     identifier is the case that breaks under the first.
+                                    /// </summary>
+                                    public static int Made;
 
-            [CreateAssetMenu("Dialogue Table", ".dialogue", DefaultName = "New Dialogue", Opens = false)]
-            public static string NewDialogue() => "id: " + Interlocked.Increment(ref Made) + "\n";
+                                    [CreateAssetMenu("Dialogue Table", ".dialogue", DefaultName = "New Dialogue", Opens = false)]
+                                    public static string NewDialogue() => "id: " + Interlocked.Increment(ref Made) + "\n";
 
-            [Overlay("Declared Overlay", Corner = OverlayCorner.BottomLeft, Id = "declared.overlay")]
-            public static void BuildOverlay(UiElement host, IViewportPane pane) {
-                var label = host.Add<TextBlock>(null, null, Array.Empty<string>());
+                                    [Overlay("Declared Overlay", Corner = OverlayCorner.BottomLeft, Id = "declared.overlay")]
+                                    public static void BuildOverlay(UiElement host, IViewportPane pane) {
+                                        var label = host.Add<TextBlock>(null, null, Array.Empty<string>());
 
-                label.AddClass("declared-overlay");
-                label.Text = "Overlay, declared";
-            }
+                                        label.AddClass("declared-overlay");
+                                        label.Text = "Overlay, declared";
+                                    }
 
-            [DrawGizmo(typeof(Widget), SelectedOnly = true, Order = 5)]
-            public static void DrawWidgetGizmo(
-                GizmoDraw draw,
-                object component,
-                GizmoPlacement placement,
-                bool selected
-            ) {
-                draw.Sphere(placement.Position, ((Widget) component).Size, new(1f, 0f, 0f, 1f));
-            }
-        }
+                                    [DrawGizmo(typeof(Widget), SelectedOnly = true, Order = 5)]
+                                    public static void DrawWidgetGizmo(
+                                        GizmoDraw draw,
+                                        object component,
+                                        GizmoPlacement placement,
+                                        bool selected
+                                    ) {
+                                        draw.Sphere(placement.Position, ((Widget) component).Size, new(1f, 0f, 0f, 1f));
+                                    }
+                                }
 
-        [CustomDrawer(typeof(decimal))]
-        public sealed class MoneyDrawer : IPropertyDrawer {
-            public UiElement Build(InspectorField field, UiElement parent) =>
-                parent.Add<TextBox>(null, null, Array.Empty<string>());
+                                [CustomDrawer(typeof(decimal))]
+                                public sealed class MoneyDrawer : IPropertyDrawer {
+                                    public UiElement Build(InspectorField field, UiElement parent) =>
+                                        parent.Add<TextBox>(null, null, Array.Empty<string>());
 
-            public void Show(InspectorField field, UiElement editor) { }
-        }
+                                    public void Show(InspectorField field, UiElement editor) { }
+                                }
 
-        [EditorTool("Sculpt", typeof(Widget), Id = "declared.sculpt")]
-        public sealed class SculptTool : IViewportInput {
-            public bool Pointer(IViewportPane pane, PointerEvent args) => false;
+                                [EditorTool("Sculpt", typeof(Widget), Id = "declared.sculpt")]
+                                public sealed class SculptTool : IViewportInput {
+                                    public bool Pointer(IViewportPane pane, PointerEvent args) => false;
 
-            public bool Key(IViewportPane pane, KeyEvent args) => false;
-        }
+                                    public bool Key(IViewportPane pane, KeyEvent args) => false;
+                                }
 
-        /// <summary>
-        ///     The entry point a *plugin* needs and a script does not. It registers nothing: every
-        ///     one of the four contributions above comes from its attribute, which is the whole
-        ///     claim. Included in both tiers' source so the two are literally the same file.
-        /// </summary>
-        public sealed class DeclaredPlugin : IEditorPlugin {
-            public void Activate(PluginContext context) { }
-        }
-        """;
+                                /// <summary>
+                                ///     The entry point a *plugin* needs and a script does not. It registers nothing: every
+                                ///     one of the four contributions above comes from its attribute, which is the whole
+                                ///     claim. Included in both tiers' source so the two are literally the same file.
+                                /// </summary>
+                                public sealed class DeclaredPlugin : IEditorPlugin {
+                                    public void Activate(PluginContext context) { }
+                                }
+                                """;
 
     /// <summary>Something with a decimal on it, so the declared drawer has a member to resolve for.</summary>
     sealed class Probe {
@@ -164,20 +168,23 @@ public class DeclaredContributionTests {
         // ⚠ Their order relative to each other, not the whole menu's. The editor already ships a
         // Tools menu with its own lines in it, and a declaration lands among them — asserting the
         // whole list would be asserting what the editor happens to put there today.
-        var tools = editor.Shell.Menus.Menus.Single(group => group.Title.Source == "Tools");
-        var lines = tools.Entries.OfType<Vixen.Editor.Ui.MenuCommand>().Select(entry => entry.CommandId).ToList();
+        var tools = editor.Shell.Menus.Menus.Single(static group => group.Title.Source == "Tools");
+        var lines = tools.Entries.OfType<Vixen.Editor.Ui.MenuCommand>()
+            .Select(static entry => entry.CommandId)
+            .ToList();
 
         Assert.True(
             lines.IndexOf("scripts.tools.audit") < lines.IndexOf("scripts.tools.bake"),
             "Priority 100 should come before priority 200; the source declares Bake first, so this "
-            + "cannot pass by accident. Lines: " + string.Join(", ", lines)
+            + "cannot pass by accident. Lines: "
+            + string.Join(", ", lines)
         );
 
         // And it is on the bar somebody looks at, not only in the model.
         editor.Ui.Contains("Tools").ShouldExist();
 
         // ── Two: the custom inspector, for a type with no generated descriptor. ─────────────────
-        var inspector = Assert.Single(registry.All<CustomInspector>(), entry => entry.Target.Name == "Widget");
+        var inspector = Assert.Single(registry.All<CustomInspector>(), static entry => entry.Target.Name == "Widget");
         var widget = Activator.CreateInstance(inspector.Target)!;
 
         editor.Open("inspector");
@@ -192,13 +199,16 @@ public class DeclaredContributionTests {
         Assert.Equal("MoneyDrawer", DrawerRegistry.Default.Resolve(member)?.GetType().Name);
 
         // ── Four: the scene tool, with the type it is for. ──────────────────────────────────────
-        var tool = Assert.Single(registry.All<SceneTool>(), entry => entry.Id == "declared.sculpt");
+        var tool = Assert.Single(registry.All<SceneTool>(), static entry => entry.Id == "declared.sculpt");
 
         Assert.Equal("Sculpt", tool.Title);
         Assert.Equal("Widget", tool.Target?.Name);
 
         // ── Five: the Create ▸ line, asserted by the file it writes rather than by the record. ───
-        var kind = Assert.Single(registry.All<NewAssetKind>(), entry => entry.Id == "assets.create.dialogue-table");
+        var kind = Assert.Single(
+            registry.All<NewAssetKind>(),
+            static entry => entry.Id == "assets.create.dialogue-table"
+        );
 
         Assert.Equal(".dialogue", kind.Extension);
         Assert.Equal("New Dialogue", kind.DefaultName);
@@ -220,7 +230,7 @@ public class DeclaredContributionTests {
         Assert.Equal(["id: 1\n", "id: 2\n"], written);
 
         // ── Six: the overlay, asserted on the pane rather than in the registry. ─────────────────
-        var overlay = Assert.Single(registry.All<SceneOverlay>(), entry => entry.Id == "declared.overlay");
+        var overlay = Assert.Single(registry.All<SceneOverlay>(), static entry => entry.Id == "declared.overlay");
 
         Assert.Equal("Declared Overlay", overlay.Title.Source);
         Assert.Equal(OverlayCorner.BottomLeft, overlay.Corner);
@@ -235,7 +245,7 @@ public class DeclaredContributionTests {
         editor.Ui.Contains("Declared Overlay").ShouldExist();
 
         // ── Seven: the gizmo, with its target and its flags. ────────────────────────────────────
-        var gizmo = Assert.Single(registry.All<ComponentGizmo>(), entry => entry.Target.Name == "Widget");
+        var gizmo = Assert.Single(registry.All<ComponentGizmo>(), static entry => entry.Target.Name == "Widget");
 
         Assert.True(gizmo.SelectedOnly);
         Assert.Equal(5, gizmo.Order);
@@ -245,7 +255,7 @@ public class DeclaredContributionTests {
         // `ComponentGizmoTests`, which does it against a real world.
         var vertices = new List<Vixen.Rendering.LineVertex>();
 
-        gizmo.Draw(new(vertices), Activator.CreateInstance(gizmo.Target)!, default, selected: true);
+        gizmo.Draw(new(vertices), Activator.CreateInstance(gizmo.Target)!, default, true);
 
         Assert.Equal(GizmoDraw.Segments * 3 * 2, vertices.Count);
     }
@@ -266,7 +276,7 @@ public class DeclaredContributionTests {
             AssertAllSeven(editor, registry);
         } finally {
             if (Directory.Exists(data)) {
-                Directory.Delete(data, recursive: true);
+                Directory.Delete(data, true);
             }
         }
     }
@@ -291,7 +301,7 @@ public class DeclaredContributionTests {
             AssertAllSeven(editor, registry);
         } finally {
             if (Directory.Exists(data)) {
-                Directory.Delete(data, recursive: true);
+                Directory.Delete(data, true);
             }
         }
     }

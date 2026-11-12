@@ -8,8 +8,12 @@ namespace Vixen.Ui.Controls.Tests;
 
 /// <summary>The test classes that change the language, which is a process-wide static.</summary>
 /// <remarks>
-///     ⚠ <b><c>Strings.Use</c> is static, so two test classes that both call it cannot run at the
-///     same time.</b> xunit runs different classes in parallel, and this cost a green run: a
+///     ⚠
+///     <b>
+///         <c>Strings.Use</c> is static, so two test classes that both call it cannot run at the
+///         same time.
+///     </b>
+///     xunit runs different classes in parallel, and this cost a green run: a
 ///     reference window built under a pseudo-locale had its catalogue swapped out from under it by
 ///     the class next door, and the symptom was one test failing in a full run and passing on its
 ///     own. <c>SharedTypeRegistry</c> is the same arrangement one assembly over, for the same kind
@@ -26,8 +30,11 @@ public sealed class SharedCatalogue {
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>The defect this exists for is invisible to both of the test suites either side of
-///         it.</b> Doc 46 § A2 gave every element a role and an accessible name, answered by a
+///         <b>
+///             The defect this exists for is invisible to both of the test suites either side of
+///             it.
+///         </b>
+///         Doc 46 § A2 gave every element a role and an accessible name, answered by a
 ///         virtual; § A3 put the control set's thirteen English literals through
 ///         <see cref="ControlStrings" />. They landed hours apart, on the same controls, and nobody
 ///         had checked they agreed. An accessibility test asserts the name exists; a localisation
@@ -43,16 +50,27 @@ public sealed class SharedCatalogue {
 ///         correct in English. The only place the difference appears is in another language.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Written against the declarations rather than against a list of controls, which is
-///         the whole point.</b> A test naming <c>SearchBox</c>, <c>Toast</c> and <c>Dialog</c> says
+///         ⚠
+///         <b>
+///             Written against the declarations rather than against a list of controls, which is
+///             the whole point.
+///         </b>
+///         A test naming <c>SearchBox</c>, <c>Toast</c> and <c>Dialog</c> says
 ///         nothing about the control populated tomorrow, and § A2 still owes forty-odd of them.
 ///         <see cref="AccessibilitySnapshot.Untranslated" /> asks a question about the class —
-///         <i>is any announced word in this window still the source text of a string that has a
-///         translation loaded</i> — and that question keeps its meaning as controls are added.
+///         <i>
+///             is any announced word in this window still the source text of a string that has a
+///             translation loaded
+///         </i>
+///         — and that question keeps its meaning as controls are added.
 ///     </para>
 ///     <para>
-///         ⚠ <b>And the window itself is still a hand-written list, which is a different defect from
-///         the one above and is not fixed here.</b> The question is about the class; its <i>domain</i>
+///         ⚠
+///         <b>
+///             And the window itself is still a hand-written list, which is a different defect from
+///             the one above and is not fixed here.
+///         </b>
+///         The question is about the class; its <i>domain</i>
 ///         is whatever somebody typed below, so a control that takes a catalogue-fed name after this
 ///         was written is uncovered until somebody remembers — and three of them were, within two
 ///         weeks (#1321). <c>Vixen.Ui.Controls.Advanced.Tests.AccessibleNameDomainTests</c> asks the
@@ -61,8 +79,12 @@ public sealed class SharedCatalogue {
 ///         <see cref="AccessibilitySnapshot.Unnamed" /> claim, neither of which a bare sweep can make.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The window is built <i>after</i> the language is chosen, and that is the behaviour
-///         rather than a convenience.</b> A control assigns its labels in <c>OnCreated</c>, so it
+///         ⚠
+///         <b>
+///             The window is built <i>after</i> the language is chosen, and that is the behaviour
+///             rather than a convenience.
+///         </b>
+///         A control assigns its labels in <c>OnCreated</c>, so it
 ///         shows the language it was built in — <see cref="ControlStrings" /> says so at length and
 ///         <see cref="LocalisationTests" /> asserts it. Building first and translating second would
 ///         assert something the control set does not claim to do; what this asserts is what it does
@@ -74,8 +96,12 @@ public sealed class SharedCatalogue {
 public class AccessibleNameLocalisationTests {
     /// <summary>Every string the control set declares, in a language that is not the source one.</summary>
     /// <remarks>
-    ///     ⚠ <b>A pseudo-locale rather than a hand-written Czech table, and it is what stops this
-    ///     test rotting.</b> A table with a row per string has to be edited every time one is
+    ///     ⚠
+    ///     <b>
+    ///         A pseudo-locale rather than a hand-written Czech table, and it is what stops this
+    ///         test rotting.
+    ///     </b>
+    ///     A table with a row per string has to be edited every time one is
     ///     declared, and a class test that must be edited to keep covering the class has become the
     ///     instance test it was written to replace. Marking each source text is enough for the
     ///     assertion — what is being detected is a word that did <i>not</i> go through the

@@ -285,8 +285,12 @@ public sealed partial class DockingHost {
 
     /// <summary>Where a surface's top-left corner is on the desktop.</summary>
     /// <remarks>
-    ///     ⚠ <b>Zero for a document with one surface, and that is what keeps the single-window case
-    ///     exactly what it was.</b> With one window "desktop space" and "document space" differ by a
+    ///     ⚠
+    ///     <b>
+    ///         Zero for a document with one surface, and that is what keeps the single-window case
+    ///         exactly what it was.
+    ///     </b>
+    ///     With one window "desktop space" and "document space" differ by a
     ///     constant that nothing measures, so not asking the host is both cheaper and the only
     ///     answer available when there is no host at all.
     /// </remarks>
@@ -294,7 +298,7 @@ public sealed partial class DockingHost {
         origin = default;
 
         if (Document.Windows is { } host && host.TryLocate(surface, out var x, out var y)) {
-            origin = new Vector2(x, y);
+            origin = new(x, y);
             return true;
         }
 
@@ -315,7 +319,7 @@ public sealed partial class DockingHost {
         }
 
         var box = element.Bounds;
-        bounds = new Rectangle(box.X + origin.X, box.Y + origin.Y, box.Width, box.Height);
+        bounds = new(box.X + origin.X, box.Y + origin.Y, box.Width, box.Height);
 
         return true;
     }

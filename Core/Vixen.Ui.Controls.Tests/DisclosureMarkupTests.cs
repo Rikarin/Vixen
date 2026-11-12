@@ -12,8 +12,12 @@ namespace Vixen.Ui.Controls.Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>The gap this closes was the last thing keeping an editor panel out of
-///         <c>.vxml</c>.</b> <c>UiElement.ContentHost</c> is one property, so nested tags could fill
+///         ⚠
+///         <b>
+///             The gap this closes was the last thing keeping an editor panel out of
+///             <c>.vxml</c>.
+///         </b>
+///         <c>UiElement.ContentHost</c> is one property, so nested tags could fill
 ///         a foldout's body and had no spelling at all for its header — which is where an inspector
 ///         puts a component's icon, its remove button and the grab handle a drag reads. The panel
 ///         ledger declined <c>ComponentsView</c> three times on exactly that.
@@ -45,14 +49,14 @@ public class DisclosureMarkupTests {
             // contract: anything that has to sit in front of the label says so with `order`.
             Assert.Equal(
                 ["icon", "label", "icon", "icon-button"],
-                fold.Header.Children.Select(child => child.Tag)
+                fold.Header.Children.Select(static child => child.Tag)
             );
 
             Assert.True(fold.Header.Children[2].HasClass("section-icon"));
             Assert.True(fold.Header.Children[3].HasClass("section-remove"));
 
             // And nothing leaked into the body, which is the half a header-only assertion misses.
-            Assert.Equal(["section-body"], fold.Content.Children.Select(child => child.Tag));
+            Assert.Equal(["section-body"], fold.Content.Children.Select(static child => child.Tag));
         }
 
         Assert.Equal("Transform", folds[0].Label);
@@ -61,8 +65,12 @@ public class DisclosureMarkupTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>The header stays the header: it is still the strip that toggles, and the content is
-    ///     still what collapsing hides.</b> A slot that had been implemented by reparenting after the
+    ///     ⚠
+    ///     <b>
+    ///         The header stays the header: it is still the strip that toggles, and the content is
+    ///         still what collapsing hides.
+    ///     </b>
+    ///     A slot that had been implemented by reparenting after the
     ///     fact, or by pointing <c>ContentHost</c> somewhere else while the markup ran, would leave a
     ///     foldout that draws correctly and cannot be shut.
     /// </summary>
@@ -88,8 +96,12 @@ public class DisclosureMarkupTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>A button written into the header is still a button, and pressing it does not toggle
-    ///     the foldout.</b> <c>Expander.Chosen</c> acts only when the click's source is the header
+    ///     ⚠
+    ///     <b>
+    ///         A button written into the header is still a button, and pressing it does not toggle
+    ///         the foldout.
+    ///     </b>
+    ///     <c>Expander.Chosen</c> acts only when the click's source is the header
     ///     itself; a remove button inside it raises a click that bubbles straight through, and a
     ///     foldout that shut itself every time somebody pressed one would be the same defect the
     ///     control's own remark records for its content.
@@ -113,8 +125,12 @@ public class DisclosureMarkupTests {
     ///     left every section collapsed is byte-identical in every state anybody dumped — which is
     ///     the failure doc 36 § F7 wave 8 added <see cref="UiTest.Flags" /> for.
     ///     <para>
-    ///         ⚠ <b>The expander's own <c>State=Open</c> is new and the header's <c>State=Checked</c>
-    ///         beside it is not, which is the pair worth reading.</b> <c>:open</c> is CSS's name for
+    ///         ⚠
+    ///         <b>
+    ///             The expander's own <c>State=Open</c> is new and the header's <c>State=Checked</c>
+    ///             beside it is not, which is the pair worth reading.
+    ///         </b>
+    ///         <c>:open</c> is CSS's name for
     ///         the disclosure being expanded and it belongs to the disclosure; the header's
     ///         <c>Checked</c> is what turns the chevron and is a statement about a control's value.
     ///         A change that collapsed the two into one bit shows up here as a line losing half its
@@ -180,8 +196,12 @@ public class DisclosureMarkupTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>And the collapsed state, because that is the one a header slot could plausibly
-    ///     break.</b> Collapsing is <c>expander-content { display: none }</c>, so a slotted child
+    ///     ⚠
+    ///     <b>
+    ///         And the collapsed state, because that is the one a header slot could plausibly
+    ///         break.
+    ///     </b>
+    ///     Collapsing is <c>expander-content { display: none }</c>, so a slotted child
     ///     that had landed beside the part rather than inside the header would stay on screen with
     ///     the chevron flipping over it — the exact failure <c>Expander.ContentHost</c>'s own remark
     ///     records for the body.
@@ -215,8 +235,12 @@ public class DisclosureMarkupTests {
     }
 
     /// <summary>
-    ///     ⚠ <b><c>order</c> is what puts a slotted child in front of the label, and it is measured
-    ///     rather than declared.</b> The header slot appends, so an icon that belongs between the
+    ///     ⚠
+    ///     <b>
+    ///         <c>order</c> is what puts a slotted child in front of the label, and it is measured
+    ///         rather than declared.
+    ///     </b>
+    ///     The header slot appends, so an icon that belongs between the
     ///     chevron and the name is a stylesheet's business — and this is the assertion that makes
     ///     <c>ComponentsView</c>'s <c>Document.Move(glyph, 1)</c> deletable rather than merely
     ///     replaced. The layout sorts by order-modified document order, so the icon's rectangle has
@@ -252,8 +276,7 @@ public class DisclosureMarkupTests {
         );
     }
 
-    static Expander[] Folds(FoldoutSheet sheet) =>
-        [.. sheet.Root.Children[0].Children.OfType<Expander>()];
+    static Expander[] Folds(FoldoutSheet sheet) => [..sheet.Root.Children[0].Children.OfType<Expander>()];
 
     static UiTest Sheet(out FoldoutSheet sheet, string? css = null) {
         var ui = ControlHarness.Open(500f, 400f, css);

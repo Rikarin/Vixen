@@ -10,8 +10,11 @@ namespace Vixen.Rendering.Vfx;
 /// <summary>The material a mesh particle is drawn with, with every parameter its shader declares.</summary>
 /// <remarks>
 ///     <para>
-///         <b><see cref="ParticleSpriteMaterial" />'s counterpart for the renderer that draws geometry
-///         rather than quads</b>, and it exists for the same reason: a host that builds this by hand
+///         <b>
+///             <see cref="ParticleSpriteMaterial" />'s counterpart for the renderer that draws geometry
+///             rather than quads
+///         </b>
+///         , and it exists for the same reason: a host that builds this by hand
 ///         and forgets a parameter gets an effect that simulates, expands its instances, uploads them,
 ///         binds two vertex buffers and draws — and produces nothing on the screen, with every counter
 ///         reading healthy.
@@ -40,9 +43,7 @@ public static class ParticleMeshMaterial {
     ///     whole library and RVN2073 refuses any slot any shader in it left unbound.
     /// </remarks>
     public static Material Default() {
-        var material = new Material(ParticleMeshKeys.ShaderName) {
-            Composition = MaterialCompiler.PassComposition()
-        };
+        var material = new Material(ParticleMeshKeys.ShaderName) { Composition = MaterialCompiler.PassComposition() };
 
         material.Parameters.Set(ParticleMeshKeys.Tint, NeutralTint);
         material.Parameters.Set(ParticleMeshKeys.Emissive, 1f);

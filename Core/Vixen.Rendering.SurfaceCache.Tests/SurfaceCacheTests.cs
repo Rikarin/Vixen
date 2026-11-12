@@ -14,7 +14,7 @@ public class SurfaceCacheTests {
         // +Y: U runs along Z, V along X — cyclic from the axis, whatever the sign.
         var card = new SurfaceCard(2, Vector3.Zero, new(1f, 0.5f, 1f), new(2, 2));
 
-        Assert.Equal(new Vector3(0f, 1f, 0f), card.Direction);
+        Assert.Equal(new(0f, 1f, 0f), card.Direction);
         Assert.Equal(2, card.UComponent);
         Assert.Equal(0, card.VComponent);
 
@@ -26,7 +26,7 @@ public class SurfaceCacheTests {
         Assert.Equal(0.5f, origin.Y, 1e-5f);
 
         // −Y flips the direction and nothing else.
-        Assert.Equal(new Vector3(0f, -1f, 0f), new SurfaceCard(3, Vector3.Zero, Vector3.One, new(1, 1)).Direction);
+        Assert.Equal(new(0f, -1f, 0f), new SurfaceCard(3, Vector3.Zero, Vector3.One, new(1, 1)).Direction);
     }
 
     [Fact]
@@ -34,10 +34,10 @@ public class SurfaceCacheTests {
         var card = new SurfaceCard(2, new(3f, 1f, -2f), new(2f, 0.5f, 1f), new(8, 4));
 
         // A point a quarter of the way inside, under texel (5, 1)'s centre.
-        var world = card.TexelOrigin(new(5, 1)) - (card.Direction * 0.25f);
+        var world = card.TexelOrigin(new(5, 1)) - card.Direction * 0.25f;
 
         Assert.True(card.TryProject(world, out var texel, out var depth));
-        Assert.Equal(new Int2(5, 1), texel);
+        Assert.Equal(new(5, 1), texel);
         Assert.Equal(0.25f, depth, 1e-5f);
 
         // Outside the box on any axis is nobody's texel.
@@ -55,13 +55,13 @@ public class SurfaceCacheTests {
         Span<int> indices = [
             0, 2, 1, 0, 3, 2, 4, 5, 6, 4, 6, 7, // -Z, +Z
             0, 1, 5, 0, 5, 4, 3, 7, 6, 3, 6, 2, // -Y, +Y
-            0, 4, 7, 0, 7, 3, 1, 2, 6, 1, 6, 5  // -X, +X
+            0, 4, 7, 0, 7, 3, 1, 2, 6, 1, 6, 5 // -X, +X
         ];
 
-        var cards = CardGenerator.Generate(cube, indices, texelsPerUnit: 8f, margin: 0f);
+        var cards = CardGenerator.Generate(cube, indices, 8f, margin: 0f);
 
         Assert.Equal(6, cards.Count);
-        Assert.Equal(Enumerable.Range(0, 6), cards.Select(card => card.Axis));
+        Assert.Equal(Enumerable.Range(0, 6), cards.Select(static card => card.Axis));
 
         foreach (var card in cards) {
             Assert.Equal(8, card.Resolution.X);
@@ -71,13 +71,13 @@ public class SurfaceCacheTests {
         Span<Vector3> floor = [new(0f, 0f, 0f), new(4f, 0f, 0f), new(4f, 0f, 2f), new(0f, 0f, 2f)];
         Span<int> quad = [0, 2, 1, 0, 3, 2];
 
-        var flat = CardGenerator.Generate(floor, quad, texelsPerUnit: 4f, margin: 0f);
+        var flat = CardGenerator.Generate(floor, quad, 4f, margin: 0f);
 
         var only = Assert.Single(flat);
 
         // Facing +Y, U along Z (2 units → 8 texels), V along X (4 units → 16).
         Assert.Equal(2, only.Axis);
-        Assert.Equal(new Int2(8, 16), only.Resolution);
+        Assert.Equal(new(8, 16), only.Resolution);
     }
 
     [Fact]
@@ -86,8 +86,8 @@ public class SurfaceCacheTests {
 
         Assert.True(atlas.TryAllocate(new(16, 8), out var first));
         Assert.True(atlas.TryAllocate(new(16, 8), out var second));
-        Assert.Equal(new Int2(0, 0), first);
-        Assert.Equal(new Int2(0, 8), second);
+        Assert.Equal(new(0, 0), first);
+        Assert.Equal(new(0, 8), second);
 
         // Full is a refusal, not a throw.
         Assert.False(atlas.TryAllocate(new(1, 1), out _));
@@ -153,7 +153,7 @@ public class SurfaceCacheTests {
 
         new TracedCardCapture(world, new Paint(new(0.7f))).Capture(cache, card);
 
-        var radiosity = new CardRadiosity(world) { Sky = _ => new(0.6f) };
+        var radiosity = new CardRadiosity(world) { Sky = static _ => new(0.6f) };
 
         var change = radiosity.Gather(cache);
 
@@ -176,14 +176,14 @@ public class SurfaceCacheTests {
         var seed = 12345u;
 
         float Next() {
-            seed = (seed * 1664525u) + 1013904223u;
+            seed = seed * 1664525u + 1013904223u;
 
             return (seed >> 8) * (1f / 16777216f);
         }
 
         for (var added = 0; added < 24; added++) {
-            var centre = new Vector3((Next() * 20f) - 10f, (Next() * 20f) - 10f, (Next() * 20f) - 10f);
-            var half = new Vector3(0.1f + (Next() * 6f), 0.1f + (Next() * 6f), 0.1f + (Next() * 6f));
+            var centre = new Vector3(Next() * 20f - 10f, Next() * 20f - 10f, Next() * 20f - 10f);
+            var half = new Vector3(0.1f + Next() * 6f, 0.1f + Next() * 6f, 0.1f + Next() * 6f);
             var card = cache.AddCard(new((int)(Next() * 6f), centre, half, new(4, 4)));
 
             Assert.True(card >= 0);
@@ -218,7 +218,8 @@ public class SurfaceCacheTests {
                     continue;
                 }
 
-                if (!cache.IsValid(card, texel) || MathF.Abs(cache.Surface(card, texel).Depth - depth) > cache.DepthTolerance) {
+                if (!cache.IsValid(card, texel)
+                    || MathF.Abs(cache.Surface(card, texel).Depth - depth) > cache.DepthTolerance) {
                     continue;
                 }
 
@@ -250,12 +251,13 @@ public class SurfaceCacheTests {
                 var texel = new Int2((int)(Next() * 4f), (int)(Next() * 4f));
 
                 position = shape.TexelOrigin(texel)
-                    - (shape.Direction * (shape.Extents.Depth + ((Next() - 0.5f) * 0.15f)));
+                    - shape.Direction * (shape.Extents.Depth + (Next() - 0.5f) * 0.15f);
                 normal = shape.Direction;
             } else {
                 // Anywhere at all — mostly misses, and both scans must agree those are misses too.
-                position = new((Next() * 24f) - 12f, (Next() * 24f) - 12f, (Next() * 24f) - 12f);
-                normal = new SurfaceCard(Math.Min((int)(Next() * 6f), 5), Vector3.Zero, Vector3.One, new(1, 1)).Direction;
+                position = new(Next() * 24f - 12f, Next() * 24f - 12f, Next() * 24f - 12f);
+                normal = new SurfaceCard(Math.Min((int)(Next() * 6f), 5), Vector3.Zero, Vector3.One, new(1, 1))
+                    .Direction;
             }
 
             var hit = cache.TryRadiance(position, normal, out var indexed);
@@ -270,7 +272,10 @@ public class SurfaceCacheTests {
         }
 
         // A comparison that never found anything compared nothing.
-        Assert.True(found > 200, $"only {found} of 512 queries landed on a card — the fixture is too sparse to referee");
+        Assert.True(
+            found > 200,
+            $"only {found} of 512 queries landed on a card — the fixture is too sparse to referee"
+        );
     }
 
     /// <summary>A solid half-space below y = 0.</summary>

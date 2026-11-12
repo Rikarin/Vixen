@@ -283,7 +283,8 @@ public readonly record struct DockFloat(DockGroupNode Group, float X, float Y, f
             .Set("group", Group.ToYaml());
 
     internal static DockFloat? Read(YamlNode node) {
-        if (node is not YamlMapping mapping || DockGroupNode.Read(mapping["group"] as YamlMapping ?? new YamlMapping()) is not DockGroupNode group) {
+        if (node is not YamlMapping mapping
+            || DockGroupNode.Read(mapping["group"] as YamlMapping ?? new YamlMapping()) is not DockGroupNode group) {
             return null;
         }
 

@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Buffers.Binary;
-using Vixen.Core.Mathematics;
 
 namespace Vixen.Foliage;
 
@@ -11,8 +10,11 @@ namespace Vixen.Foliage;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>[docs/plan/31 § What the scene sees]: stored beside the scene for the merge-conflict
-///         reason a heightfield is.</b> A <c>.vxscene</c> is the file two people touch every day, and
+///         <b>
+///             [docs/plan/31 § What the scene sees]: stored beside the scene for the merge-conflict
+///             reason a heightfield is.
+///         </b>
+///         A <c>.vxscene</c> is the file two people touch every day, and
 ///         fifty thousand transforms in it is a file nobody can merge — one artist thinning a wood
 ///         and another moving a rock produce a conflict across every line.
 ///     </para>
@@ -51,10 +53,10 @@ public static class FoliageStore {
     public static long ByteCount(FoliageVolume volume) {
         ArgumentNullException.ThrowIfNull(volume);
 
-        var total = (long)HeaderBytes;
+        long total = HeaderBytes;
 
         foreach (var chunk in Persisted(volume)) {
-            total += ChunkHeaderBytes + ((long)chunk.Count * InstanceBytes);
+            total += ChunkHeaderBytes + (long)chunk.Count * InstanceBytes;
         }
 
         return total;
@@ -64,8 +66,12 @@ public static class FoliageStore {
     /// <param name="volume">The volume.</param>
     /// <returns>The chunks.</returns>
     /// <remarks>
-    ///     ⚠ <b>[docs/plan/31 § D8] enforced in one place: nothing about a derived type is in any
-    ///     file.</b> A <see cref="FoliageStorage.Derived" /> type's instances exist between a cell
+    ///     ⚠
+    ///     <b>
+    ///         [docs/plan/31 § D8] enforced in one place: nothing about a derived type is in any
+    ///         file.
+    ///     </b>
+    ///     A <see cref="FoliageStorage.Derived" /> type's instances exist between a cell
     ///     entering range and leaving it, so writing them would be writing a cache — and reading them
     ///     back would put a million stale blades into a volume whose scatter is about to produce the
     ///     real ones. The flag is on the type rather than checked by every caller precisely so that
@@ -74,11 +80,10 @@ public static class FoliageStore {
     public static IEnumerable<FoliageChunk> Persisted(FoliageVolume volume) {
         ArgumentNullException.ThrowIfNull(volume);
 
-        return volume.Chunks.Where(
-            chunk => !chunk.IsEmpty
-                && chunk.Type >= 0
-                && chunk.Type < volume.Palette.Count
-                && volume.Palette[chunk.Type].Storage == FoliageStorage.Stored
+        return volume.Chunks.Where(chunk => !chunk.IsEmpty
+            && chunk.Type >= 0
+            && chunk.Type < volume.Palette.Count
+            && volume.Palette[chunk.Type].Storage == FoliageStorage.Stored
         );
     }
 

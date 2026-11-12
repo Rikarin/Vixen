@@ -13,24 +13,29 @@ namespace Vixen.Core.Diagnostics;
 /// </summary>
 static class LogText {
     /// <summary>The four-character level tag. Fixed width, which is what makes a column align.</summary>
-    public static string Abbreviate(LogLevel level) => level switch {
-        LogLevel.Trace => "trce",
-        LogLevel.Debug => "dbug",
-        LogLevel.Information => "info",
-        LogLevel.Warning => "warn",
-        LogLevel.Error => "fail",
-        LogLevel.Critical => "crit",
-        _ => "none"
-    };
+    public static string Abbreviate(LogLevel level) =>
+        level switch {
+            LogLevel.Trace => "trce",
+            LogLevel.Debug => "dbug",
+            LogLevel.Information => "info",
+            LogLevel.Warning => "warn",
+            LogLevel.Error => "fail",
+            LogLevel.Critical => "crit",
+            _ => "none"
+        };
 
     /// <summary>
     ///     Appends the message, the event id when there is one, and — when a rate limiter dropped
     ///     repeats before it — what it dropped.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>The id is here rather than in a column of its own because ADR-008's argument for
-    ///     numbered ids is that a number in a bug report is greppable, and until this it was not
-    ///     reachable from either sink a person reads</b> (#1196). A trailing <c>#2001</c> costs one
+    ///     ⚠
+    ///     <b>
+    ///         The id is here rather than in a column of its own because ADR-008's argument for
+    ///         numbered ids is that a number in a bug report is greppable, and until this it was not
+    ///         reachable from either sink a person reads
+    ///     </b>
+    ///     (#1196). A trailing <c>#2001</c> costs one
     ///     token at the end of a line that is already read to its end, and does not move the
     ///     level and category columns that make the log scannable by eye.
     ///     Omitted when the id is zero, which is what every <c>ILogger</c> extension method that

@@ -35,7 +35,7 @@ public class MarkupTests {
     public void A_click_binding_on_a_control_hears_the_keyboard_as_well_as_the_pointer() {
         using var fixture = new ControlFixture();
         var component = BuildContext.Build<Pressable>(fixture.Document, fixture.Document.Root);
-        var button = (Button) component.Root.Children[0];
+        var button = (Button)component.Root.Children[0];
 
         fixture.Update();
         fixture.Click(button);
@@ -56,7 +56,7 @@ public class MarkupTests {
         var component = BuildContext.Build<Pressable>(fixture.Document, fixture.Document.Root);
 
         fixture.Update();
-        fixture.Click((Button) component.Root.Children[0]);
+        fixture.Click((Button)component.Root.Children[0]);
 
         Assert.Equal(1, component.Clicks);
     }
@@ -85,7 +85,7 @@ public class MarkupTests {
     public void A_click_binding_hears_space_an_access_key_and_a_programmatic_activation() {
         using var fixture = new ControlFixture();
         var component = BuildContext.Build<Pressable>(fixture.Document, fixture.Document.Root);
-        var button = (Button) component.Root.Children[0];
+        var button = (Button)component.Root.Children[0];
 
         fixture.Update();
         fixture.Document.Focus(button);
@@ -154,7 +154,7 @@ public class MarkupTests {
         var pressable = BuildContext.Build<Pressable>(fixture.Document, fixture.Document.Root);
 
         component.Button.Disabled = true;
-        ((Button) pressable.Root.Children[0]).Disabled = true;
+        ((Button)pressable.Root.Children[0]).Disabled = true;
 
         fixture.Update();
         fixture.Click(component.Button);
@@ -192,7 +192,7 @@ public class MarkupTests {
         // Every step of the drag, not only the release — a panel that wrote once at the end would
         // be a mixer whose meters do not move while a fader does.
         Assert.True(mixer.Writes.Count > 1, $"expected the drag to report continuously, got {mixer.Writes.Count}");
-        Assert.All(mixer.Writes, write => Assert.Equal("sfx", write.Bus));
+        Assert.All(mixer.Writes, static write => Assert.Equal("sfx", write.Bus));
         Assert.True(mixer.Writes[^1].Gain > 0.6f, $"expected the dragged value, got {mixer.Writes[^1].Gain}");
     }
 
@@ -217,17 +217,24 @@ public class MarkupTests {
 
         Drag(fixture, mixer.Faders["sfx"], 0.75f);
         Assert.NotEmpty(mixer.Writes);
-        Assert.All(mixer.Writes, write => Assert.False(write.Muted, "the sfx strip read the music strip's mute"));
+        Assert.All(
+            mixer.Writes,
+            static write => Assert.False(write.Muted, "the sfx strip read the music strip's mute")
+        );
 
         mixer.Writes.Clear();
         Drag(fixture, mixer.Faders["music"], 0.25f);
         Assert.NotEmpty(mixer.Writes);
-        Assert.All(mixer.Writes, write => Assert.True(write.Muted, "the music strip read another strip's mute"));
+        Assert.All(mixer.Writes, static write => Assert.True(write.Muted, "the music strip read another strip's mute"));
     }
 
     /// <summary>
-    ///     ⚠ <b>A reorder keeps every row's element, which is what a list-valued handle could not
-    ///     do.</b> The entry is filed under the identity <c>BuildContext.For</c> reconciled on, so
+    ///     ⚠
+    ///     <b>
+    ///         A reorder keeps every row's element, which is what a list-valued handle could not
+    ///         do.
+    ///     </b>
+    ///     The entry is filed under the identity <c>BuildContext.For</c> reconciled on, so
     ///     position is not what is being asked and moving a row cannot answer with its neighbour.
     /// </summary>
     [Fact]
@@ -270,8 +277,12 @@ public class MarkupTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>The asymmetry a ported panel meets first, said out loud instead of answered with
-    ///     null.</b> A sequence change is applied by an effect, so the handle is not filled on the
+    ///     ⚠
+    ///     <b>
+    ///         The asymmetry a ported panel meets first, said out loud instead of answered with
+    ///         null.
+    ///     </b>
+    ///     A sequence change is applied by an effect, so the handle is not filled on the
     ///     line that changed it — and the panel this replaces filled its member on that line. A
     ///     lookup that answered null would surface as a <c>NullReferenceException</c> somewhere else
     ///     entirely.
@@ -288,12 +299,20 @@ public class MarkupTests {
 
         // And once it has run, a key the loop never produced is a different mistake with a
         // different message — not the frame one, which would send a reader looking for a frame.
-        Assert.DoesNotContain("flushed", Assert.Throws<KeyNotFoundException>(() => mixer.Faders["reverb"]).Message, StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            "flushed",
+            Assert.Throws<KeyNotFoundException>(() => mixer.Faders["reverb"]).Message,
+            StringComparison.Ordinal
+        );
     }
 
     /// <summary>
-    ///     ⚠ <b>A forward binding's own write is not a change to report, and this is the one rule
-    ///     <c>change:</c> does not share with <c>bind:</c>.</b> The subscription is made while the
+    ///     ⚠
+    ///     <b>
+    ///         A forward binding's own write is not a change to report, and this is the one rule
+    ///         <c>change:</c> does not share with <c>bind:</c>.
+    ///     </b>
+    ///     The subscription is made while the
     ///     panel builds and the forward binding first writes one flush later, so without the rule
     ///     every mixer would post an undo entry for a gain nobody touched, on open. The C# it
     ///     replaces cannot have that bug: there the value is assigned before the <c>+=</c>.
@@ -313,11 +332,11 @@ public class MarkupTests {
     /// <summary>Drags a slider's thumb to a fraction of its width, with a real pointer.</summary>
     static void Drag(ControlFixture fixture, Slider slider, float fraction) {
         var bounds = slider.Bounds;
-        var y = bounds.Y + (bounds.Height * 0.5f);
+        var y = bounds.Y + bounds.Height * 0.5f;
 
-        fixture.Press(bounds.X + (bounds.Width * 0.5f), y);
-        fixture.MovePointer(bounds.X + (bounds.Width * fraction), y);
-        fixture.Release(bounds.X + (bounds.Width * fraction), y);
+        fixture.Press(bounds.X + bounds.Width * 0.5f, y);
+        fixture.MovePointer(bounds.X + bounds.Width * fraction, y);
+        fixture.Release(bounds.X + bounds.Width * fraction, y);
     }
 
     /// <summary>What the panel wrote, so a test can say which row said it.</summary>
@@ -348,7 +367,7 @@ public class MarkupTests {
         protected override void Build(BuildContext ctx) =>
             ctx.For(
                 null,
-                () => (IEnumerable<string>) Buses.Value,
+                () => (IEnumerable<string>)Buses.Value,
                 static bus => bus,
                 (row, parent, bus) => {
                     var strip = row.Element(parent, "strip");
@@ -363,8 +382,18 @@ public class MarkupTests {
                     // it first writes one flush after this subscription exists.
                     row.Bind(() => fader.Value = Gain.Value);
 
-                    row.Changed(fader, "Value", () => fader.Value, value => Writes.Add(new(bus, value, Mutes[bus].IsChecked)));
-                    row.Changed(mute, "IsChecked", () => mute.IsChecked, on => Writes.Add(new(bus, Faders[bus].Value, on)));
+                    row.Changed(
+                        fader,
+                        "Value",
+                        () => fader.Value,
+                        value => Writes.Add(new(bus, value, Mutes[bus].IsChecked))
+                    );
+                    row.Changed(
+                        mute,
+                        "IsChecked",
+                        () => mute.IsChecked,
+                        on => Writes.Add(new(bus, Faders[bus].Value, on))
+                    );
                 }
             );
     }
@@ -419,16 +448,18 @@ public class MarkupTests {
     sealed class Plain : Component {
         public int Clicks { get; private set; }
 
-        protected override void Build(BuildContext ctx) =>
-            ctx.On(ctx.Element(null, "div"), "click", () => Clicks++);
+        protected override void Build(BuildContext ctx) => ctx.On(ctx.Element(null, "div"), "click", () => Clicks++);
     }
 
 
     // ================================================================== bind:, and what commits it
 
     /// <summary>
-    ///     <b>Every change, which is what <c>bind:X</c> with no modifier means and has to keep
-    ///     meaning.</b> A binding whose other end is a <c>Signal&lt;T&gt;</c> wants the keystroke —
+    ///     <b>
+    ///         Every change, which is what <c>bind:X</c> with no modifier means and has to keep
+    ///         meaning.
+    ///     </b>
+    ///     A binding whose other end is a <c>Signal&lt;T&gt;</c> wants the keystroke —
     ///     a deferred one is a panel lagging its own field — and a control with no commit moment
     ///     would never write at all if the default were the other way round.
     /// </summary>
@@ -488,8 +519,12 @@ public class MarkupTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>The value is read at the event, so a field that reformats on commit hands over what
-    ///     it settled on.</b> <c>NumericInput</c> only rereads its text in <c>OnSubmit</c>, so a
+    ///     ⚠
+    ///     <b>
+    ///         The value is read at the event, so a field that reformats on commit hands over what
+    ///         it settled on.
+    ///     </b>
+    ///     <c>NumericInput</c> only rereads its text in <c>OnSubmit</c>, so a
     ///     routed submission raised before that would have handed the model the number the field
     ///     held <i>before</i> anything was typed — nought — while the box read <c>7</c>.
     /// </summary>
@@ -522,8 +557,12 @@ public class MarkupTests {
     }
 
     /// <summary>
-    ///     ⚠ <b><c>TextField.Submitted</c> was unreachable from markup until it had a routed
-    ///     half.</b> <c>on:</c> subscribes routed events, so a <c>.vxml</c> could hear a field's
+    ///     ⚠
+    ///     <b>
+    ///         <c>TextField.Submitted</c> was unreachable from markup until it had a routed
+    ///         half.
+    ///     </b>
+    ///     <c>on:</c> subscribes routed events, so a <c>.vxml</c> could hear a field's
     ///     keys and its focus and not the one keystroke a form is about; every panel that wanted it
     ///     held a <c>ref</c> and wired the C# event by hand.
     /// </summary>
@@ -574,8 +613,10 @@ public class MarkupTests {
     public void A_commit_event_the_runtime_does_not_know_says_so_at_compose() {
         using var fixture = new ControlFixture();
 
-        var thrown = Assert.Throws<ArgumentException>(
-            () => BuildContext.Build<Misspelt>(fixture.Document, fixture.Document.Root)
+        var thrown = Assert.Throws<ArgumentException>(() => BuildContext.Build<Misspelt>(
+                fixture.Document,
+                fixture.Document.Root
+            )
         );
 
         Assert.Contains("blurr", thrown.Message, StringComparison.Ordinal);

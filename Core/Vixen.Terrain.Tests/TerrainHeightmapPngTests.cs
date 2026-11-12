@@ -14,7 +14,7 @@ public sealed class TerrainHeightmapPngTests {
 
         for (var y = 0; y < height; y++) {
             for (var x = 0; x < width; x++) {
-                samples[(y * width) + x] = (ushort)(((y * width) + x) * 7919 % 65536);
+                samples[y * width + x] = (ushort)((y * width + x) * 7919 % 65536);
             }
         }
 
@@ -41,12 +41,25 @@ public sealed class TerrainHeightmapPngTests {
     [Fact]
     public void ATerrainsHeightsRoundTrip() {
         var terrain = new Terrain(
-            new() { TileSamples = 32, TilesX = 2, TilesZ = 2, MetresPerQuad = 1f, MinHeight = -50f, MaxHeight = 50f }
+            new() {
+                TileSamples = 32,
+                TilesX = 2,
+                TilesZ = 2,
+                MetresPerQuad = 1f,
+                MinHeight = -50f,
+                MaxHeight = 50f
+            }
         );
 
         var layer = terrain.AddLayer("Sculpt");
 
-        TerrainSculpt.Sculpt(terrain, layer, TerrainBrush.Default with { Radius = 8f, Strength = 1f }, new(new(20f, 20f)), 20f);
+        TerrainSculpt.Sculpt(
+            terrain,
+            layer,
+            TerrainBrush.Default with { Radius = 8f, Strength = 1f },
+            new(new(20f, 20f)),
+            20f
+        );
         terrain.Resolve();
 
         var decoded = TerrainHeightmapPng.Decode(TerrainHeightmapPng.Encode(terrain));
@@ -66,7 +79,7 @@ public sealed class TerrainHeightmapPngTests {
     public void TheFileIsAWellFormedPng() {
         var file = TerrainHeightmapPng.Encode(8, 8, Ramp(8, 8));
 
-        Assert.Equal<byte[]>([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A], file[..8]);
+        Assert.Equal([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A], file[..8]);
 
         var at = 8;
         var kinds = new List<string>();
@@ -137,13 +150,17 @@ public sealed class TerrainHeightmapPngTests {
 
     [Fact]
     public void SomethingThatIsNotAPngIsRefused() {
-        Assert.Throws<ArgumentException>(() => TerrainHeightmapPng.Decode("not a png at all"u8));
+        Assert.Throws<ArgumentException>(static () => TerrainHeightmapPng.Decode("not a png at all"u8));
     }
 
     /// <summary>The filter earns its keep: a heightfield compresses far better than raw.</summary>
     /// <remarks>
-    ///     ⚠ <b>Filter 0 writes the heights themselves and a large terrain comes out several times
-    ///     larger.</b> A terrain's rows differ from each other by a few metres and from nothing else,
+    ///     ⚠
+    ///     <b>
+    ///         Filter 0 writes the heights themselves and a large terrain comes out several times
+    ///         larger.
+    ///     </b>
+    ///     A terrain's rows differ from each other by a few metres and from nothing else,
     ///     so filtering against the row above leaves near-zero bytes that deflate eats.
     /// </remarks>
     [Fact]
@@ -153,7 +170,7 @@ public sealed class TerrainHeightmapPngTests {
         for (var y = 0; y < 128; y++) {
             for (var x = 0; x < 128; x++) {
                 // A smooth hill, which is what a heightfield is and what raw r16 cannot exploit.
-                samples[(y * 128) + x] = (ushort)(30000 + (int)(2000 * MathF.Sin(x * 0.05f) * MathF.Cos(y * 0.05f)));
+                samples[y * 128 + x] = (ushort)(30000 + (int)(2000 * MathF.Sin(x * 0.05f) * MathF.Cos(y * 0.05f)));
             }
         }
 
@@ -176,8 +193,8 @@ public sealed class TerrainHeightmapPngTests {
             var row = new byte[bytes];
 
             for (var x = 0; x < width; x++) {
-                row[x * 2] = (byte)(samples[(y * width) + x] >> 8);
-                row[(x * 2) + 1] = (byte)samples[(y * width) + x];
+                row[x * 2] = (byte)(samples[y * width + x] >> 8);
+                row[x * 2 + 1] = (byte)samples[y * width + x];
             }
 
             raw[y * stride] = filter;
@@ -187,11 +204,11 @@ public sealed class TerrainHeightmapPngTests {
                 var above = previous[x];
                 var corner = x >= 2 ? previous[x - 2] : (byte)0;
 
-                raw[(y * stride) + 1 + x] = filter switch {
+                raw[y * stride + 1 + x] = filter switch {
                     0 => row[x],
                     1 => (byte)(row[x] - left),
                     2 => (byte)(row[x] - above),
-                    3 => (byte)(row[x] - ((left + above) / 2)),
+                    3 => (byte)(row[x] - (left + above) / 2),
                     _ => (byte)(row[x] - Paeth(left, above, corner))
                 };
             }
@@ -201,7 +218,7 @@ public sealed class TerrainHeightmapPngTests {
 
         var compressed = new MemoryStream();
 
-        using (var deflate = new ZLibStream(compressed, CompressionLevel.Fastest, leaveOpen: true)) {
+        using (var deflate = new ZLibStream(compressed, CompressionLevel.Fastest, true)) {
             deflate.Write(raw);
         }
 

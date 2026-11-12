@@ -23,18 +23,15 @@ namespace Vixen.Ui.Testing;
 public sealed class UiTestException : Exception {
     /// <summary>Creates a failure.</summary>
     /// <param name="message">What went wrong.</param>
-    public UiTestException(string message) : base(message) {
-    }
+    public UiTestException(string message) : base(message) { }
 
     /// <summary>Creates a failure with an inner cause.</summary>
     /// <param name="message">What went wrong.</param>
     /// <param name="inner">What caused it.</param>
-    public UiTestException(string message, Exception inner) : base(message, inner) {
-    }
+    public UiTestException(string message, Exception inner) : base(message, inner) { }
 
     /// <summary>Creates a failure with no message. Present because the analyser asks for it.</summary>
-    public UiTestException() {
-    }
+    public UiTestException() { }
 
     /// <summary>Builds the message a failed command reports.</summary>
     /// <param name="what">What the command wanted, in the words the test used.</param>
@@ -65,6 +62,6 @@ public sealed class UiTestException : Exception {
     static string Indent(string text) =>
         string.Join(
             Environment.NewLine,
-            text.Split('\n').Select(line => line.Length == 0 ? line : "  " + line.TrimEnd('\r'))
+            text.Split('\n').Select(static line => line.Length == 0 ? line : "  " + line.TrimEnd('\r'))
         );
 }

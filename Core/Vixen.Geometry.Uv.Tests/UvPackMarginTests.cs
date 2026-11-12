@@ -96,18 +96,25 @@ public class UvPackMarginTests {
     /// <summary>The 61-island set that read a gap of zero across a pair 1.967 texels apart.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>This is a nightly failure of
-    ///         <c>UvPackPropertyTests.The_gap_is_exactly_the_margin_when_the_atlas_is_packed_tightly</c>,
-    ///         pinned.</b> The <c>properties (uv)</c> leg failed on it once in six nights; CsCheck seed
+    ///         <b>
+    ///             This is a nightly failure of
+    ///             <c>UvPackPropertyTests.The_gap_is_exactly_the_margin_when_the_atlas_is_packed_tightly</c>,
+    ///             pinned.
+    ///         </b>
+    ///         The <c>properties (uv)</c> leg failed on it once in six nights; CsCheck seed
     ///         <c>1XF0jvSmVt13</c> reproduces it, at the per-commit gate's own eighty cases rather than
     ///         only at the nightly multiplier. The seed is <i>not</i> what is pinned here — a seed is a
     ///         claim about a generator and a library version, and both move. The recipes are written
     ///         out, so this set is this set for as long as the file exists.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The packer was right and the measurement was wrong, which is why the fix is in
-    ///         <see cref="PackedAtlas" /> and this test is here rather than a placement being
-    ///         corrected.</b> Islands 26 and 32 are <b>1.967 texels</b> apart — very nearly twice the
+    ///         ⚠
+    ///         <b>
+    ///             The packer was right and the measurement was wrong, which is why the fix is in
+    ///             <see cref="PackedAtlas" /> and this test is here rather than a placement being
+    ///             corrected.
+    ///         </b>
+    ///         Islands 26 and 32 are <b>1.967 texels</b> apart — very nearly twice the
     ///         one-texel margin asked for. What read zero was a single texel, <c>(107, 151)</c>, which
     ///         island 32's geometry enters by <b>1.4 × 10⁻⁵ of a texel</b>: below the precision at
     ///         which this rasterizer, working in the atlas, and the packer's, working in the island's
@@ -116,8 +123,12 @@ public class UvPackMarginTests {
     ///         was the only one the two rasterizations disagreed about.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Both halves are asserted, and the second is the one that would catch a tolerance
-    ///         grown until the test passed.</b> <c>PackedAtlas.Grazing</c> drops texels an island only
+    ///         ⚠
+    ///         <b>
+    ///             Both halves are asserted, and the second is the one that would catch a tolerance
+    ///             grown until the test passed.
+    ///         </b>
+    ///         <c>PackedAtlas.Grazing</c> drops texels an island only
     ///         grazes, which can only <i>widen</i> a measured gap — so a gap that is exactly the margin
     ///         is the statement that the tolerance moved the phantom texel and nothing else. A
     ///         tolerance large enough to eat real coverage would push this above the margin and fail.

@@ -145,7 +145,7 @@ public sealed class Currency {
 
             var produced = amount / conversion.Rate;
 
-            return new(produced * conversion.Rate, produced, amount - (produced * conversion.Rate));
+            return new(produced * conversion.Rate, produced, amount - produced * conversion.Rate);
         }
 
         return default;

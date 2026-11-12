@@ -5,7 +5,6 @@ using Vixen.Core;
 using Vixen.Core.Mathematics;
 using Vixen.Ecs;
 using Vixen.Editor.Core;
-using Vixen.Editor.Core.Scenes;
 using Vixen.Engine.Transforms;
 using Vixen.Rendering;
 using Xunit;
@@ -114,7 +113,7 @@ public class ViewportStateTests : IDisposable {
         // Twelve edges, two vertices each. A unit cube's corners are half a unit out on every axis —
         // the shape's own bounds through the entity's matrix, not a world-aligned box round it.
         Assert.Equal(24, lines.World.Count);
-        Assert.All(lines.World, vertex => Assert.Equal(0.5f, MathF.Abs(vertex.Position.X), 4));
+        Assert.All(lines.World, static vertex => Assert.Equal(0.5f, MathF.Abs(vertex.Position.X), 4));
     }
 
     [Fact]
@@ -140,8 +139,8 @@ public class ViewportStateTests : IDisposable {
         // The Show menu and the viewport's popover are both generated from `ShowFlags.All`, so a flag
         // added to the enum and not to the list appears in neither — which is the failure that shows
         // up immediately rather than the one that does not.
-        Assert.All(ShowFlags.All, flag => Assert.False(string.IsNullOrWhiteSpace(ShowFlags.NameOf(flag))));
-        Assert.All(ShowFlags.All, flag => Assert.False(string.IsNullOrWhiteSpace(ShowFlags.SlugOf(flag))));
+        Assert.All(ShowFlags.All, static flag => Assert.False(string.IsNullOrWhiteSpace(ShowFlags.NameOf(flag))));
+        Assert.All(ShowFlags.All, static flag => Assert.False(string.IsNullOrWhiteSpace(ShowFlags.SlugOf(flag))));
 
         Assert.Equal(ShowFlags.All.Count, ShowFlags.All.Select(ShowFlags.SlugOf).Distinct().Count());
     }
@@ -180,8 +179,8 @@ public class ViewportStateTests : IDisposable {
         meshes.Build(scene, pane.Viewport);
 
         Assert.True(meshes.Triangles > 0);
-        Assert.Contains(meshes.Batches, batch => batch.Edges);
-        Assert.Contains(meshes.Batches, batch => !batch.Edges);
+        Assert.Contains(meshes.Batches, static batch => batch.Edges);
+        Assert.Contains(meshes.Batches, static batch => !batch.Edges);
 
         // One entity, drawn twice. The pass costs a second instance rather than a second copy of the
         // cube's vertices, which is the whole difference from the path this replaced.
@@ -289,7 +288,7 @@ public class ViewportStateTests : IDisposable {
         var camera = new EditorCamera { Pivot = Vector3.Zero, Distance = 12f };
         var point = new Vector3(1f, 2f, 3f);
 
-        foreach (var orthographic in (bool[]) [false, true]) {
+        foreach (var orthographic in (bool[])[false, true]) {
             camera.IsOrthographic = orthographic;
 
             var view = new MeshInstanceView(
@@ -318,7 +317,7 @@ public class ViewportStateTests : IDisposable {
 
         // A wireframe view has no surfaces in it, and selecting something must not put one back.
         Assert.Equal(0, meshes.Triangles);
-        Assert.DoesNotContain(meshes.Instances.ToArray(), instance => instance.Style.X > 0f);
+        Assert.DoesNotContain(meshes.Instances.ToArray(), static instance => instance.Style.X > 0f);
     }
 
     // ── Stats ───────────────────────────────────────────────────────────────────────────────────
@@ -373,22 +372,22 @@ public class ViewportStateTests : IDisposable {
         Assert.False(pane.Viewport.HasBookmark(0));
         Assert.False(pane.Viewport.RestoreBookmark(0));
 
-        pane.Camera.Pivot = new Vector3(5f, 0f, 0f);
+        pane.Camera.Pivot = new(5f, 0f, 0f);
         pane.Viewport.SaveBookmark(0);
 
         Assert.True(pane.Viewport.HasBookmark(0));
 
         pane.Camera.Pivot = Vector3.Zero;
         Assert.True(pane.Viewport.RestoreBookmark(0));
-        Assert.Equal(new Vector3(5f, 0f, 0f), pane.Camera.Pivot);
+        Assert.Equal(new(5f, 0f, 0f), pane.Camera.Pivot);
 
-        pane.Camera.Pivot = new Vector3(9f, 0f, 0f);
+        pane.Camera.Pivot = new(9f, 0f, 0f);
         pane.Viewport.SaveBookmark(0);
 
         pane.Camera.Pivot = Vector3.Zero;
         pane.Viewport.RestoreBookmark(0);
 
-        Assert.Equal(new Vector3(9f, 0f, 0f), pane.Camera.Pivot);
+        Assert.Equal(new(9f, 0f, 0f), pane.Camera.Pivot);
     }
 
     [Fact]

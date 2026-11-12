@@ -186,7 +186,7 @@ internal sealed class SourceMethodSymbol : MethodSymbol {
                 }
             }
 
-            typeParameters = built.ToArray();
+            typeParameters = [..built];
         }
 
         if (typeParameterConstraintsResolved || typeParameters.Length == 0) {

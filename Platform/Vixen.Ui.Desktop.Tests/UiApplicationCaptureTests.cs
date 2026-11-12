@@ -2,8 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core.Imaging;
-using Vixen.Core.Mathematics;
-using Vixen.Platform;
 using Vixen.Platform.Headless;
 using Vixen.Ui.Composition;
 using Xunit;
@@ -51,15 +49,15 @@ public class UiApplicationCaptureTests {
 
     /// <summary>The sheet that places the box, in document pixels, which are device pixels at scale one.</summary>
     static readonly string Sheet = $$"""
-        capture-box {
-            position: absolute;
-            left: {{Left}}px;
-            top: {{Top}}px;
-            width: {{BoxWidth}}px;
-            height: {{BoxHeight}}px;
-            background-color: #ff0000;
-        }
-        """;
+                                     capture-box {
+                                         position: absolute;
+                                         left: {{Left}}px;
+                                         top: {{Top}}px;
+                                         width: {{BoxWidth}}px;
+                                         height: {{BoxHeight}}px;
+                                         background-color: #ff0000;
+                                     }
+                                     """;
 
     static string Scratch() => Path.Combine(Path.GetTempPath(), $"vixen-ui-capture-{Guid.NewGuid():N}");
 
@@ -71,7 +69,7 @@ public class UiApplicationCaptureTests {
 
         Assert.Equal(3, spaced.Frames);
         Assert.Equal("shots", spaced.CapturePath);
-        Assert.Equal(new Int2(800, 2000), spaced.Size);
+        Assert.Equal(new(800, 2000), spaced.Size);
         Assert.False(spaced.Offscreen);
 
         var inline = new UiApplicationOptions();
@@ -100,10 +98,10 @@ public class UiApplicationCaptureTests {
     [Fact]
     public void AnOffscreenRunWithNoFrameCountIsRefused() {
         var platform = new HeadlessPlatform();
-        var window = platform.CreateWindow(new WindowOptions { Title = "test", Size = new Int2(64, 64) });
+        var window = platform.CreateWindow(new() { Title = "test", Size = new(64, 64) });
 
         using var application = new UiApplication(
-            new UiApplicationOptions { CapturePath = Scratch(), InstallSystemFont = false, Content = () => new Box() },
+            new() { CapturePath = Scratch(), InstallSystemFont = false, Content = static () => new Box() },
             platform,
             window
         );
@@ -115,7 +113,7 @@ public class UiApplicationCaptureTests {
     /// <summary>The last frame is written, and it is the frame the application drew.</summary>
     [Fact]
     public void TheLastFrameIsWrittenWithTheBoxWhereTheLayoutPutIt() {
-        if (Capture(Sheet, () => new Box(), "box") is not { } picture) {
+        if (Capture(Sheet, static () => new Box(), "box") is not { } picture) {
             return;
         }
 
@@ -137,17 +135,18 @@ public class UiApplicationCaptureTests {
         const int MovedLeft = 380;
         const int MovedTop = 240;
 
-        var sheet = Sheet + $$"""
+        var sheet = Sheet
+            + $$"""
 
-            capture-box.moved { left: {{MovedLeft}}px; top: {{MovedTop}}px; }
-            """;
+                capture-box.moved { left: {{MovedLeft}}px; top: {{MovedTop}}px; }
+                """;
 
         Box? built = null;
 
         // `Frame` runs before the frame's update and draw, so a class added there is in that frame.
         if (Capture(
                 sheet,
-                () => built = new Box(),
+                () => built = new(),
                 "last-frame",
                 frame: (application, _) => {
                     if (application.FrameCount == Frames - 1) {
@@ -178,24 +177,29 @@ public class UiApplicationCaptureTests {
     [Fact]
     public void AChildOverflowingAZeroWideBoxIsDrawnByTheDevice() {
         var zero = $$"""
-            capture-zero {
-                position: absolute;
-                left: {{Left}}px;
-                top: {{Top}}px;
-                display: flex;
-                flex-direction: row;
-                align-items: flex-start;
-            }
+                     capture-zero {
+                         position: absolute;
+                         left: {{Left}}px;
+                         top: {{Top}}px;
+                         display: flex;
+                         flex-direction: row;
+                         align-items: flex-start;
+                     }
 
-            capture-zero-box { display: block; container-type: inline-size; }
-            capture-zero-child { display: block; width: 120px; height: 30px; background-color: #ff0000; }
-            """;
+                     capture-zero-box { display: block; container-type: inline-size; }
+                     capture-zero-child { display: block; width: 120px; height: 30px; background-color: #ff0000; }
+                     """;
 
         ZeroWide? built = null;
         var widths = (Box: -1f, Child: -1f);
 
         // Read in `Stopping`, while the document is still alive. The application disposes it.
-        if (Capture(zero, () => built = new ZeroWide(), "zero-wide", _ => widths = (built!.Box.Width, built.Child.Width))
+        if (Capture(
+                zero,
+                () => built = new(),
+                "zero-wide",
+                _ => widths = (built!.Box.Width, built.Child.Width)
+            )
             is not { } picture) {
             return;
         }
@@ -218,20 +222,20 @@ public class UiApplicationCaptureTests {
     [Fact]
     public void AZeroTallMaskedBoxDrawsNothingOfItsChild() {
         var masked = $$"""
-            capture-zero {
-                position: absolute;
-                left: {{Left}}px;
-                top: {{Top}}px;
-                width: 200px;
-                height: 0px;
-                mask-image: linear-gradient(to right, #000000, #000000);
-            }
+                       capture-zero {
+                           position: absolute;
+                           left: {{Left}}px;
+                           top: {{Top}}px;
+                           width: 200px;
+                           height: 0px;
+                           mask-image: linear-gradient(to right, #000000, #000000);
+                       }
 
-            capture-zero-box { display: block; width: 120px; height: 30px; background-color: #ff0000; }
-            capture-zero-child { display: none; }
-            """;
+                       capture-zero-box { display: block; width: 120px; height: 30px; background-color: #ff0000; }
+                       capture-zero-child { display: none; }
+                       """;
 
-        if (Capture(masked, () => new ZeroWide(), "zero-masked") is not { } picture) {
+        if (Capture(masked, static () => new ZeroWide(), "zero-masked") is not { } picture) {
             return;
         }
 
@@ -273,13 +277,13 @@ public class UiApplicationCaptureTests {
 
         var options = new UiApplicationOptions {
             Title = "capture",
-            Size = new Int2(640, 400),
+            Size = new(640, 400),
             Frames = Frames,
             CapturePath = directory,
             InstallSystemFont = false,
 
             // Pure blue, so that neither the red under test nor anything else can be mistaken for it.
-            Ground = new Color4(0f, 0f, 1f, 1f),
+            Ground = new(0f, 0f, 1f, 1f),
             Content = content,
             Stopping = stopping,
             Frame = frame
@@ -288,7 +292,7 @@ public class UiApplicationCaptureTests {
         options.Styles.Add(sheet);
 
         var platform = new HeadlessPlatform();
-        var window = platform.CreateWindow(new WindowOptions { Title = "capture", Size = new Int2(640, 400) });
+        var window = platform.CreateWindow(new() { Title = "capture", Size = new(640, 400) });
 
         int code;
         string? written;
@@ -300,7 +304,9 @@ public class UiApplicationCaptureTests {
                 code = application.Run();
             } catch (PlatformNotSupportedException missing) {
                 if (Environment.GetEnvironmentVariable("VIXEN_REQUIRE_VULKAN") is "1" or "true" or "TRUE") {
-                    Assert.Fail($"VIXEN_REQUIRE_VULKAN is set and the capture could not open a device: {missing.Message}");
+                    Assert.Fail(
+                        $"VIXEN_REQUIRE_VULKAN is set and the capture could not open a device: {missing.Message}"
+                    );
                 }
 
                 Assert.Skip($"No Vulkan device: {missing.Message}");
@@ -319,13 +325,13 @@ public class UiApplicationCaptureTests {
 
             if (Environment.GetEnvironmentVariable("VIXEN_UI_CAPTURE") is { Length: > 0 } keep) {
                 Directory.CreateDirectory(keep);
-                File.Copy(written!, Path.Combine(keep, $"{name}.png"), overwrite: true);
+                File.Copy(written!, Path.Combine(keep, $"{name}.png"), true);
             }
 
             return PngCodec.Load(written!);
         } finally {
             if (Directory.Exists(directory)) {
-                Directory.Delete(directory, recursive: true);
+                Directory.Delete(directory, true);
             }
         }
     }
@@ -361,11 +367,11 @@ public class UiApplicationCaptureTests {
         // Red is linear in coverage only to within the sRGB encode, so the bound is the perimeter and
         // not zero.
         var area = red / 255.0;
-        Assert.InRange(area, (width * height) - (2 * (width + height)), (width * height) + (2 * (width + height)));
+        Assert.InRange(area, width * height - 2 * (width + height), width * height + 2 * (width + height));
     }
 
     static (int R, int G, int B) Pixel(in Bitmap picture, int x, int y) {
-        var offset = ((y * picture.Width) + x) * 4;
+        var offset = (y * picture.Width + x) * 4;
         var pixels = picture.Pixels;
 
         return (pixels[offset], pixels[offset + 1], pixels[offset + 2]);

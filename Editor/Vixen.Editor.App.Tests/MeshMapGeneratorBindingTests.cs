@@ -5,7 +5,6 @@ using Vixen.Core;
 using Vixen.Core.Mathematics;
 using Vixen.Editor.Assets.MeshMaps;
 using Vixen.Editor.Core;
-using Vixen.Editor.NodeGraph;
 using Vixen.Geometry;
 using Vixen.Geometry.Remeshing;
 using Vixen.NodeGraph;
@@ -19,8 +18,11 @@ namespace Vixen.Editor.App.Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>Both halves of the binding in one process, which is the only place either can be
-///         checked.</b> A bake writes nine PNGs with a sidecar naming what each measures; a graph
+///         <b>
+///             Both halves of the binding in one process, which is the only place either can be
+///             checked.
+///         </b>
+///         A bake writes nine PNGs with a sidecar naming what each measures; a graph
 ///         asks for a measurement and names no file. Neither production assembly may reference the
 ///         other — <c>Vixen.Editor.Assets</c> owns the vocabulary and drags every importer in the
 ///         tree with it, and <c>Vixen.TextureGraph</c> is deliberately narrow — so the node
@@ -28,8 +30,12 @@ namespace Vixen.Editor.App.Tests;
 ///         drifting.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The interesting assertion is that the two bakes bind <em>different</em> files, and
-///         it took a wrong first draft to see why.</b> "Both compiled" is true of a generator that
+///         ⚠
+///         <b>
+///             The interesting assertion is that the two bakes bind <em>different</em> files, and
+///             it took a wrong first draft to see why.
+///         </b>
+///         "Both compiled" is true of a generator that
 ///         resolved nothing at all, and "both resolved" is true of one that resolved the same map
 ///         twice — which is exactly what a resolver that ignored its set would do, and it would look
 ///         perfect on a project with one mesh in it. So every case below compares the identities
@@ -48,7 +54,7 @@ public sealed class MeshMapGeneratorBindingTests : IDisposable {
     public void Dispose() {
         try {
             if (Directory.Exists(root)) {
-                Directory.Delete(root, recursive: true);
+                Directory.Delete(root, true);
             }
         } catch (IOException) {
             // A file the test wrote and the OS has not let go of. Not what is under test.
@@ -62,8 +68,10 @@ public sealed class MeshMapGeneratorBindingTests : IDisposable {
     ///     ⚠ One compound, two meshes, no rewiring — and the two bakes read different files.
     /// </summary>
     /// <remarks>
-    ///     <b><a href="https://github.com/Rikarin/Vixen/issues/702">#702</a>'s second box and
-    ///     <a href="https://github.com/Rikarin/Vixen/issues/573">#573</a>'s first exit line.</b>
+    ///     <b>
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/702">#702</a>'s second box and
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/573">#573</a>'s first exit line.
+    ///     </b>
     ///     The generator is a shipped <c>.vxtexgraph</c> — content, not a fixture — so what is proved
     ///     is that the file in <c>Compounds/Generators</c> works, rather than that a graph this test
     ///     built works.
@@ -79,7 +87,7 @@ public sealed class MeshMapGeneratorBindingTests : IDisposable {
         var library = MeshMapLibrary.Index(project.Assets);
 
         // Compiled once. Everything below reads the same compilation.
-        var compiler = Compile("Generators/Curvature Edge Wear", out var externals);
+        _ = Compile("Generators/Curvature Edge Wear", out var externals);
 
         Assert.NotEmpty(externals);
 
@@ -102,7 +110,7 @@ public sealed class MeshMapGeneratorBindingTests : IDisposable {
         // ⚠ And the two are genuinely different files. A resolver that ignored its set would pass
         // everything above on a project with one mesh in it, and this repository has shipped that
         // shape of test before.
-        var curvature = Assert.Single(externals, external => external.Asset == "meshmap:curvature");
+        var curvature = Assert.Single(externals, static external => external.Asset == "meshmap:curvature");
 
         Assert.True(new MeshMapBinding(library, "Barrel").TryResolve(curvature.Asset, out var one, out _));
         Assert.True(new MeshMapBinding(library, "Crate").TryResolve(curvature.Asset, out var two, out _));
@@ -141,7 +149,7 @@ public sealed class MeshMapGeneratorBindingTests : IDisposable {
             TextureGraphCompiler compiler = new(Registry()) { BaseWidth = 64, BaseHeight = 64 };
             var compilation = compiler.Compile(graph);
 
-            Assert.Equal([], compilation.Diagnostics.Select(one => one.Message).ToArray());
+            Assert.Equal([], compilation.Diagnostics.Select(static one => one.Message).ToArray());
 
             var external = Assert.Single(compiler.Externals);
 
@@ -240,7 +248,7 @@ public sealed class MeshMapGeneratorBindingTests : IDisposable {
     /// <summary>Compiles one shipped compound, once, and returns what it asked the host for.</summary>
     static TextureGraphCompiler Compile(string compound, out IReadOnlyList<TextureGraphExternal> externals) {
         var registry = Registry();
-        var library = TextureCompoundLibrary.Publish(registry, folder: null, out var problems);
+        var library = TextureCompoundLibrary.Publish(registry, null, out var problems);
 
         Assert.Empty(problems);
 
@@ -250,15 +258,11 @@ public sealed class MeshMapGeneratorBindingTests : IDisposable {
 
         graph.Connect(new(used.Id, "Out"), new(output.Id, "Input"));
 
-        TextureGraphCompiler compiler = new(registry) {
-            BaseWidth = 128,
-            BaseHeight = 128,
-            SubGraphSource = library
-        };
+        TextureGraphCompiler compiler = new(registry) { BaseWidth = 128, BaseHeight = 128, SubGraphSource = library };
 
         var compilation = compiler.Compile(graph);
 
-        Assert.Equal([], compilation.Diagnostics.Select(one => one.Message).ToArray());
+        Assert.Equal([], compilation.Diagnostics.Select(static one => one.Message).ToArray());
 
         externals = compiler.Externals;
 
@@ -306,7 +310,7 @@ public sealed class MeshMapGeneratorBindingTests : IDisposable {
             for (var j = 0; j < 2; j++) {
                 Span<int> loop = [corners[i, j], corners[i + 1, j], corners[i + 1, j + 1], corners[i, j + 1]];
 
-                mesh.AddFace(loop, 0);
+                mesh.AddFace(loop);
             }
         }
 

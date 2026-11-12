@@ -34,7 +34,8 @@ public class DrawerTests {
     public void The_built_in_registry_resolves_a_member_to_the_drawer_its_type_and_attributes_ask_for(
         string name,
         Type expected
-    ) => Assert.IsType(expected, DrawerRegistry.Default.Resolve(Member(name)));
+    ) =>
+        Assert.IsType(expected, DrawerRegistry.Default.Resolve(Member(name)));
 
     [Fact]
     public void An_attribute_beats_the_type_it_is_on() {
@@ -77,7 +78,7 @@ public class DrawerTests {
             [new WaterMaterial { UseFoam = true }, new WaterMaterial { UseFoam = false }]
         );
 
-        var drawer = (IPropertyDrawer) new BooleanDrawer();
+        IPropertyDrawer drawer = new BooleanDrawer();
         var editor = drawer.Build(field, host);
 
         using (field.Refreshing()) {
@@ -99,7 +100,7 @@ public class DrawerTests {
         var second = new WaterMaterial { UseFoam = false };
         var field = new InspectorField(Water, Member("UseFoam"), [first, second]);
 
-        var drawer = (IPropertyDrawer) new BooleanDrawer();
+        IPropertyDrawer drawer = new BooleanDrawer();
         var editor = drawer.Build(field, host);
 
         // Putting a value into a control raises the control's changed event, which calls Write. On a
@@ -114,8 +115,12 @@ public class DrawerTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>Two objects whose curves are identical are not a mixed selection, and this test used
-    ///     to assert that <c>EditProperty.Read</c> still said they were.</b> The drawer answered the
+    ///     ⚠
+    ///     <b>
+    ///         Two objects whose curves are identical are not a mixed selection, and this test used
+    ///         to assert that <c>EditProperty.Read</c> still said they were.
+    ///     </b>
+    ///     The drawer answered the
     ///     question for itself and left the pipeline holding the old answer — reference identity, so
     ///     a member initialised <c>= AnimationCurve.Linear()</c> made the row mixed the moment a
     ///     second thing was selected, whatever it held. <c>OwnedValues</c> moved the premise: the
@@ -134,7 +139,7 @@ public class DrawerTests {
         Assert.False(new InspectorField(Water, Member("Amplitude"), [first, second]).Read().IsMixed);
 
         var field = new InspectorField(Water, Member("Amplitude"), [first, second]);
-        var drawer = (IPropertyDrawer) new CurveDrawer();
+        IPropertyDrawer drawer = new CurveDrawer();
         var editor = Assert.IsType<CurveEditor>(drawer.Build(field, host));
 
         drawer.Show(field, editor);
@@ -157,7 +162,7 @@ public class DrawerTests {
         var second = new WaterMaterial { Amplitude = AnimationCurve.EaseInOut() };
 
         var field = new InspectorField(Water, Member("Amplitude"), [first, second]);
-        var drawer = (IPropertyDrawer) new CurveDrawer();
+        IPropertyDrawer drawer = new CurveDrawer();
         var editor = Assert.IsType<CurveEditor>(drawer.Build(field, host));
 
         drawer.Show(field, editor);
@@ -172,8 +177,12 @@ public class DrawerTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>Every object gets its own copy, because twenty objects sharing one curve is an alias
-    ///     rather than an agreement.</b> A single <c>Write</c> puts the same instance on all of them,
+    ///     ⚠
+    ///     <b>
+    ///         Every object gets its own copy, because twenty objects sharing one curve is an alias
+    ///         rather than an agreement.
+    ///     </b>
+    ///     A single <c>Write</c> puts the same instance on all of them,
     ///     and the next key drag on any one of them then moves the curve on all twenty, silently.
     /// </summary>
     [Fact]
@@ -185,7 +194,7 @@ public class DrawerTests {
         var second = new WaterMaterial { Amplitude = AnimationCurve.EaseInOut() };
 
         var field = new InspectorField(Water, Member("Amplitude"), [first, second]);
-        var drawer = (IPropertyDrawer) new CurveDrawer();
+        IPropertyDrawer drawer = new CurveDrawer();
         var editor = Assert.IsType<CurveEditor>(drawer.Build(field, host));
 
         drawer.Show(field, editor);
@@ -215,7 +224,7 @@ public class DrawerTests {
         var host = document.Root.Add("host");
 
         var field = new InspectorField(Water, Member("Amplitude"), [new WaterMaterial()]);
-        var drawer = (IPropertyDrawer) new CurveDrawer();
+        IPropertyDrawer drawer = new CurveDrawer();
         var editor = Assert.IsType<CurveEditor>(drawer.Build(field, host));
 
         drawer.Show(field, editor);
@@ -229,7 +238,7 @@ public class DrawerTests {
     public void A_number_with_a_range_is_a_slider_and_one_without_is_a_field() {
         using var document = new UiDocument(600f, 400f);
         var host = document.Root.Add("host");
-        var drawer = (IPropertyDrawer) new NumberDrawer();
+        IPropertyDrawer drawer = new NumberDrawer();
 
         var bounded = new InspectorField(Water, Member("Roughness"), [new WaterMaterial()]);
         Assert.IsType<Slider>(drawer.Build(bounded, host));
@@ -264,7 +273,7 @@ public class DrawerTests {
         // the case the fix is about — a lux, a centimetre and a byte all arrive here identical.
         var material = new WaterMaterial { FoamWidth = 100_000f };
         var field = new InspectorField(Water, Member("FoamWidth"), [material]);
-        var drawer = (IPropertyDrawer) new NumberDrawer();
+        IPropertyDrawer drawer = new NumberDrawer();
         var box = Assert.IsType<NumericInput>(drawer.Build(field, host));
 
         using (field.Refreshing()) {
@@ -276,10 +285,10 @@ public class DrawerTests {
         var bounds = box.Bounds;
         Assert.True(bounds.Width > 20f, "the box has no room to be dragged across");
 
-        var x = MathF.Round(bounds.X + (bounds.Width * 0.5f));
-        var y = MathF.Round(bounds.Y + (bounds.Height * 0.5f));
+        var x = MathF.Round(bounds.X + bounds.Width * 0.5f);
+        var y = MathF.Round(bounds.Y + bounds.Height * 0.5f);
 
-        test.Drag(x, y, x + 10f, y, steps: 10);
+        test.Drag(x, y, x + 10f, y, 10);
 
         // Ten pixels, ten percent. The old arithmetic moved it by ten out of a hundred thousand, and
         // reaching daylight's upper end from its lower one took ninety thousand pixels of screen.
@@ -289,8 +298,12 @@ public class DrawerTests {
     /// <summary>An integer member at nought draws <c>0</c>, however the row got there.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Both halves are the same defect: the field's text is written only when its number
-    ///         changes.</b> An <c>int</c> row is <c>Decimals = 0</c> then <c>Number = 0</c>, two no-op
+    ///         ⚠
+    ///         <b>
+    ///             Both halves are the same defect: the field's text is written only when its number
+    ///             changes.
+    ///         </b>
+    ///         An <c>int</c> row is <c>Decimals = 0</c> then <c>Number = 0</c>, two no-op
     ///         assignments over a field born at nought, and it drew an empty box (#1415 — a texture's
     ///         Max Size, whose zero means "no limit", on every texture).
     ///     </para>
@@ -304,7 +317,7 @@ public class DrawerTests {
     public void An_integer_member_at_nought_draws_nought_even_after_a_mixed_selection() {
         using var document = new UiDocument(600f, 400f);
         var host = document.Root.Add("host");
-        var drawer = (IPropertyDrawer) new NumberDrawer();
+        IPropertyDrawer drawer = new NumberDrawer();
 
         var first = new WaterMaterial { Version = 0 };
         var second = new WaterMaterial { Version = 0 };
@@ -341,16 +354,16 @@ public class DrawerTests {
         using var document = new UiDocument(600f, 400f);
         var host = document.Root.Add("host");
 
-        var material = new WaterMaterial { Flow = new Vector3(1f, 2f, 3f) };
+        var material = new WaterMaterial { Flow = new(1f, 2f, 3f) };
         var field = new InspectorField(Water, Member("Flow"), [material]);
-        var drawer = (IPropertyDrawer) new Vector3Drawer();
+        IPropertyDrawer drawer = new Vector3Drawer();
         var editor = drawer.Build(field, host);
 
         // The Y box, which is the second component group.
         var box = editor.Children[1].Children.OfType<NumericInput>().Single();
         box.Number = 9d;
 
-        Assert.Equal(new Vector3(1f, 9f, 3f), material.Flow);
+        Assert.Equal(new(1f, 9f, 3f), material.Flow);
     }
 
     /// <summary>The arrow key steps a vector component from the number its box shows.</summary>
@@ -365,9 +378,9 @@ public class DrawerTests {
         using var test = UiTest.Create(600f, 400f);
         var host = test.Create("host");
 
-        var material = new WaterMaterial { Flow = new Vector3(1f, 2f, 3f) };
+        var material = new WaterMaterial { Flow = new(1f, 2f, 3f) };
         var field = new InspectorField(Water, Member("Flow"), [material]);
-        var drawer = (IPropertyDrawer) new Vector3Drawer();
+        IPropertyDrawer drawer = new Vector3Drawer();
         var editor = drawer.Build(field, host);
 
         using (field.Refreshing()) {
@@ -383,7 +396,7 @@ public class DrawerTests {
         test.PressKey(InputKey.Up);
         test.Frame();
 
-        Assert.Equal(new Vector3(1f, 2.1f, 3f), material.Flow);
+        Assert.Equal(new(1f, 2.1f, 3f), material.Flow);
     }
 
     /// <summary>A component that stops being mixed shows its number again and steps from it.</summary>
@@ -397,10 +410,10 @@ public class DrawerTests {
         using var test = UiTest.Create(600f, 400f);
         var host = test.Create("host");
 
-        var first = new WaterMaterial { Flow = new Vector3(1f, 2f, 3f) };
-        var second = new WaterMaterial { Flow = new Vector3(1f, 2f, 3f) };
+        var first = new WaterMaterial { Flow = new(1f, 2f, 3f) };
+        var second = new WaterMaterial { Flow = new(1f, 2f, 3f) };
         var field = new InspectorField(Water, Member("Flow"), [first, second]);
-        var drawer = (IPropertyDrawer) new Vector3Drawer();
+        IPropertyDrawer drawer = new Vector3Drawer();
         var editor = drawer.Build(field, host);
         var box = editor.Children[1].Children.OfType<NumericInput>().Single();
 
@@ -412,7 +425,7 @@ public class DrawerTests {
 
         Assert.Equal("2", box.Value);
 
-        second.Flow = new Vector3(1f, 7f, 3f);
+        second.Flow = new(1f, 7f, 3f);
 
         using (field.Refreshing()) {
             drawer.Show(field, editor);
@@ -421,7 +434,7 @@ public class DrawerTests {
         Assert.Equal(string.Empty, box.Value);
         Assert.Equal("—", box.Placeholder);
 
-        second.Flow = new Vector3(1f, 2f, 3f);
+        second.Flow = new(1f, 2f, 3f);
 
         using (field.Refreshing()) {
             drawer.Show(field, editor);
@@ -435,8 +448,8 @@ public class DrawerTests {
         test.PressKey(InputKey.Up);
         test.Frame();
 
-        Assert.Equal(new Vector3(1f, 2.1f, 3f), first.Flow);
-        Assert.Equal(new Vector3(1f, 2.1f, 3f), second.Flow);
+        Assert.Equal(new(1f, 2.1f, 3f), first.Flow);
+        Assert.Equal(new(1f, 2.1f, 3f), second.Flow);
     }
 
     /// <summary>Showing a vector row is not an edit.</summary>
@@ -454,10 +467,10 @@ public class DrawerTests {
         using var document = new UiDocument(600f, 400f);
         var host = document.Root.Add("host");
 
-        var first = new WaterMaterial { Flow = new Vector3(1f, 2f, 3f) };
-        var second = new WaterMaterial { Flow = new Vector3(1f, 7f, 3f) };
+        var first = new WaterMaterial { Flow = new(1f, 2f, 3f) };
+        var second = new WaterMaterial { Flow = new(1f, 7f, 3f) };
         var field = new InspectorField(Water, Member("Flow"), [first, second]);
-        var drawer = (IPropertyDrawer) new Vector3Drawer();
+        IPropertyDrawer drawer = new Vector3Drawer();
         var editor = drawer.Build(field, host);
         var writes = 0;
 
@@ -468,8 +481,8 @@ public class DrawerTests {
         }
 
         Assert.Equal(0, writes);
-        Assert.Equal(new Vector3(1f, 2f, 3f), first.Flow);
-        Assert.Equal(new Vector3(1f, 7f, 3f), second.Flow);
+        Assert.Equal(new(1f, 2f, 3f), first.Flow);
+        Assert.Equal(new(1f, 7f, 3f), second.Flow);
     }
 
     [Fact]
@@ -477,18 +490,18 @@ public class DrawerTests {
         using var document = new UiDocument(600f, 400f);
         var host = document.Root.Add("host");
 
-        var first = new WaterMaterial { Flow = new Vector3(1f, 2f, 3f) };
-        var second = new WaterMaterial { Flow = new Vector3(1f, 7f, 3f) };
+        var first = new WaterMaterial { Flow = new(1f, 2f, 3f) };
+        var second = new WaterMaterial { Flow = new(1f, 7f, 3f) };
         var field = new InspectorField(Water, Member("Flow"), [first, second]);
 
-        var drawer = (IPropertyDrawer) new Vector3Drawer();
+        IPropertyDrawer drawer = new Vector3Drawer();
         var editor = drawer.Build(field, host);
 
         using (field.Refreshing()) {
             drawer.Show(field, editor);
         }
 
-        var boxes = editor.Children.Select(group => group.Children.OfType<NumericInput>().Single()).ToArray();
+        var boxes = editor.Children.Select(static group => group.Children.OfType<NumericInput>().Single()).ToArray();
 
         // Which axis they disagree about is the thing the user wants to know, and blanking the whole
         // row throws it away.
@@ -545,7 +558,7 @@ public class OptionalTests {
 
         var volume = new GradedVolume { Grading = Grade.Neutral };
         var field = new InspectorField(Graded, Member("Grading"), [volume]);
-        var drawer = (IPropertyDrawer) new OptionalDrawer(new DrawerRegistry());
+        IPropertyDrawer drawer = new OptionalDrawer(new());
         var editor = drawer.Build(field, host);
 
         using (field.Refreshing()) {
@@ -566,7 +579,7 @@ public class OptionalTests {
         var field = new InspectorField(Graded, Member(member), [volume]);
 
         // An empty registry: the inner editor is beside the point here, the checkbox is the drawer's.
-        var editor = ((IPropertyDrawer) new OptionalDrawer(new DrawerRegistry())).Build(field, host);
+        var editor = ((IPropertyDrawer)new OptionalDrawer(new())).Build(field, host);
 
         Assert.IsType<OptionalEditor>(editor).Toggle.IsChecked = true;
 
@@ -584,7 +597,7 @@ public class EulerTests {
     [InlineData(15f, -40f, 80f)]
     [InlineData(-70f, 170f, -25f)]
     public void The_angles_rebuild_the_rotation_they_were_read_from(float x, float y, float z) {
-        var original = EulerAngles.ToRotation(new Vector3(x, y, z));
+        var original = EulerAngles.ToRotation(new(x, y, z));
         var rebuilt = EulerAngles.ToRotation(EulerAngles.FromRotation(original));
 
         // The *rotation* round-trips, which is what matters; the numbers need not, because two sets
@@ -597,7 +610,7 @@ public class EulerTests {
 
     [Fact]
     public void At_the_pole_the_whole_turn_goes_into_yaw() {
-        var locked = EulerAngles.ToRotation(new Vector3(90f, 30f, 20f));
+        var locked = EulerAngles.ToRotation(new(90f, 30f, 20f));
         var angles = EulerAngles.FromRotation(locked);
 
         // Yaw and roll turn about the same axis there and only their sum survives. Reporting a roll

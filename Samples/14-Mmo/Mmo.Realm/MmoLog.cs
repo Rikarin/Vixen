@@ -16,7 +16,7 @@ static partial class MmoLog {
         EventId = 14140,
         Level = LogLevel.Information,
         Message = "Composed {Modules} module(s) over {Definitions} definition(s) from {Addresses} address(es); "
-        + "{Camps} camp(s) standing."
+            + "{Camps} camp(s) standing."
     )]
     public static partial void Composed(ILogger logger, int modules, int definitions, int addresses, int camps);
 
@@ -24,7 +24,7 @@ static partial class MmoLog {
         EventId = 14141,
         Level = LogLevel.Warning,
         Message = "This build shipped no content mount, so the shard has no definitions and every gameplay "
-        + "library is empty. Run the content build."
+            + "library is empty. Run the content build."
     )]
     public static partial void NoContent(ILogger logger);
 
@@ -32,7 +32,7 @@ static partial class MmoLog {
         EventId = 14142,
         Level = LogLevel.Warning,
         Message = "Nothing in this build carries the '{Label}' label, so no definition was found. The "
-        + "content build ran and the .vxgroup does not label its definitions."
+            + "content build ran and the .vxgroup does not label its definitions."
     )]
     public static partial void NoDefinitions(ILogger logger, string label);
 

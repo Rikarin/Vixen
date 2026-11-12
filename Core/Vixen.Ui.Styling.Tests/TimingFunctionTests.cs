@@ -16,15 +16,10 @@ public class TimingFunctionTests {
         // that does not reach 1 leaves a transition permanently short of its target, which reads as
         // a rendering bug rather than an easing one.
         foreach (var easing in new[] {
-            TimingFunction.Linear,
-            TimingFunction.Ease,
-            TimingFunction.EaseIn,
-            TimingFunction.EaseOut,
-            TimingFunction.EaseInOut,
-            TimingFunction.Bezier(0.68f, -0.55f, 0.27f, 1.55f),
-            TimingFunction.Step(4, StepPosition.End),
-            TimingFunction.Spring(1f, 100f, 10f)
-        }) {
+                     TimingFunction.Linear, TimingFunction.Ease, TimingFunction.EaseIn, TimingFunction.EaseOut,
+                     TimingFunction.EaseInOut, TimingFunction.Bezier(0.68f, -0.55f, 0.27f, 1.55f),
+                     TimingFunction.Step(4, StepPosition.End), TimingFunction.Spring(1f, 100f, 10f)
+                 }) {
             Assert.Equal(0f, easing.Evaluate(0f), Tolerance);
             Assert.Equal(1f, easing.Evaluate(1f), 1e-2f);
         }
@@ -45,8 +40,15 @@ public class TimingFunctionTests {
         // is wrong, feeding it the x it produced does not give the y that came with it.
         //
         // Stated as: for the curve's own parametric points, `Evaluate(x(t))` must equal `y(t)`.
-        Gen.Select(Gen.Float[0f, 1f], Gen.Float[-0.5f, 1.5f], Gen.Float[0f, 1f], Gen.Float[-0.5f, 1.5f], Gen.Float[0f, 1f])
-            .Sample(sample => {
+        Gen.Select(
+                Gen.Float[0f, 1f],
+                Gen.Float[-0.5f, 1.5f],
+                Gen.Float[0f, 1f],
+                Gen.Float[-0.5f, 1.5f],
+                Gen.Float[0f, 1f]
+            )
+            .Sample(
+                static sample => {
                     var (x1, y1, x2, y2, t) = sample;
                     var easing = TimingFunction.Bezier(x1, y1, x2, y2);
 
@@ -54,7 +56,8 @@ public class TimingFunctionTests {
                     var y = Cubic(t, easing.Y1, easing.Y2);
 
                     Assert.Equal(y, easing.Evaluate(x), 1e-2f);
-                }, iter: 1000
+                },
+                iter: 1000
             );
     }
 
@@ -145,11 +148,11 @@ public class TimingFunctionTests {
         // m·x¨ + c·x˙ + k·x = 0, with x(0) = 1 and x˙(0) = 0. Two completely separate routes to
         // the same curve, which is what makes disagreement mean something.
         foreach (var (mass, stiffness, damping) in new[] {
-            (1f, 100f, 10f),   // underdamped
-            (1f, 100f, 20f),   // critically damped
-            (1f, 100f, 45f),   // overdamped
-            (2f, 250f, 15f)    // underdamped, heavier
-        }) {
+                     (1f, 100f, 10f), // underdamped
+                     (1f, 100f, 20f), // critically damped
+                     (1f, 100f, 45f), // overdamped
+                     (2f, 250f, 15f) // underdamped, heavier
+                 }) {
             var spring = TimingFunction.Spring(mass, stiffness, damping);
             var duration = spring.SettlingDuration();
 
@@ -161,7 +164,7 @@ public class TimingFunctionTests {
             var checkpoint = 1;
 
             for (var i = 1; i <= Steps; i++) {
-                var acceleration = ((-stiffness * position) - (damping * velocity)) / mass;
+                var acceleration = (-stiffness * position - damping * velocity) / mass;
                 velocity += acceleration * dt;
                 position += velocity * dt;
 
@@ -169,7 +172,7 @@ public class TimingFunctionTests {
                     continue;
                 }
 
-                var t = (float) i / Steps;
+                var t = (float)i / Steps;
                 Assert.Equal(1f - position, spring.Evaluate(t), 5e-3f);
                 checkpoint++;
             }
@@ -196,8 +199,8 @@ public class TimingFunctionTests {
         // The intuition people actually have, stated in the variable that carries it. The damping
         // *ratio* ζ = c / 2√(km) is what "how bouncy" means; hold it and stiffness becomes speed,
         // because the envelope decays at ζ·√(k/m) and the k is finally in there.
-        var slack = AtRatio(stiffness: 40f, ratio: 0.5f);
-        var stiff = AtRatio(stiffness: 400f, ratio: 0.5f);
+        var slack = AtRatio(40f, 0.5f);
+        var stiff = AtRatio(400f, 0.5f);
 
         Assert.True(
             stiff.SettlingDuration() < slack.SettlingDuration(),
@@ -233,6 +236,6 @@ public class TimingFunctionTests {
 
     static float Cubic(float t, float a, float b) {
         var inverse = 1f - t;
-        return (3f * inverse * inverse * t * a) + (3f * inverse * t * t * b) + (t * t * t);
+        return 3f * inverse * inverse * t * a + 3f * inverse * t * t * b + t * t * t;
     }
 }

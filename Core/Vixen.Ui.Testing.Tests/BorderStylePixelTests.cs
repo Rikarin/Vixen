@@ -10,8 +10,12 @@ namespace Vixen.Ui.Testing.Tests;
 /// <summary>What <c>border-style</c> actually puts on the screen.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>The draw-list tests in <c>Vixen.Ui.Tests.BorderStyleTests</c> cannot see any of
-///         this.</b> They say the right commands were asked for; they cannot say a stroked path
+///         ⚠
+///         <b>
+///             The draw-list tests in <c>Vixen.Ui.Tests.BorderStyleTests</c> cannot see any of
+///             this.
+///         </b>
+///         They say the right commands were asked for; they cannot say a stroked path
 ///         reached the tessellator, that the geometry builder kept its sub-paths apart, or that the
 ///         marks landed on the border box rather than half a thickness outside it. A dashed border
 ///         is a different <i>kind</i> of command from a solid one — a path stroke where the solid
@@ -34,13 +38,13 @@ public class BorderStylePixelTests {
 
     /// <summary>A 40×24 box with a border in whatever style, rendered on black.</summary>
     static Bitmap Rendered(string declarations) {
-        using var ui = UiTest.Create(Side, Side, new UiTestOptions { Background = Background });
+        using var ui = UiTest.Create(Side, Side, new() { Background = Background });
 
         ui.Load(
             $$"""
-            root  { width: {{Side}}px; height: {{Side}}px; align-items: flex-start; }
-            .box  { width: 40px; height: 24px; border-color: #ff0000; {{declarations}} }
-            """
+              root  { width: {{Side}}px; height: {{Side}}px; align-items: flex-start; }
+              .box  { width: 40px; height: 24px; border-color: #ff0000; {{declarations}} }
+              """
         );
 
         ui.Create("div", ui.Document.Root, null, "box");

@@ -26,7 +26,7 @@ public class GlobalDistanceFieldRendererTests {
     [Fact]
     public void TheFirstFrameCompositesAndUploads() {
         using var device = new NullDevice(new() { Record = true });
-        using var node = Node(device, out var scene);
+        using var node = Node(device, out _);
         var context = Context(device);
 
         Record(node, context);
@@ -149,7 +149,11 @@ public class GlobalDistanceFieldRendererTests {
         Record(node, context);
 
         Assert.Equal(1, node.Composites);
-        Assert.True(scene.Parameters.Has(ParameterKeys.New<float>("DistanceFieldAo.GlobalDistanceField.distanceFieldVolumes[0].maxDistance")));
+        Assert.True(
+            scene.Parameters.Has(
+                ParameterKeys.New<float>("DistanceFieldAo.GlobalDistanceField.distanceFieldVolumes[0].maxDistance")
+            )
+        );
     }
 
     [Fact]
@@ -636,12 +640,7 @@ public class GlobalDistanceFieldRendererTests {
     static GlobalDistanceFieldRenderer Node(NullDevice device, out SceneConstants scene) {
         scene = new(device, "ForwardPlus");
 
-        return new() {
-            Field = new GlobalDistanceField(8, 4f, 2),
-            SceneConstants = scene,
-            ViewPosition = Vector3.Zero,
-            Parallel = false
-        };
+        return new() { Field = new(8, 4f, 2), SceneConstants = scene, ViewPosition = Vector3.Zero, Parallel = false };
     }
 
     static MeshDistanceField Sphere() {
@@ -669,8 +668,7 @@ public class GlobalDistanceFieldRendererTests {
     ///     <c>protected internal</c> and this assembly is a friend, so what is under test is the node
     ///     and not the graph that would otherwise have to be stood up around it.
     /// </summary>
-    static void Record(GlobalDistanceFieldRenderer node, RenderDrawContext context) =>
-        node.Record(null!, context);
+    static void Record(GlobalDistanceFieldRenderer node, RenderDrawContext context) => node.Record(null!, context);
 
     /// <summary>Frame work that says it ran, and nothing else.</summary>
     /// <param name="ran">The counter.</param>

@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core.Mathematics;
-using Vixen.Terrain;
 using Xunit;
 
 namespace Vixen.Terrain.Tests;
@@ -20,11 +19,15 @@ namespace Vixen.Terrain.Tests;
 public sealed class TerrainLodTests {
     static TerrainDescription Shape(int tiles = 4) =>
         TerrainDescription.Default with {
-            TileSamples = 128, TilesX = tiles, TilesZ = tiles,
-            MetresPerQuad = 1f, MinHeight = -100f, MaxHeight = 100f
+            TileSamples = 128,
+            TilesX = tiles,
+            TilesZ = tiles,
+            MetresPerQuad = 1f,
+            MinHeight = -100f,
+            MaxHeight = 100f
         };
 
-    static Terrain Flat(int tiles = 4) => new(Shape(tiles), height: 0f);
+    static Terrain Flat(int tiles = 4) => new(Shape(tiles), 0f);
 
     static TerrainLodTree Tree(Terrain terrain, int gridQuads = 8) =>
         new(terrain.Description, TerrainLodRanges.Default with { NearRange = 32f }, gridQuads);
@@ -71,7 +74,7 @@ public sealed class TerrainLodTests {
     [Fact]
     public void TheMorphIsContinuousAndMonotonicInBetween() {
         for (var index = 0; index <= 16; index++) {
-            var previous = (float)index;
+            float previous = index;
 
             for (var step = 0; step <= 100; step++) {
                 var value = TerrainLodTree.MorphIndex(index, step / 100f);
@@ -98,7 +101,7 @@ public sealed class TerrainLodTests {
     [Fact]
     public void AFinePatchsSharedEdgeLandsExactlyOnItsCoarseNeighboursVertices() {
         var terrain = Flat();
-        var tree = Tree(terrain, gridQuads: 8);
+        var tree = Tree(terrain);
 
         // Level 1 spans 16 quads, level 2 spans 32. Put them side by side along X, sharing x = 16.
         var fine = new TerrainLodNode(0, 0, 16, 1, 1f);
@@ -123,7 +126,7 @@ public sealed class TerrainLodTests {
     [Fact]
     public void AFullyMorphedPatchHasHalfItsResolution() {
         var terrain = Flat();
-        var tree = Tree(terrain, gridQuads: 8);
+        var tree = Tree(terrain);
 
         var node = new TerrainLodNode(0, 0, 16, 1, 1f);
         var distinct = new HashSet<float>();
@@ -133,13 +136,13 @@ public sealed class TerrainLodTests {
         }
 
         // Nine vertices collapse to five distinct positions, which is the parent's grid.
-        Assert.Equal((tree.GridQuads / 2) + 1, distinct.Count);
+        Assert.Equal(tree.GridQuads / 2 + 1, distinct.Count);
     }
 
     [Fact]
     public void APatchsVertexMovesContinuouslyAsTheMorphRuns() {
         var terrain = Flat();
-        var tree = Tree(terrain, gridQuads: 8);
+        var tree = Tree(terrain);
 
         // The worst case is an odd vertex of a coarse patch, which travels the furthest.
         var previous = tree.SampleOf(new(0, 0, 32, 2, 0f), 3, 3);
@@ -226,9 +229,7 @@ public sealed class TerrainLodTests {
     [InlineData(64f, 5, 1.5f)]
     [InlineData(64f, 5, -0.1f)]
     public void RangesThatCannotWorkAreRefused(float near, int levels, float ratio) {
-        var ranges = new TerrainLodRanges {
-            NearRange = near, LevelCount = levels, MorphStartRatio = ratio
-        };
+        var ranges = new TerrainLodRanges { NearRange = near, LevelCount = levels, MorphStartRatio = ratio };
 
         Assert.NotNull(ranges.Validate());
     }
@@ -256,14 +257,12 @@ public sealed class TerrainLodTests {
     /// </remarks>
     [Fact]
     public void TheChosenPatchesTileTheTerrainExactlyOnce() {
-        var terrain = Flat(tiles: 4);
-        var tree = Tree(terrain, gridQuads: 8);
+        var terrain = Flat();
+        var tree = Tree(terrain);
 
         foreach (var view in new[] {
-            new Vector3(0f, 10f, 0f),
-            new Vector3(254f, 10f, 254f),
-            new Vector3(120f, 400f, 200f)
-        }) {
+                     new Vector3(0f, 10f, 0f), new Vector3(254f, 10f, 254f), new Vector3(120f, 400f, 200f)
+                 }) {
             var nodes = Select(tree, terrain, view);
             var covered = new HashSet<(int, int)>();
 
@@ -289,8 +288,8 @@ public sealed class TerrainLodTests {
 
     [Fact]
     public void PatchesNearTheViewAreFinerThanPatchesFarFromIt() {
-        var terrain = Flat(tiles: 4);
-        var tree = Tree(terrain, gridQuads: 8);
+        var terrain = Flat();
+        var tree = Tree(terrain);
 
         var view = new Vector3(0f, 2f, 0f);
         var nodes = Select(tree, terrain, view);
@@ -314,7 +313,7 @@ public sealed class TerrainLodTests {
         }
 
         var near = Nearest();
-        var far = nodes.MaxBy(node => new Vector2(node.X, node.Z).Length());
+        var far = nodes.MaxBy(static node => new Vector2(node.X, node.Z).Length());
 
         Assert.True(near.Level < far.Level, $"near was level {near.Level}, far was {far.Level}.");
         Assert.True(near.Quads < far.Quads);
@@ -322,8 +321,8 @@ public sealed class TerrainLodTests {
 
     [Fact]
     public void EveryChosenPatchIsInsideTheTerrain() {
-        var terrain = Flat(tiles: 3);
-        var tree = Tree(terrain, gridQuads: 8);
+        var terrain = Flat(3);
+        var tree = Tree(terrain);
 
         // Three tiles of 127 quads is 381, which is not a power of two patches — so the root hangs
         // off the far edge and the nodes out there must be skipped rather than clamped.
@@ -346,8 +345,8 @@ public sealed class TerrainLodTests {
 
     [Fact]
     public void ANarrowFrustumSelectsFewerPatchesThanAWideOne() {
-        var terrain = Flat(tiles: 4);
-        var tree = Tree(terrain, gridQuads: 8);
+        var terrain = Flat();
+        var tree = Tree(terrain);
         var view = new Vector3(128f, 60f, 128f);
 
         var wide = Select(tree, terrain, view);
@@ -366,11 +365,11 @@ public sealed class TerrainLodTests {
     public void ADeeperTreeThanTheTerrainNeedsIsNotAnError() {
         // A range list is a project setting shared by terrains of different sizes, so having more
         // levels than a small terrain can use is ordinary rather than a misconfiguration.
-        var terrain = new Terrain(Shape(tiles: 1));
+        var terrain = new Terrain(Shape(1));
         var tree = new TerrainLodTree(
             terrain.Description,
             TerrainLodRanges.Default with { LevelCount = 20 },
-            gridQuads: 32
+            32
         );
 
         Assert.True(tree.DepthCount <= 20);
@@ -385,8 +384,11 @@ public sealed class TerrainLodTests {
     public void AGridPatchThatIsNotAPowerOfTwoIsRefused(int gridQuads) {
         var terrain = Flat();
 
-        Assert.Throws<ArgumentException>(
-            () => new TerrainLodTree(terrain.Description, TerrainLodRanges.Default, gridQuads)
+        Assert.Throws<ArgumentException>(() => new TerrainLodTree(
+                terrain.Description,
+                TerrainLodRanges.Default,
+                gridQuads
+            )
         );
     }
 
@@ -394,8 +396,8 @@ public sealed class TerrainLodTests {
 
     [Fact]
     public void APatchsVertexReadsTheHeightUnderIt() {
-        var terrain = new Terrain(Shape(tiles: 1), height: 12f);
-        var tree = Tree(terrain, gridQuads: 8);
+        var terrain = new Terrain(Shape(1), 12f);
+        var tree = Tree(terrain);
 
         var node = new TerrainLodNode(0, 0, 32, 1, 0f);
         var position = tree.PositionOf(node, 4, 4, terrain);
@@ -415,7 +417,7 @@ public sealed class TerrainLodTests {
     /// </remarks>
     [Fact]
     public void AMorphingVertexsHeightMovesSmoothly() {
-        var terrain = new Terrain(Shape(tiles: 1));
+        var terrain = new Terrain(Shape(1));
         var layer = terrain.AddLayer("Ridge");
 
         // A ramp along X, so a vertex sliding along X has a height that must slide with it.
@@ -428,7 +430,7 @@ public sealed class TerrainLodTests {
         terrain.InvalidateAll();
         terrain.Resolve();
 
-        var tree = Tree(terrain, gridQuads: 8);
+        var tree = Tree(terrain);
         var previous = tree.PositionOf(new(0, 0, 32, 1, 0f), 3, 3, terrain).Y;
 
         for (var step = 1; step <= 100; step++) {

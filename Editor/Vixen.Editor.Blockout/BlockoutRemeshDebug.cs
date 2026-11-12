@@ -3,7 +3,6 @@
 
 using Vixen.Core;
 using Vixen.Core.Mathematics;
-using Vixen.Ecs;
 using Vixen.Editor.Inspector;
 using Vixen.Editor.SceneView;
 using Vixen.Geometry.Remeshing;
@@ -13,8 +12,10 @@ namespace Vixen.Editor.Blockout;
 /// <summary>docs/plan/41 § D1's seven artefacts, on screen.</summary>
 /// <remarks>
 ///     <para>
-///         <b>§ D1's argument for making every stage an artefact is that a remesher is judged by a
-///         picture, and until this the artefacts were there and the picture was not</b>
+///         <b>
+///             § D1's argument for making every stage an artefact is that a remesher is judged by a
+///             picture, and until this the artefacts were there and the picture was not
+///         </b>
 ///         (<a href="https://github.com/Rikarin/Vixen/issues/413">#413</a>). <c>RemeshDump</c> was
 ///         referenced by its own tests, by a <c>RunawayGuard</c> comment and by nothing under
 ///         <c>Editor/</c>; the measurements in that document were obtained by parsing written
@@ -34,8 +35,12 @@ namespace Vixen.Editor.Blockout;
 ///         say nothing about — which reads as the remesher having produced nonsense.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Colour is chosen here rather than in <c>Core/</c>, which is what
-///         <see cref="RemeshRegion" /> asks for in as many words:</b> "a patch index rather than a
+///         ⚠
+///         <b>
+///             Colour is chosen here rather than in <c>Core/</c>, which is what
+///             <see cref="RemeshRegion" /> asks for in as many words:
+///         </b>
+///         "a patch index rather than a
 ///         colour … the index is the artefact; colouring it is one modulus away". This is the modulus.
 ///     </para>
 /// </remarks>
@@ -253,8 +258,12 @@ public sealed class BlockoutRemeshDebug {
     }
 
     /// <summary>
-    ///     ⚠ <b>An arc's colour is the distance between what it got and what it wanted, which is what
-    ///     the quantization is <i>for</i>.</b> docs/plan/41 § D7's cost is that difference squared,
+    ///     ⚠
+    ///     <b>
+    ///         An arc's colour is the distance between what it got and what it wanted, which is what
+    ///         the quantization is <i>for</i>.
+    ///     </b>
+    ///     docs/plan/41 § D7's cost is that difference squared,
     ///     summed over arcs, so an arc drawn red is where the consistency system had to spend — and
     ///     drawing the integer alone would say what happened without saying what it cost.
     /// </summary>
@@ -300,9 +309,9 @@ public sealed class BlockoutRemeshDebug {
 
     static Color4 Blend(Color4 from, Color4 to, float amount) =>
         new(
-            from.R + ((to.R - from.R) * amount),
-            from.G + ((to.G - from.G) * amount),
-            from.B + ((to.B - from.B) * amount),
-            from.A + ((to.A - from.A) * amount)
+            from.R + (to.R - from.R) * amount,
+            from.G + (to.G - from.G) * amount,
+            from.B + (to.B - from.B) * amount,
+            from.A + (to.A - from.A) * amount
         );
 }

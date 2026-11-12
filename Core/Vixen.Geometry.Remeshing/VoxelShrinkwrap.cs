@@ -21,8 +21,12 @@ namespace Vixen.Geometry.Remeshing;
 ///         hole than surface — and it is the wrong answer for anything else.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The sign comes from the generalised winding number rather than from a distance
-///         field</b> (<see cref="WindingNumberField" />), which is what lets self-intersecting and
+///         ⚠
+///         <b>
+///             The sign comes from the generalised winding number rather than from a distance
+///             field
+///         </b>
+///         (<see cref="WindingNumberField" />), which is what lets self-intersecting and
 ///         open input still have an inside. A signed distance field would need the closed manifold
 ///         that this step exists because the input does not have.
 ///     </para>
@@ -67,7 +71,7 @@ static class VoxelShrinkwrap {
             return false;
         }
 
-        var steps = targetEdgeLength > 0f ? (int) MathF.Round(longest / targetEdgeLength) : 64;
+        var steps = targetEdgeLength > 0f ? (int)MathF.Round(longest / targetEdgeLength) : 64;
 
         steps = Math.Clamp(steps, MinimumResolution, MaximumResolution);
 
@@ -77,12 +81,12 @@ static class VoxelShrinkwrap {
         // outside for the field to change sign against.
         var origin = box.Minimum - new Vector3(spacing * 2f);
         var counts = (
-            X: (int) MathF.Ceiling((size.X + (spacing * 4f)) / spacing) + 1,
-            Y: (int) MathF.Ceiling((size.Y + (spacing * 4f)) / spacing) + 1,
-            Z: (int) MathF.Ceiling((size.Z + (spacing * 4f)) / spacing) + 1
+            X: (int)MathF.Ceiling((size.X + spacing * 4f) / spacing) + 1,
+            Y: (int)MathF.Ceiling((size.Y + spacing * 4f) / spacing) + 1,
+            Z: (int)MathF.Ceiling((size.Z + spacing * 4f) / spacing) + 1
         );
 
-        var field = WindingNumberField.Build([.. soup.Positions], [.. soup.Triangles]);
+        var field = WindingNumberField.Build([..soup.Positions], [..soup.Triangles]);
         var values = new float[counts.X * counts.Y * counts.Z];
 
         for (var z = 0; z < counts.Z; z++) {
@@ -134,8 +138,12 @@ static class VoxelShrinkwrap {
                 for (var x = 0; x < counts.X; x++) {
                     var here = Inside(values[Index(counts, x, y, z)]);
 
-                    if (x + 1 < counts.X && here != Inside(values[Index(counts, x + 1, y, z)])
-                        && y > 0 && z > 0 && y < cells.Y && z < cells.Z) {
+                    if (x + 1 < counts.X
+                        && here != Inside(values[Index(counts, x + 1, y, z)])
+                        && y > 0
+                        && z > 0
+                        && y < cells.Y
+                        && z < cells.Z) {
                         Quad(
                             soup,
                             vertices,
@@ -148,8 +156,12 @@ static class VoxelShrinkwrap {
                         );
                     }
 
-                    if (y + 1 < counts.Y && here != Inside(values[Index(counts, x, y + 1, z)])
-                        && x > 0 && z > 0 && x < cells.X && z < cells.Z) {
+                    if (y + 1 < counts.Y
+                        && here != Inside(values[Index(counts, x, y + 1, z)])
+                        && x > 0
+                        && z > 0
+                        && x < cells.X
+                        && z < cells.Z) {
                         Quad(
                             soup,
                             vertices,
@@ -162,8 +174,12 @@ static class VoxelShrinkwrap {
                         );
                     }
 
-                    if (z + 1 < counts.Z && here != Inside(values[Index(counts, x, y, z + 1)])
-                        && x > 0 && y > 0 && x < cells.X && y < cells.Y) {
+                    if (z + 1 < counts.Z
+                        && here != Inside(values[Index(counts, x, y, z + 1)])
+                        && x > 0
+                        && y > 0
+                        && x < cells.X
+                        && y < cells.Y) {
                         Quad(
                             soup,
                             vertices,
@@ -268,6 +284,5 @@ static class VoxelShrinkwrap {
 
     static bool Inside(float winding) => winding >= 0.5f;
 
-    static int Index((int X, int Y, int Z) counts, int x, int y, int z) =>
-        (((z * counts.Y) + y) * counts.X) + x;
+    static int Index((int X, int Y, int Z) counts, int x, int y, int z) => (z * counts.Y + y) * counts.X + x;
 }

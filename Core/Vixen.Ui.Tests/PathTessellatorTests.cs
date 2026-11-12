@@ -33,8 +33,8 @@ public class PathTessellatorTests {
 
     [Fact]
     public void A_closed_contour_says_so_and_an_open_one_does_not() {
-        var closed = Flatten(new PathBuilder().AddRectangle(new Rectangle(0, 0, 10, 10)));
-        var open = Flatten(new PathBuilder().MoveTo(new Vector2(0, 0)).LineTo(new Vector2(10, 0)));
+        var closed = Flatten(new PathBuilder().AddRectangle(new(0, 0, 10, 10)));
+        var open = Flatten(new PathBuilder().MoveTo(new(0, 0)).LineTo(new(10, 0)));
 
         Assert.True(Assert.Single(closed.Contours).Closed);
         Assert.False(Assert.Single(open.Contours).Closed);
@@ -59,8 +59,8 @@ public class PathTessellatorTests {
         var path = Flatten(
             new PathBuilder()
                 .MoveTo(start)
-                .LineTo(new Vector2(10, 0))
-                .LineTo(new Vector2(10, 10))
+                .LineTo(new(10, 0))
+                .LineTo(new(10, 10))
                 .LineTo(start)
                 .Close()
         );
@@ -74,7 +74,7 @@ public class PathTessellatorTests {
 
     [Fact]
     public void Closing_without_walking_home_keeps_every_corner() {
-        var path = Flatten(new PathBuilder().AddRectangle(new Rectangle(0, 0, 10, 10)));
+        var path = Flatten(new PathBuilder().AddRectangle(new(0, 0, 10, 10)));
         var contour = Assert.Single(path.Contours);
 
         Assert.Equal(4, contour.Count);
@@ -86,10 +86,10 @@ public class PathTessellatorTests {
     /// </summary>
     [Fact]
     public void A_tighter_tolerance_subdivides_a_curve_more_finely() {
-        var path = new PathBuilder().AddEllipse(new Rectangle(0, 0, 100, 100));
+        var path = new PathBuilder().AddEllipse(new(0, 0, 100, 100));
 
-        var coarse = Flatten(path, tolerance: 4f);
-        var fine = Flatten(path, tolerance: 0.01f);
+        var coarse = Flatten(path, 4f);
+        var fine = Flatten(path, 0.01f);
 
         Assert.True(fine.Points.Count > coarse.Points.Count * 3);
     }
@@ -97,8 +97,8 @@ public class PathTessellatorTests {
     [Fact]
     public void Several_contours_of_one_path_are_kept_apart() {
         var path = new PathBuilder()
-            .AddRectangle(new Rectangle(0, 0, 40, 40))
-            .AddRectangle(new Rectangle(10, 10, 20, 20));
+            .AddRectangle(new(0, 0, 40, 40))
+            .AddRectangle(new(10, 10, 20, 20));
 
         Assert.Equal(2, Flatten(path).Contours.Count);
     }
@@ -107,14 +107,14 @@ public class PathTessellatorTests {
 
     [Fact]
     public void A_square_fills_its_own_area() {
-        var triangles = Fill(new PathBuilder().AddRectangle(new Rectangle(10, 20, 60, 40)));
+        var triangles = Fill(new PathBuilder().AddRectangle(new(10, 20, 60, 40)));
 
         Assert.Equal(60 * 40, Area(triangles), 1);
     }
 
     [Fact]
     public void A_circle_fills_the_area_a_circle_has() {
-        var triangles = Fill(new PathBuilder().AddEllipse(new Rectangle(0, 0, 100, 100)));
+        var triangles = Fill(new PathBuilder().AddEllipse(new(0, 0, 100, 100)));
 
         // Slightly under πr², because a flattened circle is the inscribed polygon.
         Assert.Equal(MathF.PI * 50 * 50, Area(triangles), 5f);
@@ -131,8 +131,8 @@ public class PathTessellatorTests {
         // shape with a hole under EvenOdd and a solid disc under NonZero, which is the whole reason
         // the rule is part of the batch key.
         var path = new PathBuilder()
-            .AddEllipse(new Rectangle(0, 0, 120, 120))
-            .AddEllipse(new Rectangle(30, 30, 60, 60));
+            .AddEllipse(new(0, 0, 120, 120))
+            .AddEllipse(new(30, 30, 60, 60));
 
         AssertFillAgrees(path, rule);
     }
@@ -161,17 +161,17 @@ public class PathTessellatorTests {
         // Three of a square's four sides. A fill has to close it, or the scanline runs out of the
         // shape and fills to whatever it meets next.
         var open = new PathBuilder()
-            .MoveTo(new Vector2(0, 0))
-            .LineTo(new Vector2(40, 0))
-            .LineTo(new Vector2(40, 40))
-            .LineTo(new Vector2(0, 40));
+            .MoveTo(new(0, 0))
+            .LineTo(new(40, 0))
+            .LineTo(new(40, 40))
+            .LineTo(new(0, 40));
 
         Assert.Equal(40 * 40, Area(Fill(open)), 1);
     }
 
     [Fact]
     public void A_contour_of_two_points_fills_nothing() {
-        var line = new PathBuilder().MoveTo(new Vector2(0, 0)).LineTo(new Vector2(40, 40));
+        var line = new PathBuilder().MoveTo(new(0, 0)).LineTo(new(40, 40));
 
         Assert.Empty(Fill(line));
     }
@@ -185,13 +185,13 @@ public class PathTessellatorTests {
     public void A_squares_fringe_is_a_band_outside_it() {
         const float Width = 2f;
 
-        var fringe = Fringe(new PathBuilder().AddRectangle(new Rectangle(20, 20, 60, 60)), width: Width);
+        var fringe = Fringe(new PathBuilder().AddRectangle(new(20, 20, 60, 60)), width: Width);
 
         // Just outside the right edge: in the band. Further out: past it. Inside: not the fringe's,
         // because the fringe starts *on* the outline and goes out.
-        Assert.True(Covered(fringe, new Vector2(81, 50)), "the band is missing just outside the edge");
-        Assert.False(Covered(fringe, new Vector2(84, 50)), "the band reached further than it was told to");
-        Assert.False(Covered(fringe, new Vector2(70, 50)), "the band was drawn inside the shape");
+        Assert.True(Covered(fringe, new(81, 50)), "the band is missing just outside the edge");
+        Assert.False(Covered(fringe, new(84, 50)), "the band reached further than it was told to");
+        Assert.False(Covered(fringe, new(70, 50)), "the band was drawn inside the shape");
     }
 
     /// <summary>
@@ -206,8 +206,8 @@ public class PathTessellatorTests {
 
         // Both wound the same way, so nothing about the inner contour says "hole" except the rule.
         var ring = new PathBuilder()
-            .AddEllipse(new Rectangle(0, 0, 120, 120))
-            .AddEllipse(new Rectangle(35, 35, 50, 50));
+            .AddEllipse(new(0, 0, 120, 120))
+            .AddEllipse(new(35, 35, 50, 50));
 
         var fringe = Fringe(ring, PathFillRule.EvenOdd, Width);
         var centre = new Vector2(60, 60);
@@ -232,33 +232,35 @@ public class PathTessellatorTests {
         Assert.NotEmpty(fringe);
 
         // The middle of the pentagram is deep inside the shape under non-zero, so nothing there.
-        Assert.False(Covered(fringe, new Vector2(70, 70)), "the fringe was drawn through the middle");
+        Assert.False(Covered(fringe, new(70, 70)), "the fringe was drawn through the middle");
 
         // A point just outside the tip at the top is in the band. The star's first point is at
         // (70, 10), so a couple of units above it is outside the shape and inside the fringe.
         Assert.True(
-            fringe.Any(vertex => Vector2.Distance(vertex.Position, new Vector2(70, 10)) < 3f),
+            fringe.Any(static vertex => Vector2.Distance(vertex.Position, new(70, 10)) < 3f),
             "the tip has no fringe"
         );
     }
 
     [Fact]
     public void The_fringe_runs_from_full_coverage_to_none() {
-        var fringe = Fringe(new PathBuilder().AddRectangle(new Rectangle(0, 0, 40, 40)), width: 1f);
+        var fringe = Fringe(new PathBuilder().AddRectangle(new(0, 0, 40, 40)), width: 1f);
 
-        Assert.Contains(fringe, vertex => vertex.Coverage == 1f);
-        Assert.Contains(fringe, vertex => vertex.Coverage == 0f);
-        Assert.All(fringe, vertex => Assert.InRange(vertex.Coverage, 0f, 1f));
+        Assert.Contains(fringe, static vertex => vertex.Coverage == 1f);
+        Assert.Contains(fringe, static vertex => vertex.Coverage == 0f);
+        Assert.All(fringe, static vertex => Assert.InRange(vertex.Coverage, 0f, 1f));
     }
 
     [Fact]
     public void The_interior_is_fully_covered() =>
-        Assert.All(Fill(new PathBuilder().AddEllipse(new Rectangle(0, 0, 40, 40))),
-            vertex => Assert.Equal(1f, vertex.Coverage));
+        Assert.All(
+            Fill(new PathBuilder().AddEllipse(new(0, 0, 40, 40))),
+            static vertex => Assert.Equal(1f, vertex.Coverage)
+        );
 
     [Fact]
     public void A_zero_width_fringe_draws_nothing() =>
-        Assert.Empty(Fringe(new PathBuilder().AddRectangle(new Rectangle(0, 0, 40, 40)), width: 0f));
+        Assert.Empty(Fringe(new PathBuilder().AddRectangle(new(0, 0, 40, 40)), width: 0f));
 
     /// <summary>
     ///     ⚠ The corner wedges. Without them every convex corner of every icon has a notch out of it
@@ -268,10 +270,10 @@ public class PathTessellatorTests {
     public void A_corner_is_closed_rather_than_left_as_a_notch() {
         const float Width = 4f;
 
-        var fringe = Fringe(new PathBuilder().AddRectangle(new Rectangle(20, 20, 60, 60)), width: Width);
+        var fringe = Fringe(new PathBuilder().AddRectangle(new(20, 20, 60, 60)), width: Width);
 
         // Diagonally out from the top-right corner, where two strips would otherwise leave a wedge.
-        Assert.True(Covered(fringe, new Vector2(81.5f, 18.5f)), "the corner was left open");
+        Assert.True(Covered(fringe, new(81.5f, 18.5f)), "the corner was left open");
     }
 
     // ---------------------------------------------------------------- Stroke
@@ -283,23 +285,23 @@ public class PathTessellatorTests {
     [Fact]
     public void A_round_stroke_covers_exactly_what_is_within_half_a_width() {
         var path = new PathBuilder()
-            .MoveTo(new Vector2(30, 30))
-            .LineTo(new Vector2(90, 40))
-            .LineTo(new Vector2(60, 100))
-            .LineTo(new Vector2(110, 120));
+            .MoveTo(new(30, 30))
+            .LineTo(new(90, 40))
+            .LineTo(new(60, 100))
+            .LineTo(new(110, 120));
 
-        AssertStrokeIsTheDiscSum(path, width: 16, closed: false);
+        AssertStrokeIsTheDiscSum(path, 16, false);
     }
 
     [Fact]
     public void A_round_stroke_of_a_closed_contour_covers_exactly_the_same_set() {
         var path = new PathBuilder()
-            .MoveTo(new Vector2(40, 40))
-            .LineTo(new Vector2(120, 50))
-            .LineTo(new Vector2(90, 120))
+            .MoveTo(new(40, 40))
+            .LineTo(new(120, 50))
+            .LineTo(new(90, 120))
             .Close();
 
-        AssertStrokeIsTheDiscSum(path, width: 14, closed: true);
+        AssertStrokeIsTheDiscSum(path, 14, true);
     }
 
     /// <summary>
@@ -309,32 +311,32 @@ public class PathTessellatorTests {
     /// </summary>
     [Fact]
     public void A_closed_contour_is_not_capped() {
-        var path = new PathBuilder().AddRectangle(new Rectangle(10, 10, 50, 30));
+        var path = new PathBuilder().AddRectangle(new(10, 10, 50, 30));
 
-        var butt = Stroke(path, width: 6, cap: LineCap.Butt);
-        var square = Stroke(path, width: 6, cap: LineCap.Square);
+        var butt = Stroke(path, 6, cap: LineCap.Butt);
+        var square = Stroke(path, 6, cap: LineCap.Square);
 
         Assert.Equal(butt, square);
     }
 
     [Fact]
     public void An_open_contour_is_capped_and_the_cap_is_the_one_asked_for() {
-        var path = new PathBuilder().MoveTo(new Vector2(20, 50)).LineTo(new Vector2(80, 50));
+        var path = new PathBuilder().MoveTo(new(20, 50)).LineTo(new(80, 50));
 
-        var butt = Area(Stroke(path, width: 10, cap: LineCap.Butt));
-        var square = Area(Stroke(path, width: 10, cap: LineCap.Square));
-        var round = Area(Stroke(path, width: 10, cap: LineCap.Round));
+        var butt = Area(Stroke(path, 10, cap: LineCap.Butt));
+        var square = Area(Stroke(path, 10, cap: LineCap.Square));
+        var round = Area(Stroke(path, 10, cap: LineCap.Round));
 
         Assert.Equal(60 * 10, butt, 1);
 
         // A square cap adds half a width at each end.
-        Assert.Equal(butt + (10 * 10), square, 1);
+        Assert.Equal(butt + 10 * 10, square, 1);
 
         // ⚠ A round cap adds half a disc at each end and lands slightly *under* it, because the arc
         // is the inscribed polygon rather than the circle. Asserted as a bound rather than an
         // approximate equality, so the direction of the error is part of the claim: an arc that came
         // out larger than the disc it approximates would be an arc drawn the wrong way round.
-        Assert.InRange(round, butt + (MathF.PI * 25) - 1.5f, butt + (MathF.PI * 25));
+        Assert.InRange(round, butt + MathF.PI * 25 - 1.5f, butt + MathF.PI * 25);
     }
 
     /// <summary>
@@ -345,30 +347,30 @@ public class PathTessellatorTests {
     public void A_sharp_turn_falls_back_to_a_bevel_rather_than_growing_a_spike() {
         // A turn of about 173°, whose miter would reach roughly 16 times the half width.
         var path = new PathBuilder()
-            .MoveTo(new Vector2(0, 0))
-            .LineTo(new Vector2(100, 0))
-            .LineTo(new Vector2(0, 12));
+            .MoveTo(new(0, 0))
+            .LineTo(new(100, 0))
+            .LineTo(new(0, 12));
 
-        var limited = Stroke(path, width: 8, join: LineJoin.Miter);
-        var reach = limited.Max(vertex => vertex.Position.X) - 100;
+        var limited = Stroke(path, 8);
+        var reach = limited.Max(static vertex => vertex.Position.X) - 100;
 
         Assert.True(reach < 4 * 4, $"the miter reached {reach} past the corner");
 
         // ...and it is the limit doing it, not the geometry: raised past what this corner needs, the
         // same corner grows the spike.
-        var unlimited = Stroke(path, width: 8, join: LineJoin.Miter, miterLimit: 64);
-        Assert.True(unlimited.Max(vertex => vertex.Position.X) - 100 > 40);
+        var unlimited = Stroke(path, 8, LineJoin.Miter, miterLimit: 64);
+        Assert.True(unlimited.Max(static vertex => vertex.Position.X) - 100 > 40);
     }
 
     [Fact]
     public void A_gentle_turn_keeps_its_miter() {
         var path = new PathBuilder()
-            .MoveTo(new Vector2(0, 0))
-            .LineTo(new Vector2(100, 0))
-            .LineTo(new Vector2(200, 100));
+            .MoveTo(new(0, 0))
+            .LineTo(new(100, 0))
+            .LineTo(new(200, 100));
 
-        var bevel = Area(Stroke(path, width: 10, join: LineJoin.Bevel));
-        var miter = Area(Stroke(path, width: 10, join: LineJoin.Miter));
+        var bevel = Area(Stroke(path, 10, LineJoin.Bevel));
+        var miter = Area(Stroke(path, 10));
 
         Assert.True(miter > bevel, $"miter {miter} should cover more than bevel {bevel}");
     }
@@ -376,18 +378,18 @@ public class PathTessellatorTests {
     [Fact]
     public void A_straight_joint_adds_no_join_geometry() {
         var bent = new PathBuilder()
-            .MoveTo(new Vector2(0, 0))
-            .LineTo(new Vector2(50, 0))
-            .LineTo(new Vector2(100, 0));
+            .MoveTo(new(0, 0))
+            .LineTo(new(50, 0))
+            .LineTo(new(100, 0));
 
-        var straight = new PathBuilder().MoveTo(new Vector2(0, 0)).LineTo(new Vector2(100, 0));
+        var straight = new PathBuilder().MoveTo(new(0, 0)).LineTo(new(100, 0));
 
         Assert.Equal(Area(Stroke(straight, 10)), Area(Stroke(bent, 10)), 0.01f);
     }
 
     [Fact]
     public void A_stroke_of_zero_width_draws_nothing() =>
-        Assert.Empty(Stroke(new PathBuilder().MoveTo(Vector2.Zero).LineTo(new Vector2(10, 0)), 0));
+        Assert.Empty(Stroke(new PathBuilder().MoveTo(Vector2.Zero).LineTo(new(10, 0)), 0));
 
     // --------------------------------------------------------------- Oracles
 
@@ -438,7 +440,7 @@ public class PathTessellatorTests {
         var last = closed ? contour.Count : contour.Count - 1;
 
         for (var i = 0; i < last; i++) {
-            segments.Add((flat.Points[contour.First + i], flat.Points[contour.First + ((i + 1) % contour.Count)]));
+            segments.Add((flat.Points[contour.First + i], flat.Points[contour.First + (i + 1) % contour.Count]));
         }
 
         var (min, max) = Bounds(flat.Points);
@@ -472,7 +474,7 @@ public class PathTessellatorTests {
         var contours = new List<Contour>();
         PathFlattener.Flatten(path.Segments, 0, path.Count, tolerance, points, contours);
 
-        return new FlatPath(points, contours);
+        return new(points, contours);
     }
 
     static List<PathVertex> Fill(PathBuilder path, PathFillRule rule = PathFillRule.NonZero) {
@@ -511,10 +513,12 @@ public class PathTessellatorTests {
 
         foreach (var contour in path.Contours) {
             for (var i = 0; i < contour.Count; i++) {
-                edges.Add((
-                    path.Points[contour.First + i],
-                    path.Points[contour.First + ((i + 1) % contour.Count)]
-                ));
+                edges.Add(
+                    (
+                        path.Points[contour.First + i],
+                        path.Points[contour.First + (i + 1) % contour.Count]
+                    )
+                );
             }
         }
 
@@ -532,7 +536,7 @@ public class PathTessellatorTests {
 
             var t = (point.Y - from.Y) / (to.Y - from.Y);
 
-            if (from.X + (t * (to.X - from.X)) > point.X) {
+            if (from.X + t * (to.X - from.X) > point.X) {
                 winding += to.Y > from.Y ? 1 : -1;
             }
         }
@@ -561,7 +565,7 @@ public class PathTessellatorTests {
     }
 
     static float Side(Vector2 point, Vector2 from, Vector2 to) =>
-        ((to.X - from.X) * (point.Y - from.Y)) - ((to.Y - from.Y) * (point.X - from.X));
+        (to.X - from.X) * (point.Y - from.Y) - (to.Y - from.Y) * (point.X - from.X);
 
     static float DistanceToSegment(Vector2 point, Vector2 from, Vector2 to) {
         var along = to - from;
@@ -572,7 +576,7 @@ public class PathTessellatorTests {
         }
 
         var t = Math.Clamp(Vector2.Dot(point - from, along) / lengthSquared, 0f, 1f);
-        return Vector2.Distance(point, from + (along * t));
+        return Vector2.Distance(point, from + along * t);
     }
 
     /// <summary>The signed area of the triangles, which for a tiling is the area they cover.</summary>
@@ -580,7 +584,8 @@ public class PathTessellatorTests {
         var total = 0f;
 
         for (var i = 0; i + 2 < triangles.Count; i += 3) {
-            total += MathF.Abs(Side(triangles[i + 2].Position, triangles[i].Position, triangles[i + 1].Position)) * 0.5f;
+            total += MathF.Abs(Side(triangles[i + 2].Position, triangles[i].Position, triangles[i + 1].Position))
+                * 0.5f;
         }
 
         return total;
@@ -591,8 +596,8 @@ public class PathTessellatorTests {
         var max = new Vector2(float.MinValue, float.MinValue);
 
         foreach (var point in points) {
-            min = new Vector2(MathF.Min(min.X, point.X), MathF.Min(min.Y, point.Y));
-            max = new Vector2(MathF.Max(max.X, point.X), MathF.Max(max.Y, point.Y));
+            min = new(MathF.Min(min.X, point.X), MathF.Min(min.Y, point.Y));
+            max = new(MathF.Max(max.X, point.X), MathF.Max(max.Y, point.Y));
         }
 
         return (min, max);
@@ -604,8 +609,8 @@ public class PathTessellatorTests {
 
         for (var i = 0; i < 5; i++) {
             // Every second point, which is what turns a pentagon into a pentagram.
-            var angle = (i * 4 * MathF.PI / 5) - (MathF.PI / 2);
-            var point = new Vector2(70 + (60 * MathF.Cos(angle)), 70 + (60 * MathF.Sin(angle)));
+            var angle = i * 4 * MathF.PI / 5 - MathF.PI / 2;
+            var point = new Vector2(70 + 60 * MathF.Cos(angle), 70 + 60 * MathF.Sin(angle));
 
             if (i == 0) {
                 path.MoveTo(point);

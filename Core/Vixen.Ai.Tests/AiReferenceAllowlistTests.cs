@@ -9,9 +9,12 @@ namespace Vixen.Ai.Tests;
 /// <summary>The six assemblies <c>Vixen.Ai</c> is allowed to reference, and nothing else.</summary>
 /// <remarks>
 ///     <para>
-///         <b>Doc 28 put the three planners in <c>Vixen.Gameplay.Ai</c>, on top of
-///         <c>Vixen.Gameplay.Combat</c>, and doc 37 § Why this is Core is the argument against
-///         it.</b> A behaviour tree that depends on a combat package cannot run a stealth patrol, a
+///         <b>
+///             Doc 28 put the three planners in <c>Vixen.Gameplay.Ai</c>, on top of
+///             <c>Vixen.Gameplay.Combat</c>, and doc 37 § Why this is Core is the argument against
+///             it.
+///         </b>
+///         A behaviour tree that depends on a combat package cannot run a stealth patrol, a
 ///         shopkeeper, a companion following a player through a puzzle, or a squad in a game with no
 ///         abilities at all. A composite that runs children until one fails contains no game concept
 ///         and is identical in every game ever shipped; a task that casts <c>Fireball</c> names a
@@ -35,8 +38,12 @@ namespace Vixen.Ai.Tests;
 ///         until somebody wrote down why, which is the comment in the set below.
 ///     </para>
 ///     <para>
-///         ⚠ <b>And it is the only thing still checking that <c>Vixen.Ai</c> does not reference
-///         <c>Vixen.Engine</c></b>, which is a <c>Core/</c> project and therefore invisible to the
+///         ⚠
+///         <b>
+///             And it is the only thing still checking that <c>Vixen.Ai</c> does not reference
+///             <c>Vixen.Engine</c>
+///         </b>
+///         , which is a <c>Core/</c> project and therefore invisible to the
 ///         layer rule. Doc 37 § P4 is the reason: the world-facing tasks that want a scene live in
 ///         <c>Vixen.Ai.Nodes</c>, so a game that wants trees without one links <c>Vixen.Ai</c> and
 ///         stops.
@@ -62,8 +69,8 @@ public class AiReferenceAllowlistTests {
 
         var unexpected = typeof(AiAgent).Assembly
             .GetReferencedAssemblies()
-            .Select(assembly => assembly.Name ?? string.Empty)
-            .Where(name => name.StartsWith("Vixen.", StringComparison.Ordinal))
+            .Select(static assembly => assembly.Name ?? string.Empty)
+            .Where(static name => name.StartsWith("Vixen.", StringComparison.Ordinal))
             .Where(name => !allowed.Contains(name))
             .ToList();
 

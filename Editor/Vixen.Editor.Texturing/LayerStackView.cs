@@ -3,8 +3,6 @@
 
 using System.Globalization;
 using System.Text;
-using Vixen.Authoring;
-using Vixen.Editor.NodeGraph;
 using Vixen.Editor.Texturing.Layers;
 using Vixen.Editor.Texturing.Painting;
 using Vixen.NodeGraph;
@@ -62,8 +60,12 @@ readonly record struct MaskSourceEdit(
 ///         registration is <see cref="TexturingModule" />.
 ///     </para>
 ///     <para>
-///         ⚠ <b>It edits now, and every edit is an <c>IEditorCommand</c> on the document's own
-///         stack.</b> This panel was deliberately read-only until
+///         ⚠
+///         <b>
+///             It edits now, and every edit is an <c>IEditorCommand</c> on the document's own
+///             stack.
+///         </b>
+///         This panel was deliberately read-only until
 ///         <a href="https://github.com/Rikarin/Vixen/issues/819">#819</a>, and the reason it gave was
 ///         not squeamishness: nothing in the layer stack was routed through
 ///         <c>EditorDocument.Stack</c>, so a panel that offered a reorder would have offered a
@@ -72,9 +74,13 @@ readonly record struct MaskSourceEdit(
 ///         the rows write through it.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The list under the rows is where a diagnostic goes, and it is what
-///         <a href="https://github.com/Rikarin/Vixen/issues/830">#830</a> found this panel had
-///         nowhere for.</b> <c>TG0022</c> — the terminus rescale — was chosen over a silent rescale
+///         ⚠
+///         <b>
+///             The list under the rows is where a diagnostic goes, and it is what
+///             <a href="https://github.com/Rikarin/Vixen/issues/830">#830</a> found this panel had
+///             nowhere for.
+///         </b>
+///         <c>TG0022</c> — the terminus rescale — was chosen over a silent rescale
 ///         because "it is said", and no production type in this tree rendered a
 ///         <c>NodeDiagnostic</c> at all: the one consumer read a list of them and kept the errors,
 ///         which drops precisely the diagnostics that did not stop the map. Every severity is listed,
@@ -91,8 +97,12 @@ readonly record struct MaskSourceEdit(
 ///         the file's order and this class is the one thing that knows the two differ.
 ///     </para>
 ///     <para>
-///         ⚠ <b>A mask's own entries are rows in this same list, indented under their layer, rather
-///         than a second pane.</b> Doc 48 § D10 makes a mask a small stack of its own, and the
+///         ⚠
+///         <b>
+///             A mask's own entries are rows in this same list, indented under their layer, rather
+///             than a second pane.
+///         </b>
+///         Doc 48 § D10 makes a mask a small stack of its own, and the
 ///         reference implementations put it behind a selection — a thumbnail on the row, its stack in
 ///         a properties pane. Two things argue against copying that here. A mask is the only thing in
 ///         a stack that can name <em>another layer</em>, and an anchor whose target is in a different
@@ -124,18 +134,26 @@ readonly record struct MaskSourceEdit(
 ///         expresses. A row is not.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The three paragraphs below are no longer prose: <c>LayerRowKeyTests</c> runs both
-///         candidate keys and the answer against a real document edited through this panel's own
-///         slider, so each is a test that goes red if it stops being true.</b> ⚠ And it turned up a
+///         ⚠
+///         <b>
+///             The three paragraphs below are no longer prose: <c>LayerRowKeyTests</c> runs both
+///             candidate keys and the answer against a real document edited through this panel's own
+///             slider, so each is a test that goes red if it stops being true.
+///         </b>
+///         ⚠ And it turned up a
 ///         fourth blocker nothing had written down — <c>UiElement.Text</c> on an element with
-///         children throws, and an <c>Effect</c> answers a throw by <em>suspending itself</em>, so a row that bound its own <c>Text</c> renders once,
+///         children throws, and an <c>Effect</c> answers a throw by <em>suspending itself</em>, so a row that bound its
+///         own <c>Text</c> renders once,
 ///         keeps the string, and follows nothing thereafter with no diagnostic
 ///         (<a href="https://github.com/Rikarin/Vixen/issues/1109">#1109</a>). Every row shape here
 ///         is a container, so the port owes a label element per bound string.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The rows were said to be a model change before a markup change, four times, and that
-///         turned out to be a statement about one <em>technique</em> rather than about the rows.</b>
+///         ⚠
+///         <b>
+///             The rows were said to be a model change before a markup change, four times, and that
+///             turned out to be a statement about one <em>technique</em> rather than about the rows.
+///         </b>
 ///         Three row kinds are markup now — <c>LayerRowView</c>, <c>FillRowView</c>,
 ///         <c>FilterRowView</c> — and none of them is a <c>@for</c> region: they are components the
 ///         walk below builds, which is markup without being reactive. The paragraph that follows is
@@ -143,8 +161,12 @@ readonly record struct MaskSourceEdit(
 ///         will need.
 ///     </para>
 ///     <para>
-///         <c>BuildContext.For</c> matches a key, <em>reuses the region and does not re-run
-///         the body</em>, so every binding inside a row closes over the item as it was when that key
+///         <c>BuildContext.For</c> matches a key,
+///         <em>
+///             reuses the region and does not re-run
+///             the body
+///         </em>
+///         , so every binding inside a row closes over the item as it was when that key
 ///         first appeared. Keying on <c>LayerAsset.Id</c> — the only stable identity a layer has,
 ///         and what the issue asks for — therefore needs the row to take something whose
 ///         <em>contents</em> notify, which is a <c>Signal&lt;LayerAsset&gt;</c> per row;
@@ -155,8 +177,12 @@ readonly record struct MaskSourceEdit(
 ///         changed it.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Which is the property <see cref="Shape" /> already buys, and is why the port cannot
-///         simply drop it.</b> <c>Shape</c> deliberately omits <c>Mask.Source</c>, <c>Fill</c>,
+///         ⚠
+///         <b>
+///             Which is the property <see cref="Shape" /> already buys, and is why the port cannot
+///             simply drop it.
+///         </b>
+///         <c>Shape</c> deliberately omits <c>Mask.Source</c>, <c>Fill</c>,
 ///         <c>Filter</c>, <c>FilterNode</c> and <c>Projection</c> so that changing one of them
 ///         re-reads the row rather than replacing it — a control that tore its own tree down from
 ///         inside its own <c>SelectionChanged</c> is a thing that happened here. A <c>@for</c> over
@@ -186,8 +212,12 @@ readonly record struct MaskSourceEdit(
 sealed class LayerStackView : IDisposable {
     /// <summary>What the legend under the rows says about an unrestricted layer.</summary>
     /// <remarks>
-    ///     ⚠ <b>The one defaulting decision in <c>.vxlayers</c> a reader could get wrong, said where
-    ///     an author is looking at the tick boxes it is about.</b> <see cref="LayerAsset.Channels" />
+    ///     ⚠
+    ///     <b>
+    ///         The one defaulting decision in <c>.vxlayers</c> a reader could get wrong, said where
+    ///         an author is looking at the tick boxes it is about.
+    ///     </b>
+    ///     <see cref="LayerAsset.Channels" />
     ///     empty means <em>every</em> channel, and its own remarks argue why: the alternative makes a
     ///     channel added to the texture set later invisible to every layer that already exists. That
     ///     argument lives in a source file. This sentence is the same fact in the panel, next to a row
@@ -242,8 +272,12 @@ sealed class LayerStackView : IDisposable {
 
     /// <summary>Which texture set the panel is working on.</summary>
     /// <remarks>
-    ///     ⚠ <b>One chooser rather than a pin per pane, which is
-    ///     <a href="https://github.com/Rikarin/Vixen/issues/927">#927</a>'s decision.</b> Its options
+    ///     ⚠
+    ///     <b>
+    ///         One chooser rather than a pin per pane, which is
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/927">#927</a>'s decision.
+    ///     </b>
+    ///     Its options
     ///     are the stack's sets and it is disabled for a stack with one, which is every stack that
     ///     exists today — so the ordinary case gains a control that says what it is already doing.
     /// </remarks>
@@ -251,8 +285,12 @@ sealed class LayerStackView : IDisposable {
 
     /// <summary>Which of the four kinds the <em>Add layer</em> button makes.</summary>
     /// <remarks>
-    ///     ⚠ <b>A picker beside the button rather than four buttons, because the kinds are not four
-    ///     gestures.</b> Doc 48 § D10's four are one decision an artist makes once per layer, and a
+    ///     ⚠
+    ///     <b>
+    ///         A picker beside the button rather than four buttons, because the kinds are not four
+    ///         gestures.
+    ///     </b>
+    ///     Doc 48 § D10's four are one decision an artist makes once per layer, and a
     ///     row of four buttons would spend the width the binding row above it already spends. It is
     ///     also the shape that survives a fifth kind.
     /// </remarks>
@@ -283,7 +321,7 @@ sealed class LayerStackView : IDisposable {
     readonly List<Action> pending = [];
 
     /// <summary>What the rows currently on the screen were built for. See <see cref="Shape" />.</summary>
-    string shape = "";
+    string shape = string.Empty;
 
     /// <summary>Which document the rows on the screen were built against.</summary>
     /// <remarks>
@@ -306,12 +344,16 @@ sealed class LayerStackView : IDisposable {
     ///     just taken back — the state <c>LayerStackBindingTests</c> describes for every other
     ///     control on this panel, which is a separate finding and not one to add to.
     /// </remarks>
-    string boundModel = "";
+    string boundModel = string.Empty;
 
     /// <summary>Which <c>LayerStackDocument.ModelsRevision</c> the picker's options were filled at.</summary>
     /// <remarks>
-    ///     ⚠ <b>This view's own copy, because a notification with one reader is a notification with
-    ///     one reader</b> — <a href="https://github.com/Rikarin/Vixen/issues/1006">#1006</a>. The
+    ///     ⚠
+    ///     <b>
+    ///         This view's own copy, because a notification with one reader is a notification with
+    ///         one reader
+    ///     </b>
+    ///     — <a href="https://github.com/Rikarin/Vixen/issues/1006">#1006</a>. The
     ///     document used to carry a boolean that this refill cleared, so a second consumer of the
     ///     same "a model changed" would see nothing whenever this one read it first. Nothing clears a
     ///     number; zero here against a document that starts at one is what refills a picker once
@@ -330,8 +372,12 @@ sealed class LayerStackView : IDisposable {
 
     /// <summary>Whether <c>ImageView.Fit</c> had a box to fit against when it was last asked.</summary>
     /// <remarks>
-    ///     ⚠ <b>The answer and not the call, which is the half that stops "frame once" becoming
-    ///     "never frame".</b> <c>Fit</c> returns false before the first layout — and a panel's first
+    ///     ⚠
+    ///     <b>
+    ///         The answer and not the call, which is the half that stops "frame once" becoming
+    ///         "never frame".
+    ///     </b>
+    ///     <c>Fit</c> returns false before the first layout — and a panel's first
     ///     <see cref="Show" /> runs before it has been laid out — so a view that recorded the attempt
     ///     rather than its result would open every stack at whatever zoom nothing set.
     /// </remarks>
@@ -360,7 +406,7 @@ sealed class LayerStackView : IDisposable {
     ///     only what lets the follow in <see cref="Watch" /> tell a write this view made, which it
     ///     has already drawn, from one made somewhere else, which it has to answer.
     /// </remarks>
-    string watchedSet = "";
+    string watchedSet = string.Empty;
 
     /// <summary>The layer these rows last showed as selected, on the same terms.</summary>
     LayerPath? watchedSelection;
@@ -417,15 +463,15 @@ sealed class LayerStackView : IDisposable {
         // one of them closes over this view's document, its selection and its `writing` guard — the
         // state the markup has no view of — and a panel whose tree is markup and whose behaviour is
         // C# is the split `PluginManagerView` and `StatisticsView` already make.
-        sets.SelectionChanged += (_, value) => ChooseSet(value ?? "");
-        model.SelectionChanged += (_, value) => Bind(value ?? "");
-        part.SelectionChanged += (_, value) => Narrow(value ?? "");
+        sets.SelectionChanged += (_, value) => ChooseSet(value ?? string.Empty);
+        model.SelectionChanged += (_, value) => Bind(value ?? string.Empty);
+        part.SelectionChanged += (_, value) => Narrow(value ?? string.Empty);
 
         foreach (var value in Enum.GetValues<LayerKind>()) {
             addKind.AddOption(value.ToString());
         }
 
-        addKind.Value = LayerKind.Fill.ToString();
+        addKind.Value = nameof(LayerKind.Fill);
 
         chrome.AddButton.Clicked += _ => AddLayer();
 
@@ -476,8 +522,12 @@ sealed class LayerStackView : IDisposable {
 
     /// <summary>The channel and transfer-function pickers over that pane.</summary>
     /// <remarks>
-    ///     ⚠ <b>The panel that most needs it, because a layer stack bakes a <em>set</em> of maps and
-    ///     four of them are not colours</b> —
+    ///     ⚠
+    ///     <b>
+    ///         The panel that most needs it, because a layer stack bakes a <em>set</em> of maps and
+    ///         four of them are not colours
+    ///     </b>
+    ///     —
     ///     <a href="https://github.com/Rikarin/Vixen/issues/1012">#1012</a>. A roughness shown
     ///     through an sRGB curve and a normal map shown through one look like different bugs and are
     ///     the same misreading; the strip is what settles it without leaving the panel.
@@ -496,15 +546,22 @@ sealed class LayerStackView : IDisposable {
     /// <summary>Which texture set the panel is showing, or empty for "whichever is first".</summary>
     /// <remarks>
     ///     <para>
-    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/927">#927</a>, and it is one
-    ///         decision rather than seven edits.</b> Sets are independent — a set is a material slot
+    ///         <b>
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/927">#927</a>, and it is one
+    ///             decision rather than seven edits.
+    ///         </b>
+    ///         Sets are independent — a set is a material slot
     ///         with its own atlas, its own channels and its own <c>.vxpaint</c> files — so the editor
     ///         works on one at a time and everything reads the same choice.
     ///         <c>LayerStackEdit.SetFor</c> is that rule, and this is the shown document's answer.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Read from <see cref="LayerStackDocument.PaintSet" />, and no longer a copy of it —
-    ///         #1306.</b> It was the panel's own field, adopted from the document when the document
+    ///         ⚠
+    ///         <b>
+    ///             Read from <see cref="LayerStackDocument.PaintSet" />, and no longer a copy of it —
+    ///             #1306.
+    ///         </b>
+    ///         It was the panel's own field, adopted from the document when the document
     ///         changed and written back when the picker moved, and <c>TexturingModule</c> read it to
     ///         choose the set its preview compiled. A write to <c>PaintSet</c> that did not come
     ///         through this view's picker — a second view of the same file, a plugin — therefore moved
@@ -517,7 +574,7 @@ sealed class LayerStackView : IDisposable {
     ///         fallback is what makes that a no-op rather than a special case at every reader.
     ///     </para>
     /// </remarks>
-    public string SetName => Document?.PaintSet ?? "";
+    public string SetName => Document?.PaintSet ?? string.Empty;
 
     /// <summary>What the status line under the preview says.</summary>
     public string Status => status.Text ?? string.Empty;
@@ -525,8 +582,12 @@ sealed class LayerStackView : IDisposable {
     /// <summary>Everything the compile had to say, in the order it said it.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>This one <em>is</em> the derivation the panel draws from, which is why it stayed
-    ///         when <c>Rows</c> went</b> —
+    ///         ⚠
+    ///         <b>
+    ///             This one <em>is</em> the derivation the panel draws from, which is why it stayed
+    ///             when <c>Rows</c> went
+    ///         </b>
+    ///         —
     ///         <a href="https://github.com/Rikarin/Vixen/issues/898">#898</a> reported the two as the
     ///         same shape and they are not: <see cref="Show" /> assigns this and then adds one
     ///         element per entry of it, so there is exactly one thing that decides what a message
@@ -535,8 +596,12 @@ sealed class LayerStackView : IDisposable {
     ///         row per mask entry and per mask effect.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>This is the surface <a href="https://github.com/Rikarin/Vixen/issues/830">#830</a>
-    ///         found missing, and the argument it was missing from is <c>TG0022</c>'s.</b> The
+    ///         ⚠
+    ///         <b>
+    ///             This is the surface <a href="https://github.com/Rikarin/Vixen/issues/830">#830</a>
+    ///             found missing, and the argument it was missing from is <c>TG0022</c>'s.
+    ///         </b>
+    ///         The
     ///         terminus rescale was chosen over a silent one because "it is said" — and nothing said
     ///         it: no production type rendered a <c>NodeDiagnostic</c>, and the one consumer that
     ///         read a list of them kept the errors. So a warning reached an author only in the sense
@@ -551,8 +616,12 @@ sealed class LayerStackView : IDisposable {
     ///         it leads rather than trails, and why the status line was the wrong home for it.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>It is the signal the block is drawn from, read back — not a second copy of the
-    ///         answer.</b> <see cref="Show" /> assigns <c>LayerStackChrome.Messages</c> and the
+    ///         ⚠
+    ///         <b>
+    ///             It is the signal the block is drawn from, read back — not a second copy of the
+    ///             answer.
+    ///         </b>
+    ///         <see cref="Show" /> assigns <c>LayerStackChrome.Messages</c> and the
     ///         <c>@for</c> in the markup is the only thing that draws it, so the paragraph above
     ///         stays true through the port: a field assigned beside the signal would be exactly the
     ///         shape #898 found in <c>Rows</c>.
@@ -562,8 +631,12 @@ sealed class LayerStackView : IDisposable {
 
     /// <summary>Told after an edit, so whoever owns the evaluator can re-bake the map.</summary>
     /// <remarks>
-    ///     ⚠ <b>A callback rather than a re-compile here, because this view has no evaluator and must
-    ///     not acquire one.</b> <c>TexturingModule</c> holds the <c>LayerStackPreview</c> — two of
+    ///     ⚠
+    ///     <b>
+    ///         A callback rather than a re-compile here, because this view has no evaluator and must
+    ///         not acquire one.
+    ///     </b>
+    ///     <c>TexturingModule</c> holds the <c>LayerStackPreview</c> — two of
     ///     them over one device would be two pipeline caches, which is that field's own stated reason
     ///     — so an edit made here can redraw the rows on its own and cannot redraw the picture. When
     ///     nothing is subscribed the rows still update and the pane keeps the map it had, which is the
@@ -575,9 +648,13 @@ sealed class LayerStackView : IDisposable {
     /// <summary>How many times this view has walked the set to fill an anchor picker.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A count of work rather than a duration, because
-    ///         <a href="https://github.com/Rikarin/Vixen/issues/979">#979</a> is a per-frame walk and
-    ///         a millisecond budget on a laptop is this repository's largest flake source.</b> The
+    ///         ⚠
+    ///         <b>
+    ///             A count of work rather than a duration, because
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/979">#979</a> is a per-frame walk and
+    ///             a millisecond budget on a laptop is this repository's largest flake source.
+    ///         </b>
+    ///         The
     ///         property under test is that a row walks the tree <em>once</em>, whatever an opacity
     ///         drag does to the refresh count.
     ///     </para>
@@ -593,10 +670,17 @@ sealed class LayerStackView : IDisposable {
     /// <summary>Which layer the artist is working on, or <see langword="null" /> for none.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/910">#910</a>: nothing in this
-    ///         plugin had one.</b> The 2D paint view therefore had to answer "which layer" itself,
-    ///         and answered with <c>PaintTool.LayerId</c> defaulting to empty — <em>the first paint
-    ///         layer in composite order</em>, which is right for a stack with one and is no answer at
+    ///         <b>
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/910">#910</a>: nothing in this
+    ///             plugin had one.
+    ///         </b>
+    ///         The 2D paint view therefore had to answer "which layer" itself,
+    ///         and answered with <c>PaintTool.LayerId</c> defaulting to empty —
+    ///         <em>
+    ///             the first paint
+    ///             layer in composite order
+    ///         </em>
+    ///         , which is right for a stack with one and is no answer at
     ///         all for a stack with two. A row here is now the writer and the tool is the mirror.
     ///     </para>
     ///     <para>
@@ -607,8 +691,12 @@ sealed class LayerStackView : IDisposable {
     ///         somebody else made.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Selecting a layer that is not a <see cref="LayerKind.Paint" /> layer is allowed,
-    ///         and the brush then refuses by name.</b> A fill layer has no canvas; <c>PaintSurface</c>
+    ///         ⚠
+    ///         <b>
+    ///             Selecting a layer that is not a <see cref="LayerKind.Paint" /> layer is allowed,
+    ///             and the brush then refuses by name.
+    ///         </b>
+    ///         A fill layer has no canvas; <c>PaintSurface</c>
     ///         answers "the set 'X' has no paint layer with the id 'Y'", which is what an artist who
     ///         selected a fill and reached for the brush needs to read. Silently painting somewhere
     ///         else is the defect the whole issue is about.
@@ -643,8 +731,12 @@ sealed class LayerStackView : IDisposable {
     ///         demanded one would be a panel the editor could not show at start-up.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The rows are rebuilt only when their <em>shape</em> changed, and that is a
-    ///         correctness property rather than a saving.</b> A refresh runs on every evaluation and
+    ///         ⚠
+    ///         <b>
+    ///             The rows are rebuilt only when their <em>shape</em> changed, and that is a
+    ///             correctness property rather than a saving.
+    ///         </b>
+    ///         A refresh runs on every evaluation and
     ///         on every edit, and rebuilding unconditionally destroys the control the artist is
     ///         holding — an opacity slider stops mid-drag, because the element under the captured
     ///         pointer has been removed and replaced by a copy of itself. What every refresh does
@@ -707,7 +799,7 @@ sealed class LayerStackView : IDisposable {
             Clear();
 
             title.Text = "Result";
-            status.Text = "";
+            status.Text = string.Empty;
 
             Preview.Image = 0;
             Preview.ImageWidth = 0;
@@ -765,7 +857,7 @@ sealed class LayerStackView : IDisposable {
         Restate();
 
         title.Text = "Result — " + Resolution(document);
-        status.Text = picture?.Status ?? "";
+        status.Text = picture?.Status ?? string.Empty;
 
         // ⚠ The extent comes from the picture when there is one and from the *stack* when there is
         // not, so the zoom and the pointer readout keep meaning texels through a failed compile.
@@ -799,22 +891,33 @@ sealed class LayerStackView : IDisposable {
     /// <returns>The file's own load failures first, then everything the compile had to say.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The load diagnostics are read here and nowhere else, which is
-    ///         <a href="https://github.com/Rikarin/Vixen/issues/983">#983</a>.</b>
+    ///         ⚠
+    ///         <b>
+    ///             The load diagnostics are read here and nowhere else, which is
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/983">#983</a>.
+    ///         </b>
     ///         <c>LayerStackDocument.LoadDiagnostics</c> exists because <c>LayerStackYaml.Read</c>
     ///         <em>refuses</em> a blend mode this build cannot spell rather than defaulting it — the
     ///         alternative to the report is not a wrong picture, it is no explanation for an empty
     ///         panel — and until this overload nothing in production asked for it.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Here rather than on the status line, because the two answer different
-    ///         questions.</b> <c>picture.Status</c> is recomputed per evaluation and says why there
+    ///         ⚠
+    ///         <b>
+    ///             Here rather than on the status line, because the two answer different
+    ///             questions.
+    ///         </b>
+    ///         <c>picture.Status</c> is recomputed per evaluation and says why there
     ///         is no map; a load failure is a fact about the <em>file</em> that survives every
     ///         refresh, so a sentence written into the status line is one the next edit erases.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And they lead, because a file that did not parse makes every compile message
-    ///         downstream of it.</b> A stack whose bytes were refused compiles as a stack with
+    ///         ⚠
+    ///         <b>
+    ///             And they lead, because a file that did not parse makes every compile message
+    ///             downstream of it.
+    ///         </b>
+    ///         A stack whose bytes were refused compiles as a stack with
     ///         nothing in it, so the diagnostics under this line are about a document the artist
     ///         never wrote.
     ///     </para>
@@ -841,8 +944,12 @@ sealed class LayerStackView : IDisposable {
     /// <exception cref="ArgumentNullException"><paramref name="picture" /> is null.</exception>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Both lists and every severity, which is the whole of
-    ///         <a href="https://github.com/Rikarin/Vixen/issues/830">#830</a>.</b> The pane's status
+    ///         ⚠
+    ///         <b>
+    ///             Both lists and every severity, which is the whole of
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/830">#830</a>.
+    ///         </b>
+    ///         The pane's status
     ///         line answers "why is there no map" and therefore reads errors only; a warning is by
     ///         definition a thing that did not stop the map, so filtering here as well left it with
     ///         nowhere at all to be shown.
@@ -854,8 +961,11 @@ sealed class LayerStackView : IDisposable {
     ///         graph nobody has opened.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A line that reads exactly the same as one already listed is dropped, and finding
-    ///         out why is <a href="https://github.com/Rikarin/Vixen/issues/842">#842</a>.</b>
+    ///         ⚠
+    ///         <b>
+    ///             A line that reads exactly the same as one already listed is dropped, and finding
+    ///             out why is <a href="https://github.com/Rikarin/Vixen/issues/842">#842</a>.
+    ///         </b>
     ///         <c>LayerStackGraph</c> walks a layer once per channel the texture set writes, so one
     ///         mistyped filter setting on one layer arrives here <em>seven times</em> — and because
     ///         the message names neither the channel nor anything else that differs, the seven are
@@ -863,20 +973,32 @@ sealed class LayerStackView : IDisposable {
     ///         first did not. The multiplicity is real and the builder is where it should be said.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>But the count is said here, because a collapsed line was silently one of N —
-    ///         <a href="https://github.com/Rikarin/Vixen/issues/870">#870</a>.</b> Two layers each
+    ///         ⚠
+    ///         <b>
+    ///             But the count is said here, because a collapsed line was silently one of N —
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/870">#870</a>.
+    ///         </b>
+    ///         Two layers each
     ///         carrying the same mistyped mask effect raise fourteen diagnostics from fourteen
     ///         distinct nodes, all character-identical, and the reader saw one sentence with nothing
-    ///         to say whether one mistake or two were behind it. ⚠ <b>Naming
-    ///         <c>NodeDiagnostic.Node</c> on the line — which is what #870 proposed — would undo
-    ///         #842 rather than fix this</b>: the seven copies of one mistake are seven different
+    ///         to say whether one mistake or two were behind it. ⚠
+    ///         <b>
+    ///             Naming
+    ///             <c>NodeDiagnostic.Node</c> on the line — which is what #870 proposed — would undo
+    ///             #842 rather than fix this
+    ///         </b>
+    ///         : the seven copies of one mistake are seven different
     ///         nodes, so it turns one mistyped setting into seven lines.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>So the line names the <em>layer</em>, out of
-    ///         <see cref="LayerStackPicture.Layers" /> —
-    ///         <a href="https://github.com/Rikarin/Vixen/issues/880">#880</a>, which is what actually
-    ///         closes #870 and the readable half of #842.</b> The dedupe key is the rendered line, so
+    ///         ⚠
+    ///         <b>
+    ///             So the line names the <em>layer</em>, out of
+    ///             <see cref="LayerStackPicture.Layers" /> —
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/880">#880</a>, which is what actually
+    ///             closes #870 and the readable half of #842.
+    ///         </b>
+    ///         The dedupe key is the rendered line, so
     ///         adding the layer to it collapses one layer's seven per-channel copies into one
     ///         sentence <em>and</em> keeps two layers' identical mistakes two sentences — the two
     ///         things naming the node could not do at once. A diagnostic whose node is in no layer —
@@ -954,7 +1076,7 @@ sealed class LayerStackView : IDisposable {
         return new string(' ', depth * 4)
             + string.Create(
                 CultureInfo.InvariantCulture,
-                $"{name} — {layer.Kind}, {layer.Blend}, {layer.Opacity:0.##}{(layer.Enabled ? "" : ", off")}"
+                $"{name} — {layer.Kind}, {layer.Blend}, {layer.Opacity:0.##}{(layer.Enabled ? string.Empty : ", off")}"
             );
     }
 
@@ -973,7 +1095,7 @@ sealed class LayerStackView : IDisposable {
         StringBuilder builder = new();
 
         if (LayerStackEdit.SetFor(document.Document, chosen) is not { } set) {
-            return "";
+            return string.Empty;
         }
 
         // ⚠ The set's own name is in it, and leaving it out was the trap #927 walks into: two sets
@@ -1022,13 +1144,15 @@ sealed class LayerStackView : IDisposable {
                     // of a path, which is the defect `FilterRows` is written around. Resolved, it
                     // changes exactly once — at the keystroke that turns an unknown path into a real
                     // node type, which is the keystroke the rows appear on.
-                    .Append(FilterType(document, layer)?.Path ?? "");
+                    .Append(FilterType(document, layer)?.Path ?? string.Empty);
 
                 foreach (var effect in layer.Mask.Effects) {
                     builder
                         .Append(':')
                         .Append(
-                            document.Library.Registry.TryGet(effect.Node.Trim(), out var type) ? type.Path : ""
+                            document.Library.Registry.TryGet(effect.Node.Trim(), out var type)
+                                ? type.Path
+                                : string.Empty
                         );
                 }
 
@@ -1048,7 +1172,7 @@ sealed class LayerStackView : IDisposable {
         pending.Clear();
 
         built = null;
-        shape = "";
+        shape = string.Empty;
     }
 
     /// <summary>Builds one row per layer, and one per entry of each layer's mask.</summary>
@@ -1064,9 +1188,7 @@ sealed class LayerStackView : IDisposable {
             selection.Clear();
             watchedSelection = null;
 
-            if (tool is not null) {
-                tool.LayerId = "";
-            }
+            tool?.LayerId = string.Empty;
 
             return;
         }
@@ -1099,7 +1221,7 @@ sealed class LayerStackView : IDisposable {
                 && LayerStackEdit.Find(document.Document, new(set.Name, tool.LayerId)) is not null) {
                 kept = new LayerPath(set.Name, tool.LayerId);
             } else {
-                tool.LayerId = "";
+                tool.LayerId = string.Empty;
             }
         } else if (selection is { IsEmpty: false, Primary: var held }
                    && string.Equals(held.Set, set.Name, StringComparison.Ordinal)
@@ -1160,9 +1282,10 @@ sealed class LayerStackView : IDisposable {
         owed[0] = new Effect(
             () => {
                 ReactiveGraph.Untracked(() => {
-                    Drain();
-                    Restate();
-                });
+                        Drain();
+                        Restate();
+                    }
+                );
 
                 owed[0].Dispose();
             },
@@ -1198,8 +1321,12 @@ sealed class LayerStackView : IDisposable {
     /// <summary>A row for a layer whose id names more than one layer: what it is, and no controls.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b><a href="https://github.com/Rikarin/Vixen/issues/893">#893</a>'s panel half, and
-    ///         the reason the compile refusal was not enough.</b> <c>LayerPath</c> addresses a layer
+    ///         ⚠
+    ///         <b>
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/893">#893</a>'s panel half, and
+    ///             the reason the compile refusal was not enough.
+    ///         </b>
+    ///         <c>LayerPath</c> addresses a layer
     ///         by id and <c>LayerStackEdit</c> resolves it to the <em>first</em> match, so every
     ///         control on the second such row drives the first: an artist reorders row four and row
     ///         two moves. <c>LayerStackGraph.Duplicates</c> refuses the stack, but a refusal is a
@@ -1236,8 +1363,12 @@ sealed class LayerStackView : IDisposable {
     /// <param name="id">The shared <see cref="LayerAsset.Id" />.</param>
     /// <returns>The sentence.</returns>
     /// <remarks>
-    ///     ⚠ <b>Public because it is what a test reads off the tree, and what a person reads is the
-    ///     only evidence that the row was disarmed for a reason.</b> A row with no buttons and no
+    ///     ⚠
+    ///     <b>
+    ///         Public because it is what a test reads off the tree, and what a person reads is the
+    ///         only evidence that the row was disarmed for a reason.
+    ///     </b>
+    ///     A row with no buttons and no
     ///     sentence is indistinguishable from a panel that failed to build.
     /// </remarks>
     public static string Ambiguity(string id) =>
@@ -1250,29 +1381,45 @@ sealed class LayerStackView : IDisposable {
     /// <summary>What a row says in place of selecting, when the layer it draws has no id.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b><a href="https://github.com/Rikarin/Vixen/issues/966">#966</a>, and it is the tail
-    ///         of #893 rather than a second case of it.</b> A <em>single</em> id-less layer addresses
+    ///         ⚠
+    ///         <b>
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/966">#966</a>, and it is the tail
+    ///             of #893 rather than a second case of it.
+    ///         </b>
+    ///         A <em>single</em> id-less layer addresses
     ///         perfectly well — <c>LayerStackEdit.Find</c> resolves <c>""</c>, the compiler accepts
     ///         it, and every other control on the row works — so refusing the whole row the way
     ///         <see cref="Ambiguity" /> does would turn a schema nicety into a panel that cannot edit
     ///         a one-layer file. The one gesture it cannot make is a selection, and only because
-    ///         <c>PaintTool.LayerId</c> already gives <c>""</c> a second meaning: <em>the first paint
-    ///         layer in composite order</em>. So clicking the row would set a value indistinguishable
+    ///         <c>PaintTool.LayerId</c> already gives <c>""</c> a second meaning:
+    ///         <em>
+    ///             the first paint
+    ///             layer in composite order
+    ///         </em>
+    ///         . So clicking the row would set a value indistinguishable
     ///         from having selected nothing, the marker would come back off at the next refresh, and
     ///         on a stack with a second paint layer the brush would aim at <em>that</em> one — which
     ///         is #910's "silently painting somewhere else" reached by another door.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The button is disarmed rather than <c>PaintTool.LayerId</c> being split, which is
-    ///         the other way out the issue names and the better one.</b> A member whose two meanings
+    ///         ⚠
+    ///         <b>
+    ///             The button is disarmed rather than <c>PaintTool.LayerId</c> being split, which is
+    ///             the other way out the issue names and the better one.
+    ///         </b>
+    ///         A member whose two meanings
     ///         collide should stop colliding; what stops that happening here is ownership —
     ///         <c>PaintTool</c> is the paint slice's file — so this is the half the panel can make
     ///         true on its own, and it leaves the artist a layer they cannot paint on and a reason
     ///         rather than a click that silently did something else.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Disabling the button is the whole of the refusal, and a second one in
-    ///         <c>Choose</c> would be unreachable.</b> The channel ticks a few elements along say the
+    ///         ⚠
+    ///         <b>
+    ///             Disabling the button is the whole of the refusal, and a second one in
+    ///             <c>Choose</c> would be unreachable.
+    ///         </b>
+    ///         The channel ticks a few elements along say the
     ///         opposite about themselves and are right to: <c>ToggleBase.Activate</c> flips
     ///         <c>IsChecked</c> before it asks about <c>Disabled</c>, so a tick has to be put back
     ///         from the document. <c>ButtonBase.Activate</c> runs neither the bound command nor the
@@ -1305,7 +1452,7 @@ sealed class LayerStackView : IDisposable {
         var row = rows.Add<LayerRowView>();
 
         row.Named = named;
-        row.Usages = [.. set.Channels.Select(channel => channel.Usage)];
+        row.Usages = [..set.Channels.Select(static channel => channel.Usage)];
 
         // ⚠ Still written here and still `depth × 12px`, which is what `TexturingTheme.vcss` says
         // about it: a computed length is not a class, and a `layer-stack-depth-N` rule per possible
@@ -1388,7 +1535,7 @@ sealed class LayerStackView : IDisposable {
                 }
             },
             RoutingStrategy.Bubble,
-            handledEventsToo: true
+            true
         );
 
         // ⚠ The ticks and this row's restating closure are deferred, and that deferral is the one
@@ -1397,76 +1544,78 @@ sealed class LayerStackView : IDisposable {
         // empty, every box would stay unticked whatever the layer writes, and nothing anywhere would
         // say so. `Build` drains the queue after the walk and then runs what is pending.
         pending.Add(() => {
-            var ticks = row.Ticks();
-
-            for (var index = 0; index < ticks.Count && index < set.Channels.Count; index++) {
-                var usage = set.Channels[index].Usage;
-
-                ticks[index].CheckedChanged += (_, value) => {
-                    if (writing || LayerStackEdit.Find(document.Document, path) is not { } current) {
-                        return;
-                    }
-
-                    if (Restrict(set, current, usage, value) is not { } channels) {
-                        // ⚠ The last tick, refused in the model and not only greyed in the panel.
-                        // `ToggleBase.Activate` flips `IsChecked` before it asks about `Disabled` — a
-                        // real pointer never reaches it, because `Control.Refuse` stops the route, but
-                        // an access key or an automation peer calls `Activate()` directly. `Restate`
-                        // puts the box back from the document, which is the only copy that matters.
-                        Restate();
-
-                        return;
-                    }
-
-                    Set(
-                        document,
-                        path,
-                        layer => layer with { Channels = channels },
-                        value ? "Write Channel" : "Stop Writing Channel"
-                    );
-                };
-            }
-
-            bindings.Add(() => {
-                if (LayerStackEdit.Find(document.Document, path) is not { } current) {
-                    return;
-                }
-
-                var chosen = Selected == path;
-
-                // The marker is in the row's own text rather than a style, so what the panel says
-                // about which layer the brush is aimed at is something a test can read.
-                name.Text = (chosen ? "● " : "") + Line(current, depth);
-                select.Label = named ? chosen ? "Selected" : "Select" : "Cannot select";
-                enabled.IsChecked = current.Enabled;
-                blend.Value = current.Blend.ToString();
-                opacity.Value = current.Opacity;
-
-                up.Disabled = !MoveLayerCommand.CanMove(document.Document, path, +1);
-                down.Disabled = !MoveLayerCommand.CanMove(document.Document, path, -1);
-
-                var written = 0;
-
-                foreach (var channel in set.Channels) {
-                    if (current.Writes(channel.Usage)) {
-                        written++;
-                    }
-                }
+                var ticks = row.Ticks();
 
                 for (var index = 0; index < ticks.Count && index < set.Channels.Count; index++) {
-                    var writes = current.Writes(set.Channels[index].Usage);
+                    var usage = set.Channels[index].Usage;
 
-                    ticks[index].IsChecked = writes;
+                    ticks[index].CheckedChanged += (_, value) => {
+                        if (writing || LayerStackEdit.Find(document.Document, path) is not { } current) {
+                            return;
+                        }
 
-                    // ⚠ The last remaining tick cannot be cleared, and this is where the ambiguity in
-                    // the file is kept out of the panel. Clearing it would leave `Channels` empty —
-                    // and empty means *all*, so the gesture an artist reads as "and now it writes
-                    // nothing" would make the layer write everything. A layer that should write
-                    // nothing is one that is switched off, which is the tick box two elements left.
-                    ticks[index].Disabled = writes && written == 1;
+                        if (Restrict(set, current, usage, value) is not { } channels) {
+                            // ⚠ The last tick, refused in the model and not only greyed in the panel.
+                            // `ToggleBase.Activate` flips `IsChecked` before it asks about `Disabled` — a
+                            // real pointer never reaches it, because `Control.Refuse` stops the route, but
+                            // an access key or an automation peer calls `Activate()` directly. `Restate`
+                            // puts the box back from the document, which is the only copy that matters.
+                            Restate();
+
+                            return;
+                        }
+
+                        Set(
+                            document,
+                            path,
+                            layer => layer with { Channels = channels },
+                            value ? "Write Channel" : "Stop Writing Channel"
+                        );
+                    };
                 }
-            });
-        });
+
+                bindings.Add(() => {
+                        if (LayerStackEdit.Find(document.Document, path) is not { } current) {
+                            return;
+                        }
+
+                        var chosen = Selected == path;
+
+                        // The marker is in the row's own text rather than a style, so what the panel says
+                        // about which layer the brush is aimed at is something a test can read.
+                        name.Text = (chosen ? "● " : string.Empty) + Line(current, depth);
+                        select.Label = named ? chosen ? "Selected" : "Select" : "Cannot select";
+                        enabled.IsChecked = current.Enabled;
+                        blend.Value = current.Blend.ToString();
+                        opacity.Value = current.Opacity;
+
+                        up.Disabled = !MoveLayerCommand.CanMove(document.Document, path, +1);
+                        down.Disabled = !MoveLayerCommand.CanMove(document.Document, path, -1);
+
+                        var written = 0;
+
+                        foreach (var channel in set.Channels) {
+                            if (current.Writes(channel.Usage)) {
+                                written++;
+                            }
+                        }
+
+                        for (var index = 0; index < ticks.Count && index < set.Channels.Count; index++) {
+                            var writes = current.Writes(set.Channels[index].Usage);
+
+                            ticks[index].IsChecked = writes;
+
+                            // ⚠ The last remaining tick cannot be cleared, and this is where the ambiguity in
+                            // the file is kept out of the panel. Clearing it would leave `Channels` empty —
+                            // and empty means *all*, so the gesture an artist reads as "and now it writes
+                            // nothing" would make the layer write everything. A layer that should write
+                            // nothing is one that is switched off, which is the tick box two elements left.
+                            ticks[index].Disabled = writes && written == 1;
+                        }
+                    }
+                );
+            }
+        );
     }
 
     /// <summary>What a fill layer <em>is</em>: where its pixels come from, and its value per channel.</summary>
@@ -1476,9 +1625,12 @@ sealed class LayerStackView : IDisposable {
     /// <param name="depth">How far in to indent, in the layer list's own units.</param>
     /// <remarks>
     ///     <para>
-    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/986">#986</a>: a fill added from
-    ///         this panel kept the mid-grey it was born with, because nothing here could edit
-    ///         <c>LayerAsset.Values</c> or <c>LayerAsset.Textures</c>.</b> The panel could already
+    ///         <b>
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/986">#986</a>: a fill added from
+    ///             this panel kept the mid-grey it was born with, because nothing here could edit
+    ///             <c>LayerAsset.Values</c> or <c>LayerAsset.Textures</c>.
+    ///         </b>
+    ///         The panel could already
     ///         edit a layer's blend, opacity, channels and its whole mask — every property except the
     ///         two that decide what the layer actually puts on the surface. The flow that left was
     ///         press <em>Add layer</em>, get a grey row, and open the <c>.vxlayers</c> in a text
@@ -1491,16 +1643,24 @@ sealed class LayerStackView : IDisposable {
     ///         would have to pick a channel to be about and would silently be about the wrong one.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A row per channel of the <em>set</em>, shown or hidden — not a row per channel
-    ///         the layer writes.</b> Which channels a layer writes is a tick on the row above, so
+    ///         ⚠
+    ///         <b>
+    ///             A row per channel of the <em>set</em>, shown or hidden — not a row per channel
+    ///             the layer writes.
+    ///         </b>
+    ///         Which channels a layer writes is a tick on the row above, so
     ///         building only the written ones would put <c>LayerAsset.Channels</c> into
     ///         <see cref="Shape" /> and tear the whole tree down from inside a tick box's own
     ///         handler. This is the rule <c>MaskAsset.Source</c> already follows one method down: the
     ///         controls all exist, and what changes is which of them are displayed.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The tick is presence in <c>Values</c> and it is not the same question as the
-    ///         channel tick above.</b> A layer restricting no channels writes all of them
+    ///         ⚠
+    ///         <b>
+    ///             The tick is presence in <c>Values</c> and it is not the same question as the
+    ///             channel tick above.
+    ///         </b>
+    ///         A layer restricting no channels writes all of them
     ///         (<a href="https://github.com/Rikarin/Vixen/issues/807">#807</a> · 2), and an absent
     ///         entry is then the only way to say "this layer has nothing to say about that channel" —
     ///         so a fill writes a channel exactly when both are true, and the panel that showed one
@@ -1568,7 +1728,7 @@ sealed class LayerStackView : IDisposable {
         graph.ValueChanged += (_, typed) => Set(
             document,
             path,
-            current => current with { Graph = typed ?? "" },
+            current => current with { Graph = typed ?? string.Empty },
             "Set Fill Graph",
             "fill-graph:" + layer.Id
         );
@@ -1618,21 +1778,22 @@ sealed class LayerStackView : IDisposable {
         };
 
         bindings.Add(() => {
-            if (LayerStackEdit.Find(document.Document, path) is not { } current) {
-                return;
+                if (LayerStackEdit.Find(document.Document, path) is not { } current) {
+                    return;
+                }
+
+                kind.Value = current.Fill.ToString();
+                graph.Value = current.Graph;
+                graph.SetStyle("display", current.Fill == LayerFillSource.Graph ? "flex" : "none");
+
+                projection.Value = current.Projection.ToString();
+                axis.Value = current.PlanarAxis.ToString();
+
+                // Shown for the one projection it decides anything about — the other two have no plane
+                // to choose, and `Project` says so rather than ignoring an axis set on them.
+                axis.SetStyle("display", current.Projection == LayerProjection.Planar ? "flex" : "none");
             }
-
-            kind.Value = current.Fill.ToString();
-            graph.Value = current.Graph;
-            graph.SetStyle("display", current.Fill == LayerFillSource.Graph ? "flex" : "none");
-
-            projection.Value = current.Projection.ToString();
-            axis.Value = current.PlanarAxis.ToString();
-
-            // Shown for the one projection it decides anything about — the other two have no plane
-            // to choose, and `Project` says so rather than ignoring an axis set on them.
-            axis.SetStyle("display", current.Projection == LayerProjection.Planar ? "flex" : "none");
-        });
+        );
 
         foreach (var channel in set.Channels) {
             ChannelRow(document, set, path, channel, depth + 1);
@@ -1659,8 +1820,11 @@ sealed class LayerStackView : IDisposable {
     /// <param name="depth">How far in to indent.</param>
     /// <remarks>
     ///     <para>
-    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/1078">#1078</a>: a layer kind an
-    ///         artist could add and could not configure.</b> The <em>Add layer</em> picker offers
+    ///         <b>
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/1078">#1078</a>: a layer kind an
+    ///             artist could add and could not configure.
+    ///         </b>
+    ///         The <em>Add layer</em> picker offers
     ///         every <c>LayerKind</c>, so a filter layer is two clicks away; until this row no view
     ///         in the tree read <c>LayerFilterKind</c> at all — a sweep over <c>*.cs</c> and
     ///         <c>*.vxml</c> found it in three model files and nowhere else. So every filter an
@@ -1669,8 +1833,12 @@ sealed class LayerStackView : IDisposable {
     ///         cannot be explained.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Switching between the two rewrites the layer to the node the other half already
-    ///         meant, so the picture does not move.</b> Choosing <see cref="NodeFilter" /> seeds the
+    ///         ⚠
+    ///         <b>
+    ///             Switching between the two rewrites the layer to the node the other half already
+    ///             meant, so the picture does not move.
+    ///         </b>
+    ///         Choosing <see cref="NodeFilter" /> seeds the
     ///         path with <c>LayerStackGraph.Filter(current.Filter).Type</c> — the very type the enum
     ///         compiles to — and choosing <see cref="PresetFilter" /> clears the path, which is what
     ///         puts the enum back in force. A control that switched to an <em>empty</em> path would
@@ -1684,8 +1852,12 @@ sealed class LayerStackView : IDisposable {
     ///         needs would tear the row down from inside its own <c>SelectionChanged</c>.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The filter's <em>numbers</em> are not here, and that is a limit rather than an
-    ///         omission.</b> <c>LayerAsset.Settings</c> is by port name and a port's declared default
+    ///         ⚠
+    ///         <b>
+    ///             The filter's <em>numbers</em> are not here, and that is a limit rather than an
+    ///             omission.
+    ///         </b>
+    ///         <c>LayerAsset.Settings</c> is by port name and a port's declared default
     ///         lives on the node type — which this view has no registry to ask, by
     ///         <a href="https://github.com/Rikarin/Vixen/issues/820">#820</a>. A field that showed 0
     ///         for a <c>Levels</c> whose <c>Input White</c> is 1 would be an interface stating
@@ -1730,7 +1902,7 @@ sealed class LayerStackView : IDisposable {
                     : current with { FilterNode = LayerStackGraph.Filter(current.Filter).Type }
                 : current.FilterNode.Length == 0
                     ? current
-                    : current with { FilterNode = "" },
+                    : current with { FilterNode = string.Empty },
             "Set Filter Source"
         );
 
@@ -1757,7 +1929,7 @@ sealed class LayerStackView : IDisposable {
         node.ValueChanged += (_, typed) => Set(
             document,
             path,
-            current => current with { FilterNode = typed ?? "" },
+            current => current with { FilterNode = typed ?? string.Empty },
             "Set Filter Node",
             "filter-node:" + layer.Id
         );
@@ -1765,21 +1937,22 @@ sealed class LayerStackView : IDisposable {
         node.Submitted += _ => document.Stack.Seal();
 
         bindings.Add(() => {
-            if (LayerStackEdit.Find(document.Document, path) is not { } current) {
-                return;
+                if (LayerStackEdit.Find(document.Document, path) is not { } current) {
+                    return;
+                }
+
+                // ⚠ Content may turn the field *on* and never off — an undo or an edit made elsewhere
+                // can put a path back while this row is open, and adopting it is right; hiding a field
+                // because it is momentarily empty is the defect above.
+                named |= current.FilterNode.Trim().Length > 0;
+
+                source.Value = named ? NodeFilter : PresetFilter;
+                kind.Value = current.Filter.ToString();
+                kind.SetStyle("display", named ? "none" : "flex");
+                node.Value = current.FilterNode;
+                node.SetStyle("display", named ? "flex" : "none");
             }
-
-            // ⚠ Content may turn the field *on* and never off — an undo or an edit made elsewhere
-            // can put a path back while this row is open, and adopting it is right; hiding a field
-            // because it is momentarily empty is the defect above.
-            named |= current.FilterNode.Trim().Length > 0;
-
-            source.Value = named ? NodeFilter : PresetFilter;
-            kind.Value = current.Filter.ToString();
-            kind.SetStyle("display", named ? "none" : "flex");
-            node.Value = current.FilterNode;
-            node.SetStyle("display", named ? "flex" : "none");
-        });
+        );
 
         if (FilterType(document, layer) is { } type) {
             KnobRows(
@@ -1789,9 +1962,11 @@ sealed class LayerStackView : IDisposable {
                 depth + 1,
                 "Filter",
                 "filter:" + layer.Id,
-                current => current.Settings,
-                current => current.Texts,
-                (current, port, lanes) => current with { Settings = Numbered(current.Settings, port.Name, port, lanes) },
+                static current => current.Settings,
+                static current => current.Texts,
+                (current, port, lanes) => current with {
+                    Settings = Numbered(current.Settings, port.Name, port, lanes)
+                },
                 (current, setting, text) => current with { Texts = Named(current.Texts, setting, text) }
             );
         }
@@ -1803,9 +1978,12 @@ sealed class LayerStackView : IDisposable {
     /// <returns>The type, or null.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b><a href="https://github.com/Rikarin/Vixen/issues/1086">#1086</a> says this view
-    ///         has no registry to ask and that is refuted: <c>LayerStackDocument.Library</c> has
-    ///         carried one since <a href="https://github.com/Rikarin/Vixen/issues/858">#858</a>.</b>
+    ///         ⚠
+    ///         <b>
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/1086">#1086</a> says this view
+    ///             has no registry to ask and that is refuted: <c>LayerStackDocument.Library</c> has
+    ///             carried one since <a href="https://github.com/Rikarin/Vixen/issues/858">#858</a>.
+    ///         </b>
     ///         What the issue is right about is why it matters — a numeric field for
     ///         <c>Colour/Levels</c>' <c>Input White</c> opening at <b>0</b> where the node uses
     ///         <b>1</b> is an interface the picture contradicts — and
@@ -1813,16 +1991,24 @@ sealed class LayerStackView : IDisposable {
     ///         no defaults.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And <a href="https://github.com/Rikarin/Vixen/issues/820">#820</a> does not
-    ///         forbid it.</b> That issue is about two <c>TexturePlanEvaluator</c>s compiling every
+    ///         ⚠
+    ///         <b>
+    ///             And <a href="https://github.com/Rikarin/Vixen/issues/820">#820</a> does not
+    ///             forbid it.
+    ///         </b>
+    ///         That issue is about two <c>TexturePlanEvaluator</c>s compiling every
     ///         kernel twice: what it objects to is a second holder of pipelines, shader modules and
     ///         a set-layout cache on a <em>device</em>. A <see cref="NodeTypeRegistry" /> holds
     ///         declarations, and this one is the document's own rather than a second publication —
     ///         which is the half of #858 that would be worth objecting to.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The preset path resolves through the registry too, rather than trusting
-    ///         <c>LayerStackGraph.Filter</c>'s type name.</b> A library that has not got
+    ///         ⚠
+    ///         <b>
+    ///             The preset path resolves through the registry too, rather than trusting
+    ///             <c>LayerStackGraph.Filter</c>'s type name.
+    ///         </b>
+    ///         A library that has not got
     ///         <c>Colour/Levels</c> is a library this panel must not draw fields against, and the
     ///         same call answers both halves.
     ///     </para>
@@ -1845,9 +2031,13 @@ sealed class LayerStackView : IDisposable {
     /// <param name="type">The type.</param>
     /// <returns>The ports, in declaration order.</returns>
     /// <remarks>
-    ///     ⚠ <b>Derived exactly as <c>LayerStackGraph.Published</c> and <c>Effect</c> derive it,
-    ///     because a field this panel draws for a port those two drop is a field an artist edits and
-    ///     the compiler warns about.</b> Both refuse a value whose port is not a declared input or is
+    ///     ⚠
+    ///     <b>
+    ///         Derived exactly as <c>LayerStackGraph.Published</c> and <c>Effect</c> derive it,
+    ///         because a field this panel draws for a port those two drop is a field an artist edits and
+    ///         the compiler warns about.
+    ///     </b>
+    ///     Both refuse a value whose port is not a declared input or is
     ///     an <see cref="PortKind.Image" /> — the named image input being one of those — so the
     ///     drawable set is the declared inputs that carry numbers. ⚠ It is <em>not</em>
     ///     <c>LayerStackGraph.Filter(kind).Ports</c>: that list is a hand-written one per preset with
@@ -1875,8 +2065,11 @@ sealed class LayerStackView : IDisposable {
     /// <param name="setSetting">And one setting.</param>
     /// <remarks>
     ///     <para>
-    ///         <b>One builder for a filter layer and for a mask effect, because they are one row
-    ///         shape one level apart</b> — <c>LayerStackGraph.Published</c> <em>is</em> <c>Effect</c>
+    ///         <b>
+    ///             One builder for a filter layer and for a mask effect, because they are one row
+    ///             shape one level apart
+    ///         </b>
+    ///         — <c>LayerStackGraph.Published</c> <em>is</em> <c>Effect</c>
     ///         pointed at a layer, down to the two loops and the warning each drops a stray key with.
     ///         #1086 asks for both together for that reason, and doing the layer alone would leave a
     ///         mask effect that can name <c>Filters/Blur</c> and cannot say how wide.
@@ -1888,15 +2081,23 @@ sealed class LayerStackView : IDisposable {
     ///         artist reads it, believes it, and cannot explain the render.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A lane at its default writes nothing, and that is what keeps a saved stack from
-    ///         growing a key per port the moment somebody opens the panel.</b> A file that stored
+    ///         ⚠
+    ///         <b>
+    ///             A lane at its default writes nothing, and that is what keeps a saved stack from
+    ///             growing a key per port the moment somebody opens the panel.
+    ///         </b>
+    ///         A file that stored
     ///         every declared default would also pin them: a node type that improved one would leave
     ///         every stack ever opened holding the old number, which is the bargain
     ///         <c>NodeGraphCompiler.Bind</c> makes the other way round for a node's settings.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>How many fields a port gets is <see cref="Width" />'s answer and comes from the
-    ///         port's <see cref="PortKind" />, not from the length of its declared default</b> —
+    ///         ⚠
+    ///         <b>
+    ///             How many fields a port gets is <see cref="Width" />'s answer and comes from the
+    ///             port's <see cref="PortKind" />, not from the length of its declared default
+    ///         </b>
+    ///         —
     ///         <a href="https://github.com/Rikarin/Vixen/issues/1097">#1097</a>. A default is
     ///         optional and a kind is not: <c>GraphModel.Interface</c> lets a published compound
     ///         expose <c>("Colour", Input, Float4)</c> with no default at all, and counting lanes off
@@ -1989,7 +2190,7 @@ sealed class LayerStackView : IDisposable {
                         }
                     },
                     RoutingStrategy.Bubble,
-                    handledEventsToo: true
+                    true
                 );
 
                 field.Submitted += _ => document.Stack.Seal();
@@ -1997,16 +2198,17 @@ sealed class LayerStackView : IDisposable {
             }
 
             bindings.Add(() => {
-                if (LayerStackEdit.Find(document.Document, path) is not { } current) {
-                    return;
-                }
+                    if (LayerStackEdit.Find(document.Document, path) is not { } current) {
+                        return;
+                    }
 
-                var held = Lanes(numbers(current), name, port, lanes);
+                    var held = Lanes(numbers(current), name, port, lanes);
 
-                for (var index = 0; index < fields.Count; index++) {
-                    fields[index].Number = held[index];
+                    for (var index = 0; index < fields.Count; index++) {
+                        fields[index].Number = held[index];
+                    }
                 }
-            });
+            );
         }
 
         foreach (var setting in type.Settings) {
@@ -2035,12 +2237,13 @@ sealed class LayerStackView : IDisposable {
                 );
 
                 bindings.Add(() => {
-                    if (LayerStackEdit.Find(document.Document, path) is { } current) {
-                        choice.Value = settings(current).TryGetValue(name, out var held) && held.Length > 0
-                            ? held
-                            : setting.Default;
+                        if (LayerStackEdit.Find(document.Document, path) is { } current) {
+                            choice.Value = settings(current).TryGetValue(name, out var held) && held.Length > 0
+                                ? held
+                                : setting.Default;
+                        }
                     }
-                });
+                );
 
                 continue;
             }
@@ -2052,7 +2255,7 @@ sealed class LayerStackView : IDisposable {
             text.ValueChanged += (_, typed) => Set(
                 document,
                 path,
-                current => setSetting(current, name, typed ?? ""),
+                current => setSetting(current, name, typed ?? string.Empty),
                 "Set " + what + " Setting",
                 $"{key}:{name}"
             );
@@ -2060,10 +2263,11 @@ sealed class LayerStackView : IDisposable {
             text.Submitted += _ => document.Stack.Seal();
 
             bindings.Add(() => {
-                if (LayerStackEdit.Find(document.Document, path) is { } current) {
-                    text.Value = settings(current).TryGetValue(name, out var held) ? held : setting.Default;
+                    if (LayerStackEdit.Find(document.Document, path) is { } current) {
+                        text.Value = settings(current).TryGetValue(name, out var held) ? held : setting.Default;
+                    }
                 }
-            });
+            );
         }
     }
 
@@ -2072,8 +2276,12 @@ sealed class LayerStackView : IDisposable {
     /// <returns>Its lane count, at least one.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The <see cref="PortKind" /> first and the default only where the kind has no
-    ///         width</b> — <a href="https://github.com/Rikarin/Vixen/issues/1097">#1097</a>. Reading
+    ///         ⚠
+    ///         <b>
+    ///             The <see cref="PortKind" /> first and the default only where the kind has no
+    ///             width
+    ///         </b>
+    ///         — <a href="https://github.com/Rikarin/Vixen/issues/1097">#1097</a>. Reading
     ///         the count off <c>Default.Length</c> alone is wrong in the one direction that loses
     ///         data: a default is optional, so a <c>Float4</c> declared with none reported
     ///         <em>one</em> lane, and <see cref="Lanes" /> then read the file's four numbers as
@@ -2111,8 +2319,12 @@ sealed class LayerStackView : IDisposable {
     /// <param name="declared">How many its default lists.</param>
     /// <returns>The sentence.</returns>
     /// <remarks>
-    ///     ⚠ <b>Two arms and, until #1108's review, one sentence — which was false on the arm it did
-    ///     not describe.</b> Four is the widest kind there is, so no <see cref="PortKind" /> ever
+    ///     ⚠
+    ///     <b>
+    ///         Two arms and, until #1108's review, one sentence — which was false on the arm it did
+    ///         not describe.
+    ///     </b>
+    ///     Four is the widest kind there is, so no <see cref="PortKind" /> ever
     ///     trips the width half on its own; what actually reaches here is a default listing more
     ///     numbers than its kind holds, and that includes a <c>Float</c> declared with three, which
     ///     the old wording announced as a port carrying more than four. Both arms say the same true
@@ -2122,7 +2334,7 @@ sealed class LayerStackView : IDisposable {
     /// </remarks>
     public static string WideKnob(string port, PortKind kind, int fields, int declared) =>
         $"'{port}' is a {kind} and takes {fields.ToString(CultureInfo.InvariantCulture)} "
-        + $"number{(fields == 1 ? "" : "s")}, but its declaration lists "
+        + $"number{(fields == 1 ? string.Empty : "s")}, but its declaration lists "
         + $"{declared.ToString(CultureInfo.InvariantCulture)} — so this panel will not edit it. A row "
         + "of fields would write its own count over all of them the moment one was touched. Fix the "
         + "port's declaration, and the fields come back.";
@@ -2343,7 +2555,7 @@ sealed class LayerStackView : IDisposable {
                     }
                 },
                 RoutingStrategy.Bubble,
-                handledEventsToo: true
+                true
             );
 
             // ⚠ And the seal a slider never needed: a number that is *typed* ends on Return rather
@@ -2363,7 +2575,7 @@ sealed class LayerStackView : IDisposable {
         image.ValueChanged += (_, typed) => Set(
             document,
             path,
-            current => current with { Textures = Imaged(current, usage, typed ?? "") },
+            current => current with { Textures = Imaged(current, usage, typed ?? string.Empty) },
             "Set Fill Image",
             "fill-image:" + path.Id + ":" + usage
         );
@@ -2371,32 +2583,33 @@ sealed class LayerStackView : IDisposable {
         image.Submitted += _ => document.Stack.Seal();
 
         bindings.Add(() => {
-            if (LayerStackEdit.Find(document.Document, path) is not { } current) {
-                return;
-            }
-
-            var written = current.Writes(usage);
-            var constant = current.Fill == LayerFillSource.Constant;
-            var texture = current.Fill == LayerFillSource.Texture;
-
-            row.SetStyle("display", written && (constant || texture) ? "flex" : "none");
-
-            var colour = current.Values.TryGetValue(usage, out var stored) && stored.Length == 4 ? stored : null;
-
-            writes.IsChecked = colour is not null;
-            writes.SetStyle("display", constant ? "flex" : "none");
-
-            for (var index = 0; index < components.Count; index++) {
-                components[index].SetStyle("display", constant && colour is not null ? "flex" : "none");
-
-                if (colour is not null) {
-                    components[index].Number = colour[index];
+                if (LayerStackEdit.Find(document.Document, path) is not { } current) {
+                    return;
                 }
-            }
 
-            image.SetStyle("display", texture ? "flex" : "none");
-            image.Value = current.Textures.TryGetValue(usage, out var named) ? named : "";
-        });
+                var written = current.Writes(usage);
+                var constant = current.Fill == LayerFillSource.Constant;
+                var texture = current.Fill == LayerFillSource.Texture;
+
+                row.SetStyle("display", written && (constant || texture) ? "flex" : "none");
+
+                var colour = current.Values.TryGetValue(usage, out var stored) && stored.Length == 4 ? stored : null;
+
+                writes.IsChecked = colour is not null;
+                writes.SetStyle("display", constant ? "flex" : "none");
+
+                for (var index = 0; index < components.Count; index++) {
+                    components[index].SetStyle("display", constant && colour is not null ? "flex" : "none");
+
+                    if (colour is not null) {
+                        components[index].Number = colour[index];
+                    }
+                }
+
+                image.SetStyle("display", texture ? "flex" : "none");
+                image.Value = current.Textures.TryGetValue(usage, out var named) ? named : string.Empty;
+            }
+        );
     }
 
     /// <summary>What each of a colour's four fields is classed on the tree.</summary>
@@ -2415,14 +2628,18 @@ sealed class LayerStackView : IDisposable {
     /// <param name="channel">The channel.</param>
     /// <returns>Four numbers.</returns>
     /// <remarks>
-    ///     ⚠ <b>The channel's own default, which is exactly the number #807 · 2 refused as a
-    ///     <em>fallback</em>.</b> The two are opposite decisions about the same value: reading it
+    ///     ⚠
+    ///     <b>
+    ///         The channel's own default, which is exactly the number #807 · 2 refused as a
+    ///         <em>fallback</em>.
+    ///     </b>
+    ///     The two are opposite decisions about the same value: reading it
     ///     when there is no entry invents a layer's opinion out of the set's, while starting an entry
     ///     the artist just asked for is the set's opinion offered as a first draft. A malformed
     ///     default becomes mid-grey, which is what <see cref="Blank" /> gives a new fill.
     /// </remarks>
     static float[] Starting(ChannelAsset channel) =>
-        channel.Default.Length == 4 ? [.. channel.Default] : [0.5f, 0.5f, 0.5f, 1f];
+        channel.Default.Length == 4 ? [..channel.Default] : [0.5f, 0.5f, 0.5f, 1f];
 
     /// <summary>A layer's colours with one channel's set or taken out.</summary>
     /// <param name="layer">The layer.</param>
@@ -2467,8 +2684,12 @@ sealed class LayerStackView : IDisposable {
 
     /// <summary>The rows for one layer's mask: its effects, its entries, and its base.</summary>
     /// <remarks>
-    ///     ⚠ <b>Outermost first, which is the same rule as the layer list and the reverse of the
-    ///     file.</b> <c>MaskAsset.Effects</c> run in list order, each over the result of the one
+    ///     ⚠
+    ///     <b>
+    ///         Outermost first, which is the same rule as the layer list and the reverse of the
+    ///         file.
+    ///     </b>
+    ///     <c>MaskAsset.Effects</c> run in list order, each over the result of the one
     ///     before, so the last of them is the outermost; <c>MaskAsset.Layers</c> composite bottom
     ///     first over the base. Reading down the panel is therefore reading backwards through the
     ///     arithmetic, exactly as it is for the layers — a mask pane that listed its entries in file
@@ -2485,7 +2706,8 @@ sealed class LayerStackView : IDisposable {
                 depth,
                 () => Describe(document, path, effect: position),
                 () => LayerStackEdit.Find(document.Document, path)?.Mask.Effects is { } effects
-                    && position < effects.Count && effects[position].Enabled,
+                    && position < effects.Count
+                    && effects[position].Enabled,
                 value => Set(
                     document,
                     path,
@@ -2505,7 +2727,7 @@ sealed class LayerStackView : IDisposable {
             node.ValueChanged += (_, typed) => Set(
                 document,
                 path,
-                current => current with { Mask = WithEffect(current.Mask, position, typed ?? "") },
+                current => current with { Mask = WithEffect(current.Mask, position, typed ?? string.Empty) },
                 "Set Mask Effect Node",
                 "mask-effect:" + position.ToString(CultureInfo.InvariantCulture)
             );
@@ -2523,11 +2745,12 @@ sealed class LayerStackView : IDisposable {
             );
 
             bindings.Add(() => {
-                if (LayerStackEdit.Find(document.Document, path)?.Mask.Effects is { } effects
-                    && position < effects.Count) {
-                    node.Value = effects[position].Node;
+                    if (LayerStackEdit.Find(document.Document, path)?.Mask.Effects is { } effects
+                        && position < effects.Count) {
+                        node.Value = effects[position].Node;
+                    }
                 }
-            });
+            );
 
             if (document.Library.Registry.TryGet(mask.Effects[position].Node.Trim(), out var type)) {
                 KnobRows(
@@ -2562,9 +2785,10 @@ sealed class LayerStackView : IDisposable {
 
             var entry = MaskRow(
                 depth,
-                () => Describe(document, path, entry: position),
+                () => Describe(document, path, position),
                 () => LayerStackEdit.Find(document.Document, path)?.Mask.Layers is { } entries
-                    && position < entries.Count && entries[position].Enabled,
+                    && position < entries.Count
+                    && entries[position].Enabled,
                 value => Set(
                     document,
                     path,
@@ -2665,7 +2889,15 @@ sealed class LayerStackView : IDisposable {
 
     /// <summary>What one mask entry reads, as the value a source editor writes back.</summary>
     static MaskSourceEdit Read(MaskLayerAsset entry) =>
-        new(entry.Source, entry.Value, entry.Asset, entry.Anchor.Anchor, entry.Generator, entry.Map, entry.Anchor.Channel);
+        new(
+            entry.Source,
+            entry.Value,
+            entry.Asset,
+            entry.Anchor.Anchor,
+            entry.Generator,
+            entry.Map,
+            entry.Anchor.Channel
+        );
 
     /// <summary>A mask whose base reads something else.</summary>
     static MaskAsset WithBase(MaskAsset mask, MaskSourceEdit value) =>
@@ -2689,7 +2921,7 @@ sealed class LayerStackView : IDisposable {
             return mask;
         }
 
-        List<MaskLayerAsset> entries = [.. mask.Layers];
+        List<MaskLayerAsset> entries = [..mask.Layers];
 
         entries[index] = entries[index] with {
             Source = value.Source,
@@ -2706,13 +2938,21 @@ sealed class LayerStackView : IDisposable {
     /// <summary>A mask with one more entry over the top of its stack.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Appended, which is the <em>top</em> of the mask's stack and the row the panel
-    ///         draws first.</b> <c>MaskAsset.Layers</c> composite bottom first, so the last of them is
+    ///         ⚠
+    ///         <b>
+    ///             Appended, which is the <em>top</em> of the mask's stack and the row the panel
+    ///             draws first.
+    ///         </b>
+    ///         <c>MaskAsset.Layers</c> composite bottom first, so the last of them is
     ///         the outermost — the same reversal every list in this panel spends once.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Multiply and not <c>MaskLayerAsset</c>'s own default, and the exception is the
-    ///         first entry over no base.</b> A mask entry's default operator is <c>Copy</c>, which at
+    ///         ⚠
+    ///         <b>
+    ///             Multiply and not <c>MaskLayerAsset</c>'s own default, and the exception is the
+    ///             first entry over no base.
+    ///         </b>
+    ///         A mask entry's default operator is <c>Copy</c>, which at
     ///         a value of 1 <em>replaces</em> whatever is under it with white — so an artist who
     ///         pressed this on a bake mask would watch the mask they were building disappear. Multiply
     ///         at 1 changes nothing, which is what adding an unconfigured row should do. The one case
@@ -2727,7 +2967,7 @@ sealed class LayerStackView : IDisposable {
 
         return mask with {
             Layers = [
-                .. mask.Layers,
+                ..mask.Layers,
                 new MaskLayerAsset { Blend = bottom ? LayerBlendMode.Copy : LayerBlendMode.Multiply }
             ]
         };
@@ -2739,7 +2979,7 @@ sealed class LayerStackView : IDisposable {
             return mask;
         }
 
-        List<MaskLayerAsset> entries = [.. mask.Layers];
+        List<MaskLayerAsset> entries = [..mask.Layers];
 
         entries.RemoveAt(index);
 
@@ -2748,15 +2988,19 @@ sealed class LayerStackView : IDisposable {
 
     /// <summary>A mask with one more effect over its result.</summary>
     /// <remarks>
-    ///     ⚠ <b>Switched off, and that is the difference between adding a row and breaking the
-    ///     picture.</b> <c>LayerStackGraph</c> <em>refuses</em> an effect that names no node type —
+    ///     ⚠
+    ///     <b>
+    ///         Switched off, and that is the difference between adding a row and breaking the
+    ///         picture.
+    ///     </b>
+    ///     <c>LayerStackGraph</c> <em>refuses</em> an effect that names no node type —
     ///     an error, which stops the map — and an effect with no node is exactly what pressing this
     ///     makes. So it is added disabled: the row appears with a field to type a node path into, and
     ///     the tick beside it is the second half of the gesture. An effect added enabled would blank
     ///     the preview the artist was looking at, on a click that was meant to be additive.
     /// </remarks>
     static MaskAsset WithEffectAdded(MaskAsset mask) =>
-        mask with { Effects = [.. mask.Effects, new MaskEffectAsset { Enabled = false }] };
+        mask with { Effects = [..mask.Effects, new MaskEffectAsset { Enabled = false }] };
 
     /// <summary>A mask with one fewer effect.</summary>
     static MaskAsset WithoutEffect(MaskAsset mask, int index) {
@@ -2764,7 +3008,7 @@ sealed class LayerStackView : IDisposable {
             return mask;
         }
 
-        List<MaskEffectAsset> effects = [.. mask.Effects];
+        List<MaskEffectAsset> effects = [..mask.Effects];
 
         effects.RemoveAt(index);
 
@@ -2776,8 +3020,11 @@ sealed class LayerStackView : IDisposable {
     /// <param name="index">Which effect.</param>
     /// <returns>The effect.</returns>
     /// <remarks>
-    ///     ⚠ <b>An empty effect rather than a null, because every caller is inside a
-    ///     <c>Set</c> callback and a null there is a crash from a control the artist is holding.</b>
+    ///     ⚠
+    ///     <b>
+    ///         An empty effect rather than a null, because every caller is inside a
+    ///         <c>Set</c> callback and a null there is a crash from a control the artist is holding.
+    ///     </b>
     ///     An effect can go while its rows are on screen — a delete on another row, an undo from the
     ///     keyboard — and what the write then does is put a number on a table nothing reads, which
     ///     <c>Set</c> discards as an unchanged layer.
@@ -2795,7 +3042,7 @@ sealed class LayerStackView : IDisposable {
             return mask;
         }
 
-        List<MaskEffectAsset> effects = [.. mask.Effects];
+        List<MaskEffectAsset> effects = [..mask.Effects];
 
         effects[index] = effects[index] with { Values = values };
 
@@ -2812,7 +3059,7 @@ sealed class LayerStackView : IDisposable {
             return mask;
         }
 
-        List<MaskEffectAsset> effects = [.. mask.Effects];
+        List<MaskEffectAsset> effects = [..mask.Effects];
 
         effects[index] = effects[index] with { Texts = texts };
 
@@ -2834,7 +3081,7 @@ sealed class LayerStackView : IDisposable {
             return mask;
         }
 
-        List<MaskEffectAsset> effects = [.. mask.Effects];
+        List<MaskEffectAsset> effects = [..mask.Effects];
 
         effects[index] = effects[index] with { Node = node };
 
@@ -2922,8 +3169,11 @@ sealed class LayerStackView : IDisposable {
     /// <param name="write">Puts one back, with the undo entry's name and its merge key.</param>
     /// <remarks>
     ///     <para>
-    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/882">#882</a>, and the issue's own
-    ///         warning is the shape: a source editor is not one control.</b> The discriminator is a
+    ///         <b>
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/882">#882</a>, and the issue's own
+    ///             warning is the shape: a source editor is not one control.
+    ///         </b>
+    ///         The discriminator is a
     ///         <c>Select</c>; behind it a constant wants a number, an anchor wants a picker over the
     ///         layers below it, and a texture, a generator and a bake each want a reference that is a
     ///         name. All of them are built and all but the relevant one is hidden, rather than the
@@ -2931,8 +3181,12 @@ sealed class LayerStackView : IDisposable {
     ///         the defect <see cref="Show" />'s shape comparison exists to prevent, one level down.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A bake is a picker and no longer a text box —
-    ///         <a href="https://github.com/Rikarin/Vixen/issues/964">#964</a>.</b> It used to share
+    ///         ⚠
+    ///         <b>
+    ///             A bake is a picker and no longer a text box —
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/964">#964</a>.
+    ///         </b>
+    ///         It used to share
     ///         the reference <c>TextBox</c> with a texture and a generator, because the nine names it
     ///         may hold were <c>internal</c> to <c>Vixen.TextureGraph</c> and this assembly
     ///         could not ask for them — and writing the nine here would have been the second
@@ -2942,8 +3196,12 @@ sealed class LayerStackView : IDisposable {
     ///         node, so the picker and the diagnostic cannot disagree.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A texture and a generator still share the <c>TextBox</c>, and that is still a
-    ///         limit.</b> A generator's options are the published compounds, which a library this
+    ///         ⚠
+    ///         <b>
+    ///             A texture and a generator still share the <c>TextBox</c>, and that is still a
+    ///             limit.
+    ///         </b>
+    ///         A generator's options are the published compounds, which a library this
     ///         view must not acquire produces (<a href="https://github.com/Rikarin/Vixen/issues/820">#820</a>);
     ///         a texture's are a project's files. Neither is a fact about the build, so neither is
     ///         reachable the way the nine now are.
@@ -2977,7 +3235,7 @@ sealed class LayerStackView : IDisposable {
 
         kind.SelectionChanged += (_, chosen) => {
             if (read() is { } current && Enum.TryParse<LayerMaskSource>(chosen, out var source)) {
-                write(current with { Source = source }, "Set Mask Source", "");
+                write(current with { Source = source }, "Set Mask Source", string.Empty);
             }
         };
 
@@ -2999,7 +3257,7 @@ sealed class LayerStackView : IDisposable {
                 }
             },
             RoutingStrategy.Bubble,
-            handledEventsToo: true
+            true
         );
 
         var anchor = row.Add<Select>(null, null, "layer-stack-mask-anchor");
@@ -3009,15 +3267,17 @@ sealed class LayerStackView : IDisposable {
                 return;
             }
 
-            var wanted = chosen is null || string.Equals(chosen, NoAnchor, StringComparison.Ordinal) ? "" : chosen;
+            var wanted = chosen is null || string.Equals(chosen, NoAnchor, StringComparison.Ordinal)
+                ? string.Empty
+                : chosen;
 
             // A mask reads its anchor point in one channel (Patina #111); this panel has no channel picker, so a new
             // anchor reads the set's first channel and one already chosen keeps its own.
             var channel = wanted.Length == 0 || current.AnchorChannel.Length > 0
                 ? current.AnchorChannel
-                : set.Channels.FirstOrDefault()?.Usage ?? "";
+                : set.Channels.FirstOrDefault()?.Usage ?? string.Empty;
 
-            write(current with { Anchor = wanted, AnchorChannel = channel }, "Set Mask Anchor", "");
+            write(current with { Anchor = wanted, AnchorChannel = channel }, "Set Mask Anchor", string.Empty);
         };
 
         var map = row.Add<Select>(null, null, "layer-stack-mask-map");
@@ -3028,7 +3288,7 @@ sealed class LayerStackView : IDisposable {
 
         map.SelectionChanged += (_, chosen) => {
             if (read() is { } current && chosen is not null) {
-                write(current with { Map = chosen }, "Set Mask Map", "");
+                write(current with { Map = chosen }, "Set Mask Map", string.Empty);
             }
         };
 
@@ -3039,7 +3299,7 @@ sealed class LayerStackView : IDisposable {
                 return;
             }
 
-            var written = typed ?? "";
+            var written = typed ?? string.Empty;
 
             var after = current.Source switch {
                 LayerMaskSource.Texture => current with { Asset = written },
@@ -3069,86 +3329,87 @@ sealed class LayerStackView : IDisposable {
         string? offered = null;
 
         bindings.Add(() => {
-            if (read() is not { } current) {
-                return;
-            }
-
-            kind.Value = current.Source.ToString();
-
-            number.SetStyle("display", current.Source == LayerMaskSource.Constant ? "flex" : "none");
-            anchor.SetStyle("display", current.Source == LayerMaskSource.Anchor ? "flex" : "none");
-
-            reference.SetStyle(
-                "display",
-                current.Source is LayerMaskSource.Texture or LayerMaskSource.Generator ? "flex" : "none"
-            );
-
-            map.SetStyle("display", current.Source == LayerMaskSource.Bake ? "flex" : "none");
-
-            number.Value = current.Value;
-
-            reference.Value = current.Source switch {
-                LayerMaskSource.Texture => current.Asset,
-                LayerMaskSource.Generator => current.Generator,
-                _ => ""
-            };
-
-            reference.Placeholder = current.Source switch {
-                LayerMaskSource.Texture => "Assets/Textures/rust.png",
-                LayerMaskSource.Generator => "Generators/Dirt",
-                _ => ""
-            };
-
-            if (current.Source == LayerMaskSource.Bake) {
-                // ⚠ Offered rather than dropped, the anchor picker's rule one control along: a map
-                // this build does not bake is still what the stack says, and the refusal beneath the
-                // rows is what says it is wrong.
-                if (current.Map.Length > 0 && !map.Options.Any(option => option.Value == current.Map)) {
-                    map.AddOption(current.Map);
+                if (read() is not { } current) {
+                    return;
                 }
 
-                map.Value = current.Map.Length > 0 ? current.Map : null;
-                map.Placeholder = current.Map.Length > 0 ? null : "curvature";
-            }
+                kind.Value = current.Source.ToString();
 
-            if (current.Source != LayerMaskSource.Anchor) {
-                return;
-            }
+                number.SetStyle("display", current.Source == LayerMaskSource.Constant ? "flex" : "none");
+                anchor.SetStyle("display", current.Source == LayerMaskSource.Anchor ? "flex" : "none");
 
-            if (targets is null) {
-                targets = Anchorable(set, path.Id);
-                AnchorWalks++;
-            }
+                reference.SetStyle(
+                    "display",
+                    current.Source is LayerMaskSource.Texture or LayerMaskSource.Generator ? "flex" : "none"
+                );
 
-            // ⚠ A stored anchor this stack cannot offer is kept as an option rather than dropped,
-            // which is `Rebind`'s three-state rule: a picker that silently showed `(none)` would say
-            // the mask is unanchored and then unanchor it on the next click. What the anchor really
-            // is stays on the screen, and the refusal beneath the rows is what says it is wrong.
-            // It is also the only part of the list that can change without the row being rebuilt —
-            // the anchor is a value and `Shape` deliberately holds no values — so it is the whole
-            // of what the guard below compares.
-            var unofferable = current.Anchor.Length > 0
-                && !targets.Contains(current.Anchor, StringComparer.Ordinal)
-                    ? current.Anchor
-                    : "";
+                map.SetStyle("display", current.Source == LayerMaskSource.Bake ? "flex" : "none");
 
-            if (offered is null || !string.Equals(unofferable, offered, StringComparison.Ordinal)) {
-                offered = unofferable;
+                number.Value = current.Value;
 
-                anchor.ClearOptions();
-                anchor.AddOption(NoAnchor);
+                reference.Value = current.Source switch {
+                    LayerMaskSource.Texture => current.Asset,
+                    LayerMaskSource.Generator => current.Generator,
+                    _ => string.Empty
+                };
 
-                foreach (var target in targets) {
-                    anchor.AddOption(target);
+                reference.Placeholder = current.Source switch {
+                    LayerMaskSource.Texture => "Assets/Textures/rust.png",
+                    LayerMaskSource.Generator => "Generators/Dirt",
+                    _ => string.Empty
+                };
+
+                if (current.Source == LayerMaskSource.Bake) {
+                    // ⚠ Offered rather than dropped, the anchor picker's rule one control along: a map
+                    // this build does not bake is still what the stack says, and the refusal beneath the
+                    // rows is what says it is wrong.
+                    if (current.Map.Length > 0 && !map.Options.Any(option => option.Value == current.Map)) {
+                        map.AddOption(current.Map);
+                    }
+
+                    map.Value = current.Map.Length > 0 ? current.Map : null;
+                    map.Placeholder = current.Map.Length > 0 ? null : "curvature";
                 }
 
-                if (unofferable.Length > 0) {
-                    anchor.AddOption(unofferable);
+                if (current.Source != LayerMaskSource.Anchor) {
+                    return;
                 }
-            }
 
-            anchor.Value = current.Anchor.Length > 0 ? current.Anchor : NoAnchor;
-        });
+                if (targets is null) {
+                    targets = Anchorable(set, path.Id);
+                    AnchorWalks++;
+                }
+
+                // ⚠ A stored anchor this stack cannot offer is kept as an option rather than dropped,
+                // which is `Rebind`'s three-state rule: a picker that silently showed `(none)` would say
+                // the mask is unanchored and then unanchor it on the next click. What the anchor really
+                // is stays on the screen, and the refusal beneath the rows is what says it is wrong.
+                // It is also the only part of the list that can change without the row being rebuilt —
+                // the anchor is a value and `Shape` deliberately holds no values — so it is the whole
+                // of what the guard below compares.
+                var unofferable = current.Anchor.Length > 0
+                    && !targets.Contains(current.Anchor, StringComparer.Ordinal)
+                        ? current.Anchor
+                        : string.Empty;
+
+                if (offered is null || !string.Equals(unofferable, offered, StringComparison.Ordinal)) {
+                    offered = unofferable;
+
+                    anchor.ClearOptions();
+                    anchor.AddOption(NoAnchor);
+
+                    foreach (var target in targets) {
+                        anchor.AddOption(target);
+                    }
+
+                    if (unofferable.Length > 0) {
+                        anchor.AddOption(unofferable);
+                    }
+                }
+
+                anchor.Value = current.Anchor.Length > 0 ? current.Anchor : NoAnchor;
+            }
+        );
     }
 
     /// <summary>One switchable mask row — an effect, or an entry a source editor is added to.</summary>
@@ -3171,9 +3432,10 @@ sealed class LayerStackView : IDisposable {
         var name = row.Add("layer-stack-mask-name");
 
         bindings.Add(() => {
-            name.Text = describe();
-            tick.IsChecked = enabled();
-        });
+                name.Text = describe();
+                tick.IsChecked = enabled();
+            }
+        );
 
         return row;
     }
@@ -3181,25 +3443,25 @@ sealed class LayerStackView : IDisposable {
     /// <summary>One mask row's sentence: the base, one entry, or one effect.</summary>
     static string Describe(LayerStackDocument document, LayerPath path, int entry = -1, int effect = -1) {
         if (LayerStackEdit.Find(document.Document, path) is not { } layer) {
-            return "";
+            return string.Empty;
         }
 
         var mask = layer.Mask;
 
         if (effect >= 0) {
             if (effect >= mask.Effects.Count) {
-                return "";
+                return string.Empty;
             }
 
             var value = mask.Effects[effect];
 
             return $"Mask effect — {(value.Node.Length > 0 ? value.Node : "(none)")}"
-                + (value.Enabled ? "" : ", off");
+                + (value.Enabled ? string.Empty : ", off");
         }
 
         if (entry >= 0) {
             if (entry >= mask.Layers.Count) {
-                return "";
+                return string.Empty;
             }
 
             var value = mask.Layers[entry];
@@ -3207,7 +3469,7 @@ sealed class LayerStackView : IDisposable {
             return string.Create(
                 CultureInfo.InvariantCulture,
                 $"Mask — {Source(value.Source, value.Value, value.Asset, value.Anchor.Anchor, value.Generator, value.Map)}, "
-                + $"{value.Blend}, {value.Opacity:0.##}{(value.Enabled ? "" : ", off")}"
+                + $"{value.Blend}, {value.Opacity:0.##}{(value.Enabled ? string.Empty : ", off")}"
             );
         }
 
@@ -3241,7 +3503,7 @@ sealed class LayerStackView : IDisposable {
         // ⚠ A new list rather than a write into the one this mask holds. `with` shares every
         // collection member with the value it copied, so mutating in place would change the layer the
         // undo entry is holding as its before-image — and the undo would put back the new value.
-        List<MaskLayerAsset> entries = [.. mask.Layers];
+        List<MaskLayerAsset> entries = [..mask.Layers];
 
         entries[index] = entries[index] with { Enabled = enabled };
 
@@ -3253,7 +3515,7 @@ sealed class LayerStackView : IDisposable {
             return mask;
         }
 
-        List<MaskEffectAsset> effects = [.. mask.Effects];
+        List<MaskEffectAsset> effects = [..mask.Effects];
 
         effects[index] = effects[index] with { Enabled = enabled };
 
@@ -3321,16 +3583,20 @@ sealed class LayerStackView : IDisposable {
             .Append('\n')
             .Append(chosen)
             .Append('\n')
-            .Append(LayerStackEdit.SetFor(document.Document, chosen)?.Mesh ?? "")
+            .Append(LayerStackEdit.SetFor(document.Document, chosen)?.Mesh ?? string.Empty)
             .ToString();
     }
 
     /// <summary>Puts the project's models in the picker and the stack's own binding on it.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Re-read when the project's models change, which is what
-    ///         <a href="https://github.com/Rikarin/Vixen/issues/954">#954</a> found this did not
-    ///         do.</b> Importing a model is an ordinary thing to do while a stack is open, and the
+    ///         ⚠
+    ///         <b>
+    ///             Re-read when the project's models change, which is what
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/954">#954</a> found this did not
+    ///             do.
+    ///         </b>
+    ///         Importing a model is an ordinary thing to do while a stack is open, and the
     ///         gate above this used to be the document reference and the bound path alone — while
     ///         the module hands the same reference to every refresh. So the mesh an artist had just
     ///         added was the one mesh the picker did not offer, which reads as the import having
@@ -3372,7 +3638,7 @@ sealed class LayerStackView : IDisposable {
             var offered = false;
 
             foreach (var entry in document.Project.Assets.Entries.OrderBy(
-                         entry => entry.Path,
+                         static entry => entry.Path,
                          StringComparer.Ordinal
                      )) {
                 if (!LayerStackMesh.Extensions.Contains(Path.GetExtension(entry.Path).ToLowerInvariant())) {
@@ -3398,7 +3664,7 @@ sealed class LayerStackView : IDisposable {
             meshStatus.Text = bound.Length == 0
                 ? "Unbound: no islands, no coverage map, no 3D paint."
                 : offered
-                    ? ""
+                    ? string.Empty
                     : $"'{bound}' is not in this project's assets, so there are no islands and every "
                     + "stroke is refused. Re-bind it, or restore the file.";
         } finally {
@@ -3419,15 +3685,13 @@ sealed class LayerStackView : IDisposable {
             return;
         }
 
-        var wanted = string.Equals(value, NoMesh, StringComparison.Ordinal) ? "" : value;
+        var wanted = string.Equals(value, NoMesh, StringComparison.Ordinal) ? string.Empty : value;
 
         if (string.Equals(wanted, document.Document.Model, StringComparison.Ordinal)) {
             return;
         }
 
-        document.Stack.Execute(
-            new SetModelCommand(document, wanted, wanted.Length == 0 ? "Unbind Mesh" : "Bind Mesh")
-        );
+        document.Stack.Execute(new SetModelCommand(document, wanted, wanted.Length == 0 ? "Unbind Mesh" : "Bind Mesh"));
 
         Refresh();
     }
@@ -3435,8 +3699,11 @@ sealed class LayerStackView : IDisposable {
     /// <summary>Puts the model's meshes in the part picker and the set's own narrowing on it.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The names come from the sidecar and never from the model file, which is what
-    ///         <a href="https://github.com/Rikarin/Vixen/issues/941">#941</a> assumed was impossible.</b>
+    ///         ⚠
+    ///         <b>
+    ///             The names come from the sidecar and never from the model file, which is what
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/941">#941</a> assumed was impossible.
+    ///         </b>
     ///         That issue declined this control because offering the names means knowing them and
     ///         knowing them means an Assimp parse — <c>ModelReader.Read</c> on a hero asset is
     ///         seconds, and this runs from a panel build. It is not: an import writes the sub-asset
@@ -3445,8 +3712,12 @@ sealed class LayerStackView : IDisposable {
     ///         of the project.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A model whose import has not run offers nothing, and says so rather than
-    ///         emptying the field.</b> There is nowhere but the file to read a name from before an
+    ///         ⚠
+    ///         <b>
+    ///             A model whose import has not run offers nothing, and says so rather than
+    ///             emptying the field.
+    ///         </b>
+    ///         There is nowhere but the file to read a name from before an
     ///         import, so the picker keeps whatever the set already names as its own option — a
     ///         control that silently showed <see cref="EveryMesh" /> would tell an artist the set is
     ///         un-narrowed and then un-narrow it on the next click, which is exactly the failure the
@@ -3455,7 +3726,7 @@ sealed class LayerStackView : IDisposable {
     /// </remarks>
     void Parts(LayerStackDocument document) {
         var set = LayerStackEdit.SetFor(document.Document, SetName);
-        var narrowed = (set?.Mesh ?? "").Trim();
+        var narrowed = (set?.Mesh ?? string.Empty).Trim();
 
         part.ClearOptions();
         part.AddOption(EveryMesh);
@@ -3489,15 +3760,18 @@ sealed class LayerStackView : IDisposable {
         // ⚠ The chosen set's index and no longer a hard 0 — #927. `SetMeshCommand` is keyed by
         // position because a `TextureSetAsset` is a record the document replaces wholesale, so this
         // is the one place that has to turn the panel's choice back into one.
-        var index = document.Document.Sets.FindIndex(
-            one => string.Equals(one.Name, ShownSet(document), StringComparison.Ordinal)
+        var index = document.Document.Sets.FindIndex(one => string.Equals(
+                one.Name,
+                ShownSet(document),
+                StringComparison.Ordinal
+            )
         );
 
         if (index < 0) {
             return;
         }
 
-        var wanted = string.Equals(value, EveryMesh, StringComparison.Ordinal) ? "" : value;
+        var wanted = string.Equals(value, EveryMesh, StringComparison.Ordinal) ? string.Empty : value;
 
         if (string.Equals(wanted, document.Document.Sets[index].Mesh, StringComparison.Ordinal)) {
             return;
@@ -3518,7 +3792,7 @@ sealed class LayerStackView : IDisposable {
     ///     nothing answers to.
     /// </remarks>
     string ShownSet(LayerStackDocument document) =>
-        LayerStackEdit.SetFor(document.Document, SetName)?.Name ?? "";
+        LayerStackEdit.SetFor(document.Document, SetName)?.Name ?? string.Empty;
 
     /// <summary>Puts the panel on a different texture set.</summary>
     /// <remarks>
@@ -3566,9 +3840,7 @@ sealed class LayerStackView : IDisposable {
         document.LayerSelection.Clear();
         watchedSelection = null;
 
-        if (tool is not null) {
-            tool.LayerId = "";
-        }
+        tool?.LayerId = string.Empty;
 
         Refresh();
         SelectionChanged?.Invoke();
@@ -3598,9 +3870,7 @@ sealed class LayerStackView : IDisposable {
         // ⚠ The mirror, and it is the whole of what #910 asked for: `PaintTool.LayerId` was the only
         // writer of "which layer" and had no reader that a person could reach. An id that names no
         // paint layer is deliberately allowed through — `PaintSurface` refuses it by name.
-        if (tool is not null) {
-            tool.LayerId = Selected?.Id ?? "";
-        }
+        tool?.LayerId = Selected?.Id ?? string.Empty;
 
         Restate();
         SelectionChanged?.Invoke();
@@ -3645,9 +3915,13 @@ sealed class LayerStackView : IDisposable {
     /// <returns>The layer.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A <see cref="LayerKind.Fill" /> is given a value on the set's first channel, and
-    ///         an empty <see cref="LayerAsset.Values" /> would have been the defect this workstream
-    ///         names.</b> "A channel with no entry is a channel this layer does not write"
+    ///         ⚠
+    ///         <b>
+    ///             A <see cref="LayerKind.Fill" /> is given a value on the set's first channel, and
+    ///             an empty <see cref="LayerAsset.Values" /> would have been the defect this workstream
+    ///             names.
+    ///         </b>
+    ///         "A channel with no entry is a channel this layer does not write"
     ///         (<a href="https://github.com/Rikarin/Vixen/issues/807">#807</a> · 2), so a fill added
     ///         with no values writes nothing at all — an artist presses <em>Add layer</em>, a row
     ///         appears, the picture does not change, and nothing on this panel says why. Mid-grey on
@@ -3669,11 +3943,7 @@ sealed class LayerStackView : IDisposable {
     ///     </para>
     /// </remarks>
     static LayerAsset Blank(TextureSetAsset set, LayerKind kind) {
-        LayerAsset layer = new() {
-            Id = LayerStackEdit.FreeId(set, "layer"),
-            Name = kind.ToString(),
-            Kind = kind
-        };
+        LayerAsset layer = new() { Id = LayerStackEdit.FreeId(set, "layer"), Name = kind.ToString(), Kind = kind };
 
         if (kind != LayerKind.Fill || set.Channels.Count == 0) {
             return layer;
@@ -3686,14 +3956,19 @@ sealed class LayerStackView : IDisposable {
 
     /// <summary>Puts a new layer over the selected one, or on top of the stack.</summary>
     /// <remarks>
-    ///     ⚠ <b>Over the selected row and in <em>its</em> list, which is the only placement that can
-    ///     reach the inside of a group.</b> A button that always appended to the set's own list would
+    ///     ⚠
+    ///     <b>
+    ///         Over the selected row and in <em>its</em> list, which is the only placement that can
+    ///         reach the inside of a group.
+    ///     </b>
+    ///     A button that always appended to the set's own list would
     ///     make a group something an artist can open and never add to; the selection is already the
     ///     panel's word for "the layer I am working on", and it is what the brush reads. With nothing
     ///     selected the new layer goes on top, which is where a layers panel puts one.
     /// </remarks>
     void AddLayer() {
-        if (writing || Document is not { } document
+        if (writing
+            || Document is not { } document
             || LayerStackEdit.SetFor(document.Document, SetName) is not { } set) {
             return;
         }
@@ -3713,8 +3988,12 @@ sealed class LayerStackView : IDisposable {
 
     /// <summary>Takes a layer out.</summary>
     /// <remarks>
-    ///     ⚠ <b>The selection goes with it when it was the selected layer, and the brush with the
-    ///     selection.</b> <see cref="Build" /> recovers a selection from <c>PaintTool.LayerId</c> and
+    ///     ⚠
+    ///     <b>
+    ///         The selection goes with it when it was the selected layer, and the brush with the
+    ///         selection.
+    ///     </b>
+    ///     <see cref="Build" /> recovers a selection from <c>PaintTool.LayerId</c> and
     ///     drops one no layer answers to, so leaving it would be harmless — but the drop happens on
     ///     the rebuild, and the refresh in between is a frame in which the brush is aimed at a layer
     ///     that is gone. An empty <c>LayerId</c> is the brush's "the first paint layer", which is
@@ -3729,9 +4008,7 @@ sealed class LayerStackView : IDisposable {
             document.LayerSelection.Clear();
             watchedSelection = null;
 
-            if (tool is not null) {
-                tool.LayerId = "";
-            }
+            tool?.LayerId = string.Empty;
 
             SelectionChanged?.Invoke();
         }
@@ -3753,8 +4030,12 @@ sealed class LayerStackView : IDisposable {
     /// <param name="document">The stack to follow, or <see langword="null" /> to stop following one.</param>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b><a href="https://github.com/Rikarin/Vixen/issues/933">#933</a>, and it is the
-    ///         defect this panel's whole undoable model was built for.</b> Every edit a row makes
+    ///         ⚠
+    ///         <b>
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/933">#933</a>, and it is the
+    ///             defect this panel's whole undoable model was built for.
+    ///         </b>
+    ///         Every edit a row makes
     ///         ends in <see cref="Refresh" />, and nothing else did — so Ctrl+Z, taken through the
     ///         editor's own verb or from any other panel, changed the document and left the
     ///         <c>Select</c>, the <c>Slider</c>, the ticks and the row order showing what was last
@@ -3770,8 +4051,12 @@ sealed class LayerStackView : IDisposable {
     ///         view is also the thing that already knows which document its controls close over.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The depth is compared rather than the run counted, and a flag saying "not the
-    ///         first run" is what this had and why it did not work.</b> An effect is <em>queued</em>
+    ///         ⚠
+    ///         <b>
+    ///             The depth is compared rather than the run counted, and a flag saying "not the
+    ///             first run" is what this had and why it did not work.
+    ///         </b>
+    ///         An effect is <em>queued</em>
     ///         when it is created rather than executed — <c>EffectScheduler</c>'s first sentence — so
     ///         its first run is not the constructor, it is the first flush after one, which in a
     ///         panel that has just been built is the same frame as the artist's first undo. The flag
@@ -3792,7 +4077,7 @@ sealed class LayerStackView : IDisposable {
         if (ReferenceEquals(watched, document)) {
             // Every refresh comes through here, so this is where "what is on the screen" is recorded.
             watchedDepth = document?.Stack.Depth.Peek() ?? 0;
-            watchedSet = document?.PeekPaintSet() ?? "";
+            watchedSet = document?.PeekPaintSet() ?? string.Empty;
 
             return;
         }
@@ -3843,9 +4128,7 @@ sealed class LayerStackView : IDisposable {
                     // row click does. The rows restate rather than rebuild — a selection is not a shape.
                     watchedSelection = selected;
 
-                    if (tool is not null) {
-                        tool.LayerId = selected?.Id ?? "";
-                    }
+                    tool?.LayerId = selected?.Id ?? string.Empty;
 
                     Restate();
                     SelectionChanged?.Invoke();

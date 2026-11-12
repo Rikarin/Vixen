@@ -22,8 +22,12 @@ namespace Vixen.Live.Realms;
 ///         pattern with a bigger surface.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The <c>apply</c> callback runs on the realm's thread, inside
-///         <see cref="Drain" />.</b> That is the entire value of the type: everything it touches — the
+///         ⚠
+///         <b>
+///             The <c>apply</c> callback runs on the realm's thread, inside
+///             <see cref="Drain" />.
+///         </b>
+///         That is the entire value of the type: everything it touches — the
 ///         world, the session, the admission list — is single-threaded, and stays that way. The
 ///         <c>call</c> delegate runs wherever the task ran, and must touch none of them.
 ///     </para>

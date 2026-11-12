@@ -30,7 +30,10 @@ public interface ISourceControl {
     /// <summary>What the provider is called in a menu or a notification, or null when there is none (yet).</summary>
     string? Name { get; }
 
-    /// <summary>Whether the project has been looked at — after which a null <see cref="Name" /> means it is not in a working tree.</summary>
+    /// <summary>
+    ///     Whether the project has been looked at — after which a null <see cref="Name" /> means it is not in a working
+    ///     tree.
+    /// </summary>
     bool IsSought { get; }
 
     /// <summary>Whether a status sweep has landed, which is what a source-control verb's enablement asks.</summary>
@@ -77,6 +80,9 @@ public interface ISourceControl {
     /// </remarks>
     void Restore(string path, SourceControlRevision revision);
 
-    /// <summary>Raised on the frame thread after a <see cref="Revert" /> or <see cref="Restore" /> has finished and the project has been rescanned.</summary>
+    /// <summary>
+    ///     Raised on the frame thread after a <see cref="Revert" /> or <see cref="Restore" /> has finished and the
+    ///     project has been rescanned.
+    /// </summary>
     event Action? Reverted;
 }

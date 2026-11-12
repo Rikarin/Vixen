@@ -19,7 +19,7 @@ public sealed class XrTrackingSystemTests {
         var session = Session(out var backend);
 
         using (backend) {
-            session.HeadPose = new XrPose(new Vector3(0f, 1.7f, -3f), Quaternion.Identity);
+            session.HeadPose = new(new(0f, 1.7f, -3f), Quaternion.Identity);
 
             var system = Located(session);
             var entity = Tracked(world, XrTrackedDevice.Head);
@@ -43,11 +43,11 @@ public sealed class XrTrackingSystemTests {
         var session = Session(out var backend);
 
         using (backend) {
-            session.HeadPose = new XrPose(new Vector3(0f, 1.7f, 0f), Quaternion.Identity);
+            session.HeadPose = new(new(0f, 1.7f, 0f), Quaternion.Identity);
 
             var system = Located(session);
 
-            Rig(world, new Vector3(10f, 0f, 5f), Quaternion.Identity, 1f);
+            Rig(world, new(10f, 0f, 5f), Quaternion.Identity, 1f);
 
             var entity = Tracked(world, XrTrackedDevice.Head);
 
@@ -69,14 +69,14 @@ public sealed class XrTrackingSystemTests {
         var session = Session(out var backend);
 
         using (backend) {
-            session.HeadPose = new XrPose(new Vector3(1f, 0f, 0f), Quaternion.Identity);
+            session.HeadPose = new(new(1f, 0f, 0f), Quaternion.Identity);
 
             var system = Located(session);
 
             Rig(
                 world,
                 Vector3.Zero,
-                Quaternion.FromAxisAngle(new Vector3(0f, 1f, 0f), MathF.PI / 2f),
+                Quaternion.FromAxisAngle(new(0f, 1f, 0f), MathF.PI / 2f),
                 1f
             );
 
@@ -98,7 +98,7 @@ public sealed class XrTrackingSystemTests {
         var session = Session(out var backend);
 
         using (backend) {
-            session.HeadPose = new XrPose(new Vector3(0f, 1.7f, 0f), Quaternion.Identity);
+            session.HeadPose = new(new(0f, 1.7f, 0f), Quaternion.Identity);
 
             var system = Located(session);
 
@@ -123,10 +123,10 @@ public sealed class XrTrackingSystemTests {
             var system = Located(session);
             var entity = Tracked(world, XrTrackedDevice.LeftHand);
 
-            world.Set(entity, LocalTransform.At(new Vector3(4f, 5f, 6f)));
+            world.Set(entity, LocalTransform.At(new(4f, 5f, 6f)));
             system.Publish(world);
 
-            Assert.Equal(new Vector3(4f, 5f, 6f), world.Read<LocalTransform>(entity).Position);
+            Assert.Equal(new(4f, 5f, 6f), world.Read<LocalTransform>(entity).Position);
             Assert.False(world.Read<XrTrackedPose>(entity).IsTracked);
         }
     }
@@ -142,7 +142,7 @@ public sealed class XrTrackingSystemTests {
 
             pose.Publish(
                 XrHand.Right,
-                new XrActionState(IsActive: true, Pose: new XrPose(new Vector3(0.3f, 1f, -0.4f), Quaternion.Identity), IsTracked: true)
+                new(true, Pose: new(new(0.3f, 1f, -0.4f), Quaternion.Identity), IsTracked: true)
             );
 
             var system = Located(session);
@@ -163,30 +163,30 @@ public sealed class XrTrackingSystemTests {
         var session = Session(out var backend);
 
         using (backend) {
-            session.HeadPose = new XrPose(
-                new Vector3(0f, 1.7f, 0f),
-                Quaternion.FromAxisAngle(new Vector3(0f, 1f, 0f), 0.5f)
+            session.HeadPose = new(
+                new(0f, 1.7f, 0f),
+                Quaternion.FromAxisAngle(new(0f, 1f, 0f), 0.5f)
             );
 
             var system = Located(session);
             var entity = world.Create();
 
             world.Add(entity, new XrTrackedPose { Device = XrTrackedDevice.Head, ApplyRotation = true });
-            world.Add(entity, LocalTransform.At(new Vector3(9f, 9f, 9f)));
+            world.Add(entity, LocalTransform.At(new(9f, 9f, 9f)));
 
             system.Publish(world);
 
             var transform = world.Read<LocalTransform>(entity);
 
-            Assert.Equal(new Vector3(9f, 9f, 9f), transform.Position);
+            Assert.Equal(new(9f, 9f, 9f), transform.Position);
             Assert.NotEqual(Quaternion.Identity, transform.Rotation);
         }
     }
 
     static NullXrSession Session(out NullXrBackend backend) {
-        backend = new NullXrBackend();
+        backend = new();
 
-        var session = (NullXrSession)backend.CreateSession(default, new XrSessionOptions());
+        var session = (NullXrSession)backend.CreateSession(default, new());
 
         for (var index = 0; index < 8 && session.State != XrSessionState.Focused; index++) {
             session.PollEvents();
@@ -201,7 +201,7 @@ public sealed class XrTrackingSystemTests {
         session.LocateViews(in frame);
         session.EndFrame(in frame, []);
 
-        return new XrTrackingSystem(session);
+        return new(session);
     }
 
     static Entity Tracked(World world, XrTrackedDevice device) {

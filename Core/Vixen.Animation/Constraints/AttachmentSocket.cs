@@ -9,8 +9,12 @@ namespace Vixen.Animation.Constraints;
 /// <summary>An attachment point on a character, whose offset from the bone is itself solved.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>A socket is adapted, not just read, and this is what makes a held prop work across
-///         bodies.</b> A pistol hangs off an attachment point that is a child of a hand bone, and the
+///         ⚠
+///         <b>
+///             A socket is adapted, not just read, and this is what makes a held prop work across
+///             bodies.
+///         </b>
+///         A pistol hangs off an attachment point that is a child of a hand bone, and the
 ///         offset from bone to socket was authored against one hand. Put the same pistol in a hand
 ///         20 % larger and preserving that offset drives the grip into the palm; preserving the
 ///         <em>grip contact</em> and letting the offset move is what a person would do.
@@ -178,8 +182,7 @@ public sealed class AttachmentSockets {
 public sealed record AttachmentFrame(Symbol Socket, BoneTransform Offset) : IConstraintFrame {
     /// <summary>A socket by name.</summary>
     /// <param name="socket">The socket.</param>
-    public AttachmentFrame(string socket) : this(Symbol.Intern(socket), BoneTransform.Identity) {
-    }
+    public AttachmentFrame(string socket) : this(Symbol.Intern(socket), BoneTransform.Identity) { }
 
     /// <inheritdoc />
     public bool TryResolve(in ConstraintContext context, out Frame frame) {

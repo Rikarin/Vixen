@@ -45,8 +45,10 @@ public class SeamTests {
         );
     }
 
-    static List<Type> Implementations(Assembly assembly, Type seam) =>
-        [.. assembly.GetTypes().Where(type => type is { IsAbstract: false, IsInterface: false } && seam.IsAssignableFrom(type))];
+    static List<Type> Implementations(Assembly assembly, Type seam) => [
+        ..assembly.GetTypes()
+            .Where(type => type is { IsAbstract: false, IsInterface: false } && seam.IsAssignableFrom(type))
+    ];
 
     // ── Each one, exercised through the interface ────────────────────────────
 
@@ -58,7 +60,7 @@ public class SeamTests {
 
         var chosen = selector.Choose(
             moves,
-            new MoveQuery { Required = FacetSet.Of(MoveRole.Facet(MoveRole.Loop)), Numeric = new() { Speed = 0.2f } },
+            new() { Required = FacetSet.Of(MoveRole.Facet(MoveRole.Loop)), Numeric = new() { Speed = 0.2f } },
             DefaultMoveScorer.Shared
         );
 
@@ -68,7 +70,7 @@ public class SeamTests {
         Assert.Equal("run", moves[chosen.Index].Name);
         Assert.Equal(0, selector.ScorerCalls);
 
-        Assert.False(selector.Choose(moves, new MoveQuery(), DefaultMoveScorer.Shared).HasMove);
+        Assert.False(selector.Choose(moves, new(), DefaultMoveScorer.Shared).HasMove);
     }
 
     /// <summary>A scorer is "rank a candidate" and not "the default's arithmetic with a hook in it".</summary>
@@ -78,7 +80,7 @@ public class SeamTests {
 
         var chosen = QueryMoveSelector.Shared.Choose(
             moves,
-            new MoveQuery { Numeric = new() { Speed = 9f } },
+            new() { Numeric = new() { Speed = 9f } },
             new AlphabeticalTestScorer()
         );
 
@@ -146,8 +148,14 @@ public class SeamTests {
 
         // The properties are the interfaces, not the shipped classes: a caller cannot reach a default
         // member without casting, and nothing in the assembly does.
-        Assert.Equal(typeof(IConstraintArbiter), typeof(ConstraintStack).GetProperty(nameof(ConstraintStack.Arbiter))?.PropertyType);
-        Assert.Equal(typeof(IChainSolver), typeof(ConstraintStack).GetProperty(nameof(ConstraintStack.Solver))?.PropertyType);
+        Assert.Equal(
+            typeof(IConstraintArbiter),
+            typeof(ConstraintStack).GetProperty(nameof(ConstraintStack.Arbiter))?.PropertyType
+        );
+        Assert.Equal(
+            typeof(IChainSolver),
+            typeof(ConstraintStack).GetProperty(nameof(ConstraintStack.Solver))?.PropertyType
+        );
     }
 
     static MoveSet Locomotion() =>

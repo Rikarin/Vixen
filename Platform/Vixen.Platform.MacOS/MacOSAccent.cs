@@ -9,8 +9,11 @@ namespace Vixen.Platform.MacOS;
 /// <summary>The accent colour macOS is set to, read out of AppKit's semantic colours.</summary>
 /// <remarks>
 ///     <para>
-///         <b><c>+[NSColor controlAccentColor]</c>, and <i>not</i> <c>AppleAccentColor</c> in
-///         <c>NSUserDefaults</c>.</b> The defaults key is an index rather than a colour — one of
+///         <b>
+///             <c>+[NSColor controlAccentColor]</c>, and <i>not</i> <c>AppleAccentColor</c> in
+///             <c>NSUserDefaults</c>.
+///         </b>
+///         The defaults key is an index rather than a colour — one of
 ///         eight, with the key absent altogether when the user has never moved off the default —
 ///         so a reader built on it needs a hard-coded table of Apple's eight accent colours plus a
 ///         ninth answer for "absent", and every one of those nine is a value Apple owns and this
@@ -25,8 +28,12 @@ namespace Vixen.Platform.MacOS;
 ///         every Mac; <c>controlAccentColor</c> answers the blue that machine is actually drawing.
 ///     </para>
 ///     <para>
-///         ⚠ <b>AppKit, from a process with no <c>NSApplication</c>, and that is measured rather
-///         than assumed.</b> Three files in this repository recorded that the platform's palette
+///         ⚠
+///         <b>
+///             AppKit, from a process with no <c>NSApplication</c>, and that is measured rather
+///             than assumed.
+///         </b>
+///         Three files in this repository recorded that the platform's palette
 ///         could not be read because "an SDL process has no <c>NSApplication</c> and <c>NSColor</c>
 ///         wants one". It is false — a semantic colour is a <i>class</i> method resolved against
 ///         <c>NSAppearance.currentDrawingAppearance</c>, which has a sensible value with no
@@ -68,7 +75,7 @@ public static class MacOSAccent {
             return SystemAccent.Unknown;
         }
 
-        return new SystemAccent(accent, Component("alternateSelectedControlTextColor"));
+        return new(accent, Component("alternateSelectedControlTextColor"));
     }
 
     /// <summary>One <c>+[NSColor …]</c> class colour, resolved into sRGB.</summary>
@@ -79,8 +86,12 @@ public static class MacOSAccent {
     ///         has been resolved against a colour space, and asking one for it raises.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Every message here is guarded by <c>respondsToSelector:</c> or by a nil check,
-    ///         because the failure mode of neither is a wrong colour.</b> An unimplemented selector
+    ///         ⚠
+    ///         <b>
+    ///             Every message here is guarded by <c>respondsToSelector:</c> or by a nil check,
+    ///             because the failure mode of neither is a wrong colour.
+    ///         </b>
+    ///         An unimplemented selector
     ///         raises, and an Objective-C exception unwinding into managed code takes the process
     ///         with it — which for a colour nobody asked for would be an application that will not
     ///         start on an older macOS.

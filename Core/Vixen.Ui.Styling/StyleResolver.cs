@@ -44,8 +44,12 @@ public sealed class StyleResolver {
     /// <param name="scopes">
     ///     Which <c>@media</c> groups hold on each surface the rule set is shown on.
     ///     <para>
-    ///         ⚠ <b>Read off the element's own scope rather than taken as an argument, and that is
-    ///         the point.</b> A verdict parameter would be a parameter every one of the cascade's
+    ///         ⚠
+    ///         <b>
+    ///             Read off the element's own scope rather than taken as an argument, and that is
+    ///             the point.
+    ///         </b>
+    ///         A verdict parameter would be a parameter every one of the cascade's
     ///         callers could forget, and forgetting it is silent — a query that stops matching, which
     ///         is this subsystem's recurring defect. Which surface an element is in is a fact about
     ///         the element, held next to its classes, and the cascade looks it up the same way.
@@ -80,7 +84,7 @@ public sealed class StyleResolver {
         this.interning = interning;
         this.scopes = scopes;
         this.containers = containers;
-        inherited = new InheritedProperties(rules.Properties);
+        inherited = new(rules.Properties);
     }
 
     /// <summary>How many elements got a style from the sharing cache rather than the cascade.</summary>
@@ -189,15 +193,15 @@ public sealed class StyleResolver {
             styles[i] = ResolvedAncestor?.Invoke(tree, index)
                 ?? CascadeCore(
                     tree,
-                    new StyleNodeId(index),
+                    new(index),
                     parent,
                     tree.InlineAt(index),
-                    new ArraySegment<ComputedStyle>(styles, i + 1, count - i - 1),
+                    new(styles, i + 1, count - i - 1),
                     PseudoElement.None
                 );
         }
 
-        return new ArraySegment<ComputedStyle>(styles, 0, count);
+        return new(styles, 0, count);
     }
 
     /// <summary>Whether any candidate that can apply to this element sits in a group that asks above the parent.</summary>
@@ -298,7 +302,12 @@ public sealed class StyleResolver {
     ///         <c>style</c> attribute on a box that has no element.
     ///     </para>
     /// </remarks>
-    public ComputedStyle? ResolvePseudo(StyleTree tree, StyleNodeId element, PseudoElement pseudo, ComputedStyle originating) {
+    public ComputedStyle? ResolvePseudo(
+        StyleTree tree,
+        StyleNodeId element,
+        PseudoElement pseudo,
+        ComputedStyle originating
+    ) {
         ArgumentNullException.ThrowIfNull(tree);
         ArgumentNullException.ThrowIfNull(originating);
 
@@ -408,7 +417,14 @@ public sealed class StyleResolver {
 
             if (styleQueries
                 && candidate.Containers != ContainerConditions.Unconditional
-                && !containers.Conditions.StyleHolds(candidate.Containers, parent, ancestors, contained, rules.Properties, rules.Values)) {
+                && !containers.Conditions.StyleHolds(
+                    candidate.Containers,
+                    parent,
+                    ancestors,
+                    contained,
+                    rules.Properties,
+                    rules.Values
+                )) {
                 continue;
             }
 
@@ -427,7 +443,7 @@ public sealed class StyleResolver {
             foreach (var declaration in rules.DeclarationsOf(candidate.Declarations)) {
                 Offer(
                     declaration,
-                    new CascadePrecedence(
+                    new(
                         CascadeRanks.Of(candidate.Origin, declaration.Important),
                         declaration.Important
                             ? rules.Layers.ImportantRank(candidate.Layer)
@@ -467,14 +483,14 @@ public sealed class StyleResolver {
             return;
         }
 
-        winners[declaration.Property] = new Winner(declaration.Value, precedence);
+        winners[declaration.Property] = new(declaration.Value, precedence);
     }
 
     ComputedStyle Build(ComputedStyle? parent) {
         pairs.Clear();
 
         foreach (var (property, winner) in winners) {
-            pairs.Add(new KeyValuePair<int, int>(property, winner.Value));
+            pairs.Add(new(property, winner.Value));
         }
 
         // Inheritance fills what the cascade did not settle. It runs over the *parent's* resolved
@@ -490,7 +506,7 @@ public sealed class StyleResolver {
                     continue;
                 }
 
-                pairs.Add(new KeyValuePair<int, int>(property, values[i]));
+                pairs.Add(new(property, values[i]));
             }
         }
 
@@ -544,13 +560,13 @@ public sealed class StyleResolver {
                 if (parent is not null
                     && inherited.Inherits(property)
                     && parent.TryGet(property, out var inheritedValue)) {
-                    pairs.Add(new KeyValuePair<int, int>(property, inheritedValue));
+                    pairs.Add(new(property, inheritedValue));
                 }
 
                 continue;
             }
 
-            pairs[i] = new KeyValuePair<int, int>(pairs[i].Key, rules.Values.Intern(substituted));
+            pairs[i] = new(pairs[i].Key, rules.Values.Intern(substituted));
         }
     }
 
@@ -558,15 +574,18 @@ public sealed class StyleResolver {
         var index = tree.Validate(element);
         var classHash = 0;
 
-        tree.ForEachClass(index, name => {
-            // Order-independent, because `class="a b"` and `class="b a"` are the same element as far
-            // as any selector can tell. Addition rather than a mixing combine for exactly that
-            // reason; the count travels alongside so a collision needs a second coincidence.
-            classHash += HashCode.Combine(name);
-        });
+        tree.ForEachClass(
+            index,
+            name => {
+                // Order-independent, because `class="a b"` and `class="b a"` are the same element as far
+                // as any selector can tell. Addition rather than a mixing combine for exactly that
+                // reason; the count travels alongside so a collision needs a second coincidence.
+                classHash += HashCode.Combine(name);
+            }
+        );
 
-        return new StyleSharingKey(
-            new StyleNodeId(tree.ParentOf(index)),
+        return new(
+            new(tree.ParentOf(index)),
             tree.TagOf(index),
             tree.IdOf(index),
             classHash,

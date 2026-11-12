@@ -81,8 +81,12 @@ public readonly record struct FoliageCellGrid(float Size = 32f) {
     /// <param name="radius">Its radius, in metres.</param>
     /// <returns>The cells, in row-major order.</returns>
     /// <remarks>
-    ///     ⚠ <b>Every cell the circle's <em>square</em> touches, which is a few too many at the
-    ///     corners.</b> The alternative is a per-cell distance test that rejects four cells out of a
+    ///     ⚠
+    ///     <b>
+    ///         Every cell the circle's <em>square</em> touches, which is a few too many at the
+    ///         corners.
+    ///     </b>
+    ///     The alternative is a per-cell distance test that rejects four cells out of a
     ///     few dozen and costs a square root each; what the caller does with a cell is test its
     ///     instances anyway, and an empty corner cell costs nothing.
     /// </remarks>
@@ -163,8 +167,12 @@ public sealed class FoliageChunk {
     /// <param name="index">Which one.</param>
     /// <param name="reach">How far the mesh extends from its origin at unit scale.</param>
     /// <remarks>
-    ///     ⚠ <b>The bounds are recomputed rather than shrunk in place, because a box cannot be
-    ///     un-grown.</b> Removing is rare — an erase stroke does it in bulk and then the caller asks
+    ///     ⚠
+    ///     <b>
+    ///         The bounds are recomputed rather than shrunk in place, because a box cannot be
+    ///         un-grown.
+    ///     </b>
+    ///     Removing is rare — an erase stroke does it in bulk and then the caller asks
     ///     once — so the honest cost is a pass over the survivors instead of a wrong box for ever.
     /// </remarks>
     public void RemoveAt(int index, float reach = 1f) {
@@ -192,8 +200,10 @@ public sealed class FoliageChunk {
     /// <param name="index">Which one.</param>
     /// <param name="instance">What it becomes.</param>
     /// <param name="reach">How far the mesh extends from its origin at unit scale.</param>
-    /// <remarks>What a gizmo drag on a selected tree does, and what Reapply does to every instance
-    ///     of a type at once.</remarks>
+    /// <remarks>
+    ///     What a gizmo drag on a selected tree does, and what Reapply does to every instance
+    ///     of a type at once.
+    /// </remarks>
     public void Replace(int index, in FoliageInstance instance, float reach = 1f) {
         instances[index] = instance;
         Recompute(reach);

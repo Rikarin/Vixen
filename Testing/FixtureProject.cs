@@ -14,8 +14,12 @@ namespace Vixen.Testing;
 /// <remarks>
 ///     <para>
 ///         <c>docs/plan/12</c> § "Test infrastructure worth building early" asks for a
-///         <c>FixtureProject</c>: <i>"a synthetic Vixen project generator (N textures, M models, K
-///         scenes) for asset pipeline scale tests"</i>. This is that, and it is the last of the five
+///         <c>FixtureProject</c>:
+///         <i>
+///             "a synthetic Vixen project generator (N textures, M models, K
+///             scenes) for asset pipeline scale tests"
+///         </i>
+///         . This is that, and it is the last of the five
 ///         that section names.
 ///     </para>
 ///     <para>
@@ -27,8 +31,12 @@ namespace Vixen.Testing;
 ///         test cannot assert against arithmetic the fixture did not actually perform.
 ///     </para>
 ///     <para>
-///         ⚠ <b>And that is why <see cref="Write" /> refuses three things rather than returning a
-///         project.</b> A fixture is an instrument like any other in this repository, and every one
+///         ⚠
+///         <b>
+///             And that is why <see cref="Write" /> refuses three things rather than returning a
+///             project.
+///         </b>
+///         A fixture is an instrument like any other in this repository, and every one
 ///         of the three refusals replaces a form that is <i>green</i> when it should be red:
 ///     </para>
 ///     <list type="bullet">
@@ -172,10 +180,10 @@ sealed class FixtureProject {
         var pixels = new byte[4 * 4 * 4];
 
         for (var pixel = 0; pixel < 4 * 4; pixel++) {
-            pixels[(pixel * 4) + 0] = (byte)(index * 7);
-            pixels[(pixel * 4) + 1] = (byte)(pixel * 17);
-            pixels[(pixel * 4) + 2] = (byte)(index + pixel);
-            pixels[(pixel * 4) + 3] = 255;
+            pixels[pixel * 4] = (byte)(index * 7);
+            pixels[pixel * 4 + 1] = (byte)(pixel * 17);
+            pixels[pixel * 4 + 2] = (byte)(index + pixel);
+            pixels[pixel * 4 + 3] = 255;
         }
 
         return PngCodec.Encode(new(4, 4, pixels));
@@ -246,7 +254,7 @@ sealed class FixtureProject {
             return 0;
         }
 
-        var folders = ((Blobs - 1) / BlobsPerFolder) + 1;
+        var folders = (Blobs - 1) / BlobsPerFolder + 1;
 
         for (var folder = 0; folder < folders; folder++) {
             Directory.CreateDirectory(Path.Combine(assets, "Bulk", folder.ToString(CultureInfo.InvariantCulture)));

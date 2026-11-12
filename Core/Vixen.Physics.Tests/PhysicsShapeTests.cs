@@ -112,10 +112,12 @@ public sealed class PhysicsShapeTests {
 
         var ball = world.Shapes.Sphere(0.5f);
 
-        var dumbbell = world.Shapes.Compound([
-            new(ball, new(-2f, 0f, 0f), Quaternion.Identity),
-            new(ball, new(2f, 0f, 0f), Quaternion.Identity)
-        ]);
+        var dumbbell = world.Shapes.Compound(
+            [
+                new(ball, new(-2f, 0f, 0f), Quaternion.Identity),
+                new(ball, new(2f, 0f, 0f), Quaternion.Identity)
+            ]
+        );
 
         world.CreateBody(BodyDescription.Static(dumbbell, Vector3.Zero));
 

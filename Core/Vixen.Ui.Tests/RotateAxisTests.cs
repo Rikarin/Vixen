@@ -25,9 +25,9 @@ public class RotateAxisTests {
     static UiElement Box(UiDocument document, string rotate) {
         document.Load(
             $$"""
-            root { width: 400px; height: 300px; }
-            #box { width: 100px; height: 40px; transform-origin: 0px 0px; rotate: {{rotate}}; }
-            """
+              root { width: 400px; height: 300px; }
+              #box { width: 100px; height: 40px; transform-origin: 0px 0px; rotate: {{rotate}}; }
+              """
         );
 
         var box = document.Create("div", document.Root, "box");
@@ -41,7 +41,7 @@ public class RotateAxisTests {
     /// <summary>Where the box's top-right corner ends up, which says the angle it turned by.</summary>
     static void Turned(UiElement box, float degrees) {
         var radians = degrees * MathF.PI / 180f;
-        var tip = box.Transform is { } transform ? transform.Apply(new Vector2(100f, 0f)) : new Vector2(100f, 0f);
+        var tip = box.Transform is { } transform ? transform.Apply(new(100f, 0f)) : new Vector2(100f, 0f);
 
         Assert.Equal(100f * MathF.Cos(radians), tip.X, Tolerance);
         Assert.Equal(100f * MathF.Sin(radians), tip.Y, Tolerance);
@@ -88,7 +88,7 @@ public class RotateAxisTests {
         using var document = new UiDocument(400f, 300f);
 
         var box = Box(document, rotate);
-        var tip = Assert.IsType<Vixen.Ui.Rendering.UiTransform>(box.Transform).Apply(new Vector2(100f, 0f));
+        var tip = Assert.IsType<Vixen.Ui.Rendering.UiTransform>(box.Transform).Apply(new(100f, 0f));
 
         Assert.Equal(x, tip.X, Tolerance);
         Assert.Equal(y, tip.Y, 0.1f);

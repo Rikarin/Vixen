@@ -40,9 +40,7 @@ public sealed class ContentReferenceTests {
     public void OnlyTheIdIsWritten() {
         var pointed = new ObjectId(0x1122334455667788, 0x99AABBCCDDEEFF00);
 
-        var bytes = Serializer.ToBytes(
-            new ReferringThing { Name = "", Albedo = new ContentReference<ReferencedThing>(pointed) }
-        );
+        var bytes = Serializer.ToBytes(new ReferringThing { Name = string.Empty, Albedo = new(pointed) });
 
         var read = Serializer.Read<ReferringThing>(bytes);
 
@@ -58,9 +56,7 @@ public sealed class ContentReferenceTests {
     [Fact]
     public void WithNoResolverAReferenceKnowsItsIdAndSaysItHasNoValue() {
         var read = Serializer.Read<ReferringThing>(
-            Serializer.ToBytes(
-                new ReferringThing { Albedo = new ContentReference<ReferencedThing>(new(1, 2)) }
-            )
+            Serializer.ToBytes(new ReferringThing { Albedo = new ContentReference<ReferencedThing>(new(1, 2)) })
         );
 
         Assert.False(read.Albedo!.IsResolved);
@@ -76,9 +72,7 @@ public sealed class ContentReferenceTests {
         var texture = new ReferencedThing { Name = "albedo" };
         var id = new ObjectId(1, 2);
 
-        var bytes = Serializer.ToBytes(
-            new ReferringThing { Albedo = new ContentReference<ReferencedThing>(id) }
-        );
+        var bytes = Serializer.ToBytes(new ReferringThing { Albedo = new(id) });
 
         ReferringThing read;
 
@@ -255,17 +249,17 @@ public sealed class ContentReferenceTests {
                 CatalogFormat.Version,
                 default,
                 "Windows",
-                planned.Select(entry => new CatalogEntry(
+                planned.Select(static entry => new CatalogEntry(
                         entry.Address,
                         entry.Id,
                         "Main",
                         ContentProvider.Local,
-                        [.. entry.Dependencies],
+                        [..entry.Dependencies],
                         [],
                         0
                     )
                 ),
-                [new("Main", "", default, 0, 0, CompressionMethod.Lz4, [])]
+                [new("Main", string.Empty, default, 0, 0, CompressionMethod.Lz4, [])]
             );
 
             return new(catalog, new LocalBundleSource(files, new("/bundles")));

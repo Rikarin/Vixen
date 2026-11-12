@@ -274,8 +274,7 @@ public readonly record struct TextureDescription(
     ResourceSharing Sharing = ResourceSharing.Exclusive
 ) {
     /// <summary>The mip level count, with <c>0</c> resolved to a full chain.</summary>
-    public int EffectiveMipLevels =>
-        MipLevels > 0 ? MipLevels : PixelFormats.MipLevelCount(Width, Height, Depth);
+    public int EffectiveMipLevels => MipLevels > 0 ? MipLevels : PixelFormats.MipLevelCount(Width, Height, Depth);
 
     /// <summary>How many bytes every level and layer occupies, tightly packed.</summary>
     /// <remarks>
@@ -308,9 +307,7 @@ public readonly record struct TextureDescription(
         }
 
         if (Width <= 0 || Height <= 0 || Depth <= 0) {
-            throw new ArgumentException(
-                $"Texture '{Name}' has a non-positive extent: {Width}×{Height}×{Depth}."
-            );
+            throw new ArgumentException($"Texture '{Name}' has a non-positive extent: {Width}×{Height}×{Depth}.");
         }
 
         if (Usage == TextureUsage.None) {
@@ -380,36 +377,39 @@ public readonly record struct SamplerDescription(
     public static SamplerDescription LinearRepeat => new(Name: "LinearRepeat");
 
     /// <summary>Trilinear, clamped to the edge — a full-screen or lookup texture.</summary>
-    public static SamplerDescription LinearClamp => new(
-        AddressU: AddressMode.ClampToEdge,
-        AddressV: AddressMode.ClampToEdge,
-        AddressW: AddressMode.ClampToEdge,
-        Name: "LinearClamp"
-    );
+    public static SamplerDescription LinearClamp =>
+        new(
+            AddressU: AddressMode.ClampToEdge,
+            AddressV: AddressMode.ClampToEdge,
+            AddressW: AddressMode.ClampToEdge,
+            Name: "LinearClamp"
+        );
 
     /// <summary>Unfiltered and clamped — a data texture where interpolation would be nonsense.</summary>
-    public static SamplerDescription PointClamp => new(
-        FilterMode.Nearest,
-        FilterMode.Nearest,
-        FilterMode.Nearest,
-        AddressMode.ClampToEdge,
-        AddressMode.ClampToEdge,
-        AddressMode.ClampToEdge,
-        Name: "PointClamp"
-    );
+    public static SamplerDescription PointClamp =>
+        new(
+            FilterMode.Nearest,
+            FilterMode.Nearest,
+            FilterMode.Nearest,
+            AddressMode.ClampToEdge,
+            AddressMode.ClampToEdge,
+            AddressMode.ClampToEdge,
+            Name: "PointClamp"
+        );
 
     /// <summary>
     ///     A shadow-comparison sampler: linear, clamped to a white border, comparing with
     ///     <see cref="CompareFunction.GreaterEqual" /> for the engine's reversed depth.
     /// </summary>
-    public static SamplerDescription Shadow => new(
-        AddressU: AddressMode.ClampToBorder,
-        AddressV: AddressMode.ClampToBorder,
-        AddressW: AddressMode.ClampToBorder,
-        Compare: CompareFunction.GreaterEqual,
-        Border: BorderColour.OpaqueWhite,
-        Name: "Shadow"
-    );
+    public static SamplerDescription Shadow =>
+        new(
+            AddressU: AddressMode.ClampToBorder,
+            AddressV: AddressMode.ClampToBorder,
+            AddressW: AddressMode.ClampToBorder,
+            Compare: CompareFunction.GreaterEqual,
+            Border: BorderColour.OpaqueWhite,
+            Name: "Shadow"
+        );
 }
 
 /// <summary>One attachment in a render pass.</summary>

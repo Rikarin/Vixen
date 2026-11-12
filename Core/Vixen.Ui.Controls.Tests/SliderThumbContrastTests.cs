@@ -10,8 +10,11 @@ namespace Vixen.Ui.Controls.Tests;
 /// <summary>Whether a slider's thumb can be found at all, in either palette — issue #594.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>The defect this replaces was invisible to every assertion in the project, and the
-///         reason is that the only measure of a thumb was how much light it emitted.</b>
+///         ⚠
+///         <b>
+///             The defect this replaces was invisible to every assertion in the project, and the
+///             reason is that the only measure of a thumb was how much light it emitted.
+///         </b>
 ///         <c>ControlHarness.InkIn</c> answers "did the thumb move" by summing brightness in a
 ///         rectangle, and a white thumb on a white surface adds none — so the tests that used it
 ///         were measuring the track's fill and passing. The light palette drew
@@ -48,10 +51,10 @@ public class SliderThumbContrastTests {
     const float ThumbSize = 14f;
 
     const string Css = """
-        root   { flex-direction: column; align-items: flex-start;
-                 background-color: var(--surface); padding: 10px; }
-        slider { width: 180px; height: 24px; }
-        """;
+                       root   { flex-direction: column; align-items: flex-start;
+                                background-color: var(--surface); padding: 10px; }
+                       slider { width: 180px; height: 24px; }
+                       """;
 
     /// <summary>A lone slider parked at its minimum, in one palette or the other.</summary>
     /// <remarks>
@@ -75,7 +78,7 @@ public class SliderThumbContrastTests {
     }
 
     /// <summary>Relative luminance of a colour the cascade has already decoded.</summary>
-    static double Luminance(Color4 color) => (0.2126d * color.R) + (0.7152d * color.G) + (0.0722d * color.B);
+    static double Luminance(Color4 color) => 0.2126d * color.R + 0.7152d * color.G + 0.0722d * color.B;
 
     /// <summary>The WCAG ratio between two colours, whichever way round they are.</summary>
     static double Contrast(Color4 left, Color4 right) {
@@ -91,12 +94,11 @@ public class SliderThumbContrastTests {
     ///     does not silently move which one this measures. The fixture holds one slider and nothing
     ///     else square, so a 14×14 box is the thumb and nothing else is.
     /// </remarks>
-    static List<DrawCommand> ThumbCommands(UiTest ui) =>
-        [
-            .. ui.Document.Drawing.Commands.Where(static command =>
-                MathF.Abs(command.Width - ThumbSize) < 0.01f && MathF.Abs(command.Height - ThumbSize) < 0.01f
-            )
-        ];
+    static List<DrawCommand> ThumbCommands(UiTest ui) => [
+        ..ui.Document.Drawing.Commands.Where(static command =>
+            MathF.Abs(command.Width - ThumbSize) < 0.01f && MathF.Abs(command.Height - ThumbSize) < 0.01f
+        )
+    ];
 
     /// <summary>The best any part of the thumb manages against a colour behind it.</summary>
     static double Findability(UiTest ui, Color4 ground) =>
@@ -111,10 +113,11 @@ public class SliderThumbContrastTests {
     /// </remarks>
     [Fact]
     public void A_thumb_at_the_minimum_stands_out_from_both_the_surface_and_the_track() {
-        var (ui, slider) = Parked(dark: false);
+        var (ui, slider) = Parked(false);
 
         using (ui) {
-            var surface = ui.ColorOf(ui.Document.Root, "--surface") ?? throw new InvalidOperationException("no surface");
+            var surface = ui.ColorOf(ui.Document.Root, "--surface")
+                ?? throw new InvalidOperationException("no surface");
             var track = ui.ColorOf(slider, "--track-color") ?? throw new InvalidOperationException("no track");
 
             Assert.True(
@@ -139,10 +142,11 @@ public class SliderThumbContrastTests {
     /// </remarks>
     [Fact]
     public void The_dark_palette_keeps_its_thumb_findable_too() {
-        var (ui, slider) = Parked(dark: true);
+        var (ui, slider) = Parked(true);
 
         using (ui) {
-            var surface = ui.ColorOf(ui.Document.Root, "--surface") ?? throw new InvalidOperationException("no surface");
+            var surface = ui.ColorOf(ui.Document.Root, "--surface")
+                ?? throw new InvalidOperationException("no surface");
             var track = ui.ColorOf(slider, "--track-color") ?? throw new InvalidOperationException("no track");
 
             Assert.True(Findability(ui, surface) >= Required, $"{Findability(ui, surface):0.00}:1 against the surface");
@@ -153,7 +157,7 @@ public class SliderThumbContrastTests {
     /// <summary>A fill and a ring, drawn in that order so the ring outlines the disc.</summary>
     [Fact]
     public void The_thumb_is_a_filled_disc_and_a_ring_around_it() {
-        var (ui, _) = Parked(dark: false);
+        var (ui, _) = Parked(false);
 
         using (ui) {
             var commands = ThumbCommands(ui);
@@ -189,12 +193,13 @@ public class SliderThumbContrastTests {
     /// </remarks>
     [Fact]
     public void The_ring_survives_rasterisation_and_the_bare_track_does_not() {
-        var (ui, slider) = Parked(dark: false);
+        var (ui, slider) = Parked(false);
 
         using (ui) {
-            var surface = ui.ColorOf(ui.Document.Root, "--surface") ?? throw new InvalidOperationException("no surface");
+            var surface = ui.ColorOf(ui.Document.Root, "--surface")
+                ?? throw new InvalidOperationException("no surface");
             var bounds = slider.Bounds;
-            var top = (int)MathF.Round(bounds.Y + ((bounds.Height - ThumbSize) * 0.5f));
+            var top = (int)MathF.Round(bounds.Y + (bounds.Height - ThumbSize) * 0.5f);
             var far = (int)MathF.Round(bounds.X + bounds.Width - ThumbSize);
 
             var (thumbPeak, thumbInked) = Window(ui, (int)MathF.Round(bounds.X), top, surface);
@@ -202,7 +207,10 @@ public class SliderThumbContrastTests {
 
             Assert.True(thumbPeak >= Required, $"the drawn thumb peaks at {thumbPeak:0.00}:1 against the surface");
             Assert.True(thumbInked > 20, $"only {thumbInked} pixels of the thumb are marked at all, which is a dot");
-            Assert.True(trackPeak < Required, $"bare track peaks at {trackPeak:0.00}:1, so this is not measuring a thumb");
+            Assert.True(
+                trackPeak < Required,
+                $"bare track peaks at {trackPeak:0.00}:1, so this is not measuring a thumb"
+            );
         }
     }
 

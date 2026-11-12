@@ -10,9 +10,13 @@ namespace Tests;
 
 /// <summary>A <c>Colour/Levels</c> left at its defaults is an identity, down to the slope of a height.</summary>
 /// <remarks>
-///     ⚠ <b>It dithered by one 8-bit step by default, on the argument that a bake is a file and a
-///     banded file is permanent. That argument belongs to an 8-bit encode, and a graph computes in 16
-///     or 32-bit float.</b> Noise of 1/255 between neighbouring texels is a slope, and a slope is
+///     ⚠
+///     <b>
+///         It dithered by one 8-bit step by default, on the argument that a bake is a file and a
+///         banded file is permanent. That argument belongs to an 8-bit encode, and a graph computes in 16
+///         or 32-bit float.
+///     </b>
+///     Noise of 1/255 between neighbouring texels is a slope, and a slope is
 ///     per texel, so <c>Surface/Height to Normal</c> reads it as a surface that is not flat.
 ///     27 of the shipped compounds hold a Levels, and <c>Surface/Bevel</c> feeds one straight into a
 ///     normal.
@@ -33,8 +37,8 @@ public class TextureLevelsDefaultDeviceTests(ITestOutputHelper output) {
 
         using var evaluator = new TexturePlanEvaluator(device);
 
-        var flat = Tilt(evaluator, dither: null, "levels-default");
-        var dithered = Tilt(evaluator, dither: 1f, "levels-dither-1");
+        var flat = Tilt(evaluator, null, "levels-default");
+        var dithered = Tilt(evaluator, 1f, "levels-dither-1");
 
         output.WriteLine($"{adapter}: worst tilt {flat:F3}° at the default, {dithered:F3}° at a dither of one");
 
@@ -83,11 +87,11 @@ public class TextureLevelsDefaultDeviceTests(ITestOutputHelper output) {
         var worst = 0f;
 
         for (var at = 0; at < Side * Side; at++) {
-            var x = ((float)BitConverter.ToHalf(raw.Texels.AsSpan(at * 8, 2)) * 2f) - 1f;
-            var y = ((float)BitConverter.ToHalf(raw.Texels.AsSpan((at * 8) + 2, 2)) * 2f) - 1f;
-            var z = ((float)BitConverter.ToHalf(raw.Texels.AsSpan((at * 8) + 4, 2)) * 2f) - 1f;
+            var x = (float)BitConverter.ToHalf(raw.Texels.AsSpan(at * 8, 2)) * 2f - 1f;
+            var y = (float)BitConverter.ToHalf(raw.Texels.AsSpan(at * 8 + 2, 2)) * 2f - 1f;
+            var z = (float)BitConverter.ToHalf(raw.Texels.AsSpan(at * 8 + 4, 2)) * 2f - 1f;
 
-            worst = MathF.Max(worst, MathF.Atan2(MathF.Sqrt((x * x) + (y * y)), z) * 180f / MathF.PI);
+            worst = MathF.Max(worst, MathF.Atan2(MathF.Sqrt(x * x + y * y), z) * 180f / MathF.PI);
         }
 
         if (Environment.GetEnvironmentVariable("VIXEN_TILING_PICTURES") is { } folder) {

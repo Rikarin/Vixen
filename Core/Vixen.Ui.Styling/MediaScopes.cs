@@ -20,8 +20,12 @@ namespace Vixen.Ui.Styling;
 ///         reference each.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Verdicts are re-evaluated lazily against <see cref="MediaConditions.Revision" />
-///         rather than eagerly on a reload.</b> A load registers groups one at a time — a sheet with
+///         ⚠
+///         <b>
+///             Verdicts are re-evaluated lazily against <see cref="MediaConditions.Revision" />
+///             rather than eagerly on a reload.
+///         </b>
+///         A load registers groups one at a time — a sheet with
 ///         forty <c>@media</c> blocks bumps the revision forty times — and evaluating every scope
 ///         after each would be quadratic in the number of windows for no observable difference. The
 ///         cost of the laziness is one integer compare on the path that reads them, which is the
@@ -65,8 +69,12 @@ public sealed class MediaScopes {
     /// <param name="context">What the surface is now.</param>
     /// <returns>Whether that changed any group's verdict here.</returns>
     /// <remarks>
-    ///     ⚠ <b>The return value is the guard a window drag rides on, and it is about the verdicts
-    ///     rather than the context.</b> A resize moves <see cref="MediaContext.Width" /> on every
+    ///     ⚠
+    ///     <b>
+    ///         The return value is the guard a window drag rides on, and it is about the verdicts
+    ///         rather than the context.
+    ///     </b>
+    ///     A resize moves <see cref="MediaContext.Width" /> on every
     ///     frame of it and almost never moves an answer; a caller that forgot everything on every
     ///     frame would re-cascade the whole window sixty times a second. A document with no
     ///     <c>@media</c> in it — which is every stylesheet this repository ships — has one group,
@@ -76,7 +84,7 @@ public sealed class MediaScopes {
         var before = VerdictsOf(scope);
         var after = conditions.Evaluate(context);
 
-        scopes[scope] = new Entry(context, after);
+        scopes[scope] = new(context, after);
 
         return before != after;
     }
@@ -90,7 +98,7 @@ public sealed class MediaScopes {
     ///     bug that should show as missing <c>@media</c> rules rather than as a crash mid-frame.
     /// </remarks>
     public MediaVerdicts VerdictsOf(int scope) {
-        if ((uint) scope >= (uint) scopes.Count) {
+        if ((uint)scope >= (uint)scopes.Count) {
             return default;
         }
 

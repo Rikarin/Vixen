@@ -24,8 +24,7 @@ public sealed class GrassDispatchTests : IDisposable {
 
     public void Dispose() => device.Dispose();
 
-    static GrassType Meadow =>
-        GrassType.Of("Meadow") with { Layer = "Grass", Density = 4f, Jitter = 0.8f };
+    static GrassType Meadow => GrassType.Of("Meadow") with { Layer = "Grass", Density = 4f, Jitter = 0.8f };
 
     static FoliageCellGrid Grid => new(32f);
 
@@ -52,21 +51,21 @@ public sealed class GrassDispatchTests : IDisposable {
             device.CreateSampler(new()),
             device.CreateSampler(new()),
             device.CreateSampler(new()),
-            WeightChannel: 1,
-            HeightMapSize: new(64f, 64f),
-            HeightRange: new(-100f, 100f),
-            MetresPerQuad: 1f,
-            Origin: Vector3.Zero,
-            TileSamples: 64f,
-            TileQuads: 63f,
-            AtlasTiles: new(1f, 1f)
+            1,
+            new(64f, 64f),
+            new(-100f, 100f),
+            1f,
+            Vector3.Zero,
+            64f,
+            63f,
+            new(1f, 1f)
         );
 
     /// <summary>A blade template with a real index count, for the tests that draw.</summary>
     static DrawCommand Blade => new() { IndexCount = 18u };
 
     static GrassSlot[] Resident(int count, int firstSlot = 0) =>
-        [.. Enumerable.Range(0, count).Select(index => new GrassSlot(new(index, 0), firstSlot + index))];
+        [..Enumerable.Range(0, count).Select(index => new GrassSlot(new(index, 0), firstSlot + index))];
 
     /// <summary>The records the shader reads are the size the shader declares.</summary>
     /// <remarks>
@@ -81,7 +80,10 @@ public sealed class GrassDispatchTests : IDisposable {
 
         // Which is a stored instance plus the per-instance parameters, and that is the point: a seam
         // test can compare bytes rather than interpretations.
-        Assert.Equal(FoliageStore.InstanceBytes + Features.InstanceParameters.SizeInBytes, GrassInstanceRecord.SizeInBytes);
+        Assert.Equal(
+            FoliageStore.InstanceBytes + Features.InstanceParameters.SizeInBytes,
+            GrassInstanceRecord.SizeInBytes
+        );
     }
 
     /// <summary>A blade from the reference packs to the record the dispatch writes.</summary>
@@ -121,10 +123,10 @@ public sealed class GrassDispatchTests : IDisposable {
     /// </remarks>
     [Fact]
     public void ARunIsFiledUnderTheRingSlot() {
-        using var pass = Build(capacity: 8, bladesPerCell: 256);
+        using var pass = Build();
 
         // Slots 3, 4, 5 — deliberately not 0, 1, 2.
-        pass.Prepare(Meadow, Grid, Resident(3, firstSlot: 3), Source(), Blade);
+        pass.Prepare(Meadow, Grid, Resident(3, 3), Source(), Blade);
 
         var (offset, length) = pass.RunOf(3);
 
@@ -135,7 +137,7 @@ public sealed class GrassDispatchTests : IDisposable {
     /// <summary>More cells than the dispatch holds is announced rather than silent.</summary>
     [Fact]
     public void ADispatchThatRunsOutSaysSo() {
-        using var pass = Build(capacity: 4);
+        using var pass = Build(4);
 
         var covered = pass.Prepare(Meadow, Grid, Resident(9), Source(), Blade);
 
@@ -237,8 +239,12 @@ public sealed class GrassDispatchTests : IDisposable {
 
     /// <summary>The counters are zeroed before the dispatch, not after.</summary>
     /// <remarks>
-    ///     ⚠ <b>A pass that cleared afterwards leaves the buffer holding last frame's numbers for
-    ///     anything that reads it in between</b> — and what reads it is the indirect draw, which would
+    ///     ⚠
+    ///     <b>
+    ///         A pass that cleared afterwards leaves the buffer holding last frame's numbers for
+    ///         anything that reads it in between
+    ///     </b>
+    ///     — and what reads it is the indirect draw, which would
     ///     then draw a cell's previous population out of its current bytes.
     /// </remarks>
     [Fact]
@@ -255,8 +261,8 @@ public sealed class GrassDispatchTests : IDisposable {
         device.GraphicsQueue.Submit([commands]);
 
         var recorded = device.Recorder.Commands;
-        var copy = recorded.ToList().FindIndex(entry => entry.Kind == RecordedCommandKind.CopyBuffer);
-        var dispatch = recorded.ToList().FindIndex(entry => entry.Kind == RecordedCommandKind.Dispatch);
+        var copy = recorded.ToList().FindIndex(static entry => entry.Kind == RecordedCommandKind.CopyBuffer);
+        var dispatch = recorded.ToList().FindIndex(static entry => entry.Kind == RecordedCommandKind.Dispatch);
 
         Assert.True(copy >= 0, "the counters were never cleared.");
         Assert.True(dispatch >= 0, "nothing was dispatched.");
@@ -277,7 +283,7 @@ public sealed class GrassDispatchTests : IDisposable {
         commands.Finish();
         device.GraphicsQueue.Submit([commands]);
 
-        var barriers = device.Recorder.Commands.Count(entry => entry.Kind == RecordedCommandKind.Barrier);
+        var barriers = device.Recorder.Commands.Count(static entry => entry.Kind == RecordedCommandKind.Barrier);
 
         Assert.True(barriers >= 2, $"only {barriers} barriers around a compute write two things read.");
     }
@@ -313,7 +319,7 @@ public sealed class GrassDispatchTests : IDisposable {
     /// </remarks>
     [Fact]
     public void TheArgumentsAreASecondDispatchOverTheCells() {
-        using var pass = Build(capacity: 8);
+        using var pass = Build();
 
         pass.Prepare(Meadow, Grid, Resident(3), Source(), Blade);
         device.Recorder!.Clear();
@@ -325,12 +331,12 @@ public sealed class GrassDispatchTests : IDisposable {
         device.GraphicsQueue.Submit([commands]);
 
         var recorded = device.Recorder.Commands.ToList();
-        var dispatches = recorded.FindAll(entry => entry.Kind == RecordedCommandKind.Dispatch);
-        var first = recorded.FindIndex(entry => entry.Kind == RecordedCommandKind.Dispatch);
-        var second = recorded.FindLastIndex(entry => entry.Kind == RecordedCommandKind.Dispatch);
+        var dispatches = recorded.FindAll(static entry => entry.Kind == RecordedCommandKind.Dispatch);
+        var first = recorded.FindIndex(static entry => entry.Kind == RecordedCommandKind.Dispatch);
+        var second = recorded.FindLastIndex(static entry => entry.Kind == RecordedCommandKind.Dispatch);
         var between = recorded
             .GetRange(first + 1, second - first - 1)
-            .Count(entry => entry.Kind == RecordedCommandKind.Barrier);
+            .Count(static entry => entry.Kind == RecordedCommandKind.Barrier);
 
         Assert.Equal(2, dispatches.Count);
         Assert.True(between > 0, "the argument phase reads what the scatter wrote, unfenced.");
@@ -420,7 +426,10 @@ public sealed class GrassDispatchTests : IDisposable {
         commands.Finish();
         device.GraphicsQueue.Submit([commands]);
 
-        Assert.Equal(4, device.Recorder.Commands.Count(entry => entry.Kind == RecordedCommandKind.DrawIndexedIndirect));
+        Assert.Equal(
+            4,
+            device.Recorder.Commands.Count(static entry => entry.Kind == RecordedCommandKind.DrawIndexedIndirect)
+        );
     }
 
     /// <summary>And nothing resident is nothing drawn.</summary>

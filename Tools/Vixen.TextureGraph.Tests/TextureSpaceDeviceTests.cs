@@ -37,7 +37,7 @@ public class TextureSpaceDeviceTests(ITestOutputHelper output) {
     const float EighthTurn = MathF.PI / 4f;
 
     static TextureOp Op(string kernel, int output, int[] inputs, TextureParameter[] parameters) =>
-        new() { Kernel = kernel, Output = output, Inputs = [.. inputs], Parameters = [.. parameters] };
+        new() { Kernel = kernel, Output = output, Inputs = [..inputs], Parameters = [..parameters] };
 
     static TextureParameter[] Identity() => [
         new("rotation", 0f),
@@ -56,17 +56,18 @@ public class TextureSpaceDeviceTests(ITestOutputHelper output) {
         float scale,
         TextureTiling tiling,
         TextureFilter filter
-    ) => [
-        new("rotation", rotation),
-        new("scaleX", scale),
-        new("scaleY", scale),
-        new("offsetX", 0f),
-        new("offsetY", 0f),
-        new("shearX", 0f),
-        new("shearY", 0f),
-        new("tiling", (float)tiling),
-        new("filter", (float)filter)
-    ];
+    ) =>
+        [
+            new("rotation", rotation),
+            new("scaleX", scale),
+            new("scaleY", scale),
+            new("offsetX", 0f),
+            new("offsetY", 0f),
+            new("shearX", 0f),
+            new("shearY", 0f),
+            new("tiling", (float)tiling),
+            new("filter", (float)filter)
+        ];
 
     static Bitmap AsPicture(byte[] pixels, int side) => new(side, side, pixels);
 
@@ -169,8 +170,11 @@ public class TextureSpaceDeviceTests(ITestOutputHelper output) {
     ///     ⚠ Minified by eight, a one-texel checkerboard is grey — which is § 4.3's whole warning.
     /// </summary>
     /// <remarks>
-    ///     <b>The closed form: the pattern's mean is exactly one half, so any area-correct
-    ///     minification of it is 128 everywhere.</b> A point-sampled transform gives 0 or 255
+    ///     <b>
+    ///         The closed form: the pattern's mean is exactly one half, so any area-correct
+    ///         minification of it is 128 everywhere.
+    ///     </b>
+    ///     A point-sampled transform gives 0 or 255
     ///     everywhere and a badly-sampled one gives a moiré — and the artefact is invariably blamed on
     ///     the generator upstream, because a transform node has no obvious reason to change what a
     ///     noise looks like. The evaluator binds no samplers, so there is no mip chain to ask for:
@@ -200,8 +204,12 @@ public class TextureSpaceDeviceTests(ITestOutputHelper output) {
     ///         <b>And the finding underneath it.</b> Issue #567's exit criterion is agreement between
     ///         a 1K and a downsampled 4K bake within 2/255, and § D8's machinery for it —
     ///         <c>TextureParameterUnit.TexelsAtBase</c> and <c>TexturePlan.Resolve</c> — applies to
-    ///         lengths in texels. <b>Not one parameter of § 4.2's or § 4.3's fourteen kernels is a
-    ///         length in texels.</b> A rotation is an angle, a scale is a ratio, an offset is a
+    ///         lengths in texels.
+    ///         <b>
+    ///             Not one parameter of § 4.2's or § 4.3's fourteen kernels is a
+    ///             length in texels.
+    ///         </b>
+    ///         A rotation is an angle, a scale is a ratio, an offset is a
     ///         fraction of the image, a rect is normalised and a repeat is a count — so these kernels
     ///         are resolution-independent by construction, and
     ///         <a href="https://github.com/Rikarin/Vixen/issues/619">#619</a>'s rework of the base
@@ -250,7 +258,7 @@ public class TextureSpaceDeviceTests(ITestOutputHelper output) {
 
         for (var y = 0; y < side; y++) {
             for (var x = 0; x < side; x++) {
-                var at = ((y * side) + x) * 4;
+                var at = (y * side + x) * 4;
                 var value = (byte)(x * 255 / (side - 1));
 
                 pixels[at] = value;
@@ -484,12 +492,12 @@ public class TextureSpaceDeviceTests(ITestOutputHelper output) {
             for (var x = 0; x < Side / 2; x++) {
                 Assert.Equal(
                     TextureKernelHarness.At(picture, x, y, 0),
-                    TextureKernelHarness.At(picture, x + (Side / 2), y, 0)
+                    TextureKernelHarness.At(picture, x + Side / 2, y, 0)
                 );
 
                 Assert.Equal(
                     TextureKernelHarness.At(picture, x, y, 1),
-                    TextureKernelHarness.At(picture, x, y + (Side / 2), 1)
+                    TextureKernelHarness.At(picture, x, y + Side / 2, 1)
                 );
             }
         }
@@ -523,10 +531,18 @@ public class TextureSpaceDeviceTests(ITestOutputHelper output) {
     ///     <c>TextureFilter</c>, because the enum is internal to the assembly under test.
     /// </param>
     /// <remarks>
-    ///     ⚠ <b>The bilinear case is the one that carries this test, and the point case on its own
-    ///     would not have.</b> The mistake a crop is actually prone to is a half-texel drift — reading
-    ///     at the output texel's corner instead of its centre — and the point filter <em>rounds that
-    ///     away</em>: a source position half a texel low still lands on the same texel. Under
+    ///     ⚠
+    ///     <b>
+    ///         The bilinear case is the one that carries this test, and the point case on its own
+    ///         would not have.
+    ///     </b>
+    ///     The mistake a crop is actually prone to is a half-texel drift — reading
+    ///     at the output texel's corner instead of its centre — and the point filter
+    ///     <em>
+    ///         rounds that
+    ///         away
+    ///     </em>
+    ///     : a source position half a texel low still lands on the same texel. Under
     ///     bilinear it is a fifty-fifty blend of two neighbours, and every texel of a picture where no
     ///     two are alike disagrees.
     /// </remarks>
@@ -656,7 +672,13 @@ public class TextureSpaceDeviceTests(ITestOutputHelper output) {
         var source = TextureKernelHarness.Columns(Side);
 
         var boxed = OneOp(device, source, Side, Op("Resample", 1, [0], [new("filter", (float)TextureFilter.Box)]), 1);
-        var pointed = OneOp(device, source, Side, Op("Resample", 1, [0], [new("filter", (float)TextureFilter.Point)]), 1);
+        var pointed = OneOp(
+            device,
+            source,
+            Side,
+            Op("Resample", 1, [0], [new("filter", (float)TextureFilter.Point)]),
+            1
+        );
 
         Assert.Equal(Side / 2, boxed.Width);
 

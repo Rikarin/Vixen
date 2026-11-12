@@ -32,7 +32,7 @@ public sealed class ClusterTraversalAcceptsTests {
         var scene = Scene(out var instance);
         var view = View();
 
-        var result = GpuClusterCulling.Traverse(scene, instance, view, _ => true);
+        var result = GpuClusterCulling.Traverse(scene, instance, view, static _ => true);
 
         Assert.True(
             result.Visible.Length > 0,
@@ -87,7 +87,7 @@ public sealed class ClusterTraversalAcceptsTests {
             Stages = new(1u)
         };
 
-        var packed = GpuCulling.Pack(render, 0, 0, default, 0);
+        var packed = GpuCulling.Pack(render, 0, 0, default);
 
         packed.ErrorScale = GpuClusterCulling.ErrorScaleFor(render.ScreenHeightScale, 128);
         packed.ErrorThreshold = 1f;
@@ -102,15 +102,13 @@ public sealed class ClusterTraversalAcceptsTests {
 
         for (var y = 0; y <= segments; y++) {
             for (var x = 0; x <= segments; x++) {
-                positions.Add(
-                    new((((float)x / segments) - 0.5f) * 4f, (((float)y / segments) - 0.5f) * 4f, -4f)
-                );
+                positions.Add(new(((float)x / segments - 0.5f) * 4f, ((float)y / segments - 0.5f) * 4f, -4f));
             }
         }
 
         for (var y = 0; y < segments; y++) {
             for (var x = 0; x < segments; x++) {
-                var a = (y * (segments + 1)) + x;
+                var a = y * (segments + 1) + x;
                 var c = a + segments + 1;
 
                 indices.AddRange([a, a + 1, c]);
@@ -118,7 +116,7 @@ public sealed class ClusterTraversalAcceptsTests {
             }
         }
 
-        var input = new MeshletBuildInput { Positions = [.. positions], Indices = [.. indices] };
+        var input = new MeshletBuildInput { Positions = [..positions], Indices = [..indices] };
         var mesh = MeshletBuilder.Build(input);
 
         return (mesh, MeshletPageBuilder.Build(mesh, input.Positions, [], new() { PageSize = 8 * 1024 }));

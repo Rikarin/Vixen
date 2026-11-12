@@ -235,7 +235,7 @@ public sealed class SystemTests {
             }
         }
 
-        Assert.Equal((499 * 500 / 2) + 500, total);
+        Assert.Equal(499 * 500 / 2 + 500, total);
     }
 
     [Fact]

@@ -19,8 +19,11 @@ namespace Vixen.Core.Mathematics;
 ///         cospherical eight at a time and no amount of tolerance decides anything about them.
 ///     </para>
 ///     <para>
-///         <strong>The Delaunay property is what makes this worth building rather than any old
-///         tetrahedralisation.</strong> A cell's circumsphere is empty of other points, so the
+///         <strong>
+///             The Delaunay property is what makes this worth building rather than any old
+///             tetrahedralisation.
+///         </strong>
+///         A cell's circumsphere is empty of other points, so the
 ///         four points a position interpolates between are its natural neighbours rather than
 ///         whichever four a mesh generator happened to group. For light probes that is the
 ///         difference between indirect light that changes smoothly as an object walks across a
@@ -173,7 +176,8 @@ public sealed class DelaunayTetrahedralization {
     ///     the position is beyond means the position is outside the hull, because the hull is what
     ///     the boundary is.
     /// </remarks>
-    public bool TryFind(Vector3 position, out int cell, out Vector4 weights) => TryFind(position, 0, out cell, out weights);
+    public bool TryFind(Vector3 position, out int cell, out Vector4 weights) =>
+        TryFind(position, 0, out cell, out weights);
 
     /// <summary><see cref="TryFind(Vector3, out int, out Vector4)" />, starting the walk from a hint.</summary>
     /// <param name="position">Where to look.</param>
@@ -209,7 +213,7 @@ public sealed class DelaunayTetrahedralization {
                 // and being beyond the hull is the answer rather than a step. This test has to
                 // come before the one below it: on a single-cell mesh every face is a boundary,
                 // and "no neighbour" and "the neighbour we came from" are both -1.
-                var neighbour = cellNeighbours[(current * 4) + face];
+                var neighbour = cellNeighbours[current * 4 + face];
 
                 if (neighbour < 0) {
                     return false;
@@ -241,9 +245,9 @@ public sealed class DelaunayTetrahedralization {
         var slot = face * 3;
 
         return ExactPredicates.Orient3D(
-            vertices[cellVertices[(cell * 4) + FaceVertices[slot]]],
-            vertices[cellVertices[(cell * 4) + FaceVertices[slot + 1]]],
-            vertices[cellVertices[(cell * 4) + FaceVertices[slot + 2]]],
+            vertices[cellVertices[cell * 4 + FaceVertices[slot]]],
+            vertices[cellVertices[cell * 4 + FaceVertices[slot + 1]]],
+            vertices[cellVertices[cell * 4 + FaceVertices[slot + 2]]],
             position
         );
     }
@@ -257,9 +261,9 @@ public sealed class DelaunayTetrahedralization {
     /// </remarks>
     Vector4 Barycentric(int cell, Vector3 position) {
         var a = vertices[cellVertices[cell * 4]];
-        var b = vertices[cellVertices[(cell * 4) + 1]];
-        var c = vertices[cellVertices[(cell * 4) + 2]];
-        var d = vertices[cellVertices[(cell * 4) + 3]];
+        var b = vertices[cellVertices[cell * 4 + 1]];
+        var c = vertices[cellVertices[cell * 4 + 2]];
+        var d = vertices[cellVertices[cell * 4 + 3]];
 
         var whole = SignedVolume(a, b, c, d);
         if (whole == 0d) {
@@ -280,9 +284,9 @@ public sealed class DelaunayTetrahedralization {
         double bdx = b.X - (double)d.X, bdy = b.Y - (double)d.Y, bdz = b.Z - (double)d.Z;
         double cdx = c.X - (double)d.X, cdy = c.Y - (double)d.Y, cdz = c.Z - (double)d.Z;
 
-        return (adx * ((bdy * cdz) - (bdz * cdy)))
-            + (bdx * ((cdy * adz) - (cdz * ady)))
-            + (cdx * ((ady * bdz) - (adz * bdy)));
+        return adx * (bdy * cdz - bdz * cdy)
+            + bdx * (cdy * adz - cdz * ady)
+            + cdx * (ady * bdz - adz * bdy);
     }
 
     static Vector3[] Deduplicate(ReadOnlySpan<Vector3> positions) {
@@ -299,7 +303,7 @@ public sealed class DelaunayTetrahedralization {
             }
         }
 
-        return [.. distinct];
+        return [..distinct];
     }
 
     /// <summary>One incremental construction, over one enclosure size.</summary>
@@ -331,7 +335,7 @@ public sealed class DelaunayTetrahedralization {
 
             // A Delaunay tetrahedralisation of n points has O(n²) cells in the worst case and
             // about 7n in every case anybody meets. Start near the second and double from there.
-            var capacity = (input.Length * 8) + 64;
+            var capacity = input.Length * 8 + 64;
             vertices = new int[capacity * 4];
             neighbours = new int[capacity * 4];
             alive = new bool[capacity];
@@ -379,10 +383,10 @@ public sealed class DelaunayTetrahedralization {
             var extent = Vector3.Distance(minimum, maximum) * 0.5f;
             var reach = MathF.Max(extent, 1e-6f) * scale;
 
-            corners[0] = centre + (new Vector3(1f, 1f, 1f) * reach);
-            corners[1] = centre + (new Vector3(1f, -1f, -1f) * reach);
-            corners[2] = centre + (new Vector3(-1f, 1f, -1f) * reach);
-            corners[3] = centre + (new Vector3(-1f, -1f, 1f) * reach);
+            corners[0] = centre + new Vector3(1f, 1f, 1f) * reach;
+            corners[1] = centre + new Vector3(1f, -1f, -1f) * reach;
+            corners[2] = centre + new Vector3(-1f, 1f, -1f) * reach;
+            corners[3] = centre + new Vector3(-1f, -1f, 1f) * reach;
         }
 
         void Insert(int point) {
@@ -402,7 +406,7 @@ public sealed class DelaunayTetrahedralization {
                 var cell = cavity.Pop();
 
                 for (var face = 0; face < 4; face++) {
-                    var neighbour = neighbours[(cell * 4) + face];
+                    var neighbour = neighbours[cell * 4 + face];
 
                     if (neighbour >= 0 && !alive[neighbour]) {
                         continue;
@@ -419,9 +423,9 @@ public sealed class DelaunayTetrahedralization {
                     // The face is on the cavity's boundary. Record what it is made of now, while
                     // the cell that holds it still exists: the cells are about to be recycled.
                     var slot = face * 3;
-                    boundary.Add(vertices[(cell * 4) + FaceVertices[slot]]);
-                    boundary.Add(vertices[(cell * 4) + FaceVertices[slot + 1]]);
-                    boundary.Add(vertices[(cell * 4) + FaceVertices[slot + 2]]);
+                    boundary.Add(vertices[cell * 4 + FaceVertices[slot]]);
+                    boundary.Add(vertices[cell * 4 + FaceVertices[slot + 1]]);
+                    boundary.Add(vertices[cell * 4 + FaceVertices[slot + 2]]);
                     boundary.Add(neighbour);
                     boundary.Add(neighbour < 0 ? -1 : FaceTowards(neighbour, cell));
                 }
@@ -443,10 +447,10 @@ public sealed class DelaunayTetrahedralization {
                 // is therefore positively oriented without anything having to check.
                 var cell = AddCell(v0, v1, v2, point);
 
-                neighbours[(cell * 4) + 3] = outside;
+                neighbours[cell * 4 + 3] = outside;
 
                 if (outside >= 0) {
-                    neighbours[(outside * 4) + outsideFace] = cell;
+                    neighbours[outside * 4 + outsideFace] = cell;
                 }
 
                 // The three remaining faces each contain the new point and one edge of the
@@ -462,18 +466,18 @@ public sealed class DelaunayTetrahedralization {
             var key = from < to ? ((long)from << 32) | (uint)to : ((long)to << 32) | (uint)from;
 
             if (edges.Remove(key, out var other)) {
-                neighbours[(cell * 4) + face] = other >> 2;
+                neighbours[cell * 4 + face] = other >> 2;
                 neighbours[other] = cell;
             } else {
-                edges[key] = (cell * 4) + face;
-                neighbours[(cell * 4) + face] = -1;
+                edges[key] = cell * 4 + face;
+                neighbours[cell * 4 + face] = -1;
             }
         }
 
         /// <summary>Which of <paramref name="cell" />'s faces looks at <paramref name="towards" />.</summary>
         int FaceTowards(int cell, int towards) {
             for (var face = 0; face < 4; face++) {
-                if (neighbours[(cell * 4) + face] == towards) {
+                if (neighbours[cell * 4 + face] == towards) {
                     return face;
                 }
             }
@@ -484,16 +488,17 @@ public sealed class DelaunayTetrahedralization {
         bool InCircumsphere(int cell, int point) =>
             ExactPredicates.InSphere(
                 points[vertices[cell * 4]],
-                points[vertices[(cell * 4) + 1]],
-                points[vertices[(cell * 4) + 2]],
-                points[vertices[(cell * 4) + 3]],
+                points[vertices[cell * 4 + 1]],
+                points[vertices[cell * 4 + 2]],
+                points[vertices[cell * 4 + 3]],
                 points[point],
                 vertices[cell * 4],
-                vertices[(cell * 4) + 1],
-                vertices[(cell * 4) + 2],
-                vertices[(cell * 4) + 3],
+                vertices[cell * 4 + 1],
+                vertices[cell * 4 + 2],
+                vertices[cell * 4 + 3],
                 point
-            ) > 0;
+            )
+            > 0;
 
         /// <summary>The cell containing a position, found by walking towards it.</summary>
         /// <remarks>
@@ -513,7 +518,7 @@ public sealed class DelaunayTetrahedralization {
                 var moved = false;
 
                 for (var face = 0; face < 4; face++) {
-                    var neighbour = neighbours[(current * 4) + face];
+                    var neighbour = neighbours[current * 4 + face];
 
                     if (neighbour < 0 || neighbour == previous) {
                         continue;
@@ -572,9 +577,9 @@ public sealed class DelaunayTetrahedralization {
             var slot = face * 3;
 
             return ExactPredicates.Orient3D(
-                points[vertices[(cell * 4) + FaceVertices[slot]]],
-                points[vertices[(cell * 4) + FaceVertices[slot + 1]]],
-                points[vertices[(cell * 4) + FaceVertices[slot + 2]]],
+                points[vertices[cell * 4 + FaceVertices[slot]]],
+                points[vertices[cell * 4 + FaceVertices[slot + 1]]],
+                points[vertices[cell * 4 + FaceVertices[slot + 2]]],
                 position
             );
         }
@@ -583,9 +588,9 @@ public sealed class DelaunayTetrahedralization {
             var cell = Allocate();
 
             vertices[cell * 4] = v0;
-            vertices[(cell * 4) + 1] = v1;
-            vertices[(cell * 4) + 2] = v2;
-            vertices[(cell * 4) + 3] = v3;
+            vertices[cell * 4 + 1] = v1;
+            vertices[cell * 4 + 2] = v2;
+            vertices[cell * 4 + 3] = v3;
             lastCell = cell;
 
             return cell;
@@ -638,9 +643,9 @@ public sealed class DelaunayTetrahedralization {
                 }
 
                 if (vertices[cell * 4] >= inputCount
-                    || vertices[(cell * 4) + 1] >= inputCount
-                    || vertices[(cell * 4) + 2] >= inputCount
-                    || vertices[(cell * 4) + 3] >= inputCount) {
+                    || vertices[cell * 4 + 1] >= inputCount
+                    || vertices[cell * 4 + 2] >= inputCount
+                    || vertices[cell * 4 + 3] >= inputCount) {
                     continue;
                 }
 
@@ -660,15 +665,15 @@ public sealed class DelaunayTetrahedralization {
                 }
 
                 for (var slot = 0; slot < 4; slot++) {
-                    keptVertices[(remap[cell] * 4) + slot] = vertices[(cell * 4) + slot];
+                    keptVertices[remap[cell] * 4 + slot] = vertices[cell * 4 + slot];
 
-                    var neighbour = neighbours[(cell * 4) + slot];
-                    keptNeighbours[(remap[cell] * 4) + slot] = neighbour < 0 ? -1 : remap[neighbour];
+                    var neighbour = neighbours[cell * 4 + slot];
+                    keptNeighbours[remap[cell] * 4 + slot] = neighbour < 0 ? -1 : remap[neighbour];
                 }
             }
 
             var result = new DelaunayTetrahedralization(
-                points.AsSpan(0, inputCount).ToArray(),
+                [..points.AsSpan(0, inputCount)],
                 keptVertices,
                 keptNeighbours,
                 true
@@ -724,23 +729,23 @@ public sealed class DelaunayTetrahedralization {
                 // question with the sign reversed.
                 if (ExactPredicates.Orient3D(
                         mesh.vertices[mesh.cellVertices[cell * 4]],
-                        mesh.vertices[mesh.cellVertices[(cell * 4) + 1]],
-                        mesh.vertices[mesh.cellVertices[(cell * 4) + 2]],
-                        mesh.vertices[mesh.cellVertices[(cell * 4) + 3]]
+                        mesh.vertices[mesh.cellVertices[cell * 4 + 1]],
+                        mesh.vertices[mesh.cellVertices[cell * 4 + 2]],
+                        mesh.vertices[mesh.cellVertices[cell * 4 + 3]]
                     )
                     != 1) {
                     return false;
                 }
 
                 for (var face = 0; face < 4; face++) {
-                    if (mesh.cellNeighbours[(cell * 4) + face] >= 0) {
+                    if (mesh.cellNeighbours[cell * 4 + face] >= 0) {
                         continue;
                     }
 
                     var slot = face * 3;
-                    faces.Add(mesh.cellVertices[(cell * 4) + FaceVertices[slot]]);
-                    faces.Add(mesh.cellVertices[(cell * 4) + FaceVertices[slot + 1]]);
-                    faces.Add(mesh.cellVertices[(cell * 4) + FaceVertices[slot + 2]]);
+                    faces.Add(mesh.cellVertices[cell * 4 + FaceVertices[slot]]);
+                    faces.Add(mesh.cellVertices[cell * 4 + FaceVertices[slot + 1]]);
+                    faces.Add(mesh.cellVertices[cell * 4 + FaceVertices[slot + 2]]);
                 }
             }
 
@@ -751,8 +756,8 @@ public sealed class DelaunayTetrahedralization {
 
             for (var face = 0; face * 3 < faces.Count; face++) {
                 for (var corner = 0; corner < 3; corner++) {
-                    var from = faces[(face * 3) + ((corner + 1) % 3)];
-                    var to = faces[(face * 3) + ((corner + 2) % 3)];
+                    var from = faces[face * 3 + (corner + 1) % 3];
+                    var to = faces[face * 3 + (corner + 2) % 3];
                     var key = from < to ? ((long)from << 32) | (uint)to : ((long)to << 32) | (uint)from;
 
                     if (!pending.Remove(key, out var packed)) {
@@ -781,9 +786,10 @@ public sealed class DelaunayTetrahedralization {
         ) =>
             ExactPredicates.Orient3D(
                 mesh.vertices[faces[face * 3]],
-                mesh.vertices[faces[(face * 3) + 1]],
-                mesh.vertices[faces[(face * 3) + 2]],
-                mesh.vertices[faces[(other * 3) + corner]]
-            ) >= 0;
+                mesh.vertices[faces[face * 3 + 1]],
+                mesh.vertices[faces[face * 3 + 2]],
+                mesh.vertices[faces[other * 3 + corner]]
+            )
+            >= 0;
     }
 }

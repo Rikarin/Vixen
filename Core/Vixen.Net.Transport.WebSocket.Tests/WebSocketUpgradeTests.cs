@@ -121,7 +121,7 @@ public sealed class WebSocketUpgradeTests {
     /// </remarks>
     [Fact]
     public void OnlyTheHeadersAreHandedOn() {
-        var request = Encoding.ASCII.GetBytes("Sec-WebSocket-Key: abc\r\n\r\n\x81\x05hello");
+        var request = Encoding.ASCII.GetBytes("Sec-WebSocket-Key: abc\r\n\r\n\u0081\u0005hello");
 
         Assert.True(WebSocketUpgrade.IsComplete(request, 0, out var length));
         Assert.Equal(26, length);

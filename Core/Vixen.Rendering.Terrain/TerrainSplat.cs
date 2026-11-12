@@ -16,8 +16,11 @@ namespace Vixen.Rendering.Terrain;
 /// <param name="WeightMaps">How many RGBA weightmaps the layers pack into.</param>
 /// <remarks>
 ///     <para>
-///         <b>[docs/plan/31 § D6]: the material is generated from the layer list, and nobody wires a
-///         graph.</b> Every Unreal project rebuilds the same <c>LandscapeLayerBlend</c> material and
+///         <b>
+///             [docs/plan/31 § D6]: the material is generated from the layer list, and nobody wires a
+///             graph.
+///         </b>
+///         Every Unreal project rebuilds the same <c>LandscapeLayerBlend</c> material and
 ///         every one of them rebuilds it slightly differently, which is why "why is my landscape
 ///         black" is the most-asked landscape question. A configuration that cannot be miswired does
 ///         not need a troubleshooting step.
@@ -71,7 +74,11 @@ public readonly record struct TerrainSplat(int LayerSlots, bool HeightBlend, int
     /// <param name="layers">How many layers there are.</param>
     /// <returns>4, 8, 12 or 16 — and 4 for a terrain with none, because a loop of zero is not one.</returns>
     public static int SlotsFor(int layers) =>
-        Math.Clamp(((Math.Max(1, layers) + 3) / LayersPerWeightMap) * LayersPerWeightMap, LayersPerWeightMap, MaxLayerSlots);
+        Math.Clamp(
+            (Math.Max(1, layers) + 3) / LayersPerWeightMap * LayersPerWeightMap,
+            LayersPerWeightMap,
+            MaxLayerSlots
+        );
 
     /// <summary>How many slots the loop runs and never reads a layer for.</summary>
     /// <remarks>
@@ -187,7 +194,7 @@ public readonly record struct TerrainSplat(int LayerSlots, bool HeightBlend, int
         for (var z = rect.Z; z < rect.EndZ; z++) {
             for (var x = rect.X; x < rect.EndX; x++) {
                 for (var channel = 0; channel < LayersPerWeightMap; channel++) {
-                    var layer = (map * LayersPerWeightMap) + channel;
+                    var layer = map * LayersPerWeightMap + channel;
 
                     texels[at++] = layer < weights.LayerCount ? weights.WeightAt(layer, x, z) : (byte)0;
                 }

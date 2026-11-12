@@ -12,8 +12,11 @@ namespace Vixen.Editor.TextureGraph;
 /// <summary>Fills a compiled plan's external images out of a project's own assets.</summary>
 /// <remarks>
 ///     <para>
-///         <b>The half of the editor's resolver that is about a project on disk rather than about a
-///         live session</b> — <a href="https://github.com/Rikarin/Vixen/issues/1087">#1087</a>.
+///         <b>
+///             The half of the editor's resolver that is about a project on disk rather than about a
+///             live session
+///         </b>
+///         — <a href="https://github.com/Rikarin/Vixen/issues/1087">#1087</a>.
 ///         <see cref="TextureGraphExternals.Upload" /> fills the externals whose bytes the
 ///         compilation carries and hands back the ones naming an asset, so that a host with no asset
 ///         database can see before it starts that this graph is not one it can bake. Every host that
@@ -51,8 +54,12 @@ namespace Vixen.Editor.TextureGraph;
 ///         byte count rather than about a file. Named here instead.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Every failure is a returned sentence and none is an exception, including the ones
-///         that are this build's fault.</b> A preview runs on every edit and a throw out of one takes
+///         ⚠
+///         <b>
+///             Every failure is a returned sentence and none is an exception, including the ones
+///             that are this build's fault.
+///         </b>
+///         A preview runs on every edit and a throw out of one takes
 ///         the editor's frame with it — so a file that has been deleted, a format nothing decodes,
 ///         and a decoder that read the file and produced nothing are all the same kind of answer.
 ///     </para>

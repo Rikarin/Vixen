@@ -73,7 +73,7 @@ public class TextureCopyTests : IDisposable {
                     "Producer",
                     pass => {
                         pass.ColourAttachment(texture);
-                        pass.Execute(context => context.CommandList.Draw(3));
+                        pass.Execute(static context => context.CommandList.Draw(3));
                     }
                 );
             }
@@ -92,7 +92,7 @@ public class TextureCopyTests : IDisposable {
                         pass.Kind = PassKind.Compute;
                         pass.Reads(texture);
                         pass.SideEffect();
-                        pass.Execute(context => context.CommandList.Dispatch(1));
+                        pass.Execute(static context => context.CommandList.Dispatch(1));
                     }
                 );
             }
@@ -122,9 +122,7 @@ public class TextureCopyTests : IDisposable {
     [Fact]
     public void A_copy_runs_between_the_producer_and_the_reader_of_the_snapshot() {
         var copy = new TextureCopyRenderer {
-            Name = "SceneColourCopy",
-            Source = "SceneColour",
-            Destination = "SceneColourCopy"
+            Name = "SceneColourCopy", Source = "SceneColour", Destination = "SceneColourCopy"
         };
 
         var compositor = Compositor(Producer("SceneColour"), copy, Consumer("SceneColourCopy"));
@@ -133,9 +131,7 @@ public class TextureCopyTests : IDisposable {
             Declared("SceneColour", TextureUsage.ColourTarget | TextureUsage.Sampled | TextureUsage.CopySource)
         );
 
-        compositor.Resources.Add(
-            Declared("SceneColourCopy", TextureUsage.Sampled | TextureUsage.CopyDestination)
-        );
+        compositor.Resources.Add(Declared("SceneColourCopy", TextureUsage.Sampled | TextureUsage.CopyDestination));
 
         Frame(compositor);
 
@@ -172,9 +168,7 @@ public class TextureCopyTests : IDisposable {
             Declared("SceneColour", TextureUsage.ColourTarget | TextureUsage.Sampled | TextureUsage.CopySource)
         );
 
-        compositor.Resources.Add(
-            Declared("SceneColourCopy", TextureUsage.Sampled | TextureUsage.CopyDestination)
-        );
+        compositor.Resources.Add(Declared("SceneColourCopy", TextureUsage.Sampled | TextureUsage.CopyDestination));
 
         Frame(compositor);
 
@@ -270,7 +264,7 @@ public class TextureCopyTests : IDisposable {
         );
 
         compositor.Resources.Add(
-            new RenderResourceAsset {
+            new() {
                 Name = "Eight",
                 Format = PixelFormat.Rgba8UNorm,
                 Usage = TextureUsage.Sampled | TextureUsage.CopyDestination

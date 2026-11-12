@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Net;
-using System.Net.Http.Headers;
 
 namespace Vixen.Assets;
 
@@ -81,7 +80,7 @@ public sealed class HttpContentTransport : IContentTransport, IDisposable {
     readonly bool ownsClient;
 
     /// <summary>Fetches over HTTP with a client of its own.</summary>
-    public HttpContentTransport() : this(new HttpClient(), true) { }
+    public HttpContentTransport() : this(new(), true) { }
 
     /// <summary>Fetches over HTTP with a client the caller configured.</summary>
     /// <param name="client">The client.</param>
@@ -105,7 +104,7 @@ public sealed class HttpContentTransport : IContentTransport, IDisposable {
         using var request = new HttpRequestMessage(HttpMethod.Get, url);
 
         if (offset > 0) {
-            request.Headers.Range = new RangeHeaderValue(offset, null);
+            request.Headers.Range = new(offset, null);
         }
 
         HttpResponseMessage response;

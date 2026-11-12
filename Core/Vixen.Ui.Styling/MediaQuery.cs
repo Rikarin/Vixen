@@ -65,8 +65,12 @@ public enum ContrastPreference : byte {
 ///         because a single value is a one-bit set.
 ///     </para>
 ///     <para>
-///         ⚠ <b><see cref="NoDevice" /> is a bit rather than the zero, and that is the whole design
-///         of this enum.</b> CSS's <c>none</c> is the empty capability set, and the empty set is also
+///         ⚠
+///         <b>
+///             <see cref="NoDevice" /> is a bit rather than the zero, and that is the whole design
+///             of this enum.
+///         </b>
+///         CSS's <c>none</c> is the empty capability set, and the empty set is also
 ///         what a field nobody assigned holds — so if zero meant "no pointing device" then
 ///         <c>default(MediaContext)</c> would assert a machine with no mouse and
 ///         <c>pointer-none:</c> would be the rule that always applies. Zero therefore means
@@ -100,8 +104,12 @@ public enum PointerCapability : byte {
 /// <param name="AnyPointer">What any attached pointing device can do, as a union.</param>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>One value rather than six fields on <see cref="MediaContext" />, because these six
-///         come from one place and the other five do not.</b> Width, height and scale are the
+///         ⚠
+///         <b>
+///             One value rather than six fields on <see cref="MediaContext" />, because these six
+///             come from one place and the other five do not.
+///         </b>
+///         Width, height and scale are the
 ///         surface's own and follow a resize; the gamut is the swapchain's; the colour scheme is the
 ///         platform's appearance. These are the accessibility settings, which arrive together from
 ///         whatever the host reads them out of — so a host sets one property and a window learns all
@@ -157,8 +165,12 @@ public readonly record struct MediaPreferences(
 ///         <c>@media (max-width: …)</c> to mean "this panel", never "the monitor".
 ///     </para>
 ///     <para>
-///         ⚠ <b><see cref="Gamut" /> is the one fact here that is about output rather than layout,
-///         and it is still a property of the surface.</b> The honest source for it is
+///         ⚠
+///         <b>
+///             <see cref="Gamut" /> is the one fact here that is about output rather than layout,
+///             and it is still a property of the surface.
+///         </b>
+///         The honest source for it is
 ///         <c>ISwapChain.Gamut</c> — what the swapchain was granted — rather than what the display
 ///         claims to be capable of. A panel rendered into an sRGB swapchain on a P3 monitor can show
 ///         sRGB, and a stylesheet told otherwise would pick colours that get mapped away again.
@@ -215,8 +227,11 @@ public readonly record struct MediaContext(
 ///         <see cref="FeatureComparison" />.
 ///     </para>
 ///     <para>
-///         <b>A condition this cannot evaluate makes the whole block fail to load, with a
-///         diagnostic.</b> The alternative is choosing a default, and both defaults are wrong in a
+///         <b>
+///             A condition this cannot evaluate makes the whole block fail to load, with a
+///             diagnostic.
+///         </b>
+///         The alternative is choosing a default, and both defaults are wrong in a
 ///         way nobody will notice: treating it as false silently drops styles, and treating it as
 ///         true silently applies phone styles on a desktop. The same rule the selector compiler
 ///         follows, for the same reason.
@@ -342,7 +357,7 @@ public static class MediaQuery {
                 // spell it. Media Queries 5 § 6.2 makes `no-preference` the feature's false value, so
                 // `@media (prefers-reduced-motion)` means `reduce` — and it is the idiomatic spelling,
                 // so refusing it made a correct stylesheet a diagnostic.
-                ("", context.Preferences.Motion == MotionPreference.Reduce)
+                (string.Empty, context.Preferences.Motion == MotionPreference.Reduce)
             );
         }
 
@@ -363,8 +378,8 @@ public static class MediaQuery {
 
                 // The boolean form the remark above describes: any stated preference, `custom`
                 // included, and therefore not a synonym for `more`.
-                ("", context.Preferences.Contrast != ContrastPreference.NoPreference),
-                ("", context.Preferences.Contrast != ContrastPreference.NoPreference)
+                (string.Empty, context.Preferences.Contrast != ContrastPreference.NoPreference),
+                (string.Empty, context.Preferences.Contrast != ContrastPreference.NoPreference)
             );
         }
 
@@ -377,7 +392,7 @@ public static class MediaQuery {
                 out reason,
                 ("none", !context.Preferences.ForcedColors),
                 ("active", context.Preferences.ForcedColors),
-                ("", context.Preferences.ForcedColors)
+                (string.Empty, context.Preferences.ForcedColors)
             );
         }
 
@@ -390,7 +405,7 @@ public static class MediaQuery {
                 out reason,
                 ("none", !context.Preferences.InvertedColors),
                 ("inverted", context.Preferences.InvertedColors),
-                ("", context.Preferences.InvertedColors)
+                (string.Empty, context.Preferences.InvertedColors)
             );
         }
 
@@ -410,16 +425,30 @@ public static class MediaQuery {
                 ("enabled", true),
                 ("none", false),
                 ("initial-only", false),
-                ("", true)
+                (string.Empty, true)
             );
         }
 
         if (name.Equals("pointer", StringComparison.OrdinalIgnoreCase)) {
-            return TryPointer(name, terms.Value, terms.IsRanged, context.Preferences.PrimaryPointer, out matches, out reason);
+            return TryPointer(
+                name,
+                terms.Value,
+                terms.IsRanged,
+                context.Preferences.PrimaryPointer,
+                out matches,
+                out reason
+            );
         }
 
         if (name.Equals("any-pointer", StringComparison.OrdinalIgnoreCase)) {
-            return TryPointer(name, terms.Value, terms.IsRanged, context.Preferences.AnyPointerOrPrimary, out matches, out reason);
+            return TryPointer(
+                name,
+                terms.Value,
+                terms.IsRanged,
+                context.Preferences.AnyPointerOrPrimary,
+                out matches,
+                out reason
+            );
         }
 
         if (name.Equals("color-gamut", StringComparison.OrdinalIgnoreCase)) {
@@ -524,8 +553,11 @@ public static class MediaQuery {
     /// <param name="options">The keywords, each with what the context says about it.</param>
     /// <returns>Whether it could be answered.</returns>
     /// <remarks>
-    ///     ⚠ <b>The empty keyword is the boolean form and is listed per feature rather than
-    ///     defaulted, because CSS does not agree with itself about what it means.</b>
+    ///     ⚠
+    ///     <b>
+    ///         The empty keyword is the boolean form and is listed per feature rather than
+    ///         defaulted, because CSS does not agree with itself about what it means.
+    ///     </b>
     ///     <c>(forced-colors)</c> is true when forcing is active, but <c>(prefers-contrast)</c> is
     ///     true of <i>any</i> stated preference including <c>custom</c> — so a shared rule such as
     ///     "the boolean form is the first non-default keyword" would be right for one feature and
@@ -571,8 +603,12 @@ public static class MediaQuery {
     /// <param name="reason">Receives why it could not be answered.</param>
     /// <returns>Whether it could be answered.</returns>
     /// <remarks>
-    ///     ⚠ <b><c>none</c> is the absence of both capabilities rather than the presence of a third
-    ///     one</b>, which is what makes <see cref="PointerCapability.Unspecified" /> and
+    ///     ⚠
+    ///     <b>
+    ///         <c>none</c> is the absence of both capabilities rather than the presence of a third
+    ///         one
+    ///     </b>
+    ///     , which is what makes <see cref="PointerCapability.Unspecified" /> and
     ///     <see cref="PointerCapability.NoDevice" /> answer it differently: the first has already
     ///     been resolved to a mouse by the time it arrives here, and the second has not.
     /// </remarks>
@@ -595,7 +631,7 @@ public static class MediaQuery {
             ("none", pointing == PointerCapability.Unspecified),
             ("coarse", (pointing & PointerCapability.Coarse) != 0),
             ("fine", (pointing & PointerCapability.Fine) != 0),
-            ("", pointing != PointerCapability.Unspecified)
+            (string.Empty, pointing != PointerCapability.Unspecified)
         );
     }
 
@@ -607,8 +643,12 @@ public static class MediaQuery {
     ///         table to forget to extend.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b><c>rem</c> and <c>em</c> are read, and the caller says what each one is, because
-    ///         the two at-rules answer that question differently (#1373).</b> Media Queries 4 § 1.3
+    ///         ⚠
+    ///         <b>
+    ///             <c>rem</c> and <c>em</c> are read, and the caller says what each one is, because
+    ///             the two at-rules answer that question differently (#1373).
+    ///         </b>
+    ///         Media Queries 4 § 1.3
     ///         measures both of a media query's units against the <i>initial</i> font size, which is
     ///         <see cref="MediaContext.FontSize" />, the text-scale preference. CSS Containment 3
     ///         measures a container query's <c>em</c> against the <i>container's</i> computed font
@@ -647,7 +687,8 @@ public static class MediaQuery {
             break;
         }
 
-        if (float.IsNaN(scale) || !float.TryParse(text.Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out value)) {
+        if (float.IsNaN(scale)
+            || !float.TryParse(text.Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out value)) {
             value = 0f;
             return false;
         }
@@ -666,6 +707,7 @@ public static class MediaQuery {
     // gets the chance to be a resolution at all. ⚠ And `rem` before `em`, which it ends with — the
     // other order reads `40rem` as the number `40r` in ems and refuses it.
     static readonly (string Unit, float Factor)[] Units = [
-        ("dppx", 1f), ("dpcm", 2.54f / 96f), ("dpi", 1f / 96f), ("rem", FontRelative.Rem), ("em", FontRelative.Em), ("px", 1f), ("x", 1f)
+        ("dppx", 1f), ("dpcm", 2.54f / 96f), ("dpi", 1f / 96f), ("rem", FontRelative.Rem), ("em", FontRelative.Em),
+        ("px", 1f), ("x", 1f)
     ];
 }

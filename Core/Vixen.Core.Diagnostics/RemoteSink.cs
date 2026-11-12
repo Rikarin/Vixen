@@ -116,10 +116,7 @@ public sealed class RemoteSink : LogRecordSink {
             MinimumLevel = minimumLevel;
         }
 
-        worker = new(Pump) {
-            IsBackground = true,
-            Name = "Vixen Remote Log"
-        };
+        worker = new(Pump) { IsBackground = true, Name = "Vixen Remote Log" };
 
         worker.Start();
     }
@@ -253,8 +250,9 @@ public sealed class RemoteSink : LogRecordSink {
 
         try {
             transport.Send(payload.WrittenSpan);
-        } catch (Exception exception) when (exception is IOException or ObjectDisposedException
-            or InvalidOperationException) {
+        } catch (Exception exception) when (exception is IOException
+                                                or ObjectDisposedException
+                                                or InvalidOperationException) {
             // A transport that fails mid-send is a detached inspector, which is ordinary. Taking the
             // process down over a log line that could not be delivered is not.
         } finally {

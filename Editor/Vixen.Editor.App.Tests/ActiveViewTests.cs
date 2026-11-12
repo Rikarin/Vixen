@@ -9,8 +9,11 @@ namespace Vixen.Editor.App.Tests;
 
 /// <summary>The view a module is handed is the focused pane's, and it moves with the focus.</summary>
 /// <remarks>
-///     <b>#1294: <see cref="IActiveView" /> is the scene panel's model, not an adapter over the
-///     application.</b> What the contract promises is the eye the focused pane draws through, asked
+///     <b>
+///         #1294: <see cref="IActiveView" /> is the scene panel's model, not an adapter over the
+///         application.
+///     </b>
+///     What the contract promises is the eye the focused pane draws through, asked
 ///     each time — so the assertions are that it follows a click into another pane of a split, which
 ///     is also what proves each pane's focus handler captured its own pane, and that it is empty once
 ///     the scene panel is closed.

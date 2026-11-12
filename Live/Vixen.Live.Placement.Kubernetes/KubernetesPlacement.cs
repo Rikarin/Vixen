@@ -17,7 +17,7 @@ public sealed record KubernetesPlacementOptions {
     public const string OwnerLabel = "live.vixenengine.org/owner";
 
     /// <summary>The realm's image.</summary>
-    public string Image { get; init; } = "";
+    public string Image { get; init; } = string.Empty;
 
     /// <summary>Which namespace realm pods go in.</summary>
     public string Namespace { get; init; } = "default";
@@ -28,8 +28,12 @@ public sealed record KubernetesPlacementOptions {
     /// <summary>The program a realm container runs, or empty for the image's own entrypoint.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Empty is the answer for a realm image, and the one this backend is designed
-    ///         around.</b> A realm image ends in <c>ENTRYPOINT ["./YourGame.Realm"]</c> — the
+    ///         ⚠
+    ///         <b>
+    ///             Empty is the answer for a realm image, and the one this backend is designed
+    ///             around.
+    ///         </b>
+    ///         A realm image ends in <c>ENTRYPOINT ["./YourGame.Realm"]</c> — the
     ///         template's Dockerfile does — and a pod's <c>args</c> are <em>appended</em> to it. That
     ///         is what makes a pod's command the same string a container's <c>Cmd</c> and
     ///         <c>Process.Start</c> carry, which is <see cref="RealmSpec" />'s whole premise.
@@ -190,8 +194,12 @@ public sealed class KubernetesPlacement : IRealmPlacement, IDisposable {
 
     /// <inheritdoc />
     /// <remarks>
-    ///     ⚠ <b>Half of "would this actually run" is not answerable here, and the probe says which
-    ///     half.</b> The Docker backend asks the daemon for an image's entrypoint before it accepts a
+    ///     ⚠
+    ///     <b>
+    ///         Half of "would this actually run" is not answerable here, and the probe says which
+    ///         half.
+    ///     </b>
+    ///     The Docker backend asks the daemon for an image's entrypoint before it accepts a
     ///     placement; there is no equivalent call on an API server, because a cluster does not know
     ///     what is in an image until a kubelet has pulled it — the <em>registry</em> knows. So what
     ///     this can refuse is a configured <see cref="KubernetesPlacementOptions.Command" /> whose
@@ -226,7 +234,7 @@ public sealed class KubernetesPlacement : IRealmPlacement, IDisposable {
 
         // What a realm would be launched as, with the spec itself elided — it is two hundred
         // characters of key-value text and the interesting part is the word in front of it.
-        var appended = Argv([.. options.Arguments, RealmSpec.ArgumentName, "…"]);
+        var appended = Argv([..options.Arguments, RealmSpec.ArgumentName, "…"]);
 
         return program.Length == 0
             ? new(true, BackendName, $"{where}, with `{appended}` appended to whatever entrypoint it carries")
@@ -280,12 +288,12 @@ public sealed class KubernetesPlacement : IRealmPlacement, IDisposable {
             throw;
         }
 
-        var name = created.Metadata?.Name ?? "";
+        var name = created.Metadata?.Name ?? string.Empty;
 
         // ⚠ The address is not known yet, and cannot be: the scheduler has not placed the pod, so
         // there is no node and therefore no external IP. It arrives with the Ready event, which is
         // the only moment the endpoint is both known and useful.
-        var instance = new RealmInstance(new(name), spec.Shard, new("", port), BackendName, time.GetUtcNow());
+        var instance = new RealmInstance(new(name), spec.Shard, new(string.Empty, port), BackendName, time.GetUtcNow());
         var record = new Running(instance, port);
 
         lock (gate) {
@@ -306,7 +314,7 @@ public sealed class KubernetesPlacement : IRealmPlacement, IDisposable {
         Running? record;
 
         lock (gate) {
-            running.TryGetValue(instance.Value ?? "", out record);
+            running.TryGetValue(instance.Value ?? string.Empty, out record);
         }
 
         if (record is null) {
@@ -341,7 +349,7 @@ public sealed class KubernetesPlacement : IRealmPlacement, IDisposable {
 
             instances.Add(
                 new(
-                    new(pod.Metadata.Name ?? ""),
+                    new(pod.Metadata.Name ?? string.Empty),
                     shard,
                     await AddressAsync(pod, PortOf(pod), cancellation).ConfigureAwait(false),
                     BackendName,
@@ -392,7 +400,7 @@ public sealed class KubernetesPlacement : IRealmPlacement, IDisposable {
         List<Channel<PlacementEvent>> listening;
 
         lock (gate) {
-            listening = [.. watchers];
+            listening = [..watchers];
             watchers.Clear();
             running.Clear();
         }
@@ -423,9 +431,7 @@ public sealed class KubernetesPlacement : IRealmPlacement, IDisposable {
         //
         // The empty host this used to carry produced a spec `RealmSpec.TryDecode` refuses, so the
         // realm exited with "this process is not a realm" and the pod looked like a bad image.
-        var bound = spec with {
-            Endpoint = new(spec.Endpoint.Host is { Length: > 0 } named ? named : "0.0.0.0", port)
-        };
+        var bound = spec with { Endpoint = new(spec.Endpoint.Host is { Length: > 0 } named ? named : "0.0.0.0", port) };
 
         return new() {
             Metadata = new() {
@@ -441,8 +447,7 @@ public sealed class KubernetesPlacement : IRealmPlacement, IDisposable {
                     ["app.kubernetes.io/managed-by"] = "vixen-live"
                 },
                 OwnerReferences = options.Self is { } self
-                    ?
-                    [
+                    ? [
                         new V1OwnerReference {
                             ApiVersion = "v1",
                             Kind = "Pod",
@@ -465,8 +470,7 @@ public sealed class KubernetesPlacement : IRealmPlacement, IDisposable {
                 // recovery a placement rather than a resurrection.
                 RestartPolicy = "Never",
                 TerminationGracePeriodSeconds = (long)options.StopGrace.TotalSeconds,
-                Containers =
-                [
+                Containers = [
                     new() {
                         Name = "realm",
                         Image = options.Image,
@@ -475,23 +479,15 @@ public sealed class KubernetesPlacement : IRealmPlacement, IDisposable {
                         // whole design is that the image supplies one — `args` are appended to the
                         // image's entrypoint exactly as a container's `Cmd` is. A Command is set only
                         // when an operator has said what to run instead.
-                        Command = options.Command.Count > 0 ? [.. options.Command] : null,
-                        Args = [.. options.Arguments, .. bound.ToCommandLine()],
-                        Ports =
-                        [
+                        Command = options.Command.Count > 0 ? [..options.Command] : null,
+                        Args = [..options.Arguments, ..bound.ToCommandLine()],
+                        Ports = [
                             new V1ContainerPort {
-                                ContainerPort = port,
-                                HostPort = port,
-                                Protocol = "UDP",
-                                Name = "realm"
+                                ContainerPort = port, HostPort = port, Protocol = "UDP", Name = "realm"
                             }
                         ],
-                        Env =
-                        [
-                            .. options.Environment.Select(entry => new V1EnvVar {
-                                    Name = entry.Key,
-                                    Value = entry.Value
-                                }
+                        Env = [
+                            ..options.Environment.Select(entry => new V1EnvVar { Name = entry.Key, Value = entry.Value }
                             )
                         ]
                     }
@@ -514,8 +510,8 @@ public sealed class KubernetesPlacement : IRealmPlacement, IDisposable {
         while (true) {
             try {
                 await foreach (var line in cluster
-                    .FollowLogAsync(name, options.Namespace, lifetime.Token)
-                    .ConfigureAwait(false)) {
+                                   .FollowLogAsync(name, options.Namespace, lifetime.Token)
+                                   .ConfigureAwait(false)) {
                     options.Output?.Invoke(record.Instance.Id, line);
 
                     if (record.Ready || !RealmSignals.TryReadReady(line, out _)) {
@@ -541,7 +537,9 @@ public sealed class KubernetesPlacement : IRealmPlacement, IDisposable {
                         new(PlacementEventKind.Ready, record.Instance.Id, record.Instance.Shard, endpoint, "ready")
                     );
                 }
-            } catch (Exception failure) when (failure is OperationCanceledException or IOException or HttpRequestException) {
+            } catch (Exception failure) when (failure is OperationCanceledException
+                                                  or IOException
+                                                  or HttpRequestException) {
                 // The stream ended with the pod, or with this backend.
                 break;
             }
@@ -575,7 +573,9 @@ public sealed class KubernetesPlacement : IRealmPlacement, IDisposable {
             pod = await cluster
                 .ReadPodAsync(record.Instance.Id.Value, options.Namespace, lifetime.Token)
                 .ConfigureAwait(false);
-        } catch (Exception failure) when (failure is IOException or HttpRequestException or OperationCanceledException) {
+        } catch (Exception failure) when (failure is IOException
+                                              or HttpRequestException
+                                              or OperationCanceledException) {
             return false;
         }
 
@@ -602,11 +602,13 @@ public sealed class KubernetesPlacement : IRealmPlacement, IDisposable {
             pod = await cluster
                 .ReadPodAsync(record.Instance.Id.Value, options.Namespace, CancellationToken.None)
                 .ConfigureAwait(false);
-        } catch (Exception failure) when (failure is IOException or HttpRequestException or OperationCanceledException) {
+        } catch (Exception failure) when (failure is IOException
+                                              or HttpRequestException
+                                              or OperationCanceledException) {
             // The cluster is not answering, which is its own kind of lost.
         }
 
-        var phase = pod?.Status?.Phase ?? "";
+        var phase = pod?.Status?.Phase ?? string.Empty;
 
         // Succeeded is a realm whose last player left and which stopped; Failed is one that did not.
         // Asked covers the case where the orchestrator deleted it, which reads as neither.
@@ -661,7 +663,9 @@ public sealed class KubernetesPlacement : IRealmPlacement, IDisposable {
             await cluster
                 .DeletePodAsync(record.Instance.Id.Value, options.Namespace, options.StopGrace, lifetime.Token)
                 .ConfigureAwait(false);
-        } catch (Exception failure) when (failure is IOException or HttpRequestException or OperationCanceledException) {
+        } catch (Exception failure) when (failure is IOException
+                                              or HttpRequestException
+                                              or OperationCanceledException) {
             // The follow loop reports what actually happened to it.
         }
     }
@@ -678,8 +682,18 @@ public sealed class KubernetesPlacement : IRealmPlacement, IDisposable {
             // rather than silent — a shard nobody can reach reports its address either way.
             var addresses = read?.Status?.Addresses ?? [];
 
-            var external = addresses.FirstOrDefault(entry => string.Equals(entry.Type, "ExternalIP", StringComparison.Ordinal))
-                ?? addresses.FirstOrDefault(entry => string.Equals(entry.Type, "InternalIP", StringComparison.Ordinal));
+            var external = addresses.FirstOrDefault(static entry => string.Equals(
+                        entry.Type,
+                        "ExternalIP",
+                        StringComparison.Ordinal
+                    )
+                )
+                ?? addresses.FirstOrDefault(static entry => string.Equals(
+                        entry.Type,
+                        "InternalIP",
+                        StringComparison.Ordinal
+                    )
+                );
 
             if (external?.Address is { Length: > 0 } address) {
                 return new(address, port);
@@ -689,8 +703,7 @@ public sealed class KubernetesPlacement : IRealmPlacement, IDisposable {
         return pod.Status?.HostIP is { Length: > 0 } host ? new(host, port) : RealmEndpoint.None;
     }
 
-    static int PortOf(V1Pod pod) =>
-        pod.Spec?.Containers?.FirstOrDefault()?.Ports?.FirstOrDefault()?.HostPort ?? 0;
+    static int PortOf(V1Pod pod) => pod.Spec?.Containers?.FirstOrDefault()?.Ports?.FirstOrDefault()?.HostPort ?? 0;
 
     /// <summary>The first word of what the kubelet will exec, or empty when only the image knows.</summary>
     /// <remarks>
@@ -702,17 +715,16 @@ public sealed class KubernetesPlacement : IRealmPlacement, IDisposable {
     ///     question about a <em>registry</em>, and this backend talks to a cluster. Empty means "not
     ///     answerable from here", not "fine".
     /// </remarks>
-    static string Program(IReadOnlyList<string> command) => command.Count > 0 ? command[0] : "";
+    static string Program(IReadOnlyList<string> command) => command.Count > 0 ? command[0] : string.Empty;
 
     static string Argv(IReadOnlyList<string> words) => string.Join(' ', words.Select(Quote));
 
-    static string Quote(string word) =>
-        word.Contains(' ', StringComparison.Ordinal) ? $"\"{word}\"" : word;
+    static string Quote(string word) => word.Contains(' ', StringComparison.Ordinal) ? $"\"{word}\"" : word;
 
     static string WouldExec(string image, string program) =>
         $"KubernetesPlacementOptions.Command begins with `{program}`, which is a flag rather than a "
         + $"program, so `{image}` would be run as one. Command replaces the image's entrypoint and "
-        + $"says what to run; flags belong in Arguments, which is appended to it alongside "
+        + "says what to run; flags belong in Arguments, which is appended to it alongside "
         + $"{RealmSpec.ArgumentName}.";
 
     /// <summary>The waiting reason of a container that is not going to start on its own.</summary>
@@ -736,7 +748,7 @@ public sealed class KubernetesPlacement : IRealmPlacement, IDisposable {
     static string Stuck(V1Pod? pod) {
         if (pod?.Status?.ContainerStatuses?.FirstOrDefault()?.State?.Waiting is not { Reason: { } reason } waiting
             || !Hopeless.Contains(reason, StringComparer.Ordinal)) {
-            return "";
+            return string.Empty;
         }
 
         return waiting.Message is { Length: > 0 } message ? $"{reason}: {message}" : reason;
@@ -750,7 +762,7 @@ public sealed class KubernetesPlacement : IRealmPlacement, IDisposable {
         }
 
         if (pod?.Status?.ContainerStatuses?.FirstOrDefault()?.State?.Terminated is not { } ended) {
-            return "";
+            return string.Empty;
         }
 
         // The exit code is what the Docker backend reports and this one never did — a realm that

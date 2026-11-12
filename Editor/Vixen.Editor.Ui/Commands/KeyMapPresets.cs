@@ -10,8 +10,12 @@ namespace Vixen.Editor.Ui;
 /// <summary>The keymap presets the editor ships: its own, Unity's and Unreal's.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Doc 20: "A Unity user and an Unreal user disagree about what <c>W</c> does and both
-///         are certain."</b> They happen to agree about <c>W</c> — both put Translate there — and
+///         ⚠
+///         <b>
+///             Doc 20: "A Unity user and an Unreal user disagree about what <c>W</c> does and both
+///             are certain."
+///         </b>
+///         They happen to agree about <c>W</c> — both put Translate there — and
 ///         disagree about almost everything around it: Play is <c>Ctrl+P</c> in one and <c>Alt+P</c>
 ///         in the other, Duplicate is <c>Ctrl+D</c> in one and <c>Ctrl+W</c> in the other, and Save
 ///         All is under two different modifiers. Shipping the three converts a week of friction into
@@ -25,8 +29,12 @@ namespace Vixen.Editor.Ui;
 ///         which is exactly what it should mean.
 ///     </para>
 ///     <para>
-///         ⚠ <b>A preset only ever moves keys that would otherwise collide, or that the other editor
-///         genuinely puts somewhere else.</b> Every entry below either matches what that editor does
+///         ⚠
+///         <b>
+///             A preset only ever moves keys that would otherwise collide, or that the other editor
+///             genuinely puts somewhere else.
+///         </b>
+///         Every entry below either matches what that editor does
 ///         or vacates a chord the same preset gives to something else — Unity's <c>Ctrl+P</c> is Play,
 ///         so the palette has to move, and Unreal's <c>Ctrl+W</c> is Duplicate, so Close Panel has to.
 ///         A preset that moved a key for neither reason would be a preset nobody can predict.
@@ -87,21 +95,21 @@ public static class KeyMapPresets {
     ///     while leaving the palette's implicit would be one nobody could check by reading.
     /// </remarks>
     const string UnitySource = """
-        bindings:
-          view.palette: "Ctrl+K"
-          play.play: "Ctrl+P"
-          play.pause: "Ctrl+Shift+P"
-          play.step: "Ctrl+Alt+P"
-          edit.duplicate: "Ctrl+D"
-          scene.create-entity: "Ctrl+Shift+N"
-          entity.create-child: "Alt+Shift+N"
-          assets.build: "Ctrl+B"
-          assets.refresh: "Ctrl+R"
-          scene.translate: "W"
-          scene.rotate: "E"
-          scene.scale: "R"
-          scene.focus: "F"
-        """;
+                               bindings:
+                                 view.palette: "Ctrl+K"
+                                 play.play: "Ctrl+P"
+                                 play.pause: "Ctrl+Shift+P"
+                                 play.step: "Ctrl+Alt+P"
+                                 edit.duplicate: "Ctrl+D"
+                                 scene.create-entity: "Ctrl+Shift+N"
+                                 entity.create-child: "Alt+Shift+N"
+                                 assets.build: "Ctrl+B"
+                                 assets.refresh: "Ctrl+R"
+                                 scene.translate: "W"
+                                 scene.rotate: "E"
+                                 scene.scale: "R"
+                                 scene.focus: "F"
+                               """;
 
     /// <summary>
     ///     Unreal's, on the same terms.
@@ -113,22 +121,22 @@ public static class KeyMapPresets {
     ///     tabbed application on Windows answers to.
     /// </remarks>
     const string UnrealSource = """
-        bindings:
-          file.save-all: "Ctrl+Shift+S"
-          file.save-as: "Ctrl+Alt+S"
-          edit.duplicate: "Ctrl+W"
-          view.close-panel: "Ctrl+F4"
-          play.play: "Alt+P"
-          play.stop: "Escape"
-          play.step: "F10"
-          entity.group: "Ctrl+G"
-          scene.translate: "W"
-          scene.rotate: "E"
-          scene.scale: "R"
-          scene.focus: "F"
-          scene.frame-all: "Home"
-          scene.view-front: "Alt+H"
-          scene.view-top: "Alt+J"
-          scene.view-left: "Alt+K"
-        """;
+                                bindings:
+                                  file.save-all: "Ctrl+Shift+S"
+                                  file.save-as: "Ctrl+Alt+S"
+                                  edit.duplicate: "Ctrl+W"
+                                  view.close-panel: "Ctrl+F4"
+                                  play.play: "Alt+P"
+                                  play.stop: "Escape"
+                                  play.step: "F10"
+                                  entity.group: "Ctrl+G"
+                                  scene.translate: "W"
+                                  scene.rotate: "E"
+                                  scene.scale: "R"
+                                  scene.focus: "F"
+                                  scene.frame-all: "Home"
+                                  scene.view-front: "Alt+H"
+                                  scene.view-top: "Alt+J"
+                                  scene.view-left: "Alt+K"
+                                """;
 }

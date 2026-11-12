@@ -20,7 +20,12 @@ public sealed class OversamplingTests {
     const int Size = 8_192;
 
     /// <summary>Runs a tone through a distortion and returns the spectrum of what came out.</summary>
-    static float[] Spectrum(float toneHz, int oversampling, float driveDb = 24f, DistortionCurve curve = DistortionCurve.HardClip) {
+    static float[] Spectrum(
+        float toneHz,
+        int oversampling,
+        float driveDb = 24f,
+        DistortionCurve curve = DistortionCurve.HardClip
+    ) {
         var effect = new DistortionEffect {
             Curve = curve,
             DriveDb = driveDb,
@@ -29,7 +34,7 @@ public sealed class OversamplingTests {
             Oversampling = oversampling
         };
 
-        effect.Prepare(new AudioFormat(Rate, 1), Size);
+        effect.Prepare(new(Rate, 1), Size);
 
         var buffer = new float[Size];
 
@@ -43,7 +48,7 @@ public sealed class OversamplingTests {
         // the spectrum and hide what is being measured.
         for (var i = 0; i < Size; i++) {
             var t = 2f * MathF.PI * i / (Size - 1);
-            buffer[i] *= 0.5f - (0.5f * MathF.Cos(t));
+            buffer[i] *= 0.5f - 0.5f * MathF.Cos(t);
         }
 
         var fft = new RealFft(Size);
@@ -61,7 +66,7 @@ public sealed class OversamplingTests {
         var windowed = (float[])block.Clone();
 
         for (var i = 0; i < Size; i++) {
-            windowed[i] *= 0.5f - (0.5f * MathF.Cos(2f * MathF.PI * i / (Size - 1)));
+            windowed[i] *= 0.5f - 0.5f * MathF.Cos(2f * MathF.PI * i / (Size - 1));
         }
 
         var fft = new RealFft(Size);
@@ -138,7 +143,7 @@ public sealed class OversamplingTests {
     public void TheRealHarmonicsAreStillThere() {
         const float tone = 1_000f;
 
-        var spectrum = Spectrum(tone, oversampling: 4);
+        var spectrum = Spectrum(tone, 4);
         var fundamental = Near(spectrum, tone);
 
         // Hard clipping a sine makes odd harmonics. The third and fifth are well below Nyquist and
@@ -150,7 +155,7 @@ public sealed class OversamplingTests {
     [Fact]
     public void WithoutOversamplingItBehavesExactlyAsItAlwaysDid() {
         var effect = new DistortionEffect { DriveDb = 12f, OutputDb = 0f, Mix = 1f };
-        effect.Prepare(new AudioFormat(Rate, 1), 64);
+        effect.Prepare(new(Rate, 1), 64);
 
         var buffer = new float[64];
         var expected = new float[64];
@@ -233,8 +238,8 @@ public sealed class OversamplingTests {
 
     [Fact]
     public void AFactorTheOversamplerDoesNotHaveIsRefused() {
-        Assert.Throws<ArgumentOutOfRangeException>(() => new Oversampler(2, 3));
-        Assert.Throws<ArgumentOutOfRangeException>(() => new Oversampler(0));
+        Assert.Throws<ArgumentOutOfRangeException>(static () => new Oversampler(2, 3));
+        Assert.Throws<ArgumentOutOfRangeException>(static () => new Oversampler(0));
     }
 
     [Fact]

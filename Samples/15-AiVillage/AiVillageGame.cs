@@ -7,7 +7,6 @@ using Vixen.App;
 using Vixen.Core;
 using Vixen.Core.Mathematics;
 using Vixen.Ecs;
-using Vixen.Engine.Cameras;
 using Vixen.Engine.Transforms;
 
 namespace Vixen.Samples.AiVillage;
@@ -15,16 +14,23 @@ namespace Vixen.Samples.AiVillage;
 /// <summary>The AI stack, in a game: three agents deciding about one intruder.</summary>
 /// <remarks>
 ///     <para>
-///         <b>What this sample exists to prove is that the runtime half of <c>Vixen.Ai</c> works
-///         outside a test fixture</b>, which nothing had shown: before this project,
+///         <b>
+///             What this sample exists to prove is that the runtime half of <c>Vixen.Ai</c> works
+///             outside a test fixture
+///         </b>
+///         , which nothing had shown: before this project,
 ///         <c>grep -rl "Vixen.Ai" Samples/</c> was empty, and every consumer of <c>AiSystem</c>,
 ///         <c>PerceptionSystem</c> and all three planners in the whole repository was a
 ///         <c>*.Tests</c> assembly stepping them by hand.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>The whole visual is the AI overlay</b>, and that is not a shortcut — it is doc 37 §
-///         D20's <c>AiGameplayDebugger</c>, which was built with nine tests and <i>registered by no
-///         application</i>. A sample that drew three capsules would have shown the agents moving and
+///         D20's <c>AiGameplayDebugger</c>, which was built with nine tests and
+///         <i>
+///             registered by no
+///             application
+///         </i>
+///         . A sample that drew three capsules would have shown the agents moving and
 ///         left the overlay exactly as unreached as it was.
 ///     </para>
 ///     <para>
@@ -71,11 +77,7 @@ public sealed class AiVillageGame : Game {
         // effect is a `WindowShown` event nothing consumes. What actually put a window on the screen
         // was this sample's own `Program.cs`, which handed `WithPlatform` a `DesktopPlatform` and so
         // never let the flag be asked at all. Both are fixed; only one of them was the bug.
-        config.Window = new() {
-            Title = "Vixen — AI Village",
-            Size = new(1280, 720),
-            IsVisible = !config.Headless
-        };
+        config.Window = new() { Title = "Vixen — AI Village", Size = new(1280, 720), IsVisible = !config.Headless };
 
         // The switch that makes the overlay visible at all — see this class's remarks.
         config.Graphics.Overlays = true;
@@ -98,9 +100,9 @@ public sealed class AiVillageGame : Game {
         // *intruder* in the registry; `VixenApplication` builds `IntruderSystem` out of that the
         // moment this method returns, and logs 13031/13032 saying what it did. Calling
         // `AddDeclaredSystems` here as well would run the script twice.
-        village = new Village(loop.World);
+        village = new(loop.World);
         village.Register(loop, Services.Registry);
-        decisions = new DecisionLog(village);
+        decisions = new(village);
 
         // ⚠ On, and the sample says why: the recorder is off by default because it costs a ring
         // buffer per agent, and doc 37 § P7's diagnosis reads nothing else. A village that ran
@@ -111,14 +113,12 @@ public sealed class AiVillageGame : Game {
 
         // ── doc 37 § P7's overlay, registered by an application for the first time ───────────
         if (Services.Graphics?.Debug is { } draw) {
-            debugger = new AiGameplayDebugger {
+            debugger = new() {
                 // Everything: every category, and `Range = 0` so nothing is culled by distance.
                 // The default style is `Agent | Shapes` within forty metres of `Viewpoint`, and a
                 // viewpoint left at the origin with the village forty metres away draws nothing at
                 // all — which looks exactly like an overlay that does not work.
-                Style = AiOverlayStyle.Everything,
-                Viewpoint = Eye,
-                Perception = village.Perception
+                Style = AiOverlayStyle.Everything, Viewpoint = Eye, Perception = village.Perception
             };
 
             loop.Add(new AiOverlaySystem(debugger, village.Agents, draw));
@@ -126,7 +126,6 @@ public sealed class AiVillageGame : Game {
         } else {
             SampleLog.NoOverlay(log);
         }
-
     }
 
     /// <inheritdoc />

@@ -50,7 +50,8 @@ public readonly record struct ShardId(Guid Value) {
     }
 
     /// <inheritdoc />
-    public override string ToString() => Value == Guid.Empty ? "no shard" : Value.ToString("D", CultureInfo.InvariantCulture);
+    public override string ToString() =>
+        Value == Guid.Empty ? "no shard" : Value.ToString("D", CultureInfo.InvariantCulture);
 }
 
 /// <summary>Which process, as the placement backend names it.</summary>
@@ -79,10 +80,10 @@ public readonly record struct ShardId(Guid Value) {
 /// <param name="Value">The backend's handle. Empty is <see cref="None" />.</param>
 public readonly record struct RealmInstanceId(string Value) {
     /// <summary>No instance.</summary>
-    public static RealmInstanceId None => new("");
+    public static RealmInstanceId None => new(string.Empty);
 
     /// <summary>The backend's handle. Null only on <c>default</c>; see the type's remarks.</summary>
-    public string Value { get; } = Value ?? "";
+    public string Value { get; } = Value ?? string.Empty;
 
     /// <summary>Whether this names an instance at all.</summary>
     public bool IsValid => !string.IsNullOrEmpty(Value);
@@ -95,10 +96,10 @@ public readonly record struct RealmInstanceId(string Value) {
     ///     remarks, and <c>RealmEndpoint.Equals</c> for what the synthesized version costs.
     /// </remarks>
     public bool Equals(RealmInstanceId other) =>
-        string.Equals(Value ?? "", other.Value ?? "", StringComparison.Ordinal);
+        string.Equals(Value ?? string.Empty, other.Value ?? string.Empty, StringComparison.Ordinal);
 
     /// <inheritdoc />
-    public override int GetHashCode() => (Value ?? "").GetHashCode(StringComparison.Ordinal);
+    public override int GetHashCode() => (Value ?? string.Empty).GetHashCode(StringComparison.Ordinal);
 
     /// <inheritdoc />
     public override string ToString() => IsValid ? Value : "no instance";

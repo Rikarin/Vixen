@@ -95,8 +95,12 @@ public sealed class AssetMaterialSource : IMaterialSource, IDisposable {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Every hand-written sampling feature's pairing is a constant a host writes once, and
-    ///         a graph's cannot be.</b> <c>WorldRenderer.Paired</c> names
+    ///         ⚠
+    ///         <b>
+    ///             Every hand-written sampling feature's pairing is a constant a host writes once, and
+    ///             a graph's cannot be.
+    ///         </b>
+    ///         <c>WorldRenderer.Paired</c> names
     ///         <c>TexturedMetalRoughnessFeature.BaseColorIndexParameter</c> and friends because those
     ///         shaders are files somebody committed; a graph's slots are <em>data</em>, read off a
     ///         <c>.vxshadergraph</c> the host has never seen, so no host can name them ahead of time.
@@ -145,8 +149,12 @@ public sealed class AssetMaterialSource : IMaterialSource, IDisposable {
     ///         be a claim about a document it has never seen.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Without it a project's own materials take each permutation's declared default —
-    ///         which is not the same as off, and this paragraph said it was.</b> It claimed a null
+    ///         ⚠
+    ///         <b>
+    ///             Without it a project's own materials take each permutation's declared default —
+    ///             which is not the same as off, and this paragraph said it was.
+    ///         </b>
+    ///         It claimed a null
     ///         collection compiled "with every permutation off", and therefore that a level rendering
     ///         four cascades drew with a shader that had no shadow term in it. That never happened
     ///         and cannot: <c>EffectKey.From</c> falls through to <see cref="ParameterKey" />'s
@@ -206,8 +214,12 @@ public sealed class AssetMaterialSource : IMaterialSource, IDisposable {
     ///         no material yet" instead would wait on that for ever.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Measured 2026-09-01: over an in-memory bundle this is never non-zero, because
-    ///         the load never yields.</b> <c>AssetManager.LoadRootAsync</c> is a plain
+    ///         ⚠
+    ///         <b>
+    ///             Measured 2026-09-01: over an in-memory bundle this is never non-zero, because
+    ///             the load never yields.
+    ///         </b>
+    ///         <c>AssetManager.LoadRootAsync</c> is a plain
     ///         <c>async Task</c> rather than a <see cref="Task.Run(Action)" />, so when every await
     ///         in it completes synchronously — which they do over a <c>MemoryFileProvider</c> — it
     ///         returns an already-completed task and the handle is <c>Loaded</c> the instant
@@ -216,8 +228,12 @@ public sealed class AssetMaterialSource : IMaterialSource, IDisposable {
     ///         <c>Reading</c> ever observed at <b>0</b>.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>That measurement is right and the conclusion drawn from it — "this counter is
-    ///         vacuous" — was about the fixture rather than about this source.</b> The load has one
+    ///         ⚠
+    ///         <b>
+    ///             That measurement is right and the conclusion drawn from it — "this counter is
+    ///             vacuous" — was about the fixture rather than about this source.
+    ///         </b>
+    ///         The load has one
     ///         await that a <c>MemoryFileProvider</c> answers synchronously and a shipped source
     ///         does not: <c>MountFor</c>'s <c>IBundleSource.OpenAsync</c>, which
     ///         <c>RemoteBundleSource</c> answers by downloading the bundle. A project whose content
@@ -317,8 +333,12 @@ public sealed class AssetMaterialSource : IMaterialSource, IDisposable {
     /// </returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b><see cref="TryGet" />'s false says "not yet" and cannot say "never", and the
-    ///         difference is a mesh that never draws.</b> <see cref="IMaterialSource" />'s contract is
+    ///         ⚠
+    ///         <b>
+    ///             <see cref="TryGet" />'s false says "not yet" and cannot say "never", and the
+    ///             difference is a mesh that never draws.
+    ///         </b>
+    ///         <see cref="IMaterialSource" />'s contract is
     ///         two-valued on purpose — <c>MeshExtractionSystem.Painted</c> reads false as "ask again
     ///         next frame" and leaves the entity unsettled — so a reference this refused is one that
     ///         entity waits on for the life of the process. It is not a stall: the object is never
@@ -456,7 +476,7 @@ public sealed class AssetMaterialSource : IMaterialSource, IDisposable {
         // started refusing at load would take a mesh off screen for a material that has been drawing
         // — wrongly, but recognisably — and it would do it silently, because nothing reads the
         // diagnostics here. A compiler change moves no importer version, so nothing would re-check.
-        var compilation = MaterialCompiler.Compile(content.ToDescriptor(shading), Slots, strict: false);
+        var compilation = MaterialCompiler.Compile(content.ToDescriptor(shading), Slots, false);
 
         if (compilation.Material is not { } material) {
             entry.Failed = true;

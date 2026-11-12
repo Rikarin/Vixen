@@ -3,9 +3,9 @@
 
 using System.Diagnostics;
 using Vixen.Core;
-using Vixen.Core.Imaging;
 using Vixen.Core.IO;
 using Vixen.Core.IO.Watch;
+using Vixen.Core.Imaging;
 using Vixen.Editor.AssetEditors.Content;
 using Vixen.Editor.Assets;
 using Vixen.Editor.Assets.Materials;
@@ -18,7 +18,10 @@ using Xunit;
 
 namespace Vixen.Editor.App.Tests;
 
-/// <summary>What the editor writes into <c>Assets/</c> itself does not come back through the watcher as an outside change (#1497).</summary>
+/// <summary>
+///     What the editor writes into <c>Assets/</c> itself does not come back through the watcher as an outside change
+///     (#1497).
+/// </summary>
 /// <remarks>
 ///     <para>
 ///         ⚠ <b>#1488 suppressed one writer's sidecars: <c>ProjectSession.Rescan</c>'s.</b> Every other
@@ -42,22 +45,34 @@ public sealed class EditorWriteEchoTests {
     public void A_file_written_from_outside_is_heard_once() {
         using var fixture = Fixture.Start();
 
-        Assert.Equal(1, fixture.Echoes(() => File.WriteAllText(Path.Combine(fixture.Assets, "outside.txt"), "hello")).Bursts);
+        Assert.Equal(
+            1,
+            fixture.Echoes(() => File.WriteAllText(Path.Combine(fixture.Assets, "outside.txt"), "hello")).Bursts
+        );
 
         // That burst's rescan minted `outside.txt.meta`, which is the editor's own write.
-        Assert.Equal(0, fixture.Echoes(() => { }).Bursts);
+        Assert.Equal(0, fixture.Echoes(static () => { }).Bursts);
     }
 
     /// <summary>Create ▸ writes the file and its sidecar, and neither is heard.</summary>
     [Fact]
     public void Creating_an_asset_echoes_nothing() {
         using var fixture = Fixture.Start();
-        var kind = new NewAssetKind("test.create-thing", new("editor.command.test.create-thing", "Thing"), ".thing", "New Thing", "name: thing\n");
+        var kind = new NewAssetKind(
+            "test.create-thing",
+            new("editor.command.test.create-thing", "Thing"),
+            ".thing",
+            "New Thing",
+            "name: thing\n"
+        );
 
         fixture.AssertSilent(() => Assert.NotNull(fixture.Library.Create(kind)));
     }
 
-    /// <summary>A file brought in from outside the project, then imported, echoes nothing — the copy, the sidecar or the write-back.</summary>
+    /// <summary>
+    ///     A file brought in from outside the project, then imported, echoes nothing — the copy, the sidecar or the
+    ///     write-back.
+    /// </summary>
     [Fact]
     public void Importing_a_file_into_the_project_echoes_nothing() {
         using var fixture = Fixture.Start();
@@ -70,14 +85,13 @@ public sealed class EditorWriteEchoTests {
 
             File.WriteAllText(source, "from elsewhere");
 
-            fixture.AssertSilent(
-                () => {
+            fixture.AssertSilent(() => {
                     Assert.Equal(1, fixture.Library.Import([source], "Assets/Brought"));
                     fixture.AwaitImport();
                 }
             );
         } finally {
-            Directory.Delete(outside, recursive: true);
+            Directory.Delete(outside, true);
         }
     }
 
@@ -89,8 +103,7 @@ public sealed class EditorWriteEchoTests {
         // From outside, drained: the import below is what is measured.
         fixture.Echoes(() => File.WriteAllText(Path.Combine(fixture.Assets, "plain.txt"), "plain"));
 
-        fixture.AssertSilent(
-            () => {
+        fixture.AssertSilent(() => {
                 fixture.Library.ReimportAll();
                 fixture.AwaitImport();
             }
@@ -130,10 +143,13 @@ public sealed class EditorWriteEchoTests {
         using var fixture = Fixture.Start();
         var shelf = Path.Combine(fixture.Assets, "SmartMaterials");
 
-        Assert.True(Directory.Exists(shelf), "the shelf was not written when the editor started, so its rewrite below proves nothing");
+        Assert.True(
+            Directory.Exists(shelf),
+            "the shelf was not written when the editor started, so its rewrite below proves nothing"
+        );
 
         // From outside, drained: the reload's rewrite is what is measured.
-        fixture.Echoes(() => Directory.Delete(shelf, recursive: true));
+        fixture.Echoes(() => Directory.Delete(shelf, true));
         fixture.Elapse();
 
         fixture.AssertSilent(() => Assert.Empty(fixture.Plugins.Reload(TexturingModule.ModuleId).Diagnostics));
@@ -156,13 +172,11 @@ public sealed class EditorWriteEchoTests {
         using var fixture = Fixture.Start();
         MaterialBakeSet? set = null;
 
-        fixture.Echoes(
-            () => set = new ProjectMaterialBaker(fixture.Project).Write(
+        fixture.Echoes(() => set = new ProjectMaterialBaker(fixture.Project).Write(
                 "Hull",
                 MaterialBake.Encode(
                     new Dictionary<MaterialMapUsage, Bitmap> {
-                        [MaterialMapUsage.BaseColor] = Flat(10),
-                        [MaterialMapUsage.Height] = Flat(10)
+                        [MaterialMapUsage.BaseColor] = Flat(10), [MaterialMapUsage.Height] = Flat(10)
                     }
                 ),
                 new() { Source = "Assets/hull.vxtexgraph" }
@@ -171,8 +185,7 @@ public sealed class EditorWriteEchoTests {
 
         fixture.Elapse();
 
-        fixture.AssertSilent(
-            () => {
+        fixture.AssertSilent(() => {
                 MaterialBakeParallax.Requested(set!, out var refused, fixture.Project.Assets);
                 Assert.Null(refused);
             }
@@ -200,7 +213,10 @@ public sealed class EditorWriteEchoTests {
     public void Analysing_a_build_echoes_nothing() {
         using var fixture = Fixture.Start();
         var file = Path.Combine(fixture.Assets, "unindexed.txt");
-        var analyse = fixture.Plugins.Services.Require<IWorkspace>().Views.OfType<AddressableGroupEditorView>().Single().Analyser;
+        var analyse = fixture.Plugins.Services.Require<IWorkspace>()
+            .Views.OfType<AddressableGroupEditorView>()
+            .Single()
+            .Analyser;
 
         Assert.NotNull(analyse);
 
@@ -263,7 +279,7 @@ public sealed class EditorWriteEchoTests {
             operation();
             Settle();
 
-            return (bursts, [.. heard]);
+            return (bursts, [..heard]);
         }
 
         /// <summary>Runs an operation that writes into <c>Assets/</c> and asserts the watcher heard none of it.</summary>
@@ -273,7 +289,10 @@ public sealed class EditorWriteEchoTests {
 
             // ⚠ The operation must have written something, or "nothing was heard" proves nothing.
             Assert.NotEqual(before, Snapshot.Of(Assets));
-            Assert.True(count == 0, $"{count} echoed burst(s): {string.Join(", ", changes.Select(change => $"{change.Kind} {change.Path}"))}");
+            Assert.True(
+                count == 0,
+                $"{count} echoed burst(s): {string.Join(", ", changes.Select(static change => $"{change.Kind} {change.Path}"))}"
+            );
         }
 
         /// <summary>Waits for the import an operation queued, replaying the disk as the platform would report it meanwhile.</summary>
@@ -355,7 +374,10 @@ public sealed class EditorWriteEchoTests {
 
         public VirtualPath Root => VirtualPath.Root;
 
-        public TimeSpan Debounce { get => TimeSpan.Zero; set { } }
+        public TimeSpan Debounce {
+            get => TimeSpan.Zero;
+            set { }
+        }
 
         public bool HasOverflowed => false;
 
@@ -416,7 +438,8 @@ public sealed class EditorWriteEchoTests {
             Dictionary<string, Stamp> entries = new(StringComparer.Ordinal);
 
             foreach (var path in Directory.EnumerateFileSystemEntries(root, "*", SearchOption.AllDirectories)) {
-                var key = "/" + Path.GetRelativePath(root, path).Replace(Path.DirectorySeparatorChar, VirtualPath.Separator);
+                var key = "/"
+                    + Path.GetRelativePath(root, path).Replace(Path.DirectorySeparatorChar, VirtualPath.Separator);
                 var info = new FileInfo(path);
 
                 entries[key] = Directory.Exists(path)
@@ -428,7 +451,8 @@ public sealed class EditorWriteEchoTests {
         }
 
         public bool Equals(Snapshot? other) =>
-            other is not null && Entries.Count == other.Entries.Count
+            other is not null
+            && Entries.Count == other.Entries.Count
             && Entries.All(pair => other.Entries.TryGetValue(pair.Key, out var stamp) && stamp == pair.Value);
 
         public override int GetHashCode() => Entries.Count;

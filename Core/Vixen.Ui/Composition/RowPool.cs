@@ -6,8 +6,11 @@ namespace Vixen.Ui.Composition;
 /// <summary>A control that shows a long list by re-using a handful of row elements.</summary>
 /// <remarks>
 ///     <para>
-///         <b>The seam between composition and a virtualizing control, and it exists because the
-///         dependency only goes one way.</b> <c>VirtualizingPanel</c> and <c>VirtualizingGrid</c>
+///         <b>
+///             The seam between composition and a virtualizing control, and it exists because the
+///             dependency only goes one way.
+///         </b>
+///         <c>VirtualizingPanel</c> and <c>VirtualizingGrid</c>
 ///         live in <c>Vixen.Ui.Controls</c>, which references <c>Vixen.Ui</c>; so
 ///         <see cref="BuildContext" /> cannot name either of them, and until something in this
 ///         assembly described what they do, the only way to fill one was to write
@@ -15,8 +18,12 @@ namespace Vixen.Ui.Composition;
 ///         <a href="https://github.com/Rikarin/Vixen/issues/758">#758</a> is about.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Four members, and the shape of them is the whole argument for why a pooled list is
-///         not a <c>@for</c>.</b> A loop is told a sequence and keys; this is told a <i>count</i>,
+///         ⚠
+///         <b>
+///             Four members, and the shape of them is the whole argument for why a pooled list is
+///             not a <c>@for</c>.
+///         </b>
+///         A loop is told a sequence and keys; this is told a <i>count</i>,
 ///         asked for slots when it runs short of them, and then tells a slot which index it is
 ///         showing now. A slot is not an identity — the pool only ever grows, and a row that was
 ///         line 4 is line 900 after a scroll — so every rule the keyed reconciler teaches is false

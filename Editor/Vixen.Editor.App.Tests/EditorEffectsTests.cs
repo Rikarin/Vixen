@@ -10,8 +10,12 @@ namespace Vixen.Editor.App.Tests;
 
 /// <summary>The editor's shader variants, compiled in process.</summary>
 /// <remarks>
-///     ⚠ <b>The tier <c>EffectSystem</c> documents itself as expecting, and the reason the viewport
-///     could not be driven by a compositor.</b> Its own remarks say a bundle provider "misses on a key
+///     ⚠
+///     <b>
+///         The tier <c>EffectSystem</c> documents itself as expecting, and the reason the viewport
+///         could not be driven by a compositor.
+///     </b>
+///     Its own remarks say a bundle provider "misses on a key
 ///     the build did not enumerate, and the compiler behind it answers"; nothing in the editor built
 ///     the compiler. What is asserted here is a real key resolving to a real effect with real device
 ///     handles — not that the object exists.
@@ -26,7 +30,7 @@ public sealed class EditorEffectsTests : IDisposable {
         foreach (var directory in temporary) {
             try {
                 if (Directory.Exists(directory)) {
-                    Directory.Delete(directory, recursive: true);
+                    Directory.Delete(directory, true);
                 }
             } catch (IOException) {
                 // A cache the test wrote and the OS has not let go of. Not what is under test.
@@ -47,8 +51,12 @@ public sealed class EditorEffectsTests : IDisposable {
 
     /// <summary>The engine's shader library ships beside the editor.</summary>
     /// <remarks>
-    ///     ⚠ <b>Without it the editor draws no materials and reports nothing anybody would connect to
-    ///     a missing folder.</b> Every material would miss, every draw would fall back, and the
+    ///     ⚠
+    ///     <b>
+    ///         Without it the editor draws no materials and reports nothing anybody would connect to
+    ///         a missing folder.
+    ///     </b>
+    ///     Every material would miss, every draw would fall back, and the
     ///     symptom would be a scene shaded flat — so the absence is worth an assertion of its own
     ///     rather than only a refusal string.
     /// </remarks>
@@ -63,7 +71,7 @@ public sealed class EditorEffectsTests : IDisposable {
 
         // The packages, not the two syntax samples at the root — which import packages this library
         // does not have and would fail every variant in the compilation rather than only themselves.
-        Assert.Contains(Directory.EnumerateDirectories(library), path => Path.GetFileName(path) == "Core");
+        Assert.Contains(Directory.EnumerateDirectories(library), static path => Path.GetFileName(path) == "Core");
     }
 
     /// <summary>A key resolves to an effect with stages, a layout and parameters.</summary>
@@ -151,8 +159,12 @@ public sealed class EditorEffectsTests : IDisposable {
 
     /// <summary>A key nothing declares is a miss rather than an exception.</summary>
     /// <remarks>
-    ///     ⚠ <b>A miss has to be survivable, because a material naming a shader somebody deleted is
-    ///     an ordinary state of a project.</b> The miss list is what a shipping build asserts is
+    ///     ⚠
+    ///     <b>
+    ///         A miss has to be survivable, because a material naming a shader somebody deleted is
+    ///         an ordinary state of a project.
+    ///     </b>
+    ///     The miss list is what a shipping build asserts is
     ///     empty; in an editor it is a row in a panel.
     /// </remarks>
     [Fact]
@@ -252,8 +264,11 @@ public sealed class EditorEffectsTests : IDisposable {
     /// <summary>A rebuild loads through the loader it already had, so the device gains nothing.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The measurement <a href="https://github.com/Rikarin/Vixen/issues/1121">#1121</a>
-    ///         asked for and nothing had ever taken: no test rebuilt <c>EditorEffects</c> twice.</b>
+    ///         ⚠
+    ///         <b>
+    ///             The measurement <a href="https://github.com/Rikarin/Vixen/issues/1121">#1121</a>
+    ///             asked for and nothing had ever taken: no test rebuilt <c>EditorEffects</c> twice.
+    ///         </b>
     ///         <c>new EffectLoader(device)</c> sat inline in <c>Build</c>, so a shader edit, a graph
     ///         save or a project open minted a loader, filled it with a descriptor set layout per
     ///         binding shape and a pipeline layout to match, and dropped it — and unlike its two

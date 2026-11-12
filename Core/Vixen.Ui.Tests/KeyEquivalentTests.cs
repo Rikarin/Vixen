@@ -43,7 +43,11 @@ public class KeyEquivalentTests {
         var reached = new List<UiElement>();
 
         foreach (var element in elements) {
-            element.AddHandler<KeyEquivalentEvent>((source, args) => { reached.Add(source); args.Handled = true; });
+            element.AddHandler<KeyEquivalentEvent>((source, args) => {
+                    reached.Add(source);
+                    args.Handled = true;
+                }
+            );
         }
 
         return reached;
@@ -103,7 +107,7 @@ public class KeyEquivalentTests {
 
         var field = document.Root.Add("div");
         field.Focusable = true;
-        field.AddHandler<KeyEvent>((_, args) => args.Handled = args.Key == InputKey.Enter);
+        field.AddHandler<KeyEvent>(static (_, args) => args.Handled = args.Key == InputKey.Enter);
 
         var ok = Equivalent(document.Root, InputKey.Enter);
         var reached = Listening(ok);

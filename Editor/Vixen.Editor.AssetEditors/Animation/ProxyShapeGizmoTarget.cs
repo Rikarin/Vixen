@@ -18,8 +18,12 @@ namespace Vixen.Editor.AssetEditors.Animation;
 ///         without any of them knowing what a proxy shape is.
 ///     </para>
 ///     <para>
-///         ⚠ <b><see cref="Scale" /> writes the extents, because a proxy shape has no scale of its
-///         own.</b> Its size <em>is</em> its extents, so a scale handle that wrote a separate field
+///         ⚠
+///         <b>
+///             <see cref="Scale" /> writes the extents, because a proxy shape has no scale of its
+///             own.
+///         </b>
+///         Its size <em>is</em> its extents, so a scale handle that wrote a separate field
 ///         would be a second size that has to be reconciled with the first — and a sphere with a
 ///         radius of 0.2 and a scale of 3 is a sphere whose radius nobody can read off the panel.
 ///     </para>
@@ -65,9 +69,14 @@ public sealed class ProxyShapeGizmoTarget : IGizmoTarget {
 
     /// <inheritdoc />
     public Vector3 Position {
-        get => jointToWorld.Translation + Quaternion.Transform(Current.Position * jointToWorld.Scale, jointToWorld.Rotation);
+        get =>
+            jointToWorld.Translation
+            + Quaternion.Transform(Current.Position * jointToWorld.Scale, jointToWorld.Rotation);
         set {
-            var local = Quaternion.Transform(value - jointToWorld.Translation, Quaternion.Conjugate(jointToWorld.Rotation));
+            var local = Quaternion.Transform(
+                value - jointToWorld.Translation,
+                Quaternion.Conjugate(jointToWorld.Rotation)
+            );
 
             Current = Current with { Position = Divide(local, jointToWorld.Scale) };
         }
@@ -76,9 +85,12 @@ public sealed class ProxyShapeGizmoTarget : IGizmoTarget {
     /// <inheritdoc />
     public Quaternion Rotation {
         get => Quaternion.Concatenate(Current.Rotation, jointToWorld.Rotation);
-        set => Current = Current with {
-            Rotation = Quaternion.Normalize(Quaternion.Concatenate(value, Quaternion.Conjugate(jointToWorld.Rotation)))
-        };
+        set =>
+            Current = Current with {
+                Rotation = Quaternion.Normalize(
+                    Quaternion.Concatenate(value, Quaternion.Conjugate(jointToWorld.Rotation))
+                )
+            };
     }
 
     /// <inheritdoc />
@@ -93,10 +105,7 @@ public sealed class ProxyShapeGizmoTarget : IGizmoTarget {
         set {
             var factor = new Vector3(MathF.Abs(value.X), MathF.Abs(value.Y), MathF.Abs(value.Z));
 
-            Current = Current with {
-                Extents = started.Extents * factor,
-                TopExtents = started.TopExtents * factor
-            };
+            Current = Current with { Extents = started.Extents * factor, TopExtents = started.TopExtents * factor };
         }
     }
 
@@ -109,13 +118,16 @@ public sealed class ProxyShapeGizmoTarget : IGizmoTarget {
 
     /// <summary>Records the whole drag as one undoable edit.</summary>
     /// <returns>The shape as it now is, so a caller can keep selecting it.</returns>
-    public ProxyShapeRecord Commit() =>
-        IsDirty ? document.Edit(started, Describe(), _ => Current) : started;
+    public ProxyShapeRecord Commit() => IsDirty ? document.Edit(started, Describe(), _ => Current) : started;
 
     /// <inheritdoc />
     /// <remarks>
-    ///     ⚠ <b>The entry goes on the shape set's own history, not on the scene the viewport is
-    ///     showing.</b> A proxy shape belongs to the file it is in, beside every other change to that
+    ///     ⚠
+    ///     <b>
+    ///         The entry goes on the shape set's own history, not on the scene the viewport is
+    ///         showing.
+    ///     </b>
+    ///     A proxy shape belongs to the file it is in, beside every other change to that
     ///     file; putting it on a scene's stack would make undoing it depend on which tab had focus.
     ///     This is the case that used to need <c>SceneViewport.Records</c>, and it is why doc 36 § D1
     ///     puts the answer on the target rather than on the viewport.

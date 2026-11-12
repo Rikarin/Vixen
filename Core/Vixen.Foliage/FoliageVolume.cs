@@ -147,12 +147,12 @@ public sealed class FoliageVolume {
 
         var removed = 0;
 
-        foreach (var group in addresses.GroupBy(address => (address.Type, address.Cell))) {
+        foreach (var group in addresses.GroupBy(static address => (address.Type, address.Cell))) {
             if (!chunks.TryGetValue(group.Key, out var chunk)) {
                 continue;
             }
 
-            foreach (var address in group.OrderByDescending(entry => entry.Index)) {
+            foreach (var address in group.OrderByDescending(static entry => entry.Index)) {
                 if ((uint)address.Index < (uint)chunk.Count) {
                     chunk.RemoveAt(address.Index, ReachOf(group.Key.Type));
                     removed++;
@@ -268,8 +268,11 @@ public sealed class FoliageVolume {
     /// <exception cref="ArgumentOutOfRangeException">There is no such entry.</exception>
     /// <remarks>
     ///     <para>
-    ///         <b>[docs/plan/31 § T5] registered this as unavailable with a reason, and the reason is
-    ///         what this method has to do about it.</b> A palette index is not a name: it is a
+    ///         <b>
+    ///             [docs/plan/31 § T5] registered this as unavailable with a reason, and the reason is
+    ///             what this method has to do about it.
+    ///         </b>
+    ///         A palette index is not a name: it is a
     ///         position, and removing the second of six shifts the four above it down by one. Every
     ///         chunk is filed under one, so every chunk above the removal has to be re-filed.
     ///     </para>

@@ -3,7 +3,6 @@
 
 using Vixen.Graphics;
 using Vixen.NodeGraph;
-using Vixen.ShaderCompiler;
 using Vixen.Shaders;
 using Vixen.TextureGraph;
 using Xunit;
@@ -15,8 +14,12 @@ namespace Tests;
 ///     mapped back — with no device anywhere.
 /// </summary>
 /// <remarks>
-///     ⚠ <b>The strongest assertion here is not that a graph compiled; it is that the generated text
-///     goes through the same front end every other kernel in this assembly does</b> —
+///     ⚠
+///     <b>
+///         The strongest assertion here is not that a graph compiled; it is that the generated text
+///         goes through the same front end every other kernel in this assembly does
+///     </b>
+///     —
 ///     <see cref="The_generated_kernel_compiles_to_a_compute_stage" /> asks
 ///     <c>RavenEffectCompiler</c> for SPIR-V. A generator that emitted plausible-looking nonsense
 ///     would pass every plan-shaped assertion in this file and fail that one, which is the same
@@ -68,7 +71,7 @@ public class TexturePixelProcessorTests {
 
         // Every declared uniform is carried, because the evaluator refuses an op that leaves one out
         // and a parameter nobody carried is written as zero.
-        Assert.Equal(["x", "y", "z", "w"], op.Parameters.Select(parameter => parameter.Name).ToArray());
+        Assert.Equal(["x", "y", "z", "w"], op.Parameters.Select(static parameter => parameter.Name).ToArray());
 
         // One input, because one is wired.
         Assert.Single(op.Inputs);
@@ -91,7 +94,7 @@ public class TexturePixelProcessorTests {
 
         Assert.NotNull(data);
 
-        var compute = Assert.Single(data.Stages, stage => stage.Stage == ShaderStage.Compute);
+        var compute = Assert.Single(data.Stages, static stage => stage.Stage == ShaderStage.Compute);
 
         Assert.NotEmpty(compute.Bytecode);
         Assert.Single(data.Stages);
@@ -100,7 +103,7 @@ public class TexturePixelProcessorTests {
         // workgroup the evaluator dispatches in.
         Assert.Single(
             data.Bindings,
-            binding => binding is { Set: DescriptorSetSlot.PerMaterial, Kind: DescriptorKind.StorageTexture }
+            static binding => binding is { Set: DescriptorSetSlot.PerMaterial, Kind: DescriptorKind.StorageTexture }
         );
 
         Assert.Contains(
@@ -141,9 +144,12 @@ public class TexturePixelProcessorTests {
             .TryGet(EffectKey.Of(kernel.Kernel))!;
 
         var textures = data.Bindings
-            .Where(binding => binding is { Set: DescriptorSetSlot.PerMaterial, Kind: DescriptorKind.SampledTexture })
-            .OrderBy(binding => binding.Binding)
-            .Select(binding => binding.Name)
+            .Where(static binding => binding is {
+                    Set: DescriptorSetSlot.PerMaterial, Kind: DescriptorKind.SampledTexture
+                }
+            )
+            .OrderBy(static binding => binding.Binding)
+            .Select(static binding => binding.Name)
             .ToArray();
 
         Assert.Equal(["sourceA", "sourceB"], textures);
@@ -152,7 +158,7 @@ public class TexturePixelProcessorTests {
         // binds them positionally over those two declarations, so an op that listed B's image first
         // would composite the wrong way round with a kernel that is perfectly correct.
         var op = plan.Ops.Last();
-        var images = compiler.NodeImages.ToDictionary(written => written.Node, written => written.Image);
+        var images = compiler.NodeImages.ToDictionary(static written => written.Node, static written => written.Image);
 
         Assert.Equal(images[second.Id], op.Inputs[1]);
 
@@ -169,7 +175,7 @@ public class TexturePixelProcessorTests {
     /// <summary>An unwired input declares no texture and asks the op for no image.</summary>
     [Fact]
     public void An_unwired_input_is_opaque_black_rather_than_an_unbound_texture() {
-        var (compiler, graph, _) = Processing("float4(uv.x, uv.y, 0f, 1f)", wired: false);
+        var (compiler, graph, _) = Processing("float4(uv.x, uv.y, 0f, 1f)", false);
         var compilation = compiler.Compile(graph);
 
         Assert.Empty(compilation.Diagnostics);
@@ -195,7 +201,7 @@ public class TexturePixelProcessorTests {
         var (compiler, graph, processor) = Processing("a.nonsense");
         var compilation = compiler.Compile(graph);
 
-        var diagnostic = Assert.Single(compilation.Diagnostics, one => one.Id == "TG0021");
+        var diagnostic = Assert.Single(compilation.Diagnostics, static one => one.Id == "TG0021");
 
         Assert.Equal(processor.Id, diagnostic.Node);
         Assert.Equal("Expression", diagnostic.Port);
@@ -219,7 +225,7 @@ public class TexturePixelProcessorTests {
     public void The_complaint_carries_ravens_own_diagnostic_id() {
         var (compiler, graph, _) = Processing("nothing * 2f");
 
-        var diagnostic = Assert.Single(compiler.Compile(graph).Diagnostics, one => one.Id == "TG0021");
+        var diagnostic = Assert.Single(compiler.Compile(graph).Diagnostics, static one => one.Id == "TG0021");
 
         Assert.Contains("RVN", diagnostic.Message, StringComparison.Ordinal);
     }
@@ -252,8 +258,12 @@ public class TexturePixelProcessorTests {
 
     /// <summary>The kernel's name is the same in two compilations of one graph.</summary>
     /// <remarks>
-    ///     ⚠ <b>A name from <c>string.GetHashCode</c> would pass every other test in this file and
-    ///     fail this one</b>, because that hash is randomised per process — and a plan whose kernel
+    ///     ⚠
+    ///     <b>
+    ///         A name from <c>string.GetHashCode</c> would pass every other test in this file and
+    ///         fail this one
+    ///     </b>
+    ///     , because that hash is randomised per process — and a plan whose kernel
     ///     names changed per run could not be diffed between two saved versions of a graph.
     /// </remarks>
     [Fact]
@@ -279,7 +289,7 @@ public class TexturePixelProcessorTests {
     public void An_expression_over_two_lines_is_refused() {
         var (compiler, graph, _) = Processing("a\n * 2f");
 
-        var diagnostic = Assert.Single(compiler.Compile(graph).Diagnostics, one => one.Id == "TG0020");
+        var diagnostic = Assert.Single(compiler.Compile(graph).Diagnostics, static one => one.Id == "TG0020");
 
         Assert.Contains("newline ends a statement", diagnostic.Message, StringComparison.Ordinal);
     }
@@ -289,7 +299,7 @@ public class TexturePixelProcessorTests {
     public void An_empty_expression_is_refused() {
         var (compiler, graph, _) = Processing("   ");
 
-        Assert.Single(compiler.Compile(graph).Diagnostics, one => one.Id == "TG0020");
+        Assert.Single(compiler.Compile(graph).Diagnostics, static one => one.Id == "TG0020");
     }
 
     /// <summary>

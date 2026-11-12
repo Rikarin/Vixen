@@ -36,9 +36,13 @@ public abstract partial class ToggleBase : ButtonBase {
     /// <inheritdoc />
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Read off <see cref="IsChecked" /> on demand rather than mirrored into a field
-    ///         when it changes, which is the whole reason
-    ///         <see cref="UiElement.NativeAccessibleState" /> is a virtual.</b> There is no second
+    ///         ⚠
+    ///         <b>
+    ///             Read off <see cref="IsChecked" /> on demand rather than mirrored into a field
+    ///             when it changes, which is the whole reason
+    ///             <see cref="UiElement.NativeAccessibleState" /> is a virtual.
+    ///         </b>
+    ///         There is no second
     ///         copy to update, no callback to remember, and no state in which a checkbox is ticked
     ///         on screen and unticked to a screen reader.
     ///     </para>
@@ -80,8 +84,12 @@ public abstract partial class ToggleBase : ButtonBase {
     /// <inheritdoc />
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Into <see cref="IsChecked" />, not into
-    ///         <see cref="Vixen.Ui.Styling.ElementState.Checked" /> beside it.</b> The base
+    ///         ⚠
+    ///         <b>
+    ///             Into <see cref="IsChecked" />, not into
+    ///             <see cref="Vixen.Ui.Styling.ElementState.Checked" /> beside it.
+    ///         </b>
+    ///         The base
     ///         implementation writes the style flag, which is right for a
     ///         <see cref="ButtonBase" /> that has no other opinion — but a toggle does, and a
     ///         binding that wrote only the flag left this control holding two independent facts
@@ -92,8 +100,12 @@ public abstract partial class ToggleBase : ButtonBase {
     ///         (<see cref="OnCheckedChanged" />), so there is one fact and the theme is unaffected.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A command that is not checkable is told nothing, rather than told
-    ///         <c>false</c>.</b> Deferring to the base here would clear
+    ///         ⚠
+    ///         <b>
+    ///             A command that is not checkable is told nothing, rather than told
+    ///             <c>false</c>.
+    ///         </b>
+    ///         Deferring to the base here would clear
     ///         <see cref="Vixen.Ui.Styling.ElementState.Checked" /> on every refresh of a toggle
     ///         bound to an ordinary command — un-drawing a control whose <c>IsChecked</c> is still
     ///         <see langword="true" />, which is the same divergence in the other direction. A
@@ -111,8 +123,7 @@ public abstract partial class ToggleBase : ButtonBase {
 
     /// <summary>Called after the state changed, before it is reported.</summary>
     /// <param name="current">What it is now.</param>
-    protected virtual void OnChecked(bool current) {
-    }
+    protected virtual void OnChecked(bool current) { }
 
     void OnCheckedChanged(bool previous, bool current) {
         if (current) {
@@ -164,8 +175,12 @@ public sealed partial class CheckBox : ToggleBase, IValidated {
     ///         is on <see cref="TextField.Required" />.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A half-ticked box is <i>not</i> ticked, so a required one showing a dash is
-    ///         invalid.</b> That falls out of <see cref="IsIndeterminate" /> being a third appearance
+    ///         ⚠
+    ///         <b>
+    ///             A half-ticked box is <i>not</i> ticked, so a required one showing a dash is
+    ///             invalid.
+    ///         </b>
+    ///         That falls out of <see cref="IsIndeterminate" /> being a third appearance
     ///         rather than a third value — but it is worth stating, because the alternative reading
     ///         ("it has been touched, so let it through") is the one a form would silently take if the
     ///         verdict were computed from the class instead.
@@ -177,7 +192,7 @@ public sealed partial class CheckBox : ToggleBase, IValidated {
     /// <summary>The box the tick is drawn in.</summary>
     public UiElement Box { get; private set; } = null!;
 
-    /// <summary>Whether what it holds is acceptable.</summary>
+    /// <inheritdoc />
     public bool IsValid => !Required || (IsChecked && !IsIndeterminate);
 
     /// <inheritdoc />
@@ -185,8 +200,12 @@ public sealed partial class CheckBox : ToggleBase, IValidated {
 
     /// <inheritdoc />
     /// <remarks>
-    ///     ⚠ <b><see cref="AccessibleStates.Mixed" /> replaces
-    ///     <see cref="AccessibleStates.Checked" /> rather than joining it</b>, because
+    ///     ⚠
+    ///     <b>
+    ///         <see cref="AccessibleStates.Mixed" /> replaces
+    ///         <see cref="AccessibleStates.Checked" /> rather than joining it
+    ///     </b>
+    ///     , because
     ///     <c>aria-checked</c> is one value with three settings and "ticked and half-ticked at once"
     ///     is not one of them. It is the same reason <see cref="IsIndeterminate" /> is a separate
     ///     flag rather than a third value of <see cref="ToggleBase.IsChecked" />: the appearance is
@@ -283,13 +302,21 @@ public sealed partial class CheckBox : ToggleBase, IValidated {
 
 /// <summary>A switch: a track, and a knob that slides along it.</summary>
 /// <remarks>
-///     ⚠ <b>Not a checkbox with a different skin, and the difference is what it means rather than
-///     how it looks.</b> A checkbox is a value in a form that is applied when the form is; a switch
+///     ⚠
+///     <b>
+///         Not a checkbox with a different skin, and the difference is what it means rather than
+///         how it looks.
+///     </b>
+///     A checkbox is a value in a form that is applied when the form is; a switch
 ///     takes effect the moment it is flipped. A control set that makes them interchangeable produces
 ///     dialogs with a switch beside an OK button, where nobody can tell whether Cancel undoes it.
 ///     <para>
-///         ⚠ <b>Which is also why it does not validate, and the absence is the answer rather than
-///         the next thing to add.</b> <see cref="CheckBox" /> and <see cref="RadioGroup" /> have a
+///         ⚠
+///         <b>
+///             Which is also why it does not validate, and the absence is the answer rather than
+///             the next thing to add.
+///         </b>
+///         <see cref="CheckBox" /> and <see cref="RadioGroup" /> have a
 ///         <c>Required</c> and a verdict; a switch deliberately has neither, because "this must be
 ///         on before the form is acceptable" is a sentence about a form being submitted and a switch
 ///         is not submitted — it has already happened. A required switch is a setting the
@@ -394,8 +421,12 @@ public sealed partial class RadioGroup : Control, IValidated {
 
     /// <inheritdoc />
     /// <remarks>
-    ///     ⚠ <b>One of the few containers that <i>is</i> a node, and the reason is the sentence
-    ///     above about the tab order.</b> A group is one stop, so a screen reader has to announce
+    ///     ⚠
+    ///     <b>
+    ///         One of the few containers that <i>is</i> a node, and the reason is the sentence
+    ///         above about the tab order.
+    ///     </b>
+    ///     A group is one stop, so a screen reader has to announce
     ///     "three of five" as the arrows move — and it can only do that if the group is in the tree
     ///     as the parent of its radios rather than being read straight through.
     /// </remarks>
@@ -454,7 +485,7 @@ public sealed partial class RadioGroup : Control, IValidated {
     ///     That is <c>Accordion.Sections</c>' arrangement and it is the right one for the same
     ///     reasons; <see cref="OnChildAdded" /> is what does the part a snapshot cannot.
     /// </remarks>
-    public IReadOnlyList<RadioButton> Options => [.. Children.OfType<RadioButton>()];
+    public IReadOnlyList<RadioButton> Options => [..Children.OfType<RadioButton>()];
 
     /// <summary>Raised when the choice changes.</summary>
     public event Action<RadioGroup, string?>? ValueChanged;
@@ -466,8 +497,8 @@ public sealed partial class RadioGroup : Control, IValidated {
         // On the group rather than on each radio. A radio does not know what is next to it, and a
         // group that subscribed per child would have to unsubscribe per removal — which is exactly
         // the bookkeeping routed events exist to avoid.
-        AddHandler<ClickEvent>(static (element, args) => ((RadioGroup) element).Chosen(args));
-        AddHandler<KeyEvent>(static (element, args) => ((RadioGroup) element).Keyed(args));
+        AddHandler<ClickEvent>(static (element, args) => ((RadioGroup)element).Chosen(args));
+        AddHandler<KeyEvent>(static (element, args) => ((RadioGroup)element).Keyed(args));
 
         // ⚠ Here, not only on a change: an optional group is valid from birth and never goes through
         // one, so without this call it would carry neither `:valid` nor `:invalid` for its whole life.

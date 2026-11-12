@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core.Imaging;
-using Vixen.Core.Mathematics;
 using Xunit;
 
 namespace Vixen.Ui.Testing.Tests;
@@ -10,8 +9,12 @@ namespace Vixen.Ui.Testing.Tests;
 /// <summary>What <c>container-type</c> puts on the screen, counted rather than compared.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>The geometry tests in <c>Vixen.Ui.Tests.ContainerTypeContainmentTests</c> read the
-///         layout store; this reads the picture.</b> Two panels side by side hold the same 120 × 30
+///         ⚠
+///         <b>
+///             The geometry tests in <c>Vixen.Ui.Tests.ContainerTypeContainmentTests</c> read the
+///             layout store; this reads the picture.
+///         </b>
+///         Two panels side by side hold the same 120 × 30
 ///         body. The left one is a plain flex item and is as wide as its body. The right one declares
 ///         <c>container-type: inline-size</c>, so it is contained and takes no width from the body:
 ///         it is its own 10 px of padding wide, and the body, still laid out and painted, hangs out of
@@ -38,16 +41,16 @@ public class ContainerTypePixelTests {
     const int Height = 100;
 
     static Bitmap Rendered() {
-        using var ui = UiTest.Create(Width, Height, new UiTestOptions { Background = new Color4(0f, 0f, 0f, 1f) });
+        using var ui = UiTest.Create(Width, Height, new() { Background = new(0f, 0f, 0f, 1f) });
 
         ui.Load(
             $$"""
-            root   { width: {{Width}}px; height: {{Height}}px; flex-direction: row; align-items: flex-start; }
-            .plain { background-color: #0000ff; height: 60px; margin-right: 100px; }
-            .query { background-color: #ff8000; height: 60px; padding-left: 10px; container-type: inline-size; }
-            .body  { width: 120px; height: 30px; flex-shrink: 0; background-color: #ff0000; }
-            @container (max-width: 100px) { .body { background-color: #00ff00; } }
-            """
+              root   { width: {{Width}}px; height: {{Height}}px; flex-direction: row; align-items: flex-start; }
+              .plain { background-color: #0000ff; height: 60px; margin-right: 100px; }
+              .query { background-color: #ff8000; height: 60px; padding-left: 10px; container-type: inline-size; }
+              .body  { width: 120px; height: 30px; flex-shrink: 0; background-color: #ff0000; }
+              @container (max-width: 100px) { .body { background-color: #00ff00; } }
+              """
         );
 
         var plain = ui.Create("div", ui.Document.Root, null, "plain");
@@ -76,10 +79,16 @@ public class ContainerTypePixelTests {
     ///     where a mid value lands after the renderer's transfer function is not this test's question.
     ///     Every edge in the scene is on a whole pixel, so no texel is a blend of two fills.
     /// </remarks>
-    enum Fill { Other, Red, Orange, Green, Blue }
+    enum Fill {
+        Other,
+        Red,
+        Orange,
+        Green,
+        Blue
+    }
 
     static Fill Classify(byte r, byte g, byte b) =>
-        (r > 200, g > 200, b > 200, g > 16 && g < 240) switch {
+        (r > 200, g > 200, b > 200, g is > 16 and < 240) switch {
             (true, false, false, false) => Fill.Red,
             (true, false, false, true) => Fill.Orange,
             (false, true, false, _) => Fill.Green,

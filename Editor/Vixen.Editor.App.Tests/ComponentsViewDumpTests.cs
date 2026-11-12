@@ -62,8 +62,12 @@ public sealed class ComponentsViewDumpTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>The icon is <i>painted</i> between the chevron and the label, which the dump above
-    ///     shows only in its numbers.</b> A slot appends, so the document order is chevron, label,
+    ///     ⚠
+    ///     <b>
+    ///         The icon is <i>painted</i> between the chevron and the label, which the dump above
+    ///         shows only in its numbers.
+    ///     </b>
+    ///     A slot appends, so the document order is chevron, label,
     ///     icon, button and the tree walks children — the four rectangles are the only thing that
     ///     says the <c>order</c> rules took effect. This is the assertion that goes red if somebody
     ///     deletes them and leaves the markup alone, which a byte comparison of the tree would not.
@@ -73,10 +77,10 @@ public sealed class ComponentsViewDumpTests {
         using var editor = Crate(out var components);
         var header = components.Sections[0].Header;
 
-        var chevron = header.Children.First(child => child is Icon && !child.HasClass("component-icon"));
-        var glyph = header.Children.First(child => child.HasClass("component-icon"));
-        var label = header.Children.First(child => child.Tag == "label");
-        var remove = header.Children.First(child => child.HasClass("remove-component"));
+        var chevron = header.Children.First(static child => child is Icon && !child.HasClass("component-icon"));
+        var glyph = header.Children.First(static child => child.HasClass("component-icon"));
+        var label = header.Children.First(static child => child.Tag == "label");
+        var remove = header.Children.First(static child => child.HasClass("remove-component"));
 
         Assert.True(
             chevron.AbsoluteLeft < glyph.AbsoluteLeft
@@ -111,8 +115,8 @@ public sealed class ComponentsViewDumpTests {
         var target = components.Sections[0].Header.Bounds;
 
         editor.Ui
-            .At(handle.X + (handle.Width * 0.5f), handle.Y + (handle.Height * 0.5f))
-            .DragTo(target.X + (target.Width * 0.5f), target.Y + 2f);
+            .At(handle.X + handle.Width * 0.5f, handle.Y + handle.Height * 0.5f)
+            .DragTo(target.X + target.Width * 0.5f, target.Y + 2f);
 
         editor.Settle();
 
@@ -130,7 +134,7 @@ public sealed class ComponentsViewDumpTests {
     public void The_remove_button_takes_the_component_off_and_leaves_the_other_open() {
         using var editor = Crate(out var components);
 
-        var remove = components.Sections[1].Header.Children.First(child => child.HasClass("remove-component"));
+        var remove = components.Sections[1].Header.Children.First(static child => child.HasClass("remove-component"));
 
         editor.Click(remove);
         editor.Settle();
@@ -142,8 +146,11 @@ public sealed class ComponentsViewDumpTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>A drag that begins in a foldout's <i>body</i> reorders nothing, which is the half of
-    ///     this gesture that has no visible success.</b>
+    ///     ⚠
+    ///     <b>
+    ///         A drag that begins in a foldout's <i>body</i> reorders nothing, which is the half of
+    ///         this gesture that has no visible success.
+    ///     </b>
     /// </summary>
     /// <remarks>
     ///     <para>
@@ -165,7 +172,7 @@ public sealed class ComponentsViewDumpTests {
     public void A_drag_that_begins_inside_a_body_reorders_nothing() {
         using var editor = Crate(out var components);
 
-        var before = components.Sections.Select(section => section.Label ?? string.Empty).ToArray();
+        var before = components.Sections.Select(static section => section.Label ?? string.Empty).ToArray();
 
         Assert.Equal(["Light", "Primitive Shape"], before);
 
@@ -177,13 +184,16 @@ public sealed class ComponentsViewDumpTests {
         var target = components.Sections[0].Header.Bounds;
 
         editor.Ui
-            .At(row.AbsoluteLeft + (row.Width * 0.5f), row.AbsoluteTop + (row.Height * 0.5f))
-            .DragTo(target.X + (target.Width * 0.5f), target.Y + 2f);
+            .At(row.AbsoluteLeft + row.Width * 0.5f, row.AbsoluteTop + row.Height * 0.5f)
+            .DragTo(target.X + target.Width * 0.5f, target.Y + 2f);
 
         editor.Settle();
 
-        Assert.Equal(before, components.Sections.Select(section => section.Label ?? string.Empty).ToArray());
-        Assert.True(components.DropIndicator.HasClass("hidden"), "the drop line was armed by a drag that moved nothing");
+        Assert.Equal(before, components.Sections.Select(static section => section.Label ?? string.Empty).ToArray());
+        Assert.True(
+            components.DropIndicator.HasClass("hidden"),
+            "the drop line was armed by a drag that moved nothing"
+        );
     }
 
     /// <summary>
@@ -203,7 +213,7 @@ public sealed class ComponentsViewDumpTests {
         var handle = components.Sections[1].Header.Bounds;
         var top = components.Sections[0].Bounds;
 
-        editor.Ui.MovePointer(handle.X + (handle.Width * 0.5f), handle.Y + (handle.Height * 0.5f));
+        editor.Ui.MovePointer(handle.X + handle.Width * 0.5f, handle.Y + handle.Height * 0.5f);
         editor.Ui.PressPointer();
         editor.Ui.Frame();
 
@@ -212,8 +222,8 @@ public sealed class ComponentsViewDumpTests {
         for (var step = 1; step <= 4; step++) {
             var t = step / 4f;
             editor.Ui.MovePointer(
-                handle.X + (handle.Width * 0.5f),
-                handle.Y + (handle.Height * 0.5f) + ((top.Y + 2f - handle.Y - (handle.Height * 0.5f)) * t)
+                handle.X + handle.Width * 0.5f,
+                handle.Y + handle.Height * 0.5f + (top.Y + 2f - handle.Y - handle.Height * 0.5f) * t
             );
 
             editor.Ui.Frame();
@@ -230,7 +240,10 @@ public sealed class ComponentsViewDumpTests {
         editor.Ui.Frame();
         editor.Settle();
 
-        Assert.Equal(["Primitive Shape", "Light"], components.Sections.Select(section => section.Label ?? string.Empty).ToArray());
+        Assert.Equal(
+            ["Primitive Shape", "Light"],
+            components.Sections.Select(static section => section.Label ?? string.Empty).ToArray()
+        );
         Assert.Equal(line, components.Sections[0].Bounds.Y, 1);
         Assert.True(components.DropIndicator.HasClass("hidden"), "the line outlived the drop");
     }
@@ -247,8 +260,12 @@ public sealed class ComponentsViewDumpTests {
 
     /// <summary>The state the panel opens in: two foldouts, both open, nothing focused.</summary>
     /// <remarks>
-    ///     ⚠ <b>The Raw toggle is the first line of all four dumps, and it is up here rather than in
-    ///     a fifth state on purpose.</b> Debug (raw) mode is a second descriptor rather than a second
+    ///     ⚠
+    ///     <b>
+    ///         The Raw toggle is the first line of all four dumps, and it is up here rather than in
+    ///         a fifth state on purpose.
+    ///     </b>
+    ///     Debug (raw) mode is a second descriptor rather than a second
     ///     panel — <c>ReflectedDescriptor.Raw</c> — so what these four states are recording is that
     ///     adding it changed the panel by exactly one control and left the foldouts, the drag and the
     ///     focus alone. <c>InspectorRawModeTests</c> is where the mode itself is asserted.
@@ -457,10 +474,15 @@ public sealed class ComponentsViewDumpTests {
         <icon-button .hidden .size-sm .variant-subtle> Label="Reset"
         <button .add-component .size-md .variant-default> Label="Add Component"
         """;
+
     /// <summary>The panel's flags, with the pointer parked first.</summary>
     /// <remarks>
-    ///     ⚠ <b><c>State</c> is pointer-dependent and three of these states are reached by
-    ///     clicking.</b> A reading taken with the pointer still resting on the header it just
+    ///     ⚠
+    ///     <b>
+    ///         <c>State</c> is pointer-dependent and three of these states are reached by
+    ///         clicking.
+    ///     </b>
+    ///     A reading taken with the pointer still resting on the header it just
     ///     pressed carries <c>Hover</c> and one taken elsewhere does not — a property of the thing
     ///     being measured rather than of the measurement, and the same difference wave 6 recorded
     ///     between a pooled row's hover and a keyed one's. Parking is what makes the four dumps

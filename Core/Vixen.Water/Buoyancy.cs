@@ -12,7 +12,8 @@ namespace Vixen.Water;
 /// <remarks>
 ///     <para>
 ///         <b>A volumetric approximation cheap enough to run on every crate in a river</b> —
-///         [35 § D10](../../docs/plan/35-water.md#d10-buoyancy-is-pontoons-over-jolt-evaluated-at-the-fixed-steps-water-time),
+///         [35 §
+///         D10](../../docs/plan/35-water.md#d10-buoyancy-is-pontoons-over-jolt-evaluated-at-the-fixed-steps-water-time),
 ///         and it is the reference's model because it is the right one. Three or four spheres tell a
 ///         solver everything it needs about how a hull sits: where it floats, how it pitches when
 ///         somebody stands at the bow, and how it rights itself.
@@ -24,8 +25,12 @@ namespace Vixen.Water;
 ///         floating a hand's width too high.
 ///     </para>
 ///     <para>
-///         ⚠ <b><c>[DataContract]</c>, because without it <c>BuoyancyBody</c> is a scene component
-///         whose only load-bearing field cannot be written in a file.</b> That component is declared
+///         ⚠
+///         <b>
+///             <c>[DataContract]</c>, because without it <c>BuoyancyBody</c> is a scene component
+///             whose only load-bearing field cannot be written in a file.
+///         </b>
+///         That component is declared
 ///         to <c>SceneComponentRegistry</c> and every one of its scalars round-trips; its
 ///         <c>Pontoons</c> array does not, and a body with no pontoons floats nowhere and is not an
 ///         error — so an authored boat loaded, looked complete in the inspector, and sank. Nothing
@@ -114,7 +119,10 @@ public readonly record struct BuoyancyForce(
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>[35 § D10](../../docs/plan/35-water.md#d10-buoyancy-is-pontoons-over-jolt-evaluated-at-the-fixed-steps-water-time).</b>
+///         <b>
+///             [35 §
+///             D10](../../docs/plan/35-water.md#d10-buoyancy-is-pontoons-over-jolt-evaluated-at-the-fixed-steps-water-time).
+///         </b>
 ///         Per fixed step, per pontoon: ask the evaluator where the surface is, work out how much of
 ///         the sphere is under it, and produce an upward force at the pontoon's world position, a drag
 ///         opposing its relative velocity, and a pull towards the flow.
@@ -179,7 +187,7 @@ public static class Buoyancy {
         // exact arithmetic; in floats it overshoots by an ulp or two — measured at 1.0000001 for a
         // 2.2 m sphere — and a fraction above one is lift above Archimedes. The property test found
         // it, which is what a property test is for.
-        return WaterMath.Saturate(depth * depth * ((3f * radius) - depth) / (4f * radius * radius * radius));
+        return WaterMath.Saturate(depth * depth * (3f * radius - depth) / (4f * radius * radius * radius));
     }
 
     /// <summary>What one pontoon does to a body this step.</summary>
@@ -346,8 +354,12 @@ public static class Buoyancy {
     ///         displaced volume is the mass over the density, and the coefficient scales it.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>It answers a volume and not a height, because the height depends on which pontoons
-    ///         it is spread across.</b> A body whose displacement exceeds its pontoons' total volume
+    ///         ⚠
+    ///         <b>
+    ///             It answers a volume and not a height, because the height depends on which pontoons
+    ///             it is spread across.
+    ///         </b>
+    ///         A body whose displacement exceeds its pontoons' total volume
     ///         does not float at all, and that is the number to check rather than a depth that would
     ///         have to be solved for.
     ///     </para>

@@ -32,7 +32,7 @@ public class DockingTests {
             )
         };
 
-        layout.AddFloating(new DockFloat(new DockGroupNode("inspector"), 40f, 60f, 300f, 400f));
+        layout.AddFloating(new(new("inspector"), 40f, 60f, 300f, 400f));
 
         var text = layout.Save();
         var reloaded = DockLayout.Load(text);
@@ -59,7 +59,8 @@ public class DockingTests {
         // Two groups, one of which names nothing. It is what a saved arrangement becomes when a
         // plugin is uninstalled, and it must not be an exception in front of somebody opening a
         // project.
-        var layout = DockLayout.Load("""
+        var layout = DockLayout.Load(
+            """
             root:
               orientation: horizontal
               ratio: 0.3
@@ -69,7 +70,8 @@ public class DockingTests {
               second:
                 panels: [scene]
                 selected: 0
-            """);
+            """
+        );
 
         // The empty group vanished and the split collapsed into the half that survived.
         var group = Assert.IsType<DockGroupNode>(layout.Root);
@@ -93,7 +95,7 @@ public class DockingTests {
         // salvage — and returning the same empty arrangement would tell a caller that the user's
         // panels were legitimately gone. This type has no diagnostics list to say otherwise, so the
         // exception is how the corruption reaches somebody who can report it.
-        Assert.Throws<YamlParseException>(() => DockLayout.Load("root: [unclosed"));
+        Assert.Throws<YamlParseException>(static () => DockLayout.Load("root: [unclosed"));
     }
 
     [Fact]
@@ -360,12 +362,12 @@ public class DockingTests {
         var bounds = host.Groups[0].Bounds;
 
         fixture.Press(tab.Bounds.X + 4f, tab.Bounds.Y + 4f);
-        fixture.Move(bounds.X + (bounds.Width * 0.5f), bounds.Bottom - 10f);
-        fixture.Move(bounds.X + (bounds.Width * 0.5f), bounds.Bottom - 10f);
+        fixture.Move(bounds.X + bounds.Width * 0.5f, bounds.Bottom - 10f);
+        fixture.Move(bounds.X + bounds.Width * 0.5f, bounds.Bottom - 10f);
 
         Assert.False(host.Preview.HasClass("hidden"));
 
-        fixture.Release(bounds.X + (bounds.Width * 0.5f), bounds.Bottom - 10f);
+        fixture.Release(bounds.X + bounds.Width * 0.5f, bounds.Bottom - 10f);
 
         Assert.True(host.Preview.HasClass("hidden"));
 
@@ -395,7 +397,7 @@ public class DockingTests {
         Assert.Same(tab.Children[0], fixture.Document.HitTest(x, y));
 
         var bounds = group.Bounds;
-        var dropX = bounds.X + (bounds.Width * 0.5f);
+        var dropX = bounds.X + bounds.Width * 0.5f;
         var dropY = bounds.Bottom - 10f;
 
         fixture.Press(x, y);
@@ -425,7 +427,7 @@ public class DockingTests {
         var (x, y) = AdvancedFixture.Centre(tab.CloseButton!);
 
         var bounds = group.Bounds;
-        var dropX = bounds.X + (bounds.Width * 0.5f);
+        var dropX = bounds.X + bounds.Width * 0.5f;
         var dropY = bounds.Bottom - 10f;
 
         fixture.Press(x, y);
@@ -489,8 +491,8 @@ public class DockingTests {
         var (x, y) = AdvancedFixture.Centre(tab.Children[0]);
 
         var handle = DockingHost.GuideBounds(group.Bounds, DockZone.Right);
-        var overX = handle.X + (handle.Width * 0.5f);
-        var overY = handle.Y + (handle.Height * 0.5f);
+        var overX = handle.X + handle.Width * 0.5f;
+        var overY = handle.Y + handle.Height * 0.5f;
 
         fixture.Press(x, y);
         fixture.Move(overX, overY);
@@ -514,7 +516,10 @@ public class DockingTests {
         foreach (var guide in host.Guides.Children) {
             var hint = Assert.Single(guide.Children);
 
-            Assert.True(hint.AbsoluteLeft >= guide.AbsoluteLeft + Inset - Tolerance, "a hint starts left of its handle");
+            Assert.True(
+                hint.AbsoluteLeft >= guide.AbsoluteLeft + Inset - Tolerance,
+                "a hint starts left of its handle"
+            );
             Assert.True(hint.AbsoluteTop >= guide.AbsoluteTop + Inset - Tolerance, "a hint starts above its handle");
             Assert.True(
                 hint.AbsoluteLeft + hint.Width <= guide.AbsoluteLeft + guide.Width - Inset + Tolerance,
@@ -665,7 +670,8 @@ public class DockingTests {
 
         // The order every application does it in: the arrangement comes off disk long before the
         // code that builds the panels has run.
-        host.Load("""
+        host.Load(
+            """
             root:
               orientation: horizontal
               ratio: 0.3
@@ -675,7 +681,8 @@ public class DockingTests {
               second:
                 panels: [scene]
                 selected: 0
-            """);
+            """
+        );
 
         host.AddPanel("scene", "Scene");
         host.AddPanel("hierarchy", "Hierarchy");
@@ -718,7 +725,7 @@ public class DockingTests {
         Assert.Equal(1, changes);
 
         // Reported after the rebuild, so a handler that saves the layout saves the one on screen.
-        host.LayoutChanged += saved => Assert.NotEmpty(saved.Save());
+        host.LayoutChanged += static saved => Assert.NotEmpty(saved.Save());
         host.AddPanel("game");
     }
 
@@ -767,8 +774,12 @@ public class DockingTests {
     /// <summary>A panel the arrangement does not name goes where there is most room, not leftmost.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b><c>Groups()[0]</c> is the tree's leftmost leaf, and in every standard preset that
-    ///         is the 20 % browser column</b> (#969). A shader graph registered after the layout was
+    ///         ⚠
+    ///         <b>
+    ///             <c>Groups()[0]</c> is the tree's leftmost leaf, and in every standard preset that
+    ///             is the 20 % browser column
+    ///         </b>
+    ///         (#969). A shader graph registered after the layout was
     ///         applied landed there, and with a fixed 300 px side strip its canvas measured 0 × 796.
     ///         The room a leaf gets is the product of the ratios down its path — a fact about the
     ///         arrangement, so the answer is the same before the first frame as after.
@@ -844,7 +855,7 @@ public class DockingTests {
             Root = new DockSplitNode(Orientation.Horizontal, new DockGroupNode("left"), new DockGroupNode("right"))
         };
 
-        layout.AddFloating(new DockFloat(new DockGroupNode("torn"), 0f, 0f, 2000f, 2000f));
+        layout.AddFloating(new(new("torn"), 0f, 0f, 2000f, 2000f));
 
         Assert.Equal("left", Assert.Single(layout.LargestGroup()!.Panels));
 

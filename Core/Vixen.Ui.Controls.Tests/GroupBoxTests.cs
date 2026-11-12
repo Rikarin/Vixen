@@ -7,8 +7,12 @@ namespace Vixen.Ui.Controls.Tests;
 
 /// <summary>The titled box: a legend, the controls it covers, and one node in the tree.</summary>
 /// <remarks>
-///     ⚠ <b>Every assertion here would pass against a <see cref="Card" /> if it were about the
-///     picture, and none of them is.</b> Doc 49 § 7.1 ranks <c>GroupBox</c> beside
+///     ⚠
+///     <b>
+///         Every assertion here would pass against a <see cref="Card" /> if it were about the
+///         picture, and none of them is.
+///     </b>
+///     Doc 49 § 7.1 ranks <c>GroupBox</c> beside
 ///     <c>LabeledContent</c> and says <c>Card</c> approximates it; what a card approximates is the
 ///     bordered box with a heading in it, and what it cannot do is tell a screen reader that the
 ///     four controls inside belong to one question. So the subject here is the role, the name, and

@@ -51,8 +51,12 @@ public static class VfxRandom {
 
     /// <summary>Mixes a value into a well-distributed 32-bit hash.</summary>
     /// <remarks>
-    ///     ⚠ <b>Deliberately not the shader library's <c>Random.Hash</c>, which is PCG's output
-    ///     stage.</b> This one is lowbias32, and the half that has to agree with it is
+    ///     ⚠
+    ///     <b>
+    ///         Deliberately not the shader library's <c>Random.Hash</c>, which is PCG's output
+    ///         stage.
+    ///     </b>
+    ///     This one is lowbias32, and the half that has to agree with it is
     ///     <c>VfxShaderEmitter.Hash</c>, which transcribes these constants into the generated shader
     ///     — the pair doc 06's parity is really about. `Raven/Library/Core/Random.rvn` claimed that
     ///     role in its own header for a while and never held it: its multiplier appears in no other
@@ -114,7 +118,7 @@ public static class VfxRandom {
     /// <returns>The value.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static float Range(uint particle, uint seed, uint salt, float minimum, float maximum) =>
-        minimum + ((maximum - minimum) * Value(particle, seed, salt));
+        minimum + (maximum - minimum) * Value(particle, seed, salt);
 
     /// <summary>Three uniform values in [0, 1), from three consecutive salts.</summary>
     /// <param name="particle">The particle's identifier.</param>
@@ -122,11 +126,12 @@ public static class VfxRandom {
     /// <param name="salt">The first of the three salts to use.</param>
     /// <returns>The values.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static Vector3 Value3(uint particle, uint seed, uint salt) => new(
-        Value(particle, seed, salt),
-        Value(particle, seed, salt + 1),
-        Value(particle, seed, salt + 2)
-    );
+    public static Vector3 Value3(uint particle, uint seed, uint salt) =>
+        new(
+            Value(particle, seed, salt),
+            Value(particle, seed, salt + 1),
+            Value(particle, seed, salt + 2)
+        );
 
     /// <summary>A direction uniformly distributed over the unit sphere.</summary>
     /// <param name="particle">The particle's identifier.</param>
@@ -144,7 +149,7 @@ public static class VfxRandom {
     public static Vector3 Direction(uint particle, uint seed, uint salt) {
         var z = Range(particle, seed, salt, -1f, 1f);
         var azimuth = Range(particle, seed, salt + 1, 0f, MathF.Tau);
-        var radius = MathF.Sqrt(MathF.Max(0f, 1f - (z * z)));
+        var radius = MathF.Sqrt(MathF.Max(0f, 1f - z * z));
 
         return new(radius * MathF.Cos(azimuth), radius * MathF.Sin(azimuth), z);
     }

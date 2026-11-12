@@ -15,15 +15,23 @@ namespace Vixen.Ui.Controls.Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>These are the tests the consumption gate cannot be, and the argument is
-///         <c>TextDecorationPixelTests</c>' one word for word.</b> That gate's verdict is "the draw
+///         ⚠
+///         <b>
+///             These are the tests the consumption gate cannot be, and the argument is
+///             <c>TextDecorationPixelTests</c>' one word for word.
+///         </b>
+///         That gate's verdict is "the draw
 ///         list changed", and re-wrapping a paragraph changes it whatever the new lines are. It would
 ///         pass on a break placed in the middle of a surrogate pair, on a word broken when it did not
 ///         need to be, and on a line that still runs off the right-hand edge after being told not to.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Every relation here is chosen to fail for the <i>neighbouring</i> case rather than
-///         only for no declaration at all.</b> Breaking must both add a row band and pull the right
+///         ⚠
+///         <b>
+///             Every relation here is chosen to fail for the <i>neighbouring</i> case rather than
+///             only for no declaration at all.
+///         </b>
+///         Breaking must both add a row band and pull the right
 ///         edge back inside the box — either alone is satisfied by something that is not wrapping.
 ///         And each opt-out is asserted against an <i>inherited</i> declaration rather than against
 ///         nothing, because that is the only situation in which it can do anything: <c>wrap-normal</c>
@@ -41,8 +49,12 @@ namespace Vixen.Ui.Controls.Tests;
 ///         against an engine that had never heard of <c>overflow-wrap</c>.
 ///     </para>
 ///     <para>
-///         ⚠ <b>And <c>word-break</c> needs the fixture the other way round, which is why the two
-///         families cannot share one.</b> <c>break-all</c> is only distinguishable from
+///         ⚠
+///         <b>
+///             And <c>word-break</c> needs the fixture the other way round, which is why the two
+///             families cannot share one.
+///         </b>
+///         <c>break-all</c> is only distinguishable from
 ///         <c>overflow-wrap</c> on text that has an ordinary opportunity <i>as well as</i> a long
 ///         word — see <see cref="Break_all_fills_the_line_that_overflow_wrap_leaves_ragged" /> — and
 ///         <c>keep-all</c> is not distinguishable in Latin at all, because LB28 already forbids the
@@ -72,7 +84,7 @@ public class TextWrappingPixelTests {
 
     static FontFace LoadFont() {
         using var stream = Assembly.GetExecutingAssembly()
-            .GetManifestResourceStream("Vixen.Ui.Controls.Tests.Fonts.TestShapeLana.ttf")
+                .GetManifestResourceStream("Vixen.Ui.Controls.Tests.Fonts.TestShapeLana.ttf")
             ?? throw new InvalidOperationException("the test font is not embedded");
 
         using var memory = new MemoryStream();
@@ -86,8 +98,12 @@ public class TextWrappingPixelTests {
     /// <param name="outer">Declarations on the box, which the text element inherits.</param>
     /// <param name="inner">Declarations on the text element itself.</param>
     /// <remarks>
-    ///     ⚠ <b>Two elements rather than one, because half of what is under test is the
-    ///     inheritance.</b> <c>overflow-wrap</c> and <c>text-wrap</c> are both in
+    ///     ⚠
+    ///     <b>
+    ///         Two elements rather than one, because half of what is under test is the
+    ///         inheritance.
+    ///     </b>
+    ///     <c>overflow-wrap</c> and <c>text-wrap</c> are both in
     ///     <c>InheritedProperties</c>, and the class is written on a row whose text is in a child
     ///     essentially always — a <c>.vxml</c> interpolation emits its text as a child element. A
     ///     one-element fixture would pass with the inheritance removed.
@@ -103,11 +119,11 @@ public class TextWrappingPixelTests {
 
         ui.Load(
             $$"""
-            root  { width: 320px; height: 200px; background-color: #000000; }
-            .box  { position: absolute; left: {{BoxLeft}}px; top: 16px; width: {{BoxWidth}}px;
-                    font-family: Test; font-size: 28px; color: #ffffff; {{outer}} }
-            .text { {{inner}} }
-            """
+              root  { width: 320px; height: 200px; background-color: #000000; }
+              .box  { position: absolute; left: {{BoxLeft}}px; top: 16px; width: {{BoxWidth}}px;
+                      font-family: Test; font-size: 28px; color: #ffffff; {{outer}} }
+              .text { {{inner}} }
+              """
         );
 
         var box = ui.Create("div", null, "box", "box");
@@ -151,7 +167,7 @@ public class TextWrappingPixelTests {
             }
         }
 
-        return new Marks(bands, right, count);
+        return new(bands, right, count);
     }
 
     /// <summary>The font draws the letters this file measures.</summary>
@@ -164,7 +180,7 @@ public class TextWrappingPixelTests {
     /// </remarks>
     [Fact]
     public void The_font_draws_the_letters_this_file_measures() {
-        foreach (var letter in (Unbroken + Words).Distinct().Where(c => c != ' ')) {
+        foreach (var letter in (Unbroken + Words).Distinct().Where(static c => c != ' ')) {
             Assert.True(Font.Supports(letter), $"the test font has no glyph for '{letter}'");
         }
     }
@@ -212,9 +228,13 @@ public class TextWrappingPixelTests {
     /// <summary><c>anywhere</c> and <c>break-word</c> draw the same picture and size differently.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>This used to assert that the two keywords were <i>one behaviour</i>, as a stated
-    ///         deviation with a note saying it would fail the day the layout grew an
-    ///         intrinsic-minimum stage. #682 is that day, and the note was accurate.</b> CSS Sizing
+    ///         ⚠
+    ///         <b>
+    ///             This used to assert that the two keywords were <i>one behaviour</i>, as a stated
+    ///             deviation with a note saying it would fail the day the layout grew an
+    ///             intrinsic-minimum stage. #682 is that day, and the note was accurate.
+    ///         </b>
+    ///         CSS Sizing
     ///         §5.2 separates them only by their min-content contribution — <c>anywhere</c>'s
     ///         intrinsic minimum shrinks to one grapheme, <c>break-word</c>'s stays the longest
     ///         unbreakable run — and CSS Text §5.3 has both break an overflowing word at line-layout
@@ -229,8 +249,12 @@ public class TextWrappingPixelTests {
     ///         nothing but the intended break produces it.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And <c>break-word</c> is pinned against <c>normal</c> rather than merely against
-    ///         <c>anywhere</c>.</b> Its intrinsic minimum is specified to be <i>unchanged</i> by the
+    ///         ⚠
+    ///         <b>
+    ///             And <c>break-word</c> is pinned against <c>normal</c> rather than merely against
+    ///             <c>anywhere</c>.
+    ///         </b>
+    ///         Its intrinsic minimum is specified to be <i>unchanged</i> by the
     ///         keyword, so the assertion that says so is equality with the keyword absent — a bound
     ///         of "bigger than one grapheme" would be met by any regression that shrank it a little.
     ///     </para>
@@ -310,8 +334,12 @@ public class TextWrappingPixelTests {
 
     /// <summary>What the layout's intrinsic probe is handed: the text measured in no room at all.</summary>
     /// <remarks>
-    ///     ⚠ <b>Width zero and <c>MeasureMode.AtMost</c> is literally how <c>LayoutTree</c> asks for
-    ///     a min-content size</b> — see <c>ComputeMinContentSizeUncached</c>'s leaf branch, which
+    ///     ⚠
+    ///     <b>
+    ///         Width zero and <c>MeasureMode.AtMost</c> is literally how <c>LayoutTree</c> asks for
+    ///         a min-content size
+    ///     </b>
+    ///     — see <c>ComputeMinContentSizeUncached</c>'s leaf branch, which
     ///     passes <c>0f</c> on the inline axis — and <c>TextLayout.Measure</c> turns that straight
     ///     into this call. So this is the stage under test rather than a proxy for it.
     /// </remarks>
@@ -321,9 +349,9 @@ public class TextWrappingPixelTests {
 
         ui.Load(
             $$"""
-            root { width: 320px; height: 200px; }
-            .box { width: {{BoxWidth}}px; font-family: Test; font-size: 28px; {{declaration}} }
-            """
+              root { width: 320px; height: 200px; }
+              .box { width: {{BoxWidth}}px; font-family: Test; font-size: 28px; {{declaration}} }
+              """
         );
 
         var box = ui.Create("div", null, "box", "box");
@@ -335,8 +363,12 @@ public class TextWrappingPixelTests {
 
     /// <summary><c>normal</c> on the text escapes a breaking rule on its container.</summary>
     /// <remarks>
-    ///     ⚠ <b>What <c>wrap-normal</c> and <c>break-normal</c> are for, and the only arrangement in
-    ///     which either does anything at all.</b> Both emit CSS's initial value, so written on a bare
+    ///     ⚠
+    ///     <b>
+    ///         What <c>wrap-normal</c> and <c>break-normal</c> are for, and the only arrangement in
+    ///         which either does anything at all.
+    ///     </b>
+    ///     Both emit CSS's initial value, so written on a bare
     ///     element they are correctly indistinguishable from writing nothing — which is exactly how
     ///     the consumption gate measures them, and would be the whole story if the property did not
     ///     inherit. It does, so this is a real opt-out and not a no-op with a name: the same argument
@@ -393,10 +425,14 @@ public class TextWrappingPixelTests {
     /// <summary>⚠ <c>balance</c> and <c>pretty</c> draw different pictures from the default.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>This test is the inversion of
-    ///         <c>The_better_break_keywords_are_indistinguishable_from_the_default</c>, which held
-    ///         this file's whole refusal and was named as the thing that had to start failing before
-    ///         either class was worth registering.</b> It said: <c>LineWrapper</c> is greedy
+    ///         ⚠
+    ///         <b>
+    ///             This test is the inversion of
+    ///             <c>The_better_break_keywords_are_indistinguishable_from_the_default</c>, which held
+    ///             this file's whole refusal and was named as the thing that had to start failing before
+    ///             either class was worth registering.
+    ///         </b>
+    ///         It said: <c>LineWrapper</c> is greedy
     ///         first-fit by an argued decision, so both values reach <c>WrapsOf</c>, fall through to
     ///         "wraps", and produce exactly the lines <c>text-wrap: wrap</c> produces — two classes
     ///         that would resolve, compute, and differ from the default in name only, invisible to
@@ -432,9 +468,13 @@ public class TextWrappingPixelTests {
     /// <summary>Twelve Han ideographs, which UAX#14 lets a line end between any two of.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>None of the shared test fonts covers a CJK code point, so these draw as
-    ///         <c>.notdef</c> boxes — and that is legitimate <i>here</i> and would not be for most of
-    ///         this file.</b> <c>word-break: keep-all</c> is a rule about where a line may end, not
+    ///         ⚠
+    ///         <b>
+    ///             None of the shared test fonts covers a CJK code point, so these draw as
+    ///             <c>.notdef</c> boxes — and that is legitimate <i>here</i> and would not be for most of
+    ///             this file.
+    ///         </b>
+    ///         <c>word-break: keep-all</c> is a rule about where a line may end, not
     ///         about which glyph is drawn: <c>LineBreaker</c> classifies the characters, and the
     ///         wrapper needs an advance, which <c>.notdef</c> has — 1214 of this face's 2048 units.
     ///         So the picture is a row of identical boxes whose <i>arrangement</i> is exactly what is
@@ -475,8 +515,11 @@ public class TextWrappingPixelTests {
     }
 
     /// <summary>
-    ///     ⚠ <b><c>break-all</c> and <c>overflow-wrap: anywhere</c> are two different pictures, and
-    ///     this is the test that would have caught registering one as the other.</b>
+    ///     ⚠
+    ///     <b>
+    ///         <c>break-all</c> and <c>overflow-wrap: anywhere</c> are two different pictures, and
+    ///         this is the test that would have caught registering one as the other.
+    ///     </b>
     /// </summary>
     /// <remarks>
     ///     <para>
@@ -518,8 +561,12 @@ public class TextWrappingPixelTests {
 
     /// <summary><c>word-break: keep-all</c> stops a run of ideographs breaking inside itself.</summary>
     /// <remarks>
-    ///     ⚠ <b>The one keyword in this file that no Latin fixture could measure, and the reason the
-    ///     pair is registered together.</b> UAX#14 offers a break between any two ideographs and
+    ///     ⚠
+    ///     <b>
+    ///         The one keyword in this file that no Latin fixture could measure, and the reason the
+    ///         pair is registered together.
+    ///     </b>
+    ///     UAX#14 offers a break between any two ideographs and
     ///     between any two Hangul syllables, and offers none at all between two Latin letters — LB28
     ///     forbids it — so <c>keep-all</c> written over English is correctly indistinguishable from
     ///     writing nothing. A test in Latin would have passed against an engine that never read the
@@ -542,8 +589,12 @@ public class TextWrappingPixelTests {
 
     /// <summary><c>text-indent</c> moves the first line's glyphs and no others'.</summary>
     /// <remarks>
-    ///     ⚠ <b>A pixel test rather than a draw-list one, because the draw list is satisfied by the
-    ///     wrong half of the feature.</b> An indent is two facts — the first line starts further in,
+    ///     ⚠
+    ///     <b>
+    ///         A pixel test rather than a draw-list one, because the draw list is satisfied by the
+    ///         wrong half of the feature.
+    ///     </b>
+    ///     An indent is two facts — the first line starts further in,
     ///     <i>and</i> it wraps earlier — and a command list changes under either alone. What is
     ///     visible in the picture is that the left-hand edge of the first band moved while the edge of
     ///     the second did not, which is the pair.
@@ -581,10 +632,10 @@ public class TextWrappingPixelTests {
 
         ui.Load(
             $$"""
-            root  { width: 320px; height: 200px; background-color: #000000; }
-            .box  { position: absolute; left: {{BoxLeft}}px; top: 16px; width: {{BoxWidth}}px;
-                    font-family: Test; font-size: 28px; color: #ffffff; {{outer}} }
-            """
+              root  { width: 320px; height: 200px; background-color: #000000; }
+              .box  { position: absolute; left: {{BoxLeft}}px; top: 16px; width: {{BoxWidth}}px;
+                      font-family: Test; font-size: 28px; color: #ffffff; {{outer}} }
+              """
         );
 
         var box = ui.Create("div", null, "box", "box");
@@ -596,8 +647,12 @@ public class TextWrappingPixelTests {
 
     /// <summary>The leftmost lit column of each row band, top to bottom.</summary>
     /// <remarks>
-    ///     ⚠ <b>Per band rather than over the whole image, which is the only measurement that can tell
-    ///     an indent from a margin.</b> <see cref="Scan" />'s single <c>Right</c> is a fact about the
+    ///     ⚠
+    ///     <b>
+    ///         Per band rather than over the whole image, which is the only measurement that can tell
+    ///         an indent from a margin.
+    ///     </b>
+    ///     <see cref="Scan" />'s single <c>Right</c> is a fact about the
     ///     picture as a whole and moves for both; a list of per-line left edges says <i>which</i> line
     ///     moved, and the claim is that exactly one did.
     /// </remarks>
@@ -638,8 +693,12 @@ public class TextWrappingPixelTests {
 
     /// <summary><c>break-normal</c> on the text escapes either <c>word-break</c> on its container.</summary>
     /// <remarks>
-    ///     ⚠ <b>The half that was missing until <c>word-break</c> gained a reader, and the reason
-    ///     Tailwind's <c>break-normal</c> is two declarations rather than one.</b> <c>word-break</c>
+    ///     ⚠
+    ///     <b>
+    ///         The half that was missing until <c>word-break</c> gained a reader, and the reason
+    ///         Tailwind's <c>break-normal</c> is two declarations rather than one.
+    ///     </b>
+    ///     <c>word-break</c>
     ///     inherits, so a <c>break-all</c> on a row reaches the span its text is in — and before this
     ///     the class emitted the <c>overflow-wrap</c> half alone, which cannot undo it. Asserted
     ///     against an inherited declaration in both directions, because on a bare element the value is

@@ -56,7 +56,10 @@ public class ResizeTests {
 
         // A column of nodes far taller than the small viewport, so growing it reaches more of them.
         for (var index = 0; index < 40; index++) {
-            graph.AddNode("n" + index.ToString(System.Globalization.CultureInfo.InvariantCulture), new Vector2(0f, index * 120f));
+            graph.AddNode(
+                "n" + index.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                new(0f, index * 120f)
+            );
         }
 
         canvas.Graph = graph;
@@ -142,7 +145,7 @@ public class ResizeTests {
 
         var canvas = fixture.Add<NodeCanvas>();
 
-        canvas.Graph = new NodeGraph();
+        canvas.Graph = new();
         fixture.Update();
 
         fixture.Document.Remove(canvas);

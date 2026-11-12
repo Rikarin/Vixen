@@ -40,8 +40,12 @@ enum FeatureSource : byte {
 /// <param name="Source">What it is — a crease, a seam or a guide.</param>
 /// <param name="Strength">How hard the field is pulled toward it, in <c>[0, 1]</c>. Ignored for hard sources.</param>
 /// <remarks>
-///     ⚠ <b>Three of docs/plan/41 § D4's five sources are the same shape, and unifying them is what
-///     lets conditioning renumber the mesh without losing them.</b> Creases, UV seams and guides all
+///     ⚠
+///     <b>
+///         Three of docs/plan/41 § D4's five sources are the same shape, and unifying them is what
+///         lets conditioning renumber the mesh without losing them.
+///     </b>
+///     Creases, UV seams and guides all
 ///     live on the <i>source</i> mesh, and stage one welds, cuts, de-specks and re-meshes it — so an
 ///     edge index or a vertex index taken before conditioning means nothing after it. A polyline in
 ///     world space survives all of it, and resolving one onto the conditioned mesh is one routine
@@ -62,8 +66,12 @@ readonly record struct FeatureCurve(IReadOnlyList<Vector3> Points, FeatureSource
 /// <param name="IsClosed">Whether the last vertex is the first — a loop with no corner on it.</param>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>The chain keeps every vertex it passes through, and the simplification is
-///         <see cref="Keys" /> beside it rather than a shorter chain.</b> docs/plan/41 § D4 asks for
+///         ⚠
+///         <b>
+///             The chain keeps every vertex it passes through, and the simplification is
+///             <see cref="Keys" /> beside it rather than a shorter chain.
+///         </b>
+///         docs/plan/41 § D4 asks for
 ///         two things at once: nearly-straight chains are simplified, and a feature polyline is a
 ///         chain of output edges <i>by construction</i>, asserted at a tolerance of exact. Dropping a
 ///         collinear interior vertex satisfies the first and breaks the second — the layout would be
@@ -93,8 +101,12 @@ readonly record struct FeaturePolyline(
     /// <remarks>
     ///     ⚠ <b>docs/plan/41 contradicts itself here and this property is the resolution.</b> § D4
     ///     lists guide curves as the fifth feature source, unioned with the other four; § D5 then says
-    ///     feature polylines fix the cross <b>hard</b> and guide curves fix it <b>softly, at the
-    ///     user's strength</b>. Both cannot be true of one set. A guide is therefore detected,
+    ///     feature polylines fix the cross <b>hard</b> and guide curves fix it
+    ///     <b>
+    ///         softly, at the
+    ///         user's strength
+    ///     </b>
+    ///     . Both cannot be true of one set. A guide is therefore detected,
     ///     chained, pruned and simplified exactly as the other four are — it is a feature — and it is
     ///     the one kind whose constraint is soft. A guide that is also a dihedral angle is hard,
     ///     because the flag set unions and the hard sources win.
@@ -102,7 +114,10 @@ readonly record struct FeaturePolyline(
     public bool IsHard => (Sources & ~FeatureSource.Guide) != FeatureSource.None;
 }
 
-/// <summary>The feature set, chained, pruned and simplified — what the field is constrained by and what the layout is bounded by.</summary>
+/// <summary>
+///     The feature set, chained, pruned and simplified — what the field is constrained by and what the layout is
+///     bounded by.
+/// </summary>
 /// <remarks>
 ///     <para>
 ///         <b>docs/plan/41 § D4.</b> Five sources unioned into an edge set, chained into polylines,
@@ -193,8 +208,12 @@ sealed class FeatureGraph {
     /// <param name="vertex">Its index.</param>
     /// <returns>Whether its feature degree is anything other than two.</returns>
     /// <remarks>
-    ///     ⚠ <b>A corner is where a singularity <i>belongs</i>, and that is not the same statement as
-    ///     § D6's repulsion.</b> § D6 step two pushes singularities off feature <i>lines</i> because a
+    ///     ⚠
+    ///     <b>
+    ///         A corner is where a singularity <i>belongs</i>, and that is not the same statement as
+    ///         § D6's repulsion.
+    ///     </b>
+    ///     § D6 step two pushes singularities off feature <i>lines</i> because a
     ///     singularity on a hard edge is a visible pinch; § D6 step three attracts them to where the
     ///     surface is not developable, and names "the corner of a box" as an example. A box's corner
     ///     is a feature corner. Reading step two as "off every feature vertex" makes a cube
@@ -213,8 +232,12 @@ sealed class FeatureGraph {
     /// <param name="vertex">Its index.</param>
     /// <returns>A unit direction in the vertex's tangent plane, or zero where there is no constraint.</returns>
     /// <remarks>
-    ///     ⚠ <b>At a junction the choice is arbitrary and it does not matter, which is a property of
-    ///     4-RoSy rather than luck.</b> A cross stands for four directions ninety degrees apart, so a
+    ///     ⚠
+    ///     <b>
+    ///         At a junction the choice is arbitrary and it does not matter, which is a property of
+    ///         4-RoSy rather than luck.
+    ///     </b>
+    ///     A cross stands for four directions ninety degrees apart, so a
     ///     junction of two perpendicular features is satisfied by <i>either</i> of them. Where they
     ///     are not perpendicular no single direction satisfies both, and the lowest-index incident
     ///     feature neighbour is taken — deterministic, and the residual is what the smoothing spreads.

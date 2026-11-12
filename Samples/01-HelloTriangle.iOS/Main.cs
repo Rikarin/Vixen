@@ -45,8 +45,11 @@ public sealed class TriangleHost : IosApplicationHost {
     ///         building a device here.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b><c>WithLoggerProvider</c> rather than
-    ///         <c>WithServices(… LoggerFactory.AddProvider …)</c>, which is what this used to say.</b>
+    ///         ⚠
+    ///         <b>
+    ///             <c>WithLoggerProvider</c> rather than
+    ///             <c>WithServices(… LoggerFactory.AddProvider …)</c>, which is what this used to say.
+    ///         </b>
     ///         Service callbacks run last, so the sink was installed after the platform, the mounts,
     ///         the workers, the engine and the whole graphics build had logged — and the unified log
     ///         is the only log there is on a device, so the half a bring-up is about was the half

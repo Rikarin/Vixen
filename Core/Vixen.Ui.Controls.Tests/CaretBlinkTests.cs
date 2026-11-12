@@ -27,8 +27,12 @@ namespace Vixen.Ui.Controls.Tests;
 ///         flakes; ten frames is ten frames on a loaded machine.
 ///     </para>
 ///     <para>
-///         ⚠ <b><see cref="Typing_holds_the_caret_solid" /> is the test that separates a blink from a
-///         flicker</b>, and it is the one a naive implementation fails. A caret whose phase runs off a
+///         ⚠
+///         <b>
+///             <see cref="Typing_holds_the_caret_solid" /> is the test that separates a blink from a
+///             flicker
+///         </b>
+///         , and it is the one a naive implementation fails. A caret whose phase runs off a
 ///         free-running clock blinks out in the middle of a word — the character lands, the caret is
 ///         somewhere else, and the eye has nothing to follow. The phase has to be measured from the
 ///         last time the caret moved, which is why 190 ms of elapsed time with a keystroke in the
@@ -43,7 +47,7 @@ public class CaretBlinkTests {
 
     static FontFace LoadFont() {
         using var stream = Assembly.GetExecutingAssembly()
-            .GetManifestResourceStream("Vixen.Ui.Controls.Tests.Fonts.TestShapeLana.ttf")
+                .GetManifestResourceStream("Vixen.Ui.Controls.Tests.Fonts.TestShapeLana.ttf")
             ?? throw new InvalidOperationException("the test font is not embedded");
 
         using var memory = new MemoryStream();
@@ -54,7 +58,7 @@ public class CaretBlinkTests {
 
     /// <summary>A focused green-caret field in a document whose clock steps 10 ms a frame.</summary>
     static (UiTest Ui, TextBox Field) Field(bool focused = true) {
-        var ui = UiTest.Create(240f, 120f, new UiTestOptions { FrameDelta = TimeSpan.FromMilliseconds(10) });
+        var ui = UiTest.Create(240f, 120f, new() { FrameDelta = TimeSpan.FromMilliseconds(10) });
         ui.Document.Fonts.Register("Test", Font);
 
         ui.Load(
@@ -101,8 +105,12 @@ public class CaretBlinkTests {
 
     /// <summary>Lit, then out, then lit again — half a period apart each time.</summary>
     /// <remarks>
-    ///     ⚠ <b>The third reading is what stops this being satisfied by a caret that was drawn once
-    ///     and then lost.</b> "It went away" is the same picture as "it was never drawn again", and
+    ///     ⚠
+    ///     <b>
+    ///         The third reading is what stops this being satisfied by a caret that was drawn once
+    ///         and then lost.
+    ///     </b>
+    ///     "It went away" is the same picture as "it was never drawn again", and
     ///     only the return separates a blink from a control that stopped painting its insertion
     ///     point — which is a bug that would look, on a still screenshot, exactly like a success.
     /// </remarks>
@@ -123,8 +131,12 @@ public class CaretBlinkTests {
 
     /// <summary>A keystroke restarts the phase, so the caret is solid for as long as somebody is typing.</summary>
     /// <remarks>
-    ///     ⚠ <b>190 ms of elapsed time, which is most of two half periods, and the caret is lit for
-    ///     all of it.</b> Sabotaging the restart — measuring the phase from zero rather than from the
+    ///     ⚠
+    ///     <b>
+    ///         190 ms of elapsed time, which is most of two half periods, and the caret is lit for
+    ///         all of it.
+    ///     </b>
+    ///     Sabotaging the restart — measuring the phase from zero rather than from the
     ///     last move — makes the final reading dark, which is what makes this a claim about the
     ///     restart rather than about the blink.
     /// </remarks>
@@ -175,14 +187,18 @@ public class CaretBlinkTests {
     ///         quietly stopped being true.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And the focused half is asserted too, because the still half alone is satisfied by
-    ///         a caret that never blinks at all.</b> A predicate that cannot be false is worse than
+    ///         ⚠
+    ///         <b>
+    ///             And the focused half is asserted too, because the still half alone is satisfied by
+    ///             a caret that never blinks at all.
+    ///         </b>
+    ///         A predicate that cannot be false is worse than
     ///         the thing it replaced.
     ///     </para>
     /// </remarks>
     [Fact]
     public void An_unfocused_field_is_still_and_a_focused_one_is_not() {
-        var (ui, field) = Field(focused: false);
+        var (ui, field) = Field(false);
         using var owned = ui;
 
         ui.Frames(4);

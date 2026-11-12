@@ -212,8 +212,10 @@ public interface IGlApi {
     /// <summary><c>glReadBuffer</c>.</summary>
     void ReadBuffer(uint attachment);
 
-    /// <summary><c>glInvalidateFramebuffer</c>, which is how <see cref="StoreAction.DontCare" /> is
-    /// said.</summary>
+    /// <summary>
+    ///     <c>glInvalidateFramebuffer</c>, which is how <see cref="StoreAction.DontCare" /> is
+    ///     said.
+    /// </summary>
     /// <remarks>
     ///     Not decoration on a tiled GPU: it is the difference between the driver writing a
     ///     4K attachment back to main memory at the end of every pass and not.

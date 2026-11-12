@@ -33,8 +33,8 @@ public class IconContributionTests {
         editor.Settle();
 
         var rows = Rows(editor.Hierarchy).ToList();
-        var lamp = rows.First(node => node.Text == "Lamp");
-        var empty = rows.First(node => node.Text == "Empty");
+        var lamp = rows.First(static node => node.Text == "Lamp");
+        var empty = rows.First(static node => node.Text == "Empty");
 
         Assert.NotNull(lamp.Art);
         Assert.NotSame(lamp.Art, empty.Art);
@@ -58,13 +58,13 @@ public class IconContributionTests {
         var entity = editor.Scene.Add("Lamp", LocalTransform.Identity);
         editor.Settle();
 
-        var before = Rows(editor.Hierarchy).First(node => node.Text == "Lamp").Art;
+        var before = Rows(editor.Hierarchy).First(static node => node.Text == "Lamp").Art;
 
         editor.Scene.World.Add(entity, Lights.Default(LightKind.Point));
         editor.Scene.Recomposed(entity);
         editor.Settle();
 
-        var after = Rows(editor.Hierarchy).First(node => node.Text == "Lamp").Art;
+        var after = Rows(editor.Hierarchy).First(static node => node.Text == "Lamp").Art;
 
         Assert.NotSame(before, after);
     }
@@ -81,7 +81,7 @@ public class IconContributionTests {
 
         var icons = Descendants(editor.Inspector)
             .OfType<Icon>()
-            .Where(icon => icon.HasClass("component-icon"))
+            .Where(static icon => icon.HasClass("component-icon"))
             .ToList();
 
         var light = EditorArt.Of(editor.Extensions.All<TypeIcon>(), typeof(Light));
@@ -99,16 +99,16 @@ public class IconContributionTests {
     public void A_module_declares_the_pictures_for_the_file_kinds_it_introduced() {
         using var editor = EditorSession.Start();
 
-        var art = EditorArt.Of(editor.Extensions.All<AssetIcon>(), importer: null, "Rock.vxlayer");
+        var art = EditorArt.Of(editor.Extensions.All<AssetIcon>(), null, "Rock.vxlayer");
 
         Assert.NotNull(art);
 
         // Multicoloured, which is D6's exit criterion and not merely "has an icon": three bands in
         // three literal colours, because a paint layer is one of a stack.
         Assert.True(art.Paths.Count >= 3, $"a terrain layer should be several paths, and was {art.Paths.Count}");
-        Assert.All(art.Paths, path => Assert.Equal(IconPaintKind.Literal, path.Fill.Kind));
+        Assert.All(art.Paths, static path => Assert.Equal(IconPaintKind.Literal, path.Fill.Kind));
 
-        var colours = art.Paths.Select(path => path.Fill.Color).Distinct().Count();
+        var colours = art.Paths.Select(static path => path.Fill.Color).Distinct().Count();
         Assert.True(colours >= 3, $"its paths should be different colours, and there were {colours}");
     }
 
@@ -144,14 +144,13 @@ public class IconContributionTests {
         // "shipped" exactly: everything the editor was built with is in the default one, and
         // everything a plugin brought is deliberately not.
         var bare = ComponentsView.Default(null, editor.Extensions)
-            .Where(bridge => bridge.Kind == AuthoringKind.Component)
-            .Where(bridge => bridge.ComponentType.Assembly != typeof(IconContributionTests).Assembly)
-            .Where(
-                bridge => AssemblyLoadContext.GetLoadContext(bridge.ComponentType.Assembly)
-                    == AssemblyLoadContext.Default
+            .Where(static bridge => bridge.Kind == AuthoringKind.Component)
+            .Where(static bridge => bridge.ComponentType.Assembly != typeof(IconContributionTests).Assembly)
+            .Where(static bridge => AssemblyLoadContext.GetLoadContext(bridge.ComponentType.Assembly)
+                == AssemblyLoadContext.Default
             )
             .Where(bridge => EditorArt.Of(icons, bridge.ComponentType) is null)
-            .Select(bridge => bridge.ComponentType.FullName)
+            .Select(static bridge => bridge.ComponentType.FullName)
             .ToList();
 
         Assert.True(bare.Count == 0, "these ship with no icon: " + string.Join(", ", bare));
@@ -159,8 +158,12 @@ public class IconContributionTests {
 
     /// <summary>The art is real geometry rather than an empty shell.</summary>
     /// <remarks>
-    ///     ⚠ <b>The icons are SVG path data now — see <c>MaterialIcons</c> — so "has an icon" and "has
-    ///     an icon that draws something" are two different claims.</b> A typo in a <c>d</c> string
+    ///     ⚠
+    ///     <b>
+    ///         The icons are SVG path data now — see <c>MaterialIcons</c> — so "has an icon" and "has
+    ///         an icon that draws something" are two different claims.
+    ///     </b>
+    ///     A typo in a <c>d</c> string
     ///     would give an <c>IconArt</c> with a path of no segments in it, which is an icon slot that is
     ///     reserved, laid out, and empty.
     /// </remarks>
@@ -170,7 +173,7 @@ public class IconContributionTests {
 
         foreach (var icon in editor.Extensions.All<TypeIcon>()) {
             Assert.NotEmpty(icon.Art.Paths);
-            Assert.All(icon.Art.Paths, path => Assert.NotEmpty(path.Geometry.Segments));
+            Assert.All(icon.Art.Paths, static path => Assert.NotEmpty(path.Geometry.Segments));
         }
     }
 
@@ -181,9 +184,9 @@ public class IconContributionTests {
         // top. `IconPaint` has no gradient — see `MaterialIcons.Folder` — and this is what stands in
         // for one.
         Assert.Equal(3, StandardIcons.Folder.Paths.Count);
-        Assert.All(StandardIcons.Folder.Paths, path => Assert.Equal(IconPaintKind.Literal, path.Fill.Kind));
+        Assert.All(StandardIcons.Folder.Paths, static path => Assert.Equal(IconPaintKind.Literal, path.Fill.Kind));
 
-        var tones = StandardIcons.Folder.Paths.Select(path => path.Fill.Color).Distinct().Count();
+        var tones = StandardIcons.Folder.Paths.Select(static path => path.Fill.Color).Distinct().Count();
 
         Assert.Equal(3, tones);
     }

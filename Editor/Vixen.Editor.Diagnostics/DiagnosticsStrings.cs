@@ -78,7 +78,7 @@ public static class DiagnosticsStrings {
 
     /// <summary>What a translator's template for this toolset holds.</summary>
     public static IReadOnlyList<StringId> All { get; } = [
-        .. Commands.All,
+        ..Commands.All,
         LayoutProfiling,
         PanelProfiler,
         PanelGpu,

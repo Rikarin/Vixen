@@ -167,7 +167,7 @@ public sealed class DynamicEventDirector : IDisposable {
                 }
             }
 
-            Stepped?.Invoke(new(ending.Id, ending.Status, [.. started]));
+            Stepped?.Invoke(new(ending.Id, ending.Status, [..started]));
         }
     }
 }

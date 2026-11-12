@@ -119,7 +119,7 @@ public struct Slot15 : ISlot {
 ///         be written to a copy nobody reads. <see cref="Seen" /> is shared by every copy.
 ///     </para>
 /// </remarks>
-public struct AritySpy<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15> :
+public readonly struct AritySpy<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15> :
     IForEach<T0>,
     IForEach<T0, T1>,
     IForEach<T0, T1, T2>,
@@ -201,7 +201,14 @@ public struct AritySpy<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T1
         Bump(ref component4);
     }
 
-    public void Execute(ref T0 component0, ref T1 component1, ref T2 component2, ref T3 component3, ref T4 component4, ref T5 component5) {
+    public void Execute(
+        ref T0 component0,
+        ref T1 component1,
+        ref T2 component2,
+        ref T3 component3,
+        ref T4 component4,
+        ref T5 component5
+    ) {
         Bump(ref component0);
         Bump(ref component1);
         Bump(ref component2);
@@ -210,7 +217,15 @@ public struct AritySpy<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T1
         Bump(ref component5);
     }
 
-    public void Execute(ref T0 component0, ref T1 component1, ref T2 component2, ref T3 component3, ref T4 component4, ref T5 component5, ref T6 component6) {
+    public void Execute(
+        ref T0 component0,
+        ref T1 component1,
+        ref T2 component2,
+        ref T3 component3,
+        ref T4 component4,
+        ref T5 component5,
+        ref T6 component6
+    ) {
         Bump(ref component0);
         Bump(ref component1);
         Bump(ref component2);
@@ -220,7 +235,16 @@ public struct AritySpy<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T1
         Bump(ref component6);
     }
 
-    public void Execute(ref T0 component0, ref T1 component1, ref T2 component2, ref T3 component3, ref T4 component4, ref T5 component5, ref T6 component6, ref T7 component7) {
+    public void Execute(
+        ref T0 component0,
+        ref T1 component1,
+        ref T2 component2,
+        ref T3 component3,
+        ref T4 component4,
+        ref T5 component5,
+        ref T6 component6,
+        ref T7 component7
+    ) {
         Bump(ref component0);
         Bump(ref component1);
         Bump(ref component2);
@@ -231,7 +255,17 @@ public struct AritySpy<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T1
         Bump(ref component7);
     }
 
-    public void Execute(ref T0 component0, ref T1 component1, ref T2 component2, ref T3 component3, ref T4 component4, ref T5 component5, ref T6 component6, ref T7 component7, ref T8 component8) {
+    public void Execute(
+        ref T0 component0,
+        ref T1 component1,
+        ref T2 component2,
+        ref T3 component3,
+        ref T4 component4,
+        ref T5 component5,
+        ref T6 component6,
+        ref T7 component7,
+        ref T8 component8
+    ) {
         Bump(ref component0);
         Bump(ref component1);
         Bump(ref component2);
@@ -243,7 +277,18 @@ public struct AritySpy<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T1
         Bump(ref component8);
     }
 
-    public void Execute(ref T0 component0, ref T1 component1, ref T2 component2, ref T3 component3, ref T4 component4, ref T5 component5, ref T6 component6, ref T7 component7, ref T8 component8, ref T9 component9) {
+    public void Execute(
+        ref T0 component0,
+        ref T1 component1,
+        ref T2 component2,
+        ref T3 component3,
+        ref T4 component4,
+        ref T5 component5,
+        ref T6 component6,
+        ref T7 component7,
+        ref T8 component8,
+        ref T9 component9
+    ) {
         Bump(ref component0);
         Bump(ref component1);
         Bump(ref component2);
@@ -256,7 +301,19 @@ public struct AritySpy<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T1
         Bump(ref component9);
     }
 
-    public void Execute(ref T0 component0, ref T1 component1, ref T2 component2, ref T3 component3, ref T4 component4, ref T5 component5, ref T6 component6, ref T7 component7, ref T8 component8, ref T9 component9, ref T10 component10) {
+    public void Execute(
+        ref T0 component0,
+        ref T1 component1,
+        ref T2 component2,
+        ref T3 component3,
+        ref T4 component4,
+        ref T5 component5,
+        ref T6 component6,
+        ref T7 component7,
+        ref T8 component8,
+        ref T9 component9,
+        ref T10 component10
+    ) {
         Bump(ref component0);
         Bump(ref component1);
         Bump(ref component2);
@@ -270,7 +327,20 @@ public struct AritySpy<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T1
         Bump(ref component10);
     }
 
-    public void Execute(ref T0 component0, ref T1 component1, ref T2 component2, ref T3 component3, ref T4 component4, ref T5 component5, ref T6 component6, ref T7 component7, ref T8 component8, ref T9 component9, ref T10 component10, ref T11 component11) {
+    public void Execute(
+        ref T0 component0,
+        ref T1 component1,
+        ref T2 component2,
+        ref T3 component3,
+        ref T4 component4,
+        ref T5 component5,
+        ref T6 component6,
+        ref T7 component7,
+        ref T8 component8,
+        ref T9 component9,
+        ref T10 component10,
+        ref T11 component11
+    ) {
         Bump(ref component0);
         Bump(ref component1);
         Bump(ref component2);
@@ -285,7 +355,21 @@ public struct AritySpy<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T1
         Bump(ref component11);
     }
 
-    public void Execute(ref T0 component0, ref T1 component1, ref T2 component2, ref T3 component3, ref T4 component4, ref T5 component5, ref T6 component6, ref T7 component7, ref T8 component8, ref T9 component9, ref T10 component10, ref T11 component11, ref T12 component12) {
+    public void Execute(
+        ref T0 component0,
+        ref T1 component1,
+        ref T2 component2,
+        ref T3 component3,
+        ref T4 component4,
+        ref T5 component5,
+        ref T6 component6,
+        ref T7 component7,
+        ref T8 component8,
+        ref T9 component9,
+        ref T10 component10,
+        ref T11 component11,
+        ref T12 component12
+    ) {
         Bump(ref component0);
         Bump(ref component1);
         Bump(ref component2);
@@ -301,7 +385,22 @@ public struct AritySpy<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T1
         Bump(ref component12);
     }
 
-    public void Execute(ref T0 component0, ref T1 component1, ref T2 component2, ref T3 component3, ref T4 component4, ref T5 component5, ref T6 component6, ref T7 component7, ref T8 component8, ref T9 component9, ref T10 component10, ref T11 component11, ref T12 component12, ref T13 component13) {
+    public void Execute(
+        ref T0 component0,
+        ref T1 component1,
+        ref T2 component2,
+        ref T3 component3,
+        ref T4 component4,
+        ref T5 component5,
+        ref T6 component6,
+        ref T7 component7,
+        ref T8 component8,
+        ref T9 component9,
+        ref T10 component10,
+        ref T11 component11,
+        ref T12 component12,
+        ref T13 component13
+    ) {
         Bump(ref component0);
         Bump(ref component1);
         Bump(ref component2);
@@ -318,7 +417,23 @@ public struct AritySpy<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T1
         Bump(ref component13);
     }
 
-    public void Execute(ref T0 component0, ref T1 component1, ref T2 component2, ref T3 component3, ref T4 component4, ref T5 component5, ref T6 component6, ref T7 component7, ref T8 component8, ref T9 component9, ref T10 component10, ref T11 component11, ref T12 component12, ref T13 component13, ref T14 component14) {
+    public void Execute(
+        ref T0 component0,
+        ref T1 component1,
+        ref T2 component2,
+        ref T3 component3,
+        ref T4 component4,
+        ref T5 component5,
+        ref T6 component6,
+        ref T7 component7,
+        ref T8 component8,
+        ref T9 component9,
+        ref T10 component10,
+        ref T11 component11,
+        ref T12 component12,
+        ref T13 component13,
+        ref T14 component14
+    ) {
         Bump(ref component0);
         Bump(ref component1);
         Bump(ref component2);
@@ -336,7 +451,24 @@ public struct AritySpy<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T1
         Bump(ref component14);
     }
 
-    public void Execute(ref T0 component0, ref T1 component1, ref T2 component2, ref T3 component3, ref T4 component4, ref T5 component5, ref T6 component6, ref T7 component7, ref T8 component8, ref T9 component9, ref T10 component10, ref T11 component11, ref T12 component12, ref T13 component13, ref T14 component14, ref T15 component15) {
+    public void Execute(
+        ref T0 component0,
+        ref T1 component1,
+        ref T2 component2,
+        ref T3 component3,
+        ref T4 component4,
+        ref T5 component5,
+        ref T6 component6,
+        ref T7 component7,
+        ref T8 component8,
+        ref T9 component9,
+        ref T10 component10,
+        ref T11 component11,
+        ref T12 component12,
+        ref T13 component13,
+        ref T14 component14,
+        ref T15 component15
+    ) {
         Bump(ref component0);
         Bump(ref component1);
         Bump(ref component2);
@@ -375,64 +507,339 @@ public struct AritySpy<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T1
         Execute(ref component0, ref component1, ref component2, ref component3);
     }
 
-    public void Execute(Entity entity, ref T0 component0, ref T1 component1, ref T2 component2, ref T3 component3, ref T4 component4) {
+    public void Execute(
+        Entity entity,
+        ref T0 component0,
+        ref T1 component1,
+        ref T2 component2,
+        ref T3 component3,
+        ref T4 component4
+    ) {
         Seen?.Add(entity);
         Execute(ref component0, ref component1, ref component2, ref component3, ref component4);
     }
 
-    public void Execute(Entity entity, ref T0 component0, ref T1 component1, ref T2 component2, ref T3 component3, ref T4 component4, ref T5 component5) {
+    public void Execute(
+        Entity entity,
+        ref T0 component0,
+        ref T1 component1,
+        ref T2 component2,
+        ref T3 component3,
+        ref T4 component4,
+        ref T5 component5
+    ) {
         Seen?.Add(entity);
         Execute(ref component0, ref component1, ref component2, ref component3, ref component4, ref component5);
     }
 
-    public void Execute(Entity entity, ref T0 component0, ref T1 component1, ref T2 component2, ref T3 component3, ref T4 component4, ref T5 component5, ref T6 component6) {
+    public void Execute(
+        Entity entity,
+        ref T0 component0,
+        ref T1 component1,
+        ref T2 component2,
+        ref T3 component3,
+        ref T4 component4,
+        ref T5 component5,
+        ref T6 component6
+    ) {
         Seen?.Add(entity);
-        Execute(ref component0, ref component1, ref component2, ref component3, ref component4, ref component5, ref component6);
+        Execute(
+            ref component0,
+            ref component1,
+            ref component2,
+            ref component3,
+            ref component4,
+            ref component5,
+            ref component6
+        );
     }
 
-    public void Execute(Entity entity, ref T0 component0, ref T1 component1, ref T2 component2, ref T3 component3, ref T4 component4, ref T5 component5, ref T6 component6, ref T7 component7) {
+    public void Execute(
+        Entity entity,
+        ref T0 component0,
+        ref T1 component1,
+        ref T2 component2,
+        ref T3 component3,
+        ref T4 component4,
+        ref T5 component5,
+        ref T6 component6,
+        ref T7 component7
+    ) {
         Seen?.Add(entity);
-        Execute(ref component0, ref component1, ref component2, ref component3, ref component4, ref component5, ref component6, ref component7);
+        Execute(
+            ref component0,
+            ref component1,
+            ref component2,
+            ref component3,
+            ref component4,
+            ref component5,
+            ref component6,
+            ref component7
+        );
     }
 
-    public void Execute(Entity entity, ref T0 component0, ref T1 component1, ref T2 component2, ref T3 component3, ref T4 component4, ref T5 component5, ref T6 component6, ref T7 component7, ref T8 component8) {
+    public void Execute(
+        Entity entity,
+        ref T0 component0,
+        ref T1 component1,
+        ref T2 component2,
+        ref T3 component3,
+        ref T4 component4,
+        ref T5 component5,
+        ref T6 component6,
+        ref T7 component7,
+        ref T8 component8
+    ) {
         Seen?.Add(entity);
-        Execute(ref component0, ref component1, ref component2, ref component3, ref component4, ref component5, ref component6, ref component7, ref component8);
+        Execute(
+            ref component0,
+            ref component1,
+            ref component2,
+            ref component3,
+            ref component4,
+            ref component5,
+            ref component6,
+            ref component7,
+            ref component8
+        );
     }
 
-    public void Execute(Entity entity, ref T0 component0, ref T1 component1, ref T2 component2, ref T3 component3, ref T4 component4, ref T5 component5, ref T6 component6, ref T7 component7, ref T8 component8, ref T9 component9) {
+    public void Execute(
+        Entity entity,
+        ref T0 component0,
+        ref T1 component1,
+        ref T2 component2,
+        ref T3 component3,
+        ref T4 component4,
+        ref T5 component5,
+        ref T6 component6,
+        ref T7 component7,
+        ref T8 component8,
+        ref T9 component9
+    ) {
         Seen?.Add(entity);
-        Execute(ref component0, ref component1, ref component2, ref component3, ref component4, ref component5, ref component6, ref component7, ref component8, ref component9);
+        Execute(
+            ref component0,
+            ref component1,
+            ref component2,
+            ref component3,
+            ref component4,
+            ref component5,
+            ref component6,
+            ref component7,
+            ref component8,
+            ref component9
+        );
     }
 
-    public void Execute(Entity entity, ref T0 component0, ref T1 component1, ref T2 component2, ref T3 component3, ref T4 component4, ref T5 component5, ref T6 component6, ref T7 component7, ref T8 component8, ref T9 component9, ref T10 component10) {
+    public void Execute(
+        Entity entity,
+        ref T0 component0,
+        ref T1 component1,
+        ref T2 component2,
+        ref T3 component3,
+        ref T4 component4,
+        ref T5 component5,
+        ref T6 component6,
+        ref T7 component7,
+        ref T8 component8,
+        ref T9 component9,
+        ref T10 component10
+    ) {
         Seen?.Add(entity);
-        Execute(ref component0, ref component1, ref component2, ref component3, ref component4, ref component5, ref component6, ref component7, ref component8, ref component9, ref component10);
+        Execute(
+            ref component0,
+            ref component1,
+            ref component2,
+            ref component3,
+            ref component4,
+            ref component5,
+            ref component6,
+            ref component7,
+            ref component8,
+            ref component9,
+            ref component10
+        );
     }
 
-    public void Execute(Entity entity, ref T0 component0, ref T1 component1, ref T2 component2, ref T3 component3, ref T4 component4, ref T5 component5, ref T6 component6, ref T7 component7, ref T8 component8, ref T9 component9, ref T10 component10, ref T11 component11) {
+    public void Execute(
+        Entity entity,
+        ref T0 component0,
+        ref T1 component1,
+        ref T2 component2,
+        ref T3 component3,
+        ref T4 component4,
+        ref T5 component5,
+        ref T6 component6,
+        ref T7 component7,
+        ref T8 component8,
+        ref T9 component9,
+        ref T10 component10,
+        ref T11 component11
+    ) {
         Seen?.Add(entity);
-        Execute(ref component0, ref component1, ref component2, ref component3, ref component4, ref component5, ref component6, ref component7, ref component8, ref component9, ref component10, ref component11);
+        Execute(
+            ref component0,
+            ref component1,
+            ref component2,
+            ref component3,
+            ref component4,
+            ref component5,
+            ref component6,
+            ref component7,
+            ref component8,
+            ref component9,
+            ref component10,
+            ref component11
+        );
     }
 
-    public void Execute(Entity entity, ref T0 component0, ref T1 component1, ref T2 component2, ref T3 component3, ref T4 component4, ref T5 component5, ref T6 component6, ref T7 component7, ref T8 component8, ref T9 component9, ref T10 component10, ref T11 component11, ref T12 component12) {
+    public void Execute(
+        Entity entity,
+        ref T0 component0,
+        ref T1 component1,
+        ref T2 component2,
+        ref T3 component3,
+        ref T4 component4,
+        ref T5 component5,
+        ref T6 component6,
+        ref T7 component7,
+        ref T8 component8,
+        ref T9 component9,
+        ref T10 component10,
+        ref T11 component11,
+        ref T12 component12
+    ) {
         Seen?.Add(entity);
-        Execute(ref component0, ref component1, ref component2, ref component3, ref component4, ref component5, ref component6, ref component7, ref component8, ref component9, ref component10, ref component11, ref component12);
+        Execute(
+            ref component0,
+            ref component1,
+            ref component2,
+            ref component3,
+            ref component4,
+            ref component5,
+            ref component6,
+            ref component7,
+            ref component8,
+            ref component9,
+            ref component10,
+            ref component11,
+            ref component12
+        );
     }
 
-    public void Execute(Entity entity, ref T0 component0, ref T1 component1, ref T2 component2, ref T3 component3, ref T4 component4, ref T5 component5, ref T6 component6, ref T7 component7, ref T8 component8, ref T9 component9, ref T10 component10, ref T11 component11, ref T12 component12, ref T13 component13) {
+    public void Execute(
+        Entity entity,
+        ref T0 component0,
+        ref T1 component1,
+        ref T2 component2,
+        ref T3 component3,
+        ref T4 component4,
+        ref T5 component5,
+        ref T6 component6,
+        ref T7 component7,
+        ref T8 component8,
+        ref T9 component9,
+        ref T10 component10,
+        ref T11 component11,
+        ref T12 component12,
+        ref T13 component13
+    ) {
         Seen?.Add(entity);
-        Execute(ref component0, ref component1, ref component2, ref component3, ref component4, ref component5, ref component6, ref component7, ref component8, ref component9, ref component10, ref component11, ref component12, ref component13);
+        Execute(
+            ref component0,
+            ref component1,
+            ref component2,
+            ref component3,
+            ref component4,
+            ref component5,
+            ref component6,
+            ref component7,
+            ref component8,
+            ref component9,
+            ref component10,
+            ref component11,
+            ref component12,
+            ref component13
+        );
     }
 
-    public void Execute(Entity entity, ref T0 component0, ref T1 component1, ref T2 component2, ref T3 component3, ref T4 component4, ref T5 component5, ref T6 component6, ref T7 component7, ref T8 component8, ref T9 component9, ref T10 component10, ref T11 component11, ref T12 component12, ref T13 component13, ref T14 component14) {
+    public void Execute(
+        Entity entity,
+        ref T0 component0,
+        ref T1 component1,
+        ref T2 component2,
+        ref T3 component3,
+        ref T4 component4,
+        ref T5 component5,
+        ref T6 component6,
+        ref T7 component7,
+        ref T8 component8,
+        ref T9 component9,
+        ref T10 component10,
+        ref T11 component11,
+        ref T12 component12,
+        ref T13 component13,
+        ref T14 component14
+    ) {
         Seen?.Add(entity);
-        Execute(ref component0, ref component1, ref component2, ref component3, ref component4, ref component5, ref component6, ref component7, ref component8, ref component9, ref component10, ref component11, ref component12, ref component13, ref component14);
+        Execute(
+            ref component0,
+            ref component1,
+            ref component2,
+            ref component3,
+            ref component4,
+            ref component5,
+            ref component6,
+            ref component7,
+            ref component8,
+            ref component9,
+            ref component10,
+            ref component11,
+            ref component12,
+            ref component13,
+            ref component14
+        );
     }
 
-    public void Execute(Entity entity, ref T0 component0, ref T1 component1, ref T2 component2, ref T3 component3, ref T4 component4, ref T5 component5, ref T6 component6, ref T7 component7, ref T8 component8, ref T9 component9, ref T10 component10, ref T11 component11, ref T12 component12, ref T13 component13, ref T14 component14, ref T15 component15) {
+    public void Execute(
+        Entity entity,
+        ref T0 component0,
+        ref T1 component1,
+        ref T2 component2,
+        ref T3 component3,
+        ref T4 component4,
+        ref T5 component5,
+        ref T6 component6,
+        ref T7 component7,
+        ref T8 component8,
+        ref T9 component9,
+        ref T10 component10,
+        ref T11 component11,
+        ref T12 component12,
+        ref T13 component13,
+        ref T14 component14,
+        ref T15 component15
+    ) {
         Seen?.Add(entity);
-        Execute(ref component0, ref component1, ref component2, ref component3, ref component4, ref component5, ref component6, ref component7, ref component8, ref component9, ref component10, ref component11, ref component12, ref component13, ref component14, ref component15);
+        Execute(
+            ref component0,
+            ref component1,
+            ref component2,
+            ref component3,
+            ref component4,
+            ref component5,
+            ref component6,
+            ref component7,
+            ref component8,
+            ref component9,
+            ref component10,
+            ref component11,
+            ref component12,
+            ref component13,
+            ref component14,
+            ref component15
+        );
     }
 
     static void Bump<T>(ref T slot) where T : struct, ISlot => slot.Value += 1;
@@ -523,47 +930,97 @@ public static class ArityDrive {
         world.ForEach<Spy, Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8>(all9, ref spy);
         world.ForEachWithEntity<Spy, Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8>(all9, ref spy);
 
-        var all10 = new QueryDescription().WithAll<Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8, Slot9>();
+        var all10 =
+            new QueryDescription().WithAll<Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8, Slot9>();
         world.Query<Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8, Slot9>(all10, spy.Execute);
         world.QueryWithEntity<Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8, Slot9>(all10, spy.Execute);
         world.ForEach<Spy, Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8, Slot9>(all10, ref spy);
-        world.ForEachWithEntity<Spy, Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8, Slot9>(all10, ref spy);
+        world.ForEachWithEntity<Spy, Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8, Slot9>(
+            all10,
+            ref spy
+        );
 
-        var all11 = new QueryDescription().WithAll<Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8, Slot9, Slot10>();
+        var all11 = new QueryDescription()
+            .WithAll<Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8, Slot9, Slot10>();
         world.Query<Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8, Slot9, Slot10>(all11, spy.Execute);
-        world.QueryWithEntity<Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8, Slot9, Slot10>(all11, spy.Execute);
-        world.ForEach<Spy, Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8, Slot9, Slot10>(all11, ref spy);
-        world.ForEachWithEntity<Spy, Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8, Slot9, Slot10>(all11, ref spy);
+        world.QueryWithEntity<Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8, Slot9, Slot10>(
+            all11,
+            spy.Execute
+        );
+        world.ForEach<Spy, Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8, Slot9, Slot10>(
+            all11,
+            ref spy
+        );
+        world.ForEachWithEntity<Spy, Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8, Slot9, Slot10>(
+            all11,
+            ref spy
+        );
 
-        var all12 = new QueryDescription().WithAll<Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8, Slot9, Slot10, Slot11>();
-        world.Query<Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8, Slot9, Slot10, Slot11>(all12, spy.Execute);
-        world.QueryWithEntity<Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8, Slot9, Slot10, Slot11>(all12, spy.Execute);
-        world.ForEach<Spy, Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8, Slot9, Slot10, Slot11>(all12, ref spy);
-        world.ForEachWithEntity<Spy, Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8, Slot9, Slot10, Slot11>(all12, ref spy);
+        var all12 = new QueryDescription()
+            .WithAll<Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8, Slot9, Slot10, Slot11>();
+        world.Query<Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8, Slot9, Slot10, Slot11>(
+            all12,
+            spy.Execute
+        );
+        world.QueryWithEntity<Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8, Slot9, Slot10, Slot11>(
+            all12,
+            spy.Execute
+        );
+        world.ForEach<Spy, Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8, Slot9, Slot10, Slot11>(
+            all12,
+            ref spy
+        );
+        world.ForEachWithEntity<Spy, Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8, Slot9, Slot10,
+            Slot11>(all12, ref spy);
 
-        var all13 = new QueryDescription().WithAll<Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8, Slot9, Slot10, Slot11, Slot12>();
-        world.Query<Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8, Slot9, Slot10, Slot11, Slot12>(all13, spy.Execute);
-        world.QueryWithEntity<Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8, Slot9, Slot10, Slot11, Slot12>(all13, spy.Execute);
-        world.ForEach<Spy, Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8, Slot9, Slot10, Slot11, Slot12>(all13, ref spy);
-        world.ForEachWithEntity<Spy, Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8, Slot9, Slot10, Slot11, Slot12>(all13, ref spy);
+        var all13 = new QueryDescription()
+            .WithAll<Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8, Slot9, Slot10, Slot11, Slot12>();
+        world.Query<Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8, Slot9, Slot10, Slot11, Slot12>(
+            all13,
+            spy.Execute
+        );
+        world.QueryWithEntity<Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8, Slot9, Slot10, Slot11,
+            Slot12>(all13, spy.Execute);
+        world.ForEach<Spy, Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8, Slot9, Slot10, Slot11,
+            Slot12>(all13, ref spy);
+        world.ForEachWithEntity<Spy, Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8, Slot9, Slot10,
+            Slot11, Slot12>(all13, ref spy);
 
-        var all14 = new QueryDescription().WithAll<Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8, Slot9, Slot10, Slot11, Slot12, Slot13>();
-        world.Query<Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8, Slot9, Slot10, Slot11, Slot12, Slot13>(all14, spy.Execute);
-        world.QueryWithEntity<Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8, Slot9, Slot10, Slot11, Slot12, Slot13>(all14, spy.Execute);
-        world.ForEach<Spy, Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8, Slot9, Slot10, Slot11, Slot12, Slot13>(all14, ref spy);
-        world.ForEachWithEntity<Spy, Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8, Slot9, Slot10, Slot11, Slot12, Slot13>(all14, ref spy);
+        var all14 = new QueryDescription()
+            .WithAll<Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8, Slot9, Slot10, Slot11, Slot12,
+                Slot13>();
+        world.Query<Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8, Slot9, Slot10, Slot11, Slot12,
+            Slot13>(all14, spy.Execute);
+        world.QueryWithEntity<Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8, Slot9, Slot10, Slot11,
+            Slot12, Slot13>(all14, spy.Execute);
+        world.ForEach<Spy, Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8, Slot9, Slot10, Slot11, Slot12,
+            Slot13>(all14, ref spy);
+        world.ForEachWithEntity<Spy, Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8, Slot9, Slot10,
+            Slot11, Slot12, Slot13>(all14, ref spy);
 
-        var all15 = new QueryDescription().WithAll<Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8, Slot9, Slot10, Slot11, Slot12, Slot13, Slot14>();
-        world.Query<Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8, Slot9, Slot10, Slot11, Slot12, Slot13, Slot14>(all15, spy.Execute);
-        world.QueryWithEntity<Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8, Slot9, Slot10, Slot11, Slot12, Slot13, Slot14>(all15, spy.Execute);
-        world.ForEach<Spy, Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8, Slot9, Slot10, Slot11, Slot12, Slot13, Slot14>(all15, ref spy);
-        world.ForEachWithEntity<Spy, Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8, Slot9, Slot10, Slot11, Slot12, Slot13, Slot14>(all15, ref spy);
+        var all15 = new QueryDescription()
+            .WithAll<Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8, Slot9, Slot10, Slot11, Slot12,
+                Slot13, Slot14>();
+        world.Query<Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8, Slot9, Slot10, Slot11, Slot12, Slot13
+            , Slot14>(all15, spy.Execute);
+        world.QueryWithEntity<Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8, Slot9, Slot10, Slot11,
+            Slot12, Slot13, Slot14>(all15, spy.Execute);
+        world.ForEach<Spy, Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8, Slot9, Slot10, Slot11, Slot12,
+            Slot13, Slot14>(all15, ref spy);
+        world.ForEachWithEntity<Spy, Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8, Slot9, Slot10,
+            Slot11, Slot12, Slot13, Slot14>(all15, ref spy);
 
-        var all16 = new QueryDescription().WithAll<Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8, Slot9, Slot10, Slot11, Slot12, Slot13, Slot14, Slot15>();
-        world.Query<Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8, Slot9, Slot10, Slot11, Slot12, Slot13, Slot14, Slot15>(all16, spy.Execute);
-        world.QueryWithEntity<Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8, Slot9, Slot10, Slot11, Slot12, Slot13, Slot14, Slot15>(all16, spy.Execute);
-        world.ForEach<Spy, Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8, Slot9, Slot10, Slot11, Slot12, Slot13, Slot14, Slot15>(all16, ref spy);
-        world.ForEachWithEntity<Spy, Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8, Slot9, Slot10, Slot11, Slot12, Slot13, Slot14, Slot15>(all16, ref spy);
+        var all16 = new QueryDescription()
+            .WithAll<Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8, Slot9, Slot10, Slot11, Slot12,
+                Slot13, Slot14, Slot15>();
+        world.Query<Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8, Slot9, Slot10, Slot11, Slot12, Slot13
+            , Slot14, Slot15>(all16, spy.Execute);
+        world.QueryWithEntity<Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8, Slot9, Slot10, Slot11,
+            Slot12, Slot13, Slot14, Slot15>(all16, spy.Execute);
+        world.ForEach<Spy, Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8, Slot9, Slot10, Slot11, Slot12,
+            Slot13, Slot14, Slot15>(all16, ref spy);
+        world.ForEachWithEntity<Spy, Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8, Slot9, Slot10,
+            Slot11, Slot12, Slot13, Slot14, Slot15>(all16, ref spy);
     }
 
     /// <summary>One description from every arity of every generated builder family.</summary>
@@ -600,38 +1057,93 @@ public static class ArityDrive {
         ("WithAll", 8, new QueryDescription().WithAll<Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7>()),
         ("WithAny", 8, new QueryDescription().WithAny<Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7>()),
         ("WithNone", 8, new QueryDescription().WithNone<Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7>()),
-        ("WithChanged", 8, new QueryDescription().WithChanged<Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7>()),
+        ("WithChanged", 8,
+            new QueryDescription().WithChanged<Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7>()),
         ("WithAll", 9, new QueryDescription().WithAll<Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8>()),
         ("WithAny", 9, new QueryDescription().WithAny<Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8>()),
-        ("WithNone", 9, new QueryDescription().WithNone<Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8>()),
-        ("WithChanged", 9, new QueryDescription().WithChanged<Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8>()),
-        ("WithAll", 10, new QueryDescription().WithAll<Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8, Slot9>()),
-        ("WithAny", 10, new QueryDescription().WithAny<Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8, Slot9>()),
-        ("WithNone", 10, new QueryDescription().WithNone<Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8, Slot9>()),
-        ("WithChanged", 10, new QueryDescription().WithChanged<Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8, Slot9>()),
-        ("WithAll", 11, new QueryDescription().WithAll<Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8, Slot9, Slot10>()),
-        ("WithAny", 11, new QueryDescription().WithAny<Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8, Slot9, Slot10>()),
-        ("WithNone", 11, new QueryDescription().WithNone<Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8, Slot9, Slot10>()),
-        ("WithChanged", 11, new QueryDescription().WithChanged<Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8, Slot9, Slot10>()),
-        ("WithAll", 12, new QueryDescription().WithAll<Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8, Slot9, Slot10, Slot11>()),
-        ("WithAny", 12, new QueryDescription().WithAny<Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8, Slot9, Slot10, Slot11>()),
-        ("WithNone", 12, new QueryDescription().WithNone<Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8, Slot9, Slot10, Slot11>()),
-        ("WithChanged", 12, new QueryDescription().WithChanged<Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8, Slot9, Slot10, Slot11>()),
-        ("WithAll", 13, new QueryDescription().WithAll<Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8, Slot9, Slot10, Slot11, Slot12>()),
-        ("WithAny", 13, new QueryDescription().WithAny<Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8, Slot9, Slot10, Slot11, Slot12>()),
-        ("WithNone", 13, new QueryDescription().WithNone<Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8, Slot9, Slot10, Slot11, Slot12>()),
-        ("WithChanged", 13, new QueryDescription().WithChanged<Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8, Slot9, Slot10, Slot11, Slot12>()),
-        ("WithAll", 14, new QueryDescription().WithAll<Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8, Slot9, Slot10, Slot11, Slot12, Slot13>()),
-        ("WithAny", 14, new QueryDescription().WithAny<Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8, Slot9, Slot10, Slot11, Slot12, Slot13>()),
-        ("WithNone", 14, new QueryDescription().WithNone<Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8, Slot9, Slot10, Slot11, Slot12, Slot13>()),
-        ("WithChanged", 14, new QueryDescription().WithChanged<Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8, Slot9, Slot10, Slot11, Slot12, Slot13>()),
-        ("WithAll", 15, new QueryDescription().WithAll<Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8, Slot9, Slot10, Slot11, Slot12, Slot13, Slot14>()),
-        ("WithAny", 15, new QueryDescription().WithAny<Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8, Slot9, Slot10, Slot11, Slot12, Slot13, Slot14>()),
-        ("WithNone", 15, new QueryDescription().WithNone<Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8, Slot9, Slot10, Slot11, Slot12, Slot13, Slot14>()),
-        ("WithChanged", 15, new QueryDescription().WithChanged<Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8, Slot9, Slot10, Slot11, Slot12, Slot13, Slot14>()),
-        ("WithAll", 16, new QueryDescription().WithAll<Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8, Slot9, Slot10, Slot11, Slot12, Slot13, Slot14, Slot15>()),
-        ("WithAny", 16, new QueryDescription().WithAny<Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8, Slot9, Slot10, Slot11, Slot12, Slot13, Slot14, Slot15>()),
-        ("WithNone", 16, new QueryDescription().WithNone<Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8, Slot9, Slot10, Slot11, Slot12, Slot13, Slot14, Slot15>()),
-        ("WithChanged", 16, new QueryDescription().WithChanged<Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8, Slot9, Slot10, Slot11, Slot12, Slot13, Slot14, Slot15>())
+        ("WithNone", 9,
+            new QueryDescription().WithNone<Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8>()),
+        ("WithChanged", 9,
+            new QueryDescription().WithChanged<Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8>()),
+        ("WithAll", 10,
+            new QueryDescription().WithAll<Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8, Slot9>()),
+        ("WithAny", 10,
+            new QueryDescription().WithAny<Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8, Slot9>()),
+        ("WithNone", 10,
+            new QueryDescription().WithNone<Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8, Slot9>()),
+        ("WithChanged", 10,
+            new QueryDescription().WithChanged<Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8, Slot9>()),
+        ("WithAll", 11,
+            new QueryDescription().WithAll<Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8, Slot9,
+                Slot10>()),
+        ("WithAny", 11,
+            new QueryDescription().WithAny<Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8, Slot9,
+                Slot10>()),
+        ("WithNone", 11,
+            new QueryDescription().WithNone<Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8, Slot9,
+                Slot10>()),
+        ("WithChanged", 11,
+            new QueryDescription().WithChanged<Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8, Slot9,
+                Slot10>()),
+        ("WithAll", 12,
+            new QueryDescription().WithAll<Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8, Slot9, Slot10,
+                Slot11>()),
+        ("WithAny", 12,
+            new QueryDescription().WithAny<Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8, Slot9, Slot10,
+                Slot11>()),
+        ("WithNone", 12,
+            new QueryDescription().WithNone<Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8, Slot9, Slot10
+                , Slot11>()),
+        ("WithChanged", 12,
+            new QueryDescription().WithChanged<Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8, Slot9,
+                Slot10, Slot11>()),
+        ("WithAll", 13,
+            new QueryDescription().WithAll<Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8, Slot9, Slot10,
+                Slot11, Slot12>()),
+        ("WithAny", 13,
+            new QueryDescription().WithAny<Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8, Slot9, Slot10,
+                Slot11, Slot12>()),
+        ("WithNone", 13,
+            new QueryDescription().WithNone<Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8, Slot9, Slot10
+                , Slot11, Slot12>()),
+        ("WithChanged", 13,
+            new QueryDescription().WithChanged<Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8, Slot9,
+                Slot10, Slot11, Slot12>()),
+        ("WithAll", 14,
+            new QueryDescription().WithAll<Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8, Slot9, Slot10,
+                Slot11, Slot12, Slot13>()),
+        ("WithAny", 14,
+            new QueryDescription().WithAny<Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8, Slot9, Slot10,
+                Slot11, Slot12, Slot13>()),
+        ("WithNone", 14,
+            new QueryDescription().WithNone<Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8, Slot9, Slot10
+                , Slot11, Slot12, Slot13>()),
+        ("WithChanged", 14,
+            new QueryDescription().WithChanged<Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8, Slot9,
+                Slot10, Slot11, Slot12, Slot13>()),
+        ("WithAll", 15,
+            new QueryDescription().WithAll<Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8, Slot9, Slot10,
+                Slot11, Slot12, Slot13, Slot14>()),
+        ("WithAny", 15,
+            new QueryDescription().WithAny<Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8, Slot9, Slot10,
+                Slot11, Slot12, Slot13, Slot14>()),
+        ("WithNone", 15,
+            new QueryDescription().WithNone<Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8, Slot9, Slot10
+                , Slot11, Slot12, Slot13, Slot14>()),
+        ("WithChanged", 15,
+            new QueryDescription().WithChanged<Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8, Slot9,
+                Slot10, Slot11, Slot12, Slot13, Slot14>()),
+        ("WithAll", 16,
+            new QueryDescription().WithAll<Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8, Slot9, Slot10,
+                Slot11, Slot12, Slot13, Slot14, Slot15>()),
+        ("WithAny", 16,
+            new QueryDescription().WithAny<Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8, Slot9, Slot10,
+                Slot11, Slot12, Slot13, Slot14, Slot15>()),
+        ("WithNone", 16,
+            new QueryDescription().WithNone<Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8, Slot9, Slot10
+                , Slot11, Slot12, Slot13, Slot14, Slot15>()),
+        ("WithChanged", 16,
+            new QueryDescription().WithChanged<Slot0, Slot1, Slot2, Slot3, Slot4, Slot5, Slot6, Slot7, Slot8, Slot9,
+                Slot10, Slot11, Slot12, Slot13, Slot14, Slot15>())
     ];
 }

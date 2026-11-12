@@ -84,7 +84,10 @@ public sealed class ApplyExpander {
     string ExpandList(string utilities) {
         var expanded = new StringBuilder();
 
-        foreach (var name in utilities.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)) {
+        foreach (var name in utilities.Split(
+                     ' ',
+                     StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries
+                 )) {
             if (!UtilityParser.TryParse(name, out var parsed)) {
                 diagnostics.Add($"'{name}' is not shaped like a utility");
                 continue;

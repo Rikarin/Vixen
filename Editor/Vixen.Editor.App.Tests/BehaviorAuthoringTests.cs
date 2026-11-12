@@ -29,7 +29,9 @@ public class BehaviorAuthoringTests {
     ///     ⚠ Registered by hand rather than by the generator, because this assembly does not run the
     ///     engine's — which is the seam a project's own code will use and is not what this is testing.
     /// </remarks>
-    static BehaviorAuthoringTests() => SceneBehaviorRegistry.Register<PatrolBehavior>();
+    static BehaviorAuthoringTests() {
+        SceneBehaviorRegistry.Register<PatrolBehavior>();
+    }
 
     static ComponentsView Components(EditorSession editor) {
         editor.Open("inspector");
@@ -100,13 +102,13 @@ public class BehaviorAuthoringTests {
 
         var picker = Picker(editor);
 
-        var patrol = picker.Offered.First(entry => entry.Bridge.DisplayName == "Patrol Behavior");
-        var camera = picker.Offered.First(entry => entry.Bridge.DisplayName == "Camera");
+        var patrol = picker.Offered.First(static entry => entry.Bridge.DisplayName == "Patrol Behavior");
+        var camera = picker.Offered.First(static entry => entry.Bridge.DisplayName == "Camera");
 
         Assert.Equal(ComponentsView.Scripts, patrol.Category);
         Assert.NotEqual(ComponentsView.Scripts, camera.Category);
 
-        picker.Close(CloseReason.Code);
+        picker.Close();
         editor.Settle();
     }
 
@@ -126,7 +128,7 @@ public class BehaviorAuthoringTests {
         picker.Show(ComponentsView.Scripts);
         editor.Settle();
 
-        var script = picker.Rows.First(row => row.Label == "Patrol Behavior");
+        var script = picker.Rows.First(static row => row.Label == "Patrol Behavior");
         Assert.Equal("Script", script.DetailPart.Text);
 
         picker.Show(null);
@@ -135,12 +137,12 @@ public class BehaviorAuthoringTests {
 
         // ⚠ A component's line says its category while searching and nothing at all while browsing —
         // never the word "Component", which is what every line in the list already is.
-        var component = picker.Rows.First(row => row.Index >= 0 && row.Label == "Camera");
+        var component = picker.Rows.First(static row => row.Index >= 0 && row.Label == "Camera");
 
         Assert.NotEqual("Component", component.DetailPart.Text);
         Assert.NotEqual("Script", component.DetailPart.Text);
 
-        picker.Close(CloseReason.Code);
+        picker.Close();
         editor.Settle();
     }
 
@@ -163,8 +165,8 @@ public class BehaviorAuthoringTests {
         // an `IDefaultComponent` because a chunk row is never constructed at all.
         Assert.Equal(3f, attached.Speed);
 
-        var section = Components(editor).Sections.Single(fold => fold.Label == "Patrol Behavior");
-        var rows = Descendants(section).OfType<InspectorRow>().Select(row => row.Field.Member.Name).ToList();
+        var section = Components(editor).Sections.Single(static fold => fold.Label == "Patrol Behavior");
+        var rows = Descendants(section).OfType<InspectorRow>().Select(static row => row.Field.Member.Name).ToList();
 
         Assert.Contains("Speed", rows);
         Assert.Contains("Distance", rows);
@@ -192,8 +194,10 @@ public class BehaviorAuthoringTests {
 
         Choose(editor, "Patrol Behavior");
 
-        var section = Components(editor).Sections.Single(fold => fold.Label == "Patrol Behavior");
-        var row = Descendants(section).OfType<InspectorRow>().Single(candidate => candidate.Field.Member.Name == "Speed");
+        var section = Components(editor).Sections.Single(static fold => fold.Label == "Patrol Behavior");
+        var row = Descendants(section)
+            .OfType<InspectorRow>()
+            .Single(static candidate => candidate.Field.Member.Name == "Speed");
 
         Assert.True(row.Field.Write(12f));
         editor.Settle();
@@ -212,8 +216,12 @@ public class BehaviorAuthoringTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>Removing records what was there, so undo puts the values back and not just the
-    ///     foldout</b> — the rule <c>SetComponentCommand</c> already states, and it holds for a
+    ///     ⚠
+    ///     <b>
+    ///         Removing records what was there, so undo puts the values back and not just the
+    ///         foldout
+    ///     </b>
+    ///     — the rule <c>SetComponentCommand</c> already states, and it holds for a
     ///     behaviour because the command is the same one.
     /// </summary>
     [Fact]
@@ -224,8 +232,10 @@ public class BehaviorAuthoringTests {
 
         Choose(editor, "Patrol Behavior");
 
-        var section = Components(editor).Sections.Single(fold => fold.Label == "Patrol Behavior");
-        var row = Descendants(section).OfType<InspectorRow>().Single(candidate => candidate.Field.Member.Name == "Distance");
+        var section = Components(editor).Sections.Single(static fold => fold.Label == "Patrol Behavior");
+        var row = Descendants(section)
+            .OfType<InspectorRow>()
+            .Single(static candidate => candidate.Field.Member.Name == "Distance");
 
         Assert.True(row.Field.Write(42f));
         editor.Settle();
@@ -245,8 +255,12 @@ public class BehaviorAuthoringTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>Add, remove, add — which is what undo and redo do — leaves one behaviour and not
-    ///     three.</b> <c>BehaviorStore.Destroy</c> queues for a lifecycle drain that an editor never
+    ///     ⚠
+    ///     <b>
+    ///         Add, remove, add — which is what undo and redo do — leaves one behaviour and not
+    ///         three.
+    ///     </b>
+    ///     <c>BehaviorStore.Destroy</c> queues for a lifecycle drain that an editor never
     ///     runs, so the authoring path is <c>Remove</c>, which detaches now.
     /// </summary>
     [Fact]
@@ -258,7 +272,7 @@ public class BehaviorAuthoringTests {
         for (var round = 0; round < 3; round++) {
             Choose(editor, "Patrol Behavior");
 
-            var section = Components(editor).Sections.Single(fold => fold.Label == "Patrol Behavior");
+            var section = Components(editor).Sections.Single(static fold => fold.Label == "Patrol Behavior");
 
             Press(section, "Remove Component");
             editor.Settle();
@@ -273,16 +287,16 @@ public class BehaviorAuthoringTests {
         Press(editor.Panel("inspector"), "Add Component");
 
         return Descendants(editor.Document.Root)
-            .OfType<AddComponentMenu>()
-            .FirstOrDefault(candidate => candidate.IsOpen)
+                .OfType<AddComponentMenu>()
+                .FirstOrDefault(static candidate => candidate.IsOpen)
             ?? throw editor.Fail("the Add Component picker did not open");
     }
 
     static IReadOnlyList<string> Offered(EditorSession editor) {
         var picker = Picker(editor);
-        List<string> offered = [.. picker.Offered.Select(entry => entry.Bridge.DisplayName)];
+        List<string> offered = [..picker.Offered.Select(static entry => entry.Bridge.DisplayName)];
 
-        picker.Close(CloseReason.Code);
+        picker.Close();
         editor.Settle();
 
         return offered;
@@ -296,10 +310,12 @@ public class BehaviorAuthoringTests {
         editor.Settle();
 
         List<string> found = [
-            .. picker.Rows.Where(row => row.Index >= 0).OrderBy(row => row.Index).Select(row => row.Label ?? "")
+            ..picker.Rows.Where(static row => row.Index >= 0)
+                .OrderBy(static row => row.Index)
+                .Select(static row => row.Label ?? string.Empty)
         ];
 
-        picker.Close(CloseReason.Code);
+        picker.Close();
         editor.Settle();
 
         return found;

@@ -130,9 +130,9 @@ public sealed class NavMeshTile {
         // interior, and a link at each end. Everything downstream then has one kind of thing to walk
         // — a polygon with neighbours — and only the handful of places that treat a polygon as an
         // *area* have to know the difference.
-        Vertices = new Vector3[data.Vertices.Length + (connections.Length * 2)];
-        PolyVertices = new int[data.PolyVertices.Length + (connections.Length * 2)];
-        PolyNeighbours = new int[data.PolyNeighbours.Length + (connections.Length * 2)];
+        Vertices = new Vector3[data.Vertices.Length + connections.Length * 2];
+        PolyVertices = new int[data.PolyVertices.Length + connections.Length * 2];
+        PolyNeighbours = new int[data.PolyNeighbours.Length + connections.Length * 2];
         Polys = new NavPoly[source.Length + connections.Length];
         PolyBounds = new BoundingBox[Polys.Length];
 
@@ -153,8 +153,8 @@ public sealed class NavMeshTile {
         }
 
         for (var index = 0; index < connections.Length; index++) {
-            var vertex = data.Vertices.Length + (index * 2);
-            var slotIndex = data.PolyVertices.Length + (index * 2);
+            var vertex = data.Vertices.Length + index * 2;
+            var slotIndex = data.PolyVertices.Length + index * 2;
 
             Vertices[vertex] = connections[index].Start;
             Vertices[vertex + 1] = connections[index].End;
@@ -301,13 +301,17 @@ public sealed class NavMesh {
 
     /// <summary>The tiles a relink has decided it has to visit. Reused, because a load is not a frame.</summary>
     readonly List<NavMeshTile> relinkScratch = [];
+
     uint nextSalt = 1;
 
     /// <summary>Creates an empty mesh.</summary>
     /// <param name="parameters">Where its tile grid is and how big its tiles are.</param>
     public NavMesh(NavMeshParams parameters) {
         if (parameters.TileWidth <= 0 || parameters.TileDepth <= 0) {
-            throw new ArgumentOutOfRangeException(nameof(parameters), "A tile has to have a positive extent in X and Z.");
+            throw new ArgumentOutOfRangeException(
+                nameof(parameters),
+                "A tile has to have a positive extent in X and Z."
+            );
         }
 
         Params = parameters;
@@ -334,7 +338,8 @@ public sealed class NavMesh {
     /// <summary>Which tile a world position falls in, whether or not one is loaded there.</summary>
     /// <param name="position">The position.</param>
     /// <returns>The tile's column and row.</returns>
-    public (int X, int Z) TileCoordinates(Vector3 position) => (
+    public (int X, int Z) TileCoordinates(Vector3 position) =>
+    (
         (int)MathF.Floor((position.X - Params.Origin.X) / Params.TileWidth),
         (int)MathF.Floor((position.Z - Params.Origin.Z) / Params.TileDepth)
     );
@@ -379,7 +384,9 @@ public sealed class NavMesh {
             slot = tiles.Count;
 
             if (slot >= NavPolyRef.MaxTiles) {
-                throw new InvalidOperationException($"The mesh already holds {NavPolyRef.MaxTiles} tiles, which is as many as a reference can name.");
+                throw new InvalidOperationException(
+                    $"The mesh already holds {NavPolyRef.MaxTiles} tiles, which is as many as a reference can name."
+                );
             }
 
             tiles.Add(null);
@@ -538,7 +545,8 @@ public sealed class NavMesh {
     }
 
     /// <summary>The same, for a tile and index this assembly already knows are in range.</summary>
-    internal static NavPolyRef Reference(NavMeshTile tile, int poly) => NavPolyRef.EncodeUnchecked(tile.Salt, tile.Slot, poly);
+    internal static NavPolyRef Reference(NavMeshTile tile, int poly) =>
+        NavPolyRef.EncodeUnchecked(tile.Salt, tile.Slot, poly);
 
     /// <summary>Copies a polygon's vertices out.</summary>
     /// <param name="reference">The polygon.</param>
@@ -552,7 +560,10 @@ public sealed class NavMesh {
         ref var poly = ref tile.Polys[index];
 
         if (destination.Length < poly.VertexCount) {
-            throw new ArgumentException($"The polygon has {poly.VertexCount} vertices and the destination holds {destination.Length}.", nameof(destination));
+            throw new ArgumentException(
+                $"The polygon has {poly.VertexCount} vertices and the destination holds {destination.Length}.",
+                nameof(destination)
+            );
         }
 
         for (var corner = 0; corner < poly.VertexCount; corner++) {
@@ -603,7 +614,12 @@ public sealed class NavMesh {
     }
 
     /// <summary>Resolves one index of a detail triangle: below the vertex count it names a corner.</summary>
-    static Vector3 DetailVertex(NavMeshTile tile, ref readonly NavPoly poly, ref readonly NavMeshDetailData detail, int index) =>
+    static Vector3 DetailVertex(
+        NavMeshTile tile,
+        ref readonly NavPoly poly,
+        ref readonly NavMeshDetailData detail,
+        int index
+    ) =>
         index < poly.VertexCount
             ? tile.Vertices[tile.PolyVertices[poly.FirstVertex + index]]
             : tile.Data.DetailVertices[detail.FirstVertex + index - poly.VertexCount];
@@ -710,8 +726,8 @@ public sealed class NavMesh {
             var (start, end) = EdgePoints(tile, in poly, tile.Links[link].Edge);
             var direction = end - start;
 
-            right = start + (direction * tile.Links[link].Min);
-            left = start + (direction * tile.Links[link].Max);
+            right = start + direction * tile.Links[link].Min;
+            left = start + direction * tile.Links[link].Max;
 
             return true;
         }
@@ -768,9 +784,10 @@ public sealed class NavMesh {
 
             var poly = vertices[..count];
 
-            var closest = NavGeometry.ContainsPoint2D(point, poly) && NavGeometry.TryGetHeight(point, poly, out var height)
-                ? new Vector3(point.X, height, point.Z)
-                : NavGeometry.ClosestPointOnBoundary2D(point, poly, out _);
+            var closest =
+                NavGeometry.ContainsPoint2D(point, poly) && NavGeometry.TryGetHeight(point, poly, out var height)
+                    ? new Vector3(point.X, height, point.Z)
+                    : NavGeometry.ClosestPointOnBoundary2D(point, poly, out _);
 
             var distance = Vector3.DistanceSquared(point, closest);
 
@@ -804,7 +821,7 @@ public sealed class NavMesh {
         var vertices = tile.Vertices;
         var indices = tile.PolyVertices;
         var start = vertices[indices[poly.FirstVertex + edge]];
-        var end = vertices[indices[poly.FirstVertex + ((edge + 1) % poly.VertexCount)]];
+        var end = vertices[indices[poly.FirstVertex + (edge + 1) % poly.VertexCount]];
 
         return (start, end);
     }
@@ -842,7 +859,7 @@ public sealed class NavMesh {
             ConnectOffMesh(tile, owner);
         }
 
-        tile.SetLinks([.. linkScratch]);
+        tile.SetLinks([..linkScratch]);
     }
 
     /// <summary>
@@ -906,15 +923,17 @@ public sealed class NavMesh {
             return;
         }
 
-        linkScratch.Add(new() {
-            Neighbour = to,
-            Next = tile.Polys[index].FirstLink,
-            Edge = NoEdge,
-            Min = 0f,
-            Max = 1f,
-            Point = point,
-            IsOffMesh = true
-        });
+        linkScratch.Add(
+            new() {
+                Neighbour = to,
+                Next = tile.Polys[index].FirstLink,
+                Edge = NoEdge,
+                Min = 0f,
+                Max = 1f,
+                Point = point,
+                IsOffMesh = true
+            }
+        );
 
         tile.Polys[index].FirstLink = linkScratch.Count - 1;
     }
@@ -982,7 +1001,7 @@ public sealed class NavMesh {
                     continue;
                 }
 
-                if (MathF.Abs(((otherStart.Y + otherEnd.Y) * 0.5f) - height) > Params.ClimbTolerance) {
+                if (MathF.Abs((otherStart.Y + otherEnd.Y) * 0.5f - height) > Params.ClimbTolerance) {
                     continue;
                 }
 
@@ -1001,13 +1020,15 @@ public sealed class NavMesh {
                 var first = (overlapLow - from) / span;
                 var second = (overlapHigh - from) / span;
 
-                linkScratch.Add(new() {
-                    Neighbour = ReferenceOf(neighbour, other),
-                    Next = tile.Polys[polyIndex].FirstLink,
-                    Edge = (byte)edge,
-                    Min = MathF.Min(first, second),
-                    Max = MathF.Max(first, second)
-                });
+                linkScratch.Add(
+                    new() {
+                        Neighbour = ReferenceOf(neighbour, other),
+                        Next = tile.Polys[polyIndex].FirstLink,
+                        Edge = (byte)edge,
+                        Min = MathF.Min(first, second),
+                        Max = MathF.Max(first, second)
+                    }
+                );
 
                 tile.Polys[polyIndex].FirstLink = linkScratch.Count - 1;
             }
@@ -1015,12 +1036,13 @@ public sealed class NavMesh {
     }
 
     /// <summary>The world coordinate of the plane a tile's side lies in.</summary>
-    float BorderCoordinate(NavMeshTile tile, int side) => side switch {
-        0 => Params.Origin.X + (tile.Data.X * Params.TileWidth),
-        2 => Params.Origin.X + ((tile.Data.X + 1) * Params.TileWidth),
-        1 => Params.Origin.Z + ((tile.Data.Z + 1) * Params.TileDepth),
-        _ => Params.Origin.Z + (tile.Data.Z * Params.TileDepth)
-    };
+    float BorderCoordinate(NavMeshTile tile, int side) =>
+        side switch {
+            0 => Params.Origin.X + tile.Data.X * Params.TileWidth,
+            2 => Params.Origin.X + (tile.Data.X + 1) * Params.TileWidth,
+            1 => Params.Origin.Z + (tile.Data.Z + 1) * Params.TileDepth,
+            _ => Params.Origin.Z + tile.Data.Z * Params.TileDepth
+        };
 
     static bool OnBorder(Vector3 start, Vector3 end, float border, bool alongX, float tolerance) {
         var startCoordinate = alongX ? start.Z : start.X;
@@ -1038,7 +1060,12 @@ public sealed class NavMesh {
     ///     Whether it is reached by using a connection rather than by crossing an edge, in which case
     ///     <see cref="Edge" /> is <see cref="NavMesh.NoEdge" /> and there is nothing to walk across.
     /// </param>
-    public readonly record struct Neighbour(NavPolyRef Reference, int Edge, float Min, float Max, bool IsOffMesh = false);
+    public readonly record struct Neighbour(
+        NavPolyRef Reference,
+        int Edge,
+        float Min,
+        float Max,
+        bool IsOffMesh = false);
 
     /// <summary>Walks a polygon's neighbours without allocating.</summary>
     /// <remarks>

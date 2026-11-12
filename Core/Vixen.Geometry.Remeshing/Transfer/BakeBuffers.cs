@@ -59,8 +59,12 @@ sealed class BakeBuffers {
 
     /// <summary>Which id each source <em>face</em> bakes as, when an id map was asked for.</summary>
     /// <remarks>
-    ///     ⚠ <b>Resolved once for the source rather than read off a face at every texel, because it is
-    ///     not always the face's group.</b> A group id is only a material boundary where somebody
+    ///     ⚠
+    ///     <b>
+    ///         Resolved once for the source rather than read off a face at every texel, because it is
+    ///         not always the face's group.
+    ///     </b>
+    ///     A group id is only a material boundary where somebody
     ///     assigned it — see <see cref="MeshGroupSource" /> — so on a mesh whose groups are
     ///     <c>Regroup</c>'s coplanarity guess this holds the connected shell instead, and the bake
     ///     warns. <see cref="MapBaker" />'s <c>Labels</c> is what fills it.

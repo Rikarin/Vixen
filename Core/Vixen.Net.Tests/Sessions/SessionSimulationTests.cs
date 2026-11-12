@@ -145,7 +145,7 @@ public sealed class SessionSimulationTests {
     /// <returns>The count, which is a function of the seed and of nothing else.</returns>
     static long Run(ulong seed) {
         using var harness = new SessionHarness();
-        var server = harness.StartServer();
+        _ = harness.StartServer();
 
         var client = harness.Add(
             harness.RawTransport(),

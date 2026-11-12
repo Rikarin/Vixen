@@ -8,8 +8,11 @@ namespace Vixen.Geometry.Remeshing;
 /// <summary>A fixed cosine-weighted set of directions over a hemisphere, and the frame to put it in.</summary>
 /// <remarks>
 ///     <para>
-///         <b>Cosine-weighted rather than uniform, and that is what makes the ray count an
-///         estimator rather than a budget.</b> Ambient occlusion is the cosine-weighted visibility
+///         <b>
+///             Cosine-weighted rather than uniform, and that is what makes the ray count an
+///             estimator rather than a budget.
+///         </b>
+///         Ambient occlusion is the cosine-weighted visibility
 ///         integral <c>(1/π)∫V(ω)·cos θ dω</c>. Drawing the directions from the cosine density makes
 ///         the estimate the plain <i>mean</i> of <c>V</c> over the samples — no per-ray weight, no
 ///         normalisation constant, and no chance of the two disagreeing. A uniform hemisphere with a
@@ -46,7 +49,7 @@ static class HemisphereSampler {
     ///     <c>√(1 − u)</c> because the lift keeps the point on the sphere — which together are
     ///     exactly the cosine density, with no rejection and no transcendental inverse.
     /// </remarks>
-    public static Vector3 Local(int index, int count, float turn) => Local(index, count, turn, 1f, uniform: false);
+    public static Vector3 Local(int index, int count, float turn) => Local(index, count, turn, 1f, false);
 
     /// <summary>One direction within a cone about the normal, cosine-weighted or uniform over it.</summary>
     /// <param name="index">Which sample, in <c>[0, count)</c>.</param>
@@ -60,8 +63,12 @@ static class HemisphereSampler {
     /// <returns>A unit direction with <c>z ≥ 0</c>.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>At a spread of one and the cosine density this is <see cref="Local(int, int, float)" />
-    ///         bit for bit</b>, which is what keeps every bake made before the cone existed the same
+    ///         ⚠
+    ///         <b>
+    ///             At a spread of one and the cosine density this is <see cref="Local(int, int, float)" />
+    ///             bit for bit
+    ///         </b>
+    ///         , which is what keeps every bake made before the cone existed the same
     ///         bytes: the disc's radius is <c>√(u·1)</c> and its height <c>√(1 − u·1)</c>.
     ///     </para>
     ///     <para>
@@ -79,8 +86,8 @@ static class HemisphereSampler {
         if (uniform) {
             var edge = MathF.Sqrt(MathF.Max(0f, 1f - spread));
 
-            height = 1f - (u * (1f - edge));
-            radius = MathF.Sqrt(MathF.Max(0f, 1f - (height * height)));
+            height = 1f - u * (1f - edge);
+            radius = MathF.Sqrt(MathF.Max(0f, 1f - height * height));
         } else {
             var reach = u * spread;
 
@@ -130,8 +137,8 @@ static class HemisphereSampler {
         var b = normal.X * normal.Y * a;
 
         return (
-            new(1f + (sign * normal.X * normal.X * a), sign * b, -sign * normal.X),
-            new(b, sign + (normal.Y * normal.Y * a), -normal.Y)
+            new(1f + sign * normal.X * normal.X * a, sign * b, -sign * normal.X),
+            new(b, sign + normal.Y * normal.Y * a, -normal.Y)
         );
     }
 

@@ -376,8 +376,12 @@ public sealed class InputActions {
     /// <param name="text">The document.</param>
     /// <returns>How many overrides were applied.</returns>
     /// <remarks>
-    ///     A line naming an action, a binding or a part that no longer exists is <b>skipped, not an
-    ///     error</b>. The asset it was saved against is a previous version of the game's, and the
+    ///     A line naming an action, a binding or a part that no longer exists is
+    ///     <b>
+    ///         skipped, not an
+    ///         error
+    ///     </b>
+    ///     . The asset it was saved against is a previous version of the game's, and the
     ///     alternative to skipping is a player whose entire control configuration is refused because
     ///     one action was renamed.
     /// </remarks>
@@ -522,21 +526,27 @@ public sealed class InputAssetException : Exception {
     /// <param name="asset">What the asset is called.</param>
     /// <param name="diagnostics">Everything wrong with it.</param>
     public InputAssetException(string asset, IReadOnlyList<InputAssetDiagnostic> diagnostics)
-        : base(Describe(asset, diagnostics)) =>
+        : base(Describe(asset, diagnostics)) {
         Diagnostics = diagnostics;
+    }
 
     /// <summary>Creates the exception.</summary>
-    public InputAssetException() : base("An input asset could not be read.") => Diagnostics = [];
+    public InputAssetException() : base("An input asset could not be read.") {
+        Diagnostics = [];
+    }
 
     /// <summary>Creates the exception.</summary>
     /// <param name="message">What went wrong.</param>
-    public InputAssetException(string message) : base(message) => Diagnostics = [];
+    public InputAssetException(string message) : base(message) {
+        Diagnostics = [];
+    }
 
     /// <summary>Creates the exception.</summary>
     /// <param name="message">What went wrong.</param>
     /// <param name="innerException">What caused it.</param>
-    public InputAssetException(string message, Exception innerException) : base(message, innerException) =>
+    public InputAssetException(string message, Exception innerException) : base(message, innerException) {
         Diagnostics = [];
+    }
 
     /// <summary>Everything wrong with the document.</summary>
     public IReadOnlyList<InputAssetDiagnostic> Diagnostics { get; }

@@ -59,8 +59,12 @@ static class TerrainCursor {
 
     /// <summary>What the outer ring — the brush's reach — is drawn in.</summary>
     /// <remarks>
-    ///     ⚠ <b>Not <c>SceneLines.SelectedColour</c>'s amber, which is a metre away from it on the
-    ///     wheel.</b> A brush ring and a selection are on screen together constantly and mean opposite
+    ///     ⚠
+    ///     <b>
+    ///         Not <c>SceneLines.SelectedColour</c>'s amber, which is a metre away from it on the
+    ///         wheel.
+    ///     </b>
+    ///     A brush ring and a selection are on screen together constantly and mean opposite
     ///     things — one is what is about to change and the other is what already did — so the cursor
     ///     is a cyan nothing else in the viewport uses.
     /// </remarks>
@@ -150,8 +154,8 @@ static class TerrainCursor {
     /// <summary>A point of the ring, in world space, sitting on the ground.</summary>
     static Vector3 On(TerrainMap terrain, Vector3 origin, Vector2 ground, float radius, float turn) {
         var angle = turn * MathF.Tau;
-        var x = ground.X + (MathF.Cos(angle) * radius);
-        var z = ground.Y + (MathF.Sin(angle) * radius);
+        var x = ground.X + MathF.Cos(angle) * radius;
+        var z = ground.Y + MathF.Sin(angle) * radius;
 
         return origin + new Vector3(x, TerrainPick.HeightAt(terrain, x, z), z);
     }

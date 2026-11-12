@@ -88,8 +88,11 @@ public readonly record struct EglContextOptions(
 ///         mismatch the way a driver does.
 ///     </para>
 ///     <para>
-///         <b>Teardown is the construction sequence backwards, and it runs on a failed
-///         construction too.</b> EGL leaks quietly: a display that was initialised and a context that
+///         <b>
+///             Teardown is the construction sequence backwards, and it runs on a failed
+///             construction too.
+///         </b>
+///         EGL leaks quietly: a display that was initialised and a context that
 ///         was created outlive a constructor that threw between them, and on Android that is a
 ///         process that cannot bring up graphics again after one bad start. So every step past the
 ///         first is inside a <c>try</c> whose <c>catch</c> releases what exists so far.
@@ -154,14 +157,15 @@ public sealed class EglContext : IGLContext {
             // ⚠ Read before the surface and only for a window, because it is the surface it
             // constrains. See NativeVisualId: on Android this is the step between a config that
             // matched and a config a window will accept.
-            NativeVisualId = windowed && egl.GetConfigAttrib(
-                display,
-                config,
-                EglConstants.NativeVisualId,
-                out var visual
-            )
-                ? visual
-                : 0;
+            NativeVisualId = windowed
+                && egl.GetConfigAttrib(
+                    display,
+                    config,
+                    EglConstants.NativeVisualId,
+                    out var visual
+                )
+                    ? visual
+                    : 0;
 
             (context, Profile) = CreateContext(ladder, options, minor);
 
@@ -195,9 +199,13 @@ public sealed class EglContext : IGLContext {
 
     /// <summary>The chosen config's <c>EGL_NATIVE_VISUAL_ID</c>; zero for an offscreen context.</summary>
     /// <remarks>
-    ///     ⚠ <b>What an <c>ANativeWindow</c>'s buffer format has to be set to, and the reason
-    ///     <see cref="EglContextOptions.PrepareNativeWindow" /> is a callback rather than something
-    ///     done here.</b> The call that does it is <c>ANativeWindow_setBuffersGeometry</c> in
+    ///     ⚠
+    ///     <b>
+    ///         What an <c>ANativeWindow</c>'s buffer format has to be set to, and the reason
+    ///         <see cref="EglContextOptions.PrepareNativeWindow" /> is a callback rather than something
+    ///         done here.
+    ///     </b>
+    ///     The call that does it is <c>ANativeWindow_setBuffersGeometry</c> in
     ///     <c>libandroid.so</c>, which is Android's and not EGL's — this assembly has no business
     ///     naming it, and the platform that owns the window does. Zero means the driver would not
     ///     say, which is not a failure: not every EGL implementation has a native visual to report,
@@ -323,18 +331,19 @@ public sealed class EglContext : IGLContext {
     ///     paths gate on — and a device that settled for 3.0 on a phone that has 3.2 would take the
     ///     fallback path forever without saying so.
     /// </remarks>
-    static GlProfile[] Ladder(GlProfile? requested) => requested switch {
-        null => [GlProfile.Es32, GlProfile.Es30],
-        GlProfile.Es32 => [GlProfile.Es32],
-        GlProfile.Es30 => [GlProfile.Es30],
-        _ => throw new ArgumentOutOfRangeException(
-            nameof(requested),
-            requested,
-            $"{requested} is not a profile EGL can create. EGL's client API here is OpenGL ES: "
-            + "GlProfile.Core45 wants a desktop context from WGL, GLX or CGL, and GlProfile.WebGl2 "
-            + "is a browser's context reached through Vixen.Platform.Web."
-        )
-    };
+    static GlProfile[] Ladder(GlProfile? requested) =>
+        requested switch {
+            null => [GlProfile.Es32, GlProfile.Es30],
+            GlProfile.Es32 => [GlProfile.Es32],
+            GlProfile.Es30 => [GlProfile.Es30],
+            _ => throw new ArgumentOutOfRangeException(
+                nameof(requested),
+                requested,
+                $"{requested} is not a profile EGL can create. EGL's client API here is OpenGL ES: "
+                + "GlProfile.Core45 wants a desktop context from WGL, GLX or CGL, and GlProfile.WebGl2 "
+                + "is a browser's context reached through Vixen.Platform.Web."
+            )
+        };
 
     nint ChooseConfig(in EglContextOptions options, bool windowed) {
         var attributes = EglAttributes.Config(options, windowed);
@@ -427,7 +436,6 @@ public sealed class EglContext : IGLContext {
         egl.ReleaseThread();
     }
 
-    InvalidOperationException Failed(string entryPoint, string what) => new(
-        $"{entryPoint} failed: {what}. EGL says {EglError.Describe(egl.GetError())}."
-    );
+    InvalidOperationException Failed(string entryPoint, string what) =>
+        new($"{entryPoint} failed: {what}. EGL says {EglError.Describe(egl.GetError())}.");
 }

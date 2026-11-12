@@ -47,8 +47,8 @@ static class Geometry {
                     DistanceSquared(
                         point,
                         positions[corners[triangle * 3]],
-                        positions[corners[(triangle * 3) + 1]],
-                        positions[corners[(triangle * 3) + 2]]
+                        positions[corners[triangle * 3 + 1]],
+                        positions[corners[triangle * 3 + 2]]
                     )
                 );
 
@@ -97,26 +97,26 @@ static class Geometry {
             return (point - c).LengthSquared();
         }
 
-        var vc = (d1 * d4) - (d3 * d2);
+        var vc = d1 * d4 - d3 * d2;
 
         if (vc <= 0 && d1 >= 0 && d3 <= 0) {
-            return (point - (a + (ab * (d1 / (d1 - d3))))).LengthSquared();
+            return (point - (a + ab * (d1 / (d1 - d3)))).LengthSquared();
         }
 
-        var vb = (d5 * d2) - (d1 * d6);
+        var vb = d5 * d2 - d1 * d6;
 
         if (vb <= 0 && d2 >= 0 && d6 <= 0) {
-            return (point - (a + (ac * (d2 / (d2 - d6))))).LengthSquared();
+            return (point - (a + ac * (d2 / (d2 - d6)))).LengthSquared();
         }
 
-        var va = (d3 * d6) - (d5 * d4);
+        var va = d3 * d6 - d5 * d4;
 
         if (va <= 0 && d4 - d3 >= 0 && d5 - d6 >= 0) {
-            return (point - (b + ((c - b) * ((d4 - d3) / (d4 - d3 + (d5 - d6)))))).LengthSquared();
+            return (point - (b + (c - b) * ((d4 - d3) / (d4 - d3 + (d5 - d6))))).LengthSquared();
         }
 
         var denominator = 1f / (va + vb + vc);
 
-        return (point - (a + (ab * (vb * denominator)) + (ac * (vc * denominator)))).LengthSquared();
+        return (point - (a + ab * (vb * denominator) + ac * (vc * denominator))).LengthSquared();
     }
 }

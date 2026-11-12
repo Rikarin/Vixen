@@ -29,8 +29,12 @@ public sealed record EditorOnlyImportSettings : IImportSettings {
 ///         that had ever pressed Create ▸.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Here in the pipeline, and not beside the features that own the formats, because neither
-///         feature can be linked by every host.</b> <c>Vixen.TextureGraph</c>'s csproj refuses
+///         ⚠
+///         <b>
+///             Here in the pipeline, and not beside the features that own the formats, because neither
+///             feature can be linked by every host.
+///         </b>
+///         <c>Vixen.TextureGraph</c>'s csproj refuses
 ///         <c>Vixen.Editor.Assets</c> on a closure measurement, and <c>Vixen.Cli</c>'s refuses
 ///         <c>Vixen.Editor.Texturing</c> as an editor shell inside a command-line tool. An answer only the
 ///         editor gave would be the editor and <c>vixen</c> disagreeing about what a project ships — the

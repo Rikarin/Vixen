@@ -19,8 +19,12 @@ namespace Vixen.Graphics.Golden.Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>The whole defence behind the viewport-sized-surface decision, and it could not be
-///         written until there were two executors.</b> <see cref="UiLayer" />'s remarks argue that a
+///         ⚠
+///         <b>
+///             The whole defence behind the viewport-sized-surface decision, and it could not be
+///             written until there were two executors.
+///         </b>
+///         <see cref="UiLayer" />'s remarks argue that a
 ///         surface the size of the group would need every vertex inside it translated by the group's
 ///         origin, on both paths, in the same direction, with the same rounding — and that a
 ///         disagreement there is a subtree drawn a pixel off, which no unit test would be looking at
@@ -29,8 +33,12 @@ namespace Vixen.Graphics.Golden.Tests;
 ///         while <c>SoftwareUiRasterizer</c> was the only one that composited.
 ///     </para>
 ///     <para>
-///         ⚠ <b>A comparison and not a committed picture, which is a deliberate choice about what
-///         this suite's references are for.</b> A reference image says "this is what the frame looked
+///         ⚠
+///         <b>
+///             A comparison and not a committed picture, which is a deliberate choice about what
+///             this suite's references are for.
+///         </b>
+///         A reference image says "this is what the frame looked
 ///         like on the day a human approved it"; it does not say the two renderers agree, because a
 ///         reference is made by <i>one</i> of them. Both are asserted here — the software frame is
 ///         computed in the test, the device frame is rendered beside it, and the assertion is that
@@ -38,8 +46,12 @@ namespace Vixen.Graphics.Golden.Tests;
 ///         divergence to be accepted by accident.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Compositing has to have actually happened, and a frame where it did not looks almost
-///         identical.</b> The un-isolated approximation — fading each of a group's children
+///         ⚠
+///         <b>
+///             Compositing has to have actually happened, and a frame where it did not looks almost
+///             identical.
+///         </b>
+///         The un-isolated approximation — fading each of a group's children
 ///         separately — differs from the isolated one only where the children overlap and only where
 ///         coverage is partial. So <see cref="UiRenderer.Composited" /> is asserted before the pixels
 ///         are: without it, two renderers that both silently declined to composite would agree
@@ -58,8 +70,12 @@ namespace Vixen.Graphics.Golden.Tests;
 ///         too, and it comes out at 12.65% of pixels differing by up to 57 levels.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The drop shadow divides the same way, and both halves were measured rather than
-///         assumed.</b> Its <i>displacement</i> is invisible here — the offset is spent in
+///         ⚠
+///         <b>
+///             The drop shadow divides the same way, and both halves were measured rather than
+///             assumed.
+///         </b>
+///         Its <i>displacement</i> is invisible here — the offset is spent in
 ///         <c>UiGeometryBuilder.Layer</c>, on a quad both executors then draw, so a shadow moved the
 ///         wrong way is moved the wrong way twice and the two agree. That is
 ///         <c>Vixen.Ui.Controls.Tests.FilterDropShadowTests</c>' half. Its <i>tint</i> is not:
@@ -101,8 +117,12 @@ public sealed class UiCompositingTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Nested, because a single group would not exercise the ordering either path had to
-    ///         get right.</b> <c>UiGeometry.Layers</c> is in pre-order and the two consumers walk it
+    ///         ⚠
+    ///         <b>
+    ///             Nested, because a single group would not exercise the ordering either path had to
+    ///             get right.
+    ///         </b>
+    ///         <c>UiGeometry.Layers</c> is in pre-order and the two consumers walk it
     ///         differently — the software one recurses into a group as it meets it, the device one
     ///         renders the passes <i>post-order</i> so that a group's children are finished before the
     ///         pass that samples them <i>and</i> its earlier siblings before a backdrop can capture
@@ -126,7 +146,7 @@ public sealed class UiCompositingTests {
         using var owned = fixture!;
         var colour = owned.ColourTarget("ui-composited");
 
-        var cache = new GlyphFieldCache(new GlyphAtlas(256, 256));
+        var cache = new GlyphFieldCache(new(256, 256));
         var geometry = new UiGeometryBuilder().Build(Groups(), cache, Viewport);
 
         // ⚠ Before either renderer runs. A frame that opened no group is one where the whole
@@ -152,11 +172,14 @@ public sealed class UiCompositingTests {
 
         owned.Owns(renderer.Dispose);
 
-        owned.Graph.AddPass("ui-composited", pass => {
-            pass.ColourAttachment(colour, LoadAction.Clear, Background);
-            pass.SideEffect();
-            pass.Execute(context => renderer.Record(context.CommandList, geometry, new(Side, Side)));
-        });
+        owned.Graph.AddPass(
+            "ui-composited",
+            pass => {
+                pass.ColourAttachment(colour, LoadAction.Clear, Background);
+                pass.SideEffect();
+                pass.Execute(context => renderer.Record(context.CommandList, geometry, new(Side, Side)));
+            }
+        );
 
         var rendered = owned.Render(
             colour,
@@ -176,8 +199,8 @@ public sealed class UiCompositingTests {
                 renderer.Compose(
                     commands,
                     geometry,
-                    new Int2(Side, Side),
-                    beneath: new UiBackdropSource(Background)
+                    new(Side, Side),
+                    beneath: new(Background)
                 );
             }
         );
@@ -289,8 +312,11 @@ public sealed class UiCompositingTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <b>Without this, "the two agree" is compatible with both of them being wrong in the
-    ///         same way</b> — and the way they would both be wrong is the cheap one: fade each child
+    ///         <b>
+    ///             Without this, "the two agree" is compatible with both of them being wrong in the
+    ///             same way
+    ///         </b>
+    ///         — and the way they would both be wrong is the cheap one: fade each child
     ///         separately and never allocate a surface. So the frame above is rendered a second time
     ///         with the groups' brackets removed and the same opacity folded onto each child, which
     ///         is precisely the approximation <c>DrawListBuilder.Compositing</c> being off produces,
@@ -306,11 +332,11 @@ public sealed class UiCompositingTests {
     /// </remarks>
     [Fact]
     public void IsolatingAGroupIsNotTheSameAsFadingItsChildren() {
-        var isolated = new GlyphFieldCache(new GlyphAtlas(256, 256));
-        var flattened = new GlyphFieldCache(new GlyphAtlas(256, 256));
+        var isolated = new GlyphFieldCache(new(256, 256));
+        var flattened = new GlyphFieldCache(new(256, 256));
 
         var withGroups = new UiGeometryBuilder().Build(Groups(), isolated, Viewport);
-        var withoutGroups = new UiGeometryBuilder().Build(Groups(isolate: false), flattened, Viewport);
+        var withoutGroups = new UiGeometryBuilder().Build(Groups(false), flattened, Viewport);
 
         Assert.Equal(6, withGroups.Layers.Count);
         Assert.Empty(withoutGroups.Layers);
@@ -334,8 +360,12 @@ public sealed class UiCompositingTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The device blends in eight bits and the software renderer blends in floats, and a
-    ///         composited pixel is blended more times than an ordinary one.</b> A group's contents are
+    ///         ⚠
+    ///         <b>
+    ///             The device blends in eight bits and the software renderer blends in floats, and a
+    ///             composited pixel is blended more times than an ordinary one.
+    ///         </b>
+    ///         A group's contents are
     ///         blended into an <c>Rgba8UNorm</c> surface, the surface is quantised, and the composite
     ///         is then blended into an <c>Rgba8UNorm</c> frame — three roundings against the software
     ///         path's one, and a nested group adds two more. That is a handful of least-significant
@@ -343,8 +373,12 @@ public sealed class UiCompositingTests {
     ///         rounded corner.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The fraction used to be twelve times this, and what it was absorbing was a
-    ///         defect rather than a property of the target.</b> <c>SoftwareUiRasterizer</c> took
+    ///         ⚠
+    ///         <b>
+    ///             The fraction used to be twelve times this, and what it was absorbing was a
+    ///             defect rather than a property of the target.
+    ///         </b>
+    ///         <c>SoftwareUiRasterizer</c> took
     ///         <c>fwidth</c> as a forward difference to the next pixel, which is not what a GPU
     ///         computes — a derivative belongs to the 2×2 quad, so half the fragments get a
     ///         *backward* difference — and around a rounded corner, where the distance field is
@@ -355,8 +389,12 @@ public sealed class UiCompositingTests {
     ///         <c>SoftwareUiRasterizer.Box</c>.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>That surviving pixel is <i>not</i> the 8-bit store, which this said until it was
-    ///         looked at.</b> It is <c>(83, 9)</c> — inside the third group's <c>D</c> — where the
+    ///         ⚠
+    ///         <b>
+    ///             That surviving pixel is <i>not</i> the 8-bit store, which this said until it was
+    ///             looked at.
+    ///         </b>
+    ///         It is <c>(83, 9)</c> — inside the third group's <c>D</c> — where the
     ///         device stores <c>238, 249, 253</c> and the software renderer <c>255, 255, 255</c>. A
     ///         store rounding is worth one level; that is <b>seventeen</b>, and it is the glyph
     ///         shader's field saturating a hair differently, not this one's. The measured histogram
@@ -368,8 +406,12 @@ public sealed class UiCompositingTests {
     ///         ⚠ <b>Where the box shader itself is held, which is not here.</b> A corner divergence
     ///         reaches this fixture badly attenuated: reintroducing the derivative defect above shows
     ///         up here as twenty-five pixels against a sixteen-pixel bound, and in
-    ///         <see cref="UiBoxAgreementTests" /> — same device, same run — as <b>86 levels of
-    ///         255</b>. That file compares the two executors on frames with no group in them at all,
+    ///         <see cref="UiBoxAgreementTests" /> — same device, same run — as
+    ///         <b>
+    ///             86 levels of
+    ///             255
+    ///         </b>
+    ///         . That file compares the two executors on frames with no group in them at all,
     ///         at <c>ImageTolerance.Slight</c>, which is where a shader disagreement has nowhere to
     ///         hide. This one is sized for what <i>compositing</i> costs and should not be tightened
     ///         to do that file's job.
@@ -383,8 +425,12 @@ public sealed class UiCompositingTests {
     ///         sixteen pixels is a real divergence and not a driver's choice of derivative.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Tighter than <c>Tolerance.Edges</c>, which this suite's committed pictures
-    ///         use.</b> That one is sized to absorb two conformant drivers disagreeing about an sRGB
+    ///         ⚠
+    ///         <b>
+    ///             Tighter than <c>Tolerance.Edges</c>, which this suite's committed pictures
+    ///             use.
+    ///         </b>
+    ///         That one is sized to absorb two conformant drivers disagreeing about an sRGB
     ///         conversion; there is no conversion here — the format is <c>UNorm</c> and the colours
     ///         are linear. What compositing could get wrong is far larger than either allowance: with
     ///         the shader premultiplying twice, this fixture differs on 8.6% of its pixels by up to
@@ -400,8 +446,12 @@ public sealed class UiCompositingTests {
     ///     which is what the frame looks like with compositing off.
     /// </param>
     /// <remarks>
-    ///     ⚠ <b><c>internal</c> so that <see cref="UiRavenAgreementTests" /> can draw <i>this</i>
-    ///     frame rather than a second one written there.</b> Every group, mask entry and blur in it
+    ///     ⚠
+    ///     <b>
+    ///         <c>internal</c> so that <see cref="UiRavenAgreementTests" /> can draw <i>this</i>
+    ///         frame rather than a second one written there.
+    ///     </b>
+    ///     Every group, mask entry and blur in it
     ///     was chosen to reach a branch the compositing stages have, and a fixture written next door
     ///     would reach the branches its author thought of — which is the argument that file already
     ///     makes about taking its box fixtures from <see cref="UiBoxAgreementTests" />.
@@ -455,11 +505,10 @@ public sealed class UiCompositingTests {
                 // and the tile's origin is off-centre so a mirroring wrap is distinguishable from a
                 // repeating one.
                 Ramp(8, 24, 112, 96, 1f, 0.2f, MaskComposite.Intersect) with {
-                    AreaCentre = new Vector2(8f + 21f, 24f + 30f),
-                    AreaHalf = new Vector2(21f, -30f)
+                    AreaCentre = new(8f + 21f, 24f + 30f), AreaHalf = new(21f, -30f)
                 },
                 Ramp(8, 24, 112, 96, 1f, 0.35f, MaskComposite.Intersect),
-                Ramp(8, 24, 112, 96, 1f, 0.45f, MaskComposite.Subtract) with { Axis = new Vector2(0f, 1f) },
+                Ramp(8, 24, 112, 96, 1f, 0.45f, MaskComposite.Subtract) with { Axis = new(0f, 1f) },
                 Round(8, 24, 112, 96, 0.3f, 0f)
             ]
         );
@@ -467,8 +516,12 @@ public sealed class UiCompositingTests {
         // ⚠ Two overlapping children of the outer group, and the overlap is the whole point: isolated,
         // they do not show through each other; faded separately, they do. Both rounded, so the pixels
         // the two disagree about include partly covered ones.
-        list.Add(new(DrawCommandKind.Rectangle, 12, 28, 56, 44, Fade(new Color4(0.2f, 0.6f, 0.95f, 1f), isolate, Outer), 10, 0));
-        list.Add(new(DrawCommandKind.Rectangle, 40, 44, 56, 44, Fade(new Color4(0.95f, 0.3f, 0.4f, 1f), isolate, Outer), 10, 0));
+        list.Add(
+            new(DrawCommandKind.Rectangle, 12, 28, 56, 44, Fade(new(0.2f, 0.6f, 0.95f, 1f), isolate, Outer), 10, 0)
+        );
+        list.Add(
+            new(DrawCommandKind.Rectangle, 40, 44, 56, 44, Fade(new(0.95f, 0.3f, 0.4f, 1f), isolate, Outer), 10, 0)
+        );
 
         // ⚠ Glyphs inside a group, which is where a doubled premultiply shows. Every edge of every
         // glyph is partial coverage, and at full coverage the bug is arithmetically invisible.
@@ -523,7 +576,7 @@ public sealed class UiCompositingTests {
             InnerBlur,
             InnerFilter,
             [Round(44, 56, 72, 60, 1f, 0.15f)],
-            new UiDropShadow(new Vector2(4f, 5f), InnerBlur, new Color4(0.03f, 0.01f, 0.02f, 0.6f))
+            new UiDropShadow(new(4f, 5f), InnerBlur, new(0.03f, 0.01f, 0.02f, 0.6f))
         );
 
         // The nested group's own overlapping pair, offset from the outer one's so that the two
@@ -531,8 +584,12 @@ public sealed class UiCompositingTests {
         // would then be indistinguishable.
         var nested = isolate ? Inner : Inner * Outer;
 
-        list.Add(new(DrawCommandKind.Rectangle, 48, 60, 40, 36, Fade(new Color4(0.3f, 0.9f, 0.4f, 1f), isolate, nested), 8, 0));
-        list.Add(new(DrawCommandKind.Rectangle, 70, 74, 40, 36, Fade(new Color4(0.95f, 0.85f, 0.2f, 1f), isolate, nested), 8, 0));
+        list.Add(
+            new(DrawCommandKind.Rectangle, 48, 60, 40, 36, Fade(new(0.3f, 0.9f, 0.4f, 1f), isolate, nested), 8, 0)
+        );
+        list.Add(
+            new(DrawCommandKind.Rectangle, 70, 74, 40, 36, Fade(new(0.95f, 0.85f, 0.2f, 1f), isolate, nested), 8, 0)
+        );
 
         Text(list, font, "C", 52, 104, Fade(Color4.White, isolate, nested));
 
@@ -608,7 +665,7 @@ public sealed class UiCompositingTests {
             56,
             18,
             1f,
-            shadow: new UiDropShadow(new Vector2(5f, 6f), 0f, new Color4(0.02f, 0.02f, 0.04f, 0.75f))
+            shadow: new UiDropShadow(new(5f, 6f), 0f, new(0.02f, 0.02f, 0.04f, 0.75f))
         );
 
         list.Add(new(DrawCommandKind.Rectangle, 64, 4, 56, 18, new Color4(0.55f, 0.85f, 0.95f, 1f), 6, 0));
@@ -699,11 +756,11 @@ public sealed class UiCompositingTests {
             28,
             0.9f,
             InnerBlur,
-            transform: UiTransform.Scale(1.25f, 0.8f, new Vector2(98f, 106f))
-                .Then(UiTransform.Rotation(30f, new Vector2(98f, 106f)))
+            transform: UiTransform.Scale(1.25f, 0.8f, new(98f, 106f))
+                .Then(UiTransform.Rotation(30f, new(98f, 106f)))
         );
 
-        list.Add(new(DrawCommandKind.Rectangle, 76, 92, 44, 28, Fade(new Color4(0.9f, 0.45f, 0.8f, 1f), isolate, 0.9f), 6, 0));
+        list.Add(new(DrawCommandKind.Rectangle, 76, 92, 44, 28, Fade(new(0.9f, 0.45f, 0.8f, 1f), isolate, 0.9f), 6, 0));
         Text(list, font, "E", 84, 112, Fade(Color4.White, isolate, 0.9f));
 
         Pop(list, isolate);
@@ -715,9 +772,13 @@ public sealed class UiCompositingTests {
     /// <summary>The outer group's colour transform: a quarter of the way to its own complement.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>An <c>invert</c> rather than anything prettier, because it is the only one of the
-    ///         seven with a non-zero <i>offset</i>, and the offset is the half of the arithmetic that
-    ///         can be wrong in a way nothing else catches.</b> A colour matrix on premultiplied colour
+    ///         ⚠
+    ///         <b>
+    ///             An <c>invert</c> rather than anything prettier, because it is the only one of the
+    ///             seven with a non-zero <i>offset</i>, and the offset is the half of the arithmetic that
+    ///             can be wrong in a way nothing else catches.
+    ///         </b>
+    ///         A colour matrix on premultiplied colour
     ///         is <c>M·c + o·a</c>, and an implementation that forgot the <c>·a</c> would be exactly
     ///         right on every fully opaque pixel and wrong on every partly covered one — which is
     ///         every glyph edge and every rounded corner in this fixture, and nothing at all in a
@@ -725,8 +786,12 @@ public sealed class UiCompositingTests {
     ///         here exists to catch.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A quarter and not a full inversion, and the reason is the tolerance rather than
-    ///         taste.</b> The device applies the matrix to a surface that has been quantised to eight
+    ///         ⚠
+    ///         <b>
+    ///             A quarter and not a full inversion, and the reason is the tolerance rather than
+    ///             taste.
+    ///         </b>
+    ///         The device applies the matrix to a surface that has been quantised to eight
     ///         bits and the software renderer applies it to floats, so whatever the matrix amplifies,
     ///         it amplifies that quantisation too. <c>invert(0.25)</c> scales by <c>0.5</c> — a
     ///         contraction — so the difference between the two paths shrinks rather than grows, and
@@ -738,8 +803,12 @@ public sealed class UiCompositingTests {
 
     /// <summary>The inner group's: fully grey, on top of its blur.</summary>
     /// <remarks>
-    ///     ⚠ <b>On the group that is <i>also</i> blurred, which is the interaction neither renderer
-    ///     runs the same way.</b> The device blurs the surface in two passes and then applies the
+    ///     ⚠
+    ///     <b>
+    ///         On the group that is <i>also</i> blurred, which is the interaction neither renderer
+    ///         runs the same way.
+    ///     </b>
+    ///     The device blurs the surface in two passes and then applies the
     ///     matrix in the composite's fragment stage; the software renderer blurs the surface and then
     ///     transforms the whole buffer at the seam. Those give the same picture only because the
     ///     transform is linear in premultiplied colour and so commutes with the Gaussian — see
@@ -760,8 +829,12 @@ public sealed class UiCompositingTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>This asserted <c>Unblended == 1</c> and two pixels apart until #783, and was written
-    ///         to be turned round the day the device path landed.</b> Yellow over magenta:
+    ///         ⚠
+    ///         <b>
+    ///             This asserted <c>Unblended == 1</c> and two pixels apart until #783, and was written
+    ///             to be turned round the day the device path landed.
+    ///         </b>
+    ///         Yellow over magenta:
     ///         <c>multiply</c> takes <c>(1,1,0)</c> into <c>(1,0,1)</c> and lands on <c>(1,0,0)</c>, so
     ///         the <i>green</i> channel alone separates a blend that ran from one that did not — 0 now
     ///         on both executors, where the device used to store 255.
@@ -789,7 +862,7 @@ public sealed class UiCompositingTests {
         using var owned = fixture!;
         var colour = owned.ColourTarget("ui-blended");
 
-        var cache = new GlyphFieldCache(new GlyphAtlas(64, 64));
+        var cache = new GlyphFieldCache(new(64, 64));
         var geometry = new UiGeometryBuilder().Build(Blended(), cache, Viewport);
 
         // The instrument, both halves: a group was opened, and it is the blended one.
@@ -804,17 +877,20 @@ public sealed class UiCompositingTests {
 
         owned.Owns(renderer.Dispose);
 
-        owned.Graph.AddPass("ui-blended", pass => {
-            pass.ColourAttachment(colour, LoadAction.Clear, Background);
-            pass.SideEffect();
-            pass.Execute(context => renderer.Record(context.CommandList, geometry, new(Side, Side)));
-        });
+        owned.Graph.AddPass(
+            "ui-blended",
+            pass => {
+                pass.ColourAttachment(colour, LoadAction.Clear, Background);
+                pass.SideEffect();
+                pass.Execute(context => renderer.Record(context.CommandList, geometry, new(Side, Side)));
+            }
+        );
 
         var rendered = owned.Render(
             colour,
             commands => {
                 renderer.Upload(commands, geometry, cache.Atlas);
-                renderer.Compose(commands, geometry, new Int2(Side, Side), beneath: new UiBackdropSource(Background));
+                renderer.Compose(commands, geometry, new(Side, Side), beneath: new(Background));
             }
         );
 
@@ -830,7 +906,10 @@ public sealed class UiCompositingTests {
 
         var comparison = ImageComparer.Compare(rendered, software, Agreement);
 
-        Assert.True(comparison.Matches, $"the device and the software renderer disagree about a blended group: {comparison}");
+        Assert.True(
+            comparison.Matches,
+            $"the device and the software renderer disagree about a blended group: {comparison}"
+        );
     }
 
     /// <summary>
@@ -847,8 +926,12 @@ public sealed class UiCompositingTests {
     ///         specification, which is exactly what this file exists to hold against each other.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The instrument is the <c>w</c> itself, read off the geometry before either
-    ///         renderer runs.</b> An affine has <c>w = 1</c> at every corner, and a comparison over
+    ///         ⚠
+    ///         <b>
+    ///             The instrument is the <c>w</c> itself, read off the geometry before either
+    ///             renderer runs.
+    ///         </b>
+    ///         An affine has <c>w = 1</c> at every corner, and a comparison over
     ///         one would agree whatever either executor did with the field — including nothing. So
     ///         the composite quad's four <c>w</c>s are asserted to straddle one, which is what says
     ///         the picture below is of a perspective and not of a quad that happens to be a trapezium.
@@ -880,7 +963,7 @@ public sealed class UiCompositingTests {
         using var owned = fixture!;
         var colour = owned.ColourTarget("ui-perspective");
 
-        var cache = new GlyphFieldCache(new GlyphAtlas(64, 64));
+        var cache = new GlyphFieldCache(new(64, 64));
         var geometry = new UiGeometryBuilder().Build(Perspective(), cache, Viewport);
 
         // The instrument: one group, and its composite quad is projective — its `w`s straddle one.
@@ -893,7 +976,10 @@ public sealed class UiCompositingTests {
             .Select(corner => geometry.Vertices[(int)geometry.Indices[composite.First + corner]].W)
             .ToList();
 
-        Assert.True(corners.Min() < 0.9f && corners.Max() > 1.1f, $"the composite quad's w's are {string.Join(", ", corners)}, which is not a perspective.");
+        Assert.True(
+            corners.Min() < 0.9f && corners.Max() > 1.1f,
+            $"the composite quad's w's are {string.Join(", ", corners)}, which is not a perspective."
+        );
 
         var renderer = new UiRenderer(
             owned.Device,
@@ -913,17 +999,20 @@ public sealed class UiCompositingTests {
 
         owned.Owns(renderer.Dispose);
 
-        owned.Graph.AddPass("ui-perspective", pass => {
-            pass.ColourAttachment(colour, LoadAction.Clear, Background);
-            pass.SideEffect();
-            pass.Execute(context => renderer.Record(context.CommandList, geometry, new(Side, Side)));
-        });
+        owned.Graph.AddPass(
+            "ui-perspective",
+            pass => {
+                pass.ColourAttachment(colour, LoadAction.Clear, Background);
+                pass.SideEffect();
+                pass.Execute(context => renderer.Record(context.CommandList, geometry, new(Side, Side)));
+            }
+        );
 
         var rendered = owned.Render(
             colour,
             commands => {
                 renderer.Upload(commands, geometry, cache.Atlas);
-                renderer.Compose(commands, geometry, new Int2(Side, Side), beneath: new UiBackdropSource(Background));
+                renderer.Compose(commands, geometry, new(Side, Side), beneath: new(Background));
             }
         );
 
@@ -945,10 +1034,18 @@ public sealed class UiCompositingTests {
     /// <summary>A rounded group's backdrop stops at the curve on the device too.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>This test was its own opposite until 2026-09-09, and it is the inversion it was
-    ///         written to be given.</b> It used to assert <c>SquareBackdrops == 1</c> — the device
-    ///         drawing a rectangle where CSS asks for a rounded rectangle, so <c>rounded-2xl
-    ///         backdrop-blur-md bg-white/30</c> showed square corners just outside the rounded ones.
+    ///         ⚠
+    ///         <b>
+    ///             This test was its own opposite until 2026-09-09, and it is the inversion it was
+    ///             written to be given.
+    ///         </b>
+    ///         It used to assert <c>SquareBackdrops == 1</c> — the device
+    ///         drawing a rectangle where CSS asks for a rounded rectangle, so
+    ///         <c>
+    ///             rounded-2xl
+    ///             backdrop-blur-md bg-white/30
+    ///         </c>
+    ///         showed square corners just outside the rounded ones.
     ///         The counter now says a host with no colour stage got its backdrop square, which is a
     ///         degradation rather than the general case, so zero here is the claim that the box
     ///         reached the fragment.
@@ -962,8 +1059,12 @@ public sealed class UiCompositingTests {
     ///         which would make both of the others true and mean nothing.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The comparison is over the whole frame and the difference it has to catch is four
-    ///         corners of it.</b> The corner of a filtered backdrop is the filtered scene against the
+    ///         ⚠
+    ///         <b>
+    ///             The comparison is over the whole frame and the difference it has to catch is four
+    ///             corners of it.
+    ///         </b>
+    ///         The corner of a filtered backdrop is the filtered scene against the
     ///         unfiltered scene, and this fixture's <c>invert(1)</c> over a saturated magenta field is
     ///         what makes those two legible — <see cref="Agreement" />'s ratio is 0.001 of the pixels,
     ///         and a 16-pixel radius on a 128-pixel frame leaves about 55 texels outside the four
@@ -982,7 +1083,7 @@ public sealed class UiCompositingTests {
         using var owned = fixture!;
         var colour = owned.ColourTarget("ui-rounded-backdrop");
 
-        var cache = new GlyphFieldCache(new GlyphAtlas(64, 64));
+        var cache = new GlyphFieldCache(new(64, 64));
         var geometry = new UiGeometryBuilder().Build(RoundedBackdrop(), cache, Viewport);
 
         // The instrument, both halves: a group was opened, it asked for a backdrop, and the radius
@@ -1010,17 +1111,20 @@ public sealed class UiCompositingTests {
 
         owned.Owns(renderer.Dispose);
 
-        owned.Graph.AddPass("ui-rounded-backdrop", pass => {
-            pass.ColourAttachment(colour, LoadAction.Clear, Background);
-            pass.SideEffect();
-            pass.Execute(context => renderer.Record(context.CommandList, geometry, new(Side, Side)));
-        });
+        owned.Graph.AddPass(
+            "ui-rounded-backdrop",
+            pass => {
+                pass.ColourAttachment(colour, LoadAction.Clear, Background);
+                pass.SideEffect();
+                pass.Execute(context => renderer.Record(context.CommandList, geometry, new(Side, Side)));
+            }
+        );
 
         var rendered = owned.Render(
             colour,
             commands => {
                 renderer.Upload(commands, geometry, cache.Atlas);
-                renderer.Compose(commands, geometry, new Int2(Side, Side), beneath: new UiBackdropSource(Background));
+                renderer.Compose(commands, geometry, new(Side, Side), beneath: new(Background));
             }
         );
 
@@ -1061,7 +1165,7 @@ public sealed class UiCompositingTests {
         // `DrawListBuilder` until 2026-09-08 — see `UiLayer.BackdropRadius`. Sixteen against an eighty
         // point box, so the curve is a quarter of the side and no clamp is involved.
         list.Add(
-            new DrawCommand(DrawCommandKind.LayerPush, 24, 24, 80, 80, Color4.White, 16, 0) {
+            new(DrawCommandKind.LayerPush, 24, 24, 80, 80, Color4.White, 16, 0) {
                 Backdrop = new UiBackdrop(0f, 1f, UiColorMatrix.Invert(1f))
             }
         );
@@ -1079,8 +1183,12 @@ public sealed class UiCompositingTests {
     ///     brings its top edge nearer than its bottom.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>Built as nine numbers rather than parsed from a <c>perspective()</c>, because nothing
-    ///     parses one yet (#550)</b> — the same reason <c>UiTransformProjectiveTests</c> gives. The
+    ///     ⚠
+    ///     <b>
+    ///         Built as nine numbers rather than parsed from a <c>perspective()</c>, because nothing
+    ///         parses one yet (#550)
+    ///     </b>
+    ///     — the same reason <c>UiTransformProjectiveTests</c> gives. The
     ///     matrix is <c>w = 1 + 0.006 · (y − 64)</c> about the group's centre: the corners forty
     ///     points above and below it get <c>w = 0.76</c> and <c>w = 1.24</c>, far from the eye plane
     ///     and far from each other. <c>internal</c> for <see cref="Groups" />' reason:
@@ -1096,7 +1204,7 @@ public sealed class UiCompositingTests {
         var centre = new Vector2(Side / 2f, Side / 2f);
 
         list.Add(
-            new DrawCommand(DrawCommandKind.LayerPush, 24, 24, 80, 80, new Color4(1f, 1f, 1f, 0.8f), 0, 0) {
+            new(DrawCommandKind.LayerPush, 24, 24, 80, 80, new(1f, 1f, 1f, 0.8f), 0, 0) {
                 Transform = (UiTransform.Identity with { M23 = 0.006f }).About(centre)
             }
         );
@@ -1125,11 +1233,7 @@ public sealed class UiCompositingTests {
 
         list.Add(new(DrawCommandKind.Rectangle, 0, 0, Side, Side, new Color4(1f, 0f, 1f, 1f), 0, 0));
 
-        list.Add(
-            new DrawCommand(DrawCommandKind.LayerPush, 24, 24, 80, 80, Color4.White, 0, 0) {
-                Blend = UiBlendMode.Multiply
-            }
-        );
+        list.Add(new(DrawCommandKind.LayerPush, 24, 24, 80, 80, Color4.White, 0, 0) { Blend = UiBlendMode.Multiply });
 
         list.Add(new(DrawCommandKind.Rectangle, 24, 24, 80, 80, new Color4(1f, 1f, 0f, 1f), 0, 0));
         list.Add(new(DrawCommandKind.LayerPop, 0, 0, 0, 0, Color4.White, 0, 0));
@@ -1143,8 +1247,12 @@ public sealed class UiCompositingTests {
 
     /// <summary>A document half the target's size, so a document pixel and a target texel differ.</summary>
     /// <remarks>
-    ///     ⚠ <b>Every other fixture in this file composes at a scale of one, and that is what let
-    ///     #1200 sit in three shaders and one host for as long as it did.</b> At a scale of one a
+    ///     ⚠
+    ///     <b>
+    ///         Every other fixture in this file composes at a scale of one, and that is what let
+    ///         #1200 sit in three shaders and one host for as long as it did.
+    ///     </b>
+    ///     At a scale of one a
     ///     document pixel <i>is</i> a target texel, so a stage that confuses the two draws a correct
     ///     picture and every comparison of the two executors agrees — including the comparison of a
     ///     wrong device against a software renderer that has no scale at all and therefore cannot
@@ -1158,8 +1266,12 @@ public sealed class UiCompositingTests {
     /// <summary>A <c>mask-image</c> ramp keeps its place when the display scale is two.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A closed-form oracle and not a comparison, because the software renderer cannot
-    ///         answer this one.</b> <c>SoftwareUiRasterizer.Render</c> takes a width and a height and
+    ///         ⚠
+    ///         <b>
+    ///             A closed-form oracle and not a comparison, because the software renderer cannot
+    ///             answer this one.
+    ///         </b>
+    ///         <c>SoftwareUiRasterizer.Render</c> takes a width and a height and
     ///         no scale — it rasterises geometry units straight into the buffer — so there is no
     ///         second executor to disagree with here. What replaces it is arithmetic: the ramp is
     ///         <c>1</c> at the mask box's left edge and <c>0</c> at its right, linearly, so the
@@ -1176,8 +1288,12 @@ public sealed class UiCompositingTests {
     ///         top-left quadrant" the issue describes, in one dimension.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Three assertions rather than one, and the crossing is the one that cannot be
-    ///         satisfied by a fixture that failed to mask at all.</b> An unmasked group is a flat
+    ///         ⚠
+    ///         <b>
+    ///             Three assertions rather than one, and the crossing is the one that cannot be
+    ///             satisfied by a fixture that failed to mask at all.
+    ///         </b>
+    ///         An unmasked group is a flat
     ///         white frame: it has no column where the value falls through half, so
     ///         <see cref="Crossing" /> runs off the end and returns the width. A group masked with
     ///         the wrong point has one, at half the right column. And the counter above them says the
@@ -1194,7 +1310,7 @@ public sealed class UiCompositingTests {
         using var owned = fixture!;
         var colour = owned.ColourTarget("ui-mask-scaled");
 
-        var cache = new GlyphFieldCache(new GlyphAtlas(64, 64));
+        var cache = new GlyphFieldCache(new(64, 64));
         var geometry = new UiGeometryBuilder().Build(ScaledRamp(), cache, Scaled);
 
         // The instrument: one group, and it carries the one mask entry the arithmetic below is about.
@@ -1204,17 +1320,20 @@ public sealed class UiCompositingTests {
 
         var renderer = Renderer(owned);
 
-        owned.Graph.AddPass("ui-mask-scaled", pass => {
-            pass.ColourAttachment(colour, LoadAction.Clear, Black);
-            pass.SideEffect();
-            pass.Execute(context => renderer.Record(context.CommandList, geometry, new(Document, Document), Scale));
-        });
+        owned.Graph.AddPass(
+            "ui-mask-scaled",
+            pass => {
+                pass.ColourAttachment(colour, LoadAction.Clear, Black);
+                pass.SideEffect();
+                pass.Execute(context => renderer.Record(context.CommandList, geometry, new(Document, Document), Scale));
+            }
+        );
 
         var rendered = owned.Render(
             colour,
             commands => {
                 renderer.Upload(commands, geometry, cache.Atlas);
-                renderer.Compose(commands, geometry, new Int2(Document, Document), Scale, new UiBackdropSource(Black));
+                renderer.Compose(commands, geometry, new(Document, Document), Scale, new(Black));
             }
         );
 
@@ -1228,7 +1347,7 @@ public sealed class UiCompositingTests {
 
         // The ramp reaches all the way across the frame, so its half-coverage column is the middle of
         // the target and not the middle of the document. Half of this is the defect.
-        Assert.InRange(Crossing(rendered, row), (Side / 2) - 1, (Side / 2) + 1);
+        Assert.InRange(Crossing(rendered, row), Side / 2 - 1, Side / 2 + 1);
 
         // And two named columns, because a crossing is one number and a ramp is a shape: a coverage
         // that had already reached zero left of the last column would still cross in the right place.
@@ -1248,8 +1367,12 @@ public sealed class UiCompositingTests {
     ///         all.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A disc rather than a rounded rectangle, so that the assertion is about a place
-    ///         and not about a corner's antialiasing.</b> The radius is half the box, which CSS's own
+    ///         ⚠
+    ///         <b>
+    ///             A disc rather than a rounded rectangle, so that the assertion is about a place
+    ///             and not about a corner's antialiasing.
+    ///         </b>
+    ///         The radius is half the box, which CSS's own
     ///         clamp leaves untouched, and the point read is sixty texels above the centre of a
     ///         sixty-four-texel disc — four texels inside the curve when the box is scaled and thirty
     ///         outside it when it is not. Nothing here depends on where the band falls.
@@ -1269,7 +1392,7 @@ public sealed class UiCompositingTests {
         using var owned = fixture!;
         var colour = owned.ColourTarget("ui-backdrop-scaled");
 
-        var cache = new GlyphFieldCache(new GlyphAtlas(64, 64));
+        var cache = new GlyphFieldCache(new(64, 64));
         var geometry = new UiGeometryBuilder().Build(ScaledDisc(), cache, Scaled);
 
         // The instrument: the group asked for a backdrop and the radius survived the builder's clamp.
@@ -1280,17 +1403,20 @@ public sealed class UiCompositingTests {
 
         var renderer = Renderer(owned);
 
-        owned.Graph.AddPass("ui-backdrop-scaled", pass => {
-            pass.ColourAttachment(colour, LoadAction.Clear, Black);
-            pass.SideEffect();
-            pass.Execute(context => renderer.Record(context.CommandList, geometry, new(Document, Document), Scale));
-        });
+        owned.Graph.AddPass(
+            "ui-backdrop-scaled",
+            pass => {
+                pass.ColourAttachment(colour, LoadAction.Clear, Black);
+                pass.SideEffect();
+                pass.Execute(context => renderer.Record(context.CommandList, geometry, new(Document, Document), Scale));
+            }
+        );
 
         var rendered = owned.Render(
             colour,
             commands => {
                 renderer.Upload(commands, geometry, cache.Atlas);
-                renderer.Compose(commands, geometry, new Int2(Document, Document), Scale, new UiBackdropSource(Black));
+                renderer.Compose(commands, geometry, new(Document, Document), Scale, new(Black));
             }
         );
 
@@ -1334,9 +1460,8 @@ public sealed class UiCompositingTests {
         var mask = new[] { Ramp(0, 0, Document, Document, 1f, 0f) };
 
         list.Add(
-            new DrawCommand(DrawCommandKind.LayerPush, 0, 0, Document, Document, Color4.White, 0, 0) {
-                Offset = list.AddMasks(mask),
-                Length = mask.Length
+            new(DrawCommandKind.LayerPush, 0, 0, Document, Document, Color4.White, 0, 0) {
+                Offset = list.AddMasks(mask), Length = mask.Length
             }
         );
 
@@ -1355,7 +1480,7 @@ public sealed class UiCompositingTests {
         list.Add(new(DrawCommandKind.Rectangle, 0, 0, Document, Document, new Color4(1f, 0f, 1f, 1f), 0, 0));
 
         list.Add(
-            new DrawCommand(
+            new(
                 DrawCommandKind.LayerPush,
                 0,
                 0,
@@ -1364,9 +1489,7 @@ public sealed class UiCompositingTests {
                 Color4.White,
                 Document / 2f,
                 0
-            ) {
-                Backdrop = new UiBackdrop(0f, 1f, UiColorMatrix.Invert(1f))
-            }
+            ) { Backdrop = new UiBackdrop(0f, 1f, UiColorMatrix.Invert(1f)) }
         );
 
         list.Add(
@@ -1425,7 +1548,7 @@ public sealed class UiCompositingTests {
     ) {
         if (isolate) {
             list.Add(
-                new DrawCommand(DrawCommandKind.LayerPush, x, y, width, height, new Color4(1f, 1f, 1f, alpha), 0, 0) {
+                new(DrawCommandKind.LayerPush, x, y, width, height, new(1f, 1f, 1f, alpha), 0, 0) {
                     Blur = blur,
                     Filter = filter,
                     Shadow = shadow,
@@ -1443,9 +1566,13 @@ public sealed class UiCompositingTests {
 
     /// <summary>A linear ramp across a box, as <c>DrawListBuilder</c> would build one for it.</summary>
     /// <remarks>
-    ///     ⚠ <b>Constructed here rather than parsed from CSS, because this suite has no style engine
-    ///     — and that is the same reason the matrices next door are built from
-    ///     <see cref="UiColorMatrix" /> factories.</b> What is being compared is two executors, so the
+    ///     ⚠
+    ///     <b>
+    ///         Constructed here rather than parsed from CSS, because this suite has no style engine
+    ///         — and that is the same reason the matrices next door are built from
+    ///         <see cref="UiColorMatrix" /> factories.
+    ///     </b>
+    ///     What is being compared is two executors, so the
     ///     mask has to reach both of them from one place; whether <c>mask-image</c> resolves to this
     ///     mask is <c>MaskGradientTests</c>' question and is asked against pixels there.
     /// </remarks>
@@ -1459,27 +1586,25 @@ public sealed class UiCompositingTests {
         MaskComposite composite = MaskComposite.Add
     ) =>
         new(
-            new Vector2(x + (width / 2f), y + (height / 2f)),
+            new Vector2(x + width / 2f, y + height / 2f),
             new Vector2(width / 2f, height / 2f),
             new Vector2(1f, 0f),
             new Vector3(from, 0f, to),
             GradientStops.Default,
             GradientShape.Linear,
-            Via: false
-        ) {
-            Composite = composite
-        };
+            false
+        ) { Composite = composite };
 
     /// <summary>A round ramp from the centre of a box outwards.</summary>
     static UiMask Round(float x, float y, float width, float height, float from, float to) =>
         new(
-            new Vector2(x + (width / 2f), y + (height / 2f)),
+            new Vector2(x + width / 2f, y + height / 2f),
             new Vector2(width / 2f, height / 2f),
             Vector2.Zero,
             new Vector3(from, 0f, to),
             GradientStops.Default,
             GradientShape.Radial,
-            Via: false
+            false
         );
 
     static void Pop(DrawList list, bool isolate) {
@@ -1505,11 +1630,8 @@ public sealed class UiCompositingTests {
         }
 
         list.Add(
-            new DrawCommand(DrawCommandKind.Text, x, y, pen, Size, colour, 0, 0) {
-                Offset = list.AddGlyphs(glyphs),
-                Length = glyphs.Count,
-                Font = list.AddFont(font),
-                FontSize = Size
+            new(DrawCommandKind.Text, x, y, pen, Size, colour, 0, 0) {
+                Offset = list.AddGlyphs(glyphs), Length = glyphs.Count, Font = list.AddFont(font), FontSize = Size
             }
         );
     }
@@ -1522,8 +1644,8 @@ public sealed class UiCompositingTests {
         }
 
         using var stream = typeof(UiCompositingTests).Assembly
-                               .GetManifestResourceStream("Vixen.Graphics.Golden.Tests.TestShapeLana.ttf")
-                           ?? throw new InvalidOperationException("no test font is embedded");
+                .GetManifestResourceStream("Vixen.Graphics.Golden.Tests.TestShapeLana.ttf")
+            ?? throw new InvalidOperationException("no test font is embedded");
 
         using var memory = new MemoryStream();
         stream.CopyTo(memory);

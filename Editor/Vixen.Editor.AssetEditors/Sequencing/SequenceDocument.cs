@@ -58,7 +58,8 @@ public sealed class SequenceDocument : EditorDocument {
         try {
             Sequence = SequenceAsset.FromYaml(AssetFile.Read(path));
         } catch (Exception exception) when (exception is YamlBindingException
-            or YamlParseException or NotSupportedException) {
+                                                or YamlParseException
+                                                or NotSupportedException) {
             Sequence = new();
             LoadError = exception.Message;
         }

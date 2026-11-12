@@ -40,7 +40,7 @@ public sealed class PlayerSpawner(NetworkSpawner spawner) {
     public int Count => controllers.Count;
 
     /// <summary>The players that have one.</summary>
-    public IEnumerable<PlayerId> Players => controllers.Keys.Select(id => new PlayerId(id));
+    public IEnumerable<PlayerId> Players => controllers.Keys.Select(static id => new PlayerId(id));
 
     /// <summary>The controller a player was given, or <see cref="Entity.Null" />.</summary>
     /// <param name="player">The connection.</param>

@@ -98,8 +98,12 @@ public sealed record EffectDefinition : Definition {
     /// </summary>
     /// <remarks>
     ///     Distinct from <see cref="Immunities" /> and the difference is what is being prevented:
-    ///     this stops the <em>target acting</em>, and an immunity stops something <em>being applied to
-    ///     the target</em>. Folding the two would make "silenced" and "immune to silence" the same
+    ///     this stops the <em>target acting</em>, and an immunity stops something
+    ///     <em>
+    ///         being applied to
+    ///         the target
+    ///     </em>
+    ///     . Folding the two would make "silenced" and "immune to silence" the same
     ///     field.
     /// </remarks>
     public List<string> BlockedTags { get; set; } = [];

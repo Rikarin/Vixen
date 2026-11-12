@@ -54,8 +54,7 @@ public readonly record struct WaterCarveProfile {
     public float BedLayerStrength { get; init; }
 
     /// <summary>Carve fully, paint nothing.</summary>
-    public static WaterCarveProfile Default =>
-        new() { Strength = 1f, BedLayer = -1, BedLayerStrength = 1f };
+    public static WaterCarveProfile Default => new() { Strength = 1f, BedLayer = -1, BedLayerStrength = 1f };
 
     /// <summary>Carve nothing — a body that floats over ground somebody else owns.</summary>
     public static WaterCarveProfile None => Default with { Strength = 0f };
@@ -66,8 +65,11 @@ public readonly record struct WaterCarveProfile {
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>[35 § D5](../../docs/plan/35-water.md#d5-carving-is-a-reserved-edit-layer-and-the-machinery-exists),
-///         and the machinery existed.</b> A third reserved layer alongside Splines and Scatter, on
+///         <b>
+///             [35 § D5](../../docs/plan/35-water.md#d5-carving-is-a-reserved-edit-layer-and-the-machinery-exists),
+///             and the machinery existed.
+///         </b>
+///         A third reserved layer alongside Splines and Scatter, on
 ///         [31 § D4](../../docs/plan/31-terrain-grass-and-trees.md)'s contract and with no change to
 ///         it — regenerated wholesale whenever a body changes, which is what makes it
 ///         non-destructive. Unreal's water brush requires opting the landscape into edit layers, five
@@ -171,8 +173,8 @@ public static class WaterCarve {
                 // water is, and the frame the two disagree on is the one where the shoreline the
                 // terrain has is not the shoreline the water is drawn at.
                 var wanted = raises
-                    ? contribution.SurfaceHeight + (contribution.BedDepth * contribution.Coverage)
-                    : contribution.SurfaceHeight - (contribution.BedDepth * contribution.Coverage);
+                    ? contribution.SurfaceHeight + contribution.BedDepth * contribution.Coverage
+                    : contribution.SurfaceHeight - contribution.BedDepth * contribution.Coverage;
 
                 var weight = contribution.Coverage * strength;
 
@@ -224,8 +226,12 @@ public static class WaterCarve {
     ///         a layer <em>above</em> survives both — which is § D5's stated gate.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The invalidated rect covers where the bodies were, from the chunks the layer had
-    ///         already allocated.</b> Invalidating only the new rects would leave the cached composite
+    ///         ⚠
+    ///         <b>
+    ///             The invalidated rect covers where the bodies were, from the chunks the layer had
+    ///             already allocated.
+    ///         </b>
+    ///         Invalidating only the new rects would leave the cached composite
     ///         holding the old bed wherever the two do not overlap — which draws as a lake that has
     ///         been moved and also has not.
     ///     </para>

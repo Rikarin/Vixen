@@ -15,12 +15,12 @@ public class OctahedralMapTests {
     /// </summary>
     [Fact]
     public void TheFoldIsTheRavenLibrarys() {
-        Assert.Equal(new Vector2(0f, 0f), OctahedralMap.Encode(new(0f, 0f, 1f)));
-        Assert.Equal(new Vector2(1f, 0f), OctahedralMap.Encode(new(1f, 0f, 0f)));
-        Assert.Equal(new Vector2(0f, -1f), OctahedralMap.Encode(new(0f, -1f, 0f)));
+        Assert.Equal(new(0f, 0f), OctahedralMap.Encode(new(0f, 0f, 1f)));
+        Assert.Equal(new(1f, 0f), OctahedralMap.Encode(new(1f, 0f, 0f)));
+        Assert.Equal(new(0f, -1f), OctahedralMap.Encode(new(0f, -1f, 0f)));
 
         // A zero component still picks a hemisphere — positive, like SignedOne.
-        Assert.Equal(new Vector2(1f, 1f), OctahedralMap.Encode(new(0f, 0f, -1f)));
+        Assert.Equal(new(1f, 1f), OctahedralMap.Encode(new(0f, 0f, -1f)));
 
         Same(new(0f, 0f, 1f), OctahedralMap.Decode(new(0f, 0f)));
         Same(new(1f, 0f, 0f), OctahedralMap.Decode(new(1f, 0f)));
@@ -92,11 +92,11 @@ public class OctahedralMapTests {
 
         for (var y = 0; y < Resolution; y++) {
             for (var x = 0; x < Resolution; x++) {
-                var mirroredX = weights[(y * Resolution) + (Resolution - 1 - x)];
-                var swapped = weights[(x * Resolution) + y];
+                var mirroredX = weights[y * Resolution + (Resolution - 1 - x)];
+                var swapped = weights[x * Resolution + y];
 
-                Assert.Equal(weights[(y * Resolution) + x], mirroredX, 1e-6f);
-                Assert.Equal(weights[(y * Resolution) + x], swapped, 1e-6f);
+                Assert.Equal(weights[y * Resolution + x], mirroredX, 1e-6f);
+                Assert.Equal(weights[y * Resolution + x], swapped, 1e-6f);
             }
         }
     }
@@ -114,19 +114,22 @@ public class OctahedralMapTests {
 
         for (var y = 0; y < Resolution; y++) {
             for (var x = 0; x < Resolution; x++) {
-                sum += OctahedralMap.Direction(new(x, y), Resolution) * weights[(y * Resolution) + x];
+                sum += OctahedralMap.Direction(new(x, y), Resolution) * weights[y * Resolution + x];
             }
         }
 
-        Assert.True(sum.Length() < 1e-4f, $"the weighted directions sum to {sum}, so a constant sky would gain a direction");
+        Assert.True(
+            sum.Length() < 1e-4f,
+            $"the weighted directions sum to {sum}, so a constant sky would gain a direction"
+        );
     }
 
     [Fact]
     public void OutOfRangeIsRefused() {
-        Assert.Throws<ArgumentOutOfRangeException>(() => OctahedralMap.Direction(new(8, 0), 8));
-        Assert.Throws<ArgumentOutOfRangeException>(() => OctahedralMap.Direction(new(0, -1), 8));
-        Assert.Throws<ArgumentOutOfRangeException>(() => OctahedralMap.SolidAngle(new(0, 0), 0));
-        Assert.Throws<ArgumentOutOfRangeException>(() => OctahedralMap.Texel(new(0f, 0f, 1f), 0));
+        Assert.Throws<ArgumentOutOfRangeException>(static () => OctahedralMap.Direction(new(8, 0), 8));
+        Assert.Throws<ArgumentOutOfRangeException>(static () => OctahedralMap.Direction(new(0, -1), 8));
+        Assert.Throws<ArgumentOutOfRangeException>(static () => OctahedralMap.SolidAngle(new(0, 0), 0));
+        Assert.Throws<ArgumentOutOfRangeException>(static () => OctahedralMap.Texel(new(0f, 0f, 1f), 0));
     }
 
     /// <summary>A Fibonacci sphere — even coverage, no seed, both hemispheres.</summary>
@@ -134,8 +137,8 @@ public class OctahedralMapTests {
         var golden = MathF.PI * (3f - MathF.Sqrt(5f));
 
         for (var index = 0; index < count; index++) {
-            var y = 1f - (2f * (index + 0.5f) / count);
-            var radius = MathF.Sqrt(MathF.Max(0f, 1f - (y * y)));
+            var y = 1f - 2f * (index + 0.5f) / count;
+            var radius = MathF.Sqrt(MathF.Max(0f, 1f - y * y));
             var angle = golden * index;
 
             yield return Vector3.Normalize(new(radius * MathF.Cos(angle), y, radius * MathF.Sin(angle)));

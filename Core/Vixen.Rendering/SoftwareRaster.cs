@@ -41,7 +41,7 @@ public static class SoftwareRaster {
     ///     why interpolating depth is these over their sum and nothing else.
     /// </remarks>
     public static float Edge(Vector2 a, Vector2 b, Vector2 point) =>
-        ((b.X - a.X) * (point.Y - a.Y)) - ((b.Y - a.Y) * (point.X - a.X));
+        (b.X - a.X) * (point.Y - a.Y) - (b.Y - a.Y) * (point.X - a.X);
 
     /// <summary>Whether an edge's zero line belongs to the triangle on its left — the top-left rule.</summary>
     /// <param name="a">The edge's start.</param>
@@ -64,8 +64,7 @@ public static class SoftwareRaster {
     /// <param name="edge">What <see cref="Edge" /> answered.</param>
     /// <param name="a">The edge's start.</param>
     /// <param name="b">Its end.</param>
-    public static bool Inside(float edge, Vector2 a, Vector2 b) =>
-        edge > 0f || (edge == 0f && IsTopLeft(a, b));
+    public static bool Inside(float edge, Vector2 a, Vector2 b) => edge > 0f || (edge == 0f && IsTopLeft(a, b));
 
     /// <summary>Where a clip-space position lands on the screen, in pixels.</summary>
     /// <param name="clip">The position, after the view-projection.</param>
@@ -78,8 +77,8 @@ public static class SoftwareRaster {
     /// </remarks>
     public static Vector2 Project(Vector4 clip, Int2 screen) =>
         new(
-            ((clip.X / clip.W * 0.5f) + 0.5f) * screen.X,
-            ((-clip.Y / clip.W * 0.5f) + 0.5f) * screen.Y
+            (clip.X / clip.W * 0.5f + 0.5f) * screen.X,
+            (-clip.Y / clip.W * 0.5f + 0.5f) * screen.Y
         );
 
     /// <summary>
@@ -176,9 +175,9 @@ public static class SoftwareRaster {
 
                 // z/w is affine in screen space, which is the one attribute a rasterizer may interpolate
                 // without the perspective divide the resolve does for everything else.
-                var depth = ((e0 * z0) + (e1 * z1) + (e2 * z2)) / area;
+                var depth = (e0 * z0 + e1 * z1 + e2 * z2) / area;
                 var key = GpuClusterSoftwareRaster.Key(depth, identity);
-                var slot = (y * screen.X) + x;
+                var slot = y * screen.X + x;
 
                 covered++;
 

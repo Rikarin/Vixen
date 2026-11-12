@@ -6,7 +6,6 @@ using Vixen.Gameplay;
 using Vixen.Gameplay.Social;
 using Vixen.Live.Persistence;
 using Xunit;
-using NetworkPlayerId = Vixen.Net.Sessions.PlayerId;
 
 namespace Vixen.Live.Gameplay.Tests;
 
@@ -26,8 +25,8 @@ public class SocialBridgeTests {
 
     public SocialBridgeTests() {
         bridge = new(identity);
-        Ana = identity.Admit(ana, new NetworkPlayerId(1));
-        Bo = identity.Admit(bo, new NetworkPlayerId(2));
+        Ana = identity.Admit(ana, new(1));
+        Bo = identity.Admit(bo, new(2));
     }
 
     // Cass is deliberately never admitted: she is the offline member every test here is about.
@@ -36,7 +35,7 @@ public class SocialBridgeTests {
             TheVigil,
             "guilds/standard",
             "The Vigil",
-            [.. members.Select(member => new GuildMemberRow(member.Player, member.Rank, default))],
+            [..members.Select(static member => new GuildMemberRow(member.Player, member.Rank, default))],
             ImmutableDictionary<int, string>.Empty,
             default,
             1
@@ -120,7 +119,7 @@ public class SocialBridgeTests {
         bridge.Warmed(Ana, Row((ana, 0)));
 
         Assert.Equal(GuildRefusal.None, bridge.Invite(Ana, new(TheVigil), Bo));
-        Assert.Equal(new GuildId(TheVigil), bridge.GuildOf(Bo));
+        Assert.Equal(new(TheVigil), bridge.GuildOf(Bo));
 
         var edit = Assert.Single(bridge.Drain());
 
@@ -134,7 +133,7 @@ public class SocialBridgeTests {
         bridge.Warmed(Ana, Founded());
 
         // Bo is rank 1 and the charter's bottom rung carries no Invite permission.
-        Assert.Equal(GuildRefusal.NoPermission, bridge.Invite(Bo, new(TheVigil), new PlayerId(77), new(1, 2)));
+        Assert.Equal(GuildRefusal.NoPermission, bridge.Invite(Bo, new(TheVigil), new(77), new(1, 2)));
         Assert.Equal(0, bridge.Pending);
     }
 
@@ -258,7 +257,7 @@ public class SocialBridgeTests {
         // every avenue the block was for.
         bridge.Warmed(ana, [new(cass, SocialTie.Blocked)]);
 
-        var cassie = identity.Admit(cass, new NetworkPlayerId(3));
+        var cassie = identity.Admit(cass, new(3));
 
         Assert.False(bridge.Graphs.IsSevered(Ana, cassie));
         Assert.Equal(1, bridge.Admitted(cass, cassie));

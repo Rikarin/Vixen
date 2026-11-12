@@ -50,8 +50,12 @@ sealed class GraphPass {
     ///     ⚠ <b>What decides whether a pass may leave the graphics queue.</b> A wait edge is derived
     ///     from a declared write: <c>PlanBarriers</c> makes a later reader wait on the segment that
     ///     last wrote a resource, and a pass that declares no write is never that segment. So a
-    ///     compute pass with no declared write is one <em>nothing in the frame can be made to wait
-    ///     for</em> — hoisting it puts it in a segment with no outgoing edge, and whatever it really
+    ///     compute pass with no declared write is one
+    ///     <em>
+    ///         nothing in the frame can be made to wait
+    ///         for
+    ///     </em>
+    ///     — hoisting it puts it in a segment with no outgoing edge, and whatever it really
     ///     produced becomes a race the moment the two queues are genuinely concurrent.
     ///     <para>
     ///         It is a necessary condition and not a sufficient one — a pass may declare one write
@@ -248,12 +252,14 @@ public sealed class RenderGraphPassBuilder {
             pass.Uses.Add(new(texture, GraphBuffer.None, ResourceState.DepthStencilWrite, false));
         }
 
-        pass.Uses.Add(new(
-            texture,
-            GraphBuffer.None,
-            readOnly ? ResourceState.DepthStencilRead : ResourceState.DepthStencilWrite,
-            !readOnly
-        ));
+        pass.Uses.Add(
+            new(
+                texture,
+                GraphBuffer.None,
+                readOnly ? ResourceState.DepthStencilRead : ResourceState.DepthStencilWrite,
+                !readOnly
+            )
+        );
 
         if (resolve.IsValid) {
             if (readOnly) {
@@ -308,13 +314,18 @@ public sealed class RenderGraphContext {
 
     /// <summary>The list to record into.</summary>
     /// <remarks>
-    ///     ⚠ <b>Not the same list for the whole frame once the graph schedules onto more than one
-    ///     queue.</b> A pass body that captured this and recorded into it later would be recording
+    ///     ⚠
+    ///     <b>
+    ///         Not the same list for the whole frame once the graph schedules onto more than one
+    ///         queue.
+    ///     </b>
+    ///     A pass body that captured this and recorded into it later would be recording
     ///     into a list that has been submitted — read it inside the body, every time, which is what
     ///     every pass in the tree already does.
     /// </remarks>
     public ICommandList CommandList =>
-        commandList ?? throw new InvalidOperationException(
+        commandList
+        ?? throw new InvalidOperationException(
             "A render-graph context was read outside a pass. The list belongs to the segment being "
             + "recorded, and there is none between segments."
         );

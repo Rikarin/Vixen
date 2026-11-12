@@ -4,7 +4,6 @@
 using Microsoft.Extensions.Logging;
 using Vixen.Core;
 using Vixen.Core.Mathematics;
-using Vixen.Ecs;
 using Vixen.Rendering;
 using Vixen.Rendering.DistanceFields;
 using Vixen.Rendering.Ecs;
@@ -17,8 +16,11 @@ namespace Vixen.Samples.PbrShowcase;
 /// <summary>The grid itself: twenty-five materials whose two numbers are their coordinates.</summary>
 /// <remarks>
 ///     <para>
-///         <b>An <see cref="IMaterialSource" /> the project implements, rather than twenty-five
-///         <c>.vxmat</c> files.</b> The interface is the seam the extraction already asks through —
+///         <b>
+///             An <see cref="IMaterialSource" /> the project implements, rather than twenty-five
+///             <c>.vxmat</c> files.
+///         </b>
+///         The interface is the seam the extraction already asks through —
 ///         sample 13's materials come from assets through the same one — and this grid is
 ///         arithmetic: metallic is the row over four, roughness is the column over four. A file per
 ///         cell would be the arithmetic transcribed by hand, which is the class of mistake the
@@ -62,8 +64,12 @@ sealed class GridMaterials : IMaterialSource {
 
     /// <summary>What the morphed heads are painted in.</summary>
     /// <remarks>
-    ///     ⚠ <b>Matte and untextured on purpose, and it is the only material here chosen for what it
-    ///     hides rather than for what it shows.</b> The heads are in the frame to make a blend shape
+    ///     ⚠
+    ///     <b>
+    ///         Matte and untextured on purpose, and it is the only material here chosen for what it
+    ///         hides rather than for what it shows.
+    ///     </b>
+    ///     The heads are in the frame to make a blend shape
     ///     visible, and a blend shape is visible as <em>shading</em>: the jaw drops, the normals turn,
     ///     and the light across them changes. A metal would read as a reflection sliding and a
     ///     textured surface would read as UVs stretching — both of which would be there whether or not
@@ -140,7 +146,7 @@ sealed class GridMaterials : IMaterialSource {
         for (var row = 0; row < rows; row++) {
             for (var column = 0; column < columns; column++) {
                 var material = Bake(
-                    new MetalRoughnessFeature {
+                    new() {
                         // The base colour, one value for the whole grid. Varying it as well would
                         // confound the two axes the grid exists to separate.
                         BaseColor = new(0.86f, 0.82f, 0.74f),
@@ -164,21 +170,21 @@ sealed class GridMaterials : IMaterialSource {
         }
 
         var floor = Bake(
-            new MetalRoughnessFeature { BaseColor = new(0.45f, 0.46f, 0.48f), Metalness = 0f, Roughness = 0.85f },
+            new() { BaseColor = new(0.45f, 0.46f, 0.48f), Metalness = 0f, Roughness = 0.85f },
             slots,
             permutations,
             log
         );
 
         var skin = Bake(
-            new MetalRoughnessFeature { BaseColor = new(0.78f, 0.56f, 0.45f), Metalness = 0f, Roughness = 0.62f },
+            new() { BaseColor = new(0.78f, 0.56f, 0.45f), Metalness = 0f, Roughness = 0.62f },
             slots,
             permutations,
             log
         );
 
         var fallback = Bake(
-            new MetalRoughnessFeature { BaseColor = new(0.62f, 0.63f, 0.66f), Metalness = 0f, Roughness = 0.7f },
+            new() { BaseColor = new(0.62f, 0.63f, 0.66f), Metalness = 0f, Roughness = 0.7f },
             slots,
             permutations,
             log
@@ -204,26 +210,26 @@ sealed class GridMaterials : IMaterialSource {
     ///     The margin is the whole point: a march starts <em>outside</em> a surface and walks toward
     ///     it, so what it needs is the positive distances around the sphere, not the zero at it.
     /// </remarks>
-    public static MeshDistanceField SphereField(float radius) =>
-        Field(new Vector3(radius), at => at.Length() - radius);
+    public static MeshDistanceField SphereField(float radius) => Field(new(radius), at => at.Length() - radius);
 
     /// <summary>An exact field for an axis-aligned slab — the floor, thickness and all.</summary>
     /// <param name="half">The slab's half-extents.</param>
     /// <returns>The field.</returns>
-    public static MeshDistanceField SlabField(Vector3 half) => Field(
-        half,
-        at => {
-            var outside = Vector3.Abs(at) - half;
+    public static MeshDistanceField SlabField(Vector3 half) =>
+        Field(
+            half,
+            at => {
+                var outside = Vector3.Abs(at) - half;
 
-            var beyond = new Vector3(
-                MathF.Max(outside.X, 0f),
-                MathF.Max(outside.Y, 0f),
-                MathF.Max(outside.Z, 0f)
-            );
+                var beyond = new Vector3(
+                    MathF.Max(outside.X, 0f),
+                    MathF.Max(outside.Y, 0f),
+                    MathF.Max(outside.Z, 0f)
+                );
 
-            return beyond.Length() + MathF.Min(MathF.Max(outside.X, MathF.Max(outside.Y, outside.Z)), 0f);
-        }
-    );
+                return beyond.Length() + MathF.Min(MathF.Max(outside.X, MathF.Max(outside.Y, outside.Z)), 0f);
+            }
+        );
 
     static MeshDistanceField Field(Vector3 half, Func<Vector3, float> distance) {
         const float Margin = 1.5f;
@@ -273,7 +279,7 @@ sealed class GridMaterials : IMaterialSource {
         if (compilation.Failed || compilation.Material is not { } material) {
             SampleLog.NoMaterial(
                 log,
-                string.Join("; ", compilation.Diagnostics.Select(diagnostic => diagnostic.ToString()))
+                string.Join("; ", compilation.Diagnostics.Select(static diagnostic => diagnostic.ToString()))
             );
 
             return null;

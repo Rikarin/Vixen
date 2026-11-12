@@ -110,7 +110,9 @@ public sealed class TextureResultCache {
     ulong nonces;
     bool disposed;
 
-    internal TextureResultCache(IGraphicsDevice device) => this.device = device;
+    internal TextureResultCache(IGraphicsDevice device) {
+        this.device = device;
+    }
 
     /// <summary>How many bytes of textures this may hold while no bake is alive.</summary>
     /// <remarks>Lowering it takes effect at the next evaluation.</remarks>

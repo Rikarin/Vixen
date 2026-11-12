@@ -12,13 +12,19 @@ namespace Vixen.Rendering.Features;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <strong>A dictionary with one rule, and the rule is the reason this is not a
-///         <c>Dictionary</c>.</strong> A host says which keys a pass's effect key is built from by
+///         <strong>
+///             A dictionary with one rule, and the rule is the reason this is not a
+///             <c>Dictionary</c>.
+///         </strong>
+///         A host says which keys a pass's effect key is built from by
 ///         assigning the generated <c>…Keys.UsedPermutationKeys</c> under the shader's name — one line,
 ///         written once per host, and every shipping host writes it. An engine that needs a key that
 ///         list does not carry — one contributed by a <em>composed</em> shader, which no pass's
-///         reflection can know about — registers it separately. ⚠ <b>Assignment then discarded the
-///         registration, and nothing said so.</b>
+///         reflection can know about — registers it separately. ⚠
+///         <b>
+///             Assignment then discarded the
+///             registration, and nothing said so.
+///         </b>
 ///     </para>
 ///     <para>
 ///         ⚠ <b>What that cost, measured.</b> <c>WorldRenderer</c>'s constructor registered
@@ -30,8 +36,12 @@ namespace Vixen.Rendering.Features;
 ///         no way to know.
 ///     </para>
 ///     <para>
-///         So <see cref="Register" /> is not merely additive: what it registers <em>survives a later
-///         assignment</em>. That is what makes the defect unfixable by forgetting rather than fixable
+///         So <see cref="Register" /> is not merely additive: what it registers
+///         <em>
+///             survives a later
+///             assignment
+///         </em>
+///         . That is what makes the defect unfixable by forgetting rather than fixable
 ///         by remembering — the next host somebody writes assigns the same generated array on the same
 ///         line, and the key is still there afterwards, because there is no API on this type that can
 ///         take it away.

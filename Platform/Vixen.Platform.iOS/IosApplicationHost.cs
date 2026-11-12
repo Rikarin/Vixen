@@ -125,8 +125,7 @@ public abstract class IosApplicationHost : UIApplicationDelegate {
     ///     Off screen. From here the GPU may not be touched at all, which is what
     ///     <see cref="PlatformEventKind.Suspending" /> tells the renderer.
     /// </remarks>
-    public override void DidEnterBackground(UIApplication application) =>
-        Platform.MobileLifecycle.Suspend();
+    public override void DidEnterBackground(UIApplication application) => Platform.MobileLifecycle.Suspend();
 
     /// <inheritdoc />
     public override void WillTerminate(UIApplication application) {

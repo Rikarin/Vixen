@@ -192,8 +192,7 @@ public sealed partial class FlameChartView : Control {
         // control into one activation — and a bar is deliberately a bare <c>UiElement</c>, because
         // two thousand of them being controls would be two thousand focus scopes, hover states and
         // event tables for something that is a coloured rectangle with a name on it.
-        AddHandler<PointerEvent>(
-            (element, args) => {
+        AddHandler<PointerEvent>(static (element, args) => {
                 if (element is FlameChartView view && args.Action is PointerAction.Pressed) {
                     view.Hit(args);
                 }
@@ -227,7 +226,7 @@ public sealed partial class FlameChartView : Control {
         var hash = 17;
 
         foreach (var character in name) {
-            hash = (hash * 31) + character;
+            hash = hash * 31 + character;
         }
 
         return (hash & int.MaxValue) % HueCount;
@@ -273,7 +272,9 @@ public sealed partial class FlameChartView : Control {
             ? string.Create(CultureInfo.InvariantCulture, $"{node.Name} {node.Milliseconds:0.##} ms")
             : null;
 
-        bar.State = ReferenceEquals(Selected, node) ? bar.State | ElementState.Checked : bar.State & ~ElementState.Checked;
+        bar.State = ReferenceEquals(Selected, node)
+            ? bar.State | ElementState.Checked
+            : bar.State & ~ElementState.Checked;
 
         shown[bar] = node;
         rows = Math.Max(rows, node.Level);

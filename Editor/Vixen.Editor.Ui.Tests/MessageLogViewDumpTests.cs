@@ -23,8 +23,12 @@ namespace Vixen.Editor.Ui.Tests;
 ///         chosen by a real pointer click, not by writing a field.
 ///     </para>
 ///     <para>
-///         ⚠ <b>And the first thing the recording found was that the three states with a chosen row
-///         could not be reached.</b> The row waited for a <c>ClickEvent</c>, which only a
+///         ⚠
+///         <b>
+///             And the first thing the recording found was that the three states with a chosen row
+///             could not be reached.
+///         </b>
+///         The row waited for a <c>ClickEvent</c>, which only a
 ///         <c>Control</c> raises, so a click on a bare <c>message-row</c> chose nothing and
 ///         <see cref="Choosing_a_row_shows_the_whole_message" /> read <c>Selected</c> as
 ///         <see langword="null" />. The C# was fixed to take a <c>TapEvent</c> — <c>ConsoleView</c>'s
@@ -42,8 +46,12 @@ namespace Vixen.Editor.Ui.Tests;
 ///         a message the list no longer has), and the history cleared under a selection.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Three of the references moved once, at the merge of the <c>@rows</c> port (#758), and
-///         only in the parked rows.</b> The hand-written <c>Bind</c> returned early for a slot past
+///         ⚠
+///         <b>
+///             Three of the references moved once, at the merge of the <c>@rows</c> port (#758), and
+///             only in the parked rows.
+///         </b>
+///         The hand-written <c>Bind</c> returned early for a slot past
 ///         the end of the list, so a slot parked by a filter, a search or a clear kept the last
 ///         message it showed — its text, its <c>level-*</c> class and, twice, its
 ///         <c>Checked</c> bit, so the searched state had two checked rows. An <c>@rows</c> slot
@@ -53,7 +61,11 @@ namespace Vixen.Editor.Ui.Tests;
 ///         finding in <c>Editor/Vixen.Editor.Ui/README.md</c> again.
 ///     </para>
 /// </remarks>
-[SuppressMessage("Trimming", "IL2026", Justification = "UiTest.Flags reads nine properties by name; tests are not trimmed.")]
+[SuppressMessage(
+    "Trimming",
+    "IL2026",
+    Justification = "UiTest.Flags reads nine properties by name; tests are not trimmed."
+)]
 public sealed class MessageLogViewDumpTests {
     /// <summary>Where a run writes its dumps and pictures, when somebody asks it to.</summary>
     /// <remarks>
@@ -112,7 +124,7 @@ public sealed class MessageLogViewDumpTests {
 
         Assert.Equal(
             ["message-detail-heading:Saved", "message-detail-meta:Success · 01:03:10"],
-            harness.View.Detail.Children.Select(child => $"{child.Tag}:{child.Text}")
+            harness.View.Detail.Children.Select(static child => $"{child.Tag}:{child.Text}")
         );
 
         var rows = harness.View.List.Scroller.Content.Children;
@@ -139,10 +151,10 @@ public sealed class MessageLogViewDumpTests {
         harness.Post();
         harness.ClickRow(2);
 
-        Assert.Equal(2, harness.View.Shown.ToList().FindIndex(entry => entry.Message == "Could not import"));
+        Assert.Equal(2, harness.View.Shown.ToList().FindIndex(static entry => entry.Message == "Could not import"));
 
         harness.Shell.Notifications.Tick(TimeSpan.FromSeconds(4100));
-        harness.Shell.Notifications.Show("Rebuilt the lighting", NotificationSeverity.Info);
+        harness.Shell.Notifications.Show("Rebuilt the lighting");
         harness.Shell.Notifications.Tick(TimeSpan.FromSeconds(4400));
         harness.Settle();
 
@@ -154,10 +166,10 @@ public sealed class MessageLogViewDumpTests {
         // And the checked bit went with it, onto the one row showing that message.
         var chosen = Assert.Single(
             harness.View.List.Scroller.Content.Children,
-            row => (row.State & ElementState.Checked) != 0
+            static row => (row.State & ElementState.Checked) != 0
         );
 
-        Assert.Equal("Could not import", chosen.Children.Single(child => child.Tag == "message-text").Text);
+        Assert.Equal("Could not import", chosen.Children.Single(static child => child.Tag == "message-text").Text);
     }
 
     /// <summary>
@@ -231,13 +243,13 @@ public sealed class MessageLogViewDumpTests {
     /// <summary>The shell, the panel opened through its own registration, and a fixed clock.</summary>
     sealed class Harness : IDisposable {
         public Harness() {
-            Shell = new EditorShell(720f, 420f, ThemeMode.Dark);
+            Shell = new(720f, 420f, ThemeMode.Dark);
             Font(Shell.Document);
 
             Shell.RegisterLayout(
                 "Messages",
-                new StringId("test.layout.messages", "Messages"),
-                () => LayoutPresets.Single(EditorShell.MessageLogPanel)
+                new("test.layout.messages", "Messages"),
+                static () => LayoutPresets.Single(EditorShell.MessageLogPanel)
             );
 
             Shell.Workspace.Reset();
@@ -293,7 +305,9 @@ public sealed class MessageLogViewDumpTests {
         static string TypefacePath() {
             const string Relative = "Editor/Vixen.Editor.App/Fonts/OpenSans-Regular.ttf";
 
-            for (var directory = new DirectoryInfo(AppContext.BaseDirectory); directory is not null; directory = directory.Parent) {
+            for (var directory = new DirectoryInfo(AppContext.BaseDirectory);
+                 directory is not null;
+                 directory = directory.Parent) {
                 var candidate = Path.Combine(directory.FullName, Relative.Replace('/', Path.DirectorySeparatorChar));
 
                 if (File.Exists(candidate)) {
@@ -308,333 +322,333 @@ public sealed class MessageLogViewDumpTests {
     // ── The reference dumps, taken from the hand-written control ─────────────
 
     const string EmptyTree = """
-        <message-log .size-md .variant-default> 3,3 710×319
-          <message-log-toolbar> 0,0 710×41
-            <button .size-sm .variant-subtle> 6,4 75×28
-              <label> 10,4 55×20 "Clear All"
-            <search-box .empty .size-md .variant-default> 85,5 465×30
-              <icon .size-md .variant-default> 10,8 14×14
-              <field-placeholder> 29,3 51×22 "Filter…"
-              <field-text> 30,5 0×20
-              <icon-button .size-md .variant-subtle> 0,0 0×0
-                <icon .size-md .variant-default> 0,0 0×0
-                <label> 0,0 0×0 "Clear"
-            <select .size-sm .variant-default> 554,4 150×32
-              <select-field> 10,5 112×22 "All Messages"
-              <icon .size-md .variant-default> 128,10 12×12
-          <virtualizing-panel .size-md .variant-default> 0,41 710×245
-            <scroll-view .size-md .variant-default> 0,0 710×245
-              <scroll-content .virtual-content> 0,0 710×0
-              <scrollbar .size-md .variant-default .vertical> 700,0 10×245
-              <scrollbar .horizontal .size-md .variant-default> 0,235 8×10
-          <message-log-detail .empty .size-md .variant-default> 0,286 710×33
-            <scroll-content> 0,1 710×32
-              <text .size-md .variant-default> 9,5 692×22 "Select a message to see the whole of it."
-            <scrollbar .size-md .variant-default .vertical> 700,1 10×32
-            <scrollbar .horizontal .size-md .variant-default> 0,23 710×10
-        """;
+                             <message-log .size-md .variant-default> 3,3 710×319
+                               <message-log-toolbar> 0,0 710×41
+                                 <button .size-sm .variant-subtle> 6,4 75×28
+                                   <label> 10,4 55×20 "Clear All"
+                                 <search-box .empty .size-md .variant-default> 85,5 465×30
+                                   <icon .size-md .variant-default> 10,8 14×14
+                                   <field-placeholder> 29,3 51×22 "Filter…"
+                                   <field-text> 30,5 0×20
+                                   <icon-button .size-md .variant-subtle> 0,0 0×0
+                                     <icon .size-md .variant-default> 0,0 0×0
+                                     <label> 0,0 0×0 "Clear"
+                                 <select .size-sm .variant-default> 554,4 150×32
+                                   <select-field> 10,5 112×22 "All Messages"
+                                   <icon .size-md .variant-default> 128,10 12×12
+                               <virtualizing-panel .size-md .variant-default> 0,41 710×245
+                                 <scroll-view .size-md .variant-default> 0,0 710×245
+                                   <scroll-content .virtual-content> 0,0 710×0
+                                   <scrollbar .size-md .variant-default .vertical> 700,0 10×245
+                                   <scrollbar .horizontal .size-md .variant-default> 0,235 8×10
+                               <message-log-detail .empty .size-md .variant-default> 0,286 710×33
+                                 <scroll-content> 0,1 710×32
+                                   <text .size-md .variant-default> 9,5 692×22 "Select a message to see the whole of it."
+                                 <scrollbar .size-md .variant-default .vertical> 700,1 10×32
+                                 <scrollbar .horizontal .size-md .variant-default> 0,23 710×10
+                             """;
 
     const string EmptyFlags = """
-        <button .size-sm .variant-subtle> Label="Clear All"
-        <search-box .empty .size-md .variant-default> State=PlaceholderShown, Valid Placeholder="Filter…"
-        <icon-button .size-md .variant-subtle> Label="Clear"
-        <select .size-sm .variant-default> State=Valid
-        <scrollbar .size-md .variant-default .vertical> Value=0
-        <scrollbar .horizontal .size-md .variant-default> Value=0
-        <scrollbar .size-md .variant-default .vertical> Value=0
-        <scrollbar .horizontal .size-md .variant-default> Value=0
-        """;
+                              <button .size-sm .variant-subtle> Label="Clear All"
+                              <search-box .empty .size-md .variant-default> State=PlaceholderShown, Valid Placeholder="Filter…"
+                              <icon-button .size-md .variant-subtle> Label="Clear"
+                              <select .size-sm .variant-default> State=Valid
+                              <scrollbar .size-md .variant-default .vertical> Value=0
+                              <scrollbar .horizontal .size-md .variant-default> Value=0
+                              <scrollbar .size-md .variant-default .vertical> Value=0
+                              <scrollbar .horizontal .size-md .variant-default> Value=0
+                              """;
 
     const string PostedTree = """
-        <message-log .size-md .variant-default> 3,3 710×319
-          <message-log-toolbar> 0,0 710×41
-            <button .size-sm .variant-subtle> 6,4 75×28
-              <label> 10,4 55×20 "Clear All"
-            <search-box .empty .size-md .variant-default> 85,5 465×30
-              <icon .size-md .variant-default> 10,8 14×14
-              <field-placeholder> 29,3 51×22 "Filter…"
-              <field-text> 30,5 0×20
-              <icon-button .size-md .variant-subtle> 0,0 0×0
-                <icon .size-md .variant-default> 0,0 0×0
-                <label> 0,0 0×0 "Clear"
-            <select .size-sm .variant-default> 554,4 150×32
-              <select-field> 10,5 112×22 "All Messages"
-              <icon .size-md .variant-default> 128,10 12×12
-          <virtualizing-panel .size-md .variant-default> 0,41 710×245
-            <scroll-view .size-md .variant-default> 0,0 710×245
-              <scroll-content .virtual-content> 0,0 710×66
-                <message-row> 0,0 710×22
-                  <message-mark .level-success> 8,5 3×12
-                  <message-time> 19,2 62×18 "01:03:10"
-                  <message-text> 89,1 40×20 "Saved"
-                  <message-detail-text> 137,11 565×0
-                <message-row> 0,22 710×22
-                  <message-mark .level-warning> 8,5 3×12
-                  <message-time> 19,2 62×18 "01:02:05"
-                  <message-text> 89,1 165×20 "Texture cache is 90% full"
-                  <message-detail-text> 262,11 440×0
-                <message-row> 0,44 710×22
-                  <message-mark .level-error> 8,5 3×12
-                  <message-time> 19,2 62×18 "01:01:01"
-                  <message-text> 89,1 115×20 "Could not import"
-                  <message-detail-text> 212,1 490×20 "wood.png …"
-              <scrollbar .size-md .variant-default .vertical> 700,0 10×245
-              <scrollbar .horizontal .size-md .variant-default> 0,235 8×10
-          <message-log-detail .empty .size-md .variant-default> 0,286 710×33
-            <scroll-content> 0,1 710×32
-              <text .size-md .variant-default> 9,5 692×22 "Select a message to see the whole of it."
-            <scrollbar .size-md .variant-default .vertical> 700,1 10×32
-            <scrollbar .horizontal .size-md .variant-default> 0,23 710×10
-        """;
+                              <message-log .size-md .variant-default> 3,3 710×319
+                                <message-log-toolbar> 0,0 710×41
+                                  <button .size-sm .variant-subtle> 6,4 75×28
+                                    <label> 10,4 55×20 "Clear All"
+                                  <search-box .empty .size-md .variant-default> 85,5 465×30
+                                    <icon .size-md .variant-default> 10,8 14×14
+                                    <field-placeholder> 29,3 51×22 "Filter…"
+                                    <field-text> 30,5 0×20
+                                    <icon-button .size-md .variant-subtle> 0,0 0×0
+                                      <icon .size-md .variant-default> 0,0 0×0
+                                      <label> 0,0 0×0 "Clear"
+                                  <select .size-sm .variant-default> 554,4 150×32
+                                    <select-field> 10,5 112×22 "All Messages"
+                                    <icon .size-md .variant-default> 128,10 12×12
+                                <virtualizing-panel .size-md .variant-default> 0,41 710×245
+                                  <scroll-view .size-md .variant-default> 0,0 710×245
+                                    <scroll-content .virtual-content> 0,0 710×66
+                                      <message-row> 0,0 710×22
+                                        <message-mark .level-success> 8,5 3×12
+                                        <message-time> 19,2 62×18 "01:03:10"
+                                        <message-text> 89,1 40×20 "Saved"
+                                        <message-detail-text> 137,11 565×0
+                                      <message-row> 0,22 710×22
+                                        <message-mark .level-warning> 8,5 3×12
+                                        <message-time> 19,2 62×18 "01:02:05"
+                                        <message-text> 89,1 165×20 "Texture cache is 90% full"
+                                        <message-detail-text> 262,11 440×0
+                                      <message-row> 0,44 710×22
+                                        <message-mark .level-error> 8,5 3×12
+                                        <message-time> 19,2 62×18 "01:01:01"
+                                        <message-text> 89,1 115×20 "Could not import"
+                                        <message-detail-text> 212,1 490×20 "wood.png …"
+                                    <scrollbar .size-md .variant-default .vertical> 700,0 10×245
+                                    <scrollbar .horizontal .size-md .variant-default> 0,235 8×10
+                                <message-log-detail .empty .size-md .variant-default> 0,286 710×33
+                                  <scroll-content> 0,1 710×32
+                                    <text .size-md .variant-default> 9,5 692×22 "Select a message to see the whole of it."
+                                  <scrollbar .size-md .variant-default .vertical> 700,1 10×32
+                                  <scrollbar .horizontal .size-md .variant-default> 0,23 710×10
+                              """;
 
     const string PostedFlags = """
-        <button .size-sm .variant-subtle> Label="Clear All"
-        <search-box .empty .size-md .variant-default> State=PlaceholderShown, Valid Placeholder="Filter…"
-        <icon-button .size-md .variant-subtle> Label="Clear"
-        <select .size-sm .variant-default> State=Valid
-        <scrollbar .size-md .variant-default .vertical> Value=0
-        <scrollbar .horizontal .size-md .variant-default> Value=0
-        <scrollbar .size-md .variant-default .vertical> Value=0
-        <scrollbar .horizontal .size-md .variant-default> Value=0
-        """;
+                               <button .size-sm .variant-subtle> Label="Clear All"
+                               <search-box .empty .size-md .variant-default> State=PlaceholderShown, Valid Placeholder="Filter…"
+                               <icon-button .size-md .variant-subtle> Label="Clear"
+                               <select .size-sm .variant-default> State=Valid
+                               <scrollbar .size-md .variant-default .vertical> Value=0
+                               <scrollbar .horizontal .size-md .variant-default> Value=0
+                               <scrollbar .size-md .variant-default .vertical> Value=0
+                               <scrollbar .horizontal .size-md .variant-default> Value=0
+                               """;
 
     const string ChosenTree = """
-        <message-log .size-md .variant-default> 3,3 710×319
-          <message-log-toolbar> 0,0 710×41
-            <button .size-sm .variant-subtle> 6,4 75×28
-              <label> 10,4 55×20 "Clear All"
-            <search-box .empty .size-md .variant-default> 85,5 465×30
-              <icon .size-md .variant-default> 10,8 14×14
-              <field-placeholder> 29,3 51×22 "Filter…"
-              <field-text> 30,5 0×20
-              <icon-button .size-md .variant-subtle> 0,0 0×0
-                <icon .size-md .variant-default> 0,0 0×0
-                <label> 0,0 0×0 "Clear"
-            <select .size-sm .variant-default> 554,4 150×32
-              <select-field> 10,5 112×22 "All Messages"
-              <icon .size-md .variant-default> 128,10 12×12
-          <virtualizing-panel .size-md .variant-default> 0,41 710×182
-            <scroll-view .size-md .variant-default> 0,0 710×182
-              <scroll-content .virtual-content> 0,0 710×66
-                <message-row> 0,0 710×22
-                  <message-mark .level-success> 8,5 3×12
-                  <message-time> 19,2 62×18 "01:03:10"
-                  <message-text> 89,1 40×20 "Saved"
-                  <message-detail-text> 137,11 565×0
-                <message-row> 0,22 710×22
-                  <message-mark .level-warning> 8,5 3×12
-                  <message-time> 19,2 62×18 "01:02:05"
-                  <message-text> 89,1 165×20 "Texture cache is 90% full"
-                  <message-detail-text> 262,11 440×0
-                <message-row> 0,44 710×22
-                  <message-mark .level-error> 8,5 3×12
-                  <message-time> 19,2 62×18 "01:01:01"
-                  <message-text> 89,1 115×20 "Could not import"
-                  <message-detail-text> 212,1 490×20 "wood.png …"
-              <scrollbar .size-md .variant-default .vertical> 700,0 10×182
-              <scrollbar .horizontal .size-md .variant-default> 0,172 8×10
-          <message-log-detail .size-md .variant-default> 0,223 710×96
-            <scroll-content> 0,1 710×99
-              <message-detail-heading> 9,7 692×22 "Could not import"
-              <message-detail-meta> 9,32 692×19 "Error · 01:01:01"
-              <message-detail-body> 9,54 692×38 "wood.png
-        The second line of a long diagnostic."
-            <scrollbar .size-md .variant-default .vertical> 700,1 10×95
-            <scrollbar .horizontal .size-md .variant-default> 0,86 710×10
-        """;
+                              <message-log .size-md .variant-default> 3,3 710×319
+                                <message-log-toolbar> 0,0 710×41
+                                  <button .size-sm .variant-subtle> 6,4 75×28
+                                    <label> 10,4 55×20 "Clear All"
+                                  <search-box .empty .size-md .variant-default> 85,5 465×30
+                                    <icon .size-md .variant-default> 10,8 14×14
+                                    <field-placeholder> 29,3 51×22 "Filter…"
+                                    <field-text> 30,5 0×20
+                                    <icon-button .size-md .variant-subtle> 0,0 0×0
+                                      <icon .size-md .variant-default> 0,0 0×0
+                                      <label> 0,0 0×0 "Clear"
+                                  <select .size-sm .variant-default> 554,4 150×32
+                                    <select-field> 10,5 112×22 "All Messages"
+                                    <icon .size-md .variant-default> 128,10 12×12
+                                <virtualizing-panel .size-md .variant-default> 0,41 710×182
+                                  <scroll-view .size-md .variant-default> 0,0 710×182
+                                    <scroll-content .virtual-content> 0,0 710×66
+                                      <message-row> 0,0 710×22
+                                        <message-mark .level-success> 8,5 3×12
+                                        <message-time> 19,2 62×18 "01:03:10"
+                                        <message-text> 89,1 40×20 "Saved"
+                                        <message-detail-text> 137,11 565×0
+                                      <message-row> 0,22 710×22
+                                        <message-mark .level-warning> 8,5 3×12
+                                        <message-time> 19,2 62×18 "01:02:05"
+                                        <message-text> 89,1 165×20 "Texture cache is 90% full"
+                                        <message-detail-text> 262,11 440×0
+                                      <message-row> 0,44 710×22
+                                        <message-mark .level-error> 8,5 3×12
+                                        <message-time> 19,2 62×18 "01:01:01"
+                                        <message-text> 89,1 115×20 "Could not import"
+                                        <message-detail-text> 212,1 490×20 "wood.png …"
+                                    <scrollbar .size-md .variant-default .vertical> 700,0 10×182
+                                    <scrollbar .horizontal .size-md .variant-default> 0,172 8×10
+                                <message-log-detail .size-md .variant-default> 0,223 710×96
+                                  <scroll-content> 0,1 710×99
+                                    <message-detail-heading> 9,7 692×22 "Could not import"
+                                    <message-detail-meta> 9,32 692×19 "Error · 01:01:01"
+                                    <message-detail-body> 9,54 692×38 "wood.png
+                              The second line of a long diagnostic."
+                                  <scrollbar .size-md .variant-default .vertical> 700,1 10×95
+                                  <scrollbar .horizontal .size-md .variant-default> 0,86 710×10
+                              """;
 
     const string ChosenFlags = """
-        <message-log .size-md .variant-default> State=Hover
-        <button .size-sm .variant-subtle> Label="Clear All"
-        <search-box .empty .size-md .variant-default> State=PlaceholderShown, Valid Placeholder="Filter…"
-        <icon-button .size-md .variant-subtle> Label="Clear"
-        <select .size-sm .variant-default> State=Valid
-        <virtualizing-panel .size-md .variant-default> State=Hover
-        <scroll-view .size-md .variant-default> State=Hover
-        <scroll-content .virtual-content> State=Hover
-        <message-row> State=Hover, Checked
-        <message-detail-text> State=Hover
-        <scrollbar .size-md .variant-default .vertical> Value=0
-        <scrollbar .horizontal .size-md .variant-default> Value=0
-        <scrollbar .size-md .variant-default .vertical> Value=0
-        <scrollbar .horizontal .size-md .variant-default> Value=0
-        """;
+                               <message-log .size-md .variant-default> State=Hover
+                               <button .size-sm .variant-subtle> Label="Clear All"
+                               <search-box .empty .size-md .variant-default> State=PlaceholderShown, Valid Placeholder="Filter…"
+                               <icon-button .size-md .variant-subtle> Label="Clear"
+                               <select .size-sm .variant-default> State=Valid
+                               <virtualizing-panel .size-md .variant-default> State=Hover
+                               <scroll-view .size-md .variant-default> State=Hover
+                               <scroll-content .virtual-content> State=Hover
+                               <message-row> State=Hover, Checked
+                               <message-detail-text> State=Hover
+                               <scrollbar .size-md .variant-default .vertical> Value=0
+                               <scrollbar .horizontal .size-md .variant-default> Value=0
+                               <scrollbar .size-md .variant-default .vertical> Value=0
+                               <scrollbar .horizontal .size-md .variant-default> Value=0
+                               """;
 
     const string FilteredTree = """
-        <message-log .size-md .variant-default> 3,3 710×319
-          <message-log-toolbar> 0,0 710×41
-            <button .size-sm .variant-subtle> 6,4 75×28
-              <label> 10,4 55×20 "Clear All"
-            <search-box .empty .size-md .variant-default> 85,5 465×30
-              <icon .size-md .variant-default> 10,8 14×14
-              <field-placeholder> 29,3 51×22 "Filter…"
-              <field-text> 30,5 0×20
-              <icon-button .size-md .variant-subtle> 0,0 0×0
-                <icon .size-md .variant-default> 0,0 0×0
-                <label> 0,0 0×0 "Clear"
-            <select .size-sm .variant-default> 554,4 150×32
-              <select-field> 10,5 112×22 "Successes"
-              <icon .size-md .variant-default> 128,10 12×12
-          <virtualizing-panel .size-md .variant-default> 0,41 710×245
-            <scroll-view .size-md .variant-default> 0,0 710×245
-              <scroll-content .virtual-content> 0,0 710×22
-                <message-row> 0,0 710×22
-                  <message-mark .level-success> 8,5 3×12
-                  <message-time> 19,2 62×18 "01:03:10"
-                  <message-text> 89,1 40×20 "Saved"
-                  <message-detail-text> 137,11 565×0
-                <message-row .parked> 0,0 0×0
-                  <message-mark> 0,0 0×0
-                  <message-time> 0,0 0×0
-                  <message-text> 0,0 0×0
-                  <message-detail-text> 0,0 0×0
-                <message-row .parked> 0,0 0×0
-                  <message-mark> 0,0 0×0
-                  <message-time> 0,0 0×0
-                  <message-text> 0,0 0×0
-                  <message-detail-text> 0,0 0×0
-              <scrollbar .size-md .variant-default .vertical> 700,0 10×245
-              <scrollbar .horizontal .size-md .variant-default> 0,235 8×10
-          <message-log-detail .empty .size-md .variant-default> 0,286 710×33
-            <scroll-content> 0,1 710×32
-              <text .size-md .variant-default> 9,5 692×22 "Select a message to see the whole of it."
-            <scrollbar .size-md .variant-default .vertical> 700,1 10×32
-            <scrollbar .horizontal .size-md .variant-default> 0,23 710×10
-        """;
+                                <message-log .size-md .variant-default> 3,3 710×319
+                                  <message-log-toolbar> 0,0 710×41
+                                    <button .size-sm .variant-subtle> 6,4 75×28
+                                      <label> 10,4 55×20 "Clear All"
+                                    <search-box .empty .size-md .variant-default> 85,5 465×30
+                                      <icon .size-md .variant-default> 10,8 14×14
+                                      <field-placeholder> 29,3 51×22 "Filter…"
+                                      <field-text> 30,5 0×20
+                                      <icon-button .size-md .variant-subtle> 0,0 0×0
+                                        <icon .size-md .variant-default> 0,0 0×0
+                                        <label> 0,0 0×0 "Clear"
+                                    <select .size-sm .variant-default> 554,4 150×32
+                                      <select-field> 10,5 112×22 "Successes"
+                                      <icon .size-md .variant-default> 128,10 12×12
+                                  <virtualizing-panel .size-md .variant-default> 0,41 710×245
+                                    <scroll-view .size-md .variant-default> 0,0 710×245
+                                      <scroll-content .virtual-content> 0,0 710×22
+                                        <message-row> 0,0 710×22
+                                          <message-mark .level-success> 8,5 3×12
+                                          <message-time> 19,2 62×18 "01:03:10"
+                                          <message-text> 89,1 40×20 "Saved"
+                                          <message-detail-text> 137,11 565×0
+                                        <message-row .parked> 0,0 0×0
+                                          <message-mark> 0,0 0×0
+                                          <message-time> 0,0 0×0
+                                          <message-text> 0,0 0×0
+                                          <message-detail-text> 0,0 0×0
+                                        <message-row .parked> 0,0 0×0
+                                          <message-mark> 0,0 0×0
+                                          <message-time> 0,0 0×0
+                                          <message-text> 0,0 0×0
+                                          <message-detail-text> 0,0 0×0
+                                      <scrollbar .size-md .variant-default .vertical> 700,0 10×245
+                                      <scrollbar .horizontal .size-md .variant-default> 0,235 8×10
+                                  <message-log-detail .empty .size-md .variant-default> 0,286 710×33
+                                    <scroll-content> 0,1 710×32
+                                      <text .size-md .variant-default> 9,5 692×22 "Select a message to see the whole of it."
+                                    <scrollbar .size-md .variant-default .vertical> 700,1 10×32
+                                    <scrollbar .horizontal .size-md .variant-default> 0,23 710×10
+                                """;
 
     const string FilteredFlags = """
-        <message-log .size-md .variant-default> State=Hover
-        <button .size-sm .variant-subtle> Label="Clear All"
-        <search-box .empty .size-md .variant-default> State=PlaceholderShown, Valid Placeholder="Filter…"
-        <icon-button .size-md .variant-subtle> Label="Clear"
-        <select .size-sm .variant-default> State=Valid Value="Success"
-        <virtualizing-panel .size-md .variant-default> State=Hover
-        <scroll-view .size-md .variant-default> State=Hover
-        <scroll-content .virtual-content> State=Hover
-        <message-row .parked> State=Hover
-        <message-detail-text> State=Hover
-        <scrollbar .size-md .variant-default .vertical> Value=0
-        <scrollbar .horizontal .size-md .variant-default> Value=0
-        <scrollbar .size-md .variant-default .vertical> Value=0
-        <scrollbar .horizontal .size-md .variant-default> Value=0
-        """;
+                                 <message-log .size-md .variant-default> State=Hover
+                                 <button .size-sm .variant-subtle> Label="Clear All"
+                                 <search-box .empty .size-md .variant-default> State=PlaceholderShown, Valid Placeholder="Filter…"
+                                 <icon-button .size-md .variant-subtle> Label="Clear"
+                                 <select .size-sm .variant-default> State=Valid Value="Success"
+                                 <virtualizing-panel .size-md .variant-default> State=Hover
+                                 <scroll-view .size-md .variant-default> State=Hover
+                                 <scroll-content .virtual-content> State=Hover
+                                 <message-row .parked> State=Hover
+                                 <message-detail-text> State=Hover
+                                 <scrollbar .size-md .variant-default .vertical> Value=0
+                                 <scrollbar .horizontal .size-md .variant-default> Value=0
+                                 <scrollbar .size-md .variant-default .vertical> Value=0
+                                 <scrollbar .horizontal .size-md .variant-default> Value=0
+                                 """;
 
     const string SearchedTree = """
-        <message-log .size-md .variant-default> 3,3 710×319
-          <message-log-toolbar> 0,0 710×45
-            <button .size-sm .variant-subtle> 6,4 75×28
-              <label> 10,4 55×20 "Clear All"
-            <search-box .size-md .variant-default> 85,4 465×36
-              <icon .size-md .variant-default> 10,11 14×14
-              <field-placeholder> 0,0 0×0 "Filter…"
-              <field-text> 30,7 42×22 "wood"
-              <icon-button .size-md .variant-subtle> 78,5 26×26
-                <icon .size-md .variant-default> 6,6 14×14
-                <label> 0,0 0×0 "Clear"
-            <select .size-sm .variant-default> 554,6 150×32
-              <select-field> 10,5 112×22 "All Messages"
-              <icon .size-md .variant-default> 128,10 12×12
-          <virtualizing-panel .size-md .variant-default> 0,45 710×178
-            <scroll-view .size-md .variant-default> 0,0 710×178
-              <scroll-content .virtual-content> 0,0 710×22
-                <message-row> 0,0 710×22
-                  <message-mark .level-error> 8,5 3×12
-                  <message-time> 19,2 62×18 "01:01:01"
-                  <message-text> 89,1 115×20 "Could not import"
-                  <message-detail-text> 212,1 490×20 "wood.png …"
-                <message-row .parked> 0,0 0×0
-                  <message-mark> 0,0 0×0
-                  <message-time> 0,0 0×0
-                  <message-text> 0,0 0×0
-                  <message-detail-text> 0,0 0×0
-                <message-row .parked> 0,0 0×0
-                  <message-mark> 0,0 0×0
-                  <message-time> 0,0 0×0
-                  <message-text> 0,0 0×0
-                  <message-detail-text> 0,0 0×0
-              <scrollbar .size-md .variant-default .vertical> 700,0 10×178
-              <scrollbar .horizontal .size-md .variant-default> 0,168 8×10
-          <message-log-detail .size-md .variant-default> 0,223 710×96
-            <scroll-content> 0,1 710×99
-              <message-detail-heading> 9,7 692×22 "Could not import"
-              <message-detail-meta> 9,32 692×19 "Error · 01:01:01"
-              <message-detail-body> 9,54 692×38 "wood.png
-        The second line of a long diagnostic."
-            <scrollbar .size-md .variant-default .vertical> 700,1 10×95
-            <scrollbar .horizontal .size-md .variant-default> 0,86 710×10
-        """;
+                                <message-log .size-md .variant-default> 3,3 710×319
+                                  <message-log-toolbar> 0,0 710×45
+                                    <button .size-sm .variant-subtle> 6,4 75×28
+                                      <label> 10,4 55×20 "Clear All"
+                                    <search-box .size-md .variant-default> 85,4 465×36
+                                      <icon .size-md .variant-default> 10,11 14×14
+                                      <field-placeholder> 0,0 0×0 "Filter…"
+                                      <field-text> 30,7 42×22 "wood"
+                                      <icon-button .size-md .variant-subtle> 78,5 26×26
+                                        <icon .size-md .variant-default> 6,6 14×14
+                                        <label> 0,0 0×0 "Clear"
+                                    <select .size-sm .variant-default> 554,6 150×32
+                                      <select-field> 10,5 112×22 "All Messages"
+                                      <icon .size-md .variant-default> 128,10 12×12
+                                  <virtualizing-panel .size-md .variant-default> 0,45 710×178
+                                    <scroll-view .size-md .variant-default> 0,0 710×178
+                                      <scroll-content .virtual-content> 0,0 710×22
+                                        <message-row> 0,0 710×22
+                                          <message-mark .level-error> 8,5 3×12
+                                          <message-time> 19,2 62×18 "01:01:01"
+                                          <message-text> 89,1 115×20 "Could not import"
+                                          <message-detail-text> 212,1 490×20 "wood.png …"
+                                        <message-row .parked> 0,0 0×0
+                                          <message-mark> 0,0 0×0
+                                          <message-time> 0,0 0×0
+                                          <message-text> 0,0 0×0
+                                          <message-detail-text> 0,0 0×0
+                                        <message-row .parked> 0,0 0×0
+                                          <message-mark> 0,0 0×0
+                                          <message-time> 0,0 0×0
+                                          <message-text> 0,0 0×0
+                                          <message-detail-text> 0,0 0×0
+                                      <scrollbar .size-md .variant-default .vertical> 700,0 10×178
+                                      <scrollbar .horizontal .size-md .variant-default> 0,168 8×10
+                                  <message-log-detail .size-md .variant-default> 0,223 710×96
+                                    <scroll-content> 0,1 710×99
+                                      <message-detail-heading> 9,7 692×22 "Could not import"
+                                      <message-detail-meta> 9,32 692×19 "Error · 01:01:01"
+                                      <message-detail-body> 9,54 692×38 "wood.png
+                                The second line of a long diagnostic."
+                                    <scrollbar .size-md .variant-default .vertical> 700,1 10×95
+                                    <scrollbar .horizontal .size-md .variant-default> 0,86 710×10
+                                """;
 
     const string SearchedFlags = """
-        <message-log .size-md .variant-default> State=Hover
-        <button .size-sm .variant-subtle> Label="Clear All"
-        <search-box .size-md .variant-default> State=Valid Value="wood" Placeholder="Filter…"
-        <icon-button .size-md .variant-subtle> Label="Clear"
-        <select .size-sm .variant-default> State=Valid
-        <virtualizing-panel .size-md .variant-default> State=Hover
-        <scroll-view .size-md .variant-default> State=Hover
-        <scroll-content .virtual-content> State=Hover
-        <message-row> State=Checked
-        <message-row .parked> State=Hover
-        <message-detail-text> State=Hover
-        <scrollbar .size-md .variant-default .vertical> Value=0
-        <scrollbar .horizontal .size-md .variant-default> Value=0
-        <scrollbar .size-md .variant-default .vertical> Value=0
-        <scrollbar .horizontal .size-md .variant-default> Value=0
-        """;
+                                 <message-log .size-md .variant-default> State=Hover
+                                 <button .size-sm .variant-subtle> Label="Clear All"
+                                 <search-box .size-md .variant-default> State=Valid Value="wood" Placeholder="Filter…"
+                                 <icon-button .size-md .variant-subtle> Label="Clear"
+                                 <select .size-sm .variant-default> State=Valid
+                                 <virtualizing-panel .size-md .variant-default> State=Hover
+                                 <scroll-view .size-md .variant-default> State=Hover
+                                 <scroll-content .virtual-content> State=Hover
+                                 <message-row> State=Checked
+                                 <message-row .parked> State=Hover
+                                 <message-detail-text> State=Hover
+                                 <scrollbar .size-md .variant-default .vertical> Value=0
+                                 <scrollbar .horizontal .size-md .variant-default> Value=0
+                                 <scrollbar .size-md .variant-default .vertical> Value=0
+                                 <scrollbar .horizontal .size-md .variant-default> Value=0
+                                 """;
 
     const string ClearedTree = """
-        <message-log .size-md .variant-default> 3,3 710×319
-          <message-log-toolbar> 0,0 710×41
-            <button .size-sm .variant-subtle> 6,4 75×28
-              <label> 10,4 55×20 "Clear All"
-            <search-box .empty .size-md .variant-default> 85,5 465×30
-              <icon .size-md .variant-default> 10,8 14×14
-              <field-placeholder> 29,3 51×22 "Filter…"
-              <field-text> 30,5 0×20
-              <icon-button .size-md .variant-subtle> 0,0 0×0
-                <icon .size-md .variant-default> 0,0 0×0
-                <label> 0,0 0×0 "Clear"
-            <select .size-sm .variant-default> 554,4 150×32
-              <select-field> 10,5 112×22 "All Messages"
-              <icon .size-md .variant-default> 128,10 12×12
-          <virtualizing-panel .size-md .variant-default> 0,41 710×245
-            <scroll-view .size-md .variant-default> 0,0 710×245
-              <scroll-content .virtual-content> 0,0 710×0
-                <message-row .parked> 0,0 0×0
-                  <message-mark> 0,0 0×0
-                  <message-time> 0,0 0×0
-                  <message-text> 0,0 0×0
-                  <message-detail-text> 0,0 0×0
-                <message-row .parked> 0,0 0×0
-                  <message-mark> 0,0 0×0
-                  <message-time> 0,0 0×0
-                  <message-text> 0,0 0×0
-                  <message-detail-text> 0,0 0×0
-                <message-row .parked> 0,0 0×0
-                  <message-mark> 0,0 0×0
-                  <message-time> 0,0 0×0
-                  <message-text> 0,0 0×0
-                  <message-detail-text> 0,0 0×0
-              <scrollbar .size-md .variant-default .vertical> 700,0 10×245
-              <scrollbar .horizontal .size-md .variant-default> 0,235 8×10
-          <message-log-detail .empty .size-md .variant-default> 0,286 710×33
-            <scroll-content> 0,1 710×32
-              <text .size-md .variant-default> 9,5 692×22 "Select a message to see the whole of it."
-            <scrollbar .size-md .variant-default .vertical> 700,1 10×32
-            <scrollbar .horizontal .size-md .variant-default> 0,23 710×10
-        """;
+                               <message-log .size-md .variant-default> 3,3 710×319
+                                 <message-log-toolbar> 0,0 710×41
+                                   <button .size-sm .variant-subtle> 6,4 75×28
+                                     <label> 10,4 55×20 "Clear All"
+                                   <search-box .empty .size-md .variant-default> 85,5 465×30
+                                     <icon .size-md .variant-default> 10,8 14×14
+                                     <field-placeholder> 29,3 51×22 "Filter…"
+                                     <field-text> 30,5 0×20
+                                     <icon-button .size-md .variant-subtle> 0,0 0×0
+                                       <icon .size-md .variant-default> 0,0 0×0
+                                       <label> 0,0 0×0 "Clear"
+                                   <select .size-sm .variant-default> 554,4 150×32
+                                     <select-field> 10,5 112×22 "All Messages"
+                                     <icon .size-md .variant-default> 128,10 12×12
+                                 <virtualizing-panel .size-md .variant-default> 0,41 710×245
+                                   <scroll-view .size-md .variant-default> 0,0 710×245
+                                     <scroll-content .virtual-content> 0,0 710×0
+                                       <message-row .parked> 0,0 0×0
+                                         <message-mark> 0,0 0×0
+                                         <message-time> 0,0 0×0
+                                         <message-text> 0,0 0×0
+                                         <message-detail-text> 0,0 0×0
+                                       <message-row .parked> 0,0 0×0
+                                         <message-mark> 0,0 0×0
+                                         <message-time> 0,0 0×0
+                                         <message-text> 0,0 0×0
+                                         <message-detail-text> 0,0 0×0
+                                       <message-row .parked> 0,0 0×0
+                                         <message-mark> 0,0 0×0
+                                         <message-time> 0,0 0×0
+                                         <message-text> 0,0 0×0
+                                         <message-detail-text> 0,0 0×0
+                                     <scrollbar .size-md .variant-default .vertical> 700,0 10×245
+                                     <scrollbar .horizontal .size-md .variant-default> 0,235 8×10
+                                 <message-log-detail .empty .size-md .variant-default> 0,286 710×33
+                                   <scroll-content> 0,1 710×32
+                                     <text .size-md .variant-default> 9,5 692×22 "Select a message to see the whole of it."
+                                   <scrollbar .size-md .variant-default .vertical> 700,1 10×32
+                                   <scrollbar .horizontal .size-md .variant-default> 0,23 710×10
+                               """;
 
     const string ClearedFlags = """
-        <message-log .size-md .variant-default> State=Hover, FocusWithin
-        <message-log-toolbar> State=Hover, FocusWithin
-        <button .size-sm .variant-subtle> State=Hover, Focus, FocusWithin Label="Clear All"
-        <label> State=Hover
-        <search-box .empty .size-md .variant-default> State=PlaceholderShown, Valid Placeholder="Filter…"
-        <icon-button .size-md .variant-subtle> Label="Clear"
-        <select .size-sm .variant-default> State=Valid
-        <scrollbar .size-md .variant-default .vertical> Value=0
-        <scrollbar .horizontal .size-md .variant-default> Value=0
-        <scrollbar .size-md .variant-default .vertical> Value=0
-        <scrollbar .horizontal .size-md .variant-default> Value=0
-        """;
+                                <message-log .size-md .variant-default> State=Hover, FocusWithin
+                                <message-log-toolbar> State=Hover, FocusWithin
+                                <button .size-sm .variant-subtle> State=Hover, Focus, FocusWithin Label="Clear All"
+                                <label> State=Hover
+                                <search-box .empty .size-md .variant-default> State=PlaceholderShown, Valid Placeholder="Filter…"
+                                <icon-button .size-md .variant-subtle> Label="Clear"
+                                <select .size-sm .variant-default> State=Valid
+                                <scrollbar .size-md .variant-default .vertical> Value=0
+                                <scrollbar .horizontal .size-md .variant-default> Value=0
+                                <scrollbar .size-md .variant-default .vertical> Value=0
+                                <scrollbar .horizontal .size-md .variant-default> Value=0
+                                """;
 }

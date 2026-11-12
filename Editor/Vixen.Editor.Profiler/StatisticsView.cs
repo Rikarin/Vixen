@@ -13,8 +13,12 @@ namespace Vixen.Editor.Profiler;
 ///         hand-written part is the whole of the mechanism.
 ///     </para>
 ///     <para>
-///         ⚠ <b>It is a <see cref="Vixen.Ui.Composition.Component" /> and no longer a <c>Control</c>
-///         — which was forced when this was ported and is now a choice.</b> Wave 1a had no
+///         ⚠
+///         <b>
+///             It is a <see cref="Vixen.Ui.Composition.Component" /> and no longer a <c>Control</c>
+///             — which was forced when this was ported and is now a choice.
+///         </b>
+///         Wave 1a had no
 ///         <c>@inherits</c>: the emitter hardcoded the base, so markup could only produce something
 ///         that <i>builds</i> elements, and every consumer that said
 ///         <c>panel.Add&lt;StatisticsView&gt;()</c> had to say

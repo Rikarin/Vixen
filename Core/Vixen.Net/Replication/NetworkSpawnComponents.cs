@@ -103,7 +103,7 @@ public struct NetworkSpawn {
 ///     carrying a spawn and not this one is work outstanding, which is what makes the spawn system a
 ///     query rather than a list of things it is waiting on.
 /// </remarks>
-public struct NetworkInstance : ITagComponent;
+public readonly struct NetworkInstance : ITagComponent;
 
 /// <summary>Puts a spawn on the wire.</summary>
 public sealed class NetworkSpawnReplicator : IComponentReplicator {

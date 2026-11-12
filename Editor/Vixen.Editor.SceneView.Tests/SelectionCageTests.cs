@@ -5,7 +5,6 @@ using Vixen.Core;
 using Vixen.Core.Mathematics;
 using Vixen.Ecs;
 using Vixen.Editor.Core;
-using Vixen.Editor.Core.Scenes;
 using Vixen.Engine.Transforms;
 using Vixen.Geometry;
 using Vixen.Rendering;
@@ -105,7 +104,7 @@ public class SelectionCageTests : IDisposable {
             total += (into[index + 1].Position - into[index].Position).Length();
         }
 
-        var edge = 1f + (2f * Standoff);
+        var edge = 1f + 2f * Standoff;
 
         Assert.Equal(12f * edge * 2f * SelectionCage.Corner, total, 3);
         Assert.True(SelectionCage.Corner < 0.5f, "at a half the brackets meet and the cage is a box");
@@ -143,14 +142,14 @@ public class SelectionCageTests : IDisposable {
     public void The_gap_does_not_stretch_with_the_object() {
         List<LineVertex> into = [];
 
-        var stretched = Matrix4x4.FromScale(new Vector3(4f, 1f, 1f));
+        var stretched = Matrix4x4.FromScale(new(4f, 1f, 1f));
 
         SelectionCage.Draw(new(into), Unit, stretched, Flat, Height, Color4.White);
 
-        var x = into.Max(vertex => MathF.Abs(vertex.Position.X));
-        var y = into.Max(vertex => MathF.Abs(vertex.Position.Y));
+        var x = into.Max(static vertex => MathF.Abs(vertex.Position.X));
+        var y = into.Max(static vertex => MathF.Abs(vertex.Position.Y));
 
-        Assert.Equal((0.5f * 4f) + Standoff, x, 3);
+        Assert.Equal(0.5f * 4f + Standoff, x, 3);
         Assert.Equal(0.5f + Standoff, y, 3);
     }
 
@@ -162,14 +161,17 @@ public class SelectionCageTests : IDisposable {
         SelectionCage.Draw(
             new(into),
             Unit,
-            Matrix4x4.FromScale(new Vector3(1f, 0f, 1f)),
+            Matrix4x4.FromScale(new(1f, 0f, 1f)),
             Flat,
             Height,
             Color4.White
         );
 
         Assert.Equal(CageVertices, into.Count);
-        Assert.All(into, vertex => Assert.True(float.IsFinite(vertex.Position.Length()), "a vertex is not finite"));
+        Assert.All(
+            into,
+            static vertex => Assert.True(float.IsFinite(vertex.Position.Length()), "a vertex is not finite")
+        );
     }
 
     // ── The decision: who gets one ──────────────────────────────────────────────────────────────
@@ -269,8 +271,8 @@ public class SelectionCageTests : IDisposable {
 
         // The stub's mesh is four units across on X and one on Y — a cage taken from a unit cube or
         // from `EditorApplication.Around`'s half-unit fallback would be neither.
-        var x = lines.World.Max(vertex => MathF.Abs(vertex.Position.X));
-        var y = lines.World.Max(vertex => MathF.Abs(vertex.Position.Y));
+        var x = lines.World.Max(static vertex => MathF.Abs(vertex.Position.X));
+        var y = lines.World.Max(static vertex => MathF.Abs(vertex.Position.Y));
 
         Assert.Equal(2f + Standoff, x, 3);
         Assert.Equal(0.5f + Standoff, y, 3);
@@ -330,7 +332,7 @@ public class SelectionCageTests : IDisposable {
             );
 
             // On the extent is the box; outside it is the cage. Only the second may be amber.
-            if (reach < 0.5f + (Standoff * 0.5f)) {
+            if (reach < 0.5f + Standoff * 0.5f) {
                 Assert.NotEqual(lines.SelectedColour, vertex.Colour);
             }
         }
@@ -369,10 +371,7 @@ public class SelectionCageTests : IDisposable {
     /// <summary>A source whose one mesh is four units across and one tall, which is nothing's default.</summary>
     sealed class Meshes : IMeshSource {
         public bool TryGet(AssetReference reference, out MeshData mesh) {
-            mesh = new() {
-                Name = "rock",
-                Bounds = new(new Vector3(-2f, -0.5f, -0.5f), new Vector3(2f, 0.5f, 0.5f))
-            };
+            mesh = new() { Name = "rock", Bounds = new(new Vector3(-2f, -0.5f, -0.5f), new Vector3(2f, 0.5f, 0.5f)) };
 
             return true;
         }

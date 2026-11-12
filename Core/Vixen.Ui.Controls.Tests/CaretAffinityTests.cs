@@ -17,8 +17,12 @@ namespace Vixen.Ui.Controls.Tests;
 ///         the one number that names two rows.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Every assertion here is on the caret's drawn <c>y</c> or on a round trip, never on
-///         <c>CaretIndex</c> alone.</b> That is the whole point: the index is the thing that cannot
+///         ⚠
+///         <b>
+///             Every assertion here is on the caret's drawn <c>y</c> or on a round trip, never on
+///             <c>CaretIndex</c> alone.
+///         </b>
+///         That is the whole point: the index is the thing that cannot
 ///         tell the two rows apart, so a test that read it would pass against the bug.
 ///     </para>
 /// </remarks>
@@ -106,12 +110,16 @@ public class CaretAffinityTests {
         // Down goes to the row below the one the caret was on. Read from the index instead, the row
         // it is "on" is the one above, so Down lands on the row it already occupied — a Down key that
         // visibly does nothing, which is the defect this is written against.
-        Assert.Equal(block.TopOf(row + 1), FieldProbe.Block(field).CaretAt(field.CaretIndex, field.CaretAffinity).Y, 0.01f);
+        Assert.Equal(
+            block.TopOf(row + 1),
+            FieldProbe.Block(field).CaretAt(field.CaretIndex, field.CaretAffinity).Y,
+            0.01f
+        );
     }
 
     [Fact]
     public void Up_from_a_clicked_continuation_row_goes_one_row_and_not_two() {
-        var (fixture, field, row, boundary) = Wrapped(notBefore: 2);
+        var (fixture, field, row, boundary) = Wrapped(2);
         using var owned = fixture;
 
         var block = FieldProbe.Block(field);
@@ -123,7 +131,11 @@ public class CaretAffinityTests {
 
         // The other half of the same mistake, and the more visible one: reading the row from the
         // index puts the caret's origin a row too high, so Up skips a line.
-        Assert.Equal(block.TopOf(row - 1), FieldProbe.Block(field).CaretAt(field.CaretIndex, field.CaretAffinity).Y, 0.01f);
+        Assert.Equal(
+            block.TopOf(row - 1),
+            FieldProbe.Block(field).CaretAt(field.CaretIndex, field.CaretAffinity).Y,
+            0.01f
+        );
     }
 
     [Fact]
@@ -202,7 +214,11 @@ public class CaretAffinityTests {
         // The half that was already right, pinned so that giving Home its answer cannot quietly
         // take End's away: the tail of a wrapped row is the upstream reading of the same number.
         Assert.Equal(boundary, field.CaretIndex);
-        Assert.Equal(block.TopOf(row - 1), FieldProbe.Block(field).CaretAt(field.CaretIndex, field.CaretAffinity).Y, 0.01f);
+        Assert.Equal(
+            block.TopOf(row - 1),
+            FieldProbe.Block(field).CaretAt(field.CaretIndex, field.CaretAffinity).Y,
+            0.01f
+        );
     }
 
     /// <summary>A one-line field holding a Latin run and an Arabic one, which face opposite ways.</summary>

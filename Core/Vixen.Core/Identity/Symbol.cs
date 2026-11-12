@@ -121,6 +121,5 @@ public readonly record struct Symbol(uint Id) {
 
     /// <summary>The name this was interned from, if this process has seen it.</summary>
     /// <returns>The name, or the id in hexadecimal.</returns>
-    public override string ToString() =>
-        Id == 0 ? "<none>" : Names.TryGetValue(Id, out var name) ? name : $"0x{Id:x8}";
+    public override string ToString() => Id == 0 ? "<none>" : Names.TryGetValue(Id, out var name) ? name : $"0x{Id:x8}";
 }

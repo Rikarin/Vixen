@@ -7,8 +7,12 @@ namespace Vixen.TextureGraph;
 
 /// <summary>Doc 48 § M8's selection kernels, by the name a <see cref="TextureOp" /> gives.</summary>
 /// <remarks>
-///     ⚠ <b>A surface of its own rather than a line in <c>TextureAnalysisKernels</c>, and the reason
-///     is the batch rather than the taxonomy.</b> A selection measures a picture and belongs beside
+///     ⚠
+///     <b>
+///         A surface of its own rather than a line in <c>TextureAnalysisKernels</c>, and the reason
+///         is the batch rather than the taxonomy.
+///     </b>
+///     A selection measures a picture and belongs beside
 ///     § 4.5's three by any reading — but the file those are declared in is another slice's this
 ///     batch, and <see cref="TextureKernelSurfaceAttribute" /> exists exactly so that a new surface
 ///     costs nothing: the roll calls read the attribute, so this joins the inventory by existing and

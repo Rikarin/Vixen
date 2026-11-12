@@ -127,7 +127,7 @@ public class LayoutAtlasTests {
         var source = RemesherTests.Fixture("box");
         var previous = int.MaxValue;
 
-        foreach (var budget in (float[]) [1f, 0.5f, 0.2f, 0.05f, 0f]) {
+        foreach (var budget in (float[])[1f, 0.5f, 0.2f, 0.05f, 0f]) {
             var charts = Charts(source, budget);
 
             Assert.True(
@@ -182,8 +182,12 @@ public class LayoutAtlasTests {
     /// <summary>The atlas holds its shape at a thousandth and a thousand times scale.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Structure rather than coordinates, and refusing to overclaim here is the
-    ///         point.</b> The <i>same</i> box at three scales does not remesh to the same quads:
+    ///         ⚠
+    ///         <b>
+    ///             Structure rather than coordinates, and refusing to overclaim here is the
+    ///             point.
+    ///         </b>
+    ///         The <i>same</i> box at three scales does not remesh to the same quads:
     ///         conditioning's isotropic pre-remesh is only approximately scale-invariant, which
     ///         <see cref="ScaleInvarianceTests" /> states in as many words by asserting its five
     ///         rounds stay <i>within a rate</i> of each other rather than equal. Measured, 6 804 of
@@ -207,7 +211,7 @@ public class LayoutAtlasTests {
     public void The_atlas_holds_its_shape_at_a_thousandth_and_a_thousand_times_scale() {
         var box = RemesherTests.Fixture("box");
 
-        foreach (var scale in (float[]) [1e-3f, 1f, 1e+3f]) {
+        foreach (var scale in (float[])[1e-3f, 1f, 1e+3f]) {
             var scaled = TransferFixtures.Scaled(box, scale);
             var quads = Remesher.Remesh(scaled, new() { TargetQuads = 200, GenerateUvs = true }, out var report);
 
@@ -236,8 +240,12 @@ public class LayoutAtlasTests {
 
     /// <summary>An atlas with no room refuses in the report rather than throwing out of the remesh.</summary>
     /// <remarks>
-    ///     ⚠ <b>docs/plan/41's robustness criterion is "a valid all-quad result <i>or</i> a report
-    ///     naming the stage that refused, and never an exception".</b> Sixteen texels with a
+    ///     ⚠
+    ///     <b>
+    ///         docs/plan/41's robustness criterion is "a valid all-quad result <i>or</i> a report
+    ///         naming the stage that refused, and never an exception".
+    ///     </b>
+    ///     Sixteen texels with a
     ///     two-texel margin cannot hold this fixture's charts at any rescale, and the packer says so
     ///     by throwing — which is the right thing for a packer to do and the wrong thing for it to do
     ///     through a remesh. The quads still come back; the atlas does not, and the warning says
@@ -253,7 +261,7 @@ public class LayoutAtlasTests {
 
         Assert.True(report.QuadCount > 0, string.Join(" · ", report.Warnings));
         Assert.Equal(0, report.NonQuadCount);
-        Assert.Contains(report.Warnings, warning => warning.Contains("packer", StringComparison.Ordinal));
+        Assert.Contains(report.Warnings, static warning => warning.Contains("packer", StringComparison.Ordinal));
         Assert.Empty(quads.TexCoords.ToArray());
     }
 
@@ -272,7 +280,7 @@ public class LayoutAtlasTests {
 
         Assert.True(report.QuadCount > 0, string.Join(" · ", report.Warnings));
 
-        var stage = report.Stages.Single(timing => timing.Stage == RemeshStage.Transfer);
+        var stage = report.Stages.Single(static timing => timing.Stage == RemeshStage.Transfer);
 
         // The transfer stage's element count is the corner count plus the chart count, so the chart
         // count is what is left after the corners are taken off.

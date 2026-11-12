@@ -18,8 +18,12 @@ namespace Vixen.Platform.Ios;
 ///     <para>
 ///         <b>Documents is deliberately not <see cref="DataDirectory" />.</b> Documents is backed up
 ///         and, in an application that declares file sharing, visible to the user in the Files app —
-///         which is right for a saved game and wrong for a shader cache. <c>Library/Application
-///         Support</c> is backed up and invisible, which is what engine data wants; <c>Library/Caches</c>
+///         which is right for a saved game and wrong for a shader cache.
+///         <c>
+///             Library/Application
+///             Support
+///         </c>
+///         is backed up and invisible, which is what engine data wants; <c>Library/Caches</c>
 ///         is neither, and the system deletes it under storage pressure, which is exactly the
 ///         contract a downloaded-bundle cache should be written against.
 ///     </para>
@@ -63,9 +67,7 @@ internal sealed class IosFileSystemHost : IFileSystemHost {
         PermissionKind permission,
         CancellationToken cancellationToken = default
     ) =>
-        ValueTask.FromResult(
-            permission is PermissionKind.ReadExternalStorage or PermissionKind.WriteExternalStorage
-        );
+        ValueTask.FromResult(permission is PermissionKind.ReadExternalStorage or PermissionKind.WriteExternalStorage);
 
     static string Directory(NSSearchPathDirectory kind) =>
         NSSearchPath.GetDirectories(kind, NSSearchPathDomain.User).FirstOrDefault()

@@ -20,7 +20,7 @@ public class FontRegistryTests {
 
     static FontFace Load(string resource, string name) {
         using var stream = Assembly.GetExecutingAssembly()
-            .GetManifestResourceStream($"Vixen.Ui.Tests.Fonts.{resource}")
+                .GetManifestResourceStream($"Vixen.Ui.Tests.Fonts.{resource}")
             ?? throw new InvalidOperationException($"the test font '{resource}' is not embedded");
 
         using var memory = new MemoryStream();
@@ -32,10 +32,10 @@ public class FontRegistryTests {
     [Fact]
     public void An_exact_weight_wins() {
         var registry = new FontRegistry();
-        registry.Register("Sans", Roman, 400);
+        registry.Register("Sans", Roman);
         registry.Register("Sans", Other, 700);
 
-        Assert.Same(Roman, registry.Resolve("Sans", 400));
+        Assert.Same(Roman, registry.Resolve("Sans"));
         Assert.Same(Other, registry.Resolve("Sans", 700));
     }
 
@@ -48,7 +48,7 @@ public class FontRegistryTests {
         registry.Register("Sans", Roman, 300);
         registry.Register("Sans", Other, 500);
 
-        Assert.Same(Other, registry.Resolve("Sans", 400));
+        Assert.Same(Other, registry.Resolve("Sans"));
     }
 
     [Fact]
@@ -57,7 +57,7 @@ public class FontRegistryTests {
         // not "closest".
         var registry = new FontRegistry();
         registry.Register("Sans", Roman, 200);
-        registry.Register("Sans", Other, 400);
+        registry.Register("Sans", Other);
 
         Assert.Same(Roman, registry.Resolve("Sans", 300));
     }
@@ -86,7 +86,7 @@ public class FontRegistryTests {
         // An italic at the wrong weight answers `italic` better than an upright at the right one,
         // which is CSS's order and not an arbitrary one: the reader sees the slant first.
         var registry = new FontRegistry();
-        registry.Register("Sans", Roman, 400);
+        registry.Register("Sans", Roman);
         registry.Register("Sans", Other, 900, FontStyle.Italic);
 
         Assert.Same(Other, registry.Resolve("Sans", 400, FontStyle.Italic));
@@ -98,7 +98,7 @@ public class FontRegistryTests {
         // Rather than to nothing. Synthesising a slant is not on offer, so an upright is the honest
         // last resort — and text that is there in the wrong style beats text that is not there.
         var registry = new FontRegistry();
-        registry.Register("Sans", Roman, 400);
+        registry.Register("Sans", Roman);
 
         Assert.Same(Roman, registry.Resolve("Sans", 400, FontStyle.Italic));
     }
@@ -109,7 +109,7 @@ public class FontRegistryTests {
         // `Fallback` does, and `Sans` still wins — a fallback family that could outrank the
         // designer's choice by happening to ship more weights would be a surprising rule.
         var registry = new FontRegistry();
-        registry.Register("Sans", Roman, 400);
+        registry.Register("Sans", Roman);
         registry.Register("Fallback", Other, 700);
 
         Assert.Same(Roman, registry.Resolve("Sans, Fallback", 700));
@@ -118,17 +118,17 @@ public class FontRegistryTests {
     [Fact]
     public void Registering_the_same_variant_twice_replaces_it() {
         var registry = new FontRegistry();
-        registry.Register("Sans", Roman, 400);
-        registry.Register("Sans", Other, 400);
+        registry.Register("Sans", Roman);
+        registry.Register("Sans", Other);
 
-        Assert.Same(Other, registry.Resolve("Sans", 400));
+        Assert.Same(Other, registry.Resolve("Sans"));
         Assert.Single(registry.Variants("Sans"));
     }
 
     [Fact]
     public void A_family_nobody_registered_falls_back_to_the_default() {
         var registry = new FontRegistry();
-        registry.Register("Sans", Roman, 400);
+        registry.Register("Sans", Roman);
 
         // The first face registered, so a stylesheet with a typo in a family name draws in some font
         // rather than not at all — which is what makes the typo findable.
@@ -140,14 +140,16 @@ public class FontRegistryTests {
     public void Font_weight_reaches_the_run_through_the_cascade() {
         using var document = new UiDocument(400f, 200f);
 
-        document.Fonts.Register("Sans", Roman, 400);
+        document.Fonts.Register("Sans", Roman);
         document.Fonts.Register("Sans", Other, 700);
-        document.Load("""
-            root { width: 400px; height: 200px; align-items: flex-start; }
-            label { font-family: Sans; }
-            .heavy { font-weight: 700; }
-            .named { font-weight: bold; }
-        """);
+        document.Load(
+            """
+                root { width: 400px; height: 200px; align-items: flex-start; }
+                label { font-family: Sans; }
+                .heavy { font-weight: 700; }
+                .named { font-weight: bold; }
+            """
+        );
 
         var regular = document.Root.Add("label");
         var heavy = document.Root.Add("label", null, "heavy");
@@ -170,12 +172,14 @@ public class FontRegistryTests {
     public void Font_weight_inherits_so_a_heading_makes_its_children_heavy() {
         using var document = new UiDocument(400f, 200f);
 
-        document.Fonts.Register("Sans", Roman, 400);
+        document.Fonts.Register("Sans", Roman);
         document.Fonts.Register("Sans", Other, 700);
-        document.Load("""
-            root { width: 400px; height: 200px; align-items: flex-start; font-family: Sans; }
-            .heading { font-weight: bold; }
-        """);
+        document.Load(
+            """
+                root { width: 400px; height: 200px; align-items: flex-start; font-family: Sans; }
+                .heading { font-weight: bold; }
+            """
+        );
 
         var heading = document.Root.Add("div", classNames: "heading");
         var label = heading.Add("label");

@@ -12,8 +12,12 @@ namespace Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Every settle in this assembly used to give up after thirty seconds, and the thirty
-///         seconds is the CI failure rather than the guard against it.</b> Counted on the runs to
+///         ⚠
+///         <b>
+///             Every settle in this assembly used to give up after thirty seconds, and the thirty
+///             seconds is the CI failure rather than the guard against it.
+///         </b>
+///         Counted on the runs to
 ///         2026-08-26: <c>WorldRendererTests</c> seventeen failures across all three operating
 ///         systems, <c>AssetWaterSourceTests</c> nine on Windows, <c>AssetTerrainSourceTests</c>
 ///         four, and <c>AssetTextureStreamingTests</c> the one that was fixed first and whose
@@ -30,8 +34,12 @@ namespace Tests;
 ///         settle loops of their own. A work item queued into a saturated pool waits on .NET's
 ///         thread injection, which adds about two threads a second: the delay is a property of how
 ///         many workers the whole host has blocked, and is unrelated to the read. Measured on this
-///         machine — blocking two hundred pool workers delayed a newly queued item by <b>1 m 45
-///         s</b>. Thirty seconds, sixty, two hundred are each a guess about somebody else's
+///         machine — blocking two hundred pool workers delayed a newly queued item by
+///         <b>
+///             1 m 45
+///             s
+///         </b>
+///         . Thirty seconds, sixty, two hundred are each a guess about somebody else's
 ///         scheduler.
 ///     </para>
 ///     <para>
@@ -69,8 +77,12 @@ static class Settling {
     ///         reaches this number however long it takes.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Measured rather than argued, because the cost of being wrong is a red test on a
-    ///         busy runner.</b> Two hundred pool workers blocked — queued rather than
+    ///         ⚠
+    ///         <b>
+    ///             Measured rather than argued, because the cost of being wrong is a red test on a
+    ///             busy runner.
+    ///         </b>
+    ///         Two hundred pool workers blocked — queued rather than
     ///         <c>SetMinThreads</c>ed, since the delay being modelled is an item behind them in a
     ///         pool that grows by about two threads a second, and raising the minimum hands it two
     ///         hundred threads for free and models nothing. Under that, a bare work item queued
@@ -103,8 +115,12 @@ static class Settling {
     /// </param>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Three readings rather than one, because "outstanding" cannot tell starvation from
-    ///         a spin and those are the two things a settle has to answer differently.</b> Under a
+    ///         ⚠
+    ///         <b>
+    ///             Three readings rather than one, because "outstanding" cannot tell starvation from
+    ///             a spin and those are the two things a settle has to answer differently.
+    ///         </b>
+    ///         Under a
     ///         saturated pool the same pages sit in flight and no counter moves at all: waiting is
     ///         the correct answer and tolerating it however long it lasts is the whole point of this
     ///         file. Under a livelock — a page that loads, is refused a slot, and is put back by
@@ -112,8 +128,12 @@ static class Settling {
     ///         and waiting is never going to end.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Placement is the only progress, and the four cheaper signals were each measured
-    ///         and rejected.</b> "In flight" is true for ever under the livelock; the queue getting
+    ///         ⚠
+    ///         <b>
+    ///             Placement is the only progress, and the four cheaper signals were each measured
+    ///             and rejected.
+    ///         </b>
+    ///         "In flight" is true for ever under the livelock; the queue getting
     ///         shorter is true on about every other attempt, because <c>Renew</c> re-queues what was
     ///         refused; a per-attempt refusal comparison resets on most attempts, because refusals
     ///         climb only every one to three; and <c>Loads</c> holding still cannot distinguish the
@@ -139,7 +159,7 @@ static class Settling {
     ///     than guessing on its behalf.
     /// </remarks>
     public static void Until(Action attempt, Func<bool> done, Func<bool> working, string never) =>
-        Until(attempt, done, () => new Work(working(), 0, 0), never);
+        Until(attempt, done, () => new(working(), 0, 0), never);
 
     /// <summary>Attempts until something is true, or until nothing could make it true.</summary>
     /// <param name="attempt">
@@ -152,8 +172,11 @@ static class Settling {
     /// <param name="never">What to say when the work runs out before <paramref name="done" /> holds.</param>
     /// <remarks>
     ///     <para>
-    ///         <b>Two give-ups, because there are two ways for a wait to be hopeless and neither
-    ///         implies the other.</b> Nothing outstanding at both ends of <see cref="Quiet" />
+    ///         <b>
+    ///             Two give-ups, because there are two ways for a wait to be hopeless and neither
+    ///             implies the other.
+    ///         </b>
+    ///         Nothing outstanding at both ends of <see cref="Quiet" />
     ///         consecutive attempts is a source that has run out of things to do. Something
     ///         outstanding on every attempt, no page placed for <see cref="Rounds" /> of them, and
     ///         the refusal count climbing across that window is a streamer spinning: it is loading
@@ -249,8 +272,11 @@ static class Settling {
     ///         cast, so a renderer built without mounting reads as idle instead of throwing.
     ///     </para>
     ///     <para>
-    ///         <b>Which clauses actually hold a settle open, counted 2026-09-01 under two hundred
-    ///         blocked pool workers.</b> <c>WorldRendererTests.AMountedWorldDrawsItsMeshInItsOwnMaterial</c>:
+    ///         <b>
+    ///             Which clauses actually hold a settle open, counted 2026-09-01 under two hundred
+    ///             blocked pool workers.
+    ///         </b>
+    ///         <c>WorldRendererTests.AMountedWorldDrawsItsMeshInItsOwnMaterial</c>:
     ///         33 168 of 33 170 calls true, <em>all</em> of them the texture header read, over 1 m 38 s.
     ///         <c>TextureDemandTests.AWidthDriftingAcrossARungDoesNotOscillate</c>: three of five true,
     ///         one header read and two streamer clauses. The mesh and material clauses were true
@@ -264,8 +290,12 @@ static class Settling {
     ///         honest about costing nothing today.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A livelock reads as outstanding for ever, so the outstanding flag is not the
-    ///         whole reading.</b> A page that loads, is refused a slot and is put back by
+    ///         ⚠
+    ///         <b>
+    ///             A livelock reads as outstanding for ever, so the outstanding flag is not the
+    ///             whole reading.
+    ///         </b>
+    ///         A page that loads, is refused a slot and is put back by
     ///         <c>PageResidency.Renew</c> leaves <c>Loading</c> above zero on every frame for ever.
     ///         Reproduced by sabotaging <c>PageResidency.Place</c> to refuse every arrival: before
     ///         the placement and refusal readings below were added, that hung

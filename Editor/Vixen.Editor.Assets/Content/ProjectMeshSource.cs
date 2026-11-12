@@ -7,7 +7,6 @@ using Vixen.Core.Yaml;
 using Vixen.Core.Yaml.Meta;
 using Vixen.Editor.Assets.Models;
 using Vixen.Geometry;
-using Vixen.Rendering;
 using Vixen.Rendering.Ecs;
 
 namespace Vixen.Editor.Assets.Content;
@@ -17,23 +16,34 @@ namespace Vixen.Editor.Assets.Content;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b><c>AssetMeshSource</c>'s editor twin, and the reason <see cref="IMeshSource" /> is an
-///         interface.</b> A game resolves a reference through a catalog and a bundle; the editor has
+///         <b>
+///             <c>AssetMeshSource</c>'s editor twin, and the reason <see cref="IMeshSource" /> is an
+///             interface.
+///         </b>
+///         A game resolves a reference through a catalog and a bundle; the editor has
 ///         neither and does not want them — it has the chunks the last import wrote, in a store on disk
 ///         beside the project. Same question, two places to look, and everything above the interface is
 ///         identical.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Why the editor cannot simply use the game's, and it is not the reason this paragraph
-///         used to give.</b> It said a <c>ContentCatalog</c> is built by a content build and that
+///         ⚠
+///         <b>
+///             Why the editor cannot simply use the game's, and it is not the reason this paragraph
+///             used to give.
+///         </b>
+///         It said a <c>ContentCatalog</c> is built by a content build and that
 ///         waiting for one would make the viewport a function of the build rather than of the files.
 ///         That is not true of the catalog the editor would actually use: <c>LooseContent.Write</c>
 ///         needs no build — no packing, no copying — and it reads this very import cache. It is
 ///         sub-asset granular too, because <c>BuildPlanner</c> emits one entry per sub-asset.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The real reason is that a catalog is what <em>ships</em> and a viewport has to draw
-///         what is in the project.</b> <c>BuildPlanner.AddressOf</c> gives an excluded asset no
+///         ⚠
+///         <b>
+///             The real reason is that a catalog is what <em>ships</em> and a viewport has to draw
+///             what is in the project.
+///         </b>
+///         <c>BuildPlanner.AddressOf</c> gives an excluded asset no
 ///         address — <c>AddressableInfo.Excluded</c> being the designed way to keep "a reference FBX
 ///         kept beside the one that ships" out of a build — so the catalog has no entry for it and
 ///         <c>AssetMeshSource</c> throws <c>ReferenceNotFoundException</c>, while the lookup below
@@ -84,8 +94,12 @@ public sealed class ProjectMeshSource : IMeshSource {
     /// <summary>How many times this source has been invalidated.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>For consumers that cache something derived from a mesh and cannot see
-    ///         <see cref="Invalidate" /> happen</b> —
+    ///         ⚠
+    ///         <b>
+    ///             For consumers that cache something derived from a mesh and cannot see
+    ///             <see cref="Invalidate" /> happen
+    ///         </b>
+    ///         —
     ///         <a href="https://github.com/Rikarin/Vixen/issues/971">#971</a>. Clearing this source's
     ///         own map is enough for a caller that asks it every frame and no use at all to one that
     ///         resolved a mesh once and keyed the answer on the reference — because the reference is
@@ -142,8 +156,11 @@ public sealed class ProjectMeshSource : IMeshSource {
     /// <exception cref="ArgumentException"><paramref name="assetFile" /> is null or empty.</exception>
     /// <remarks>
     ///     <para>
-    ///         <b>The half of <see cref="TryGet" /> that answers "which meshes are there", which
-    ///         nothing could answer at all.</b> A reference names one sub-asset and every editor
+    ///         <b>
+    ///             The half of <see cref="TryGet" /> that answers "which meshes are there", which
+    ///             nothing could answer at all.
+    ///         </b>
+    ///         A reference names one sub-asset and every editor
     ///         surface that wants a model's geometry — a mesh-map bake, a layer stack's binding, a
     ///         mesh picker — starts from the asset and not from the sub-asset. The sidecar is where
     ///         that list already is: <c>ImportPipeline</c> writes what an import declared back into
@@ -178,11 +195,11 @@ public sealed class ProjectMeshSource : IMeshSource {
         try {
             meta = AssetMetaFile.ReadFile(sidecar);
         } catch (Exception failure) when (failure
-            is IOException
-            or UnauthorizedAccessException
-            or YamlParseException
-            or YamlBindingException
-            or MetaVersionException) {
+                                              is IOException
+                                              or UnauthorizedAccessException
+                                              or YamlParseException
+                                              or YamlBindingException
+                                              or MetaVersionException) {
             return [];
         }
 

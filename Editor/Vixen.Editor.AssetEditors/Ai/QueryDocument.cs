@@ -3,7 +3,6 @@
 
 using System.Diagnostics.CodeAnalysis;
 using Vixen.Ai;
-using Vixen.Authoring;
 using Vixen.Core;
 using Vixen.Core.Mathematics;
 using Vixen.Core.Yaml;
@@ -72,7 +71,8 @@ public sealed class QueryDocument : EditorDocument {
                 );
             }
         } catch (Exception exception) when (exception is YamlBindingException
-            or YamlParseException or NotSupportedException) {
+                                                or YamlParseException
+                                                or NotSupportedException) {
             Content = New(name);
             LoadError = exception.Message;
         }
@@ -165,8 +165,12 @@ public sealed class QueryDocument : EditorDocument {
     /// <param name="delta">How far, positive for later.</param>
     /// <returns>Whether it moved.</returns>
     /// <remarks>
-    ///     ⚠ <b>The one gesture this editor has that a utility set's does not, and it is the one that
-    ///     matters.</b> A filtering test rejects a point and everything below it is skipped, so moving
+    ///     ⚠
+    ///     <b>
+    ///         The one gesture this editor has that a utility set's does not, and it is the one that
+    ///         matters.
+    ///     </b>
+    ///     A filtering test rejects a point and everything below it is skipped, so moving
     ///     a trace below a distance filter is the difference between four hundred raycasts and forty.
     ///     The runtime honours the order exactly; reordering here is how an author pays or saves.
     /// </remarks>
@@ -204,8 +208,7 @@ public sealed class QueryDocument : EditorDocument {
             Version = content.Version,
             Name = content.Name,
             Generators = [
-                .. content.Generators.Select(
-                    generator => new QueryGeneratorContent {
+                ..content.Generators.Select(generator => new QueryGeneratorContent {
                         Kind = generator.Kind,
                         Source = generator.Source,
                         Extent = generator.Extent,
@@ -217,37 +220,37 @@ public sealed class QueryDocument : EditorDocument {
                     }
                 )
             ],
-            Tests = [.. content.Tests.Select(Copy)]
+            Tests = [..content.Tests.Select(Copy)]
         };
     }
 
-    static QueryTestContent Copy(QueryTestContent test) => new() {
-        Kind = test.Kind,
-        Source = test.Source,
-        Purpose = test.Purpose,
-        FromContext = test.FromContext,
-        Minimum = test.Minimum,
-        Maximum = test.Maximum,
-        Floor = test.Floor,
-        Ceiling = test.Ceiling,
-        Weight = test.Weight,
-        Curve = test.Curve,
-        Slope = test.Slope,
-        Exponent = test.Exponent,
-        Shift = test.Shift,
-        Centre = test.Centre,
-        Keys = [
-            .. test.Keys.Select(
-                key => new UtilityCurveKeyContent {
-                    Time = key.Time,
-                    Value = key.Value,
-                    InTangent = key.InTangent,
-                    OutTangent = key.OutTangent,
-                    Mode = key.Mode
-                }
-            )
-        ]
-    };
+    static QueryTestContent Copy(QueryTestContent test) =>
+        new() {
+            Kind = test.Kind,
+            Source = test.Source,
+            Purpose = test.Purpose,
+            FromContext = test.FromContext,
+            Minimum = test.Minimum,
+            Maximum = test.Maximum,
+            Floor = test.Floor,
+            Ceiling = test.Ceiling,
+            Weight = test.Weight,
+            Curve = test.Curve,
+            Slope = test.Slope,
+            Exponent = test.Exponent,
+            Shift = test.Shift,
+            Centre = test.Centre,
+            Keys = [
+                ..test.Keys.Select(key => new UtilityCurveKeyContent {
+                        Time = key.Time,
+                        Value = key.Value,
+                        InTangent = key.InTangent,
+                        OutTangent = key.OutTangent,
+                        Mode = key.Mode
+                    }
+                )
+            ]
+        };
 
     /// <summary>
     ///     A new query: a grid around the agent, kept on the navigable near half. ⚠ A file whose first

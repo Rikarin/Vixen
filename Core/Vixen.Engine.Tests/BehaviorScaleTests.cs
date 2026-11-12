@@ -39,8 +39,12 @@ namespace Vixen.Engine.Tests;
 public class BehaviorScaleTests {
     /// <summary>The sentence in doc 04 that states the figure, and the figure in it.</summary>
     /// <remarks>
-    ///     ⚠ <b><c>[\s&gt;]+</c> between the words, because the sentence is wrapped inside a block
-    ///     quote</b> — it reaches the file as <c>this\n&gt; document</c>, and a pattern written
+    ///     ⚠
+    ///     <b>
+    ///         <c>[\s&gt;]+</c> between the words, because the sentence is wrapped inside a block
+    ///         quote
+    ///     </b>
+    ///     — it reaches the file as <c>this\n&gt; document</c>, and a pattern written
     ///     against the rendered prose would match nothing and this file would pass having read no
     ///     number at all.
     /// </remarks>
@@ -128,13 +132,15 @@ public class BehaviorScaleTests {
 
             Assert.True(
                 text.Contains("BehaviorScale.Many", StringComparison.Ordinal),
-                reader + " no longer reads BehaviorScale.Many. It is one of the two readers of "
+                reader
+                + " no longer reads BehaviorScale.Many. It is one of the two readers of "
                 + "BehaviorStore.Population, and doc 04's threshold is meant to reach it from one place."
             );
 
             Assert.False(
                 threshold.IsMatch(text),
-                reader + " declares a threshold constant of its own again, which is #1230: two copies "
+                reader
+                + " declares a threshold constant of its own again, which is #1230: two copies "
                 + "of one figure that cannot see each other, both with a remark saying the figure "
                 + "belongs to doc 04."
             );

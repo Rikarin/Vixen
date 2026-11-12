@@ -38,39 +38,41 @@ public sealed class AddComponentMenuDumpTests {
     ///     A line that adds something: no arrow, and the quiet word on the right.
     /// </summary>
     [Fact]
-    public void An_entry_row_is_the_one_the_pool_built() => SameRow(
-        handWritten: row => {
-            row.Index = 3;
-            row.Label = "Audio Source";
-            row.Arrow.SetStyle("display", "none");
-            row.DetailPart.Text = "Audio";
-        },
-        ported: row => {
-            row.Index = 3;
-            row.Label = "Audio Source";
-            row.Opening = RowArrow.None;
-            row.Detail = "Audio";
-        }
-    );
+    public void An_entry_row_is_the_one_the_pool_built() =>
+        SameRow(
+            static row => {
+                row.Index = 3;
+                row.Label = "Audio Source";
+                row.Arrow.SetStyle("display", "none");
+                row.DetailPart.Text = "Audio";
+            },
+            static row => {
+                row.Index = 3;
+                row.Label = "Audio Source";
+                row.Opening = RowArrow.None;
+                row.Detail = "Audio";
+            }
+        );
 
     /// <summary>A category to go into: the right chevron, and the count of what is in it.</summary>
     [Fact]
-    public void A_category_row_is_the_one_the_pool_built() => SameRow(
-        handWritten: row => {
-            row.Index = 0;
-            row.Arrow.SetStyle("display", "flex");
-            row.Arrow.Geometry = ControlIcons.ChevronRight;
-            row.Label = "Rendering";
-            row.RemoveClass("back");
-            row.DetailPart.Text = "7";
-        },
-        ported: row => {
-            row.Index = 0;
-            row.Opening = RowArrow.Into;
-            row.Label = "Rendering";
-            row.Detail = "7";
-        }
-    );
+    public void A_category_row_is_the_one_the_pool_built() =>
+        SameRow(
+            static row => {
+                row.Index = 0;
+                row.Arrow.SetStyle("display", "flex");
+                row.Arrow.Geometry = ControlIcons.ChevronRight;
+                row.Label = "Rendering";
+                row.RemoveClass("back");
+                row.DetailPart.Text = "7";
+            },
+            static row => {
+                row.Index = 0;
+                row.Opening = RowArrow.Into;
+                row.Label = "Rendering";
+                row.Detail = "7";
+            }
+        );
 
     /// <summary>
     ///     The way back out: the same chevron turned round, and the class that greys it.
@@ -81,23 +83,24 @@ public sealed class AddComponentMenuDumpTests {
     ///     that and moved it behind one property; this is what says the property writes both halves.
     /// </remarks>
     [Fact]
-    public void The_way_back_out_is_the_one_the_pool_built() => SameRow(
-        handWritten: row => {
-            row.Index = 0;
-            row.Arrow.SetStyle("display", "flex");
-            row.Arrow.Geometry = ControlIcons.ChevronLeft;
-            row.Label = "All categories";
-            row.DetailPart.Text = "";
-            row.AddClass("back");
-        },
-        ported: row => {
-            row.Index = 0;
-            row.Opening = RowArrow.Out;
-            row.Label = "All categories";
-            row.Detail = "";
-            row.AddClass("back");
-        }
-    );
+    public void The_way_back_out_is_the_one_the_pool_built() =>
+        SameRow(
+            static row => {
+                row.Index = 0;
+                row.Arrow.SetStyle("display", "flex");
+                row.Arrow.Geometry = ControlIcons.ChevronLeft;
+                row.Label = "All categories";
+                row.DetailPart.Text = string.Empty;
+                row.AddClass("back");
+            },
+            static row => {
+                row.Index = 0;
+                row.Opening = RowArrow.Out;
+                row.Label = "All categories";
+                row.Detail = string.Empty;
+                row.AddClass("back");
+            }
+        );
 
     /// <summary>And the highlight, which is one bit of a flag set the pool wrote by hand.</summary>
     /// <remarks>
@@ -108,12 +111,12 @@ public sealed class AddComponentMenuDumpTests {
     [Fact]
     public void The_highlight_is_the_bit_the_pool_set() {
         var handWritten = SameRow(
-            handWritten: row => {
+            static row => {
                 row.Label = "Camera";
                 row.Arrow.SetStyle("display", "none");
                 row.State |= Vixen.Ui.Styling.ElementState.Checked;
             },
-            ported: row => {
+            static row => {
                 row.Label = "Camera";
                 row.Opening = RowArrow.None;
                 row.Selected = true;
@@ -129,8 +132,12 @@ public sealed class AddComponentMenuDumpTests {
     /// <summary>
     ///     ⚠ <b>A narrowed query leaves no rows behind, which the pool could not manage.</b> The
     ///     hand-written picker grew its row list to the high-water mark of every list it had ever
-    ///     shown and parked the surplus under <c>display: none</c> — <b>still labelled with the
-    ///     previous query's components</b>. This is the assertion that says the tree holds what is on
+    ///     shown and parked the surplus under <c>display: none</c> —
+    ///     <b>
+    ///         still labelled with the
+    ///         previous query's components
+    ///     </b>
+    ///     . This is the assertion that says the tree holds what is on
     ///     screen and nothing else, and it is written against the dump rather than against
     ///     <c>Rows.Count</c> so that a hidden element counts.
     /// </summary>
@@ -158,7 +165,7 @@ public sealed class AddComponentMenuDumpTests {
         // One row element per line, hidden ones included: this is the count the pool got wrong.
         Assert.Equal(
             picker.LineCount,
-            narrow.Tree.Split('\n').Count(line => line.Contains("<add-component-row", StringComparison.Ordinal))
+            narrow.Tree.Split('\n').Count(static line => line.Contains("<add-component-row", StringComparison.Ordinal))
         );
 
         Assert.DoesNotContain("parked", narrow.Tree, StringComparison.Ordinal);
@@ -238,17 +245,23 @@ public sealed class AddComponentMenuDumpTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>The key handler is on the picker's own element and not on a root beside it, which
-    ///     is the whole of what <c>&lt;self /&gt;</c> bought and is what nothing here could see.</b>
+    ///     ⚠
+    ///     <b>
+    ///         The key handler is on the picker's own element and not on a root beside it, which
+    ///         is the whole of what <c>&lt;self /&gt;</c> bought and is what nothing here could see.
+    ///     </b>
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>Added because the test above does not distinguish the two, and that was checked
-    ///     rather than assumed.</b> <c>Arrowing_down_moves_the_highlight_and_rebuilds_no_row</c>
+    ///     ⚠
+    ///     <b>
+    ///         Added because the test above does not distinguish the two, and that was checked
+    ///         rather than assumed.
+    ///     </b>
+    ///     <c>Arrowing_down_moves_the_highlight_and_rebuilds_no_row</c>
     ///     presses Down while the focus is on the <c>SearchBox</c>, so the capture route runs
     ///     root → picker → box — and a handler written on <c>&lt;SearchBox&gt;</c> instead of on
     ///     <c>&lt;self /&gt;</c> is on that route as its target. Moving the attribute there leaves
     ///     every other test in this file green; it was tried, and it passed.
-    ///
     ///     The case that separates them is the one the four pickers stayed hand-written for: a key
     ///     arriving while the focus is somewhere else in the panel. The list is not under the box,
     ///     so a handler on the box is not on this route and the host is.
@@ -317,8 +330,8 @@ public sealed class AddComponentMenuDumpTests {
         var two = Row(editor, ported);
 
         Assert.Equal(one, two);
-        Assert.NotEqual("", two.Tree);
-        Assert.NotEqual("", two.Flags);
+        Assert.NotEqual(string.Empty, two.Tree);
+        Assert.NotEqual(string.Empty, two.Flags);
 
         return two;
     }
@@ -344,7 +357,7 @@ public sealed class AddComponentMenuDumpTests {
         (editor.Ui.Tree(picker), editor.Ui.Flags(picker));
 
     static IReadOnlyList<string> Checked(string flags) =>
-        [.. flags.Split('\n').Where(line => line.Contains("State=Checked", StringComparison.Ordinal))];
+        [..flags.Split('\n').Where(static line => line.Contains("State=Checked", StringComparison.Ordinal))];
 
     /// <summary>Every row label the flags dump named, which is what a parked row would keep.</summary>
     static IReadOnlyList<string> Labels(string flags) {
@@ -375,14 +388,14 @@ public sealed class AddComponentMenuDumpTests {
     static AddComponentMenu Open(EditorSession editor) {
         Descendants(editor.Panel("inspector"))
             .OfType<ButtonBase>()
-            .First(button => button.Label == "Add Component")
+            .First(static button => button.Label == "Add Component")
             .Activate();
 
         editor.Settle();
 
         return Descendants(editor.Document.Root)
-            .OfType<AddComponentMenu>()
-            .FirstOrDefault(candidate => candidate.IsOpen)
+                .OfType<AddComponentMenu>()
+                .FirstOrDefault(static candidate => candidate.IsOpen)
             ?? throw editor.Fail("the Add Component picker did not open");
     }
 

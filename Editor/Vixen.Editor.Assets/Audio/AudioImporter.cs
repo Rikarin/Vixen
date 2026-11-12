@@ -124,7 +124,7 @@ public sealed class AudioImporter : AssetImporter<AudioImportSettings> {
                 var total = 0f;
 
                 for (var channel = 0; channel < channels; channel++) {
-                    total += source[(frame * channels) + channel];
+                    total += source[frame * channels + channel];
                 }
 
                 BinaryPrimitives.WriteSingleLittleEndian(samples.AsSpan(frame * 4), total / channels);
@@ -140,7 +140,7 @@ public sealed class AudioImporter : AssetImporter<AudioImportSettings> {
             var total = 0;
 
             for (var channel = 0; channel < channels; channel++) {
-                total += integers[(frame * channels) + channel];
+                total += integers[frame * channels + channel];
             }
 
             BinaryPrimitives.WriteInt16LittleEndian(mixed.AsSpan(frame * 2), (short)(total / channels));

@@ -55,7 +55,7 @@ public sealed class WorldSpawns {
     public int Camps => spawners.Count;
 
     /// <summary>How many things are alive across all of them.</summary>
-    public int Alive => spawners.Sum(spawner => spawner.Alive);
+    public int Alive => spawners.Sum(static spawner => spawner.Alive);
 
     /// <summary>How many spawn orders have been issued since the shard started.</summary>
     /// <remarks>

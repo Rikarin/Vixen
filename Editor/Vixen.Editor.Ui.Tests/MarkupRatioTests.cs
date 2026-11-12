@@ -14,11 +14,14 @@ namespace Vixen.Editor.Ui.Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>Two directions, and the second is what makes the list a ledger rather than a mute
-///         button.</b> A view-shaped class with no <c>.vxml</c> beside it and no line in the ledger
+///         <b>
+///             Two directions, and the second is what makes the list a ledger rather than a mute
+///             button.
+///         </b>
+///         A view-shaped class with no <c>.vxml</c> beside it and no line in the ledger
 ///         is a new hand-built view that has not said why; a line whose file has grown a
 ///         <c>.vxml</c>, or has gone, is a port nobody recorded — delete the line in the same commit.
-///         <c>NotRooted.txt</c> and <c>WhitespaceExempt.txt</c> are the same shape for the same
+///         <c>NotRooted.txt</c> and <c>DocCommentExempt.txt</c> are the same shape for the same
 ///         reason.
 ///     </para>
 ///     <para>
@@ -55,14 +58,18 @@ public class MarkupRatioTests {
 
         Assert.True(
             unlisted.Count == 0,
-            "View-shaped classes with no .vxml beside them and no line in " + Ledger + ": "
+            "View-shaped classes with no .vxml beside them and no line in "
+            + Ledger
+            + ": "
             + string.Join(", ", unlisted)
             + ". Port it, or add a line saying why it stays C# (#89)."
         );
 
         Assert.True(
             stale.Count == 0,
-            "Lines in " + Ledger + " naming a file that now has a .vxml beside it, or is gone: "
+            "Lines in "
+            + Ledger
+            + " naming a file that now has a .vxml beside it, or is gone: "
             + string.Join(", ", stale)
             + ". Delete the line — the list can only shrink."
         );
@@ -115,16 +122,17 @@ public class MarkupRatioTests {
         var rows = ReadReadmeLedger(root);
 
         var ported = withMarkup.Select(Path.GetFileNameWithoutExtension).ToHashSet(StringComparer.Ordinal);
-        var pending = ledger.Where(entry => entry.Value.StartsWith("pending", StringComparison.Ordinal))
-            .Select(entry => Path.GetFileNameWithoutExtension(entry.Key)!)
+        var pending = ledger.Where(static entry => entry.Value.StartsWith("pending", StringComparison.Ordinal))
+            .Select(static entry => Path.GetFileNameWithoutExtension(entry.Key)!)
             .ToHashSet(StringComparer.Ordinal);
-        var declined = ledger.Keys.Select(path => Path.GetFileNameWithoutExtension(path)!)
+        var declined = ledger.Keys.Select(static path => Path.GetFileNameWithoutExtension(path)!)
             .Except(pending, StringComparer.Ordinal)
             .ToHashSet(StringComparer.Ordinal);
 
         List<string> disagreements = [];
 
-        foreach (var name in ledger.Keys.Select(path => Path.GetFileNameWithoutExtension(path)!).Order(StringComparer.Ordinal)) {
+        foreach (var name in ledger.Keys.Select(static path => Path.GetFileNameWithoutExtension(path)!)
+                     .Order(StringComparer.Ordinal)) {
             var named = rows.Where(row => row.Names.Contains(name)).ToList();
 
             if (named.Count == 0) {
@@ -135,14 +143,18 @@ public class MarkupRatioTests {
 
             foreach (var row in named) {
                 if (pending.Contains(name) && row.Verdict != ReadmeVerdict.Open) {
-                    disagreements.Add($"{name} is pending in {Ledger} and the README's row says {row.Verdict}: '{row.Live}'");
+                    disagreements.Add(
+                        $"{name} is pending in {Ledger} and the README's row says {row.Verdict}: '{row.Live}'"
+                    );
                 } else if (declined.Contains(name) && row.Verdict != ReadmeVerdict.Declined) {
-                    disagreements.Add($"{name} is '{ledger.First(entry => Path.GetFileNameWithoutExtension(entry.Key) == name).Value}' in {Ledger} and the README's row says {row.Verdict}: '{row.Live}'");
+                    disagreements.Add(
+                        $"{name} is '{ledger.First(entry => Path.GetFileNameWithoutExtension(entry.Key) == name).Value}' in {Ledger} and the README's row says {row.Verdict}: '{row.Live}'"
+                    );
                 }
             }
         }
 
-        foreach (var row in rows.Where(row => row.Verdict == ReadmeVerdict.Declined)) {
+        foreach (var row in rows.Where(static row => row.Verdict == ReadmeVerdict.Declined)) {
             foreach (var name in row.Names.Where(ported.Contains)) {
                 disagreements.Add($"{name} has a .vxml beside it and the README's row still declines it: '{row.Live}'");
             }
@@ -150,24 +162,28 @@ public class MarkupRatioTests {
 
         // A row whose every named view has markup and none is still pending has been ported; an open
         // verdict on it is the history's first sentence and not its last.
-        foreach (var row in rows.Where(row => row.Verdict == ReadmeVerdict.Open)) {
+        foreach (var row in rows.Where(static row => row.Verdict == ReadmeVerdict.Open)) {
             if (row.Names.Any(ported.Contains) && !row.Names.Any(pending.Contains)) {
-                disagreements.Add($"{string.Join(" · ", row.Names.Where(ported.Contains))} has a .vxml beside it and the README's row reads as still open: '{row.Live}'");
+                disagreements.Add(
+                    $"{string.Join(" · ", row.Names.Where(ported.Contains))} has a .vxml beside it and the README's row reads as still open: '{row.Live}'"
+                );
             }
         }
 
         Assert.True(
             disagreements.Count == 0,
-            "Editor/Vixen.Editor.Ui/README.md's port table (under '### The ledger') and " + Ledger
-            + " disagree — a port or a decline owes both files (#1342):\n  " + string.Join("\n  ", disagreements)
+            "Editor/Vixen.Editor.Ui/README.md's port table (under '### The ledger') and "
+            + Ledger
+            + " disagree — a port or a decline owes both files (#1342):\n  "
+            + string.Join("\n  ", disagreements)
         );
 
         // ⚠ The instrument. A parser that found no table, or a table whose verdicts all read as one
         // class, would pass every line above vacuously.
         Assert.True(rows.Count >= 25, $"only {rows.Count} row(s) of the README's port table were read");
-        Assert.Contains(rows, row => row.Verdict == ReadmeVerdict.Done);
-        Assert.Contains(rows, row => row.Verdict == ReadmeVerdict.Declined);
-        Assert.Contains(rows, row => row.Verdict == ReadmeVerdict.Open);
+        Assert.Contains(rows, static row => row.Verdict == ReadmeVerdict.Done);
+        Assert.Contains(rows, static row => row.Verdict == ReadmeVerdict.Declined);
+        Assert.Contains(rows, static row => row.Verdict == ReadmeVerdict.Open);
         Assert.NotEmpty(pending);
     }
 
@@ -187,7 +203,11 @@ public class MarkupRatioTests {
 
         Assert.True(heading >= 0, $"{Readme} has no '### The ledger' heading");
 
-        var header = Array.FindIndex(lines, heading, line => line.StartsWith("| Panel |", StringComparison.Ordinal));
+        var header = Array.FindIndex(
+            lines,
+            heading,
+            static line => line.StartsWith("| Panel |", StringComparison.Ordinal)
+        );
 
         Assert.True(header > heading, $"{Readme}: no '| Panel |' table under '### The ledger'");
 
@@ -200,9 +220,10 @@ public class MarkupRatioTests {
 
             Assert.True(cells.Length >= 4, $"{Readme}: a port-table row with {cells.Length} cell(s): {lines[index]}");
 
-            var names = Regex.Matches(cells[0], @"`(\w+)`").Select(match => match.Groups[1].Value)
+            var names = Regex.Matches(cells[0], @"`(\w+)`")
+                .Select(static match => match.Groups[1].Value)
                 .ToHashSet(StringComparer.Ordinal);
-            var live = Regex.Replace(cells[3], "~~.*?~~", "").Replace("*", "").Trim();
+            var live = Regex.Replace(cells[3], "~~.*?~~", string.Empty).Replace("*", string.Empty).Trim();
             var verdict = Regex.IsMatch(live, @"^(?:no|not\s+(?:a\s+)?panels?)\b", RegexOptions.IgnoreCase)
                 ? ReadmeVerdict.Declined
                 : Regex.IsMatch(live, @"^(?:\w+\s+){0,2}done\b", RegexOptions.IgnoreCase)

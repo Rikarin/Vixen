@@ -11,8 +11,12 @@ namespace Vixen.Platform.Ui.Tests;
 /// <summary>The user's accessibility settings reach the document, which for their whole life they did not.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Two tested halves and an untested join, which is this repository's commonest
-///         defect.</b> <c>MediaQuery</c> has answered <c>prefers-reduced-motion</c> and
+///         ⚠
+///         <b>
+///             Two tested halves and an untested join, which is this repository's commonest
+///             defect.
+///         </b>
+///         <c>MediaQuery</c> has answered <c>prefers-reduced-motion</c> and
 ///         <c>forced-colors</c> since the features landed, <c>Animator.ReduceMotion</c> has silently
 ///         dropped transitions and keyframes since the same day, and every writer of
 ///         <c>MediaPreferences</c> in the tree was a test. Nothing between an operating system and
@@ -20,8 +24,12 @@ namespace Vixen.Platform.Ui.Tests;
 ///         was unreachable in every shipped application and no assertion anywhere went red about it.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The assertions are about <c>Animator.ReduceMotion</c> and about the media context,
-///         not about the property that was written.</b> A test that read
+///         ⚠
+///         <b>
+///             The assertions are about <c>Animator.ReduceMotion</c> and about the media context,
+///             not about the property that was written.
+///         </b>
+///         A test that read
 ///         <c>UiSurface.Preferences</c> back would pass against a wire that reached the surface and
 ///         stopped there, which is exactly one join short of the behaviour anybody wanted.
 ///     </para>
@@ -33,7 +41,7 @@ public class AccessibilityWiringTests {
 
         Assert.False(document.Styles.Animations.ReduceMotion);
 
-        PlatformInput.ApplyAccessibility(document, new SystemAccessibility(ReduceMotion: true));
+        PlatformInput.ApplyAccessibility(document, new(true));
 
         Assert.True(document.Styles.Animations.ReduceMotion);
         Assert.Equal(MotionPreference.Reduce, document.Primary.Media.Preferences.Motion);
@@ -67,7 +75,7 @@ public class AccessibilityWiringTests {
     public void High_contrast_answers_both_forced_colors_and_prefers_contrast() {
         using var document = new UiDocument(200f, 100f);
 
-        PlatformInput.ApplyAccessibility(document, new SystemAccessibility(HighContrast: true));
+        PlatformInput.ApplyAccessibility(document, new(HighContrast: true));
 
         var preferences = document.Primary.Media.Preferences;
 
@@ -85,7 +93,7 @@ public class AccessibilityWiringTests {
         using var document = new UiDocument(200f, 100f);
         var second = document.CreateSurface(120f, 80f);
 
-        PlatformInput.ApplyAccessibility(document, new SystemAccessibility(true, true));
+        PlatformInput.ApplyAccessibility(document, new(true, true));
 
         Assert.Equal(MotionPreference.Reduce, second.Media.Preferences.Motion);
         Assert.True(second.Media.Preferences.ForcedColors);
@@ -103,18 +111,18 @@ public class AccessibilityWiringTests {
 
         platform.PumpEvents();
 
-        platform.Accessibility = new SystemAccessibility(ReduceMotion: true);
+        platform.Accessibility = new(true);
 
         Assert.Contains(
             platform.PumpEvents().ToArray(),
-            posted => posted.Kind == PlatformEventKind.SystemAccessibilityChanged
+            static posted => posted.Kind == PlatformEventKind.SystemAccessibilityChanged
         );
 
-        platform.Accessibility = new SystemAccessibility(ReduceMotion: true);
+        platform.Accessibility = new(true);
 
         Assert.DoesNotContain(
             platform.PumpEvents().ToArray(),
-            posted => posted.Kind == PlatformEventKind.SystemAccessibilityChanged
+            static posted => posted.Kind == PlatformEventKind.SystemAccessibilityChanged
         );
     }
 }

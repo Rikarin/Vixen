@@ -5,7 +5,6 @@ using Vixen.Ai.Ecs;
 using Vixen.Core;
 using Vixen.Core.Threading;
 using Vixen.Ecs;
-using Vixen.Ecs.Systems;
 using Xunit;
 
 namespace Vixen.Ai.Tests;
@@ -15,8 +14,12 @@ namespace Vixen.Ai.Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b><c>GoapPlanQueue.Scheduler</c> was assigned by no production caller, no test and no
-///         benchmark.</b> #456 filed it as one of four seams "assigned only by benchmarks and tests";
+///         ⚠
+///         <b>
+///             <c>GoapPlanQueue.Scheduler</c> was assigned by no production caller, no test and no
+///             benchmark.
+///         </b>
+///         #456 filed it as one of four seams "assigned only by benchmarks and tests";
 ///         for this one the tests and the benchmarks did not assign it either, so the whole
 ///         <c>ScheduleParallel</c> branch — and the planner arithmetic underneath it — had never run
 ///         anywhere at all. That is the reason the defect below survived review.
@@ -116,7 +119,7 @@ public sealed class GoapPlanQueueSchedulerTests {
     /// </remarks>
     [Fact]
     public void TheScheduledPathAgreesWithTheInlineOne() {
-        Assert.Equal(Resolve(scheduled: false), Resolve(scheduled: true));
+        Assert.Equal(Resolve(false), Resolve(true));
 
         return;
 
@@ -164,7 +167,7 @@ public sealed class GoapPlanQueueSchedulerTests {
         using var world = new World("goap-wiring");
         using var jobs = new JobScheduler(2);
         var pantry = new GoapPearTests.Pantry { OnGround = 4, Carried = 0, Hunger = 80 };
-        using var system = new AiSystem(new AgentActionRegistry(), BlackboardLayout.Empty);
+        using var system = new AiSystem(new(), BlackboardLayout.Empty);
 
         system.Domains.Add(GoapPearTests.Orchard(pantry));
 
@@ -177,7 +180,7 @@ public sealed class GoapPlanQueueSchedulerTests {
 
         Assert.Null(queue.Scheduler);
 
-        system.Update(new SystemContext(world, GameTime.Zero, jobs, new CommandBuffer(world)), default);
+        system.Update(new(world, GameTime.Zero, jobs, new(world)), default);
 
         Assert.Same(jobs, queue.Scheduler);
     }

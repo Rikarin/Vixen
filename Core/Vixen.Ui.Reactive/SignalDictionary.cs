@@ -12,17 +12,25 @@ namespace Vixen.Ui.Reactive;
 /// <remarks>
 ///     <para>
 ///         <see cref="CollectionSignal{T}" />'s sibling for the keyed shape, and it exists for one
-///         measured reason. Without it a live map is a <c>Signal&lt;ImmutableDictionary&lt;K,
-///         V&gt;&gt;</c> — correct, because replacing the map <i>is</i> the notification, and paid for
+///         measured reason. Without it a live map is a
+///         <c>
+///             Signal&lt;ImmutableDictionary&lt;K,
+///             V&gt;&gt;
+///         </c>
+///         — correct, because replacing the map <i>is</i> the notification, and paid for
 ///         with a rebalanced spine of tree nodes on every single write. <c>RemoteInspectorClient</c>'s
 ///         counters are the case that asked for this: a build reports its frame rate every frame, and
 ///         saying that one <see langword="double" /> moved allocated a handful of objects. An in-place
 ///         write allocates nothing, and this type is that write with the notification still attached.
 ///     </para>
 ///     <para>
-///         ⚠ <b>One reactive node for the whole map, not one per key — which is
-///         <see cref="CollectionSignal{T}" />'s choice, taken here for the same reasons and one
-///         more.</b> Every read subscribes to the map as a whole, so a binding that reads
+///         ⚠
+///         <b>
+///             One reactive node for the whole map, not one per key — which is
+///             <see cref="CollectionSignal{T}" />'s choice, taken here for the same reasons and one
+///             more.
+///         </b>
+///         Every read subscribes to the map as a whole, so a binding that reads
 ///         <c>map["fps"]</c> is woken when <c>map["draws"]</c> is written. That over-approximates the
 ///         dependency and never under-approximates it: the cost of the coarse edge is a re-run, never
 ///         a stale answer, and a binding that re-runs and computes the same string writes nothing
@@ -37,12 +45,20 @@ namespace Vixen.Ui.Reactive;
 ///         twelve counters into an unbounded set of nodes keyed by whatever strings the callers
 ///         happened to ask about. And the fine-grained path a UI actually wants from a map is not
 ///         "this key moved" in the first place: <c>@for</c> cannot bind to a dictionary at all,
-///         because a dictionary has no order, so a pane of live numbers binds to a <i>sorted
-///         projection</i> of it and the reconciler's keys come from there.
+///         because a dictionary has no order, so a pane of live numbers binds to a
+///         <i>
+///             sorted
+///             projection
+///         </i>
+///         of it and the reconciler's keys come from there.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Which is also why there is no change log here, and that is the one half of
-///         <see cref="CollectionSignal{T}" /> deliberately not carried across.</b> A list's log earns
+///         ⚠
+///         <b>
+///             Which is also why there is no change log here, and that is the one half of
+///             <see cref="CollectionSignal{T}" /> deliberately not carried across.
+///         </b>
+///         A list's log earns
 ///         its per-write cost because a keyed reconciler reads it and turns "inserted at 3" into one
 ///         appended row instead of ten thousand rebuilt ones. Nothing reads a map's, for the reason
 ///         in the paragraph above — the projection is what gets reconciled — so a log here would be
@@ -66,8 +82,12 @@ namespace Vixen.Ui.Reactive;
 ///         are ADR-007's contract and neither is different here.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The name is the wrong way round from <see cref="CollectionSignal{T}" />'s, and that
-///         is the analyzer's call rather than a slip.</b> <c>DictionarySignal</c> is what symmetry
+///         ⚠
+///         <b>
+///             The name is the wrong way round from <see cref="CollectionSignal{T}" />'s, and that
+///             is the analyzer's call rather than a slip.
+///         </b>
+///         <c>DictionarySignal</c> is what symmetry
 ///         asks for and CA1710 refuses it: a type implementing
 ///         <see cref="IReadOnlyDictionary{TKey,TValue}" /> has to end in <c>Dictionary</c> or
 ///         <c>Collection</c>, and <see cref="CollectionSignal{T}" /> escapes the same rule only
@@ -262,8 +282,7 @@ public sealed class SignalDictionary<TKey, TValue> : ReactiveNode, IReadOnlyDict
         return entries.GetEnumerator();
     }
 
-    IEnumerator<KeyValuePair<TKey, TValue>> IEnumerable<KeyValuePair<TKey, TValue>>.GetEnumerator() =>
-        GetEnumerator();
+    IEnumerator<KeyValuePair<TKey, TValue>> IEnumerable<KeyValuePair<TKey, TValue>>.GetEnumerator() => GetEnumerator();
 
     IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
 

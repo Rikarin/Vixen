@@ -8,7 +8,6 @@ using Vixen.Core.Syntax.Diagnostics;
 using Vixen.Raven;
 using Vixen.Raven.Artefacts;
 using Vixen.Raven.CodeGen;
-using Vixen.Raven.Diagnostics;
 using Vixen.Raven.IR;
 using Vixen.Raven.Lowering;
 using Vixen.Raven.Reflection;
@@ -75,7 +74,11 @@ public sealed class RavenEffectCompiler : IEffectSource {
     /// <param name="target">Which backend to generate for.</param>
     /// <param name="referencePaths">Compiled <c>.rvnlib</c> libraries to bind against.</param>
     /// <exception cref="ArgumentException">The target is not a backend, or a source will not parse.</exception>
-    public RavenEffectCompiler(IEnumerable<string> paths, string target = "spirv", IEnumerable<string>? referencePaths = null)
+    public RavenEffectCompiler(
+        IEnumerable<string> paths,
+        string target = "spirv",
+        IEnumerable<string>? referencePaths = null
+    )
         : this(Read(paths), target, referencePaths) { }
 
     /// <summary>Parses shader sources that are already in memory.</summary>
@@ -140,10 +143,10 @@ public sealed class RavenEffectCompiler : IEffectSource {
         ArgumentException.ThrowIfNullOrEmpty(target);
 
         backend = TargetBackends.Create(target)
-                  ?? throw new ArgumentException(
-                      $"'{target}' is not a target. Available: {string.Join(", ", TargetBackends.Names)}.",
-                      nameof(target)
-                  );
+            ?? throw new ArgumentException(
+                $"'{target}' is not a target. Available: {string.Join(", ", TargetBackends.Names)}.",
+                nameof(target)
+            );
 
         Target = target;
 
@@ -158,16 +161,18 @@ public sealed class RavenEffectCompiler : IEffectSource {
         trees = parsed.ToImmutable();
         sources = texts.ToImmutable();
 
-        var failures = trees.SelectMany(tree => tree.Diagnostics).Where(diagnostic => diagnostic.IsError).ToArray();
+        var failures = trees.SelectMany(static tree => tree.Diagnostics)
+            .Where(static diagnostic => diagnostic.IsError)
+            .ToArray();
 
         if (failures.Length > 0) {
             throw new ArgumentException(
-                $"The shader sources do not parse: {string.Join("; ", failures.Select(diagnostic => diagnostic.ToString()))}",
+                $"The shader sources do not parse: {string.Join("; ", failures.Select(static diagnostic => diagnostic.ToString()))}",
                 nameof(named)
             );
         }
 
-        references = [.. (referencePaths ?? []).Select(RavenReference.FromFile)];
+        references = [..(referencePaths ?? []).Select(RavenReference.FromFile)];
 
         // The same hash CompiledEffect computes over the same texts in the same order, so an
         // artefact made here and one made by the command line for one tree agree about whether a
@@ -180,8 +185,12 @@ public sealed class RavenEffectCompiler : IEffectSource {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A compilation binds every tree it was given, not only the shader that was
-    ///         asked for.</b> So asking this for <c>Tonemap</c> — a post-process shader with no slots
+    ///         ⚠
+    ///         <b>
+    ///             A compilation binds every tree it was given, not only the shader that was
+    ///             asked for.
+    ///         </b>
+    ///         So asking this for <c>Tonemap</c> — a post-process shader with no slots
     ///         of its own — still has to satisfy <c>ForwardPlus.shading</c>,
     ///         <c>GBufferPass.surface</c> and the eight slots of <c>CompositeSurface</c>, because
     ///         those files are in the same compilation. Without a default, every key that does not
@@ -193,8 +202,12 @@ public sealed class RavenEffectCompiler : IEffectSource {
     ///         slots it said nothing about get filled so the compilation binds.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Empty is the historical behaviour and is only right for a caller whose every key
-    ///         is complete.</b> That is what a content build produces, because <c>MaterialCompiler</c>
+    ///         ⚠
+    ///         <b>
+    ///             Empty is the historical behaviour and is only right for a caller whose every key
+    ///             is complete.
+    ///         </b>
+    ///         That is what a content build produces, because <c>MaterialCompiler</c>
     ///         fills the whole set; it is not what a host asking for one post-process variant
     ///         produces, and the difference is why this exists.
     ///     </para>
@@ -321,7 +334,9 @@ public sealed class RavenEffectCompiler : IEffectSource {
     }
 
     static void Check(IEnumerable<Diagnostic> diagnostics, EffectKey key) {
-        var errors = diagnostics.Where(diagnostic => diagnostic.IsError).Select(diagnostic => diagnostic.ToString()).ToImmutableArray();
+        var errors = diagnostics.Where(static diagnostic => diagnostic.IsError)
+            .Select(static diagnostic => diagnostic.ToString())
+            .ToImmutableArray();
 
         if (errors.Length > 0) {
             // The diagnostics go in the message as well as on the exception. Whoever sees this first

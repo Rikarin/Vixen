@@ -10,8 +10,11 @@ namespace Vixen.Ui.Tests;
 /// <summary>Bidi reordering across a font-fallback boundary.</summary>
 /// <remarks>
 ///     <para>
-///         <b>The two things that cut a line into runs are not the same thing, and this is where they
-///         meet.</b> <c>FontRegistry.Cover</c> cuts where the <i>face</i> changes; UAX#9 cuts where
+///         <b>
+///             The two things that cut a line into runs are not the same thing, and this is where they
+///             meet.
+///         </b>
+///         <c>FontRegistry.Cover</c> cuts where the <i>face</i> changes; UAX#9 cuts where
 ///         the <i>level</i> changes; and a run has to be a stretch over which both are constant,
 ///         because a run is what gets one shaping call and one position on the line. Splitting by
 ///         coverage alone gives runs that are laid down in logical order — so a line whose Arabic and
@@ -44,7 +47,7 @@ public class BidiFallbackTests {
 
     static FontFace LoadFont(string resource, string name) {
         using var stream = Assembly.GetExecutingAssembly()
-            .GetManifestResourceStream($"Vixen.Ui.Tests.Fonts.{resource}")
+                .GetManifestResourceStream($"Vixen.Ui.Tests.Fonts.{resource}")
             ?? throw new InvalidOperationException($"the test font '{resource}' is not embedded");
 
         using var memory = new MemoryStream();
@@ -89,18 +92,18 @@ public class BidiFallbackTests {
             line.Runs[i].Place(glyphs, line.PenOf(i));
 
             foreach (var glyph in glyphs) {
-                drawn.Add(new Drawn(glyph.X, glyph.GlyphId, line.Runs[i].Font));
+                drawn.Add(new(glyph.X, glyph.GlyphId, line.Runs[i].Font));
             }
         }
 
-        return [.. drawn];
+        return [..drawn];
     }
 
     static float Of(Drawn[] drawn, FontFace font, ushort glyph) =>
         drawn.Single(item => ReferenceEquals(item.Font, font) && item.Glyph == glyph).X;
 
     static float RightmostOf(Drawn[] drawn, FontFace font) =>
-        drawn.Where(item => ReferenceEquals(item.Font, font)).Max(item => item.X);
+        drawn.Where(item => ReferenceEquals(item.Font, font)).Max(static item => item.X);
 
     [Fact]
     public void The_fixture_faces_split_the_string_exactly_where_the_tests_assume() {

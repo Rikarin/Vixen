@@ -9,15 +9,22 @@ namespace Vixen.Geometry.Remeshing.Tests;
 /// <summary>The shape of the worst quad, which nothing was measuring.</summary>
 /// <remarks>
 ///     <para>
-///         <b>docs/plan/41 § Part 4 lists <see cref="RemeshReport.MinScaledJacobian" /> among the nine
-///         fields the report exists to carry, and says what it means in one line: "the worst quad's
-///         shape quality. A negative one is an inverted quad."</b> R3 filled the field in and no test
+///         <b>
+///             docs/plan/41 § Part 4 lists <see cref="RemeshReport.MinScaledJacobian" /> among the nine
+///             fields the report exists to carry, and says what it means in one line: "the worst quad's
+///             shape quality. A negative one is an inverted quad."
+///         </b>
+///         R3 filled the field in and no test
 ///         read it, so the number went into the report and out of the build without anybody having to
 ///         look at it — which is precisely the failure the report was written to prevent.
 ///     </para>
 ///     <para>
-///         ⚠ <b>These are characterisation tests and the numbers in them are a defect, not a
-///         target.</b> A scaled Jacobian of zero means a quad with no area; a negative one means a
+///         ⚠
+///         <b>
+///             These are characterisation tests and the numbers in them are a defect, not a
+///             target.
+///         </b>
+///         A scaled Jacobian of zero means a quad with no area; a negative one means a
 ///         quad folded over itself. Both exist in today's output on every fixture. They are pinned
 ///         here so that the defect is visible in the suite rather than in the report, and so that the
 ///         phase that fixes it has something that fails when it does.
@@ -37,8 +44,11 @@ public class QuadQualityTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Four of these bounds got much worse without the output changing at all, because
-    ///         they were reading a metric that stopped scanning at the first degenerate face.</b>
+    ///         ⚠
+    ///         <b>
+    ///             Four of these bounds got much worse without the output changing at all, because
+    ///             they were reading a metric that stopped scanning at the first degenerate face.
+    ///         </b>
     ///         <see cref="RemeshMetrics.ScaledJacobian" /> returned <c>0f</c> from the whole function on
     ///         a collapsed corner, so box, cylinder, plate and union reported <c>0.000</c> — "there is a
     ///         flat quad somewhere" — and every face after that one went unmeasured. Their true worst
@@ -48,16 +58,24 @@ public class QuadQualityTests {
     ///         bigger than it was written down as, not smaller.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The bounds are loose on purpose — they are where the implementation is today and not
-    ///         where it should be, and tightening them is the work.</b> Only the sphere is anywhere near
+    ///         ⚠
+    ///         <b>
+    ///             The bounds are loose on purpose — they are where the implementation is today and not
+    ///             where it should be, and tightening them is the work.
+    ///         </b>
+    ///         Only the sphere is anywhere near
     ///         usable, at <c>−0.079</c> over 4 bad faces of 372; the rest run 11 to 62 inverted faces
     ///         out of 513 to 687. docs/plan/41 § D8 names the cause and it is unchanged by this
     ///         measurement: a Coons blend of four curved boundary chains is not injective, so the patch
     ///         interior folds, and the fix is a real per-patch parameterization.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The crease attribution was wrong and it was measured to be wrong, so these bounds are
-    ///         § D8's work after all.</b> Counted over the conditioned mesh, the number of feature edges
+    ///         ⚠
+    ///         <b>
+    ///             The crease attribution was wrong and it was measured to be wrong, so these bounds are
+    ///             § D8's work after all.
+    ///         </b>
+    ///         Counted over the conditioned mesh, the number of feature edges
     ///         whose two triangles land in the same patch is <b>0</b> on every one of the seven
     ///         fixtures: no patch spans a crease and § D4's promise is kept. What the folds were is the
     ///         transfinite blend, and what sent patches to it was
@@ -124,9 +142,7 @@ public class QuadQualityTests {
 
         // A quad with two corners on one position: a collapsed corner, whose angle is undefined.
         var flat = new[] {
-            mesh.AddPosition(new(0f, 0f, 0f)),
-            mesh.AddPosition(new(1f, 0f, 0f)),
-            mesh.AddPosition(new(1f, 0f, 0f)),
+            mesh.AddPosition(new(0f, 0f, 0f)), mesh.AddPosition(new(1f, 0f, 0f)), mesh.AddPosition(new(1f, 0f, 0f)),
             mesh.AddPosition(new(0f, 1f, 0f))
         };
 
@@ -137,9 +153,7 @@ public class QuadQualityTests {
         // face with no normal and scores zero rather than negative, which would not tell the two
         // behaviours apart.
         var folded = new[] {
-            mesh.AddPosition(new(0f, 0f, 1f)),
-            mesh.AddPosition(new(4f, 0f, 1f)),
-            mesh.AddPosition(new(1f, 1f, 1f)),
+            mesh.AddPosition(new(0f, 0f, 1f)), mesh.AddPosition(new(4f, 0f, 1f)), mesh.AddPosition(new(1f, 1f, 1f)),
             mesh.AddPosition(new(0f, 4f, 1f))
         };
 
@@ -157,8 +171,11 @@ public class QuadQualityTests {
     /// <summary>Where the quads that are still inverted actually are: on the creases.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>The attribution for what <see cref="PatchParameterization" /> did not close, measured
-    ///         off the output mesh and nothing else.</b> An output edge whose two quads meet at
+    ///         <b>
+    ///             The attribution for what <see cref="PatchParameterization" /> did not close, measured
+    ///             off the output mesh and nothing else.
+    ///         </b>
+    ///         An output edge whose two quads meet at
     ///         <see cref="Sharp" /> or more is a crease; a quad that has one is on a crease. On every
     ///         hard-surface fixture an inverted quad is several times more likely to be one of those:
     ///         box 9.5% against 0.3% — a factor of 29 — cylinder 23.3% against 3.0%, stairs 10.4%
@@ -166,11 +183,19 @@ public class QuadQualityTests {
     ///         against 3.3%.
     ///     </para>
     ///     <para>
-    ///         ⚠⚠ <b>This correlation is real and the cause it was first read as is not, which is worth
-    ///         keeping written down because the reading was the obvious one.</b> It was taken as
+    ///         ⚠⚠
+    ///         <b>
+    ///             This correlation is real and the cause it was first read as is not, which is worth
+    ///             keeping written down because the reading was the obvious one.
+    ///         </b>
+    ///         It was taken as
     ///         evidence that a patch's interior crosses a feature polyline — docs/plan/41 § D4's
-    ///         promise not being kept, and so § D7's layout at fault. <b>Measured directly, that is
-    ///         false</b>: counted over the conditioned mesh, the number of feature edges whose two
+    ///         promise not being kept, and so § D7's layout at fault.
+    ///         <b>
+    ///             Measured directly, that is
+    ///             false
+    ///         </b>
+    ///         : counted over the conditioned mesh, the number of feature edges whose two
     ///         triangles land in the same patch is <b>0</b> on all seven fixtures. Every crease is a
     ///         partition boundary.
     ///     </para>
@@ -239,8 +264,8 @@ public class QuadQualityTests {
 
         Assert.True(on.All > 0 && off.All > 0, $"{name}: the fixture has no crease to compare against.");
 
-        var onCrease = (float) on.Bad / on.All;
-        var away = (float) off.Bad / off.All;
+        var onCrease = (float)on.Bad / on.All;
+        var away = (float)off.Bad / off.All;
 
         Assert.True(
             onCrease > away * 2f,

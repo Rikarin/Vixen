@@ -20,8 +20,12 @@ namespace Vixen.Editor.Ui;
 ///         and a custom property nothing declared substitutes to nothing.
 ///     </para>
 ///     <para>
-///         ⚠ <b>It also <i>overrides</i> the control set's tokens, which the control set is built to
-///         allow.</b> An application shipping a button gets the neutral palette
+///         ⚠
+///         <b>
+///             It also <i>overrides</i> the control set's tokens, which the control set is built to
+///             allow.
+///         </b>
+///         An application shipping a button gets the neutral palette
 ///         <c>ControlTheme</c> declares; a tool window is a different room, and a set of values on
 ///         the root is exactly the mechanism its own remarks nominate for saying so. Nothing in
 ///         <c>ControlTheme</c> or <c>AdvancedTheme</c> is edited, so a game that never installs this
@@ -49,8 +53,12 @@ public static class EditorTheme {
     /// <returns>This sheet's index, for a hot reload. The utility sheet's is not a thing to reload.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Two sheets, in this order, at this origin — and every part of that sentence is
-    ///         load-bearing.</b> This sheet is entirely inside <c>@layer components</c> and
+    ///         ⚠
+    ///         <b>
+    ///             Two sheets, in this order, at this origin — and every part of that sentence is
+    ///             load-bearing.
+    ///         </b>
+    ///         This sheet is entirely inside <c>@layer components</c> and
     ///         <see cref="EditorStyles.Utilities" /> is entirely inside <c>@layer utilities</c>, which
     ///         comes later and therefore wins. That is the whole ladder, and it only works because
     ///         both are the same origin: a layer is the cascade's <i>second</i> question and origin is
@@ -88,8 +96,12 @@ public static class EditorTheme {
 
     /// <summary>The sheet's text, for a caller that wants to read or amend it.</summary>
     /// <remarks>
-    ///     ⚠ <b>Read out of the assembly rather than held in a <c>const string</c>, and the change is
-    ///     bigger than where the bytes live.</b> This sheet was fourteen hundred lines of CSS edited
+    ///     ⚠
+    ///     <b>
+    ///         Read out of the assembly rather than held in a <c>const string</c>, and the change is
+    ///         bigger than where the bytes live.
+    ///     </b>
+    ///     This sheet was fourteen hundred lines of CSS edited
     ///     inside a raw string literal, which is what a tree with no <c>.vcss</c> item type forces —
     ///     no syntax highlighting, no formatter, no way for a hot-reload watcher to see an edit, and
     ///     a rebuild of the whole assembly for a colour. It is a real file now, embedded by the glob
@@ -112,7 +124,8 @@ public static class EditorTheme {
             ?? throw new InvalidOperationException(
                 $"the stylesheet '{name}' is not embedded in {assembly.GetName().Name}. It is added "
                 + "by the .vcss glob in Vixen.Ui.targets, which this project imports at the bottom "
-                + "of its .csproj.");
+                + "of its .csproj."
+            );
 
         using var reader = new StreamReader(stream);
 

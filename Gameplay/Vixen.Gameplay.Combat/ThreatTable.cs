@@ -183,8 +183,7 @@ public sealed class ThreatTable {
     }
 
     void Sort() =>
-        entries.Sort(
-            static (left, right) => right.Threat != left.Threat
+        entries.Sort(static (left, right) => right.Threat != left.Threat
                 ? right.Threat.CompareTo(left.Threat)
                 // ⚠ Ties break on the attacker's number rather than on list order, so two players
                 // who have done identical damage do not swap the boss back and forth every time

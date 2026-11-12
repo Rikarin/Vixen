@@ -12,9 +12,10 @@ namespace Vixen.Rendering.Terrain.Tests;
 
 /// <summary>Mesh placement reaching the scene — [docs/plan/31 § T8]'s owed item.</summary>
 public sealed class TerrainSplineSpawnerTests {
-    static TerrainSplineMesh[] Posts(int count, string mesh = "Meshes/post") =>
-        [.. Enumerable.Range(0, count)
-            .Select(index => new TerrainSplineMesh(mesh, new(index * 10f, 0f, 0f), Quaternion.Identity, index * 10f))];
+    static TerrainSplineMesh[] Posts(int count, string mesh = "Meshes/post") => [
+        ..Enumerable.Range(0, count)
+            .Select(index => new TerrainSplineMesh(mesh, new(index * 10f, 0f, 0f), Quaternion.Identity, index * 10f))
+    ];
 
     [Fact]
     public void EveryPlacedMeshBecomesAnEntity() {
@@ -49,8 +50,12 @@ public sealed class TerrainSplineSpawnerTests {
 
     /// <summary>Regenerating replaces what that spline placed and nothing else.</summary>
     /// <remarks>
-    ///     ⚠ <b>Without the tag the choice is between duplicating on every regeneration and deleting
-    ///     an artist's work.</b> A generated entity has to be distinguishable from an authored one,
+    ///     ⚠
+    ///     <b>
+    ///         Without the tag the choice is between duplicating on every regeneration and deleting
+    ///         an artist's work.
+    ///     </b>
+    ///     A generated entity has to be distinguishable from an authored one,
     ///     and the only place that distinction can live is on the entity.
     /// </remarks>
     [Fact]
@@ -91,8 +96,12 @@ public sealed class TerrainSplineSpawnerTests {
 
     /// <summary>A spawn with no resolver still places the entities.</summary>
     /// <remarks>
-    ///     ⚠ <b>A post in the right place with no mesh is a placement that can be inspected, and a
-    ///     missing one is nothing at all.</b> Turning a name into a reference is the asset database's
+    ///     ⚠
+    ///     <b>
+    ///         A post in the right place with no mesh is a placement that can be inspected, and a
+    ///         missing one is nothing at all.
+    ///     </b>
+    ///     Turning a name into a reference is the asset database's
     ///     job, and a spawner that did it would need one in a class whose job is three
     ///     <c>world.Add</c> calls.
     /// </remarks>

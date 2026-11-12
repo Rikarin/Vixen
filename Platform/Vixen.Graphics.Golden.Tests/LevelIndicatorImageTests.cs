@@ -3,7 +3,6 @@
 
 using Vixen.Core.Imaging;
 using Vixen.Core.Mathematics;
-using Vixen.Ui;
 using Vixen.Ui.Controls;
 using Vixen.Ui.Desktop;
 using Vixen.Ui.Renderer;
@@ -25,8 +24,12 @@ namespace Vixen.Graphics.Golden.Tests;
 ///         either palette on a GPU.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Through <see cref="UiShaderLibrary.Load" /> and not the hand-written GLSL beside this
-///         project</b>, because the question is what an application shows and that is the call
+///         ⚠
+///         <b>
+///             Through <see cref="UiShaderLibrary.Load" /> and not the hand-written GLSL beside this
+///             project
+///         </b>
+///         , because the question is what an application shows and that is the call
 ///         <c>UiApplication</c> and <c>EditorHost</c> both make.
 ///     </para>
 ///     <para>
@@ -92,9 +95,18 @@ public sealed class LevelIndicatorImageTests {
         // ⚠ The three levels are three fills. This is the half no CPU test in the tree could see: a
         // theme whose `.warning` rule resolved to nothing draws a warning in the accent, and every
         // `Level` assertion still passes. See `Apart` for the bound.
-        Assert.True(Distance(ordinary, track) > Apart, $"the ordinary fill {ordinary} is not told apart from the track {track}");
-        Assert.True(Distance(ordinary, warning) > Apart, $"a warning {warning} is drawn in the ordinary fill {ordinary}");
-        Assert.True(Distance(ordinary, critical) > Apart, $"a critical reading {critical} is drawn in the ordinary fill {ordinary}");
+        Assert.True(
+            Distance(ordinary, track) > Apart,
+            $"the ordinary fill {ordinary} is not told apart from the track {track}"
+        );
+        Assert.True(
+            Distance(ordinary, warning) > Apart,
+            $"a warning {warning} is drawn in the ordinary fill {ordinary}"
+        );
+        Assert.True(
+            Distance(ordinary, critical) > Apart,
+            $"a critical reading {critical} is drawn in the ordinary fill {ordinary}"
+        );
         Assert.True(Distance(warning, critical) > Apart, $"warning {warning} and critical {critical} are one colour");
 
         // The lone falling line: full is ordinary, nearly empty is critical — the same two fills the
@@ -165,21 +177,39 @@ public sealed class LevelIndicatorImageTests {
         var critical = West(8, 72);
         var track = East(8, 8);
 
-        Assert.True(Distance(ordinary, track) > Apart, $"the ordinary fill {ordinary} is not told apart from the track {track}");
-        Assert.True(Distance(ordinary, warning) > Apart, $"a warning {warning} is drawn in the ordinary fill {ordinary}");
-        Assert.True(Distance(ordinary, critical) > Apart, $"a critical reading {critical} is drawn in the ordinary fill {ordinary}");
+        Assert.True(
+            Distance(ordinary, track) > Apart,
+            $"the ordinary fill {ordinary} is not told apart from the track {track}"
+        );
+        Assert.True(
+            Distance(ordinary, warning) > Apart,
+            $"a warning {warning} is drawn in the ordinary fill {ordinary}"
+        );
+        Assert.True(
+            Distance(ordinary, critical) > Apart,
+            $"a critical reading {critical} is drawn in the ordinary fill {ordinary}"
+        );
         Assert.True(Distance(warning, critical) > Apart, $"warning {warning} and critical {critical} are one colour");
 
         // Half and three-quarters stop short of the right-hand point; 0.95 reaches past it.
-        Assert.True(Distance(East(72, 8), track) <= 3, "a reading of three-quarters lit the right-hand point of its dial");
-        Assert.True(Distance(East(8, 72), critical) <= 3, "a reading of 0.95 did not reach the right-hand point of its dial");
+        Assert.True(
+            Distance(East(72, 8), track) <= 3,
+            "a reading of three-quarters lit the right-hand point of its dial"
+        );
+        Assert.True(
+            Distance(East(8, 72), critical) <= 3,
+            "a reading of 0.95 did not reach the right-hand point of its dial"
+        );
 
         // The tank at a tenth with one falling line is critical, and lit only near its start: its
         // left-hand point, a sixth of the way round, is still track.
         Assert.True(Distance(West(72, 72), track) <= 3, "a reading of a tenth lit a sixth of its dial");
         // (5, 35) from the dial's corner is the middle of the ring at 148°, thirteen degrees into a
         // fill that ends at 162°.
-        Assert.True(Distance(Pixel(image, 72 + 5, 72 + 35), critical) <= 3, "the flat tank is not drawn critical near its start");
+        Assert.True(
+            Distance(Pixel(image, 72 + 5, 72 + 35), critical) <= 3,
+            "the flat tank is not drawn critical near its start"
+        );
 
         GoldenImage.Verify(name, image, Tolerance.Edges);
     }
@@ -193,7 +223,7 @@ public sealed class LevelIndicatorImageTests {
     ///     by one renderer.
     /// </remarks>
     static Bitmap Draw(Fixture owned, UiTest ui, string name) {
-        var cache = new GlyphFieldCache(new GlyphAtlas(64, 64));
+        var cache = new GlyphFieldCache(new(64, 64));
         var geometry = new UiGeometryBuilder().Build(ui.Document.Drawing, cache, Viewport);
 
         // Something has to have drawn: a device and a rasterizer that were both handed nothing agree.
@@ -207,11 +237,14 @@ public sealed class LevelIndicatorImageTests {
 
         var colour = owned.ColourTarget(name);
 
-        owned.Graph.AddPass(name, pass => {
-            pass.ColourAttachment(colour, LoadAction.Clear, Background);
-            pass.SideEffect();
-            pass.Execute(context => renderer.Record(context.CommandList, geometry, new(Side, Side)));
-        });
+        owned.Graph.AddPass(
+            name,
+            pass => {
+                pass.ColourAttachment(colour, LoadAction.Clear, Background);
+                pass.SideEffect();
+                pass.Execute(context => renderer.Record(context.CommandList, geometry, new(Side, Side)));
+            }
+        );
 
         var image = owned.Render(colour, commands => renderer.Upload(commands, geometry, cache.Atlas));
 

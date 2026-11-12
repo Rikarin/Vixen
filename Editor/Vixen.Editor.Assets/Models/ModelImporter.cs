@@ -65,8 +65,12 @@ public sealed class ModelImporter : AssetImporter<ModelImportSettings> {
     ///     count is what the generated reader checks.
     ///     Ten since <c>AnimationChannel</c> grew a scalar weight track — <c>Shape</c>,
     ///     <c>WeightTimes</c> and <c>Weights</c>, appended last — which is what lets a clip drive a
-    ///     blend shape. ⚠ <b>This bump is a re-import trigger and not a compatibility fence, which
-    ///     makes it the odd one out above.</b> The generated reader writes its member count and
+    ///     blend shape. ⚠
+    ///     <b>
+    ///         This bump is a re-import trigger and not a compatibility fence, which
+    ///         makes it the odd one out above.
+    ///     </b>
+    ///     The generated reader writes its member count and
     ///     refuses only <c>count &gt; MemberCount</c>, so <em>appended</em> members are read back by
     ///     an older payload as their defaults — a version-nine clip chunk answers "no weight track",
     ///     which is true. Nothing would break without this. What would happen instead is nothing at
@@ -82,8 +86,11 @@ public sealed class ModelImporter : AssetImporter<ModelImportSettings> {
     ///     trigger like the bump above it: no reader breaks, but only a re-import removes the
     ///     hierarchy that is doing the harm.
     ///     Twelve since a <b>morphed mesh gets one again</b>, because the paged path now morphs. ⚠
-    ///     <b>This one is a re-import trigger in the other direction and it is the interesting
-    ///     case:</b> nothing is wrong with a version-eleven artefact — a morphed mesh without a
+    ///     <b>
+    ///         This one is a re-import trigger in the other direction and it is the interesting
+    ///         case:
+    ///     </b>
+    ///     nothing is wrong with a version-eleven artefact — a morphed mesh without a
     ///     hierarchy draws correctly through <c>MorphRenderFeature</c>, exactly as it did. What it
     ///     does not do is stream, so a project that never re-imports keeps a suballocated head, a
     ///     resident vertex range per instance and no level of detail on a face. The number is here so
@@ -121,8 +128,12 @@ public sealed class ModelImporter : AssetImporter<ModelImportSettings> {
     /// <summary>The chunk type a mesh artefact is recorded as.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The <c>[DataContract]</c> alias, not a friendly name, and the two are not the
-    ///         same thing.</b> The sub-asset <i>kind</i> beside it is <c>"Mesh"</c> — that is what a
+    ///         ⚠
+    ///         <b>
+    ///             The <c>[DataContract]</c> alias, not a friendly name, and the two are not the
+    ///             same thing.
+    ///         </b>
+    ///         The sub-asset <i>kind</i> beside it is <c>"Mesh"</c> — that is what a
     ///         <c>.meta</c> lists and what a person reads. This is what goes in the chunk header, and
     ///         <c>ImportPipeline.TypeIdOf</c> resolves it through the type registry, falling back to
     ///         <c>ImportedArtifact</c> when it does not resolve.
@@ -145,8 +156,12 @@ public sealed class ModelImporter : AssetImporter<ModelImportSettings> {
     /// <param name="mesh">The mesh's own name.</param>
     /// <returns>The sub-asset name.</returns>
     /// <remarks>
-    ///     ⚠ <b>Distinct from the mesh's name, and that is a build error rather than a tidiness
-    ///     point.</b> A sub-asset's address is built from its name alone, so a hierarchy called what its
+    ///     ⚠
+    ///     <b>
+    ///         Distinct from the mesh's name, and that is a build error rather than a tidiness
+    ///         point.
+    ///     </b>
+    ///     A sub-asset's address is built from its name alone, so a hierarchy called what its
     ///     mesh is called collides with it exactly as "a mesh and a material both called Body" does —
     ///     which <c>BuildPlanner</c> reports and refuses.
     /// </remarks>
@@ -159,8 +174,12 @@ public sealed class ModelImporter : AssetImporter<ModelImportSettings> {
     /// <summary>What a mesh's signed-distance-field sub-asset is named.</summary>
     /// <inheritdoc cref="ClusterName" path="/remarks" />
     /// <remarks>
-    ///     ⚠ <b>This was the mesh's own name, and the consequence was every model with a field
-    ///     silently leaving the build.</b> Two sub-assets with one name are two claims on one address,
+    ///     ⚠
+    ///     <b>
+    ///         This was the mesh's own name, and the consequence was every model with a field
+    ///         silently leaving the build.
+    ///     </b>
+    ///     Two sub-assets with one name are two claims on one address,
     ///     which <c>BuildPlanner</c> refuses — and refusing an address means the model has none, which
     ///     means every scene referencing it fails with "depends on asset …, which has no address".
     ///     The clusters and the pages were suffixed for exactly this reason from the start; the field
@@ -430,8 +449,12 @@ public sealed class ModelImporter : AssetImporter<ModelImportSettings> {
     ///         double every model in the bundle and leave two sub-assets with a claim on one address.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A guide's file is declared as a dependency, which is what puts it in the cache
-    ///         key.</b> Otherwise editing the curve would leave every model that follows it importing
+    ///         ⚠
+    ///         <b>
+    ///             A guide's file is declared as a dependency, which is what puts it in the cache
+    ///             key.
+    ///         </b>
+    ///         Otherwise editing the curve would leave every model that follows it importing
     ///         from cache, which is the class of staleness that looks like the setting doing nothing.
     ///     </para>
     /// </remarks>
@@ -456,7 +479,7 @@ public sealed class ModelImporter : AssetImporter<ModelImportSettings> {
                 context.Report(ImportSeverity.Information, message);
             }
 
-            if (!result.Remeshed && !result.Unwrapped) {
+            if (result is { Remeshed: false, Unwrapped: false }) {
                 continue;
             }
 
@@ -489,7 +512,8 @@ public sealed class ModelImporter : AssetImporter<ModelImportSettings> {
             context.DependsOnFile(path);
 
             try {
-                await using var stream = await context.Files.OpenReadAsync(path, cancellationToken).ConfigureAwait(false);
+                await using var stream =
+                    await context.Files.OpenReadAsync(path, cancellationToken).ConfigureAwait(false);
                 using var reader = new StreamReader(stream);
 
                 var text = await reader.ReadToEndAsync(cancellationToken).ConfigureAwait(false);

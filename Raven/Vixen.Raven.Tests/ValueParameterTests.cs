@@ -3,7 +3,6 @@
 
 using Vixen.Core.Syntax.Diagnostics;
 using Vixen.Raven;
-using Vixen.Raven.Diagnostics;
 using Vixen.Raven.IR;
 using Vixen.Raven.Lowering;
 using Vixen.Raven.Symbols;
@@ -45,13 +44,13 @@ public class ValueParameterTests {
         var semantic = compilation.GetDiagnostics();
         Assert.True(
             semantic.Count == 0,
-            "Expected no semantic diagnostics, got:\n" + string.Join("\n", semantic.Select(d => d.ToString()))
+            "Expected no semantic diagnostics, got:\n" + string.Join("\n", semantic.Select(static d => d.ToString()))
         );
 
         var bag = new DiagnosticBag();
         var module = Lowerer.Lower(compilation, bag);
         IrVerifier.Verify(module, bag);
-        Assert.DoesNotContain(bag.ToArray(), d => d.IsError);
+        Assert.DoesNotContain(bag.ToArray(), static d => d.IsError);
 
         return (compilation, module);
     }
@@ -203,7 +202,7 @@ public class ValueParameterTests {
                 """,
                 PermutationValues.Parse(["N=1"])
             )
-            .Select(d => d.Id);
+            .Select(static d => d.Id);
 
         Assert.Contains("RVN2084", ids);
     }

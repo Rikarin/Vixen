@@ -77,8 +77,10 @@ public class VfxParallelTests : IDisposable {
         const int Count = 8192;
 
         using var jobs = new JobScheduler(workers);
-        using var serial = new VfxSystem(Storm(Count), seed: 31);
-        using var parallel = new VfxSystem(Storm(Count), seed: 31) { Scheduler = jobs, ParallelThreshold = 1 };
+        using var serial = new VfxSystem(Storm(Count), 31);
+        using var parallel = new VfxSystem(Storm(Count), 31);
+        parallel.Scheduler = jobs;
+        parallel.ParallelThreshold = 1;
 
         for (var step = 0; step < 40; step++) {
             serial.Step(1f / 60f);
@@ -153,7 +155,9 @@ public class VfxParallelTests : IDisposable {
             128
         );
 
-        using var system = new VfxSystem(graph) { Scheduler = scheduler, ParallelThreshold = 4096 };
+        using var system = new VfxSystem(graph);
+        system.Scheduler = scheduler;
+        system.ParallelThreshold = 4096;
 
         for (var step = 0; step < 10; step++) {
             system.Step(1f / 60f);
@@ -166,7 +170,9 @@ public class VfxParallelTests : IDisposable {
     /// <summary>And above it, the sweeps do go through the scheduler.</summary>
     [Fact]
     public void A_large_effect_does() {
-        using var system = new VfxSystem(Storm(8192), seed: 3) { Scheduler = scheduler, ParallelThreshold = 1024 };
+        using var system = new VfxSystem(Storm(8192), 3);
+        system.Scheduler = scheduler;
+        system.ParallelThreshold = 1024;
 
         system.Step(1f / 60f);
         Assert.False(system.LastStepWasParallel);

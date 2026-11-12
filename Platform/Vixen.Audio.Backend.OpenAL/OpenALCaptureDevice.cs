@@ -80,7 +80,7 @@ sealed class OpenALCaptureDevice : IAudioCaptureDevice {
             capture.CaptureStart(handle);
             running = true;
 
-            pump = new Thread(Pump) {
+            pump = new(Pump) {
                 IsBackground = true,
                 Name = "Vixen Audio Capture",
 

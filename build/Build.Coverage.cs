@@ -30,8 +30,12 @@ using static Nuke.Common.Tools.DotNet.DotNetTasks;
 ///         answer is a failure with the project's name in it rather than a table of zeroes.
 ///     </para>
 ///     <para>
-///         ⚠️ <b>The number is the subject assembly's, not the run's, and the difference is most of
-///         the value.</b> Measured here: <c>Vixen.Graphics.Null.Tests</c> covers 80.8 % of
+///         ⚠️
+///         <b>
+///             The number is the subject assembly's, not the run's, and the difference is most of
+///             the value.
+///         </b>
+///         Measured here: <c>Vixen.Graphics.Null.Tests</c> covers 80.8 % of
 ///         <c>Vixen.Graphics.Null</c> and 32.6 % of everything the run loaded, because the report
 ///         also carries <c>Vixen.Core</c> at 0.1 % — a figure that says nothing about either project
 ///         and moves whenever an unrelated dependency grows. A "per-project coverage" table built
@@ -61,59 +65,63 @@ partial class Build {
     /// <summary>Where the cobertura documents and the summary land.</summary>
     AbsolutePath CoverageDirectory => ArtifactsDirectory / "coverage";
 
-    Target Coverage => definition => definition
-        .Description("Reports line coverage per test project. Gates on nothing but its own instrument")
-        .DependsOn(Compile)
-        .Produces(CoverageDirectory / "coverage.md")
-        .Executes(() => {
-            var projects = OrderedTestProjects()
-                .Where(project => string.IsNullOrEmpty(CoverageProject)
-                    || project.NameWithoutExtension.Contains(CoverageProject, StringComparison.OrdinalIgnoreCase)
-                )
-                .OrderBy(project => project.NameWithoutExtension, StringComparer.Ordinal)
-                .ToList();
+    Target Coverage =>
+        definition => definition
+            .Description("Reports line coverage per test project. Gates on nothing but its own instrument")
+            .DependsOn(Compile)
+            .Produces(CoverageDirectory / "coverage.md")
+            .Executes(() => {
+                    var projects = OrderedTestProjects()
+                        .Where(project => string.IsNullOrEmpty(CoverageProject)
+                            || project.NameWithoutExtension.Contains(
+                                CoverageProject,
+                                StringComparison.OrdinalIgnoreCase
+                            )
+                        )
+                        .OrderBy(project => project.NameWithoutExtension, StringComparer.Ordinal)
+                        .ToList();
 
-            Assert.True(
-                projects.Count > 0,
-                $"--coverage-project '{CoverageProject}' matched no test project, so this run "
-                + "would have measured nothing and said so in green."
+                    Assert.True(
+                        projects.Count > 0,
+                        $"--coverage-project '{CoverageProject}' matched no test project, so this run "
+                        + "would have measured nothing and said so in green."
+                    );
+
+                    CoverageDirectory.CreateOrCleanDirectory();
+
+                    var rows = new List<CoverageReport.Row>();
+
+                    foreach (var project in projects) {
+                        var results = CoverageDirectory / project.NameWithoutExtension;
+
+                        DotNetTest(settings => settings
+                            .SetProjectFile(project.ToString())
+                            .SetConfiguration(Configuration)
+                            .EnableNoRestore()
+                            .EnableNoBuild()
+                            .SetSettingsFile(RootDirectory / ".runsettings")
+                            .SetResultsDirectory(results)
+                            // The collector `Microsoft.NET.Test.Sdk` already carries, asked for by the
+                            // name `dotnet test --collect` takes. Cobertura rather than the default
+                            // `.coverage`, which is a binary needing a second tool to read.
+                            .SetDataCollector("Code Coverage;Format=cobertura")
+                            // ⚠ And the reason this target alone still says VSTest out loud. Every other
+                            // test run here goes through Microsoft.Testing.Platform now (#560), which is
+                            // about a second and two processes per assembly cheaper — but `--collect` and
+                            // `--settings` are VSTest concepts the platform ignores with a *warning*, so a
+                            // coverage run left on that path would have produced a report of nothing and
+                            // said so in green. `Directory.Build.props` leaves the switch overridable for
+                            // exactly this, and `xunit.runner.visualstudio` is still referenced so that the
+                            // old path still exists to be asked for.
+                            .SetProperty("TestingPlatformDotnetTestSupport", false)
+                        );
+
+                        rows.Add(Measure(project, results));
+                    }
+
+                    WriteCoverageSummary(rows);
+                }
             );
-
-            CoverageDirectory.CreateOrCleanDirectory();
-
-            var rows = new List<CoverageReport.Row>();
-
-            foreach (var project in projects) {
-                var results = CoverageDirectory / project.NameWithoutExtension;
-
-                DotNetTest(settings => settings
-                    .SetProjectFile(project.ToString())
-                    .SetConfiguration(Configuration)
-                    .EnableNoRestore()
-                    .EnableNoBuild()
-                    .SetSettingsFile(RootDirectory / ".runsettings")
-                    .SetResultsDirectory(results)
-                    // The collector `Microsoft.NET.Test.Sdk` already carries, asked for by the
-                    // name `dotnet test --collect` takes. Cobertura rather than the default
-                    // `.coverage`, which is a binary needing a second tool to read.
-                    .SetDataCollector("Code Coverage;Format=cobertura")
-                    // ⚠ And the reason this target alone still says VSTest out loud. Every other
-                    // test run here goes through Microsoft.Testing.Platform now (#560), which is
-                    // about a second and two processes per assembly cheaper — but `--collect` and
-                    // `--settings` are VSTest concepts the platform ignores with a *warning*, so a
-                    // coverage run left on that path would have produced a report of nothing and
-                    // said so in green. `Directory.Build.props` leaves the switch overridable for
-                    // exactly this, and `xunit.runner.visualstudio` is still referenced so that the
-                    // old path still exists to be asked for.
-                    .SetProperty("TestingPlatformDotnetTestSupport", false)
-                );
-
-                rows.Add(Measure(project, results));
-            }
-
-            WriteCoverageSummary(rows);
-        }
-        );
 
     /// <summary>Reads one project's cobertura document and picks its subject assembly out of it.</summary>
     /// <param name="testProject">The test project file, e.g. <c>Core/Vixen.Ecs.Tests/Vixen.Ecs.Tests.csproj</c>.</param>

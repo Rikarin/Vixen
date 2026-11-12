@@ -2,8 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Editor.Texturing.Painting;
-using Vixen.Texturing.Layers;
-using Vixen.Texturing.Painting;
 using Vixen.Ui;
 using Vixen.Ui.Controls.Advanced;
 using Xunit;
@@ -16,13 +14,21 @@ namespace Vixen.Editor.Texturing.Tests;
 ///         <b><a href="https://github.com/Rikarin/Vixen/issues/1106">#1106</a>.</b>
 ///         <c>PaintMeshView</c>, <c>PaintUvView</c> and <c>PaintBrushInspector</c> each styled their
 ///         own host with three <c>SetStyle</c> calls, because <c>TexturingTheme.vcss</c> named none
-///         of their tags. ⚠ <b>The issue says the 2D pane's status line was already themed and it
-///         was not</b> — no stylesheet in this repository named a <c>paint-</c> anything — so it was
+///         of their tags. ⚠
+///         <b>
+///             The issue says the 2D pane's status line was already themed and it
+///             was not
+///         </b>
+///         — no stylesheet in this repository named a <c>paint-</c> anything — so it was
 ///         one gap across three files rather than the two the issue describes.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Read as geometry after a layout pass, which is <c>LayerStackThemeTests</c>' whole
-///         argument and is what makes these assertions able to fail.</b> An element no sheet
+///         ⚠
+///         <b>
+///             Read as geometry after a layout pass, which is <c>LayerStackThemeTests</c>' whole
+///             argument and is what makes these assertions able to fail.
+///         </b>
+///         An element no sheet
 ///         mentions takes CSS's initial <c>flex-direction: row</c>, so a test asserting
 ///         <c>paint-mesh { flex-direction: row }</c> would pass with the sheet deleted. What the
 ///         sheet decides here is the <em>column</em> — the title above the picture and the sentence
@@ -129,16 +135,23 @@ public class PaintThemeTests {
     /// <summary>⚠ A pane built on its own gets the sheet, with no layers panel in the document.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>The finding that moving the layout into the sheet turned up, and it was a real
-    ///         defect rather than a test artefact.</b> the sheet's install had exactly one
+    ///         <b>
+    ///             The finding that moving the layout into the sheet turned up, and it was a real
+    ///             defect rather than a test artefact.
+    ///         </b>
+    ///         the sheet's install had exactly one
     ///         production caller — <c>LayerStackView</c>'s constructor — which was invisible for as
     ///         long as the paint panes styled their own hosts inline, and became "the pane is a
     ///         strip" the moment they stopped. A docked workspace restoring the paint pane without
     ///         the layers panel is a state an artist reaches by closing one panel and quitting.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Built directly rather than through the module's verbs, which is the only way to
-    ///         say it.</b> Opening the pane through <c>TexturingModule</c> opens the layers panel too,
+    ///         ⚠
+    ///         <b>
+    ///             Built directly rather than through the module's verbs, which is the only way to
+    ///             say it.
+    ///         </b>
+    ///         Opening the pane through <c>TexturingModule</c> opens the layers panel too,
     ///         so a case that went that way would get the sheet by the side door. ⚠ Since #1486 the
     ///         sheet is the module's, loaded at activation — so the module is activated and no panel
     ///         of it is opened, and the pane has the sheet because the module is in, which is the
@@ -153,7 +166,7 @@ public class PaintThemeTests {
 
         var host = fixture.Shell.Document.Root.Add<UiElement>();
 
-        _ = new PaintUvView(host, new PaintTool());
+        _ = new PaintUvView(host, new());
 
         Lay(fixture);
 

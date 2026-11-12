@@ -70,8 +70,12 @@ public sealed class FlameChartViewTests : IDisposable {
     ///     Clicks the middle of the nested bar.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>By coordinate rather than by selector, because a bar has no identity a selector
-    ///     could name.</b> Every one of them is a <c>flame-bar</c> out of the same pool with a
+    ///     ⚠
+    ///     <b>
+    ///         By coordinate rather than by selector, because a bar has no identity a selector
+    ///         could name.
+    ///     </b>
+    ///     Every one of them is a <c>flame-bar</c> out of the same pool with a
     ///     colour class hashed from a name, and the row a bar is on is an inline <c>top</c> — so
     ///     "the nested one" is a position and nothing else. Which is also how a user reaches it.
     /// </remarks>
@@ -138,7 +142,7 @@ public sealed class FlameChartViewTests : IDisposable {
     public void AScopesColourFollowsItsNameAndIsStable() {
         Assert.Equal(FlameChartView.HueOf("Render.Culling"), FlameChartView.HueOf("Render.Culling"));
         Assert.InRange(FlameChartView.HueOf("Render.Culling"), 0, FlameChartView.HueCount - 1);
-        Assert.InRange(FlameChartView.HueOf(""), 0, FlameChartView.HueCount - 1);
+        Assert.InRange(FlameChartView.HueOf(string.Empty), 0, FlameChartView.HueCount - 1);
     }
 
     /// <summary>
@@ -166,7 +170,7 @@ public sealed class FlameChartViewTests : IDisposable {
             .ToList();
 
         Assert.Equal(2, colours.Count);
-        Assert.All(colours, colour => Assert.NotNull(colour));
+        Assert.All(colours, static colour => Assert.NotNull(colour));
 
         // The two scopes hash to different hues, so the chart is doing the one thing colour is here
         // for: saying which bar is which. `HueOf` is asked rather than asserted against a literal —

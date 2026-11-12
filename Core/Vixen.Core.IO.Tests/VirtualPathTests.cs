@@ -28,7 +28,7 @@ public class VirtualPathTests {
     [InlineData("a/b")]
     [InlineData("relative")]
     [InlineData("C:/x")]
-    [InlineData("/a\\b")]
+    [InlineData("""/a\b""")]
     [InlineData("/..")]
     [InlineData("/a/../..")]
     [InlineData("/a\u0000b")]
@@ -49,8 +49,8 @@ public class VirtualPathTests {
 
     [Fact]
     public void CaseIsPartOfTheIdentity() {
-        Assert.NotEqual(new VirtualPath("/app/Texture.png"), new VirtualPath("/app/texture.png"));
-        Assert.NotEqual(new VirtualPath("/App/x"), new VirtualPath("/app/x"));
+        Assert.NotEqual(new("/app/Texture.png"), new VirtualPath("/app/texture.png"));
+        Assert.NotEqual(new("/App/x"), new VirtualPath("/app/x"));
     }
 
     [Theory]
@@ -98,7 +98,7 @@ public class VirtualPathTests {
 
     [Fact]
     public void CombineCannotEscapeTheRoot() =>
-        Assert.Throws<ArgumentException>(() => new VirtualPath("/a") / "../..");
+        Assert.Throws<ArgumentException>(static () => new VirtualPath("/a") / "../..");
 
     [Theory]
     [InlineData("/x.png", ".ktx2", "/x.ktx2")]
@@ -132,7 +132,7 @@ public class VirtualPathTests {
 
     [Fact]
     public void RelativeToRejectsAPrefixThatIsNotOne() =>
-        Assert.Throws<ArgumentException>(() => new VirtualPath("/a/b").RelativeTo(new("/c")));
+        Assert.Throws<ArgumentException>(static () => new VirtualPath("/a/b").RelativeTo(new("/c")));
 
     [Fact]
     public void SegmentsEnumerateWithoutAllocating() {
@@ -165,7 +165,7 @@ public class VirtualPathTests {
         // Ordinal: uppercase sorts before lowercase, on every platform and in every locale. A
         // culture-aware comparison would order these differently in Turkish, and content builds hash
         // sorted listings.
-        Assert.Equal(["/", "/A", "/a", "/b"], paths.Select(path => path.Value));
+        Assert.Equal(["/", "/A", "/a", "/b"], paths.Select(static path => path.Value));
     }
 
     /// <summary>
@@ -175,11 +175,18 @@ public class VirtualPathTests {
     /// </summary>
     [Fact]
     public void NormalisationIsIdempotentForAnythingItAccepts() {
-        var segment = Gen.OneOf(Gen.Const("a"), Gen.Const("bb"), Gen.Const("."), Gen.Const(".."), Gen.Const(""), Gen.Const("x.png"));
+        var segment = Gen.OneOf(
+            Gen.Const("a"),
+            Gen.Const("bb"),
+            Gen.Const("."),
+            Gen.Const(".."),
+            Gen.Const(string.Empty),
+            Gen.Const("x.png")
+        );
 
         segment.Array[0, 8]
-            .Select(segments => "/" + string.Join("/", segments))
-            .Sample(text => {
+            .Select(static segments => "/" + string.Join("/", segments))
+            .Sample(static text => {
                     if (!VirtualPath.TryCreate(text, out var once)) {
                         return;
                     }
@@ -197,8 +204,8 @@ public class VirtualPathTests {
         var segment = Gen.OneOf(Gen.Const("a"), Gen.Const("bb"), Gen.Const("ccc"), Gen.Const("x.png"));
 
         segment.Array[1, 6]
-            .Select(segments => "/" + string.Join("/", segments))
-            .Sample(text => {
+            .Select(static segments => "/" + string.Join("/", segments))
+            .Sample(static text => {
                     var path = new VirtualPath(text);
                     Assert.Equal(path, path.Parent / path.FileName.ToString());
                 }

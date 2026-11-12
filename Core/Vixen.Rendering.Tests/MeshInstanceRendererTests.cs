@@ -16,8 +16,11 @@ namespace Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <strong><c>docs/plan/24-blockout-tools.md</c> § B1 is the specification this file is the test
-///         of.</strong> Its complaint about the path this replaces was not that it was slow: "every
+///         <strong>
+///             <c>docs/plan/24-blockout-tools.md</c> § B1 is the specification this file is the test
+///             of.
+///         </strong>
+///         Its complaint about the path this replaces was not that it was slow: "every
 ///         mesh in the viewport goes through the CPU every frame", with a cache keyed by primitive
 ///         kind, so a hundred cubes were one mesh and a hundred <em>edited</em> meshes were a hundred
 ///         rebuilds a frame — "a drag that redraws at four frames a second is not a slow tool, it is a
@@ -81,12 +84,12 @@ public sealed class MeshInstanceRendererTests {
         var instances = new MeshInstance[100];
 
         for (var index = 0; index < instances.Length; index++) {
-            var at = Matrix4x4.FromTranslation(new Vector3(index * 2f, 0f, 0f));
+            var at = Matrix4x4.FromTranslation(new(index * 2f, 0f, 0f));
 
             instances[index] = MeshInstance.Of(at, Color4.White);
         }
 
-        fixture.Renderer.Upload(instances, [new(cube, 0, instances.Length, Edges: false)]);
+        fixture.Renderer.Upload(instances, [new(cube, 0, instances.Length, false)]);
         fixture.Draw();
 
         var draw = Assert.Single(fixture.Draws);
@@ -121,9 +124,9 @@ public sealed class MeshInstanceRendererTests {
         fixture.Renderer.Upload(
             [
                 MeshInstance.Of(Matrix4x4.Identity, Color4.White),
-                MeshInstance.Of(Matrix4x4.FromTranslation(new Vector3(4f, 0f, 0f)), Color4.White)
+                MeshInstance.Of(Matrix4x4.FromTranslation(new(4f, 0f, 0f)), Color4.White)
             ],
-            [new(cube, 0, 1, Edges: false), new(sphere, 1, 1, Edges: false)]
+            [new(cube, 0, 1, false), new(sphere, 1, 1, false)]
         );
 
         fixture.Draw();
@@ -159,7 +162,7 @@ public sealed class MeshInstanceRendererTests {
 
         fixture.Renderer.Upload(
             [MeshInstance.Of(Matrix4x4.Identity, Color4.White), MeshInstance.Of(Matrix4x4.Identity, Color4.White)],
-            [new(cube, 0, 1, Edges: false), new(cube, 1, 1, Edges: true)]
+            [new(cube, 0, 1, false), new(cube, 1, 1, true)]
         );
 
         fixture.Draw();
@@ -188,7 +191,7 @@ public sealed class MeshInstanceRendererTests {
         Assert.Equal(2, fixture.Flush());
         Assert.Equal(0, fixture.Flush());
 
-        fixture.Renderer.Upload([MeshInstance.Of(Matrix4x4.Identity, Color4.White)], [new(cube, 0, 1, Edges: false)]);
+        fixture.Renderer.Upload([MeshInstance.Of(Matrix4x4.Identity, Color4.White)], [new(cube, 0, 1, false)]);
         fixture.Draw();
 
         Assert.Equal(0, fixture.Flush());
@@ -203,14 +206,14 @@ public sealed class MeshInstanceRendererTests {
     /// </remarks>
     [Fact]
     public void A_batch_that_does_not_fit_the_ring_is_dropped_whole() {
-        using var fixture = new Fixture(instances: 4);
+        using var fixture = new Fixture(4);
 
         Assert.True(fixture.Renderer.TryRegister(Cube, out var cube));
 
         var instances = new MeshInstance[6];
         Array.Fill(instances, MeshInstance.Of(Matrix4x4.Identity, Color4.White));
 
-        fixture.Renderer.Upload(instances, [new(cube, 0, 3, Edges: false), new(cube, 3, 3, Edges: false)]);
+        fixture.Renderer.Upload(instances, [new(cube, 0, 3, false), new(cube, 3, 3, false)]);
         fixture.Draw();
 
         var draw = Assert.Single(fixture.Draws);
@@ -233,7 +236,7 @@ public sealed class MeshInstanceRendererTests {
 
         fixture.Renderer.Upload(
             [MeshInstance.Of(Matrix4x4.Identity, Color4.White)],
-            [new(default, 0, 1, Edges: false)]
+            [new(default, 0, 1, false)]
         );
 
         fixture.Draw();
@@ -251,8 +254,8 @@ public sealed class MeshInstanceRendererTests {
     /// </remarks>
     [Fact]
     public void The_normal_matrix_keeps_normals_perpendicular_under_a_non_uniform_scale() {
-        var scale = Matrix4x4.FromScale(new Vector3(4f, 1f, 1f));
-        var transform = scale * Matrix4x4.FromTranslation(new Vector3(3f, 0f, 0f));
+        var scale = Matrix4x4.FromScale(new(4f, 1f, 1f));
+        var transform = scale * Matrix4x4.FromTranslation(new(3f, 0f, 0f));
         var instance = MeshInstance.Of(transform, Color4.White);
 
         foreach (var source in Cube.Normals) {
@@ -283,18 +286,18 @@ public sealed class MeshInstanceRendererTests {
         Assert.Equal(24, Marshal.SizeOf<MeshShapeVertex>());
         Assert.Equal(192, Marshal.SizeOf<MeshInstance>());
 
-        var vertex = new MeshShapeVertex(new Vector3(1f, 2f, 3f), new Vector3(4f, 5f, 6f));
+        var vertex = new MeshShapeVertex(new(1f, 2f, 3f), new(4f, 5f, 6f));
         var lanes = Floats(in vertex);
 
         Assert.Equal([1f, 2f, 3f, 4f, 5f, 6f], lanes.ToArray());
 
         var instance = new MeshInstance(
-            Matrix4x4.FromTranslation(new Vector3(7f, 8f, 9f)),
+            Matrix4x4.FromTranslation(new(7f, 8f, 9f)),
             Matrix4x4.FromUniformScale(2f),
-            new Color4(0.1f, 0.2f, 0.3f, 0.4f),
-            new Vector4(2.5f, 2f, 1f, 0f),
-            new Vector4(0.75f, 0.25f, 0f, 0f),
-            new Color4(3f, 2f, 1f, 1f)
+            new(0.1f, 0.2f, 0.3f, 0.4f),
+            new(2.5f, 2f, 1f, 0f),
+            new(0.75f, 0.25f, 0f, 0f),
+            new(3f, 2f, 1f, 1f)
         );
 
         lanes = Floats(in instance);
@@ -352,8 +355,8 @@ public sealed class MeshInstanceRendererTests {
                 ),
                 Output,
                 instances,
-                vertexCapacity: 1 << 12,
-                indexCapacity: 1 << 14
+                1 << 12,
+                1 << 14
             );
         }
 
@@ -404,8 +407,8 @@ public sealed class MeshInstanceRendererTests {
                 new Vector3(0f, 0f, 10f),
                 -Vector3.UnitZ,
                 0.05f,
-                Orthographic: false,
-                PixelScale: 0.002f
+                false,
+                0.002f
             );
     }
 }

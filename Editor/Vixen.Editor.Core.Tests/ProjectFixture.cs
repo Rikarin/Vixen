@@ -70,7 +70,12 @@ public sealed class ProjectFixture : IDisposable {
     /// <param name="guid">The GUID it should claim.</param>
     /// <param name="sourceHash">What it claims the asset hashes to.</param>
     /// <param name="importer">Which importer it names.</param>
-    public void WriteMetaFor(string relativePath, AssetId guid, string? sourceHash = null, string importer = "TextureImporter") =>
+    public void WriteMetaFor(
+        string relativePath,
+        AssetId guid,
+        string? sourceHash = null,
+        string importer = "TextureImporter"
+    ) =>
         WriteMeta(Paths.Absolute(relativePath), guid, sourceHash, importer);
 
     /// <summary>What an asset's bytes actually hash to, for a sidecar that should agree with them.</summary>
@@ -86,7 +91,7 @@ public sealed class ProjectFixture : IDisposable {
     public void Dispose() {
         try {
             if (Directory.Exists(Paths.Root)) {
-                Directory.Delete(Paths.Root, recursive: true);
+                Directory.Delete(Paths.Root, true);
             }
         } catch (IOException) {
             // A temporary directory that would not go is not a test failure.

@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Audio.Ecs;
-using Vixen.Core;
 using Vixen.Ecs;
 using Vixen.Net.Replication;
 using Vixen.Net.Rpc;
@@ -20,7 +19,7 @@ public sealed class NetworkAudioTests {
     [Fact]
     public void TheAuthorityPublishesWhatItsSoundIsDoing() {
         using var world = new World("audio-capture");
-        var capture = new NetworkAudioCaptureSystem();
+        using var capture = new NetworkAudioCaptureSystem();
 
         var entity = world.Create(
             new NetworkId(1),
@@ -47,7 +46,7 @@ public sealed class NetworkAudioTests {
     [Fact]
     public void ATriggerTagBecomesACounterAndIsConsumed() {
         using var world = new World("audio-trigger");
-        var capture = new NetworkAudioCaptureSystem();
+        using var capture = new NetworkAudioCaptureSystem();
 
         var entity = world.Create(
             new NetworkId(1),
@@ -72,7 +71,8 @@ public sealed class NetworkAudioTests {
     [Fact]
     public void AReceiverDoesWhatTheWireSays() {
         using var world = new World("audio-apply");
-        var apply = new NetworkAudioApplySystem { Local = Receiving };
+        using var apply = new NetworkAudioApplySystem();
+        apply.Local = Receiving;
 
         var entity = world.Create(
             new NetworkId(1),
@@ -108,7 +108,8 @@ public sealed class NetworkAudioTests {
     [Fact]
     public void AOneShotPlayedTwiceIsHeardTwice() {
         using var world = new World("audio-restart");
-        var apply = new NetworkAudioApplySystem { Local = Receiving };
+        using var apply = new NetworkAudioApplySystem();
+        apply.Local = Receiving;
 
         var entity = world.Create(
             new NetworkId(1),
@@ -158,9 +159,7 @@ public sealed class NetworkAudioTests {
 
         var entity = world.Create(
             new NetworkId(1),
-            new NetworkAudioSource {
-                Playback = (byte)AudioPlayback.Paused, Trigger = 200, Gain = 3.25f, Pitch = -1f
-            }
+            new NetworkAudioSource { Playback = (byte)AudioPlayback.Paused, Trigger = 200, Gain = 3.25f, Pitch = -1f }
         );
 
         var writer = new Messaging.BitWriter(buffer);

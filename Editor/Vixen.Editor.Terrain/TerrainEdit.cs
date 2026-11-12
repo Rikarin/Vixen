@@ -72,7 +72,7 @@ public sealed class TerrainEdit {
 
             Cancel();
             field = value;
-            Layer = value?.Layers.LastOrDefault(layer => layer.AcceptsBrush);
+            Layer = value?.Layers.LastOrDefault(static layer => layer.AcceptsBrush);
             Tools.Target = value is { Weights.LayerCount: > 0 } ? 0 : -1;
         }
     }
@@ -103,8 +103,12 @@ public sealed class TerrainEdit {
 
     /// <summary>The brush the drag in flight is stamping with.</summary>
     /// <remarks>
-    ///     ⚠ <b>The snapshot, not <see cref="Brush" />, and the difference is the whole point of
-    ///     there being two.</b> The panel can be moved mid-drag; the stroke cannot change size while
+    ///     ⚠
+    ///     <b>
+    ///         The snapshot, not <see cref="Brush" />, and the difference is the whole point of
+    ///         there being two.
+    ///     </b>
+    ///     The panel can be moved mid-drag; the stroke cannot change size while
     ///     it runs. Anything showing the user what the brush is doing — the hover cursor above all —
     ///     has to read this while <see cref="IsStroking" /> or it draws a ring that does not match the
     ///     ground being written. Meaningless between strokes, where <see cref="Brush" /> is the
@@ -339,9 +343,7 @@ public sealed class TerrainEdit {
 
             return paintTool switch {
                 TerrainPaintTool.Smooth => TerrainPaint.Smooth(terrain, target, held, stamp),
-                TerrainPaintTool.Flatten => TerrainPaint.Flatten(
-                    terrain, target, held, stamp, Tools.TargetCoverage
-                ),
+                TerrainPaintTool.Flatten => TerrainPaint.Flatten(terrain, target, held, stamp, Tools.TargetCoverage),
                 TerrainPaintTool.Noise => TerrainPaint.Noise(
                     terrain,
                     target,
@@ -350,9 +352,7 @@ public sealed class TerrainEdit {
                     inverted ? -Tools.CoverageNoise : Tools.CoverageNoise,
                     Tools.ToNoise()
                 ),
-                _ => TerrainPaint.Paint(
-                    terrain, target, held, stamp, inverted ? -Tools.Coverage : Tools.Coverage
-                )
+                _ => TerrainPaint.Paint(terrain, target, held, stamp, inverted ? -Tools.Coverage : Tools.Coverage)
             };
         }
 
@@ -378,12 +378,21 @@ public sealed class TerrainEdit {
                         direction: inverted ? FlattenDirection.Lower : FlattenDirection.Raise
                     ),
                     TerrainTool.Sculpt => TerrainSculpt.Sculpt(
-                        terrain, layer, held, stamp, inverted ? -Tools.Metres : Tools.Metres
+                        terrain,
+                        layer,
+                        held,
+                        stamp,
+                        inverted ? -Tools.Metres : Tools.Metres
                     ),
                     TerrainTool.Smooth => TerrainSculpt.Smooth(terrain, layer, held, stamp),
                     TerrainTool.Flatten => TerrainSculpt.Flatten(terrain, layer, held, stamp, flattenTarget),
                     TerrainTool.Erosion => TerrainSculpt.Erode(
-                        terrain, layer, held, stamp, Tools.Talus, Tools.ErosionRate
+                        terrain,
+                        layer,
+                        held,
+                        stamp,
+                        Tools.Talus,
+                        Tools.ErosionRate
                     ),
                     TerrainTool.Hydro => TerrainSculpt.Hydro(terrain, layer, held, stamp, Tools.HydroRate),
                     TerrainTool.Noise => TerrainSculpt.Noise(
@@ -404,8 +413,12 @@ public sealed class TerrainEdit {
 
     /// <summary>Redraws the ramp from scratch, so the drag previews it.</summary>
     /// <remarks>
-    ///     ⚠ <b>Undo the stroke, then reapply — and this is what makes a two-point tool live rather
-    ///     than a thing that appears when the button comes up.</b> A ramp is not a sequence of stamps
+    ///     ⚠
+    ///     <b>
+    ///         Undo the stroke, then reapply — and this is what makes a two-point tool live rather
+    ///         than a thing that appears when the button comes up.
+    ///     </b>
+    ///     A ramp is not a sequence of stamps
     ///     that accumulate; it is one shape between two points, and the second point moves. Undoing
     ///     puts the layer back to what it was before the preview, so the record's lazily-captured
     ///     before-image is still the right one and re-extending over new ground captures the original

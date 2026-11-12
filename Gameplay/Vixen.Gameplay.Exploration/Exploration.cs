@@ -34,8 +34,12 @@ public sealed class PointOfInterestDefinition {
 
     /// <summary>What finding it grants — <c>Discovered.Queensdale.Ascalon</c>. Empty for one nothing asks about.</summary>
     /// <remarks>
-    ///     ⚠ <b>How a waypoint gets unlocked without <c>Vixen.Gameplay.Travel</c> referencing this
-    ///     library.</b> Doc 28's spine forbids the edge; a tag granted here and asked about there is
+    ///     ⚠
+    ///     <b>
+    ///         How a waypoint gets unlocked without <c>Vixen.Gameplay.Travel</c> referencing this
+    ///         library.
+    ///     </b>
+    ///     Doc 28's spine forbids the edge; a tag granted here and asked about there is
     ///     the same requirement algebra everything else uses, and it means a game can gate a waypoint
     ///     on anything else too.
     /// </remarks>
@@ -95,7 +99,12 @@ public sealed record MapDefinition : Definition {
 
 /// <summary>A point of interest with its names resolved.</summary>
 public sealed class PointOfInterest {
-    internal PointOfInterest(PointOfInterestDefinition definition, int index, GameplayTag tag, RequirementSet requirements) {
+    internal PointOfInterest(
+        PointOfInterestDefinition definition,
+        int index,
+        GameplayTag tag,
+        RequirementSet requirements
+    ) {
         Definition = definition;
         Index = index;
         Tag = tag;
@@ -132,7 +141,7 @@ public sealed class MapChart {
         Definition = definition;
         Tag = tag;
         this.points = points;
-        Counting = points.Count(point => point.Counts);
+        Counting = points.Count(static point => point.Counts);
     }
 
     /// <summary>What it was compiled from.</summary>
@@ -190,7 +199,8 @@ public sealed class ExplorationLibrary {
     public static ExplorationLibrary Empty { get; } = Compile(DefinitionCatalog.Empty);
 
     /// <summary>Every map, in address order.</summary>
-    public IEnumerable<MapChart> Maps => maps.Values.OrderBy(map => map.Definition.Address, StringComparer.Ordinal);
+    public IEnumerable<MapChart> Maps =>
+        maps.Values.OrderBy(static map => map.Definition.Address, StringComparer.Ordinal);
 
     /// <summary>What did not resolve, and what a definition said that cannot be true at once.</summary>
     public IReadOnlyList<string> Problems => problems;
@@ -225,7 +235,12 @@ public sealed class ExplorationLibrary {
                     );
                 }
 
-                points[index] = new(point, index, tags.Resolve(point.Tag), RequirementSet.Compile(point.Requires, tags));
+                points[index] = new(
+                    point,
+                    index,
+                    tags.Resolve(point.Tag),
+                    RequirementSet.Compile(point.Requires, tags)
+                );
             }
 
             if (definition.Columns * definition.Rows > 1 << 20) {
@@ -238,7 +253,7 @@ public sealed class ExplorationLibrary {
             maps.Add(definition.Id.Value, new(definition, tags.Resolve(definition.Tag), points));
         }
 
-        return new(maps, [.. problems]);
+        return new(maps, [..problems]);
     }
 
     /// <summary>Finds a map.</summary>

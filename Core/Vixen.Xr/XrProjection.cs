@@ -67,21 +67,45 @@ public static class XrProjection {
         var verticalOffset = (up + down) / height;
 
         if (farPlane == 0f) {
-            return new Matrix4x4(
-                2f / width, 0f, 0f, 0f,
-                0f, 2f / height, 0f, 0f,
-                horizontalOffset, verticalOffset, 0f, -1f,
-                0f, 0f, nearPlane, 0f
+            return new(
+                2f / width,
+                0f,
+                0f,
+                0f,
+                0f,
+                2f / height,
+                0f,
+                0f,
+                horizontalOffset,
+                verticalOffset,
+                0f,
+                -1f,
+                0f,
+                0f,
+                nearPlane,
+                0f
             );
         }
 
         var range = nearPlane / (farPlane - nearPlane);
 
-        return new Matrix4x4(
-            2f / width, 0f, 0f, 0f,
-            0f, 2f / height, 0f, 0f,
-            horizontalOffset, verticalOffset, range, -1f,
-            0f, 0f, farPlane * range, 0f
+        return new(
+            2f / width,
+            0f,
+            0f,
+            0f,
+            0f,
+            2f / height,
+            0f,
+            0f,
+            horizontalOffset,
+            verticalOffset,
+            range,
+            -1f,
+            0f,
+            0f,
+            farPlane * range,
+            0f
         );
     }
 }

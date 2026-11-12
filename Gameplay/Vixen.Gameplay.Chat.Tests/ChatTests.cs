@@ -42,10 +42,7 @@ public static class Content {
             .Add(
                 Whisper,
                 new ChatChannelDefinition {
-                    DisplayName = "Whisper",
-                    Command = "/w",
-                    Route = ChatRoute.Gate,
-                    Audience = ChatAudienceKind.Direct
+                    DisplayName = "Whisper", Command = "/w", Route = ChatRoute.Gate, Audience = ChatAudienceKind.Direct
                 }
             )
             .Add(
@@ -57,7 +54,14 @@ public static class Content {
                     Audience = ChatAudienceKind.Global,
                     RateLimit = 2,
                     RateWindow = 10f,
-                    Requirements = [new() { Kind = RequirementKind.Value, Subject = "Level", Comparison = RequirementComparison.AtLeast, Value = 10f }]
+                    Requirements = [
+                        new() {
+                            Kind = RequirementKind.Value,
+                            Subject = "Level",
+                            Comparison = RequirementComparison.AtLeast,
+                            Value = 10f
+                        }
+                    ]
                 }
             )
             .Build();
@@ -152,7 +156,7 @@ public class ChatLibraryTests {
             )
             .Problems;
 
-        Assert.Contains(problems, problem => problem.Contains("radius", StringComparison.Ordinal));
+        Assert.Contains(problems, static problem => problem.Contains("radius", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -168,7 +172,7 @@ public class ChatLibraryTests {
             )
             .Problems;
 
-        Assert.Contains(problems, problem => problem.Contains("another shard", StringComparison.Ordinal));
+        Assert.Contains(problems, static problem => problem.Contains("another shard", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -181,7 +185,7 @@ public class ChatLibraryTests {
             )
             .Problems;
 
-        Assert.Contains(problems, problem => problem.Contains("'/x'", StringComparison.Ordinal));
+        Assert.Contains(problems, static problem => problem.Contains("'/x'", StringComparison.Ordinal));
     }
 }
 
@@ -190,7 +194,9 @@ public class ChatFilterTests {
     readonly ChatLibrary library;
     readonly World world = new();
 
-    public ChatFilterTests() => library = ChatLibrary.Compile(catalog);
+    public ChatFilterTests() {
+        library = ChatLibrary.Compile(catalog);
+    }
 
     ChatChannel Channel(string address) => library.Find(DefId.From(address))!;
 
@@ -207,7 +213,7 @@ public class ChatFilterTests {
     [Fact]
     public void AMessageLongerThanTheChannelTakesIsRefusedRatherThanTruncated() {
         // ⚠ A message cut in half says something its sender did not, and on trade that is a price.
-        var draft = Draft(new string('a', 17));
+        var draft = Draft(new('a', 17));
         var verdict = new ChatFilters.Length().Apply(draft, world);
 
         Assert.Equal(ChatRejection.TooLong, verdict.Rejection);
@@ -225,7 +231,7 @@ public class ChatFilterTests {
 
         // The same player on another channel, and another player on the same one, are both untouched.
         Assert.True(filter.Apply(Draft("hello"), world).IsAllowed);
-        Assert.True(filter.Apply(Draft("four", Content.Trade, sender: 2), world).IsAllowed);
+        Assert.True(filter.Apply(Draft("four", Content.Trade, 2), world).IsAllowed);
     }
 
     [Fact]
@@ -248,7 +254,7 @@ public class ChatFilterTests {
 
     [Fact]
     public void AChannelWithNoLimitIsNeverLimited() {
-        var filter = new ChatFilters.RateLimit(new ChatRateLimiter());
+        var filter = new ChatFilters.RateLimit(new());
 
         for (var attempt = 0; attempt < 100; attempt++) {
             Assert.True(filter.Apply(Draft("hello"), world).IsAllowed);
@@ -379,13 +385,13 @@ public class ChatRouterTests {
     [Fact]
     public void AChannelPermissionIsCheckedBeforeThePipeline() {
         Assert.True(Say(Content.Guild, "hello").IsDelivered);
-        Assert.Equal(ChatRejection.NoPermission, Say(Content.Guild, "hello", sender: 2).Rejection);
+        Assert.Equal(ChatRejection.NoPermission, Say(Content.Guild, "hello", 2).Rejection);
     }
 
     [Fact]
     public void AChannelRequirementIsChecked() {
         Assert.True(Say(Content.Trade, "wts").IsDelivered);
-        Assert.Equal(ChatRejection.Requirements, Say(Content.Trade, "wts", sender: 2).Rejection);
+        Assert.Equal(ChatRejection.Requirements, Say(Content.Trade, "wts", 2).Rejection);
     }
 
     [Fact]
@@ -414,8 +420,8 @@ public class ChatRouterTests {
     [Fact]
     public void ARefusedMessageDoesNotAdvanceTheSequence() {
         Say(Content.Say, "hello");
-        Say(Content.Say, "");
-        Say(Content.Say, new string('a', 40));
+        Say(Content.Say, string.Empty);
+        Say(Content.Say, new('a', 40));
 
         Assert.Equal(2ul, Say(Content.Say, "again").Message.Sequence);
         Assert.Equal(2ul, router.Delivered);
@@ -428,7 +434,7 @@ public class ChatRouterTests {
         router.Sent += delivery => seen.Add(delivery);
 
         Say(Content.Say, "one");
-        Say(Content.Say, "");
+        Say(Content.Say, string.Empty);
         Say(Content.Say, "two");
 
         Assert.Equal(2, seen.Count);

@@ -91,8 +91,11 @@ public sealed partial class UiDocument {
     /// <summary>What <see cref="ResolveText" /> could not read, and why.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A fourth producer, and it is here rather than on
-    ///         <see cref="LayoutStyleBuilder" /> because this pass is not the bridge.</b>
+    ///         ⚠
+    ///         <b>
+    ///             A fourth producer, and it is here rather than on
+    ///             <see cref="LayoutStyleBuilder" /> because this pass is not the bridge.
+    ///         </b>
     ///         <c>line-height</c>, <c>letter-spacing</c>, <c>word-spacing</c> and <c>text-indent</c>
     ///         are resolved by <see cref="ResolveText" /> against <i>this element's own</i> font size
     ///         and inherited as answers rather than as declarations, which is exactly why the bridge
@@ -100,8 +103,12 @@ public sealed partial class UiDocument {
     ///         saw the value.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The refusals these record are invisible by construction, which is what makes the
-    ///         list worth its bytes.</b> A <c>letter-spacing</c> in a unit that measures no distance
+    ///         ⚠
+    ///         <b>
+    ///             The refusals these record are invisible by construction, which is what makes the
+    ///             list worth its bytes.
+    ///         </b>
+    ///         A <c>letter-spacing</c> in a unit that measures no distance
     ///         leaves the tracking inherited, and inherited-from-a-root is zero, and zero tracking
     ///         <i>is</i> <c>letter-spacing: normal</c> — the initial value. There is no frame in
     ///         which that declaration looks any different from never having written it. Same for
@@ -131,8 +138,12 @@ public sealed partial class UiDocument {
     ///         a line per element per frame if nothing collapses it.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>No <c>Rule</c>, and it is the same unavailability the bridge documents rather
-    ///         than a lapse from `Rikarin/Vixen#520`.</b> A rule can be named only while the sheet is
+    ///         ⚠
+    ///         <b>
+    ///             No <c>Rule</c>, and it is the same unavailability the bridge documents rather
+    ///             than a lapse from `Rikarin/Vixen#520`.
+    ///         </b>
+    ///         A rule can be named only while the sheet is
     ///         being read; by the time a declaration is resolved against an element the cascade has
     ///         picked a winner per property and thrown the provenance away. <c>Text</c> — the
     ///         declaration as the author wrote it — is the locator this side of that line has.
@@ -150,7 +161,7 @@ public sealed partial class UiDocument {
             }
         }
 
-        textDiagnostics.Add(new SelectorDiagnostic(text, reason));
+        textDiagnostics.Add(new(text, reason));
     }
 
     /// <summary>Every box that declared a scroll container and got a clip, once per distinct box.</summary>
@@ -168,16 +179,24 @@ public sealed partial class UiDocument {
     ///         two dozen rules. See <c>Rikarin/Vixen#1275</c>.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Keyed by the element rather than by the declaration, because the declaration is
-    ///         the same in every one of them.</b> The bridge's list deduplicates by text and would
+    ///         ⚠
+    ///         <b>
+    ///             Keyed by the element rather than by the declaration, because the declaration is
+    ///             the same in every one of them.
+    ///         </b>
+    ///         The bridge's list deduplicates by text and would
     ///         collapse twenty panels declaring <c>overflow: auto</c> into one line naming none of
     ///         them. <c>Text</c> here is the element as a selector would name it —
     ///         <c>console-detail</c>, <c>div#log.tall</c> — which is what a person needs to go and
     ///         put a <c>ScrollView</c> under.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Recorded from the same walk that builds the layout style, and only when a style is
-    ///         (re)built.</b> That is the one place the element, its computed style and the layout
+    ///         ⚠
+    ///         <b>
+    ///             Recorded from the same walk that builds the layout style, and only when a style is
+    ///             (re)built.
+    ///         </b>
+    ///         That is the one place the element, its computed style and the layout
     ///         answer are all in hand, and it is reached once per element per <i>change</i> rather
     ///         than per frame, which is what makes a linear scan of this list affordable.
     ///     </para>
@@ -205,7 +224,7 @@ public sealed partial class UiDocument {
             }
         }
 
-        overflowDiagnostics.Add(new SelectorDiagnostic(text, DeclaredOverflow(style)));
+        overflowDiagnostics.Add(new(text, DeclaredOverflow(style)));
     }
 
     /// <summary>Every control under a tag of its own that lost what its own tag's rules declare, once per box.</summary>
@@ -221,14 +240,22 @@ public sealed partial class UiDocument {
     ///         New Asset… picker shipped without both. See <c>Rikarin/Vixen#1327</c>.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The build-time census (<c>RetaggedControlTests</c>) sees what is committed and
-    ///         spelt as a literal; this sees what runs.</b> A tag held in a variable, a control built
+    ///         ⚠
+    ///         <b>
+    ///             The build-time census (<c>RetaggedControlTests</c>) sees what is committed and
+    ///             spelt as a literal; this sees what runs.
+    ///         </b>
+    ///         A tag held in a variable, a control built
     ///         by a plugin, an application outside this repository — the census reads none of them,
     ///         and each is exactly as silent.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>What the control would have had is answered by resolving its own tag, alone, on a
-    ///         tree of its own</b> — no parent, no classes, no state. So it is the rules that name the
+    ///         ⚠
+    ///         <b>
+    ///             What the control would have had is answered by resolving its own tag, alone, on a
+    ///             tree of its own
+    ///         </b>
+    ///         — no parent, no classes, no state. So it is the rules that name the
     ///         tag unconditionally, which is what a user-agent rule is; a rule under an ancestor
     ///         (<c>root.dark scroll-view</c>) or a <c>var()</c> the bare probe cannot resolve is not
     ///         counted. That errs towards silence, which is the right way round for a warning that
@@ -381,16 +408,24 @@ public sealed partial class UiDocument {
     /// <returns>One entry per distinct refusal, in producer order.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Five, and a caller that reads two of them is a caller that reports a broken
-    ///         document as a working one.</b> <c>HotReloadHost</c> built its before-and-after
+    ///         ⚠
+    ///         <b>
+    ///             Five, and a caller that reads two of them is a caller that reports a broken
+    ///             document as a working one.
+    ///         </b>
+    ///         <c>HotReloadHost</c> built its before-and-after
     ///         snapshot out of <see cref="StyleSheetLoader" /> and <c>SelectorCompiler</c> alone, so
     ///         a saved sheet declaring <c>grid-template-rows: 4furlongs</c> or
     ///         <c>letter-spacing: 2deg</c> parsed, compiled, introduced nothing, and was reported as
     ///         a successful reload while the panel it styled laid out as one row. See #583.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Three of the five are empty until a pass has run, which is the whole reason this
-    ///         is not a one-line addition to that caller.</b> The loader's and the compiler's lists
+    ///         ⚠
+    ///         <b>
+    ///             Three of the five are empty until a pass has run, which is the whole reason this
+    ///             is not a one-line addition to that caller.
+    ///         </b>
+    ///         The loader's and the compiler's lists
     ///         are filled at load; the bridge's and the text resolver's are filled per element
     ///         during <see cref="Update" /> and the draw list's per frame during <see cref="Draw()" />.
     ///         A snapshot taken at the moment a sheet is replaced reads three empty lists whatever
@@ -399,11 +434,11 @@ public sealed partial class UiDocument {
     ///     </para>
     /// </remarks>
     public IReadOnlyList<string> Refusals() => [
-        .. Styles.Loader.Diagnostics.Select(diagnostic => diagnostic.ToString()),
-        .. Styles.Compiler.Diagnostics.Select(diagnostic => diagnostic.ToString()),
-        .. Builder.Diagnostics.Select(diagnostic => diagnostic.ToString()),
-        .. textDiagnostics.Select(diagnostic => diagnostic.ToString()),
-        .. drawings.Diagnostics.Select(diagnostic => diagnostic.ToString())
+        ..Styles.Loader.Diagnostics.Select(static diagnostic => diagnostic.ToString()),
+        ..Styles.Compiler.Diagnostics.Select(static diagnostic => diagnostic.ToString()),
+        ..Builder.Diagnostics.Select(static diagnostic => diagnostic.ToString()),
+        ..textDiagnostics.Select(static diagnostic => diagnostic.ToString()),
+        ..drawings.Diagnostics.Select(static diagnostic => diagnostic.ToString())
     ];
 
     /// <summary>
@@ -412,14 +447,21 @@ public sealed partial class UiDocument {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <b>For a caller that is about to run a pass and wants the refusals of <i>that</i>
-    ///         pass.</b> <c>LayoutStyleBuilder.ClearDiagnostics</c> and
+    ///         <b>
+    ///             For a caller that is about to run a pass and wants the refusals of <i>that</i>
+    ///             pass.
+    ///         </b>
+    ///         <c>LayoutStyleBuilder.ClearDiagnostics</c> and
     ///         <c>DrawListBuilder.ClearDiagnostics</c> were written for exactly this and had no
     ///         caller at all.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Clearing the lists is half of it, and the half on its own is worse than
-    ///         nothing.</b> <see cref="Invalidate" /> re-cascades but does not rebuild a layout
+    ///         ⚠
+    ///         <b>
+    ///             Clearing the lists is half of it, and the half on its own is worse than
+    ///             nothing.
+    ///         </b>
+    ///         <see cref="Invalidate" /> re-cascades but does not rebuild a layout
     ///         style whose interned <c>ComputedStyle</c> came back identical — which is the whole
     ///         point of that interning — so a caller that cleared and then invalidated would run a
     ///         full restyle, reach the bridge for nothing, and read an empty list as "this document
@@ -547,8 +589,12 @@ public sealed partial class UiDocument {
     ///         returns.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Per surface rather than per <see cref="Draw()" />, because a host may draw one
-    ///         window and skip another.</b> The watermark is on the builder, which is shared by every
+    ///         ⚠
+    ///         <b>
+    ///             Per surface rather than per <see cref="Draw()" />, because a host may draw one
+    ///             window and skip another.
+    ///         </b>
+    ///         The watermark is on the builder, which is shared by every
     ///         surface, so a refusal is logged by whichever surface's build recorded it and not once
     ///         per window.
     ///     </para>

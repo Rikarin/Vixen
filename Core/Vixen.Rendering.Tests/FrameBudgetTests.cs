@@ -59,9 +59,7 @@ public class FrameBudgetTests {
         var projection = Matrix4x4.PerspectiveFieldOfView(MathF.PI / 3f, 16f / 9f, 0.1f, 1000f);
 
         camera = new("camera") {
-            Stages = opaque.Mask | blended.Mask,
-            Position = Vector3.Zero,
-            Frustum = new(view * projection)
+            Stages = opaque.Mask | blended.Mask, Position = Vector3.Zero, Frustum = new(view * projection)
         };
 
         system.SetViews([camera]);
@@ -83,9 +81,9 @@ public class FrameBudgetTests {
 
         Measured.NothingAllocated(
             system.Draw,
-            warmUp: 0,
-            passes: 16,
-            because: "The per-frame path is meant to reuse every array it touches."
+            0,
+            16,
+            "The per-frame path is meant to reuse every array it touches."
         );
     }
 
@@ -109,8 +107,8 @@ public class FrameBudgetTests {
         parallel.Draw();
 
         Assert.Equal(
-            inline.Nodes(inlineCamera, inlineOpaque).Select(node => node.Object).ToArray(),
-            parallel.Nodes(parallelCamera, parallelOpaque).Select(node => node.Object).ToArray()
+            inline.Nodes(inlineCamera, inlineOpaque).Select(static node => node.Object).ToArray(),
+            parallel.Nodes(parallelCamera, parallelOpaque).Select(static node => node.Object).ToArray()
         );
     }
 

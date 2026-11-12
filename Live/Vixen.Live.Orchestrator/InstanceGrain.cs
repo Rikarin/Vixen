@@ -31,10 +31,10 @@ public sealed class InstanceState {
     readonly HashSet<PlayerKey> roster = [];
 
     /// <summary>Which instance, by address. Empty until opened.</summary>
-    public string Instance { get; private set; } = "";
+    public string Instance { get; private set; } = string.Empty;
 
     /// <summary>Which difficulty.</summary>
-    public string Difficulty { get; private set; } = "";
+    public string Difficulty { get; private set; } = string.Empty;
 
     /// <summary>How many may be bound.</summary>
     public int Capacity { get; private set; }
@@ -64,8 +64,8 @@ public sealed class InstanceState {
             ? new(
                 Instance,
                 Difficulty,
-                [.. bindings],
-                [.. defeated.Order(StringComparer.Ordinal)],
+                [..bindings],
+                [..defeated.Order(StringComparer.Ordinal)],
                 Opened,
                 Expires,
                 Closed,
@@ -108,7 +108,7 @@ public sealed class InstanceState {
         }
 
         Instance = instance;
-        Difficulty = difficulty ?? "";
+        Difficulty = difficulty ?? string.Empty;
         Capacity = Math.Max(1, capacity);
         Expires = expires;
         Opened = now;
@@ -165,8 +165,12 @@ public sealed class InstanceState {
     /// <param name="now">The clock.</param>
     /// <returns>The outcome.</returns>
     /// <remarks>
-    ///     ⚠ <b>Idempotent on the encounter, and a boss reported twice is <c>Unchanged</c> rather
-    ///     than an error.</b> A realm whose grain call was lost retries, and the retry must not be a
+    ///     ⚠
+    ///     <b>
+    ///         Idempotent on the encounter, and a boss reported twice is <c>Unchanged</c> rather
+    ///         than an error.
+    ///     </b>
+    ///     A realm whose grain call was lost retries, and the retry must not be a
     ///     second kill — which for a loot-bearing encounter is the duplication this whole layer
     ///     exists to prevent.
     /// </remarks>
@@ -209,7 +213,10 @@ public sealed class InstanceState {
     /// <summary>Puts a saved instance back, as it was, with no checks.</summary>
     /// <param name="saved">What it was.</param>
     /// <param name="capacity">How many it allows now.</param>
-    /// <param name="access">Who may enter, which is not stored on the record because it is the group's rather than the instance's.</param>
+    /// <param name="access">
+    ///     Who may enter, which is not stored on the record because it is the group's rather than the
+    ///     instance's.
+    /// </param>
     public void Restore(InstanceRecord saved, int capacity, ImmutableArray<PlayerKey> access) {
         ArgumentNullException.ThrowIfNull(saved);
 

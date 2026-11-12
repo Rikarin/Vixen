@@ -25,9 +25,13 @@ namespace Vixen.Editor.App.Tests;
 ///         made before it could be, and each has a test that fails if it is made the other way.
 ///     </para>
 ///     <para>
-///         ⚠⚠ <b><see cref="AnOverrideToTheTemplatesOwnValueIsStillAnOverride" /> and
-///         <see cref="AnOverrideToZeroAgainstATemplateAtZeroIsStillAnOverride" /> are the pair that tells the right
-///         model from the wrong one.</b> Both hold a value equal to what a comparison would call
+///         ⚠⚠
+///         <b>
+///             <see cref="AnOverrideToTheTemplatesOwnValueIsStillAnOverride" /> and
+///             <see cref="AnOverrideToZeroAgainstATemplateAtZeroIsStillAnOverride" /> are the pair that tells the right
+///             model from the wrong one.
+///         </b>
+///         Both hold a value equal to what a comparison would call
 ///         "unchanged" — one equal to the template's, one equal to the type's default — so a source
 ///         that answered <c>IsOverridden</c> by comparing values would report them as not overridden,
 ///         and the revert would have nothing to do. That is model (A) of doc 47 § 3, and it is what
@@ -46,7 +50,9 @@ namespace Vixen.Editor.App.Tests;
 ///     </para>
 /// </remarks>
 public class PrefabInspectorTests : IDisposable {
-    static PrefabInspectorTests() => SceneScalars.Register();
+    static PrefabInspectorTests() {
+        SceneScalars.Register();
+    }
 
     static readonly EntityId Source = EntityId.New();
     static readonly EntityId ChildSource = EntityId.New();
@@ -187,7 +193,7 @@ public class PrefabInspectorTests : IDisposable {
 
         // Its world position is now (25, 1, 0) and the template says (0, 1, 0) — two different things
         // by construction, and neither is an override.
-        Assert.Equal(new Vector3(25f, 1f, 0f), placed.Position);
+        Assert.Equal(new(25f, 1f, 0f), placed.Position);
         Assert.False(Field(source, placed, Position).IsOverridden);
     }
 
@@ -223,13 +229,13 @@ public class PrefabInspectorTests : IDisposable {
         // The template's (0, 1, 0) is relative to the parent, and the parent is at (25, 0, 0). A
         // world-space value written into the setter unconverted would have landed at (0, 1, 0) and
         // put the barrel twenty-five units from the turret it belongs to.
-        Assert.Equal(new Vector3(0f, 1f, 0f), new Transform(world, child).LocalPosition);
+        Assert.Equal(new(0f, 1f, 0f), new Transform(world, child).LocalPosition);
 
         // ⚠ Settled before the world-space read, because `WorldTransform` is a pass's output: the
         // editor's own panel reads a stale one for the rest of the frame it wrote in, which is why
         // the check that matters above is the local one.
         Settle(world);
-        Assert.Equal(new Vector3(25f, 1f, 0f), placed.Position);
+        Assert.Equal(new(25f, 1f, 0f), placed.Position);
         Assert.False(field.IsOverridden);
     }
 
@@ -291,8 +297,11 @@ public class PrefabInspectorTests : IDisposable {
     /// <summary>⚠⚠ A lamp overridden to zero against a template that is also zero is still overridden.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>Doc 47 § 4's zero-value trap, at the layer that displays it — and the shape of it
-    ///         that a value comparison actually gets wrong.</b> A prefab whose lamp is off, and an
+    ///         <b>
+    ///             Doc 47 § 4's zero-value trap, at the layer that displays it — and the shape of it
+    ///             that a value comparison actually gets wrong.
+    ///         </b>
+    ///         A prefab whose lamp is off, and an
     ///         author who says "off is <i>mine</i>, do not brighten this one when the template
     ///         changes", is a sentence the file can write down and a comparison cannot read: the
     ///         numbers are equal, the type's default is the same number again, and everything about
@@ -556,7 +565,7 @@ public class PrefabInspectorTests : IDisposable {
         var again = (SceneDocument)new SceneEditorFactory(_ => reopened).Open(new(fixture.Project, level, path));
 
         Assert.True(again.TryGetEntity(scene.IdOf(root), out var entity));
-        Assert.Equal(new Vector3(25f, 0f, 0f), reopened.Read<LocalTransform>(entity).Position);
+        Assert.Equal(new(25f, 0f, 0f), reopened.Read<LocalTransform>(entity).Position);
     }
 
     /// <summary>⚠ Undo takes the claim back with the transform, in one step.</summary>
@@ -625,7 +634,7 @@ public class PrefabInspectorTests : IDisposable {
         Drag(scene, crate, new(3f, 0f, 0f));
 
         Assert.Empty(scene.Prefabs.OverridesOf(crate));
-        Assert.Equal(new Vector3(3f, 0f, 0f), new Transform(world, crate).Position);
+        Assert.Equal(new(3f, 0f, 0f), new Transform(world, crate).Position);
     }
 
     /// <summary>Moves an entity the way the viewport does: apply, then record on mouse-up.</summary>

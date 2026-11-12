@@ -14,20 +14,36 @@ namespace Tests;
 /// <remarks>
 ///     <para>
 ///         <b>Closed forms, not goldens and not a CPU twin</b> — doc 48 § D3. The three these hold
-///         to are the ones § 4.5's own criteria name: <b>a distance transform from a single lit texel
-///         is the Euclidean distance, exactly</b>; <b>a flood fill of two disjoint rectangles is two
-///         ids with known sizes</b>; and a Sobel over a flat image is zero everywhere while a Sobel
+///         to are the ones § 4.5's own criteria name:
+///         <b>
+///             a distance transform from a single lit texel
+///             is the Euclidean distance, exactly
+///         </b>
+///         ;
+///         <b>
+///             a flood fill of two disjoint rectangles is two
+///             ids with known sizes
+///         </b>
+///         ; and a Sobel over a flat image is zero everywhere while a Sobel
 ///         over a ramp is that ramp's own slope.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The single-seed distance field is exact and is asserted as such rather than with a
-///         generous tolerance.</b> A jump flood is only approximate when two seeds compete; with one
+///         ⚠
+///         <b>
+///             The single-seed distance field is exact and is asserted as such rather than with a
+///             generous tolerance.
+///         </b>
+///         A jump flood is only approximate when two seeds compete; with one
 ///         seed every texel's answer is the true distance, and the only slack left is the read-back's
 ///         own quantisation to eight bits.
 ///     </para>
 ///     <para>
-///         ⚠ <b>What this file cannot see, measured rather than guessed: the order of the jump
-///         flood's steps.</b> Emitting them ascending left every assertion here green, because with a
+///         ⚠
+///         <b>
+///             What this file cannot see, measured rather than guessed: the order of the jump
+///             flood's steps.
+///         </b>
+///         Emitting them ascending left every assertion here green, because with a
 ///         single seed both orders reach every offset — the binary expansion of the distance is the
 ///         path. The descending sequence matters where seeds compete, and
 ///         <c>TextureAnalysisKernelTests</c> is what pins it.
@@ -41,10 +57,10 @@ public class TextureAnalysisDeviceTests(ITestOutputHelper output) {
         var pixels = new byte[side * side * 4];
 
         for (var texel = 0; texel < side * side; texel++) {
-            pixels[(texel * 4) + 3] = 255;
+            pixels[texel * 4 + 3] = 255;
         }
 
-        var at = ((y * side) + x) * 4;
+        var at = (y * side + x) * 4;
 
         pixels[at] = 255;
         pixels[at + 1] = 255;
@@ -58,13 +74,13 @@ public class TextureAnalysisDeviceTests(ITestOutputHelper output) {
         var pixels = new byte[side * side * 4];
 
         for (var texel = 0; texel < side * side; texel++) {
-            pixels[(texel * 4) + 3] = 255;
+            pixels[texel * 4 + 3] = 255;
         }
 
         foreach (var rectangle in rectangles) {
             for (var y = rectangle.Y0; y <= rectangle.Y1; y++) {
                 for (var x = rectangle.X0; x <= rectangle.X1; x++) {
-                    var at = ((y * side) + x) * 4;
+                    var at = (y * side + x) * 4;
 
                     pixels[at] = 255;
                     pixels[at + 1] = 255;
@@ -104,7 +120,7 @@ public class TextureAnalysisDeviceTests(ITestOutputHelper output) {
 
         for (var y = 0; y < Side; y++) {
             for (var x = 0; x < Side; x++) {
-                var truth = MathF.Min(MathF.Sqrt(((x - SeedX) * (x - SeedX)) + ((y - SeedY) * (y - SeedY))), Side);
+                var truth = MathF.Min(MathF.Sqrt((x - SeedX) * (x - SeedX) + (y - SeedY) * (y - SeedY)), Side);
                 var measured = TextureKernelHarness.At(field, x, y, 0) / 255f * Side;
                 var error = MathF.Abs(measured - truth);
 
@@ -131,8 +147,12 @@ public class TextureAnalysisDeviceTests(ITestOutputHelper output) {
 
     /// <summary>The inside mode measures to the nearest texel that is <em>not</em> in the mask.</summary>
     /// <remarks>
-    ///     ⚠ <b>Both fields flood in one chain, so this is the same six dispatches reading the other
-    ///     two channels.</b> A test of the outside mode alone would pass on a kernel that had lost the
+    ///     ⚠
+    ///     <b>
+    ///         Both fields flood in one chain, so this is the same six dispatches reading the other
+    ///         two channels.
+    ///     </b>
+    ///     A test of the outside mode alone would pass on a kernel that had lost the
     ///     second field entirely — and the picture would be black, which is what an unwritten storage
     ///     image looks like too.
     /// </remarks>
@@ -191,7 +211,11 @@ public class TextureAnalysisDeviceTests(ITestOutputHelper output) {
 
         output.WriteLine($"adapter: {TextureKernelHarness.Adapter(device)}");
 
-        var flat = OneOp(device, TextureKernelHarness.Solid(Side, 128, 128, 128, 255), TextureAnalysis.EdgeDetect(1, 0));
+        var flat = OneOp(
+            device,
+            TextureKernelHarness.Solid(Side, 128, 128, 128, 255),
+            TextureAnalysis.EdgeDetect(1, 0)
+        );
 
         for (var y = 0; y < Side; y++) {
             for (var x = 0; x < Side; x++) {
@@ -270,7 +294,7 @@ public class TextureAnalysisDeviceTests(ITestOutputHelper output) {
             images.Add(new(TextureFormat.Rgba8));
             images.Add(new(TextureFormat.Rgba8));
 
-            ImmutableArray<int> scratch = [.. Enumerable.Range(1, Budget)];
+            ImmutableArray<int> scratch = [..Enumerable.Range(1, Budget)];
 
             var ops = TextureAnalysis
                 .FloodFill(idImage, 0, scratch, Side, Side, TextureFloodOutput.Id)
@@ -335,8 +359,11 @@ public class TextureAnalysisDeviceTests(ITestOutputHelper output) {
 
     /// <summary>
     ///     ⚠ Two islands that share the minimum corner of their boxes still get two ids — and the
-    ///     picture that proves it is the one <a href="https://github.com/Rikarin/Vixen/issues/691">
-    ///     #691</a> asked for.
+    ///     picture that proves it is the one
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/691">
+    ///         #691
+    ///     </a>
+    ///     asked for.
     /// </summary>
     /// <remarks>
     ///     <para>
@@ -402,8 +429,12 @@ public class TextureAnalysisDeviceTests(ITestOutputHelper output) {
     ///         <b><a href="https://github.com/Rikarin/Vixen/issues/705">#705</a>.</b>
     ///         <c>FloodBounds.rvn</c> branches on <c>diagonal</c> —
     ///         <c>val skip = dx * dy != 0 &amp;&amp; diagonal == 0</c> — and nothing in the suite set
-    ///         it: every flood above took the builder's default, so ⚠ <b>a kernel that ignored the
-    ///         uniform, or inverted its sense, was green across the whole file</b>.
+    ///         it: every flood above took the builder's default, so ⚠
+    ///         <b>
+    ///             a kernel that ignored the
+    ///             uniform, or inverted its sense, was green across the whole file
+    ///         </b>
+    ///         .
     ///     </para>
     ///     <para>
     ///         The closed form is the definition of the two connectivities, and it needs no tolerance
@@ -456,16 +487,24 @@ public class TextureAnalysisDeviceTests(ITestOutputHelper output) {
     ///         <b>The fifth of § 4.5's five outputs, and the one nothing read.</b>
     ///         <a href="https://github.com/Rikarin/Vixen/issues/705">#705</a>: the two-rectangle test
     ///         above says in its own docstring that "four pictures are read out of one settled
-    ///         record", and <c>kind == 3</c> is the fifth — ⚠ <b>swapping the minimum and the maximum
-    ///         inside that branch was invisible to the entire suite</b>, and a swapped box is a
+    ///         record", and <c>kind == 3</c> is the fifth — ⚠
+    ///         <b>
+    ///             swapping the minimum and the maximum
+    ///             inside that branch was invisible to the entire suite
+    ///         </b>
+    ///         , and a swapped box is a
     ///         perfectly plausible picture.
     ///     </para>
     ///     <para>
     ///         It is also the only branch that stores four meaningful channels rather than an explicit
     ///         alpha of one, which is what <c>FloodFill.rvn</c>'s header rests the background
     ///         discriminator on: a texel in no island stores <c>(0, 0, 0, 1)</c>, and an island's alpha
-    ///         is <c>maxY / height</c>, which is at most <c>(h − 1) / h</c>. So <b>alpha of one is
-    ///         background and nothing else can be</b> — asserted here, because the header is the only
+    ///         is <c>maxY / height</c>, which is at most <c>(h − 1) / h</c>. So
+    ///         <b>
+    ///             alpha of one is
+    ///             background and nothing else can be
+    ///         </b>
+    ///         — asserted here, because the header is the only
     ///         other place it is written down.
     ///     </para>
     /// </remarks>
@@ -479,10 +518,8 @@ public class TextureAnalysisDeviceTests(ITestOutputHelper output) {
         var (boxes, _) = TwoFloods(device, mask, TextureFloodOutput.BoundingBox, TextureFloodOutput.Id, false);
 
         foreach (var (x, y, minX, minY, maxX, maxY) in new[] {
-            (7, 7, 4, 4, 11, 11),
-            (11, 11, 4, 4, 11, 11),
-            (48, 28, 40, 20, 55, 35)
-        }) {
+                     (7, 7, 4, 4, 11, 11), (11, 11, 4, 4, 11, 11), (48, 28, 40, 20, 55, 35)
+                 }) {
             Assert.Equal(Byte(minX / (float)Side), TextureKernelHarness.At(boxes, x, y, 0));
             Assert.Equal(Byte(minY / (float)Side), TextureKernelHarness.At(boxes, x, y, 1));
             Assert.Equal(Byte(maxX / (float)Side), TextureKernelHarness.At(boxes, x, y, 2));
@@ -510,11 +547,18 @@ public class TextureAnalysisDeviceTests(ITestOutputHelper output) {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <b>§ 4.5 asks for "an iteration ceiling that reports truncation rather than a
-    ///         while-loop on the device", and this is the instrument.</b> The residual is one where
+    ///         <b>
+    ///             § 4.5 asks for "an iteration ceiling that reports truncation rather than a
+    ///             while-loop on the device", and this is the instrument.
+    ///         </b>
+    ///         The residual is one where
     ///         the last two iterations disagree; a <c>MinMaxReduce</c> chain takes its maximum down to
-    ///         one texel; the caller reads that texel. ⚠ <b>A serpentine across the image needs a sweep per
-    ///         corner</b>, because a sweep crosses a whole run and stops at a turn — so the settling
+    ///         one texel; the caller reads that texel. ⚠
+    ///         <b>
+    ///             A serpentine across the image needs a sweep per
+    ///             corner
+    ///         </b>
+    ///         , because a sweep crosses a whole run and stops at a turn — so the settling
     ///         time is how often the island turns and has nothing to do with its area. Given four it is
     ///         still moving; given a hundred it is not.
     ///     </para>
@@ -551,11 +595,11 @@ public class TextureAnalysisDeviceTests(ITestOutputHelper output) {
             images.Add(new(TextureFormat.Rgba8));
 
             foreach (var level in TextureAdjust.ReductionLevels(Side, Side)) {
-                images.Add(new(TextureFormat.Rgba8, LevelOffset: level));
+                images.Add(new(TextureFormat.Rgba8, level));
             }
 
-            ImmutableArray<int> scratch = [.. Enumerable.Range(1, budget)];
-            ImmutableArray<int> ladder = [.. Enumerable.Range(residual + 1, images.Count - residual - 1)];
+            ImmutableArray<int> scratch = [..Enumerable.Range(1, budget)];
+            ImmutableArray<int> ladder = [..Enumerable.Range(residual + 1, images.Count - residual - 1)];
 
             var ops = TextureAnalysis
                 .FloodFill(residual, 0, scratch, Side, Side)
@@ -591,8 +635,8 @@ public class TextureAnalysisDeviceTests(ITestOutputHelper output) {
     static (int X0, int Y0, int X1, int Y1)[] Serpentine() {
         List<(int, int, int, int)> parts = [];
 
-        for (var row = 0; row < (Side / 4) - 1; row++) {
-            var y = (row * 4) + 1;
+        for (var row = 0; row < Side / 4 - 1; row++) {
+            var y = row * 4 + 1;
 
             parts.Add((1, y, Side - 2, y));
 
@@ -601,7 +645,7 @@ public class TextureAnalysisDeviceTests(ITestOutputHelper output) {
             parts.Add((x, y, x, y + 4));
         }
 
-        return [.. parts];
+        return [..parts];
     }
 
     /// <summary>What an eight-bit read-back makes of a value in 0..1.</summary>
@@ -638,7 +682,7 @@ public class TextureAnalysisDeviceTests(ITestOutputHelper output) {
             images.Add(new(TextureFormat.Rgba8));
             images.Add(new(TextureFormat.Rgba8));
 
-            ImmutableArray<int> scratch = [.. Enumerable.Range(1, Budget)];
+            ImmutableArray<int> scratch = [..Enumerable.Range(1, Budget)];
 
             var plan = new TexturePlan {
                 BaseWidth = Side,
@@ -688,7 +732,7 @@ public class TextureAnalysisDeviceTests(ITestOutputHelper output) {
                 Ops = TextureAnalysis.Distance(
                     result,
                     0,
-                    [.. Enumerable.Range(1, dispatches)],
+                    [..Enumerable.Range(1, dispatches)],
                     Side,
                     Side,
                     mode,

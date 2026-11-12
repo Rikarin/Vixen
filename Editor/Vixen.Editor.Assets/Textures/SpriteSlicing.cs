@@ -11,8 +11,12 @@ namespace Vixen.Editor.Assets.Textures;
 
 /// <summary>Whether a texture produces sprites, and how many.</summary>
 /// <remarks>
-///     ⚠ <b>Three states rather than a <c>bool</c>, because "one sprite" and "many" differ in what
-///     they produce and not only in how many.</b> A single sprite is the texture itself with a pivot
+///     ⚠
+///     <b>
+///         Three states rather than a <c>bool</c>, because "one sprite" and "many" differ in what
+///         they produce and not only in how many.
+///     </b>
+///     A single sprite is the texture itself with a pivot
 ///     and a border; a sliced sheet is a sub-asset per cell, each of which something in a scene can
 ///     reference by name. The distinction is the one Unity draws and it is the one that decides
 ///     whether a re-slice can break an existing reference.
@@ -287,7 +291,13 @@ public static class SpriteSlicer {
     /// <param name="pivot">Where its origin sits.</param>
     /// <param name="border">Its nine-slice border, in texels.</param>
     /// <returns>The rect.</returns>
-    public static SpriteRect Whole(int width, int height, string name, Vector2? pivot = null, NineSlice border = default) =>
+    public static SpriteRect Whole(
+        int width,
+        int height,
+        string name,
+        Vector2? pivot = null,
+        NineSlice border = default
+    ) =>
         SpriteRect.From(name, new(0f, 0f, Math.Max(width, 0), Math.Max(height, 0)), pivot, border);
 
     /// <summary>Shrinks a rect to what is actually drawn inside it.</summary>
@@ -319,7 +329,7 @@ public static class SpriteSlicer {
 
         for (var y = top; y < bottom; y++) {
             for (var x = left; x < right; x++) {
-                if (pixels[(((y * source.Width) + x) * 4) + 3] <= threshold) {
+                if (pixels[(y * source.Width + x) * 4 + 3] <= threshold) {
                     continue;
                 }
 
@@ -343,8 +353,8 @@ public static class SpriteSlicer {
         var columns = Math.Max(options.CellCount.X, 1);
         var rows = Math.Max(options.CellCount.Y, 1);
 
-        var width = source.Width - options.Offset.X - (options.Padding.X * (columns - 1));
-        var height = source.Height - options.Offset.Y - (options.Padding.Y * (rows - 1));
+        var width = source.Width - options.Offset.X - options.Padding.X * (columns - 1);
+        var height = source.Height - options.Offset.Y - options.Padding.Y * (rows - 1);
 
         return new(Math.Max(width / columns, 0), Math.Max(height / rows, 0));
     }
@@ -382,8 +392,11 @@ public static class SpriteSlicer {
     /// <summary>One rect per island of opaque texels.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>Connected components over the alpha, eight-connected, then a merge of whatever
-    ///         overlaps.</b> Eight rather than four because a diagonal line of pixels is one stroke to
+    ///         <b>
+    ///             Connected components over the alpha, eight-connected, then a merge of whatever
+    ///             overlaps.
+    ///         </b>
+    ///         Eight rather than four because a diagonal line of pixels is one stroke to
     ///         everyone who has ever drawn one, and four-connectivity cuts it into a sprite per
     ///         pixel. The merge is what puts a character's detached eye back inside its head: two
     ///         islands whose bounding boxes overlap are one drawing, and slicing between them cuts a
@@ -410,7 +423,7 @@ public static class SpriteSlicer {
         var stack = new Stack<int>();
 
         for (var start = 0; start < seen.Length; start++) {
-            if (seen[start] || pixels[(start * 4) + 3] <= options.AlphaThreshold) {
+            if (seen[start] || pixels[start * 4 + 3] <= options.AlphaThreshold) {
                 continue;
             }
 
@@ -441,9 +454,9 @@ public static class SpriteSlicer {
                             continue;
                         }
 
-                        var neighbour = (ny * width) + nx;
+                        var neighbour = ny * width + nx;
 
-                        if (seen[neighbour] || pixels[(neighbour * 4) + 3] <= options.AlphaThreshold) {
+                        if (seen[neighbour] || pixels[neighbour * 4 + 3] <= options.AlphaThreshold) {
                             continue;
                         }
 
@@ -510,7 +523,7 @@ public static class SpriteSlicer {
     ///     everything in it, which is the rule a person uses looking at the sheet.
     /// </remarks>
     static List<Rectangle> Order(List<Rectangle> regions) {
-        regions.Sort((a, b) => a.Top != b.Top ? a.Top.CompareTo(b.Top) : a.Left.CompareTo(b.Left));
+        regions.Sort(static (a, b) => a.Top != b.Top ? a.Top.CompareTo(b.Top) : a.Left.CompareTo(b.Left));
 
         List<Rectangle> ordered = [];
         var band = new List<Rectangle>();
@@ -531,13 +544,14 @@ public static class SpriteSlicer {
         return ordered;
 
         static void Flush(List<Rectangle> band, List<Rectangle> ordered) {
-            band.Sort((a, b) => a.Left.CompareTo(b.Left));
+            band.Sort(static (a, b) => a.Left.CompareTo(b.Left));
             ordered.AddRange(band);
             band.Clear();
         }
     }
 
-    static (int Left, int Top, int Right, int Bottom) Clamp(TextureData source, Rectangle region) => (
+    static (int Left, int Top, int Right, int Bottom) Clamp(TextureData source, Rectangle region) =>
+    (
         Math.Clamp((int)MathF.Floor(region.Left), 0, source.Width),
         Math.Clamp((int)MathF.Floor(region.Top), 0, source.Height),
         Math.Clamp((int)MathF.Ceiling(region.Right), 0, source.Width),

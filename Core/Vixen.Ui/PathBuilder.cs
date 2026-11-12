@@ -173,7 +173,7 @@ public sealed class PathBuilder {
     /// <param name="point">Its end.</param>
     /// <returns>Itself.</returns>
     public PathBuilder CubicTo(Vector2 first, Vector2 second, Vector2 point) {
-        segments.Add(new PathSegment(PathVerb.Cubic, first, second, point));
+        segments.Add(new(PathVerb.Cubic, first, second, point));
         current = point;
 
         return this;
@@ -199,10 +199,10 @@ public sealed class PathBuilder {
     /// <returns>Itself.</returns>
     /// <remarks>Clockwise, which is what the non-zero fill rule reads as solid.</remarks>
     public PathBuilder AddRectangle(Rectangle rectangle) =>
-        MoveTo(new Vector2(rectangle.Left, rectangle.Top))
-            .LineTo(new Vector2(rectangle.Right, rectangle.Top))
-            .LineTo(new Vector2(rectangle.Right, rectangle.Bottom))
-            .LineTo(new Vector2(rectangle.Left, rectangle.Bottom))
+        MoveTo(new(rectangle.Left, rectangle.Top))
+            .LineTo(new(rectangle.Right, rectangle.Top))
+            .LineTo(new(rectangle.Right, rectangle.Bottom))
+            .LineTo(new(rectangle.Left, rectangle.Bottom))
             .Close();
 
     /// <summary>Adds an ellipse inscribed in a rectangle.</summary>
@@ -225,11 +225,11 @@ public sealed class PathBuilder {
         var ox = rx * Kappa;
         var oy = ry * Kappa;
 
-        return MoveTo(new Vector2(cx, cy - ry))
-            .CubicTo(new Vector2(cx + ox, cy - ry), new Vector2(cx + rx, cy - oy), new Vector2(cx + rx, cy))
-            .CubicTo(new Vector2(cx + rx, cy + oy), new Vector2(cx + ox, cy + ry), new Vector2(cx, cy + ry))
-            .CubicTo(new Vector2(cx - ox, cy + ry), new Vector2(cx - rx, cy + oy), new Vector2(cx - rx, cy))
-            .CubicTo(new Vector2(cx - rx, cy - oy), new Vector2(cx - ox, cy - ry), new Vector2(cx, cy - ry))
+        return MoveTo(new(cx, cy - ry))
+            .CubicTo(new(cx + ox, cy - ry), new(cx + rx, cy - oy), new(cx + rx, cy))
+            .CubicTo(new(cx + rx, cy + oy), new(cx + ox, cy + ry), new(cx, cy + ry))
+            .CubicTo(new(cx - ox, cy + ry), new(cx - rx, cy + oy), new(cx - rx, cy))
+            .CubicTo(new(cx - rx, cy - oy), new(cx - ox, cy - ry), new(cx, cy - ry))
             .Close();
     }
 }

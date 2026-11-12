@@ -43,14 +43,14 @@ public sealed class UiRavenAgreementToleranceTests {
     [Fact]
     public void TheMeasuredLavapipeDivergenceIsAdmittedAndNothingWider() {
         var copy = Flat(100);
-        var source = Nudged(100, by: 1, count: 24);
+        var source = Nudged(100, 1, 24);
 
         Assert.NotEqual(copy.Pixels, source.Pixels);
         Assert.False(ImageComparer.Compare(copy, source, ImageTolerance.Exact).Matches);
         Assert.True(ImageComparer.Compare(copy, source, UiRavenAgreementTests.LastPlaceOnSoftware).Matches);
 
         // A single pixel two codes off is not a last-place bit and must still be reported.
-        var further = Nudged(100, by: 2, count: 1);
+        var further = Nudged(100, 2, 1);
         Assert.False(ImageComparer.Compare(copy, further, UiRavenAgreementTests.LastPlaceOnSoftware).Matches);
     }
 

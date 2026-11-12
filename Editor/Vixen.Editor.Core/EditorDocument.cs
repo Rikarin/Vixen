@@ -25,8 +25,11 @@ namespace Vixen.Editor.Core;
 ///         markers read. <see cref="Save" /> and <see cref="Reload" /> clear both.
 ///     </para>
 ///     <para>
-///         <b><see cref="IsStale" /> is the opposite question and is deliberately not part of that
-///         answer.</b> Dirty is memory ahead of disk; stale is disk ahead of memory. Folding the two
+///         <b>
+///             <see cref="IsStale" /> is the opposite question and is deliberately not part of that
+///             answer.
+///         </b>
+///         Dirty is memory ahead of disk; stale is disk ahead of memory. Folding the two
 ///         together would make <see cref="EditorProject.SaveAll" /> write this document over the
 ///         edit somebody else made to its file. <see cref="ExternalEdits" /> is what sets it.
 ///     </para>
@@ -48,8 +51,11 @@ namespace Vixen.Editor.Core;
 ///         nobody to hear it is exactly the swallow that remark forbids.
 ///     </para>
 ///     <para>
-///         <b>The location is the asset database's path, or else the file the document says it
-///         writes</b> (#1493). <see cref="Asset" /> is immutable, and <c>EditorApplication</c> opens
+///         <b>
+///             The location is the asset database's path, or else the file the document says it
+///             writes
+///         </b>
+///         (#1493). <see cref="Asset" /> is immutable, and <c>EditorApplication</c> opens
 ///         its scenes as <c>new SceneDocument(project, world, AssetId.Empty, …)</c> with the real
 ///         path held by a <c>Writer</c> — because Save As moves that path under the document — so a
 ///         deriving type names the file with <see cref="WritesTo" /> and the location follows it.
@@ -99,7 +105,10 @@ public abstract class EditorDocument : IEditableDocument, IAuthoredDocument {
     /// </remarks>
     public IReadOnlySignal<bool> ExternallyModified => modifiedExternally;
 
-    /// <summary>Whether it differs from what is on disk for either reason: <see cref="IsDirty" /> or <see cref="ExternallyModified" />.</summary>
+    /// <summary>
+    ///     Whether it differs from what is on disk for either reason: <see cref="IsDirty" /> or
+    ///     <see cref="ExternallyModified" />.
+    /// </summary>
     /// <remarks>What saving would write, so what Save All writes and what the close prompt asks about.</remarks>
     public IReadOnlySignal<bool> HasUnsavedChanges { get; }
 
@@ -112,8 +121,11 @@ public abstract class EditorDocument : IEditableDocument, IAuthoredDocument {
     /// <summary>Whether its file changed underneath it and it has not caught up.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>The other direction from <see cref="IsDirty" />, and deliberately not folded into
-    ///         it.</b> Dirty means memory is ahead of disk; this means disk is ahead of memory. A
+    ///         <b>
+    ///             The other direction from <see cref="IsDirty" />, and deliberately not folded into
+    ///             it.
+    ///         </b>
+    ///         Dirty means memory is ahead of disk; this means disk is ahead of memory. A
     ///         clean document that goes stale is reloaded and this never surfaces; a dirty one is
     ///         left alone, and then both are true at once and mean different things.
     ///     </para>
@@ -139,8 +151,7 @@ public abstract class EditorDocument : IEditableDocument, IAuthoredDocument {
     /// <param name="asset">The asset it edits, or <see cref="AssetId.Empty" />.</param>
     /// <param name="title">What the tab says.</param>
     protected EditorDocument(EditorProject project, AssetId asset, string title)
-        : this(project, asset, title, activate: true) {
-    }
+        : this(project, asset, title, true) { }
 
     /// <summary>Opens a document in a project, choosing whether it takes the focus.</summary>
     /// <param name="project">The project.</param>
@@ -301,8 +312,12 @@ public abstract class EditorDocument : IEditableDocument, IAuthoredDocument {
     ///         they name is how a reload turns into a corruption.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And then it is clean, which <see cref="CommandStack.Clear" /> alone does not
-    ///         make it.</b> Clearing a dirty stack leaves it dirty for good — correctly, because the
+    ///         ⚠
+    ///         <b>
+    ///             And then it is clean, which <see cref="CommandStack.Clear" /> alone does not
+    ///             make it.
+    ///         </b>
+    ///         Clearing a dirty stack leaves it dirty for good — correctly, because the
     ///         undos that would have got back to disk have just been deleted. That is the wrong
     ///         answer here and only here: what this document holds <i>is</i> the file, so
     ///         <see cref="CommandStack.MarkClean" /> is what stops a discard-and-reload from leaving
@@ -345,8 +360,7 @@ public abstract class EditorDocument : IEditableDocument, IAuthoredDocument {
     protected abstract void SaveCore();
 
     /// <summary>Called once when the document leaves the project.</summary>
-    protected internal virtual void OnClosed() {
-    }
+    protected internal virtual void OnClosed() { }
 
     /// <summary>Something in the project changed on disk, whoever it belongs to.</summary>
     /// <param name="path">
@@ -383,8 +397,7 @@ public abstract class EditorDocument : IEditableDocument, IAuthoredDocument {
     ///         already happens.
     ///     </para>
     /// </remarks>
-    protected internal virtual void OnProjectFileChanged(string? path) {
-    }
+    protected internal virtual void OnProjectFileChanged(string? path) { }
 
     internal void MarkClosed() => IsOpen = false;
 

@@ -28,14 +28,19 @@ namespace Vixen.Editor.Blockout;
 ///         ⚠ <b>So far it owns its keys and nothing else, and that is doc 24's P0 exactly.</b> There
 ///         is no editable mesh in the engine yet — <c>Core/Vixen.Geometry</c> is P1 — so
 ///         <see cref="Element" /> is a statement about what a click <i>would</i> select rather than
-///         something that selects it, and <see cref="Pointer(IViewportPane, PointerEvent)" /> declines every event. What is real
+///         something that selects it, and <see cref="Pointer(IViewportPane, PointerEvent)" /> declines every event. What
+///         is real
 ///         is the arbitration: while this mode is active <c>1</c>, <c>2</c>, <c>3</c> and <c>4</c> in
 ///         the viewport are the element modes, and while it is not they are view-bookmark recall. That
 ///         is the thing that could not be retrofitted, and it is the thing this mode is here to prove.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The element commands are registered whether or not the mode is active, and scoped so
-///         that they are only <i>reachable</i> while it is.</b> Registering them from
+///         ⚠
+///         <b>
+///             The element commands are registered whether or not the mode is active, and scoped so
+///             that they are only <i>reachable</i> while it is.
+///         </b>
+///         Registering them from
 ///         <see cref="Activated" /> would keep them out of the keybinding editor and out of the
 ///         palette until somebody had entered the mode once, which is how a rebindable shortcut
 ///         becomes undiscoverable.
@@ -135,10 +140,12 @@ public sealed class BlockoutMode : IEditorMode, IViewportInput {
     ///     switches. The verbs join it a phase at a time.
     /// </remarks>
     public IReadOnlyList<ToolbarEntry> Toolbar { get; } = [
-        new ToolbarGroup(ElementCommand(BlockoutElement.Object),
+        new ToolbarGroup(
+            ElementCommand(BlockoutElement.Object),
             ElementCommand(BlockoutElement.Vertex),
             ElementCommand(BlockoutElement.Edge),
-            ElementCommand(BlockoutElement.Face)),
+            ElementCommand(BlockoutElement.Face)
+        ),
 
         // ⚠ Four verbs on the strip and ten in the menu, which is doc 24's own ordering rather than a
         // cut for space. Extrude, inset, bevel and loop cut are what a blockout pass is made of; a
@@ -204,9 +211,11 @@ public sealed class BlockoutMode : IEditorMode, IViewportInput {
     }
 
     /// <summary>Whether the mode is echoing a change that came from the editing state.</summary>
-    /// <remarks>Without it, following the state's change would set <see cref="Element" />, which would
+    /// <remarks>
+    ///     Without it, following the state's change would set <see cref="Element" />, which would
     ///     call <c>Enter</c>, which would convert the selection again — an element mode that
-    ///     re-entered itself once per verb.</remarks>
+    ///     re-entered itself once per verb.
+    /// </remarks>
     bool following;
 
     /// <summary>Brings the mode bar into line when a verb changed the element mode.</summary>
@@ -229,8 +238,10 @@ public sealed class BlockoutMode : IEditorMode, IViewportInput {
     }
 
     /// <summary>The shape-tool gesture, or null while the mode drives no scene.</summary>
-    /// <remarks>Exposed so that a test can drive the two stages with world points and assert the mesh
-    ///     — which is the seam <see cref="ShapeDrag" /> exists to put there.</remarks>
+    /// <remarks>
+    ///     Exposed so that a test can drive the two stages with world points and assert the mesh
+    ///     — which is the seam <see cref="ShapeDrag" /> exists to put there.
+    /// </remarks>
     public ShapeDrag? Drag => drag;
 
     /// <summary>Which element kind an element mode means to the kernel.</summary>
@@ -264,7 +275,8 @@ public sealed class BlockoutMode : IEditorMode, IViewportInput {
     /// <param name="element">The element mode.</param>
     /// <returns>The command id.</returns>
     public static string ElementCommand(BlockoutElement element) =>
-        "blockout.element." + element switch {
+        "blockout.element."
+        + element switch {
             BlockoutElement.Vertex => "vertex",
             BlockoutElement.Edge => "edge",
             BlockoutElement.Face => "face",
@@ -344,8 +356,12 @@ public sealed class BlockoutMode : IEditorMode, IViewportInput {
 
     /// <summary>Arms the knife: a free cut across faces, snapping to edges and midpoints.</summary>
     /// <remarks>
-    ///     ⚠ <b>It arms a gesture rather than running a verb, which is what makes it the odd one in
-    ///     the Geometry table.</b> Every other row acts on the selection the moment the key is pressed;
+    ///     ⚠
+    ///     <b>
+    ///         It arms a gesture rather than running a verb, which is what makes it the odd one in
+    ///         the Geometry table.
+    ///     </b>
+    ///     Every other row acts on the selection the moment the key is pressed;
     ///     a knife has no subject until a path has been drawn, so <c>K</c> takes the pointer and the
     ///     stroke is what runs. <c>Enter</c> commits it, <c>Escape</c> throws it away.
     /// </remarks>
@@ -447,8 +463,7 @@ public sealed class BlockoutMode : IEditorMode, IViewportInput {
     /// <summary>What the command that creates a shape of a kind is called.</summary>
     /// <param name="kind">Which shape.</param>
     /// <returns>The command id.</returns>
-    public static string KindCommand(ShapeKind kind) =>
-        "blockout.shape." + kind.ToString().ToLowerInvariant();
+    public static string KindCommand(ShapeKind kind) => "blockout.shape." + kind.ToString().ToLowerInvariant();
 
     /// <summary>The twelve shape-kind commands, in <see cref="Kinds" />' order, as one run of menu lines.</summary>
     /// <returns>Their ids.</returns>
@@ -616,17 +631,17 @@ public sealed class BlockoutMode : IEditorMode, IViewportInput {
     public GridBox? HoverCell { get; private set; }
 
     /// <summary>Which shape the shape tool makes.</summary>
-    /// <remarks>What the palette's twelve "Create ⟨shape⟩" verbs set, and what a drag on the work
+    /// <remarks>
+    ///     What the palette's twelve "Create ⟨shape⟩" verbs set, and what a drag on the work
     ///     plane then produces — so choosing the shape and making one are two acts rather than
-    ///     twelve tools.</remarks>
+    ///     twelve tools.
+    /// </remarks>
     public ShapeKind Shape {
         get;
         set {
             field = value;
 
-            if (drag is not null) {
-                drag.Kind = value;
-            }
+            drag?.Kind = value;
         }
     } = ShapeKind.Box;
 
@@ -640,16 +655,16 @@ public sealed class BlockoutMode : IEditorMode, IViewportInput {
     public bool IsArmed { get; set; }
 
     /// <summary>The work plane shapes are dragged on, or <see langword="null" /> for the ground.</summary>
-    /// <remarks>The application's own — the same instance <c>SceneGrid</c> draws and
-    ///     <c>SnapContext</c> snaps to, which is doc 24's D5 in one field.</remarks>
+    /// <remarks>
+    ///     The application's own — the same instance <c>SceneGrid</c> draws and
+    ///     <c>SnapContext</c> snaps to, which is doc 24's D5 in one field.
+    /// </remarks>
     public WorkPlane? Plane {
         get;
         set {
             field = value;
 
-            if (drag is not null) {
-                drag.Plane = value;
-            }
+            drag?.Plane = value;
         }
     }
 
@@ -687,10 +702,8 @@ public sealed class BlockoutMode : IEditorMode, IViewportInput {
         Declare(BlockoutElement.Face, InputKey.Number4);
 
         shell.Commands.Add(
-            new EditorCommand(ToggleMeshCommand, BlockoutStrings.Commands[ToggleMeshCommand], Toggle) {
-                Category = BlockoutStrings.CategoryBlockout,
-                Context = BlockoutContext,
-                Enablement = IsActive
+            new(ToggleMeshCommand, BlockoutStrings.Commands[ToggleMeshCommand], Toggle) {
+                Category = BlockoutStrings.CategoryBlockout, Context = BlockoutContext, Enablement = IsActive
             }
         );
 
@@ -699,7 +712,7 @@ public sealed class BlockoutMode : IEditorMode, IViewportInput {
         // mode that ate it was a mode you could enter with Tab and not leave with it. `1`–`4` select
         // the element kinds and are what doc 24's table actually names, so this verb keeps a chord
         // of its own rather than borrowing the one that switches modes.
-        shell.Keys.SetDefault(ToggleMeshCommand, new KeyChord(InputKey.D, ModifierKeys.Alt));
+        shell.Keys.SetDefault(ToggleMeshCommand, new(InputKey.D, ModifierKeys.Alt));
 
         // ⚠ The bindings doc 24's selection table names, and the four with no chord are deliberate.
         // Loop, ring, grow and shrink are gestures a designer runs constantly and the table gives each
@@ -721,9 +734,9 @@ public sealed class BlockoutMode : IEditorMode, IViewportInput {
         // plan's ordering for a reason — every other verb is judged against how that one feels — and
         // the ones with no chord here are the ones the table itself files under "menu".
         Verb(ExtrudeCommand, () => Verbs.Extrude(), InputKey.E);
-        Verb(ExtrudeIndividualCommand, () => Verbs.Extrude(individually: true), InputKey.E, ModifierKeys.Alt);
+        Verb(ExtrudeIndividualCommand, () => Verbs.Extrude(true), InputKey.E, ModifierKeys.Alt);
         Verb(InsetCommand, () => Verbs.Inset(), InputKey.I);
-        Verb(InsetIndividualCommand, () => Verbs.Inset(individually: true), InputKey.I, ModifierKeys.Alt);
+        Verb(InsetIndividualCommand, () => Verbs.Inset(true), InputKey.I, ModifierKeys.Alt);
         Verb(BevelCommand, Verbs.Bevel, InputKey.B, ModifierKeys.Control);
         Verb(LoopCutCommand, Verbs.LoopCut, InputKey.R, ModifierKeys.Control | ModifierKeys.Shift);
         Verb(SubdivideCommand, Verbs.Subdivide);
@@ -764,7 +777,7 @@ public sealed class BlockoutMode : IEditorMode, IViewportInput {
         Verb(ProjectBoxCommand, () => Verbs.Project(UvProjection.Box));
         Verb(FitUvCommand, Verbs.FitUvs);
         Verb(SmoothCommand, () => Verbs.Smooth());
-        Verb(HardenCommand, () => Verbs.Smooth(smooth: false));
+        Verb(HardenCommand, () => Verbs.Smooth(false));
         Verb(AutoSmoothCommand, Verbs.AutoSmooth);
         Verb(NewGroupCommand, Verbs.NewGroup);
 
@@ -779,8 +792,8 @@ public sealed class BlockoutMode : IEditorMode, IViewportInput {
         Make(PushInCommand, () => Verbs.Push(-1), InputKey.LeftBracket, ModifierKeys.Alt);
         Make(DuplicateCommand, () => Verbs.Duplicate(), InputKey.D, ModifierKeys.Control);
         Make(MirrorCommand, () => Verbs.Mirror(), InputKey.M, ModifierKeys.Control);
-        Make(ArrayCommand, () => Verbs.Repeat(radial: false));
-        Make(RadialCommand, () => Verbs.Repeat(radial: true));
+        Make(ArrayCommand, () => Verbs.Repeat(false));
+        Make(RadialCommand, () => Verbs.Repeat(true));
 
         foreach (var kind in Kinds) {
             var chosen = kind;
@@ -824,7 +837,7 @@ public sealed class BlockoutMode : IEditorMode, IViewportInput {
             shell.Commands.Add(
                 // ⚠ No scene guard here any more: every verb this runs checks for itself, because a
                 // plugin calling one through `IBlockout` has no command around it to check first.
-                new EditorCommand(id, BlockoutStrings.Commands[id], run) {
+                new(id, BlockoutStrings.Commands[id], run) {
                     Category = BlockoutStrings.CategoryBlockout,
                     Context = BlockoutContext,
                     RadioGroup = radio ? KindGroup : null,
@@ -834,11 +847,16 @@ public sealed class BlockoutMode : IEditorMode, IViewportInput {
             );
 
             if (key != InputKey.Unknown) {
-                shell.Keys.SetDefault(id, new KeyChord(key, modifiers));
+                shell.Keys.SetDefault(id, new(key, modifiers));
             }
         }
 
-        void Verb(string id, Func<bool> run, InputKey key = InputKey.Unknown, ModifierKeys modifiers = ModifierKeys.None) {
+        void Verb(
+            string id,
+            Func<bool> run,
+            InputKey key = InputKey.Unknown,
+            ModifierKeys modifiers = ModifierKeys.None
+        ) {
             shell.Commands.Add(
                 new EditorCommand(id, BlockoutStrings.Commands[id], () => run()) {
                     Category = BlockoutStrings.CategoryBlockout,
@@ -853,7 +871,7 @@ public sealed class BlockoutMode : IEditorMode, IViewportInput {
             );
 
             if (key != InputKey.Unknown) {
-                shell.Keys.SetDefault(id, new KeyChord(key, modifiers));
+                shell.Keys.SetDefault(id, new(key, modifiers));
             }
         }
 
@@ -861,7 +879,7 @@ public sealed class BlockoutMode : IEditorMode, IViewportInput {
             var id = ElementCommand(element);
 
             shell.Commands.Add(
-                new EditorCommand(id, BlockoutStrings.Commands[id], () => this.Element = element) {
+                new EditorCommand(id, BlockoutStrings.Commands[id], () => Element = element) {
                     Category = BlockoutStrings.CategoryBlockout,
 
                     // ⚠ This is the whole of doc 24's B2 in one line. The command belongs to the
@@ -870,14 +888,13 @@ public sealed class BlockoutMode : IEditorMode, IViewportInput {
                     // context at all, keeps it everywhere the blockout context does not have the
                     // focus. Neither had to give up the key and neither had to move.
                     Context = BlockoutContext,
-
                     RadioGroup = ElementGroup,
-                    Checked = () => this.Element == element,
+                    Checked = () => Element == element,
                     Enablement = IsActive
                 }
             );
 
-            shell.Keys.SetDefault(id, new KeyChord(key, ModifierKeys.None));
+            shell.Keys.SetDefault(id, new(key, ModifierKeys.None));
         }
     }
 
@@ -925,10 +942,12 @@ public sealed class BlockoutMode : IEditorMode, IViewportInput {
     }
 
     /// <summary>How many world units one repeat of a texture covers, for the projection verbs.</summary>
-    /// <remarks>Kept beside <see cref="Step" /> rather than read from the work plane, because "a metre
+    /// <remarks>
+    ///     Kept beside <see cref="Step" /> rather than read from the work plane, because "a metre
     ///     a repeat" and "a metre a grid square" are the same number nine times in ten and are
     ///     deliberately not the same field: a level built on a four-metre grid still wants a checker
-    ///     you can count.</remarks>
+    ///     you can count.
+    /// </remarks>
     public float UvScale { get; set; } = MeshSurfaces.DefaultScale;
 
     /// <summary>How many copies an array verb makes.</summary>
@@ -943,8 +962,12 @@ public sealed class BlockoutMode : IEditorMode, IViewportInput {
     ///         in this mode that stops a designer mid-gesture to ask a question.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The editable class rather than <c>RemeshSettings</c> itself, and the sentence above
-    ///         is why.</b> "Which the settings panel edits" was not true of a <c>Core/</c> record with
+    ///         ⚠
+    ///         <b>
+    ///             The editable class rather than <c>RemeshSettings</c> itself, and the sentence above
+    ///             is why.
+    ///         </b>
+    ///         "Which the settings panel edits" was not true of a <c>Core/</c> record with
     ///         <c>init</c> members — nothing could bind to one, so nothing drew it. See
     ///         <see cref="BlockoutRetopologySettings" />.
     ///     </para>
@@ -953,8 +976,12 @@ public sealed class BlockoutMode : IEditorMode, IViewportInput {
 
     /// <summary>docs/plan/41 § D1's artefacts and which of them are drawn.</summary>
     /// <remarks>
-    ///     ⚠ <b>State on the mode for <see cref="Retopology" />'s reason, and held across a capture on
-    ///     purpose.</b> Which stages somebody is looking at is a question they answered once and want
+    ///     ⚠
+    ///     <b>
+    ///         State on the mode for <see cref="Retopology" />'s reason, and held across a capture on
+    ///         purpose.
+    ///     </b>
+    ///     Which stages somebody is looking at is a question they answered once and want
     ///     to keep answering; the capture is what comes and goes.
     /// </remarks>
     public BlockoutRemeshDebug RemeshDebug { get; } = new();
@@ -966,18 +993,22 @@ public sealed class BlockoutMode : IEditorMode, IViewportInput {
     public BlockoutPackSettings Packing { get; } = new();
 
     /// <summary>What puts a baked mesh into the project, or null while nothing can.</summary>
-    /// <remarks>The application's, because importing an asset is the asset database's job and this
+    /// <remarks>
+    ///     The application's, because importing an asset is the asset database's job and this
     ///     assembly does not reference it — see <see cref="IMeshBaker" />. Null greys the bake verb,
-    ///     which is doc 20's "a verb that is not reachable right now is visibly not reachable".</remarks>
+    ///     which is doc 20's "a verb that is not reachable right now is visibly not reachable".
+    /// </remarks>
     public IMeshBaker? Baker { get; set; }
 
     /// <summary>Where a mesh reference's geometry comes from, for making one editable again.</summary>
     public IMeshSource? Meshes { get; set; }
 
     /// <summary>What to do with an exported file: its text and its extension.</summary>
-    /// <remarks>⚠ <b>A callback rather than a path, because where a file goes is a dialog's answer</b>
+    /// <remarks>
+    ///     ⚠ <b>A callback rather than a path, because where a file goes is a dialog's answer</b>
     ///     and a viewport mode has no dialogs — the same reason <c>SceneDocument.Writer</c> is an
-    ///     interface.</remarks>
+    ///     interface.
+    /// </remarks>
     public Action<string, string>? Export { get; set; }
 
     /// <summary>The scene the creation verbs act on, or null while the mode drives none.</summary>
@@ -1009,8 +1040,7 @@ public sealed class BlockoutMode : IEditorMode, IViewportInput {
     internal static readonly WorkPlane Ground = new();
 
     /// <inheritdoc />
-    public void Activated() {
-    }
+    public void Activated() { }
 
     /// <inheritdoc />
     /// <remarks>
@@ -1165,15 +1195,21 @@ public sealed class BlockoutMode : IEditorMode, IViewportInput {
     public bool Pointer(PointerEvent args) => false;
 
     /// <inheritdoc />
-    /// <remarks>Everything the mode owns from the keyboard is a command, and a command's key comes
-    ///     through the keymap rather than through here.</remarks>
+    /// <remarks>
+    ///     Everything the mode owns from the keyboard is a command, and a command's key comes
+    ///     through the keymap rather than through here.
+    /// </remarks>
     public bool Key(KeyEvent args) => false;
 
     /// <inheritdoc />
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Hover is taken and clicks are not, and the split is the whole of doc 24's P2
-    ///         gesture work.</b> A press in an element mode still starts the pane's rubber-band,
+    ///         ⚠
+    ///         <b>
+    ///             Hover is taken and clicks are not, and the split is the whole of doc 24's P2
+    ///             gesture work.
+    ///         </b>
+    ///         A press in an element mode still starts the pane's rubber-band,
     ///         because <c>SceneViewport.EndSelect</c> already resolves a band against elements when a
     ///         mesh is being edited and a band too small to be a band against the element under the
     ///         pointer — one <see cref="Marquee" />, two questions, which is what
@@ -1269,9 +1305,6 @@ public sealed class BlockoutMode : IEditorMode, IViewportInput {
                     Knife.Cancel();
 
                     return true;
-
-                default:
-                    break;
             }
         }
 
@@ -1327,8 +1360,12 @@ public sealed class BlockoutMode : IEditorMode, IViewportInput {
     /// <summary>Drives the two-stage shape gesture from a pointer over a pane.</summary>
     /// <returns>Whether the event was taken.</returns>
     /// <remarks>
-    ///     ⚠ <b>The footprint is read off the work plane and the height off a vertical plane through
-    ///     the anchor.</b> A ray has to meet <i>something</i> for a pointer to mean a distance, and the
+    ///     ⚠
+    ///     <b>
+    ///         The footprint is read off the work plane and the height off a vertical plane through
+    ///         the anchor.
+    ///     </b>
+    ///     A ray has to meet <i>something</i> for a pointer to mean a distance, and the
     ///     two stages are asking two different questions: "where on the floor" and "how far up". The
     ///     second plane faces the camera so that a pointer moved anywhere on screen has an answer,
     ///     rather than going to infinity when the view is edge-on to it.
@@ -1407,9 +1444,11 @@ public sealed class BlockoutMode : IEditorMode, IViewportInput {
     }
 
     /// <summary>A point on the work plane, rounded to its step.</summary>
-    /// <remarks>⚠ <b>The plane's own step and not the snap context's increment</b>, because a shape
+    /// <remarks>
+    ///     ⚠ <b>The plane's own step and not the snap context's increment</b>, because a shape
     ///     dragged out on a four-metre grid should land on it whether or not snapping is switched on —
-    ///     which is what makes the two boxes beside each other line up.</remarks>
+    ///     which is what makes the two boxes beside each other line up.
+    /// </remarks>
     static Vector3 Snapped(Vector3 point, WorkPlane plane) {
         if (plane.Step is not { } step || step <= WorkPlane.MinimumStep) {
             return point;
@@ -1424,8 +1463,7 @@ public sealed class BlockoutMode : IEditorMode, IViewportInput {
         plane.Step is { } step && step > WorkPlane.MinimumStep ? MathF.Round(value / step) * step : value;
 
     /// <summary>Enters the mesh, or comes back out of it.</summary>
-    void Toggle() =>
-        Element = Element == BlockoutElement.Object ? inside : BlockoutElement.Object;
+    void Toggle() => Element = Element == BlockoutElement.Object ? inside : BlockoutElement.Object;
 
     /// <summary>Whether this mode is the shell's active one.</summary>
     /// <remarks>

@@ -21,23 +21,21 @@ public sealed class EntityNotFoundException : InvalidOperationException {
     /// <summary>Creates the exception.</summary>
     /// <param name="entity">The handle that was used.</param>
     /// <param name="reason">What is wrong with it.</param>
-    public EntityNotFoundException(Entity entity, string reason) : base($"Entity {entity} {reason}.") =>
+    public EntityNotFoundException(Entity entity, string reason) : base($"Entity {entity} {reason}.") {
         Entity = entity;
+    }
 
     /// <summary>Creates the exception with a plain message.</summary>
     /// <param name="message">The message.</param>
-    public EntityNotFoundException(string message) : base(message) {
-    }
+    public EntityNotFoundException(string message) : base(message) { }
 
     /// <summary>Creates the exception with a message and a cause.</summary>
     /// <param name="message">The message.</param>
     /// <param name="innerException">The cause.</param>
-    public EntityNotFoundException(string message, Exception innerException) : base(message, innerException) {
-    }
+    public EntityNotFoundException(string message, Exception innerException) : base(message, innerException) { }
 
     /// <summary>Creates the exception with no message.</summary>
-    public EntityNotFoundException() {
-    }
+    public EntityNotFoundException() { }
 }
 
 /// <summary>An entity is alive but does not have the component that was asked for.</summary>
@@ -60,16 +58,13 @@ public sealed class ComponentNotFoundException : InvalidOperationException {
 
     /// <summary>Creates the exception with a plain message.</summary>
     /// <param name="message">The message.</param>
-    public ComponentNotFoundException(string message) : base(message) {
-    }
+    public ComponentNotFoundException(string message) : base(message) { }
 
     /// <summary>Creates the exception with a message and a cause.</summary>
     /// <param name="message">The message.</param>
     /// <param name="innerException">The cause.</param>
-    public ComponentNotFoundException(string message, Exception innerException) : base(message, innerException) {
-    }
+    public ComponentNotFoundException(string message, Exception innerException) : base(message, innerException) { }
 
     /// <summary>Creates the exception with no message.</summary>
-    public ComponentNotFoundException() {
-    }
+    public ComponentNotFoundException() { }
 }

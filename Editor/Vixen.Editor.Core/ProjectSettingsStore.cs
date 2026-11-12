@@ -35,6 +35,7 @@ public sealed class ProjectSettingsStore {
 
     /// <summary><see cref="HasUnsavedChanges" />, as something a computed can depend on (#1310).</summary>
     readonly Signal<bool> dirty = new(false);
+
     readonly Dictionary<Type, object> loaded = [];
     readonly ProjectPaths paths;
     readonly List<string> unknownKeys = [];
@@ -139,7 +140,9 @@ public sealed class ProjectSettingsStore {
         Marked?.Invoke();
     }
 
-    /// <summary>Raised when something marks a settings type changed — <see cref="MarkChanged{T}" /> or <see cref="Reset{T}" />.</summary>
+    /// <summary>
+    ///     Raised when something marks a settings type changed — <see cref="MarkChanged{T}" /> or <see cref="Reset{T}" />.
+    /// </summary>
     /// <remarks>
     ///     <b>What <see cref="SettingsDocument" /> hears as a change from outside its own history</b>
     ///     (#1310). An edit made through the settings window goes through that document's command

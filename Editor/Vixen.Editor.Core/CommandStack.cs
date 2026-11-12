@@ -31,8 +31,12 @@ namespace Vixen.Editor.Core;
 ///         forget to raise.
 ///     </para>
 ///     <para>
-///         ⚠ <b>It is also <see cref="IUndoManager" />, which is how a <c>Vixen.Ui</c> control's
-///         edit lands here.</b> A control does not own an undo stack — <c>CodeBuffer</c> argues that
+///         ⚠
+///         <b>
+///             It is also <see cref="IUndoManager" />, which is how a <c>Vixen.Ui</c> control's
+///             edit lands here.
+///         </b>
+///         A control does not own an undo stack — <c>CodeBuffer</c> argues that
 ///         and is right — it <i>finds</i> one by walking the responder chain, and until this
 ///         implemented the interface the answer everywhere in the editor was nothing, so a text box
 ///         in any dialog had no ⌘Z at all. One stack rather than an adapter beside it, because two
@@ -53,7 +57,7 @@ public sealed class CommandStack : IUndoManager {
 
     int capacity = DefaultCapacity;
     int transactionDepth;
-    string transactionName = "";
+    string transactionName = string.Empty;
     bool transactionAbandoned;
     bool sealedForMerge;
 
@@ -136,7 +140,7 @@ public sealed class CommandStack : IUndoManager {
             );
         }
 
-        Run(command, undo: false);
+        Run(command, false);
 
         if (transactionDepth > 0) {
             transacted.Add(command);
@@ -157,7 +161,7 @@ public sealed class CommandStack : IUndoManager {
 
         var command = undoable[^1];
         undoable.RemoveAt(undoable.Count - 1);
-        Perform(command, undo: true);
+        Perform(command, true);
         redoable.Add(command);
 
         // Whatever comes next starts a new entry. Merging a fresh edit into an entry the user has
@@ -178,7 +182,7 @@ public sealed class CommandStack : IUndoManager {
 
         var command = redoable[^1];
         redoable.RemoveAt(redoable.Count - 1);
-        Perform(command, undo: false);
+        Perform(command, false);
         undoable.Add(command);
 
         sealedForMerge = true;
@@ -269,7 +273,7 @@ public sealed class CommandStack : IUndoManager {
         }
 
         if (!transactionAbandoned && transacted.Count > 0) {
-            Record(new CompositeCommand(transactionName, [.. transacted]));
+            Record(new CompositeCommand(transactionName, [..transacted]));
         }
 
         transacted.Clear();
@@ -292,7 +296,7 @@ public sealed class CommandStack : IUndoManager {
         transactionAbandoned = true;
 
         for (var index = transacted.Count - 1; index >= 0; index--) {
-            Run(transacted[index], undo: true);
+            Run(transacted[index], true);
         }
 
         transacted.Clear();
@@ -302,7 +306,9 @@ public sealed class CommandStack : IUndoManager {
         // The redo check is implied by the seal — Undo and Redo both set it, and they are the only
         // things that leave a redo entry behind — and it is written out anyway, because it states the
         // invariant where it matters rather than making it a fact about two other methods.
-        if (redoable.Count == 0 && !sealedForMerge && undoable.Count > 0
+        if (redoable.Count == 0
+            && !sealedForMerge
+            && undoable.Count > 0
             && command.TryMergeWith(undoable[^1], out var merged)) {
             undoable[^1] = merged;
         } else {

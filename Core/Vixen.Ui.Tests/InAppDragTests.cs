@@ -8,19 +8,25 @@ namespace Vixen.Ui.Tests;
 
 /// <summary>A drag that starts inside the application and is negotiated by what it passes over.</summary>
 /// <remarks>
-///     ⚠ <b>Every assertion here is about <i>which element</i> and <i>in what order</i>, never about
-///     how long anything took.</b> The drag is driven by written-down pointer events exactly as
+///     ⚠
+///     <b>
+///         Every assertion here is about <i>which element</i> and <i>in what order</i>, never about
+///         how long anything took.
+///     </b>
+///     The drag is driven by written-down pointer events exactly as
 ///     <see cref="GestureTests" /> drives the recogniser, so a busy machine changes nothing.
 /// </remarks>
 public class InAppDragTests {
     static UiDocument Laid() {
         var document = new UiDocument(400f, 300f);
 
-        document.Load("""
-            root { width: 400px; height: 300px; flex-direction: row; }
-            .pane { width: 100px; height: 100px; flex-shrink: 0; }
-            .leaf { width: 100px; height: 100px; flex-shrink: 0; }
-        """);
+        document.Load(
+            """
+                root { width: 400px; height: 300px; flex-direction: row; }
+                .pane { width: 100px; height: 100px; flex-shrink: 0; }
+                .leaf { width: 100px; height: 100px; flex-shrink: 0; }
+            """
+        );
 
         return document;
     }
@@ -90,9 +96,10 @@ public class InAppDragTests {
 
         var offered = new List<DropEffect>();
         pane.AddHandler<DragOverEvent>((_, args) => {
-            offered.Add(args.Effect);
-            args.Effect = DropEffect.Copy;
-        });
+                offered.Add(args.Effect);
+                args.Effect = DropEffect.Copy;
+            }
+        );
 
         DropEvent? dropped = null;
         pane.AddHandler<DropEvent>((_, args) => dropped = args);
@@ -120,7 +127,7 @@ public class InAppDragTests {
         pane.AllowDrop = true;
         document.Update();
 
-        pane.AddHandler<DragOverEvent>((_, args) => args.Effect = DropEffect.None);
+        pane.AddHandler<DragOverEvent>(static (_, args) => args.Effect = DropEffect.None);
 
         var drops = 0;
         pane.AddHandler<DropEvent>((_, _) => drops++);
@@ -272,8 +279,12 @@ public class InAppDragTests {
     }
 
     /// <summary>
-    ///     ⚠ <b><c>CancelDrag</c>'s own remarks said "Escape does this" and nothing anywhere called
-    ///     it.</b> The in-app drag had no way out but a release, so a drag begun by accident had to
+    ///     ⚠
+    ///     <b>
+    ///         <c>CancelDrag</c>'s own remarks said "Escape does this" and nothing anywhere called
+    ///         it.
+    ///     </b>
+    ///     The in-app drag had no way out but a release, so a drag begun by accident had to
     ///     be finished somewhere harmless — which for a reorder means putting the row down in a place
     ///     the user then has to undo.
     /// </summary>
@@ -316,10 +327,11 @@ public class InAppDragTests {
 
         var escapes = 0;
         field.AddHandler<KeyEvent>((_, args) => {
-            if (args.Key == InputKey.Escape) {
-                escapes++;
+                if (args.Key == InputKey.Escape) {
+                    escapes++;
+                }
             }
-        });
+        );
 
         document.BeginDrag(source, Row("track"));
         document.Dispatch(new KeyEvent { Key = InputKey.Escape, Action = KeyAction.Pressed });

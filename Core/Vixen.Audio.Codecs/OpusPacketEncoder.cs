@@ -15,8 +15,11 @@ namespace Vixen.Audio.Codecs;
 ///         in an Ogg would be adding a container so it can immediately be taken off again.
 ///     </para>
 ///     <para>
-///         <b>Twenty milliseconds, because a conversation notices latency before it notices
-///         bandwidth.</b> Opus offers 2.5 to 60 ms. Ten halves the delay and spends about a third more
+///         <b>
+///             Twenty milliseconds, because a conversation notices latency before it notices
+///             bandwidth.
+///         </b>
+///         Opus offers 2.5 to 60 ms. Ten halves the delay and spends about a third more
 ///         on per-packet overhead; sixty saves bandwidth and adds delay two people talking over each
 ///         other can feel. Twenty is what every telephony system converged on, and it is the default
 ///         here for the same reason.
@@ -55,7 +58,7 @@ public sealed class OpusPacketEncoder : IDisposable {
         }
 
         FrameSize = FramesPer(frameMilliseconds);
-        Format = new AudioFormat(Rate, channels);
+        Format = new(Rate, channels);
 
         OpusRuntime.Ensure();
         encoder = OpusCodecFactory.CreateEncoder(Rate, channels, OpusApplication.OPUS_APPLICATION_VOIP);
@@ -139,17 +142,18 @@ public sealed class OpusPacketEncoder : IDisposable {
     public void Dispose() => encoder.Dispose();
 
     /// <summary>Turns a frame length in milliseconds into one Opus actually has.</summary>
-    internal static int FramesPer(int milliseconds) => milliseconds switch {
-        3 => 120, // 2.5 ms, which cannot be written as an integer number of them.
-        5 => 240,
-        10 => 480,
-        20 => 960,
-        40 => 1_920,
-        60 => 2_880,
-        _ => throw new ArgumentOutOfRangeException(
-            nameof(milliseconds),
-            milliseconds,
-            "An Opus frame is 3 (for 2.5), 5, 10, 20, 40 or 60 milliseconds."
-        )
-    };
+    internal static int FramesPer(int milliseconds) =>
+        milliseconds switch {
+            3 => 120, // 2.5 ms, which cannot be written as an integer number of them.
+            5 => 240,
+            10 => 480,
+            20 => 960,
+            40 => 1_920,
+            60 => 2_880,
+            _ => throw new ArgumentOutOfRangeException(
+                nameof(milliseconds),
+                milliseconds,
+                "An Opus frame is 3 (for 2.5), 5, 10, 20, 40 or 60 milliseconds."
+            )
+        };
 }

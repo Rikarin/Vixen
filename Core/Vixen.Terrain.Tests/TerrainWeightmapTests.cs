@@ -9,8 +9,12 @@ namespace Vixen.Terrain.Tests;
 public sealed class TerrainWeightmapTests {
     static TerrainDescription Shape =>
         TerrainDescription.Default with {
-            TileSamples = 32, TilesX = 2, TilesZ = 2,
-            MetresPerQuad = 1f, MinHeight = -100f, MaxHeight = 100f
+            TileSamples = 32,
+            TilesX = 2,
+            TilesZ = 2,
+            MetresPerQuad = 1f,
+            MinHeight = -100f,
+            MaxHeight = 100f
         };
 
     static Terrain Built() {
@@ -31,7 +35,7 @@ public sealed class TerrainWeightmapTests {
             1,
             TerrainBrush.Default with { Radius = 10f, Strength = 1f },
             new(new(30f, 30f)),
-            amount: 255
+            255
         );
 
         var bytes = new byte[TerrainWeightmap.ByteCount(terrain.Description)];
@@ -63,7 +67,7 @@ public sealed class TerrainWeightmapTests {
         // A mask that means nothing about the other layers: half of it fully covered.
         for (var z = 0; z < terrain.Description.SamplesZ; z++) {
             for (var x = 0; x < terrain.Description.SamplesX / 2; x++) {
-                mask[(z * terrain.Description.SamplesX) + x] = 255;
+                mask[z * terrain.Description.SamplesX + x] = 255;
             }
         }
 
@@ -88,7 +92,7 @@ public sealed class TerrainWeightmapTests {
         // A ramp along X, so the corners are checkable.
         for (var z = 0; z < 64; z++) {
             for (var x = 0; x < 64; x++) {
-                mask[(z * 64) + x] = (byte)(x * 255 / 63);
+                mask[z * 64 + x] = (byte)(x * 255 / 63);
             }
         }
 
@@ -112,8 +116,7 @@ public sealed class TerrainWeightmapTests {
     public void A_layer_that_does_not_exist_is_refused() {
         var terrain = Built();
 
-        Assert.Throws<ArgumentOutOfRangeException>(
-            () => TerrainWeightmap.Import(terrain, 5, new byte[64 * 64], 64, 64)
+        Assert.Throws<ArgumentOutOfRangeException>(() => TerrainWeightmap.Import(terrain, 5, new byte[64 * 64], 64, 64)
         );
     }
 
@@ -124,7 +127,7 @@ public sealed class TerrainWeightmapTests {
         var terrain = new Terrain(Shape);
         var gravel = new TerrainLayerDescription(
             "Gravel",
-            Albedo: "Textures/gravel-albedo",
+            "Textures/gravel-albedo",
             Surface: "Textures/gravel-orm",
             TilingMetres: 2f,
             Blend: TerrainLayerBlend.Height,
@@ -170,7 +173,7 @@ public sealed class TerrainWeightmapTests {
             1,
             TerrainBrush.Default with { Radius = 1000f, Strength = 1f, Falloff = 0f },
             new(new(30f, 30f)),
-            target: 1f
+            1f
         );
 
         Assert.Equal(1f, terrain.Weights.CoverageOf(1), 2);
@@ -199,20 +202,20 @@ public sealed class TerrainWeightmapTests {
         var materials = new sbyte[quads * quads];
 
         Assert.Equal(materials.Length, terrain.Weights.FillCollisionMaterials(0, 0, materials));
-        Assert.All(materials, material => Assert.Equal(0, material));
+        Assert.All(materials, static material => Assert.Equal(0, material));
 
         TerrainPaint.Paint(
             terrain,
             1,
             TerrainBrush.Default with { Radius = 8f, Strength = 1f, Falloff = 0f },
             new(new(10f, 10f)),
-            amount: 255
+            255
         );
 
         terrain.Weights.FillCollisionMaterials(0, 0, materials);
 
-        Assert.Equal(1, materials[(10 * quads) + 10]);
-        Assert.Equal(0, materials[(28 * quads) + 28]);
+        Assert.Equal(1, materials[10 * quads + 10]);
+        Assert.Equal(0, materials[28 * quads + 28]);
     }
 
     /// <summary>The majority of the quad's four corners, not one of them.</summary>
@@ -235,7 +238,7 @@ public sealed class TerrainWeightmapTests {
 
         terrain.Weights.FillCollisionMaterials(0, 0, materials);
 
-        Assert.Equal(1, materials[(10 * quads) + 10]);
+        Assert.Equal(1, materials[10 * quads + 10]);
     }
 
     [Fact]
@@ -247,7 +250,7 @@ public sealed class TerrainWeightmapTests {
         terrain.Weights.FillCollisionMaterials(0, 0, materials);
 
         // ⚠ −1, not 0: zero is a layer index and would claim every quad is the first ground.
-        Assert.All(materials, material => Assert.Equal(-1, material));
+        Assert.All(materials, static material => Assert.Equal(-1, material));
         Assert.Null(terrain.Weights.GroundAt(10, 10));
     }
 
@@ -265,7 +268,7 @@ public sealed class TerrainWeightmapTests {
             1,
             TerrainBrush.Default with { Radius = 6f, Strength = 1f, Falloff = 0f },
             new(new(10f, 10f)),
-            amount: 255
+            255
         );
 
         Assert.Equal("Materials/gravel", terrain.Weights.GroundAt(10, 10)!.Value.PhysicsMaterial);
@@ -284,7 +287,7 @@ public sealed class TerrainWeightmapTests {
 
         Assert.Contains(
             "needs a name",
-            new TerrainLayerDescription("").Validate(),
+            new TerrainLayerDescription(string.Empty).Validate(),
             StringComparison.Ordinal
         );
 

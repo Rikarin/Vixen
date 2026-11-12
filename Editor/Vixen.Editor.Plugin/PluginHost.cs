@@ -190,8 +190,12 @@ public sealed class PluginHost {
     /// <param name="id">Its id.</param>
     /// <returns>Whether there was an active plugin under that id.</returns>
     /// <remarks>
-    ///     ⚠ <b>Returns as soon as the context has been asked to unload, which is before it has
-    ///     been collected.</b> The runtime unloads a collectible context when the last reference
+    ///     ⚠
+    ///     <b>
+    ///         Returns as soon as the context has been asked to unload, which is before it has
+    ///         been collected.
+    ///     </b>
+    ///     The runtime unloads a collectible context when the last reference
     ///     into it is gone and the GC gets round to it, so the assembly is still in memory when this
     ///     returns and there is nothing wrong with that. <see cref="WaitForCollection" /> is how to
     ///     find out whether it ever left.
@@ -220,7 +224,7 @@ public sealed class PluginHost {
     ///     goes first, so nothing is deactivated while something that needs it is still running.
     /// </remarks>
     public void UnloadAll() {
-        foreach (var plugin in plugins.Where(plugin => plugin.State == PluginState.Active).Reverse().ToList()) {
+        foreach (var plugin in plugins.Where(static plugin => plugin.State == PluginState.Active).Reverse().ToList()) {
             Deactivate(plugin);
             Changed?.Invoke(plugin);
         }
@@ -243,8 +247,12 @@ public sealed class PluginHost {
     ///         one stays in memory, which <see cref="WaitForCollection" /> is there to notice.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A plugin with no folder is re-activated rather than re-read, and until it was,
-    ///         reloading one destroyed it.</b> A module registered through
+    ///         ⚠
+    ///         <b>
+    ///             A plugin with no folder is re-activated rather than re-read, and until it was,
+    ///             reloading one destroyed it.
+    ///         </b>
+    ///         A module registered through
     ///         <see cref="Activate(string, string, IEditorPlugin, PluginLoadContext?)" /> has an
     ///         empty <see cref="PluginDescriptor.Directory" /> — it has no <c>plugin.yaml</c> and
     ///         nothing on disk to scan — so the walk below found nothing, and what the user saw from
@@ -306,7 +314,12 @@ public sealed class PluginHost {
                 [],
                 [],
                 [
-                    .. catalog.Diagnostics.Where(diagnostic => string.Equals(diagnostic.PluginId, id, StringComparison.Ordinal)),
+                    ..catalog.Diagnostics.Where(diagnostic => string.Equals(
+                            diagnostic.PluginId,
+                            id,
+                            StringComparison.Ordinal
+                        )
+                    ),
                     new PluginDiagnostic(PluginSeverity.Error, id, $"is no longer in {existing.Descriptor.Directory}.")
                 ]
             );
@@ -394,7 +407,7 @@ public sealed class PluginHost {
             return true;
         }
 
-        var deadline = Environment.TickCount64 + (long) timeout.TotalMilliseconds;
+        var deadline = Environment.TickCount64 + (long)timeout.TotalMilliseconds;
 
         do {
             GC.Collect();
@@ -425,9 +438,10 @@ public sealed class PluginHost {
             foreach (var update in plugin.Scope.Updates.ToList()) {
                 try {
                     update(delta);
-                } catch (Exception exception) when (exception is not OutOfMemoryException and not StackOverflowException) {
+                } catch (Exception exception) when (exception is not OutOfMemoryException
+                                                        and not StackOverflowException) {
                     diagnostics.Add(
-                        new PluginDiagnostic(
+                        new(
                             PluginSeverity.Error,
                             plugin.Id,
                             $"threw from its per-frame work and has been unloaded: {exception.Message}"
@@ -458,9 +472,10 @@ public sealed class PluginHost {
             foreach (var record in plugin.Scope.Frames.ToList()) {
                 try {
                     record(device);
-                } catch (Exception exception) when (exception is not OutOfMemoryException and not StackOverflowException) {
+                } catch (Exception exception) when (exception is not OutOfMemoryException
+                                                        and not StackOverflowException) {
                     diagnostics.Add(
-                        new PluginDiagnostic(
+                        new(
                             PluginSeverity.Error,
                             plugin.Id,
                             $"threw from its in-frame work and has been unloaded: {exception.Message}"
@@ -490,8 +505,12 @@ public sealed class PluginHost {
     ///         what happened without it.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A plugin that throws here is reported and <em>not</em> unloaded, which is the
-    ///         opposite of <see cref="Update" />.</b> Sixty throws a second from a per-frame callback
+    ///         ⚠
+    ///         <b>
+    ///             A plugin that throws here is reported and <em>not</em> unloaded, which is the
+    ///             opposite of <see cref="Update" />.
+    ///         </b>
+    ///         Sixty throws a second from a per-frame callback
     ///         is an editor that has stopped and unloading is mercy; one throw from a release path is
     ///         a plugin that has leaked something, and unloading it mid-teardown would run its whole
     ///         undo stack against a shell that is going down anyway — turning one leaked pipeline
@@ -507,9 +526,10 @@ public sealed class PluginHost {
             foreach (var release in plugin.Scope.DeviceLost.ToList()) {
                 try {
                     release(device);
-                } catch (Exception exception) when (exception is not OutOfMemoryException and not StackOverflowException) {
+                } catch (Exception exception) when (exception is not OutOfMemoryException
+                                                        and not StackOverflowException) {
                     diagnostics.Add(
-                        new PluginDiagnostic(
+                        new(
                             PluginSeverity.Error,
                             plugin.Id,
                             $"threw while giving back its device resources: {exception.Message}"
@@ -586,12 +606,7 @@ public sealed class PluginHost {
         // what the manager's column formats.
         var version = new Version(EditorApi.Version.Major, EditorApi.Version.Minor, 0);
 
-        var manifest = new PluginManifest {
-            Id = id,
-            Name = name,
-            Version = version,
-            Api = EditorApi.Version
-        };
+        var manifest = new PluginManifest { Id = id, Name = name, Version = version, Api = EditorApi.Version };
 
         // Empty paths, because there is no folder and no file. `PluginContext.Directory` is therefore
         // empty for a built-in, which is honest: a module's data belongs to the project or to the
@@ -601,9 +616,7 @@ public sealed class PluginHost {
         // arrive with a collectible context of their own and are not built-in — the plugin manager
         // lists them, and unloading one has an assembly to drop.
         var plugin = new LoadedPlugin(new(manifest, string.Empty, string.Empty, string.Empty)) {
-            IsBuiltIn = context is null,
-            Context = context,
-            Module = context is null ? module : null
+            IsBuiltIn = context is null, Context = context, Module = context is null ? module : null
         };
 
         plugins.Add(plugin);
@@ -620,7 +633,7 @@ public sealed class PluginHost {
             // it would keep the assembly in memory for the life of the session.
             if (context is not null) {
                 plugin.Context = null;
-                plugin.Collectible = new WeakReference(context);
+                plugin.Collectible = new(context);
                 context.Unload();
             }
 
@@ -629,7 +642,7 @@ public sealed class PluginHost {
         }
 
         try {
-            module.Activate(new PluginContext(plugin.Descriptor, shell, Services, plugin.Scope));
+            module.Activate(new(plugin.Descriptor, shell, Services, plugin.Scope));
 
             plugin.Instance = module;
             plugin.State = PluginState.Active;
@@ -642,7 +655,7 @@ public sealed class PluginHost {
             plugin.Failure = exception;
 
             diagnostics.Add(
-                new PluginDiagnostic(
+                new(
                     PluginSeverity.Error,
                     id,
                     $"'{name}' did not start: {exception.Message}"
@@ -667,8 +680,8 @@ public sealed class PluginHost {
         // and without this the first of those would refuse any plugin that names another, saying it
         // "is not installed" about something that is active in the same editor.
         var loaded = plugins
-            .Where(plugin => plugin.State == PluginState.Active)
-            .Select(plugin => plugin.Id)
+            .Where(static plugin => plugin.State == PluginState.Active)
+            .Select(static plugin => plugin.Id)
             .ToHashSet(StringComparer.Ordinal);
 
         foreach (var descriptor in PluginOrder.Sort(descriptors, pass, loaded)) {
@@ -695,7 +708,7 @@ public sealed class PluginHost {
         // one that was not ordered — so the diagnostics are the whole record of them.
         diagnostics.AddRange(pass.Skip(inherited.Count));
 
-        return new PluginReport(activated, failed, pass);
+        return new(activated, failed, pass);
     }
 
     bool Activate(LoadedPlugin plugin, List<PluginDiagnostic> pass) {
@@ -717,17 +730,17 @@ public sealed class PluginHost {
         PluginLoadContext? context = null;
 
         try {
-            context = new PluginLoadContext(plugin.Descriptor.AssemblyPath, "vixen-plugin:" + plugin.Id);
+            context = new(plugin.Descriptor.AssemblyPath, "vixen-plugin:" + plugin.Id);
             var assembly = context.LoadPlugin();
 
             if (!TryFindEntryPoint(assembly, manifest, out var entry, out var reason)) {
-                plugin.Collectible = new WeakReference(context);
+                plugin.Collectible = new(context);
                 context.Unload();
 
                 return Fail(plugin, pass, reason, null);
             }
 
-            var instance = (IEditorPlugin) Activator.CreateInstance(entry)!;
+            var instance = (IEditorPlugin)Activator.CreateInstance(entry)!;
             var registrations = plugin.Scope;
             var scope = new PluginContext(plugin.Descriptor, shell, Services, registrations);
 
@@ -753,7 +766,7 @@ public sealed class PluginHost {
             plugin.Scope.Dispose();
 
             if (context is not null) {
-                plugin.Collectible = new WeakReference(context);
+                plugin.Collectible = new(context);
                 context.Unload();
             }
 
@@ -773,13 +786,25 @@ public sealed class PluginHost {
         try {
             plugin.Instance?.Deactivate();
         } catch (Exception exception) when (exception is not OutOfMemoryException and not StackOverflowException) {
-            Record(new PluginDiagnostic(PluginSeverity.Warning, plugin.Id, "threw while deactivating: " + Describe(exception)));
+            Record(
+                new(
+                    PluginSeverity.Warning,
+                    plugin.Id,
+                    "threw while deactivating: " + Describe(exception)
+                )
+            );
         }
 
         plugin.Scope.Dispose();
 
         foreach (var failure in plugin.Scope.Failures) {
-            Record(new PluginDiagnostic(PluginSeverity.Warning, plugin.Id, "left a registration behind: " + Describe(failure)));
+            Record(
+                new(
+                    PluginSeverity.Warning,
+                    plugin.Id,
+                    "left a registration behind: " + Describe(failure)
+                )
+            );
         }
 
         var context = plugin.Context;
@@ -792,7 +817,7 @@ public sealed class PluginHost {
             return;
         }
 
-        plugin.Collectible = new WeakReference(context);
+        plugin.Collectible = new(context);
         context.Unload();
     }
 
@@ -800,7 +825,7 @@ public sealed class PluginHost {
         plugin.State = PluginState.Failed;
         plugin.Failure = failure;
 
-        pass.Add(new PluginDiagnostic(PluginSeverity.Error, plugin.Id, message));
+        pass.Add(new(PluginSeverity.Error, plugin.Id, message));
         return false;
     }
 
@@ -810,8 +835,12 @@ public sealed class PluginHost {
     /// <param name="context">The plugin's context. Everything a scanner registers is in its scope.</param>
     /// <param name="assembly">The assembly to read.</param>
     /// <remarks>
-    ///     ⚠ <b>Public because a project's editor scripts are not loaded through this class's disk
-    ///     path.</b> They are compiled, loaded into a context of their own and activated through
+    ///     ⚠
+    ///     <b>
+    ///         Public because a project's editor scripts are not loaded through this class's disk
+    ///         path.
+    ///     </b>
+    ///     They are compiled, loaded into a context of their own and activated through
     ///     <see cref="Activate(string, string, IEditorPlugin, PluginLoadContext)" /> — so the module
     ///     that owns them calls this for its own assembly, and the two tiers read the same attributes
     ///     through the same scanners. Doc 36 § D3.
@@ -827,8 +856,12 @@ public sealed class PluginHost {
 
     /// <summary>Finds the one type in the assembly that is the plugin.</summary>
     /// <remarks>
-    ///     ⚠ <b>Two candidates and no <c>entryPoint</c> in the manifest is a refusal, not a
-    ///     choice.</b> Which of two plugins in one file ran is not something anybody should have to
+    ///     ⚠
+    ///     <b>
+    ///         Two candidates and no <c>entryPoint</c> in the manifest is a refusal, not a
+    ///         choice.
+    ///     </b>
+    ///     Which of two plugins in one file ran is not something anybody should have to
     ///     discover by experiment, and the fix — name it — is one line in a file the author already
     ///     has open.
     /// </remarks>
@@ -849,21 +882,34 @@ public sealed class PluginHost {
             // A plugin built against something that is not here. The loader exceptions name the
             // assembly that could not be found, which is the sentence the author needs.
             reason = "could not be read: "
-                + string.Join("; ", exception.LoaderExceptions.Where(inner => inner is not null).Select(inner => inner!.Message).Distinct(StringComparer.Ordinal).Take(3));
+                + string.Join(
+                    "; ",
+                    exception.LoaderExceptions.Where(static inner => inner is not null)
+                        .Select(static inner => inner!.Message)
+                        .Distinct(StringComparer.Ordinal)
+                        .Take(3)
+                );
 
             return false;
         }
 
         if (manifest.EntryPoint.Length > 0) {
-            entry = types.FirstOrDefault(type => string.Equals(type.FullName, manifest.EntryPoint, StringComparison.Ordinal));
+            entry = types.FirstOrDefault(type => string.Equals(
+                    type.FullName,
+                    manifest.EntryPoint,
+                    StringComparison.Ordinal
+                )
+            );
 
             if (entry is null) {
-                reason = $"names '{manifest.EntryPoint}' as its entry point, and {assembly.GetName().Name} has no such type.";
+                reason =
+                    $"names '{manifest.EntryPoint}' as its entry point, and {assembly.GetName().Name} has no such type.";
                 return false;
             }
 
             if (!IsCandidate(entry)) {
-                reason = $"names '{manifest.EntryPoint}', which is not a public IEditorPlugin with a parameterless constructor.";
+                reason =
+                    $"names '{manifest.EntryPoint}', which is not a public IEditorPlugin with a parameterless constructor.";
                 entry = null;
 
                 return false;
@@ -885,7 +931,7 @@ public sealed class PluginHost {
 
             default:
                 reason = "has more than one IEditorPlugin ("
-                    + string.Join(", ", candidates.Select(type => type.FullName).Order(StringComparer.Ordinal))
+                    + string.Join(", ", candidates.Select(static type => type.FullName).Order(StringComparer.Ordinal))
                     + "). Name one in the manifest's 'entryPoint'.";
 
                 return false;

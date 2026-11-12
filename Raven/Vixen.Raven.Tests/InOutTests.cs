@@ -100,14 +100,14 @@ public class InOutTests {
     /// </remarks>
     [Fact]
     public void ALiteralArgumentIsRefused() {
-        Assert.Contains(Diagnose("Take(1f)"), d => d.Id == "RVN2110" && d.IsError);
+        Assert.Contains(Diagnose("Take(1f)"), static d => d.Id == "RVN2110" && d.IsError);
     }
 
     /// <summary>A `val` is assignable nowhere, and reuses the read-only message.</summary>
     [Fact]
     public void AReadOnlyArgumentIsRefusedWithTheAssignmentsReason() {
         var diagnostics = Diagnose("val locked = 2f\n        Take(locked)");
-        Assert.Contains(diagnostics, d => d.Id == "RVN2040" && d.IsError);
+        Assert.Contains(diagnostics, static d => d.Id == "RVN2040" && d.IsError);
     }
 
     /// <summary>
@@ -122,7 +122,7 @@ public class InOutTests {
     [Fact]
     public void AWidenedArgumentIsRefused() {
         var diagnostics = Diagnose("var i = 3\n        Take(i)");
-        var error = Assert.Single(diagnostics, d => d.Id == "RVN2111");
+        var error = Assert.Single(diagnostics, static d => d.Id == "RVN2111");
         Assert.Contains("'int'", error.GetMessage(), StringComparison.Ordinal);
         Assert.Contains("'float'", error.GetMessage(), StringComparison.Ordinal);
     }
@@ -140,7 +140,7 @@ public class InOutTests {
             """
         );
 
-        Assert.Contains(diagnostics, d => d.Id == "RVN2113" && d.IsError);
+        Assert.Contains(diagnostics, static d => d.Id == "RVN2113" && d.IsError);
     }
 
     [Fact]
@@ -158,7 +158,7 @@ public class InOutTests {
             """
         );
 
-        Assert.Contains(diagnostics, d => d.Id == "RVN2114" && d.IsError);
+        Assert.Contains(diagnostics, static d => d.Id == "RVN2114" && d.IsError);
     }
 
     /// <summary>
@@ -181,7 +181,7 @@ public class InOutTests {
             """
         );
 
-        Assert.Contains(diagnostics, d => d.Id == "RVN2112" && d.IsError);
+        Assert.Contains(diagnostics, static d => d.Id == "RVN2112" && d.IsError);
     }
 
     // --- Lowering ---------------------------------------------------------
@@ -201,14 +201,17 @@ public class InOutTests {
         var module = Lower(Surface);
         var fragment = FindFunction(module, "Fragment");
 
-        var temp = Assert.Single(fragment.Locals, local => local.Name.Contains("#inout", StringComparison.Ordinal));
+        var temp = Assert.Single(
+            fragment.Locals,
+            static local => local.Name.Contains("#inout", StringComparison.Ordinal)
+        );
 
         var call = Assert.Single(Calls(fragment.Body));
-        var reference = Assert.Single(call.Arguments, a => a.IsByReference);
+        var reference = Assert.Single(call.Arguments, static a => a.IsByReference);
         Assert.Same(temp, reference.Reference);
 
         // The other argument stays by value: direction is per parameter, not per call.
-        Assert.Contains(call.Arguments, a => !a.IsByReference);
+        Assert.Contains(call.Arguments, static a => !a.IsByReference);
     }
 
     /// <summary>The callee's parameter is marked by-reference, and prints as one.</summary>
@@ -255,7 +258,7 @@ public class InOutTests {
 
         var bag = new DiagnosticBag();
         Assert.False(IrVerifier.Verify(module, bag));
-        Assert.Contains(bag.ToArray(), d => d.GetMessage().Contains("by value", StringComparison.Ordinal));
+        Assert.Contains(bag.ToArray(), static d => d.GetMessage().Contains("by value", StringComparison.Ordinal));
     }
 
     // --- Both backends ----------------------------------------------------
@@ -317,11 +320,14 @@ public class InOutTests {
         var fragment = FindFunction(module, "Fragment");
 
         var statements = Flatten(fragment.Body).ToArray();
-        var callIndex = Array.FindIndex(statements, s => s is IrCallInstruction);
+        var callIndex = Array.FindIndex(statements, static s => s is IrCallInstruction);
         Assert.True(callIndex >= 0);
 
-        var temp = Assert.Single(fragment.Locals, local => local.Name.Contains("#inout", StringComparison.Ordinal));
-        var target = Assert.Single(fragment.Locals, local => local.Name == "s");
+        var temp = Assert.Single(
+            fragment.Locals,
+            static local => local.Name.Contains("#inout", StringComparison.Ordinal)
+        );
+        var target = Assert.Single(fragment.Locals, static local => local.Name == "s");
 
         // After the call: a load of the temp, then a store into the caller's own local.
         var copyOut = statements
@@ -375,15 +381,15 @@ public class InOutTests {
         Assert.Empty(compilation.GetDiagnostics());
 
         var built = LibraryBuilder.Build(compilation, Lowerer.LowerWithLinks(compilation, diagnostics), diagnostics);
-        Assert.DoesNotContain(diagnostics.ToArray(), d => d.IsError);
+        Assert.DoesNotContain(diagnostics.ToArray(), static d => d.IsError);
 
         // Through the bytes, so the direction is being read back rather than remembered.
         var reloaded = CompiledLibraryReader.Read(CompiledLibraryWriter.Write(built));
 
         var apply = reloaded.Types
-            .Single(type => type.Name == "Feature")
+            .Single(static type => type.Name == "Feature")
             .Methods
-            .Single(method => method.Name == "Apply");
+            .Single(static method => method.Name == "Apply");
 
         Assert.Equal(RefKind.InOut, apply.Parameters[0].RefKind);
         Assert.Equal(RefKind.None, apply.Parameters[1].RefKind);
@@ -422,13 +428,13 @@ public class InOutTests {
         var consumerDiagnostics = consumer.GetDiagnostics();
         Assert.True(
             consumerDiagnostics.Count == 0,
-            string.Join("\n", consumerDiagnostics.Select(d => d.ToString()))
+            string.Join("\n", consumerDiagnostics.Select(static d => d.ToString()))
         );
 
         var bag = new DiagnosticBag();
         var module = Lowerer.Lower(consumer, bag);
-        Assert.True(IrVerifier.Verify(module, bag), string.Join("\n", bag.Select(d => d.ToString())));
-        Assert.True(bag.IsEmpty, string.Join("\n", bag.Select(d => d.ToString())));
+        Assert.True(IrVerifier.Verify(module, bag), string.Join("\n", bag.Select(static d => d.ToString())));
+        Assert.True(bag.IsEmpty, string.Join("\n", bag.Select(static d => d.ToString())));
 
         Assert.True(FindFunction(module, "Apply").Parameters[0].IsByReference);
     }
@@ -475,7 +481,7 @@ public class InOutTests {
             [SyntaxTree.ParseText(Consumer, path: "Consumer.rvn")]
         );
 
-        Assert.Contains(consumer.GetDiagnostics(), d => d.Id == "RVN2110" && d.IsError);
+        Assert.Contains(consumer.GetDiagnostics(), static d => d.Id == "RVN2110" && d.IsError);
     }
 
     // --- Plumbing ---------------------------------------------------------
@@ -508,8 +514,8 @@ public class InOutTests {
 
         var bag = new DiagnosticBag();
         var module = Lowerer.Lower(compilation, bag);
-        Assert.True(IrVerifier.Verify(module, bag), string.Join("\n", bag.Select(d => d.ToString())));
-        Assert.True(bag.IsEmpty, string.Join("\n", bag.Select(d => d.ToString())));
+        Assert.True(IrVerifier.Verify(module, bag), string.Join("\n", bag.Select(static d => d.ToString())));
+        Assert.True(bag.IsEmpty, string.Join("\n", bag.Select(static d => d.ToString())));
         return module;
     }
 
@@ -522,7 +528,7 @@ public class InOutTests {
 
     static IrFunction FindFunction(IrModule module, string name) =>
         module.Shaders
-            .SelectMany(shader => shader.Functions)
+            .SelectMany(static shader => shader.Functions)
             .Concat(module.Functions)
             .Single(function => function.Name.EndsWith(name, StringComparison.Ordinal));
 

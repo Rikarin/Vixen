@@ -14,19 +14,19 @@ public class AnchorReferenceTests {
         var read = LayerStackYaml.Read(LayerStackYaml.Write(Stack())).Sets[0];
 
         Assert.Equal("Wear", read.Layers[0].AnchorPoint);
-        Assert.Equal(new AnchorReference { Anchor = "Wear" }, read.Layers[1].Anchor);
+        Assert.Equal(new() { Anchor = "Wear" }, read.Layers[1].Anchor);
         Assert.Equal(LayerFillSource.Anchor, read.Layers[1].Fill);
-        Assert.Equal(new AnchorReference { Anchor = "Wear", Channel = "height" }, read.Layers[1].Mask.Anchor);
+        Assert.Equal(new() { Anchor = "Wear", Channel = "height" }, read.Layers[1].Mask.Anchor);
         Assert.Equal(
-            new AnchorReference { Anchor = "Wear", Channel = "roughness" },
+            new() { Anchor = "Wear", Channel = "roughness" },
             read.Layers[2].Inputs["Foreground"].Anchor
         );
         Assert.Equal(
-            new AnchorReference { Anchor = "Wear", Channel = "height" },
+            new() { Anchor = "Wear", Channel = "height" },
             read.Layers[2].Mask.Layers[0].GeneratorInputs["Input"]
         );
         Assert.Equal(
-            new AnchorReference { Anchor = "Wear", Channel = "height" },
+            new() { Anchor = "Wear", Channel = "height" },
             read.Layers[2].Mask.Effects[0].Inputs["Foreground"].Anchor
         );
         Assert.True(read.Layers[3].Flattened);
@@ -40,7 +40,7 @@ public class AnchorReferenceTests {
 
         Assert.Equal(
             [
-                ("fill", "fill", ""), ("fill", "mask", "height"), ("filter", "input Foreground", "roughness"),
+                ("fill", "fill", string.Empty), ("fill", "mask", "height"), ("filter", "input Foreground", "roughness"),
                 ("filter", "mask entry 1 generator Input", "height"),
                 ("filter", "mask effect Colour/Blend Foreground", "height")
             ],
@@ -72,7 +72,9 @@ public class AnchorReferenceTests {
             Sets = [
                 new() {
                     Name = "Body",
-                    Channels = [new() { Usage = "baseColor" }, new() { Usage = "roughness" }, new() { Usage = "height" }],
+                    Channels = [
+                        new() { Usage = "baseColor" }, new() { Usage = "roughness" }, new() { Usage = "height" }
+                    ],
                     Layers = [
                         new() { Id = "a", AnchorPoint = "Wear", Values = { ["baseColor"] = [0.2f, 0.2f, 0.2f, 1f] } },
                         new() {
@@ -80,15 +82,16 @@ public class AnchorReferenceTests {
                             Fill = LayerFillSource.Anchor,
                             Anchor = new() { Anchor = "Wear" },
                             Mask = new() {
-                                Source = LayerMaskSource.Anchor,
-                                Anchor = new() { Anchor = "Wear", Channel = "height" }
+                                Source = LayerMaskSource.Anchor, Anchor = new() { Anchor = "Wear", Channel = "height" }
                             }
                         },
                         new() {
                             Id = "filter",
                             Kind = LayerKind.Filter,
                             FilterNode = "Colour/Blend",
-                            Inputs = { ["Foreground"] = LayerInputAsset.Of(new() { Anchor = "Wear", Channel = "roughness" }) },
+                            Inputs = {
+                                ["Foreground"] = LayerInputAsset.Of(new() { Anchor = "Wear", Channel = "roughness" })
+                            },
                             Mask = new() {
                                 Layers = [
                                     new() {
@@ -100,12 +103,21 @@ public class AnchorReferenceTests {
                                 Effects = [
                                     new() {
                                         Node = "Colour/Blend",
-                                        Inputs = { ["Foreground"] = LayerInputAsset.Of(new() { Anchor = "Wear", Channel = "height" }) }
+                                        Inputs = {
+                                            ["Foreground"] = LayerInputAsset.Of(
+                                                new() { Anchor = "Wear", Channel = "height" }
+                                            )
+                                        }
                                     }
                                 ]
                             }
                         },
-                        new() { Id = "g", Kind = LayerKind.Group, Paint = "stack.Body.g.vxpaint", Children = [new() { Id = "c" }] }
+                        new() {
+                            Id = "g",
+                            Kind = LayerKind.Group,
+                            Paint = "stack.Body.g.vxpaint",
+                            Children = [new() { Id = "c" }]
+                        }
                     ]
                 }
             ]

@@ -87,8 +87,8 @@ public sealed class SceneLightingTests : IDisposable {
             Stages = [],
             SetLayouts = [frame, default, default, default],
             ConstantBufferSize = BlockSize,
-            Bindings = [.. bindings],
-            Parameters = [.. Volumes()]
+            Bindings = [..bindings],
+            Parameters = [..Volumes()]
         };
     }
 
@@ -126,7 +126,7 @@ public sealed class SceneLightingTests : IDisposable {
         for (var index = 0; index < Slots; index++) {
             yield return new(
                 ParameterKeys.New<float>($"{ForwardPlusKeys.ShaderName}.probeVolumes[{index}].radius"),
-                offset + (index * stride),
+                offset + index * stride,
                 4
             ) { Set = DescriptorSetSlot.PerFrame };
         }
@@ -167,8 +167,11 @@ public sealed class SceneLightingTests : IDisposable {
 
     /// <summary>The checked-in reflection, found by walking up rather than by counting directories.</summary>
     static string ReflectionPath() {
-        for (var directory = new DirectoryInfo(AppContext.BaseDirectory); directory is not null; directory = directory.Parent) {
-            var candidate = Path.Combine(directory.FullName, "Raven", "Library", "Pipeline", "ForwardPlus.reflect.json");
+        for (var directory = new DirectoryInfo(AppContext.BaseDirectory);
+             directory is not null;
+             directory = directory.Parent) {
+            var candidate =
+                Path.Combine(directory.FullName, "Raven", "Library", "Pipeline", "ForwardPlus.reflect.json");
 
             if (File.Exists(candidate)) {
                 return candidate;
@@ -185,8 +188,14 @@ public sealed class SceneLightingTests : IDisposable {
         device.CreateTextureView(
             device.CreateTexture(
                 new() {
-                    Width = 4, Height = 4, Depth = 1, MipLevels = 1, ArrayLayers = 6, SampleCount = 1,
-                    Format = PixelFormat.Rgba16Float, Usage = TextureUsage.Sampled
+                    Width = 4,
+                    Height = 4,
+                    Depth = 1,
+                    MipLevels = 1,
+                    ArrayLayers = 6,
+                    SampleCount = 1,
+                    Format = PixelFormat.Rgba16Float,
+                    Usage = TextureUsage.Sampled
                 }
             )
         );
@@ -251,10 +260,12 @@ public sealed class SceneLightingTests : IDisposable {
             EffectSetWriter.TryWrite(effect, DescriptorSetSlot.PerFrame, parameters, Filled(effect, parameters), writes)
         );
 
-        var array = writes.Where(write => write.Binding == ProbesBinding).OrderBy(write => write.ArrayIndex).ToArray();
+        var array = writes.Where(static write => write.Binding == ProbesBinding)
+            .OrderBy(static write => write.ArrayIndex)
+            .ToArray();
 
         Assert.Equal(Slots, array.Length);
-        Assert.Equal([0, 1, 2, 3], array.Select(write => write.ArrayIndex));
+        Assert.Equal([0, 1, 2, 3], array.Select(static write => write.ArrayIndex));
 
         // The one probe there is takes slot zero; the three slots left over take the sky, which is
         // what a surface with no probe reflects anyway.
@@ -331,7 +342,7 @@ public sealed class SceneLightingTests : IDisposable {
             EffectSetWriter.TryWrite(effect, DescriptorSetSlot.PerFrame, parameters, Filled(effect, parameters), writes)
         );
 
-        Assert.DoesNotContain(writes, write => write.Binding == ProbesBinding);
+        Assert.DoesNotContain(writes, static write => write.Binding == ProbesBinding);
     }
 
     /// <summary>Probes the array has no room for are dropped, and counted.</summary>
@@ -345,7 +356,7 @@ public sealed class SceneLightingTests : IDisposable {
         var lighting = new SceneLighting { Environment = Sky(), Probes = new() };
 
         for (var i = 0; i < 6; i++) {
-            lighting.Probes!.Probes.Add(Room(10f + (i * 20f)));
+            lighting.Probes!.Probes.Add(Room(10f + i * 20f));
         }
 
         lighting.Extract(new(), Pass());
@@ -363,8 +374,12 @@ public sealed class SceneLightingTests : IDisposable {
     /// <remarks>
     ///     <para>
     ///         The claim neither side can make alone, and the reason the two read one list rather than
-    ///         two equal ones. <see cref="ForwardLightingRenderFeature" /> writes a <em>position in
-    ///         the selector's list</em> into the per-object block;
+    ///         two equal ones. <see cref="ForwardLightingRenderFeature" /> writes a
+    ///         <em>
+    ///             position in
+    ///             the selector's list
+    ///         </em>
+    ///         into the per-object block;
     ///         <see cref="SceneLighting" /> fills the array from that same list in that same order.
     ///         Sorting the probes on either side — by weight, by priority, by distance — would leave
     ///         both halves internally consistent and every object reflecting somebody else's room.
@@ -456,7 +471,7 @@ public sealed class SceneLightingTests : IDisposable {
 
         // The slots no probe filled keep the shader's own default rather than the last probe's, which
         // is what stops an object clamped into an empty slot reflecting a room that is not there.
-        Assert.Equal(0f, MemoryMarshal.Read<float>(constants.Bytes[(offset + (2 * stride))..]));
+        Assert.Equal(0f, MemoryMarshal.Read<float>(constants.Bytes[(offset + 2 * stride)..]));
     }
 
     // --- The sun ------------------------------------------------------------
@@ -468,9 +483,7 @@ public sealed class SceneLightingTests : IDisposable {
     /// </remarks>
     [Fact]
     public void The_sun_reaches_the_frames_block_and_so_does_its_absence() {
-        var sun = new Sunlight {
-            Sun = RenderLight.Directional(new(0f, -1f, 0f), new(1f, 0.5f, 0.25f), 3f)
-        };
+        var sun = new Sunlight { Sun = RenderLight.Directional(new(0f, -1f, 0f), new(1f, 0.5f, 0.25f), 3f) };
 
         var lighting = new SceneLighting { Sun = sun };
         var parameters = new ParameterCollection();
@@ -545,16 +558,16 @@ public sealed class SceneLightingTests : IDisposable {
         using var allocator = new DescriptorAllocator(device);
         var effect = Bindable();
 
-        using var bare = new SceneConstants(device) { Descriptors = allocator };
+        using var bare = new SceneConstants(device);
+        bare.Descriptors = allocator;
         var list = device.BeginCommandList();
         allocator.BeginFrame();
 
         Assert.False(bare.Bind(list, effect));
 
-        using var scene = new SceneConstants(device) {
-            Descriptors = allocator,
-            Lighting = new() { Environment = Sky(), Probes = new() }
-        };
+        using var scene = new SceneConstants(device);
+        scene.Descriptors = allocator;
+        scene.Lighting = new() { Environment = Sky(), Probes = new() };
 
         scene.Lighting!.Probes!.Probes.Add(Room(10f));
         scene.Lighting.Probes.Probes.Add(Room(30f));
@@ -666,7 +679,8 @@ public sealed class SceneLightingTests : IDisposable {
             TState state,
             Exception? exception,
             Func<TState, Exception?, string> formatter
-        ) => Lines.Add((eventId.Id, logLevel, formatter(state, exception)));
+        ) =>
+            Lines.Add((eventId.Id, logLevel, formatter(state, exception)));
     }
 
     sealed class Sunlight : ISunSource {

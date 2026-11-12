@@ -26,7 +26,8 @@ public static class JpegWriter {
     const int Block = 64;
 
     static ReadOnlySpan<byte> ZigZag => [
-        0, 1, 8, 16, 9, 2, 3, 10, 17, 24, 32, 25, 18, 11, 4, 5, 12, 19, 26, 33, 40, 48, 41, 34, 27, 20, 13, 6, 7, 14, 21,
+        0, 1, 8, 16, 9, 2, 3, 10, 17, 24, 32, 25, 18, 11, 4, 5, 12, 19, 26, 33, 40, 48, 41, 34, 27, 20, 13, 6, 7, 14,
+        21,
         28, 35, 42, 49, 56, 57, 50, 43, 36, 29, 22, 15, 23, 30, 37, 44, 51, 58, 59, 52, 45, 38, 31, 39, 46, 53, 60, 61,
         54, 47, 55, 62, 63
     ];
@@ -74,17 +75,24 @@ public static class JpegWriter {
         // Quantised coefficients, zig-zag order, block by block and component by component within a block.
         var coefficients = new short[across * down * channels * Block];
 
-        Parallel.For(0, down, row => {
-            Span<float> block = stackalloc float[Block];
+        Parallel.For(
+            0,
+            down,
+            row => {
+                Span<float> block = stackalloc float[Block];
 
-            for (var column = 0; column < across; column++) {
-                for (var component = 0; component < channels; component++) {
-                    Load(planes[component], width, height, column * 8, row * 8, block);
-                    var into = coefficients.AsSpan((((row * across) + column) * channels + component) * Block, Block);
-                    Transform(block, tables[component == 0 ? 0 : 1], into);
+                for (var column = 0; column < across; column++) {
+                    for (var component = 0; component < channels; component++) {
+                        Load(planes[component], width, height, column * 8, row * 8, block);
+                        var into = coefficients.AsSpan(
+                            ((row * across + column) * channels + component) * Block,
+                            Block
+                        );
+                        Transform(block, tables[component == 0 ? 0 : 1], into);
+                    }
                 }
             }
-        });
+        );
 
         // First pass: what each table has to say. Index 256 is the reserved pseudo-symbol.
         var dc = new[] { new long[257], new long[257] };
@@ -97,7 +105,7 @@ public static class JpegWriter {
             dc[table][256] = 1;
             ac[table][256] = 1;
             codes[table * 2] = Code(dc[table]);
-            codes[(table * 2) + 1] = Code(ac[table]);
+            codes[table * 2 + 1] = Code(ac[table]);
         }
 
         using var output = new MemoryStream();
@@ -105,11 +113,15 @@ public static class JpegWriter {
 
         // Second pass: the scan.
         var bits = new BitWriter(output);
-        Walk(coefficients, channels, (table, symbol, extra, extraBits, isDc) => {
-            var (lengths, values) = codes[(table * 2) + (isDc ? 0 : 1)];
-            bits.Write(values[symbol], lengths[symbol]);
-            bits.Write(extra, extraBits);
-        });
+        Walk(
+            coefficients,
+            channels,
+            (table, symbol, extra, extraBits, isDc) => {
+                var (lengths, values) = codes[table * 2 + (isDc ? 0 : 1)];
+                bits.Write(values[symbol], lengths[symbol]);
+                bits.Write(extra, extraBits);
+            }
+        );
         bits.Flush();
 
         output.Write([0xFF, 0xD9]);
@@ -122,7 +134,7 @@ public static class JpegWriter {
         for (var u = 0; u < 8; u++) {
             for (var x = 0; x < 8; x++) {
                 var scale = u == 0 ? Math.Sqrt(0.5) : 1.0;
-                table[(u * 8) + x] = (float)(scale / 2.0 * Math.Cos((2 * x + 1) * u * Math.PI / 16));
+                table[u * 8 + x] = (float)(scale / 2.0 * Math.Cos((2 * x + 1) * u * Math.PI / 16));
             }
         }
 
@@ -130,11 +142,11 @@ public static class JpegWriter {
     }
 
     static int[] Scaled(ReadOnlySpan<byte> table, int quality) {
-        var scale = quality < 50 ? 5000 / quality : 200 - (quality * 2);
+        var scale = quality < 50 ? 5000 / quality : 200 - quality * 2;
         var scaled = new int[Block];
 
         for (var at = 0; at < Block; at++) {
-            scaled[at] = Math.Clamp(((table[at] * scale) + 50) / 100, 1, 255);
+            scaled[at] = Math.Clamp((table[at] * scale + 50) / 100, 1, 255);
         }
 
         return scaled;
@@ -154,10 +166,10 @@ public static class JpegWriter {
                 continue;
             }
 
-            var (r, g, b) = (samples[at * 3], samples[(at * 3) + 1], samples[(at * 3) + 2]);
-            planes[0][at] = (0.299f * r) + (0.587f * g) + (0.114f * b) - 128f;
-            planes[1][at] = (-0.168736f * r) - (0.331264f * g) + (0.5f * b);
-            planes[2][at] = (0.5f * r) - (0.418688f * g) - (0.081312f * b);
+            var (r, g, b) = (samples[at * 3], samples[at * 3 + 1], samples[at * 3 + 2]);
+            planes[0][at] = 0.299f * r + 0.587f * g + 0.114f * b - 128f;
+            planes[1][at] = -0.168736f * r - 0.331264f * g + 0.5f * b;
+            planes[2][at] = 0.5f * r - 0.418688f * g - 0.081312f * b;
         }
 
         return planes;
@@ -169,7 +181,7 @@ public static class JpegWriter {
             var row = Math.Min(top + y, height - 1) * width;
 
             for (var x = 0; x < 8; x++) {
-                block[(y * 8) + x] = plane[row + Math.Min(left + x, width - 1)];
+                block[y * 8 + x] = plane[row + Math.Min(left + x, width - 1)];
             }
         }
     }
@@ -183,10 +195,10 @@ public static class JpegWriter {
                 var sum = 0f;
 
                 for (var x = 0; x < 8; x++) {
-                    sum += Cosines[(u * 8) + x] * block[(y * 8) + x];
+                    sum += Cosines[u * 8 + x] * block[y * 8 + x];
                 }
 
-                rows[(y * 8) + u] = sum;
+                rows[y * 8 + u] = sum;
             }
         }
 
@@ -195,10 +207,10 @@ public static class JpegWriter {
                 var sum = 0f;
 
                 for (var y = 0; y < 8; y++) {
-                    sum += Cosines[(v * 8) + y] * rows[(y * 8) + u];
+                    sum += Cosines[v * 8 + y] * rows[y * 8 + u];
                 }
 
-                block[(v * 8) + u] = sum;
+                block[v * 8 + u] = sum;
             }
         }
 
@@ -258,7 +270,14 @@ public static class JpegWriter {
         return (lengths, PrefixCodes.Codes(lengths));
     }
 
-    static void Headers(Stream output, int width, int height, int channels, int[][] tables, (int[] Lengths, int[] Codes)[] codes) {
+    static void Headers(
+        Stream output,
+        int width,
+        int height,
+        int channels,
+        int[][] tables,
+        (int[] Lengths, int[] Codes)[] codes
+    ) {
         output.Write([0xFF, 0xD8]);
         Segment(output, 0xE0, [(byte)'J', (byte)'F', (byte)'I', (byte)'F', 0, 1, 1, 0, 0, 1, 0, 1, 0, 0]);
 
@@ -273,7 +292,7 @@ public static class JpegWriter {
             }
         }
 
-        Segment(output, 0xDB, [.. quantisation]);
+        Segment(output, 0xDB, [..quantisation]);
 
         List<byte> frame = [8, (byte)(height >> 8), (byte)height, (byte)(width >> 8), (byte)width, (byte)channels];
 
@@ -281,16 +300,16 @@ public static class JpegWriter {
             frame.AddRange([(byte)(component + 1), 0x11, (byte)(component == 0 ? 0 : 1)]);
         }
 
-        Segment(output, 0xC0, [.. frame]);
+        Segment(output, 0xC0, [..frame]);
 
         List<byte> huffman = [];
 
         for (var table = 0; table < count; table++) {
-            Table(huffman, 0x00 | table, codes[table * 2].Lengths);
-            Table(huffman, 0x10 | table, codes[(table * 2) + 1].Lengths);
+            Table(huffman, table, codes[table * 2].Lengths);
+            Table(huffman, 0x10 | table, codes[table * 2 + 1].Lengths);
         }
 
-        Segment(output, 0xC4, [.. huffman]);
+        Segment(output, 0xC4, [..huffman]);
 
         List<byte> scan = [(byte)channels];
 
@@ -299,7 +318,7 @@ public static class JpegWriter {
         }
 
         scan.AddRange([0, 63, 0]);
-        Segment(output, 0xDA, [.. scan]);
+        Segment(output, 0xDA, [..scan]);
     }
 
     /// <summary>A DHT table: counts per length, then the symbols in code order, the reserved one left out.</summary>

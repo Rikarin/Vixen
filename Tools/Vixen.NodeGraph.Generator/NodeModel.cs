@@ -48,9 +48,9 @@ sealed record PortModel(
     public override int GetHashCode() {
         var hash = Field.GetHashCode();
 
-        hash = (hash * 31) + Name.GetHashCode();
-        hash = (hash * 31) + Kind.GetHashCode();
-        hash = (hash * 31) + Default.Length;
+        hash = hash * 31 + Name.GetHashCode();
+        hash = hash * 31 + Kind.GetHashCode();
+        hash = hash * 31 + Default.Length;
 
         return hash;
     }
@@ -58,8 +58,12 @@ sealed record PortModel(
 
 /// <summary>One setting, as the generator read it off a <see langword="string" /> field.</summary>
 /// <remarks>
-///     ⚠ <b>A setting has no direction and its field is always a string, and it does now have a
-///     kind</b> — <c>SettingKind</c>, which says how that string is <em>read</em> rather than how it
+///     ⚠
+///     <b>
+///         A setting has no direction and its field is always a string, and it does now have a
+///         kind
+///     </b>
+///     — <c>SettingKind</c>, which says how that string is <em>read</em> rather than how it
 ///     is stored. See <c>SettingAttribute</c>; the storage stayed text so that a saved graph and a
 ///     node type that renamed a member still understand each other.
 /// </remarks>
@@ -94,9 +98,9 @@ sealed record SettingModel(
     public override int GetHashCode() {
         var hash = Field.GetHashCode();
 
-        hash = (hash * 31) + Name.GetHashCode();
-        hash = (hash * 31) + Kind.GetHashCode();
-        hash = (hash * 31) + Accepted.Length;
+        hash = hash * 31 + Name.GetHashCode();
+        hash = hash * 31 + Kind.GetHashCode();
+        hash = hash * 31 + Accepted.Length;
 
         return hash;
     }
@@ -134,8 +138,8 @@ sealed record NodeModel(
     public override int GetHashCode() {
         var hash = FullName.GetHashCode();
 
-        hash = (hash * 31) + Path.GetHashCode();
-        hash = (hash * 31) + Ports.Length;
+        hash = hash * 31 + Path.GetHashCode();
+        hash = hash * 31 + Ports.Length;
 
         return hash;
     }
@@ -164,7 +168,7 @@ sealed record DiagnosticModel(
             ? Microsoft.CodeAnalysis.Location.None
             : Microsoft.CodeAnalysis.Location.Create(
                 FilePath,
-                new Microsoft.CodeAnalysis.Text.TextSpan(Start, Length),
+                new(Start, Length),
                 new Microsoft.CodeAnalysis.Text.LinePositionSpan(
                     new(StartLine, StartCharacter),
                     new(EndLine, EndCharacter)

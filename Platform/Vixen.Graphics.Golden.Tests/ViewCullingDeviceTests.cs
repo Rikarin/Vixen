@@ -73,7 +73,9 @@ public class ViewCullingDeviceTests {
 
         using var store = new RenderObjectStore();
         using var expected = new VisibilityGroup();
-        using var actual = new GpuVisibilityGroup(device) { Effects = effects, Pipelines = pipelines };
+        using var actual = new GpuVisibilityGroup(device);
+        actual.Effects = effects;
+        actual.Pipelines = pipelines;
 
         // Enough objects to cross several word boundaries, spread widely enough that all three
         // rejections and the frustum test each decide some of them. Seeded, so a failure is a
@@ -85,9 +87,9 @@ public class ViewCullingDeviceTests {
                 new() {
                     Bounds = new(
                         new(
-                            (float)((random.NextDouble() * 200) - 100),
-                            (float)((random.NextDouble() * 200) - 100),
-                            (float)((random.NextDouble() * 200) - 100)
+                            (float)(random.NextDouble() * 200 - 100),
+                            (float)(random.NextDouble() * 200 - 100),
+                            (float)(random.NextDouble() * 200 - 100)
                         ),
                         (float)(random.NextDouble() * 5)
                     ),
@@ -101,7 +103,7 @@ public class ViewCullingDeviceTests {
 
         RenderView[] views = [
             Camera("camera", RenderStageMask.Of(0) | RenderStageMask.Of(40)),
-            Camera("cascade", RenderStageMask.Of(0), maximumDistance: 60f)
+            Camera("cascade", RenderStageMask.Of(0), 60f)
         ];
 
         device.BeginFrame();
@@ -165,7 +167,7 @@ public class ViewCullingDeviceTests {
 
         using var owned = fixture!;
 
-        foreach (var effect in (Effect[])[Compiled(owned.Device), Compiled(owned.Device, occlusion: true)]) {
+        foreach (var effect in (Effect[])[Compiled(owned.Device), Compiled(owned.Device, true)]) {
             var objects = Assert.IsType<EffectBinding>(effect.BindingOf("objects"));
 
             Assert.NotNull(effect.BindingOf("views"));
@@ -215,12 +217,20 @@ public class ViewCullingDeviceTests {
 
         for (var y = 0; y < Side; y++) {
             for (var x = 0; x < Side; x++) {
-                texels[(y * Side) + x] = x < Side / 2 ? 1f : 0f;
+                texels[y * Side + x] = x < Side / 2 ? 1f : 0f;
             }
         }
 
-        var depth = owned.Owned("depth", TextureUsage.Sampled | TextureUsage.CopyDestination, PixelFormat.R32Float, Side, Side);
-        var staging = device.CreateBuffer(new(texels.Length * sizeof(float), BufferUsage.CopySource, MemoryAccess.HostUpload, "depth staging"));
+        var depth = owned.Owned(
+            "depth",
+            TextureUsage.Sampled | TextureUsage.CopyDestination,
+            PixelFormat.R32Float,
+            Side,
+            Side
+        );
+        var staging = device.CreateBuffer(
+            new(texels.Length * sizeof(float), BufferUsage.CopySource, MemoryAccess.HostUpload, "depth staging")
+        );
 
         owned.Owns(() => device.Destroy(staging));
         device.Write(staging, 0, System.Runtime.InteropServices.MemoryMarshal.AsBytes(texels.AsSpan()));
@@ -232,8 +242,13 @@ public class ViewCullingDeviceTests {
 
         using var store = new RenderObjectStore();
         using var frustum = new VisibilityGroup();
-        using var pyramid = new HiZPyramid(device) { Effects = effects, Pipelines = pipelines };
-        using var actual = new GpuVisibilityGroup(device) { Effects = effects, Pipelines = pipelines, Occluders = pyramid };
+        using var pyramid = new HiZPyramid(device);
+        pyramid.Effects = effects;
+        pyramid.Pipelines = pipelines;
+        using var actual = new GpuVisibilityGroup(device);
+        actual.Effects = effects;
+        actual.Pipelines = pipelines;
+        actual.Occluders = pyramid;
 
         // Spread across the frustum and across the join, at depths either side of anything the wall
         // could hide, so both answers occur and the straddling cases are in there.
@@ -242,7 +257,10 @@ public class ViewCullingDeviceTests {
 
             store.Add(
                 new() {
-                    Bounds = new(new(MathF.Sin(angle) * 12f, MathF.Cos(angle) * 8f, 12f + (i % 6 * 9f)), 1.5f + (i % 4)),
+                    Bounds = new(
+                        new(MathF.Sin(angle) * 12f, MathF.Cos(angle) * 8f, 12f + i % 6 * 9f),
+                        1.5f + i % 4
+                    ),
                     Stages = RenderStageMask.Of(0),
                     IsAlive = true
                 }
@@ -286,7 +304,13 @@ public class ViewCullingDeviceTests {
         }
 
         var levels = Reduce(texels, new(Side, Side), pyramid.Levels);
-        var packed = GpuCulling.Pack(views[0], store.Count, GpuCulling.WordsFor(store.Count), views[0].ViewProjection, pyramid.Levels);
+        var packed = GpuCulling.Pack(
+            views[0],
+            store.Count,
+            GpuCulling.WordsFor(store.Count),
+            views[0].ViewProjection,
+            pyramid.Levels
+        );
         var mismatches = new List<string>();
         var occluded = 0;
 
@@ -297,7 +321,7 @@ public class ViewCullingDeviceTests {
                 GpuCulling.Pack(store[id]),
                 packed,
                 pyramid.Size,
-                (x, y, level) => levels[level][(y * GpuCulling.LevelSize(pyramid.Size, level).X) + x]
+                (x, y, level) => levels[level][y * GpuCulling.LevelSize(pyramid.Size, level).X + x]
             );
 
             occluded += hidden ? 1 : 0;
@@ -382,12 +406,20 @@ public class ViewCullingDeviceTests {
 
         for (var y = 0; y < Side; y++) {
             for (var x = 0; x < Side; x++) {
-                texels[(y * Side) + x] = ((x * 7) + (y * 13)) % 251 / 251f;
+                texels[y * Side + x] = (x * 7 + y * 13) % 251 / 251f;
             }
         }
 
-        var depth = owned.Owned("depth", TextureUsage.Sampled | TextureUsage.CopyDestination, PixelFormat.R32Float, Side, Side);
-        var staging = device.CreateBuffer(new(texels.Length * sizeof(float), BufferUsage.CopySource, MemoryAccess.HostUpload, "depth staging"));
+        var depth = owned.Owned(
+            "depth",
+            TextureUsage.Sampled | TextureUsage.CopyDestination,
+            PixelFormat.R32Float,
+            Side,
+            Side
+        );
+        var staging = device.CreateBuffer(
+            new(texels.Length * sizeof(float), BufferUsage.CopySource, MemoryAccess.HostUpload, "depth staging")
+        );
 
         owned.Owns(() => device.Destroy(staging));
         device.Write(staging, 0, System.Runtime.InteropServices.MemoryMarshal.AsBytes(texels.AsSpan()));
@@ -397,7 +429,9 @@ public class ViewCullingDeviceTests {
 
         var pipelines = new ComputePipelineCache(device);
 
-        using var pyramid = new HiZPyramid(device) { Effects = effects, Pipelines = pipelines };
+        using var pyramid = new HiZPyramid(device);
+        pyramid.Effects = effects;
+        pyramid.Pipelines = pipelines;
 
         device.BeginFrame();
 
@@ -462,9 +496,13 @@ public class ViewCullingDeviceTests {
             );
 
             using (var list = device.BeginCommandList(QueueKind.Graphics, $"read level {level}")) {
-                list.Barrier(new([], [new(pyramid.Texture, ResourceState.ShaderRead, ResourceState.CopySource, level, 1)]));
+                list.Barrier(
+                    new([], [new(pyramid.Texture, ResourceState.ShaderRead, ResourceState.CopySource, level, 1)])
+                );
                 list.CopyTextureToBuffer(new(pyramid.Texture, level), new(size.X, size.Y, 1), readback, 0);
-                list.Barrier(new([], [new(pyramid.Texture, ResourceState.CopySource, ResourceState.ShaderRead, level, 1)]));
+                list.Barrier(
+                    new([], [new(pyramid.Texture, ResourceState.CopySource, ResourceState.ShaderRead, level, 1)])
+                );
                 list.Finish();
                 device.GraphicsQueue.Submit([list]);
             }
@@ -504,14 +542,14 @@ public class ViewCullingDeviceTests {
 
                     for (var dy = 0; dy < 3; dy++) {
                         for (var dx = 0; dx < 3; dx++) {
-                            var sx = Math.Min((x * 2) + dx, parentSize.X - 1);
-                            var sy = Math.Min((y * 2) + dy, parentSize.Y - 1);
+                            var sx = Math.Min(x * 2 + dx, parentSize.X - 1);
+                            var sy = Math.Min(y * 2 + dy, parentSize.Y - 1);
 
-                            furthest = MathF.Min(furthest, parent[(sy * parentSize.X) + sx]);
+                            furthest = MathF.Min(furthest, parent[sy * parentSize.X + sx]);
                         }
                     }
 
-                    texels[(y * current.X) + x] = furthest;
+                    texels[y * current.X + x] = furthest;
                 }
             }
 
@@ -558,8 +596,12 @@ public class ViewCullingDeviceTests {
         var pipelines = new ComputePipelineCache(device);
 
         using var store = new RenderObjectStore();
-        using var visibility = new GpuVisibilityGroup(device) { Effects = effects, Pipelines = pipelines };
-        using var arguments = new GpuDrawArguments(device) { Effects = effects, Pipelines = pipelines };
+        using var visibility = new GpuVisibilityGroup(device);
+        visibility.Effects = effects;
+        visibility.Pipelines = pipelines;
+        using var arguments = new GpuDrawArguments(device);
+        arguments.Effects = effects;
+        arguments.Pipelines = pipelines;
 
         // Half in front of the camera and half behind it, alternating, so the bits cross the 32-object
         // word boundary in both directions.
@@ -584,7 +626,7 @@ public class ViewCullingDeviceTests {
         for (var i = 0; i < store.Count; i++) {
             templates[i] = new() {
                 IndexCount = (uint)(3 * (i + 1)),
-                InstanceCount = (uint)(1 + (i % 3)),
+                InstanceCount = (uint)(1 + i % 3),
                 FirstIndex = (uint)i,
                 VertexOffset = (uint)(2 * i),
                 FirstInstance = (uint)(7 * i)
@@ -592,12 +634,17 @@ public class ViewCullingDeviceTests {
         }
 
         var size = (long)store.Count * GpuDrawArguments.Stride;
-        var readback = device.CreateBuffer(new(size, BufferUsage.CopyDestination, MemoryAccess.HostReadback, "arguments readback"));
+        var readback = device.CreateBuffer(
+            new(size, BufferUsage.CopyDestination, MemoryAccess.HostReadback, "arguments readback")
+        );
 
         owned.Owns(() => device.Destroy(readback));
 
         using (var list = device.BeginCommandList(QueueKind.Compute, "arguments")) {
-            Assert.True(arguments.Update(list, visibility.Bits, views.Length, store.Count), "the argument pass did not run");
+            Assert.True(
+                arguments.Update(list, visibility.Bits, views.Length, store.Count),
+                "the argument pass did not run"
+            );
 
             // From ShaderWrite rather than from the IndirectArgument the pass left it in, and the
             // difference is not pedantry: a barrier names the access whose writes it publishes, and
@@ -693,7 +740,7 @@ public class ViewCullingDeviceTests {
 
         for (var y = 0; y < Side; y++) {
             for (var x = 0; x < Side; x++) {
-                wall[(y * Side) + x] = x < Side / 2 ? 1f : 0f;
+                wall[y * Side + x] = x < Side / 2 ? 1f : 0f;
             }
         }
 
@@ -705,25 +752,22 @@ public class ViewCullingDeviceTests {
         using var store = new RenderObjectStore();
         using var frustum = new VisibilityGroup();
 
-        using var pyramid = new HiZPyramid(device) {
-            Effects = effects,
-            Pipelines = pipelines,
-            BuildsPerFrame = 2
-        };
+        using var pyramid = new HiZPyramid(device);
+        pyramid.Effects = effects;
+        pyramid.Pipelines = pipelines;
+        pyramid.BuildsPerFrame = 2;
 
-        using var visibility = new GpuVisibilityGroup(device) {
-            Effects = effects,
-            Pipelines = pipelines,
-            Occluders = pyramid,
-            ReadBack = false,
-            TwoPhase = true
-        };
+        using var visibility = new GpuVisibilityGroup(device);
+        visibility.Effects = effects;
+        visibility.Pipelines = pipelines;
+        visibility.Occluders = pyramid;
+        visibility.ReadBack = false;
+        visibility.TwoPhase = true;
 
-        using var arguments = new GpuDrawArguments(device) {
-            Effects = effects,
-            Pipelines = pipelines,
-            DispatchesPerFrame = 2
-        };
+        using var arguments = new GpuDrawArguments(device);
+        arguments.Effects = effects;
+        arguments.Pipelines = pipelines;
+        arguments.DispatchesPerFrame = 2;
 
         // The same spread as the one-phase occlusion test, which is chosen so that the wall hides
         // some of them, the frustum rejects some of them, and neither is all of them.
@@ -732,7 +776,10 @@ public class ViewCullingDeviceTests {
 
             store.Add(
                 new() {
-                    Bounds = new(new(MathF.Sin(angle) * 12f, MathF.Cos(angle) * 8f, 12f + (i % 6 * 9f)), 1.5f + (i % 4)),
+                    Bounds = new(
+                        new(MathF.Sin(angle) * 12f, MathF.Cos(angle) * 8f, 12f + i % 6 * 9f),
+                        1.5f + i % 4
+                    ),
                     Stages = RenderStageMask.Of(0),
                     IsAlive = true
                 }
@@ -742,7 +789,9 @@ public class ViewCullingDeviceTests {
         RenderView[] views = [Camera("camera", RenderStageMask.Of(0))];
 
         var size = (long)store.Count * GpuDrawArguments.Stride;
-        var readback = device.CreateBuffer(new(size, BufferUsage.CopyDestination, MemoryAccess.HostReadback, "late arguments"));
+        var readback = device.CreateBuffer(
+            new(size, BufferUsage.CopyDestination, MemoryAccess.HostReadback, "late arguments")
+        );
 
         owned.Owns(() => device.Destroy(readback));
 
@@ -781,7 +830,10 @@ public class ViewCullingDeviceTests {
 
         using (var list = device.BeginCommandList(QueueKind.Graphics, "two phase")) {
             Assert.True(visibility.Record(list), "the main cull recorded nothing");
-            Assert.True(arguments.Update(list, visibility.Bits, views.Length, store.Count), "the main argument pass did not run");
+            Assert.True(
+                arguments.Update(list, visibility.Bits, views.Length, store.Count),
+                "the main argument pass did not run"
+            );
 
             // What the main pass's draws would have left behind: a depth buffer in which the wall is
             // no longer the nearest thing anywhere. Rebuilt into the same list, which is the second
@@ -789,7 +841,10 @@ public class ViewCullingDeviceTests {
             Assert.True(pyramid.Build(list, revealed.View, new(Side, Side)), "the pyramid did not rebuild");
 
             Assert.True(visibility.RecordLate(list), "the late cull recorded nothing");
-            Assert.True(arguments.Update(list, visibility.Bits, views.Length, store.Count), "the late argument pass did not run");
+            Assert.True(
+                arguments.Update(list, visibility.Bits, views.Length, store.Count),
+                "the late argument pass did not run"
+            );
 
             // From ShaderWrite, which is the access whose writes this publishes — see
             // TheArgumentPassZeroesWhatCullingRejected for what naming the wrong one costs.
@@ -840,7 +895,7 @@ public class ViewCullingDeviceTests {
                 GpuCulling.Pack(store[id]),
                 packed,
                 pyramid.Size,
-                (x, y, level) => levels[level][(y * GpuCulling.LevelSize(pyramid.Size, level).X) + x]
+                (x, y, level) => levels[level][y * GpuCulling.LevelSize(pyramid.Size, level).X + x]
             );
 
             var drawn = frustum.IsVisible(0, id) && !hidden;
@@ -868,10 +923,18 @@ public class ViewCullingDeviceTests {
     }
 
     /// <summary>A sampled R32Float texture holding the texels given, ready for a reduction to read.</summary>
-    static (TextureHandle Texture, TextureViewHandle View) Filled(Fixture owned, string name, float[] texels, int side) {
+    static (TextureHandle Texture, TextureViewHandle View) Filled(
+        Fixture owned,
+        string name,
+        float[] texels,
+        int side
+    ) {
         var device = owned.Device;
-        var target = owned.Owned(name, TextureUsage.Sampled | TextureUsage.CopyDestination, PixelFormat.R32Float, side, side);
-        var staging = device.CreateBuffer(new(texels.Length * sizeof(float), BufferUsage.CopySource, MemoryAccess.HostUpload, $"{name} staging"));
+        var target =
+            owned.Owned(name, TextureUsage.Sampled | TextureUsage.CopyDestination, PixelFormat.R32Float, side, side);
+        var staging = device.CreateBuffer(
+            new(texels.Length * sizeof(float), BufferUsage.CopySource, MemoryAccess.HostUpload, $"{name} staging")
+        );
 
         owned.Owns(() => device.Destroy(staging));
         device.Write(staging, 0, System.Runtime.InteropServices.MemoryMarshal.AsBytes(texels.AsSpan()));
@@ -928,8 +991,13 @@ public class ViewCullingDeviceTests {
         var pipelines = new ComputePipelineCache(device);
 
         using var store = new RenderObjectStore();
-        using var visibility = new GpuVisibilityGroup(device) { Effects = effects, Pipelines = pipelines, ReadBack = false };
-        using var arguments = new GpuDrawArguments(device) { Effects = effects, Pipelines = pipelines };
+        using var visibility = new GpuVisibilityGroup(device);
+        visibility.Effects = effects;
+        visibility.Pipelines = pipelines;
+        visibility.ReadBack = false;
+        using var arguments = new GpuDrawArguments(device);
+        arguments.Effects = effects;
+        arguments.Pipelines = pipelines;
 
         for (var i = 0; i < 64; i++) {
             store.Add(
@@ -956,7 +1024,10 @@ public class ViewCullingDeviceTests {
             Assert.True(visibility.Record(list), "the cull recorded nothing");
 
             arguments.Fill(store.Count);
-            Assert.True(arguments.Update(list, visibility.Bits, views.Length, store.Count), "the argument pass did not run");
+            Assert.True(
+                arguments.Update(list, visibility.Bits, views.Length, store.Count),
+                "the argument pass did not run"
+            );
 
             list.Finish();
             device.ComputeQueue.Submit([list]);
@@ -1022,8 +1093,8 @@ public class ViewCullingDeviceTests {
         var library = Library();
 
         string[] sources = [
-            .. Directory.GetFiles(Path.Combine(library, "Core"), "*.rvn"),
-            .. Directory.GetFiles(Path.Combine(library, "Geometry"), "*.rvn"),
+            ..Directory.GetFiles(Path.Combine(library, "Core"), "*.rvn"),
+            ..Directory.GetFiles(Path.Combine(library, "Geometry"), "*.rvn"),
             Path.Combine(library, "Pipeline", $"{shader}.rvn")
         ];
 
@@ -1042,8 +1113,8 @@ public class ViewCullingDeviceTests {
         var library = Library();
 
         string[] sources = [
-            .. Directory.GetFiles(Path.Combine(library, "Core"), "*.rvn"),
-            .. Directory.GetFiles(Path.Combine(library, "Geometry"), "*.rvn"),
+            ..Directory.GetFiles(Path.Combine(library, "Core"), "*.rvn"),
+            ..Directory.GetFiles(Path.Combine(library, "Geometry"), "*.rvn"),
             Path.Combine(library, "Pipeline", "Culling.rvn")
         ];
 
@@ -1095,8 +1166,8 @@ public class ViewCullingDeviceTests {
             var library = Library();
 
             string[] sources = [
-                .. Directory.GetFiles(Path.Combine(library, "Core"), "*.rvn"),
-                .. Directory.GetFiles(Path.Combine(library, "Geometry"), "*.rvn"),
+                ..Directory.GetFiles(Path.Combine(library, "Core"), "*.rvn"),
+                ..Directory.GetFiles(Path.Combine(library, "Geometry"), "*.rvn"),
                 Path.Combine(library, "Pipeline", $"{key.ShaderName}.rvn")
             ];
 
@@ -1113,7 +1184,9 @@ public class ViewCullingDeviceTests {
 
     /// <summary>The shader library, found by walking up rather than by counting directories.</summary>
     static string Library() {
-        for (var directory = new DirectoryInfo(AppContext.BaseDirectory); directory is not null; directory = directory.Parent) {
+        for (var directory = new DirectoryInfo(AppContext.BaseDirectory);
+             directory is not null;
+             directory = directory.Parent) {
             var candidate = Path.Combine(directory.FullName, "Raven", "Library");
 
             if (Directory.Exists(candidate)) {

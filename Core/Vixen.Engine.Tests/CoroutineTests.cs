@@ -4,7 +4,6 @@
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using Vixen.Core;
-using Vixen.Ecs;
 using Vixen.Engine.Behaviors;
 using Vixen.Engine.Coroutines;
 using Vixen.Engine.Frames;
@@ -90,7 +89,7 @@ public sealed class CoroutineTests {
 
         // A second of wall clock, entirely paused.
         for (var frame = 0; frame < 60; frame++) {
-            clock.Begin(scheduler, Sixtieth, timeScale: 0f);
+            clock.Begin(scheduler, Sixtieth, 0f);
             scheduler.Drain(ResumePoint.Update);
         }
 
@@ -374,8 +373,12 @@ public sealed class CoroutineTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>Detaching is the plugin-reload path, and it has to cancel now rather than at the next
-    ///     drain.</b> <c>Destroy</c> queues and the next frame cancels; <c>Remove</c> is the editor's
+    ///     ⚠
+    ///     <b>
+    ///         Detaching is the plugin-reload path, and it has to cancel now rather than at the next
+    ///         drain.
+    ///     </b>
+    ///     <c>Destroy</c> queues and the next frame cancels; <c>Remove</c> is the editor's
     ///     path — <c>SaveProjectBehaviors</c> detaches every authored behaviour and the assembly is
     ///     unloaded before another frame is ever run. A coroutine that cancels "at its next resume
     ///     point" never gets one, so its continuation sits in the scheduler's waiting list holding a
@@ -587,6 +590,7 @@ public sealed class CoroutineTests {
         Assert.Equal(0, scheduler.RunningCount);
         return;
 
+        // A coroutine that finishes without awaiting is the case under test.
 #pragma warning disable CS1998
         async Coroutine Body() => ran = true;
 #pragma warning restore CS1998
@@ -643,7 +647,7 @@ public sealed class CoroutineTests {
         // testing anything.
         var thread = new Thread(() => {
                 try {
-                    scheduler.NextFrame().GetAwaiter().UnsafeOnCompleted(() => { });
+                    scheduler.NextFrame().GetAwaiter().UnsafeOnCompleted(static () => { });
                 } catch (Exception failure) {
                     caught = failure;
                 }

@@ -69,8 +69,8 @@ public sealed class PaintAtlasSource(PaintImage image, int atlasWidth, int atlas
 
     /// <inheritdoc />
     public bool TryColour(int texel, Vector2 picture, out uint colour) {
-        var x = (texel % atlasWidth) + 0.5f + offset.X;
-        var y = (texel / atlasWidth) + 0.5f + offset.Y;
+        var x = texel % atlasWidth + 0.5f + offset.X;
+        var y = texel / atlasWidth + 0.5f + offset.Y;
         var column = (int)MathF.Floor(x * image.Width / atlasWidth);
         var row = (int)MathF.Floor(y * image.Height / atlasHeight);
 
@@ -135,8 +135,8 @@ public sealed class PaintSmudge(PaintImage canvas, PaintCoverage coverage) : IPa
 
         // ⚠ Between texels and not at the nearest: a step is rarely a whole number of texels, and rounding it moves some
         // columns one texel and their neighbours none, which combs the edge of the smear.
-        var x = (texel % canvas.Width) - motion.X;
-        var y = (texel / canvas.Width) - motion.Y;
+        var x = texel % canvas.Width - motion.X;
+        var y = texel / canvas.Width - motion.Y;
         var left = (int)MathF.Floor(x);
         var top = (int)MathF.Floor(y);
         var across = x - left;
@@ -156,16 +156,19 @@ public sealed class PaintSmudge(PaintImage canvas, PaintCoverage coverage) : IPa
 
     /// <summary>A texel of the canvas that is surface, or nothing.</summary>
     uint? Tap(int column, int row) =>
-        column < 0 || row < 0 || column >= canvas.Width || row >= canvas.Height
-        || !coverage.IsCovered((row * canvas.Width) + column)
+        column < 0
+        || row < 0
+        || column >= canvas.Width
+        || row >= canvas.Height
+        || !coverage.IsCovered(row * canvas.Width + column)
             ? null
             : canvas.At(column, row);
 
     /// <summary>Two taps mixed, or the one there is.</summary>
     static uint? Between(uint? first, uint? second, float share) =>
         (first, second) switch {
-            ( { } a, { } b) => PaintImage.Mix(a, b, share),
-            ( { } a, null) => a,
+            ({ } a, { } b) => PaintImage.Mix(a, b, share),
+            ({ } a, null) => a,
             (null, { } b) => b,
             _ => null
         };
@@ -186,7 +189,7 @@ public readonly record struct PaintFrame(Vector2 Centre, float Scale, float Angl
         var (sin, cos) = MathF.SinCos(-Angle);
         var offset = (at - Centre) / MathF.Max(Scale, 1e-6f);
 
-        return new Vector2((offset.X * cos) - (offset.Y * sin), (offset.X * sin) + (offset.Y * cos))
+        return new Vector2(offset.X * cos - offset.Y * sin, offset.X * sin + offset.Y * cos)
             + new Vector2(width * 0.5f, height * 0.5f);
     }
 }
@@ -230,9 +233,9 @@ public sealed class PaintProjectedPicture(PaintImage image, PaintFrame frame) : 
             return 0f;
         }
 
-        var luminance = (0.2126f * PaintImage.Channel(found, 0))
-            + (0.7152f * PaintImage.Channel(found, 1))
-            + (0.0722f * PaintImage.Channel(found, 2));
+        var luminance = 0.2126f * PaintImage.Channel(found, 0)
+            + 0.7152f * PaintImage.Channel(found, 1)
+            + 0.0722f * PaintImage.Channel(found, 2);
 
         return luminance * PaintImage.Channel(found, 3);
     }
@@ -243,8 +246,8 @@ public sealed class PaintProjectedPicture(PaintImage image, PaintFrame frame) : 
         var row = (int)MathF.Floor(into.Y);
 
         if (frame.Tiled) {
-            column = ((column % image.Width) + image.Width) % image.Width;
-            row = ((row % image.Height) + image.Height) % image.Height;
+            column = (column % image.Width + image.Width) % image.Width;
+            row = (row % image.Height + image.Height) % image.Height;
         } else if (column < 0 || row < 0 || column >= image.Width || row >= image.Height) {
             found = 0u;
 

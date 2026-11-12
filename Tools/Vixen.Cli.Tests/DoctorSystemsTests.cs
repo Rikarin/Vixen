@@ -13,8 +13,12 @@ namespace Vixen.Cli.Tests;
 /// <summary>`vixen doctor systems`, run against this assembly's own declared frame.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>The declarations these read were emitted by <c>GameSystemGenerator</c>, not written
-///         here.</b> The systems below carry <c>[GameSystem]</c>, the generator is wired into this
+///         ⚠
+///         <b>
+///             The declarations these read were emitted by <c>GameSystemGenerator</c>, not written
+///             here.
+///         </b>
+///         The systems below carry <c>[GameSystem]</c>, the generator is wired into this
 ///         project as an analyzer, and the <c>[ModuleInitializer]</c> it produced ran before the
 ///         first test did. A fixture that called <c>GameSystemRegistry.Declare</c> by hand would
 ///         prove the registry works and say nothing about whether a real project's frame ever
@@ -94,7 +98,11 @@ public sealed class DoctorSystemsTests : IDisposable {
         var code = await RunAsync("doctor", "systems", "--assembly", ThisAssembly);
         var text = output.ToString();
 
-        Assert.Contains("broken  ClockSystem: asks for a GameTime, which is a value type", text, StringComparison.Ordinal);
+        Assert.Contains(
+            "broken  ClockSystem: asks for a GameTime, which is a value type",
+            text,
+            StringComparison.Ordinal
+        );
         Assert.Equal((int)ExitCode.Failed, code);
     }
 
@@ -152,10 +160,10 @@ public sealed class DoctorSystemsTests : IDisposable {
         using var scrap = new ScrapSystem(new());
         using var haul = new HaulSystem(new());
 
-        var built = SystemGraph.Build([haul, scrap]).InPhase(SystemPhase.Update).Select(node => node.Name);
+        var built = SystemGraph.Build([haul, scrap]).InPhase(SystemPhase.Update).Select(static node => node.Name);
         var planned = SystemGraph.Plan([typeof(HaulSystem), typeof(ScrapSystem)])
             .InPhase(SystemPhase.Update)
-            .Select(placement => placement.Name);
+            .Select(static placement => placement.Name);
 
         Assert.Equal(["ScrapSystem", "HaulSystem"], built);
         Assert.Equal(["ScrapSystem", "HaulSystem"], planned);

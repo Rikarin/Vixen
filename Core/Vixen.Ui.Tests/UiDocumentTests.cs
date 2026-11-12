@@ -19,11 +19,13 @@ public class UiDocumentTests {
     public void A_stylesheet_and_a_tree_produce_geometry() {
         using var document = new UiDocument(800f, 600f);
 
-        document.Load("""
-            root { width: 800px; height: 600px; flex-direction: row; }
-            .side { width: 200px; }
-            .main { flex-grow: 1; }
-        """);
+        document.Load(
+            """
+                root { width: 800px; height: 600px; flex-direction: row; }
+                .side { width: 200px; }
+                .main { flex-grow: 1; }
+            """
+        );
 
         var side = document.Root.Add("div", classNames: "side");
         var main = document.Root.Add("div", classNames: "main");
@@ -42,12 +44,14 @@ public class UiDocumentTests {
     public void The_cascade_reaches_layout_through_a_selector_and_not_only_a_tag() {
         using var document = new UiDocument(400f, 300f);
 
-        document.Load("""
-            root { width: 400px; height: 300px; }
-            div { height: 10px; }
-            div.tall { height: 50px; }
-            #named { height: 90px; }
-        """);
+        document.Load(
+            """
+                root { width: 400px; height: 300px; }
+                div { height: 10px; }
+                div.tall { height: 50px; }
+                #named { height: 90px; }
+            """
+        );
 
         var plain = document.Root.Add("div");
         var tall = document.Root.Add("div", classNames: "tall");
@@ -66,10 +70,12 @@ public class UiDocumentTests {
     public void Font_size_is_inherited_and_em_measures_against_the_element_s_own() {
         using var document = new UiDocument(400f, 300f);
 
-        document.Load("""
-            root { width: 400px; height: 300px; font-size: 20px; }
-            .child { font-size: 1.5em; width: 2em; }
-        """);
+        document.Load(
+            """
+                root { width: 400px; height: 300px; font-size: 20px; }
+                .child { font-size: 1.5em; width: 2em; }
+            """
+        );
 
         var child = document.Root.Add("div", classNames: "child");
         document.Update();
@@ -84,11 +90,13 @@ public class UiDocumentTests {
     public void An_inherited_font_size_reaches_a_grandchild_that_never_declared_one() {
         using var document = new UiDocument(400f, 300f);
 
-        document.Load("""
-            root { width: 400px; height: 300px; font-size: 10px; }
-            .middle { font-size: 2em; }
-            .leaf { width: 3em; }
-        """);
+        document.Load(
+            """
+                root { width: 400px; height: 300px; font-size: 10px; }
+                .middle { font-size: 2em; }
+                .leaf { width: 3em; }
+            """
+        );
 
         var middle = document.Root.Add("div", classNames: "middle");
         var leaf = middle.Add("div", classNames: "leaf");
@@ -104,10 +112,12 @@ public class UiDocumentTests {
     public void The_same_relative_font_size_declared_twice_compounds() {
         using var document = new UiDocument(400f, 300f);
 
-        document.Load("""
-            root { width: 400px; height: 300px; font-size: 10px; }
-            .step { font-size: 1.5em; }
-        """);
+        document.Load(
+            """
+                root { width: 400px; height: 300px; font-size: 10px; }
+                .step { font-size: 1.5em; }
+            """
+        );
 
         var first = document.Root.Add("div", classNames: "step");
         var second = first.Add("div", classNames: "step");
@@ -147,11 +157,13 @@ public class UiDocumentTests {
     public void A_class_added_after_the_first_pass_changes_the_geometry() {
         using var document = new UiDocument(400f, 300f);
 
-        document.Load("""
-            root { width: 400px; height: 300px; }
-            div { height: 10px; }
-            div.grown { height: 100px; }
-        """);
+        document.Load(
+            """
+                root { width: 400px; height: 300px; }
+                div { height: 10px; }
+                div.grown { height: 100px; }
+            """
+        );
 
         var element = document.Root.Add("div");
         document.Update();
@@ -170,11 +182,13 @@ public class UiDocumentTests {
     public void A_state_change_is_a_style_change() {
         using var document = new UiDocument(400f, 300f);
 
-        document.Load("""
-            root { width: 400px; height: 300px; }
-            div { height: 10px; }
-            div:hover { height: 40px; }
-        """);
+        document.Load(
+            """
+                root { width: 400px; height: 300px; }
+                div { height: 10px; }
+                div:hover { height: 40px; }
+            """
+        );
 
         var element = document.Root.Add("div");
         document.Update();
@@ -207,11 +221,13 @@ public class UiDocumentTests {
     public void Only_the_elements_whose_style_actually_changed_are_rebuilt() {
         using var document = new UiDocument(400f, 300f);
 
-        document.Load("""
-            root { width: 400px; height: 300px; }
-            div { height: 10px; }
-            div.grown { height: 100px; }
-        """);
+        document.Load(
+            """
+                root { width: 400px; height: 300px; }
+                div { height: 10px; }
+                div.grown { height: 100px; }
+            """
+        );
 
         for (var i = 0; i < 20; i++) {
             document.Root.Add("div");
@@ -231,12 +247,14 @@ public class UiDocumentTests {
     public void An_ancestor_s_font_size_rebuilds_a_descendant_that_did_not_change() {
         using var document = new UiDocument(400f, 300f);
 
-        document.Load("""
-            root { width: 400px; height: 300px; font-size: 10px; }
-            .middle { font-size: 10px; }
-            .middle.big { font-size: 30px; }
-            .leaf { width: 2em; }
-        """);
+        document.Load(
+            """
+                root { width: 400px; height: 300px; font-size: 10px; }
+                .middle { font-size: 10px; }
+                .middle.big { font-size: 30px; }
+                .leaf { width: 2em; }
+            """
+        );
 
         var middle = document.Root.Add("div", classNames: "middle");
         var leaf = middle.Add("div", classNames: "leaf");

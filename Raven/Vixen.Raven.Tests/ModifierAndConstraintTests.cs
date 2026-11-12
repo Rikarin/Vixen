@@ -26,7 +26,7 @@ public class ModifierAndConstraintTests {
     public void A_modifier_with_no_effect_is_a_warning(string source) {
         var diagnostics = Diagnose(source);
 
-        Assert.Contains("RVN2093", diagnostics.Select(d => d.Id));
+        Assert.Contains("RVN2093", diagnostics.Select(static d => d.Id));
     }
 
     [Fact]
@@ -64,7 +64,7 @@ public class ModifierAndConstraintTests {
             """
         );
 
-        Assert.Contains("RVN2095", diagnostics.Select(d => d.Id));
+        Assert.Contains("RVN2095", diagnostics.Select(static d => d.Id));
     }
 
     [Fact]
@@ -92,7 +92,7 @@ public class ModifierAndConstraintTests {
             """
         );
 
-        Assert.Contains("RVN2096", diagnostics.Select(d => d.Id));
+        Assert.Contains("RVN2096", diagnostics.Select(static d => d.Id));
     }
 
     [Fact]
@@ -126,16 +126,24 @@ public class ModifierAndConstraintTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Every concrete instantiation of such a type used to be refused, the identity one
-    ///         included.</b> <c>CheckConstraints</c> walked <c>ConstraintTypes</c> as declared and
+    ///         ⚠
+    ///         <b>
+    ///             Every concrete instantiation of such a type used to be refused, the identity one
+    ///             included.
+    ///         </b>
+    ///         <c>CheckConstraints</c> walked <c>ConstraintTypes</c> as declared and
     ///         asked whether <c>Leaf</c> derives from <c>U</c> — a type parameter, which nothing
     ///         derives from — so <c>Relay&lt;Leaf, Leaf&gt;</c> reported
     ///         <c>RVN2096: Type argument 'A.Leaf' does not satisfy the constraint 'U' …</c>. A
     ///         constraint form the parser and the binder both accept, that no program could use.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Two shapes, because one of them is what makes the fix wrong if it is done by
-    ///         ordinal.</b> <c>Chain</c> is a chain — <c>where T : U where U : V</c>, three deep —
+    ///         ⚠
+    ///         <b>
+    ///             Two shapes, because one of them is what makes the fix wrong if it is done by
+    ///             ordinal.
+    ///         </b>
+    ///         <c>Chain</c> is a chain — <c>where T : U where U : V</c>, three deep —
     ///         and <c>Wrapper</c>'s field constructs a <c>Relay</c> from the <em>containing</em>
     ///         type's parameters, whose ordinals index a different list. Substituting by position
     ///         rather than by identity picks the wrong argument there and says nothing about it.
@@ -241,7 +249,7 @@ public class ModifierAndConstraintTests {
             """
         );
 
-        var refusal = Assert.Single(diagnostics, d => d.Id == "RVN2096");
+        var refusal = Assert.Single(diagnostics, static d => d.Id == "RVN2096");
 
         Assert.Contains("A.Bare", refusal.GetMessage(), StringComparison.Ordinal);
         Assert.Contains("A.Leaf", refusal.GetMessage(), StringComparison.Ordinal);

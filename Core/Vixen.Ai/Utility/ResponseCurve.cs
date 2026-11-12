@@ -53,8 +53,12 @@ public interface IResponseCurve {
 ///         Every curve in doc 37 § D8's table is those four at different values.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The result is clamped to <c>[0,1]</c>, and that is what makes the zero rule mean
-///         something.</b> A curve that returned 1.4 would let one consideration outvote a veto, and a
+///         ⚠
+///         <b>
+///             The result is clamped to <c>[0,1]</c>, and that is what makes the zero rule mean
+///             something.
+///         </b>
+///         A curve that returned 1.4 would let one consideration outvote a veto, and a
 ///         negative one would flip the sign of a geometric mean — so the clamp is part of the
 ///         contract rather than defensive arithmetic.
 ///     </para>
@@ -96,30 +100,24 @@ public sealed record ResponseCurve : IResponseCurve {
     /// <param name="centre">Where it turns over.</param>
     /// <param name="steepness">How sharply. Negative falls instead of rising.</param>
     /// <returns>The curve.</returns>
-    public static ResponseCurve Threshold(float centre, float steepness = 12f) => new() {
-        Kind = ResponseCurveKind.Logistic,
-        Exponent = steepness,
-        Centre = centre
-    };
+    public static ResponseCurve Threshold(float centre, float steepness = 12f) =>
+        new() { Kind = ResponseCurveKind.Logistic, Exponent = steepness, Centre = centre };
 
     /// <summary>A bell around a point.</summary>
     /// <param name="centre">Where it peaks.</param>
     /// <param name="width">Its standard deviation.</param>
     /// <returns>The curve.</returns>
-    public static ResponseCurve Bell(float centre, float width = 0.15f) => new() {
-        Kind = ResponseCurveKind.Gaussian,
-        Exponent = width,
-        Centre = centre
-    };
+    public static ResponseCurve Bell(float centre, float width = 0.15f) =>
+        new() { Kind = ResponseCurveKind.Gaussian, Exponent = width, Centre = centre };
 
     /// <inheritdoc />
     public float Evaluate(float x) {
         var input = Math.Clamp(x, 0f, 1f);
 
         var value = Kind switch {
-            ResponseCurveKind.Linear => (Slope * (input - Centre)) + Shift,
-            ResponseCurveKind.Polynomial => (Slope * MathF.Pow(MathF.Max(0f, input - Centre), Exponent)) + Shift,
-            ResponseCurveKind.Logistic => (Slope / (1f + MathF.Exp(-Exponent * (input - Centre)))) + Shift,
+            ResponseCurveKind.Linear => Slope * (input - Centre) + Shift,
+            ResponseCurveKind.Polynomial => Slope * MathF.Pow(MathF.Max(0f, input - Centre), Exponent) + Shift,
+            ResponseCurveKind.Logistic => Slope / (1f + MathF.Exp(-Exponent * (input - Centre))) + Shift,
             ResponseCurveKind.Logit => Logit(input),
             ResponseCurveKind.Gaussian => Gaussian(input),
             ResponseCurveKind.Sampled => Keys is { Length: > 0 } keys ? CurveEvaluation.Evaluate(keys, input) : input,
@@ -137,14 +135,14 @@ public sealed record ResponseCurve : IResponseCurve {
         // the clamp above would turn the whole curve into a step at the ends.
         var pinched = Math.Clamp(input - Centre, 1e-4f, 1f - 1e-4f);
 
-        return (Slope * (MathF.Log(pinched / (1f - pinched)) / (2f * MathF.Max(1e-3f, Exponent)))) + 0.5f + Shift;
+        return Slope * (MathF.Log(pinched / (1f - pinched)) / (2f * MathF.Max(1e-3f, Exponent))) + 0.5f + Shift;
     }
 
     float Gaussian(float input) {
         var width = MathF.Max(1e-3f, Exponent);
         var offset = input - Centre;
 
-        return (Slope * MathF.Exp(-(offset * offset) / (2f * width * width))) + Shift;
+        return Slope * MathF.Exp(-(offset * offset) / (2f * width * width)) + Shift;
     }
 }
 

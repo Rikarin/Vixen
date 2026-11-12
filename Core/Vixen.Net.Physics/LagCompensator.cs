@@ -139,7 +139,8 @@ public sealed class LagCompensator {
     /// <param name="body">The body.</param>
     /// <param name="history">Its history, if it is tracked.</param>
     /// <returns>Whether it is.</returns>
-    public bool TryGetHistory(BodyHandle body, out BodyHistory? history) => histories.TryGetValue(body.Value, out history);
+    public bool TryGetHistory(BodyHandle body, out BodyHistory? history) =>
+        histories.TryGetValue(body.Value, out history);
 
     /// <summary>Records where every tracked body is, once, for this tick.</summary>
     /// <param name="at">The tick.</param>
@@ -167,7 +168,7 @@ public sealed class LagCompensator {
         if (rewound) {
             throw new InvalidOperationException(
                 "Capture ran during a rewind, so it would have recorded the historical poses as the present. "
-                    + "The rewind scope has to be disposed before the tick captures."
+                + "The rewind scope has to be disposed before the tick captures."
             );
         }
 
@@ -260,7 +261,7 @@ public sealed class LagCompensator {
         if (rewound) {
             throw new InvalidOperationException(
                 "A rewind is already in progress. Rewinds do not nest: the second one would record the "
-                    + "first one's historical poses as the present and restore the world to them."
+                + "first one's historical poses as the present and restore the world to them."
             );
         }
 
@@ -278,7 +279,7 @@ public sealed class LagCompensator {
 
             // Not activated. A rewound body is being asked a question, not simulated, and waking it
             // would have the solver integrate from a pose it is about to be moved out of.
-            world.SetTransform(body, pose.Position, pose.Rotation, activate: false);
+            world.SetTransform(body, pose.Position, pose.Rotation, false);
         }
 
         rewound = true;
@@ -322,7 +323,7 @@ public sealed class LagCompensator {
             var entry = restoring[i];
 
             if (world.IsAlive(entry.Body)) {
-                world.SetTransform(entry.Body, entry.Position, entry.Rotation, activate: false);
+                world.SetTransform(entry.Body, entry.Position, entry.Rotation, false);
             }
         }
 

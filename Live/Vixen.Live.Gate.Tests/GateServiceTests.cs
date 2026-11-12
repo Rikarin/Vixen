@@ -18,6 +18,7 @@ public sealed class GateServiceTests : IDisposable {
     readonly TestClock clock = new(Noon);
     readonly TransferTicketSigner tickets = new(Encoding.UTF8.GetBytes("a cluster key that is long enough."));
     readonly GateTokenSigner sessions = new(Encoding.UTF8.GetBytes("a gate key that is also long enough."));
+
     readonly GateOptions options = new() {
         Version = Running,
         Content = "https://content.example/catalog",
@@ -25,8 +26,7 @@ public sealed class GateServiceTests : IDisposable {
         Maps = { "maps/queensdale", "maps/divinity" }
     };
 
-    GateService Gate =>
-        new(options, store, fleet, tickets, sessions, [new DevelopmentAuthority()], clock);
+    GateService Gate => new(options, store, fleet, tickets, sessions, [new DevelopmentAuthority()], clock);
 
     public void Dispose() {
         tickets.Dispose();
@@ -37,7 +37,10 @@ public sealed class GateServiceTests : IDisposable {
 
     [Fact]
     public async Task A_first_sign_in_makes_an_account_and_a_token_that_reads_back() {
-        var answer = await Gate.SignInAsync(new(DevelopmentAuthority.Name, "alice"), TestContext.Current.CancellationToken);
+        var answer = await Gate.SignInAsync(
+            new(DevelopmentAuthority.Name, "alice"),
+            TestContext.Current.CancellationToken
+        );
 
         Assert.True(answer.Ok);
         Assert.Equal(200, answer.Status);
@@ -48,8 +51,14 @@ public sealed class GateServiceTests : IDisposable {
 
     [Fact]
     public async Task Signing_in_twice_is_one_account() {
-        var first = await Gate.SignInAsync(new(DevelopmentAuthority.Name, "alice"), TestContext.Current.CancellationToken);
-        var again = await Gate.SignInAsync(new(DevelopmentAuthority.Name, "alice"), TestContext.Current.CancellationToken);
+        var first = await Gate.SignInAsync(
+            new(DevelopmentAuthority.Name, "alice"),
+            TestContext.Current.CancellationToken
+        );
+        var again = await Gate.SignInAsync(
+            new(DevelopmentAuthority.Name, "alice"),
+            TestContext.Current.CancellationToken
+        );
 
         Assert.Equal(first.Value!.Account, again.Value!.Account);
     }
@@ -62,7 +71,10 @@ public sealed class GateServiceTests : IDisposable {
     public async Task A_gate_with_no_authority_says_so_rather_than_refusing_quietly() {
         var bare = new GateService(options, store, fleet, tickets, sessions, [], clock);
 
-        var answer = await bare.SignInAsync(new(DevelopmentAuthority.Name, "alice"), TestContext.Current.CancellationToken);
+        var answer = await bare.SignInAsync(
+            new(DevelopmentAuthority.Name, "alice"),
+            TestContext.Current.CancellationToken
+        );
 
         Assert.False(answer.Ok);
         Assert.Equal(400, answer.Status);
@@ -80,7 +92,10 @@ public sealed class GateServiceTests : IDisposable {
 
     [Fact]
     public async Task An_authority_that_refuses_is_a_401_carrying_its_own_sentence() {
-        var answer = await Gate.SignInAsync(new(DevelopmentAuthority.Name, "   "), TestContext.Current.CancellationToken);
+        var answer = await Gate.SignInAsync(
+            new(DevelopmentAuthority.Name, "   "),
+            TestContext.Current.CancellationToken
+        );
 
         Assert.Equal(401, answer.Status);
         Assert.Equal("unauthenticated", answer.Problem!.Code);
@@ -89,11 +104,17 @@ public sealed class GateServiceTests : IDisposable {
 
     [Fact]
     public async Task A_suspended_account_cannot_sign_in() {
-        var first = await Gate.SignInAsync(new(DevelopmentAuthority.Name, "alice"), TestContext.Current.CancellationToken);
+        var first = await Gate.SignInAsync(
+            new(DevelopmentAuthority.Name, "alice"),
+            TestContext.Current.CancellationToken
+        );
 
         await store.Accounts.SetSuspendedAsync(first.Value!.Account, true, TestContext.Current.CancellationToken);
 
-        var again = await Gate.SignInAsync(new(DevelopmentAuthority.Name, "alice"), TestContext.Current.CancellationToken);
+        var again = await Gate.SignInAsync(
+            new(DevelopmentAuthority.Name, "alice"),
+            TestContext.Current.CancellationToken
+        );
 
         Assert.Equal(403, again.Status);
         Assert.Equal("suspended", again.Problem!.Code);
@@ -105,7 +126,10 @@ public sealed class GateServiceTests : IDisposable {
     /// </summary>
     [Fact]
     public async Task A_token_stops_working_when_it_expires() {
-        var answer = await Gate.SignInAsync(new(DevelopmentAuthority.Name, "alice"), TestContext.Current.CancellationToken);
+        var answer = await Gate.SignInAsync(
+            new(DevelopmentAuthority.Name, "alice"),
+            TestContext.Current.CancellationToken
+        );
 
         clock.Advance(options.SessionLifetime + TimeSpan.FromSeconds(1));
 
@@ -115,7 +139,10 @@ public sealed class GateServiceTests : IDisposable {
 
     [Fact]
     public async Task A_bearer_prefix_is_accepted_and_a_tampered_token_is_not() {
-        var answer = await Gate.SignInAsync(new(DevelopmentAuthority.Name, "alice"), TestContext.Current.CancellationToken);
+        var answer = await Gate.SignInAsync(
+            new(DevelopmentAuthority.Name, "alice"),
+            TestContext.Current.CancellationToken
+        );
         var token = answer.Value!.Token;
 
         // ⚠ Tampered INSIDE the lowercase hex alphabet, and the reason is the second bug this line
@@ -138,7 +165,8 @@ public sealed class GateServiceTests : IDisposable {
         var mark = token.LastIndexOf('.');
         Assert.NotEqual(
             Convert.FromHexString(token[(mark + 1)..]),
-            Convert.FromHexString(tampered[(mark + 1)..]));
+            Convert.FromHexString(tampered[(mark + 1)..])
+        );
 
         Assert.Equal(TokenStatus.Valid, Gate.Authenticate("Bearer " + token, out _));
         Assert.Equal(TokenStatus.Forged, Gate.Authenticate(tampered, out _));
@@ -149,7 +177,10 @@ public sealed class GateServiceTests : IDisposable {
     /// <summary>Another gate's key is a forgery, which is the property the whole plane rests on.</summary>
     [Fact]
     public async Task A_token_from_another_gate_is_forged() {
-        var answer = await Gate.SignInAsync(new(DevelopmentAuthority.Name, "alice"), TestContext.Current.CancellationToken);
+        var answer = await Gate.SignInAsync(
+            new(DevelopmentAuthority.Name, "alice"),
+            TestContext.Current.CancellationToken
+        );
 
         using var stranger = new GateTokenSigner(Encoding.UTF8.GetBytes("a different key of sufficient size!!"));
         var other = new GateService(options, store, fleet, tickets, stranger, [new DevelopmentAuthority()], clock);
@@ -159,7 +190,7 @@ public sealed class GateServiceTests : IDisposable {
 
     [Fact]
     public void A_short_signing_key_is_refused_at_construction() {
-        Assert.Throws<ArgumentException>(() => new GateTokenSigner("short"u8));
+        Assert.Throws<ArgumentException>(static () => new GateTokenSigner("short"u8));
     }
 
     // ── Characters ──────────────────────────────────────────────────────────────────────────────
@@ -170,13 +201,13 @@ public sealed class GateServiceTests : IDisposable {
 
         var made = await Gate.CreateCharacterAsync(
             session,
-            new("Bruna", "", "maps/queensdale"),
+            new("Bruna", string.Empty, "maps/queensdale"),
             TestContext.Current.CancellationToken
         );
 
         Assert.True(made.Ok);
         Assert.Equal(201, made.Status);
-        Assert.Equal("eu", made.Value!.Region);          // the gate's region, since none was asked for
+        Assert.Equal("eu", made.Value!.Region); // the gate's region, since none was asked for
 
         var list = await Gate.CharactersAsync(session, TestContext.Current.CancellationToken);
 
@@ -188,7 +219,11 @@ public sealed class GateServiceTests : IDisposable {
         var alice = await SignIn("alice");
         var bob = await SignIn("bob");
 
-        await Gate.CreateCharacterAsync(alice, new("Bruna", "eu", "maps/queensdale"), TestContext.Current.CancellationToken);
+        await Gate.CreateCharacterAsync(
+            alice,
+            new("Bruna", "eu", "maps/queensdale"),
+            TestContext.Current.CancellationToken
+        );
 
         Assert.Empty((await Gate.CharactersAsync(bob, TestContext.Current.CancellationToken)).Value!.Characters);
     }
@@ -198,7 +233,11 @@ public sealed class GateServiceTests : IDisposable {
         var alice = await SignIn("alice");
         var bob = await SignIn("bob");
 
-        await Gate.CreateCharacterAsync(alice, new("Bruna", "eu", "maps/queensdale"), TestContext.Current.CancellationToken);
+        await Gate.CreateCharacterAsync(
+            alice,
+            new("Bruna", "eu", "maps/queensdale"),
+            TestContext.Current.CancellationToken
+        );
 
         var clash = await Gate.CreateCharacterAsync(
             bob,
@@ -258,7 +297,11 @@ public sealed class GateServiceTests : IDisposable {
     public async Task A_nameless_character_is_refused() {
         var session = await SignIn("alice");
 
-        var made = await Gate.CreateCharacterAsync(session, new("  ", "eu", "maps/queensdale"), TestContext.Current.CancellationToken);
+        var made = await Gate.CreateCharacterAsync(
+            session,
+            new("  ", "eu", "maps/queensdale"),
+            TestContext.Current.CancellationToken
+        );
 
         Assert.Equal("name-required", made.Problem!.Code);
     }
@@ -279,7 +322,7 @@ public sealed class GateServiceTests : IDisposable {
         Assert.True(TransferTicket.TryDecode(answer.Value.Ticket, out var ticket, out var why), why);
         Assert.NotNull(ticket);
         Assert.Equal(TicketStatus.Valid, tickets.Validate(ticket, fleet.Answer.Shard, Noon));
-        Assert.Equal(new PlayerKey(session.Account, character), ticket.Player);
+        Assert.Equal(new(session.Account, character), ticket.Player);
         Assert.Equal(Noon + options.TicketLifetime, ticket.Expires);
     }
 
@@ -342,7 +385,12 @@ public sealed class GateServiceTests : IDisposable {
     public async Task A_refusal_carries_the_maps_own_explanation() {
         var (session, character) = await Character("alice", "Bruna");
 
-        fleet.Answer = new(PlaceStatus.Refused, ShardId.None, default, "every shard is full and the map is at MaxShards");
+        fleet.Answer = new(
+            PlaceStatus.Refused,
+            ShardId.None,
+            default,
+            "every shard is full and the map is at MaxShards"
+        );
 
         var answer = await Gate.PlayAsync(session, Play(character), TestContext.Current.CancellationToken);
 
@@ -387,9 +435,9 @@ public sealed class GateServiceTests : IDisposable {
 
         var asked = Assert.Single(fleet.Asked);
 
-        Assert.Equal(new ShardKey("maps/queensdale", "eu", Running), asked.Key);
+        Assert.Equal(new("maps/queensdale", "eu", Running), asked.Key);
         Assert.Equal("de-DE", asked.Locale);
-        Assert.Equal(new PlayerKey(session.Account, character), asked.Player);
+        Assert.Equal(new(session.Account, character), asked.Player);
     }
 
     [Fact]
@@ -406,7 +454,10 @@ public sealed class GateServiceTests : IDisposable {
     static PlayRequest Play(Guid character) => new(character, "maps/queensdale", Running, "en-GB", default, default);
 
     async Task<GateToken> SignIn(string handle) {
-        var answer = await Gate.SignInAsync(new(DevelopmentAuthority.Name, handle), TestContext.Current.CancellationToken);
+        var answer = await Gate.SignInAsync(
+            new(DevelopmentAuthority.Name, handle),
+            TestContext.Current.CancellationToken
+        );
 
         Gate.Authenticate(answer.Value!.Token, out var session);
 

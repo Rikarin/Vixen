@@ -39,8 +39,12 @@ public static class BlockoutHover {
     /// <param name="colour">Its colour.</param>
     /// <exception cref="ArgumentNullException"><paramref name="draw" /> is null.</exception>
     /// <remarks>
-    ///     ⚠ <b>The corners go through <see cref="WorkPlane.ToWorld" /> individually rather than a
-    ///     centre-plus-extents box being drawn in world axes.</b> A work plane that has been set to a
+    ///     ⚠
+    ///     <b>
+    ///         The corners go through <see cref="WorkPlane.ToWorld" /> individually rather than a
+    ///         centre-plus-extents box being drawn in world axes.
+    ///     </b>
+    ///     A work plane that has been set to a
     ///     wall is rotated, and a box drawn from world axes at a rotated plane's centre is a box that
     ///     is not the cell — it lines up only while the plane is the ground, which is the case every
     ///     casual test uses.
@@ -90,8 +94,12 @@ public static class BlockoutHover {
     /// <exception cref="ArgumentNullException"><paramref name="mesh" /> or <paramref name="into" /> is null.</exception>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>One segment per quad the ring crosses, and never one per pair of consecutive ring
-    ///         entries.</b> <c>MeshTopology.EdgeRing</c> walks <i>both</i> ways from the seed and
+    ///         ⚠
+    ///         <b>
+    ///             One segment per quad the ring crosses, and never one per pair of consecutive ring
+    ///             entries.
+    ///         </b>
+    ///         <c>MeshTopology.EdgeRing</c> walks <i>both</i> ways from the seed and
     ///         appends each walk, so its list is a seed followed by two chains running in opposite
     ///         directions — consecutive entries are adjacent everywhere except across the join, where
     ///         they are on opposite sides of the mesh. A preview drawn by joining the list in order is
@@ -99,23 +107,34 @@ public static class BlockoutHover {
     ///         which reads as a bug in the ring rather than in the drawing.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Which cut is which end is the same question <c>MeshOperations.LoopCut</c> answers
-    ///         with its own <c>Ordered</c>, and it is mirrored here rather than reasoned about
-    ///         afresh.</b> An edge is stored low-to-high and says nothing about which way a face walks
+    ///         ⚠
+    ///         <b>
+    ///             Which cut is which end is the same question <c>MeshOperations.LoopCut</c> answers
+    ///             with its own <c>Ordered</c>, and it is mirrored here rather than reasoned about
+    ///             afresh.
+    ///         </b>
+    ///         An edge is stored low-to-high and says nothing about which way a face walks
     ///         it, so pairing cut <c>k</c> on one side with cut <c>k</c> on the other would cross the
     ///         segments over whenever the two edges are stored in opposite senses — an X across every
     ///         quad at three cuts.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>This paragraph used to say no shape this toolset makes reaches that branch, and
-    ///         that was wrong twice over</b>
+    ///         ⚠
+    ///         <b>
+    ///             This paragraph used to say no shape this toolset makes reaches that branch, and
+    ///             that was wrong twice over
+    ///         </b>
     ///         (<a href="https://github.com/Rikarin/Vixen/issues/1167">#1167</a>). Counted over every
     ///         ring seed of every <c>ShapeKind</c>, the flip fires on nine of the twelve; the old
     ///         probe covered four and <c>Box</c> was the only one of those where it does not.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The half that decides whether the rule is load-bearing is narrower than "does it
-    ///         fire".</b> A quad whose two crossed edges <i>both</i> flip is unharmed by removing the
+    ///         ⚠
+    ///         <b>
+    ///             The half that decides whether the rule is load-bearing is narrower than "does it
+    ///             fire".
+    ///         </b>
+    ///         A quad whose two crossed edges <i>both</i> flip is unharmed by removing the
     ///         rule — the strip is built from the other end and comes out the same. What crosses the
     ///         segments over is a quad where one side flips and the other does not, and
     ///         <c>DoorFrame</c> (40 quads) and <c>Arch</c> (128) are the shapes that have any.

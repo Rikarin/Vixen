@@ -25,8 +25,12 @@ namespace Vixen.Ui.Controls.Advanced.Tests;
 ///         coverage stops at a base class is worse than no sweep, because it is quoted as one.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Doc 46's owed list has left this table, and the last name on it left by being
-///         refuted rather than fixed.</b> Five of the six were given a keyboard first and a role
+///         ⚠
+///         <b>
+///             Doc 46's owed list has left this table, and the last name on it left by being
+///             refuted rather than fixed.
+///         </b>
+///         Five of the six were given a keyboard first and a role
 ///         second, in that order and in one change each — <c>ColorField</c>, <c>ColorStrip</c>,
 ///         <c>ColorSwatch</c>, <c>GradientRail</c>, <c>NodeItem</c>; for the last of those the
 ///         keyboard is the canvas's, because the arrows step between nodes and the item is the
@@ -118,7 +122,7 @@ public class AccessibilityCoverageTests {
                 continue;
             }
 
-            var element = (UiElement) make.MakeGenericMethod(type).Invoke(null, [fixture.Document.Root])!;
+            var element = (UiElement)make.MakeGenericMethod(type).Invoke(null, [fixture.Document.Root])!;
             fixture.Update();
             built.Add(type.Name);
 

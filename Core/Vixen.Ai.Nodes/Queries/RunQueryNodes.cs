@@ -3,7 +3,6 @@
 
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
-using Vixen.Core;
 using Vixen.Core.Mathematics;
 using Vixen.Engine.Transforms;
 
@@ -24,8 +23,12 @@ namespace Vixen.Ai.Nodes;
 ///         none.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The optional keys are <c>BlackboardKey?</c> and not <c>BlackboardKey</c>, because
-///         <c>default(BlackboardKey)</c> is key <i>zero</i> and not an invalid one.</b> A binding that
+///         ⚠
+///         <b>
+///             The optional keys are <c>BlackboardKey?</c> and not <c>BlackboardKey</c>, because
+///             <c>default(BlackboardKey)</c> is key <i>zero</i> and not an invalid one.
+///         </b>
+///         A binding that
 ///         left the entity key unset would silently name the first key on the board — which in this
 ///         node's case meant clearing the very key it had just written. Perception's bindings are
 ///         nullable for the same reason and it cost a failing test to find there too.
@@ -82,8 +85,12 @@ public sealed class RunQueryTask(QueryBinding binding) : IAgentAction {
 ///         at an interval, with the deviation that stops every agent querying on the same frame.
 ///     </para>
 ///     <para>
-///         ⚠ <b>A service that finds nothing clears the key rather than leaving the last answer
-///         there.</b> A stale destination is the bug that makes an agent walk confidently to a spot
+///         ⚠
+///         <b>
+///             A service that finds nothing clears the key rather than leaving the last answer
+///             there.
+///         </b>
+///         A stale destination is the bug that makes an agent walk confidently to a spot
 ///         that stopped being cover two seconds ago, and it is invisible because the key still looks
 ///         perfectly reasonable. <c>DefaultFocusService</c> made the same decision in P4.
 ///     </para>

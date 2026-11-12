@@ -23,8 +23,11 @@ namespace Vixen.Net.Engine.Players;
 ///         snapshot. Fifty-two bits: two axes at eight, two angles at ten, and the buttons whole.
 ///     </para>
 ///     <para>
-///         <b>The quantization is not a loss the prediction has to tolerate — it is what makes the
-///         prediction agree.</b> The client sends this, the server decodes it, and both then run the
+///         <b>
+///             The quantization is not a loss the prediction has to tolerate — it is what makes the
+///             prediction agree.
+///         </b>
+///         The client sends this, the server decodes it, and both then run the
 ///         same movement rules over the same <i>decoded</i> numbers. A client that predicted with its
 ///         full-precision intent and sent a rounded one would mispredict by the rounding on every
 ///         single tick, on a perfect connection, and it would look like jitter.
@@ -78,21 +81,12 @@ public readonly record struct PlayerMoveInput : IPredictedInput<PlayerMoveInput>
     /// <summary>The input a player's intent encodes to.</summary>
     /// <param name="intent">The intent.</param>
     /// <returns>The input.</returns>
-    public static PlayerMoveInput From(in MoveIntent intent) => new() {
-        Move = intent.Move,
-        LookYaw = intent.Yaw,
-        LookPitch = intent.Pitch,
-        Buttons = intent.Buttons
-    };
+    public static PlayerMoveInput From(in MoveIntent intent) =>
+        new() { Move = intent.Move, LookYaw = intent.Yaw, LookPitch = intent.Pitch, Buttons = intent.Buttons };
 
     /// <summary>The intent this input decodes to.</summary>
     /// <returns>The intent.</returns>
-    public readonly MoveIntent ToIntent() => new() {
-        Move = Move,
-        Yaw = LookYaw,
-        Pitch = LookPitch,
-        Buttons = Buttons
-    };
+    public readonly MoveIntent ToIntent() => new() { Move = Move, Yaw = LookYaw, Pitch = LookPitch, Buttons = Buttons };
 
     /// <summary>An intent put through the wire's precision without going near a wire.</summary>
     /// <param name="intent">What the player asked for.</param>
@@ -149,12 +143,7 @@ public readonly record struct PlayerMoveInput : IPredictedInput<PlayerMoveInput>
             return false;
         }
 
-        value = new() {
-            Move = new(x, y),
-            LookYaw = yaw,
-            LookPitch = pitch,
-            Buttons = (MoveButtons)buttons
-        };
+        value = new() { Move = new(x, y), LookYaw = yaw, LookPitch = pitch, Buttons = (MoveButtons)buttons };
 
         return true;
     }

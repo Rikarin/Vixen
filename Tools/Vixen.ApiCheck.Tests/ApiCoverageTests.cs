@@ -51,9 +51,9 @@ public sealed class ApiCoverageTests {
     [Fact]
     public void APackableProjectIsEitherCheckedOrWrittenDown() {
         var missing = PackableProjects()
-            .Where(project => !IsChecked(project))
-            .Where(project => !Ledger().ContainsKey(project))
-            .OrderBy(project => project, StringComparer.Ordinal)
+            .Where(static project => !IsChecked(project))
+            .Where(static project => !Ledger().ContainsKey(project))
+            .OrderBy(static project => project, StringComparer.Ordinal)
             .ToList();
 
         Assert.True(
@@ -76,11 +76,13 @@ public sealed class ApiCoverageTests {
         var packable = PackableProjects().ToHashSet(StringComparer.Ordinal);
         var stale = new List<string>();
 
-        foreach (var (project, reason) in Ledger().OrderBy(entry => entry.Key, StringComparer.Ordinal)) {
+        foreach (var (project, reason) in Ledger().OrderBy(static entry => entry.Key, StringComparer.Ordinal)) {
             if (!File.Exists(Path.Combine(RepositoryRoot(), project))) {
                 stale.Add($"{project}: no such project — it was renamed or removed.");
             } else if (!packable.Contains(project)) {
-                stale.Add($"{project}: does not pack, or is not in Vixen.slnx — nothing was skipped, so delete the line.");
+                stale.Add(
+                    $"{project}: does not pack, or is not in Vixen.slnx — nothing was skipped, so delete the line."
+                );
             } else if (IsChecked(project)) {
                 stale.Add(
                     $"{project}: has a PublicAPI.Shipped.txt *and* is matched by Build.Api.cs's glob, "
@@ -107,9 +109,8 @@ public sealed class ApiCoverageTests {
     /// </summary>
     static IEnumerable<string> PackableProjects() =>
         SolutionProjects()
-            .Where(project => !EndsWithAny(project, ".Tests", ".Generator", ".Generators", ".Analyzers"))
-            .Where(
-                project => !string.Equals(
+            .Where(static project => !EndsWithAny(project, ".Tests", ".Generator", ".Generators", ".Analyzers"))
+            .Where(static project => !string.Equals(
                     PropertyOf(Path.Combine(RepositoryRoot(), project), "IsPackable"),
                     "false",
                     StringComparison.OrdinalIgnoreCase
@@ -127,7 +128,7 @@ public sealed class ApiCoverageTests {
         var unreachable = PackableProjects()
             .Where(HasBaseline)
             .Where(project => !patterns.Any(pattern => MatchesGlob(pattern, project)))
-            .OrderBy(project => project, StringComparer.Ordinal)
+            .OrderBy(static project => project, StringComparer.Ordinal)
             .ToList();
 
         Assert.True(
@@ -177,23 +178,26 @@ public sealed class ApiCoverageTests {
             // #749, and the same shape one folder over: Vixen.Live.Realm is covered, and
             // VixenApp.Run<TGame> reaches its consumers through that package as well as through the
             // six Samples that reference it by path.
-            "Tools/Vixen.App/Vixen.App.csproj",
+            "Tools/Vixen.App/Vixen.App.csproj"
         ];
 
         var unreviewed = PublishedDependencyClosure()
-            .Where(project => !IsChecked(project))
-            .OrderBy(project => project, StringComparer.Ordinal)
+            .Where(static project => !IsChecked(project))
+            .OrderBy(static project => project, StringComparer.Ordinal)
             .ToList();
 
         Assert.True(
-            unreviewed.SequenceEqual(known.OrderBy(project => project, StringComparer.Ordinal), StringComparer.Ordinal),
+            unreviewed.SequenceEqual(
+                known.OrderBy(static project => project, StringComparer.Ordinal),
+                StringComparer.Ordinal
+            ),
             "The packable projects a covered package depends on, and which CheckApi does not read, "
             + "are supposed to be exactly the two #641 and #749 are open about. A NEW name here is a "
             + "reviewed package that just took on an unreviewed dependency — cover it or give the "
             + "reference PrivateAssets=all. A name that has GONE has been covered or stopped "
             + "packing; delete it from `known` in the same commit, because an exception list nobody "
             + "prunes is the instrument reporting success.\n  expected: "
-            + string.Join(", ", known.OrderBy(project => project, StringComparer.Ordinal))
+            + string.Join(", ", known.OrderBy(static project => project, StringComparer.Ordinal))
             + "\n  found:    "
             + string.Join(", ", unreviewed)
         );
@@ -235,7 +239,9 @@ public sealed class ApiCoverageTests {
 
         var missing = referenced
             .Where(name => !packable.Any(project =>
-                string.Equals(Path.GetFileNameWithoutExtension(project), name, StringComparison.Ordinal)))
+                    string.Equals(Path.GetFileNameWithoutExtension(project), name, StringComparison.Ordinal)
+                )
+            )
             .ToList();
 
         Assert.True(
@@ -254,8 +260,12 @@ public sealed class ApiCoverageTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A prose description of a gate's subject is the one part of it nothing checks, and
-    ///         this one had been wrong for as long as there were exceptions.</b> The section said
+    ///         ⚠
+    ///         <b>
+    ///             A prose description of a gate's subject is the one part of it nothing checks, and
+    ///             this one had been wrong for as long as there were exceptions.
+    ///         </b>
+    ///         The section said
     ///         "the <c>RUNTIME</c> profile of <c>Directory.Build.props</c>: every non-test,
     ///         non-generator project under <c>Core/</c> and <c>Platform/</c> that packs" — two of the
     ///         six roots the call actually passes. <c>Gameplay/</c>, <c>Live/</c>,
@@ -282,8 +292,8 @@ public sealed class ApiCoverageTests {
         var section = end >= 0 ? rest[..end] : rest;
 
         var roots = CheckApiGlobs()
-            .Select(pattern => pattern.Replace("/**/*.csproj", string.Empty, StringComparison.Ordinal))
-            .Select(pattern => pattern.Replace("/*.csproj", string.Empty, StringComparison.Ordinal))
+            .Select(static pattern => pattern.Replace("/**/*.csproj", string.Empty, StringComparison.Ordinal))
+            .Select(static pattern => pattern.Replace("/*.csproj", string.Empty, StringComparison.Ordinal))
             .ToList();
 
         var unnamed = roots
@@ -301,18 +311,19 @@ public sealed class ApiCoverageTests {
     }
 
     /// <summary>The <c>Vixen.*</c> package ids the shipped templates reference, deduplicated.</summary>
-    static List<string> TemplatePackageReferences() =>
-        Directory
+    static List<string> TemplatePackageReferences() => [
+        ..Directory
             .EnumerateFiles(
                 Path.Combine(RepositoryRoot(), "Tools", "Vixen.Templates", "templates"),
                 "*.csproj",
-                SearchOption.AllDirectories)
-            .SelectMany(template => XDocument.Load(template).Descendants("PackageReference"))
-            .Select(element => (string?)element.Attribute("Include") ?? string.Empty)
-            .Where(name => name.StartsWith("Vixen.", StringComparison.Ordinal))
+                SearchOption.AllDirectories
+            )
+            .SelectMany(static template => XDocument.Load(template).Descendants("PackageReference"))
+            .Select(static element => (string?)element.Attribute("Include") ?? string.Empty)
+            .Where(static name => name.StartsWith("Vixen.", StringComparison.Ordinal))
             .Distinct(StringComparer.Ordinal)
-            .OrderBy(name => name, StringComparer.Ordinal)
-            .ToList();
+            .OrderBy(static name => name, StringComparer.Ordinal)
+    ];
 
     /// <summary>
     ///     Every packable project reachable from a covered one through references that survive into
@@ -415,7 +426,7 @@ public sealed class ApiCoverageTests {
         );
 
         var patterns = Regex.Matches(call.Groups["arguments"].Value, "\"(?<pattern>[^\"]+)\"")
-            .Select(match => match.Groups["pattern"].Value)
+            .Select(static match => match.Groups["pattern"].Value)
             .ToList();
 
         Assert.NotEmpty(patterns);
@@ -432,8 +443,7 @@ public sealed class ApiCoverageTests {
     ///     this tree can tell, because no project sits directly in <c>Core/</c> or any other globbed
     ///     root — so the two can only differ about a path that does not exist.
     /// </remarks>
-    static bool MatchesGlob(string pattern, string path) =>
-        MatchesFrom(pattern.Split('/'), 0, path.Split('/'), 0);
+    static bool MatchesGlob(string pattern, string path) => MatchesFrom(pattern.Split('/'), 0, path.Split('/'), 0);
 
     static bool MatchesFrom(string[] pattern, int patternIndex, string[] path, int pathIndex) {
         while (true) {
@@ -452,7 +462,7 @@ public sealed class ApiCoverageTests {
             }
 
             if (pathIndex == path.Length
-                || !FileSystemName.MatchesSimpleExpression(pattern[patternIndex], path[pathIndex], ignoreCase: false)) {
+                || !FileSystemName.MatchesSimpleExpression(pattern[patternIndex], path[pathIndex], false)) {
                 return false;
             }
 
@@ -487,9 +497,9 @@ public sealed class ApiCoverageTests {
     static IEnumerable<string> SolutionProjects() =>
         XDocument.Load(Path.Combine(RepositoryRoot(), "Vixen.slnx"))
             .Descendants("Project")
-            .Select(element => element.Attribute("Path")?.Value)
-            .Where(path => !string.IsNullOrEmpty(path))
-            .Select(path => path!.Replace('\\', '/'))
+            .Select(static element => element.Attribute("Path")?.Value)
+            .Where(static path => !string.IsNullOrEmpty(path))
+            .Select(static path => path!.Replace('\\', '/'))
             .ToList();
 
     static bool EndsWithAny(string project, params string[] suffixes) {

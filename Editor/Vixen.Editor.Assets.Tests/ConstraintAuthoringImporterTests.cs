@@ -36,20 +36,20 @@ public sealed class ConstraintAuthoringImporterTests {
     [Fact]
     public async Task ALadderCompilesAndItsNamesResolve() {
         const string Yaml = """
-            name: swimming
-            step: 100
-            rungs:
-              - name: flourish
-                value: 0
-                meaning: A secondary motion.
-              - name: contact
-                value: 400
-                meaning: A hand on the ladder rung.
-            """;
+                            name: swimming
+                            step: 100
+                            rungs:
+                              - name: flourish
+                                value: 0
+                                meaning: A secondary motion.
+                              - name: contact
+                                value: 400
+                                meaning: A hand on the ladder rung.
+                            """;
 
         var result = await ImportLadder(Yaml);
 
-        Assert.DoesNotContain(result.Diagnostics, entry => entry.Severity == ImportSeverity.Error);
+        Assert.DoesNotContain(result.Diagnostics, static entry => entry.Severity == ImportSeverity.Error);
 
         var content = Serializer.Read<PriorityLadderContent>(Assert.Single(result.Artifacts).Content.ToArray());
         var ladder = content.Bake();
@@ -62,19 +62,20 @@ public sealed class ConstraintAuthoringImporterTests {
     [Fact]
     public async Task TwoRungsAtOneValueAreRefused() {
         const string Yaml = """
-            name: broken
-            rungs:
-              - name: aim
-                value: 200
-              - name: look
-                value: 200
-            """;
+                            name: broken
+                            rungs:
+                              - name: aim
+                                value: 200
+                              - name: look
+                                value: 200
+                            """;
 
         var result = await ImportLadder(Yaml);
 
         Assert.Contains(
             result.Diagnostics,
-            entry => entry.Severity == ImportSeverity.Error && entry.Message.Contains("no order", StringComparison.Ordinal)
+            static entry => entry.Severity == ImportSeverity.Error
+                && entry.Message.Contains("no order", StringComparison.Ordinal)
         );
     }
 
@@ -85,20 +86,20 @@ public sealed class ConstraintAuthoringImporterTests {
     [Fact]
     public async Task RungsCloserThanASubStepCanReachAreWarnedAbout() {
         const string Yaml = """
-            name: tight
-            step: 10
-            rungs:
-              - name: look
-                value: 100
-              - name: aim
-                value: 110
-            """;
+                            name: tight
+                            step: 10
+                            rungs:
+                              - name: look
+                                value: 100
+                              - name: aim
+                                value: 110
+                            """;
 
         var result = await ImportLadder(Yaml);
 
         Assert.Contains(
             result.Diagnostics,
-            entry => entry.Severity == ImportSeverity.Warning
+            static entry => entry.Severity == ImportSeverity.Warning
                 && entry.Message.Contains("without saying so", StringComparison.Ordinal)
         );
     }
@@ -108,28 +109,28 @@ public sealed class ConstraintAuthoringImporterTests {
     [Fact]
     public async Task ATemplateCompilesAndItsTimingsRemap() {
         const string Yaml = """
-            name: seated
-            revision: 2
-            meaning: A character sitting.
-            tags:
-              - name: right hand
-                kind: Position
-                effector: hand_r
-                begin: 0.0
-                end: 0.5
-              - name: hips
-                kind: Position
-                effector: pelvis
-                begin: 0.0
-                end: 1.0
-            """;
+                            name: seated
+                            revision: 2
+                            meaning: A character sitting.
+                            tags:
+                              - name: right hand
+                                kind: Position
+                                effector: hand_r
+                                begin: 0.0
+                                end: 0.5
+                              - name: hips
+                                kind: Position
+                                effector: pelvis
+                                begin: 0.0
+                                end: 1.0
+                            """;
 
         var result = await ImportTemplate(Yaml);
 
-        Assert.DoesNotContain(result.Diagnostics, entry => entry.Severity == ImportSeverity.Error);
+        Assert.DoesNotContain(result.Diagnostics, static entry => entry.Severity == ImportSeverity.Error);
 
         var template = Serializer.Read<ConstraintTemplateContent>(Assert.Single(result.Artifacts).Content.ToArray());
-        var placed = template.Instantiate(0.5f, 1f);
+        var placed = template.Instantiate(0.5f);
 
         Assert.Equal(2, placed.Count);
         Assert.Equal(0.75f, placed[0].End, 3);
@@ -141,20 +142,21 @@ public sealed class ConstraintAuthoringImporterTests {
     [Fact]
     public async Task ATemplateWhoseTimingsAreNotFractionsIsRefused() {
         const string Yaml = """
-            name: captured
-            tags:
-              - name: right hand
-                effector: hand_r
-                begin: 2.4
-                end: 6.1
-            """;
+                            name: captured
+                            tags:
+                              - name: right hand
+                                effector: hand_r
+                                begin: 2.4
+                                end: 6.1
+                            """;
 
         var result = await ImportTemplate(Yaml);
 
         Assert.Empty(result.Artifacts);
         Assert.Contains(
             result.Diagnostics,
-            entry => entry.Severity == ImportSeverity.Error && entry.Message.Contains("re-based", StringComparison.Ordinal)
+            static entry => entry.Severity == ImportSeverity.Error
+                && entry.Message.Contains("re-based", StringComparison.Ordinal)
         );
     }
 
@@ -165,7 +167,7 @@ public sealed class ConstraintAuthoringImporterTests {
         Assert.Empty(result.Artifacts);
         Assert.Contains(
             result.Diagnostics,
-            entry => entry.Message.Contains("never maintained", StringComparison.Ordinal)
+            static entry => entry.Message.Contains("never maintained", StringComparison.Ordinal)
         );
     }
 
@@ -174,26 +176,26 @@ public sealed class ConstraintAuthoringImporterTests {
     [Fact]
     public async Task AClipsConstraintTrackSurvivesTheImportAndIsChecked() {
         const string Yaml = """
-            name: Reach
-            duration: 1.0
-            constraints:
-              - name: right hand
-                kind: Position
-                effector: hand_r
-                chain: upperarm_r
-                begin: 0.2
-                end: 0.8
-                priority: contact
-                goal:
-                  kind: Surface
-                  shape: rail
-                  u: 0.25
-                  v: 0.6
-            """;
+                            name: Reach
+                            duration: 1.0
+                            constraints:
+                              - name: right hand
+                                kind: Position
+                                effector: hand_r
+                                chain: upperarm_r
+                                begin: 0.2
+                                end: 0.8
+                                priority: contact
+                                goal:
+                                  kind: Surface
+                                  shape: rail
+                                  u: 0.25
+                                  v: 0.6
+                            """;
 
         var result = await ImportClip(Yaml);
 
-        Assert.DoesNotContain(result.Diagnostics, entry => entry.Severity == ImportSeverity.Error);
+        Assert.DoesNotContain(result.Diagnostics, static entry => entry.Severity == ImportSeverity.Error);
 
         var content = Serializer.Read<AnimationClipContent>(Assert.Single(result.Artifacts).Content.ToArray());
         var tag = Assert.Single(content.Constraints);
@@ -210,7 +212,8 @@ public sealed class ConstraintAuthoringImporterTests {
 
         Assert.Contains(
             noEffector.Diagnostics,
-            entry => entry.Severity == ImportSeverity.Error && entry.Message.Contains("about a joint", StringComparison.Ordinal)
+            static entry => entry.Severity == ImportSeverity.Error
+                && entry.Message.Contains("about a joint", StringComparison.Ordinal)
         );
 
         var offTheEnd = await ImportClip(
@@ -219,7 +222,8 @@ public sealed class ConstraintAuthoringImporterTests {
 
         Assert.Contains(
             offTheEnd.Diagnostics,
-            entry => entry.Severity == ImportSeverity.Error && entry.Message.Contains("never reached", StringComparison.Ordinal)
+            static entry => entry.Severity == ImportSeverity.Error
+                && entry.Message.Contains("never reached", StringComparison.Ordinal)
         );
     }
 
@@ -230,7 +234,7 @@ public sealed class ConstraintAuthoringImporterTests {
             "name: A\nduration: 1.0\nconstraints:\n  - name: plant\n    effector: foot_l\n    begin: 0.8\n    end: 0.2\n"
         );
 
-        Assert.DoesNotContain(wrapping.Diagnostics, entry => entry.Severity == ImportSeverity.Error);
+        Assert.DoesNotContain(wrapping.Diagnostics, static entry => entry.Severity == ImportSeverity.Error);
 
         var overEased = await ImportClip(
             "name: A\nduration: 1.0\nconstraints:\n  - name: plant\n    effector: foot_l\n    begin: 0.4\n"
@@ -239,7 +243,7 @@ public sealed class ConstraintAuthoringImporterTests {
 
         Assert.Contains(
             overEased.Diagnostics,
-            entry => entry.Severity == ImportSeverity.Warning
+            static entry => entry.Severity == ImportSeverity.Warning
                 && entry.Message.Contains("never reaches its full weight", StringComparison.Ordinal)
         );
     }
@@ -259,7 +263,14 @@ public sealed class ConstraintAuthoringImporterTests {
 
         files.Seed(path, text);
 
-        var context = new ImportContext(AssetId.New(), path, importer.CreateSettings(), files, importer.Name, "Windows");
+        var context = new ImportContext(
+            AssetId.New(),
+            path,
+            importer.CreateSettings(),
+            files,
+            importer.Name,
+            "Windows"
+        );
 
         return await importer.ImportAsync(context, TestContext.Current.CancellationToken);
     }

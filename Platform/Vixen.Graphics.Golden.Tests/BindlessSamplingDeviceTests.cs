@@ -85,7 +85,7 @@ public class BindlessSamplingDeviceTests {
         var expected = new byte[Slots];
 
         for (var slot = 0; slot < Slots; slot++) {
-            expected[slot] = (byte)(11 + (slot * 3));
+            expected[slot] = (byte)(11 + slot * 3);
         }
 
         var textures = new TextureHandle[Slots];
@@ -109,7 +109,7 @@ public class BindlessSamplingDeviceTests {
 
             views[slot] = device.CreateTextureView(textures[slot]);
             pixels[slot * 4] = expected[slot];
-            pixels[(slot * 4) + 3] = 255;
+            pixels[slot * 4 + 3] = 255;
         }
 
         device.Write(staging, 0, pixels);
@@ -124,13 +124,15 @@ public class BindlessSamplingDeviceTests {
 
         // The count, in the per-draw block the shader declares. Filled through the effect's own
         // member offsets rather than at a byte position written down here.
-        var block = device.CreateBuffer(
-            new(64, BufferUsage.Uniform, MemoryAccess.HostUpload, "bindless constants")
-        );
+        var block = device.CreateBuffer(new(64, BufferUsage.Uniform, MemoryAccess.HostUpload, "bindless constants"));
 
         var declared = effect.BlockOf(DescriptorSetSlot.PerDraw);
         var constants = new byte[Math.Max(4, declared.Size)];
-        var offset = declared.Members.Single(member => member.Key.Name.EndsWith(".count", StringComparison.Ordinal));
+        var offset = declared.Members.Single(static member => member.Key.Name.EndsWith(
+                ".count",
+                StringComparison.Ordinal
+            )
+        );
         BitConverter.TryWriteBytes(constants.AsSpan(offset.Offset), Slots);
         device.Write(block, 0, constants);
 
@@ -140,7 +142,10 @@ public class BindlessSamplingDeviceTests {
         // One write per slot, at the slot's own index — which is what an unbounded binding is for and
         // what a descriptorCount of one would refuse at element 1.
         for (var slot = 0; slot < Slots; slot++) {
-            device.UpdateDescriptorSet(tableSet, [DescriptorWrite.Texture(Binding(effect, "textures"), views[slot], slot)]);
+            device.UpdateDescriptorSet(
+                tableSet,
+                [DescriptorWrite.Texture(Binding(effect, "textures"), views[slot], slot)]
+            );
         }
 
         device.UpdateDescriptorSet(
@@ -153,7 +158,7 @@ public class BindlessSamplingDeviceTests {
 
         var shader = device.CreateShader(
             ShaderStage.Compute,
-            effect.Stages.Single(stage => stage.Stage == ShaderStage.Compute).Bytecode.AsSpan(),
+            effect.Stages.Single(static stage => stage.Stage == ShaderStage.Compute).Bytecode.AsSpan(),
             "BindlessProbe"
         );
 
@@ -192,7 +197,7 @@ public class BindlessSamplingDeviceTests {
             commands.BindPipeline(pipeline);
             commands.BindDescriptorSet(DescriptorSetSlot.PerFrame, tableSet);
             commands.BindDescriptorSet(DescriptorSetSlot.PerDraw, drawSet);
-            commands.Dispatch(1, 1, 1);
+            commands.Dispatch(1);
 
             commands.Barrier(new([new(results, ResourceState.ShaderWrite, ResourceState.CopySource)], []));
             commands.CopyBuffer(results, 0, readback, 0, Slots * 4);
@@ -247,8 +252,11 @@ public class BindlessSamplingDeviceTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <strong>The other half of what a table has to get right, and the half nothing
-    ///         asserted.</strong> The test above proves an invocation reaches the descriptor it named;
+    ///         <strong>
+    ///             The other half of what a table has to get right, and the half nothing
+    ///             asserted.
+    ///         </strong>
+    ///         The test above proves an invocation reaches the descriptor it named;
     ///         this proves the number that comes back is the one the surface is entitled to. A
     ///         <c>.meta</c> authors <c>content: Colour</c> for a base colour and <c>Linear</c> for a
     ///         normal or an ORM pack, so exactly one of a material's three maps is sRGB — and a path
@@ -317,7 +325,7 @@ public class BindlessSamplingDeviceTests {
 
             views[slot] = device.CreateTextureView(textures[slot]);
             pixels[slot * 4] = Stored;
-            pixels[(slot * 4) + 3] = byte.MaxValue;
+            pixels[slot * 4 + 3] = byte.MaxValue;
         }
 
         device.Write(staging, 0, pixels);
@@ -330,13 +338,15 @@ public class BindlessSamplingDeviceTests {
             new(Slots * 4, BufferUsage.CopyDestination, MemoryAccess.HostReadback, "colour readback")
         );
 
-        var block = device.CreateBuffer(
-            new(64, BufferUsage.Uniform, MemoryAccess.HostUpload, "colour constants")
-        );
+        var block = device.CreateBuffer(new(64, BufferUsage.Uniform, MemoryAccess.HostUpload, "colour constants"));
 
         var declared = effect.BlockOf(DescriptorSetSlot.PerDraw);
         var constants = new byte[Math.Max(4, declared.Size)];
-        var offset = declared.Members.Single(member => member.Key.Name.EndsWith(".count", StringComparison.Ordinal));
+        var offset = declared.Members.Single(static member => member.Key.Name.EndsWith(
+                ".count",
+                StringComparison.Ordinal
+            )
+        );
         BitConverter.TryWriteBytes(constants.AsSpan(offset.Offset), Slots);
         device.Write(block, 0, constants);
 
@@ -365,7 +375,7 @@ public class BindlessSamplingDeviceTests {
 
         var shader = device.CreateShader(
             ShaderStage.Compute,
-            effect.Stages.Single(stage => stage.Stage == ShaderStage.Compute).Bytecode.AsSpan(),
+            effect.Stages.Single(static stage => stage.Stage == ShaderStage.Compute).Bytecode.AsSpan(),
             "BindlessColourProbe"
         );
 
@@ -400,7 +410,7 @@ public class BindlessSamplingDeviceTests {
             commands.BindPipeline(pipeline);
             commands.BindDescriptorSet(DescriptorSetSlot.PerFrame, tableSet);
             commands.BindDescriptorSet(DescriptorSetSlot.PerDraw, drawSet);
-            commands.Dispatch(1, 1, 1);
+            commands.Dispatch(1);
 
             commands.Barrier(new([new(results, ResourceState.ShaderWrite, ResourceState.CopySource)], []));
             commands.CopyBuffer(results, 0, readback, 0, Slots * 4);
@@ -437,7 +447,7 @@ public class BindlessSamplingDeviceTests {
         Clean();
 
         var stored = Stored / 255f;
-        var decoded = MathF.Pow(((Stored / 255f) + 0.055f) / 1.055f, 2.4f);
+        var decoded = MathF.Pow((Stored / 255f + 0.055f) / 1.055f, 2.4f);
 
         for (var slot = 0; slot < Slots; slot++) {
             var actual = BitConverter.ToUInt32(bytes, slot * 4) / 65535f;
@@ -455,8 +465,7 @@ public class BindlessSamplingDeviceTests {
     }
 
     /// <summary>Which binding the shader gave a name, rather than a number written down here.</summary>
-    static uint Binding(Effect effect, string name) =>
-        effect.Bindings.Single(binding => binding.Name == name).Binding;
+    static uint Binding(Effect effect, string name) => effect.Bindings.Single(binding => binding.Name == name).Binding;
 
     /// <summary>Compiles one of the probe shaders and loads it onto the device.</summary>
     /// <remarks>

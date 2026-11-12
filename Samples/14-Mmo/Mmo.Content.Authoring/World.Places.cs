@@ -14,19 +14,16 @@ partial class World {
             var yaml = new Yaml("MapDefinition", $"{zone.Name}'s chart, its points and its fog.")
                 .Put("displayName", zone.Name)
                 .Put("columns", 64)
-                .Put("rows", 48 + (zone.Low * 2))
+                .Put("rows", 48 + zone.Low * 2)
                 .Put("tag", $"Completion.{zone.Name}");
 
             var first = true;
 
             foreach (var (id, name, kind, counts) in new[] {
-                ("waypoint", "Waystone", "Waypoint", true),
-                ("landmark", "The Old Marker", "Landmark", true),
-                ("vista", "High Vista", "Vista", true),
-                ("camp", "Forward Camp", "Waypoint", true),
-                ("ruin", "The Ruin", "Landmark", true),
-                ("cache", "Poacher's Cache", "Cache", false)
-            }) {
+                         ("waypoint", "Waystone", "Waypoint", true), ("landmark", "The Old Marker", "Landmark", true),
+                         ("vista", "High Vista", "Vista", true), ("camp", "Forward Camp", "Waypoint", true),
+                         ("ruin", "The Ruin", "Landmark", true), ("cache", "Poacher's Cache", "Cache", false)
+                     }) {
                 yaml.Item(first ? "points" : null)
                     .Put("id", id)
                     .Put("displayName", $"{zone.Name} {name}")
@@ -62,10 +59,9 @@ partial class World {
 
         foreach (var zone in Tables.Zones) {
             foreach (var (kind, verb, profession, seconds) in new[] {
-                ("ore", "Mine", "Mining", 3f),
-                ("herb", "Gather", "Herbalism", 2f),
-                ("hide", "Skin", "Leatherworking", 2.5f)
-            }) {
+                         ("ore", "Mine", "Mining", 3f), ("herb", "Gather", "Herbalism", 2f),
+                         ("hide", "Skin", "Leatherworking", 2.5f)
+                     }) {
                 if (!loot.TryGetValue($"node-{zone.Id}-{kind}", out var table)) {
                     continue;
                 }
@@ -94,7 +90,7 @@ partial class World {
                 written.Add(address);
             }
 
-            foreach (var profession in Tables.Professions.Where(entry => !entry.Gathering)) {
+            foreach (var profession in Tables.Professions.Where(static entry => !entry.Gathering)) {
                 var address = $"world/{zone.Id}-{profession.Id}-station";
 
                 Write(
@@ -196,9 +192,9 @@ partial class World {
 
         foreach (var zone in Tables.Zones) {
             foreach (var (id, name, kind, speed, level) in new[] {
-                ("courser", "Courser", "Mount", 14f, zone.Low),
-                ("harrier", "Harrier", "Flying", 22f, zone.Low + 6)
-            }) {
+                         ("courser", "Courser", "Mount", 14f, zone.Low),
+                         ("harrier", "Harrier", "Flying", 22f, zone.Low + 6)
+                     }) {
                 var address = $"vehicles/{zone.Id}-{id}";
                 var yaml = new Yaml("VehicleDefinition", "A mount is a single-seat vehicle whose model is a creature.")
                     .Put("displayName", $"{zone.Name} {name}")
@@ -238,11 +234,31 @@ partial class World {
                 .Put("kind", "Ground")
                 .Put("passengersMaySteer", true)
                 .Put("tag", "Vehicle.Waggon")
-                .Open("physics").Put("maximumSpeed", 6f).Put("acceleration", 2f).Put("turnRate", 45f).Close()
-                .Item("seats").Put("id", "driver").Put("controls", true).Put("role", "Driver").Put("tag", "State.Driving").Close()
-                .Item().Put("id", "left-gun").Put("role", "Gunner").Put("tag", "State.Gunning").Close()
-                .Item().Put("id", "right-gun").Put("role", "Gunner").Put("tag", "State.Gunning").Close()
-                .Item().Put("id", "bench").Put("role", "Passenger").Close()
+                .Open("physics")
+                .Put("maximumSpeed", 6f)
+                .Put("acceleration", 2f)
+                .Put("turnRate", 45f)
+                .Close()
+                .Item("seats")
+                .Put("id", "driver")
+                .Put("controls", true)
+                .Put("role", "Driver")
+                .Put("tag", "State.Driving")
+                .Close()
+                .Item()
+                .Put("id", "left-gun")
+                .Put("role", "Gunner")
+                .Put("tag", "State.Gunning")
+                .Close()
+                .Item()
+                .Put("id", "right-gun")
+                .Put("role", "Gunner")
+                .Put("tag", "State.Gunning")
+                .Close()
+                .Item()
+                .Put("id", "bench")
+                .Put("role", "Passenger")
+                .Close()
         );
 
         written.Add("vehicles/powder-waggon");
@@ -284,17 +300,17 @@ partial class World {
             var index = 0;
 
             foreach (var family in Tables.Families.Where(entry => entry.Zone == zone.Id)) {
-                roots.Add(($"Camp.{Pascal(family.Id)}", -60 + (index * 40), 0, 14 + (index * 18)));
-                roots.Add(($"Patrol.{Pascal(family.Id)}", -40 + (index * 40), 0, -30 - (index * 12)));
+                roots.Add(($"Camp.{Pascal(family.Id)}", -60 + index * 40, 0, 14 + index * 18));
+                roots.Add(($"Patrol.{Pascal(family.Id)}", -40 + index * 40, 0, -30 - index * 12));
                 index++;
             }
 
             foreach (var kind in new[] { "Ore", "Herb", "Hide" }) {
-                roots.Add(($"Node.{kind}", -12 + (kind.Length * 9), 0, -30 + (kind.Length * 7)));
+                roots.Add(($"Node.{kind}", -12 + kind.Length * 9, 0, -30 + kind.Length * 7));
             }
 
-            foreach (var profession in Tables.Professions.Where(entry => !entry.Gathering)) {
-                roots.Add(($"Station.{profession.Name}", 18, 0, -6 - (profession.Name.Length * 2)));
+            foreach (var profession in Tables.Professions.Where(static entry => !entry.Gathering)) {
+                roots.Add(($"Station.{profession.Name}", 18, 0, -6 - profession.Name.Length * 2));
             }
 
             roots.Add(("Event.Arena", 20, -8, 70));
@@ -322,7 +338,10 @@ partial class World {
             written.Add($"maps/{zone.Id}-deep");
         }
 
-        foreach (var (id, name) in new[] { ("ravensford", "Ravensford"), ("saltmere-shore", "Saltmere Shore"), ("kettle-pit", "The Kettle Pit") }) {
+        foreach (var (id, name) in new[] {
+                     ("ravensford", "Ravensford"), ("saltmere-shore", "Saltmere Shore"),
+                     ("kettle-pit", "The Kettle Pit")
+                 }) {
             WriteScene(
                 $"maps/{id}",
                 name,
@@ -345,7 +364,12 @@ partial class World {
         return written;
     }
 
-    void WriteScene(string address, string name, string blurb, IReadOnlyList<(string Name, int X, int Y, int Z)> roots) {
+    void WriteScene(
+        string address,
+        string name,
+        string blurb,
+        IReadOnlyList<(string Name, int X, int Y, int Z)> roots
+    ) {
         var text = new System.Text.StringBuilder();
 
         text.AppendLine("# Generated by Mmo.Content.Authoring. " + blurb);

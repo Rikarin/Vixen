@@ -203,7 +203,7 @@ public sealed class GlobalDistanceField : IDistanceField {
         // in this assembly checks is the arithmetic a background refresh runs, rather than a second
         // copy of it that could drift.
         if (parallel && pending.SliceCount > 1) {
-            System.Threading.Tasks.Parallel.For(0, pending.SliceCount, pending.Composite);
+            Parallel.For(0, pending.SliceCount, pending.Composite);
         } else {
             for (var slice = 0; slice < pending.SliceCount; slice++) {
                 pending.Composite(slice);
@@ -463,9 +463,8 @@ public sealed class GlobalDistanceField : IDistanceField {
     /// <param name="shift">The movement, in cells.</param>
     /// <returns>The count.</returns>
     internal long Kept(Int3 shift) {
-        long Overlap(int offset) => Math.Max(0, Resolution - Math.Abs(offset));
-
         return Overlap(shift.X) * Overlap(shift.Y) * Overlap(shift.Z);
+        long Overlap(int offset) => Math.Max(0, Resolution - Math.Abs(offset));
     }
 
     /// <summary>How far one level moved, in whole cells, or false when it did not move by whole ones.</summary>
@@ -536,7 +535,7 @@ public sealed class GlobalDistanceField : IDistanceField {
 
             var inner = instances[index].Sample(point);
             var distance = toBox > 0
-                ? MathF.Sqrt((MathF.Max(inner, 0) * MathF.Max(inner, 0)) + (toBox * toBox))
+                ? MathF.Sqrt(MathF.Max(inner, 0) * MathF.Max(inner, 0) + toBox * toBox)
                 : inner;
 
             if (distance < best) {

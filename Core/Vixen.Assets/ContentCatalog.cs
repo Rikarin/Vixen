@@ -57,8 +57,12 @@ public readonly record struct CatalogEntry(
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b><see cref="Id" /> changes when a sword's damage changes; this changes only when
-    ///         the sword gains a field.</b> That distinction is the whole reason the value exists, and
+    ///         ⚠
+    ///         <b>
+    ///             <see cref="Id" /> changes when a sword's damage changes; this changes only when
+    ///             the sword gains a field.
+    ///         </b>
+    ///         That distinction is the whole reason the value exists, and
     ///         nothing else in a catalog can stand in for it: a build that rebalances an item and a
     ///         build that adds a field to every item produce catalogs that differ in exactly the same
     ///         way as far as <see cref="Id" /> is concerned.
@@ -280,8 +284,8 @@ public sealed class ContentCatalog {
         }
 
         labels = building.ToDictionary(
-            pair => pair.Key,
-            pair => {
+            static pair => pair.Key,
+            static pair => {
                 pair.Value.Sort(StringComparer.Ordinal);
                 return pair.Value.ToImmutableArray();
             },
@@ -309,8 +313,12 @@ public sealed class ContentCatalog {
     ///         two thousand of them in a frame.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>False is the answer for content this build did not ship, and it is not an error
-    ///         here.</b> An asset excluded from a build, a reference into a group that was not packed,
+    ///         ⚠
+    ///         <b>
+    ///             False is the answer for content this build did not ship, and it is not an error
+    ///             here.
+    ///         </b>
+    ///         An asset excluded from a build, a reference into a group that was not packed,
     ///         or a scene saved against content that has since been deleted all arrive as this — and
     ///         which of them it is, and whether it should be fatal, is the caller's to decide. What
     ///         must not happen is a silent empty address that fails later as a missing file.
@@ -364,7 +372,7 @@ public sealed class ContentCatalog {
         }
 
         found.Sort(StringComparer.Ordinal);
-        return [.. found];
+        return [..found];
     }
 
     /// <summary>
@@ -389,7 +397,7 @@ public sealed class ContentCatalog {
             Visit(address);
         }
 
-        return [.. order];
+        return [..order];
 
         void Visit(string address) {
             if (settled.Contains(address)) {
@@ -582,7 +590,7 @@ public sealed class ContentCatalog {
         var seen = new HashSet<string>(StringComparer.Ordinal);
         var found = ImmutableArray.CreateBuilder<CatalogBundle>();
 
-        foreach (var address in Closure([.. addresses])) {
+        foreach (var address in Closure([..addresses])) {
             if (entries.TryGetValue(address, out var entry)
                 && entry.Provider == ContentProvider.Remote
                 && bundles.TryGetValue(entry.Bundle, out var bundle)
@@ -616,8 +624,12 @@ public sealed class AddressNotFoundException(string address)
 /// <summary>A <c>vx:</c> reference this build shipped nothing for.</summary>
 /// <param name="reference">The reference that was asked for.</param>
 /// <remarks>
-///     ⚠ <b>Separate from <see cref="AddressNotFoundException" />, because they mean different
-///     things.</b> An address nobody shipped is usually a typo in a call somebody wrote. A reference
+///     ⚠
+///     <b>
+///         Separate from <see cref="AddressNotFoundException" />, because they mean different
+///         things.
+///     </b>
+///     An address nobody shipped is usually a typo in a call somebody wrote. A reference
 ///     nobody shipped is content: an asset left out of the build, a group that was not packed, or a
 ///     scene still holding an identity whose asset has been deleted. Nobody typed the identity, so
 ///     "check the spelling" is the wrong advice and would send them looking in the wrong place.

@@ -23,8 +23,8 @@ public sealed class QueryPoolTests : IDisposable {
     public void ADeviceWithoutTheCapabilityRefusesAPoolRatherThanFakingOne() {
         using var limited = new NullDevice(new() { Features = GraphicsDeviceFeatures.Minimum });
 
-        var refused = Assert.Throws<NotSupportedException>(
-            () => limited.CreateQueryPool(new(QueryKind.Timestamp, 8, "frame"))
+        var refused = Assert.Throws<NotSupportedException>(() =>
+            limited.CreateQueryPool(new(QueryKind.Timestamp, 8, "frame"))
         );
 
         Assert.Contains("HasTimestampQueries", refused.Message, StringComparison.Ordinal);
@@ -102,8 +102,7 @@ public sealed class QueryPoolTests : IDisposable {
 
         Span<ulong> readings = stackalloc ulong[3];
 
-        Assert.Throws<ArgumentOutOfRangeException>(
-            () => {
+        Assert.Throws<ArgumentOutOfRangeException>(() => {
                 Span<ulong> destination = new ulong[3];
                 device.TryResolveQueries(pool, 2, destination);
             }
@@ -125,9 +124,7 @@ public sealed class QueryPoolTests : IDisposable {
         Assert.True(device.TryResolveQueries(pool, 0, readings));
         Assert.True(readings[1] > readings[0]);
 
-        Assert.True(
-            GpuTimestamps.ToMilliseconds(readings[1] - readings[0], device.Features.TimestampPeriod) > 0d
-        );
+        Assert.True(GpuTimestamps.ToMilliseconds(readings[1] - readings[0], device.Features.TimestampPeriod) > 0d);
     }
 
     /// <summary>A pool is a resource, and a resource that is not returned is a leak.</summary>

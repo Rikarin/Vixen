@@ -35,8 +35,11 @@ internal static class Wire {
 ///         particular.
 ///     </para>
 ///     <para>
-///         <b>Two connections a case, because there are two states and only one of them is easy to
-///         reach.</b> A fresh connection exercises the pre-handshake path; a player that was
+///         <b>
+///             Two connections a case, because there are two states and only one of them is easy to
+///             reach.
+///         </b>
+///         A fresh connection exercises the pre-handshake path; a player that was
 ///         admitted at construction and kept alive exercises the one behind it — ping, pong, and the
 ///         user payloads everything above the session travels in. Fuzzing only the first would leave
 ///         the branch that runs for every real packet of a real match untested.
@@ -64,8 +67,7 @@ public sealed class HandshakeTarget : IFuzzTarget, IDisposable, ISessionMessageH
                 // Zero, so a connection that goes away takes its player with it on the same frame.
                 // A reconnect window would leave a player per case behind and the target would be
                 // measuring the growth of its own harness within a hundred cases.
-                ReconnectWindow = TimeSpan.Zero,
-                MaxPlayers = 8
+                ReconnectWindow = TimeSpan.Zero, MaxPlayers = 8
             }
         );
 
@@ -93,7 +95,7 @@ public sealed class HandshakeTarget : IFuzzTarget, IDisposable, ISessionMessageH
     ///     <c>MaxAuthenticationPayloadBytes</c>, and the claim is that nothing else scales with the
     ///     packet at all.
     /// </remarks>
-    public long AllowanceFor(int inputLength) => 8192 + (16L * inputLength);
+    public long AllowanceFor(int inputLength) => 8192 + 16L * inputLength;
 
     /// <summary>How many players and half-finished handshakes the session is holding.</summary>
     public long Held => session.Players.Count;
@@ -177,11 +179,11 @@ public sealed class HandshakeTarget : IFuzzTarget, IDisposable, ISessionMessageH
         // What this input did, not what the run has done. Folding the lifetime totals would make
         // the signature strictly increasing and every case novel — see IFuzzTarget.Run.
         var after = Read();
-        var signature = ((after.Joined - before.Joined) * 1_000_003L)
-            + ((after.Left - before.Left) * 7919L)
-            + ((after.Messages - before.Messages) * 31L)
-            + ((after.Sent - before.Sent) * 17L)
-            + ((after.Disconnects - before.Disconnects) * 13L)
+        var signature = (after.Joined - before.Joined) * 1_000_003L
+            + (after.Left - before.Left) * 7919L
+            + (after.Messages - before.Messages) * 31L
+            + (after.Sent - before.Sent) * 17L
+            + (after.Disconnects - before.Disconnects) * 13L
             + session.Players.Count;
 
         before = after;
@@ -223,7 +225,6 @@ public sealed class HandshakeTarget : IFuzzTarget, IDisposable, ISessionMessageH
 
         return writer.TryFinish(out var packet) ? packet.ToArray() : [];
     }
-
 }
 
 /// <summary>The client's receive path: what a server can talk a client into.</summary>
@@ -275,7 +276,7 @@ public sealed class SessionClientTarget : IFuzzTarget, IDisposable, ISessionMess
     ///     reader; a rejection decodes a reason, likewise. Everything else on this path is
     ///     allocation-free, so the multiple is the claim and the constant is the restart.
     /// </remarks>
-    public long AllowanceFor(int inputLength) => 8192 + (16L * inputLength);
+    public long AllowanceFor(int inputLength) => 8192 + 16L * inputLength;
 
     /// <summary>How many players this client believes are in the session.</summary>
     public long Held => session.Players.Count;
@@ -296,8 +297,8 @@ public sealed class SessionClientTarget : IFuzzTarget, IDisposable, ISessionMess
         ArgumentNullException.ThrowIfNull(corpus);
 
         corpus.Add(Accepted(1, 100, new byte[16], "player"));
-        corpus.Add(Accepted(0, 0, [], ""));
-        corpus.Add(Accepted(uint.MaxValue, uint.MaxValue, new byte[16], new string('x', 200)));
+        corpus.Add(Accepted(0, 0, [], string.Empty));
+        corpus.Add(Accepted(uint.MaxValue, uint.MaxValue, new byte[16], new('x', 200)));
 
         var whole = Accepted(1, 100, new byte[16], "player");
 
@@ -333,11 +334,11 @@ public sealed class SessionClientTarget : IFuzzTarget, IDisposable, ISessionMess
         // Deltas, and deliberately not the tick: it comes straight off the wire, so including it
         // would make every accepted packet a behaviour never seen before.
         var after = Read();
-        var signature = ((after.Connected - before.Connected) * 1_000_003L)
-            + ((after.Rejected - before.Rejected) * 7919L)
-            + ((after.Disconnected - before.Disconnected) * 131L)
-            + ((after.Messages - before.Messages) * 31L)
-            + ((after.Sent - before.Sent) * 17L)
+        var signature = (after.Connected - before.Connected) * 1_000_003L
+            + (after.Rejected - before.Rejected) * 7919L
+            + (after.Disconnected - before.Disconnected) * 131L
+            + (after.Messages - before.Messages) * 31L
+            + (after.Sent - before.Sent) * 17L
             + (session.LocalPlayer is null ? 0 : 3L)
             + (int)session.State;
 

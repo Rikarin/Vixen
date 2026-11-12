@@ -83,22 +83,26 @@ static class ApplicationReferenceRule {
         var directory = Path.GetDirectoryName(Path.GetFullPath(projectFile))!;
         var editor = Path.GetFullPath(Path.Combine(root, "Editor")) + Path.DirectorySeparatorChar;
 
-        return XDocument.Load(projectFile)
-            .Descendants("ProjectReference")
+        return [
+            ..XDocument.Load(projectFile)
+                .Descendants("ProjectReference")
 
-            // ⚠ An analyzer contributes a generator and nothing to the closure. Every project here
-            // reaches a source generator this way, so counting one would make the rule fail on the
-            // arrangement the repository is built out of.
-            .Where(element => element.Attribute("OutputItemType")?.Value != "Analyzer")
-            .Select(element => element.Attribute("Include")?.Value)
-            .Where(value => !string.IsNullOrEmpty(value))
-            .Select(value => Path.GetFullPath(Path.Combine(directory, value!.Replace('\\', Path.DirectorySeparatorChar))))
-            .Where(path => path.StartsWith(editor, StringComparison.Ordinal))
-            .Select(Path.GetFileNameWithoutExtension)
-            .Select(name => name!)
-            .Distinct(StringComparer.Ordinal)
-            .Order(StringComparer.Ordinal)
-            .ToList();
+                // ⚠ An analyzer contributes a generator and nothing to the closure. Every project here
+                // reaches a source generator this way, so counting one would make the rule fail on the
+                // arrangement the repository is built out of.
+                .Where(static element => element.Attribute("OutputItemType")?.Value != "Analyzer")
+                .Select(static element => element.Attribute("Include")?.Value)
+                .Where(static value => !string.IsNullOrEmpty(value))
+                .Select(value => Path.GetFullPath(
+                        Path.Combine(directory, value!.Replace('\\', Path.DirectorySeparatorChar))
+                    )
+                )
+                .Where(path => path.StartsWith(editor, StringComparison.Ordinal))
+                .Select(Path.GetFileNameWithoutExtension)
+                .Select(static name => name!)
+                .Distinct(StringComparer.Ordinal)
+                .Order(StringComparer.Ordinal)
+        ];
     }
 
     /// <summary>Why the rule is checking nothing, if it is.</summary>
@@ -106,8 +110,12 @@ static class ApplicationReferenceRule {
     /// <param name="projectFiles">Every project file the gate reads.</param>
     /// <returns>The reason, or <see langword="null" /> when there is a real subject.</returns>
     /// <remarks>
-    ///     ⚠ <b>A rule whose subject has been renamed reports "no violations" and means "I read
-    ///     nothing".</b> That is the failure this repository has found four times, most recently in
+    ///     ⚠
+    ///     <b>
+    ///         A rule whose subject has been renamed reports "no violations" and means "I read
+    ///         nothing".
+    ///     </b>
+    ///     That is the failure this repository has found four times, most recently in
     ///     <c>PluginReferenceRule</c>'s own subject set
     ///     (<a href="https://github.com/Rikarin/Vixen/issues/872">#872</a>), so the application has to
     ///     be found and it has to reference something under <c>Editor/</c> before an empty violation
@@ -159,7 +167,7 @@ static class ApplicationReferenceRule {
     }
 
     static string? Find(IEnumerable<string> projectFiles) =>
-        projectFiles.FirstOrDefault(path =>
+        projectFiles.FirstOrDefault(static path =>
             string.Equals(Path.GetFileNameWithoutExtension(path), Application, StringComparison.Ordinal)
         );
 }

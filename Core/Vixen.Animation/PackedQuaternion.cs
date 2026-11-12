@@ -67,7 +67,7 @@ public readonly record struct PackedQuaternion(ulong Bits) {
                 continue;
             }
 
-            bits |= (ulong)Quantise(components[index] * sign) << (2 + (slot * Bits20));
+            bits |= (ulong)Quantise(components[index] * sign) << (2 + slot * Bits20);
             slot++;
         }
 
@@ -87,7 +87,7 @@ public readonly record struct PackedQuaternion(ulong Bits) {
                 continue;
             }
 
-            var value = Dequantise((uint)(Bits >> (2 + (slot * Bits20))) & Mask);
+            var value = Dequantise((uint)(Bits >> (2 + slot * Bits20)) & Mask);
             components[index] = value;
             sum += value * value;
             slot++;
@@ -112,9 +112,9 @@ public readonly record struct PackedQuaternion(ulong Bits) {
     }
 
     static uint Quantise(float value) {
-        var normalised = ((MathUtil.Clamp(value, -Range, Range) / Range) + 1f) * 0.5f;
+        var normalised = (MathUtil.Clamp(value, -Range, Range) / Range + 1f) * 0.5f;
         return (uint)MathF.Round(normalised * Mask);
     }
 
-    static float Dequantise(uint value) => (((value / (float)Mask) * 2f) - 1f) * Range;
+    static float Dequantise(uint value) => (value / (float)Mask * 2f - 1f) * Range;
 }

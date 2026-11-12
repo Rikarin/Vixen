@@ -75,7 +75,7 @@ public class VxInputReaderTests {
         var root = Assert.IsType<VxInputMapping>(VxInputReader.Read("devices:\n  - keyboard\n  - mouse\n"));
         var devices = Assert.IsType<VxInputSequence>(Get(root, "devices"));
 
-        Assert.Equal(["keyboard", "mouse"], devices.Items.Select(item => ((VxInputScalar)item).Value));
+        Assert.Equal(["keyboard", "mouse"], devices.Items.Select(static item => ((VxInputScalar)item).Value));
     }
 
     [Fact]
@@ -126,7 +126,8 @@ public class VxInputReaderTests {
 
     [Fact]
     public void RefusesATab() {
-        var failure = Assert.Throws<VxInputParseException>(() => VxInputReader.Read("maps:\n\t- name: Player\n"));
+        var failure = Assert.Throws<VxInputParseException>(static () => VxInputReader.Read("maps:\n\t- name: Player\n")
+        );
 
         Assert.Equal(2, failure.Line);
         Assert.Contains("tab", failure.Detail, StringComparison.OrdinalIgnoreCase);
@@ -147,22 +148,22 @@ public class VxInputReaderTests {
 
     [Fact]
     public void RefusesAnUnterminatedQuote() {
-        var failure = Assert.Throws<VxInputParseException>(() => VxInputReader.Read("name: 'Game\n"));
+        var failure = Assert.Throws<VxInputParseException>(static () => VxInputReader.Read("name: 'Game\n"));
 
         Assert.Contains("closing quote", failure.Detail, StringComparison.Ordinal);
     }
 
     [Fact]
     public void RefusesALineThatIsNotAKeyValuePair() {
-        var failure = Assert.Throws<VxInputParseException>(() => VxInputReader.Read("name: Game\nnonsense\n"));
+        var failure = Assert.Throws<VxInputParseException>(static () => VxInputReader.Read("name: Game\nnonsense\n"));
 
         Assert.Equal(2, failure.Line);
     }
 
     [Fact]
     public void ReportsThePositionOfTheProblem() {
-        var failure = Assert.Throws<VxInputParseException>(
-            () => VxInputReader.Read("name: Game\nmaps:\n  - name: Player\n\tbroken: yes\n")
+        var failure = Assert.Throws<VxInputParseException>(static () =>
+            VxInputReader.Read("name: Game\nmaps:\n  - name: Player\n\tbroken: yes\n")
         );
 
         Assert.Equal(4, failure.Line);

@@ -2,8 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core.Mathematics;
-using Vixen.Editor.Texturing.Painting;
-using Vixen.Texturing.Layers;
 using Vixen.Texturing.Painting;
 using Xunit;
 
@@ -23,8 +21,12 @@ namespace Vixen.Editor.Texturing.Tests;
 ///         silhouette, which is where every stroke reaching round the far side of a shape is made.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The oracle is built from the triangle's own corners and never from
-///         <c>PaintDensity</c>.</b> <see cref="Sampled" /> walks the rim of the screen disc, slides
+///         ⚠
+///         <b>
+///             The oracle is built from the triangle's own corners and never from
+///             <c>PaintDensity</c>.
+///         </b>
+///         <see cref="Sampled" /> walks the rim of the screen disc, slides
 ///         each point down the ray onto the triangle's plane, writes it in the triangle's two edge
 ///         vectors, and reads off the atlas offset from the triangle's three texture coordinates.
 ///         That is the definition of the footprint, in the mesh data, with no basis, no singular
@@ -32,12 +34,20 @@ namespace Vixen.Editor.Texturing.Tests;
 ///         arithmetic, which a fixture that composed the same two 2×2s could not.
 ///     </para>
 ///     <para>
-///         ⚠ <b>And the tilt axis is deliberately <em>not</em> the chart's stretch axis, which is
-///         the whole discriminating power of the file.</b> When the two coincide the composed
+///         ⚠
+///         <b>
+///             And the tilt axis is deliberately <em>not</em> the chart's stretch axis, which is
+///             the whole discriminating power of the file.
+///         </b>
+///         When the two coincide the composed
 ///         ellipse is exactly the product of the two aspects, so an implementation that multiplied
 ///         the scalars passes — and that is the near miss, because it is one line and is right on
-///         every fixture whose tilt runs down a coordinate axis of the layout. ⚠ <b>The arithmetic
-///         actually replaced was a step short of even that</b>: it reported
+///         every fixture whose tilt runs down a coordinate axis of the layout. ⚠
+///         <b>
+///             The arithmetic
+///             actually replaced was a step short of even that
+///         </b>
+///         : it reported
 ///         <c>PaintDensity.Anisotropy</c>, the chart's aspect alone, so the tilt contributed nothing
 ///         to the shape at any angle.
 ///         <see cref="A_tilt_down_the_charts_own_stretch_axis_is_the_product_of_the_two_aspects" />
@@ -119,7 +129,7 @@ public class PaintGrazingTests {
         );
 
         Assert.True(
-            Math.Abs(footprint.Aspect - (4f / MathF.Cos(tilt * (MathF.PI / 180f)))) > 0.3f,
+            Math.Abs(footprint.Aspect - 4f / MathF.Cos(tilt * (MathF.PI / 180f))) > 0.3f,
             $"the composed aspect {footprint.Aspect} is the product of the two scalars, which is only "
             + "right when the tilt runs down the chart's own stretch axis."
         );
@@ -127,8 +137,12 @@ public class PaintGrazingTests {
 
     /// <summary>A tilt down the chart's own stretch axis <em>is</em> the product of the two aspects.</summary>
     /// <remarks>
-    ///     ⚠ <b>The case the arithmetic this replaces would have passed, kept so the others are
-    ///     legible as the discriminating ones.</b> With the tilt's direction and the chart's most
+    ///     ⚠
+    ///     <b>
+    ///         The case the arithmetic this replaces would have passed, kept so the others are
+    ///         legible as the discriminating ones.
+    ///     </b>
+    ///     With the tilt's direction and the chart's most
     ///     stretched surface direction aligned, the two maps are diagonal in one basis and their
     ///     product's singular values are the products of theirs. Every fixture whose tilt runs down
     ///     a coordinate axis of the layout is this case by accident.
@@ -154,8 +168,12 @@ public class PaintGrazingTests {
 
     /// <summary>A face-on hit is the layout's ellipse and nothing else.</summary>
     /// <remarks>
-    ///     ⚠ <b>The degenerate direction, which is where a composition can quietly divide by the
-    ///     length of a zero vector.</b> Looking straight down the normal there is no direction in
+    ///     ⚠
+    ///     <b>
+    ///         The degenerate direction, which is where a composition can quietly divide by the
+    ///         length of a zero vector.
+    ///     </b>
+    ///     Looking straight down the normal there is no direction in
     ///     the tangent plane to stretch along, and the honest answer is the chart's own ellipse
     ///     unchanged — not a NaN, and not an arbitrary axis picked out of rounding.
     /// </remarks>
@@ -217,25 +235,25 @@ public class PaintGrazingTests {
 
         var origin = new Vector3(0f, 0f, Depth) - along - across;
 
-        Vector3[] points = [origin, origin + (along * Extent), origin + (across * Extent)];
+        Vector3[] points = [origin, origin + along * Extent, origin + across * Extent];
 
         // R(turn) · diag(major, minor) · R(stretch)ᵀ, written out.
         Vector2 first = new(
-            (major * cosTurn * cosStretch) + (minor * sinTurn * sinStretch),
-            (major * sinTurn * cosStretch) - (minor * cosTurn * sinStretch)
+            major * cosTurn * cosStretch + minor * sinTurn * sinStretch,
+            major * sinTurn * cosStretch - minor * cosTurn * sinStretch
         );
 
         Vector2 second = new(
-            (major * cosTurn * sinStretch) - (minor * sinTurn * cosStretch),
-            (major * sinTurn * sinStretch) + (minor * cosTurn * cosStretch)
+            major * cosTurn * sinStretch - minor * sinTurn * cosStretch,
+            major * sinTurn * sinStretch + minor * cosTurn * cosStretch
         );
 
         Vector2 corner = new(0.5f, 0.5f);
 
         Vector2[] layout = [
             corner,
-            corner + (first * (Extent / Atlas)),
-            corner + (second * (Extent / Atlas))
+            corner + first * (Extent / Atlas),
+            corner + second * (Extent / Atlas)
         ];
 
         return (PaintProjection.Over(points, layout, [0, 1, 2]), points, layout);
@@ -274,7 +292,7 @@ public class PaintGrazingTests {
         var ee = Vector3.Dot(edge, edge);
         var es = Vector3.Dot(edge, slant);
         var ss = Vector3.Dot(slant, slant);
-        var determinant = (ee * ss) - (es * es);
+        var determinant = ee * ss - es * es;
 
         var d1 = (layout[1] - layout[0]) * Atlas;
         var d2 = (layout[2] - layout[0]) * Atlas;
@@ -285,16 +303,16 @@ public class PaintGrazingTests {
 
         for (var step = 0; step < Samples; step++) {
             var (sin, cos) = MathF.SinCos(step * (MathF.Tau / Samples));
-            var rim = ((first * cos) + (second * sin)) * Brush;
+            var rim = (first * cos + second * sin) * Brush;
 
             // Down the ray onto the facet's plane. This is the whole of the grazing stretch.
-            var landed = rim - (ray * (Vector3.Dot(rim, normal) / facing));
+            var landed = rim - ray * (Vector3.Dot(rim, normal) / facing);
 
-            var one = ((Vector3.Dot(edge, landed) * ss) - (Vector3.Dot(slant, landed) * es)) / determinant;
-            var two = ((Vector3.Dot(slant, landed) * ee) - (Vector3.Dot(edge, landed) * es)) / determinant;
+            var one = (Vector3.Dot(edge, landed) * ss - Vector3.Dot(slant, landed) * es) / determinant;
+            var two = (Vector3.Dot(slant, landed) * ee - Vector3.Dot(edge, landed) * es) / determinant;
 
-            var offset = (d1 * one) + (d2 * two);
-            var reach = Math.Sqrt(((double)offset.X * offset.X) + ((double)offset.Y * offset.Y));
+            var offset = d1 * one + d2 * two;
+            var reach = Math.Sqrt((double)offset.X * offset.X + (double)offset.Y * offset.Y);
 
             if (reach > major) {
                 major = reach;

@@ -35,8 +35,12 @@ public class AmbientCombineTests {
     ///     <c>AmbientCombine.rvn</c>'s fragment, term for term.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>The reflections term is a sum and not a lerp, and the difference is the whole of
-    ///     the <c>f0</c> plane.</b> A lerp removes <c>reflectance ×</c> the combined colour to make
+    ///     ⚠
+    ///     <b>
+    ///         The reflections term is a sum and not a lerp, and the difference is the whole of
+    ///         the <c>f0</c> plane.
+    ///     </b>
+    ///     A lerp removes <c>reflectance ×</c> the combined colour to make
     ///     room, which at a dielectric's four per cent was a rounding error and at a metal's
     ///     fifty-five is half its direct sunlight. It is also only the right shape while the term
     ///     being replaced is still in <c>direct</c>: with the plane bound it is not — the shading
@@ -92,8 +96,12 @@ public class AmbientCombineTests {
     ///     surface loses between microfacets added back.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>Not <c>f0 · dfg.x + dfg.y</c> any more, and that is a change to the picture rather
-    ///     than to this file.</b> The split sum counts one bounce; at perceptual roughness 0.6 a
+    ///     ⚠
+    ///     <b>
+    ///         Not <c>f0 · dfg.x + dfg.y</c> any more, and that is a change to the picture rather
+    ///         than to this file.
+    ///     </b>
+    ///     The split sum counts one bounce; at perceptual roughness 0.6 a
     ///     white metal keeps two thirds of the light and at 1 it keeps under half, so every rough
     ///     metal was rendered at up to half the radiance it sends. The property that pins the form is
     ///     the white furnace — at <c>f0 = 1</c> the answer is exactly one at every roughness — and
@@ -103,11 +111,11 @@ public class AmbientCombineTests {
     static Vector3 MultiScatter(Vector3 f0, Vector2 dfg) {
         var ess = dfg.X + dfg.Y;
         var ems = Math.Max(1f - ess, 0f);
-        var favg = f0 + ((Vector3.One - f0) * (1f / 21f));
-        var fssEss = (f0 * dfg.X) + new Vector3(dfg.Y);
-        var fms = fssEss * favg / Vector3.Max(Vector3.One - (ems * favg), new(1e-6f));
+        var favg = f0 + (Vector3.One - f0) * (1f / 21f);
+        var fssEss = f0 * dfg.X + new Vector3(dfg.Y);
+        var fms = fssEss * favg / Vector3.Max(Vector3.One - ems * favg, new(1e-6f));
 
-        return Vector3.Max(fssEss + (fms * ems), Vector3.Zero);
+        return Vector3.Max(fssEss + fms * ems, Vector3.Zero);
     }
 
     static readonly Vector4 Surface = new(0f, 0f, 1f, 0.5f);
@@ -131,8 +139,8 @@ public class AmbientCombineTests {
             new(9f, 9f),
             9f,
             new(9f),
-            specular: new(9f),
-            dfg: new(9f, 9f)
+            new(9f),
+            new(9f, 9f)
         );
 
         Assert.Equal(direct, result);
@@ -145,19 +153,19 @@ public class AmbientCombineTests {
 
         var result = Combine(
             direct,
-            normals: Vector4.Zero,
+            Vector4.Zero,
             new(0.8f, 0.6f, 0.4f, 1f),
             new(0.2f),
             new(0.5f, 0.5f),
             0.8f,
             new(1f, 0f, 0f, 1f),
-            specular: new(0.56f),
-            dfg: new(0.9f, 0.03f),
-            useIrradiance: 1f,
-            useOcclusion: 1f,
-            useContactOcclusion: 1f,
-            useReflections: 1f,
-            useSpecular: 1f
+            new(0.56f),
+            new(0.9f, 0.03f),
+            1f,
+            1f,
+            1f,
+            1f,
+            1f
         );
 
         Assert.Equal(direct, result);
@@ -184,17 +192,17 @@ public class AmbientCombineTests {
             new(0.5f, 0.5f),
             0.8f,
             new(1f, 0f, 0f, 0.25f),
-            specular: new(0.5f),
-            dfg: new(0.8f, 0.05f),
-            useIrradiance: 1f,
-            useOcclusion: 1f,
-            useContactOcclusion: 1f,
-            useReflections: 1f,
-            useSpecular: 1f,
-            intensity: 2f
+            new(0.5f),
+            new(0.8f, 0.05f),
+            1f,
+            1f,
+            1f,
+            1f,
+            1f,
+            2f
         );
 
-        Assert.Equal(0.314f + (0.4883721f * 0.25f), result.X, 1e-5f);
+        Assert.Equal(0.314f + 0.4883721f * 0.25f, result.X, 1e-5f);
         Assert.Equal(0.173f, result.Y, 1e-5f);
         Assert.Equal(0.1265f, result.Z, 1e-5f);
         Assert.Equal(1f, result.W, 1e-5f);
@@ -234,23 +242,23 @@ public class AmbientCombineTests {
                 new(1f, 1f),
                 1f,
                 traced,
-                specular: f0,
-                dfg: dfg,
+                f0,
+                dfg,
                 useReflections: 1f,
                 useSpecular: useSpecular
             );
 
         // The stand-in: single scatter 0.04 × 0.9 + 0.03 = 0.066, and an average Fresnel of
         // 0.0857143 returns almost none of the 0.07 one bounce lost — 0.0663984 in all.
-        Assert.Equal(1f + (2f * 0.0663984f), At(new(0.56f), 0f).X, 1e-5f);
+        Assert.Equal(1f + 2f * 0.0663984f, At(new(0.56f), 0f).X, 1e-5f);
 
         // The plane: single scatter 0.534, and an average Fresnel of 0.5809524 returns 0.3233793 of
         // that same 0.07 — 0.5566366, which is 8.4 times as much of the same radiance.
-        Assert.Equal(1f + (2f * 0.5566366f), At(new(0.56f), 1f).X, 1e-5f);
+        Assert.Equal(1f + 2f * 0.5566366f, At(new(0.56f), 1f).X, 1e-5f);
 
         // ⚠ And what a lerp would have made of that weight: 44.3 per cent of the surface's own light
         // left standing, which is the frame this addition exists to avoid.
-        Assert.Equal((1f * (1f - 0.5566366f)) + (2f * 0.5566366f), Lerp(1f, 2f, 0.5566366f), 1e-5f);
+        Assert.Equal(1f * (1f - 0.5566366f) + 2f * 0.5566366f, Lerp(1f, 2f, 0.5566366f), 1e-5f);
     }
 
     /// <summary>Sun visibility multiplies direct only, and occlusion multiplies ambient only.</summary>
@@ -266,11 +274,27 @@ public class AmbientCombineTests {
         var irradiance = new Vector3(0.25f);
 
         var shadowed = Combine(
-            direct, Surface, albedo, irradiance, new(1f, 0f), 1f, default, useIrradiance: 1f, useOcclusion: 1f
+            direct,
+            Surface,
+            albedo,
+            irradiance,
+            new(1f, 0f),
+            1f,
+            default,
+            useIrradiance: 1f,
+            useOcclusion: 1f
         );
 
         var occluded = Combine(
-            direct, Surface, albedo, irradiance, new(0f, 1f), 1f, default, useIrradiance: 1f, useOcclusion: 1f
+            direct,
+            Surface,
+            albedo,
+            irradiance,
+            new(0f, 1f),
+            1f,
+            default,
+            useIrradiance: 1f,
+            useOcclusion: 1f
         );
 
         // Sun at zero: direct vanishes and the ambient quarter stands.
@@ -337,10 +361,8 @@ public class AmbientCombineTests {
     [Fact]
     public void Away_from_an_edge_the_upsample_is_the_plain_blend() {
         var taps = new Tap[] {
-            new(new(1f, 1f), Vector3.Zero, 0.25f),
-            new(new(0.5f, 1f), new(0.1f, 0f, 0f), 0.25f),
-            new(new(0.5f, 1f), new(0f, 0f, 0.1f), 0.25f),
-            new(new(0f, 1f), new(0.1f, 0f, 0.1f), 0.25f)
+            new(new(1f, 1f), Vector3.Zero, 0.25f), new(new(0.5f, 1f), new(0.1f, 0f, 0f), 0.25f),
+            new(new(0.5f, 1f), new(0f, 0f, 0.1f), 0.25f), new(new(0f, 1f), new(0.1f, 0f, 0.1f), 0.25f)
         };
 
         var upsampled = Upsample(taps, Vector3.Zero, Up, 0.05f, new(-1f, -1f));
@@ -365,10 +387,8 @@ public class AmbientCombineTests {
     public void At_a_depth_edge_the_taps_across_it_drop_out() {
         // Two texels on this pixel's floor, two on a surface half a metre above it.
         var taps = new Tap[] {
-            new(new(0.2f, 1f), Vector3.Zero, 0.25f),
-            new(new(0.2f, 1f), new(0.1f, 0f, 0f), 0.25f),
-            new(new(1f, 1f), new(0f, 0.5f, 0f), 0.25f),
-            new(new(1f, 1f), new(0.1f, 0.5f, 0f), 0.25f)
+            new(new(0.2f, 1f), Vector3.Zero, 0.25f), new(new(0.2f, 1f), new(0.1f, 0f, 0f), 0.25f),
+            new(new(1f, 1f), new(0f, 0.5f, 0f), 0.25f), new(new(1f, 1f), new(0.1f, 0.5f, 0f), 0.25f)
         };
 
         var upsampled = Upsample(taps, Vector3.Zero, Up, 0.05f, new(-1f, -1f));
@@ -390,10 +410,8 @@ public class AmbientCombineTests {
     [Fact]
     public void A_pixel_no_tap_agrees_with_falls_back_to_the_blend() {
         var taps = new Tap[] {
-            new(new(0f, 0f), new(0f, 2f, 0f), 0.25f),
-            new(new(0f, 0f), new(0f, 3f, 0f), 0.25f),
-            new(new(0f, 0f), new(0f, 4f, 0f), 0.25f),
-            new(new(0f, 0f), new(0f, 5f, 0f), 0.25f)
+            new(new(0f, 0f), new(0f, 2f, 0f), 0.25f), new(new(0f, 0f), new(0f, 3f, 0f), 0.25f),
+            new(new(0f, 0f), new(0f, 4f, 0f), 0.25f), new(new(0f, 0f), new(0f, 5f, 0f), 0.25f)
         };
 
         var upsampled = Upsample(taps, Vector3.Zero, Up, 0.05f, new(0.75f, 1f));
@@ -410,10 +428,8 @@ public class AmbientCombineTests {
     [Fact]
     public void A_tolerance_nothing_fails_is_the_blend_it_replaced() {
         var taps = new Tap[] {
-            new(new(0.2f, 1f), Vector3.Zero, 0.25f),
-            new(new(0.2f, 1f), new(0.1f, 0f, 0f), 0.25f),
-            new(new(1f, 1f), new(0f, 0.5f, 0f), 0.25f),
-            new(new(1f, 1f), new(0.1f, 0.5f, 0f), 0.25f)
+            new(new(0.2f, 1f), Vector3.Zero, 0.25f), new(new(0.2f, 1f), new(0.1f, 0f, 0f), 0.25f),
+            new(new(1f, 1f), new(0f, 0.5f, 0f), 0.25f), new(new(1f, 1f), new(0.1f, 0.5f, 0f), 0.25f)
         };
 
         var upsampled = Upsample(taps, Vector3.Zero, Up, 1000f, new(-1f, -1f));
@@ -438,8 +454,10 @@ public class AmbientCombineTests {
     public void A_format_placement_cannot_decode_is_refused_by_name() {
         using var gather = new ScreenProbeGatherRenderer { Depth = "SceneDepth", Normals = "SceneNormals" };
 
-        var refusal = Assert.Throws<Vixen.Rendering.Compositor.CompositorBindingException>(
-            () => gather.BytesPerPixel(PixelFormat.Rg16Float, "SceneDepth")
+        var refusal = Assert.Throws<Vixen.Rendering.Compositor.CompositorBindingException>(() => gather.BytesPerPixel(
+                PixelFormat.Rg16Float,
+                "SceneDepth"
+            )
         );
 
         Assert.Contains("Rg16Float", refusal.Message, StringComparison.Ordinal);
@@ -466,7 +484,7 @@ public class AmbientCombineTests {
             (Half)(-0.5f), (Half)0.25f, (Half)1f, (Half)0.125f
         ];
 
-        var bytes = System.Runtime.InteropServices.MemoryMarshal.AsBytes<Half>(texels).ToArray();
+        var bytes = System.Runtime.InteropServices.MemoryMarshal.AsBytes(texels).ToArray();
 
         var depth = new float[2];
         ScreenProbeGatherRenderer.DecodeDepth(bytes, PixelFormat.Rgba16Float, depth);
@@ -476,11 +494,11 @@ public class AmbientCombineTests {
         var normals = new MathVector4[2];
         ScreenProbeGatherRenderer.DecodeNormals(bytes, PixelFormat.Rgba16Float, normals);
 
-        Assert.Equal(new MathVector4(0.75f, 0f, 0f, 0f), normals[0]);
+        Assert.Equal(new(0.75f, 0f, 0f, 0f), normals[0]);
 
         // Signed values survive, which the unorm path could never say: the split pass stores the
         // shading normal raw, not remapped to 0..1.
-        Assert.Equal(new MathVector4(-0.5f, 0.25f, 1f, 0.125f), normals[1]);
+        Assert.Equal(new(-0.5f, 0.25f, 1f, 0.125f), normals[1]);
     }
 
     /// <summary>The unorm path still rescales — the byte is the encoding, not the number.</summary>
@@ -496,6 +514,6 @@ public class AmbientCombineTests {
         var normals = new MathVector4[1];
         ScreenProbeGatherRenderer.DecodeNormals(bytes, PixelFormat.Rgba8UNorm, normals);
 
-        Assert.Equal(new MathVector4(1f, 0f, 128f / 255f, 64f / 255f), normals[0]);
+        Assert.Equal(new(1f, 0f, 128f / 255f, 64f / 255f), normals[0]);
     }
 }

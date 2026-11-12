@@ -9,8 +9,11 @@ namespace Vixen.Ui.Styling.Utilities.Tests;
 /// <summary>The measurement the four <c>*-reverse</c> refusals were left waiting on.</summary>
 /// <remarks>
 ///     <para>
-///         <b>#240 refused <c>space-x-reverse</c>, <c>space-y-reverse</c>, <c>divide-x-reverse</c>
-///         and <c>divide-y-reverse</c> for one stated reason in two halves</b>: each multiplies an
+///         <b>
+///             #240 refused <c>space-x-reverse</c>, <c>space-y-reverse</c>, <c>divide-x-reverse</c>
+///             and <c>divide-y-reverse</c> for one stated reason in two halves
+///         </b>
+///         : each multiplies an
 ///         edge by a <c>--tw-*-reverse</c> flag, <c>StyleValueParser</c> had no <c>calc()</c>, and
 ///         "the flag would be a custom property nobody reads". ⚠ The first half expired when
 ///         <c>calc()</c> landed. The second was never measured, and #599 asked for the measurement
@@ -25,8 +28,12 @@ namespace Vixen.Ui.Styling.Utilities.Tests;
 ///         both values of the flag. So the mechanism is not what keeps these four out.
 ///     </para>
 ///     <para>
-///         ⚠ <b>What keeps them out is a decision one file away, and it is unrelated to
-///         <c>calc()</c>.</b> <c>UtilityFamilies</c> has <c>divide-x</c> and <c>space-x</c> write
+///         ⚠
+///         <b>
+///             What keeps them out is a decision one file away, and it is unrelated to
+///             <c>calc()</c>.
+///         </b>
+///         <c>UtilityFamilies</c> has <c>divide-x</c> and <c>space-x</c> write
 ///         <i>one</i> edge, deliberately, because writing the leading edge as well would
 ///         out-specify a child's own <c>border-s-2</c> and silently erase it. v4's reverse flag
 ///         works by flipping <i>which of two written edges</i> carries the width, so it needs the
@@ -38,24 +45,28 @@ namespace Vixen.Ui.Styling.Utilities.Tests;
 public class ReverseFlagTests {
     /// <summary>v4's own shape for <c>divide-x</c>, hand-written so the mechanism can be measured.</summary>
     /// <remarks>
-    ///     ⚠ <b>Hand-written on purpose, and it is what makes this a measurement rather than a
-    ///     test of something registered.</b> Nothing emits these classes; what is under test is the
+    ///     ⚠
+    ///     <b>
+    ///         Hand-written on purpose, and it is what makes this a measurement rather than a
+    ///         test of something registered.
+    ///     </b>
+    ///     Nothing emits these classes; what is under test is the
     ///     cascade underneath them, so the fixture writes the rules v4 would emit and asks the
     ///     engine what it makes of them. Registering the family first and then measuring it would
     ///     be the order this document forbids.
     /// </remarks>
     const string DivideX = """
-        root { width: 400px; height: 200px; }
-        holder { flex-direction: row; }
-        kid { width: 40px; }
+                           root { width: 400px; height: 200px; }
+                           holder { flex-direction: row; }
+                           kid { width: 40px; }
 
-        .divide-x-2 > kid {
-            border-left-width: calc(2px * calc(1 - var(--tw-divide-x-reverse, 0)));
-            border-right-width: calc(2px * var(--tw-divide-x-reverse, 0));
-        }
+                           .divide-x-2 > kid {
+                               border-left-width: calc(2px * calc(1 - var(--tw-divide-x-reverse, 0)));
+                               border-right-width: calc(2px * var(--tw-divide-x-reverse, 0));
+                           }
 
-        .divide-x-reverse { --tw-divide-x-reverse: 1; }
-        """;
+                           .divide-x-reverse { --tw-divide-x-reverse: 1; }
+                           """;
 
     static (float? Left, float? Right) Edges(params string[] holderClasses) {
         using var document = new UiDocument(400f, 200f);
@@ -95,8 +106,12 @@ public class ReverseFlagTests {
 
     /// <summary>And it reaches the children, which is the only elements the rule matches.</summary>
     /// <remarks>
-    ///     ⚠ <b>The half that would have been easy to declare settled by the same-element
-    ///     measurement.</b> v4 writes the flag on the <i>container</i> and reads it in a rule
+    ///     ⚠
+    ///     <b>
+    ///         The half that would have been easy to declare settled by the same-element
+    ///         measurement.
+    ///     </b>
+    ///     v4 writes the flag on the <i>container</i> and reads it in a rule
     ///     scoped to <c>&gt; :not(:last-child)</c>, so the value has to travel one edge down the
     ///     tree. Custom properties inherit, which is what makes that work — and a cascade that
     ///     resolved <c>var()</c> only against the element's own declarations would pass the test

@@ -50,9 +50,13 @@ public interface IEditMember {
     /// <returns>Whether writing one over the other would change anything.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The default is <see cref="object.Equals(object, object)" />, which for a type
-    ///         with no equality override is <i>reference identity</i> — and that is wrong for every
-    ///         member the inspector edits in place.</b> A member initialised
+    ///         ⚠
+    ///         <b>
+    ///             The default is <see cref="object.Equals(object, object)" />, which for a type
+    ///             with no equality override is <i>reference identity</i> — and that is wrong for every
+    ///             member the inspector edits in place.
+    ///         </b>
+    ///         A member initialised
     ///         <c>= new AnimationCurve()</c> gives each instance its own object, so two objects
     ///         holding identical curves read as mixed the moment they are selected together, never
     ///         de-duplicate a write, and light their reset affordance permanently. The comparison
@@ -88,7 +92,7 @@ public interface IEditMember {
     /// <param name="value">What to set it to, boxed.</param>
     /// <param name="document">The document the objects belong to, if any.</param>
     /// <returns>The command.</returns>
-    Vixen.Authoring.IAuthoringCommand CreateSetCommand(IReadOnlyList<object> targets, object? value, EditorDocument? document);
+    IAuthoringCommand CreateSetCommand(IReadOnlyList<object> targets, object? value, EditorDocument? document);
 
     /// <summary>Builds the command that records a change the caller has <i>already applied</i>.</summary>
     /// <param name="targets">What changed.</param>
@@ -99,8 +103,12 @@ public interface IEditMember {
     /// <returns>The command; its <c>Do</c> writes <paramref name="after" />, which they already hold.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Not <see cref="CreateSetCommand" />, because that one reads the before-state at
-    ///         construction</b> — and after a surface has applied a change live, what it reads <i>is</i>
+    ///         ⚠
+    ///         <b>
+    ///             Not <see cref="CreateSetCommand" />, because that one reads the before-state at
+    ///             construction
+    ///         </b>
+    ///         — and after a surface has applied a change live, what it reads <i>is</i>
     ///         the after-state: doc 36 § Part 6 measured that shape recording nothing, stack depth 0.
     ///         A gizmo drag, a script that moved something, anything that animates a value and commits
     ///         on release is a surface that applied it and is telling the pipeline (doc 50 § P5, #1291).

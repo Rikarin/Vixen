@@ -17,8 +17,12 @@ namespace Tests;
 ///         manifest, so it cannot drift from what the build embedded. What it can drift from is the
 ///         <c>.csproj</c> that names the files and the paragraph beside it that explains why exactly
 ///         those files — and a paragraph is where the reason lives, so a wrong one is worse than no
-///         one. ⚠ <b>Two comments counted three while four were embedded, for a batch after the
-///         fourth landed</b>: <c>Core/ColorSpaces.rvn</c> joined the set to close
+///         one. ⚠
+///         <b>
+///             Two comments counted three while four were embedded, for a batch after the
+///             fourth landed
+///         </b>
+///         : <c>Core/ColorSpaces.rvn</c> joined the set to close
 ///         <a href="https://github.com/Rikarin/Vixen/issues/1093">#1093</a> and the prose that
 ///         argued for "these three" stayed. Nothing in the tree could see it, because a count in a
 ///         doc comment is not a thing anything reads.
@@ -40,8 +44,12 @@ namespace Tests;
 ///         both from the manifest would be a claim that the manifest equals itself.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Anchored at this file's compiled path and never walked up to the repository
-///         root.</b> <c>.claude/worktrees</c> holds a whole checkout per agent, so a walk from the
+///         ⚠
+///         <b>
+///             Anchored at this file's compiled path and never walked up to the repository
+///             root.
+///         </b>
+///         <c>.claude/worktrees</c> holds a whole checkout per agent, so a walk from the
 ///         root would read some other agent's copy of the project file.
 ///     </para>
 /// </remarks>
@@ -97,7 +105,7 @@ public sealed class TexturePreludeManifestTests {
         );
 
         var embedded = TextureKernelPrelude.Sources
-            .Select(source => source.Name)
+            .Select(static source => source.Name)
             .Order(StringComparer.Ordinal)
             .ToArray();
 
@@ -216,21 +224,22 @@ public sealed class TexturePreludeManifestTests {
     static string Here([CallerFilePath] string path = "") => path;
 
     /// <summary>This test project's sibling, the assembly under test.</summary>
-    static string ProjectFile() => Path.Combine(
-        Path.GetDirectoryName(Path.GetDirectoryName(Here())!)!,
-        "Vixen.TextureGraph",
-        "Vixen.TextureGraph.csproj"
-    );
+    static string ProjectFile() =>
+        Path.Combine(
+            Path.GetDirectoryName(Path.GetDirectoryName(Here())!)!,
+            "Vixen.TextureGraph",
+            "Vixen.TextureGraph.csproj"
+        );
 
     /// <summary>Every prelude resource name the project file declares, ordered as the manifest is.</summary>
     /// <param name="project">The project file's text.</param>
     /// <returns>The names, without the prefix.</returns>
     static string[] Declared(string project) => [
-        .. Regex
+        ..Regex
             .Matches(project, "LogicalName=\"(?<name>[^\"]+)\"", RegexOptions.None, TimeSpan.FromSeconds(5))
-            .Select(match => match.Groups["name"].Value)
-            .Where(name => name.StartsWith(Prefix, StringComparison.Ordinal))
-            .Select(name => name[Prefix.Length..])
+            .Select(static match => match.Groups["name"].Value)
+            .Where(static name => name.StartsWith(Prefix, StringComparison.Ordinal))
+            .Select(static name => name[Prefix.Length..])
             .Order(StringComparer.Ordinal)
     ];
 }

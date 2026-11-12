@@ -10,8 +10,12 @@ namespace Vixen.Ui.Tests;
 /// <summary><c>white-space: pre-line</c> collapses, which is the one thing nothing in this engine did.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Every pair below is a control and a declaration at the same width, for
-///         <c>WhiteSpaceBreakSpacesTests</c>' reason.</b> An assertion that only said "<c>pre-line</c>
+///         ⚠
+///         <b>
+///             Every pair below is a control and a declaration at the same width, for
+///             <c>WhiteSpaceBreakSpacesTests</c>' reason.
+///         </b>
+///         An assertion that only said "<c>pre-line</c>
 ///         gives this width" would be satisfied by a box wide enough, by a wrapper that had stopped
 ///         working, or by a string with nothing to collapse. The control is <c>normal</c> — which in
 ///         this engine preserves everything, the premise <c>WhiteSpacePreTests</c> measures rather
@@ -19,8 +23,12 @@ namespace Vixen.Ui.Tests;
 ///         the collapse and nothing else.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The control being <c>normal</c> is itself the finding worth carrying, and it will
-///         date.</b> CSS collapses under <c>normal</c> too, and turns its segment breaks into
+///         ⚠
+///         <b>
+///             The control being <c>normal</c> is itself the finding worth carrying, and it will
+///             date.
+///         </b>
+///         CSS collapses under <c>normal</c> too, and turns its segment breaks into
 ///         spaces; this engine does neither, so an undeclared paragraph here is CSS's
 ///         <c>pre-wrap</c>. The day <c>normal</c> learns to collapse, every control below reports the
 ///         same number as its declaration and this file goes red rather than quietly measuring
@@ -47,7 +55,7 @@ public class WhiteSpacePreLineTests {
 
     static FontFace LoadFont() {
         using var stream = Assembly.GetExecutingAssembly()
-            .GetManifestResourceStream("Vixen.Ui.Tests.Fonts.OpenSans-Regular.ttf")
+                .GetManifestResourceStream("Vixen.Ui.Tests.Fonts.OpenSans-Regular.ttf")
             ?? throw new InvalidOperationException("the test font is not embedded");
 
         using var memory = new MemoryStream();
@@ -99,8 +107,12 @@ public class WhiteSpacePreLineTests {
 
     /// <summary>A tab is collapsible white space here, so the tab stops stop applying.</summary>
     /// <remarks>
-    ///     ⚠ <b>The half of § 4.1.1 that looks like a detail and is a whole subsystem switching
-    ///     off.</b> A tab's advance in this engine is the distance to the next stop —
+    ///     ⚠
+    ///     <b>
+    ///         The half of § 4.1.1 that looks like a detail and is a whole subsystem switching
+    ///         off.
+    ///     </b>
+    ///     A tab's advance in this engine is the distance to the next stop —
     ///     <c>TextRun.IsTab</c>, <c>tab-size</c>, <c>UiElement.TabStop</c> — so a tab under any other
     ///     value measures a column rather than a character. Under this one there is no tab left in
     ///     the shaped text to find a stop for, and the control at a deliberately wide
@@ -169,8 +181,12 @@ public class WhiteSpacePreLineTests {
     /// <summary>Toggling the declaration on a settled element rebuilds the block rather than reusing it.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The one line of this work nothing else in the tree could see, and it is a cache
-    ///         key entry rather than a measurement.</b> <c>UiElement.Block</c> keeps the paragraph it
+    ///         ⚠
+    ///         <b>
+    ///             The one line of this work nothing else in the tree could see, and it is a cache
+    ///             key entry rather than a measurement.
+    ///         </b>
+    ///         <c>UiElement.Block</c> keeps the paragraph it
     ///         built and compares a key before reusing it; <c>white-space</c>'s collapsing half is an
     ///         entry in that key. Every other test in this file builds one element under one
     ///         declaration, so all of them pass with the entry deleted — a review deleted it and the
@@ -186,8 +202,12 @@ public class WhiteSpacePreLineTests {
     ///         declaration just removed.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b><c>flex-direction: column</c> is load-bearing and the first two attempts at this
-    ///         test were green under sabotage without it.</b> The width is an entry in the same key,
+    ///         ⚠
+    ///         <b>
+    ///             <c>flex-direction: column</c> is load-bearing and the first two attempts at this
+    ///             test were green under sabotage without it.
+    ///         </b>
+    ///         The width is an entry in the same key,
     ///         and layout asks a paragraph for its block more than once per pass — a row measures at
     ///         0 and then at the used width, an <c>align-items: flex-start</c> item at infinity and
     ///         then at 0. Any pass whose widths differ from the last pass's rebuilds the block on the
@@ -233,8 +253,12 @@ public class WhiteSpacePreLineTests {
     /// <summary>A collapsible run at the start of a paragraph is not drawn, which is phase II.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>This test used to be called
-    ///         <c>A_leading_space_is_still_drawn_which_is_phase_two_and_is_owed</c></b>, named so a
+    ///         ⚠
+    ///         <b>
+    ///             This test used to be called
+    ///             <c>A_leading_space_is_still_drawn_which_is_phase_two_and_is_owed</c>
+    ///         </b>
+    ///         , named so a
     ///         change towards Chrome would come through it rather than past it — and it did. Chrome
     ///         removes a collapsible space at the start of a line; the refusal said that was a question
     ///         about a line and no line exists when the string is transformed. True, and it did not
@@ -252,7 +276,10 @@ public class WhiteSpacePreLineTests {
     public void A_leading_run_is_not_drawn_because_it_starts_the_line() {
         var bare = Width("ab", PreLine);
 
-        Assert.True(Width("   ab", Normal) > bare + Tolerance, "the control has to draw the spaces or this measures nothing");
+        Assert.True(
+            Width("   ab", Normal) > bare + Tolerance,
+            "the control has to draw the spaces or this measures nothing"
+        );
         Assert.Equal(bare, Width("   ab", PreLine), Tolerance);
         Assert.Equal(bare, Width("\t ab", PreLine), Tolerance);
     }
@@ -275,8 +302,12 @@ public class WhiteSpacePreLineTests {
 
     /// <summary>A label of nothing but spaces has no line at all, as it has no text.</summary>
     /// <remarks>
-    ///     ⚠ <b>The first thing in this engine that can turn a non-empty <c>Text</c> into an empty
-    ///     drawn string, and the first version of this change threw on it</b> — <c>TextLine</c>
+    ///     ⚠
+    ///     <b>
+    ///         The first thing in this engine that can turn a non-empty <c>Text</c> into an empty
+    ///         drawn string, and the first version of this change threw on it
+    ///     </b>
+    ///     — <c>TextLine</c>
     ///     refuses a line of no runs, and the layout pass that asked for the block took the exception
     ///     with it. Chrome gives such a paragraph no line box, so the element is as tall as one with
     ///     no text; the control under <c>normal</c>, whose spaces are preserved, is one line tall.
@@ -319,8 +350,12 @@ public class WhiteSpacePreLineTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>This pinned the opposite for a leaf ALONE in its container, and #1363 inverted
-    ///         that half.</b> It said a lone inline leaf kept its leading space because it "can begin
+    ///         ⚠
+    ///         <b>
+    ///             This pinned the opposite for a leaf ALONE in its container, and #1363 inverted
+    ///             that half.
+    ///         </b>
+    ///         It said a lone inline leaf kept its leading space because it "can begin
     ///         in the middle of a line a sibling started" — true of an inline leaf in general and false
     ///         of this one, which has no sibling: it begins its container's first line, and Chrome
     ///         draws <c>   ab</c> there as <c>ab</c>. What does keep the space is a word before it, so
@@ -335,8 +370,8 @@ public class WhiteSpacePreLineTests {
     /// </remarks>
     [Fact]
     public void An_inline_leaf_keeps_its_leading_space_only_after_content() {
-        Assert.Equal(Width(" ab", Normal), Inline("   ab", "display: block;", before: "x"), Tolerance);
-        Assert.Equal(Width("ab", PreLine), Inline("   ab", "display: flex;", before: "x"), Tolerance);
+        Assert.Equal(Width(" ab", Normal), Inline("   ab", "display: block;", "x"), Tolerance);
+        Assert.Equal(Width("ab", PreLine), Inline("   ab", "display: flex;", "x"), Tolerance);
         Assert.Equal(Width("ab", PreLine), Inline("   ab", "display: block;"), Tolerance);
     }
 

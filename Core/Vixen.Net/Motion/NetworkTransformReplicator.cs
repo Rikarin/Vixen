@@ -58,8 +58,11 @@ public enum NetworkTransformAxes {
 ///         position in 48, and a teleport counter in 8.
 ///     </para>
 ///     <para>
-///         <b>A narrowed <see cref="Axes" /> renames the type on the wire, and that is the safety
-///         property rather than a cosmetic one.</b> Two peers built with different masks would
+///         <b>
+///             A narrowed <see cref="Axes" /> renames the type on the wire, and that is the safety
+///             property rather than a cosmetic one.
+///         </b>
+///         Two peers built with different masks would
 ///         disagree about every lane in the layout and would decode each other's transforms into
 ///         plausible wrong numbers — the failure that presents as objects drifting rather than as an
 ///         error. Folding the mask into <see cref="TypeName" /> means it folds into
@@ -175,7 +178,7 @@ public sealed class NetworkTransformReplicator : IComponentReplicator {
         // Y it just sent is a different floor rather than a fall.
         lanes.Add(new("TeleportCount", 8, true));
 
-        layout = [.. lanes];
+        layout = [..lanes];
     }
 
     /// <inheritdoc />
@@ -206,8 +209,11 @@ public sealed class NetworkTransformReplicator : IComponentReplicator {
 
     /// <inheritdoc />
     /// <remarks>
-    ///     <b>A masked axis keeps whatever the receiver already had, and it is deliberately not
-    ///     zero.</b> A door replicating a rotation and nothing else has its position from the prefab
+    ///     <b>
+    ///         A masked axis keeps whatever the receiver already had, and it is deliberately not
+    ///         zero.
+    ///     </b>
+    ///     A door replicating a rotation and nothing else has its position from the prefab
     ///     that built it; writing a fresh <see cref="NetworkTransform" /> would put every one of them
     ///     at the world origin — a zeroed field whose zero is a perfectly valid position, which is
     ///     how this class of bug always looks.

@@ -35,8 +35,12 @@ public class AttributeTransferTests {
     ///         measurement with no slack in it.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Measured here: the area rule gives the floor of 14 edges branching twice, and
-    ///         the nearest-face rule gives 17 branching twice.</b> The rejected rule zigzags by three
+    ///         ⚠
+    ///         <b>
+    ///             Measured here: the area rule gives the floor of 14 edges branching twice, and
+    ///             the nearest-face rule gives 17 branching twice.
+    ///         </b>
+    ///         The rejected rule zigzags by three
     ///         quads — twenty-one percent longer than a boundary that is <i>known</i> to be straight
     ///         — and it does so on a target whose only irregularity is a jitter smaller than half a
     ///         quad. It did <i>not</i> branch on this fixture; a single alternating column of quads
@@ -48,8 +52,8 @@ public class AttributeTransferTests {
         const int Cells = 14;
 
         var source = TransferFixtures.TwoGroups(64, 2f);
-        var byArea = TransferFixtures.Grid(Cells, 2f, _ => 0, 0.4f);
-        var byNearest = TransferFixtures.Grid(Cells, 2f, _ => 0, 0.4f);
+        var byArea = TransferFixtures.Grid(Cells, 2f, static _ => 0, 0.4f);
+        var byNearest = TransferFixtures.Grid(Cells, 2f, static _ => 0, 0.4f);
 
         AttributeTransfer.Transfer(source, SourceAttributes.None, byArea, new());
         TransferFixtures.NearestFace(source, byNearest);
@@ -78,8 +82,12 @@ public class AttributeTransferTests {
 
     /// <summary>And the same on the real thing, end to end through the remesher.</summary>
     /// <remarks>
-    ///     ⚠ <b>The synthetic case above jitters its target on purpose; this one does not have
-    ///     to.</b> An extraction's quads wobble because a Coons interior projected onto a surface and
+    ///     ⚠
+    ///     <b>
+    ///         The synthetic case above jitters its target on purpose; this one does not have
+    ///         to.
+    ///     </b>
+    ///     An extraction's quads wobble because a Coons interior projected onto a surface and
     ///     relaxed eight times does not land on a lattice, which is the condition the jitter
     ///     reproduces — so the end-to-end assertion is the one that says the rule matters in the
     ///     pipeline rather than in a fixture.
@@ -110,8 +118,12 @@ public class AttributeTransferTests {
 
     /// <summary>Normals are not interpolated through a smoothing boundary.</summary>
     /// <remarks>
-    ///     ⚠ <b>Interpolating across one is exactly the artefact smoothing groups exist to
-    ///     prevent.</b> A right-angle fold has two faces meeting at a shared position; the corners on
+    ///     ⚠
+    ///     <b>
+    ///         Interpolating across one is exactly the artefact smoothing groups exist to
+    ///         prevent.
+    ///     </b>
+    ///     A right-angle fold has two faces meeting at a shared position; the corners on
     ///     each side must keep their own side's normal, and a single averaged normal there is the
     ///     rounded-off box that makes a remesh look like it lost the hard surface — which § D4 says
     ///     the whole layout was arranged to keep.
@@ -176,8 +188,8 @@ public class AttributeTransferTests {
     /// </remarks>
     [Fact]
     public void A_source_with_no_normals_still_gives_the_output_some() {
-        var source = TransferFixtures.Grid(8, 2f, _ => 0);
-        var target = TransferFixtures.Grid(3, 2f, _ => 0);
+        var source = TransferFixtures.Grid(8, 2f, static _ => 0);
+        var target = TransferFixtures.Grid(3, 2f, static _ => 0);
 
         Assert.Empty(source.Normals.ToArray());
 
@@ -203,8 +215,8 @@ public class AttributeTransferTests {
     [InlineData(1f)]
     [InlineData(1e+3f)]
     public void Skinning_weights_round_trip_a_rigged_mesh(float scale) {
-        var source = TransferFixtures.Scaled(TransferFixtures.Grid(24, 2f, _ => 0), scale);
-        var target = TransferFixtures.Scaled(TransferFixtures.Grid(9, 2f, _ => 0), scale);
+        var source = TransferFixtures.Scaled(TransferFixtures.Grid(24, 2f, static _ => 0), scale);
+        var target = TransferFixtures.Scaled(TransferFixtures.Grid(9, 2f, static _ => 0), scale);
         var binding = TransferFixtures.Ramp(source, 2f * scale);
 
         var result = AttributeTransfer.Transfer(
@@ -221,7 +233,7 @@ public class AttributeTransferTests {
         for (var vertex = 0; vertex < target.PositionCount; vertex++) {
             Assert.InRange(result.Weights.Total(vertex), 0.999f, 1.001f);
 
-            var wanted = Math.Clamp((target.Positions[vertex].X / (2f * scale)) + 0.5f, 0f, 1f);
+            var wanted = Math.Clamp(target.Positions[vertex].X / (2f * scale) + 0.5f, 0f, 1f);
             var got = 0f;
 
             foreach (var influence in result.Weights.At(vertex)) {
@@ -244,18 +256,18 @@ public class AttributeTransferTests {
     /// </remarks>
     [Fact]
     public void An_over_full_influence_set_is_clamped_to_the_targets_limit() {
-        var source = TransferFixtures.Grid(4, 2f, _ => 0);
+        var source = TransferFixtures.Grid(4, 2f, static _ => 0);
         var influences = new SkinInfluence[source.PositionCount * 8];
 
         for (var vertex = 0; vertex < source.PositionCount; vertex++) {
             // Eight bones, weights 8/36 … 1/36, so the four that must survive are bones 0 to 3 and
             // their renormalised total is (8+7+6+5)/26.
             for (var bone = 0; bone < 8; bone++) {
-                influences[(vertex * 8) + bone] = new(bone, (8 - bone) / 36f);
+                influences[vertex * 8 + bone] = new(bone, (8 - bone) / 36f);
             }
         }
 
-        var target = TransferFixtures.Grid(2, 2f, _ => 0);
+        var target = TransferFixtures.Grid(2, 2f, static _ => 0);
 
         var result = AttributeTransfer.Transfer(
             source,
@@ -270,9 +282,9 @@ public class AttributeTransferTests {
         for (var vertex = 0; vertex < target.PositionCount; vertex++) {
             var kept = result.Weights.At(vertex).ToList();
 
-            Assert.Equal([0, 1, 2, 3], kept.Select(influence => influence.Bone));
+            Assert.Equal([0, 1, 2, 3], kept.Select(static influence => influence.Bone));
             Assert.InRange(result.Weights.Total(vertex), 0.999f, 1.001f);
-            Assert.InRange(kept[0].Weight, (8f / 26f) - 1e-4f, (8f / 26f) + 1e-4f);
+            Assert.InRange(kept[0].Weight, 8f / 26f - 1e-4f, 8f / 26f + 1e-4f);
         }
     }
 
@@ -284,8 +296,8 @@ public class AttributeTransferTests {
     /// </remarks>
     [Fact]
     public void An_unbound_source_comes_back_unbound_rather_than_attached_to_bone_zero() {
-        var source = TransferFixtures.Grid(6, 2f, _ => 0);
-        var target = TransferFixtures.Grid(3, 2f, _ => 0);
+        var source = TransferFixtures.Grid(6, 2f, static _ => 0);
+        var target = TransferFixtures.Grid(3, 2f, static _ => 0);
         var influences = new SkinInfluence[source.PositionCount * 4];
 
         var result = AttributeTransfer.Transfer(
@@ -306,8 +318,8 @@ public class AttributeTransferTests {
     /// <summary>Colours interpolate, and an absent colour channel stays absent.</summary>
     [Fact]
     public void Colours_are_interpolated_and_an_absent_channel_stays_absent() {
-        var source = TransferFixtures.Grid(16, 2f, _ => 0);
-        var target = TransferFixtures.Grid(5, 2f, _ => 0);
+        var source = TransferFixtures.Grid(16, 2f, static _ => 0);
+        var target = TransferFixtures.Grid(5, 2f, static _ => 0);
         var colors = new Vector4[source.CornerCount];
 
         for (var face = 0; face < source.FaceCount; face++) {
@@ -315,7 +327,7 @@ public class AttributeTransferTests {
             var loop = source.CornersOf(face);
 
             for (var index = 0; index < loop.Length; index++) {
-                var t = (source.Positions[loop[index]].X / 2f) + 0.5f;
+                var t = source.Positions[loop[index]].X / 2f + 0.5f;
 
                 colors[entry.Start + index] = new(t, 0f, 0f, 1f);
             }
@@ -330,14 +342,19 @@ public class AttributeTransferTests {
             var loop = target.CornersOf(face);
 
             for (var index = 0; index < loop.Length; index++) {
-                var wanted = (target.Positions[loop[index]].X / 2f) + 0.5f;
+                var wanted = target.Positions[loop[index]].X / 2f + 0.5f;
 
                 Assert.InRange(painted.Colors[entry.Start + index].X, wanted - 0.05f, wanted + 0.05f);
                 Assert.Equal(1f, painted.Colors[entry.Start + index].W, 3);
             }
         }
 
-        var bare = AttributeTransfer.Transfer(source, SourceAttributes.None, TransferFixtures.Grid(5, 2f, _ => 0), new());
+        var bare = AttributeTransfer.Transfer(
+            source,
+            SourceAttributes.None,
+            TransferFixtures.Grid(5, 2f, static _ => 0),
+            new()
+        );
 
         Assert.Empty(bare.Colors);
         Assert.Null(bare.Weights);
@@ -345,8 +362,12 @@ public class AttributeTransferTests {
 
     /// <summary>The whole transfer gives the same answer at a thousandth and a thousand times scale.</summary>
     /// <remarks>
-    ///     ⚠ <b>Four absolute-tolerance bugs were found in this repository in one day, all of them
-    ///     <c>MathUtil.ZeroTolerance</c> guarding a quantity that carries the model's units.</b> A
+    ///     ⚠
+    ///     <b>
+    ///         Four absolute-tolerance bugs were found in this repository in one day, all of them
+    ///         <c>MathUtil.ZeroTolerance</c> guarding a quantity that carries the model's units.
+    ///     </b>
+    ///     A
     ///     cross product carries them squared and a barycentric denominator to the fourth, so the
     ///     scale at which a guard fires moves by six orders for a factor of ten in the model. The
     ///     answers compared here are scale-free by construction — a normal, a group index, a weight —
@@ -356,7 +377,7 @@ public class AttributeTransferTests {
     public void The_transfer_answers_the_same_at_a_thousandth_and_a_thousand_times_scale() {
         var baseline = Answer(1f);
 
-        foreach (var scale in (float[]) [1e-3f, 1e+3f]) {
+        foreach (var scale in (float[])[1e-3f, 1e+3f]) {
             var scaled = Answer(scale);
 
             Assert.Equal(baseline.Groups, scaled.Groups);
@@ -370,7 +391,11 @@ public class AttributeTransferTests {
 
             for (var at = 0; at < baseline.Weights.Length; at++) {
                 Assert.Equal(baseline.Weights[at].Bone, scaled.Weights[at].Bone);
-                Assert.InRange(scaled.Weights[at].Weight, baseline.Weights[at].Weight - 1e-4f, baseline.Weights[at].Weight + 1e-4f);
+                Assert.InRange(
+                    scaled.Weights[at].Weight,
+                    baseline.Weights[at].Weight - 1e-4f,
+                    baseline.Weights[at].Weight + 1e-4f
+                );
             }
         }
     }
@@ -396,7 +421,7 @@ public class AttributeTransferTests {
 
         source.AddFace([e, e, e]);
 
-        var target = TransferFixtures.Grid(3, 2f, _ => 0);
+        var target = TransferFixtures.Grid(3, 2f, static _ => 0);
 
         AttributeTransfer.Transfer(source, SourceAttributes.None, target, new());
 
@@ -408,7 +433,7 @@ public class AttributeTransferTests {
     /// <summary>Everything one run of the transfer produced, at one scale, for comparison.</summary>
     static (int[] Groups, Vector3[] Normals, SkinInfluence[] Weights) Answer(float scale) {
         var source = TransferFixtures.Scaled(TransferFixtures.TwoGroups(32, 2f), scale);
-        var target = TransferFixtures.Scaled(TransferFixtures.Grid(9, 2f, _ => 0, 0.3f), scale);
+        var target = TransferFixtures.Scaled(TransferFixtures.Grid(9, 2f, static _ => 0, 0.3f), scale);
         var binding = TransferFixtures.Ramp(source, 2f * scale);
 
         var result = AttributeTransfer.Transfer(source, new() { Weights = binding }, target, new());
@@ -418,18 +443,18 @@ public class AttributeTransferTests {
             groups[face] = target.Faces[face].Group;
         }
 
-        return (groups, target.Normals.ToArray(), [.. result.Weights!.Influences]);
+        return (groups, target.Normals.ToArray(), [..result.Weights!.Influences]);
     }
 
     /// <summary>Two sheets meeting at a right angle: one crease, and a smoothing group each side.</summary>
     static EditMesh Fold(int cells) {
         var mesh = new EditMesh();
-        var indices = new int[(2 * cells) + 1, cells + 1];
+        var indices = new int[2 * cells + 1, cells + 1];
 
         for (var i = 0; i <= 2 * cells; i++) {
             for (var j = 0; j <= cells; j++) {
-                var t = ((float) i / cells) - 1f;
-                var y = ((float) j / cells) - 0.5f;
+                var t = (float)i / cells - 1f;
+                var y = (float)j / cells - 0.5f;
 
                 // t < 0 climbs the wall at x = 0; t >= 0 runs out along the floor.
                 indices[i, j] = mesh.AddPosition(t < 0f ? new(0f, y, -t) : new(t, y, 0f));

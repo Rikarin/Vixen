@@ -69,24 +69,23 @@ public class QueryPreviewTests {
     public void AnEmptyRunDrawsNothing() {
         var draw = new DebugDraw();
 
-        Assert.Equal(0, QueryPreview.Draw(draw, new QueryResults()));
+        Assert.Equal(0, QueryPreview.Draw(draw, new()));
         Assert.Equal(0, draw.Count);
     }
 
     /// <summary>A ring around the origin, half of it filtered out and the rest scored by distance.</summary>
     static QueryResults Run(out World world) {
-        world = new World("query-preview");
+        world = new("query-preview");
 
         var context = new AgentContext(world, new(3, 1, world.Id), new(BlackboardLayout.Empty), null, GameTime.Zero, 0);
 
         var query = new EnvironmentQuery(
             Symbol.Intern("ring"),
             [QueryGenerators.Circle(5f, 8)],
-            new QueryTest(QueryTests.From("east", static (in AgentContext c, in QueryOrigin o, in QueryPoint p) => p.Position.X)) {
-                Purpose = QueryTestPurpose.Filter,
-                Floor = 0f
-            },
-            new QueryTest(QueryTests.Distance(QueryDistanceFrom.Querier)) { Maximum = 10f }
+            new QueryTest(
+                QueryTests.From("east", static (in AgentContext c, in QueryOrigin o, in QueryPoint p) => p.Position.X)
+            ) { Purpose = QueryTestPurpose.Filter, Floor = 0f },
+            new QueryTest(QueryTests.Distance()) { Maximum = 10f }
         );
 
         var results = new QueryResults { Detailed = true };

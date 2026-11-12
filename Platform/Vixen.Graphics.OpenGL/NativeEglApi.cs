@@ -177,8 +177,7 @@ public sealed unsafe class NativeEglApi : IEglApi {
     public bool BindApi(uint api) => bindApi(api) != EglConstants.False;
 
     /// <inheritdoc />
-    public string? QueryString(nint display, int name) =>
-        Marshal.PtrToStringUTF8((nint)queryString(display, name));
+    public string? QueryString(nint display, int name) => Marshal.PtrToStringUTF8((nint)queryString(display, name));
 
     /// <inheritdoc />
     public bool ChooseConfig(nint display, ReadOnlySpan<int> attributes, Span<nint> configs, out int count) {
@@ -226,12 +225,10 @@ public sealed unsafe class NativeEglApi : IEglApi {
     }
 
     /// <inheritdoc />
-    public bool DestroySurface(nint display, nint surface) =>
-        destroySurface(display, surface) != EglConstants.False;
+    public bool DestroySurface(nint display, nint surface) => destroySurface(display, surface) != EglConstants.False;
 
     /// <inheritdoc />
-    public bool DestroyContext(nint display, nint context) =>
-        destroyContext(display, context) != EglConstants.False;
+    public bool DestroyContext(nint display, nint context) => destroyContext(display, context) != EglConstants.False;
 
     /// <inheritdoc />
     public bool QuerySurface(nint display, nint surface, int attribute, out int value) {
@@ -250,12 +247,10 @@ public sealed unsafe class NativeEglApi : IEglApi {
     public nint GetCurrentContext() => getCurrentContext();
 
     /// <inheritdoc />
-    public bool SwapBuffers(nint display, nint surface) =>
-        swapBuffers(display, surface) != EglConstants.False;
+    public bool SwapBuffers(nint display, nint surface) => swapBuffers(display, surface) != EglConstants.False;
 
     /// <inheritdoc />
-    public bool SwapInterval(nint display, int interval) =>
-        swapInterval(display, interval) != EglConstants.False;
+    public bool SwapInterval(nint display, int interval) => swapInterval(display, interval) != EglConstants.False;
 
     /// <inheritdoc />
     public bool ReleaseThread() => releaseThread() != EglConstants.False;
@@ -269,7 +264,7 @@ public sealed unsafe class NativeEglApi : IEglApi {
         // entry point is, and which a caller could still pass — takes the heap rather than
         // overrunning.
         var needed = Encoding.UTF8.GetMaxByteCount(name.Length) + 1;
-        Span<byte> utf8 = needed <= 256 ? stackalloc byte[256] : new byte[needed];
+        var utf8 = needed <= 256 ? stackalloc byte[256] : new byte[needed];
         var written = Encoding.UTF8.GetBytes(name, utf8);
         utf8[written] = 0;
 
@@ -342,9 +337,10 @@ public sealed unsafe class NativeEglApi : IEglApi {
         }
     }
 
-    static nint Export(nint handle, string name) => NativeLibrary.TryGetExport(handle, name, out var address)
-        ? address
-        : throw new EntryPointNotFoundException($"{name} is not exported by {ResolvedEglPath}.");
+    static nint Export(nint handle, string name) =>
+        NativeLibrary.TryGetExport(handle, name, out var address)
+            ? address
+            : throw new EntryPointNotFoundException($"{name} is not exported by {ResolvedEglPath}.");
 
     static string InstallHint() {
         if (OperatingSystem.IsAndroid()) {

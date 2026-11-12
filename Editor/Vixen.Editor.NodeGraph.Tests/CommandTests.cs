@@ -4,7 +4,6 @@
 using Vixen.Core;
 using Vixen.Core.Mathematics;
 using Vixen.Editor.Core;
-using Vixen.Editor.NodeGraph;
 using Vixen.NodeGraph;
 using Xunit;
 
@@ -127,18 +126,24 @@ public class CommandTests : IDisposable {
     public void A_drag_is_one_undo_step_and_two_drags_are_two() {
         var node = graph.Add("Test/Colour", new(0f, 0f));
 
-        Stack.Execute(new MoveNodesCommand(graph, new Dictionary<NodeId, Vector2> { [node.Id] = new(10f, 0f) }, document));
-        Stack.Execute(new MoveNodesCommand(graph, new Dictionary<NodeId, Vector2> { [node.Id] = new(20f, 0f) }, document));
+        Stack.Execute(
+            new MoveNodesCommand(graph, new Dictionary<NodeId, Vector2> { [node.Id] = new(10f, 0f) }, document)
+        );
+        Stack.Execute(
+            new MoveNodesCommand(graph, new Dictionary<NodeId, Vector2> { [node.Id] = new(20f, 0f) }, document)
+        );
 
         Assert.Equal(1, Stack.Depth.Value);
 
         Stack.Seal();
-        Stack.Execute(new MoveNodesCommand(graph, new Dictionary<NodeId, Vector2> { [node.Id] = new(30f, 0f) }, document));
+        Stack.Execute(
+            new MoveNodesCommand(graph, new Dictionary<NodeId, Vector2> { [node.Id] = new(30f, 0f) }, document)
+        );
 
         Assert.Equal(2, Stack.Depth.Value);
 
         Stack.Undo();
-        Assert.Equal(new Vector2(20f, 0f), node.Position);
+        Assert.Equal(new(20f, 0f), node.Position);
 
         // One more undo goes back to before the first drag, not to one mouse-move ago.
         Stack.Undo();
@@ -150,8 +155,12 @@ public class CommandTests : IDisposable {
         var first = graph.Add("Test/Colour");
         var second = graph.Add("Test/Colour");
 
-        Stack.Execute(new MoveNodesCommand(graph, new Dictionary<NodeId, Vector2> { [first.Id] = new(10f, 0f) }, document));
-        Stack.Execute(new MoveNodesCommand(graph, new Dictionary<NodeId, Vector2> { [second.Id] = new(10f, 0f) }, document));
+        Stack.Execute(
+            new MoveNodesCommand(graph, new Dictionary<NodeId, Vector2> { [first.Id] = new(10f, 0f) }, document)
+        );
+        Stack.Execute(
+            new MoveNodesCommand(graph, new Dictionary<NodeId, Vector2> { [second.Id] = new(10f, 0f) }, document)
+        );
 
         Assert.Equal(2, Stack.Depth.Value);
     }
@@ -160,7 +169,9 @@ public class CommandTests : IDisposable {
     public void An_auto_layout_does_not_merge_into_the_drag_before_it() {
         var node = graph.Add("Test/Colour");
 
-        Stack.Execute(new MoveNodesCommand(graph, new Dictionary<NodeId, Vector2> { [node.Id] = new(10f, 0f) }, document));
+        Stack.Execute(
+            new MoveNodesCommand(graph, new Dictionary<NodeId, Vector2> { [node.Id] = new(10f, 0f) }, document)
+        );
         Stack.Execute(LayoutCommand.For(graph, null, default, document));
 
         Assert.Equal(2, Stack.Depth.Value);
@@ -264,7 +275,7 @@ public class CommandTests : IDisposable {
         var command = new PasteCommand(graph, fragment, new(50f, 50f), document);
         Stack.Execute(command);
 
-        var identities = command.Pasted.Select(node => node.Id).ToArray();
+        var identities = command.Pasted.Select(static node => node.Id).ToArray();
 
         Assert.Equal(4, graph.Nodes.Count);
         Assert.Equal(2, graph.Edges.Count);
@@ -276,7 +287,7 @@ public class CommandTests : IDisposable {
 
         // ⚠ The same identities. A paste that renumbered on redo would leave an undone-and-redone
         // paste holding different nodes from the ones the author then selected and moved.
-        Assert.Equal(identities, command.Pasted.Select(node => node.Id));
+        Assert.Equal(identities, command.Pasted.Select(static node => node.Id));
         Assert.Equal(2, graph.Edges.Count);
     }
 

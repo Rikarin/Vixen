@@ -34,7 +34,7 @@ public class SurfaceTests {
         fixture.Update();
 
         var bounds = slider.Bounds;
-        var y = bounds.Y + (bounds.Height * 0.5f);
+        var y = bounds.Y + bounds.Height * 0.5f;
 
         // The rail is inset by half a thumb at each end — 14 by default — so the middle of a
         // 114-pixel control is the middle of a 100-pixel rail.
@@ -55,7 +55,7 @@ public class SurfaceTests {
         fixture.Update();
 
         var bounds = slider.Bounds;
-        var y = bounds.Y + (bounds.Height * 0.5f);
+        var y = bounds.Y + bounds.Height * 0.5f;
 
         fixture.Click(bounds.X + 1f, y);
         Assert.Equal(0f, slider.Value, Tolerance);
@@ -154,8 +154,12 @@ public class SurfaceTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>An icon is a <c>Field</c> and its geometry is <i>local</i>, which is the invariant its
-    ///     atlas rests on.</b> A field is keyed on the path, so an icon whose segments carried where it
+    ///     ⚠
+    ///     <b>
+    ///         An icon is a <c>Field</c> and its geometry is <i>local</i>, which is the invariant its
+    ///         atlas rests on.
+    ///     </b>
+    ///     A field is keyed on the path, so an icon whose segments carried where it
     ///     was would be a different path the moment anything scrolled — and re-encoding a field costs
     ///     milliseconds where re-tessellating one costs microseconds. The position rides on the command
     ///     instead, exactly as a glyph run's does.
@@ -195,10 +199,12 @@ public class SurfaceTests {
 
     [Fact]
     public void Scrolling_moves_the_content_without_relaying_it_out() {
-        using var fixture = new ControlFixture(css: """
-            scroll-view { width: 200px; height: 100px; }
-            .tall { height: 400px; }
-        """);
+        using var fixture = new ControlFixture(
+            css: """
+                     scroll-view { width: 200px; height: 100px; }
+                     .tall { height: 400px; }
+                 """
+        );
 
         var view = fixture.Add<ScrollView>();
         var tall = view.Content.Add("div", classNames: "tall");
@@ -221,10 +227,12 @@ public class SurfaceTests {
 
     [Fact]
     public void It_clamps_to_the_content_and_the_wheel_chains_when_it_cannot_move() {
-        using var fixture = new ControlFixture(css: """
-            scroll-view { width: 200px; height: 100px; }
-            .tall { height: 400px; }
-        """);
+        using var fixture = new ControlFixture(
+            css: """
+                     scroll-view { width: 200px; height: 100px; }
+                     .tall { height: 400px; }
+                 """
+        );
 
         var view = fixture.Add<ScrollView>();
         view.Content.Add("div", classNames: "tall");
@@ -245,10 +253,12 @@ public class SurfaceTests {
 
     [Fact]
     public void Focusing_something_inside_scrolls_it_into_view() {
-        using var fixture = new ControlFixture(css: """
-            scroll-view { width: 200px; height: 100px; }
-            .spacer { height: 300px; }
-        """);
+        using var fixture = new ControlFixture(
+            css: """
+                     scroll-view { width: 200px; height: 100px; }
+                     .spacer { height: 300px; }
+                 """
+        );
 
         var view = fixture.Add<ScrollView>();
         view.Content.Add("div", classNames: "spacer");
@@ -390,8 +400,12 @@ public class SurfaceTests {
     /// <summary>Alt and a menu's marked letter drop that menu, as Alt+F does everywhere else.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Through the document with a real chord, not by raising an
-    ///         <c>AccessKeyEvent</c>.</b> The document is what decides which element a key names —
+    ///         ⚠
+    ///         <b>
+    ///             Through the document with a real chord, not by raising an
+    ///             <c>AccessKeyEvent</c>.
+    ///         </b>
+    ///         The document is what decides which element a key names —
     ///         it walks the focus scope, skips what has no box and cycles between elements that
     ///         share a letter — so a test that raised the event by hand would pass against a bar
     ///         nothing could ever reach.

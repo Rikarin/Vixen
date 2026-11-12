@@ -3,9 +3,7 @@
 
 using CsCheck;
 using Vixen.Authoring;
-using Vixen.Core.Mathematics;
 using Vixen.Graphics.Vulkan;
-using Vixen.NodeGraph;
 using Vixen.TextureGraph;
 using Vixen.Texturing.Layers;
 using Vixen.Texturing.Painting;
@@ -24,11 +22,13 @@ public sealed class LayerStackEvaluatorDeviceTests : IDisposable {
     const int Size = 520; // not a power of two, and more than two tiles a side
     const string Usage = "baseColor";
 
-    static readonly TextureLibrary Library = TextureNodeLibrary.Publish(null);
+    static readonly TextureLibrary Library = TextureNodeLibrary.Publish();
 
     readonly string folder = Path.Combine(Path.GetTempPath(), $"vixen-stack-{Guid.NewGuid():N}");
 
-    public LayerStackEvaluatorDeviceTests() => Directory.CreateDirectory(folder);
+    public LayerStackEvaluatorDeviceTests() {
+        Directory.CreateDirectory(folder);
+    }
 
     public void Dispose() => Directory.Delete(folder, true);
 
@@ -59,7 +59,7 @@ public sealed class LayerStackEvaluatorDeviceTests : IDisposable {
     public void A_stack_output_reads_raw_on_either_path() {
         using var device = OpenDevice();
         using var evaluator = new TexturePlanEvaluator(device);
-        var run = Open(evaluator, 4, 1, filter: 0, out var image);
+        var run = Open(evaluator, 4, 1, 0, out var image);
 
         using (run) {
             using (run.Evaluate()) { }
@@ -86,7 +86,7 @@ public sealed class LayerStackEvaluatorDeviceTests : IDisposable {
     public void A_stroke_on_local_layers_touches_its_tiles_and_not_the_image() {
         using var device = OpenDevice();
         using var evaluator = new TexturePlanEvaluator(device);
-        var run = Open(evaluator, 4, 1, filter: 0, out var image);
+        var run = Open(evaluator, 4, 1, 0, out var image);
 
         using (run) {
             using (run.Evaluate()) { }
@@ -153,7 +153,7 @@ public sealed class LayerStackEvaluatorDeviceTests : IDisposable {
     public void A_filter_that_reads_its_neighbours_runs_whole_above_a_stroke() {
         using var device = OpenDevice();
         using var evaluator = new TexturePlanEvaluator(device);
-        var run = Open(evaluator, 4, 1, filter: 2, out var image);
+        var run = Open(evaluator, 4, 1, 2, out var image);
 
         using (run) {
             using (run.Evaluate()) { }
@@ -168,7 +168,7 @@ public sealed class LayerStackEvaluatorDeviceTests : IDisposable {
                 );
             }
 
-            Assert.Equal(Pixels(run, clean: false), Pixels(run, clean: true));
+            Assert.Equal(Pixels(run, false), Pixels(run, true));
         }
     }
 
@@ -182,12 +182,12 @@ public sealed class LayerStackEvaluatorDeviceTests : IDisposable {
     public void A_value_edit_does_not_compile_and_what_the_graph_does_not_say_does() {
         using var device = OpenDevice();
         using var evaluator = new TexturePlanEvaluator(device);
-        var run = Open(evaluator, 2, 1, filter: 0, out _, out var stack);
+        var run = Open(evaluator, 2, 1, 0, out _, out var stack);
 
         using (run) {
             using (run.Evaluate()) { }
 
-            var first = Pixels(run, clean: false);
+            var first = Pixels(run, false);
             var layers = stack.Sets[0].Layers;
             var index = layers.FindIndex(static layer => layer.Id == "painted");
 
@@ -196,7 +196,7 @@ public sealed class LayerStackEvaluatorDeviceTests : IDisposable {
             Assert.Empty(run.Prepare(stack, stack.Sets[0], Library.Registry, Library.SubGraphs));
             Assert.False(run.Compiled, "a value edit compiled");
             Same(run, "after a value edit");
-            Assert.False(first.AsSpan().SequenceEqual(Pixels(run, clean: false)), "the opacity reached no pixel");
+            Assert.False(first.AsSpan().SequenceEqual(Pixels(run, false)), "the opacity reached no pixel");
 
             // The seed is in no node, so nothing about the graph says it moved.
             stack = stack with { Seed = stack.Seed + 1 };
@@ -210,7 +210,14 @@ public sealed class LayerStackEvaluatorDeviceTests : IDisposable {
         }
     }
 
-    void Check(TexturePlanEvaluator evaluator, int count, int mode, int filter, int seed, (int X, int Y, int R)[] stamps) {
+    void Check(
+        TexturePlanEvaluator evaluator,
+        int count,
+        int mode,
+        int filter,
+        int seed,
+        (int X, int Y, int R)[] stamps
+    ) {
         using var run = Open(evaluator, count, mode, filter, out var image);
 
         using (run.Evaluate()) { }
@@ -219,7 +226,10 @@ public sealed class LayerStackEvaluatorDeviceTests : IDisposable {
         var random = new Random(seed);
 
         foreach (var (x, y, radius) in stamps) {
-            done.Add(((PaintStrokeCommand)Paint(image, x, y, (uint)random.Next() | 0xFF000000u, radius * 6f), image.ToTexels()));
+            done.Add(
+                ((PaintStrokeCommand)Paint(image, x, y, (uint)random.Next() | 0xFF000000u, radius * 6f),
+                    image.ToTexels())
+            );
             Same(run, $"after a stroke at ({x}, {y}) over {count} layers, mode {mode}, filter {filter}");
         }
 
@@ -330,7 +340,7 @@ public sealed class LayerStackEvaluatorDeviceTests : IDisposable {
 
         using var run = new LayerStackEvaluator(
             evaluator,
-            new PaintCanvasStore(long.MaxValue),
+            new(long.MaxValue),
             Path.Combine(folder, $"{Guid.NewGuid():N}.vxlayers")
         );
 
@@ -343,8 +353,8 @@ public sealed class LayerStackEvaluatorDeviceTests : IDisposable {
     }
 
     static void Same(LayerStackEvaluator run, string when) {
-        var repaired = Pixels(run, clean: false);
-        var clean = Pixels(run, clean: true);
+        var repaired = Pixels(run, false);
+        var clean = Pixels(run, true);
 
         Assert.True(repaired.AsSpan().SequenceEqual(clean), $"The repaired picture differs from a clean one {when}.");
     }
@@ -358,13 +368,13 @@ public sealed class LayerStackEvaluatorDeviceTests : IDisposable {
 
     static IAuthoringCommand Paint(PaintImage image, int x, int y, uint colour, float radius) {
         var session = PaintSession.Begin(
-            new(image, PaintCoverage.Everywhere(image.Width, image.Height), Gutter: 0),
+            new(image, PaintCoverage.Everywhere(image.Width, image.Height), 0),
             PaintBrush.Default with { Radius = radius, Spacing = 0.25f, Flow = 1f },
             colour
         );
 
-        session.Move(new Vector2(x, y));
-        session.Move(new Vector2(x + 3f, y + 2f));
+        session.Move(new(x, y));
+        session.Move(new(x + 3f, y + 2f));
 
         return session.End("Stroke")!;
     }
@@ -397,11 +407,7 @@ public sealed class LayerStackEvaluatorDeviceTests : IDisposable {
         image = opened!.Channel(Usage);
 
         List<LayerAsset> layers = [
-            new() {
-                Id = "under",
-                Kind = LayerKind.Fill,
-                Values = { [Usage] = [0.25f, 0.5f, 0.75f, 1f] }
-            },
+            new() { Id = "under", Kind = LayerKind.Fill, Values = { [Usage] = [0.25f, 0.5f, 0.75f, 1f] } },
             new() {
                 Id = "painted",
                 Kind = LayerKind.Paint,
@@ -414,7 +420,9 @@ public sealed class LayerStackEvaluatorDeviceTests : IDisposable {
         for (var index = 0; index < count; index++) {
             layers.Add(
                 (filter, index % 2) switch {
-                    (1, 0) => new() { Id = $"f{index}", Kind = LayerKind.Filter, Filter = LayerFilterKind.Hsl, Opacity = 0.5f },
+                    (1, 0) => new() {
+                        Id = $"f{index}", Kind = LayerKind.Filter, Filter = LayerFilterKind.Hsl, Opacity = 0.5f
+                    },
                     (2, 0) => new() {
                         Id = $"f{index}",
                         Kind = LayerKind.Filter,
@@ -445,9 +453,7 @@ public sealed class LayerStackEvaluatorDeviceTests : IDisposable {
             BaseHeight = Size,
             Sets = [
                 new() {
-                    Name = "Body",
-                    Channels = [new() { Usage = Usage, Default = [0f, 0f, 0f, 1f] }],
-                    Layers = layers
+                    Name = "Body", Channels = [new() { Usage = Usage, Default = [0f, 0f, 0f, 1f] }], Layers = layers
                 }
             ]
         };

@@ -28,7 +28,9 @@ public sealed class MikkTSpaceTests {
             var values = new Vector4[int.Parse(parts[1], CultureInfo.InvariantCulture)];
 
             for (var at = 0; at < values.Length; at++) {
-                var numbers = reader.ReadLine()!.Split(' ').Select(static text => float.Parse(text, CultureInfo.InvariantCulture)).ToArray();
+                var numbers = reader.ReadLine()!.Split(' ')
+                    .Select(static text => float.Parse(text, CultureInfo.InvariantCulture))
+                    .ToArray();
 
                 values[at] = new(numbers[0], numbers[1], numbers[2], numbers[3]);
             }
@@ -39,7 +41,7 @@ public sealed class MikkTSpaceTests {
         return known;
     }
 
-    public static TheoryData<string> Names() => [.. MikkFixtures.All.Select(static soup => soup.Name)];
+    public static TheoryData<string> Names() => [..MikkFixtures.All.Select(static soup => soup.Name)];
 
     [Theory]
     [MemberData(nameof(Names))]
@@ -65,10 +67,13 @@ public sealed class MikkTSpaceTests {
     public void A_plane_has_u_along_x_and_the_top_of_the_image_along_y() {
         var soup = MikkFixtures.Plane();
 
-        Assert.All(Solve(soup), tangent => {
-            Assert.Equal(new(1f, 0f, 0f, 1f), tangent);
-            Assert.Equal(Vector3.UnitY, Vector3.Cross(Vector3.UnitZ, Vector3.UnitX) * tangent.W);
-        });
+        Assert.All(
+            Solve(soup),
+            static tangent => {
+                Assert.Equal(new(1f, 0f, 0f, 1f), tangent);
+                Assert.Equal(Vector3.UnitY, Vector3.Cross(Vector3.UnitZ, Vector3.UnitX) * tangent.W);
+            }
+        );
     }
 
     [Fact]
@@ -95,7 +100,9 @@ public sealed class MikkTSpaceTests {
         var tangents = Solve(soup);
 
         for (var triangle = 0; triangle < tangents.Length / 3; triangle++) {
-            var middle = soup.Positions[triangle * 3] + soup.Positions[(triangle * 3) + 1] + soup.Positions[(triangle * 3) + 2];
+            var middle = soup.Positions[triangle * 3]
+                + soup.Positions[triangle * 3 + 1]
+                + soup.Positions[triangle * 3 + 2];
 
             // The far half of the tube is the one whose atlas runs back the other way.
             Assert.Equal(middle.Z < 0f ? 1f : -1f, tangents[triangle * 3].W);
@@ -138,14 +145,14 @@ public sealed class MikkTSpaceTests {
 
         for (var slot = 0; slot < count; slot++) {
             for (var corner = 0; corner < 3; corner++) {
-                from[(slot * 3) + corner] = (order[slot] * 3) + ((corner + turns[slot]) % 3);
+                from[slot * 3 + corner] = order[slot] * 3 + (corner + turns[slot]) % 3;
             }
         }
 
         var actual = MikkTSpace.Generate(
-            [.. from.Select(at => soup.Positions[at])],
-            [.. from.Select(at => soup.Normals[at])],
-            [.. from.Select(at => soup.TexCoords[at])]
+            [..from.Select(at => soup.Positions[at])],
+            [..from.Select(at => soup.Normals[at])],
+            [..from.Select(at => soup.TexCoords[at])]
         );
 
         for (var at = 0; at < from.Length; at++) {
@@ -170,7 +177,17 @@ public sealed class MikkTSpaceTests {
 
     [Fact]
     public void Corners_that_do_not_make_triangles_are_refused() {
-        Assert.Throws<ArgumentException>(() => MikkTSpace.Generate([Vector3.Zero], [Vector3.UnitX], [Vector2.Zero]));
-        Assert.Throws<ArgumentException>(() => MikkTSpace.Generate([Vector3.Zero, Vector3.Zero, Vector3.Zero], [Vector3.UnitX], [Vector2.Zero]));
+        Assert.Throws<ArgumentException>(static () => MikkTSpace.Generate(
+                [Vector3.Zero],
+                [Vector3.UnitX],
+                [Vector2.Zero]
+            )
+        );
+        Assert.Throws<ArgumentException>(static () => MikkTSpace.Generate(
+                [Vector3.Zero, Vector3.Zero, Vector3.Zero],
+                [Vector3.UnitX],
+                [Vector2.Zero]
+            )
+        );
     }
 }

@@ -9,8 +9,11 @@ namespace Vixen.Geometry.Remeshing.Tests;
 /// <summary>One test per setting that is supposed to do something, comparing two outputs.</summary>
 /// <remarks>
 ///     <para>
-///         <b>The failure class docs/plan/41's R7 went looking for: a setting that is read and not
-///         honoured.</b> Every other test in this project fixes the settings and asserts something
+///         <b>
+///             The failure class docs/plan/41's R7 went looking for: a setting that is read and not
+///             honoured.
+///         </b>
+///         Every other test in this project fixes the settings and asserts something
 ///         about one result, and a field that is declared, bound, serialized, shown in a panel and
 ///         then never consulted passes all of them. The only assertion that catches it is "change this
 ///         one thing and the output changes", so each of <see cref="RemeshSettings.Guides" />,
@@ -23,8 +26,12 @@ namespace Vixen.Geometry.Remeshing.Tests;
 ///         file asserts.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Two settings are still declared and not honoured, and they are named rather than
-///         quietly untested:</b> <see cref="RemeshSettings.TransferAttributes" /> is R5's and
+///         ⚠
+///         <b>
+///             Two settings are still declared and not honoured, and they are named rather than
+///             quietly untested:
+///         </b>
+///         <see cref="RemeshSettings.TransferAttributes" /> is R5's and
 ///         <see cref="RemeshSettings.GenerateUvs" /> is R6's. Nothing in the pipeline reads either.
 ///     </para>
 /// </remarks>
@@ -32,16 +39,24 @@ public class SettingsHonouredTests {
     /// <summary>A guide curve pulls the field, so the mesh that comes out is a different mesh.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A guide only claims an edge of the <i>conditioned</i> surface, and the tolerance it
-    ///         claims within is a fraction of the bounding-box diagonal while the thing it has to reach
-    ///         is a fraction of the target edge length.</b> <see cref="FeatureDetector.CurveTolerance" />
+    ///         ⚠
+    ///         <b>
+    ///             A guide only claims an edge of the <i>conditioned</i> surface, and the tolerance it
+    ///             claims within is a fraction of the bounding-box diagonal while the thing it has to reach
+    ///             is a fraction of the target edge length.
+    ///         </b>
+    ///         <see cref="FeatureDetector.CurveTolerance" />
     ///         is one percent of the diagonal; the pre-remesh rebuilds the surface at
     ///         <c>√(area / quads)</c>, which on any model coarse enough to be worth remeshing is
     ///         several times larger. The two only meet when the target is dense.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Which is why this fixture turns the pre-remesh off, and why that is a finding
-    ///         rather than a convenience.</b> With
+    ///         ⚠
+    ///         <b>
+    ///             Which is why this fixture turns the pre-remesh off, and why that is a finding
+    ///             rather than a convenience.
+    ///         </b>
+    ///         With
     ///         <see cref="ConditioningSettings.PreRemeshIterations" /> at its default of five, a guide
     ///         authored against the source's own vertices is resolved onto no edge at all and does
     ///         nothing, silently — measured on an 8×8 plate: 8 edges claimed at zero iterations, none
@@ -100,8 +115,12 @@ public class SettingsHonouredTests {
 
     /// <summary>A density mask that varies over the source changes where the quads go.</summary>
     /// <remarks>
-    ///     ⚠ <b>The mask has to be exactly one entry per source position or it is ignored in
-    ///     silence</b> — <c>Remesher</c> compares its length against <c>PositionCount</c> and passes
+    ///     ⚠
+    ///     <b>
+    ///         The mask has to be exactly one entry per source position or it is ignored in
+    ///         silence
+    ///     </b>
+    ///     — <c>Remesher</c> compares its length against <c>PositionCount</c> and passes
     ///     null on a mismatch. That is the right behaviour for a mask authored against a mesh that has
     ///     since changed, and it is also the thing that would make this test pass while proving
     ///     nothing, so the length is asserted first.
@@ -127,8 +146,11 @@ public class SettingsHonouredTests {
 
     /// <summary>An existing coordinate seam becomes a feature, so the layout is cut on it.</summary>
     /// <remarks>
-    ///     <b>docs/plan/41 § D4's "so that a retexture-then-remesh round trip does not shred an
-    ///     atlas".</b> The fixture's coordinates jump across one band of the cylinder, which is what an
+    ///     <b>
+    ///         docs/plan/41 § D4's "so that a retexture-then-remesh round trip does not shred an
+    ///         atlas".
+    ///     </b>
+    ///     The fixture's coordinates jump across one band of the cylinder, which is what an
     ///     atlas cut looks like from the remesher's side.
     /// </remarks>
     [Fact]

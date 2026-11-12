@@ -32,13 +32,13 @@ public class LedgerAccountTests {
     /// </summary>
     [Fact]
     public void Default_equals_a_constructed_empty_one() {
-        Assert.Equal(default, LedgerAccount.Of(""));
-        Assert.Equal(default(LedgerAccount).GetHashCode(), LedgerAccount.Of("").GetHashCode());
+        Assert.Equal(default, LedgerAccount.Of(string.Empty));
+        Assert.Equal(default(LedgerAccount).GetHashCode(), LedgerAccount.Of(string.Empty).GetHashCode());
         Assert.Equal(default, AssetId.None);
         Assert.Equal(default(AssetId).GetHashCode(), AssetId.None.GetHashCode());
-        Assert.Equal(default, new IdempotencyKey(PlayerKey.None, "", ""));
+        Assert.Equal(default, new IdempotencyKey(PlayerKey.None, string.Empty, string.Empty));
 
-        HashSet<LedgerAccount> set = [default, LedgerAccount.Of("")];
+        HashSet<LedgerAccount> set = [default, LedgerAccount.Of(string.Empty)];
 
         Assert.Single(set);
     }
@@ -54,7 +54,7 @@ public class LedgerAccountTests {
     [Fact]
     public void Nothing_parses_as_no_account() {
         Assert.False(LedgerAccount.TryParse(null, out _));
-        Assert.False(LedgerAccount.TryParse("", out _));
+        Assert.False(LedgerAccount.TryParse(string.Empty, out _));
     }
 
     /// <summary>
@@ -83,7 +83,7 @@ public class LedgerAccountTests {
     public void An_operation_key_needs_all_three_parts() {
         Assert.True(new IdempotencyKey(Someone, "trade", "42").IsValid);
         Assert.False(new IdempotencyKey(PlayerKey.None, "trade", "42").IsValid);
-        Assert.False(new IdempotencyKey(Someone, "", "42").IsValid);
-        Assert.False(new IdempotencyKey(Someone, "trade", "").IsValid);
+        Assert.False(new IdempotencyKey(Someone, string.Empty, "42").IsValid);
+        Assert.False(new IdempotencyKey(Someone, "trade", string.Empty).IsValid);
     }
 }

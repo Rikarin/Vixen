@@ -10,8 +10,12 @@ namespace Vixen.Geometry.Remeshing.Tests;
 public class FeatureDetectionTests {
     /// <summary>A cube's twelve edges are twelve features, and its eight corners are eight corners.</summary>
     /// <remarks>
-    ///     ⚠ <b>The one shape where every vertex is a feature corner, and it is the counter-example
-    ///     that fixes what "zero singularities on features" can mean.</b> See
+    ///     ⚠
+    ///     <b>
+    ///         The one shape where every vertex is a feature corner, and it is the counter-example
+    ///         that fixes what "zero singularities on features" can mean.
+    ///     </b>
+    ///     See
     ///     <see cref="SingularityTests" />.
     /// </remarks>
     [Fact]
@@ -77,8 +81,11 @@ public class FeatureDetectionTests {
     /// <summary>The prune is what makes marching-cubes output tractable, and this is the number.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>docs/plan/41 § D4: "marching-cubes output produces thousands of two-edge 'features'
-    ///         that are noise".</b> R1's staircase sphere is a sphere — it has no features at all —
+    ///         <b>
+    ///             docs/plan/41 § D4: "marching-cubes output produces thousands of two-edge 'features'
+    ///             that are noise".
+    ///         </b>
+    ///         R1's staircase sphere is a sphere — it has no features at all —
     ///         and every edge the dihedral test finds on it is a voxel facet boundary. Unpruned there
     ///         are two hundred and fifty of them; pruned there are a dozen, and each of those is a
     ///         long run the merging joined up rather than a facet.
@@ -114,8 +121,12 @@ public class FeatureDetectionTests {
 
     /// <summary>A real feature is not pruned, however short it is against the model.</summary>
     /// <remarks>
-    ///     ⚠ <b>A box's twelve edges are one mesh edge each, which is what rules out an edge-count
-    ///     prune.</b> They survive because the threshold is an arc length against the model's own
+    ///     ⚠
+    ///     <b>
+    ///         A box's twelve edges are one mesh edge each, which is what rules out an edge-count
+    ///         prune.
+    ///     </b>
+    ///     They survive because the threshold is an arc length against the model's own
     ///     diagonal, and a cube's edge is <c>1/√3</c> of its own.
     /// </remarks>
     [Theory]
@@ -144,8 +155,12 @@ public class FeatureDetectionTests {
 
     /// <summary>A crease, a seam and a guide are all polylines, and they resolve onto edges the same way.</summary>
     /// <remarks>
-    ///     ⚠ <b>A guide is detected exactly as the other four are and is the one kind whose constraint
-    ///     is soft.</b> docs/plan/41 § D4 lists guide curves as the fifth feature source; § D5 says
+    ///     ⚠
+    ///     <b>
+    ///         A guide is detected exactly as the other four are and is the one kind whose constraint
+    ///         is soft.
+    ///     </b>
+    ///     docs/plan/41 § D4 lists guide curves as the fifth feature source; § D5 says
     ///     feature polylines are hard and guides are soft. <see cref="FeaturePolyline.IsHard" /> is
     ///     the resolution and this is where it is checked.
     /// </remarks>
@@ -171,7 +186,7 @@ public class FeatureDetectionTests {
         Assert.Empty(plain.Polylines);
         Assert.NotEmpty(guided.Polylines);
 
-        var chain = guided.Polylines.OrderByDescending(entry => entry.EdgeCount).First();
+        var chain = guided.Polylines.OrderByDescending(static entry => entry.EdgeCount).First();
 
         Assert.True(chain.EdgeCount >= 6, $"The guide only claimed {chain.EdgeCount} edges of eight.");
         Assert.False(chain.IsHard, "A guide alone is a soft constraint.");
@@ -189,7 +204,7 @@ public class FeatureDetectionTests {
             [guide with { Source = FeatureSource.Crease }]
         );
 
-        Assert.True(creased.Polylines.All(entry => entry.IsHard));
+        Assert.True(creased.Polylines.All(static entry => entry.IsHard));
     }
 
     /// <summary>The three carried-in sources come off the source mesh and survive conditioning.</summary>
@@ -204,8 +219,12 @@ public class FeatureDetectionTests {
     ///         crease is not invented here.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And the reason all three arrive as curves rather than as edge indices: stage one
-    ///         renumbers everything.</b> The weld merges positions, the repair cuts, the de-speck
+    ///         ⚠
+    ///         <b>
+    ///             And the reason all three arrive as curves rather than as edge indices: stage one
+    ///             renumbers everything.
+    ///         </b>
+    ///         The weld merges positions, the repair cuts, the de-speck
     ///         deletes and the pre-remesh splits and collapses, so an index taken before conditioning
     ///         names nothing after it. This test conditions with the pre-remesh running, so the surface
     ///         the curves are resolved against is genuinely not the one they were read off.
@@ -259,7 +278,7 @@ public class FeatureDetectionTests {
 
         Assert.NotEmpty(features.Polylines);
 
-        var chain = features.Polylines.OrderByDescending(entry => entry.EdgeCount).First();
+        var chain = features.Polylines.OrderByDescending(static entry => entry.EdgeCount).First();
 
         Assert.True(chain.IsHard, "A crease and a seam are both hard.");
 
@@ -270,10 +289,7 @@ public class FeatureDetectionTests {
 
         // Off, and off means absent.
         var ignored = new RemeshSettings {
-            FeatureAngle = 180f,
-            FreezeBorder = false,
-            KeepCreases = false,
-            KeepUvSeams = false
+            FeatureAngle = 180f, FreezeBorder = false, KeepCreases = false, KeepUvSeams = false
         };
 
         Assert.Empty(FeatureDetector.Detect(mesh, ignored, FeatureCurves.All(source, ignored)).Polylines);
@@ -392,17 +408,18 @@ public class FeatureDetectionTests {
         return false;
     }
 
-    internal static ManifoldMesh Fixture(string name) => name switch {
-        "box" => FieldFixtures.Condition(MeshShapes.Create(ShapeKind.Box)),
-        "two-boxes" => FieldFixtures.Condition(BrokenMeshes.SelfIntersecting()),
-        "stairs" => FieldFixtures.Condition(MeshShapes.Create(ShapeKind.Stairs), 5, 0.15f),
-        "staircase" => FieldFixtures.Condition(BrokenMeshes.StaircaseSphere(), 5, 0.06f),
-        "sphere" => FieldFixtures.Condition(
-            MeshShapes.Create(ShapeParameters.Default(ShapeKind.Sphere) with { Sides = 40, Steps = 20 })
-        ),
-        "cylinder" => FieldFixtures.Condition(
-            MeshShapes.Create(ShapeParameters.Default(ShapeKind.Cylinder) with { Sides = 32 })
-        ),
-        _ => throw new ArgumentOutOfRangeException(nameof(name), name, "No such fixture.")
-    };
+    internal static ManifoldMesh Fixture(string name) =>
+        name switch {
+            "box" => FieldFixtures.Condition(MeshShapes.Create(ShapeKind.Box)),
+            "two-boxes" => FieldFixtures.Condition(BrokenMeshes.SelfIntersecting()),
+            "stairs" => FieldFixtures.Condition(MeshShapes.Create(ShapeKind.Stairs), 5, 0.15f),
+            "staircase" => FieldFixtures.Condition(BrokenMeshes.StaircaseSphere(), 5, 0.06f),
+            "sphere" => FieldFixtures.Condition(
+                MeshShapes.Create(ShapeParameters.Default(ShapeKind.Sphere) with { Sides = 40, Steps = 20 })
+            ),
+            "cylinder" => FieldFixtures.Condition(
+                MeshShapes.Create(ShapeParameters.Default(ShapeKind.Cylinder) with { Sides = 32 })
+            ),
+            _ => throw new ArgumentOutOfRangeException(nameof(name), name, "No such fixture.")
+        };
 }

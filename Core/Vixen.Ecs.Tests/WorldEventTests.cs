@@ -22,7 +22,7 @@ public sealed class WorldEventTests {
 #if DEBUG
         Assert.True(World.EventsEnabled);
 #else
-        Assert.Equal(World.EventsEnabled, Watched(new World()) > 0);
+        Assert.Equal(World.EventsEnabled, Watched(new()) > 0);
 #endif
     }
 

@@ -23,8 +23,12 @@ namespace Vixen.Ui.Controls;
 ///         what a few do thoroughly.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The layout defaults are CSS's, so a container with no <c>flex-direction</c> is a
-///         <i>row</i></b> — <c>LayoutStyleBuilder</c> starts from CSS's initial values rather than
+///         ⚠
+///         <b>
+///             The layout defaults are CSS's, so a container with no <c>flex-direction</c> is a
+///             <i>row</i>
+///         </b>
+///         — <c>LayoutStyleBuilder</c> starts from CSS's initial values rather than
 ///         from Yoga's, which differ in four places. Every rule below that wants a column therefore
 ///         says so, and a rule that reads as redundant beside a browser stylesheet is not.
 ///     </para>
@@ -47,8 +51,12 @@ public static class ControlTheme {
 
     /// <summary>The stylesheet's text, for a caller that wants to read or amend it.</summary>
     /// <remarks>
-    ///     ⚠ <b>Read out of the assembly rather than held in a <c>const string</c>, and the change
-    ///     is bigger than where the bytes live.</b> This sheet was 873 lines of CSS edited inside a
+    ///     ⚠
+    ///     <b>
+    ///         Read out of the assembly rather than held in a <c>const string</c>, and the change
+    ///         is bigger than where the bytes live.
+    ///     </b>
+    ///     This sheet was 873 lines of CSS edited inside a
     ///     raw string literal, which is what a tree with no <c>.vcss</c> item type forced — no syntax
     ///     highlighting, no formatter, no way for a hot-reload watcher to see an edit, and a rebuild
     ///     of the whole assembly for a colour. It is a real file now, embedded by the glob in
@@ -71,7 +79,8 @@ public static class ControlTheme {
             ?? throw new InvalidOperationException(
                 $"the stylesheet '{name}' is not embedded in {assembly.GetName().Name}. It is added "
                 + "by the .vcss glob in Vixen.Ui.targets, which this project imports at the bottom "
-                + "of its .csproj.");
+                + "of its .csproj."
+            );
 
         using var reader = new StreamReader(stream);
 

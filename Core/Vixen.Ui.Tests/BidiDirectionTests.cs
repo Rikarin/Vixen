@@ -10,8 +10,11 @@ namespace Vixen.Ui.Tests;
 /// <summary>What <c>direction</c> does to an element's text, judged by where the glyphs land.</summary>
 /// <remarks>
 ///     <para>
-///         <b>Every assertion here is on visual order — which glyph is leftmost — and never on
-///         logical order.</b> That is the whole discipline of testing UAX#9: a wrong bidi result is
+///         <b>
+///             Every assertion here is on visual order — which glyph is leftmost — and never on
+///             logical order.
+///         </b>
+///         That is the whole discipline of testing UAX#9: a wrong bidi result is
 ///         not a crash and not obviously wrong to a reader who does not read the script, it is text
 ///         in the wrong sequence. The algorithm itself is judged elsewhere, against 91 707 of the
 ///         Consortium's own cases in <c>Vixen.Ui.Text.Tests.BidiConformanceTests</c>; what is judged
@@ -26,8 +29,12 @@ namespace Vixen.Ui.Tests;
 ///         can take.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The fixture needs a right-to-left face for half of it, and <c>TestShapeAran</c> is
-///         the only one in the suite.</b> Its coverage is seventeen Arabic letters and the space — no
+///         ⚠
+///         <b>
+///             The fixture needs a right-to-left face for half of it, and <c>TestShapeAran</c> is
+///             the only one in the suite.
+///         </b>
+///         Its coverage is seventeen Arabic letters and the space — no
 ///         digits and no punctuation — which is the other reason the neutral here is a space.
 ///     </para>
 /// </remarks>
@@ -40,7 +47,7 @@ public class BidiDirectionTests {
 
     static FontFace LoadFont(string resource, string name) {
         using var stream = Assembly.GetExecutingAssembly()
-            .GetManifestResourceStream($"Vixen.Ui.Tests.Fonts.{resource}")
+                .GetManifestResourceStream($"Vixen.Ui.Tests.Fonts.{resource}")
             ?? throw new InvalidOperationException($"the test font '{resource}' is not embedded");
 
         using var memory = new MemoryStream();
@@ -71,7 +78,7 @@ public class BidiDirectionTests {
         var glyphs = new List<PositionedGlyph>();
         label.Block()!.Lines[0].Place(glyphs);
 
-        return glyphs.OrderBy(glyph => glyph.X).First().GlyphId;
+        return glyphs.OrderBy(static glyph => glyph.X).First().GlyphId;
     }
 
     [Fact]
@@ -118,8 +125,12 @@ public class BidiDirectionTests {
     ///     numbers that happen to be right.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>Stated separately because a fixture that cannot show a flip and a flip that never
-    ///     happens look identical.</b> If the face or the string were ever changed to something whose
+    ///     ⚠
+    ///     <b>
+    ///         Stated separately because a fixture that cannot show a flip and a flip that never
+    ///         happens look identical.
+    ///     </b>
+    ///     If the face or the string were ever changed to something whose
     ///     picture the base level does not reach, the two tests above would still pass — against an
     ///     implementation that had gone back to ignoring the property.
     /// </remarks>

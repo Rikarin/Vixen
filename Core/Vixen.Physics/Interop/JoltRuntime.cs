@@ -29,8 +29,7 @@ public static class JoltRuntime {
     static readonly Lock Gate = new();
 
     static int references;
-    static Action<string>? trace;
-    static Func<string, string, string, uint, bool>? assertFailed;
+
 
     /// <summary>How many live objects are holding the runtime up.</summary>
     /// <remarks>For a test that wants to assert the count fell back to zero.</remarks>
@@ -52,12 +51,12 @@ public static class JoltRuntime {
     public static Action<string>? Trace {
         get {
             lock (Gate) {
-                return trace;
+                return field;
             }
         }
         set {
             lock (Gate) {
-                trace = value;
+                field = value;
             }
         }
     }
@@ -74,12 +73,12 @@ public static class JoltRuntime {
     public static Func<string, string, string, uint, bool>? AssertFailed {
         get {
             lock (Gate) {
-                return assertFailed;
+                return field;
             }
         }
         set {
             lock (Gate) {
-                assertFailed = value;
+                field = value;
             }
         }
     }
@@ -90,7 +89,7 @@ public static class JoltRuntime {
     public static void Acquire() {
         lock (Gate) {
             if (references == 0) {
-                if (!Foundation.Init(doublePrecision: false)) {
+                if (!Foundation.Init()) {
                     throw new PhysicsInitializationException(
                         "Jolt refused to initialise. The usual cause is that the native library could "
                         + "not be loaded — see Vixen.Physics/README.md § Platforms for which runtime "

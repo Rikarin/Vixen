@@ -10,8 +10,11 @@ namespace Vixen.Platform.Desktop;
 /// <summary>An OpenGL context on an SDL window.</summary>
 /// <remarks>
 ///     <para>
-///         <b>The piece that was missing, and the reason <c>Vixen.Graphics.OpenGL</c> could not be
-///         booted by an app head.</b> That backend has been complete and under test since ADR-001
+///         <b>
+///             The piece that was missing, and the reason <c>Vixen.Graphics.OpenGL</c> could not be
+///             booted by an app head.
+///         </b>
+///         That backend has been complete and under test since ADR-001
 ///         made it the RHI's abstraction validator, but a <c>GlDevice</c> needs entry points over a
 ///         context that is <i>already current</i>, and nothing in <c>Vixen.Platform</c> created one
 ///         — so the only way to reach it was to hand in an <c>IGlApi</c> yourself, which is what the
@@ -26,8 +29,12 @@ namespace Vixen.Platform.Desktop;
 ///         inside the driver.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Attributes are set immediately before the context is created, not once at
-///         start-up.</b> They are global state in SDL that the <i>next</i>
+///         ⚠
+///         <b>
+///             Attributes are set immediately before the context is created, not once at
+///             start-up.
+///         </b>
+///         They are global state in SDL that the <i>next</i>
 ///         <c>SDL_GL_CreateContext</c> reads, so setting them anywhere else means a second window
 ///         silently inheriting the first one's request.
 ///     </para>

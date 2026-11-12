@@ -80,8 +80,12 @@ public sealed class AnimationMotionData {
 
 /// <summary>One test a transition has to pass, as the document holds it.</summary>
 /// <remarks>
-///     ⚠ <b>The parameter is named rather than indexed, which is what
-///     <see cref="AnimationCondition" /> holds.</b> An index is a position in an
+///     ⚠
+///     <b>
+///         The parameter is named rather than indexed, which is what
+///         <see cref="AnimationCondition" /> holds.
+///     </b>
+///     An index is a position in an
 ///     <see cref="AnimationParameters" /> set that does not exist until the graph is compiled, so a
 ///     file storing one would break the moment somebody reordered the parameter list — which is a
 ///     thing a list with an up arrow beside it invites.
@@ -207,8 +211,12 @@ public sealed class AnimationParameterData {
 /// <remarks>
 ///     <para>
 ///         <b>The third graph doc 11 names, and it is not a dataflow graph.</b> A shader graph's edge
-///         carries a value and a VFX graph's carries order; a state machine's carries <i>"may
-///         become"</i> — several leave one state and several arrive at another, none of them has a
+///         carries a value and a VFX graph's carries order; a state machine's carries
+///         <i>
+///             "may
+///             become"
+///         </i>
+///         — several leave one state and several arrive at another, none of them has a
 ///         type, and there is no topological order because a graph without a cycle is a character
 ///         that can never return to idle. Every rule <c>Vixen.Editor.NodeGraph</c> is built around
 ///         would have to be switched off to hold one, so this is its own model. What it shares with

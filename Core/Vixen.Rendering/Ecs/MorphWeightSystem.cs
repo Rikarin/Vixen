@@ -20,8 +20,11 @@ namespace Vixen.Rendering.Ecs;
 ///         finished" and "the first weight is written".
 ///     </para>
 ///     <para>
-///         <b>In <see cref="SystemPhase.PreRender" />, after <see cref="MeshExtractionSystem" />
-///         because the object has to exist before it can be given weights</b> — an entity that
+///         <b>
+///             In <see cref="SystemPhase.PreRender" />, after <see cref="MeshExtractionSystem" />
+///             because the object has to exist before it can be given weights
+///         </b>
+///         — an entity that
 ///         appeared this frame has no <see cref="RenderHandle" /> until that system ran, and a weight
 ///         written for an object that does not exist is silently dropped. The declared access is what
 ///         orders them: this reads <see cref="RenderHandle" />, which that one writes.
@@ -47,8 +50,12 @@ public sealed class MorphWeightSystem : SystemBase, IDeclaredAccess {
     /// <summary>The feature that draws virtualized meshes. Null is a harmless no-op.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The second half, and its absence is what made a morphed cluster mesh draw at
-    ///         rest.</b> A mesh with a cluster hierarchy is extracted down
+    ///         ⚠
+    ///         <b>
+    ///             The second half, and its absence is what made a morphed cluster mesh draw at
+    ///             rest.
+    ///         </b>
+    ///         A mesh with a cluster hierarchy is extracted down
     ///         <c>VirtualGeometryRenderFeature</c>'s path and never reaches
     ///         <see cref="MorphRenderFeature.Attach" />, so every weight written here was applied to
     ///         nothing — with no counter saying so, because the counters were the other feature's and
@@ -84,8 +91,12 @@ public sealed class MorphWeightSystem : SystemBase, IDeclaredAccess {
 
     /// <summary>How many of <see cref="Weighted" /> were virtualized rather than suballocated.</summary>
     /// <remarks>
-    ///     ⚠ <b>Counted separately because the two are indistinguishable from outside and were not
-    ///     always both real.</b> A frame in which every morphed head is virtualized and this reads zero
+    ///     ⚠
+    ///     <b>
+    ///         Counted separately because the two are indistinguishable from outside and were not
+    ///         always both real.
+    ///     </b>
+    ///     A frame in which every morphed head is virtualized and this reads zero
     ///     is the defect this system was extended to close, and it is exactly the frame in which
     ///     <see cref="Weighted" /> alone would look healthy.
     /// </remarks>
@@ -93,8 +104,12 @@ public sealed class MorphWeightSystem : SystemBase, IDeclaredAccess {
 
     /// <summary>How many shadow casters were given the same weights their object got.</summary>
     /// <remarks>
-    ///     ⚠ <b>A virtualized entity's expression has to be written twice, to two features, from one
-    ///     array.</b> The cluster gather morphs the paged vertices for the camera and
+    ///     ⚠
+    ///     <b>
+    ///         A virtualized entity's expression has to be written twice, to two features, from one
+    ///         array.
+    ///     </b>
+    ///     The cluster gather morphs the paged vertices for the camera and
     ///     <see cref="MorphRenderFeature" /> morphs the fallback vertices for the shadow, and the two
     ///     are the same shapes over the same source numbering — so a frame that wrote one and not the
     ///     other is a face whose shadow is its rest pose. Nothing about the picture says which of the

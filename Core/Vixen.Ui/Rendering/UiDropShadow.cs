@@ -14,8 +14,11 @@ namespace Vixen.Ui.Rendering;
 /// </param>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>A shadow of the <i>alpha silhouette</i> and not of the box, which is the whole
-///         difference between this and <c>box-shadow</c> and the reason the two share no code.</b>
+///         ⚠
+///         <b>
+///             A shadow of the <i>alpha silhouette</i> and not of the box, which is the whole
+///             difference between this and <c>box-shadow</c> and the reason the two share no code.
+///         </b>
 ///         <c>DrawListBuilder.EmitShadow</c> emits a rounded rectangle the shape of the border box
 ///         and lets <c>ui-box.frag</c> resolve its falloff analytically, because a box's silhouette
 ///         is known in closed form. A <c>drop-shadow</c>'s is not: it is whatever the subtree
@@ -25,17 +28,25 @@ namespace Vixen.Ui.Rendering;
 ///         <see cref="UiLayer" /> rather than a second <c>DrawCommandKind.Shadow</c>.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The standard deviation, and it is <i>not</i> the half-extent
-///         <see cref="Vixen.Ui.DrawCommand.Thickness" /> carries on a
-///         <see cref="Vixen.Ui.DrawCommandKind.Shadow" />.</b> Two conventions for one word live a
+///         ⚠
+///         <b>
+///             The standard deviation, and it is <i>not</i> the half-extent
+///             <see cref="Vixen.Ui.DrawCommand.Thickness" /> carries on a
+///             <see cref="Vixen.Ui.DrawCommandKind.Shadow" />.
+///         </b>
+///         Two conventions for one word live a
 ///         few types apart: <c>box-shadow</c>'s third length is the total fade distance and the box
 ///         shader wants half of it, while <c>drop-shadow(x y r)</c> is a Gaussian of σ = r with no
 ///         halving. This is the second one — the same convention <see cref="UiLayer.Blur" /> uses,
 ///         and deliberately so, because the two are executed by the same kernel.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Straight colour, because the two halves are spent in different places and neither
-///         wants the product.</b> The RGB becomes <see cref="Tint" />, a colour matrix that replaces
+///         ⚠
+///         <b>
+///             Straight colour, because the two halves are spent in different places and neither
+///             wants the product.
+///         </b>
+///         The RGB becomes <see cref="Tint" />, a colour matrix that replaces
 ///         whatever the surface holds; the alpha becomes the shadow quad's own vertex alpha, which
 ///         both executors apply to all four channels of an already-premultiplied sample. Storing the
 ///         premultiplied colour would make the first half wrong — a shadow at 25% opacity would be
@@ -44,8 +55,12 @@ namespace Vixen.Ui.Rendering;
 ///         is the harder of the two to notice.
 ///     </para>
 ///     <para>
-///         ⚠ <b>It does not commute with the group's own blur and the order is fixed rather than
-///         carried.</b> A Gaussian of the shadow of a picture is not the shadow of the Gaussian of it
+///         ⚠
+///         <b>
+///             It does not commute with the group's own blur and the order is fixed rather than
+///             carried.
+///         </b>
+///         A Gaussian of the shadow of a picture is not the shadow of the Gaussian of it
 ///         — the alpha channel is blurred twice one way round and once the other — so unlike
 ///         <see cref="UiLayer.Blur" /> and <see cref="UiLayer.Filter" /> there is no arithmetic here
 ///         that lets an executor choose. Both executors run this <i>after</i> the group's own blur,
@@ -54,8 +69,12 @@ namespace Vixen.Ui.Rendering;
 ///         two the other way round gets this one; see <c>DrawListBuilder.One</c>, which says so.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The colour matrix does not commute with the group's <see cref="UiLayer.Filter" />
-///         either, and here it does not have to.</b> A <c>grayscale</c> before a
+///         ⚠
+///         <b>
+///             The colour matrix does not commute with the group's <see cref="UiLayer.Filter" />
+///             either, and here it does not have to.
+///         </b>
+///         A <c>grayscale</c> before a
 ///         <c>drop-shadow</c> greys the element and leaves the shadow the colour it was written in;
 ///         after it, CSS would grey the shadow too. This runs the shadow's own tint over the
 ///         silhouette and nothing else, which is the first reading — and it is the only one the
@@ -66,8 +85,12 @@ namespace Vixen.Ui.Rendering;
 public readonly record struct UiDropShadow(Vector2 Offset, float Blur, Color4 Colour) {
     /// <summary>Whether this shadow would paint nothing, whatever the silhouette is.</summary>
     /// <remarks>
-    ///     ⚠ <b>The identity a <c>filter</c> list needs, and the reason it is spelt as a transparent
-    ///     colour rather than as an absent function.</b> <c>UtilityComposition.Filter</c> assembles
+    ///     ⚠
+    ///     <b>
+    ///         The identity a <c>filter</c> list needs, and the reason it is spelt as a transparent
+    ///         colour rather than as an absent function.
+    ///     </b>
+    ///     <c>UtilityComposition.Filter</c> assembles
     ///     all nine functions into every <c>filter</c> it emits and lets the seven or eight nobody
     ///     wrote resolve to their identities — see that method, which argues why a per-class
     ///     generator cannot do otherwise. Every other function has a number that means "unchanged";
@@ -80,8 +103,11 @@ public readonly record struct UiDropShadow(Vector2 Offset, float Blur, Color4 Co
     /// <summary>The matrix that turns a group's surface into its silhouette, painted in this colour.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Zero coefficients and the colour in the offsets, which is the one shape of
-    ///         <see cref="UiColorMatrix" /> that reads alpha and writes colour.</b>
+    ///         ⚠
+    ///         <b>
+    ///             Zero coefficients and the colour in the offsets, which is the one shape of
+    ///             <see cref="UiColorMatrix" /> that reads alpha and writes colour.
+    ///         </b>
     ///         <see cref="UiColorMatrix.Apply(Color4)" /> evaluates <c>c' = M·c + o·a</c> on premultiplied
     ///         colour, so <c>M = 0</c> leaves <c>c' = o·a</c> — the shadow's colour at exactly the
     ///         coverage the surface had, which <i>is</i> the tinted silhouette. Nothing new had to be
@@ -95,8 +121,12 @@ public readonly record struct UiDropShadow(Vector2 Offset, float Blur, Color4 Co
     ///         quad instead, where <c>UiLayer.Alpha</c> already rides, and the two multiply.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Clamping makes this exact rather than approximate for every colour a stylesheet
-    ///         can write.</b> <c>Apply</c> clamps to <c>[0, a]</c>, and <c>o·a ≤ a</c> exactly when
+    ///         ⚠
+    ///         <b>
+    ///             Clamping makes this exact rather than approximate for every colour a stylesheet
+    ///             can write.
+    ///         </b>
+    ///         <c>Apply</c> clamps to <c>[0, a]</c>, and <c>o·a ≤ a</c> exactly when
     ///         <c>o ≤ 1</c> — which every channel of a parsed CSS colour is. A colour outside the
     ///         unit range would be clamped to the silhouette's own coverage, which is the same answer
     ///         the device's <c>Rgba8UNorm</c> target would give.

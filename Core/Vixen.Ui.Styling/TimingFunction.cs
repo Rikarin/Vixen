@@ -124,53 +124,56 @@ public readonly record struct TimingFunction {
     ///     into a stylesheet works. The <c>x</c> coordinates are clamped because a curve that goes
     ///     backwards in time is not a function of it.
     /// </remarks>
-    public static TimingFunction Bezier(float x1, float y1, float x2, float y2) => new(
-        TimingFunctionKind.CubicBezier,
-        Math.Clamp(x1, 0f, 1f),
-        y1,
-        Math.Clamp(x2, 0f, 1f),
-        y2,
-        0,
-        StepPosition.End,
-        0f,
-        0f,
-        0f
-    );
+    public static TimingFunction Bezier(float x1, float y1, float x2, float y2) =>
+        new(
+            TimingFunctionKind.CubicBezier,
+            Math.Clamp(x1, 0f, 1f),
+            y1,
+            Math.Clamp(x2, 0f, 1f),
+            y2,
+            0,
+            StepPosition.End,
+            0f,
+            0f,
+            0f
+        );
 
     /// <summary>A step function.</summary>
     /// <param name="count">How many steps.</param>
     /// <param name="position">Where each one jumps.</param>
     /// <returns>The timing function.</returns>
-    public static TimingFunction Step(int count, StepPosition position) => new(
-        TimingFunctionKind.Steps,
-        0f,
-        0f,
-        0f,
-        0f,
-        Math.Max(1, count),
-        position,
-        0f,
-        0f,
-        0f
-    );
+    public static TimingFunction Step(int count, StepPosition position) =>
+        new(
+            TimingFunctionKind.Steps,
+            0f,
+            0f,
+            0f,
+            0f,
+            Math.Max(1, count),
+            position,
+            0f,
+            0f,
+            0f
+        );
 
     /// <summary>A damped spring.</summary>
     /// <param name="mass">The mass. Larger is heavier and slower.</param>
     /// <param name="stiffness">The spring constant. Larger is snappier.</param>
     /// <param name="damping">The damping coefficient. Larger settles sooner and overshoots less.</param>
     /// <returns>The timing function.</returns>
-    public static TimingFunction Spring(float mass, float stiffness, float damping) => new(
-        TimingFunctionKind.Spring,
-        0f,
-        0f,
-        0f,
-        0f,
-        0,
-        StepPosition.End,
-        MathF.Max(mass, 0.0001f),
-        MathF.Max(stiffness, 0.0001f),
-        MathF.Max(damping, 0f)
-    );
+    public static TimingFunction Spring(float mass, float stiffness, float damping) =>
+        new(
+            TimingFunctionKind.Spring,
+            0f,
+            0f,
+            0f,
+            0f,
+            0,
+            StepPosition.End,
+            MathF.Max(mass, 0.0001f),
+            MathF.Max(stiffness, 0.0001f),
+            MathF.Max(damping, 0f)
+        );
 
     /// <summary>Maps elapsed progress onto progress through the change.</summary>
     /// <param name="progress">How far through the duration, in <c>[0, 1]</c>.</param>
@@ -218,7 +221,7 @@ public readonly record struct TimingFunction {
         // An overdamped spring's slowest mode decays more slowly than the envelope suggests, so the
         // bound is taken from that mode instead.
         if (decay > undamped) {
-            var slowest = decay - MathF.Sqrt((decay * decay) - (undamped * undamped));
+            var slowest = decay - MathF.Sqrt(decay * decay - undamped * undamped);
             settling = MathF.Log(1000f) / MathF.Max(slowest, 0.0001f);
         }
 
@@ -252,18 +255,18 @@ public readonly record struct TimingFunction {
 
         if (ratio < 1f) {
             // Underdamped: it overshoots and rings. The case anyone writing `spring()` wants.
-            var damped = undamped * MathF.Sqrt(1f - (ratio * ratio));
+            var damped = undamped * MathF.Sqrt(1f - ratio * ratio);
             displacement = MathF.Exp(-decay * t)
-                * (MathF.Cos(damped * t) + (decay / damped * MathF.Sin(damped * t)));
+                * (MathF.Cos(damped * t) + decay / damped * MathF.Sin(damped * t));
         } else if (MathUtil.NearEqual(ratio, 1f)) {
             // Critically damped: the fastest approach with no overshoot at all.
-            displacement = MathF.Exp(-undamped * t) * (1f + (undamped * t));
+            displacement = MathF.Exp(-undamped * t) * (1f + undamped * t);
         } else {
             // Overdamped: two decaying exponentials, and it crawls in.
-            var root = undamped * MathF.Sqrt((ratio * ratio) - 1f);
+            var root = undamped * MathF.Sqrt(ratio * ratio - 1f);
             var fast = -decay + root;
             var slow = -decay - root;
-            displacement = ((slow * MathF.Exp(fast * t)) - (fast * MathF.Exp(slow * t))) / (slow - fast);
+            displacement = (slow * MathF.Exp(fast * t) - fast * MathF.Exp(slow * t)) / (slow - fast);
         }
 
         // The oscillator's displacement is what is *left* to travel, so progress is its complement.
@@ -351,23 +354,24 @@ public readonly record struct TimingFunction {
     // A cubic Bézier with the endpoints pinned at 0 and 1, which is what a CSS easing curve is.
     static float CubicAt(float t, float a, float b) {
         var inverse = 1f - t;
-        return (3f * inverse * inverse * t * a) + (3f * inverse * t * t * b) + (t * t * t);
+        return 3f * inverse * inverse * t * a + 3f * inverse * t * t * b + t * t * t;
     }
 
     static float CubicSlopeAt(float t, float a, float b) {
         var inverse = 1f - t;
-        return (3f * inverse * inverse * a)
-            + (6f * inverse * t * (b - a))
-            + (3f * t * t * (1f - b));
+        return 3f * inverse * inverse * a
+            + 6f * inverse * t * (b - a)
+            + 3f * t * t * (1f - b);
     }
 
     /// <inheritdoc />
-    public override string ToString() => Kind switch {
-        TimingFunctionKind.Steps => string.Create(CultureInfo.InvariantCulture, $"steps({Steps}, {Position})"),
-        TimingFunctionKind.Spring => string.Create(
-            CultureInfo.InvariantCulture,
-            $"spring({Mass}, {Stiffness}, {Damping})"
-        ),
-        _ => string.Create(CultureInfo.InvariantCulture, $"cubic-bezier({X1}, {Y1}, {X2}, {Y2})")
-    };
+    public override string ToString() =>
+        Kind switch {
+            TimingFunctionKind.Steps => string.Create(CultureInfo.InvariantCulture, $"steps({Steps}, {Position})"),
+            TimingFunctionKind.Spring => string.Create(
+                CultureInfo.InvariantCulture,
+                $"spring({Mass}, {Stiffness}, {Damping})"
+            ),
+            _ => string.Create(CultureInfo.InvariantCulture, $"cubic-bezier({X1}, {Y1}, {X2}, {Y2})")
+        };
 }

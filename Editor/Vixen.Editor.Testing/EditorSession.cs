@@ -7,7 +7,6 @@ using Vixen.Core.Mathematics;
 using Vixen.Editor.App;
 using Vixen.Editor.Assets;
 using Vixen.Editor.Core;
-using Vixen.Editor.Core.Scenes;
 using Vixen.Editor.Inspector;
 using Vixen.Editor.Plugin;
 using Vixen.Editor.SceneView;
@@ -117,7 +116,7 @@ public sealed class EditorSession : IDisposable {
 
         if (settings.DataDirectory is { Length: > 0 } given) {
             Directory.CreateDirectory(given);
-            return new EditorSession(settings, given, owned: null);
+            return new(settings, given, null);
         }
 
         var directory = Path.Combine(
@@ -127,7 +126,7 @@ public sealed class EditorSession : IDisposable {
         );
 
         Directory.CreateDirectory(directory);
-        return new EditorSession(settings, directory, directory);
+        return new(settings, directory, directory);
     }
 
     /// <summary>The application itself, for the suites that drive what no panel exposes.</summary>
@@ -274,8 +273,12 @@ public sealed class EditorSession : IDisposable {
 
     /// <summary>The plugin host, and through it what this editor publishes to a plugin.</summary>
     /// <remarks>
-    ///     ⚠ <b>What a test asserting an <i>extension point</i> needs, as opposed to an
-    ///     extension.</b> "A plugin can add an importer" is a claim about <c>PluginServices</c> having
+    ///     ⚠
+    ///     <b>
+    ///         What a test asserting an <i>extension point</i> needs, as opposed to an
+    ///         extension.
+    ///     </b>
+    ///     "A plugin can add an importer" is a claim about <c>PluginServices</c> having
     ///     one published — the plugin that would use it is a separate test — and there is no other way
     ///     to ask.
     /// </remarks>
@@ -370,7 +373,7 @@ public sealed class EditorSession : IDisposable {
     ///     its own named <c>asset.&lt;guid&gt;</c>, which is the only way to find it, because the
     ///     workspace was never told about it in advance.
     /// </remarks>
-    public IReadOnlyList<DockPanel> Panels => [.. Descendants(Document.Root).OfType<DockPanel>()];
+    public IReadOnlyList<DockPanel> Panels => [..Descendants(Document.Root).OfType<DockPanel>()];
 
     /// <summary>The panel with an id, which must be open.</summary>
     /// <param name="id">Which panel.</param>
@@ -414,8 +417,12 @@ public sealed class EditorSession : IDisposable {
     /// <param name="id">Which panel.</param>
     /// <returns>The component.</returns>
     /// <remarks>
-    ///     ⚠ <b><see cref="Control{T}" />'s counterpart, and it needs to exist because a component
-    ///     is not an element.</b> A panel written in C# <i>is</i> the control a suite reaches for; a
+    ///     ⚠
+    ///     <b>
+    ///         <see cref="Control{T}" />'s counterpart, and it needs to exist because a component
+    ///         is not an element.
+    ///     </b>
+    ///     A panel written in C# <i>is</i> the control a suite reaches for; a
     ///     panel written in VXML is an object beside the elements it drew, so the walk asks the
     ///     document which component each element is the host of rather than testing the element's
     ///     own type.
@@ -451,7 +458,7 @@ public sealed class EditorSession : IDisposable {
     public UiSubject In(string id) {
         var panel = Panel(id);
 
-        return Ui.Get($"dock-panel").Where(element => ReferenceEquals(element, panel), $"is the '{id}' panel");
+        return Ui.Get("dock-panel").Where(element => ReferenceEquals(element, panel), $"is the '{id}' panel");
     }
 
     /// <summary>Runs a command the way a menu line does, and waits for the consequences.</summary>
@@ -514,7 +521,7 @@ public sealed class EditorSession : IDisposable {
         var entry = bar.Items.FirstOrDefault(item => item.Label == menu)
             ?? throw Fail(
                 $"There is no '{menu}' menu on the bar. It has: "
-                + string.Join(", ", bar.Items.Select(item => item.Label ?? "?"))
+                + string.Join(", ", bar.Items.Select(static item => item.Label ?? "?"))
                 + "."
             );
 
@@ -528,7 +535,7 @@ public sealed class EditorSession : IDisposable {
             var line = open.Items.FirstOrDefault(item => item.Label == label)
                 ?? throw Fail(
                     $"The '{menu}' menu has no line called '{label}'. It has: "
-                    + string.Join(", ", open.Items.Select(item => item.Label ?? "?"))
+                    + string.Join(", ", open.Items.Select(static item => item.Label ?? "?"))
                     + "."
                 );
 
@@ -563,8 +570,12 @@ public sealed class EditorSession : IDisposable {
     ///         centre of one of those lands wherever it happens to be parked.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Scrolled to as well, because "realised" and "reachable" are not the same
-    ///         thing.</b> A row one past the bottom of the viewport is realised, has honest bounds
+    ///         ⚠
+    ///         <b>
+    ///             Scrolled to as well, because "realised" and "reachable" are not the same
+    ///             thing.
+    ///         </b>
+    ///         A row one past the bottom of the viewport is realised, has honest bounds
     ///         and is <i>clipped</i>: the scroller does not hit-test outside itself, so a press at
     ///         its centre reaches the panel behind it and the gesture the caller meant never starts.
     ///         Nothing throws and no assertion fails at the press — the failure surfaces several
@@ -603,7 +614,7 @@ public sealed class EditorSession : IDisposable {
         return Realised(tree, text)
             ?? throw Fail(
                 $"No row saying '{text}' is on screen. Showing: "
-                + string.Join(", ", NodesOf(tree).Select(node => node.Text ?? "?"))
+                + string.Join(", ", NodesOf(tree).Select(static node => node.Text ?? "?"))
                 + "."
             );
     }
@@ -702,7 +713,7 @@ public sealed class EditorSession : IDisposable {
     /// <param name="tree">Which tree.</param>
     /// <returns>The labels.</returns>
     public static IReadOnlyList<string> Labels(TreeView tree) =>
-        [.. NodesOf(tree).Select(node => node.Text ?? string.Empty)];
+        [..NodesOf(tree).Select(static node => node.Text ?? string.Empty)];
 
     /// <summary>Answers whatever dialog is on screen by pressing one of its buttons.</summary>
     /// <param name="label">What the button says — "Save", "Cancel", "Don't Save".</param>
@@ -723,7 +734,10 @@ public sealed class EditorSession : IDisposable {
         var button = Descendants(dialog).OfType<Button>().FirstOrDefault(candidate => candidate.Label == label)
             ?? throw Fail(
                 $"The dialog has no '{label}' button. It has: "
-                + string.Join(", ", Descendants(dialog).OfType<Button>().Select(candidate => candidate.Label ?? "?"))
+                + string.Join(
+                    ", ",
+                    Descendants(dialog).OfType<Button>().Select(static candidate => candidate.Label ?? "?")
+                )
                 + "."
             );
 
@@ -772,7 +786,7 @@ public sealed class EditorSession : IDisposable {
     ///     predates the record moving into <c>Vixen.Editor.Core</c>.
     /// </remarks>
     public IReadOnlyList<(string Path, DateTime Opened)> RecentProjects =>
-        [.. editor.Session.Recent.Select(entry => (entry.Path, entry.Opened))];
+        [..editor.Session.Recent.Select(static entry => (entry.Path, entry.Opened))];
 
     /// <summary>Asks the editor to close this project and reopen over another.</summary>
     /// <param name="root">The new project's root.</param>
@@ -870,7 +884,7 @@ public sealed class EditorSession : IDisposable {
         }
 
         try {
-            Directory.Delete(owned, recursive: true);
+            Directory.Delete(owned, true);
         } catch (Exception exception) when (exception is IOException or UnauthorizedAccessException) {
             // A temp directory that would not go is not a failed test.
         }
@@ -896,7 +910,7 @@ public sealed class EditorSession : IDisposable {
 
         text.AppendLine().AppendLine("Interface:").Append(Ui.Tree());
 
-        return new EditorSessionException(text.ToString());
+        return new(text.ToString());
     }
 
     /// <summary>Builds an application and a harness over its document, in the host's own order.</summary>
@@ -906,7 +920,7 @@ public sealed class EditorSession : IDisposable {
             options.Height,
             DataDirectory,
             options.ProjectRoot,
-            services: null,
+            null,
 
             // ⚠ This session's own, so a plugin one test loads is invisible to the twenty running
             // beside it. See `EditorSessionOptions.Extensions`. A restart keeps it, because the
@@ -966,7 +980,7 @@ public sealed class EditorSession : IDisposable {
         return (application, test);
     }
 
-    string Registered() => string.Join(", ", Shell.Workspace.Panels.Select(panel => panel.Id));
+    string Registered() => string.Join(", ", Shell.Workspace.Panels.Select(static panel => panel.Id));
 
     void Hover(UiElement element) {
         var (x, y) = Centre(element);
@@ -975,7 +989,7 @@ public sealed class EditorSession : IDisposable {
     }
 
     static (float X, float Y) Centre(UiElement element) =>
-        (element.Bounds.X + (element.Bounds.Width * 0.5f), element.Bounds.Y + (element.Bounds.Height * 0.5f));
+        (element.Bounds.X + element.Bounds.Width * 0.5f, element.Bounds.Y + element.Bounds.Height * 0.5f);
 
     static IEnumerable<TreeNode> Nodes(TreeNode node) {
         foreach (var child in node.Children) {

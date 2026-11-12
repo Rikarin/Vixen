@@ -165,6 +165,5 @@ public sealed class AudioReverbZones {
 
     /// <summary>What a parameter was last driven to, for a test or an overlay to read.</summary>
     /// <param name="parameter">Its name.</param>
-    public float StrengthOf(string parameter) =>
-        slots.TryGetValue(parameter, out var slot) ? values[slot] : 0f;
+    public float StrengthOf(string parameter) => slots.TryGetValue(parameter, out var slot) ? values[slot] : 0f;
 }

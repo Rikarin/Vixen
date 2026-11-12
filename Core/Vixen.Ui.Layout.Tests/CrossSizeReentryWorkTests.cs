@@ -65,12 +65,18 @@ public class CrossSizeReentryWorkTests {
                 var perLine = MathF.Max(1f, MathF.Floor(width / Word));
                 var lines = MathF.Ceiling(words / perLine);
 
-                return new LayoutSize(width, request.HeightMode == MeasureMode.Exactly ? request.AvailableHeight : lines * 10f);
+                return new(width, request.HeightMode == MeasureMode.Exactly ? request.AvailableHeight : lines * 10f);
             };
     }
 
-    sealed record Fixture(LayoutTree Tree, LayoutNodeId Root, LayoutNodeId[] Columns, LayoutNodeId[] Items, Counter Counter) {
-        public (long Runs, long Reentries, int Calls) Work => (Tree.FlexAlgorithmRuns, Tree.CrossSizeReentries, Counter.Calls);
+    sealed record Fixture(
+        LayoutTree Tree,
+        LayoutNodeId Root,
+        LayoutNodeId[] Columns,
+        LayoutNodeId[] Items,
+        Counter Counter) {
+        public (long Runs, long Reentries, int Calls) Work =>
+            (Tree.FlexAlgorithmRuns, Tree.CrossSizeReentries, Counter.Calls);
 
         public (long Runs, long Reentries, int Calls) Layout() {
             var before = Work;
@@ -120,7 +126,7 @@ public class CrossSizeReentryWorkTests {
             tree.AddChild(parent, nodes[i]);
         }
 
-        return new Fixture(tree, root, columns, nodes, counter);
+        return new(tree, root, columns, nodes, counter);
     }
 
     /// <summary>
@@ -130,8 +136,8 @@ public class CrossSizeReentryWorkTests {
     /// </summary>
     [Fact]
     public void A_column_its_minimum_widens_runs_once_more_per_pass_and_measures_each_item_twice_more() {
-        var widened = Build(given: false);
-        var oracle = Build(given: true);
+        var widened = Build(false);
+        var oracle = Build(true);
 
         var work = widened.Layout();
         var oracleWork = oracle.Layout();
@@ -144,7 +150,7 @@ public class CrossSizeReentryWorkTests {
 
         // One for the at-most first pass the oracle never makes, one for the probe under the column's
         // own zero percentage basis — see the remarks.
-        Assert.Equal(oracleWork.Calls + (2 * Items), work.Calls);
+        Assert.Equal(oracleWork.Calls + 2 * Items, work.Calls);
 
         for (var i = 0; i < Items; i++) {
             Assert.Equal(oracle.Tree.GetWidth(oracle.Items[i]), widened.Tree.GetWidth(widened.Items[i]));
@@ -158,8 +164,8 @@ public class CrossSizeReentryWorkTests {
     /// </summary>
     [Fact]
     public void A_settled_relayout_pays_the_extra_measurement_only_for_what_changed() {
-        var widened = Build(given: false);
-        var oracle = Build(given: true);
+        var widened = Build(false);
+        var oracle = Build(true);
         widened.Layout();
         oracle.Layout();
 
@@ -205,15 +211,15 @@ public class CrossSizeReentryWorkTests {
     [InlineData(3)]
     [InlineData(4)]
     public void Nested_minimum_columns_do_not_compound(int depth) {
-        var widened = Build(given: false, depth);
-        var oracle = Build(given: true, depth);
+        var widened = Build(false, depth);
+        var oracle = Build(true, depth);
 
         var work = widened.Layout();
         var oracleWork = oracle.Layout();
 
-        Assert.Equal((3 * depth) - 1, work.Reentries);
-        Assert.Equal(oracleWork.Runs + (7 * depth) - 5, work.Runs);
-        Assert.Equal(oracleWork.Calls + (2 * Items), work.Calls);
+        Assert.Equal(3 * depth - 1, work.Reentries);
+        Assert.Equal(oracleWork.Runs + 7 * depth - 5, work.Runs);
+        Assert.Equal(oracleWork.Calls + 2 * Items, work.Calls);
 
         for (var level = 0; level < depth; level++) {
             Assert.Equal(300f, widened.Tree.GetWidth(widened.Columns[level]));

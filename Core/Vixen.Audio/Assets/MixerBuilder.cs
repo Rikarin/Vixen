@@ -124,9 +124,7 @@ public static class MixerBuilder {
             }
 
             if (mixer.FindBus(declaration.Sidechain) is not { } key) {
-                problems.Add(
-                    $"Bus '{declaration.Name}' is keyed by '{declaration.Sidechain}', which does not exist."
-                );
+                problems.Add($"Bus '{declaration.Name}' is keyed by '{declaration.Sidechain}', which does not exist.");
 
                 continue;
             }
@@ -134,16 +132,19 @@ public static class MixerBuilder {
             try {
                 bus.SetSidechain(key);
             } catch (ArgumentException exception) {
-                problems.Add($"Bus '{declaration.Name}' cannot be keyed by '{declaration.Sidechain}': {exception.Message}");
+                problems.Add(
+                    $"Bus '{declaration.Name}' cannot be keyed by '{declaration.Sidechain}': {exception.Message}"
+                );
             }
         }
 
         var snapshots = new MixerSnapshots(mixer, asset.Snapshots);
 
-        if (!string.IsNullOrEmpty(asset.DefaultSnapshot) && !snapshots.TransitionTo(asset.DefaultSnapshot, TimeSpan.Zero)) {
+        if (!string.IsNullOrEmpty(asset.DefaultSnapshot)
+            && !snapshots.TransitionTo(asset.DefaultSnapshot, TimeSpan.Zero)) {
             problems.Add($"The default snapshot '{asset.DefaultSnapshot}' is not one of the ones declared.");
         }
 
-        return new MixerBuildResult(snapshots, problems);
+        return new(snapshots, problems);
     }
 }

@@ -2,8 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core.Mathematics;
-using Vixen.Editor.Texturing.Painting;
-using Vixen.Texturing.Layers;
 using Vixen.Texturing.Painting;
 using Xunit;
 
@@ -21,8 +19,12 @@ namespace Vixen.Editor.Texturing.Tests;
 ///         right in area and wrong in both directions.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Every fixture here has stretched or rotated coordinates, and that is the whole
-///         instrument.</b> On a cube — and on <c>PaintProjectionTests.Plane</c>, and on any layout
+///         ⚠
+///         <b>
+///             Every fixture here has stretched or rotated coordinates, and that is the whole
+///             instrument.
+///         </b>
+///         On a cube — and on <c>PaintProjectionTests.Plane</c>, and on any layout
 ///         whose triangles are conformal — the ellipse <em>is</em> a circle and every assertion below
 ///         is satisfied by the code this replaces. That is how the defect shipped: it is invisible in
 ///         the fixture anybody writes first.
@@ -61,15 +63,14 @@ public class PaintEllipseTests {
     /// </remarks>
     static PaintProjection Rotated(float angle, float along, float across) {
         var (sin, cos) = MathF.SinCos(angle);
-
-        Vector2 Layout(float x, float y) =>
-            new(0.5f + ((x * along * cos) - (y * across * sin)), 0.5f + ((x * along * sin) + (y * across * cos)));
-
         return PaintProjection.Over(
             [new(0f, 0f, 0f), new(1f, 0f, 0f), new(0f, 1f, 0f)],
             [Layout(0f, 0f), Layout(1f, 0f), Layout(0f, 1f)],
             [0, 1, 2]
         );
+
+        Vector2 Layout(float x, float y) =>
+            new(0.5f + (x * along * cos - y * across * sin), 0.5f + (x * along * sin + y * across * cos));
     }
 
     /// <summary>A ray straight down at a point of that triangle.</summary>
@@ -92,8 +93,12 @@ public class PaintEllipseTests {
     ///         and nothing that reads the wrong one can pass.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Squash the same amount down a coordinate axis instead and both answers are
-    ///         zero</b>, which is <see cref="A_squash_down_a_coordinate_axis_points_along_it" />
+    ///         ⚠
+    ///         <b>
+    ///             Squash the same amount down a coordinate axis instead and both answers are
+    ///             zero
+    ///         </b>
+    ///         , which is <see cref="A_squash_down_a_coordinate_axis_points_along_it" />
     ///         below — kept precisely so the pair reads as the instrument rather than as two cases of
     ///         the same thing.
     ///     </para>
@@ -152,7 +157,7 @@ public class PaintEllipseTests {
 
         Assert.True(footprint.IsMeasurable);
         Assert.Equal(4f, footprint.Aspect, 3);
-        Assert.Equal(0f, MathF.Sin(footprint.Angle - (MathF.PI / 6f)), 3);
+        Assert.Equal(0f, MathF.Sin(footprint.Angle - MathF.PI / 6f), 3);
 
         // The size is unchanged by the shape: four pixels of a one-unit-per-pixel camera is four
         // units of surface, and the equal-area density here is √(32 · 8) = 16 texels per unit.
@@ -198,8 +203,12 @@ public class PaintEllipseTests {
 
     /// <summary>The ellipse turns with its angle rather than staying flat in the atlas.</summary>
     /// <remarks>
-    ///     ⚠ <b>The case a stamp that read <c>Aspect</c> and ignored <c>AspectAngle</c> would
-    ///     pass.</b> Squeezing the offset along a fixed axis is most of the arithmetic and is right
+    ///     ⚠
+    ///     <b>
+    ///         The case a stamp that read <c>Aspect</c> and ignored <c>AspectAngle</c> would
+    ///         pass.
+    ///     </b>
+    ///     Squeezing the offset along a fixed axis is most of the arithmetic and is right
     ///     for every chart whose stretch happens to run along the atlas's own axes — which is the
     ///     fixture above. At 90° the two semi-axes swap, so the same brush must reach twice as far
     ///     up and half as far across.
@@ -236,7 +245,7 @@ public class PaintEllipseTests {
     /// <returns>The extents from the stamp's centre and how many texels it painted.</returns>
     static (double Along, double Across, int Texels) Painted(PaintBrush brush) {
         PaintImage image = new(Canvas, Canvas);
-        PaintStroke stroke = new(image, PaintCoverage.Everywhere(Canvas, Canvas), brush, Opaque, gutter: 0);
+        PaintStroke stroke = new(image, PaintCoverage.Everywhere(Canvas, Canvas), brush, Opaque, 0);
 
         stroke.MoveTo(new(Canvas / 2f, Canvas / 2f));
 
@@ -246,18 +255,18 @@ public class PaintEllipseTests {
 
         for (var y = 0; y < Canvas; y++) {
             for (var x = 0; x < Canvas; x++) {
-                if (image[(y * Canvas) + x] == 0u) {
+                if (image[y * Canvas + x] == 0u) {
                     continue;
                 }
 
                 texels++;
 
                 if (y == Canvas / 2) {
-                    along = Math.Max(along, Math.Abs((x + 0.5) - (Canvas / 2f)));
+                    along = Math.Max(along, Math.Abs(x + 0.5 - Canvas / 2f));
                 }
 
                 if (x == Canvas / 2) {
-                    across = Math.Max(across, Math.Abs((y + 0.5) - (Canvas / 2f)));
+                    across = Math.Max(across, Math.Abs(y + 0.5 - Canvas / 2f));
                 }
             }
         }

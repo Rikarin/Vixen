@@ -36,10 +36,10 @@ sealed class BidiState {
     public int[] ExplicitLevels { get; private set; } = [];
 
     public BidiState(ReadOnlySpan<int> codePoints, BidiClass[] classes, int paragraphLevel) {
-        this.codePoints = codePoints.ToArray();
+        this.codePoints = [..codePoints];
         this.paragraphLevel = paragraphLevel;
 
-        initial = (BidiClass[]) classes.Clone();
+        initial = (BidiClass[])classes.Clone();
         types = classes;
         Levels = new int[classes.Length];
 
@@ -103,7 +103,7 @@ sealed class BidiState {
         var stack = new Status[MaxStack];
         var depth = 0;
 
-        stack[0] = new Status(paragraphLevel, BidiClass.Other, false);
+        stack[0] = new(paragraphLevel, BidiClass.Other, false);
 
         var overflowIsolates = 0;
         var overflowEmbeddings = 0;
@@ -123,7 +123,7 @@ sealed class BidiState {
                         : NextEven(stack[depth].Level);
 
                     if (next <= BidiAlgorithm.MaximumDepth && overflowIsolates == 0 && overflowEmbeddings == 0) {
-                        stack[++depth] = new Status(
+                        stack[++depth] = new(
                             next,
                             type switch {
                                 BidiClass.RLO => BidiClass.R,
@@ -163,7 +163,7 @@ sealed class BidiState {
 
                     if (next <= BidiAlgorithm.MaximumDepth && overflowIsolates == 0 && overflowEmbeddings == 0) {
                         validIsolates++;
-                        stack[++depth] = new Status(next, BidiClass.Other, true);
+                        stack[++depth] = new(next, BidiClass.Other, true);
                     } else {
                         overflowIsolates++;
                     }
@@ -237,7 +237,7 @@ sealed class BidiState {
             }
         }
 
-        ExplicitLevels = (int[]) Levels.Clone();
+        ExplicitLevels = (int[])Levels.Clone();
     }
 
     /// <summary>BD13 and X10 — chops the paragraph into isolating run sequences and resolves each.</summary>
@@ -247,8 +247,12 @@ sealed class BidiState {
         // original positions all the way to the end.
         var removed = new bool[types.Length];
         for (var i = 0; i < types.Length; i++) {
-            removed[i] = initial[i] is BidiClass.RLE or BidiClass.LRE or BidiClass.RLO
-                or BidiClass.LRO or BidiClass.PDF or BidiClass.BN;
+            removed[i] = initial[i] is BidiClass.RLE
+                or BidiClass.LRE
+                or BidiClass.RLO
+                or BidiClass.LRO
+                or BidiClass.PDF
+                or BidiClass.BN;
         }
 
         foreach (var sequence in BuildSequences(removed)) {
@@ -342,8 +346,12 @@ sealed class BidiState {
                 case BidiClass.WS or BidiClass.LRI or BidiClass.RLI or BidiClass.FSI or BidiClass.PDI:
                     break;
 
-                case BidiClass.RLE or BidiClass.LRE or BidiClass.RLO or BidiClass.LRO
-                    or BidiClass.PDF or BidiClass.BN:
+                case BidiClass.RLE
+                    or BidiClass.LRE
+                    or BidiClass.RLO
+                    or BidiClass.LRO
+                    or BidiClass.PDF
+                    or BidiClass.BN:
                     // Removed by X9, and transparent here too — a space before an embedding control
                     // is still trailing whitespace.
                     break;
@@ -369,8 +377,12 @@ sealed class BidiState {
     public int[] VisualOrder() {
         var visible = new List<int>();
         for (var i = 0; i < types.Length; i++) {
-            if (initial[i] is BidiClass.RLE or BidiClass.LRE or BidiClass.RLO or BidiClass.LRO
-                or BidiClass.PDF or BidiClass.BN) {
+            if (initial[i] is BidiClass.RLE
+                or BidiClass.LRE
+                or BidiClass.RLO
+                or BidiClass.LRO
+                or BidiClass.PDF
+                or BidiClass.BN) {
                 continue;
             }
 
@@ -407,7 +419,7 @@ sealed class BidiState {
             }
         }
 
-        return [.. visible];
+        return [..visible];
     }
 
     internal BidiClass TypeOf(int index) => types[index];

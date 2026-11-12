@@ -46,7 +46,11 @@ public sealed class AssetWaterSourceTests {
     public void ASplineReferenceBecomesTheCurveTheBuildWrote() {
         var source = new AssetWaterSource(Content(Lake(), null));
 
-        Settles(source, () => source.SplineFor(SplineAddress, Matrix4x4.Identity) is not null, "the curve never arrived");
+        Settles(
+            source,
+            () => source.SplineFor(SplineAddress, Matrix4x4.Identity) is not null,
+            "the curve never arrived"
+        );
 
         var curve = source.SplineFor(SplineAddress, Matrix4x4.Identity)!;
 
@@ -95,7 +99,11 @@ public sealed class AssetWaterSourceTests {
     public void ACurveIsBuiltOncePerPlacement() {
         var source = new AssetWaterSource(Content(Lake(), null));
 
-        Settles(source, () => source.SplineFor(SplineAddress, Matrix4x4.Identity) is not null, "the curve never arrived");
+        Settles(
+            source,
+            () => source.SplineFor(SplineAddress, Matrix4x4.Identity) is not null,
+            "the curve never arrived"
+        );
 
         var first = source.SplineFor(SplineAddress, Matrix4x4.Identity);
 
@@ -140,8 +148,11 @@ public sealed class AssetWaterSourceTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <b>The end-to-end half of the retry, and the reason this belongs beside the source
-    ///         rather than beside the fold.</b> Every spline source in
+    ///         <b>
+    ///             The end-to-end half of the retry, and the reason this belongs beside the source
+    ///             rather than beside the fold.
+    ///         </b>
+    ///         Every spline source in
     ///         <c>WaterZoneSystemTests</c> is a literal that answers on the first ask; this one starts
     ///         a <see cref="Task" /> and polls it, which is what a game has and is what made the fold's
     ///         cached failure permanent — the first fold's ask <em>is</em> the ask that starts the
@@ -246,7 +257,7 @@ public sealed class AssetWaterSourceTests {
         SplineAsset.Through(
             "Lake",
             [new(-20f, 2f, -20f), new(20f, 2f, -20f), new(20f, 2f, 20f), new(-20f, 2f, 20f)],
-            closed: true
+            true
         );
 
     /// <summary>A content manager holding the chunks, written the way the build writes them.</summary>
@@ -264,9 +275,7 @@ public sealed class AssetWaterSourceTests {
         // which is what lets the source hand the payload to the serializer.
         var splineId = database.WriteRaw(ContentHash.TypeId(typeof(SplineAsset)), [], Serializer.ToBytes(spline));
 
-        var entries = new List<CatalogEntry> {
-            new(SplineAddress, splineId, "Main", ContentProvider.Local, [], [], 0)
-        };
+        var entries = new List<CatalogEntry> { new(SplineAddress, splineId, "Main", ContentProvider.Local, [], [], 0) };
 
         if (waves is { } spectrum) {
             var asset = new WaterWavesAsset { Name = "NorthSea", Spectrum = spectrum };
@@ -287,8 +296,8 @@ public sealed class AssetWaterSourceTests {
             CatalogFormat.Version,
             default,
             "Windows",
-            [.. entries],
-            [new("Main", "", default, 0, 0, CompressionMethod.None, [])]
+            [..entries],
+            [new("Main", string.Empty, default, 0, 0, CompressionMethod.None, [])]
         );
 
         return new(catalog, new LocalBundleSource(files, new("/bundles")));

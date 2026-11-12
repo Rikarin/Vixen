@@ -16,8 +16,12 @@ namespace Vixen.Terrain;
 ///         applied to a different target, which is [§ D12]'s argument for one brush.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Every one of these goes through <see cref="TerrainWeights.Paint" /> rather than
-///         writing a channel.</b> That method is where the sum-to-one invariant lives — raise one
+///         ⚠
+///         <b>
+///             Every one of these goes through <see cref="TerrainWeights.Paint" /> rather than
+///             writing a channel.
+///         </b>
+///         That method is where the sum-to-one invariant lives — raise one
 ///         layer and the rest come down in proportion, by largest remainder — and a kernel that wrote
 ///         the byte itself would be a second implementation of the rule, disagreeing with the first
 ///         by a unit or two per sample. Which is exactly the drift <see cref="TerrainWeights.Verify" />
@@ -40,7 +44,8 @@ public static class TerrainPaint {
         in TerrainDescription description,
         in TerrainBrush brush,
         in BrushStamp stamp
-    ) => TerrainSculpt.AffectedRect(description, brush, stamp);
+    ) =>
+        TerrainSculpt.AffectedRect(description, brush, stamp);
 
     /// <summary>Raises a layer's weight under a stamp, lowering the others proportionally.</summary>
     /// <param name="terrain">The terrain.</param>
@@ -65,7 +70,11 @@ public static class TerrainPaint {
         var rect = AffectedRect(terrain.Description, brush, stamp);
 
         Apply(
-            terrain, brush, stamp, mask, rect,
+            terrain,
+            brush,
+            stamp,
+            mask,
+            rect,
             (x, z, weight) => terrain.Weights.Paint(layer, x, z, (int)MathF.Round(amount * weight))
         );
 
@@ -99,7 +108,11 @@ public static class TerrainPaint {
         var snapshot = Snapshot(terrain, layer, read);
 
         Apply(
-            terrain, brush, stamp, mask, rect,
+            terrain,
+            brush,
+            stamp,
+            mask,
+            rect,
             (x, z, weight) => {
                 var total = 0;
 
@@ -146,7 +159,11 @@ public static class TerrainPaint {
         var wanted = Math.Clamp(target, 0f, 1f) * TerrainWeights.Total;
 
         Apply(
-            terrain, brush, stamp, mask, rect,
+            terrain,
+            brush,
+            stamp,
+            mask,
+            rect,
             (x, z, weight) => {
                 var current = terrain.Weights.WeightAt(layer, x, z);
 
@@ -186,7 +203,11 @@ public static class TerrainPaint {
         var noise = settings;
 
         Apply(
-            terrain, brush, stamp, mask, rect,
+            terrain,
+            brush,
+            stamp,
+            mask,
+            rect,
             (x, z, weight) =>
                 terrain.Weights.Paint(layer, x, z, (int)MathF.Round(noise.At(x, z) * amount * weight))
         );
@@ -211,7 +232,7 @@ public static class TerrainPaint {
         for (var z = rect.Z; z < rect.EndZ; z++) {
             for (var x = rect.X; x < rect.EndX; x++) {
                 var weight = brush.WeightAt(
-                    new Vector2(x * description.MetresPerQuad, z * description.MetresPerQuad),
+                    new(x * description.MetresPerQuad, z * description.MetresPerQuad),
                     stamp,
                     mask
                 );
@@ -236,7 +257,7 @@ public static class TerrainPaint {
             for (var x = 0; x < rect.Width; x++) {
                 // Clamped rather than clipped, so a stamp at the edge reads the boundary sample
                 // repeatedly and smooths as if the terrain continued — TerrainSculpt's rule.
-                buffer[(z * rect.Width) + x] = terrain.Weights.WeightAt(
+                buffer[z * rect.Width + x] = terrain.Weights.WeightAt(
                     layer,
                     Math.Clamp(rect.X + x, clipped.X, Math.Max(clipped.X, clipped.EndX - 1)),
                     Math.Clamp(rect.Z + z, clipped.Z, Math.Max(clipped.Z, clipped.EndZ - 1))
@@ -251,6 +272,6 @@ public static class TerrainPaint {
         var localX = Math.Clamp(x - rect.X, 0, rect.Width - 1);
         var localZ = Math.Clamp(z - rect.Z, 0, rect.Height - 1);
 
-        return snapshot[(localZ * rect.Width) + localX];
+        return snapshot[localZ * rect.Width + localX];
     }
 }

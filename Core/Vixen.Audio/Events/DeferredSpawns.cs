@@ -29,7 +29,9 @@ sealed class DeferredSpawns {
     int count;
     long dropped;
 
-    public DeferredSpawns(int capacity) => pending = new Pending[capacity];
+    public DeferredSpawns(int capacity) {
+        pending = new Pending[capacity];
+    }
 
     /// <summary>How many layers were never played because the table was full.</summary>
     public long Dropped => dropped;
@@ -45,7 +47,7 @@ sealed class DeferredSpawns {
             return false;
         }
 
-        pending[count++] = new Pending { Sound = sound, Attributes = attributes, Remaining = seconds };
+        pending[count++] = new() { Sound = sound, Attributes = attributes, Remaining = seconds };
         return true;
     }
 

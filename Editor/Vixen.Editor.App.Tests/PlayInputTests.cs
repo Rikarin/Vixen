@@ -26,14 +26,14 @@ namespace Vixen.Editor.App.Tests;
 /// </remarks>
 public class PlayInputTests {
     const string Bindings = """
-        name: Probe
-        maps:
-          - name: Player
-            actions:
-              - name: Forward
-                bindings:
-                  - path: <Keyboard>/w
-        """;
+                            name: Probe
+                            maps:
+                              - name: Player
+                                actions:
+                                  - name: Forward
+                                    bindings:
+                                      - path: <Keyboard>/w
+                            """;
 
     /// <summary>W typed into the inspector moves nothing; W in the focused pane does, and Escape lets go.</summary>
     [Fact]
@@ -168,7 +168,7 @@ public class PlayInputTests {
 
     /// <summary>Puts the focus on something inside a tab.</summary>
     static void FocusIn(EditorSession session, string tab) {
-        var target = Descendants(session.Panel(tab)).FirstOrDefault(element => element.Focusable)
+        var target = Descendants(session.Panel(tab)).FirstOrDefault(static element => element.Focusable)
             ?? throw session.Fail($"Nothing in the '{tab}' tab takes the focus.");
 
         Assert.True(session.Document.Focus(target));

@@ -63,8 +63,12 @@ public sealed partial class SplitView : Control {
 
     /// <summary>The name markup writes to reach <see cref="Second" />.</summary>
     /// <remarks>
-    ///     ⚠ <b>One slot name rather than two, because <see cref="UiElement.ContentHost" /> already
-    ///     answers for the first.</b> A split is two things and a content host can only be one of
+    ///     ⚠
+    ///     <b>
+    ///         One slot name rather than two, because <see cref="UiElement.ContentHost" /> already
+    ///         answers for the first.
+    ///     </b>
+    ///     A split is two things and a content host can only be one of
     ///     them, so the near pane is where unmarked children go — which is what a sidebar's own
     ///     markup reads like — and the far pane is named. Naming both would mean a
     ///     <c>&lt;SplitView&gt;</c> whose children silently went nowhere until the author found out
@@ -119,8 +123,12 @@ public sealed partial class SplitView : Control {
 
     /// <summary>How small either pane may be made, as a fraction.</summary>
     /// <remarks>
-    ///     ⚠ <b>A fraction and not a pixel width, which is the wrong answer for a resizable window
-    ///     and the right one here.</b> A pixel minimum has to be re-clamped every time the split
+    ///     ⚠
+    ///     <b>
+    ///         A fraction and not a pixel width, which is the wrong answer for a resizable window
+    ///         and the right one here.
+    ///     </b>
+    ///     A pixel minimum has to be re-clamped every time the split
     ///     itself changes size, and nothing in this control is told when that happens — the ratio is
     ///     applied by the cascade and the layout follows. A fraction survives a resize by meaning the
     ///     same thing at every size, which is also what makes it the number worth saving.
@@ -133,8 +141,12 @@ public sealed partial class SplitView : Control {
 
     /// <inheritdoc />
     /// <remarks>
-    ///     ⚠ <b><c>slot="second"</c>, and the bar is created between the two panes rather than
-    ///     appended after them.</b> A part added later lands at the end, which for a splitter means
+    ///     ⚠
+    ///     <b>
+    ///         <c>slot="second"</c>, and the bar is created between the two panes rather than
+    ///         appended after them.
+    ///     </b>
+    ///     A part added later lands at the end, which for a splitter means
     ///     both panes on one side of it — visibly wrong, and wrong in a way no stylesheet can put
     ///     back without knowing the order it wanted.
     /// </remarks>
@@ -167,8 +179,12 @@ public sealed partial class SplitView : Control {
 
     /// <inheritdoc />
     /// <remarks>
-    ///     ⚠ <b>A disabled split has to take its bar out of the tab order, and no base class does it
-    ///     for a part.</b> <c>Control</c> answers <c>Disabled</c> by clearing its own
+    ///     ⚠
+    ///     <b>
+    ///         A disabled split has to take its bar out of the tab order, and no base class does it
+    ///         for a part.
+    ///     </b>
+    ///     <c>Control</c> answers <c>Disabled</c> by clearing its own
     ///     <see cref="UiElement.Focusable" />, and the focus this control offers is not its own —
     ///     <see cref="UiDocument.TabOrder" /> skips a <c>display: none</c> subtree and knows nothing about
     ///     a disabled ancestor, so the bar would stay a stop that answers no key. The capture-leg
@@ -212,8 +228,12 @@ public sealed partial class SplitView : Control {
     }
 
     /// <remarks>
-    ///     ⚠ <b>Written back through the property, so that widening the minimum past where the bar
-    ///     already is moves the bar.</b> A minimum that only applied to the next assignment would
+    ///     ⚠
+    ///     <b>
+    ///         Written back through the property, so that widening the minimum past where the bar
+    ///         already is moves the bar.
+    ///     </b>
+    ///     A minimum that only applied to the next assignment would
     ///     leave a split sitting outside its own minimum with no path that ever fixes it — and
     ///     <c>Ratio = Ratio</c> would not do it either, because the setter compares before it
     ///     assigns.
@@ -326,6 +346,5 @@ public sealed partial class SplitView : Control {
     ///     width at one end and towards it at the other — which reads as a splitter that does not
     ///     quite follow the mouse and is the same arithmetic <c>DockSplitterView.Drag</c> writes.
     /// </remarks>
-    float Span() =>
-        Orientation == Orientation.Vertical ? Bounds.Height - Bar.Height : Bounds.Width - Bar.Width;
+    float Span() => Orientation == Orientation.Vertical ? Bounds.Height - Bar.Height : Bounds.Width - Bar.Width;
 }

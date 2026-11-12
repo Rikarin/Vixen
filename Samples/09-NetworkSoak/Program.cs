@@ -4,11 +4,7 @@
 using System.Diagnostics;
 using System.Globalization;
 using Vixen.Core;
-using Vixen.Core.Mathematics;
 using Vixen.Ecs;
-using Vixen.Net;
-using Vixen.Net.Diagnostics;
-using Vixen.Net.Motion;
 using Vixen.Net.Replication;
 using Vixen.Net.Sessions;
 
@@ -39,8 +35,12 @@ namespace Vixen.Samples.NetworkSoak;
 ///         configuration anybody should ship.
 ///     </para>
 ///     <para>
-///         ⚠ <b><c>--interest grid</c> is a third mode rather than a replacement for the slice, and
-///         that is deliberate.</b> <see cref="SliceResolver" /> exists because a distance grid makes
+///         ⚠
+///         <b>
+///             <c>--interest grid</c> is a third mode rather than a replacement for the slice, and
+///             that is deliberate.
+///         </b>
+///         <see cref="SliceResolver" /> exists because a distance grid makes
 ///         the measurement depend on how the entities were laid out, which is a fair objection to
 ///         measuring <i>the pipeline</i> with one — so the slice stays the default and stays the
 ///         layout-independent number. What was missing is the other half: <c>InterestGrid</c> makes a

@@ -26,12 +26,12 @@ public class TransformTransitionTests {
     const float Tolerance = 0.01f;
 
     const string Base = """
-        root { width: 400px; height: 300px; }
-        #box { position: absolute; left: 0px; top: 0px; width: 100px; height: 40px;
-               background-color: #202020; transform-origin: 0px 0px;
-               transition-property: transform; transition-duration: 1s;
-               transition-timing-function: linear; }
-        """;
+                        root { width: 400px; height: 300px; }
+                        #box { position: absolute; left: 0px; top: 0px; width: 100px; height: 40px;
+                               background-color: #202020; transform-origin: 0px 0px;
+                               transition-property: transform; transition-duration: 1s;
+                               transition-timing-function: linear; }
+                        """;
 
     static UiElement Settled(UiDocument document, string css) {
         document.Load(Base + css);
@@ -49,8 +49,7 @@ public class TransformTransitionTests {
     }
 
     /// <summary>Where a point on the box's top edge ends up, which says the angle it has turned by.</summary>
-    static Vector2 Tip(UiElement box) =>
-        Assert.IsType<UiTransform>(box.Transform).Apply(new Vector2(100f, 0f));
+    static Vector2 Tip(UiElement box) => Assert.IsType<UiTransform>(box.Transform).Apply(new(100f, 0f));
 
     /// <summary>
     ///     ⚠ <b>A quarter turn is an eighth of a turn half way through, and the pointer agrees.</b>
@@ -131,9 +130,9 @@ public class TransformTransitionTests {
         Frame(document, 0.0);
         Frame(document, 0.5);
 
-        var point = Assert.IsType<UiTransform>(box.Transform).Apply(new Vector2(10f, 0f));
+        var point = Assert.IsType<UiTransform>(box.Transform).Apply(new(10f, 0f));
 
-        Assert.Equal(50f + (10f * MathF.Sqrt(0.5f)), point.X, Tolerance);
+        Assert.Equal(50f + 10f * MathF.Sqrt(0.5f), point.X, Tolerance);
         Assert.Equal(10f * MathF.Sqrt(0.5f), point.Y, Tolerance);
     }
 
@@ -211,8 +210,11 @@ public class TransformTransitionTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>A transition out of a diagonal reflection starts where the reflection is, rather than
-    ///     half a turn away from it.</b>
+    ///     ⚠
+    ///     <b>
+    ///         A transition out of a diagonal reflection starts where the reflection is, rather than
+    ///         half a turn away from it.
+    ///     </b>
     /// </summary>
     /// <remarks>
     ///     <c>matrix(0, 1, 1, 0, 0, 0)</c> against <c>rotate(45deg)</c> pairs nothing, so both ends are
@@ -224,9 +226,12 @@ public class TransformTransitionTests {
     [Fact]
     public void A_transition_out_of_a_reflection_starts_at_the_reflection() {
         using var document = new UiDocument(400f, 300f);
-        var box = Settled(document, "#box { transform: matrix(0, 1, 1, 0, 0, 0); } #box.turned { transform: rotate(45deg); }");
+        var box = Settled(
+            document,
+            "#box { transform: matrix(0, 1, 1, 0, 0, 0); } #box.turned { transform: rotate(45deg); }"
+        );
 
-        var rest = Assert.IsType<UiTransform>(box.Transform).Apply(new Vector2(100f, 20f));
+        var rest = Assert.IsType<UiTransform>(box.Transform).Apply(new(100f, 20f));
 
         Assert.Equal(20f, rest.X, Tolerance);
         Assert.Equal(100f, rest.Y, Tolerance);
@@ -234,15 +239,18 @@ public class TransformTransitionTests {
         box.AddClass("turned");
         Frame(document, 0.0);
 
-        var first = Assert.IsType<UiTransform>(box.Transform).Apply(new Vector2(100f, 20f));
+        var first = Assert.IsType<UiTransform>(box.Transform).Apply(new(100f, 20f));
 
         Assert.Equal(20f, first.X, 0.05f);
         Assert.Equal(100f, first.Y, 0.05f);
     }
 
     /// <summary>
-    ///     ⚠ <b><c>backface-visibility</c> is decided at every step, so a turning card disappears at
-    ///     the crossing and not at either end.</b>
+    ///     ⚠
+    ///     <b>
+    ///         <c>backface-visibility</c> is decided at every step, so a turning card disappears at
+    ///         the crossing and not at either end.
+    ///     </b>
     /// </summary>
     /// <remarks>
     ///     <c>rotateY(0deg)</c> → <c>rotateY(180deg)</c> under <c>backface-visibility: hidden</c>. At
@@ -271,8 +279,11 @@ public class TransformTransitionTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>A <c>@keyframes</c> spin written with <c>transform</c> spins, where it used to wipe
-    ///     the transform out.</b>
+    ///     ⚠
+    ///     <b>
+    ///         A <c>@keyframes</c> spin written with <c>transform</c> spins, where it used to wipe
+    ///         the transform out.
+    ///     </b>
     /// </summary>
     /// <remarks>
     ///     A keyframe pair of transform lists was interpolated as two <c>StyleValue.Unknown</c>s,
@@ -330,7 +341,9 @@ public class TransformTransitionTests {
     static int Occurrences(string text, string of) {
         var count = 0;
 
-        for (var at = text.IndexOf(of, StringComparison.Ordinal); at >= 0; at = text.IndexOf(of, at + 1, StringComparison.Ordinal)) {
+        for (var at = text.IndexOf(of, StringComparison.Ordinal);
+             at >= 0;
+             at = text.IndexOf(of, at + 1, StringComparison.Ordinal)) {
             count++;
         }
 

@@ -43,7 +43,7 @@ public sealed class MixerSnapshots {
     }
 
     /// <summary>Every snapshot's name.</summary>
-    public IEnumerable<string> Names => snapshots.Select(snapshot => snapshot.Name);
+    public IEnumerable<string> Names => snapshots.Select(static snapshot => snapshot.Name);
 
     /// <summary>Which snapshot was last asked for, or <see langword="null" /> if none has been.</summary>
     public string? Current { get; private set; }
@@ -89,7 +89,7 @@ public sealed class MixerSnapshots {
             // Any manual fade on this bus is over: two things driving one gain is the kind of fight
             // that shows up as a fader that will not stay where it is put.
             bus.CancelFade();
-            busTargets.Add(new BusTarget(bus, bus.Gain, Decibels.ToLinear(entry.GainDb)));
+            busTargets.Add(new(bus, bus.Gain, Decibels.ToLinear(entry.GainDb)));
         }
 
         foreach (var entry in snapshot.Sends) {
@@ -99,7 +99,7 @@ public sealed class MixerSnapshots {
 
             foreach (var send in bus.Sends) {
                 if (send.Target.Name == entry.Target) {
-                    sendTargets.Add(new SendTarget(send, send.Level, Decibels.ToLinear(entry.LevelDb)));
+                    sendTargets.Add(new(send, send.Level, Decibels.ToLinear(entry.LevelDb)));
                 }
             }
         }

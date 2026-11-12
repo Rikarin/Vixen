@@ -15,8 +15,11 @@ namespace Vixen.Ui.Controls.Advanced.Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b><c>Rikarin/Vixen#1338</c>: the accessibility gate is green on exactly the population it
-///         cannot judge.</b> <see cref="Vixen.Ui.Testing.AccessibilitySnapshot.Untranslated" /> asks
+///         <b>
+///             <c>Rikarin/Vixen#1338</c>: the accessibility gate is green on exactly the population it
+///             cannot judge.
+///         </b>
+///         <see cref="Vixen.Ui.Testing.AccessibilitySnapshot.Untranslated" /> asks
 ///         whether an announced word is still the source text of a <i>declared</i> string — it builds
 ///         its comparison out of the declaration table, so a control announcing a literal that no
 ///         declaration class carries has nothing to compare against and passes. Silently, in every
@@ -24,16 +27,24 @@ namespace Vixen.Ui.Controls.Advanced.Tests;
 ///         in what the comparison can express.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Undecidable at run time and decidable in the source, which is why this is a scan and
-///         not another sweep.</b> A running control announcing "Directional Light" may be reading an
+///         ⚠
+///         <b>
+///             Undecidable at run time and decidable in the source, which is why this is a scan and
+///             not another sweep.
+///         </b>
+///         A running control announcing "Directional Light" may be reading an
 ///         entity's name, a file's name or a hex colour — none of which a catalogue could ever carry
 ///         — so no walk of a live tree can tell an untranslatable literal from data. In markup the
 ///         two are different syntax: <c>Label="@EditorStrings.PluginsReload.Text"</c> goes through the
 ///         catalogue and <c>Label="Add Component"</c> is a word a translator can never reach.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The attributes are the ones that become a <i>spoken</i> name, and each is proved to be
-///         one rather than believed to be.</b> <c>ButtonBase.NativeAccessibleName</c> is
+///         ⚠
+///         <b>
+///             The attributes are the ones that become a <i>spoken</i> name, and each is proved to be
+///             one rather than believed to be.
+///         </b>
+///         <c>ButtonBase.NativeAccessibleName</c> is
 ///         <c>Label</c>, <c>Alert</c>'s and <c>Dialog</c>'s is <c>Title</c>, <c>Toast</c>'s is
 ///         <c>Message</c>, <c>Image</c>'s is <c>Description</c> and <c>Avatar</c>'s is <c>Name</c>.
 ///         <see cref="Every_watched_attribute_reaches_a_spoken_name" /> builds one control per
@@ -57,8 +68,12 @@ namespace Vixen.Ui.Controls.Advanced.Tests;
 ///         declined to see costs a screen-reader user a word no translator can reach.
 ///     </para>
 ///     <para>
-///         ⚠ <b>It is not over-inclusive about which <i>lines</i> it reads, and that is a different
-///         direction with a different cost.</b> A <c>&lt;!-- … --&gt;</c> comment quoting an
+///         ⚠
+///         <b>
+///             It is not over-inclusive about which <i>lines</i> it reads, and that is a different
+///             direction with a different cost.
+///         </b>
+///         A <c>&lt;!-- … --&gt;</c> comment quoting an
 ///         attribute as an example, and a <c>Label = "Add"</c> in a <c>@code</c> body, are prose and
 ///         C# about markup rather than markup — the two sources <c>Rikarin/Vixen#1317</c> found in
 ///         the tag census, in the same batch as this file, which shipped with no filter at all.
@@ -110,9 +125,11 @@ public partial class MarkupAccessibleNameTests {
     ///     ⚠ Preceded by whitespace rather than <c>\b</c>, so <c>LeadingIcon.Label="…"</c> and
     ///     <c>DisplayName="…"</c> are not this attribute on this element.
     /// </remarks>
-    [GeneratedRegex("""""
+    [GeneratedRegex(
+        """""
         (?<=\s)(?<attribute>[A-Z][A-Za-z0-9]*)\s*=\s*"(?<value>[^"]*)"
-        """"")]
+        """""
+    )]
     private static partial Regex Attribute { get; }
 
     /// <summary>What the markup writes, sorted into the two kinds this file tells apart.</summary>
@@ -142,7 +159,7 @@ public partial class MarkupAccessibleNameTests {
             bound += found.Bound;
         }
 
-        return new Markup([.. rows], bound, files);
+        return new Markup([..rows], bound, files);
     }
 
     /// <summary>What one file says, with its prose and its C# left out.</summary>
@@ -151,8 +168,12 @@ public partial class MarkupAccessibleNameTests {
     /// <returns>Its literal rows, and how many of its watched attributes were bound.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A markup line is what <see cref="VxmlLines" /> says it is, rather than what this
-    ///         file assumes.</b> The first spelling of this ran the pattern over every line, which is
+    ///         ⚠
+    ///         <b>
+    ///             A markup line is what <see cref="VxmlLines" /> says it is, rather than what this
+    ///             file assumes.
+    ///         </b>
+    ///         The first spelling of this ran the pattern over every line, which is
     ///         exactly the defect <c>Rikarin/Vixen#1317</c> fixed in the tag sweep one assembly away
     ///         in this same batch: a header comment writing <c>Label="Add Component"</c> as an
     ///         <i>example</i>, and a <c>Label = "Add"</c> in a <c>@code</c> body, both match the
@@ -208,7 +229,7 @@ public partial class MarkupAccessibleNameTests {
             }
         }
 
-        return new Markup([.. rows], bound, 1);
+        return new Markup([..rows], bound, 1);
     }
 
     /// <summary>
@@ -284,8 +305,12 @@ public partial class MarkupAccessibleNameTests {
     /// <param name="root">Where to start.</param>
     /// <returns>Each announced name and description under <paramref name="root" />.</returns>
     /// <remarks>
-    ///     ⚠ <b>The walk <c>AccessibilitySnapshot.Untranslated</c> makes, rather than a read of the
-    ///     property that was just written.</b> Asserting <c>element.AccessibleName == word</c> after
+    ///     ⚠
+    ///     <b>
+    ///         The walk <c>AccessibilitySnapshot.Untranslated</c> makes, rather than a read of the
+    ///         property that was just written.
+    ///     </b>
+    ///     Asserting <c>element.AccessibleName == word</c> after
     ///     setting <c>AccessibleName</c> is a settable property returning what it was given: it stays
     ///     green if <c>UiElement</c> stops consulting the value for the tree entirely, which is
     ///     exactly the failure this instrument check exists to catch for the other five attributes.
@@ -318,8 +343,12 @@ public partial class MarkupAccessibleNameTests {
     /// <summary>A comment about markup, and the C# below it, are not words anybody says.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Synthetic lines, because no committed <c>.vxml</c> writes one of these — and that
-    ///         is why a test reading the tree could not show it.</b> Every one of the census's rows
+    ///         ⚠
+    ///         <b>
+    ///             Synthetic lines, because no committed <c>.vxml</c> writes one of these — and that
+    ///             is why a test reading the tree could not show it.
+    ///         </b>
+    ///         Every one of the census's rows
     ///         comes from real markup today, so the scan with no filter at all and the scan with this
     ///         one produce the identical file. What differs is what happens the day somebody writes a
     ///         header comment showing how to label a button: with no filter that example becomes a
@@ -338,16 +367,16 @@ public partial class MarkupAccessibleNameTests {
             [
                 "<!--",
                 "    The panel's buttons are labelled the translatable way. Do not write",
-                "    Label=\"From A Comment\" here — it is a word no translator can reach.",
+                """    Label="From A Comment" here — it is a word no translator can reach.""",
                 "-->",
                 "<Panel>",
-                "    <Button Label=\"From Markup\" />",
-                "    <Button Label=\"@EditorStrings.PluginsReload.Text\" />",
+                """    <Button Label="From Markup" />""",
+                """    <Button Label="@EditorStrings.PluginsReload.Text" />""",
                 "</Panel>",
                 "@code {",
-                "    /// <summary>The <c>Title=\"From A Doc Comment\"</c> spelling.</summary>",
+                """    /// <summary>The <c>Title="From A Doc Comment"</c> spelling.</summary>""",
                 "    void Build() {",
-                "        Root.Add<Button>(new() { Label = \"From Code\" });",
+                """        Root.Add<Button>(new() { Label = "From Code" });""",
                 "    }",
                 "}"
             ]
@@ -395,7 +424,10 @@ public partial class MarkupAccessibleNameTests {
         // is the same attribute on the same kind of control, done the way that can be translated.
         Assert.DoesNotContain(
             markup.Literal,
-            row => row.StartsWith("Editor/Vixen.Editor.App/PluginManagerView.vxml\tLabel\tReload", StringComparison.Ordinal)
+            static row => row.StartsWith(
+                "Editor/Vixen.Editor.App/PluginManagerView.vxml\tLabel\tReload",
+                StringComparison.Ordinal
+            )
         );
     }
 
@@ -405,8 +437,12 @@ public partial class MarkupAccessibleNameTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Exact rather than a floor, which is the guard this repository has twice had eaten
-    ///         by success.</b> A ceiling — "no more than 171" — cannot say that a word came back, so
+    ///         ⚠
+    ///         <b>
+    ///             Exact rather than a floor, which is the guard this repository has twice had eaten
+    ///             by success.
+    ///         </b>
+    ///         A ceiling — "no more than 171" — cannot say that a word came back, so
     ///         a row would outlive the literal it records and the next untranslatable name would take
     ///         the seat a localised one vacated.
     ///     </para>

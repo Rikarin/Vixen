@@ -10,8 +10,12 @@ namespace Vixen.Ui.Testing.Tests;
 /// <summary>Where an <c>inset</c> shadow's ink actually lands.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>The draw-list tests cannot see any of this, and the two ways this feature fails are
-///         both invisible to them.</b> <c>Vixen.Ui.Tests.DrawListTests</c> says the command carries the
+///         ⚠
+///         <b>
+///             The draw-list tests cannot see any of this, and the two ways this feature fails are
+///             both invisible to them.
+///         </b>
+///         <c>Vixen.Ui.Tests.DrawListTests</c> says the command carries the
 ///         box's own quad and a record saying it is inset; it cannot say the fragment stage took the
 ///         complement rather than the plain coverage, and it cannot say the complement was clipped to
 ///         the box's own outline. ⚠ The second of those was nearly written as a fixture that could not
@@ -44,16 +48,16 @@ public class InsetShadowPixelTests {
 
     /// <summary>A 40×24 blue box at the top left, with whatever shadow, on black.</summary>
     static Bitmap Rendered(string declarations) {
-        using var ui = UiTest.Create(Side, Side, new UiTestOptions { Background = Background });
+        using var ui = UiTest.Create(Side, Side, new() { Background = Background });
 
         ui.Load(
             $$"""
-            root  { width: {{Side}}px; height: {{Side}}px; align-items: flex-start; }
-            .box  {
-                width: {{BoxWidth}}px; height: {{BoxHeight}}px; background-color: #0000ff;
-                {{declarations}}
-            }
-            """
+              root  { width: {{Side}}px; height: {{Side}}px; align-items: flex-start; }
+              .box  {
+                  width: {{BoxWidth}}px; height: {{BoxHeight}}px; background-color: #0000ff;
+                  {{declarations}}
+              }
+              """
         );
 
         ui.Create("div", ui.Document.Root, null, "box");
@@ -144,8 +148,12 @@ public class InsetShadowPixelTests {
 
     /// <summary>Halving the spread halves nothing, and the closed form says what it does instead.</summary>
     /// <remarks>
-    ///     ⚠ <b>A ring's area is not linear in its width, which is why this is a second fixture rather
-    ///     than a scaling of the first.</b> A 3-point ring on a 40×24 box is 960 − 34 × 18 = 348, not
+    ///     ⚠
+    ///     <b>
+    ///         A ring's area is not linear in its width, which is why this is a second fixture rather
+    ///         than a scaling of the first.
+    ///     </b>
+    ///     A 3-point ring on a 40×24 box is 960 − 34 × 18 = 348, not
     ///     half of 624 — so an implementation that used the spread as an opacity, a blur or a
     ///     multiplier would satisfy a proportional assertion and fails this one.
     /// </remarks>
@@ -158,8 +166,12 @@ public class InsetShadowPixelTests {
 
     /// <summary>And an inset shadow is painted over the background rather than under it.</summary>
     /// <remarks>
-    ///     ⚠ <b>The ordering half, and it is the half that makes the feature draw nothing at all when
-    ///     it is wrong.</b> CSS Backgrounds 3 § 7.1.1 paints an outer shadow below the background and
+    ///     ⚠
+    ///     <b>
+    ///         The ordering half, and it is the half that makes the feature draw nothing at all when
+    ///         it is wrong.
+    ///     </b>
+    ///     CSS Backgrounds 3 § 7.1.1 paints an outer shadow below the background and
     ///     an inner one above it; a list emitted whole before the background hides every inner shadow
     ///     behind the element's own fill, which on an opaque element is a picture identical to the one
     ///     with no declaration. The outer shadow of the same geometry is the control: it is behind the
@@ -170,7 +182,10 @@ public class InsetShadowPixelTests {
         var (inner, _) = Red(Rendered("box-shadow: inset 0 0 0 6px #ff0000;"));
         var (outer, outside) = Red(Rendered("box-shadow: 0 0 0 6px #ff0000;"));
 
-        Assert.True(inner > 600f, $"an inset shadow drew {inner} of red inside the box, so it is behind the background");
+        Assert.True(
+            inner > 600f,
+            $"an inset shadow drew {inner} of red inside the box, so it is behind the background"
+        );
         Assert.Equal(0f, outer, 1);
 
         // ⚠ The control's own ink is real and all of it is outside — and its closed form is not the

@@ -18,7 +18,7 @@ namespace Vixen.Editor.App.Tests;
 ///     runs over this assembly, and a hand-written stand-in would be a test of the stand-in.
 /// </remarks>
 #pragma warning disable CA1051 // The generator describes fields, which is what the fixtures it is
-                              // exercised against have to be — see Vixen.Editor.Inspector.Tests.
+// exercised against have to be — see Vixen.Editor.Inspector.Tests.
 public sealed class PickerFixture {
     /// <summary>An asset reference with no type filter, which offers everything.</summary>
     [Inspector]
@@ -33,8 +33,12 @@ public sealed class PickerFixture {
 
 /// <summary>The picker an asset field opens, which nothing opened.</summary>
 /// <remarks>
-///     ⚠ <b>Doc 20's B3: "AssetDrawer raises PickRequested and nothing opens. Small, and every asset
-///     field is dead without it."</b> The button was there, it was enabled, and pressing it did
+///     ⚠
+///     <b>
+///         Doc 20's B3: "AssetDrawer raises PickRequested and nothing opens. Small, and every asset
+///         field is dead without it."
+///     </b>
+///     The button was there, it was enabled, and pressing it did
 ///     precisely nothing — doc 20's second bar failed on the first click rather than the second.
 /// </remarks>
 public class AssetPickerTests {
@@ -53,7 +57,7 @@ public class AssetPickerTests {
         // Two of them — one for the type and one for the attribute — and both have to be pointed at
         // a project or half the asset fields in the editor stay dead.
         Assert.NotEmpty(drawers);
-        Assert.All(drawers, drawer => Assert.NotNull(drawer.Resolve));
+        Assert.All(drawers, static drawer => Assert.NotNull(drawer.Resolve));
     }
 
     /// <summary>
@@ -70,17 +74,20 @@ public class AssetPickerTests {
 
         foreach (var drawer in DrawerRegistry.Default.Drawers.OfType<AssetDrawer>()) {
             var handlers = typeof(AssetDrawer)
-                .GetField(nameof(AssetDrawer.PickRequested), System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
-                .GetValue(drawer) as Delegate;
+                .GetField(
+                    nameof(AssetDrawer.PickRequested),
+                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic
+                )!
+                    .GetValue(drawer) as Delegate;
 
-            var pickers = handlers?.GetInvocationList().Count(handler => handler.Target is AssetPicker) ?? 0;
+            var pickers = handlers?.GetInvocationList().Count(static handler => handler.Target is AssetPicker) ?? 0;
 
             Assert.Equal(1, pickers);
         }
 
         fixture.Dispose();
 
-        Assert.All(DrawerRegistry.Default.Drawers.OfType<AssetDrawer>(), drawer => Assert.Null(drawer.Resolve));
+        Assert.All(DrawerRegistry.Default.Drawers.OfType<AssetDrawer>(), static drawer => Assert.Null(drawer.Resolve));
     }
 
     [Fact]
@@ -94,7 +101,7 @@ public class AssetPickerTests {
 
         // ⚠ Null rather than an invented name: the drawer draws an unresolved id as `Missing (…)`,
         // and an asset deleted out from under a scene is exactly what somebody needs to see.
-        Assert.Null(picker.NameOf(new AssetId(Guid.NewGuid())));
+        Assert.Null(picker.NameOf(new(Guid.NewGuid())));
     }
 
     [Fact]
@@ -161,17 +168,17 @@ public class AssetPickerTests {
         using var fixture = EditorSession.Start();
 
         Open(fixture, new InspectorField(Fixture, Member("Anything"), [new PickerFixture()]));
-        Assert.Contains(Buttons(fixture), button => button.Label == "None");
+        Assert.Contains(Buttons(fixture), static button => button.Label == "None");
 
         Press(fixture, "Cancel");
         fixture.Frames(2);
 
         Open(fixture, new InspectorField(Fixture, Member("Required"), [new PickerFixture()]));
-        Assert.DoesNotContain(Buttons(fixture), button => button.Label == "None");
+        Assert.DoesNotContain(Buttons(fixture), static button => button.Label == "None");
     }
 
     static AssetId Scene(EditorSession fixture) =>
-        fixture.Project.Assets.Entries.First(entry => entry.Name == "Main.vxscene").Guid;
+        fixture.Project.Assets.Entries.First(static entry => entry.Name == "Main.vxscene").Guid;
 
     static void Open(EditorSession fixture, InspectorField field) {
         new AssetPicker(fixture.Project, fixture.Shell.Dialogs).Open(field);
@@ -218,7 +225,7 @@ public class AssetPickerTests {
         var tile = grid.TileOf(index) ?? throw new InvalidOperationException($"'{name}' has no tile");
         var bounds = tile.Element.Bounds;
 
-        fixture.Ui.MovePointer(bounds.X + (bounds.Width * 0.5f), bounds.Y + (bounds.Height * 0.5f));
+        fixture.Ui.MovePointer(bounds.X + bounds.Width * 0.5f, bounds.Y + bounds.Height * 0.5f);
         fixture.Ui.PressPointer();
         fixture.Ui.ReleasePointer();
     }

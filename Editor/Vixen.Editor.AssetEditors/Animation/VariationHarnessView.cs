@@ -95,8 +95,12 @@ internal readonly record struct HarnessSlot(int Variation, int Goal);
 ///         disagree about where the text goes — and these have none.
 ///     </para>
 ///     <para>
-///         ⚠ <b>It was seven, and <c>FactName</c>/<c>FactValue</c> moved to <c>Captions.cs</c> in wave
-///         5.</b> This file argued they should not be hoisted, because a shared declaration "would buy
+///         ⚠
+///         <b>
+///             It was seven, and <c>FactName</c>/<c>FactValue</c> moved to <c>Captions.cs</c> in wave
+///             5.
+///         </b>
+///         This file argued they should not be hoisted, because a shared declaration "would buy
 ///         a file and move nothing" — which was true while <c>AudioMixerView</c> and this were the only
 ///         two. <c>CompiledSceneView</c> and <c>TextureImportView</c> are the third and fourth, and the
 ///         hoist is byte-neutral: same tags, same rules in <c>AssetEditorTheme.vcss</c>, resolved from

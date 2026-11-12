@@ -21,7 +21,7 @@ public sealed class ScreenProbeUpsampleCompileTests {
 
         Assert.NotNull(data);
 
-        var names = data!.Bindings.Select(binding => binding.Name).ToArray();
+        var names = data!.Bindings.Select(static binding => binding.Name).ToArray();
 
         // The names ScreenProbeTexture.Apply writes — unqualified, because the planes are declared
         // directly rather than composed. A rename on either side has to fail here, not in a frame.

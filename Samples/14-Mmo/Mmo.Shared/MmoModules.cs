@@ -28,8 +28,11 @@ namespace Vixen.Samples.Mmo.Rules;
 /// <summary>Every one of doc 28's libraries, composed. The sample takes all of them on purpose.</summary>
 /// <remarks>
 ///     <para>
-///         <b>This is what makes the content readable at all, and finding that out was worth the
-///         detour.</b> A definition's <c>!Tag</c> is resolved through <c>SerializerRegistry</c>, which
+///         <b>
+///             This is what makes the content readable at all, and finding that out was worth the
+///             detour.
+///         </b>
+///         A definition's <c>!Tag</c> is resolved through <c>SerializerRegistry</c>, which
 ///         is filled by a module initializer in each library's own assembly — and a module
 ///         initializer runs when the assembly <em>loads</em>. A test project that merely
 ///         <c>ProjectReference</c>s twenty libraries and never touches a type from nineteen of them

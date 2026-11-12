@@ -4,8 +4,6 @@
 using Vixen.Core;
 using Vixen.Editor.Core;
 using Vixen.Editor.Testing;
-using Vixen.Ui;
-using Vixen.Ui.Controls;
 using Xunit;
 
 namespace Vixen.Editor.App.Tests;
@@ -155,11 +153,14 @@ public class AssetPreviewContributionTests {
         var asked = 0;
 
         using var scope = registry.Add(
-            new AssetPreview(".sample", _ => {
-                Interlocked.Increment(ref asked);
+            new AssetPreview(
+                ".sample",
+                _ => {
+                    Interlocked.Increment(ref asked);
 
-                throw new InvalidOperationException("the plugin is unhappy");
-            })
+                    throw new InvalidOperationException("the plugin is unhappy");
+                }
+            )
         );
 
         editor.Open("project");
@@ -186,18 +187,21 @@ public class AssetPreviewContributionTests {
 
     /// <summary>A flat square of one colour, which is a picture a box filter cannot change.</summary>
     static AssetPreview Flat(byte r, byte g, byte b) =>
-        new(".sample", _ => {
-            var pixels = new byte[32 * 32 * 4];
+        new(
+            ".sample",
+            _ => {
+                var pixels = new byte[32 * 32 * 4];
 
-            for (var at = 0; at < pixels.Length; at += 4) {
-                pixels[at] = r;
-                pixels[at + 1] = g;
-                pixels[at + 2] = b;
-                pixels[at + 3] = 0xFF;
+                for (var at = 0; at < pixels.Length; at += 4) {
+                    pixels[at] = r;
+                    pixels[at + 1] = g;
+                    pixels[at + 2] = b;
+                    pixels[at + 3] = 0xFF;
+                }
+
+                return new AssetPreviewImage(32, 32, pixels);
             }
-
-            return new AssetPreviewImage(32, 32, pixels);
-        });
+        );
 
     /// <summary>Puts a file of a kind nothing in the engine can decode into the project.</summary>
     static AssetId Write(EditorSession editor) {
@@ -226,8 +230,12 @@ public class AssetPreviewContributionTests {
     /// <summary>Pumps frames until something a pool thread does has happened, or can no longer happen.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A boolean answer, because two of these tests are waiting for <i>nothing</i> to
-    ///         happen.</b> An assertion inside would make "no picture was ever decoded" unsayable; the
+    ///         ⚠
+    ///         <b>
+    ///             A boolean answer, because two of these tests are waiting for <i>nothing</i> to
+    ///             happen.
+    ///         </b>
+    ///         An assertion inside would make "no picture was ever decoded" unsayable; the
     ///         caller says which way round it wants the answer.
     ///     </para>
     ///     <para>

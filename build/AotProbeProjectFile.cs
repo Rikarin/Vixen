@@ -2,8 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Xml.Linq;
 
 /// <summary>
@@ -11,8 +9,12 @@ using System.Xml.Linq;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>The two checks over these files used to be substring tests, and a substring test
-///         cannot see an XML comment.</b> <c>&lt;!-- &lt;PublishAot&gt;true&lt;/PublishAot&gt; --&gt;</c>
+///         ⚠
+///         <b>
+///             The two checks over these files used to be substring tests, and a substring test
+///             cannot see an XML comment.
+///         </b>
+///         <c>&lt;!-- &lt;PublishAot&gt;true&lt;/PublishAot&gt; --&gt;</c>
 ///         satisfied <c>project.Contains("&lt;PublishAot&gt;true&lt;/PublishAot&gt;")</c> exactly as
 ///         the live declaration did — and commenting a property out while debugging a probe is the
 ///         one edit somebody actually makes. On iOS that is the whole enforcement: <c>CheckAotIos</c>
@@ -43,8 +45,9 @@ static class AotProbeProjectFile {
     /// </summary>
     public static IReadOnlyList<string> ReferencedAssemblies(string path) =>
         UnconditionalItems(path, "ProjectReference")
-            .Select(include => include.Split('\\', '/')[^1])
-            .Select(file => file.EndsWith(".csproj", StringComparison.Ordinal) ? file[..^".csproj".Length] : file)
+            .Select(static include => include.Split('\\', '/')[^1])
+            .Select(static file => file.EndsWith(".csproj", StringComparison.Ordinal) ? file[..^".csproj".Length] : file
+            )
             .ToList();
 
     /// <summary>The assembly names of the probe's unconditional <c>TrimmerRootAssembly</c> items.</summary>
@@ -61,9 +64,9 @@ static class AotProbeProjectFile {
 
     static IReadOnlyList<string> UnconditionalItems(string path, string item) =>
         Unconditional(XDocument.Load(path).Root, item)
-            .Select(element => element.Attribute("Include")?.Value)
-            .Where(include => !string.IsNullOrEmpty(include))
-            .Select(include => include!)
+            .Select(static element => element.Attribute("Include")?.Value)
+            .Where(static include => !string.IsNullOrEmpty(include))
+            .Select(static include => include!)
             .ToList();
 
     /// <summary>
@@ -75,8 +78,7 @@ static class AotProbeProjectFile {
             ? []
             : root.Descendants()
                 .Where(element => string.Equals(element.Name.LocalName, localName, StringComparison.Ordinal))
-                .Where(
-                    element => element.AncestorsAndSelf()
-                        .All(ancestor => ancestor.Attribute("Condition") is null)
+                .Where(static element => element.AncestorsAndSelf()
+                    .All(static ancestor => ancestor.Attribute("Condition") is null)
                 );
 }

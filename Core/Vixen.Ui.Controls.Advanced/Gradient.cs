@@ -79,18 +79,17 @@ public sealed class Gradient {
     readonly List<GradientAlphaStop> alphas = [];
 
     /// <summary>Creates an empty gradient.</summary>
-    public Gradient() {
-    }
+    public Gradient() { }
 
     /// <summary>Creates a gradient between two colours.</summary>
     /// <param name="from">The colour at zero.</param>
     /// <param name="to">The colour at one.</param>
     public Gradient(Color4 from, Color4 to) {
-        colors.Add(new GradientColorStop(0f, from));
-        colors.Add(new GradientColorStop(1f, to));
+        colors.Add(new(0f, from));
+        colors.Add(new(1f, to));
 
-        alphas.Add(new GradientAlphaStop(0f, from.A));
-        alphas.Add(new GradientAlphaStop(1f, to.A));
+        alphas.Add(new(0f, from.A));
+        alphas.Add(new(1f, to.A));
     }
 
     /// <summary>The colour stops, in order.</summary>
@@ -220,7 +219,7 @@ public sealed class Gradient {
         }
 
         var rgb = Rgb(position);
-        return new Color4(rgb.R, rgb.G, rgb.B, Alpha(position));
+        return new(rgb.R, rgb.G, rgb.B, Alpha(position));
     }
 
     Color4 Rgb(float position) {
@@ -276,21 +275,19 @@ public sealed class Gradient {
         // ⚠ Alpha is always mixed straight, whatever the colour space is. Opacity is coverage rather
         // than light, and a perceptual curve applied to it would make a linear fade look like it
         // pauses in the middle.
-        return span <= 0f ? to.Alpha : from.Alpha + ((to.Alpha - from.Alpha) * ((position - from.Position) / span));
+        return span <= 0f ? to.Alpha : from.Alpha + (to.Alpha - from.Alpha) * ((position - from.Position) / span);
     }
 
     Color4 Mix(Color4 from, Color4 to, float t) =>
         Interpolation switch {
-            GradientInterpolation.Linear => FromLinear(
-                Vector3.Lerp(ToLinear(from), ToLinear(to), t)
-            ),
+            GradientInterpolation.Linear => FromLinear(Vector3.Lerp(ToLinear(from), ToLinear(to), t)),
             GradientInterpolation.Oklab => FromLinear(
                 Oklab.Lerp(Oklab.FromLinear(ToLinear(from)), Oklab.FromLinear(ToLinear(to)), t).ToLinear()
             ),
             _ => new Color4(
-                from.R + ((to.R - from.R) * t),
-                from.G + ((to.G - from.G) * t),
-                from.B + ((to.B - from.B) * t),
+                from.R + (to.R - from.R) * t,
+                from.G + (to.G - from.G) * t,
+                from.B + (to.B - from.B) * t,
                 1f
             )
         };

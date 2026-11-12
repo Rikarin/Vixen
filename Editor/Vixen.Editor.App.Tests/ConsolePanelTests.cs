@@ -11,8 +11,12 @@ namespace Vixen.Editor.App.Tests;
 
 /// <summary>The console in the editor rather than the console on its own.</summary>
 /// <remarks>
-///     ⚠ <b>The panel worked before any of this and showed nothing, which is the failure worth a
-///     test.</b> The editor built no log sink at all — <c>RingBufferSink</c> is on in every game
+///     ⚠
+///     <b>
+///         The panel worked before any of this and showed nothing, which is the failure worth a
+///         test.
+///     </b>
+///     The editor built no log sink at all — <c>RingBufferSink</c> is on in every game
 ///     because <c>VixenApp</c> makes one, and the editor is not built by that host — so a console
 ///     over it would have been a perfectly good panel over an empty ring. What these assert is that
 ///     something the editor does reaches a row.
@@ -31,7 +35,7 @@ public class ConsolePanelTests {
 
         // A notification is the editor deciding something is worth saying; a toast says it for four
         // seconds, and after that the console is the only place it exists.
-        Assert.Contains(Rows(view), text => text.Contains("saved Main.vxscene", StringComparison.Ordinal));
+        Assert.Contains(Rows(view), static text => text.Contains("saved Main.vxscene", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -46,7 +50,7 @@ public class ConsolePanelTests {
         fixture.Frames(2);
 
         Assert.Equal(1, view.Model?.Errors);
-        Assert.Contains(Rows(view), text => text.Contains("the disk is full", StringComparison.Ordinal));
+        Assert.Contains(Rows(view), static text => text.Contains("the disk is full", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -64,7 +68,7 @@ public class ConsolePanelTests {
 
         // ⚠ A panel's factory runs again when it is reopened, and a model made in it would start at
         // the sink's current end — so closing the console would empty it, silently, for ever.
-        Assert.Contains(Rows(Console(fixture)), text => text.Contains("before", StringComparison.Ordinal));
+        Assert.Contains(Rows(Console(fixture)), static text => text.Contains("before", StringComparison.Ordinal));
     }
 
     /// <summary>
@@ -84,9 +88,15 @@ public class ConsolePanelTests {
         fixture.Shell.Workspace.Close("console");
         fixture.Frames(2);
 
-        Assert.False(fixture.Shell.Commands.CanExecute("view.clear-console"), "Clear Console is offered over a closed panel");
+        Assert.False(
+            fixture.Shell.Commands.CanExecute("view.clear-console"),
+            "Clear Console is offered over a closed panel"
+        );
         Assert.False(fixture.Shell.Commands.CanExecute("play.clear-console"));
-        Assert.False(fixture.Shell.Commands["play.clear-console"]!.IsChecked, "Clear on Play is ticked for a view that is gone");
+        Assert.False(
+            fixture.Shell.Commands["play.clear-console"]!.IsChecked,
+            "Clear on Play is ticked for a view that is gone"
+        );
     }
 
     [Fact]
@@ -147,10 +157,19 @@ public class ConsolePanelTests {
 
         var view = Console(fixture);
 
-        Assert.True(fixture.Shell.Commands["play.clear-console"]!.IsChecked, "Play > Clear on Play lost its tick when the console reopened");
+        Assert.True(
+            fixture.Shell.Commands["play.clear-console"]!.IsChecked,
+            "Play > Clear on Play lost its tick when the console reopened"
+        );
         Assert.True(view.ClearsOnPlay);
-        Assert.True(Toggle(view, EditorStrings.ConsoleClearOnPlay.Text).IsChecked, "the strip's Clear on Play came back off");
-        Assert.True(Toggle(view, EditorStrings.ConsoleCollapse.Text).IsChecked, "the strip's Collapse came back off over a collapsed list");
+        Assert.True(
+            Toggle(view, EditorStrings.ConsoleClearOnPlay.Text).IsChecked,
+            "the strip's Clear on Play came back off"
+        );
+        Assert.True(
+            Toggle(view, EditorStrings.ConsoleCollapse.Text).IsChecked,
+            "the strip's Collapse came back off over a collapsed list"
+        );
 
         static ToggleButton Toggle(UiElement root, string label) =>
             Descendants(root).OfType<ToggleButton>().Single(toggle => toggle.Label == label);
@@ -183,11 +202,11 @@ public class ConsolePanelTests {
 
         var rows = Rows(view).ToList();
 
-        Assert.DoesNotContain(rows, text => text.Contains("from before play", StringComparison.Ordinal));
+        Assert.DoesNotContain(rows, static text => text.Contains("from before play", StringComparison.Ordinal));
 
         // And the line saying what play mode does is the first thing in the emptied console rather
         // than the last thing before it was emptied.
-        Assert.Contains(rows, text => text.Contains("discarded", StringComparison.Ordinal));
+        Assert.Contains(rows, static text => text.Contains("discarded", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -238,10 +257,10 @@ public class ConsolePanelTests {
         fixture.Frames(2);
 
         var shown = view.List.Rows
-            .Where(row => !row.HasClass("parked"))
-            .Select(row => (Row: row, Message: row.Children.First(cell => cell.Tag == "console-message")))
-            .Where(pair => pair.Message.Text?.Contains("far longer", StringComparison.Ordinal) == true)
-            .OrderBy(pair => pair.Row.AbsoluteTop)
+            .Where(static row => !row.HasClass("parked"))
+            .Select(static row => (Row: row, Message: row.Children.First(static cell => cell.Tag == "console-message")))
+            .Where(static pair => pair.Message.Text?.Contains("far longer", StringComparison.Ordinal) == true)
+            .OrderBy(static pair => pair.Row.AbsoluteTop)
             .ToList();
 
         Assert.Equal(2, shown.Count);
@@ -274,8 +293,8 @@ public class ConsolePanelTests {
     /// <summary>What every realised row says, joined per row.</summary>
     static IEnumerable<string> Rows(ConsoleView view) =>
         view.List.Rows
-            .Where(row => !row.HasClass("parked"))
-            .Select(row => string.Join(" ", row.Children.Select(cell => cell.Text ?? string.Empty)));
+            .Where(static row => !row.HasClass("parked"))
+            .Select(static row => string.Join(" ", row.Children.Select(static cell => cell.Text ?? string.Empty)));
 
     static T? Find<T>(UiElement element) where T : UiElement {
         if (element is T match) {

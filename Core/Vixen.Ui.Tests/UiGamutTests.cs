@@ -4,7 +4,6 @@
 using CsCheck;
 using Vixen.Core.Mathematics;
 using Vixen.Ui.Rendering;
-using Vixen.Ui.Text.Rasterizing;
 using Xunit;
 
 namespace Vixen.Ui.Tests;
@@ -43,7 +42,7 @@ public class UiGamutTests {
         var hue = degrees * MathF.PI / 180f;
         var linear = new Oklab(lightness, chroma * MathF.Cos(hue), chroma * MathF.Sin(hue)).ToLinear();
 
-        return new Color4(linear.X, linear.Y, linear.Z, 1f);
+        return new(linear.X, linear.Y, linear.Z, 1f);
     }
 
     /// <summary>
@@ -65,17 +64,24 @@ public class UiGamutTests {
     ///     and must not pay for a cache probe either.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>Zero searches is the weaker half of this; zero <see cref="UiGeometryBuilder.MappedColours" />
-    ///     is the half that pins the ordering.</b> A cache in front of the in-gamut test would still
+    ///     ⚠
+    ///     <b>
+    ///         Zero searches is the weaker half of this; zero <see cref="UiGeometryBuilder.MappedColours" />
+    ///         is the half that pins the ordering.
+    ///     </b>
+    ///     A cache in front of the in-gamut test would still
     ///     report zero searches after the first frame, and would still be wrong.
     /// </remarks>
     [Fact]
     public void A_showable_frame_does_no_work_at_all() {
-        var builder = Paint(ColorGamut.Srgb, list => {
-            for (var i = 0; i < 200; i++) {
-                list.Add(Rect(i, 0, 10, 10, new Color4(0.2f, 0.6f, 0.9f, 1f)));
+        var builder = Paint(
+            ColorGamut.Srgb,
+            static list => {
+                for (var i = 0; i < 200; i++) {
+                    list.Add(Rect(i, 0, 10, 10, new(0.2f, 0.6f, 0.9f, 1f)));
+                }
             }
-        });
+        );
 
         Assert.Equal(0, builder.MappedColours);
         Assert.Equal(0, builder.ColourSearches);
@@ -84,11 +90,14 @@ public class UiGamutTests {
     /// <summary>One colour drawn two hundred times is one search, and that is the cache's whole job.</summary>
     [Fact]
     public void A_repeated_colour_is_searched_for_once() {
-        var builder = Paint(ColorGamut.Srgb, list => {
-            for (var i = 0; i < 200; i++) {
-                list.Add(Rect(i, 0, 10, 10, Blue500));
+        var builder = Paint(
+            ColorGamut.Srgb,
+            static list => {
+                for (var i = 0; i < 200; i++) {
+                    list.Add(Rect(i, 0, 10, 10, Blue500));
+                }
             }
-        });
+        );
 
         Assert.Equal(200, builder.MappedColours);
         Assert.Equal(1, builder.ColourSearches);
@@ -96,8 +105,12 @@ public class UiGamutTests {
 
     /// <summary>Two colours are two searches — the cache remembers, it does not merge.</summary>
     /// <remarks>
-    ///     ⚠ <b>This used to be a coin toss, and reading it as an assertion about these two colours
-    ///     is what hid that.</b> The table was direct-mapped, so a pair that shared a slot evicted
+    ///     ⚠
+    ///     <b>
+    ///         This used to be a coin toss, and reading it as an assertion about these two colours
+    ///         is what hid that.
+    ///     </b>
+    ///     The table was direct-mapped, so a pair that shared a slot evicted
     ///     each other on every lookup and cost a hundred searches instead of two — and whether these
     ///     two shared one was decided by <c>HashCode</c>'s per-process seed, at about 1 in 256. It
     ///     failed once in five runs and then passed four re-runs, which reads as proof it was
@@ -108,12 +121,15 @@ public class UiGamutTests {
     /// </remarks>
     [Fact]
     public void Two_colours_are_two_searches() {
-        var builder = Paint(ColorGamut.Srgb, list => {
-            for (var i = 0; i < 50; i++) {
-                list.Add(Rect(i, 0, 10, 10, Blue500));
-                list.Add(Rect(i, 20, 10, 10, Emerald500));
+        var builder = Paint(
+            ColorGamut.Srgb,
+            static list => {
+                for (var i = 0; i < 50; i++) {
+                    list.Add(Rect(i, 0, 10, 10, Blue500));
+                    list.Add(Rect(i, 20, 10, 10, Emerald500));
+                }
             }
-        });
+        );
 
         Assert.Equal(100, builder.MappedColours);
         Assert.Equal(2, builder.ColourSearches);
@@ -137,12 +153,15 @@ public class UiGamutTests {
 
         Assert.Equal(UiGeometryBuilder.HomeSlot(first), UiGeometryBuilder.HomeSlot(second));
 
-        var builder = Paint(ColorGamut.Srgb, list => {
-            for (var i = 0; i < 50; i++) {
-                list.Add(Rect(i, 0, 10, 10, first));
-                list.Add(Rect(i, 20, 10, 10, second));
+        var builder = Paint(
+            ColorGamut.Srgb,
+            list => {
+                for (var i = 0; i < 50; i++) {
+                    list.Add(Rect(i, 0, 10, 10, first));
+                    list.Add(Rect(i, 20, 10, 10, second));
+                }
             }
-        });
+        );
 
         Assert.Equal(100, builder.MappedColours);
         Assert.Equal(2, builder.ColourSearches);
@@ -164,12 +183,12 @@ public class UiGamutTests {
     [Fact]
     public void Which_slot_a_colour_lands_in_does_not_depend_on_the_process() {
         Assert.Equal(122, UiGeometryBuilder.HomeSlot(Blue500));
-        Assert.Equal(117, UiGeometryBuilder.HomeSlot(new Color4(1f, 1f, 1f, 1f)));
+        Assert.Equal(117, UiGeometryBuilder.HomeSlot(new(1f, 1f, 1f, 1f)));
 
         // And alpha is not in the key, so it cannot be in the index either.
         Assert.Equal(
             UiGeometryBuilder.HomeSlot(Blue500),
-            UiGeometryBuilder.HomeSlot(new Color4(Blue500.R, Blue500.G, Blue500.B, 0.25f))
+            UiGeometryBuilder.HomeSlot(new(Blue500.R, Blue500.G, Blue500.B, 0.25f))
         );
     }
 
@@ -180,11 +199,14 @@ public class UiGamutTests {
     [Fact]
     public void The_same_colour_at_ten_opacities_is_still_one_search() {
         var builder = new UiGeometryBuilder { Gamut = ColorGamut.Srgb };
-        var geometry = Build(builder, list => {
-            for (var i = 1; i <= 10; i++) {
-                list.Add(Rect(i, 0, 10, 10, new Color4(Blue500.R, Blue500.G, Blue500.B, i / 10f)));
+        var geometry = Build(
+            builder,
+            static list => {
+                for (var i = 1; i <= 10; i++) {
+                    list.Add(Rect(i, 0, 10, 10, new(Blue500.R, Blue500.G, Blue500.B, i / 10f)));
+                }
             }
-        });
+        );
 
         Assert.Equal(10, builder.MappedColours);
         Assert.Equal(1, builder.ColourSearches);
@@ -207,12 +229,15 @@ public class UiGamutTests {
     [InlineData(ColorGamut.Rec2020)]
     public void Every_vertex_that_comes_out_is_showable(ColorGamut gamut) {
         var builder = new UiGeometryBuilder { Gamut = gamut };
-        var geometry = Build(builder, list => {
-            list.Add(Rect(0, 0, 10, 10, Blue500));
-            list.Add(Rect(20, 0, 10, 10, Emerald500));
-            list.Add(Rect(40, 0, 10, 10, Linear(0.65f, 0.37f, 0f)));
-            list.Add(Rect(60, 0, 10, 10, Linear(0.5f, 0.4f, 300f)));
-        });
+        var geometry = Build(
+            builder,
+            static list => {
+                list.Add(Rect(0, 0, 10, 10, Blue500));
+                list.Add(Rect(20, 0, 10, 10, Emerald500));
+                list.Add(Rect(40, 0, 10, 10, Linear(0.65f, 0.37f, 0f)));
+                list.Add(Rect(60, 0, 10, 10, Linear(0.5f, 0.4f, 300f)));
+            }
+        );
 
         Assert.NotEmpty(geometry.Vertices);
 
@@ -231,8 +256,8 @@ public class UiGamutTests {
     /// </summary>
     [Fact]
     public void A_wide_surface_keeps_what_an_sRGB_one_has_to_give_up() {
-        var narrow = Paint(ColorGamut.Srgb, list => list.Add(Rect(0, 0, 10, 10, Blue500)));
-        var wide = Paint(ColorGamut.Rec2020, list => list.Add(Rect(0, 0, 10, 10, Blue500)));
+        var narrow = Paint(ColorGamut.Srgb, static list => list.Add(Rect(0, 0, 10, 10, Blue500)));
+        var wide = Paint(ColorGamut.Rec2020, static list => list.Add(Rect(0, 0, 10, 10, Blue500)));
 
         Assert.Equal(1, narrow.MappedColours);
         Assert.Equal(0, wide.MappedColours);
@@ -248,11 +273,11 @@ public class UiGamutTests {
     public void Changing_the_surface_forgets_what_the_old_one_answered() {
         var builder = new UiGeometryBuilder { Gamut = ColorGamut.Srgb };
 
-        Build(builder, list => list.Add(Rect(0, 0, 10, 10, Blue500)));
+        Build(builder, static list => list.Add(Rect(0, 0, 10, 10, Blue500)));
         Assert.Equal(1, builder.ColourSearches);
 
         // Same colour again on the same surface: remembered.
-        Build(builder, list => list.Add(Rect(0, 0, 10, 10, Blue500)));
+        Build(builder, static list => list.Add(Rect(0, 0, 10, 10, Blue500)));
         Assert.Equal(0, builder.ColourSearches);
 
         builder.Gamut = ColorGamut.DisplayP3;
@@ -260,7 +285,7 @@ public class UiGamutTests {
 
         // And back to sRGB, which is where it started — but by way of somewhere else, so the entry
         // it would have re-used is gone and the answer is worked out again rather than assumed.
-        var geometry = Build(builder, list => list.Add(Rect(0, 0, 10, 10, Blue500)));
+        var geometry = Build(builder, static list => list.Add(Rect(0, 0, 10, 10, Blue500)));
         Assert.Equal(1, builder.ColourSearches);
         Assert.True(GamutMap.InGamut(Rgb(geometry.Vertices[0].Color), ColorGamut.Srgb));
     }
@@ -281,23 +306,24 @@ public class UiGamutTests {
         var channel = Gen.Float[-0.4f, 1.4f];
 
         Gen.Select(channel, channel, channel, channel, channel, channel, Gen.Int[0, 2])
-            .Sample(sample => {
-                var (r0, g0, b0, r1, g1, b1, which) = sample;
-                var gamut = (ColorGamut) which;
+            .Sample(static sample => {
+                    var (r0, g0, b0, r1, g1, b1, which) = sample;
+                    var gamut = (ColorGamut)which;
 
-                var start = GamutMap.Map(new Vector3(r0, g0, b0), gamut);
-                var end = GamutMap.Map(new Vector3(r1, g1, b1), gamut);
+                    var start = GamutMap.Map(new Vector3(r0, g0, b0), gamut);
+                    var end = GamutMap.Map(new Vector3(r1, g1, b1), gamut);
 
-                for (var step = 0; step <= 16; step++) {
-                    var t = step / 16f;
-                    var between = Vector3.Lerp(start, end, t);
+                    for (var step = 0; step <= 16; step++) {
+                        var t = step / 16f;
+                        var between = Vector3.Lerp(start, end, t);
 
-                    Assert.True(
-                        GamutMap.InGamut(between, gamut),
-                        $"{between} at t={t} between {start} and {end} left {gamut}"
-                    );
+                        Assert.True(
+                            GamutMap.InGamut(between, gamut),
+                            $"{between} at t={t} between {start} and {end} left {gamut}"
+                        );
+                    }
                 }
-            });
+            );
     }
 
     /// <summary>
@@ -307,14 +333,16 @@ public class UiGamutTests {
     [Fact]
     public void A_gradients_far_colour_is_mapped_as_well_as_its_near_one() {
         var builder = new UiGeometryBuilder { Gamut = ColorGamut.Srgb };
-        var geometry = Build(builder, list => {
-            list.Add(
-                new DrawCommand(DrawCommandKind.Rectangle, 0, 0, 100, 40, Blue500, 0, 0) {
-                    Offset = list.AddBox(new BoxStyle(default, Emerald500, new Vector2(0, 1))),
-                    Length = 1
-                }
-            );
-        });
+        var geometry = Build(
+            builder,
+            list => {
+                list.Add(
+                    new(DrawCommandKind.Rectangle, 0, 0, 100, 40, Blue500, 0, 0) {
+                        Offset = list.AddBox(new BoxStyle(default, Emerald500, new(0, 1))), Length = 1
+                    }
+                );
+            }
+        );
 
         Assert.Equal(2, builder.MappedColours);
         Assert.Equal(2, builder.ColourSearches);
@@ -335,9 +363,8 @@ public class UiGamutTests {
         var builder = Paint(
             ColorGamut.Srgb,
             list => list.Add(
-                new DrawCommand(DrawCommandKind.Rectangle, 0, 0, 100, 40, Color4.White, 0, 0) {
-                    Offset = list.AddBox(new BoxStyle(default, Blue500, Vector2.Zero)),
-                    Length = 1
+                new(DrawCommandKind.Rectangle, 0, 0, 100, 40, Color4.White, 0, 0) {
+                    Offset = list.AddBox(new BoxStyle(default, Blue500, Vector2.Zero)), Length = 1
                 }
             )
         );
@@ -372,7 +399,7 @@ public class UiGamutTests {
             }
 
             var geometry = Build(
-                new UiGeometryBuilder { Gamut = ColorGamut.Srgb },
+                new() { Gamut = ColorGamut.Srgb },
                 list => list.Add(Rect(0, 0, 10, 10, vivid))
             );
 
@@ -390,8 +417,12 @@ public class UiGamutTests {
     ///     table has slots and they are landing on top of each other.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>The test that says the cache compares its key, and it has to force collisions to do
-    ///     it.</b> A fixed-size table only ever returns the wrong colour when colours share a slot,
+    ///     ⚠
+    ///     <b>
+    ///         The test that says the cache compares its key, and it has to force collisions to do
+    ///         it.
+    ///     </b>
+    ///     A fixed-size table only ever returns the wrong colour when colours share a slot,
     ///     so a handful of test colours will sit in distinct slots and a cache that skipped the key
     ///     comparison entirely would pass every other test in this file — it did, when that sabotage
     ///     was tried. A thousand colours over 256 slots makes collisions a certainty rather than a
@@ -415,11 +446,14 @@ public class UiGamutTests {
         Assert.True(wanted.Count > 1000, $"needs to overflow 256 slots several times over, had {wanted.Count}");
 
         var builder = new UiGeometryBuilder { Gamut = ColorGamut.Srgb };
-        var geometry = Build(builder, list => {
-            for (var i = 0; i < wanted.Count; i++) {
-                list.Add(Rect(i % 700, i / 700f, 1, 1, wanted[i]));
+        var geometry = Build(
+            builder,
+            list => {
+                for (var i = 0; i < wanted.Count; i++) {
+                    list.Add(Rect(i % 700, i / 700f, 1, 1, wanted[i]));
+                }
             }
-        });
+        );
 
         Assert.Equal(wanted.Count, builder.MappedColours);
 
@@ -438,18 +472,19 @@ public class UiGamutTests {
     public void A_path_is_mapped_like_everything_else() {
         var builder = new UiGeometryBuilder { Fringe = 0f };
         var path = new PathBuilder()
-            .MoveTo(new Vector2(10, 10))
-            .LineTo(new Vector2(90, 10))
-            .LineTo(new Vector2(50, 80))
+            .MoveTo(new(10, 10))
+            .LineTo(new(90, 10))
+            .LineTo(new(50, 80))
             .Close();
 
-        var geometry = Build(builder, list => list.Add(
-            new DrawCommand(DrawCommandKind.Path, 0, 0, 0, 0, Blue500, 0, 0) {
-                Offset = list.AddPath(path),
-                Length = path.Count,
-                FillRule = PathFillRule.NonZero
-            }
-        ));
+        var geometry = Build(
+            builder,
+            list => list.Add(
+                new(DrawCommandKind.Path, 0, 0, 0, 0, Blue500, 0, 0) {
+                    Offset = list.AddPath(path), Length = path.Count, FillRule = PathFillRule.NonZero
+                }
+            )
+        );
 
         Assert.NotEmpty(geometry.Vertices);
         Assert.Equal(1, builder.MappedColours);
@@ -495,9 +530,8 @@ public class UiGamutTests {
         var one = Oklab.FromLinear(left);
         var other = Oklab.FromLinear(right);
 
-        var difference = MathF.Abs(
-            (MathF.Atan2(one.B, one.A) - MathF.Atan2(other.B, other.A)) * 180f / MathF.PI
-        ) % 360f;
+        var difference = MathF.Abs((MathF.Atan2(one.B, one.A) - MathF.Atan2(other.B, other.A)) * 180f / MathF.PI)
+            % 360f;
 
         return difference > 180f ? 360f - difference : difference;
     }
@@ -548,13 +582,13 @@ public class UiGamutTests {
     [Fact]
     public void A_repaired_colour_scales_on_every_path_out_including_the_remembered_one() {
         var builder = new UiGeometryBuilder { Gamut = ColorGamut.Srgb };
-        var display = Build(builder, list => list.Add(Rect(0, 0, 10, 10, Blue500))).Vertices[0].Color;
+        var display = Build(builder, static list => list.Add(Rect(0, 0, 10, 10, Blue500))).Vertices[0].Color;
 
         Assert.Equal(1, builder.MappedColours);
         Assert.Equal(1, builder.ColourSearches);
 
         builder.WhiteLevel = 203f;
-        var lit = Build(builder, list => list.Add(Rect(0, 0, 10, 10, Blue500))).Vertices[0].Color;
+        var lit = Build(builder, static list => list.Add(Rect(0, 0, 10, 10, Blue500))).Vertices[0].Color;
 
         // The repair itself was not repeated — this is the remembered path — and the answer still
         // arrives in the new units.
@@ -567,8 +601,12 @@ public class UiGamutTests {
 
     /// <summary>The frame says what white it was built at, because the colours no longer can.</summary>
     /// <remarks>
-    ///     ⚠ <b>A magnitude cannot be read back out of a colour, which is why the number rides the
-    ///     geometry.</b> The scale is spent inside <c>Show</c>, so a frame built for a scene-referred
+    ///     ⚠
+    ///     <b>
+    ///         A magnitude cannot be read back out of a colour, which is why the number rides the
+    ///         geometry.
+    ///     </b>
+    ///     The scale is spent inside <c>Show</c>, so a frame built for a scene-referred
     ///     pass at a white of one and a frame built correctly differ by a factor nothing downstream
     ///     can see — and the first of the two is black. <c>UiRenderFeature.Dim</c> is the reader:
     ///     the pass knows what it wants and the geometry now says what it got. The default is
@@ -578,15 +616,15 @@ public class UiGamutTests {
     [Fact]
     public void A_frame_carries_the_white_level_it_was_built_at() {
         var display = Build(
-            new UiGeometryBuilder { Gamut = ColorGamut.Srgb },
-            list => list.Add(Rect(0, 0, 10, 10, Blue500))
+            new() { Gamut = ColorGamut.Srgb },
+            static list => list.Add(Rect(0, 0, 10, 10, Blue500))
         );
 
         Assert.Equal(1f, display.WhiteLevel);
 
         var lit = Build(
-            new UiGeometryBuilder { Gamut = ColorGamut.Srgb, WhiteLevel = 203f },
-            list => list.Add(Rect(0, 0, 10, 10, Blue500))
+            new() { Gamut = ColorGamut.Srgb, WhiteLevel = 203f },
+            static list => list.Add(Rect(0, 0, 10, 10, Blue500))
         );
 
         Assert.Equal(203f, lit.WhiteLevel);
@@ -612,6 +650,6 @@ public class UiGamutTests {
         paint(list);
         list.EndFrame();
 
-        return builder.Build(list, new GlyphFieldCache(new GlyphAtlas(512, 512)), Viewport);
+        return builder.Build(list, new(new(512, 512)), Viewport);
     }
 }

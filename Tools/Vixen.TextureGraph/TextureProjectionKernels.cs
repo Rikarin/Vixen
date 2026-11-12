@@ -8,8 +8,12 @@ namespace Vixen.TextureGraph;
 
 /// <summary>Which of doc 48 § D10's projections a <c>Triplanar</c> op performs.</summary>
 /// <remarks>
-///     ⚠ <b>The numbers are the contract with <c>Shaders/Triplanar.rvn</c>'s <c>axis</c>, which
-///     compares against them literally.</b> Nothing in the compilation would notice a renumbering —
+///     ⚠
+///     <b>
+///         The numbers are the contract with <c>Shaders/Triplanar.rvn</c>'s <c>axis</c>, which
+///         compares against them literally.
+///     </b>
+///     Nothing in the compilation would notice a renumbering —
 ///     a planar fill along the wrong axis is a perfectly plausible picture, and on a box it is the
 ///     same picture rotated. <c>TextureProjectionDeviceTests</c> pins each one by driving the world
 ///     normal down that axis and requiring exactly the plane it names.
@@ -42,8 +46,12 @@ enum TextureProjectionAxis {
 
 /// <summary>Doc 48 § D10's projection kernel, by the name a <see cref="TextureOp" /> gives.</summary>
 /// <remarks>
-///     ⚠ <b>One kernel for both of <c>LayerProjection</c>'s unbuilt members, and that is the
-///     finding <a href="https://github.com/Rikarin/Vixen/issues/815">#815</a> rests on.</b> A planar
+///     ⚠
+///     <b>
+///         One kernel for both of <c>LayerProjection</c>'s unbuilt members, and that is the
+///         finding <a href="https://github.com/Rikarin/Vixen/issues/815">#815</a> rests on.
+///     </b>
+///     A planar
 ///     projection is a triplanar one with the blend replaced by a choice, so the sampling, the wrap
 ///     and the scale are the same arithmetic three times; a second <c>.rvn</c> would be that
 ///     arithmetic written twice with nothing comparing the copies.
@@ -108,8 +116,12 @@ internal static class TextureProjections {
     /// <param name="offsetY">How far it moves along its second axis, in repeats.</param>
     /// <returns>The op.</returns>
     /// <remarks>
-    ///     ⚠ <b><paramref name="scale" /> is not a <see cref="TextureParameterUnit.TexelsAtBase" />,
-    ///     and asking why is doc 48 § D8 answered rather than skipped.</b> It is a repeat count over
+    ///     ⚠
+    ///     <b>
+    ///         <paramref name="scale" /> is not a <see cref="TextureParameterUnit.TexelsAtBase" />,
+    ///         and asking why is doc 48 § D8 answered rather than skipped.
+    ///     </b>
+    ///     It is a repeat count over
     ///     a <em>world</em> range, so it has no length in the image at all: the same graph at four
     ///     times the bake covers the mesh in the same number of tiles, which is exactly the invariant
     ///     § D8 is about. A projection that scaled with the resolution would be the § D8 bug written
@@ -199,14 +211,14 @@ internal static class TextureProjections {
             var name = point.ToString(System.Globalization.CultureInfo.InvariantCulture);
 
             parameters.Add(new($"warp{name}X", grid[point * 2]));
-            parameters.Add(new($"warp{name}Y", grid[(point * 2) + 1]));
+            parameters.Add(new($"warp{name}Y", grid[point * 2 + 1]));
         }
 
         return new() {
             Kernel = TextureProjectionKernels.Decal,
             Output = output,
             Inputs = [source, position, world],
-            Parameters = [.. parameters]
+            Parameters = [..parameters]
         };
     }
 
@@ -269,7 +281,14 @@ internal static class TextureProjections {
     /// </remarks>
     public static ImmutableArray<TextureOp> All { get; } = [
         Triplanar(0, 1, 2, 3),
-        Decal(0, 1, 2, 3, TextureModelBox.Unit, new(default, new(1f, 0f, 0f), new(0f, 1f, 0f), new(0f, 0f, 1f), new(1f, 1f, 1f))),
+        Decal(
+            0,
+            1,
+            2,
+            3,
+            TextureModelBox.Unit,
+            new(default, new(1f, 0f, 0f), new(0f, 1f, 0f), new(0f, 0f, 1f), new(1f, 1f, 1f))
+        ),
         SurfacePath(0, 1, 2, 3, 4, 1, TextureModelBox.Unit, default, new(1f, 1f, 1f))
     ];
 }
@@ -288,7 +307,10 @@ internal static class TextureSurfacePaths {
     /// <param name="normals">The surface's normal at each.</param>
     /// <param name="pressures">How much of the width and strength each has.</param>
     /// <returns>Two rows of <c>points.Count</c> texels.</returns>
-    /// <exception cref="ArgumentException">The lists differ in length, are empty, or hold more than <see cref="MaximumPoints" />.</exception>
+    /// <exception cref="ArgumentException">
+    ///     The lists differ in length, are empty, or hold more than
+    ///     <see cref="MaximumPoints" />.
+    /// </exception>
     public static byte[] Table(
         IReadOnlyList<Vector3> points,
         IReadOnlyList<Vector3> normals,
@@ -298,7 +320,10 @@ internal static class TextureSurfacePaths {
         ArgumentNullException.ThrowIfNull(normals);
         ArgumentNullException.ThrowIfNull(pressures);
 
-        if (points.Count == 0 || points.Count > MaximumPoints || normals.Count != points.Count || pressures.Count != points.Count) {
+        if (points.Count == 0
+            || points.Count > MaximumPoints
+            || normals.Count != points.Count
+            || pressures.Count != points.Count) {
             throw new ArgumentException(
                 $"A path's table holds 1 to {MaximumPoints} points, each with a normal and a pressure.",
                 nameof(points)

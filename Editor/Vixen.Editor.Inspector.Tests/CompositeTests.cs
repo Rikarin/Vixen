@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core;
-using Vixen.Core.Mathematics;
 using Vixen.Editor.Inspector.Drawers;
 using Vixen.Ui;
 using Vixen.Ui.Controls;
@@ -62,7 +61,7 @@ public class CompositeTests {
 
         var editor = new NestedDrawer().Build(field, Host());
 
-        Assert.Equal(["Low", "High", "Padding"], Rows(editor).Select(row => row.Field.Member.Name));
+        Assert.Equal(["Low", "High", "Padding"], Rows(editor).Select(static row => row.Field.Member.Name));
     }
 
     [Fact]
@@ -71,7 +70,7 @@ public class CompositeTests {
         var field = Field(volume, "Extent");
 
         var editor = new NestedDrawer().Build(field, Host());
-        var padding = Rows(editor).Single(row => row.Field.Member.Name == "Padding");
+        var padding = Rows(editor).Single(static row => row.Field.Member.Name == "Padding");
 
         Assert.True(padding.Field.Write(4f));
         Assert.Equal(4f, volume.Extent.Padding);
@@ -83,22 +82,22 @@ public class CompositeTests {
     /// </summary>
     [Fact]
     public void Editing_one_leaf_across_a_selection_leaves_the_other_leaves_alone() {
-        var first = new Volume { Extent = new Bounds { Low = new Vector3(1f), High = new Vector3(2f) } };
-        var second = new Volume { Extent = new Bounds { Low = new Vector3(9f), High = new Vector3(9f) } };
+        var first = new Volume { Extent = new() { Low = new(1f), High = new(2f) } };
+        var second = new Volume { Extent = new() { Low = new(9f), High = new(9f) } };
 
         var descriptor = Describe(typeof(Volume));
         var field = new InspectorField(descriptor, Member(typeof(Volume), "Extent"), [first, second]);
 
         var editor = new NestedDrawer().Build(field, Host());
-        var padding = Rows(editor).Single(row => row.Field.Member.Name == "Padding");
+        var padding = Rows(editor).Single(static row => row.Field.Member.Name == "Padding");
 
         Assert.True(padding.Field.Write(3f));
 
         Assert.Equal(3f, first.Extent.Padding);
         Assert.Equal(3f, second.Extent.Padding);
 
-        Assert.Equal(new Vector3(1f), first.Extent.Low);
-        Assert.Equal(new Vector3(9f), second.Extent.Low);
+        Assert.Equal(new(1f), first.Extent.Low);
+        Assert.Equal(new(9f), second.Extent.Low);
     }
 
     /// <summary>
@@ -113,10 +112,10 @@ public class CompositeTests {
 
         var editor = drawer.Build(field, Host());
 
-        volume.Credit = new Attribution { Author = "Someone Else", Year = 1999 };
+        volume.Credit = new() { Author = "Someone Else", Year = 1999 };
         drawer.Show(field, editor);
 
-        var author = Rows(editor).Single(row => row.Field.Member.Name == "Author");
+        var author = Rows(editor).Single(static row => row.Field.Member.Name == "Author");
 
         Assert.True(author.Field.Write("Jiu"));
         Assert.Equal("Jiu", volume.Credit.Author);
@@ -130,7 +129,7 @@ public class CompositeTests {
         var editor = new NestedDrawer().Build(field, Host());
 
         Assert.Empty(Rows(editor));
-        Assert.Contains(Descendants(editor).OfType<TextBlock>(), text => text.Text == "None");
+        Assert.Contains(Descendants(editor).OfType<TextBlock>(), static text => text.Text == "None");
     }
 
     /// <summary>⚠ A type that contains itself, which is a tree node and not an exotic case.</summary>
@@ -140,7 +139,7 @@ public class CompositeTests {
         var current = root;
 
         for (var depth = 0; depth < 20; depth++) {
-            current = current.Inner = new Recursive { Depth = depth };
+            current = current.Inner = new() { Depth = depth };
         }
 
         var field = Field(root, "Inner");
@@ -171,7 +170,10 @@ public class CompositeTests {
 
         var editor = new ListDrawer().Build(field, Host());
 
-        Assert.Equal(["Element 0", "Element 1", "Element 2"], Rows(editor).Select(row => row.Field.Member.DisplayName));
+        Assert.Equal(
+            ["Element 0", "Element 1", "Element 2"],
+            Rows(editor).Select(static row => row.Field.Member.DisplayName)
+        );
     }
 
     /// <summary>
@@ -212,7 +214,7 @@ public class CompositeTests {
         var field = Field(volume, "Weights");
         var editor = new ListDrawer().Build(field, Host());
 
-        Remove(editor, index: 1);
+        Remove(editor, 1);
 
         Assert.Equal([0.25f, 0.75f], volume.Weights);
     }
@@ -223,7 +225,7 @@ public class CompositeTests {
         var field = Field(volume, "Weights");
         var editor = new ListDrawer().Build(field, Host());
 
-        Move(editor, index: 2, "list-up");
+        Move(editor, 2, "list-up");
         Assert.Equal([0.25f, 0.75f, 0.5f], volume.Weights);
 
         // The first row's Move Up and the last row's Move Down are disabled rather than absent, so
@@ -254,13 +256,13 @@ public class CompositeTests {
         var volume = new Volume();
 
         var falloff = new ListDrawer().Build(Field(volume, "Falloff"), Host());
-        Assert.All(Rows(falloff), row => Assert.NotNull(row.Field.Member.Range));
-        Assert.All(Rows(falloff), row => Assert.IsType<Slider>(row.Editor));
+        Assert.All(Rows(falloff), static row => Assert.NotNull(row.Field.Member.Range));
+        Assert.All(Rows(falloff), static row => Assert.IsType<Slider>(row.Editor));
 
         volume.Layers.Add(AssetId.Empty);
 
         var layers = new ListDrawer().Build(Field(volume, "Layers"), Host());
-        Assert.All(Rows(layers), row => Assert.IsType<AssetDrawer>(row.Drawer));
+        Assert.All(Rows(layers), static row => Assert.IsType<AssetDrawer>(row.Drawer));
     }
 
     [Fact]
@@ -276,7 +278,10 @@ public class CompositeTests {
         var editor = new ListDrawer().Build(field, Host());
 
         Assert.Empty(Rows(editor));
-        Assert.Contains(Descendants(editor).OfType<TextBlock>(), text => text.Text?.Contains("different", StringComparison.Ordinal) == true);
+        Assert.Contains(
+            Descendants(editor).OfType<TextBlock>(),
+            static text => text.Text?.Contains("different", StringComparison.Ordinal) == true
+        );
     }
 
     static void Press(UiElement editor, string label) =>

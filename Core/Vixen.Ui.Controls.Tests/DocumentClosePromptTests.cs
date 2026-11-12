@@ -44,7 +44,7 @@ public class DocumentClosePromptTests : IDisposable {
 
     public DocumentClosePromptTests() {
         ControlTheme.Install(document);
-        dialogs = new DialogService(document);
+        dialogs = new(document);
     }
 
     public void Dispose() {
@@ -55,8 +55,7 @@ public class DocumentClosePromptTests : IDisposable {
 
     /// <summary>A document that records whether it was asked to write, and may refuse.</summary>
     sealed class Note(bool writes = true, string name = "Untitled") : EditableDocument(name) {
-        public Note(string name) : this(true, name) {
-        }
+        public Note(string name) : this(true, name) { }
 
         public bool Writes { get; set; } = writes;
 

@@ -3,7 +3,6 @@
 
 using CsCheck;
 using Vixen.Core.Mathematics;
-using Vixen.Water;
 using Xunit;
 
 namespace Vixen.Water.Tests;
@@ -50,14 +49,14 @@ public sealed class BuoyancyTests {
     public void The_submerged_fraction_is_monotone() {
         Gen.Select(Gen.Float[0.05f, 5f], Gen.Float[-20f, 20f])
             .Sample(
-                pair => {
+                static pair => {
                     var (radius, surface) = pair;
                     var previous = -1f;
 
                     for (var step = 0; step <= 100; step++) {
                         // Sinking the centre from just clear of the water to just under it: the
                         // fraction must only ever rise.
-                        var centre = surface + radius - (step / 100f * 2f * radius);
+                        var centre = surface + radius - step / 100f * 2f * radius;
                         var fraction = Buoyancy.SubmergedFraction(radius, centre, surface);
 
                         Assert.True(fraction >= previous - 1e-5f, $"the fraction went backwards at {centre}.");
@@ -74,7 +73,7 @@ public sealed class BuoyancyTests {
     [Fact]
     public void A_sphere_centred_on_the_surface_is_exactly_half_submerged() {
         Gen.Float[0.01f, 50f]
-            .Sample(radius => Assert.Equal(0.5f, Buoyancy.SubmergedFraction(radius, 0f, 0f), 5), iter: 200);
+            .Sample(static radius => Assert.Equal(0.5f, Buoyancy.SubmergedFraction(radius, 0f, 0f), 5), iter: 200);
     }
 
     // --- The convergence, which is the exit criterion ------------------------
@@ -166,7 +165,10 @@ public sealed class BuoyancyTests {
             }
         }
 
-        Assert.True(fastest > 0.5f, $"the undamped body settled anyway, at {fastest} m/s — the control proves nothing.");
+        Assert.True(
+            fastest > 0.5f,
+            $"the undamped body settled anyway, at {fastest} m/s — the control proves nothing."
+        );
     }
 
     // --- The stated properties ----------------------------------------------
@@ -182,8 +184,24 @@ public sealed class BuoyancyTests {
         var settings = BuoyancySettings.Default with { MaximumForce = 500f, Damping = 0f, QuadraticDamping = 0f };
         var pontoon = new BuoyancyPontoon(Vector3.Zero, 1f);
 
-        var shallow = Buoyancy.Evaluate(in evaluator, in pontoon, new(0f, -1f, 0f), Vector3.Zero, Gravity, in settings, 0f);
-        var deep = Buoyancy.Evaluate(in evaluator, in pontoon, new(0f, -50f, 0f), Vector3.Zero, Gravity, in settings, 0f);
+        var shallow = Buoyancy.Evaluate(
+            in evaluator,
+            in pontoon,
+            new(0f, -1f, 0f),
+            Vector3.Zero,
+            Gravity,
+            in settings,
+            0f
+        );
+        var deep = Buoyancy.Evaluate(
+            in evaluator,
+            in pontoon,
+            new(0f, -50f, 0f),
+            Vector3.Zero,
+            Gravity,
+            in settings,
+            0f
+        );
 
         Assert.Equal(500f, shallow.Force.Y, 3);
         Assert.Equal(500f, deep.Force.Y, 3);
@@ -225,11 +243,13 @@ public sealed class BuoyancyTests {
 
         var river = new WaterBody(
             WaterBodyKind.River,
-            new Spline([
-                SplinePoint.Smooth(new(-64f, 0f, 0f), new(64f, 0f, 0f)),
-                SplinePoint.Smooth(new(0f, 0f, 0f), new(64f, 0f, 0f)),
-                SplinePoint.Smooth(new(64f, 0f, 0f), new(64f, 0f, 0f))
-            ]),
+            new Spline(
+                [
+                    SplinePoint.Smooth(new(-64f, 0f, 0f), new(64f, 0f, 0f)),
+                    SplinePoint.Smooth(new(0f, 0f, 0f), new(64f, 0f, 0f)),
+                    SplinePoint.Smooth(new(64f, 0f, 0f), new(64f, 0f, 0f))
+                ]
+            ),
             defaults: new() { HalfWidth = 20f, Depth = 4f, Velocity = 3f }
         ) { ShoreFalloff = 4f, BedRamp = 4f };
 
@@ -296,7 +316,15 @@ public sealed class BuoyancyTests {
         var before = GC.GetAllocatedBytesForCurrentThread();
 
         for (var index = 0; index < 10_000; index++) {
-            _ = Buoyancy.Evaluate(in evaluator, in pontoon, new(0f, -0.1f, 0f), Vector3.One, Gravity, in settings, index * Step);
+            _ = Buoyancy.Evaluate(
+                in evaluator,
+                in pontoon,
+                new(0f, -0.1f, 0f),
+                Vector3.One,
+                Gravity,
+                in settings,
+                index * Step
+            );
         }
 
         Assert.Equal(0, GC.GetAllocatedBytesForCurrentThread() - before);

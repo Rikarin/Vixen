@@ -15,7 +15,7 @@ public class PlatformEventTests {
             1234,
             Key.W,
             KeyModifiers.LeftShift | KeyModifiers.LeftControl,
-            isRepeat: true
+            true
         );
 
         Assert.Equal(PlatformEventKind.KeyDown, down.Kind);
@@ -47,10 +47,12 @@ public class PlatformEventTests {
     /// </summary>
     [Fact]
     public void AShortcutMatchesExactlyTheModifiersItWantsAndIgnoresTheLocks() {
-        Assert.True((KeyModifiers.LeftControl).Exactly(KeyModifiers.Control));
+        Assert.True(KeyModifiers.LeftControl.Exactly(KeyModifiers.Control));
         Assert.True((KeyModifiers.RightControl | KeyModifiers.CapsLock).Exactly(KeyModifiers.Control));
         Assert.False((KeyModifiers.LeftControl | KeyModifiers.LeftShift).Exactly(KeyModifiers.Control));
-        Assert.True((KeyModifiers.LeftControl | KeyModifiers.RightShift).Exactly(KeyModifiers.Control | KeyModifiers.Shift));
+        Assert.True(
+            (KeyModifiers.LeftControl | KeyModifiers.RightShift).Exactly(KeyModifiers.Control | KeyModifiers.Shift)
+        );
         Assert.True(KeyModifiers.NumLock.Exactly(KeyModifiers.None));
     }
 
@@ -63,16 +65,16 @@ public class PlatformEventTests {
     public void AResizeCarriesTheLogicalSizeAndThePixelSizeSeparately() {
         var resized = PlatformEvent.WindowResized(1, 0, new(1280, 720), new(2560, 1440));
 
-        Assert.Equal(new Int2(1280, 720), resized.Size);
-        Assert.Equal(new Int2(2560, 1440), resized.PixelSize);
+        Assert.Equal(new(1280, 720), resized.Size);
+        Assert.Equal(new(2560, 1440), resized.PixelSize);
     }
 
     [Fact]
     public void PointerEventsCarryPositionAndDeltaIndependently() {
         var moved = PlatformEvent.MouseMoved(1, 0, new(100.5f, 200.25f), new(-3f, 4f));
 
-        Assert.Equal(new Vector2(100.5f, 200.25f), moved.Position);
-        Assert.Equal(new Vector2(-3f, 4f), moved.Delta);
+        Assert.Equal(new(100.5f, 200.25f), moved.Position);
+        Assert.Equal(new(-3f, 4f), moved.Delta);
     }
 
     /// <summary>
@@ -107,7 +109,7 @@ public class PlatformEventTests {
         var wheel = PlatformEvent.MouseWheel(1, 0, new(4f, 5f), new(0f, 0.125f), KeyModifiers.Shift, true);
 
         Assert.True(wheel.IsNotched);
-        Assert.Equal(new Vector2(4f, 5f), wheel.Position);
+        Assert.Equal(new(4f, 5f), wheel.Position);
         Assert.Equal(0.125f, wheel.Delta.Y);
         Assert.Equal(KeyModifiers.Shift, wheel.Modifiers);
     }
@@ -139,15 +141,15 @@ public class PlatformEventTests {
             PlatformEventKind.TouchMoved,
             1,
             0,
-            fingerId: 2,
-            position: new(10f, 20f),
-            delta: new(1f, 1f),
-            pressure: 0.5f
+            2,
+            new(10f, 20f),
+            new(1f, 1f),
+            0.5f
         );
 
         Assert.Equal(2, touch.DeviceId);
         Assert.Equal(0.5f, touch.Value);
-        Assert.Equal(new Vector2(10f, 20f), touch.Position);
+        Assert.Equal(new(10f, 20f), touch.Position);
     }
 
     [Fact]
@@ -160,8 +162,20 @@ public class PlatformEventTests {
 
     [Fact]
     public void TheStringFormIsUsefulEnoughToDebugWith() {
-        Assert.Contains("KeyDown", PlatformEvent.Keyboard(PlatformEventKind.KeyDown, 1, 0, Key.Escape, KeyModifiers.None).ToString(), StringComparison.Ordinal);
-        Assert.Contains("Escape", PlatformEvent.Keyboard(PlatformEventKind.KeyDown, 1, 0, Key.Escape, KeyModifiers.None).ToString(), StringComparison.Ordinal);
-        Assert.Contains("2560", PlatformEvent.WindowResized(1, 0, new(1280, 720), new(2560, 1440)).ToString(), StringComparison.Ordinal);
+        Assert.Contains(
+            "KeyDown",
+            PlatformEvent.Keyboard(PlatformEventKind.KeyDown, 1, 0, Key.Escape, KeyModifiers.None).ToString(),
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "Escape",
+            PlatformEvent.Keyboard(PlatformEventKind.KeyDown, 1, 0, Key.Escape, KeyModifiers.None).ToString(),
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "2560",
+            PlatformEvent.WindowResized(1, 0, new(1280, 720), new(2560, 1440)).ToString(),
+            StringComparison.Ordinal
+        );
     }
 }

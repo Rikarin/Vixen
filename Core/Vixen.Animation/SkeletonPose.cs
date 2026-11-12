@@ -74,8 +74,7 @@ public sealed class SkeletonPose {
     ///     A single forward loop with no recursion and no visited set, which is what the
     ///     parents-precede-children invariant <see cref="Skeleton.TryCreate" /> enforces buys.
     /// </remarks>
-    public void ComputeModelSpace(Span<BoneTransform> destination) =>
-        ComputeModelSpace(Skeleton, bones, destination);
+    public void ComputeModelSpace(Span<BoneTransform> destination) => ComputeModelSpace(Skeleton, bones, destination);
 
     /// <summary>Composes joint transforms relative to the model's origin.</summary>
     /// <param name="skeleton">The skeleton whose parents describe the hierarchy.</param>

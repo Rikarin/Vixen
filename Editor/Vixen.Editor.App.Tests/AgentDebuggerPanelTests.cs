@@ -22,10 +22,18 @@ namespace Vixen.Editor.App.Tests;
 ///         list, and ask the workspace rather than the view.
 ///     </para>
 ///     <para>
-///         ⚠ <b><see cref="The_agent_debugger_keeps_its_model_across_a_close_and_reopen" /> is the
-///         one that would have caught the obvious way to write this wrong.</b> A panel's factory runs
-///         again every time it is reopened, so <c>panel.Add&lt;AgentDebuggerView&gt;().Show(new
-///         AgentDebugModel())</c> compiles, opens, draws, passes every other test here — and throws
+///         ⚠
+///         <b>
+///             <see cref="The_agent_debugger_keeps_its_model_across_a_close_and_reopen" /> is the
+///             one that would have caught the obvious way to write this wrong.
+///         </b>
+///         A panel's factory runs
+///         again every time it is reopened, so
+///         <c>
+///             panel.Add&lt;AgentDebuggerView&gt;().Show(new
+///             AgentDebugModel())
+///         </c>
+///         compiles, opens, draws, passes every other test here — and throws
 ///         away the breakpoints and the selected agent every time somebody closes the tab. Asserting
 ///         <see cref="Assert.Same(object, object)" /> on the model across a reopen is the only form
 ///         of that check that fails.
@@ -39,7 +47,7 @@ public class AgentDebuggerPanelTests {
         session.Open(AssetEditorsModule.AgentDebuggerPanelId);
         session.Frames(2);
 
-        Assert.Contains(session.Panels, panel => panel.Id == AssetEditorsModule.AgentDebuggerPanelId);
+        Assert.Contains(session.Panels, static panel => panel.Id == AssetEditorsModule.AgentDebuggerPanelId);
     }
 
     /// <summary>⚠ Doc 20's Part F hazard: a factory runs again on reopen.</summary>
@@ -53,12 +61,12 @@ public class AgentDebuggerPanelTests {
         session.Close(AssetEditorsModule.AgentDebuggerPanelId);
         session.Frames(2);
 
-        Assert.DoesNotContain(session.Panels, panel => panel.Id == AssetEditorsModule.AgentDebuggerPanelId);
+        Assert.DoesNotContain(session.Panels, static panel => panel.Id == AssetEditorsModule.AgentDebuggerPanelId);
 
         session.Open(AssetEditorsModule.AgentDebuggerPanelId);
         session.Frames(2);
 
-        Assert.Contains(session.Panels, panel => panel.Id == AssetEditorsModule.AgentDebuggerPanelId);
+        Assert.Contains(session.Panels, static panel => panel.Id == AssetEditorsModule.AgentDebuggerPanelId);
     }
 
     /// <summary>Registering a panel registers its verb, and the View menu is built from those.</summary>
@@ -75,7 +83,7 @@ public class AgentDebuggerPanelTests {
 
         session.Frames(2);
 
-        Assert.Contains(session.Panels, panel => panel.Id == AssetEditorsModule.AgentDebuggerPanelId);
+        Assert.Contains(session.Panels, static panel => panel.Id == AssetEditorsModule.AgentDebuggerPanelId);
     }
 
     /// <summary>The panel really is the P7 view, and it really has a model.</summary>
@@ -151,6 +159,6 @@ public class AgentDebuggerPanelTests {
 
         session.Frames(2);
 
-        Assert.Contains(session.Panels, panel => panel.Id == AssetEditorsModule.AgentDebuggerPanelId);
+        Assert.Contains(session.Panels, static panel => panel.Id == AssetEditorsModule.AgentDebuggerPanelId);
     }
 }

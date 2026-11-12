@@ -10,8 +10,10 @@ namespace Vixen.Core.Reflection.Tests;
 /// <summary>One type loaded into two contexts is not two types claiming one name.</summary>
 /// <remarks>
 ///     <para>
-///         <b><a href="https://github.com/Rikarin/Vixen/issues/798">#798</a>: a plugin's own entry
-///         assembly could not declare a <c>[DataContract]</c>.</b>
+///         <b>
+///             <a href="https://github.com/Rikarin/Vixen/issues/798">#798</a>: a plugin's own entry
+///             assembly could not declare a <c>[DataContract]</c>.
+///         </b>
 ///         <c>PluginLoadContext.Load</c> sends every <c>Vixen.*</c> dependency to the <em>default</em>
 ///         context and loads the entry assembly from its own path into a collectible one — which is
 ///         precisely what makes <c>PluginHost.WaitForCollection</c> mean anything. So the assembly
@@ -22,8 +24,12 @@ namespace Vixen.Core.Reflection.Tests;
 ///         serializer — the least debuggable place it could have happened.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Reproduced here rather than in an editor test, because the editor has no assembly
-///         with the defect.</b> The issue names <c>Vixen.Editor.Terrain</c> as carrying "the same
+///         ⚠
+///         <b>
+///             Reproduced here rather than in an editor test, because the editor has no assembly
+///             with the defect.
+///         </b>
+///         The issue names <c>Vixen.Editor.Terrain</c> as carrying "the same
 ///         landmine, armed" — that is <b>false</b>, and checked: it declares six
 ///         <c>[DataContract]</c> types and references neither <c>Vixen.Core.Reflection</c> nor its
 ///         generator, so nothing is generated, nothing registers, and loading it twice into a
@@ -65,8 +71,12 @@ public class TypeRegistryLoadContextTests {
     ///         failure than the throw and an entirely silent one.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Registered in both orders, because "keep the first" and "keep the default one"
-    ///         agree in exactly one of them.</b> Which copy arrives first depends on whether the host
+    ///         ⚠
+    ///         <b>
+    ///             Registered in both orders, because "keep the first" and "keep the default one"
+    ///             agree in exactly one of them.
+    ///         </b>
+    ///         Which copy arrives first depends on whether the host
     ///         had touched the assembly before the plugin loaded, and that is not something the answer
     ///         should be at the mercy of.
     ///     </para>
@@ -135,7 +145,7 @@ public class TypeRegistryLoadContextTests {
     /// </remarks>
     [MethodImpl(MethodImplOptions.NoInlining)]
     static Type Loaded() {
-        var context = new AssemblyLoadContext("type-registry-second-copy", isCollectible: true);
+        var context = new AssemblyLoadContext("type-registry-second-copy", true);
         var assembly = context.LoadFromAssemblyPath(typeof(Twin).Assembly.Location);
 
         return assembly.GetType(typeof(Twin).FullName!)!;

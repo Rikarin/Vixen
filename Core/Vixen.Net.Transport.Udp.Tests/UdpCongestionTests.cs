@@ -113,7 +113,7 @@ public sealed class UdpCongestionTests : IDisposable {
 
         // Every message datagram eaten, so every one of them comes due and the pass that finds them
         // is one loss event.
-        bus.LossPattern = (_, datagram) => datagram.Span[0] == Message;
+        bus.LossPattern = static (_, datagram) => datagram.Span[0] == Message;
 
         for (var i = 0; i < 8; i++) {
             client.SendToServer(Bytes("into the void"), Channel.Reliable);
@@ -176,7 +176,7 @@ public sealed class UdpCongestionTests : IDisposable {
             }
         );
 
-        bus.LossPattern = (_, datagram) => datagram.Span[0] == Message;
+        bus.LossPattern = static (_, datagram) => datagram.Span[0] == Message;
 
         client.SendToServer(Bytes("never lands"), Channel.Reliable);
 
@@ -204,7 +204,7 @@ public sealed class UdpCongestionTests : IDisposable {
     public void GivingUpOnAReliableDatagramIsVisible() {
         Connect(new() { MaxUnacknowledged = 8, InitialWindow = 4, MinWindow = 4, MaxWindow = 4 });
 
-        bus.LossPattern = (_, datagram) => datagram.Span[0] == Message;
+        bus.LossPattern = static (_, datagram) => datagram.Span[0] == Message;
 
         for (var i = 0; i < 200; i++) {
             client.SendToServer(Bytes("doomed"), Channel.Reliable);
@@ -233,7 +233,10 @@ public sealed class UdpCongestionTests : IDisposable {
 
     void Connect(UdpTransportOptions clientOptions) {
         server = new(bus, new() { ListenEndPoint = ListenAt, RemoteEndPoint = ListenAt });
-        client = new(bus, clientOptions with { ListenEndPoint = new(IPAddress.Loopback, 0), RemoteEndPoint = ListenAt });
+        client = new(
+            bus,
+            clientOptions with { ListenEndPoint = new(IPAddress.Loopback, 0), RemoteEndPoint = ListenAt }
+        );
 
         server.StartServer();
         client.StartClient();

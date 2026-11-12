@@ -31,8 +31,7 @@ public readonly struct BoundingBox : IEquatable<BoundingBox>, IFormattable {
     ///     The box that contains nothing: inverted bounds, so merging anything into it yields
     ///     exactly that thing. Start every accumulation here.
     /// </summary>
-    public static BoundingBox Empty =>
-        new(new(float.PositiveInfinity), new(float.NegativeInfinity));
+    public static BoundingBox Empty => new(new(float.PositiveInfinity), new(float.NegativeInfinity));
 
     /// <summary>Builds a box from its extreme corners.</summary>
     /// <param name="minimum">The corner with the smallest coordinates.</param>
@@ -111,23 +110,32 @@ public readonly struct BoundingBox : IEquatable<BoundingBox>, IFormattable {
     /// <param name="point">The point.</param>
     /// <returns><see langword="true" /> if the point is within the box.</returns>
     public bool Contains(Vector3 point) =>
-        point.X >= Minimum.X && point.X <= Maximum.X
-        && point.Y >= Minimum.Y && point.Y <= Maximum.Y
-        && point.Z >= Minimum.Z && point.Z <= Maximum.Z;
+        point.X >= Minimum.X
+        && point.X <= Maximum.X
+        && point.Y >= Minimum.Y
+        && point.Y <= Maximum.Y
+        && point.Z >= Minimum.Z
+        && point.Z <= Maximum.Z;
 
     /// <summary>How another box sits relative to this one.</summary>
     /// <param name="other">The box to test.</param>
     /// <returns>The containment relationship.</returns>
     public ContainmentType Contains(BoundingBox other) {
-        if (Maximum.X < other.Minimum.X || Minimum.X > other.Maximum.X
-            || Maximum.Y < other.Minimum.Y || Minimum.Y > other.Maximum.Y
-            || Maximum.Z < other.Minimum.Z || Minimum.Z > other.Maximum.Z) {
+        if (Maximum.X < other.Minimum.X
+            || Minimum.X > other.Maximum.X
+            || Maximum.Y < other.Minimum.Y
+            || Minimum.Y > other.Maximum.Y
+            || Maximum.Z < other.Minimum.Z
+            || Minimum.Z > other.Maximum.Z) {
             return ContainmentType.Disjoint;
         }
 
-        return Minimum.X <= other.Minimum.X && other.Maximum.X <= Maximum.X
-            && Minimum.Y <= other.Minimum.Y && other.Maximum.Y <= Maximum.Y
-            && Minimum.Z <= other.Minimum.Z && other.Maximum.Z <= Maximum.Z
+        return Minimum.X <= other.Minimum.X
+            && other.Maximum.X <= Maximum.X
+            && Minimum.Y <= other.Minimum.Y
+            && other.Maximum.Y <= Maximum.Y
+            && Minimum.Z <= other.Minimum.Z
+            && other.Maximum.Z <= Maximum.Z
                 ? ContainmentType.Contains
                 : ContainmentType.Intersects;
     }
@@ -144,8 +152,12 @@ public readonly struct BoundingBox : IEquatable<BoundingBox>, IFormattable {
         var lower = sphere.Center - new Vector3(sphere.Radius);
         var upper = sphere.Center + new Vector3(sphere.Radius);
 
-        return Minimum.X <= lower.X && Minimum.Y <= lower.Y && Minimum.Z <= lower.Z
-            && upper.X <= Maximum.X && upper.Y <= Maximum.Y && upper.Z <= Maximum.Z
+        return Minimum.X <= lower.X
+            && Minimum.Y <= lower.Y
+            && Minimum.Z <= lower.Z
+            && upper.X <= Maximum.X
+            && upper.Y <= Maximum.Y
+            && upper.Z <= Maximum.Z
                 ? ContainmentType.Contains
                 : ContainmentType.Intersects;
     }
@@ -233,12 +245,12 @@ public readonly struct BoundingBox : IEquatable<BoundingBox>, IFormattable {
         var extent = box.Extent;
 
         var transformed = new Vector3(
-            (extent.X * MathF.Abs(matrix.M11)) + (extent.Y * MathF.Abs(matrix.M21))
-            + (extent.Z * MathF.Abs(matrix.M31)),
-            (extent.X * MathF.Abs(matrix.M12)) + (extent.Y * MathF.Abs(matrix.M22))
-            + (extent.Z * MathF.Abs(matrix.M32)),
-            (extent.X * MathF.Abs(matrix.M13)) + (extent.Y * MathF.Abs(matrix.M23))
-            + (extent.Z * MathF.Abs(matrix.M33))
+            extent.X * MathF.Abs(matrix.M11) + extent.Y * MathF.Abs(matrix.M21)
+            + extent.Z * MathF.Abs(matrix.M31),
+            extent.X * MathF.Abs(matrix.M12) + extent.Y * MathF.Abs(matrix.M22)
+            + extent.Z * MathF.Abs(matrix.M32),
+            extent.X * MathF.Abs(matrix.M13) + extent.Y * MathF.Abs(matrix.M23)
+            + extent.Z * MathF.Abs(matrix.M33)
         );
 
         return new(center - transformed, center + transformed);

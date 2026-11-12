@@ -99,11 +99,14 @@ public sealed class PingPongTextureTests : IDisposable {
         var written = pingPong.WriteTexture;
         var first = pingPong.Import(graph);
 
-        graph.AddPass("step one", pass => {
-            pass.Kind = PassKind.Compute;
-            pass.Writes(first.Write, ResourceState.ShaderWrite);
-            pass.Execute(_ => { });
-        });
+        graph.AddPass(
+            "step one",
+            pass => {
+                pass.Kind = PassKind.Compute;
+                pass.Writes(first.Write);
+                pass.Execute(static _ => { });
+            }
+        );
 
         var recorded = new TrackingCommandList();
         graph.Execute(recorded);
@@ -131,12 +134,15 @@ public sealed class PingPongTextureTests : IDisposable {
 
         var second = pingPong.Import(graph);
 
-        graph.AddPass("step two", pass => {
-            pass.Kind = PassKind.Compute;
-            pass.Reads(second.Read);
-            pass.Writes(second.Write, ResourceState.ShaderWrite);
-            pass.Execute(_ => { });
-        });
+        graph.AddPass(
+            "step two",
+            pass => {
+                pass.Kind = PassKind.Compute;
+                pass.Reads(second.Read);
+                pass.Writes(second.Write);
+                pass.Execute(static _ => { });
+            }
+        );
 
         var again = new TrackingCommandList();
         graph.Execute(again);
@@ -241,10 +247,13 @@ public sealed class PingPongTextureTests : IDisposable {
 
         var pair = pingPong.Import(graph);
 
-        graph.AddPass("write only", pass => {
-            pass.Writes(pair.Write, ResourceState.ShaderWrite);
-            pass.Execute(_ => { });
-        });
+        graph.AddPass(
+            "write only",
+            pass => {
+                pass.Writes(pair.Write);
+                pass.Execute(static _ => { });
+            }
+        );
 
         var recorded = new TrackingCommandList();
         graph.Execute(recorded);

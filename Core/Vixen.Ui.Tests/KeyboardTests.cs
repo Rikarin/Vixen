@@ -16,7 +16,11 @@ public class KeyboardTests {
         return document;
     }
 
-    static KeyEvent Key(InputKey key, KeyAction action = KeyAction.Pressed, ModifierKeys modifiers = ModifierKeys.None) =>
+    static KeyEvent Key(
+        InputKey key,
+        KeyAction action = KeyAction.Pressed,
+        ModifierKeys modifiers = ModifierKeys.None
+    ) =>
         new() { Key = key, Action = action, Modifiers = modifiers };
 
     [Fact]
@@ -94,7 +98,7 @@ public class KeyboardTests {
         first.Focusable = true;
         second.Focusable = true;
 
-        first.AddHandler<KeyEvent>((_, args) => args.Handled = true);
+        first.AddHandler<KeyEvent>(static (_, args) => args.Handled = true);
 
         document.Focus(first);
         document.Dispatch(Key(InputKey.Tab));

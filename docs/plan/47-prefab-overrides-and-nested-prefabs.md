@@ -36,11 +36,11 @@ The **authoring** format is `SceneFile` / `SceneEntityData` in
 
 What is already built and must not be duplicated:
 
-- **`EntityId`** (`SceneFormat.cs:37`) — a GUID identity that survives a save. Its own doc comment
+- **`EntityId`** (`SceneFormat.cs:40`) — a GUID identity that survives a save. Its own doc comment
   already names "a prefab override" as one of the three things it exists for.
 - **`PrefabLink`** (`PrefabInstances.cs:19`) — `(AssetId Prefab, EntityId Source)`. The link's shape is
   decided; only its persistence is not.
-- **`SceneSerializer.Instantiate(..., sources)`** (`SceneSerializer.cs:392`) — instantiating a
+- **`SceneSerializer.Instantiate(..., sources)`** (`SceneSerializer.cs:388`) — instantiating a
   template into a document *without* adopting its ids, filling a map of entity → the id the file
   gave it. Its remarks already say this "is also exactly what an override comparison needs".
 - **`IPrefabSource`** (`Editor/Vixen.Editor.Inspector/InspectorField.cs`), `PrefabSource`
@@ -142,7 +142,7 @@ resolved at load.
   every instance of it into an entity with a transform and no content. Under (C) the same case
   degrades to an ordinary subtree with its links intact.
 - **It cannot be reviewed.** A `.vxscene` is a file people merge by hand — that is the stated reason
-  the whole authoring format is YAML (`SceneFormat.cs:586-589`). A level whose contents are a hundred
+  the whole authoring format is YAML (`SceneFormat.cs:632-635`). A level whose contents are a hundred
   asset ids and a patch list is not a file anybody can read a diff of.
 
 It is the right long-term model and it is blocked on work outside this document.
@@ -197,13 +197,13 @@ Three keys on `SceneEntityData`, all additive, all with a default meaning "not a
 ### Four decisions inside that
 
 **⚠ `prefab` is the reference *text*, not a bare `AssetId`.** The reason is `SceneEntityData.Asset`'s,
-spelled out at `SceneFormat.cs:311-321`: `ReferenceIndex` answers "what breaks if I delete this" by
+spelled out at `SceneFormat.cs:327-341`: `ReferenceIndex` answers "what breaks if I delete this" by
 scanning for `vx:` followed by thirty-two hex digits, and an `AssetId` bound as a bare scalar is
 invisible to it. A scene whose prefab reference the index could not see is a scene the editor would
 offer to delete the prefab out from under.
 
 **⚠ Both keys on every node of an instance, not `prefab` on the root alone.** The root-only form is
-smaller and is wrong: `PrefabInstances.Forget` (`PrefabInstances.cs:286`) deliberately allows unpacking *one*
+smaller and is wrong: `PrefabInstances.Forget` (`PrefabInstances.cs:292`) deliberately allows unpacking *one*
 entity of an instance, so an author can unpack the root and keep the children linked — which under
 the root-only form leaves `source` keys with nothing above them to interpret against. Making each
 entity's record complete on its own means unpacking, reparenting and hand-merging are all local

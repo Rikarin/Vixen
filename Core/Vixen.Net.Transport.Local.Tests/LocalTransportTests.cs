@@ -3,7 +3,6 @@
 
 using System.Text;
 using Vixen.Net.Tests.Transport;
-using Vixen.Net.Transport;
 using Xunit;
 
 namespace Vixen.Net.Transport.Local.Tests;
@@ -255,10 +254,8 @@ public sealed class LocalTransportTests {
             transport.Poll(TimeSpan.Zero, this);
         }
 
-        public void OnDisconnected(TransportRole role, ConnectionId connection, DisconnectReason reason) {
-        }
+        public void OnDisconnected(TransportRole role, ConnectionId connection, DisconnectReason reason) { }
 
-        public void OnData(TransportRole role, ConnectionId connection, Channel channel, ReadOnlySpan<byte> payload) {
-        }
+        public void OnData(TransportRole role, ConnectionId connection, Channel channel, ReadOnlySpan<byte> payload) { }
     }
 }

@@ -23,15 +23,15 @@ public class ShaderLayoutTests {
 
     static IrStructType Struct(string name, params IrType[] fields) {
         var result = new IrStructType(name);
-        result.SetFields([.. fields.Select((f, i) => new IrField($"f{i}", f))]);
+        result.SetFields([..fields.Select(static (f, i) => new IrField($"f{i}", f))]);
         return result;
     }
 
     // --- Scalars and vectors ------------------------------------------------
 
     [Theory]
-    [InlineData(1, 4, 4)]   // float:  aligns 4, occupies 4
-    [InlineData(2, 8, 8)]   // float2: aligns 8
+    [InlineData(1, 4, 4)] // float:  aligns 4, occupies 4
+    [InlineData(2, 8, 8)] // float2: aligns 8
     [InlineData(3, 16, 12)] // float3: aligns 16 but occupies 12 — the classic trap
     [InlineData(4, 16, 16)]
     public void Vector_alignment_and_size_follow_the_spec(int lanes, int alignment, int size) {

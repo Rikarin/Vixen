@@ -24,8 +24,12 @@ namespace Vixen.Rendering.Terrain;
 ///         reads it, so a terrain that moved this frame is drawn where it moved to.
 ///     </para>
 ///     <para>
-///         ⚠ <b>A reference that has not resolved yet is left out, quietly; one that resolved to a
-///         broken rule is left out loudly.</b> "Loading" is a state every level starts in and lasts
+///         ⚠
+///         <b>
+///             A reference that has not resolved yet is left out, quietly; one that resolved to a
+///             broken rule is left out loudly.
+///         </b>
+///         "Loading" is a state every level starts in and lasts
 ///         a few frames; a <see cref="Vixen.Foliage.GrassType" /> whose own <c>Validate</c> refuses
 ///         it would otherwise reach the scatter dispatch, which throws mid-frame — so it is dropped
 ///         here and counted in <see cref="RefusedGrass" />, where a person can read it beside the

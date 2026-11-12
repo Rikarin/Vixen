@@ -31,8 +31,12 @@ public enum AccessibilityChangeKind : byte {
 
 /// <summary>Which parts of a node differ, for a bridge that posts one notification per property.</summary>
 /// <remarks>
-///     ⚠ <b>A flag set rather than a list of before-and-after pairs, because that is the shape all
-///     three platforms want.</b> <c>NSAccessibility</c> posts
+///     ⚠
+///     <b>
+///         A flag set rather than a list of before-and-after pairs, because that is the shape all
+///         three platforms want.
+///     </b>
+///     <c>NSAccessibility</c> posts
 ///     <c>NSAccessibilityValueChangedNotification</c> and AppKit then comes back and <i>asks</i> for
 ///     the value; UIA's <c>UiaRaiseAutomationPropertyChangedEvent</c> wants the property id; AT-SPI's
 ///     <c>object:property-change</c> carries a name. None of the three needs the old value, and
@@ -73,8 +77,10 @@ public enum AccessibilityFields : uint {
 
 /// <summary>One node's worth of change between two captures.</summary>
 /// <param name="Kind">Added, removed, or edited in place.</param>
-/// <param name="Node">The node id, which is stable across the captures of one
-/// <see cref="AccessibilityTreeSource" />.</param>
+/// <param name="Node">
+///     The node id, which is stable across the captures of one
+///     <see cref="AccessibilityTreeSource" />.
+/// </param>
 /// <param name="Fields">
 ///     For <see cref="AccessibilityChangeKind.Changed" />, which parts differ — never
 ///     <see cref="AccessibilityFields.None" />. Always <see cref="AccessibilityFields.None" /> for
@@ -89,8 +95,12 @@ public readonly record struct AccessibilityChange(
 /// <summary>One node of a captured accessibility tree: data, with no element behind it.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Nothing here refers to a <see cref="UiElement" />, and that is the point rather than
-///         tidiness.</b> <c>Vixen.Ui</c>'s graph is single-threaded by contract, and every platform
+///         ⚠
+///         <b>
+///             Nothing here refers to a <see cref="UiElement" />, and that is the point rather than
+///             tidiness.
+///         </b>
+///         <c>Vixen.Ui</c>'s graph is single-threaded by contract, and every platform
 ///         bridge is asked questions from somewhere else — AT-SPI's D-Bus calls arrive on another
 ///         thread, and AppKit asks on the main one whether or not that is the thread that owns the
 ///         document. A bridge that answered by walking live elements would be reading a tree while
@@ -167,15 +177,22 @@ public sealed class AccessibilityNode {
 ///         difference between a tree a screen reader can read and thirty nested groups.
 ///     </para>
 ///     <para>
-///         ⚠ <b>An element reached by <see cref="AccessibleRelation.Owns" /> is emitted under its
-///         owner and not where the element tree has it.</b> A <c>Select</c>'s list is a child of the
+///         ⚠
+///         <b>
+///             An element reached by <see cref="AccessibleRelation.Owns" /> is emitted under its
+///             owner and not where the element tree has it.
+///         </b>
+///         A <c>Select</c>'s list is a child of the
 ///         document root — an overlay inside the field that opens it would be clipped — and the
 ///         relation is how the control says so. Reproducing that wrongly gives a screen reader a
 ///         combo box with nothing in it and a pile of loose lists at the end.
 ///     </para>
 ///     <para>
-///         <b><c>AccessibilitySnapshot.Render</c> is a renderer over this and no longer a second
-///         walk</b>, which is what makes this repository's accessibility test discipline a bridge's
+///         <b>
+///             <c>AccessibilitySnapshot.Render</c> is a renderer over this and no longer a second
+///             walk
+///         </b>
+///         , which is what makes this repository's accessibility test discipline a bridge's
 ///         evidence rather than a parallel universe: the string a control's snapshot test asserts on
 ///         is rendered from the same nodes a screen reader would be handed.
 ///     </para>
@@ -231,8 +248,11 @@ public sealed class AccessibilityTree {
     /// <exception cref="ArgumentNullException"><paramref name="current" /> is null.</exception>
     /// <remarks>
     ///     <para>
-    ///         <b>The thing <see cref="UiDocument.AccessibilityInvalidated" /> deliberately does not
-    ///         carry.</b> That event coalesces to one raise a frame with no payload, for a reason its
+    ///         <b>
+    ///             The thing <see cref="UiDocument.AccessibilityInvalidated" /> deliberately does not
+    ///             carry.
+    ///         </b>
+    ///         That event coalesces to one raise a frame with no payload, for a reason its
     ///         own remarks give — accumulating a changed set per mutation is the allocation it exists
     ///         to avoid. Every bridge wants the opposite shape: AT-SPI needs a signal per mutation,
     ///         UIA needs <c>UiaRaiseAutomationEvent</c> per change, <c>NSAccessibility</c> posts

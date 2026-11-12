@@ -31,8 +31,8 @@ public class MaterialSurfaceTests {
     [Fact]
     public void No_features_is_a_fully_rough_dielectric() {
         Assert.Equal(MaterialSurface.Default, MaterialSurface.Of([]));
-        Assert.Equal(MaterialSurface.Default, MaterialSurface.Of((IReadOnlyList<IMaterialFeature>?) null));
-        Assert.Equal(MaterialSurface.Default, MaterialSurface.Of((MaterialContent?) null));
+        Assert.Equal(MaterialSurface.Default, MaterialSurface.Of((IReadOnlyList<IMaterialFeature>?)null));
+        Assert.Equal(MaterialSurface.Default, MaterialSurface.Of((MaterialContent?)null));
 
         // ⚠ Rough and not half-rough, which is `MetalRoughnessFeature`'s own default and a different
         // question: that one is what a material with the feature and no roughness set means. This one
@@ -46,9 +46,11 @@ public class MaterialSurfaceTests {
     /// <summary>A metal-roughness feature is read straight through.</summary>
     [Fact]
     public void A_metal_roughness_feature_is_the_surface() {
-        var surface = MaterialSurface.Of([
-            new MetalRoughnessFeature { BaseColor = new(0.8f, 0.1f, 0.1f), Metalness = 1f, Roughness = 0.2f }
-        ]);
+        var surface = MaterialSurface.Of(
+            [
+                new MetalRoughnessFeature { BaseColor = new(0.8f, 0.1f, 0.1f), Metalness = 1f, Roughness = 0.2f }
+            ]
+        );
 
         Assert.Equal(0.8f, surface.BaseColour.R, 4);
         Assert.Equal(0.1f, surface.BaseColour.G, 4);
@@ -67,14 +69,13 @@ public class MaterialSurfaceTests {
     /// </remarks>
     [Fact]
     public void A_textured_metal_roughness_contributes_its_tint() {
-        var surface = MaterialSurface.Of([
-            new TexturedMetalRoughnessFeature {
-                BaseColor = new(0.2f, 0.4f, 0.6f),
-                Metalness = 0.5f,
-                Roughness = 0.3f,
-                BaseColorMap = "baseColorMap"
-            }
-        ]);
+        var surface = MaterialSurface.Of(
+            [
+                new TexturedMetalRoughnessFeature {
+                    BaseColor = new(0.2f, 0.4f, 0.6f), Metalness = 0.5f, Roughness = 0.3f, BaseColorMap = "baseColorMap"
+                }
+            ]
+        );
 
         Assert.Equal(0.4f, surface.BaseColour.G, 4);
         Assert.Equal(0.5f, surface.Metalness, 4);
@@ -84,26 +85,26 @@ public class MaterialSurfaceTests {
     /// <summary>Specular-glossiness converts, and lands on the right end at both ends.</summary>
     [Fact]
     public void Specular_glossiness_converts_to_metal_roughness() {
-        var plastic = MaterialSurface.Of([
-            new SpecularGlossinessFeature {
-                DiffuseColor = new(0.9f, 0.9f, 0.9f),
-                SpecularColor = new(0.04f, 0.04f, 0.04f),
-                Glossiness = 0.25f
-            }
-        ]);
+        var plastic = MaterialSurface.Of(
+            [
+                new SpecularGlossinessFeature {
+                    DiffuseColor = new(0.9f, 0.9f, 0.9f), SpecularColor = new(0.04f, 0.04f, 0.04f), Glossiness = 0.25f
+                }
+            ]
+        );
 
         // A specular colour of exactly a dielectric's is a dielectric, and glossiness is roughness
         // upside down.
         Assert.Equal(0f, plastic.Metalness, 3);
         Assert.Equal(0.75f, plastic.Roughness, 4);
 
-        var gold = MaterialSurface.Of([
-            new SpecularGlossinessFeature {
-                DiffuseColor = new(0f, 0f, 0f),
-                SpecularColor = new(1f, 1f, 1f),
-                Glossiness = 1f
-            }
-        ]);
+        var gold = MaterialSurface.Of(
+            [
+                new SpecularGlossinessFeature {
+                    DiffuseColor = new(0f, 0f, 0f), SpecularColor = new(1f, 1f, 1f), Glossiness = 1f
+                }
+            ]
+        );
 
         Assert.Equal(1f, gold.Metalness, 3);
         Assert.Equal(0f, gold.Roughness, 4);
@@ -118,10 +119,12 @@ public class MaterialSurfaceTests {
     /// </remarks>
     [Fact]
     public void Emissive_adds_to_the_workflow_under_it() {
-        var surface = MaterialSurface.Of([
-            new MetalRoughnessFeature { BaseColor = new(0.3f, 0.15f, 0.05f), Metalness = 0f, Roughness = 0.9f },
-            new EmissiveFeature { EmissiveColor = new(1f, 0.4f, 0.1f), Intensity = 4f }
-        ]);
+        var surface = MaterialSurface.Of(
+            [
+                new MetalRoughnessFeature { BaseColor = new(0.3f, 0.15f, 0.05f), Metalness = 0f, Roughness = 0.9f },
+                new EmissiveFeature { EmissiveColor = new(1f, 0.4f, 0.1f), Intensity = 4f }
+            ]
+        );
 
         Assert.Equal(0.3f, surface.BaseColour.R, 4);
         Assert.Equal(0.9f, surface.Roughness, 4);
@@ -135,23 +138,27 @@ public class MaterialSurfaceTests {
 
     /// <summary>A blend is interpolated rather than resolved to one of its sides.</summary>
     /// <remarks>
-    ///     ⚠ <b>Taking either side would make a half-and-half blend of chrome and rubber look like one
-    ///     of them</b>, which is worse than looking like neither: the material would appear to have a
+    ///     ⚠
+    ///     <b>
+    ///         Taking either side would make a half-and-half blend of chrome and rubber look like one
+    ///         of them
+    ///     </b>
+    ///     , which is worse than looking like neither: the material would appear to have a
     ///     property it does not have, at exactly the weight an author is dragging through.
     /// </remarks>
     [Fact]
     public void A_blend_interpolates_both_sides() {
-        var surface = MaterialSurface.Of([
-            new BlendFeature {
-                Under = new MetalRoughnessFeature { BaseColor = Vector3.Zero, Metalness = 0f, Roughness = 1f },
-                Over = new SpecularGlossinessFeature {
-                    DiffuseColor = new(1f, 1f, 1f),
-                    SpecularColor = new(1f, 1f, 1f),
-                    Glossiness = 1f
-                },
-                Weight = 0.5f
-            }
-        ]);
+        var surface = MaterialSurface.Of(
+            [
+                new BlendFeature {
+                    Under = new MetalRoughnessFeature { BaseColor = Vector3.Zero, Metalness = 0f, Roughness = 1f },
+                    Over = new SpecularGlossinessFeature {
+                        DiffuseColor = new(1f, 1f, 1f), SpecularColor = new(1f, 1f, 1f), Glossiness = 1f
+                    },
+                    Weight = 0.5f
+                }
+            ]
+        );
 
         Assert.Equal(0.5f, surface.BaseColour.R, 3);
         Assert.Equal(0.5f, surface.Metalness, 3);
@@ -167,22 +174,26 @@ public class MaterialSurfaceTests {
     /// </remarks>
     [Fact]
     public void Layers_are_the_weighted_mean_and_no_weight_changes_nothing() {
-        var surface = MaterialSurface.Of([
-            new MaterialLayersFeature {
-                Layers = [
-                    new(new(1f, 0f, 0f), Metalness: 1f, Roughness: 0f, Weight: 3f),
-                    new(new(0f, 0f, 0f), Metalness: 0f, Roughness: 1f, Weight: 1f)
-                ]
-            }
-        ]);
+        var surface = MaterialSurface.Of(
+            [
+                new MaterialLayersFeature {
+                    Layers = [
+                        new(new(1f, 0f, 0f), 1f, 0f, 3f),
+                        new(new(0f, 0f, 0f), 0f, 1f, 1f)
+                    ]
+                }
+            ]
+        );
 
         Assert.Equal(0.75f, surface.BaseColour.R, 4);
         Assert.Equal(0.75f, surface.Metalness, 4);
         Assert.Equal(0.25f, surface.Roughness, 4);
 
-        var unfinished = MaterialSurface.Of([
-            new MaterialLayersFeature { Layers = [new(Vector3.One, 1f, 0f, Weight: 0f)] }
-        ]);
+        var unfinished = MaterialSurface.Of(
+            [
+                new MaterialLayersFeature { Layers = [new(Vector3.One, 1f, 0f, 0f)] }
+            ]
+        );
 
         Assert.Equal(MaterialSurface.Default, unfinished);
     }
@@ -200,8 +211,12 @@ public class MaterialSurfaceTests {
     ///         throws. Declaring the member as the array is the fix.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Asserted here, in the assembly that owns the declaration, because that is where a
-    ///         reverting edit is made.</b> The sample carries the same check for
+    ///         ⚠
+    ///         <b>
+    ///             Asserted here, in the assembly that owns the declaration, because that is where a
+    ///             reverting edit is made.
+    ///         </b>
+    ///         The sample carries the same check for
     ///         <c>TexturedMaterialLayersFeature</c> over a real <c>.vxmat</c> — but nothing in the
     ///         tree serialised <c>MaterialLayersFeature</c> at all, so that half of the same fix could
     ///         be reverted with every suite green. ⚠ And compiling a descriptor is not this check and
@@ -244,12 +259,14 @@ public class MaterialSurfaceTests {
     /// </remarks>
     [Fact]
     public void A_feature_the_preview_cannot_show_is_passed_over() {
-        var surface = MaterialSurface.Of([
-            new MetalRoughnessFeature { BaseColor = new(0.2f, 0.6f, 0.2f), Metalness = 0f, Roughness = 0.4f },
-            new NormalMapFeature { Strength = 2f },
-            new ClearCoatFeature { ClearCoat = 1f },
-            new SheenFeature()
-        ]);
+        var surface = MaterialSurface.Of(
+            [
+                new MetalRoughnessFeature { BaseColor = new(0.2f, 0.6f, 0.2f), Metalness = 0f, Roughness = 0.4f },
+                new NormalMapFeature { Strength = 2f },
+                new ClearCoatFeature { ClearCoat = 1f },
+                new SheenFeature()
+            ]
+        );
 
         Assert.Equal(0.6f, surface.BaseColour.G, 4);
         Assert.Equal(0.4f, surface.Roughness, 4);
@@ -263,9 +280,11 @@ public class MaterialSurfaceTests {
     /// </remarks>
     [Fact]
     public void Metalness_and_roughness_are_clamped() {
-        var surface = MaterialSurface.Of([
-            new MetalRoughnessFeature { BaseColor = Vector3.One, Metalness = 4f, Roughness = -1f }
-        ]);
+        var surface = MaterialSurface.Of(
+            [
+                new MetalRoughnessFeature { BaseColor = Vector3.One, Metalness = 4f, Roughness = -1f }
+            ]
+        );
 
         Assert.Equal(1f, surface.Metalness, 4);
         Assert.Equal(0f, surface.Roughness, 4);
@@ -293,11 +312,9 @@ public class MaterialSurfaceTests {
     /// </remarks>
     [Fact]
     public void The_packed_lanes_are_metalness_then_roughness() {
-        var packed = MeshInstance.Packed(
-            MaterialSurface.Default with { Metalness = 0.25f, Roughness = 0.75f }
-        );
+        var packed = MeshInstance.Packed(MaterialSurface.Default with { Metalness = 0.25f, Roughness = 0.75f });
 
-        Assert.Equal(new Vector4(0.25f, 0.75f, 0f, 0f), packed);
+        Assert.Equal(new(0.25f, 0.75f, 0f, 0f), packed);
     }
 
     /// <summary>Built without a surface, an instance is the neutral one rather than a mirror.</summary>

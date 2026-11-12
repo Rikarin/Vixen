@@ -2,9 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core;
-using Vixen.Core.Imaging;
 using Vixen.Core.IO;
-using Vixen.Core.Mathematics;
+using Vixen.Core.Imaging;
 using Vixen.Core.Serialization;
 using Vixen.Editor.Assets.Textures;
 using Vixen.Graphics;
@@ -106,8 +105,8 @@ public sealed class TextureImporterTests {
     public async Task AColourTextureCannotBeSqueezedIntoTwoChannels() {
         var (context, _) = Png(new() { Content = TextureContent.Colour, Compression = TextureCompression.Bc5 });
 
-        var failure = await Assert.ThrowsAsync<NotSupportedException>(
-            async () => await new TextureImporter().ImportAsync(context, TestContext.Current.CancellationToken)
+        var failure = await Assert.ThrowsAsync<NotSupportedException>(async () =>
+            await new TextureImporter().ImportAsync(context, TestContext.Current.CancellationToken)
         );
 
         Assert.Contains("no sRGB form", failure.Message, StringComparison.Ordinal);
@@ -135,7 +134,10 @@ public sealed class TextureImporterTests {
 
         Assert.Equal(PixelFormat.Rgba8UNormSrgb, Ktx2.Read(Assert.Single(result.Artifacts).Content.Span).Format);
 
-        var warning = Assert.Single(result.Diagnostics, diagnostic => diagnostic.Severity == ImportSeverity.Warning);
+        var warning = Assert.Single(
+            result.Diagnostics,
+            static diagnostic => diagnostic.Severity == ImportSeverity.Warning
+        );
         Assert.Contains("astcenc", warning.Message, StringComparison.Ordinal);
     }
 
@@ -145,7 +147,7 @@ public sealed class TextureImporterTests {
 
         var result = await new TextureImporter().ImportAsync(context, TestContext.Current.CancellationToken);
 
-        Assert.DoesNotContain(result.Diagnostics, diagnostic => diagnostic.Severity == ImportSeverity.Warning);
+        Assert.DoesNotContain(result.Diagnostics, static diagnostic => diagnostic.Severity == ImportSeverity.Warning);
     }
 
     /// <summary>
@@ -155,7 +157,7 @@ public sealed class TextureImporterTests {
     /// </summary>
     [Fact]
     public async Task ASizeLimitHalvesUntilItFitsAndSaysSo() {
-        var (context, _) = Png(new() { MaxSize = 3, Compression = TextureCompression.None }, width: 8, height: 8);
+        var (context, _) = Png(new() { MaxSize = 3, Compression = TextureCompression.None }, 8, 8);
 
         var result = await new TextureImporter().ImportAsync(context, TestContext.Current.CancellationToken);
         var texture = Ktx2.Read(Assert.Single(result.Artifacts).Content.Span);
@@ -165,7 +167,7 @@ public sealed class TextureImporterTests {
 
         var note = Assert.Single(
             result.Diagnostics,
-            diagnostic => diagnostic.Severity == ImportSeverity.Information
+            static diagnostic => diagnostic.Severity == ImportSeverity.Information
         );
 
         Assert.Contains("halved 2 times", note.Message, StringComparison.Ordinal);
@@ -179,7 +181,7 @@ public sealed class TextureImporterTests {
     /// </summary>
     [Fact]
     public async Task ALimitOfOneReducesAllTheWayToASingleTexel() {
-        var (context, _) = Png(new() { MaxSize = 1, Compression = TextureCompression.None }, width: 8, height: 8);
+        var (context, _) = Png(new() { MaxSize = 1, Compression = TextureCompression.None }, 8, 8);
 
         var result = await new TextureImporter().ImportAsync(context, TestContext.Current.CancellationToken);
         var texture = Ktx2.Read(Assert.Single(result.Artifacts).Content.Span);
@@ -202,11 +204,7 @@ public sealed class TextureImporterTests {
     [InlineData(true, 3)]
     [InlineData(false, 1)]
     public async Task MipsAreBuiltOrNotAsAsked(bool generate, int expected) {
-        var (context, _) = Png(
-            new() { GenerateMips = generate, Compression = TextureCompression.None },
-            width: 4,
-            height: 4
-        );
+        var (context, _) = Png(new() { GenerateMips = generate, Compression = TextureCompression.None });
 
         var result = await new TextureImporter().ImportAsync(context, TestContext.Current.CancellationToken);
 
@@ -237,10 +235,10 @@ public sealed class TextureImporterTests {
             var white = texel % 2 == 0;
 
             for (var channel = 0; channel < 3; channel++) {
-                pixels[(texel * 4) + channel] = white ? (byte)255 : (byte)0;
+                pixels[texel * 4 + channel] = white ? (byte)255 : (byte)0;
             }
 
-            pixels[(texel * 4) + 3] = 255;
+            pixels[texel * 4 + 3] = 255;
         }
 
         var files = new MemoryFileProvider();
@@ -272,9 +270,9 @@ public sealed class TextureImporterTests {
 
         for (var texel = 0; texel < 4; texel++) {
             pixels[texel * 4] = leaning[texel].X;
-            pixels[(texel * 4) + 1] = leaning[texel].Y;
-            pixels[(texel * 4) + 2] = 218;
-            pixels[(texel * 4) + 3] = 255;
+            pixels[texel * 4 + 1] = leaning[texel].Y;
+            pixels[texel * 4 + 2] = 218;
+            pixels[texel * 4 + 3] = 255;
         }
 
         var files = new MemoryFileProvider();
@@ -283,10 +281,7 @@ public sealed class TextureImporterTests {
         var context = new ImportContext(
             AssetId.New(),
             Source,
-            new TextureImportSettings {
-                Content = TextureContent.NormalMap,
-                Compression = TextureCompression.None
-            },
+            new TextureImportSettings { Content = TextureContent.NormalMap, Compression = TextureCompression.None },
             files,
             "TextureImporter",
             "Windows"
@@ -295,11 +290,11 @@ public sealed class TextureImporterTests {
         var result = await new TextureImporter().ImportAsync(context, TestContext.Current.CancellationToken);
         var reduced = Ktx2.Read(Assert.Single(result.Artifacts).Content.Span).Level(1);
 
-        var x = (reduced[0] / 255f * 2f) - 1f;
-        var y = (reduced[1] / 255f * 2f) - 1f;
-        var z = (reduced[2] / 255f * 2f) - 1f;
+        var x = reduced[0] / 255f * 2f - 1f;
+        var y = reduced[1] / 255f * 2f - 1f;
+        var z = reduced[2] / 255f * 2f - 1f;
 
-        Assert.Equal(1f, MathF.Sqrt((x * x) + (y * y) + (z * z)), tolerance: 0.02f);
+        Assert.Equal(1f, MathF.Sqrt(x * x + y * y + z * z), 0.02f);
     }
 
     /// <summary>
@@ -309,7 +304,7 @@ public sealed class TextureImporterTests {
     /// </summary>
     [Fact]
     public async Task AnAlreadyCompressedSourcePassesThroughUntouched() {
-        var original = new TextureData(PixelFormat.Bc7RgbaUNorm, 8, 8, levelCount: 1);
+        var original = new TextureData(PixelFormat.Bc7RgbaUNorm, 8, 8, 1);
 
         for (var index = 0; index < original.ByteLength; index++) {
             original.PixelSpan()[index] = (byte)(index * 7);
@@ -362,7 +357,7 @@ public sealed class TextureImporterTests {
 
         Assert.Equal(first, second);
 
-        async Task<byte[]> Import(TextureImportSettings settings) {
+        static async Task<byte[]> Import(TextureImportSettings settings) {
             var (context, _) = Png(settings);
             var result = await new TextureImporter().ImportAsync(context, TestContext.Current.CancellationToken);
 
@@ -385,8 +380,8 @@ public sealed class TextureImporterTests {
             "Windows"
         );
 
-        var failure = await Assert.ThrowsAsync<NotSupportedException>(
-            async () => await new TextureImporter().ImportAsync(context, TestContext.Current.CancellationToken)
+        var failure = await Assert.ThrowsAsync<NotSupportedException>(async () =>
+            await new TextureImporter().ImportAsync(context, TestContext.Current.CancellationToken)
         );
 
         Assert.Contains(".exr", failure.Message, StringComparison.Ordinal);
@@ -448,8 +443,21 @@ public sealed class TextureImporterTests {
                 SpriteMode = SpriteMode.Multiple,
                 PixelsPerUnit = 4f,
                 Sprites = [
-                    new() { Name = "a", X = 0, Y = 0, Width = 2, Height = 2 },
-                    new() { Name = "b", X = 2, Y = 0, Width = 2, Height = 2, BorderLeft = 1 }
+                    new() {
+                        Name = "a",
+                        X = 0,
+                        Y = 0,
+                        Width = 2,
+                        Height = 2
+                    },
+                    new() {
+                        Name = "b",
+                        X = 2,
+                        Y = 0,
+                        Width = 2,
+                        Height = 2,
+                        BorderLeft = 1
+                    }
                 ]
             }
         );
@@ -460,22 +468,33 @@ public sealed class TextureImporterTests {
 
         // The texture, two sprites and the sheet.
         Assert.Equal(4, result.Artifacts.Count);
-        Assert.Equal(2, result.SubAssets.Count(entry => string.Equals(entry.Type, "Sprite", StringComparison.Ordinal)));
-        Assert.Single(result.SubAssets, entry => string.Equals(entry.Type, "SpriteSheet", StringComparison.Ordinal));
+        Assert.Equal(
+            2,
+            result.SubAssets.Count(static entry => string.Equals(entry.Type, "Sprite", StringComparison.Ordinal))
+        );
+        Assert.Single(
+            result.SubAssets,
+            static entry => string.Equals(entry.Type, "SpriteSheet", StringComparison.Ordinal)
+        );
 
         var sheet = Serializer.Read<SpriteSheet>(
-            result.Artifacts.Single(artifact => string.Equals(artifact.Type, "SpriteSheet", StringComparison.Ordinal))
+            result.Artifacts.Single(static artifact => string.Equals(
+                        artifact.Type,
+                        "SpriteSheet",
+                        StringComparison.Ordinal
+                    )
+                )
                 .Content.Span
         );
 
         Assert.Equal("hero", sheet.Name);
-        Assert.Equal(new Int2(4, 4), sheet.TextureSize);
+        Assert.Equal(new(4, 4), sheet.TextureSize);
         Assert.Equal(2, sheet.Count);
 
         // Texels in, world units and UVs out: a two-texel sprite at four texels to the unit is half
         // a unit across and a quarter of a four-texel sheet.
-        Assert.Equal(new Vector2(0.5f, 0.5f), sheet[0].Size);
-        Assert.Equal(new Rectangle(0.5f, 0f, 0.5f, 0.5f), sheet[1].Uv);
+        Assert.Equal(new(0.5f, 0.5f), sheet[0].Size);
+        Assert.Equal(new(0.5f, 0f, 0.5f, 0.5f), sheet[1].Uv);
         Assert.Equal(0.25f, sheet[1].UnitBorder.Left, 5);
     }
 
@@ -489,8 +508,20 @@ public sealed class TextureImporterTests {
             new() {
                 SpriteMode = SpriteMode.Multiple,
                 Sprites = [
-                    new() { Name = "a", X = 0, Y = 0, Width = 2, Height = 2 },
-                    new() { Name = "a", X = 2, Y = 0, Width = 2, Height = 2 }
+                    new() {
+                        Name = "a",
+                        X = 0,
+                        Y = 0,
+                        Width = 2,
+                        Height = 2
+                    },
+                    new() {
+                        Name = "a",
+                        X = 2,
+                        Y = 0,
+                        Width = 2,
+                        Height = 2
+                    }
                 ]
             }
         );
@@ -498,7 +529,10 @@ public sealed class TextureImporterTests {
         var result = await new TextureImporter().ImportAsync(context, TestContext.Current.CancellationToken);
 
         Assert.False(result.Succeeded);
-        Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Message.Contains("'a'", StringComparison.Ordinal));
+        Assert.Contains(
+            result.Diagnostics,
+            static diagnostic => diagnostic.Message.Contains("'a'", StringComparison.Ordinal)
+        );
     }
 
     /// <summary>
@@ -506,7 +540,19 @@ public sealed class TextureImporterTests {
     /// </summary>
     [Fact]
     public async Task ATextureThatIsNotASpriteSheetProducesNothingExtra() {
-        var (context, _) = Png(new() { Sprites = [new() { Name = "a", X = 0, Y = 0, Width = 2, Height = 2 }] });
+        var (context, _) = Png(
+            new() {
+                Sprites = [
+                    new() {
+                        Name = "a",
+                        X = 0,
+                        Y = 0,
+                        Width = 2,
+                        Height = 2
+                    }
+                ]
+            }
+        );
 
         var result = await new TextureImporter().ImportAsync(context, TestContext.Current.CancellationToken);
 
@@ -526,9 +572,9 @@ public sealed class TextureImporterTests {
 
         for (var texel = 0; texel < width * height; texel++) {
             pixels[texel * 4] = (byte)(texel * 11);
-            pixels[(texel * 4) + 1] = (byte)(255 - (texel * 5));
-            pixels[(texel * 4) + 2] = (byte)(texel * 3);
-            pixels[(texel * 4) + 3] = 255;
+            pixels[texel * 4 + 1] = (byte)(255 - texel * 5);
+            pixels[texel * 4 + 2] = (byte)(texel * 3);
+            pixels[texel * 4 + 3] = 255;
         }
 
         var files = new MemoryFileProvider();

@@ -37,7 +37,9 @@ public sealed class WebAudioBackend : IAudioBackend {
         new("default", "Browser output", true, AudioFormat.Stereo48k)
     ];
 
-    WebAudioBackend(bool available) => IsAvailable = available;
+    WebAudioBackend(bool available) {
+        IsAvailable = available;
+    }
 
     /// <summary>Fetches the JavaScript module and reports whether this tab has WebAudio at all.</summary>
     /// <param name="moduleUrl">
@@ -112,8 +114,7 @@ public sealed class WebAudioBackend : IAudioBackend {
     ///     <c>enumerateDevices</c>, which returns empty labels until permission has been granted once
     ///     — so a device picker shown before the first prompt would be a list of blanks.
     /// </remarks>
-    public IReadOnlyList<AudioDeviceInfo> EnumerateCaptureDevices() =>
-        IsAvailable ? CaptureDevices : [];
+    public IReadOnlyList<AudioDeviceInfo> EnumerateCaptureDevices() => IsAvailable ? CaptureDevices : [];
 
     /// <inheritdoc />
     public IAudioCaptureDevice OpenCaptureDevice(in AudioCaptureOptions options) =>

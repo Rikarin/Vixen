@@ -52,7 +52,7 @@ public class ShortcutFormatTests {
 
         try {
             ShortcutFormat.Formatter = static (key, modifiers) =>
-                (modifiers.HasFlag(ModifierKeys.Meta) ? "⌘" : "") + ShortcutFormat.Name(key);
+                (modifiers.HasFlag(ModifierKeys.Meta) ? "⌘" : string.Empty) + ShortcutFormat.Name(key);
 
             Assert.Equal("⌘S", ShortcutFormat.Formatter(InputKey.S, ModifierKeys.Meta));
 

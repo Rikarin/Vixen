@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core.Mathematics;
-using Vixen.Graphics.RenderGraph;
 using Xunit;
 
 namespace Vixen.Graphics.Golden.Tests;
@@ -77,11 +76,14 @@ public sealed class GoldenImageTests {
         using var owned = fixture!;
         var colour = owned.ColourTarget("clear");
 
-        owned.Graph.AddPass("clear", pass => {
-            pass.ColourAttachment(colour, LoadAction.Clear, new(0.25f, 0.5f, 0.75f, 1f));
-            pass.SideEffect();
-            pass.Execute(_ => { });
-        });
+        owned.Graph.AddPass(
+            "clear",
+            pass => {
+                pass.ColourAttachment(colour, LoadAction.Clear, new(0.25f, 0.5f, 0.75f, 1f));
+                pass.SideEffect();
+                pass.Execute(static _ => { });
+            }
+        );
 
         GoldenImage.Verify("clear", owned.Render(colour), Tolerance.Flat);
     }
@@ -110,15 +112,19 @@ public sealed class GoldenImageTests {
             DepthStencilState.Disabled
         );
 
-        owned.Graph.AddPass("triangle", pass => {
-            pass.ColourAttachment(colour, LoadAction.Clear, new(0f, 0f, 0f, 1f));
-            pass.SideEffect();
+        owned.Graph.AddPass(
+            "triangle",
+            pass => {
+                pass.ColourAttachment(colour, LoadAction.Clear, new(0f, 0f, 0f, 1f));
+                pass.SideEffect();
 
-            pass.Execute(context => {
-                context.CommandList.BindPipeline(pipeline);
-                context.CommandList.Draw(3);
-            });
-        });
+                pass.Execute(context => {
+                        context.CommandList.BindPipeline(pipeline);
+                        context.CommandList.Draw(3);
+                    }
+                );
+            }
+        );
 
         GoldenImage.Verify("triangle", owned.Render(colour), Tolerance.Interpolated);
     }
@@ -138,8 +144,8 @@ public sealed class GoldenImageTests {
 
         using var owned = fixture!;
         var colour = owned.ColourTarget("indexed quad");
-        var vertices = owned.Buffer<float>(LeftQuad, BufferUsage.Vertex);
-        var indices = owned.Buffer<ushort>(QuadIndices, BufferUsage.Index);
+        var vertices = owned.Buffer(LeftQuad, BufferUsage.Vertex);
+        var indices = owned.Buffer(QuadIndices, BufferUsage.Index);
 
         var pipeline = owned.Pipeline(
             owned.Shader("mesh.vert.spv", ShaderStage.Vertex),
@@ -157,24 +163,28 @@ public sealed class GoldenImageTests {
 
         var offset = new[] { 0.45f, 0f };
 
-        owned.Graph.AddPass("quad", pass => {
-            pass.ColourAttachment(colour, LoadAction.Clear, new(0.05f, 0.05f, 0.08f, 1f));
-            pass.SideEffect();
+        owned.Graph.AddPass(
+            "quad",
+            pass => {
+                pass.ColourAttachment(colour, LoadAction.Clear, new(0.05f, 0.05f, 0.08f, 1f));
+                pass.SideEffect();
 
-            pass.Execute(context => {
-                context.CommandList.BindPipeline(pipeline);
+                pass.Execute(context => {
+                        context.CommandList.BindPipeline(pipeline);
 
-                context.CommandList.PushConstants(
-                    ShaderStage.Vertex,
-                    0,
-                    System.Runtime.InteropServices.MemoryMarshal.AsBytes(offset.AsSpan())
+                        context.CommandList.PushConstants(
+                            ShaderStage.Vertex,
+                            0,
+                            System.Runtime.InteropServices.MemoryMarshal.AsBytes(offset.AsSpan())
+                        );
+
+                        context.CommandList.BindVertexBuffer(0, vertices);
+                        context.CommandList.BindIndexBuffer(indices);
+                        context.CommandList.DrawIndexed(QuadIndices.Length);
+                    }
                 );
-
-                context.CommandList.BindVertexBuffer(0, vertices);
-                context.CommandList.BindIndexBuffer(indices, IndexFormat.UInt16);
-                context.CommandList.DrawIndexed(QuadIndices.Length);
-            });
-        });
+            }
+        );
 
         GoldenImage.Verify("indexed-quad", owned.Render(colour), Tolerance.Interpolated);
     }
@@ -221,31 +231,35 @@ public sealed class GoldenImageTests {
         );
 
         // Far: z = 0.2, the whole left two-thirds, blue.
-        var far = owned.Buffer<float>(Quad(-0.9f, 0.3f, 0.2f, 0.2f, 0.4f, 1f), BufferUsage.Vertex);
+        var far = owned.Buffer(Quad(-0.9f, 0.3f, 0.2f, 0.2f, 0.4f, 1f), BufferUsage.Vertex);
 
         // Near: z = 0.8, overlapping it, orange. Under reversed-Z the larger z is nearer, so this
         // one wins where they overlap — and if the convention were inverted, it would lose.
-        var near = owned.Buffer<float>(Quad(-0.3f, 0.9f, 0.8f, 1f, 0.55f, 0.1f), BufferUsage.Vertex);
-        var indices = owned.Buffer<ushort>(QuadIndices, BufferUsage.Index);
+        var near = owned.Buffer(Quad(-0.3f, 0.9f, 0.8f, 1f, 0.55f, 0.1f), BufferUsage.Vertex);
+        var indices = owned.Buffer(QuadIndices, BufferUsage.Index);
 
-        owned.Graph.AddPass("depth", pass => {
-            pass.ColourAttachment(colour, LoadAction.Clear, new(0.02f, 0.02f, 0.02f, 1f));
+        owned.Graph.AddPass(
+            "depth",
+            pass => {
+                pass.ColourAttachment(colour, LoadAction.Clear, new(0.02f, 0.02f, 0.02f, 1f));
 
-            // Zero is far. Clearing to 1 here is the classic mistake and depth-tests the scene away.
-            pass.DepthAttachment(depth, LoadAction.Clear);
-            pass.SideEffect();
+                // Zero is far. Clearing to 1 here is the classic mistake and depth-tests the scene away.
+                pass.DepthAttachment(depth);
+                pass.SideEffect();
 
-            pass.Execute(context => {
-                context.CommandList.BindPipeline(pipeline);
-                context.CommandList.BindIndexBuffer(indices, IndexFormat.UInt16);
+                pass.Execute(context => {
+                        context.CommandList.BindPipeline(pipeline);
+                        context.CommandList.BindIndexBuffer(indices);
 
-                context.CommandList.BindVertexBuffer(0, far);
-                context.CommandList.DrawIndexed(QuadIndices.Length);
+                        context.CommandList.BindVertexBuffer(0, far);
+                        context.CommandList.DrawIndexed(QuadIndices.Length);
 
-                context.CommandList.BindVertexBuffer(0, near);
-                context.CommandList.DrawIndexed(QuadIndices.Length);
-            });
-        });
+                        context.CommandList.BindVertexBuffer(0, near);
+                        context.CommandList.DrawIndexed(QuadIndices.Length);
+                    }
+                );
+            }
+        );
 
         GoldenImage.Verify("reversed-depth", owned.Render(colour), Tolerance.Edges);
     }
@@ -266,7 +280,7 @@ public sealed class GoldenImageTests {
 
         using var owned = fixture!;
         var colour = owned.ColourTarget("blend");
-        var indices = owned.Buffer<ushort>(QuadIndices, BufferUsage.Index);
+        var indices = owned.Buffer(QuadIndices, BufferUsage.Index);
         var offset = new[] { 0f, 0f };
 
         var opaque = owned.Pipeline(
@@ -297,41 +311,45 @@ public sealed class GoldenImageTests {
             sizeof(float) * 2
         );
 
-        var under = owned.Buffer<float>(FlatQuad(-0.9f, 0.3f, 0.1f, 0.6f, 1f), BufferUsage.Vertex);
-        var over = owned.Buffer<float>(FlatQuad(-0.3f, 0.9f, 1f, 0.4f, 0.1f, 0.5f), BufferUsage.Vertex);
+        var under = owned.Buffer(FlatQuad(-0.9f, 0.3f, 0.1f, 0.6f, 1f), BufferUsage.Vertex);
+        var over = owned.Buffer(FlatQuad(-0.3f, 0.9f, 1f, 0.4f, 0.1f, 0.5f), BufferUsage.Vertex);
 
-        owned.Graph.AddPass("blend", pass => {
-            pass.ColourAttachment(colour, LoadAction.Clear, new(0.02f, 0.02f, 0.02f, 1f));
-            pass.SideEffect();
+        owned.Graph.AddPass(
+            "blend",
+            pass => {
+                pass.ColourAttachment(colour, LoadAction.Clear, new(0.02f, 0.02f, 0.02f, 1f));
+                pass.SideEffect();
 
-            pass.Execute(context => {
-                context.CommandList.BindIndexBuffer(indices, IndexFormat.UInt16);
+                pass.Execute(context => {
+                        context.CommandList.BindIndexBuffer(indices);
 
-                // Push constants belong to a bound pipeline's layout, so the bind comes first. The
-                // RHI refuses the other order rather than letting Vulkan call it undefined.
-                context.CommandList.BindPipeline(opaque);
+                        // Push constants belong to a bound pipeline's layout, so the bind comes first. The
+                        // RHI refuses the other order rather than letting Vulkan call it undefined.
+                        context.CommandList.BindPipeline(opaque);
 
-                context.CommandList.PushConstants(
-                    ShaderStage.Vertex,
-                    0,
-                    System.Runtime.InteropServices.MemoryMarshal.AsBytes(offset.AsSpan())
+                        context.CommandList.PushConstants(
+                            ShaderStage.Vertex,
+                            0,
+                            System.Runtime.InteropServices.MemoryMarshal.AsBytes(offset.AsSpan())
+                        );
+
+                        context.CommandList.BindVertexBuffer(0, under);
+                        context.CommandList.DrawIndexed(QuadIndices.Length);
+
+                        context.CommandList.BindPipeline(blended);
+
+                        context.CommandList.PushConstants(
+                            ShaderStage.Vertex,
+                            0,
+                            System.Runtime.InteropServices.MemoryMarshal.AsBytes(offset.AsSpan())
+                        );
+
+                        context.CommandList.BindVertexBuffer(0, over);
+                        context.CommandList.DrawIndexed(QuadIndices.Length);
+                    }
                 );
-
-                context.CommandList.BindVertexBuffer(0, under);
-                context.CommandList.DrawIndexed(QuadIndices.Length);
-
-                context.CommandList.BindPipeline(blended);
-
-                context.CommandList.PushConstants(
-                    ShaderStage.Vertex,
-                    0,
-                    System.Runtime.InteropServices.MemoryMarshal.AsBytes(offset.AsSpan())
-                );
-
-                context.CommandList.BindVertexBuffer(0, over);
-                context.CommandList.DrawIndexed(QuadIndices.Length);
-            });
-        });
+            }
+        );
 
         GoldenImage.Verify("alpha-blend", owned.Render(colour), Tolerance.Edges);
     }

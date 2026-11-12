@@ -141,7 +141,9 @@ public sealed class GpuBcnDecoderTests {
         var seen = new int[Bc7Block.ModeCount];
 
         foreach (var (name, make) in ReferenceImages.LowDynamicRange) {
-            var blocks = BlockCompressor.Encode(make(64), PixelFormat.Bc7RgbaUNorm, new() { Quality = quality }).Level(0).ToArray();
+            var blocks = BlockCompressor.Encode(make(64), PixelFormat.Bc7RgbaUNorm, new() { Quality = quality })
+                .Level(0)
+                .ToArray();
 
             foreach (var block in Chunks(blocks)) {
                 seen[System.Numerics.BitOperations.TrailingZeroCount(block.Span[0])]++;
@@ -170,12 +172,20 @@ public sealed class GpuBcnDecoderTests {
     [MemberData(nameof(Qualities))]
     public void TheGpuReadsWhatOurBc6HEncoderWroteTheWayWeDo(BlockQuality quality) {
         var unsigned = BlockCompressor.Encode(
-            ReferenceImages.HighDynamicRange(256), PixelFormat.Bc6HRgbUFloat, new() { Quality = quality }
-        ).Level(0).ToArray();
+                ReferenceImages.HighDynamicRange(256),
+                PixelFormat.Bc6HRgbUFloat,
+                new() { Quality = quality }
+            )
+            .Level(0)
+            .ToArray();
 
         var signed = BlockCompressor.Encode(
-            ReferenceImages.SignedHighDynamicRange(256), PixelFormat.Bc6HRgbSFloat, new() { Quality = quality }
-        ).Level(0).ToArray();
+                ReferenceImages.SignedHighDynamicRange(256),
+                PixelFormat.Bc6HRgbSFloat,
+                new() { Quality = quality }
+            )
+            .Level(0)
+            .ToArray();
 
         CompareBc6H($"unsigned at {quality}", unsigned, false);
         CompareBc6H($"signed at {quality}", signed, true);
@@ -199,7 +209,7 @@ public sealed class GpuBcnDecoderTests {
     /// </summary>
     static byte[] HardBlocks(BlockQuality quality) {
         var random = new Random(0x4A2D);
-        var texture = new TextureData(PixelFormat.Rgba8UNorm, 256, 256, levelCount: 1);
+        var texture = new TextureData(PixelFormat.Rgba8UNorm, 256, 256, 1);
         var pixels = texture.PixelSpan();
 
         var colours = new byte[3 * 4];
@@ -209,21 +219,25 @@ public sealed class GpuBcnDecoderTests {
 
             var opaque = block % 3 != 0;
             var pattern = block % 64;
-            var subsets = 1 + (block % 3);
+            var subsets = 1 + block % 3;
 
             for (var texel = 0; texel < 16; texel++) {
                 var subset = subsets switch {
                     1 => 0,
-                    2 => BptcTables.TwoSubsets[(pattern * 16) + texel],
-                    _ => BptcTables.ThreeSubsets[(pattern * 16) + texel]
+                    2 => BptcTables.TwoSubsets[pattern * 16 + texel],
+                    _ => BptcTables.ThreeSubsets[pattern * 16 + texel]
                 };
 
-                var x = ((block % 64) * 4) + (texel % 4);
-                var y = ((block / 64) * 4) + (texel / 4);
-                var at = ((y * 256) + x) * 4;
+                var x = block % 64 * 4 + texel % 4;
+                var y = block / 64 * 4 + texel / 4;
+                var at = (y * 256 + x) * 4;
 
                 for (var channel = 0; channel < 4; channel++) {
-                    pixels[at + channel] = (byte)Math.Clamp(colours[(subset * 4) + channel] + random.Next(-6, 7), 0, 255);
+                    pixels[at + channel] = (byte)Math.Clamp(
+                        colours[subset * 4 + channel] + random.Next(-6, 7),
+                        0,
+                        255
+                    );
                 }
 
                 if (opaque) {
@@ -232,7 +246,7 @@ public sealed class GpuBcnDecoderTests {
             }
         }
 
-        return BlockCompressor.Encode(texture, PixelFormat.Bc7RgbaUNorm, new() { Quality = quality }).Level(0).ToArray();
+        return [..BlockCompressor.Encode(texture, PixelFormat.Bc7RgbaUNorm, new() { Quality = quality }).Level(0)];
     }
 
     static byte[] Bc7Corpus(int mode) {
@@ -346,7 +360,7 @@ public sealed class GpuBcnDecoderTests {
             BlockCompressor.DecodeHdrBlock(blocks.AsSpan(index * 16, 16), ours, signed);
 
             for (var component = 0; component < 48; component++) {
-                var at = ((index * 48) + component) * 2;
+                var at = (index * 48 + component) * 2;
                 var theirs = (ushort)(reference[at] | (reference[at + 1] << 8));
 
                 // Negative zero and zero are one value; a half can come back from float as either.
@@ -356,7 +370,7 @@ public sealed class GpuBcnDecoderTests {
 
                 if (ours[component] != theirs) {
                     Assert.Fail(
-                        $"bc6h{(signed ? "s" : "")} {name} block {index} component {component}: Vixen says "
+                        $"bc6h{(signed ? "s" : string.Empty)} {name} block {index} component {component}: Vixen says "
                         + $"0x{ours[component]:X4}, the GPU says 0x{theirs:X4}. Block bytes: "
                         + Convert.ToHexString(blocks.AsSpan(index * 16, 16))
                     );

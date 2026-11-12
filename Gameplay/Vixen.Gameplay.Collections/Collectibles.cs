@@ -7,9 +7,17 @@ namespace Vixen.Gameplay.Collections;
 
 /// <summary>What sort of thing somebody has collected.</summary>
 /// <remarks>
-///     ⚠ <b>The kind changes nothing about how it is stored, and that is doc 28's whole claim
-///     here:</b> pets, mounts, appearances, titles and toys are <em>"all one mechanism: a set of
-///     unlocked <c>DefId</c>s with an unlock source recorded"</em>. What the kind is for is the
+///     ⚠
+///     <b>
+///         The kind changes nothing about how it is stored, and that is doc 28's whole claim
+///         here:
+///     </b>
+///     pets, mounts, appearances, titles and toys are
+///     <em>
+///         "all one mechanism: a set of
+///         unlocked <c>DefId</c>s with an unlock source recorded"
+///     </em>
+///     . What the kind is for is the
 ///     collection screen's tabs and the "how many mounts have I got" count — not a second code path.
 /// </remarks>
 public enum CollectibleKind {
@@ -66,7 +74,10 @@ public enum UnlockSource {
 /// <summary>One thing somebody has, and where it came from.</summary>
 /// <param name="Collectible">What.</param>
 /// <param name="Source">How.</param>
-/// <param name="From">What exactly — the boss, the quest, the achievement. <see cref="DefId.None" /> for nothing in particular.</param>
+/// <param name="From">
+///     What exactly — the boss, the quest, the achievement. <see cref="DefId.None" /> for nothing in
+///     particular.
+/// </param>
 /// <param name="Order">The nth thing they unlocked.</param>
 /// <remarks>
 ///     ⚠ <b>An order rather than a timestamp.</b> Nothing in this library has a clock, for the same
@@ -127,7 +138,12 @@ public sealed record CollectibleDefinition : Definition {
 
 /// <summary>A collectible with its names resolved.</summary>
 public sealed class Collectible {
-    internal Collectible(CollectibleDefinition definition, GameplayTag tag, GameplayTag slot, RequirementSet requirements) {
+    internal Collectible(
+        CollectibleDefinition definition,
+        GameplayTag tag,
+        GameplayTag slot,
+        RequirementSet requirements
+    ) {
         Definition = definition;
         Tag = tag;
         Slot = slot;

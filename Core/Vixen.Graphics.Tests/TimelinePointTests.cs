@@ -61,9 +61,7 @@ public sealed class TimelinePointTests {
     public void TheDefaultRefusesAWaitValueSubmit() {
         ICommandSubmitter submitter = new PlainSubmitter();
 
-        var failure = Assert.Throws<NotSupportedException>(
-            () => submitter.Submit([], [new(QueueKind.Graphics, 1)])
-        );
+        var failure = Assert.Throws<NotSupportedException>(() => submitter.Submit([], [new(QueueKind.Graphics, 1)]));
 
         Assert.Contains("Transfer", failure.Message, StringComparison.Ordinal);
         Assert.Contains("HasTimeline", failure.Message, StringComparison.Ordinal);

@@ -12,16 +12,23 @@ namespace Vixen.DocGen.Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Part 4 and § 1.x state the same facts twice, and the two copies have contradicted each
-///         other in three successive batches</b>
+///         ⚠
+///         <b>
+///             Part 4 and § 1.x state the same facts twice, and the two copies have contradicted each
+///             other in three successive batches
+///         </b>
 ///         (<a href="https://github.com/Rikarin/Vixen/issues/1116">#1116</a>) — always the same way
 ///         round, because a § 1.x paragraph is re-read when its subsystem changes and a Part 4 row is
 ///         re-read only when somebody opens Part 4. Each time the cure was a sweep, and a sweep is not
 ///         a mechanism.
 ///     </para>
 ///     <para>
-///         Part 4's header now states the rule: a row is the identifier, the subsystem, <em>one
-///         sentence</em> naming what is left, the § 1.x section that holds the evidence, and the
+///         Part 4's header now states the rule: a row is the identifier, the subsystem,
+///         <em>
+///             one
+///             sentence
+///         </em>
+///         naming what is left, the § 1.x section that holds the evidence, and the
 ///         issue — and it bars three shapes by name, because all three of the drifts were one of them.
 ///         ⚠ <b>A rule nothing enforces is what #1116 is about</b>, so this is the cheap mechanised
 ///         half the header asks for: a length cap on the cell, plus the three barred shapes as
@@ -76,14 +83,14 @@ public class RealOwedTableTests {
     /// </remarks>
     const string Number =
         @"(?:\d+|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen"
-        + @"|fifteen|sixteen|seventeen|eighteen|nineteen"
-        + @"|(?:twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety)"
-        + @"(?:[- ](?:one|two|three|four|five|six|seven|eight|nine))?)";
+        + "|fifteen|sixteen|seventeen|eighteen|nineteen"
+        + "|(?:twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety)"
+        + "(?:[- ](?:one|two|three|four|five|six|seven|eight|nine))?)";
 
     /// <summary>The things Part 4 has miscounted, as the nouns a count is written against.</summary>
     const string Counted =
-        @"(?:compounds?|kernels?|nodes?|marks?|files?|tests?|callers?|consumers?|implementations?"
-        + @"|classes|entries)";
+        "(?:compounds?|kernels?|nodes?|marks?|files?|tests?|callers?|consumers?|implementations?"
+        + "|classes|entries)";
 
     /// <summary>The three shapes Part 4's header bars, with the barred text as the pattern's name.</summary>
     /// <remarks>
@@ -126,7 +133,7 @@ public class RealOwedTableTests {
                 + @"|\b(?:row|cell) was written\b|\bcontradicted\b",
                 RegexOptions.IgnoreCase | RegexOptions.CultureInvariant
             )
-        ),
+        )
     ];
 
     /// <summary>A markdown link, reduced to the text a reader sees.</summary>
@@ -150,8 +157,12 @@ public class RealOwedTableTests {
     ///         behind. The list can only shrink.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>What is left of the rows that were over the cap when the rule was mechanised, and
-    ///         none of them is material authoring's.</b> They are enumerated with their lengths in
+    ///         ⚠
+    ///         <b>
+    ///             What is left of the rows that were over the cap when the rule was mechanised, and
+    ///             none of them is material authoring's.
+    ///         </b>
+    ///         They are enumerated with their lengths in
     ///         <a href="https://github.com/Rikarin/Vixen/issues/1125">#1125</a>, which is the issue
     ///         each entry names and which closes when the last of them is trimmed. Trimming a row means moving its evidence
     ///         into the § 1.x paragraph that owns the subsystem and checking that paragraph carries
@@ -168,8 +179,12 @@ public class RealOwedTableTests {
     ///         the editor model's unconstrained <c>List&lt;NodeId&gt;</c>.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The list is empty as of 2026-09-10, so this is a mechanism with nothing in it
-    ///         rather than a suppression with something in it.</b> The last seven —
+    ///         ⚠
+    ///         <b>
+    ///             The list is empty as of 2026-09-10, so this is a mechanism with nothing in it
+    ///             rather than a suppression with something in it.
+    ///         </b>
+    ///         The last seven —
     ///         <c>Vixen.Core.Threading</c>, <c>Vixen.Sdk</c>, <c>Vixen.Cli</c>, the two editor rows,
     ///         the editor's packaging row and Build/CI — went the same way: what only the Part 4 cell
     ///         said was written into § 1.2's job-priority row, § 1.6's SDK and CLI rows, § 1.11's
@@ -302,8 +317,12 @@ public class RealOwedTableTests {
     ///     ⚠ <b>Ask what this file prints on the day Part 4 is renamed.</b> Without this the answer is
     ///     "success": <see cref="Rows" /> returns nothing, every check below holds vacuously, and the
     ///     table drifts unwatched for as long as nobody opens it — which is the failure #1116 is
-    ///     about, reproduced one level up in the instrument meant to catch it. ⚠ <b>It has already
-    ///     caught two readers</b>: one that walked past the table's last row and collected § 4.2's
+    ///     about, reproduced one level up in the instrument meant to catch it. ⚠
+    ///     <b>
+    ///         It has already
+    ///         caught two readers
+    ///     </b>
+    ///     : one that walked past the table's last row and collected § 4.2's
     ///     exit criteria, which are numbered from 1 again, and one that stopped at row <c>18b</c>
     ///     because a row identifier is not always digits. The floor is far below the table — 82 rows
     ///     when this was written, against the 15 the second of those returned — because it is an
@@ -323,7 +342,7 @@ public class RealOwedTableTests {
         );
 
         Assert.True(
-            rows.Count(row => Prose(row.Owed).Length > 40) >= 60,
+            rows.Count(static row => Prose(row.Owed).Length > 40) >= 60,
             "Part 4's rows parsed but their Owed cells came back near-empty, so the column index is "
             + "wrong and the cap below is measuring the subsystem name."
         );
@@ -335,12 +354,13 @@ public class RealOwedTableTests {
     /// </summary>
     [Fact]
     public void Every_owed_cell_keeps_to_the_shape_part_4_states() {
-        var excused = Excused.Select(entry => entry.Row).ToHashSet();
+        var excused = Excused.Select(static entry => entry.Row).ToHashSet();
 
         var problems = Rows()
             .Where(row => !excused.Contains(row.Number))
-            .SelectMany(row => Breaches(row.Owed)
-                .Select(breach => $"{RelativePath}:{row.Line}: row {row.Number} — {breach}"))
+            .SelectMany(static row => Breaches(row.Owed)
+                    .Select(breach => $"{RelativePath}:{row.Line}: row {row.Number} — {breach}")
+            )
             .ToArray();
 
         Assert.True(
@@ -358,18 +378,19 @@ public class RealOwedTableTests {
     /// </summary>
     [Fact]
     public void Every_excused_row_still_breaks_the_rule() {
-        var rows = Rows().ToDictionary(row => row.Number);
+        var rows = Rows().ToDictionary(static row => row.Number);
 
         var stale = Excused
             .Select(entry => {
-                if (!rows.TryGetValue(entry.Row, out var row)) {
-                    return $"row {entry.Row} ({entry.Issue}) is not in Part 4 any more";
-                }
+                    if (!rows.TryGetValue(entry.Row, out var row)) {
+                        return $"row {entry.Row} ({entry.Issue}) is not in Part 4 any more";
+                    }
 
-                return Breaches(row.Owed).Count == 0
-                    ? $"row {entry.Row} ({entry.Issue}) keeps to the rule now"
-                    : null;
-            })
+                    return Breaches(row.Owed).Count == 0
+                        ? $"row {entry.Row} ({entry.Issue}) keeps to the rule now"
+                        : null;
+                }
+            )
             .OfType<string>()
             .ToArray();
 
@@ -417,7 +438,7 @@ public class RealOwedTableTests {
     public void A_cell_over_the_cap_is_caught_on_its_length() {
         var cell = new string('x', Cap + 1);
 
-        Assert.Contains(Breaches(cell), breach => breach.Contains("against a cap of", StringComparison.Ordinal));
+        Assert.Contains(Breaches(cell), static breach => breach.Contains("against a cap of", StringComparison.Ordinal));
     }
 
     /// <summary>A link's target does not count against the cap.</summary>

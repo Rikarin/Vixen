@@ -5,8 +5,10 @@ namespace Vixen.Platform;
 
 /// <summary>What a <see cref="PlatformEvent" /> is, and therefore which of its payloads is real.</summary>
 public enum PlatformEventKind : byte {
-    /// <summary>The default value, which is never enqueued. A <see cref="PlatformEvent" /> that
-    /// reads as this one was not initialised.</summary>
+    /// <summary>
+    ///     The default value, which is never enqueued. A <see cref="PlatformEvent" /> that
+    ///     reads as this one was not initialised.
+    /// </summary>
     None = 0,
 
     // ── Window ──────────────────────────────────────────────────────────────────────────────
@@ -17,12 +19,16 @@ public enum PlatformEventKind : byte {
     /// <summary>The window stopped being visible.</summary>
     WindowHidden = 2,
 
-    /// <summary>The window moved. <see cref="PlatformEvent.Position" /> is its new top-left in
-    /// desktop coordinates.</summary>
+    /// <summary>
+    ///     The window moved. <see cref="PlatformEvent.Position" /> is its new top-left in
+    ///     desktop coordinates.
+    /// </summary>
     WindowMoved = 3,
 
-    /// <summary>The window's client area changed size. <see cref="PlatformEvent.Size" /> is the new
-    /// size in logical points; <see cref="PlatformEvent.PixelSize" /> is the new framebuffer size.</summary>
+    /// <summary>
+    ///     The window's client area changed size. <see cref="PlatformEvent.Size" /> is the new
+    ///     size in logical points; <see cref="PlatformEvent.PixelSize" /> is the new framebuffer size.
+    /// </summary>
     /// <remarks>
     ///     A swapchain is rebuilt from <see cref="PlatformEvent.PixelSize" />. The two differ by the
     ///     window's scale factor, and treating either as the other is how a HiDPI window renders at
@@ -50,16 +56,20 @@ public enum PlatformEventKind : byte {
     /// <summary>The window returned to its normal state from minimised or maximised.</summary>
     WindowRestored = 9,
 
-    /// <summary>Somebody asked for the window to close — the title-bar button, <c>Alt+F4</c>, the
-    /// dock.</summary>
+    /// <summary>
+    ///     Somebody asked for the window to close — the title-bar button, <c>Alt+F4</c>, the
+    ///     dock.
+    /// </summary>
     /// <remarks>
     ///     A request, not a fact. The window is still open and stays open until it is disposed,
     ///     which is what lets an application ask whether to save first.
     /// </remarks>
     WindowCloseRequested = 10,
 
-    /// <summary>The window's scale factor changed — it was dragged to a display with a different
-    /// DPI, or the display's scale was changed under it.</summary>
+    /// <summary>
+    ///     The window's scale factor changed — it was dragged to a display with a different
+    ///     DPI, or the display's scale was changed under it.
+    /// </summary>
     WindowDpiChanged = 11,
 
     /// <summary>The pointer entered the window's client area.</summary>
@@ -76,17 +86,21 @@ public enum PlatformEventKind : byte {
     /// <summary>A key came up.</summary>
     KeyUp = 21,
 
-    /// <summary>Committed text. <see cref="PlatformEvent.Text" /> is what the user actually typed,
-    /// after the layout, dead keys and any IME have had their say.</summary>
+    /// <summary>
+    ///     Committed text. <see cref="PlatformEvent.Text" /> is what the user actually typed,
+    ///     after the layout, dead keys and any IME have had their say.
+    /// </summary>
     /// <remarks>
     ///     One event may carry several characters, and a single keystroke may produce none. Text
     ///     only arrives while <see cref="ITextInput" /> is active.
     /// </remarks>
     TextInput = 22,
 
-    /// <summary>In-progress IME composition. <see cref="PlatformEvent.Text" /> is the pre-edit
-    /// string, <see cref="PlatformEvent.SelectionStart" /> and
-    /// <see cref="PlatformEvent.SelectionLength" /> the composition cursor within it.</summary>
+    /// <summary>
+    ///     In-progress IME composition. <see cref="PlatformEvent.Text" /> is the pre-edit
+    ///     string, <see cref="PlatformEvent.SelectionStart" /> and
+    ///     <see cref="PlatformEvent.SelectionLength" /> the composition cursor within it.
+    /// </summary>
     /// <remarks>
     ///     Shown underlined and replaced in place; it is not committed until a
     ///     <see cref="TextInput" /> arrives, and it may be abandoned entirely.
@@ -95,8 +109,10 @@ public enum PlatformEventKind : byte {
 
     // ── Pointer ─────────────────────────────────────────────────────────────────────────────
 
-    /// <summary>The pointer moved. <see cref="PlatformEvent.Position" /> is window-relative;
-    /// <see cref="PlatformEvent.Delta" /> is the movement since the last event.</summary>
+    /// <summary>
+    ///     The pointer moved. <see cref="PlatformEvent.Position" /> is window-relative;
+    ///     <see cref="PlatformEvent.Delta" /> is the movement since the last event.
+    /// </summary>
     /// <remarks>
     ///     In relative cursor mode <see cref="PlatformEvent.Delta" /> is the raw motion and
     ///     <see cref="PlatformEvent.Position" /> stops being meaningful — that is the entire point
@@ -105,15 +121,19 @@ public enum PlatformEventKind : byte {
     /// </remarks>
     MouseMoved = 30,
 
-    /// <summary>A mouse button went down. <see cref="PlatformEvent.ClickCount" /> is 2 for the
-    /// second click of a double-click, as the OS defines one.</summary>
+    /// <summary>
+    ///     A mouse button went down. <see cref="PlatformEvent.ClickCount" /> is 2 for the
+    ///     second click of a double-click, as the OS defines one.
+    /// </summary>
     MouseButtonDown = 31,
 
     /// <summary>A mouse button came up.</summary>
     MouseButtonUp = 32,
 
-    /// <summary>The wheel turned, or a trackpad scrolled.
-    /// <see cref="PlatformEvent.Delta" /> is in wheel notches, positive up and right.</summary>
+    /// <summary>
+    ///     The wheel turned, or a trackpad scrolled.
+    ///     <see cref="PlatformEvent.Delta" /> is in wheel notches, positive up and right.
+    /// </summary>
     /// <remarks>
     ///     Trackpads and high-resolution wheels report fractions of a notch, so the value is a
     ///     float and rounding it to an integer loses smooth scrolling on every modern laptop.
@@ -122,8 +142,10 @@ public enum PlatformEventKind : byte {
 
     // ── Touch ───────────────────────────────────────────────────────────────────────────────
 
-    /// <summary>A finger touched down. <see cref="PlatformEvent.DeviceId" /> identifies the finger
-    /// for as long as it stays down.</summary>
+    /// <summary>
+    ///     A finger touched down. <see cref="PlatformEvent.DeviceId" /> identifies the finger
+    ///     for as long as it stays down.
+    /// </summary>
     TouchDown = 40,
 
     /// <summary>A finger moved.</summary>
@@ -151,12 +173,16 @@ public enum PlatformEventKind : byte {
 
     // ── Display ─────────────────────────────────────────────────────────────────────────────
 
-    /// <summary>A display was added, removed, or had its mode or scale changed. Anything cached
-    /// from <see cref="IDisplayInfo" /> is stale.</summary>
+    /// <summary>
+    ///     A display was added, removed, or had its mode or scale changed. Anything cached
+    ///     from <see cref="IDisplayInfo" /> is stale.
+    /// </summary>
     DisplaysChanged = 60,
 
-    /// <summary>The user changed the system's light/dark appearance.
-    /// <see cref="IPlatform.ColorScheme" /> already reports the new one.</summary>
+    /// <summary>
+    ///     The user changed the system's light/dark appearance.
+    ///     <see cref="IPlatform.ColorScheme" /> already reports the new one.
+    /// </summary>
     /// <remarks>
     ///     ⚠ <b>Not queued at start-up.</b> The first appearance is a fact a host reads out of
     ///     <see cref="IPlatform.ColorScheme" /> before its first frame, not an event it waits for —
@@ -165,8 +191,10 @@ public enum PlatformEventKind : byte {
     /// </remarks>
     SystemColorSchemeChanged = 61,
 
-    /// <summary>The user changed an accessibility setting.
-    /// <see cref="IPlatform.Accessibility" /> already reports the new one.</summary>
+    /// <summary>
+    ///     The user changed an accessibility setting.
+    ///     <see cref="IPlatform.Accessibility" /> already reports the new one.
+    /// </summary>
     /// <remarks>
     ///     ⚠ <b>Not queued at start-up either, and for the same reason</b> — see
     ///     <see cref="SystemColorSchemeChanged" />. Reduced motion is a setting most users who have
@@ -184,22 +212,28 @@ public enum PlatformEventKind : byte {
     /// </remarks>
     Suspending = 70,
 
-    /// <summary>The process resumed. On Android the graphics surface has been destroyed and
-    /// recreated, so the swapchain is invalid whatever it claims.</summary>
+    /// <summary>
+    ///     The process resumed. On Android the graphics surface has been destroyed and
+    ///     recreated, so the swapchain is invalid whatever it claims.
+    /// </summary>
     Resumed = 71,
 
     /// <summary>The OS is under memory pressure and would like some back.</summary>
     /// <remarks>Ignoring it on iOS means being killed rather than being asked twice.</remarks>
     LowMemory = 72,
 
-    /// <summary>The application was asked to quit — the last window closed, a signal arrived, the
-    /// dock's quit item was used.</summary>
+    /// <summary>
+    ///     The application was asked to quit — the last window closed, a signal arrived, the
+    ///     dock's quit item was used.
+    /// </summary>
     Quit = 73,
 
     // ── Drag and drop ───────────────────────────────────────────────────────────────────────
 
-    /// <summary>A file was dropped on a window. <see cref="PlatformEvent.Text" /> is its native
-    /// path, not a virtual one — it comes from outside anything the engine has mounted.</summary>
+    /// <summary>
+    ///     A file was dropped on a window. <see cref="PlatformEvent.Text" /> is its native
+    ///     path, not a virtual one — it comes from outside anything the engine has mounted.
+    /// </summary>
     DropFile = 80,
 
     /// <summary>Text was dropped on a window.</summary>
@@ -208,16 +242,24 @@ public enum PlatformEventKind : byte {
     /// <summary>A group of drops is about to arrive on this window.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Selecting five files and dragging them once is five
-    ///         <see cref="DropFile" /> events, and without this pair nothing downstream can tell
-    ///         them from five separate drags.</b> A handler that opens a document per drop opens
+    ///         ⚠
+    ///         <b>
+    ///             Selecting five files and dragging them once is five
+    ///             <see cref="DropFile" /> events, and without this pair nothing downstream can tell
+    ///             them from five separate drags.
+    ///         </b>
+    ///         A handler that opens a document per drop opens
     ///         five windows; one that starts an import job per drop starts five jobs with five
     ///         progress bars where the user did one thing. SDL has bracketed the group since 2.0.5
     ///         and the brackets were being discarded.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Numbered after the events they bracket, which is the wrong order to read them
-    ///         in and the only order available.</b> These values are a contract with the web
+    ///         ⚠
+    ///         <b>
+    ///             Numbered after the events they bracket, which is the wrong order to read them
+    ///             in and the only order available.
+    ///         </b>
+    ///         These values are a contract with the web
     ///         backend's JavaScript, which posts the number rather than the name, so the pair could
     ///         not be inserted at 80 and 83 where they belong.
     ///     </para>

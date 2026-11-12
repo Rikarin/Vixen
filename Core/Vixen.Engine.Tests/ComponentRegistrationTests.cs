@@ -68,7 +68,7 @@ public sealed class ComponentRegistrationTests {
     /// </remarks>
     [Fact]
     public void EnumeratingResolvesWhatWasDeclared() {
-        Assert.Contains(SceneComponentRegistry.Binders, binder => binder.ComponentType == typeof(Shield));
+        Assert.Contains(SceneComponentRegistry.Binders, static binder => binder.ComponentType == typeof(Shield));
     }
 
     /// <summary>The order a panel draws its foldouts in, which has to be an order and not an accident.</summary>
@@ -86,7 +86,7 @@ public sealed class ComponentRegistrationTests {
     /// </remarks>
     [Fact]
     public void TheBindersComeOutInNameOrder() {
-        var names = SceneComponentRegistry.Binders.Select(binder => binder.Name).ToArray();
+        var names = SceneComponentRegistry.Binders.Select(static binder => binder.Name).ToArray();
 
         Assert.True(names.Length > 1, "nothing was registered, so an order could not be observed");
 

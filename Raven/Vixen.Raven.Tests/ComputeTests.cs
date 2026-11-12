@@ -67,7 +67,7 @@ public class ComputeTests {
     [Fact]
     public void AComputeStageWithoutAWorkgroupSizeIsRefused() {
         var diagnostics = Compile("[ComputeShader]", "func Main()").GetDiagnostics();
-        Assert.Contains(diagnostics, d => d.Id == "RVN2104" && d.IsError);
+        Assert.Contains(diagnostics, static d => d.Id == "RVN2104" && d.IsError);
     }
 
     /// <summary>
@@ -80,11 +80,11 @@ public class ComputeTests {
     [InlineData("[ComputeShader(8, 0, 1)]")]
     [InlineData("[ComputeShader(1, 1, 1, 1)]")]
     [InlineData("[ComputeShader(y: 8)]")]
-    [InlineData("[ComputeShader(\"8\")]")]
+    [InlineData("""[ComputeShader("8")]""")]
     [InlineData("[ComputeShader(8f)]")]
     public void AWorkgroupSizeThatCannotBeReadIsRefused(string attribute) {
         var diagnostics = Compile(attribute, "func Main()").GetDiagnostics();
-        Assert.Contains(diagnostics, d => d.Id == "RVN2105" && d.IsError);
+        Assert.Contains(diagnostics, static d => d.Id == "RVN2105" && d.IsError);
     }
 
     /// <summary>
@@ -129,7 +129,7 @@ public class ComputeTests {
     public void AFoldedWorkgroupSizeReachesTheEmittedLocalSize() {
         var source = ConstantSource("[ComputeShader(Side * Side)]");
 
-        var glsl = Assert.Single(GenerateClean(source, "glsl"));
+        var glsl = Assert.Single(GenerateClean(source));
         Assert.Equal(ShaderStage.Compute, glsl.Stage);
 
         Assert.Contains(
@@ -164,7 +164,7 @@ public class ComputeTests {
     [InlineData("[ComputeShader(Runtime)]")]
     public void AWorkgroupDimensionThatDoesNotFoldToAPositiveIntegerIsRefused(string attribute) {
         var diagnostics = ComputeWithConstants(attribute).GetDiagnostics();
-        Assert.Contains(diagnostics, d => d.Id == "RVN2105" && d.IsError);
+        Assert.Contains(diagnostics, static d => d.Id == "RVN2105" && d.IsError);
     }
 
     /// <summary>
@@ -175,7 +175,7 @@ public class ComputeTests {
     public void AWorkgroupSizeOnAGraphicsStageWarns() {
         var diagnostics = Compile("[VertexShader(8, 8, 1)]", "func Vertex(): float4").GetDiagnostics();
 
-        var warning = Assert.Single(diagnostics, d => d.Id == "RVN2106");
+        var warning = Assert.Single(diagnostics, static d => d.Id == "RVN2106");
         Assert.False(warning.IsError);
     }
 
@@ -212,18 +212,18 @@ public class ComputeTests {
             )
             .GetDiagnostics();
 
-        Assert.Contains(diagnostics, d => d.Id == "RVN2109" && d.IsError);
+        Assert.Contains(diagnostics, static d => d.Id == "RVN2109" && d.IsError);
     }
 
     [Fact]
     public void ASemanticThatNamesNoBuiltInIsRefused() {
         var diagnostics = Compile(
                 "[ComputeShader(64)]",
-                "func Main([Semantic(\"SV_Position\")] id: uint3)"
+                """func Main([Semantic("SV_Position")] id: uint3)"""
             )
             .GetDiagnostics();
 
-        Assert.Contains(diagnostics, d => d.Id == "RVN2108" && d.IsError);
+        Assert.Contains(diagnostics, static d => d.Id == "RVN2108" && d.IsError);
     }
 
     // --- What a compute stage has no interface for ------------------------
@@ -235,14 +235,14 @@ public class ComputeTests {
     [Fact]
     public void APlainComputeParameterIsRefused() {
         var diagnostics = Compile("[ComputeShader(64)]", "func Main(x: float)").GetDiagnostics();
-        Assert.Contains(diagnostics, d => d.Id == "RVN2107" && d.IsError);
+        Assert.Contains(diagnostics, static d => d.Id == "RVN2107" && d.IsError);
     }
 
     /// <summary>And a return value is refused, because there is no framebuffer to take it.</summary>
     [Fact]
     public void AComputeReturnValueIsRefused() {
         var diagnostics = Compile("[ComputeShader(64)]", "func Main(): float4").GetDiagnostics();
-        Assert.Contains(diagnostics, d => d.Id == "RVN2107" && d.IsError);
+        Assert.Contains(diagnostics, static d => d.Id == "RVN2107" && d.IsError);
     }
 
     /// <summary>
@@ -279,7 +279,7 @@ public class ComputeTests {
         var bag = new Vixen.Core.Syntax.Diagnostics.DiagnosticBag();
         Vixen.Raven.Lowering.Lowerer.Lower(compilation, bag);
 
-        Assert.Contains(bag.ToArray(), d => d.Id == "RVN3006" && d.IsError);
+        Assert.Contains(bag.ToArray(), static d => d.Id == "RVN3006" && d.IsError);
     }
 
     // --- Through the pipeline ---------------------------------------------
@@ -296,9 +296,13 @@ public class ComputeTests {
     /// </remarks>
     [Fact]
     public void AComputeShaderReachesBothBackends() {
-        var glsl = Assert.Single(GenerateClean(Example, "glsl"));
+        var glsl = Assert.Single(GenerateClean(Example));
         Assert.Equal(ShaderStage.Compute, glsl.Stage);
-        Assert.Contains("layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;", glsl.Code, StringComparison.Ordinal);
+        Assert.Contains(
+            "layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;",
+            glsl.Code,
+            StringComparison.Ordinal
+        );
 
         var spirv = Assert.Single(GenerateClean(Example, "spirv"));
         Assert.Equal(ShaderStage.Compute, spirv.Stage);
@@ -322,7 +326,7 @@ public class ComputeTests {
         Assert.Contains(IrCapability.Compute, reflection.RequiredCapabilities);
 
         var set = Assert.Single(reflection.Sets);
-        Assert.All(set.Bindings, binding => Assert.Equal(ShaderStages.Compute, binding.Stages));
+        Assert.All(set.Bindings, static binding => Assert.Equal(ShaderStages.Compute, binding.Stages));
 
         // No vertex inputs and no outputs: a compute invocation is not fed by a vertex buffer and
         // writes to no render target.
@@ -337,7 +341,7 @@ public class ComputeTests {
     /// </summary>
     [Fact]
     public void AComputeStageDeclaresNoLocations() {
-        var glsl = Assert.Single(GenerateClean(Example, "glsl")).Code;
+        var glsl = Assert.Single(GenerateClean(Example)).Code;
         Assert.DoesNotContain("layout(location", glsl, StringComparison.Ordinal);
 
         var spirv = Assert.Single(GenerateClean(Example, "spirv")).Code;
@@ -361,7 +365,7 @@ public class ComputeTests {
 
         var bag = new Vixen.Core.Syntax.Diagnostics.DiagnosticBag();
         Assert.False(IrVerifier.Verify(module, bag));
-        Assert.Contains(bag.ToArray(), d => d.Id == "RVN3010");
+        Assert.Contains(bag.ToArray(), static d => d.Id == "RVN3010");
     }
 
     /// <summary>
@@ -408,7 +412,5 @@ public class ComputeTests {
 
     /// <summary>The shipped compute example, so the tests and the file cannot drift.</summary>
     static string Example =>
-        File.ReadAllText(
-            Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "Library", "Example2.rvn")
-        );
+        File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "Library", "Example2.rvn"));
 }

@@ -8,8 +8,12 @@ namespace Vixen.Ui.Styling.Tests;
 /// <summary>What <c>:has()</c> does to a restyle, in elements resolved.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Doc 09 deferred <c>:has()</c> to P2 on incremental-match cost, so the cost is the
-///         deliverable and not a footnote.</b> Measured as <i>work</i> — <c>LastPassResolved</c>, the
+///         ⚠
+///         <b>
+///             Doc 09 deferred <c>:has()</c> to P2 on incremental-match cost, so the cost is the
+///             deliverable and not a footnote.
+///         </b>
+///         Measured as <i>work</i> — <c>LastPassResolved</c>, the
 ///         number of elements the cascade actually recomputed — and never as elapsed time, which on
 ///         this repository's own record is its largest source of flakes. A count is also the only
 ///         form of the measurement that can be asserted: it is exact, it is the same on every
@@ -25,14 +29,14 @@ namespace Vixen.Ui.Styling.Tests;
 /// </remarks>
 public class HasInvalidationTests {
     const string Sheet = """
-        .cell { color: normal }
-        .card:has(.error) .cell { color: alarming }
-        """;
+                         .cell { color: normal }
+                         .card:has(.error) .cell { color: alarming }
+                         """;
 
     const string Comparable = """
-        .cell { color: normal }
-        .card.flagged .cell { color: alarming }
-        """;
+                              .cell { color: normal }
+                              .card.flagged .cell { color: alarming }
+                              """;
 
     /// <summary>Builds a page of cards, each with a body and some cells, and returns one deep cell.</summary>
     static (CascadeFixture Fixture, StyleNodeId Field, int Elements) Page(string css, int cards, int cells) {
@@ -60,7 +64,7 @@ public class HasInvalidationTests {
 
     [Fact]
     public void A_class_inside_a_has_restyles_the_ancestors_and_every_cell_in_the_document() {
-        var (fixture, field, elements) = Page(Sheet, cards: 10, cells: 10);
+        var (fixture, field, elements) = Page(Sheet, 10, 10);
         var updater = new StyleUpdater(fixture.Engine);
         updater.ResolveAll();
 
@@ -90,11 +94,11 @@ public class HasInvalidationTests {
         // number above mean something. `.card.flagged .cell` says what `.card:has(.error) .cell`
         // says, one direction round: the same hundred-cell page, the same rule shape, the same
         // property — and the only difference is which end of the relationship changed.
-        var (fixture, _, _) = Page(Comparable, cards: 10, cells: 10);
+        var (fixture, _, _) = Page(Comparable, 10, 10);
         var updater = new StyleUpdater(fixture.Engine);
         updater.ResolveAll();
 
-        var card = fixture.Tree.GetChild(new StyleNodeId(0), 0);
+        var card = fixture.Tree.GetChild(new(0), 0);
         fixture.Tree.AddClass(card, "flagged");
 
         // Ten: the card itself and its ten cells — the cells of the other nine cards cannot have

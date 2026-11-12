@@ -87,8 +87,12 @@ internal sealed class PlayerDelivery : IPlayerDelivery {
 
     /// <summary>Says that <see cref="Refusal" /> may have a different answer now.</summary>
     /// <remarks>
-    ///     ⚠ <b>Called when something happens rather than once a frame, and the difference is a
-    ///     syscall.</b> <see cref="Refusal" /> enumerates the project root looking for a
+    ///     ⚠
+    ///     <b>
+    ///         Called when something happens rather than once a frame, and the difference is a
+    ///         syscall.
+    ///     </b>
+    ///     <see cref="Refusal" /> enumerates the project root looking for a
     ///     <c>.csproj</c>; a menu asks it when somebody opens a menu, which is rare, and a panel
     ///     polled every frame would ask it sixty times a second for an answer that changes when a
     ///     build starts, when one ends, and almost never otherwise.
@@ -113,8 +117,12 @@ internal sealed class PlayerDelivery : IPlayerDelivery {
     /// <inheritdoc />
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The panel's copy of the check <c>ContentPipeline</c> makes, and the two have to
-    ///         agree.</b> A build resolves every entry to an address and refuses one it cannot — so a
+    ///         ⚠
+    ///         <b>
+    ///             The panel's copy of the check <c>ContentPipeline</c> makes, and the two have to
+    ///             agree.
+    ///         </b>
+    ///         A build resolves every entry to an address and refuses one it cannot — so a
     ///         row that read "In build" for a scene the build would reject would be the panel actively
     ///         misleading somebody about the thing it is for.
     ///     </para>
@@ -133,8 +141,8 @@ internal sealed class PlayerDelivery : IPlayerDelivery {
         try {
             return AssetMetaFile.ReadFile(AssetMetaFile.PathFor(project.Paths.Absolute(path)))
                 is { Addressable.Excluded: true }
-                    ? "Excluded"
-                    : null;
+                ? "Excluded"
+                : null;
         } catch (Exception failure) when (failure is IOException or YamlParseException or YamlBindingException) {
             // A sidecar somebody is halfway through hand-editing reads as unshippable, which is what
             // the build would say about it too — it is the planner's "no readable sidecar".
@@ -198,21 +206,21 @@ internal sealed class PlayerDelivery : IPlayerDelivery {
         // rather than after a full import is the difference between a sentence and a minute.
         var unshippable = settings.Scenes
             .Select(path => (Path: path, Trouble: SceneTrouble(path)))
-            .Where(scene => scene.Trouble is not null)
+            .Where(static scene => scene.Trouble is not null)
             .ToList();
 
         if (unshippable.Count > 0) {
             notifications.Show(
                 $"{unshippable.Count} scene(s) in the build cannot ship",
                 NotificationSeverity.Error,
-                string.Join(Environment.NewLine, unshippable.Select(scene => $"{scene.Path}: {scene.Trouble}"))
+                string.Join(Environment.NewLine, unshippable.Select(static scene => $"{scene.Path}: {scene.Trouble}"))
             );
 
             return false;
         }
 
         content.BuildPlayer(
-            new PlayerBuildRequest(
+            new(
                 target,
                 shape,
                 settings.Variant,

@@ -87,8 +87,7 @@ public class TextureTilingConformanceDeviceTests(ITestOutputHelper output) {
     static string Mask => $"float4(step(0.5f, {Field("0.3f")}), 0f, 0f, 1f)";
 
     /// <summary>A tangent-space normal, encoded, leaning about a periodic slope.</summary>
-    static string Normal =>
-        $"float4(0.5f + 0.2f * {Wave(1, 1, "0.3f")}, 0.5f + 0.2f * {Wave(1, 2, "1.1f")}, 0.9f, 1f)";
+    static string Normal => $"float4(0.5f + 0.2f * {Wave(1, 1, "0.3f")}, 0.5f + 0.2f * {Wave(1, 2, "1.1f")}, 0.9f, 1f)";
 
     /// <summary>What wires into one image port, when it is not <see cref="Grey" />.</summary>
     static string StimulusFor(string path, string port) =>
@@ -183,8 +182,8 @@ public class TextureTilingConformanceDeviceTests(ITestOutputHelper output) {
     /// <summary>Everything the registry declares and everything that ships.</summary>
     static IEnumerable<(string Path, bool Compound)> Subjects(NodeTypeRegistry registry, NodeTypeRegistry atomic) =>
         registry.Types.Select(type => (type.Path, !atomic.Types.Any(known => known.Path == type.Path)))
-            .OrderBy(subject => subject.Item2)
-            .ThenBy(subject => subject.Path, StringComparer.Ordinal);
+            .OrderBy(static subject => subject.Item2)
+            .ThenBy(static subject => subject.Path, StringComparer.Ordinal);
 
     /// <summary>The roll call.</summary>
     [Fact]
@@ -196,7 +195,7 @@ public class TextureTilingConformanceDeviceTests(ITestOutputHelper output) {
 
         var atomic = Registry();
         var registry = Registry();
-        var library = TextureCompoundLibrary.Publish(registry, folder: null, out var problems);
+        var library = TextureCompoundLibrary.Publish(registry, null, out var problems);
 
         Assert.Empty(problems);
 
@@ -366,7 +365,7 @@ public class TextureTilingConformanceDeviceTests(ITestOutputHelper output) {
 
         int? Reach(TexturePlan plan) => TexturePlanEvaluator.Reach(plan, externals, plan.Ops[0]);
 
-        var filtered = TextureSources.Bitmap(1, 0, srgb: false);
+        var filtered = TextureSources.Bitmap(1, 0, false);
         var pointwise = new TextureOp {
             Kernel = "Invert",
             Output = 1,
@@ -406,8 +405,8 @@ public class TextureTilingConformanceDeviceTests(ITestOutputHelper output) {
     ) {
         var type = registry.Types.Single(candidate => candidate.Path == path);
         var outputs = type.Ports
-            .Where(port => port is { Direction: PortDirection.Output, Kind: PortKind.Image })
-            .Select(port => port.Name)
+            .Where(static port => port is { Direction: PortDirection.Output, Kind: PortKind.Image })
+            .Select(static port => port.Name)
             .ToArray();
 
         if (outputs.Length == 0) {
@@ -417,8 +416,8 @@ public class TextureTilingConformanceDeviceTests(ITestOutputHelper output) {
         }
 
         var inputs = type.Ports
-            .Where(port => port is { Direction: PortDirection.Input, Kind: PortKind.Image })
-            .Select(port => port.Name)
+            .Where(static port => port is { Direction: PortDirection.Input, Kind: PortKind.Image })
+            .Select(static port => port.Name)
             .ToArray();
 
         try {
@@ -446,9 +445,9 @@ public class TextureTilingConformanceDeviceTests(ITestOutputHelper output) {
 
             foreach (var name in outputs) {
                 var picture = first.Pictures[name];
-                var (seamX, stepX) = picture.Seam(horizontal: true);
-                var (seamY, stepY) = picture.Seam(horizontal: false);
-                var seamed = seamX > (1.2f * stepX) + 0.001f || seamY > (1.2f * stepY) + 0.001f;
+                var (seamX, stepX) = picture.Seam(true);
+                var (seamY, stepY) = picture.Seam(false);
+                var seamed = seamX > 1.2f * stepX + 0.001f || seamY > 1.2f * stepY + 0.001f;
                 var moved = rolled is null ? float.NaN : picture.Rolled(rolled.Pictures[name], RollX, RollY);
                 var drifted = moved > 0.002f;
                 var changed = first.Stimulus is { } stimulus ? picture.Difference(stimulus) : float.NaN;
@@ -456,7 +455,8 @@ public class TextureTilingConformanceDeviceTests(ITestOutputHelper output) {
                 // A flat picture tiles whatever the kernel did, and so does a filter left at numbers
                 // that make it a copy of its input: neither has been examined.
                 inert |= (picture.Contrast() < 0.01f && !Flat.Contains(path))
-                    || (changed < 0.0005f && path.StartsWith("Filters/", StringComparison.Ordinal)
+                    || (changed < 0.0005f
+                        && path.StartsWith("Filters/", StringComparison.Ordinal)
                         && path != "Filters/Pixel Processor");
 
                 // The instrument: a picture with any contrast changes from some texel to its neighbour on at least
@@ -471,7 +471,9 @@ public class TextureTilingConformanceDeviceTests(ITestOutputHelper output) {
                 );
             }
 
-            return inert ? new($"{path,-36} INERT: nothing here was examined.\n{line}", true) : new(line.ToString(), broken);
+            return inert
+                ? new($"{path,-36} INERT: nothing here was examined.\n{line}", true)
+                : new(line.ToString(), broken);
         } catch (Exception exception) {
             return new($"{path,-36} THREW: {exception.GetType().Name}: {exception.Message}\n", true);
         }
@@ -551,17 +553,15 @@ public class TextureTilingConformanceDeviceTests(ITestOutputHelper output) {
         }
 
         TextureGraphCompiler compiler = new(registry) {
-            BaseWidth = Side,
-            BaseHeight = Side,
-            Seed = 7717,
-            SubGraphSource = library
+            BaseWidth = Side, BaseHeight = Side, Seed = 7717, SubGraphSource = library
         };
 
         var compilation = compiler.Compile(graph);
-        var refused = compilation.Diagnostics.Where(diagnostic => diagnostic.Severity == NodeSeverity.Error).ToArray();
+        var refused = compilation.Diagnostics.Where(static diagnostic => diagnostic.Severity == NodeSeverity.Error)
+            .ToArray();
 
         if (refused.Length > 0) {
-            return new([], string.Join(" | ", refused.Select(diagnostic => diagnostic.Message)));
+            return new([], string.Join(" | ", refused.Select(static diagnostic => diagnostic.Message)));
         }
 
         var plan = compilation.Value;
@@ -576,7 +576,13 @@ public class TextureTilingConformanceDeviceTests(ITestOutputHelper output) {
                 var periodic = Periodic(Side / 2);
 
                 if (plan.Images[owed.Image].Format == TextureFormat.R8) {
-                    uploads.AddCoverage(plan, owed.Image, Side / 2, Side / 2, [.. Enumerable.Range(0, periodic.Length / 4).Select(at => periodic[at * 4] / 255f)]);
+                    uploads.AddCoverage(
+                        plan,
+                        owed.Image,
+                        Side / 2,
+                        Side / 2,
+                        [..Enumerable.Range(0, periodic.Length / 4).Select(at => periodic[at * 4] / 255f)]
+                    );
                 } else {
                     uploads.Add(plan, owed.Image, Side / 2, Side / 2, periodic);
                 }
@@ -611,9 +617,14 @@ public class TextureTilingConformanceDeviceTests(ITestOutputHelper output) {
             }
         }
 
-        var original = compiler.Outputs.Where(written => written.Usage == Original).ToArray();
+        var original = compiler.Outputs.Where(static written => written.Usage == Original).ToArray();
 
-        return new(read, null, original.Length == 1 ? new(bake.ReadRaw(original[0].Image)) : null, plan.WrapX && plan.WrapY);
+        return new(
+            read,
+            null,
+            original.Length == 1 ? new(bake.ReadRaw(original[0].Image)) : null,
+            plan is { WrapX: true, WrapY: true }
+        );
     }
 
     /// <summary>A two-by-two repeat of a picture, which is what a person looks at for a seam.</summary>
@@ -640,11 +651,11 @@ public class TextureTilingConformanceDeviceTests(ITestOutputHelper output) {
             for (var x = 0; x < side; x++) {
                 var u = (x + 0.5) / side;
                 var v = (y + 0.5) / side;
-                var at = ((y * side) + x) * 4;
+                var at = (y * side + x) * 4;
 
-                texels[at] = (byte)(127 + (120 * Math.Sin(Math.Tau * (u + v))));
-                texels[at + 1] = (byte)(127 + (120 * Math.Sin(Math.Tau * ((2 * u) - v))));
-                texels[at + 2] = (byte)(127 + (120 * Math.Cos(Math.Tau * (u + (2 * v)))));
+                texels[at] = (byte)(127 + 120 * Math.Sin(Math.Tau * (u + v)));
+                texels[at + 1] = (byte)(127 + 120 * Math.Sin(Math.Tau * (2 * u - v)));
+                texels[at + 2] = (byte)(127 + 120 * Math.Cos(Math.Tau * (u + 2 * v)));
                 texels[at + 3] = 255;
             }
         }
@@ -684,7 +695,7 @@ public class TextureTilingConformanceDeviceTests(ITestOutputHelper output) {
 
         public int Channels { get; }
 
-        float At(int x, int y, int lane) => lanes[(((y * Width) + x) * Channels) + lane];
+        float At(int x, int y, int lane) => lanes[(y * Width + x) * Channels + lane];
 
         /// <summary>The worst colour lane's step across the wrap, and its largest ordinary step.</summary>
         public (float Seam, float Step) Seam(bool horizontal) {

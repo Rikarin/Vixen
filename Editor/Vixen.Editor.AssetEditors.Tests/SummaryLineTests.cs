@@ -31,7 +31,7 @@ public class SummaryLineTests {
         var path = harness.Project.WriteAsset("Assets/walk.vxanim", string.Empty);
         var view = harness.Ui.Document.Root.Add<AnimationClipView>();
 
-        view.Show(new AnimationClipDocument(harness.Project.Project, AssetId.New(), path));
+        view.Show(new(harness.Project.Project, AssetId.New(), path));
         harness.Ui.Frame();
 
         SpansTheColumn(view.Fields, "0 object(s), 0 key(s), 0 event(s)");
@@ -43,7 +43,7 @@ public class SummaryLineTests {
         var path = harness.Project.WriteAsset("Assets/locomotion.vxmoveset", string.Empty);
         var view = harness.Ui.Document.Root.Add<MoveSetView>();
 
-        view.Show(new MoveSetDocument(harness.Project.Project, AssetId.New(), path));
+        view.Show(new(harness.Project.Project, AssetId.New(), path));
         harness.Ui.Frame();
 
         SpansTheColumn(view.Fields, "0 move(s), 0 rule(s), 0 overlay(s)");
@@ -55,7 +55,7 @@ public class SummaryLineTests {
         var path = harness.Project.WriteAsset("Assets/hero.vxproxyshapes", string.Empty);
         var view = harness.Ui.Document.Root.Add<ProxyShapeView>();
 
-        view.Show(new ProxyShapeDocument(harness.Project.Project, AssetId.New(), path));
+        view.Show(new(harness.Project.Project, AssetId.New(), path));
         harness.Ui.Frame();
 
         SpansTheColumn(view.Fields, "0 shape(s), 0 coarse");
@@ -67,7 +67,7 @@ public class SummaryLineTests {
         var path = harness.Project.WriteAsset("Assets/humanoid.vxshapevocab", string.Empty);
         var view = harness.Ui.Document.Root.Add<ShapeVocabularyView>();
 
-        view.Show(new ShapeVocabularyDocument(harness.Project.Project, AssetId.New(), path));
+        view.Show(new(harness.Project.Project, AssetId.New(), path));
         harness.Ui.Frame();
 
         SpansTheColumn(view.Fields, "0 name(s), 0 tag(s), 0 class(es)");
@@ -79,7 +79,7 @@ public class SummaryLineTests {
         var path = harness.Project.WriteAsset("Assets/intro.vxseq", string.Empty);
         var view = harness.Ui.Document.Root.Add<SequenceView>();
 
-        view.Show(new SequenceDocument(harness.Project.Project, AssetId.New(), path));
+        view.Show(new(harness.Project.Project, AssetId.New(), path));
         harness.Ui.Frame();
 
         SpansTheColumn(view.Fields, "0 track(s) · ");
@@ -87,7 +87,10 @@ public class SummaryLineTests {
         // And the no-scene line is a warning that reads as one: the whole row, not a muted label.
         var warning = Find(view.Fields, "No scene attached");
 
-        Assert.True(warning.Width >= view.Fields.Width - 1f, $"the no-scene line is {warning.Width} px of a {view.Fields.Width} px column");
+        Assert.True(
+            warning.Width >= view.Fields.Width - 1f,
+            $"the no-scene line is {warning.Width} px of a {view.Fields.Width} px column"
+        );
     }
 
     static void SpansTheColumn(UiElement fields, string text) {
@@ -103,7 +106,8 @@ public class SummaryLineTests {
     }
 
     static UiElement Find(UiElement root, string prefix) =>
-        Descendants(root).FirstOrDefault(element => element.Text is { } text && text.StartsWith(prefix, StringComparison.Ordinal))
+        Descendants(root)
+            .FirstOrDefault(element => element.Text is { } text && text.StartsWith(prefix, StringComparison.Ordinal))
         ?? throw new InvalidOperationException($"nothing in the column says '{prefix}…'");
 
     static IEnumerable<UiElement> Descendants(UiElement element) {

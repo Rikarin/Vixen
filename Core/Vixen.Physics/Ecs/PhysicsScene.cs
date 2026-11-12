@@ -137,8 +137,7 @@ public sealed partial class PhysicsScene : IDisposable {
     /// <param name="body">The body.</param>
     /// <param name="entity">The entity.</param>
     /// <returns><see langword="true" /> if the body is one of this scene's.</returns>
-    public bool TryGetEntity(BodyHandle body, out Entity entity) =>
-        entitiesByBody.TryGetValue(body.Value, out entity);
+    public bool TryGetEntity(BodyHandle body, out Entity entity) => entitiesByBody.TryGetValue(body.Value, out entity);
 
     /// <summary>The body an entity has, if it has one.</summary>
     /// <param name="entity">The entity.</param>

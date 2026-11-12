@@ -9,10 +9,12 @@ namespace Vixen.Ui.Tests;
 public class SettleTests {
     static UiDocument Documented() {
         var document = new UiDocument(400f, 300f);
-        document.Load("""
-            root { width: 400px; height: 300px; flex-direction: column; }
-            .row { height: 20px; }
-        """);
+        document.Load(
+            """
+                root { width: 400px; height: 300px; flex-direction: column; }
+                .row { height: 20px; }
+            """
+        );
 
         return document;
     }
@@ -169,7 +171,7 @@ public class SettleTests {
         using var document = Documented();
         document.Root.Add("div", classNames: "row");
 
-        void Thrower(UiDocument _) => throw new InvalidOperationException("handler");
+        static void Thrower(UiDocument _) => throw new InvalidOperationException("handler");
 
         document.LayoutFinished += Thrower;
 

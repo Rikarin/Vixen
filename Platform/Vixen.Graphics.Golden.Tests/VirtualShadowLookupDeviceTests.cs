@@ -5,7 +5,6 @@ using System.Runtime.InteropServices;
 using Vixen.Core.Mathematics;
 using Vixen.Graphics.Vulkan;
 using Vixen.Rendering;
-using Vixen.ShaderCompiler;
 using Vixen.Shaders;
 using Xunit;
 
@@ -24,8 +23,11 @@ namespace Vixen.Graphics.Golden.Tests;
 ///         shipped shader's reading of them were asserted by a program nobody runs.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The record grew from eighty bytes to ninety-six when toroidal page addressing landed
-///         (task #317), which is the change this is written against.</b>
+///         ⚠
+///         <b>
+///             The record grew from eighty bytes to ninety-six when toroidal page addressing landed
+///             (task #317), which is the change this is written against.
+///         </b>
 ///         <see cref="VirtualShadowLevel.Origin" /> was added at offset 80 and the padding moved to
 ///         88, and the array <em>stride</em> moved with them. A stride the two sides disagree about
 ///         reads level one out of the middle of level zero: every page of every level addressed into
@@ -146,8 +148,7 @@ public class VirtualShadowLookupDeviceTests {
     ///     logarithm that lands exactly on an integer is a coin toss between two levels the moment
     ///     anything about the arithmetic moves by an ulp.
     /// </remarks>
-    static float Distance =>
-        3f * VirtualShadowMap.TexelOf(0, FirstExtent) * ScreenHeightScale * ScreenHeight / 2f;
+    static float Distance => 3f * VirtualShadowMap.TexelOf(0, FirstExtent) * ScreenHeightScale * ScreenHeight / 2f;
 
     /// <summary>One question, laid out as the probe declares it.</summary>
     [StructLayout(LayoutKind.Sequential)]
@@ -200,7 +201,10 @@ public class VirtualShadowLookupDeviceTests {
     public void The_fixture_is_asking_a_question_that_can_fail() {
         var arranged = Arrange();
 
-        Assert.True(arranged.Level > 0, $"the level selection picked {arranged.Level}, so the stride is not under test");
+        Assert.True(
+            arranged.Level > 0,
+            $"the level selection picked {arranged.Level}, so the stride is not under test"
+        );
 
         var origin = arranged.Records[arranged.Level].Origin;
 
@@ -260,7 +264,8 @@ public class VirtualShadowLookupDeviceTests {
         Assert.True(
             answers[0].Found == 1f,
             "the point over the occluding page came back unfound, so the lookup did not reach the page "
-            + "the host addressed. " + Explain(arranged)
+            + "the host addressed. "
+            + Explain(arranged)
         );
 
         Assert.True(
@@ -272,7 +277,8 @@ public class VirtualShadowLookupDeviceTests {
         Assert.True(
             answers[1].Found == 1f,
             "the point over the drawn page came back unfound, so the lookup did not reach the page the "
-            + "host addressed. " + Explain(arranged)
+            + "host addressed. "
+            + Explain(arranged)
         );
 
         Assert.True(
@@ -283,9 +289,10 @@ public class VirtualShadowLookupDeviceTests {
 
         Assert.True(
             answers[2].Found == 0f,
-            $"a point in a page the table calls absent came back found, with visibility "
+            "a point in a page the table calls absent came back found, with visibility "
             + $"{answers[2].Visibility}. An index built from a misread record lands somewhere else in "
-            + "the table, and anything there that is not PageAbsent reads as a page. " + Explain(arranged)
+            + "the table, and anything there that is not PageAbsent reads as a page. "
+            + Explain(arranged)
         );
 
         Assert.Equal(1f, answers[2].Visibility);
@@ -293,7 +300,8 @@ public class VirtualShadowLookupDeviceTests {
         Assert.True(
             answers[3].Found == 0f,
             "a point outside every level's volume came back found, so Vsm.MapUv's containment test "
-            + "was answered from a projection that is not the one the host wrote. " + Explain(arranged)
+            + "was answered from a projection that is not the one the host wrote. "
+            + Explain(arranged)
         );
     }
 
@@ -335,13 +343,13 @@ public class VirtualShadowLookupDeviceTests {
         var page = VirtualShadowMap.ExtentOf(chosen, FirstExtent) / VirtualShadowMap.PagesPerSide;
 
         var occludedAt = Camera;
-        var litAt = Camera + (right * (page * 1.5f));
-        var absentAt = Camera + (right * (page * 3f));
-        var outsideAt = Camera + (right * VirtualShadowMap.ExtentOf(Levels, FirstExtent));
+        var litAt = Camera + right * (page * 1.5f);
+        var absentAt = Camera + right * (page * 3f);
+        var outsideAt = Camera + right * VirtualShadowMap.ExtentOf(Levels, FirstExtent);
 
         Assert.True(VirtualShadowMap.PageOf(record.ViewProjection, occludedAt, out var occludedPage));
         Assert.True(VirtualShadowMap.PageOf(record.ViewProjection, litAt, out var litPage));
-        Assert.True(VirtualShadowMap.PageOf(record.ViewProjection, absentAt, out var absentPage));
+        Assert.True(VirtualShadowMap.PageOf(record.ViewProjection, absentAt, out _));
         Assert.False(VirtualShadowMap.PageOf(record.ViewProjection, outsideAt, out _));
 
         // Absent everywhere first. ⚠ All ones and not zero: zero is physical page zero, and a table
@@ -396,7 +404,7 @@ public class VirtualShadowLookupDeviceTests {
 
         for (var y = 0; y < VirtualShadowMap.PageTexels; y++) {
             for (var x = 0; x < VirtualShadowMap.PageTexels; x++) {
-                atlas[((origin.Y + y) * side) + origin.X + x] = depth;
+                atlas[(origin.Y + y) * side + origin.X + x] = depth;
             }
         }
     }
@@ -440,8 +448,18 @@ public class VirtualShadowLookupDeviceTests {
         );
 
         var levels = Buffer(fixture, levelBytes, BufferUsage.Storage, "probe levels");
-        var table = Buffer(fixture, MemoryMarshal.AsBytes(arranged.Table.AsSpan()).ToArray(), BufferUsage.Storage, "probe page table");
-        var queries = Buffer(fixture, MemoryMarshal.AsBytes(arranged.Queries.AsSpan()).ToArray(), BufferUsage.Storage, "probe queries");
+        var table = Buffer(
+            fixture,
+            [..MemoryMarshal.AsBytes(arranged.Table.AsSpan())],
+            BufferUsage.Storage,
+            "probe page table"
+        );
+        var queries = Buffer(
+            fixture,
+            [..MemoryMarshal.AsBytes(arranged.Queries.AsSpan())],
+            BufferUsage.Storage,
+            "probe queries"
+        );
 
         var atlasSide = AtlasPages * VirtualShadowMap.PageTexels;
         var atlasBytes = MemoryMarshal.AsBytes(arranged.Atlas.AsSpan()).ToArray();
@@ -524,7 +542,7 @@ public class VirtualShadowLookupDeviceTests {
 
         var shader = device.CreateShader(
             ShaderStage.Compute,
-            effect.Stages.Single(stage => stage.Stage == ShaderStage.Compute).Bytecode.AsSpan(),
+            effect.Stages.Single(static stage => stage.Stage == ShaderStage.Compute).Bytecode.AsSpan(),
             "VirtualShadowProbe"
         );
 
@@ -557,7 +575,7 @@ public class VirtualShadowLookupDeviceTests {
             commands.BindPipeline(pipeline);
             commands.BindDescriptorSet(DescriptorSetSlot.PerFrame, frameSet);
             commands.BindDescriptorSet(DescriptorSetSlot.PerDraw, drawSet);
-            commands.Dispatch((arranged.Queries.Length + 63) / 64, 1, 1);
+            commands.Dispatch((arranged.Queries.Length + 63) / 64);
 
             commands.Barrier(new([new(results, ResourceState.ShaderWrite, ResourceState.CopySource)], []));
             commands.CopyBuffer(results, 0, readback, 0, answerBytes);
@@ -571,14 +589,12 @@ public class VirtualShadowLookupDeviceTests {
         var bytes = new byte[answerBytes];
         device.Read(readback, 0, bytes);
 
-        return MemoryMarshal.Cast<byte, Answer>(bytes).ToArray();
+        return [..MemoryMarshal.Cast<byte, Answer>(bytes)];
     }
 
     /// <summary>A buffer with contents, disposed with the fixture.</summary>
     static BufferHandle Buffer(Fixture fixture, byte[] bytes, BufferUsage usage, string name) {
-        var handle = fixture.Device.CreateBuffer(
-            new(Math.Max(bytes.Length, 16), usage, MemoryAccess.HostUpload, name)
-        );
+        var handle = fixture.Device.CreateBuffer(new(Math.Max(bytes.Length, 16), usage, MemoryAccess.HostUpload, name));
 
         fixture.Device.Write(handle, 0, bytes);
         fixture.Owns(() => fixture.Device.Destroy(handle));
@@ -598,7 +614,7 @@ public class VirtualShadowLookupDeviceTests {
 
         Assert.True(
             member.Key is not null,
-            $"the probe declares no '{name}': {string.Join(", ", declared.Members.Select(m => m.Key.Name))}"
+            $"the probe declares no '{name}': {string.Join(", ", declared.Members.Select(static m => m.Key.Name))}"
         );
 
         return member.Offset;
@@ -617,7 +633,7 @@ public class VirtualShadowLookupDeviceTests {
         Assert.True(
             found.Length == 1,
             $"the probe has {found.Length} bindings called '{name}': "
-            + string.Join(", ", effect.Bindings.Select(binding => binding.Name))
+            + string.Join(", ", effect.Bindings.Select(static binding => binding.Name))
         );
 
         return found[0].Binding;

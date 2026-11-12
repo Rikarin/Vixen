@@ -66,19 +66,20 @@ public struct CameraNoise {
     public bool Unscaled;
 
     /// <summary>A quiet handheld shake: a centimetre or two, half a degree, at a few hertz.</summary>
-    public static CameraNoise Handheld => new() {
-        PositionAmplitude = new(0.02f, 0.02f, 0.01f),
-        PositionFrequency = new(0.6f, 0.9f, 0.4f),
-        RotationAmplitude = new(
-            MathUtil.DegreesToRadians(0.5f),
-            MathUtil.DegreesToRadians(0.5f),
-            MathUtil.DegreesToRadians(0.3f)
-        ),
-        RotationFrequency = new(0.8f, 0.7f, 0.5f),
-        Gain = 1f,
-        Seed = 0,
-        Unscaled = false
-    };
+    public static CameraNoise Handheld =>
+        new() {
+            PositionAmplitude = new(0.02f, 0.02f, 0.01f),
+            PositionFrequency = new(0.6f, 0.9f, 0.4f),
+            RotationAmplitude = new(
+                MathUtil.DegreesToRadians(0.5f),
+                MathUtil.DegreesToRadians(0.5f),
+                MathUtil.DegreesToRadians(0.3f)
+            ),
+            RotationFrequency = new(0.8f, 0.7f, 0.5f),
+            Gain = 1f,
+            Seed = 0,
+            Unscaled = false
+        };
 }
 
 /// <summary>Something that happened somewhere, hard enough to be felt through the camera.</summary>
@@ -136,15 +137,16 @@ public struct CameraImpulse {
         Vector3 velocity,
         float duration = 0.5f,
         float dissipation = 0f
-    ) => new() {
-        Position = position,
-        Velocity = velocity,
-        Duration = duration,
-        Frequency = 6f,
-        DissipationDistance = dissipation,
-        PropagationSpeed = 0f,
-        Age = 0f
-    };
+    ) =>
+        new() {
+            Position = position,
+            Velocity = velocity,
+            Duration = duration,
+            Frequency = 6f,
+            DissipationDistance = dissipation,
+            PropagationSpeed = 0f,
+            Age = 0f
+        };
 }
 
 /// <summary>Feels impulses. Put one on a shot that should be shaken by the world.</summary>

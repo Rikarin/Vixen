@@ -36,10 +36,7 @@ namespace Tests;
 public class IrradianceFillJobTests {
     /// <summary>Which shader each mirror belongs to, and how wide its host says a job is.</summary>
     public static TheoryData<string, int> Shaders =>
-        new() {
-            { "IrradianceFill", IrradianceFillJob.Stride },
-            { "IrradianceRepair", IrradianceRepairJob.Stride }
-        };
+        new() { { "IrradianceFill", IrradianceFillJob.Stride }, { "IrradianceRepair", IrradianceRepairJob.Stride } };
 
     [Theory]
     [InlineData("IrradianceFill", "jobs.origin", nameof(IrradianceFillJob.Origin))]
@@ -83,10 +80,17 @@ public class IrradianceFillJobTests {
     /// </remarks>
     static Dictionary<string, int> Members(string shader) {
         var path = Directory
-            .EnumerateFiles(Path.Combine(AppContext.BaseDirectory, "Shaders"), $"{shader}.reflect.json", SearchOption.AllDirectories)
+            .EnumerateFiles(
+                Path.Combine(AppContext.BaseDirectory, "Shaders"),
+                $"{shader}.reflect.json",
+                SearchOption.AllDirectories
+            )
             .FirstOrDefault();
 
-        Assert.True(path is not null, $"{shader}.reflect.json is not beside the tests, so there is nothing to check against");
+        Assert.True(
+            path is not null,
+            $"{shader}.reflect.json is not beside the tests, so there is nothing to check against"
+        );
 
         using var document = JsonDocument.Parse(File.ReadAllText(path!));
 

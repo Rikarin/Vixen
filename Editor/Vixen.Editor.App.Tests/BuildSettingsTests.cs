@@ -26,7 +26,7 @@ public class BuildSettingsTests {
         session.Open("build-settings");
         session.Frames(2);
 
-        Assert.Contains(session.Panels, panel => panel.Id == "build-settings");
+        Assert.Contains(session.Panels, static panel => panel.Id == "build-settings");
 
         session.Close("build-settings");
         session.Frames(2);
@@ -227,7 +227,11 @@ public class BuildSettingsTests {
 
         // ⚠ Persisted like every other field on this window, and for the same reason: Build reads
         // the list, so an edit behind an Apply would build something other than what is on screen.
-        Assert.Contains(scene, File.ReadAllText(session.Project.Settings.FileFor<PlayerBuildSettings>()), StringComparison.Ordinal);
+        Assert.Contains(
+            scene,
+            File.ReadAllText(session.Project.Settings.FileFor<PlayerBuildSettings>()),
+            StringComparison.Ordinal
+        );
 
         // And an entry that names nothing says so, which is the one thing this list can be wrong
         // about — somebody else's rename arriving in a checkout.
@@ -235,7 +239,10 @@ public class BuildSettingsTests {
         view.Rebuild();
 
         Assert.Equal(2, view.Scenes.RowCount);
-        Assert.Contains(view.Scenes.Items.Cast<object>(), row => row.ToString()!.Contains("Missing", StringComparison.Ordinal));
+        Assert.Contains(
+            view.Scenes.Items.Cast<object>(),
+            static row => row.ToString()!.Contains("Missing", StringComparison.Ordinal)
+        );
     }
 
     /// <summary>
@@ -259,7 +266,10 @@ public class BuildSettingsTests {
 
         // This machine's refusal is the *build's* — there is nothing to publish yet — rather than
         // one about the device, which is the whole point of the two being one method.
-        var local = Assert.Single(view.Devices.Items.Cast<DeviceEntry>(), device => device.Kind is DeviceKind.Local);
+        var local = Assert.Single(
+            view.Devices.Items.Cast<DeviceEntry>(),
+            static device => device.Kind is DeviceKind.Local
+        );
 
         Assert.Contains(".csproj", view.CanDeploy(local)!, StringComparison.Ordinal);
     }
@@ -307,8 +317,11 @@ public class BuildSettingsTests {
         var view = session.Control<BuildSettingsView>("build-settings");
 
         Assert.Equal(
-            ["build-form", "build-note", "build-heading", "build-scene-bar", "data-grid", "build-actions", "build-status"],
-            view.Children.Select(child => child.Tag)
+            [
+                "build-form", "build-note", "build-heading", "build-scene-bar", "data-grid", "build-actions",
+                "build-status"
+            ],
+            view.Children.Select(static child => child.Tag)
         );
 
         // Each `ref` in the file names one of them, and a `ref` that never got assigned is a null
@@ -322,7 +335,7 @@ public class BuildSettingsTests {
         // ⚠ The labelled rows are the helper the port deleted: `Field<T>` built a `build-row`, put a
         // `TextBlock` in it and returned the editor. Written as tags that shape is the file, so what
         // is worth pinning is that it is still the shape.
-        var row = Assert.IsType<UiElement>(view.Form.Children[0], exactMatch: false);
+        var row = Assert.IsType<UiElement>(view.Form.Children[0], false);
 
         Assert.Equal("build-row", row.Tag);
         Assert.Equal("Target", row.Children[0].Text);

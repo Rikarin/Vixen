@@ -10,8 +10,12 @@ namespace Vixen.Ui.Tests;
 /// <summary>That a document tells the cascade which surface it is on.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b><c>StyleEngine.Load</c> has taken a <see cref="MediaContext" /> for as long as there
-///         has been a cascade, and <c>UiDocument</c> passed nothing.</b> So every sheet in every real
+///         ⚠
+///         <b>
+///             <c>StyleEngine.Load</c> has taken a <see cref="MediaContext" /> for as long as there
+///             has been a cascade, and <c>UiDocument</c> passed nothing.
+///         </b>
+///         So every sheet in every real
 ///         document was evaluated against <c>default</c> — a surface nought pixels wide — and every
 ///         <c>@media (min-width: …)</c> block in the engine was dropped at load, in every window, at
 ///         every size. That took the whole responsive-variant system with it: <c>md:p-4</c> compiles
@@ -33,10 +37,10 @@ namespace Vixen.Ui.Tests;
 public class MediaContextTests {
     /// <summary>A rule that only exists above a breakpoint, over a box that is otherwise narrow.</summary>
     const string Responsive = """
-        root { width: 4000px; height: 200px; }
-        #box { width: 10px; height: 20px; }
-        @media (min-width: 640px) { #box { width: 300px; } }
-        """;
+                              root { width: 4000px; height: 200px; }
+                              #box { width: 10px; height: 20px; }
+                              @media (min-width: 640px) { #box { width: 300px; } }
+                              """;
 
     static UiElement Box(UiDocument document, string css) {
         document.Load(css);
@@ -85,8 +89,11 @@ public class MediaContextTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>A breakpoint written in <c>rem</c> moves with the text-size preference, at a window
-    ///     that does not move (#1373).</b>
+    ///     ⚠
+    ///     <b>
+    ///         A breakpoint written in <c>rem</c> moves with the text-size preference, at a window
+    ///         that does not move (#1373).
+    ///     </b>
     /// </summary>
     /// <remarks>
     ///     Media Queries 4 § 1.3 measures a media query's <c>rem</c> against the initial font size,
@@ -99,11 +106,14 @@ public class MediaContextTests {
     [Fact]
     public void A_breakpoint_in_rem_follows_the_text_size_without_a_resize() {
         using var document = new UiDocument(700f, 200f);
-        var box = Box(document, """
+        var box = Box(
+            document,
+            """
             root { width: 4000px; height: 200px; }
             #box { width: 10px; height: 20px; }
             @media (min-width: 40rem) { #box { width: 20rem; } }
-            """);
+            """
+        );
 
         Assert.Equal(16f, document.Media.FontSize);
         Assert.Equal(320f, box.Width);
@@ -132,7 +142,8 @@ public class MediaContextTests {
     [InlineData(ColorGamut.DisplayP3, 300f)]
     [InlineData(ColorGamut.Rec2020, 300f)]
     public void A_colour_gamut_query_is_decided_by_the_surface_that_was_granted(ColorGamut granted, float expected) {
-        using var document = new UiDocument(800f, 200f) { Gamut = granted };
+        using var document = new UiDocument(800f, 200f);
+        document.Gamut = granted;
 
         var box = Box(
             document,
@@ -189,7 +200,8 @@ public class MediaContextTests {
     [InlineData(ColorSchemePreference.Light, 10f)]
     [InlineData(ColorSchemePreference.Dark, 300f)]
     public void A_colour_scheme_preference_is_asked_of_the_host(ColorSchemePreference preference, float expected) {
-        using var document = new UiDocument(800f, 200f) { ColorScheme = preference };
+        using var document = new UiDocument(800f, 200f);
+        document.ColorScheme = preference;
 
         var box = Box(
             document,
@@ -276,12 +288,12 @@ public class MediaContextTests {
 
     /// <summary>A conditional group rule inside another one, which is what <c>sm:md:</c> emits.</summary>
     const string Nested = """
-        root { width: 4000px; height: 200px; }
-        #box { width: 10px; height: 20px; }
-        @media (min-width: 640px) {
-            @media (min-width: 900px) { #box { width: 300px; } }
-        }
-        """;
+                          root { width: 4000px; height: 200px; }
+                          #box { width: 10px; height: 20px; }
+                          @media (min-width: 640px) {
+                              @media (min-width: 900px) { #box { width: 300px; } }
+                          }
+                          """;
 
     /// <summary>
     ///     ⚠ <b>A nested conditional group applies only where every condition in the stack holds.</b>

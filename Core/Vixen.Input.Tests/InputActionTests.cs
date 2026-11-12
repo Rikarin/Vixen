@@ -87,13 +87,13 @@ public class InputActionTests {
         devices.SubmitKey(InputKey.W, true);
         Frame();
 
-        Assert.Equal(new Vector2(0f, -1f), move.ReadValue<Vector2>());
+        Assert.Equal(new(0f, -1f), move.ReadValue<Vector2>());
 
         devices.SubmitKey(InputKey.W, false);
         devices.SubmitKey(InputKey.D, true);
         Frame();
 
-        Assert.Equal(new Vector2(1f, 0f), move.ReadValue<Vector2>());
+        Assert.Equal(new(1f, 0f), move.ReadValue<Vector2>());
     }
 
     [Fact]
@@ -119,7 +119,7 @@ public class InputActionTests {
         // WASD gives a magnitude of one and the half-pushed stick gives less, so the keyboard wins
         // outright — rather than the two adding up to something longer than either.
         Assert.Equal(1f, move.Magnitude, 3);
-        Assert.Equal(new Vector2(1f, 0f), move.ReadValue<Vector2>());
+        Assert.Equal(new(1f, 0f), move.ReadValue<Vector2>());
     }
 
     [Fact]
@@ -146,7 +146,7 @@ public class InputActionTests {
         Frame();
 
         // scale(factor=0.05)
-        Assert.Equal(new Vector2(1f, 2f), look.ReadValue<Vector2>());
+        Assert.Equal(new(1f, 2f), look.ReadValue<Vector2>());
     }
 
     [Fact]
@@ -210,7 +210,7 @@ public class InputActionTests {
         devices.SubmitGamepadButton(pad.DeviceId, GamepadControl.DPadUp, true);
         Frame();
 
-        Assert.Equal(new Vector2(0f, -1f), navigate.ReadValue<Vector2>());
+        Assert.Equal(new(0f, -1f), navigate.ReadValue<Vector2>());
     }
 
     [Fact]

@@ -17,10 +17,12 @@ public class KeyboardDragTests {
     static UiDocument Laid() {
         var document = new UiDocument(400f, 300f);
 
-        document.Load("""
-            root { width: 400px; height: 300px; flex-direction: row; }
-            .pane { width: 100px; height: 100px; flex-shrink: 0; }
-        """);
+        document.Load(
+            """
+                root { width: 400px; height: 300px; flex-direction: row; }
+                .pane { width: 100px; height: 100px; flex-shrink: 0; }
+            """
+        );
 
         return document;
     }
@@ -106,14 +108,18 @@ public class KeyboardDragTests {
         document.Dispatch(Pressed(InputKey.Enter));
 
         Assert.NotNull(seen);
-        Assert.Equal(pane.AbsoluteLeft + (pane.Width / 2f), seen!.X, 3);
-        Assert.Equal(pane.AbsoluteTop + (pane.Height / 2f), seen.Y, 3);
+        Assert.Equal(pane.AbsoluteLeft + pane.Width / 2f, seen!.X, 3);
+        Assert.Equal(pane.AbsoluteTop + pane.Height / 2f, seen.Y, 3);
     }
 
     /// <summary>A drag with no pointer in it still says where it is, and that is the whole argument.</summary>
     /// <remarks>
-    ///     ⚠ <b>A source can watch its own pointer stream — it holds the capture — so a ghost drawn
-    ///     that way works for the drag the source is driving and for no other.</b> Here there is no
+    ///     ⚠
+    ///     <b>
+    ///         A source can watch its own pointer stream — it holds the capture — so a ghost drawn
+    ///         that way works for the drag the source is driving and for no other.
+    ///     </b>
+    ///     Here there is no
     ///     pointer at all: the drag moves because the focus moved, so a picture positioned from
     ///     pointer events would sit wherever the press happened while the drag walked the interface.
     ///     <see cref="DragSession.X" /> is written by the one place both drivers meet, so it is the
@@ -134,13 +140,13 @@ public class KeyboardDragTests {
         document.BeginDrag(source, Row("alpha"));
 
         document.Focus(first);
-        Assert.Equal(first.AbsoluteLeft + (first.Width / 2f), document.CurrentDrag!.X, 3);
-        Assert.Equal(first.AbsoluteTop + (first.Height / 2f), document.CurrentDrag!.Y, 3);
+        Assert.Equal(first.AbsoluteLeft + first.Width / 2f, document.CurrentDrag!.X, 3);
+        Assert.Equal(first.AbsoluteTop + first.Height / 2f, document.CurrentDrag!.Y, 3);
 
         // The panes are laid out in a row, so moving on is a different x and the same y — which is
         // also what says the position followed the focus rather than being written once.
         document.Focus(second);
-        Assert.Equal(second.AbsoluteLeft + (second.Width / 2f), document.CurrentDrag!.X, 3);
+        Assert.Equal(second.AbsoluteLeft + second.Width / 2f, document.CurrentDrag!.X, 3);
         Assert.NotEqual(first.AbsoluteLeft, second.AbsoluteLeft);
     }
 
@@ -198,7 +204,7 @@ public class KeyboardDragTests {
         source.Focusable = true;
 
         var pane = Pane(document);
-        pane.AddHandler<DragOverEvent>((_, args) => args.Effect = DropEffect.None);
+        pane.AddHandler<DragOverEvent>(static (_, args) => args.Effect = DropEffect.None);
         document.Update();
 
         var dropped = 0;
@@ -230,9 +236,10 @@ public class KeyboardDragTests {
 
         var reached = 0;
         pane.AddHandler<KeyEvent>((_, args) => {
-            reached++;
-            args.Handled = true;
-        });
+                reached++;
+                args.Handled = true;
+            }
+        );
 
         document.Focus(pane);
         document.Dispatch(Pressed(InputKey.Enter));

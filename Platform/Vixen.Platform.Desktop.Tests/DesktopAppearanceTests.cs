@@ -50,7 +50,7 @@ public sealed class DesktopAppearanceTests {
                 reads++;
                 return answer;
             },
-            repeatable: true
+            true
         );
 
         // One read at construction, which is what makes the value readable before the first frame.
@@ -93,7 +93,7 @@ public sealed class DesktopAppearanceTests {
                 reads++;
                 return SystemColorScheme.Dark;
             },
-            repeatable: false
+            false
         );
 
         for (var pump = 0; pump < DesktopAppearance.PumpsBetweenReads * 3; pump++) {
@@ -117,14 +117,14 @@ public sealed class DesktopAppearanceTests {
         var palette = SystemSemanticColors.Unknown;
 
         var appearance = new DesktopAppearance(
-            () => SystemColorScheme.Light,
-            repeatable: true,
+            static () => SystemColorScheme.Light,
+            true,
             semantic: () => palette
         );
 
         Assert.Equal(SystemSemanticColors.Unknown, appearance.SemanticColors);
 
-        palette = new SystemSemanticColors(CanvasText: new Core.Mathematics.Color4(1f, 1f, 1f, 1f));
+        palette = new(CanvasText: new Core.Mathematics.Color4(1f, 1f, 1f, 1f));
 
         for (var pump = 1; pump < DesktopAppearance.PumpsBetweenReads; pump++) {
             Assert.False(appearance.Pump());

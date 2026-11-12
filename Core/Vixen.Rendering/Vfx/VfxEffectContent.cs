@@ -52,8 +52,11 @@ public readonly record struct VfxSpawnerRow {
 
 /// <summary>One initializer or updater, as a build writes it.</summary>
 /// <remarks>
-///     <b>Generic in the opcode, which is what keeps this file from growing with the instruction
-///     set.</b> Every operation is an opcode, a salt, two parameter vectors and a custom-attribute
+///     <b>
+///         Generic in the opcode, which is what keeps this file from growing with the instruction
+///         set.
+///     </b>
+///     Every operation is an opcode, a salt, two parameter vectors and a custom-attribute
 ///     slot — <see cref="VfxOperation" /> is that and nothing else — so a new opcode is a new value in
 ///     an enum and changes nothing here. That is the same property the compiled form was given for the
 ///     sake of the GPU backend, paying off a second time.
@@ -132,8 +135,7 @@ public readonly record struct VfxRendererRow {
     public float Range { get; init; }
 
     /// <summary>This row as the runtime renderer.</summary>
-    public VfxRenderer ToRenderer() =>
-        new(Kind, Alignment, Sort, Axis, Stretch, RibbonSlot, Intensity, Range);
+    public VfxRenderer ToRenderer() => new(Kind, Alignment, Sort, Axis, Stretch, RibbonSlot, Intensity, Range);
 
     /// <summary>One runtime renderer as a row.</summary>
     /// <param name="renderer">The renderer.</param>
@@ -176,8 +178,11 @@ public readonly record struct VfxCustomAttributeRow {
 /// <summary>A particle effect as a build wrote it and a game loads it.</summary>
 /// <remarks>
 ///     <para>
-///         <b>The content form of <see cref="VfxCompiledGraph" />, and the piece whose absence meant a
-///         game could not load a <c>.vxvfx</c> at all.</b> The authored file is a node graph — nodes,
+///         <b>
+///             The content form of <see cref="VfxCompiledGraph" />, and the piece whose absence meant a
+///             game could not load a <c>.vxvfx</c> at all.
+///         </b>
+///         The authored file is a node graph — nodes,
 ///         edges, positions, the numbers somebody typed — which only the editor can read, and
 ///         <c>docs/overview.md</c> listed it among the formats "whose compiler is still owed". This is
 ///         what the compiler writes: the graph already reduced to the flat instruction list both

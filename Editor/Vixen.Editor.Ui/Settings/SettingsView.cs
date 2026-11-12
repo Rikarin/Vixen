@@ -76,8 +76,12 @@ public sealed partial class SettingsView;
 /// <summary>A rail tab, which is a button whose selection a binding is allowed to write.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Shape 5's escape, applied to a flag rather than to <c>Text</c>, and that
-///         generalisation is the useful part.</b> <see cref="UiElement.State" /> is a flag set holding
+///         ⚠
+///         <b>
+///             Shape 5's escape, applied to a flag rather than to <c>Text</c>, and that
+///             generalisation is the useful part.
+///         </b>
+///         <see cref="UiElement.State" /> is a flag set holding
 ///         Hover, Focused, Pressed and Checked, so a binding that assigned it whole would undo
 ///         whatever the pointer had just put there — which is why <c>KeyBindingsView</c> and
 ///         <c>FlameChartView</c> both keep <c>State |= Checked</c> imperative. A property that owns
@@ -92,8 +96,12 @@ public sealed partial class SettingsView;
 ///         worked for ever after, which is the worst available failure.
 ///     </para>
 ///     <para>
-///         ⚠ <b><see cref="ButtonBase" /> and not <see cref="Button" />, only because
-///         <see cref="Button" /> is sealed.</b> The two are the same type — <see cref="Button" /> adds
+///         ⚠
+///         <b>
+///             <see cref="ButtonBase" /> and not <see cref="Button" />, only because
+///             <see cref="Button" /> is sealed.
+///         </b>
+///         The two are the same type — <see cref="Button" /> adds
 ///         a tag name and nothing else — so this answers to <c>button</c>, carries the same
 ///         <c>size-md variant-subtle settings-tab</c>, and
 ///         <c>settings-rail &gt; scroll-content &gt; button.settings-tab:checked</c> reaches it. A whole-tree

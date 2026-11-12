@@ -278,8 +278,7 @@ public class RetargetingTests {
                 "Wave",
                 "Spine",
                 Quaternion.Identity,
-                Quaternion.FromAxisAngle(Vector3.UnitZ, 1f),
-                1f
+                Quaternion.FromAxisAngle(Vector3.UnitZ, 1f)
             ),
             source
         );

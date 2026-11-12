@@ -7,7 +7,6 @@ using Vixen.Core.Mathematics;
 using Vixen.Editor.Core;
 using Vixen.Rendering;
 using Vixen.Ui;
-using Vixen.Ui.Controls;
 using ViewportControl = Vixen.Ui.Controls.Advanced.Viewport;
 
 namespace Vixen.Editor.SceneView;
@@ -169,18 +168,19 @@ public sealed class ViewportLayout : IDisposable {
 
         // The arrangement is a class rather than inline geometry, so the split is a stylesheet's
         // business — which is also what lets a user's own theme change the proportions.
-        root.AddClass(arrangement switch {
-            ViewportArrangement.Single => "single",
-            ViewportArrangement.SideBySide => "side-by-side",
-            ViewportArrangement.Stacked => "stacked",
-            _ => "quad"
-        });
+        root.AddClass(
+            arrangement switch {
+                ViewportArrangement.Single => "single",
+                ViewportArrangement.SideBySide => "side-by-side",
+                ViewportArrangement.Stacked => "stacked",
+                _ => "quad"
+            }
+        );
 
         for (var index = 0; index < count; index++) {
             var control = root.Add<ViewportControl>();
             var pane = new SceneViewport(control, selection, $"SceneView{index}") {
-                Document = Document,
-                TargetsFactory = TargetsFactory
+                Document = Document, TargetsFactory = TargetsFactory
             };
 
             if (arrangement == ViewportArrangement.Quad) {

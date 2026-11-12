@@ -129,7 +129,7 @@ public sealed class NullAudioDevice : IAudioDevice {
             running = true;
 
             if (paced) {
-                clock = new Thread(PaceLoop) { IsBackground = true, Name = "Vixen Null Audio" };
+                clock = new(PaceLoop) { IsBackground = true, Name = "Vixen Null Audio" };
                 clock.Start();
             }
         }

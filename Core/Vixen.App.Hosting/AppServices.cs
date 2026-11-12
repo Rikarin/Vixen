@@ -96,8 +96,10 @@ public sealed class AppServices {
     /// <summary>The operating system.</summary>
     public IPlatform Platform { get; }
 
-    /// <summary>The window the host opened, or <see langword="null" /> if the application wanted
-    /// none.</summary>
+    /// <summary>
+    ///     The window the host opened, or <see langword="null" /> if the application wanted
+    ///     none.
+    /// </summary>
     /// <remarks>
     ///     Fixed at boot, and therefore a handle that can go stale: it is whichever window
     ///     <see cref="AppConfig.Window" /> asked for, not "the current one". That is exact for the

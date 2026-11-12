@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Editor.Inspector;
-using Vixen.Editor.Ui;
 using Vixen.Ui;
 using Vixen.Ui.Controls;
 using Vixen.Ui.Controls.Advanced;
@@ -20,12 +19,17 @@ public sealed partial class WaterModule {
     WaterZoneFacts? zoneFacts;
 
     /// <summary>
-    ///     ⚠ <b>The same part as <see cref="zoneFacts" />, under the tag this panel's structure
-    ///     names.</b> It was a second type until the markup channel grew a spelling for a host tag;
+    ///     ⚠
+    ///     <b>
+    ///         The same part as <see cref="zoneFacts" />, under the tag this panel's structure
+    ///         names.
+    ///     </b>
+    ///     It was a second type until the markup channel grew a spelling for a host tag;
     ///     see <see cref="WaterZoneFacts" />. The body panel passes no refusal, so the arm that draws
     ///     one is never built.
     /// </summary>
     WaterZoneFacts? waterFacts;
+
     WaterNotice? notice;
 
     /// <summary>Registers them, through the context so an unload takes both back out.</summary>
@@ -115,14 +119,17 @@ public sealed partial class WaterModule {
 
     /// <summary>What the session has made, and why the last gesture did not.</summary>
     void RefreshWaterFacts() {
-        waterFacts?.Show([
-            ("Bodies drawn", BodiesCreated.ToString()),
-            ("Points laid", Mode.Editing.Points.Count.ToString()),
+        waterFacts?.Show(
+            [
+                ("Bodies drawn", BodiesCreated.ToString()),
+                ("Points laid", Mode.Editing.Points.Count.ToString()),
 
-            // ⚠ The number that answers "why did Carve terrain do nothing". A verb greyed out with no
-            // reason beside it is a verb an author decides is broken — doc 20's first bar.
-            ("Terrains to carve", CarvableTerrains.ToString())
-        ], null);
+                // ⚠ The number that answers "why did Carve terrain do nothing". A verb greyed out with no
+                // reason beside it is a verb an author decides is broken — doc 20's first bar.
+                ("Terrains to carve", CarvableTerrains.ToString())
+            ],
+            null
+        );
 
         notice?.Clear();
     }

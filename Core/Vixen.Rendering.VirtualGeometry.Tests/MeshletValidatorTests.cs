@@ -39,7 +39,7 @@ public class MeshletValidatorTests {
         // move the edges a group shares with its neighbours, which is invisible in every picture of
         // a single level of detail and is a slit in the surface the moment a cut passes through it.
         Assert.NotEmpty(problems);
-        Assert.Contains(problems, problem => problem.Contains("boundary moved", StringComparison.Ordinal));
+        Assert.Contains(problems, static problem => problem.Contains("boundary moved", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -49,11 +49,12 @@ public class MeshletValidatorTests {
         var group = built.Groups[0];
 
         var sabotaged = built with {
-            Groups = [.. built.Groups.Select(
-                (candidate, index) => index == 0
-                    ? candidate with { Error = built.Meshlets[candidate.Children[0]].Error }
-                    : candidate
-            )]
+            Groups = [
+                ..built.Groups.Select((candidate, index) => index == 0
+                        ? candidate with { Error = built.Meshlets[candidate.Children[0]].Error }
+                        : candidate
+                )
+            ]
         };
 
         Assert.NotEmpty(MeshletValidator.Validate(sabotaged, mesh));
@@ -67,14 +68,17 @@ public class MeshletValidatorTests {
         var child = built.Groups[0].Children[0];
 
         var sabotaged = built with {
-            Meshlets = [.. built.Meshlets.Select(
-                (meshlet, index) => index == child ? meshlet with { ParentError = meshlet.ParentError * 2f } : meshlet
-            )]
+            Meshlets = [
+                ..built.Meshlets.Select((meshlet, index) => index == child
+                        ? meshlet with { ParentError = meshlet.ParentError * 2f }
+                        : meshlet
+                )
+            ]
         };
 
         Assert.Contains(
             MeshletValidator.Validate(sabotaged, mesh),
-            problem => problem.Contains("parent error", StringComparison.Ordinal)
+            static problem => problem.Contains("parent error", StringComparison.Ordinal)
         );
     }
 
@@ -82,12 +86,15 @@ public class MeshletValidatorTests {
     public void ALostTriangleIsRefused() {
         var mesh = Shapes.Sphere(3);
         var built = MeshletBuilder.Build(mesh);
-        var leaf = Array.FindIndex(built.Meshlets, meshlet => meshlet.Level == 0);
+        var leaf = Array.FindIndex(built.Meshlets, static meshlet => meshlet.Level == 0);
 
         var sabotaged = built with {
-            Meshlets = [.. built.Meshlets.Select(
-                (meshlet, index) => index == leaf ? meshlet with { TriangleCount = meshlet.TriangleCount - 1 } : meshlet
-            )]
+            Meshlets = [
+                ..built.Meshlets.Select((meshlet, index) => index == leaf
+                        ? meshlet with { TriangleCount = meshlet.TriangleCount - 1 }
+                        : meshlet
+                )
+            ]
         };
 
         // A dropped triangle at level zero is a hole in the mesh seen from close up, and it is the
@@ -95,7 +102,7 @@ public class MeshletValidatorTests {
         // simply forgot one.
         Assert.Contains(
             MeshletValidator.Validate(sabotaged, mesh),
-            problem => problem.Contains("missing", StringComparison.Ordinal)
+            static problem => problem.Contains("missing", StringComparison.Ordinal)
         );
     }
 
@@ -105,9 +112,12 @@ public class MeshletValidatorTests {
         var built = MeshletBuilder.Build(mesh);
 
         var sabotaged = built with {
-            Meshlets = [.. built.Meshlets.Select(
-                (meshlet, index) => index == 0 ? meshlet with { VertexOffset = built.Vertices.Length } : meshlet
-            )]
+            Meshlets = [
+                ..built.Meshlets.Select((meshlet, index) => index == 0
+                        ? meshlet with { VertexOffset = built.Vertices.Length }
+                        : meshlet
+                )
+            ]
         };
 
         Assert.NotEmpty(MeshletValidator.Validate(sabotaged, mesh));
@@ -150,5 +160,5 @@ public class MeshletValidatorTests {
     /// <param name="level">The level.</param>
     /// <returns>The count.</returns>
     static int TrianglesAt(MeshletMesh mesh, int level) =>
-        mesh.Meshlets.Where(meshlet => meshlet.Level == level).Sum(meshlet => meshlet.TriangleCount);
+        mesh.Meshlets.Where(meshlet => meshlet.Level == level).Sum(static meshlet => meshlet.TriangleCount);
 }

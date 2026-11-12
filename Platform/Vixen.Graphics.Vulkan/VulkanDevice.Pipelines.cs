@@ -92,12 +92,13 @@ public sealed unsafe partial class VulkanDevice {
         Name(ObjectType.DescriptorSetLayout, handle.Handle, description.Name);
 
         lock (gate) {
-            return new(setLayouts.Add(new VulkanDescriptorSetLayout {
-                Handle = handle,
-                Bindings = [.. bindings],
-                IsBindless = unbounded,
-                BindlessCapacity = capacity
-            }));
+            return new(
+                setLayouts.Add(
+                    new VulkanDescriptorSetLayout {
+                        Handle = handle, Bindings = [..bindings], IsBindless = unbounded, BindlessCapacity = capacity
+                    }
+                )
+            );
         }
     }
 
@@ -155,9 +156,7 @@ public sealed unsafe partial class VulkanDevice {
             }
 
             ranges[index] = new() {
-                StageFlags = VulkanEnums.ToVulkan(range.Stages),
-                Offset = (uint)range.Offset,
-                Size = (uint)range.Size
+                StageFlags = VulkanEnums.ToVulkan(range.Stages), Offset = (uint)range.Offset, Size = (uint)range.Size
             };
         }
 
@@ -174,10 +173,9 @@ public sealed unsafe partial class VulkanDevice {
         Name(ObjectType.PipelineLayout, handle.Handle, description.Name);
 
         lock (gate) {
-            return new(pipelineLayouts.Add(new VulkanPipelineLayout {
-                Handle = handle,
-                PushConstants = [.. pushConstants]
-            }));
+            return new(
+                pipelineLayouts.Add(new VulkanPipelineLayout { Handle = handle, PushConstants = [..pushConstants] })
+            );
         }
     }
 
@@ -215,11 +213,7 @@ public sealed unsafe partial class VulkanDevice {
             Check(result, "vkAllocateDescriptorSets");
             Name(ObjectType.DescriptorSet, set.Handle, name);
 
-            return new(descriptorSets.Add(new VulkanDescriptorSet {
-                Handle = set,
-                Pool = pool,
-                Layout = resolved
-            }));
+            return new(descriptorSets.Add(new VulkanDescriptorSet { Handle = set, Pool = pool, Layout = resolved }));
         }
     }
 
@@ -288,12 +282,11 @@ public sealed unsafe partial class VulkanDevice {
         Name(ObjectType.DescriptorSet, set.Handle, name);
 
         lock (gate) {
-            return new(descriptorSets.Add(new VulkanDescriptorSet {
-                Handle = set,
-                Pool = pool,
-                Layout = layout,
-                OwnsPool = true
-            }));
+            return new(
+                descriptorSets.Add(
+                    new VulkanDescriptorSet { Handle = set, Pool = pool, Layout = layout, OwnsPool = true }
+                )
+            );
         }
     }
 
@@ -481,9 +474,7 @@ public sealed unsafe partial class VulkanDevice {
             var buffer = vertexBuffers[index];
 
             bindings[index] = new() {
-                Binding = (uint)index,
-                Stride = (uint)buffer.Stride,
-                InputRate = VulkanEnums.ToVulkan(buffer.StepMode)
+                Binding = (uint)index, Stride = (uint)buffer.Stride, InputRate = VulkanEnums.ToVulkan(buffer.StepMode)
             };
 
             foreach (var element in buffer.Attributes ?? []) {
@@ -512,9 +503,7 @@ public sealed unsafe partial class VulkanDevice {
         // Viewport and scissor are dynamic, always. A pipeline that baked them would need recompiling
         // whenever the window resized, which is the single most common cause of a hitch on resize.
         var viewport = new PipelineViewportStateCreateInfo {
-            SType = StructureType.PipelineViewportStateCreateInfo,
-            ViewportCount = 1,
-            ScissorCount = 1
+            SType = StructureType.PipelineViewportStateCreateInfo, ViewportCount = 1, ScissorCount = 1
         };
 
         var rasterizer = new PipelineRasterizationStateCreateInfo {
@@ -585,9 +574,7 @@ public sealed unsafe partial class VulkanDevice {
         dynamicStates[3] = DynamicState.StencilReference;
 
         var dynamic = new PipelineDynamicStateCreateInfo {
-            SType = StructureType.PipelineDynamicStateCreateInfo,
-            DynamicStateCount = 4,
-            PDynamicStates = dynamicStates
+            SType = StructureType.PipelineDynamicStateCreateInfo, DynamicStateCount = 4, PDynamicStates = dynamicStates
         };
 
         var depthFormat = VulkanFormats.ToVulkan(description.DepthFormat);
@@ -638,12 +625,16 @@ public sealed unsafe partial class VulkanDevice {
             Name(ObjectType.Pipeline, handle.Handle, description.Name);
 
             lock (gate) {
-                return new(pipelines.Add(new VulkanPipeline {
-                    Handle = handle,
-                    Layout = layout.Handle,
-                    BindPoint = PipelineBindPoint.Graphics,
-                    PushConstants = layout.PushConstants
-                }));
+                return new(
+                    pipelines.Add(
+                        new VulkanPipeline {
+                            Handle = handle,
+                            Layout = layout.Handle,
+                            BindPoint = PipelineBindPoint.Graphics,
+                            PushConstants = layout.PushConstants
+                        }
+                    )
+                );
             }
         } finally {
             SilkMarshal.Free((nint)entryPoint);
@@ -679,12 +670,16 @@ public sealed unsafe partial class VulkanDevice {
             Name(ObjectType.Pipeline, handle.Handle, description.Name);
 
             lock (gate) {
-                return new(pipelines.Add(new VulkanPipeline {
-                    Handle = handle,
-                    Layout = layout.Handle,
-                    BindPoint = PipelineBindPoint.Compute,
-                    PushConstants = layout.PushConstants
-                }));
+                return new(
+                    pipelines.Add(
+                        new VulkanPipeline {
+                            Handle = handle,
+                            Layout = layout.Handle,
+                            BindPoint = PipelineBindPoint.Compute,
+                            PushConstants = layout.PushConstants
+                        }
+                    )
+                );
             }
         } finally {
             SilkMarshal.Free((nint)entryPoint);
@@ -694,8 +689,12 @@ public sealed unsafe partial class VulkanDevice {
 
     /// <inheritdoc />
     /// <remarks>
-    ///     ⚠ <b>A surface of <see cref="Core.SurfaceKind.None" /> gets a chain that presents to
-    ///     nothing rather than an exception.</b> Vulkan opens without a surface — that is what the
+    ///     ⚠
+    ///     <b>
+    ///         A surface of <see cref="Core.SurfaceKind.None" /> gets a chain that presents to
+    ///         nothing rather than an exception.
+    ///     </b>
+    ///     Vulkan opens without a surface — that is what the
     ///     golden-image suites run on — and the only thing it then cannot do is build a
     ///     <c>VkSwapchainKHR</c>. Refusing here would push every offscreen caller into a second code
     ///     path around <see cref="ISwapChain" />, which is how a headless frame stops being the same
@@ -751,14 +750,15 @@ public sealed unsafe partial class VulkanDevice {
         }
     }
 
-    static StencilOpState ToStencil(in StencilFaceState face, in DepthStencilState state) => new() {
-        CompareOp = VulkanEnums.ToVulkan(face.Compare),
-        FailOp = VulkanEnums.ToVulkan(face.Fail),
-        DepthFailOp = VulkanEnums.ToVulkan(face.DepthFail),
-        PassOp = VulkanEnums.ToVulkan(face.Pass),
-        CompareMask = state.StencilReadMask,
-        WriteMask = state.StencilWriteMask
-    };
+    static StencilOpState ToStencil(in StencilFaceState face, in DepthStencilState state) =>
+        new() {
+            CompareOp = VulkanEnums.ToVulkan(face.Compare),
+            FailOp = VulkanEnums.ToVulkan(face.Fail),
+            DepthFailOp = VulkanEnums.ToVulkan(face.DepthFail),
+            PassOp = VulkanEnums.ToVulkan(face.Pass),
+            CompareMask = state.StencilReadMask,
+            WriteMask = state.StencilWriteMask
+        };
 
     static RenderPassKey PipelineCompatibilityKey(in GraphicsPipelineDescription description) {
         var colour = new AttachmentKey[description.ColourTargets?.Length ?? 0];
@@ -825,10 +825,7 @@ public sealed unsafe partial class VulkanDevice {
         // the device was created without is invalid usage, and every set that binds a structure
         // already needed HasRayTracing to have anything to bind.
         if (Features.HasRayTracing) {
-            sizes[count++] = new() {
-                Type = DescriptorType.AccelerationStructureKhr,
-                DescriptorCount = SetsPerPool
-            };
+            sizes[count++] = new() { Type = DescriptorType.AccelerationStructureKhr, DescriptorCount = SetsPerPool };
         }
 
         var create = new DescriptorPoolCreateInfo {

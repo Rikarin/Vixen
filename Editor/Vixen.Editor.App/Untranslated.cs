@@ -24,5 +24,5 @@ static class Untranslated {
     /// <summary>The title.</summary>
     /// <param name="text">The user's name for it.</param>
     /// <returns>A string id that shows exactly that text.</returns>
-    public static StringId Title(string text) => new StringId(null!, text);
+    public static StringId Title(string text) => new(null!, text);
 }

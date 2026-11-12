@@ -169,8 +169,12 @@ public sealed class UndoManager : IUndoManager {
 /// <summary>The command ids an undo manager answers, and the one call that makes an element answer them.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Undo is the manager's verb and not the text field's, which is why this is here and
-///         not in <c>TextField</c>.</b> <see cref="IUndoManager" /> already argues that a control
+///         ⚠
+///         <b>
+///             Undo is the manager's verb and not the text field's, which is why this is here and
+///             not in <c>TextField</c>.
+///         </b>
+///         <see cref="IUndoManager" /> already argues that a control
 ///         must not own a stack because undo has to interleave with everything else an application
 ///         does; registering <c>edit.undo</c> on the control would have contradicted that at the
 ///         other end — <c>CommandRoute.Resolve</c> stops at the first element that <i>registered</i>
@@ -206,8 +210,12 @@ public static class UndoCommands {
     /// <param name="element">The element that owns a manager — the window's root, a document panel.</param>
     /// <exception cref="ArgumentException">That element already handles one of the two ids.</exception>
     /// <remarks>
-    ///     ⚠ <b>Each run invalidates the document's commands, because the stack it just moved is what
-    ///     the other item's predicate reads.</b> Undoing the only edit has to grey Undo and un-grey
+    ///     ⚠
+    ///     <b>
+    ///         Each run invalidates the document's commands, because the stack it just moved is what
+    ///         the other item's predicate reads.
+    ///     </b>
+    ///     Undoing the only edit has to grey Undo and un-grey
     ///     Redo in the same breath, and command state is pulled once per raise rather than observed —
     ///     so without this the menu keeps whatever enablement it had when it was opened.
     /// </remarks>

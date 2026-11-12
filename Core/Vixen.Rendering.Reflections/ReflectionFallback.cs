@@ -23,18 +23,24 @@ namespace Vixen.Rendering.Reflections;
 /// </remarks>
 public interface IReflectionFallback {
     /// <summary>What a reflection ray that escaped the scene sees.</summary>
-    /// <param name="position">Where the reflecting surface is, in world space — a probe selector's
-    ///     input, which is why a miss carries it.</param>
+    /// <param name="position">
+    ///     Where the reflecting surface is, in world space — a probe selector's
+    ///     input, which is why a miss carries it.
+    /// </param>
     /// <param name="direction">Which way the ray went, normalised.</param>
-    /// <param name="roughness">How rough the reflecting surface is, zero to one — a prefiltered
-    ///     probe picks its mip by it.</param>
+    /// <param name="roughness">
+    ///     How rough the reflecting surface is, zero to one — a prefiltered
+    ///     probe picks its mip by it.
+    /// </param>
     /// <returns>The radiance arriving from there.</returns>
     Vector3 Miss(Vector3 position, Vector3 direction, float roughness);
 }
 
 /// <summary>The sky as the miss answer — a project with no probes, honestly.</summary>
-/// <remarks>Exactly what every reflection in doc 06 sees beyond the probes today, so composing the
-///     tracer over an existing scene with this fallback changes only what the trace hits.</remarks>
+/// <remarks>
+///     Exactly what every reflection in doc 06 sees beyond the probes today, so composing the
+///     tracer over an existing scene with this fallback changes only what the trace hits.
+/// </remarks>
 public sealed class SkyFallback(IRadianceSource source) : IReflectionFallback {
     readonly IRadianceSource source = source ?? throw new ArgumentNullException(nameof(source));
 

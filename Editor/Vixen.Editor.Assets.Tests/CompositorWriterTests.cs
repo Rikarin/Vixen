@@ -30,21 +30,22 @@ namespace Tests;
 /// </remarks>
 public class CompositorWriterTests {
     /// <summary>Every knob at its ceiling — the configuration that emits every node kind.</summary>
-    static StandardFrameAsset AllOn => new() {
-        Quality = QualityTier.Epic,
-        Shadows = ShadowMode.Virtual,
-        Gi = GiMode.Probes,
-        Reflections = ReflectionsMode.Screen,
-        Antialiasing = AntialiasingMode.TaaFxaa,
-        Exposure = ExposureMode.Automatic,
-        Particles = true
-    };
+    static StandardFrameAsset AllOn =>
+        new() {
+            Quality = QualityTier.Epic,
+            Shadows = ShadowMode.Virtual,
+            Gi = GiMode.Probes,
+            Reflections = ReflectionsMode.Screen,
+            Antialiasing = AntialiasingMode.TaaFxaa,
+            Exposure = ExposureMode.Automatic,
+            Particles = true
+        };
 
     static GraphicsCompositorAsset Exploded(out IReadOnlyDictionary<object, string> notes) =>
         PostEffectFactory.Transform(new() { Game = AllOn }, out notes);
 
     static string[] Names(GraphicsCompositorAsset document) =>
-        [.. Assert.IsType<SequenceAsset>(document.Game).Children.Select(child => child.Name)];
+        [..Assert.IsType<SequenceAsset>(document.Game).Children.Select(static child => child.Name)];
 
     [Fact]
     public void The_full_expansion_reads_back_structurally_identical() {
@@ -58,8 +59,8 @@ public class CompositorWriterTests {
         Assert.Equal(Names(expanded), Names(reread));
 
         Assert.Equal(
-            Assert.IsType<SequenceAsset>(expanded.Game).Children.Select(child => child.GetType()),
-            Assert.IsType<SequenceAsset>(reread.Game).Children.Select(child => child.GetType())
+            Assert.IsType<SequenceAsset>(expanded.Game).Children.Select(static child => child.GetType()),
+            Assert.IsType<SequenceAsset>(reread.Game).Children.Select(static child => child.GetType())
         );
 
         // The fixed point: what was read back writes the same bytes, so the deep structure —
@@ -77,10 +78,7 @@ public class CompositorWriterTests {
                 new() { Name = "Mask", Format = PixelFormat.R32UInt, Width = 256, Height = 128 }
             ],
             Buffers = [new() { Name = "Histogram", Size = 1024, Usage = BufferUsage.Storage | BufferUsage.CopySource }],
-            ViewBlock = new() {
-                Size = 96,
-                Members = [new() { Name = "Vixen.ViewProjection", Offset = 0, Size = 64 }]
-            },
+            ViewBlock = new() { Size = 96, Members = [new() { Name = "Vixen.ViewProjection", Offset = 0, Size = 64 }] },
             GpuDriven = new() { MaterialRecords = true },
             Game = new SequenceAsset {
                 Name = "Frame",
@@ -128,7 +126,7 @@ public class CompositorWriterTests {
 
         var pass = Assert.IsType<SequenceAsset>(reread.Game).Children.OfType<RenderPassAsset>().Single();
 
-        Assert.Equal(new Color3(0.25f, 0.5f, 0.75f), pass.ClearColour);
+        Assert.Equal(new(0.25f, 0.5f, 0.75f), pass.ClearColour);
     }
 
     /// <summary>
@@ -167,7 +165,10 @@ public class CompositorWriterTests {
 
         // A resource's note sits directly above its entry, and a node's above its tag line.
         var lines = text.Split('\n');
-        var hdr = Array.FindIndex(lines, line => line.TrimStart().StartsWith("- name: SceneHdr", StringComparison.Ordinal));
+        var hdr = Array.FindIndex(
+            lines,
+            static line => line.TrimStart().StartsWith("- name: SceneHdr", StringComparison.Ordinal)
+        );
 
         Assert.True(hdr > 0, "the SceneHdr resource is in the text");
         Assert.Contains("#", lines[hdr - 1], StringComparison.Ordinal);
@@ -175,7 +176,10 @@ public class CompositorWriterTests {
         Assert.Contains("Fog is light in the scene", text, StringComparison.Ordinal);
 
         // The notes wrap rather than running to one enormous line.
-        Assert.All(lines.Where(line => line.TrimStart().StartsWith('#')), line => Assert.True(line.Length <= 100, line));
+        Assert.All(
+            lines.Where(static line => line.TrimStart().StartsWith('#')),
+            static line => Assert.True(line.Length <= 100, line)
+        );
     }
 
     /// <summary>

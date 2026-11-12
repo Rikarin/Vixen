@@ -46,14 +46,12 @@ public class ColorModelTests {
     public void Oklab_lightness_ranks_colours_the_way_an_eye_does() {
         // The reason the model is offered at all: HSV says these are equally bright and they are
         // nothing of the kind.
-        var yellow = Hsv.FromRgb(new Color4(1f, 1f, 0f, 1f));
-        var blue = Hsv.FromRgb(new Color4(0f, 0f, 1f, 1f));
+        var yellow = Hsv.FromRgb(new(1f, 1f, 0f, 1f));
+        var blue = Hsv.FromRgb(new(0f, 0f, 1f, 1f));
 
         Assert.Equal(yellow.V, blue.V, 4);
 
-        Assert.True(
-            OkLch.FromSrgb(new Color4(1f, 1f, 0f, 1f)).L > OkLch.FromSrgb(new Color4(0f, 0f, 1f, 1f)).L + 0.3f
-        );
+        Assert.True(OkLch.FromSrgb(new(1f, 1f, 0f, 1f)).L > OkLch.FromSrgb(new(0f, 0f, 1f, 1f)).L + 0.3f);
     }
 
     [Fact]
@@ -73,7 +71,7 @@ public class ColorModelTests {
         var linear = new Oklab(colour.L, colour.C * MathF.Cos(radians), colour.C * MathF.Sin(radians)).ToLinear();
 
         return OkLch.FromSrgb(
-            new Color4(
+            new(
                 ColorSpace.LinearToSrgb(Math.Clamp(linear.X, 0f, 1f)),
                 ColorSpace.LinearToSrgb(Math.Clamp(linear.Y, 0f, 1f)),
                 ColorSpace.LinearToSrgb(Math.Clamp(linear.Z, 0f, 1f)),
@@ -143,8 +141,8 @@ public class ColorModelTests {
 
     [Fact]
     public void An_opaque_colour_is_written_without_an_alpha_pair() {
-        Assert.Equal("#3b6cf0", Hex.ToString(new Color4(0.2314f, 0.4235f, 0.9412f, 1f)));
-        Assert.Equal("#3b6cf080", Hex.ToString(new Color4(0.2314f, 0.4235f, 0.9412f, 0.502f)));
+        Assert.Equal("#3b6cf0", Hex.ToString(new(0.2314f, 0.4235f, 0.9412f, 1f)));
+        Assert.Equal("#3b6cf080", Hex.ToString(new(0.2314f, 0.4235f, 0.9412f, 0.502f)));
     }
 }
 
@@ -162,7 +160,7 @@ public class ColorPickerTests {
         using var fixture = new AdvancedFixture();
         var picker = Picker(fixture);
 
-        picker.Value = new Color4(1f, 0f, 0f, 1f);
+        picker.Value = new(1f, 0f, 0f, 1f);
         fixture.Update();
 
         var bounds = picker.Field.Bounds;
@@ -178,9 +176,9 @@ public class ColorPickerTests {
         Assert.Equal(1f, picker.Value.B, 2);
 
         // Bottom is black at any saturation.
-        fixture.Press(bounds.X + (bounds.Width * 0.5f), bounds.Bottom - 4f);
-        fixture.Move(bounds.X + (bounds.Width * 0.5f), bounds.Bottom);
-        fixture.Release(bounds.X + (bounds.Width * 0.5f), bounds.Bottom);
+        fixture.Press(bounds.X + bounds.Width * 0.5f, bounds.Bottom - 4f);
+        fixture.Move(bounds.X + bounds.Width * 0.5f, bounds.Bottom);
+        fixture.Release(bounds.X + bounds.Width * 0.5f, bounds.Bottom);
 
         Assert.Equal(0f, picker.Value.R, 2);
     }
@@ -190,7 +188,7 @@ public class ColorPickerTests {
         using var fixture = new AdvancedFixture();
         var picker = Picker(fixture);
 
-        picker.Value = new Color4(0f, 0.6f, 1f, 1f);
+        picker.Value = new(0f, 0.6f, 1f, 1f);
         fixture.Update();
 
         var hue = picker.Hue;
@@ -200,16 +198,16 @@ public class ColorPickerTests {
         // user was on, because the very next thing they do is drag it back up.
         var bounds = picker.Field.Bounds;
 
-        fixture.Press(bounds.X + (bounds.Width * 0.5f), bounds.Bottom - 4f);
-        fixture.Move(bounds.X + (bounds.Width * 0.5f), bounds.Bottom);
-        fixture.Release(bounds.X + (bounds.Width * 0.5f), bounds.Bottom);
+        fixture.Press(bounds.X + bounds.Width * 0.5f, bounds.Bottom - 4f);
+        fixture.Move(bounds.X + bounds.Width * 0.5f, bounds.Bottom);
+        fixture.Release(bounds.X + bounds.Width * 0.5f, bounds.Bottom);
 
-        Assert.Equal(new Color4(0f, 0f, 0f, 1f), picker.Value);
+        Assert.Equal(new(0f, 0f, 0f, 1f), picker.Value);
         Assert.Equal(hue, picker.Hue, 3);
 
-        fixture.Press(bounds.X + (bounds.Width * 0.5f), bounds.Y + 4f);
-        fixture.Move(bounds.X + (bounds.Width * 0.5f), bounds.Y);
-        fixture.Release(bounds.X + (bounds.Width * 0.5f), bounds.Y);
+        fixture.Press(bounds.X + bounds.Width * 0.5f, bounds.Y + 4f);
+        fixture.Move(bounds.X + bounds.Width * 0.5f, bounds.Y);
+        fixture.Release(bounds.X + bounds.Width * 0.5f, bounds.Y);
 
         Assert.Equal(hue, Hsv.FromRgb(picker.Value).H, 1);
     }
@@ -219,16 +217,16 @@ public class ColorPickerTests {
         using var fixture = new AdvancedFixture();
         var picker = Picker(fixture);
 
-        picker.Value = new Color4(1f, 0f, 0f, 1f);
+        picker.Value = new(1f, 0f, 0f, 1f);
         fixture.Update();
 
         var bounds = picker.HueStrip.Bounds;
 
-        fixture.Press(bounds.X + (bounds.Width / 3f), bounds.Y + 4f);
-        fixture.Release(bounds.X + (bounds.Width / 3f), bounds.Y + 4f);
+        fixture.Press(bounds.X + bounds.Width / 3f, bounds.Y + 4f);
+        fixture.Release(bounds.X + bounds.Width / 3f, bounds.Y + 4f);
 
         Assert.Equal(120f, picker.Hue, 1);
-        Assert.Equal(new Color4(0f, 1f, 0f, 1f), picker.Value);
+        Assert.Equal(new(0f, 1f, 0f, 1f), picker.Value);
     }
 
     [Fact]
@@ -236,13 +234,13 @@ public class ColorPickerTests {
         using var fixture = new AdvancedFixture();
         var picker = Picker(fixture);
 
-        picker.Value = new Color4(0.2f, 0.4f, 0.9f, 1f);
+        picker.Value = new(0.2f, 0.4f, 0.9f, 1f);
         fixture.Update();
 
         var bounds = picker.AlphaStrip.Bounds;
 
-        fixture.Press(bounds.X + (bounds.Width * 0.5f), bounds.Y + 4f);
-        fixture.Release(bounds.X + (bounds.Width * 0.5f), bounds.Y + 4f);
+        fixture.Press(bounds.X + bounds.Width * 0.5f, bounds.Y + 4f);
+        fixture.Release(bounds.X + bounds.Width * 0.5f, bounds.Y + 4f);
 
         Assert.Equal(0.5f, picker.Value.A, 1);
         Assert.Equal(0.2f, picker.Value.R, 3);
@@ -266,7 +264,7 @@ public class ColorPickerTests {
         using var fixture = new AdvancedFixture();
         var picker = Picker(fixture);
 
-        picker.Value = new Color4(0f, 1f, 0f, 1f);
+        picker.Value = new(0f, 1f, 0f, 1f);
         Assert.Equal("#00ff00", picker.HexField.Value);
 
         picker.HexField.Value = "#3b6cf0";
@@ -282,7 +280,7 @@ public class ColorPickerTests {
         using var fixture = new AdvancedFixture();
         var picker = Picker(fixture);
 
-        picker.Value = new Color4(0f, 1f, 0f, 1f);
+        picker.Value = new(0f, 1f, 0f, 1f);
 
         picker.HexField.Value = "#12zz34";
         fixture.Document.Focus(picker.HexField);
@@ -291,7 +289,7 @@ public class ColorPickerTests {
         // ⚠ Otherwise the field looks accepted and the next thing to read the colour disagrees with
         // what is on the screen.
         Assert.Equal("#00ff00", picker.HexField.Value);
-        Assert.Equal(new Color4(0f, 1f, 0f, 1f), picker.Value);
+        Assert.Equal(new(0f, 1f, 0f, 1f), picker.Value);
     }
 
     [Fact]
@@ -299,7 +297,7 @@ public class ColorPickerTests {
         using var fixture = new AdvancedFixture();
         var picker = Picker(fixture);
 
-        picker.Value = new Color4(0.2f, 0.6f, 0.9f, 1f);
+        picker.Value = new(0.2f, 0.6f, 0.9f, 1f);
 
         var before = picker.Value;
         picker.Model = ColorModel.OkLch;
@@ -316,15 +314,15 @@ public class ColorPickerTests {
         var picker = Picker(fixture);
 
         picker.Model = ColorModel.OkLch;
-        picker.Value = new Color4(0.8f, 0.2f, 0.2f, 1f);
+        picker.Value = new(0.8f, 0.2f, 0.2f, 1f);
 
         fixture.Update();
 
         var bounds = picker.Field.Bounds;
 
         // A quarter down the field is a lightness of three quarters, by construction.
-        fixture.Press(bounds.X + (bounds.Width * 0.4f), bounds.Y + (bounds.Height * 0.25f));
-        fixture.Release(bounds.X + (bounds.Width * 0.4f), bounds.Y + (bounds.Height * 0.25f));
+        fixture.Press(bounds.X + bounds.Width * 0.4f, bounds.Y + bounds.Height * 0.25f);
+        fixture.Release(bounds.X + bounds.Width * 0.4f, bounds.Y + bounds.Height * 0.25f);
 
         Assert.Equal(0.75f, OkLch.FromSrgb(picker.Value).L, 1);
     }
@@ -340,7 +338,7 @@ public class ColorPickerTests {
         var swatch = picker.Palette.Children.OfType<ColorSwatch>().ElementAt(1);
         fixture.Click(swatch);
 
-        Assert.Equal(new Color4(0f, 0f, 1f, 1f), picker.Value);
+        Assert.Equal(new(0f, 0f, 1f, 1f), picker.Value);
     }
 
     /// <summary>
@@ -378,7 +376,7 @@ public class ColorPickerTests {
         using var fixture = new AdvancedFixture();
         var picker = Picker(fixture);
 
-        picker.Value = new Color4(1f, 0f, 0f, 1f);
+        picker.Value = new(1f, 0f, 0f, 1f);
 
         Assert.True(picker.AddToPalette());
         Assert.False(picker.AddToPalette());
@@ -394,7 +392,7 @@ public class ColorPickerTests {
         var picker = Picker(fixture);
 
         picker.AllowHdr = true;
-        picker.Value = new Color4(0.5f, 0.25f, 0f, 1f);
+        picker.Value = new(0.5f, 0.25f, 0f, 1f);
 
         var marker = picker.Field.Marker;
         picker.Intensity = 8f;
@@ -404,7 +402,7 @@ public class ColorPickerTests {
 
         // The chromaticity survives, which is what keeping the two apart buys.
         Assert.Equal(marker, picker.Field.Marker);
-        Assert.Equal(new Color4(0.5f, 0.25f, 0f, 1f), picker.Value);
+        Assert.Equal(new(0.5f, 0.25f, 0f, 1f), picker.Value);
     }
 
     [Fact]
@@ -436,10 +434,10 @@ public class ColorPickerTests {
         Assert.Equal(1, asked);
         Assert.True(picker.IsPicking);
 
-        picker.Pick(new Color4(0.1f, 0.2f, 0.3f, 1f));
+        picker.Pick(new(0.1f, 0.2f, 0.3f, 1f));
 
         Assert.False(picker.IsPicking);
-        Assert.Equal(new Color4(0.1f, 0.2f, 0.3f, 1f), picker.Value);
+        Assert.Equal(new(0.1f, 0.2f, 0.3f, 1f), picker.Value);
     }
 
     [Fact]
@@ -450,12 +448,12 @@ public class ColorPickerTests {
         var changes = 0;
         picker.ValueChanged += (_, _) => changes++;
 
-        picker.Value = new Color4(1f, 0f, 0f, 1f);
+        picker.Value = new(1f, 0f, 0f, 1f);
         Assert.Equal(1, changes);
 
         // Assigning the same colour is not a change, which is what stops a two-way binding from
         // looping.
-        picker.Value = new Color4(1f, 0f, 0f, 1f);
+        picker.Value = new(1f, 0f, 0f, 1f);
         Assert.Equal(1, changes);
     }
 
@@ -502,7 +500,7 @@ public class ColorPickerTests {
         picker.Model = ColorModel.OkLch;
         fixture.Update();
 
-        picker.Value = new Color4(0f, 0.6f, 0.9f, 1f);
+        picker.Value = new(0f, 0.6f, 0.9f, 1f);
         fixture.Update();
 
         Assert.NotEqual(0f, picker.Hue);
@@ -520,15 +518,15 @@ public class ColorPickerTests {
         var picker = Picker(fixture);
 
         picker.Model = ColorModel.OkLch;
-        picker.Value = new Color4(0.8f, 0.2f, 0.2f, 1f);
+        picker.Value = new(0.8f, 0.2f, 0.2f, 1f);
         fixture.Update();
 
         for (var i = 0; i < ColorField.Samples; i++) {
             var chroma = (i + 0.5f) / ColorField.Samples * ColorPicker.MaximumChroma;
 
             for (var j = 0; j < ColorField.Samples; j++) {
-                var top = new OkLch(1f - (j / (float)ColorField.Samples), chroma, picker.Hue).ToSrgb();
-                var bottom = new OkLch(1f - ((j + 1f) / ColorField.Samples), chroma, picker.Hue).ToSrgb();
+                var top = new OkLch(1f - j / (float)ColorField.Samples, chroma, picker.Hue).ToSrgb();
+                var bottom = new OkLch(1f - (j + 1f) / ColorField.Samples, chroma, picker.Hue).ToSrgb();
 
                 Assert.Equal(top, picker.Field.PlaneColour(i, j));
                 Assert.Equal(bottom, picker.Field.PlaneColour(i, j + 1));
@@ -562,7 +560,7 @@ public class ColorInputTests {
         using var fixture = new AdvancedFixture();
         var input = Input(fixture);
 
-        input.Value = new Color4(0.2f, 0.4f, 0.9f, 1f);
+        input.Value = new(0.2f, 0.4f, 0.9f, 1f);
         fixture.Update();
 
         Assert.Equal(input.Value, input.Swatch.Color);
@@ -574,8 +572,8 @@ public class ColorInputTests {
 
         var bounds = input.Bounds;
 
-        fixture.Press(bounds.X + (bounds.Width * 0.5f), bounds.Y + (bounds.Height * 0.5f));
-        fixture.Release(bounds.X + (bounds.Width * 0.5f), bounds.Y + (bounds.Height * 0.5f));
+        fixture.Press(bounds.X + bounds.Width * 0.5f, bounds.Y + bounds.Height * 0.5f);
+        fixture.Release(bounds.X + bounds.Width * 0.5f, bounds.Y + bounds.Height * 0.5f);
         fixture.Update();
 
         Assert.True(input.IsOpen, "clicking the swatch did not open the picker");
@@ -598,11 +596,11 @@ public class ColorInputTests {
         input.Open();
         fixture.Update();
 
-        input.Picker.Value = new Color4(1f, 0f, 0f, 1f);
+        input.Picker.Value = new(1f, 0f, 0f, 1f);
         fixture.Update();
 
-        Assert.Equal(new Color4(1f, 0f, 0f, 1f), input.Value);
-        Assert.Equal(new Color4(1f, 0f, 0f, 1f), input.Swatch.Color);
+        Assert.Equal(new(1f, 0f, 0f, 1f), input.Value);
+        Assert.Equal(new(1f, 0f, 0f, 1f), input.Swatch.Color);
         Assert.Equal(new Color4(1f, 0f, 0f, 1f), reported);
     }
 

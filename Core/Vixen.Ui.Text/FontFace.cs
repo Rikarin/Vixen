@@ -28,8 +28,12 @@ public readonly record struct FontMetrics(int Ascender, int Descender, int LineG
 ///         it, and no test of a single font can tell the two apart.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Positive is <i>upwards</i>, as the font grid has it, so an underline offset is
-///         negative.</b> The draw list is y-down; <see cref="Vixen.Ui" />'s <c>TextRun</c> is where
+///         ⚠
+///         <b>
+///             Positive is <i>upwards</i>, as the font grid has it, so an underline offset is
+///             negative.
+///         </b>
+///         The draw list is y-down; <see cref="Vixen.Ui" />'s <c>TextRun</c> is where
 ///         the sign flips, in the same place and for the same reason <c>Place</c> flips a glyph's.
 ///     </para>
 ///     <para>
@@ -107,16 +111,23 @@ public sealed class FontFace : IDisposable {
     /// <summary>Where this face wants an underline and a line-through, in design units.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>Read on every access rather than cached beside <see cref="Metrics" />, and the
-    ///         difference is variable fonts.</b> <c>MVAR</c> moves all four of these along an axis, and
+    ///         <b>
+    ///             Read on every access rather than cached beside <see cref="Metrics" />, and the
+    ///             difference is variable fonts.
+    ///         </b>
+    ///         <c>MVAR</c> moves all four of these along an axis, and
     ///         HarfBuzz answers for whatever instance <see cref="SetInstance" /> left the shaper at —
     ///         so a cached copy would be the default instance's numbers wearing the current one's
     ///         name. It is one native call per <i>decorated run</i>, not per glyph, against four that
     ///         shaping the run already made.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A face that reports nothing is synthesised from, and a face that reports zero is
-    ///         treated as reporting nothing.</b> Both happen: <c>TestGSUBOne.otf</c> in this
+    ///         ⚠
+    ///         <b>
+    ///             A face that reports nothing is synthesised from, and a face that reports zero is
+    ///             treated as reporting nothing.
+    ///         </b>
+    ///         Both happen: <c>TestGSUBOne.otf</c> in this
     ///         repository's own font set carries a <c>post</c> table whose underline position and
     ///         thickness are both literally zero. Taken at face value that is a zero-height line on
     ///         the baseline — an underline that is invisible <i>and</i> in the wrong place — which
@@ -144,7 +155,7 @@ public sealed class FontFace : IDisposable {
             var strikeoutOffset = Positive(OpenTypeMetricsTag.StrikeoutOffset)
                 ?? (Positive(OpenTypeMetricsTag.XHeight) is { } height ? height / 2 : Metrics.Ascender / 4);
 
-            return new DecorationMetrics(
+            return new(
                 underlineOffset,
                 underlineThickness,
                 strikeoutOffset,
@@ -177,8 +188,7 @@ public sealed class FontFace : IDisposable {
     public int SuperscriptOffset => Positive(OpenTypeMetricsTag.SuperScriptEmYOffset) ?? UnitsPerEm / 3;
 
     /// <summary>One OpenType metric, or null where the face does not carry the table it lives in.</summary>
-    int? Metric(OpenTypeMetricsTag tag) =>
-        font.OpenTypeMetrics.TryGetPosition(tag, out var value) ? value : null;
+    int? Metric(OpenTypeMetricsTag tag) => font.OpenTypeMetrics.TryGetPosition(tag, out var value) ? value : null;
 
     /// <summary>The same, treating a zero or a negative as "the face has no opinion".</summary>
     /// <remarks>
@@ -206,7 +216,7 @@ public sealed class FontFace : IDisposable {
         Blob blob;
 
         try {
-            blob = new Blob(handle.AddrOfPinnedObject(), data.Length, MemoryMode.Duplicate);
+            blob = new(handle.AddrOfPinnedObject(), data.Length, MemoryMode.Duplicate);
         } finally {
             handle.Free();
         }
@@ -221,13 +231,14 @@ public sealed class FontFace : IDisposable {
         // which reads as a shaping bug rather than as a missing line of setup.
         font.SetFunctionsOpenType();
 
-        return new FontFace(blob, face, font, name ?? "font");
+        return new(blob, face, font, name ?? "font");
     }
 
     /// <summary>The glyph a code point maps to through the font's <c>cmap</c>.</summary>
     /// <param name="codePoint">The code point.</param>
     /// <returns>The glyph id, or zero — <c>.notdef</c> — if the font has no glyph for it.</returns>
-    public ushort GlyphFor(int codePoint) => font.TryGetNominalGlyph(codePoint, out var glyph) ? (ushort)glyph : (ushort)0;
+    public ushort GlyphFor(int codePoint) =>
+        font.TryGetNominalGlyph(codePoint, out var glyph) ? (ushort)glyph : (ushort)0;
 
     /// <summary>Whether the font can draw a code point at all.</summary>
     /// <param name="codePoint">The code point.</param>
@@ -257,7 +268,7 @@ public sealed class FontFace : IDisposable {
         }
 
         // HarfBuzz gives a bearing and a signed size, with height running down from the top.
-        bounds = new GlyphBounds(
+        bounds = new(
             extents.XBearing,
             extents.YBearing + extents.Height,
             extents.XBearing + extents.Width,
@@ -334,7 +345,7 @@ public sealed class FontFace : IDisposable {
 
         Instance = wanted;
 
-        Span<int> coordinates = wanted.Coordinates.Length <= 16
+        var coordinates = wanted.Coordinates.Length <= 16
             ? stackalloc int[wanted.Coordinates.Length]
             : new int[wanted.Coordinates.Length];
 
@@ -360,11 +371,10 @@ public sealed class FontFace : IDisposable {
     /// <summary>Built on first use: a face is loaded to shape with far more often than to draw from.</summary>
     GlyphOutlineSource Outlines => outlines ??= GlyphOutlineSource.Create(Table, UnitsPerEm);
 
-    ImmutableArray<AxisSegmentMap> SegmentMaps =>
-        maps ??= VariationTables.ReadSegmentMaps(Table("avar"), Axes.Length);
+    ImmutableArray<AxisSegmentMap> SegmentMaps => maps ??= VariationTables.ReadSegmentMaps(Table("avar"), Axes.Length);
 
     byte[] Table(string tag) {
-        using var table = face.ReferenceTable(new Tag(tag[0], tag[1], tag[2], tag[3]));
+        using var table = face.ReferenceTable(new(tag[0], tag[1], tag[2], tag[3]));
         return table.Length == 0 ? [] : table.AsSpan().ToArray();
     }
 

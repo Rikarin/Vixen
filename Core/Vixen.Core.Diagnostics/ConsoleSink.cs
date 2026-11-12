@@ -66,8 +66,9 @@ public sealed class ConsoleSink : LogRecordSink {
     ///     The filter to use, or <see langword="null" /> for one of this sink's own.
     /// </param>
     public ConsoleSink(LogLevel minimumLevel = LogLevel.Information, LogFilter? filter = null)
-        : this(Console.Out, Console.Error, minimumLevel, filter) =>
+        : this(Console.Out, Console.Error, minimumLevel, filter) {
         UseColour = DetectColourSupport();
+    }
 
     internal ConsoleSink(
         TextWriter output,
@@ -118,15 +119,16 @@ public sealed class ConsoleSink : LogRecordSink {
         return !Console.IsOutputRedirected;
     }
 
-    static string ColourFor(LogLevel level) => level switch {
-        LogLevel.Trace => "\e[90m",
-        LogLevel.Debug => "\e[90m",
-        LogLevel.Information => "\e[32m",
-        LogLevel.Warning => "\e[33m",
-        LogLevel.Error => "\e[31m",
-        LogLevel.Critical => "\e[97;41m",
-        _ => Reset
-    };
+    static string ColourFor(LogLevel level) =>
+        level switch {
+            LogLevel.Trace => "\e[90m",
+            LogLevel.Debug => "\e[90m",
+            LogLevel.Information => "\e[32m",
+            LogLevel.Warning => "\e[33m",
+            LogLevel.Error => "\e[31m",
+            LogLevel.Critical => "\e[97;41m",
+            _ => Reset
+        };
 
     void Format(StringBuilder target, LogRecord record) {
         if (ShowTimestamps) {

@@ -201,12 +201,13 @@ public readonly record struct InputControl(InputDeviceKind Device, ushort Code, 
     ///     What decides whether a dead zone means anything, whether a press point applies, and
     ///     whether a rebinding operation should wait for the value to settle before accepting it.
     /// </remarks>
-    public bool IsAnalogue => Device switch {
-        InputDeviceKind.Mouse => Code >= (ushort)MouseControl.DeltaX,
-        InputDeviceKind.Gamepad => Code >= (ushort)GamepadControl.LeftStickX,
-        InputDeviceKind.Touch => Code >= (ushort)TouchControl.DeltaX,
-        _ => false
-    };
+    public bool IsAnalogue =>
+        Device switch {
+            InputDeviceKind.Mouse => Code >= (ushort)MouseControl.DeltaX,
+            InputDeviceKind.Gamepad => Code >= (ushort)GamepadControl.LeftStickX,
+            InputDeviceKind.Touch => Code >= (ushort)TouchControl.DeltaX,
+            _ => false
+        };
 
     /// <summary>A keyboard key.</summary>
     /// <param name="key">Which key.</param>

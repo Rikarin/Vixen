@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Ai;
-using Vixen.Editor.Ai;
 using Xunit;
 
 namespace Vixen.Editor.Ai.Tests;
@@ -14,7 +13,7 @@ public class BehaviorTreeModelTests {
 
         Assert.Equal(
             ["Root", "Left", "A", "B", "Right", "C"],
-            model.Walk().Select(node => node.Name).ToArray()
+            model.Walk().Select(static node => node.Name).ToArray()
         );
 
         Assert.Equal(0, model.IndexOf(model.Content.Root!));
@@ -28,7 +27,7 @@ public class BehaviorTreeModelTests {
 
         model.Insert(root, Node("Middle"), 1);
 
-        Assert.Equal(["Left", "Middle", "Right"], root.Children.Select(child => child.Name).ToArray());
+        Assert.Equal(["Left", "Middle", "Right"], root.Children.Select(static child => child.Name).ToArray());
     }
 
     [Fact]
@@ -37,7 +36,7 @@ public class BehaviorTreeModelTests {
         var root = model.Content.Root!;
 
         Assert.True(model.Reorder(root.Children[1], -1));
-        Assert.Equal(["Right", "Left"], root.Children.Select(child => child.Name).ToArray());
+        Assert.Equal(["Right", "Left"], root.Children.Select(static child => child.Name).ToArray());
 
         Assert.False(model.Reorder(root.Children[0], -1));
         Assert.False(model.Reorder(root.Children[1], 1));
@@ -50,7 +49,7 @@ public class BehaviorTreeModelTests {
     /// </summary>
     [Fact]
     public void ReparentingWithinOneParentAccountsForTheRemoval() {
-        var model = new BehaviorTreeModel(new BehaviorTreeContent { Root = Node("Root") });
+        var model = new BehaviorTreeModel(new() { Root = Node("Root") });
         var root = model.Content.Root!;
 
         foreach (var name in new[] { "a", "b", "c", "d" }) {
@@ -58,7 +57,7 @@ public class BehaviorTreeModelTests {
         }
 
         Assert.True(model.Reparent(root.Children[0], root, 3));
-        Assert.Equal(["b", "c", "a", "d"], root.Children.Select(child => child.Name).ToArray());
+        Assert.Equal(["b", "c", "a", "d"], root.Children.Select(static child => child.Name).ToArray());
     }
 
     [Fact]
@@ -76,7 +75,7 @@ public class BehaviorTreeModelTests {
         var model = Tree();
 
         Assert.True(model.Remove(model.Content.Root!.Children[0]));
-        Assert.Equal(["Root", "Right", "C"], model.Walk().Select(node => node.Name).ToArray());
+        Assert.Equal(["Root", "Right", "C"], model.Walk().Select(static node => node.Name).ToArray());
     }
 
     [Fact]
@@ -89,10 +88,10 @@ public class BehaviorTreeModelTests {
         model.Attach(node, BehaviorAttachmentSlot.Decorator, first);
         model.Attach(node, BehaviorAttachmentSlot.Decorator, second, 0);
 
-        Assert.Equal(["ForceSuccess", "Inverter"], node.Decorators.Select(row => row.Type).ToArray());
+        Assert.Equal(["ForceSuccess", "Inverter"], node.Decorators.Select(static row => row.Type).ToArray());
 
         Assert.True(model.MoveAttachment(node, BehaviorAttachmentSlot.Decorator, second, 1));
-        Assert.Equal(["Inverter", "ForceSuccess"], node.Decorators.Select(row => row.Type).ToArray());
+        Assert.Equal(["Inverter", "ForceSuccess"], node.Decorators.Select(static row => row.Type).ToArray());
 
         Assert.True(model.Detach(node, BehaviorAttachmentSlot.Decorator, second));
         Assert.Single(node.Decorators);
@@ -173,7 +172,7 @@ public class BehaviorTreeModelTests {
         // not `Right`, which is what Unreal's wider rule would have reached.
         Assert.Equal(
             ["Left", "A", "B"],
-            model.AbortScope(gated, decorator).Select(node => node.Name).ToArray()
+            model.AbortScope(gated, decorator).Select(static node => node.Name).ToArray()
         );
     }
 

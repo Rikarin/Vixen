@@ -44,19 +44,24 @@ public class RangeFillEdgeTests {
     /// </summary>
     const float Thumb = 41f;
 
-    const float RailLeft = 10f + (Thumb / 2f);
+    const float RailLeft = 10f + Thumb / 2f;
     const float RailWidth = 180f - Thumb;
 
     /// <summary>A bar's box: 180 × 20 at (10, 20), so its ends are 10 px round.</summary>
     /// <remarks>
-    ///     ⚠ <b>A bar's long edges cannot be put between pixel rows, and that narrows the defect for
-    ///     two of the four.</b> A progress bar and a level indicator fill their own box, and layout
+    ///     ⚠
+    ///     <b>
+    ///         A bar's long edges cannot be put between pixel rows, and that narrows the defect for
+    ///         two of the four.
+    ///     </b>
+    ///     A progress bar and a level indicator fill their own box, and layout
     ///     snaps every box to whole device pixels (<c>LayoutTree.RoundToPixelGrid</c>), so their long
     ///     edges carry no partial pixel for a track to show through — asking for 20.3 and 19.4 gets
     ///     20 and 20. Their fringe is at the rounded ends. A slider's rail is a computed three tenths
     ///     of its thumb, centred, so its edges land wherever the arithmetic puts them.
     /// </remarks>
     const float BarLeft = 10f;
+
     const float BarWidth = 180f;
     const float BarRadius = 10f;
 
@@ -95,7 +100,12 @@ public class RangeFillEdgeTests {
         range.Low = 0.25f;
         range.High = 0.75f;
         ui.Frame();
-        AssertNoTrackIn(ui, ThumbLeft(0.25f) + (int)Thumb + 2, ThumbLeft(0.75f) - 2, "a range slider from 0.25 to 0.75");
+        AssertNoTrackIn(
+            ui,
+            ThumbLeft(0.25f) + (int)Thumb + 2,
+            ThumbLeft(0.75f) - 2,
+            "a range slider from 0.25 to 0.75"
+        );
     }
 
     [Fact]
@@ -146,8 +156,11 @@ public class RangeFillEdgeTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>The instrument: the same classifier, over the same columns, finds the track when there
-    ///     is track there to find.</b>
+    ///     ⚠
+    ///     <b>
+    ///         The instrument: the same classifier, over the same columns, finds the track when there
+    ///         is track there to find.
+    ///     </b>
     /// </summary>
     /// <remarks>
     ///     Without this every assertion above could be passing because the classifier sees nothing,
@@ -234,7 +247,7 @@ public class RangeFillEdgeTests {
         ui.Frame();
 
         // The fill is the bottom 108 px, from y = 82 to 190: everything below its rounded top.
-        AssertNoTrackIn(ui, 0, Width, "a standing bar at 0.6", top: 82 + (int)BarRadius + 2);
+        AssertNoTrackIn(ui, 0, Width, "a standing bar at 0.6", 82 + (int)BarRadius + 2);
 
         bar.Value = 1f;
         ui.Frame();
@@ -300,10 +313,10 @@ public class RangeFillEdgeTests {
     }
 
     /// <summary>Where a slider's thumb box starts, at a reading.</summary>
-    static int ThumbLeft(float fraction) => (int)MathF.Floor(RailLeft + (RailWidth * fraction) - (Thumb / 2f));
+    static int ThumbLeft(float fraction) => (int)MathF.Floor(RailLeft + RailWidth * fraction - Thumb / 2f);
 
     /// <summary>Where a bar's fill ends, at a reading.</summary>
-    static int BarEnd(float fraction) => (int)MathF.Round(BarLeft + (BarWidth * fraction));
+    static int BarEnd(float fraction) => (int)MathF.Round(BarLeft + BarWidth * fraction);
 
     static UiTest Opened() =>
         ControlHarness.Open(

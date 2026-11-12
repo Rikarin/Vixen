@@ -13,8 +13,12 @@ namespace Vixen.Geometry;
 ///         collision by hand for geometry they will throw away next week does not author it at all.
 ///     </para>
 ///     <para>
-///         ⚠ <b>A box per connected <i>shell</i> rather than per convex piece, and the difference is
-///         stated rather than glossed.</b> Convex decomposition is a research problem with a
+///         ⚠
+///         <b>
+///             A box per connected <i>shell</i> rather than per convex piece, and the difference is
+///             stated rather than glossed.
+///         </b>
+///         Convex decomposition is a research problem with a
 ///         well-known set of approximate answers, none of them cheap; a shell is what
 ///         <see cref="EditMesh" /> can already tell you exactly. For a block-out the two mostly
 ///         coincide, because a block-out is made of boxes joined into rooms — and where they do not,
@@ -23,8 +27,12 @@ namespace Vixen.Geometry;
 ///         two matters is what <see cref="Triangles" /> is for.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Nothing here builds a <c>ShapeDescription</c>, and that is doc 24's D1 rather than an
-///         omission.</b> A hull, a mesh or a compound is registered <i>by its data</i> with a live
+///         ⚠
+///         <b>
+///             Nothing here builds a <c>ShapeDescription</c>, and that is doc 24's D1 rather than an
+///             omission.
+///         </b>
+///         A hull, a mesh or a compound is registered <i>by its data</i> with a live
 ///         physics world and the description holds the resulting index — see
 ///         <c>ShapeDescription</c>'s own remarks — so what a geometry kernel can produce is the data
 ///         and what turns it into a shape is the host that has a world.
@@ -150,7 +158,7 @@ public static class MeshCollision {
     public static (Vector3[] Positions, int[] Indices) Triangles(EditMesh mesh) {
         ArgumentNullException.ThrowIfNull(mesh);
 
-        return ([.. mesh.Positions], mesh.Triangulate());
+        return ([..mesh.Positions], mesh.Triangulate());
     }
 
     static int Find(int[] parent, int face) {

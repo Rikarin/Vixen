@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Diagnostics;
-using Vixen.Ai.Ecs;
 using Vixen.Core;
 using Vixen.Core.Threading;
 using Vixen.Ecs;
@@ -19,7 +18,6 @@ namespace Vixen.Ai.Tests;
 ///     and increases what it is carrying; eating one needs something carried and decreases hunger. The
 ///     plan is <c>PickUpPear</c> then <c>EatPear</c>, and it is found <b>backwards</b> — from the goal,
 ///     through the effect that serves its condition, to an action that can run now.
-///
 ///     ⚠ <b>The whole matching rule is a direction.</b> "Eating <i>reduces</i> hunger" is a fact about
 ///     the action that stays true while a designer tunes the numbers, and it is all the resolver needs
 ///     to know which action can serve which condition. The alternative — full symbolic world states
@@ -102,14 +100,14 @@ public class GoapPearTests {
             Symbol.Intern("pick-up-pear"),
             0,
             [new(ground, GoapComparison.Greater, 0)],
-            new GoapEffect(carried, Increases: true)
+            new GoapEffect(carried, true)
         );
 
         var eat = new GoapAction(
             Symbol.Intern("eat-pear"),
             1,
             [new(carried, GoapComparison.Greater, 0)],
-            new GoapEffect(hunger, Increases: false)
+            new GoapEffect(hunger, false)
         );
 
         var goal = new GoapGoal(Symbol.Intern("not-hungry"), [new(hunger, GoapComparison.Less, 20)]);
@@ -118,7 +116,7 @@ public class GoapPearTests {
     }
 
     internal static string[] Names(GoapDomain domain, GoapPlan plan) =>
-        [.. plan.Steps.ToArray().Select(step => domain[step].Name.ToString())];
+        [..plan.Steps.ToArray().Select(step => domain[step].Name.ToString())];
 
     internal sealed class Pantry {
         public int OnGround;
@@ -133,8 +131,12 @@ public class GoapPearTests {
 ///     hanging.
 /// </summary>
 /// <remarks>
-///     ⚠ <b>A GOAP search is exponential in depth and the engine must not hang on a badly authored
-///     action set.</b> That is not a hypothetical: a domain where every action's condition can be
+///     ⚠
+///     <b>
+///         A GOAP search is exponential in depth and the engine must not hang on a badly authored
+///         action set.
+///     </b>
+///     That is not a hypothetical: a domain where every action's condition can be
 ///     served by every other action is one an author can produce by accident in an afternoon, and
 ///     without a bound it is a frozen game with no error in the log.
 /// </remarks>
@@ -200,8 +202,18 @@ public class GoapBudgetTests {
             new(Symbol.Intern("b"), GoapWorldSources.Constant(1))
         );
 
-        var up = new GoapAction(Symbol.Intern("up"), 0, [new(other, GoapComparison.Greater, 0)], new GoapEffect(flag, true));
-        var down = new GoapAction(Symbol.Intern("down"), 1, [new(flag, GoapComparison.Greater, 0)], new GoapEffect(other, true));
+        var up = new GoapAction(
+            Symbol.Intern("up"),
+            0,
+            [new(other, GoapComparison.Greater, 0)],
+            new GoapEffect(flag, true)
+        );
+        var down = new GoapAction(
+            Symbol.Intern("down"),
+            1,
+            [new(flag, GoapComparison.Greater, 0)],
+            new GoapEffect(other, true)
+        );
         var goal = new GoapGoal(Symbol.Intern("want-a"), [new(flag, GoapComparison.Greater, 0)]);
         var planner = new GoapPlanner(new(Symbol.Intern("loop"), keys, [up, down], [goal]));
         var plan = new GoapPlan();
@@ -230,7 +242,7 @@ public class GoapBudgetTests {
                 Symbol.Intern($"a{index}"),
                 (ushort)index,
                 conditions,
-                new GoapEffect(new GoapWorldKey((ushort)index), Increases: true)
+                new GoapEffect(new((ushort)index), true)
             );
         }
 
@@ -255,7 +267,7 @@ public class GoapBudgetTests {
                 Symbol.Intern($"climb{index}"),
                 (ushort)index,
                 [new(new GoapWorldKey((ushort)(index + 1)), GoapComparison.Greater, 0)],
-                new GoapEffect(new GoapWorldKey((ushort)index), Increases: true)
+                new GoapEffect(new((ushort)index), true)
             );
         }
 
@@ -272,8 +284,12 @@ public class GoapBudgetTests {
 /// <remarks>
 ///     ⚠ <b>The budget is recorded and the <i>work</i> is asserted</b>, for the reason P3's cost test
 ///     gives: this repository builds Debug locally and Release in CI, so a millisecond threshold is
-///     not one number. What is asserted is the claim doc 37 § D16 makes — <b>a resolve does not run on
-///     the frame that asked for it</b>, and the frame's planning cost is the resolves-per-step times
+///     not one number. What is asserted is the claim doc 37 § D16 makes —
+///     <b>
+///         a resolve does not run on
+///         the frame that asked for it
+///     </b>
+///     , and the frame's planning cost is the resolves-per-step times
 ///     the node budget, whatever the population is doing.
 /// </remarks>
 public class GoapThroughputTests {
@@ -286,7 +302,7 @@ public class GoapThroughputTests {
     [Fact]
     public void SixtyFourAgentsReplanningOnAFortyActionSetStayInsideTheBudget() {
         var domain = Wide();
-        var queue = new GoapPlanQueue(domain, new() { NodeBudget = 256, DepthLimit = 8 }, capacity: 128);
+        var queue = new GoapPlanQueue(domain, new() { NodeBudget = 256, DepthLimit = 8 }, 128);
         var context = GoapHarness.Context();
         var plan = new GoapPlan();
         var tickets = new GoapPlanRequest[Agents];
@@ -302,7 +318,7 @@ public class GoapThroughputTests {
         // frames after it.
         var clock = Stopwatch.StartNew();
 
-        queue.Update(4);
+        queue.Update();
         clock.Stop();
 
         Assert.Equal(4, queue.LastResolves);
@@ -320,7 +336,7 @@ public class GoapThroughputTests {
         var frames = 1;
 
         while (queue.GetState(tickets[Agents - 1]) == GoapRequestState.Waiting && frames < 64) {
-            queue.Update(4);
+            queue.Update();
             frames++;
         }
 
@@ -374,8 +390,8 @@ public class GoapThroughputTests {
 
         using var jobs = new JobScheduler(workers);
 
-        var alone = new GoapPlanQueue(domain, settings, capacity: 16);
-        var scheduled = new GoapPlanQueue(domain, settings, capacity: 16) { Scheduler = jobs };
+        var alone = new GoapPlanQueue(domain, settings, 16);
+        var scheduled = new GoapPlanQueue(domain, settings, 16) { Scheduler = jobs };
         var context = GoapHarness.Context();
         var first = new GoapPlanRequest[Batch];
         var second = new GoapPlanRequest[Batch];
@@ -385,8 +401,8 @@ public class GoapThroughputTests {
             second[index] = scheduled.Submit(in context);
         }
 
-        alone.Update(Batch);
-        scheduled.Update(Batch);
+        alone.Update();
+        scheduled.Update();
 
         Assert.Equal(Batch, scheduled.LastResolves);
         Assert.True(scheduled.LastExpanded > 0, "not one node was expanded, so no search ran at all.");
@@ -434,10 +450,8 @@ public class GoapThroughputTests {
                 Symbol.Intern($"a{index}"),
                 (ushort)index,
                 [new(new GoapWorldKey((ushort)((index + 1) % definitions.Length)), GoapComparison.Greater, 0)],
-                new GoapEffect(new GoapWorldKey((ushort)(index % definitions.Length)), Increases: true)
-            ) {
-                BaseCost = 1f + (index % 3)
-            };
+                new GoapEffect(new((ushort)(index % definitions.Length)), true)
+            ) { BaseCost = 1f + index % 3 };
         }
 
         var goal = new GoapGoal(Symbol.Intern("want-zero"), [new(new GoapWorldKey(0), GoapComparison.Greater, 0)]);

@@ -11,7 +11,6 @@ using Vixen.Ui.Rendering;
 using Vixen.Ui.Text.Outlines;
 using Vixen.Ui.Text.Rasterizing;
 using MathVector = Vixen.Core.Mathematics.Vector2;
-using NumericsVector = System.Numerics.Vector2;
 
 namespace Vixen.TextureGraph.Drawing;
 
@@ -148,7 +147,7 @@ internal static partial class TextureVector {
             // ⚠ No DTD processing and no resolver: a file is data, and an entity is how one reads another file.
             using var reader = XmlReader.Create(
                 new StringReader(text),
-                new XmlReaderSettings { DtdProcessing = DtdProcessing.Ignore, XmlResolver = null }
+                new() { DtdProcessing = DtdProcessing.Ignore, XmlResolver = null }
             );
 
             document = XDocument.Load(reader);
@@ -195,7 +194,7 @@ internal static partial class TextureVector {
 
         var picture = new float[canvas.Width * canvas.Height * (coverageOnly ? 1 : 4)];
         var place = Placement(drawing, canvas, placement);
-        var unit = MathF.Sqrt(MathF.Abs((place.A * place.D) - (place.B * place.C)));
+        var unit = MathF.Sqrt(MathF.Abs(place.A * place.D - place.B * place.C));
 
         foreach (var shape in drawing.Shapes) {
             var segments = shape.Segments.Select(place.Apply).ToArray();
@@ -256,10 +255,17 @@ internal static partial class TextureVector {
         sx *= placement.Scale;
         sy *= placement.Scale;
 
-        var middleX = drawing.FrameX + (drawing.FrameWidth * 0.5f);
-        var middleY = drawing.FrameY + (drawing.FrameHeight * 0.5f);
+        var middleX = drawing.FrameX + drawing.FrameWidth * 0.5f;
+        var middleY = drawing.FrameY + drawing.FrameHeight * 0.5f;
 
-        return new(sx, 0f, 0f, sy, (placement.CentreX * canvas.Width) - (middleX * sx), (placement.CentreY * canvas.Height) - (middleY * sy));
+        return new(
+            sx,
+            0f,
+            0f,
+            sy,
+            placement.CentreX * canvas.Width - middleX * sx,
+            placement.CentreY * canvas.Height - middleY * sy
+        );
     }
 
     /// <summary>Fills one outline, given in texels with y down, onto the picture.</summary>
@@ -297,12 +303,12 @@ internal static partial class TextureVector {
             box.Width,
             box.Height,
             1f,
-            new NumericsVector(box.Left, -(box.Top + box.Height)),
+            new(box.Left, -(box.Top + box.Height)),
             rule
         );
 
         if (coverageOnly) {
-            var weighed = paint.A >= 1f ? filled.Coverage : [.. filled.Coverage.Select(value => value * paint.A)];
+            var weighed = paint.A >= 1f ? filled.Coverage : [..filled.Coverage.Select(value => value * paint.A)];
 
             canvas.Union(picture, box, weighed);
         } else {
@@ -334,7 +340,13 @@ internal static partial class TextureVector {
                 segment.Verb switch {
                     PathVerb.Move => new(OutlineVerb.Move, segment.P2.X, -segment.P2.Y),
                     PathVerb.Line => new(OutlineVerb.Line, segment.P2.X, -segment.P2.Y),
-                    PathVerb.Quadratic => new(OutlineVerb.Quadratic, segment.P0.X, -segment.P0.Y, segment.P2.X, -segment.P2.Y),
+                    PathVerb.Quadratic => new(
+                        OutlineVerb.Quadratic,
+                        segment.P0.X,
+                        -segment.P0.Y,
+                        segment.P2.X,
+                        -segment.P2.Y
+                    ),
                     PathVerb.Cubic => new(
                         OutlineVerb.Cubic,
                         segment.P0.X,
@@ -357,15 +369,25 @@ internal static partial class TextureVector {
     ///     exactly their union.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>Turned the same way is what makes this a union by construction, and it is defensive rather than
-    ///     measured.</b> The tessellator winds the two halves of a segment opposite ways, and two triangles of opposite
+    ///     ⚠
+    ///     <b>
+    ///         Turned the same way is what makes this a union by construction, and it is defensive rather than
+    ///         measured.
+    ///     </b>
+    ///     The tessellator winds the two halves of a segment opposite ways, and two triangles of opposite
     ///     winding would cancel under non-zero wherever they overlapped. Measured, they only ever meet along an edge:
     ///     <c>A_zigzag_stroke_covers_every_one_of_its_pieces</c> stays green with the turn removed, at all three joins.
     ///     Wound alike, the winding is the count of triangles over a texel whatever the tessellator does next, which is
     ///     non-zero exactly where the stroke is. The fringe the tessellator can add for antialiasing is asked for at
     ///     nought: the scanline fill antialiases on its own.
     /// </remarks>
-    static List<OutlineSegment> Stroked(PathSegment[] segments, float width, LineJoin join, LineCap cap, float miterLimit) {
+    static List<OutlineSegment> Stroked(
+        PathSegment[] segments,
+        float width,
+        LineJoin join,
+        LineCap cap,
+        float miterLimit
+    ) {
         List<MathVector> points = [];
         List<Contour> contours = [];
         List<PathVertex> triangles = [];
@@ -379,7 +401,7 @@ internal static partial class TextureVector {
             var a = triangles[at].Position;
             var b = triangles[at + 1].Position;
             var c = triangles[at + 2].Position;
-            var turn = ((b.X - a.X) * (c.Y - a.Y)) - ((b.Y - a.Y) * (c.X - a.X));
+            var turn = (b.X - a.X) * (c.Y - a.Y) - (b.Y - a.Y) * (c.X - a.X);
 
             if (turn < 0f) {
                 (b, c) = (c, b);
@@ -428,7 +450,9 @@ internal static partial class TextureVector {
 
                 foreach (var selector in rule.Groups[1].Value.Split(',', StringSplitOptions.TrimEntries)) {
                     if (selector.Length > 1 && selector[0] == '.' && !selector.AsSpan(1).ContainsAny(Compound)) {
-                        var into = rules.TryGetValue(selector[1..], out var known) ? known : rules[selector[1..]] = new(StringComparer.Ordinal);
+                        var into = rules.TryGetValue(selector[1..], out var known)
+                            ? known
+                            : rules[selector[1..]] = new(StringComparer.Ordinal);
 
                         foreach (var (name, value) in declarations) {
                             into[name] = value;
@@ -444,11 +468,16 @@ internal static partial class TextureVector {
     static Dictionary<string, string> Declarations(string text) {
         Dictionary<string, string> declarations = new(StringComparer.Ordinal);
 
-        foreach (var declaration in text.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)) {
+        foreach (var declaration in text.Split(
+                     ';',
+                     StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries
+                 )) {
             var colon = declaration.IndexOf(':', StringComparison.Ordinal);
 
             if (colon > 0) {
-                declarations[declaration[..colon].Trim()] = declaration[(colon + 1)..].Replace("!important", "", StringComparison.Ordinal).Trim();
+                declarations[declaration[..colon].Trim()] = declaration[(colon + 1)..]
+                    .Replace("!important", string.Empty, StringComparison.Ordinal)
+                    .Trim();
             }
         }
 
@@ -488,7 +517,9 @@ internal static partial class TextureVector {
             "mm" => value * 96f / 25.4f,
             "cm" => value * 96f / 2.54f,
             "in" => value * 96f,
-            _ => throw new InvalidDataException($"'{text}' is a length in '{unit}', which a drawing here does not measure")
+            _ => throw new InvalidDataException(
+                $"'{text}' is a length in '{unit}', which a drawing here does not measure"
+            )
         };
     }
 
@@ -511,18 +542,18 @@ internal static partial class TextureVector {
         /// <summary>This map after <paramref name="inner" />: a point goes through the inner map first.</summary>
         public Affine Then(Affine inner) =>
             new(
-                (A * inner.A) + (C * inner.B),
-                (B * inner.A) + (D * inner.B),
-                (A * inner.C) + (C * inner.D),
-                (B * inner.C) + (D * inner.D),
-                (A * inner.E) + (C * inner.F) + E,
-                (B * inner.E) + (D * inner.F) + F
+                A * inner.A + C * inner.B,
+                B * inner.A + D * inner.B,
+                A * inner.C + C * inner.D,
+                B * inner.C + D * inner.D,
+                A * inner.E + C * inner.F + E,
+                B * inner.E + D * inner.F + F
             );
 
-        public MathVector Map(MathVector point) =>
-            new((A * point.X) + (C * point.Y) + E, (B * point.X) + (D * point.Y) + F);
+        public MathVector Map(MathVector point) => new(A * point.X + C * point.Y + E, B * point.X + D * point.Y + F);
 
-        public PathSegment Apply(PathSegment segment) => segment with { P0 = Map(segment.P0), P1 = Map(segment.P1), P2 = Map(segment.P2) };
+        public PathSegment Apply(PathSegment segment) =>
+            segment with { P0 = Map(segment.P0), P1 = Map(segment.P1), P2 = Map(segment.P2) };
     }
 
     /// <summary>The inherited properties at one element.</summary>
@@ -599,7 +630,12 @@ internal static partial class TextureVector {
 
             switch (name) {
                 case "svg" when depth > 0 || element.Parent is not null:
-                    Children(element, style, local.Then(new(1f, 0f, 0f, 1f, Number(element, "x"), Number(element, "y"))), depth);
+                    Children(
+                        element,
+                        style,
+                        local.Then(new(1f, 0f, 0f, 1f, Number(element, "x"), Number(element, "y"))),
+                        depth
+                    );
 
                     return;
                 case "svg":
@@ -629,11 +665,11 @@ internal static partial class TextureVector {
 
             Shapes.Add(
                 new(
-                    [.. path.Segments.Select(local.Apply)],
+                    [..path.Segments.Select(local.Apply)],
                     fill,
                     style.FillRule,
                     stroke,
-                    style.StrokeWidth * MathF.Sqrt(MathF.Abs((local.A * local.D) - (local.B * local.C))),
+                    style.StrokeWidth * MathF.Sqrt(MathF.Abs(local.A * local.D - local.B * local.C)),
                     style.Join,
                     style.Cap,
                     style.MiterLimit
@@ -642,7 +678,8 @@ internal static partial class TextureVector {
         }
 
         void Use(XElement element, Style style, Affine transform, int depth) {
-            var href = (element.Attribute("href") ?? element.Attribute(XName.Get("href", "http://www.w3.org/1999/xlink")))?.Value;
+            var href = (element.Attribute("href")
+                ?? element.Attribute(XName.Get("href", "http://www.w3.org/1999/xlink")))?.Value;
 
             if (href is null || !href.StartsWith('#')) {
                 throw new InvalidDataException("it has a <use> that does not refer to an element of the same file");
@@ -665,7 +702,11 @@ internal static partial class TextureVector {
             }
         }
 
-        float Number(XElement element, string attribute) => Length(element.Attribute(attribute)?.Value, attribute is "x" or "width" or "cx" or "rx" or "x1" or "x2" ? frameWidth : frameHeight);
+        float Number(XElement element, string attribute) =>
+            Length(
+                element.Attribute(attribute)?.Value,
+                attribute is "x" or "width" or "cx" or "rx" or "x1" or "x2" ? frameWidth : frameHeight
+            );
 
         PathBuilder? Geometry(XElement element, string name) {
             switch (name) {
@@ -700,7 +741,10 @@ internal static partial class TextureVector {
                     return Rectangle(x, y, w, h, Math.Min(rx, w / 2f), Math.Min(ry, h / 2f));
                 }
                 case "circle": {
-                    var r = Length(element.Attribute("r")?.Value, MathF.Sqrt(((frameWidth * frameWidth) + (frameHeight * frameHeight)) / 2f));
+                    var r = Length(
+                        element.Attribute("r")?.Value,
+                        MathF.Sqrt((frameWidth * frameWidth + frameHeight * frameHeight) / 2f)
+                    );
 
                     return r > 0f ? Ellipse(Number(element, "cx"), Number(element, "cy"), r, r) : null;
                 }
@@ -740,12 +784,16 @@ internal static partial class TextureVector {
             Dictionary<string, string> properties = new(StringComparer.Ordinal);
 
             foreach (var attribute in element.Attributes()) {
-                if (attribute.Name.NamespaceName.Length == 0 && attribute.Name.LocalName is not ("style" or "class" or "transform" or "d" or "id")) {
+                if (attribute.Name.NamespaceName.Length == 0
+                    && attribute.Name.LocalName is not ("style" or "class" or "transform" or "d" or "id")) {
                     properties[attribute.Name.LocalName] = attribute.Value.Trim();
                 }
             }
 
-            foreach (var name in (element.Attribute("class")?.Value ?? string.Empty).Split(' ', StringSplitOptions.RemoveEmptyEntries)) {
+            foreach (var name in (element.Attribute("class")?.Value ?? string.Empty).Split(
+                         ' ',
+                         StringSplitOptions.RemoveEmptyEntries
+                     )) {
                 if (classes.TryGetValue(name, out var rule)) {
                     foreach (var (key, value) in rule) {
                         properties[key] = value;
@@ -778,10 +826,18 @@ internal static partial class TextureVector {
                     "stroke-opacity" => style with { StrokeOpacity = Fraction(value) },
                     "stroke-width" => style with { StrokeWidth = Length(value, 0f) },
                     "stroke-linejoin" => style with {
-                        Join = value switch { "round" => LineJoin.Round, "bevel" => LineJoin.Bevel, _ => LineJoin.Miter }
+                        Join = value switch {
+                            "round" => LineJoin.Round,
+                            "bevel" => LineJoin.Bevel,
+                            _ => LineJoin.Miter
+                        }
                     },
                     "stroke-linecap" => style with {
-                        Cap = value switch { "round" => LineCap.Round, "square" => LineCap.Square, _ => LineCap.Butt }
+                        Cap = value switch {
+                            "round" => LineCap.Round,
+                            "square" => LineCap.Square,
+                            _ => LineCap.Butt
+                        }
                     },
                     "stroke-miterlimit" => style with { MiterLimit = Math.Max(Fraction(value, 4f), 1f) },
                     "opacity" => style with { Opacity = style.Opacity * Fraction(value) },
@@ -803,7 +859,11 @@ internal static partial class TextureVector {
 
             var number = float.Parse(match.Value, NumberStyles.Float, CultureInfo.InvariantCulture);
 
-            return Math.Clamp(value.TrimEnd().EndsWith('%') ? number / 100f : number, 0f, fallback > 1f ? float.MaxValue : 1f);
+            return Math.Clamp(
+                value.TrimEnd().EndsWith('%') ? number / 100f : number,
+                0f,
+                fallback > 1f ? float.MaxValue : 1f
+            );
         }
 
         static (float R, float G, float B, float A)? Paint(string paint, float opacity, Style style) {
@@ -837,21 +897,32 @@ internal static partial class TextureVector {
                     hex = string.Concat(hex.Select(static digit => $"{digit}{digit}"));
                 }
 
-                if ((hex.Length is 6 or 8) && uint.TryParse(hex, NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var packed)) {
+                if (hex.Length is 6 or 8
+                    && uint.TryParse(hex, NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var packed)) {
                     if (hex.Length == 6) {
                         packed = (packed << 8) | 0xFF;
                     }
 
-                    return ((packed >> 24) / 255f, ((packed >> 16) & 0xFF) / 255f, ((packed >> 8) & 0xFF) / 255f, (packed & 0xFF) / 255f);
+                    return ((packed >> 24) / 255f, ((packed >> 16) & 0xFF) / 255f, ((packed >> 8) & 0xFF) / 255f,
+                        (packed & 0xFF) / 255f);
                 }
             } else if (text.StartsWith("rgb", StringComparison.OrdinalIgnoreCase)) {
-                var parts = text[(text.IndexOf('(', StringComparison.Ordinal) + 1)..].TrimEnd(')').Split([',', ' ', '/'], StringSplitOptions.RemoveEmptyEntries);
+                var parts = text[(text.IndexOf('(', StringComparison.Ordinal) + 1)..]
+                    .TrimEnd(')')
+                    .Split([',', ' ', '/'], StringSplitOptions.RemoveEmptyEntries);
 
                 if (parts.Length >= 3) {
-                    float Channel(string part) =>
-                        part.EndsWith('%') ? Fraction(part) : Math.Clamp(float.Parse(part, NumberStyles.Float, CultureInfo.InvariantCulture) / 255f, 0f, 1f);
+                    return (Channel(parts[0]), Channel(parts[1]), Channel(parts[2]),
+                        parts.Length > 3 ? Fraction(parts[3]) : 1f);
 
-                    return (Channel(parts[0]), Channel(parts[1]), Channel(parts[2]), parts.Length > 3 ? Fraction(parts[3]) : 1f);
+                    static float Channel(string part) =>
+                        part.EndsWith('%')
+                            ? Fraction(part)
+                            : Math.Clamp(
+                                float.Parse(part, NumberStyles.Float, CultureInfo.InvariantCulture) / 255f,
+                                0f,
+                                1f
+                            );
                 }
             } else if (Named.TryGetValue(text, out var named)) {
                 return (named.R, named.G, named.B, 1f);
@@ -870,7 +941,7 @@ internal static partial class TextureVector {
             foreach (Match call in TransformCall().Matches(text)) {
                 var n = Numbers(call.Groups[2].Value);
 
-                Affine step = (call.Groups[1].Value, n.Count) switch {
+                var step = (call.Groups[1].Value, n.Count) switch {
                     ("matrix", 6) => new(n[0], n[1], n[2], n[3], n[4], n[5]),
                     ("translate", 1) => new(1f, 0f, 0f, 1f, n[0], 0f),
                     ("translate", 2) => new(1f, 0f, 0f, 1f, n[0], n[1]),
@@ -880,7 +951,9 @@ internal static partial class TextureVector {
                     ("rotate", 3) => Rotation(n[0], n[1], n[2]),
                     ("skewX", 1) => new(1f, 0f, MathF.Tan(n[0] * MathF.PI / 180f), 1f, 0f, 0f),
                     ("skewY", 1) => new(1f, MathF.Tan(n[0] * MathF.PI / 180f), 0f, 1f, 0f, 0f),
-                    _ => throw new InvalidDataException($"its transform '{call.Value}' takes a count of numbers it cannot")
+                    _ => throw new InvalidDataException(
+                        $"its transform '{call.Value}' takes a count of numbers it cannot"
+                    )
                 };
 
                 transform = transform.Then(step);
@@ -894,7 +967,8 @@ internal static partial class TextureVector {
             var c = MathF.Cos(angle);
             var s = MathF.Sin(angle);
 
-            return new Affine(1f, 0f, 0f, 1f, cx, cy).Then(new(c, s, -s, c, 0f, 0f)).Then(new(1f, 0f, 0f, 1f, -cx, -cy));
+            return new Affine(1f, 0f, 0f, 1f, cx, cy).Then(new(c, s, -s, c, 0f, 0f))
+                .Then(new(1f, 0f, 0f, 1f, -cx, -cy));
         }
 
         static PathBuilder Ellipse(float cx, float cy, float rx, float ry) {

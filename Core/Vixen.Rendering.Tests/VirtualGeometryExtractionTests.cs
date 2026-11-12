@@ -43,7 +43,7 @@ public sealed class VirtualGeometryExtractionTests : IDisposable {
     static readonly AssetReference Rock = new(new AssetId(new("77777777-7777-7777-7777-777777777777")));
 
     public VirtualGeometryExtractionTests() {
-        buffer = new(device, SurfaceVertex.SizeInBytes, vertexCapacity: 4096, indexCapacity: 8192);
+        buffer = new(device, SurfaceVertex.SizeInBytes, 4096, 8192);
         residency = new(buffer);
 
         var opaque = system.AddStage(new("Opaque"));
@@ -68,7 +68,7 @@ public sealed class VirtualGeometryExtractionTests : IDisposable {
         using var world = new World();
 
         extraction.Virtualized = virtualized;
-        extraction.Clusters = new OneCluster(mesh: 4, radius: 2f);
+        extraction.Clusters = new OneCluster(4, 2f);
         extraction.Meshes = new EveryMesh();
 
         var entity = Placed(world, Matrix4x4.FromTranslation(new(10f, 0f, 0f)));
@@ -102,7 +102,7 @@ public sealed class VirtualGeometryExtractionTests : IDisposable {
         using var world = new World();
 
         extraction.Virtualized = virtualized;
-        extraction.Clusters = new OneCluster(mesh: 0, radius: 2f);
+        extraction.Clusters = new OneCluster(0, 2f);
 
         var entity = Placed(world, Matrix4x4.FromScale(new(3f, 3f, 3f)));
 
@@ -204,7 +204,7 @@ public sealed class VirtualGeometryExtractionTests : IDisposable {
         var painted = new Material("ForwardPlus");
 
         extraction.Virtualized = virtualized;
-        extraction.Clusters = new OneCluster(mesh: 0, radius: 1f);
+        extraction.Clusters = new OneCluster(0, 1f);
         extraction.Material = painted;
 
         Placed(world, Matrix4x4.Identity);
@@ -250,13 +250,12 @@ public sealed class VirtualGeometryExtractionTests : IDisposable {
         virtualized.Visibility = visibility;
 
         var input = new MeshletBuildInput {
-            Positions = [new(0f, 0f, 0f), new(1f, 0f, 0f), new(0f, 1f, 0f)],
-            Indices = [0, 1, 2]
+            Positions = [new(0f, 0f, 0f), new(1f, 0f, 0f), new(0f, 1f, 0f)], Indices = [0, 1, 2]
         };
 
         var built = MeshletBuilder.Build(input);
         var pages = MeshletPageBuilder.Build(built, input.Positions, [], new() { PageSize = 4 * 1024 });
-        var registration = virtualized.Register(built, pages, source: 0);
+        var registration = virtualized.Register(built, pages, 0);
 
         // Three ordinary meshes first, with no cluster source at all — MeshRenderFeature's objects, whose
         // entries in this feature's array are never written.
@@ -273,7 +272,7 @@ public sealed class VirtualGeometryExtractionTests : IDisposable {
 
         // Then one virtualized mesh, which is the only object this feature owns.
         extraction.Virtualized = virtualized;
-        extraction.Clusters = new OneCluster(registration, radius: 1f);
+        extraction.Clusters = new OneCluster(registration, 1f);
 
         var clustered = Placed(world, Matrix4x4.FromTranslation(new(40f, 0f, 0f)));
 

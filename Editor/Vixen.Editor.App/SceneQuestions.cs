@@ -14,9 +14,12 @@ namespace Vixen.Editor.App;
 /// <summary>Doc 20 § Part D's verbs that ask a question first: the dialogs, over <see cref="ISceneEditing" />.</summary>
 /// <remarks>
 ///     <para>
-///         <b>Part D exists to prevent "a menu line without the verb behind it", and nine of its own
-///         entries were the other failure: no line, no palette entry and no <c>Planned</c>
-///         registration.</b> That is strictly worse than a greyed line — doc 20's first bar is that
+///         <b>
+///             Part D exists to prevent "a menu line without the verb behind it", and nine of its own
+///             entries were the other failure: no line, no palette entry and no <c>Planned</c>
+///             registration.
+///         </b>
+///         That is strictly worse than a greyed line — doc 20's first bar is that
 ///         an unimplemented verb is <i>visibly</i> unimplemented, and silence tells a reader the
 ///         editor was never meant to do it.
 ///     </para>
@@ -50,7 +53,7 @@ sealed class SceneQuestions(PluginContext context, ISceneEditing editing) {
             EditorStrings.CommandEntitySetParent,
             EditorStrings.CategoryEntity,
             SetParent,
-            enabled: () => Scene.Selection.Count > 0
+            () => Scene.Selection.Count > 0
         );
 
         Verb(
@@ -72,7 +75,7 @@ sealed class SceneQuestions(PluginContext context, ISceneEditing editing) {
             EditorStrings.CommandEditSaveSelectionSet,
             EditorStrings.CategoryEdit,
             SaveSelectionSet,
-            enabled: () => Scene.Selection.Count > 0
+            () => Scene.Selection.Count > 0
         );
 
         Verb(
@@ -80,7 +83,7 @@ sealed class SceneQuestions(PluginContext context, ISceneEditing editing) {
             EditorStrings.CommandEditRecallSelectionSet,
             EditorStrings.CategoryEdit,
             RecallSelectionSet,
-            enabled: () => editing.SelectionSets.Count > 0
+            () => editing.SelectionSets.Count > 0
         );
 
         // ⚠ Two commands rather than six, and the axis is asked for rather than spelled into the id.
@@ -94,11 +97,12 @@ sealed class SceneQuestions(PluginContext context, ISceneEditing editing) {
             () => {
                 // No question when the primary — the line everything aligns onto — has no place,
                 // which is where the verb stopped before it moved into the service.
-                if (Scene.World.IsAlive(Scene.Selection.Primary) && Scene.World.Has<WorldTransform>(Scene.Selection.Primary)) {
+                if (Scene.World.IsAlive(Scene.Selection.Primary)
+                    && Scene.World.Has<WorldTransform>(Scene.Selection.Primary)) {
                     Axis("Align on which axis?", editing.Align);
                 }
             },
-            enabled: () => Scene.Selection.Count > 1
+            () => Scene.Selection.Count > 1
         );
 
         Verb(
@@ -106,7 +110,7 @@ sealed class SceneQuestions(PluginContext context, ISceneEditing editing) {
             EditorStrings.CommandEntityDistribute,
             EditorStrings.CategoryEntity,
             () => Axis("Distribute along which axis?", editing.Distribute),
-            enabled: () => Scene.Selection.Count > 2
+            () => Scene.Selection.Count > 2
         );
 
         // ⚠ The one of the nine that is not a command, which is why it is declared rather than
@@ -114,7 +118,11 @@ sealed class SceneQuestions(PluginContext context, ISceneEditing editing) {
         // the inspector's Vector3 drawer and to whatever parses what was typed — a verb that opened a
         // dialog asking for a delta would be a different feature wearing its name.
         context.AddCommand(
-            new EditorCommand("entity.relative-transform", EditorStrings.CommandEntityRelativeTransform, () => { }) {
+            new EditorCommand(
+                "entity.relative-transform",
+                EditorStrings.CommandEntityRelativeTransform,
+                static () => { }
+            ) {
                 Category = EditorStrings.CategoryEntity,
                 Unavailable = EditorStrings.PlannedReasons["entity.relative-transform"]
             }
@@ -154,19 +162,20 @@ sealed class SceneQuestions(PluginContext context, ISceneEditing editing) {
         List<ParentChoice> choices = [new ParentChoice("(No parent)", Entity.Null, null)];
 
         foreach (var entity in Scene.Entities) {
-            choices.Add(new ParentChoice(Scene.NameOf(entity), entity, editing.WhyNotParent(moving, entity)));
+            choices.Add(new(Scene.NameOf(entity), entity, editing.WhyNotParent(moving, entity)));
         }
 
         _ = Ask();
 
         async Task Ask() {
             var chosen = await Shell.ChooseAsync(
-                moving.Count == 1 ? "Hang it from what?" : $"Hang {moving.Count} entities from what?",
-                choices,
-                static choice => choice.Label,
-                static choice => choice.Refusal,
-                static choice => choice.Refusal is null
-            ).ConfigureAwait(true);
+                    moving.Count == 1 ? "Hang it from what?" : $"Hang {moving.Count} entities from what?",
+                    choices,
+                    static choice => choice.Label,
+                    static choice => choice.Refusal,
+                    static choice => choice.Refusal is null
+                )
+                .ConfigureAwait(true);
 
             if (chosen is not null) {
                 editing.SetParent(moving, chosen.Parent);
@@ -176,12 +185,7 @@ sealed class SceneQuestions(PluginContext context, ISceneEditing editing) {
 
     /// <summary>Registers a command that does something, through the module's context.</summary>
     void Verb(string id, StringId title, StringId category, Action run, Func<bool>? enabled = null) =>
-        context.AddCommand(
-            new EditorCommand(id, title, run) {
-                Category = category,
-                Enablement = enabled
-            }
-        );
+        context.AddCommand(new(id, title, run) { Category = category, Enablement = enabled });
 
     /// <summary>Asks what to look for, and selects every entity whose name contains it.</summary>
     void SelectByName() {
@@ -189,10 +193,11 @@ sealed class SceneQuestions(PluginContext context, ISceneEditing editing) {
 
         async Task Ask() {
             var typed = await Shell.Dialogs.PromptAsync(
-                "Select By Name",
-                "Every entity whose name contains this.",
-                confirm: "Select"
-            ).ConfigureAwait(true);
+                    "Select By Name",
+                    "Every entity whose name contains this.",
+                    confirm: "Select"
+                )
+                .ConfigureAwait(true);
 
             if (typed is not { Length: > 0 } text) {
                 return;
@@ -215,11 +220,12 @@ sealed class SceneQuestions(PluginContext context, ISceneEditing editing) {
 
         async Task Ask() {
             var chosen = await Shell.ChooseAsync(
-                "Select everything with which component?",
-                present.Select(static entry => new Row(entry.Component, entry.Count)),
-                static row => row.Label,
-                static row => row.Count == 1 ? "1 entity" : $"{row.Count} entities"
-            ).ConfigureAwait(true);
+                    "Select everything with which component?",
+                    present.Select(static entry => new Row(entry.Component, entry.Count)),
+                    static row => row.Label,
+                    static row => row.Count == 1 ? "1 entity" : $"{row.Count} entities"
+                )
+                .ConfigureAwait(true);
 
             if (chosen is null) {
                 return;
@@ -246,10 +252,11 @@ sealed class SceneQuestions(PluginContext context, ISceneEditing editing) {
 
         async Task Ask() {
             var typed = await Shell.Dialogs.PromptAsync(
-                "Save Selection Set",
-                $"{count} entit{(count == 1 ? "y" : "ies")}, under what name?",
-                confirm: "Save"
-            ).ConfigureAwait(true);
+                    "Save Selection Set",
+                    $"{count} entit{(count == 1 ? "y" : "ies")}, under what name?",
+                    confirm: "Save"
+                )
+                .ConfigureAwait(true);
 
             if (typed is { Length: > 0 } name && editing.SaveSelectionSet(name)) {
                 Shell.Notifications.Success($"Saved '{name}'");
@@ -268,7 +275,7 @@ sealed class SceneQuestions(PluginContext context, ISceneEditing editing) {
         }
 
         var sets = editing.SelectionSets
-            .Select(entry => new Row(entry.Key, entry.Value.Count))
+            .Select(static entry => new Row(entry.Key, entry.Value.Count))
             .OrderBy(static row => row.Label, StringComparer.Ordinal)
             .ToList();
 
@@ -276,11 +283,12 @@ sealed class SceneQuestions(PluginContext context, ISceneEditing editing) {
 
         async Task Ask() {
             var chosen = await Shell.ChooseAsync(
-                "Which selection set?",
-                sets,
-                static row => row.Label,
-                static row => row.Count == 1 ? "1 entity" : $"{row.Count} entities"
-            ).ConfigureAwait(true);
+                    "Which selection set?",
+                    sets,
+                    static row => row.Label,
+                    static row => row.Count == 1 ? "1 entity" : $"{row.Count} entities"
+                )
+                .ConfigureAwait(true);
 
             if (chosen is null || !editing.SelectionSets.TryGetValue(chosen.Label, out var members)) {
                 return;
@@ -303,7 +311,7 @@ sealed class SceneQuestions(PluginContext context, ISceneEditing editing) {
     /// <summary>Says what a select verb found, and puts the focus on the scene if it found anything.</summary>
     void Chose(IReadOnlyList<Entity> found, string empty) {
         if (found.Count == 0) {
-            Shell.Notifications.Show(empty, NotificationSeverity.Info);
+            Shell.Notifications.Show(empty);
             return;
         }
 
@@ -316,7 +324,9 @@ sealed class SceneQuestions(PluginContext context, ISceneEditing editing) {
     void Axis(string question, Action<int> work) {
         var world = Scene.World;
 
-        if (!Scene.Selection.Any(entity => world.IsAlive(entity) && world.Has<LocalTransform>(entity) && world.Has<WorldTransform>(entity))) {
+        if (!Scene.Selection.Any(entity =>
+                world.IsAlive(entity) && world.Has<LocalTransform>(entity) && world.Has<WorldTransform>(entity)
+            )) {
             return;
         }
 
@@ -324,10 +334,11 @@ sealed class SceneQuestions(PluginContext context, ISceneEditing editing) {
 
         async Task Ask() {
             var chosen = await Shell.ChooseAsync(
-                question,
-                Axes.Select(static axis => new Row(axis.Label, axis.Index)),
-                static row => row.Label
-            ).ConfigureAwait(true);
+                    question,
+                    Axes.Select(static axis => new Row(axis.Label, axis.Index)),
+                    static row => row.Label
+                )
+                .ConfigureAwait(true);
 
             if (chosen is not null) {
                 work(chosen.Count);

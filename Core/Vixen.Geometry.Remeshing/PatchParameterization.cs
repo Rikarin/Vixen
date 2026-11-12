@@ -8,8 +8,12 @@ namespace Vixen.Geometry.Remeshing;
 /// <summary>docs/plan/41 § D8's "real per-patch parameterization", in place of a transfinite blend.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>A Coons blend of four <i>curved</i> boundary chains is not injective, and that is not a
-///         tolerance — it is the construction.</b> The bilinear surface between two curved opposite
+///         ⚠
+///         <b>
+///             A Coons blend of four <i>curved</i> boundary chains is not injective, and that is not a
+///             tolerance — it is the construction.
+///         </b>
+///         The bilinear surface between two curved opposite
 ///         sides passes through itself wherever the patch bends, so the interior grid folds and the
 ///         quads come out inverted. Measured at a 400-quad budget before this existed: 24 inverted
 ///         faces of 554 on the box, 62 of 687 on the cylinder, 47 of 646 on the stairs, and −1.000 —
@@ -36,16 +40,24 @@ namespace Vixen.Geometry.Remeshing;
 ///         § D3 has obtuse triangles in it.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The boundary is pinned with the <i>same</i> per-arc parameterization the samples were
-///         placed with, so the square's corner at <c>u = i / wide</c> is the source-chain point sample
-///         <c>i</c> sits on.</b> Pinning by the side's total arc length instead would be subtly wrong
+///         ⚠
+///         <b>
+///             The boundary is pinned with the <i>same</i> per-arc parameterization the samples were
+///             placed with, so the square's corner at <c>u = i / wide</c> is the source-chain point sample
+///             <c>i</c> sits on.
+///         </b>
+///         Pinning by the side's total arc length instead would be subtly wrong
 ///         wherever a side is made of two arcs that quantized to different counts: the interior would
 ///         be solved against a boundary the boundary vertices are not actually on, and the first ring
 ///         of interior quads would shear.
 ///     </para>
 ///     <para>
-///         ⚠⚠ <b>It was refusing most of the patches it should have filled, and the refusals were
-///         arithmetic rather than geometric.</b> It once read here that the residual folds were
+///         ⚠⚠
+///         <b>
+///             It was refusing most of the patches it should have filled, and the refusals were
+///             arithmetic rather than geometric.
+///         </b>
+///         It once read here that the residual folds were
 ///         near-<i>planar</i> bow-ties inside patches this had filled, and therefore a patch region
 ///         doubling back across a crease — a layout defect. That is measured to be false: the number of
 ///         feature edges with the same patch on both sides is <b>0</b> on every fixture, and
@@ -55,17 +67,29 @@ namespace Vixen.Geometry.Remeshing;
 ///         the cylinder 23 patches and the union 19. Both are fixed and each carries its own note.
 ///     </para>
 ///     <para>
-///         ⚠ <b>An embedding of the patch is still not a good <i>grid</i> on the patch, and that is the
-///         part no theorem covers.</b> Tutte guarantees the map; the grid is laid out <i>uniformly on
-///         the square</i>, and a harmonic map distributes by its own weights rather than by arc length.
+///         ⚠
+///         <b>
+///             An embedding of the patch is still not a good <i>grid</i> on the patch, and that is the
+///             part no theorem covers.
+///         </b>
+///         Tutte guarantees the map; the grid is laid out
+///         <i>
+///             uniformly on
+///             the square
+///         </i>
+///         , and a harmonic map distributes by its own weights rather than by arc length.
 ///         On a patch the quantizer cut nine quads one way and two the other, the lifted row at
 ///         <c>v = ½</c> can run backwards along the surface relative to the row at <c>v = 0</c> and the
 ///         straight-sided cell between them crosses itself. So <c>PatchExtractor.Fill</c> builds this
 ///         <i>and</i> the blend and keeps whichever folds less, with this one taking every tie.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Every answer is verified and a refusal falls back to the blend rather than to a
-///         hole.</b> Tutte's guarantee is a statement about the <i>exact</i> solution of a system this
+///         ⚠
+///         <b>
+///             Every answer is verified and a refusal falls back to the blend rather than to a
+///             hole.
+///         </b>
+///         Tutte's guarantee is a statement about the <i>exact</i> solution of a system this
 ///         solves iteratively, and about a patch that is a triangulated disc — which a patch whose side
 ///         holds an arc quantized to zero is not. Both are checked by measuring the answer, because a
 ///         precondition that is argued rather than measured is how the blend survived this long. A
@@ -113,8 +137,12 @@ static class PatchParameterization {
     /// <summary>How much of one quad's parameter a side's collapsed arc is given, so it stays ordered.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>An arc that quantized to zero cannot be pinned to a point, and refusing the patch
-    ///         over it costs more than any other refusal here.</b> docs/plan/41 § D7 permits the
+    ///         ⚠
+    ///         <b>
+    ///             An arc that quantized to zero cannot be pinned to a point, and refusing the patch
+    ///             over it costs more than any other refusal here.
+    ///         </b>
+    ///         docs/plan/41 § D7 permits the
     ///         collapse — it is how a five-sided patch becomes four-sided — and it is common: measured
     ///         at a 400-quad budget, a collapsed arc was the <i>only</i> reason any patch failed to
     ///         pin, and it cost 19 of the cylinder's 38 patches with an interior, 17 of the stairs' 40,
@@ -133,16 +161,24 @@ static class PatchParameterization {
     /// <summary>A corner of the reference polygon a patch with this many sides is embedded in.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Both are convex, and that is the whole of what Tutte's theorem asks of the
-    ///         domain.</b> A four-sided patch goes onto the unit square, where a uniform grid is a
+    ///         ⚠
+    ///         <b>
+    ///             Both are convex, and that is the whole of what Tutte's theorem asks of the
+    ///             domain.
+    ///         </b>
+    ///         A four-sided patch goes onto the unit square, where a uniform grid is a
     ///         rectangle by definition; a three-sided one goes onto an equilateral triangle, where the
     ///         three quad blocks round its centroid are the same statement one side short. Nothing else
     ///         in this file distinguishes the two — the pin, the solve, the embedding test and the lift
     ///         are the same code over a different corner list.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Equilateral rather than right-angled, because the fan is symmetric and its domain
-    ///         should be.</b> The three blocks meet at the centroid, and a domain triangle with a short
+    ///         ⚠
+    ///         <b>
+    ///             Equilateral rather than right-angled, because the fan is symmetric and its domain
+    ///             should be.
+    ///         </b>
+    ///         The three blocks meet at the centroid, and a domain triangle with a short
     ///         side would hand one of them a grid the other two do not get; the lifted result would then
     ///         depend on which of the three arcs the boundary walk happened to call side 0.
     ///     </para>
@@ -151,7 +187,7 @@ static class PatchParameterization {
     /// <param name="at">Which corner, taken round the polygon.</param>
     /// <returns>The corner.</returns>
     public static Vector2 Corner(int sides, int at) {
-        at = ((at % sides) + sides) % sides;
+        at = (at % sides + sides) % sides;
 
         if (sides == 3) {
             return at switch {
@@ -227,7 +263,7 @@ static class PatchParameterization {
                     triangles,
                     uv,
                     sign,
-                    new((float) i / wide, (float) j / tall)
+                    new((float)i / wide, (float)j / tall)
                 );
             }
         }
@@ -237,8 +273,12 @@ static class PatchParameterization {
 
     /// <summary>Lifts a list of reference-triangle points through a three-sided patch's embedding.</summary>
     /// <remarks>
-    ///     ⚠ <b>The three-sided patch's interior is not a grid, so the caller says which points it
-    ///     wants rather than being handed a rectangle.</b> A fan is a centroid, three spokes out to the
+    ///     ⚠
+    ///     <b>
+    ///         The three-sided patch's interior is not a grid, so the caller says which points it
+    ///         wants rather than being handed a rectangle.
+    ///     </b>
+    ///     A fan is a centroid, three spokes out to the
     ///     side midpoints and three quad blocks between them — every one of those is a point of the
     ///     reference triangle the caller can name, and none of them is at <c>(i / wide, j / tall)</c>.
     ///     What this owes is the same guarantee <see cref="Interior" /> gives: a point that comes back
@@ -385,9 +425,9 @@ static class PatchParameterization {
         for (var at = 0; at < patch.Triangles.Length; at++) {
             var corners = mesh.Corners(patch.Triangles[at]);
 
-            triangles[(at * 3) + 0] = local[corners[0]];
-            triangles[(at * 3) + 1] = local[corners[1]];
-            triangles[(at * 3) + 2] = local[corners[2]];
+            triangles[at * 3] = local[corners[0]];
+            triangles[at * 3 + 1] = local[corners[1]];
+            triangles[at * 3 + 2] = local[corners[2]];
         }
 
         return local;
@@ -404,8 +444,12 @@ static class PatchParameterization {
     ///         twice.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Within a side, <c>t</c> advances by the arc's <i>quantized count</i> and not by its
-    ///         length.</b> A side made of a two-quad arc and a three-quad arc puts its join at
+    ///         ⚠
+    ///         <b>
+    ///             Within a side, <c>t</c> advances by the arc's <i>quantized count</i> and not by its
+    ///             length.
+    ///         </b>
+    ///         A side made of a two-quad arc and a three-quad arc puts its join at
     ///         <c>t = 2/5</c> whatever the two arcs measure, because that is where the join's output
     ///         sample is. Pinning by length instead moves the boundary the interior is solved against
     ///         off the boundary the output actually has.
@@ -453,7 +497,7 @@ static class PatchParameterization {
                 return false;
             }
 
-            var total = wanted + (collapsed * Sliver);
+            var total = wanted + collapsed * Sliver;
             var offset = 0f;
             var from = Corner(quads.Length, at);
             var to = Corner(quads.Length, at + 1);
@@ -469,10 +513,11 @@ static class PatchParameterization {
                     var one = chain[use.Reversed ? chain.Length - step : step - 1];
                     var two = chain[use.Reversed ? chain.Length - step - 1 : step];
 
-                    lengths[step] = lengths[step - 1] + Vector3.Distance(
-                        mesh.Positions[one],
-                        mesh.Positions[two]
-                    );
+                    lengths[step] = lengths[step - 1]
+                        + Vector3.Distance(
+                            mesh.Positions[one],
+                            mesh.Positions[two]
+                        );
                 }
 
                 var span = lengths[^1];
@@ -484,8 +529,8 @@ static class PatchParameterization {
                         return false;
                     }
 
-                    var within = span > 0f ? lengths[step] / span : (float) step / (chain.Length - 1);
-                    var t = Math.Clamp((offset + (within * width)) / total, 0f, 1f);
+                    var within = span > 0f ? lengths[step] / span : (float)step / (chain.Length - 1);
+                    var t = Math.Clamp((offset + within * width) / total, 0f, 1f);
 
                     pinned[index] = Vector2.Lerp(from, to, t);
                     isPinned[index] = true;
@@ -517,7 +562,7 @@ static class PatchParameterization {
         for (var at = 0; at < triangles.Length; at += 3) {
             for (var corner = 0; corner < 3; corner++) {
                 var a = triangles[at + corner];
-                var b = triangles[at + ((corner + 1) % 3)];
+                var b = triangles[at + (corner + 1) % 3];
 
                 touched[a] = true;
 
@@ -564,8 +609,12 @@ static class PatchParameterization {
     ///         the two for edge <c>ik</c> at once.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The half-angle tangent is taken as <c>|û × v̂| / (1 + û · v̂)</c> off <i>normalised</i>
-    ///         edge directions</b>, which is scale-free and stays finite. Forming it from the raw cross
+    ///         ⚠
+    ///         <b>
+    ///             The half-angle tangent is taken as <c>|û × v̂| / (1 + û · v̂)</c> off <i>normalised</i>
+    ///             edge directions
+    ///         </b>
+    ///         , which is scale-free and stays finite. Forming it from the raw cross
     ///         product instead makes it a quantity that scales as the square of the model, and a
     ///         millimetre-wide mesh then has every weight underflow to zero — the failure
     ///         <see cref="ScaleSafe" /> is written about, in the one place it would be silent.
@@ -578,8 +627,8 @@ static class PatchParameterization {
         for (var at = 0; at < triangles.Length; at += 3) {
             for (var corner = 0; corner < 3; corner++) {
                 var i = triangles[at + corner];
-                var j = triangles[at + ((corner + 1) % 3)];
-                var k = triangles[at + ((corner + 2) % 3)];
+                var j = triangles[at + (corner + 1) % 3];
+                var k = triangles[at + (corner + 2) % 3];
 
                 var toJ = positions[j] - positions[i];
                 var toK = positions[k] - positions[i];
@@ -605,7 +654,7 @@ static class PatchParameterization {
         var uv = new Vector2[count];
 
         for (var vertex = 0; vertex < count; vertex++) {
-            rows[vertex].Sort((one, two) => one.Neighbour.CompareTo(two.Neighbour));
+            rows[vertex].Sort(static (one, two) => one.Neighbour.CompareTo(two.Neighbour));
             uv[vertex] = isPinned[vertex] ? pinned[vertex] : new(0.5f, 0.5f);
         }
 
@@ -653,15 +702,23 @@ static class PatchParameterization {
     /// <summary>Whether the solved map is the embedding Tutte promises, measured triangle by triangle.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Checked rather than assumed, and the reason is that the guarantee is about the exact
-    ///         solution.</b> <see cref="Sweeps" /> is a fixed count, so a patch whose graph is long and
+    ///         ⚠
+    ///         <b>
+    ///             Checked rather than assumed, and the reason is that the guarantee is about the exact
+    ///             solution.
+    ///         </b>
+    ///         <see cref="Sweeps" /> is a fixed count, so a patch whose graph is long and
     ///         thin may still be short of converged — and an unconverged iterate has no such property. A
     ///         single triangle that has turned over refuses the whole patch, which costs it the blend it
     ///         would have had anyway.
     ///     </para>
     ///     <para>
-    ///         ⚠⚠ <b>A triangle whose three corners are all pinned has <i>exactly</i> zero area and that
-    ///         is the square's fault rather than the map's.</b> Tutte's boundary here is a square, whose
+    ///         ⚠⚠
+    ///         <b>
+    ///             A triangle whose three corners are all pinned has <i>exactly</i> zero area and that
+    ///             is the square's fault rather than the map's.
+    ///         </b>
+    ///         Tutte's boundary here is a square, whose
     ///         four sides are straight: every vertex of side 0 is pinned at <c>y = 0</c> exactly, so an
     ///         "ear" — a patch triangle whose three corners are three consecutive vertices of one arc —
     ///         is collinear in the parameter domain by construction, whatever the solve does. It has not
@@ -669,13 +726,25 @@ static class PatchParameterization {
     ///         <see cref="Lift" /> takes only strictly positive triangles.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Refusing on it was throwing away patches that were correct, and it was most of the
-    ///         defect.</b> Measured across the seven fixtures before this distinction existed, <i>every
-    ///         single</i> patch this refused had <b>zero</b> flipped triangles and one to four collinear
+    ///         ⚠
+    ///         <b>
+    ///             Refusing on it was throwing away patches that were correct, and it was most of the
+    ///             defect.
+    ///         </b>
+    ///         Measured across the seven fixtures before this distinction existed,
+    ///         <i>
+    ///             every
+    ///             single
+    ///         </i>
+    ///         patch this refused had <b>zero</b> flipped triangles and one to four collinear
     ///         ears — on the cylinder that was 18 patches and 45 inverted quads, on the union 11 patches
     ///         and 17. Each fell back to the transfinite blend, which is the one construction here that
-    ///         is not injective, and the blend is what folded them. ⚠ <b>The zero is still fatal when an
-    ///         <i>unpinned</i> vertex is in it</b>: that is an interior vertex the solve has left on a
+    ///         is not injective, and the blend is what folded them. ⚠
+    ///         <b>
+    ///             The zero is still fatal when an
+    ///             <i>unpinned</i> vertex is in it
+    ///         </b>
+    ///         : that is an interior vertex the solve has left on a
     ///         line, which is a genuine degeneracy and not a property of the domain.
     ///     </para>
     /// </remarks>
@@ -683,7 +752,7 @@ static class PatchParameterization {
         sign = 0f;
 
         for (var at = 0; at < triangles.Length; at += 3) {
-            var one = triangles[at + 0];
+            var one = triangles[at];
             var two = triangles[at + 1];
             var three = triangles[at + 2];
             var area = SignedArea(uv[one], uv[two], uv[three]);
@@ -715,9 +784,13 @@ static class PatchParameterization {
     /// <summary>Twice a parameter-domain triangle's signed area, in double and about its own first corner.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A <see cref="float" /> cross product of unit-square coordinates cancels to
-    ///         <i>exactly</i> zero on a triangle that has a perfectly good area, and that zero was
-    ///         throwing whole patches away.</b> The corners live in <c>[0, 1]²</c>, so the products in
+    ///         ⚠
+    ///         <b>
+    ///             A <see cref="float" /> cross product of unit-square coordinates cancels to
+    ///             <i>exactly</i> zero on a triangle that has a perfectly good area, and that zero was
+    ///             throwing whole patches away.
+    ///         </b>
+    ///         The corners live in <c>[0, 1]²</c>, so the products in
     ///         <c>(b−a)×(c−a)</c> are around a quarter while the answer for a triangle of a well-solved
     ///         patch is around <c>1/n</c> — at a hundred triangles the difference of two floats near
     ///         <c>0.25</c> has an absolute resolution of about <c>3e-8</c>, and a sliver of the interior
@@ -727,8 +800,12 @@ static class PatchParameterization {
     ///         otherwise. On the cylinder that cost 18 patches and 45 inverted quads.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Subtracting first and widening to <see cref="double" /> is what makes it exact
-    ///         enough, and both halves are needed.</b> The difference of two <see cref="float" /> values
+    ///         ⚠
+    ///         <b>
+    ///             Subtracting first and widening to <see cref="double" /> is what makes it exact
+    ///             enough, and both halves are needed.
+    ///         </b>
+    ///         The difference of two <see cref="float" /> values
     ///         is representable in a <see cref="double" /> exactly, so the two edge vectors are formed
     ///         with no error at all; the products and their difference then carry 53 bits instead of 24.
     ///         A zero out of this one is a triangle that is genuinely degenerate.
@@ -742,19 +819,23 @@ static class PatchParameterization {
     ///     </para>
     /// </remarks>
     static double SignedArea(Vector2 a, Vector2 b, Vector2 c) {
-        double bx = (double) b.X - a.X;
-        double by = (double) b.Y - a.Y;
-        double cx = (double) c.X - a.X;
-        double cy = (double) c.Y - a.Y;
+        var bx = (double)b.X - a.X;
+        var by = (double)b.Y - a.Y;
+        var cx = (double)c.X - a.X;
+        var cy = (double)c.Y - a.Y;
 
-        return (bx * cy) - (by * cx);
+        return bx * cy - by * cx;
     }
 
     /// <summary>Whether the square's rim, resolved through the pinning, is the rim the grid actually has.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The one check that is about the <i>seam</i> rather than about the map, and without
-    ///         it a valid embedding still produces folded quads.</b> The interior is solved against a
+    ///         ⚠
+    ///         <b>
+    ///             The one check that is about the <i>seam</i> rather than about the map, and without
+    ///             it a valid embedding still produces folded quads.
+    ///         </b>
+    ///         The interior is solved against a
     ///         boundary pinned from the arcs; the grid's boundary is the samples
     ///         <see cref="PatchExtractor" /> already placed. The two are the same curve by construction
     ///         — until they are not, which is what an arc whose ends
@@ -766,8 +847,12 @@ static class PatchParameterization {
     ///         177° apart.
     ///     </para>
     ///     <para>
-    ///         ⚠⚠ <b>Resolved along the pinned chain and <i>not</i> through <see cref="Lift" />, because
-    ///         the map does not determine a rim point and never did.</b> A square point on side 0 has
+    ///         ⚠⚠
+    ///         <b>
+    ///             Resolved along the pinned chain and <i>not</i> through <see cref="Lift" />, because
+    ///             the map does not determine a rim point and never did.
+    ///         </b>
+    ///         A square point on side 0 has
     ///         <c>y = 0</c> exactly, and so does every vertex pinned to that side — so wherever the patch
     ///         triangle carrying that stretch of rim is an "ear" with all three corners on the side, its
     ///         image is a <i>segment</i> and a point on it stands for a whole line of the triangle.
@@ -810,7 +895,7 @@ static class PatchParameterization {
             }
 
             for (var step = 0; step <= quads[at]; step++) {
-                var t = (float) step / quads[at];
+                var t = (float)step / quads[at];
                 var placed = At(positions, run, t);
 
                 // The side's own chain, in the order the boundary walk laid it — which is the order
@@ -855,8 +940,12 @@ static class PatchParameterization {
 
     /// <summary>The surface point a square point stands for, through the triangle that contains it.</summary>
     /// <remarks>
-    ///     ⚠ <b>The first triangle that contains the point, and the least-outside one when none
-    ///     does.</b> Both are a function of the patch's triangle order, which § D14 requires and which
+    ///     ⚠
+    ///     <b>
+    ///         The first triangle that contains the point, and the least-outside one when none
+    ///         does.
+    ///     </b>
+    ///     Both are a function of the patch's triangle order, which § D14 requires and which
     ///     <see cref="LayoutPatch.Triangles" /> already fixes — the search is not free to reorder
     ///     itself. A point sitting exactly on a shared edge is claimed by both of its triangles and the
     ///     two answers are the same point, so the tie costs nothing; a point a hair outside the square's
@@ -869,7 +958,7 @@ static class PatchParameterization {
         var bestWeights = new Vector3(1f, 0f, 0f);
 
         for (var at = 0; at < triangles.Length; at += 3) {
-            var a = uv[triangles[at + 0]];
+            var a = uv[triangles[at]];
             var b = uv[triangles[at + 1]];
             var c = uv[triangles[at + 2]];
 
@@ -879,8 +968,8 @@ static class PatchParameterization {
                 continue;
             }
 
-            var wa = (float) (SignedArea(point, b, c) * sign / area);
-            var wb = (float) (SignedArea(point, c, a) * sign / area);
+            var wa = (float)(SignedArea(point, b, c) * sign / area);
+            var wb = (float)(SignedArea(point, c, a) * sign / area);
             var wc = 1f - wa - wb;
 
             var outside = MathF.Max(MathF.Max(-wa, -wb), -wc);
@@ -903,8 +992,9 @@ static class PatchParameterization {
             return positions[triangles[best]];
         }
 
-        return ((positions[triangles[best + 0]] * weights.X)
-            + (positions[triangles[best + 1]] * weights.Y)
-            + (positions[triangles[best + 2]] * weights.Z)) / scale;
+        return (positions[triangles[best]] * weights.X
+                + positions[triangles[best + 1]] * weights.Y
+                + positions[triangles[best + 2]] * weights.Z)
+            / scale;
     }
 }

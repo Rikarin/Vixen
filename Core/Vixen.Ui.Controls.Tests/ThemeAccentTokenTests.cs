@@ -100,7 +100,7 @@ public class ThemeAccentTokenTests {
     /// <summary>What a host that has read an accent does, without the platform assembly.</summary>
     static void Supply(UiDocument document) {
         document.SystemColors.SetPlatform(SystemColor.AccentColor, Platform);
-        document.SystemColors.SetPlatform(SystemColor.AccentColorText, new Color4(1f, 1f, 1f, 1f));
+        document.SystemColors.SetPlatform(SystemColor.AccentColorText, new(1f, 1f, 1f, 1f));
         document.Root.AddClass(SystemPalette.PlatformAccentClass);
     }
 
@@ -108,6 +108,6 @@ public class ThemeAccentTokenTests {
         document.Update();
         document.Draw();
 
-        return document.Drawing.Commands.First(command => command.Kind == DrawCommandKind.Rectangle).Color;
+        return document.Drawing.Commands.First(static command => command.Kind == DrawCommandKind.Rectangle).Color;
     }
 }

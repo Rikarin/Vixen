@@ -126,7 +126,7 @@ public sealed class UdpReliabilityTests : IDisposable {
 
     [Fact]
     public void ADuplicatedDatagramIsDeliveredOnce() {
-        bus.DuplicatePattern = _ => true;
+        bus.DuplicatePattern = static _ => true;
 
         client.SendToServer(Bytes("once"), Channel.Reliable);
         Pump(4);
@@ -278,7 +278,7 @@ public sealed class UdpReliabilityTests : IDisposable {
     public void ABurstExactlyAsWideAsTheWindowLosesEveryDatagramInItAndNoOthers() {
         // The first goes, the next thirty-one are eaten, and the one after that is thirty-two
         // sequences on from the first.
-        DropMessages([.. Enumerable.Range(2, 31)]);
+        DropMessages([..Enumerable.Range(2, 31)]);
 
         for (var i = 0; i < 100; i++) {
             client.SendToServer(Bytes("tick"), Channel.Unreliable);

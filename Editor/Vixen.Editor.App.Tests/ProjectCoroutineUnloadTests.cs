@@ -3,7 +3,6 @@
 
 using System.Runtime.CompilerServices;
 using System.Runtime.Loader;
-using Vixen.Editor.Core;
 using Vixen.Editor.Plugin.Tests;
 using Vixen.Engine.Behaviors;
 using Vixen.Engine.Frames;
@@ -26,8 +25,12 @@ namespace Vixen.Editor.App.Tests;
 ///         about.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Everything that could pin the context other than the coroutine is already released
-///         by the time the assertion runs.</b> <see cref="ProjectAssemblies.Unload" /> evicts the
+///         ⚠
+///         <b>
+///             Everything that could pin the context other than the coroutine is already released
+///             by the time the assertion runs.
+///         </b>
+///         <see cref="ProjectAssemblies.Unload" /> evicts the
 ///         five registries; the loop, the world, the store and the behaviour are locals of a frame
 ///         that has returned. What is left is the scheduler, which before this fix held the
 ///         coroutine's continuation — a delegate over a state machine whose type is in the context —
@@ -52,21 +55,21 @@ public sealed class ProjectCoroutineUnloadTests : IDisposable {
     ///     exercised them would not say which of the two holds the context when it fails.
     /// </remarks>
     const string Source = """
-        using Vixen.Engine.Behaviors;
-        using Vixen.Engine.Coroutines;
+                          using Vixen.Engine.Behaviors;
+                          using Vixen.Engine.Coroutines;
 
-        namespace GameCode;
+                          namespace GameCode;
 
-        public sealed class Patrol : Behavior {
-            protected override void Start() => Run(Body());
+                          public sealed class Patrol : Behavior {
+                              protected override void Start() => Run(Body());
 
-            async Coroutine Body() {
-                while (true) {
-                    await Seconds(30f);
-                }
-            }
-        }
-        """;
+                              async Coroutine Body() {
+                                  while (true) {
+                                      await Seconds(30f);
+                                  }
+                              }
+                          }
+                          """;
 
     static readonly TimeSpan Sixtieth = TimeSpan.FromTicks(TimeSpan.TicksPerSecond / 60);
 
@@ -74,8 +77,12 @@ public sealed class ProjectCoroutineUnloadTests : IDisposable {
 
     /// <summary>The scene the editor keeps open across a reload of the project's code.</summary>
     /// <remarks>
-    ///     ⚠ <b>A field, and that is the whole difference between this test and one that proves
-    ///     nothing.</b> Written first with the loop as a local of the helper below, it passed against
+    ///     ⚠
+    ///     <b>
+    ///         A field, and that is the whole difference between this test and one that proves
+    ///         nothing.
+    ///     </b>
+    ///     Written first with the loop as a local of the helper below, it passed against
     ///     the defect: the scheduler died with the frame that made it, so of course nothing was left
     ///     holding the context. What the editor actually does is keep the scene — its world, its
     ///     behaviour store and its coroutine scheduler — and swap the assembly underneath it. A
@@ -121,7 +128,7 @@ public sealed class ProjectCoroutineUnloadTests : IDisposable {
     [MethodImpl(MethodImplOptions.NoInlining)]
     WeakReference LoadRunAndDetach() {
         var library = folder.WriteLibrary("gamecode", "GameCode", Source);
-        var assemblies = new ProjectAssemblies(new ProjectPaths(folder.Root));
+        var assemblies = new ProjectAssemblies(new(folder.Root));
         var assembly = assemblies.Load(library);
 
         var context = AssemblyLoadContext.GetLoadContext(assembly);
@@ -130,7 +137,7 @@ public sealed class ProjectCoroutineUnloadTests : IDisposable {
         Assert.True(context.IsCollectible, "the project's assembly is not in a collectible context");
 
         var weak = new WeakReference(context);
-        var behavior = (Behavior) Activator.CreateInstance(assembly.GetType("GameCode.Patrol")!)!;
+        var behavior = (Behavior)Activator.CreateInstance(assembly.GetType("GameCode.Patrol")!)!;
 
         loop.Behaviors.Add(loop.World.Create(), behavior);
 

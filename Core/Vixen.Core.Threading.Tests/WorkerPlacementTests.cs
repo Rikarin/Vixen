@@ -37,7 +37,7 @@ public class WorkerPlacementTests {
 
     [Fact]
     public void EachWorkerPlacesItselfOnceOnTheThreadItNames() {
-        var placement = new RecordingPlacement(answer: true, workerCount: 4);
+        var placement = new RecordingPlacement(true, 4);
 
         using (var scheduler = new JobScheduler(4, placement)) {
             Assert.True(
@@ -47,7 +47,7 @@ public class WorkerPlacementTests {
 
             // Once each, and every ordinal exactly once — a policy that spreads workers across cores
             // has nothing to spread if two of them arrive as the same number.
-            Assert.Equal([0, 1, 2, 3], placement.Calls.Select(call => call.Ordinal).Order());
+            Assert.Equal([0, 1, 2, 3], placement.Calls.Select(static call => call.Ordinal).Order());
 
             // ⚠ The half that makes the line above mean anything. The ordinal is only a claim about
             // which worker this is; the name is the worker itself saying so.
@@ -56,14 +56,14 @@ public class WorkerPlacementTests {
             }
 
             // Every worker was told how many there are, or a policy cannot spread them.
-            Assert.All(placement.Calls, call => Assert.Equal(4, call.WorkerCount));
+            Assert.All(placement.Calls, static call => Assert.Equal(4, call.WorkerCount));
 
             Assert.Equal(4, scheduler.WorkersPlaced);
         }
 
         // Released on the way out, and on the worker rather than on whoever disposed the scheduler —
         // the same reason placing has to happen there.
-        Assert.Equal([0, 1, 2, 3], placement.Released.Select(call => call.Ordinal).Order());
+        Assert.Equal([0, 1, 2, 3], placement.Released.Select(static call => call.Ordinal).Order());
 
         foreach (var call in placement.Released) {
             Assert.Equal($"Vixen Job Worker {call.Ordinal}", call.ThreadName);
@@ -76,10 +76,13 @@ public class WorkerPlacementTests {
         // container whose mask is not ours to set — so "supplied a placement" and "pinned a worker"
         // are different facts and something has to be able to tell them apart. Without this counter
         // nothing in the process can: the same jobs finish either way.
-        var refusing = new RecordingPlacement(answer: false, workerCount: 2);
+        var refusing = new RecordingPlacement(false, 2);
 
         using (var scheduler = new JobScheduler(2, refusing)) {
-            Assert.True(refusing.Placed.Wait(HangCheckMilliseconds, TestContext.Current.CancellationToken), "The placement was never asked.");
+            Assert.True(
+                refusing.Placed.Wait(HangCheckMilliseconds, TestContext.Current.CancellationToken),
+                "The placement was never asked."
+            );
 
             // Asked twice, placed nothing.
             Assert.Equal(2, refusing.Calls.Count);
@@ -99,7 +102,10 @@ public class WorkerPlacementTests {
         var placement = new ThrowingPlacement(2);
 
         using var scheduler = new JobScheduler(2, placement);
-        Assert.True(placement.Reached.Wait(HangCheckMilliseconds, TestContext.Current.CancellationToken), "The placement was never asked.");
+        Assert.True(
+            placement.Reached.Wait(HangCheckMilliseconds, TestContext.Current.CancellationToken),
+            "The placement was never asked."
+        );
 
         // The pool still works. An unhandled exception on a worker thread takes the whole process
         // down, and pinning is an optimisation — losing a frame to a machine whose affinity mask was
@@ -116,7 +122,7 @@ public class WorkerPlacementTests {
         // The browser's shape. There is no thread to place, so a placement that was called anyway
         // would be pinning the caller — which is the defect this whole file is about, arriving by a
         // different door.
-        var placement = new RecordingPlacement(answer: true, workerCount: 1);
+        var placement = new RecordingPlacement(true, 1);
 
         using var scheduler = new JobScheduler(0, placement);
 

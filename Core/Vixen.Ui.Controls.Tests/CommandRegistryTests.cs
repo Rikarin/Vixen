@@ -78,9 +78,9 @@ public class CommandRegistryTests {
         var allowed = false;
 
         var commands = new CommandRegistry();
-        commands.Add(new EditorCommand("app.edit.undo", new StringId("app.edit.undo", "Undo"), () => ran++) {
-            Enablement = () => allowed
-        });
+        commands.Add(
+            new EditorCommand("app.edit.undo", new("app.edit.undo", "Undo"), () => ran++) { Enablement = () => allowed }
+        );
 
         fixture.Document.ApplicationCommandResponder = commands;
 
@@ -104,9 +104,9 @@ public class CommandRegistryTests {
         string? focused = null;
 
         var commands = new CommandRegistry { FocusedContext = () => focused };
-        commands.Add(new EditorCommand("app.item.delete", new StringId("app.item.delete", "Delete"), () => ran++) {
-            Context = "outliner"
-        });
+        commands.Add(
+            new EditorCommand("app.item.delete", new("app.item.delete", "Delete"), () => ran++) { Context = "outliner" }
+        );
 
         fixture.Document.ApplicationCommandResponder = commands;
 
@@ -125,8 +125,8 @@ public class CommandRegistryTests {
     [Fact]
     public void Registering_an_id_twice_throws() {
         var commands = new CommandRegistry();
-        commands.Add(Command("app.file.save", () => { }));
+        commands.Add(Command("app.file.save", static () => { }));
 
-        Assert.Throws<ArgumentException>(() => commands.Add(Command("app.file.save", () => { })));
+        Assert.Throws<ArgumentException>(() => commands.Add(Command("app.file.save", static () => { })));
     }
 }

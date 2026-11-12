@@ -132,7 +132,7 @@ public class GraphTests {
 
         var next = 0;
 
-        Measured.NothingAllocated(Frame, warmUp: 100, passes: 1_000);
+        Measured.NothingAllocated(Frame, 100);
         Assert.True(total > 0);
 
         return;
@@ -154,7 +154,7 @@ public class GraphTests {
 
         using var effect = new Effect(() => seen = either.Value, scheduler);
 
-        Measured.NothingAllocated(Frame, warmUp: 50, passes: 500);
+        Measured.NothingAllocated(Frame, 50, 500);
         Assert.True(seen is 1 or 2);
 
         return;
@@ -176,22 +176,22 @@ public class GraphTests {
         var scheduler = new EffectScheduler();
 
         for (var i = 0; i < 200; i++) {
-            Cycle(source, scheduler, subscribing: false);
-            Cycle(source, scheduler, subscribing: true);
+            Cycle(source, scheduler, false);
+            Cycle(source, scheduler, true);
         }
 
         // Both readings are non-zero by construction, so unlike every other measurement here neither
         // survives a collection landing in it — which is exactly the case Measured re-measures.
-        var withoutEdges = Measured.Bytes(Peeking, warmUp: 0, passes: 200);
-        var withEdges = Measured.Bytes(Subscribing, warmUp: 0, passes: 200);
+        var withoutEdges = Measured.Bytes(Peeking, 0, 200);
+        var withEdges = Measured.Bytes(Subscribing, 0, 200);
 
         Assert.Equal(withoutEdges, withEdges);
 
         return;
 
-        void Peeking() => Cycle(source, scheduler, subscribing: false);
+        void Peeking() => Cycle(source, scheduler, false);
 
-        void Subscribing() => Cycle(source, scheduler, subscribing: true);
+        void Subscribing() => Cycle(source, scheduler, true);
 
         static void Cycle(Signal<int> source, EffectScheduler scheduler, bool subscribing) {
             // Peek reads the same value through the same closure and records no edge, which is what
@@ -226,7 +226,7 @@ public class GraphTests {
                     var sources = new Signal<int>[sourceCount];
                     var sourceValues = new int[sourceCount];
                     for (var i = 0; i < sourceCount; i++) {
-                        sources[i] = new Signal<int>(i);
+                        sources[i] = new(i);
                         sourceValues[i] = i;
                     }
 
@@ -237,7 +237,7 @@ public class GraphTests {
                     for (var i = 0; i < derivedCount; i++) {
                         var available = sourceCount + i;
                         var left = wiring[i * 2] % available;
-                        var right = wiring[(i * 2) + 1] % available;
+                        var right = wiring[i * 2 + 1] % available;
                         inputs[i] = (left, right);
 
                         var index = i;

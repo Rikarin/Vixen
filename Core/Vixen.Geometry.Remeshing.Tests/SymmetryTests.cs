@@ -16,8 +16,12 @@ namespace Vixen.Geometry.Remeshing.Tests;
 ///         <see cref="BitConverter.SingleToInt32Bits" /> is what makes the difference visible.
 ///     </para>
 ///     <para>
-///         ⚠ <b>A sign-bit flip is exact negation for every float including zero, which is why the
-///         correspondence is looked for that way rather than with <c>-value</c>.</b> The two agree for
+///         ⚠
+///         <b>
+///             A sign-bit flip is exact negation for every float including zero, which is why the
+///             correspondence is looked for that way rather than with <c>-value</c>.
+///         </b>
+///         The two agree for
 ///         every finite float; writing it as the bit operation is what states that the test would fail
 ///         on a reflection that rounded.
 ///     </para>
@@ -111,7 +115,10 @@ public class SymmetryTests {
         );
 
         Assert.NotEqual(plain.PositionCount, mirrored.PositionCount);
-        Assert.DoesNotContain(report.Warnings, warning => warning.Contains("not applied yet", StringComparison.Ordinal));
+        Assert.DoesNotContain(
+            report.Warnings,
+            static warning => warning.Contains("not applied yet", StringComparison.Ordinal)
+        );
     }
 
     /// <summary>A plane that is not an axis through the origin says so instead of claiming exactness.</summary>
@@ -119,14 +126,11 @@ public class SymmetryTests {
     public void An_oblique_plane_is_reported_as_not_bit_exact() {
         Remesher.Remesh(
             RemesherTests.Fixture("box"),
-            new() {
-                TargetQuads = 200,
-                Symmetry = Plane.Normalize(new(new Vector3(1f, 0.35f, 0f), 0f))
-            },
+            new() { TargetQuads = 200, Symmetry = Plane.Normalize(new(new Vector3(1f, 0.35f, 0f), 0f)) },
             out var report
         );
 
-        Assert.Contains(report.Warnings, warning => warning.Contains("bit-for-bit", StringComparison.Ordinal));
+        Assert.Contains(report.Warnings, static warning => warning.Contains("bit-for-bit", StringComparison.Ordinal));
     }
 
     /// <summary>Still all quads, because § D8 does not get a symmetry exemption.</summary>
@@ -147,9 +151,9 @@ public class SymmetryTests {
     }
 
     static (int X, int Y, int Z) Bits(Vector3 position) =>
-        (
-            BitConverter.SingleToInt32Bits(position.X),
-            BitConverter.SingleToInt32Bits(position.Y),
-            BitConverter.SingleToInt32Bits(position.Z)
-        );
+    (
+        BitConverter.SingleToInt32Bits(position.X),
+        BitConverter.SingleToInt32Bits(position.Y),
+        BitConverter.SingleToInt32Bits(position.Z)
+    );
 }

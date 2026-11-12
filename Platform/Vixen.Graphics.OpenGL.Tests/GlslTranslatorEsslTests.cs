@@ -81,20 +81,24 @@ public sealed class GlslTranslatorEsslTests {
     ///         GLSL ES 3.00 allows <c>layout(location = …)</c> on a vertex <em>input</em> and a
     ///         fragment <em>output</em> and nowhere else: a vertex output or a fragment input carrying
     ///         one is <c>'location qualifier on output' : not supported in this stage</c>. Raven's
-    ///         emitter writes a location on all four (<c>GlslEmitter.cs:621,649</c>), so the varyings
+    ///         emitter writes a location on all four (<c>GlslEmitter.cs:617,645</c>), so the varyings
     ///         of every shipped shader are illegal at ES 3.00.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>And stripping the qualifier here would be worse than leaving it.</b> Below ES 3.10
     ///         varyings link by <em>name</em>, and Raven names the same stream <c>out_uv</c> in the
-    ///         producing stage and <c>in_uv</c> in the consuming one (<c>GlslEmitter.cs:611,628</c>) —
+    ///         producing stage and <c>in_uv</c> in the consuming one (<c>GlslEmitter.cs:607,624</c>) —
     ///         so a translator that removed the locations would turn a compile error, which names the
     ///         line, into a silent link failure, which does not. The two halves are one change and
     ///         they are in the emitter, or they are in the cross-compiler that renames both ends.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The cross-compiler half has since landed and this is still red, which is the
-    ///         point.</b> <c>SpirvCrossTranspiler.NameVaryingsByLocation</c> now names both ends
+    ///         ⚠
+    ///         <b>
+    ///             The cross-compiler half has since landed and this is still red, which is the
+    ///             point.
+    ///         </b>
+    ///         <c>SpirvCrossTranspiler.NameVaryingsByLocation</c> now names both ends
     ///         <c>vary_&lt;location&gt;</c>, and ⚠ SPIRV-Cross had <em>not</em> been doing that on
     ///         its own — 31 of the library's 32 vertex/fragment pairs came out with mismatched
     ///         varying names, which no per-stage front end and not even <c>glslangValidator -l</c>
@@ -225,17 +229,17 @@ public sealed class GlslTranslatorEsslTests {
     ///     What <c>[Interpolation("noperspective")]</c> reaches this backend as.
     /// </summary>
     /// <remarks>
-    ///     The exact string <c>Raven/Vixen.Raven.Tests/InterpolationTests.cs:125</c> asserts the
+    ///     The exact string <c>Raven/Vixen.Raven.Tests/InterpolationTests.cs:128</c> asserts the
     ///     emitter writes, with the location Raven puts on every varying. No sampler and no uniform
     ///     block: the two the other fixture carries are this file's other subject and would refuse
     ///     the shader for their own reasons on an ES head.
     /// </remarks>
     const string NoPerspectiveFragment = """
-        #version 450 core
-        layout(location = 0) noperspective in vec2 in_screenUv;
-        layout(location = 0) out vec4 out_result;
-        void main() { out_result = vec4(in_screenUv, 0.0, 1.0); }
-        """;
+                                         #version 450 core
+                                         layout(location = 0) noperspective in vec2 in_screenUv;
+                                         layout(location = 0) out vec4 out_result;
+                                         void main() { out_result = vec4(in_screenUv, 0.0, 1.0); }
+                                         """;
 
     /// <summary>
     ///     What reaches this backend: Raven's bindings, with the texture and sampler already
@@ -247,36 +251,37 @@ public sealed class GlslTranslatorEsslTests {
     ///     illegal GLSL ES twice over, which is the whole point of the pair of cases above.
     /// </remarks>
     const string Fragment = """
-        #version 450 core
-        layout(std140, set = 2, binding = 0) uniform Material { vec4 tint; } material;
-        layout(set = 2, binding = 1) uniform sampler2D albedo;
-        layout(location = 0) in vec2 in_uv;
-        layout(location = 0) out vec4 out_result;
-        void main() { out_result = texture(albedo, in_uv) * material.tint; }
-        """;
+                            #version 450 core
+                            layout(std140, set = 2, binding = 0) uniform Material { vec4 tint; } material;
+                            layout(set = 2, binding = 1) uniform sampler2D albedo;
+                            layout(location = 0) in vec2 in_uv;
+                            layout(location = 0) out vec4 out_result;
+                            void main() { out_result = texture(albedo, in_uv) * material.tint; }
+                            """;
 
     const string Vertex = """
-        #version 450 core
-        layout(std140, set = 2, binding = 0) uniform Material { vec4 tint; } material;
-        layout(location = 0) in vec3 in_position;
-        layout(location = 0) out vec2 out_uv;
-        void main() {
-            out_uv = in_position.xy;
-            gl_Position = vec4(in_position, 1.0) * material.tint;
-        }
-        """;
+                          #version 450 core
+                          layout(std140, set = 2, binding = 0) uniform Material { vec4 tint; } material;
+                          layout(location = 0) in vec3 in_position;
+                          layout(location = 0) out vec2 out_uv;
+                          void main() {
+                              out_uv = in_position.xy;
+                              gl_Position = vec4(in_position, 1.0) * material.tint;
+                          }
+                          """;
 
-    static GlBindingPlan Plan(int pushConstantBytes = 0) => GlBindingPlan.Build(
-        [
-            (
-                DescriptorSetSlot.PerMaterial,
-                [
-                    new(0, DescriptorKind.UniformBuffer, ShaderStage.Fragment),
-                    new(1, DescriptorKind.SampledTexture, ShaderStage.Fragment)
-                ],
-                "material"
-            )
-        ],
-        pushConstantBytes
-    );
+    static GlBindingPlan Plan(int pushConstantBytes = 0) =>
+        GlBindingPlan.Build(
+            [
+                (
+                    DescriptorSetSlot.PerMaterial,
+                    [
+                        new(0, DescriptorKind.UniformBuffer, ShaderStage.Fragment),
+                        new(1, DescriptorKind.SampledTexture, ShaderStage.Fragment)
+                    ],
+                    "material"
+                )
+            ],
+            pushConstantBytes
+        );
 }

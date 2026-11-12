@@ -201,7 +201,7 @@ public class ManifoldMeshTests {
 
     [Fact]
     public void AnEmptyMeshBuildsIntoAnEmptyView() {
-        var view = View(new EditMesh());
+        var view = View(new());
 
         Assert.Equal(0, view.VertexCount);
         Assert.Equal(0, view.TriangleCount);

@@ -8,8 +8,12 @@ namespace Vixen.Ui.Composition;
 /// <param name="Class">The class added to its top-level elements while it is on its way out.</param>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>The entering half of an appearance animation is nearly free and the leaving half is
-///         the whole problem.</b> An element that arrives can animate from a class the cascade
+///         ⚠
+///         <b>
+///             The entering half of an appearance animation is nearly free and the leaving half is
+///             the whole problem.
+///         </b>
+///         An element that arrives can animate from a class the cascade
 ///         applies on its first frame, because it is in the document to be cascaded over. An element
 ///         that leaves has to still be in the document while it does — so <c>Region.Clear</c>, which
 ///         removes synchronously and is what every <c>@for</c> row and <c>@if</c> arm ends through,

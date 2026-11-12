@@ -41,17 +41,17 @@ public static class RavenCommand {
         };
 
         var target = new Option<string>("--target", "-t") {
-            Description = "Backend to generate for.", DefaultValueFactory = _ => "glsl"
+            Description = "Backend to generate for.", DefaultValueFactory = static _ => "glsl"
         };
 
-        target.AcceptOnlyFromAmong([.. TargetBackends.Names]);
+        target.AcceptOnlyFromAmong([..TargetBackends.Names]);
 
         var define = new Option<string[]>("--define", "-D") {
             Description =
                 "Set a [Permutation] key: --define UseSkinning=true, --define TapCount=8. "
                 + "A bare name means true. Repeatable.",
             AllowMultipleArgumentsPerToken = true,
-            DefaultValueFactory = _ => []
+            DefaultValueFactory = static _ => []
         };
 
         var compose = new Option<string[]>("--compose", "-C") {
@@ -59,7 +59,7 @@ public static class RavenCommand {
                 "Fill a compose slot: --compose diffuse=Lambert. Qualify with the shader when two "
                 + "declare the same slot name: Lit.diffuse=Lambert. Repeatable.",
             AllowMultipleArgumentsPerToken = true,
-            DefaultValueFactory = _ => []
+            DefaultValueFactory = static _ => []
         };
 
         var reference = new Option<string[]>("--reference", "-r") {
@@ -67,7 +67,7 @@ public static class RavenCommand {
                 "Bind against a compiled library: --reference Core/Math.rvnlib. Its declarations and "
                 + "lowered bodies are linked in without its source being reparsed. Repeatable.",
             AllowMultipleArgumentsPerToken = true,
-            DefaultValueFactory = _ => []
+            DefaultValueFactory = static _ => []
         };
 
         var source = new Option<string[]>("--source", "-s") {
@@ -77,7 +77,7 @@ public static class RavenCommand {
                 + "shader that imports a package needs that package's files here — or a .rvnlib in "
                 + "--reference. Repeatable.",
             AllowMultipleArgumentsPerToken = true,
-            DefaultValueFactory = _ => []
+            DefaultValueFactory = static _ => []
         };
 
         var shader = new Option<string[]>("--shader") {
@@ -86,7 +86,7 @@ public static class RavenCommand {
                 + "because that is what makes the imports resolve; this is what is emitted from it. "
                 + "Repeatable. Default is every shader.",
             AllowMultipleArgumentsPerToken = true,
-            DefaultValueFactory = _ => []
+            DefaultValueFactory = static _ => []
         };
 
         var emitLibrary = new Option<bool>("--emit-library") {
@@ -138,7 +138,7 @@ public static class RavenCommand {
 
         command.SetAction(parseResult => (int)CompileDriver.Run(
                 new() {
-                    Inputs = [parseResult.GetRequiredValue(input), .. parseResult.GetValue(source) ?? []],
+                    Inputs = [parseResult.GetRequiredValue(input), ..parseResult.GetValue(source) ?? []],
                     Output = parseResult.GetRequiredValue(outputPath),
                     Target = parseResult.GetRequiredValue(target),
                     Defines = parseResult.GetValue(define) ?? [],

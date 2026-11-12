@@ -27,8 +27,8 @@ public class ManifestTests {
 
         Assert.Equal("com.example.terrain", manifest.Id);
         Assert.Equal("Terrain Tools", manifest.Name);
-        Assert.Equal(new Version(1, 2, 3), manifest.Version);
-        Assert.Equal(new Version(0, 1), manifest.Api);
+        Assert.Equal(new(1, 2, 3), manifest.Version);
+        Assert.Equal(new(0, 1), manifest.Api);
         Assert.Equal("Example.Terrain.dll", manifest.AssemblyFileName);
         Assert.Equal("Example.Terrain.TerrainPlugin", manifest.EntryPoint);
         Assert.Equal(["com.example.brushes"], manifest.Dependencies);
@@ -67,9 +67,9 @@ public class ManifestTests {
         var problems = new PluginManifest().Problems();
 
         Assert.Equal(3, problems.Count);
-        Assert.Contains(problems, problem => problem.Contains("'id'", StringComparison.Ordinal));
-        Assert.Contains(problems, problem => problem.Contains("'name'", StringComparison.Ordinal));
-        Assert.Contains(problems, problem => problem.Contains("'api'", StringComparison.Ordinal));
+        Assert.Contains(problems, static problem => problem.Contains("'id'", StringComparison.Ordinal));
+        Assert.Contains(problems, static problem => problem.Contains("'name'", StringComparison.Ordinal));
+        Assert.Contains(problems, static problem => problem.Contains("'api'", StringComparison.Ordinal));
     }
 
     [Theory]
@@ -93,19 +93,16 @@ public class ManifestTests {
         // 'com..example' and 'com.example.' are the two typos a permissive check lets through, and
         // what they produce is a dependency list that silently fails to match.
         var manifest = new PluginManifest { Id = id, Name = "n", Api = EditorApi.Version };
-        Assert.Contains(manifest.Problems(), problem => problem.Contains("'id'", StringComparison.Ordinal));
+        Assert.Contains(manifest.Problems(), static problem => problem.Contains("'id'", StringComparison.Ordinal));
     }
 
     [Fact]
     public void A_plugin_that_depends_on_itself_is_refused_by_the_manifest() {
         var manifest = new PluginManifest {
-            Id = "com.example.a",
-            Name = "A",
-            Api = EditorApi.Version,
-            Dependencies = ["com.example.a"]
+            Id = "com.example.a", Name = "A", Api = EditorApi.Version, Dependencies = ["com.example.a"]
         };
 
-        Assert.Contains(manifest.Problems(), problem => problem.Contains("own id", StringComparison.Ordinal));
+        Assert.Contains(manifest.Problems(), static problem => problem.Contains("own id", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -116,7 +113,7 @@ public class ManifestTests {
 
     [Fact]
     public void A_different_major_is_never_compatible() {
-        Assert.False(EditorApi.IsCompatible(new Version(EditorApi.Version.Major + 1, EditorApi.Version.Minor)));
+        Assert.False(EditorApi.IsCompatible(new(EditorApi.Version.Major + 1, EditorApi.Version.Minor)));
     }
 
     [Fact]
@@ -125,21 +122,21 @@ public class ManifestTests {
         // moving: 0.1 and 0.2 are not compatible in either direction and the loader says so.
         Assert.Equal(0, EditorApi.Version.Major);
 
-        Assert.False(EditorApi.IsCompatible(new Version(0, EditorApi.Version.Minor + 1)));
-        Assert.False(EditorApi.IsCompatible(new Version(0, EditorApi.Version.Minor - 1)));
+        Assert.False(EditorApi.IsCompatible(new(0, EditorApi.Version.Minor + 1)));
+        Assert.False(EditorApi.IsCompatible(new(0, EditorApi.Version.Minor - 1)));
     }
 
     [Fact]
     public void The_explanation_says_which_of_the_two_things_to_update() {
         Assert.Contains(
             "Update the editor",
-            EditorApi.Explain(new Version(EditorApi.Version.Major + 1, 0))!,
+            EditorApi.Explain(new(EditorApi.Version.Major + 1, 0))!,
             StringComparison.Ordinal
         );
 
         Assert.Contains(
             "Rebuild the plugin",
-            EditorApi.Explain(new Version(0, 0))!,
+            EditorApi.Explain(new(0, 0))!,
             StringComparison.Ordinal
         );
     }

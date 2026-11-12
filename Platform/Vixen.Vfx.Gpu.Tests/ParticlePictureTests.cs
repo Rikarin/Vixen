@@ -13,8 +13,11 @@ namespace Vixen.Vfx.Gpu.Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>The harness's own test, and it is a picture for the same reason the frame it will be
-///         used to compare is.</b> Everything between a <see cref="VfxSystem" /> and a pixel here
+///         <b>
+///             The harness's own test, and it is a picture for the same reason the frame it will be
+///             used to compare is.
+///         </b>
+///         Everything between a <see cref="VfxSystem" /> and a pixel here
 ///         fails silently: a vertex attribute bound at the wrong offset draws a quad in the texture
 ///         coordinate's colours, a set allocated from the wrong layout is a draw the driver skips,
 ///         and a uniform member written at the wrong std140 offset is a sprite at the wrong

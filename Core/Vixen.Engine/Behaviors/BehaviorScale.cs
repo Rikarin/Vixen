@@ -16,8 +16,12 @@ namespace Vixen.Engine.Behaviors;
 ///         disagree and nothing fails.
 ///     </para>
 ///     <para>
-///         ⚠ <b><c>internal</c>, not public, and that is the whole reason this is a type of its own
-///         rather than a member of <see cref="BehaviorStore" />.</b> A threshold is not part of what
+///         ⚠
+///         <b>
+///             <c>internal</c>, not public, and that is the whole reason this is a type of its own
+///             rather than a member of <see cref="BehaviorStore" />.
+///         </b>
+///         A threshold is not part of what
 ///         a store <em>is</em>, and a public constant would be a <c>PublicAPI</c> addition promising
 ///         a figure the document is free to change. The two readers see it through
 ///         <c>InternalsVisibleTo</c>, which is what makes them the two readers rather than two

@@ -92,7 +92,7 @@ public sealed record SpriteAnimation {
             // time — a clip started in the future, a rewind past zero — would index backwards out of
             // the array. The double modulo is what makes the sequence periodic rather than merely
             // repeating for positive times.
-            _ => ((step % count) + count) % count
+            _ => (step % count + count) % count
         };
     }
 
@@ -126,8 +126,8 @@ public sealed record SpriteAnimation {
     ///     ping-pong exists to avoid.
     /// </remarks>
     static int PingPong(int step, int count) {
-        var period = (2 * count) - 2;
-        var position = ((step % period) + period) % period;
+        var period = 2 * count - 2;
+        var position = (step % period + period) % period;
 
         return position < count ? position : period - position;
     }

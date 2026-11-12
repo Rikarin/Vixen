@@ -15,7 +15,6 @@ using Vixen.Ecs;
 using Vixen.Engine.Frames;
 using Vixen.Engine.Transforms;
 using Vixen.Navigation;
-using Vixen.Navigation.Agents;
 using Vixen.Navigation.Baking;
 using Vixen.Navigation.Ecs;
 
@@ -23,23 +22,38 @@ namespace Vixen.Samples.AiVillage;
 
 /// <summary>A thing worth scavenging. The sample's only game rule, and it is one component.</summary>
 /// <remarks>
-///     ⚠ <b><c>[Component]</c> without <c>[DataContract]</c>, because nothing places one in a
-///     scene.</b> The village is built in code, so the serializer half of the pair would be a
+///     ⚠
+///     <b>
+///         <c>[Component]</c> without <c>[DataContract]</c>, because nothing places one in a
+///         scene.
+///     </b>
+///     The village is built in code, so the serializer half of the pair would be a
 ///     declaration with no reader.
 /// </remarks>
 [Component]
-public struct Scrap;
+public readonly struct Scrap;
 
 /// <summary>
 ///     Three agents, one of each planner, sharing every system — doc 37's claim, in a game.
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>This is <c>VillageSampleTests</c>' fixture, moved into a <c>Samples/</c> project,
-///         which is the thing doc 37 § P9 named as owed and did not build.</b> That phase's exit
-///         criterion is met by a test — <i>"a sample as a <c>Samples/</c> project, and that is a
-///         deviation worth naming"</i> — and its own note says a real sample <i>"remains a good
-///         addition on top of this rather than instead of it"</i>. Until this existed,
+///         <b>
+///             This is <c>VillageSampleTests</c>' fixture, moved into a <c>Samples/</c> project,
+///             which is the thing doc 37 § P9 named as owed and did not build.
+///         </b>
+///         That phase's exit
+///         criterion is met by a test —
+///         <i>
+///             "a sample as a <c>Samples/</c> project, and that is a
+///             deviation worth naming"
+///         </i>
+///         — and its own note says a real sample
+///         <i>
+///             "remains a good
+///             addition on top of this rather than instead of it"
+///         </i>
+///         . Until this existed,
 ///         <c>grep -rl "Vixen.Ai" Samples/</c> was empty: eleven ✅ rows in <c>docs/overview.md</c>
 ///         rested on a runtime half that had never executed outside a test fixture.
 ///     </para>
@@ -105,12 +119,12 @@ public sealed class Village {
 
         int[] triangles = [0, 1, 2, 0, 2, 3];
 
-        mesh = new NavMesh(NavMeshParams.Single);
+        mesh = new(NavMeshParams.Single);
         mesh.AddTile(NavMeshBaker.Bake(corners, triangles, new() { AgentRadius = 0.6f })!);
-        Navigation = new NavigationSystem(new Crowd(mesh));
+        Navigation = new(new(mesh));
 
         // ── One registry, and the actions every planner chooses out of ───────────────────────
-        Registry = new AgentActionRegistry();
+        Registry = new();
         Layout = new BlackboardLayoutBuilder()
             .Add("target", BlackboardValueType.Entity)
             .Add("seen", BlackboardValueType.Vector3)
@@ -131,7 +145,7 @@ public sealed class Village {
         // ⚠ UnboundedGovernor, so every agent thinks every frame. Three agents is under any budget
         // the RoundRobinGovernor would impose, but saying so is the difference between a sample
         // whose timings are the engine's and one whose timings are an accident of the default.
-        Agents = new AiSystem(Registry, Layout) { Governor = new UnboundedGovernor() };
+        Agents = new(Registry, Layout) { Governor = new UnboundedGovernor() };
 
         Perception = Perceive();
         Perception.Agents = Agents;
@@ -163,7 +177,7 @@ public sealed class Village {
         // the guard and the villager are deciding about.
         Intruder = World.Create(
             LocalTransform.At(Intrusion.Start),
-            AiStimuliSource.Perceivable(team: 2, senses: SenseMask.Sight)
+            AiStimuliSource.Perceivable(2, SenseMask.Sight)
         );
     }
 
@@ -206,16 +220,24 @@ public sealed class Village {
     /// <exception cref="ArgumentNullException"><paramref name="loop" /> or <paramref name="services" /> is null.</exception>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Three <c>Add</c> calls and no ordering argument, which is the point of doing this
-    ///         in a game rather than in a fixture.</b> <c>PerceptionSystem</c> carries
+    ///         ⚠
+    ///         <b>
+    ///             Three <c>Add</c> calls and no ordering argument, which is the point of doing this
+    ///             in a game rather than in a fixture.
+    ///         </b>
+    ///         <c>PerceptionSystem</c> carries
     ///         <c>[UpdateBefore(typeof(AiSystem))]</c> and both are in <c>SystemPhase.Update</c>; the
     ///         scheduler reads those and sorts them. Every existing caller of this stack called
     ///         <c>Step</c> by hand in the order it had decided on, so the declaration had never once
     ///         been the thing that put them in order.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And a fourth system that is <em>not</em> added here, which is the whole of the
-    ///         difference.</b> <see cref="IntruderSystem" /> carries <c>[GameSystem]</c>, so what
+    ///         ⚠
+    ///         <b>
+    ///             And a fourth system that is <em>not</em> added here, which is the whole of the
+    ///             difference.
+    ///         </b>
+    ///         <see cref="IntruderSystem" /> carries <c>[GameSystem]</c>, so what
     ///         crosses is the <em>intruder</em> rather than the system: whoever hosts this village
     ///         builds it — <c>VixenApplication</c> the moment <c>OnInitialise</c> returns, a test by
     ///         calling <c>AddDeclaredSystems</c> itself. Adding it here as well would put it in the
@@ -251,7 +273,7 @@ public sealed class Village {
     ///     started.
     /// </remarks>
     public IntruderSystem Script =>
-        script ??= frame?.Systems.Graph.All.Select(node => node.System).OfType<IntruderSystem>().FirstOrDefault()
+        script ??= frame?.Systems.Graph.All.Select(static node => node.System).OfType<IntruderSystem>().FirstOrDefault()
         ?? throw new InvalidOperationException(
             "The intruder's script is declared with [GameSystem], so it is in the frame only once the "
             + "host has added the declared systems — for VixenApplication that is after OnInitialise "
@@ -268,8 +290,12 @@ public sealed class Village {
     /// <returns>The action's name, or <see cref="Symbol.None" /> when there is no such agent.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Through <c>AiSnapshots</c> rather than off <c>AiAgent.Action</c>, and that is a
-    ///         correction rather than a preference.</b> Reading the component directly works for a
+    ///         ⚠
+    ///         <b>
+    ///             Through <c>AiSnapshots</c> rather than off <c>AiAgent.Action</c>, and that is a
+    ///             correction rather than a preference.
+    ///         </b>
+    ///         Reading the component directly works for a
     ///         utility agent and for a bare action and reports <i>nothing at all</i> for a behaviour
     ///         tree: the tree owns the running node, so a guard patrolling its beat quite correctly
     ///         leaves <c>Started</c> false on the component. The first draft of this sample logged
@@ -289,19 +315,21 @@ public sealed class Village {
 
     /// <summary>Puts the intruder where its script says it is at this moment.</summary>
     /// <param name="elapsed">Seconds since the village started, accumulated from the frame deltas.</param>
-    public void MoveIntruder(double elapsed) =>
-        World.Get<LocalTransform>(Intruder).Position = Intrusion.At(elapsed);
+    public void MoveIntruder(double elapsed) => World.Get<LocalTransform>(Intruder).Position = Intrusion.At(elapsed);
 
     /// <summary>Puts an agent on the mesh, standing still until something decides otherwise.</summary>
     /// <remarks>
-    ///     ⚠ <b>The destination is seeded to the agent's own position, and a zeroed one is not
-    ///     "none".</b> <c>NavigationDestination</c> is a <c>Vector3</c> and a version and carries no
+    ///     ⚠
+    ///     <b>
+    ///         The destination is seeded to the agent's own position, and a zeroed one is not
+    ///         "none".
+    ///     </b>
+    ///     <c>NavigationDestination</c> is a <c>Vector3</c> and a version and carries no
     ///     "has one" flag, so <c>default</c> is the world origin and the crowd walks there. An agent
     ///     whose planner has not issued a destination yet — the villager, whose highest-scoring
     ///     action is a <c>Wait</c> until it perceives something — therefore sets off for (0, 0, 0)
     ///     the moment the first frame ticks, and arrives before the thing it was waiting for ever
     ///     comes into range.
-    ///
     ///     It is the zero-value trap in its purest form: nothing errors, every system does its job,
     ///     and the symptom is an agent that "ignores" a threat it can no longer see because it
     ///     wandered into a corner forty metres away.
@@ -315,7 +343,7 @@ public sealed class Village {
 
         World.Add(entity, new NavigationState { Position = at });
         World.Add(entity, agent);
-        World.Add(entity, AiPerception.Sensing(0, team: 1));
+        World.Add(entity, AiPerception.Sensing(0, 1));
 
         return entity;
     }
@@ -333,7 +361,7 @@ public sealed class Village {
         var system = new PerceptionSystem();
 
         system.Configs.Add(
-            new PerceptionConfig {
+            new() {
                 Name = Symbol.Intern("villager-eyes"),
                 Senses = SenseMask.Sight,
                 Sight = new() { Radius = 14f, LoseSightRadius = 16f, ConeDegrees = 360f, Occlusion = false },
@@ -402,8 +430,8 @@ public sealed class Village {
     /// </remarks>
     GoapDomain ScavengerDomain(ushort collect, ushort deposit) {
         var keys = new GoapWorldKeys(
-            new(Symbol.Intern("at-scrap"), GoapWorldSources.From((in AgentContext c) => Near(in c, ScrapPile))),
-            new(Symbol.Intern("delivered"), GoapWorldSources.From((in AgentContext c) => Near(in c, Depot)))
+            new(Symbol.Intern("at-scrap"), GoapWorldSources.From(static (in AgentContext c) => Near(in c, ScrapPile))),
+            new(Symbol.Intern("delivered"), GoapWorldSources.From(static (in AgentContext c) => Near(in c, Depot)))
         );
 
         var atScrap = new GoapWorldKey(0);

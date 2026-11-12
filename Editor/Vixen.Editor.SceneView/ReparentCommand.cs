@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Diagnostics.CodeAnalysis;
-using Vixen.Authoring;
 using Vixen.Core;
 using Vixen.Core.Mathematics;
 using Vixen.Ecs;
@@ -14,9 +13,12 @@ namespace Vixen.Editor.SceneView;
 /// <summary>Moving entities to a new parent, as something the undo stack can take back.</summary>
 /// <remarks>
 ///     <para>
-///         <b>Doc 20's B1 lists "drag-to-reparent (undoably — the primitive
-///         <c>Hierarchy.SetParentAfter</c> exists, the command does not)", and this is the
-///         command.</b> <c>SceneDocument.Reparent</c> said as much in its own remarks: reparenting
+///         <b>
+///             Doc 20's B1 lists "drag-to-reparent (undoably — the primitive
+///             <c>Hierarchy.SetParentAfter</c> exists, the command does not)", and this is the
+///             command.
+///         </b>
+///         <c>SceneDocument.Reparent</c> said as much in its own remarks: reparenting
 ///         <i>is</i> reversible, and undoing it has to put the entity back among its old siblings
 ///         where it was rather than at the head of them.
 ///     </para>
@@ -72,8 +74,12 @@ public sealed class ReparentCommand : IEditorCommand {
     ///         appears to do nothing.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>"Already under that parent" stopped being a refusal when <paramref name="after" />
-    ///         arrived, and that is the whole of what makes sibling order reachable.</b> A drop
+    ///         ⚠
+    ///         <b>
+    ///             "Already under that parent" stopped being a refusal when <paramref name="after" />
+    ///             arrived, and that is the whole of what makes sibling order reachable.
+    ///         </b>
+    ///         A drop
     ///         between two rows of one parent is a move whose parentage does not change and whose
     ///         position does; the old filter dropped exactly those, so the outliner could reparent
     ///         and could never reorder. What is filtered now is a move that changes neither.
@@ -119,7 +125,7 @@ public sealed class ReparentCommand : IEditorCommand {
             }
 
             planned.Add(
-                new Move(
+                new(
                     entity,
                     parent,
                     Hierarchy.ParentOf(world, entity),
@@ -133,7 +139,7 @@ public sealed class ReparentCommand : IEditorCommand {
         // first row is already where it is going still moves the rest — dropping A back where it was
         // and skipping it would leave B landing in front of A rather than behind it. What is empty
         // is a move where *every* entity keeps its parent and its neighbour.
-        moves = planned.Count > 0 && Changes(world, planned, parent, landsAfter) ? [.. planned] : [];
+        moves = planned.Count > 0 && Changes(world, planned, parent, landsAfter) ? [..planned] : [];
     }
 
     /// <summary>Whether a planned chain would move anything at all.</summary>
@@ -187,8 +193,12 @@ public sealed class ReparentCommand : IEditorCommand {
 
     /// <inheritdoc />
     /// <remarks>
-    ///     ⚠ <b>Each lands behind the one before it, which is what keeps a multi-row drag in the
-    ///     order it was dragged.</b> Placing every entity behind the same neighbour reverses them,
+    ///     ⚠
+    ///     <b>
+    ///         Each lands behind the one before it, which is what keeps a multi-row drag in the
+    ///         order it was dragged.
+    ///     </b>
+    ///     Placing every entity behind the same neighbour reverses them,
     ///     and placing them all first — which is what this did before there was a destination
     ///     position at all — reverses them and moves them to the head of the list as well.
     /// </remarks>
@@ -269,8 +279,12 @@ public sealed class ReparentCommand : IEditorCommand {
 
     /// <summary>Rewrites the local transform so the world one comes out unchanged.</summary>
     /// <remarks>
-    ///     ⚠ <b>A parent scaled to zero on some axis has no invertible matrix, and the local
-    ///     transform is kept instead.</b> `Hierarchy.SetParentKeepingWorldPosition` makes the same
+    ///     ⚠
+    ///     <b>
+    ///         A parent scaled to zero on some axis has no invertible matrix, and the local
+    ///         transform is kept instead.
+    ///     </b>
+    ///     `Hierarchy.SetParentKeepingWorldPosition` makes the same
     ///     choice for the same reason: a silent NaN spreading through every descendant is worse than
     ///     a visible jump.
     /// </remarks>
@@ -295,7 +309,8 @@ public sealed class ReparentCommand : IEditorCommand {
 
     /// <summary>Whether an ancestor of this entity is in the same move.</summary>
     static bool Carried(World world, Entity entity, IEnumerable<Entity> moving) {
-        for (var parent = Hierarchy.ParentOf(world, entity); !parent.IsNull;
+        for (var parent = Hierarchy.ParentOf(world, entity);
+             !parent.IsNull;
              parent = Hierarchy.ParentOf(world, parent)) {
             foreach (var candidate in moving) {
                 if (candidate == parent) {

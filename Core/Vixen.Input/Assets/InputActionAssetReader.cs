@@ -169,7 +169,11 @@ public static class InputActionAssetReader {
             case "passthrough": return InputActionType.PassThrough;
             default:
                 diagnostics.Add(
-                    new($"'{scalar.Value}' is not an action type. It is 'button', 'value' or 'passThrough'.", scalar.Line, 1)
+                    new(
+                        $"'{scalar.Value}' is not an action type. It is 'button', 'value' or 'passThrough'.",
+                        scalar.Line,
+                        1
+                    )
                 );
 
                 return InputActionType.Button;
@@ -181,7 +185,9 @@ public static class InputActionAssetReader {
         InputActionType type,
         List<InputAssetDiagnostic> diagnostics
     ) {
-        if (!action.TryGet("controlType", out var node) || node is not VxInputScalar scalar || scalar.Value.Length == 0) {
+        if (!action.TryGet("controlType", out var node)
+            || node is not VxInputScalar scalar
+            || scalar.Value.Length == 0) {
             // A button action reads as a button and everything else as a single axis, which is the
             // shape most value actions have. An action that produces a vector says so.
             return type == InputActionType.Button ? InputControlType.Button : InputControlType.Axis;
@@ -279,7 +285,9 @@ public static class InputActionAssetReader {
     }
 
     static InputCompositeKind ReadComposite(VxInputMapping binding, List<InputAssetDiagnostic> diagnostics) {
-        if (!binding.TryGet("composite", out var node) || node is not VxInputScalar scalar || scalar.Value.Length == 0) {
+        if (!binding.TryGet("composite", out var node)
+            || node is not VxInputScalar scalar
+            || scalar.Value.Length == 0) {
             return InputCompositeKind.None;
         }
 
@@ -398,7 +406,11 @@ public static class InputActionAssetReader {
 
         if (!scheme.TryGet("devices", out var node)) {
             diagnostics.Add(
-                new($"The control scheme '{schemeName}' names no 'devices', so nothing can activate it.", scheme.Line, 1)
+                new(
+                    $"The control scheme '{schemeName}' names no 'devices', so nothing can activate it.",
+                    scheme.Line,
+                    1
+                )
             );
 
             return requirements;
@@ -452,12 +464,22 @@ public static class InputActionAssetReader {
 
     static bool TryReadDevice(string text, out InputDeviceKind kind) {
         switch (text.ToLowerInvariant()) {
-            case "keyboard": kind = InputDeviceKind.Keyboard; return true;
-            case "mouse": kind = InputDeviceKind.Mouse; return true;
-            case "gamepad": kind = InputDeviceKind.Gamepad; return true;
+            case "keyboard":
+                kind = InputDeviceKind.Keyboard;
+                return true;
+            case "mouse":
+                kind = InputDeviceKind.Mouse;
+                return true;
+            case "gamepad":
+                kind = InputDeviceKind.Gamepad;
+                return true;
             case "touch":
-            case "touchscreen": kind = InputDeviceKind.Touch; return true;
-            default: kind = InputDeviceKind.None; return false;
+            case "touchscreen":
+                kind = InputDeviceKind.Touch;
+                return true;
+            default:
+                kind = InputDeviceKind.None;
+                return false;
         }
     }
 
@@ -483,19 +505,21 @@ public static class InputActionAssetReader {
         }
     }
 
-    static string PartsOf(InputCompositeKind composite) => composite switch {
-        InputCompositeKind.Axis1D => "'negative' and 'positive'",
-        InputCompositeKind.Vector2 => "'up', 'down', 'left' and 'right'",
-        InputCompositeKind.ButtonWithModifiers => "'button' and one or more 'modifier'",
-        _ => "nothing"
-    };
+    static string PartsOf(InputCompositeKind composite) =>
+        composite switch {
+            InputCompositeKind.Axis1D => "'negative' and 'positive'",
+            InputCompositeKind.Vector2 => "'up', 'down', 'left' and 'right'",
+            InputCompositeKind.ButtonWithModifiers => "'button' and one or more 'modifier'",
+            _ => "nothing"
+        };
 
-    static IReadOnlyList<string> RequiredParts(InputCompositeKind composite) => composite switch {
-        InputCompositeKind.Axis1D => ["negative", "positive"],
-        InputCompositeKind.Vector2 => ["up", "down", "left", "right"],
-        InputCompositeKind.ButtonWithModifiers => ["button", "modifier"],
-        _ => []
-    };
+    static IReadOnlyList<string> RequiredParts(InputCompositeKind composite) =>
+        composite switch {
+            InputCompositeKind.Axis1D => ["negative", "positive"],
+            InputCompositeKind.Vector2 => ["up", "down", "left", "right"],
+            InputCompositeKind.ButtonWithModifiers => ["button", "modifier"],
+            _ => []
+        };
 
     static string? Text(VxInputMapping mapping, string key) =>
         mapping.TryGet(key, out var node) && node is VxInputScalar { Value.Length: > 0 } scalar ? scalar.Value : null;
@@ -505,6 +529,5 @@ public static class InputActionAssetReader {
         && node is VxInputScalar scalar
         && (NameEquals(scalar.Value, "true") || NameEquals(scalar.Value, "yes"));
 
-    static bool NameEquals(string left, string right) =>
-        string.Equals(left, right, StringComparison.OrdinalIgnoreCase);
+    static bool NameEquals(string left, string right) => string.Equals(left, right, StringComparison.OrdinalIgnoreCase);
 }

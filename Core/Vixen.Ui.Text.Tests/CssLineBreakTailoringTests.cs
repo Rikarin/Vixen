@@ -11,14 +11,21 @@ namespace Vixen.Ui.Text.Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>The sibling of <see cref="CssWordBreakTailoringTests" />, and the half that issue #877
-///         had to exist for.</b> <c>LineBreakTest.txt</c>'s 19 338 cases settle UAX #14 as written;
+///         <b>
+///             The sibling of <see cref="CssWordBreakTailoringTests" />, and the half that issue #877
+///             had to exist for.
+///         </b>
+///         <c>LineBreakTest.txt</c>'s 19 338 cases settle UAX #14 as written;
 ///         these settle what CSS does to it. Each case below is itself a <c>web-platform-tests</c>
 ///         file, named in the comment above it, reduced to a string and the pieces it segments into.
 ///     </para>
 ///     <para>
-///         ⚠ <b>All seventy-two are here now, and the twenty-eight that used to be a list are the
-///         reason <see cref="LineBreaker" /> takes a content language.</b> ICU4X's helpers pass a
+///         ⚠
+///         <b>
+///             All seventy-two are here now, and the twenty-eight that used to be a list are the
+///             reason <see cref="LineBreaker" /> takes a content language.
+///         </b>
+///         ICU4X's helpers pass a
 ///         <c>content_locale</c> of <c>ja</c> for the cases whose expectation comes from a Chinese or
 ///         Japanese <i>document</i> — ICU ships six tailoring files, not four, and the three
 ///         <c>_cj</c> ones relax things their siblings do not (a break before U+301C and U+30A0,
@@ -39,8 +46,12 @@ namespace Vixen.Ui.Text.Tests;
 ///         agree; a reading of them did not.
 ///     </para>
 ///     <para>
-///         ⚠ <b>And the <c>anywhere</c> block is transcribed whole, including the eight cases ICU4X
-///         drives with <c>ja</c>.</b> That is not an exception to the paragraph above: ICU4X answers
+///         ⚠
+///         <b>
+///             And the <c>anywhere</c> block is transcribed whole, including the eight cases ICU4X
+///             drives with <c>ja</c>.
+///         </b>
+///         That is not an exception to the paragraph above: ICU4X answers
 ///         <c>LineBreakStrictness::Anywhere</c> by handing back a <i>grapheme</i> segmenter before it
 ///         ever looks at the locale, so the flag on those eight is inert by construction rather than
 ///         by luck.
@@ -88,8 +99,7 @@ public class CssLineBreakTailoringTests {
     [InlineData("サ°サ", "サ°|サ")]
     // css/css-text/line-break/line-break-*-018.xht
     [InlineData("サ€サ", "サ|€サ")]
-    public void Strict(string text, string pieces) =>
-        Assert.Equal(pieces, Segment(text, LineBreakStrictness.Strict));
+    public void Strict(string text, string pieces) => Assert.Equal(pieces, Segment(text, LineBreakStrictness.Strict));
 
     /// <summary>
     ///     ⚠ And <c>auto</c> answers every one of them identically, which is a decision rather than an
@@ -120,8 +130,12 @@ public class CssLineBreakTailoringTests {
 
     /// <summary>ICU4X's <c>linebreak_normal</c> in an undetermined document — its five non-CJK cases.</summary>
     /// <remarks>
-    ///     ⚠ <b>The first two are the whole of what <c>line_normal.txt</c> says and the last three are
-    ///     the guard on it.</b> ICU's non-CJK <c>normal</c> tailoring is one sentence — "it sets
+    ///     ⚠
+    ///     <b>
+    ///         The first two are the whole of what <c>line_normal.txt</c> says and the last three are
+    ///         the guard on it.
+    ///     </b>
+    ///     ICU's non-CJK <c>normal</c> tailoring is one sentence — "it sets
     ///     characters of class <c>CJ</c> to behave like <c>ID</c>" — so a small kana and a prolonged
     ///     sound mark may open a line and <i>nothing else moves</i>. The three <c>文文</c> cases carry
     ///     no <c>CJ</c> at all, so they assert that the tailoring stops where the specification stops:
@@ -139,13 +153,16 @@ public class CssLineBreakTailoringTests {
     [InlineData("文文±字字", "文|文|±字|字")]
     [InlineData("文文€字字", "文|文|€字|字")]
     [InlineData("文文№字字", "文|文|№字|字")]
-    public void Normal(string text, string pieces) =>
-        Assert.Equal(pieces, Segment(text, LineBreakStrictness.Normal));
+    public void Normal(string text, string pieces) => Assert.Equal(pieces, Segment(text, LineBreakStrictness.Normal));
 
     /// <summary>ICU4X's <c>linebreak_loose</c> in an undetermined document — its eleven non-CJK cases.</summary>
     /// <remarks>
-    ///     ⚠ <b>Every case here is one <c>loose</c> is asserted <i>not</i> to change, and that is what
-    ///     they are worth.</b> The relaxations ICU's <c>line_loose.txt</c> names are three, and none of
+    ///     ⚠
+    ///     <b>
+    ///         Every case here is one <c>loose</c> is asserted <i>not</i> to change, and that is what
+    ///         they are worth.
+    ///     </b>
+    ///     The relaxations ICU's <c>line_loose.txt</c> names are three, and none of
     ///     them touches an infix full stop, an inseparable standing alone beside an ideograph, a
     ///     prefix sign or a hyphen at the end of a Latin word. So these eleven pin the tailoring's
     ///     <i>edges</i>: a <c>loose</c> that relaxed <c>IN</c> as a class rather than the
@@ -174,8 +191,7 @@ public class CssLineBreakTailoringTests {
     // css/css-text/line-break/line-break-loose-hyphens-003.html
     [InlineData("aa‐", "aa‐")]
     [InlineData("aa–", "aa–")]
-    public void Loose(string text, string pieces) =>
-        Assert.Equal(pieces, Segment(text, LineBreakStrictness.Loose));
+    public void Loose(string text, string pieces) => Assert.Equal(pieces, Segment(text, LineBreakStrictness.Loose));
 
     /// <summary>
     ///     The three things <c>loose</c> relaxes, from ICU's <c>line_loose.txt</c> rather than from
@@ -214,8 +230,12 @@ public class CssLineBreakTailoringTests {
 
     /// <summary>ICU4X's six <c>linebreak_normal</c> cases driven with a Japanese content locale.</summary>
     /// <remarks>
-    ///     ⚠ <b>Five of the six answer exactly what <see cref="Strict" /> answers, and that is the
-    ///     finding rather than an accident of transcription.</b> <c>line_normal_cj.txt</c>'s header
+    ///     ⚠
+    ///     <b>
+    ///         Five of the six answer exactly what <see cref="Strict" /> answers, and that is the
+    ///         finding rather than an accident of transcription.
+    ///     </b>
+    ///     <c>line_normal_cj.txt</c>'s header
     ///     names one relaxation over <c>line_cj.txt</c> — "it allows breaks: * before 301C, 30A0 (both
     ///     NS)" — so a wave dash is the only thing in this block that moves. The iteration mark, the
     ///     two-dot leaders, the katakana middle dot and the degree sign are <c>line_loose_cj.txt</c>'s
@@ -309,8 +329,12 @@ public class CssLineBreakTailoringTests {
     ///         <c>line.txt</c> by nothing.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The Latin letter beside the quote is what makes the case visible, and it is not
-    ///         padding.</b> UAX #14 revision 51's LB19a already permits a break before a quotation
+    ///         ⚠
+    ///         <b>
+    ///             The Latin letter beside the quote is what makes the case visible, and it is not
+    ///             padding.
+    ///         </b>
+    ///         UAX #14 revision 51's LB19a already permits a break before a quotation
     ///         mark when both neighbours are East Asian, so <c>文“文</c> breaks with or without a
     ///         locale and would assert nothing. Putting an <c>a</c> on the far side puts LB19a back
     ///         in force, and then only the tailoring can take it out.
@@ -330,7 +354,8 @@ public class CssLineBreakTailoringTests {
         string text,
         string pieces,
         LineBreakStrictness strictness
-    ) => Assert.Equal(pieces, Segment(text, strictness, "ja"));
+    ) =>
+        Assert.Equal(pieces, Segment(text, strictness, "ja"));
 
     /// <summary>
     ///     ⚠ Which BCP-47 tags select a <c>_cj</c> file, asserted through the answer rather than
@@ -344,8 +369,12 @@ public class CssLineBreakTailoringTests {
     ///         <c>zh_Hans</c>, <c>zh_Hant</c> and <c>ja</c> in one line of each header.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b><c>ko</c> is a negative on purpose and <c>jav</c> is the guard on the
-    ///         comparison.</b> ICU ships no Korean line-breaking file — Korean reads the untailored
+    ///         ⚠
+    ///         <b>
+    ///             <c>ko</c> is a negative on purpose and <c>jav</c> is the guard on the
+    ///             comparison.
+    ///         </b>
+    ///         ICU ships no Korean line-breaking file — Korean reads the untailored
     ///         rules — so a store that took "CJK" to include Hangul would be inventing a tailoring.
     ///         <c>jav</c> is Javanese and begins with the two letters that matter, which is what a
     ///         prefix comparison rather than a subtag comparison would get wrong.
@@ -389,7 +418,7 @@ public class CssLineBreakTailoringTests {
     [Theory]
     [InlineData("الخيل والليل", "ا|ل|خ|ي|ل| |و|ا|ل|ل|ي|ل")]
     // css/css-text/line-break/line-break-anywhere-001.html
-    [InlineData("aa-a.a)a,a) a aa⁠aa･a", "a|a|-|a|.|a|)|a|,|a|)| |a| |a|a|⁠|a|a|･|a")]
+    [InlineData("aa-a.a)a,a) a aa\u2060aa･a", "a|a|-|a|.|a|)|a|,|a|)| |a| |a|a|\u2060|a|a|･|a")]
     // css/css-text/line-break/line-break-anywhere-002.html
     [InlineData("no hyphenation", "n|o| |h|y|p|h|e|n|a|t|i|o|n")]
     // css/css-text/line-break/line-break-anywhere-003.html
@@ -413,15 +442,18 @@ public class CssLineBreakTailoringTests {
     // css/css-text/line-break/line-break-anywhere-017.html
     [InlineData("XXXX X", "X|X|X|X| |X")]
     // line-break-anywhere-overrides-uax-behavior-001.htm
-    [InlineData("XX⁠XX", "X|X|⁠|X|X")]
+    [InlineData("XX\u2060XX", "X|X|\u2060|X|X")]
     // line-break-anywhere-overrides-uax-behavior-004.htm
-    [InlineData("..​...X", ".|.|​|.|.|.|X")]
+    [InlineData("..\u200B...X", ".|.|\u200B|.|.|.|X")]
     public void Anywhere(string text, string pieces) =>
         Assert.Equal(pieces, Segment(text, LineBreakStrictness.Anywhere));
 
     /// <summary>
-    ///     ⚠ <b><c>anywhere</c> beats <c>word-break</c>, which is the one place the two properties
-    ///     do not merely compose.</b>
+    ///     ⚠
+    ///     <b>
+    ///         <c>anywhere</c> beats <c>word-break</c>, which is the one place the two properties
+    ///         do not merely compose.
+    ///     </b>
     /// </summary>
     /// <remarks>
     ///     CSS Text 4 § 5.1 spells it out — the opportunity is there "disregarding any prohibition
@@ -466,19 +498,23 @@ public class CssLineBreakTailoringTests {
     [InlineData("‥‥サ", LineBreakStrictness.Loose)]
     [InlineData("latin", LineBreakStrictness.Anywhere)]
     [InlineData("XXX/X", LineBreakStrictness.Anywhere)]
-    [InlineData("..​...X", LineBreakStrictness.Anywhere)]
+    [InlineData("..\u200B...X", LineBreakStrictness.Anywhere)]
     public void The_tailoring_changes_the_answer_wherever_it_is_supposed_to(
         string text,
         LineBreakStrictness strictness
-    ) => Assert.NotEqual(Segment(text, LineBreakStrictness.Auto), Segment(text, strictness));
+    ) =>
+        Assert.NotEqual(Segment(text, LineBreakStrictness.Auto), Segment(text, strictness));
 
     /// <summary>
     ///     ⚠ The same instrument check for the second axis: the cases whose answer the <i>language</i>
     ///     changes, asserted to change.
     /// </summary>
     /// <remarks>
-    ///     <b>Without this the twenty-eight new cases would be satisfied by a <c>Collect</c> that
-    ///     dropped its fifth argument.</b> Thirteen of the twenty-eight segment identically with no
+    ///     <b>
+    ///         Without this the twenty-eight new cases would be satisfied by a <c>Collect</c> that
+    ///         dropped its fifth argument.
+    ///     </b>
+    ///     Thirteen of the twenty-eight segment identically with no
     ///     language at all — the five <c>zh</c> inseparables and the five <c>normal</c> cases that
     ///     <c>line_normal_cj.txt</c> does not touch are there precisely to pin where the tailoring
     ///     <i>stops</i> — so the pairs below are the ones that carry the evidence. Each is asserted
@@ -504,7 +540,8 @@ public class CssLineBreakTailoringTests {
     public void The_content_language_changes_the_answer_wherever_it_is_supposed_to(
         string text,
         LineBreakStrictness strictness
-    ) => Assert.NotEqual(Segment(text, strictness), Segment(text, strictness, "ja"));
+    ) =>
+        Assert.NotEqual(Segment(text, strictness), Segment(text, strictness, "ja"));
 
     /// <summary>
     ///     ⚠ And the cases whose answer it must <i>not</i> change, asserted not to.
@@ -528,7 +565,8 @@ public class CssLineBreakTailoringTests {
     public void The_content_language_leaves_alone_what_it_is_supposed_to(
         string text,
         LineBreakStrictness strictness
-    ) => Assert.Equal(Segment(text, strictness), Segment(text, strictness, "ja"));
+    ) =>
+        Assert.Equal(Segment(text, strictness), Segment(text, strictness, "ja"));
 
     /// <summary>
     ///     ⚠ The twenty-eight this file says it moved out of a list and into two theories, counted
@@ -536,8 +574,12 @@ public class CssLineBreakTailoringTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b><see cref="TheContentLocaleCases" /> was a <c>public static readonly</c> field
-    ///         with no reader anywhere in the tree</b> — the same defect
+    ///         ⚠
+    ///         <b>
+    ///             <see cref="TheContentLocaleCases" /> was a <c>public static readonly</c> field
+    ///             with no reader anywhere in the tree
+    ///         </b>
+    ///         — the same defect
     ///         <c>CssWordBreakTailoringTests.TheDictionaryCases</c> was found to have one batch
     ///         earlier, left behind in the sibling file because the two were fixed apart. Every
     ///         mention of it outside this line was a <c>see cref</c> in a doc comment, so a case
@@ -584,7 +626,8 @@ public class CssLineBreakTailoringTests {
     /// <param name="method">The theory's name.</param>
     /// <returns>Its row count.</returns>
     static int RowsOf(string method) =>
-        typeof(CssLineBreakTailoringTests).GetMethod(method)!.GetCustomAttributes(typeof(InlineDataAttribute), false).Length;
+        typeof(CssLineBreakTailoringTests).GetMethod(method)!.GetCustomAttributes(typeof(InlineDataAttribute), false)
+            .Length;
 
     /// <summary>What is left out, which is now ICU4X's own three and nothing of this store's.</summary>
     /// <remarks>
@@ -603,14 +646,17 @@ public class CssLineBreakTailoringTests {
 
     /// <summary>Splits a string at its break opportunities, joined by <c>|</c>.</summary>
     /// <remarks>
-    ///     ⚠ <b>Pieces rather than offsets, because that is what ICU4X asserts and what a failure has
-    ///     to be readable as</b> — the same helper <see cref="CssWordBreakTailoringTests" /> uses, and
+    ///     ⚠
+    ///     <b>
+    ///         Pieces rather than offsets, because that is what ICU4X asserts and what a failure has
+    ///         to be readable as
+    ///     </b>
+    ///     — the same helper <see cref="CssWordBreakTailoringTests" /> uses, and
     ///     deliberately not shared with it: each file's helper is the thing that would have to be
     ///     wrong for that file to go quietly green, so the two are kept where they can be read beside
     ///     what they judge.
     /// </remarks>
-    static string Segment(string text, LineBreakStrictness strictness) =>
-        Segment(text, strictness, language: null);
+    static string Segment(string text, LineBreakStrictness strictness) => Segment(text, strictness, null);
 
     /// <summary>Splits a string at its break opportunities in a document of a given language.</summary>
     static string Segment(string text, LineBreakStrictness strictness, string? language) {

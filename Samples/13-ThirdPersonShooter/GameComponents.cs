@@ -43,8 +43,11 @@ public struct BoxCollision {
 /// <summary>Where a player comes in.</summary>
 /// <remarks>
 ///     <para>
-///         <b>A component and not a name, and that is a fact about the engine rather than a
-///         preference.</b> Entity names are a table on the <c>SceneAsset</c> and never a component —
+///         <b>
+///             A component and not a name, and that is a fact about the engine rather than a
+///             preference.
+///         </b>
+///         Entity names are a table on the <c>SceneAsset</c> and never a component —
 ///         thirty bytes per entity in every chunk of a shipping build is the wrong place for them —
 ///         so a running game cannot look an entity up by what the editor calls it. Anything the game
 ///         needs to <i>find</i> therefore has to say so in a component.

@@ -60,7 +60,7 @@ public sealed class OpusAudioPacketDecoder : IAudioPacketDecoder {
             );
         }
 
-        decoder = new OpusPacketDecoder(channels, frameMilliseconds: 60);
+        decoder = new(channels, 60);
         preSkip = PreSkipOf(in track);
         remainingPreSkip = preSkip;
     }

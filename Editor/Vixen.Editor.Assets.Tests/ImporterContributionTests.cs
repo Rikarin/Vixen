@@ -8,8 +8,11 @@ namespace Vixen.Editor.Assets.Tests;
 /// <summary>Doc 36 § F8: an importer something other than this build contributed.</summary>
 /// <remarks>
 ///     <para>
-///         <b>F8 said "importers are constructed and handed in; there is no registry for a plugin to
-///         add to", and the second half was the part that mattered.</b> <see cref="ImporterRegistry" />
+///         <b>
+///             F8 said "importers are constructed and handed in; there is no registry for a plugin to
+///             add to", and the second half was the part that mattered.
+///         </b>
+///         <see cref="ImporterRegistry" />
 ///         has existed all along — it is built fresh per run by <see cref="BuiltInImporters.Create()" />,
 ///         inside a background task, so that the editor and the CLI cannot disagree about the set. A
 ///         plugin had nothing to add to because every registry it could reach was about to be thrown
@@ -47,8 +50,12 @@ public sealed class ImporterContributionTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>Folded in after the built-ins, so a contribution cannot silently take an extension
-    ///     one of them already claims.</b> <c>ImporterRegistry</c> refuses with both names for the
+    ///     ⚠
+    ///     <b>
+    ///         Folded in after the built-ins, so a contribution cannot silently take an extension
+    ///         one of them already claims.
+    ///     </b>
+    ///     <c>ImporterRegistry</c> refuses with both names for the
     ///     reason it gives: an artist's PNG being imported as a cubemap depending on load order is
     ///     not a thing anybody can debug.
     /// </summary>

@@ -23,8 +23,12 @@ public readonly record struct TexturePoolSlot(TextureFormat Format, int Width, i
 ///         plan exists there is no graph left to analyse.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The number this exists to bound is <see cref="Allocations" />, and a chain that
-///         allocates one texture per op is the failure it is looking for.</b> Forty ops threaded
+///         ⚠
+///         <b>
+///             The number this exists to bound is <see cref="Allocations" />, and a chain that
+///             allocates one texture per op is the failure it is looking for.
+///         </b>
+///         Forty ops threaded
 ///         through two live images must allocate two textures and not forty; at 2K that is the
 ///         difference between 32 MB and 640 MB, and the version that allocates forty works perfectly
 ///         on a small plan and takes the machine down on a real one.
@@ -194,6 +198,6 @@ public sealed class TexturePoolSchedule {
             }
         }
 
-        return new() { Slots = slots.ToImmutable(), SlotOf = [.. slotOf], Peak = peak };
+        return new() { Slots = slots.ToImmutable(), SlotOf = [..slotOf], Peak = peak };
     }
 }

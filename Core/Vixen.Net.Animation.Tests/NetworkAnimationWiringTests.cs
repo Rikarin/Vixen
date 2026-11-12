@@ -3,13 +3,11 @@
 
 using Vixen.Animation;
 using Vixen.Animation.Ecs;
-using Vixen.Core;
 using Vixen.Core.Mathematics;
 using Vixen.Ecs;
 using Vixen.Geometry;
 using Vixen.Net.Replication;
 using Vixen.Net.Sessions;
-using Vixen.Rendering;
 using Xunit;
 
 namespace Vixen.Net.Animation.Tests;
@@ -86,11 +84,11 @@ public sealed class NetworkAnimationWiringTests {
     [Fact]
     public void TheSelectionSystemAddsTheComponentItFills() {
         using var world = new World("bones-selection");
-        var system = new NetworkBoneSelectionSystem();
+        using var system = new NetworkBoneSelectionSystem();
 
         var entity = world.Create(
             new NetworkId(1),
-            new AnimatorComponent { Value = new Animator(Chain()) },
+            new AnimatorComponent { Value = new(Chain()) },
             default(NetworkBones)
         );
 
@@ -114,7 +112,7 @@ public sealed class NetworkAnimationWiringTests {
     [Fact]
     public void ACharacterWithNoAnimatorYetIsCountedRatherThanForgotten() {
         using var world = new World("bones-waiting");
-        var system = new NetworkBoneSelectionSystem();
+        using var system = new NetworkBoneSelectionSystem();
 
         var entity = world.Create(new NetworkId(1), default(AnimatorComponent), default(NetworkBones));
 
@@ -122,7 +120,7 @@ public sealed class NetworkAnimationWiringTests {
         Assert.Equal(1, system.WaitingCount);
         Assert.False(world.Has<NetworkBoneSelection>(entity));
 
-        world.Get<AnimatorComponent>(entity).Value = new Animator(Chain());
+        world.Get<AnimatorComponent>(entity).Value = new(Chain());
 
         Assert.Equal(1, system.Select(world));
         Assert.Equal(3, world.Read<NetworkBoneSelection>(entity).Joints!.Length);
@@ -132,11 +130,11 @@ public sealed class NetworkAnimationWiringTests {
     [Fact]
     public void AHandWrittenSelectionIsNotOverwritten() {
         using var world = new World("bones-hand-written");
-        var system = new NetworkBoneSelectionSystem();
+        using var system = new NetworkBoneSelectionSystem();
 
         var entity = world.Create(
             new NetworkId(1),
-            new AnimatorComponent { Value = new Animator(Chain()) },
+            new AnimatorComponent { Value = new(Chain()) },
             default(NetworkBones),
             new NetworkBoneSelection { Joints = [2] }
         );
@@ -182,9 +180,10 @@ public sealed class NetworkAnimationWiringTests {
         var sender = new ReplicationServer(registry);
         var receiver = new ReplicationClient(registry);
 
-        var selection = new NetworkBoneSelectionSystem();
-        var capture = new NetworkBonesCaptureSystem();
-        var apply = new NetworkBonesApplySystem { Local = Receiving };
+        using var selection = new NetworkBoneSelectionSystem();
+        using var capture = new NetworkBonesCaptureSystem();
+        using var apply = new NetworkBonesApplySystem();
+        apply.Local = Receiving;
 
         var authority = new Animator(Chain());
         var turn = Quaternion.FromAxisAngle(Vector3.UnitY, 0.5f);
@@ -250,8 +249,7 @@ public sealed class NetworkAnimationWiringTests {
                 new() {
                     Name = name,
                     Joints = [
-                        .. joints.Select(
-                            joint => new SkeletonJoint {
+                        ..joints.Select(joint => new SkeletonJoint {
                                 Name = joint.Name, Parent = joint.Parent, InverseBindPose = Matrix4x4.Identity
                             }
                         )

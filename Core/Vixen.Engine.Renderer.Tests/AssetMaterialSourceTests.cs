@@ -4,7 +4,6 @@
 using Vixen.Assets;
 using Vixen.Core;
 using Vixen.Core.IO;
-using Vixen.Core.Serialization;
 using Vixen.Core.Serialization.Storage;
 using Vixen.Engine.Renderer;
 using Vixen.Rendering;
@@ -45,7 +44,7 @@ public sealed class AssetMaterialSourceTests {
     public void AMaterialReferenceCompilesToTheMaterialTheBuildWrote() {
         using var source = new AssetMaterialSource(
             Content(
-                new MaterialContent {
+                new() {
                     Shader = "ForwardPlus",
                     Features = [new MetalRoughnessFeature { Metalness = 1f, Roughness = 0.125f }]
                 }
@@ -97,8 +96,10 @@ public sealed class AssetMaterialSourceTests {
         Assert.Equal(1, source.Failed);
     }
 
-    /// <summary>"Never" and "not yet" are the same <see cref="AssetMaterialSource.TryGet" /> answer,
-    /// and <see cref="AssetMaterialSource.Refused" /> is what separates them.</summary>
+    /// <summary>
+    ///     "Never" and "not yet" are the same <see cref="AssetMaterialSource.TryGet" /> answer,
+    ///     and <see cref="AssetMaterialSource.Refused" /> is what separates them.
+    /// </summary>
     /// <remarks>
     ///     <para>
     ///         ⚠ <b>The distinction is a mesh that draws against a mesh that never does.</b>
@@ -121,7 +122,7 @@ public sealed class AssetMaterialSourceTests {
 
         using var source = new AssetMaterialSource(Content(new(), local => arriving = new(local)));
 
-        var missing = new AssetReference(new AssetId(Guid.NewGuid()), SubAssetId.Main);
+        var missing = new AssetReference(new(Guid.NewGuid()), SubAssetId.Main);
 
         // Nothing has been asked about, so nothing has been given up on.
         Assert.False(source.Refused(Hero));
@@ -155,7 +156,7 @@ public sealed class AssetMaterialSourceTests {
     public void ATexturedMaterialIsAnsweredBeforeItsTexturesArrive() {
         using var source = new AssetMaterialSource(
             Content(
-                new MaterialContent {
+                new() {
                     Features = [new TexturedMetalRoughnessFeature()],
                     Textures = [new("baseColorMap", new(new AssetId(Guid.NewGuid()), SubAssetId.Main))]
                 }
@@ -193,7 +194,7 @@ public sealed class AssetMaterialSourceTests {
     [Fact]
     public void AProjectThatSetsNoPermutationsStillCompilesTheShadowTerm() {
         using var source = new AssetMaterialSource(
-            Content(new MaterialContent { Shader = "ForwardPlus", Features = [new MetalRoughnessFeature()] })
+            Content(new() { Shader = "ForwardPlus", Features = [new MetalRoughnessFeature()] })
         );
 
         // The state under test, and the one WorldRenderer.Mount leaves a project in.
@@ -207,7 +208,11 @@ public sealed class AssetMaterialSourceTests {
             material.Composition
         );
 
-        var values = key.Values.ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal);
+        var values = key.Values.ToDictionary(
+            static pair => pair.Key,
+            static pair => pair.Value,
+            StringComparer.Ordinal
+        );
 
         Assert.Equal("true", values[ForwardPlusKeys.UseShadows.Name]);
         Assert.Equal("4", values[ForwardPlusKeys.CascadeCount.Name]);
@@ -228,9 +233,8 @@ public sealed class AssetMaterialSourceTests {
         permutations.Set(ForwardPlusKeys.UseReflectionProbe, true);
 
         using var without = new AssetMaterialSource(Content(new() { Shader = "ForwardPlus" }));
-        using var with = new AssetMaterialSource(Content(new() { Shader = "ForwardPlus" })) {
-            Permutations = permutations
-        };
+        using var with = new AssetMaterialSource(Content(new() { Shader = "ForwardPlus" }));
+        with.Permutations = permutations;
 
         Settles(without, out var plain);
         Settles(with, out var told);
@@ -307,8 +311,12 @@ public sealed class AssetMaterialSourceTests {
     ///         ⚠ <b>The failure is silent and draws.</b> <c>WorldRenderer.Paired</c> can name only the
     ///         hand-written features, because a graph's slots are data; unpaired, the index stays at
     ///         zero, zero is a valid slot holding the table's fallback, and the material samples a real
-    ///         texture that is not its own. No device reports anything — <a
-    ///         href="https://github.com/Rikarin/Vixen/issues/493">#493</a>.
+    ///         texture that is not its own. No device reports anything —
+    ///         <a
+    ///             href="https://github.com/Rikarin/Vixen/issues/493">
+    ///             #493
+    ///         </a>
+    ///         .
     ///     </para>
     ///     <para>
     ///         Both halves are asserted, because they are two names for different things: the key is
@@ -322,19 +330,14 @@ public sealed class AssetMaterialSourceTests {
 
         using var source = new AssetMaterialSource(
             Content(
-                new MaterialContent {
+                new() {
                     Shader = "ForwardPlus",
                     Features = [
-                        new GraphSurfaceFeature {
-                            Shader = "BarkGraphSurface",
-                            Maps = [new("bark", "albedoIndex")]
-                        }
+                        new GraphSurfaceFeature { Shader = "BarkGraphSurface", Maps = [new("bark", "albedoIndex")] }
                     ]
                 }
             )
-        ) {
-            Materials = materials
-        };
+        ) { Materials = materials };
 
         Settles(source, out _);
 
@@ -363,13 +366,10 @@ public sealed class AssetMaterialSourceTests {
     public void AGraphMaterialCompilesWithNoPairingToAddTo() {
         using var source = new AssetMaterialSource(
             Content(
-                new MaterialContent {
+                new() {
                     Shader = "ForwardPlus",
                     Features = [
-                        new GraphSurfaceFeature {
-                            Shader = "BarkGraphSurface",
-                            Maps = [new("bark", "albedoIndex")]
-                        }
+                        new GraphSurfaceFeature { Shader = "BarkGraphSurface", Maps = [new("bark", "albedoIndex")] }
                     ]
                 }
             )
@@ -385,8 +385,12 @@ public sealed class AssetMaterialSourceTests {
     /// <param name="material">The material it compiled.</param>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>No deadline, for the reason <c>AssetWaterSourceTests.Settles</c> now gives at
-    ///         length.</b> The load is off the frame's thread, <c>build.sh Test</c> runs every test
+    ///         ⚠
+    ///         <b>
+    ///             No deadline, for the reason <c>AssetWaterSourceTests.Settles</c> now gives at
+    ///             length.
+    ///         </b>
+    ///         The load is off the frame's thread, <c>build.sh Test</c> runs every test
     ///         project at once, and a work item queued into a saturated pool waits on .NET's thread
     ///         injection — about two threads a second — so the delay is a property of how many
     ///         workers the whole host has blocked. Thirty seconds was a guess about somebody else's
@@ -414,7 +418,7 @@ public sealed class AssetMaterialSourceTests {
     }
 
     /// <summary>A content manager holding one material at <see cref="Hero" />.</summary>
-    static AssetManager Content(MaterialContent material) => Content(material, local => local);
+    static AssetManager Content(MaterialContent material) => Content(material, static local => local);
 
     /// <summary>The same, with the bundle source it reads through wrapped.</summary>
     /// <param name="material">The document to write.</param>
@@ -446,8 +450,8 @@ public sealed class AssetMaterialSourceTests {
             CatalogFormat.Version,
             default,
             "Windows",
-            [new("hero", id, "Main", ContentProvider.Local, [], [], 0, Reference: Hero)],
-            [new("Main", "", default, 0, 0, CompressionMethod.None, [])]
+            [new("hero", id, "Main", ContentProvider.Local, [], [], 0, Hero)],
+            [new("Main", string.Empty, default, 0, 0, CompressionMethod.None, [])]
         );
 
         return new(catalog, around(new LocalBundleSource(files, new("/bundles"))));

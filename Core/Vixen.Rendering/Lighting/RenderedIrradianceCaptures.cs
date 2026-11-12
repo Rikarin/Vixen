@@ -50,7 +50,7 @@ public sealed class RenderedIrradianceCaptures : IIrradianceCaptureSource, IDisp
         ArgumentNullException.ThrowIfNull(draw);
 
         this.device = device;
-        this.cube = capture;
+        cube = capture;
         this.draw = draw;
     }
 

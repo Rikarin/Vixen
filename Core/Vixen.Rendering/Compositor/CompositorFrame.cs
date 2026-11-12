@@ -152,8 +152,12 @@ public sealed class CompositorFrame {
     /// <exception cref="CompositorBindingException">Nothing was declared or imported under that name.</exception>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Not <see cref="Size" />, and the difference is the whole of what a render scale
-    ///         is.</b> <see cref="Size" /> is the <em>window's</em>; a scene plane declared with
+    ///         ⚠
+    ///         <b>
+    ///             Not <see cref="Size" />, and the difference is the whole of what a render scale
+    ///             is.
+    ///         </b>
+    ///         <see cref="Size" /> is the <em>window's</em>; a scene plane declared with
     ///         <c>RenderResourceAsset.Scale</c> below one is smaller than it, and a node that steps
     ///         through such a plane in <see cref="Size" />'s texels steps by the wrong distance —
     ///         which is not an error anywhere, because every tap still lands inside the texture.

@@ -18,8 +18,11 @@ namespace Vixen.Audio.Effects;
 ///         and the format is already known.
 ///     </para>
 ///     <para>
-///         <b>Parameters are plain properties, written from the game thread while the audio thread
-///         reads them.</b> That is a deliberate, documented race: every parameter is a
+///         <b>
+///             Parameters are plain properties, written from the game thread while the audio thread
+///             reads them.
+///         </b>
+///         That is a deliberate, documented race: every parameter is a
 ///         <see cref="float" /> or an <see cref="int" />, both of which are written atomically on
 ///         every platform .NET supports, so the worst outcome is one block rendered with a mix of
 ///         old and new values. The alternative — routing every knob turn through the command queue —

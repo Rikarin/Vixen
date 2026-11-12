@@ -80,10 +80,8 @@ public sealed class SceneEditorFactory(Func<DocumentRequest, World> worlds) : Do
             request.Project,
             supply(request),
             request.Asset,
-            System.IO.Path.GetFileNameWithoutExtension(request.Path)
-        ) {
-            Writer = new SceneFileWriter(request.Path)
-        };
+            Path.GetFileNameWithoutExtension(request.Path)
+        ) { Writer = new SceneFileWriter(request.Path) };
 
         // ⚠ `Open` and not `Load`, and the difference is doc 47 § 5. A level whose prefab moved while
         // it was closed is stale in exactly the members its instances did *not* claim as their own,
@@ -169,10 +167,8 @@ public sealed class PrefabEditorFactory(Func<DocumentRequest, World> worlds) : D
             request.Project,
             supply(request),
             request.Asset,
-            System.IO.Path.GetFileNameWithoutExtension(request.Path)
-        ) {
-            Writer = new PrefabFileWriter(request.Path)
-        };
+            Path.GetFileNameWithoutExtension(request.Path)
+        ) { Writer = new PrefabFileWriter(request.Path) };
 
         // ⚠ A prefab is reconciled on open too, for the nested case. A `.vxprefab` may itself hold an
         // instance of another one — R7's single level — and the outer file carries the inner links

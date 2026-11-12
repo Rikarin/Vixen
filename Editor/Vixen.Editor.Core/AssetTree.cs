@@ -50,8 +50,11 @@ public sealed record AssetTreeNode(
 /// <summary>Turns the asset database's flat index into the shape a browser shows.</summary>
 /// <remarks>
 ///     <para>
-///         <b>The database is a dictionary and a browser is a tree, and this is the whole of the
-///         difference.</b> <see cref="AssetDatabase.Entries" /> is every asset with its full path and
+///         <b>
+///             The database is a dictionary and a browser is a tree, and this is the whole of the
+///             difference.
+///         </b>
+///         <see cref="AssetDatabase.Entries" /> is every asset with its full path and
 ///         nothing else — which is the right shape for "what is this GUID" and the wrong one for
 ///         "what is in this folder".
 ///     </para>
@@ -101,11 +104,12 @@ public static class AssetTree {
         // ⚠ Folders first and in path order, so a parent is built before anything it holds. The file
         // pass below can then assume every folder on its path exists — and where one does not,
         // because the scan was read-only, `Folder` makes it.
-        foreach (var entry in entries.Where(entry => entry.IsFolder).OrderBy(entry => entry.Path, StringComparer.Ordinal)) {
+        foreach (var entry in entries.Where(static entry => entry.IsFolder)
+                     .OrderBy(static entry => entry.Path, StringComparer.Ordinal)) {
             Folder(entry.Path).Guid = entry.Guid;
         }
 
-        foreach (var entry in entries.Where(entry => !entry.IsFolder)) {
+        foreach (var entry in entries.Where(static entry => !entry.IsFolder)) {
             var separator = entry.Path.LastIndexOf('/');
             var parent = separator < 0 ? root : Folder(entry.Path[..separator]);
 
@@ -187,7 +191,8 @@ public static class AssetTree {
 
         public AssetId Guid { get; set; } = guid;
 
-        public AssetTreeNode Build() => new(name, path, true, Guid, [.. Folders.Select(folder => folder.Build()).Concat(Files).Order(Order)]);
+        public AssetTreeNode Build() =>
+            new(name, path, true, Guid, [..Folders.Select(static folder => folder.Build()).Concat(Files).Order(Order)]);
     }
 
     /// <summary>Folders before files, then by name.</summary>
@@ -198,8 +203,7 @@ public static class AssetTree {
     ///     with no order at all — equal, so whichever the enumeration reached first wins, which is
     ///     the non-determinism this comparer exists to remove.
     /// </remarks>
-    static readonly IComparer<AssetTreeNode> Order = Comparer<AssetTreeNode>.Create(
-        (left, right) => {
+    static readonly IComparer<AssetTreeNode> Order = Comparer<AssetTreeNode>.Create(static (left, right) => {
             if (left.IsFolder != right.IsFolder) {
                 return left.IsFolder ? -1 : 1;
             }

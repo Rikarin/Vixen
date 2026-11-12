@@ -14,17 +14,28 @@ namespace Vixen.Ui.Styling;
 ///         property.
 ///     </para>
 ///     <para>
-///         ⚠ <b>A group carries a name as well as a condition, and the name is not part of the
-///         condition.</b> <c>@container card (min-width: 400px)</c> asks the nearest ancestor
+///         ⚠
+///         <b>
+///             A group carries a name as well as a condition, and the name is not part of the
+///             condition.
+///         </b>
+///         <c>@container card (min-width: 400px)</c> asks the nearest ancestor
 ///         <i>called</i> <c>card</c>, which may be several boxes above the nearest container of any
 ///         kind — so the name selects <i>which</i> box the condition is evaluated against, and
 ///         evaluating it against the wrong one is a query that answers confidently and wrongly.
 ///         <see cref="ContainerScopes" /> does that walk; this only records what to walk for.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Nesting conjoins through the parent link, exactly as <c>@media</c>'s does — and the
-///         two nest through each other.</b> <c>@media (min-width: 900px) { @container (min-width:
-///         400px) { … } }</c> is two questions of two different subjects, and a rule inside it carries
+///         ⚠
+///         <b>
+///             Nesting conjoins through the parent link, exactly as <c>@media</c>'s does — and the
+///             two nest through each other.
+///         </b>
+///         <c>
+///             @media (min-width: 900px) { @container (min-width:
+///             400px) { … } }
+///         </c>
+///         is two questions of two different subjects, and a rule inside it carries
 ///         one id from each table. Keeping them in separate tables rather than one is what makes that
 ///         work without a tagged union: a rule has a <c>Conditions</c> and a <c>Containers</c>, and
 ///         both have to hold.
@@ -329,7 +340,7 @@ public sealed class ContainerConditions {
             holds[i] = ContainerQuery.TryEvaluate(group.Condition, box, out var matches, out _) && matches;
         }
 
-        return new ContainerVerdicts(holds, Revision);
+        return new(holds, Revision);
     }
 
     /// <summary>Finds the container a named query is about.</summary>
@@ -343,14 +354,22 @@ public sealed class ContainerConditions {
     /// <remarks>
     ///     <para>
     ///         ⚠ <b>Nearest wins, and an unnamed query does not skip a named container.</b> A name is a
-    ///         label a container carries, not a category it belongs to, so <c>@container (min-width:
-    ///         …)</c> asks whatever box is closest whether or not that box was given a name. Skipping
+    ///         label a container carries, not a category it belongs to, so
+    ///         <c>
+    ///             @container (min-width:
+    ///             …)
+    ///         </c>
+    ///         asks whatever box is closest whether or not that box was given a name. Skipping
     ///         named ones would make adding a name to a container silently retarget every unnamed
     ///         query below it.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>But a container that cannot answer every feature is skipped, before the name is
-    ///         looked at (#1429).</b> CSS Containment 3 § 5.1: the container a query asks is the
+    ///         ⚠
+    ///         <b>
+    ///             But a container that cannot answer every feature is skipped, before the name is
+    ///             looked at (#1429).
+    ///         </b>
+    ///         CSS Containment 3 § 5.1: the container a query asks is the
     ///         nearest ancestor that is a valid query container for <i>every</i> feature in it. This
     ///         used to stop at the first non-<c>normal</c> box, so <c>(min-height: 200px)</c> under an
     ///         <c>inline-size</c> container asked it, got no height and resolved <c>false</c> however
@@ -358,7 +377,12 @@ public sealed class ContainerConditions {
     ///         <c>card</c> that is only <c>inline-size</c> is not the <c>card</c> a height query asks.
     ///     </para>
     /// </remarks>
-    static bool TryResolve(IReadOnlyList<ContainerScope> chain, string name, ContainerKind required, out ContainerBox box) {
+    static bool TryResolve(
+        IReadOnlyList<ContainerScope> chain,
+        string name,
+        ContainerKind required,
+        out ContainerBox box
+    ) {
         for (var i = 0; i < chain.Count; i++) {
             var candidate = chain[i];
 
@@ -384,8 +408,12 @@ public sealed class ContainerConditions {
     /// <returns>Whether any entry is that name, compared whole and case-sensitively.</returns>
     /// <remarks>
     ///     ⚠ <b>A list, CSS Containment 3 § 3.1, and this used to compare it whole (#273).</b> A box
-    ///     named <c>card side</c> was found by neither <c>@container card</c> nor <c>@container
-    ///     side</c>, while a <c>style()</c> query found it by either — <c>StyleQuery.Names</c> splits
+    ///     named <c>card side</c> was found by neither <c>@container card</c> nor
+    ///     <c>
+    ///         @container
+    ///         side
+    ///     </c>
+    ///     , while a <c>style()</c> query found it by either — <c>StyleQuery.Names</c> splits
     ///     the list. A mixed query asks both halves of one box, so the two have to agree on what a
     ///     name is.
     /// </remarks>
@@ -430,7 +458,7 @@ public readonly struct ContainerVerdicts : IEquatable<ContainerVerdicts> {
     /// <returns>Whether every condition in its stack holds.</returns>
     public bool Holds(int group) =>
         group == ContainerConditions.Unconditional
-        || (holds is not null && (uint) group < (uint) holds.Length && holds[group]);
+        || (holds is not null && (uint)group < (uint)holds.Length && holds[group]);
 
     /// <inheritdoc />
     public bool Equals(ContainerVerdicts other) {

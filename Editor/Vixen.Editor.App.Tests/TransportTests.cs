@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Editor.Testing;
-using Vixen.Editor.Ui;
 using Vixen.Ui;
 using Vixen.Ui.Controls;
 using Vixen.Ui.Styling;
@@ -91,8 +90,8 @@ public class TransportTests {
         var strip = fixture.Shell.Toolbar.Strip;
 
         var group = Assert.Single(
-            strip.Children.Where(child => child.Tag == "toolbar-group"),
-            box => Descendants(box).Any(child => child.HasClass("transport-play"))
+            strip.Children.Where(static child => child.Tag == "toolbar-group"),
+            static box => Descendants(box).Any(static child => child.HasClass("transport-play"))
         );
 
         // All four in it and nothing else: a transport with the gizmo modes boxed in beside it would

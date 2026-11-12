@@ -146,7 +146,9 @@ public sealed class MaterialAsset {
     ///     would make a round trip through one of them a diff. A static constructor rather than a
     ///     module initializer, for the reason <see cref="SceneScalars.Register" /> gives.
     /// </remarks>
-    static MaterialAsset() => SceneScalars.Register();
+    static MaterialAsset() {
+        SceneScalars.Register();
+    }
 
     /// <summary>Which version of the format this file is.</summary>
     public int Version { get; set; } = Current;

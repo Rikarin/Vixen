@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core.Mathematics;
-using Vixen.Vfx;
 using Xunit;
 
 namespace Vixen.Vfx.Tests;
@@ -69,12 +68,13 @@ public sealed class VfxCompiledGraphTests {
     public void ReadingWhatNothingWritesIsRefused() {
         // The failure this replaces is the worst kind: an effect that runs over zeroed memory, looks
         // like it does nothing, and has no symptom to search for.
-        var failure = Assert.Throws<ArgumentException>(() => VfxCompiledGraph.Compile(
-            [VfxSpawner.Burst(1)],
-            [new(VfxOpcode.SetPosition, Vector4.Zero)],
-            [new(VfxOpcode.Integrate)],
-            16
-        ));
+        var failure = Assert.Throws<ArgumentException>(static () => VfxCompiledGraph.Compile(
+                [VfxSpawner.Burst(1)],
+                [new(VfxOpcode.SetPosition, Vector4.Zero)],
+                [new(VfxOpcode.Integrate)],
+                16
+            )
+        );
 
         Assert.Contains("Velocity", failure.Message, StringComparison.Ordinal);
     }
@@ -120,7 +120,10 @@ public sealed class VfxCompiledGraphTests {
         var first = graph.Initializers[0].Salt;
         var second = graph.Initializers[1].Salt;
 
-        Assert.True(second - first >= 3, $"Salts {first} and {second} are too close for operations that draw three values each.");
+        Assert.True(
+            second - first >= 3,
+            $"Salts {first} and {second} are too close for operations that draw three values each."
+        );
     }
 
     [Fact]
@@ -154,6 +157,6 @@ public sealed class VfxCompiledGraphTests {
 
     [Fact]
     public void ACapacityOfNothingIsRefused() {
-        Assert.Throws<ArgumentOutOfRangeException>(() => VfxCompiledGraph.Compile([], [], [], 0));
+        Assert.Throws<ArgumentOutOfRangeException>(static () => VfxCompiledGraph.Compile([], [], [], 0));
     }
 }

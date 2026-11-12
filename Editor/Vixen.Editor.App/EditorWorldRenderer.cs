@@ -34,8 +34,12 @@ namespace Vixen.Editor.App;
 ///         checked is a pane whose first failure is attributed to the pane.
 ///     </para>
 ///     <para>
-///         ⚠ <b><c>Mount</c> <em>is</em> called now, and the paragraphs below are the argument that
-///         decided how.</b> <see cref="Mount" /> mounts the project's catalog for everything only a
+///         ⚠
+///         <b>
+///             <c>Mount</c> <em>is</em> called now, and the paragraphs below are the argument that
+///             decided how.
+///         </b>
+///         <see cref="Mount" /> mounts the project's catalog for everything only a
 ///         mount can build — the material source, the texture source, the vfx source and the terrain
 ///         seams — and then puts <c>ProjectMeshSource</c> straight back as the geometry, which is the
 ///         arrangement the third paragraph names. What is left below is why, because every line of it
@@ -53,16 +57,24 @@ namespace Vixen.Editor.App;
 ///         it is not shipped.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Which is an argument about geometry only, and the paragraph below is the cost of
-///         over-reading it.</b> <c>Mount</c> is also the only thing that builds an
+///         ⚠
+///         <b>
+///             Which is an argument about geometry only, and the paragraph below is the cost of
+///             over-reading it.
+///         </b>
+///         <c>Mount</c> is also the only thing that builds an
 ///         <c>IMaterialSource</c>, a texture source, a vfx source and the terrain seams, and
 ///         <c>Source</c> and <c>Painter</c> are both settable — so mounting and then restoring
 ///         <c>ProjectMeshSource</c> as the geometry is what closes this without reopening that, and
 ///         is exactly what <see cref="Mount" /> does.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Until a mount happens <see cref="Engine.Renderer.WorldRenderer.Painter" /> is null,
-///         and that is a real degrade rather than a detail.</b> There is no editor-side
+///         ⚠
+///         <b>
+///             Until a mount happens <see cref="Engine.Renderer.WorldRenderer.Painter" /> is null,
+///             and that is a real degrade rather than a detail.
+///         </b>
+///         There is no editor-side
 ///         <see cref="IMaterialSource" /> of its own — <c>ProjectSurfaceSource</c> is the tool
 ///         renderer's tint-and-style source and does not satisfy that interface — so before
 ///         <see cref="Mount" /> every drawable in the scene is painted with <see cref="Fallback" />
@@ -125,8 +137,12 @@ sealed class EditorWorldRenderer : IDisposable {
 
     /// <summary>The project's own geometry, kept so that <see cref="Mount" /> can put it back.</summary>
     /// <remarks>
-    ///     ⚠ <b><c>WorldRenderer.Mount</c> overwrites <c>Source</c> with an <c>AssetMeshSource</c> over
-    ///     the catalog</b>, and that is the one thing about mounting the editor must undo — see
+    ///     ⚠
+    ///     <b>
+    ///         <c>WorldRenderer.Mount</c> overwrites <c>Source</c> with an <c>AssetMeshSource</c> over
+    ///         the catalog
+    ///     </b>
+    ///     , and that is the one thing about mounting the editor must undo — see
     ///     <see cref="Mount" />.
     /// </remarks>
     readonly IMeshSource? geometry;
@@ -153,6 +169,7 @@ sealed class EditorWorldRenderer : IDisposable {
 
     /// <summary>The two set-0 bindings the default frame declares and no node in it produces.</summary>
     readonly TextureHandle shadowStandIn;
+
     readonly TextureViewHandle shadowStandInView;
     readonly BufferHandle shadowStandInStaging;
     readonly BufferHandle clusterStandIn;
@@ -181,8 +198,12 @@ sealed class EditorWorldRenderer : IDisposable {
     /// </param>
     /// <exception cref="ArgumentNullException">An argument is null.</exception>
     /// <remarks>
-    ///     ⚠ <b><paramref name="jobs" /> is a constructor argument and not a property, which is a
-    ///     rule rather than a preference.</b> Both seams it feeds are read before this constructor
+    ///     ⚠
+    ///     <b>
+    ///         <paramref name="jobs" /> is a constructor argument and not a property, which is a
+    ///         rule rather than a preference.
+    ///     </b>
+    ///     Both seams it feeds are read before this constructor
     ///     returns: <c>CompositorBuilder.Jobs</c> is taken by each node <em>as it is built</em>, and
     ///     the build happens below — so a scheduler assigned afterwards would reach the next build
     ///     and, for a viewport nobody reloads, never. It is the same ordering rule as
@@ -207,7 +228,7 @@ sealed class EditorWorldRenderer : IDisposable {
         // one level, and the buffers are allocated for real on the device the moment this is built —
         // whereas a game sizes them for whatever it streams. `Meshes.Dropped` is what says a level
         // outgrew them, and it is a number rather than a silent stop.
-        Renderer = new(device, effects, vertexCapacity: 1 << 18, indexCapacity: 1 << 19) {
+        Renderer = new(device, effects, 1 << 18, 1 << 19) {
             Source = meshes,
 
             // Events 4001 and 4002, the streaming pool's refusals. `WorldRenderer.Logger` forwards to
@@ -232,7 +253,13 @@ sealed class EditorWorldRenderer : IDisposable {
         // `Register` would schedule this extraction beside the out-of-band `Extract` the editor
         // already calls every frame, and it writes `RenderHandle` structurally and claims residency
         // per entity — so it would be run twice over one world. See `EditorFrames`.
-        Meshes = new(Renderer.Host.System, Renderer.Meshes, Renderer.Transforms, Renderer.Materials, Renderer.Residency) {
+        Meshes = new(
+            Renderer.Host.System,
+            Renderer.Meshes,
+            Renderer.Transforms,
+            Renderer.Materials,
+            Renderer.Residency
+        ) {
             Meshes = meshes,
 
             // ⚠ The same feature the renderer already owns, wired here because this extraction is
@@ -269,7 +296,7 @@ sealed class EditorWorldRenderer : IDisposable {
         // document is built once, so a view registered when the split happens is one no node refers
         // to — the frame would collect it, cull for it and draw nothing from it.
         for (var pane = 0; pane < MaxPanes; pane++) {
-            views[pane] = new RenderView($"Editor {pane}");
+            views[pane] = new($"Editor {pane}");
             Renderer.Host.Builder.Views[ViewName(pane)] = views[pane];
         }
 
@@ -353,8 +380,12 @@ sealed class EditorWorldRenderer : IDisposable {
     /// <summary>And the stage the wireframe mode draws the same geometry in.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A stage of its own rather than <see cref="ViewModes.ApplyTo" /> against the shaded
-    ///         one, and the pipeline cache is why.</b> <c>PipelineKey</c> is
+    ///         ⚠
+    ///         <b>
+    ///             A stage of its own rather than <see cref="ViewModes.ApplyTo" /> against the shaded
+    ///             one, and the pipeline cache is why.
+    ///         </b>
+    ///         <c>PipelineKey</c> is
     ///         <c>(Effect, Stage.Index, VertexLayout, Output)</c> —
     ///         <c>Core/Vixen.Rendering/PipelineCache.cs:33</c> — so a stage's rasterizer, blend and
     ///         depth state are read exactly once, by <c>EffectPipelineDescriber.Describe</c> on the
@@ -375,8 +406,12 @@ sealed class EditorWorldRenderer : IDisposable {
 
     /// <summary>What a pane's shaded subtree is called, and what <see cref="Trees" /> looks it up by.</summary>
     /// <remarks>
-    ///     ⚠ <b>Unique per pane, because <c>CompositorBuilder.Nodes</c> is a dictionary by name and a
-    ///     repeat silently overwrites</b> — <c>Core/Vixen.Rendering/Compositor/CompositorBuilder.cs:768</c>.
+    ///     ⚠
+    ///     <b>
+    ///         Unique per pane, because <c>CompositorBuilder.Nodes</c> is a dictionary by name and a
+    ///         repeat silently overwrites
+    ///     </b>
+    ///     — <c>Core/Vixen.Rendering/Compositor/CompositorBuilder.cs:778</c>.
     ///     Four panes sharing a node name is three panes whose tree cannot be looked up, which is
     ///     three panes with no mode registered and therefore three panes the tool renderer draws.
     /// </remarks>
@@ -391,14 +426,22 @@ sealed class EditorWorldRenderer : IDisposable {
     /// <summary>The linear target a pane's scene is shaded into, before the curve.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Transient, and it is the reason the pane's own colour is the frame's <em>last</em>
-    ///         target rather than its first.</b> A shading pass writes luminance in cd/m² — an overcast
+    ///         ⚠
+    ///         <b>
+    ///             Transient, and it is the reason the pane's own colour is the frame's <em>last</em>
+    ///             target rather than its first.
+    ///         </b>
+    ///         A shading pass writes luminance in cd/m² — an overcast
     ///         sky is thousands of them — so an 8-bit target here is every surface clipped to white,
     ///         which reads as "the lighting broke" rather than as "there is no exposure in this frame".
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>One per pane, and sized explicitly rather than from the frame's reference
-    ///         size.</b> A declared resource with no size is <c>Scale</c> of <c>FrameSize</c> —
+    ///         ⚠
+    ///         <b>
+    ///             One per pane, and sized explicitly rather than from the frame's reference
+    ///             size.
+    ///         </b>
+    ///         A declared resource with no size is <c>Scale</c> of <c>FrameSize</c> —
     ///         <c>RenderResourceAsset.Describe</c> — and a frame has one of those where four panes have
     ///         four extents. Left to the reference size, three panes would attach a colour of one size
     ///         beside a depth of another, which is a framebuffer the driver refuses rather than a
@@ -427,8 +470,11 @@ sealed class EditorWorldRenderer : IDisposable {
     /// <summary>The frame the pane draws: a sky, one shading pass, and a curve.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b><c>GraphicsCompositorAsset.Default</c> with the two things a picture needs added,
-    ///         and nothing else.</b> That document is one opaque stage into a colour and a depth, and
+    ///         <b>
+    ///             <c>GraphicsCompositorAsset.Default</c> with the two things a picture needs added,
+    ///             and nothing else.
+    ///         </b>
+    ///         That document is one opaque stage into a colour and a depth, and
     ///         it exists so that "a new project renders something" is true — it is not a frame
     ///         anybody looks at, because it has no exposure in it and no background.
     ///     </para>
@@ -478,7 +524,7 @@ sealed class EditorWorldRenderer : IDisposable {
             // index and get the same pipeline, which is the pipeline wireframe wants. The thing that
             // is per pane is the *view*, and that is what this document has four of.
             Stages = [new() { Name = OpaqueStage }, new() { Name = WireframeStage, Cull = CullMode.None }],
-            Resources = [.. resources],
+            Resources = [..resources],
 
             // ⚠ One build, eight subtrees, and the ones a frame draws are chosen per frame. Building
             // a second document on the same builder would work — `AddStage` reuses by name for
@@ -486,7 +532,7 @@ sealed class EditorWorldRenderer : IDisposable {
             // tree built before it would be one whose sky node nothing can reach and whose uploads
             // nothing copies. A node that is in no tree costs nothing: `Build`, `Collect` and
             // `Degradations` all walk from `Game` down.
-            Game = new SequenceAsset { Name = "Editor frame", Children = [.. panes] }
+            Game = new SequenceAsset { Name = "Editor frame", Children = [..panes] }
         };
     }
 
@@ -504,9 +550,7 @@ sealed class EditorWorldRenderer : IDisposable {
                     ClearDepth = 0f,
                     Children = [
                         new SingleStageAsset {
-                            Name = Named("Opaque draw", pane),
-                            View = ViewName(pane),
-                            Stage = OpaqueStage
+                            Name = Named("Opaque draw", pane), View = ViewName(pane), Stage = OpaqueStage
                         }
                     ]
                 },
@@ -546,9 +590,7 @@ sealed class EditorWorldRenderer : IDisposable {
                     ClearDepth = 0f,
                     Children = [
                         new SingleStageAsset {
-                            Name = Named("Wireframe draw", pane),
-                            View = ViewName(pane),
-                            Stage = WireframeStage
+                            Name = Named("Wireframe draw", pane), View = ViewName(pane), Stage = WireframeStage
                         }
                     ]
                 }
@@ -570,8 +612,11 @@ sealed class EditorWorldRenderer : IDisposable {
     /// <summary>The compositor tree for each view mode a given pane can honestly draw.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>What <see cref="ViewModes.Register" /> is fed, and the whole of "a mode is a
-    ///         compositor".</b> Each entry is a subtree of the one built document, and switching mode
+    ///         <b>
+    ///             What <see cref="ViewModes.Register" /> is fed, and the whole of "a mode is a
+    ///             compositor".
+    ///         </b>
+    ///         Each entry is a subtree of the one built document, and switching mode
     ///         is the pane contributing a different one to the frame — no rebuild, no second render
     ///         system, and no branch inside a renderer.
     ///     </para>
@@ -589,8 +634,12 @@ sealed class EditorWorldRenderer : IDisposable {
     ///         works everywhere. <see cref="ViewModes.Registered" /> is what a host reads to choose.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Empty for a pane past <see cref="MaxPanes" />, and for every pane but the first
-    ///         when a project's own document is installed.</b> A <c>.vxcompositor</c> declares one
+    ///         ⚠
+    ///         <b>
+    ///             Empty for a pane past <see cref="MaxPanes" />, and for every pane but the first
+    ///             when a project's own document is installed.
+    ///         </b>
+    ///         A <c>.vxcompositor</c> declares one
     ///         frame naming one view and one colour; replicating it per pane would mean rewriting
     ///         every target name inside a tree of node kinds this assembly does not know. So an
     ///         authored frame composes the first pane and the rest keep the tool renderer, which
@@ -600,12 +649,12 @@ sealed class EditorWorldRenderer : IDisposable {
     /// <param name="pane">Which pane, in the scene panel's reading order.</param>
     /// <returns>Its modes, which is empty for a pane no tree was built for.</returns>
     public IReadOnlyDictionary<ViewMode, SceneRenderer> Trees(int pane) =>
-        pane >= 0 && pane < MaxPanes ? trees[pane] : Empty;
+        pane is >= 0 and < MaxPanes ? trees[pane] : Empty;
 
     static readonly Dictionary<ViewMode, SceneRenderer> Empty = [];
 
     readonly Dictionary<ViewMode, SceneRenderer>[] trees =
-        [.. Enumerable.Range(0, MaxPanes).Select(_ => new Dictionary<ViewMode, SceneRenderer>())];
+        [..Enumerable.Range(0, MaxPanes).Select(static _ => new Dictionary<ViewMode, SceneRenderer>())];
 
     /// <summary>The frame, its features, its descriptor pools and its compositor builder.</summary>
     public WorldRenderer Renderer { get; }
@@ -753,8 +802,12 @@ sealed class EditorWorldRenderer : IDisposable {
     /// <summary>Where this renderer's degrades are said, or null for nobody watching.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The scene view had no voice at all, which is the worse half of a degrade nobody
-    ///         reports.</b> <c>AppGraphics</c> gives a game's render system its own category and
+    ///         ⚠
+    ///         <b>
+    ///             The scene view had no voice at all, which is the worse half of a degrade nobody
+    ///             reports.
+    ///         </b>
+    ///         <c>AppGraphics</c> gives a game's render system its own category and
     ///         assigns it to three seams; this renderer owns the same <c>WorldRenderer</c> and the
     ///         same features — the objects and the counters were all present — and nothing assigned a
     ///         logger to any of them. So 4004 and 4005 were counted and not said in the one place a
@@ -762,8 +815,12 @@ sealed class EditorWorldRenderer : IDisposable {
     ///         exactly those ids.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Read-only, and taken at construction, because one of the four seams cannot be
-    ///         filled later.</b> <c>CompositorBuilder.Logger</c> is read by each node as the build
+    ///         ⚠
+    ///         <b>
+    ///             Read-only, and taken at construction, because one of the four seams cannot be
+    ///             filled later.
+    ///         </b>
+    ///         <c>CompositorBuilder.Logger</c> is read by each node as the build
     ///         creates it, and this class builds its document in its constructor — so a settable
     ///         property would be one whose assignment silently reached no node in the frame that is
     ///         already drawing. The other three would tolerate it; a member that works for three of
@@ -804,16 +861,17 @@ sealed class EditorWorldRenderer : IDisposable {
 
     /// <summary>Why the picture is not what a game's would be, or null when it is.</summary>
     /// <inheritdoc cref="EditorWorldRenderer" path="/remarks/para[5]" />
-    public string? Degraded => Fallback is null
-        ? "No material would compile, so nothing in the scene is drawn at all."
-        : Renderer.Painter is null
-            ? "The editor has no material source, so every mesh is drawn in the fallback material "
-            + "rather than the one it names."
-            : painting is { FellBack: > 0 } fell
-                ? $"{fell.FellBack} material(s) this scene names are not in the project's content "
-                + "catalog, so the things wearing them are drawn in the fallback material. Import the "
-                + "project, or check whether those assets are excluded from the build."
-                : null;
+    public string? Degraded =>
+        Fallback is null
+            ? "No material would compile, so nothing in the scene is drawn at all."
+            : Renderer.Painter is null
+                ? "The editor has no material source, so every mesh is drawn in the fallback material "
+                + "rather than the one it names."
+                : painting is { FellBack: > 0 } fell
+                    ? $"{fell.FellBack} material(s) this scene names are not in the project's content "
+                    + "catalog, so the things wearing them are drawn in the fallback material. Import the "
+                    + "project, or check whether those assets are excluded from the build."
+                    : null;
 
     /// <summary>How many distinct materials the mount could not supply. Zero before one.</summary>
     public int Unresolved => painting?.FellBack ?? 0;
@@ -823,8 +881,11 @@ sealed class EditorWorldRenderer : IDisposable {
     /// <exception cref="ArgumentNullException"><paramref name="assets" /> is null.</exception>
     /// <remarks>
     ///     <para>
-    ///         <b>The call this type's own remarks have asked for since it was written, and the two
-    ///         lines that keep the argument they make about geometry.</b> <c>WorldRenderer.Mount</c> is
+    ///         <b>
+    ///             The call this type's own remarks have asked for since it was written, and the two
+    ///             lines that keep the argument they make about geometry.
+    ///         </b>
+    ///         <c>WorldRenderer.Mount</c> is
     ///         the only thing in the engine that builds an <see cref="IMaterialSource" />, an
     ///         <c>AssetTextureSource</c>, a vfx source and the terrain seams — and it also replaces
     ///         <c>Source</c> with an <c>AssetMeshSource</c> over the catalog. A catalog resolves
@@ -841,8 +902,12 @@ sealed class EditorWorldRenderer : IDisposable {
     ///         rest.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The material source is wrapped rather than used directly, and without the wrapper
-    ///         a mesh whose material is not in the catalog does not draw at all.</b> See
+    ///         ⚠
+    ///         <b>
+    ///             The material source is wrapped rather than used directly, and without the wrapper
+    ///             a mesh whose material is not in the catalog does not draw at all.
+    ///         </b>
+    ///         See
     ///         <see cref="FallbackMaterialSource" />: <c>TryGet</c>'s false means "not yet", so a
     ///         reference the catalog refuses is one the extraction waits on for ever.
     ///     </para>
@@ -883,8 +948,12 @@ sealed class EditorWorldRenderer : IDisposable {
     ///         is a frame that reports its objects and draws none of them.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The stage state is set here, before the stage has ever drawn, and that is the
-    ///         only moment it can be.</b> See <see cref="WireframeStage" />: the pipeline cache reads
+    ///         ⚠
+    ///         <b>
+    ///             The stage state is set here, before the stage has ever drawn, and that is the
+    ///             only moment it can be.
+    ///         </b>
+    ///         See <see cref="WireframeStage" />: the pipeline cache reads
     ///         it once, on the first draw that misses.
     ///     </para>
     /// </remarks>
@@ -934,7 +1003,7 @@ sealed class EditorWorldRenderer : IDisposable {
         // wireframe are two views collecting the same stage index, and `PipelineCache` reads this
         // state on the first miss and bakes it in. See `WireframeStage`.
         var wireframe = device.Features.HasWireframe
-            && builder.Stages.TryGetValue(WireframeStage, out var wires);
+            && builder.Stages.TryGetValue(WireframeStage, out _);
 
         if (wireframe) {
             // The one legitimate call: a stage dedicated to the mode, configured before it has drawn.
@@ -971,8 +1040,12 @@ sealed class EditorWorldRenderer : IDisposable {
     /// <exception cref="ArgumentNullException"><paramref name="camera" /> is null.</exception>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Two paths, because <see cref="RenderCamera" /> is perspective and an editor camera
-    ///         is not always.</b> Assigning <see cref="RenderView.Camera" /> is the better one — it
+    ///         ⚠
+    ///         <b>
+    ///             Two paths, because <see cref="RenderCamera" /> is perspective and an editor camera
+    ///             is not always.
+    ///         </b>
+    ///         Assigning <see cref="RenderView.Camera" /> is the better one — it
     ///         sets the position, the matrix and therefore the frustum from one description, and it is
     ///         what a shadow cascade fit needs, since slicing a cone wants the field of view a matrix
     ///         alone cannot give back. An orthographic pane has no cone, so it sets the matrix
@@ -1051,8 +1124,12 @@ sealed class EditorWorldRenderer : IDisposable {
     /// <exception cref="ArgumentNullException"><paramref name="world" /> is null.</exception>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b><c>Builder.Build</c> and not <c>Host.Load</c>, for the reason the constructor
-    ///         gives at length</b>: <c>Load</c> puts the compositor in <c>Host.Compositor</c>, and
+    ///         ⚠
+    ///         <b>
+    ///             <c>Builder.Build</c> and not <c>Host.Load</c>, for the reason the constructor
+    ///             gives at length
+    ///         </b>
+    ///         : <c>Load</c> puts the compositor in <c>Host.Compositor</c>, and
     ///         <c>WorldRenderer.Draw</c> then builds it into the host's <em>own</em> graph and
     ///         executes it there — a second graph, whose resources the editor's per-window graph
     ///         cannot order its interface pass against. Left null, <c>Draw</c> is exactly the
@@ -1177,8 +1254,12 @@ sealed class EditorWorldRenderer : IDisposable {
     /// <exception cref="ArgumentNullException"><paramref name="commands" /> is null.</exception>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Once a frame, whatever the panes number, and that is a correctness rule rather
-    ///         than an economy.</b> <c>WorldRenderer.Draw</c> opens with
+    ///         ⚠
+    ///         <b>
+    ///             Once a frame, whatever the panes number, and that is a correctness rule rather
+    ///             than an economy.
+    ///         </b>
+    ///         <c>WorldRenderer.Draw</c> opens with
     ///         <c>MaterialDescriptors.BeginFrame</c>, which is the per-frame descriptor pool's
     ///         boundary — it recycles every set handed out since the last call. Called again between
     ///         two panes it would hand the second pane sets the first pane's passes are still going to
@@ -1204,8 +1285,12 @@ sealed class EditorWorldRenderer : IDisposable {
     /// <param name="pane">Which pane.</param>
     /// <param name="size">Its extent in render pixels.</param>
     /// <remarks>
-    ///     ⚠ <b>Every frame rather than on a change, because a rebuild puts the document's own
-    ///     declarations back.</b> <c>CompositorBuilder.Build</c> refills <c>Compositor.Resources</c>
+    ///     ⚠
+    ///     <b>
+    ///         Every frame rather than on a change, because a rebuild puts the document's own
+    ///         declarations back.
+    ///     </b>
+    ///     <c>CompositorBuilder.Build</c> refills <c>Compositor.Resources</c>
     ///     from the asset, whose sizes are zero — meaning "a fraction of the frame" — so a reload
     ///     between two sizings would leave a pane's linear target at the reference size while its
     ///     colour and depth are the pane's. Two attachments of different extents in one pass is a
@@ -1349,8 +1434,12 @@ sealed class EditorWorldRenderer : IDisposable {
     ///         to a pass that never ran.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Overcast rather than a clear sky, and that is an editor's decision rather than a
-    ///         game's.</b> A scene being built has no sun until somebody places one, and a viewport
+    ///         ⚠
+    ///         <b>
+    ///             Overcast rather than a clear sky, and that is an editor's decision rather than a
+    ///             game's.
+    ///         </b>
+    ///         A scene being built has no sun until somebody places one, and a viewport
     ///         whose default light is a hard key throws a black side on every face of every block a
     ///         designer is placing. A bright even dome is the light a model is judged under.
     ///     </para>
@@ -1363,7 +1452,7 @@ sealed class EditorWorldRenderer : IDisposable {
 
             for (var y = 0; y < source.Size; y++) {
                 for (var x = 0; x < source.Size; x++) {
-                    var height = Math.Clamp((source.DirectionOf(image, x, y).Y * 0.5f) + 0.5f, 0f, 1f);
+                    var height = Math.Clamp(source.DirectionOf(image, x, y).Y * 0.5f + 0.5f, 0f, 1f);
 
                     // Warm ground and cool zenith, with unequal channels, so a swizzle anywhere in
                     // the upload is a colour change rather than a shade change. An overcast noon
@@ -1379,7 +1468,7 @@ sealed class EditorWorldRenderer : IDisposable {
 
         SkyIrradiance = SphericalHarmonics.Project(source);
 
-        return EnvironmentTexture.Bake(device, source, SkyLevels, samples: 8);
+        return EnvironmentTexture.Bake(device, source, SkyLevels, 8);
     }
 
     /// <summary>The one opaque texel the shading pass's <c>shadowMap</c> binding points at.</summary>
@@ -1407,8 +1496,12 @@ sealed class EditorWorldRenderer : IDisposable {
 
     /// <summary>One grey metal-roughness surface, for everything this cannot paint properly.</summary>
     /// <remarks>
-    ///     ⚠ <b>Not a placeholder for a missing material — it is the material every mesh in the editor
-    ///     is drawn in</b>, because there is no editor-side <see cref="IMaterialSource" />. A game
+    ///     ⚠
+    ///     <b>
+    ///         Not a placeholder for a missing material — it is the material every mesh in the editor
+    ///         is drawn in
+    ///     </b>
+    ///     , because there is no editor-side <see cref="IMaterialSource" />. A game
     ///     compiles this too and draws it approximately never; here it is the whole picture, which is
     ///     what <see cref="Degraded" /> says out loud.
     /// </remarks>
@@ -1417,11 +1510,7 @@ sealed class EditorWorldRenderer : IDisposable {
             new() {
                 ShaderName = "ForwardPlus",
                 Features = [
-                    new MetalRoughnessFeature {
-                        BaseColor = new Vector3(0.62f, 0.63f, 0.66f),
-                        Metalness = 0f,
-                        Roughness = 0.7f
-                    }
+                    new MetalRoughnessFeature { BaseColor = new(0.62f, 0.63f, 0.66f), Metalness = 0f, Roughness = 0.7f }
                 ]
             }
         );

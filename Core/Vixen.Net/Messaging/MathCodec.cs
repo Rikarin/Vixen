@@ -86,8 +86,10 @@ public static class MathCodec {
     ///     Writes a rotation in 32 bits, by not sending the component it can work out.
     /// </summary>
     /// <param name="writer">The writer.</param>
-    /// <param name="value">The rotation. Normalized first — a quaternion that is not a rotation cannot
-    /// be sent as one.</param>
+    /// <param name="value">
+    ///     The rotation. Normalized first — a quaternion that is not a rotation cannot
+    ///     be sent as one.
+    /// </param>
     /// <remarks>
     ///     <para>
     ///         Smallest-three: a unit quaternion's largest component can always be recovered from the

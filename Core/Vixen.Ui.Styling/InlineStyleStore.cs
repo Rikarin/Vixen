@@ -44,8 +44,8 @@ public sealed class InlineStyleStore {
             declarations.Add(declaration);
         }
 
-        blocks.Add(new DeclarationRange(start, block.Length));
-        return new InlineStyleId(blocks.Count - 1);
+        blocks.Add(new(start, block.Length));
+        return new(blocks.Count - 1);
     }
 
     /// <summary>Replaces what a handle points at, keeping the handle.</summary>
@@ -53,8 +53,12 @@ public sealed class InlineStyleStore {
     /// <param name="block">The new declarations.</param>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Without this, dragging a splitter allocates a block per frame for as long as the
-    ///         drag lasts.</b> An element writing its own width every frame is exactly what inline
+    ///         ⚠
+    ///         <b>
+    ///             Without this, dragging a splitter allocates a block per frame for as long as the
+    ///             drag lasts.
+    ///         </b>
+    ///         An element writing its own width every frame is exactly what inline
     ///         styles are for — a docked panel's size, a scrolled row's offset — and
     ///         <see cref="Add" /> only ever appends, so the arena would grow for the whole life of
     ///         the document and nothing would ever reclaim it.
@@ -83,7 +87,7 @@ public sealed class InlineStyleStore {
             declarations.Add(declaration);
         }
 
-        blocks[id.Index] = new DeclarationRange(start, block.Length);
+        blocks[id.Index] = new(start, block.Length);
     }
 
     /// <summary>The declarations behind a handle.</summary>

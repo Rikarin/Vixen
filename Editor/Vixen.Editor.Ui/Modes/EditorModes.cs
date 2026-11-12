@@ -9,8 +9,11 @@ namespace Vixen.Editor.Ui;
 /// <summary>Which modes the editor has, and which one the viewport's input means right now.</summary>
 /// <remarks>
 ///     <para>
-///         <b>The registry behind the mode bar, and it is a registry for the same reason the command
-///         table is one.</b> A mode adds a button to the strip, a radio entry to the palette, a
+///         <b>
+///             The registry behind the mode bar, and it is a registry for the same reason the command
+///             table is one.
+///         </b>
+///         A mode adds a button to the strip, a radio entry to the palette, a
 ///         context to the keymap and a claim on viewport input, and all four come from one
 ///         <see cref="Add" /> — because the alternative, four places that each know what Blockout is,
 ///         is what doc 20's A1 calls "six mutually-exclusive booleans on the viewport".
@@ -83,8 +86,12 @@ public sealed class EditorModes {
     ///         mode.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The first mode added is activated, and it is activated <i>after</i> it is in the
-    ///         list.</b> Its <see cref="IEditorMode.Activated" /> may look the registry up, and a mode
+    ///         ⚠
+    ///         <b>
+    ///             The first mode added is activated, and it is activated <i>after</i> it is in the
+    ///             list.
+    ///         </b>
+    ///         Its <see cref="IEditorMode.Activated" /> may look the registry up, and a mode
     ///         that could not find itself there would be one whose activation reads the state of the
     ///         editor before it existed.
     ///     </para>
@@ -224,8 +231,12 @@ public sealed class EditorModes {
     /// <summary>What the mode bar shows: the mode buttons, then the active mode's own strip.</summary>
     /// <returns>The entries, which is empty when nothing has registered a mode.</returns>
     /// <remarks>
-    ///     ⚠ <b>One strip rather than two, and the separator is only there when there is something on
-    ///     the other side of it.</b> This is Unreal's arrangement — the mode buttons on the left and
+    ///     ⚠
+    ///     <b>
+    ///         One strip rather than two, and the separator is only there when there is something on
+    ///         the other side of it.
+    ///     </b>
+    ///     This is Unreal's arrangement — the mode buttons on the left and
     ///     the mode's own tools immediately beside them — and it is the arrangement that makes the
     ///     tools read as belonging to the mode rather than to the window.
     /// </remarks>
@@ -234,7 +245,7 @@ public sealed class EditorModes {
             return [];
         }
 
-        List<ToolbarEntry> entries = [new ToolbarGroup([.. ordered.Select(mode => ModeCommand(mode.Id))])];
+        List<ToolbarEntry> entries = [new ToolbarGroup([..ordered.Select(static mode => ModeCommand(mode.Id))])];
 
         if (Active?.Toolbar is { Count: > 0 } tools) {
             entries.Add(new ToolbarSeparator());

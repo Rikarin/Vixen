@@ -3,7 +3,6 @@
 
 using System.Globalization;
 using Vixen.Core.Imaging;
-using Vixen.Ui.Testing.Visual;
 using Xunit;
 
 namespace Vixen.Graphics.Golden.Tests;
@@ -20,8 +19,12 @@ namespace Vixen.Graphics.Golden.Tests;
 /// </param>
 /// <remarks>
 ///     <para>
-///         ⚠ <b><see cref="Mean" /> is not a second opinion about <see cref="Channel" />; it is the
-///         failure <see cref="Channel" /> cannot see.</b> Counting pixels over a threshold finds
+///         ⚠
+///         <b>
+///             <see cref="Mean" /> is not a second opinion about <see cref="Channel" />; it is the
+///             failure <see cref="Channel" /> cannot see.
+///         </b>
+///         Counting pixels over a threshold finds
 ///         something small and badly wrong and is blind to everything being slightly wrong: a
 ///         material whose albedo moved four per cent shifts sixty to ninety per cent of a frame by
 ///         one or two levels and almost nothing by more than three, so every per-pixel threshold at
@@ -169,8 +172,12 @@ public static class GoldenImage {
     ///         passes is not what the frame looks like". That run now has to say it meant it.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b><c>GoldenFile</c>, the text half, does not have this defect and it is worth
-    ///         saying why</b> — not diligence, but that its comparison is exact. Rewriting a snapshot
+    ///         ⚠
+    ///         <b>
+    ///             <c>GoldenFile</c>, the text half, does not have this defect and it is worth
+    ///             saying why
+    ///         </b>
+    ///         — not diligence, but that its comparison is exact. Rewriting a snapshot
     ///         that already matches writes identical bytes and <c>git status</c> stays empty. A
     ///         tolerant comparator is what turns the same code into a drift absorber.
     ///     </para>
@@ -185,8 +192,7 @@ public static class GoldenImage {
     ///     environment variable that every other collection in this assembly reads live — which is
     ///     the shape of race that would make one golden run rewrite the tree under another.
     /// </remarks>
-    internal static bool UpdatingFrom(string? value) =>
-        value is "1" or "true" or "TRUE" || ForcingFrom(value);
+    internal static bool UpdatingFrom(string? value) => value is "1" or "true" or "TRUE" || ForcingFrom(value);
 
     /// <summary>Whether a value of the switch asks for the matching references too.</summary>
     /// <param name="value">What the environment held, or null when it held nothing.</param>
@@ -204,8 +210,12 @@ public static class GoldenImage {
     ///         it, because <c>ci.yml</c> uploads that path by glob.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>This used to say "under <c>artifacts/</c> so the CI workflow can upload the
-    ///         whole directory", and both halves were wrong.</b> The <c>artifacts/</c> path is not
+    ///         ⚠
+    ///         <b>
+    ///             This used to say "under <c>artifacts/</c> so the CI workflow can upload the
+    ///             whole directory", and both halves were wrong.
+    ///         </b>
+    ///         The <c>artifacts/</c> path is not
     ///         the fallback but the override, and <c>./build.sh GoldenImages</c> is the only thing
     ///         in the repository that sets <c>VIXEN_GOLDEN_DIFF</c> — while <i>no</i> CI job runs
     ///         that target, so on CI this property is always the fallback and
@@ -277,9 +287,9 @@ public static class GoldenImage {
         // at at all.
         var crossed = result.MeanChannel > tolerance.Mean
             ? $"the average channel moved by {result.MeanChannel:F3}/255, where {tolerance.Mean:F3} is "
-                + "the most it may — a whole-frame shading change rather than an artefact in one place"
+            + "the most it may — a whole-frame shading change rather than an artefact in one place"
             : $"{result.DifferingPixels} of {result.TotalPixels} pixels ({result.Fraction:P3}) differ by "
-                + $"more than {tolerance.Channel}/255, where {tolerance.Fraction:P3} is the most that may";
+            + $"more than {tolerance.Channel}/255, where {tolerance.Fraction:P3} is the most that may";
 
         Assert.Fail(
             $"'{name}' does not match its reference: {crossed}. The worst single channel is "
@@ -310,8 +320,12 @@ public static class GoldenImage {
     ///         device at all.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The <paramref name="comparison" /> is not consulted when there is nothing to
-    ///         compare against</b>, and that ordering is load-bearing: a <c>default</c>
+    ///         ⚠
+    ///         <b>
+    ///             The <paramref name="comparison" /> is not consulted when there is nothing to
+    ///             compare against
+    ///         </b>
+    ///         , and that ordering is load-bearing: a <c>default</c>
     ///         <see cref="Comparison" /> has <c>Matches</c> false, so an <c>exists</c> check placed
     ///         after the match check would record a missing reference for the wrong reason and say so
     ///         in the manifest.
@@ -344,7 +358,7 @@ public static class GoldenImage {
             )
             : new(
                 false,
-                $"it already matches, so re-accepting it would move the reference for no stated reason: "
+                "it already matches, so re-accepting it would move the reference for no stated reason: "
                 + Headroom(comparison, tolerance)
             );
     }
@@ -369,8 +383,8 @@ public static class GoldenImage {
 
         var mean = bounded
             ? $"mean {spent}/255 of {tolerance.Mean.ToString("F3", CultureInfo.InvariantCulture)} "
-                + $"({(result.MeanChannel / tolerance.Mean).ToString("P0", CultureInfo.InvariantCulture)} "
-                + "of the allowance)"
+            + $"({(result.MeanChannel / tolerance.Mean).ToString("P0", CultureInfo.InvariantCulture)} "
+            + "of the allowance)"
             : $"mean {spent}/255 against no mean bound";
 
         var counted = $"{result.DifferingPixels} of {result.TotalPixels} pixels over "
@@ -379,8 +393,8 @@ public static class GoldenImage {
         var pixels = tolerance.Fraction <= 0
             ? $"{counted}, where none may"
             : $"{counted}, where {tolerance.Fraction.ToString("P3", CultureInfo.InvariantCulture)} may "
-                + $"({(result.Fraction / tolerance.Fraction).ToString("P0", CultureInfo.InvariantCulture)} "
-                + "of the allowance)";
+            + $"({(result.Fraction / tolerance.Fraction).ToString("P0", CultureInfo.InvariantCulture)} "
+            + "of the allowance)";
 
         return $"{mean}; {pixels}; worst {result.WorstChannel}/255 at "
             + $"({result.WorstAt.X}, {result.WorstAt.Y})";
@@ -525,7 +539,10 @@ public static class GoldenImage {
                 var delta = 0;
 
                 for (var channel = 0; channel < 4; channel++) {
-                    delta = Math.Max(delta, Math.Abs(expected.Pixels[offset + channel] - actual.Pixels[offset + channel]));
+                    delta = Math.Max(
+                        delta,
+                        Math.Abs(expected.Pixels[offset + channel] - actual.Pixels[offset + channel])
+                    );
                 }
 
                 if (delta > tolerance.Channel) {

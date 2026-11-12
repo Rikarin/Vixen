@@ -124,8 +124,11 @@ public sealed class BehaviorStore {
     /// <summary>How many behaviours of each concrete type there are, most numerous first.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>The number [04](../../../docs/plan/04-ecs-and-scripting.md)'s authoring rule is
-    ///         written about.</b> "One instance, or a handful" versus "many instances, the same
+    ///         <b>
+    ///             The number [04](../../../docs/plan/04-ecs-and-scripting.md)'s authoring rule is
+    ///             written about.
+    ///         </b>
+    ///         "One instance, or a handful" versus "many instances, the same
     ///         operation over all of them" is the whole basis for choosing a behaviour over a
     ///         component and a system, and until this existed an author who guessed had no way to
     ///         find out afterwards whether they were right: the per-type count lived on
@@ -136,8 +139,12 @@ public sealed class BehaviorStore {
     ///         at two hundred.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b><see cref="BehaviorPopulation.Enabled" /> is the bucket's partition and not the
-    ///         sum of <see cref="Behavior.Enabled" />.</b> A behaviour that has been attached and not
+    ///         ⚠
+    ///         <b>
+    ///             <see cref="BehaviorPopulation.Enabled" /> is the bucket's partition and not the
+    ///             sum of <see cref="Behavior.Enabled" />.
+    ///         </b>
+    ///         A behaviour that has been attached and not
     ///         yet drawn through a lifecycle drain is in neither state the author means: it is past
     ///         the enabled prefix because nothing has activated it. So a store that has never run a
     ///         drain reports every behaviour disabled, which is correct about the loop and would be a
@@ -160,8 +167,7 @@ public sealed class BehaviorStore {
 
             // Most numerous first, and ties by name so the report does not reorder between runs of
             // the same world — `buckets` is a dictionary and its order is nobody's business.
-            population.Sort(
-                static (left, right) => right.Total != left.Total
+            population.Sort(static (left, right) => right.Total != left.Total
                     ? right.Total.CompareTo(left.Total)
                     : string.CompareOrdinal(left.BehaviorType.FullName, right.BehaviorType.FullName)
             );
@@ -250,8 +256,12 @@ public sealed class BehaviorStore {
     /// <param name="behavior">The behaviour.</param>
     /// <returns>Whether this store took it; <see langword="false" /> if it was never this store's.</returns>
     /// <remarks>
-    ///     ⚠ <b>Ownership is checked here for the same reason <see cref="Remove" /> checks it, and
-    ///     the callers that need it cannot tell on their own.</b> <see cref="AllOn" /> answers from
+    ///     ⚠
+    ///     <b>
+    ///         Ownership is checked here for the same reason <see cref="Remove" /> checks it, and
+    ///         the callers that need it cannot tell on their own.
+    ///     </b>
+    ///     <see cref="AllOn" /> answers from
     ///     the entity's <c>BehaviorRef</c>, which is one component however many stores share the
     ///     world — so everything that walks an entity's behaviours and destroys them, a scene unload
     ///     and play mode's teardown among them, is handed the other stores' behaviours as well. A
@@ -279,8 +289,12 @@ public sealed class BehaviorStore {
     /// <returns>Whether it was attached to anything.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b><see cref="Destroy" />'s edit-mode twin, and the difference is the whole reason
-    ///         both exist.</b> <c>Destroy</c> is the runtime path: it queues, so a behaviour destroyed
+    ///         ⚠
+    ///         <b>
+    ///             <see cref="Destroy" />'s edit-mode twin, and the difference is the whole reason
+    ///             both exist.
+    ///         </b>
+    ///         <c>Destroy</c> is the runtime path: it queues, so a behaviour destroyed
     ///         from inside another one's <c>Update</c> does not vanish out of the batch being walked,
     ///         and it runs <c>OnDisable</c> and <c>OnDestroy</c> on the way out. An editor holding
     ///         authored behaviours is in neither situation — nothing is iterating, nothing has had
@@ -371,8 +385,12 @@ public sealed class BehaviorStore {
 
     /// <summary>Whether this store is the one the behaviour is attached to.</summary>
     /// <remarks>
-    ///     ⚠ <b>Asked everywhere a queued behaviour is about to be acted on, not only where it is
-    ///     enqueued.</b> A queue entry is a claim made in the past, and two things can have falsified
+    ///     ⚠
+    ///     <b>
+    ///         Asked everywhere a queued behaviour is about to be acted on, not only where it is
+    ///         enqueued.
+    ///     </b>
+    ///     A queue entry is a claim made in the past, and two things can have falsified
     ///     it since: <see cref="Remove" /> nulls <see cref="Behavior.Store" />, and a behaviour that
     ///     was never this store's can only have arrived by way of the entity's shared
     ///     <c>BehaviorRef</c>. Either way the bucket lookups below would index an array that does not
@@ -415,7 +433,9 @@ public sealed class BehaviorStore {
         startReady.AddRange(startQueued);
         startQueued.Clear();
 
-        Flush(pendingDestroy, behavior => {
+        Flush(
+            pendingDestroy,
+            behavior => {
                 if (behavior.Enabled && behavior.IsAwake) {
                     behavior.InvokeOnDisable();
                 }
@@ -465,7 +485,9 @@ public sealed class BehaviorStore {
         // use for, and the editor's store is one that will not be back for another drain.
         awakening.Clear();
 
-        Flush(pendingEnable, behavior => {
+        Flush(
+            pendingEnable,
+            behavior => {
                 if (behavior is { IsDestroyed: false, Enabled: true, IsAwake: true } && Owns(behavior)) {
                     Activate(behavior);
                     behavior.InvokeOnEnable();
@@ -473,7 +495,9 @@ public sealed class BehaviorStore {
             }
         );
 
-        Flush(pendingDisable, behavior => {
+        Flush(
+            pendingDisable,
+            behavior => {
                 if (behavior is { IsDestroyed: false, Enabled: false, IsAwake: true } && Owns(behavior)) {
                     Deactivate(behavior);
                     behavior.InvokeOnDisable();
@@ -610,8 +634,12 @@ public sealed class BehaviorStore {
     /// <summary>Takes a behaviour off its entity, and its coroutines off the scheduler.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The coroutines go here rather than in <see cref="Destroy" />, because detaching is
-    ///         the path that had nothing at all.</b> <c>Destroy</c> sets
+    ///         ⚠
+    ///         <b>
+    ///             The coroutines go here rather than in <see cref="Destroy" />, because detaching is
+    ///             the path that had nothing at all.
+    ///         </b>
+    ///         <c>Destroy</c> sets
     ///         <see cref="Behavior.IsDestroyed" />, which the scheduler reads at the next resume
     ///         point — so a destroyed behaviour's coroutines did end, one drain later.
     ///         <see cref="Remove" /> sets neither that nor the generation, so a <i>detached</i>
@@ -662,8 +690,12 @@ public sealed class BehaviorStore {
     /// <summary>Forgets every bucket a detach has emptied, unless a loop is walking them.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A bucket is closed over the behaviour's type, so an empty one is not nothing
-    ///         (#1502).</b> <c>BehaviorBucket&lt;T&gt;</c> keeps <c>T</c>, <c>T</c> keeps its assembly,
+    ///         ⚠
+    ///         <b>
+    ///             A bucket is closed over the behaviour's type, so an empty one is not nothing
+    ///             (#1502).
+    ///         </b>
+    ///         <c>BehaviorBucket&lt;T&gt;</c> keeps <c>T</c>, <c>T</c> keeps its assembly,
     ///         and a project's assembly keeps the collectible context it was loaded into. The editor's
     ///         rebuild takes every project behaviour off its scene and puts an instance of the rebuilt
     ///         type back — a different <c>T</c>, so a different bucket — and the old one, kept here
@@ -671,8 +703,12 @@ public sealed class BehaviorStore {
     ///         per rebuild, for as long as the editor was open.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Deferred while a loop holds an index into <see cref="ordered" />, on the terms
-    ///         <see cref="Drain(Behavior)" /> keeps for the queues.</b> <see cref="RunUpdate" /> walks
+    ///         ⚠
+    ///         <b>
+    ///             Deferred while a loop holds an index into <see cref="ordered" />, on the terms
+    ///             <see cref="Drain(Behavior)" /> keeps for the queues.
+    ///         </b>
+    ///         <see cref="RunUpdate" /> walks
     ///         it by index and a behaviour's <c>Update</c> may detach the last of another type;
     ///         removing that bucket under the loop would skip the one after it, silently. So the
     ///         outermost loop sweeps on its way out, and a bucket refilled in the meantime is kept,
@@ -746,7 +782,7 @@ public sealed class BehaviorStore {
         ///     a process is running, and an attribute lookup in the update loop would be reflection
         ///     in the one place doc 04 spends the whole section getting reflection out of.
         /// </remarks>
-        static readonly bool Dispatched = typeof(T).IsDefined(typeof(BehaviorJobAttribute), inherit: false);
+        static readonly bool Dispatched = typeof(T).IsDefined(typeof(BehaviorJobAttribute), false);
 
         T[] items = new T[8];
         int enabled;
@@ -785,7 +821,7 @@ public sealed class BehaviorStore {
             // thread. That is the right shape for behaviours for the reason it is right for
             // animators: one instance's Update is a line and the next one's is a state machine, and
             // the stealing is what evens them out.
-            jobs!.ParallelFor(new Batch(items, late: false), enabled);
+            jobs!.ParallelFor(new Batch(items, false), enabled);
             return true;
         }
 
@@ -802,7 +838,7 @@ public sealed class BehaviorStore {
                 return false;
             }
 
-            jobs!.ParallelFor(new Batch(items, late: true), enabled);
+            jobs!.ParallelFor(new Batch(items, true), enabled);
             return true;
         }
 

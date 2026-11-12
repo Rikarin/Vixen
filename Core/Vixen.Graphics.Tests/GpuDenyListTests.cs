@@ -79,9 +79,9 @@ public sealed class GpuDenyListTests {
     /// </remarks>
     [Fact]
     public void ARuleThatMatchesEverythingIsRefused() {
-        Assert.Throws<ArgumentException>(() => new GpuDenyList([new(GpuDenyList.Any, GpuDenyList.Any, "oops")]));
-        Assert.Throws<ArgumentException>(() => new GpuDenyList([new(GpuDenyList.Any, null, "oops")]));
-        Assert.Throws<FormatException>(() => GpuDenyList.Parse("* | * | oops"));
+        Assert.Throws<ArgumentException>(static () => new GpuDenyList([new(GpuDenyList.Any, GpuDenyList.Any, "oops")]));
+        Assert.Throws<ArgumentException>(static () => new GpuDenyList([new(GpuDenyList.Any, null, "oops")]));
+        Assert.Throws<FormatException>(static () => GpuDenyList.Parse("* | * | oops"));
     }
 
     /// <summary>The text form: comments, blank lines, and three fields.</summary>
@@ -124,8 +124,7 @@ public sealed class GpuDenyListTests {
 
     /// <summary>An empty file, or one that is all comments, is a list that denies nothing.</summary>
     [Fact]
-    public void AFileOfCommentsIsAnEmptyList() =>
-        Assert.Empty(GpuDenyList.Parse("# nothing here yet\n\n   \n").Rules);
+    public void AFileOfCommentsIsAnEmptyList() => Assert.Empty(GpuDenyList.Parse("# nothing here yet\n\n   \n").Rules);
 
     /// <summary>The reason names the adapter and the driver, because a log reader has neither.</summary>
     [Fact]

@@ -23,7 +23,7 @@ public sealed class Ktx2Tests {
     /// </summary>
     [Fact]
     public void ASingleTexelFileIsExactlyWhatTheSpecificationSaysItShouldBe() {
-        var texture = new TextureData(PixelFormat.Rgba8UNorm, 1, 1, levelCount: 1);
+        var texture = new TextureData(PixelFormat.Rgba8UNorm, 1, 1, 1);
         new byte[] { 0x11, 0x22, 0x33, 0x44 }.CopyTo(texture.LevelSpan(0));
 
         var file = Ktx2.Write(texture);
@@ -37,25 +37,25 @@ public sealed class Ktx2Tests {
         Assert.Equal(levelDataOffset + 4, file.Length);
         Assert.Equal(Ktx2.Identifier.ToArray(), file[..12]);
 
-        Assert.Equal(37u, Read32(file, 12));                     // vkFormat: R8G8B8A8_UNORM
-        Assert.Equal(1u, Read32(file, 16));                      // typeSize
-        Assert.Equal(1u, Read32(file, 20));                      // pixelWidth
-        Assert.Equal(1u, Read32(file, 24));                      // pixelHeight
-        Assert.Equal(0u, Read32(file, 28));                      // pixelDepth: 0, not 1, for a 2D texture
-        Assert.Equal(0u, Read32(file, 32));                      // layerCount: 0 for a non-array texture
-        Assert.Equal(1u, Read32(file, 36));                      // faceCount
-        Assert.Equal(1u, Read32(file, 40));                      // levelCount
-        Assert.Equal(0u, Read32(file, 44));                      // supercompressionScheme
-        Assert.Equal((uint)descriptorOffset, Read32(file, 48));  // dfdByteOffset
-        Assert.Equal((uint)descriptorLength, Read32(file, 52));  // dfdByteLength
-        Assert.Equal(0u, Read32(file, 56));                      // kvdByteOffset
-        Assert.Equal(0u, Read32(file, 60));                      // kvdByteLength
-        Assert.Equal(0ul, Read64(file, 64));                     // sgdByteOffset
-        Assert.Equal(0ul, Read64(file, 72));                     // sgdByteLength
+        Assert.Equal(37u, Read32(file, 12)); // vkFormat: R8G8B8A8_UNORM
+        Assert.Equal(1u, Read32(file, 16)); // typeSize
+        Assert.Equal(1u, Read32(file, 20)); // pixelWidth
+        Assert.Equal(1u, Read32(file, 24)); // pixelHeight
+        Assert.Equal(0u, Read32(file, 28)); // pixelDepth: 0, not 1, for a 2D texture
+        Assert.Equal(0u, Read32(file, 32)); // layerCount: 0 for a non-array texture
+        Assert.Equal(1u, Read32(file, 36)); // faceCount
+        Assert.Equal(1u, Read32(file, 40)); // levelCount
+        Assert.Equal(0u, Read32(file, 44)); // supercompressionScheme
+        Assert.Equal((uint)descriptorOffset, Read32(file, 48)); // dfdByteOffset
+        Assert.Equal((uint)descriptorLength, Read32(file, 52)); // dfdByteLength
+        Assert.Equal(0u, Read32(file, 56)); // kvdByteOffset
+        Assert.Equal(0u, Read32(file, 60)); // kvdByteLength
+        Assert.Equal(0ul, Read64(file, 64)); // sgdByteOffset
+        Assert.Equal(0ul, Read64(file, 72)); // sgdByteLength
 
-        Assert.Equal((ulong)levelDataOffset, Read64(file, 80));  // level 0 byteOffset
-        Assert.Equal(4ul, Read64(file, 88));                     // level 0 byteLength
-        Assert.Equal(4ul, Read64(file, 96));                     // level 0 uncompressedByteLength
+        Assert.Equal((ulong)levelDataOffset, Read64(file, 80)); // level 0 byteOffset
+        Assert.Equal(4ul, Read64(file, 88)); // level 0 byteLength
+        Assert.Equal(4ul, Read64(file, 96)); // level 0 uncompressedByteLength
 
         Assert.Equal((uint)descriptorLength, Read32(file, descriptorOffset));
         Assert.Equal(new byte[] { 0x11, 0x22, 0x33, 0x44 }, file[levelDataOffset..]);
@@ -76,14 +76,14 @@ public sealed class Ktx2Tests {
         var offsets = new ulong[texture.LevelCount];
 
         for (var level = 0; level < texture.LevelCount; level++) {
-            offsets[level] = Read64(file, Ktx2.HeaderLength + (level * Ktx2.LevelIndexEntryLength));
+            offsets[level] = Read64(file, Ktx2.HeaderLength + level * Ktx2.LevelIndexEntryLength);
         }
 
         // Level 0 is the largest and sits last; the 1x1 tail sits first.
         Assert.True(offsets[0] > offsets[1]);
         Assert.True(offsets[1] > offsets[2]);
         Assert.Equal(16ul, Read64(file, Ktx2.HeaderLength + 8));
-        Assert.Equal(1ul, Read64(file, Ktx2.HeaderLength + (2 * Ktx2.LevelIndexEntryLength) + 8));
+        Assert.Equal(1ul, Read64(file, Ktx2.HeaderLength + 2 * Ktx2.LevelIndexEntryLength + 8));
     }
 
     [Fact]
@@ -117,7 +117,7 @@ public sealed class Ktx2Tests {
 
     [Fact]
     public void ABlockCompressedTextureRoundTrips() {
-        var texture = new TextureData(PixelFormat.Bc7RgbaUNorm, 8, 8, levelCount: 1);
+        var texture = new TextureData(PixelFormat.Bc7RgbaUNorm, 8, 8, 1);
         texture.PixelSpan().Fill(0xC3);
 
         var read = Ktx2.Read(Ktx2.Write(texture));
@@ -129,15 +129,15 @@ public sealed class Ktx2Tests {
 
     [Fact]
     public void SomethingThatIsNotKtx2IsRefusedByItsIdentifier() {
-        var failure = Assert.Throws<Ktx2Exception>(() => Ktx2.Read(new byte[128]));
+        var failure = Assert.Throws<Ktx2Exception>(static () => Ktx2.Read(new byte[128]));
 
         Assert.Contains("identifier", failure.Message, StringComparison.Ordinal);
     }
 
     [Fact]
     public void SupercompressionIsRefusedRatherThanMisread() {
-        var file = Ktx2.Write(new TextureData(PixelFormat.R8UNorm, 1, 1, levelCount: 1));
-        BinaryPrimitives.WriteUInt32LittleEndian(file.AsSpan(44), 2);   // Zstd
+        var file = Ktx2.Write(new(PixelFormat.R8UNorm, 1, 1, 1));
+        BinaryPrimitives.WriteUInt32LittleEndian(file.AsSpan(44), 2); // Zstd
 
         var failure = Assert.Throws<Ktx2Exception>(() => Ktx2.Read(file));
 
@@ -150,7 +150,7 @@ public sealed class Ktx2Tests {
     /// </summary>
     [Fact]
     public void ALevelWhoseLengthDisagreesWithItsFormatIsRefused() {
-        var file = Ktx2.Write(new TextureData(PixelFormat.Rgba8UNorm, 2, 2, levelCount: 1));
+        var file = Ktx2.Write(new(PixelFormat.Rgba8UNorm, 2, 2, 1));
         BinaryPrimitives.WriteUInt64LittleEndian(file.AsSpan(Ktx2.HeaderLength + 8), 99);
 
         var failure = Assert.Throws<Ktx2Exception>(() => Ktx2.Read(file));
@@ -160,7 +160,7 @@ public sealed class Ktx2Tests {
 
     [Fact]
     public void ALevelPointingOutsideTheFileIsRefused() {
-        var file = Ktx2.Write(new TextureData(PixelFormat.Rgba8UNorm, 2, 2, levelCount: 1));
+        var file = Ktx2.Write(new(PixelFormat.Rgba8UNorm, 2, 2, 1));
         BinaryPrimitives.WriteUInt64LittleEndian(file.AsSpan(Ktx2.HeaderLength), 1_000_000);
 
         Assert.Throws<Ktx2Exception>(() => Ktx2.Read(file));
@@ -199,7 +199,7 @@ public sealed class Ktx2Tests {
 
         var length = Ktx2.LayoutLength(file.AsSpan(0, Ktx2.HeaderLength));
 
-        Assert.Equal(Ktx2.HeaderLength + (4 * Ktx2.LevelIndexEntryLength), length);
+        Assert.Equal(Ktx2.HeaderLength + 4 * Ktx2.LevelIndexEntryLength, length);
 
         var layout = Ktx2.ReadLayout(file.AsSpan(0, length));
 
@@ -294,7 +294,7 @@ public sealed class Ktx2Tests {
 
     [Fact]
     public void TheTailThatFitsABudgetIsTheLargestOneThatDoes() {
-        var layout = Ktx2.ReadLayout(Ktx2.Write(new TextureData(PixelFormat.R8UNorm, 16, 16)));
+        var layout = Ktx2.ReadLayout(Ktx2.Write(new(PixelFormat.R8UNorm, 16, 16)));
 
         Assert.Equal(0, layout.TailFor(long.MaxValue));
 
@@ -309,7 +309,7 @@ public sealed class Ktx2Tests {
 
     [Fact]
     public void ALayoutOfATruncatedIndexSaysSoRatherThanReadingPastIt() {
-        var file = Ktx2.Write(new TextureData(PixelFormat.R8UNorm, 8, 8));
+        var file = Ktx2.Write(new(PixelFormat.R8UNorm, 8, 8));
 
         var failure = Assert.Throws<Ktx2Exception>(() => Ktx2.ReadLayout(file.AsSpan(0, Ktx2.HeaderLength + 8)));
 
@@ -318,14 +318,18 @@ public sealed class Ktx2Tests {
 
     [Fact]
     public async Task AStreamThatEndsInsideALevelSaysSo() {
-        var file = Ktx2.Write(new TextureData(PixelFormat.R8UNorm, 8, 8));
+        var file = Ktx2.Write(new(PixelFormat.R8UNorm, 8, 8));
         await using var whole = new CountingStream(file);
 
         var layout = await Ktx2.ReadLayoutAsync(whole, TestContext.Current.CancellationToken);
         await using var truncated = new CountingStream(file[..(file.Length - 32)]);
 
-        await Assert.ThrowsAsync<Ktx2Exception>(
-            async () => await Ktx2.ReadTailAsync(truncated, layout, 0, TestContext.Current.CancellationToken)
+        await Assert.ThrowsAsync<Ktx2Exception>(async () => await Ktx2.ReadTailAsync(
+                truncated,
+                layout,
+                0,
+                TestContext.Current.CancellationToken
+            )
         );
     }
 
@@ -338,7 +342,7 @@ public sealed class Ktx2Tests {
 
     [Fact]
     public void AFormatNothingShipsSaysSoRatherThanWritingAWrongNumber() {
-        var failure = Assert.Throws<Ktx2Exception>(() => VkFormats.From(PixelFormat.Depth32Float));
+        var failure = Assert.Throws<Ktx2Exception>(static () => VkFormats.From(PixelFormat.Depth32Float));
 
         Assert.Contains("VkFormats.Table", failure.Message, StringComparison.Ordinal);
     }

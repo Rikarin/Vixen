@@ -20,7 +20,7 @@ public sealed class NetworkSimulationTests {
     public void Latency_HoldsAPayloadUntilItsDelayHasPassed() {
         using var harness = new Harness(
             new() { Latency = TimeSpan.FromMilliseconds(100) },
-            seed: 7
+            7
         );
 
         harness.Connect();
@@ -35,7 +35,7 @@ public sealed class NetworkSimulationTests {
 
     [Fact]
     public void AReliableChannel_IsNotDropped_EvenWhenEverythingIsLost() {
-        using var harness = new Harness(new() { LossChance = 1.0 }, seed: 11);
+        using var harness = new Harness(new() { LossChance = 1.0 }, 11);
         harness.Connect();
 
         for (var i = 0; i < 16; i++) {
@@ -52,7 +52,7 @@ public sealed class NetworkSimulationTests {
 
     [Fact]
     public void AnUnreliableChannel_AtTotalLoss_DeliversNothing() {
-        using var harness = new Harness(new() { LossChance = 1.0 }, seed: 13);
+        using var harness = new Harness(new() { LossChance = 1.0 }, 13);
         harness.Connect();
 
         for (var i = 0; i < 16; i++) {
@@ -67,7 +67,7 @@ public sealed class NetworkSimulationTests {
 
     [Fact]
     public void AReliableChannel_KeepsItsOrder_HoweverTheJitterFalls() {
-        var arrived = SendManyUnderJitter(Channel.Reliable, seed: 17);
+        var arrived = SendManyUnderJitter(Channel.Reliable, 17);
 
         Assert.Equal(50, arrived.Count);
         Assert.Equal(Numbers(50), arrived);
@@ -75,7 +75,7 @@ public sealed class NetworkSimulationTests {
 
     [Fact]
     public void AnUnorderedChannel_UnderJitter_ArrivesOutOfOrder() {
-        var arrived = SendManyUnderJitter(Channel.Unreliable, seed: 17);
+        var arrived = SendManyUnderJitter(Channel.Unreliable, 17);
 
         // Nothing is lost in this profile, so everything sent is here — in some other order.
         Assert.Equal(50, arrived.Count);
@@ -85,12 +85,8 @@ public sealed class NetworkSimulationTests {
     [Fact]
     public void ASequencedChannel_MayLosePayloads_ButNeverDeliversAnOldOne() {
         using var harness = new Harness(
-            new() {
-                Latency = TimeSpan.FromMilliseconds(50),
-                Jitter = TimeSpan.FromMilliseconds(45),
-                LossChance = 0.3
-            },
-            seed: 19
+            new() { Latency = TimeSpan.FromMilliseconds(50), Jitter = TimeSpan.FromMilliseconds(45), LossChance = 0.3 },
+            19
         );
 
         harness.Connect();
@@ -115,7 +111,7 @@ public sealed class NetworkSimulationTests {
 
     [Fact]
     public void Duplication_DeliversAnUnreliablePayloadTwice_AndAReliableOneOnce() {
-        using var harness = new Harness(new() { DuplicateChance = 1.0 }, seed: 23);
+        using var harness = new Harness(new() { DuplicateChance = 1.0 }, 23);
         harness.Connect();
 
         harness.Client.SendToServer(Bytes("twice"), Channel.Unreliable);
@@ -128,9 +124,9 @@ public sealed class NetworkSimulationTests {
 
     [Fact]
     public void TheSameSeed_ReplaysTheSameRun_AndADifferentOneDoesNot() {
-        var first = LossyRun(seed: 2024);
-        var again = LossyRun(seed: 2024);
-        var other = LossyRun(seed: 2025);
+        var first = LossyRun(2024);
+        var again = LossyRun(2024);
+        var other = LossyRun(2025);
 
         Assert.Equal(first, again);
         Assert.NotEqual(first, other);
@@ -138,7 +134,7 @@ public sealed class NetworkSimulationTests {
 
     [Fact]
     public void APayloadStillInFlightWhenTheConnectionEnds_NeverArrives() {
-        using var harness = new Harness(new() { Latency = TimeSpan.FromMilliseconds(100) }, seed: 29);
+        using var harness = new Harness(new() { Latency = TimeSpan.FromMilliseconds(100) }, 29);
         harness.Connect();
 
         harness.Client.SendToServer(Bytes("in flight"), Channel.Reliable);
@@ -150,8 +146,8 @@ public sealed class NetworkSimulationTests {
 
     [Fact]
     public void ASimulationThatInjectsSomething_SaysItIsLossy() {
-        using var perfect = new Harness(NetworkSimulationProfile.Perfect, seed: 31);
-        using var lossy = new Harness(new() { LossChance = 0.1 }, seed: 31);
+        using var perfect = new Harness(NetworkSimulationProfile.Perfect, 31);
+        using var lossy = new Harness(new() { LossChance = 0.1 }, 31);
 
         Assert.False(perfect.Simulation.Capabilities.IsLossy);
         Assert.True(lossy.Simulation.Capabilities.IsLossy);
@@ -160,10 +156,12 @@ public sealed class NetworkSimulationTests {
 
     [Fact]
     public void TimeRunningBackwards_Throws() {
-        using var harness = new Harness(NetworkSimulationProfile.Perfect, seed: 37);
+        using var harness = new Harness(NetworkSimulationProfile.Perfect, 37);
 
-        Assert.Throws<ArgumentOutOfRangeException>(
-            () => harness.Simulation.Poll(TimeSpan.FromSeconds(-1), harness.ClientEvents)
+        Assert.Throws<ArgumentOutOfRangeException>(() => harness.Simulation.Poll(
+                TimeSpan.FromSeconds(-1),
+                harness.ClientEvents
+            )
         );
     }
 
@@ -175,24 +173,20 @@ public sealed class NetworkSimulationTests {
     public void AChanceThatIsNotAChance_Throws(double loss, double duplicate) {
         var profile = new NetworkSimulationProfile { LossChance = loss, DuplicateChance = duplicate };
 
-        Assert.Throws<ArgumentOutOfRangeException>(
-            () => new NetworkSimulation(new LocalTransport(new()), profile, seed: 41)
-        );
+        Assert.Throws<ArgumentOutOfRangeException>(() => new NetworkSimulation(new LocalTransport(new()), profile, 41));
     }
 
     [Fact]
     public void ANegativeDelay_Throws() {
         var profile = new NetworkSimulationProfile { Latency = TimeSpan.FromMilliseconds(-1) };
 
-        Assert.Throws<ArgumentOutOfRangeException>(
-            () => new NetworkSimulation(new LocalTransport(new()), profile, seed: 43)
-        );
+        Assert.Throws<ArgumentOutOfRangeException>(() => new NetworkSimulation(new LocalTransport(new()), profile, 43));
     }
 
     [Fact]
     public void ASimulationThatDoesNotOwnItsTransport_LeavesItAlone() {
         using var transport = new LocalTransport(new());
-        var simulation = new NetworkSimulation(transport, NetworkSimulationProfile.Perfect, seed: 47, ownsInner: false);
+        var simulation = new NetworkSimulation(transport, NetworkSimulationProfile.Perfect, 47, false);
 
         transport.StartServer();
         simulation.Dispose();

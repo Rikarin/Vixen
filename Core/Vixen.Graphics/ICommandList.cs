@@ -103,8 +103,10 @@ public interface ICommandList : IDisposable {
     /// <param name="scissor">The rectangle, in pixels.</param>
     void SetScissor(in ScissorRect scissor);
 
-    /// <summary>Sets the blend constant used by
-    /// <see cref="BlendFactor.Constant" />.</summary>
+    /// <summary>
+    ///     Sets the blend constant used by
+    ///     <see cref="BlendFactor.Constant" />.
+    /// </summary>
     /// <param name="colour">The constant.</param>
     void SetBlendConstant(in Color4 colour);
 
@@ -123,7 +125,11 @@ public interface ICommandList : IDisposable {
     ///     Offsets for the set's dynamic bindings, in declaration order. How per-draw transforms are
     ///     bound without a descriptor set per object.
     /// </param>
-    void BindDescriptorSet(DescriptorSetSlot slot, DescriptorSetHandle descriptors, ReadOnlySpan<uint> dynamicOffsets = default);
+    void BindDescriptorSet(
+        DescriptorSetSlot slot,
+        DescriptorSetHandle descriptors,
+        ReadOnlySpan<uint> dynamicOffsets = default
+    );
 
     /// <summary>Writes push constants.</summary>
     /// <param name="stages">Which stages see them.</param>
@@ -169,8 +175,10 @@ public interface ICommandList : IDisposable {
     /// <summary>Draws with arguments the GPU wrote.</summary>
     /// <param name="arguments">The buffer holding them.</param>
     /// <param name="offset">Where they start, in bytes.</param>
-    /// <param name="drawCount">How many draws. More than one needs
-    /// <see cref="GraphicsDeviceFeatures.HasMultiDrawIndirect" />.</param>
+    /// <param name="drawCount">
+    ///     How many draws. More than one needs
+    ///     <see cref="GraphicsDeviceFeatures.HasMultiDrawIndirect" />.
+    /// </param>
     /// <param name="stride">Bytes between consecutive argument structures.</param>
     void DrawIndexedIndirect(BufferHandle arguments, long offset = 0, int drawCount = 1, int stride = 20);
 
@@ -242,19 +250,27 @@ public interface ICommandList : IDisposable {
 
     /// <summary>Builds an acceleration structure from its geometry.</summary>
     /// <param name="target">The structure, created at the size the same input was measured to.</param>
-    /// <param name="input">Everything the build reads — the record
-    ///     <see cref="IGraphicsDevice.GetAccelerationStructureSizes" /> sized.</param>
-    /// <param name="scratch">The build's working memory — at least
+    /// <param name="input">
+    ///     Everything the build reads — the record
+    ///     <see cref="IGraphicsDevice.GetAccelerationStructureSizes" /> sized.
+    /// </param>
+    /// <param name="scratch">
+    ///     The build's working memory — at least
     ///     <see cref="AccelerationStructureSizes.Scratch" /> bytes of
-    ///     <see cref="BufferUsage.Storage" /> + <see cref="BufferUsage.ShaderDeviceAddress" />.</param>
+    ///     <see cref="BufferUsage.Storage" /> + <see cref="BufferUsage.ShaderDeviceAddress" />.
+    /// </param>
     /// <param name="scratchOffset">Where in it the build may write, in bytes.</param>
     /// <remarks>
     ///     <para>
     ///         ⚠ Needs <see cref="GraphicsDeviceFeatures.HasRayTracing" />; outside a render pass,
     ///         like a dispatch. The geometry buffers must already hold their data — the caller's
     ///         copies and barriers, as for any read — and a top-level build reads bottom-level
-    ///         structures whose own builds must have been recorded <em>before it on the same
-    ///         queue</em>.
+    ///         structures whose own builds must have been recorded
+    ///         <em>
+    ///             before it on the same
+    ///             queue
+    ///         </em>
+    ///         .
     ///     </para>
     ///     <para>
     ///         <b>The build's own hazard is the backend's.</b> The command ends with the barrier

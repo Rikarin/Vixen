@@ -11,9 +11,13 @@ namespace Vixen.Ui.Layout.Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Four of the six <c>*Overflow</c> fields on <see cref="LayoutStyle" /> have 76
-///         browser-recorded fixtures behind them and two have none, and the two with none are the
-///         ones a reader would assume were covered by the other four.</b> The corpus writes
+///         ⚠
+///         <b>
+///             Four of the six <c>*Overflow</c> fields on <see cref="LayoutStyle" /> have 76
+///             browser-recorded fixtures behind them and two have none, and the two with none are the
+///             ones a reader would assume were covered by the other four.
+///         </b>
+///         The corpus writes
 ///         <c>safe</c> on <c>align-self</c>, <c>align-content</c>, <c>justify-content</c> and
 ///         <c>justify-self</c>; it never writes it on <c>align-items</c> or <c>justify-items</c>.
 ///         Those two are the CONTAINER-level halves, and they are reached by a different line of
@@ -43,7 +47,10 @@ public class SafeAlignmentTests {
     [Theory]
     [InlineData(OverflowAlignment.Safe, 0f)]
     [InlineData(OverflowAlignment.Unsafe, -50f)]
-    public void A_container_s_align_items_carries_its_own_safe_prefix_to_a_child(OverflowAlignment overflow, float expected) {
+    public void A_container_s_align_items_carries_its_own_safe_prefix_to_a_child(
+        OverflowAlignment overflow,
+        float expected
+    ) {
         using var tree = new LayoutTree();
         var root = tree.CreateNode();
         tree.SetFlexDirection(root, FlexDirection.Row);
@@ -72,7 +79,10 @@ public class SafeAlignmentTests {
     [Theory]
     [InlineData(OverflowAlignment.Safe, 0f)]
     [InlineData(OverflowAlignment.Unsafe, -50f)]
-    public void A_grid_s_justify_items_carries_its_own_safe_prefix_to_an_item(OverflowAlignment overflow, float expected) {
+    public void A_grid_s_justify_items_carries_its_own_safe_prefix_to_an_item(
+        OverflowAlignment overflow,
+        float expected
+    ) {
         using var tree = new LayoutTree();
         var root = tree.CreateNode();
         tree.SetDisplay(root, Display.Grid);
@@ -96,8 +106,12 @@ public class SafeAlignmentTests {
     ///     An item's own <c>align-self</c> beats its container's <c>align-items</c>, prefix included.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>The prefix is part of the value, so it is overridden with the value rather than
-    ///     merged into it.</b> A container saying <c>safe end</c> and a child saying <c>end</c> is a
+    ///     ⚠
+    ///     <b>
+    ///         The prefix is part of the value, so it is overridden with the value rather than
+    ///         merged into it.
+    ///     </b>
+    ///     A container saying <c>safe end</c> and a child saying <c>end</c> is a
     ///     child that overflows: the child's declaration replaces the container's whole value, and an
     ///     implementation that took the position from one and the prefix from the other would keep
     ///     the container's <c>safe</c> and answer 0.

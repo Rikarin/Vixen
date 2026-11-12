@@ -135,8 +135,12 @@ public sealed class CameraExtractionSystem(RenderView view) : SystemBase, IDecla
 
     /// <summary>How many offsets the sequence uses before it repeats. Eight is the usual.</summary>
     /// <remarks>
-    ///     ⚠ <b>A cycle rather than an ever-advancing sequence, and the difference shows up on a
-    ///     still camera.</b> A history at <c>feedback: 0.9</c> holds roughly twenty frames; if every
+    ///     ⚠
+    ///     <b>
+    ///         A cycle rather than an ever-advancing sequence, and the difference shows up on a
+    ///         still camera.
+    ///     </b>
+    ///     A history at <c>feedback: 0.9</c> holds roughly twenty frames; if every
     ///     one of those carried an offset the resolve had never seen before, the average never
     ///     reaches a fixed point and one-pixel geometry keeps flickering by a percent or so. Eight
     ///     repeating offsets converge to an exact answer, which is what a screenshot of a stationary
@@ -145,8 +149,10 @@ public sealed class CameraExtractionSystem(RenderView view) : SystemBase, IDecla
     public int JitterPeriod { get; set; } = 8;
 
     /// <summary>The offset the last extraction applied, in pixels.</summary>
-    /// <remarks>Zero when <see cref="JitterTarget" /> is, which is how a diagnostic tells "no TAA in
-    ///     this tree" from "TAA that is not being fed".</remarks>
+    /// <remarks>
+    ///     Zero when <see cref="JitterTarget" /> is, which is how a diagnostic tells "no TAA in
+    ///     this tree" from "TAA that is not being fed".
+    /// </remarks>
     public Vector2 Jitter { get; private set; }
 
     /// <summary>How many jittered frames have been extracted, which indexes the sequence.</summary>
@@ -169,8 +175,11 @@ public sealed class CameraExtractionSystem(RenderView view) : SystemBase, IDecla
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <b>What makes split-screen draw, and the reason this type's "one view, not one per
-    ///         camera" rule survives intact.</b> The view is still handed in and this still decides
+    ///         <b>
+    ///             What makes split-screen draw, and the reason this type's "one view, not one per
+    ///             camera" rule survives intact.
+    ///         </b>
+    ///         The view is still handed in and this still decides
     ///         only which entity fills the one it was given — what changes is that a host wanting two
     ///         views adds two of these, at ranks 0 and 1, and gets the two lowest-ordered cameras in
     ///         two views. A single-camera game never sets it and gets exactly what it always got.
@@ -183,8 +192,12 @@ public sealed class CameraExtractionSystem(RenderView view) : SystemBase, IDecla
     ///         actually has — the second camera, whichever it is.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A rank past the end leaves the view alone and reports
-    ///         <see cref="Found" /> false</b>, which is what a scene with one camera and a host
+    ///         ⚠
+    ///         <b>
+    ///             A rank past the end leaves the view alone and reports
+    ///             <see cref="Found" /> false
+    ///         </b>
+    ///         , which is what a scene with one camera and a host
     ///         expecting two is honestly in. The alternative — falling back to camera zero — is two
     ///         halves of one screen showing the same picture, which reads as a broken split rather
     ///         than as a missing camera.
@@ -292,8 +305,12 @@ public sealed class CameraExtractionSystem(RenderView view) : SystemBase, IDecla
     /// <summary>Writes one camera's placement into the view.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b><see cref="RenderView.Camera" /> is set first and the matrix second, and the order is
-    ///         load-bearing.</b> Assigning the camera sets the view's matrix from
+    ///         ⚠
+    ///         <b>
+    ///             <see cref="RenderView.Camera" /> is set first and the matrix second, and the order is
+    ///             load-bearing.
+    ///         </b>
+    ///         Assigning the camera sets the view's matrix from
     ///         <see cref="RenderCamera.ViewProjection" />, which is a <c>LookAt</c> — correct for a rigid
     ///         transform and not for one carrying scale or shear. The transform's own inverse is the
     ///         authority on where the camera is, so it is written afterwards and wins; the description is
@@ -344,10 +361,7 @@ public sealed class CameraExtractionSystem(RenderView view) : SystemBase, IDecla
                 aspect,
                 camera.NearPlane,
                 camera.FarPlane
-            ) {
-                Lens = camera,
-                Jitter = offset
-            };
+            ) { Lens = camera, Jitter = offset };
 
         // ⚠ Null and not a zeroed rectangle for the camera that named none. `RenderView` is a class,
         // so it has the option `Camera` does not, and taking it is what stops "nobody asked for a

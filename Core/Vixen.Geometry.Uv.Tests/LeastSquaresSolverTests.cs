@@ -83,14 +83,16 @@ public class LeastSquaresSolverTests {
     /// </remarks>
     [Fact]
     public void It_agrees_with_the_dense_normal_equations() {
-        Systems.Sample(system => {
+        Systems.Sample(
+            static system => {
                 var (rows, columns, dense, right) = system;
                 var expected = SolveNormalEquations(dense, right, rows, columns);
 
                 var solution = new double[columns];
-                var report = new LeastSquaresSolver(ToSparse(dense, rows, columns)).Solve(right, solution, columns * 40);
+                var report =
+                    new LeastSquaresSolver(ToSparse(dense, rows, columns)).Solve(right, solution, columns * 40);
 
-                Assert.All(solution, value => Assert.True(double.IsFinite(value), $"{value} is not finite."));
+                Assert.All(solution, static value => Assert.True(double.IsFinite(value), $"{value} is not finite."));
                 AssertFitsAtLeastAsWell(report.Residual, expected, dense, right, rows, columns);
             },
             iter: 300
@@ -128,25 +130,26 @@ public class LeastSquaresSolverTests {
         var report = new LeastSquaresSolver(builder.Build()).Solve([1d, 2d, 3d], solution, 16);
 
         Assert.True(report.StoppedEarly);
-        Assert.All(solution, value => Assert.True(double.IsFinite(value), $"{value} is not finite."));
+        Assert.All(solution, static value => Assert.True(double.IsFinite(value), $"{value} is not finite."));
     }
 
     /// <summary>The unpreconditioned leg, so a bug in the scaling cannot hide behind the scaling.</summary>
     [Fact]
     public void It_agrees_with_the_dense_normal_equations_unpreconditioned() {
-        Systems.Sample(system => {
+        Systems.Sample(
+            static system => {
                 var (rows, columns, dense, right) = system;
                 var expected = SolveNormalEquations(dense, right, rows, columns);
 
                 var solution = new double[columns];
 
-                var report = new LeastSquaresSolver(ToSparse(dense, rows, columns), preconditioned: false).Solve(
+                var report = new LeastSquaresSolver(ToSparse(dense, rows, columns), false).Solve(
                     right,
                     solution,
                     columns * 40
                 );
 
-                Assert.All(solution, value => Assert.True(double.IsFinite(value), $"{value} is not finite."));
+                Assert.All(solution, static value => Assert.True(double.IsFinite(value), $"{value} is not finite."));
                 AssertFitsAtLeastAsWell(report.Residual, expected, dense, right, rows, columns);
             },
             iter: 300
@@ -170,8 +173,8 @@ public class LeastSquaresSolverTests {
 
         for (var row = 0; row < 3; row++) {
             for (var column = 0; column < 2; column++) {
-                if (dense[(row * 2) + column] != 0d) {
-                    builder.Add(row, column, dense[(row * 2) + column]);
+                if (dense[row * 2 + column] != 0d) {
+                    builder.Add(row, column, dense[row * 2 + column]);
                 }
             }
         }
@@ -180,10 +183,10 @@ public class LeastSquaresSolverTests {
         double[] right = [2.109171695124708d, 34d / 33d, -2d];
 
         var near = new double[2];
-        var nearReport = new LeastSquaresSolver(matrix, preconditioned: false).Solve(right, near, 8);
+        var nearReport = new LeastSquaresSolver(matrix, false).Solve(right, near, 8);
 
         var far = new double[2];
-        var farReport = new LeastSquaresSolver(matrix, preconditioned: false).Solve(right, far, 4000);
+        var farReport = new LeastSquaresSolver(matrix, false).Solve(right, far, 4000);
 
         Assert.True(farReport.StoppedEarly, "The floor never fired, so this proves nothing.");
         Assert.Equal(near[0], far[0], 10);
@@ -248,10 +251,10 @@ public class LeastSquaresSolverTests {
         var matrix = ToSparse(dense, 10, 2);
 
         var near = new double[2];
-        var nearReport = new LeastSquaresSolver(matrix, preconditioned: false).Solve(right, near, 8);
+        var nearReport = new LeastSquaresSolver(matrix, false).Solve(right, near, 8);
 
         var far = new double[2];
-        var farReport = new LeastSquaresSolver(matrix, preconditioned: false).Solve(right, far, 4000);
+        var farReport = new LeastSquaresSolver(matrix, false).Solve(right, far, 4000);
 
         Assert.True(farReport.StoppedEarly, "The floor never fired, so this proves nothing.");
         Assert.Equal(near[0], far[0], 12);
@@ -284,7 +287,7 @@ public class LeastSquaresSolverTests {
         new LeastSquaresSolver(builder.Build()).Solve(right, plain, 32);
 
         var scaled = new double[2];
-        new LeastSquaresSolver(scaledBuilder.Build()).Solve(right.Select(value => value * scale).ToArray(), scaled, 32);
+        new LeastSquaresSolver(scaledBuilder.Build()).Solve([..right.Select(value => value * scale)], scaled, 32);
 
         Assert.Equal(plain[0], scaled[0], 8);
         Assert.Equal(plain[1], scaled[1], 8);
@@ -301,8 +304,8 @@ public class LeastSquaresSolverTests {
 
         for (var row = 0; row < rows; row++) {
             for (var column = 0; column < columns; column++) {
-                if (Math.Abs(matrix[(row * columns) + column]) < 1d) {
-                    matrix[(row * columns) + column] = 0d;
+                if (Math.Abs(matrix[row * columns + column]) < 1d) {
+                    matrix[row * columns + column] = 0d;
                 }
             }
         }
@@ -312,11 +315,11 @@ public class LeastSquaresSolverTests {
 
             for (var column = 0; column < columns; column++) {
                 if (column != row) {
-                    sum += Math.Abs(matrix[(row * columns) + column]);
+                    sum += Math.Abs(matrix[row * columns + column]);
                 }
             }
 
-            matrix[(row * columns) + row] = sum + 1d;
+            matrix[row * columns + row] = sum + 1d;
         }
 
         return matrix;
@@ -327,8 +330,8 @@ public class LeastSquaresSolverTests {
 
         for (var row = 0; row < rows; row++) {
             for (var column = 0; column < columns; column++) {
-                if (dense[(row * columns) + column] != 0d) {
-                    builder.Add(row, column, dense[(row * columns) + column]);
+                if (dense[row * columns + column] != 0d) {
+                    builder.Add(row, column, dense[row * columns + column]);
                 }
             }
         }
@@ -351,7 +354,7 @@ public class LeastSquaresSolverTests {
             var sum = right[row];
 
             for (var column = 0; column < columns; column++) {
-                sum -= dense[(row * columns) + column] * expected[column];
+                sum -= dense[row * columns + column] * expected[column];
             }
 
             reference += sum * sum;
@@ -360,7 +363,7 @@ public class LeastSquaresSolverTests {
         reference = Math.Sqrt(reference);
 
         Assert.True(
-            achieved <= (reference * (1d + 1e-6d)) + 1e-9d,
+            achieved <= reference * (1d + 1e-6d) + 1e-9d,
             $"The solve left a residual of {achieved} where Gaussian elimination on the dense normal "
             + $"equations left {reference}."
         );
@@ -376,16 +379,16 @@ public class LeastSquaresSolverTests {
                 var sum = 0d;
 
                 for (var row = 0; row < rows; row++) {
-                    sum += dense[(row * columns) + first] * dense[(row * columns) + second];
+                    sum += dense[row * columns + first] * dense[row * columns + second];
                 }
 
-                normal[(first * columns) + second] = sum;
+                normal[first * columns + second] = sum;
             }
 
             var product = 0d;
 
             for (var row = 0; row < rows; row++) {
-                product += dense[(row * columns) + first] * right[row];
+                product += dense[row * columns + first] * right[row];
             }
 
             side[first] = product;

@@ -40,8 +40,11 @@ namespace Vixen.Interchange;
 ///         it is for a PNG.
 ///     </para>
 ///     <para>
-///         <b>What it refuses, by name and out loud: cube maps, texture arrays, volumes, and every
-///         uncompressed format wider than eight bits a channel.</b> <c>VideoImporter</c>'s
+///         <b>
+///             What it refuses, by name and out loud: cube maps, texture arrays, volumes, and every
+///             uncompressed format wider than eight bits a channel.
+///         </b>
+///         <c>VideoImporter</c>'s
 ///         precedent, for its reason — an artist who drops a file in and finds it silently became
 ///         something else has learned nothing. The first three have a concrete reason as well: DDS
 ///         orders a cube map and an array element-major (every mip of face 0, then every mip of face
@@ -52,8 +55,8 @@ namespace Vixen.Interchange;
 ///     </para>
 /// </remarks>
 public sealed class DdsDecoder : IImageDecoder {
-    const uint Magic = 0x20534444;          // 'DDS ', little-endian.
-    const uint Dx10FourCc = 0x30315844;     // 'DX10', little-endian.
+    const uint Magic = 0x20534444; // 'DDS ', little-endian.
+    const uint Dx10FourCc = 0x30315844; // 'DX10', little-endian.
     const int HeaderLength = 124;
     const int PixelFormatOffset = 0x4C;
     const int ExtensionOffset = 128;
@@ -174,7 +177,7 @@ public sealed class DdsDecoder : IImageDecoder {
         // Zero and one both mean "just the top level". The mip-count field is only meaningful when
         // DDSD_MIPMAPCOUNT is set, and a writer that leaves the flag off leaves the field at zero.
         var levels = Math.Max(1, declaredLevels);
-        var possible = PixelFormats.MipLevelCount(width, height, 1);
+        var possible = PixelFormats.MipLevelCount(width, height);
 
         if (levels > possible) {
             throw new InvalidDataException(
@@ -219,7 +222,7 @@ public sealed class DdsDecoder : IImageDecoder {
             );
         }
 
-        var texture = new TextureData(PixelFormat.Rgba8UNorm, width, height, levelCount: 1);
+        var texture = new TextureData(PixelFormat.Rgba8UNorm, width, height, 1);
         var pixels = texture.PixelSpan();
 
         for (var texel = 0; texel < width * height; texel++) {
@@ -257,6 +260,7 @@ public sealed class DdsDecoder : IImageDecoder {
     /// <summary>A compressed format to pass through, or a layout to widen.</summary>
     readonly record struct SourceFormat(PixelFormat Format, ChannelLayout? Layout) {
         public static SourceFormat Blocks(PixelFormat format) => new(format, null);
+
         public static SourceFormat Channels(int bytes, int red, int green, int blue, int alpha) =>
             new(PixelFormat.Rgba8UNorm, new ChannelLayout(bytes, red, green, blue, alpha));
     }
@@ -270,8 +274,12 @@ public sealed class DdsDecoder : IImageDecoder {
     ///         which looks like a texture with a bad mask rather than like a bug in an importer.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The <c>_SRGB</c> variants are kept distinct, and that is the whole sRGB decision
-    ///         for a compressed file.</b> A compressed payload passes through <c>TextureImporter</c>
+    ///         ⚠
+    ///         <b>
+    ///             The <c>_SRGB</c> variants are kept distinct, and that is the whole sRGB decision
+    ///             for a compressed file.
+    ///         </b>
+    ///         A compressed payload passes through <c>TextureImporter</c>
     ///         untouched, so nothing downstream gets a second chance to label it: mapping
     ///         <c>BC7_UNORM_SRGB</c> onto <c>Bc7RgbaUNorm</c> would ship an albedo the hardware never
     ///         applies the transfer function to, which is the "washed out and nothing in the log"
@@ -280,16 +288,16 @@ public sealed class DdsDecoder : IImageDecoder {
     /// </remarks>
     static SourceFormat FormatOf(uint dxgi) =>
         dxgi switch {
-            71 or 70 => SourceFormat.Blocks(PixelFormat.Bc1RgbaUNorm),      // BC1_UNORM, BC1_TYPELESS
-            72 => SourceFormat.Blocks(PixelFormat.Bc1RgbaUNormSrgb),        // BC1_UNORM_SRGB
-            77 or 76 => SourceFormat.Blocks(PixelFormat.Bc3RgbaUNorm),      // BC3_UNORM, BC3_TYPELESS
-            78 => SourceFormat.Blocks(PixelFormat.Bc3RgbaUNormSrgb),        // BC3_UNORM_SRGB
-            80 or 79 => SourceFormat.Blocks(PixelFormat.Bc4RUNorm),         // BC4_UNORM, BC4_TYPELESS
-            83 or 82 => SourceFormat.Blocks(PixelFormat.Bc5RgUNorm),        // BC5_UNORM, BC5_TYPELESS
-            95 or 94 => SourceFormat.Blocks(PixelFormat.Bc6HRgbUFloat),     // BC6H_UF16, BC6H_TYPELESS
-            96 => SourceFormat.Blocks(PixelFormat.Bc6HRgbSFloat),           // BC6H_SF16
-            98 or 97 => SourceFormat.Blocks(PixelFormat.Bc7RgbaUNorm),      // BC7_UNORM, BC7_TYPELESS
-            99 => SourceFormat.Blocks(PixelFormat.Bc7RgbaUNormSrgb),        // BC7_UNORM_SRGB
+            71 or 70 => SourceFormat.Blocks(PixelFormat.Bc1RgbaUNorm), // BC1_UNORM, BC1_TYPELESS
+            72 => SourceFormat.Blocks(PixelFormat.Bc1RgbaUNormSrgb), // BC1_UNORM_SRGB
+            77 or 76 => SourceFormat.Blocks(PixelFormat.Bc3RgbaUNorm), // BC3_UNORM, BC3_TYPELESS
+            78 => SourceFormat.Blocks(PixelFormat.Bc3RgbaUNormSrgb), // BC3_UNORM_SRGB
+            80 or 79 => SourceFormat.Blocks(PixelFormat.Bc4RUNorm), // BC4_UNORM, BC4_TYPELESS
+            83 or 82 => SourceFormat.Blocks(PixelFormat.Bc5RgUNorm), // BC5_UNORM, BC5_TYPELESS
+            95 or 94 => SourceFormat.Blocks(PixelFormat.Bc6HRgbUFloat), // BC6H_UF16, BC6H_TYPELESS
+            96 => SourceFormat.Blocks(PixelFormat.Bc6HRgbSFloat), // BC6H_SF16
+            98 or 97 => SourceFormat.Blocks(PixelFormat.Bc7RgbaUNorm), // BC7_UNORM, BC7_TYPELESS
+            99 => SourceFormat.Blocks(PixelFormat.Bc7RgbaUNormSrgb), // BC7_UNORM_SRGB
 
             // R8G8B8A8 and its sRGB twin; B8G8R8A8, B8G8R8X8 and theirs. The sRGB-ness is dropped
             // here on purpose — see Uncompressed, and TextureImporter's uncompressed path, where the
@@ -297,8 +305,8 @@ public sealed class DdsDecoder : IImageDecoder {
             28 or 29 => SourceFormat.Channels(4, 0, 1, 2, 3),
             87 or 91 => SourceFormat.Channels(4, 2, 1, 0, 3),
             88 or 93 => SourceFormat.Channels(4, 2, 1, 0, -1),
-            61 => SourceFormat.Channels(1, 0, -1, -1, -1),                  // R8_UNORM
-            49 => SourceFormat.Channels(2, 0, 1, -1, -1),                   // R8G8_UNORM
+            61 => SourceFormat.Channels(1, 0, -1, -1, -1), // R8_UNORM
+            49 => SourceFormat.Channels(2, 0, 1, -1, -1), // R8G8_UNORM
 
             74 or 73 or 75 => throw Unsupported(
                 "BC2",
@@ -326,11 +334,11 @@ public sealed class DdsDecoder : IImageDecoder {
     static SourceFormat LegacyFormatOf(uint flags, uint fourCc, ReadOnlySpan<byte> pixelFormat) {
         if ((flags & FourCcFlag) != 0) {
             return fourCc switch {
-                0x31545844 => SourceFormat.Blocks(PixelFormat.Bc1RgbaUNorm),                    // 'DXT1'
-                0x35545844 or 0x34545844 => SourceFormat.Blocks(PixelFormat.Bc3RgbaUNorm),      // 'DXT5', 'DXT4'
-                0x31495441 or 0x55344342 => SourceFormat.Blocks(PixelFormat.Bc4RUNorm),         // 'ATI1', 'BC4U'
-                0x32495441 or 0x55354342 => SourceFormat.Blocks(PixelFormat.Bc5RgUNorm),        // 'ATI2', 'BC5U'
-                0x33545844 or 0x32545844 => throw Unsupported(                                  // 'DXT3', 'DXT2'
+                0x31545844 => SourceFormat.Blocks(PixelFormat.Bc1RgbaUNorm), // 'DXT1'
+                0x35545844 or 0x34545844 => SourceFormat.Blocks(PixelFormat.Bc3RgbaUNorm), // 'DXT5', 'DXT4'
+                0x31495441 or 0x55344342 => SourceFormat.Blocks(PixelFormat.Bc4RUNorm), // 'ATI1', 'BC4U'
+                0x32495441 or 0x55354342 => SourceFormat.Blocks(PixelFormat.Bc5RgUNorm), // 'ATI2', 'BC5U'
+                0x33545844 or 0x32545844 => throw Unsupported( // 'DXT3', 'DXT2'
                     "DXT2 or DXT3",
                     "the engine has no BC2 format, and DXT2's colour is premultiplied besides"
                 ),

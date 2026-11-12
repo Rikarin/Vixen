@@ -6,7 +6,6 @@ using Vixen.Core.Serialization;
 using Vixen.Core.Yaml;
 using Vixen.Core.Yaml.Meta;
 using Vixen.Editor.Assets;
-using Vixen.Editor.NodeGraph;
 using Vixen.Interchange;
 using Vixen.NodeGraph;
 using Vixen.Rendering.Vfx;

@@ -163,14 +163,18 @@ public sealed class AnimationSystem : SystemBase, IDeclaredAccess {
         Scheduler.PlanPreEvaluation(stacks.AsSpan(0, stackCount), sink);
 
         if (!sink.IsEmpty) {
-            sink.Solve(deltaTime, publish: true);
+            sink.Solve(deltaTime, true);
         }
     }
 
     /// <summary>Works out who is solved together after evaluation, before anybody evaluates.</summary>
     /// <remarks>
-    ///     ⚠ <b>Planned before the evaluation pass and solved after it, which is not the same as
-    ///     planning it after.</b> A stack a group claims must not also solve itself inside its own
+    ///     ⚠
+    ///     <b>
+    ///         Planned before the evaluation pass and solved after it, which is not the same as
+    ///         planning it after.
+    ///     </b>
+    ///     A stack a group claims must not also solve itself inside its own
     ///     animator's processor pass, and that pass is part of evaluation — so the claim has to be in
     ///     place before evaluation starts or the correction is applied twice on the frame a group
     ///     forms. Grouping is a question about who references whom, which a scheduler can answer
@@ -194,7 +198,7 @@ public sealed class AnimationSystem : SystemBase, IDeclaredAccess {
     /// </remarks>
     void SolvePoseGroups(float deltaTime) {
         if (stackCount > 0 && !sink.IsEmpty) {
-            sink.Solve(deltaTime, publish: false);
+            sink.Solve(deltaTime, false);
         }
     }
 

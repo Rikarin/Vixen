@@ -27,8 +27,12 @@ public sealed record MapOptions(
     /// <summary>How often a map looks at its own fleet.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A grain timer rather than a service that walks every map, and rather than a
-    ///         reminder.</b> A background service ticking every map in a region makes one thread the
+    ///         ⚠
+    ///         <b>
+    ///             A grain timer rather than a service that walks every map, and rather than a
+    ///             reminder.
+    ///         </b>
+    ///         A background service ticking every map in a region makes one thread the
     ///         serialisation point for every fleet decision in it, which is the bottleneck the
     ///         per-map keying exists to avoid. A reminder would be the idiomatic answer for work that
     ///         must survive deactivation — and this work must not: a map nobody has asked about for
@@ -94,12 +98,12 @@ public sealed class MapGrain : Grain, IMapGrain {
 
     MapOptions Settings =>
         resolved ??= cluster.Maps.GetValueOrDefault(this.GetPrimaryKeyString())
-            ?? cluster.Default
-            ?? throw new InvalidOperationException(
-                $"No map is configured for `{this.GetPrimaryKeyString()}` and this orchestrator has no "
-                + "default. OrchestratorOptions.Maps is what says which maps exist and what a shard of "
-                + "each one costs."
-            );
+        ?? cluster.Default
+        ?? throw new InvalidOperationException(
+            $"No map is configured for `{this.GetPrimaryKeyString()}` and this orchestrator has no "
+            + "default. OrchestratorOptions.Maps is what says which maps exist and what a shard of "
+            + "each one costs."
+        );
 
     /// <inheritdoc />
     public override Task OnActivateAsync(CancellationToken cancellationToken) {

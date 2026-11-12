@@ -31,7 +31,10 @@ public class TableUtilityTests {
         var fixture = new UtilityFixture();
         var assembly = $"border-spacing: {UtilityComposition.BorderSpacing()}";
 
-        Assert.Equal(["--tw-border-spacing-x: 8px", "--tw-border-spacing-y: 8px", assembly], fixture.Emits("border-spacing-2"));
+        Assert.Equal(
+            ["--tw-border-spacing-x: 8px", "--tw-border-spacing-y: 8px", assembly],
+            fixture.Emits("border-spacing-2")
+        );
         Assert.Equal(["--tw-border-spacing-x: 1px", assembly], fixture.Emits("border-spacing-x-px"));
         Assert.Equal(["--tw-border-spacing-y: 16px", assembly], fixture.Emits("border-spacing-y-4"));
     }
@@ -61,14 +64,13 @@ public class TableUtilityTests {
         string[] cell = ["table-cell"];
 
         using var document = new UiDocument(400f, 300f);
-        document.Load(new UtilityGenerator(AssembledReaderProbe.Tokens).Generate([.. table, .. row, .. cell]), StyleOrigin.Author);
+        document.Load(new UtilityGenerator(AssembledReaderProbe.Tokens).Generate([..table, ..row, ..cell]));
         document.Load(
             """
             root { flex-direction: row; align-items: flex-start; }
             #t { width: 200px; }
             #a { width: 40px; height: 20px; }
-            """,
-            StyleOrigin.Author
+            """
         );
 
         var t = document.Create("div", document.Root, "t", table);

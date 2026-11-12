@@ -60,8 +60,7 @@ public sealed class AndroidPlatform : IPlatform {
     }
 
     /// <inheritdoc />
-    public string Name =>
-        $"Android {AndroidBuild.VERSION.Release} on {AndroidBuild.Manufacturer} {AndroidBuild.Model}";
+    public string Name => $"Android {AndroidBuild.VERSION.Release} on {AndroidBuild.Manufacturer} {AndroidBuild.Model}";
 
     /// <inheritdoc />
     /// <remarks>
@@ -91,8 +90,12 @@ public sealed class AndroidPlatform : IPlatform {
     ///         override is the one whose palette is on screen.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b><c>UiModeNightUndefined</c> is a real third value and is reported as
-    ///         <see cref="SystemColorScheme.Unknown" />.</b> It is what a configuration that has
+    ///         ⚠
+    ///         <b>
+    ///             <c>UiModeNightUndefined</c> is a real third value and is reported as
+    ///             <see cref="SystemColorScheme.Unknown" />.
+    ///         </b>
+    ///         It is what a configuration that has
     ///         never resolved says, and mapping it to light is how an application picks a palette on
     ///         a device that has not answered yet.
     ///     </para>
@@ -106,8 +109,12 @@ public sealed class AndroidPlatform : IPlatform {
 
     /// <inheritdoc />
     /// <remarks>
-    ///     ⚠ <b><see cref="SystemAccessibility.Unknown" />: Android has these settings and this
-    ///     platform does not read them.</b> <c>Settings.Global.ANIMATOR_DURATION_SCALE</c> at zero is
+    ///     ⚠
+    ///     <b>
+    ///         <see cref="SystemAccessibility.Unknown" />: Android has these settings and this
+    ///         platform does not read them.
+    ///     </b>
+    ///     <c>Settings.Global.ANIMATOR_DURATION_SCALE</c> at zero is
     ///     the reduced-motion answer and the high-contrast one is a per-OEM accessibility service, and
     ///     both need a <c>ContentResolver</c> this assembly does not hold. Reporting "off" instead
     ///     would be inventing a preference on behalf of the user.

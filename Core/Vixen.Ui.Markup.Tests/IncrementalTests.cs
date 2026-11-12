@@ -28,19 +28,19 @@ namespace Vixen.Ui.Markup.Tests;
 /// </remarks>
 public class IncrementalTests {
     const string Source = """
-        @component Counter
-        @using System
-        <panel class="root">
-            <label text="one" />
-            <label text="two" />
-            @if (count > 0) {
-                <badge />
-            }
-        </panel>
-        <footer>
-            <label text="three" />
-        </footer>
-        """;
+                          @component Counter
+                          @using System
+                          <panel class="root">
+                              <label text="one" />
+                              <label text="two" />
+                              @if (count > 0) {
+                                  <badge />
+                              }
+                          </panel>
+                          <footer>
+                              <label text="three" />
+                          </footer>
+                          """;
 
     [Fact]
     public void An_edit_reuses_the_elements_it_did_not_touch() {
@@ -99,12 +99,12 @@ public class IncrementalTests {
     [Fact]
     public void A_broken_element_is_not_reused_and_keeps_its_diagnostic() {
         const string Broken = """
-            @component Counter
-            <panel>
-                <label text="one" />
-            </wrong>
-            <footer />
-            """;
+                              @component Counter
+                              <panel>
+                                  <label text="one" />
+                              </wrong>
+                              <footer />
+                              """;
 
         var before = Vxml.Parse(Broken);
         Assert.NotEmpty(before.Diagnostics);
@@ -113,8 +113,8 @@ public class IncrementalTests {
 
         AssertSameAsFresh(after);
         Assert.Equal(
-            before.Diagnostics.Select(one => one.Descriptor.Id),
-            after.Diagnostics.Select(one => one.Descriptor.Id)
+            before.Diagnostics.Select(static one => one.Descriptor.Id),
+            after.Diagnostics.Select(static one => one.Descriptor.Id)
         );
     }
 
@@ -153,12 +153,12 @@ public class IncrementalTests {
     [Fact]
     public void A_node_whose_diagnostic_landed_elsewhere_is_not_reused() {
         const string Broken = """
-            @component Counter
-            <panel>
-                <label text="one" />
-                <style"
-            </panel>
-            """;
+                              @component Counter
+                              <panel>
+                                  <label text="one" />
+                                  <style"
+                              </panel>
+                              """;
 
         var before = Vxml.Parse(Broken);
         var at = Broken.IndexOf("Counter", StringComparison.Ordinal);
@@ -189,7 +189,7 @@ public class IncrementalTests {
             select (at, removed, inserted);
 
         generator.Sample(
-            edit => {
+            static edit => {
                 var start = Math.Min(edit.at, Source.Length);
                 var length = Math.Min(edit.removed, Source.Length - start);
                 var edited = Source[..start] + edit.inserted + Source[(start + length)..];
@@ -231,7 +231,7 @@ public class IncrementalTests {
 
     /// <summary>Applies one edit to a tree's own text, which is what keeps the change ranges exact.</summary>
     static Markup.Syntax.SyntaxTree Edit(Markup.Syntax.SyntaxTree before, int start, int length, string inserted) =>
-        before.WithChangedText(before.Text!.WithChanges(new TextChange(new TextSpan(start, length), inserted)));
+        before.WithChangedText(before.Text!.WithChanges(new TextChange(new(start, length), inserted)));
 
     static void AssertSameAsFresh(Markup.Syntax.SyntaxTree incremental) {
         var text = incremental.GetDocument().ToFullString();

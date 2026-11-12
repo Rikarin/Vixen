@@ -10,14 +10,17 @@ namespace Vixen.ApiCheck.Tests;
 ///     writes back.
 /// </summary>
 public sealed class ApiBaselineTests : IDisposable {
-    readonly string directory = Path.Combine(Path.GetTempPath(), "vixen-api-baseline-tests", Guid.NewGuid().ToString("N"));
+    readonly string directory =
+        Path.Combine(Path.GetTempPath(), "vixen-api-baseline-tests", Guid.NewGuid().ToString("N"));
 
-    public ApiBaselineTests() => Directory.CreateDirectory(directory);
+    public ApiBaselineTests() {
+        Directory.CreateDirectory(directory);
+    }
 
     public void Dispose() {
         try {
             if (Directory.Exists(directory)) {
-                Directory.Delete(directory, recursive: true);
+                Directory.Delete(directory, true);
             }
         } catch (IOException) {
             // A temporary directory that would not go is not a test failure.
@@ -26,14 +29,22 @@ public sealed class ApiBaselineTests : IDisposable {
 
     [Fact]
     public void AMatchingSurface_IsNoDifference() {
-        var difference = ApiBaseline.Compare(["Sample.A -> class", "Sample.A.B() -> void"], ["Sample.A -> class"], ["Sample.A.B() -> void"]);
+        var difference = ApiBaseline.Compare(
+            ["Sample.A -> class", "Sample.A.B() -> void"],
+            ["Sample.A -> class"],
+            ["Sample.A.B() -> void"]
+        );
 
         Assert.True(difference.IsEmpty);
     }
 
     [Fact]
     public void AnEntryNoBaselineApproves_IsAnAddition() {
-        var difference = ApiBaseline.Compare(["Sample.A -> class", "Sample.A.New() -> void"], ["Sample.A -> class"], []);
+        var difference = ApiBaseline.Compare(
+            ["Sample.A -> class", "Sample.A.New() -> void"],
+            ["Sample.A -> class"],
+            []
+        );
 
         Assert.Equal(["Sample.A.New() -> void"], difference.Added);
         Assert.Empty(difference.Removed);
@@ -45,7 +56,11 @@ public sealed class ApiBaselineTests : IDisposable {
     /// </summary>
     [Fact]
     public void AnApprovedEntryThatIsGone_IsARemoval() {
-        var difference = ApiBaseline.Compare(["Sample.A -> class"], ["Sample.A -> class", "Sample.A.Old() -> void"], []);
+        var difference = ApiBaseline.Compare(
+            ["Sample.A -> class"],
+            ["Sample.A -> class", "Sample.A.Old() -> void"],
+            []
+        );
 
         Assert.Equal(["Sample.A.Old() -> void"], difference.Removed);
         Assert.Empty(difference.Added);
@@ -71,7 +86,7 @@ public sealed class ApiBaselineTests : IDisposable {
 
         Assert.Equal(
             [ApiBaseline.RemovedPrefix + "Sample.A.Old() -> void", "Sample.A.New() -> void"],
-            unshipped.OrderBy(entry => entry, StringComparer.Ordinal)
+            unshipped.OrderBy(static entry => entry, StringComparer.Ordinal)
         );
     }
 

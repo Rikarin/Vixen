@@ -35,17 +35,18 @@ public static class CubeMap {
     /// <param name="v">Down the face, −1 to 1.</param>
     /// <returns>The direction, normalised.</returns>
     /// <exception cref="ArgumentOutOfRangeException">There is no such face.</exception>
-    public static Vector3 DirectionOf(int face, float u, float v) => Vector3.Normalize(
-        face switch {
-            0 => new(1f, -v, -u),
-            1 => new(-1f, -v, u),
-            2 => new(u, 1f, v),
-            3 => new(u, -1f, -v),
-            4 => new(u, -v, 1f),
-            5 => new(-u, -v, -1f),
-            _ => throw new ArgumentOutOfRangeException(nameof(face), face, "A cube map has six faces.")
-        }
-    );
+    public static Vector3 DirectionOf(int face, float u, float v) =>
+        Vector3.Normalize(
+            face switch {
+                0 => new(1f, -v, -u),
+                1 => new(-1f, -v, u),
+                2 => new(u, 1f, v),
+                3 => new(u, -1f, -v),
+                4 => new(u, -v, 1f),
+                5 => new(-u, -v, -1f),
+                _ => throw new ArgumentOutOfRangeException(nameof(face), face, "A cube map has six faces.")
+            }
+        );
 
     /// <summary>Which way the centre of a texel points.</summary>
     /// <param name="face">The face.</param>
@@ -68,8 +69,11 @@ public static class CubeMap {
     ///         away from the face centre.
     ///     </para>
     ///     <para>
-    ///         <b>This is the exact area of the texel's spherical quadrilateral, not the projected
-    ///         area of its centre.</b> The obvious formula — the texel's area over
+    ///         <b>
+    ///             This is the exact area of the texel's spherical quadrilateral, not the projected
+    ///             area of its centre.
+    ///         </b>
+    ///         The obvious formula — the texel's area over
     ///         (1 + u² + v²) to the three halves — is the midpoint rule, and it is off by one and a
     ///         half per cent on a 4×4 face and does not sum to 4π at any size. The exact one
     ///         telescopes: summed over a whole face it collapses to four corner terms, and over six
@@ -81,14 +85,16 @@ public static class CubeMap {
     /// </remarks>
     public static float SolidAngleOfTexel(int x, int y, int size) {
         var step = 2f / size;
-        var left = (2f * x / size) - 1f;
-        var top = (2f * y / size) - 1f;
+        var left = 2f * x / size - 1f;
+        var top = 2f * y / size - 1f;
 
-        return Corner(left, top) - Corner(left, top + step) - Corner(left + step, top)
+        return Corner(left, top)
+            - Corner(left, top + step)
+            - Corner(left + step, top)
             + Corner(left + step, top + step);
 
         // The area of the spherical triangle a corner subtends with the axes.
-        static float Corner(float u, float v) => MathF.Atan2(u * v, MathF.Sqrt((u * u) + (v * v) + 1f));
+        static float Corner(float u, float v) => MathF.Atan2(u * v, MathF.Sqrt(u * u + v * v + 1f));
     }
 
     /// <summary>Which face and where on it a direction lands.</summary>
@@ -157,22 +163,18 @@ public static class CubeMap {
         var described = cube.Levels[level];
         var stride = (int)cube.Format.LevelSize(described.Width, described.Height);
         var image = cube.Level(level).Slice(face * stride, stride);
-        var texel = (y * described.Width) + x;
+        var texel = y * described.Width + x;
 
         return cube.Format switch {
             PixelFormat.Rgba16Float => new(
                 (float)BitConverter.UInt16BitsToHalf(BinaryPrimitives.ReadUInt16LittleEndian(image[(texel * 8)..])),
-                (float)BitConverter.UInt16BitsToHalf(
-                    BinaryPrimitives.ReadUInt16LittleEndian(image[((texel * 8) + 2)..])
-                ),
-                (float)BitConverter.UInt16BitsToHalf(
-                    BinaryPrimitives.ReadUInt16LittleEndian(image[((texel * 8) + 4)..])
-                )
+                (float)BitConverter.UInt16BitsToHalf(BinaryPrimitives.ReadUInt16LittleEndian(image[(texel * 8 + 2)..])),
+                (float)BitConverter.UInt16BitsToHalf(BinaryPrimitives.ReadUInt16LittleEndian(image[(texel * 8 + 4)..]))
             ),
             PixelFormat.Rgba32Float => new(
                 BinaryPrimitives.ReadSingleLittleEndian(image[(texel * 16)..]),
-                BinaryPrimitives.ReadSingleLittleEndian(image[((texel * 16) + 4)..]),
-                BinaryPrimitives.ReadSingleLittleEndian(image[((texel * 16) + 8)..])
+                BinaryPrimitives.ReadSingleLittleEndian(image[(texel * 16 + 4)..]),
+                BinaryPrimitives.ReadSingleLittleEndian(image[(texel * 16 + 8)..])
             ),
             _ => throw new NotSupportedException(
                 $"{cube.Format} is not a format an environment map is read from. Radiance has no upper bound, "
@@ -195,29 +197,29 @@ public static class CubeMap {
         var described = cube.Levels[level];
         var stride = (int)cube.Format.LevelSize(described.Width, described.Height);
         var image = cube.LevelSpan(level).Slice(face * stride, stride);
-        var texel = (y * described.Width) + x;
+        var texel = y * described.Width + x;
 
         switch (cube.Format) {
             case PixelFormat.Rgba16Float:
                 for (var channel = 0; channel < 3; channel++) {
                     BinaryPrimitives.WriteUInt16LittleEndian(
-                        image[((texel * 8) + (channel * 2))..],
+                        image[(texel * 8 + channel * 2)..],
                         BitConverter.HalfToUInt16Bits((Half)radiance[channel])
                     );
                 }
 
-                BinaryPrimitives.WriteUInt16LittleEndian(image[((texel * 8) + 6)..], 0x3C00);
+                BinaryPrimitives.WriteUInt16LittleEndian(image[(texel * 8 + 6)..], 0x3C00);
                 return;
 
             case PixelFormat.Rgba32Float:
                 for (var channel = 0; channel < 3; channel++) {
                     BinaryPrimitives.WriteSingleLittleEndian(
-                        image[((texel * 16) + (channel * 4))..],
+                        image[(texel * 16 + channel * 4)..],
                         radiance[channel]
                     );
                 }
 
-                BinaryPrimitives.WriteSingleLittleEndian(image[((texel * 16) + 12)..], 1f);
+                BinaryPrimitives.WriteSingleLittleEndian(image[(texel * 16 + 12)..], 1f);
                 return;
 
             default:
@@ -252,5 +254,5 @@ public static class CubeMap {
     }
 
     /// <summary>Where the centre of texel <paramref name="index" /> sits, from −1 to 1.</summary>
-    static float Coordinate(int index, int size) => (2f * (index + 0.5f) / size) - 1f;
+    static float Coordinate(int index, int size) => 2f * (index + 0.5f) / size - 1f;
 }

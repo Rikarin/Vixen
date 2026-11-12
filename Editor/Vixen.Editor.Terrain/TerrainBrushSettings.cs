@@ -18,8 +18,12 @@ namespace Vixen.Editor.Terrain;
 ///         strength 0.3 are the same shape. Unreal implements them three times and they are not.
 ///     </para>
 ///     <para>
-///         ⚠ <b>A mutable settings object beside the immutable brush, rather than a mutable
-///         brush.</b> <see cref="TerrainBrush" /> is a <c>readonly record struct</c> because a stamp
+///         ⚠
+///         <b>
+///             A mutable settings object beside the immutable brush, rather than a mutable
+///             brush.
+///         </b>
+///         <see cref="TerrainBrush" /> is a <c>readonly record struct</c> because a stamp
 ///         has to be the same brush from the first sample of a stroke to the last — a tool that read
 ///         a live object would change radius halfway through a drag if the panel moved, and the
 ///         stroke's undo record is sized to a footprint that no longer matches. So this is what the
@@ -141,7 +145,7 @@ public sealed class TerrainBrushSettings {
 
     /// <summary>Presses harder or softer by one step.</summary>
     /// <param name="steps">How many steps, negative to soften.</param>
-    public void Press(int steps) => Strength = Math.Clamp(Strength + (steps * StrengthStep), 0f, 1f);
+    public void Press(int steps) => Strength = Math.Clamp(Strength + steps * StrengthStep, 0f, 1f);
 
     /// <summary>The brush a stroke is begun with.</summary>
     /// <returns>The brush.</returns>

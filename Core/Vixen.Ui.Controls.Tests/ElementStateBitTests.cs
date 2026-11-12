@@ -10,8 +10,11 @@ namespace Vixen.Ui.Controls.Tests;
 /// <summary>The controls that put an element into a state a selector can ask about.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>The half of a selector-only variant that a variant test cannot reach, and the half
-///         that made doc 43's A13 expensive.</b>
+///         ⚠
+///         <b>
+///             The half of a selector-only variant that a variant test cannot reach, and the half
+///             that made doc 43's A13 expensive.
+///         </b>
 ///         <c>Vixen.Ui.Styling.Utilities.Tests.VariantCoverageTests</c> puts an element into a state
 ///         by hand and checks that the variant reaches it — which proves the compiler, the index and
 ///         the matcher, and proves nothing at all about whether anything in a real document ever
@@ -54,8 +57,12 @@ public class ElementStateBitTests {
 
     /// <summary>An empty field with a placeholder is showing it; an empty one without is not.</summary>
     /// <remarks>
-    ///     ⚠ <b>The distinction the <c>empty</c> class cannot make, and the reason
-    ///     <c>:placeholder-shown</c> is not that class renamed.</b> Selectors 4 § 10.4 matches a field
+    ///     ⚠
+    ///     <b>
+    ///         The distinction the <c>empty</c> class cannot make, and the reason
+    ///         <c>:placeholder-shown</c> is not that class renamed.
+    ///     </b>
+    ///     Selectors 4 § 10.4 matches a field
     ///     that is <i>currently displaying</i> placeholder text — so a field with no value and nothing
     ///     to show in its place does not match, while its <c>empty</c> class is set either way. A
     ///     variant compiled against the class would have reached every empty field in the document.
@@ -144,8 +151,12 @@ public class ElementStateBitTests {
 
     /// <summary>And the cascade answers the pseudo-class, which is what all of it is for.</summary>
     /// <remarks>
-    ///     ⚠ <b>End to end rather than on the bit, because everything above this is a claim about a
-    ///     field on an element.</b> The stylesheet is the consumer, and a bit nothing selects on is
+    ///     ⚠
+    ///     <b>
+    ///         End to end rather than on the bit, because everything above this is a claim about a
+    ///         field on an element.
+    ///     </b>
+    ///     The stylesheet is the consumer, and a bit nothing selects on is
     ///     the same as no bit at all — which is the failure this whole item is about. Both halves are
     ///     asserted: the property arrives when the field is read-only and is gone when it is not.
     /// </remarks>
@@ -262,7 +273,7 @@ public class ElementStateBitTests {
 
         // And a rule the application attaches moves it the same way, so the bit follows `Validate`
         // rather than following `Required`.
-        field.Validator = value => value == "Ada" ? "taken" : null;
+        field.Validator = static value => value == "Ada" ? "taken" : null;
 
         Assert.True(field.State.HasFlag(ElementState.Invalid));
         Assert.False(field.State.HasFlag(ElementState.Valid));
@@ -296,8 +307,12 @@ public class ElementStateBitTests {
 
     /// <summary>A select reaches a verdict, and it is exactly one bit from the moment it exists.</summary>
     /// <remarks>
-    ///     ⚠ <b>The three assertions before <c>Required</c> is ever set are the ones a change-driven
-    ///     writer fails.</b> A select that is not required is valid and never goes through a change,
+    ///     ⚠
+    ///     <b>
+    ///         The three assertions before <c>Required</c> is ever set are the ones a change-driven
+    ///         writer fails.
+    ///     </b>
+    ///     A select that is not required is valid and never goes through a change,
     ///     so a control that only reached a verdict from its value's setter would carry neither bit —
     ///     which a stylesheet cannot tell apart from a <c>div</c>. And the choice is read off
     ///     <c>Value</c> rather than off the options, so a value assigned before its list arrives
@@ -385,8 +400,12 @@ public class ElementStateBitTests {
 
     /// <summary>A required group is invalid until one of its members is chosen.</summary>
     /// <remarks>
-    ///     ⚠ <b>The bits are on the group and on none of the radios, which is the divergence from
-    ///     HTML worth asserting.</b> A browser marks each <c>&lt;input type=radio&gt;</c> required
+    ///     ⚠
+    ///     <b>
+    ///         The bits are on the group and on none of the radios, which is the divergence from
+    ///         HTML worth asserting.
+    ///     </b>
+    ///     A browser marks each <c>&lt;input type=radio&gt;</c> required
     ///     and re-derives the group from the shared name; here the group is the element that holds
     ///     the answer, so a member carrying <c>:required</c> would be claiming that this one in
     ///     particular has to be the chosen one.
@@ -483,7 +502,8 @@ public class ElementStateBitTests {
         using var ui = ControlHarness.Open(
             200f,
             120f,
-            "numeric-input:out-of-range { opacity: 0.4 } numeric-input:in-range { opacity: 0.9 }");
+            "numeric-input:out-of-range { opacity: 0.4 } numeric-input:in-range { opacity: 0.9 }"
+        );
 
         var field = ui.Add<NumericInput>();
         var opacity = ui.Document.PropertyId("opacity");
@@ -519,7 +539,8 @@ public class ElementStateBitTests {
             160f,
             "select:invalid { opacity: 0.4 } checkbox:invalid { opacity: 0.4 } radio-group:invalid { opacity: 0.4 }"
             + " multi-select:invalid { opacity: 0.4 } combo-box:invalid { opacity: 0.4 }"
-            + " switch:invalid { opacity: 0.4 }");
+            + " switch:invalid { opacity: 0.4 }"
+        );
 
         var opacity = ui.Document.PropertyId("opacity");
 
@@ -577,8 +598,12 @@ public class ElementStateBitTests {
 
     /// <summary>A switch carries neither verdict bit, in any state, on purpose.</summary>
     /// <remarks>
-    ///     ⚠ <b>Selectors 4 § 10.6's "neither" case, and the reason <c>Valid</c> is a bit rather than
-    ///     the absence of <c>Invalid</c>.</b> A switch takes effect the moment it is flipped, so
+    ///     ⚠
+    ///     <b>
+    ///         Selectors 4 § 10.6's "neither" case, and the reason <c>Valid</c> is a bit rather than
+    ///         the absence of <c>Invalid</c>.
+    ///     </b>
+    ///     A switch takes effect the moment it is flipped, so
     ///     "this must be on before the form is acceptable" is a sentence about something a switch is
     ///     not — a required switch is a setting the application will not let you turn off, which is a
     ///     disabled control or a confirmation. Asserted rather than left implicit because the whole
@@ -615,8 +640,12 @@ public class ElementStateBitTests {
     /// <summary>A field is not <c>:user-invalid</c> until somebody has actually been in it.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The blur without an edit is the assertion worth having, and it is the one a
-    ///         writer hooked to <c>OnValueChanged</c> fails.</b> Every field in a form loaded from a
+    ///         ⚠
+    ///         <b>
+    ///             The blur without an edit is the assertion worth having, and it is the one a
+    ///             writer hooked to <c>OnValueChanged</c> fails.
+    ///         </b>
+    ///         Every field in a form loaded from a
     ///         model goes through a value change before anybody has seen it, so a bit set there would
     ///         claim the user had been in all of them — which is exactly the "form turns red before it
     ///         has been filled in" that <c>:user-invalid</c> exists to prevent.
@@ -676,7 +705,8 @@ public class ElementStateBitTests {
         using var ui = ControlHarness.Open(
             200f,
             160f,
-            "textbox:user-invalid { opacity: 0.4 } textbox:invalid { --shown: 1 }");
+            "textbox:user-invalid { opacity: 0.4 } textbox:invalid { --shown: 1 }"
+        );
 
         var field = ui.Add<TextBox>();
         var other = ui.Add<TextBox>();
@@ -727,9 +757,13 @@ public class ElementStateBitTests {
 
     /// <summary>An expanded disclosure is <c>:open</c>, and it is the disclosure rather than its header.</summary>
     /// <remarks>
-    ///     ⚠ <b>The <c>open</c> class is asserted beside the bit for the same reason the read-only
-    ///     row above asserts its class: this control has written the class since it was made and the
-    ///     bit arrived beside it, not in place of it.</b> The header's <c>:checked</c> is asserted
+    ///     ⚠
+    ///     <b>
+    ///         The <c>open</c> class is asserted beside the bit for the same reason the read-only
+    ///         row above asserts its class: this control has written the class since it was made and the
+    ///         bit arrived beside it, not in place of it.
+    ///     </b>
+    ///     The header's <c>:checked</c> is asserted
     ///     too, and it is the row that says these are two statements and not one — a commit that
     ///     moved the new bit onto the header, where the chevron already reads a state, would leave
     ///     every <c>expander:open</c> rule in the tree matching nothing and pass every other
@@ -758,8 +792,12 @@ public class ElementStateBitTests {
 
     /// <summary>A select showing its list is <c>:open</c>, however the list came to shut.</summary>
     /// <remarks>
-    ///     ⚠ <b>The dismissal is the half worth writing, and an implementation that set the bit in
-    ///     <c>Open()</c> and cleared it in <c>CloseList()</c> passes everything before it.</b> The
+    ///     ⚠
+    ///     <b>
+    ///         The dismissal is the half worth writing, and an implementation that set the bit in
+    ///         <c>Open()</c> and cleared it in <c>CloseList()</c> passes everything before it.
+    ///     </b>
+    ///     The
     ///     popover closes itself on a light dismiss and on Escape without this control being asked,
     ///     so the bit is written from the overlay's own notification; one written at the call sites
     ///     would say open over a list that is gone, which is the stale-state failure rather than a

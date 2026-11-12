@@ -8,8 +8,12 @@ namespace Vixen.Ui.Layout.Tests;
 /// <summary>The room a scroll container keeps for its own scrollbar.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>180 Taffy fixtures cover the arithmetic, and not one of them covers anything in this
-///         file.</b> That corpus is the reason the feature exists and it is worth being precise about
+///         ⚠
+///         <b>
+///             180 Taffy fixtures cover the arithmetic, and not one of them covers anything in this
+///             file.
+///         </b>
+///         That corpus is the reason the feature exists and it is worth being precise about
 ///         what it cannot reach: every fixture writes <c>direction</c> on every node, so an
 ///         <i>inherited</i> writing direction is invisible to it — and the gutter changes sides with
 ///         the direction, which makes this the one property where that blind spot has teeth. Every

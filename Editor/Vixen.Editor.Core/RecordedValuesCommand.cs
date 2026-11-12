@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Diagnostics.CodeAnalysis;
-using Vixen.Authoring;
 
 namespace Vixen.Editor.Core;
 
@@ -62,9 +61,9 @@ public sealed class RecordedValuesCommand : IEditorCommand {
         }
 
         this.member = member;
-        this.targets = [.. targets];
-        this.before = [.. before];
-        this.after = [.. after];
+        this.targets = [..targets];
+        this.before = [..before];
+        this.after = [..after];
         this.document = document;
 
         Name = targets.Count > 1 ? $"{name} ({targets.Count})" : name;

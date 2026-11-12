@@ -3,7 +3,6 @@
 
 using Vixen.Core.Syntax.Diagnostics;
 using Vixen.Raven;
-using Vixen.Raven.Diagnostics;
 using Vixen.Raven.IR;
 using Vixen.Raven.Lowering;
 using Vixen.Raven.Symbols;
@@ -48,7 +47,7 @@ public class PermutationTests {
         var semantic = compilation.GetDiagnostics();
         Assert.True(
             semantic.Count == 0,
-            "Expected no semantic diagnostics, got:\n" + string.Join("\n", semantic.Select(d => d.ToString()))
+            "Expected no semantic diagnostics, got:\n" + string.Join("\n", semantic.Select(static d => d.ToString()))
         );
 
         var bag = new DiagnosticBag();
@@ -401,27 +400,29 @@ public class PermutationTests {
 
         foreach (var (type, literal) in types) {
             var asKey = DiagnosticsWith(
-                $$"""
-                  package A
+                    $$"""
+                      package A
 
-                  shader S {
-                      [Permutation] val Key: {{type}} = {{literal}}
-                  }
+                      shader S {
+                          [Permutation] val Key: {{type}} = {{literal}}
+                      }
 
-                  """,
-                PermutationValues.Empty
-            ).Any(d => d.Id == "RVN2062");
+                      """,
+                    PermutationValues.Empty
+                )
+                .Any(static d => d.Id == "RVN2062");
 
             var asParameter = DiagnosticsWith(
-                $$"""
-                  package A
+                    $$"""
+                      package A
 
-                  shader S<val Key: {{type}}> {
-                  }
+                      shader S<val Key: {{type}}> {
+                      }
 
-                  """,
-                PermutationValues.Empty
-            ).Any(d => d.Id == "RVN2081");
+                      """,
+                    PermutationValues.Empty
+                )
+                .Any(static d => d.Id == "RVN2081");
 
             if (asKey != asParameter) {
                 disagreed.Add(
@@ -535,7 +536,7 @@ public class PermutationTests {
             PermutationValues.Parse([define])
         );
 
-        Assert.Equal(accepted, !diagnostics.Any(d => d.Id == "RVN2064"));
+        Assert.Equal(accepted, !diagnostics.Any(static d => d.Id == "RVN2064"));
     }
 
     /// <summary>
@@ -637,19 +638,18 @@ public class PermutationValuesTests {
         Assert.Equal(2, PermutationValues.Parse([" TapCount = 2 "]).GetValueOrDefault("TapCount"));
 
     [Fact]
-    public void Blank_entries_are_skipped() => Assert.Equal(0, PermutationValues.Parse(["", "   "]).Count);
+    public void Blank_entries_are_skipped() => Assert.Equal(0, PermutationValues.Parse([string.Empty, "   "]).Count);
 
     [Fact]
     public void A_malformed_define_is_rejected() {
-        Assert.Throws<ArgumentException>(() => PermutationValues.Parse(["Key=not-a-number"]));
-        Assert.Throws<ArgumentException>(() => PermutationValues.Parse(["=4"]));
+        Assert.Throws<ArgumentException>(static () => PermutationValues.Parse(["Key=not-a-number"]));
+        Assert.Throws<ArgumentException>(static () => PermutationValues.Parse(["=4"]));
     }
 
     [Fact]
     public void An_unsupported_value_type_is_rejected_at_the_boundary() =>
-        Assert.Throws<ArgumentException>(() => PermutationValues.Create([new("Key", 1.5)]));
+        Assert.Throws<ArgumentException>(static () => PermutationValues.Create([new("Key", 1.5)]));
 
     [Fact]
-    public void A_later_entry_wins() =>
-        Assert.Equal(2, PermutationValues.Parse(["K=1", "K=2"]).GetValueOrDefault("K"));
+    public void A_later_entry_wins() => Assert.Equal(2, PermutationValues.Parse(["K=1", "K=2"]).GetValueOrDefault("K"));
 }

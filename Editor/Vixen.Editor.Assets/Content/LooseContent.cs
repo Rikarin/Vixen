@@ -5,7 +5,6 @@ using System.Collections.Immutable;
 using Vixen.Assets;
 using Vixen.Core.Serialization;
 using Vixen.Core.Serialization.Storage;
-using Vixen.Engine.Scenes;
 
 namespace Vixen.Editor.Assets.Content;
 
@@ -121,7 +120,7 @@ public static class LooseContent {
         var entries = ImmutableArray.CreateBuilder<CatalogEntry>(plan.Assets.Length);
         var hash = new List<byte>();
 
-        foreach (var asset in plan.Assets.OrderBy(asset => asset.Address, StringComparer.Ordinal)) {
+        foreach (var asset in plan.Assets.OrderBy(static asset => asset.Address, StringComparer.Ordinal)) {
             entries.Add(
                 new(
                     asset.Address,
@@ -139,6 +138,12 @@ public static class LooseContent {
             hash.AddRange(asset.Id.ToString().Select(static character => (byte)character));
         }
 
-        return new(CatalogFormat.Version, ContentHash.Compute([.. hash]), ProjectWorkspace.HostTarget, entries.ToImmutable(), []);
+        return new(
+            CatalogFormat.Version,
+            ContentHash.Compute([..hash]),
+            ProjectWorkspace.HostTarget,
+            entries.ToImmutable(),
+            []
+        );
     }
 }

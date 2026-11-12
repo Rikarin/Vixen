@@ -76,7 +76,7 @@ public class GeneratedAccessorTests {
         devices.SubmitKey(InputKey.D, true);
         input.Actions.Update(devices, 0.016);
 
-        Assert.Equal(new Vector2(1f, 0f), input.Player.Move.ReadValue<Vector2>());
+        Assert.Equal(new(1f, 0f), input.Player.Move.ReadValue<Vector2>());
     }
 
     [Fact]

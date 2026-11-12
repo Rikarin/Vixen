@@ -89,8 +89,12 @@ public sealed class NetworkSimulation : ITransport {
     /// <inheritdoc />
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The inner transport's, unchanged, and emphatically not a report of what this
-    ///         threw away.</b> <see cref="DroppedPayloadCount" /> is loss somebody asked for — a
+    ///         ⚠
+    ///         <b>
+    ///             The inner transport's, unchanged, and emphatically not a report of what this
+    ///             threw away.
+    ///         </b>
+    ///         <see cref="DroppedPayloadCount" /> is loss somebody asked for — a
     ///         number this decorator knows because it invented it — and publishing it as
     ///         <see cref="TransportLoss" /> would make a profile's <c>LossChance</c> come back as an
     ///         observation, which is the one thing the loss counters must never be. What comes back
@@ -171,11 +175,11 @@ public sealed class NetworkSimulation : ITransport {
 
     /// <inheritdoc />
     public void SendToClient(ConnectionId connection, ReadOnlySpan<byte> payload, Channel channel) =>
-        Enqueue(toServer: false, connection, payload, channel);
+        Enqueue(false, connection, payload, channel);
 
     /// <inheritdoc />
     public void SendToServer(ReadOnlySpan<byte> payload, Channel channel) =>
-        Enqueue(toServer: true, ConnectionId.None, payload, channel);
+        Enqueue(true, ConnectionId.None, payload, channel);
 
     /// <inheritdoc />
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="elapsed" /> is negative.</exception>

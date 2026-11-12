@@ -28,13 +28,21 @@ namespace Vixen.TextureGraph;
 ///         <c>import</c>s <c>Vixen.Shaders.Core</c>, and <c>Core/Random.rvn</c>
 ///         in turn spells <c>Math.SphericalToCartesian</c> and <c>Const.TwoPi</c>, so
 ///         <c>Core/Math.rvn</c> comes with it. ⚠ That last edge is the one worth writing down: a
-///         set that stops at <c>Random.rvn</c> fails with <c>RVN2010: The name 'Math' does not
-///         exist</c> on <em>every</em> kernel at once, because the library file is bound whether the
+///         set that stops at <c>Random.rvn</c> fails with
+///         <c>
+///             RVN2010: The name 'Math' does not
+///             exist
+///         </c>
+///         on <em>every</em> kernel at once, because the library file is bound whether the
 ///         kernel calls into that part of it or not.
 ///     </para>
 ///     <para>
-///         ⚠ <b><c>Core/ColorSpaces.rvn</c> is the fourth, and adding it is what closed
-///         <a href="https://github.com/Rikarin/Vixen/issues/1093">#1093</a>.</b> Three kernels wrote
+///         ⚠
+///         <b>
+///             <c>Core/ColorSpaces.rvn</c> is the fourth, and adding it is what closed
+///             <a href="https://github.com/Rikarin/Vixen/issues/1093">#1093</a>.
+///         </b>
+///         Three kernels wrote
 ///         Rec. 709 out as a <c>dot</c> against a literal triple under headers saying the library had
 ///         no <c>Luminance(linear: float3): float</c> to call. It has had one all along — the obstacle
 ///         was never a signature, a package or an <c>import</c>, it was this list. ⚠ The lesson
@@ -76,15 +84,19 @@ public static class TextureKernelPrelude {
     /// <param name="source">The kernel's Raven text, already in the variant's output format.</param>
     /// <returns>A compiler the caller asks for an <c>EffectKey</c>.</returns>
     /// <remarks>
-    ///     ⚠ <b>The one place that decides what a kernel binds against, and it is public because the
-    ///     tests are the other half of the answer.</b> Fourteen test call sites used to spell
+    ///     ⚠
+    ///     <b>
+    ///         The one place that decides what a kernel binds against, and it is public because the
+    ///         tests are the other half of the answer.
+    ///     </b>
+    ///     Fourteen test call sites used to spell
     ///     <c>FromSources([(name, source)])</c> for themselves, which is fourteen chances for a suite
     ///     to prove a kernel compiles under rules the evaluator does not use. A kernel that imports
     ///     would have passed <c>TexturePlanEvaluator</c> and failed every one of them, which is the
     ///     right direction for that error to point but the wrong number of places to fix it.
     /// </remarks>
     public static RavenEffectCompiler Compile(string name, string source) =>
-        RavenEffectCompiler.FromSources([.. Sources, (name, source)]);
+        RavenEffectCompiler.FromSources([..Sources, (name, source)]);
 
     static ImmutableArray<(string Name, string Text)> Read() {
         var assembly = typeof(TextureKernelPrelude).Assembly;

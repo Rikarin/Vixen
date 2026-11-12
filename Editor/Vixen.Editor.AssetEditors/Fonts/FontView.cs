@@ -6,7 +6,6 @@ using Vixen.Core.Mathematics;
 using Vixen.Editor.Core;
 using Vixen.Editor.Ui.Documents;
 using Vixen.Ui;
-using Vixen.Ui.Controls;
 using Vixen.Ui.Text;
 using Vixen.Ui.Text.Outlines;
 
@@ -50,7 +49,7 @@ public sealed class FontAtlasView : UiElement {
     protected override void OnCreated() {
         base.OnCreated();
 
-        AddHandler<PointerEvent>(static (element, args) => ((FontAtlasView) element).Pointed(args));
+        AddHandler<PointerEvent>(static (element, args) => ((FontAtlasView)element).Pointed(args));
     }
 
     void Pointed(PointerEvent args) {
@@ -61,10 +60,10 @@ public sealed class FontAtlasView : UiElement {
             return;
         }
 
-        var columns = Math.Max(1, (int) (bounds.Width / cell));
-        var column = (int) ((args.X - bounds.X) / cell);
-        var line = (int) ((args.Y - bounds.Y) / cell);
-        var index = (line * columns) + column;
+        var columns = Math.Max(1, (int)(bounds.Width / cell));
+        var column = (int)((args.X - bounds.X) / cell);
+        var line = (int)((args.Y - bounds.Y) / cell);
+        var index = line * columns + column;
 
         Hovered = column >= 0 && column < columns && index >= 0 && index < Count ? First + index : -1;
     }
@@ -76,8 +75,8 @@ public sealed class FontAtlasView : UiElement {
 
         // As many columns as fit at roughly the chosen pixel size, so raising the size makes the
         // glyphs bigger rather than making the page scroll.
-        var wanted = Math.Max(Font?.Font.PixelSize ?? 48f, 8f) + (2f * Math.Max(Font?.Font.Padding ?? 0, 0));
-        var columns = Math.Max(1, (int) (bounds.Width / wanted));
+        var wanted = Math.Max(Font?.Font.PixelSize ?? 48f, 8f) + 2f * Math.Max(Font?.Font.Padding ?? 0, 0);
+        var columns = Math.Max(1, (int)(bounds.Width / wanted));
 
         return bounds.Width / columns;
     }
@@ -93,9 +92,11 @@ public sealed class FontAtlasView : UiElement {
             return;
         }
 
-        var columns = Math.Max(1, (int) (bounds.Width / cell));
+        var columns = Math.Max(1, (int)(bounds.Width / cell));
         var padding = Math.Max(document.Font.Padding, 0);
-        var foreground = document.Font.DistanceField ? new Color4(0.85f, 0.87f, 0.9f, 1f) : new Color4(0.9f, 0.9f, 0.9f, 1f);
+        var foreground = document.Font.DistanceField
+            ? new Color4(0.85f, 0.87f, 0.9f, 1f)
+            : new Color4(0.9f, 0.9f, 0.9f, 1f);
 
         for (var index = 0; index < Count; index++) {
             var code = First + index;
@@ -103,8 +104,8 @@ public sealed class FontAtlasView : UiElement {
             var line = index / columns;
 
             var box = new Rectangle(
-                bounds.X + (column * cell),
-                bounds.Y + (line * cell),
+                bounds.X + column * cell,
+                bounds.Y + line * cell,
                 cell,
                 cell
             );
@@ -128,7 +129,7 @@ public sealed class FontAtlasView : UiElement {
             );
 
             if (code == Hovered) {
-                context.StrokeRectangle(box, new Color4(0.23f, 0.42f, 0.94f, 0.9f), 1.5f);
+                context.StrokeRectangle(box, new(0.23f, 0.42f, 0.94f, 0.9f), 1.5f);
             }
 
             if (owner < 0) {
@@ -153,7 +154,7 @@ public sealed class FontAtlasView : UiElement {
             return;
         }
 
-        var scale = (box.Width - (2f * padding)) / face.UnitsPerEm;
+        var scale = (box.Width - 2f * padding) / face.UnitsPerEm;
 
         if (scale <= 0f) {
             return;
@@ -165,7 +166,7 @@ public sealed class FontAtlasView : UiElement {
         // shapes, and that lives on the baseline.
         var origin = new Vector2(
             box.X + padding,
-            box.Y + padding + (face.Metrics.Ascender * scale)
+            box.Y + padding + face.Metrics.Ascender * scale
         );
 
         path.Clear();
@@ -191,12 +192,10 @@ public sealed class FontAtlasView : UiElement {
                     var end = Point(origin, scale, segment.X1, segment.Y1);
 
                     for (var step = 1; step <= Steps; step++) {
-                        var t = (float) step / Steps;
+                        var t = (float)step / Steps;
                         var inverse = 1f - t;
 
-                        path.LineTo(
-                            (inverse * inverse * cursor) + (2f * inverse * t * control) + (t * t * end)
-                        );
+                        path.LineTo(inverse * inverse * cursor + 2f * inverse * t * control + t * t * end);
                     }
 
                     cursor = end;
@@ -209,14 +208,14 @@ public sealed class FontAtlasView : UiElement {
                     var end = Point(origin, scale, segment.X2, segment.Y2);
 
                     for (var step = 1; step <= Steps; step++) {
-                        var t = (float) step / Steps;
+                        var t = (float)step / Steps;
                         var inverse = 1f - t;
 
                         path.LineTo(
-                            (inverse * inverse * inverse * cursor)
-                            + (3f * inverse * inverse * t * first)
-                            + (3f * inverse * t * t * second)
-                            + (t * t * t * end)
+                            inverse * inverse * inverse * cursor
+                            + 3f * inverse * inverse * t * first
+                            + 3f * inverse * t * t * second
+                            + t * t * t * end
                         );
                     }
 
@@ -241,7 +240,7 @@ public sealed class FontAtlasView : UiElement {
     const int Steps = 8;
 
     static Vector2 Point(Vector2 origin, float scale, float x, float y) =>
-        new(origin.X + (x * scale), origin.Y - (y * scale));
+        new(origin.X + x * scale, origin.Y - y * scale);
 }
 
 /// <summary>A font asset, open for editing: coverage, the glyphs, and the fallback chain.</summary>

@@ -167,7 +167,7 @@ public sealed class ChatLibrary {
 
     /// <summary>Every channel, in address order.</summary>
     public IEnumerable<ChatChannel> Channels =>
-        channels.Values.OrderBy(channel => channel.Definition.Address, StringComparer.Ordinal);
+        channels.Values.OrderBy(static channel => channel.Definition.Address, StringComparer.Ordinal);
 
     /// <summary>What did not resolve, and what a definition said that cannot be true at once.</summary>
     public IReadOnlyList<string> Problems => problems;
@@ -218,7 +218,7 @@ public sealed class ChatLibrary {
             }
         }
 
-        return new(channels, byCommand, [.. problems]);
+        return new(channels, byCommand, [..problems]);
     }
 
     /// <summary>Finds a channel.</summary>
@@ -229,6 +229,5 @@ public sealed class ChatLibrary {
     /// <summary>Finds a channel by what somebody typed.</summary>
     /// <param name="command">The command, with its slash.</param>
     /// <returns>It, or null.</returns>
-    public ChatChannel? FindCommand(string? command) =>
-        command is null ? null : byCommand.GetValueOrDefault(command);
+    public ChatChannel? FindCommand(string? command) => command is null ? null : byCommand.GetValueOrDefault(command);
 }

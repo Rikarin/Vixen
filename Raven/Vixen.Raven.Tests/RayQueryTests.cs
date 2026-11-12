@@ -196,14 +196,14 @@ public class RayQueryTests {
     public void The_binding_reflects_as_its_own_descriptor_type_and_reports_the_capability() {
         var shader = LoweringTestBase.FindShader(LoweringTestBase.Lower(Probe), "Probe");
 
-        var binding = Assert.Single(shader.Bindings, b => b.Kind == IrBindingKind.AccelerationStructure);
+        var binding = Assert.Single(shader.Bindings, static b => b.Kind == IrBindingKind.AccelerationStructure);
         Assert.IsType<IrAccelerationStructureType>(binding.Type);
         Assert.False(binding.IsWritable);
 
         var reflection = ReflectionBuilder.Describe(shader);
         Assert.Contains(
-            reflection.Sets.SelectMany(s => s.Bindings),
-            b => b.Type == DescriptorType.AccelerationStructure && b.Name == "scene"
+            reflection.Sets.SelectMany(static s => s.Bindings),
+            static b => b.Type == DescriptorType.AccelerationStructure && b.Name == "scene"
         );
 
         // The host gates the pipeline on this: ray query is optional hardware.

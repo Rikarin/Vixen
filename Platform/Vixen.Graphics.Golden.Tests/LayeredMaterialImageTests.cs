@@ -99,15 +99,16 @@ public class LayeredMaterialImageTests {
     static readonly (int Top, int Left)[] PurelyPaintedAt = [(320, 296), (8, 416), (184, 264)];
 
     /// <summary>The frame all of these renderings share. Deliberately the tier suite's own.</summary>
-    static StandardFrameAsset Frame => new() {
-        Name = "LayeredMaterial",
-        Shadows = ShadowMode.Cascades,
-        Gi = GiMode.Off,
-        Reflections = ReflectionsMode.Off,
-        Antialiasing = AntialiasingMode.Fxaa,
-        Exposure = ExposureMode.Automatic,
-        Particles = false
-    };
+    static StandardFrameAsset Frame =>
+        new() {
+            Name = "LayeredMaterial",
+            Shadows = ShadowMode.Cascades,
+            Gi = GiMode.Off,
+            Reflections = ReflectionsMode.Off,
+            Antialiasing = AntialiasingMode.Fxaa,
+            Exposure = ExposureMode.Automatic,
+            Particles = false
+        };
 
     /// <summary>
     ///     Each of the splat map's channels paints its own layer, and the painted stack draws what the
@@ -134,7 +135,7 @@ public class LayeredMaterialImageTests {
 
             Assert.False(
                 control.Matches,
-                $"Two untextured materials of different colours produced the same frame on "
+                "Two untextured materials of different colours produced the same frame on "
                 + $"{Adapter(fixture!)}, so this scene is not a picture of its material and nothing "
                 + "below it means anything."
             );
@@ -189,13 +190,13 @@ public class LayeredMaterialImageTests {
             // compiler warns about — see TexturedMaterialTests for that half.
             var guarded = Render(fixture!, scene => Stack(scene, splat, 4, 3));
             var declared = Render(fixture!, scene => Stack(scene, splat, 4, 4));
-            var layerZero = Render(fixture!, _ => Library(Layers[0]));
+            var layerZero = Render(fixture!, static _ => Library(Layers[0]));
 
             var guardedIsLayerZero = GoldenImage.Compare(layerZero, guarded, Tolerance.Shaded);
 
             Assert.True(
                 guardedIsLayerZero.Matches,
-                $"A four-layer stack painted only in R drew something other than layer 0 on "
+                "A four-layer stack painted only in R drew something other than layer 0 on "
                 + $"{Adapter(fixture!)}, so the map's alpha reached a layer it does not paint: "
                 + $"{guardedIsLayerZero.DifferingPixels} of {guardedIsLayerZero.TotalPixels} pixels "
                 + $"differ, worst channel {guardedIsLayerZero.WorstChannel} at "
@@ -206,7 +207,7 @@ public class LayeredMaterialImageTests {
 
             Assert.False(
                 declaredDiffers.Matches,
-                $"Declaring the same splat map four-channel drew the same frame as three on "
+                "Declaring the same splat map four-channel drew the same frame as three on "
                 + $"{Adapter(fixture!)}, so paintedChannels is not what decides which layers a map "
                 + "paints and the frame above proves nothing about the guard."
             );
@@ -225,8 +226,11 @@ public class LayeredMaterialImageTests {
     ///         the whole of it — which is how a feature ships with its arithmetic unmeasured.
     ///     </para>
     ///     <para>
-    ///         <b>The oracle is closed-form and comes out on a layer this suite can already draw
-    ///         alone.</b> Two layers, weights 1, splat <c>(0.5, 0.5)</c> — so without a height map
+    ///         <b>
+    ///             The oracle is closed-form and comes out on a layer this suite can already draw
+    ///             alone.
+    ///         </b>
+    ///         Two layers, weights 1, splat <c>(0.5, 0.5)</c> — so without a height map
     ///         the keys tie at 0.5, the floor is 0, and the surface is a half-and-half blend of two
     ///         colours that is <em>neither</em> of them. Add a height map of <c>(0, 1)</c>: the keys
     ///         become 0.5 and 0.5 + 0.25·1 = 0.75, the peak is 0.75, the floor is
@@ -249,7 +253,7 @@ public class LayeredMaterialImageTests {
 
         using (fixture) {
             var splat = Split();
-            var layerOne = Render(fixture!, _ => Library(Layers[1]));
+            var layerOne = Render(fixture!, static _ => Library(Layers[1]));
             var tied = Render(fixture!, scene => Stack(scene, splat, 2, 2));
 
             var tieIsNotLayerOne = GoldenImage.Compare(layerOne, tied, Tolerance.Shaded);
@@ -266,7 +270,7 @@ public class LayeredMaterialImageTests {
 
             Assert.True(
                 liftedIsLayerOne.Matches,
-                $"A height map lifting layer 1 by 0.25 over a transition of 0.1 drew something other "
+                "A height map lifting layer 1 by 0.25 over a transition of 0.1 drew something other "
                 + $"than layer 1 alone on {Adapter(fixture!)}: {liftedIsLayerOne.DifferingPixels} of "
                 + $"{liftedIsLayerOne.TotalPixels} pixels differ, worst channel "
                 + $"{liftedIsLayerOne.WorstChannel} at {liftedIsLayerOne.WorstAt}, mean "
@@ -420,8 +424,8 @@ public class LayeredMaterialImageTests {
 
         for (var texel = 0; texel < Side * Side; texel++) {
             texels[texel * 4] = 128;
-            texels[(texel * 4) + 1] = 128;
-            texels[(texel * 4) + 3] = 255;
+            texels[texel * 4 + 1] = 128;
+            texels[texel * 4 + 3] = 255;
         }
 
         return texels;
@@ -433,8 +437,8 @@ public class LayeredMaterialImageTests {
         var texels = new byte[Side * Side * 4];
 
         for (var texel = 0; texel < Side * Side; texel++) {
-            texels[(texel * 4) + 1] = 255;
-            texels[(texel * 4) + 3] = 255;
+            texels[texel * 4 + 1] = 255;
+            texels[texel * 4 + 3] = 255;
         }
 
         return texels;
@@ -451,8 +455,8 @@ public class LayeredMaterialImageTests {
         var texels = new byte[Side * Side * 4];
 
         for (var texel = 0; texel < Side * Side; texel++) {
-            texels[(texel * 4) + channel] = 255;
-            texels[(texel * 4) + 3] = 255;
+            texels[texel * 4 + channel] = 255;
+            texels[texel * 4 + 3] = 255;
         }
 
         return texels;
@@ -475,7 +479,7 @@ public class LayeredMaterialImageTests {
         var feature = new TexturedMaterialLayersFeature {
             PaintedChannels = painted,
             HeightBlended = height is not null,
-            Layers = [.. Layers.Take(layers).Select(colour => new MaterialLayerValue(colour, 0f, Roughness, 1f))]
+            Layers = [..Layers.Take(layers).Select(static colour => new MaterialLayerValue(colour, 0f, Roughness, 1f))]
         };
 
         var view = scene.Map($"Splat.{painted}.{layers}", Side, splat, PixelFormat.Rgba8UNorm);
@@ -511,7 +515,9 @@ public class LayeredMaterialImageTests {
         Compiled(
             new() {
                 ShaderName = "ForwardPlus",
-                Features = [new MetalRoughnessFeature { BaseColor = colour, Metalness = metalness, Roughness = roughness }]
+                Features = [
+                    new MetalRoughnessFeature { BaseColor = colour, Metalness = metalness, Roughness = roughness }
+                ]
             }
         );
 
@@ -529,7 +535,7 @@ public class LayeredMaterialImageTests {
 
         Assert.False(
             compilation.Failed,
-            string.Join(Environment.NewLine, compilation.Diagnostics.Select(diagnostic => diagnostic.ToString()))
+            string.Join(Environment.NewLine, compilation.Diagnostics.Select(static diagnostic => diagnostic.ToString()))
         );
 
         return compilation.Material!;

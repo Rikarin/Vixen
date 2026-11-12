@@ -12,8 +12,12 @@ namespace Vixen.Editor.Texturing.Tests;
 public class LayerStackCompileTests {
     /// <summary>Every blend mode a layer can name is a mode the kernel has, with the same number.</summary>
     /// <remarks>
-    ///     ⚠ <b>Reflected out of the evaluator assembly rather than listed here, and that is the
-    ///     whole point.</b> <c>TextureBlendMode</c> is <c>internal</c> to
+    ///     ⚠
+    ///     <b>
+    ///         Reflected out of the evaluator assembly rather than listed here, and that is the
+    ///         whole point.
+    ///     </b>
+    ///     <c>TextureBlendMode</c> is <c>internal</c> to
     ///     <c>Vixen.TextureGraph</c>, so <c>LayerBlendMode</c> is a second declaration of one
     ///     list — and nothing in the compilation would notice them drifting: a layer hands
     ///     <c>Colour/Blend</c> the mode's <em>name</em>, and a name that assembly does not know falls
@@ -69,8 +73,12 @@ public class LayerStackCompileTests {
 
     /// <summary>And the name reaches the node, which reflection cannot show.</summary>
     /// <remarks>
-    ///     ⚠ <b>Reflection proves the two enums agree; only a compilation proves the string a layer
-    ///     writes is the string <c>BlendNode</c> reads.</b> A rename of the setting, a
+    ///     ⚠
+    ///     <b>
+    ///         Reflection proves the two enums agree; only a compilation proves the string a layer
+    ///         writes is the string <c>BlendNode</c> reads.
+    ///     </b>
+    ///     A rename of the setting, a
     ///     <c>Mode</c> spelled with a space, or a parse that is case-sensitive the other way all
     ///     leave the reflection test green — and <c>TextureSettings.Enum</c> reports a diagnostic
     ///     when it cannot parse, which is what this reads.
@@ -78,7 +86,9 @@ public class LayerStackCompileTests {
     [Fact]
     public void Compiling_one_layer_per_mode_reports_nothing() {
         foreach (var mode in Enum.GetValues<LayerBlendMode>()) {
-            var stack = One(new() { Id = "l", Kind = LayerKind.Fill, Blend = mode, Values = { ["baseColor"] = Opaque } });
+            var stack = One(
+                new() { Id = "l", Kind = LayerKind.Fill, Blend = mode, Values = { ["baseColor"] = Opaque } }
+            );
             var compilation = LayerStackCompiler.Compile(stack, stack.Sets[0]);
 
             Assert.Empty(compilation.Problems);
@@ -99,7 +109,9 @@ public class LayerStackCompileTests {
     [Fact]
     public void A_replace_layer_is_made_opaque_before_its_mask() {
         var replace = One(
-            new() { Id = "l", Kind = LayerKind.Fill, Blend = LayerBlendMode.Replace, Values = { ["baseColor"] = Opaque } }
+            new() {
+                Id = "l", Kind = LayerKind.Fill, Blend = LayerBlendMode.Replace, Values = { ["baseColor"] = Opaque }
+            }
         );
         var copy = One(new() { Id = "l", Kind = LayerKind.Fill, Values = { ["baseColor"] = Opaque } });
 
@@ -157,7 +169,9 @@ public class LayerStackCompileTests {
     [Fact]
     public void A_disabled_layer_emits_no_op() {
         var enabled = One(new() { Id = "l", Kind = LayerKind.Fill, Values = { ["baseColor"] = Opaque } });
-        var disabled = One(new() { Id = "l", Kind = LayerKind.Fill, Enabled = false, Values = { ["baseColor"] = Opaque } });
+        var disabled = One(
+            new() { Id = "l", Kind = LayerKind.Fill, Enabled = false, Values = { ["baseColor"] = Opaque } }
+        );
 
         var with = LayerStackCompiler.Compile(enabled, enabled.Sets[0]);
         var without = LayerStackCompiler.Compile(disabled, disabled.Sets[0]);
@@ -170,16 +184,25 @@ public class LayerStackCompileTests {
     /// <summary>A group's children composite among themselves, then the group blends once.</summary>
     [Fact]
     public void A_group_blends_once_over_what_is_under_it() {
-        var stack = One(new() {
-            Id = "g",
-            Kind = LayerKind.Group,
-            Blend = LayerBlendMode.Screen,
-            Opacity = 0.5f,
-            Children = [
-                new() { Id = "a", Kind = LayerKind.Fill, Blend = LayerBlendMode.Multiply, Values = { ["baseColor"] = Opaque } },
-                new() { Id = "b", Kind = LayerKind.Fill, Blend = LayerBlendMode.Add, Values = { ["baseColor"] = Opaque } }
-            ]
-        });
+        var stack = One(
+            new() {
+                Id = "g",
+                Kind = LayerKind.Group,
+                Blend = LayerBlendMode.Screen,
+                Opacity = 0.5f,
+                Children = [
+                    new() {
+                        Id = "a",
+                        Kind = LayerKind.Fill,
+                        Blend = LayerBlendMode.Multiply,
+                        Values = { ["baseColor"] = Opaque }
+                    },
+                    new() {
+                        Id = "b", Kind = LayerKind.Fill, Blend = LayerBlendMode.Add, Values = { ["baseColor"] = Opaque }
+                    }
+                ]
+            }
+        );
 
         var compilation = LayerStackCompiler.Compile(stack, stack.Sets[0]);
 
@@ -198,16 +221,23 @@ public class LayerStackCompileTests {
     /// <summary>⚠ A layer keeps the numbers it draws when another layer is inserted beneath it.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/875">#875</a>, on the front end it
-    ///         was actually filed about.</b> <c>TexturePlan.SeedFor</c> mixed the op's index in
+    ///         <b>
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/875">#875</a>, on the front end it
+    ///             was actually filed about.
+    ///         </b>
+    ///         <c>TexturePlan.SeedFor</c> mixed the op's index in
     ///         <c>Ops</c>, and a layer inserted beneath another moves every op after it — so
     ///         <a href="https://github.com/Rikarin/Vixen/issues/832">#832</a>, which added three ops
     ///         per masked layer per channel, silently redrew every noise, splatter and dither in every
     ///         existing material.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The op index still moves and that is asserted, because it is what makes the
-    ///         equality mean something.</b> A test where the insertion happened to leave the index
+    ///         ⚠
+    ///         <b>
+    ///             The op index still moves and that is asserted, because it is what makes the
+    ///             equality mean something.
+    ///         </b>
+    ///         A test where the insertion happened to leave the index
     ///         alone would be green against the old arithmetic too — which is exactly what the first
     ///         draft of this measured on a hand-authored graph, where <c>NodeGraphModel.Ordered</c>
     ///         seeds its queue in insertion order and a node added later therefore never precedes an
@@ -222,13 +252,15 @@ public class LayerStackCompileTests {
     /// </remarks>
     [Fact]
     public void A_layers_seed_survives_a_layer_inserted_beneath_it() {
-        var stack = One(new() {
-            Id = "grade",
-            Kind = LayerKind.Filter,
-            Filter = LayerFilterKind.Levels,
-            Blend = LayerBlendMode.Copy,
-            Settings = { ["Gamma"] = [1.4f] }
-        });
+        var stack = One(
+            new() {
+                Id = "grade",
+                Kind = LayerKind.Filter,
+                Filter = LayerFilterKind.Levels,
+                Blend = LayerBlendMode.Copy,
+                Settings = { ["Gamma"] = [1.4f] }
+            }
+        );
 
         var before = LayerStackCompiler.Compile(stack, stack.Sets[0]);
 
@@ -265,8 +297,11 @@ public class LayerStackCompileTests {
 
     /// <summary>⚠ A group's own nodes are filed under the group and not under its last child.</summary>
     /// <remarks>
-    ///     <b>The nesting half of <a href="https://github.com/Rikarin/Vixen/issues/880">#880</a>, and
-    ///     the reason the attribution is a saved-and-restored scope rather than an assignment.</b> A
+    ///     <b>
+    ///         The nesting half of <a href="https://github.com/Rikarin/Vixen/issues/880">#880</a>, and
+    ///         the reason the attribution is a saved-and-restored scope rather than an assignment.
+    ///     </b>
+    ///     A
     ///     group's isolating constant and its composite are emitted <em>after</em> its children have
     ///     run, so a builder that set the current layer on the way in and did not put the outer one
     ///     back would file both under whichever child came last — and a diagnostic about the group
@@ -274,15 +309,17 @@ public class LayerStackCompileTests {
     /// </remarks>
     [Fact]
     public void A_groups_own_nodes_are_filed_under_the_group() {
-        var stack = One(new() {
-            Id = "g",
-            Kind = LayerKind.Group,
-            Blend = LayerBlendMode.Screen,
-            Children = [
-                new() { Id = "a", Kind = LayerKind.Fill, Values = { ["baseColor"] = Opaque } },
-                new() { Id = "b", Kind = LayerKind.Fill, Values = { ["baseColor"] = Opaque } }
-            ]
-        });
+        var stack = One(
+            new() {
+                Id = "g",
+                Kind = LayerKind.Group,
+                Blend = LayerBlendMode.Screen,
+                Children = [
+                    new() { Id = "a", Kind = LayerKind.Fill, Values = { ["baseColor"] = Opaque } },
+                    new() { Id = "b", Kind = LayerKind.Fill, Values = { ["baseColor"] = Opaque } }
+                ]
+            }
+        );
 
         var compilation = LayerStackCompiler.Compile(stack, stack.Sets[0]);
 
@@ -310,8 +347,12 @@ public class LayerStackCompileTests {
 
     /// <summary>An empty group is not a dispatch that changes nothing.</summary>
     /// <remarks>
-    ///     ⚠ <b>A blend of the cursor over itself would be harmless arithmetic and is not harmless
-    ///     in a plan</b>: <c>TexturePlan.SeedFor</c> mixes an op's <em>index</em> into its seed, so
+    ///     ⚠
+    ///     <b>
+    ///         A blend of the cursor over itself would be harmless arithmetic and is not harmless
+    ///         in a plan
+    ///     </b>
+    ///     : <c>TexturePlan.SeedFor</c> mixes an op's <em>index</em> into its seed, so
     ///     an op that draws nothing still moves every procedural op after it.
     /// </remarks>
     [Fact]
@@ -326,8 +367,12 @@ public class LayerStackCompileTests {
     /// <summary>A mask is a real image and real shuffles, not a folded number.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The mask reaches the blend as the foreground's alpha <em>times</em> what it
-    ///         already was</b> — <a href="https://github.com/Rikarin/Vixen/issues/832">#832</a> · 1.
+    ///         ⚠
+    ///         <b>
+    ///             The mask reaches the blend as the foreground's alpha <em>times</em> what it
+    ///             already was
+    ///         </b>
+    ///         — <a href="https://github.com/Rikarin/Vixen/issues/832">#832</a> · 1.
     ///         Two coverages compose by multiplication, and the product has to be computed in a
     ///         colour lane because <c>Blend</c>'s alpha rule only ever raises alpha. So a masked
     ///         layer is a shuffle that lifts the content's alpha into grey, a shuffle that lifts the
@@ -335,8 +380,12 @@ public class LayerStackCompileTests {
     ///         answer back into alpha.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A bake mask and not a constant one, and the swap is the whole of what
-    ///         <a href="https://github.com/Rikarin/Vixen/issues/789">#789</a> cost.</b> A bare
+    ///         ⚠
+    ///         <b>
+    ///             A bake mask and not a constant one, and the swap is the whole of what
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/789">#789</a> cost.
+    ///         </b>
+    ///         A bare
     ///         constant now folds into the layer's opacity and compiles to none of these nodes, so a
     ///         test written on one would assert the fold rather than the shape. #789's own reason for
     ///         waiting was that folding leaves the mask path with no case a device-free test can
@@ -346,13 +395,15 @@ public class LayerStackCompileTests {
     /// </remarks>
     [Fact]
     public void A_mask_multiplies_into_the_foregrounds_alpha() {
-        var stack = One(new() {
-            Id = "l",
-            AnchorPoint = "l",
-            Kind = LayerKind.Fill,
-            Values = { ["baseColor"] = Opaque },
-            Mask = new() { Source = LayerMaskSource.Bake, Map = "curvature" }
-        });
+        var stack = One(
+            new() {
+                Id = "l",
+                AnchorPoint = "l",
+                Kind = LayerKind.Fill,
+                Values = { ["baseColor"] = Opaque },
+                Mask = new() { Source = LayerMaskSource.Bake, Map = "curvature" }
+            }
+        );
 
         var compilation = LayerStackCompiler.Compile(stack, stack.Sets[0]);
 
@@ -389,21 +440,27 @@ public class LayerStackCompileTests {
 
     /// <summary>A constant fill's own alpha survives a mask, because it folds into the opacity.</summary>
     /// <remarks>
-    ///     ⚠ <b>The *last* blend, because a masked layer's first one is the Multiply that composes
-    ///     the two coverages and its opacity is 1 by construction.</b> That is still the reason to
+    ///     ⚠
+    ///     <b>
+    ///         The *last* blend, because a masked layer's first one is the Multiply that composes
+    ///         the two coverages and its opacity is 1 by construction.
+    ///     </b>
+    ///     That is still the reason to
     ///     write <c>Last</c> even though this particular stack now has exactly one blend: the mask is
     ///     a bare constant and folds.
     /// </remarks>
     [Fact]
     public void A_constant_fills_alpha_folds_into_the_opacity() {
-        var stack = One(new() {
-            Id = "l",
-            AnchorPoint = "l",
-            Kind = LayerKind.Fill,
-            Opacity = 0.5f,
-            Values = { ["baseColor"] = [1f, 1f, 1f, 0.4f] },
-            Mask = new() { Source = LayerMaskSource.Constant, Value = 1f }
-        });
+        var stack = One(
+            new() {
+                Id = "l",
+                AnchorPoint = "l",
+                Kind = LayerKind.Fill,
+                Opacity = 0.5f,
+                Values = { ["baseColor"] = [1f, 1f, 1f, 0.4f] },
+                Mask = new() { Source = LayerMaskSource.Constant, Value = 1f }
+            }
+        );
 
         var compilation = LayerStackCompiler.Compile(stack, stack.Sets[0]);
 
@@ -414,8 +471,11 @@ public class LayerStackCompileTests {
     /// <summary>⚠ A mask that is one constant compiles to no ops at all, and to the same picture.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/789">#789</a>, and it is measured
-    ///         as a plan-op count rather than as a time.</b> The two stacks differ only in a mask of
+    ///         <b>
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/789">#789</a>, and it is measured
+    ///             as a plan-op count rather than as a time.
+    ///         </b>
+    ///         The two stacks differ only in a mask of
     ///         <c>1</c> against no mask at all, so every op the first one has and the second does not
     ///         is an op the mask cost: the mask's own <c>Source/Uniform</c>, the two shuffles that
     ///         make the operands opaque, the <c>Multiply</c> between them, and the shuffle that puts
@@ -424,14 +484,22 @@ public class LayerStackCompileTests {
     ///         <a href="https://github.com/Rikarin/Vixen/issues/832">#832</a> made it multiply.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And the fold is <em>exact</em> rather than close, which is the claim the counting
-    ///         cannot make.</b> <c>Blend.rvn</c> computes
+    ///         ⚠
+    ///         <b>
+    ///             And the fold is <em>exact</em> rather than close, which is the claim the counting
+    ///             cannot make.
+    ///         </b>
+    ///         <c>Blend.rvn</c> computes
     ///         <c>amount = saturate(opacity) · saturate(b.w)</c> and reads <c>b.w</c> nowhere else, so
     ///         a constant mask inside the unit interval is a reassociation of one product.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>That claim was cited to the wrong test until
-    ///         <a href="https://github.com/Rikarin/Vixen/issues/895">#895</a>.</b> The citation was
+    ///         ⚠
+    ///         <b>
+    ///             That claim was cited to the wrong test until
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/895">#895</a>.
+    ///         </b>
+    ///         The citation was
     ///         <c>LayerCoverageDeviceTests</c> "baking constant-masked layers at 0, ½ and 1 with none
     ///         of its numbers moving" — and none of them could have moved, because after the fold
     ///         every one of those masks compiles to nothing at all. Agreeing with itself is not a
@@ -443,13 +511,15 @@ public class LayerStackCompileTests {
     /// </remarks>
     [Fact]
     public void A_constant_mask_costs_five_ops_and_folds_to_none_of_them() {
-        var masked = One(new() {
-            Id = "l",
-            AnchorPoint = "l",
-            Kind = LayerKind.Fill,
-            Values = { ["baseColor"] = Opaque },
-            Mask = new() { Source = LayerMaskSource.Constant, Value = 0.25f }
-        });
+        var masked = One(
+            new() {
+                Id = "l",
+                AnchorPoint = "l",
+                Kind = LayerKind.Fill,
+                Values = { ["baseColor"] = Opaque },
+                Mask = new() { Source = LayerMaskSource.Constant, Value = 0.25f }
+            }
+        );
 
         var bare = One(new() { Id = "l", Kind = LayerKind.Fill, Values = { ["baseColor"] = Opaque } });
 
@@ -468,13 +538,15 @@ public class LayerStackCompileTests {
         // ⚠ The five it would otherwise have cost, read off the mask that does not fold. A bake mask
         // is the same one source plus the same four nodes, so the difference against the bare stack
         // is exactly what a constant mask used to cost.
-        var kept = One(new() {
-            Id = "l",
-            AnchorPoint = "l",
-            Kind = LayerKind.Fill,
-            Values = { ["baseColor"] = Opaque },
-            Mask = new() { Source = LayerMaskSource.Bake, Map = "curvature" }
-        });
+        var kept = One(
+            new() {
+                Id = "l",
+                AnchorPoint = "l",
+                Kind = LayerKind.Fill,
+                Values = { ["baseColor"] = Opaque },
+                Mask = new() { Source = LayerMaskSource.Bake, Map = "curvature" }
+            }
+        );
 
         var full = LayerStackCompiler.Compile(kept, kept.Sets[0]);
 
@@ -493,14 +565,16 @@ public class LayerStackCompileTests {
     [Fact]
     public void A_mask_or_an_opacity_outside_the_unit_interval_is_not_folded() {
         foreach (var (opacity, mask) in new[] { (2f, 0.5f), (0.5f, 2f), (-1f, 0.5f) }) {
-            var stack = One(new() {
-                Id = "l",
-                AnchorPoint = "l",
-                Kind = LayerKind.Fill,
-                Opacity = opacity,
-                Values = { ["baseColor"] = Opaque },
-                Mask = new() { Source = LayerMaskSource.Constant, Value = mask }
-            });
+            var stack = One(
+                new() {
+                    Id = "l",
+                    AnchorPoint = "l",
+                    Kind = LayerKind.Fill,
+                    Opacity = opacity,
+                    Values = { ["baseColor"] = Opaque },
+                    Mask = new() { Source = LayerMaskSource.Constant, Value = mask }
+                }
+            );
 
             var compilation = LayerStackCompiler.Compile(stack, stack.Sets[0]);
 
@@ -511,8 +585,12 @@ public class LayerStackCompileTests {
 
     /// <summary>An anchor onto a layer beneath is an edge, and it reads that layer's coverage too.</summary>
     /// <remarks>
-    ///     ⚠ <b>Two shuffles rather than one, and the second one is
-    ///     <a href="https://github.com/Rikarin/Vixen/issues/874">#874</a>.</b> An anchor resolves to
+    ///     ⚠
+    ///     <b>
+    ///         Two shuffles rather than one, and the second one is
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/874">#874</a>.
+    ///     </b>
+    ///     An anchor resolves to
     ///     another layer's evaluated result, whose alpha is that layer's <em>coverage</em>; a mask is
     ///     a number, so what the entry contributes is <c>red · coverage</c> and this library has no
     ///     arithmetic node — hence a shuffle lifting the red, a shuffle lifting the alpha, and the
@@ -529,7 +607,9 @@ public class LayerStackCompileTests {
                 Id = "over",
                 Kind = LayerKind.Fill,
                 Values = { ["baseColor"] = Opaque },
-                Mask = new() { Source = LayerMaskSource.Anchor, Anchor = new() { Anchor = "under", Channel = "baseColor" } }
+                Mask = new() {
+                    Source = LayerMaskSource.Anchor, Anchor = new() { Anchor = "under", Channel = "baseColor" }
+                }
             }
         );
 
@@ -545,7 +625,8 @@ public class LayerStackCompileTests {
         // plan and only two of them are the anchor's.
         var under = Find(compilation.Plan, "Blend");
         var read = compilation
-            .Plan.Ops.Where(op =>
+            .Plan
+            .Ops.Where(op =>
                 string.Equals(op.Kernel, "ChannelShuffle", StringComparison.Ordinal)
                 && op.Inputs[0] == under.Output
             )
@@ -555,16 +636,20 @@ public class LayerStackCompileTests {
 
         // One lifts the anchored layer's red, the other its alpha, and both splat it across the
         // colour lanes with an alpha of 1 so the Multiply between them reads two numbers.
-        Assert.Contains(read, op => op.Find("sourceR")!.Value.Value == 0f);
-        Assert.Contains(read, op => op.Find("sourceR")!.Value.Value == 3f);
-        Assert.All(read, op => Assert.Equal(9f, op.Find("sourceA")!.Value.Value));
-        Assert.All(read, op => Assert.Equal(op.Find("sourceR")!.Value.Value, op.Find("sourceB")!.Value.Value));
+        Assert.Contains(read, static op => op.Find("sourceR")!.Value.Value == 0f);
+        Assert.Contains(read, static op => op.Find("sourceR")!.Value.Value == 3f);
+        Assert.All(read, static op => Assert.Equal(9f, op.Find("sourceA")!.Value.Value));
+        Assert.All(read, static op => Assert.Equal(op.Find("sourceR")!.Value.Value, op.Find("sourceB")!.Value.Value));
     }
 
     /// <summary>An anchor onto a layer above it is refused, by the graph model.</summary>
     /// <remarks>
-    ///     ⚠ <b>Doc 48 § D10: the stack compiles <em>through</em> <c>NodeGraphModel</c>'s cycle
-    ///     check rather than growing a second one.</b> The proof that it is that check and not a
+    ///     ⚠
+    ///     <b>
+    ///         Doc 48 § D10: the stack compiles <em>through</em> <c>NodeGraphModel</c>'s cycle
+    ///         check rather than growing a second one.
+    ///     </b>
+    ///     The proof that it is that check and not a
     ///     lookup that happened to fail is the message: <c>GraphInvariants.Describe</c>'s words for
     ///     <c>GraphConnectionError.Cycle</c>, which nothing in this assembly writes.
     /// </remarks>
@@ -575,7 +660,9 @@ public class LayerStackCompileTests {
                 Id = "under",
                 Kind = LayerKind.Fill,
                 Values = { ["baseColor"] = Opaque },
-                Mask = new() { Source = LayerMaskSource.Anchor, Anchor = new() { Anchor = "over", Channel = "baseColor" } }
+                Mask = new() {
+                    Source = LayerMaskSource.Anchor, Anchor = new() { Anchor = "over", Channel = "baseColor" }
+                }
             },
             new() { Id = "over", AnchorPoint = "over", Kind = LayerKind.Fill, Values = { ["baseColor"] = Opaque } }
         );
@@ -593,18 +680,22 @@ public class LayerStackCompileTests {
     /// <summary>A layer anchored to itself is the same refusal.</summary>
     [Fact]
     public void A_layer_anchored_to_itself_is_refused() {
-        var stack = One(new() {
-            Id = "self",
-            AnchorPoint = "self",
-            Kind = LayerKind.Fill,
-            Values = { ["baseColor"] = Opaque },
-            Mask = new() { Source = LayerMaskSource.Anchor, Anchor = new() { Anchor = "self", Channel = "baseColor" } }
-        });
+        var stack = One(
+            new() {
+                Id = "self",
+                AnchorPoint = "self",
+                Kind = LayerKind.Fill,
+                Values = { ["baseColor"] = Opaque },
+                Mask = new() {
+                    Source = LayerMaskSource.Anchor, Anchor = new() { Anchor = "self", Channel = "baseColor" }
+                }
+            }
+        );
 
         var compilation = LayerStackCompiler.Compile(stack, stack.Sets[0]);
 
         Assert.Null(compilation.Plan);
-        Assert.Contains(compilation.Problems, problem => problem.Layer == "self");
+        Assert.Contains(compilation.Problems, static problem => problem.Layer == "self");
     }
 
     /// <summary>A paint layer compiles, and its canvas crosses as an external.</summary>
@@ -617,13 +708,15 @@ public class LayerStackCompileTests {
     /// </remarks>
     [Fact]
     public void A_paint_layer_compiles_into_an_external_naming_its_canvas_and_its_channel() {
-        var stack = One(new() {
-            Id = "paint",
-            Kind = LayerKind.Paint,
-            Paint = "Body.paint.vxpaint",
-            Blend = LayerBlendMode.Overlay,
-            Opacity = 0.7f
-        });
+        var stack = One(
+            new() {
+                Id = "paint",
+                Kind = LayerKind.Paint,
+                Paint = "Body.paint.vxpaint",
+                Blend = LayerBlendMode.Overlay,
+                Opacity = 0.7f
+            }
+        );
 
         var compilation = LayerStackCompiler.Compile(stack, stack.Sets[0]);
 
@@ -664,14 +757,16 @@ public class LayerStackCompileTests {
     /// </remarks>
     [Fact]
     public void A_triplanar_fill_projects_through_the_position_and_world_bakes() {
-        var stack = One(new() {
-            Id = "l",
-            AnchorPoint = "l",
-            Kind = LayerKind.Fill,
-            Fill = LayerFillSource.Texture,
-            Textures = { ["baseColor"] = "Assets/Rust.png" },
-            Projection = LayerProjection.Triplanar
-        });
+        var stack = One(
+            new() {
+                Id = "l",
+                AnchorPoint = "l",
+                Kind = LayerKind.Fill,
+                Fill = LayerFillSource.Texture,
+                Textures = { ["baseColor"] = "Assets/Rust.png" },
+                Projection = LayerProjection.Triplanar
+            }
+        );
 
         var compilation = LayerStackCompiler.Compile(stack, stack.Sets[0]);
 
@@ -680,7 +775,7 @@ public class LayerStackCompileTests {
         Assert.Equal(1, Count(compilation.Plan, "Triplanar"));
 
         var asked = compilation.Externals
-            .Select(external => external.Asset)
+            .Select(static external => external.Asset)
             .Order(StringComparer.Ordinal)
             .ToArray();
 
@@ -700,21 +795,23 @@ public class LayerStackCompileTests {
     /// </remarks>
     [Fact]
     public void A_planar_fill_reaches_the_kernel_as_one_axis_rather_than_a_blend() {
-        var stack = One(new() {
-            Id = "l",
-            AnchorPoint = "l",
-            Kind = LayerKind.Fill,
-            Fill = LayerFillSource.Texture,
-            Textures = { ["baseColor"] = "Assets/Rust.png" },
-            Projection = LayerProjection.Planar
-        });
+        var stack = One(
+            new() {
+                Id = "l",
+                AnchorPoint = "l",
+                Kind = LayerKind.Fill,
+                Fill = LayerFillSource.Texture,
+                Textures = { ["baseColor"] = "Assets/Rust.png" },
+                Projection = LayerProjection.Planar
+            }
+        );
 
         var compilation = LayerStackCompiler.Compile(stack, stack.Sets[0]);
 
         Assert.Empty(compilation.Problems);
         Assert.NotNull(compilation.Plan);
 
-        var op = Assert.Single(compilation.Plan.Ops, candidate => candidate.Kernel == "Triplanar");
+        var op = Assert.Single(compilation.Plan.Ops, static candidate => candidate.Kernel == "Triplanar");
         var axis = op.Find("axis");
 
         Assert.NotNull(axis);
@@ -751,22 +848,24 @@ public class LayerStackCompileTests {
     [InlineData("Y", 2f)]
     [InlineData("Z", 3f)]
     public void A_planar_layer_projects_along_the_axis_it_names(string axis, float expected) {
-        var stack = One(new() {
-            Id = "l",
-            AnchorPoint = "l",
-            Kind = LayerKind.Fill,
-            Fill = LayerFillSource.Texture,
-            Textures = { ["baseColor"] = "Assets/Rust.png" },
-            Projection = LayerProjection.Planar,
-            PlanarAxis = Enum.Parse<LayerAxis>(axis)
-        });
+        var stack = One(
+            new() {
+                Id = "l",
+                AnchorPoint = "l",
+                Kind = LayerKind.Fill,
+                Fill = LayerFillSource.Texture,
+                Textures = { ["baseColor"] = "Assets/Rust.png" },
+                Projection = LayerProjection.Planar,
+                PlanarAxis = Enum.Parse<LayerAxis>(axis)
+            }
+        );
 
         var compilation = LayerStackCompiler.Compile(stack, stack.Sets[0]);
 
         Assert.Empty(compilation.Problems);
         Assert.NotNull(compilation.Plan);
 
-        var op = Assert.Single(compilation.Plan.Ops, candidate => candidate.Kernel == "Triplanar");
+        var op = Assert.Single(compilation.Plan.Ops, static candidate => candidate.Kernel == "Triplanar");
 
         Assert.Equal(expected, op.Find("axis")!.Value.Value);
     }
@@ -781,23 +880,25 @@ public class LayerStackCompileTests {
         LayerAxis axis,
         float expected
     ) {
-        var stack = One(new() {
-            Id = "l",
-            AnchorPoint = "l",
-            Kind = LayerKind.Fill,
-            Fill = LayerFillSource.Texture,
-            Textures = { ["baseColor"] = "Assets/Rust.png" },
-            Projection = projection,
-            PlanarAxis = axis,
-            Placement = new() { Scale = 3f, Rotation = 0.5f, OffsetX = 0.25f, OffsetY = 0.75f }
-        });
+        var stack = One(
+            new() {
+                Id = "l",
+                AnchorPoint = "l",
+                Kind = LayerKind.Fill,
+                Fill = LayerFillSource.Texture,
+                Textures = { ["baseColor"] = "Assets/Rust.png" },
+                Projection = projection,
+                PlanarAxis = axis,
+                Placement = new() { Scale = 3f, Rotation = 0.5f, OffsetX = 0.25f, OffsetY = 0.75f }
+            }
+        );
 
         var compilation = LayerStackCompiler.Compile(stack, stack.Sets[0]);
 
         Assert.Empty(compilation.Problems);
         Assert.NotNull(compilation.Plan);
 
-        var op = Assert.Single(compilation.Plan.Ops, candidate => candidate.Kernel == "Triplanar");
+        var op = Assert.Single(compilation.Plan.Ops, static candidate => candidate.Kernel == "Triplanar");
 
         Assert.Equal(expected, op.Find("axis")!.Value.Value);
         Assert.Equal(3f, op.Find("scale")!.Value.Value);
@@ -827,14 +928,16 @@ public class LayerStackCompileTests {
 
     [Fact]
     public void A_placement_on_a_constant_is_warned_about() {
-        var stack = One(new() {
-            Id = "l",
-            AnchorPoint = "l",
-            Kind = LayerKind.Fill,
-            Fill = LayerFillSource.Constant,
-            Values = { ["baseColor"] = [1f, 0f, 0f, 1f] },
-            Placement = new() { Rotation = 1f }
-        });
+        var stack = One(
+            new() {
+                Id = "l",
+                AnchorPoint = "l",
+                Kind = LayerKind.Fill,
+                Fill = LayerFillSource.Constant,
+                Values = { ["baseColor"] = [1f, 0f, 0f, 1f] },
+                Placement = new() { Rotation = 1f }
+            }
+        );
 
         var problem = Assert.Single(LayerStackCompiler.Compile(stack, stack.Sets[0]).Problems);
 
@@ -865,15 +968,17 @@ public class LayerStackCompileTests {
     [InlineData(true, "X")]
     [InlineData(true, "Z")]
     public void An_axis_that_cannot_mean_anything_is_a_warning(bool triplanar, string axis) {
-        var stack = One(new() {
-            Id = "l",
-            AnchorPoint = "l",
-            Kind = LayerKind.Fill,
-            Fill = LayerFillSource.Texture,
-            Textures = { ["baseColor"] = "Assets/Rust.png" },
-            Projection = triplanar ? LayerProjection.Triplanar : LayerProjection.Uv,
-            PlanarAxis = Enum.Parse<LayerAxis>(axis)
-        });
+        var stack = One(
+            new() {
+                Id = "l",
+                AnchorPoint = "l",
+                Kind = LayerKind.Fill,
+                Fill = LayerFillSource.Texture,
+                Textures = { ["baseColor"] = "Assets/Rust.png" },
+                Projection = triplanar ? LayerProjection.Triplanar : LayerProjection.Uv,
+                PlanarAxis = Enum.Parse<LayerAxis>(axis)
+            }
+        );
 
         var compilation = LayerStackCompiler.Compile(stack, stack.Sets[0]);
 
@@ -906,14 +1011,16 @@ public class LayerStackCompileTests {
     [InlineData(false)]
     [InlineData(true)]
     public void A_projection_that_cannot_mean_anything_is_a_warning(bool paint) {
-        var stack = One(new() {
-            Id = "l",
-            AnchorPoint = "l",
-            Kind = paint ? LayerKind.Paint : LayerKind.Fill,
-            Values = { ["baseColor"] = Opaque },
-            Paint = "Body.paint.vxpaint",
-            Projection = LayerProjection.Triplanar
-        });
+        var stack = One(
+            new() {
+                Id = "l",
+                AnchorPoint = "l",
+                Kind = paint ? LayerKind.Paint : LayerKind.Fill,
+                Values = { ["baseColor"] = Opaque },
+                Paint = "Body.paint.vxpaint",
+                Projection = LayerProjection.Triplanar
+            }
+        );
 
         var compilation = LayerStackCompiler.Compile(stack, stack.Sets[0]);
 
@@ -922,35 +1029,41 @@ public class LayerStackCompileTests {
 
         Assert.Contains(
             compilation.Problems,
-            problem => problem.Message.Contains("Triplanar", StringComparison.Ordinal)
+            static problem => problem.Message.Contains("Triplanar", StringComparison.Ordinal)
         );
     }
 
     /// <summary>The projection's numbers come off the layer rather than off the node's defaults.</summary>
     /// <remarks>
-    ///     ⚠ <b>This is the assertion that would have caught the shape this workstream produces most
-    ///     often: a mechanism nothing ever passes anything but the default to.</b> The node has a
+    ///     ⚠
+    ///     <b>
+    ///         This is the assertion that would have caught the shape this workstream produces most
+    ///         often: a mechanism nothing ever passes anything but the default to.
+    ///     </b>
+    ///     The node has a
     ///     <c>Scale</c> and a <c>Sharpness</c>; if the stack could not write either, a projected layer
     ///     would be usable at exactly one mesh size and every test above would still pass.
     /// </remarks>
     [Fact]
     public void A_projected_layer_writes_its_own_scale_and_sharpness() {
-        var stack = One(new() {
-            Id = "l",
-            AnchorPoint = "l",
-            Kind = LayerKind.Fill,
-            Fill = LayerFillSource.Texture,
-            Textures = { ["baseColor"] = "Assets/Rust.png" },
-            Projection = LayerProjection.Triplanar,
-            Settings = { ["Scale"] = [3f], ["Sharpness"] = [8f] }
-        });
+        var stack = One(
+            new() {
+                Id = "l",
+                AnchorPoint = "l",
+                Kind = LayerKind.Fill,
+                Fill = LayerFillSource.Texture,
+                Textures = { ["baseColor"] = "Assets/Rust.png" },
+                Projection = LayerProjection.Triplanar,
+                Settings = { ["Scale"] = [3f], ["Sharpness"] = [8f] }
+            }
+        );
 
         var compilation = LayerStackCompiler.Compile(stack, stack.Sets[0]);
 
         Assert.Empty(compilation.Problems);
         Assert.NotNull(compilation.Plan);
 
-        var op = Assert.Single(compilation.Plan.Ops, candidate => candidate.Kernel == "Triplanar");
+        var op = Assert.Single(compilation.Plan.Ops, static candidate => candidate.Kernel == "Triplanar");
 
         Assert.Equal(3f, op.Find("scale")!.Value.Value);
         Assert.Equal(8f, op.Find("sharpness")!.Value.Value);
@@ -958,22 +1071,27 @@ public class LayerStackCompileTests {
 
     /// <summary>A number no projection port answers to is dropped with a sentence.</summary>
     /// <remarks>
-    ///     ⚠ <b>Verify the instrument: without this, the test above could not tell a stack that wrote
-    ///     the two ports from one that wrote every key it had into whatever port matched first.</b>
+    ///     ⚠
+    ///     <b>
+    ///         Verify the instrument: without this, the test above could not tell a stack that wrote
+    ///         the two ports from one that wrote every key it had into whatever port matched first.
+    ///     </b>
     ///     The ports a projection takes are two, and a name that is neither must not reach the node —
     ///     <c>Adjustment</c>'s own reason, which is that the port it might land on is the image input.
     /// </remarks>
     [Fact]
     public void A_number_no_projection_port_answers_to_is_dropped_and_reported() {
-        var stack = One(new() {
-            Id = "l",
-            AnchorPoint = "l",
-            Kind = LayerKind.Fill,
-            Fill = LayerFillSource.Texture,
-            Textures = { ["baseColor"] = "Assets/Rust.png" },
-            Projection = LayerProjection.Triplanar,
-            Settings = { ["Radius"] = [3f] }
-        });
+        var stack = One(
+            new() {
+                Id = "l",
+                AnchorPoint = "l",
+                Kind = LayerKind.Fill,
+                Fill = LayerFillSource.Texture,
+                Textures = { ["baseColor"] = "Assets/Rust.png" },
+                Projection = LayerProjection.Triplanar,
+                Settings = { ["Radius"] = [3f] }
+            }
+        );
 
         var compilation = LayerStackCompiler.Compile(stack, stack.Sets[0]);
 
@@ -981,20 +1099,22 @@ public class LayerStackCompileTests {
 
         Assert.Contains(
             compilation.Problems,
-            problem => problem.Message.Contains("Radius", StringComparison.Ordinal)
+            static problem => problem.Message.Contains("Radius", StringComparison.Ordinal)
         );
     }
 
     /// <summary>A texture fill becomes an external the caller supplies.</summary>
     [Fact]
     public void A_texture_fill_compiles_into_an_external() {
-        var stack = One(new() {
-            Id = "l",
-            AnchorPoint = "l",
-            Kind = LayerKind.Fill,
-            Fill = LayerFillSource.Texture,
-            Textures = { ["baseColor"] = "Assets/Rust.png" }
-        });
+        var stack = One(
+            new() {
+                Id = "l",
+                AnchorPoint = "l",
+                Kind = LayerKind.Fill,
+                Fill = LayerFillSource.Texture,
+                Textures = { ["baseColor"] = "Assets/Rust.png" }
+            }
+        );
 
         var compilation = LayerStackCompiler.Compile(stack, stack.Sets[0]);
 
@@ -1013,7 +1133,10 @@ public class LayerStackCompileTests {
         var compilation = LayerStackCompiler.Compile(stack, stack.Sets[0]);
 
         Assert.Null(compilation.Plan);
-        Assert.Contains(compilation.Problems, problem => problem.Severity == global::Vixen.NodeGraph.NodeSeverity.Error);
+        Assert.Contains(
+            compilation.Problems,
+            static problem => problem.Severity == Vixen.NodeGraph.NodeSeverity.Error
+        );
     }
 
     /// <summary>
@@ -1047,7 +1170,10 @@ public class LayerStackCompileTests {
             var build = LayerStackGraph.Build(stack, stack.Sets[0], draft: true);
 
             Assert.False(build.HasErrors);
-            Assert.Contains(build.Problems, problem => problem.Severity == global::Vixen.NodeGraph.NodeSeverity.Warning);
+            Assert.Contains(
+                build.Problems,
+                static problem => problem.Severity == Vixen.NodeGraph.NodeSeverity.Warning
+            );
             Assert.NotNull(LayerStackCompiler.Compile(stack, build).Plan);
         }
     }
@@ -1076,13 +1202,15 @@ public class LayerStackCompileTests {
     /// </remarks>
     [Fact]
     public void A_setting_a_filter_does_not_take_is_dropped_with_a_warning() {
-        var stack = One(new() {
-            Id = "l",
-            AnchorPoint = "l",
-            Kind = LayerKind.Filter,
-            Filter = LayerFilterKind.Blur,
-            Settings = { ["Radius"] = [2f], ["Input"] = [0f] }
-        });
+        var stack = One(
+            new() {
+                Id = "l",
+                AnchorPoint = "l",
+                Kind = LayerKind.Filter,
+                Filter = LayerFilterKind.Blur,
+                Settings = { ["Radius"] = [2f], ["Input"] = [0f] }
+            }
+        );
 
         var compilation = LayerStackCompiler.Compile(stack, stack.Sets[0]);
 
@@ -1090,7 +1218,7 @@ public class LayerStackCompileTests {
 
         var problem = Assert.Single(compilation.Problems);
 
-        Assert.Equal(global::Vixen.NodeGraph.NodeSeverity.Warning, problem.Severity);
+        Assert.Equal(Vixen.NodeGraph.NodeSeverity.Warning, problem.Severity);
         Assert.Contains("Input", problem.Message, StringComparison.Ordinal);
 
         // And the blur still reads the layers beneath it rather than a constant.
@@ -1108,7 +1236,10 @@ public class LayerStackCompileTests {
         var compilation = LayerStackCompiler.Compile(stack, stack.Sets[0]);
 
         Assert.Null(compilation.Plan);
-        Assert.Contains(compilation.Problems, problem => problem.Message.Contains("share the id", StringComparison.Ordinal));
+        Assert.Contains(
+            compilation.Problems,
+            static problem => problem.Message.Contains("share the id", StringComparison.Ordinal)
+        );
     }
 
     /// <summary>⚠ And two layers with no id are refused, which the check used to exempt.</summary>
@@ -1136,7 +1267,10 @@ public class LayerStackCompileTests {
         var compilation = LayerStackCompiler.Compile(stack, stack.Sets[0]);
 
         Assert.Null(compilation.Plan);
-        Assert.Contains(compilation.Problems, problem => problem.Message.Contains("have no id", StringComparison.Ordinal));
+        Assert.Contains(
+            compilation.Problems,
+            static problem => problem.Message.Contains("have no id", StringComparison.Ordinal)
+        );
     }
 
     /// <summary>⚠ One layer with no id is not, because it is still the only thing "" names.</summary>
@@ -1152,22 +1286,31 @@ public class LayerStackCompileTests {
         var compilation = LayerStackCompiler.Compile(stack, stack.Sets[0]);
 
         Assert.NotNull(compilation.Plan);
-        Assert.DoesNotContain(compilation.Problems, problem => problem.Message.Contains("no id", StringComparison.Ordinal));
+        Assert.DoesNotContain(
+            compilation.Problems,
+            static problem => problem.Message.Contains("no id", StringComparison.Ordinal)
+        );
     }
 
     /// <summary>⚠ Two id-less layers are one layer to every editing command, which is the defect.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>What a duplicate id actually costs, written as the thing that happens rather than
-    ///         as the message about it</b>
+    ///         <b>
+    ///             What a duplicate id actually costs, written as the thing that happens rather than
+    ///             as the message about it
+    ///         </b>
     ///         (<a href="https://github.com/Rikarin/Vixen/issues/893">#893</a>). <c>LayerPath</c>
     ///         addresses a layer by id and <c>LayerStackEdit</c> resolves it by walking to the first
     ///         match — so the panel's second row and its first row are the same address, and moving
     ///         the second moves the first. An artist reorders row four and row two moves.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>This is still true of the addressing, and it is no longer reachable from the
-    ///         panel.</b> Resolving an id still walks to the first match — that is what the two
+    ///         ⚠
+    ///         <b>
+    ///             This is still true of the addressing, and it is no longer reachable from the
+    ///             panel.
+    ///         </b>
+    ///         Resolving an id still walks to the first match — that is what the two
     ///         assertions below read — but <c>LayerStackView</c> now asks
     ///         <c>LayerStackEdit.Ambiguous</c>, the same function the refusal above asks, and draws
     ///         a row that shares an id with no controls on it. So the gesture that used to move the
@@ -1182,15 +1325,15 @@ public class LayerStackCompileTests {
             new() { Name = "Upper", Kind = LayerKind.Fill }
         );
 
-        Assert.True(LayerStackEdit.TryFind(stack, new("S", ""), out var parent, out var index));
+        Assert.True(LayerStackEdit.TryFind(stack, new("S", string.Empty), out var parent, out var index));
 
         // The first, in the file's own order — so the row an artist points at is not the one that
         // moves, whichever of the two they meant.
         Assert.Equal(0, index);
         Assert.Equal("Lower", parent[index].Name);
 
-        Assert.True(LayerStackEdit.Move(stack, new("S", ""), 1));
-        Assert.Equal(["Upper", "Lower"], stack.Sets[0].Layers.Select(layer => layer.Name).ToArray());
+        Assert.True(LayerStackEdit.Move(stack, new("S", string.Empty), 1));
+        Assert.Equal(["Upper", "Lower"], stack.Sets[0].Layers.Select(static layer => layer.Name).ToArray());
     }
 
     /// <summary>Every channel of the default set is a usage the Output node accepts.</summary>
@@ -1205,10 +1348,7 @@ public class LayerStackCompileTests {
     public void Every_default_channel_is_a_usage_the_output_node_accepts() {
         foreach (var channel in LayerStackDocument.DefaultChannels()) {
             var stack = new LayerStackAsset {
-                Name = "Usages",
-                BaseWidth = 32,
-                BaseHeight = 32,
-                Sets = [new() { Name = "S", Channels = [channel] }]
+                Name = "Usages", BaseWidth = 32, BaseHeight = 32, Sets = [new() { Name = "S", Channels = [channel] }]
             };
 
             var compilation = LayerStackCompiler.Compile(stack, stack.Sets[0]);
@@ -1279,7 +1419,7 @@ public class LayerStackCompileTests {
                 new() {
                     Name = "S",
                     Channels = [new() { Usage = "baseColor", Default = [0f, 0f, 0f, 1f] }],
-                    Layers = [.. layers]
+                    Layers = [..layers]
                 }
             ]
         };

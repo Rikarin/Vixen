@@ -24,9 +24,9 @@ public sealed class GameSystemTests {
     public void TheGeneratorDeclaresTheSystemsThisAssemblyMarked() {
         var declared = Declarations();
 
-        Assert.Contains(declared, declaration => declaration.SystemType == typeof(NeedsNothing));
-        Assert.Contains(declared, declaration => declaration.SystemType == typeof(NeedsOne));
-        Assert.Contains(declared, declaration => declaration.SystemType == typeof(NeedsTwo));
+        Assert.Contains(declared, static declaration => declaration.SystemType == typeof(NeedsNothing));
+        Assert.Contains(declared, static declaration => declaration.SystemType == typeof(NeedsOne));
+        Assert.Contains(declared, static declaration => declaration.SystemType == typeof(NeedsTwo));
     }
 
     /// <summary>
@@ -107,7 +107,7 @@ public sealed class GameSystemTests {
         services.Add(new Tantrum());
 
         using var loop = new EngineLoop();
-        var frame = loop.AddDeclaredSystems(services, declaration => Ours(declaration) || Throws(declaration));
+        var frame = loop.AddDeclaredSystems(services, static declaration => Ours(declaration) || Throws(declaration));
 
         Assert.Contains("NeedsTwo", frame.Running);
 
@@ -116,8 +116,12 @@ public sealed class GameSystemTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>A dependency that is a value, which until <c>ServiceRegistry.AddValue</c> was
-    ///     declarable and unsatisfiable.</b> The generator never had a problem with it — it emits
+    ///     ⚠
+    ///     <b>
+    ///         A dependency that is a value, which until <c>ServiceRegistry.AddValue</c> was
+    ///         declarable and unsatisfiable.
+    ///     </b>
+    ///     The generator never had a problem with it — it emits
     ///     <c>(Ticket) services[0]</c> for a struct parameter exactly as it does for a class, and
     ///     reports no diagnostic — so <c>NeedsAValue</c> compiled clean, declared itself, and then
     ///     sat in <c>Missing</c> for the life of every process, because <c>Add&lt;T&gt;</c> is
@@ -136,10 +140,10 @@ public sealed class GameSystemTests {
 
         // The box the registry made, unboxed by the emitted cast. A registry that keyed on
         // anything but the static parameter type resolves nothing and this reads as Missing.
-        Assert.Equal(new Ticket(7), NeedsAValue.Built);
+        Assert.Equal(new(7), NeedsAValue.Built);
 
         Assert.True(services.TryGetValue<Ticket>(out var read));
-        Assert.Equal(new Ticket(7), read);
+        Assert.Equal(new(7), read);
     }
 
     /// <summary>
@@ -223,11 +227,9 @@ public sealed class GameSystemTests {
         || declaration.SystemType == typeof(NeedsOne)
         || declaration.SystemType == typeof(NeedsTwo);
 
-    static bool Valued(GameSystemDeclaration declaration) =>
-        declaration.SystemType == typeof(NeedsAValue);
+    static bool Valued(GameSystemDeclaration declaration) => declaration.SystemType == typeof(NeedsAValue);
 
-    static bool Throws(GameSystemDeclaration declaration) =>
-        declaration.SystemType == typeof(ThrowsOnConstruction);
+    static bool Throws(GameSystemDeclaration declaration) => declaration.SystemType == typeof(ThrowsOnConstruction);
 
     sealed class CountingSystem : SystemBase {
         public int Ran { get; private set; }
@@ -282,7 +284,9 @@ public sealed class NeedsTwo(Ledger ledger, IClerk clerk) : SystemBase {
 
 [GameSystem]
 public sealed class NeedsAValue : SystemBase {
-    public NeedsAValue(Ticket ticket) => Built = ticket;
+    public NeedsAValue(Ticket ticket) {
+        Built = ticket;
+    }
 
     /// <summary>What the last one built was handed. The unboxing is what is under test.</summary>
     public static Ticket Built { get; private set; }
@@ -292,8 +296,9 @@ public sealed class NeedsAValue : SystemBase {
 
 [GameSystem]
 public sealed class ThrowsOnConstruction : SystemBase {
-    public ThrowsOnConstruction(Tantrum tantrum) =>
+    public ThrowsOnConstruction(Tantrum tantrum) {
         throw new InvalidOperationException("this system's native library is not on this machine");
+    }
 
     public override JobHandle Update(in SystemContext context, JobHandle dependency) => dependency;
 }

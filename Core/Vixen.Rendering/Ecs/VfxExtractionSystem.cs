@@ -351,16 +351,14 @@ public sealed class VfxExtractionSystem : SystemBase, IDeclaredAccess {
             // Before the render object is made, so an emitter whose mesh is still in flight leaves no
             // trace to undo — the same ordering `MeshExtractionSystem.Appear` uses, and for the same
             // reason.
-            if (instanced) {
-                if (!Instance(emitter.Mesh, out geometry, out claim, out drawable)) {
-                    Waiting++;
+            if (instanced && !Instance(emitter.Mesh, out geometry, out claim, out drawable)) {
+                Waiting++;
 
-                    continue;
-                }
+                continue;
             }
 
             var placement = world.Read<WorldTransform>(entity).Value;
-            var reach = MathF.Max(emitter.Reach, VfxEmitters.DefaultReach);
+            _ = MathF.Max(emitter.Reach, VfxEmitters.DefaultReach);
 
             // ⚠ Derived from the entity when the emitter says nothing, and this is what stops fifteen
             // lamps drifting identical embers. Two systems of one graph with one seed produce the same
@@ -370,15 +368,12 @@ public sealed class VfxExtractionSystem : SystemBase, IDeclaredAccess {
             // `Step`, so a copy here is a second writer that no test can tell from the first —
             // removing it left every assertion green, which is what says it was never load-bearing.
             var effect = new VfxSystem(graph, emitter.Seed != 0 ? emitter.Seed : Seed(entity)) {
-                Emitting = emitter.Playing,
-                Origin = placement.Translation
+                Emitting = emitter.Playing, Origin = placement.Translation
             };
 
             var id = system.Objects.Add(
                 new() {
-                    Bounds = Bound(placement.Translation, emitter),
-                    Stages = Stages,
-                    FeatureIndex = particles.Index
+                    Bounds = Bound(placement.Translation, emitter), Stages = Stages, FeatureIndex = particles.Index
                 }
             );
 
@@ -402,8 +397,12 @@ public sealed class VfxExtractionSystem : SystemBase, IDeclaredAccess {
     /// <param name="drawable">Whether there is a mesh to draw.</param>
     /// <returns>Whether the answer is final, as opposed to a load still in flight.</returns>
     /// <remarks>
-    ///     ⚠ <b>Four outcomes and two return values, which is
-    ///     <see cref="MeshExtractionSystem" />'s <c>Painted</c> shape applied to geometry.</b> "It named
+    ///     ⚠
+    ///     <b>
+    ///         Four outcomes and two return values, which is
+    ///         <see cref="MeshExtractionSystem" />'s <c>Painted</c> shape applied to geometry.
+    ///     </b>
+    ///     "It named
     ///     none", "the host wired no source" and "it did not fit" all come back true with nothing to
     ///     draw, because all three are states an effect should still simulate in — the first two are
     ///     counted by <see cref="Meshless" /> and the third by <see cref="Dropped" />. Only "it named
@@ -496,8 +495,12 @@ public sealed class VfxExtractionSystem : SystemBase, IDeclaredAccess {
 
     /// <inheritdoc />
     /// <remarks>
-    ///     ⚠ <b>The particle buffers are native memory the collector does not free on its own timetable
-    ///     — they are pooled arrays a <c>ParticleBuffer</c> holds for its whole capacity.</b> A render
+    ///     ⚠
+    ///     <b>
+    ///         The particle buffers are native memory the collector does not free on its own timetable
+    ///         — they are pooled arrays a <c>ParticleBuffer</c> holds for its whole capacity.
+    ///     </b>
+    ///     A render
     ///     system torn down and rebuilt without this walks the pool up by a scene's worth of effects
     ///     every time, which reads as a slow leak rather than as anything anybody would attribute to
     ///     particles.

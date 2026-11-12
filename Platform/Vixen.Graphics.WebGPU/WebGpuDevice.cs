@@ -130,10 +130,12 @@ public sealed partial class WebGpuDevice : IGraphicsDevice {
 
     /// <summary>Creates a device over a binding.</summary>
     /// <param name="binding">How WebGPU is reached.</param>
-    /// <remarks>Two overloads rather than one with <c>= default</c>: a record struct's property
-    /// initialisers do not run for <c>default</c>, so an omitted argument would have meant one frame
-    /// in flight rather than the documented two.</remarks>
-    public WebGpuDevice(IWebGpuBinding binding) : this(binding, new WebGpuDeviceOptions()) { }
+    /// <remarks>
+    ///     Two overloads rather than one with <c>= default</c>: a record struct's property
+    ///     initialisers do not run for <c>default</c>, so an omitted argument would have meant one frame
+    ///     in flight rather than the documented two.
+    /// </remarks>
+    public WebGpuDevice(IWebGpuBinding binding) : this(binding, new()) { }
 
     /// <summary>Creates a device over a binding.</summary>
     /// <param name="binding">How WebGPU is reached.</param>
@@ -208,8 +210,15 @@ public sealed partial class WebGpuDevice : IGraphicsDevice {
     public int LiveResourceCount {
         get {
             lock (gate) {
-                return buffers.Count + textures.Count + views.Count + samplers.Count + shaders.Count
-                    + pipelines.Count + pipelineLayouts.Count + setLayouts.Count + descriptorSets.Count;
+                return buffers.Count
+                    + textures.Count
+                    + views.Count
+                    + samplers.Count
+                    + shaders.Count
+                    + pipelines.Count
+                    + pipelineLayouts.Count
+                    + setLayouts.Count
+                    + descriptorSets.Count;
             }
         }
     }
@@ -254,8 +263,12 @@ public sealed partial class WebGpuDevice : IGraphicsDevice {
 
     /// <inheritdoc />
     /// <remarks>
-    ///     ⚠ <b>Stored rather than answered <see langword="false" />, though nothing here resets a
-    ///     command pool under a nested frame.</b> The retiring drain above is the part that would
+    ///     ⚠
+    ///     <b>
+    ///         Stored rather than answered <see langword="false" />, though nothing here resets a
+    ///         command pool under a nested frame.
+    ///     </b>
+    ///     The retiring drain above is the part that would
     ///     misfire: a nested pair advances <c>FrameCount</c>, and this backend decides what is safe to
     ///     free by arithmetic on that number rather than by waiting on a fence. See #775.
     /// </remarks>

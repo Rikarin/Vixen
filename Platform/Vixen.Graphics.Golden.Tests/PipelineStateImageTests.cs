@@ -27,8 +27,12 @@ namespace Vixen.Graphics.Golden.Tests;
 ///         a two-level colour shift is a fixture that will be within tolerance on the next driver.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Naming that class of bug is not catching it across backends, and this file catches
-///         it on exactly one.</b> Doc 05's level is the same fixture rendered on two drivers and
+///         ⚠
+///         <b>
+///             Naming that class of bug is not catching it across backends, and this file catches
+///             it on exactly one.
+///         </b>
+///         Doc 05's level is the same fixture rendered on two drivers and
 ///         compared; every fixture here runs on <see cref="Fixture" />, which creates a
 ///         <c>VulkanDevice</c> and nothing else. Several of the remarks below reason about what the
 ///         GL backend has to do differently — the winding it inverts, the bottom-left origin it
@@ -105,20 +109,27 @@ public sealed class PipelineStateImageTests {
 
         // Strip order: bottom-left, bottom-right, top-left, top-right. As a list this would be one
         // triangle and a stray.
-        var vertices = owned.Buffer<byte>(
-            Packed([
-                (-0.8f, -0.8f, 0xFF2010FF),
-                (0.8f, -0.8f, 0xFF10FF20),
-                (-0.8f, 0.8f, 0xFFFF2010),
-                (0.8f, 0.8f, 0xFF20FFFF)
-            ]),
+        var vertices = owned.Buffer(
+            Packed(
+                [
+                    (-0.8f, -0.8f, 0xFF2010FF),
+                    (0.8f, -0.8f, 0xFF10FF20),
+                    (-0.8f, 0.8f, 0xFFFF2010),
+                    (0.8f, 0.8f, 0xFF20FFFF)
+                ]
+            ),
             BufferUsage.Vertex
         );
 
-        Draw(owned, colour, pipeline, list => {
-            list.BindVertexBuffer(0, vertices);
-            list.Draw(4);
-        });
+        Draw(
+            owned,
+            colour,
+            pipeline,
+            list => {
+                list.BindVertexBuffer(0, vertices);
+                list.Draw(4);
+            }
+        );
 
         GoldenImage.Verify("topology-strip", owned.Render(colour), Tolerance.Interpolated);
     }
@@ -142,20 +153,27 @@ public sealed class PipelineStateImageTests {
             topology: PrimitiveTopology.LineStrip
         );
 
-        var vertices = owned.Buffer<byte>(
-            Packed([
-                (-0.8f, -0.6f, 0xFF40FFFF),
-                (-0.2f, 0.7f, 0xFF40FFFF),
-                (0.3f, -0.7f, 0xFF40FFFF),
-                (0.8f, 0.5f, 0xFF40FFFF)
-            ]),
+        var vertices = owned.Buffer(
+            Packed(
+                [
+                    (-0.8f, -0.6f, 0xFF40FFFF),
+                    (-0.2f, 0.7f, 0xFF40FFFF),
+                    (0.3f, -0.7f, 0xFF40FFFF),
+                    (0.8f, 0.5f, 0xFF40FFFF)
+                ]
+            ),
             BufferUsage.Vertex
         );
 
-        Draw(owned, colour, pipeline, list => {
-            list.BindVertexBuffer(0, vertices);
-            list.Draw(4);
-        });
+        Draw(
+            owned,
+            colour,
+            pipeline,
+            list => {
+                list.BindVertexBuffer(0, vertices);
+                list.Draw(4);
+            }
+        );
 
         // Line rasterisation is the one place Vulkan's rules leave a driver room, so the tolerance
         // allows a small number of pixels to land on the other side of a diagonal.
@@ -193,12 +211,12 @@ public sealed class PipelineStateImageTests {
             ]
         );
 
-        var quad = owned.Buffer<float>(
+        var quad = owned.Buffer(
             [-0.35f, -0.35f, 0.35f, -0.35f, -0.35f, 0.35f, 0.35f, 0.35f],
             BufferUsage.Vertex
         );
 
-        var instances = owned.Buffer<float>(
+        var instances = owned.Buffer(
             [
                 -0.45f, -0.45f, 1f, 0.25f, 0.2f, 1f,
                 0.45f, -0.45f, 0.2f, 1f, 0.3f, 1f,
@@ -208,14 +226,19 @@ public sealed class PipelineStateImageTests {
             BufferUsage.Vertex
         );
 
-        var indices = owned.Buffer<ushort>(QuadIndices, BufferUsage.Index);
+        var indices = owned.Buffer(QuadIndices, BufferUsage.Index);
 
-        Draw(owned, colour, pipeline, list => {
-            list.BindVertexBuffer(0, quad);
-            list.BindVertexBuffer(1, instances);
-            list.BindIndexBuffer(indices, IndexFormat.UInt16);
-            list.DrawIndexed(QuadIndices.Length, 4);
-        });
+        Draw(
+            owned,
+            colour,
+            pipeline,
+            list => {
+                list.BindVertexBuffer(0, quad);
+                list.BindVertexBuffer(1, instances);
+                list.BindIndexBuffer(indices);
+                list.DrawIndexed(QuadIndices.Length, 4);
+            }
+        );
 
         GoldenImage.Verify("instancing", owned.Render(colour), Tolerance.Flat);
     }
@@ -245,23 +268,30 @@ public sealed class PipelineStateImageTests {
 
         // Deliberately mid-range values: 0x40 is 0.25 normalised and 64 unnormalised, and only one of
         // those is distinguishable from 0xFF once it has been clamped.
-        var vertices = owned.Buffer<byte>(
-            Packed([
-                (-0.8f, -0.8f, 0xFF804020),
-                (0.8f, -0.8f, 0xFF204080),
-                (-0.8f, 0.8f, 0xFF208040),
-                (0.8f, 0.8f, 0xFF404040)
-            ]),
+        var vertices = owned.Buffer(
+            Packed(
+                [
+                    (-0.8f, -0.8f, 0xFF804020),
+                    (0.8f, -0.8f, 0xFF204080),
+                    (-0.8f, 0.8f, 0xFF208040),
+                    (0.8f, 0.8f, 0xFF404040)
+                ]
+            ),
             BufferUsage.Vertex
         );
 
-        var indices = owned.Buffer<ushort>(QuadIndices, BufferUsage.Index);
+        var indices = owned.Buffer(QuadIndices, BufferUsage.Index);
 
-        Draw(owned, colour, pipeline, list => {
-            list.BindVertexBuffer(0, vertices);
-            list.BindIndexBuffer(indices, IndexFormat.UInt16);
-            list.DrawIndexed(QuadIndices.Length);
-        });
+        Draw(
+            owned,
+            colour,
+            pipeline,
+            list => {
+                list.BindVertexBuffer(0, vertices);
+                list.BindIndexBuffer(indices);
+                list.DrawIndexed(QuadIndices.Length);
+            }
+        );
 
         GoldenImage.Verify("vertex-unorm8", owned.Render(colour), Tolerance.Interpolated);
     }
@@ -291,17 +321,19 @@ public sealed class PipelineStateImageTests {
         );
 
         // Eight vertices: a decoy quad the fixture must not draw, then the real one.
-        var vertices = owned.Buffer<byte>(
-            Packed([
-                (-0.9f, -0.9f, 0xFF0000FF),
-                (-0.5f, -0.9f, 0xFF0000FF),
-                (-0.9f, -0.5f, 0xFF0000FF),
-                (-0.5f, -0.5f, 0xFF0000FF),
-                (-0.7f, -0.7f, 0xFF30E060),
-                (0.7f, -0.7f, 0xFF30E060),
-                (-0.7f, 0.7f, 0xFF30E060),
-                (0.7f, 0.7f, 0xFF30E060)
-            ]),
+        var vertices = owned.Buffer(
+            Packed(
+                [
+                    (-0.9f, -0.9f, 0xFF0000FF),
+                    (-0.5f, -0.9f, 0xFF0000FF),
+                    (-0.9f, -0.5f, 0xFF0000FF),
+                    (-0.5f, -0.5f, 0xFF0000FF),
+                    (-0.7f, -0.7f, 0xFF30E060),
+                    (0.7f, -0.7f, 0xFF30E060),
+                    (-0.7f, 0.7f, 0xFF30E060),
+                    (0.7f, 0.7f, 0xFF30E060)
+                ]
+            ),
             BufferUsage.Vertex
         );
 
@@ -312,11 +344,16 @@ public sealed class PipelineStateImageTests {
             BufferUsage.Index
         );
 
-        Draw(owned, colour, pipeline, list => {
-            list.BindVertexBuffer(0, vertices);
-            list.BindIndexBuffer(indices, IndexFormat.UInt32);
-            list.DrawIndexed(6, 1, 6, 4);
-        });
+        Draw(
+            owned,
+            colour,
+            pipeline,
+            list => {
+                list.BindVertexBuffer(0, vertices);
+                list.BindIndexBuffer(indices, IndexFormat.UInt32);
+                list.DrawIndexed(6, 1, 6, 4);
+            }
+        );
 
         GoldenImage.Verify("index-offsets", owned.Render(colour), Tolerance.Flat);
     }
@@ -351,33 +388,37 @@ public sealed class PipelineStateImageTests {
             DepthLayout
         );
 
-        var near = owned.Buffer<float>(Quad(-0.8f, 0.2f, 0.7f, 0.1f, 0.1f, 0.15f), BufferUsage.Vertex);
-        var far = owned.Buffer<float>(Quad(-0.2f, 0.8f, 0.3f, 0.15f, 0.1f, 0.1f), BufferUsage.Vertex);
-        var tint = owned.Buffer<float>(Quad(-0.8f, 0.8f, 0.7f, 0.2f, 0.9f, 0.4f), BufferUsage.Vertex);
-        var indices = owned.Buffer<ushort>(QuadIndices, BufferUsage.Index);
+        var near = owned.Buffer(Quad(-0.8f, 0.2f, 0.7f, 0.1f, 0.1f, 0.15f), BufferUsage.Vertex);
+        var far = owned.Buffer(Quad(-0.2f, 0.8f, 0.3f, 0.15f, 0.1f, 0.1f), BufferUsage.Vertex);
+        var tint = owned.Buffer(Quad(-0.8f, 0.8f, 0.7f, 0.2f, 0.9f, 0.4f), BufferUsage.Vertex);
+        var indices = owned.Buffer(QuadIndices, BufferUsage.Index);
 
-        owned.Graph.AddPass("equal", pass => {
-            pass.ColourAttachment(colour, LoadAction.Clear, new(0.02f, 0.02f, 0.02f, 1f));
-            pass.DepthAttachment(depth, LoadAction.Clear);
-            pass.SideEffect();
+        owned.Graph.AddPass(
+            "equal",
+            pass => {
+                pass.ColourAttachment(colour, LoadAction.Clear, new(0.02f, 0.02f, 0.02f, 1f));
+                pass.DepthAttachment(depth);
+                pass.SideEffect();
 
-            pass.Execute(context => {
-                var list = context.CommandList;
-                list.BindIndexBuffer(indices, IndexFormat.UInt16);
+                pass.Execute(context => {
+                        var list = context.CommandList;
+                        list.BindIndexBuffer(indices);
 
-                list.BindPipeline(prepass);
-                list.BindVertexBuffer(0, near);
-                list.DrawIndexed(QuadIndices.Length);
-                list.BindVertexBuffer(0, far);
-                list.DrawIndexed(QuadIndices.Length);
+                        list.BindPipeline(prepass);
+                        list.BindVertexBuffer(0, near);
+                        list.DrawIndexed(QuadIndices.Length);
+                        list.BindVertexBuffer(0, far);
+                        list.DrawIndexed(QuadIndices.Length);
 
-                // At z = 0.7 this equals the near quad's depth and nothing else's, so only the left
-                // two-thirds is tinted — and only where the far quad did not overwrite the depth.
-                list.BindPipeline(equal);
-                list.BindVertexBuffer(0, tint);
-                list.DrawIndexed(QuadIndices.Length);
-            });
-        });
+                        // At z = 0.7 this equals the near quad's depth and nothing else's, so only the left
+                        // two-thirds is tinted — and only where the far quad did not overwrite the depth.
+                        list.BindPipeline(equal);
+                        list.BindVertexBuffer(0, tint);
+                        list.DrawIndexed(QuadIndices.Length);
+                    }
+                );
+            }
+        );
 
         GoldenImage.Verify("depth-equal", owned.Render(colour), Tolerance.Edges);
     }
@@ -408,28 +449,32 @@ public sealed class PipelineStateImageTests {
             DepthLayout
         );
 
-        var first = owned.Buffer<float>(Quad(-0.8f, 0.2f, 0.6f, 0.9f, 0.4f, 0.15f), BufferUsage.Vertex);
-        var second = owned.Buffer<float>(Quad(-0.2f, 0.8f, 0.4f, 0.2f, 0.5f, 1f), BufferUsage.Vertex);
-        var indices = owned.Buffer<ushort>(QuadIndices, BufferUsage.Index);
+        var first = owned.Buffer(Quad(-0.8f, 0.2f, 0.6f, 0.9f, 0.4f, 0.15f), BufferUsage.Vertex);
+        var second = owned.Buffer(Quad(-0.2f, 0.8f, 0.4f, 0.2f, 0.5f, 1f), BufferUsage.Vertex);
+        var indices = owned.Buffer(QuadIndices, BufferUsage.Index);
 
-        owned.Graph.AddPass("no write", pass => {
-            pass.ColourAttachment(colour, LoadAction.Clear, new(0.02f, 0.02f, 0.02f, 1f));
-            pass.DepthAttachment(depth, LoadAction.Clear);
-            pass.SideEffect();
+        owned.Graph.AddPass(
+            "no write",
+            pass => {
+                pass.ColourAttachment(colour, LoadAction.Clear, new(0.02f, 0.02f, 0.02f, 1f));
+                pass.DepthAttachment(depth);
+                pass.SideEffect();
 
-            pass.Execute(context => {
-                var list = context.CommandList;
-                list.BindPipeline(testOnly);
-                list.BindIndexBuffer(indices, IndexFormat.UInt16);
+                pass.Execute(context => {
+                        var list = context.CommandList;
+                        list.BindPipeline(testOnly);
+                        list.BindIndexBuffer(indices);
 
-                // Neither writes depth, so the second wins everywhere it overlaps even though it is
-                // further away. With writes on, it would lose.
-                list.BindVertexBuffer(0, first);
-                list.DrawIndexed(QuadIndices.Length);
-                list.BindVertexBuffer(0, second);
-                list.DrawIndexed(QuadIndices.Length);
-            });
-        });
+                        // Neither writes depth, so the second wins everywhere it overlaps even though it is
+                        // further away. With writes on, it would lose.
+                        list.BindVertexBuffer(0, first);
+                        list.DrawIndexed(QuadIndices.Length);
+                        list.BindVertexBuffer(0, second);
+                        list.DrawIndexed(QuadIndices.Length);
+                    }
+                );
+            }
+        );
 
         GoldenImage.Verify("depth-write-off", owned.Render(colour), Tolerance.Edges);
     }
@@ -474,28 +519,32 @@ public sealed class PipelineStateImageTests {
             rasterizer: RasterizerState.TwoSided with { DepthBias = 1024f }
         );
 
-        var under = owned.Buffer<float>(Quad(-0.8f, 0.8f, 0.5f, 0.15f, 0.2f, 0.4f), BufferUsage.Vertex);
-        var over = owned.Buffer<float>(Quad(-0.4f, 0.4f, 0.5f, 1f, 0.7f, 0.2f), BufferUsage.Vertex);
-        var indices = owned.Buffer<ushort>(QuadIndices, BufferUsage.Index);
+        var under = owned.Buffer(Quad(-0.8f, 0.8f, 0.5f, 0.15f, 0.2f, 0.4f), BufferUsage.Vertex);
+        var over = owned.Buffer(Quad(-0.4f, 0.4f, 0.5f, 1f, 0.7f, 0.2f), BufferUsage.Vertex);
+        var indices = owned.Buffer(QuadIndices, BufferUsage.Index);
 
-        owned.Graph.AddPass("bias", pass => {
-            pass.ColourAttachment(colour, LoadAction.Clear, new(0.02f, 0.02f, 0.02f, 1f));
-            pass.DepthAttachment(depth, LoadAction.Clear);
-            pass.SideEffect();
+        owned.Graph.AddPass(
+            "bias",
+            pass => {
+                pass.ColourAttachment(colour, LoadAction.Clear, new(0.02f, 0.02f, 0.02f, 1f));
+                pass.DepthAttachment(depth);
+                pass.SideEffect();
 
-            pass.Execute(context => {
-                var list = context.CommandList;
-                list.BindIndexBuffer(indices, IndexFormat.UInt16);
+                pass.Execute(context => {
+                        var list = context.CommandList;
+                        list.BindIndexBuffer(indices);
 
-                list.BindPipeline(flat);
-                list.BindVertexBuffer(0, under);
-                list.DrawIndexed(QuadIndices.Length);
+                        list.BindPipeline(flat);
+                        list.BindVertexBuffer(0, under);
+                        list.DrawIndexed(QuadIndices.Length);
 
-                list.BindPipeline(biased);
-                list.BindVertexBuffer(0, over);
-                list.DrawIndexed(QuadIndices.Length);
-            });
-        });
+                        list.BindPipeline(biased);
+                        list.BindVertexBuffer(0, over);
+                        list.DrawIndexed(QuadIndices.Length);
+                    }
+                );
+            }
+        );
 
         GoldenImage.Verify("depth-bias", owned.Render(colour), Tolerance.Edges);
     }
@@ -522,7 +571,7 @@ public sealed class PipelineStateImageTests {
         var write = owned.Pipeline(
             vertex,
             fragment,
-            new BlendState(WriteMask: ColourWriteMask.None),
+            new(WriteMask: ColourWriteMask.None),
             new DepthStencilState(
                 false,
                 false,
@@ -552,47 +601,55 @@ public sealed class PipelineStateImageTests {
             depthFormat: PixelFormat.Depth32FloatStencil8
         );
 
-        var band = owned.Buffer<byte>(
-            Packed([
-                (-0.3f, -0.9f, 0xFFFFFFFF),
-                (0.3f, -0.9f, 0xFFFFFFFF),
-                (-0.3f, 0.9f, 0xFFFFFFFF),
-                (0.3f, 0.9f, 0xFFFFFFFF)
-            ]),
+        var band = owned.Buffer(
+            Packed(
+                [
+                    (-0.3f, -0.9f, 0xFFFFFFFF),
+                    (0.3f, -0.9f, 0xFFFFFFFF),
+                    (-0.3f, 0.9f, 0xFFFFFFFF),
+                    (0.3f, 0.9f, 0xFFFFFFFF)
+                ]
+            ),
             BufferUsage.Vertex
         );
 
-        var everything = owned.Buffer<byte>(
-            Packed([
-                (-1f, -1f, 0xFF20D0F0),
-                (1f, -1f, 0xFF20D0F0),
-                (-1f, 1f, 0xFF20D0F0),
-                (1f, 1f, 0xFF20D0F0)
-            ]),
+        var everything = owned.Buffer(
+            Packed(
+                [
+                    (-1f, -1f, 0xFF20D0F0),
+                    (1f, -1f, 0xFF20D0F0),
+                    (-1f, 1f, 0xFF20D0F0),
+                    (1f, 1f, 0xFF20D0F0)
+                ]
+            ),
             BufferUsage.Vertex
         );
 
-        var indices = owned.Buffer<ushort>(QuadIndices, BufferUsage.Index);
+        var indices = owned.Buffer(QuadIndices, BufferUsage.Index);
 
-        owned.Graph.AddPass("stencil", pass => {
-            pass.ColourAttachment(colour, LoadAction.Clear, new(0.05f, 0.02f, 0.08f, 1f));
-            pass.DepthAttachment(depth, LoadAction.Clear);
-            pass.SideEffect();
+        owned.Graph.AddPass(
+            "stencil",
+            pass => {
+                pass.ColourAttachment(colour, LoadAction.Clear, new(0.05f, 0.02f, 0.08f, 1f));
+                pass.DepthAttachment(depth);
+                pass.SideEffect();
 
-            pass.Execute(context => {
-                var list = context.CommandList;
-                list.BindIndexBuffer(indices, IndexFormat.UInt16);
-                list.SetStencilReference(1);
+                pass.Execute(context => {
+                        var list = context.CommandList;
+                        list.BindIndexBuffer(indices);
+                        list.SetStencilReference(1);
 
-                list.BindPipeline(write);
-                list.BindVertexBuffer(0, band);
-                list.DrawIndexed(QuadIndices.Length);
+                        list.BindPipeline(write);
+                        list.BindVertexBuffer(0, band);
+                        list.DrawIndexed(QuadIndices.Length);
 
-                list.BindPipeline(test);
-                list.BindVertexBuffer(0, everything);
-                list.DrawIndexed(QuadIndices.Length);
-            });
-        });
+                        list.BindPipeline(test);
+                        list.BindVertexBuffer(0, everything);
+                        list.DrawIndexed(QuadIndices.Length);
+                    }
+                );
+            }
+        );
 
         GoldenImage.Verify("stencil-mask", owned.Render(colour), Tolerance.Flat);
     }
@@ -619,19 +676,20 @@ public sealed class PipelineStateImageTests {
     ///     quad and blue from the other, which no additive or alpha blend produces.
     /// </remarks>
     [Fact]
-    public void MaxBlend() => Blending(
-        "blend-max",
-        new BlendState(
-            true,
-            BlendFactor.One,
-            BlendFactor.One,
-            BlendOperation.Max,
-            BlendFactor.One,
-            BlendFactor.One,
-            BlendOperation.Max
-        ),
-        null
-    );
+    public void MaxBlend() =>
+        Blending(
+            "blend-max",
+            new(
+                true,
+                BlendFactor.One,
+                BlendFactor.One,
+                BlendOperation.Max,
+                BlendFactor.One,
+                BlendFactor.One,
+                BlendOperation.Max
+            ),
+            null
+        );
 
     /// <summary>A blend against the constant colour the command list set.</summary>
     /// <remarks>
@@ -640,18 +698,19 @@ public sealed class PipelineStateImageTests {
     ///     at draw time. Left at its default of zero, the overlay disappears entirely.
     /// </remarks>
     [Fact]
-    public void BlendConstant() => Blending(
-        "blend-constant",
-        new BlendState(
-            true,
-            BlendFactor.Constant,
-            BlendFactor.OneMinusConstant,
-            BlendOperation.Add,
-            BlendFactor.One,
-            BlendFactor.Zero
-        ),
-        new Color4(0.75f, 0.25f, 0.5f, 1f)
-    );
+    public void BlendConstant() =>
+        Blending(
+            "blend-constant",
+            new(
+                true,
+                BlendFactor.Constant,
+                BlendFactor.OneMinusConstant,
+                BlendOperation.Add,
+                BlendFactor.One,
+                BlendFactor.Zero
+            ),
+            new Color4(0.75f, 0.25f, 0.5f, 1f)
+        );
 
     /// <summary>A colour write mask that lets only two channels through.</summary>
     /// <remarks>
@@ -673,37 +732,43 @@ public sealed class PipelineStateImageTests {
         var pipeline = owned.Pipeline(
             owned.Shader("packed.vert.spv", ShaderStage.Vertex),
             owned.Shader("mesh.frag.spv", ShaderStage.Fragment),
-            new BlendState(WriteMask: ColourWriteMask.Red | ColourWriteMask.Alpha),
+            new(WriteMask: ColourWriteMask.Red | ColourWriteMask.Alpha),
             DepthStencilState.Disabled,
             PackedLayout
         );
 
-        var quad = owned.Buffer<byte>(
-            Packed([
-                (-0.7f, -0.7f, 0xFFFFFFFF),
-                (0.7f, -0.7f, 0xFFFFFFFF),
-                (-0.7f, 0.7f, 0xFFFFFFFF),
-                (0.7f, 0.7f, 0xFFFFFFFF)
-            ]),
+        var quad = owned.Buffer(
+            Packed(
+                [
+                    (-0.7f, -0.7f, 0xFFFFFFFF),
+                    (0.7f, -0.7f, 0xFFFFFFFF),
+                    (-0.7f, 0.7f, 0xFFFFFFFF),
+                    (0.7f, 0.7f, 0xFFFFFFFF)
+                ]
+            ),
             BufferUsage.Vertex
         );
 
-        var indices = owned.Buffer<ushort>(QuadIndices, BufferUsage.Index);
+        var indices = owned.Buffer(QuadIndices, BufferUsage.Index);
 
-        owned.Graph.AddPass("mask", pass => {
-            // Cleared to a colour with a green and blue the draw must not disturb, so the result is
-            // the clear's green and blue with the draw's red.
-            pass.ColourAttachment(colour, LoadAction.Clear, new(0.1f, 0.45f, 0.7f, 1f));
-            pass.SideEffect();
+        owned.Graph.AddPass(
+            "mask",
+            pass => {
+                // Cleared to a colour with a green and blue the draw must not disturb, so the result is
+                // the clear's green and blue with the draw's red.
+                pass.ColourAttachment(colour, LoadAction.Clear, new(0.1f, 0.45f, 0.7f, 1f));
+                pass.SideEffect();
 
-            pass.Execute(context => {
-                var list = context.CommandList;
-                list.BindPipeline(pipeline);
-                list.BindVertexBuffer(0, quad);
-                list.BindIndexBuffer(indices, IndexFormat.UInt16);
-                list.DrawIndexed(QuadIndices.Length);
-            });
-        });
+                pass.Execute(context => {
+                        var list = context.CommandList;
+                        list.BindPipeline(pipeline);
+                        list.BindVertexBuffer(0, quad);
+                        list.BindIndexBuffer(indices);
+                        list.DrawIndexed(QuadIndices.Length);
+                    }
+                );
+            }
+        );
 
         GoldenImage.Verify("write-mask", owned.Render(colour), Tolerance.Flat);
     }
@@ -726,19 +791,23 @@ public sealed class PipelineStateImageTests {
         var colour = owned.ColourTarget("scissor");
         var pipeline = FullQuad(owned, out var quad, out var indices);
 
-        owned.Graph.AddPass("scissor", pass => {
-            pass.ColourAttachment(colour, LoadAction.Clear, new(0.05f, 0.05f, 0.08f, 1f));
-            pass.SideEffect();
+        owned.Graph.AddPass(
+            "scissor",
+            pass => {
+                pass.ColourAttachment(colour, LoadAction.Clear, new(0.05f, 0.05f, 0.08f, 1f));
+                pass.SideEffect();
 
-            pass.Execute(context => {
-                var list = context.CommandList;
-                list.BindPipeline(pipeline);
-                list.SetScissor(new(8, 8, 48, 32));
-                list.BindVertexBuffer(0, quad);
-                list.BindIndexBuffer(indices, IndexFormat.UInt16);
-                list.DrawIndexed(QuadIndices.Length);
-            });
-        });
+                pass.Execute(context => {
+                        var list = context.CommandList;
+                        list.BindPipeline(pipeline);
+                        list.SetScissor(new(8, 8, 48, 32));
+                        list.BindVertexBuffer(0, quad);
+                        list.BindIndexBuffer(indices);
+                        list.DrawIndexed(QuadIndices.Length);
+                    }
+                );
+            }
+        );
 
         GoldenImage.Verify("scissor", owned.Render(colour), Tolerance.Flat);
     }
@@ -758,19 +827,23 @@ public sealed class PipelineStateImageTests {
         var colour = owned.ColourTarget("viewport");
         var pipeline = FullQuad(owned, out var quad, out var indices);
 
-        owned.Graph.AddPass("viewport", pass => {
-            pass.ColourAttachment(colour, LoadAction.Clear, new(0.05f, 0.05f, 0.08f, 1f));
-            pass.SideEffect();
+        owned.Graph.AddPass(
+            "viewport",
+            pass => {
+                pass.ColourAttachment(colour, LoadAction.Clear, new(0.05f, 0.05f, 0.08f, 1f));
+                pass.SideEffect();
 
-            pass.Execute(context => {
-                var list = context.CommandList;
-                list.BindPipeline(pipeline);
-                list.SetViewport(new(16, 8, 96, 48));
-                list.BindVertexBuffer(0, quad);
-                list.BindIndexBuffer(indices, IndexFormat.UInt16);
-                list.DrawIndexed(QuadIndices.Length);
-            });
-        });
+                pass.Execute(context => {
+                        var list = context.CommandList;
+                        list.BindPipeline(pipeline);
+                        list.SetViewport(new(16, 8, 96, 48));
+                        list.BindVertexBuffer(0, quad);
+                        list.BindIndexBuffer(indices);
+                        list.DrawIndexed(QuadIndices.Length);
+                    }
+                );
+            }
+        );
 
         GoldenImage.Verify("viewport", owned.Render(colour), Tolerance.Flat);
     }
@@ -788,13 +861,15 @@ public sealed class PipelineStateImageTests {
         }
 
         using var owned = fixture!;
-        var first = owned.Graph.CreateTexture(new(
-            PixelFormat.Rgba8UNorm,
-            Fixture.Side,
-            Fixture.Side,
-            TextureUsage.ColourTarget,
-            Name: "first"
-        ));
+        var first = owned.Graph.CreateTexture(
+            new(
+                PixelFormat.Rgba8UNorm,
+                Fixture.Side,
+                Fixture.Side,
+                TextureUsage.ColourTarget,
+                Name: "first"
+            )
+        );
 
         var second = owned.ColourTarget("second");
 
@@ -810,31 +885,37 @@ public sealed class PipelineStateImageTests {
             ]
         );
 
-        var quad = owned.Buffer<byte>(
-            Packed([
-                (-0.7f, -0.7f, 0xFF3060C0),
-                (0.7f, -0.7f, 0xFF3060C0),
-                (-0.7f, 0.7f, 0xFF3060C0),
-                (0.7f, 0.7f, 0xFF3060C0)
-            ]),
+        var quad = owned.Buffer(
+            Packed(
+                [
+                    (-0.7f, -0.7f, 0xFF3060C0),
+                    (0.7f, -0.7f, 0xFF3060C0),
+                    (-0.7f, 0.7f, 0xFF3060C0),
+                    (0.7f, 0.7f, 0xFF3060C0)
+                ]
+            ),
             BufferUsage.Vertex
         );
 
-        var indices = owned.Buffer<ushort>(QuadIndices, BufferUsage.Index);
+        var indices = owned.Buffer(QuadIndices, BufferUsage.Index);
 
-        owned.Graph.AddPass("dual", pass => {
-            pass.ColourAttachment(first, LoadAction.Clear, new(0f, 0f, 0f, 1f));
-            pass.ColourAttachment(second, LoadAction.Clear, new(0.02f, 0.02f, 0.02f, 1f));
-            pass.SideEffect();
+        owned.Graph.AddPass(
+            "dual",
+            pass => {
+                pass.ColourAttachment(first, LoadAction.Clear, new(0f, 0f, 0f, 1f));
+                pass.ColourAttachment(second, LoadAction.Clear, new(0.02f, 0.02f, 0.02f, 1f));
+                pass.SideEffect();
 
-            pass.Execute(context => {
-                var list = context.CommandList;
-                list.BindPipeline(pipeline);
-                list.BindVertexBuffer(0, quad);
-                list.BindIndexBuffer(indices, IndexFormat.UInt16);
-                list.DrawIndexed(QuadIndices.Length);
-            });
-        });
+                pass.Execute(context => {
+                        var list = context.CommandList;
+                        list.BindPipeline(pipeline);
+                        list.BindVertexBuffer(0, quad);
+                        list.BindIndexBuffer(indices);
+                        list.DrawIndexed(QuadIndices.Length);
+                    }
+                );
+            }
+        );
 
         GoldenImage.Verify("second-target", owned.Render(second), Tolerance.Flat);
     }
@@ -858,53 +939,65 @@ public sealed class PipelineStateImageTests {
         var fragment = owned.Shader("mesh.frag.spv", ShaderStage.Fragment);
         var pipeline = owned.Pipeline(vertex, fragment, BlendState.Opaque, DepthStencilState.Disabled, PackedLayout);
 
-        var left = owned.Buffer<byte>(
-            Packed([
-                (-0.9f, -0.6f, 0xFFE05020),
-                (-0.1f, -0.6f, 0xFFE05020),
-                (-0.9f, 0.6f, 0xFFE05020),
-                (-0.1f, 0.6f, 0xFFE05020)
-            ]),
+        var left = owned.Buffer(
+            Packed(
+                [
+                    (-0.9f, -0.6f, 0xFFE05020),
+                    (-0.1f, -0.6f, 0xFFE05020),
+                    (-0.9f, 0.6f, 0xFFE05020),
+                    (-0.1f, 0.6f, 0xFFE05020)
+                ]
+            ),
             BufferUsage.Vertex
         );
 
-        var right = owned.Buffer<byte>(
-            Packed([
-                (0.1f, -0.6f, 0xFF2080E0),
-                (0.9f, -0.6f, 0xFF2080E0),
-                (0.1f, 0.6f, 0xFF2080E0),
-                (0.9f, 0.6f, 0xFF2080E0)
-            ]),
+        var right = owned.Buffer(
+            Packed(
+                [
+                    (0.1f, -0.6f, 0xFF2080E0),
+                    (0.9f, -0.6f, 0xFF2080E0),
+                    (0.1f, 0.6f, 0xFF2080E0),
+                    (0.9f, 0.6f, 0xFF2080E0)
+                ]
+            ),
             BufferUsage.Vertex
         );
 
-        var indices = owned.Buffer<ushort>(QuadIndices, BufferUsage.Index);
+        var indices = owned.Buffer(QuadIndices, BufferUsage.Index);
 
-        owned.Graph.AddPass("first", pass => {
-            pass.ColourAttachment(colour, LoadAction.Clear, new(0.06f, 0.06f, 0.1f, 1f));
-            pass.SideEffect();
+        owned.Graph.AddPass(
+            "first",
+            pass => {
+                pass.ColourAttachment(colour, LoadAction.Clear, new(0.06f, 0.06f, 0.1f, 1f));
+                pass.SideEffect();
 
-            pass.Execute(context => {
-                var list = context.CommandList;
-                list.BindPipeline(pipeline);
-                list.BindVertexBuffer(0, left);
-                list.BindIndexBuffer(indices, IndexFormat.UInt16);
-                list.DrawIndexed(QuadIndices.Length);
-            });
-        });
+                pass.Execute(context => {
+                        var list = context.CommandList;
+                        list.BindPipeline(pipeline);
+                        list.BindVertexBuffer(0, left);
+                        list.BindIndexBuffer(indices);
+                        list.DrawIndexed(QuadIndices.Length);
+                    }
+                );
+            }
+        );
 
-        owned.Graph.AddPass("second", pass => {
-            pass.ColourAttachment(colour, LoadAction.Load);
-            pass.SideEffect();
+        owned.Graph.AddPass(
+            "second",
+            pass => {
+                pass.ColourAttachment(colour, LoadAction.Load);
+                pass.SideEffect();
 
-            pass.Execute(context => {
-                var list = context.CommandList;
-                list.BindPipeline(pipeline);
-                list.BindVertexBuffer(0, right);
-                list.BindIndexBuffer(indices, IndexFormat.UInt16);
-                list.DrawIndexed(QuadIndices.Length);
-            });
-        });
+                pass.Execute(context => {
+                        var list = context.CommandList;
+                        list.BindPipeline(pipeline);
+                        list.BindVertexBuffer(0, right);
+                        list.BindIndexBuffer(indices);
+                        list.DrawIndexed(QuadIndices.Length);
+                    }
+                );
+            }
+        );
 
         GoldenImage.Verify("load-preserves", owned.Render(colour), Tolerance.Flat);
     }
@@ -932,10 +1025,12 @@ public sealed class PipelineStateImageTests {
     ///     fixtures differs.
     /// </remarks>
     [Fact]
-    public void SamplerRepeat() => Sampling("sampler-repeat", SamplerDescription.PointClamp with {
-        AddressU = AddressMode.Repeat,
-        AddressV = AddressMode.Repeat
-    }, 2f);
+    public void SamplerRepeat() =>
+        Sampling(
+            "sampler-repeat",
+            SamplerDescription.PointClamp with { AddressU = AddressMode.Repeat, AddressV = AddressMode.Repeat },
+            2f
+        );
 
     /// <summary>And with it clamping to the edge instead.</summary>
     [Fact]
@@ -977,18 +1072,18 @@ public sealed class PipelineStateImageTests {
 
         for (var index = 0; index < 8 * 8; index++) {
             texels[index * 4] = 20;
-            texels[(index * 4) + 1] = 30;
-            texels[(index * 4) + 2] = 60;
-            texels[(index * 4) + 3] = 255;
+            texels[index * 4 + 1] = 30;
+            texels[index * 4 + 2] = 60;
+            texels[index * 4 + 3] = 255;
         }
 
-        var source = new byte[(4 * 4 * 4) + 64];
+        var source = new byte[4 * 4 * 4 + 64];
 
         for (var row = 0; row < 4; row++) {
             for (var column = 0; column < 4; column++) {
-                var offset = 64 + (((row * 4) + column) * 4);
-                source[offset] = (byte)(60 + (row * 60));
-                source[offset + 1] = (byte)(40 + (column * 60));
+                var offset = 64 + (row * 4 + column) * 4;
+                source[offset] = (byte)(60 + row * 60);
+                source[offset + 1] = (byte)(40 + column * 60);
                 source[offset + 2] = 200;
                 source[offset + 3] = 255;
             }
@@ -996,19 +1091,21 @@ public sealed class PipelineStateImageTests {
 
         var (texture, view, background) = owned.Sampled("region", 8, texels);
 
-        var staging = owned.Buffer<byte>(source, BufferUsage.CopySource);
+        var staging = owned.Buffer(source, BufferUsage.CopySource);
         var sampler = owned.Sampler(SamplerDescription.PointClamp);
 
         var empty = owned.SetLayout(new(DescriptorSetSlot.PerFrame, [], "empty"));
 
-        var sampled = owned.SetLayout(new(
-            DescriptorSetSlot.PerMaterial,
-            [
-                new(0, DescriptorKind.SampledTexture, ShaderStage.Fragment),
-                new(1, DescriptorKind.Sampler, ShaderStage.Fragment)
-            ],
-            "sampled"
-        ));
+        var sampled = owned.SetLayout(
+            new(
+                DescriptorSetSlot.PerMaterial,
+                [
+                    new(0, DescriptorKind.SampledTexture, ShaderStage.Fragment),
+                    new(1, DescriptorKind.Sampler, ShaderStage.Fragment)
+                ],
+                "sampled"
+            )
+        );
 
         var set = owned.DescriptorSet(sampled, "sampled");
         owned.Bind(set, DescriptorWrite.Texture(0, view), DescriptorWrite.SamplerAt(1, sampler));
@@ -1021,33 +1118,40 @@ public sealed class PipelineStateImageTests {
             sets: [empty, empty, sampled]
         );
 
-        owned.Graph.AddPass("copy", pass => {
-            pass.ColourAttachment(colour, LoadAction.Clear, new(0.1f, 0.05f, 0.05f, 1f));
-            pass.SideEffect();
+        owned.Graph.AddPass(
+            "copy",
+            pass => {
+                pass.ColourAttachment(colour, LoadAction.Clear, new(0.1f, 0.05f, 0.05f, 1f));
+                pass.SideEffect();
 
-            pass.Execute(context => {
-                var list = context.CommandList;
-                list.BindPipeline(pipeline);
-                list.BindDescriptorSet(DescriptorSetSlot.PerMaterial, set);
-                list.Draw(3);
-            });
-        });
+                pass.Execute(context => {
+                        var list = context.CommandList;
+                        list.BindPipeline(pipeline);
+                        list.BindDescriptorSet(DescriptorSetSlot.PerMaterial, set);
+                        list.Draw(3);
+                    }
+                );
+            }
+        );
 
         GoldenImage.Verify(
             "copy-region",
-            owned.Render(colour, before => {
-                Transition(before, texture, ResourceState.Undefined, ResourceState.CopyDestination);
-                before.CopyBufferToTexture(background, 0, new(texture), new(8, 8, 1));
+            owned.Render(
+                colour,
+                before => {
+                    Transition(before, texture, ResourceState.Undefined, ResourceState.CopyDestination);
+                    before.CopyBufferToTexture(background, 0, new(texture), new(8, 8, 1));
 
-                before.CopyBufferToTexture(
-                    staging,
-                    64,
-                    new(texture, Origin: new(4, 4, 0)),
-                    new(4, 4, 1)
-                );
+                    before.CopyBufferToTexture(
+                        staging,
+                        64,
+                        new(texture, Origin: new(4, 4, 0)),
+                        new(4, 4, 1)
+                    );
 
-                Transition(before, texture, ResourceState.CopyDestination, ResourceState.ShaderRead);
-            }),
+                    Transition(before, texture, ResourceState.CopyDestination, ResourceState.ShaderRead);
+                }
+            ),
             Tolerance.Flat
         );
     }
@@ -1070,7 +1174,7 @@ public sealed class PipelineStateImageTests {
 
         for (var row = 0; row < 4; row++) {
             for (var column = 0; column < 4; column++) {
-                var offset = ((row * 4) + column) * 4;
+                var offset = (row * 4 + column) * 4;
                 texels[offset] = (byte)(row * 80);
                 texels[offset + 1] = (byte)(column * 80);
                 texels[offset + 2] = 160;
@@ -1088,20 +1192,22 @@ public sealed class PipelineStateImageTests {
             4
         );
 
-        var staging = owned.Buffer<byte>(texels, BufferUsage.CopySource);
+        var staging = owned.Buffer(texels, BufferUsage.CopySource);
         var (destination, view, _) = owned.Sampled("destination", 4, new byte[4 * 4 * 4]);
         var sampler = owned.Sampler(SamplerDescription.PointClamp);
 
         var empty = owned.SetLayout(new(DescriptorSetSlot.PerFrame, [], "empty"));
 
-        var sampled = owned.SetLayout(new(
-            DescriptorSetSlot.PerMaterial,
-            [
-                new(0, DescriptorKind.SampledTexture, ShaderStage.Fragment),
-                new(1, DescriptorKind.Sampler, ShaderStage.Fragment)
-            ],
-            "sampled"
-        ));
+        var sampled = owned.SetLayout(
+            new(
+                DescriptorSetSlot.PerMaterial,
+                [
+                    new(0, DescriptorKind.SampledTexture, ShaderStage.Fragment),
+                    new(1, DescriptorKind.Sampler, ShaderStage.Fragment)
+                ],
+                "sampled"
+            )
+        );
 
         var set = owned.DescriptorSet(sampled, "sampled");
         owned.Bind(set, DescriptorWrite.Texture(0, view), DescriptorWrite.SamplerAt(1, sampler));
@@ -1114,28 +1220,35 @@ public sealed class PipelineStateImageTests {
             sets: [empty, empty, sampled]
         );
 
-        owned.Graph.AddPass("copied", pass => {
-            pass.ColourAttachment(colour, LoadAction.Clear, new(0f, 0f, 0f, 1f));
-            pass.SideEffect();
+        owned.Graph.AddPass(
+            "copied",
+            pass => {
+                pass.ColourAttachment(colour, LoadAction.Clear, new(0f, 0f, 0f, 1f));
+                pass.SideEffect();
 
-            pass.Execute(context => {
-                var list = context.CommandList;
-                list.BindPipeline(pipeline);
-                list.BindDescriptorSet(DescriptorSetSlot.PerMaterial, set);
-                list.Draw(3);
-            });
-        });
+                pass.Execute(context => {
+                        var list = context.CommandList;
+                        list.BindPipeline(pipeline);
+                        list.BindDescriptorSet(DescriptorSetSlot.PerMaterial, set);
+                        list.Draw(3);
+                    }
+                );
+            }
+        );
 
         GoldenImage.Verify(
             "copy-texture",
-            owned.Render(colour, before => {
-                Transition(before, origin.Texture, ResourceState.Undefined, ResourceState.CopyDestination);
-                before.CopyBufferToTexture(staging, 0, new(origin.Texture), new(4, 4, 1));
-                Transition(before, origin.Texture, ResourceState.CopyDestination, ResourceState.CopySource);
-                Transition(before, destination, ResourceState.Undefined, ResourceState.CopyDestination);
-                before.CopyTexture(new(origin.Texture), new(destination), new(4, 4, 1));
-                Transition(before, destination, ResourceState.CopyDestination, ResourceState.ShaderRead);
-            }),
+            owned.Render(
+                colour,
+                before => {
+                    Transition(before, origin.Texture, ResourceState.Undefined, ResourceState.CopyDestination);
+                    before.CopyBufferToTexture(staging, 0, new(origin.Texture), new(4, 4, 1));
+                    Transition(before, origin.Texture, ResourceState.CopyDestination, ResourceState.CopySource);
+                    Transition(before, destination, ResourceState.Undefined, ResourceState.CopyDestination);
+                    before.CopyTexture(new(origin.Texture), new(destination), new(4, 4, 1));
+                    Transition(before, destination, ResourceState.CopyDestination, ResourceState.ShaderRead);
+                }
+            ),
             Tolerance.Flat
         );
     }
@@ -1174,22 +1287,29 @@ public sealed class PipelineStateImageTests {
 
         // Left triangle counter-clockwise, right triangle clockwise. Under the engine's convention
         // the left one is front-facing.
-        var vertices = owned.Buffer<byte>(
-            Packed([
-                (-0.9f, -0.7f, 0xFF20E040),
-                (-0.1f, -0.7f, 0xFF20E040),
-                (-0.5f, 0.7f, 0xFF20E040),
-                (0.1f, -0.7f, 0xFF4020E0),
-                (0.5f, 0.7f, 0xFF4020E0),
-                (0.9f, -0.7f, 0xFF4020E0)
-            ]),
+        var vertices = owned.Buffer(
+            Packed(
+                [
+                    (-0.9f, -0.7f, 0xFF20E040),
+                    (-0.1f, -0.7f, 0xFF20E040),
+                    (-0.5f, 0.7f, 0xFF20E040),
+                    (0.1f, -0.7f, 0xFF4020E0),
+                    (0.5f, 0.7f, 0xFF4020E0),
+                    (0.9f, -0.7f, 0xFF4020E0)
+                ]
+            ),
             BufferUsage.Vertex
         );
 
-        Draw(owned, colour, pipeline, list => {
-            list.BindVertexBuffer(0, vertices);
-            list.Draw(6);
-        });
+        Draw(
+            owned,
+            colour,
+            pipeline,
+            list => {
+                list.BindVertexBuffer(0, vertices);
+                list.Draw(6);
+            }
+        );
 
         GoldenImage.Verify(name, owned.Render(colour), Tolerance.Edges);
     }
@@ -1207,52 +1327,60 @@ public sealed class PipelineStateImageTests {
         var opaque = owned.Pipeline(vertex, fragment, BlendState.Opaque, DepthStencilState.Disabled, PackedLayout);
         var blended = owned.Pipeline(vertex, fragment, blend, DepthStencilState.Disabled, PackedLayout);
 
-        var under = owned.Buffer<byte>(
-            Packed([
-                (-0.9f, -0.85f, 0xFF9A3010),
-                (0.3f, -0.85f, 0xFF9A3010),
-                (-0.9f, 0.85f, 0xFF9A3010),
-                (0.3f, 0.85f, 0xFF9A3010)
-            ]),
+        var under = owned.Buffer(
+            Packed(
+                [
+                    (-0.9f, -0.85f, 0xFF9A3010),
+                    (0.3f, -0.85f, 0xFF9A3010),
+                    (-0.9f, 0.85f, 0xFF9A3010),
+                    (0.3f, 0.85f, 0xFF9A3010)
+                ]
+            ),
             BufferUsage.Vertex
         );
 
         // Alpha 0x60 with a colour nowhere near it, so straight and premultiplied alpha differ and
         // an additive blend differs from both.
-        var over = owned.Buffer<byte>(
-            Packed([
-                (-0.3f, -0.85f, 0x6018C0F0),
-                (0.9f, -0.85f, 0x6018C0F0),
-                (-0.3f, 0.85f, 0x6018C0F0),
-                (0.9f, 0.85f, 0x6018C0F0)
-            ]),
+        var over = owned.Buffer(
+            Packed(
+                [
+                    (-0.3f, -0.85f, 0x6018C0F0),
+                    (0.9f, -0.85f, 0x6018C0F0),
+                    (-0.3f, 0.85f, 0x6018C0F0),
+                    (0.9f, 0.85f, 0x6018C0F0)
+                ]
+            ),
             BufferUsage.Vertex
         );
 
-        var indices = owned.Buffer<ushort>(QuadIndices, BufferUsage.Index);
+        var indices = owned.Buffer(QuadIndices, BufferUsage.Index);
 
-        owned.Graph.AddPass(name, pass => {
-            pass.ColourAttachment(colour, LoadAction.Clear, new(0.02f, 0.02f, 0.02f, 1f));
-            pass.SideEffect();
+        owned.Graph.AddPass(
+            name,
+            pass => {
+                pass.ColourAttachment(colour, LoadAction.Clear, new(0.02f, 0.02f, 0.02f, 1f));
+                pass.SideEffect();
 
-            pass.Execute(context => {
-                var list = context.CommandList;
-                list.BindIndexBuffer(indices, IndexFormat.UInt16);
+                pass.Execute(context => {
+                        var list = context.CommandList;
+                        list.BindIndexBuffer(indices);
 
-                list.BindPipeline(opaque);
-                list.BindVertexBuffer(0, under);
-                list.DrawIndexed(QuadIndices.Length);
+                        list.BindPipeline(opaque);
+                        list.BindVertexBuffer(0, under);
+                        list.DrawIndexed(QuadIndices.Length);
 
-                list.BindPipeline(blended);
+                        list.BindPipeline(blended);
 
-                if (constant is { } value) {
-                    list.SetBlendConstant(value);
-                }
+                        if (constant is { } value) {
+                            list.SetBlendConstant(value);
+                        }
 
-                list.BindVertexBuffer(0, over);
-                list.DrawIndexed(QuadIndices.Length);
-            });
-        });
+                        list.BindVertexBuffer(0, over);
+                        list.DrawIndexed(QuadIndices.Length);
+                    }
+                );
+            }
+        );
 
         GoldenImage.Verify(name, owned.Render(colour), Tolerance.Edges);
     }
@@ -1271,7 +1399,7 @@ public sealed class PipelineStateImageTests {
 
         for (var row = 0; row < 4; row++) {
             for (var column = 0; column < 4; column++) {
-                var offset = ((row * 4) + column) * 4;
+                var offset = (row * 4 + column) * 4;
                 var light = (row + column) % 2 == 0;
                 texels[offset] = (byte)(light ? 240 : 30);
                 texels[offset + 1] = (byte)(row * 70);
@@ -1284,14 +1412,16 @@ public sealed class PipelineStateImageTests {
         var sampler = owned.Sampler(description);
         var empty = owned.SetLayout(new(DescriptorSetSlot.PerFrame, [], "empty"));
 
-        var sampled = owned.SetLayout(new(
-            DescriptorSetSlot.PerMaterial,
-            [
-                new(0, DescriptorKind.SampledTexture, ShaderStage.Fragment),
-                new(1, DescriptorKind.Sampler, ShaderStage.Fragment)
-            ],
-            "sampled"
-        ));
+        var sampled = owned.SetLayout(
+            new(
+                DescriptorSetSlot.PerMaterial,
+                [
+                    new(0, DescriptorKind.SampledTexture, ShaderStage.Fragment),
+                    new(1, DescriptorKind.Sampler, ShaderStage.Fragment)
+                ],
+                "sampled"
+            )
+        );
 
         var set = owned.DescriptorSet(sampled, "sampled");
         owned.Bind(set, DescriptorWrite.Texture(0, view), DescriptorWrite.SamplerAt(1, sampler));
@@ -1307,43 +1437,52 @@ public sealed class PipelineStateImageTests {
 
         var uv = new[] { scale, scale };
 
-        owned.Graph.AddPass(name, pass => {
-            pass.ColourAttachment(colour, LoadAction.Clear, new(0f, 0f, 0f, 1f));
-            pass.SideEffect();
+        owned.Graph.AddPass(
+            name,
+            pass => {
+                pass.ColourAttachment(colour, LoadAction.Clear, new(0f, 0f, 0f, 1f));
+                pass.SideEffect();
 
-            pass.Execute(context => {
-                var list = context.CommandList;
-                list.BindPipeline(pipeline);
-                list.PushConstants(ShaderStage.Vertex, 0, MemoryMarshal.AsBytes(uv.AsSpan()));
-                list.BindDescriptorSet(DescriptorSetSlot.PerMaterial, set);
-                list.Draw(3);
-            });
-        });
+                pass.Execute(context => {
+                        var list = context.CommandList;
+                        list.BindPipeline(pipeline);
+                        list.PushConstants(ShaderStage.Vertex, 0, MemoryMarshal.AsBytes(uv.AsSpan()));
+                        list.BindDescriptorSet(DescriptorSetSlot.PerMaterial, set);
+                        list.Draw(3);
+                    }
+                );
+            }
+        );
 
         GoldenImage.Verify(
             name,
-            owned.Render(colour, before => {
-                Transition(before, texture, ResourceState.Undefined, ResourceState.CopyDestination);
-                before.CopyBufferToTexture(staging, 0, new(texture), new(4, 4, 1));
-                Transition(before, texture, ResourceState.CopyDestination, ResourceState.ShaderRead);
-            }),
+            owned.Render(
+                colour,
+                before => {
+                    Transition(before, texture, ResourceState.Undefined, ResourceState.CopyDestination);
+                    before.CopyBufferToTexture(staging, 0, new(texture), new(4, 4, 1));
+                    Transition(before, texture, ResourceState.CopyDestination, ResourceState.ShaderRead);
+                }
+            ),
             Tolerance.Interpolated
         );
     }
 
     /// <summary>A pipeline drawing one quad over the whole target, for the clipping fixtures.</summary>
     static PipelineHandle FullQuad(Fixture owned, out BufferHandle quad, out BufferHandle indices) {
-        quad = owned.Buffer<byte>(
-            Packed([
-                (-1f, -1f, 0xFFE0A020),
-                (1f, -1f, 0xFFE0A020),
-                (-1f, 1f, 0xFFE0A020),
-                (1f, 1f, 0xFFE0A020)
-            ]),
+        quad = owned.Buffer(
+            Packed(
+                [
+                    (-1f, -1f, 0xFFE0A020),
+                    (1f, -1f, 0xFFE0A020),
+                    (-1f, 1f, 0xFFE0A020),
+                    (1f, 1f, 0xFFE0A020)
+                ]
+            ),
             BufferUsage.Vertex
         );
 
-        indices = owned.Buffer<ushort>(QuadIndices, BufferUsage.Index);
+        indices = owned.Buffer(QuadIndices, BufferUsage.Index);
 
         return owned.Pipeline(
             owned.Shader("packed.vert.spv", ShaderStage.Vertex),
@@ -1355,15 +1494,19 @@ public sealed class PipelineStateImageTests {
     }
 
     static void Draw(Fixture owned, GraphTexture colour, PipelineHandle pipeline, Action<ICommandList> body) =>
-        owned.Graph.AddPass("draw", pass => {
-            pass.ColourAttachment(colour, LoadAction.Clear, new(0.03f, 0.03f, 0.05f, 1f));
-            pass.SideEffect();
+        owned.Graph.AddPass(
+            "draw",
+            pass => {
+                pass.ColourAttachment(colour, LoadAction.Clear, new(0.03f, 0.03f, 0.05f, 1f));
+                pass.SideEffect();
 
-            pass.Execute(context => {
-                context.CommandList.BindPipeline(pipeline);
-                body(context.CommandList);
-            });
-        });
+                pass.Execute(context => {
+                        context.CommandList.BindPipeline(pipeline);
+                        body(context.CommandList);
+                    }
+                );
+            }
+        );
 
     /// <summary>Moves a texture the graph does not know about between states.</summary>
     static void Transition(ICommandList list, TextureHandle texture, ResourceState before, ResourceState after) {

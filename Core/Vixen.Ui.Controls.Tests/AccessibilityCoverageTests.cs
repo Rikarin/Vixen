@@ -12,9 +12,12 @@ namespace Vixen.Ui.Controls.Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>Doc 46 § A2's third acceptance line asked for the ARIA-role snapshot to be writable
-///         "for every control in both control assemblies", and every assertion that answered it was
-///         per fixture.</b> <c>Unnamed(button)</c>, <c>Unnamed(tabs)</c>, <c>Unnamed(select)</c> —
+///         <b>
+///             Doc 46 § A2's third acceptance line asked for the ARIA-role snapshot to be writable
+///             "for every control in both control assemblies", and every assertion that answered it was
+///             per fixture.
+///         </b>
+///         <c>Unnamed(button)</c>, <c>Unnamed(tabs)</c>, <c>Unnamed(select)</c> —
 ///         each is a statement about the control somebody remembered to write a fixture for, and a
 ///         control nobody wrote one for is covered by nothing at all. This is the sweep: the type
 ///         list, one instance of each, one rule.
@@ -48,8 +51,12 @@ namespace Vixen.Ui.Controls.Tests;
 ///         them answered with a role — and neither floor can be met by an empty reflection query.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The filter is <see cref="UiElement" /> rather than <c>Control</c>, and that is not a
-///         detail.</b> <c>AccessibilityTreeTests</c>' existing sweep filters on <c>Control</c>, and
+///         ⚠
+///         <b>
+///             The filter is <see cref="UiElement" /> rather than <c>Control</c>, and that is not a
+///             detail.
+///         </b>
+///         <c>AccessibilityTreeTests</c>' existing sweep filters on <c>Control</c>, and
 ///         one assembly over that silently omits <c>ViewportGizmo</c>, <c>CodeLine</c>,
 ///         <c>CodeSpan</c>, <c>CodeGutterRow</c>, <c>TimelineLanes</c>, <c>NodeWireLayer</c> and
 ///         <c>NodeOverlayLayer</c> — public element types a screen reader would walk straight
@@ -155,7 +162,7 @@ public class AccessibilityCoverageTests {
                 continue;
             }
 
-            var element = (UiElement) make.MakeGenericMethod(type).Invoke(null, [fixture.Document.Root])!;
+            var element = (UiElement)make.MakeGenericMethod(type).Invoke(null, [fixture.Document.Root])!;
             fixture.Update();
             built.Add(type.Name);
 

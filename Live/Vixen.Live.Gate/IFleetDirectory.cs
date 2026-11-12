@@ -9,8 +9,12 @@ namespace Vixen.Live.Gate;
 /// <summary>The two questions the gate asks the control plane, and the only two.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>A seam over the cluster for the reason <c>IRealmGrains</c> and <c>IClusterApi</c>
-///         are.</b> Behind it is <see cref="ClusterFleetDirectory" /> and a silo; in a test it is a
+///         ⚠
+///         <b>
+///             A seam over the cluster for the reason <c>IRealmGrains</c> and <c>IClusterApi</c>
+///             are.
+///         </b>
+///         Behind it is <see cref="ClusterFleetDirectory" /> and a silo; in a test it is a
 ///         dictionary. That is what makes the gate's actual behaviour — version filtering, the
 ///         character-belongs-to-this-account check, minting the ticket, the difference between
 ///         <c>Starting</c> and <c>Refused</c> — assertable on every push instead of only against a

@@ -7,21 +7,26 @@ using Vixen.Geometry;
 using Vixen.Geometry.Remeshing;
 using Vixen.Geometry.Uv;
 using Vixen.Interchange;
-using Vixen.Rendering;
 
 namespace Vixen.Cli;
 
 /// <summary>`vixen remesh`, `vixen unwrap` and `vixen uv pack` — a mesh file in, a mesh file out.</summary>
 /// <remarks>
 ///     <para>
-///         <b>docs/plan/41 § D16's CLI row and docs/plan/42 § D13's, which exist to be batchable over a
-///         directory.</b> Neither reads a project: a file on disk is the unit, because the case both
+///         <b>
+///             docs/plan/41 § D16's CLI row and docs/plan/42 § D13's, which exist to be batchable over a
+///             directory.
+///         </b>
+///         Neither reads a project: a file on disk is the unit, because the case both
 ///         documents were written for is a pile of generated GLBs that are not assets yet and a build
 ///         script that has to turn them into ones.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The input goes through Assimp — <see cref="ModelReader" /> — and the output through
-///         <see cref="ModelWriter" />, which is why this reaches into <c>Vixen.Editor.Assets</c>.</b>
+///         ⚠
+///         <b>
+///             The input goes through Assimp — <see cref="ModelReader" /> — and the output through
+///             <see cref="ModelWriter" />, which is why this reaches into <c>Vixen.Editor.Assets</c>.
+///         </b>
 ///         <c>Tools/</c> is the top of the layering and already links two editor assemblies; writing a
 ///         second glTF reader here so that the CLI could pretend not to would be the wrong kind of
 ///         independence.
@@ -88,7 +93,9 @@ public static class GeometryRunner {
             }
 
             if (quads.IsEmpty) {
-                error.WriteLine($"'{mesh.Name}' could not be retopologised. See the notes above for the stage that refused.");
+                error.WriteLine(
+                    $"'{mesh.Name}' could not be retopologised. See the notes above for the stage that refused."
+                );
                 refused++;
 
                 continue;
@@ -157,9 +164,7 @@ public static class GeometryRunner {
 
                 written.Add(
                     new() {
-                        Mesh = kernel,
-                        Name = mesh.Name,
-                        TexCoords = ModelGeometry.Atlas(kernel, islands, placements)
+                        Mesh = kernel, Name = mesh.Name, TexCoords = ModelGeometry.Atlas(kernel, islands, placements)
                     }
                 );
             } catch (Exception failure) when (failure is InvalidOperationException or ArgumentException) {
@@ -180,15 +185,21 @@ public static class GeometryRunner {
     /// <returns>The exit code.</returns>
     /// <remarks>
     ///     <para>
-    ///         <b>docs/plan/42's seventh exit criterion, as a verb: "islands unwrapped in Blender,
-    ///         imported, repacked: seams untouched, island shapes untouched, better efficiency".</b>
+    ///         <b>
+    ///             docs/plan/42's seventh exit criterion, as a verb: "islands unwrapped in Blender,
+    ///             imported, repacked: seams untouched, island shapes untouched, better efficiency".
+    ///         </b>
     ///         That is the UV-Packer comparison and it is the one the request asked for, so the third
     ///         stage has to be reachable without the first two — which is why <c>UvUnwrap.Pack</c>
     ///         takes islands rather than a mesh.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The islands come off the file's drawing vertices rather than through
-    ///         <see cref="EditMesh" />, and that is the correct side of the split.</b> A seam is two
+    ///         ⚠
+    ///         <b>
+    ///             The islands come off the file's drawing vertices rather than through
+    ///             <see cref="EditMesh" />, and that is the correct side of the split.
+    ///         </b>
+    ///         A seam is two
     ///         drawing vertices at one position with different coordinates, so welding into the kernel
     ///         first and then trying to recover the seams would be throwing the answer away and looking
     ///         for it. <see cref="ModelGeometry.Islands" /> is where that reading lives, and its remarks
@@ -249,7 +260,7 @@ public static class GeometryRunner {
 
     /// <summary>The mesh with its coordinates moved to where the packer put them.</summary>
     static MeshData Repacked(MeshData mesh, IReadOnlyList<UvIsland> islands, IReadOnlyList<UvPlacement> placements) {
-        var coordinates = (Vector2[]) mesh.TexCoords.Clone();
+        var coordinates = (Vector2[])mesh.TexCoords.Clone();
 
         foreach (var placement in placements) {
             if (placement.Island < 0 || placement.Island >= islands.Count) {
@@ -280,7 +291,8 @@ public static class GeometryRunner {
         if (!ModelWriter.CanWrite(output)) {
             error.WriteLine(
                 $"'{Path.GetExtension(output)}' is not a format this writes. It writes "
-                + string.Join(", ", ModelWriter.Extensions) + "."
+                + string.Join(", ", ModelWriter.Extensions)
+                + "."
             );
 
             return null;
@@ -293,7 +305,9 @@ public static class GeometryRunner {
                 Path.GetFileNameWithoutExtension(input),
                 new ModelImportSettings { GenerateTangents = false }
             );
-        } catch (Exception failure) when (failure is ModelFormatException or IOException or UnauthorizedAccessException) {
+        } catch (Exception failure) when (failure is ModelFormatException
+                                              or IOException
+                                              or UnauthorizedAccessException) {
             error.WriteLine($"'{input}' could not be read as a model: {failure.Message}");
 
             return null;
@@ -309,7 +323,9 @@ public static class GeometryRunner {
         }
 
         try {
-            var asset = Core.Yaml.YamlSerializer.Deserialize<SplineAsset>(Core.Yaml.YamlReader.Read(File.ReadAllText(path)));
+            var asset = Core.Yaml.YamlSerializer.Deserialize<SplineAsset>(
+                Core.Yaml.YamlReader.Read(File.ReadAllText(path))
+            );
 
             if (!asset.CanBuild) {
                 error.WriteLine($"The guide '{path}' has fewer than two control points, so it is not a curve.");
@@ -389,7 +405,9 @@ public static class GeometryRunner {
 
         try {
             write();
-        } catch (Exception failure) when (failure is IOException or UnauthorizedAccessException or NotSupportedException) {
+        } catch (Exception failure) when (failure is IOException
+                                              or UnauthorizedAccessException
+                                              or NotSupportedException) {
             error.WriteLine($"'{output}' could not be written: {failure.Message}");
 
             return ExitCode.Failed;

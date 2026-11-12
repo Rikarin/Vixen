@@ -62,7 +62,7 @@ abstract class GreenNode {
             GreenNode? first = null;
             for (var i = 0; i < node.SlotCount; i++) {
                 first = node.GetSlot(i);
-                if (first != null) {
+                if (first is not null) {
                     break;
                 }
             }
@@ -80,7 +80,7 @@ abstract class GreenNode {
             GreenNode? last = null;
             for (var i = node.SlotCount - 1; i >= 0; i--) {
                 last = node.GetSlot(i);
-                if (last != null) {
+                if (last is not null) {
                     break;
                 }
             }
@@ -125,7 +125,9 @@ abstract class GreenNode {
         }
 
         if (left.IsToken || right.IsToken) {
-            return left is SyntaxToken a && right is SyntaxToken b && string.Equals(a.Text, b.Text, StringComparison.Ordinal);
+            return left is SyntaxToken a
+                && right is SyntaxToken b
+                && string.Equals(a.Text, b.Text, StringComparison.Ordinal);
         }
 
         if (left.SlotCount != right.SlotCount) {
@@ -143,7 +145,7 @@ abstract class GreenNode {
 
     /// <summary>Accumulate a child's width into this node's <see cref="FullWidth" />.</summary>
     protected void AdjustWidth(GreenNode? child) {
-        if (child != null) {
+        if (child is not null) {
             FullWidth += child.FullWidth;
         }
     }

@@ -8,8 +8,10 @@ using TerrainMap = Vixen.Terrain.Terrain;
 
 namespace Vixen.Samples.ThirdPersonShooter;
 
-/// <summary>Writes the arena's surrounding ground — the generation step behind the committed
-///     <c>Assets/Terrain/Outskirts.vxterrain</c>.</summary>
+/// <summary>
+///     Writes the arena's surrounding ground — the generation step behind the committed
+///     <c>Assets/Terrain/Outskirts.vxterrain</c>.
+/// </summary>
 /// <remarks>
 ///     <para>
 ///         <b>Around the arena, not under it.</b> The play space has an authored floor —
@@ -57,8 +59,10 @@ internal static class TerrainSeed {
     /// <summary>And the palette entry describing what they are — the bushes' <c>.vxfoliage</c>.</summary>
     public const string FoliageTypePath = "Assets/Terrain/Outskirts.vxfoliage";
 
-    /// <summary>Half the terrain's span in metres — the entity is translated by this, so the grid's
-    ///     centre lands on the arena's origin.</summary>
+    /// <summary>
+    ///     Half the terrain's span in metres — the entity is translated by this, so the grid's
+    ///     centre lands on the arena's origin.
+    /// </summary>
     public const float HalfExtent = 126f;
 
     /// <summary>How far from the centre the arena's own geometry reaches.</summary>
@@ -88,8 +92,11 @@ internal static class TerrainSeed {
     /// <summary>Where the lake sits, in world metres on the ground plane.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>Ten metres past the north gate, which is the whole of why it is here and not
-    ///         somewhere prettier.</b> The wall at <c>z = −32</c> has a gap in it
+    ///         <b>
+    ///             Ten metres past the north gate, which is the whole of why it is here and not
+    ///             somewhere prettier.
+    ///         </b>
+    ///         The wall at <c>z = −32</c> has a gap in it
     ///         (<c>Arena.vxscene</c>'s <c>Wall0A</c>/<c>Wall0B</c>), and a player who walks through it
     ///         reaches the shore in about three seconds. Water nobody can get to is water nobody can
     ///         tell is broken.
@@ -106,8 +113,12 @@ internal static class TerrainSeed {
     ///         one.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>These four numbers are the terrain's and the water's at once, and they have to
-    ///         be.</b> The bed below is carved here, into the committed heightfield; the surface above
+    ///         ⚠
+    ///         <b>
+    ///             These four numbers are the terrain's and the water's at once, and they have to
+    ///             be.
+    ///         </b>
+    ///         The bed below is carved here, into the committed heightfield; the surface above
     ///         is <c>Arena.vxscene</c>'s <c>!WaterBodyComponent</c> and the ring is
     ///         <c>Assets/Water/Lake.vxspline</c>. Depth is <em>surface minus ground</em> — doc 35 § D3
     ///         stores neither — so a bed dug here and a surface typed there that disagree do not
@@ -121,8 +132,12 @@ internal static class TerrainSeed {
     /// <summary>How far the ring in <c>Lake.vxspline</c> reaches from the centre, in metres.</summary>
     /// <remarks>
     ///     ⚠ <b>Smaller than <see cref="LakeBowl" />, and the gap between them is not slack.</b> A
-    ///     body's coverage comes from its spline and its depth comes from <em>surface minus
-    ///     ground</em>, and the two have to run out in the same place or the shoreline is drawn twice:
+    ///     body's coverage comes from its spline and its depth comes from
+    ///     <em>
+    ///         surface minus
+    ///         ground
+    ///     </em>
+    ///     , and the two have to run out in the same place or the shoreline is drawn twice:
     ///     a bed that rises above the surface inside the ring gives a band of coverage with negative
     ///     depth — water the field says is there and the shading says is not — which reads as a
     ///     flickering rim rather than as a beach. Digging the bowl six metres wider than the ring puts
@@ -214,7 +229,7 @@ internal static class TerrainSeed {
         for (var candidate = 0; placed < 64 && candidate < 400; candidate++) {
             // The ring the Grass layer is painted over: outside the walls, inside the first crest.
             var angle = candidate * 2.399963f;
-            var radius = ArenaReach + 6f + ((candidate % 89) / 89f * 34f);
+            var radius = ArenaReach + 6f + candidate % 89 / 89f * 34f;
             var x = radius * MathF.Cos(angle);
             var z = radius * MathF.Sin(angle);
 
@@ -231,14 +246,14 @@ internal static class TerrainSeed {
                 continue;
             }
 
-            var height = HeightAt((int)((x / 2f) + (HalfExtent / 2f)), (int)((z / 2f) + (HalfExtent / 2f)));
+            var height = HeightAt((int)(x / 2f + HalfExtent / 2f), (int)(z / 2f + HalfExtent / 2f));
 
             volume.Add(
                 bush,
                 new(
                     new(x, height, z),
                     Quaternion.FromYawPitchRoll(candidate * 1.7f, 0f, 0f),
-                    0.8f + ((candidate * 37 % 100) / 100f * 0.8f)
+                    0.8f + candidate * 37 % 100 / 100f * 0.8f
                 )
             );
 
@@ -253,7 +268,7 @@ internal static class TerrainSeed {
         // 2×2 tiles of 64 samples at two metres a quad: 127×127 samples, 252 m a side. ±24 m of
         // height range keeps a stored step under a millimetre — TerrainDescription.MetresPerStep.
         var map = new TerrainMap(
-            new TerrainDescription {
+            new() {
                 TileSamples = 64,
                 TilesX = 2,
                 TilesZ = 2,
@@ -278,7 +293,7 @@ internal static class TerrainSeed {
         // A quarry cut into the rise north-east of the arena. A hole is a quad the surface skips
         // entirely — the one terrain feature no height can express, and the reason this sample
         // punches one rather than trusting the fixtures.
-        PunchHole(map, centreX: 88, centreZ: 40, radius: 4);
+        PunchHole(map, 88, 40, 4);
 
         map.InvalidateAll();
         map.Resolve();
@@ -295,17 +310,17 @@ internal static class TerrainSeed {
     ///     horizon behind the six-metre walls, which is what the sky used to meet on its own.
     /// </remarks>
     static float HeightAt(int x, int z) {
-        var dx = (x - (HalfExtent / 2f)) * 2f;
-        var dz = (z - (HalfExtent / 2f)) * 2f;
-        var radius = MathF.Sqrt((dx * dx) + (dz * dz));
+        var dx = (x - HalfExtent / 2f) * 2f;
+        var dz = (z - HalfExtent / 2f) * 2f;
+        var radius = MathF.Sqrt(dx * dx + dz * dz);
 
-        var hills = (6.2f * MathF.Sin(x * 0.048f) * MathF.Cos(z * 0.041f))
-            + (2.8f * MathF.Sin((x * 0.101f) + 1.3f) * MathF.Sin((z * 0.087f) + 0.4f))
-            + (0.6f * MathF.Sin(x * 0.29f) * MathF.Cos(z * 0.24f));
+        var hills = 6.2f * MathF.Sin(x * 0.048f) * MathF.Cos(z * 0.041f)
+            + 2.8f * MathF.Sin(x * 0.101f + 1.3f) * MathF.Sin(z * 0.087f + 0.4f)
+            + 0.6f * MathF.Sin(x * 0.29f) * MathF.Cos(z * 0.24f);
 
         var t = SmoothStep(ArenaReach, ArenaReach + 40f, radius);
 
-        return Basin(dx, dz, ((1f - t) * ApronHeight) + (t * (hills + 5.5f)));
+        return Basin(dx, dz, (1f - t) * ApronHeight + t * (hills + 5.5f));
     }
 
     /// <summary>The lake's bed, carved into whatever the hills were doing there.</summary>
@@ -328,7 +343,7 @@ internal static class TerrainSeed {
     /// </remarks>
     static float Basin(float dx, float dz, float natural) {
         var toCentre = MathF.Sqrt(
-            ((dx - LakeCentre.X) * (dx - LakeCentre.X)) + ((dz - LakeCentre.Y) * (dz - LakeCentre.Y))
+            (dx - LakeCentre.X) * (dx - LakeCentre.X) + (dz - LakeCentre.Y) * (dz - LakeCentre.Y)
         );
 
         if (toCentre >= LakeBowl + LakeShelf) {
@@ -337,10 +352,10 @@ internal static class TerrainSeed {
 
         // The rim at the bowl's edge and the full depth at the middle, smooth at both ends so the bed
         // has no crease a normal would catch the light on.
-        var bowl = LakeRim - (LakeDepth * (1f - SmoothStep(0f, LakeBowl, toCentre)));
+        var bowl = LakeRim - LakeDepth * (1f - SmoothStep(0f, LakeBowl, toCentre));
         var shelf = SmoothStep(LakeBowl, LakeBowl + LakeShelf, toCentre);
 
-        return ((1f - shelf) * bowl) + (shelf * natural);
+        return (1f - shelf) * bowl + shelf * natural;
     }
 
     /// <summary>How far into the lake a position is: one at the middle, zero at the shelf's edge.</summary>
@@ -351,17 +366,23 @@ internal static class TerrainSeed {
     /// </remarks>
     static float LakeShare(float dx, float dz) {
         var toCentre = MathF.Sqrt(
-            ((dx - LakeCentre.X) * (dx - LakeCentre.X)) + ((dz - LakeCentre.Y) * (dz - LakeCentre.Y))
+            (dx - LakeCentre.X) * (dx - LakeCentre.X) + (dz - LakeCentre.Y) * (dz - LakeCentre.Y)
         );
 
-        return 1f - SmoothStep(LakeBowl * 0.5f, LakeBowl + (LakeShelf * 0.5f), toCentre);
+        return 1f - SmoothStep(LakeBowl * 0.5f, LakeBowl + LakeShelf * 0.5f, toCentre);
     }
 
-    /// <summary>Paints the three weight layers from the shape: grass on the gentle, rock on the
-    ///     steep, dirt on the apron — summing to exactly the weight budget everywhere.</summary>
+    /// <summary>
+    ///     Paints the three weight layers from the shape: grass on the gentle, rock on the
+    ///     steep, dirt on the apron — summing to exactly the weight budget everywhere.
+    /// </summary>
     /// <remarks>
-    ///     ⚠ <b>The three albedo references are what make this terrain part of the streaming
-    ///     survey.</b> They resolve through the same <c>AssetTextureSource</c> the mesh materials
+    ///     ⚠
+    ///     <b>
+    ///         The three albedo references are what make this terrain part of the streaming
+    ///         survey.
+    ///     </b>
+    ///     They resolve through the same <c>AssetTextureSource</c> the mesh materials
     ///     use — <c>AssetTerrainTextures</c> exists to make that one source rather than two — so a
     ///     rock texture shared by a layer and a wall is one upload and one residency.
     /// </remarks>
@@ -369,7 +390,7 @@ internal static class TerrainSeed {
         var grass = map.Weights.AddLayer(
             new TerrainLayerDescription(
                 "Grass",
-                Albedo: "vx:819e2b88b1254624aa86a853b602af0b",
+                "vx:819e2b88b1254624aa86a853b602af0b",
                 Surface: "vx:60a269d4262b4f45a6a94f017e85a528",
                 TilingMetres: 3f
             )
@@ -378,7 +399,7 @@ internal static class TerrainSeed {
         var rock = map.Weights.AddLayer(
             new TerrainLayerDescription(
                 "Rock",
-                Albedo: "vx:d32469ecfa9a40c5a9614d863d0e19c2",
+                "vx:d32469ecfa9a40c5a9614d863d0e19c2",
                 Surface: "vx:b4d8f55dfd014a36a22f91b628360a4a",
                 TilingMetres: 5f
             )
@@ -387,7 +408,7 @@ internal static class TerrainSeed {
         var dirt = map.Weights.AddLayer(
             new TerrainLayerDescription(
                 "Dirt",
-                Albedo: "vx:b907e0576c254a8da80df2c06208f9cc",
+                "vx:b907e0576c254a8da80df2c06208f9cc",
                 Surface: "vx:2113c0329b5b43baaeb9e137d7f414ea",
                 TilingMetres: 2.5f
             )
@@ -398,9 +419,9 @@ internal static class TerrainSeed {
         for (var z = 0; z < description.SamplesZ; z++) {
             for (var x = 0; x < description.SamplesX; x++) {
                 var slope = SlopeAt(heights, x, z, description);
-                var dx = (x - (HalfExtent / 2f)) * 2f;
-                var dz = (z - (HalfExtent / 2f)) * 2f;
-                var apron = 1f - SmoothStep(ArenaReach, ArenaReach + 18f, MathF.Sqrt((dx * dx) + (dz * dz)));
+                var dx = (x - HalfExtent / 2f) * 2f;
+                var dz = (z - HalfExtent / 2f) * 2f;
+                var apron = 1f - SmoothStep(ArenaReach, ArenaReach + 18f, MathF.Sqrt(dx * dx + dz * dz));
 
                 // ⚠ The lake bed is bare for the same reason the apron is, and the reason is not
                 // taste: the Grass layer is what `Outskirts.vxgrass` scatters on, so painting grass
@@ -434,7 +455,7 @@ internal static class TerrainSeed {
         var gradientX = (right - left) / (2f * description.MetresPerQuad);
         var gradientZ = (far - near) / (2f * description.MetresPerQuad);
 
-        return MathF.Sqrt((gradientX * gradientX) + (gradientZ * gradientZ));
+        return MathF.Sqrt(gradientX * gradientX + gradientZ * gradientZ);
     }
 
     static void PunchHole(TerrainMap map, int centreX, int centreZ, int radius) {
@@ -443,7 +464,7 @@ internal static class TerrainSeed {
                 var dx = x - centreX;
                 var dz = z - centreZ;
 
-                if ((dx * dx) + (dz * dz) <= radius * radius) {
+                if (dx * dx + dz * dz <= radius * radius) {
                     map.Holes.SetHole(x, z, true);
                 }
             }
@@ -463,6 +484,6 @@ internal static class TerrainSeed {
     static float SmoothStep(float edge0, float edge1, float value) {
         var t = Math.Clamp((value - edge0) / (edge1 - edge0), 0f, 1f);
 
-        return t * t * (3f - (2f * t));
+        return t * t * (3f - 2f * t);
     }
 }

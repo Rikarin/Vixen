@@ -103,19 +103,27 @@ public enum ExposureMode {
 [DataContract("StandardFrameExtensions")]
 public sealed record StandardFrameExtensions {
     /// <summary>Runs after the Main pass, before the velocity and particle passes.</summary>
-    /// <remarks>Where a pass that draws more scene belongs — decals, a custom stage — so what it
-    ///     writes is in the depth the velocity pass shares and in the colour the sparks add to.</remarks>
+    /// <remarks>
+    ///     Where a pass that draws more scene belongs — decals, a custom stage — so what it
+    ///     writes is in the depth the velocity pass shares and in the colour the sparks add to.
+    /// </remarks>
     public ISceneRendererAsset[] AfterOpaque { get; init; } = [];
 
-    /// <summary>Runs after lighting is whole — after the ambient combine — and before the temporal
-    ///     resolve and everything downstream of it.</summary>
-    /// <remarks>The earliest point a full-screen effect may read the frame: HDR, lit, and not yet
-    ///     accumulated, so whatever it writes is antialiased and graded with the scene.</remarks>
+    /// <summary>
+    ///     Runs after lighting is whole — after the ambient combine — and before the temporal
+    ///     resolve and everything downstream of it.
+    /// </summary>
+    /// <remarks>
+    ///     The earliest point a full-screen effect may read the frame: HDR, lit, and not yet
+    ///     accumulated, so whatever it writes is antialiased and graded with the scene.
+    /// </remarks>
     public ISceneRendererAsset[] BeforePost { get; init; } = [];
 
     /// <summary>Runs at the very end, after the last node has written the output resource.</summary>
-    /// <remarks>Display-referred, eight bits: a debug overlay or a transition wipe belongs here, a
-    ///     lighting effect does not.</remarks>
+    /// <remarks>
+    ///     Display-referred, eight bits: a debug overlay or a transition wipe belongs here, a
+    ///     lighting effect does not.
+    /// </remarks>
     public ISceneRendererAsset[] BeforeUi { get; init; } = [];
 }
 
@@ -322,7 +330,7 @@ static class StandardFrame {
         }
 
         var found = new List<StandardFrameAsset>();
-        Find(game, found, inPass: false);
+        Find(game, found, false);
 
         if (found.Count == 0) {
             return document;
@@ -345,16 +353,18 @@ static class StandardFrame {
         }
 
         return document with {
-            Stages = Merge(document.Stages, expanded.Stages, stage => stage.Name, "stage"),
-            Resources = Merge(document.Resources, expanded.Resources, resource => resource.Name, "resource"),
+            Stages = Merge(document.Stages, expanded.Stages, static stage => stage.Name, "stage"),
+            Resources = Merge(document.Resources, expanded.Resources, static resource => resource.Name, "resource"),
             Game = Replace(game, frame, expanded.Root)
         };
     }
 
     /// <summary>The tier a document resolves to, whether or not anything expands it.</summary>
     /// <param name="document">The authored document, before any transform has touched it.</param>
-    /// <param name="fallback">The platform's pick, for a frame that names no tier and for a
-    ///     document with no frame node at all.</param>
+    /// <param name="fallback">
+    ///     The platform's pick, for a frame that names no tier and for a
+    ///     document with no frame node at all.
+    /// </param>
     /// <param name="project">The project's preset — the waterfall's middle layer.</param>
     /// <remarks>
     ///     <para>
@@ -386,7 +396,7 @@ static class StandardFrame {
         }
 
         var found = new List<StandardFrameAsset>();
-        Find(game, found, inPass: false);
+        Find(game, found, false);
 
         return Tier(found.Count == 1 ? found[0] : null, fallback, project);
     }
@@ -415,7 +425,7 @@ static class StandardFrame {
         }
 
         var found = new List<StandardFrameAsset>();
-        Find(game, found, inPass: false);
+        Find(game, found, false);
 
         return found.Count == 1 ? found[0].Look : null;
     }
@@ -445,7 +455,7 @@ static class StandardFrame {
 
             case RenderPassAsset pass:
                 foreach (var child in pass.Children) {
-                    Find(child, found, inPass: true);
+                    Find(child, found, true);
                 }
 
                 break;
@@ -502,7 +512,7 @@ static class StandardFrame {
             }
         }
 
-        return [.. result];
+        return [..result];
     }
 
     // The numeric sub-knobs one tier name folds used to be a hardcoded table here; it is now
@@ -777,7 +787,7 @@ static class StandardFrame {
         // saying that as an edge is what puts the barriers in. The composite that reads what they
         // wrote is the "Air" node far below, after the temporal accumulation, which is safe
         // precisely because the volume does its temporal work in its own space.
-        if (tier.Fog && tier.VolumetricFog) {
+        if (tier is { Fog: true, VolumetricFog: true }) {
             nodes.Add(
                 new VolumetricFogAsset {
                     Name = "Volumetrics",
@@ -878,9 +888,7 @@ static class StandardFrame {
                 // The second question, after the pyramid holds this frame's own depth: what main
                 // rejected against last frame's is asked about again, so nothing pops at the
                 // trailing edge. Ordering is the feature — after Occluders, by construction here.
-                nodes.Add(
-                    new GpuCullingAsset { Name = "LateCull", Phase = CullPhase.Late, IndirectDraws = true }
-                );
+                nodes.Add(new GpuCullingAsset { Name = "LateCull", Phase = CullPhase.Late, IndirectDraws = true });
             }
         }
 
@@ -989,22 +997,22 @@ static class StandardFrame {
                     Albedo = SceneAlbedo,
                     Normals = SceneNormals,
                     Specular = SceneSpecular,
-                    Irradiance = probes ? "ProbeIrradiance" : "",
-                    Occlusion = frame.Gi != GiMode.Off ? "AmbientOcclusion" : "",
-                    ContactOcclusion = frame.Gi != GiMode.Off ? "ScreenOcclusion" : "",
+                    Irradiance = probes ? "ProbeIrradiance" : string.Empty,
+                    Occlusion = frame.Gi != GiMode.Off ? "AmbientOcclusion" : string.Empty,
+                    ContactOcclusion = frame.Gi != GiMode.Off ? "ScreenOcclusion" : string.Empty,
 
                     // Set from the same tier column as the producer above, and guarded by the same
                     // condition that names the plane: with GI off there is no `!Ssao` node, so a
                     // bare `tier.SsaoBentNormal` here would be a consumer switch over a plane the
                     // frame does not contain.
                     ContactBentNormal = frame.Gi != GiMode.Off && tier.SsaoBentNormal,
-                    Reflections = mirrors ? "Reflections" : "",
+                    Reflections = mirrors ? "Reflections" : string.Empty,
 
                     // The AO planes above run at a fraction of the frame; the depth and the camera
                     // are what let the combine upsample them bilaterally instead of smearing
                     // half-res occlusion across every corner's depth edge.
-                    Depth = frame.Gi != GiMode.Off ? SceneDepth : "",
-                    View = frame.Gi != GiMode.Off ? Camera : "",
+                    Depth = frame.Gi != GiMode.Off ? SceneDepth : string.Empty,
+                    View = frame.Gi != GiMode.Off ? Camera : string.Empty,
                     Output = "SceneCombined"
                 }
             );
@@ -1047,7 +1055,7 @@ static class StandardFrame {
                     // ⚠ The same three numbers the dispatch was given, from the same tier. The
                     // composite inverts the grid's Z distribution to find a slice, so a near, a far
                     // or a slice count that disagrees reads the wrong slice for every pixel.
-                    Volume = tier.VolumetricFog ? FogVolume : "",
+                    Volume = tier.VolumetricFog ? FogVolume : string.Empty,
                     VolumeFar = tier.VolumetricFar,
                     VolumeSlices = tier.VolumetricSlices
                 }
@@ -1122,14 +1130,7 @@ static class StandardFrame {
         }
 
         if (tier.LensFlare) {
-            nodes.Add(
-                new LensFlareAsset {
-                    Name = "Flare",
-                    Source = colour,
-                    View = Camera,
-                    Output = "SceneFlared"
-                }
-            );
+            nodes.Add(new LensFlareAsset { Name = "Flare", Source = colour, View = Camera, Output = "SceneFlared" });
 
             colour = "SceneFlared";
         }
@@ -1139,13 +1140,7 @@ static class StandardFrame {
             // ghosts and the halo are light on the sensor too and a real anamorphic element smears
             // them along with everything else; before the curve because a streak that cannot blow out
             // is a wash laid over the picture rather than light arriving at it.
-            nodes.Add(
-                new LightStreakAsset {
-                    Name = "Streak",
-                    Source = colour,
-                    Output = "SceneStreaked"
-                }
-            );
+            nodes.Add(new LightStreakAsset { Name = "Streak", Source = colour, Output = "SceneStreaked" });
 
             colour = "SceneStreaked";
         }
@@ -1176,13 +1171,13 @@ static class StandardFrame {
             new TonemapAsset {
                 Name = "Tonemap",
                 Source = colour,
-                Bloom = tier.Bloom ? "BloomPyramid" : "",
-                ExposureBuffer = metered ? "Meter.Exposure" : "",
+                Bloom = tier.Bloom ? "BloomPyramid" : string.Empty,
+                ExposureBuffer = metered ? "Meter.Exposure" : string.Empty,
 
                 // Metered, the buffer decides and no lens may fight it; fixed, the camera's own
                 // aperture, shutter and ISO are the authored exposure — which is what `Fixed`
                 // means until a look profile pins an EV.
-                View = metered ? "" : Camera,
+                View = metered ? string.Empty : Camera,
                 Output = afterTonemap > 0 ? "SceneGraded" : frame.Output
             }
         );
@@ -1195,9 +1190,7 @@ static class StandardFrame {
             afterTonemap--;
 
             var edges = new FxaaAsset {
-                Name = "Edges",
-                Source = colour,
-                Output = afterTonemap > 0 ? "SceneAntialiased" : frame.Output
+                Name = "Edges", Source = colour, Output = afterTonemap > 0 ? "SceneAntialiased" : frame.Output
             };
 
             // The preset picks a threshold set, never one number: the thresholds only mean
@@ -1229,9 +1222,7 @@ static class StandardFrame {
 
             nodes.Add(
                 new SmaaAsset {
-                    Name = "Edges",
-                    Source = colour,
-                    Output = afterTonemap > 0 ? "SceneAntialiased" : frame.Output
+                    Name = "Edges", Source = colour, Output = afterTonemap > 0 ? "SceneAntialiased" : frame.Output
                 }
             );
 
@@ -1245,9 +1236,7 @@ static class StandardFrame {
 
             nodes.Add(
                 new SharpenAsset {
-                    Name = "Recover",
-                    Source = colour,
-                    Output = afterTonemap > 0 ? "SceneSharpened" : frame.Output
+                    Name = "Recover", Source = colour, Output = afterTonemap > 0 ? "SceneSharpened" : frame.Output
                 }
             );
 
@@ -1292,12 +1281,10 @@ static class StandardFrame {
         Splice(nodes, frame.Extensions.BeforeUi);
 
         var root = new SequenceAsset {
-            Name = frame.Name is { Length: > 0 } name ? name : "Frame",
-            Enabled = frame.Enabled,
-            Children = [.. nodes]
+            Name = frame.Name is { Length: > 0 } name ? name : "Frame", Enabled = frame.Enabled, Children = [..nodes]
         };
 
-        return ([.. stages], [.. resources], root);
+        return ([..stages], [..resources], root);
     }
 
     static void Splice(List<ISceneRendererAsset> nodes, ISceneRendererAsset[] extras) {
@@ -1467,7 +1454,8 @@ static class StandardFrame {
                 "Edges" =>
                     "After the curve, unlike the resolve above: FXAA finds edges by luminance contrast, and "
                     + "contrast in scene-referred light is unbounded.",
-                "Recover" => "What the temporal resolve softened, put back — a frame with no history has nothing to recover.",
+                "Recover" =>
+                    "What the temporal resolve softened, put back — a frame with no history has nothing to recover.",
                 "Glass" => "Display-referred, dead last before the output: the vignette is the glass, not the scene.",
                 _ => null
             };

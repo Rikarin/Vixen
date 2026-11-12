@@ -84,7 +84,10 @@ public sealed class CrowdTests {
 
             // The only way through is the gap between x = 8 and x = 12.
             if (state.Position.Z is > 9.4f and < 10.6f) {
-                Assert.True(state.Position.X is > 7f and < 13f, $"The agent is at {state.Position}, which is inside the wall.");
+                Assert.True(
+                    state.Position.X is > 7f and < 13f,
+                    $"The agent is at {state.Position}, which is inside the wall."
+                );
                 crossedTheGap = true;
             }
         }
@@ -117,7 +120,10 @@ public sealed class CrowdTests {
         // Avoidance is a soft constraint and the separation pass is what recovers from the cases it
         // could not solve, so the bar is that they never seriously interpenetrate — not that they
         // never touch.
-        Assert.True(closest > 0.7f, $"The two agents got within {closest} of each other, and they are half a metre wide each.");
+        Assert.True(
+            closest > 0.7f,
+            $"The two agents got within {closest} of each other, and they are half a metre wide each."
+        );
 
         crowd.TryGetState(first, out var firstFinal);
         crowd.TryGetState(second, out var secondFinal);
@@ -148,7 +154,7 @@ public sealed class CrowdTests {
         var handles = new List<CrowdAgentHandle>();
 
         for (var index = 0; index < 8; index++) {
-            var handle = crowd.AddAgent(new(3 + (index % 4 * 1.5f), 0, 3 + (index / 4 * 1.5f)), Walker);
+            var handle = crowd.AddAgent(new(3 + index % 4 * 1.5f, 0, 3 + index / 4 * 1.5f), Walker);
             Assert.False(handle.IsNull);
             handles.Add(handle);
         }
@@ -193,7 +199,10 @@ public sealed class CrowdTests {
 
         // It walks as far as it can and stops there, on its own side of the gap.
         Assert.NotEqual(CrowdTargetState.Arrived, state.State);
-        Assert.True(state.Position.X < 11f, $"The agent reached {state.Position}, on the far side of a gap it cannot cross.");
+        Assert.True(
+            state.Position.X < 11f,
+            $"The agent reached {state.Position}, on the far side of a gap it cannot cross."
+        );
     }
 
     [Fact]

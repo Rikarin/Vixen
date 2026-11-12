@@ -24,7 +24,7 @@ public class GizmoGeometryTests {
     public void Nothing_selected_draws_nothing() {
         List<LineVertex> into = [];
 
-        Assert.Equal(0, GizmoGeometry.Build(new TransformGizmo(), new EditorCamera(), Height, into));
+        Assert.Equal(0, GizmoGeometry.Build(new(), new(), Height, into));
         Assert.Empty(into);
     }
 
@@ -113,7 +113,7 @@ public class GizmoGeometryTests {
         // A stroke is offset *across* its segment by a few pixels and a cone is only a few pixels
         // wide near its point, so a shaft drawn all the way to the tip shows up as a needle sticking
         // out of the arrowhead — three of them, at every camera angle.
-        Assert.Equal(expected * (1f - (gizmo.HeadLength * 0.5f)), tip.X, 3);
+        Assert.Equal(expected * (1f - gizmo.HeadLength * 0.5f), tip.X, 3);
 
         // What has to reach `HandleLength` is the handle, and the cone's point does. Drawn from the
         // same call the hit test uses, so an arm that looks grabbable is: a gizmo drawn longer than
@@ -121,7 +121,7 @@ public class GizmoGeometryTests {
         // that look dead and are not.
         var solid = Solid(gizmo, camera).Vertices;
 
-        Assert.Equal(expected, solid.Max(vertex => vertex.Position.X), 3);
+        Assert.Equal(expected, solid.Max(static vertex => vertex.Position.X), 3);
     }
 
     [Fact]
@@ -132,12 +132,12 @@ public class GizmoGeometryTests {
         GizmoGeometry.Build(gizmo, camera, Height, into);
 
         var axis = GizmoGeometry.AxisColour(0);
-        var strokes = into.Take((int) MathF.Round(gizmo.Thickness) * 2)
-            .Where((_, index) => index % 2 == 0)
-            .Select(vertex => vertex.Colour)
+        var strokes = into.Take((int)MathF.Round(gizmo.Thickness) * 2)
+            .Where(static (_, index) => index % 2 == 0)
+            .Select(static vertex => vertex.Colour)
             .ToArray();
 
-        Assert.Equal((int) MathF.Round(gizmo.Thickness), strokes.Length);
+        Assert.Equal((int)MathF.Round(gizmo.Thickness), strokes.Length);
 
         // ⚠ Every stroke the axis colour scaled, never the axis colour tinted. Which stroke a pixel
         // is on is where round a cylinder it would be, so the shade is a lighting term and a lighting
@@ -154,7 +154,7 @@ public class GizmoGeometryTests {
         // one-pixel lines reads as a painted stripe, and the same six lit as the surface of a
         // cylinder read as a shaft with the same solidity as the cone on the end of it.
         Assert.True(
-            strokes.Max(colour => colour.R) - strokes.Min(colour => colour.R) > 0.1f * axis.R,
+            strokes.Max(static colour => colour.R) - strokes.Min(static colour => colour.R) > 0.1f * axis.R,
             "the strokes of an arm are all one shade, so the shaft is drawn flat"
         );
     }
@@ -192,14 +192,17 @@ public class GizmoGeometryTests {
         // The first five segments are the x arm's five strokes. They run parallel to the axis and
         // are spread across it, which is what makes the arm look five pixels wide from every angle
         // rather than one pixel wide from the angle it was built for.
-        var origins = into.Where((_, index) => index % 2 == 0).Take(5).Select(vertex => vertex.Position).ToArray();
+        var origins = into.Where(static (_, index) => index % 2 == 0)
+            .Take(5)
+            .Select(static vertex => vertex.Position)
+            .ToArray();
 
         // ⚠ At `ArmStart` along the axis rather than at the origin. The arms are drawn from where the
         // hit test starts testing them, so the middle of the gizmo belongs to the centre handle in
         // the picture as well as in the arithmetic.
         Assert.All(origins, position => Assert.Equal(start, position.X, 5));
 
-        var spread = origins.Max(position => MathF.Abs(position.Y));
+        var spread = origins.Max(static position => MathF.Abs(position.Y));
 
         Assert.Equal(2f * pixel, spread, 5);
     }
@@ -211,7 +214,7 @@ public class GizmoGeometryTests {
 
         var pixel = gizmo.WorldPerPixel(camera, Height);
         var expected = pixel * gizmo.HandleLength * gizmo.ScreenRingScale;
-        var outermost = vertices.Max(vertex => vertex.Position.Length());
+        var outermost = vertices.Max(static vertex => vertex.Position.Length());
 
         // `HitTest` has always answered `Screen` for a circle out here and nothing drew it, so a
         // rotate gizmo had a band of pixels outside its three rings that turned the selection about
@@ -258,9 +261,9 @@ public class GizmoGeometryTests {
         // ⚠ Three dimensions, not two, and that is what the flat square held square to the camera
         // was not: a sticker on the front of a solid object, flat because a *square* on the object's
         // own axes is one you have to orbit to see square.
-        Assert.Contains(near, vertex => MathF.Abs(vertex.Position.X) > 1e-4f);
-        Assert.Contains(near, vertex => MathF.Abs(vertex.Position.Y) > 1e-4f);
-        Assert.Contains(near, vertex => MathF.Abs(vertex.Position.Z) > 1e-4f);
+        Assert.Contains(near, static vertex => MathF.Abs(vertex.Position.X) > 1e-4f);
+        Assert.Contains(near, static vertex => MathF.Abs(vertex.Position.Y) > 1e-4f);
+        Assert.Contains(near, static vertex => MathF.Abs(vertex.Position.Z) > 1e-4f);
 
         // ⚠ Every vertex the same distance out, and that distance is exactly the radius `HitTest`
         // answers within — which no shape before it could be. The square's half-side *was* the
@@ -332,8 +335,12 @@ public class GizmoGeometryTests {
         vertices.Any(vertex => MathF.Abs(vertex.Position.Length() - radius) < radius * 0.05f);
 
     /// <summary>
-    ///     ⚠ <b>You could see inside the middle box, and the cause is that the handles are drawn with
-    ///     no depth test and no culling.</b> Nothing decided which of a solid shape's own faces was in
+    ///     ⚠
+    ///     <b>
+    ///         You could see inside the middle box, and the cause is that the handles are drawn with
+    ///         no depth test and no culling.
+    ///     </b>
+    ///     Nothing decided which of a solid shape's own faces was in
     ///     front of which, so the answer was "whichever was appended last" — which for a cube is the
     ///     far side, drawn over the near one. The heads had the same fault and hid it better, because
     ///     a cone's far half is mostly behind its near half from any angle.
@@ -354,9 +361,9 @@ public class GizmoGeometryTests {
         Assert.NotEmpty(triangles);
 
         for (var index = 0; index + 2 < triangles.Count; index += 3) {
-            var a = vertices[(int) triangles[index]];
-            var b = vertices[(int) triangles[index + 1]];
-            var c = vertices[(int) triangles[index + 2]];
+            var a = vertices[(int)triangles[index]];
+            var b = vertices[(int)triangles[index + 1]];
+            var c = vertices[(int)triangles[index + 2]];
 
             // ⚠ The plane quads are exempt and have to be: a translucent square that vanished when
             // you orbited past its plane would be a handle that is grabbable and invisible from one
@@ -412,7 +419,7 @@ public class GizmoGeometryTests {
         List<LineVertex> into = [];
         var (gizmo, _, camera) = One(GizmoMode.Translate);
 
-        gizmo.Begin(GizmoHandle.AxisX, camera.PickingRay(new Vector2(500f, 400f), 1000, Height), camera);
+        gizmo.Begin(GizmoHandle.AxisX, camera.PickingRay(new(500f, 400f), 1000, Height), camera);
         gizmo.Hovered = GizmoHandle.None;
 
         GizmoGeometry.Build(gizmo, camera, Height, into);
@@ -423,7 +430,7 @@ public class GizmoGeometryTests {
         // ⚠ Proportional to the highlight colour rather than equal to it. The strokes of an arm are
         // shaded across its width as though it were a cylinder — see `GizmoGeometry.Segment` — so
         // what says "highlighted" is the hue and not the value.
-        var highlight = GizmoGeometry.AxisColour(0, highlighted: true);
+        var highlight = GizmoGeometry.AxisColour(0, true);
         var drawn = into[0].Colour;
         var shade = drawn.R / highlight.R;
 
@@ -452,9 +459,8 @@ public class GizmoGeometryTests {
     ///     once, so anything that took the list's first vertex or its extreme along one axis would be
     ///     measuring a quad's corner and calling it an arrowhead.
     /// </remarks>
-    static MeshVertex[] Head(List<MeshVertex> vertices, int axis, float scale) =>
-        [
-            .. vertices.Where(vertex => {
+    static MeshVertex[] Head(List<MeshVertex> vertices, int axis, float scale) => [
+        ..vertices.Where(vertex => {
                 var position = vertex.Position;
 
                 var along = axis switch {
@@ -463,11 +469,12 @@ public class GizmoGeometryTests {
                     _ => position.Z
                 };
 
-                var across = (position - (Axis(axis) * along)).Length();
+                var across = (position - Axis(axis) * along).Length();
 
                 return along > scale * 0.5f && across < scale * 0.2f;
-            })
-        ];
+            }
+        )
+    ];
 
     static Vector3 Axis(int index) =>
         index switch {
@@ -505,8 +512,8 @@ public class GizmoGeometryTests {
 
         var head = Head(vertices, 0, scale);
 
-        var tip = head.Max(vertex => vertex.Position.X);
-        var back = head.Min(vertex => vertex.Position.X);
+        var tip = head.Max(static vertex => vertex.Position.X);
+        var back = head.Min(static vertex => vertex.Position.X);
 
         // The tip lands exactly where the shaft ends, and the base a head's length behind it. A cone
         // centred on the arm's end instead would bury half of itself in the shaft and leave the arm
@@ -523,12 +530,12 @@ public class GizmoGeometryTests {
         // ⚠ `MeshRenderer` deliberately does not offset indices — a caller building a frame knows
         // where each mesh began and it does not — so an unoffset index names another head's vertex,
         // which draws a triangle stretched between two arms.
-        Assert.All(triangles, index => Assert.True(index < (uint) vertices.Count));
+        Assert.All(triangles, index => Assert.True(index < (uint)vertices.Count));
 
-        var x = vertices.Where(vertex => MathF.Abs(vertex.Position.Y) < 1e-3f).ToArray();
+        var x = vertices.Where(static vertex => MathF.Abs(vertex.Position.Y) < 1e-3f).ToArray();
 
         Assert.NotEmpty(x);
-        Assert.All(vertices, vertex => Assert.Equal(1f, vertex.Normal.Length(), 3));
+        Assert.All(vertices, static vertex => Assert.Equal(1f, vertex.Normal.Length(), 3));
     }
 
     [Fact]
@@ -560,8 +567,8 @@ public class GizmoGeometryTests {
         // ⚠ A scale gizmo has no plane handles, so its solid list is heads and the middle box and
         // nothing else. A translate one has three quads' worth of vertices on top of its heads — of
         // which one is drawn from this angle and two are edge-on and skipped.
-        Assert.All(cubes.Vertices, vertex => Assert.Equal(1f, vertex.Colour.A));
-        Assert.Contains(cones.Vertices, vertex => vertex.Colour.A < 1f);
+        Assert.All(cubes.Vertices, static vertex => Assert.Equal(1f, vertex.Colour.A));
+        Assert.Contains(cones.Vertices, static vertex => vertex.Colour.A < 1f);
 
         // A rotate gizmo is four tubes and nothing else: every vertex of it is out at ring radius,
         // give or take the tube's own thickness. Nothing is at the middle, where a solid lump would
@@ -594,7 +601,7 @@ public class GizmoGeometryTests {
 
         Assert.Equal(plain.Vertices.Count, hovered.Vertices.Count);
         Assert.NotEmpty(after);
-        Assert.All(after, vertex => Assert.Equal(GizmoGeometry.AxisColour(0, highlighted: true), vertex.Colour));
+        Assert.All(after, static vertex => Assert.Equal(GizmoGeometry.AxisColour(0, true), vertex.Colour));
         Assert.NotEqual(before[0].Colour, after[0].Colour);
     }
 
@@ -603,7 +610,10 @@ public class GizmoGeometryTests {
         List<MeshVertex> vertices = [];
         List<uint> triangles = [];
 
-        Assert.Equal(0, GizmoGeometry.BuildSolid(new TransformGizmo(), new EditorCamera(), Height, vertices, triangles));
+        Assert.Equal(
+            0,
+            GizmoGeometry.BuildSolid(new(), new(), Height, vertices, triangles)
+        );
         Assert.Empty(vertices);
         Assert.Empty(triangles);
     }
@@ -612,7 +622,7 @@ public class GizmoGeometryTests {
     public void A_handle_under_the_pointer_goes_darker_rather_than_paler() {
         for (var axis = 0; axis < 3; axis++) {
             var plain = GizmoGeometry.AxisColour(axis);
-            var hovered = GizmoGeometry.AxisColour(axis, highlighted: true);
+            var hovered = GizmoGeometry.AxisColour(axis, true);
 
             // ⚠ Darker, and by a scale rather than a blend. Every pixel of a handle is its colour
             // times a shading term, so brightness is the channel that says which way a surface faces
@@ -631,7 +641,7 @@ public class GizmoGeometryTests {
         }
 
         var ball = GizmoGeometry.NeutralColour();
-        var grabbed = GizmoGeometry.NeutralColour(highlighted: true);
+        var grabbed = GizmoGeometry.NeutralColour(true);
 
         Assert.True(grabbed.R < ball.R, "the middle handle gets lighter under the pointer, not darker");
     }

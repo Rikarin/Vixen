@@ -13,8 +13,7 @@ public class RequirementTests {
             .Add("State.InCombat")
             .Build();
 
-    static GameplaySubject Subject() =>
-        new(new AttributeLayoutBuilder().Add("Level", 1f).Add("Power", 100f).Build());
+    static GameplaySubject Subject() => new(new AttributeLayoutBuilder().Add("Level", 1f).Add("Power", 100f).Build());
 
     [Fact]
     public void ThePlanDocumentsExampleReadsBackTheWayItIsWritten() {
@@ -23,7 +22,12 @@ public class RequirementTests {
 
         var requirements = RequirementSet.Compile(
             [
-                new() { Kind = RequirementKind.Value, Subject = "Level", Comparison = RequirementComparison.AtLeast, Value = 80f },
+                new() {
+                    Kind = RequirementKind.Value,
+                    Subject = "Level",
+                    Comparison = RequirementComparison.AtLeast,
+                    Value = 80f
+                },
                 new() { Kind = RequirementKind.HasTag, Subject = "Profession.Smithing" },
                 new() { Kind = RequirementKind.NotHasTag, Subject = "State.InCombat" }
             ],
@@ -50,7 +54,12 @@ public class RequirementTests {
 
         var requirements = RequirementSet.Compile(
             [
-                new() { Kind = RequirementKind.Value, Subject = "Level", Comparison = RequirementComparison.AtLeast, Value = 80f },
+                new() {
+                    Kind = RequirementKind.Value,
+                    Subject = "Level",
+                    Comparison = RequirementComparison.AtLeast,
+                    Value = 80f
+                },
                 new() { Kind = RequirementKind.HasTag, Subject = "Profession.Smithing" }
             ],
             tags
@@ -87,14 +96,28 @@ public class RequirementTests {
         var tags = Tags();
 
         var expensive = RequirementSet.Compile(
-            [new() { Kind = RequirementKind.Value, Subject = "Currency.Gold", Comparison = RequirementComparison.AtLeast, Value = 500f }],
+            [
+                new() {
+                    Kind = RequirementKind.Value,
+                    Subject = "Currency.Gold",
+                    Comparison = RequirementComparison.AtLeast,
+                    Value = 500f
+                }
+            ],
             tags
         );
 
         Assert.False(expensive.IsMetBy(Subject()));
 
         var free = RequirementSet.Compile(
-            [new() { Kind = RequirementKind.Value, Subject = "Currency.Gold", Comparison = RequirementComparison.AtMost, Value = 500f }],
+            [
+                new() {
+                    Kind = RequirementKind.Value,
+                    Subject = "Currency.Gold",
+                    Comparison = RequirementComparison.AtMost,
+                    Value = 500f
+                }
+            ],
             tags
         );
 
@@ -132,7 +155,14 @@ public class RequirementTests {
         subject.Attributes.Add(new(AttributeId.From("Power"), ModifierOp.Add, 200f, ModifierSource.From(new(1), 1)));
 
         var requirements = RequirementSet.Compile(
-            [new() { Kind = RequirementKind.Value, Subject = "Power", Comparison = RequirementComparison.AtLeast, Value = 250f }],
+            [
+                new() {
+                    Kind = RequirementKind.Value,
+                    Subject = "Power",
+                    Comparison = RequirementComparison.AtLeast,
+                    Value = 250f
+                }
+            ],
             tags
         );
 

@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using CsCheck;
-using Vixen.Core.Mathematics;
 using Xunit;
 
 namespace Vixen.Core.Mathematics.Tests;
@@ -55,7 +54,7 @@ public sealed class GamutMapTests {
     [InlineData(ColorGamut.DisplayP3)]
     [InlineData(ColorGamut.Rec2020)]
     public void White_is_white_in_every_gamut(ColorGamut gamut) {
-        var white = GamutMap.FromLinearSrgb(new Vector3(1f, 1f, 1f), gamut);
+        var white = GamutMap.FromLinearSrgb(new(1f, 1f, 1f), gamut);
 
         Assert.Equal(1f, white.X, 4);
         Assert.Equal(1f, white.Y, 4);
@@ -72,9 +71,9 @@ public sealed class GamutMapTests {
     /// </summary>
     [Fact]
     public void The_derived_P3_matrix_matches_the_published_one() {
-        var red = GamutMap.FromLinearSrgb(new Vector3(1f, 0f, 0f), ColorGamut.DisplayP3);
-        var green = GamutMap.FromLinearSrgb(new Vector3(0f, 1f, 0f), ColorGamut.DisplayP3);
-        var blue = GamutMap.FromLinearSrgb(new Vector3(0f, 0f, 1f), ColorGamut.DisplayP3);
+        var red = GamutMap.FromLinearSrgb(new(1f, 0f, 0f), ColorGamut.DisplayP3);
+        var green = GamutMap.FromLinearSrgb(new(0f, 1f, 0f), ColorGamut.DisplayP3);
+        var blue = GamutMap.FromLinearSrgb(new(0f, 0f, 1f), ColorGamut.DisplayP3);
 
         Assert.Equal(0.822462f, red.X, 4);
         Assert.Equal(0.033194f, red.Y, 4);
@@ -98,8 +97,8 @@ public sealed class GamutMapTests {
     [InlineData(ColorGamut.Rec2020)]
     public void Rebasing_onto_a_gamut_and_back_is_an_identity(ColorGamut gamut) {
         foreach (var colour in new[] {
-            new Vector3(0.2f, 0.7f, 0.4f), new Vector3(1f, 0f, 0f), new Vector3(0.05f, 0.05f, 0.9f)
-        }) {
+                     new Vector3(0.2f, 0.7f, 0.4f), new Vector3(1f, 0f, 0f), new Vector3(0.05f, 0.05f, 0.9f)
+                 }) {
             var round = GamutMap.ToLinearSrgb(GamutMap.FromLinearSrgb(colour, gamut), gamut);
 
             Assert.Equal(colour.X, round.X, 4);
@@ -245,7 +244,7 @@ public sealed class GamutMapTests {
     /// </summary>
     [Fact]
     public void Lightness_outside_the_range_maps_to_white_or_black() {
-        Assert.Equal(new Vector3(1f, 1f, 1f), GamutMap.Map(new Vector3(4f, 4f, 4f), ColorGamut.Srgb));
+        Assert.Equal(new(1f, 1f, 1f), GamutMap.Map(new Vector3(4f, 4f, 4f), ColorGamut.Srgb));
         Assert.Equal(default, GamutMap.Map(new Vector3(-1f, -1f, -1f), ColorGamut.Srgb));
     }
 
@@ -260,11 +259,11 @@ public sealed class GamutMapTests {
     /// <summary>ΔE<sub>OK</sub> is a Euclidean distance in Oklab, nothing more.</summary>
     [Fact]
     public void The_difference_metric_is_a_plain_distance() {
-        Assert.Equal(0f, GamutMap.DeltaEOk(new Oklab(0.5f, 0.1f, 0.1f), new Oklab(0.5f, 0.1f, 0.1f)));
+        Assert.Equal(0f, GamutMap.DeltaEOk(new(0.5f, 0.1f, 0.1f), new(0.5f, 0.1f, 0.1f)));
 
         Assert.Equal(
             5f,
-            GamutMap.DeltaEOk(new Oklab(0f, 0f, 0f), new Oklab(3f, 4f, 0f)),
+            GamutMap.DeltaEOk(new(0f, 0f, 0f), new(3f, 4f, 0f)),
             4
         );
     }
@@ -290,7 +289,8 @@ public sealed class GamutMapTests {
     }
 
     /// <summary>
-    ///     CSS Color 4 writes the lightness branches before the in-gamut test; <see cref="GamutMap.Map(Vector3, ColorGamut)" />
+    ///     CSS Color 4 writes the lightness branches before the in-gamut test;
+    ///     <see cref="GamutMap.Map(Vector3, ColorGamut)" />
     ///     asks the in-gamut question first so that a showable colour never pays for
     ///     <see cref="Oklab.FromLinear" />'s three cube roots. This pins that the swap is free.
     /// </summary>
@@ -307,18 +307,19 @@ public sealed class GamutMapTests {
         var channel = Gen.Float[-0.5f, 1.5f];
 
         Gen.Select(channel, channel, channel, Gen.Int[0, 2])
-            .Sample(sample => {
-                var (r, g, b, which) = sample;
-                var colour = new Vector3(r, g, b);
-                var gamut = (ColorGamut) which;
+            .Sample(static sample => {
+                    var (r, g, b, which) = sample;
+                    var colour = new Vector3(r, g, b);
+                    var gamut = (ColorGamut)which;
 
-                var actual = GamutMap.Map(colour, gamut);
-                var expected = SpecificationOrder(colour, gamut);
+                    var actual = GamutMap.Map(colour, gamut);
+                    var expected = SpecificationOrder(colour, gamut);
 
-                Assert.Equal(expected.X, actual.X, 4);
-                Assert.Equal(expected.Y, actual.Y, 4);
-                Assert.Equal(expected.Z, actual.Z, 4);
-            });
+                    Assert.Equal(expected.X, actual.X, 4);
+                    Assert.Equal(expected.Y, actual.Y, 4);
+                    Assert.Equal(expected.Z, actual.Z, 4);
+                }
+            );
     }
 
     /// <summary>The lightness branches ahead of the in-gamut test, as CSS Color 4 § 14.2 writes them.</summary>
@@ -326,7 +327,7 @@ public sealed class GamutMapTests {
         var origin = Oklab.FromLinear(linear);
 
         if (origin.L >= 1f) {
-            return new Vector3(1f, 1f, 1f);
+            return new(1f, 1f, 1f);
         }
 
         if (origin.L <= 0f) {

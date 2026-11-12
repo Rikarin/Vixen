@@ -17,8 +17,12 @@ namespace Vixen.Ai.Diagnostics.Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>There is no device anywhere in this file, and that is the criterion rather than a
-///         convenience.</b> Everything the debugger produces lands in a <see cref="DebugDraw" />'s
+///         ⚠
+///         <b>
+///             There is no device anywhere in this file, and that is the criterion rather than a
+///             convenience.
+///         </b>
+///         Everything the debugger produces lands in a <see cref="DebugDraw" />'s
 ///         three lists — world lines, world labels, screen lines — so a test reads the geometry
 ///         directly. <c>ConstraintGizmos</c> established the arrangement and doc 37 § D20 adopts it,
 ///         because an overlay that could only be checked by looking at it is one that quietly stops
@@ -141,14 +145,13 @@ public class AiOverlayExitCriteriaTests {
 
         var draw = new DebugDraw();
         var debugger = new AiGameplayDebugger {
-            Style = new() { Categories = AiDebugCategory.Agent, Range = 5f, MaximumAgents = 1 },
-            Selected = distant
+            Style = new() { Categories = AiDebugCategory.Agent, Range = 5f, MaximumAgents = 1 }, Selected = distant
         };
 
         debugger.Draw(draw, fixture.System, fixture.World);
 
         Assert.Equal(1, debugger.DrawnAgents);
-        Assert.Contains(draw.Texts.ToArray(), text => text.Position.Z > 800f);
+        Assert.Contains(draw.Texts.ToArray(), static text => text.Position.Z > 800f);
     }
 
     /// <summary>
@@ -157,7 +160,7 @@ public class AiOverlayExitCriteriaTests {
     ///     draws one circle.
     /// </summary>
     [Fact]
-    public void ASensingAgentGetsItsConeAndBothOfItsSightRadii()  {
+    public void ASensingAgentGetsItsConeAndBothOfItsSightRadii() {
         using var fixture = new OverlayFixture();
 
         fixture.Sense();
@@ -165,8 +168,7 @@ public class AiOverlayExitCriteriaTests {
 
         var draw = new DebugDraw();
         var debugger = new AiGameplayDebugger {
-            Style = new() { Categories = AiDebugCategory.Shapes, Range = 0f },
-            Perception = fixture.Perception
+            Style = new() { Categories = AiDebugCategory.Shapes, Range = 0f }, Perception = fixture.Perception
         };
 
         debugger.Draw(draw, fixture.System, fixture.World);
@@ -229,13 +231,11 @@ sealed class OverlayFixture : IDisposable {
     readonly AgentActionRegistry registry = new();
 
     public OverlayFixture() {
-        registry.Register("wander", new Idle(), 0);
-        registry.Register("run", new Idle(), 0);
+        registry.Register("wander", new Idle());
+        registry.Register("run", new Idle());
 
         System = new(registry, Layout);
-        System.Sets.Add(
-            new UtilitySet(Symbol.Intern("villager"), Candidate("wander", 0, 0.2f), Candidate("run", 1, 0.9f))
-        );
+        System.Sets.Add(new(Symbol.Intern("villager"), Candidate("wander", 0, 0.2f), Candidate("run", 1, 0.9f)));
 
         World = new("overlay");
         First = Add(Vector3.Zero);
@@ -253,8 +253,7 @@ sealed class OverlayFixture : IDisposable {
     public Entity First { get; }
 
     /// <summary>Adds an agent at a position.</summary>
-    public Entity Add(Vector3 at) =>
-        World.Create(AiAgent.Scoring(0), LocalTransform.At(at));
+    public Entity Add(Vector3 at) => World.Create(AiAgent.Scoring(0), LocalTransform.At(at));
 
     /// <summary>Gives the first agent senses, and something to sense.</summary>
     public void Sense() {

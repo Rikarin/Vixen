@@ -125,8 +125,7 @@ public sealed class BitCodecTests {
     public void AFieldWidthThatIsNotAFieldWidth_Throws(int width) {
         var invalid = width == 1 ? 0 : width;
 
-        Assert.Throws<ArgumentOutOfRangeException>(
-            () => {
+        Assert.Throws<ArgumentOutOfRangeException>(() => {
                 Span<byte> buffer = stackalloc byte[8];
                 var writer = new BitWriter(buffer);
                 writer.Write(1, invalid);
@@ -249,13 +248,13 @@ public sealed class BitCodecTests {
         Assert.InRange(range.MaxError, 0.01f, 0.02f);
 
         for (var i = 0; i < 1000; i++) {
-            var value = (float)((random.NextDouble() * 2000.0) - 1000.0);
+            var value = (float)(random.NextDouble() * 2000.0 - 1000.0);
             var round = range.Decode(range.Encode(value));
 
             // MaxError is the quantization error. The decoded value is then rounded to the nearest
             // float, so the bound is that plus half a ULP of the result — which at 640 is 3e-5
             // against a stated 1.5e-2, and is the reason the arithmetic inside is done in double.
-            var slack = range.MaxError + (Math.Abs(value) * 1.2e-7f);
+            var slack = range.MaxError + Math.Abs(value) * 1.2e-7f;
 
             Assert.InRange(round, value - slack, value + slack);
         }
@@ -309,11 +308,10 @@ public sealed class BitCodecTests {
         Assert.False(new QuantizeRange(0f, 1f, 33).IsValid);
         Assert.False(new QuantizeRange(0f, float.PositiveInfinity, 8).IsValid);
 
-        Assert.Throws<ArgumentOutOfRangeException>(
-            () => {
+        Assert.Throws<ArgumentOutOfRangeException>(static () => {
                 Span<byte> buffer = stackalloc byte[8];
                 var writer = new BitWriter(buffer);
-                writer.WriteQuantized(0.5f, new QuantizeRange(1f, 0f, 8));
+                writer.WriteQuantized(0.5f, new(1f, 0f, 8));
             }
         );
     }

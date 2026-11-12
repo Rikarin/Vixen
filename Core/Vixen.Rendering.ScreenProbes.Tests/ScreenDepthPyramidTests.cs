@@ -24,8 +24,10 @@ public class ScreenDepthPyramidTests {
         new Vector4(0f, 0f, 0.5f, 1f)
     );
 
-    /// <summary>A camera whose arithmetic a closed form can do by hand: looking down +Z from the
-    ///     origin, ndc.x = x/z, ndc.y = y/z, device depth = 1/z — reversed, near plane at one.</summary>
+    /// <summary>
+    ///     A camera whose arithmetic a closed form can do by hand: looking down +Z from the
+    ///     origin, ndc.x = x/z, ndc.y = y/z, device depth = 1/z — reversed, near plane at one.
+    /// </summary>
     static readonly Matrix4x4 Forward = new(
         new Vector4(1f, 0f, 0f, 0f),
         new Vector4(0f, 1f, 0f, 0f),
@@ -41,15 +43,15 @@ public class ScreenDepthPyramidTests {
         var pyramid = new ScreenDepthPyramid(new(8, 3));
 
         Assert.Equal(4, pyramid.Levels);
-        Assert.Equal(new Int2(8, 3), pyramid.SizeOf(0));
-        Assert.Equal(new Int2(4, 1), pyramid.SizeOf(1));
-        Assert.Equal(new Int2(2, 1), pyramid.SizeOf(2));
-        Assert.Equal(new Int2(1, 1), pyramid.SizeOf(3));
+        Assert.Equal(new(8, 3), pyramid.SizeOf(0));
+        Assert.Equal(new(4, 1), pyramid.SizeOf(1));
+        Assert.Equal(new(2, 1), pyramid.SizeOf(2));
+        Assert.Equal(new(1, 1), pyramid.SizeOf(3));
 
         var depth = new float[8 * 3];
 
-        depth[(1 * 8) + 1] = 0.75f;
-        depth[(0 * 8) + 6] = 0.5f;
+        depth[1 * 8 + 1] = 0.75f;
+        depth[0 * 8 + 6] = 0.5f;
 
         pyramid.Build(depth);
 
@@ -72,7 +74,7 @@ public class ScreenDepthPyramidTests {
         var surface = Screen(out var pyramid);
         var trace = new ScreenSpaceTrace(surface) { ViewProjection = Camera, Steps = 64, Thickness = 0.05f };
 
-        AssertAgreement(trace, pyramid, exactPixels: true);
+        AssertAgreement(trace, pyramid, true);
     }
 
     [Fact]
@@ -85,7 +87,7 @@ public class ScreenDepthPyramidTests {
         var surface = Screen(out var pyramid);
         var trace = new ScreenSpaceTrace(surface) { ViewProjection = Perspective, Steps = 64, Thickness = 0.05f };
 
-        AssertAgreement(trace, pyramid, exactPixels: false);
+        AssertAgreement(trace, pyramid, false);
     }
 
     [Fact]
@@ -149,10 +151,7 @@ public class ScreenDepthPyramidTests {
 
         foreach (var withPyramid in new[] { false, true }) {
             var trace = new ScreenSpaceTrace(surface) {
-                ViewProjection = Forward,
-                Steps = 64,
-                Thickness = 0.02f,
-                Pyramid = withPyramid ? pyramid : null
+                ViewProjection = Forward, Steps = 64, Thickness = 0.02f, Pyramid = withPyramid ? pyramid : null
             };
 
             Assert.True(trace.TryHit(origin, direction, 5f, out _), $"device shell missed, pyramid {withPyramid}");
@@ -168,7 +167,7 @@ public class ScreenDepthPyramidTests {
                 $"the crossing ray missed, pyramid {withPyramid}"
             );
 
-            Assert.Equal(new Int2(4, 4), pixel);
+            Assert.Equal(new(4, 4), pixel);
         }
     }
 
@@ -196,7 +195,7 @@ public class ScreenDepthPyramidTests {
 
         for (var y = 0; y < 32; y++) {
             for (var x = 0; x < 32; x++) {
-                surface.Depth[(y * 32) + x] = (4f + (0.5f * WorldX(x))) / 8f;
+                surface.Depth[y * 32 + x] = (4f + 0.5f * WorldX(x)) / 8f;
             }
         }
 
@@ -206,11 +205,11 @@ public class ScreenDepthPyramidTests {
 
         var normal = Vector3.Normalize(new(-0.5f, 0f, 1f));
         var tangent = Vector3.Normalize(new(-1f, 0f, -0.5f));
-        var position = new Vector3(WorldX(16), 0f, -5f + (0.5f * WorldX(16)));
+        var position = new Vector3(WorldX(16), 0f, -5f + 0.5f * WorldX(16));
 
         // Just off the tangent: above the plane, and pointed down it — a hemisphere's commonest ray.
-        var direction = Vector3.Normalize(tangent + (normal * 0.15f));
-        var origin = position + (normal * 0.01f);
+        var direction = Vector3.Normalize(tangent + normal * 0.15f);
+        var origin = position + normal * 0.01f;
 
         foreach (var withPyramid in new[] { false, true }) {
             var trace = new ScreenSpaceTrace(surface) {
@@ -220,7 +219,10 @@ public class ScreenDepthPyramidTests {
                 Pyramid = withPyramid ? pyramid : null
             };
 
-            Assert.False(trace.TryHit(origin, direction, 4f, out var pixel), $"stopped at {pixel}, pyramid {withPyramid}");
+            Assert.False(
+                trace.TryHit(origin, direction, 4f, out var pixel),
+                $"stopped at {pixel}, pyramid {withPyramid}"
+            );
 
             // And the guard is not a hole: a wall the buffer shows in front of a ray still stops
             // it, including one that lives in the ray's own texel — this ray runs straight down the
@@ -238,12 +240,15 @@ public class ScreenDepthPyramidTests {
 
             walled.Pyramid?.Build(wall.Depth);
 
-            Assert.True(walled.TryHit(new(0f, 0f, -2f), new(0f, 0f, -1f), 8f, out _), $"the wall missed, pyramid {withPyramid}");
+            Assert.True(
+                walled.TryHit(new(0f, 0f, -2f), new(0f, 0f, -1f), 8f, out _),
+                $"the wall missed, pyramid {withPyramid}"
+            );
         }
     }
 
     /// <summary>The world x a pixel column stands at — ndc.x = x / 2 under the fixture's camera.</summary>
-    static float WorldX(int column) => 2f * ((((column + 0.5f) / 32f) * 2f) - 1f);
+    static float WorldX(int column) => 2f * ((column + 0.5f) / 32f * 2f - 1f);
 
     /// <summary>Both marches over one camera's grid of rays: naive implies fast, same pixels.</summary>
     static void AssertAgreement(ScreenSpaceTrace trace, ScreenDepthPyramid pyramid, bool exactPixels) {
@@ -292,13 +297,15 @@ public class ScreenDepthPyramidTests {
         Assert.True(hits > 20, $"only {hits} of {checked_} rays hit — the fixture referees too little");
     }
 
-    /// <summary>A big, almost-empty screen: a long ray across the sky must cost the pyramid a
-    ///     handful of fetches where the naive march pays per step.</summary>
+    /// <summary>
+    ///     A big, almost-empty screen: a long ray across the sky must cost the pyramid a
+    ///     handful of fetches where the naive march pays per step.
+    /// </summary>
     static void Skip(Matrix4x4 camera, Vector3 origin) {
         var surface = new ReconstructedScreenSurface(new(64, 64));
         var pyramid = new ScreenDepthPyramid(new(64, 64));
 
-        surface.Depth[(63 * 64) + 63] = 0.9f;
+        surface.Depth[63 * 64 + 63] = 0.9f;
         pyramid.Build(surface.Depth);
 
         var trace = new ScreenSpaceTrace(surface) { ViewProjection = camera, Steps = 64, Thickness = 0.05f };
@@ -324,7 +331,7 @@ public class ScreenDepthPyramidTests {
 
         for (var y = 0; y < 8; y++) {
             for (var x = 0; x < 8; x++) {
-                var at = (y * 8) + x;
+                var at = y * 8 + x;
 
                 surface.Depth[at] = x == 7 ? 0f : x is >= 3 and <= 5 && y is >= 2 and <= 5 ? 0.75f : 0.5f;
             }

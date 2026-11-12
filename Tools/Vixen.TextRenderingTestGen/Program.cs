@@ -125,7 +125,7 @@ static class Program {
                 // expectation is a contour rather than a position.
                 if ((string?)element.Attribute(FontTest + "var") is { } axes) {
                     if (VariationGroups.Contains(group, StringComparer.Ordinal)) {
-                        variable.Add(new VariationCase(id, font, axes, render, ReadOutlines(element)));
+                        variable.Add(new(id, font, axes, render, ReadOutlines(element)));
                     } else {
                         skippedVariable++;
                     }
@@ -138,15 +138,15 @@ static class Program {
                     continue;
                 }
 
-                cases.Add(new Case(id, font, render, ReadGlyphs(element, id)));
+                cases.Add(new(id, font, render, ReadGlyphs(element, id)));
             }
         }
 
         cases.Sort(static (left, right) => CompareIds(left.Id, right.Id));
         variable.Sort(static (left, right) => CompareIds(left.Id, right.Id));
 
-        var fonts = cases.Select(entry => entry.Font)
-            .Concat(variable.Select(entry => entry.Font))
+        var fonts = cases.Select(static entry => entry.Font)
+            .Concat(variable.Select(static entry => entry.Font))
             .Distinct(StringComparer.Ordinal)
             .Order(StringComparer.Ordinal)
             .ToList();
@@ -155,15 +155,19 @@ static class Program {
 
         foreach (var font in fonts) {
             var from = Path.Combine(source, "fonts", font);
-            File.Copy(from, Path.Combine(fontDirectory, font), overwrite: true);
+            File.Copy(from, Path.Combine(fontDirectory, font), true);
             bytes += new FileInfo(from).Length;
         }
 
         WriteData(Path.Combine(tests, "ShapingConformance.data"), cases);
         WriteVariationData(Path.Combine(tests, "VariationConformance.data"), variable);
 
-        Console.WriteLine($"{cases.Count} shaping cases, {variable.Count} variation cases, {fonts.Count} fonts ({bytes / 1024} KiB)");
-        Console.WriteLine($"skipped: {skippedGroups} out-of-scope, {skippedVariable} variable-font without an outline oracle");
+        Console.WriteLine(
+            $"{cases.Count} shaping cases, {variable.Count} variation cases, {fonts.Count} fonts ({bytes / 1024} KiB)"
+        );
+        Console.WriteLine(
+            $"skipped: {skippedGroups} out-of-scope, {skippedVariable} variable-font without an outline oracle"
+        );
         return 0;
     }
 
@@ -219,7 +223,7 @@ static class Program {
                 continue;
             }
 
-            glyphs.Add(new Glyph(href[prefix.Length..], Coordinate(use, "x"), Coordinate(use, "y")));
+            glyphs.Add(new(href[prefix.Length..], Coordinate(use, "x"), Coordinate(use, "y")));
         }
 
         return glyphs;
@@ -250,7 +254,7 @@ static class Program {
             var path = symbol.Descendants().FirstOrDefault(static node => node.Name.LocalName == "path");
 
             if (id is not null && path is not null) {
-                symbols[id] = ((string?)path.Attribute("d") ?? "").Trim();
+                symbols[id] = ((string?)path.Attribute("d") ?? string.Empty).Trim();
             }
         }
 
@@ -262,7 +266,7 @@ static class Program {
             if (href is not null && href.StartsWith('#')) {
                 // A glyph the case draws but gives no symbol for draws nothing, and an empty path is
                 // the honest expectation for it rather than a dropped entry that shortens the list.
-                outlines.Add(symbols.TryGetValue(href[1..], out var path) ? path : "");
+                outlines.Add(symbols.TryGetValue(href[1..], out var path) ? path : string.Empty);
             }
         }
 
@@ -270,7 +274,12 @@ static class Program {
     }
 
     static double Coordinate(XElement element, string name) =>
-        double.TryParse((string?)element.Attribute(name), NumberStyles.Float, CultureInfo.InvariantCulture, out var value)
+        double.TryParse(
+            (string?)element.Attribute(name),
+            NumberStyles.Float,
+            CultureInfo.InvariantCulture,
+            out var value
+        )
             ? value
             : 0;
 

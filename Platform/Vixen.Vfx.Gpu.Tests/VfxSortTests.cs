@@ -43,7 +43,7 @@ public sealed class VfxSortTests {
 
         var trees = new[] { "Core/Math.rvn", "Vfx/ParticleSort.rvn" }
             .Select(name => Path.Combine(root, name))
-            .Select(path => SyntaxTree.ParseText(File.ReadAllText(path), path: Path.GetFileName(path)))
+            .Select(static path => SyntaxTree.ParseText(File.ReadAllText(path), path: Path.GetFileName(path)))
             .ToArray();
 
         foreach (var tree in trees) {
@@ -58,7 +58,7 @@ public sealed class VfxSortTests {
         var module = Lowerer.Lower(compilation, bag);
 
         IrVerifier.Verify(module, bag);
-        Assert.True(bag.IsEmpty, string.Join("\n", bag.ToArray().Select(d => d.ToString())));
+        Assert.True(bag.IsEmpty, string.Join("\n", bag.ToArray().Select(static d => d.ToString())));
 
         var backend = TargetBackends.Create("spirv");
 
@@ -66,7 +66,7 @@ public sealed class VfxSortTests {
 
         var generated = backend.Generate(module, bag);
 
-        Assert.True(bag.IsEmpty, string.Join("\n", bag.ToArray().Select(d => d.ToString())));
+        Assert.True(bag.IsEmpty, string.Join("\n", bag.ToArray().Select(static d => d.ToString())));
 
         Dictionary<string, byte[]> kernels = [];
 
@@ -127,11 +127,14 @@ public sealed class VfxSortTests {
     /// </summary>
     [Fact]
     public void The_padding_sorts_behind_every_live_particle() {
-        using var run = Run(VfxSortMode.ByDepth, new Vector3(3f, 2f, -14f));
+        using var run = Run(VfxSortMode.ByDepth, new(3f, 2f, -14f));
 
         // Everything the draw reads is a live slot, and nothing live is missing from it.
         Assert.Equal(Count, run.Actual.Length);
-        Assert.All(run.Actual, slot => Assert.True(slot < Count, $"slot {slot} is padding and is inside the draw"));
+        Assert.All(
+            run.Actual,
+            static slot => Assert.True(slot < Count, $"slot {slot} is padding and is inside the draw")
+        );
         Assert.Equal(Count, run.Actual.Distinct().Count());
     }
 
@@ -164,7 +167,7 @@ public sealed class VfxSortTests {
             particles.Spawn(Count, out var first);
             VfxSimulation.Initialize(particles, graph.Initializers, first, Count, 5u);
 
-            VfxSimulation.Update(particles, graph.Updaters, 1f / 60f, 0f);
+            VfxSimulation.Update(particles, graph.Updaters, 1f / 60f);
 
             // ⚠ **Ages spread by hand, and a step is not enough to do it.** A burst spawns every
             // particle at once, so one update leaves them all at exactly the same age — which is a
@@ -174,7 +177,7 @@ public sealed class VfxSortTests {
             var ages = particles.Age;
 
             for (var index = 0; index < Count; index++) {
-                ages[index] = 0.5f + (index * 0.01f);
+                ages[index] = 0.5f + index * 0.01f;
             }
 
             var expected = Expected(particles, mode, camera);
@@ -218,7 +221,7 @@ public sealed class VfxSortTests {
 
         Array.Sort(keys, order, 0, Count);
 
-        return [.. order.Select(slot => (uint) slot)];
+        return [..order.Select(static slot => (uint)slot)];
     }
 
     static uint[] Device(

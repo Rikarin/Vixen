@@ -51,8 +51,12 @@ public sealed class VulkanPresentationTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>This test used to require the images to come back round, and Vulkan does not
-    ///         promise that</b> — which is why it was red on the ubuntu leg and green here (#1026).
+    ///         ⚠
+    ///         <b>
+    ///             This test used to require the images to come back round, and Vulkan does not
+    ///             promise that
+    ///         </b>
+    ///         — which is why it was red on the ubuntu leg and green here (#1026).
     ///         <c>vkAcquireNextImageKHR</c> returns any image that is not currently acquired; there
     ///         is no fairness, no rotation and no ordering in the specification. The loop below calls
     ///         <c>WaitIdle</c> after each <c>Present</c>, so by the next acquisition the image just
@@ -73,8 +77,12 @@ public sealed class VulkanPresentationTests {
     ///     <para>
     ///         What is left is what the specification does guarantee and a stub does not: six
     ///         complete acquire/draw/present cycles that all report <c>Ready</c>, a valid view every
-    ///         frame, and — the part that keeps the count honest — <b>no more distinct images than
-    ///         the chain has</b>. A swapchain fabricating a fresh handle per frame gives six from a
+    ///         frame, and — the part that keeps the count honest —
+    ///         <b>
+    ///             no more distinct images than
+    ///             the chain has
+    ///         </b>
+    ///         . A swapchain fabricating a fresh handle per frame gives six from a
     ///         chain of two or four, and fails here.
     ///     </para>
     /// </remarks>
@@ -180,7 +188,7 @@ public sealed class VulkanPresentationTests {
 
         chain.Resize(new(256, 192));
 
-        Assert.Equal(new Int2(256, 192), chain.Size);
+        Assert.Equal(new(256, 192), chain.Size);
 
         Assert.Equal(SwapChainStatus.Ready, chain.AcquireNextImage(out var second));
         Assert.True(second.IsValid);
@@ -270,8 +278,12 @@ public sealed class VulkanPresentationTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b><c>VK_SUBOPTIMAL_KHR</c> is a success and must not be
-    ///         <see cref="SwapChainStatus.OutOfDate" />.</b> It means the image was acquired or
+    ///         ⚠
+    ///         <b>
+    ///             <c>VK_SUBOPTIMAL_KHR</c> is a success and must not be
+    ///             <see cref="SwapChainStatus.OutOfDate" />.
+    ///         </b>
+    ///         It means the image was acquired or
     ///         presented and the surface would merely prefer other parameters, which a scaled
     ///         display says on every frame forever; <c>AppGraphics.End</c> puts <c>OutOfDate</c>
     ///         through an unconditional rebuild and <c>Suboptimal</c> through a size check, so
@@ -333,20 +345,32 @@ public sealed class VulkanPresentationTests {
         device.BeginFrame();
 
         using (var list = device.BeginCommandList(QueueKind.Graphics, "present")) {
-            list.Barrier(new([], [
-                new(chain.CurrentTexture, ResourceState.Undefined, ResourceState.ColourTarget)
-            ]));
+            list.Barrier(
+                new(
+                    [],
+                    [
+                        new(chain.CurrentTexture, ResourceState.Undefined, ResourceState.ColourTarget)
+                    ]
+                )
+            );
 
-            list.BeginRenderPass(new(
-                [new(view, LoadAction.Clear, StoreAction.Store, new(0f, 0.5f, 1f, 1f))],
-                name: "present clear"
-            ));
+            list.BeginRenderPass(
+                new(
+                    [new(view, LoadAction.Clear, StoreAction.Store, new(0f, 0.5f, 1f, 1f))],
+                    name: "present clear"
+                )
+            );
 
             list.EndRenderPass();
 
-            list.Barrier(new([], [
-                new(chain.CurrentTexture, ResourceState.ColourTarget, ResourceState.Present)
-            ]));
+            list.Barrier(
+                new(
+                    [],
+                    [
+                        new(chain.CurrentTexture, ResourceState.ColourTarget, ResourceState.Present)
+                    ]
+                )
+            );
 
             list.Finish();
             device.GraphicsQueue.Submit([list]);

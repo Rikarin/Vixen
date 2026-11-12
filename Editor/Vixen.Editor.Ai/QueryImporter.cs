@@ -34,8 +34,12 @@ public sealed record QueryImportSettings : IImportSettings {
 ///         coin toss. Both fail the build here.
 ///     </para>
 ///     <para>
-///         ⚠ <b>A registered generator or test that this build has never heard of is a warning and not
-///         an error</b>, for <c>BehaviorTreeImporter</c>'s reason: the importer compiles against an
+///         ⚠
+///         <b>
+///             A registered generator or test that this build has never heard of is a warning and not
+///             an error
+///         </b>
+///         , for <c>BehaviorTreeImporter</c>'s reason: the importer compiles against an
 ///         empty resolver, and a game registers its own trace and its own cover test in code at
 ///         start-up. Failing the build on those would fail it on every query worth writing.
 ///     </para>
@@ -45,7 +49,9 @@ public sealed class QueryImporter : AssetImporter<QueryImportSettings> {
     /// <summary>The alias of the type this writes.</summary>
     public const string QueryType = "QueryContent";
 
-    static QueryImporter() => MathScalars.Register();
+    static QueryImporter() {
+        MathScalars.Register();
+    }
 
     /// <inheritdoc />
     public override int Version => QueryContent.Current;
@@ -99,7 +105,7 @@ public sealed class QueryImporter : AssetImporter<QueryImportSettings> {
     }
 
     static bool Check(ImportContext context, QueryContent query) {
-        QueryContentCompiler.TryCompile(query, new BehaviorTreeResolver(), out var problems, out _);
+        QueryContentCompiler.TryCompile(query, new(), out var problems, out _);
 
         var fatal = false;
 
@@ -119,7 +125,7 @@ public sealed class QueryImporter : AssetImporter<QueryImportSettings> {
             fatal = true;
         }
 
-        if (query.Tests.Count > 0 && !query.Tests.Exists(test => test.Purpose != QueryTestPurpose.Filter)) {
+        if (query.Tests.Count > 0 && !query.Tests.Exists(static test => test.Purpose != QueryTestPurpose.Filter)) {
             context.Report(
                 ImportSeverity.Error,
                 "Every test in this query only filters, so nothing ranks the points that survive and "

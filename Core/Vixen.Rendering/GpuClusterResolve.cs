@@ -27,8 +27,11 @@ public readonly record struct ResolveMaterial(Material Material, int Index);
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>The second half of phase 5 of <c>docs/plan/22-virtualized-geometry.md</c>, and the reason
-///         improvement 2 is worth the bookkeeping.</b> <see cref="GpuVisibilityTiles" /> bins the screen
+///         <b>
+///             The second half of phase 5 of <c>docs/plan/22-virtualized-geometry.md</c>, and the reason
+///             improvement 2 is worth the bookkeeping.
+///         </b>
+///         <see cref="GpuVisibilityTiles" /> bins the screen
 ///         and this dispatches over one material's bin, so a material covering one per cent of the
 ///         screen shades one per cent of the pixels — against a full-screen material-depth pass, which
 ///         is what resolving into a GBuffer costs.
@@ -149,8 +152,12 @@ public sealed class GpuClusterResolve : IDisposable {
     ///     <para>
     ///         Off by default, which matches the forward pass: <c>UseIrradianceField</c> is off there too
     ///         and indirect diffuse reaches a shipped frame through
-    ///         <c>PostFx/IndirectDiffuse.rvn</c> instead. What this gives the resolve is the <em>same
-    ///         choice</em> the forward pass has rather than a different answer to it — which is the whole
+    ///         <c>PostFx/IndirectDiffuse.rvn</c> instead. What this gives the resolve is the
+    ///         <em>
+    ///             same
+    ///             choice
+    ///         </em>
+    ///         the forward pass has rather than a different answer to it — which is the whole
     ///         claim, and it was not true until <c>VisibilityResolve</c> could declare the slot.
     ///     </para>
     ///     <para>

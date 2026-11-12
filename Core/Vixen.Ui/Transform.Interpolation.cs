@@ -22,8 +22,12 @@ namespace Vixen.Ui;
 ///         own <c>rotate</c>/<c>scale</c> and the parent's perspective are multiplied on. #174.
 ///     </para>
 ///     <para>
-///         ⚠ <b>So the decomposition runs on the list's own composition and never on the matrix the
-///         consumers see</b>, which carries the origin as a translation. Interpolating that would
+///         ⚠
+///         <b>
+///             So the decomposition runs on the list's own composition and never on the matrix the
+///             consumers see
+///         </b>
+///         , which carries the origin as a translation. Interpolating that would
 ///         swing a rotation about a moving origin along a straight line — the constraint #51's
 ///         third audit recorded before anything was built.
 ///     </para>
@@ -64,7 +68,8 @@ sealed partial class TransformReader {
 
         const string mix = "transform-mix(";
 
-        if (text.StartsWith(mix, StringComparison.OrdinalIgnoreCase) && Closes(text, mix.Length - 1) == text.Length - 1) {
+        if (text.StartsWith(mix, StringComparison.OrdinalIgnoreCase)
+            && Closes(text, mix.Length - 1) == text.Length - 1) {
             return depth < DeepestMix && Mix(text[mix.Length..^1], element, metrics, into, depth + 1);
         }
 
@@ -135,7 +140,13 @@ sealed partial class TransformReader {
     ///     handle past the unit square, or a spring, overshoots on purpose — and every interpolation
     ///     below extrapolates rather than clamping, which is what makes the overshoot visible.
     /// </remarks>
-    bool Mix(ReadOnlySpan<char> arguments, UiElement element, LengthContext metrics, List<TransformStep> into, int depth) {
+    bool Mix(
+        ReadOnlySpan<char> arguments,
+        UiElement element,
+        LengthContext metrics,
+        List<TransformStep> into,
+        int depth
+    ) {
         Span<Range> parts = stackalloc Range[4];
 
         if (Commas(arguments, parts) != 3) {
@@ -191,7 +202,7 @@ sealed partial class TransformReader {
                 return -1;
             }
 
-            parts[count++] = new Range(start, index);
+            parts[count++] = new(start, index);
             start = index + 1;
         }
 
@@ -214,14 +225,23 @@ sealed partial class TransformReader {
     ///         <see cref="TransformDecomposition" />.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Function by function is not an optimisation of the matrix path; it is a different
-    ///         answer, and the one CSS asks for.</b> <c>rotate(0deg)</c> → <c>rotate(360deg)</c> is a
+    ///         ⚠
+    ///         <b>
+    ///             Function by function is not an optimisation of the matrix path; it is a different
+    ///             answer, and the one CSS asks for.
+    ///         </b>
+    ///         <c>rotate(0deg)</c> → <c>rotate(360deg)</c> is a
     ///         whole turn, and both ends are the identity matrix. Every Tailwind transform class
     ///         writes the same seven slots in the same order, so a <c>hover:rotate-z-180</c> is a pair
     ///         of lists this path handles all the way along.
     ///     </para>
     /// </remarks>
-    static void Interpolate(List<TransformStep> from, List<TransformStep> to, float progress, List<TransformStep> into) {
+    static void Interpolate(
+        List<TransformStep> from,
+        List<TransformStep> to,
+        float progress,
+        List<TransformStep> into
+    ) {
         var length = Math.Max(from.Count, to.Count);
 
         for (var index = 0; index < length; index++) {
@@ -245,7 +265,7 @@ sealed partial class TransformReader {
             var spatial = Compose(restFrom, 0, out var matrixFrom) | Compose(restTo, 0, out var matrixTo);
 
             into.Add(
-                new TransformStep(TransformStepKind.Matrix, 0f, 0f, 0f, 0f, spatial) {
+                new(TransformStepKind.Matrix, 0f, 0f, 0f, 0f, spatial) {
                     Cells = TransformDecomposition.Interpolate(matrixFrom, matrixTo, progress)
                 }
             );
@@ -263,8 +283,12 @@ sealed partial class TransformReader {
     ///         four-dimensional branch for the whole of its run rather than switching halfway.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Two rotations about different axes, both of them turning, are the one pair that
-    ///         shares a primitive and still interpolates as matrices</b> — Transforms 2's own rule for
+    ///         ⚠
+    ///         <b>
+    ///             Two rotations about different axes, both of them turning, are the one pair that
+    ///             shares a primitive and still interpolates as matrices
+    ///         </b>
+    ///         — Transforms 2's own rule for
     ///         <c>rotate3d()</c>. The pair, not the rest of the list: it answers with a matrix step
     ///         and the walk goes on.
     ///     </para>
@@ -279,16 +303,16 @@ sealed partial class TransformReader {
         result = default;
         var spatial = a.Spatial || b.Spatial;
 
-        static float L(float from, float to, float t) => from + ((to - from) * t);
+        static float L(float from, float to, float t) => from + (to - from) * t;
 
         switch (a.Kind, b.Kind) {
             case (TransformStepKind.Translate, TransformStepKind.Translate):
             case (TransformStepKind.Scale, TransformStepKind.Scale):
-                result = new TransformStep(a.Kind, L(a.X, b.X, t), L(a.Y, b.Y, t), L(a.Z, b.Z, t), 0f, spatial);
+                result = new(a.Kind, L(a.X, b.X, t), L(a.Y, b.Y, t), L(a.Z, b.Z, t), 0f, spatial);
                 return true;
 
             case (TransformStepKind.Skew, TransformStepKind.Skew):
-                result = new TransformStep(TransformStepKind.Skew, L(a.X, b.X, t), L(a.Y, b.Y, t), 0f, 0f, false);
+                result = new(TransformStepKind.Skew, L(a.X, b.X, t), L(a.Y, b.Y, t), 0f, 0f, false);
                 return true;
 
             case (TransformStepKind.Rotate, TransformStepKind.Rotate):
@@ -297,7 +321,7 @@ sealed partial class TransformReader {
 
             case (TransformStepKind.Perspective, TransformStepKind.Perspective):
             case (TransformStepKind.Matrix, TransformStepKind.Matrix):
-                result = new TransformStep(TransformStepKind.Matrix, 0f, 0f, 0f, 0f, spatial) {
+                result = new(TransformStepKind.Matrix, 0f, 0f, 0f, 0f, spatial) {
                     Cells = TransformDecomposition.Interpolate(CellsOf(a), CellsOf(b), t)
                 };
 
@@ -322,28 +346,34 @@ sealed partial class TransformReader {
             // The axis of whichever end turns — or z, where neither does, which is the
             // specification's choice — and the angle between.
             var (x, y, z) = same || a.Angle != 0f ? (a.X, a.Y, a.Z)
-                : b.Angle != 0f ? (b.X, b.Y, b.Z)
-                : (0f, 0f, 1f);
+            : b.Angle != 0f ? (b.X, b.Y, b.Z)
+            : (0f, 0f, 1f);
 
-            result = new TransformStep(TransformStepKind.Rotate3d, x, y, z, L(a.Angle, b.Angle, t), true);
+            result = new(TransformStepKind.Rotate3d, x, y, z, L(a.Angle, b.Angle, t), true);
             return true;
         }
 
-        result = new TransformStep(TransformStepKind.Matrix, 0f, 0f, 0f, 0f, true) {
+        result = new(TransformStepKind.Matrix, 0f, 0f, 0f, 0f, true) {
             Cells = TransformDecomposition.Interpolate(CellsOf(a), CellsOf(b), t)
         };
 
         return true;
 
         static bool Turns(TransformStepKind kind) =>
-            kind is TransformStepKind.Rotate or TransformStepKind.RotateX or TransformStepKind.RotateY
+            kind is TransformStepKind.Rotate
+                or TransformStepKind.RotateX
+                or TransformStepKind.RotateY
                 or TransformStepKind.Rotate3d;
     }
 
     /// <summary>The function of the same primitive that changes nothing.</summary>
     /// <remarks>
-    ///     ⚠ <b>Of the same kind and the same spelling, so that padding never changes which branch a
-    ///     list takes</b> — a <c>none</c> end paired with <c>rotateY(180deg)</c> pads with
+    ///     ⚠
+    ///     <b>
+    ///         Of the same kind and the same spelling, so that padding never changes which branch a
+    ///         list takes
+    ///     </b>
+    ///     — a <c>none</c> end paired with <c>rotateY(180deg)</c> pads with
     ///     <c>rotateY(0deg)</c>, spatial, and the pair stays a <c>rotateY</c> the whole way.
     /// </remarks>
     static TransformStep IdentityOf(in TransformStep step) =>

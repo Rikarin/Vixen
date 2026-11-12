@@ -3,11 +3,9 @@
 
 using Vixen.Core;
 using Vixen.Core.IO;
-using Vixen.Core.Mathematics;
 using Vixen.Core.Serialization;
 using Vixen.Ecs;
 using Vixen.Editor.Assets.Scenes;
-using Vixen.Editor.Core.Scenes;
 using Vixen.Engine.Cameras;
 using Vixen.Engine.Scenes;
 using Vixen.Engine.Transforms;
@@ -18,14 +16,16 @@ namespace Vixen.Editor.Assets.Tests;
 
 /// <summary>A tag a game might declare: a bit in the archetype, and no bytes in any column.</summary>
 [DataContract("SceneTestSpawnPoint")]
-public struct SpawnPoint : ITagComponent;
+public readonly struct SpawnPoint : ITagComponent;
 
 /// <summary>
 ///     The build step: an authored <c>.vxscene</c> in, the chunk a player loads out. What these hold
 ///     is that the two halves agree — a scene compiled here creates the world the file described.
 /// </summary>
 public sealed class SceneImporterTests {
-    public SceneImporterTests() => SceneComponentRegistry.Register<SpawnPoint>();
+    public SceneImporterTests() {
+        SceneComponentRegistry.Register<SpawnPoint>();
+    }
 
     /// <summary>A root with a camera and two children, one of them carrying an asset reference.</summary>
     const string Level = """
@@ -65,8 +65,7 @@ public sealed class SceneImporterTests {
     ///     invalidates every scene artefact rather than only the ones somebody re-saved.
     /// </summary>
     [Fact]
-    public void ItsVersionIsTheCompilers() =>
-        Assert.Equal(SceneCompiler.Version, new SceneImporter().Version);
+    public void ItsVersionIsTheCompilers() => Assert.Equal(SceneCompiler.Version, new SceneImporter().Version);
 
     [Fact]
     public async Task ASceneCompilesIntoAChunkThatLoadsAsTheWorldItDescribed() {
@@ -85,8 +84,8 @@ public sealed class SceneImporterTests {
         Assert.Equal("Level1", asset.Name);
         Assert.Equal(3, asset.Content.Count);
         Assert.Single(roots);
-        Assert.Equal(new Vector3(1, 2, 3), world.Read<LocalTransform>(created[0]).Position);
-        Assert.Equal(new Vector3(2, 2, 2), world.Read<LocalTransform>(created[2]).Scale);
+        Assert.Equal(new(1, 2, 3), world.Read<LocalTransform>(created[0]).Position);
+        Assert.Equal(new(2, 2, 2), world.Read<LocalTransform>(created[2]).Scale);
         Assert.Equal(created[0], Hierarchy.ParentOf(world, created[1]));
 
         // The component came out of the file's `!Camera` block, through the binder, into a column,
@@ -130,8 +129,8 @@ public sealed class SceneImporterTests {
         var asset = Serializer.Read<SceneAsset>(Assert.Single(result.Artifacts).Content.Span);
 
         var column = asset.Content.Blocks
-            .SelectMany(block => block.Columns)
-            .Single(column => column.Component == "SceneTestSpawnPoint");
+            .SelectMany(static block => block.Columns)
+            .Single(static column => column.Component == "SceneTestSpawnPoint");
 
         Assert.Empty(column.Data);
 
@@ -151,7 +150,7 @@ public sealed class SceneImporterTests {
         // The camera is one archetype and the two bare entities are the other, so a load is two bulk
         // creates rather than three — which is the point of compiling into blocks at all.
         Assert.Equal(2, asset.Content.Blocks.Length);
-        Assert.Equal(3, asset.Content.Blocks.Sum(block => block.Entities.Length));
+        Assert.Equal(3, asset.Content.Blocks.Sum(static block => block.Entities.Length));
     }
 
     /// <summary>
@@ -204,7 +203,7 @@ public sealed class SceneImporterTests {
     /// </summary>
     [Fact]
     public async Task NamesAreDroppedWhenTheSettingsSayTo() {
-        var (_, result) = await Import("Level1.vxscene", Level, new SceneImportSettings { KeepEntityNames = false });
+        var (_, result) = await Import("Level1.vxscene", Level, new() { KeepEntityNames = false });
         var asset = Serializer.Read<SceneAsset>(Assert.Single(result.Artifacts).Content.Span);
 
         Assert.Empty(asset.Content.Names);
@@ -279,7 +278,10 @@ public sealed class SceneImporterTests {
 
     [Fact]
     public async Task ASceneFromANewerEditorIsRefusedRatherThanHalfCompiled() {
-        var (_, result) = await Import("Level1.vxscene", Level.Replace("version: 1", "version: 99", StringComparison.Ordinal));
+        var (_, result) = await Import(
+            "Level1.vxscene",
+            Level.Replace("version: 1", "version: 99", StringComparison.Ordinal)
+        );
 
         Assert.False(result.Succeeded);
         Assert.Empty(result.Artifacts);
@@ -287,7 +289,10 @@ public sealed class SceneImporterTests {
 
     [Fact]
     public async Task AMalformedReferenceFailsBeforeAnythingIsCompiled() {
-        var (_, result) = await Import("Level1.vxscene", "version: 1\nroots:\n  - name: Crate\n    asset: vx:notaguid\n");
+        var (_, result) = await Import(
+            "Level1.vxscene",
+            "version: 1\nroots:\n  - name: Crate\n    asset: vx:notaguid\n"
+        );
 
         Assert.False(result.Succeeded);
         Assert.Empty(result.Artifacts);

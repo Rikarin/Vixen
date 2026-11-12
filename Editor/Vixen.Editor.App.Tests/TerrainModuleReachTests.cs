@@ -45,7 +45,8 @@ public sealed class TerrainModuleReachTests {
     ///     The three Create ▸ kinds <c>TerrainAssetKinds</c> declares (#1287), which were rows of the
     ///     application's own list and so outlived an unload.
     /// </summary>
-    static readonly string[] Creatable = ["assets.create-terrain-layer", "assets.create-foliage", "assets.create-grass"];
+    static readonly string[] Creatable =
+        ["assets.create-terrain-layer", "assets.create-foliage", "assets.create-grass"];
 
     /// <summary>A session opened the way the host opens one has every piece of both modules, once.</summary>
     [Fact]
@@ -90,10 +91,11 @@ public sealed class TerrainModuleReachTests {
         Assert.Equal(
             PluginState.Active,
             session.Plugins.Activate(
-                TerrainPhysicsModule.ModuleId,
-                TerrainPhysicsModule.ModuleName,
-                new TerrainPhysicsModule()
-            ).State
+                    TerrainPhysicsModule.ModuleId,
+                    TerrainPhysicsModule.ModuleName,
+                    new TerrainPhysicsModule()
+                )
+                .State
         );
 
         session.Settle();
@@ -222,7 +224,7 @@ public sealed class TerrainModuleReachTests {
     }
 
     static TerrainMode Mode(EditorSession session) =>
-        (TerrainMode)session.Shell.Modes.Modes.Single(mode => mode.Id == TerrainMode.ModeId);
+        (TerrainMode)session.Shell.Modes.Modes.Single(static mode => mode.Id == TerrainMode.ModeId);
 
     [MethodImpl(MethodImplOptions.NoInlining)]
     static WeakReference ActivateFresh(EditorSession session, string id) {
@@ -231,7 +233,7 @@ public sealed class TerrainModuleReachTests {
 
         Assert.Equal(PluginState.Active, session.Plugins.Activate(id, name, module).State);
 
-        return new WeakReference(module);
+        return new(module);
     }
 
     /// <summary>What a host or a test assigns directly, which the binding must not take back.</summary>

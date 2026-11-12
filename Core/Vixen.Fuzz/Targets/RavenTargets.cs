@@ -3,7 +3,6 @@
 
 using System.Diagnostics;
 using System.Globalization;
-using System.Reflection;
 using System.Text;
 using Vixen.Core.Syntax;
 using Vixen.Core.Syntax.Diagnostics;
@@ -19,8 +18,11 @@ namespace Vixen.Fuzz.Targets;
 /// <summary>A shader, taken as far through the compiler as it will go.</summary>
 /// <remarks>
 ///     <para>
-///         <b>The deepest target here by a distance, and the only one where "it did not crash" is
-///         nearly worthless on its own.</b> Every pass in this pipeline is total by design — the lexer
+///         <b>
+///             The deepest target here by a distance, and the only one where "it did not crash" is
+///             nearly worthless on its own.
+///         </b>
+///         Every pass in this pipeline is total by design — the lexer
 ///         and parser have no <c>throw</c> in them at all, the binder reports and continues, and a
 ///         backend that cannot express something says so through a diagnostic rather than emitting
 ///         something that will not compile. So a run watching only for exceptions is watching for
@@ -37,8 +39,12 @@ namespace Vixen.Fuzz.Targets;
 ///         <item>and a module that generated <i>with nothing reported</i> is a module <c>spirv-val</c> accepts.</item>
 ///     </list>
 ///     <para>
-///         ⚠ <b>The last one is the reason to do any of this, and it catches a class the others
-///         cannot.</b> A backend defect does not have to produce a crash or an invalid module — it can
+///         ⚠
+///         <b>
+///             The last one is the reason to do any of this, and it catches a class the others
+///             cannot.
+///         </b>
+///         A backend defect does not have to produce a crash or an invalid module — it can
 ///         produce a <i>valid</i> one that means something else. An implicit-LOD sample in a compute
 ///         entry point had been silently substituting level zero since July: nothing threw, nothing
 ///         was reported, every golden file matched because they were regenerated from the same
@@ -48,8 +54,12 @@ namespace Vixen.Fuzz.Targets;
 ///     <para>
 ///         ⚠ <b>The one finding this target could not write down was a stack overflow</b>, and it is
 ///         why <c>raven</c> spent two nightlies in <c>VIXEN_FUZZ_SKIP</c>. <c>func F(): float[F()]</c>
-///         inside a type sent the binder round <c>ResolveReturnType → BindType → BindArraySize →
-///         BindValue → BindInvocation</c> and back, and the CLR ends the process at the guard page
+///         inside a type sent the binder round
+///         <c>
+///             ResolveReturnType → BindType → BindArraySize →
+///             BindValue → BindInvocation
+///         </c>
+///         and back, and the CLR ends the process at the guard page
 ///         with no thread left to record a case — so the run took the other nineteen targets' results
 ///         with it and no artifact said why. It is <c>raven/70ae34e20b4880ee.bin</c> now that the
 ///         binder reports <c>RVN2005</c> instead, which is the whole reason a finding can be a corpus
@@ -70,7 +80,7 @@ public sealed class RavenTarget : IFuzzTarget {
     /// <inheritdoc />
     public IFuzzDomain Domain { get; } = new SyntaxDomain(
         "Raven shaders, one syntax node at a time",
-        text => SyntaxTree.ParseText(text, path: Path).GetRoot(),
+        static text => SyntaxTree.ParseText(text, path: Path).GetRoot(),
         RavenSeeds.Fragments,
         0x5241_5645_4E00_0805ul
     );
@@ -89,8 +99,12 @@ public sealed class RavenTarget : IFuzzTarget {
     /// <returns>The allowance.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The largest multiple in this harness, and the honest reading of what a compiler
-    ///         is.</b> A packet decoder's output is smaller than its input; a compiler's is a
+    ///         ⚠
+    ///         <b>
+    ///             The largest multiple in this harness, and the honest reading of what a compiler
+    ///             is.
+    ///         </b>
+    ///         A packet decoder's output is smaller than its input; a compiler's is a
     ///         syntax tree, a symbol table, a bound tree, an IR module and a SPIR-V module, each of
     ///         which is larger than the source that produced it. Two extra parses go on top for the
     ///         reparse oracle.
@@ -103,7 +117,7 @@ public sealed class RavenTarget : IFuzzTarget {
     ///         theoretical one.
     ///     </para>
     /// </remarks>
-    public long AllowanceFor(int inputLength) => (1L << 20) + (8192L * inputLength);
+    public long AllowanceFor(int inputLength) => (1L << 20) + 8192L * inputLength;
 
     /// <inheritdoc />
     public void Seed(ICollection<byte[]> corpus) {
@@ -129,13 +143,13 @@ public sealed class RavenTarget : IFuzzTarget {
             throw new InvalidOperationException($"The parse does not reproduce its source: {Where(text, printed)}.");
         }
 
-        long signature = (17 * 31) + tree.Diagnostics.Count;
+        long signature = 17 * 31 + tree.Diagnostics.Count;
 
         foreach (var diagnostic in tree.Diagnostics) {
-            signature = (signature * 31) + Check(diagnostic, "the parser");
+            signature = signature * 31 + Check(diagnostic, "the parser");
         }
 
-        signature = (signature * 31) + Reparse(tree, text);
+        signature = signature * 31 + Reparse(tree, text);
 
         // Create does no work — it holds the trees and defers everything — so the pass under test is
         // GetDiagnostics, which forces declaration building, binding and flow analysis. That is the
@@ -143,26 +157,33 @@ public sealed class RavenTarget : IFuzzTarget {
         var compilation = Compilation.Create("Fuzz", tree);
         var diagnostics = compilation.GetDiagnostics();
 
-        signature = (signature * 31) + diagnostics.Count;
+        signature = signature * 31 + diagnostics.Count;
 
         foreach (var diagnostic in diagnostics) {
-            signature = (signature * 31) + Check(diagnostic, "the compiler");
+            signature = signature * 31 + Check(diagnostic, "the compiler");
         }
 
-        return diagnostics.Count == 0 ? (signature * 31) + Generate(compilation) : signature;
+        return diagnostics.Count == 0 ? signature * 31 + Generate(compilation) : signature;
     }
 
     /// <summary>Lowers, verifies and emits, and validates whatever came out.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Only for a compilation with nothing to report, which is the same bar
-    ///         <c>CodeGenTestBase</c> holds every backend test to.</b> Lowering a tree the binder
+    ///         ⚠
+    ///         <b>
+    ///             Only for a compilation with nothing to report, which is the same bar
+    ///             <c>CodeGenTestBase</c> holds every backend test to.
+    ///         </b>
+    ///         Lowering a tree the binder
     ///         rejected means lowering a tree with error types in it, and a crash there would be a
     ///         finding about a pass being run on input no compiler would give it.
     ///     </para>
     ///     <para>
-    ///         <b>That also makes this the rarest path in the run, and rarity is the point rather
-    ///         than a limitation.</b> A mutant that still compiles clean is a mutant one edit away
+    ///         <b>
+    ///             That also makes this the rarest path in the run, and rarity is the point rather
+    ///             than a limitation.
+    ///         </b>
+    ///         A mutant that still compiles clean is a mutant one edit away
     ///         from a shader somebody wrote — which is exactly the population where an emitter
     ///         quietly substitutes something, because it is the population the emitter has a path
     ///         for. A mutant that does not compile tells the backend nothing it did not already know.
@@ -185,16 +206,16 @@ public sealed class RavenTarget : IFuzzTarget {
         var refused = false;
 
         foreach (var diagnostic in bag.ToArray()) {
-            signature = (signature * 31) + Check(diagnostic, "the backend");
+            signature = signature * 31 + Check(diagnostic, "the backend");
             refused |= diagnostic.Severity == DiagnosticSeverity.Error;
         }
 
-        signature = (signature * 31) + lowered;
-        signature = (signature * 31) + generated.Count;
+        signature = signature * 31 + lowered;
+        signature = signature * 31 + generated.Count;
 
         foreach (var unit in generated) {
-            signature = (signature * 31) + (int)unit.Stage;
-            signature = (signature * 31) + (unit.Binary?.Length ?? -1);
+            signature = signature * 31 + (int)unit.Stage;
+            signature = signature * 31 + (unit.Binary?.Length ?? -1);
 
             // ⚠ The same bar the compilation was held to a few lines up, applied to the backend: a
             // module emitted beside an error is not a module anybody is given. `CompileDriver`
@@ -221,8 +242,12 @@ public sealed class RavenTarget : IFuzzTarget {
     ///         generator would hand somebody a corpus file that does not reproduce it.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b><see cref="Shape" /> is the check that earns this its keep, and the printed
-    ///         comparison above it would have come back clean.</b> Two of the corpus entries are
+    ///         ⚠
+    ///         <b>
+    ///             <see cref="Shape" /> is the check that earns this its keep, and the printed
+    ///             comparison above it would have come back clean.
+    ///         </b>
+    ///         Two of the corpus entries are
     ///         reparses that built a <i>different tree</i> and printed the same characters:
     ///         <c>raven/f756b11be5af90ca.bin</c> renames an enum to the <c>shader</c> keyword, and
     ///         <c>raven/6adb822d47389491.bin</c> eats an enum header entirely — either way the
@@ -251,14 +276,14 @@ public sealed class RavenTarget : IFuzzTarget {
 
         if (!string.Equals(one.ToFullString(), two.ToFullString(), StringComparison.Ordinal)) {
             throw new InvalidOperationException(
-                $"An incremental reparse printed something a full parse did not, "
+                "An incremental reparse printed something a full parse did not, "
                 + $"after replacing [{start}, {start + length}) with '{inserted}'."
             );
         }
 
         if (Shape(one, 0) != Shape(two, 0)) {
             throw new InvalidOperationException(
-                $"An incremental reparse built a different tree than a full parse, "
+                "An incremental reparse built a different tree than a full parse, "
                 + $"after replacing [{start}, {start + length}) with '{inserted}'."
             );
         }
@@ -282,7 +307,7 @@ public sealed class RavenTarget : IFuzzTarget {
     ///     quote or a comment opener is what forces the decision this is checking.
     /// </remarks>
     static readonly string[] Insertions =
-        ["", "{", "}", "(", ")", "\"", ";", "//", "/*", "*/", " ", "\n", "shader ", "float "];
+        [string.Empty, "{", "}", "(", ")", "\"", ";", "//", "/*", "*/", " ", "\n", "shader ", "float "];
 
     /// <summary>Holds one diagnostic to being a diagnostic, and folds it into the signature.</summary>
     /// <remarks>
@@ -303,7 +328,7 @@ public sealed class RavenTarget : IFuzzTarget {
         // match the arguments it is given throws here rather than in whatever tries to print it.
         _ = diagnostic.GetMessage();
 
-        return (Fold(id) * 31) + (int)diagnostic.Severity;
+        return Fold(id) * 31 + (int)diagnostic.Severity;
     }
 
     static bool IsRavenId(string id) =>
@@ -330,15 +355,15 @@ public sealed class RavenTarget : IFuzzTarget {
         long shape = node.RawKind;
 
         if (node is SyntaxToken token) {
-            shape = (shape * 31) + (token.IsMissing ? 1 : 2);
+            shape = shape * 31 + (token.IsMissing ? 1 : 2);
 
-            return (shape * 31) + Fold(token.Text);
+            return shape * 31 + Fold(token.Text);
         }
 
-        shape = (shape * 31) + node.SlotCount;
+        shape = shape * 31 + node.SlotCount;
 
         for (var i = 0; i < node.SlotCount; i++) {
-            shape = (shape * 31) + (node.GetSlot(i) is { } child ? Shape(child, depth + 1) : 0);
+            shape = shape * 31 + (node.GetSlot(i) is { } child ? Shape(child, depth + 1) : 0);
         }
 
         return shape;
@@ -349,7 +374,7 @@ public sealed class RavenTarget : IFuzzTarget {
         long folded = 17;
 
         foreach (var character in text) {
-            folded = (folded * 31) + character;
+            folded = folded * 31 + character;
         }
 
         return folded;
@@ -392,8 +417,11 @@ public sealed class RavenTarget : IFuzzTarget {
 ///         it on both legs.
 ///     </para>
 ///     <para>
-///         <b>It ran quarantined for exactly as long as it took to fix what it found, and that is the
-///         whole of the story worth keeping.</b> Its first run turned up two one-token edits of
+///         <b>
+///             It ran quarantined for exactly as long as it took to fix what it found, and that is the
+///             whole of the story worth keeping.
+///         </b>
+///         Its first run turned up two one-token edits of
 ///         <c>Example2.rvn</c> that compiled with no diagnostic at all and emitted modules a driver
 ///         would reject: a <c>bool</c> in a uniform block, and <c>OpConstantNull</c> of <c>void</c>.
 ///         Both are fixed in the front end — <c>RVN2137</c> refuses a boolean binding and
@@ -403,7 +431,7 @@ public sealed class RavenTarget : IFuzzTarget {
 ///     </para>
 /// </remarks>
 public static class Spirv {
-    static readonly Lazy<string?> Tool = new(() => Find("spirv-val"));
+    static readonly Lazy<string?> Tool = new(static () => Find("spirv-val"));
 
     /// <summary>Whether the validator was found, so a test can say if it was not.</summary>
     public static bool Available => Tool.Value is not null;
@@ -431,13 +459,14 @@ public static class Spirv {
             : "vulkan1.0";
 
         using var process = Process.Start(
-            new ProcessStartInfo(tool) {
-                ArgumentList = { "--target-env", environment, "-" },
-                RedirectStandardInput = true,
-                RedirectStandardError = true,
-                RedirectStandardOutput = true
-            }
-        ) ?? throw new InvalidOperationException($"Could not start {tool}.");
+                new ProcessStartInfo(tool) {
+                    ArgumentList = { "--target-env", environment, "-" },
+                    RedirectStandardInput = true,
+                    RedirectStandardError = true,
+                    RedirectStandardOutput = true
+                }
+            )
+            ?? throw new InvalidOperationException($"Could not start {tool}.");
 
         // ⚠ Both output pipes are read while the module is still going in. A validator that answers
         // before it has been given the whole module — which is what a rejection is — writes into a
@@ -485,7 +514,7 @@ public static class Spirv {
         // and has no VirtualPath spelling.
         var windows = OperatingSystem.IsWindows();
 
-        var directories = (Environment.GetEnvironmentVariable("PATH") ?? "")
+        var directories = (Environment.GetEnvironmentVariable("PATH") ?? string.Empty)
             .Split(windows ? ';' : ':')
             .Concat(["/opt/homebrew/bin", "/usr/local/bin"]);
 
@@ -515,8 +544,12 @@ public static class Spirv {
 ///     are embedded so that a change to a shipped example changes the seeds with it, which is the
 ///     same rule the packet targets follow by writing their seeds through the real encoders — a
 ///     corpus that cannot go stale. <c>Example1.rvn</c> earns its place twice over: it is the
-///     language showcase, and it is the one file asserted to compile <i>the whole way through both
-///     backends</i>, so it is what puts the codegen and validity oracles within one edit's reach.
+///     language showcase, and it is the one file asserted to compile
+///     <i>
+///         the whole way through both
+///         backends
+///     </i>
+///     , so it is what puts the codegen and validity oracles within one edit's reach.
 /// </remarks>
 static class RavenSeeds {
     /// <summary>The shipped examples, plus small shapes worth having on their own.</summary>
@@ -542,7 +575,7 @@ static class RavenSeeds {
     static List<string> Build() {
         var sources = new List<string>();
 
-        foreach (var name in (string[]) ["Example1.rvn", "Example2.rvn"]) {
+        foreach (var name in (string[])["Example1.rvn", "Example2.rvn"]) {
             if (typeof(RavenTarget).Assembly.GetManifestResourceStream(name) is { } stream) {
                 using var reader = new StreamReader(stream, Encoding.UTF8);
                 sources.Add(reader.ReadToEnd());

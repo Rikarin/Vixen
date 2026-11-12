@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core.Mathematics;
-using Vixen.Editor.NodeGraph;
 using Vixen.Editor.ShaderGraph;
 using Vixen.NodeGraph;
 using Vixen.Rendering;
@@ -19,8 +18,12 @@ namespace Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>This is the oracle, and without it the material half of the graph story is a
-///         prediction checked against itself.</b> <c>MaterialCompiler</c> works out what a composed
+///         ⚠
+///         <b>
+///             This is the oracle, and without it the material half of the graph story is a
+///             prediction checked against itself.
+///         </b>
+///         <c>MaterialCompiler</c> works out what a composed
 ///         feature's parameters will be called with no compiler in the process — it has to, because a
 ///         shipping build must build the key that finds a baked effect without linking Raven. The
 ///         cost is a rule written down twice, and <c>MaterialReflectionTests</c> holds the engine's
@@ -94,8 +97,7 @@ public class GraphMaterialTests {
         var feature = ShaderGraphMaterial.Feature(
             source,
             new Dictionary<string, Vector4>(StringComparer.Ordinal) {
-                ["tint"] = new(0.8f, 0.2f, 0.2f, 1f),
-                ["roughness"] = new(0.35f, 0f, 0f, 0f)
+                ["tint"] = new(0.8f, 0.2f, 0.2f, 1f), ["roughness"] = new(0.35f, 0f, 0f, 0f)
             }
         );
 
@@ -111,7 +113,7 @@ public class GraphMaterialTests {
     /// <summary>Compiles <c>ForwardPlus</c> with the graph in the chain, and hands back the variant.</summary>
     static EffectData Variant(Material material, ShaderGraphSource source) {
         List<(string Name, string Text)> sources = [
-            .. LibraryFiles().Select(file => (Path.GetFileName(file), File.ReadAllText(file))),
+            ..LibraryFiles().Select(static file => (Path.GetFileName(file), File.ReadAllText(file))),
             (source.Name + ".rvn", source.Source)
         ];
 
@@ -170,11 +172,11 @@ public class GraphMaterialTests {
         // this does not. Predicting otherwise is how this test first ran: every name doubled, and
         // every assertion red for a reason that had nothing to do with the graph.
         var reflected = data.Parameters
-            .Select(parameter => parameter.Name)
+            .Select(static parameter => parameter.Name)
             .ToHashSet(StringComparer.Ordinal);
 
         var written = material.Parameters.Keys
-            .Select(key => key.Name)
+            .Select(static key => key.Name)
             .Where(name => name.Contains($".{source.Name}.", StringComparison.Ordinal))
             .ToArray();
 
@@ -201,10 +203,10 @@ public class GraphMaterialTests {
         var (material, source) = Authored();
         var data = Variant(material, source);
 
-        var written = material.Parameters.Keys.Select(key => key.Name).ToHashSet(StringComparer.Ordinal);
+        var written = material.Parameters.Keys.Select(static key => key.Name).ToHashSet(StringComparer.Ordinal);
 
         var composed = data.Parameters
-            .Select(parameter => parameter.Name)
+            .Select(static parameter => parameter.Name)
             .Where(name => name.Contains($".{source.Name}.", StringComparison.Ordinal))
             .ToArray();
 
@@ -217,8 +219,12 @@ public class GraphMaterialTests {
 
     /// <summary>The texture slot is named the same way by the graph and by the material compiler.</summary>
     /// <remarks>
-    ///     ⚠ <b>The pairing a host feeds <c>MaterialRenderFeature.TextureIndices</c>, and the one
-    ///     place a mismatch is invisible.</b> An unmatched pair leaves the index at zero, which is a
+    ///     ⚠
+    ///     <b>
+    ///         The pairing a host feeds <c>MaterialRenderFeature.TextureIndices</c>, and the one
+    ///         place a mismatch is invisible.
+    ///     </b>
+    ///     An unmatched pair leaves the index at zero, which is a
     ///     valid slot holding the table's fallback — so the material samples a real texture that is
     ///     not its own.
     /// </remarks>
@@ -235,7 +241,7 @@ public class GraphMaterialTests {
             map.Slot
         );
 
-        Assert.Contains(predicted, data.Parameters.Select(parameter => parameter.Name));
+        Assert.Contains(predicted, data.Parameters.Select(static parameter => parameter.Name));
     }
 
     /// <summary>A standalone graph is refused as a material feature, by name.</summary>
@@ -258,17 +264,23 @@ public class GraphMaterialTests {
     [Fact]
     public void A_feature_naming_no_shader_is_refused() {
         var compilation = MaterialCompiler.Compile(
-            new() { ShaderName = "ForwardPlus", Features = [new GraphSurfaceFeature()], Shading = new StandardShading() }
+            new() {
+                ShaderName = "ForwardPlus", Features = [new GraphSurfaceFeature()], Shading = new StandardShading()
+            }
         );
 
         Assert.True(compilation.Failed);
-        Assert.Contains(compilation.Diagnostics, d => d.Id == MaterialDiagnosticId.UnnamedShader);
+        Assert.Contains(compilation.Diagnostics, static d => d.Id == MaterialDiagnosticId.UnnamedShader);
     }
 
     /// <summary>A texture slot is not offered to an author as a number to type.</summary>
     /// <remarks>
-    ///     ⚠ <b>The values are supplied — including one for the slot — and that is what keeps this
-    ///     case able to fail.</b> A feature now names only what its caller set, so
+    ///     ⚠
+    ///     <b>
+    ///         The values are supplied — including one for the slot — and that is what keeps this
+    ///         case able to fail.
+    ///     </b>
+    ///     A feature now names only what its caller set, so
     ///     <c>Feature(source)</c> with nothing to set writes no numbers and no vectors at all and
     ///     every <c>DoesNotContain</c> below would hold against an empty list. Asking for
     ///     <c>albedoIndex</c> by name is the only version of this that says anything.
@@ -277,8 +289,8 @@ public class GraphMaterialTests {
     public void A_texture_slot_is_not_a_value_a_material_sets() {
         var source = Compiled();
 
-        Assert.Contains(source.Properties, property => property.Name == "albedoIndex");
-        Assert.DoesNotContain(ShaderGraphMaterial.Values(source), property => property.Name == "albedoIndex");
+        Assert.Contains(source.Properties, static property => property.Name == "albedoIndex");
+        Assert.DoesNotContain(ShaderGraphMaterial.Values(source), static property => property.Name == "albedoIndex");
 
         var feature = ShaderGraphMaterial.Feature(
             source,
@@ -291,16 +303,19 @@ public class GraphMaterialTests {
 
         Assert.NotEmpty(feature.Numbers);
         Assert.NotEmpty(feature.Vectors);
-        Assert.DoesNotContain(feature.Numbers, number => number.Name == "albedoIndex");
-        Assert.DoesNotContain(feature.Vectors, vector => vector.Name == "albedoIndex");
-        Assert.Contains(feature.Maps, map => map.Slot == "albedoIndex");
+        Assert.DoesNotContain(feature.Numbers, static number => number.Name == "albedoIndex");
+        Assert.DoesNotContain(feature.Vectors, static vector => vector.Name == "albedoIndex");
+        Assert.Contains(feature.Maps, static map => map.Slot == "albedoIndex");
     }
 
     /// <summary>A property the material does not set is left out rather than written at zero.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/1126">#1126</a>,
-    ///         <a href="https://github.com/Rikarin/Vixen/issues/1133">#1133</a>.</b> This wrote every
+    ///         <b>
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/1126">#1126</a>,
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/1133">#1133</a>.
+    ///         </b>
+    ///         This wrote every
     ///         declared property at its type's zero, and a <c>GraphSurfaceNumber</c> entry
     ///         <em>overrides</em> the generated shader's declared default — so composing a graph
     ///         through it replaced every default an author had set in the graph with black. The

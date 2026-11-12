@@ -17,16 +17,24 @@ namespace Vixen.Samples.ThirdPersonShooter;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>This used to build the terrain's collision as well, and that half has moved into the
-///         engine.</b> <c>Vixen.Terrain.Physics.TerrainColliderSystem</c> is the call that was missing
+///         ⚠
+///         <b>
+///             This used to build the terrain's collision as well, and that half has moved into the
+///             engine.
+///         </b>
+///         <c>Vixen.Terrain.Physics.TerrainColliderSystem</c> is the call that was missing
 ///         — every piece of the path existed and nothing joined them — and it belongs there rather
 ///         than here because it is not a fact about this level. <c>Arena.Register</c> adds it, over
 ///         <c>WorldRenderer.TerrainScene</c>, which is the same list the frame draws from. This class
 ///         kept the half that genuinely is a fact about this level: where the lake's bed is.
 ///     </para>
 ///     <para>
-///         ⚠ <b>It is a system rather than a line in <c>Arena.Load</c> because the terrain arrives
-///         late.</b> <c>AssetTerrainSource.Terrain</c> starts a load and returns <see langword="null" />
+///         ⚠
+///         <b>
+///             It is a system rather than a line in <c>Arena.Load</c> because the terrain arrives
+///             late.
+///         </b>
+///         <c>AssetTerrainSource.Terrain</c> starts a load and returns <see langword="null" />
 ///         until it finishes, which is several frames after the level is up. A one-shot call at load
 ///         time gets null, silently, and holds it — so this asks every frame until it has the map.
 ///     </para>
@@ -49,13 +57,16 @@ public sealed class TerrainGroundSystem(AssetTerrainSource terrains) : SystemBas
 
     /// <inheritdoc />
     /// <remarks>
-    ///     ⚠ <b>What the water's depth is measured against, and without it every lake in the level is
-    ///     as deep as its own surface height above y = 0.</b> <c>WaterZoneSystem.Ground</c> defaults to
+    ///     ⚠
+    ///     <b>
+    ///         What the water's depth is measured against, and without it every lake in the level is
+    ///         as deep as its own surface height above y = 0.
+    ///     </b>
+    ///     <c>WaterZoneSystem.Ground</c> defaults to
     ///     <c>FlatWaterGround(0)</c> and <em>nothing in the engine ever sets it</em> outside the
     ///     editor's own presenter — the same shape of gap the collider was, one subsystem over.
     ///     Doc 35 § D3 is explicit that the terrain is a first-class producer of the ground channel;
     ///     this is a game being that producer.
-    ///
     ///     ⚠ Before the map has loaded this answers the apron height rather than zero. Zero is the
     ///     lake's own surface, so a frame answered with it is a lake of exactly no depth — which draws
     ///     as nothing at all and reads as the water stack being unwired.

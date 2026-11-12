@@ -19,8 +19,11 @@ namespace Vixen.Graphics.Golden.Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>The claim is that a weight moves a vertex to a computed position, and it is checked
-///         against arithmetic rather than against a picture.</b> A morph applied in the wrong space,
+///         <b>
+///             The claim is that a weight moves a vertex to a computed position, and it is checked
+///             against arithmetic rather than against a picture.
+///         </b>
+///         A morph applied in the wrong space,
 ///         at the wrong stride, or with the weight folded in twice renders <em>plausibly</em> — the
 ///         face still has a face on it — so a golden image would pass on all three. What cannot pass
 ///         is a float that is not the float the host computed.
@@ -43,6 +46,7 @@ namespace Vixen.Graphics.Golden.Tests;
 public class MorphScatterDeviceTests {
     /// <summary>How many floats one <see cref="SurfaceVertex" /> is, and where its two vectors are.</summary>
     const int Stride = 12;
+
     const int PositionOffset = 0;
     const int NormalOffset = 3;
 
@@ -96,20 +100,20 @@ public class MorphScatterDeviceTests {
             MorphTargetData.Encode(
                 "jawOpen",
                 jaw,
-                [.. jaw.Select(v => Exact(32767, -16384, 8192 + (v * 3)))],
-                [.. jaw.Select(v => Exact(v * 7, -4096, 16384))]
+                [..jaw.Select(static v => Exact(32767, -16384, 8192 + v * 3))],
+                [..jaw.Select(static v => Exact(v * 7, -4096, 16384))]
             ),
             MorphTargetData.Encode(
                 "browRaise",
                 brow,
-                [.. brow.Select(v => Exact(-8192, 32767, v * -5))],
+                [..brow.Select(static v => Exact(-8192, 32767, v * -5))],
                 []
             ),
             MorphTargetData.Encode(
                 "crease",
                 crease,
-                [.. crease.Select(_ => Vector3.Zero)],
-                [.. crease.Select(v => Exact(v * 11, 32767, -1024))]
+                [..crease.Select(static _ => Vector3.Zero)],
+                [..crease.Select(static v => Exact(v * 11, 32767, -1024))]
             )
         ];
     }
@@ -235,8 +239,11 @@ public class MorphScatterDeviceTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <b>The legs above prove the kernel; this proves the wiring, and they are different
-    ///         claims.</b> Everything above uploads the mesh into a buffer of the test's own, writes
+    ///         <b>
+    ///             The legs above prove the kernel; this proves the wiring, and they are different
+    ///             claims.
+    ///         </b>
+    ///         Everything above uploads the mesh into a buffer of the test's own, writes
     ///         the constants by reflected offset and dispatches by hand — so it would pass unchanged
     ///         against a feature that allocated nothing, copied nothing and pointed no draw anywhere.
     ///         Here the only things the test does are attach an object, set its weights and record
@@ -296,15 +303,14 @@ public class MorphScatterDeviceTests {
 
         var effects = new EffectSystem();
 
-        effects.AddProvider(new Compiling(new EffectLoader(device), _ => RavenEffects.Everything()));
+        effects.AddProvider(new Compiling(new(device), static _ => RavenEffects.Everything()));
 
         using var descriptors = new DescriptorAllocator(device, "Morph");
-        using var morph = new MorphRenderFeature(device, vertexCapacity: 512, entryCapacity: 512) {
-            Effects = effects,
-            Pipelines = new(device),
-            Descriptors = descriptors,
-            Source = scene
-        };
+        using var morph = new MorphRenderFeature(device, 512, 512);
+        morph.Effects = effects;
+        morph.Pipelines = new(device);
+        morph.Descriptors = descriptors;
+        morph.Source = scene;
 
         using var system = new RenderSystem();
 
@@ -348,9 +354,7 @@ public class MorphScatterDeviceTests {
             // ⚠ Declared from VertexInput because that is what Record leaves the buffer in — the
             // barrier between the dispatch and the draw is the pass's to record, so a test that
             // declared any other state here would be saying the pass had left it somewhere else.
-            commands.Barrier(
-                new([new(morph.Buffer, ResourceState.VertexInput, ResourceState.CopySource)], [])
-            );
+            commands.Barrier(new([new(morph.Buffer, ResourceState.VertexInput, ResourceState.CopySource)], []));
 
             commands.CopyBuffer(
                 morph.Buffer,
@@ -455,25 +459,29 @@ public class MorphScatterDeviceTests {
 
         var meshBytes = MemoryMarshal.AsBytes(mesh.AsSpan()).ToArray();
 
-        var vertices = device.CreateBuffer(new(
-            meshBytes.Length,
-            BufferUsage.Storage | BufferUsage.CopySource,
-            MemoryAccess.HostUpload,
-            "morph vertices"
-        ));
+        var vertices = device.CreateBuffer(
+            new(
+                meshBytes.Length,
+                BufferUsage.Storage | BufferUsage.CopySource,
+                MemoryAccess.HostUpload,
+                "morph vertices"
+            )
+        );
 
-        var readback = device.CreateBuffer(new(
-            meshBytes.Length,
-            BufferUsage.CopyDestination,
-            MemoryAccess.HostReadback,
-            "morph readback"
-        ));
+        var readback = device.CreateBuffer(
+            new(
+                meshBytes.Length,
+                BufferUsage.CopyDestination,
+                MemoryAccess.HostReadback,
+                "morph readback"
+            )
+        );
 
         device.Write(vertices, 0, meshBytes);
 
         var shader = device.CreateShader(
             ShaderStage.Compute,
-            effect.Stages.Single(stage => stage.Stage == ShaderStage.Compute).Bytecode.AsSpan(),
+            effect.Stages.Single(static stage => stage.Stage == ShaderStage.Compute).Bytecode.AsSpan(),
             "MorphScatter"
         );
 
@@ -492,12 +500,14 @@ public class MorphScatterDeviceTests {
             var words = MorphKernel.Pack(target);
             var entryBytes = MemoryMarshal.AsBytes(words.AsSpan()).ToArray();
 
-            var entries = device.CreateBuffer(new(
-                entryBytes.Length,
-                BufferUsage.Storage,
-                MemoryAccess.HostUpload,
-                $"morph entries {target.Name}"
-            ));
+            var entries = device.CreateBuffer(
+                new(
+                    entryBytes.Length,
+                    BufferUsage.Storage,
+                    MemoryAccess.HostUpload,
+                    $"morph entries {target.Name}"
+                )
+            );
 
             device.Write(entries, 0, entryBytes);
             owned.Add(entries);
@@ -513,12 +523,14 @@ public class MorphScatterDeviceTests {
             Write(block, constants, "positionStep", MorphKernel.Step(target.PositionScale));
             Write(block, constants, "normalStep", MorphKernel.Step(target.NormalScale));
 
-            var uniforms = device.CreateBuffer(new(
-                constants.Length,
-                BufferUsage.Uniform,
-                MemoryAccess.HostUpload,
-                $"morph constants {target.Name}"
-            ));
+            var uniforms = device.CreateBuffer(
+                new(
+                    constants.Length,
+                    BufferUsage.Uniform,
+                    MemoryAccess.HostUpload,
+                    $"morph constants {target.Name}"
+                )
+            );
 
             device.Write(uniforms, 0, constants);
             owned.Add(uniforms);
@@ -583,7 +595,7 @@ public class MorphScatterDeviceTests {
             );
         }
 
-        return MemoryMarshal.Cast<byte, SurfaceVertex>(bytes).ToArray();
+        return [..MemoryMarshal.Cast<byte, SurfaceVertex>(bytes)];
     }
 
     /// <summary>Compiles the shipped kernel against <c>Core</c> and nothing else.</summary>
@@ -613,7 +625,7 @@ public class MorphScatterDeviceTests {
 
         Assert.True(
             member.Key is not null,
-            $"the kernel declares no '{name}': {string.Join(", ", declared.Members.Select(m => m.Key.Name))}"
+            $"the kernel declares no '{name}': {string.Join(", ", declared.Members.Select(static m => m.Key.Name))}"
         );
 
         return member.Offset;
@@ -626,7 +638,7 @@ public class MorphScatterDeviceTests {
         Assert.True(
             found.Length == 1,
             $"the kernel has {found.Length} bindings called '{name}': "
-            + string.Join(", ", effect.Bindings.Select(binding => binding.Name))
+            + string.Join(", ", effect.Bindings.Select(static binding => binding.Name))
         );
 
         return found[0].Binding;

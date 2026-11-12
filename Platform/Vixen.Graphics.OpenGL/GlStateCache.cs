@@ -206,8 +206,12 @@ sealed class GlStateCache(IGlApi gl) {
     /// <param name="layer">The layer, when it is not.</param>
     /// <param name="format">The sized internal format the shader sees.</param>
     /// <remarks>
-    ///     ⚠ <b>Every argument is part of the key, which is why this is a tuple and the texture
-    ///     cache above is a name.</b> Two views of one texture at different mip levels are the
+    ///     ⚠
+    ///     <b>
+    ///         Every argument is part of the key, which is why this is a tuple and the texture
+    ///         cache above is a name.
+    ///     </b>
+    ///     Two views of one texture at different mip levels are the
     ///     ordinary case for a compute chain that writes a pyramid, and a cache keyed on the texture
     ///     alone would bind level 0 for all of them and produce a mip chain whose every level is the
     ///     first — a picture that is blurry rather than absent.

@@ -96,8 +96,11 @@ public sealed class RenderDrawContext(ICommandList commandList, EffectSystem eff
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <b>Always the whole answer, never null, and that is what makes a per-view rect
-    ///         composable.</b> <see cref="Compositor.RenderPassRenderer" /> sets it to its own
+    ///         <b>
+    ///             Always the whole answer, never null, and that is what makes a per-view rect
+    ///             composable.
+    ///         </b>
+    ///         <see cref="Compositor.RenderPassRenderer" /> sets it to its own
     ///         <c>Viewport</c> where a document named one and to the whole of its first attachment
     ///         otherwise, so a node underneath can multiply <see cref="RenderView.ViewportRect" /> by
     ///         it without asking anyone how big anything is. A nullable one would have pushed that

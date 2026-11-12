@@ -43,7 +43,7 @@ public class BlockoutGeometryTests : IDisposable {
     Entity Cube(Vector3 position = default, float scale = 1f) {
         var entity = scene.CreateShape(
             PrimitiveKind.Cube,
-            new LocalTransform { Position = position, Rotation = Quaternion.Identity, Scale = new(scale) }
+            new() { Position = position, Rotation = Quaternion.Identity, Scale = new(scale) }
         );
 
         transforms.Resolve(world);
@@ -60,7 +60,7 @@ public class BlockoutGeometryTests : IDisposable {
             Assert.InRange(corner, 0, mesh.PositionCount - 1);
         }
 
-        Assert.All(mesh.Faces, face => Assert.True(face.Count >= 3));
+        Assert.All(mesh.Faces, static face => Assert.True(face.Count >= 3));
 
         for (var edge = 0; edge < mesh.Edges.Count; edge++) {
             Assert.NotEmpty(mesh.FacesOf(edge).ToArray());
@@ -128,7 +128,7 @@ public class BlockoutGeometryTests : IDisposable {
         // ⚠ An extrude of one metre on an entity scaled to a half is two units in the mesh. A verb
         // given the world number would move it half as far as the pointer said — invisible until
         // somebody extrudes a wall that had been scaled.
-        var local = BlockoutGeometry.Local(editing, new Vector3(0f, 1f, 0f));
+        var local = BlockoutGeometry.Local(editing, new(0f, 1f, 0f));
 
         Assert.Equal(2f, local.Y, 3);
     }
@@ -273,7 +273,7 @@ public class BlockoutGeometryTests : IDisposable {
     [Fact]
     public void Merging_another_mesh_in_brings_its_faces_and_takes_its_entity() {
         var first = Cube();
-        var second = Cube(new Vector3(4f, 0f, 0f));
+        var second = Cube(new(4f, 0f, 0f));
 
         scene.Selection.Set(first);
         editing.Enter(MeshElementKind.Face);

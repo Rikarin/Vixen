@@ -3,11 +3,8 @@
 
 using Vixen.Core;
 using Vixen.Editor.NodeGraph;
-using Vixen.Input;
 using Vixen.NodeGraph;
 using Vixen.Texturing;
-using Vixen.Texturing.Layers;
-using Vixen.Texturing.Painting;
 using Vixen.Ui;
 using Vixen.Ui.Controls;
 using Vixen.Ui.Controls.Advanced;
@@ -49,8 +46,11 @@ public class TextureGraphPanelTests {
     /// <summary>⚠ And a tab opened by a double-click says which pane holds the picture.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/841">#841</a>, and nothing had ever
-    ///         called <see cref="TextureGraphEditorView" /> from a test.</b> It passed
+    ///         <b>
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/841">#841</a>, and nothing had ever
+    ///             called <see cref="TextureGraphEditorView" /> from a test.
+    ///         </b>
+    ///         It passed
     ///         <c>TexturePreviewBlocker.NoGraphics</c>, whose sentence is "this host publishes no
     ///         IEditorGraphics to plugins" — and a double-click happens in the editor, which publishes
     ///         one. So the sentence was false in the only host that ever renders it, and it sent the
@@ -72,9 +72,7 @@ public class TextureGraphPanelTests {
 
         var asset = fixture.AddGraph("Bricks");
 
-        Assert.True(
-            fixture.Editors.TryGetForFile("Assets/Bricks" + TextureGraphDocument.Extension, out var editor)
-        );
+        Assert.True(fixture.Editors.TryGetForFile("Assets/Bricks" + TextureGraphDocument.Extension, out _));
 
         Assert.True(fixture.Editors.TryOpen(asset, out var document));
 
@@ -92,8 +90,11 @@ public class TextureGraphPanelTests {
     /// <summary>⚠ A graph that does not compile says which node refused, rather than going blank.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>The fourth answer <a href="https://github.com/Rikarin/Vixen/issues/816">#816</a>
-    ///         asks for.</b> Until the pane compiled the document there were three states, all of
+    ///         <b>
+    ///             The fourth answer <a href="https://github.com/Rikarin/Vixen/issues/816">#816</a>
+    ///             asks for.
+    ///         </b>
+    ///         Until the pane compiled the document there were three states, all of
     ///         them facts about the host — it publishes no graphics, it has no device, or it is fine.
     ///         A graph with an unwired image input is none of those: the host is perfectly capable and
     ///         there is nothing to draw, which is exactly the silence this whole panel was designed
@@ -118,12 +119,12 @@ public class TextureGraphPanelTests {
         Assert.True(fixture.Shell.Commands.Execute(TexturingModule.OpenCommand));
 
         var document = Assert.Single(fixture.Project.Documents.OfType<TextureGraphDocument>());
-        var output = document.Graph.Nodes.Single(node => node.Type == "Output/Output");
+        var output = document.Graph.Nodes.Single(static node => node.Type == "Output/Output");
 
         // ⚠ A blur whose Input is wired to nothing, between the source and the output. The starter
         // graph compiles, so replacing the wire is what makes this a claim about a refusal rather
         // than about an empty document.
-        foreach (var node in document.Graph.Nodes.Where(node => node.Type == "Source/Uniform").ToArray()) {
+        foreach (var node in document.Graph.Nodes.Where(static node => node.Type == "Source/Uniform").ToArray()) {
             document.Graph.Remove(node.Id, out _);
         }
 
@@ -183,7 +184,7 @@ public class TextureGraphPanelTests {
         Assert.NotNull(image);
 
         // The document is on the canvas, and it is the starter graph read out of the empty file.
-        Assert.Contains(canvas.Graph.Nodes, node => node.Type == "Output/Output");
+        Assert.Contains(canvas.Graph.Nodes, static node => node.Type == "Output/Output");
 
         // ⚠ And the preview pane is showing that graph's extent rather than a constant. This fixture
         // publishes no graphics, so there is no handle — see `TexturePreviewBlocker` — and a pane
@@ -225,8 +226,12 @@ public class TextureGraphPanelTests {
     /// <summary>The canvas can look inside a published compound, because it has the library.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The half of <a href="https://github.com/Rikarin/Vixen/issues/803">#803</a> the
-    ///         document's own wire left dark.</b> <c>TextureGraphDocument</c> publishes the shipped
+    ///         ⚠
+    ///         <b>
+    ///             The half of <a href="https://github.com/Rikarin/Vixen/issues/803">#803</a> the
+    ///             document's own wire left dark.
+    ///         </b>
+    ///         <c>TextureGraphDocument</c> publishes the shipped
     ///         compounds and hands the source to the <em>compiler</em>, so a graph containing one
     ///         compiles — and the canvas was never given it, so <c>NodeGraphView.Opened</c> could not
     ///         tell a sub-graph node from an atomic one and a double-click on a compound did nothing
@@ -252,7 +257,7 @@ public class TextureGraphPanelTests {
 
         view.Show(document, TexturePreviewBlocker.NoDevice);
 
-        var compound = global::Vixen.TextureGraph.TextureCompoundLibrary.Shipped[0];
+        var compound = Vixen.TextureGraph.TextureCompoundLibrary.Shipped[0];
 
         Assert.NotNull(view.Canvas.SubGraphSource);
         Assert.True(view.Canvas.Registry.TryGet(compound, out _), $"'{compound}' is not in the menu.");
@@ -291,7 +296,7 @@ public class TextureGraphPanelTests {
 
         // The instrument: the file really did fail to publish, rather than the pane being told
         // nothing because there was nothing to tell.
-        Assert.Contains(document.CompoundProblems, problem => problem.Path == "Broken");
+        Assert.Contains(document.CompoundProblems, static problem => problem.Path == "Broken");
 
         var view = new TextureGraphView(fixture.Shell.Document.Root.Add<UiElement>());
 
@@ -307,8 +312,11 @@ public class TextureGraphPanelTests {
     /// <summary>Double-clicking a compound puts the graph it stands for on the canvas.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The other half of <a href="https://github.com/Rikarin/Vixen/issues/859">#859</a>,
-    ///         and it is the half that decides whether any of the rest is reachable.</b>
+    ///         ⚠
+    ///         <b>
+    ///             The other half of <a href="https://github.com/Rikarin/Vixen/issues/859">#859</a>,
+    ///             and it is the half that decides whether any of the rest is reachable.
+    ///         </b>
     ///         <c>NodeGraphView.SubGraphOpened</c> was raised by the canvas and subscribed to by
     ///         nothing in the whole tree — one handler, in <c>Vixen.Editor.NodeGraph.Tests</c> — so an
     ///         author could place <c>Generators/Dirt</c>, compile it, bake it, and never see what it
@@ -325,7 +333,7 @@ public class TextureGraphPanelTests {
     public void Double_clicking_a_compound_opens_it_on_the_canvas() {
         using var fixture = new TexturingFixture();
         var (view, canvas) = Opened(fixture);
-        var compound = global::Vixen.TextureGraph.TextureCompoundLibrary.Shipped[0];
+        var compound = Vixen.TextureGraph.TextureCompoundLibrary.Shipped[0];
 
         canvas.Graph.Add(compound, new(120f, 120f));
 
@@ -361,8 +369,12 @@ public class TextureGraphPanelTests {
     ///         wrong about in the opposite direction.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Both halves, because "the note is on the screen" is satisfied by a note that is
-    ///         always on the screen.</b> The strip is empty while the canvas is showing the author's
+    ///         ⚠
+    ///         <b>
+    ///             Both halves, because "the note is on the screen" is satisfied by a note that is
+    ///             always on the screen.
+    ///         </b>
+    ///         The strip is empty while the canvas is showing the author's
     ///         own graph and carries the note while it is showing somebody else's.
     ///     </para>
     /// </remarks>
@@ -370,7 +382,7 @@ public class TextureGraphPanelTests {
     public void A_published_graph_is_shown_read_only_and_the_strip_says_so() {
         using var fixture = new TexturingFixture();
         var (view, canvas) = Opened(fixture);
-        var compound = global::Vixen.TextureGraph.TextureCompoundLibrary.Shipped[0];
+        var compound = Vixen.TextureGraph.TextureCompoundLibrary.Shipped[0];
 
         canvas.Graph.Add(compound, new(120f, 120f));
 
@@ -392,8 +404,12 @@ public class TextureGraphPanelTests {
     /// <param name="view">The panel.</param>
     /// <returns>The strip's text.</returns>
     /// <remarks>
-    ///     ⚠ <b>The strip itself, found by tag, and its absence is a failure rather than an empty
-    ///     answer.</b> A helper that returned <c>""</c> for "there is no strip" would make the
+    ///     ⚠
+    ///     <b>
+    ///         The strip itself, found by tag, and its absence is a failure rather than an empty
+    ///         answer.
+    ///     </b>
+    ///     A helper that returned <c>""</c> for "there is no strip" would make the
     ///     before-half of every assertion over it true on a panel that never built one, which is the
     ///     same shape as the constant this replaced. The strip exists from the constructor and is
     ///     emptied rather than removed, so an author outside a compound gets one with no children.
@@ -447,8 +463,12 @@ public class TextureGraphPanelTests {
 
     /// <summary>A refresh while inside a published graph does not throw the author out of it.</summary>
     /// <remarks>
-    ///     ⚠ <b><c>Show</c> runs on every edit and every evaluation, and it re-seats the canvas on
-    ///     the document's own graph.</b> A view that did that unconditionally would close the
+    ///     ⚠
+    ///     <b>
+    ///         <c>Show</c> runs on every edit and every evaluation, and it re-seats the canvas on
+    ///         the document's own graph.
+    ///     </b>
+    ///     A view that did that unconditionally would close the
     ///     compound on the next refresh, which for this panel is immediately — the feature would look
     ///     as if the double-click had never worked.
     /// </remarks>
@@ -456,7 +476,7 @@ public class TextureGraphPanelTests {
     public void Refreshing_the_panel_leaves_the_author_inside_the_compound() {
         using var fixture = new TexturingFixture();
         var (view, canvas) = Opened(fixture);
-        var compound = global::Vixen.TextureGraph.TextureCompoundLibrary.Shipped[0];
+        var compound = Vixen.TextureGraph.TextureCompoundLibrary.Shipped[0];
 
         canvas.Graph.Add(compound, new(120f, 120f));
 
@@ -535,9 +555,13 @@ public class TextureGraphPanelTests {
     ///         harmless was the one two below it.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The assertion is the identity of the <c>CanvasGraph</c> and not of a
-    ///         <c>NodeItem</c>, and the difference is a sabotage this test failed to notice
-    ///         first.</b> <c>Project</c> starts <c>new CanvasGraph()</c> and hands it to the canvas
+    ///         ⚠
+    ///         <b>
+    ///             The assertion is the identity of the <c>CanvasGraph</c> and not of a
+    ///             <c>NodeItem</c>, and the difference is a sabotage this test failed to notice
+    ///             first.
+    ///         </b>
+    ///         <c>Project</c> starts <c>new CanvasGraph()</c> and hands it to the canvas
     ///         control, which <em>reuses</em> its item elements across the swap — so an assertion on
     ///         item identity stayed green with the fix reverted. What is rebuilt is the graph, so
     ///         that is what is read.
@@ -547,7 +571,7 @@ public class TextureGraphPanelTests {
     public void Refreshing_the_panel_does_not_reproject_the_canvas() {
         using var fixture = new TexturingFixture();
         var (view, canvas) = Opened(fixture);
-        var compound = global::Vixen.TextureGraph.TextureCompoundLibrary.Shipped[0];
+        var compound = Vixen.TextureGraph.TextureCompoundLibrary.Shipped[0];
 
         canvas.Graph.Add(compound, new(120f, 120f));
 
@@ -569,7 +593,7 @@ public class TextureGraphPanelTests {
     public void The_trail_goes_back_to_the_document_and_gives_the_stack_back() {
         using var fixture = new TexturingFixture();
         var (view, canvas) = Opened(fixture);
-        var compound = global::Vixen.TextureGraph.TextureCompoundLibrary.Shipped[0];
+        var compound = Vixen.TextureGraph.TextureCompoundLibrary.Shipped[0];
 
         canvas.Graph.Add(compound, new(120f, 120f));
 
@@ -593,7 +617,7 @@ public class TextureGraphPanelTests {
     public void Showing_another_document_resets_the_trail() {
         using var fixture = new TexturingFixture();
         var (view, canvas) = Opened(fixture);
-        var compound = global::Vixen.TextureGraph.TextureCompoundLibrary.Shipped[0];
+        var compound = Vixen.TextureGraph.TextureCompoundLibrary.Shipped[0];
 
         canvas.Graph.Add(compound, new(120f, 120f));
 
@@ -626,17 +650,17 @@ public class TextureGraphPanelTests {
     public void A_compound_saved_while_it_is_open_is_re_resolved_on_the_canvas() {
         using var fixture = new TexturingFixture();
 
-        var folder = System.IO.Path.Combine(fixture.Paths.Assets, TextureNodeLibrary.CompoundFolder);
+        var folder = Path.Combine(fixture.Paths.Assets, TextureNodeLibrary.CompoundFolder);
 
         Directory.CreateDirectory(folder);
 
         var compound = new TextureGraphDocument(
             fixture.Project,
             fixture.AddGraph(TextureNodeLibrary.CompoundFolder + "/Grunge"),
-            System.IO.Path.Combine(folder, "Grunge" + TextureGraphDocument.Extension)
+            Path.Combine(folder, "Grunge" + TextureGraphDocument.Extension)
         );
 
-        compound.Graph.Interface.Add(new("Out", global::Vixen.NodeGraph.PortDirection.Output, PortKind.Image));
+        compound.Graph.Interface.Add(new("Out", Vixen.NodeGraph.PortDirection.Output, PortKind.Image));
         compound.Save();
 
         var (view, canvas) = Opened(fixture, "Material");
@@ -674,8 +698,8 @@ public class TextureGraphPanelTests {
 
         fixture.Shell.RegisterPanel(
             TrailPanel,
-            new StringId("editor.panel." + TrailPanel, "Texture Graph"),
-            panel => built = new TextureGraphView(panel)
+            new("editor.panel." + TrailPanel, "Texture Graph"),
+            panel => built = new(panel)
         );
 
         fixture.Shell.Workspace.Open(TrailPanel);
@@ -747,8 +771,8 @@ public class TextureGraphPanelTests {
 
     static void Click(TexturingFixture fixture, UiElement element) {
         var bounds = element.Bounds;
-        var x = bounds.X + (bounds.Width * 0.5f);
-        var y = bounds.Y + (bounds.Height * 0.5f);
+        var x = bounds.X + bounds.Width * 0.5f;
+        var y = bounds.Y + bounds.Height * 0.5f;
 
         Send(fixture, x, y, PointerAction.Pressed);
         Send(fixture, x, y, PointerAction.Released);
@@ -808,5 +832,5 @@ public class TextureGraphPanelTests {
     ///     <a href="https://github.com/Rikarin/Vixen/issues/831">#831</a> found on the layers side:
     ///     it is a claim about a switch statement rather than about which case the factory picks.
     /// </remarks>
-    static string Status(UiElement host) => Find(host, "texture-graph-status")?.Text ?? "";
+    static string Status(UiElement host) => Find(host, "texture-graph-status")?.Text ?? string.Empty;
 }

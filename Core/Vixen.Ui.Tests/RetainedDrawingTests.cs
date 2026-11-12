@@ -25,40 +25,41 @@ public class RetainedDrawingTests {
     const int Cards = 12;
 
     const string Sheet = """
-        root { width: 400px; height: 300px; display: flex; flex-wrap: wrap; align-content: flex-start; }
-        card { width: 80px; height: 40px; background-color: #345; border: 2px solid #f00; padding: 2px; }
-        label { color: #fff; font-size: 12px; }
-        .rounded { border-radius: 4px 8px 2px 0px; }
-        .faded { opacity: 0.5; }
-        .nudged { margin-left: 7px; }
-        .wide { width: 120px; }
-        .masked { mask-image: linear-gradient(black, transparent); }
-        .turned { transform: rotate(10deg); }
-        .shadowed { box-shadow: 2px 2px 4px #000; }
-        .hidden { visibility: hidden; }
-        .gone { display: none; }
-        .dashed { border-style: dashed; }
-        .clipped { overflow: hidden; }
-        .blended { mix-blend-mode: multiply; }
-        .ringed { outline: 2px dotted #0f0; }
-        .graded { background-image: linear-gradient(90deg, #f00, #00f); }
-        .tiny { font-size: 7px; }
-        .sunk { z-index: -1; position: relative; }
-        dial { width: 10px; height: 10px; }
-        """;
+                         root { width: 400px; height: 300px; display: flex; flex-wrap: wrap; align-content: flex-start; }
+                         card { width: 80px; height: 40px; background-color: #345; border: 2px solid #f00; padding: 2px; }
+                         label { color: #fff; font-size: 12px; }
+                         .rounded { border-radius: 4px 8px 2px 0px; }
+                         .faded { opacity: 0.5; }
+                         .nudged { margin-left: 7px; }
+                         .wide { width: 120px; }
+                         .masked { mask-image: linear-gradient(black, transparent); }
+                         .turned { transform: rotate(10deg); }
+                         .shadowed { box-shadow: 2px 2px 4px #000; }
+                         .hidden { visibility: hidden; }
+                         .gone { display: none; }
+                         .dashed { border-style: dashed; }
+                         .clipped { overflow: hidden; }
+                         .blended { mix-blend-mode: multiply; }
+                         .ringed { outline: 2px dotted #0f0; }
+                         .graded { background-image: linear-gradient(90deg, #f00, #00f); }
+                         .tiny { font-size: 7px; }
+                         .sunk { z-index: -1; position: relative; }
+                         dial { width: 10px; height: 10px; }
+                         """;
 
     static readonly string[] Classes = [
         "rounded", "faded", "nudged", "wide", "masked", "turned", "shadowed", "hidden", "gone", "dashed",
         "clipped", "blended", "ringed", "graded", "tiny", "sunk"
     ];
 
-    static readonly string[] Words = ["", "a", "label", "a longer label", "wrapped over two lines of text", "zz"];
+    static readonly string[] Words =
+        [string.Empty, "a", "label", "a longer label", "wrapped over two lines of text", "zz"];
 
     static readonly Text.FontFace Face = LoadFace();
 
     static Text.FontFace LoadFace() {
         using var stream = System.Reflection.Assembly.GetExecutingAssembly()
-            .GetManifestResourceStream("Vixen.Ui.Tests.Fonts.TestShapeLana.ttf")
+                .GetManifestResourceStream("Vixen.Ui.Tests.Fonts.TestShapeLana.ttf")
             ?? throw new InvalidOperationException("the test font is not embedded");
 
         using var memory = new MemoryStream();
@@ -91,14 +92,14 @@ public class RetainedDrawingTests {
 
     [Fact]
     public void A_still_document_builds_nothing_after_its_first_frame() {
-        using var document = Board(retaining: true);
+        using var document = Board(true);
 
         Frame(document);
 
         var picture = document.Drawing.Commands.Count;
 
         Assert.True(picture > Cards * 2, $"the board drew only {picture} commands");
-        Assert.Contains(document.Drawing.Commands, command => command.Kind == DrawCommandKind.Text);
+        Assert.Contains(document.Drawing.Commands, static command => command.Kind == DrawCommandKind.Text);
         Assert.Equal(picture, Built(document));
 
         for (var frame = 1; frame < 30; frame++) {
@@ -112,7 +113,7 @@ public class RetainedDrawingTests {
     /// <summary>The other half: the same board rebuilt in full replays nothing.</summary>
     [Fact]
     public void A_board_that_does_not_retain_builds_its_whole_picture_every_frame() {
-        using var document = Board(retaining: false);
+        using var document = Board(false);
 
         for (var frame = 0; frame < 30; frame++) {
             Frame(document);
@@ -124,8 +125,8 @@ public class RetainedDrawingTests {
 
     [Fact]
     public void One_changed_label_builds_its_own_card_and_nothing_beside_it() {
-        using var document = Board(retaining: true);
-        using var twin = Board(retaining: false);
+        using var document = Board(true);
+        using var twin = Board(false);
 
         Frame(document);
         Frame(document);
@@ -150,13 +151,16 @@ public class RetainedDrawingTests {
     /// <summary>An element whose type draws itself is never replayed, and neither is its parent.</summary>
     [Fact]
     public void A_custom_drawn_element_and_its_ancestors_are_built_every_frame() {
-        using var document = Board(retaining: true);
+        using var document = Board(true);
         var drawn = 0;
 
         var dial = document.Root.Children[3].Add<Dial>("dial");
         dial.Draws = context => {
             drawn++;
-            context.FillRectangle(new Rectangle(context.Bounds.X, context.Bounds.Y, 4f, 4f), new Color4(drawn % 2, 0f, 0f, 1f));
+            context.FillRectangle(
+                new(context.Bounds.X, context.Bounds.Y, 4f, 4f),
+                new(drawn % 2, 0f, 0f, 1f)
+            );
         };
 
         Frame(document);
@@ -167,7 +171,7 @@ public class RetainedDrawingTests {
         // other eleven cards are replayed.
         Assert.Equal(2, drawn);
         Assert.InRange(Built(document) - before, 2L, document.Drawing.Commands.Count / Cards + 2);
-        Assert.Contains(document.Drawing.Commands, command => command.Color.R > 0.5f);
+        Assert.Contains(document.Drawing.Commands, static command => command.Color.R > 0.5f);
     }
 
     /// <summary>
@@ -177,8 +181,8 @@ public class RetainedDrawingTests {
     /// </summary>
     [Fact]
     public void A_group_that_collapses_onto_a_replayed_child_fades_it_once() {
-        using var retained = Collapsing(retaining: true);
-        using var rebuilt = Collapsing(retaining: false);
+        using var retained = Collapsing(true);
+        using var rebuilt = Collapsing(false);
         retained.VerifiesRetainedDrawing = false;
 
         for (var frame = 0; frame < 2; frame++) {
@@ -206,8 +210,8 @@ public class RetainedDrawingTests {
     /// </summary>
     [Fact]
     public void A_child_added_to_an_empty_zero_tall_box_is_drawn() {
-        using var retained = Overlay(retaining: true);
-        using var rebuilt = Overlay(retaining: false);
+        using var retained = Overlay(true);
+        using var rebuilt = Overlay(false);
         retained.VerifiesRetainedDrawing = false;
 
         for (var frame = 0; frame < 2; frame++) {
@@ -229,11 +233,13 @@ public class RetainedDrawingTests {
     static UiDocument Overlay(bool retaining) {
         var document = new UiDocument(200f, 100f);
         document.RetainsDrawing = retaining;
-        document.Load("""
+        document.Load(
+            """
             root { width: 200px; height: 100px; }
             overlay { width: 200px; height: 0px; }
             toast { width: 50px; height: 20px; background-color: #234; }
-            """);
+            """
+        );
 
         document.Root.Add("overlay");
         return document;
@@ -243,11 +249,13 @@ public class RetainedDrawingTests {
         var document = new UiDocument(200f, 100f);
         document.Fonts.Register("Test", Face);
         document.RetainsDrawing = retaining;
-        document.Load("""
+        document.Load(
+            """
             root { width: 200px; height: 100px; }
             wrap { width: 100px; height: 20px; opacity: 0.5; }
             label { color: #fff; font-size: 12px; }
-            """);
+            """
+        );
 
         document.Root.Add("wrap").Add("label").Text = "faded";
         return document;
@@ -274,8 +282,8 @@ public class RetainedDrawingTests {
     [InlineData(7)]
     [InlineData(8)]
     public void A_retained_frame_is_the_frame_a_full_rebuild_draws_through_random_mutations(int seed) {
-        using var retained = Board(retaining: true);
-        using var rebuilt = Board(retaining: false);
+        using var retained = Board(true);
+        using var rebuilt = Board(false);
         retained.VerifiesRetainedDrawing = false;
 
         var random = new Random(seed);
@@ -314,7 +322,12 @@ public class RetainedDrawingTests {
         }
     }
 
-    static string Mutate(Random random, List<(UiElement Retained, UiElement Rebuilt)> pairs, UiDocument a, UiDocument b) {
+    static string Mutate(
+        Random random,
+        List<(UiElement Retained, UiElement Rebuilt)> pairs,
+        UiDocument a,
+        UiDocument b
+    ) {
         var (left, right) = pairs[random.Next(pairs.Count)];
         var kind = random.Next(9);
 

@@ -25,8 +25,11 @@ public sealed record NetworkRulesImportSettings : IImportSettings {
 /// <summary>Imports a <c>.vxnetrules</c> — the one asset kind networking adds.</summary>
 /// <remarks>
 ///     <para>
-///         <b>[16 § Rules](../../../docs/plan/16-networking.md): "NetworkRules is a policy asset
-///         referenced per prefab or set globally".</b> The registry that answers the questions was
+///         <b>
+///             [16 § Rules](../../../docs/plan/16-networking.md): "NetworkRules is a policy asset
+///             referenced per prefab or set globally".
+///         </b>
+///         The registry that answers the questions was
 ///         built first and said in its own remarks that this half was not; this is that half.
 ///     </para>
 ///     <para>
@@ -38,8 +41,12 @@ public sealed record NetworkRulesImportSettings : IImportSettings {
 ///         game rule that does not work rather than an error anybody sees.
 ///     </para>
 ///     <para>
-///         ⚠ <b>No <c>MathScalars.Register</c>, deliberately, and it is worth writing down because
-///         its absence is the shape of a bug this repository has had twice.</b> An asset type that
+///         ⚠
+///         <b>
+///             No <c>MathScalars.Register</c>, deliberately, and it is worth writing down because
+///             its absence is the shape of a bug this repository has had twice.
+///         </b>
+///         An asset type that
 ///         forgets that call reads a <c>Vector3</c> back as zero — and only when it runs before
 ///         anything scene-shaped, so it passes in a suite and fails alone. It is not needed here:
 ///         <see cref="NetworkRules" /> is six enums, and a policy has no geometry in it at all.
@@ -48,8 +55,12 @@ public sealed record NetworkRulesImportSettings : IImportSettings {
 ///         round-trips every field to prove it.
 ///     </para>
 ///     <para>
-///         ⚠ <b>A key this build does not know is a warning, and until it was one it was nothing at
-///         all.</b> <c>YamlSerializer</c> ignores an unknown key unless the caller asks — deliberately,
+///         ⚠
+///         <b>
+///             A key this build does not know is a warning, and until it was one it was nothing at
+///             all.
+///         </b>
+///         <c>YamlSerializer</c> ignores an unknown key unless the caller asks — deliberately,
 ///         because "the caller decides whether an unknown key is news" — and no importer in the tree
 ///         asked. So <c>onOwnerDisconect: Destroy</c> imported cleanly, produced a chunk, resolved
 ///         onto a spawned node, and left the object on <see cref="DisconnectBehaviour.TransferToServer" />:

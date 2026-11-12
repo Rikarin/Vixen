@@ -3,7 +3,6 @@
 
 using System.Globalization;
 using System.Text;
-using Vixen.Editor.Texturing.Layers;
 using Vixen.TextureGraph;
 using Vixen.Texturing.Layers;
 using Xunit;
@@ -13,8 +12,12 @@ namespace Vixen.Editor.Texturing.Tests;
 /// <summary>The stack doc 48 exit criterion 6 is measured on, and how two plans are compared.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>What this cannot prove, said here because it is the strongest assertion this area
-///         has and it is weaker than it looks.</b> Both halves of the differential go through
+///         ⚠
+///         <b>
+///             What this cannot prove, said here because it is the strongest assertion this area
+///             has and it is weaker than it looks.
+///         </b>
+///         Both halves of the differential go through
 ///         <c>LayerStackGraph.Build</c>, <c>TextureGraphCompiler</c> and the same kernels — that is
 ///         doc 48 § D1's whole point — so it compares <em>two identical pipelines</em>. It proves the
 ///         stack and its explosion agree; it proves nothing whatever about whether either is right. A
@@ -30,8 +33,12 @@ namespace Vixen.Editor.Texturing.Tests;
 ///         when the first skips.
 ///     </para>
 ///     <para>
-///         ⚠ <b>One layer is a <em>texture</em> fill, and that is the difference between a
-///         differential and a tautology.</b> Every other source a stack can express in this build is
+///         ⚠
+///         <b>
+///             One layer is a <em>texture</em> fill, and that is the difference between a
+///             differential and a tautology.
+///         </b>
+///         Every other source a stack can express in this build is
 ///         a constant, and a blur, a levels and a blend of constants are all constants — so a
 ///         picture-level comparison of two flat images would be green whatever the two plans had
 ///         done with their op order. The checkerboard a device test uploads for
@@ -48,8 +55,12 @@ static class LayerStackDifferential {
     /// <returns>The stack.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The mask has two entries because a mask with one constant is not a mask any
-    ///         more</b> — <a href="https://github.com/Rikarin/Vixen/issues/895">#895</a>.
+    ///         ⚠
+    ///         <b>
+    ///             The mask has two entries because a mask with one constant is not a mask any
+    ///             more
+    ///         </b>
+    ///         — <a href="https://github.com/Rikarin/Vixen/issues/895">#895</a>.
     ///         <a href="https://github.com/Rikarin/Vixen/issues/789">#789</a>'s fold turns a bare
     ///         constant inside the unit interval into a factor of the layer's opacity, so the
     ///         <c>soften</c> layer's mask compiled to no ops at all and this fixture's summary was
@@ -171,7 +182,10 @@ static class LayerStackDifferential {
                             Blend = LayerBlendMode.Add,
                             Opacity = 0.35f,
                             Values = { ["baseColor"] = [0.2f, 0.2f, 0.2f, 1f] },
-                            Mask = new() { Source = LayerMaskSource.Anchor, Anchor = new() { Anchor = "base", Channel = "baseColor" } }
+                            Mask = new() {
+                                Source = LayerMaskSource.Anchor,
+                                Anchor = new() { Anchor = "base", Channel = "baseColor" }
+                            }
                         },
                         new() {
                             Id = "hsl",
@@ -228,8 +242,12 @@ static class LayerStackDifferential {
     /// <param name="expected">The stack's plan.</param>
     /// <param name="actual">The explosion's plan.</param>
     /// <remarks>
-    ///     ⚠ <b>Field by field rather than <c>Assert.Equal</c>, because a <c>TextureOp</c> is a
-    ///     <c>record</c> whose lists are <c>ImmutableArray</c>.</b> An <c>ImmutableArray</c>'s
+    ///     ⚠
+    ///     <b>
+    ///         Field by field rather than <c>Assert.Equal</c>, because a <c>TextureOp</c> is a
+    ///         <c>record</c> whose lists are <c>ImmutableArray</c>.
+    ///     </b>
+    ///     An <c>ImmutableArray</c>'s
     ///     equality is its <em>underlying array's reference</em>, so the compiler-generated
     ///     <c>Equals</c> on two structurally identical ops from two compilations returns false — a
     ///     comparison that is red for a reason that has nothing to do with the pictures, which is
@@ -276,7 +294,10 @@ static class LayerStackDifferential {
             }
 
             text.Append(CultureInfo.InvariantCulture, $"] cpu {op.Cpu?.GetType().Name ?? "none"}");
-            text.Append(CultureInfo.InvariantCulture, $" extent {op.EmittedForExtent?.ToString(CultureInfo.InvariantCulture) ?? "any"}");
+            text.Append(
+                CultureInfo.InvariantCulture,
+                $" extent {op.EmittedForExtent?.ToString(CultureInfo.InvariantCulture) ?? "any"}"
+            );
 
             // ⚠ The seed, and it is the one line here that is about the *round trip* rather than about
             // the arithmetic — #875. An op's seed is mixed from `TextureOp.Identity`, which the
@@ -287,7 +308,10 @@ static class LayerStackDifferential {
         }
 
         text.Append(CultureInfo.InvariantCulture, $"outputs: [{string.Join(", ", plan.Outputs)}]\n");
-        text.Append(CultureInfo.InvariantCulture, $"kernels: [{string.Join(", ", plan.Kernels.Keys.Order(StringComparer.Ordinal))}]\n");
+        text.Append(
+            CultureInfo.InvariantCulture,
+            $"kernels: [{string.Join(", ", plan.Kernels.Keys.Order(StringComparer.Ordinal))}]\n"
+        );
 
         return text.ToString();
     }

@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Globalization;
-using Vixen.Core.Mathematics;
 using Vixen.Gameplay;
 using Vixen.Gameplay.Quests;
 using Vixen.Ui.Controls.Advanced;
@@ -12,8 +11,11 @@ namespace Vixen.Editor.Gameplay.Quests;
 /// <summary>Turns an event chain into the graph the canvas draws.</summary>
 /// <remarks>
 ///     <para>
-///         <b>A projection rather than the document, for the reason <see cref="EventChain" />
-///         records:</b> the canvas refuses a cycle and gives an input one wire, and an event chain has
+///         <b>
+///             A projection rather than the document, for the reason <see cref="EventChain" />
+///             records:
+///         </b>
+///         the canvas refuses a cycle and gives an input one wire, and an event chain has
 ///         both. So the spanning walk's edges become wires and everything else becomes a badge on the
 ///         box it left — visible, labelled, and not silently missing.
 ///     </para>
@@ -99,7 +101,7 @@ public sealed class EventChainProjection {
                     edge.Branch == EventBranch.Success ? $"↻ on success → {target}" : $"↻ on failure → {target}",
                     edge.To.IsSome ? string.Empty : "not in this build",
                     edge.To.IsSome ? "loop" : "missing",
-                    Above: false
+                    false
                 )
             );
 
@@ -190,7 +192,7 @@ public sealed class EventChainProjection {
 
         if (template.Duration > 0f) {
             box.Attachments.Add(
-                new("timer", string.Create(CultureInfo.InvariantCulture, $"{template.Duration:0.#} s"), "timer", Above: false)
+                new("timer", string.Create(CultureInfo.InvariantCulture, $"{template.Duration:0.#} s"), "timer", false)
             );
         }
 

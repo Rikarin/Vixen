@@ -17,8 +17,8 @@ public sealed class HttpContentTransportTests {
     /// <summary>A whole fetch sends no range and reports the resource's length.</summary>
     [Fact]
     public async Task AWholeFetchSendsNoRangeAndReportsTheLength() {
-        var server = new Handler((_, _) => Ok(HttpStatusCode.OK, new byte[4096]));
-        using var transport = new HttpContentTransport(new HttpClient(server), true);
+        var server = new Handler(static (_, _) => Ok(HttpStatusCode.OK, new byte[4096]));
+        using var transport = new HttpContentTransport(new(server), true);
 
         using var download = await transport.GetAsync(
             "https://content.example/pack.bundle",
@@ -38,15 +38,16 @@ public sealed class HttpContentTransportTests {
     /// </summary>
     [Fact]
     public async Task AResumeSendsARangeAndReportsWhereTheBodyStarts() {
-        var server = new Handler((_, range) => {
-            var from = range!.Ranges.Single().From!.Value;
-            var response = Ok(HttpStatusCode.PartialContent, new byte[4096 - from]);
-            response.Content.Headers.ContentRange = new(from, 4095, 4096);
+        var server = new Handler(static (_, range) => {
+                var from = range!.Ranges.Single().From!.Value;
+                var response = Ok(HttpStatusCode.PartialContent, new byte[4096 - from]);
+                response.Content.Headers.ContentRange = new(from, 4095, 4096);
 
-            return response;
-        });
+                return response;
+            }
+        );
 
-        using var transport = new HttpContentTransport(new HttpClient(server), true);
+        using var transport = new HttpContentTransport(new(server), true);
 
         using var download = await transport.GetAsync(
             "https://content.example/pack.bundle",
@@ -68,8 +69,8 @@ public sealed class HttpContentTransportTests {
     /// </summary>
     [Fact]
     public async Task AServerThatIgnoresTheRangeIsReportedAsStartingAtZero() {
-        var server = new Handler((_, _) => Ok(HttpStatusCode.OK, new byte[4096]));
-        using var transport = new HttpContentTransport(new HttpClient(server), true);
+        var server = new Handler(static (_, _) => Ok(HttpStatusCode.OK, new byte[4096]));
+        using var transport = new HttpContentTransport(new(server), true);
 
         using var download = await transport.GetAsync(
             "https://content.example/pack.bundle",
@@ -87,8 +88,8 @@ public sealed class HttpContentTransportTests {
     /// </summary>
     [Fact]
     public async Task APartialResponseWithNoContentRangeStillAddsUp() {
-        var server = new Handler((_, _) => Ok(HttpStatusCode.PartialContent, new byte[3096]));
-        using var transport = new HttpContentTransport(new HttpClient(server), true);
+        var server = new Handler(static (_, _) => Ok(HttpStatusCode.PartialContent, new byte[3096]));
+        using var transport = new HttpContentTransport(new(server), true);
 
         using var download = await transport.GetAsync(
             "https://content.example/pack.bundle",
@@ -103,11 +104,10 @@ public sealed class HttpContentTransportTests {
     /// <summary>A server that says no gives back its code, which is the first thing anyone looks at.</summary>
     [Fact]
     public async Task AFailureStatusNamesTheCode() {
-        var server = new Handler((_, _) => new HttpResponseMessage(HttpStatusCode.NotFound));
-        using var transport = new HttpContentTransport(new HttpClient(server), true);
+        var server = new Handler(static (_, _) => new(HttpStatusCode.NotFound));
+        using var transport = new HttpContentTransport(new(server), true);
 
-        var failure = await Assert.ThrowsAsync<ContentTransportException>(
-            async () => await transport.GetAsync(
+        var failure = await Assert.ThrowsAsync<ContentTransportException>(async () => await transport.GetAsync(
                 "https://content.example/gone.bundle",
                 0,
                 TestContext.Current.CancellationToken
@@ -121,11 +121,10 @@ public sealed class HttpContentTransportTests {
     /// <summary>And a connection that never opens is the same kind of answer, with the cause kept.</summary>
     [Fact]
     public async Task AConnectionThatFailsBecomesATransportException() {
-        var server = new Handler((_, _) => throw new HttpRequestException("no such host is known"));
-        using var transport = new HttpContentTransport(new HttpClient(server), true);
+        var server = new Handler(static (_, _) => throw new HttpRequestException("no such host is known"));
+        using var transport = new HttpContentTransport(new(server), true);
 
-        var failure = await Assert.ThrowsAsync<ContentTransportException>(
-            async () => await transport.GetAsync(
+        var failure = await Assert.ThrowsAsync<ContentTransportException>(async () => await transport.GetAsync(
                 "https://content.invalid/pack.bundle",
                 0,
                 TestContext.Current.CancellationToken
@@ -145,9 +144,9 @@ public sealed class HttpContentTransportTests {
     [Fact]
     public async Task DisposingTheDownloadClosesTheResponseAndNotJustTheStream() {
         var content = new TrackedContent(new byte[16]);
-        var server = new Handler((_, _) => new HttpResponseMessage(HttpStatusCode.OK) { Content = content });
+        var server = new Handler((_, _) => new(HttpStatusCode.OK) { Content = content });
 
-        using var transport = new HttpContentTransport(new HttpClient(server), true);
+        using var transport = new HttpContentTransport(new(server), true);
         var download = await transport.GetAsync(
             "https://content.example/pack.bundle",
             0,
@@ -162,11 +161,10 @@ public sealed class HttpContentTransportTests {
     /// <summary>A negative offset is a caller's bug, not a server's.</summary>
     [Fact]
     public async Task ANegativeOffsetIsRefusedBeforeAnythingIsSent() {
-        var server = new Handler((_, _) => Ok(HttpStatusCode.OK, []));
-        using var transport = new HttpContentTransport(new HttpClient(server), true);
+        var server = new Handler(static (_, _) => Ok(HttpStatusCode.OK, []));
+        using var transport = new HttpContentTransport(new(server), true);
 
-        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(
-            async () => await transport.GetAsync(
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(async () => await transport.GetAsync(
                 "https://content.example/pack.bundle",
                 -1,
                 TestContext.Current.CancellationToken

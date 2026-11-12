@@ -65,7 +65,8 @@ public sealed record MaterialBakeSet(
 ///         ⚠ <b>A file goes only when the bake can prove it wrote it.</b> Both hazards this handles —
 ///         a map whose extension changed and an output that is no longer produced — are answered by
 ///         the digest in this material's own sidecar, never by the file's name. See
-///         <see cref="Prune(string, string, IReadOnlyList{MaterialMapImage}, IReadOnlyDictionary{string, string}, List{string})" />
+///         <see
+///             cref="Prune(string, string, IReadOnlyList{MaterialMapImage}, IReadOnlyDictionary{string, string}, List{string})" />
 ///         for what deleting on the name alone destroyed.
 ///     </para>
 ///     <para>
@@ -87,7 +88,9 @@ public sealed class ProjectMaterialBaker(EditorProject project, string folder = 
     ///     registers the same table for the same reason, from a static constructor rather than a
     ///     module initializer.
     /// </remarks>
-    static ProjectMaterialBaker() => MathScalars.Register();
+    static ProjectMaterialBaker() {
+        MathScalars.Register();
+    }
 
     /// <summary>Where baked materials go, relative to the project's assets.</summary>
     public string Folder { get; } = folder;
@@ -193,7 +196,7 @@ public sealed class ProjectMaterialBaker(EditorProject project, string folder = 
 
             Announce(files[at]);
             Describe(files[at], entry.Guid, name, images[at]);
-            maps[images[at].Target] = new AssetReference(entry.Guid);
+            maps[images[at].Target] = new(entry.Guid);
         }
 
         var content = MaterialBake.Material(maps, Material(materialFile));
@@ -244,8 +247,11 @@ public sealed class ProjectMaterialBaker(EditorProject project, string folder = 
     /// </exception>
     /// <remarks>
     ///     <para>
-    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/1124">#1124</a>, and it is a second
-    ///         write path on purpose.</b> <see cref="Write" /> owns a whole texture set: it claims the
+    ///         <b>
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/1124">#1124</a>, and it is a second
+    ///             write path on purpose.
+    ///         </b>
+    ///         <see cref="Write" /> owns a whole texture set: it claims the
     ///         name, prunes what the bake no longer produces and replaces the material's features
     ///         wholesale, all of which is right for a graph bake and wrong for one file added to a
     ///         material that already exists. So this shares the parts a second write path forgets —
@@ -260,8 +266,12 @@ public sealed class ProjectMaterialBaker(EditorProject project, string folder = 
     ///         texture in the project that nothing samples and nothing explains.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The material's <c>texturing:</c> block is merged rather than rewritten, which is
-    ///         the opposite of <see cref="Provenance" />'s rule and has to be.</b> That method drops
+    ///         ⚠
+    ///         <b>
+    ///             The material's <c>texturing:</c> block is merged rather than rewritten, which is
+    ///             the opposite of <see cref="Provenance" />'s rule and has to be.
+    ///         </b>
+    ///         That method drops
     ///         every <c>texturing.</c> key because a graph bake owns all of them; this one owns
     ///         exactly the splat digest, and rewriting the block would erase the graph bake's — after
     ///         which the next bake's painted-over check has nothing to compare and every map of the
@@ -351,7 +361,7 @@ public sealed class ProjectMaterialBaker(EditorProject project, string folder = 
         Announce(materialFile);
         File.WriteAllText(
             materialFile,
-            YamlSerializer.ToYaml(MaterialBake.Splatted(content, new AssetReference(texture.Guid), layers))
+            YamlSerializer.ToYaml(MaterialBake.Splatted(content, new(texture.Guid), layers))
         );
 
         Written = [file, materialFile];
@@ -369,9 +379,7 @@ public sealed class ProjectMaterialBaker(EditorProject project, string folder = 
         return new(
             name,
             new AssetReference(found.Guid),
-            new Dictionary<MaterialMapTarget, AssetReference> {
-                [MaterialMapTarget.Splat] = new(texture.Guid)
-            },
+            new Dictionary<MaterialMapTarget, AssetReference> { [MaterialMapTarget.Splat] = new(texture.Guid) },
             [file, materialFile],
             warnings
         );
@@ -386,8 +394,12 @@ public sealed class ProjectMaterialBaker(EditorProject project, string folder = 
 
     /// <summary>Adds this write's digest to the material's block without disturbing the rest of it.</summary>
     /// <remarks>
-    ///     ⚠ <b>The digest key is the one <see cref="MaterialProvenance.Painted" /> and
-    ///     <see cref="Ours" /> both read</b>, so writing it under any other name would leave a splat
+    ///     ⚠
+    ///     <b>
+    ///         The digest key is the one <see cref="MaterialProvenance.Painted" /> and
+    ///         <see cref="Ours" /> both read
+    ///     </b>
+    ///     , so writing it under any other name would leave a splat
     ///     map that no guard can tell from a file somebody authored — overwritable without a word,
     ///     which is the failure § D4's whole digest exists to prevent.
     /// </remarks>
@@ -420,8 +432,12 @@ public sealed class ProjectMaterialBaker(EditorProject project, string folder = 
     /// <returns>The sentence to tell the artist, or <see langword="null" /> when there is one to bind onto.</returns>
     /// <exception cref="ArgumentException"><paramref name="material" /> is null or empty.</exception>
     /// <remarks>
-    ///     ⚠ <b>Public so that a caller can ask <em>before</em> it evaluates anything, and shared so
-    ///     that the two askings cannot disagree.</b> A splat write refuses on this whatever order it
+    ///     ⚠
+    ///     <b>
+    ///         Public so that a caller can ask <em>before</em> it evaluates anything, and shared so
+    ///         that the two askings cannot disagree.
+    ///     </b>
+    ///     A splat write refuses on this whatever order it
     ///     is asked in, but a route that only found out at the end would answer a project-shaped
     ///     mistake — "there is no layered material yet" — with whatever refusal it happened to hit
     ///     first, and on a host with no device that is a message about the window not being up.
@@ -461,8 +477,12 @@ public sealed class ProjectMaterialBaker(EditorProject project, string folder = 
     ///         — so a material that already carries one is fed and this says nothing.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Which leaves a first bake with no way to ask, and silence was the whole of the
-    ///         problem.</b> A first bake has no existing material to read the author's intent out of,
+    ///         ⚠
+    ///         <b>
+    ///             Which leaves a first bake with no way to ask, and silence was the whole of the
+    ///             problem.
+    ///         </b>
+    ///         A first bake has no existing material to read the author's intent out of,
     ///         so the route is two steps — bake, add the feature, bake again — and nothing anywhere
     ///         said so. The file is written either way; what this adds is the sentence naming the
     ///         second step. See <a href="https://github.com/Rikarin/Vixen/issues/1103">#1103</a>,
@@ -477,7 +497,7 @@ public sealed class ProjectMaterialBaker(EditorProject project, string folder = 
     /// </remarks>
     static bool Unmarched(IReadOnlyDictionary<MaterialMapTarget, AssetReference> maps, MaterialContent content) =>
         maps.ContainsKey(MaterialMapTarget.Height)
-        && !content.Features.Any(feature => feature is ParallaxOcclusionFeature);
+        && !content.Features.Any(static feature => feature is ParallaxOcclusionFeature);
 
     /// <summary>What it says, which has to name the step rather than the state.</summary>
     /// <remarks>
@@ -557,8 +577,12 @@ public sealed class ProjectMaterialBaker(EditorProject project, string folder = 
 
     /// <summary>How an overpaint refusal ends, and the only <see cref="IOException" /> force answers.</summary>
     /// <remarks>
-    ///     ⚠ <b>Shared rather than matched by shape, because a caller has to tell this refusal from
-    ///     the others.</b> <c>Write</c> raises an <see cref="IOException" /> for three unrelated
+    ///     ⚠
+    ///     <b>
+    ///         Shared rather than matched by shape, because a caller has to tell this refusal from
+    ///         the others.
+    ///     </b>
+    ///     <c>Write</c> raises an <see cref="IOException" /> for three unrelated
     ///     reasons — a map somebody painted over, the <see cref="Crowd" /> ceiling, and a locked or
     ///     read-only file — and only the first is one <c>force</c> changes. A caller that offered
     ///     force for all three would send an artist to a control that does nothing, which is the
@@ -607,7 +631,9 @@ public sealed class ProjectMaterialBaker(EditorProject project, string folder = 
     ///         writing was painted on; see
     ///         <a href="https://github.com/Rikarin/Vixen/issues/723">#723</a>'s second defect. What
     ///         becomes of the loser is
-    ///         <see cref="Prune(string, string, IReadOnlyList{MaterialMapImage}, IReadOnlyDictionary{string, string}, List{string})" />'s question, not this one's.
+    ///         <see
+    ///             cref="Prune(string, string, IReadOnlyList{MaterialMapImage}, IReadOnlyDictionary{string, string}, List{string})" />'s
+    ///         question, not this one's.
     ///     </para>
     /// </remarks>
     static Dictionary<MaterialMapTarget, byte[]> OnDisk(
@@ -618,8 +644,10 @@ public sealed class ProjectMaterialBaker(EditorProject project, string folder = 
         var present = new Dictionary<MaterialMapTarget, byte[]>();
 
         foreach (var target in MaterialMapNaming.EveryTarget) {
-            if (!recorded.TryGetValue(MaterialProvenance.DigestPrefix + MaterialMapNaming.Suffix(target),
-                    out var digest)) {
+            if (!recorded.TryGetValue(
+                    MaterialProvenance.DigestPrefix + MaterialMapNaming.Suffix(target),
+                    out var digest
+                )) {
                 continue;
             }
 
@@ -758,8 +786,10 @@ public sealed class ProjectMaterialBaker(EditorProject project, string folder = 
     ///     a guard whose other outcome is a deletion has to fail in.
     /// </remarks>
     static bool Ours(string file, MaterialMapTarget target, IReadOnlyDictionary<string, string> recorded) {
-        if (!recorded.TryGetValue(MaterialProvenance.DigestPrefix + MaterialMapNaming.Suffix(target),
-                out var digest)) {
+        if (!recorded.TryGetValue(
+                MaterialProvenance.DigestPrefix + MaterialMapNaming.Suffix(target),
+                out var digest
+            )) {
             return false;
         }
 
@@ -821,7 +851,8 @@ public sealed class ProjectMaterialBaker(EditorProject project, string folder = 
         $"The {string.Join(", ", painted.Select(MaterialMapNaming.Suffix))} "
         + $"{(painted.Count == 1 ? "map" : "maps")} of \"{name}\" "
         + $"{(painted.Count == 1 ? "is" : "are")} not what the last bake wrote, which usually means somebody "
-        + "painted over them. " + Overpaint;
+        + "painted over them. "
+        + Overpaint;
 
     /// <summary>The material as it already stands, or null where there is none to keep anything from.</summary>
     /// <remarks>
@@ -833,8 +864,10 @@ public sealed class ProjectMaterialBaker(EditorProject project, string folder = 
     static MaterialContent? Material(string file) {
         try {
             return File.Exists(file) ? YamlSerializer.Parse<MaterialContent>(File.ReadAllText(file)) : null;
-        } catch (Exception failure) when (failure is IOException or YamlParseException or YamlBindingException
-            or FormatException) {
+        } catch (Exception failure) when (failure is IOException
+                                              or YamlParseException
+                                              or YamlBindingException
+                                              or FormatException) {
             return null;
         }
     }
@@ -849,8 +882,12 @@ public sealed class ProjectMaterialBaker(EditorProject project, string folder = 
     ///         nothing anywhere reports it.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Read then rewritten, so a re-bake keeps everything about the asset that is not the
-    ///         bake's</b> — an addressable block somebody set, the sub-asset list the last import
+    ///         ⚠
+    ///         <b>
+    ///             Read then rewritten, so a re-bake keeps everything about the asset that is not the
+    ///             bake's
+    ///         </b>
+    ///         — an addressable block somebody set, the sub-asset list the last import
     ///         recorded. What is deliberately not preserved is the importer block: it carries the
     ///         previous import's settings, and the pixels under it have just changed.
     ///     </para>
@@ -870,8 +907,12 @@ public sealed class ProjectMaterialBaker(EditorProject project, string folder = 
 
     /// <summary>Writes the <c>texturing:</c> block into the material's sidecar, keeping its GUID.</summary>
     /// <remarks>
-    ///     ⚠ <b>Every <c>texturing.</c> key is dropped before the new block is written, and that is
-    ///     the half a merge would get wrong.</b> A bake that stopped producing an emissive output
+    ///     ⚠
+    ///     <b>
+    ///         Every <c>texturing.</c> key is dropped before the new block is written, and that is
+    ///         the half a merge would get wrong.
+    ///     </b>
+    ///     A bake that stopped producing an emissive output
     ///     would otherwise leave the previous run's digest for it in place, and the next bake's
     ///     painted-over check would compare a file nobody writes any more against a digest nobody
     ///     wrote it from.
@@ -931,8 +972,8 @@ public sealed class ProjectMaterialBaker(EditorProject project, string folder = 
             return File.Exists(sidecar) ? AssetMetaFile.ReadFile(sidecar) : null;
         } catch (Exception failure)
             when (failure is IOException or YamlParseException or YamlBindingException or MetaVersionException) {
-            return null;
-        }
+                return null;
+            }
     }
 
     /// <summary>Sanitised rather than trusted, for the reason <c>ProjectMeshBaker</c>'s is.</summary>

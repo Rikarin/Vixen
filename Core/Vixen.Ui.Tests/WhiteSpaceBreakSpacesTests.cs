@@ -35,8 +35,12 @@ namespace Vixen.Ui.Tests;
 ///         <c>TextLine.Trimmed</c> reporting the untrimmed width under the value.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The first version of the hang test was green under sabotage and it is worth saying
-///         what it got wrong.</b> It put <c>ab</c> and two spaces in a box too narrow for them and
+///         ⚠
+///         <b>
+///             The first version of the hang test was green under sabotage and it is worth saying
+///             what it got wrong.
+///         </b>
+///         It put <c>ab</c> and two spaces in a box too narrow for them and
 ///         asserted one line — which is true whatever the trim does, because a trailing run of
 ///         spaces has no break opportunity <i>inside</i> it and the only one is the end of the text.
 ///         That test was measuring rule two and reporting it as rule one. The pair below breaks at a
@@ -44,8 +48,12 @@ namespace Vixen.Ui.Tests;
 ///         only place the two answers differ.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The control halves are the <c>pre-wrap</c> answers this engine gave before the
-///         keyword, and they are what says the value is doing the deciding</b> rather than the
+///         ⚠
+///         <b>
+///             The control halves are the <c>pre-wrap</c> answers this engine gave before the
+///             keyword, and they are what says the value is doing the deciding
+///         </b>
+///         rather than the
 ///         paragraph being short enough for anything. Each pair runs the same text at the same
 ///         width, and only the declaration differs. #1211 and #1237 settled what the control
 ///         halves are: preserved trailing white space hangs at a soft wrap and nowhere else, so
@@ -53,8 +61,12 @@ namespace Vixen.Ui.Tests;
 ///         not, while the intrinsic measure never counts it.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Every pair below was read against Chrome 152.0.7977.76 with the same Open Sans face
-///         at 16px, served over localhost and read through <c>Range.getClientRects</c>.</b> Chrome
+///         ⚠
+///         <b>
+///             Every pair below was read against Chrome 152.0.7977.76 with the same Open Sans face
+///             at 16px, served over localhost and read through <c>Range.getClientRects</c>.
+///         </b>
+///         Chrome
 ///         shapes <c>ab cd</c> to 40.297 and <c>ab cd  </c> to 48.609, which is this engine's
 ///         40.29 and 48.60. At 44px, <c>pre-wrap</c> gives <c>[0,7)</c> and <c>[7,9)</c>;
 ///         <c>break-spaces</c> gives <c>ab </c> <c>[0,3)</c> and <c>cd  ef</c> <c>[3,9)</c>. At the
@@ -64,14 +76,22 @@ namespace Vixen.Ui.Tests;
 ///         one of those is what the assertions say.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The intrinsic table, which took three readings to get right and refuted a claim of
-///         its own on the way.</b> For <c>ab  </c> in this face, Chrome: under <c>pre-wrap</c>
+///         ⚠
+///         <b>
+///             The intrinsic table, which took three readings to get right and refuted a claim of
+///             its own on the way.
+///         </b>
+///         For <c>ab  </c> in this face, Chrome: under <c>pre-wrap</c>
 ///         every shrink-to-fit form — <c>inline-block</c>, <c>float</c>, <c>position: absolute</c>,
 ///         <c>width: fit-content</c>, <c>width: min-content</c> — is 18.688, the glyphs alone;
 ///         under <c>break-spaces</c> all of them are 22.844, which is <c>ab </c>, because the value
 ///         puts a break opportunity after the first space and the second one hangs off the line
-///         that ends there; under <c>pre</c> all of them are 27.000. ⚠ <b>Only the explicit
-///         <c>width: max-content</c> keyword stands apart</b>, reporting 27.000 under all three —
+///         that ends there; under <c>pre</c> all of them are 27.000. ⚠
+///         <b>
+///             Only the explicit
+///             <c>width: max-content</c> keyword stands apart
+///         </b>
+///         , reporting 27.000 under all three —
 ///         which is the reading a first pass here took for shrink-to-fit, filed as #1318, and
 ///         refuted by re-measuring after a reload. #1211's fix is Chrome's answer and stands.
 ///     </para>
@@ -101,7 +121,7 @@ public class WhiteSpaceBreakSpacesTests {
 
     static FontFace LoadFont() {
         using var stream = Assembly.GetExecutingAssembly()
-            .GetManifestResourceStream("Vixen.Ui.Tests.Fonts.OpenSans-Regular.ttf")
+                .GetManifestResourceStream("Vixen.Ui.Tests.Fonts.OpenSans-Regular.ttf")
             ?? throw new InvalidOperationException("the test font is not embedded");
 
         using var memory = new MemoryStream();
@@ -144,8 +164,12 @@ public class WhiteSpaceBreakSpacesTests {
 
     /// <summary>Rule one, the control: the two spaces hang, so a range too wide with them still fits.</summary>
     /// <remarks>
-    ///     ⚠ <b>44 points is chosen between the two measures of one range and nowhere else would
-    ///     do.</b> <c>ab cd  </c> is 40.29 without its trailing spaces and 48.60 with them, so a
+    ///     ⚠
+    ///     <b>
+    ///         44 points is chosen between the two measures of one range and nowhere else would
+    ///         do.
+    ///     </b>
+    ///     <c>ab cd  </c> is 40.29 without its trailing spaces and 48.60 with them, so a
     ///     44-point box is the one width at which the trim decides the answer: under <c>pre-wrap</c>
     ///     the line takes all seven characters. The 39-point half is the control's control — one
     ///     point under the trimmed measure, where the wrapper must break earlier.
@@ -186,9 +210,14 @@ public class WhiteSpaceBreakSpacesTests {
 
     /// <summary>Rule two, the control: a run of spaces offers one break at its end and none inside.</summary>
     /// <remarks>
-    ///     ⚠ <b>Read off <see cref="LineBreaker.Collect(System.ReadOnlySpan{char}, System.Collections.Generic.List{int})" /> rather than off a wrapped paragraph,
-    ///     because the question is which opportunities UAX #14 offers, and the keyword's extra one
-    ///     is deliberately added above it rather than inside it.</b> LB7 forbids a break before a
+    ///     ⚠
+    ///     <b>
+    ///         Read off <see cref="LineBreaker.Collect(System.ReadOnlySpan{char}, System.Collections.Generic.List{int})" />
+    ///         rather than off a wrapped paragraph,
+    ///         because the question is which opportunities UAX #14 offers, and the keyword's extra one
+    ///         is deliberately added above it rather than inside it.
+    ///     </b>
+    ///     LB7 forbids a break before a
     ///     space and LB18 puts one after a run of them, so 3 is offered and 2 is not — and the
     ///     Consortium's 19 338-case suite goes on judging that answer as written.
     /// </remarks>
@@ -234,8 +263,12 @@ public class WhiteSpaceBreakSpacesTests {
     ///         the measure grows.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The <c>break-spaces</c> half is this engine's answer and not Chrome's, by one
-    ///         space.</b> Chrome makes it 22.844 — <c>ab </c> — because its intrinsic measure
+    ///         ⚠
+    ///         <b>
+    ///             The <c>break-spaces</c> half is this engine's answer and not Chrome's, by one
+    ///             space.
+    ///         </b>
+    ///         Chrome makes it 22.844 — <c>ab </c> — because its intrinsic measure
     ///         re-asks where the paragraph may break and the value has put an opportunity after the
     ///         first space, so the second hangs off the line that ends there. This engine reports
     ///         27.000, both spaces, since <c>TextLine.Trimmed</c> under the value is the line's
@@ -276,8 +309,12 @@ public class WhiteSpaceBreakSpacesTests {
     /// <summary>A space before a forced break is not an opportunity, however little room is left.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The pair the first landing of this keyword did not write, and the one shape in
-    ///         which rule two departed from Chrome.</b> The two newline tests above run in an
+    ///         ⚠
+    ///         <b>
+    ///             The pair the first landing of this keyword did not write, and the one shape in
+    ///             which rule two departed from Chrome.
+    ///         </b>
+    ///         The two newline tests above run in an
     ///         800-point box, where nothing overflows and an extra opportunity before the newline is
     ///         never the one a line ends on. In a box one glyph wide it is the only one reachable,
     ///         and the line that ended there made the newline a line of its own — three line boxes,
@@ -285,8 +322,12 @@ public class WhiteSpaceBreakSpacesTests {
     ///         adds its opportunity <i>after</i> a space, so neither rule ever offered that index.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Read against Chrome 152.0.7977.76 through the same fixture rather than reasoned
-    ///         from the specification</b>, because the specification is what the first landing read
+    ///         ⚠
+    ///         <b>
+    ///             Read against Chrome 152.0.7977.76 through the same fixture rather than reasoned
+    ///             from the specification
+    ///         </b>
+    ///         , because the specification is what the first landing read
     ///         and it still produced three lines. In an 8.891-point block — <c>measure("a")</c> in
     ///         that browser — both <c>pre-wrap</c> and <c>break-spaces</c> give two rows,
     ///         <c>[0,3)</c> at 13.047 and <c>[3,4)</c> at 9.797: the space overflows the block and
@@ -313,7 +354,7 @@ public class WhiteSpaceBreakSpacesTests {
 
         Assert.Equal(2, hung.Length);
         Assert.Equal(hung.Length, kept.Length);
-        Assert.DoesNotContain(kept, line => line.Length == 0);
+        Assert.DoesNotContain(kept, static line => line.Length == 0);
         Assert.Equal(3, kept[0].Length);
         Assert.Equal(Measure("a "), kept[0].Width, 0.05f);
     }
@@ -321,8 +362,12 @@ public class WhiteSpaceBreakSpacesTests {
     /// <summary>Toggling the declaration on a settled element rebuilds the block rather than reusing it.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The entry in <c>UiElement.Block</c>'s cache key, which every other test in this
-    ///         file leaves unproved.</b> They each build one element under one declaration, so all of
+    ///         ⚠
+    ///         <b>
+    ///             The entry in <c>UiElement.Block</c>'s cache key, which every other test in this
+    ///             file leaves unproved.
+    ///         </b>
+    ///         They each build one element under one declaration, so all of
     ///         them stay green with <c>lineKeepSpaces</c> deleted from the key — a review deleted it
     ///         and the whole assembly passed three runs running. What the entry stops is a paragraph
     ///         that keeps the line breaks of a declaration no longer on it: nothing else in the key

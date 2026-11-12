@@ -59,8 +59,11 @@ public class DatePickerTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>A click opens the calendar with the keyboard on today, a click on a day chooses it,
-    ///     closes the calendar and gives the keyboard back to the field.</b>
+    ///     ⚠
+    ///     <b>
+    ///         A click opens the calendar with the keyboard on today, a click on a day chooses it,
+    ///         closes the calendar and gives the keyboard back to the field.
+    ///     </b>
     /// </summary>
     [Fact]
     public void A_click_opens_and_a_day_s_click_chooses_and_closes() {
@@ -77,7 +80,7 @@ public class DatePickerTests {
             Assert.True(picker.AccessibleState.HasFlag(AccessibleStates.Expanded));
             Assert.Same(picker.Calendar.DayOf(Today), fixture.Document.Focused);
 
-            fixture.Click(picker.Calendar.DayOf(new DateOnly(2026, 9, 15))!);
+            fixture.Click(picker.Calendar.DayOf(new(2026, 9, 15))!);
             fixture.Update();
 
             Assert.Equal(new DateOnly(2026, 9, 15), picker.Value);
@@ -105,7 +108,7 @@ public class DatePickerTests {
             fixture.Update();
 
             Assert.True(picker.IsOpen);
-            Assert.Same(picker.Calendar.DayOf(new DateOnly(2026, 9, 3)), fixture.Document.Focused);
+            Assert.Same(picker.Calendar.DayOf(new(2026, 9, 3)), fixture.Document.Focused);
 
             fixture.Type(InputKey.Down);
             fixture.Type(InputKey.Enter);

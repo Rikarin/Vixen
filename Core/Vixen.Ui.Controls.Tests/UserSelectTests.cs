@@ -31,7 +31,7 @@ public class UserSelectTests {
         fixture.Press(x, y, type: PointerType.Mouse);
 
         for (var step = 1; step <= 4; step++) {
-            fixture.MovePointer(x + (distance * step / 4f), y, type: PointerType.Mouse);
+            fixture.MovePointer(x + distance * step / 4f, y, type: PointerType.Mouse);
             fixture.Advance(Frame);
         }
 
@@ -49,7 +49,7 @@ public class UserSelectTests {
         var glass = search.SearchIcon.Bounds;
         var before = search.CaretIndex;
 
-        DragRight(fixture, glass.X + (glass.Width * 0.5f), glass.Y + (glass.Height * 0.5f), 150f);
+        DragRight(fixture, glass.X + glass.Width * 0.5f, glass.Y + glass.Height * 0.5f, 150f);
 
         // ⚠ Before #225 this selected the first word or two: the press bubbled from the icon to the
         // field, which moved the caret and captured the pointer for a selection drag.
@@ -71,7 +71,7 @@ public class UserSelectTests {
 
         var glass = search.SearchIcon.Bounds;
 
-        DragRight(fixture, glass.X + glass.Width + 12f, glass.Y + (glass.Height * 0.5f), 120f);
+        DragRight(fixture, glass.X + glass.Width + 12f, glass.Y + glass.Height * 0.5f, 120f);
 
         Assert.True(search.HasSelection, "a drag across the text selected nothing");
     }
@@ -89,7 +89,7 @@ public class UserSelectTests {
         fixture.Update();
 
         var bounds = box.Bounds;
-        DragRight(fixture, bounds.X + 8f, bounds.Y + (bounds.Height * 0.5f), 120f);
+        DragRight(fixture, bounds.X + 8f, bounds.Y + bounds.Height * 0.5f, 120f);
 
         Assert.True(box.HasSelection, "select-none on an editable field took its selection away");
     }

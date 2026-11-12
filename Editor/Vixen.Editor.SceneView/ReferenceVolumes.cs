@@ -19,14 +19,17 @@ public readonly record struct ReferenceVolume(string Name, Vector3 Size, Vector3
     /// <summary>Where the box's centre goes when the volume is placed at a point.</summary>
     /// <param name="at">The point.</param>
     /// <returns>The centre, in world space.</returns>
-    public Vector3 CentreAt(Vector3 at) => at + (Size * Origin);
+    public Vector3 CentreAt(Vector3 at) => at + Size * Origin;
 }
 
 /// <summary>The four sizes every level designer draws by hand on every project.</summary>
 /// <remarks>
 ///     <para>
-///         <b>Doc 24 lists these under the group that separates a toolset a professional will use from
-///         one they will try, and the reason is that a grey box has no scale.</b> A corridor is four
+///         <b>
+///             Doc 24 lists these under the group that separates a toolset a professional will use from
+///             one they will try, and the reason is that a grey box has no scale.
+///         </b>
+///         A corridor is four
 ///         metres wide or eight and there is nothing in an empty scene to tell you which; a 1.8 m
 ///         capsule beside it answers in one glance and keeps answering while the corridor is dragged.
 ///     </para>

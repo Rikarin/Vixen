@@ -34,7 +34,9 @@ public sealed class TransientResourcePool : IDisposable {
 
     /// <summary>Creates a pool for a device.</summary>
     /// <param name="device">The device its resources come from.</param>
-    public TransientResourcePool(IGraphicsDevice device) => this.device = device;
+    public TransientResourcePool(IGraphicsDevice device) {
+        this.device = device;
+    }
 
     /// <summary>How many physical resources are held.</summary>
     public int Count => entries.Count;
@@ -81,13 +83,15 @@ public sealed class TransientResourcePool : IDisposable {
 
         var texture = device.CreateTexture(description);
 
-        entries.Add(new() {
-            IsTexture = true,
-            TextureDescription = description,
-            Texture = texture,
-            View = device.CreateTextureView(texture),
-            Borrowed = true
-        });
+        entries.Add(
+            new() {
+                IsTexture = true,
+                TextureDescription = description,
+                Texture = texture,
+                View = device.CreateTextureView(texture),
+                Borrowed = true
+            }
+        );
 
         return entries.Count - 1;
     }
@@ -110,12 +114,14 @@ public sealed class TransientResourcePool : IDisposable {
             return index;
         }
 
-        entries.Add(new() {
-            IsTexture = false,
-            BufferDescription = description,
-            Buffer = device.CreateBuffer(description),
-            Borrowed = true
-        });
+        entries.Add(
+            new() {
+                IsTexture = false,
+                BufferDescription = description,
+                Buffer = device.CreateBuffer(description),
+                Borrowed = true
+            }
+        );
 
         return entries.Count - 1;
     }

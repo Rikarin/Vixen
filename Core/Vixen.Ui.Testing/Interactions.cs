@@ -80,7 +80,7 @@ public sealed partial class UiSubject {
     ///     a test gets them by moving a pointer rather than by saying so.
     /// </remarks>
     public UiSubject Hover() {
-        var element = Actionable("hover", force: false);
+        var element = Actionable("hover", false);
         var (x, y) = Centre(element);
 
         Test.MovePointer(x, y);
@@ -93,7 +93,7 @@ public sealed partial class UiSubject {
     /// <returns>This.</returns>
     /// <remarks>Half of a drag, and what a long-press test presses before it advances the clock.</remarks>
     public UiSubject Press(PointerButton button = PointerButton.Primary) {
-        var element = Actionable("press", force: false);
+        var element = Actionable("press", false);
         var (x, y) = Centre(element);
 
         Test.MovePointer(x, y);
@@ -121,7 +121,7 @@ public sealed partial class UiSubject {
     /// <param name="y">Ditto.</param>
     /// <returns>This.</returns>
     public UiSubject DragTo(float x, float y) {
-        var element = Actionable($"drag to ({x:0.#}, {y:0.#})", force: false);
+        var element = Actionable($"drag to ({x:0.#}, {y:0.#})", false);
         var (fromX, fromY) = Centre(element);
 
         Test.MovePointer(fromX, fromY);
@@ -130,7 +130,7 @@ public sealed partial class UiSubject {
 
         for (var step = 1; step <= DragSteps; step++) {
             var t = (float)step / DragSteps;
-            Test.MovePointer(fromX + ((x - fromX) * t), fromY + ((y - fromY) * t));
+            Test.MovePointer(fromX + (x - fromX) * t, fromY + (y - fromY) * t);
             Test.Frame();
         }
 
@@ -177,11 +177,14 @@ public sealed partial class UiSubject {
     public UiSubject Pinch(float scale, float rotation = 0f, float separation = 40f) {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(separation);
 
-        var element = Actionable($"pinch ×{scale:0.##}{(rotation == 0f ? string.Empty : $" {rotation:0.#}°")}", force: false);
+        var element = Actionable(
+            $"pinch ×{scale:0.##}{(rotation == 0f ? string.Empty : $" {rotation:0.#}°")}",
+            false
+        );
         var (x, y) = Centre(element);
         var half = separation / 2f;
 
-        Test.MovePointer(x - half, y, UiTest.PointerId);
+        Test.MovePointer(x - half, y);
         Test.PressPointer(pointer: UiTest.PointerId);
         Test.MovePointer(x + half, y, UiTest.SecondPointerId);
         Test.PressPointer(pointer: UiTest.SecondPointerId);
@@ -189,13 +192,13 @@ public sealed partial class UiSubject {
 
         for (var step = 1; step <= DragSteps; step++) {
             var t = (float)step / DragSteps;
-            var reach = half * (1f + ((scale - 1f) * t));
+            var reach = half * (1f + (scale - 1f) * t);
             var angle = float.DegreesToRadians(rotation) * t;
 
             var dx = MathF.Cos(angle) * reach;
             var dy = MathF.Sin(angle) * reach;
 
-            Test.MovePointer(x - dx, y - dy, UiTest.PointerId);
+            Test.MovePointer(x - dx, y - dy);
             Test.MovePointer(x + dx, y + dy, UiTest.SecondPointerId);
             Test.Frame();
         }
@@ -211,7 +214,7 @@ public sealed partial class UiSubject {
     /// <param name="deltaY">How far down.</param>
     /// <returns>This.</returns>
     public UiSubject Scroll(float deltaX, float deltaY) {
-        var element = Actionable($"scroll ({deltaX:0.#}, {deltaY:0.#})", force: false);
+        var element = Actionable($"scroll ({deltaX:0.#}, {deltaY:0.#})", false);
         var (x, y) = Centre(element);
 
         Test.MovePointer(x, y);
@@ -310,13 +313,16 @@ public sealed partial class UiSubject {
     ///     tests. <c>First()</c> says so out loud when that is genuinely what is wanted.
     /// </remarks>
     UiElement Actionable(string command, bool force) {
-        var matched = Await(command, matched => {
-            if (matched.Count != 1) {
-                return Describe(matched);
-            }
+        var matched = Await(
+            command,
+            matched => {
+                if (matched.Count != 1) {
+                    return Describe(matched);
+                }
 
-            return force ? null : Blocker(matched[0]);
-        });
+                return force ? null : Blocker(matched[0]);
+            }
+        );
 
         return matched[0];
     }

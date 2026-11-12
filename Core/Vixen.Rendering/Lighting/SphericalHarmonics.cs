@@ -98,8 +98,11 @@ public struct ShCoefficients {
 ///         <c>float3</c>s.
 ///     </para>
 ///     <para>
-///         <strong><see cref="Evaluate" /> mirrors <c>Ibl.IrradianceSh9</c> and must keep doing
-///         so.</strong> It is here because a probe has to be checkable without a GPU — the analytic
+///         <strong>
+///             <see cref="Evaluate" /> mirrors <c>Ibl.IrradianceSh9</c> and must keep doing
+///             so.
+///         </strong>
+///         It is here because a probe has to be checkable without a GPU — the analytic
 ///         expectations below are what say the projection is right at all — and a second
 ///         implementation of anything is a thing that drifts, so it is written from the same five
 ///         constants in the same order.
@@ -158,9 +161,9 @@ public static class SphericalHarmonics {
         coefficients.L11 += weighted * (Y1 * x);
         coefficients.L2m2 += weighted * (Y2 * x * y);
         coefficients.L2m1 += weighted * (Y2 * y * z);
-        coefficients.L20 += weighted * (Y20 * ((3f * z * z) - 1f));
+        coefficients.L20 += weighted * (Y20 * (3f * z * z - 1f));
         coefficients.L21 += weighted * (Y2 * x * z);
-        coefficients.L22 += weighted * (Y22 * ((x * x) - (y * y)));
+        coefficients.L22 += weighted * (Y22 * (x * x - y * y));
     }
 
     /// <summary>
@@ -189,15 +192,15 @@ public static class SphericalHarmonics {
 
         var (x, y, z) = (normal.X, normal.Y, normal.Z);
 
-        var result = (coefficients.L00 * C4) - (coefficients.L20 * C5);
-        result += ((coefficients.L1m1 * y) + (coefficients.L10 * z) + (coefficients.L11 * x)) * (2f * C2);
+        var result = coefficients.L00 * C4 - coefficients.L20 * C5;
+        result += (coefficients.L1m1 * y + coefficients.L10 * z + coefficients.L11 * x) * (2f * C2);
 
-        result += ((coefficients.L2m2 * (x * y))
-                + (coefficients.L2m1 * (y * z))
-                + (coefficients.L21 * (x * z)))
+        result += (coefficients.L2m2 * (x * y)
+                + coefficients.L2m1 * (y * z)
+                + coefficients.L21 * (x * z))
             * (2f * C1);
 
-        result += (coefficients.L20 * (C3 * z * z)) + (coefficients.L22 * (C1 * ((x * x) - (y * y))));
+        result += coefficients.L20 * (C3 * z * z) + coefficients.L22 * (C1 * (x * x - y * y));
 
         return Vector3.Max(result, Vector3.Zero);
     }

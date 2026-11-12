@@ -56,7 +56,7 @@ public struct NetworkAudioSource {
 ///     which is the right answer rather than a silent half-effect: the sound is the authority's to
 ///     start.
 /// </remarks>
-public struct NetworkAudioTrigger : ITagComponent;
+public readonly struct NetworkAudioTrigger : ITagComponent;
 
 /// <summary>Puts a sound's state on the wire.</summary>
 public sealed class NetworkAudioSourceReplicator : IComponentReplicator {

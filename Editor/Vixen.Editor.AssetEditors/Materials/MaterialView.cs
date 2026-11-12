@@ -3,11 +3,8 @@
 
 using Vixen.Core;
 using Vixen.Editor.Core;
-using Vixen.Editor.Inspector;
 using Vixen.Editor.Ui.Documents;
 using Vixen.Ui;
-using Vixen.Ui.Controls;
-using Vixen.Ui.Controls.Advanced;
 
 namespace Vixen.Editor.AssetEditors.Materials;
 
@@ -40,9 +37,12 @@ public enum MaterialPreviewShape {
 ///         number on the image. The same split the scene panel and the texture editor already have.
 ///     </para>
 ///     <para>
-///         ⚠ <b>And the second half of that sentence is a plan rather than a description: nothing
-///         subscribes <c>PreviewChanged</c>, so the image is never given a texture number and the
-///         preview is blank in every editor built so far</b>
+///         ⚠
+///         <b>
+///             And the second half of that sentence is a plan rather than a description: nothing
+///             subscribes <c>PreviewChanged</c>, so the image is never given a texture number and the
+///             preview is blank in every editor built so far
+///         </b>
 ///         (<a href="https://github.com/Rikarin/Vixen/issues/1204">#1204</a>). The texture editor's
 ///         equivalent is wired — <c>TexturePreviewFeed</c>, from <c>AssetEditorsModule.Joins</c>
 ///         since #1297 — and it uploads decoded texels, which is a far smaller job than rendering a lit shape; a
@@ -60,8 +60,12 @@ public enum MaterialPreviewShape {
 ///     </para>
 ///     <para>
 ///         The panel is <c>MaterialView.vxml</c>; this file is the accessibility modifier, the
-///         preview-shape enumeration and the record the graph button is. ⚠ <b>The parameter list is
-///         still built in C# and the ledger's sixth shape is why</b> — every row feeds a
+///         preview-shape enumeration and the record the graph button is. ⚠
+///         <b>
+///             The parameter list is
+///             still built in C# and the ledger's sixth shape is why
+///         </b>
+///         — every row feeds a
 ///         <c>sealed</c> <c>InspectorView</c> by a method, inside a loop, which is the one thing no
 ///         escape this document records can express.
 ///     </para>

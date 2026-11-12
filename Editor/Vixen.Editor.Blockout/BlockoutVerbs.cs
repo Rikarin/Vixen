@@ -37,14 +37,13 @@ public sealed class BlockoutVerbs(BlockoutMode mode) : IBlockout {
     SceneDocument? Scene => mode.Editing?.Document;
 
     /// <summary>Runs an element verb against the editing state, if a mesh is being edited.</summary>
-    bool Run(Func<MeshEdit, bool> verb) =>
-        mode.Editing is { IsActive: true } editing && verb(editing);
+    bool Run(Func<MeshEdit, bool> verb) => mode.Editing is { IsActive: true } editing && verb(editing);
 
     /// <inheritdoc />
-    public bool SelectLoop() => Run(editing => BlockoutSelection.Loop(editing));
+    public bool SelectLoop() => Run(static editing => BlockoutSelection.Loop(editing));
 
     /// <inheritdoc />
-    public bool SelectRing() => Run(editing => BlockoutSelection.Ring(editing));
+    public bool SelectRing() => Run(static editing => BlockoutSelection.Ring(editing));
 
     /// <inheritdoc />
     public bool Grow() => Run(BlockoutSelection.Grow);
@@ -53,13 +52,13 @@ public sealed class BlockoutVerbs(BlockoutMode mode) : IBlockout {
     public bool Shrink() => Run(BlockoutSelection.Shrink);
 
     /// <inheritdoc />
-    public bool SelectGroup() => Run(editing => BlockoutSelection.Group(editing));
+    public bool SelectGroup() => Run(static editing => BlockoutSelection.Group(editing));
 
     /// <inheritdoc />
-    public bool SelectCoplanar() => Run(editing => BlockoutSelection.Coplanar(editing));
+    public bool SelectCoplanar() => Run(static editing => BlockoutSelection.Coplanar(editing));
 
     /// <inheritdoc />
-    public bool SelectLinked() => Run(editing => BlockoutSelection.Linked(editing));
+    public bool SelectLinked() => Run(static editing => BlockoutSelection.Linked(editing));
 
     /// <inheritdoc />
     public bool SelectAll() => Run(BlockoutSelection.All);
@@ -79,18 +78,23 @@ public sealed class BlockoutVerbs(BlockoutMode mode) : IBlockout {
         Run(editing => BlockoutGeometry.Inset(editing, mode.Step * 0.25f, individually));
 
     /// <inheritdoc />
-    public bool Bevel() => Run(editing => BlockoutGeometry.Bevel(editing, mode.Step * 0.25f, mode.BevelSegments, out _));
+    public bool Bevel() =>
+        Run(editing => BlockoutGeometry.Bevel(editing, mode.Step * 0.25f, mode.BevelSegments, out _));
 
     /// <inheritdoc />
     /// <remarks>
-    ///     ⚠ <b>At the mode's <c>LoopCuts</c> and <c>LoopSlide</c>, which are what the hover preview
-    ///     draws.</b> This ran with the defaults, so three loops on the dial drew three and cut one
+    ///     ⚠
+    ///     <b>
+    ///         At the mode's <c>LoopCuts</c> and <c>LoopSlide</c>, which are what the hover preview
+    ///         draws.
+    ///     </b>
+    ///     This ran with the defaults, so three loops on the dial drew three and cut one
     ///     (#1485).
     /// </remarks>
     public bool LoopCut() => Run(editing => BlockoutGeometry.LoopCut(editing, mode.LoopCuts, mode.LoopSlide));
 
     /// <inheritdoc />
-    public bool Subdivide() => Run(editing => BlockoutGeometry.Subdivide(editing));
+    public bool Subdivide() => Run(static editing => BlockoutGeometry.Subdivide(editing));
 
     /// <inheritdoc />
     public bool Bridge() => Run(BlockoutGeometry.Bridge);
@@ -102,7 +106,7 @@ public sealed class BlockoutVerbs(BlockoutMode mode) : IBlockout {
     public bool Flip() => Run(BlockoutGeometry.Flip);
 
     /// <inheritdoc />
-    public bool Weld() => Run(editing => BlockoutGeometry.Weld(editing));
+    public bool Weld() => Run(static editing => BlockoutGeometry.Weld(editing));
 
     /// <inheritdoc />
     public bool Dissolve() => Run(BlockoutGeometry.Dissolve);
@@ -111,7 +115,7 @@ public sealed class BlockoutVerbs(BlockoutMode mode) : IBlockout {
     public bool Delete() => Run(BlockoutGeometry.Delete);
 
     /// <inheritdoc />
-    public bool Detach() => Run(editing => BlockoutGeometry.Detach(editing) is not null);
+    public bool Detach() => Run(static editing => BlockoutGeometry.Detach(editing) is not null);
 
     /// <inheritdoc />
     public bool Project(UvProjection projection) =>
@@ -124,7 +128,7 @@ public sealed class BlockoutVerbs(BlockoutMode mode) : IBlockout {
     public bool Smooth(bool smooth = true) => Run(editing => BlockoutSurfaces.Smooth(editing, smooth));
 
     /// <inheritdoc />
-    public bool AutoSmooth() => Run(editing => BlockoutSurfaces.AutoSmooth(editing));
+    public bool AutoSmooth() => Run(static editing => BlockoutSurfaces.AutoSmooth(editing));
 
     /// <inheritdoc />
     public bool NewGroup() => Run(BlockoutSurfaces.Regroup);
@@ -157,8 +161,12 @@ public sealed class BlockoutVerbs(BlockoutMode mode) : IBlockout {
 
     /// <inheritdoc />
     /// <remarks>
-    ///     ⚠ <b>One axis and one side from the keyboard, which is the honest shape of a keyboard
-    ///     verb.</b> Unreal's cube grid pushes whichever face the pointer is over; picking that face is
+    ///     ⚠
+    ///     <b>
+    ///         One axis and one side from the keyboard, which is the honest shape of a keyboard
+    ///         verb.
+    ///     </b>
+    ///     Unreal's cube grid pushes whichever face the pointer is over; picking that face is
     ///     a pick against the <i>box</i>, and what <see cref="BlockoutMode.HoverCell" /> answers is a
     ///     pick against the work <i>plane</i> — so the candidate-cell preview that arrived with doc 24
     ///     § P4 does not settle this one. The keys still push upwards, which is the direction a
@@ -172,7 +180,7 @@ public sealed class BlockoutVerbs(BlockoutMode mode) : IBlockout {
         var pushed = false;
 
         foreach (var entity in scene.Selection.Items.ToArray()) {
-            pushed |= BlockoutCubeGrid.Push(scene, entity, axis: 1, positive: true, cells, mode.Plane);
+            pushed |= BlockoutCubeGrid.Push(scene, entity, 1, true, cells, mode.Plane);
         }
 
         return pushed;
@@ -266,9 +274,11 @@ public sealed class BlockoutVerbs(BlockoutMode mode) : IBlockout {
     }
 
     /// <summary>Where a menu-run creation verb puts what it makes: the work plane's origin.</summary>
-    /// <remarks>⚠ <b>Not the world origin and not the camera.</b> The work plane is where the designer
+    /// <remarks>
+    ///     ⚠ <b>Not the world origin and not the camera.</b> The work plane is where the designer
     ///     said they are building — D5's whole argument — so a shape made from a menu lands there and
-    ///     a shape made from a drag lands where the drag was.</remarks>
+    ///     a shape made from a drag lands where the drag was.
+    /// </remarks>
     Vector3 Where() => mode.Plane?.Origin ?? Vector3.Zero;
 
     static Entity Created(SceneDocument scene, Entity entity) {

@@ -14,8 +14,12 @@ namespace Vixen.Editor.Terrain.Tests;
 /// <summary>Wave 7's two terrain parts, each held to the loop it replaces.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>The assertion is the whole element tree with every rectangle in it, plus the flags
-///         the tree cannot see.</b> <c>UiTest.Tree</c> prints tag, classes, rectangle and text and
+///         ⚠
+///         <b>
+///             The assertion is the whole element tree with every rectangle in it, plus the flags
+///             the tree cannot see.
+///         </b>
+///         <c>UiTest.Tree</c> prints tag, classes, rectangle and text and
 ///         says nothing about <c>ElementState</c> — which for a palette of check boxes is exactly
 ///         where the risk is, because a ticked box differs from an unticked one in nothing else. So
 ///         the dump carries a <c>state=</c> line per element as well. <c>FactBlockTests</c> beside
@@ -80,20 +84,22 @@ public sealed class PaletteBlockTests : IDisposable {
     [Fact]
     public void The_layer_block_builds_the_tree_the_hand_written_loop_did() {
         var handWritten = Dump(() => {
-            var host = test.Document.Root.Add("terrain-layers");
+                var host = test.Document.Root.Add("terrain-layers");
 
-            HandWrittenLayers(host);
+                HandWrittenLayers(host);
 
-            return host;
-        });
+                return host;
+            }
+        );
 
         var part = Dump(() => {
-            var block = test.Document.Root.Add<LayerBlock>();
+                var block = test.Document.Root.Add<LayerBlock>();
 
-            block.Show(Layers);
+                block.Show(Layers);
 
-            return block;
-        });
+                return block;
+            }
+        );
 
         Assert.Equal(handWritten, part);
     }
@@ -115,7 +121,10 @@ public sealed class PaletteBlockTests : IDisposable {
     }
 
     /// <summary>What the foliage panel wrote out for a palette with types in it.</summary>
-    static void HandWrittenPalette(UiElement into, params (string Name, bool Chosen, float Radius, bool Derived)[] types) {
+    static void HandWrittenPalette(
+        UiElement into,
+        params (string Name, bool Chosen, float Radius, bool Derived)[] types
+    ) {
         foreach (var (name, chosen, radius, derived) in types) {
             var row = into.Add("fact-row");
             var box = row.Add<CheckBox>();
@@ -132,24 +141,33 @@ public sealed class PaletteBlockTests : IDisposable {
     [Fact]
     public void The_palette_block_builds_the_tree_the_hand_written_loop_did() {
         var handWritten = Dump(() => {
-            var host = test.Document.Root.Add("foliage-palette");
+                var host = test.Document.Root.Add("foliage-palette");
 
-            HandWrittenPalette(host, ("Oak", true, 4.5f, false), ("Fern", false, 0f, true), ("Pine", true, 6f, false));
+                HandWrittenPalette(
+                    host,
+                    ("Oak", true, 4.5f, false),
+                    ("Fern", false, 0f, true),
+                    ("Pine", true, 6f, false)
+                );
 
-            return host;
-        });
+                return host;
+            }
+        );
 
         var part = Dump(() => {
-            var block = test.Document.Root.Add<PaletteBlock>();
+                var block = test.Document.Root.Add<PaletteBlock>();
 
-            block.Show([
-                new(0, "Oak", true, "stored, spacing 4.5 m"),
-                new(1, "Fern", false, "derived — nothing about it is in any file"),
-                new(2, "Pine", true, "stored, spacing 6 m")
-            ]);
+                block.Show(
+                    [
+                        new(0, "Oak", true, "stored, spacing 4.5 m"),
+                        new(1, "Fern", false, "derived — nothing about it is in any file"),
+                        new(2, "Pine", true, "stored, spacing 6 m")
+                    ]
+                );
 
-            return block;
-        });
+                return block;
+            }
+        );
 
         Assert.Equal(handWritten, part);
     }
@@ -162,22 +180,24 @@ public sealed class PaletteBlockTests : IDisposable {
     [Fact]
     public void The_empty_palette_builds_the_tree_the_hand_written_refusal_did() {
         var handWritten = Dump(() => {
-            var host = test.Document.Root.Add("foliage-palette");
-            var row = host.Add<FactRow>();
+                var host = test.Document.Root.Add("foliage-palette");
+                var row = host.Add<FactRow>();
 
-            row.Name = "No types";
-            row.Value = "add a .vxfoliage or .vxgrass to the palette";
+                row.Name = "No types";
+                row.Value = "add a .vxfoliage or .vxgrass to the palette";
 
-            return host;
-        });
+                return host;
+            }
+        );
 
         var part = Dump(() => {
-            var block = test.Document.Root.Add<PaletteBlock>();
+                var block = test.Document.Root.Add<PaletteBlock>();
 
-            block.ShowNothing("add a .vxfoliage or .vxgrass to the palette");
+                block.ShowNothing("add a .vxfoliage or .vxgrass to the palette");
 
-            return block;
-        });
+                return block;
+            }
+        );
 
         Assert.Equal(handWritten, part);
     }
@@ -193,14 +213,16 @@ public sealed class PaletteBlockTests : IDisposable {
 
         block.Chose = (slot, on) => said.Add((slot, on));
 
-        block.Show([
-            new(0, "Oak", false, "stored, spacing 4.5 m"),
-            new(1, "Fern", false, "derived — nothing about it is in any file")
-        ]);
+        block.Show(
+            [
+                new(0, "Oak", false, "stored, spacing 4.5 m"),
+                new(1, "Fern", false, "derived — nothing about it is in any file")
+            ]
+        );
 
         test.Frames(2);
 
-        var second = (CheckBox) block.Children[1].Children[0];
+        var second = (CheckBox)block.Children[1].Children[0];
 
         second.IsChecked = true;
         test.Frames(2);
@@ -222,7 +244,7 @@ public sealed class PaletteBlockTests : IDisposable {
         test.Frames(2);
 
         Assert.Single(block.Children);
-        Assert.Equal("No types", ((FactRow) block.Children[0]).NameCell.Text);
+        Assert.Equal("No types", ((FactRow)block.Children[0]).NameCell.Text);
     }
 
     /// <summary>The block answers to the tag the panel already created, which is the port's premise.</summary>

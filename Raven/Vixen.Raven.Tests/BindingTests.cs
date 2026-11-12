@@ -133,7 +133,7 @@ public class BindingTests {
 
         var name = FindNode<IdentifierNameSyntax>(
             tree,
-            n => n.Identifier.ValueText == "count"
+            static n => n.Identifier.ValueText == "count"
                 && n.Parent is ReturnStatementSyntax
         );
 
@@ -163,7 +163,7 @@ public class BindingTests {
 
         var name = FindNode<IdentifierNameSyntax>(
             tree,
-            n => n.Identifier.ValueText == "scale"
+            static n => n.Identifier.ValueText == "scale"
                 && n.Parent is ReturnStatementSyntax
         );
 
@@ -191,7 +191,7 @@ public class BindingTests {
 
         var name = FindNode<IdentifierNameSyntax>(
             tree,
-            n => n.Identifier.ValueText == "narrow"
+            static n => n.Identifier.ValueText == "narrow"
                 && n.Parent is ReturnStatementSyntax
         );
 
@@ -357,7 +357,7 @@ public class BindingTests {
         var (compilation, tree, model) = Compile(source);
         Assert.Empty(compilation.GetDiagnostics());
 
-        var declaration = FindNode<VariableDeclarationSyntax>(tree, d => d.Identifier.ValueText == "probe");
+        var declaration = FindNode<VariableDeclarationSyntax>(tree, static d => d.Identifier.ValueText == "probe");
         var local = Assert.IsType<LocalSymbol>(model.GetDeclaredSymbol(declaration));
         return local.Type.ToDisplayString();
     }
@@ -366,7 +366,9 @@ public class BindingTests {
         Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(call)).Type.ToDisplayString();
 
     static IEnumerable<T> FindAll<T>(SyntaxTree tree) where T : SyntaxNode {
-        IEnumerable<SyntaxNode> Descend(SyntaxNode node) {
+        return Descend(tree.GetRoot()).OfType<T>();
+
+        static IEnumerable<SyntaxNode> Descend(SyntaxNode node) {
             yield return node;
             foreach (var child in node.ChildNodesAndTokens()) {
                 foreach (var descendant in Descend(child)) {
@@ -374,7 +376,5 @@ public class BindingTests {
                 }
             }
         }
-
-        return Descend(tree.GetRoot()).OfType<T>();
     }
 }

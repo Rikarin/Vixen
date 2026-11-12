@@ -11,16 +11,24 @@ namespace Vixen.Editor.Ai;
 /// <summary>The GOAP graph, derived from the tables and drawn read-only.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Derived, and this is the point at which "the node editor is mandatory" has to be
-///         answered honestly.</b> crashkonijn ships a <i>GraphViewer</i>, not a graph editor, and that
+///         ⚠
+///         <b>
+///             Derived, and this is the point at which "the node editor is mandatory" has to be
+///             answered honestly.
+///         </b>
+///         crashkonijn ships a <i>GraphViewer</i>, not a graph editor, and that
 ///         is correct: the edges of a GOAP graph are not authored, they are <b>computed</b> from which
 ///         effects satisfy which conditions. Drawing them by hand would be authoring the same fact
 ///         twice, and the two copies would disagree the first time somebody edited a condition.
 ///     </para>
 ///     <para>
 ///         So this projects a compiled <see cref="GoapDomain" /> onto <c>NodeCanvas</c> and there is
-///         no command stack over it — which <c>NodeGraphView</c> already supports, since <i>"no stack
-///         means read-only"</i>. Every edit goes through the tables.
+///         no command stack over it — which <c>NodeGraphView</c> already supports, since
+///         <i>
+///             "no stack
+///             means read-only"
+///         </i>
+///         . Every edit goes through the tables.
 ///     </para>
 ///     <para>
 ///         The layout is by <b>depth from a goal</b>: goals on the left, then the actions that serve
@@ -128,7 +136,7 @@ public sealed class GoapGraphProjection {
                         $"{(effect.Increases ? "+" : "−")} {domain.Keys.NameOf(effect.Key)}",
                         string.Empty,
                         "effect",
-                        Above: false
+                        false
                     )
                 );
             }
@@ -185,7 +193,9 @@ public sealed class GoapGraphProjection {
     string Verdict(in GoapCondition condition) =>
         world.Count == 0
             ? string.Empty
-            : condition.Holds(CollectionsMarshal.AsSpan(world)) ? "holds" : "unmet";
+            : condition.Holds(CollectionsMarshal.AsSpan(world))
+                ? "holds"
+                : "unmet";
 
     /// <summary>Why the last search turned an action down, if it did.</summary>
     /// <remarks>

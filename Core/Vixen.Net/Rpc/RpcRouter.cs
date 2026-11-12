@@ -315,8 +315,11 @@ public sealed class RpcRouter {
     ///         Sent reliably whatever the method's channel says — see <c>RpcMethod.ExpectsReply</c>.
     ///     </para>
     ///     <para>
-    ///         <b>A <c>Task&lt;T&gt;</c> rather than the <c>ValueTask&lt;T&gt;</c> doc 16 asked for,
-    ///         and the deviation is deliberate.</b> A <c>ValueTask</c> earns its keep when a result
+    ///         <b>
+    ///             A <c>Task&lt;T&gt;</c> rather than the <c>ValueTask&lt;T&gt;</c> doc 16 asked for,
+    ///             and the deviation is deliberate.
+    ///         </b>
+    ///         A <c>ValueTask</c> earns its keep when a result
     ///         is often already available, because it avoids allocating a task for the synchronous
     ///         case. This result is <i>never</i> already available — it is a network round trip — so
     ///         the completion source is allocated either way and the <c>ValueTask</c> would be a
@@ -340,7 +343,7 @@ public sealed class RpcRouter {
         if (!method.ExpectsReply) {
             throw new ArgumentException(
                 $"'{method}' was not declared awaitable, so nothing will reply to it and this would "
-                    + "wait for the timeout. Declare it with expectsReply.",
+                + "wait for the timeout. Declare it with expectsReply.",
                 nameof(method)
             );
         }
@@ -355,7 +358,9 @@ public sealed class RpcRouter {
         // nobody in particular; a client call is answered by its owner.
         var peer = method.Kind == RpcKind.Server
             ? PlayerId.None
-            : ownership.TryGetOwner(target, out var owner) ? owner : PlayerId.None;
+            : ownership.TryGetOwner(target, out var owner)
+                ? owner
+                : PlayerId.None;
 
         var correlation = pending.Add(method, peer, result, timeout ?? DefaultTimeout, out Task<T> task);
         var writer = new BitWriter(sendBuffer);

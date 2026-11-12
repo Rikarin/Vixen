@@ -28,9 +28,17 @@ readonly record struct ChartOutcome(
 ///         <i>outcome of a quality target</i> rather than a knob: nothing here is told how many charts to
 ///         make, and the recursion splits only what fails <see cref="UvSettings.DistortionThreshold" />.
 ///         § D3 names the established tools' fragmentation — 51.6 charts where a dozen would do — as the
-///         direct consequence of growing regions until a stretch bound trips <i>with nothing that ever
-///         puts two back together</i>, and says which half of the fix is which: <b>step 4 is the cheap
-///         half and step 3's top-down direction is the expensive half</b>.
+///         direct consequence of growing regions until a stretch bound trips
+///         <i>
+///             with nothing that ever
+///             puts two back together
+///         </i>
+///         , and says which half of the fix is which:
+///         <b>
+///             step 4 is the cheap
+///             half and step 3's top-down direction is the expensive half
+///         </b>
+///         .
 ///         <see cref="ChartOutcome.BeforeMerge" /> exists so that the two can be measured apart.
 ///     </para>
 ///     <para>
@@ -226,15 +234,23 @@ static class Charter {
     /// <summary>Step four: adjacent charts whose union still meets τ are merged, greedily, largest first.</summary>
     /// <remarks>
     ///     <para>
-    ///         docs/plan/42 § D3's fourth step, and the cheap half of the fix. ⚠ <b>The ordering is
-    ///         MeshTailor's canonical one used as a deterministic priority</b> — largest patches first —
+    ///         docs/plan/42 § D3's fourth step, and the cheap half of the fix. ⚠
+    ///         <b>
+    ///             The ordering is
+    ///             MeshTailor's canonical one used as a deterministic priority
+    ///         </b>
+    ///         — largest patches first —
     ///         with every tie broken on the chart's own lowest face index, so the pass never depends on
     ///         the order a dictionary happened to enumerate. § D12 gates byte-identical output and a
     ///         greedy merge over a hash set is exactly the way to lose it on somebody else's runtime.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A round proposes a maximal set of <i>disjoint</i> pairs and tests all of them at
-    ///         once.</b> Testing one pair at a time would be a flatten per candidate and would make the
+    ///         ⚠
+    ///         <b>
+    ///             A round proposes a maximal set of <i>disjoint</i> pairs and tests all of them at
+    ///             once.
+    ///         </b>
+    ///         Testing one pair at a time would be a flatten per candidate and would make the
     ///         merge pass cost more than the recursion that produced the charts. Disjointness is what
     ///         makes the batch sound: no two proposed unions share a chart, so each one is a question
     ///         about a region that exists.
@@ -304,7 +320,7 @@ static class Charter {
 
                 taken[pairs[pair].Left] = true;
                 taken[pairs[pair].Right] = true;
-                next.Add([.. union]);
+                next.Add([..union]);
                 merged++;
             }
 
@@ -383,8 +399,7 @@ static class Charter {
             candidates.Add((pair.Item1, pair.Item2, charts[pair.Item1].Length + charts[pair.Item2].Length));
         }
 
-        candidates.Sort(
-            static (left, right) => {
+        candidates.Sort(static (left, right) => {
                 var size = right.Size.CompareTo(left.Size);
 
                 if (size != 0) {
@@ -416,8 +431,12 @@ static class Charter {
     /// <summary>Whether this mesh's group boundaries are the ones § D3 partitions on.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The rule is about <i>material</i> boundaries and a group id alone does not say
-    ///         whether it is one — which is the whole of <see cref="MeshGroupSource" />.</b> § D3 makes
+    ///         ⚠
+    ///         <b>
+    ///             The rule is about <i>material</i> boundaries and a group id alone does not say
+    ///             whether it is one — which is the whole of <see cref="MeshGroupSource" />.
+    ///         </b>
+    ///         § D3 makes
     ///         a group boundary partition unconditionally because the texture already changes there; a
     ///         group that <see cref="EditMesh.Regroup" /> computed from coplanarity makes no such claim,
     ///         and on a faceted surface it is one group per triangle. Measured on sixteen image-to-3D
@@ -482,7 +501,7 @@ static class Charter {
             }
 
             found.Sort();
-            seeds.Add([.. found]);
+            seeds.Add([..found]);
         }
 
         seeds.Sort(static (left, right) => left[0].CompareTo(right[0]));
@@ -527,7 +546,7 @@ static class Charter {
 
         foreach (var slot in parts.Values) {
             slot.Sort();
-            split.Add([.. slot]);
+            split.Add([..slot]);
         }
 
         split.Sort(static (left, right) => left[0].CompareTo(right[0]));

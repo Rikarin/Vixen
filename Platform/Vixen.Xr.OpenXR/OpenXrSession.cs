@@ -2,10 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Text;
-using Silk.NET.Core;
-using Silk.NET.Core.Native;
 using Silk.NET.OpenXR;
-using Vixen.Core.Mathematics;
 using Vixen.Xr.Input;
 using NativeAction = Silk.NET.OpenXR.Action;
 using NativeActionSet = Silk.NET.OpenXR.ActionSet;
@@ -17,8 +14,11 @@ namespace Vixen.Xr.OpenXR;
 /// <summary>A running OpenXR session: the frame loop, the poses and the input.</summary>
 /// <remarks>
 ///     <para>
-///         <b>The runtime paces the frame, and that is the single most important thing about this
-///         class.</b> <see cref="BeginFrame" /> calls <c>xrWaitFrame</c>, which blocks until the
+///         <b>
+///             The runtime paces the frame, and that is the single most important thing about this
+///             class.
+///         </b>
+///         <see cref="BeginFrame" /> calls <c>xrWaitFrame</c>, which blocks until the
 ///         compositor wants the next frame — that is how it controls latency and how it throttles an
 ///         application that is running ahead. A game that renders on its own schedule and submits
 ///         when it happens to finish gets judder that no frame rate fixes.
@@ -61,17 +61,15 @@ public sealed unsafe class OpenXrSession : IXrSession {
 
         var graphics = new GraphicsBindingVulkanKHR {
             Type = StructureType.GraphicsBindingVulkanKhr,
-            Instance = new VkHandle(binding.Instance),
-            PhysicalDevice = new VkHandle(binding.PhysicalDevice),
-            Device = new VkHandle(binding.Device),
+            Instance = new(binding.Instance),
+            PhysicalDevice = new(binding.PhysicalDevice),
+            Device = new(binding.Device),
             QueueFamilyIndex = binding.QueueFamilyIndex,
             QueueIndex = binding.QueueIndex
         };
 
         var create = new SessionCreateInfo {
-            Type = StructureType.SessionCreateInfo,
-            Next = &graphics,
-            SystemId = backend.SystemId
+            Type = StructureType.SessionCreateInfo, Next = &graphics, SystemId = backend.SystemId
         };
 
         Session created;
@@ -177,9 +175,6 @@ public sealed unsafe class OpenXrSession : IXrSession {
                     }
 
                     break;
-
-                default:
-                    break;
             }
         }
     }
@@ -215,7 +210,7 @@ public sealed unsafe class OpenXrSession : IXrSession {
         // anything is the one this frame will be displayed at. See ReadPose.
         LastDisplayTime = state.PredictedDisplayTime;
 
-        frame = new XrFrameState(
+        frame = new(
             state.PredictedDisplayTime,
             TimeSpan.FromTicks(state.PredictedDisplayPeriod / 100),
             state.ShouldRender != 0
@@ -261,7 +256,7 @@ public sealed unsafe class OpenXrSession : IXrSession {
         }
 
         for (var index = 0; index < views.Length && index < count; index++) {
-            views[index] = new XrView(ToPose(located[index].Pose), ToFov(located[index].Fov));
+            views[index] = new(ToPose(located[index].Pose), ToFov(located[index].Fov));
         }
 
         return views;
@@ -315,16 +310,16 @@ public sealed unsafe class OpenXrSession : IXrSession {
         for (var index = 0; index < views.Length; index++) {
             var view = views[index];
 
-            projectionViews[index] = new CompositionLayerProjectionView {
+            projectionViews[index] = new() {
                 Type = StructureType.CompositionLayerProjectionView,
                 Pose = FromPose(view.Pose),
                 Fov = FromFov(view.Fov),
-                SubImage = new SwapchainSubImage {
+                SubImage = new() {
                     Swapchain = ((OpenXrSwapchain)view.Swapchain).Handle,
                     ImageArrayIndex = (uint)view.ImageArrayIndex,
-                    ImageRect = new Rect2Di {
-                        Offset = new Offset2Di { X = view.Viewport.X, Y = view.Viewport.Y },
-                        Extent = new Extent2Di { Width = view.Viewport.Width, Height = view.Viewport.Height }
+                    ImageRect = new() {
+                        Offset = new() { X = view.Viewport.X, Y = view.Viewport.Y },
+                        Extent = new() { Width = view.Viewport.Width, Height = view.Viewport.Height }
                     }
                 }
             };
@@ -415,16 +410,11 @@ public sealed unsafe class OpenXrSession : IXrSession {
                 continue;
             }
 
-            active[count++] = new ActiveActionSet {
-                ActionSet = nativeSets[index],
-                SubactionPath = 0
-            };
+            active[count++] = new() { ActionSet = nativeSets[index], SubactionPath = 0 };
         }
 
         var sync = new ActionsSyncInfo {
-            Type = StructureType.ActionsSyncInfo,
-            CountActiveActionSets = (uint)count,
-            ActiveActionSets = active
+            Type = StructureType.ActionsSyncInfo, CountActiveActionSets = (uint)count, ActiveActionSets = active
         };
 
         OpenXrResult.Check(api.SyncAction(session, &sync), "xrSyncActions");
@@ -463,9 +453,7 @@ public sealed unsafe class OpenXrSession : IXrSession {
         };
 
         var info = new HapticActionInfo {
-            Type = StructureType.HapticActionInfo,
-            Action = native,
-            SubactionPath = PathOf(hand)
+            Type = StructureType.HapticActionInfo, Action = native, SubactionPath = PathOf(hand)
         };
 
         OpenXrResult.Check(
@@ -520,37 +508,38 @@ public sealed unsafe class OpenXrSession : IXrSession {
         }
     }
 
-    internal static XrPose ToPose(in Posef pose) => new(
-        new NativeVector3(pose.Position.X, pose.Position.Y, pose.Position.Z),
-        new NativeQuaternion(pose.Orientation.X, pose.Orientation.Y, pose.Orientation.Z, pose.Orientation.W)
-    );
+    internal static XrPose ToPose(in Posef pose) =>
+        new(
+            new NativeVector3(pose.Position.X, pose.Position.Y, pose.Position.Z),
+            new NativeQuaternion(pose.Orientation.X, pose.Orientation.Y, pose.Orientation.Z, pose.Orientation.W)
+        );
 
-    internal static Posef FromPose(in XrPose pose) => new() {
-        Position = new Vector3f(pose.Position.X, pose.Position.Y, pose.Position.Z),
-        Orientation = new Quaternionf(
-            pose.Orientation.X,
-            pose.Orientation.Y,
-            pose.Orientation.Z,
-            pose.Orientation.W
-        )
-    };
+    internal static Posef FromPose(in XrPose pose) =>
+        new() {
+            Position = new(pose.Position.X, pose.Position.Y, pose.Position.Z),
+            Orientation = new(
+                pose.Orientation.X,
+                pose.Orientation.Y,
+                pose.Orientation.Z,
+                pose.Orientation.W
+            )
+        };
 
     static XrFieldOfView ToFov(in Fovf fov) => new(fov.AngleLeft, fov.AngleRight, fov.AngleUp, fov.AngleDown);
 
-    static Fovf FromFov(in XrFieldOfView fov) => new() {
-        AngleLeft = fov.AngleLeft,
-        AngleRight = fov.AngleRight,
-        AngleUp = fov.AngleUp,
-        AngleDown = fov.AngleDown
-    };
+    static Fovf FromFov(in XrFieldOfView fov) =>
+        new() {
+            AngleLeft = fov.AngleLeft, AngleRight = fov.AngleRight, AngleUp = fov.AngleUp, AngleDown = fov.AngleDown
+        };
 
-    static ActionType ToActionType(XrActionType type) => type switch {
-        XrActionType.Boolean => ActionType.BooleanInput,
-        XrActionType.Float => ActionType.FloatInput,
-        XrActionType.Vector2 => ActionType.Vector2fInput,
-        XrActionType.Pose => ActionType.PoseInput,
-        _ => ActionType.VibrationOutput
-    };
+    static ActionType ToActionType(XrActionType type) =>
+        type switch {
+            XrActionType.Boolean => ActionType.BooleanInput,
+            XrActionType.Float => ActionType.FloatInput,
+            XrActionType.Vector2 => ActionType.Vector2fInput,
+            XrActionType.Pose => ActionType.PoseInput,
+            _ => ActionType.VibrationOutput
+        };
 
     static void WriteName(byte* destination, int capacity, string value) {
         var bytes = Encoding.UTF8.GetBytes(value);
@@ -699,8 +688,7 @@ public sealed unsafe class OpenXrSession : IXrSession {
 
     void CreateNativeSet(XrActionSet set) {
         var create = new ActionSetCreateInfo {
-            Type = StructureType.ActionSetCreateInfo,
-            Priority = (uint)Math.Max(0, set.Priority)
+            Type = StructureType.ActionSetCreateInfo, Priority = (uint)Math.Max(0, set.Priority)
         };
 
         WriteName(create.ActionSetName, 64, set.Name);
@@ -754,10 +742,7 @@ public sealed unsafe class OpenXrSession : IXrSession {
                     byProfile[binding.InteractionProfile] = list;
                 }
 
-                list.Add(new ActionSuggestedBinding {
-                    Action = native,
-                    Binding = StringToPath(binding.BindingPath)
-                });
+                list.Add(new() { Action = native, Binding = StringToPath(binding.BindingPath) });
             }
         }
 
@@ -818,9 +803,7 @@ public sealed unsafe class OpenXrSession : IXrSession {
         }
 
         var info = new ActionStateGetInfo {
-            Type = StructureType.ActionStateGetInfo,
-            Action = native,
-            SubactionPath = PathOf(hand)
+            Type = StructureType.ActionStateGetInfo, Action = native, SubactionPath = PathOf(hand)
         };
 
         switch (action.Type) {
@@ -829,7 +812,7 @@ public sealed unsafe class OpenXrSession : IXrSession {
 
                 OpenXrResult.Check(api.GetActionStateBoolean(session, &info, &state), "xrGetActionStateBoolean");
 
-                return new XrActionState(
+                return new(
                     state.IsActive != 0,
                     state.ChangedSinceLastSync != 0,
                     state.CurrentState != 0
@@ -841,7 +824,7 @@ public sealed unsafe class OpenXrSession : IXrSession {
 
                 OpenXrResult.Check(api.GetActionStateFloat(session, &info, &state), "xrGetActionStateFloat");
 
-                return new XrActionState(
+                return new(
                     state.IsActive != 0,
                     state.ChangedSinceLastSync != 0,
                     Float: state.CurrentState
@@ -853,10 +836,10 @@ public sealed unsafe class OpenXrSession : IXrSession {
 
                 OpenXrResult.Check(api.GetActionStateVector2(session, &info, &state), "xrGetActionStateVector2f");
 
-                return new XrActionState(
+                return new(
                     state.IsActive != 0,
                     state.ChangedSinceLastSync != 0,
-                    Vector: new Vector2(state.CurrentState.X, state.CurrentState.Y)
+                    Vector: new(state.CurrentState.X, state.CurrentState.Y)
                 );
             }
 
@@ -892,8 +875,8 @@ public sealed unsafe class OpenXrSession : IXrSession {
         var tracked = (location.LocationFlags & SpaceLocationFlags.PositionValidBit) != 0
             && (location.LocationFlags & SpaceLocationFlags.OrientationValidBit) != 0;
 
-        return new XrActionState(
-            IsActive: true,
+        return new(
+            true,
             Pose: tracked ? ToPose(location.Pose) : default,
             IsTracked: tracked
         );
@@ -902,8 +885,7 @@ public sealed unsafe class OpenXrSession : IXrSession {
     /// <summary>The display time of the last frame begun, which is what poses are located at.</summary>
     long LastDisplayTime { get; set; }
 
-    ulong PathOf(XrHand hand) =>
-        StringToPath(hand == XrHand.Left ? XrPaths.LeftHand : XrPaths.RightHand);
+    ulong PathOf(XrHand hand) => StringToPath(hand == XrHand.Left ? XrPaths.LeftHand : XrPaths.RightHand);
 
     ulong StringToPath(string value) {
         ulong path;

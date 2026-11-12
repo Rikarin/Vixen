@@ -42,7 +42,7 @@ public static class YamlReader {
         ArgumentNullException.ThrowIfNull(input);
 
         try {
-            var parser = new GuardedParser(new Parser(new Scanner(input, skipComments: false)));
+            var parser = new GuardedParser(new Parser(new Scanner(input, false)));
             var state = new ReadState(parser);
             return state.ReadDocument();
         } catch (YamlParseException) {
@@ -359,7 +359,6 @@ public static class YamlReader {
 
         // A tag arrives as '!Name' for a local tag; the '!' is syntax, and everything above this
         // layer wants the name.
-        static string? TagOf(TagName tag) =>
-            tag.IsEmpty || tag.IsNonSpecific ? null : tag.Value.TrimStart('!');
+        static string? TagOf(TagName tag) => tag.IsEmpty || tag.IsNonSpecific ? null : tag.Value.TrimStart('!');
     }
 }

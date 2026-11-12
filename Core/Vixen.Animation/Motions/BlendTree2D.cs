@@ -91,7 +91,7 @@ public sealed class BlendTree2D : Motion {
         ParameterX = parameterX;
         ParameterY = parameterY;
         Mode = mode;
-        this.children = [.. children];
+        this.children = [..children];
 
         if (this.children.Length == 0) {
             throw new ArgumentException("A blend tree needs at least one motion.", nameof(children));
@@ -233,7 +233,7 @@ public sealed class BlendTree2D : Motion {
 
         // Coincident motions: nothing separates them, so neither excludes the other. Returning one
         // rather than dividing by zero leaves the decision to whichever pair is not degenerate.
-        return lengthSquared <= 1e-12f ? 1f : 1f - (Vector2.Dot(toSample, toOther) / lengthSquared);
+        return lengthSquared <= 1e-12f ? 1f : 1f - Vector2.Dot(toSample, toOther) / lengthSquared;
     }
 
     int Nearest(Vector2 sample) {
@@ -260,7 +260,7 @@ public sealed class BlendTree2D : Motion {
             return 0f;
         }
 
-        return MathF.Atan2((from.X * to.Y) - (from.Y * to.X), Vector2.Dot(from, to));
+        return MathF.Atan2(from.X * to.Y - from.Y * to.X, Vector2.Dot(from, to));
     }
 
     static int Declare(AnimationParameters parameters, string parameter) {

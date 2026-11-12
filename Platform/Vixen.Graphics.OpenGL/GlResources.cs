@@ -64,8 +64,10 @@ sealed class GlTexture(uint name, in TextureDescription description, uint target
     /// <summary>Which target it binds to.</summary>
     public uint Target { get; } = target;
 
-    /// <summary>Whether it is layered, and therefore attached with
-    /// <c>glFramebufferTextureLayer</c>.</summary>
+    /// <summary>
+    ///     Whether it is layered, and therefore attached with
+    ///     <c>glFramebufferTextureLayer</c>.
+    /// </summary>
     public bool IsLayered =>
         Target is GlConstants.Texture2DArray or GlConstants.Texture3D or GlConstants.TextureCubeMap;
 }

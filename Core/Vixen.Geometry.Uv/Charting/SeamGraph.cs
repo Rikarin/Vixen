@@ -8,8 +8,12 @@ namespace Vixen.Geometry.Uv.Charting;
 /// <summary>The mesh as a graph a seam is a walk on, with § D4's seven-term cost on every edge.</summary>
 /// <remarks>
 ///     <para>
-///         docs/plan/42 § D4, taken from MeshTailor's representational point directly: <b>seam
-///         candidates are paths of existing edges</b>, found by search on the mesh's own graph under an
+///         docs/plan/42 § D4, taken from MeshTailor's representational point directly:
+///         <b>
+///             seam
+///             candidates are paths of existing edges
+///         </b>
+///         , found by search on the mesh's own graph under an
 ///         edge cost, never by placing a curve in space and snapping it. There is no snapping stage
 ///         here, so there are no snapping artefacts — which is the same lesson doc 41 § D4 reached from
 ///         the other side, that a feature reproduced by construction beats one approximated and then
@@ -111,8 +115,12 @@ sealed class SeamGraph {
     ///         with none costs its length times every weight there is.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>That is what makes <see cref="SeamCost.Length" /> the term everything else is traded
-    ///         against, in the arithmetic rather than only in the documentation.</b> Raise it and the
+    ///         ⚠
+    ///         <b>
+    ///             That is what makes <see cref="SeamCost.Length" /> the term everything else is traded
+    ///             against, in the arithmetic rather than only in the documentation.
+    ///         </b>
+    ///         Raise it and the
     ///         quality terms shrink relative to it, so a shortest-path search takes the short way round
     ///         a feature it should have followed; drop it to zero and length stops being paid for at
     ///         all, so a seam wanders through flat regions collecting a fractional saving each time.
@@ -129,8 +137,11 @@ sealed class SeamGraph {
     ///         not read.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The step is the distance between the two <i>centroids</i>, and using the shared
-    ///         edge's length instead is a bug that reads as plausible right up until it is measured.</b>
+    ///         ⚠
+    ///         <b>
+    ///             The step is the distance between the two <i>centroids</i>, and using the shared
+    ///             edge's length instead is a bug that reads as plausible right up until it is measured.
+    ///         </b>
     ///         An edge's length is a <i>cut capacity</i> — how much it costs to sever — and a traversal
     ///         metric wants a <i>distance</i>. On a surface of revolution the two are close to opposite:
     ///         a narrow waist has short circumferential edges, so crossing it looks <b>cheap</b> under
@@ -194,7 +205,7 @@ sealed class SeamGraph {
 
             centroids[face] = new((float)(cx / loop.Length), (float)(cy / loop.Length), (float)(cz / loop.Length));
 
-            var length = Math.Sqrt((nx * nx) + (ny * ny) + (nz * nz));
+            var length = Math.Sqrt(nx * nx + ny * ny + nz * nz);
 
             areas[face] = 0.5d * length;
             surface += areas[face];
@@ -209,9 +220,7 @@ sealed class SeamGraph {
 
         var bounds = mesh.Bounds;
         var span = bounds.Maximum - bounds.Minimum;
-        var diagonal = Math.Sqrt(
-            ((double)span.X * span.X) + ((double)span.Y * span.Y) + ((double)span.Z * span.Z)
-        );
+        var diagonal = Math.Sqrt((double)span.X * span.X + (double)span.Y * span.Y + (double)span.Z * span.Z);
 
         if (!(diagonal > 0d)) {
             diagonal = 1d;
@@ -238,7 +247,7 @@ sealed class SeamGraph {
 
             double dx = b.X - (double)a.X, dy = b.Y - (double)a.Y, dz = b.Z - (double)a.Z;
 
-            lengths[edge] = Math.Sqrt((dx * dx) + (dy * dy) + (dz * dz));
+            lengths[edge] = Math.Sqrt(dx * dx + dy * dy + dz * dz);
 
             var incident = mesh.FacesOf(edge);
 
@@ -274,19 +283,19 @@ sealed class SeamGraph {
                 right
             );
 
-            var missing = (cost.Concavity * (1d - quality.Concavity))
-                + (cost.Visibility * (1d - quality.Visibility))
-                + (cost.Feature * (1d - quality.Feature))
-                + (cost.Material * (1d - quality.Material))
-                + (cost.Symmetry * (1d - quality.Symmetry))
-                + (cost.Existing * (1d - quality.Existing));
+            var missing = cost.Concavity * (1d - quality.Concavity)
+                + cost.Visibility * (1d - quality.Visibility)
+                + cost.Feature * (1d - quality.Feature)
+                + cost.Material * (1d - quality.Material)
+                + cost.Symmetry * (1d - quality.Symmetry)
+                + cost.Existing * (1d - quality.Existing);
 
-            var present = (cost.Concavity * quality.Concavity)
-                + (cost.Visibility * quality.Visibility)
-                + (cost.Feature * quality.Feature)
-                + (cost.Material * quality.Material)
-                + (cost.Symmetry * quality.Symmetry)
-                + (cost.Existing * quality.Existing);
+            var present = cost.Concavity * quality.Concavity
+                + cost.Visibility * quality.Visibility
+                + cost.Feature * quality.Feature
+                + cost.Material * quality.Material
+                + cost.Symmetry * quality.Symmetry
+                + cost.Existing * quality.Existing;
 
             cut[edge] = lengths[edge] * (Math.Max(0d, cost.Length) + Math.Max(0d, missing));
             barrier[edge] = quality.Reach * (BarrierFloor + Math.Max(0d, present));
@@ -371,8 +380,12 @@ sealed class SeamGraph {
 
     /// <summary>Measures § D4's six quality terms on one edge.</summary>
     /// <remarks>
-    ///     ⚠ <b>Concavity is read from the neighbour's centroid rather than from the sign of a cross
-    ///     product.</b> A crease's sign depends on which way round the shared edge is walked, and the
+    ///     ⚠
+    ///     <b>
+    ///         Concavity is read from the neighbour's centroid rather than from the sign of a cross
+    ///         product.
+    ///     </b>
+    ///     A crease's sign depends on which way round the shared edge is walked, and the
     ///     edge table stores it one way for both faces — so a cross-product sign answers a question
     ///     about the edge table. Whether the neighbour's centroid sits in front of this face's outward
     ///     plane is a question about the surface, and it is the test the approximate-convex-decomposition
@@ -395,22 +408,20 @@ sealed class SeamGraph {
         var nl = normals[left];
         var nr = normals[right];
 
-        var dot = Math.Clamp(((double)nl.X * nr.X) + ((double)nl.Y * nr.Y) + ((double)nl.Z * nr.Z), -1d, 1d);
+        var dot = Math.Clamp((double)nl.X * nr.X + (double)nl.Y * nr.Y + (double)nl.Z * nr.Z, -1d, 1d);
         var angle = Math.Acos(dot);
 
         var toward = centroids[right] - centroids[left];
-        var reach = Math.Sqrt(
-            ((double)toward.X * toward.X) + ((double)toward.Y * toward.Y) + ((double)toward.Z * toward.Z)
-        );
+        var reach = Math.Sqrt((double)toward.X * toward.X + (double)toward.Y * toward.Y + (double)toward.Z * toward.Z);
 
         var lean = reach > 0d
-            ? (((double)nl.X * toward.X) + ((double)nl.Y * toward.Y) + ((double)nl.Z * toward.Z)) / reach
+            ? ((double)nl.X * toward.X + (double)nl.Y * toward.Y + (double)nl.Z * toward.Z) / reach
             : 0d;
 
         // Positive when the neighbour is in front of this face's outward plane, which is a valley.
         var concavity = Math.Clamp(lean, 0d, 1d);
         var feature = Math.Clamp(angle / featureAngle, 0d, 1d);
-        var visibility = 1d - (0.5d * (exposure[left] + exposure[right]));
+        var visibility = 1d - 0.5d * (exposure[left] + exposure[right]);
         // ⚠ § D4's material term reads an assignment and never the coplanarity guess. Where the groups
         // came from `Regroup` almost every edge scores one, which does not steer the search anywhere —
         // it just quietly removes a term from a seven-term cost.
@@ -418,9 +429,10 @@ sealed class SeamGraph {
             && mesh.Faces[left].Group != mesh.Faces[right].Group
                 ? 1d
                 : 0d;
-        var symmetry = OnMirror(mesh, mirrors, bounds, diagonal, ends.A) && OnMirror(mesh, mirrors, bounds, diagonal, ends.B)
-            ? 1d
-            : 0d;
+        var symmetry =
+            OnMirror(mesh, mirrors, bounds, diagonal, ends.A) && OnMirror(mesh, mirrors, bounds, diagonal, ends.B)
+                ? 1d
+                : 0d;
 
         return new(
             concavity,
@@ -486,8 +498,12 @@ sealed class SeamGraph {
     ///         six decide — which is what should happen on a surface with no crevices to hide a seam in.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The shape diameter function § D3 names beside concavity is <i>not</i> here, and the
-    ///         reason is a missing return value rather than a judgement.</b> An SDF needs the
+    ///         ⚠
+    ///         <b>
+    ///             The shape diameter function § D3 names beside concavity is <i>not</i> here, and the
+    ///             reason is a missing return value rather than a judgement.
+    ///         </b>
+    ///         An SDF needs the
     ///         <i>distance</i> to the surface an inward ray strikes, and <c>TriangleTree.Raycast</c>
     ///         reports whether it hit and which side it hit, not how far — and
     ///         <c>Vixen.Core.Mathematics</c> is owned by other work this phase may not touch. Occlusion
@@ -536,12 +552,12 @@ sealed class SeamGraph {
 
             var tangent = Unit(Vector3.Cross(normal, away));
             var bitangent = Unit(Vector3.Cross(normal, tangent));
-            var origin = centroids[face] + (normal * offset);
+            var origin = centroids[face] + normal * offset;
             var escaped = 0;
 
             for (var ray = 0; ray < OcclusionRays; ray++) {
                 var sample = Hemisphere[ray];
-                var direction = (tangent * sample.X) + (bitangent * sample.Y) + (normal * sample.Z);
+                var direction = tangent * sample.X + bitangent * sample.Y + normal * sample.Z;
 
                 if (!tree.Raycast(origin, direction, out _)) {
                     escaped++;
@@ -562,9 +578,7 @@ sealed class SeamGraph {
     ///     metres and in millimetres gets two different answers, and one of them is silently zero.
     /// </remarks>
     static Vector3 Unit(Vector3 value) {
-        var length = Math.Sqrt(
-            ((double)value.X * value.X) + ((double)value.Y * value.Y) + ((double)value.Z * value.Z)
-        );
+        var length = Math.Sqrt((double)value.X * value.X + (double)value.Y * value.Y + (double)value.Z * value.Z);
 
         return length > 0d
             ? new((float)(value.X / length), (float)(value.Y / length), (float)(value.Z / length))
@@ -655,9 +669,9 @@ sealed class SeamGraph {
 
     static Vector3 Reflect(Vector3 centre, int axis, Vector3 position) =>
         axis switch {
-            0 => new((2f * centre.X) - position.X, position.Y, position.Z),
-            1 => new(position.X, (2f * centre.Y) - position.Y, position.Z),
-            _ => new(position.X, position.Y, (2f * centre.Z) - position.Z)
+            0 => new(2f * centre.X - position.X, position.Y, position.Z),
+            1 => new(position.X, 2f * centre.Y - position.Y, position.Z),
+            _ => new(position.X, position.Y, 2f * centre.Z - position.Z)
         };
 
     static (long, long, long) Cell(Vector3 position, double cell) =>

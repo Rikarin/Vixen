@@ -33,14 +33,14 @@ public sealed class NamespaceSymbol : Symbol {
 
     public IReadOnlyList<NamespaceSymbol> Namespaces => namespaces.Values.ToArray();
 
-    public IReadOnlyList<NamedTypeSymbol> Types => types.Values.SelectMany(t => t).ToArray();
+    public IReadOnlyList<NamedTypeSymbol> Types => types.Values.SelectMany(static t => t).ToArray();
 
     internal NamespaceSymbol(string name, NamespaceSymbol? container) {
         Name = name;
         ContainingSymbol = container;
     }
 
-    public IReadOnlyList<Symbol> GetMembers() => [.. Namespaces, .. Types];
+    public IReadOnlyList<Symbol> GetMembers() => [..Namespaces, ..Types];
 
     public IReadOnlyList<Symbol> GetMembers(string name) {
         List<Symbol> found = [];

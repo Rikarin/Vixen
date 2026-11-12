@@ -8,7 +8,6 @@ using Vixen.Graphics.Null;
 using Vixen.Graphics.RenderGraph;
 using Vixen.Rendering;
 using Vixen.Rendering.Compositor;
-using Vixen.Rendering.Ecs;
 using Vixen.Rendering.Lighting;
 using Vixen.Rendering.PostFx;
 using Vixen.Shaders;
@@ -254,15 +253,15 @@ public class PostEffectTests : IDisposable {
         Frame(h);
 
         var textures = effect.Pass.Descriptors.Bindings
-            .Where(binding => binding.Kind == DescriptorKind.SampledTexture)
+            .Where(static binding => binding.Kind == DescriptorKind.SampledTexture)
             .ToArray();
 
         Assert.Equal(effect.Pass.Reads.Count, textures.Length);
 
-        Assert.Equal(FogKeys.SourceBinding, textures.Single(b => b.Resource == "SceneColour").Binding);
-        Assert.Equal(FogKeys.DepthBufferBinding, textures.Single(b => b.Resource == "SceneDepth").Binding);
+        Assert.Equal(FogKeys.SourceBinding, textures.Single(static b => b.Resource == "SceneColour").Binding);
+        Assert.Equal(FogKeys.DepthBufferBinding, textures.Single(static b => b.Resource == "SceneDepth").Binding);
 
-        Assert.Contains(effect.Pass.Descriptors.Bindings, binding => binding.Kind == DescriptorKind.Sampler);
+        Assert.Contains(effect.Pass.Descriptors.Bindings, static binding => binding.Kind == DescriptorKind.Sampler);
     }
 
     /// <summary>An effect declares the target it publishes, so a chain can be built from names.</summary>
@@ -295,10 +294,7 @@ public class PostEffectTests : IDisposable {
     [Fact]
     public void Ambient_occlusion_runs_at_half_resolution() {
         using var effect = new AmbientOcclusionRenderer {
-            Depth = "SceneDepth",
-            Normals = "SceneNormals",
-            Output = "Occlusion",
-            Scale = 0.5f
+            Depth = "SceneDepth", Normals = "SceneNormals", Output = "Occlusion", Scale = 0.5f
         };
 
         using var h = Build(effect);
@@ -321,12 +317,7 @@ public class PostEffectTests : IDisposable {
     public void Ambient_occlusion_carries_its_horizon_bias() {
         using var system = new RenderSystem();
 
-        var declared = new SsaoAsset {
-            Name = "Ssao",
-            Depth = "SceneDepth",
-            Normals = "SceneNormals",
-            Bias = 0.25f
-        };
+        var declared = new SsaoAsset { Name = "Ssao", Depth = "SceneDepth", Normals = "SceneNormals", Bias = 0.25f };
 
         using var node = (AmbientOcclusionRenderer)new PostEffectFactory().Create(declared, new(system))!;
 
@@ -389,7 +380,7 @@ public class PostEffectTests : IDisposable {
 
         // The effect's own key is among them — the consumer misses too, which is the same answer for
         // the same reason and not what this is about.
-        Assert.Contains(empty.Misses, key => key.ShaderName == FxaaKeys.ShaderName);
+        Assert.Contains(empty.Misses, static key => key.ShaderName == FxaaKeys.ShaderName);
         Assert.Empty(device.Recorder!.OfKind(RecordedCommandKind.Draw));
 
         // ⚠ And the node itself says so, which the miss list cannot: a frame with nine misses and one
@@ -469,8 +460,11 @@ public class PostEffectTests : IDisposable {
     ///     ⚠ An effect that answers from <c>Configure</c> keeps its own answer through the base.
     /// </summary>
     /// <remarks>
-    ///     <b>The regression this exists to prevent has already happened once, in the commit that
-    ///     added the forwarding above.</b> <see cref="SkyRenderer" /> and
+    ///     <b>
+    ///         The regression this exists to prevent has already happened once, in the commit that
+    ///         added the forwarding above.
+    ///     </b>
+    ///     <see cref="SkyRenderer" /> and
     ///     <see cref="AmbientCombineRenderer" /> both degrade from inside <c>Configure</c> — that is
     ///     where an effect reads the frame — and a base class that wrote its own conclusion over the
     ///     top would have replaced "every pixel samples one direction" with silence, in the one node
@@ -519,10 +513,7 @@ public class PostEffectTests : IDisposable {
     [Fact]
     public void Temporal_antialiasing_alternates_its_history() {
         using var effect = new TemporalAntialiasingRenderer {
-            Source = "SceneColour",
-            MotionVectors = "Motion",
-            Depth = "SceneDepth",
-            Output = "Resolved"
+            Source = "SceneColour", MotionVectors = "Motion", Depth = "SceneDepth", Output = "Resolved"
         };
 
         using var h = Build(effect);
@@ -625,10 +616,7 @@ public class PostEffectTests : IDisposable {
         var camera = new RenderView("Camera");
 
         var builder = new CompositorBuilder(system) {
-            Device = device,
-            Modules = describer,
-            Descriptors = allocator,
-            Samplers = samplers
+            Device = device, Modules = describer, Descriptors = allocator, Samplers = samplers
         };
 
         builder.Views["Camera"] = camera;
@@ -662,10 +650,7 @@ public class PostEffectTests : IDisposable {
                             Samples = 12
                         },
                         new LocalExposureAsset {
-                            Name = "Local",
-                            Source = "SceneColour",
-                            View = "Camera",
-                            HighlightContrast = 0.8f
+                            Name = "Local", Source = "SceneColour", View = "Camera", HighlightContrast = 0.8f
                         },
                         new LensFlareAsset { Name = "Flare", Source = "SceneColour", GhostIntensity = 0.2f }
                     ]
@@ -717,10 +702,7 @@ public class PostEffectTests : IDisposable {
         using var system = new RenderSystem();
 
         var builder = new CompositorBuilder(system) {
-            Device = device,
-            Modules = describer,
-            Descriptors = allocator,
-            Samplers = samplers
+            Device = device, Modules = describer, Descriptors = allocator, Samplers = samplers
         };
 
         builder.Factories.Add(new PostEffectFactory());
@@ -776,10 +758,7 @@ public class PostEffectTests : IDisposable {
         using var system = new RenderSystem();
 
         var builder = new CompositorBuilder(system) {
-            Device = device,
-            Modules = describer,
-            Descriptors = allocator,
-            Samplers = samplers
+            Device = device, Modules = describer, Descriptors = allocator, Samplers = samplers
         };
 
         builder.Factories.Add(new PostEffectFactory());
@@ -798,10 +777,7 @@ public class PostEffectTests : IDisposable {
                             SunShadow = false
                         },
                         new IndirectDiffuseAsset {
-                            Name = "Indirect",
-                            Depth = "SceneDepth",
-                            Normals = "SceneNormals",
-                            Intensity = 0.75f
+                            Name = "Indirect", Depth = "SceneDepth", Normals = "SceneNormals", Intensity = 0.75f
                         }
                     ]
                 }
@@ -864,7 +840,8 @@ public class PostEffectTests : IDisposable {
         using var resolver = new ScreenProbeResolve(device);
         using var accumulator = new ScreenProbeAccumulateFill(device);
         using var filter = new ScreenProbeFilterFill(device);
-        using var pyramid = new HiZPyramid(device) { Reduction = HiZReduction.Nearest };
+        using var pyramid = new HiZPyramid(device);
+        pyramid.Reduction = HiZReduction.Nearest;
 
         builder.ScreenProbeTracer = tracer;
         builder.ScreenProbeResolver = resolver;
@@ -999,7 +976,8 @@ public class PostEffectTests : IDisposable {
     [Fact]
     public void A_gather_without_screen_traces_leaves_the_chain_to_the_reflections() {
         using var system = new RenderSystem();
-        using var pyramid = new HiZPyramid(device) { Reduction = HiZReduction.Nearest };
+        using var pyramid = new HiZPyramid(device);
+        pyramid.Reduction = HiZReduction.Nearest;
 
         var builder = new CompositorBuilder(system) { TracePyramid = pyramid };
 
@@ -1047,7 +1025,7 @@ public class PostEffectTests : IDisposable {
 
         Assert.False(effect.Pass.Parameters.Get(TonemapKeys.UseLut));
 
-        var table = effect.Pass.Descriptors.Bindings.Single(b => b.Binding == TonemapKeys.LutBinding);
+        var table = effect.Pass.Descriptors.Bindings.Single(static b => b.Binding == TonemapKeys.LutBinding);
         Assert.Equal("SceneColour", table.Resource);
 
         // And with one, the permutation turns on and the binding is the table.
@@ -1059,7 +1037,10 @@ public class PostEffectTests : IDisposable {
         Frame(second);
 
         Assert.True(graded.Pass.Parameters.Get(TonemapKeys.UseLut));
-        Assert.Equal("Grade", graded.Pass.Descriptors.Bindings.Single(b => b.Binding == TonemapKeys.LutBinding).Resource);
+        Assert.Equal(
+            "Grade",
+            graded.Pass.Descriptors.Bindings.Single(static b => b.Binding == TonemapKeys.LutBinding).Resource
+        );
     }
 
     /// <summary>
@@ -1083,14 +1064,11 @@ public class PostEffectTests : IDisposable {
         Assert.False(plain.Pass.Parameters.Get(TonemapKeys.UseBloom));
         Assert.Equal(
             "SceneColour",
-            plain.Pass.Descriptors.Bindings.Single(b => b.Binding == TonemapKeys.BloomBinding).Resource
+            plain.Pass.Descriptors.Bindings.Single(static b => b.Binding == TonemapKeys.BloomBinding).Resource
         );
 
         using var glowing = new TonemapRenderer {
-            Source = "SceneColour",
-            Bloom = "Pyramid",
-            BloomIntensity = 0.4f,
-            Output = "Display"
+            Source = "SceneColour", Bloom = "Pyramid", BloomIntensity = 0.4f, Output = "Display"
         };
 
         using var second = Build(glowing);
@@ -1104,7 +1082,7 @@ public class PostEffectTests : IDisposable {
 
         Assert.Equal(
             "Pyramid",
-            glowing.Pass.Descriptors.Bindings.Single(b => b.Binding == TonemapKeys.BloomBinding).Resource
+            glowing.Pass.Descriptors.Bindings.Single(static b => b.Binding == TonemapKeys.BloomBinding).Resource
         );
     }
 
@@ -1128,8 +1106,7 @@ public class PostEffectTests : IDisposable {
             Source = "SceneColour",
             Output = "Display",
             Grading = ColorGrading.Neutral with {
-                Shadows = ColorGradingRange.Neutral with { Gain = new(0.8f, 0.9f, 1.3f) },
-                HighlightsMin = 0.6f
+                Shadows = ColorGradingRange.Neutral with { Gain = new(0.8f, 0.9f, 1.3f) }, HighlightsMin = 0.6f
             }
         };
 
@@ -1138,7 +1115,7 @@ public class PostEffectTests : IDisposable {
         Frame(second);
 
         Assert.True(graded.Pass.Parameters.Get(TonemapKeys.UseColorGrading));
-        Assert.Equal(new Vector3(0.8f, 0.9f, 1.3f), graded.Pass.Parameters.Get(TonemapKeys.GradeShadowGain));
+        Assert.Equal(new(0.8f, 0.9f, 1.3f), graded.Pass.Parameters.Get(TonemapKeys.GradeShadowGain));
         Assert.Equal(0.6f, graded.Pass.Parameters.Get(TonemapKeys.GradeHighlightsMin), 5);
 
         // Everything not authored is the identity rather than a zero, which is what
@@ -1157,7 +1134,7 @@ public class PostEffectTests : IDisposable {
 
         Assert.Equal(
             "SceneColour",
-            clean.Pass.Descriptors.Bindings.Single(b => b.Binding == TonemapKeys.BloomDirtBinding).Resource
+            clean.Pass.Descriptors.Bindings.Single(static b => b.Binding == TonemapKeys.BloomDirtBinding).Resource
         );
 
         // ⚠ Zero whatever the intensity says, because the texture standing in is the scene: an
@@ -1222,8 +1199,11 @@ public class PostEffectTests : IDisposable {
     ///     ⚠ A volume's overlay reaches a node, and lays over its authored value without eating it.
     /// </summary>
     /// <remarks>
-    ///     <b>The drift this rules out is the one that would look like a working feature for one
-    ///     frame.</b> A node that wrote the overlay into its own properties would lose what the
+    ///     <b>
+    ///         The drift this rules out is the one that would look like a working feature for one
+    ///         frame.
+    ///     </b>
+    ///     A node that wrote the overlay into its own properties would lose what the
     ///     document said the first time a volume reached it — and walking back out would restore the
     ///     volume's numbers rather than the document's, for ever. So the same node is framed twice
     ///     here: once inside a volume and once after it has gone.
@@ -1231,10 +1211,7 @@ public class PostEffectTests : IDisposable {
     [Fact]
     public void A_volume_lays_over_the_authored_value_and_gives_it_back() {
         using var node = new TonemapRenderer {
-            Source = "SceneColour",
-            Output = "Display",
-            Saturation = 1.2f,
-            Contrast = 1.06f
+            Source = "SceneColour", Output = "Display", Saturation = 1.2f, Contrast = 1.06f
         };
 
         using var h = Build(node);
@@ -1338,10 +1315,7 @@ public class PostEffectTests : IDisposable {
     [Fact]
     public void A_frame_with_no_volume_keeps_the_authored_white_balance() {
         using var node = new TonemapRenderer {
-            Source = "SceneColour",
-            Output = "Display",
-            Temperature = 3200f,
-            Tint = 0.15f
+            Source = "SceneColour", Output = "Display", Temperature = 3200f, Tint = 0.15f
         };
 
         using var h = Build(node);
@@ -1452,8 +1426,7 @@ public class PostEffectTests : IDisposable {
         overlay.Add(
             new() {
                 Grading = ColorGrading.Neutral with {
-                    Shadows = ColorGradingRange.Neutral with { Gain = new(0.8f, 0.9f, 1.3f) },
-                    HighlightsMin = 0.6f
+                    Shadows = ColorGradingRange.Neutral with { Gain = new(0.8f, 0.9f, 1.3f) }, HighlightsMin = 0.6f
                 }
             },
             1f
@@ -1463,7 +1436,7 @@ public class PostEffectTests : IDisposable {
         Frame(h);
 
         Assert.True(node.Pass.Parameters.Get(TonemapKeys.UseColorGrading));
-        Assert.Equal(new Vector3(0.8f, 0.9f, 1.3f), node.Pass.Parameters.Get(TonemapKeys.GradeShadowGain));
+        Assert.Equal(new(0.8f, 0.9f, 1.3f), node.Pass.Parameters.Get(TonemapKeys.GradeShadowGain));
         Assert.Equal(0.6f, node.Pass.Parameters.Get(TonemapKeys.GradeHighlightsMin), 5);
 
         // Everything the grade left neutral is the identity, which is the whole "from Neutral" claim.
@@ -1534,8 +1507,8 @@ public class PostEffectTests : IDisposable {
 
         Assert.Equal(12f, node.Pass.Parameters.Get(FogKeys.FogHeight));
         Assert.Equal(0.2f, node.Pass.Parameters.Get(FogKeys.HeightFalloffRate));
-        Assert.Equal(new Vector3(0.3f, -0.8f, 0.5f), node.Pass.Parameters.Get(FogKeys.SunDirection));
-        Assert.Equal(new Vector3(1f, 0.5f, 0.25f), node.Pass.Parameters.Get(FogKeys.SunColor));
+        Assert.Equal(new(0.3f, -0.8f, 0.5f), node.Pass.Parameters.Get(FogKeys.SunDirection));
+        Assert.Equal(new(1f, 0.5f, 0.25f), node.Pass.Parameters.Get(FogKeys.SunColor));
         Assert.Equal(0.55f, node.Pass.Parameters.Get(FogKeys.SunAnisotropy));
     }
 
@@ -1571,8 +1544,8 @@ public class PostEffectTests : IDisposable {
 
         Assert.Equal(3f, node.Height);
         Assert.Equal(0.11f, node.HeightFalloffRate);
-        Assert.Equal(new Vector3(0f, -0.6f, -0.8f), node.SunDirection);
-        Assert.Equal(new Vector3(0.9f, 0.8f, 0.6f), node.SunColour);
+        Assert.Equal(new(0f, -0.6f, -0.8f), node.SunDirection);
+        Assert.Equal(new(0.9f, 0.8f, 0.6f), node.SunColour);
         Assert.Equal(0.42f, node.SunAnisotropy);
 
         // The unstated asset stands where the shader's own declaration does, so a document that
@@ -1683,7 +1656,7 @@ public class PostEffectTests : IDisposable {
 
         if (sourced) {
             node.Sun = new Star(null);
-            node.Frame = new SceneConstants(device);
+            node.Frame = new(device);
         }
 
         Frame(h);
@@ -1710,10 +1683,8 @@ public class PostEffectTests : IDisposable {
         using var node = new FogRenderer { Source = "SceneColour", Depth = "SceneDepth", Output = "Fogged" };
 
         foreach (var (name, value) in new (string, Vector3)[] {
-                     ("FogRenderer.Colour", node.Colour),
-                     ("FogRenderer.SunColour", node.SunColour),
-                     ("FogAsset.Colour", new FogAsset().Colour),
-                     ("FogAsset.SunColour", new FogAsset().SunColour),
+                     ("FogRenderer.Colour", node.Colour), ("FogRenderer.SunColour", node.SunColour),
+                     ("FogAsset.Colour", new FogAsset().Colour), ("FogAsset.SunColour", new FogAsset().SunColour),
                      ("Fog.rvn fogColor", FogKeys.FogColor.DefaultValue),
                      ("Fog.rvn sunColor", FogKeys.SunColor.DefaultValue)
                  }) {
@@ -1736,9 +1707,9 @@ public class PostEffectTests : IDisposable {
     /// </summary>
     [Fact]
     public void A_document_that_names_no_exposure_is_the_one_that_gets_the_lens() {
-        Assert.True(Lens(new TonemapAsset { Source = "SceneHdr", View = "Camera" }));
-        Assert.False(Lens(new TonemapAsset { Source = "SceneHdr", View = "Camera", Ev100 = 13f }));
-        Assert.False(Lens(new TonemapAsset { Source = "SceneHdr", View = "Camera", Exposure = 2f }));
+        Assert.True(Lens(new() { Source = "SceneHdr", View = "Camera" }));
+        Assert.False(Lens(new() { Source = "SceneHdr", View = "Camera", Ev100 = 13f }));
+        Assert.False(Lens(new() { Source = "SceneHdr", View = "Camera", Exposure = 2f }));
 
         static bool Lens(TonemapAsset declared) {
             using var system = new RenderSystem();
@@ -1772,9 +1743,7 @@ public class PostEffectTests : IDisposable {
         var physical = new RenderView("Camera") { Camera = RenderCamera.Default with { Lens = lens } };
 
         using var defocused = new DepthOfFieldRenderer {
-            Source = "SceneColour",
-            Depth = "SceneDepth",
-            View = physical
+            Source = "SceneColour", Depth = "SceneDepth", View = physical
         };
 
         using var second = Build(defocused);
@@ -1804,10 +1773,7 @@ public class PostEffectTests : IDisposable {
     [Fact]
     public void The_combine_stands_in_for_what_a_document_left_out() {
         using var combine = new AmbientCombineRenderer {
-            Direct = "SceneColour",
-            Albedo = "SceneAlbedo",
-            Normals = "SceneNormals",
-            Output = "Out"
+            Direct = "SceneColour", Albedo = "SceneAlbedo", Normals = "SceneNormals", Output = "Out"
         };
 
         using var h = Build(combine);
@@ -1817,7 +1783,7 @@ public class PostEffectTests : IDisposable {
         Frame(h);
 
         var textures = combine.Pass.Descriptors.Bindings
-            .Where(binding => binding.Kind == DescriptorKind.SampledTexture)
+            .Where(static binding => binding.Kind == DescriptorKind.SampledTexture)
             .ToArray();
 
         Assert.Equal(9, textures.Length);
@@ -1931,7 +1897,7 @@ public class PostEffectTests : IDisposable {
 
         using var h = Build(combine);
 
-        foreach (var name in (string[])[
+        foreach (var name in (string[]) [
                      "SceneAlbedo", "Indirect", "AmbientOcclusion", "Contact", "Mirrors", "SceneSpecular"
                  ]) {
             h.Compositor.Imports[name] = Colour(name);
@@ -1940,26 +1906,32 @@ public class PostEffectTests : IDisposable {
         Frame(h);
 
         var textures = combine.Pass.Descriptors.Bindings
-            .Where(binding => binding.Kind == DescriptorKind.SampledTexture)
+            .Where(static binding => binding.Kind == DescriptorKind.SampledTexture)
             .ToArray();
 
-        Assert.Equal("Indirect", textures.Single(b => b.Binding == AmbientCombineKeys.IrradianceBinding).Resource);
+        Assert.Equal(
+            "Indirect",
+            textures.Single(static b => b.Binding == AmbientCombineKeys.IrradianceBinding).Resource
+        );
 
         Assert.Equal(
             "AmbientOcclusion",
-            textures.Single(b => b.Binding == AmbientCombineKeys.OcclusionBinding).Resource
+            textures.Single(static b => b.Binding == AmbientCombineKeys.OcclusionBinding).Resource
         );
 
         Assert.Equal(
             "Contact",
-            textures.Single(b => b.Binding == AmbientCombineKeys.ContactOcclusionBinding).Resource
+            textures.Single(static b => b.Binding == AmbientCombineKeys.ContactOcclusionBinding).Resource
         );
 
-        Assert.Equal("Mirrors", textures.Single(b => b.Binding == AmbientCombineKeys.ReflectionsBinding).Resource);
+        Assert.Equal(
+            "Mirrors",
+            textures.Single(static b => b.Binding == AmbientCombineKeys.ReflectionsBinding).Resource
+        );
 
         Assert.Equal(
             "SceneSpecular",
-            textures.Single(b => b.Binding == AmbientCombineKeys.SpecularBinding).Resource
+            textures.Single(static b => b.Binding == AmbientCombineKeys.SpecularBinding).Resource
         );
 
         Assert.Equal(1f, combine.Pass.Parameters.Get(AmbientCombineKeys.UseIrradiance));
@@ -2070,10 +2042,13 @@ public class PostEffectTests : IDisposable {
 
         // The depth is a real read, not a stand-in: the plane test is what the pass is for.
         var textures = combine.Pass.Descriptors.Bindings
-            .Where(binding => binding.Kind == DescriptorKind.SampledTexture)
+            .Where(static binding => binding.Kind == DescriptorKind.SampledTexture)
             .ToArray();
 
-        Assert.Equal("SceneDepth", textures.Single(b => b.Binding == AmbientCombineKeys.DepthBufferBinding).Resource);
+        Assert.Equal(
+            "SceneDepth",
+            textures.Single(static b => b.Binding == AmbientCombineKeys.DepthBufferBinding).Resource
+        );
         Assert.Contains("SceneDepth", combine.Pass.Reads);
     }
 
@@ -2127,8 +2102,12 @@ public class PostEffectTests : IDisposable {
     /// <summary>Both halves of the bent-normal switch survive the factory.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Two documents' lines and one plane layout, so losing either mapping is a wrong
-    ///         picture rather than a missing feature.</b> <c>!Ssao</c>'s permutation writes the
+    ///         ⚠
+    ///         <b>
+    ///             Two documents' lines and one plane layout, so losing either mapping is a wrong
+    ///             picture rather than a missing feature.
+    ///         </b>
+    ///         <c>!Ssao</c>'s permutation writes the
     ///         direction over <c>rgb</c> and moves the occlusion into <c>a</c>; a producer whose
     ///         switch arrives and a consumer whose switch does not gives the combine a direction's x
     ///         to multiply its ambient term by, which is in [0, 1] and looks exactly like an
@@ -2148,10 +2127,7 @@ public class PostEffectTests : IDisposable {
 
         using var producer = (AmbientOcclusionRenderer)new PostEffectFactory().Create(
             new SsaoAsset {
-                Name = "ContactOcclusion",
-                Depth = "SceneDepth",
-                Normals = "SceneNormals",
-                BentNormal = true
+                Name = "ContactOcclusion", Depth = "SceneDepth", Normals = "SceneNormals", BentNormal = true
             },
             new(system)
         )!;
@@ -2213,10 +2189,7 @@ public class PostEffectTests : IDisposable {
                     Name = "Frame",
                     Children = [
                         new ReflectionsAsset {
-                            Name = "Mirrors",
-                            Depth = "SceneDepth",
-                            Normals = "SceneNormals",
-                            Target = "Reflections"
+                            Name = "Mirrors", Depth = "SceneDepth", Normals = "SceneNormals", Target = "Reflections"
                         },
                         new AmbientCombineAsset {
                             Name = "Combine",
@@ -2268,7 +2241,8 @@ public class PostEffectTests : IDisposable {
 
         Assert.Equal(
             "Reflections",
-            combine.Pass.Descriptors.Bindings.Single(b => b.Binding == AmbientCombineKeys.ReflectionsBinding).Resource
+            combine.Pass.Descriptors.Bindings.Single(static b => b.Binding == AmbientCombineKeys.ReflectionsBinding)
+                .Resource
         );
 
         graph.DisposePool();
@@ -2375,32 +2349,16 @@ public class PostEffectTests : IDisposable {
             "Vignette" => new VignetteRenderer { Source = "SceneColour", Output = "Out" },
             "Fog" => new FogRenderer { Source = "SceneColour", Depth = "SceneDepth", Output = "Out" },
             "Outline" => new OutlineRenderer { Source = "SceneColour", Depth = "SceneDepth", Output = "Out" },
-            "MotionBlur" => new MotionBlurRenderer {
-                Source = "SceneColour",
-                MotionVectors = "Motion",
-                Output = "Out"
-            },
+            "MotionBlur" => new MotionBlurRenderer { Source = "SceneColour", MotionVectors = "Motion", Output = "Out" },
             "Taa" => new TemporalAntialiasingRenderer {
-                Source = "SceneColour",
-                MotionVectors = "Motion",
-                Depth = "SceneDepth",
-                Output = "Out"
+                Source = "SceneColour", MotionVectors = "Motion", Depth = "SceneDepth", Output = "Out"
             },
-            "Ssao" => new AmbientOcclusionRenderer {
-                Depth = "SceneDepth",
-                Normals = "SceneNormals",
-                Output = "Out"
-            },
+            "Ssao" => new AmbientOcclusionRenderer { Depth = "SceneDepth", Normals = "SceneNormals", Output = "Out" },
             "DistanceFieldAo" => new DistanceFieldAoRenderer {
-                Depth = "SceneDepth",
-                Normals = "SceneNormals",
-                Output = "Out"
+                Depth = "SceneDepth", Normals = "SceneNormals", Output = "Out"
             },
             "AmbientCombine" => new AmbientCombineRenderer {
-                Direct = "SceneColour",
-                Albedo = "SceneColour",
-                Normals = "SceneNormals",
-                Output = "Out"
+                Direct = "SceneColour", Albedo = "SceneColour", Normals = "SceneNormals", Output = "Out"
             },
             _ => throw new ArgumentOutOfRangeException(nameof(shader), shader, "no such effect")
         };
@@ -2445,8 +2403,7 @@ public class PostEffectTests : IDisposable {
         );
 
         var compositor = new GraphicsCompositor(system) {
-            FrameSize = new(320, 180),
-            Game = new SceneRendererSequence { Children = { effect, consumer } }
+            FrameSize = new(320, 180), Game = new SceneRendererSequence { Children = { effect, consumer } }
         };
 
         compositor.Imports["Display"] = Colour("Display");

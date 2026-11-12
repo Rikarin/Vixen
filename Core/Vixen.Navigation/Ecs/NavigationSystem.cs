@@ -155,9 +155,9 @@ public sealed class NavigationSystem : SystemBase, IDeclaredAccess {
 
                 // A version bump is a replan with the destination where it was — what a caller does
                 // when the world changed rather than the plan.
-                if (state.State != CrowdTargetState.None &&
-                    state.Target == targets[index].Value &&
-                    agent.AppliedDestination == targets[index].Version) {
+                if (state.State != CrowdTargetState.None
+                    && state.Target == targets[index].Value
+                    && agent.AppliedDestination == targets[index].Version) {
                     continue;
                 }
 
@@ -221,11 +221,12 @@ public sealed class NavigationSystem : SystemBase, IDeclaredAccess {
         }
     }
 
-    static CrowdAgentParams Parameters(ref readonly NavigationAgent agent) => new() {
-        Radius = agent.Radius > 0 ? agent.Radius : 0.6f,
-        Height = agent.Height > 0 ? agent.Height : 2f,
-        MaxSpeed = agent.MaxSpeed > 0 ? agent.MaxSpeed : 3.5f,
-        MaxAcceleration = agent.MaxAcceleration > 0 ? agent.MaxAcceleration : 8f,
-        AvoidanceEnabled = agent.AvoidanceEnabled
-    };
+    static CrowdAgentParams Parameters(ref readonly NavigationAgent agent) =>
+        new() {
+            Radius = agent.Radius > 0 ? agent.Radius : 0.6f,
+            Height = agent.Height > 0 ? agent.Height : 2f,
+            MaxSpeed = agent.MaxSpeed > 0 ? agent.MaxSpeed : 3.5f,
+            MaxAcceleration = agent.MaxAcceleration > 0 ? agent.MaxAcceleration : 8f,
+            AvoidanceEnabled = agent.AvoidanceEnabled
+        };
 }

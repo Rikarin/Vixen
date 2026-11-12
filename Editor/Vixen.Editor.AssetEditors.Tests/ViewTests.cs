@@ -67,7 +67,7 @@ public class ImportViewTests {
         // the sprite ones — the sprite *rects* are not among them, because they are not a knob and
         // are drawn by the sprite editor instead.
         Assert.Equal(21, matrix.Cells.Count);
-        Assert.All(matrix.Cells, cell => Assert.NotNull(cell.Field));
+        Assert.All(matrix.Cells, static cell => Assert.NotNull(cell.Field));
     }
 
     /// <summary>Only the target columns carry a tick; the base column decides by being the base.</summary>
@@ -83,8 +83,8 @@ public class ImportViewTests {
         matrix.Show(document);
         harness.Ui.Frame();
 
-        Assert.Equal(7, matrix.Cells.Count(cell => cell.Toggle is null));
-        Assert.Equal(7, matrix.Cells.Count(cell => cell.Toggle is not null));
+        Assert.Equal(7, matrix.Cells.Count(static cell => cell.Toggle is null));
+        Assert.Equal(7, matrix.Cells.Count(static cell => cell.Toggle is not null));
     }
 
     /// <summary>Adding a target rebuilds the grid, because which cells exist has changed.</summary>
@@ -143,13 +143,13 @@ public class ImportViewTests {
         var raised = 0;
         view.ViewChanged += _ => raised++;
 
-        view.SetChannel(TextureChannels.Alpha, shown: false);
+        view.SetChannel(TextureChannels.Alpha, false);
 
         Assert.Equal(TextureChannels.Colour, view.Channels);
         Assert.Equal(1, raised);
 
         // Setting it again is not a change, so nothing is raised and nothing redraws.
-        view.SetChannel(TextureChannels.Alpha, shown: false);
+        view.SetChannel(TextureChannels.Alpha, false);
         Assert.Equal(1, raised);
     }
 
@@ -182,7 +182,7 @@ public class ImportViewTests {
 
         var bounds = rows[2].Bounds;
 
-        harness.Ui.MovePointer(bounds.X + (bounds.Width * 0.5f), bounds.Y + (bounds.Height * 0.5f));
+        harness.Ui.MovePointer(bounds.X + bounds.Width * 0.5f, bounds.Y + bounds.Height * 0.5f);
         harness.Ui.PressPointer();
         harness.Ui.ReleasePointer();
         harness.Ui.Frame();
@@ -199,8 +199,9 @@ public class ImportViewTests {
     }
 
     /// <summary>The ladder's rows, in level order.</summary>
-    static List<UiElement> Rows(TextureImportView view) =>
-        [.. view.Ladder.Children.Where(child => string.Equals(child.Tag, "ladder-row", StringComparison.Ordinal))];
+    static List<UiElement> Rows(TextureImportView view) => [
+        ..view.Ladder.Children.Where(static child => string.Equals(child.Tag, "ladder-row", StringComparison.Ordinal))
+    ];
 
     /// <summary>A real PNG, because the panel's first act is decoding the file it was pointed at.</summary>
     static string Image(EditorFixture project, int width = 32, int height = 32) {
@@ -458,7 +459,7 @@ public class EditorViewTests {
 /// <summary>The mixer's strips, and the two dropdowns that used to take the editor down with them.</summary>
 public class AudioMixerViewTests {
     static AudioMixerView Open(ViewHarness harness, out AudioMixerDocument document) {
-        document = new AudioMixerDocument(
+        document = new(
             harness.Project.Project,
             AssetId.Empty,
             harness.Project.Write("Assets/Game.vxmixer", string.Empty)
@@ -493,11 +494,10 @@ public class AudioMixerViewTests {
     ///     rather than that a click reaches it.
     /// </remarks>
     static void Choose(ViewHarness harness, AudioMixerView view, string bus) {
-        var strip = view.Strips.Children.FirstOrDefault(
-            candidate => candidate.Children.Any(child => child.Text == bus)
-        ) ?? throw new InvalidOperationException($"the mixer has no '{bus}' strip");
+        var strip = view.Strips.Children.FirstOrDefault(candidate => candidate.Children.Any(child => child.Text == bus))
+            ?? throw new InvalidOperationException($"the mixer has no '{bus}' strip");
 
-        var x = strip.AbsoluteLeft + (strip.Width / 2f);
+        var x = strip.AbsoluteLeft + strip.Width / 2f;
         var y = strip.AbsoluteTop + 4f;
 
         harness.Ui.Document.Dispatch(
@@ -508,8 +508,12 @@ public class AudioMixerViewTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>A fader is a thing you compare against its neighbours, and the strips have always been
-    ///     columns.</b> `mixer-strip` is `flex-direction: column` and hands the slider a `min-height`,
+    ///     ⚠
+    ///     <b>
+    ///         A fader is a thing you compare against its neighbours, and the strips have always been
+    ///         columns.
+    ///     </b>
+    ///     `mixer-strip` is `flex-direction: column` and hands the slider a `min-height`,
     ///     so the layout was asking for a vertical control the whole time — the slider only had one
     ///     axis, so what a designer actually got was a row of narrow boxes each holding a horizontal
     ///     fader with about sixty pixels of travel.
@@ -522,11 +526,14 @@ public class AudioMixerViewTests {
         var faders = Descendants(view.Strips).OfType<Slider>().ToList();
 
         Assert.NotEmpty(faders);
-        Assert.All(faders, fader => Assert.Equal(Orientation.Vertical, fader.Orientation));
-        Assert.All(faders, fader => Assert.True(
-            fader.Height > fader.Width,
-            $"a fader is {fader.Width}×{fader.Height}, which is a horizontal control in a vertical hole"
-        ));
+        Assert.All(faders, static fader => Assert.Equal(Orientation.Vertical, fader.Orientation));
+        Assert.All(
+            faders,
+            static fader => Assert.True(
+                fader.Height > fader.Width,
+                $"a fader is {fader.Width}×{fader.Height}, which is a horizontal control in a vertical hole"
+            )
+        );
     }
 
     /// <summary>
@@ -545,13 +552,13 @@ public class AudioMixerViewTests {
         Choose(harness, view, "SFX");
 
         var sends = Dropdown(view, "Send to…");
-        var target = sends.Options.First(option => option.Value == "Music");
+        var target = sends.Options.First(static option => option.Value == "Music");
 
         target.Activate();
         harness.Ui.Frame();
 
-        Assert.Single(document.Mixer.Buses.First(bus => bus.Name == "SFX").Sends);
-        Assert.Equal("Music", document.Mixer.Buses.First(bus => bus.Name == "SFX").Sends[0].Target);
+        Assert.Single(document.Mixer.Buses.First(static bus => bus.Name == "SFX").Sends);
+        Assert.Equal("Music", document.Mixer.Buses.First(static bus => bus.Name == "SFX").Sends[0].Target);
     }
 
     /// <summary>The same click, on the other dropdown.</summary>
@@ -563,10 +570,10 @@ public class AudioMixerViewTests {
 
         Choose(harness, view, "Music");
 
-        Dropdown(view, "Add insert…").Options.First(option => option.Value == "Reverb").Activate();
+        Dropdown(view, "Add insert…").Options.First(static option => option.Value == "Reverb").Activate();
         harness.Ui.Frame();
 
-        Assert.Single(document.Mixer.Buses.First(bus => bus.Name == "Music").Effects);
+        Assert.Single(document.Mixer.Buses.First(static bus => bus.Name == "Music").Effects);
     }
 
     // ================================================================== The markup port
@@ -575,8 +582,12 @@ public class AudioMixerViewTests {
     static MixerColumn Column(string bus, string parent = "") => new(bus, parent, false);
 
     /// <summary>
-    ///     ⚠ <b>The bounds are literals in the markup and constants in C#, and this is what stops
-    ///     them drifting.</b> They have to be literals: an attribute written as <c>@MinimumDb</c> is
+    ///     ⚠
+    ///     <b>
+    ///         The bounds are literals in the markup and constants in C#, and this is what stops
+    ///         them drifting.
+    ///     </b>
+    ///     They have to be literals: an attribute written as <c>@MinimumDb</c> is
     ///     an effect, and <c>Slider.Value</c>'s coerce would have clamped a −3.5 dB fader into the
     ///     default 0–1 range before the bounds effect ever ran.
     /// </summary>
@@ -588,13 +599,17 @@ public class AudioMixerViewTests {
         var faders = Descendants(view.Strips).OfType<Slider>().ToList();
 
         Assert.NotEmpty(faders);
-        Assert.All(faders, fader => Assert.Equal(AudioMixerView.MinimumDb, fader.Minimum));
-        Assert.All(faders, fader => Assert.Equal(AudioMixerView.MaximumDb, fader.Maximum));
+        Assert.All(faders, static fader => Assert.Equal(AudioMixerView.MinimumDb, fader.Minimum));
+        Assert.All(faders, static fader => Assert.Equal(AudioMixerView.MaximumDb, fader.Maximum));
     }
 
     /// <summary>
-    ///     ⚠ <b>A strip's fader handler reads <i>its own</i> mute, which is the line <c>refs</c> was
-    ///     built for.</b> A <c>ref</c> in a loop body is one member for every row (<c>VXML2010</c>),
+    ///     ⚠
+    ///     <b>
+    ///         A strip's fader handler reads <i>its own</i> mute, which is the line <c>refs</c> was
+    ///         built for.
+    ///     </b>
+    ///     A <c>ref</c> in a loop body is one member for every row (<c>VXML2010</c>),
     ///     so the answer would have been whichever strip was built last — and this asserts it with
     ///     one strip muted and another not, so a handle that answered with the wrong row would say
     ///     so.
@@ -617,14 +632,14 @@ public class AudioMixerViewTests {
         view.Faders[Column("SFX")].Value = -9f;
         harness.Ui.Frame();
 
-        Assert.Equal(-9f, document.Mixer.Buses.First(bus => bus.Name == "SFX").GainDb);
-        Assert.False(document.Mixer.Buses.First(bus => bus.Name == "SFX").Muted);
+        Assert.Equal(-9f, document.Mixer.Buses.First(static bus => bus.Name == "SFX").GainDb);
+        Assert.False(document.Mixer.Buses.First(static bus => bus.Name == "SFX").Muted);
 
         view.Faders[Column("Music")].Value = -18f;
         harness.Ui.Frame();
 
-        Assert.Equal(-18f, document.Mixer.Buses.First(bus => bus.Name == "Music").GainDb);
-        Assert.True(document.Mixer.Buses.First(bus => bus.Name == "Music").Muted);
+        Assert.Equal(-18f, document.Mixer.Buses.First(static bus => bus.Name == "Music").GainDb);
+        Assert.True(document.Mixer.Buses.First(static bus => bus.Name == "Music").Muted);
     }
 
     /// <summary>And the other way round: a mute writes the gain its own fader is showing.</summary>
@@ -637,7 +652,7 @@ public class AudioMixerViewTests {
         view.Mutes[Column("SFX")].IsChecked = true;
         harness.Ui.Frame();
 
-        var sfx = document.Mixer.Buses.First(bus => bus.Name == "SFX");
+        var sfx = document.Mixer.Buses.First(static bus => bus.Name == "SFX");
 
         Assert.True(sfx.Muted);
         Assert.Equal(0f, sfx.GainDb);
@@ -646,7 +661,7 @@ public class AudioMixerViewTests {
         view.Mutes[Column("Music")].IsChecked = true;
         harness.Ui.Frame();
 
-        Assert.Equal(-6f, document.Mixer.Buses.First(bus => bus.Name == "Music").GainDb);
+        Assert.Equal(-6f, document.Mixer.Buses.First(static bus => bus.Name == "Music").GainDb);
     }
 
     /// <summary>
@@ -671,8 +686,12 @@ public class AudioMixerViewTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>Opening a mixer posts nothing to the undo stack, and that is the one rule
-    ///     <c>change:</c> does not share with <c>bind:</c>.</b> Every fader has both a forward
+    ///     ⚠
+    ///     <b>
+    ///         Opening a mixer posts nothing to the undo stack, and that is the one rule
+    ///         <c>change:</c> does not share with <c>bind:</c>.
+    ///     </b>
+    ///     Every fader has both a forward
     ///     binding and a change handler, and the forward binding first writes one flush <i>after</i>
     ///     the subscription exists — so without "a change made while effects are draining is not
     ///     reported", every panel open would record a gain nobody touched, once per strip.
@@ -698,8 +717,12 @@ public class AudioMixerViewTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>The dropdown's options follow the selected bus, which is build-list item 4 worked
-    ///     around rather than fixed.</b> A <c>Select</c>'s options are not its children, so there is
+    ///     ⚠
+    ///     <b>
+    ///         The dropdown's options follow the selected bus, which is build-list item 4 worked
+    ///         around rather than fixed.
+    ///     </b>
+    ///     A <c>Select</c>'s options are not its children, so there is
     ///     no markup spelling for them; <c>OptionCell</c> makes the list a property, and binding a
     ///     property is an ordinary effect.
     /// </summary>
@@ -710,15 +733,19 @@ public class AudioMixerViewTests {
         var view = Open(harness, out _);
 
         Choose(harness, view, "SFX");
-        Assert.Equal(["Music", "Voice"], Dropdown(view, "Send to…").Options.Select(option => option.Value));
+        Assert.Equal(["Music", "Voice"], Dropdown(view, "Send to…").Options.Select(static option => option.Value));
 
         Choose(harness, view, "Music");
-        Assert.Equal(["SFX", "Voice"], Dropdown(view, "Send to…").Options.Select(option => option.Value));
+        Assert.Equal(["SFX", "Voice"], Dropdown(view, "Send to…").Options.Select(static option => option.Value));
     }
 
     /// <summary>
-    ///     ⚠ <b>Which of the two a fader writes to is the whole of what "editing a snapshot"
-    ///     means</b>, and it is the one behaviour of this panel with no element to look at.
+    ///     ⚠
+    ///     <b>
+    ///         Which of the two a fader writes to is the whole of what "editing a snapshot"
+    ///         means
+    ///     </b>
+    ///     , and it is the one behaviour of this panel with no element to look at.
     /// </summary>
     [Fact]
     public void WithASnapshotChosenAFaderRecordsALineAndLeavesTheAuthoredMixAlone() {
@@ -729,8 +756,8 @@ public class AudioMixerViewTests {
         document.AddSnapshot("Underwater");
         harness.Ui.Frame();
 
-        var row = view.Snapshots.Children.First(
-            child => child.Text is { } text && text.StartsWith("Underwater", StringComparison.Ordinal)
+        var row = view.Snapshots.Children.First(static child => child.Text is { } text
+            && text.StartsWith("Underwater", StringComparison.Ordinal)
         );
 
         harness.Ui.Document.Dispatch(
@@ -748,10 +775,11 @@ public class AudioMixerViewTests {
         view.Faders[Column("Music")].Value = -30f;
         harness.Ui.Frame();
 
-        Assert.Equal(-6f, document.Mixer.Buses.First(bus => bus.Name == "Music").GainDb);
+        Assert.Equal(-6f, document.Mixer.Buses.First(static bus => bus.Name == "Music").GainDb);
 
-        var line = document.Mixer.Snapshots.First(entry => entry.Name == "Underwater").Buses
-            .First(entry => entry.Bus == "Music");
+        var line = document.Mixer.Snapshots.First(static entry => entry.Name == "Underwater")
+            .Buses
+            .First(static entry => entry.Bus == "Music");
 
         Assert.Equal(-30f, line.GainDb);
     }

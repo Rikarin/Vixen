@@ -116,7 +116,10 @@ internal sealed class ProjectSession : IProjectSession, IDisposable {
     /// <summary>Whether a change to the code has been heard that no build has covered yet.</summary>
     bool codeStale;
 
-    /// <summary>The code files as the last build saw them, to tell an overflow that lost an edit from one that lost only the build's output.</summary>
+    /// <summary>
+    ///     The code files as the last build saw them, to tell an overflow that lost an edit from one that lost only the
+    ///     build's output.
+    /// </summary>
     string? codeFingerprint;
 
     /// <summary>Builds the session over the open project.</summary>
@@ -147,8 +150,8 @@ internal sealed class ProjectSession : IProjectSession, IDisposable {
         this.requestClose = requestClose;
         this.closing = closing;
         this.history = history;
-        this.log = log ?? ((_, _) => { });
-        code = new ProjectAssemblies(project.Paths);
+        this.log = log ?? (static (_, _) => { });
+        code = new(project.Paths);
         project.DocumentSaving += RefuseToSaveWithout;
 
         // ⚠ Every write the editor announces into `Assets/` is suppressed on the watcher, not only the
@@ -326,7 +329,8 @@ internal sealed class ProjectSession : IProjectSession, IDisposable {
             return;
         }
 
-        var relative = Path.GetRelativePath(project.Paths.Assets, absolute).Replace(Path.DirectorySeparatorChar, VirtualPath.Separator);
+        var relative = Path.GetRelativePath(project.Paths.Assets, absolute)
+            .Replace(Path.DirectorySeparatorChar, VirtualPath.Separator);
 
         if (relative.StartsWith("..", StringComparison.Ordinal) || Path.IsPathRooted(relative) || relative == ".") {
             return;
@@ -342,8 +346,12 @@ internal sealed class ProjectSession : IProjectSession, IDisposable {
     /// <summary>Writes a new game project and opens it.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>This used to make two directories and call it a project, and the consequence
-    ///         showed up two milestones later.</b> A folder with an <c>Assets/</c> in it <i>is</i> a
+    ///         ⚠
+    ///         <b>
+    ///             This used to make two directories and call it a project, and the consequence
+    ///             showed up two milestones later.
+    ///         </b>
+    ///         A folder with an <c>Assets/</c> in it <i>is</i> a
     ///         project as far as <c>AssetDatabase</c> is concerned — but it has no <c>.csproj</c>, so
     ///         there is nothing for <c>dotnet publish</c> to publish, and E6's Build and Run was
     ///         greyed for every project the editor had ever made with a message naming a terminal
@@ -361,8 +369,12 @@ internal sealed class ProjectSession : IProjectSession, IDisposable {
     ///         ordinary folder name and an impossible namespace. See <see cref="ProjectScaffold.NameFrom" />.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A directory that already holds some of those files is opened rather than
-    ///         clobbered.</b> The scaffold finds every collision before it writes anything, and this
+    ///         ⚠
+    ///         <b>
+    ///             A directory that already holds some of those files is opened rather than
+    ///             clobbered.
+    ///         </b>
+    ///         The scaffold finds every collision before it writes anything, and this
     ///         is the case where somebody pointed New Project at a project they already had: the
     ///         useful response is to open it and say what was left alone, not to refuse and not to
     ///         overwrite their <c>Program.cs</c>.
@@ -375,7 +387,11 @@ internal sealed class ProjectSession : IProjectSession, IDisposable {
             Directory.CreateDirectory(paths.Assets);
             Directory.CreateDirectory(paths.ProjectSettings);
 
-            var scaffold = ProjectScaffold.Write("game", ProjectScaffold.NameFrom(Path.GetFileName(root.TrimEnd(Path.DirectorySeparatorChar))), root);
+            var scaffold = ProjectScaffold.Write(
+                "game",
+                ProjectScaffold.NameFrom(Path.GetFileName(root.TrimEnd(Path.DirectorySeparatorChar))),
+                root
+            );
 
             if (scaffold.Collisions.Count > 0) {
                 notify(
@@ -428,7 +444,9 @@ internal sealed class ProjectSession : IProjectSession, IDisposable {
         // ⚠ Off every open scene, not the active one (#1496). A scene opened beside it — additively, or
         // as an asset in a tab — kept instances of the old types: the registry no longer knew them, so
         // its next save wrote it without them, and they held the unloaded context alive.
-        var authored = project.Documents.OfType<SceneDocument>().Select(scene => (Scene: scene, Behaviors: SaveProjectBehaviors(scene))).ToArray();
+        var authored = project.Documents.OfType<SceneDocument>()
+            .Select(scene => (Scene: scene, Behaviors: SaveProjectBehaviors(scene)))
+            .ToArray();
         var before = held.ToArray();
         var built = code.Reload();
 
@@ -505,11 +523,14 @@ internal sealed class ProjectSession : IProjectSession, IDisposable {
 
         foreach (var entity in scene.Entities) {
             foreach (var behavior in scene.Behaviors.AllOn(entity).ToArray()) {
-                if (behavior.GetType().Assembly != loaded || !SceneBehaviorRegistry.TryGet(behavior.GetType(), out var binder)) {
+                if (behavior.GetType().Assembly != loaded
+                    || !SceneBehaviorRegistry.TryGet(behavior.GetType(), out var binder)) {
                     continue;
                 }
 
-                authored.Add(new(entity, binder.Name, YamlWriter.Write(YamlSerializer.Serialize(behavior, behavior.GetType()))));
+                authored.Add(
+                    new(entity, binder.Name, YamlWriter.Write(YamlSerializer.Serialize(behavior, behavior.GetType())))
+                );
                 binder.RemoveFrom(scene.Behaviors, entity);
             }
         }
@@ -519,8 +540,12 @@ internal sealed class ProjectSession : IProjectSession, IDisposable {
 
     /// <summary>Puts them back, on the rebuilt types — or holds them, when nothing declares them yet.</summary>
     /// <remarks>
-    ///     ⚠ <b>A behaviour whose alias nothing declares is held, and <see cref="Report" /> decides what
-    ///     that means.</b> After a build that worked, somebody deleted or renamed the class; there is
+    ///     ⚠
+    ///     <b>
+    ///         A behaviour whose alias nothing declares is held, and <see cref="Report" /> decides what
+    ///         that means.
+    ///     </b>
+    ///     After a build that worked, somebody deleted or renamed the class; there is
     ///     nowhere to put its values, and silently keeping them would mean a save that wrote a behaviour
     ///     the build cannot name — so it is dropped, and said so. After a build that failed, it waits.
     /// </remarks>
@@ -550,7 +575,7 @@ internal sealed class ProjectSession : IProjectSession, IDisposable {
                 restored = YamlSerializer.Deserialize(
                     YamlReader.Read(behavior.State),
                     binder.BehaviorType,
-                    new YamlSerializerOptions(OnUnknownKey: unknown.Add)
+                    new(OnUnknownKey: unknown.Add)
                 )!;
             } catch (YamlBindingException failure) {
                 lost.Add($"{behavior.Alias} was dropped: the rebuilt code cannot read its values ({failure.Message})");
@@ -559,7 +584,9 @@ internal sealed class ProjectSession : IProjectSession, IDisposable {
             }
 
             if (unknown.Count > 0) {
-                lost.Add($"{behavior.Alias} lost {string.Join(", ", unknown)}, which the rebuilt code no longer declares");
+                lost.Add(
+                    $"{behavior.Alias} lost {string.Join(", ", unknown)}, which the rebuilt code no longer declares"
+                );
             }
 
             binder.AttachTo(scene.Behaviors, behavior.Entity, restored);
@@ -599,7 +626,7 @@ internal sealed class ProjectSession : IProjectSession, IDisposable {
             lost.Clear();
         }
 
-        if (held.Values.Sum(waiting => waiting.Count) is > 0 and var count) {
+        if (held.Values.Sum(static waiting => waiting.Count) is > 0 and var count) {
             notify(
                 $"{count} authored behaviour(s) are held until the code builds",
                 NotificationSeverity.Warning,
@@ -611,8 +638,12 @@ internal sealed class ProjectSession : IProjectSession, IDisposable {
 
     /// <summary>Refuses to write a scene that has behaviours held off it.</summary>
     /// <remarks>
-    ///     ⚠ <b>Raised before the write, through <c>EditorProject.DocumentSaving</c>, as an
-    ///     <see cref="IOException" /></b> — the failure every save path already reports as a refused write
+    ///     ⚠
+    ///     <b>
+    ///         Raised before the write, through <c>EditorProject.DocumentSaving</c>, as an
+    ///         <see cref="IOException" />
+    ///     </b>
+    ///     — the failure every save path already reports as a refused write
     ///     and leaves the document dirty for. A scene saved now would be the file without the behaviours,
     ///     which is the data loss #1490 is about arriving by the other door.
     /// </remarks>
@@ -628,8 +659,12 @@ internal sealed class ProjectSession : IProjectSession, IDisposable {
     /// <summary>Starts watching the project's assets, if there are any to watch.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Called by the application after it has written its first scene, not when this is
-    ///         built.</b> A first run saves <c>Main.vxscene</c> into a new project, and a watcher already
+    ///         ⚠
+    ///         <b>
+    ///             Called by the application after it has written its first scene, not when this is
+    ///             built.
+    ///         </b>
+    ///         A first run saves <c>Main.vxscene</c> into a new project, and a watcher already
     ///         running would hear the editor's own write as somebody else's.
     ///     </para>
     ///     ⚠ <b>A quarter of a second of quiet before a change counts.</b> A text editor's atomic
@@ -637,8 +672,12 @@ internal sealed class ProjectSession : IProjectSession, IDisposable {
     ///     file. Rescanning on each would walk the project several times for one action —
     ///     <c>FileChangeCoalescer</c>'s debounce is what turns a burst into a rescan.
     ///     <para>
-    ///         ⚠ <b>The watcher before <see cref="External" />, and that is one of the constructor's
-    ///         order-dependent steps made a line here (#1293).</b> <c>ExternalEdits</c> suppresses the
+    ///         ⚠
+    ///         <b>
+    ///             The watcher before <see cref="External" />, and that is one of the constructor's
+    ///             order-dependent steps made a line here (#1293).
+    ///         </b>
+    ///         <c>ExternalEdits</c> suppresses the
     ///         editor's own saves on the watcher it is handed, so one built first would suppress nothing.
     ///         And it is built when there is no watcher too, because it is what subscribes to
     ///         <c>EditorProject.DocumentSaving</c>, and a project with no watcher still has documents
@@ -686,7 +725,8 @@ internal sealed class ProjectSession : IProjectSession, IDisposable {
     /// <summary>What a change on disk did to the open documents, for the suite that asserts about it.</summary>
     /// <exception cref="InvalidOperationException">Asked for before <see cref="Watch" />.</exception>
     internal ExternalEdits External =>
-        external ?? throw new InvalidOperationException("The session routes changes to open documents only once it watches.");
+        external
+        ?? throw new InvalidOperationException("The session routes changes to open documents only once it watches.");
 
     IFileWatcher? Start(EditorProject open) {
         if (!Directory.Exists(open.Paths.Assets)) {
@@ -694,9 +734,7 @@ internal sealed class ProjectSession : IProjectSession, IDisposable {
         }
 
         try {
-            return new FileWatcher(open.Paths.Assets, VirtualPath.Root) {
-                Debounce = TimeSpan.FromMilliseconds(250)
-            };
+            return new FileWatcher(open.Paths.Assets, VirtualPath.Root) { Debounce = TimeSpan.FromMilliseconds(250) };
         } catch (Exception exception) when (exception is IOException or UnauthorizedAccessException) {
             // A project on a share the platform cannot watch, or one whose handle limit is spent.
             // The editor still opens and Refresh still works, which is the right trade for a
@@ -887,7 +925,12 @@ internal sealed class ProjectSession : IProjectSession, IDisposable {
                     if (VirtualPath.TryCreate("/" + Path.GetFileName(file), out var name) && IsCode(name)) {
                         var info = new FileInfo(file);
 
-                        text.Append(file).Append('|').Append(info.Length).Append('|').Append(info.LastWriteTimeUtc.Ticks).Append('\n');
+                        text.Append(file)
+                            .Append('|')
+                            .Append(info.Length)
+                            .Append('|')
+                            .Append(info.LastWriteTimeUtc.Ticks)
+                            .Append('\n');
                     }
                 }
 
@@ -909,9 +952,7 @@ internal sealed class ProjectSession : IProjectSession, IDisposable {
         }
 
         try {
-            return new FileWatcher(open.Paths.Root, VirtualPath.Root) {
-                Debounce = TimeSpan.FromMilliseconds(250)
-            };
+            return new FileWatcher(open.Paths.Root, VirtualPath.Root) { Debounce = TimeSpan.FromMilliseconds(250) };
         } catch (Exception exception) when (exception is IOException or UnauthorizedAccessException) {
             log(
                 LogLevel.Warning,

@@ -15,16 +15,23 @@ namespace Vixen.Editor.NodeGraph;
 /// <summary>One of a node's inline port values, as a member the editing pipeline can bind.</summary>
 /// <remarks>
 ///     <para>
-///         <b>The case <c>IEditProvider</c>'s own remarks name: "a graph node's ports are described
-///         by the node".</b> A port is not a field of anything — its value lives in
+///         <b>
+///             The case <c>IEditProvider</c>'s own remarks name: "a graph node's ports are described
+///             by the node".
+///         </b>
+///         A port is not a field of anything — its value lives in
 ///         <see cref="GraphNode.Values" />, keyed by the port's name, because that is what survives a
 ///         save and an undo. No generator describes it and no reflection pass can find it, so before
 ///         this the only way to edit one was a panel that knew about ports, which is what
 ///         <see cref="NodeInspector" /> used to be.
 ///     </para>
 ///     <para>
-///         ⚠ <b>An <see cref="InspectorMember" /> rather than a bare <c>IEditMember</c>, and that is
-///         the whole point.</b> The narrow contract would have been enough to <i>write</i> a port; it
+///         ⚠
+///         <b>
+///             An <see cref="InspectorMember" /> rather than a bare <c>IEditMember</c>, and that is
+///             the whole point.
+///         </b>
+///         The narrow contract would have been enough to <i>write</i> a port; it
 ///         would not have got the port a drawer, a reset button, a tooltip or a row. Deriving from
 ///         the inspector's descriptor type is what <c>ReflectedMember</c> does for the same reason,
 ///         and it is what puts a node's ports into the ordinary inspector panel instead of a second
@@ -79,7 +86,7 @@ public sealed class NodePortMember : InspectorMember {
     public override object? GetBoxed(object owner) {
         ArgumentNullException.ThrowIfNull(owner);
 
-        return Decode(Lanes((GraphNode) owner));
+        return Decode(Lanes((GraphNode)owner));
     }
 
     /// <summary>What a port's lanes are worth as the value a row edits.</summary>
@@ -93,7 +100,7 @@ public sealed class NodePortMember : InspectorMember {
     internal object Decode(ReadOnlySpan<float> lanes) {
         return Port.Kind switch {
             PortKind.Bool => lanes[0] != 0f,
-            PortKind.Int => (int) lanes[0],
+            PortKind.Int => (int)lanes[0],
             PortKind.Float2 => new Vector2(lanes[0], lanes[1]),
             PortKind.Float3 => new Vector3(lanes[0], lanes[1], lanes[2]),
             PortKind.Float4 => new Vector4(lanes[0], lanes[1], lanes[2], lanes[3]),
@@ -103,8 +110,12 @@ public sealed class NodePortMember : InspectorMember {
 
     /// <inheritdoc />
     /// <remarks>
-    ///     ⚠ <b>The un-undoable path, and the pipeline only takes it for a target with no
-    ///     document.</b> Everything else goes through <see cref="CreateSetCommand" />, which is a
+    ///     ⚠
+    ///     <b>
+    ///         The un-undoable path, and the pipeline only takes it for a target with no
+    ///         document.
+    ///     </b>
+    ///     Everything else goes through <see cref="CreateSetCommand" />, which is a
     ///     <see cref="SetPortValueCommand" /> — the command the graph already had, so a port edited
     ///     from the inspector and a port edited on the canvas produce the same entry and merge with
     ///     each other.
@@ -112,12 +123,12 @@ public sealed class NodePortMember : InspectorMember {
     public override void SetBoxed(object owner, object? value) {
         ArgumentNullException.ThrowIfNull(owner);
 
-        ((GraphNode) owner).SetValue(Port.Name, Encode(value));
+        ((GraphNode)owner).SetValue(Port.Name, Encode(value));
         graph.Touch();
     }
 
     /// <inheritdoc />
-    public override Vixen.Authoring.IAuthoringCommand CreateSetCommand(
+    public override IAuthoringCommand CreateSetCommand(
         IReadOnlyList<object> targets,
         object? value,
         EditorDocument? document
@@ -127,7 +138,7 @@ public sealed class NodePortMember : InspectorMember {
         var nodes = new NodeId[targets.Count];
 
         for (var index = 0; index < targets.Count; index++) {
-            nodes[index] = ((GraphNode) targets[index]).Id;
+            nodes[index] = ((GraphNode)targets[index]).Id;
         }
 
         return new SetPortValueCommand(graph, nodes, Port.Name, Encode(value), document);
@@ -144,18 +155,19 @@ public sealed class NodePortMember : InspectorMember {
     ///     grey. Offering three boxes because a <i>different</i> port was wired to a <c>float3</c>
     ///     would make the same graph edit differently depending on what is beside it.
     /// </remarks>
-    public static Type TypeOf(PortKind kind) => kind switch {
-        PortKind.Bool => typeof(bool),
-        PortKind.Int => typeof(int),
-        PortKind.Float or PortKind.Dynamic => typeof(float),
-        PortKind.Float2 => typeof(Vector2),
-        PortKind.Float3 => typeof(Vector3),
-        PortKind.Float4 => typeof(Vector4),
-        _ => throw new ArgumentException(
-            $"A {kind} port takes no typed value, so there is no member to make of it.",
-            nameof(kind)
-        )
-    };
+    public static Type TypeOf(PortKind kind) =>
+        kind switch {
+            PortKind.Bool => typeof(bool),
+            PortKind.Int => typeof(int),
+            PortKind.Float or PortKind.Dynamic => typeof(float),
+            PortKind.Float2 => typeof(Vector2),
+            PortKind.Float3 => typeof(Vector3),
+            PortKind.Float4 => typeof(Vector4),
+            _ => throw new ArgumentException(
+                $"A {kind} port takes no typed value, so there is no member to make of it.",
+                nameof(kind)
+            )
+        };
 
     /// <summary>The lanes a value is stored as.</summary>
     internal float[] Encode(object? value) {
@@ -182,7 +194,7 @@ public sealed class NodePortMember : InspectorMember {
             // `MarkupBinding` names: a numeric input is a `double` and a slider is a `float`, so a
             // row can hand back either for a port that is neither.
             case IConvertible number:
-                lanes[0] = number.ToSingle(System.Globalization.CultureInfo.InvariantCulture);
+                lanes[0] = number.ToSingle(CultureInfo.InvariantCulture);
                 break;
         }
 
@@ -262,8 +274,12 @@ public sealed class NodeSettingMember : InspectorMember {
 
     /// <inheritdoc />
     /// <remarks>
-    ///     ⚠ <b>What the row edits, which is no longer always a string —
-    ///     <a href="https://github.com/Rikarin/Vixen/issues/730">#730</a>.</b> The
+    ///     ⚠
+    ///     <b>
+    ///         What the row edits, which is no longer always a string —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/730">#730</a>.
+    ///     </b>
+    ///     The
     ///     <em>storage</em> is still text, because that is what a saved graph holds and what survives
     ///     a node type renaming a member; this is the type a drawer is chosen by, so a declared
     ///     <c>bool</c> gets a checkbox and a declared range gets a slider instead of a box in which
@@ -314,15 +330,19 @@ public sealed class NodeSettingMember : InspectorMember {
 
     /// <inheritdoc />
     /// <remarks>
-    ///     ⚠ <b>The text is parsed rather than handed over, and a value that does not parse reads as
-    ///     the declared default.</b> Answering with zero would be the failure this whole change is
+    ///     ⚠
+    ///     <b>
+    ///         The text is parsed rather than handed over, and a value that does not parse reads as
+    ///         the declared default.
+    ///     </b>
+    ///     Answering with zero would be the failure this whole change is
     ///     about: zero is a plausible number for nearly every setting there is, so a graph whose
     ///     amount had been typed as <c>0.5.</c> would silently show — and then save — nothing.
     /// </remarks>
     public override object? GetBoxed(object owner) {
         ArgumentNullException.ThrowIfNull(owner);
 
-        var node = (GraphNode) owner;
+        var node = (GraphNode)owner;
 
         // ⚠ The declared default when the node has never been given one, which is what makes the
         // descriptor's detached node read back as the default and so what makes the reset button
@@ -350,7 +370,7 @@ public sealed class NodeSettingMember : InspectorMember {
     }
 
     /// <inheritdoc />
-    public override Vixen.Authoring.IAuthoringCommand CreateSetCommand(
+    public override IAuthoringCommand CreateSetCommand(
         IReadOnlyList<object> targets,
         object? value,
         EditorDocument? document
@@ -360,7 +380,7 @@ public sealed class NodeSettingMember : InspectorMember {
         var nodes = new NodeId[targets.Count];
 
         for (var index = 0; index < targets.Count; index++) {
-            nodes[index] = ((GraphNode) targets[index]).Id;
+            nodes[index] = ((GraphNode)targets[index]).Id;
         }
 
         return new SetPortTextCommand(graph, nodes, Setting.Name, Encode(value), document);
@@ -387,8 +407,8 @@ public sealed class NodeSettingMember : InspectorMember {
     /// </remarks>
     string Encode(object? value) =>
         (Setting.Kind, value) switch {
-            (SettingKind.Text, _) => value as string ?? "",
-            (_, null) => "",
+            (SettingKind.Text, _) => value as string ?? string.Empty,
+            (_, null) => string.Empty,
             (SettingKind.Bool, bool flag) => flag ? "true" : "false",
             (SettingKind.Bool, IConvertible number) =>
                 number.ToDouble(CultureInfo.InvariantCulture) != 0d ? "true" : "false",
@@ -397,7 +417,7 @@ public sealed class NodeSettingMember : InspectorMember {
                 .ToString(CultureInfo.InvariantCulture),
             (SettingKind.Float, IConvertible number) =>
                 number.ToDouble(CultureInfo.InvariantCulture).ToString("R", CultureInfo.InvariantCulture),
-            _ => value as string ?? ""
+            _ => value as string ?? string.Empty
         };
 
     /// <summary>One setting's text as a number, falling back to its declared default.</summary>
@@ -427,8 +447,11 @@ public sealed class NodeSettingMember : InspectorMember {
 /// <summary>How the editing pipeline reaches a node's inline port values.</summary>
 /// <remarks>
 ///     <para>
-///         <b>Doc 36 § P1's second <c>IEditProvider</c>, and the first one outside the
-///         inspector.</b> Terrain, foliage and blockout edit ordinary C# objects, which
+///         <b>
+///             Doc 36 § P1's second <c>IEditProvider</c>, and the first one outside the
+///             inspector.
+///         </b>
+///         Terrain, foliage and blockout edit ordinary C# objects, which
 ///         <c>InspectorEditProvider</c> already describes; a graph node is the case that genuinely
 ///         cannot be described that way, because its editable members are decided by the node
 ///         <i>type</i> a saved graph names by string and not by the CLR type every node shares.
@@ -525,7 +548,7 @@ public sealed class NodePortEditProvider : IEditProvider {
         // After the ports, and always: a setting has no socket, so there is no wiring that could take
         // its row away. Declaration order within each group, which is what the generator ordered them
         // by and what a create menu draws.
-        var section = "";
+        var section = string.Empty;
 
         foreach (var setting in definition.Settings) {
             // ⚠ A header on the *first* setting of each group and not on all of them, because

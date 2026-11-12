@@ -126,13 +126,16 @@ public sealed class ShadowMapRenderer : SceneRenderer, IDisposable {
 
     /// <summary>How much more of that a surface gets as it turns away from the light, in metres.</summary>
     /// <remarks>
-    ///     ⚠ <b>Multiplied by up to ten, so read this as its worst case and size it against the
-    ///     thinnest thing in the level.</b> A caster leaks when the bias approaches the depth of
+    ///     ⚠
+    ///     <b>
+    ///         Multiplied by up to ten, so read this as its worst case and size it against the
+    ///         thinnest thing in the level.
+    ///     </b>
+    ///     A caster leaks when the bias approaches the depth of
     ///     material a light ray crosses — for a slab of thickness <c>t</c> under a sun at elevation
     ///     <c>e</c> that is <c>t / sin(e)</c>, so a 0.3 m roof at thirty degrees is 0.6 m of depth and
     ///     a bias of half a metre very nearly cancels it. Sunlight indoors, sweeping as the sun
     ///     moves, with the roof and walls demonstrably in the caster stage.
-    ///
     ///     At a hundredth of a metre the worst case is 0.1 m against that 0.6, which is the margin a
     ///     bias wants. Back-face culling and <c>Lighting.NormalOffset</c> are what make so little
     ///     enough: the first records the near surface rather than the far one, and the second moves
@@ -399,7 +402,8 @@ public sealed class ShadowMapRenderer : SceneRenderer, IDisposable {
     public IReadOnlyList<RenderView> Views => views;
 
     /// <summary>The atlas's size in texels, for whoever creates the texture.</summary>
-    public Int2 AtlasSize => ShadowCascades.AtlasSize(Math.Clamp(CascadeCount, 1, ShadowCascades.MaxCascades), Resolution);
+    public Int2 AtlasSize =>
+        ShadowCascades.AtlasSize(Math.Clamp(CascadeCount, 1, ShadowCascades.MaxCascades), Resolution);
 
     /// <inheritdoc />
     protected internal override void Collect(GraphicsCompositor compositor) {
@@ -487,7 +491,7 @@ public sealed class ShadowMapRenderer : SceneRenderer, IDisposable {
             // The light's position, not the camera's. Sorting a shadow cascade front-to-back is
             // front-to-back *from the light*, which is what early-Z in a depth-only pass rewards —
             // measuring from the camera would order the casters by something the pass never tests.
-            view.Position = cascades[i].Centre - (Vector3.Normalize(light) * cascades[i].Radius);
+            view.Position = cascades[i].Centre - Vector3.Normalize(light) * cascades[i].Radius;
 
             // No distance cutoff: the cascade's own frustum is already exactly as far as it reaches,
             // and a second limit measured from a synthetic light position would cut casters out of
@@ -534,11 +538,11 @@ public sealed class ShadowMapRenderer : SceneRenderer, IDisposable {
             // One metre along the light, in this cascade's normalised depth — which is what lets the
             // two biases above be distances. The range is the fit's own: twice the extent it was cut
             // to, plus the extrusion that keeps casters behind it casting.
-            var extent = cascades[i].Radius + (4f * cascades[i].Radius / Resolution);
+            var extent = cascades[i].Radius + 4f * cascades[i].Radius / Resolution;
 
             parameters.Set(
                 ParameterKeys.New<float>($"{slot}.depthScale"),
-                1f / MathF.Max((2f * extent) + Extrusion, 1e-3f)
+                1f / MathF.Max(2f * extent + Extrusion, 1e-3f)
             );
         }
 
@@ -656,8 +660,7 @@ public sealed class ShadowMapRenderer : SceneRenderer, IDisposable {
                 pass.Reads(statics, ResourceState.CopySource);
                 pass.Writes(atlas, ResourceState.CopyDestination);
 
-                pass.Execute(
-                    context => context.CommandList.CopyTexture(
+                pass.Execute(context => context.CommandList.CopyTexture(
                         new(context.Texture(statics)),
                         new(context.Texture(atlas)),
                         new(size.X, size.Y, 1)
@@ -783,8 +786,7 @@ public sealed class ShadowMapRenderer : SceneRenderer, IDisposable {
             pass => {
                 pass.DepthAttachment(target, load);
 
-                pass.Execute(
-                    graphContext => {
+                pass.Execute(graphContext => {
                         var context = frame.Context(graphContext.CommandList);
                         var previous = context.Output;
 

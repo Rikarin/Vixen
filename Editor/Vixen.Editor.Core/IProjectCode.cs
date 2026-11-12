@@ -5,7 +5,10 @@ using System.Reflection;
 
 namespace Vixen.Editor.Core;
 
-/// <summary>The project's own C#, as <see cref="IProjectSession.Code" /> reports it: which project builds it and what is loaded.</summary>
+/// <summary>
+///     The project's own C#, as <see cref="IProjectSession.Code" /> reports it: which project builds it and what is
+///     loaded.
+/// </summary>
 /// <remarks>
 ///     <para>
 ///         <b>Read-only, and that is the point of it being an interface.</b> The application's

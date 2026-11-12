@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core.Mathematics;
-using Vixen.Editor.NodeGraph;
 using Vixen.NodeGraph;
 
 namespace Vixen.Editor.ShaderGraph;
@@ -130,7 +129,7 @@ public static class ShaderGraphPreview {
             // The master is added last and takes an identity above every copied one, so no node the
             // author made can collide with it and the variable names stay the ones the graph's own
             // compile would have used.
-            var end = preview.Add(Master, new Vector2(subject.Position.X + 240f, subject.Position.Y));
+            var end = preview.Add(Master, new(subject.Position.X + 240f, subject.Position.Y));
 
             preview.Connect(new(node, output!.Name), new(end.Id, MasterInput));
         }
@@ -219,7 +218,7 @@ public static class ShaderGraphPreview {
             var copy = preview.Add(original.Id, original.Type, original.Position);
 
             foreach (var (name, lanes) in original.Values) {
-                copy.SetValue(name, [.. lanes]);
+                copy.SetValue(name, [..lanes]);
             }
 
             foreach (var (name, text) in original.Texts) {

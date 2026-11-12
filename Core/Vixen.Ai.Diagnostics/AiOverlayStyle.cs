@@ -74,8 +74,7 @@ public readonly record struct AiOverlayStyle {
     public Color4 Attention { get; init; } = new(1f, 0.35f, 0.8f, 1f);
 
     /// <summary>Creates the usual style.</summary>
-    public AiOverlayStyle() {
-    }
+    public AiOverlayStyle() { }
 
     /// <summary>How tall a line of text actually is, with a zeroed style answering the usual size.</summary>
     public float Text => TextSize > 0f ? TextSize : DefaultTextSize;
@@ -91,9 +90,10 @@ public readonly record struct AiOverlayStyle {
     /// <summary>What colour a status reads as.</summary>
     /// <param name="status">The status.</param>
     /// <returns>The colour.</returns>
-    public Color4 ColourOf(ActionStatus status) => status switch {
-        ActionStatus.Succeeded => Succeeded,
-        ActionStatus.Failed => Failed,
-        _ => Running
-    };
+    public Color4 ColourOf(ActionStatus status) =>
+        status switch {
+            ActionStatus.Succeeded => Succeeded,
+            ActionStatus.Failed => Failed,
+            _ => Running
+        };
 }

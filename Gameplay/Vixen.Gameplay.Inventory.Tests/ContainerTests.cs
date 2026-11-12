@@ -92,8 +92,12 @@ public class ContainerBasicsTests {
     public void ASlottedContainerNeedsOneTagPerSlot() {
         var tags = Content.Catalog().Tags;
 
-        Assert.Throws<ArgumentException>(
-            () => new Container(Content.Equipment, 2, null, [tags.Require("Item.Slot.Ring")])
+        Assert.Throws<ArgumentException>(() => new Container(
+                Content.Equipment,
+                2,
+                null,
+                [tags.Require("Item.Slot.Ring")]
+            )
         );
     }
 
@@ -120,8 +124,12 @@ public class ContainerTransactionTests {
         var library = Content.Library();
         var set = Content.Set(library);
 
-        Assert.True(set.Apply(new ContainerTransaction().Add(Content.Bag, Content.Make(library, Content.Ore, 60))).Applied);
-        Assert.True(set.Apply(new ContainerTransaction().Add(Content.Bag, Content.Make(library, Content.Ore, 60))).Applied);
+        Assert.True(
+            set.Apply(new ContainerTransaction().Add(Content.Bag, Content.Make(library, Content.Ore, 60))).Applied
+        );
+        Assert.True(
+            set.Apply(new ContainerTransaction().Add(Content.Bag, Content.Make(library, Content.Ore, 60))).Applied
+        );
 
         var bag = set.Get(Content.Bag);
 
@@ -277,7 +285,9 @@ public class ContainerTransactionTests {
         var set = Content.Set(library);
 
         // Slot 0 wants a main hand, slot 1 wants a ring. Adding a ring must find slot 1.
-        Assert.True(set.Apply(new ContainerTransaction().Add(Content.Equipment, Content.Make(library, Content.Ring))).Applied);
+        Assert.True(
+            set.Apply(new ContainerTransaction().Add(Content.Equipment, Content.Make(library, Content.Ring))).Applied
+        );
         Assert.Equal(DefId.From(Content.Ring), set.Get(Content.Equipment)[1].Definition);
     }
 
@@ -287,14 +297,16 @@ public class ContainerTransactionTests {
         var tags = Content.Catalog().Tags;
 
         var set = new ContainerSet(library)
-            .Add(new(Content.Bank, 4, new() { Accepts = GameplayTagQuery.Resolve(tags, all: ["Item.Material"]) }));
+            .Add(new(Content.Bank, 4, new() { Accepts = GameplayTagQuery.Resolve(tags, ["Item.Material"]) }));
 
         var result = set.Apply(new ContainerTransaction().Add(Content.Bank, Content.Make(library, Content.Sword)));
 
         Assert.Equal(ContainerFailure.Rejected, result.Failure);
         Assert.Contains("Flamebrand", result.Message, StringComparison.Ordinal);
 
-        Assert.True(set.Apply(new ContainerTransaction().Add(Content.Bank, Content.Make(library, Content.Ore, 3))).Applied);
+        Assert.True(
+            set.Apply(new ContainerTransaction().Add(Content.Bank, Content.Make(library, Content.Ore, 3))).Applied
+        );
     }
 
     [Fact]
@@ -324,7 +336,7 @@ public class ContainerTransactionTests {
 
         Assert.Equal(
             ContainerFailure.ReadOnly,
-            set.Apply(new ContainerTransaction().Add(vendor, Content.Make(library, Content.Ore, 1))).Failure
+            set.Apply(new ContainerTransaction().Add(vendor, Content.Make(library, Content.Ore))).Failure
         );
     }
 
@@ -333,7 +345,7 @@ public class ContainerTransactionTests {
         var set = Content.Set();
 
         var result = set.Apply(
-            new ContainerTransaction().Add(Content.Bag, ItemInstance.Of(DefId.From("items/nonexistent"), 1))
+            new ContainerTransaction().Add(Content.Bag, ItemInstance.Of(DefId.From("items/nonexistent")))
         );
 
         Assert.Equal(ContainerFailure.UnknownItem, result.Failure);
@@ -365,7 +377,7 @@ public class BindingTests {
         var library = Content.Library();
         var set = Content.Set(library);
 
-        set.Apply(new ContainerTransaction().Add(Content.Bag, Content.Make(library, Content.Token, 1)));
+        set.Apply(new ContainerTransaction().Add(Content.Bag, Content.Make(library, Content.Token)));
 
         var result = set.Apply(new ContainerTransaction().Move(new(Content.Bag, 0), new(Content.Trade, 0)));
 
@@ -386,7 +398,10 @@ public class BindingTests {
                 .Insert(new(Content.Bank, 1), unbound.Bind())
         );
 
-        Assert.Equal(ContainerFailure.Occupied, set.Apply(new ContainerTransaction().Move(new(Content.Bank, 1), new(Content.Bank, 0))).Failure);
+        Assert.Equal(
+            ContainerFailure.Occupied,
+            set.Apply(new ContainerTransaction().Move(new(Content.Bank, 1), new(Content.Bank, 0))).Failure
+        );
         Assert.Equal(10, set.CountOf(DefId.From(Content.Token)));
     }
 }
@@ -429,8 +444,8 @@ public class AtomicityTests {
 
         Assert.True(result.Applied);
         Assert.Equal(2, result.Changes.Count);
-        Assert.Equal(new SlotRef(Content.Bank, 0), result.Changes[0].From);
-        Assert.Equal(new SlotRef(Content.Bag, 0), result.Changes[0].To);
+        Assert.Equal(new(Content.Bank, 0), result.Changes[0].From);
+        Assert.Equal(new(Content.Bag, 0), result.Changes[0].To);
         Assert.Equal(20, result.Changes[0].Item.Stack);
         Assert.Equal(10, result.Changes[1].Item.Stack);
     }
@@ -439,7 +454,7 @@ public class AtomicityTests {
     public void AnEmptyTransactionDoesNothingAndSaysSo() {
         var set = Content.Set();
 
-        var result = set.Apply(new ContainerTransaction());
+        var result = set.Apply(new());
 
         Assert.True(result.Applied);
         Assert.Empty(result.Changes);
@@ -454,8 +469,7 @@ public class AtomicityTests {
             }
         }
 
-        rows.Sort(
-            static (left, right) => left.Item1.Value == right.Item1.Value
+        rows.Sort(static (left, right) => left.Item1.Value == right.Item1.Value
                 ? left.Item2.CompareTo(right.Item2)
                 : left.Item1.Value.CompareTo(right.Item1.Value)
         );
@@ -617,7 +631,7 @@ public class ConservationOracleTests {
 public class InventoryModuleTests {
     [Fact]
     public void InventoryNeedsItemsAndTheKernel() {
-        Assert.Throws<InvalidOperationException>(() => new GameplayConfig().Use<InventoryModule>().Build());
+        Assert.Throws<InvalidOperationException>(static () => new GameplayConfig().Use<InventoryModule>().Build());
 
         var composition = new GameplayConfig()
             .Use<GameplayKernelModule>()

@@ -62,8 +62,12 @@ public static class IrCapability {
     ///     Writing into a storage image whose format is outside the list every device must offer.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>Three of <c>ImageFormats</c>' sixteen: <c>rg32f</c>, <c>rg16f</c> and
-    ///     <c>r16f</c>.</b> The table's own comment claimed for a long time that every format it
+    ///     ⚠
+    ///     <b>
+    ///         Three of <c>ImageFormats</c>' sixteen: <c>rg32f</c>, <c>rg16f</c> and
+    ///         <c>r16f</c>.
+    ///     </b>
+    ///     The table's own comment claimed for a long time that every format it
     ///     admits is one Vulkan requires for storage, and that is true of the other thirteen only —
     ///     these three want <c>shaderStorageImageExtendedFormats</c>, which is where SPIR-V draws
     ///     the same line as <c>StorageImageExtendedFormats</c>. Separate from
@@ -153,8 +157,6 @@ public static class IrCapabilities {
                 case ShaderStage.Compute:
                     required.Add(IrCapability.Compute);
                     break;
-                default:
-                    break;
             }
 
             foreach (var io in entryPoint.Inputs) {
@@ -241,9 +243,6 @@ public static class IrCapabilities {
                     }
 
                     break;
-
-                default:
-                    break;
             }
         }
     }
@@ -306,9 +305,6 @@ public static class IrCapabilities {
             case IrStructType structType:
                 // Not recursed into: a struct's own fields are collected once from
                 // IrModule.Structs, and recursing here would loop on a self-referential one.
-                break;
-
-            default:
                 break;
         }
     }

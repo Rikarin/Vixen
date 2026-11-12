@@ -69,7 +69,7 @@ public class NavigationTests {
     public void Orbiting_around_the_view_leaves_the_pivot_where_it_is() {
         using var pane = new Pane();
 
-        pane.Targets.Add(new StubTarget { Position = new Vector3(6f, 0f, 0f) });
+        pane.Targets.Add(new StubTarget { Position = new(6f, 0f, 0f) });
         pane.Frame();
 
         var pivot = pane.Camera.Pivot;

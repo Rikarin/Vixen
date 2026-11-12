@@ -131,11 +131,12 @@ public readonly record struct ObjectId
 
     /// <summary>Renders the id as 32 lowercase hex digits.</summary>
     /// <returns>The id in hex.</returns>
-    public override string ToString() => string.Create(
-        TextLength,
-        this,
-        static (span, id) => id.TryFormat(span, out _, default, null)
-    );
+    public override string ToString() =>
+        string.Create(
+            TextLength,
+            this,
+            static (span, id) => id.TryFormat(span, out _, default, null)
+        );
 
     /// <inheritdoc />
     public string ToString(string? format, IFormatProvider? formatProvider) {
@@ -240,7 +241,7 @@ public readonly record struct ObjectId
 
     static bool IsUpper(ReadOnlySpan<char> format, out bool upper) {
         upper = format.Length == 1 && format[0] == 'X';
-        return format.IsEmpty || (format.Length == 1 && (format[0] is 'x' or 'X'));
+        return format.IsEmpty || (format.Length == 1 && format[0] is 'x' or 'X');
     }
 
     static bool IsUpper(string? format, out bool upper) => IsUpper(format.AsSpan(), out upper);

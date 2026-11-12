@@ -68,8 +68,8 @@ public class TracedScreenProbeGatherTests {
         var probe = new Int2(1, 1);
         var resolved = atlas.Resolved(probe);
 
-        Assert.Equal(Base + (2f / 3f * Tilt), resolved.Irradiance(new(0f, 1f, 0f)).X, Base * 0.02f);
-        Assert.Equal(Base - (2f / 3f * Tilt), resolved.Irradiance(new(0f, -1f, 0f)).X, Base * 0.02f);
+        Assert.Equal(Base + 2f / 3f * Tilt, resolved.Irradiance(new(0f, 1f, 0f)).X, Base * 0.02f);
+        Assert.Equal(Base - 2f / 3f * Tilt, resolved.Irradiance(new(0f, -1f, 0f)).X, Base * 0.02f);
         Assert.Equal(Base, resolved.Irradiance(new(1f, 0f, 0f)).X, Base * 0.02f);
     }
 
@@ -245,7 +245,7 @@ public class TracedScreenProbeGatherTests {
 
     /// <summary>A sky that brightens toward +y, and surfaces that give back nothing.</summary>
     sealed class LinearSky(float baseline, float tilt) : IRadianceSource {
-        public Vector3 Sky(Vector3 direction) => new(baseline + (tilt * direction.Y));
+        public Vector3 Sky(Vector3 direction) => new(baseline + tilt * direction.Y);
 
         public Vector3 Surface(Vector3 position, Vector3 normal, Vector3 direction) => Vector3.Zero;
     }

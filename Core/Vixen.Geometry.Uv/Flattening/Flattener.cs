@@ -209,8 +209,8 @@ static class Flattener {
 
         for (var triangle = 0; triangle < chart.TriangleCount; triangle++) {
             var a = chart.Positions[chart.Triangles[triangle * 3]];
-            var b = chart.Positions[chart.Triangles[(triangle * 3) + 1]];
-            var c = chart.Positions[chart.Triangles[(triangle * 3) + 2]];
+            var b = chart.Positions[chart.Triangles[triangle * 3 + 1]];
+            var c = chart.Positions[chart.Triangles[triangle * 3 + 2]];
 
             frames[triangle] = TriangleFrame.Build(a, b, c);
 
@@ -283,8 +283,11 @@ static class Flattener {
     /// <summary>The third rung: the same local–global loop over the folded neighbourhood alone.</summary>
     /// <remarks>
     ///     <para>
-    ///         docs/plan/42 § D5. ⚠ <b>The point of restricting the free set is that the rest of the
-    ///         chart is already good and re-solving it would trade a fold for stretch everywhere.</b>
+    ///         docs/plan/42 § D5. ⚠
+    ///         <b>
+    ///             The point of restricting the free set is that the rest of the
+    ///             chart is already good and re-solving it would trade a fold for stretch everywhere.
+    ///         </b>
     ///         Everything outside the ring is held exactly where the second rung left it, so the pass
     ///         costs a matrix over the region rather than over the chart, and the region's own
     ///         boundary gives the sub-Laplacian the anchor it needs without one being chosen.
@@ -341,15 +344,15 @@ static class Flattener {
 
         for (var triangle = 0; triangle < chart.TriangleCount; triangle++) {
             var a = chart.Triangles[triangle * 3];
-            var b = chart.Triangles[(triangle * 3) + 1];
-            var c = chart.Triangles[(triangle * 3) + 2];
+            var b = chart.Triangles[triangle * 3 + 1];
+            var c = chart.Triangles[triangle * 3 + 2];
 
             if (ExactPredicates.Orient2D(rounded[a], rounded[b], rounded[c]) > 0) {
                 continue;
             }
 
             for (var corner = 0; corner < 3; corner++) {
-                var vertex = chart.Triangles[(triangle * 3) + corner];
+                var vertex = chart.Triangles[triangle * 3 + corner];
 
                 if (!movable[vertex]) {
                     movable[vertex] = true;
@@ -381,14 +384,18 @@ static class Flattener {
     /// <summary>Narrows the solve's coordinates to the ones that ship.</summary>
     static void Round(double[] coordinates, Vector2[] rounded) {
         for (var vertex = 0; vertex < rounded.Length; vertex++) {
-            rounded[vertex] = new((float)coordinates[(vertex * 2) + 0], (float)coordinates[(vertex * 2) + 1]);
+            rounded[vertex] = new((float)coordinates[vertex * 2], (float)coordinates[vertex * 2 + 1]);
         }
     }
 
     /// <summary>Turns a flattened chart into the island a packer takes.</summary>
     /// <remarks>
-    ///     ⚠ <b><see cref="UvIsland.Scale" /> is coordinates per world unit, and it is derived from the
-    ///     areas rather than from a length.</b> docs/plan/42 § D9: the packer is allowed to move an
+    ///     ⚠
+    ///     <b>
+    ///         <see cref="UvIsland.Scale" /> is coordinates per world unit, and it is derived from the
+    ///         areas rather than from a length.
+    ///     </b>
+    ///     docs/plan/42 § D9: the packer is allowed to move an
     ///     island and not to resize it silently, which it can only honour if the island says what its
     ///     own units were. The square root of the area ratio is the right average for a map that is not
     ///     exactly a similarity, which is every map this ladder produces except on a developable chart.

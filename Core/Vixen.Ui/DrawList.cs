@@ -74,8 +74,12 @@ public enum DrawCommandKind : byte {
     /// <summary>Everything after this is drawn into a surface of its own, until the matching pop.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A group, which is a different thing from a clip even though it brackets the same
-    ///         way.</b> CSS Compositing 1 § 3 renders a subtree that needs one into an isolated
+    ///         ⚠
+    ///         <b>
+    ///             A group, which is a different thing from a clip even though it brackets the same
+    ///             way.
+    ///         </b>
+    ///         CSS Compositing 1 § 3 renders a subtree that needs one into an isolated
     ///         surface and composites the result <i>once</i>; a clip only narrows the scissor. The
     ///         difference is visible the moment the subtree overlaps itself — two overlapping children
     ///         of a half-opaque panel do not show through each other, where fading each of them
@@ -190,8 +194,12 @@ public readonly record struct DrawCommand(
     ///         and drew whatever it was given.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A plain value where <see cref="Filter" /> is nullable, and the difference is
-    ///         which default is the absence.</b> A zeroed <c>UiColorMatrix</c> maps everything to
+    ///         ⚠
+    ///         <b>
+    ///             A plain value where <see cref="Filter" /> is nullable, and the difference is
+    ///             which default is the absence.
+    ///         </b>
+    ///         A zeroed <c>UiColorMatrix</c> maps everything to
     ///         black; a zeroed <see cref="UiImageView" /> is the whole colour through no curve, which
     ///         is exactly what every image command in the repository was already asking for. So this
     ///         needed no sentinel and no caller had to change.
@@ -226,8 +234,12 @@ public readonly record struct DrawCommand(
     /// <summary>How <see cref="Source" /> is cut to match <see cref="Slice" />, in UVs.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A second inset rather than the same one, because the two are in different spaces
-    ///         and neither can be derived from the other here.</b> The destination is in document
+    ///         ⚠
+    ///         <b>
+    ///             A second inset rather than the same one, because the two are in different spaces
+    ///             and neither can be derived from the other here.
+    ///         </b>
+    ///         The destination is in document
     ///         pixels and the source is in UVs, and converting between them needs the texture's size
     ///         in texels — which this assembly does not know, for exactly the reason <see cref="Source" />
     ///         is not in pixels either. Whoever registered the texture converts.
@@ -301,8 +313,12 @@ public readonly record struct DrawCommand(
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A field of its own rather than a ride in <see cref="Thickness" />, which is free
-    ///         on a layer command and was the obvious place for it.</b> <see cref="Thickness" /> is
+    ///         ⚠
+    ///         <b>
+    ///             A field of its own rather than a ride in <see cref="Thickness" />, which is free
+    ///             on a layer command and was the obvious place for it.
+    ///         </b>
+    ///         <see cref="Thickness" /> is
     ///         already a blur on a <see cref="DrawCommandKind.Shadow" /> — a <i>half-extent</i>, half
     ///         the CSS length, because that is what the box shader's falloff wants — and
     ///         <c>filter: blur()</c> is a standard deviation, the full CSS length. Two different
@@ -323,8 +339,11 @@ public readonly record struct DrawCommand(
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>On the layer bracket and <i>not</i> on the commands inside it, which is the whole
-    ///         of what <c>mix-blend-mode</c> means and the mistake this field is shaped to refuse.</b>
+    ///         ⚠
+    ///         <b>
+    ///             On the layer bracket and <i>not</i> on the commands inside it, which is the whole
+    ///             of what <c>mix-blend-mode</c> means and the mistake this field is shaped to refuse.
+    ///         </b>
     ///         CSS Compositing 1 § 5.1 blends an element's <i>rendered result</i> with its backdrop —
     ///         so a bordered element's background, its border and its text composite source-over with
     ///         each other first, and only the finished group blends. A blend carried on each command
@@ -346,24 +365,36 @@ public readonly record struct DrawCommand(
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Nullable, and it is the one field on this struct where the default is not the
-    ///         absence.</b> <see cref="Blur" /> can be a plain <c>float</c> because a zero-width
+    ///         ⚠
+    ///         <b>
+    ///             Nullable, and it is the one field on this struct where the default is not the
+    ///             absence.
+    ///         </b>
+    ///         <see cref="Blur" /> can be a plain <c>float</c> because a zero-width
     ///         Gaussian is the identity, and <see cref="MiterLimit" /> gets a sentinel because zero
     ///         is a real value with an absurd meaning. A zeroed <see cref="UiColorMatrix" /> is worse
     ///         than either: it maps every colour to black, so a command that said nothing about a
     ///         filter would silently ask for one. See <c>UiColorMatrix</c>'s own remark.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Beside <see cref="Blur" /> rather than composed with it, because the two are
-    ///         executed by different machinery and only one of them moves ink.</b> A blur needs a
+    ///         ⚠
+    ///         <b>
+    ///             Beside <see cref="Blur" /> rather than composed with it, because the two are
+    ///             executed by different machinery and only one of them moves ink.
+    ///         </b>
+    ///         A blur needs a
     ///         second surface, two passes and a bounds outset; a colour matrix needs none of the
     ///         three — see <c>UiRenderer.Compose</c>, where it rides the composite draw the group was
     ///         going to make anyway. Folding them into one "filter" field would have made the cheap
     ///         one look like it costs what the expensive one costs.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Order between the two is not carried, and that is a fact about the arithmetic
-    ///         rather than a simplification.</b> CSS's <c>filter</c> is ordered and
+    ///         ⚠
+    ///         <b>
+    ///             Order between the two is not carried, and that is a fact about the arithmetic
+    ///             rather than a simplification.
+    ///         </b>
+    ///         CSS's <c>filter</c> is ordered and
     ///         <c>DrawListBuilder</c> honours the order <i>within</i> the colour functions, where it
     ///         matters. It does not matter between a colour matrix and a Gaussian: both are linear in
     ///         premultiplied colour with weights that sum to one, so
@@ -390,8 +421,12 @@ public readonly record struct DrawCommand(
     ///         and collapsing the two would leave a group open for a function nobody wrote.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Beside <see cref="Blur" /> and not folded into it, and the order between them is
-    ///         <i>not</i> free the way <see cref="Filter" />'s is.</b> That field's last remark turns
+    ///         ⚠
+    ///         <b>
+    ///             Beside <see cref="Blur" /> and not folded into it, and the order between them is
+    ///             <i>not</i> free the way <see cref="Filter" />'s is.
+    ///         </b>
+    ///         That field's last remark turns
     ///         on a colour matrix and a Gaussian commuting exactly. A Gaussian and a
     ///         <i>shadow</i> do not: the alpha channel is blurred twice one way round and once the
     ///         other. Both executors run the shadow over the group's finished surface, after its own
@@ -414,8 +449,12 @@ public readonly record struct DrawCommand(
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Beside <see cref="Filter" /> and pointed at a different picture, which is the one
-    ///         thing about it that has to be understood before anything else.</b> That field transforms
+    ///         ⚠
+    ///         <b>
+    ///             Beside <see cref="Filter" /> and pointed at a different picture, which is the one
+    ///             thing about it that has to be understood before anything else.
+    ///         </b>
+    ///         That field transforms
     ///         what the group <i>drew</i>; this transforms what is <i>behind</i> the group. They are
     ///         independent — <c>filter: grayscale(1) </c> and <c>backdrop-filter: blur(8px)</c> on one
     ///         element is a grey panel over a blurred scene — so they are two fields and not one, and a
@@ -429,8 +468,12 @@ public readonly record struct DrawCommand(
     ///         feature, and only the null is.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The element's own box is read off this command's rectangle and not carried
-    ///         again.</b> A <see cref="DrawCommandKind.LayerPush" /> is emitted at the element's border
+    ///         ⚠
+    ///         <b>
+    ///             The element's own box is read off this command's rectangle and not carried
+    ///             again.
+    ///         </b>
+    ///         A <see cref="DrawCommandKind.LayerPush" /> is emitted at the element's border
     ///         box, which is exactly the rectangle CSS clips a backdrop filter to —
     ///         <c>UiGeometryBuilder.Layer</c> takes it from there into
     ///         <see cref="Vixen.Ui.Rendering.UiLayer.BackdropBounds" />. The group's <i>ink</i> bounds
@@ -445,8 +488,12 @@ public readonly record struct DrawCommand(
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>On the group and not on each command, which is what makes a transform representable
-    ///         at all.</b> A <see cref="DrawCommand" /> is an axis-aligned rectangle and there is no
+    ///         ⚠
+    ///         <b>
+    ///             On the group and not on each command, which is what makes a transform representable
+    ///             at all.
+    ///         </b>
+    ///         A <see cref="DrawCommand" /> is an axis-aligned rectangle and there is no
     ///         rotating one — that is not an omission to be fixed, it is what the kinds mean, and it is
     ///         why this was refused for as long as there was nowhere else to put it. A composited group
     ///         gives it somewhere else: the subtree rasterises into a surface at exactly the
@@ -462,18 +509,28 @@ public readonly record struct DrawCommand(
     ///         <see cref="UiTransform" />.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>This summary said "the affine" until 2026-09-09 and the type has been a homography
-    ///         since #547.</b> Everything that <i>writes</i> this field today is still affine — the
+    ///         ⚠
+    ///         <b>
+    ///             This summary said "the affine" until 2026-09-09 and the type has been a homography
+    ///             since #547.
+    ///         </b>
+    ///         Everything that <i>writes</i> this field today is still affine — the
     ///         style pipeline is the only writer, <c>UiElement.Transform</c>'s setter is internal, and
     ///         <c>TransformReader</c> parses no <c>perspective()</c> yet (#550) — so nothing wrong is
     ///         drawn. But the field's type can carry one, and what happens when it does is measured
     ///         rather than described: see
-    ///         <c>UiTransformProjectiveTests.A_composited_group_under_a_homography_samples_the_wrong_texel_down_its_diagonal</c>
+    ///         <c>
+    /// UiTransformProjectiveTests.A_composited_group_under_a_homography_samples_the_wrong_texel_down_its_diagonal
+    ///         </c>
     ///         (#548).
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Nullable for <see cref="Filter" />'s reason, and the default is worse here than
-    ///         there.</b> A zeroed <see cref="UiTransform" /> collapses the group to a point, so a
+    ///         ⚠
+    ///         <b>
+    ///             Nullable for <see cref="Filter" />'s reason, and the default is worse here than
+    ///             there.
+    ///         </b>
+    ///         A zeroed <see cref="UiTransform" /> collapses the group to a point, so a
     ///         consumer that read a default as "no transform" would draw nothing at all rather than
     ///         something slightly wrong.
     ///     </para>
@@ -487,31 +544,47 @@ public readonly record struct DrawCommand(
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A range of the side buffer and not a field, because <c>mask-image</c> is a
-    ///         <i>list</i>.</b> Nine of Tailwind's mask roots need one entry and twelve more —
+    ///         ⚠
+    ///         <b>
+    ///             A range of the side buffer and not a field, because <c>mask-image</c> is a
+    ///             <i>list</i>.
+    ///         </b>
+    ///         Nine of Tailwind's mask roots need one entry and twelve more —
     ///         <c>mask-t-from-*</c> and its siblings — need up to four, composed by
     ///         <c>mask-composite</c>. A single nullable field could hold the first group and could
     ///         not hold the second, and widening it to a collection would have cost the frame diff
     ///         its value comparison: see <see cref="DrawList.Masks" />.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b><see cref="Offset" /> and <see cref="Length" /> rather than a pair of their own,
-    ///         which is the convention those two already state.</b> A <c>LayerPush</c> has no glyphs,
+    ///         ⚠
+    ///         <b>
+    ///             <see cref="Offset" /> and <see cref="Length" /> rather than a pair of their own,
+    ///             which is the convention those two already state.
+    ///         </b>
+    ///         A <c>LayerPush</c> has no glyphs,
     ///         no path and no box style, so its side buffer is unambiguously this one — the same way
     ///         a box's is <see cref="DrawList.Boxes" /> and a text run's is
     ///         <see cref="DrawList.Glyphs" />. A third pair would have widened every command in the
     ///         frame to describe a kind that is a handful of them.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Empty and not a zeroed <see cref="UiMask" />, which is the same trap the old
-    ///         nullable field guarded.</b> A zeroed mask has zero coverage at every stop, so a
+    ///         ⚠
+    ///         <b>
+    ///             Empty and not a zeroed <see cref="UiMask" />, which is the same trap the old
+    ///             nullable field guarded.
+    ///         </b>
+    ///         A zeroed mask has zero coverage at every stop, so a
     ///         command that said nothing about a mask would ask for the element to be erased
     ///         entirely — a blank rectangle, which is much easier to mistake for a layout bug than
     ///         the black one a zeroed colour matrix gives.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Beside <see cref="Filter" /> rather than a member of it, because a mask is not a
-    ///         filter in CSS and does not compose like one.</b> <c>filter</c> is an ordered list
+    ///         ⚠
+    ///         <b>
+    ///             Beside <see cref="Filter" /> rather than a member of it, because a mask is not a
+    ///             filter in CSS and does not compose like one.
+    ///         </b>
+    ///         <c>filter</c> is an ordered list
     ///         whose colour functions fold into one matrix; <c>mask-image</c> is a separate property
     ///         applied to the <i>result</i> of the filter. The order between them is fixed by the
     ///         specification rather than by arithmetic, which is the opposite of the situation between
@@ -580,8 +653,12 @@ public sealed class DrawList {
     /// <summary>Every mask of every composited group, back to back.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A side buffer rather than a field on the command, and the reason is the frame
-    ///         diff rather than the size of the struct.</b> <c>mask-image</c> is a list, so the
+    ///         ⚠
+    ///         <b>
+    ///             A side buffer rather than a field on the command, and the reason is the frame
+    ///             diff rather than the size of the struct.
+    ///         </b>
+    ///         <c>mask-image</c> is a list, so the
     ///         obvious shape is a collection on <see cref="DrawCommand" /> — and a collection there
     ///         would be compared by reference, so a frame that rebuilt an identical list would count
     ///         as a change and <see cref="Version" /> would rise every single frame. That is the one
@@ -590,7 +667,8 @@ public sealed class DrawList {
     ///     </para>
     ///     <para>
     ///         ⚠ <b>CSS order, topmost layer first, exactly as written.</b> The fold that turns a
-    ///         range of this into one coverage runs bottom-up — see <see cref="UiMask.Coverage(System.ReadOnlySpan{UiMask},Vixen.Core.Mathematics.Vector2)" /> —
+    ///         range of this into one coverage runs bottom-up — see
+    ///         <see cref="UiMask.Coverage(System.ReadOnlySpan{UiMask},Vixen.Core.Mathematics.Vector2)" /> —
     ///         and reversing the entries here instead would put the reversal somewhere the two
     ///         executors could disagree about.
     ///     </para>
@@ -624,8 +702,12 @@ public sealed class DrawList {
     /// <summary>Starts collecting a frame.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A swap and not a copy, and the copy it replaces was the largest piece of work in a
-    ///         frame that does nothing.</b> Keeping the finished frame for <see cref="EndFrame" /> to
+    ///         ⚠
+    ///         <b>
+    ///             A swap and not a copy, and the copy it replaces was the largest piece of work in a
+    ///             frame that does nothing.
+    ///         </b>
+    ///         Keeping the finished frame for <see cref="EndFrame" /> to
     ///         compare against used to be <c>previous.Clear(); previous.AddRange(commands)</c> five
     ///         times over — and a <see cref="DrawCommand" /> is 320 bytes, so the editor shell's 1 389
     ///         commands were a 444 KB <c>memcpy</c> every frame, plus 33 KB for its 1 181
@@ -639,8 +721,12 @@ public sealed class DrawList {
     ///         as <i>work</i> rather than as milliseconds, and the work here is now O(1).
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>What the swap costs is that the object behind <see cref="Commands" /> alternates
-    ///         between two instances, where it used to be stable for the life of the list.</b> That is
+    ///         ⚠
+    ///         <b>
+    ///             What the swap costs is that the object behind <see cref="Commands" /> alternates
+    ///             between two instances, where it used to be stable for the life of the list.
+    ///         </b>
+    ///         That is
     ///         sound only because nothing outside this class holds one of those properties across a
     ///         frame boundary — every consumer in the tree indexes it through a <see cref="DrawList" />
     ///         it was handed, and a stored reference would silently read the previous frame on every
@@ -689,8 +775,12 @@ public sealed class DrawList {
     /// </returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The whole range of every side buffer is copied, not the entries the commands
-    ///         name.</b> A group taken back by <see cref="DrawListBuilder" /> leaves its mask entries
+    ///         ⚠
+    ///         <b>
+    ///             The whole range of every side buffer is copied, not the entries the commands
+    ///             name.
+    ///         </b>
+    ///         A group taken back by <see cref="DrawListBuilder" /> leaves its mask entries
     ///         behind unreferenced, and a fresh emission leaves them too; copying only what is named
     ///         would make a replayed frame differ from a rebuilt one in exactly those entries, which
     ///         the diff reads. A range is contiguous in every buffer because emission only appends.
@@ -787,18 +877,19 @@ public sealed class DrawList {
 
         return -1;
 
-        static DrawCommand Normal(DrawCommand command, DrawListMark start) => command with {
-            Font = 0,
-            Offset = command.Kind switch {
-                DrawCommandKind.Text => command.Offset - start.Glyphs,
-                DrawCommandKind.Path or DrawCommandKind.PathStroke => command.Offset - start.Segments,
-                DrawCommandKind.Rectangle or DrawCommandKind.Border or DrawCommandKind.Shadow
-                    when command.Length > 0 => command.Offset - start.Boxes,
-                DrawCommandKind.LayerPush or DrawCommandKind.LayerPop
-                    when command.Length > 0 => command.Offset - start.Masks,
-                _ => command.Offset
-            }
-        };
+        static DrawCommand Normal(DrawCommand command, DrawListMark start) =>
+            command with {
+                Font = 0,
+                Offset = command.Kind switch {
+                    DrawCommandKind.Text => command.Offset - start.Glyphs,
+                    DrawCommandKind.Path or DrawCommandKind.PathStroke => command.Offset - start.Segments,
+                    DrawCommandKind.Rectangle or DrawCommandKind.Border or DrawCommandKind.Shadow
+                        when command.Length > 0 => command.Offset - start.Boxes,
+                    DrawCommandKind.LayerPush or DrawCommandKind.LayerPop
+                        when command.Length > 0 => command.Offset - start.Masks,
+                    _ => command.Offset
+                }
+            };
 
         static bool Same<T>(List<T> buffer, int a, int b, int count) where T : IEquatable<T> {
             for (var i = 0; i < count; i++) {
@@ -828,8 +919,12 @@ public sealed class DrawList {
 
     /// <summary>Exchanges a buffer with its previous-frame twin and empties it for this frame.</summary>
     /// <remarks>
-    ///     ⚠ <b>The <see cref="List{T}.EnsureCapacity" /> is not a micro-optimisation and dropping it
-    ///     triples the one number this change was supposed to reduce.</b> The copy this replaced sized
+    ///     ⚠
+    ///     <b>
+    ///         The <see cref="List{T}.EnsureCapacity" /> is not a micro-optimisation and dropping it
+    ///         triples the one number this change was supposed to reduce.
+    ///     </b>
+    ///     The copy this replaced sized
     ///     its destination exactly once, because <c>AddRange</c> over a counted source asks for the
     ///     whole length in one allocation. A list filled by <c>Add</c> instead doubles its way up, so
     ///     the buffer swapped in on the second frame of a list's life allocates the geometric series
@@ -861,8 +956,12 @@ public sealed class DrawList {
     /// <param name="push">Where the <see cref="DrawCommandKind.LayerPush" /> was added.</param>
     /// <param name="alpha">The group's opacity.</param>
     /// <remarks>
-    ///     ⚠ <b>The peephole that keeps the common case free, and it is an identity rather than an
-    ///     approximation.</b> Compositing a single premultiplied fragment <c>F</c> through a surface and
+    ///     ⚠
+    ///     <b>
+    ///         The peephole that keeps the common case free, and it is an identity rather than an
+    ///         approximation.
+    ///     </b>
+    ///     Compositing a single premultiplied fragment <c>F</c> through a surface and
     ///     then blending that surface at <c>a</c> gives <c>a·F</c>; multiplying the one command's alpha
     ///     by <c>a</c> before it is premultiplied gives <c>(rgb·A·a·cov, A·a·cov)</c>, which is the same
     ///     <c>a·F</c>. So the two paths cannot disagree here — the group is only ever needed when there
@@ -1051,11 +1150,12 @@ readonly record struct DrawListMark(int Commands, int Glyphs, int Segments, int 
     /// <summary>The same mark moved by the distance between two others, buffer by buffer.</summary>
     /// <param name="from">Where the distance starts.</param>
     /// <param name="to">Where it ends.</param>
-    public DrawListMark Moved(DrawListMark from, DrawListMark to) => new(
-        Commands + to.Commands - from.Commands,
-        Glyphs + to.Glyphs - from.Glyphs,
-        Segments + to.Segments - from.Segments,
-        Boxes + to.Boxes - from.Boxes,
-        Masks + to.Masks - from.Masks
-    );
+    public DrawListMark Moved(DrawListMark from, DrawListMark to) =>
+        new(
+            Commands + to.Commands - from.Commands,
+            Glyphs + to.Glyphs - from.Glyphs,
+            Segments + to.Segments - from.Segments,
+            Boxes + to.Boxes - from.Boxes,
+            Masks + to.Masks - from.Masks
+        );
 }

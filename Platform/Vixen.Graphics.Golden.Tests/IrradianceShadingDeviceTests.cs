@@ -11,10 +11,8 @@ using Vixen.Rendering.Features;
 using Vixen.Rendering.IrradianceFields;
 using Vixen.Rendering.Lighting;
 using Vixen.Rendering.Materials;
-using Vixen.ShaderCompiler;
 using Vixen.Shaders;
 using Vixen.Shaders.Generated;
-using Vixen.Ui.Testing.Visual;
 using Xunit;
 
 namespace Vixen.Graphics.Golden.Tests;
@@ -113,8 +111,8 @@ public class IrradianceShadingDeviceTests {
         Assert.NotNull(data);
 
         var frame = data!.Bindings
-            .Where(binding => binding.Set == DescriptorSetSlot.PerFrame)
-            .Select(binding => binding.Name)
+            .Where(static binding => binding.Set == DescriptorSetSlot.PerFrame)
+            .Select(static binding => binding.Name)
             .ToArray();
 
         foreach (var name in new[] { "irradianceL0", "irradianceL1R", "irradianceL1G", "irradianceL1B" }) {
@@ -141,8 +139,11 @@ public class IrradianceShadingDeviceTests {
     /// <summary>Which half of doc 19 § L2 fills the field this frame reads.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>Both, separately, because until now each had only ever been checked against the
-    ///         other's absence.</b> <c>IrradianceFillDeviceTests</c> dispatches the fill and reads the
+    ///         <b>
+    ///             Both, separately, because until now each had only ever been checked against the
+    ///             other's absence.
+    ///         </b>
+    ///         <c>IrradianceFillDeviceTests</c> dispatches the fill and reads the
     ///         pool back; this file shades from a field the CPU filled. Neither had ever run the
     ///         renderer's own device path — the <c>PassKind.Compute</c> branch, the pool created as a
     ///         storage image, the upload that carries the index volume and nothing else — so the two
@@ -181,7 +182,7 @@ public class IrradianceShadingDeviceTests {
         }
 
         using var owned = fixture!;
-        var image = Render(owned, lit: true, fills);
+        var image = Render(owned, true, fills);
 
         // The corner the quad does not cover is the clear, so the pass ran at all.
         var corner = Pixel(image, 2, 2);
@@ -214,7 +215,7 @@ public class IrradianceShadingDeviceTests {
         }
 
         using var owned = fixture!;
-        var image = Render(owned, lit: false);
+        var image = Render(owned, false);
         var centre = Pixel(image, image.Width / 2, image.Height / 2);
 
         Assert.True(centre.X < 0.02f, $"something other than the field lit the quad: {centre}");
@@ -235,7 +236,7 @@ public class IrradianceShadingDeviceTests {
         var loader = new EffectLoader(device);
         var effects = new EffectSystem();
 
-        effects.AddProvider(new Compiling(loader, _ => RavenEffects.Everything()));
+        effects.AddProvider(new Compiling(loader, static _ => RavenEffects.Everything()));
 
         var effect = effects.Resolve(Key(material.Composition));
 
@@ -245,12 +246,12 @@ public class IrradianceShadingDeviceTests {
         using var samplers = new SamplerCache(device);
         using var system = new RenderSystem();
 
-        using var view = new ViewConstants(device) {
-            Descriptors = allocator,
-            Layout = effect!.SetLayouts[(int)DescriptorSetSlot.PerView]
-        };
+        using var view = new ViewConstants(device);
+        view.Descriptors = allocator;
+        view.Layout = effect!.SetLayouts[(int)DescriptorSetSlot.PerView];
 
-        using var scene = new SceneConstants(device) { Descriptors = allocator };
+        using var scene = new SceneConstants(device);
+        scene.Descriptors = allocator;
         var opaque = system.AddStage(new("Opaque"));
         var describer = new EffectPipelineDescriber(device);
 
@@ -265,25 +266,28 @@ public class IrradianceShadingDeviceTests {
 
         var offsets = new[] { 0, 12, 24, 40 };
 
-        describer.VertexLayouts.Add([
-            new VertexBufferLayout(
-                Vertex.Stride,
-                [
-                    .. effect!.VertexInputs.Select(
-                        (input, index) => new VertexElement((uint)input.Location, formats[index], offsets[index])
-                    )
-                ]
-            )
-        ]);
+        describer.VertexLayouts.Add(
+            [
+                new VertexBufferLayout(
+                    Vertex.Stride,
+                    [
+                        ..effect!.VertexInputs.Select((input, index) => new VertexElement(
+                                (uint)input.Location,
+                                formats[index],
+                                offsets[index]
+                            )
+                        )
+                    ]
+                )
+            ]
+        );
 
         var meshes = new MeshRenderFeature { Pipelines = new(device), Describer = describer };
         var materials = new MaterialRenderFeature { Effects = effects, Device = device, Descriptors = allocator };
         // Its layout is the effect's, which is what makes the non-clustered path drawable at all —
         // see ForwardLightingRenderFeature.Layout.
         var lighting = new ForwardLightingRenderFeature {
-            Device = device,
-            Clustered = Clustered,
-            Layout = effect.SetLayouts[(int)DescriptorSetSlot.PerDraw]
+            Device = device, Clustered = Clustered, Layout = effect.SetLayouts[(int)DescriptorSetSlot.PerDraw]
         };
         var transforms = new TransformRenderFeature { Device = device, Scene = scene.Parameters };
 
@@ -310,7 +314,7 @@ public class IrradianceShadingDeviceTests {
         );
 
         system.Objects.Data.Data(meshes.Draws)[quad.Index] = new() {
-            VertexBuffer = fixture.Buffer<Vertex>(Vertex.Quad, BufferUsage.Vertex),
+            VertexBuffer = fixture.Buffer(Vertex.Quad, BufferUsage.Vertex),
             IndexBuffer = fixture.Buffer<ushort>([0, 1, 2, 2, 1, 3], BufferUsage.Index),
             IndexFormat = IndexFormat.UInt16,
             Count = 6,
@@ -332,17 +336,16 @@ public class IrradianceShadingDeviceTests {
         // without a second provider.
         using var dispatch = fills is Fills.Device
             ? new IrradianceFieldFill(device) {
-                Effects = effects,
-                Pipelines = new ComputePipelineCache(device),
-                Descriptors = allocator,
-                SkyColour = new(Radiance)
+                Effects = effects, Pipelines = new(device), Descriptors = allocator, SkyColour = new(Radiance)
             }
             : null;
 
         using var probes = new IrradianceFieldRenderer {
             Name = "IrradianceField",
             Field = field,
-            Filler = fills is Fills.Device ? null : new TracedIrradianceFiller(new EmptyWorld(), new UniformSky(Radiance)),
+            Filler = fills is Fills.Device
+                ? null
+                : new TracedIrradianceFiller(new EmptyWorld(), new UniformSky(Radiance)),
             DeviceFiller = dispatch,
             SceneConstants = scene,
             Device = device,
@@ -388,7 +391,7 @@ public class IrradianceShadingDeviceTests {
         // because a transient the graph provides holds whatever that memory held — and an uninitialised
         // cluster list is a random number of lights per froxel, which is a picture nobody can read.
         var lights = fixture.Buffer<PunctualLightData>([default], BufferUsage.Storage);
-        var clusters = fixture.Buffer<byte>(new byte[ClusterGrid.BufferSize], BufferUsage.Storage);
+        var clusters = fixture.Buffer(new byte[ClusterGrid.BufferSize], BufferUsage.Storage);
 
         compositor.BufferImports["SceneLights"] = new(
             lights,
@@ -418,7 +421,14 @@ public class IrradianceShadingDeviceTests {
             list => list.Barrier(
                 new(
                     [],
-                    [.. unused.Select(texture => new TextureBarrier(texture, ResourceState.Undefined, ResourceState.ShaderRead))]
+                    [
+                        ..unused.Select(static texture => new TextureBarrier(
+                                texture,
+                                ResourceState.Undefined,
+                                ResourceState.ShaderRead
+                            )
+                        )
+                    ]
                 )
             )
         );
@@ -482,15 +492,22 @@ public class IrradianceShadingDeviceTests {
 
         texture.Apply(parameters, $"ForwardPlus.{MaterialCompiler.IrradianceFieldShader}");
 
-        return [.. parameters.Keys.Select(key => key.Name)];
+        return [..parameters.Keys.Select(static key => key.Name)];
     }
 
     static (TextureHandle Texture, TextureViewHandle View) Flat(IGraphicsDevice device, Fixture fixture) {
         var texture = device.CreateTexture(
             new() {
-                Width = 4, Height = 4, Depth = 1, MipLevels = 1, ArrayLayers = 1, SampleCount = 1,
+                Width = 4,
+                Height = 4,
+                Depth = 1,
+                MipLevels = 1,
+                ArrayLayers = 1,
+                SampleCount = 1,
                 Dimension = TextureDimension.Texture2D,
-                Format = PixelFormat.Rgba8UNorm, Usage = TextureUsage.Sampled, Name = "unused"
+                Format = PixelFormat.Rgba8UNorm,
+                Usage = TextureUsage.Sampled,
+                Name = "unused"
             }
         );
 
@@ -504,9 +521,16 @@ public class IrradianceShadingDeviceTests {
     static (TextureHandle Texture, TextureViewHandle View) Cube(IGraphicsDevice device, Fixture fixture) {
         var texture = device.CreateTexture(
             new() {
-                Width = 4, Height = 4, Depth = 1, MipLevels = 1, ArrayLayers = 6, SampleCount = 1,
+                Width = 4,
+                Height = 4,
+                Depth = 1,
+                MipLevels = 1,
+                ArrayLayers = 6,
+                SampleCount = 1,
                 Dimension = TextureDimension.TextureCube,
-                Format = PixelFormat.Rgba8UNorm, Usage = TextureUsage.Sampled, Name = "unused"
+                Format = PixelFormat.Rgba8UNorm,
+                Usage = TextureUsage.Sampled,
+                Name = "unused"
             }
         );
 
@@ -545,7 +569,7 @@ public class IrradianceShadingDeviceTests {
                 Position = new(x, y, QuadZ),
                 Normal = new(0f, 0f, 1f),
                 Tangent = new(1f, 0f, 0f, 1f),
-                Texcoord = new((x / QuadHalf * 0.5f) + 0.5f, (y / QuadHalf * 0.5f) + 0.5f)
+                Texcoord = new(x / QuadHalf * 0.5f + 0.5f, y / QuadHalf * 0.5f + 0.5f)
             };
     }
 
@@ -565,7 +589,7 @@ public class IrradianceShadingDeviceTests {
 
         Assert.False(
             compilation.Failed,
-            string.Join(Environment.NewLine, compilation.Diagnostics.Select(diagnostic => diagnostic.ToString()))
+            string.Join(Environment.NewLine, compilation.Diagnostics.Select(static diagnostic => diagnostic.ToString()))
         );
 
         return compilation.Material!;

@@ -78,7 +78,9 @@ public class VehicleTests {
     readonly DefinitionCatalog catalog = Content.Catalog();
     readonly MovementLibrary library;
 
-    public VehicleTests() => library = MovementLibrary.Compile(catalog);
+    public VehicleTests() {
+        library = MovementLibrary.Compile(catalog);
+    }
 
     VehicleInstance Instance(string address) => new(library.Find(DefId.From(address))!);
 
@@ -263,8 +265,11 @@ public class VehicleTests {
             )
             .Problems;
 
-        Assert.Contains(problems, problem => problem.Contains("nobody can drive it", StringComparison.Ordinal));
-        Assert.Contains(problems, problem => problem.Contains("both be authoritative", StringComparison.Ordinal));
+        Assert.Contains(problems, static problem => problem.Contains("nobody can drive it", StringComparison.Ordinal));
+        Assert.Contains(
+            problems,
+            static problem => problem.Contains("both be authoritative", StringComparison.Ordinal)
+        );
     }
 
     [Fact]
@@ -274,15 +279,14 @@ public class VehicleTests {
                     .Add(
                         "vehicles/odd",
                         new VehicleDefinition {
-                            Kind = VehicleKind.Flying,
-                            Seats = [new() { Id = "a", Controls = true }]
+                            Kind = VehicleKind.Flying, Seats = [new() { Id = "a", Controls = true }]
                         }
                     )
                     .Build()
             )
             .Problems;
 
-        Assert.Contains(problems, problem => problem.Contains("flies to the skybox", StringComparison.Ordinal));
+        Assert.Contains(problems, static problem => problem.Contains("flies to the skybox", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -292,14 +296,16 @@ public class VehicleTests {
                     .Add(
                         "vehicles/odd",
                         new VehicleDefinition {
-                            Kind = VehicleKind.Mount,
-                            Seats = [new() { Id = "a", Controls = true }, new() { Id = "b" }]
+                            Kind = VehicleKind.Mount, Seats = [new() { Id = "a", Controls = true }, new() { Id = "b" }]
                         }
                     )
                     .Build()
             )
             .Problems;
 
-        Assert.Contains(problems, problem => problem.Contains("whose model is a creature", StringComparison.Ordinal));
+        Assert.Contains(
+            problems,
+            static problem => problem.Contains("whose model is a creature", StringComparison.Ordinal)
+        );
     }
 }

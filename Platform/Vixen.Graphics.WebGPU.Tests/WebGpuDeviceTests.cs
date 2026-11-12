@@ -55,8 +55,8 @@ public class WebGpuDeviceTests {
     public void ATextureLargerThanTheDeviceAllowsIsRefused() {
         using var device = Device(new());
 
-        var thrown = Assert.Throws<ArgumentException>(
-            () => device.CreateTexture(new(PixelFormat.Rgba8UNorm, 32768, 32768, TextureUsage.Sampled, Name: "Huge"))
+        var thrown = Assert.Throws<ArgumentException>(() =>
+            device.CreateTexture(new(PixelFormat.Rgba8UNorm, 32768, 32768, TextureUsage.Sampled, Name: "Huge"))
         );
 
         Assert.Contains("Huge", thrown.Message, StringComparison.Ordinal);
@@ -67,8 +67,7 @@ public class WebGpuDeviceTests {
     public void EightSamplesIsRefused() {
         using var device = Device(new());
 
-        Assert.Throws<ArgumentException>(
-            () => device.CreateTexture(
+        Assert.Throws<ArgumentException>(() => device.CreateTexture(
                 new(PixelFormat.Rgba8UNorm, 64, 64, TextureUsage.ColourTarget, SampleCount: 8, Name: "Msaa")
             )
         );
@@ -83,8 +82,7 @@ public class WebGpuDeviceTests {
     public void ABindingArrayIsRefused() {
         using var device = Device(new());
 
-        var thrown = Assert.Throws<NotSupportedException>(
-            () => device.CreateDescriptorSetLayout(
+        var thrown = Assert.Throws<NotSupportedException>(() => device.CreateDescriptorSetLayout(
                 new(
                     DescriptorSetSlot.PerMaterial,
                     [new(0, DescriptorKind.SampledTexture, ShaderStage.Fragment, 16)],
@@ -151,8 +149,8 @@ public class WebGpuDeviceTests {
             );
         }
 
-        var thrown = Assert.Throws<NotSupportedException>(
-            () => device.CreatePipelineLayout(new(layouts, [new(ShaderStage.Vertex, 0, 64)], "Full"))
+        var thrown = Assert.Throws<NotSupportedException>(() =>
+            device.CreatePipelineLayout(new(layouts, [new(ShaderStage.Vertex, 0, 64)], "Full"))
         );
 
         Assert.Contains("dynamic uniform offset", thrown.Message, StringComparison.Ordinal);
@@ -162,8 +160,8 @@ public class WebGpuDeviceTests {
     public void MoreThanTheEmulatedBlockIsRefused() {
         using var device = Device(new());
 
-        Assert.Throws<NotSupportedException>(
-            () => device.CreatePipelineLayout(new([], [new(ShaderStage.Vertex, 0, 512)], "Big"))
+        Assert.Throws<NotSupportedException>(() =>
+            device.CreatePipelineLayout(new([], [new(ShaderStage.Vertex, 0, 512)], "Big"))
         );
     }
 
@@ -265,8 +263,10 @@ public class WebGpuDeviceTests {
         var set = device.CreateDescriptorSet(layout, "Shadow");
         var view = device.CreateTextureView(ShadowMap(device));
 
-        var thrown = Assert.Throws<ArgumentException>(
-            () => device.UpdateDescriptorSet(set, [DescriptorWrite.Texture(0, view)])
+        var thrown = Assert.Throws<ArgumentException>(() => device.UpdateDescriptorSet(
+                set,
+                [DescriptorWrite.Texture(0, view)]
+            )
         );
 
         Assert.Contains("SampleType", thrown.Message, StringComparison.Ordinal);
@@ -286,8 +286,10 @@ public class WebGpuDeviceTests {
         var set = device.CreateDescriptorSet(layout, "Shadow");
         var sampler = device.CreateSampler(SamplerDescription.Shadow);
 
-        var thrown = Assert.Throws<ArgumentException>(
-            () => device.UpdateDescriptorSet(set, [DescriptorWrite.SamplerAt(0, sampler)])
+        var thrown = Assert.Throws<ArgumentException>(() => device.UpdateDescriptorSet(
+                set,
+                [DescriptorWrite.SamplerAt(0, sampler)]
+            )
         );
 
         Assert.Contains("compares", thrown.Message, StringComparison.Ordinal);
@@ -313,8 +315,10 @@ public class WebGpuDeviceTests {
         var set = device.CreateDescriptorSet(layout, "Ids");
         var sampler = device.CreateSampler(SamplerDescription.LinearClamp);
 
-        var thrown = Assert.Throws<ArgumentException>(
-            () => device.UpdateDescriptorSet(set, [DescriptorWrite.SamplerAt(0, sampler)])
+        var thrown = Assert.Throws<ArgumentException>(() => device.UpdateDescriptorSet(
+                set,
+                [DescriptorWrite.SamplerAt(0, sampler)]
+            )
         );
 
         Assert.Contains("may not filter", thrown.Message, StringComparison.Ordinal);
@@ -334,7 +338,7 @@ public class WebGpuDeviceTests {
     [Fact]
     public void DestroyingIsDeferredByTheFramesInFlight() {
         var binding = new FakeWebGpuBinding();
-        using var device = Device(binding, 2);
+        using var device = Device(binding);
 
         var buffer = device.CreateBuffer(new(64, BufferUsage.Vertex, Name: "Mesh"));
         binding.Clear();
@@ -420,7 +424,7 @@ public class WebGpuDeviceTests {
         var call = Assert.Single(binding.OfName("WriteBuffer"));
         Assert.Equal(4, call.Values[1]);
         Assert.Equal(4, call.Values[2]);
-        Assert.Equal<byte[]>([0, 0xAA, 0xBB, 0xCC], binding.LastWrite);
+        Assert.Equal([0, 0xAA, 0xBB, 0xCC], binding.LastWrite);
     }
 
     [Fact]
@@ -445,9 +449,7 @@ public class WebGpuDeviceTests {
         var binding = new FakeWebGpuBinding { CanWait = false };
         using var device = Device(binding);
 
-        var buffer = device.CreateBuffer(
-            new(64, BufferUsage.CopyDestination, MemoryAccess.HostReadback, "Readback")
-        );
+        var buffer = device.CreateBuffer(new(64, BufferUsage.CopyDestination, MemoryAccess.HostReadback, "Readback"));
 
         var thrown = Assert.Throws<NotSupportedException>(() => device.Read(buffer, 0, new byte[4]));
         Assert.Contains("a frame early", thrown.Message, StringComparison.Ordinal);
@@ -467,8 +469,8 @@ public class WebGpuDeviceTests {
     public void ASwapChainNeedsASurface() {
         using var device = Device(new(hasSurface: false));
 
-        Assert.Throws<InvalidOperationException>(
-            () => device.CreateSwapChain(new(SurfaceHandle.None, new Int2(800, 600)))
+        Assert.Throws<InvalidOperationException>(() =>
+            device.CreateSwapChain(new(SurfaceHandle.None, new Int2(800, 600)))
         );
     }
 
@@ -482,7 +484,7 @@ public class WebGpuDeviceTests {
         Assert.Equal(1280, call.Values[2]);
         Assert.Equal(720, call.Values[3]);
         Assert.Equal((long)WgpuCompositeAlphaMode.Opaque, call.Values[5]);
-        Assert.Equal(new Int2(1280, 720), swapChain.Size);
+        Assert.Equal(new(1280, 720), swapChain.Size);
     }
 
     /// <summary>
@@ -495,7 +497,8 @@ public class WebGpuDeviceTests {
     [InlineData(true)]
     public void ASwapChainIsSampledExactlyWhenTheSurfaceListsTextureBinding(bool listed) {
         var binding = new FakeWebGpuBinding(hasSurface: true) {
-            SurfaceUsages = WgpuTextureUsage.RenderAttachment | WgpuTextureUsage.CopySrc
+            SurfaceUsages = WgpuTextureUsage.RenderAttachment
+                | WgpuTextureUsage.CopySrc
                 | (listed ? WgpuTextureUsage.TextureBinding : WgpuTextureUsage.None)
         };
         using var device = Device(binding);
@@ -507,7 +510,10 @@ public class WebGpuDeviceTests {
         Assert.Equal(listed, (swapChain.Usage & TextureUsage.Sampled) != 0);
 
         // What it always configured, it still configures: a surface reporting less changes nothing.
-        Assert.Equal(WgpuTextureUsage.RenderAttachment | WgpuTextureUsage.CopySrc, configured & ~WgpuTextureUsage.TextureBinding);
+        Assert.Equal(
+            WgpuTextureUsage.RenderAttachment | WgpuTextureUsage.CopySrc,
+            configured & ~WgpuTextureUsage.TextureBinding
+        );
         Assert.Equal(TextureUsage.ColourTarget | TextureUsage.CopySource, swapChain.Usage & ~TextureUsage.Sampled);
 
         // And a resize reconfigures with the same answer rather than renegotiating a different one.
@@ -538,7 +544,7 @@ public class WebGpuDeviceTests {
     public void TheNativeBindingDoesNotClaimASurfaceItCannotAsk() {
         var source = typeof(Silk.NET.WebGPU.SurfaceCapabilities).GetFields();
 
-        Assert.DoesNotContain(source, field => field.Name.Contains("Usage", StringComparison.Ordinal));
+        Assert.DoesNotContain(source, static field => field.Name.Contains("Usage", StringComparison.Ordinal));
     }
 
     /// <summary>
@@ -592,7 +598,7 @@ public class WebGpuDeviceTests {
         swapChain.Resize(new(320, 240));
 
         Assert.Equal(2, binding.OfName("ConfigureSurface").Count);
-        Assert.Equal(new Int2(320, 240), swapChain.Size);
+        Assert.Equal(new(320, 240), swapChain.Size);
     }
 
     /// <summary>
@@ -603,7 +609,8 @@ public class WebGpuDeviceTests {
     public void AFormatWebGpuLacksFallsBackToTheSurfacePreference() {
         var binding = new FakeWebGpuBinding(hasSurface: true);
         using var device = Device(binding);
-        using var swapChain = device.CreateSwapChain(new(SurfaceHandle.None, new Int2(64, 64), PixelFormat.Rgba16UNorm));
+        using var swapChain =
+            device.CreateSwapChain(new(SurfaceHandle.None, new Int2(64, 64), PixelFormat.Rgba16UNorm));
 
         Assert.Equal(PixelFormat.Bgra8UNorm, swapChain.Format);
     }

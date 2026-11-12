@@ -16,8 +16,11 @@ namespace Vixen.Rendering.ScreenProbes;
 ///         to zero, which stops nothing.
 ///     </para>
 ///     <para>
-///         <b>Level zero is the depth itself; each level above it halves the way a mip chain
-///         halves</b> — flooring, to a minimum of one — because the device pyramid <i>is</i> a mip
+///         <b>
+///             Level zero is the depth itself; each level above it halves the way a mip chain
+///             halves
+///         </b>
+///         — flooring, to a minimum of one — because the device pyramid <i>is</i> a mip
 ///         chain and the two must hold the same texels for the two marches to skip the same cells.
 ///         Each cell reduces a clamped three-by-three block of the level below, exactly
 ///         <c>NearestReduce.rvn</c>'s taps: floor-halving leaves a trailing row and column a
@@ -72,7 +75,7 @@ public sealed class ScreenDepthPyramid {
     public float Nearest(int level, Int2 cell) {
         var size = sizes[level];
 
-        return levels[level][(Math.Clamp(cell.Y, 0, size.Y - 1) * size.X) + Math.Clamp(cell.X, 0, size.X - 1)];
+        return levels[level][Math.Clamp(cell.Y, 0, size.Y - 1) * size.X + Math.Clamp(cell.X, 0, size.X - 1)];
     }
 
     /// <summary>Reduces a depth buffer into every level.</summary>
@@ -98,14 +101,14 @@ public sealed class ScreenDepthPyramid {
 
                     for (var dy = 0; dy < 3; dy++) {
                         for (var dx = 0; dx < 3; dx++) {
-                            var fx = Math.Min((x * 2) + dx, fine.X - 1);
-                            var fy = Math.Min((y * 2) + dy, fine.Y - 1);
+                            var fx = Math.Min(x * 2 + dx, fine.X - 1);
+                            var fy = Math.Min(y * 2 + dy, fine.Y - 1);
 
-                            nearest = MathF.Max(nearest, levels[level - 1][(fy * fine.X) + fx]);
+                            nearest = MathF.Max(nearest, levels[level - 1][fy * fine.X + fx]);
                         }
                     }
 
-                    levels[level][(y * coarse.X) + x] = nearest;
+                    levels[level][y * coarse.X + x] = nearest;
                 }
             }
         }

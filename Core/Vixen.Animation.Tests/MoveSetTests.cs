@@ -22,7 +22,7 @@ public sealed class MoveSetTests {
     public void ASymbolIsTheSameNumberForTheSameWord() {
         Assert.Equal(Symbol.Intern("walk"), Symbol.Intern("walk"));
         Assert.NotEqual(Symbol.Intern("walk"), Symbol.Intern("run"));
-        Assert.False(Symbol.Intern("").IsSome);
+        Assert.False(Symbol.Intern(string.Empty).IsSome);
         Assert.False(Symbol.Intern(null).IsSome);
     }
 
@@ -93,8 +93,8 @@ public sealed class MoveSetTests {
         var backwards = MoveSet.Of("s", Move("c", 1f), Move("b", 1f), Move("a", 1f));
 
         Assert.Equal(
-            forwards.Entries.ToArray().Select(entry => entry.Name),
-            backwards.Entries.ToArray().Select(entry => entry.Name)
+            forwards.Entries.ToArray().Select(static entry => entry.Name),
+            backwards.Entries.ToArray().Select(static entry => entry.Name)
         );
     }
 
@@ -132,8 +132,8 @@ public sealed class MoveSetTests {
         Assert.Equal("sprint", Pick(injured, 6.5f, "injured"));
 
         // Not injured: the ordinary set, untouched by the overlay's existence.
-        Assert.Equal("walk", Pick(injured, 1.4f, condition: null));
-        Assert.Equal("jog", Pick(injured, 2.8f, condition: null));
+        Assert.Equal("walk", Pick(injured, 1.4f, null));
+        Assert.Equal("jog", Pick(injured, 2.8f, null));
     }
 
     /// <summary>A move is retimed within the range it admits, and no further.</summary>
@@ -161,7 +161,7 @@ public sealed class MoveSetTests {
 
         var chosen = QueryMoveSelector.Shared.Choose(
             set,
-            new MoveQuery { Required = FacetSet.Of(("gait", "swim")) },
+            new() { Required = FacetSet.Of(("gait", "swim")) },
             DefaultMoveScorer.Shared
         );
 
@@ -193,7 +193,7 @@ public sealed class MoveSetTests {
 
         var penalised = QueryMoveSelector.Shared.Choose(
             set,
-            new MoveQuery { Previous = set[plain.Index].Key, RepeatPenalty = 1f },
+            new() { Previous = set[plain.Index].Key, RepeatPenalty = 1f },
             DefaultMoveScorer.Shared
         );
 
@@ -209,8 +209,7 @@ public sealed class MoveSetTests {
 
         Assert.Equal(Symbol.Intern(One).Id, Symbol.Intern(Two).Id);
 
-        var failure = Assert.Throws<InvalidOperationException>(
-            () => MoveSet.Of(
+        var failure = Assert.Throws<InvalidOperationException>(() => MoveSet.Of(
                 "colliding",
                 Move("a", 1f, ("gait", One)),
                 Move("b", 1f, ("gait", Two))
@@ -256,18 +255,18 @@ public sealed class MoveSetTests {
         Assert.IsAssignableFrom<Motion>(motion);
         Assert.Null(motion.Current);
 
-        Assert.True(motion.Ask(new MoveQuery { Numeric = new() { Speed = 1.4f } }));
+        Assert.True(motion.Ask(new() { Numeric = new() { Speed = 1.4f } }));
         Assert.Equal("walk", motion.Current!.Name);
 
         // Asked again with the same question, it does not re-decide.
-        Assert.False(motion.Ask(new MoveQuery { Numeric = new() { Speed = 1.4f } }));
+        Assert.False(motion.Ask(new() { Numeric = new() { Speed = 1.4f } }));
 
         var pose = new BoneTransform[Rig.JointCount];
         var parameters = new AnimationParameters();
         var scratch = new PoseScratch(Rig.JointCount);
 
         motion.Evaluate(
-            new MotionContext(parameters, scratch, 0.5f, 0.4f, 0, false, null, 0, "s", 1f),
+            new(parameters, scratch, 0.5f, 0.4f, 0, false, null, 0, "s", 1f),
             pose
         );
 
@@ -302,7 +301,7 @@ public sealed class MoveSetTests {
 
         var chosen = QueryMoveSelector.Shared.Choose(
             set,
-            new MoveQuery { Preferred = preferred, Numeric = new() { Speed = speed } },
+            new() { Preferred = preferred, Numeric = new() { Speed = speed } },
             DefaultMoveScorer.Shared
         );
 
@@ -312,6 +311,5 @@ public sealed class MoveSetTests {
     static MoveEntry Move(string name, float speed, params (string Key, string Value)[] facets) =>
         new(name, Clip(), FacetSet.Of(facets), new() { Speed = speed });
 
-    static ClipMotion Clip() =>
-        new(AnimationClip.Create(TestRigs.Hold("held", "Mid", Vector3.UnitY), Rig));
+    static ClipMotion Clip() => new(AnimationClip.Create(TestRigs.Hold("held", "Mid", Vector3.UnitY), Rig));
 }

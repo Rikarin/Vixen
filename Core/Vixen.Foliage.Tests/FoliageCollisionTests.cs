@@ -10,8 +10,7 @@ namespace Vixen.Foliage.Tests;
 public sealed class FoliageCollisionTests {
     static FoliageInstance At(float x, float z) => new(new(x, 0f, z), Quaternion.Identity, 1f);
 
-    static FoliageType Colliding =>
-        Types.Tree with { CollisionShape = "Shapes/trunk", ActivationRadius = 30f };
+    static FoliageType Colliding => Types.Tree with { CollisionShape = "Shapes/trunk", ActivationRadius = 30f };
 
     static (FoliageVolume Volume, int Type) Built(FoliageType? type = null) {
         var volume = new FoliageVolume(new(32f));
@@ -155,8 +154,12 @@ public sealed class FoliageCollisionTests {
 
     /// <summary>An erased instance's address has to be forgotten, not left to the next update.</summary>
     /// <remarks>
-    ///     ⚠ <b>An erased instance's address now belongs to whichever instance shifted down into
-    ///     it.</b> The next update would find that one already active and never give it a body of its
+    ///     ⚠
+    ///     <b>
+    ///         An erased instance's address now belongs to whichever instance shifted down into
+    ///         it.
+    ///     </b>
+    ///     The next update would find that one already active and never give it a body of its
     ///     own — a tree with a hole where its collision should be, for as long as the level runs.
     /// </remarks>
     [Fact]

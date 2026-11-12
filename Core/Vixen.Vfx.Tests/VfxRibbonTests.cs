@@ -59,7 +59,7 @@ public class VfxRibbonTests {
         Assert.Equal(4f, instances[0].Row1.W);
         Assert.Equal(5f, instances[0].Row2.W);
 
-        Assert.Equal(new Vector4(0.25f, 0.5f, 0.75f, 1f), instances[0].Colour);
+        Assert.Equal(new(0.25f, 0.5f, 0.75f, 1f), instances[0].Colour);
 
         // Uniform scale of two: every basis column is that long, and they stay orthogonal.
         var right = new Vector3(instances[0].Row0.X, instances[0].Row1.X, instances[0].Row2.X);
@@ -137,7 +137,7 @@ public class VfxRibbonTests {
 
         for (var strip = 0; strip < strips; strip++) {
             for (var along = 0; along < perStrip; along++) {
-                var index = (strip * perStrip) + along;
+                var index = strip * perStrip + along;
 
                 positions[index] = new(along, strip * 10f, 0f);
                 strands[index] = strip;
@@ -269,7 +269,7 @@ public class VfxRibbonTests {
 
         for (var particle = 0; particle < 3; particle++) {
             var left = vertices[particle * VfxGeometryBuilder.VerticesPerRibbonParticle].Position;
-            var right = vertices[(particle * VfxGeometryBuilder.VerticesPerRibbonParticle) + 1].Position;
+            var right = vertices[particle * VfxGeometryBuilder.VerticesPerRibbonParticle + 1].Position;
             var across = right - left;
 
             // The trail runs along x and the camera is down -z, so the width is along y.
@@ -298,8 +298,13 @@ public class VfxRibbonTests {
 
         var builder = new VfxGeometryBuilder();
 
-        Assert.Throws<InvalidOperationException>(
-            () => builder.BuildRibbons(system, Camera, new ParticleVertex[8], new uint[32], out _)
+        Assert.Throws<InvalidOperationException>(() => builder.BuildRibbons(
+                system,
+                Camera,
+                new ParticleVertex[8],
+                new uint[32],
+                out _
+            )
         );
     }
 

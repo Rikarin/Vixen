@@ -4,7 +4,6 @@
 using System.Globalization;
 using Vixen.Core.Mathematics;
 using Vixen.Input;
-using Vixen.Ui.Styling;
 
 namespace Vixen.Ui.Controls.Advanced;
 
@@ -51,8 +50,12 @@ public enum TimelineTrackKind : byte {
 ///         one as a pair of keys loses the association between them the moment either is dragged.
 ///     </para>
 ///     <para>
-///         ⚠ <b><see cref="End" /> before <see cref="Begin" /> means it wraps the end of the
-///         timeline</b> and is drawn as two bars. That is the ordinary case for anything authored
+///         ⚠
+///         <b>
+///             <see cref="End" /> before <see cref="Begin" /> means it wraps the end of the
+///             timeline
+///         </b>
+///         and is drawn as two bars. That is the ordinary case for anything authored
 ///         against a looping clip — a foot that plants near the end of a cycle and lifts near the
 ///         start of the next — and refusing it would make the loop point a place authors cannot mark.
 ///     </para>
@@ -92,7 +95,7 @@ public sealed class TimelineSpan {
     /// <summary>How long it lasts, in seconds.</summary>
     /// <param name="duration">How long the timeline is, for a span that wraps.</param>
     /// <returns>The length.</returns>
-    public float Length(float duration) => Wraps ? (End + duration) - Begin : End - Begin;
+    public float Length(float duration) => Wraps ? End + duration - Begin : End - Begin;
 
     /// <summary>How much of it is live at a moment, ramps included.</summary>
     /// <param name="time">When, in seconds.</param>
@@ -110,7 +113,7 @@ public sealed class TimelineSpan {
             return 0f;
         }
 
-        var into = time >= Begin ? time - Begin : (time + duration) - Begin;
+        var into = time >= Begin ? time - Begin : time + duration - Begin;
         var span = Length(duration);
         var ramp = 1f;
 
@@ -126,8 +129,7 @@ public sealed class TimelineSpan {
     }
 
     /// <inheritdoc />
-    public override string ToString() =>
-        string.Create(CultureInfo.InvariantCulture, $"{Begin:0.###}–{End:0.###}");
+    public override string ToString() => string.Create(CultureInfo.InvariantCulture, $"{Begin:0.###}–{End:0.###}");
 }
 
 /// <summary>Which part of a span a pointer is over.</summary>
@@ -317,7 +319,7 @@ public sealed class TimelineLanes : UiElement {
         var key = timeline.KeyColor;
 
         for (var i = timeline.FirstVisibleTrack; i < timeline.Tracks.Count; i++) {
-            var top = bounds.Y + (i * height) - timeline.ScrollTop;
+            var top = bounds.Y + i * height - timeline.ScrollTop;
 
             if (top > bounds.Bottom) {
                 break;
@@ -326,7 +328,7 @@ public sealed class TimelineLanes : UiElement {
             var track = timeline.Tracks[i];
 
             if (i % 2 == 1) {
-                context.FillRectangle(new Rectangle(bounds.X, top, bounds.Width, height), timeline.StripeColor);
+                context.FillRectangle(new(bounds.X, top, bounds.Width, height), timeline.StripeColor);
             }
 
             if (track.Curve is { } curve) {
@@ -345,16 +347,16 @@ public sealed class TimelineLanes : UiElement {
                 }
 
                 var size = timeline.KeySize;
-                var centre = top + (height * 0.5f);
+                var centre = top + height * 0.5f;
                 var selected = timeline.Selection.Contains(entry);
 
                 // A diamond rather than a square, because that is what a keyframe has looked like
                 // since the first animation tool and because it is unmistakable at four pixels.
                 path.Clear()
-                    .MoveTo(new Vector2(x, centre - size))
-                    .LineTo(new Vector2(x + size, centre))
-                    .LineTo(new Vector2(x, centre + size))
-                    .LineTo(new Vector2(x - size, centre))
+                    .MoveTo(new(x, centre - size))
+                    .LineTo(new(x + size, centre))
+                    .LineTo(new(x, centre + size))
+                    .LineTo(new(x - size, centre))
                     .Close();
 
                 context.Fill(path, selected ? accent : key);
@@ -380,7 +382,7 @@ public sealed class TimelineLanes : UiElement {
         var duration = MathF.Max(1e-4f, timeline.Duration);
         var selected = timeline.SpanSelection.Contains(span);
         var inset = height * 0.18f;
-        var lane = height - (inset * 2f);
+        var lane = height - inset * 2f;
 
         if (lane <= 0f) {
             return;
@@ -412,7 +414,7 @@ public sealed class TimelineLanes : UiElement {
             var width = MathF.Max(1f, clippedRight - clippedLeft);
 
             context.FillRectangle(
-                new Rectangle(clippedLeft, top + inset, width, lane),
+                new(clippedLeft, top + inset, width, lane),
                 selected ? timeline.SpanActiveColor : timeline.SpanColor,
                 2f
             );
@@ -420,26 +422,26 @@ public sealed class TimelineLanes : UiElement {
             // The activation, sampled a column at a time. A ramp is linear, so this is more samples
             // than the shape needs — but an eased ramp would not be, and the cost is a few dozen
             // points on a shape that is already being filled.
-            path.Clear().MoveTo(new Vector2(clippedLeft, top + height - inset));
+            path.Clear().MoveTo(new(clippedLeft, top + height - inset));
 
-            var columns = (int) MathF.Ceiling(width);
+            var columns = (int)MathF.Ceiling(width);
 
             for (var column = 0; column <= columns; column++) {
                 var x = MathF.Min(clippedLeft + column, clippedRight);
                 var weight = span.Activation(timeline.ToTime(x), duration);
 
-                path.LineTo(new Vector2(x, top + height - inset - (weight * lane)));
+                path.LineTo(new(x, top + height - inset - weight * lane));
             }
 
-            path.LineTo(new Vector2(clippedRight, top + height - inset)).Close();
+            path.LineTo(new(clippedRight, top + height - inset)).Close();
             context.Fill(path, selected ? timeline.SpanActiveColor : timeline.SpanColor);
 
             // The grips, drawn only where the real end is on screen — a clipped edge is not one
             // somebody can take hold of, and drawing a handle there would say it is.
-            foreach (var edge in (ReadOnlySpan<float>) [left, right]) {
+            foreach (var edge in (ReadOnlySpan<float>)[left, right]) {
                 if (edge >= bounds.X && edge <= bounds.Right) {
                     context.FillRectangle(
-                        new Rectangle(edge - 1f, top + inset, 2f, lane),
+                        new(edge - 1f, top + inset, 2f, lane),
                         timeline.SpanGripColor
                     );
                 }
@@ -456,21 +458,28 @@ public sealed class TimelineLanes : UiElement {
 
         path.Clear();
 
-        for (var time = MathF.Ceiling(timeline.TimeStart / step) * step; ; time += step) {
+        for (var time = MathF.Ceiling(timeline.TimeStart / step) * step;; time += step) {
             var x = timeline.ToScreen(time);
 
             if (x > bounds.Right) {
                 break;
             }
 
-            path.MoveTo(new Vector2(x, bounds.Top)).LineTo(new Vector2(x, bounds.Bottom));
+            path.MoveTo(new(x, bounds.Top)).LineTo(new(x, bounds.Bottom));
         }
 
         context.Stroke(path, timeline.GridColor, 1f);
     }
 
     /// <summary>Draws a track's curve behind its keys, scaled to the lane.</summary>
-    void Trace(DrawContext context, Timeline timeline, Rectangle bounds, AnimationCurve curve, float top, float height) {
+    void Trace(
+        DrawContext context,
+        Timeline timeline,
+        Rectangle bounds,
+        AnimationCurve curve,
+        float top,
+        float height
+    ) {
         if (curve.Keys.Count == 0) {
             return;
         }
@@ -488,17 +497,17 @@ public sealed class TimelineLanes : UiElement {
 
         path.Clear();
 
-        var columns = (int) MathF.Ceiling(bounds.Width);
+        var columns = (int)MathF.Ceiling(bounds.Width);
 
         for (var i = 0; i <= columns; i++) {
             var x = bounds.X + i;
             var value = curve.Evaluate(timeline.ToTime(x));
-            var y = top + height - inset - ((value - minimum) / span * (height - (inset * 2f)));
+            var y = top + height - inset - (value - minimum) / span * (height - inset * 2f);
 
             if (i == 0) {
-                path.MoveTo(new Vector2(x, y));
+                path.MoveTo(new(x, y));
             } else {
-                path.LineTo(new Vector2(x, y));
+                path.LineTo(new(x, y));
             }
         }
 
@@ -512,7 +521,7 @@ public sealed class TimelineLanes : UiElement {
             return;
         }
 
-        path.Clear().MoveTo(new Vector2(x, bounds.Top)).LineTo(new Vector2(x, bounds.Bottom));
+        path.Clear().MoveTo(new(x, bounds.Top)).LineTo(new(x, bounds.Bottom));
         context.Stroke(path, timeline.PlayheadColor, 1.5f);
     }
 }
@@ -547,7 +556,7 @@ public sealed partial class TimelineRuler : Control {
         var slot = 0;
 
         if (step > 0f && bounds.Width > 0f) {
-            for (var time = MathF.Ceiling(timeline.TimeStart / step) * step; ; time += step) {
+            for (var time = MathF.Ceiling(timeline.TimeStart / step) * step;; time += step) {
                 var x = timeline.ToScreen(time);
 
                 if (x > bounds.Right) {
@@ -588,14 +597,14 @@ public sealed partial class TimelineRuler : Control {
 
         path.Clear();
 
-        for (var time = MathF.Ceiling(timeline.TimeStart / step) * step; ; time += step) {
+        for (var time = MathF.Ceiling(timeline.TimeStart / step) * step;; time += step) {
             var x = timeline.ToScreen(time);
 
             if (x > bounds.Right) {
                 break;
             }
 
-            path.MoveTo(new Vector2(x, bounds.Bottom - 5f)).LineTo(new Vector2(x, bounds.Bottom));
+            path.MoveTo(new(x, bounds.Bottom - 5f)).LineTo(new(x, bounds.Bottom));
         }
 
         context.Stroke(path, timeline.GridColor, 1f);
@@ -603,7 +612,7 @@ public sealed partial class TimelineRuler : Control {
         var head = timeline.ToScreen(timeline.Time);
 
         if (head >= bounds.X && head <= bounds.Right) {
-            context.FillRectangle(new Rectangle(head - 5f, bounds.Y + 2f, 10f, bounds.Height - 4f), timeline.PlayheadColor, 2f);
+            context.FillRectangle(new(head - 5f, bounds.Y + 2f, 10f, bounds.Height - 4f), timeline.PlayheadColor, 2f);
         }
     }
 }
@@ -681,10 +690,15 @@ public sealed partial class Timeline : Control {
 
     /// <inheritdoc />
     /// <remarks>
-    ///     ⚠ <b>ARIA <c>application</c>, and it is a role with a cost that is worth paying
-    ///     here.</b> It tells assistive technology to stop intercepting the keyboard and pass every
+    ///     ⚠
+    ///     <b>
+    ///         ARIA <c>application</c>, and it is a role with a cost that is worth paying
+    ///         here.
+    ///     </b>
+    ///     It tells assistive technology to stop intercepting the keyboard and pass every
     ///     key through, because this element has a keyboard model of its own that no generic widget
-    ///     vocabulary describes. That is exactly true of a direct-manipulation surface — keys and spans dragged along a set of tracks — and it
+    ///     vocabulary describes. That is exactly true of a direct-manipulation surface — keys and spans dragged along a set of
+    ///     tracks — and it
     ///     is exactly false of a text field, which is why <c>CodeEditor</c> is a <c>textbox</c>
     ///     instead. Unnamed by default: what this one is a view of is the application's sentence,
     ///     and it is usually the panel title above it.
@@ -763,7 +777,7 @@ public sealed partial class Timeline : Control {
 
     /// <summary>The first track with any of it on screen.</summary>
     public int FirstVisibleTrack =>
-        TrackHeight <= 0f ? 0 : Math.Clamp((int) MathF.Floor(ScrollTop / TrackHeight), 0, Math.Max(0, tracks.Count - 1));
+        TrackHeight <= 0f ? 0 : Math.Clamp((int)MathF.Floor(ScrollTop / TrackHeight), 0, Math.Max(0, tracks.Count - 1));
 
     /// <summary>The rubber band, if one is being dragged.</summary>
     public Rectangle? Marquee { get; private set; }
@@ -783,7 +797,7 @@ public sealed partial class Timeline : Control {
             var target = 80f / PixelsPerSecond;
             var magnitude = MathF.Pow(10f, MathF.Floor(MathF.Log10(MathF.Max(1e-6f, target))));
 
-            foreach (var multiple in (ReadOnlySpan<float>) [1f, 2f, 5f, 10f]) {
+            foreach (var multiple in (ReadOnlySpan<float>)[1f, 2f, 5f, 10f]) {
                 if (magnitude * multiple >= target) {
                     return magnitude * multiple;
                 }
@@ -847,10 +861,10 @@ public sealed partial class Timeline : Control {
         Lanes = body.Add<TimelineLanes>();
         Lanes.Owner = this;
 
-        AddHandler<PointerEvent>(static (element, args) => ((Timeline) element).Pointed(args));
-        AddHandler<WheelEvent>(static (element, args) => ((Timeline) element).Wheeled(args));
-        AddHandler<KeyEvent>(static (element, args) => ((Timeline) element).Keyed(args));
-        AddHandler<TapEvent>(static (element, args) => ((Timeline) element).Tapped(args));
+        AddHandler<PointerEvent>(static (element, args) => ((Timeline)element).Pointed(args));
+        AddHandler<WheelEvent>(static (element, args) => ((Timeline)element).Wheeled(args));
+        AddHandler<KeyEvent>(static (element, args) => ((Timeline)element).Keyed(args));
+        AddHandler<TapEvent>(static (element, args) => ((Timeline)element).Tapped(args));
     }
 
     // ── Contents ─────────────────────────────────────────────────────────────
@@ -899,7 +913,7 @@ public sealed partial class Timeline : Control {
 
         var capacity = Math.Min(
             tracks.Count,
-            (int) MathF.Ceiling(MathF.Max(0f, Lanes.Height) / height) + 2
+            (int)MathF.Ceiling(MathF.Max(0f, Lanes.Height) / height) + 2
         );
 
         while (headers.Count < capacity) {
@@ -926,7 +940,7 @@ public sealed partial class Timeline : Control {
             header.Label.Text = track.Name;
             header.Mute.IsChecked = track.Muted;
 
-            header.SetStyle("top", Inline.Px((index * height) - ScrollTop));
+            header.SetStyle("top", Inline.Px(index * height - ScrollTop));
             header.SetStyle("height", Inline.Px(height));
         }
 
@@ -949,13 +963,13 @@ public sealed partial class Timeline : Control {
     /// <summary>Where a time is, in document space.</summary>
     /// <param name="time">The time.</param>
     /// <returns>The x.</returns>
-    public float ToScreen(float time) => Lanes.AbsoluteLeft + ((time - TimeStart) * PixelsPerSecond);
+    public float ToScreen(float time) => Lanes.AbsoluteLeft + (time - TimeStart) * PixelsPerSecond;
 
     /// <summary>Which time a document-space x is.</summary>
     /// <param name="x">The x.</param>
     /// <returns>The time.</returns>
     public float ToTime(float x) =>
-        PixelsPerSecond <= 0f ? TimeStart : TimeStart + ((x - Lanes.AbsoluteLeft) / PixelsPerSecond);
+        PixelsPerSecond <= 0f ? TimeStart : TimeStart + (x - Lanes.AbsoluteLeft) / PixelsPerSecond;
 
     /// <summary>Which track a document-space y is over, or -1.</summary>
     /// <param name="y">The y.</param>
@@ -967,7 +981,7 @@ public sealed partial class Timeline : Control {
             return -1;
         }
 
-        var index = (int) MathF.Floor((y - Lanes.AbsoluteTop + ScrollTop) / height);
+        var index = (int)MathF.Floor((y - Lanes.AbsoluteTop + ScrollTop) / height);
         return index >= 0 && index < tracks.Count ? index : -1;
     }
 
@@ -1063,8 +1077,7 @@ public sealed partial class Timeline : Control {
     /// <summary>Brings a time onto a frame, if snapping is on.</summary>
     /// <param name="time">The time.</param>
     /// <returns>The snapped time.</returns>
-    public float Snap(float time) =>
-        SnapToFrames && FrameRate > 0f ? MathF.Round(time * FrameRate) / FrameRate : time;
+    public float Snap(float time) => SnapToFrames && FrameRate > 0f ? MathF.Round(time * FrameRate) / FrameRate : time;
 
     // ── Colours ──────────────────────────────────────────────────────────────
 
@@ -1239,7 +1252,7 @@ public sealed partial class Timeline : Control {
     static float ClampScale(float scale) => MathF.Max(1f, scale);
 
     float ClampScroll(float top) =>
-        Math.Clamp(top, 0f, MathF.Max(0f, (tracks.Count * TrackHeight) - MathF.Max(0f, Lanes.Height)));
+        Math.Clamp(top, 0f, MathF.Max(0f, tracks.Count * TrackHeight - MathF.Max(0f, Lanes.Height)));
 
     void OnTimeChanged(float previous, float current) {
         TimeChanged?.Invoke(this, current);
@@ -1323,7 +1336,7 @@ public sealed partial class Timeline : Control {
             SelectNone();
         }
 
-        bandOrigin = new Vector2(args.X, args.Y);
+        bandOrigin = new(args.X, args.Y);
         Marquee = new Rectangle(args.X, args.Y, 0f, 0f);
         drag = TimelineDrag.Marquee;
 
@@ -1358,7 +1371,7 @@ public sealed partial class Timeline : Control {
                 break;
 
             case TimelineDrag.Marquee:
-                Marquee = Rectangle.FromCorners(bandOrigin, new Vector2(args.X, args.Y));
+                Marquee = Rectangle.FromCorners(bandOrigin, new(args.X, args.Y));
                 Document.Invalidate();
 
                 break;
@@ -1425,7 +1438,7 @@ public sealed partial class Timeline : Control {
             var height = TrackHeight;
 
             for (var i = 0; i < tracks.Count; i++) {
-                var top = Lanes.AbsoluteTop + (i * height) - ScrollTop;
+                var top = Lanes.AbsoluteTop + i * height - ScrollTop;
 
                 if (top + height < band.Top || top > band.Bottom) {
                     continue;

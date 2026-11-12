@@ -19,8 +19,11 @@ namespace Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <strong>Everything in <c>docs/plan/23-bindless-materials.md</c> was reachable from a test and from
-///         nothing a project authors.</strong> The compositor builder wired one thing out of the whole
+///         <strong>
+///             Everything in <c>docs/plan/23-bindless-materials.md</c> was reachable from a test and from
+///             nothing a project authors.
+///         </strong>
+///         The compositor builder wired one thing out of the whole
 ///         chain — the argument buffer — and never created a table, never turned records on, never
 ///         asked for compaction. A mechanism nothing invokes is a mechanism that compiles.
 ///     </para>
@@ -33,39 +36,39 @@ namespace Tests;
 /// </remarks>
 public sealed class GpuDrivenCompositorTests : IDisposable {
     const string Document = """
-        version: 2
-        resources:
-          - name: SceneColour
-            format: Rgba16Float
-            usage: ColourTarget, Sampled
-        stages:
-          - name: Opaque
-        gpuDriven:
-          shader: Lit
-          materialRecords: true
-          transformRecords: true
-        game: !Sequence
-          name: Frame
-          children:
-            - !GpuCulling
-              name: Culling
-              readBack: false
-              indirectDraws: true
-              compact: true
-            - !RenderPass
-              name: Main
-              colourTargets: [SceneColour]
-              children:
-                - !SingleStage
-                  name: OpaqueDraw
-                  view: Camera
-                  stage: Opaque
-        """;
+                            version: 2
+                            resources:
+                              - name: SceneColour
+                                format: Rgba16Float
+                                usage: ColourTarget, Sampled
+                            stages:
+                              - name: Opaque
+                            gpuDriven:
+                              shader: Lit
+                              materialRecords: true
+                              transformRecords: true
+                            game: !Sequence
+                              name: Frame
+                              children:
+                                - !GpuCulling
+                                  name: Culling
+                                  readBack: false
+                                  indirectDraws: true
+                                  compact: true
+                                - !RenderPass
+                                  name: Main
+                                  colourTargets: [SceneColour]
+                                  children:
+                                    - !SingleStage
+                                      name: OpaqueDraw
+                                      view: Camera
+                                      stage: Opaque
+                            """;
 
     readonly NullDevice device;
     readonly EffectSystem effects = new();
 
-    public GpuDrivenCompositorTests() : this(capable: true) { }
+    public GpuDrivenCompositorTests() : this(true) { }
 
     GpuDrivenCompositorTests(bool capable) {
         device = new(new() { Features = Features(capable) });
@@ -82,10 +85,7 @@ public sealed class GpuDrivenCompositorTests : IDisposable {
         capable
             ? NullDevice.Everything
             : NullDevice.Everything with {
-                HasBindless = false,
-                MaxBindlessDescriptors = 0,
-                MaxDescriptorSets = 4,
-                HasDrawIndirectCount = false
+                HasBindless = false, MaxBindlessDescriptors = 0, MaxDescriptorSets = 4, HasDrawIndirectCount = false
             };
 
     public void Dispose() => device.Dispose();
@@ -108,7 +108,7 @@ public sealed class GpuDrivenCompositorTests : IDisposable {
         Assert.True(h.Builder.GpuDriven.TransformRecords);
 
         Assert.True(h.Materials.Permutations.Get(Permutation("Lit.UseMaterialRecords")));
-        Assert.Contains(h.Transforms.PermutationKeys, key => key.Name == "Lit.UseTransformRecords");
+        Assert.Contains(h.Transforms.PermutationKeys, static key => key.Name == "Lit.UseTransformRecords");
     }
 
     /// <summary>
@@ -121,7 +121,7 @@ public sealed class GpuDrivenCompositorTests : IDisposable {
     /// </remarks>
     [Fact]
     public void The_same_document_on_a_plain_device_asks_and_is_refused() {
-        using var plain = new GpuDrivenCompositorTests(capable: false);
+        using var plain = new GpuDrivenCompositorTests(false);
         using var h = plain.Build();
 
         h.Builder.Build(Parse(Document));
@@ -208,7 +208,7 @@ public sealed class GpuDrivenCompositorTests : IDisposable {
     /// <summary>And with the transforms refused, the records are refused with them.</summary>
     [Fact]
     public void Without_transforms_the_object_records_stay_off() {
-        using var plain = new GpuDrivenCompositorTests(capable: false);
+        using var plain = new GpuDrivenCompositorTests(false);
         using var h = plain.Build();
 
         h.Builder.Build(Parse(Document));
@@ -227,7 +227,7 @@ public sealed class GpuDrivenCompositorTests : IDisposable {
     /// </remarks>
     [Fact]
     public void A_feature_with_no_device_is_given_the_builders() {
-        using var h = Build(devices: false);
+        using var h = Build(false);
 
         Assert.Null(h.Materials.Device);
         h.Builder.Build(Parse(Document));
@@ -240,16 +240,12 @@ public sealed class GpuDrivenCompositorTests : IDisposable {
 
     static PermutationKey<bool> Permutation(string name) => ParameterKeys.NewPermutation(false, name);
 
-    static GraphicsCompositorAsset Parse(string document) =>
-        YamlSerializer.Parse<GraphicsCompositorAsset>(document);
+    static GraphicsCompositorAsset Parse(string document) => YamlSerializer.Parse<GraphicsCompositorAsset>(document);
 
     Harness Build(bool devices = true) {
         var system = new RenderSystem();
 
-        var meshes = new MeshRenderFeature {
-            Pipelines = new(device),
-            Describer = new EffectPipelineDescriber(device)
-        };
+        var meshes = new MeshRenderFeature { Pipelines = new(device), Describer = new EffectPipelineDescriber(device) };
 
         var materials = new MaterialRenderFeature { Effects = effects, Device = devices ? device : null };
         var transforms = new TransformRenderFeature { Device = devices ? device : null };
@@ -266,9 +262,7 @@ public sealed class GpuDrivenCompositorTests : IDisposable {
         var projection = Matrix4x4.PerspectiveFieldOfView(MathF.PI / 3f, 1f, 0.1f, 1000f);
 
         var builder = new CompositorBuilder(system) { Device = device };
-        builder.Views["Camera"] = new RenderView("camera") {
-            Position = Vector3.Zero, Frustum = new(view * projection)
-        };
+        builder.Views["Camera"] = new("camera") { Position = Vector3.Zero, Frustum = new(view * projection) };
 
         return new() {
             System = system,

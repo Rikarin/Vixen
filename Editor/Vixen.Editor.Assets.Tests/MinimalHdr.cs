@@ -84,7 +84,7 @@ static class MinimalHdr {
                     file.WriteByte((byte)run);
 
                     for (var index = 0; index < run; index++) {
-                        file.WriteByte(scanline[((written + index) * 4) + channel]);
+                        file.WriteByte(scanline[(written + index) * 4 + channel]);
                     }
 
                     written += run;

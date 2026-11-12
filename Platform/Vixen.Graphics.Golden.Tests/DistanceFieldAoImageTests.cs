@@ -9,7 +9,6 @@ using Vixen.Rendering.Compositor;
 using Vixen.Rendering.DistanceFields;
 using Vixen.Rendering.PostFx;
 using Vixen.Shaders;
-using Vixen.Ui.Testing.Visual;
 using Xunit;
 
 namespace Vixen.Graphics.Golden.Tests;
@@ -35,8 +34,12 @@ namespace Vixen.Graphics.Golden.Tests;
 ///         one with volumes in it.
 ///     </para>
 ///     <para>
-///         Building it found the thing worth finding: <b>a full-screen pass had no way to fill a
-///         compose slot at all</b>, so <c>DistanceFieldAo</c> could not be built by a compositor —
+///         Building it found the thing worth finding:
+///         <b>
+///             a full-screen pass had no way to fill a
+///             compose slot at all
+///         </b>
+///         , so <c>DistanceFieldAo</c> could not be built by a compositor —
 ///         under any composition, traced or not. See <see cref="FullScreenRenderer.Composition" />.
 ///     </para>
 /// </remarks>
@@ -52,7 +55,7 @@ public sealed class DistanceFieldAoImageTests {
         }
 
         using var owned = fixture!;
-        var image = Render(owned, traced: false);
+        var image = Render(owned, false);
 
         for (var y = 0; y < image.Height; y += image.Height / 8) {
             for (var x = 0; x < image.Width; x += image.Width / 8) {
@@ -81,7 +84,7 @@ public sealed class DistanceFieldAoImageTests {
         }
 
         using var owned = fixture!;
-        var image = Render(owned, traced: false, sun: false);
+        var image = Render(owned, false, false);
         var pixel = Pixel(image, image.Width / 2, image.Height / 2);
 
         Assert.True(pixel.X > 0.98f, $"the centre came back occluded by nothing: {pixel}");
@@ -95,8 +98,11 @@ public sealed class DistanceFieldAoImageTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <b>The assertion is on the sun channel, not the occlusion one, and that is not a
-    ///         convenience.</b> A ray leaving a sphere's surface along the radius reads a clearance
+    ///         <b>
+    ///             The assertion is on the sun channel, not the occlusion one, and that is not a
+    ///             convenience.
+    ///         </b>
+    ///         A ray leaving a sphere's surface along the radius reads a clearance
     ///         exactly equal to the step it took, so the occlusion integral correctly finds nothing —
     ///         the same reason a flat floor occludes nothing at all, seen from the other side. The
     ///         shadow march is the term this scene actually asks a question of, and it answers: black
@@ -116,7 +122,7 @@ public sealed class DistanceFieldAoImageTests {
         }
 
         using var owned = fixture!;
-        var image = Render(owned, traced: true);
+        var image = Render(owned, true);
 
         var centre = Pixel(image, image.Width / 2, image.Height / 2);
         var corner = Pixel(image, 2, 2);
@@ -154,7 +160,7 @@ public sealed class DistanceFieldAoImageTests {
 
         // The traced frame, so the ball is there to shadow the middle of the picture if the branch
         // does not fire — which is exactly what the old spelling did.
-        var image = Render(owned, traced: true, clearDepth: 0f);
+        var image = Render(owned, true, clearDepth: 0f);
         var centre = Pixel(image, image.Width / 2, image.Height / 2);
 
         Assert.Equal(1f, centre.X, 0.02f);
@@ -195,7 +201,7 @@ public sealed class DistanceFieldAoImageTests {
 
         clipmap.Jobs = jobs;
 
-        var before = Render(owned, traced: true, node: clipmap);
+        var before = Render(owned, true, node: clipmap);
 
         Assert.Equal(1, clipmap.Composites);
 
@@ -204,7 +210,7 @@ public sealed class DistanceFieldAoImageTests {
         clipmap.Instances[0] = new(Ball(0.8f), new(0f, 40f, 0f), Quaternion.Identity, 1f);
         clipmap.InstancesVersion++;
 
-        var deferred = Render(owned, traced: true, node: clipmap);
+        var deferred = Render(owned, true, node: clipmap);
 
         Assert.True(clipmap.IsRefreshing, "the refresh was not deferred, so there is no gap to photograph");
         Assert.Equal(1, clipmap.Composites);
@@ -219,7 +225,7 @@ public sealed class DistanceFieldAoImageTests {
         // ⚠ And the frame after that, which is the one the deferral is actually for. The frame above
         // is the one that *starts* the refresh and defers by construction; a node that polled with
         // `Complete` would block here instead, and this picture would already be the settled one.
-        var later = Render(owned, traced: true, node: clipmap);
+        var later = Render(owned, true, node: clipmap);
 
         Assert.True(clipmap.IsRefreshing, "a later frame waited for the refresh instead of drawing around it");
         Assert.Equal(1, clipmap.Composites);
@@ -227,7 +233,7 @@ public sealed class DistanceFieldAoImageTests {
 
         clipmap.WaitForRefresh();
 
-        var after = Render(owned, traced: true, node: clipmap);
+        var after = Render(owned, true, node: clipmap);
 
         Assert.False(clipmap.IsRefreshing);
         Assert.Equal(2, clipmap.Composites);
@@ -259,7 +265,8 @@ public sealed class DistanceFieldAoImageTests {
         using var allocator = new DescriptorAllocator(device);
         using var samplers = new SamplerCache(device);
         using var system = new RenderSystem();
-        using var scene = new SceneConstants(device) { Descriptors = allocator };
+        using var scene = new SceneConstants(device);
+        scene.Descriptors = allocator;
 
         // A ball hanging above the reconstructed plane, so the sun ray from the middle of the frame
         // hits it and the ones from the corners pass either side.
@@ -284,7 +291,7 @@ public sealed class DistanceFieldAoImageTests {
         effects.AddProvider(
             new Compiling(
                 loader,
-                _ => RavenEffects.Only(
+                static _ => RavenEffects.Only(
                     ["Core", "Geometry", "Shading", "DistanceFields"],
                     Path.Combine("PostFx", "Fullscreen.rvn"),
                     Path.Combine("PostFx", "DistanceFieldAo.rvn")
@@ -336,8 +343,7 @@ public sealed class DistanceFieldAoImageTests {
         sequence.Children.Add(ao);
 
         var compositor = new GraphicsCompositor(system) {
-            FrameSize = new(Fixture.Side, Fixture.Side),
-            Game = sequence
+            FrameSize = new(Fixture.Side, Fixture.Side), Game = sequence
         };
 
         compositor.Imports["Depth"] = new(depth.Texture, depth.View, depth.Description);
@@ -406,7 +412,7 @@ public sealed class DistanceFieldAoImageTests {
         for (var z = 0; z < resolution; z++) {
             for (var y = 0; y < resolution; y++) {
                 for (var x = 0; x < resolution; x++) {
-                    distances[x + (resolution * (y + (resolution * z)))] =
+                    distances[x + resolution * (y + resolution * z)] =
                         field.PositionOf(x, y, z).Length() - radius;
                 }
             }

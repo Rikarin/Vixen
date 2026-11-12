@@ -17,15 +17,23 @@ namespace Vixen.Geometry.Remeshing;
 ///         the plane without a correspondence search.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Vertices on the plane are snapped to it exactly and then <i>shared</i>, not welded by
-///         tolerance.</b> § D11 names the failure this avoids: a tolerance weld leaves a seam whose two
+///         ⚠
+///         <b>
+///             Vertices on the plane are snapped to it exactly and then <i>shared</i>, not welded by
+///             tolerance.
+///         </b>
+///         § D11 names the failure this avoids: a tolerance weld leaves a seam whose two
 ///         sides are two vertices that happen to be near each other, which is a one-vertex crack that
 ///         nothing shows until the mesh is subdivided and the limit surface pulls them apart. Here the
 ///         seam is one vertex referenced by faces on both sides, so there is no pair to disagree.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Exactness is bit-exactness, and it is only claimed for an axis-aligned plane through
-///         the origin.</b> On that plane — which is what a character's symmetry plane is — the snap is
+///         ⚠
+///         <b>
+///             Exactness is bit-exactness, and it is only claimed for an axis-aligned plane through
+///             the origin.
+///         </b>
+///         On that plane — which is what a character's symmetry plane is — the snap is
 ///         a store of <c>0f</c> and the reflection is a sign-bit flip, both of which are exact for
 ///         every float. On a general plane the reflection is
 ///         <c>p − 2(n·p + d)n</c> evaluated in <c>float</c>, which rounds; the report says so rather
@@ -41,8 +49,12 @@ namespace Vixen.Geometry.Remeshing;
 ///         rather than to within the layout's.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Stage seven runs here rather than inside the half's own remesh, because the
-///         attributes are indexed by the <i>uncut</i> source.</b> A colour per corner and a weight per
+///         ⚠
+///         <b>
+///             Stage seven runs here rather than inside the half's own remesh, because the
+///             attributes are indexed by the <i>uncut</i> source.
+///         </b>
+///         A colour per corner and a weight per
 ///         position belong to the mesh the caller handed in, and the plane cut renumbered both. So the
 ///         inner remesh is asked for geometry alone and the transfer is made from the original source
 ///         onto the half's output — which is also the better question, since the cut's own rim is not
@@ -52,8 +64,12 @@ namespace Vixen.Geometry.Remeshing;
 static class SymmetryPass {
     /// <summary>How near the plane a vertex must be to count as on it, as a fraction of the diagonal.</summary>
     /// <remarks>
-    ///     ⚠ <b>A tolerance for <i>classification</i> and never for welding, and the two are not the
-    ///     same decision.</b> Deciding which vertices the frozen border put on the plane is a question
+    ///     ⚠
+    ///     <b>
+    ///         A tolerance for <i>classification</i> and never for welding, and the two are not the
+    ///         same decision.
+    ///     </b>
+    ///     Deciding which vertices the frozen border put on the plane is a question
     ///     about the extraction's error and has to have a number. What that number must not do is
     ///     decide whether two vertices become one — that is settled by construction, because a vertex
     ///     classified onto the plane is never mirrored at all.
@@ -84,7 +100,7 @@ static class SymmetryPass {
         // from. Which side is kept is arbitrary and the choice has to be written down, because a
         // caller who flips their plane's normal expecting the same mesh gets the other half — and on
         // an asymmetric input that is a different model, not a different orientation.
-        var half = mirror.Normal.IsZero ? null : MeshBoolean.PlaneCut(source, mirror, keepFront: false, cap: false);
+        var half = mirror.Normal.IsZero ? null : MeshBoolean.PlaneCut(source, mirror, false, false);
 
         if (half is null || half.IsEmpty) {
             // ⚠ The bone map is not wanted on this branch and is not asked for. Nothing is mirrored
@@ -125,7 +141,7 @@ static class SymmetryPass {
 
         if (solved.IsEmpty) {
             transferred = new([], null, 0, 0, warnings);
-            report = With(report, [.. warnings, "Symmetry was requested and the half the plane cut refused to remesh."]);
+            report = With(report, [..warnings, "Symmetry was requested and the half the plane cut refused to remesh."]);
 
             return solved;
         }
@@ -177,15 +193,17 @@ static class SymmetryPass {
         // hides the overshoot — measured, a report saying "169665 against 96" for a mesh carrying
         // 339330 faces. There is only one budget and it is about what the caller receives.
         var inherited = report.Warnings
-            .Where(line => !line.StartsWith("The budget was not met:", StringComparison.Ordinal))
+            .Where(static line => !line.StartsWith("The budget was not met:", StringComparison.Ordinal))
             .ToArray();
 
         Remesher.Overspent(built.FaceCount, settings, warnings);
 
         report = With(
             Restage(report, settings.TransferAttributes ? built.CornerCount : 0)
-                with { QuadCount = quads, NonQuadCount = others, Mesh = built.Validate(), Warnings = inherited },
-            [.. warnings]
+            with {
+                QuadCount = quads, NonQuadCount = others, Mesh = built.Validate(), Warnings = inherited
+            },
+            [..warnings]
         );
 
         return built;
@@ -193,8 +211,12 @@ static class SymmetryPass {
 
     /// <summary>Puts the corners this pass transferred back into the transfer stage's element count.</summary>
     /// <remarks>
-    ///     ⚠ <b>The inner remesh was asked for geometry, so its transfer stage counted only the
-    ///     atlas's charts.</b> Without this a symmetric remesh's report means something different from
+    ///     ⚠
+    ///     <b>
+    ///         The inner remesh was asked for geometry, so its transfer stage counted only the
+    ///         atlas's charts.
+    ///     </b>
+    ///     Without this a symmetric remesh's report means something different from
     ///     every other remesh's, and <c>LayoutAtlasTests</c> reads the chart count out of exactly this
     ///     field by subtracting the corners back off.
     /// </remarks>
@@ -313,8 +335,8 @@ static class SymmetryPass {
             PositionSource = positionSource,
             PositionIsMirror = positionIsMirror,
             PositionIsSeam = positionIsSeam,
-            CornerSource = [.. cornerSource],
-            CornerIsMirror = [.. cornerIsMirror]
+            CornerSource = [..cornerSource],
+            CornerIsMirror = [..cornerIsMirror]
         };
 
         return built;
@@ -344,8 +366,12 @@ static class SymmetryPass {
     /// <param name="axis">Which axis it is, or −1 for a general plane.</param>
     /// <returns>The reflected direction.</returns>
     /// <remarks>
-    ///     ⚠ <b>A normal is a direction and reflecting it through <see cref="Plane.DotCoordinate" />
-    ///     would translate it.</b> On a plane through the origin the two agree and the mistake is
+    ///     ⚠
+    ///     <b>
+    ///         A normal is a direction and reflecting it through <see cref="Plane.DotCoordinate" />
+    ///         would translate it.
+    ///     </b>
+    ///     On a plane through the origin the two agree and the mistake is
     ///     invisible; on any other the normals of the mirrored half come back offset by twice the
     ///     plane's distance, which is a lighting bug that appears the day somebody mirrors about a
     ///     plane that is not at zero.
@@ -355,7 +381,7 @@ static class SymmetryPass {
             0 => new(-direction.X, direction.Y, direction.Z),
             1 => new(direction.X, -direction.Y, direction.Z),
             2 => new(direction.X, direction.Y, -direction.Z),
-            _ => direction - (plane.Normal * (2f * Vector3.Dot(plane.Normal, direction)))
+            _ => direction - plane.Normal * (2f * Vector3.Dot(plane.Normal, direction))
         };
 
     /// <summary>Which axis the plane is, or −1 when it is not one through the origin.</summary>
@@ -396,5 +422,5 @@ static class SymmetryPass {
     static float Diagonal(EditMesh mesh) => mesh.Bounds.Size.Length();
 
     static RemeshReport With(RemeshReport report, params string[] added) =>
-        report with { Warnings = [.. report.Warnings, .. added] };
+        report with { Warnings = [..report.Warnings, ..added] };
 }

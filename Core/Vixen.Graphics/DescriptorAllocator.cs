@@ -39,8 +39,12 @@ namespace Vixen.Graphics;
 ///         <see cref="DescriptorWrite" />s. Every pass that reads the same shadow atlas and cluster
 ///         buffer shares one set rather than getting one each, which is the difference between a set
 ///         per pass and a set per <em>distinct combination</em> — in a real frame, two orders of
-///         magnitude. It also means <strong>the set you are handed may be shared, so never call
-///         <see cref="IGraphicsDevice.UpdateDescriptorSet" /> on it yourself</strong>; ask for another
+///         magnitude. It also means
+///         <strong>
+///             the set you are handed may be shared, so never call
+///             <see cref="IGraphicsDevice.UpdateDescriptorSet" /> on it yourself
+///         </strong>
+///         ; ask for another
 ///         one with the writes you wanted.
 ///     </para>
 ///     <para>
@@ -109,8 +113,10 @@ public sealed class DescriptorAllocator : IDisposable {
         }
     }
 
-    /// <summary>How many sets this frame had to write, which is how many distinct binding
-    /// combinations it used.</summary>
+    /// <summary>
+    ///     How many sets this frame had to write, which is how many distinct binding
+    ///     combinations it used.
+    /// </summary>
     public int WriteCount { get; private set; }
 
     /// <summary>How many requests this frame were answered out of the cache.</summary>
@@ -156,8 +162,12 @@ public sealed class DescriptorAllocator : IDisposable {
     ///     <see cref="BeginFrame" />.
     /// </exception>
     /// <remarks>
-    ///     ⚠ <b>Refuses outright where the frame boundary went by unannounced, and that is the whole
-    ///     point of it being loud.</b> A missed <see cref="BeginFrame" /> is invisible from every
+    ///     ⚠
+    ///     <b>
+    ///         Refuses outright where the frame boundary went by unannounced, and that is the whole
+    ///         point of it being loud.
+    ///     </b>
+    ///     A missed <see cref="BeginFrame" /> is invisible from every
     ///     direction that matters: the sets are handed out, the pipelines bind them, the draws record,
     ///     the validation layers say nothing — and the frame is wrong only because the cache is
     ///     content-addressed over handles that name transient graph memory, so <c>f + 1</c> gets back
@@ -299,8 +309,7 @@ public sealed class DescriptorAllocator : IDisposable {
     sealed class KeyComparer : IEqualityComparer<SetKey>, IAlternateEqualityComparer<SetProbe, SetKey> {
         public static readonly KeyComparer Instance = new();
 
-        public bool Equals(SetKey x, SetKey y) =>
-            x.Layout == y.Layout && x.Writes.AsSpan().SequenceEqual(y.Writes);
+        public bool Equals(SetKey x, SetKey y) => x.Layout == y.Layout && x.Writes.AsSpan().SequenceEqual(y.Writes);
 
         public int GetHashCode(SetKey key) => Hash(key.Layout, key.Writes);
 
@@ -309,7 +318,7 @@ public sealed class DescriptorAllocator : IDisposable {
 
         public int GetHashCode(SetProbe alternate) => Hash(alternate.Layout, alternate.Writes);
 
-        public SetKey Create(SetProbe alternate) => new(alternate.Layout, alternate.Writes.ToArray());
+        public SetKey Create(SetProbe alternate) => new(alternate.Layout, [..alternate.Writes]);
 
         static int Hash(DescriptorSetLayoutHandle layout, ReadOnlySpan<DescriptorWrite> writes) {
             var hash = new HashCode();

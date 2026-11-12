@@ -9,16 +9,23 @@ namespace Vixen.Fuzz.Tests;
 /// <summary>The one oracle whose reading the machine can write, and how it is made to mean something.</summary>
 /// <remarks>
 ///     <para>
-///         <b>Three of the four post-hoc oracles measure the decode. The fourth measures the
-///         host.</b> A throw, an allocation figure and a retained count are properties of the input;
+///         <b>
+///             Three of the four post-hoc oracles measure the decode. The fourth measures the
+///             host.
+///         </b>
+///         A throw, an allocation figure and a retained count are properties of the input;
 ///         elapsed wall time is a property of the input <i>plus</i> everything else the machine was
 ///         doing, and on a shared CI runner the second term is the larger one. One Windows run
 ///         reported six targets over a two-second budget in the same job, on inputs that replay in
 ///         microseconds — including a four-byte one billed at 2.4 seconds.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The fix is not a bigger number, and these tests exist so that it cannot quietly become
-///         one.</b> An over-budget case is now asked again and judged on its cheapest reading, which
+///         ⚠
+///         <b>
+///             The fix is not a bigger number, and these tests exist so that it cannot quietly become
+///             one.
+///         </b>
+///         An over-budget case is now asked again and judged on its cheapest reading, which
 ///         separates the two populations that a single reading cannot:
 ///         <see cref="AOneOffStallIsNotAFinding" /> is a cost the input cannot be made to pay twice
 ///         and passes, <see cref="ACaseThatIsSlowEveryTimeIsStillAFinding" /> is a cost it pays on
@@ -57,9 +64,7 @@ public sealed class CaseBudgetTests {
         var target = new StallsOncePerInputTarget();
 
         var session = new FuzzSession(target, 1) {
-            CaseBudget = Budget,
-            WarmUpCases = 0,
-            AbandonProcessOnRunaway = false
+            CaseBudget = Budget, WarmUpCases = 0, AbandonProcessOnRunaway = false
         };
 
         var outcome = session.Run(4);
@@ -86,10 +91,7 @@ public sealed class CaseBudgetTests {
         var target = new StallsOncePerInputTarget();
 
         var session = new FuzzSession(target, 1) {
-            CaseBudget = Budget,
-            CaseBudgetConfirmations = 0,
-            WarmUpCases = 0,
-            AbandonProcessOnRunaway = false
+            CaseBudget = Budget, CaseBudgetConfirmations = 0, WarmUpCases = 0, AbandonProcessOnRunaway = false
         };
 
         var outcome = session.Run(4);
@@ -110,9 +112,7 @@ public sealed class CaseBudgetTests {
         var target = new AlwaysSlowTarget();
 
         var session = new FuzzSession(target, 1) {
-            CaseBudget = Budget,
-            WarmUpCases = 0,
-            AbandonProcessOnRunaway = false
+            CaseBudget = Budget, WarmUpCases = 0, AbandonProcessOnRunaway = false
         };
 
         var outcome = session.Run(1);
@@ -136,8 +136,12 @@ public sealed class CaseBudgetTests {
     ///         last term is asserted to be a rounding error rather than a rate.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>That term is not zero, and finding out that it is not zero here is the whole
-    ///         diagnosis in miniature.</b> This target's decode is a fold over at most a couple of
+    ///         ⚠
+    ///         <b>
+    ///             That term is not zero, and finding out that it is not zero here is the whole
+    ///             diagnosis in miniature.
+    ///         </b>
+    ///         This target's decode is a fold over at most a couple of
     ///         kilobytes. Written with <see cref="FuzzOutcome.Acquitted" /> asserted at zero, it failed
     ///         on the first run on an idle laptop: one case in two hundred thousand read over forty
     ///         milliseconds, which is four orders of magnitude over what the fold costs. That is the
@@ -167,14 +171,18 @@ public sealed class CaseBudgetTests {
         Assert.InRange(
             target.Calls,
             200_000L + Replays,
-            200_000L + Replays + (outcome.Acquitted * session.CaseBudgetConfirmations)
+            200_000L + Replays + outcome.Acquitted * session.CaseBudgetConfirmations
         );
     }
 
     /// <summary>A target whose first sight of an input is expensive and whose second is not.</summary>
     /// <remarks>
-    ///     ⚠ <b>Keyed on the input rather than on a call count, so that where the run's corpus replay
-    ///     ends does not decide what this test measures.</b> Every case the loop generates is new, so
+    ///     ⚠
+    ///     <b>
+    ///         Keyed on the input rather than on a call count, so that where the run's corpus replay
+    ///         ends does not decide what this test measures.
+    ///     </b>
+    ///     Every case the loop generates is new, so
     ///     every measured case stalls once and is then confirmed cheap — which is the population the
     ///     oracle has been mistaking for a defect, and is also, exactly, the cost an attacker cannot
     ///     make a server pay twice.
@@ -247,7 +255,7 @@ public sealed class CaseBudgetTests {
             long signature = 17;
 
             foreach (var value in input) {
-                signature = (signature * 31) + value;
+                signature = signature * 31 + value;
             }
 
             return signature & 0xFFFF;

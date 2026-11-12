@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Ui;
-using Vixen.Ui.Styling;
 using Xunit;
 
 namespace Vixen.Ui.Styling.Utilities.Tests;
@@ -19,8 +18,12 @@ namespace Vixen.Ui.Styling.Utilities.Tests;
 ///         the rule is <i>about</i>. It has a <c>Scope</c> now.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Nothing in the selector engine needed to change, and the design started from the
-///         assumption that something would.</b> A child combinator, <c>:not()</c> and
+///         ⚠
+///         <b>
+///             Nothing in the selector engine needed to change, and the design started from the
+///             assumption that something would.
+///         </b>
+///         A child combinator, <c>:not()</c> and
 ///         <c>:last-child</c> are all compiled and matched by <c>SelectorCompiler</c> and
 ///         <c>SelectorMatcher</c> already — <see cref="A_scoped_family_reaches_the_children_and_not_the_last_one" />
 ///         is the proof, and it is first in the file because the whole design rests on it. What was
@@ -55,7 +58,7 @@ public class ChildScopedFamilyTests {
     ) {
         var fixture = new UtilityFixture();
         var engine = new StyleEngine();
-        engine.Load(fixture.Generate(utility), StyleOrigin.Author);
+        engine.Load(fixture.Generate(utility));
 
         var container = engine.Tree.CreateElement("div", null, classNames: [utility]);
         var first = engine.Tree.CreateElement("div", container);
@@ -75,8 +78,7 @@ public class ChildScopedFamilyTests {
         // right in a two-child column and be a trailing gap everywhere else.
         Assert.Null(Read(styles[container.Index]));
 
-        string? Read(ComputedStyle style) =>
-            style.TryGet(id, out var value) ? engine.Values.NameOf(value) : null;
+        string? Read(ComputedStyle style) => style.TryGet(id, out var value) ? engine.Values.NameOf(value) : null;
     }
 
     /// <summary>And the layout moves, which is the only claim worth making about a margin.</summary>
@@ -94,12 +96,12 @@ public class ChildScopedFamilyTests {
 
         using var document = new UiDocument(200f, 200f);
         document.Load(
-            fixture.Generate("space-x-2", "space-y-2") + """
-            #row    { display: flex; flex-direction: row; }
-            #column { display: flex; flex-direction: column; }
-            .kid    { width: 20px; height: 10px; }
-            """,
-            StyleOrigin.Author
+            fixture.Generate("space-x-2", "space-y-2")
+            + """
+              #row    { display: flex; flex-direction: row; }
+              #column { display: flex; flex-direction: column; }
+              .kid    { width: 20px; height: 10px; }
+              """
         );
 
         var row = document.Create("div", document.Root, "row", "space-x-2");
@@ -119,8 +121,12 @@ public class ChildScopedFamilyTests {
 
     /// <summary>Each of the five names resolves to itself rather than being eaten by a shorter one.</summary>
     /// <remarks>
-    ///     ⚠ <b><c>SplitName</c> takes the longest registered name and does not retry a shorter prefix
-    ///     on failure</b> — doc 43 § F8 — so a family whose name is a prefix of another, or whose
+    ///     ⚠
+    ///     <b>
+    ///         <c>SplitName</c> takes the longest registered name and does not retry a shorter prefix
+    ///         on failure
+    ///     </b>
+    ///     — doc 43 § F8 — so a family whose name is a prefix of another, or whose
     ///     name another is a prefix of, can shadow it silently and the class is reported as a typo. All
     ///     five names added here are short and two of them nest (<c>divide</c> inside
     ///     <c>divide-x</c>), which is exactly the arrangement that goes wrong. Asserted rather than
@@ -154,7 +160,7 @@ public class ChildScopedFamilyTests {
     /// </remarks>
     [Theory]
     [InlineData("space-x-2", ":where(.space-x-2 > :not(:last-child))")]
-    [InlineData("hover:space-x-2", ":where(.hover\\:space-x-2:hover > :not(:last-child))")]
+    [InlineData("hover:space-x-2", """:where(.hover\:space-x-2:hover > :not(:last-child))""")]
     [InlineData("divide-y", ":where(.divide-y > :not(:last-child))")]
     public void The_scope_is_appended_after_the_variants(string utility, string selector) =>
         Assert.Contains(selector, new UtilityFixture().Generate(utility), StringComparison.Ordinal);
@@ -165,7 +171,7 @@ public class ChildScopedFamilyTests {
         var css = new UtilityFixture().Generate("md:divide-y-2");
 
         Assert.Contains("@media (min-width: 768px)", css, StringComparison.Ordinal);
-        Assert.Contains(":where(.md\\:divide-y-2 > :not(:last-child))", css, StringComparison.Ordinal);
+        Assert.Contains(""":where(.md\:divide-y-2 > :not(:last-child))""", css, StringComparison.Ordinal);
     }
 
     /// <summary><c>@apply</c> refuses a scoped family, for the reason it refuses a variant.</summary>
@@ -198,8 +204,12 @@ public class ChildScopedFamilyTests {
     ///         spelling is reported as unknown rather than resolving to something nobody asked for.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b><c>divide-x-[red]</c> is <i>not</i> in this list, and finding out why is worth the
-    ///         line.</b> <c>LooksLikeColor</c> is a shape test over <c>#</c>, <c>rgb</c> and
+    ///         ⚠
+    ///         <b>
+    ///             <c>divide-x-[red]</c> is <i>not</i> in this list, and finding out why is worth the
+    ///             line.
+    ///         </b>
+    ///         <c>LooksLikeColor</c> is a shape test over <c>#</c>, <c>rgb</c> and
     ///         <c>hsl</c> — a named colour does not look like one — so an arbitrary <c>red</c> takes
     ///         the width branch and emits <c>border-inline-end-width: red</c>. That is the escape
     ///         hatch behaving as <c>IsPlausibleValue</c>'s remark says it must ("a token-shape test
@@ -238,26 +248,40 @@ public class ChildScopedFamilyTests {
     /// <summary>The three v4 spellings this engine deliberately does not have, pinned as absent.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Absence recorded as a test, because the alternative is a family that computes a
-    ///         value and does nothing.</b> Each of these needs something the engine has not got, and
+    ///         ⚠
+    ///         <b>
+    ///             Absence recorded as a test, because the alternative is a family that computes a
+    ///             value and does nothing.
+    ///         </b>
+    ///         Each of these needs something the engine has not got, and
     ///         each would resolve cleanly if it were registered:
     ///     </para>
     ///     <list type="bullet">
-    ///         <item><c>space-x-reverse</c> and <c>divide-x-reverse</c> — v4 emits both edges of the
-    ///         axis and multiplies each by a <c>--tw-*-reverse</c> flag. ⚠ <b>The reason written here
-    ///         was that <c>StyleValueParser</c> has no <c>calc()</c>, so the flag would have nothing
-    ///         to multiply and the class would be a custom property nobody reads. Both halves of that
-    ///         have expired</b> — the parser folds <c>+ - * /</c>, and <c>ReverseFlagTests</c>
-    ///         measures the flag being written by one class and read by another's declaration at both
-    ///         its values. What holds them out now is the one-edge decision: <c>divide-x</c> and
-    ///         <c>space-x</c> write only the edge they mean, because writing the leading one would
-    ///         out-specify a child's own <c>border-s-2</c>, and a reverse flag works by swapping which
-    ///         of <i>two</i> written edges carries the width. See <c>UtilityFamilies</c>'
-    ///         <c>divide-x-*</c> remark and #599.</item>
+    ///         <item>
+    ///             <c>space-x-reverse</c> and <c>divide-x-reverse</c> — v4 emits both edges of the
+    ///             axis and multiplies each by a <c>--tw-*-reverse</c> flag. ⚠
+    ///             <b>
+    ///                 The reason written here
+    ///                 was that <c>StyleValueParser</c> has no <c>calc()</c>, so the flag would have nothing
+    ///                 to multiply and the class would be a custom property nobody reads. Both halves of that
+    ///                 have expired
+    ///             </b>
+    ///             — the parser folds <c>+ - * /</c>, and <c>ReverseFlagTests</c>
+    ///             measures the flag being written by one class and read by another's declaration at both
+    ///             its values. What holds them out now is the one-edge decision: <c>divide-x</c> and
+    ///             <c>space-x</c> write only the edge they mean, because writing the leading one would
+    ///             out-specify a child's own <c>border-s-2</c>, and a reverse flag works by swapping which
+    ///             of <i>two</i> written edges carries the width. See <c>UtilityFamilies</c>'
+    ///             <c>divide-x-*</c> remark and #599.
+    ///         </item>
     ///     </list>
     ///     <para>
-    ///         ⚠ <b><c>divide-solid</c> and the other four style keywords used to be on this list and
-    ///         are not any more.</b> They were absent because <c>border-style</c> was emitted by no
+    ///         ⚠
+    ///         <b>
+    ///             <c>divide-solid</c> and the other four style keywords used to be on this list and
+    ///             are not any more.
+    ///         </b>
+    ///         They were absent because <c>border-style</c> was emitted by no
     ///         family and read by nothing — measured, not assumed — and doc 43 § A3 closed both halves
     ///         at once: <c>DrawListBuilder</c> reads the four style longhands, and a divider's dashes
     ///         are marks along its band. <c>A_dashed_divider_resolves</c> below is what that list entry
@@ -300,8 +324,12 @@ public class ChildScopedFamilyTests {
     /// <summary>A child's own utility beats the container's spacing, which is v4's behaviour.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>This test used to assert the opposite, and the divergence it pinned rested on a
-    ///         claim that was wrong twice over.</b> Doc 43 § F9 and this file both said
+    ///         ⚠
+    ///         <b>
+    ///             This test used to assert the opposite, and the divergence it pinned rested on a
+    ///             claim that was wrong twice over.
+    ///         </b>
+    ///         Doc 43 § F9 and this file both said
     ///         <c>SelectorCompiler</c> "compiles <c>:where()</c> as <c>:is()</c> and charges a class
     ///         for it either way", so the emitted rule sat at (0,2,0) and closing the gap was three
     ///         lines. ExCSS 4.3.2 does not parse <c>:where()</c> at all — the whole selector came
@@ -322,7 +350,7 @@ public class ChildScopedFamilyTests {
     public void A_child_utility_beats_the_containers_space_which_is_the_v4_behaviour() {
         var fixture = new UtilityFixture();
         var engine = new StyleEngine();
-        engine.Load(fixture.Generate("space-y-4", "mb-0"), StyleOrigin.Author);
+        engine.Load(fixture.Generate("space-y-4", "mb-0"));
 
         var container = engine.Tree.CreateElement("div", null, classNames: ["space-y-4"]);
         var child = engine.Tree.CreateElement("div", container, classNames: ["mb-0"]);
@@ -346,8 +374,12 @@ public class ChildScopedFamilyTests {
     /// <summary><c>placeholder-*</c> colours the prompt a real field builds, and nothing beside it.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The third scoped family, and the first whose scope is a <i>tag</i> rather than a
-    ///         position.</b> The ledger refused this root on F6 for two years of batches, and one of
+    ///         ⚠
+    ///         <b>
+    ///             The third scoped family, and the first whose scope is a <i>tag</i> rather than a
+    ///             position.
+    ///         </b>
+    ///         The ledger refused this root on F6 for two years of batches, and one of
     ///         its two reasons was false at HEAD: "<c>TextField.Placeholder</c> is a C# property the
     ///         control draws itself, not a child in the tree". It is a child in the tree —
     ///         <c>TextField.OnCreated</c> builds it as <c>Part("field-placeholder")</c> — so the
@@ -371,13 +403,13 @@ public class ChildScopedFamilyTests {
         Assert.NotNull(accent);
 
         using var document = new UiDocument(200f, 100f);
-        document.Load(fixture.Generate("placeholder-accent"), StyleOrigin.Author);
+        document.Load(fixture.Generate("placeholder-accent"));
 
         var field = document.Root.Add<Vixen.Ui.Controls.TextBox>(null, null, "placeholder-accent");
         document.Update();
 
-        var placeholder = field.Children.Single(child => child.Tag == "field-placeholder");
-        var text = field.Children.Single(child => child.Tag == "field-text");
+        var placeholder = field.Children.Single(static child => child.Tag == "field-placeholder");
+        var text = field.Children.Single(static child => child.Tag == "field-text");
         var color = document.Styles.Properties.Lookup("color");
 
         Assert.True(placeholder.Style.TryGet(color, out var prompt), "the placeholder part was not coloured.");

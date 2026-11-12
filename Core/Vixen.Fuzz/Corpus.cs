@@ -27,8 +27,11 @@ public sealed class Corpus {
     /// <summary>How many inputs are kept before new ones start replacing old ones.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>A corpus is a working set, and an unbounded one is a memory leak wearing a
-    ///         hat.</b> Learnt the hard way: with a signature that could not saturate, one target
+    ///         <b>
+    ///             A corpus is a working set, and an unbounded one is a memory leak wearing a
+    ///             hat.
+    ///         </b>
+    ///         Learnt the hard way: with a signature that could not saturate, one target
     ///         kept a million inputs inside a second and the test host died under the memory
     ///         pressure of a full-solution run — a failure with no failing test in it, because the
     ///         process never got as far as writing its results.
@@ -53,8 +56,11 @@ public sealed class Corpus {
     /// <summary>How often an input is kept once novelty has stopped meaning anything.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>Only reached when a target has said its behaviour space is too large for the
-    ///         signature to summarise</b> — see <see cref="IFuzzTarget.NoveltyGuides" />. Past
+    ///         <b>
+    ///             Only reached when a target has said its behaviour space is too large for the
+    ///             signature to summarise
+    ///         </b>
+    ///         — see <see cref="IFuzzTarget.NoveltyGuides" />. Past
     ///         <see cref="MaxSignatures" /> such a target keeps one input in this many regardless of
     ///         what it did, so the pool the mutator draws from goes on turning over.
     ///     </para>
@@ -192,8 +198,12 @@ public sealed class Corpus {
     /// <returns>The path written, or already there.</returns>
     /// <exception cref="ArgumentNullException">Any argument is null.</exception>
     /// <remarks>
-    ///     ⚠ <b>Two threads write the same finding, and on Windows the second used to become a
-    ///     finding of its own.</b> <see cref="CaseGuard" /> writes a runaway from its watchdog
+    ///     ⚠
+    ///     <b>
+    ///         Two threads write the same finding, and on Windows the second used to become a
+    ///         finding of its own.
+    ///     </b>
+    ///     <see cref="CaseGuard" /> writes a runaway from its watchdog
     ///     thread while the case is still running, and the session writes what the abandoned case
     ///     threw when it comes back — the same bytes, so the same name. <c>File.WriteAllBytes</c>
     ///     opens without write sharing, the second open fails with "being used by another process",
@@ -215,7 +225,7 @@ public sealed class Corpus {
     ///     </para>
     /// </remarks>
     public static string WriteRegression(string directory, string target, byte[] input) =>
-        WriteRegression(directory, target, input, staged: null);
+        WriteRegression(directory, target, input, null);
 
     /// <summary>
     ///     <see cref="WriteRegression(string, string, byte[])" />, with a hook between writing the
@@ -245,7 +255,7 @@ public sealed class Corpus {
             staged?.Invoke(staging);
 
             try {
-                File.Move(staging, path, overwrite: false);
+                File.Move(staging, path, false);
             } catch (IOException) when (File.Exists(path)) {
                 // The other writer published first, with these bytes.
             }

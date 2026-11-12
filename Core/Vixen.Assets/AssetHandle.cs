@@ -134,7 +134,9 @@ public sealed class AssetScope : IDisposable {
     readonly Lock gate = new();
     bool disposed;
 
-    internal AssetScope(AssetManager manager) => this.manager = manager;
+    internal AssetScope(AssetManager manager) {
+        this.manager = manager;
+    }
 
     /// <summary>How many handles the scope is holding.</summary>
     public int Count {

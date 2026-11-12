@@ -16,7 +16,7 @@ namespace Vixen.Core.Mathematics;
 /// </remarks>
 [DataContract]
 [StructLayout(LayoutKind.Sequential)]
-public readonly struct Vector3 : IEquatable<Vector3>, IFormattable, ISpanFormattable {
+public readonly struct Vector3 : IEquatable<Vector3>, ISpanFormattable {
     /// <summary>Number of components.</summary>
     public const int ComponentCount = 3;
 
@@ -122,14 +122,14 @@ public readonly struct Vector3 : IEquatable<Vector3>, IFormattable, ISpanFormatt
     }
 
     /// <summary>The length of the vector.</summary>
-    public float Length() => MathF.Sqrt((X * X) + (Y * Y) + (Z * Z));
+    public float Length() => MathF.Sqrt(X * X + Y * Y + Z * Z);
 
     /// <summary>
     ///     The squared length. Prefer it wherever the answer is only compared — culling, nearest
     ///     searches, tolerance tests — because it skips a square root per element.
     /// </summary>
     /// <returns>The squared length.</returns>
-    public float LengthSquared() => (X * X) + (Y * Y) + (Z * Z);
+    public float LengthSquared() => X * X + Y * Y + Z * Z;
 
     /// <summary>Whether every component is zero.</summary>
     public bool IsZero => X == 0f && Y == 0f && Z == 0f;
@@ -158,8 +158,7 @@ public readonly struct Vector3 : IEquatable<Vector3>, IFormattable, ISpanFormatt
     /// <param name="left">The first vector.</param>
     /// <param name="right">The second vector.</param>
     /// <returns>The scalar product.</returns>
-    public static float Dot(Vector3 left, Vector3 right) =>
-        (left.X * right.X) + (left.Y * right.Y) + (left.Z * right.Z);
+    public static float Dot(Vector3 left, Vector3 right) => left.X * right.X + left.Y * right.Y + left.Z * right.Z;
 
     /// <summary>
     ///     The cross product, right-handed: <c>Cross(UnitX, UnitY)</c> is <c>UnitZ</c>.
@@ -169,9 +168,9 @@ public readonly struct Vector3 : IEquatable<Vector3>, IFormattable, ISpanFormatt
     /// <returns>A vector perpendicular to both.</returns>
     public static Vector3 Cross(Vector3 left, Vector3 right) =>
         new(
-            (left.Y * right.Z) - (left.Z * right.Y),
-            (left.Z * right.X) - (left.X * right.Z),
-            (left.X * right.Y) - (left.Y * right.X)
+            left.Y * right.Z - left.Z * right.Y,
+            left.Z * right.X - left.X * right.Z,
+            left.X * right.Y - left.Y * right.X
         );
 
     /// <summary>The distance between two points.</summary>
@@ -191,7 +190,7 @@ public readonly struct Vector3 : IEquatable<Vector3>, IFormattable, ISpanFormatt
     /// <param name="to">The vector at <paramref name="amount" /> = 1.</param>
     /// <param name="amount">The interpolant. Not clamped.</param>
     /// <returns>The interpolated vector.</returns>
-    public static Vector3 Lerp(Vector3 from, Vector3 to, float amount) => from + ((to - from) * amount);
+    public static Vector3 Lerp(Vector3 from, Vector3 to, float amount) => from + (to - from) * amount;
 
     /// <summary>The component-wise minimum.</summary>
     /// <param name="left">The first vector.</param>
@@ -224,7 +223,7 @@ public readonly struct Vector3 : IEquatable<Vector3>, IFormattable, ISpanFormatt
     /// <param name="normal">The surface normal. Expected to be unit length.</param>
     /// <returns>The reflected direction.</returns>
     public static Vector3 Reflect(Vector3 direction, Vector3 normal) =>
-        direction - (normal * (2f * Dot(direction, normal)));
+        direction - normal * (2f * Dot(direction, normal));
 
     /// <summary>The component of <paramref name="value" /> along <paramref name="onto" />.</summary>
     /// <param name="value">The vector to project.</param>

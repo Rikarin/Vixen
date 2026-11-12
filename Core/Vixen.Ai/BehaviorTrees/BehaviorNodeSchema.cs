@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Globalization;
-using Vixen.Core;
 
 namespace Vixen.Ai;
 
@@ -457,8 +456,20 @@ public sealed class BehaviorNodeSchema {
             BehaviorSlot.Decorator,
             "Runs the node again: a fixed number of times, or until it fails, with a timeout.",
             [
-                new("Times", "Times", BehaviorFieldKind.Integer, "How many, counting the first run. Zero means until failure.", "0"),
-                new("Timeout", "Timeout", BehaviorFieldKind.Number, "How long it may keep going. Required when Times is zero.", "5")
+                new(
+                    "Times",
+                    "Times",
+                    BehaviorFieldKind.Integer,
+                    "How many, counting the first run. Zero means until failure.",
+                    "0"
+                ),
+                new(
+                    "Timeout",
+                    "Timeout",
+                    BehaviorFieldKind.Number,
+                    "How long it may keep going. Required when Times is zero.",
+                    "5"
+                )
             ]
         );
 
@@ -491,7 +502,13 @@ public sealed class BehaviorNodeSchema {
             "Waits for however long a key says.",
             [
                 key,
-                new("Deviation", "Deviation", BehaviorFieldKind.Number, "How much to jitter it, from the agent's stream.", "0")
+                new(
+                    "Deviation",
+                    "Deviation",
+                    BehaviorFieldKind.Number,
+                    "How much to jitter it, from the agent's stream.",
+                    "0"
+                )
             ]
         );
 

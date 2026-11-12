@@ -48,12 +48,14 @@ static class TaffyFixtureRunner {
 
         LayoutNodeId root;
         try {
-            root = Build(tree, fixture.Input, default, isRoot: true);
+            root = Build(tree, fixture.Input, default, true);
         } catch (TaffyUnsupportedException unsupported) {
-            return new TaffyResult(TaffyOutcome.Unsupported, unsupported.Feature);
+            return new(TaffyOutcome.Unsupported, unsupported.Feature);
         }
 
-        var direction = fixture.Input.Attributes.GetValueOrDefault("direction") == "rtl" ? Direction.Rtl : Direction.Ltr;
+        var direction = fixture.Input.Attributes.GetValueOrDefault("direction") == "rtl"
+            ? Direction.Rtl
+            : Direction.Ltr;
         tree.CalculateLayout(root, fixture.ViewportWidth, fixture.ViewportHeight, direction);
 
         var failures = new StringBuilder();
@@ -75,7 +77,8 @@ static class TaffyFixtureRunner {
             // ⚠ Only a <text> leaf with content measures. A childless <div> is a genuinely empty box,
             // and giving it a measure function would make it 0×10 instead of 0×0.
             if (input is { IsText: true, Text: { Length: > 0 } text }) {
-                var isVertical = input.Attributes.GetValueOrDefault("writing-mode", string.Empty).Contains("vertical", StringComparison.Ordinal);
+                var isVertical = input.Attributes.GetValueOrDefault("writing-mode", string.Empty)
+                    .Contains("vertical", StringComparison.Ordinal);
                 tree.SetContext(node, new TaffyText(text, isVertical));
                 tree.SetMeasureFunction(node, TaffyAhemMeasure.Measure);
             }
@@ -87,9 +90,10 @@ static class TaffyFixtureRunner {
         // one container value — an rtl child and an ltr child of the same ltr column go to opposite
         // edges from the same declaration. Pushing it down as align-self is exactly equivalent, and
         // a child that states its own align-self overrides it as the cascade requires.
-        var selfRelativeItems = input.Attributes.GetValueOrDefault("align-items") is { } items && TaffyStyleMap.IsSelfRelative(items)
-            ? items
-            : null;
+        var selfRelativeItems =
+            input.Attributes.GetValueOrDefault("align-items") is { } items && TaffyStyleMap.IsSelfRelative(items)
+                ? items
+                : null;
 
         // ⚠ The same is true of a grid's `justify-items`, and for a stronger reason: on the inline
         // axis `self-start` and `start` disagree whenever the child's `direction` differs from its
@@ -103,7 +107,7 @@ static class TaffyFixtureRunner {
 
         for (var index = 0; index < input.Children.Count; index++) {
             var childInput = input.Children[index];
-            var child = Build(tree, childInput, self, isRoot: false);
+            var child = Build(tree, childInput, self, false);
             var childBox = TaffyBox.From(childInput);
 
             if (selfRelativeItems is not null && !childInput.Attributes.ContainsKey("align-self")) {
@@ -122,7 +126,13 @@ static class TaffyFixtureRunner {
         return node;
     }
 
-    static void Compare(LayoutTree tree, LayoutNodeId node, TaffyExpected expected, string path, StringBuilder failures) {
+    static void Compare(
+        LayoutTree tree,
+        LayoutNodeId node,
+        TaffyExpected expected,
+        string path,
+        StringBuilder failures
+    ) {
         Check(tree.GetLeft(node), expected.X, "x");
         Check(tree.GetTop(node), expected.Y, "y");
         Check(tree.GetWidth(node), expected.Width, "width");

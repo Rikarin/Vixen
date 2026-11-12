@@ -116,7 +116,7 @@ public sealed class IrSwizzleAccess(int[] components) : IrAccess {
                 ? vector.Component
                 : new IrVectorType(vector.Component, Components.Count);
 
-    public override string ToString() => "." + string.Concat(Components.Select(c => "xyzw"[c]));
+    public override string ToString() => "." + string.Concat(Components.Select(static c => "xyzw"[c]));
 }
 
 /// <summary>
@@ -141,7 +141,7 @@ public sealed class IrPlace(IrVariable root, IReadOnlyList<IrAccess>? chain = nu
     }
 
     /// <summary>This place with one more access step appended.</summary>
-    public IrPlace With(IrAccess access) => new(Root, [.. Chain, access]);
+    public IrPlace With(IrAccess access) => new(Root, [..Chain, access]);
 
-    public override string ToString() => Root + string.Concat(Chain.Select(a => a.ToString()));
+    public override string ToString() => Root + string.Concat(Chain.Select(static a => a.ToString()));
 }

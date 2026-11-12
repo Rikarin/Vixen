@@ -44,6 +44,7 @@ public sealed class TerrainFactory : ISceneRendererFactory, ICompositorAssetTran
     // its terrain node in every document the transform produces and the velocity node follows it,
     // so the two pairings queue in opposite directions.
     readonly List<TerrainSceneRenderer> surfaces = [];
+
     /// <summary>Where the frame's terrains come from — the extraction bridge's list.</summary>
     /// <remarks>
     ///     Null builds nodes that draw nothing quietly, which is a document opened by a tool with
@@ -102,7 +103,7 @@ public sealed class TerrainFactory : ISceneRendererFactory, ICompositorAssetTran
             var child = SpliceCasters(children[index]);
 
             if (!ReferenceEquals(child, children[index])) {
-                replaced ??= [.. children];
+                replaced ??= [..children];
                 replaced[index] = child;
             }
         }
@@ -134,9 +135,7 @@ public sealed class TerrainFactory : ISceneRendererFactory, ICompositorAssetTran
                 ScenePass = terrain.ScenePass
             };
 
-            return sequence with {
-                Children = [.. current[..(index + 1)], caster, .. current[(index + 1)..]]
-            };
+            return sequence with { Children = [..current[..(index + 1)], caster, ..current[(index + 1)..]] };
         }
 
         return replaced is null ? node : sequence with { Children = replaced };
@@ -163,7 +162,7 @@ public sealed class TerrainFactory : ISceneRendererFactory, ICompositorAssetTran
             var child = SpliceVelocity(children[index]);
 
             if (!ReferenceEquals(child, children[index])) {
-                replaced ??= [.. children];
+                replaced ??= [..children];
                 replaced[index] = child;
             }
         }
@@ -199,9 +198,7 @@ public sealed class TerrainFactory : ISceneRendererFactory, ICompositorAssetTran
                 Depth = pass.DepthTarget ?? terrain.Depth
             };
 
-            return sequence with {
-                Children = [.. current[..(index + 1)], velocity, .. current[(index + 1)..]]
-            };
+            return sequence with { Children = [..current[..(index + 1)], velocity, ..current[(index + 1)..]] };
         }
 
         return replaced is null ? node : sequence with { Children = replaced };

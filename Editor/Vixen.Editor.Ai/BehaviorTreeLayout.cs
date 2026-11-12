@@ -30,8 +30,12 @@ public readonly record struct BehaviorLayoutOptions(
 /// <summary>Lays a tree out top-down, parents centred over their children.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>The existing <c>NodeGraphLayout</c> is left-to-right by longest path, which is right
-///         for dataflow and wrong for a tree</b> — doc 37 § D19 names this as one of the additions the
+///         ⚠
+///         <b>
+///             The existing <c>NodeGraphLayout</c> is left-to-right by longest path, which is right
+///             for dataflow and wrong for a tree
+///         </b>
+///         — doc 37 § D19 names this as one of the additions the
 ///         canvas needed. It landed here rather than in the framework because the layout needs the
 ///         <i>tree</i>, and the tree is <see cref="BehaviorTreeContent" />: a longest-path layout over
 ///         a projected graph would have to rediscover the parent-child structure it was projected
@@ -77,7 +81,7 @@ public static class BehaviorTreeLayout {
     public static float HeightOf(BehaviorNodeContent node, BehaviorLayoutOptions options) {
         ArgumentNullException.ThrowIfNull(node);
 
-        return 40f + ((node.Decorators.Count + node.Services.Count) * options.AttachmentHeight);
+        return 40f + (node.Decorators.Count + node.Services.Count) * options.AttachmentHeight;
     }
 
     static float Place(BehaviorNodeContent node, int depth, BehaviorLayoutOptions options, ref float cursor) {

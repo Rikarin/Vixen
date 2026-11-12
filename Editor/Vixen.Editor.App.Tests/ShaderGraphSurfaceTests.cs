@@ -11,8 +11,12 @@ namespace Vixen.Editor.App.Tests;
 
 /// <summary>Doc 20's B5 shader-graph row, driven the way somebody reaches it: from the editor.</summary>
 /// <remarks>
-///     ⚠ <b>The node library and the compiler had been ✅ for a while and none of it was
-///     reachable.</b> There was no document, no factory and no create command, so the only way to
+///     ⚠
+///     <b>
+///         The node library and the compiler had been ✅ for a while and none of it was
+///         reachable.
+///     </b>
+///     There was no document, no factory and no create command, so the only way to
 ///     open a shader graph was to write the file by hand outside the editor — which is the same gap
 ///     E5 closed for the VFX graph. These drive the two halves that make it reachable: a file made
 ///     from the Assets menu, and a material's own link to the graph it was authored in.
@@ -21,7 +25,7 @@ public class ShaderGraphSurfaceTests {
     /// <summary>The row is registered under the name doc 11's table calls it.</summary>
     [Fact]
     public void The_registry_has_a_shader_graph_row() {
-        var registry = StandardEditors.CreateWorldless(new Core.EditorProject(new Core.ProjectPaths(Path.GetTempPath())));
+        var registry = StandardEditors.CreateWorldless(new(new(Path.GetTempPath())));
 
         Assert.True(registry.TryGetByName("Shader Graph", out var editor));
         Assert.Contains(ShaderGraphDocument.Extension, editor!.Extensions);
@@ -37,7 +41,11 @@ public class ShaderGraphSurfaceTests {
         fixture.Run("assets.create-shader-graph").Settle();
 
         var created = Directory
-            .EnumerateFiles(fixture.Project.Paths.Assets, "*" + ShaderGraphDocument.Extension, SearchOption.AllDirectories)
+            .EnumerateFiles(
+                fixture.Project.Paths.Assets,
+                "*" + ShaderGraphDocument.Extension,
+                SearchOption.AllDirectories
+            )
             .ToArray();
 
         Assert.Single(created);
@@ -61,7 +69,11 @@ public class ShaderGraphSurfaceTests {
         fixture.Run("assets.create-shader-graph").Settle();
 
         var path = Directory
-            .EnumerateFiles(fixture.Project.Paths.Assets, "*" + ShaderGraphDocument.Extension, SearchOption.AllDirectories)
+            .EnumerateFiles(
+                fixture.Project.Paths.Assets,
+                "*" + ShaderGraphDocument.Extension,
+                SearchOption.AllDirectories
+            )
             .First();
 
         Assert.True(fixture.Project.Assets.TryGetByPath(fixture.Project.Paths.Relative(path), out var entry));

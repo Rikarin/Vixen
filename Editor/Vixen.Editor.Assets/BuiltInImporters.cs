@@ -33,8 +33,12 @@ public static class BuiltInImporters {
     /// <summary>Builds the registry.</summary>
     /// <returns>Every importer that ships and everything contributed, with <see cref="RawImporter" /> as the fallback.</returns>
     /// <remarks>
-    ///     ⚠ <b>The contributions are folded in <i>before</i> the fallback and after the built-ins,
-    ///     and both halves of that matter.</b> After the built-ins, so a plugin claiming an extension
+    ///     ⚠
+    ///     <b>
+    ///         The contributions are folded in <i>before</i> the fallback and after the built-ins,
+    ///         and both halves of that matter.
+    ///     </b>
+    ///     After the built-ins, so a plugin claiming an extension
     ///     one of them already claims is refused with both names rather than silently winning — see
     ///     <c>ImporterRegistry.Add</c>, where last-one-wins is rejected because an artist's PNG being
     ///     imported as a cubemap depending on load order is not a thing anybody can debug. Before the
@@ -47,8 +51,12 @@ public static class BuiltInImporters {
     /// <param name="contributed">What a plugin or a project script added.</param>
     /// <returns>The registry.</returns>
     /// <remarks>
-    ///     ⚠ <b>An overload rather than a parameter with a default, because a test needs a set that is
-    ///     not the process's.</b> <see cref="ImporterContributions.Default" /> has to be a singleton —
+    ///     ⚠
+    ///     <b>
+    ///         An overload rather than a parameter with a default, because a test needs a set that is
+    ///         not the process's.
+    ///     </b>
+    ///     <see cref="ImporterContributions.Default" /> has to be a singleton —
     ///     the callers are static factories in background tasks with no editor to be handed — and a
     ///     suite that mutated it would race every other test in the assembly that builds a registry.
     /// </remarks>
@@ -68,59 +76,61 @@ public static class BuiltInImporters {
     /// </remarks>
     public static ImporterRegistry Create(ImporterContributions linked, ImporterContributions contributed) =>
         (contributed ?? throw new ArgumentNullException(nameof(contributed))).ApplyTo(
-            (linked ?? throw new ArgumentNullException(nameof(linked))).ApplyTo(new ImporterRegistry()
-                .Add(new TextureImporter())
-                .Add(new CubeLutImporter())
-                .Add(new ModelImporter())
-                .Add(new AudioImporter())
-                .Add(new NavMeshImporter())
-                .Add(new VideoImporter())
-                .Add(new SceneImporter())
-                .Add(new MaterialImporter())
-                .Add(new Compositors.CompositorImporter())
+            (linked ?? throw new ArgumentNullException(nameof(linked))).ApplyTo(
+                new ImporterRegistry()
+                    .Add(new TextureImporter())
+                    .Add(new CubeLutImporter())
+                    .Add(new ModelImporter())
+                    .Add(new AudioImporter())
+                    .Add(new NavMeshImporter())
+                    .Add(new VideoImporter())
+                    .Add(new SceneImporter())
+                    .Add(new MaterialImporter())
+                    .Add(new Compositors.CompositorImporter())
 
-                // ⚠ [Importer] is a declaration nothing scans for, so an importer absent from this
-                // list is not an error anywhere — a .vxwaves fell through to RawImporter and became a
-                // byte blob under a type name no runtime reader resolves. The zone naming it then
-                // fell back to its inline spectrum and counted into WaterZoneSystem.UnresolvedWaves,
-                // which is water that draws and is not the sea anybody authored.
-                //
-                // ⚠ That comment was written after .vxwaves and did not prevent the next five: .cube,
-                // .vxbt, .vxgoap, .vxquery and .vxutility were all attributed and all absent, so the
-                // grading pipeline and the whole of the AI authoring pipeline were unreachable through
-                // the registry. A warning is not a gate; the gate is
-                // EveryAttributedImporterTests.EveryImporterInThisAssemblyIsRegistered, which walks
-                // this assembly's [Importer] types and fails on the one that is not here.
-                //
-                // ⚠ Water and the four AI importers have since left this list for their features
-                // (#1300), with the terrain's and the two graphs': each host links them, and the gate
-                // for those is HostImporterMap, which holds every host to one literal map.
-                //
-                // ⚠ What follows is pipeline-owned, decided rather than left over (#1499). Each one
-                // imports a format a *runtime* assembly owns, and what #1300 moved out was an editor
-                // feature's importer: the seven animation importers write Core/Vixen.Animation's
-                // content types and `.vxanim` is spelled there; DefinitionImporter compiles
-                // Vixen.Gameplay's Definition; NetworkRulesImporter writes Vixen.Net.Engine's
-                // NetworkRulesAsset under its own extension; MixerImporter writes Vixen.Audio's
-                // MixerAsset; and CompositorImporter, above, Vixen.Rendering's GraphicsCompositorAsset.
-                // A future editor assembly for one of them (doc 28's Vixen.Editor.Gameplay) may take
-                // its own; until then they stay here, and FeatureImporterBytesTests pins the animation
-                // seven's bytes so a later move is held to them.
-                .Add(new Animation.AnimationClipImporter())
-                .Add(new Animation.ShapeVocabularyImporter())
-                .Add(new Animation.ProxyShapeSetImporter())
-                .Add(new Animation.PriorityLadderImporter())
-                .Add(new Animation.ConstraintTemplateImporter())
-                .Add(new Animation.HarnessPlanImporter())
-                .Add(new Animation.MoveSetImporter())
-                .Add(new Gameplay.DefinitionImporter())
-                .Add(new Net.NetworkRulesImporter())
-                .Add(new Audio.MixerImporter())
-                .Add(new EditorOnlyImporter())
-                .Add(new NativeFormatImporter())
-                .Add(new FolderImporter())
+                    // ⚠ [Importer] is a declaration nothing scans for, so an importer absent from this
+                    // list is not an error anywhere — a .vxwaves fell through to RawImporter and became a
+                    // byte blob under a type name no runtime reader resolves. The zone naming it then
+                    // fell back to its inline spectrum and counted into WaterZoneSystem.UnresolvedWaves,
+                    // which is water that draws and is not the sea anybody authored.
+                    //
+                    // ⚠ That comment was written after .vxwaves and did not prevent the next five: .cube,
+                    // .vxbt, .vxgoap, .vxquery and .vxutility were all attributed and all absent, so the
+                    // grading pipeline and the whole of the AI authoring pipeline were unreachable through
+                    // the registry. A warning is not a gate; the gate is
+                    // EveryAttributedImporterTests.EveryImporterInThisAssemblyIsRegistered, which walks
+                    // this assembly's [Importer] types and fails on the one that is not here.
+                    //
+                    // ⚠ Water and the four AI importers have since left this list for their features
+                    // (#1300), with the terrain's and the two graphs': each host links them, and the gate
+                    // for those is HostImporterMap, which holds every host to one literal map.
+                    //
+                    // ⚠ What follows is pipeline-owned, decided rather than left over (#1499). Each one
+                    // imports a format a *runtime* assembly owns, and what #1300 moved out was an editor
+                    // feature's importer: the seven animation importers write Core/Vixen.Animation's
+                    // content types and `.vxanim` is spelled there; DefinitionImporter compiles
+                    // Vixen.Gameplay's Definition; NetworkRulesImporter writes Vixen.Net.Engine's
+                    // NetworkRulesAsset under its own extension; MixerImporter writes Vixen.Audio's
+                    // MixerAsset; and CompositorImporter, above, Vixen.Rendering's GraphicsCompositorAsset.
+                    // A future editor assembly for one of them (doc 28's Vixen.Editor.Gameplay) may take
+                    // its own; until then they stay here, and FeatureImporterBytesTests pins the animation
+                    // seven's bytes so a later move is held to them.
+                    .Add(new Animation.AnimationClipImporter())
+                    .Add(new Animation.ShapeVocabularyImporter())
+                    .Add(new Animation.ProxyShapeSetImporter())
+                    .Add(new Animation.PriorityLadderImporter())
+                    .Add(new Animation.ConstraintTemplateImporter())
+                    .Add(new Animation.HarnessPlanImporter())
+                    .Add(new Animation.MoveSetImporter())
+                    .Add(new Gameplay.DefinitionImporter())
+                    .Add(new Net.NetworkRulesImporter())
+                    .Add(new MixerImporter())
+                    .Add(new EditorOnlyImporter())
+                    .Add(new NativeFormatImporter())
+                    .Add(new FolderImporter())
             )
-        ).AddFallback(new RawImporter());
+        )
+        .AddFallback(new RawImporter());
 }
 
 /// <summary>Settings for the importer that takes anything nothing else claimed.</summary>
@@ -159,8 +169,12 @@ public sealed record RawImportSettings : IImportSettings {
 ///         projects that are correct today.
 ///     </para>
 ///     <para>
-///         ⚠ <b>And it is a table read by the fallback rather than a set of real importers, which is
-///         not a shortcut.</b> An importer claiming <c>.ttf</c> would be written into every
+///         ⚠
+///         <b>
+///             And it is a table read by the fallback rather than a set of real importers, which is
+///             not a shortcut.
+///         </b>
+///         An importer claiming <c>.ttf</c> would be written into every
 ///         <c>.meta</c> beside one, and <c>ImportPipeline.TryChooseImporter</c> honours a named
 ///         importer and disregards only the fallback — so the day a real <c>FontImporter</c> ships,
 ///         every font imported before it would stay a placeholder for ever in every checkout that has
@@ -179,22 +193,18 @@ static class UnimportedFormats {
                 + "the CheckShaders target build the library's, and EditorEffects compiles a project's out of "
                 + "Assets/. Doc 08's table names a ShaderImporter producing an .rvnlib and effect registration; "
                 + "there is none, so this file ships as bytes and registers no effect."),
-
             [".vxml"] = (ImportSeverity.Information,
                 "A .vxml is read at compile time by Vixen.Ui.Markup.Generators, which writes the component's C# "
                 + "partial. Doc 08's table names a MarkupImporter; there is none, so this file ships as bytes and "
                 + "nothing in the content build reads it as markup."),
-
             [".vcss"] = (ImportSeverity.Information,
                 "A .vcss is read at compile time by Vixen.Ui.Styling.Utilities for utility-class extraction, and "
                 + "loaded at run time by the application's own cascade. Doc 08's table names a StyleImporter; "
                 + "there is none, so this file ships as bytes and no stylesheet is parsed at build time."),
-
             [".cs"] = (ImportSeverity.Information,
                 "A .cs under an Editor/ folder is compiled in-process by ScriptCompiler, and a game's own code by "
                 + "its .csproj. Doc 08's table names a ScriptImporter producing execution order and default field "
                 + "values; there is none, so no script metadata exists and this file ships as bytes."),
-
             [".ttf"] = (ImportSeverity.Information, FontReason),
             [".otf"] = (ImportSeverity.Information, FontReason),
             [".woff2"] = (ImportSeverity.Information, FontReason),
@@ -205,11 +215,9 @@ static class UnimportedFormats {
                 "The editor creates and opens a .vxfont and nothing imports one, so it ships as a chunk called "
                 + "Blob that no typed reader resolves. Doc 08's table names a FontImporter; FontAsset's faces are "
                 + "read straight off disk by the editor instead."),
-
             [".vxanimgraph"] = (ImportSeverity.Warning,
                 "The editor creates and opens a .vxanimgraph and nothing imports one, so an authored state "
                 + "machine cannot be loaded by address at run time."),
-
             [".vxseq"] = (ImportSeverity.Warning,
                 "The editor creates and opens a .vxseq and nothing imports one, so an authored sequence cannot be "
                 + "loaded by address at run time."),
@@ -219,7 +227,6 @@ static class UnimportedFormats {
             //    and these are the linked formats whose extension does not carry the prefix.
             [".r16"] = (ImportSeverity.Warning, "A .r16 " + HeightmapReason),
             [".hmpng"] = (ImportSeverity.Warning, "A .hmpng " + HeightmapReason),
-
             [".vxplacement"] = (ImportSeverity.Warning,
                 "Nothing imports a .vxplacement. The extension belongs to Live/Vixen.Live.Orchestrator, which "
                 + "CheckArchitecture refuses to let Editor/ reference — see docs/overview.md § 1.13 for the two "

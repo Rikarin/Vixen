@@ -41,7 +41,7 @@ public sealed class ShellShortcutTests : IDisposable {
         AdvancedTheme.Install(ui.Document);
         ui.Load(VixenUtilityStyles.Css);
 
-        shell = new Shell { Model = model };
+        shell = new() { Model = model };
         BuildContext.BuildInto(shell, ui.Document, ui.Document.Root);
         ui.Frame();
     }
@@ -89,12 +89,12 @@ public sealed class ShellShortcutTests : IDisposable {
         Descendants(ui.Document.Root).OfType<MenuItem>().FirstOrDefault(item => item.Label == label)
         ?? throw new InvalidOperationException(
             $"no menu item is labelled '{label}'; the items are: "
-            + string.Join(", ", Descendants(ui.Document.Root).OfType<MenuItem>().Select(item => item.Label))
+            + string.Join(", ", Descendants(ui.Document.Root).OfType<MenuItem>().Select(static item => item.Label))
         );
 
     static KeyChord Drawn(MenuItem item) {
         var label = item.Shortcut ?? throw new InvalidOperationException($"'{item.Label}' draws no chord");
-        return new KeyChord(label.Key, label.Modifiers);
+        return new(label.Key, label.Modifiers);
     }
 
     void Press(KeyChord chord) {
@@ -104,7 +104,7 @@ public sealed class ShellShortcutTests : IDisposable {
     }
 
     static UiElement Focusable(UiElement under) =>
-        Descendants(under).FirstOrDefault(element => element is TextBox)
+        Descendants(under).FirstOrDefault(static element => element is TextBox)
         ?? throw new InvalidOperationException("the shell has no text box to put the focus in");
 
     static IEnumerable<UiElement> Descendants(UiElement element) {

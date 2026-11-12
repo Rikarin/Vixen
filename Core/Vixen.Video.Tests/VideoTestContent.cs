@@ -9,11 +9,11 @@ static class VideoTestContent {
     public static byte[] I420(int width, int height, byte luma, byte blue = 128, byte red = 128) {
         var chromaWidth = (width + 1) / 2;
         var chromaHeight = (height + 1) / 2;
-        var bytes = new byte[(width * height) + (2 * chromaWidth * chromaHeight)];
+        var bytes = new byte[width * height + 2 * chromaWidth * chromaHeight];
 
         bytes.AsSpan(0, width * height).Fill(luma);
         bytes.AsSpan(width * height, chromaWidth * chromaHeight).Fill(blue);
-        bytes.AsSpan((width * height) + (chromaWidth * chromaHeight)).Fill(red);
+        bytes.AsSpan(width * height + chromaWidth * chromaHeight).Fill(red);
 
         return bytes;
     }
@@ -41,7 +41,7 @@ static class VideoTestContent {
         for (var index = 0; index < frames; index++) {
             builder
                 .Cluster(index * ticksPerFrame)
-                .SimpleBlock(1, 0, keyFrame: true, I420(width, height, (byte)(16 + index)));
+                .SimpleBlock(1, 0, true, I420(width, height, (byte)(16 + index)));
         }
 
         return builder;

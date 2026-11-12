@@ -314,16 +314,20 @@ public sealed class HeadlessWindow : IWindow {
         );
     }
 
-    /// <summary>Changes the scale factor, raising
-    /// <see cref="PlatformEventKind.WindowDpiChanged" />.</summary>
+    /// <summary>
+    ///     Changes the scale factor, raising
+    ///     <see cref="PlatformEventKind.WindowDpiChanged" />.
+    /// </summary>
     /// <param name="scale">Physical pixels per logical point. Must be positive.</param>
     /// <remarks>
     ///     The one way to exercise a HiDPI path without a HiDPI display. Dragging a window between
     ///     a 1× and a 2× monitor is the case that breaks swapchain sizing, and it is not otherwise
     ///     reachable from a test.
     /// </remarks>
-    /// <exception cref="ArgumentOutOfRangeException"><paramref name="scale" /> is not
-    /// positive.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">
+    ///     <paramref name="scale" /> is not
+    ///     positive.
+    /// </exception>
     public void SetDpiScale(float scale) {
         ThrowIfClosed();
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(scale);
@@ -336,8 +340,10 @@ public sealed class HeadlessWindow : IWindow {
         events.Post(PlatformEvent.WindowDpiChanged(Id, Now, scale));
     }
 
-    /// <summary>Raises <see cref="PlatformEventKind.WindowCloseRequested" /> without closing
-    /// anything.</summary>
+    /// <summary>
+    ///     Raises <see cref="PlatformEventKind.WindowCloseRequested" /> without closing
+    ///     anything.
+    /// </summary>
     /// <remarks>What the title bar's close button does on a real platform.</remarks>
     public void RequestClose() {
         ThrowIfClosed();
@@ -353,8 +359,7 @@ public sealed class HeadlessWindow : IWindow {
         IsClosed = true;
     }
 
-    void ThrowIfClosed() =>
-        ObjectDisposedException.ThrowIf(IsClosed, this);
+    void ThrowIfClosed() => ObjectDisposedException.ThrowIf(IsClosed, this);
 
     /// <summary>The nothing a headless window presents to.</summary>
     sealed class HeadlessSurface(HeadlessWindow window) : ISurface {

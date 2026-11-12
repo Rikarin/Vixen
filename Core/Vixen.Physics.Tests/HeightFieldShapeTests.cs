@@ -32,7 +32,7 @@ public sealed class HeightFieldShapeTests {
 
         for (var z = 0; z < sampleCount; z++) {
             for (var x = 0; x < sampleCount; x++) {
-                heights[(z * sampleCount) + x] = x;
+                heights[z * sampleCount + x] = x;
             }
         }
 
@@ -105,9 +105,7 @@ public sealed class HeightFieldShapeTests {
     public void AScaleThatWouldDegenerateTheGridIsRefused(float x, float y, float z) {
         using var shapes = new PhysicsShapes();
 
-        Assert.Throws<PhysicsShapeException>(
-            () => shapes.HeightField(Flat(4, 0f), 4, Vector3.Zero, new(x, y, z))
-        );
+        Assert.Throws<PhysicsShapeException>(() => shapes.HeightField(Flat(4, 0f), 4, Vector3.Zero, new(x, y, z)));
     }
 
     [Fact]
@@ -129,8 +127,12 @@ public sealed class HeightFieldShapeTests {
         using var shapes = new PhysicsShapes();
 
         var heights = Flat(4, PhysicsShapes.NoCollisionHeight);
-        var thrown = Assert.Throws<PhysicsShapeException>(
-            () => shapes.HeightField(heights, 4, Vector3.Zero, Vector3.One)
+        var thrown = Assert.Throws<PhysicsShapeException>(() => shapes.HeightField(
+                heights,
+                4,
+                Vector3.Zero,
+                Vector3.One
+            )
         );
 
         Assert.Contains(nameof(PhysicsShapes.NoCollisionHeight), thrown.Message, StringComparison.Ordinal);
@@ -143,10 +145,9 @@ public sealed class HeightFieldShapeTests {
         var id = world.Shapes.HeightField(Flat(4, 0f), 4, Vector3.Zero, Vector3.One);
         Assert.False(world.Shapes.Describe(id).CanBeDynamic);
 
-        Assert.ThrowsAny<Exception>(
-            () => world.CreateBody(BodyDescription.Create() with {
-                Shape = id, Motion = BodyMotion.Dynamic
-            })
+        Assert.ThrowsAny<Exception>(() => world.CreateBody(
+                BodyDescription.Create() with { Shape = id, Motion = BodyMotion.Dynamic }
+            )
         );
     }
 
@@ -257,7 +258,7 @@ public sealed class HeightFieldShapeTests {
 
         // A hole sample kills the quads that touch it, so the gap around sample (4, 4) is what the
         // ray goes through. Sample (1, 1) stays solid and is the control.
-        heights[(4 * 8) + 4] = PhysicsShapes.NoCollisionHeight;
+        heights[4 * 8 + 4] = PhysicsShapes.NoCollisionHeight;
 
         var id = world.Shapes.HeightField(heights, 8, Vector3.Zero, Vector3.One);
         world.CreateBody(BodyDescription.Static(id, Vector3.Zero));

@@ -33,8 +33,11 @@ namespace Vixen.Rendering;
 ///         to compute.
 ///     </para>
 ///     <para>
-///         <strong>One region per frame in flight, and the caller binds at
-///         <see cref="Offset" />.</strong> Writing the same bytes every frame is a race the API cannot
+///         <strong>
+///             One region per frame in flight, and the caller binds at
+///             <see cref="Offset" />.
+///         </strong>
+///         Writing the same bytes every frame is a race the API cannot
 ///         report: <c>Write</c> on a host-visible buffer is a memcpy into memory the GPU may still be
 ///         reading for a frame that has not finished, and the symptom is a skeleton or an instance
 ///         list that is briefly a blend of two frames. The ring is the same one
@@ -49,7 +52,8 @@ namespace Vixen.Rendering;
 ///     list want; <see cref="BufferUsage.Vertex" /> is what per-frame geometry wants, and the ring,
 ///     the staging and the one-write-per-frame are the same problem either way.
 /// </param>
-public sealed class UploadBuffer<T>(string name, BufferUsage usage = BufferUsage.Storage) : IDisposable where T : unmanaged {
+public sealed class UploadBuffer<T>(string name, BufferUsage usage = BufferUsage.Storage) : IDisposable
+    where T : unmanaged {
     T[] staging = [];
     int count;
     int capacity;
@@ -177,9 +181,7 @@ public sealed class UploadBuffer<T>(string name, BufferUsage usage = BufferUsage
         var alignment = Math.Max(1, Alignment);
         Stride = (bytes + alignment - 1) / alignment * alignment;
 
-        buffer = Device.CreateBuffer(
-            new(Stride * slots, usage, MemoryAccess.HostUpload, name)
-        );
+        buffer = Device.CreateBuffer(new(Stride * slots, usage, MemoryAccess.HostUpload, name));
     }
 
     /// <inheritdoc />

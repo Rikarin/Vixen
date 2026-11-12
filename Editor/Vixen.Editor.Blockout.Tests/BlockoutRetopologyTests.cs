@@ -5,11 +5,9 @@ using Vixen.Core;
 using Vixen.Core.Mathematics;
 using Vixen.Ecs;
 using Vixen.Editor.Core;
-using Vixen.Editor.Core.Scenes;
 using Vixen.Editor.SceneView;
 using Vixen.Engine.Transforms;
 using Vixen.Geometry;
-using Vixen.Geometry.Uv;
 using Xunit;
 
 namespace Vixen.Editor.Blockout.Tests;
@@ -131,8 +129,7 @@ public class BlockoutRetopologyTests : IDisposable {
     [Fact]
     public void The_panel_runs_the_three_stages_and_describes_the_islands() {
         var panel = new BlockoutUvPanel {
-            Mesh = MeshShapes.Create(ShapeKind.Box),
-            Packing = new() { Resolution = 512, Margin = 2 }
+            Mesh = MeshShapes.Create(ShapeKind.Box), Packing = new() { Resolution = 512, Margin = 2 }
         };
 
         Assert.True(panel.Chart());

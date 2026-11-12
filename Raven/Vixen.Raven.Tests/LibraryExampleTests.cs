@@ -57,7 +57,7 @@ public class LibraryExampleTests {
 
         Assert.True(
             diagnostics.Count == 0,
-            "Example1.rvn does not bind cleanly:\n" + string.Join("\n", diagnostics.Select(d => d.ToString()))
+            "Example1.rvn does not bind cleanly:\n" + string.Join("\n", diagnostics.Select(static d => d.ToString()))
         );
 
         var bag = new DiagnosticBag();
@@ -66,7 +66,7 @@ public class LibraryExampleTests {
 
         Assert.True(
             bag.IsEmpty,
-            "Example1.rvn does not lower cleanly:\n" + string.Join("\n", bag.Select(d => d.ToString()))
+            "Example1.rvn does not lower cleanly:\n" + string.Join("\n", bag.Select(static d => d.ToString()))
         );
 
         // Both backends, so neither can be the one that quietly cannot take it.
@@ -89,7 +89,7 @@ public class LibraryExampleTests {
         var diagnostics = compilation.GetDiagnostics();
         Assert.True(
             diagnostics.Count == 0,
-            "Example2.rvn does not bind cleanly:\n" + string.Join("\n", diagnostics.Select(d => d.ToString()))
+            "Example2.rvn does not bind cleanly:\n" + string.Join("\n", diagnostics.Select(static d => d.ToString()))
         );
 
         // Both backends, so neither can be the one that quietly cannot take it.

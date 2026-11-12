@@ -2,8 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Runtime.InteropServices;
-using Vixen.Ai;
-using Vixen.Ai.Diagnostics;
 using Vixen.Ai.Ecs;
 using Vixen.Core;
 using Vixen.Ecs;
@@ -171,8 +169,10 @@ public class AiSystemTests {
 
         system.Step(world, Frame(0));
 
-        var ticked = entities.Count(
-            entity => CountingAction.TicksOf(system.Memory.Resolve(world.Read<AiAgent>(entity).Memory)) > 0
+        var ticked = entities.Count(entity => CountingAction.TicksOf(
+                system.Memory.Resolve(world.Read<AiAgent>(entity).Memory)
+            )
+            > 0
         );
 
         Assert.Equal(2, ticked);
@@ -242,7 +242,8 @@ public class AiSystemTests {
         var world = new World(nameof(AFinishedActionIsRestartedRatherThanLeftFinished));
         var registry = new AgentActionRegistry();
         var index = registry.Register("finish", new FinishingAction(2), sizeof(int));
-        var system = new AiSystem(registry, Layout) { Governor = new UnboundedGovernor() };
+        using var system = new AiSystem(registry, Layout);
+        system.Governor = new UnboundedGovernor();
         var entity = world.Create(AiAgent.Running(index));
 
         for (var frame = 0; frame < 6; frame++) {

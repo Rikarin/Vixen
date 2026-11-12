@@ -5,7 +5,6 @@ using Vixen.Core;
 using Vixen.Editor.Testing;
 using Vixen.Editor.Ui;
 using Vixen.Engine.Transforms;
-using Vixen.Ui;
 using Vixen.Ui.Controls;
 using Xunit;
 
@@ -35,7 +34,7 @@ public class ToolbarPollTests {
         var asked = 0;
 
         fixture.Shell.Commands.Add(
-            new EditorCommand("test.probe", new StringId("test.probe", "Probe"), static () => { }) {
+            new EditorCommand("test.probe", new("test.probe", "Probe"), static () => { }) {
                 Enablement = () => {
                     asked++;
                     return true;
@@ -92,8 +91,12 @@ public class ToolbarPollTests {
     /// <summary>Build greys while content work runs and comes back when it ends, from the task alone.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The second predicate #430 named, and the only one of the three notifications with
-    ///         no test until this one.</b> <c>assets.build</c> reads <c>ContentTasks.IsBusy</c>, a
+    ///         ⚠
+    ///         <b>
+    ///             The second predicate #430 named, and the only one of the three notifications with
+    ///             no test until this one.
+    ///         </b>
+    ///         <c>assets.build</c> reads <c>ContentTasks.IsBusy</c>, a
     ///         counter a pool thread moves; what tells the strip is <c>BusyChanged</c> reaching
     ///         <c>InvalidateCommands</c>. Deleting that one line left every other test here green.
     ///     </para>
@@ -154,8 +157,12 @@ public class ToolbarPollTests {
 
     /// <summary>And the tick itself no longer names either strip.</summary>
     /// <remarks>
-    ///     ⚠ <b>Asserted on the behaviour rather than on the source, which is why it is the frame
-    ///     count that is measured.</b> A test that grepped <c>EditorShell.cs</c> for
+    ///     ⚠
+    ///     <b>
+    ///         Asserted on the behaviour rather than on the source, which is why it is the frame
+    ///         count that is measured.
+    ///     </b>
+    ///     A test that grepped <c>EditorShell.cs</c> for
     ///     <c>Toolbar.Refresh</c> would go green the day somebody moved the same call one method
     ///     deeper.
     /// </remarks>
@@ -166,7 +173,7 @@ public class ToolbarPollTests {
         var asked = 0;
 
         fixture.Shell.Commands.Add(
-            new EditorCommand("test.mode-probe", new StringId("test.mode-probe", "Mode Probe"), static () => { }) {
+            new EditorCommand("test.mode-probe", new("test.mode-probe", "Mode Probe"), static () => { }) {
                 Enablement = () => {
                     asked++;
                     return true;

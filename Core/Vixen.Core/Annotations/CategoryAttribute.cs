@@ -17,5 +17,7 @@ public sealed class CategoryAttribute : Attribute {
 
     /// <summary>Groups the annotated element under <paramref name="name" />.</summary>
     /// <param name="name">The section name; <c>/</c> nests.</param>
-    public CategoryAttribute(string name) => Name = name;
+    public CategoryAttribute(string name) {
+        Name = name;
+    }
 }

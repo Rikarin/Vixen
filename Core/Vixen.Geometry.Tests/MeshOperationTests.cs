@@ -8,8 +8,12 @@ namespace Vixen.Geometry.Tests;
 
 /// <summary>Doc 24's P3 geometry table: what each verb does to a mesh, and what it leaves true.</summary>
 /// <remarks>
-///     ⚠ <b>Every test ends with the invariant helper, which is doc 24's testing table's highest-value
-///     item.</b> An operation that corrupts the edge table produces geometry that looks correct and
+///     ⚠
+///     <b>
+///         Every test ends with the invariant helper, which is doc 24's testing table's highest-value
+///         item.
+///     </b>
+///     An operation that corrupts the edge table produces geometry that looks correct and
 ///     fails three operations later, in a mesh a designer has spent an hour on, with no way to
 ///     attribute it. Asserting the whole structure after each verb turns that into a failing test in
 ///     the commit that caused it.
@@ -17,7 +21,7 @@ namespace Vixen.Geometry.Tests;
 public class MeshOperationTests {
     /// <summary>The whole structure, not only what the operation under test claimed to do.</summary>
     static void AssertSound(EditMesh mesh) {
-        Assert.All(mesh.Faces, face => Assert.True(face.Count >= 3, "a face wants three corners"));
+        Assert.All(mesh.Faces, static face => Assert.True(face.Count >= 3, "a face wants three corners"));
 
         foreach (var corner in mesh.Corners) {
             Assert.InRange(corner, 0, mesh.PositionCount - 1);
@@ -90,7 +94,7 @@ public class MeshOperationTests {
 
         // Six sides became ten: the five that were not extruded, the one that moved, and four walls.
         Assert.Equal(10, mesh.FaceCount);
-        Assert.Equal(8f + (2f * 2f * 3f), Volume(mesh), 3);
+        Assert.Equal(8f + 2f * 2f * 3f, Volume(mesh), 3);
 
         AssertSolid(mesh);
     }
@@ -115,7 +119,7 @@ public class MeshOperationTests {
         var apart = TestShapes.Grid(2, 1);
 
         MeshOperations.Extrude(region, [0, 1], 1f);
-        MeshOperations.Extrude(apart, [0, 1], 1f, individually: true);
+        MeshOperations.Extrude(apart, [0, 1], 1f, true);
 
         // ⚠ The whole difference is what counts as the rim. As a region the edge between the two
         // quads is interior and gets no wall; individually every edge is a rim, so the two boxes have
@@ -134,7 +138,7 @@ public class MeshOperationTests {
         var mesh = TestShapes.Box(2f);
         var top = Top(mesh);
 
-        var made = MeshOperations.ExtrudeAlong(mesh, [top], new Vector3(4f, 0f, 0f));
+        var made = MeshOperations.ExtrudeAlong(mesh, [top], new(4f, 0f, 0f));
 
         Assert.Single(made);
 
@@ -281,7 +285,7 @@ public class MeshOperationTests {
         var mesh = TestShapes.Tube(8, 1);
         var was = mesh.FaceCount;
 
-        MeshOperations.LoopCut(mesh, mesh.EdgeBetween(0, 8), cuts: 3);
+        MeshOperations.LoopCut(mesh, mesh.EdgeBetween(0, 8), 3);
 
         Assert.Equal(was * 4, mesh.FaceCount);
         AssertSound(mesh);
@@ -291,7 +295,7 @@ public class MeshOperationTests {
     public void A_loop_cut_slides_where_it_is_told() {
         var mesh = TestShapes.Tube(8, 1);
 
-        MeshOperations.LoopCut(mesh, mesh.EdgeBetween(0, 8), cuts: 1, slide: 0.25f);
+        MeshOperations.LoopCut(mesh, mesh.EdgeBetween(0, 8), 1, 0.25f);
 
         // The tube runs from −0.5 to 0.5 in Y, so a quarter along is −0.25.
         var found = false;
@@ -305,9 +309,12 @@ public class MeshOperationTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>#1167 said <c>LoopCut</c>'s <c>Ordered</c> flip was reached by no shape
-    ///     <c>MeshShapes</c> makes. It is reached by nine of the twelve, and two of them reach the
-    ///     case that matters.</b>
+    ///     ⚠
+    ///     <b>
+    ///         #1167 said <c>LoopCut</c>'s <c>Ordered</c> flip was reached by no shape
+    ///         <c>MeshShapes</c> makes. It is reached by nine of the twelve, and two of them reach the
+    ///         case that matters.
+    ///     </b>
     /// </summary>
     /// <remarks>
     ///     <para>
@@ -341,7 +348,7 @@ public class MeshOperationTests {
 
         for (var seed = 0; seed < seeds; seed++) {
             var mesh = MeshShapes.Create(kind);
-            var made = MeshOperations.LoopCut(mesh, seed, cuts: 3);
+            var made = MeshOperations.LoopCut(mesh, seed, 3);
 
             foreach (var face in made) {
                 looked++;
@@ -375,7 +382,7 @@ public class MeshOperationTests {
     public void Subdividing_the_whole_box_twice_is_sixteen_faces_a_side() {
         var mesh = TestShapes.Box();
 
-        MeshOperations.Subdivide(mesh, [.. Enumerable.Range(0, mesh.FaceCount)], count: 2);
+        MeshOperations.Subdivide(mesh, [..Enumerable.Range(0, mesh.FaceCount)], 2);
 
         Assert.Equal(6 * 16, mesh.FaceCount);
         AssertSolid(mesh);
@@ -409,9 +416,9 @@ public class MeshOperationTests {
     public void Bridging_faces_of_different_shapes_declines_rather_than_guessing() {
         var mesh = TestShapes.Box();
 
-        mesh.AddPosition(new Vector3(3f, 0f, 0f));
-        mesh.AddPosition(new Vector3(4f, 0f, 0f));
-        mesh.AddPosition(new Vector3(3.5f, 1f, 0f));
+        mesh.AddPosition(new(3f, 0f, 0f));
+        mesh.AddPosition(new(4f, 0f, 0f));
+        mesh.AddPosition(new(3.5f, 1f, 0f));
 
         var triangle = mesh.AddFace([mesh.PositionCount - 3, mesh.PositionCount - 2, mesh.PositionCount - 1]);
         var was = mesh.FaceCount;
@@ -511,7 +518,7 @@ public class MeshOperationTests {
 
         MeshOperations.Weld(mesh, [0, 1], new Vector3(7f, 8f, 9f));
 
-        Assert.Equal(new Vector3(7f, 8f, 9f), mesh.Positions[0]);
+        Assert.Equal(new(7f, 8f, 9f), mesh.Positions[0]);
     }
 
     [Fact]
@@ -577,13 +584,13 @@ public class MeshOperationTests {
         var mesh = TestShapes.Box();
 
         MeshOperations.Delete(mesh, [0]);
-        MeshOperations.Delete(mesh, [.. Enumerable.Range(0, mesh.FaceCount - 1)]);
+        MeshOperations.Delete(mesh, [..Enumerable.Range(0, mesh.FaceCount - 1)]);
 
         var map = MeshOperations.Compact(mesh);
 
         Assert.Equal(4, mesh.PositionCount);
         Assert.Equal(8, map.Length);
-        Assert.Equal(4, map.Count(at => at >= 0));
+        Assert.Equal(4, map.Count(static at => at >= 0));
 
         AssertSound(mesh);
     }
@@ -608,7 +615,7 @@ public class MeshOperationTests {
     public void Detaching_a_copy_leaves_the_original_alone() {
         var mesh = TestShapes.Box();
 
-        var taken = MeshOperations.Detach(mesh, [0], keep: true);
+        var taken = MeshOperations.Detach(mesh, [0], true);
 
         Assert.NotNull(taken);
         Assert.Equal(6, mesh.FaceCount);
@@ -625,7 +632,7 @@ public class MeshOperationTests {
             groups.Add(face.Group);
         }
 
-        MeshOperations.Append(mesh, other, Matrix4x4.FromTranslation(new Vector3(4f, 0f, 0f)));
+        MeshOperations.Append(mesh, other, Matrix4x4.FromTranslation(new(4f, 0f, 0f)));
 
         var after = new HashSet<int>();
 

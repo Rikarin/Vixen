@@ -35,7 +35,7 @@ public static class MetadataUpdate {
         ArgumentNullException.ThrowIfNull(host);
 
         lock (Gate) {
-            Hosts.Add(new WeakReference<HotReloadHost>(host));
+            Hosts.Add(new(host));
         }
     }
 
@@ -46,9 +46,8 @@ public static class MetadataUpdate {
         ArgumentNullException.ThrowIfNull(host);
 
         lock (Gate) {
-            return Hosts.RemoveAll(
-                reference => !reference.TryGetTarget(out var live) || ReferenceEquals(live, host)
-            ) > 0;
+            return Hosts.RemoveAll(reference => !reference.TryGetTarget(out var live) || ReferenceEquals(live, host))
+                > 0;
         }
     }
 
@@ -56,9 +55,11 @@ public static class MetadataUpdate {
     internal static IReadOnlyList<HotReloadHost> Live {
         get {
             lock (Gate) {
-                Hosts.RemoveAll(reference => !reference.TryGetTarget(out _));
-                return [.. Hosts.Select(reference => reference.TryGetTarget(out var host) ? host : null)
-                    .OfType<HotReloadHost>()];
+                Hosts.RemoveAll(static reference => !reference.TryGetTarget(out _));
+                return [
+                    ..Hosts.Select(static reference => reference.TryGetTarget(out var host) ? host : null)
+                        .OfType<HotReloadHost>()
+                ];
             }
         }
     }
@@ -76,8 +77,12 @@ public static class MetadataUpdate {
     /// <summary>Called by the runtime after an update is applied.</summary>
     /// <param name="types">The types that changed, or null when the runtime does not know.</param>
     /// <remarks>
-    ///     ⚠ <b>The types are passed on rather than dropped, and that is what reaches the component
-    ///     channel.</b> Almost every update is a changed method body, and
+    ///     ⚠
+    ///     <b>
+    ///         The types are passed on rather than dropped, and that is what reaches the component
+    ///         channel.
+    ///     </b>
+    ///     Almost every update is a changed method body, and
     ///     re-running <c>Build</c> on the same object is both the cheap answer and the one that keeps
     ///     a panel's state. The exception is an instance the update left behind — the runtime can add
     ///     a field to a live type and the initialiser that would fill it does not run on an object

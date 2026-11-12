@@ -39,7 +39,7 @@ public sealed class TerrainPaintModeTests {
         edit.Tools.Coverage = 255;
 
         Assert.True(edit.Begin(new(30f, 30f)));
-        Assert.NotNull(edit.Commit(rebuildColliders: false));
+        Assert.NotNull(edit.Commit(false));
 
         Assert.True(terrain.Weights.WeightAt(1, 30, 30) > 200);
         Assert.True(terrain.Weights.WeightAt(0, 30, 30) < 55);
@@ -52,10 +52,10 @@ public sealed class TerrainPaintModeTests {
 
         edit.Tools.Coverage = 255;
         edit.Begin(new(30f, 30f));
-        edit.Commit(rebuildColliders: false);
+        edit.Commit(false);
 
-        edit.Begin(new(30f, 30f), invert: true);
-        edit.Commit(rebuildColliders: false);
+        edit.Begin(new(30f, 30f), true);
+        edit.Commit(false);
 
         Assert.Equal(0, terrain.Weights.WeightAt(1, 30, 30));
         Assert.Equal(255, terrain.Weights.WeightAt(0, 30, 30));
@@ -71,7 +71,7 @@ public sealed class TerrainPaintModeTests {
 
         for (var pass = 0; pass < 6; pass++) {
             edit.Begin(new(30f, 30f));
-            edit.Commit(rebuildColliders: false);
+            edit.Commit(false);
         }
 
         Assert.InRange(terrain.Weights.WeightAt(1, 30, 30), 125, 130);
@@ -85,7 +85,7 @@ public sealed class TerrainPaintModeTests {
             edit.Tools.PaintTool = tool;
             edit.Begin(new(20f, 20f));
             edit.Extend(new(30f, 26f));
-            edit.Commit(rebuildColliders: false);
+            edit.Commit(false);
 
             Assert.Null(terrain.Weights.Verify());
         }
@@ -106,7 +106,7 @@ public sealed class TerrainPaintModeTests {
             edit.Extend(new(x, 20f));
         }
 
-        var command = edit.Commit(rebuildColliders: false);
+        var command = edit.Commit(false);
 
         Assert.IsType<TerrainPaintCommand>(command);
         Assert.NotEqual(before, Snapshot(terrain));
@@ -126,10 +126,10 @@ public sealed class TerrainPaintModeTests {
         var (edit, _) = Painting();
 
         edit.Begin(new(20f, 20f));
-        var first = edit.Commit(rebuildColliders: false)!;
+        var first = edit.Commit(false)!;
 
         edit.Begin(new(40f, 40f));
-        var second = edit.Commit(rebuildColliders: false)!;
+        var second = edit.Commit(false)!;
 
         Assert.False(second.TryMergeWith(first, out _));
     }
@@ -176,10 +176,10 @@ public sealed class TerrainPaintModeTests {
         edit.Changed += reported.Add;
         edit.Begin(new(30f, 30f));
         edit.Extend(new(40f, 30f));
-        edit.Commit(rebuildColliders: false);
+        edit.Commit(false);
 
         Assert.Equal(2, reported.Count);
-        Assert.All(reported, rect => Assert.False(rect.IsEmpty));
+        Assert.All(reported, static rect => Assert.False(rect.IsEmpty));
     }
 
     // --- What refuses a paint stroke ----------------------------------------
@@ -209,7 +209,7 @@ public sealed class TerrainPaintModeTests {
         edit.Layer!.IsLocked = true;
 
         Assert.True(edit.Begin(new(30f, 30f)));
-        Assert.NotNull(edit.Commit(rebuildColliders: false));
+        Assert.NotNull(edit.Commit(false));
         Assert.True(terrain.Weights.WeightAt(1, 30, 30) > 0);
     }
 
@@ -275,7 +275,7 @@ public sealed class TerrainPaintModeTests {
     public void The_layer_form_round_trips_through_a_description() {
         var layer = new TerrainLayerDescription(
             "Gravel",
-            Albedo: "Textures/gravel",
+            "Textures/gravel",
             Surface: "Textures/gravel-orm",
             TilingMetres: 2.5f,
             Blend: TerrainLayerBlend.Height,
@@ -316,8 +316,12 @@ public sealed class TerrainPaintModeTests {
 
     /// <summary>Undoing a removal puts back what the redistribution took, not just the layer.</summary>
     /// <remarks>
-    ///     ⚠ <b>Removing a weight-blended layer gives its weight to the others in proportion, and
-    ///     that is not invertible from the layer alone.</b> Putting the channel back would leave the
+    ///     ⚠
+    ///     <b>
+    ///         Removing a weight-blended layer gives its weight to the others in proportion, and
+    ///         that is not invertible from the layer alone.
+    ///     </b>
+    ///     Putting the channel back would leave the
     ///     others holding what they were given, so every sample it covered would sum above the total.
     /// </remarks>
     [Fact]
@@ -333,7 +337,7 @@ public sealed class TerrainPaintModeTests {
             1,
             TerrainBrush.Default with { Radius = 10f, Strength = 1f },
             new(new(30f, 30f)),
-            amount: 180
+            180
         );
 
         var before = Snapshot(terrain);
@@ -364,7 +368,7 @@ public sealed class TerrainPaintModeTests {
             1,
             TerrainBrush.Default with { Radius = 8f, Strength = 1f },
             new(new(30f, 30f)),
-            amount: 255
+            255
         );
 
         var painted = terrain.Weights.WeightAt(1, 30, 30);

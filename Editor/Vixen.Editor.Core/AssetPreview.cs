@@ -34,8 +34,12 @@ public sealed record AssetPreviewImage(int Width, int Height, byte[] Rgba);
 ///         Ties are broken by <see cref="Order" /> and then by registration order.
 ///     </para>
 ///     <para>
-///         ⚠ <b><see cref="Render" /> runs on a pool thread, and it is resolved on the frame
-///         thread.</b> A decode is tens of milliseconds and there are hundreds of them, so the work
+///         ⚠
+///         <b>
+///             <see cref="Render" /> runs on a pool thread, and it is resolved on the frame
+///             thread.
+///         </b>
+///         A decode is tens of milliseconds and there are hundreds of them, so the work
 ///         cannot be on the frame thread; but the delegate belongs to a plugin that can be unloaded,
 ///         so which delegate a file uses is decided while the registry is being read and not two
 ///         seconds later inside the task.

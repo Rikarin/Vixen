@@ -34,7 +34,11 @@ namespace Vixen.Editor.AssetEditors.Tests;
 ///         life of the panel, and only a second run with different rows can tell.
 ///     </para>
 /// </remarks>
-[SuppressMessage("Trimming", "IL2026", Justification = "UiTest.Flags reads nine properties by name; tests are not trimmed.")]
+[SuppressMessage(
+    "Trimming",
+    "IL2026",
+    Justification = "UiTest.Flags reads nine properties by name; tests are not trimmed."
+)]
 public sealed class AddressableGroupsViewDumpTests {
     /// <summary>Where a run writes its dumps and pictures, when somebody asks it to.</summary>
     static readonly string? Record = Environment.GetEnvironmentVariable("VIXEN_ADDRESSABLE_GROUPS_RECORD");
@@ -97,7 +101,7 @@ public sealed class AddressableGroupsViewDumpTests {
 
         var rows = harness.View.Analysis.Children.OfType<AnalysisRow>().ToArray();
 
-        Assert.Equal(["error", "warning", "information", "plan"], rows.Select(row => row.Stage));
+        Assert.Equal(["error", "warning", "information", "plan"], rows.Select(static row => row.Stage));
 
         Assert.True(rows[0].HasClass("error"));
         Assert.True(rows[1].HasClass("warning"));
@@ -111,7 +115,7 @@ public sealed class AddressableGroupsViewDumpTests {
     /// <summary>With no planner the button is disabled, and a host's <c>Run</c> says why in a sentence.</summary>
     [Fact]
     public void No_planner_is_a_sentence() {
-        using var harness = new Harness(plan: null);
+        using var harness = new Harness(null);
 
         Assert.True(harness.View.Analyse.Disabled);
         Assert.Equal(-1, harness.View.Run());
@@ -143,15 +147,26 @@ public sealed class AddressableGroupsViewDumpTests {
             [],
             [],
             [
-                new ImportDiagnostic(ImportSeverity.Error, "Assets/Levels/Boss.vxscene depends on Assets/Shared/Rock.png, which is not shipped."),
-                new ImportDiagnostic(ImportSeverity.Warning, "Assets/Scratch/Old.png could not be imported and is not shipped.")
+                new ImportDiagnostic(
+                    ImportSeverity.Error,
+                    "Assets/Levels/Boss.vxscene depends on Assets/Shared/Rock.png, which is not shipped."
+                ),
+                new ImportDiagnostic(
+                    ImportSeverity.Warning,
+                    "Assets/Scratch/Old.png could not be imported and is not shipped."
+                )
             ]
         );
 
         public static BuildPlan Second { get; } = new(
             [],
             [],
-            [new ImportDiagnostic(ImportSeverity.Warning, "Assets/Scratch/Old.png could not be imported and is not shipped.")]
+            [
+                new ImportDiagnostic(
+                    ImportSeverity.Warning,
+                    "Assets/Scratch/Old.png could not be imported and is not shipped."
+                )
+            ]
         );
 
         /// <summary>One diagnostic of each severity, worst first.</summary>
@@ -159,9 +174,18 @@ public sealed class AddressableGroupsViewDumpTests {
             [],
             [],
             [
-                new ImportDiagnostic(ImportSeverity.Error, "Assets/Levels/Boss.vxscene depends on Assets/Shared/Rock.png, which is not shipped."),
-                new ImportDiagnostic(ImportSeverity.Warning, "Assets/Scratch/Old.png could not be imported and is not shipped."),
-                new ImportDiagnostic(ImportSeverity.Information, "Assets/Ui/Atlas.png is shipped in two groups and packed once.")
+                new ImportDiagnostic(
+                    ImportSeverity.Error,
+                    "Assets/Levels/Boss.vxscene depends on Assets/Shared/Rock.png, which is not shipped."
+                ),
+                new ImportDiagnostic(
+                    ImportSeverity.Warning,
+                    "Assets/Scratch/Old.png could not be imported and is not shipped."
+                ),
+                new ImportDiagnostic(
+                    ImportSeverity.Information,
+                    "Assets/Ui/Atlas.png is shipped in two groups and packed once."
+                )
             ]
         );
     }
@@ -199,12 +223,14 @@ public sealed class AddressableGroupsViewDumpTests {
 
         /// <summary>The tree row whose label is a group's name.</summary>
         public UiElement Row(string label) =>
-            Descendants(View.Groups).OfType<TreeRow>().FirstOrDefault(row => Descendants(row).Any(element => element.Text == label))
+            Descendants(View.Groups)
+                .OfType<TreeRow>()
+                .FirstOrDefault(row => Descendants(row).Any(element => element.Text == label))
             ?? throw new InvalidOperationException($"no row says '{label}'");
 
         public void Click(UiElement element) {
-            var x = element.AbsoluteLeft + (element.Width / 2f);
-            var y = element.AbsoluteTop + (element.Height / 2f);
+            var x = element.AbsoluteLeft + element.Width / 2f;
+            var y = element.AbsoluteTop + element.Height / 2f;
 
             harness.Ui.MovePointer(x, y);
             harness.Ui.PressPointer();
@@ -227,7 +253,9 @@ public sealed class AddressableGroupsViewDumpTests {
         static string TypefacePath() {
             const string Relative = "Editor/Vixen.Editor.App/Fonts/OpenSans-Regular.ttf";
 
-            for (var directory = new DirectoryInfo(AppContext.BaseDirectory); directory is not null; directory = directory.Parent) {
+            for (var directory = new DirectoryInfo(AppContext.BaseDirectory);
+                 directory is not null;
+                 directory = directory.Parent) {
                 var candidate = Path.Combine(directory.FullName, Relative.Replace('/', Path.DirectorySeparatorChar));
 
                 if (File.Exists(candidate)) {
@@ -242,466 +270,466 @@ public sealed class AddressableGroupsViewDumpTests {
     // ── The reference dumps, taken from the hand-written control ─────────────
 
     const string ListedTree = """
-        <group-editor .size-md .variant-default> 0,0 1200×760
-          <tree-view .size-md .variant-default> 6,6 1188×240
-            <virtualizing-panel .size-md .variant-default> 0,0 1188×240
-              <scroll-view .size-md .variant-default> 0,0 1188×240
-                <scroll-content .virtual-content> 0,0 1188×44
-                  <tree-row .leaf .size-md .variant-default> 0,0 1188×22
-                    <tree-indent> 6,11 14×0
-                    <icon .size-md .tree-chevron .variant-default> 24,6 10×10
-                    <icon .size-md .tree-glyph .variant-default> 38,5 13×13
-                    <tree-label> 55,0 1127×22 "Levels"
-                  <tree-row .leaf .size-md .variant-default> 0,22 1188×22
-                    <tree-indent> 6,11 14×0
-                    <icon .size-md .tree-chevron .variant-default> 24,6 10×10
-                    <icon .size-md .tree-glyph .variant-default> 38,5 13×13
-                    <tree-label> 55,0 1127×22 "UiCore"
-                <scrollbar .size-md .variant-default .vertical> 1178,0 10×240
-                <scrollbar .horizontal .size-md .variant-default> 0,230 1188×10
-            <tree-drop-indicator .hidden> 0,0 0×0
-          <empty-state .size-md .variant-default> 6,254 1188×124
-            <empty-title> 525,32 137×22 "No group selected"
-            <empty-description> 316,62 555×22 "A .vxgroup is a policy: how its assets are packed, compressed and shipped."
-            <empty-actions> 594,92 0×0
-          <inspector .hidden .size-md .variant-default> 0,0 0×0
-            <inspector-header> 0,0 0×0
-              <search-box .empty .size-md .variant-default> 0,0 0×0
-                <icon .size-md .variant-default> 0,0 0×0
-                <field-placeholder> 0,0 0×0 "Search"
-                <field-text> 0,0 0×0
-                <icon-button .size-md .variant-subtle> 0,0 0×0
-                  <icon .size-md .variant-default> 0,0 0×0
-                  <label> 0,0 0×0 "Clear"
-              <toggle-button .inspector-lock .size-sm .variant-subtle> 0,0 0×0
-                <icon .size-md .variant-default> 0,0 0×0
-                <label> 0,0 0×0 "Lock"
-            <scroll-view .size-md .variant-default> 0,0 0×0
-              <scroll-content> 0,0 0×0
-                <inspector-body> 0,0 0×0
-              <scrollbar .size-md .variant-default .vertical> 0,0 0×0
-              <scrollbar .horizontal .size-md .variant-default> 0,0 0×0
-            <empty-state .hidden .size-md .variant-default> 0,0 0×0
-              <empty-title> 0,0 0×0
-              <empty-description> 0,0 0×0
-              <empty-actions> 0,0 0×0
-          <button .size-md .variant-default> 6,386 126×34
-            <label> 13,6 100×22 "Analyse build"
-          <analysis-list> 6,428 1188×0
-        """;
+                              <group-editor .size-md .variant-default> 0,0 1200×760
+                                <tree-view .size-md .variant-default> 6,6 1188×240
+                                  <virtualizing-panel .size-md .variant-default> 0,0 1188×240
+                                    <scroll-view .size-md .variant-default> 0,0 1188×240
+                                      <scroll-content .virtual-content> 0,0 1188×44
+                                        <tree-row .leaf .size-md .variant-default> 0,0 1188×22
+                                          <tree-indent> 6,11 14×0
+                                          <icon .size-md .tree-chevron .variant-default> 24,6 10×10
+                                          <icon .size-md .tree-glyph .variant-default> 38,5 13×13
+                                          <tree-label> 55,0 1127×22 "Levels"
+                                        <tree-row .leaf .size-md .variant-default> 0,22 1188×22
+                                          <tree-indent> 6,11 14×0
+                                          <icon .size-md .tree-chevron .variant-default> 24,6 10×10
+                                          <icon .size-md .tree-glyph .variant-default> 38,5 13×13
+                                          <tree-label> 55,0 1127×22 "UiCore"
+                                      <scrollbar .size-md .variant-default .vertical> 1178,0 10×240
+                                      <scrollbar .horizontal .size-md .variant-default> 0,230 1188×10
+                                  <tree-drop-indicator .hidden> 0,0 0×0
+                                <empty-state .size-md .variant-default> 6,254 1188×124
+                                  <empty-title> 525,32 137×22 "No group selected"
+                                  <empty-description> 316,62 555×22 "A .vxgroup is a policy: how its assets are packed, compressed and shipped."
+                                  <empty-actions> 594,92 0×0
+                                <inspector .hidden .size-md .variant-default> 0,0 0×0
+                                  <inspector-header> 0,0 0×0
+                                    <search-box .empty .size-md .variant-default> 0,0 0×0
+                                      <icon .size-md .variant-default> 0,0 0×0
+                                      <field-placeholder> 0,0 0×0 "Search"
+                                      <field-text> 0,0 0×0
+                                      <icon-button .size-md .variant-subtle> 0,0 0×0
+                                        <icon .size-md .variant-default> 0,0 0×0
+                                        <label> 0,0 0×0 "Clear"
+                                    <toggle-button .inspector-lock .size-sm .variant-subtle> 0,0 0×0
+                                      <icon .size-md .variant-default> 0,0 0×0
+                                      <label> 0,0 0×0 "Lock"
+                                  <scroll-view .size-md .variant-default> 0,0 0×0
+                                    <scroll-content> 0,0 0×0
+                                      <inspector-body> 0,0 0×0
+                                    <scrollbar .size-md .variant-default .vertical> 0,0 0×0
+                                    <scrollbar .horizontal .size-md .variant-default> 0,0 0×0
+                                  <empty-state .hidden .size-md .variant-default> 0,0 0×0
+                                    <empty-title> 0,0 0×0
+                                    <empty-description> 0,0 0×0
+                                    <empty-actions> 0,0 0×0
+                                <button .size-md .variant-default> 6,386 126×34
+                                  <label> 13,6 100×22 "Analyse build"
+                                <analysis-list> 6,428 1188×0
+                              """;
 
     const string ListedFlags = """
-        <tree-row .leaf .size-md .variant-default> Label=Vixen.Ui.UiElement
-        <tree-row .leaf .size-md .variant-default> Label=Vixen.Ui.UiElement
-        <scrollbar .size-md .variant-default .vertical> Value=0
-        <scrollbar .horizontal .size-md .variant-default> Value=0
-        <search-box .empty .size-md .variant-default> State=PlaceholderShown, Valid Placeholder="Search"
-        <icon-button .size-md .variant-subtle> Label="Clear"
-        <toggle-button .inspector-lock .size-sm .variant-subtle> Label="Lock"
-        <scrollbar .size-md .variant-default .vertical> Value=0
-        <scrollbar .horizontal .size-md .variant-default> Value=0
-        <button .size-md .variant-default> Label="Analyse build"
-        """;
+                               <tree-row .leaf .size-md .variant-default> Label=Vixen.Ui.UiElement
+                               <tree-row .leaf .size-md .variant-default> Label=Vixen.Ui.UiElement
+                               <scrollbar .size-md .variant-default .vertical> Value=0
+                               <scrollbar .horizontal .size-md .variant-default> Value=0
+                               <search-box .empty .size-md .variant-default> State=PlaceholderShown, Valid Placeholder="Search"
+                               <icon-button .size-md .variant-subtle> Label="Clear"
+                               <toggle-button .inspector-lock .size-sm .variant-subtle> Label="Lock"
+                               <scrollbar .size-md .variant-default .vertical> Value=0
+                               <scrollbar .horizontal .size-md .variant-default> Value=0
+                               <button .size-md .variant-default> Label="Analyse build"
+                               """;
 
     const string ChosenTree = """
-        <group-editor .size-md .variant-default> 0,0 1200×760
-          <tree-view .size-md .variant-default> 6,6 1188×167
-            <virtualizing-panel .size-md .variant-default> 0,0 1188×167
-              <scroll-view .size-md .variant-default> 0,0 1188×167
-                <scroll-content .virtual-content> 0,0 1188×44
-                  <tree-row .leaf .size-md .variant-default> 0,0 1188×22
-                    <tree-indent> 6,11 14×0
-                    <icon .size-md .tree-chevron .variant-default> 24,6 10×10
-                    <icon .size-md .tree-glyph .variant-default> 38,5 13×13
-                    <tree-label> 55,0 1127×22 "Levels"
-                  <tree-row .leaf .size-md .variant-default> 0,22 1188×22
-                    <tree-indent> 6,11 14×0
-                    <icon .size-md .tree-chevron .variant-default> 24,6 10×10
-                    <icon .size-md .tree-glyph .variant-default> 38,5 13×13
-                    <tree-label> 55,0 1127×22 "UiCore"
-                <scrollbar .size-md .variant-default .vertical> 1178,0 10×167
-                <scrollbar .horizontal .size-md .variant-default> 0,157 1188×10
-            <tree-drop-indicator .hidden> 0,0 0×0
-          <empty-state .hidden .size-md .variant-default> 0,0 0×0
-            <empty-title> 0,0 0×0 "No group selected"
-            <empty-description> 0,0 0×0 "A .vxgroup is a policy: how its assets are packed, compressed and shipped."
-            <empty-actions> 0,0 0×0
-          <inspector .size-md .variant-default> 6,181 1188×523
-            <inspector-header> 2,2 1184×23
-              <search-box .empty .size-md .variant-default> 0,0 0×0
-                <icon .size-md .variant-default> 0,0 0×0
-                <field-placeholder> 0,0 0×0 "Search"
-                <field-text> 0,0 0×0
-                <icon-button .size-md .variant-subtle> 0,0 0×0
-                  <icon .size-md .variant-default> 0,0 0×0
-                  <label> 0,0 0×0 "Clear"
-              <toggle-button .inspector-lock .size-sm .variant-subtle> 0,0 23×23
-                <icon .size-md .variant-default> 4,4 15×15
-                <label> 0,0 0×0 "Lock"
-            <scroll-view .size-md .variant-default> 2,31 1184×490
-              <scroll-content> 0,0 1184×323
-                <inspector-body> 0,0 1184×323
-                  <inspector-row .size-md .variant-default> 0,0 1184×30
-                    <inspector-label> 4,4 110×22 "Name"
-                    <inspector-editor> 122,0 1028×30
-                      <textbox .size-md .variant-default> 0,0 1028×30
-                        <field-placeholder> 0,0 0×0
-                        <field-text> 9,4 51×22 "UiCore"
-                    <icon-button .size-sm .variant-subtle> 1158,0 22×22
-                      <icon .size-md .variant-default> 3,3 16×16
-                      <label> 0,0 0×0 "Reset"
-                    <tooltip .closed .size-md .variant-default> 0,0 0×0 "Assets name this in their sidecar, and folders inherit it downwards."
-                  <inspector-row .size-md .variant-default> 0,30 1184×30
-                    <inspector-label> 4,4 110×22 "Load Path"
-                    <inspector-editor> 122,0 1058×30
-                      <select .size-md .variant-default> 0,0 1058×30
-                        <select-field> 9,4 1022×22 "Local"
-                        <icon .size-md .variant-default> 1037,9 12×12
-                    <icon-button .hidden .size-sm .variant-subtle> 0,0 0×0
-                      <icon .size-md .variant-default> 0,0 0×0
-                      <label> 0,0 0×0 "Reset"
-                    <tooltip .closed .size-md .variant-default> 0,0 0×0 "Local ships inside the application. Remote is fetched from RemoteUrl."
-                  <inspector-row .size-md .variant-default> 0,60 1184×30
-                    <inspector-label> 4,4 110×22 "Packing"
-                    <inspector-editor> 122,0 1058×30
-                      <select .size-md .variant-default> 0,0 1058×30
-                        <select-field> 9,4 1022×22 "PackTogether"
-                        <icon .size-md .variant-default> 1037,9 12×12
-                    <icon-button .hidden .size-sm .variant-subtle> 0,0 0×0
-                      <icon .size-md .variant-default> 0,0 0×0
-                      <label> 0,0 0×0 "Reset"
-                    <tooltip .closed .size-md .variant-default> 0,0 0×0 "The single most consequential setting here: a bundle is the unit of both download and residency."
-                  <inspector-row .size-md .variant-default> 0,90 1184×30
-                    <inspector-label> 4,4 110×22 "Compression"
-                    <inspector-editor> 122,0 1058×30
-                      <select .size-md .variant-default> 0,0 1058×30
-                        <select-field> 9,4 1022×22 "Lz4"
-                        <icon .size-md .variant-default> 1037,9 12×12
-                    <icon-button .hidden .size-sm .variant-subtle> 0,0 0×0
-                      <icon .size-md .variant-default> 0,0 0×0
-                      <label> 0,0 0×0 "Reset"
-                  <inspector-row .size-md .variant-default> 0,120 1184×44
-                    <inspector-label> 4,0 110×44 "Bundle Naming"
-                    <inspector-editor> 122,7 1058×30
-                      <select .size-md .variant-default> 0,0 1058×30
-                        <select-field> 9,4 1022×22 "FilenameHash"
-                        <icon .size-md .variant-default> 1037,9 12×12
-                    <icon-button .hidden .size-sm .variant-subtle> 0,0 0×0
-                      <icon .size-md .variant-default> 0,0 0×0
-                      <label> 0,0 0×0 "Reset"
-                    <tooltip .closed .size-md .variant-default> 0,0 0×0 "FilenameHash is the only naming a CDN cache cannot serve a stale copy of."
-                  <inspector-row .size-md .variant-default> 0,164 1184×44
-                    <inspector-label> 4,0 110×44 "Include In Build"
-                    <inspector-editor> 122,14 1058×16
-                      <checkbox .size-md .variant-default> 0,0 24×16
-                        <box> 0,0 16×16
-                          <icon .size-md .variant-default> 2,2 12×12
-                        <label> 24,8 0×0
-                    <icon-button .hidden .size-sm .variant-subtle> 0,0 0×0
-                      <icon .size-md .variant-default> 0,0 0×0
-                      <label> 0,0 0×0 "Reset"
-                    <tooltip .closed .size-md .variant-default> 0,0 0×0 "A group of work in progress is turned off rather than deleted."
-                  <inspector-row .size-md .variant-default> 0,208 1184×44
-                    <inspector-label> 4,0 110×44 "Include In Server Build"
-                    <inspector-editor> 122,14 1058×16
-                      <checkbox .size-md .variant-default> 0,0 24×16
-                        <box> 0,0 16×16
-                          <icon .size-md .variant-default> 2,2 12×12
-                        <label> 24,8 0×0
-                    <icon-button .hidden .size-sm .variant-subtle> 0,0 0×0
-                      <icon .size-md .variant-default> 0,0 0×0
-                      <label> 0,0 0×0 "Reset"
-                    <tooltip .closed .size-md .variant-default> 0,0 0×0 "Doc 17's server content profile. A realm never asks for it, so a server build leaves it out."
-                  <inspector-row .size-md .variant-default> 0,252 1184×44
-                    <inspector-label> 4,0 110×44 "Update Restriction"
-                    <inspector-editor> 122,7 1058×30
-                      <select .size-md .variant-default> 0,0 1058×30
-                        <select-field> 9,4 1022×22 "CanChangePostRelease"
-                        <icon .size-md .variant-default> 1037,9 12×12
-                    <icon-button .hidden .size-sm .variant-subtle> 0,0 0×0
-                      <icon .size-md .variant-default> 0,0 0×0
-                      <label> 0,0 0×0 "Reset"
-                    <tooltip .closed .size-md .variant-default> 0,0 0×0 "A group baked into the binary cannot be replaced by a download, six months after shipping."
-                  <inspector-row .size-md .variant-default> 0,296 1184×27
-                    <inspector-label> 4,2 110×22 "Remote Url"
-                    <inspector-editor> 122,0 1058×27
-                      <textbox .empty .size-md .variant-default> 0,0 1058×27
-                        <field-placeholder> 9,14 0×0
-                        <field-text> 9,4 0×19
-                    <icon-button .hidden .size-sm .variant-subtle> 0,0 0×0
-                      <icon .size-md .variant-default> 0,0 0×0
-                      <label> 0,0 0×0 "Reset"
-                    <tooltip .closed .size-md .variant-default> 0,0 0×0 "A prefix the bundle's file name is appended to. Empty for a local group."
-              <scrollbar .size-md .variant-default .vertical> 1174,0 10×490
-              <scrollbar .horizontal .size-md .variant-default> 0,480 1184×10
-            <empty-state .hidden .size-md .variant-default> 0,0 0×0
-              <empty-title> 0,0 0×0
-              <empty-description> 0,0 0×0
-              <empty-actions> 0,0 0×0
-          <button .size-md .variant-default> 6,712 126×34
-            <label> 13,6 100×22 "Analyse build"
-          <analysis-list> 6,754 1188×0
-        """;
+                              <group-editor .size-md .variant-default> 0,0 1200×760
+                                <tree-view .size-md .variant-default> 6,6 1188×167
+                                  <virtualizing-panel .size-md .variant-default> 0,0 1188×167
+                                    <scroll-view .size-md .variant-default> 0,0 1188×167
+                                      <scroll-content .virtual-content> 0,0 1188×44
+                                        <tree-row .leaf .size-md .variant-default> 0,0 1188×22
+                                          <tree-indent> 6,11 14×0
+                                          <icon .size-md .tree-chevron .variant-default> 24,6 10×10
+                                          <icon .size-md .tree-glyph .variant-default> 38,5 13×13
+                                          <tree-label> 55,0 1127×22 "Levels"
+                                        <tree-row .leaf .size-md .variant-default> 0,22 1188×22
+                                          <tree-indent> 6,11 14×0
+                                          <icon .size-md .tree-chevron .variant-default> 24,6 10×10
+                                          <icon .size-md .tree-glyph .variant-default> 38,5 13×13
+                                          <tree-label> 55,0 1127×22 "UiCore"
+                                      <scrollbar .size-md .variant-default .vertical> 1178,0 10×167
+                                      <scrollbar .horizontal .size-md .variant-default> 0,157 1188×10
+                                  <tree-drop-indicator .hidden> 0,0 0×0
+                                <empty-state .hidden .size-md .variant-default> 0,0 0×0
+                                  <empty-title> 0,0 0×0 "No group selected"
+                                  <empty-description> 0,0 0×0 "A .vxgroup is a policy: how its assets are packed, compressed and shipped."
+                                  <empty-actions> 0,0 0×0
+                                <inspector .size-md .variant-default> 6,181 1188×523
+                                  <inspector-header> 2,2 1184×23
+                                    <search-box .empty .size-md .variant-default> 0,0 0×0
+                                      <icon .size-md .variant-default> 0,0 0×0
+                                      <field-placeholder> 0,0 0×0 "Search"
+                                      <field-text> 0,0 0×0
+                                      <icon-button .size-md .variant-subtle> 0,0 0×0
+                                        <icon .size-md .variant-default> 0,0 0×0
+                                        <label> 0,0 0×0 "Clear"
+                                    <toggle-button .inspector-lock .size-sm .variant-subtle> 0,0 23×23
+                                      <icon .size-md .variant-default> 4,4 15×15
+                                      <label> 0,0 0×0 "Lock"
+                                  <scroll-view .size-md .variant-default> 2,31 1184×490
+                                    <scroll-content> 0,0 1184×323
+                                      <inspector-body> 0,0 1184×323
+                                        <inspector-row .size-md .variant-default> 0,0 1184×30
+                                          <inspector-label> 4,4 110×22 "Name"
+                                          <inspector-editor> 122,0 1028×30
+                                            <textbox .size-md .variant-default> 0,0 1028×30
+                                              <field-placeholder> 0,0 0×0
+                                              <field-text> 9,4 51×22 "UiCore"
+                                          <icon-button .size-sm .variant-subtle> 1158,0 22×22
+                                            <icon .size-md .variant-default> 3,3 16×16
+                                            <label> 0,0 0×0 "Reset"
+                                          <tooltip .closed .size-md .variant-default> 0,0 0×0 "Assets name this in their sidecar, and folders inherit it downwards."
+                                        <inspector-row .size-md .variant-default> 0,30 1184×30
+                                          <inspector-label> 4,4 110×22 "Load Path"
+                                          <inspector-editor> 122,0 1058×30
+                                            <select .size-md .variant-default> 0,0 1058×30
+                                              <select-field> 9,4 1022×22 "Local"
+                                              <icon .size-md .variant-default> 1037,9 12×12
+                                          <icon-button .hidden .size-sm .variant-subtle> 0,0 0×0
+                                            <icon .size-md .variant-default> 0,0 0×0
+                                            <label> 0,0 0×0 "Reset"
+                                          <tooltip .closed .size-md .variant-default> 0,0 0×0 "Local ships inside the application. Remote is fetched from RemoteUrl."
+                                        <inspector-row .size-md .variant-default> 0,60 1184×30
+                                          <inspector-label> 4,4 110×22 "Packing"
+                                          <inspector-editor> 122,0 1058×30
+                                            <select .size-md .variant-default> 0,0 1058×30
+                                              <select-field> 9,4 1022×22 "PackTogether"
+                                              <icon .size-md .variant-default> 1037,9 12×12
+                                          <icon-button .hidden .size-sm .variant-subtle> 0,0 0×0
+                                            <icon .size-md .variant-default> 0,0 0×0
+                                            <label> 0,0 0×0 "Reset"
+                                          <tooltip .closed .size-md .variant-default> 0,0 0×0 "The single most consequential setting here: a bundle is the unit of both download and residency."
+                                        <inspector-row .size-md .variant-default> 0,90 1184×30
+                                          <inspector-label> 4,4 110×22 "Compression"
+                                          <inspector-editor> 122,0 1058×30
+                                            <select .size-md .variant-default> 0,0 1058×30
+                                              <select-field> 9,4 1022×22 "Lz4"
+                                              <icon .size-md .variant-default> 1037,9 12×12
+                                          <icon-button .hidden .size-sm .variant-subtle> 0,0 0×0
+                                            <icon .size-md .variant-default> 0,0 0×0
+                                            <label> 0,0 0×0 "Reset"
+                                        <inspector-row .size-md .variant-default> 0,120 1184×44
+                                          <inspector-label> 4,0 110×44 "Bundle Naming"
+                                          <inspector-editor> 122,7 1058×30
+                                            <select .size-md .variant-default> 0,0 1058×30
+                                              <select-field> 9,4 1022×22 "FilenameHash"
+                                              <icon .size-md .variant-default> 1037,9 12×12
+                                          <icon-button .hidden .size-sm .variant-subtle> 0,0 0×0
+                                            <icon .size-md .variant-default> 0,0 0×0
+                                            <label> 0,0 0×0 "Reset"
+                                          <tooltip .closed .size-md .variant-default> 0,0 0×0 "FilenameHash is the only naming a CDN cache cannot serve a stale copy of."
+                                        <inspector-row .size-md .variant-default> 0,164 1184×44
+                                          <inspector-label> 4,0 110×44 "Include In Build"
+                                          <inspector-editor> 122,14 1058×16
+                                            <checkbox .size-md .variant-default> 0,0 24×16
+                                              <box> 0,0 16×16
+                                                <icon .size-md .variant-default> 2,2 12×12
+                                              <label> 24,8 0×0
+                                          <icon-button .hidden .size-sm .variant-subtle> 0,0 0×0
+                                            <icon .size-md .variant-default> 0,0 0×0
+                                            <label> 0,0 0×0 "Reset"
+                                          <tooltip .closed .size-md .variant-default> 0,0 0×0 "A group of work in progress is turned off rather than deleted."
+                                        <inspector-row .size-md .variant-default> 0,208 1184×44
+                                          <inspector-label> 4,0 110×44 "Include In Server Build"
+                                          <inspector-editor> 122,14 1058×16
+                                            <checkbox .size-md .variant-default> 0,0 24×16
+                                              <box> 0,0 16×16
+                                                <icon .size-md .variant-default> 2,2 12×12
+                                              <label> 24,8 0×0
+                                          <icon-button .hidden .size-sm .variant-subtle> 0,0 0×0
+                                            <icon .size-md .variant-default> 0,0 0×0
+                                            <label> 0,0 0×0 "Reset"
+                                          <tooltip .closed .size-md .variant-default> 0,0 0×0 "Doc 17's server content profile. A realm never asks for it, so a server build leaves it out."
+                                        <inspector-row .size-md .variant-default> 0,252 1184×44
+                                          <inspector-label> 4,0 110×44 "Update Restriction"
+                                          <inspector-editor> 122,7 1058×30
+                                            <select .size-md .variant-default> 0,0 1058×30
+                                              <select-field> 9,4 1022×22 "CanChangePostRelease"
+                                              <icon .size-md .variant-default> 1037,9 12×12
+                                          <icon-button .hidden .size-sm .variant-subtle> 0,0 0×0
+                                            <icon .size-md .variant-default> 0,0 0×0
+                                            <label> 0,0 0×0 "Reset"
+                                          <tooltip .closed .size-md .variant-default> 0,0 0×0 "A group baked into the binary cannot be replaced by a download, six months after shipping."
+                                        <inspector-row .size-md .variant-default> 0,296 1184×27
+                                          <inspector-label> 4,2 110×22 "Remote Url"
+                                          <inspector-editor> 122,0 1058×27
+                                            <textbox .empty .size-md .variant-default> 0,0 1058×27
+                                              <field-placeholder> 9,14 0×0
+                                              <field-text> 9,4 0×19
+                                          <icon-button .hidden .size-sm .variant-subtle> 0,0 0×0
+                                            <icon .size-md .variant-default> 0,0 0×0
+                                            <label> 0,0 0×0 "Reset"
+                                          <tooltip .closed .size-md .variant-default> 0,0 0×0 "A prefix the bundle's file name is appended to. Empty for a local group."
+                                    <scrollbar .size-md .variant-default .vertical> 1174,0 10×490
+                                    <scrollbar .horizontal .size-md .variant-default> 0,480 1184×10
+                                  <empty-state .hidden .size-md .variant-default> 0,0 0×0
+                                    <empty-title> 0,0 0×0
+                                    <empty-description> 0,0 0×0
+                                    <empty-actions> 0,0 0×0
+                                <button .size-md .variant-default> 6,712 126×34
+                                  <label> 13,6 100×22 "Analyse build"
+                                <analysis-list> 6,754 1188×0
+                              """;
 
     const string ChosenFlags = """
-        <group-editor .size-md .variant-default> State=Hover, FocusWithin
-        <tree-view .size-md .variant-default> State=Hover, Focus, FocusWithin
-        <virtualizing-panel .size-md .variant-default> State=Hover
-        <scroll-view .size-md .variant-default> State=Hover
-        <scroll-content .virtual-content> State=Hover
-        <tree-row .leaf .size-md .variant-default> Label=Vixen.Ui.UiElement
-        <tree-row .leaf .size-md .variant-default> State=Hover, Checked Label=Vixen.Ui.UiElement
-        <tree-label> State=Hover
-        <scrollbar .size-md .variant-default .vertical> Value=0
-        <scrollbar .horizontal .size-md .variant-default> Value=0
-        <search-box .empty .size-md .variant-default> State=PlaceholderShown, Valid Placeholder="Search"
-        <icon-button .size-md .variant-subtle> Label="Clear"
-        <toggle-button .inspector-lock .size-sm .variant-subtle> Label="Lock"
-        <inspector-row .size-md .variant-default> Label=Vixen.Ui.UiElement
-        <textbox .size-md .variant-default> State=Valid Value="UiCore"
-        <icon-button .size-sm .variant-subtle> Label="Reset"
-        <tooltip .closed .size-md .variant-default> Label="Assets name this in their sidecar, and folders inherit it downwards."
-        <inspector-row .size-md .variant-default> Label=Vixen.Ui.UiElement
-        <select .size-md .variant-default> State=Valid Value="Local"
-        <icon-button .hidden .size-sm .variant-subtle> Label="Reset"
-        <tooltip .closed .size-md .variant-default> Label="Local ships inside the application. Remote is fetched from RemoteUrl."
-        <inspector-row .size-md .variant-default> Label=Vixen.Ui.UiElement
-        <select .size-md .variant-default> State=Valid Value="PackTogether"
-        <icon-button .hidden .size-sm .variant-subtle> Label="Reset"
-        <tooltip .closed .size-md .variant-default> Label="The single most consequential setting here: a bundle is the unit of both download and residency."
-        <inspector-row .size-md .variant-default> Label=Vixen.Ui.UiElement
-        <select .size-md .variant-default> State=Valid Value="Lz4"
-        <icon-button .hidden .size-sm .variant-subtle> Label="Reset"
-        <inspector-row .size-md .variant-default> Label=Vixen.Ui.UiElement
-        <select .size-md .variant-default> State=Valid Value="FilenameHash"
-        <icon-button .hidden .size-sm .variant-subtle> Label="Reset"
-        <tooltip .closed .size-md .variant-default> Label="FilenameHash is the only naming a CDN cache cannot serve a stale copy of."
-        <inspector-row .size-md .variant-default> Label=Vixen.Ui.UiElement
-        <checkbox .size-md .variant-default> State=Checked, Valid IsChecked=True
-        <icon-button .hidden .size-sm .variant-subtle> Label="Reset"
-        <tooltip .closed .size-md .variant-default> Label="A group of work in progress is turned off rather than deleted."
-        <inspector-row .size-md .variant-default> Label=Vixen.Ui.UiElement
-        <checkbox .size-md .variant-default> State=Checked, Valid IsChecked=True
-        <icon-button .hidden .size-sm .variant-subtle> Label="Reset"
-        <tooltip .closed .size-md .variant-default> Label="Doc 17's server content profile. A realm never asks for it, so a server build leaves it out."
-        <inspector-row .size-md .variant-default> Label=Vixen.Ui.UiElement
-        <select .size-md .variant-default> State=Valid Value="CanChangePostRelease"
-        <icon-button .hidden .size-sm .variant-subtle> Label="Reset"
-        <tooltip .closed .size-md .variant-default> Label="A group baked into the binary cannot be replaced by a download, six months after shipping."
-        <inspector-row .size-md .variant-default> Label=Vixen.Ui.UiElement
-        <textbox .empty .size-md .variant-default> State=Valid
-        <icon-button .hidden .size-sm .variant-subtle> Label="Reset"
-        <tooltip .closed .size-md .variant-default> Label="A prefix the bundle's file name is appended to. Empty for a local group."
-        <scrollbar .size-md .variant-default .vertical> Value=0
-        <scrollbar .horizontal .size-md .variant-default> Value=0
-        <button .size-md .variant-default> Label="Analyse build"
-        """;
+                               <group-editor .size-md .variant-default> State=Hover, FocusWithin
+                               <tree-view .size-md .variant-default> State=Hover, Focus, FocusWithin
+                               <virtualizing-panel .size-md .variant-default> State=Hover
+                               <scroll-view .size-md .variant-default> State=Hover
+                               <scroll-content .virtual-content> State=Hover
+                               <tree-row .leaf .size-md .variant-default> Label=Vixen.Ui.UiElement
+                               <tree-row .leaf .size-md .variant-default> State=Hover, Checked Label=Vixen.Ui.UiElement
+                               <tree-label> State=Hover
+                               <scrollbar .size-md .variant-default .vertical> Value=0
+                               <scrollbar .horizontal .size-md .variant-default> Value=0
+                               <search-box .empty .size-md .variant-default> State=PlaceholderShown, Valid Placeholder="Search"
+                               <icon-button .size-md .variant-subtle> Label="Clear"
+                               <toggle-button .inspector-lock .size-sm .variant-subtle> Label="Lock"
+                               <inspector-row .size-md .variant-default> Label=Vixen.Ui.UiElement
+                               <textbox .size-md .variant-default> State=Valid Value="UiCore"
+                               <icon-button .size-sm .variant-subtle> Label="Reset"
+                               <tooltip .closed .size-md .variant-default> Label="Assets name this in their sidecar, and folders inherit it downwards."
+                               <inspector-row .size-md .variant-default> Label=Vixen.Ui.UiElement
+                               <select .size-md .variant-default> State=Valid Value="Local"
+                               <icon-button .hidden .size-sm .variant-subtle> Label="Reset"
+                               <tooltip .closed .size-md .variant-default> Label="Local ships inside the application. Remote is fetched from RemoteUrl."
+                               <inspector-row .size-md .variant-default> Label=Vixen.Ui.UiElement
+                               <select .size-md .variant-default> State=Valid Value="PackTogether"
+                               <icon-button .hidden .size-sm .variant-subtle> Label="Reset"
+                               <tooltip .closed .size-md .variant-default> Label="The single most consequential setting here: a bundle is the unit of both download and residency."
+                               <inspector-row .size-md .variant-default> Label=Vixen.Ui.UiElement
+                               <select .size-md .variant-default> State=Valid Value="Lz4"
+                               <icon-button .hidden .size-sm .variant-subtle> Label="Reset"
+                               <inspector-row .size-md .variant-default> Label=Vixen.Ui.UiElement
+                               <select .size-md .variant-default> State=Valid Value="FilenameHash"
+                               <icon-button .hidden .size-sm .variant-subtle> Label="Reset"
+                               <tooltip .closed .size-md .variant-default> Label="FilenameHash is the only naming a CDN cache cannot serve a stale copy of."
+                               <inspector-row .size-md .variant-default> Label=Vixen.Ui.UiElement
+                               <checkbox .size-md .variant-default> State=Checked, Valid IsChecked=True
+                               <icon-button .hidden .size-sm .variant-subtle> Label="Reset"
+                               <tooltip .closed .size-md .variant-default> Label="A group of work in progress is turned off rather than deleted."
+                               <inspector-row .size-md .variant-default> Label=Vixen.Ui.UiElement
+                               <checkbox .size-md .variant-default> State=Checked, Valid IsChecked=True
+                               <icon-button .hidden .size-sm .variant-subtle> Label="Reset"
+                               <tooltip .closed .size-md .variant-default> Label="Doc 17's server content profile. A realm never asks for it, so a server build leaves it out."
+                               <inspector-row .size-md .variant-default> Label=Vixen.Ui.UiElement
+                               <select .size-md .variant-default> State=Valid Value="CanChangePostRelease"
+                               <icon-button .hidden .size-sm .variant-subtle> Label="Reset"
+                               <tooltip .closed .size-md .variant-default> Label="A group baked into the binary cannot be replaced by a download, six months after shipping."
+                               <inspector-row .size-md .variant-default> Label=Vixen.Ui.UiElement
+                               <textbox .empty .size-md .variant-default> State=Valid
+                               <icon-button .hidden .size-sm .variant-subtle> Label="Reset"
+                               <tooltip .closed .size-md .variant-default> Label="A prefix the bundle's file name is appended to. Empty for a local group."
+                               <scrollbar .size-md .variant-default .vertical> Value=0
+                               <scrollbar .horizontal .size-md .variant-default> Value=0
+                               <button .size-md .variant-default> Label="Analyse build"
+                               """;
 
     const string AnalysedTree = """
-        <group-editor .size-md .variant-default> 0,0 1200×760
-          <tree-view .size-md .variant-default> 6,6 1188×240
-            <virtualizing-panel .size-md .variant-default> 0,0 1188×240
-              <scroll-view .size-md .variant-default> 0,0 1188×240
-                <scroll-content .virtual-content> 0,0 1188×44
-                  <tree-row .leaf .size-md .variant-default> 0,0 1188×22
-                    <tree-indent> 6,11 14×0
-                    <icon .size-md .tree-chevron .variant-default> 24,6 10×10
-                    <icon .size-md .tree-glyph .variant-default> 38,5 13×13
-                    <tree-label> 55,0 1127×22 "Levels"
-                  <tree-row .leaf .size-md .variant-default> 0,22 1188×22
-                    <tree-indent> 6,11 14×0
-                    <icon .size-md .tree-chevron .variant-default> 24,6 10×10
-                    <icon .size-md .tree-glyph .variant-default> 38,5 13×13
-                    <tree-label> 55,0 1127×22 "UiCore"
-                <scrollbar .size-md .variant-default .vertical> 1178,0 10×240
-                <scrollbar .horizontal .size-md .variant-default> 0,230 1188×10
-            <tree-drop-indicator .hidden> 0,0 0×0
-          <empty-state .size-md .variant-default> 6,254 1188×124
-            <empty-title> 525,32 137×22 "No group selected"
-            <empty-description> 316,62 555×22 "A .vxgroup is a policy: how its assets are packed, compressed and shipped."
-            <empty-actions> 594,92 0×0
-          <inspector .hidden .size-md .variant-default> 0,0 0×0
-            <inspector-header> 0,0 0×0
-              <search-box .empty .size-md .variant-default> 0,0 0×0
-                <icon .size-md .variant-default> 0,0 0×0
-                <field-placeholder> 0,0 0×0 "Search"
-                <field-text> 0,0 0×0
-                <icon-button .size-md .variant-subtle> 0,0 0×0
-                  <icon .size-md .variant-default> 0,0 0×0
-                  <label> 0,0 0×0 "Clear"
-              <toggle-button .inspector-lock .size-sm .variant-subtle> 0,0 0×0
-                <icon .size-md .variant-default> 0,0 0×0
-                <label> 0,0 0×0 "Lock"
-            <scroll-view .size-md .variant-default> 0,0 0×0
-              <scroll-content> 0,0 0×0
-                <inspector-body> 0,0 0×0
-              <scrollbar .size-md .variant-default .vertical> 0,0 0×0
-              <scrollbar .horizontal .size-md .variant-default> 0,0 0×0
-            <empty-state .hidden .size-md .variant-default> 0,0 0×0
-              <empty-title> 0,0 0×0
-              <empty-description> 0,0 0×0
-              <empty-actions> 0,0 0×0
-          <button .size-md .variant-default> 6,386 126×34
-            <label> 13,6 100×22 "Analyse build"
-          <analysis-list> 6,428 1188×70
-            <analysis-row .error> 0,0 1188×22
-              <analysis-stage> 4,0 72×22 "error"
-              <analysis-message> 84,0 1100×22 "Assets/Levels/Boss.vxscene depends on Assets/Shared/Rock.png, which is not shipped."
-            <analysis-row .warning> 0,24 1188×22
-              <analysis-stage> 4,0 72×22 "warning"
-              <analysis-message> 84,0 1100×22 "Assets/Scratch/Old.png could not be imported and is not shipped."
-            <analysis-row> 0,48 1188×22
-              <analysis-stage> 4,0 72×22 "plan"
-              <analysis-message> 84,0 1100×22 "0 addressable assets across 0 groups."
-        """;
+                                <group-editor .size-md .variant-default> 0,0 1200×760
+                                  <tree-view .size-md .variant-default> 6,6 1188×240
+                                    <virtualizing-panel .size-md .variant-default> 0,0 1188×240
+                                      <scroll-view .size-md .variant-default> 0,0 1188×240
+                                        <scroll-content .virtual-content> 0,0 1188×44
+                                          <tree-row .leaf .size-md .variant-default> 0,0 1188×22
+                                            <tree-indent> 6,11 14×0
+                                            <icon .size-md .tree-chevron .variant-default> 24,6 10×10
+                                            <icon .size-md .tree-glyph .variant-default> 38,5 13×13
+                                            <tree-label> 55,0 1127×22 "Levels"
+                                          <tree-row .leaf .size-md .variant-default> 0,22 1188×22
+                                            <tree-indent> 6,11 14×0
+                                            <icon .size-md .tree-chevron .variant-default> 24,6 10×10
+                                            <icon .size-md .tree-glyph .variant-default> 38,5 13×13
+                                            <tree-label> 55,0 1127×22 "UiCore"
+                                        <scrollbar .size-md .variant-default .vertical> 1178,0 10×240
+                                        <scrollbar .horizontal .size-md .variant-default> 0,230 1188×10
+                                    <tree-drop-indicator .hidden> 0,0 0×0
+                                  <empty-state .size-md .variant-default> 6,254 1188×124
+                                    <empty-title> 525,32 137×22 "No group selected"
+                                    <empty-description> 316,62 555×22 "A .vxgroup is a policy: how its assets are packed, compressed and shipped."
+                                    <empty-actions> 594,92 0×0
+                                  <inspector .hidden .size-md .variant-default> 0,0 0×0
+                                    <inspector-header> 0,0 0×0
+                                      <search-box .empty .size-md .variant-default> 0,0 0×0
+                                        <icon .size-md .variant-default> 0,0 0×0
+                                        <field-placeholder> 0,0 0×0 "Search"
+                                        <field-text> 0,0 0×0
+                                        <icon-button .size-md .variant-subtle> 0,0 0×0
+                                          <icon .size-md .variant-default> 0,0 0×0
+                                          <label> 0,0 0×0 "Clear"
+                                      <toggle-button .inspector-lock .size-sm .variant-subtle> 0,0 0×0
+                                        <icon .size-md .variant-default> 0,0 0×0
+                                        <label> 0,0 0×0 "Lock"
+                                    <scroll-view .size-md .variant-default> 0,0 0×0
+                                      <scroll-content> 0,0 0×0
+                                        <inspector-body> 0,0 0×0
+                                      <scrollbar .size-md .variant-default .vertical> 0,0 0×0
+                                      <scrollbar .horizontal .size-md .variant-default> 0,0 0×0
+                                    <empty-state .hidden .size-md .variant-default> 0,0 0×0
+                                      <empty-title> 0,0 0×0
+                                      <empty-description> 0,0 0×0
+                                      <empty-actions> 0,0 0×0
+                                  <button .size-md .variant-default> 6,386 126×34
+                                    <label> 13,6 100×22 "Analyse build"
+                                  <analysis-list> 6,428 1188×70
+                                    <analysis-row .error> 0,0 1188×22
+                                      <analysis-stage> 4,0 72×22 "error"
+                                      <analysis-message> 84,0 1100×22 "Assets/Levels/Boss.vxscene depends on Assets/Shared/Rock.png, which is not shipped."
+                                    <analysis-row .warning> 0,24 1188×22
+                                      <analysis-stage> 4,0 72×22 "warning"
+                                      <analysis-message> 84,0 1100×22 "Assets/Scratch/Old.png could not be imported and is not shipped."
+                                    <analysis-row> 0,48 1188×22
+                                      <analysis-stage> 4,0 72×22 "plan"
+                                      <analysis-message> 84,0 1100×22 "0 addressable assets across 0 groups."
+                                """;
 
     const string AnalysedFlags = """
-        <group-editor .size-md .variant-default> State=Hover, FocusWithin
-        <tree-row .leaf .size-md .variant-default> Label=Vixen.Ui.UiElement
-        <tree-row .leaf .size-md .variant-default> Label=Vixen.Ui.UiElement
-        <scrollbar .size-md .variant-default .vertical> Value=0
-        <scrollbar .horizontal .size-md .variant-default> Value=0
-        <search-box .empty .size-md .variant-default> State=PlaceholderShown, Valid Placeholder="Search"
-        <icon-button .size-md .variant-subtle> Label="Clear"
-        <toggle-button .inspector-lock .size-sm .variant-subtle> Label="Lock"
-        <scrollbar .size-md .variant-default .vertical> Value=0
-        <scrollbar .horizontal .size-md .variant-default> Value=0
-        <button .size-md .variant-default> State=Hover, Focus, FocusWithin Label="Analyse build"
-        <label> State=Hover
-        """;
+                                 <group-editor .size-md .variant-default> State=Hover, FocusWithin
+                                 <tree-row .leaf .size-md .variant-default> Label=Vixen.Ui.UiElement
+                                 <tree-row .leaf .size-md .variant-default> Label=Vixen.Ui.UiElement
+                                 <scrollbar .size-md .variant-default .vertical> Value=0
+                                 <scrollbar .horizontal .size-md .variant-default> Value=0
+                                 <search-box .empty .size-md .variant-default> State=PlaceholderShown, Valid Placeholder="Search"
+                                 <icon-button .size-md .variant-subtle> Label="Clear"
+                                 <toggle-button .inspector-lock .size-sm .variant-subtle> Label="Lock"
+                                 <scrollbar .size-md .variant-default .vertical> Value=0
+                                 <scrollbar .horizontal .size-md .variant-default> Value=0
+                                 <button .size-md .variant-default> State=Hover, Focus, FocusWithin Label="Analyse build"
+                                 <label> State=Hover
+                                 """;
 
     const string ReanalysedTree = """
-        <group-editor .size-md .variant-default> 0,0 1200×760
-          <tree-view .size-md .variant-default> 6,6 1188×240
-            <virtualizing-panel .size-md .variant-default> 0,0 1188×240
-              <scroll-view .size-md .variant-default> 0,0 1188×240
-                <scroll-content .virtual-content> 0,0 1188×44
-                  <tree-row .leaf .size-md .variant-default> 0,0 1188×22
-                    <tree-indent> 6,11 14×0
-                    <icon .size-md .tree-chevron .variant-default> 24,6 10×10
-                    <icon .size-md .tree-glyph .variant-default> 38,5 13×13
-                    <tree-label> 55,0 1127×22 "Levels"
-                  <tree-row .leaf .size-md .variant-default> 0,22 1188×22
-                    <tree-indent> 6,11 14×0
-                    <icon .size-md .tree-chevron .variant-default> 24,6 10×10
-                    <icon .size-md .tree-glyph .variant-default> 38,5 13×13
-                    <tree-label> 55,0 1127×22 "UiCore"
-                <scrollbar .size-md .variant-default .vertical> 1178,0 10×240
-                <scrollbar .horizontal .size-md .variant-default> 0,230 1188×10
-            <tree-drop-indicator .hidden> 0,0 0×0
-          <empty-state .size-md .variant-default> 6,254 1188×124
-            <empty-title> 525,32 137×22 "No group selected"
-            <empty-description> 316,62 555×22 "A .vxgroup is a policy: how its assets are packed, compressed and shipped."
-            <empty-actions> 594,92 0×0
-          <inspector .hidden .size-md .variant-default> 0,0 0×0
-            <inspector-header> 0,0 0×0
-              <search-box .empty .size-md .variant-default> 0,0 0×0
-                <icon .size-md .variant-default> 0,0 0×0
-                <field-placeholder> 0,0 0×0 "Search"
-                <field-text> 0,0 0×0
-                <icon-button .size-md .variant-subtle> 0,0 0×0
-                  <icon .size-md .variant-default> 0,0 0×0
-                  <label> 0,0 0×0 "Clear"
-              <toggle-button .inspector-lock .size-sm .variant-subtle> 0,0 0×0
-                <icon .size-md .variant-default> 0,0 0×0
-                <label> 0,0 0×0 "Lock"
-            <scroll-view .size-md .variant-default> 0,0 0×0
-              <scroll-content> 0,0 0×0
-                <inspector-body> 0,0 0×0
-              <scrollbar .size-md .variant-default .vertical> 0,0 0×0
-              <scrollbar .horizontal .size-md .variant-default> 0,0 0×0
-            <empty-state .hidden .size-md .variant-default> 0,0 0×0
-              <empty-title> 0,0 0×0
-              <empty-description> 0,0 0×0
-              <empty-actions> 0,0 0×0
-          <button .size-md .variant-default> 6,386 126×34
-            <label> 13,6 100×22 "Analyse build"
-          <analysis-list> 6,428 1188×46
-            <analysis-row .warning> 0,0 1188×22
-              <analysis-stage> 4,0 72×22 "warning"
-              <analysis-message> 84,0 1100×22 "Assets/Scratch/Old.png could not be imported and is not shipped."
-            <analysis-row> 0,24 1188×22
-              <analysis-stage> 4,0 72×22 "plan"
-              <analysis-message> 84,0 1100×22 "0 addressable assets across 0 groups."
-        """;
+                                  <group-editor .size-md .variant-default> 0,0 1200×760
+                                    <tree-view .size-md .variant-default> 6,6 1188×240
+                                      <virtualizing-panel .size-md .variant-default> 0,0 1188×240
+                                        <scroll-view .size-md .variant-default> 0,0 1188×240
+                                          <scroll-content .virtual-content> 0,0 1188×44
+                                            <tree-row .leaf .size-md .variant-default> 0,0 1188×22
+                                              <tree-indent> 6,11 14×0
+                                              <icon .size-md .tree-chevron .variant-default> 24,6 10×10
+                                              <icon .size-md .tree-glyph .variant-default> 38,5 13×13
+                                              <tree-label> 55,0 1127×22 "Levels"
+                                            <tree-row .leaf .size-md .variant-default> 0,22 1188×22
+                                              <tree-indent> 6,11 14×0
+                                              <icon .size-md .tree-chevron .variant-default> 24,6 10×10
+                                              <icon .size-md .tree-glyph .variant-default> 38,5 13×13
+                                              <tree-label> 55,0 1127×22 "UiCore"
+                                          <scrollbar .size-md .variant-default .vertical> 1178,0 10×240
+                                          <scrollbar .horizontal .size-md .variant-default> 0,230 1188×10
+                                      <tree-drop-indicator .hidden> 0,0 0×0
+                                    <empty-state .size-md .variant-default> 6,254 1188×124
+                                      <empty-title> 525,32 137×22 "No group selected"
+                                      <empty-description> 316,62 555×22 "A .vxgroup is a policy: how its assets are packed, compressed and shipped."
+                                      <empty-actions> 594,92 0×0
+                                    <inspector .hidden .size-md .variant-default> 0,0 0×0
+                                      <inspector-header> 0,0 0×0
+                                        <search-box .empty .size-md .variant-default> 0,0 0×0
+                                          <icon .size-md .variant-default> 0,0 0×0
+                                          <field-placeholder> 0,0 0×0 "Search"
+                                          <field-text> 0,0 0×0
+                                          <icon-button .size-md .variant-subtle> 0,0 0×0
+                                            <icon .size-md .variant-default> 0,0 0×0
+                                            <label> 0,0 0×0 "Clear"
+                                        <toggle-button .inspector-lock .size-sm .variant-subtle> 0,0 0×0
+                                          <icon .size-md .variant-default> 0,0 0×0
+                                          <label> 0,0 0×0 "Lock"
+                                      <scroll-view .size-md .variant-default> 0,0 0×0
+                                        <scroll-content> 0,0 0×0
+                                          <inspector-body> 0,0 0×0
+                                        <scrollbar .size-md .variant-default .vertical> 0,0 0×0
+                                        <scrollbar .horizontal .size-md .variant-default> 0,0 0×0
+                                      <empty-state .hidden .size-md .variant-default> 0,0 0×0
+                                        <empty-title> 0,0 0×0
+                                        <empty-description> 0,0 0×0
+                                        <empty-actions> 0,0 0×0
+                                    <button .size-md .variant-default> 6,386 126×34
+                                      <label> 13,6 100×22 "Analyse build"
+                                    <analysis-list> 6,428 1188×46
+                                      <analysis-row .warning> 0,0 1188×22
+                                        <analysis-stage> 4,0 72×22 "warning"
+                                        <analysis-message> 84,0 1100×22 "Assets/Scratch/Old.png could not be imported and is not shipped."
+                                      <analysis-row> 0,24 1188×22
+                                        <analysis-stage> 4,0 72×22 "plan"
+                                        <analysis-message> 84,0 1100×22 "0 addressable assets across 0 groups."
+                                  """;
 
     const string ReanalysedFlags = """
-        <group-editor .size-md .variant-default> State=Hover, FocusWithin
-        <tree-row .leaf .size-md .variant-default> Label=Vixen.Ui.UiElement
-        <tree-row .leaf .size-md .variant-default> Label=Vixen.Ui.UiElement
-        <scrollbar .size-md .variant-default .vertical> Value=0
-        <scrollbar .horizontal .size-md .variant-default> Value=0
-        <search-box .empty .size-md .variant-default> State=PlaceholderShown, Valid Placeholder="Search"
-        <icon-button .size-md .variant-subtle> Label="Clear"
-        <toggle-button .inspector-lock .size-sm .variant-subtle> Label="Lock"
-        <scrollbar .size-md .variant-default .vertical> Value=0
-        <scrollbar .horizontal .size-md .variant-default> Value=0
-        <button .size-md .variant-default> State=Hover, Focus, FocusWithin Label="Analyse build"
-        <label> State=Hover
-        """;
+                                   <group-editor .size-md .variant-default> State=Hover, FocusWithin
+                                   <tree-row .leaf .size-md .variant-default> Label=Vixen.Ui.UiElement
+                                   <tree-row .leaf .size-md .variant-default> Label=Vixen.Ui.UiElement
+                                   <scrollbar .size-md .variant-default .vertical> Value=0
+                                   <scrollbar .horizontal .size-md .variant-default> Value=0
+                                   <search-box .empty .size-md .variant-default> State=PlaceholderShown, Valid Placeholder="Search"
+                                   <icon-button .size-md .variant-subtle> Label="Clear"
+                                   <toggle-button .inspector-lock .size-sm .variant-subtle> Label="Lock"
+                                   <scrollbar .size-md .variant-default .vertical> Value=0
+                                   <scrollbar .horizontal .size-md .variant-default> Value=0
+                                   <button .size-md .variant-default> State=Hover, Focus, FocusWithin Label="Analyse build"
+                                   <label> State=Hover
+                                   """;
 
     const string UnavailableTree = """
-        <group-editor .size-md .variant-default> 0,0 1200×760
-          <tree-view .size-md .variant-default> 6,6 1188×240
-            <virtualizing-panel .size-md .variant-default> 0,0 1188×240
-              <scroll-view .size-md .variant-default> 0,0 1188×240
-                <scroll-content .virtual-content> 0,0 1188×44
-                  <tree-row .leaf .size-md .variant-default> 0,0 1188×22
-                    <tree-indent> 6,11 14×0
-                    <icon .size-md .tree-chevron .variant-default> 24,6 10×10
-                    <icon .size-md .tree-glyph .variant-default> 38,5 13×13
-                    <tree-label> 55,0 1127×22 "Levels"
-                  <tree-row .leaf .size-md .variant-default> 0,22 1188×22
-                    <tree-indent> 6,11 14×0
-                    <icon .size-md .tree-chevron .variant-default> 24,6 10×10
-                    <icon .size-md .tree-glyph .variant-default> 38,5 13×13
-                    <tree-label> 55,0 1127×22 "UiCore"
-                <scrollbar .size-md .variant-default .vertical> 1178,0 10×240
-                <scrollbar .horizontal .size-md .variant-default> 0,230 1188×10
-            <tree-drop-indicator .hidden> 0,0 0×0
-          <empty-state .size-md .variant-default> 6,254 1188×124
-            <empty-title> 525,32 137×22 "No group selected"
-            <empty-description> 316,62 555×22 "A .vxgroup is a policy: how its assets are packed, compressed and shipped."
-            <empty-actions> 594,92 0×0
-          <inspector .hidden .size-md .variant-default> 0,0 0×0
-            <inspector-header> 0,0 0×0
-              <search-box .empty .size-md .variant-default> 0,0 0×0
-                <icon .size-md .variant-default> 0,0 0×0
-                <field-placeholder> 0,0 0×0 "Search"
-                <field-text> 0,0 0×0
-                <icon-button .size-md .variant-subtle> 0,0 0×0
-                  <icon .size-md .variant-default> 0,0 0×0
-                  <label> 0,0 0×0 "Clear"
-              <toggle-button .inspector-lock .size-sm .variant-subtle> 0,0 0×0
-                <icon .size-md .variant-default> 0,0 0×0
-                <label> 0,0 0×0 "Lock"
-            <scroll-view .size-md .variant-default> 0,0 0×0
-              <scroll-content> 0,0 0×0
-                <inspector-body> 0,0 0×0
-              <scrollbar .size-md .variant-default .vertical> 0,0 0×0
-              <scrollbar .horizontal .size-md .variant-default> 0,0 0×0
-            <empty-state .hidden .size-md .variant-default> 0,0 0×0
-              <empty-title> 0,0 0×0
-              <empty-description> 0,0 0×0
-              <empty-actions> 0,0 0×0
-          <button .size-md .variant-default> 6,386 126×34
-            <label> 13,6 100×22 "Analyse build"
-          <analysis-list> 6,428 1188×22
-            <analysis-row .warning> 0,0 1188×22
-              <analysis-stage> 4,0 72×22 "build"
-              <analysis-message> 84,0 1100×22 "Nothing here can run an analysis: the host has not supplied a planner."
-        """;
+                                   <group-editor .size-md .variant-default> 0,0 1200×760
+                                     <tree-view .size-md .variant-default> 6,6 1188×240
+                                       <virtualizing-panel .size-md .variant-default> 0,0 1188×240
+                                         <scroll-view .size-md .variant-default> 0,0 1188×240
+                                           <scroll-content .virtual-content> 0,0 1188×44
+                                             <tree-row .leaf .size-md .variant-default> 0,0 1188×22
+                                               <tree-indent> 6,11 14×0
+                                               <icon .size-md .tree-chevron .variant-default> 24,6 10×10
+                                               <icon .size-md .tree-glyph .variant-default> 38,5 13×13
+                                               <tree-label> 55,0 1127×22 "Levels"
+                                             <tree-row .leaf .size-md .variant-default> 0,22 1188×22
+                                               <tree-indent> 6,11 14×0
+                                               <icon .size-md .tree-chevron .variant-default> 24,6 10×10
+                                               <icon .size-md .tree-glyph .variant-default> 38,5 13×13
+                                               <tree-label> 55,0 1127×22 "UiCore"
+                                           <scrollbar .size-md .variant-default .vertical> 1178,0 10×240
+                                           <scrollbar .horizontal .size-md .variant-default> 0,230 1188×10
+                                       <tree-drop-indicator .hidden> 0,0 0×0
+                                     <empty-state .size-md .variant-default> 6,254 1188×124
+                                       <empty-title> 525,32 137×22 "No group selected"
+                                       <empty-description> 316,62 555×22 "A .vxgroup is a policy: how its assets are packed, compressed and shipped."
+                                       <empty-actions> 594,92 0×0
+                                     <inspector .hidden .size-md .variant-default> 0,0 0×0
+                                       <inspector-header> 0,0 0×0
+                                         <search-box .empty .size-md .variant-default> 0,0 0×0
+                                           <icon .size-md .variant-default> 0,0 0×0
+                                           <field-placeholder> 0,0 0×0 "Search"
+                                           <field-text> 0,0 0×0
+                                           <icon-button .size-md .variant-subtle> 0,0 0×0
+                                             <icon .size-md .variant-default> 0,0 0×0
+                                             <label> 0,0 0×0 "Clear"
+                                         <toggle-button .inspector-lock .size-sm .variant-subtle> 0,0 0×0
+                                           <icon .size-md .variant-default> 0,0 0×0
+                                           <label> 0,0 0×0 "Lock"
+                                       <scroll-view .size-md .variant-default> 0,0 0×0
+                                         <scroll-content> 0,0 0×0
+                                           <inspector-body> 0,0 0×0
+                                         <scrollbar .size-md .variant-default .vertical> 0,0 0×0
+                                         <scrollbar .horizontal .size-md .variant-default> 0,0 0×0
+                                       <empty-state .hidden .size-md .variant-default> 0,0 0×0
+                                         <empty-title> 0,0 0×0
+                                         <empty-description> 0,0 0×0
+                                         <empty-actions> 0,0 0×0
+                                     <button .size-md .variant-default> 6,386 126×34
+                                       <label> 13,6 100×22 "Analyse build"
+                                     <analysis-list> 6,428 1188×22
+                                       <analysis-row .warning> 0,0 1188×22
+                                         <analysis-stage> 4,0 72×22 "build"
+                                         <analysis-message> 84,0 1100×22 "Nothing here can run an analysis: the host has not supplied a planner."
+                                   """;
 
     const string UnavailableFlags = """
-        <tree-row .leaf .size-md .variant-default> Label=Vixen.Ui.UiElement
-        <tree-row .leaf .size-md .variant-default> Label=Vixen.Ui.UiElement
-        <scrollbar .size-md .variant-default .vertical> Value=0
-        <scrollbar .horizontal .size-md .variant-default> Value=0
-        <search-box .empty .size-md .variant-default> State=PlaceholderShown, Valid Placeholder="Search"
-        <icon-button .size-md .variant-subtle> Label="Clear"
-        <toggle-button .inspector-lock .size-sm .variant-subtle> Label="Lock"
-        <scrollbar .size-md .variant-default .vertical> Value=0
-        <scrollbar .horizontal .size-md .variant-default> Value=0
-        <button .size-md .variant-default> State=Disabled Disabled=True Label="Analyse build"
-        """;
+                                    <tree-row .leaf .size-md .variant-default> Label=Vixen.Ui.UiElement
+                                    <tree-row .leaf .size-md .variant-default> Label=Vixen.Ui.UiElement
+                                    <scrollbar .size-md .variant-default .vertical> Value=0
+                                    <scrollbar .horizontal .size-md .variant-default> Value=0
+                                    <search-box .empty .size-md .variant-default> State=PlaceholderShown, Valid Placeholder="Search"
+                                    <icon-button .size-md .variant-subtle> Label="Clear"
+                                    <toggle-button .inspector-lock .size-sm .variant-subtle> Label="Lock"
+                                    <scrollbar .size-md .variant-default .vertical> Value=0
+                                    <scrollbar .horizontal .size-md .variant-default> Value=0
+                                    <button .size-md .variant-default> State=Disabled Disabled=True Label="Analyse build"
+                                    """;
 }

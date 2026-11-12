@@ -19,8 +19,12 @@ namespace Vixen.Platform.Ui.Tests;
 ///         through <c>PlatformInput</c> and read the colour a sheet would get.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The palette is a product of two settings and neither <c>Apply…</c> method knows
-///         both.</b> A high-contrast machine wants the forced table in either appearance, so the two
+///         ⚠
+///         <b>
+///             The palette is a product of two settings and neither <c>Apply…</c> method knows
+///             both.
+///         </b>
+///         A high-contrast machine wants the forced table in either appearance, so the two
 ///         are resolved together in <c>Repalette</c>; the ordering tests below are what would go red
 ///         if either method went back to writing its own half.
 ///     </para>
@@ -56,7 +60,7 @@ public class SystemPaletteWiringTests {
     public void High_contrast_replaces_the_palette_with_the_forced_one() {
         using var document = new UiDocument(200f, 100f);
 
-        PlatformInput.ApplyAccessibility(document, new SystemAccessibility(HighContrast: true));
+        PlatformInput.ApplyAccessibility(document, new(HighContrast: true));
 
         Assert.Equal(Forced(SystemColor.Canvas), Canvas(document));
         Assert.Equal(Forced(SystemColor.CanvasText), document.SystemColors[SystemColor.CanvasText]);
@@ -69,11 +73,11 @@ public class SystemPaletteWiringTests {
         using var document = new UiDocument(200f, 100f);
 
         if (contrastFirst) {
-            PlatformInput.ApplyAccessibility(document, new SystemAccessibility(HighContrast: true));
+            PlatformInput.ApplyAccessibility(document, new(HighContrast: true));
             PlatformInput.ApplyColorScheme(document, SystemColorScheme.Dark);
         } else {
             PlatformInput.ApplyColorScheme(document, SystemColorScheme.Dark);
-            PlatformInput.ApplyAccessibility(document, new SystemAccessibility(HighContrast: true));
+            PlatformInput.ApplyAccessibility(document, new(HighContrast: true));
         }
 
         // ⚠ The defect two independent writers would have: whichever platform event arrived last
@@ -87,8 +91,8 @@ public class SystemPaletteWiringTests {
         using var document = new UiDocument(200f, 100f);
 
         PlatformInput.ApplyColorScheme(document, SystemColorScheme.Dark);
-        PlatformInput.ApplyAccessibility(document, new SystemAccessibility(HighContrast: true));
-        PlatformInput.ApplyAccessibility(document, new SystemAccessibility(HighContrast: false));
+        PlatformInput.ApplyAccessibility(document, new(HighContrast: true));
+        PlatformInput.ApplyAccessibility(document, new(HighContrast: false));
 
         Assert.Equal(Dark(SystemColor.Canvas), Canvas(document));
     }
@@ -118,8 +122,12 @@ public class SystemPaletteWiringTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>This is the seam the remaining half of #838 needs, and the arrangement it
-    ///         replaces did not survive one toggle.</b> <c>Repalette</c> resets the whole table, and
+    ///         ⚠
+    ///         <b>
+    ///             This is the seam the remaining half of #838 needs, and the arrangement it
+    ///             replaces did not survive one toggle.
+    ///         </b>
+    ///         <c>Repalette</c> resets the whole table, and
     ///         it is called from <i>both</i> <c>ApplyColorScheme</c> and <c>ApplyAccessibility</c> —
     ///         two events, from two places, on two cadences. So the instruction a host was given —
     ///         write the real palette over the top afterwards — held its colours only until whichever
@@ -132,9 +140,15 @@ public class SystemPaletteWiringTests {
     ///         than a special one — a platform answers the roles it has and no others.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b><s>On macOS that is the accent and the highlight and no more, because
-    ///         <c>NSColor</c> wants an <c>NSApplication</c> an SDL process has not made.</s>
-    ///         Measured on 2026-09-06 and false</b> — see <c>PlatformInput.Repalette</c>'s remarks.
+    ///         ⚠
+    ///         <b>
+    ///             <s>
+    ///                 On macOS that is the accent and the highlight and no more, because
+    ///                 <c>NSColor</c> wants an <c>NSApplication</c> an SDL process has not made.
+    ///             </s>
+    ///             Measured on 2026-09-06 and false
+    ///         </b>
+    ///         — see <c>PlatformInput.Repalette</c>'s remarks.
     ///         With <c>NSApp</c> nil, <c>+[NSColor labelColor]</c> and its siblings resolve, follow
     ///         the system appearance, and follow <c>+[NSAppearance setCurrentAppearance:]</c> when
     ///         one is named, on a secondary thread. The refusal was true of
@@ -142,8 +156,12 @@ public class SystemPaletteWiringTests {
     ///         class method and does not need the application object.
     ///     </para>
     ///     <para>
-    ///         <c>Canvas</c> rather than <c>Highlight</c>, ⚠ <b>which used to be forced and is now
-    ///         only a habit.</b> ExCSS normalised the five CSS2 system colours it knows into fixed
+    ///         <c>Canvas</c> rather than <c>Highlight</c>, ⚠
+    ///         <b>
+    ///             which used to be forced and is now
+    ///             only a habit.
+    ///         </b>
+    ///         ExCSS normalised the five CSS2 system colours it knows into fixed
     ///         <c>rgb()</c> at stylesheet parse time, so a test written on one of them was asserting
     ///         the CSS parser's constants against a palette nothing filled;
     ///         <c>StyleSheetLoader.CarrySystemColours</c> closed that, and all fifteen keywords reach
@@ -176,7 +194,7 @@ public class SystemPaletteWiringTests {
 
         // And the other of the two events, which is the one that arrives from somewhere else and is
         // what the old arrangement lost the palette to.
-        PlatformInput.ApplyAccessibility(document, new SystemAccessibility(HighContrast: true));
+        PlatformInput.ApplyAccessibility(document, new(HighContrast: true));
         document.Draw();
 
         Assert.Equal(platform, Fill(document));
@@ -187,7 +205,7 @@ public class SystemPaletteWiringTests {
         // holds no memory of which of the three tables it was last filled from.
         Assert.True(document.SystemColors.ClearPlatform(SystemColor.Canvas));
 
-        PlatformInput.ApplyAccessibility(document, new SystemAccessibility(HighContrast: false));
+        PlatformInput.ApplyAccessibility(document, new(HighContrast: false));
         PlatformInput.ApplyColorScheme(document, SystemColorScheme.Light);
         document.Draw();
 
@@ -221,16 +239,24 @@ public class SystemPaletteWiringTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b><c>SetPlatform</c> had no production caller anywhere in the repository and no
-    ///         platform read one existed</b> — the palette carried an
+    ///         ⚠
+    ///         <b>
+    ///             <c>SetPlatform</c> had no production caller anywhere in the repository and no
+    ///             platform read one existed
+    ///         </b>
+    ///         — the palette carried an
     ///         <c>AccentColor</c>/<c>AccentColorText</c> pair, <c>ControlTheme.vcss</c> drew
     ///         thirty-one declarations with <c>--accent</c>, and nothing joined them. So this
     ///         asserts the join through <c>PlatformInput</c> and reads the colour off a drawn
     ///         rectangle rather than off the palette, for the reason this file's own remarks give.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The sRGB-to-linear conversion is asserted as a <i>difference</i>, not as an
-    ///         equality alone.</b> <see cref="SystemPalette" /> holds linear and every platform
+    ///         ⚠
+    ///         <b>
+    ///             The sRGB-to-linear conversion is asserted as a <i>difference</i>, not as an
+    ///             equality alone.
+    ///         </b>
+    ///         <see cref="SystemPalette" /> holds linear and every platform
     ///         reports sRGB; its own remarks record that handing it an sRGB colour makes a palette
     ///         that is visibly too bright with nothing anywhere reporting it. A test that only
     ///         compared against <c>Color4.FromSrgb</c> would also pass if both sides forgot, so the
@@ -245,7 +271,7 @@ public class SystemPaletteWiringTests {
 
         var srgb = new Color4(0.5f, 0.25f, 0.75f, 1f);
 
-        PlatformInput.ApplyAccent(document, new SystemAccent(srgb, new Color4(1f, 1f, 1f, 1f)));
+        PlatformInput.ApplyAccent(document, new(srgb, new Color4(1f, 1f, 1f, 1f)));
         document.Update();
         document.Draw();
 
@@ -264,7 +290,7 @@ public class SystemPaletteWiringTests {
 
         Assert.Equal(Color4.FromSrgb(srgb), Fill(document));
 
-        PlatformInput.ApplyAccessibility(document, new SystemAccessibility(HighContrast: true));
+        PlatformInput.ApplyAccessibility(document, new(HighContrast: true));
 
         // ⚠ Read off the palette rather than off the frame for this third stage, and the reason is
         // worth writing down: under forced colours the document paints its own `Canvas` behind
@@ -290,7 +316,7 @@ public class SystemPaletteWiringTests {
 
         PlatformInput.ApplyAccent(
             document,
-            new SystemAccent(new Color4(0.5f, 0.25f, 0.75f, 1f), new Color4(1f, 1f, 1f, 1f))
+            new(new Color4(0.5f, 0.25f, 0.75f, 1f), new Color4(1f, 1f, 1f, 1f))
         );
 
         Assert.True(document.Root.HasClass(SystemPalette.PlatformAccentClass));
@@ -304,8 +330,12 @@ public class SystemPaletteWiringTests {
 
     /// <summary>Half a read supplies the role and does not repaint the theme's token.</summary>
     /// <remarks>
-    ///     ⚠ <b>The class is what points <c>--accent</c> at the palette, and it goes on for the
-    ///     <i>pair</i>.</b> <c>SystemColor</c>'s ordering exists because a palette guarantees
+    ///     ⚠
+    ///     <b>
+    ///         The class is what points <c>--accent</c> at the palette, and it goes on for the
+    ///         <i>pair</i>.
+    ///     </b>
+    ///     <c>SystemColor</c>'s ordering exists because a palette guarantees
     ///     contrast within a pair and guarantees nothing across two — so an accent taken from the
     ///     system with the theme's own text colour left on top of it is how a pale accent gets white
     ///     text. A platform that can answer only half still supplies that half to anything writing
@@ -315,7 +345,7 @@ public class SystemPaletteWiringTests {
     public void An_accent_without_its_text_colour_fills_the_role_but_not_the_token() {
         using var document = new UiDocument(200f, 100f);
 
-        PlatformInput.ApplyAccent(document, new SystemAccent(new Color4(0.5f, 0.25f, 0.75f, 1f)));
+        PlatformInput.ApplyAccent(document, new(new Color4(0.5f, 0.25f, 0.75f, 1f)));
 
         Assert.True(document.SystemColors.IsFromPlatform(SystemColor.AccentColor));
         Assert.False(document.SystemColors.IsFromPlatform(SystemColor.AccentColorText));
@@ -351,7 +381,7 @@ public class SystemPaletteWiringTests {
         // component a reader is likeliest to drop, so it is the one asserted through.
         var label = new Color4(1f, 1f, 1f, 0.847f);
 
-        PlatformInput.ApplySemanticColors(document, new SystemSemanticColors(CanvasText: label));
+        PlatformInput.ApplySemanticColors(document, new(CanvasText: label));
         document.Update();
         document.Draw();
 
@@ -371,7 +401,7 @@ public class SystemPaletteWiringTests {
         Assert.Equal(Color4.FromSrgb(label), Fill(document));
         Assert.Equal(Dark(SystemColor.Canvas), document.SystemColors[SystemColor.Canvas]);
 
-        PlatformInput.ApplyAccessibility(document, new SystemAccessibility(HighContrast: true));
+        PlatformInput.ApplyAccessibility(document, new(HighContrast: true));
 
         Assert.Equal(Color4.FromSrgb(label), document.SystemColors[SystemColor.CanvasText]);
         Assert.Equal(Forced(SystemColor.Canvas), document.SystemColors[SystemColor.Canvas]);
@@ -380,14 +410,22 @@ public class SystemPaletteWiringTests {
     /// <summary>Every role the platform type carries lands on the role of the same name, and only there.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Eleven distinct colours, because the mapping is eleven hand-written lines and a
-    ///         transposition between two of them — <c>Field</c> written into <c>FieldText</c> — is a
-    ///         palette that looks fine until a field is drawn.</b> Each role is given a colour that
+    ///         ⚠
+    ///         <b>
+    ///             Eleven distinct colours, because the mapping is eleven hand-written lines and a
+    ///             transposition between two of them — <c>Field</c> written into <c>FieldText</c> — is a
+    ///             palette that looks fine until a field is drawn.
+    ///         </b>
+    ///         Each role is given a colour that
     ///         encodes its own index, so a swap fails on the pair it swapped and names both.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And the count is asked of the type rather than trusted, which is the half a list
-    ///         of eleven cannot supply about itself.</b> "Eleven rows" is "every role" only while the
+    ///         ⚠
+    ///         <b>
+    ///             And the count is asked of the type rather than trusted, which is the half a list
+    ///             of eleven cannot supply about itself.
+    ///         </b>
+    ///         "Eleven rows" is "every role" only while the
     ///         record declares eleven; a twelfth added to <see cref="SystemSemanticColors" /> and
     ///         forgotten in <c>ApplySemanticColors</c> would leave every assertion below green and
     ///         that role following <c>SystemPalette</c>'s browser table for ever. Comparing the two
@@ -415,26 +453,26 @@ public class SystemPaletteWiringTests {
 
         var declared = typeof(SystemSemanticColors)
             .GetProperties(BindingFlags.Public | BindingFlags.Instance)
-            .Where(role => role.PropertyType == typeof(Color4?))
-            .Select(role => role.Name)
+            .Where(static role => role.PropertyType == typeof(Color4?))
+            .Select(static role => role.Name)
             .ToHashSet(StringComparer.Ordinal);
 
-        Assert.Equal(declared, rows.Select(row => row.Role.ToString()).ToHashSet(StringComparer.Ordinal));
+        Assert.Equal(declared, rows.Select(static row => row.Role.ToString()).ToHashSet(StringComparer.Ordinal));
 
         PlatformInput.ApplySemanticColors(
             document,
-            new SystemSemanticColors(
-                Canvas: Keyed(1),
-                CanvasText: Keyed(2),
-                LinkText: Keyed(3),
-                ButtonFace: Keyed(4),
-                ButtonText: Keyed(5),
-                ButtonBorder: Keyed(6),
-                Field: Keyed(7),
-                FieldText: Keyed(8),
-                Highlight: Keyed(9),
-                HighlightText: Keyed(10),
-                GrayText: Keyed(11)
+            new(
+                Keyed(1),
+                Keyed(2),
+                Keyed(3),
+                Keyed(4),
+                Keyed(5),
+                Keyed(6),
+                Keyed(7),
+                Keyed(8),
+                Keyed(9),
+                Keyed(10),
+                Keyed(11)
             )
         );
 
@@ -448,7 +486,7 @@ public class SystemPaletteWiringTests {
         Assert.False(document.SystemColors.IsFromPlatform(SystemColor.AccentColor));
         Assert.False(document.SystemColors.IsFromPlatform(SystemColor.AccentColorText));
 
-        static Color4 Keyed(int index) => new(index / 16f, (index * 3 % 16) / 16f, (index * 7 % 16) / 16f, 1f);
+        static Color4 Keyed(int index) => new(index / 16f, index * 3 % 16 / 16f, index * 7 % 16 / 16f, 1f);
     }
 
     /// <summary>A role the platform stops answering for goes back to the table rather than freezing.</summary>
@@ -466,7 +504,7 @@ public class SystemPaletteWiringTests {
         PlatformInput.ApplyColorScheme(document, SystemColorScheme.Dark);
         PlatformInput.ApplySemanticColors(
             document,
-            new SystemSemanticColors(CanvasText: new Color4(1f, 0f, 0f, 1f), GrayText: new Color4(0f, 1f, 0f, 1f))
+            new(CanvasText: new Color4(1f, 0f, 0f, 1f), GrayText: new Color4(0f, 1f, 0f, 1f))
         );
 
         Assert.True(document.SystemColors.IsFromPlatform(SystemColor.CanvasText));
@@ -474,7 +512,7 @@ public class SystemPaletteWiringTests {
 
         // Half the read goes away. The role that stays supplied keeps its colour; the one that went
         // returns to the *dark* table, which is the appearance the platform last reported.
-        PlatformInput.ApplySemanticColors(document, new SystemSemanticColors(CanvasText: new Color4(1f, 0f, 0f, 1f)));
+        PlatformInput.ApplySemanticColors(document, new(CanvasText: new Color4(1f, 0f, 0f, 1f)));
 
         Assert.True(document.SystemColors.IsFromPlatform(SystemColor.CanvasText));
         Assert.False(document.SystemColors.IsFromPlatform(SystemColor.GrayText));
@@ -487,7 +525,7 @@ public class SystemPaletteWiringTests {
     }
 
     static Color4 Fill(UiDocument document) =>
-        document.Drawing.Commands.First(command => command.Kind == DrawCommandKind.Rectangle).Color;
+        document.Drawing.Commands.First(static command => command.Kind == DrawCommandKind.Rectangle).Color;
 
     static Color4 Light(SystemColor colour) => Of(SystemPalette.Light, colour);
 

@@ -58,7 +58,7 @@ public sealed class VulkanPipelineCacheTests {
             reason
         );
 
-        Assert.Equal("", reason);
+        Assert.Equal(string.Empty, reason);
     }
 
     /// <summary>The three ways a blob belongs to somebody else, and the two ways it is not one.</summary>
@@ -71,15 +71,11 @@ public sealed class VulkanPipelineCacheTests {
     public void EveryBlobThatBelongsToSomebodyElseIsRefused() {
         var mine = Uuid(0x5a);
 
-        Assert.False(
-            VulkanPipelineCacheBlob.Matches(Blob(0x10DE, Device, mine), Vendor, Device, mine, out var vendor)
-        );
+        Assert.False(VulkanPipelineCacheBlob.Matches(Blob(0x10DE, Device, mine), Vendor, Device, mine, out var vendor));
 
         Assert.Contains("vendor", vendor, StringComparison.Ordinal);
 
-        Assert.False(
-            VulkanPipelineCacheBlob.Matches(Blob(Vendor, 0x4321, mine), Vendor, Device, mine, out var device)
-        );
+        Assert.False(VulkanPipelineCacheBlob.Matches(Blob(Vendor, 0x4321, mine), Vendor, Device, mine, out var device));
 
         Assert.Contains("device", device, StringComparison.Ordinal);
 
@@ -89,9 +85,7 @@ public sealed class VulkanPipelineCacheTests {
 
         Assert.Contains("driver build", driver, StringComparison.Ordinal);
 
-        Assert.False(
-            VulkanPipelineCacheBlob.Matches(Blob(Vendor, Device, mine, version: 2), Vendor, Device, mine, out var old)
-        );
+        Assert.False(VulkanPipelineCacheBlob.Matches(Blob(Vendor, Device, mine, 2), Vendor, Device, mine, out var old));
 
         Assert.Contains("header version", old, StringComparison.Ordinal);
 
@@ -133,7 +127,11 @@ public sealed class VulkanPipelineCacheTests {
     [InlineData(64, 32, PipelineCacheGrowth.Shrank)]
     [InlineData(32, 20, PipelineCacheGrowth.Garbage)]
     [InlineData(0, 0, PipelineCacheGrowth.Garbage)]
-    public void OnlyAnUnchangedHeaderSizedBlobIsADriverThatStoresNothing(long nothing, long learned, PipelineCacheGrowth expected) {
+    public void OnlyAnUnchangedHeaderSizedBlobIsADriverThatStoresNothing(
+        long nothing,
+        long learned,
+        PipelineCacheGrowth expected
+    ) {
         Assert.Equal(expected, PipelineCacheGrowthDecision.Decide(nothing, learned));
     }
 
@@ -168,8 +166,12 @@ public sealed class VulkanPipelineCacheTests {
     ///         handed the second's file and reports how much of it the driver took back.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A driver is allowed to store nothing per pipeline, and lavapipe does exactly
-    ///         that</b> — not MoltenVK, which was the guess and which returns a growing blob. That
+    ///         ⚠
+    ///         <b>
+    ///             A driver is allowed to store nothing per pipeline, and lavapipe does exactly
+    ///             that
+    ///         </b>
+    ///         — not MoltenVK, which was the guess and which returns a growing blob. That
     ///         outcome used to go through <see cref="VulkanRequirement" />, a skip locally and a
     ///         failure under <c>VIXEN_REQUIRE_VULKAN</c>; on the one CI leg with a driver it was the
     ///         failure, every run (#1274). It is a skip everywhere now, decided by
@@ -202,7 +204,10 @@ public sealed class VulkanPipelineCacheTests {
                 Assert.Equal(0, owned.PipelineCacheSeedBytes);
             }
 
-            Assert.True(VulkanDevice.TryCreate(new() { PipelineCachePath = path }, out var first, out var again), again);
+            Assert.True(
+                VulkanDevice.TryCreate(new() { PipelineCachePath = path }, out var first, out var again),
+                again
+            );
 
             using (var owned = first!) {
                 Assert.Equal(0, owned.PipelineCacheSeedBytes);
@@ -273,17 +278,21 @@ public sealed class VulkanPipelineCacheTests {
     static void Compile(VulkanDevice device) {
         var shader = device.CreateShader(ShaderStage.Compute, TestShaders.Compute, "multiply");
 
-        var setLayout = device.CreateDescriptorSetLayout(new(
-            DescriptorSetSlot.PerFrame,
-            [new(0, DescriptorKind.StorageBuffer, ShaderStage.Compute)],
-            "data"
-        ));
+        var setLayout = device.CreateDescriptorSetLayout(
+            new(
+                DescriptorSetSlot.PerFrame,
+                [new(0, DescriptorKind.StorageBuffer, ShaderStage.Compute)],
+                "data"
+            )
+        );
 
-        var layout = device.CreatePipelineLayout(new(
-            [setLayout],
-            [new(ShaderStage.Compute, 0, sizeof(uint))],
-            "multiply layout"
-        ));
+        var layout = device.CreatePipelineLayout(
+            new(
+                [setLayout],
+                [new(ShaderStage.Compute, 0, sizeof(uint))],
+                "multiply layout"
+            )
+        );
 
         device.CreateComputePipeline(new(shader, layout, "multiply"));
     }

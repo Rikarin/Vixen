@@ -66,8 +66,7 @@ public sealed class VirtualGeometryContentTests {
 
         Assert.NotEqual(coarse.Mesh.Meshlets.Length, fine.Mesh.Meshlets.Length);
 
-        var thrown = Assert.Throws<ArgumentException>(
-            () => VirtualGeometryContent.Read(
+        var thrown = Assert.Throws<ArgumentException>(() => VirtualGeometryContent.Read(
                 Serializer.ToBytes(coarse.Mesh),
                 Serializer.ToBytes(fine.Pages.WithoutData())
             )
@@ -94,7 +93,7 @@ public sealed class VirtualGeometryContentTests {
     [Fact]
     public async Task One_call_registers_the_mesh_and_reaches_its_pages() {
         using var device = new NullDevice();
-        using var geometry = new VirtualGeometrySystem(device, slots: 16, pageSize: 8 * 1024);
+        using var geometry = new VirtualGeometrySystem(device, 16, 8 * 1024);
 
         var (mesh, pages) = Build();
 
@@ -130,7 +129,7 @@ public sealed class VirtualGeometryContentTests {
     [Fact]
     public void The_stack_is_wired_to_itself() {
         using var device = new NullDevice();
-        using var geometry = new VirtualGeometrySystem(device, slots: 16, pageSize: 8 * 1024);
+        using var geometry = new VirtualGeometrySystem(device, 16, 8 * 1024);
 
         Assert.Same(geometry.Visibility, geometry.Feature.Visibility);
         Assert.Same(geometry.Pages, geometry.Feature.Pages);
@@ -170,7 +169,7 @@ public sealed class VirtualGeometryContentTests {
 
         // One slot: one mesh's root page is the whole pool, so "the slot came back" is the difference
         // between the second registration working and it refusing.
-        using var geometry = new VirtualGeometrySystem(device, slots: 1, pageSize: 8 * 1024);
+        using var geometry = new VirtualGeometrySystem(device, 1, 8 * 1024);
 
         var first = Load(geometry, 1, mesh, pages);
 
@@ -227,7 +226,7 @@ public sealed class VirtualGeometryContentTests {
     [Fact]
     public void Registering_more_meshes_than_the_pool_can_pin_says_so() {
         using var device = new NullDevice();
-        using var geometry = new VirtualGeometrySystem(device, slots: 1, pageSize: 8 * 1024);
+        using var geometry = new VirtualGeometrySystem(device, 1, 8 * 1024);
 
         var (mesh, pages) = Build();
 
@@ -302,7 +301,7 @@ public sealed class VirtualGeometryContentTests {
 
         for (var y = 0; y < segments; y++) {
             for (var x = 0; x < segments; x++) {
-                var a = (y * (segments + 1)) + x;
+                var a = y * (segments + 1) + x;
                 var b = a + 1;
                 var c = a + segments + 1;
                 var d = c + 1;
@@ -312,6 +311,6 @@ public sealed class VirtualGeometryContentTests {
             }
         }
 
-        return new() { Positions = [.. positions], Indices = [.. indices] };
+        return new() { Positions = [..positions], Indices = [..indices] };
     }
 }

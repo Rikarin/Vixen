@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Diagnostics.CodeAnalysis;
-using Vixen.Authoring;
 using Vixen.Core;
 using Vixen.Core.Mathematics;
 using Vixen.Core.Yaml;
@@ -118,8 +117,12 @@ public sealed class MaterialParameterCommand : IEditorCommand {
 ///         whole feature, held by reference, and putting it back is one list assignment.
 ///     </para>
 ///     <para>
-///         ⚠ <b>A property the author has not touched is left out of the feature rather than written
-///         at zero</b>, which is the only decision in this file that is not mechanical. A generated
+///         ⚠
+///         <b>
+///             A property the author has not touched is left out of the feature rather than written
+///             at zero
+///         </b>
+///         , which is the only decision in this file that is not mechanical. A generated
 ///         surface shader declares each property with the graph's own default; a
 ///         <see cref="GraphSurfaceNumber" /> entry <em>overrides</em> that default, so writing every
 ///         property out at its type's zero the moment the panel opens would silently replace every
@@ -128,8 +131,12 @@ public sealed class MaterialParameterCommand : IEditorCommand {
 ///         returns to its port's default: the key comes out.
 ///     </para>
 ///     <para>
-///         ⚠ <b><c>internal</c>, unlike <see cref="MaterialParameterCommand" /> beside it, and
-///         deliberately.</b> Nothing outside this assembly constructs one —
+///         ⚠
+///         <b>
+///             <c>internal</c>, unlike <see cref="MaterialParameterCommand" /> beside it, and
+///             deliberately.
+///         </b>
+///         Nothing outside this assembly constructs one —
 ///         <see cref="MaterialDocument.SetGraphValue" /> is the only caller and the only thing that
 ///         could sensibly build the before-image — so publishing it would be a public type owing a
 ///         guide page for a shape no other assembly can use. <c>MaterialGraphLink</c> in this same
@@ -184,8 +191,12 @@ internal sealed class MaterialGraphValueCommand : IEditorCommand {
 
     /// <inheritdoc />
     /// <remarks>
-    ///     ⚠ <b>Merged by property name, and the merged entry keeps the <em>earlier</em> command's
-    ///     before-image.</b> A number field dragged across a range raises one of these per frame, and
+    ///     ⚠
+    ///     <b>
+    ///         Merged by property name, and the merged entry keeps the <em>earlier</em> command's
+    ///         before-image.
+    ///     </b>
+    ///     A number field dragged across a range raises one of these per frame, and
     ///     an undo stack that recorded each would make a single gesture forty presses to undo. Two
     ///     different properties are two decisions and do not merge, which is what stops a drag on one
     ///     row from swallowing the edit made on the row above it.
@@ -208,8 +219,12 @@ internal sealed class MaterialGraphValueCommand : IEditorCommand {
 /// <summary>Composing — or dropping — the graph feature when a material's link moves.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Linking a graph used to write the link and nothing else, so the graph did nothing to
-///         the picture until an author nudged a value</b> —
+///         ⚠
+///         <b>
+///             Linking a graph used to write the link and nothing else, so the graph did nothing to
+///             the picture until an author nudged a value
+///         </b>
+///         —
 ///         <a href="https://github.com/Rikarin/Vixen/issues/1133">#1133</a>. Nothing reads
 ///         <see cref="MaterialAsset.Graph" /> at draw time: it is a link the editor offers "open the
 ///         graph" from, and the surface is composed from the <see cref="GraphSurfaceFeature" />
@@ -218,8 +233,12 @@ internal sealed class MaterialGraphValueCommand : IEditorCommand {
 ///         graph at all — the surface arriving as a side effect of moving a slider.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Separate from <see cref="MaterialGraphValueCommand" /> rather than a value edit with
-///         no value</b>, because the two merge differently and mean different things in an undo
+///         ⚠
+///         <b>
+///             Separate from <see cref="MaterialGraphValueCommand" /> rather than a value edit with
+///             no value
+///         </b>
+///         , because the two merge differently and mean different things in an undo
 ///         list. A drag across a number field collapses into one entry keyed on the property; a link
 ///         is one decision and merges with nothing, so "Link Shader Graph" is what an author sees
 ///         and one undo puts the previous feature back.
@@ -285,8 +304,12 @@ internal sealed class MaterialGraphLinkCommand : IEditorCommand {
 ///         second schema.
 ///     </para>
 ///     <para>
-///         ⚠ <b>A material whose file will not parse opens empty and says so through
-///         <see cref="LoadError" />.</b> Refusing to open it would leave the one panel that could
+///         ⚠
+///         <b>
+///             A material whose file will not parse opens empty and says so through
+///             <see cref="LoadError" />.
+///         </b>
+///         Refusing to open it would leave the one panel that could
 ///         show what is wrong unreachable, and the file is untouched until a save.
 ///     </para>
 /// </remarks>
@@ -305,8 +328,12 @@ public sealed class MaterialDocument : EditorDocument {
 
     /// <summary>The linked shader graph, compiled, or null when there is not one to compile.</summary>
     /// <remarks>
-    ///     ⚠ <b>Compiled here rather than read from the built shader, because the property list is
-    ///     the compiler's answer and nothing else's.</b> A <c>.vxshadergraph</c> is nodes; what a
+    ///     ⚠
+    ///     <b>
+    ///         Compiled here rather than read from the built shader, because the property list is
+    ///         the compiler's answer and nothing else's.
+    ///     </b>
+    ///     A <c>.vxshadergraph</c> is nodes; what a
     ///     material has to fill in is <see cref="ShaderGraphSource.Properties" />, which exists only
     ///     after the graph is compiled. <see cref="GraphProblem" /> is why it is null.
     /// </remarks>
@@ -326,8 +353,7 @@ public sealed class MaterialDocument : EditorDocument {
     ///     in a hand-written file, and a panel that edited whichever it reached last would move a
     ///     different one each time the list was reordered.
     /// </remarks>
-    public GraphSurfaceFeature? Surface =>
-        Material.Features.OfType<GraphSurfaceFeature>().FirstOrDefault();
+    public GraphSurfaceFeature? Surface => Material.Features.OfType<GraphSurfaceFeature>().FirstOrDefault();
 
     /// <summary>Raised when a parameter is added or removed.</summary>
     /// <remarks>
@@ -349,16 +375,14 @@ public sealed class MaterialDocument : EditorDocument {
         try {
             Material = MaterialAsset.FromYaml(AssetFile.Read(path));
         } catch (Exception exception) when (exception is YamlBindingException
-            or YamlParseException or NotSupportedException or FormatException) {
+                                                or YamlParseException
+                                                or NotSupportedException
+                                                or FormatException) {
             Material = new();
             LoadError = exception.Message;
         }
 
-        Header = new() {
-            Shader = Material.Shader,
-            Shading = Material.Shading,
-            Graph = Material.Graph
-        };
+        Header = new() { Shader = Material.Shader, Shading = Material.Shading, Graph = Material.Graph };
 
         ReadGraph();
     }
@@ -378,7 +402,7 @@ public sealed class MaterialDocument : EditorDocument {
             );
         }
 
-        Stack.Execute(new MaterialParameterCommand(this, parameter, Material.Parameters.Count, adding: true));
+        Stack.Execute(new MaterialParameterCommand(this, parameter, Material.Parameters.Count, true));
         Stack.Seal();
 
         return parameter;
@@ -396,7 +420,7 @@ public sealed class MaterialDocument : EditorDocument {
             return false;
         }
 
-        Stack.Execute(new MaterialParameterCommand(this, parameter, index, adding: false));
+        Stack.Execute(new MaterialParameterCommand(this, parameter, index, false));
         Stack.Seal();
 
         return true;
@@ -422,8 +446,12 @@ public sealed class MaterialDocument : EditorDocument {
     ///         fields would report it as a failed edit instead.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>What compiling a graph asset <em>means</em> is
-    ///         <see cref="ShaderGraphSources" />' and no longer also this method's</b> —
+    ///         ⚠
+    ///         <b>
+    ///             What compiling a graph asset <em>means</em> is
+    ///             <see cref="ShaderGraphSources" />' and no longer also this method's
+    ///         </b>
+    ///         —
     ///         <a href="https://github.com/Rikarin/Vixen/issues/1117">#1117</a>. This used to
     ///         re-spell the parse, the <c>NodeGraphDocument.Load</c>, the shader-graph registry and
     ///         the <c>DefaultName</c> rule, because the one production path that already did all
@@ -433,8 +461,12 @@ public sealed class MaterialDocument : EditorDocument {
     ///         and only this one would have been looked at when a material's properties were wrong.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A file that will not parse now reaches the author through the same sentence as a
-    ///         graph that will not compile</b>, where it used to have one of its own. Telling them
+    ///         ⚠
+    ///         <b>
+    ///             A file that will not parse now reaches the author through the same sentence as a
+    ///             graph that will not compile
+    ///         </b>
+    ///         , where it used to have one of its own. Telling them
     ///         apart needs the parse, and doing the parse here is the duplication above; the
     ///         diagnostic itself still says which it was, and it now carries the compiler's id with
     ///         it because <see cref="ShaderGraphSourceFile.Diagnostics" /> is written for a build log.
@@ -520,8 +552,12 @@ public sealed class MaterialDocument : EditorDocument {
     ///         graph's own defaults stand until an author overrides one.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Clearing the link drops the feature, and a graph that will not compile does
-    ///         not.</b> Those are the two ways <see cref="GraphSource" /> comes back null and they
+    ///         ⚠
+    ///         <b>
+    ///             Clearing the link drops the feature, and a graph that will not compile does
+    ///             not.
+    ///         </b>
+    ///         Those are the two ways <see cref="GraphSource" /> comes back null and they
     ///         want opposite answers: a material that no longer names a graph carrying a feature
     ///         naming one is the <c>.vxmat</c> a content build then has to resolve a surface for,
     ///         while a graph deleted from this branch or mid-edit is a material whose authored values
@@ -568,8 +604,12 @@ public sealed class MaterialDocument : EditorDocument {
     /// <returns>Whether there was a compiled graph to set it on.</returns>
     /// <exception cref="ArgumentException"><paramref name="property" /> is empty.</exception>
     /// <remarks>
-    ///     ⚠ <b>This is the editor's first feature-editing path, and keeping every other feature is
-    ///     the whole of what it has to get right.</b> <see cref="MaterialAsset.Features" /> was
+    ///     ⚠
+    ///     <b>
+    ///         This is the editor's first feature-editing path, and keeping every other feature is
+    ///         the whole of what it has to get right.
+    ///     </b>
+    ///     <see cref="MaterialAsset.Features" /> was
     ///     carried and never written precisely so that opening a material with features and saving it
     ///     did not delete them; a write that rebuilt the list would turn that non-destructive read
     ///     into the loss it was guarding against. So this replaces one element in place and appends

@@ -31,8 +31,12 @@ enum PreconditionerKind {
 ///         than a supernodal solver with a fill-reducing ordering.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Every guard in here is relative to the row it is in, and none of them is a
-///         tolerance on convergence.</b> The two are easy to confuse. A guard against dividing by a
+///         ⚠
+///         <b>
+///             Every guard in here is relative to the row it is in, and none of them is a
+///             tolerance on convergence.
+///         </b>
+///         The two are easy to confuse. A guard against dividing by a
 ///         zero pivot has to fire or the next iteration is NaN; a test on how small the residual has
 ///         got is a decision about when to stop, and § B6 forbids that one because its outcome can
 ///         differ across platforms. Nothing here stops anything.
@@ -62,8 +66,12 @@ sealed class Preconditioner {
 
     /// <summary>Whether an incomplete Cholesky was asked for, broke down, and became a Jacobi.</summary>
     /// <remarks>
-    ///     ⚠ <b>IC(0) is not guaranteed to exist for an arbitrary symmetric positive-definite
-    ///     matrix</b> — Kershaw's 4×4 is the standard counterexample and it is in the tests. A pivot
+    ///     ⚠
+    ///     <b>
+    ///         IC(0) is not guaranteed to exist for an arbitrary symmetric positive-definite
+    ///         matrix
+    ///     </b>
+    ///     — Kershaw's 4×4 is the standard counterexample and it is in the tests. A pivot
     ///     goes non-positive, the square root of it is NaN, and every iteration after that is NaN
     ///     without a single exception being thrown. So the breakdown is detected at construction, the
     ///     factor is thrown away, and this flag says so; <see cref="SolveReport" /> carries it out to
@@ -71,7 +79,13 @@ sealed class Preconditioner {
     /// </remarks>
     public bool FellBack { get; }
 
-    Preconditioner(PreconditionerKind kind, double[]? inverseDiagonal, SparseMatrix? factor, double[]? factorDiagonal, bool fellBack) {
+    Preconditioner(
+        PreconditionerKind kind,
+        double[]? inverseDiagonal,
+        SparseMatrix? factor,
+        double[]? factorDiagonal,
+        bool fellBack
+    ) {
         Kind = kind;
         FellBack = fellBack;
         this.inverseDiagonal = inverseDiagonal;
@@ -102,7 +116,13 @@ sealed class Preconditioner {
             var factorized = Factorize(matrix);
 
             if (factorized is not null) {
-                return new(PreconditionerKind.IncompleteCholesky, null, factorized.Value.Factor, factorized.Value.Diagonal, false);
+                return new(
+                    PreconditionerKind.IncompleteCholesky,
+                    null,
+                    factorized.Value.Factor,
+                    factorized.Value.Diagonal,
+                    false
+                );
             }
 
             return new(PreconditionerKind.Jacobi, InvertDiagonal(matrix), null, null, true);
@@ -173,8 +193,12 @@ sealed class Preconditioner {
     ///         always — which is what makes the pass a single sweep rather than a fixed point.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The pivot test is <c>!(pivot &gt; epsilon × original)</c> rather than
-    ///         <c>pivot &lt;= 0</c>, and the negation is deliberate</b>: written that way it catches a
+    ///         ⚠
+    ///         <b>
+    ///             The pivot test is <c>!(pivot &gt; epsilon × original)</c> rather than
+    ///             <c>pivot &lt;= 0</c>, and the negation is deliberate
+    ///         </b>
+    ///         : written that way it catches a
     ///         NaN as well, which is what an earlier row's failed square root would have put there.
     ///     </para>
     /// </remarks>

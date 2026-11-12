@@ -66,8 +66,16 @@ public static class TextureLocality {
         }
 
         return op.Kernel switch {
-            "Uniform" or "Blend" or "Mix" or "Levels" or "Hsl" or "Invert" or "Grayscale" or "Curve"
-                or "ChannelShuffle" or "GradientMap" => 0,
+            "Uniform"
+                or "Blend"
+                or "Mix"
+                or "Levels"
+                or "Hsl"
+                or "Invert"
+                or "Grayscale"
+                or "Curve"
+                or "ChannelShuffle"
+                or "GradientMap" => 0,
             "Bitmap" => 1,
             _ => null
         };

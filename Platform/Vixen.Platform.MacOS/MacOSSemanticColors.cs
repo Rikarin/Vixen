@@ -8,8 +8,11 @@ namespace Vixen.Platform.MacOS;
 /// <summary>AppKit's semantic colours, read as the CSS system colours they fill.</summary>
 /// <remarks>
 ///     <para>
-///         <b>The read #838 was open against for three batches, on the claim that it could not be
-///         made.</b> "An SDL process has no <c>NSApplication</c> and <c>NSColor</c> wants one" was
+///         <b>
+///             The read #838 was open against for three batches, on the claim that it could not be
+///             made.
+///         </b>
+///         "An SDL process has no <c>NSApplication</c> and <c>NSColor</c> wants one" was
 ///         written in three files and is false: a semantic colour is a <i>class</i> method resolved
 ///         against <c>NSAppearance.currentDrawingAppearance</c>, which has a sensible value with no
 ///         application object in sight, follows the <em>system</em> appearance, and works on a
@@ -53,18 +56,18 @@ public static class MacOSSemanticColors {
             return SystemSemanticColors.Unknown;
         }
 
-        return new SystemSemanticColors(
-            Canvas: MacOSAccent.Component("windowBackgroundColor"),
-            CanvasText: MacOSAccent.Component("labelColor"),
-            LinkText: MacOSAccent.Component("linkColor"),
-            ButtonFace: MacOSAccent.Component("controlColor"),
-            ButtonText: MacOSAccent.Component("controlTextColor"),
-            ButtonBorder: MacOSAccent.Component("separatorColor"),
-            Field: MacOSAccent.Component("textBackgroundColor"),
-            FieldText: MacOSAccent.Component("textColor"),
-            Highlight: MacOSAccent.Component("selectedContentBackgroundColor"),
-            HighlightText: MacOSAccent.Component("alternateSelectedControlTextColor"),
-            GrayText: MacOSAccent.Component("disabledControlTextColor")
+        return new(
+            MacOSAccent.Component("windowBackgroundColor"),
+            MacOSAccent.Component("labelColor"),
+            MacOSAccent.Component("linkColor"),
+            MacOSAccent.Component("controlColor"),
+            MacOSAccent.Component("controlTextColor"),
+            MacOSAccent.Component("separatorColor"),
+            MacOSAccent.Component("textBackgroundColor"),
+            MacOSAccent.Component("textColor"),
+            MacOSAccent.Component("selectedContentBackgroundColor"),
+            MacOSAccent.Component("alternateSelectedControlTextColor"),
+            MacOSAccent.Component("disabledControlTextColor")
         );
     }
 }

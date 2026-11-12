@@ -6,7 +6,6 @@ using Vixen.Core;
 using Vixen.Core.Mathematics;
 using Vixen.Ecs;
 using Vixen.Editor.Core;
-using Vixen.Editor.Core.Scenes;
 using Vixen.Editor.SceneView;
 using Vixen.Editor.Ui;
 using Vixen.Engine.Transforms;
@@ -73,7 +72,7 @@ public class BlockoutVerbTests : IDisposable {
 
     [Fact]
     public void A_verb_runs_with_no_shell_and_no_window() {
-        var mode = new BlockoutMode { Editing = new MeshEdit(scene) };
+        var mode = new BlockoutMode { Editing = new(scene) };
         var wall = Box(new(4f, 3f, 0.5f));
         var hole = Box(new(1f, 2f, 2f));
 
@@ -102,20 +101,24 @@ public class BlockoutVerbTests : IDisposable {
 
     [Fact]
     public void The_mode_reads_its_dials_into_the_verbs_at_the_moment_they_run() {
-        var mode = new BlockoutMode { Editing = new MeshEdit(scene) };
+        var mode = new BlockoutMode { Editing = new(scene) };
         var cube = Box(new(1f, 1f, 1f));
 
         scene.Selection.Set(cube);
         mode.Copies = 4;
 
-        Assert.Equal(4, mode.Verbs.Repeat(radial: false));
+        Assert.Equal(4, mode.Verbs.Repeat(false));
     }
 
     /// <summary>The loop cut the verb makes is the one the hover drew, at the mode's count and slide — #1485.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The preview read <c>LoopCuts</c> and <c>LoopSlide</c>; the verb ran with the
-    ///         defaults.</b> So with three loops on the dial the viewport drew three and Ctrl+Shift+R cut
+    ///         ⚠
+    ///         <b>
+    ///             The preview read <c>LoopCuts</c> and <c>LoopSlide</c>; the verb ran with the
+    ///             defaults.
+    ///         </b>
+    ///         So with three loops on the dial the viewport drew three and Ctrl+Shift+R cut
     ///         one, latent only because nothing yet sets either dial.
     ///     </para>
     ///     <para>
@@ -131,7 +134,11 @@ public class BlockoutVerbTests : IDisposable {
     [InlineData(1, 0.25f, new[] { 0.25f, 0.25f, 0.25f, 0.25f })]
     [InlineData(2, 0.5f, new[] { 1f / 3f, 1f / 3f, 1f / 3f, 1f / 3f, 1f / 3f, 1f / 3f, 1f / 3f, 1f / 3f })]
     [InlineData(3, 0.5f, new[] { 0.25f, 0.25f, 0.25f, 0.25f, 0.25f, 0.25f, 0.25f, 0.25f, 0.5f, 0.5f, 0.5f, 0.5f })]
-    public void The_loop_cut_verb_cuts_at_the_count_and_slide_the_preview_draws(int cuts, float slide, float[] expected) {
+    public void The_loop_cut_verb_cuts_at_the_count_and_slide_the_preview_draws(
+        int cuts,
+        float slide,
+        float[] expected
+    ) {
         var editing = new MeshEdit(scene);
         var mode = new BlockoutMode { Editing = editing, LoopCuts = cuts, LoopSlide = slide };
         var box = Box(new(1f, 1f, 1f));
@@ -197,7 +204,9 @@ public class BlockoutVerbTests : IDisposable {
         }
 
         var called = ((Recorder)(object)recorder).Called.ToHashSet(StringComparer.Ordinal);
-        var declared = typeof(IBlockout).GetMethods().Select(static method => method.Name).ToHashSet(StringComparer.Ordinal);
+        var declared = typeof(IBlockout).GetMethods()
+            .Select(static method => method.Name)
+            .ToHashSet(StringComparer.Ordinal);
 
         Assert.Empty(declared.Except(called).Order());
     }

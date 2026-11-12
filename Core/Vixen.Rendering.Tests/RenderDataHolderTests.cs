@@ -76,7 +76,7 @@ public class RenderDataHolderTests {
         var values = holder.Register<float>();
         holder.EnsureCapacity(256);
 
-        Assert.All(holder.Data(values).ToArray(), value => Assert.Equal(0f, value));
+        Assert.All(holder.Data(values).ToArray(), static value => Assert.Equal(0f, value));
     }
 
     [Fact]

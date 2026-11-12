@@ -177,7 +177,7 @@ public sealed class LinuxPowerInfo(IPowerInfo fallback) : IPowerInfo {
                 continue;
             }
 
-            for (var trip = 0; ; trip++) {
+            for (var trip = 0;; trip++) {
                 var kind = Sysfs.ReadText(Path.Combine(zone, $"trip_point_{trip}_type"));
 
                 if (kind is null) {

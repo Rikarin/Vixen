@@ -29,6 +29,9 @@ public enum ColorGamut {
     /// </summary>
     DisplayP3,
 
-    /// <summary>ITU-R BT.2020 — the ultra-high-definition television gamut, wider than any current consumer panel fully covers.</summary>
+    /// <summary>
+    ///     ITU-R BT.2020 — the ultra-high-definition television gamut, wider than any current consumer panel fully
+    ///     covers.
+    /// </summary>
     Rec2020
 }

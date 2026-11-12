@@ -47,8 +47,11 @@ public sealed record VirtualGeometryAsset(MeshletMesh Hierarchy, MeshletPageSet 
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>The caller <see cref="Features.VirtualGeometryRenderFeature.Register" /> was written
-///         for.</b> A build produces two chunks per clustered mesh — the records under
+///         <b>
+///             The caller <see cref="Features.VirtualGeometryRenderFeature.Register" /> was written
+///             for.
+///         </b>
+///         A build produces two chunks per clustered mesh — the records under
 ///         <see cref="ClusterArtifact" /> and the page blob under <see cref="ClusterPageArtifact" /> —
 ///         and until this existed nothing outside the importer's own tests read either of them back. The
 ///         system was complete from import to shaded pixel with no way to get from one to the other.

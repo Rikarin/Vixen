@@ -10,25 +10,40 @@ namespace Vixen.Ui.Tests;
 /// <summary>That <c>@container</c> answers in a live document, which for a day it could not.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>The cascade half of container queries shipped with nothing calling
-///         <c>ContainerScopes.Enter</c>, so every element of every real document sat at the root
-///         scope where no query has an eligible container and all of them are false.</b>
-///         <c>ContainerQueryTests</c> in the styling project proves the verdict is right <i>given a
-///         box</i>; it drives the boxes by hand, and had to, because no layout fed them. These
+///         ⚠
+///         <b>
+///             The cascade half of container queries shipped with nothing calling
+///             <c>ContainerScopes.Enter</c>, so every element of every real document sat at the root
+///             scope where no query has an eligible container and all of them are false.
+///         </b>
+///         <c>ContainerQueryTests</c> in the styling project proves the verdict is right
+///         <i>
+///             given a
+///             box
+///         </i>
+///         ; it drives the boxes by hand, and had to, because no layout fed them. These
 ///         prove the box arrives.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Every assertion here is a resolved value on an element <i>inside</i> a container of a
-///         given size, and nearly every one is paired with the same rule in a differently-sized
-///         box.</b> The defect this file is written against is the one this subsystem keeps
+///         ⚠
+///         <b>
+///             Every assertion here is a resolved value on an element <i>inside</i> a container of a
+///             given size, and nearly every one is paired with the same rule in a differently-sized
+///             box.
+///         </b>
+///         The defect this file is written against is the one this subsystem keeps
 ///         producing — a query that silently never matches — and it is invisible to any test that
 ///         checks a rule parsed, a scope exists, or a selector is spelled right. Most of them assert
 ///         on a <i>width</i> rather than on a property nothing reads, so a green run means the
 ///         declaration reached the layout tree and moved a box.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The sabotage they are written against is the one the cascade half's own five
-///         missed:</b> relax the name test so <c>@container card (…)</c> falls back to an unnamed
+///         ⚠
+///         <b>
+///             The sabotage they are written against is the one the cascade half's own five
+///             missed:
+///         </b>
+///         relax the name test so <c>@container card (…)</c> falls back to an unnamed
 ///         container and every other test in this file stays green.
 ///         <see cref="A_named_query_does_not_fall_back_to_an_unnamed_container_in_a_live_document" />
 ///         is the one that goes red. The others cover the wiring's own ways of being silently
@@ -45,13 +60,13 @@ public class ContainerWiringTests {
     ///     give.
     /// </remarks>
     const string Responsive = """
-        root { width: 1000px; height: 600px; flex-direction: column; }
-        .panel { container-type: inline-size; height: 100px; }
-        .wide { width: 500px; }
-        .narrow { width: 200px; }
-        .body { width: 10px; height: 10px; }
-        @container (min-width: 400px) { .body { width: 300px; } }
-        """;
+                              root { width: 1000px; height: 600px; flex-direction: column; }
+                              .panel { container-type: inline-size; height: 100px; }
+                              .wide { width: 500px; }
+                              .narrow { width: 200px; }
+                              .body { width: 10px; height: 10px; }
+                              @container (min-width: 400px) { .body { width: 300px; } }
+                              """;
 
     static UiDocument Document(string css = Responsive, float width = 1000f) {
         var document = new UiDocument(width, 600f);
@@ -108,12 +123,14 @@ public class ContainerWiringTests {
     /// </remarks>
     [Fact]
     public void A_container_does_not_answer_its_own_query_in_a_live_document() {
-        using var document = Document("""
+        using var document = Document(
+            """
             root { width: 1000px; height: 600px; flex-direction: column; }
             .panel { container-type: inline-size; width: 500px; }
             .body { height: 10px; }
             @container (min-width: 400px) { .body { height: 40px; } }
-            """);
+            """
+        );
 
         var panel = document.Root.Add("div", classNames: ["panel", "body"]);
         var child = panel.Add("div", classNames: "body");
@@ -140,12 +157,12 @@ public class ContainerWiringTests {
     [Fact]
     public void A_named_query_does_not_fall_back_to_an_unnamed_container_in_a_live_document() {
         const string css = """
-            root { width: 1000px; height: 600px; flex-direction: column; }
-            .anonymous { container-type: inline-size; width: 900px; height: 100px; }
-            .card { container-type: inline-size; container-name: card; width: 900px; height: 100px; }
-            .body { width: 10px; height: 10px; }
-            @container card (min-width: 400px) { .body { width: 300px; } }
-            """;
+                           root { width: 1000px; height: 600px; flex-direction: column; }
+                           .anonymous { container-type: inline-size; width: 900px; height: 100px; }
+                           .card { container-type: inline-size; container-name: card; width: 900px; height: 100px; }
+                           .body { width: 10px; height: 10px; }
+                           @container card (min-width: 400px) { .body { width: 300px; } }
+                           """;
 
         using var document = Document(css);
 
@@ -168,13 +185,15 @@ public class ContainerWiringTests {
     /// <summary>⚠ A named query asks the container with that name, not the nearest one.</summary>
     [Fact]
     public void A_named_query_reaches_past_a_nearer_container() {
-        using var document = Document("""
+        using var document = Document(
+            """
             root { width: 1000px; height: 600px; flex-direction: column; }
             .outer { container-type: inline-size; container-name: outer; width: 900px; height: 200px; }
             .inner { container-type: inline-size; container-name: inner; width: 100px; height: 100px; }
             .body { width: 10px; height: 10px; }
             @container outer (min-width: 400px) { .body { width: 50px; } }
-            """);
+            """
+        );
 
         var outer = document.Root.Add("div", classNames: "outer");
         var inner = outer.Add("div", classNames: "inner");
@@ -196,12 +215,14 @@ public class ContainerWiringTests {
     /// </remarks>
     [Fact]
     public void Resizing_the_window_flips_a_container_query_and_flips_it_back() {
-        using var document = Document("""
+        using var document = Document(
+            """
             root { width: 100%; height: 100%; flex-direction: column; }
             .panel { container-type: inline-size; height: 100px; }
             .body { width: 10px; height: 10px; }
             @container (min-width: 400px) { .body { width: 300px; } }
-            """);
+            """
+        );
 
         var body = document.Root.Add("div", classNames: "panel").Add("div", classNames: "body");
 
@@ -236,12 +257,14 @@ public class ContainerWiringTests {
     /// </remarks>
     [Fact]
     public void A_stretch_fit_container_settles_in_one_extra_pass() {
-        using var document = Document("""
+        using var document = Document(
+            """
             root { width: 1000px; height: 600px; flex-direction: column; }
             .panel { container-type: inline-size; height: 100px; }
             .body { width: 10px; height: 10px; }
             @container (min-width: 400px) { .body { width: 300px; } }
-            """);
+            """
+        );
 
         var body = document.Root.Add("div", classNames: "panel").Add("div", classNames: "body");
 
@@ -273,14 +296,16 @@ public class ContainerWiringTests {
     /// </remarks>
     [Fact]
     public void A_container_inside_a_container_resolves_and_costs_a_pass_per_level() {
-        using var document = Document("""
+        using var document = Document(
+            """
             root { width: 1000px; height: 600px; flex-direction: column; }
             .outer { container-type: inline-size; container-name: outer; width: 900px; height: 300px; }
             .inner { container-type: inline-size; container-name: inner; width: 100px; height: 100px; }
             .body { width: 10px; height: 10px; }
             @container outer (min-width: 400px) { .inner { width: 500px; } }
             @container inner (min-width: 400px) { .body { width: 77px; } }
-            """);
+            """
+        );
 
         var inner = document.Root.Add("div", classNames: "outer").Add("div", classNames: "inner");
         var body = inner.Add("div", classNames: "body");
@@ -297,8 +322,11 @@ public class ContainerWiringTests {
 
     /// <summary>⚠ And a frame in which nothing moved interns no chain and needs no extra pass.</summary>
     /// <remarks>
-    ///     <b>The other half of the bound, and the one that decides whether the feature is
-    ///     affordable.</b> Scopes are interned by value and nothing evicts them below
+    ///     <b>
+    ///         The other half of the bound, and the one that decides whether the feature is
+    ///         affordable.
+    ///     </b>
+    ///     Scopes are interned by value and nothing evicts them below
     ///     <see cref="UiDocument.ContainerScopeCeiling" />, so a document that interned a chain per
     ///     frame while standing still would grow a table for the length of the session and pay a
     ///     cold cascade every time. Interning by value is exactly what makes this nought: the same
@@ -334,8 +362,12 @@ public class ContainerWiringTests {
     ///         had ever checked that the caller uses that order.
     ///     </para>
     ///     <para>
-    ///         A drag is one chain per pixel per frame because the scopes are interned <i>by
-    ///         value</i>, so a window widened a pixel at a time is the cheapest way to reach it —
+    ///         A drag is one chain per pixel per frame because the scopes are interned
+    ///         <i>
+    ///             by
+    ///             value
+    ///         </i>
+    ///         , so a window widened a pixel at a time is the cheapest way to reach it —
     ///         and it is also the thing the policy exists for rather than a contrivance.
     ///     </para>
     ///     <para>
@@ -356,7 +388,7 @@ public class ContainerWiringTests {
             .body { width: 10px; height: 10px; }
             @container (min-width: 400px) { .body { width: 300px; } }
             """,
-            width: 500f
+            500f
         );
 
         var body = document.Root.Add("div", classNames: "panel").Add("div", classNames: "body");
@@ -418,10 +450,12 @@ public class ContainerWiringTests {
     /// </remarks>
     [Fact]
     public void A_document_with_no_container_rule_enters_no_scope_even_for_a_declared_container() {
-        using var document = Document("""
+        using var document = Document(
+            """
             root { width: 1000px; height: 600px; flex-direction: column; }
             .panel { container-type: inline-size; width: 500px; height: 100px; }
-            """);
+            """
+        );
 
         document.Root.Add("div", classNames: "panel").Add("div");
         document.Update();
@@ -452,13 +486,15 @@ public class ContainerWiringTests {
     /// </remarks>
     [Fact]
     public void A_query_asks_about_the_content_box_and_not_the_border_box() {
-        using var document = Document("""
+        using var document = Document(
+            """
             root { width: 1000px; height: 600px; flex-direction: column; }
             .panel { container-type: inline-size; box-sizing: border-box; width: 420px; height: 100px; }
             .padded { padding-left: 20px; padding-right: 20px; }
             .body { width: 10px; height: 10px; }
             @container (min-width: 400px) { .body { width: 50px; } }
-            """);
+            """
+        );
 
         var bare = document.Root.Add("div", classNames: "panel").Add("div", classNames: "body");
         var padded = document.Root.Add("div", classNames: ["panel", "padded"]).Add("div", classNames: "body");
@@ -481,13 +517,15 @@ public class ContainerWiringTests {
     /// </remarks>
     [Fact]
     public void An_inline_size_container_refuses_a_height_query_that_a_size_container_answers() {
-        using var document = Document("""
+        using var document = Document(
+            """
             root { width: 1000px; height: 600px; flex-direction: column; }
             .inline { container-type: inline-size; width: 500px; height: 300px; }
             .both { container-type: size; width: 500px; height: 300px; }
             .body { width: 10px; height: 10px; }
             @container (min-height: 200px) { .body { width: 60px; } }
-            """);
+            """
+        );
 
         var inInline = document.Root.Add("div", classNames: "inline").Add("div", classNames: "body");
         var inBoth = document.Root.Add("div", classNames: "both").Add("div", classNames: "body");
@@ -516,15 +554,19 @@ public class ContainerWiringTests {
         float outerHeight,
         float expected
     ) {
-        using var document = Document($$"""
-            root { width: 1000px; height: 600px; flex-direction: column; }
-            .both { container-type: size; width: 500px; height: {{outerHeight}}px; }
-            .inline { container-type: inline-size; width: 400px; }
-            .body { width: 10px; height: 10px; }
-            @container (min-height: 200px) { .body { width: 60px; } }
-            """);
+        using var document = Document(
+            $$"""
+              root { width: 1000px; height: 600px; flex-direction: column; }
+              .both { container-type: size; width: 500px; height: {{outerHeight}}px; }
+              .inline { container-type: inline-size; width: 400px; }
+              .body { width: 10px; height: 10px; }
+              @container (min-height: 200px) { .body { width: 60px; } }
+              """
+        );
 
-        var body = document.Root.Add("div", classNames: "both").Add("div", classNames: "inline").Add("div", classNames: "body");
+        var body = document.Root.Add("div", classNames: "both")
+            .Add("div", classNames: "inline")
+            .Add("div", classNames: "body");
 
         document.Update();
 
@@ -542,13 +584,15 @@ public class ContainerWiringTests {
     /// </remarks>
     [Fact]
     public void The_container_shorthand_makes_a_container_and_a_bare_name_does_not() {
-        using var document = Document("""
+        using var document = Document(
+            """
             root { width: 1000px; height: 600px; flex-direction: column; }
             .short { container: card / inline-size; width: 900px; height: 100px; }
             .bare { container: card; width: 900px; height: 100px; }
             .body { width: 10px; height: 10px; }
             @container card (min-width: 400px) { .body { width: 70px; } }
-            """);
+            """
+        );
 
         var inShorthand = document.Root.Add("div", classNames: "short").Add("div", classNames: "body");
         var inBare = document.Root.Add("div", classNames: "bare").Add("div", classNames: "body");
@@ -561,21 +605,26 @@ public class ContainerWiringTests {
 
     /// <summary>⚠ An element that stops being a container stops being asked.</summary>
     /// <remarks>
-    ///     <b>The stale-slot case, and the reason the walk writes both of <c>StyleTree</c>'s two
-    ///     container slots for every element rather than only for the containers.</b> A walk that
+    ///     <b>
+    ///         The stale-slot case, and the reason the walk writes both of <c>StyleTree</c>'s two
+    ///         container slots for every element rather than only for the containers.
+    ///     </b>
+    ///     A walk that
     ///     wrote a provided scope and never cleared one would leave a box that no longer declares
     ///     <c>container-type</c> still handing its old chain down — a container that was removed by a
     ///     class and went on answering, which is the failure mode that hides.
     /// </remarks>
     [Fact]
     public void Removing_a_container_type_stops_the_query_matching() {
-        using var document = Document("""
+        using var document = Document(
+            """
             root { width: 1000px; height: 600px; flex-direction: column; }
             .panel { width: 900px; height: 100px; }
             .contains { container-type: inline-size; }
             .body { width: 10px; height: 10px; }
             @container (min-width: 400px) { .body { width: 80px; } }
-            """);
+            """
+        );
 
         var panel = document.Root.Add("div", classNames: ["panel", "contains"]);
         var body = panel.Add("div", classNames: "body");
@@ -600,13 +649,15 @@ public class ContainerWiringTests {
     /// </remarks>
     [Fact]
     public void A_torn_off_window_does_not_inherit_the_main_windows_container() {
-        using var document = Document("""
+        using var document = Document(
+            """
             root { width: 1000px; height: 600px; flex-direction: column; }
             ui-surface { flex-direction: column; }
             .panel { container-type: inline-size; width: 900px; height: 400px; }
             .body { width: 10px; height: 10px; }
             @container (min-width: 400px) { .body { width: 90px; } }
-            """);
+            """
+        );
 
         var panel = document.Root.Add("div", classNames: "panel");
         var docked = panel.Add("div", classNames: "body");
@@ -643,12 +694,14 @@ public class ContainerWiringTests {
 
         using var document = new UiDocument(1000f, 600f, logger: sink.CreateLogger("Vixen.Ui.Styling"));
 
-        document.Load("""
+        document.Load(
+            """
             root { width: 1000px; height: 600px; flex-direction: row; }
             .seesaw { container-type: inline-size; container-name: seesaw; height: 100px; }
             .body { width: 10px; height: 10px; flex-shrink: 0; }
             @container seesaw (max-width: 100px) { .body { width: 900px; } }
-            """);
+            """
+        );
 
         var seesaw = document.Root.Add("div", classNames: "seesaw");
         var body = seesaw.Add("div", classNames: "body");
@@ -660,14 +713,18 @@ public class ContainerWiringTests {
         // ⚠ The query answered, and answered from the contained box: 900 is the rule inside it. A
         // container that had merely stopped being a container would settle too, at 10.
         Assert.Equal(900f, body.Width, 0.001f);
-        Assert.DoesNotContain(sink.Snapshot(), record => record.EventId.Id == 7007);
+        Assert.DoesNotContain(sink.Snapshot(), static record => record.EventId.Id == 7007);
     }
 
     /// <summary>A container its surroundings keep moving still oscillates, and the log names <i>it</i>.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Containment stops a container's contents from sizing it; it does not stop its
-    ///         contents from moving its surroundings.</b> <c>.seesaw</c> is stretched to its column's
+    ///         ⚠
+    ///         <b>
+    ///             Containment stops a container's contents from sizing it; it does not stop its
+    ///             contents from moving its surroundings.
+    ///         </b>
+    ///         <c>.seesaw</c> is stretched to its column's
     ///         width in a wrapping column flex container. Short, it shares the first column with the
     ///         500-wide <c>.wide</c> and is stretched to 500, so the query holds and makes the body
     ///         tall; tall, it no longer fits under <c>.wide</c> and wraps into a column of its own,
@@ -688,13 +745,15 @@ public class ContainerWiringTests {
 
         using var document = new UiDocument(1000f, 600f, logger: sink.CreateLogger("Vixen.Ui.Styling"));
 
-        document.Load("""
+        document.Load(
+            """
             root { width: 1000px; height: 100px; flex-direction: column; flex-wrap: wrap; align-content: flex-start; }
             .wide { width: 500px; height: 60px; flex-shrink: 0; }
             .seesaw { container-type: inline-size; container-name: seesaw; flex-shrink: 0; }
             .body { height: 10px; flex-shrink: 0; }
             @container seesaw (min-width: 400px) { .body { height: 60px; } }
-            """);
+            """
+        );
 
         document.Root.Add("div", classNames: "wide");
         document.Root.Add("div", classNames: "seesaw").Add("div", classNames: "body");
@@ -704,7 +763,7 @@ public class ContainerWiringTests {
 
         var warning = Assert.Single(
             sink.Snapshot(),
-            record => record.Level >= LogLevel.Warning && record.EventId.Id == 7007
+            static record => record.Level >= LogLevel.Warning && record.EventId.Id == 7007
         );
 
         Assert.Contains("seesaw", warning.Message, StringComparison.Ordinal);
@@ -735,13 +794,15 @@ public class ContainerWiringTests {
     /// </remarks>
     [Fact]
     public void A_style_query_follows_its_parents_value_through_an_incremental_restyle() {
-        using var document = Document("""
+        using var document = Document(
+            """
             root { width: 1000px; height: 600px; flex-direction: column; }
             .card { height: 100px; }
             .primary { --variant: primary; }
             .label { width: 10px; height: 10px; }
             @container style(--variant: primary) { .label { width: 300px; } }
-            """);
+            """
+        );
 
         var card = document.Root.Add("div", classNames: ["card", "primary"]);
         var label = card.Add("div", classNames: "inner").Add("div", classNames: "label");
@@ -774,7 +835,8 @@ public class ContainerWiringTests {
     /// </remarks>
     [Fact]
     public void A_mixed_query_asks_the_size_container_and_follows_both_halves() {
-        using var document = Document("""
+        using var document = Document(
+            """
             root { width: 1000px; height: 600px; flex-direction: column; }
             .card { container-type: inline-size; width: 450px; height: 100px; flex-direction: column; }
             .card.narrow { width: 300px; }
@@ -782,7 +844,8 @@ public class ContainerWiringTests {
             .inner { --variant: secondary; flex-direction: column; }
             .label { width: 10px; height: 10px; }
             @container (min-width: 400px) and style(--variant: primary) { .label { width: 300px; } }
-            """);
+            """
+        );
 
         Assert.Empty(document.Styles.Loader.Diagnostics);
 
@@ -819,7 +882,8 @@ public class ContainerWiringTests {
     /// </remarks>
     [Fact]
     public void An_or_mixed_query_follows_either_half_in_a_live_document() {
-        using var document = Document("""
+        using var document = Document(
+            """
             root { width: 1000px; height: 600px; flex-direction: column; }
             .card { container-type: inline-size; width: 450px; height: 100px; flex-direction: column; }
             .card.narrow { width: 300px; }
@@ -827,7 +891,8 @@ public class ContainerWiringTests {
             .inner { --variant: secondary; flex-direction: column; }
             .label { width: 10px; height: 10px; }
             @container (min-width: 400px) or style(--variant: primary) { .label { width: 300px; } }
-            """);
+            """
+        );
 
         Assert.Empty(document.Styles.Loader.Diagnostics);
 
@@ -860,13 +925,15 @@ public class ContainerWiringTests {
     /// </remarks>
     [Fact]
     public void A_size_query_finds_a_container_by_one_of_its_names() {
-        using var document = Document("""
+        using var document = Document(
+            """
             root { width: 1000px; height: 600px; flex-direction: column; }
             .longhand { container-type: inline-size; container-name: card side; width: 450px; height: 100px; flex-direction: column; }
             .shorthand { container: card side / inline-size; width: 450px; height: 100px; flex-direction: column; }
             .label { width: 10px; height: 10px; }
             @container side (min-width: 400px) { .label { width: 300px; } }
-            """);
+            """
+        );
 
         var longhand = document.Root.Add("div", classNames: "longhand").Add("div", classNames: "label");
         var shorthand = document.Root.Add("div", classNames: "shorthand").Add("div", classNames: "label");
@@ -889,7 +956,8 @@ public class ContainerWiringTests {
     /// </remarks>
     [Fact]
     public void A_named_style_query_follows_the_named_ancestor_past_an_override() {
-        using var document = Document("""
+        using var document = Document(
+            """
             root { width: 1000px; height: 600px; flex-direction: column; }
             .card { height: 100px; container-name: card; flex-direction: column; }
             .primary { --variant: primary; }
@@ -898,7 +966,8 @@ public class ContainerWiringTests {
             .other { width: 10px; height: 10px; }
             @container card style(--variant: primary) { .label { width: 300px; } }
             @container style(--variant: primary) { .other { width: 200px; } }
-            """);
+            """
+        );
 
         var card = document.Root.Add("div", classNames: ["card", "primary"]);
         var inner = card.Add("div", classNames: "inner");
@@ -939,7 +1008,7 @@ public class ContainerWiringTests {
         document.Update();
 
         Assert.True(document.Settled);
-        Assert.DoesNotContain(sink.Snapshot(), record => record.EventId.Id == 7007);
+        Assert.DoesNotContain(sink.Snapshot(), static record => record.EventId.Id == 7007);
     }
 
     /// <summary>
@@ -956,7 +1025,8 @@ public class ContainerWiringTests {
     /// </remarks>
     [Fact]
     public void A_container_queries_em_against_its_own_font_and_rem_against_the_roots() {
-        using var document = Document("""
+        using var document = Document(
+            """
             root { width: 1000px; height: 600px; flex-direction: column; }
             .panel { container-type: inline-size; width: 450px; height: 100px; font-size: 20px; flex-direction: column; }
             .panel.plain { font-size: 16px; }
@@ -964,7 +1034,8 @@ public class ContainerWiringTests {
             .rem { width: 10px; height: 10px; }
             @container (min-width: 24em) { .em { width: 300px; } }
             @container (min-width: 24rem) { .rem { width: 200px; } }
-            """);
+            """
+        );
 
         var panel = document.Root.Add("div", classNames: "panel");
         var em = panel.Add("div", classNames: "em");
@@ -995,12 +1066,14 @@ public class ContainerWiringTests {
     /// </remarks>
     [Fact]
     public void A_container_rem_query_follows_the_root_font_size_without_a_resize() {
-        using var document = Document("""
+        using var document = Document(
+            """
             root { width: 1000px; height: 600px; flex-direction: column; }
             .panel { container-type: inline-size; width: 450px; height: 100px; font-size: 16px; flex-direction: column; }
             .rem { width: 10px; height: 10px; }
             @container (min-width: 25rem) { .rem { width: 200px; } }
-            """);
+            """
+        );
 
         var panel = document.Root.Add("div", classNames: "panel");
         var rem = panel.Add("div", classNames: "rem");

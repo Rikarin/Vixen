@@ -8,15 +8,23 @@ namespace Vixen.Editor.Assets;
 /// <summary>Doc 20 § B1's collections: named sets of assets, kept with the project.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Per project and not per user, which is the one thing a saved filter got the other way
-///         round.</b> <c>EditorPreferences</c> is user-wide — one file across every project somebody
+///         ⚠
+///         <b>
+///             Per project and not per user, which is the one thing a saved filter got the other way
+///             round.
+///         </b>
+///         <c>EditorPreferences</c> is user-wide — one file across every project somebody
 ///         opens — and a collection holds <see cref="AssetId" />s, which mean nothing in another
 ///         project. So this is a settings asset under <c>ProjectSettings/</c>, read and written
 ///         through <c>ProjectSettingsStore</c> like every other one.
 ///     </para>
 ///     <para>
-///         ⚠ <b><c>Library/</c> would have been the wrong per-project home even though it is the
-///         per-project one that is not committed.</b> Everything under it is reproducible from a
+///         ⚠
+///         <b>
+///             <c>Library/</c> would have been the wrong per-project home even though it is the
+///             per-project one that is not committed.
+///         </b>
+///         Everything under it is reproducible from a
 ///         source file plus its <c>.meta</c> — that is what makes deleting it safe — and a collection
 ///         is authored data that nothing can rebuild. Storing one there is storing it somewhere the
 ///         editor is allowed to throw away.
@@ -60,7 +68,7 @@ public sealed class AssetCollections {
         var created = collection is null;
 
         if (collection is null) {
-            collection = new SavedAssetSet { Name = name };
+            collection = new() { Name = name };
             Collections.Add(collection);
         }
 
@@ -108,8 +116,12 @@ public sealed class AssetCollections {
 
 /// <summary>One named set of assets: what somebody put in it, never a query.</summary>
 /// <remarks>
-///     ⚠ <b>The result and not the query, which is the whole difference between this and
-///     <see cref="SavedAssetFilter" />.</b> Doc 20 § B1 asks for both and they are the same storage
+///     ⚠
+///     <b>
+///         The result and not the query, which is the whole difference between this and
+///         <see cref="SavedAssetFilter" />.
+///     </b>
+///     Doc 20 § B1 asks for both and they are the same storage
 ///     question with opposite answers: a filter re-runs and finds what has arrived since it was
 ///     named, a collection holds exactly what was put in it and goes on holding it after those files
 ///     have been moved, renamed and re-imported.

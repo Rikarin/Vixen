@@ -86,7 +86,7 @@ public sealed record RealmSpec {
     ///     orchestrator intelligence. A realm with no control plane still admits ticketed players,
     ///     still drains, and still reports health — it simply reports it to its own log.
     /// </remarks>
-    public string ClusterEndpoint { get; init; } = "";
+    public string ClusterEndpoint { get; init; } = string.Empty;
 
     /// <summary>Whatever else the game's own realm wants, carried verbatim.</summary>
     /// <remarks>
@@ -169,7 +169,7 @@ public sealed record RealmSpec {
             return false;
         }
 
-        if (!Enum.TryParse<ShardKind>(Field(fields, "kind"), ignoreCase: false, out var kind)) {
+        if (!Enum.TryParse<ShardKind>(Field(fields, "kind"), false, out var kind)) {
             error = "`kind` is missing or is not one of " + string.Join(", ", Enum.GetNames<ShardKind>());
 
             return false;
@@ -331,5 +331,5 @@ public sealed record RealmSpec {
         return true;
     }
 
-    static string Field(Dictionary<string, string> fields, string key) => fields.GetValueOrDefault(key, "");
+    static string Field(Dictionary<string, string> fields, string key) => fields.GetValueOrDefault(key, string.Empty);
 }

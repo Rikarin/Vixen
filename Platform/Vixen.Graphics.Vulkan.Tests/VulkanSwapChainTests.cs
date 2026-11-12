@@ -14,8 +14,12 @@ namespace Vixen.Graphics.Vulkan.Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>This said there was no end-to-end swapchain test and that presenting needs a window,
-///         and the second half was wrong.</b> Acquire and present are covered by
+///         ⚠
+///         <b>
+///             This said there was no end-to-end swapchain test and that presenting needs a window,
+///             and the second half was wrong.
+///         </b>
+///         Acquire and present are covered by
 ///         <see cref="VulkanPresentationTests" />, on a <c>VK_EXT_headless_surface</c> — a real
 ///         <c>VkSurfaceKHR</c> with no window behind it, so no display server and no AppKit main
 ///         thread are involved at all.
@@ -93,9 +97,7 @@ public sealed class VulkanSwapChainTests {
     public void ExtendedSrgbIsRefusedWithoutFloatStorage() {
         SurfaceFormatKHR[] available = [
             new() { Format = VkFormat.B8G8R8A8Unorm, ColorSpace = ColorSpaceKHR.SpaceExtendedSrgbLinearExt },
-            new() {
-                Format = VkFormat.A2B10G10R10UnormPack32, ColorSpace = ColorSpaceKHR.SpaceExtendedSrgbLinearExt
-            },
+            new() { Format = VkFormat.A2B10G10R10UnormPack32, ColorSpace = ColorSpaceKHR.SpaceExtendedSrgbLinearExt },
             new() { Format = VkFormat.B8G8R8A8Srgb, ColorSpace = ColorSpaceKHR.SpaceSrgbNonlinearKhr }
         ];
 
@@ -201,9 +203,11 @@ public sealed class VulkanSwapChainTests {
             ColorSpaceKHR.SpaceHdr10HlgExt
         ];
 
-        return [.. from space in spaces from format in formats select new SurfaceFormatKHR {
-            Format = format, ColorSpace = space
-        }];
+        return [
+            ..from space in spaces
+                from format in formats
+                select new SurfaceFormatKHR { Format = format, ColorSpace = space }
+        ];
     }
 
     /// <summary>
@@ -287,9 +291,7 @@ public sealed class VulkanSwapChainTests {
     [Fact]
     public void AStatedExtentWins() {
         var capabilities = new SurfaceCapabilitiesKHR {
-            CurrentExtent = new(1280, 720),
-            MinImageExtent = new(1, 1),
-            MaxImageExtent = new(4096, 4096)
+            CurrentExtent = new(1280, 720), MinImageExtent = new(1, 1), MaxImageExtent = new(4096, 4096)
         };
 
         var extent = VulkanSwapChain.ChooseExtent(capabilities, new(640, 480));
@@ -352,8 +354,12 @@ public sealed class VulkanSwapChainTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>This test asserted the opposite, and the claim it was defending has been
-    ///         withdrawn.</b> It said a surfaceless request was "a caller error worth naming, because
+    ///         ⚠
+    ///         <b>
+    ///             This test asserted the opposite, and the claim it was defending has been
+    ///             withdrawn.
+    ///         </b>
+    ///         It said a surfaceless request was "a caller error worth naming, because
     ///         the cause is upstream: the device was created without the window's handle" — which is
     ///         one thing it can mean and not the only one. The other is a run that has no window on
     ///         purpose and wants its frame anyway, and that run is the majority of them: every
@@ -369,12 +375,15 @@ public sealed class VulkanSwapChainTests {
     /// </remarks>
     [Fact]
     public void ASwapChainOnAHeadlessDeviceIsOffscreenRatherThanRefused() {
-        VulkanRequirement.Available(VulkanDevice.TryCreate(new(), out var device, out var reason), reason ?? "no Vulkan");
+        VulkanRequirement.Available(
+            VulkanDevice.TryCreate(new(), out var device, out var reason),
+            reason ?? "no Vulkan"
+        );
         using var owned = device!;
 
         using var chain = owned.CreateSwapChain(new(SurfaceHandle.None, new Int2(640, 480)));
 
-        Assert.Equal(new Int2(640, 480), chain.Size);
+        Assert.Equal(new(640, 480), chain.Size);
         Assert.Equal(SwapChainStatus.Ready, chain.AcquireNextImage(out var view));
         Assert.True(view.IsValid);
     }

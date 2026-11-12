@@ -14,8 +14,12 @@ namespace Tests;
 ///     <para>
 ///         <b>The four closed forms § 4.6 names:</b> height → normal of a plane is the flat normal;
 ///         ambient occlusion of a plane is one everywhere; a normal combine with a flat input returns
-///         the other one; and — the one this file exists for — <b>a height that rises downwards has
-///         green below a half</b>.
+///         the other one; and — the one this file exists for —
+///         <b>
+///             a height that rises downwards has
+///             green below a half
+///         </b>
+///         .
 ///     </para>
 ///     <para>
 ///         ⚠ <b>The green convention is asserted and not claimed.</b> § 4.6 says a flipped green "is
@@ -41,8 +45,12 @@ public class TextureSurfaceDeviceTests(ITestOutputHelper output) {
 
     /// <summary>A height field rising by exactly four steps a texel, along one axis.</summary>
     /// <remarks>
-    ///     ⚠ <b>Four a texel rather than the full range, so that every difference is exact in eight
-    ///     bits.</b> A ramp built as <c>x × 255 / 63</c> truncates unevenly — some texel pairs differ
+    ///     ⚠
+    ///     <b>
+    ///         Four a texel rather than the full range, so that every difference is exact in eight
+    ///         bits.
+    ///     </b>
+    ///     A ramp built as <c>x × 255 / 63</c> truncates unevenly — some texel pairs differ
     ///     by eight and some by nine — and a test of a gradient built on one would carry that
     ///     unevenness into its tolerance and hide a real error of the same size.
     /// </remarks>
@@ -51,7 +59,7 @@ public class TextureSurfaceDeviceTests(ITestOutputHelper output) {
 
         for (var y = 0; y < side; y++) {
             for (var x = 0; x < side; x++) {
-                var at = ((y * side) + x) * 4;
+                var at = (y * side + x) * 4;
                 var value = (byte)((downwards ? y : x) * 4);
 
                 pixels[at] = value;
@@ -70,7 +78,7 @@ public class TextureSurfaceDeviceTests(ITestOutputHelper output) {
 
         for (var y = 0; y < side; y++) {
             for (var x = 0; x < side; x++) {
-                var offset = ((y * side) + x) * 4;
+                var offset = (y * side + x) * 4;
                 var value = (byte)(x >= at ? 255 : 0);
 
                 pixels[offset] = value;
@@ -94,7 +102,7 @@ public class TextureSurfaceDeviceTests(ITestOutputHelper output) {
 
         for (var y = 0; y < height; y++) {
             for (var x = 0; x < width; x++) {
-                var at = ((y * width) + x) * 4;
+                var at = (y * width + x) * 4;
 
                 pixels[at] = 128;
                 pixels[at + 1] = (byte)(y * 4);
@@ -117,9 +125,9 @@ public class TextureSurfaceDeviceTests(ITestOutputHelper output) {
 
         for (var y = 0; y < side; y++) {
             for (var x = 0; x < side; x++) {
-                var at = ((y * side) + x) * 4;
+                var at = (y * side + x) * 4;
 
-                pixels[at] = (byte)(128 + (3 * Math.Abs(x - (side / 2))));
+                pixels[at] = (byte)(128 + 3 * Math.Abs(x - side / 2));
                 pixels[at + 1] = 128;
                 pixels[at + 2] = 255;
                 pixels[at + 3] = 255;
@@ -135,7 +143,7 @@ public class TextureSurfaceDeviceTests(ITestOutputHelper output) {
 
         for (var y = 0; y < side; y++) {
             for (var x = 0; x < side; x++) {
-                var at = ((y * side) + x) * 4;
+                var at = (y * side + x) * 4;
 
                 pixels[at] = (byte)(x * 4);
                 pixels[at + 1] = 128;
@@ -156,7 +164,11 @@ public class TextureSurfaceDeviceTests(ITestOutputHelper output) {
 
         output.WriteLine($"adapter: {TextureKernelHarness.Adapter(device)}");
 
-        var picture = OneOp(device, TextureKernelHarness.Solid(Side, 96, 96, 96, 255), TextureSurfaces.HeightToNormal(1, 0));
+        var picture = OneOp(
+            device,
+            TextureKernelHarness.Solid(Side, 96, 96, 96, 255),
+            TextureSurfaces.HeightToNormal(1, 0)
+        );
 
         for (var y = 0; y < Side; y++) {
             for (var x = 0; x < Side; x++) {
@@ -193,7 +205,7 @@ public class TextureSurfaceDeviceTests(ITestOutputHelper output) {
 
         output.WriteLine($"adapter: {TextureKernelHarness.Adapter(device)}");
 
-        var down = OneOp(device, Ramp(Side, downwards: true), TextureSurfaces.HeightToNormal(1, 0));
+        var down = OneOp(device, Ramp(Side, true), TextureSurfaces.HeightToNormal(1, 0));
 
         // Away from the clamped border, where the operator straddles the edge texel twice.
         for (var y = 2; y < Side - 2; y++) {
@@ -208,7 +220,7 @@ public class TextureSurfaceDeviceTests(ITestOutputHelper output) {
 
         // The same slope along x puts the tilt in red and leaves green alone, which is what says the
         // two axes were not transposed.
-        var across = OneOp(device, Ramp(Side, downwards: false), TextureSurfaces.HeightToNormal(1, 0));
+        var across = OneOp(device, Ramp(Side, false), TextureSurfaces.HeightToNormal(1, 0));
 
         for (var x = 2; x < Side - 2; x++) {
             Assert.InRange(TextureKernelHarness.At(across, x, 32, 0), 35, 39);
@@ -223,7 +235,7 @@ public class TextureSurfaceDeviceTests(ITestOutputHelper output) {
 
         output.WriteLine($"adapter: {TextureKernelHarness.Adapter(device)}");
 
-        var picture = OneOp(device, Ramp(Side, downwards: true), TextureSurfaces.HeightToNormal(1, 0, intensity: 0f));
+        var picture = OneOp(device, Ramp(Side, true), TextureSurfaces.HeightToNormal(1, 0, 0f));
 
         Assert.InRange(TextureKernelHarness.At(picture, 32, 32, 1), 127, 129);
         Assert.InRange(TextureKernelHarness.At(picture, 32, 32, 2), 254, 255);
@@ -253,8 +265,8 @@ public class TextureSurfaceDeviceTests(ITestOutputHelper output) {
                     new(TextureFormat.Rgba8, External: true), new(TextureFormat.Rgba8), new(TextureFormat.Rgba8)
                 ],
                 Ops = [
-                    TextureSurfaces.NormalTransform(1, 0, flipGreen: true),
-                    TextureSurfaces.NormalTransform(2, 1, flipGreen: true)
+                    TextureSurfaces.NormalTransform(1, 0, true),
+                    TextureSurfaces.NormalTransform(2, 1, true)
                 ],
                 Outputs = [1, 2]
             };
@@ -279,8 +291,12 @@ public class TextureSurfaceDeviceTests(ITestOutputHelper output) {
 
     /// <summary>A quarter turn takes a tilt in red to a tilt in green.</summary>
     /// <remarks>
-    ///     ⚠ <b>Clockwise on screen, which is the direction every other angle in the folder is
-    ///     measured in</b> — green points down the image, so the xy pair lives in a y-down frame and
+    ///     ⚠
+    ///     <b>
+    ///         Clockwise on screen, which is the direction every other angle in the folder is
+    ///         measured in
+    ///     </b>
+    ///     — green points down the image, so the xy pair lives in a y-down frame and
     ///     the ordinary rotation matrix turns it that way. A kernel that turned it the other way would
     ///     put the tilt in green too, at <c>255 − 218</c>, which is why the sign is asserted rather
     ///     than the magnitude alone.
@@ -411,8 +427,12 @@ public class TextureSurfaceDeviceTests(ITestOutputHelper output) {
     ///         intensity puts the answer the same distance off the half as the red ramp does.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And the image is deliberately not square, which is the half that pins the
-    ///         pairing.</b> <c>Main</c> scales the x difference by <c>size.x</c> and the y difference
+    ///         ⚠
+    ///         <b>
+    ///             And the image is deliberately not square, which is the half that pins the
+    ///             pairing.
+    ///         </b>
+    ///         <c>Main</c> scales the x difference by <c>size.x</c> and the y difference
     ///         by <c>size.y</c> — "per unit UV" — and on a square image those are the same number, so
     ///         a kernel that multiplied both by the width would be indistinguishable. At 64 × 32 the
     ///         two answers are 40 apart: 159 for the height and 191 for the width, which is the number
@@ -474,7 +494,7 @@ public class TextureSurfaceDeviceTests(ITestOutputHelper output) {
         output.WriteLine($"adapter: {TextureKernelHarness.Adapter(device)}");
 
         var near = OneOp(device, Kink(Side), TextureSurfaces.Curvature(1, 0));
-        var far = OneOp(device, Kink(Side), TextureSurfaces.Curvature(1, 0, radius: 2f));
+        var far = OneOp(device, Kink(Side), TextureSurfaces.Curvature(1, 0, 2f));
 
         var tight = TextureKernelHarness.At(near, 33, 32, 0);
         var wide = TextureKernelHarness.At(far, 33, 32, 0);
@@ -494,7 +514,7 @@ public class TextureSurfaceDeviceTests(ITestOutputHelper output) {
         );
 
         Assert.True(
-            Math.Abs(tight - 128 - (2 * (wide - 128))) <= 3,
+            Math.Abs(tight - 128 - 2 * (wide - 128)) <= 3,
             $"{tight} and {wide} are not two and one of the same divergence, so the reach is not what divides "
             + $"it ({TextureKernelHarness.Adapter(device)})"
         );
@@ -529,8 +549,12 @@ public class TextureSurfaceDeviceTests(ITestOutputHelper output) {
 
     /// <summary>A wall darkens the low ground beside it, out to the radius and no further.</summary>
     /// <remarks>
-    ///     ⚠ <b>"Out to the radius and no further" is the half that makes this a test of a horizon
-    ///     search</b> rather than of any function that is dark near a step. The wall is at texel 32
+    ///     ⚠
+    ///     <b>
+    ///         "Out to the radius and no further" is the half that makes this a test of a horizon
+    ///         search
+    ///     </b>
+    ///     rather than of any function that is dark near a step. The wall is at texel 32
     ///     and the radius is sixteen, so the ground at texel 2 cannot see it and has to come back
     ///     exactly white.
     /// </remarks>
@@ -543,7 +567,7 @@ public class TextureSurfaceDeviceTests(ITestOutputHelper output) {
         var picture = OneOp(
             device,
             Step(Side, 32),
-            TextureSurfaces.AmbientOcclusion(1, 0, radius: 16f, samples: 8, height01: 0.2f)
+            TextureSurfaces.AmbientOcclusion(1, 0, 16f, 8, 0.2f)
         );
 
         var beside = TextureKernelHarness.At(picture, 31, 32, 0);

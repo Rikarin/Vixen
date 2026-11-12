@@ -153,7 +153,13 @@ public sealed class PathCorridor {
     ///         corridor's first polygon, and the entry is not on it any more.
     ///     </para>
     /// </remarks>
-    public bool TryUseOffMeshConnection(NavMesh mesh, float reach, out NavPolyRef connection, out Vector3 entry, out Vector3 exit) {
+    public bool TryUseOffMeshConnection(
+        NavMesh mesh,
+        float reach,
+        out NavPolyRef connection,
+        out Vector3 entry,
+        out Vector3 exit
+    ) {
         ArgumentNullException.ThrowIfNull(mesh);
 
         connection = NavPolyRef.Null;
@@ -164,8 +170,8 @@ public sealed class PathCorridor {
             return false;
         }
 
-        if (!mesh.GetPortalPoints(path[0], path[1], out var start, out _) ||
-            !mesh.GetPortalPoints(path[1], path[2], out var end, out _)) {
+        if (!mesh.GetPortalPoints(path[0], path[1], out var start, out _)
+            || !mesh.GetPortalPoints(path[1], path[2], out var end, out _)) {
             return false;
         }
 
@@ -214,11 +220,13 @@ public sealed class PathCorridor {
             return;
         }
 
-        var probe = Position + (direction / length * MathF.Min(length, distance));
+        var probe = Position + direction / length * MathF.Min(length, distance);
 
         Span<NavPolyRef> visited = stackalloc NavPolyRef[16];
 
-        if (!query.Raycast(path[0], Position, probe, filter, out var hit, visited, out var visitedCount) || hit.Hit || visitedCount == 0) {
+        if (!query.Raycast(path[0], Position, probe, filter, out var hit, visited, out var visitedCount)
+            || hit.Hit
+            || visitedCount == 0) {
             return;
         }
 

@@ -119,7 +119,7 @@ public class AutoExposureTests : IDisposable {
         // One group, because one invocation does the adaptation and the shader sends the other
         // sixty-three home. A dispatch of more would be that many invocations reading and writing one
         // buffer element with no ordering between them.
-        Assert.Equal(new Int3(1, 1, 1), adapt.Groups);
+        Assert.Equal(new(1, 1, 1), adapt.Groups);
     }
 
     /// <summary>
@@ -152,7 +152,7 @@ public class AutoExposureTests : IDisposable {
     /// <summary>A smaller start is a shorter chain, and still ends at one texel.</summary>
     [Fact]
     public void A_smaller_start_is_a_shorter_chain() {
-        using var h = Build(start: 16);
+        using var h = Build(16);
         Frame(h);
 
         // 16 → 8 → 4 → 2 → 1 is four reductions, and the adaptation.
@@ -178,13 +178,13 @@ public class AutoExposureTests : IDisposable {
     /// </remarks>
     [Fact]
     public void The_histogram_is_three_dispatches_and_the_chain_is_a_dispatch_per_level() {
-        using var metered = Build(start: 256, histogram: true);
+        using var metered = Build(256, histogram: true);
         Frame(metered);
 
         Assert.Equal(3, metered.Exposure.PassCount);
         Assert.Equal("AutoExposure.Step0", metered.Exposure.Steps[0].Name);
 
-        using var chained = Build(start: 256);
+        using var chained = Build(256);
         Frame(chained);
 
         // 256 → 128 → … → 1 is eight reductions, and the adaptation.
@@ -259,13 +259,15 @@ public class AutoExposureTests : IDisposable {
     /// </remarks>
     [Fact]
     public void A_rebuilt_step_declares_the_same_resources_it_did_last_frame() {
-        using var h = Build(start: 16);
+        using var h = Build(16);
 
         Frame(h);
 
         var declared = h.Exposure.Steps
             .Take(h.Exposure.PassCount)
-            .Select(step => (step.Reads.Count, step.Writes.Count, step.Bound.Count, step.BufferReads.Count, step.BufferWrites.Count))
+            .Select(static step => (step.Reads.Count, step.Writes.Count, step.Bound.Count, step.BufferReads.Count,
+                    step.BufferWrites.Count)
+            )
             .ToArray();
 
         Frame(h);
@@ -276,7 +278,9 @@ public class AutoExposureTests : IDisposable {
             declared,
             h.Exposure.Steps
                 .Take(h.Exposure.PassCount)
-                .Select(step => (step.Reads.Count, step.Writes.Count, step.Bound.Count, step.BufferReads.Count, step.BufferWrites.Count))
+                .Select(static step => (step.Reads.Count, step.Writes.Count, step.Bound.Count, step.BufferReads.Count,
+                        step.BufferWrites.Count)
+                )
                 .ToArray()
         );
     }
@@ -315,7 +319,11 @@ public class AutoExposureTests : IDisposable {
 
         Frame(h);
 
-        Assert.Equal(1f / 60f, h.Exposure.Steps[h.Exposure.PassCount - 1].Parameters.Get(AutoExposureKeys.DeltaTime), 6);
+        Assert.Equal(
+            1f / 60f,
+            h.Exposure.Steps[h.Exposure.PassCount - 1].Parameters.Get(AutoExposureKeys.DeltaTime),
+            6
+        );
     }
 
     /// <summary>
@@ -435,7 +443,7 @@ public class AutoExposureTests : IDisposable {
             Name = "Tonemap",
             Source = "SceneColour",
             Output = "Display",
-            ExposureBuffer = measured ? exposure.ExposureResource : "",
+            ExposureBuffer = measured ? exposure.ExposureResource : string.Empty,
             Modules = describer,
             Samplers = samplers,
             Allocator = allocator,
@@ -505,8 +513,11 @@ public class AutoExposureTests : IDisposable {
     // --- What the chain says when nothing metered ---------------------------
 
     /// <summary>
-    ///     ⚠ <b>The worst-shaped silence in the assembly: a grade taken from a number nobody
-    ///     measured.</b>
+    ///     ⚠
+    ///     <b>
+    ///         The worst-shaped silence in the assembly: a grade taken from a number nobody
+    ///         measured.
+    ///     </b>
     /// </summary>
     /// <remarks>
     ///     <para>
@@ -531,7 +542,7 @@ public class AutoExposureTests : IDisposable {
 
         Assert.Equal(0, h.Exposure.PassCount);
 
-        var (node, reason) = Assert.Single(Degradations(h), pair => pair.Node == "AutoExposure");
+        var (node, reason) = Assert.Single(Degradations(h), static pair => pair.Node == "AutoExposure");
 
         Assert.Equal("AutoExposure", node);
         Assert.Contains("no Pipelines", reason, StringComparison.Ordinal);
@@ -550,12 +561,12 @@ public class AutoExposureTests : IDisposable {
 
         h.Exposure.Samplers = null;
         Frame(h);
-        Assert.Contains("no Samplers", Assert.Single(Degradations(h), p => p.Node == "AutoExposure").Reason);
+        Assert.Contains("no Samplers", Assert.Single(Degradations(h), static p => p.Node == "AutoExposure").Reason);
 
         h.Exposure.Samplers = samplers;
         h.Exposure.Allocator = null;
         Frame(h);
-        Assert.Contains("no Allocator", Assert.Single(Degradations(h), p => p.Node == "AutoExposure").Reason);
+        Assert.Contains("no Allocator", Assert.Single(Degradations(h), static p => p.Node == "AutoExposure").Reason);
     }
 
     /// <summary>And a chain given everything back meters again, and says nothing.</summary>
@@ -565,12 +576,12 @@ public class AutoExposureTests : IDisposable {
 
         h.Exposure.Pipelines = null;
         Frame(h);
-        Assert.Contains(Degradations(h), pair => pair.Node == "AutoExposure");
+        Assert.Contains(Degradations(h), static pair => pair.Node == "AutoExposure");
 
         h.Exposure.Pipelines = pipelines;
         Frame(h);
 
-        Assert.DoesNotContain(Degradations(h), pair => pair.Node == "AutoExposure");
+        Assert.DoesNotContain(Degradations(h), static pair => pair.Node == "AutoExposure");
         Assert.True(h.Exposure.PassCount > 0);
     }
 

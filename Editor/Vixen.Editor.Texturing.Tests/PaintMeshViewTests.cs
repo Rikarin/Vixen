@@ -4,7 +4,6 @@
 using Vixen.Core.Mathematics;
 using Vixen.Editor.Texturing.Layers;
 using Vixen.Editor.Texturing.Painting;
-using Vixen.Input;
 using Vixen.Texturing.Layers;
 using Vixen.Texturing.Painting;
 using Vixen.Ui;
@@ -35,8 +34,12 @@ namespace Vixen.Editor.Texturing.Tests;
 ///         a call to a method.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The model is a quad in the <em>z = 0</em> plane whose layout is its own coordinates,
-///         and the camera framed on it looks straight down <c>-z</c>.</b> That makes the middle of
+///         ⚠
+///         <b>
+///             The model is a quad in the <em>z = 0</em> plane whose layout is its own coordinates,
+///             and the camera framed on it looks straight down <c>-z</c>.
+///         </b>
+///         That makes the middle of
 ///         the pane the middle of the atlas, which is what lets an assertion name a texel — and it
 ///         is also why the symmetry case below uses a quad that straddles <c>x = 0</c>: a mirror
 ///         through a plane the model does not straddle hits nothing, which is a correct answer and
@@ -69,10 +72,10 @@ public class PaintMeshViewTests {
 
         var renders = fixture.Graphics!.Uploads.Count(one => one.Width == image.ImageWidth);
 
-        Drag(fixture, image, new Vector2(-6f, -6f), new Vector2(6f, 6f));
+        Drag(fixture, image, new(-6f, -6f), new(6f, 6f));
 
         // The canvas beside the stack, named by the edit the first stroke made.
-        var layer = Assert.Single(document.Document.Sets[0].Layers, one => one.Kind == LayerKind.Paint);
+        var layer = Assert.Single(document.Document.Sets[0].Layers, static one => one.Kind == LayerKind.Paint);
 
         Assert.NotEmpty(layer.Paint);
 
@@ -165,13 +168,13 @@ public class PaintMeshViewTests {
         // part of the model that is not under it.
         Assert.InRange(
             image.ImageWidth / (float)image.ImageHeight,
-            (image.Width / image.Height) - 0.01f,
-            (image.Width / image.Height) + 0.01f
+            image.Width / image.Height - 0.01f,
+            image.Width / image.Height + 0.01f
         );
 
-        Drag(fixture, image, new Vector2(-6f, -6f), new Vector2(6f, 6f));
+        Drag(fixture, image, new(-6f, -6f), new(6f, 6f));
 
-        var layer = Assert.Single(document.Document.Sets[0].Layers, one => one.Kind == LayerKind.Paint);
+        var layer = Assert.Single(document.Document.Sets[0].Layers, static one => one.Kind == LayerKind.Paint);
 
         Assert.NotEmpty(layer.Paint);
 
@@ -226,11 +229,11 @@ public class PaintMeshViewTests {
         var pane = OpenMesh(fixture);
         var image = Viewer(pane);
 
-        Drag(fixture, image, new Vector2(-6f, -6f), new Vector2(6f, 6f));
+        Drag(fixture, image, new(-6f, -6f), new(6f, 6f));
 
         Assert.Equal("Paint stroke", document.Stack.UndoName.Value);
 
-        var layer = Assert.Single(document.Document.Sets[0].Layers, one => one.Kind == LayerKind.Paint);
+        var layer = Assert.Single(document.Document.Sets[0].Layers, static one => one.Kind == LayerKind.Paint);
         var file = Path.Combine(Path.GetDirectoryName(document.AssetPath)!, layer.Paint);
         var depth = document.Stack.Depth.Value;
 
@@ -282,8 +285,8 @@ public class PaintMeshViewTests {
     /// </remarks>
     [Fact]
     public void Symmetry_paints_the_mirror_of_the_stroke() {
-        var alone = Halves(mirrored: false);
-        var mirrored = Halves(mirrored: true);
+        var alone = Halves(false);
+        var mirrored = Halves(true);
 
         Assert.True(alone.Left > 0, "the stroke did not paint its own side.");
         Assert.Equal(0, alone.Right);
@@ -316,7 +319,7 @@ public class PaintMeshViewTests {
         // because the first version began off it — so a pane that treated *every* button as a stroke
         // refused the press for missing the mesh, fell through to the orbit, and passed. The test was
         // the defect, and only breaking the code showed it.
-        Drag(fixture, image, new Vector2(-60f, 0f), new Vector2(240f, 0f), PointerButton.Secondary);
+        Drag(fixture, image, new(-60f, 0f), new(240f, 0f), PointerButton.Secondary);
 
         // ⚠ The picture and not a camera field, so the assertion is about what the artist sees. A
         // yaw that moved and a render that did not is exactly the state a pane is in when the
@@ -324,7 +327,7 @@ public class PaintMeshViewTests {
         Assert.NotEqual(before, fixture.Graphics.Uploads[^1].Pixels);
         Assert.Equal(0, document.Stack.Depth.Value);
 
-        var layer = Assert.Single(document.Document.Sets[0].Layers, one => one.Kind == LayerKind.Paint);
+        var layer = Assert.Single(document.Document.Sets[0].Layers, static one => one.Kind == LayerKind.Paint);
 
         Assert.Empty(layer.Paint);
     }
@@ -363,7 +366,7 @@ public class PaintMeshViewTests {
     ///     <c>LayerStackPanelTests</c> names for the layer rows one pane across.
     /// </remarks>
     static string Status(UiElement panel) {
-        var text = "";
+        var text = string.Empty;
 
         Walk(panel);
 
@@ -371,7 +374,7 @@ public class PaintMeshViewTests {
 
         void Walk(UiElement element) {
             if (string.Equals(element.Tag, "paint-mesh-status", StringComparison.Ordinal)) {
-                text = element.Text ?? "";
+                text = element.Text ?? string.Empty;
             }
 
             foreach (var child in element.Children) {
@@ -402,10 +405,10 @@ public class PaintMeshViewTests {
         // — and the default 32-pixel brush is about five texels of this 64² atlas, or 0.08 of the
         // unit square. The stroke reaches u ≈ 0.43 and stops, which is what makes "the right half is
         // clean" a statement about symmetry rather than about the brush being small.
-        Drag(fixture, image, new Vector2(-80f, 0f), new Vector2(-60f, 0f));
+        Drag(fixture, image, new(-80f, 0f), new(-60f, 0f));
 
         var document = Assert.IsType<LayerStackDocument>(fixture.Project.Documents.Single());
-        var layer = Assert.Single(document.Document.Sets[0].Layers, one => one.Kind == LayerKind.Paint);
+        var layer = Assert.Single(document.Document.Sets[0].Layers, static one => one.Kind == LayerKind.Paint);
         var file = Path.Combine(Path.GetDirectoryName(document.AssetPath)!, layer.Paint);
 
         using var stream = File.OpenRead(file);
@@ -492,9 +495,8 @@ public class PaintMeshViewTests {
     /// <summary>The 3D pane's viewer.</summary>
     /// <param name="panel">The panel.</param>
     /// <returns>The viewer.</returns>
-    static ImageView Viewer(UiElement panel) => Walk<ImageView>(panel) ?? throw new InvalidOperationException(
-        "the 3D pane holds no ImageView"
-    );
+    static ImageView Viewer(UiElement panel) =>
+        Walk<ImageView>(panel) ?? throw new InvalidOperationException("the 3D pane holds no ImageView");
 
     /// <summary>The symmetry picker in the 3D pane.</summary>
     /// <param name="fixture">The host.</param>

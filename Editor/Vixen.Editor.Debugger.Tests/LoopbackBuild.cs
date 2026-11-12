@@ -11,8 +11,12 @@ namespace Vixen.Editor.Debugger.Tests;
 /// <summary>A build at the far end of a loopback, and the editor's client for it.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>A real transport rather than a mock, which is <c>RemoteInspectorTests</c>' bargain
-///         and the reason it is worth sharing.</b> A round trip is a loop of <c>Poll</c> calls rather
+///         ⚠
+///         <b>
+///             A real transport rather than a mock, which is <c>RemoteInspectorTests</c>' bargain
+///             and the reason it is worth sharing.
+///         </b>
+///         A round trip is a loop of <c>Poll</c> calls rather
 ///         than a wait, so a test observes the same thing every run and takes microseconds — and what
 ///         it exercises is the protocol both ends actually speak.
 ///     </para>
@@ -79,18 +83,20 @@ public sealed class LoopbackBuild : IDisposable, ITransportEvents {
 
         switch (message) {
             case InspectorMessage.Hello:
-                Send(writer => InspectorProtocol.WriteWelcome(writer, "Test Build"));
+                Send(static writer => InspectorProtocol.WriteWelcome(writer, "Test Build"));
                 break;
 
             case InspectorMessage.RequestTree:
-                Send(writer => InspectorProtocol.WriteEntity(writer, new(1, 0, "Root", ["Transform"])));
-                Send(writer => InspectorProtocol.WriteEntity(writer, new(2, 1, "Camera", ["Transform", "Camera"])));
-                Send(writer => InspectorProtocol.WriteEntity(writer, new(3, 1, "Light", ["Transform", "Light"])));
-                Send(writer => InspectorProtocol.WriteBare(writer, InspectorMessage.TreeComplete));
+                Send(static writer => InspectorProtocol.WriteEntity(writer, new(1, 0, "Root", ["Transform"])));
+                Send(static writer => InspectorProtocol.WriteEntity(
+                        writer,
+                        new(2, 1, "Camera", ["Transform", "Camera"])
+                    )
+                );
+                Send(static writer => InspectorProtocol.WriteEntity(writer, new(3, 1, "Light", ["Transform", "Light"]))
+                );
+                Send(static writer => InspectorProtocol.WriteBare(writer, InspectorMessage.TreeComplete));
 
-                break;
-
-            default:
                 break;
         }
     }

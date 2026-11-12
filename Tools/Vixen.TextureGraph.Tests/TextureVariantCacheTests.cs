@@ -24,8 +24,12 @@ namespace Tests;
 ///         this file nothing could say whether the first two were still on the device.
 ///     </para>
 ///     <para>
-///         ⚠ <b><c>Compilations</c> could not say it, and that is why the issue was a reasoned claim
-///         rather than a measured one.</b> It counts what has been built and only ever rises, so a
+///         ⚠
+///         <b>
+///             <c>Compilations</c> could not say it, and that is why the issue was a reasoned claim
+///             rather than a measured one.
+///         </b>
+///         It counts what has been built and only ever rises, so a
 ///         cache that evicts perfectly and one that evicts nothing print the same number.
 ///         <c>TexturePlanEvaluator.Variants</c> and <c>NullDevice.LiveResourceCount</c> are the two
 ///         that can, and they are independent: one is that class's own dictionary and the other is the
@@ -66,7 +70,8 @@ public class TextureVariantCacheTests(ITestOutputHelper output) {
     [Fact]
     public void An_authored_kernel_costs_a_held_variant_and_device_objects_per_distinct_expression() {
         using var device = new NullDevice(new());
-        using var evaluator = new TexturePlanEvaluator(device) { AuthoredVariantCeiling = 1000 };
+        using var evaluator = new TexturePlanEvaluator(device);
+        evaluator.AuthoredVariantCeiling = 1000;
 
         // ⚠ Typing a *number*, and the choice is a correction to #1091 rather than a convenience.
         // That issue's example is "a, a*, a*b, …" and two of those three do not compile — a Pixel
@@ -97,7 +102,10 @@ public class TextureVariantCacheTests(ITestOutputHelper output) {
 
         // ⚠ The instrument, and it is the half that decides whether any of this is a leak at all: an
         // edit that cost nothing on the device would satisfy every equality above.
-        Assert.All(costs, cost => Assert.True(cost > 0, "an expression that cost no device object is not a leak"));
+        Assert.All(
+            costs,
+            static cost => Assert.True(cost > 0, "an expression that cost no device object is not a leak")
+        );
 
         // And the same expression twice is one variant, so what is counted is the *distinct* text and
         // not the number of bakes. Without this, the growth above is equally true of a cache that
@@ -130,7 +138,8 @@ public class TextureVariantCacheTests(ITestOutputHelper output) {
         const int ceiling = 3;
 
         using var device = new NullDevice(new());
-        using var evaluator = new TexturePlanEvaluator(device) { AuthoredVariantCeiling = ceiling };
+        using var evaluator = new TexturePlanEvaluator(device);
+        evaluator.AuthoredVariantCeiling = ceiling;
 
         var settled = 0;
 
@@ -165,8 +174,11 @@ public class TextureVariantCacheTests(ITestOutputHelper output) {
     ///     ⚠ An embedded kernel is never evicted, however much authored churn goes past it.
     /// </summary>
     /// <remarks>
-    ///     <b>The asymmetry is the fix, and a ceiling over the whole dictionary would have broken
-    ///     this.</b> The library is forty-odd names times a handful of output formats — bounded, and
+    ///     <b>
+    ///         The asymmetry is the fix, and a ceiling over the whole dictionary would have broken
+    ///         this.
+    ///     </b>
+    ///     The library is forty-odd names times a handful of output formats — bounded, and
     ///     re-compiled on every use if it were evicted, which is the Raven front end per op on the
     ///     path a panel redraws. So the queue holds authored keys only, and this is the case that goes
     ///     red if somebody simplifies it into one cache with one ceiling.
@@ -176,7 +188,8 @@ public class TextureVariantCacheTests(ITestOutputHelper output) {
         using var device = new NullDevice(new());
         var source = Source(device);
 
-        using var evaluator = new TexturePlanEvaluator(device) { AuthoredVariantCeiling = 1 };
+        using var evaluator = new TexturePlanEvaluator(device);
+        evaluator.AuthoredVariantCeiling = 1;
 
         BakeLevels(evaluator, source);
 
@@ -203,8 +216,12 @@ public class TextureVariantCacheTests(ITestOutputHelper output) {
     /// <summary>The queue is least recently <i>used</i>, so re-using an old expression keeps it.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The half an insertion-ordered queue gets wrong, and it is the ordinary
-    ///         interaction:</b> an author types, undoes to an earlier expression and carries on from
+    ///         ⚠
+    ///         <b>
+    ///             The half an insertion-ordered queue gets wrong, and it is the ordinary
+    ///             interaction:
+    ///         </b>
+    ///         an author types, undoes to an earlier expression and carries on from
     ///         there. Under insertion order the expression they have just gone back to is the oldest
     ///         and is the next one destroyed — so this case is red under that implementation with the
     ///         two probes' answers exactly swapped, which is what makes it a test of the order rather
@@ -219,7 +236,8 @@ public class TextureVariantCacheTests(ITestOutputHelper output) {
     [Fact]
     public void Re_using_an_expression_moves_it_off_the_front_of_the_queue() {
         using var device = new NullDevice(new());
-        using var evaluator = new TexturePlanEvaluator(device) { AuthoredVariantCeiling = 2 };
+        using var evaluator = new TexturePlanEvaluator(device);
+        evaluator.AuthoredVariantCeiling = 2;
 
         Bake(evaluator, Written("uv.x"));
         Bake(evaluator, Written("uv.y"));
@@ -254,8 +272,11 @@ public class TextureVariantCacheTests(ITestOutputHelper output) {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <b>The regression the first shape of this fix would have shipped, and it would have
-    ///         been worse than the leak.</b> An eviction that took the least recently used key without
+    ///         <b>
+    ///             The regression the first shape of this fix would have shipped, and it would have
+    ///             been worse than the leak.
+    ///         </b>
+    ///         An eviction that took the least recently used key without
     ///         asking what the incoming plan needs would, on a graph with more Pixel Processors than
     ///         the ceiling, destroy some of that graph's own variants at the top of every bake and
     ///         recompile them a few lines later — the Raven front end per surplus kernel per
@@ -271,7 +292,8 @@ public class TextureVariantCacheTests(ITestOutputHelper output) {
     [Fact]
     public void A_plan_carrying_more_kernels_than_the_ceiling_does_not_evict_its_own() {
         using var device = new NullDevice(new());
-        using var evaluator = new TexturePlanEvaluator(device) { AuthoredVariantCeiling = 1 };
+        using var evaluator = new TexturePlanEvaluator(device);
+        evaluator.AuthoredVariantCeiling = 1;
 
         var plan = TwoProcessors("uv.x", "uv.y");
 

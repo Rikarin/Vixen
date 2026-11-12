@@ -35,8 +35,12 @@ namespace Vixen.Editor.App;
 ///         is no <c>SystemContext</c> to hand it, and there does not need to be one.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The surface is evaluated on the CPU, and here that is the honest path rather than the
-///         cheap one.</b> The runtime draws it as a displaced quadtree into two planes that
+///         ⚠
+///         <b>
+///             The surface is evaluated on the CPU, and here that is the honest path rather than the
+///             cheap one.
+///         </b>
+///         The runtime draws it as a displaced quadtree into two planes that
 ///         <c>!Water</c> composites, which needs a multi-target pass and a screen-space integration a
 ///         pane with one colour attachment cannot host. What § D2 guarantees is that
 ///         <see cref="WaterQuery" /> is the <em>same</em> surface that vertex stage samples — so a
@@ -46,8 +50,12 @@ namespace Vixen.Editor.App;
 ///         instead.
 ///     </para>
 ///     <para>
-///         ⚠ <b>It is translucent and it writes depth, which is why it is recorded last of the solid
-///         geometry.</b> <see cref="MeshRenderer" /> blends premultiplied, so the ground and the
+///         ⚠
+///         <b>
+///             It is translucent and it writes depth, which is why it is recorded last of the solid
+///             geometry.
+///         </b>
+///         <see cref="MeshRenderer" /> blends premultiplied, so the ground and the
 ///         block-out under a lake have to already be in the target when the water goes over them; and
 ///         it writes depth so that the grid lines and entity markers below the surface are hidden by
 ///         it, which is what makes a submerged object read as submerged.
@@ -101,8 +109,12 @@ sealed class WaterPresenter : IDisposable {
 
     /// <summary>Where <see cref="WaterDebugDraw" /> puts its geometry when a verb is switched on.</summary>
     /// <remarks>
-    ///     ⚠ <b>The reason <c>water.show*</c> was six flags with nothing behind them, closed from the
-    ///     editor's side rather than from a game's.</b> <c>DebugDraw</c> is the accumulator every
+    ///     ⚠
+    ///     <b>
+    ///         The reason <c>water.show*</c> was six flags with nothing behind them, closed from the
+    ///         editor's side rather than from a game's.
+    ///     </b>
+    ///     <c>DebugDraw</c> is the accumulator every
     ///     subsystem's gizmos write into and <c>DebugDrawRenderer</c> is what drains it — and nothing
     ///     in this tree constructs either in a running program, so a game turning a verb on still sees
     ///     nothing. A pane already has two line renderers; draining the accumulator into one of them is
@@ -151,15 +163,18 @@ sealed class WaterPresenter : IDisposable {
     ///     what the fold already counts into <c>UnresolvedBodies</c>.
     /// </remarks>
     /// <remarks>
-    ///     ⚠ <b>Set by hand, or the last one contributed to <see cref="Extensions" />, asked every
-    ///     frame</b> — <see cref="ScenePresenter.TerrainScene" />'s arrangement and its reason.
+    ///     ⚠
+    ///     <b>
+    ///         Set by hand, or the last one contributed to <see cref="Extensions" />, asked every
+    ///         frame
+    ///     </b>
+    ///     — <see cref="ScenePresenter.TerrainScene" />'s arrangement and its reason.
     /// </remarks>
     public IWaterScene? Scene {
-        get => scene ?? (Extensions?.All<IWaterScene>() is [.., var last] ? last : null);
-        set => scene = value;
+        get => field ?? (Extensions?.All<IWaterScene>() is [.., var last] ? last : null);
+        set => field = value;
     }
 
-    IWaterScene? scene;
 
     /// <summary>Where this editor's contributions are — the <see cref="WaterDebugFlags" /> among them.</summary>
     /// <remarks>
@@ -227,7 +242,7 @@ sealed class WaterPresenter : IDisposable {
         view.ViewProjection = camera.ViewProjection(aspect);
 
         // The one clock, written here because the editor has no WaterClockSystem to write it.
-        zones.WaterTime = (float) clock.Elapsed.TotalSeconds;
+        zones.WaterTime = (float)clock.Elapsed.TotalSeconds;
         zones.Fold(world);
 
         foreach (var (entity, component) in zones.Zones) {
@@ -341,8 +356,12 @@ sealed class WaterPresenter : IDisposable {
     ///         is accurate to about a metre at the default extent, which is a preview and says so.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The height comes from the query and the coverage from the field, and they are two
-    ///         different questions.</b> The field says whether a body reaches here at all; the query
+    ///         ⚠
+    ///         <b>
+    ///             The height comes from the query and the coverage from the field, and they are two
+    ///             different questions.
+    ///         </b>
+    ///         The field says whether a body reaches here at all; the query
     ///         adds the sea state on top of what the field rasterised, attenuated by the depth. Asking
     ///         the field alone would draw a dead-flat lake — which is exactly what a zone with no
     ///         sea state <em>should</em> look like, and would hide the case where the waves are wired
@@ -393,7 +412,7 @@ sealed class WaterPresenter : IDisposable {
 
         for (var z = 0; z < GridQuads; z++) {
             for (var x = 0; x < GridQuads; x++) {
-                var a = (z * stride) + x;
+                var a = z * stride + x;
                 var b = a + 1;
                 var c = a + stride;
                 var d = c + 1;
@@ -402,13 +421,13 @@ sealed class WaterPresenter : IDisposable {
                     continue;
                 }
 
-                indices.Add((uint) placed[a]);
-                indices.Add((uint) placed[c]);
-                indices.Add((uint) placed[b]);
+                indices.Add((uint)placed[a]);
+                indices.Add((uint)placed[c]);
+                indices.Add((uint)placed[b]);
 
-                indices.Add((uint) placed[b]);
-                indices.Add((uint) placed[c]);
-                indices.Add((uint) placed[d]);
+                indices.Add((uint)placed[b]);
+                indices.Add((uint)placed[c]);
+                indices.Add((uint)placed[d]);
             }
         }
     }
@@ -454,8 +473,7 @@ sealed class WaterPresenter : IDisposable {
     /// </remarks>
     sealed class SplineAdapter(WaterPresenter owner) : IWaterSplineSource {
         /// <inheritdoc />
-        public Spline? SplineFor(string name, in Matrix4x4 placement) =>
-            owner.Scene?.SplineFor(name, in placement);
+        public Spline? SplineFor(string name, in Matrix4x4 placement) => owner.Scene?.SplineFor(name, in placement);
     }
 
     sealed class WaveAdapter(WaterPresenter owner) : IWaterWaveSource {

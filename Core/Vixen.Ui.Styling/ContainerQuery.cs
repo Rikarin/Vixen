@@ -29,8 +29,12 @@ public enum ContainerKind : byte {
 /// <param name="Height">Its content-box block size.</param>
 /// <param name="Kind">Which axes it may be asked about.</param>
 /// <remarks>
-///     ⚠ <b>The two font sizes are part of the box, and so part of the key its scope is interned
-///     under.</b> A container query's <c>em</c> is the container's own computed font, so a container
+///     ⚠
+///     <b>
+///         The two font sizes are part of the box, and so part of the key its scope is interned
+///         under.
+///     </b>
+///     A container query's <c>em</c> is the container's own computed font, so a container
 ///     whose font changes at an unchanged size answers <c>(min-width: 30em)</c> differently. Carrying
 ///     the font here makes that a different box, which is a different scope, which is the invalidation
 ///     a resize already gets. Keeping the fonts beside the box would have needed an edge of its own.
@@ -52,8 +56,11 @@ public readonly record struct ContainerBox(float Width, float Height, ContainerK
 /// <summary>Evaluates the size conditions in a <c>@container</c> prelude.</summary>
 /// <remarks>
 ///     <para>
-///         <b>The same grammar as <see cref="MediaQuery" /> over a different subject, and a
-///         deliberately smaller feature set.</b> A container query asks about a <i>box</i>, so the
+///         <b>
+///             The same grammar as <see cref="MediaQuery" /> over a different subject, and a
+///             deliberately smaller feature set.
+///         </b>
+///         A container query asks about a <i>box</i>, so the
 ///         features it may use are the ones a box has: CSS Containment 3 § 5.2 lists <c>width</c>,
 ///         <c>height</c>, <c>inline-size</c>, <c>block-size</c>, <c>aspect-ratio</c> and
 ///         <c>orientation</c>, and nothing else.
@@ -67,8 +74,12 @@ public readonly record struct ContainerBox(float Width, float Height, ContainerK
 ///         <c>@media</c> gets.
 ///     </para>
 ///     <para>
-///         ⚠ <b>An axis the container does not constrain makes the container ineligible, and the query
-///         asks the next one up (#1429).</b> Asking <c>(min-height: 200px)</c> of an <c>inline-size</c>
+///         ⚠
+///         <b>
+///             An axis the container does not constrain makes the container ineligible, and the query
+///             asks the next one up (#1429).
+///         </b>
+///         Asking <c>(min-height: 200px)</c> of an <c>inline-size</c>
 ///         container is asking about a number the containment did not make well-defined — the box's
 ///         height is still its content's. CSS Containment 3 § 5.1 does not answer that <c>false</c>:
 ///         the container a query asks is the nearest ancestor that is a valid query container for
@@ -118,8 +129,12 @@ public static class ContainerQuery {
     ///         and a parenthesised group is refused rather than read one way.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A feature the box cannot answer is <i>unknown</i>, and the condition is read in CSS's
-    ///         three-valued logic.</b> <c>not</c> of unknown is unknown, <c>and</c> with unknown is
+    ///         ⚠
+    ///         <b>
+    ///             A feature the box cannot answer is <i>unknown</i>, and the condition is read in CSS's
+    ///             three-valued logic.
+    ///         </b>
+    ///         <c>not</c> of unknown is unknown, <c>and</c> with unknown is
     ///         false only beside a false, and <c>or</c> with unknown is true beside a true. Only a
     ///         condition that ends up true matches: an unknown one does not apply. So an
     ///         <c>inline-size</c> box answers <c>not (min-height: …)</c> no, and
@@ -177,14 +192,14 @@ public static class ContainerQuery {
 
         while (true) {
             if (text.IsEmpty || text[0] != '(') {
-                reason = $"'{text.ToString()}' is not a container feature Vixen understands";
+                reason = $"'{text}' is not a container feature Vixen understands";
                 return false;
             }
 
             var close = StyleQuery.Closing(text, 0);
 
             if (close < 0) {
-                reason = $"'{text.ToString()}' has no closing parenthesis";
+                reason = $"'{text}' has no closing parenthesis";
                 return false;
             }
 
@@ -214,7 +229,7 @@ public static class ContainerQuery {
             var joinedByOr = StartsWithWord(text, "or");
 
             if (!joinedByOr && !StartsWithWord(text, "and")) {
-                reason = $"'{text.ToString()}' does not join two features with 'and' or 'or'";
+                reason = $"'{text}' does not join two features with 'and' or 'or'";
                 return false;
             }
 

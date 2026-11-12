@@ -14,8 +14,11 @@ namespace Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b><a href="https://github.com/Rikarin/Vixen/issues/709">#709</a>: nine of
-///         <c>TileSampler</c>'s fifteen uniforms had no behavioural assertion anywhere</b> — a kernel
+///         <b>
+///             <a href="https://github.com/Rikarin/Vixen/issues/709">#709</a>: nine of
+///             <c>TileSampler</c>'s fifteen uniforms had no behavioural assertion anywhere
+///         </b>
+///         — a kernel
 ///         that read none of them passed the whole suite. <c>TexturePlacementDeviceTests</c> covers
 ///         the grid, the scale, the position jitter, the alpha coverage, the mask threshold and the
 ///         accumulation mode; what is here is the rest: the scale jitter, the rotation, the rotation
@@ -28,8 +31,12 @@ namespace Tests;
 ///         is why the first test here is the one that would have caught it.
 ///     </para>
 ///     <para>
-///         ⚠ <b>"Covers the grid" was two uniforms counted as one, and the one that was uncovered is
-///         <c>gridY</c>.</b> Sixteen of the seventeen <c>TileSampler</c> fixtures in this assembly
+///         ⚠
+///         <b>
+///             "Covers the grid" was two uniforms counted as one, and the one that was uncovered is
+///             <c>gridY</c>.
+///         </b>
+///         Sixteen of the seventeen <c>TileSampler</c> fixtures in this assembly
 ///         pass <c>gridX</c> and <c>gridY</c> the <em>same</em> number, where a kernel confusing its
 ///         two axes draws the bit-identical picture and the coverage closed form — a total — cannot
 ///         see an axis at all. The seventeenth is
@@ -38,8 +45,12 @@ namespace Tests;
 ///         about the map wrap.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Measured, not assumed: a kernel that reads <c>gridX</c> for both axes and never
-///         reads <c>gridY</c> at all leaves every one of those seventeen green.</b> The 2×1 fixture
+///         ⚠
+///         <b>
+///             Measured, not assumed: a kernel that reads <c>gridX</c> for both axes and never
+///             reads <c>gridY</c> at all leaves every one of those seventeen green.
+///         </b>
+///         The 2×1 fixture
 ///         becomes a 2×2 one and its overhang property still holds, so the uniform could have been
 ///         deleted from the shader without a single assertion moving.
 ///         <see cref="A_grid_lays_its_cells_along_the_axis_that_names_them" /> is the rectangle that
@@ -72,8 +83,11 @@ public class TexturePlacementParameterDeviceTests(ITestOutputHelper output) {
     /// <summary>⚠ And it reads only its own column when the columns do not divide the atlas.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/757">#757</a> replaced the integer
-    ///         column with a fractional span, and the test above could not see either.</b> That
+    ///         <b>
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/757">#757</a> replaced the integer
+    ///             column with a fractional span, and the test above could not see either.
+    ///         </b>
+    ///         That
     ///         fixture is two columns over a 64-texel atlas, where the boundary lands exactly on a
     ///         texel edge — so integer division and a float span give the same answer and the bleed
     ///         assertion passes under both. Three columns is the smallest count that does not divide
@@ -104,13 +118,13 @@ public class TexturePlacementParameterDeviceTests(ITestOutputHelper output) {
 
             foreach (var seed in (uint[])[4409u, 5501u, 7717u, 9013u, 41823u, 90101u]) {
                 var op = splatter
-                    ? TexturePlacement.Splatter(1, 0, count: 1, scale: 1f, patternCount: 3, alphaCoverage: true)
+                    ? TexturePlacement.Splatter(1, 0, 1, 1f, patternCount: 3, alphaCoverage: true)
                     : TexturePlacement.TileSampler(
                         1,
                         0,
-                        gridX: 1,
-                        gridY: 1,
-                        scale: 1f,
+                        1,
+                        1,
+                        1f,
                         patternCount: 3,
                         alphaCoverage: true
                     );
@@ -147,7 +161,7 @@ public class TexturePlacementParameterDeviceTests(ITestOutputHelper output) {
                             value == middle,
                             $"seed {seed}: texel ({x}, {y}) reads {value} where the rest of the stamp reads "
                             + $"{middle}. A value between two of the constants is a neighbouring column bled "
-                            + $"across a boundary that two columns share — #709 through #757's fractional "
+                            + "across a boundary that two columns share — #709 through #757's fractional "
                             + $"span ({TextureKernelHarness.Adapter(device)})"
                         );
                     }
@@ -164,8 +178,10 @@ public class TexturePlacementParameterDeviceTests(ITestOutputHelper output) {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <b>The defect half of <a href="https://github.com/Rikarin/Vixen/issues/709">#709</a>.
-    ///         </b> Both kernels built the atlas coordinate as
+    ///         <b>
+    ///             The defect half of <a href="https://github.com/Rikarin/Vixen/issues/709">#709</a>.
+    ///         </b>
+    ///         Both kernels built the atlas coordinate as
     ///         <c>(slot + local.x + 0.5) / patternCount</c> and sampled it with the bilinear helper
     ///         that clamps to the whole image — so at <c>|local.x| = 0.5</c>, which is the stamp's own
     ///         edge, the two taps sat either side of the boundary between column <c>slot</c> and its
@@ -187,8 +203,12 @@ public class TexturePlacementParameterDeviceTests(ITestOutputHelper output) {
     ///         the same way there.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Several seeds, and the first version of this with one seed was itself a test that
-    ///         could not fail.</b> A single instance draws a single slot, and the slot the seed
+    ///         ⚠
+    ///         <b>
+    ///             Several seeds, and the first version of this with one seed was itself a test that
+    ///             could not fail.
+    ///         </b>
+    ///         A single instance draws a single slot, and the slot the seed
     ///         happened to draw was the <em>last</em> column — for which "read the whole atlas instead
     ///         of one column" is indistinguishable from the truth, because both taps then clamp to the
     ///         image's last texel and the stamp comes out flat anyway. So the sabotage that widens a
@@ -214,13 +234,13 @@ public class TexturePlacementParameterDeviceTests(ITestOutputHelper output) {
 
             foreach (var seed in (uint[])[4409u, 5501u, 7717u, 9013u, 41823u, 90101u]) {
                 var op = splatter
-                    ? TexturePlacement.Splatter(1, 0, count: 1, scale: 1f, patternCount: 2, alphaCoverage: true)
+                    ? TexturePlacement.Splatter(1, 0, 1, 1f, patternCount: 2, alphaCoverage: true)
                     : TexturePlacement.TileSampler(
                         1,
                         0,
-                        gridX: 1,
-                        gridY: 1,
-                        scale: 1f,
+                        1,
+                        1,
+                        1f,
                         patternCount: 2,
                         alphaCoverage: true
                     );
@@ -257,7 +277,7 @@ public class TexturePlacementParameterDeviceTests(ITestOutputHelper output) {
                             value == middle,
                             $"seed {seed}: texel ({x}, {y}) reads {value} where the rest of the stamp reads "
                             + $"{middle}; a value between {Dim} and {Bright} is the neighbouring column bled "
-                            + $"across the boundary, and the other column exactly is an atlas index that moved "
+                            + "across the boundary, and the other column exactly is an atlas index that moved "
                             + $"({TextureKernelHarness.Adapter(device)})"
                         );
                     }
@@ -281,8 +301,11 @@ public class TexturePlacementParameterDeviceTests(ITestOutputHelper output) {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/757">#757</a>, and it arrived with
-    ///         the fix above rather than before it.</b> The texel-space column that ended the bleed
+    ///         <b>
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/757">#757</a>, and it arrived with
+    ///             the fix above rather than before it.
+    ///         </b>
+    ///         The texel-space column that ended the bleed
     ///         resolved its width as <c>extent.x / columns</c> in <em>integers</em>: 64 over 3 is 21,
     ///         so the three columns ended at texel 62 and texel 63 was reachable from no slot at all.
     ///         The count is closed-form — <c>extent.x mod columns</c> texels are lost — and it is
@@ -297,8 +320,12 @@ public class TexturePlacementParameterDeviceTests(ITestOutputHelper output) {
     ///         <see cref="Dim" /> either way, which is what makes the set of maxima the assertion.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Both halves of the set, because either alone is satisfied by a kernel that is not
-    ///         reading columns at all.</b> One that ignored <c>patternCount</c> and stretched the
+    ///         ⚠
+    ///         <b>
+    ///             Both halves of the set, because either alone is satisfied by a kernel that is not
+    ///             reading columns at all.
+    ///         </b>
+    ///         One that ignored <c>patternCount</c> and stretched the
     ///         whole atlas across every stamp reaches texel 63 from every slot, so its maxima are all
     ///         <see cref="Bright" />; one whose columns never reach the end gives all
     ///         <see cref="Dim" />. Only a kernel resolving three fractional columns over 64 texels
@@ -316,7 +343,7 @@ public class TexturePlacementParameterDeviceTests(ITestOutputHelper output) {
         using var device = TextureKernelHarness.Open();
 
         output.WriteLine($"adapter: {TextureKernelHarness.Adapter(device)}");
-        Assert.Equal(1, Side - (Columns * (Side / Columns)));
+        Assert.Equal(1, Side - Columns * (Side / Columns));
 
         var (texture, staging) = TextureKernelHarness.Upload(device, LastTexelBright(Side), Side, Side);
 
@@ -327,13 +354,13 @@ public class TexturePlacementParameterDeviceTests(ITestOutputHelper output) {
 
             foreach (var seed in (uint[])[4409u, 5501u, 7717u, 9013u, 41823u, 90101u, 130363u, 415601u]) {
                 var op = splatter
-                    ? TexturePlacement.Splatter(1, 0, count: 1, scale: 1f, patternCount: Columns, alphaCoverage: true)
+                    ? TexturePlacement.Splatter(1, 0, 1, 1f, patternCount: Columns, alphaCoverage: true)
                     : TexturePlacement.TileSampler(
                         1,
                         0,
-                        gridX: 1,
-                        gridY: 1,
-                        scale: 1f,
+                        1,
+                        1,
+                        1f,
                         patternCount: Columns,
                         alphaCoverage: true
                     );
@@ -394,11 +421,18 @@ public class TexturePlacementParameterDeviceTests(ITestOutputHelper output) {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <b>The claim <a href="https://github.com/Rikarin/Vixen/issues/709">#709</a> asked to
-    ///         settle.</b> <c>TileSampler.rvn</c>'s header said flatly that the image is seamless when
+    ///         <b>
+    ///             The claim <a href="https://github.com/Rikarin/Vixen/issues/709">#709</a> asked to
+    ///             settle.
+    ///         </b>
+    ///         <c>TileSampler.rvn</c>'s header said flatly that the image is seamless when
     ///         repeated, "because the instance overhanging the left edge is the same instance found
-    ///         again one period to the right". ⚠ <b>The <em>geometry</em> was, and the instance was
-    ///         not.</b> The fold makes the outside cell carry the same id and therefore the same
+    ///         again one period to the right". ⚠
+    ///         <b>
+    ///             The <em>geometry</em> was, and the instance was
+    ///             not.
+    ///         </b>
+    ///         The fold makes the outside cell carry the same id and therefore the same
     ///         jitters, so its square does sit exactly one period from its twin's — but its centre is
     ///         outside the image, and the mask, size and rotation maps are read there through a
     ///         bilinear tap that <em>clamps</em>. The two copies were modulated by different map
@@ -410,8 +444,12 @@ public class TexturePlacementParameterDeviceTests(ITestOutputHelper output) {
     ///         left half of the image and white in the right. The right cell's instance passes the
     ///         cull; its copy one period to the left overhangs the left border and is the same
     ///         instance, so it has to be drawn too — and under the clamped lookup its centre read the
-    ///         mask's leftmost texel, which is black, and it was culled. So <b>column 2 is lit when
-    ///         the lookup wraps and black when it clamps</b>, while column 15, which no instance
+    ///         mask's leftmost texel, which is black, and it was culled. So
+    ///         <b>
+    ///             column 2 is lit when
+    ///             the lookup wraps and black when it clamps
+    ///         </b>
+    ///         , while column 15, which no instance
     ///         reaches, stays black either way.
     ///     </para>
     ///     <para>
@@ -441,16 +479,16 @@ public class TexturePlacementParameterDeviceTests(ITestOutputHelper output) {
                     TextureSources.Uniform(1, 1f),
                     TexturePlacement.TileSampler(
                         2,
-                        pattern: 1,
-                        mask: 0,
-                        sizeMap: 1,
-                        rotationMap: 1,
-                        gridX: 2,
-                        gridY: 1,
+                        1,
+                        0,
+                        1,
+                        1,
+                        2,
+                        1,
 
                         // Wide enough to overhang by 0.2 of a cell and still inside the search radius
                         // the CPU allows: 1.4 × ½√2 is 0.99 cells.
-                        scale: 1.4f,
+                        1.4f,
                         maskThreshold: 0.5f
                     )
                 ],
@@ -482,7 +520,7 @@ public class TexturePlacementParameterDeviceTests(ITestOutputHelper output) {
             Assert.True(
                 overhang > 250,
                 $"column 2 reads {overhang}: the copy of the passing instance that overhangs the left border was "
-                + $"not drawn, so its map lookup clamped to the image's edge instead of wrapping to where its "
+                + "not drawn, so its map lookup clamped to the image's edge instead of wrapping to where its "
                 + $"twin is — and the grid is not seamless ({TextureKernelHarness.Adapter(device)})"
             );
         } finally {
@@ -513,10 +551,10 @@ public class TexturePlacementParameterDeviceTests(ITestOutputHelper output) {
             TexturePlacement.TileSampler(
                 1,
                 0,
-                gridX: 16,
-                gridY: 16,
-                scale: 0.5f,
-                scaleJitter: jitter,
+                16,
+                16,
+                0.5f,
+                jitter,
                 accumulation: TexturePlacementAccumulation.Add
             ),
             0
@@ -582,13 +620,13 @@ public class TexturePlacementParameterDeviceTests(ITestOutputHelper output) {
                     TextureSources.Uniform(1, 0.25f),
                     TexturePlacement.TileSampler(
                         2,
-                        pattern: 0,
-                        mask: 1,
-                        sizeMap: 1,
-                        rotationMap: 1,
-                        gridX: 1,
-                        gridY: 1,
-                        scale: 1f,
+                        0,
+                        1,
+                        1,
+                        1,
+                        1,
+                        1,
+                        1f,
                         rotation: mapped ? 0f : MathF.PI / 2f,
                         alphaCoverage: true,
                         rotationMapAmount: mapped ? MathF.Tau : 0f
@@ -689,9 +727,9 @@ public class TexturePlacementParameterDeviceTests(ITestOutputHelper output) {
                         TexturePlacement.TileSampler(
                             1,
                             0,
-                            gridX: 8,
-                            gridY: 8,
-                            scale: 0.5f,
+                            8,
+                            8,
+                            0.5f,
                             rotationJitter: jitter,
                             alphaCoverage: true,
                             accumulation: TexturePlacementAccumulation.Add
@@ -731,9 +769,9 @@ public class TexturePlacementParameterDeviceTests(ITestOutputHelper output) {
         var op = TexturePlacement.TileSampler(
             1,
             0,
-            gridX: 16,
-            gridY: 16,
-            scale: 0.5f,
+            16,
+            16,
+            0.5f,
             colourJitter: jitter,
             accumulation: TexturePlacementAccumulation.Add
         );
@@ -782,13 +820,13 @@ public class TexturePlacementParameterDeviceTests(ITestOutputHelper output) {
                 TextureSources.Uniform(1, 0.5f),
                 TexturePlacement.TileSampler(
                     2,
-                    pattern: 0,
-                    mask: 1,
-                    sizeMap: 1,
-                    rotationMap: 1,
-                    gridX: 16,
-                    gridY: 16,
-                    scale: 0.5f,
+                    0,
+                    1,
+                    1,
+                    1,
+                    16,
+                    16,
+                    0.5f,
                     sizeMapAmount: amount,
                     accumulation: TexturePlacementAccumulation.Add
                 )
@@ -828,9 +866,9 @@ public class TexturePlacementParameterDeviceTests(ITestOutputHelper output) {
         var op = TexturePlacement.TileSampler(
             1,
             0,
-            gridX: 16,
-            gridY: 16,
-            scale: 0.5f,
+            16,
+            16,
+            0.5f,
             accumulation: TexturePlacementAccumulation.Add,
             opacity: opacity
         );
@@ -892,9 +930,9 @@ public class TexturePlacementParameterDeviceTests(ITestOutputHelper output) {
             TexturePlacement.TileSampler(
                 1,
                 0,
-                gridX: 8,
-                gridY: 1,
-                scale: 0.5f,
+                8,
+                1,
+                0.5f,
                 accumulation: TexturePlacementAccumulation.Add
             )
         );
@@ -904,9 +942,9 @@ public class TexturePlacementParameterDeviceTests(ITestOutputHelper output) {
             TexturePlacement.TileSampler(
                 1,
                 0,
-                gridX: 1,
-                gridY: 8,
-                scale: 0.5f,
+                1,
+                8,
+                0.5f,
                 accumulation: TexturePlacementAccumulation.Add
             )
         );
@@ -925,7 +963,7 @@ public class TexturePlacementParameterDeviceTests(ITestOutputHelper output) {
         Assert.True(
             Math.Abs(wideMean - tallMean) <= 0.01f,
             $"an 8×1 grid covers {wideMean:0.0000} and a 1×8 grid {tallMean:0.0000}: if a total can tell them "
-            + $"apart then this test is measuring something other than the axes "
+            + "apart then this test is measuring something other than the axes "
             + $"({TextureKernelHarness.Adapter(device)})"
         );
 
@@ -992,7 +1030,7 @@ public class TexturePlacementParameterDeviceTests(ITestOutputHelper output) {
 
         for (var y = 0; y < side; y++) {
             for (var x = 0; x < side; x++) {
-                var at = ((y * side) + x) * 4;
+                var at = (y * side + x) * 4;
                 var value = x == side - 1 ? Bright : Dim;
 
                 pixels[at] = value;
@@ -1007,8 +1045,12 @@ public class TexturePlacementParameterDeviceTests(ITestOutputHelper output) {
 
     /// <summary>An atlas of three flat columns, at a width that is not a multiple of three.</summary>
     /// <remarks>
-    ///     ⚠ <b>Three and not two, because two divides every atlas this suite uses and the
-    ///     fractional boundary is the whole subject.</b> <c>TwoColumns</c> over a 64-texel side puts
+    ///     ⚠
+    ///     <b>
+    ///         Three and not two, because two divides every atlas this suite uses and the
+    ///         fractional boundary is the whole subject.
+    ///     </b>
+    ///     <c>TwoColumns</c> over a 64-texel side puts
     ///     its boundary exactly on a texel edge, so a column resolved by integer division and one
     ///     resolved by a float agree — which is why the bleed's own test could not see
     ///     <a href="https://github.com/Rikarin/Vixen/issues/757">#757</a>'s span. At three columns
@@ -1021,14 +1063,18 @@ public class TexturePlacementParameterDeviceTests(ITestOutputHelper output) {
 
         for (var y = 0; y < side; y++) {
             for (var x = 0; x < side; x++) {
-                var at = ((y * side) + x) * 4;
+                var at = (y * side + x) * 4;
                 // ⚠ By the texel's CENTRE, which is the rule the kernel resolves a column with. A
                 // fixture painted with `x * 3 / side` disagrees with it on exactly the texels a
                 // fractional boundary falls inside — texel 21 of 64 — so it would report a bleed
                 // where the two conventions merely differ, which is a different bug from the one
                 // this test is for.
                 var column = (int)((x + 0.5) * 3 / side);
-                var value = column switch { 0 => Bright, 1 => Middling, _ => Dim };
+                var value = column switch {
+                    0 => Bright,
+                    1 => Middling,
+                    _ => Dim
+                };
 
                 pixels[at] = value;
                 pixels[at + 1] = value;
@@ -1050,7 +1096,7 @@ public class TexturePlacementParameterDeviceTests(ITestOutputHelper output) {
 
         for (var y = 0; y < side; y++) {
             for (var x = 0; x < side; x++) {
-                var at = ((y * side) + x) * 4;
+                var at = (y * side + x) * 4;
                 var value = x < side / 2 ? Bright : Dim;
 
                 pixels[at] = value;
@@ -1069,7 +1115,7 @@ public class TexturePlacementParameterDeviceTests(ITestOutputHelper output) {
 
         for (var y = 0; y < side; y++) {
             for (var x = 0; x < side; x++) {
-                var at = ((y * side) + x) * 4;
+                var at = (y * side + x) * 4;
                 var value = (byte)(x < side / 2 ? 0 : 255);
 
                 pixels[at] = value;

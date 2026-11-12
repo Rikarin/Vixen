@@ -45,9 +45,7 @@ using static Nuke.Common.Tools.DotNet.DotNetTasks;
 ///     </para>
 /// </remarks>
 partial class Build {
-    [Parameter(
-        "Runtime identifiers to publish the editor for, space-separated — defaults to this machine's"
-    )]
+    [Parameter("Runtime identifiers to publish the editor for, space-separated — defaults to this machine's")]
     readonly string[] EditorRuntimes = [];
 
     /// <summary>
@@ -75,8 +73,12 @@ partial class Build {
     ///     <para>
     ///         <b>Off by default, which is not the obvious choice and is a measured one.</b> On
     ///         macOS the editor's apphost creates a window when a shell runs it and aborts when
-    ///         <i>anything else</i> does — <c>SDL could not create a window: Failed to load Vulkan
-    ///         Portability library</c>, exit 134, reproducibly, under <c>sh -c</c>, <c>env</c> and
+    ///         <i>anything else</i> does —
+    ///         <c>
+    ///             SDL could not create a window: Failed to load Vulkan
+    ///             Portability library
+    ///         </c>
+    ///         , exit 134, reproducibly, under <c>sh -c</c>, <c>env</c> and
     ///         <c>nohup</c> alike, and therefore under a build script. It is not this target's
     ///         doing: the plain <c>bin/</c> apphost does exactly the same, published or not, staged
     ///         or not, and only <c>dotnet run</c> — which reaches the app through the muxer rather
@@ -89,36 +91,36 @@ partial class Build {
 
     AbsolutePath PublishDirectory => ArtifactsDirectory / "publish";
 
-    AbsolutePath EditorProjectFile =>
-        RootDirectory / "Editor" / "Vixen.Editor.Host" / "Vixen.Editor.Host.csproj";
+    AbsolutePath EditorProjectFile => RootDirectory / "Editor" / "Vixen.Editor.Host" / "Vixen.Editor.Host.csproj";
 
     /// <summary>The runtime identifier this build is running as — <c>osx-arm64</c>.</summary>
     static string HostRuntime => RuntimeInformation.RuntimeIdentifier;
 
-    Target PublishEditor => definition => definition
-        .Description("Publishes the editor per runtime identifier into artifacts/publish/<rid>")
-        // Doc 12's graph puts this after `Test`, which is right for CI and heavy for a developer
-        // who only wants the artefact. `--skip Test` is the escape hatch, and naming it here is
-        // cheaper than everyone rediscovering it.
-        .DependsOn(Test)
-        .Produces(PublishDirectory / "**")
-        .Executes(() => {
-                Assert.FileExists(EditorProjectFile);
+    Target PublishEditor =>
+        definition => definition
+            .Description("Publishes the editor per runtime identifier into artifacts/publish/<rid>")
+            // Doc 12's graph puts this after `Test`, which is right for CI and heavy for a developer
+            // who only wants the artefact. `--skip Test` is the escape hatch, and naming it here is
+            // cheaper than everyone rediscovering it.
+            .DependsOn(Test)
+            .Produces(PublishDirectory / "**")
+            .Executes(() => {
+                    Assert.FileExists(EditorProjectFile);
 
-                if (Configuration != Configuration.Release) {
-                    Log.Warning(
-                        "Publishing {Configuration}. A build for anyone but yourself wants --configuration Release.",
-                        Configuration
-                    );
+                    if (Configuration != Configuration.Release) {
+                        Log.Warning(
+                            "Publishing {Configuration}. A build for anyone but yourself wants --configuration Release.",
+                            Configuration
+                        );
+                    }
+
+                    var runtimes = EditorRuntimes.Length > 0 ? EditorRuntimes : [HostRuntime];
+
+                    foreach (var runtime in runtimes) {
+                        PublishEditorFor(runtime);
+                    }
                 }
-
-                var runtimes = EditorRuntimes.Length > 0 ? EditorRuntimes : [HostRuntime];
-
-                foreach (var runtime in runtimes) {
-                    PublishEditorFor(runtime);
-                }
-            }
-        );
+            );
 
     void PublishEditorFor(string runtime) {
         var output = PublishDirectory / runtime;
@@ -252,13 +254,15 @@ partial class Build {
         var message = "No Vulkan loader was staged for {Runtime}. Looked for {Files} in:\n  {Sources}";
 
         if (runtime.StartsWith("osx", StringComparison.Ordinal)) {
-            Log.Warning($"{message}\nmacOS has no system Vulkan, so this tree is not redistributable as it stands.",
+            Log.Warning(
+                $"{message}\nmacOS has no system Vulkan, so this tree is not redistributable as it stands.",
                 runtime,
                 string.Join(", ", wanted),
                 string.Join("\n  ", sources)
             );
         } else {
-            Log.Information($"{message}\nThe driver or the distribution supplies one there, which is the usual case.",
+            Log.Information(
+                $"{message}\nThe driver or the distribution supplies one there, which is the usual case.",
                 runtime,
                 string.Join(", ", wanted),
                 string.Join("\n  ", sources)

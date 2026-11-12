@@ -74,6 +74,5 @@ public sealed class NetworkPlayer {
     }
 
     /// <inheritdoc />
-    public override string ToString() =>
-        Identity.Length == 0 ? Id.ToString() : $"{Id} ({Identity})";
+    public override string ToString() => Identity.Length == 0 ? Id.ToString() : $"{Id} ({Identity})";
 }

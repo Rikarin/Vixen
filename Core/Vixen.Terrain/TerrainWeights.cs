@@ -64,7 +64,7 @@ public sealed class TerrainWeights {
     public int LayerCount => channels.Count;
 
     /// <summary>What each layer is called, in order.</summary>
-    public IReadOnlyList<string> Names => layers.Select(layer => layer.Name).ToArray();
+    public IReadOnlyList<string> Names => layers.Select(static layer => layer.Name).ToArray();
 
     /// <summary>What ground each layer is, in order — the <c>.vxlayer</c> each one names.</summary>
     /// <remarks>
@@ -83,7 +83,7 @@ public sealed class TerrainWeights {
     ///     Quantised to 4, 8, 12 or 16 so that adding a seventh layer does not compile a new shader —
     ///     [docs/plan/31 § D6]. Above sixteen the answer is a virtual texture or two terrains.
     /// </remarks>
-    public int MaterialLayerSlots => Math.Min(16, ((LayerCount + 3) / 4) * 4);
+    public int MaterialLayerSlots => Math.Min(16, (LayerCount + 3) / 4 * 4);
 
     /// <summary>Adds a paint layer.</summary>
     /// <param name="name">What it is called.</param>
@@ -103,8 +103,10 @@ public sealed class TerrainWeights {
     /// <param name="layer">What the layer is.</param>
     /// <param name="blend">How it combines with the layers beside it.</param>
     /// <returns>Its index.</returns>
-    /// <remarks>See the other overload for why the first weight-blended layer starts at full
-    ///     coverage.</remarks>
+    /// <remarks>
+    ///     See the other overload for why the first weight-blended layer starts at full
+    ///     coverage.
+    /// </remarks>
     public int AddLayer(TerrainLayerDescription layer, TerrainBlend blend = TerrainBlend.Weight) {
         var channel = new byte[samples];
         var isFirstWeighted = blend == TerrainBlend.Weight && !blends.Contains(TerrainBlend.Weight);
@@ -157,7 +159,7 @@ public sealed class TerrainWeights {
             return 0;
         }
 
-        return channels[layer][(z * Description.SamplesX) + x];
+        return channels[layer][z * Description.SamplesX + x];
     }
 
     /// <summary>How much of a layer covers a sample, as a fraction.</summary>
@@ -189,7 +191,7 @@ public sealed class TerrainWeights {
             return;
         }
 
-        var index = (z * Description.SamplesX) + x;
+        var index = z * Description.SamplesX + x;
 
         if (blends[layer] == TerrainBlend.NonWeight) {
             channels[layer][index] = (byte)Math.Clamp(channels[layer][index] + amount, 0, Total);
@@ -212,8 +214,7 @@ public sealed class TerrainWeights {
     /// <param name="x">The sample's X index.</param>
     /// <param name="z">The sample's Z index.</param>
     /// <param name="weight">What it becomes.</param>
-    public void SetWeight(int layer, int x, int z, byte weight) =>
-        Paint(layer, x, z, weight - WeightAt(layer, x, z));
+    public void SetWeight(int layer, int x, int z, byte weight) => Paint(layer, x, z, weight - WeightAt(layer, x, z));
 
     /// <summary>The sum of the weight-blended layers at a sample.</summary>
     /// <param name="x">The sample's X index.</param>
@@ -224,7 +225,7 @@ public sealed class TerrainWeights {
             return 0;
         }
 
-        var index = (z * Description.SamplesX) + x;
+        var index = z * Description.SamplesX + x;
         var sum = 0;
 
         for (var layer = 0; layer < channels.Count; layer++) {
@@ -403,7 +404,7 @@ public sealed class TerrainWeights {
 
         for (var row = 0; row < quads; row++) {
             for (var column = 0; column < quads; column++) {
-                destination[(row * quads) + column] = DominantOverQuad(originX + column, originZ + row);
+                destination[row * quads + column] = DominantOverQuad(originX + column, originZ + row);
             }
         }
 
@@ -451,15 +452,23 @@ public sealed class TerrainWeights {
     /// <exception cref="ArgumentException">The row is not one weight per layer.</exception>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The only public way to write more than one layer at once, and it exists because
-    ///         an undo cannot be spelled with <see cref="SetWeight" />.</b> Setting six layers one at
+    ///         ⚠
+    ///         <b>
+    ///             The only public way to write more than one layer at once, and it exists because
+    ///             an undo cannot be spelled with <see cref="SetWeight" />.
+    ///         </b>
+    ///         Setting six layers one at
     ///         a time redistributes six times, so the first five are moved again by the sixth and the
     ///         result lands somewhere near where the stroke started rather than on it. A whole sample
     ///         is one assignment and is exact.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>It does not redistribute, so it can put back a state that breaks the
-    ///         invariant.</b> That is deliberate and it is safe for its one caller: a row taken by
+    ///         ⚠
+    ///         <b>
+    ///             It does not redistribute, so it can put back a state that breaks the
+    ///             invariant.
+    ///         </b>
+    ///         That is deliberate and it is safe for its one caller: a row taken by
     ///         <see cref="TerrainWeightStroke" /> summed to <see cref="Total" /> when it was read, so
     ///         restoring it restores a valid state. Handing it anything else is handing
     ///         <see cref="Verify" /> a failure to find later.
@@ -478,7 +487,7 @@ public sealed class TerrainWeights {
             return;
         }
 
-        var index = (z * Description.SamplesX) + x;
+        var index = z * Description.SamplesX + x;
 
         for (var layer = 0; layer < channels.Count; layer++) {
             channels[layer][index] = weights[layer];
@@ -493,7 +502,7 @@ public sealed class TerrainWeights {
     ///     may call this.
     /// </remarks>
     internal void PokeRaw(int layer, int x, int z, byte weight) =>
-        channels[layer][(z * Description.SamplesX) + x] = weight;
+        channels[layer][z * Description.SamplesX + x] = weight;
 
     /// <summary>Gives <paramref name="budget" /> back to every weight-blended layer but one.</summary>
     void Redistribute(int exclude, int index, int budget) {
@@ -538,7 +547,7 @@ public sealed class TerrainWeights {
             remainders.Add((layer, exact - floor));
         }
 
-        remainders.Sort((left, right) => right.Remainder.CompareTo(left.Remainder));
+        remainders.Sort(static (left, right) => right.Remainder.CompareTo(left.Remainder));
 
         for (var i = 0; i < remainders.Count && assigned < budget; i++) {
             channels[remainders[i].Layer][index]++;

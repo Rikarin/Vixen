@@ -14,9 +14,11 @@ namespace Vixen.Core.Mathematics;
 ///     is worth one shared helper rather than the same loop written eight times slightly differently.
 /// </remarks>
 static class VectorFormat {
-    /// <summary>Culture used when the caller does not supply one. Never the current culture: a
+    /// <summary>
+    ///     Culture used when the caller does not supply one. Never the current culture: a
     ///     vector in a log file that reads <c>(1,5, 2,0)</c> in one region and <c>(1.5, 2.0)</c> in
-    ///     another is a diffing and parsing problem nobody needs.</summary>
+    ///     another is a diffing and parsing problem nobody needs.
+    /// </summary>
     public static IFormatProvider DefaultProvider => CultureInfo.InvariantCulture;
 
     public static bool TryFormat(

@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Microsoft.Extensions.Logging;
-using Vixen.Core.Mathematics;
 using Xunit;
 
 namespace Vixen.Graphics.Vulkan.Tests;
@@ -146,9 +145,13 @@ public sealed class ValidationCleanTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b><see cref="DestroyingAResourceAFrameIsUsingProducesNoValidationMessages" />
-    ///         destroys inside the <c>BeginFrame</c>/<c>EndFrame</c> pair, and that is the easy
-    ///         half.</b> <see cref="VulkanDevice.Retire" /> files an action under
+    ///         ⚠
+    ///         <b>
+    ///             <see cref="DestroyingAResourceAFrameIsUsingProducesNoValidationMessages" />
+    ///             destroys inside the <c>BeginFrame</c>/<c>EndFrame</c> pair, and that is the easy
+    ///             half.
+    ///         </b>
+    ///         <see cref="VulkanDevice.Retire" /> files an action under
     ///         <c>FrameSlot</c>, and <c>EndFrame</c> is what advances <c>frame</c> — so a destroy
     ///         issued after <c>EndFrame</c> is filed under the slot the <i>next</i> <c>BeginFrame</c>
     ///         is about to drain. It was run one call later, having waited only on the fence of frame
@@ -256,8 +259,12 @@ public sealed class ValidationCleanTests {
     /// <summary>A device that is torn down says what the layers reported, through the logger.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Because a validation message on the console is not a gate, and until this record
-    ///         existed the console was the only place it went.</b> <see cref="VulkanDiagnostics" />
+    ///         ⚠
+    ///         <b>
+    ///             Because a validation message on the console is not a gate, and until this record
+    ///             existed the console was the only place it went.
+    ///         </b>
+    ///         <see cref="VulkanDiagnostics" />
     ///         has been able to answer "did anything complain" since it was written, and the only
     ///         thing that ever asked was a test in this assembly — so an <i>application</i> could
     ///         produce a validation error on every frame, print it to stderr, exit 0, and be read as
@@ -286,7 +293,7 @@ public sealed class ValidationCleanTests {
 
         device.Dispose();
 
-        var summary = log.Records.LastOrDefault(record => record.ContainsKey("ValidationActive"));
+        var summary = log.Records.LastOrDefault(static record => record.ContainsKey("ValidationActive"));
 
         Assert.True(
             summary is not null,
@@ -321,7 +328,9 @@ public sealed class ValidationCleanTests {
             Func<TState, Exception?, string> formatter
         ) {
             if (state is IReadOnlyList<KeyValuePair<string, object?>> properties) {
-                Records.Add(properties.ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal));
+                Records.Add(
+                    properties.ToDictionary(static pair => pair.Key, static pair => pair.Value, StringComparer.Ordinal)
+                );
             }
         }
     }
@@ -336,48 +345,59 @@ public sealed class ValidationCleanTests {
             new(Bytes, BufferUsage.CopyDestination, MemoryAccess.HostReadback, "readback")
         );
 
-        var target = device.CreateTexture(new(
-            PixelFormat.Rgba8UNorm,
-            Side,
-            Side,
-            TextureUsage.ColourTarget | TextureUsage.CopySource | TextureUsage.CopyDestination,
-            Name: "target"
-        ));
+        var target = device.CreateTexture(
+            new(
+                PixelFormat.Rgba8UNorm,
+                Side,
+                Side,
+                TextureUsage.ColourTarget | TextureUsage.CopySource | TextureUsage.CopyDestination,
+                Name: "target"
+            )
+        );
 
-        var depth = device.CreateTexture(new(
-            PixelFormat.Depth32Float,
-            Side,
-            Side,
-            TextureUsage.DepthStencilTarget,
-            Name: "depth"
-        ));
+        var depth = device.CreateTexture(
+            new(
+                PixelFormat.Depth32Float,
+                Side,
+                Side,
+                TextureUsage.DepthStencilTarget,
+                Name: "depth"
+            )
+        );
 
         var view = device.CreateTextureView(target);
         var depthView = device.CreateTextureView(depth);
         var sampler = device.CreateSampler(SamplerDescription.LinearClamp);
 
-        var setLayout = device.CreateDescriptorSetLayout(new(
-            DescriptorSetSlot.PerFrame,
-            [
-                new(0, DescriptorKind.UniformBuffer, ShaderStage.AllGraphics),
-                new(1, DescriptorKind.Sampler, ShaderStage.Fragment)
-            ],
-            "per frame"
-        ));
+        var setLayout = device.CreateDescriptorSetLayout(
+            new(
+                DescriptorSetSlot.PerFrame,
+                [
+                    new(0, DescriptorKind.UniformBuffer, ShaderStage.AllGraphics),
+                    new(1, DescriptorKind.Sampler, ShaderStage.Fragment)
+                ],
+                "per frame"
+            )
+        );
 
-        var layout = device.CreatePipelineLayout(new(
-            [setLayout],
-            [new(ShaderStage.Vertex, 0, 64)],
-            "layout"
-        ));
+        var layout = device.CreatePipelineLayout(
+            new(
+                [setLayout],
+                [new(ShaderStage.Vertex, 0, 64)],
+                "layout"
+            )
+        );
 
         var uniform = device.CreateBuffer(new(256, BufferUsage.Uniform, MemoryAccess.HostUpload, "uniform"));
         var set = device.CreateDescriptorSet(setLayout, "set");
 
-        device.UpdateDescriptorSet(set, [
-            DescriptorWrite.Uniform(0, uniform),
-            DescriptorWrite.SamplerAt(1, sampler)
-        ]);
+        device.UpdateDescriptorSet(
+            set,
+            [
+                DescriptorWrite.Uniform(0, uniform),
+                DescriptorWrite.SamplerAt(1, sampler)
+            ]
+        );
 
         device.Write(upload, 0, new byte[Bytes]);
 
@@ -385,30 +405,47 @@ public sealed class ValidationCleanTests {
             device.BeginFrame();
 
             using (var list = device.BeginCommandList(QueueKind.Graphics, $"frame {frame}")) {
-                list.Barrier(new([], [
-                    new(target, ResourceState.Undefined, ResourceState.CopyDestination),
-                    new(depth, ResourceState.Undefined, ResourceState.DepthStencilWrite)
-                ]));
+                list.Barrier(
+                    new(
+                        [],
+                        [
+                            new(target, ResourceState.Undefined, ResourceState.CopyDestination),
+                            new(depth, ResourceState.Undefined, ResourceState.DepthStencilWrite)
+                        ]
+                    )
+                );
 
                 list.CopyBufferToTexture(upload, 0, new(target), new(Side, Side, 1));
 
-                list.Barrier(new([], [
-                    new(target, ResourceState.CopyDestination, ResourceState.ColourTarget)
-                ]));
+                list.Barrier(
+                    new(
+                        [],
+                        [
+                            new(target, ResourceState.CopyDestination, ResourceState.ColourTarget)
+                        ]
+                    )
+                );
 
-                list.BeginRenderPass(new(
-                    [new(view, LoadAction.Clear, StoreAction.Store, new(0.1f, 0.2f, 0.3f, 1f))],
-                    new(depthView),
-                    "pass"
-                ));
+                list.BeginRenderPass(
+                    new(
+                        [new(view, LoadAction.Clear, StoreAction.Store, new(0.1f, 0.2f, 0.3f, 1f))],
+                        new(depthView),
+                        "pass"
+                    )
+                );
 
                 list.SetViewport(new(0, 0, Side, Side));
                 list.SetScissor(ScissorRect.Full(new(Side, Side)));
                 list.EndRenderPass();
 
-                list.Barrier(new([], [
-                    new(target, ResourceState.ColourTarget, ResourceState.CopySource)
-                ]));
+                list.Barrier(
+                    new(
+                        [],
+                        [
+                            new(target, ResourceState.ColourTarget, ResourceState.CopySource)
+                        ]
+                    )
+                );
 
                 list.CopyTextureToBuffer(new(target), new(Side, Side, 1), readback, 0);
                 list.Finish();

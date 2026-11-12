@@ -4,15 +4,11 @@
 using Vixen.Core;
 using Vixen.Core.Mathematics;
 using Vixen.Core.Yaml;
-using Vixen.Ecs;
 using Vixen.Editor.Core;
 using Vixen.Editor.Plugin;
 using Vixen.Editor.SceneView;
 using Vixen.Editor.Ui;
-using Vixen.Rendering.Water;
 using Vixen.Ui;
-using Vixen.Ui.Controls;
-using Vixen.Ui.Controls.Advanced;
 using Vixen.Water;
 
 namespace Vixen.Editor.Water;
@@ -116,9 +112,7 @@ public sealed partial class WaterModule : IEditorPlugin {
                     WaterWavesAsset.Extension,
                     "New Sea State",
                     Opens: false
-                ) {
-                    Build = () => YamlWriter.Write(YamlSerializer.Serialize(Mode.Zone.Asset))
-                }
+                ) { Build = () => YamlWriter.Write(YamlSerializer.Serialize(Mode.Zone.Asset)) }
             )
         );
 
@@ -148,7 +142,8 @@ public sealed partial class WaterModule : IEditorPlugin {
     /// <remarks>
     ///     <para>
     ///         ⚠ <b>The spline is written beside the scene rather than held in memory.</b> A body
-    ///         names its curve by name — [§ D6](../../docs/plan/35-water.md#d6-a-water-body-is-a-spline-and-a-profile-and-there-is-no-new-spline)
+    ///         names its curve by name — [§
+    ///         D6](../../docs/plan/35-water.md#d6-a-water-body-is-a-spline-and-a-profile-and-there-is-no-new-spline)
     ///         — because a handle names a slot in a world that issued it and a scene file is read by a
     ///         world that has not run yet. A curve that existed only in the editor's memory would be a
     ///         lake that disappears when the project is reopened, which is the worst kind of authoring
@@ -164,7 +159,9 @@ public sealed partial class WaterModule : IEditorPlugin {
     /// </remarks>
     void Placed(Spline spline, WaterBodyKind kind) {
         if (SplinePathFor(kind) is not { } path) {
-            Report($"Save the scene before drawing water: a body names its curve by name, and there is nowhere to write a {kind}'s yet.");
+            Report(
+                $"Save the scene before drawing water: a body names its curve by name, and there is nowhere to write a {kind}'s yet."
+            );
 
             return;
         }
@@ -202,7 +199,7 @@ public sealed partial class WaterModule : IEditorPlugin {
 
         var scene = Path.GetFileNameWithoutExtension(file.Path);
 
-        for (var index = BodiesCreated + 1; ; index++) {
+        for (var index = BodiesCreated + 1;; index++) {
             var candidate = Path.Combine(directory, $"{scene}.{kind}{index}.vxspline");
 
             if (!File.Exists(candidate)) {

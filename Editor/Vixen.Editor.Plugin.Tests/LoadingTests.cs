@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Editor.Ui;
-using Vixen.Ui;
 using Vixen.Ui.Controls;
 using Xunit;
 
@@ -61,7 +60,10 @@ public class LoadingTests {
         // a second copy of Vixen.Editor.Plugin.dll is a different type with the same name, and the
         // cast in the loader would fail with a message that reads like a lie.
         folder.Write("sample", Hello);
-        File.Copy(typeof(IEditorPlugin).Assembly.Location, Path.Combine(folder.Root, "sample", "Vixen.Editor.Plugin.dll"));
+        File.Copy(
+            typeof(IEditorPlugin).Assembly.Location,
+            Path.Combine(folder.Root, "sample", "Vixen.Editor.Plugin.dll")
+        );
 
         var host = new PluginHost(shell);
         var report = LoadFrom(host, folder);
@@ -100,7 +102,7 @@ public class LoadingTests {
         shell.Workspace.Open("sample.panel");
 
         Assert.True(shell.Workspace.IsOpen("sample.panel"));
-        Assert.Contains(shell.Menus.Menus, menu => menu.Title.Id == "sample.menu");
+        Assert.Contains(shell.Menus.Menus, static menu => menu.Title.Id == "sample.menu");
 
         Assert.True(host.Unload("sample"));
 
@@ -109,8 +111,8 @@ public class LoadingTests {
         Assert.False(shell.Commands.TryGet("sample.hello", out _));
         Assert.False(shell.Commands.TryGet(EditorShell.PanelCommand("sample.panel"), out _));
         Assert.False(shell.Workspace.IsOpen("sample.panel"));
-        Assert.DoesNotContain(shell.Workspace.Panels, panel => panel.Id == "sample.panel");
-        Assert.DoesNotContain(shell.Menus.Menus, menu => menu.Title.Id == "sample.menu");
+        Assert.DoesNotContain(shell.Workspace.Panels, static panel => panel.Id == "sample.panel");
+        Assert.DoesNotContain(shell.Menus.Menus, static menu => menu.Title.Id == "sample.menu");
 
         Assert.Equal(PluginState.Unloaded, host.Find("sample")!.State);
     }
@@ -173,7 +175,7 @@ public class LoadingTests {
         // mode's own commands are lambdas over the plugin's types — one left behind is not a stale
         // palette entry, it is a load context that can never be collected.
         Assert.Equal(SelectMode.ModeId, shell.Modes.Active?.Id);
-        Assert.DoesNotContain(shell.Modes.Modes, mode => mode.Id == "sample.sculpt");
+        Assert.DoesNotContain(shell.Modes.Modes, static mode => mode.Id == "sample.sculpt");
         Assert.False(shell.Commands.TryGet("sample.brush", out _));
         Assert.False(shell.Commands.TryGet(EditorModes.ModeCommand("sample.sculpt"), out _));
     }
@@ -261,7 +263,7 @@ public class LoadingTests {
         using var folder = new PluginFolder();
         using var shell = new EditorShell(1280f, 800f);
 
-        shell.Commands.Add("sample.hello", new StringId("editor.hello", "The editor's own"), () => { });
+        shell.Commands.Add("sample.hello", new("editor.hello", "The editor's own"), static () => { });
         folder.Write("sample", Hello);
 
         var host = new PluginHost(shell);
@@ -271,7 +273,10 @@ public class LoadingTests {
         // over `file.save` by naming it. What this checks is that the refusal reaches the report
         // with the id in it instead of escaping as an exception.
         Assert.True(report.HasErrors);
-        Assert.Contains(report.Diagnostics, diagnostic => diagnostic.Message.Contains("sample.hello", StringComparison.Ordinal));
+        Assert.Contains(
+            report.Diagnostics,
+            static diagnostic => diagnostic.Message.Contains("sample.hello", StringComparison.Ordinal)
+        );
         Assert.Equal("The editor's own", shell.Commands["sample.hello"]!.Title.Source);
     }
 
@@ -280,7 +285,7 @@ public class LoadingTests {
         using var folder = new PluginFolder();
         using var shell = new EditorShell(1280f, 800f);
 
-        folder.Write("sample", Hello, manifest: "id: sample\nname: Sample\napi: 9.9\nassembly: sample.dll\n");
+        folder.Write("sample", Hello, "id: sample\nname: Sample\napi: 9.9\nassembly: sample.dll\n");
 
         var host = new PluginHost(shell);
         var report = LoadFrom(host, folder);
@@ -289,7 +294,10 @@ public class LoadingTests {
         // alternative is a MissingMethodException from inside somebody else's code on a machine
         // that is not yours.
         Assert.True(report.HasErrors);
-        Assert.DoesNotContain(shell.Commands.Commands, command => command.Id.StartsWith("sample.", StringComparison.Ordinal));
+        Assert.DoesNotContain(
+            shell.Commands.Commands,
+            static command => command.Id.StartsWith("sample.", StringComparison.Ordinal)
+        );
     }
 
     [Fact]
@@ -297,7 +305,11 @@ public class LoadingTests {
         using var folder = new PluginFolder();
         using var shell = new EditorShell(1280f, 800f);
 
-        folder.Write("sample", Hello, manifest: "id: sample\nname: Sample\napi: 0.1\nassembly: sample.dll\nenabled: false\n");
+        folder.Write(
+            "sample",
+            Hello,
+            "id: sample\nname: Sample\napi: 0.1\nassembly: sample.dll\nenabled: false\n"
+        );
 
         var host = new PluginHost(shell);
         var report = LoadFrom(host, folder);
@@ -329,15 +341,22 @@ public class LoadingTests {
         // Which of two plugins in one file ran is not something anybody should discover by
         // experiment, and the fix is one line in a file the author already has open.
         Assert.True(report.HasErrors);
-        Assert.Contains(report.Diagnostics, diagnostic => diagnostic.Message.Contains("Sample.First, Sample.Second", StringComparison.Ordinal));
+        Assert.Contains(
+            report.Diagnostics,
+            static diagnostic => diagnostic.Message.Contains("Sample.First, Sample.Second", StringComparison.Ordinal)
+        );
 
         // And that line is all it takes.
         using var named = new PluginFolder();
         using var second = new EditorShell(1280f, 800f);
 
-        named.Write("sample", Two, manifest: "id: sample\nname: Sample\napi: 0.1\nassembly: sample.dll\nentryPoint: Sample.Second\n");
+        named.Write(
+            "sample",
+            Two,
+            "id: sample\nname: Sample\napi: 0.1\nassembly: sample.dll\nentryPoint: Sample.Second\n"
+        );
 
-        Assert.False(LoadFrom(new PluginHost(second), named).HasErrors);
+        Assert.False(LoadFrom(new(second), named).HasErrors);
     }
 
     [Fact]
@@ -345,12 +364,19 @@ public class LoadingTests {
         using var folder = new PluginFolder();
         using var shell = new EditorShell(1280f, 800f);
 
-        folder.Write("sample", Hello, manifest: "id: sample\nname: Sample\napi: 0.1\nassembly: sample.dll\nentryPoint: Sample.Missing\n");
+        folder.Write(
+            "sample",
+            Hello,
+            "id: sample\nname: Sample\napi: 0.1\nassembly: sample.dll\nentryPoint: Sample.Missing\n"
+        );
 
-        var report = LoadFrom(new PluginHost(shell), folder);
+        var report = LoadFrom(new(shell), folder);
 
         Assert.True(report.HasErrors);
-        Assert.Contains(report.Diagnostics, diagnostic => diagnostic.Message.Contains("Sample.Missing", StringComparison.Ordinal));
+        Assert.Contains(
+            report.Diagnostics,
+            static diagnostic => diagnostic.Message.Contains("Sample.Missing", StringComparison.Ordinal)
+        );
     }
 
     [Fact]
@@ -360,10 +386,13 @@ public class LoadingTests {
 
         folder.Write("sample", "public sealed class NotAPlugin { }");
 
-        var report = LoadFrom(new PluginHost(shell), folder);
+        var report = LoadFrom(new(shell), folder);
 
         Assert.True(report.HasErrors);
-        Assert.Contains(report.Diagnostics, diagnostic => diagnostic.Message.Contains("no public IEditorPlugin", StringComparison.Ordinal));
+        Assert.Contains(
+            report.Diagnostics,
+            static diagnostic => diagnostic.Message.Contains("no public IEditorPlugin", StringComparison.Ordinal)
+        );
     }
 
     [Fact]
@@ -421,10 +450,13 @@ public class LoadingTests {
             """
         );
 
-        var report = LoadFrom(new PluginHost(shell), folder);
+        var report = LoadFrom(new(shell), folder);
 
         Assert.True(report.HasErrors);
-        Assert.Contains(report.Diagnostics, diagnostic => diagnostic.Message.Contains("PluginException", StringComparison.Ordinal));
+        Assert.Contains(
+            report.Diagnostics,
+            static diagnostic => diagnostic.Message.Contains("PluginException", StringComparison.Ordinal)
+        );
     }
 
     [Fact]
@@ -468,13 +500,17 @@ public class LoadingTests {
 
         // Named so that discovery's alphabetical order is the wrong one: without the dependency
         // sort, 'aaa' activates first and its own assertion fails.
-        folder.Write("aaa", Consumer, manifest: "id: aaa\nname: Consumer\napi: 0.1\nassembly: aaa.dll\ndependencies:\n  - zzz\n");
+        folder.Write(
+            "aaa",
+            Consumer,
+            "id: aaa\nname: Consumer\napi: 0.1\nassembly: aaa.dll\ndependencies:\n  - zzz\n"
+        );
         folder.Write("zzz", Provider);
 
-        var report = LoadFrom(new PluginHost(shell), folder);
+        var report = LoadFrom(new(shell), folder);
 
         Assert.False(report.HasErrors);
-        Assert.Equal(["zzz", "aaa"], report.Activated.Select(plugin => plugin.Id));
+        Assert.Equal(["zzz", "aaa"], report.Activated.Select(static plugin => plugin.Id));
     }
 
     /// <summary>A library beside a plugin, so the dependency load path has something to resolve.</summary>
@@ -523,7 +559,7 @@ public class LoadingTests {
         using var folder = new PluginFolder();
 
         var library = folder.WriteLibrary("sample", "SampleRuntime", Library);
-        var plugin = folder.Write("sample", UsesLibrary, manifest: null, library);
+        var plugin = folder.Write("sample", UsesLibrary, null, library);
 
         var context = new PluginLoadContext(Path.Combine(plugin, "sample.dll"));
 
@@ -535,7 +571,7 @@ public class LoadingTests {
 
             var loaded = Assert.Single(
                 context.Assemblies,
-                assembly => assembly.GetName().Name == "SampleRuntime"
+                static assembly => assembly.GetName().Name == "SampleRuntime"
             );
 
             Assert.Empty(loaded.Location);

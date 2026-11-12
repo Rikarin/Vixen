@@ -70,7 +70,7 @@ static partial class CppTranslator {
             }
 
             if (failure is not null) {
-                skipped.Add(new SkippedTest(name, failure));
+                skipped.Add(new(name, failure));
                 continue;
             }
 
@@ -78,7 +78,7 @@ static partial class CppTranslator {
                 body.RemoveAt(body.Count - 1);
             }
 
-            translated.Add(new TranslatedTest(name, body));
+            translated.Add(new(name, body));
         }
 
         return translated;
@@ -157,7 +157,8 @@ static partial class CppTranslator {
     /// <returns>The C# one.</returns>
     internal static string Identifier(string name) {
         var parts = name.Split('_');
-        return string.Concat(parts.Select((part, index) =>
+        return string.Concat(
+            parts.Select(static (part, index) =>
                 index == 0 || part.Length == 0 ? part : char.ToUpperInvariant(part[0]) + part[1..]
             )
         );
@@ -181,59 +182,60 @@ static partial class CppTranslator {
     /// <summary>Maps a <c>YG…</c> enum constant onto Vixen's.</summary>
     /// <param name="constant">The C++ constant.</param>
     /// <returns>The C# expression, or null if Vixen has no equivalent.</returns>
-    internal static string? MapEnum(string constant) => constant.Trim() switch {
-        "YGDirectionLTR" => "Direction.Ltr",
-        "YGDirectionRTL" => "Direction.Rtl",
-        "YGDirectionInherit" => "Direction.Inherit",
-        "YGFlexDirectionColumn" => "FlexDirection.Column",
-        "YGFlexDirectionColumnReverse" => "FlexDirection.ColumnReverse",
-        "YGFlexDirectionRow" => "FlexDirection.Row",
-        "YGFlexDirectionRowReverse" => "FlexDirection.RowReverse",
-        "YGJustifyFlexStart" => "Justify.FlexStart",
-        "YGJustifyCenter" => "Justify.Center",
-        "YGJustifyFlexEnd" => "Justify.FlexEnd",
-        "YGJustifySpaceBetween" => "Justify.SpaceBetween",
-        "YGJustifySpaceAround" => "Justify.SpaceAround",
-        "YGJustifySpaceEvenly" => "Justify.SpaceEvenly",
-        "YGAlignAuto" => "Align.Auto",
-        "YGAlignFlexStart" => "Align.FlexStart",
-        "YGAlignCenter" => "Align.Center",
-        "YGAlignFlexEnd" => "Align.FlexEnd",
-        "YGAlignStretch" => "Align.Stretch",
-        "YGAlignBaseline" => "Align.Baseline",
-        "YGAlignSpaceBetween" => "Align.SpaceBetween",
-        "YGAlignSpaceAround" => "Align.SpaceAround",
-        "YGAlignSpaceEvenly" => "Align.SpaceEvenly",
-        "YGPositionTypeStatic" => "PositionType.Static",
-        "YGPositionTypeRelative" => "PositionType.Relative",
-        "YGPositionTypeAbsolute" => "PositionType.Absolute",
-        "YGWrapNoWrap" => "Wrap.NoWrap",
-        "YGWrapWrap" => "Wrap.Wrap",
-        "YGWrapWrapReverse" => "Wrap.WrapReverse",
-        "YGOverflowVisible" => "Overflow.Visible",
-        "YGOverflowHidden" => "Overflow.Hidden",
-        "YGOverflowScroll" => "Overflow.Scroll",
-        "YGDisplayFlex" => "Display.Flex",
-        "YGDisplayNone" => "Display.None",
-        "YGBoxSizingBorderBox" => "BoxSizing.BorderBox",
-        "YGBoxSizingContentBox" => "BoxSizing.ContentBox",
-        "YGEdgeLeft" => "Edge.Left",
-        "YGEdgeTop" => "Edge.Top",
-        "YGEdgeRight" => "Edge.Right",
-        "YGEdgeBottom" => "Edge.Bottom",
-        "YGEdgeStart" => "Edge.Start",
-        "YGEdgeEnd" => "Edge.End",
-        "YGEdgeHorizontal" => "Edge.Horizontal",
-        "YGEdgeVertical" => "Edge.Vertical",
-        "YGEdgeAll" => "Edge.All",
-        "YGGutterColumn" => "Gutter.Column",
-        "YGGutterRow" => "Gutter.Row",
-        "YGGutterAll" => "Gutter.All",
+    internal static string? MapEnum(string constant) =>
+        constant.Trim() switch {
+            "YGDirectionLTR" => "Direction.Ltr",
+            "YGDirectionRTL" => "Direction.Rtl",
+            "YGDirectionInherit" => "Direction.Inherit",
+            "YGFlexDirectionColumn" => "FlexDirection.Column",
+            "YGFlexDirectionColumnReverse" => "FlexDirection.ColumnReverse",
+            "YGFlexDirectionRow" => "FlexDirection.Row",
+            "YGFlexDirectionRowReverse" => "FlexDirection.RowReverse",
+            "YGJustifyFlexStart" => "Justify.FlexStart",
+            "YGJustifyCenter" => "Justify.Center",
+            "YGJustifyFlexEnd" => "Justify.FlexEnd",
+            "YGJustifySpaceBetween" => "Justify.SpaceBetween",
+            "YGJustifySpaceAround" => "Justify.SpaceAround",
+            "YGJustifySpaceEvenly" => "Justify.SpaceEvenly",
+            "YGAlignAuto" => "Align.Auto",
+            "YGAlignFlexStart" => "Align.FlexStart",
+            "YGAlignCenter" => "Align.Center",
+            "YGAlignFlexEnd" => "Align.FlexEnd",
+            "YGAlignStretch" => "Align.Stretch",
+            "YGAlignBaseline" => "Align.Baseline",
+            "YGAlignSpaceBetween" => "Align.SpaceBetween",
+            "YGAlignSpaceAround" => "Align.SpaceAround",
+            "YGAlignSpaceEvenly" => "Align.SpaceEvenly",
+            "YGPositionTypeStatic" => "PositionType.Static",
+            "YGPositionTypeRelative" => "PositionType.Relative",
+            "YGPositionTypeAbsolute" => "PositionType.Absolute",
+            "YGWrapNoWrap" => "Wrap.NoWrap",
+            "YGWrapWrap" => "Wrap.Wrap",
+            "YGWrapWrapReverse" => "Wrap.WrapReverse",
+            "YGOverflowVisible" => "Overflow.Visible",
+            "YGOverflowHidden" => "Overflow.Hidden",
+            "YGOverflowScroll" => "Overflow.Scroll",
+            "YGDisplayFlex" => "Display.Flex",
+            "YGDisplayNone" => "Display.None",
+            "YGBoxSizingBorderBox" => "BoxSizing.BorderBox",
+            "YGBoxSizingContentBox" => "BoxSizing.ContentBox",
+            "YGEdgeLeft" => "Edge.Left",
+            "YGEdgeTop" => "Edge.Top",
+            "YGEdgeRight" => "Edge.Right",
+            "YGEdgeBottom" => "Edge.Bottom",
+            "YGEdgeStart" => "Edge.Start",
+            "YGEdgeEnd" => "Edge.End",
+            "YGEdgeHorizontal" => "Edge.Horizontal",
+            "YGEdgeVertical" => "Edge.Vertical",
+            "YGEdgeAll" => "Edge.All",
+            "YGGutterColumn" => "Gutter.Column",
+            "YGGutterRow" => "Gutter.Row",
+            "YGGutterAll" => "Gutter.All",
 
-        // Deliberately absent: YGDisplayContents. `display: contents` is outside the algorithm
-        // scope doc 09 states, and a fixture using it is dropped rather than approximated.
-        _ => null
-    };
+            // Deliberately absent: YGDisplayContents. `display: contents` is outside the algorithm
+            // scope doc 09 states, and a fixture using it is dropped rather than approximated.
+            _ => null
+        };
 
     [GeneratedRegex(@"TEST\(YogaTest, (?<name>\w+)\) \{(?<body>.*?)\n\}", RegexOptions.Singleline)]
     private static partial Regex TestBlock();
@@ -249,9 +251,7 @@ static partial class CppTranslator {
     )]
     private static partial Regex CalculateLayout();
 
-    [GeneratedRegex(
-        @"^ASSERT_FLOAT_EQ\((?<expected>[\w.\-]+), YGNodeLayoutGet(?<getter>\w+)\((?<node>\w+)\)\);$"
-    )]
+    [GeneratedRegex(@"^ASSERT_FLOAT_EQ\((?<expected>[\w.\-]+), YGNodeLayoutGet(?<getter>\w+)\((?<node>\w+)\)\);$")]
     private static partial Regex Assertion();
 
     [GeneratedRegex(@"^YGNodeSetContext\((?<node>\w+), \(void\*\)""(?<text>[^""]*)""\);$")]

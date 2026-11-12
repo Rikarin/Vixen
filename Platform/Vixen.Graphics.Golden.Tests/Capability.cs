@@ -57,8 +57,12 @@ enum CapabilityVerdict {
 ///         is a failure rather than a skip.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Neither is set in <c>ci.yml</c>, and that is the honest state rather than an
-///         omission.</b> Nobody has yet watched a lavapipe run and recorded which of these five it
+///         ⚠
+///         <b>
+///             Neither is set in <c>ci.yml</c>, and that is the honest state rather than an
+///             omission.
+///         </b>
+///         Nobody has yet watched a lavapipe run and recorded which of these five it
 ///         actually offers, and a promise written from guesswork turns honest skips red for reasons
 ///         unrelated to the change that tripped them. Watch one run, read the skip reasons — they
 ///         name the adapter and the variable — then name the capabilities that ran.
@@ -99,7 +103,13 @@ static class Capability {
     ///     rather than silence, and <c>CapabilityGuardTests</c> holds every call site inside it.
     /// </remarks>
     public static readonly IReadOnlySet<string> Known =
-        new HashSet<string>(StringComparer.Ordinal) { Bindless, Int64Atomics, RayQuery, Msaa, DepthResolveMinMax };
+        new HashSet<string>(StringComparer.Ordinal) {
+            Bindless,
+            Int64Atomics,
+            RayQuery,
+            Msaa,
+            DepthResolveMinMax
+        };
 
     /// <summary>What the separators between capability names in the promise are.</summary>
     static readonly char[] Separators = [',', ';', ' ', '\t'];
@@ -144,7 +154,7 @@ static class Capability {
         // The configuration error first, and unconditionally. A promise nobody can honour is worth
         // saying whatever the device turns out to report, because the alternative is a leg that
         // looks configured and checks nothing.
-        if (!Known.Contains(capability) || wanted.Any(name => name != Everything && !Known.Contains(name))) {
+        if (!Known.Contains(capability) || wanted.Any(static name => name != Everything && !Known.Contains(name))) {
             return CapabilityVerdict.Unknown;
         }
 

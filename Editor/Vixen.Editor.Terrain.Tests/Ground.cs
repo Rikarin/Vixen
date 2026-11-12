@@ -18,8 +18,12 @@ static class Ground {
     /// </remarks>
     public static TerrainDescription Shape =>
         TerrainDescription.Default with {
-            TileSamples = 32, TilesX = 2, TilesZ = 2,
-            MetresPerQuad = 1f, MinHeight = -100f, MaxHeight = 100f
+            TileSamples = 32,
+            TilesX = 2,
+            TilesZ = 2,
+            MetresPerQuad = 1f,
+            MinHeight = -100f,
+            MaxHeight = 100f
         };
 
     /// <summary>A flat terrain with one manual layer on it.</summary>
@@ -38,8 +42,12 @@ static class Ground {
     ///     What untouched ground reads back as, which is not zero.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>A height is stored as one of 65 536 steps over the authored range, so "flat at zero"
-    ///     is the nearest step to zero and reads back a millimetre and a half off.</b> Over
+    ///     ⚠
+    ///     <b>
+    ///         A height is stored as one of 65 536 steps over the authored range, so "flat at zero"
+    ///         is the nearest step to zero and reads back a millimetre and a half off.
+    ///     </b>
+    ///     Over
     ///     −100…100 m a step is 3 mm; asserting an untouched sample equals <c>0f</c> to three decimal
     ///     places is asserting a precision the storage does not have, and it fails on ground nothing
     ///     ever touched. Every "this was not changed" assertion here compares against this.

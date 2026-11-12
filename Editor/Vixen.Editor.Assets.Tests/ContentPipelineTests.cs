@@ -35,7 +35,7 @@ public sealed class ContentPipelineTests : IDisposable {
 
     public void Dispose() {
         if (Directory.Exists(root)) {
-            Directory.Delete(root, recursive: true);
+            Directory.Delete(root, true);
         }
     }
 
@@ -48,7 +48,7 @@ public sealed class ContentPipelineTests : IDisposable {
         }
 
         Directory.CreateDirectory(Path.Combine(root, "Assets"));
-        return new ProjectWorkspace(new ProjectPaths(root));
+        return new(new(root));
     }
 
     [Fact]
@@ -65,11 +65,11 @@ public sealed class ContentPipelineTests : IDisposable {
 
         // A file written by hand has no sidecar, and the scan makes one. Reported rather than done
         // quietly, because it is a file appearing in somebody's working tree.
-        var created = said.Where(diagnostic => diagnostic.Stage == ContentStage.Scan).ToList();
+        var created = said.Where(static diagnostic => diagnostic.Stage == ContentStage.Scan).ToList();
 
         Assert.NotEmpty(created);
-        Assert.Contains(created, diagnostic => diagnostic.Path == "Assets/Textures/crate.txt");
-        Assert.All(created, diagnostic => Assert.Equal(ImportSeverity.Information, diagnostic.Severity));
+        Assert.Contains(created, static diagnostic => diagnostic.Path == "Assets/Textures/crate.txt");
+        Assert.All(created, static diagnostic => Assert.Equal(ImportSeverity.Information, diagnostic.Severity));
     }
 
     [Fact]
@@ -80,7 +80,7 @@ public sealed class ContentPipelineTests : IDisposable {
         var summary = await ContentPipeline.ImportAsync(
             workspace,
             "Windows",
-            _ => { },
+            static _ => { },
             steps.Add,
             cancellationToken: TestContext.Current.CancellationToken
         );
@@ -88,12 +88,14 @@ public sealed class ContentPipelineTests : IDisposable {
         // Once each, counted against the summary rather than against a number written here — a
         // progress feed that reported fewer steps than the summary counts is a bar that stops short.
         Assert.Equal(summary.Imported + summary.Cached + summary.Failed, steps.Count);
-        Assert.Equal(steps.Count, steps.Select(step => step.Path).Distinct(StringComparer.Ordinal).Count());
+        Assert.Equal(steps.Count, steps.Select(static step => step.Path).Distinct(StringComparer.Ordinal).Count());
 
         // ⚠ The fraction has to reach one, or a progress bar sits at ninety-something per cent for a
         // task that has finished — which reads as a hang rather than as a rounding choice.
         Assert.Equal(1f, steps[^1].Fraction, 3);
-        Assert.True(steps.Select(step => step.Fraction).SequenceEqual(steps.Select(step => step.Fraction).Order()));
+        Assert.True(
+            steps.Select(static step => step.Fraction).SequenceEqual(steps.Select(static step => step.Fraction).Order())
+        );
     }
 
     [Fact]
@@ -105,22 +107,26 @@ public sealed class ContentPipelineTests : IDisposable {
         await ContentPipeline.ImportAsync(
             workspace,
             "Windows",
-            _ => { },
+            static _ => { },
             first.Add,
             cancellationToken: TestContext.Current.CancellationToken
         );
         await ContentPipeline.ImportAsync(
             workspace,
             "Windows",
-            _ => { },
+            static _ => { },
             second.Add,
             cancellationToken: TestContext.Current.CancellationToken
         );
 
         // The whole reason progress carries the outcome rather than a path and a percentage: the
         // second run did no work, and a caller has to be able to say so.
-        Assert.False(first.Single(step => step.Path.EndsWith("a.txt", StringComparison.Ordinal)).Outcome.WasCached);
-        Assert.True(second.Single(step => step.Path.EndsWith("a.txt", StringComparison.Ordinal)).Outcome.WasCached);
+        Assert.False(
+            first.Single(static step => step.Path.EndsWith("a.txt", StringComparison.Ordinal)).Outcome.WasCached
+        );
+        Assert.True(
+            second.Single(static step => step.Path.EndsWith("a.txt", StringComparison.Ordinal)).Outcome.WasCached
+        );
     }
 
     /// <summary>
@@ -137,7 +143,7 @@ public sealed class ContentPipelineTests : IDisposable {
         await ContentPipeline.ImportAsync(
             workspace,
             "Windows",
-            _ => { },
+            static _ => { },
             cancellationToken: TestContext.Current.CancellationToken
         );
 
@@ -150,7 +156,7 @@ public sealed class ContentPipelineTests : IDisposable {
         // cares about compression or remote delivery it needs a real .vxgroup.
         Assert.Contains(
             said,
-            diagnostic => diagnostic.Stage == ContentStage.Plan
+            static diagnostic => diagnostic.Stage == ContentStage.Plan
                 && diagnostic.Severity == ImportSeverity.Information
         );
 
@@ -191,7 +197,7 @@ public sealed class ContentPipelineTests : IDisposable {
 
         Assert.False(ProjectWorkspace.IsProject(root));
 
-        File.WriteAllText(Path.Combine(root, "Asteroids.vxproj"), Vixen.Editor.Core.ProjectMarker.Write("0.1.0"));
+        File.WriteAllText(Path.Combine(root, "Asteroids.vxproj"), ProjectMarker.Write("0.1.0"));
 
         Assert.True(ProjectWorkspace.IsProject(root));
         Assert.False(Directory.Exists(Path.Combine(root, "Assets")));
@@ -235,7 +241,7 @@ public sealed class ContentPipelineTests : IDisposable {
         await ContentPipeline.ImportAsync(
             workspace,
             "Windows",
-            _ => { },
+            static _ => { },
             executor: executor,
             cancellationToken: TestContext.Current.CancellationToken
         );
@@ -245,7 +251,7 @@ public sealed class ContentPipelineTests : IDisposable {
         // The two files and the two folders under Assets/ — each is an asset with a sidecar, and each
         // is a job. Assets/ itself is the root and is not one.
         Assert.Equal(4, seen.Count);
-        Assert.All(seen, entry => Assert.True(entry.Known, $"The index did not name {entry.Asset} yet."));
+        Assert.All(seen, static entry => Assert.True(entry.Known, $"The index did not name {entry.Asset} yet."));
     }
 
     /// <summary>An executor that reads the persisted index the way another process would.</summary>
@@ -265,13 +271,11 @@ public sealed class ContentPipelineTests : IDisposable {
 
             // A fresh database over the same directory, loaded and never scanned — which is all a
             // worker is allowed to do, and all it can do from another process.
-            var database = new AssetDatabase(new ProjectPaths(root));
+            var database = new AssetDatabase(new(root));
 
             seen.Add((job.Guid, database.TryLoad() && database.TryGetByGuid(job.Guid, out _)));
 
-            return ValueTask.FromResult(
-                new ExecutedImport(true, [], [], [], [job.Source.ToString()], [])
-            );
+            return ValueTask.FromResult(new ExecutedImport(true, [], [], [], [job.Source.ToString()], []));
         }
     }
 }

@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core.Curves;
-using Vixen.Core.Mathematics;
 using Vixen.Input;
 using Xunit;
 
@@ -245,7 +244,7 @@ public class CurveEditorTests {
 
         Assert.Same(key, editor.Active);
 
-        var handle = editor.HandlePoint(key, outgoing: true);
+        var handle = editor.HandlePoint(key, true);
 
         fixture.Press(handle.X, handle.Y);
         fixture.Move(handle.X, handle.Y - 40f);
@@ -257,7 +256,7 @@ public class CurveEditorTests {
         key.Mode = TangentMode.Broken;
 
         var incoming = key.InTangent;
-        var again = editor.HandlePoint(key, outgoing: true);
+        var again = editor.HandlePoint(key, true);
 
         fixture.Press(again.X, again.Y);
         fixture.Move(again.X, again.Y + 60f);

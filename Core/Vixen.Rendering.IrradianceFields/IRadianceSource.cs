@@ -10,8 +10,12 @@ namespace Vixen.Rendering.IrradianceFields;
 ///     <para>
 ///         <b>A distance field says where the geometry is and nothing about what colour it is</b>, so a
 ///         filler that traces one has to ask somebody. This is who it asks, and separating it out is
-///         what keeps the tracing honest: the filler is responsible for <i>which directions matter and
-///         how much of the sphere each stands for</i>, and nothing else.
+///         what keeps the tracing honest: the filler is responsible for
+///         <i>
+///             which directions matter and
+///             how much of the sphere each stands for
+///         </i>
+///         , and nothing else.
 ///     </para>
 ///     <para>
 ///         On a GPU the answer to <see cref="Surface" /> comes from Lumen's surface cache — the

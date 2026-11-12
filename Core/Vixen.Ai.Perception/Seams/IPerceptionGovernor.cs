@@ -11,8 +11,12 @@ namespace Vixen.Ai.Perception;
 ///         passes there are.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Why this is not <c>IAgentGovernor</c>, which doc 37 § Part 4 lists distance LOD
-///         against.</b> <c>IAgentGovernor.Plan</c> is handed a tick and a population and nothing else
+///         ⚠
+///         <b>
+///             Why this is not <c>IAgentGovernor</c>, which doc 37 § Part 4 lists distance LOD
+///             against.
+///         </b>
+///         <c>IAgentGovernor.Plan</c> is handed a tick and a population and nothing else
 ///         — deliberately, because <c>AgentSchedule</c> is eight bytes and a plan that enumerated its
 ///         agents would allocate once a frame. Distance needs a position per listener, which is a
 ///         thing that interface cannot see and should not grow. So the distance-LOD row belongs here,

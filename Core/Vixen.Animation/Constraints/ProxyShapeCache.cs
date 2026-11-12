@@ -8,8 +8,11 @@ namespace Vixen.Animation.Constraints;
 /// <summary>Pairs a loaded shape set with a rig, once.</summary>
 /// <remarks>
 ///     <para>
-///         <b>The same join <see cref="AnimationClipCache" /> does for a clip, and it was missing for
-///         the same reason it was missing there.</b> <see cref="ProxyShapeSetContent" /> names joints
+///         <b>
+///             The same join <see cref="AnimationClipCache" /> does for a clip, and it was missing for
+///             the same reason it was missing there.
+///         </b>
+///         <see cref="ProxyShapeSetContent" /> names joints
 ///         and does not know which skeleton will have them; <see cref="ProxyShapeSet" /> is the
 ///         resolved form with every shape bound to a joint index. Somebody has to do that resolution,
 ///         and doing it per character is how thirty copies of one enemy come to hold thirty identical
@@ -51,7 +54,7 @@ public static class ProxyShapeCache {
         ArgumentNullException.ThrowIfNull(content);
         ArgumentNullException.ThrowIfNull(skeleton);
 
-        var entry = Table.GetValue(content, static _ => new Entry());
+        var entry = Table.GetValue(content, static _ => new());
 
         lock (entry.Gate) {
             foreach (var baked in entry.Baked) {

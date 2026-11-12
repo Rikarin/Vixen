@@ -183,11 +183,11 @@ public sealed class QuestLibrary {
 
     /// <summary>Every quest, in address order.</summary>
     public IEnumerable<QuestTemplate> Quests =>
-        quests.Values.OrderBy(quest => quest.Definition.Address, StringComparer.Ordinal);
+        quests.Values.OrderBy(static quest => quest.Definition.Address, StringComparer.Ordinal);
 
     /// <summary>Every dynamic event, in address order.</summary>
     public IEnumerable<DynamicEventTemplate> Events =>
-        events.Values.OrderBy(entry => entry.Definition.Address, StringComparer.Ordinal);
+        events.Values.OrderBy(static entry => entry.Definition.Address, StringComparer.Ordinal);
 
     /// <summary>What did not resolve, and what a definition said that cannot be true at once.</summary>
     public IReadOnlyList<string> Problems => problems;
@@ -239,7 +239,7 @@ public sealed class QuestLibrary {
             }
         }
 
-        return new(quests, events, registry, [.. problems]);
+        return new(quests, events, registry, [..problems]);
     }
 
     /// <summary>Finds a quest.</summary>
@@ -306,7 +306,7 @@ public sealed class QuestLibrary {
             );
         }
 
-        return [.. compiled];
+        return [..compiled];
     }
 
     static QuestTemplate CompileQuest(
@@ -338,7 +338,7 @@ public sealed class QuestLibrary {
                 problems
             );
 
-            var required = objectives.Count(objective => !objective.IsOptional);
+            var required = objectives.Count(static objective => !objective.IsOptional);
 
             if (objectives.Length > 0 && required == 0) {
                 problems.Add(
@@ -356,7 +356,7 @@ public sealed class QuestLibrary {
             stages,
             CompileReward(definition.Rewards),
             tags.Resolve(definition.Tag),
-            [.. definition.GrantsTags.Select(tags.Resolve).Where(tag => tag.IsSome)]
+            [..definition.GrantsTags.Select(tags.Resolve).Where(static tag => tag.IsSome)]
         );
     }
 
@@ -374,6 +374,6 @@ public sealed class QuestLibrary {
         );
 
         static QuestGrant[] Grants(List<QuestGrantDefinition> grants) =>
-            [.. grants.Select(grant => new QuestGrant(DefId.From(grant.Def), grant.Def, grant.Count))];
+            [..grants.Select(static grant => new QuestGrant(DefId.From(grant.Def), grant.Def, grant.Count))];
     }
 }

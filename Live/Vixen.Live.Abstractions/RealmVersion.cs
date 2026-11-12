@@ -29,7 +29,7 @@ public readonly record struct RealmVersion(string Build, ulong Content) {
     public static RealmVersion None => default;
 
     /// <summary>The assembly version. Null only on <c>default</c>; see <see cref="RealmInstanceId" />.</summary>
-    public string Build { get; } = Build ?? "";
+    public string Build { get; } = Build ?? string.Empty;
 
     /// <summary>Whether this names a version at all.</summary>
     public bool IsValid => !string.IsNullOrEmpty(Build);
@@ -81,10 +81,11 @@ public readonly record struct RealmVersion(string Build, ulong Content) {
     ///     <c>RealmEndpoint.Equals</c> for what the synthesized version costs.
     /// </remarks>
     public bool Equals(RealmVersion other) =>
-        Content == other.Content && string.Equals(Build ?? "", other.Build ?? "", StringComparison.Ordinal);
+        Content == other.Content
+        && string.Equals(Build ?? string.Empty, other.Build ?? string.Empty, StringComparison.Ordinal);
 
     /// <inheritdoc />
-    public override int GetHashCode() => HashCode.Combine(Build ?? "", Content);
+    public override int GetHashCode() => HashCode.Combine(Build ?? string.Empty, Content);
 
     /// <inheritdoc />
     public override string ToString() =>

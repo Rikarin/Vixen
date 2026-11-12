@@ -20,15 +20,22 @@ public readonly record struct ImpostorSample(ImpostorCell Cell, float Weight);
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>[docs/plan/31 § T7], and [docs/plan/06]'s "impostors / billboards" row for its only real
-///         consumer.</b> A tree seen from four hundred metres is a few pixels of silhouette, and
+///         <b>
+///             [docs/plan/31 § T7], and [docs/plan/06]'s "impostors / billboards" row for its only real
+///             consumer.
+///         </b>
+///         A tree seen from four hundred metres is a few pixels of silhouette, and
 ///         drawing forty thousand triangles for it is the cost the far field is made of. An impostor
 ///         is that tree photographed from a grid of directions once, offline, and drawn as two
 ///         triangles for ever after.
 ///     </para>
 ///     <para>
-///         ⚠ <b>A <em>hemi</em>-octahedron, and it is a different fold rather than half of
-///         <see cref="ScreenProbes.OctahedralMap" />'s.</b> Nobody looks at a tree from underneath —
+///         ⚠
+///         <b>
+///             A <em>hemi</em>-octahedron, and it is a different fold rather than half of
+///             <see cref="ScreenProbes.OctahedralMap" />'s.
+///         </b>
+///         Nobody looks at a tree from underneath —
 ///         and a full-sphere grid spends half its atlas on the views a forest never shows, which at
 ///         the resolutions an impostor is worth having is the difference between an eight-by-eight
 ///         grid and a twelve-by-twelve one. The full-sphere fold exists, is used for probe radiance,
@@ -86,14 +93,14 @@ public readonly record struct ImpostorGrid {
 
         var n = direction / scale;
 
-        return new(((n.X + n.Z) * 0.5f) + 0.5f, ((n.X - n.Z) * 0.5f) + 0.5f);
+        return new((n.X + n.Z) * 0.5f + 0.5f, (n.X - n.Z) * 0.5f + 0.5f);
     }
 
     /// <summary>Unfolds a point of the square back into a direction.</summary>
     /// <param name="square">A point in [0, 1]².</param>
     /// <returns>The direction, normalised, in the upper hemisphere.</returns>
     public static Vector3 Decode(Vector2 square) {
-        var p = (square * 2f) - new Vector2(1f, 1f);
+        var p = square * 2f - new Vector2(1f, 1f);
 
         var x = (p.X + p.Y) * 0.5f;
         var z = (p.X - p.Y) * 0.5f;
@@ -220,7 +227,7 @@ public readonly record struct ImpostorAtlas {
     public int Resolution => Grid.Side * CellSize;
 
     /// <summary>How many texels of a cell the mesh is drawn into.</summary>
-    public int DrawSize => CellSize - (Padding * 2);
+    public int DrawSize => CellSize - Padding * 2;
 
     /// <summary>How many mip levels can be built before two cells share a texel.</summary>
     /// <remarks>
@@ -246,7 +253,7 @@ public readonly record struct ImpostorAtlas {
     /// <param name="cell">The cell.</param>
     /// <returns>The rect: low corner and size, gutter excluded.</returns>
     public (int X, int Y, int Width, int Height) RectOf(ImpostorCell cell) =>
-        ((cell.X * CellSize) + Padding, (cell.Z * CellSize) + Padding, DrawSize, DrawSize);
+        (cell.X * CellSize + Padding, cell.Z * CellSize + Padding, DrawSize, DrawSize);
 
     /// <summary>Where a point of a cell's own view lands in the atlas.</summary>
     /// <param name="cell">The cell.</param>
@@ -256,8 +263,8 @@ public readonly record struct ImpostorAtlas {
         var (x, y, width, height) = RectOf(cell);
 
         return new(
-            (x + (Math.Clamp(uv.X, 0f, 1f) * width)) / Resolution,
-            (y + (Math.Clamp(uv.Y, 0f, 1f) * height)) / Resolution
+            (x + Math.Clamp(uv.X, 0f, 1f) * width) / Resolution,
+            (y + Math.Clamp(uv.Y, 0f, 1f) * height) / Resolution
         );
     }
 }
@@ -298,7 +305,7 @@ public readonly record struct ImpostorView(
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(radius);
 
         var direction = grid.DirectionOf(cell);
-        var eye = centre + (direction * radius * 2f);
+        var eye = centre + direction * radius * 2f;
 
         // Straight down has no side, so the up vector falls back to an axis in the horizontal plane.
         // Every cell of the top row is that direction, and a bake that produced a NaN there would

@@ -25,19 +25,26 @@ namespace Vixen.ApiCheck.Tests;
 ///     <para>
 ///         So the subjects here are compiled with an <c>AssemblyConfigurationAttribute</c> of the
 ///         test's own choosing, which is exactly what the SDK writes from <c>$(Configuration)</c>,
-///         and read back from the emitted binary. Asserting against the configuration <em>these
-///         tests</em> were built in would prove nothing on a machine that only ever builds one.
+///         and read back from the emitted binary. Asserting against the configuration
+///         <em>
+///             these
+///             tests
+///         </em>
+///         were built in would prove nothing on a machine that only ever builds one.
 ///     </para>
 /// </remarks>
 public sealed class AssemblyConfigurationTests : IDisposable {
-    readonly string directory = Path.Combine(Path.GetTempPath(), "vixen-api-config-tests", Guid.NewGuid().ToString("N"));
+    readonly string directory =
+        Path.Combine(Path.GetTempPath(), "vixen-api-config-tests", Guid.NewGuid().ToString("N"));
 
-    public AssemblyConfigurationTests() => Directory.CreateDirectory(directory);
+    public AssemblyConfigurationTests() {
+        Directory.CreateDirectory(directory);
+    }
 
     public void Dispose() {
         try {
             if (Directory.Exists(directory)) {
-                Directory.Delete(directory, recursive: true);
+                Directory.Delete(directory, true);
             }
         } catch (IOException) {
             // A temporary directory that would not go is not a test failure.
@@ -49,7 +56,10 @@ public sealed class AssemblyConfigurationTests : IDisposable {
     [InlineData("Debug")]
     [InlineData("Profile")]
     public void TheConfigurationIsReadFromTheAssembly(string configuration) {
-        var path = Compile($"""[assembly: System.Reflection.AssemblyConfiguration("{configuration}")]""", configuration);
+        var path = Compile(
+            $"""[assembly: System.Reflection.AssemblyConfiguration("{configuration}")]""",
+            configuration
+        );
 
         Assert.Equal(configuration, AssemblyConfiguration.Read(path));
     }
@@ -78,9 +88,13 @@ public sealed class AssemblyConfigurationTests : IDisposable {
         Assert.False(AssemblyConfiguration.IsBaseline(Read("Debug")));
         Assert.False(AssemblyConfiguration.IsBaseline(null));
 
-        string? Read(string configuration) => AssemblyConfiguration.Read(
-            Compile($"""[assembly: System.Reflection.AssemblyConfiguration("{configuration}")]""", "decision-" + configuration)
-        );
+        string? Read(string configuration) =>
+            AssemblyConfiguration.Read(
+                Compile(
+                    $"""[assembly: System.Reflection.AssemblyConfiguration("{configuration}")]""",
+                    "decision-" + configuration
+                )
+            );
     }
 
     /// <summary>
@@ -90,16 +104,16 @@ public sealed class AssemblyConfigurationTests : IDisposable {
     [Fact]
     public void ADebugAndAReleaseSurfaceOfTheSameSourceDisagree() {
         const string Source = """
-            namespace Sample;
+                              namespace Sample;
 
-            public static class Flags {
-            #if DEBUG
-                public const bool Records = true;
-            #else
-                public const bool Records = false;
-            #endif
-            }
-            """;
+                              public static class Flags {
+                              #if DEBUG
+                                  public const bool Records = true;
+                              #else
+                                  public const bool Records = false;
+                              #endif
+                              }
+                              """;
 
         var debug = ApiSurfaceReader.Read(Compile(Source, "flags-debug", "Debug", ["DEBUG"]));
         var release = ApiSurfaceReader.Read(Compile(Source, "flags-release", "Release", []));
@@ -113,7 +127,7 @@ public sealed class AssemblyConfigurationTests : IDisposable {
     string Compile(string source, string name, string? configuration = null, string[]? symbols = null) {
         var references = ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")!)
             .Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries)
-            .Select(path => (MetadataReference)MetadataReference.CreateFromFile(path));
+            .Select(static path => (MetadataReference)MetadataReference.CreateFromFile(path));
 
         var text = configuration is null
             ? source
@@ -121,7 +135,7 @@ public sealed class AssemblyConfigurationTests : IDisposable {
 
         var compilation = CSharpCompilation.Create(
             name,
-            [CSharpSyntaxTree.ParseText(text, new CSharpParseOptions(preprocessorSymbols: symbols ?? []))],
+            [CSharpSyntaxTree.ParseText(text, new(preprocessorSymbols: symbols ?? []))],
             references,
             new(OutputKind.DynamicallyLinkedLibrary, nullableContextOptions: NullableContextOptions.Enable)
         );
@@ -132,7 +146,10 @@ public sealed class AssemblyConfigurationTests : IDisposable {
         Assert.True(
             result.Success,
             "The fixture did not compile: "
-            + string.Join(Environment.NewLine, result.Diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error))
+            + string.Join(
+                Environment.NewLine,
+                result.Diagnostics.Where(static d => d.Severity == DiagnosticSeverity.Error)
+            )
         );
 
         return path;

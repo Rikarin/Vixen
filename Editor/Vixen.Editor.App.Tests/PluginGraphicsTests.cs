@@ -3,7 +3,6 @@
 
 using Vixen.Editor.Plugin;
 using Vixen.Editor.Testing;
-using Vixen.Graphics;
 using Vixen.Graphics.Null;
 using Xunit;
 
@@ -101,8 +100,12 @@ public class PluginGraphicsTests {
 
     /// <summary>A partial update reaches the surface with the rectangle and the handle's own number.</summary>
     /// <remarks>
-    ///     ⚠ <b>The host half of <a href="https://github.com/Rikarin/Vixen/issues/912">#912</a> had no
-    ///     test at all, and the double added beside it collected updates nothing read</b> —
+    ///     ⚠
+    ///     <b>
+    ///         The host half of <a href="https://github.com/Rikarin/Vixen/issues/912">#912</a> had no
+    ///         test at all, and the double added beside it collected updates nothing read
+    ///     </b>
+    ///     —
     ///     <a href="https://github.com/Rikarin/Vixen/issues/958">#958</a>. What is asserted is the
     ///     forwarding, because the alternative to forwarding is a plugin whose stroke never reaches
     ///     the screen and whose fallback path — a whole re-upload — hides it perfectly.
@@ -132,8 +135,11 @@ public class PluginGraphicsTests {
     /// <summary>⚠ A handle made against one surface is refused by the next one.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>The stale-handle guard, which is the whole justification for the host half of
-    ///         #912's contract and had nothing exercising it</b> —
+    ///         <b>
+    ///             The stale-handle guard, which is the whole justification for the host half of
+    ///             #912's contract and had nothing exercising it
+    ///         </b>
+    ///         —
     ///         <a href="https://github.com/Rikarin/Vixen/issues/958">#958</a>. An image number is a
     ///         number: the window goes and comes back, the editor builds a new surface, and the
     ///         number a plugin is still holding names a live image of that new one. Without the
@@ -242,7 +248,7 @@ public class PluginGraphicsTests {
         public List<(ulong Image, int X, int Y, int Width, int Height, byte[] Pixels)> Updates { get; } = [];
 
         public ulong Upload(int width, int height, ReadOnlySpan<byte> rgba) {
-            Uploads.Add(rgba.ToArray());
+            Uploads.Add([..rgba]);
 
             return next++;
         }

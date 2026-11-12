@@ -15,25 +15,25 @@ public sealed class AccelerationStructureTests : IDisposable {
     [Fact]
     public void ADeviceWithoutRayTracingRefusesEveryEntryPoint() {
         using var limited = new NullDevice(new() { Features = GraphicsDeviceFeatures.Minimum });
-        var input = BottomLevelInput(limited, indexCount: 36);
+        var input = BottomLevelInput(limited, 36);
 
         Assert.Throws<NotSupportedException>(() => limited.GetAccelerationStructureSizes(input));
 
-        Assert.Throws<NotSupportedException>(
-            () => limited.CreateAccelerationStructure(new(AccelerationStructureKind.BottomLevel, 1024, "Mesh"))
+        Assert.Throws<NotSupportedException>(() =>
+            limited.CreateAccelerationStructure(new(AccelerationStructureKind.BottomLevel, 1024, "Mesh"))
         );
 
-        Assert.Throws<NotSupportedException>(
-            () => limited.GetAccelerationStructureAddress(default)
-        );
+        Assert.Throws<NotSupportedException>(() => limited.GetAccelerationStructureAddress(default));
     }
 
-    /// <summary>The command list refuses too, so a host that skipped its check finds out in a
-    ///     test rather than on a driver.</summary>
+    /// <summary>
+    ///     The command list refuses too, so a host that skipped its check finds out in a
+    ///     test rather than on a driver.
+    /// </summary>
     [Fact]
     public void ACommandListWithoutRayTracingRefusesABuild() {
         using var limited = new NullDevice(new() { Features = GraphicsDeviceFeatures.Minimum });
-        var input = BottomLevelInput(limited, indexCount: 36);
+        var input = BottomLevelInput(limited, 36);
         var scratch = limited.CreateBuffer(new(1024, BufferUsage.Storage, Name: "Scratch"));
 
         using var list = limited.BeginCommandList();
@@ -48,9 +48,9 @@ public sealed class AccelerationStructureTests : IDisposable {
     /// </summary>
     [Fact]
     public void SizesAreDeterministicAndGrowWithTheInput() {
-        var small = device.GetAccelerationStructureSizes(BottomLevelInput(device, indexCount: 36));
-        var again = device.GetAccelerationStructureSizes(BottomLevelInput(device, indexCount: 36));
-        var large = device.GetAccelerationStructureSizes(BottomLevelInput(device, indexCount: 360));
+        var small = device.GetAccelerationStructureSizes(BottomLevelInput(device, 36));
+        var again = device.GetAccelerationStructureSizes(BottomLevelInput(device, 36));
+        var large = device.GetAccelerationStructureSizes(BottomLevelInput(device, 360));
 
         Assert.Equal(small, again);
         Assert.True(small.Structure > 0);
@@ -59,8 +59,10 @@ public sealed class AccelerationStructureTests : IDisposable {
         Assert.True(large.Scratch > small.Scratch);
     }
 
-    /// <summary>A top-level build is sized by its instance count, not by triangle fields it does
-    ///     not read.</summary>
+    /// <summary>
+    ///     A top-level build is sized by its instance count, not by triangle fields it does
+    ///     not read.
+    /// </summary>
     [Fact]
     public void ATopLevelBuildIsSizedByItsInstances() {
         var instances = device.CreateBuffer(
@@ -93,12 +95,14 @@ public sealed class AccelerationStructureTests : IDisposable {
         Assert.Equal(before, device.LiveResourceCount);
     }
 
-    /// <summary>A size the device did not answer is refused at creation — the mistake is
-    ///     corruption on a real backend, so here it is an exception.</summary>
+    /// <summary>
+    ///     A size the device did not answer is refused at creation — the mistake is
+    ///     corruption on a real backend, so here it is an exception.
+    /// </summary>
     [Fact]
     public void AnInventedZeroSizeIsRefused() {
-        Assert.Throws<ArgumentOutOfRangeException>(
-            () => device.CreateAccelerationStructure(new(AccelerationStructureKind.BottomLevel, 0, "Empty"))
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            device.CreateAccelerationStructure(new(AccelerationStructureKind.BottomLevel, 0, "Empty"))
         );
     }
 
@@ -118,8 +122,10 @@ public sealed class AccelerationStructureTests : IDisposable {
         Assert.NotEqual(address, device.GetAccelerationStructureAddress(second));
     }
 
-    /// <summary>An address asked of a destroyed structure is caught here, rather than being a
-    ///     stale pointer a top-level build reads.</summary>
+    /// <summary>
+    ///     An address asked of a destroyed structure is caught here, rather than being a
+    ///     stale pointer a top-level build reads.
+    /// </summary>
     [Fact]
     public void ADestroyedStructureHasNoAddress() {
         var structure = device.CreateAccelerationStructure(new(AccelerationStructureKind.BottomLevel, 512, "Gone"));
@@ -128,11 +134,13 @@ public sealed class AccelerationStructureTests : IDisposable {
         Assert.Throws<ArgumentException>(() => device.GetAccelerationStructureAddress(structure));
     }
 
-    /// <summary>A build records what an assertion is about: which structure, which level, and how
-    ///     much geometry.</summary>
+    /// <summary>
+    ///     A build records what an assertion is about: which structure, which level, and how
+    ///     much geometry.
+    /// </summary>
     [Fact]
     public void ABuildRecordsItsTargetKindAndPrimitives() {
-        var input = BottomLevelInput(device, indexCount: 36);
+        var input = BottomLevelInput(device, 36);
         var sizes = device.GetAccelerationStructureSizes(input);
 
         var structure = device.CreateAccelerationStructure(
@@ -144,7 +152,7 @@ public sealed class AccelerationStructureTests : IDisposable {
         );
 
         using var list = device.BeginCommandList();
-        list.BuildAccelerationStructure(structure, input, scratch, scratchOffset: 64);
+        list.BuildAccelerationStructure(structure, input, scratch, 64);
         list.Finish();
         device.GraphicsQueue.Submit([list]);
 
@@ -157,11 +165,13 @@ public sealed class AccelerationStructureTests : IDisposable {
         Assert.Equal(64, built.E);
     }
 
-    /// <summary>A build inside a render pass is rejected everywhere — no API allows it — so the
-    ///     strictest backend says so first.</summary>
+    /// <summary>
+    ///     A build inside a render pass is rejected everywhere — no API allows it — so the
+    ///     strictest backend says so first.
+    /// </summary>
     [Fact]
     public void ABuildInsideARenderPassIsRefused() {
-        var input = BottomLevelInput(device, indexCount: 3);
+        var input = BottomLevelInput(device, 3);
         var sizes = device.GetAccelerationStructureSizes(input);
 
         var structure = device.CreateAccelerationStructure(

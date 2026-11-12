@@ -2,8 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System;
-using System.Collections.Generic;
-using System.Linq;
 
 /// <summary>
 ///     The two directions a benchmark run and a committed baseline can disagree about membership.
@@ -28,7 +26,7 @@ using System.Linq;
 ///     <para>
 ///         ⚠ <b>Adding a benchmark is meant to be a two-step change, not a blocked one.</b> The
 ///         failure names <c>--update-baseline</c>, which is the same shape
-///         <c>docs/WhitespaceExempt.txt</c> takes: a list that may only change deliberately, by a
+///         <c>docs/DocCommentExempt.txt</c> takes: a list that may only change deliberately, by a
 ///         command somebody runs, rather than one the gate quietly keeps up to date for itself.
 ///     </para>
 /// </remarks>

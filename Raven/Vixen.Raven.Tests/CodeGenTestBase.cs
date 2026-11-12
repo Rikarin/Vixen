@@ -4,7 +4,6 @@
 using Vixen.Core.Syntax.Diagnostics;
 using Vixen.Raven;
 using Vixen.Raven.CodeGen;
-using Vixen.Raven.Diagnostics;
 using Vixen.Raven.IR;
 using Vixen.Raven.Lowering;
 using Vixen.Raven.Symbols;
@@ -28,7 +27,7 @@ public static class CodeGenTestBase {
 
         Assert.True(
             lowering.Count == 0,
-            "Expected clean lowering, got:\n" + string.Join("\n", lowering.Select(d => d.ToString()))
+            "Expected clean lowering, got:\n" + string.Join("\n", lowering.Select(static d => d.ToString()))
         );
 
         return generated;
@@ -59,7 +58,7 @@ public static class CodeGenTestBase {
         var semantic = compilation.GetDiagnostics();
         Assert.True(
             semantic.Count == 0,
-            "Expected no semantic diagnostics, got:\n" + string.Join("\n", semantic.Select(d => d.ToString()))
+            "Expected no semantic diagnostics, got:\n" + string.Join("\n", semantic.Select(static d => d.ToString()))
         );
 
         var bag = new DiagnosticBag();
@@ -107,8 +106,12 @@ public static class CodeGenTestBase {
     /// <returns>At least one <see cref="GeneratedSource" />.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The count is asserted here because a dozen callers only assert inside a
-    ///         <c>foreach</c> over what comes back.</b> Every such loop reports a pass on the day the
+    ///         ⚠
+    ///         <b>
+    ///             The count is asserted here because a dozen callers only assert inside a
+    ///             <c>foreach</c> over what comes back.
+    ///         </b>
+    ///         Every such loop reports a pass on the day the
     ///         backend emitted nothing at all — it compiled nothing, validated nothing, and said a
     ///         reference front end had accepted it. That is the shape <c>#828</c> fixed in the golden
     ///         suites and this is the same shape in the rest of the code-gen tests.
@@ -124,10 +127,10 @@ public static class CodeGenTestBase {
     public static IReadOnlyList<GeneratedSource> GenerateClean(string source, string target = "glsl") {
         var generated = Generate(source, out var diagnostics, target);
 
-        var errors = diagnostics.Where(d => d.IsError).ToArray();
+        var errors = diagnostics.Where(static d => d.IsError).ToArray();
         Assert.True(
             errors.Length == 0,
-            "Expected no code generation errors, got:\n" + string.Join("\n", errors.Select(d => d.ToString()))
+            "Expected no code generation errors, got:\n" + string.Join("\n", errors.Select(static d => d.ToString()))
         );
 
         Assert.True(generated.Count > 0, EmptyResult(target));
@@ -148,7 +151,11 @@ public static class CodeGenTestBase {
         Assert.Single(GenerateClean(source, target)).Code;
 
     /// <summary>Wraps a body in a fragment shader and returns the generated GLSL.</summary>
-    public static string GeneratePixel(string body, string members = "", string signature = "func Fragment(): float4") =>
+    public static string GeneratePixel(
+        string body,
+        string members = "",
+        string signature = "func Fragment(): float4"
+    ) =>
         GenerateOne(
             $$"""
               package A

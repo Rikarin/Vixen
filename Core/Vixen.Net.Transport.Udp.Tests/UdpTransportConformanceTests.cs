@@ -28,9 +28,21 @@ public sealed class UdpTransportConformanceTests : TransportConformance {
 
     /// <inheritdoc />
     protected override ITransport CreateServer() =>
-        new UdpTransport(bus, new() { ListenEndPoint = listenAt, RemoteEndPoint = listenAt, ConnectTimeout = TimeSpan.FromMilliseconds(60) });
+        new UdpTransport(
+            bus,
+            new() {
+                ListenEndPoint = listenAt, RemoteEndPoint = listenAt, ConnectTimeout = TimeSpan.FromMilliseconds(60)
+            }
+        );
 
     /// <inheritdoc />
     protected override ITransport CreateClient() =>
-        new UdpTransport(bus, new() { ListenEndPoint = new(IPAddress.Loopback, 0), RemoteEndPoint = listenAt, ConnectTimeout = TimeSpan.FromMilliseconds(60) });
+        new UdpTransport(
+            bus,
+            new() {
+                ListenEndPoint = new(IPAddress.Loopback, 0),
+                RemoteEndPoint = listenAt,
+                ConnectTimeout = TimeSpan.FromMilliseconds(60)
+            }
+        );
 }

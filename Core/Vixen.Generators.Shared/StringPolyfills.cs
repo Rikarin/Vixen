@@ -14,7 +14,7 @@ internal static class StringPolyfills {
     public static bool StartsWith(this string text, char value) => text.Length > 0 && text[0] == value;
 
     /// <summary>Whether <paramref name="text" /> ends with <paramref name="value" />.</summary>
-    public static bool EndsWith(this string text, char value) => text.Length > 0 && text[text.Length - 1] == value;
+    public static bool EndsWith(this string text, char value) => text.Length > 0 && text[^1] == value;
 
     /// <summary>Whether <paramref name="text" /> contains <paramref name="value" />.</summary>
     public static bool Contains(this string text, char value) => text.IndexOf(value) >= 0;

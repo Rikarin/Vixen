@@ -4,7 +4,6 @@
 using Vixen.Graphics.Vulkan;
 using Vixen.TextureGraph;
 using Vixen.Texturing.Layers;
-using Vixen.Texturing.Painting;
 using Xunit;
 
 namespace Vixen.Texturing.Tests;
@@ -17,7 +16,7 @@ namespace Vixen.Texturing.Tests;
 public sealed class LayerBakeMixDeviceTests : IDisposable {
     const int Size = 64;
 
-    static readonly TextureLibrary Library = TextureNodeLibrary.Publish(null);
+    static readonly TextureLibrary Library = TextureNodeLibrary.Publish();
 
     static readonly HashSet<string> Both = new(StringComparer.Ordinal) { "normal", "ao" };
 
@@ -28,7 +27,9 @@ public sealed class LayerBakeMixDeviceTests : IDisposable {
 
     readonly string folder = Path.Combine(Path.GetTempPath(), $"vixen-bakemix-{Guid.NewGuid():N}");
 
-    public LayerBakeMixDeviceTests() => Directory.CreateDirectory(folder);
+    public LayerBakeMixDeviceTests() {
+        Directory.CreateDirectory(folder);
+    }
 
     public void Dispose() => Directory.Delete(folder, true);
 
@@ -51,7 +52,7 @@ public sealed class LayerBakeMixDeviceTests : IDisposable {
 
     [Fact]
     public void A_bake_switched_off_or_a_map_the_bake_lacks_writes_nothing() {
-        var stack = Stack(["baseColor"], normal: LayerBakeMix.Off);
+        var stack = Stack(["baseColor"], LayerBakeMix.Off);
         HashSet<string> occlusionOnly = new(StringComparer.Ordinal) { "ao" };
 
         Assert.Equal(["baseColor", "occlusion"], Outputs(LayerStackGraph.Build(stack, stack.Sets[0], baked: Both)));
@@ -116,9 +117,7 @@ public sealed class LayerBakeMixDeviceTests : IDisposable {
                 stack.Sets[0] with {
                     Layers = [
                         new() {
-                            Id = "shadow",
-                            Kind = LayerKind.Fill,
-                            Values = { ["occlusion"] = [0.5f, 0.5f, 0.5f, 1f] }
+                            Id = "shadow", Kind = LayerKind.Fill, Values = { ["occlusion"] = [0.5f, 0.5f, 0.5f, 1f] }
                         }
                     ]
                 }
@@ -139,7 +138,7 @@ public sealed class LayerBakeMixDeviceTests : IDisposable {
     public void A_flat_normal_fill_keeps_a_combined_bake_and_covers_a_replaced_one(LayerBakeMix mix, bool kept) {
         using var device = OpenDevice();
         using var evaluator = new TexturePlanEvaluator(device);
-        var stack = Stack(["baseColor", "normal"], normal: mix);
+        var stack = Stack(["baseColor", "normal"], mix);
         stack = stack with {
             Sets = [
                 stack.Sets[0] with {
@@ -161,13 +160,14 @@ public sealed class LayerBakeMixDeviceTests : IDisposable {
     }
 
     static IReadOnlyList<string> Outputs(LayerStackBuild build) => [
-        ..build.Graph.Nodes.Where(static node => node.Type == "Output/Output").Select(static node => node.Texts["Usage"])
+        ..build.Graph.Nodes.Where(static node => node.Type == "Output/Output")
+            .Select(static node => node.Texts["Usage"])
     ];
 
     static byte[] Read(LayerStackEvaluator run, string usage) {
         using var bake = run.EvaluateClean();
         var pixels = bake.Read(run.Outputs.Single(o => o.Usage == usage).Image).Pixels;
-        var middle = ((Size / 2 * Size) + (Size / 2)) * 4;
+        var middle = (Size / 2 * Size + Size / 2) * 4;
 
         return pixels[middle..(middle + 4)];
     }
@@ -204,11 +204,13 @@ public sealed class LayerBakeMixDeviceTests : IDisposable {
     LayerStackEvaluator Open(TexturePlanEvaluator evaluator, LayerStackAsset stack) {
         var run = new LayerStackEvaluator(
             evaluator,
-            new PaintCanvasStore(long.MaxValue),
+            new(long.MaxValue),
             Path.Combine(folder, $"{Guid.NewGuid():N}.vxlayers"),
             static (uploads, plan, owed) => {
                 foreach (var external in owed) {
-                    var texel = external.Asset.EndsWith(":normal", StringComparison.Ordinal) ? BakedNormal : BakedOcclusion;
+                    var texel = external.Asset.EndsWith(":normal", StringComparison.Ordinal)
+                        ? BakedNormal
+                        : BakedOcclusion;
                     uploads.AddPicture(plan, external.Image, 1, 1, texel, TextureFormat.Rgba8);
                 }
 

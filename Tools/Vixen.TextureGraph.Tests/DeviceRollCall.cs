@@ -21,8 +21,12 @@ namespace Vixen.Editor.Testing;
 ///         idea.
 ///     </para>
 ///     <para>
-///         ⚠ <b><see cref="Take" /> is the weaker of the mechanisms and it is kept because it covers
-///         a hole the stronger ones cannot.</b> A harness that names the adapter itself makes an
+///         ⚠
+///         <b>
+///             <see cref="Take" /> is the weaker of the mechanisms and it is kept because it covers
+///             a hole the stronger ones cannot.
+///         </b>
+///         A harness that names the adapter itself makes an
 ///         anonymous device impossible for anything that goes <em>through</em> the harness; a file
 ///         that creates a device itself bypasses it entirely, and this walk is what notices that the
 ///         file opened a device without naming one. It is weak because its detector is a
@@ -35,8 +39,11 @@ namespace Vixen.Editor.Testing;
 ///         two pieces and why these paragraphs do not spell either call.
 ///     </para>
 ///     <para>
-///         ⚠ <b><see cref="Sole" /> is the answer to that, and it is the one that makes an anonymous
-///         device impossible rather than merely noticed</b>
+///         ⚠
+///         <b>
+///             <see cref="Sole" /> is the answer to that, and it is the one that makes an anonymous
+///             device impossible rather than merely noticed
+///         </b>
 ///         (<a href="https://github.com/Rikarin/Vixen/issues/923">#923</a>). Its detector is the
 ///         backend call that actually produces a device, which no test author can rename, so the
 ///         subject set is every file that could open one rather than every file that named its
@@ -49,8 +56,12 @@ namespace Vixen.Editor.Testing;
 ///         the answer has been to widen the subject set to something the subject cannot opt out of.
 ///     </para>
 ///     <para>
-///         ⚠ <b>A walk that reads no files reports every file compliant, which is the failure
-///         criterion 11 exists because of</b> — eighteen golden files <em>passed</em> rather than
+///         ⚠
+///         <b>
+///             A walk that reads no files reports every file compliant, which is the failure
+///             criterion 11 exists because of
+///         </b>
+///         — eighteen golden files <em>passed</em> rather than
 ///         skipped without a device until 2026-08-21. So <see cref="Take" /> refuses before it
 ///         reports: the directory has to exist, it has to contain the caller's own anchor file, the
 ///         harness has to be one of the matches, and the match set has to be big enough to be the
@@ -91,7 +102,7 @@ static class DeviceRollCall {
         );
 
         var sources = Directory.GetFiles(directory, "*.cs", SearchOption.TopDirectoryOnly)
-            .Select(path => new Source(Path.GetFileName(path), File.ReadAllText(path)))
+            .Select(static path => new Source(Path.GetFileName(path), File.ReadAllText(path)))
             .ToArray();
 
         Assert.Contains(sources, source => string.Equals(source.Name, anchor, StringComparison.Ordinal));
@@ -147,16 +158,19 @@ static class DeviceRollCall {
 
         var unnamed = opening
             .Where(source => !source.Text.Contains(names, StringComparison.Ordinal))
-            .Select(source => source.Name)
+            .Select(static source => source.Name)
             .Order(StringComparer.Ordinal)
             .ToArray();
 
-        var excused = anonymous.Select(entry => entry.File).Order(StringComparer.Ordinal).ToArray();
+        var excused = anonymous.Select(static entry => entry.File).Order(StringComparer.Ordinal).ToArray();
 
         Assert.Equal(excused, unnamed);
 
-        Assert.All(excused, name => Assert.Contains(opening, source => string.Equals(source.Name, name, StringComparison.Ordinal)));
-        Assert.All(anonymous, entry => Assert.True(entry.Reason.Length > 40, entry.File));
+        Assert.All(
+            excused,
+            name => Assert.Contains(opening, source => string.Equals(source.Name, name, StringComparison.Ordinal))
+        );
+        Assert.All(anonymous, static entry => Assert.True(entry.Reason.Length > 40, entry.File));
     }
 
     /// <summary>
@@ -186,8 +200,8 @@ static class DeviceRollCall {
         ArgumentNullException.ThrowIfNull(sources);
 
         var creating = sources
-            .Where(source => source.Text.Contains(Creates, StringComparison.Ordinal))
-            .Select(source => source.Name)
+            .Where(static source => source.Text.Contains(Creates, StringComparison.Ordinal))
+            .Select(static source => source.Name)
             .Order(StringComparer.Ordinal)
             .ToArray();
 

@@ -20,8 +20,12 @@ enum QuantizeMode : byte {
 
 /// <summary>How many quads each arc gets, and what that cost.</summary>
 /// <remarks>
-///     ⚠ <b><see cref="Counts" /> may hold a zero and that is legitimate, which docs/plan/41 § D7 says
-///     in as many words</b> — a side that quantizes to nothing collapses, and collapsing one side is how
+///     ⚠
+///     <b>
+///         <see cref="Counts" /> may hold a zero and that is legitimate, which docs/plan/41 § D7 says
+///         in as many words
+///     </b>
+///     — a side that quantizes to nothing collapses, and collapsing one side is how
 ///     a five-sided patch becomes four-sided. What is <i>not</i> legitimate is a patch whose whole width
 ///     or whole height comes to zero, because that patch produces no quads at all;
 ///     <see cref="Quantizer" /> repairs those and <see cref="IsFeasible" /> goes false if it cannot.
@@ -47,8 +51,12 @@ sealed class Quantization {
     /// <summary>Per patch, a fan's three spoke counts, or three zeros where the patch is a quad.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A fan's three quad blocks are <c>a × b</c>, <c>b × c</c> and <c>c × a</c>, and its
-    ///         three sides come to <c>a + c</c>, <c>a + b</c> and <c>b + c</c>.</b> That is the whole of
+    ///         ⚠
+    ///         <b>
+    ///             A fan's three quad blocks are <c>a × b</c>, <c>b × c</c> and <c>c × a</c>, and its
+    ///             three sides come to <c>a + c</c>, <c>a + b</c> and <c>b + c</c>.
+    ///         </b>
+    ///         That is the whole of
     ///         the three-to-quads subdivision written as arithmetic: <i>a</i>, <i>b</i> and <i>c</i> are
     ///         the three spokes running from the centre out to the three side midpoints, every block's
     ///         two opposite sides agree by construction, and the sides' total is <c>2(a + b + c)</c> —
@@ -85,9 +93,13 @@ sealed class Quantization {
 ///         as possible to the size the density field asked for" is the deviation cost. Three reasons it
 ///         is this and not an integer program, and all three are constraints rather than preferences:
 ///         docs/plan/41 Part 1's licence table excludes Gurobi and CoMISo outright, the paper measures
-///         two hundred times the speed at better energy, and — the one § D14 needs — <b>a flow solver
-///         with an explicit tie-break is deterministic and auditable where an integer program's answer
-///         depends on its solver's version and its internal timing</b>.
+///         two hundred times the speed at better energy, and — the one § D14 needs —
+///         <b>
+///             a flow solver
+///             with an explicit tie-break is deterministic and auditable where an integer program's answer
+///             depends on its solver's version and its internal timing
+///         </b>
+///         .
 ///     </para>
 ///     <para>
 ///         <b>The formulation, in this codebase's terms.</b> One integer variable per
@@ -98,16 +110,24 @@ sealed class Quantization {
 ///         <c>(x − target)²</c>, convex and separable.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Bi-directed means an arc's two nodes may want the <i>same</i> sign, and that is why the
-///         search runs over two states per node rather than one.</b> A patch can walk a shared arc the
+///         ⚠
+///         <b>
+///             Bi-directed means an arc's two nodes may want the <i>same</i> sign, and that is why the
+///             search runs over two states per node rather than one.
+///         </b>
+///         A patch can walk a shared arc the
 ///         same way its neighbour does, in which case increasing that arc increases both nodes' sums —
 ///         an arc with two heads, which an ordinary directed flow has no way to write down. Doubling the
 ///         node set into "this node is one too high" and "this node is one too low" turns it back into
 ///         an ordinary shortest-path problem, exactly.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Starting from the per-arc rounded optimum is what makes the search exact rather than
-///         greedy.</b> At <c>x = round(t)</c> every single-step move costs <c>±2(x − t) + 1 ≥ 0</c>,
+///         ⚠
+///         <b>
+///             Starting from the per-arc rounded optimum is what makes the search exact rather than
+///             greedy.
+///         </b>
+///         At <c>x = round(t)</c> every single-step move costs <c>±2(x − t) + 1 ≥ 0</c>,
 ///         because <c>|x − t| ≤ ½</c> — so the residual graph has no negative arc and therefore no
 ///         negative cycle, which is the precondition the successive-shortest-path theorem needs.
 ///         Maintaining node potentials keeps it true after every augmentation, and the answer that comes
@@ -133,8 +153,12 @@ static class Quantizer {
     /// <summary>The multipliers on every target that are tried, in order, before a feature arc is let go.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A crease is worth more than a quad count, and docs/plan/41 says which of the two exit
-    ///         criteria this phase exists to make achievable.</b> The no-collapse floor under the feature
+    ///         ⚠
+    ///         <b>
+    ///             A crease is worth more than a quad count, and docs/plan/41 says which of the two exit
+    ///             criteria this phase exists to make achievable.
+    ///         </b>
+    ///         The no-collapse floor under the feature
     ///         arcs is a lower bound the router cannot move <i>down</i>, so on a partition whose targets
     ///         are all about one there is often no feasible routing at all — and the answer used to be to
     ///         drop the floor, which deletes a crease and takes a box from <c>5.9e-5</c> to
@@ -181,7 +205,7 @@ static class Quantizer {
         // refusal. Giving them up costs exactly the fans: `PatchExtractor` refuses a fan whose spokes
         // do not add up and leaves the hole it would have left anyway, and every other patch extracts
         // as it would have.
-        if (solved.IsFeasible || !layout.Patches.Any(patch => patch.IsFan)) {
+        if (solved.IsFeasible || !layout.Patches.Any(static patch => patch.IsFan)) {
             return solved;
         }
 
@@ -189,12 +213,12 @@ static class Quantizer {
 
         return without.IsFeasible
             ? new(
-                [.. without.Counts],
-                [.. without.Spokes],
+                [..without.Counts],
+                [..without.Spokes],
                 without.Deviation,
                 true,
                 [
-                    .. without.Warnings,
+                    ..without.Warnings,
                     "The three-sided patches could not be given a centre the rest of the system agreed with, "
                     + "so they were left out."
                 ]
@@ -228,12 +252,12 @@ static class Quantizer {
 
             if (relief > 1f) {
                 return new(
-                    [.. solved.Counts],
-                    [.. solved.Spokes],
+                    [..solved.Counts],
+                    [..solved.Spokes],
                     solved.Deviation,
                     true,
                     [
-                        .. solved.Warnings,
+                        ..solved.Warnings,
                         $"The budget was multiplied by {relief:0.#} so that no feature arc had to collapse."
                     ]
                 );
@@ -256,7 +280,7 @@ static class Quantizer {
         var arcs = layout.Arcs.Count;
         var warnings = new List<string>();
         var fanOf = Fans(layout, holdFans, out var fans);
-        var variables = arcs + (fans * 3);
+        var variables = arcs + fans * 3;
         var lower = new int[variables];
         var targets = new double[variables];
 
@@ -300,8 +324,8 @@ static class Quantizer {
                 && (layout.Arcs[arc].IsFeature
                     || (creased.Contains(layout.Arcs[arc].Vertices[0])
                         && creased.Contains(layout.Arcs[arc].Vertices[^1])))
-                ? 1
-                : 0;
+                    ? 1
+                    : 0;
         }
 
         // ⚠ A spoke's floor is one and it is not negotiable within a solve, because the fan's three
@@ -314,7 +338,7 @@ static class Quantizer {
             }
 
             var sides = layout.Patches[patch].Sides;
-            var slot = arcs + (fanOf[patch] * 3);
+            var slot = arcs + fanOf[patch] * 3;
 
             for (var at = 0; at < 3; at++) {
                 // a = (n₀ + n₁ − n₂) / 2 and its two rotations, taken on the *targets* so the router
@@ -323,7 +347,8 @@ static class Quantizer {
                     1d,
                     (Wanted(layout, sides[at], scale)
                         + Wanted(layout, sides[(at + 1) % 3], scale)
-                        - Wanted(layout, sides[(at + 2) % 3], scale)) * 0.5d
+                        - Wanted(layout, sides[(at + 2) % 3], scale))
+                    * 0.5d
                 );
 
                 lower[slot + at] = 1;
@@ -446,14 +471,14 @@ static class Quantizer {
         var spokes = new (int A, int B, int C)[layout.Patches.Count];
 
         for (var patch = 0; patch < spokes.Length; patch++) {
-            var slot = fanOf[patch] < 0 ? -1 : arcs + (fanOf[patch] * 3);
+            var slot = fanOf[patch] < 0 ? -1 : arcs + fanOf[patch] * 3;
 
             if (slot >= 0 && slot + 2 < counts.Length) {
                 spokes[patch] = (counts[slot], counts[slot + 1], counts[slot + 2]);
             }
         }
 
-        return new(counts[..arcs], spokes, Energy(counts, targets), feasible, [.. warnings]);
+        return new(counts[..arcs], spokes, Energy(counts, targets), feasible, [..warnings]);
     }
 
     /// <summary>What the density field asked of one side, before any rounding.</summary>
@@ -481,12 +506,12 @@ static class Quantizer {
             if (layout.Patches[patch].IsFan) {
                 var (a, b, c) = quantization.Spokes[patch];
 
-                total += ((long) a * b) + ((long) b * c) + ((long) c * a);
+                total += (long)a * b + (long)b * c + (long)c * a;
 
                 continue;
             }
 
-            total += (long) Sum(layout.Patches[patch].Sides[0], quantization.Counts)
+            total += (long)Sum(layout.Patches[patch].Sides[0], quantization.Counts)
                 * Sum(layout.Patches[patch].Sides[1], quantization.Counts);
         }
 
@@ -513,8 +538,12 @@ static class Quantizer {
     /// <summary>Forces open every patch that came out with no width or no height.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>§ D7: "a patch that collapses to nothing is a bug, and the validator refuses
-    ///         it".</b> The repair raises the floor under the largest arc of the collapsed direction —
+    ///         ⚠
+    ///         <b>
+    ///             § D7: "a patch that collapses to nothing is a bug, and the validator refuses
+    ///             it".
+    ///         </b>
+    ///         The repair raises the floor under the largest arc of the collapsed direction —
     ///         largest by target, tie-broken by index — which is the cheapest place to put the one quad
     ///         that has to exist.
     ///     </para>
@@ -549,7 +578,7 @@ static class Quantizer {
                 var best = -1;
                 var score = double.NegativeInfinity;
 
-                foreach (var side in (ArcUse[][]) [sides[pair], sides[pair + 2]]) {
+                foreach (var side in (ArcUse[][])[sides[pair], sides[pair + 2]]) {
                     foreach (var use in side) {
                         var target = layout.Arcs[use.Arc].Target;
 
@@ -587,7 +616,7 @@ static class Quantizer {
             // ⚠ Away from zero on a tie, which is a rule rather than a default: `MidpointRounding`'s
             // banker's rounding sends exactly-a-half to the *even* integer, so two arcs the density
             // field treated identically would round differently on the strength of their parity.
-            counts[arc] = Math.Max(lower[arc], (int) Math.Round(targets[arc], MidpointRounding.AwayFromZero));
+            counts[arc] = Math.Max(lower[arc], (int)Math.Round(targets[arc], MidpointRounding.AwayFromZero));
         }
 
         var states = graph.Nodes * 2;
@@ -696,7 +725,7 @@ static class Quantizer {
     static int Source(int[] residual, int ground) {
         for (var node = 0; node < residual.Length; node++) {
             if (node != ground && residual[node] != 0) {
-                return (node * 2) + (residual[node] > 0 ? 0 : 1);
+                return node * 2 + (residual[node] > 0 ? 0 : 1);
             }
         }
 
@@ -755,7 +784,7 @@ static class Quantizer {
 
                 var cost = Marginal(counts[arc], targets[arc], step);
                 var other = graph.Other(arc, node, out var otherSign);
-                var next = (other * 2) + (-sign * otherSign * incidence > 0 ? 0 : 1);
+                var next = other * 2 + (-sign * otherSign * incidence > 0 ? 0 : 1);
                 var reduced = cost + potential[state] - potential[next];
 
                 // Reduced costs are non-negative by construction, and clamping rather than trusting
@@ -820,7 +849,7 @@ static class Quantizer {
                 }
 
                 var other = graph.Other(arc, node, out var otherSign);
-                var next = (other * 2) + (-sign * otherSign * incidence > 0 ? 0 : 1);
+                var next = other * 2 + (-sign * otherSign * incidence > 0 ? 0 : 1);
 
                 if (seen[next]) {
                     continue;
@@ -843,8 +872,12 @@ static class Quantizer {
     ///         there, so it cancels only where the node was already negative — and the other way round.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The source's own node stays eligible, and excluding it is what leaves a lone
-    ///         imbalance of two permanently stuck.</b> A node whose residual is <c>+2</c> with every
+    ///         ⚠
+    ///         <b>
+    ///             The source's own node stays eligible, and excluding it is what leaves a lone
+    ///             imbalance of two permanently stuck.
+    ///         </b>
+    ///         A node whose residual is <c>+2</c> with every
     ///         other node balanced has no partner anywhere: the only way to fix it is a path that leaves
     ///         it and returns through a two-headed arc, taking a unit off at each end. The sink test
     ///         already tells that apart from a path that comes back and undoes itself — returning in the
@@ -875,8 +908,12 @@ static class Quantizer {
     /// <summary>Walks the path back and applies every step of it, or none of them.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A path may cross the same arc twice, and the search checks one step at a time — so
-    ///         the lower bound has to be re-checked <i>after</i> the whole path is laid down.</b> The
+    ///         ⚠
+    ///         <b>
+    ///             A path may cross the same arc twice, and the search checks one step at a time — so
+    ///             the lower bound has to be re-checked <i>after</i> the whole path is laid down.
+    ///         </b>
+    ///         The
     ///         states are <c>(node, sign)</c> pairs and the search tree is over states, so no state
     ///         repeats on a path; an <i>arc</i> repeats whenever the path leaves a node in one state and
     ///         comes back to it in the other, which is exactly the two-headed case the bi-directed
@@ -884,8 +921,12 @@ static class Quantizer {
     ///         move, both pass, and an arc sitting one above its bound goes one below it.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Measured on § D9's solved base, where it is reachable and on the naive one it was
-    ///         not.</b> A box and a sphere both quantized a side to <c>−1</c>; that side's patch then
+    ///         ⚠
+    ///         <b>
+    ///             Measured on § D9's solved base, where it is reachable and on the naive one it was
+    ///             not.
+    ///         </b>
+    ///         A box and a sphere both quantized a side to <c>−1</c>; that side's patch then
     ///         reported its two opposite sides disagreeing, <see cref="PatchExtractor" /> skipped it, and
     ///         the box came back with 30 boundary edges and a feature reproduction error of
     ///         <c>2.8e-2</c> — three orders past docs/plan/41's second exit criterion, from one integer.
@@ -912,7 +953,7 @@ static class Quantizer {
             // path instead was measured and is a catastrophe: the router stalls, `Collapse` takes whole
             // components down to their lower bounds, and the real corpus came back with 5 quads on one
             // mesh and 68 on another against a budget of 5,000.
-            counts[arc] = Math.Max(lower[arc], counts[arc] + (-sign * graph.Incidence(arc, node)));
+            counts[arc] = Math.Max(lower[arc], counts[arc] + -sign * graph.Incidence(arc, node));
         }
     }
 
@@ -921,15 +962,19 @@ static class Quantizer {
         var here = count - target;
         var there = count + step - target;
 
-        return (there * there) - (here * here);
+        return there * there - here * here;
     }
 
     readonly record struct Reached(int Sink, int[] FromArc, int[] FromState);
 
     /// <summary>The bi-directed graph: arcs, and the nodes they carry a sign at.</summary>
     /// <remarks>
-    ///     ⚠ <b>An arc in more than two nodes is not a flow arc at all, and it is pinned rather than
-    ///     approximated.</b> A patch that walks the same arc twice — which happens where an annulus was
+    ///     ⚠
+    ///     <b>
+    ///         An arc in more than two nodes is not a flow arc at all, and it is pinned rather than
+    ///         approximated.
+    ///     </b>
+    ///     A patch that walks the same arc twice — which happens where an annulus was
     ///     cut to a disc — puts one variable into three or four constraints, and the shortest-path
     ///     machinery below has no meaning there. Pinning it to its rounded target keeps the rest of the
     ///     system a genuine flow problem and keeps the answer exact <i>for that system</i>, which is
@@ -1000,8 +1045,12 @@ static class Quantizer {
 
         /// <summary>Builds the constraints: two nodes per quad patch, three per fan, one ground.</summary>
         /// <remarks>
-        ///     ⚠ <b>A fan's three constraints are the <i>same</i> conservation law the quad patches
-        ///     carry, and that is why the router needs no new machinery for it.</b> Side <i>k</i> of a
+        ///     ⚠
+        ///     <b>
+        ///         A fan's three constraints are the <i>same</i> conservation law the quad patches
+        ///         carry, and that is why the router needs no new machinery for it.
+        ///     </b>
+        ///     Side <i>k</i> of a
         ///     fan equals two of its spokes — <c>n₀ = a + c</c>, <c>n₁ = a + b</c>, <c>n₂ = b + c</c> —
         ///     which is one group of variables summing to another, exactly like "these two opposite side
         ///     groups agree". A spoke appears in two nodes with the <i>same</i> sign, which is the
@@ -1034,7 +1083,7 @@ static class Quantizer {
                         continue;
                     }
 
-                    var slot = arcs + (fanOf[patch] * 3);
+                    var slot = arcs + fanOf[patch] * 3;
 
                     for (var at = 0; at < 3; at++) {
                         var node = offset[patch] + at;
@@ -1044,7 +1093,7 @@ static class Quantizer {
                         }
 
                         built[slot + at].Add((node, -1));
-                        built[slot + ((at + 2) % 3)].Add((node, -1));
+                        built[slot + (at + 2) % 3].Add((node, -1));
                     }
 
                     continue;
@@ -1079,15 +1128,15 @@ static class Quantizer {
                     }
                 }
 
-                merged.RemoveAll(entry => entry.Sign == 0);
+                merged.RemoveAll(static entry => entry.Sign == 0);
 
-                every[arc] = [.. merged];
+                every[arc] = [..merged];
 
                 // Pinned: not a flow arc, so the search never moves it — but it still counts toward
                 // its patches' sums, which is what `every` is for.
-                incidence[arc] = merged.Count > 2 || merged.Exists(entry => Math.Abs(entry.Sign) != 1)
+                incidence[arc] = merged.Count > 2 || merged.Exists(static entry => Math.Abs(entry.Sign) != 1)
                     ? []
-                    : [.. merged];
+                    : [..merged];
             }
 
             var counts = new int[nodes + 1];

@@ -24,7 +24,7 @@ public class CommandRouteTests {
     public void The_focused_leaf_decides_which_of_two_handlers_runs() {
         using var document = new UiDocument(100f, 100f);
 
-        var ran = "";
+        var ran = string.Empty;
 
         var outliner = View(document.Root);
         var browser = View(document.Root);
@@ -72,13 +72,27 @@ public class CommandRouteTests {
 
         var nearAsked = 0;
         var farAsked = 0;
-        var ran = "";
+        var ran = string.Empty;
 
         var panel = document.Root.Add("div");
         var leaf = View(panel);
 
-        panel.AddCommandHandler("edit.copy", () => ran = "panel", () => { farAsked++; return true; });
-        leaf.AddCommandHandler("edit.copy", () => ran = "leaf", () => { nearAsked++; return true; });
+        panel.AddCommandHandler(
+            "edit.copy",
+            () => ran = "panel",
+            () => {
+                farAsked++;
+                return true;
+            }
+        );
+        leaf.AddCommandHandler(
+            "edit.copy",
+            () => ran = "leaf",
+            () => {
+                nearAsked++;
+                return true;
+            }
+        );
 
         document.Focus(leaf);
 
@@ -94,13 +108,13 @@ public class CommandRouteTests {
     public void The_nearer_responder_saying_no_does_not_fall_through_to_the_further_one() {
         using var document = new UiDocument(100f, 100f);
 
-        var ran = "";
+        var ran = string.Empty;
 
         var panel = document.Root.Add("div");
         var leaf = View(panel);
 
         panel.AddCommandHandler("edit.copy", () => ran = "panel");
-        leaf.AddCommandHandler("edit.copy", () => ran = "leaf", () => false);
+        leaf.AddCommandHandler("edit.copy", () => ran = "leaf", static () => false);
 
         document.Focus(leaf);
 
@@ -108,7 +122,7 @@ public class CommandRouteTests {
         // fell through, adding a panel above a view would silently change what its disabled Copy did.
         Assert.False(CommandRoute.CanExecute(document, "edit.copy"));
         Assert.False(CommandRoute.Execute(document, "edit.copy"));
-        Assert.Equal("", ran);
+        Assert.Equal(string.Empty, ran);
         Assert.Same(leaf, CommandRoute.Resolve(document, "edit.copy")!.Value.Element);
     }
 
@@ -153,7 +167,7 @@ public class CommandRouteTests {
         var selection = 0;
 
         var view = View(document.Root);
-        view.AddCommandHandler("edit.copy", () => { }, () => selection > 0);
+        view.AddCommandHandler("edit.copy", static () => { }, () => selection > 0);
 
         document.Focus(view);
         Assert.False(CommandRoute.CanExecute(document, "edit.copy"));
@@ -219,7 +233,7 @@ public class CommandRouteTests {
     public void Blurring_puts_the_route_back_on_the_document() {
         using var document = new UiDocument(100f, 100f);
 
-        var ran = "";
+        var ran = string.Empty;
 
         document.Root.AddCommandHandler("edit.copy", () => ran = "root");
 
@@ -239,7 +253,7 @@ public class CommandRouteTests {
     public void Removing_the_focused_view_takes_its_handler_off_the_route() {
         using var document = new UiDocument(100f, 100f);
 
-        var ran = "";
+        var ran = string.Empty;
 
         document.Root.AddCommandHandler("edit.copy", () => ran = "root");
 
@@ -264,7 +278,7 @@ public class CommandRouteTests {
     public void A_handler_can_be_taken_off_and_the_route_then_reaches_past_it() {
         using var document = new UiDocument(100f, 100f);
 
-        var ran = "";
+        var ran = string.Empty;
 
         document.Root.AddCommandHandler("edit.copy", () => ran = "root");
 
@@ -284,14 +298,14 @@ public class CommandRouteTests {
         using var document = new UiDocument(100f, 100f);
 
         var view = View(document.Root);
-        view.AddCommandHandler("edit.copy", () => { });
+        view.AddCommandHandler("edit.copy", static () => { });
 
-        var thrown = Assert.Throws<ArgumentException>(() => view.AddCommandHandler("edit.copy", () => { }));
+        var thrown = Assert.Throws<ArgumentException>(() => view.AddCommandHandler("edit.copy", static () => { }));
         Assert.Contains("edit.copy", thrown.Message, StringComparison.Ordinal);
 
         // Two *different* elements declaring it is the whole point and is not a collision.
         var other = View(document.Root);
-        other.AddCommandHandler("edit.copy", () => { });
+        other.AddCommandHandler("edit.copy", static () => { });
 
         Assert.Equal(["edit.copy"], view.CommandHandlerIds);
     }
@@ -316,7 +330,7 @@ public class CommandRouteTests {
     public void The_route_crosses_a_surface_boundary_up_to_the_document() {
         using var document = new UiDocument(100f, 100f);
 
-        var ran = "";
+        var ran = string.Empty;
         document.Root.AddCommandHandler("file.save", () => ran = "document");
 
         var surface = document.CreateSurface(64f, 64f);
@@ -336,7 +350,7 @@ public class CommandRouteTests {
         using var document = new UiDocument(100f, 100f);
 
         var view = View(document.Root);
-        view.AddCommandHandler("edit.copy", () => { });
+        view.AddCommandHandler("edit.copy", static () => { });
 
         var palette = document.Root.Add("div");
         palette.IsCommandTransparent = true;
@@ -380,7 +394,7 @@ public class CommandRouteTests {
         using var document = new UiDocument(100f, 100f);
 
         var view = View(document.Root);
-        view.AddCommandHandler("edit.copy", () => { });
+        view.AddCommandHandler("edit.copy", static () => { });
 
         var palette = document.Root.Add("div");
         palette.IsCommandTransparent = true;
@@ -407,9 +421,9 @@ public class CommandRouteTests {
         var grid = true;
 
         var view = View(document.Root);
-        view.AddCommandHandler("edit.undo", () => { }, title: () => $"Undo {what}");
+        view.AddCommandHandler("edit.undo", static () => { }, title: () => $"Undo {what}");
         view.AddCommandHandler("view.grid", () => grid = !grid, isChecked: () => grid);
-        view.AddCommandHandler("edit.copy", () => { });
+        view.AddCommandHandler("edit.copy", static () => { });
 
         document.Focus(view);
 

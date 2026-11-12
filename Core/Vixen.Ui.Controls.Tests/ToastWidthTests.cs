@@ -10,8 +10,12 @@ namespace Vixen.Ui.Controls.Tests;
 /// <summary>A toast whose message is longer than the window fits inside the window — issue #1400.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>The toast was as wide as its message, on one line, and ran off the window's left
-///         edge.</b> Measured here before the fix, in a 400×300 window: the host and the toast 1528 px
+///         ⚠
+///         <b>
+///             The toast was as wide as its message, on one line, and ran off the window's left
+///             edge.
+///         </b>
+///         Measured here before the fix, in a 400×300 window: the host and the toast 1528 px
 ///         wide at x −1144, the message one 1464 px line, the close button at x 343.
 ///     </para>
 ///     <para>
@@ -25,8 +29,12 @@ namespace Vixen.Ui.Controls.Tests;
 ///         here, because code positions a great many absolute boxes by <c>left</c> alone.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The second was fixed in the layout afterwards (#1448), and the toast's cap came out
-///         with it</b>: a row offered "at most" a width is bounded by the offer and shrinks its items.
+///         ⚠
+///         <b>
+///             The second was fixed in the layout afterwards (#1448), and the toast's cap came out
+///             with it
+///         </b>
+///         : a row offered "at most" a width is bounded by the offer and shrinks its items.
 ///         These facts were red with the cap removed and the engine unchanged, and are green with the
 ///         cap removed and the engine fixed, so the toast is now the engine's regression test as well.
 ///         ⚠ <b>And so was the first (#1447)</b>: an auto-width absolute box shrinks to its containing
@@ -52,7 +60,7 @@ public class ToastWidthTests {
     /// <summary>The toast lies inside the window, gutter and all, and the message wraps to fit it.</summary>
     [Fact]
     public void A_toast_longer_than_the_window_fits_inside_it() {
-        using var ui = ControlHarness.Open(Width, Height);
+        using var ui = ControlHarness.Open();
         var host = ui.Add<ToastHost>("toasts");
         var toast = host.Show(Long);
 
@@ -74,13 +82,16 @@ public class ToastWidthTests {
         );
 
         var message = toast.MessagePart.Bounds;
-        Assert.True(message.Left >= box.Left && message.Right <= box.Right, $"the message {message} runs outside its toast {box}.");
+        Assert.True(
+            message.Left >= box.Left && message.Right <= box.Right,
+            $"the message {message} runs outside its toast {box}."
+        );
     }
 
     /// <summary>The close button of a long toast can be reached, and takes the toast away.</summary>
     [Fact]
     public void The_close_button_of_a_long_toast_is_reachable() {
-        using var ui = ControlHarness.Open(Width, Height);
+        using var ui = ControlHarness.Open();
         var host = ui.Add<ToastHost>("toasts");
         var toast = host.Show(Long);
 
@@ -88,9 +99,12 @@ public class ToastWidthTests {
         ui.Frame();
 
         var close = toast.CloseButton.Bounds;
-        var (x, y) = (close.X + (close.Width / 2f), close.Y + (close.Height / 2f));
+        var (x, y) = (close.X + close.Width / 2f, close.Y + close.Height / 2f);
 
-        Assert.True(x is >= 0f and < Width && y is >= 0f and < Height, $"the close button's centre ({x}, {y}) is off the window.");
+        Assert.True(
+            x is >= 0f and < Width && y is >= 0f and < Height,
+            $"the close button's centre ({x}, {y}) is off the window."
+        );
 
         var hit = ui.MovePointer(x, y);
         Assert.True(IsInside(hit, toast.CloseButton), $"a pointer at the close button's centre finds <{hit?.Tag}>.");
@@ -110,7 +124,7 @@ public class ToastWidthTests {
     /// </remarks>
     [Fact]
     public void A_short_toast_stays_in_the_corner_and_the_strip_beside_it_is_not_the_host_s() {
-        using var ui = ControlHarness.Open(Width, Height);
+        using var ui = ControlHarness.Open();
         var host = ui.Add<ToastHost>("toasts");
         var toast = host.Show("Saved.");
 
@@ -120,11 +134,17 @@ public class ToastWidthTests {
         var box = toast.Bounds;
 
         Assert.Equal(Width - Gutter, box.Right, 0.5f);
-        Assert.True(box.Width < Width - (2f * Gutter) - 1f, $"a two-word toast is {box.Width} px wide, the whole strip.");
+        Assert.True(
+            box.Width < Width - 2f * Gutter - 1f,
+            $"a two-word toast is {box.Width} px wide, the whole strip."
+        );
 
         // Beside the toast, at its own height, inside the host's box.
-        var (x, y) = (Gutter + 10f, box.Y + (box.Height / 2f));
-        Assert.True(x >= host.Bounds.Left && x < host.Bounds.Right && y >= host.Bounds.Top && y < host.Bounds.Bottom, $"({x}, {y}) is not inside the host {host.Bounds}, so this measures nothing.");
+        var (x, y) = (Gutter + 10f, box.Y + box.Height / 2f);
+        Assert.True(
+            x >= host.Bounds.Left && x < host.Bounds.Right && y >= host.Bounds.Top && y < host.Bounds.Bottom,
+            $"({x}, {y}) is not inside the host {host.Bounds}, so this measures nothing."
+        );
 
         var hit = ui.MovePointer(x, y);
         Assert.False(IsInside(hit, host), $"a pointer beside the toast finds <{hit?.Tag}>, inside the host.");

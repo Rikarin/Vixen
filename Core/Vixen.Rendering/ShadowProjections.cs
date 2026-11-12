@@ -109,8 +109,12 @@ public static class ShadowProjections {
     ///         an offset that a shading pass and a caster pass have to agree about twice.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The two axes are not symmetric, and that asymmetry is the whole of this
-    ///         function's difficulty.</b> <c>Transform.NdcToUv</c> negates y and not x, so the y
+    ///         ⚠
+    ///         <b>
+    ///             The two axes are not symmetric, and that asymmetry is the whole of this
+    ///             function's difficulty.
+    ///         </b>
+    ///         <c>Transform.NdcToUv</c> negates y and not x, so the y
     ///         translation is the x one's mirror: <c>1 − scale − 2·offset</c> against
     ///         <c>2·offset + scale − 1</c>. Get it wrong and every lookup lands in the tile of
     ///         whichever row is opposite — reading a depth that is real, from the wrong light or the
@@ -121,16 +125,27 @@ public static class ShadowProjections {
     /// </remarks>
     public static Matrix4x4 Tile(in Matrix4x4 viewProjection, Vector2 scale, Vector2 offset) {
         var tile = new Matrix4x4(
-            scale.X, 0f, 0f, 0f,
-            0f, scale.Y, 0f, 0f,
-            0f, 0f, 1f, 0f,
-            (2f * offset.X) + scale.X - 1f, 1f - scale.Y - (2f * offset.Y), 0f, 1f
+            scale.X,
+            0f,
+            0f,
+            0f,
+            0f,
+            scale.Y,
+            0f,
+            0f,
+            0f,
+            0f,
+            1f,
+            0f,
+            2f * offset.X + scale.X - 1f,
+            1f - scale.Y - 2f * offset.Y,
+            0f,
+            1f
         );
 
         return viewProjection * tile;
     }
 
     /// <summary>An up vector that is not parallel to <paramref name="forward" />.</summary>
-    static Vector3 UpFor(Vector3 forward) =>
-        MathF.Abs(forward.Y) > 0.99f ? new(0f, 0f, 1f) : new(0f, 1f, 0f);
+    static Vector3 UpFor(Vector3 forward) => MathF.Abs(forward.Y) > 0.99f ? new(0f, 0f, 1f) : new(0f, 1f, 0f);
 }

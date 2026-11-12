@@ -25,7 +25,7 @@ public class PerceptionLayeringTests {
     [Fact]
     public void PerceptionReferencesNothingAboveIt() {
         var violations = References()
-            .Where(name => Forbidden.Any(prefix => name.StartsWith(prefix, StringComparison.Ordinal)))
+            .Where(static name => Forbidden.Any(prefix => name.StartsWith(prefix, StringComparison.Ordinal)))
             .ToList();
 
         Assert.True(
@@ -57,7 +57,7 @@ public class PerceptionLayeringTests {
         };
 
         var unexpected = References()
-            .Where(name => name.StartsWith("Vixen.", StringComparison.Ordinal))
+            .Where(static name => name.StartsWith("Vixen.", StringComparison.Ordinal))
             .Where(name => !allowed.Contains(name))
             .ToList();
 
@@ -69,5 +69,6 @@ public class PerceptionLayeringTests {
     }
 
     static IEnumerable<string> References() =>
-        typeof(PerceptionSystem).Assembly.GetReferencedAssemblies().Select(assembly => assembly.Name ?? string.Empty);
+        typeof(PerceptionSystem).Assembly.GetReferencedAssemblies()
+            .Select(static assembly => assembly.Name ?? string.Empty);
 }

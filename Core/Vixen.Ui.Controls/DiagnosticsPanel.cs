@@ -15,8 +15,12 @@ namespace Vixen.Ui.Controls;
 ///         <c>Vixen.Ui</c>'s and a control is not.
 ///     </para>
 ///     <para>
-///         ⚠ <b>A control rather than an <c>IDiagnosticOverlay</c>, and the seam is the whole reason
-///         why.</b> The other overlays report a frame the interface knows nothing about, so they live
+///         ⚠
+///         <b>
+///             A control rather than an <c>IDiagnosticOverlay</c>, and the seam is the whole reason
+///             why.
+///         </b>
+///         The other overlays report a frame the interface knows nothing about, so they live
 ///         where the frame does. Every number here is <em>about</em> a <see cref="UiDocument" /> —
 ///         and the one host whose whole job is drawing one, <c>UiApplication</c>, may not reference
 ///         <c>Vixen.Engine</c> at all, while the one production holder of a <c>DiagnosticOverlays</c>
@@ -26,8 +30,12 @@ namespace Vixen.Ui.Controls;
 ///         reference in either direction.
 ///     </para>
 ///     <para>
-///         ⚠ <b>It reports the frame before this one, deliberately, and that is not a rounding
-///         error.</b> A panel drawn into the document it describes <em>is</em> part of that document:
+///         ⚠
+///         <b>
+///             It reports the frame before this one, deliberately, and that is not a rounding
+///             error.
+///         </b>
+///         A panel drawn into the document it describes <em>is</em> part of that document:
 ///         it has elements, it is styled, it is laid out, and so it moves <c>StylesApplied</c>,
 ///         <c>LayoutNodes</c> and the settling counters it is reporting. Call <see cref="Refresh" />
 ///         at the top of the frame, before the document restyles, and the numbers shown are the ones
@@ -69,8 +77,12 @@ public sealed class DiagnosticsPanel : Control {
     /// <summary>Where the element description comes from, in the subject's coordinates.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A point rather than an element, because the question doc 13 asks is "what is
-    ///         under the pointer".</b> Cleared, the element rows do not go stale — a panel that kept
+    ///         ⚠
+    ///         <b>
+    ///             A point rather than an element, because the question doc 13 asks is "what is
+    ///             under the pointer".
+    ///         </b>
+    ///         Cleared, the element rows do not go stale — a panel that kept
     ///         describing the last element the pointer crossed is a panel that lies about a document
     ///         whose layout has since moved.
     ///     </para>
@@ -201,8 +213,7 @@ public sealed class DiagnosticsPanel : Control {
             )
         );
 
-    void Write(ref int row, string key, int value) =>
-        Write(ref row, key, value.ToString(CultureInfo.InvariantCulture));
+    void Write(ref int row, string key, int value) => Write(ref row, key, value.ToString(CultureInfo.InvariantCulture));
 
     void Write(ref int row, string key, long value) =>
         Write(ref row, key, value.ToString(CultureInfo.InvariantCulture));

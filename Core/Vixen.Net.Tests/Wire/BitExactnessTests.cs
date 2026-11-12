@@ -16,8 +16,11 @@ namespace Vixen.Net.Tests.Wire;
 /// <summary>Phase 9's last exit criterion: the same bytes on every machine.</summary>
 /// <remarks>
 ///     <para>
-///         <b>Two peers that encode the same value differently do not disagree — they desync, and
-///         they do it quietly.</b> A snapshot is a difference measured against a capture the receiver
+///         <b>
+///             Two peers that encode the same value differently do not disagree — they desync, and
+///             they do it quietly.
+///         </b>
+///         A snapshot is a difference measured against a capture the receiver
 ///         also holds, so one machine rounding a quantized level one step differently from another
 ///         corrupts every difference measured from it afterwards. Nothing throws, nothing is refused,
 ///         and the object is in the wrong place on one player's screen for the rest of the match.
@@ -137,10 +140,10 @@ public sealed class BitExactnessTests {
         // Fields that straddle byte boundaries, which is where a shift written the other way round
         // produces the same length and different bytes.
         var straddling = new BitWriter(buffer);
-        straddling.WriteBool(value: true);
+        straddling.WriteBool(true);
         straddling.Write(0x2A, 6);
         straddling.Write(0x1FF, 9);
-        straddling.WriteBool(value: false);
+        straddling.WriteBool(false);
         straddling.Write(0xFFFF_FFFF, 32);
         Assert.True(straddling.TryFinish(out var straddled));
         listing.Case("straddling", straddled);
@@ -166,13 +169,9 @@ public sealed class BitExactnessTests {
         var listing = WireGolden.Begin();
 
         var ranges = new (string Name, QuantizeRange Range)[] {
-            ("unit8", new(0f, 1f, 8)),
-            ("signed16", new(-1000f, 1000f, 16)),
-            ("rotation10", MathCodec.RotationRange),
-            ("position16", NetworkTransformReplicator.PositionRange),
-            ("one-bit", new(0f, 1f, 1)),
-            ("full-width", new(-1f, 1f, 32)),
-            ("asymmetric", new(-0.125f, 7.375f, 12))
+            ("unit8", new(0f, 1f, 8)), ("signed16", new(-1000f, 1000f, 16)), ("rotation10", MathCodec.RotationRange),
+            ("position16", NetworkTransformReplicator.PositionRange), ("one-bit", new(0f, 1f, 1)),
+            ("full-width", new(-1f, 1f, 32)), ("asymmetric", new(-0.125f, 7.375f, 12))
         };
 
         foreach (var (rangeName, range) in ranges) {
@@ -185,7 +184,7 @@ public sealed class BitExactnessTests {
             var span = (double)range.Max - range.Min;
 
             foreach (var step in (uint[])[0, 1, 2, range.Levels / 2, range.Levels - 1, range.Levels]) {
-                var onLevel = (float)(range.Min + (step / (double)range.Levels * span));
+                var onLevel = (float)(range.Min + step / (double)range.Levels * span);
                 listing.Case($"level/{rangeName}/{step}", range.Encode(onLevel));
                 listing.Case($"level/{rangeName}/{step}/below", range.Encode(Below(onLevel)));
                 listing.Case($"level/{rangeName}/{step}/above", range.Encode(Above(onLevel)));
@@ -210,21 +209,15 @@ public sealed class BitExactnessTests {
         var buffer = new byte[16];
 
         var rotations = new (string Name, Quaternion Value)[] {
-            ("identity", Quaternion.Identity),
-            ("negated-identity", new(0f, 0f, 0f, -1f)),
-            ("x-largest", new(0.9f, 0.1f, 0.2f, 0.3f)),
-            ("y-largest", new(0.1f, 0.9f, 0.2f, 0.3f)),
-            ("z-largest", new(0.1f, 0.2f, 0.9f, 0.3f)),
-            ("w-largest", new(0.1f, 0.2f, 0.3f, 0.9f)),
+            ("identity", Quaternion.Identity), ("negated-identity", new(0f, 0f, 0f, -1f)),
+            ("x-largest", new(0.9f, 0.1f, 0.2f, 0.3f)), ("y-largest", new(0.1f, 0.9f, 0.2f, 0.3f)),
+            ("z-largest", new(0.1f, 0.2f, 0.9f, 0.3f)), ("w-largest", new(0.1f, 0.2f, 0.3f, 0.9f)),
             ("negative-largest", new(-0.9f, 0.1f, 0.2f, 0.3f)),
             // Two components of equal magnitude. Which one is "largest" is decided by a strict
             // comparison and the order of the loop, so this pins the tie-break rather than leaving
             // it to be discovered.
-            ("tied-xy", new(0.5f, 0.5f, 0.5f, 0.5f)),
-            ("tied-negated", new(-0.5f, 0.5f, -0.5f, 0.5f)),
-            ("half-turn-x", new(1f, 0f, 0f, 0f)),
-            ("not-normalized", new(2f, 4f, 8f, 16f)),
-            ("degenerate", default)
+            ("tied-xy", new(0.5f, 0.5f, 0.5f, 0.5f)), ("tied-negated", new(-0.5f, 0.5f, -0.5f, 0.5f)),
+            ("half-turn-x", new(1f, 0f, 0f, 0f)), ("not-normalized", new(2f, 4f, 8f, 16f)), ("degenerate", default)
         };
 
         foreach (var (name, rotation) in rotations) {
@@ -269,8 +262,7 @@ public sealed class BitExactnessTests {
         // Positions and rotations stated rather than generated. A loop with a trigonometric function
         // in it would make this a test of the platform's libm — see the remarks on the class.
         var placements = new (Vector3 Position, Quaternion Rotation)[] {
-            (new(0f, 0f, 0f), Quaternion.Identity),
-            (new(1.5f, -2.25f, 3.125f), new(0.5f, 0.5f, 0.5f, 0.5f)),
+            (new(0f, 0f, 0f), Quaternion.Identity), (new(1.5f, -2.25f, 3.125f), new(0.5f, 0.5f, 0.5f, 0.5f)),
             (new(-999.9f, 0.0625f, 999.9f), new(0.1f, 0.2f, 0.3f, 0.9f)),
             (new(0.03051804f, -0.03051804f, 0.015259f), new(-0.7071068f, 0f, 0f, 0.7071068f))
         };
@@ -386,7 +378,7 @@ public sealed class BitExactnessTests {
     public void ASpawnIsTheSameBytesEverywhere() {
         var listing = WireGolden.Begin();
 
-        string[] addresses = ["", "gameplay/prefabs/crate", "gameplay/prefabs/turret", "ünïcøde/pråth", "a"];
+        string[] addresses = [string.Empty, "gameplay/prefabs/crate", "gameplay/prefabs/turret", "ünïcøde/pråth", "a"];
 
         foreach (var address in addresses) {
             listing.Case($"spawn/prefab/{address}", NetworkPrefabId.From(address).Value);

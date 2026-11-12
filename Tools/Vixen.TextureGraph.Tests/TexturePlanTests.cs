@@ -98,17 +98,25 @@ public class TexturePlanTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>This test asserted the opposite of its own name until
-    ///         <a href="https://github.com/Rikarin/Vixen/issues/619">#619</a>, and that is how the gap
-    ///         survived a review.</b> It compared a plan with a base of 1024 against one with a base
+    ///         ⚠
+    ///         <b>
+    ///             This test asserted the opposite of its own name until
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/619">#619</a>, and that is how the gap
+    ///             survived a review.
+    ///         </b>
+    ///         It compared a plan with a base of 1024 against one with a base
     ///         of 4096 — two <em>different graphs</em>, not one graph baked twice — found 8 either
     ///         way, which is right for what it actually built, and wrote it down as agreement. Moving
     ///         the base moves the unit a radius is counted in by exactly as much, so no pair of bases
     ///         can ever disagree; the question needed a second field to be asked at all.
     ///     </para>
     ///     <para>
-    ///         The two halves below are what "the same material" means: <b>four times the texels and
-    ///         four times the radius</b>. Either alone is satisfied by a bug — an unscaled radius
+    ///         The two halves below are what "the same material" means:
+    ///         <b>
+    ///             four times the texels and
+    ///             four times the radius
+    ///         </b>
+    ///         . Either alone is satisfied by a bug — an unscaled radius
     ///         keeps the first, and an image that did not grow keeps the second.
     ///     </para>
     /// </remarks>
@@ -177,10 +185,10 @@ public class TexturePlanTests {
     /// <summary>A bake resolution that is not a power of two away is an exception rather than a rounding.</summary>
     [Fact]
     public void A_bake_resolution_that_is_not_a_power_of_two_away_is_refused() {
-        var failure = Assert.Throws<ArgumentException>(() => TexturePlan.BakeLevelFor(1024, 1536));
+        var failure = Assert.Throws<ArgumentException>(static () => TexturePlan.BakeLevelFor(1024, 1536));
 
         Assert.Contains("power of two", failure.Message, StringComparison.Ordinal);
-        Assert.Throws<ArgumentOutOfRangeException>(() => TexturePlan.BakeLevelFor(1024, 0));
+        Assert.Throws<ArgumentOutOfRangeException>(static () => TexturePlan.BakeLevelFor(1024, 0));
     }
 
     /// <summary>
@@ -196,7 +204,7 @@ public class TexturePlanTests {
     public void A_level_that_would_overflow_the_shift_is_refused_rather_than_wrapped() {
         var plan = Blur(1024, 0, 8f, -32);
 
-        Assert.Contains(plan.Validate(), problem => problem.Contains("ceiling", StringComparison.Ordinal));
+        Assert.Contains(plan.Validate(), static problem => problem.Contains("ceiling", StringComparison.Ordinal));
         Assert.NotEqual(1024, plan.SizeOf(1).X);
         Assert.Equal(TexturePlan.MaxExtent, plan.SizeOf(1).X);
 
@@ -271,7 +279,7 @@ public class TexturePlanTests {
             Outputs = [1]
         };
 
-        Assert.Contains(plan.Validate(), problem => problem.Contains("storage image", StringComparison.Ordinal));
+        Assert.Contains(plan.Validate(), static problem => problem.Contains("storage image", StringComparison.Ordinal));
     }
 
     /// <summary>Reading an image nothing has written yet is refused rather than read as noise.</summary>
@@ -285,7 +293,10 @@ public class TexturePlanTests {
             Outputs = [0]
         };
 
-        Assert.Contains(plan.Validate(), problem => problem.Contains("nothing has written", StringComparison.Ordinal));
+        Assert.Contains(
+            plan.Validate(),
+            static problem => problem.Contains("nothing has written", StringComparison.Ordinal)
+        );
     }
 
     /// <summary>An op that reads what it writes is refused: a dispatch has no order within itself.</summary>
@@ -302,7 +313,10 @@ public class TexturePlanTests {
             Outputs = [1]
         };
 
-        Assert.Contains(plan.Validate(), problem => problem.Contains("reads and writes", StringComparison.Ordinal));
+        Assert.Contains(
+            plan.Validate(),
+            static problem => problem.Contains("reads and writes", StringComparison.Ordinal)
+        );
     }
 
     /// <summary>An image written twice is refused, because liveness is the op order.</summary>
@@ -319,7 +333,7 @@ public class TexturePlanTests {
             Outputs = [1]
         };
 
-        Assert.Contains(plan.Validate(), problem => problem.Contains("already wrote", StringComparison.Ordinal));
+        Assert.Contains(plan.Validate(), static problem => problem.Contains("already wrote", StringComparison.Ordinal));
     }
 
     /// <summary>Writing over a supplied image is refused: an external image is an input.</summary>
@@ -333,7 +347,10 @@ public class TexturePlanTests {
             Outputs = [1]
         };
 
-        Assert.Contains(plan.Validate(), problem => problem.Contains("caller supplies", StringComparison.Ordinal));
+        Assert.Contains(
+            plan.Validate(),
+            static problem => problem.Contains("caller supplies", StringComparison.Ordinal)
+        );
     }
 
     /// <summary>A plan that computes nothing anybody reads says so.</summary>
@@ -347,7 +364,10 @@ public class TexturePlanTests {
             Outputs = ImmutableArray<int>.Empty
         };
 
-        Assert.Contains(plan.Validate(), problem => problem.Contains("names no outputs", StringComparison.Ordinal));
+        Assert.Contains(
+            plan.Validate(),
+            static problem => problem.Contains("names no outputs", StringComparison.Ordinal)
+        );
     }
 
     /// <summary>An index outside the table is named rather than thrown from somewhere unrelated.</summary>

@@ -54,14 +54,29 @@ public sealed class PropertyGridTests : IDisposable {
             "Light",
             TypeTraits.DataContract | TypeTraits.EditorVisible,
             [
-                Member("Enabled", typeof(bool), light => light.Enabled, (light, value) => light.Enabled = (bool) value!),
-                Member("Name", typeof(string), light => light.Name, (light, value) => light.Name = (string) value!),
-                Member("Intensity", typeof(float), light => light.Intensity, (light, value) => light.Intensity = (float) value!),
+                Member(
+                    "Enabled",
+                    typeof(bool),
+                    static light => light.Enabled,
+                    static (light, value) => light.Enabled = (bool)value!
+                ),
+                Member(
+                    "Name",
+                    typeof(string),
+                    static light => light.Name,
+                    static (light, value) => light.Name = (string)value!
+                ),
+                Member(
+                    "Intensity",
+                    typeof(float),
+                    static light => light.Intensity,
+                    static (light, value) => light.Intensity = (float)value!
+                ),
                 Member(
                     "Range",
                     typeof(float),
-                    light => light.Range,
-                    (light, value) => light.Range = (float) value!,
+                    static light => light.Range,
+                    static (light, value) => light.Range = (float)value!,
                     new MemberPresentation(Minimum: 0, Maximum: 1, Step: 0.1, IsEditorVisible: true)
                 ),
                 // ⚠ A floor and no ceiling, which is the only shape that reaches a bounded
@@ -71,21 +86,26 @@ public sealed class PropertyGridTests : IDisposable {
                 Member(
                     "Samples",
                     typeof(int),
-                    light => light.Samples,
-                    (light, value) => light.Samples = (int) value!,
+                    static light => light.Samples,
+                    static (light, value) => light.Samples = (int)value!,
                     new MemberPresentation(Minimum: 0, IsEditorVisible: true)
                 ),
-                Member("Quality", typeof(Quality), light => light.Quality, (light, value) => light.Quality = (Quality) value!),
-                Member("Payload", typeof(object), light => light.Payload, null),
+                Member(
+                    "Quality",
+                    typeof(Quality),
+                    static light => light.Quality,
+                    static (light, value) => light.Quality = (Quality)value!
+                ),
+                Member("Payload", typeof(object), static light => light.Payload, null),
                 Member(
                     "Hidden",
                     typeof(int),
-                    _ => 0,
+                    static _ => 0,
                     null,
                     new MemberPresentation(IsEditorVisible: false)
                 )
             ],
-            () => new Light()
+            static () => new Light()
         );
 
     /// <remarks>
@@ -105,8 +125,8 @@ public sealed class PropertyGridTests : IDisposable {
             name,
             type,
             0,
-            instance => get((Light) instance),
-            set is null ? null : (instance, value) => set((Light) instance, value),
+            instance => get((Light)instance),
+            set is null ? null : (instance, value) => set((Light)instance, value),
             presentation ?? new MemberPresentation(IsEditorVisible: true)
         );
 
@@ -142,8 +162,12 @@ public sealed class PropertyGridTests : IDisposable {
 
     /// <summary>An inspector's editors are named by their rows, and its reset buttons say what they reset.</summary>
     /// <remarks>
-    ///     ⚠ <b>The whole point of a per-row relation, and it is the case that makes an accessible
-    ///     inspector different from an inaccessible one.</b> A <c>TextBox</c>, a
+    ///     ⚠
+    ///     <b>
+    ///         The whole point of a per-row relation, and it is the case that makes an accessible
+    ///         inspector different from an inaccessible one.
+    ///     </b>
+    ///     A <c>TextBox</c>, a
     ///     <c>NumericInput</c>, a <c>Slider</c> and a <c>Select</c> all deliberately answer
     ///     <c>null</c> to <c>NativeAccessibleName</c> — a placeholder is a hint and a number is not
     ///     a name — so an inspector of seven members was seven unnamed fields beside a column of
@@ -178,10 +202,10 @@ public sealed class PropertyGridTests : IDisposable {
         var light = new Light { Enabled = false, Name = "Key", Intensity = 2.5f, Quality = Quality.High };
         var grid = Grid(fixture, light);
 
-        Assert.False(((CheckBox) grid.Rows[0].Editor.Children[0]).IsChecked);
-        Assert.Equal("Key", ((TextBox) grid.Rows[1].Editor.Children[0]).Value);
-        Assert.Equal("2.5", ((NumericInput) grid.Rows[2].Editor.Children[0]).Value);
-        Assert.Equal("High", ((Select) grid.Rows[5].Editor.Children[0]).Value);
+        Assert.False(((CheckBox)grid.Rows[0].Editor.Children[0]).IsChecked);
+        Assert.Equal("Key", ((TextBox)grid.Rows[1].Editor.Children[0]).Value);
+        Assert.Equal("2.5", ((NumericInput)grid.Rows[2].Editor.Children[0]).Value);
+        Assert.Equal("High", ((Select)grid.Rows[5].Editor.Children[0]).Value);
     }
 
     [Fact]
@@ -194,7 +218,7 @@ public sealed class PropertyGridTests : IDisposable {
         var changes = 0;
         grid.ValueChanged += (_, _) => changes++;
 
-        var checkbox = (CheckBox) grid.Rows[0].Editor.Children[0];
+        var checkbox = (CheckBox)grid.Rows[0].Editor.Children[0];
         fixture.Click(checkbox);
 
         Assert.False(light.Enabled);
@@ -209,7 +233,7 @@ public sealed class PropertyGridTests : IDisposable {
         var second = new Light();
         var grid = Grid(fixture, first, second);
 
-        var numeric = (NumericInput) grid.Rows[2].Editor.Children[0];
+        var numeric = (NumericInput)grid.Rows[2].Editor.Children[0];
         numeric.Number = 7d;
 
         // Selecting twenty objects and setting one field on all of them is the operation an
@@ -229,10 +253,10 @@ public sealed class PropertyGridTests : IDisposable {
 
         // ⚠ Not an average and not the first one's value. Twenty objects with three different
         // values must not show one of them as though it were the answer.
-        Assert.True(((CheckBox) grid.Rows[0].Editor.Children[0]).IsIndeterminate);
-        Assert.Equal(string.Empty, ((TextBox) grid.Rows[1].Editor.Children[0]).Value);
-        Assert.Equal("—", ((TextBox) grid.Rows[1].Editor.Children[0]).Placeholder);
-        Assert.Null(((Select) grid.Rows[5].Editor.Children[0]).Value);
+        Assert.True(((CheckBox)grid.Rows[0].Editor.Children[0]).IsIndeterminate);
+        Assert.Equal(string.Empty, ((TextBox)grid.Rows[1].Editor.Children[0]).Value);
+        Assert.Equal("—", ((TextBox)grid.Rows[1].Editor.Children[0]).Placeholder);
+        Assert.Null(((Select)grid.Rows[5].Editor.Children[0]).Value);
     }
 
     [Fact]
@@ -266,7 +290,7 @@ public sealed class PropertyGridTests : IDisposable {
         var row = grid.Rows[2];
         Assert.True(row.Reset.HasClass("hidden"));
 
-        ((NumericInput) row.Editor.Children[0]).Number = 5d;
+        ((NumericInput)row.Editor.Children[0]).Number = 5d;
         Assert.False(row.Reset.HasClass("hidden"));
 
         // ⚠ A pass before the click. The button was hidden a moment ago, so it has no box yet — and
@@ -285,7 +309,7 @@ public sealed class PropertyGridTests : IDisposable {
         var light = new Light();
         var grid = Grid(fixture, light);
 
-        var samples = (NumericInput) grid.Rows[4].Editor.Children[0];
+        var samples = (NumericInput)grid.Rows[4].Editor.Children[0];
         samples.Number = 9d;
 
         // ⚠ Every numeric editor works in double. A member declared `int` that was handed one would
@@ -300,7 +324,7 @@ public sealed class PropertyGridTests : IDisposable {
         var light = new Light();
         var grid = Grid(fixture, light);
 
-        var select = (Select) grid.Rows[5].Editor.Children[0];
+        var select = (Select)grid.Rows[5].Editor.Children[0];
         Assert.Equal(["Low", "Medium", "High"], select.Options.Select(static option => option.Value));
 
         select.Value = "Low";
@@ -309,8 +333,12 @@ public sealed class PropertyGridTests : IDisposable {
 
     /// <summary>A number the member's own bounds forbid is shown as refused and never written.</summary>
     /// <remarks>
-    ///     ⚠ <b>The decision this records is the grid's, and it only had to be made once
-    ///     <c>NumericInput</c> stopped clamping.</b> While the bounds lived in that control's coerce,
+    ///     ⚠
+    ///     <b>
+    ///         The decision this records is the grid's, and it only had to be made once
+    ///         <c>NumericInput</c> stopped clamping.
+    ///     </b>
+    ///     While the bounds lived in that control's coerce,
     ///     every number that reached the drawer already satisfied them, so an ungated write was safe
     ///     by accident; now that a typed number is held and reported instead, the same ungated write
     ///     would put a value into the object that the member declares impossible. The inspector is a
@@ -327,7 +355,7 @@ public sealed class PropertyGridTests : IDisposable {
         var changes = 0;
         grid.ValueChanged += (_, _) => changes++;
 
-        var samples = (NumericInput) grid.Rows[4].Editor.Children[0];
+        var samples = (NumericInput)grid.Rows[4].Editor.Children[0];
         samples.Number = -3d;
 
         // The object keeps what it had, and nothing was announced as a change.
@@ -380,7 +408,7 @@ public sealed class PropertyGridTests : IDisposable {
         // Same element — rebuilding would take the focus out of whatever the user was typing into,
         // which for a gizmo dragging an object is every frame.
         Assert.Same(editor, grid.Rows[1].Editor.Children[0]);
-        Assert.Equal("moved by a gizmo", ((TextBox) editor).Value);
+        Assert.Equal("moved by a gizmo", ((TextBox)editor).Value);
     }
 
     [Fact]

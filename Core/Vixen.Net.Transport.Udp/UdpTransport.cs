@@ -33,7 +33,8 @@ namespace Vixen.Net.Transport.Udp;
 ///     </para>
 /// </remarks>
 public sealed class UdpTransport : ITransport {
-    static readonly Channel[] Channels = [Channel.Reliable, Channel.ReliableUnordered, Channel.Unreliable, Channel.Sequenced];
+    static readonly Channel[] Channels =
+        [Channel.Reliable, Channel.ReliableUnordered, Channel.Unreliable, Channel.Sequenced];
 
     readonly IDatagramSocketFactory factory;
     readonly UdpTransportOptions options;
@@ -67,7 +68,7 @@ public sealed class UdpTransport : ITransport {
     long retiredShrinks;
 
     /// <inheritdoc />
-    public TransportCapabilities Capabilities { get; } = new(UdpProtocol.MaxPayloadBytes, IsInProcess: false, IsLossy: true);
+    public TransportCapabilities Capabilities { get; } = new(UdpProtocol.MaxPayloadBytes, false, true);
 
     /// <inheritdoc />
     public TransportState ServerState { get; private set; }
@@ -145,8 +146,12 @@ public sealed class UdpTransport : ITransport {
     ///         paragraph used to say it would need.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A closed connection's counters are folded in rather than dropped, so the totals
-    ///         only ever rise.</b> Summing live connections alone — which is what
+    ///         ⚠
+    ///         <b>
+    ///             A closed connection's counters are folded in rather than dropped, so the totals
+    ///             only ever rise.
+    ///         </b>
+    ///         Summing live connections alone — which is what
     ///         <see cref="RetransmitCount" /> used to do — means a player leaving takes their
     ///         retransmissions with them, and a cumulative counter that falls is a counter a
     ///         collector reads as a process restart.
@@ -211,7 +216,11 @@ public sealed class UdpTransport : ITransport {
         ServerState = TransportState.Stopping;
 
         foreach (var connection in byId.Values.ToArray()) {
-            Send(connection.EndPoint, UdpProtocol.WriteDisconnect(sendBuffer, connection.Id.Value, UdpDenyReason.Shutdown), serverSocket);
+            Send(
+                connection.EndPoint,
+                UdpProtocol.WriteDisconnect(sendBuffer, connection.Id.Value, UdpDenyReason.Shutdown),
+                serverSocket
+            );
             Close(connection, TransportRole.Server, DisconnectReason.ServerStopped);
         }
 
@@ -228,7 +237,14 @@ public sealed class UdpTransport : ITransport {
             throw new TransportException($"The client half is already {ClientState}.");
         }
 
-        clientSocket = factory.Bind(new(options.RemoteEndPoint.AddressFamily == System.Net.Sockets.AddressFamily.InterNetworkV6 ? IPAddress.IPv6Any : IPAddress.Any, 0));
+        clientSocket = factory.Bind(
+            new(
+                options.RemoteEndPoint.AddressFamily == System.Net.Sockets.AddressFamily.InterNetworkV6
+                    ? IPAddress.IPv6Any
+                    : IPAddress.Any,
+                0
+            )
+        );
         clientSalt = BitConverter.ToUInt32(RandomNumberGenerator.GetBytes(4));
         hasChallenge = false;
         ClientState = TransportState.Starting;
@@ -245,7 +261,11 @@ public sealed class UdpTransport : ITransport {
         var id = upstream?.Id ?? ConnectionId.None;
 
         if (upstream is not null) {
-            Send(upstream.EndPoint, UdpProtocol.WriteDisconnect(sendBuffer, id.Value, UdpDenyReason.Shutdown), clientSocket);
+            Send(
+                upstream.EndPoint,
+                UdpProtocol.WriteDisconnect(sendBuffer, id.Value, UdpDenyReason.Shutdown),
+                clientSocket
+            );
             Forget(upstream);
             upstream = null;
         }
@@ -262,7 +282,11 @@ public sealed class UdpTransport : ITransport {
             return;
         }
 
-        Send(found.EndPoint, UdpProtocol.WriteDisconnect(sendBuffer, connection.Value, UdpDenyReason.Kicked), serverSocket);
+        Send(
+            found.EndPoint,
+            UdpProtocol.WriteDisconnect(sendBuffer, connection.Value, UdpDenyReason.Kicked),
+            serverSocket
+        );
         Close(found, TransportRole.Server, DisconnectReason.Requested);
     }
 
@@ -734,9 +758,13 @@ public sealed class UdpTransport : ITransport {
         // RFC 6298's formula, with the estimator the session already uses: the average plus four
         // times the variance, which is the point past which a packet is far more likely lost than
         // late.
-        var estimate = connection.RoundTrip.RoundTrip.TotalSeconds + (4 * connection.RoundTrip.Jitter.TotalSeconds);
+        var estimate = connection.RoundTrip.RoundTrip.TotalSeconds + 4 * connection.RoundTrip.Jitter.TotalSeconds;
 
-        return Math.Clamp(estimate, options.MinRetransmitTimeout.TotalSeconds, options.MaxRetransmitTimeout.TotalSeconds);
+        return Math.Clamp(
+            estimate,
+            options.MinRetransmitTimeout.TotalSeconds,
+            options.MaxRetransmitTimeout.TotalSeconds
+        );
     }
 
     void SendAcks() {
@@ -890,7 +918,12 @@ public sealed class UdpTransport : ITransport {
                         var payload = queued.Buffer!;
 
                         try {
-                            events.OnData(queued.Role, queued.Connection, queued.Channel, payload.AsSpan(0, queued.Length));
+                            events.OnData(
+                                queued.Role,
+                                queued.Connection,
+                                queued.Channel,
+                                payload.AsSpan(0, queued.Length)
+                            );
                         } finally {
                             ArrayPool<byte>.Shared.Return(payload);
                         }
@@ -972,7 +1005,13 @@ public sealed class UdpTransport : ITransport {
         public static Queued Disconnected(TransportRole role, ConnectionId connection, DisconnectReason reason) =>
             new(QueuedKind.Disconnected, role, connection, Net.Channel.Reliable, reason, null, 0);
 
-        public static Queued Data(TransportRole role, ConnectionId connection, Channel channel, byte[] buffer, int length) =>
+        public static Queued Data(
+            TransportRole role,
+            ConnectionId connection,
+            Channel channel,
+            byte[] buffer,
+            int length
+        ) =>
             new(QueuedKind.Data, role, connection, channel, DisconnectReason.Requested, buffer, length);
     }
 }
@@ -1000,7 +1039,11 @@ sealed class UdpConnection {
 
         Id = id;
         EndPoint = endPoint;
-        Congestion = new(options.InitialWindow, options.MinWindow, Math.Min(options.MaxWindow, options.MaxUnacknowledged));
+        Congestion = new(
+            options.InitialWindow,
+            options.MinWindow,
+            Math.Min(options.MaxWindow, options.MaxUnacknowledged)
+        );
 
         receivers = [
             new(Channel.Reliable),

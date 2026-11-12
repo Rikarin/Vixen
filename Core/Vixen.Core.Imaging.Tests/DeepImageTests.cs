@@ -14,18 +14,21 @@ public sealed class DeepImageTests {
     [Trait("Category", "Property")]
     public void A_sixteen_bit_png_survives_a_round_trip() =>
         Gen.Select(Gen.Int[1, 40], Gen.Int[1, 40], Gen.OneOf(1, 3, 4))
-            .SelectMany((width, height, channels) =>
+            .SelectMany(static (width, height, channels) =>
                 Gen.UShort.Array[width * height * channels].Select(samples => (width, height, channels, samples))
             )
-            .Sample(image => {
-                var file = PngCodec.Encode16(image.width, image.height, image.channels, image.samples);
-                var read = PngCodec.Decode16(file);
+            .Sample(
+                static image => {
+                    var file = PngCodec.Encode16(image.width, image.height, image.channels, image.samples);
+                    var read = PngCodec.Decode16(file);
 
-                Assert.Equal(image.width, read.Width);
-                Assert.Equal(image.height, read.Height);
-                Assert.Equal(image.channels, read.Channels);
-                Assert.Equal(image.samples, read.Samples);
-            }, iter: 200);
+                    Assert.Equal(image.width, read.Width);
+                    Assert.Equal(image.height, read.Height);
+                    Assert.Equal(image.channels, read.Channels);
+                    Assert.Equal(image.samples, read.Samples);
+                },
+                iter: 200
+            );
 
     /// <summary>A 16-bit file's first sample is big-endian, which the format fixes.</summary>
     /// <remarks>
@@ -55,7 +58,10 @@ public sealed class DeepImageTests {
         }
 
         compressed.Position = 0;
-        using var zlib = new System.IO.Compression.ZLibStream(compressed, System.IO.Compression.CompressionMode.Decompress);
+        using var zlib = new System.IO.Compression.ZLibStream(
+            compressed,
+            System.IO.Compression.CompressionMode.Decompress
+        );
         using var output = new MemoryStream();
         zlib.CopyTo(output);
         return output.ToArray();
@@ -75,22 +81,26 @@ public sealed class DeepImageTests {
     [InlineData(ExrPixels.Half)]
     public void An_exr_survives_a_round_trip_at_each_width(ExrPixels pixels) =>
         Gen.Select(Gen.Int[1, 70], Gen.Int[1, 70], Gen.OneOf(1, 3, 4))
-            .SelectMany((width, height, channels) =>
-                Gen.Single[-10f, 10f].Array[width * height * channels].Select(samples => new FloatImage(width, height, channels, samples))
+            .SelectMany(static (width, height, channels) => Gen.Single[-10f, 10f]
+                    .Array[width * height * channels]
+                    .Select(samples => new FloatImage(width, height, channels, samples))
             )
-            .Sample(image => {
-                var read = ExrCodec.Decode(ExrCodec.Encode(image, pixels));
+            .Sample(
+                image => {
+                    var read = ExrCodec.Decode(ExrCodec.Encode(image, pixels));
 
-                Assert.Equal(image.Width, read.Width);
-                Assert.Equal(image.Height, read.Height);
-                Assert.Equal(image.Channels, read.Channels);
+                    Assert.Equal(image.Width, read.Width);
+                    Assert.Equal(image.Height, read.Height);
+                    Assert.Equal(image.Channels, read.Channels);
 
-                for (var at = 0; at < image.Samples.Length; at++) {
-                    var expected = pixels == ExrPixels.Half ? (float)(Half)image.Samples[at] : image.Samples[at];
+                    for (var at = 0; at < image.Samples.Length; at++) {
+                        var expected = pixels == ExrPixels.Half ? (float)(Half)image.Samples[at] : image.Samples[at];
 
-                    Assert.Equal(expected, read.Samples[at]);
-                }
-            }, iter: 100);
+                        Assert.Equal(expected, read.Samples[at]);
+                    }
+                },
+                iter: 100
+            );
 
     /// <summary>A flat picture compresses, so the ZIP path is the one that ran.</summary>
     /// <remarks>Random samples do not shrink and take the stored path, which the round trip above covers.</remarks>
@@ -118,7 +128,7 @@ public sealed class DeepImageTests {
     /// <summary>What the writer does not write, the reader refuses.</summary>
     [Fact]
     public void A_file_that_is_not_an_exr_is_refused() =>
-        Assert.Throws<InvalidDataException>(() => ExrCodec.Decode(new byte[64]));
+        Assert.Throws<InvalidDataException>(static () => ExrCodec.Decode(new byte[64]));
 
     /// <summary>Someone else's decoder agrees about every pixel, on both widths.</summary>
     /// <remarks>
@@ -142,7 +152,7 @@ public sealed class DeepImageTests {
         for (var y = 0; y < Side; y++) {
             for (var x = 0; x < Side; x++) {
                 for (var channel = 0; channel < channels; channel++) {
-                    samples[(((y * Side) + x) * channels) + channel] = ((x * (channel + 1)) + y) / 200f;
+                    samples[(y * Side + x) * channels + channel] = (x * (channel + 1) + y) / 200f;
                 }
             }
         }
@@ -156,8 +166,7 @@ public sealed class DeepImageTests {
 
             using var process = Process.Start(
                 new ProcessStartInfo(ffmpeg, ["-v", "error", "-i", path, "-f", "rawvideo", "-pix_fmt", format, "-"]) {
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true
+                    RedirectStandardOutput = true, RedirectStandardError = true
                 }
             )!;
 
@@ -176,8 +185,8 @@ public sealed class DeepImageTests {
 
             for (var plane = 0; plane < channels; plane++) {
                 for (var pixel = 0; pixel < Side * Side; pixel++) {
-                    var read = BitConverter.ToSingle(bytes, ((plane * Side * Side) + pixel) * sizeof(float));
-                    var expected = samples[(pixel * channels) + planes[plane]];
+                    var read = BitConverter.ToSingle(bytes, (plane * Side * Side + pixel) * sizeof(float));
+                    var expected = samples[pixel * channels + planes[plane]];
 
                     Assert.True(MathF.Abs(expected - read) < 1e-3f, $"{expected} came back as {read}.");
                 }
@@ -215,8 +224,8 @@ public sealed class DeepImageTests {
     }
 
     static string? Tool(string name) =>
-        (Environment.GetEnvironmentVariable("PATH") ?? "")
-            .Split(Path.PathSeparator)
-            .Select(folder => Path.Combine(folder, name))
-            .FirstOrDefault(File.Exists);
+        (Environment.GetEnvironmentVariable("PATH") ?? string.Empty)
+        .Split(Path.PathSeparator)
+        .Select(folder => Path.Combine(folder, name))
+        .FirstOrDefault(File.Exists);
 }

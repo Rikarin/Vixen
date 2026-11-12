@@ -28,8 +28,11 @@ public readonly record struct FoliageMesh(BufferHandle Vertices, BufferHandle In
 /// <summary>Binds the pipeline and the per-frame set a volume's foliage is drawn with.</summary>
 /// <remarks>
 ///     <para>
-///         <b>[docs/plan/31 § T5]'s draw, and the half <see cref="FoliageCullPass" /> deliberately
-///         does not do.</b> That class owns the instance table, the two dispatches and the patched
+///         <b>
+///             [docs/plan/31 § T5]'s draw, and the half <see cref="FoliageCullPass" /> deliberately
+///             does not do.
+///         </b>
+///         That class owns the instance table, the two dispatches and the patched
 ///         argument buffer, and exposes the three buffers a draw needs without binding any of them —
 ///         a compute dispatch has no business knowing what a pine looks like. This is what knows:
 ///         the pipeline built from <c>Foliage.rvn</c>, the constants, and set 2.
@@ -47,8 +50,12 @@ public readonly record struct FoliageMesh(BufferHandle Vertices, BufferHandle In
 ///         per frame — <see cref="FoliageCullPass.Commands" /> is one slot of a ring.
 ///     </para>
 ///     <para>
-///         ⚠ <b>One albedo for the pass, white by default, and that is this increment's honest
-///         ceiling.</b> A <c>.vxfoliage</c> names a mesh and nothing about its material; resolving a
+///         ⚠
+///         <b>
+///             One albedo for the pass, white by default, and that is this increment's honest
+///             ceiling.
+///         </b>
+///         A <c>.vxfoliage</c> names a mesh and nothing about its material; resolving a
 ///         model's materials into per-type textures is the impostor bake's problem too, and it is
 ///         owed to the same increment. Until then a forest draws flat-shaded in its tint — which
 ///         reads as "no material yet" rather than as foliage that is broken.
@@ -103,7 +110,7 @@ public sealed class FoliageDrawPass : IDisposable {
     /// <exception cref="ArgumentNullException"><paramref name="device" /> is null.</exception>
     /// <exception cref="ArgumentException">The shaders are not both real.</exception>
     public FoliageDrawPass(IGraphicsDevice device, TerrainShaders shaders, RenderOutput output)
-        : this(device, shaders, output, lit: false) { }
+        : this(device, shaders, output, false) { }
 
     /// <summary>Creates a pass whose set is written for <c>FoliageLit</c> rather than the preview.</summary>
     /// <remarks>
@@ -133,7 +140,7 @@ public sealed class FoliageDrawPass : IDisposable {
         // ⚠ One block per frame in flight, because `device.Write` is an immediate memcpy: a single
         // block rewritten each Prepare is the constants a frame still in flight is reading. The
         // stride is aligned up because a uniform binding's offset has a device-imposed granularity.
-        constantStride = ((blockSize + SlotAlignment - 1) / SlotAlignment) * SlotAlignment;
+        constantStride = (blockSize + SlotAlignment - 1) / SlotAlignment * SlotAlignment;
 
         constants = device.CreateBuffer(
             new(constantStride * slots, BufferUsage.Uniform, MemoryAccess.HostUpload, "foliage constants")
@@ -145,7 +152,13 @@ public sealed class FoliageDrawPass : IDisposable {
         // yet draws as its tint, which reads as "no texture yet"; black reads as broken, and an
         // unbound slot is a refused draw on most backends rather than a dark pixel.
         defaultAlbedo = device.CreateTexture(
-            new(PixelFormat.Rgba8UNorm, 1, 1, TextureUsage.Sampled | TextureUsage.CopyDestination, Name: "foliage default")
+            new(
+                PixelFormat.Rgba8UNorm,
+                1,
+                1,
+                TextureUsage.Sampled | TextureUsage.CopyDestination,
+                Name: "foliage default"
+            )
         );
 
         defaultAlbedoView = device.CreateTextureView(defaultAlbedo);
@@ -176,9 +189,7 @@ public sealed class FoliageDrawPass : IDisposable {
             shadowSampler = device.CreateSampler(SamplerDescription.PointClamp);
         }
 
-        setLayout = device.CreateDescriptorSetLayout(
-            new(DescriptorSetSlot.PerMaterial, [.. bindings], "foliage")
-        );
+        setLayout = device.CreateDescriptorSetLayout(new(DescriptorSetSlot.PerMaterial, [..bindings], "foliage"));
 
         // Padded below the material set on TerrainRenderer's terms: the shader's bindings are set 2
         // and a pipeline layout is positional, so the two unused slots hold one empty layout twice.
@@ -208,9 +219,21 @@ public sealed class FoliageDrawPass : IDisposable {
                         [
                             // Both variants share one location set — the base shader's streams come
                             // first in both, unlike the grass pair's differing counts.
-                            new(lit ? FoliageLitKeys.PositionLocation : FoliageKeys.PositionLocation, VertexFormat.Float32X3, 0),
-                            new(lit ? FoliageLitKeys.NormalLocation : FoliageKeys.NormalLocation, VertexFormat.Float32X3, 12),
-                            new(lit ? FoliageLitKeys.TexcoordLocation : FoliageKeys.TexcoordLocation, VertexFormat.Float32X2, 24)
+                            new(
+                                lit ? FoliageLitKeys.PositionLocation : FoliageKeys.PositionLocation,
+                                VertexFormat.Float32X3,
+                                0
+                            ),
+                            new(
+                                lit ? FoliageLitKeys.NormalLocation : FoliageKeys.NormalLocation,
+                                VertexFormat.Float32X3,
+                                12
+                            ),
+                            new(
+                                lit ? FoliageLitKeys.TexcoordLocation : FoliageKeys.TexcoordLocation,
+                                VertexFormat.Float32X2,
+                                24
+                            )
                         ]
                     )
                 ],
@@ -270,10 +293,14 @@ public sealed class FoliageDrawPass : IDisposable {
     /// <remarks>The same instance the terrains read — see <see cref="TerrainRenderer.Frame" />.</remarks>
     internal TerrainFrameLighting? Frame { get; set; }
 
-    /// <summary>What the velocity pass binds where this pass binds its albedo — the grass pass's
-    ///     borrow, for its reason: the default's first-frame upload is this pass's.</summary>
-    /// <remarks>⚠ Sampled rather than merely bound since the alpha test —
-    ///     <see cref="GrassDrawPass.AlbedoOrDefault" /> says what changed.</remarks>
+    /// <summary>
+    ///     What the velocity pass binds where this pass binds its albedo — the grass pass's
+    ///     borrow, for its reason: the default's first-frame upload is this pass's.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ Sampled rather than merely bound since the alpha test —
+    ///     <see cref="GrassDrawPass.AlbedoOrDefault" /> says what changed.
+    /// </remarks>
     internal TextureViewHandle AlbedoOrDefault => Albedo.IsValid ? Albedo : defaultAlbedoView;
 
     /// <summary>And the sampler beside it, on the same terms.</summary>
@@ -326,9 +353,7 @@ public sealed class FoliageDrawPass : IDisposable {
             WriteLitBlock(block, view, range);
         } else {
             new FoliageConstants {
-                ViewProjection = view.ViewProjection,
-                AlphaCutoff = AlphaCutoff,
-                TintRange = range
+                ViewProjection = view.ViewProjection, AlphaCutoff = AlphaCutoff, TintRange = range
             }.Write(block);
         }
 
@@ -527,7 +552,7 @@ public sealed class FoliageDrawPass : IDisposable {
         );
 
         device.Write(vertexBuffer, 0, vertices);
-        device.Write(indexBuffer, 0, MemoryMarshal.AsBytes<uint>(faces));
+        device.Write(indexBuffer, 0, MemoryMarshal.AsBytes(faces));
 
         return new(vertexBuffer, indexBuffer, faces.Length);
     }

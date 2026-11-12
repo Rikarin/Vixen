@@ -260,11 +260,10 @@ public sealed class VisibilityBufferRenderer : SceneRenderer {
                 // Cleared, and to zero — which GpuClusterRaster.Nothing is, and which is why the packed
                 // slot is biased by one. A pixel nothing drew reads as nothing rather than as the frame's
                 // first cluster.
-                pass.ColourAttachment(identity, LoadAction.Clear);
+                pass.ColourAttachment(identity);
                 pass.DepthAttachment(depth, LoadAction.Load);
 
-                pass.Execute(
-                    context => {
+                pass.Execute(context => {
                         // Outside the render pass and before it: the argument copy that turns the
                         // traversal's count into an instance count is a buffer copy, and a copy between
                         // BeginRenderPass and EndRenderPass is not legal. The graph opens the pass around
@@ -298,8 +297,7 @@ public sealed class VisibilityBufferRenderer : SceneRenderer {
                     pass.Writes(identity);
                     pass.SideEffect();
 
-                    pass.Execute(
-                        context => software.Record(
+                    pass.Execute(context => software.Record(
                             context.CommandList,
                             context.View(identity),
                             context.View(depth),
@@ -366,8 +364,7 @@ public sealed class VisibilityBufferRenderer : SceneRenderer {
 
                 pass.SideEffect();
 
-                pass.Execute(
-                    context => {
+                pass.Execute(context => {
                         // The counters the previous frame left, before this frame overwrites them. Read
                         // here rather than by the caller because this is the one place that knows the
                         // dispatch has been submitted and the next one has not started.

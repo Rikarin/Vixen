@@ -6,7 +6,6 @@ using System.Text.Json.Serialization;
 using Vixen.Core.Syntax.Diagnostics;
 using Vixen.Raven.Artefacts;
 using Vixen.Raven.CodeGen;
-using Vixen.Raven.Diagnostics;
 using Vixen.Raven.IR;
 using Vixen.Raven.Lowering;
 using Vixen.Raven.Reflection;
@@ -38,9 +37,7 @@ public static class CompileDriver {
     ///     on the way in, and the next run failed identically.
     /// </remarks>
     static readonly JsonSerializerOptions ReflectionJson = new() {
-        WriteIndented = true,
-        NewLine = "\n",
-        Converters = { new JsonStringEnumConverter() }
+        WriteIndented = true, NewLine = "\n", Converters = { new JsonStringEnumConverter() }
     };
 
     public static ExitCode Run(CompileRequest request, TextWriter output, TextWriter error) {
@@ -74,7 +71,7 @@ public static class CompileDriver {
             }
         }
 
-        if (Report(trees.SelectMany(tree => tree.Diagnostics), error, formatting)) {
+        if (Report(trees.SelectMany(static tree => tree.Diagnostics), error, formatting)) {
             return ExitCode.CompilationFailed;
         }
 
@@ -96,7 +93,9 @@ public static class CompileDriver {
             try {
                 references.Add(RavenReference.FromFile(path));
             } catch (Exception exception) when (exception
-                is InvalidDataException or IOException or UnauthorizedAccessException) {
+                                                    is InvalidDataException
+                                                    or IOException
+                                                    or UnauthorizedAccessException) {
                 error.WriteLine($"error: could not read reference {path}: {exception.Message}");
                 return ExitCode.UsageError;
             }
@@ -155,7 +154,10 @@ public static class CompileDriver {
             var kept = generated.Where(unit => wanted.Contains(ShaderOf(unit.Name))).ToList();
 
             if (kept.Count == 0) {
-                var names = string.Join(", ", generated.Select(unit => ShaderOf(unit.Name)).Distinct().Order(StringComparer.Ordinal));
+                var names = string.Join(
+                    ", ",
+                    generated.Select(static unit => ShaderOf(unit.Name)).Distinct().Order(StringComparer.Ordinal)
+                );
 
                 error.WriteLine(
                     $"error: --shader named {string.Join(", ", request.Shaders)}, and this compilation "
@@ -247,7 +249,7 @@ public static class CompileDriver {
         var single = Path.GetExtension(request.Output).Length > 0;
 
         if (single && generated.Count > 1) {
-            var names = string.Join(", ", generated.Select(unit => unit.Name));
+            var names = string.Join(", ", generated.Select(static unit => unit.Name));
             error.WriteLine(
                 $"error: {generated.Count} translation units were generated ({names}), "
                 + $"but '{request.Output}' names a single file. Pass a directory instead."
@@ -290,7 +292,8 @@ public static class CompileDriver {
             }
 
             if (request.EmitEffect) {
-                var sources = compilation.SyntaxTrees.Select(tree => tree.Text?.ToString() ?? string.Empty).ToArray();
+                var sources = compilation.SyntaxTrees.Select(static tree => tree.Text?.ToString() ?? string.Empty)
+                    .ToArray();
 
                 foreach (var shader in module.Shaders) {
                     var path = single
@@ -364,17 +367,17 @@ public static class CompileDriver {
 
     /// <summary>Reports every diagnostic and answers whether any was an error.</summary>
     static bool Report(IEnumerable<Diagnostic> diagnostics, TextWriter error, DiagnosticFormatterOptions formatting) {
-        var reported = diagnostics.Where(d => d.Severity > DiagnosticSeverity.Hidden).ToArray();
+        var reported = diagnostics.Where(static d => d.Severity > DiagnosticSeverity.Hidden).ToArray();
 
         foreach (var diagnostic in reported) {
             error.Write(DiagnosticFormatter.Format(diagnostic, formatting));
             error.WriteLine();
         }
 
-        var errors = reported.Count(d => d.IsError);
+        var errors = reported.Count(static d => d.IsError);
 
         if (errors > 0) {
-            error.WriteLine($"error: compilation failed with {errors} error{(errors == 1 ? "" : "s")}");
+            error.WriteLine($"error: compilation failed with {errors} error{(errors == 1 ? string.Empty : "s")}");
         }
 
         return errors > 0;

@@ -23,16 +23,23 @@ namespace Vixen.Animation;
 ///         makes about a hand goal holding through a transition.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Across <em>layers</em> the sum is additive and not an override, and that is a real
-///         limitation rather than a rounding of one.</b> A facial layer is normally additive, so a
+///         ⚠
+///         <b>
+///             Across <em>layers</em> the sum is additive and not an override, and that is a real
+///             limitation rather than a rounding of one.
+///         </b>
+///         A facial layer is normally additive, so a
 ///         sum is what it wants; two layers that both drive <c>jawOpen</c> as an override will
 ///         produce their sum rather than the upper one's value. Nothing here models an override,
 ///         because the pose machinery that does — <see cref="AnimationLayer.Apply" /> — works on
 ///         joints, and a shape is not one.
 ///     </para>
 ///     <para>
-///         <b>A shape is in the buffer because a clip drove it, not because its weight is
-///         non-zero.</b> Zero is a face at rest and is a value a curve returns to on purpose, so the
+///         <b>
+///             A shape is in the buffer because a clip drove it, not because its weight is
+///             non-zero.
+///         </b>
+///         Zero is a face at rest and is a value a curve returns to on purpose, so the
 ///         membership and the value are separate facts — see <see cref="TryGet" />, whose return
 ///         value is the first and whose out parameter is the second.
 ///     </para>
@@ -101,7 +108,7 @@ public sealed class MorphWeightBuffer {
             return;
         }
 
-        Span<float> sampled = clip.ShapeCount <= ScratchShapes
+        var sampled = clip.ShapeCount <= ScratchShapes
             ? stackalloc float[ScratchShapes]
             : new float[clip.ShapeCount];
 

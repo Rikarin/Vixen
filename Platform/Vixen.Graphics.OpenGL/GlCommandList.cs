@@ -105,13 +105,15 @@ sealed class GlCommandList(GlDevice device, QueueKind kind, string name) : IComm
 
         var (index0, count) = recorder.AddAttachments(recorded);
 
-        recorder.Add(new() {
-            Kind = GlCommandKind.BeginRenderPass,
-            PayloadIndex = index0,
-            PayloadCount = count,
-            Int0 = description.ColourAttachments.Length,
-            Int1 = recorder.AddName(description.Name)
-        });
+        recorder.Add(
+            new() {
+                Kind = GlCommandKind.BeginRenderPass,
+                PayloadIndex = index0,
+                PayloadCount = count,
+                Int0 = description.ColourAttachments.Length,
+                Int1 = recorder.AddName(description.Name)
+            }
+        );
 
         inPass = true;
     }
@@ -134,41 +136,47 @@ sealed class GlCommandList(GlDevice device, QueueKind kind, string name) : IComm
     public void SetViewport(in Viewport viewport) {
         Recording();
 
-        recorder.Add(new() {
-            Kind = GlCommandKind.SetViewport,
-            Float0 = viewport.X,
-            Float1 = viewport.Y,
-            Float2 = viewport.Width,
-            Float3 = viewport.Height,
-            Float4 = viewport.MinDepth,
-            Float5 = viewport.MaxDepth
-        });
+        recorder.Add(
+            new() {
+                Kind = GlCommandKind.SetViewport,
+                Float0 = viewport.X,
+                Float1 = viewport.Y,
+                Float2 = viewport.Width,
+                Float3 = viewport.Height,
+                Float4 = viewport.MinDepth,
+                Float5 = viewport.MaxDepth
+            }
+        );
     }
 
     /// <inheritdoc />
     public void SetScissor(in ScissorRect scissor) {
         Recording();
 
-        recorder.Add(new() {
-            Kind = GlCommandKind.SetScissor,
-            Int0 = scissor.X,
-            Int1 = scissor.Y,
-            Int2 = scissor.Width,
-            Int3 = scissor.Height
-        });
+        recorder.Add(
+            new() {
+                Kind = GlCommandKind.SetScissor,
+                Int0 = scissor.X,
+                Int1 = scissor.Y,
+                Int2 = scissor.Width,
+                Int3 = scissor.Height
+            }
+        );
     }
 
     /// <inheritdoc />
     public void SetBlendConstant(in Color4 colour) {
         Recording();
 
-        recorder.Add(new() {
-            Kind = GlCommandKind.SetBlendConstant,
-            Float0 = colour.R,
-            Float1 = colour.G,
-            Float2 = colour.B,
-            Float3 = colour.A
-        });
+        recorder.Add(
+            new() {
+                Kind = GlCommandKind.SetBlendConstant,
+                Float0 = colour.R,
+                Float1 = colour.G,
+                Float2 = colour.B,
+                Float3 = colour.A
+            }
+        );
     }
 
     /// <inheritdoc />
@@ -192,13 +200,15 @@ sealed class GlCommandList(GlDevice device, QueueKind kind, string name) : IComm
         Recording();
         var (index, count) = recorder.AddUInts(dynamicOffsets);
 
-        recorder.Add(new() {
-            Kind = GlCommandKind.BindDescriptorSet,
-            Int0 = (int)slot,
-            Descriptors = descriptors,
-            PayloadIndex = index,
-            PayloadCount = count
-        });
+        recorder.Add(
+            new() {
+                Kind = GlCommandKind.BindDescriptorSet,
+                Int0 = (int)slot,
+                Descriptors = descriptors,
+                PayloadIndex = index,
+                PayloadCount = count
+            }
+        );
     }
 
     /// <inheritdoc />
@@ -209,37 +219,31 @@ sealed class GlCommandList(GlDevice device, QueueKind kind, string name) : IComm
 
         var (index, count) = recorder.AddBytes(data);
 
-        recorder.Add(new() {
-            Kind = GlCommandKind.PushConstants,
-            Int0 = offset,
-            Int1 = (int)stages,
-            PayloadIndex = index,
-            PayloadCount = count
-        });
+        recorder.Add(
+            new() {
+                Kind = GlCommandKind.PushConstants,
+                Int0 = offset,
+                Int1 = (int)stages,
+                PayloadIndex = index,
+                PayloadCount = count
+            }
+        );
     }
 
     /// <inheritdoc />
     public void BindVertexBuffer(int slot, BufferHandle buffer, long offset = 0) {
         Recording();
 
-        recorder.Add(new() {
-            Kind = GlCommandKind.BindVertexBuffer,
-            Int0 = slot,
-            Buffer0 = buffer,
-            Long0 = offset
-        });
+        recorder.Add(new() { Kind = GlCommandKind.BindVertexBuffer, Int0 = slot, Buffer0 = buffer, Long0 = offset });
     }
 
     /// <inheritdoc />
     public void BindIndexBuffer(BufferHandle buffer, IndexFormat format = IndexFormat.UInt16, long offset = 0) {
         Recording();
 
-        recorder.Add(new() {
-            Kind = GlCommandKind.BindIndexBuffer,
-            Int0 = (int)format,
-            Buffer0 = buffer,
-            Long0 = offset
-        });
+        recorder.Add(
+            new() { Kind = GlCommandKind.BindIndexBuffer, Int0 = (int)format, Buffer0 = buffer, Long0 = offset }
+        );
     }
 
     // ── Drawing ─────────────────────────────────────────────────────────────────────────────
@@ -249,13 +253,15 @@ sealed class GlCommandList(GlDevice device, QueueKind kind, string name) : IComm
         Recording();
         InPass(nameof(Draw));
 
-        recorder.Add(new() {
-            Kind = GlCommandKind.Draw,
-            Int0 = vertexCount,
-            Int1 = instanceCount,
-            Int2 = firstVertex,
-            Int3 = firstInstance
-        });
+        recorder.Add(
+            new() {
+                Kind = GlCommandKind.Draw,
+                Int0 = vertexCount,
+                Int1 = instanceCount,
+                Int2 = firstVertex,
+                Int3 = firstInstance
+            }
+        );
     }
 
     /// <inheritdoc />
@@ -269,14 +275,16 @@ sealed class GlCommandList(GlDevice device, QueueKind kind, string name) : IComm
         Recording();
         InPass(nameof(DrawIndexed));
 
-        recorder.Add(new() {
-            Kind = GlCommandKind.DrawIndexed,
-            Int0 = indexCount,
-            Int1 = instanceCount,
-            Int2 = firstIndex,
-            Int3 = vertexOffset,
-            Uint0 = (uint)firstInstance
-        });
+        recorder.Add(
+            new() {
+                Kind = GlCommandKind.DrawIndexed,
+                Int0 = indexCount,
+                Int1 = instanceCount,
+                Int2 = firstIndex,
+                Int3 = vertexOffset,
+                Uint0 = (uint)firstInstance
+            }
+        );
     }
 
     /// <inheritdoc />
@@ -284,13 +292,15 @@ sealed class GlCommandList(GlDevice device, QueueKind kind, string name) : IComm
         Recording();
         InPass(nameof(DrawIndexedIndirect));
 
-        recorder.Add(new() {
-            Kind = GlCommandKind.DrawIndexedIndirect,
-            Buffer0 = arguments,
-            Long0 = offset,
-            Int0 = drawCount,
-            Int1 = stride
-        });
+        recorder.Add(
+            new() {
+                Kind = GlCommandKind.DrawIndexedIndirect,
+                Buffer0 = arguments,
+                Long0 = offset,
+                Int0 = drawCount,
+                Int1 = stride
+            }
+        );
     }
 
     /// <inheritdoc />
@@ -327,12 +337,7 @@ sealed class GlCommandList(GlDevice device, QueueKind kind, string name) : IComm
             );
         }
 
-        recorder.Add(new() {
-            Kind = GlCommandKind.Dispatch,
-            Int0 = groupsX,
-            Int1 = groupsY,
-            Int2 = groupsZ
-        });
+        recorder.Add(new() { Kind = GlCommandKind.Dispatch, Int0 = groupsX, Int1 = groupsY, Int2 = groupsZ });
     }
 
     /// <inheritdoc />
@@ -367,13 +372,15 @@ sealed class GlCommandList(GlDevice device, QueueKind kind, string name) : IComm
         var (textures, textureCount) = recorder.AddTextureBarriers(barriers.Textures);
         var (buffers, bufferCount) = recorder.AddBufferBarriers(barriers.Buffers);
 
-        recorder.Add(new() {
-            Kind = GlCommandKind.Barrier,
-            PayloadIndex = textures,
-            PayloadCount = textureCount,
-            Int0 = buffers,
-            Int1 = bufferCount
-        });
+        recorder.Add(
+            new() {
+                Kind = GlCommandKind.Barrier,
+                PayloadIndex = textures,
+                PayloadCount = textureCount,
+                Int0 = buffers,
+                Int1 = bufferCount
+            }
+        );
     }
 
     /// <inheritdoc />
@@ -386,14 +393,16 @@ sealed class GlCommandList(GlDevice device, QueueKind kind, string name) : IComm
     ) {
         Recording();
 
-        recorder.Add(new() {
-            Kind = GlCommandKind.CopyBuffer,
-            Buffer0 = source,
-            Buffer1 = destination,
-            Long0 = sourceOffset,
-            Long1 = destinationOffset,
-            Long2 = size
-        });
+        recorder.Add(
+            new() {
+                Kind = GlCommandKind.CopyBuffer,
+                Buffer0 = source,
+                Buffer1 = destination,
+                Long0 = sourceOffset,
+                Long1 = destinationOffset,
+                Long2 = size
+            }
+        );
     }
 
     /// <inheritdoc />
@@ -405,20 +414,22 @@ sealed class GlCommandList(GlDevice device, QueueKind kind, string name) : IComm
     ) {
         Recording();
 
-        recorder.Add(new() {
-            Kind = GlCommandKind.CopyBufferToTexture,
-            Buffer0 = source,
-            Long0 = sourceOffset,
-            Texture0 = destination.Texture,
-            Int0 = destination.MipLevel,
-            Int1 = destination.ArrayLayer,
-            Float0 = destination.Origin.X,
-            Float1 = destination.Origin.Y,
-            Float2 = destination.Origin.Z,
-            Float3 = size.X,
-            Float4 = size.Y,
-            Float5 = size.Z
-        });
+        recorder.Add(
+            new() {
+                Kind = GlCommandKind.CopyBufferToTexture,
+                Buffer0 = source,
+                Long0 = sourceOffset,
+                Texture0 = destination.Texture,
+                Int0 = destination.MipLevel,
+                Int1 = destination.ArrayLayer,
+                Float0 = destination.Origin.X,
+                Float1 = destination.Origin.Y,
+                Float2 = destination.Origin.Z,
+                Float3 = size.X,
+                Float4 = size.Y,
+                Float5 = size.Z
+            }
+        );
     }
 
     /// <inheritdoc />
@@ -430,38 +441,42 @@ sealed class GlCommandList(GlDevice device, QueueKind kind, string name) : IComm
     ) {
         Recording();
 
-        recorder.Add(new() {
-            Kind = GlCommandKind.CopyTextureToBuffer,
-            Buffer0 = destination,
-            Long0 = destinationOffset,
-            Texture0 = source.Texture,
-            Int0 = source.MipLevel,
-            Int1 = source.ArrayLayer,
-            Float0 = source.Origin.X,
-            Float1 = source.Origin.Y,
-            Float2 = source.Origin.Z,
-            Float3 = size.X,
-            Float4 = size.Y,
-            Float5 = size.Z
-        });
+        recorder.Add(
+            new() {
+                Kind = GlCommandKind.CopyTextureToBuffer,
+                Buffer0 = destination,
+                Long0 = destinationOffset,
+                Texture0 = source.Texture,
+                Int0 = source.MipLevel,
+                Int1 = source.ArrayLayer,
+                Float0 = source.Origin.X,
+                Float1 = source.Origin.Y,
+                Float2 = source.Origin.Z,
+                Float3 = size.X,
+                Float4 = size.Y,
+                Float5 = size.Z
+            }
+        );
     }
 
     /// <inheritdoc />
     public void CopyTexture(in TextureRegion source, in TextureRegion destination, Int3 size) {
         Recording();
 
-        recorder.Add(new() {
-            Kind = GlCommandKind.CopyTexture,
-            Texture0 = source.Texture,
-            Texture1 = destination.Texture,
-            Int0 = source.MipLevel,
-            Int1 = source.ArrayLayer,
-            Int2 = destination.MipLevel,
-            Int3 = destination.ArrayLayer,
-            Long0 = Pack(source.Origin),
-            Long1 = Pack(destination.Origin),
-            Long2 = Pack(size)
-        });
+        recorder.Add(
+            new() {
+                Kind = GlCommandKind.CopyTexture,
+                Texture0 = source.Texture,
+                Texture1 = destination.Texture,
+                Int0 = source.MipLevel,
+                Int1 = source.ArrayLayer,
+                Int2 = destination.MipLevel,
+                Int3 = destination.ArrayLayer,
+                Long0 = Pack(source.Origin),
+                Long1 = Pack(destination.Origin),
+                Long2 = Pack(size)
+            }
+        );
     }
 
     // ── Debugging ───────────────────────────────────────────────────────────────────────────
@@ -532,9 +547,7 @@ sealed class GlCommandList(GlDevice device, QueueKind kind, string name) : IComm
         ObjectDisposedException.ThrowIf(disposed, this);
 
         if (IsRecorded) {
-            throw new InvalidOperationException(
-                $"Command list '{name}' was recorded into after Finish()."
-            );
+            throw new InvalidOperationException($"Command list '{name}' was recorded into after Finish().");
         }
     }
 

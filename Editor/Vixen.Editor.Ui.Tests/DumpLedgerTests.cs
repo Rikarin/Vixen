@@ -12,8 +12,12 @@ namespace Vixen.Editor.Ui.Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>The section this checks exists because a claim in a document is not a test — and the
-///         section then made the same mistake twice.</b> <c>Vixen.Editor.Ui/README.md</c> carries nine
+///         ⚠
+///         <b>
+///             The section this checks exists because a claim in a document is not a test — and the
+///             section then made the same mistake twice.
+///         </b>
+///         <c>Vixen.Editor.Ui/README.md</c> carries nine
 ///         "byte-identical in N dumped states" rows whose comparisons were run once and deleted, and
 ///         beside them a table of the files that <i>do</i> dump a tree. That table said "three",
 ///         which was true when written; it was corrected to "eight", which lasted one wave — wave 9's
@@ -61,9 +65,7 @@ public partial class DumpLedgerTests {
     /// <summary>The table in the README, as <c>Project/File</c> strings.</summary>
     public static IReadOnlySet<string> Ledger {
         get {
-            var text = File.ReadAllText(
-                Path.Combine(RepositoryRoot(), "Editor", "Vixen.Editor.Ui", "README.md")
-            );
+            var text = File.ReadAllText(Path.Combine(RepositoryRoot(), "Editor", "Vixen.Editor.Ui", "README.md"));
 
             var rows = new HashSet<string>(StringComparer.Ordinal);
 
@@ -157,7 +159,7 @@ public partial class DumpLedgerTests {
         Assert.DoesNotContain("Vixen.Editor.Ui.Tests/MenuTests", Dumps);
 
         // And the exclusion that keeps `EditorSession.Tree("hierarchy")` from counting as a dump.
-        Assert.DoesNotMatch(DumpCall, "var view = editor.Tree(\"hierarchy\");");
+        Assert.DoesNotMatch(DumpCall, """var view = editor.Tree("hierarchy");""");
         Assert.Matches(DumpCall, "var text = test.Tree();");
         Assert.Matches(DumpCall, "var flags = harness.Ui.Flags(view);");
     }

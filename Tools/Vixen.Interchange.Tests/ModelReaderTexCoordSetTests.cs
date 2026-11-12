@@ -40,33 +40,33 @@ public sealed class ModelReaderTexCoordSetTests {
         Buffer.BlockCopy(second, 0, buffer, 60, 24);
         Buffer.BlockCopy(indices, 0, buffer, 84, 6);
         var json = $$"""
-            {
-              "asset": { "version": "2.0" },
-              "scene": 0,
-              "scenes": [{ "nodes": [0] }],
-              "nodes": [{ "mesh": 0 }],
-              "meshes": [{
-                "name": "Tri",
-                "primitives": [{ "attributes": { "POSITION": 0, "TEXCOORD_0": 1, "TEXCOORD_1": 2 }, "indices": 3 }]
-              }],
-              "buffers": [{
-                "byteLength": {{buffer.Length}},
-                "uri": "data:application/octet-stream;base64,{{Convert.ToBase64String(buffer)}}"
-              }],
-              "bufferViews": [
-                { "buffer": 0, "byteOffset": 0, "byteLength": 36 },
-                { "buffer": 0, "byteOffset": 36, "byteLength": 24 },
-                { "buffer": 0, "byteOffset": 60, "byteLength": 24 },
-                { "buffer": 0, "byteOffset": 84, "byteLength": 6 }
-              ],
-              "accessors": [
-                { "bufferView": 0, "componentType": 5126, "count": 3, "type": "VEC3", "min": [0, 0, 0], "max": [1, 1, 0] },
-                { "bufferView": 1, "componentType": 5126, "count": 3, "type": "VEC2" },
-                { "bufferView": 2, "componentType": 5126, "count": 3, "type": "VEC2" },
-                { "bufferView": 3, "componentType": 5123, "count": 3, "type": "SCALAR" }
-              ]
-            }
-            """;
+                     {
+                       "asset": { "version": "2.0" },
+                       "scene": 0,
+                       "scenes": [{ "nodes": [0] }],
+                       "nodes": [{ "mesh": 0 }],
+                       "meshes": [{
+                         "name": "Tri",
+                         "primitives": [{ "attributes": { "POSITION": 0, "TEXCOORD_0": 1, "TEXCOORD_1": 2 }, "indices": 3 }]
+                       }],
+                       "buffers": [{
+                         "byteLength": {{buffer.Length}},
+                         "uri": "data:application/octet-stream;base64,{{Convert.ToBase64String(buffer)}}"
+                       }],
+                       "bufferViews": [
+                         { "buffer": 0, "byteOffset": 0, "byteLength": 36 },
+                         { "buffer": 0, "byteOffset": 36, "byteLength": 24 },
+                         { "buffer": 0, "byteOffset": 60, "byteLength": 24 },
+                         { "buffer": 0, "byteOffset": 84, "byteLength": 6 }
+                       ],
+                       "accessors": [
+                         { "bufferView": 0, "componentType": 5126, "count": 3, "type": "VEC3", "min": [0, 0, 0], "max": [1, 1, 0] },
+                         { "bufferView": 1, "componentType": 5126, "count": 3, "type": "VEC2" },
+                         { "bufferView": 2, "componentType": 5126, "count": 3, "type": "VEC2" },
+                         { "bufferView": 3, "componentType": 5123, "count": 3, "type": "SCALAR" }
+                       ]
+                     }
+                     """;
         return Encoding.UTF8.GetBytes(json);
     }
 }

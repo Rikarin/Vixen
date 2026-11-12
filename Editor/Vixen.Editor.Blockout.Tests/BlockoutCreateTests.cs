@@ -187,7 +187,16 @@ public class BlockoutCreateTests : IDisposable {
 
     [Fact]
     public void A_parametric_entity_writes_its_parameters_and_not_its_mesh() {
-        var entity = BlockoutCreate.Shape(scene, new ShapeParameters { Kind = ShapeKind.Arch, Size = new(4f, 3f, 0.5f), Sides = 8, Thickness = 0.4f, Inner = 0.5f });
+        var entity = BlockoutCreate.Shape(
+            scene,
+            new ShapeParameters {
+                Kind = ShapeKind.Arch,
+                Size = new(4f, 3f, 0.5f),
+                Sides = 8,
+                Thickness = 0.4f,
+                Inner = 0.5f
+            }
+        );
 
         Settle();
 
@@ -215,7 +224,7 @@ public class BlockoutCreateTests : IDisposable {
     public void A_duplicate_carries_the_mesh_the_parameters_and_the_materials() {
         var entity = BlockoutCreate.Shape(scene, ShapeKind.Cylinder);
 
-        scene.SetMaterial(entity, MeshShapes.GroupTop, new AssetReference(AssetId.New()));
+        scene.SetMaterial(entity, MeshShapes.GroupTop, new(AssetId.New()));
 
         Settle();
         scene.Selection.Set(entity);
@@ -243,7 +252,7 @@ public class BlockoutCreateTests : IDisposable {
         Settle();
         scene.Selection.Set(entity);
 
-        Assert.Equal(1, BlockoutCreate.Mirror(scene, new Plane(Vector3.UnitX, 0f)));
+        Assert.Equal(1, BlockoutCreate.Mirror(scene, new(Vector3.UnitX, 0f)));
 
         var copy = scene.Selection.Items.Single();
 
@@ -322,7 +331,7 @@ public class BlockoutCreateTests : IDisposable {
 
         var one = BlockoutCreate.Poly(scene, footprint, 2f);
 
-        System.Array.Reverse(footprint);
+        Array.Reverse(footprint);
 
         var other = BlockoutCreate.Poly(scene, footprint, 2f);
 
@@ -334,12 +343,12 @@ public class BlockoutCreateTests : IDisposable {
     [Fact]
     public void A_cube_grid_box_is_a_whole_number_of_cells_and_reads_back_as_one() {
         var plane = new WorkPlane { Step = 2f };
-        var entity = BlockoutCubeGrid.Create(scene, new GridBox(1, 0, -2, 3, 2, 4), plane);
+        var entity = BlockoutCubeGrid.Create(scene, new(1, 0, -2, 3, 2, 4), plane);
 
         Settle();
 
         Assert.True(BlockoutCubeGrid.TryRead(scene, entity, plane, out var box));
-        Assert.Equal(new GridBox(1, 0, -2, 3, 2, 4), box);
+        Assert.Equal(new(1, 0, -2, 3, 2, 4), box);
 
         // Two-metre cells, so a three-cell box is six metres.
         Assert.Equal(6f, scene.ShapeOf(entity)!.Value.Size.X, 3);
@@ -352,22 +361,22 @@ public class BlockoutCreateTests : IDisposable {
 
         Settle();
 
-        Assert.True(BlockoutCubeGrid.Push(scene, entity, axis: 1, positive: true, cells: 3, plane));
+        Assert.True(BlockoutCubeGrid.Push(scene, entity, 1, true, 3, plane));
 
         Settle();
 
         Assert.True(scene.IsParametric(entity));
         Assert.True(BlockoutCubeGrid.TryRead(scene, entity, plane, out var box));
-        Assert.Equal(new GridBox(0, 0, 0, 1, 4, 1), box);
+        Assert.Equal(new(0, 0, 0, 1, 4, 1), box);
 
         // ⚠ Pulling the near side in moves the origin as well as the extent, which is what makes
         // "pull this wall towards me" work rather than making the box grow the other way.
-        Assert.True(BlockoutCubeGrid.Push(scene, entity, axis: 0, positive: false, cells: 2, plane));
+        Assert.True(BlockoutCubeGrid.Push(scene, entity, 0, false, 2, plane));
 
         Settle();
 
         Assert.True(BlockoutCubeGrid.TryRead(scene, entity, plane, out var wider));
-        Assert.Equal(new GridBox(-2, 0, 0, 3, 4, 1), wider);
+        Assert.Equal(new(-2, 0, 0, 3, 4, 1), wider);
     }
 
     [Fact]
@@ -377,7 +386,7 @@ public class BlockoutCreateTests : IDisposable {
 
         Settle();
 
-        Assert.False(BlockoutCubeGrid.Push(scene, entity, axis: 1, positive: true, cells: -4, plane));
+        Assert.False(BlockoutCubeGrid.Push(scene, entity, 1, true, -4, plane));
         Assert.True(BlockoutCubeGrid.TryRead(scene, entity, plane, out var box));
         Assert.Equal(1, box.Height);
     }
@@ -385,7 +394,7 @@ public class BlockoutCreateTests : IDisposable {
     [Fact]
     public void Corner_mode_moves_a_corner_by_a_whole_cell_and_demotes() {
         var plane = new WorkPlane { Step = 1f };
-        var entity = BlockoutCubeGrid.Create(scene, new GridBox(0, 0, 0, 2, 2, 2), plane);
+        var entity = BlockoutCubeGrid.Create(scene, new(0, 0, 0, 2, 2, 2), plane);
 
         Settle();
         scene.Selection.Set(entity);
@@ -467,11 +476,11 @@ public class BlockoutCreateTests : IDisposable {
 
         var shape = scene.ShapeOf(entity)!.Value;
 
-        Assert.Equal(new Vector3(4f, 3f, 6f), shape.Size);
+        Assert.Equal(new(4f, 3f, 6f), shape.Size);
 
         // The origin is the middle of the footprint on the plane, so the box stands on it rather than
         // being buried half way into it.
-        Assert.Equal(new Vector3(2f, 0f, 3f), world.Read<LocalTransform>(entity).Position);
+        Assert.Equal(new(2f, 0f, 3f), world.Read<LocalTransform>(entity).Position);
         Assert.Equal(entity, scene.Selection.Items.Single());
     }
 
@@ -517,20 +526,38 @@ public class BlockoutCreateTests : IDisposable {
         var plane = new WorkPlane { Step = 1f };
 
         // The ground floor and the first floor: two slabs, eight by ten, one on top of the other.
-        var ground = BlockoutCubeGrid.Create(scene, new GridBox(-4, -1, -5, 8, 1, 10), plane);
-        var first = BlockoutCubeGrid.Create(scene, new GridBox(-4, 3, -5, 8, 1, 10), plane);
+        var ground = BlockoutCubeGrid.Create(scene, new(-4, -1, -5, 8, 1, 10), plane);
+        var first = BlockoutCubeGrid.Create(scene, new(-4, 3, -5, 8, 1, 10), plane);
 
         // Four walls round the ground floor, made by the shape tool the way a drag makes them.
-        var north = BlockoutCreate.Shape(scene, new ShapeParameters { Kind = ShapeKind.Box, Size = new(8f, storey, 0.3f) }, new(0f, 0f, -5f));
-        var south = BlockoutCreate.Shape(scene, new ShapeParameters { Kind = ShapeKind.DoorFrame, Size = new(8f, storey, 0.3f), Sides = 8, Thickness = 0.6f, Inner = 0.25f }, new(0f, 0f, 5f));
+        var north = BlockoutCreate.Shape(
+            scene,
+            new ShapeParameters { Kind = ShapeKind.Box, Size = new(8f, storey, 0.3f) },
+            new(0f, 0f, -5f)
+        );
+        var south = BlockoutCreate.Shape(
+            scene,
+            new ShapeParameters {
+                Kind = ShapeKind.DoorFrame,
+                Size = new(8f, storey, 0.3f),
+                Sides = 8,
+                Thickness = 0.6f,
+                Inner = 0.25f
+            },
+            new(0f, 0f, 5f)
+        );
 
         // And the two long ones as one wall, mirrored — which is what a symmetrical room is for.
-        var side = BlockoutCreate.Shape(scene, new ShapeParameters { Kind = ShapeKind.Box, Size = new(0.3f, storey, 10f) }, new(-4f, 0f, 0f));
+        var side = BlockoutCreate.Shape(
+            scene,
+            new ShapeParameters { Kind = ShapeKind.Box, Size = new(0.3f, storey, 10f) },
+            new(-4f, 0f, 0f)
+        );
 
         Settle();
         scene.Selection.Set(side);
 
-        Assert.Equal(1, BlockoutCreate.Mirror(scene, new Plane(Vector3.UnitX, 0f)));
+        Assert.Equal(1, BlockoutCreate.Mirror(scene, new(Vector3.UnitX, 0f)));
 
         var mirrored = scene.Selection.Items.Single();
 

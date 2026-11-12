@@ -47,8 +47,12 @@ public static class PlatformInput {
     /// <summary>The paths of the drop group currently open, if one is.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Static, and that is defensible for exactly the reason a second one would not
-    ///         be.</b> A drop bracket is opened and closed within a single backend pump on the
+    ///         ⚠
+    ///         <b>
+    ///             Static, and that is defensible for exactly the reason a second one would not
+    ///             be.
+    ///         </b>
+    ///         A drop bracket is opened and closed within a single backend pump on the
     ///         thread that pumps, and <c>Vixen.Ui</c>'s graph is single-threaded by contract, so
     ///         there is never a second group open at the same time — not even across two windows,
     ///         because a window system delivers one drag at a time. Keying this by surface would be
@@ -113,8 +117,12 @@ public static class PlatformInput {
     /// <param name="document">The document.</param>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>One function reading <i>both</i> settings back off the document, rather than each
-    ///         of the two <c>Apply…</c> methods writing the half it knows.</b> The palette is a
+    ///         ⚠
+    ///         <b>
+    ///             One function reading <i>both</i> settings back off the document, rather than each
+    ///             of the two <c>Apply…</c> methods writing the half it knows.
+    ///         </b>
+    ///         The palette is a
     ///         product of the two — a high-contrast machine wants the forced table whichever
     ///         appearance it is in — so two independent writers would have made the answer depend on
     ///         which platform event arrived last, and the symptom would be a window that comes up in
@@ -127,9 +135,16 @@ public static class PlatformInput {
     ///         read, and what it supplied survives this because it is held apart from the tables.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b><s>And the AppKit half is not merely unwritten but blocked, because an SDL
-    ///         process has no <c>NSApplication</c> and <c>NSColor</c> wants one.</s> Measured on
-    ///         2026-09-06 and false.</b> A process that never made an <c>NSApplication</c> — <c>NSApp</c>
+    ///         ⚠
+    ///         <b>
+    ///             <s>
+    ///                 And the AppKit half is not merely unwritten but blocked, because an SDL
+    ///                 process has no <c>NSApplication</c> and <c>NSColor</c> wants one.
+    ///             </s>
+    ///             Measured on
+    ///             2026-09-06 and false.
+    ///         </b>
+    ///         A process that never made an <c>NSApplication</c> — <c>NSApp</c>
     ///         nil throughout — resolves <c>+[NSColor labelColor]</c>,
     ///         <c>secondaryLabelColor</c>, <c>separatorColor</c>, <c>textBackgroundColor</c>,
     ///         <c>selectedContentBackgroundColor</c>, <c>controlAccentColor</c> and
@@ -142,8 +157,12 @@ public static class PlatformInput {
     ///         thread, so a test can assert it without a runner on the main thread.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>What is genuinely blocked is <c>NSApp.effectiveAppearance</c>, which is a
-    ///         different claim and is the one <c>MacOSAppearance</c> makes.</b> That is a
+    ///         ⚠
+    ///         <b>
+    ///             What is genuinely blocked is <c>NSApp.effectiveAppearance</c>, which is a
+    ///             different claim and is the one <c>MacOSAppearance</c> makes.
+    ///         </b>
+    ///         That is a
     ///         message to a nil <c>NSApp</c> and returns zero, which reads as light. The two were run
     ///         together and only the first half survives: a semantic <em>colour</em> is a class
     ///         method that resolves against <c>NSAppearance.currentDrawingAppearance</c>, which has a
@@ -152,8 +171,12 @@ public static class PlatformInput {
     ///         <c>NSGlobalDomain</c> can spell.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A host that has read a real palette writes it with
-    ///         <c>SystemPalette.SetPlatform</c>, and <i>not</i> over the top of this call.</b> This
+    ///         ⚠
+    ///         <b>
+    ///             A host that has read a real palette writes it with
+    ///             <c>SystemPalette.SetPlatform</c>, and <i>not</i> over the top of this call.
+    ///         </b>
+    ///         This
     ///         runs on both a colour-scheme change and an accessibility change — two events from two
     ///         places on two cadences — so a colour written after one of them lives until the other
     ///         arrives. That is the same two-writers failure this method exists to prevent one level
@@ -193,8 +216,12 @@ public static class PlatformInput {
     ///         all.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b><see cref="SystemPalette.SetPlatform" /> and not <c>Set</c>, and the difference
-    ///         is the whole of why this works.</b> <see cref="Repalette" /> re-applies a default
+    ///         ⚠
+    ///         <b>
+    ///             <see cref="SystemPalette.SetPlatform" /> and not <c>Set</c>, and the difference
+    ///             is the whole of why this works.
+    ///         </b>
+    ///         <see cref="Repalette" /> re-applies a default
     ///         table on every appearance change <i>and</i> every contrast change, from two places on
     ///         two cadences. An accent written with <c>Set</c> would therefore last until the user
     ///         next toggled dark mode and then silently go back to Chromium's blue.
@@ -256,8 +283,11 @@ public static class PlatformInput {
     /// <param name="colours">What <see cref="IPlatform.SemanticColors" /> says.</param>
     /// <remarks>
     ///     <para>
-    ///         <b>The read #838 asked for: <c>color: CanvasText</c> resolving to the platform's label
-    ///         colour and following an appearance change without a stylesheet reload.</b> Every
+    ///         <b>
+    ///             The read #838 asked for: <c>color: CanvasText</c> resolving to the platform's label
+    ///             colour and following an appearance change without a stylesheet reload.
+    ///         </b>
+    ///         Every
     ///         other link existed — the keywords parse, <c>SystemPalette</c> substitutes them at
     ///         resolve time behind a revision counter, <see cref="SystemPalette.SetPlatform" /> holds a
     ///         supplied role across every <see cref="Repalette" /> — and the platforms could not be
@@ -317,9 +347,13 @@ public static class PlatformInput {
     /// <param name="accessibility">What <see cref="IPlatform.Accessibility" /> says.</param>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The wire <c>@media (prefers-reduced-motion)</c> and <c>@media (forced-colors)</c>
-    ///         were built without, which is the same hole <see cref="ApplyColorScheme" /> above was
-    ///         written to close one axis over.</b> Both features have evaluated since they landed,
+    ///         ⚠
+    ///         <b>
+    ///             The wire <c>@media (prefers-reduced-motion)</c> and <c>@media (forced-colors)</c>
+    ///             were built without, which is the same hole <see cref="ApplyColorScheme" /> above was
+    ///             written to close one axis over.
+    ///         </b>
+    ///         Both features have evaluated since they landed,
     ///         <c>Animator.ReduceMotion</c> has honoured the first since the same day, and every
     ///         writer of <c>UiSurface.Preferences</c> in the tree was a test — so an application
     ///         animated at a user who had switched animation off and nothing anywhere reported it.
@@ -333,8 +367,12 @@ public static class PlatformInput {
     ///         still tell apart by reading the platform.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>High contrast sets <i>both</i> <c>ForcedColors</c> and
-    ///         <see cref="ContrastPreference.More" />.</b> Windows' high-contrast mode and macOS's
+    ///         ⚠
+    ///         <b>
+    ///             High contrast sets <i>both</i> <c>ForcedColors</c> and
+    ///             <see cref="ContrastPreference.More" />.
+    ///         </b>
+    ///         Windows' high-contrast mode and macOS's
     ///         Increase Contrast are the platforms' single answer to a question CSS asks twice, and a
     ///         sheet written with only <c>(prefers-contrast: more)</c> in it would otherwise do
     ///         nothing on the one platform where the setting is most used. The converse is not true
@@ -342,8 +380,12 @@ public static class PlatformInput {
     ///         their palette to be replaced.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The text scale is not a media preference and is applied to the document's root
-    ///         font size instead.</b> CSS has no query for it — there is no
+    ///         ⚠
+    ///         <b>
+    ///             The text scale is not a media preference and is applied to the document's root
+    ///             font size instead.
+    ///         </b>
+    ///         CSS has no query for it — there is no
     ///         <c>prefers-larger-text</c> — because the setting is not something a sheet answers, it
     ///         is something every <c>rem</c> in the sheet already means. So this is the one axis here
     ///         that changes a measurement rather than a media condition, and
@@ -536,7 +578,7 @@ public static class PlatformInput {
                 document.Dispatch(
                     surface,
                     new KeyEvent {
-                        Key = (Vixen.Input.InputKey) (ushort) platformEvent.Key,
+                        Key = (Vixen.Input.InputKey)(ushort)platformEvent.Key,
                         Action = platformEvent.Kind == PlatformEventKind.KeyDown
                             ? KeyAction.Pressed
                             : KeyAction.Released,
@@ -659,10 +701,7 @@ public static class PlatformInput {
                 document.Dispatch(
                     surface,
                     new DropEvent {
-                        X = platformEvent.Position.X,
-                        Y = platformEvent.Position.Y,
-                        Files = files,
-                        Timestamp = when
+                        X = platformEvent.Position.X, Y = platformEvent.Position.Y, Files = files, Timestamp = when
                     }
                 );
 
@@ -705,8 +744,12 @@ public static class PlatformInput {
 
     /// <summary>The id every mouse event carries.</summary>
     /// <remarks>
-    ///     ⚠ <b>Zero, and written down rather than left to the default — because it is now a value
-    ///     something else could collide with.</b> <c>TouchTracker</c> hands out the lowest free
+    ///     ⚠
+    ///     <b>
+    ///         Zero, and written down rather than left to the default — because it is now a value
+    ///         something else could collide with.
+    ///     </b>
+    ///     <c>TouchTracker</c> hands out the lowest free
     ///     finger from zero, so the first finger on a screen and the mouse would be the same pointer
     ///     to <c>GestureRecognizer</c>: a tablet with a stylus and a trackpad, or any browser, can
     ///     have both alive at once, and the failure is a press that is never released because the

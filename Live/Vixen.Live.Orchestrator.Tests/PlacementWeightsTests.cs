@@ -26,10 +26,7 @@ public sealed class PlacementWeightsTests {
     [Fact]
     public void WeightsSurviveTheRoundTrip() {
         var weights = PlacementWeights.Default with {
-            Party = 1,
-            Locale = 50_000,
-            MaxAge = TimeSpan.FromHours(2),
-            GuildCap = 12
+            Party = 1, Locale = 50_000, MaxAge = TimeSpan.FromHours(2), GuildCap = 12
         };
 
         Assert.Equal(weights, PlacementWeights.Parse(weights.ToYaml()));
@@ -116,6 +113,5 @@ public sealed class PlacementWeightsTests {
     }
 
     [Fact]
-    public void TheExtensionIsTheOneTheDocumentNames() =>
-        Assert.Equal(".vxplacement", PlacementWeights.Extension);
+    public void TheExtensionIsTheOneTheDocumentNames() => Assert.Equal(".vxplacement", PlacementWeights.Extension);
 }

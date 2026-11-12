@@ -143,7 +143,7 @@ public sealed class TouchTracker {
     ///     is never told a finger lifted keeps drawing the line it was dragging.
     /// </remarks>
     public IReadOnlyList<int> Clear() {
-        var fingers = active.Values.Select(touch => touch.Finger).Order().ToArray();
+        var fingers = active.Values.Select(static touch => touch.Finger).Order().ToArray();
 
         active.Clear();
         Array.Clear(taken);

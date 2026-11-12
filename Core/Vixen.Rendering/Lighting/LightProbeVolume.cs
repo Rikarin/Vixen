@@ -132,10 +132,10 @@ public sealed class LightProbeVolume {
         if (mesh.TryFind(position, cell, out var found, out var weights)) {
             cell = found;
 
-            return (coefficients[mesh.CellVertices[found * 4]] * weights.X)
-                + (coefficients[mesh.CellVertices[(found * 4) + 1]] * weights.Y)
-                + (coefficients[mesh.CellVertices[(found * 4) + 2]] * weights.Z)
-                + (coefficients[mesh.CellVertices[(found * 4) + 3]] * weights.W);
+            return coefficients[mesh.CellVertices[found * 4]] * weights.X
+                + coefficients[mesh.CellVertices[found * 4 + 1]] * weights.Y
+                + coefficients[mesh.CellVertices[found * 4 + 2]] * weights.Z
+                + coefficients[mesh.CellVertices[found * 4 + 3]] * weights.W;
         }
 
         var nearest = NearestProbe(position);

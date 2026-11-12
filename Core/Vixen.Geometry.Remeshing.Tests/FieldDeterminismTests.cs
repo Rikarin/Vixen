@@ -109,7 +109,7 @@ public class FieldDeterminismTests {
         for (var run = 1; run < 10; run++) {
             var again = CrossFieldSolver.Solve(
                 mesh,
-                new RemeshSettings(),
+                new(),
                 FeatureDetector.Detect(mesh, new()),
                 CurvatureField.Build(mesh)
             );
@@ -142,8 +142,12 @@ public class FieldDeterminismTests {
 
     /// <summary>The colouring is a colouring: no two neighbours share one.</summary>
     /// <remarks>
-    ///     ⚠ <b>What makes the parallel sweep legal in the first place, and it is worth checking
-    ///     directly rather than inferring it from the bits matching.</b> Two nodes of the same colour
+    ///     ⚠
+    ///     <b>
+    ///         What makes the parallel sweep legal in the first place, and it is worth checking
+    ///         directly rather than inferring it from the bits matching.
+    ///     </b>
+    ///     Two nodes of the same colour
     ///     share no edge, so neither reads what the other writes — if that ever stopped being true the
     ///     bit-comparison above would start failing intermittently, on some machines, under load,
     ///     which is the worst possible way to find out.

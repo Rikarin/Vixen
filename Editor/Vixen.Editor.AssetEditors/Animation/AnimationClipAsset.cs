@@ -32,11 +32,8 @@ public static class AnimationClipCurves {
 
         var curve = new AnimationCurve();
 
-        foreach (var key in data.Keys.OrderBy(entry => entry.Time)) {
-            curve.Add(new(key.Time, key.Value, key.Mode) {
-                InTangent = key.InTangent,
-                OutTangent = key.OutTangent
-            });
+        foreach (var key in data.Keys.OrderBy(static entry => entry.Time)) {
+            curve.Add(new(key.Time, key.Value, key.Mode) { InTangent = key.InTangent, OutTangent = key.OutTangent });
         }
 
         return curve;
@@ -53,13 +50,15 @@ public static class AnimationClipCurves {
         var data = new AnimationCurveData { Property = property, Shape = shape };
 
         foreach (var key in curve.Keys) {
-            data.Keys.Add(new() {
-                Time = key.Time,
-                Value = key.Value,
-                InTangent = key.InTangent,
-                OutTangent = key.OutTangent,
-                Mode = key.Mode
-            });
+            data.Keys.Add(
+                new() {
+                    Time = key.Time,
+                    Value = key.Value,
+                    InTangent = key.InTangent,
+                    OutTangent = key.OutTangent,
+                    Mode = key.Mode
+                }
+            );
         }
 
         return data;
@@ -68,19 +67,20 @@ public static class AnimationClipCurves {
     /// <summary>What a property is called in a dope sheet's row.</summary>
     /// <param name="property">The property.</param>
     /// <returns>The label.</returns>
-    public static string Label(AnimationProperty property) => property switch {
-        AnimationProperty.PositionX => "Position X",
-        AnimationProperty.PositionY => "Position Y",
-        AnimationProperty.PositionZ => "Position Z",
-        AnimationProperty.RotationX => "Rotation X",
-        AnimationProperty.RotationY => "Rotation Y",
-        AnimationProperty.RotationZ => "Rotation Z",
-        AnimationProperty.RotationW => "Rotation W",
-        AnimationProperty.ScaleX => "Scale X",
-        AnimationProperty.ScaleY => "Scale Y",
-        AnimationProperty.Weight => "Weight",
-        _ => "Scale Z"
-    };
+    public static string Label(AnimationProperty property) =>
+        property switch {
+            AnimationProperty.PositionX => "Position X",
+            AnimationProperty.PositionY => "Position Y",
+            AnimationProperty.PositionZ => "Position Z",
+            AnimationProperty.RotationX => "Rotation X",
+            AnimationProperty.RotationY => "Rotation Y",
+            AnimationProperty.RotationZ => "Rotation Z",
+            AnimationProperty.RotationW => "Rotation W",
+            AnimationProperty.ScaleX => "Scale X",
+            AnimationProperty.ScaleY => "Scale Y",
+            AnimationProperty.Weight => "Weight",
+            _ => "Scale Z"
+        };
 
     /// <summary>What a curve is called in a dope sheet's row, shape and all.</summary>
     /// <param name="property">The property.</param>
@@ -104,9 +104,12 @@ public static class AnimationClipCurves {
     ///     A weight rests at zero, which is a face at rest — the same answer position gets and for
     ///     the same reason: it is the value the thing has when nothing is driving it.
     /// </remarks>
-    public static float Rest(AnimationProperty property) => property switch {
-        AnimationProperty.RotationW or AnimationProperty.ScaleX or AnimationProperty.ScaleY
-            or AnimationProperty.ScaleZ => 1f,
-        _ => 0f
-    };
+    public static float Rest(AnimationProperty property) =>
+        property switch {
+            AnimationProperty.RotationW
+                or AnimationProperty.ScaleX
+                or AnimationProperty.ScaleY
+                or AnimationProperty.ScaleZ => 1f,
+            _ => 0f
+        };
 }

@@ -68,7 +68,7 @@ public class GameplayConfigTests {
             .Build();
 
         Assert.Equal(3, composition.Modules.Count);
-        Assert.Equal(["Gameplay", "Combat", "Quests"], composition.Modules.Select(module => module.Name));
+        Assert.Equal(["Gameplay", "Combat", "Quests"], composition.Modules.Select(static module => module.Name));
         Assert.Equal(2, composition.Attributes.Count);
         Assert.Contains("State.InCombat", composition.Tags);
         Assert.Contains("Quest.Objective.Kill", composition.Tags);
@@ -92,8 +92,7 @@ public class GameplayConfigTests {
 
         new GameplayConfig()
             .Use<CombatTestModule>()
-            .Use<QuestTestModule>(
-                module => {
+            .Use<QuestTestModule>(module => {
                     module.MaximumActive = 5;
                     configured = module;
                 }

@@ -179,7 +179,7 @@ public sealed class ShapeVocabularyDocument : EditorDocument {
             true
         );
 
-        var replaced = Edit(declared, entry => entry with { Members = [.. entry.Members, member] });
+        var replaced = Edit(declared, entry => entry with { Members = [..entry.Members, member] });
 
         return new(replaced, member);
     }
@@ -193,7 +193,7 @@ public sealed class ShapeVocabularyDocument : EditorDocument {
         return Array.IndexOf(member.Class.Members, member.Member) >= 0
             && Edit(
                 member.Class,
-                entry => entry with { Members = [.. entry.Members.Where(row => !ReferenceEquals(row, member.Member))] }
+                entry => entry with { Members = [..entry.Members.Where(row => !ReferenceEquals(row, member.Member))] }
             ) is not null;
     }
 
@@ -224,7 +224,7 @@ public sealed class ShapeVocabularyDocument : EditorDocument {
     void Insert<T>(string label, Func<T[]> read, Action<T[]> write, T added) {
         var before = read();
 
-        Run(label, () => write([.. before, added]), () => write(before));
+        Run(label, () => write([..before, added]), () => write(before));
     }
 
     bool Delete<T>(string label, Func<T[]> read, Action<T[]> write, T removed) {

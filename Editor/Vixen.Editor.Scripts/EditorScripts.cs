@@ -5,7 +5,6 @@ using System.Reflection;
 using Vixen.Core.Reflection;
 using Vixen.Editor.Assets;
 using Vixen.Editor.Plugin;
-using Vixen.Editor.Ui;
 
 namespace Vixen.Editor.Scripts;
 
@@ -74,7 +73,7 @@ public sealed class EditorScripts {
     readonly ScriptWorkspace workspace = new();
 
     /// <summary>What the last build produced, and what it loaded.</summary>
-    public ScriptState State { get; private set; } = new(ScriptBuild.None, Loaded: false, 0);
+    public ScriptState State { get; private set; } = new(ScriptBuild.None, false, 0);
 
     /// <summary>Raised after every build, whether or not it produced anything.</summary>
     /// <remarks>
@@ -132,8 +131,12 @@ public sealed class EditorScripts {
 /// <summary>One project's script assembly, as the thing the plugin host activates.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>The one place in the editor that enumerates an assembly's types, and the reason is
-///         bounded.</b> ADR-002 forbids assembly scanning as a way of building the editor, for two
+///         ⚠
+///         <b>
+///             The one place in the editor that enumerates an assembly's types, and the reason is
+///             bounded.
+///         </b>
+///         ADR-002 forbids assembly scanning as a way of building the editor, for two
 ///         reasons that both hold: a scan reads metadata a trimmed publish has deleted, and start-up
 ///         cost grows with what is installed. Neither applies to an assembly the editor compiled from
 ///         source seconds ago, in a folder it is watching, in a process that has no publish. What a
@@ -180,8 +183,12 @@ sealed class ScriptModule(PluginHost host, Assembly assembly) : IEditorPlugin {
 
     /// <inheritdoc />
     /// <remarks>
-    ///     ⚠ <b>Each script plugin's own <c>Deactivate</c> is called, and a throw in one does not stop
-    ///     the next.</b> Everything they *registered* goes with the scope whatever happens here, which
+    ///     ⚠
+    ///     <b>
+    ///         Each script plugin's own <c>Deactivate</c> is called, and a throw in one does not stop
+    ///         the next.
+    ///     </b>
+    ///     Everything they *registered* goes with the scope whatever happens here, which
     ///     is why this can afford to keep going: the worst a badly behaved script can do is fail to
     ///     tidy up something the editor was not tracking.
     /// </remarks>
@@ -217,22 +224,29 @@ sealed class ScriptModule(PluginHost host, Assembly assembly) : IEditorPlugin {
         try {
             return assembly.GetTypes();
         } catch (ReflectionTypeLoadException failure) {
-            return [.. failure.Types.Where(type => type is not null).Select(type => type!)];
+            return [..failure.Types.Where(static type => type is not null).Select(static type => type!)];
         }
     }
 
     /// <summary>Contributes an asset importer a script declared.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>Doc 36 § F8 and § D3's <c>[AssetImporter(".fbx")]</c>, under the name it has:
-    ///         <c>[Importer]</c>.</b> A game author defines an importer for their own format in the
+    ///         <b>
+    ///             Doc 36 § F8 and § D3's <c>[AssetImporter(".fbx")]</c>, under the name it has:
+    ///             <c>[Importer]</c>.
+    ///         </b>
+    ///         A game author defines an importer for their own format in the
     ///         project's <c>Editor/</c> folder, the imported asset appears in the Project view, and a
     ///         runtime component in <c>Assets/</c> takes a reference to it. That whole pipeline is the
     ///         point, and this is the first step of it.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The settings type is described by reflection first, and that is the only thing
-    ///         that was ever missing.</b> An importer is <i>named</i> by its settings'
+    ///         ⚠
+    ///         <b>
+    ///             The settings type is described by reflection first, and that is the only thing
+    ///             that was ever missing.
+    ///         </b>
+    ///         An importer is <i>named</i> by its settings'
     ///         <c>[DataContract]</c> alias, which <c>TypeRegistry</c> answers and a generator normally
     ///         writes — and a script is compiled without one. <c>YamlSerializer</c> and
     ///         <c>ArtifactKey</c> both go through the same registry, so one descriptor is the whole
@@ -266,11 +280,11 @@ sealed class ScriptModule(PluginHost host, Assembly assembly) : IEditorPlugin {
         if (Attribute.GetCustomAttribute(type, typeof(ImporterAttribute)) is null) {
             throw new PluginException(
                 $"'{type.Name}' is an asset importer with no [Importer] attribute, so nothing knows which "
-                + "files it claims. Write [Importer(\".myext\")] on the class."
+                + """files it claims. Write [Importer(".myext")] on the class."""
             );
         }
 
-        var importer = (IAssetImporter) Activator.CreateInstance(type)!;
+        var importer = (IAssetImporter)Activator.CreateInstance(type)!;
 
         // ⚠ Before `Name` is read, and `ImporterRegistry.Add` reads it. Without the descriptor the
         // failure is "WidgetImportSettings has no descriptor" from inside the registry — true,
@@ -300,7 +314,7 @@ sealed class ScriptModule(PluginHost host, Assembly assembly) : IEditorPlugin {
             );
         }
 
-        var plugin = (IEditorPlugin) Activator.CreateInstance(type)!;
+        var plugin = (IEditorPlugin)Activator.CreateInstance(type)!;
 
         // ⚠ Handed the *same* context this module was activated with, so everything a script plugin
         // registers is owned by the one scope the whole script assembly shares. That is right rather

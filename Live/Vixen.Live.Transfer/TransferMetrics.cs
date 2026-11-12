@@ -78,11 +78,11 @@ public sealed class TransferMetrics {
     public IReadOnlyList<(TransferAbort Reason, int Count)> AbortHistogram() {
         lock (gate) {
             return [
-                .. Enum.GetValues<TransferAbort>()
+                ..Enum.GetValues<TransferAbort>()
                     .Where(reason => reason != TransferAbort.None && aborts[(int)reason] > 0)
                     .Select(reason => (reason, aborts[(int)reason]))
-                    .OrderByDescending(entry => entry.Item2)
-                    .ThenBy(entry => entry.reason)
+                    .OrderByDescending(static entry => entry.Item2)
+                    .ThenBy(static entry => entry.reason)
             ];
         }
     }

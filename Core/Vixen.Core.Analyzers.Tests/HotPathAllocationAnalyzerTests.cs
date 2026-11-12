@@ -170,7 +170,7 @@ public sealed class HotPathAllocationAnalyzerTests {
 
         Assert.Contains(
             diagnostics,
-            diagnostic => diagnostic.GetMessage(CultureInfo.InvariantCulture)
+            static diagnostic => diagnostic.GetMessage(CultureInfo.InvariantCulture)
                 .Contains("an interpolated string", StringComparison.Ordinal)
         );
     }

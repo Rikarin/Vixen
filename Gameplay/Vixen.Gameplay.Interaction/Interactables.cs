@@ -63,8 +63,11 @@ public enum InteractionRefusal {
 /// <summary>Something a player can use: a node, a chest, a door, a lever, a forge.</summary>
 /// <remarks>
 ///     <para>
-///         <b>Doc 28 § Interaction: "one channelled-interaction system with different
-///         definitions".</b> Mining a node, smelting at a forge, opening a chest, reading a book,
+///         <b>
+///             Doc 28 § Interaction: "one channelled-interaction system with different
+///             definitions".
+///         </b>
+///         Mining a node, smelting at a forge, opening a chest, reading a book,
 ///         flipping a lever and picking a herb differ in a duration, a tag and a result.
 ///     </para>
 ///     <para>
@@ -200,7 +203,7 @@ public sealed class InteractionLibrary {
 
     /// <summary>Everything, in address order.</summary>
     public IEnumerable<Interactable> Interactables =>
-        interactables.Values.OrderBy(entry => entry.Definition.Address, StringComparer.Ordinal);
+        interactables.Values.OrderBy(static entry => entry.Definition.Address, StringComparer.Ordinal);
 
     /// <summary>What did not resolve, and what a definition said that cannot be true at once.</summary>
     public IReadOnlyList<string> Problems => problems;
@@ -244,12 +247,12 @@ public sealed class InteractionLibrary {
                     tags.Resolve(definition.Tag),
                     DefId.From(definition.Yields),
                     RequirementSet.Compile(definition.Requires, tags),
-                    [.. definition.GrantsTags.Select(tags.Resolve).Where(tag => tag.IsSome)]
+                    [..definition.GrantsTags.Select(tags.Resolve).Where(static tag => tag.IsSome)]
                 )
             );
         }
 
-        return new(interactables, [.. problems]);
+        return new(interactables, [..problems]);
     }
 
     /// <summary>Finds one.</summary>

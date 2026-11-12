@@ -57,8 +57,11 @@ public sealed class LootResult {
 /// <summary>Rolls a table. The same evaluator the editor's simulator runs.</summary>
 /// <remarks>
 ///     <para>
-///         <b>Reproducible from the event id, which is doc 28 § Loot's requirement and not a
-///         nicety.</b> The stream is seeded from <c>(eventId, player)</c> and nothing else, so a
+///         <b>
+///             Reproducible from the event id, which is doc 28 § Loot's requirement and not a
+///             nicety.
+///         </b>
+///         The stream is seeded from <c>(eventId, player)</c> and nothing else, so a
 ///         support ticket about a drop can be recomputed a year later — which is what makes "the log
 ///         says you rolled a 3" answerable.
 ///     </para>

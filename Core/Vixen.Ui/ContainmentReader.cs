@@ -9,23 +9,34 @@ namespace Vixen.Ui;
 /// <summary>Reads <c>contain</c> off a computed style, as the flags the layout store carries.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>One reader for three callers, which is <see cref="OverflowReader" />'s argument one
-///         property over.</b> The layout store needs the <c>size</c> half, the draw list and the hit
+///         ⚠
+///         <b>
+///             One reader for three callers, which is <see cref="OverflowReader" />'s argument one
+///             property over.
+///         </b>
+///         The layout store needs the <c>size</c> half, the draw list and the hit
 ///         test need the <c>paint</c> half, and a property parsed in three places is how a box ends up
 ///         visibly clipped and invisibly clickable. <see cref="OverflowReader" /> folds the paint half
 ///         in itself, so painting, hit testing and stickiness all get it from the same sentence.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The value is a LIST of keywords, and that is why this cannot be a
-///         <c>Dictionary&lt;int, T&gt;</c> lookup like every other keyword property here.</b>
+///         ⚠
+///         <b>
+///             The value is a LIST of keywords, and that is why this cannot be a
+///             <c>Dictionary&lt;int, T&gt;</c> lookup like every other keyword property here.
+///         </b>
 ///         <c>contain: layout paint</c> interns as one string, so the answer is computed from the
 ///         value's text — once per distinct interned value, cached on the id, because the set of
 ///         spellings a document uses is tiny and fixed while the number of elements reading them is
 ///         not.
 ///     </para>
 ///     <para>
-///         ⚠ <b><c>style</c> parses and contributes no flag, and that is deliberate rather than
-///         unfinished.</b> CSS Containment § 3.4 scopes counters and quotes; this engine has neither,
+///         ⚠
+///         <b>
+///             <c>style</c> parses and contributes no flag, and that is deliberate rather than
+///             unfinished.
+///         </b>
+///         CSS Containment § 3.4 scopes counters and quotes; this engine has neither,
 ///         so the keyword is understood and inert. Refusing it instead would drop the whole
 ///         declaration — <c>contain: layout style</c> would stop containing layout — which is a
 ///         worse answer than the one CSS asks for.
@@ -60,8 +71,12 @@ sealed class ContainmentReader {
     /// <param name="style">The element's computed style.</param>
     /// <returns>The flags, or <see cref="Containment.None" /> when nothing is declared.</returns>
     /// <remarks>
-    ///     ⚠ <b><c>container-type</c> is read here and not only by <c>UiDocument.KindOf</c>, which is
-    ///     the whole of doc 43 § D3's owed "coercion".</b> A query container is a contained box — CSS
+    ///     ⚠
+    ///     <b>
+    ///         <c>container-type</c> is read here and not only by <c>UiDocument.KindOf</c>, which is
+    ///         the whole of doc 43 § D3's owed "coercion".
+    ///     </b>
+    ///     A query container is a contained box — CSS
     ///     Containment 3 § 3.1 — so its answer to a query cannot move the box the query measured.
     ///     While only the query half read the declaration, a container sized by its contents could
     ///     flip on every settle pass and exhaust <c>UiDocument.SettlePasses</c>; the store already
@@ -114,7 +129,8 @@ sealed class ContainmentReader {
     internal static Containment ParseContainerType(string? text) {
         var word = text.AsSpan().Trim();
 
-        return word.Equals("inline-size", StringComparison.OrdinalIgnoreCase) ? Containment.InlineSize | Containment.FormattingContext
+        return word.Equals("inline-size", StringComparison.OrdinalIgnoreCase) ? Containment.InlineSize
+            | Containment.FormattingContext
             : word.Equals("size", StringComparison.OrdinalIgnoreCase) ? Containment.Size | Containment.FormattingContext
             : Containment.None;
     }

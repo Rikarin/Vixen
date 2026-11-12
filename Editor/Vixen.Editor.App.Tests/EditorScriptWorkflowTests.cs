@@ -9,27 +9,33 @@ namespace Vixen.Editor.App.Tests;
 /// <summary>Doc 36 § P5's exit criterion, through a running editor.</summary>
 /// <remarks>
 ///     <para>
-///         <b>A <c>.cs</c> file dropped into a project's <c>Editor/</c> folder adds a menu item
-///         without restarting the editor, and a compile error is a panel rather than a crash.</b>
+///         <b>
+///             A <c>.cs</c> file dropped into a project's <c>Editor/</c> folder adds a menu item
+///             without restarting the editor, and a compile error is a panel rather than a crash.
+///         </b>
 ///         That is the whole phase, and it is only true or false in a shell: the module has to be
 ///         activated, the project's root has to be the one it watches, the watcher has to be drained
 ///         on a frame, and the command has to land in the shell somebody is looking at.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The unit suite in <c>Vixen.Editor.Scripts.Tests</c> drives <c>EditorScripts</c>
-///         directly</b> — the compile, the load, the reload and the unload. What is left for here is
+///         ⚠
+///         <b>
+///             The unit suite in <c>Vixen.Editor.Scripts.Tests</c> drives <c>EditorScripts</c>
+///             directly
+///         </b>
+///         — the compile, the load, the reload and the unload. What is left for here is
 ///         the wiring, which is the part a unit test cannot see.
 ///     </para>
 /// </remarks>
 public class EditorScriptWorkflowTests {
     const string MenuItem = """
-        using Vixen.Editor.Plugin;
+                            using Vixen.Editor.Plugin;
 
-        public static class ProjectTools {
-            [EditorMenu("Tools/Say Hello")]
-            public static void Hello() { }
-        }
-        """;
+                            public static class ProjectTools {
+                                [EditorMenu("Tools/Say Hello")]
+                                public static void Hello() { }
+                            }
+                            """;
 
     static string Write(EditorSession editor, string name, string source) {
         var folder = Path.Combine(editor.ProjectRoot, "Assets", "Editor");
@@ -65,7 +71,7 @@ public class EditorScriptWorkflowTests {
             Assert.True(editor.CanRun("scripts.tools.say-hello"));
         } finally {
             if (Directory.Exists(data)) {
-                Directory.Delete(data, recursive: true);
+                Directory.Delete(data, true);
             }
         }
     }
@@ -91,7 +97,7 @@ public class EditorScriptWorkflowTests {
             editor.Ui.Contains("Tools").ShouldExist();
         } finally {
             if (Directory.Exists(data)) {
-                Directory.Delete(data, recursive: true);
+                Directory.Delete(data, true);
             }
         }
     }
@@ -134,7 +140,7 @@ public class EditorScriptWorkflowTests {
             editor.Ui.Contains("Tools").ShouldExist();
         } finally {
             if (Directory.Exists(data)) {
-                Directory.Delete(data, recursive: true);
+                Directory.Delete(data, true);
             }
         }
     }
@@ -168,7 +174,7 @@ public class EditorScriptWorkflowTests {
             Assert.True(editor.CanRun("scripts.rebuild"));
         } finally {
             if (Directory.Exists(data)) {
-                Directory.Delete(data, recursive: true);
+                Directory.Delete(data, true);
             }
         }
     }

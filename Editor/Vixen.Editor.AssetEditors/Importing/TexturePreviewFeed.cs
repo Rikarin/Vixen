@@ -20,8 +20,12 @@ namespace Vixen.Editor.AssetEditors.Importing;
 ///         <see href="https://github.com/Rikarin/Vixen/issues/610">#610</see>.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Beside the panel and not in it, and through <see cref="IEditorGraphics" /> rather than
-///         a device.</b> <c>Image.Texture</c> is a number the host's renderer hands out, which needs a
+///         ⚠
+///         <b>
+///             Beside the panel and not in it, and through <see cref="IEditorGraphics" /> rather than
+///             a device.
+///         </b>
+///         <c>Image.Texture</c> is a number the host's renderer hands out, which needs a
 ///         texture, which needs the device — and this assembly has no device and must not acquire
 ///         one. So the view says what it wants to see and this says it in pixels through the
 ///         graphics the plugin contract lends, which is the same surface the browser's grid uploads
@@ -43,8 +47,12 @@ namespace Vixen.Editor.AssetEditors.Importing;
 ///         ship is an inspector that cannot be used to decide anything.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Followers are dropped by <see cref="UiElement.IsRemoved" />, which is the only
-///         honest test</b> — a docked panel is torn down by the workspace and tells nobody here. It
+///         ⚠
+///         <b>
+///             Followers are dropped by <see cref="UiElement.IsRemoved" />, which is the only
+///             honest test
+///         </b>
+///         — a docked panel is torn down by the workspace and tells nobody here. It
 ///         is the same sweep <c>AssetEditorsModule.Follow</c> keeps, and without it a closed texture
 ///         editor holds a GPU texture for the life of the session.
 ///     </para>
@@ -82,7 +90,8 @@ sealed class TexturePreviewFeed(IEditorGraphics graphics) {
     /// <remarks>
     ///     The application is built before the window has a Vulkan surface, and a session restore
     ///     opens documents early — so the editors that matter most are exactly the ones opened while
-    ///     <see cref="IEditorGraphics.Upload" /> had nowhere to put a picture — which is what <see cref="IEditorGraphics.SurfaceChanged" /> calls this for.
+    ///     <see cref="IEditorGraphics.Upload" /> had nowhere to put a picture — which is what
+    ///     <see cref="IEditorGraphics.SurfaceChanged" /> calls this for.
     /// </remarks>
     public void Restate() {
         Sweep();
@@ -253,12 +262,13 @@ sealed class TexturePreviewFeed(IEditorGraphics graphics) {
     }
 
     /// <summary>What the settings say the texture holds, as a filter.</summary>
-    static MipOptions Filter(TextureImportEdits settings) => settings.Content switch {
-        TextureContent.NormalMap => MipOptions.NormalMap,
-        TextureContent.Colour when settings.AlphaIsTransparency => MipOptions.CutoutColour,
-        TextureContent.Colour => MipOptions.Colour,
-        _ => MipOptions.Linear
-    };
+    static MipOptions Filter(TextureImportEdits settings) =>
+        settings.Content switch {
+            TextureContent.NormalMap => MipOptions.NormalMap,
+            TextureContent.Colour when settings.AlphaIsTransparency => MipOptions.CutoutColour,
+            TextureContent.Colour => MipOptions.Colour,
+            _ => MipOptions.Linear
+        };
 
     /// <summary>One level's texels with the channels the viewer asked for, and nothing else.</summary>
     /// <param name="level">The level's own bytes, four to a texel.</param>
@@ -319,13 +329,14 @@ sealed class TexturePreviewFeed(IEditorGraphics graphics) {
     }
 
     /// <summary>Which byte of a texel a lone channel is, or a negative number for a set of them.</summary>
-    static int Single(TextureChannels channels) => channels switch {
-        TextureChannels.Red => 0,
-        TextureChannels.Green => 1,
-        TextureChannels.Blue => 2,
-        TextureChannels.Alpha => 3,
-        _ => -1
-    };
+    static int Single(TextureChannels channels) =>
+        channels switch {
+            TextureChannels.Red => 0,
+            TextureChannels.Green => 1,
+            TextureChannels.Blue => 2,
+            TextureChannels.Alpha => 3,
+            _ => -1
+        };
 
     /// <summary>One open texture editor, and what it was last shown.</summary>
     sealed class Followed(TextureImportView view, TextureImportDocument document) {

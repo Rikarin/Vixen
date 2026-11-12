@@ -76,14 +76,16 @@ public class DelaunayTetrahedralizationTests {
     /// </remarks>
     [Fact]
     public void Coincident_positions_are_merged() {
-        var mesh = DelaunayTetrahedralization.Build([
-            new(0f, 0f, 0f),
-            new(1f, 0f, 0f),
-            new(0f, 0f, 0f),
-            new(0f, 1f, 0f),
-            new(1f, 0f, 0f),
-            new(0f, 0f, 1f)
-        ]);
+        var mesh = DelaunayTetrahedralization.Build(
+            [
+                new(0f, 0f, 0f),
+                new(1f, 0f, 0f),
+                new(0f, 0f, 0f),
+                new(0f, 1f, 0f),
+                new(1f, 0f, 0f),
+                new(0f, 0f, 1f)
+            ]
+        );
 
         Assert.Equal(4, mesh.Vertices.Length);
         Assert.Equal(1, mesh.CellCount);
@@ -116,16 +118,18 @@ public class DelaunayTetrahedralizationTests {
     /// <summary>Eight cospherical points still make a mesh that fills the cube they bound.</summary>
     [Fact]
     public void A_cubes_corners_tetrahedralise() {
-        var mesh = DelaunayTetrahedralization.Build([
-            new(0f, 0f, 0f),
-            new(1f, 0f, 0f),
-            new(0f, 1f, 0f),
-            new(1f, 1f, 0f),
-            new(0f, 0f, 1f),
-            new(1f, 0f, 1f),
-            new(0f, 1f, 1f),
-            new(1f, 1f, 1f)
-        ]);
+        var mesh = DelaunayTetrahedralization.Build(
+            [
+                new(0f, 0f, 0f),
+                new(1f, 0f, 0f),
+                new(0f, 1f, 0f),
+                new(1f, 1f, 0f),
+                new(0f, 0f, 1f),
+                new(1f, 0f, 1f),
+                new(0f, 1f, 1f),
+                new(1f, 1f, 1f)
+            ]
+        );
 
         AssertIsDelaunay(mesh);
         Assert.Equal(1d, TotalVolume(mesh), 5);
@@ -255,16 +259,15 @@ public class DelaunayTetrahedralizationTests {
         var mesh = DelaunayTetrahedralization.Build(points.ToArray());
 
         Gen.Select(Gen.Float[0f, 3f], Gen.Float[0f, 3f], Gen.Float[0f, 3f])
-            .Sample(
-                query => {
+            .Sample(query => {
                     var position = new Vector3(query.Item1, query.Item2, query.Item3);
 
                     Assert.True(mesh.TryFind(position, out var cell, out var weights));
 
-                    var rebuilt = (mesh.Vertices[mesh.CellVertices[cell * 4]] * weights.X)
-                        + (mesh.Vertices[mesh.CellVertices[(cell * 4) + 1]] * weights.Y)
-                        + (mesh.Vertices[mesh.CellVertices[(cell * 4) + 2]] * weights.Z)
-                        + (mesh.Vertices[mesh.CellVertices[(cell * 4) + 3]] * weights.W);
+                    var rebuilt = mesh.Vertices[mesh.CellVertices[cell * 4]] * weights.X
+                        + mesh.Vertices[mesh.CellVertices[cell * 4 + 1]] * weights.Y
+                        + mesh.Vertices[mesh.CellVertices[cell * 4 + 2]] * weights.Z
+                        + mesh.Vertices[mesh.CellVertices[cell * 4 + 3]] * weights.W;
 
                     Assert.True(
                         Vector3.Distance(position, rebuilt) < 1e-4f,
@@ -323,9 +326,9 @@ public class DelaunayTetrahedralizationTests {
 
         for (var cell = 0; cell < mesh.CellCount; cell++) {
             var a = mesh.Vertices[mesh.CellVertices[cell * 4]];
-            var b = mesh.Vertices[mesh.CellVertices[(cell * 4) + 1]];
-            var c = mesh.Vertices[mesh.CellVertices[(cell * 4) + 2]];
-            var d = mesh.Vertices[mesh.CellVertices[(cell * 4) + 3]];
+            var b = mesh.Vertices[mesh.CellVertices[cell * 4 + 1]];
+            var c = mesh.Vertices[mesh.CellVertices[cell * 4 + 2]];
+            var d = mesh.Vertices[mesh.CellVertices[cell * 4 + 3]];
 
             Assert.Equal(1, ExactPredicates.Orient3D(a, b, c, d));
 
@@ -346,7 +349,7 @@ public class DelaunayTetrahedralizationTests {
 
     static bool IsCorner(DelaunayTetrahedralization mesh, int cell, int vertex) {
         for (var slot = 0; slot < 4; slot++) {
-            if (mesh.CellVertices[(cell * 4) + slot] == vertex) {
+            if (mesh.CellVertices[cell * 4 + slot] == vertex) {
                 return true;
             }
         }
@@ -360,14 +363,14 @@ public class DelaunayTetrahedralizationTests {
     /// </summary>
     static void AssertAdjacencyIsMutual(DelaunayTetrahedralization mesh, int cell) {
         for (var face = 0; face < 4; face++) {
-            var neighbour = mesh.CellNeighbours[(cell * 4) + face];
+            var neighbour = mesh.CellNeighbours[cell * 4 + face];
 
             if (neighbour < 0) {
                 continue;
             }
 
             var back = 0;
-            while (back < 4 && mesh.CellNeighbours[(neighbour * 4) + back] != cell) {
+            while (back < 4 && mesh.CellNeighbours[neighbour * 4 + back] != cell) {
                 back++;
             }
 
@@ -387,11 +390,11 @@ public class DelaunayTetrahedralizationTests {
 
         for (var slot = 0; slot < 4; slot++) {
             if (slot != face) {
-                result.Add(mesh.CellVertices[(cell * 4) + slot]);
+                result.Add(mesh.CellVertices[cell * 4 + slot]);
             }
         }
 
-        return [.. result];
+        return [..result];
     }
 
     static double TotalVolume(DelaunayTetrahedralization mesh) {
@@ -399,9 +402,9 @@ public class DelaunayTetrahedralizationTests {
 
         for (var cell = 0; cell < mesh.CellCount; cell++) {
             var a = mesh.Vertices[mesh.CellVertices[cell * 4]];
-            var b = mesh.Vertices[mesh.CellVertices[(cell * 4) + 1]];
-            var c = mesh.Vertices[mesh.CellVertices[(cell * 4) + 2]];
-            var d = mesh.Vertices[mesh.CellVertices[(cell * 4) + 3]];
+            var b = mesh.Vertices[mesh.CellVertices[cell * 4 + 1]];
+            var c = mesh.Vertices[mesh.CellVertices[cell * 4 + 2]];
+            var d = mesh.Vertices[mesh.CellVertices[cell * 4 + 3]];
 
             total += Math.Abs(Vector3.Dot(a - d, Vector3.Cross(b - d, c - d))) / 6d;
         }

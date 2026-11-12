@@ -33,18 +33,17 @@ public sealed class ParityAuditTests {
         FunctionalRoots = ["left", "top"],
         Variants = [new TailwindVariant("hover", "hover"), new TailwindVariant("before", "before")],
         Checked = ["refused-class", "sr-only", "static", "top-0"],
-        Refused = ["refused-class"],
+        Refused = ["refused-class"]
     };
 
     /// <summary>A ledger over <see cref="Miniature" /> with nothing wrong with it.</summary>
-    static List<LedgerRow> Clean() =>
-    [
+    static List<LedgerRow> Clean() => [
         new("top-*", "functional", "top-0", ["sr-only", "static"]),
-        new("left-*", "functional", "", []),
+        new("left-*", "functional", string.Empty, [])
     ];
 
     static IReadOnlyList<string> Codes(IEnumerable<LedgerRow> rows, params string[] unlisted) =>
-        [.. ParityAudit.Run(Miniature, [.. rows], unlisted).Select(finding => finding.Code)];
+        [..ParityAudit.Run(Miniature, [..rows], unlisted).Select(static finding => finding.Code)];
 
     /// <summary>The check this file exists for.</summary>
     [Fact]
@@ -53,7 +52,7 @@ public sealed class ParityAuditTests {
         var rows = ParityLedgerTable.Read(Files.Ledger);
         var unlisted = ParityAudit.ReadUnlisted(Files.Unlisted);
 
-        Assert.Equal([], ParityAudit.Run(registry, rows, unlisted).Select(finding => finding.ToString()));
+        Assert.Equal([], ParityAudit.Run(registry, rows, unlisted).Select(static finding => finding.ToString()));
     }
 
     /// <summary>The baseline the six cases below mutate reports nothing at all.</summary>
@@ -66,7 +65,7 @@ public sealed class ParityAuditTests {
     [Fact]
     public void A_surveyed_root_tailwind_does_not_register_is_TWP001() {
         var rows = Clean();
-        rows.Add(new LedgerRow("no-such-root-*", "functional", "", []));
+        rows.Add(new LedgerRow("no-such-root-*", "functional", string.Empty, []));
 
         Assert.Contains("TWP001", Codes(rows));
     }
@@ -91,7 +90,7 @@ public sealed class ParityAuditTests {
     [Fact]
     public void A_listed_class_tailwind_refuses_is_TWP003() {
         var rows = Clean();
-        rows.Add(new LedgerRow("top-*", "functional", "", ["refused-class"]));
+        rows.Add(new LedgerRow("top-*", "functional", string.Empty, ["refused-class"]));
 
         Assert.Contains("TWP003", Codes(rows));
     }
@@ -105,7 +104,7 @@ public sealed class ParityAuditTests {
     [Fact]
     public void A_class_the_snapshot_was_never_asked_about_is_TWP004() {
         var rows = Clean();
-        rows.Add(new LedgerRow("top-*", "functional", "", ["never-asked-class"]));
+        rows.Add(new LedgerRow("top-*", "functional", string.Empty, ["never-asked-class"]));
 
         Assert.Contains("TWP004", Codes(rows));
     }
@@ -113,7 +112,8 @@ public sealed class ParityAuditTests {
     /// <summary>A static utility neither the ledger nor the unlisted file names.</summary>
     [Fact]
     public void A_static_utility_nobody_names_is_TWP005() {
-        List<LedgerRow> rows = [new("top-*", "functional", "top-0", ["sr-only"]), new("left-*", "functional", "", [])];
+        List<LedgerRow> rows =
+            [new("top-*", "functional", "top-0", ["sr-only"]), new("left-*", "functional", string.Empty, [])];
 
         Assert.Contains("TWP005", Codes(rows));
         Assert.DoesNotContain("TWP005", Codes(rows, "static"));
@@ -180,8 +180,9 @@ public sealed class ParityAuditTests {
         // returns nothing passes every membership test ever written over it. The snapshot has to
         // have been asked about at least as many classes as the ledger names, or TWP004 is the only
         // thing it can say and TWP003 can never fire.
-        var named = rows.SelectMany(row => row.Classes).Concat(rows.Select(row => row.Example))
-            .Where(name => name.Length > 0)
+        var named = rows.SelectMany(static row => row.Classes)
+            .Concat(rows.Select(static row => row.Example))
+            .Where(static name => name.Length > 0)
             .ToHashSet(StringComparer.Ordinal);
 
         Assert.True(registry.Checked.Length >= named.Count, $"{named.Count} named, {registry.Checked.Length} checked");
@@ -189,7 +190,7 @@ public sealed class ParityAuditTests {
 
         // ⚠ A variant with no probe can only be reported as unprobeable, so a snapshot full of them
         // would pass every membership test the unsupported list can express while measuring nothing.
-        Assert.All(registry.Variants, variant => Assert.NotNull(variant.Probe));
+        Assert.All(registry.Variants, static variant => Assert.NotNull(variant.Probe));
     }
 
     /// <summary>⚠ That the committed snapshot can record a refusal at all, which <c>refused: []</c> cannot say.</summary>
@@ -202,8 +203,12 @@ public sealed class ParityAuditTests {
     ///         comparator calling three empty manifests identical, and this repository has shipped it.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>So <c>snapshot.mjs</c> always asks two control questions whose answers are known
-    ///         in advance</b>, and this is the assertion that spends them: <c>p-4</c> must compile and
+    ///         ⚠
+    ///         <b>
+    ///             So <c>snapshot.mjs</c> always asks two control questions whose answers are known
+    ///             in advance
+    ///         </b>
+    ///         , and this is the assertion that spends them: <c>p-4</c> must compile and
     ///         <c>vixen-parity-control-no-such-utility</c> must not. Both are in <c>checked</c>, so a
     ///         snapshot taken with a broken compiler — one that refuses everything, or nothing — is
     ///         a red run rather than a clean one. Neither name is in the ledger, so neither can produce
@@ -224,8 +229,12 @@ public sealed class ParityAuditTests {
     /// <summary>⚠ And that TWP003 fires against the REAL snapshot, not only against the miniature one.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>TWP003 cannot fire on the committed pair, and that is correct rather than a
-    ///         hole — but it means nothing here exercised it over the real snapshot.</b> The snapshot
+    ///         ⚠
+    ///         <b>
+    ///             TWP003 cannot fire on the committed pair, and that is correct rather than a
+    ///             hole — but it means nothing here exercised it over the real snapshot.
+    ///         </b>
+    ///         The snapshot
     ///         records a refusal only for a class the ledger named when it was taken, so a healthy
     ///         ledger produces an empty <c>refused</c> set and TWP003 has nothing to say. Restoring
     ///         the defect this tool found on its first run (<c>backdrop-blur-2</c> in the
@@ -244,13 +253,13 @@ public sealed class ParityAuditTests {
         var registry = TailwindRegistry.Read(Files.Registry);
         var rows = ParityLedgerTable.Read(Files.Ledger).ToList();
 
-        rows.Add(new LedgerRow("top-*", "functional", "", ["vixen-parity-control-no-such-utility"]));
+        rows.Add(new LedgerRow("top-*", "functional", string.Empty, ["vixen-parity-control-no-such-utility"]));
 
         var findings = ParityAudit.Run(registry, rows, ParityAudit.ReadUnlisted(Files.Unlisted));
 
         Assert.Equal(
             ["TWP003 vixen-parity-control-no-such-utility"],
-            findings.Select(finding => $"{finding.Code} {finding.Subject}")
+            findings.Select(static finding => $"{finding.Code} {finding.Subject}")
         );
     }
 }

@@ -8,8 +8,11 @@ namespace Vixen.Editor.Ui;
 /// <summary>The panel doc 20's A7 asks for: where the toasts accumulate once they have gone.</summary>
 /// <remarks>
 ///     <para>
-///         <b><see cref="NotificationCenter" /> has kept a bounded history since it was written and
-///         nothing showed it.</b> A toast is a message that expires, and the thing a person does
+///         <b>
+///             <see cref="NotificationCenter" /> has kept a bounded history since it was written and
+///             nothing showed it.
+///         </b>
+///         A toast is a message that expires, and the thing a person does
 ///         after an import fails is look away, look back, and find it gone — errors are exempt from
 ///         expiry precisely because of that, which leaves the editor's corner slowly filling with
 ///         undismissed errors instead. This is the place they go.
@@ -39,8 +42,12 @@ public sealed partial class MessageLogView;
 
 /// <summary>A message row's severity stripe, coloured by its <c>level-*</c> class.</summary>
 /// <remarks>
-///     ⚠ <b>One tiny type per tag, and that is the markup ports' convention rather than
-///     ceremony</b> — see <c>Captions.cs</c> in the asset editors. A capitalised tag with a
+///     ⚠
+///     <b>
+///         One tiny type per tag, and that is the markup ports' convention rather than
+///         ceremony
+///     </b>
+///     — see <c>Captions.cs</c> in the asset editors. A capitalised tag with a
 ///     <c>Text</c> writes the element's own text, where an interpolation inside a plain element makes
 ///     a child text node; the columns here were written as their own text by the hand-built rows, and
 ///     a row whose layout the stylesheet sizes by column has to stay that shape.

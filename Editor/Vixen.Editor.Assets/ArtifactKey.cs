@@ -11,8 +11,11 @@ namespace Vixen.Editor.Assets;
 /// <summary>What decides whether an importer runs at all.</summary>
 /// <remarks>
 ///     <para>
-///         <c>xxh128(importerType, importerVersion, sourceHash, settingsHash, target,
-///         sorted(dependencyArtifactIds))</c>, exactly as
+///         <c>
+///             xxh128(importerType, importerVersion, sourceHash, settingsHash, target,
+///             sorted(dependencyArtifactIds))
+///         </c>
+///         , exactly as
 ///         [08](../../docs/plan/08-asset-pipeline-and-addressables.md) specifies. A hit skips the
 ///         importer entirely.
 ///     </para>

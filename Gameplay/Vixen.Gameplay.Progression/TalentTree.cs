@@ -136,8 +136,11 @@ public sealed class TalentAllocation {
 /// <summary>A compiled talent tree, and the thing that says whether an allocation is legal.</summary>
 /// <remarks>
 ///     <para>
-///         <b>Validated whole, not click by click, and doc 28 § Progression is explicit about why:
-///         "a client-built talent tree is a client-chosen power level".</b> The client sends an
+///         <b>
+///             Validated whole, not click by click, and doc 28 § Progression is explicit about why:
+///             "a client-built talent tree is a client-chosen power level".
+///         </b>
+///         The client sends an
 ///         allocation and the server checks it from scratch. That is one pass over a few dozen nodes,
 ///         it happens when somebody respecs rather than every frame, and it is the only form of the
 ///         check that survives a patch changing what a node costs.

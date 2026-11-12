@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core;
-using Vixen.Core.Mathematics;
 using Vixen.Ecs;
 using Vixen.Editor.Core;
 using Vixen.Engine.Transforms;
@@ -22,8 +21,8 @@ public sealed class EntityLifetimeTests : IDisposable {
     readonly SceneDocument document;
 
     public EntityLifetimeTests() {
-        var project = new EditorProject(new ProjectPaths(Path.Combine(Path.GetTempPath(), "vixen-lifetime")));
-        document = new SceneDocument(project, world, AssetId.Empty, "Test");
+        var project = new EditorProject(new(Path.Combine(Path.GetTempPath(), "vixen-lifetime")));
+        document = new(project, world, AssetId.Empty, "Test");
     }
 
     public void Dispose() => world.Dispose();
@@ -50,17 +49,17 @@ public sealed class EntityLifetimeTests : IDisposable {
         for (var index = 0; index < count; index++) {
             document.Add(
                 "Child " + index.ToString(null as IFormatProvider),
-                LocalTransform.At(new Vector3(index, 0f, 0f)),
+                LocalTransform.At(new(index, 0f, 0f)),
                 parent
             );
         }
 
-        return (parent, [.. Children(world, parent)]);
+        return (parent, [..Children(world, parent)]);
     }
 
     [Fact]
     public void Deleting_takes_the_entity_and_undoing_gives_it_back() {
-        var entity = document.Add("Crate", LocalTransform.At(new Vector3(1f, 2f, 3f)));
+        var entity = document.Add("Crate", LocalTransform.At(new(1f, 2f, 3f)));
 
         Assert.True(document.Delete([entity]));
         Assert.False(world.IsAlive(entity));
@@ -74,14 +73,14 @@ public sealed class EntityLifetimeTests : IDisposable {
 
     [Fact]
     public void The_components_come_back_with_their_values() {
-        var entity = document.Add("Crate", LocalTransform.At(new Vector3(4f, 5f, 6f)));
+        var entity = document.Add("Crate", LocalTransform.At(new(4f, 5f, 6f)));
 
         document.Delete([entity]);
         document.Stack.Undo();
 
         // A restore that gave back a live handle with zeroed components would pass every "is it
         // alive" assertion and lose the entity's position, which is the thing a user notices.
-        Assert.Equal(new Vector3(4f, 5f, 6f), world.Read<LocalTransform>(entity).Position);
+        Assert.Equal(new(4f, 5f, 6f), world.Read<LocalTransform>(entity).Position);
     }
 
     [Fact]
@@ -195,7 +194,7 @@ public sealed class EntityLifetimeTests : IDisposable {
 
     [Fact]
     public void Creating_is_undoable_and_the_redo_gives_the_same_handle_back() {
-        var entity = document.Create("Barrel", LocalTransform.At(new Vector3(9f, 0f, 0f)));
+        var entity = document.Create("Barrel", LocalTransform.At(new(9f, 0f, 0f)));
 
         Assert.True(world.IsAlive(entity));
 
@@ -207,7 +206,7 @@ public sealed class EntityLifetimeTests : IDisposable {
         // The same handle on redo, so anything that recorded it between the create and the undo —
         // another command on the stack, most obviously — still names the right entity.
         Assert.True(world.IsAlive(entity));
-        Assert.Equal(new Vector3(9f, 0f, 0f), world.Read<LocalTransform>(entity).Position);
+        Assert.Equal(new(9f, 0f, 0f), world.Read<LocalTransform>(entity).Position);
         Assert.Equal("Barrel", document.NameOf(entity));
     }
 
@@ -293,11 +292,11 @@ public sealed class EntityLifetimeTests : IDisposable {
     /// </remarks>
     [Fact]
     public void Undoing_a_duplicate_takes_the_dead_copies_out_of_the_selection() {
-        var entity = document.Add("Crate", LocalTransform.At(new Vector3(1f, 0f, 0f)));
+        var entity = document.Add("Crate", LocalTransform.At(new(1f, 0f, 0f)));
 
         List<Entity> copies = [];
 
-        Assert.Equal(1, SceneClone.Duplicate(document, [entity], new Vector3(2f, 0f, 0f), copies));
+        Assert.Equal(1, SceneClone.Duplicate(document, [entity], new(2f, 0f, 0f), copies));
 
         // What the verb does with them, and the whole of why the selection can hold a handle the
         // undo is about to destroy.

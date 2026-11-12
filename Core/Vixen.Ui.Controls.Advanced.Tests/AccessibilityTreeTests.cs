@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Reflection;
-using Vixen.Ui.Styling;
 using Vixen.Ui.Testing;
 using Xunit;
 
@@ -11,8 +10,11 @@ namespace Vixen.Ui.Controls.Advanced.Tests;
 /// <summary>Doc 09's ARIA-role snapshot for the eleven advanced controls.</summary>
 /// <remarks>
 ///     <para>
-///         <b>Doc 46 § A2 populated the plain control set as far as it took to prove the API and
-///         stopped; this assembly was owed whole.</b> Every test here asserts
+///         <b>
+///             Doc 46 § A2 populated the plain control set as far as it took to prove the API and
+///             stopped; this assembly was owed whole.
+///         </b>
+///         Every test here asserts
 ///         <see cref="AccessibilitySnapshot.Unnamed" /> before anything else, for A2's reason: a
 ///         snapshot matches an empty tree perfectly, and an accessibility test that cannot fail
 ///         vacuously is the only kind worth having.
@@ -89,7 +91,7 @@ public class AccessibilityTreeTests {
         using var fixture = new AdvancedFixture();
 
         var grid = fixture.Add<DataGrid>();
-        grid.AddColumn("Name", static item => (string) item);
+        grid.AddColumn("Name", static item => (string)item);
         grid.SetItems(["Ada", "Bob"]);
 
         fixture.Update();
@@ -118,8 +120,8 @@ public class AccessibilityTreeTests {
         using var fixture = new AdvancedFixture();
 
         var grid = fixture.Add<DataGrid>();
-        var faction = grid.AddColumn("Faction", static item => ((string) item)[..1]);
-        grid.AddColumn("Name", static item => (string) item);
+        var faction = grid.AddColumn("Faction", static item => ((string)item)[..1]);
+        grid.AddColumn("Name", static item => (string)item);
         grid.SetItems(["Ada", "Abe", "Bob"]);
 
         fixture.Update();
@@ -259,8 +261,12 @@ public class AccessibilityTreeTests {
 
     /// <summary>Every advanced control at once, held to the one rule that cannot pass vacuously.</summary>
     /// <remarks>
-    ///     ⚠ <b>The gate that keeps the population honest as it grows, and the one that found three
-    ///     holes while it was being written.</b> A per-control test asserts what its author thought
+    ///     ⚠
+    ///     <b>
+    ///         The gate that keeps the population honest as it grows, and the one that found three
+    ///         holes while it was being written.
+    ///     </b>
+    ///     A per-control test asserts what its author thought
     ///     to look at; this one asserts that nothing anywhere in eleven controls' worth of parts is
     ///     a widget with no name or a tab stop with no role. What it caught: a colour picker's hex
     ///     field, and a gradient editor's colour-space select and opacity slider — three fields
@@ -281,7 +287,7 @@ public class AccessibilityTreeTests {
         tree.Refresh();
 
         var grid = root.Add<DataGrid>();
-        grid.AddColumn("Name", static item => (string) item);
+        grid.AddColumn("Name", static item => (string)item);
         grid.SetItems(["Ada", "Bob"]);
 
         root.Add<PropertyGrid>();
@@ -326,8 +332,12 @@ public class AccessibilityTreeTests {
     /// <summary>Every control the assembly can build, held to the rule a per-control test cannot state.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A test over the <i>type list</i> rather than over a window, because a window is
-    ///         a list somebody has to remember to add to.</b> Doc 46 § A2's population is one
+    ///         ⚠
+    ///         <b>
+    ///             A test over the <i>type list</i> rather than over a window, because a window is
+    ///             a list somebody has to remember to add to.
+    ///         </b>
+    ///         Doc 46 § A2's population is one
     ///         virtual per control across two assemblies, and the failure it invites is the control
     ///         nobody thought about — added next month, focusable because <c>Control</c> is
     ///         focusable by default, and silent to a screen reader because nobody wrote four lines.
@@ -352,7 +362,10 @@ public class AccessibilityTreeTests {
         // ⚠ Through `Make<T>` rather than `UiElement.Add<T>` directly: `Add`'s last parameter is a
         // `ReadOnlySpan<string>`, which reflection cannot pass at all. There is no `Add(Type)`,
         // deliberately — every other caller knows what it is adding.
-        var make = typeof(AccessibilityTreeTests).GetMethod(nameof(Make), BindingFlags.NonPublic | BindingFlags.Static)!;
+        var make = typeof(AccessibilityTreeTests).GetMethod(
+            nameof(Make),
+            BindingFlags.NonPublic | BindingFlags.Static
+        )!;
 
         foreach (var type in typeof(TreeView).Assembly.GetTypes()) {
             if (!type.IsPublic || type.IsAbstract || !typeof(Control).IsAssignableFrom(type)) {
@@ -363,7 +376,7 @@ public class AccessibilityTreeTests {
                 continue;
             }
 
-            var control = (Control) make.MakeGenericMethod(type).Invoke(null, [fixture.Document.Root])!;
+            var control = (Control)make.MakeGenericMethod(type).Invoke(null, [fixture.Document.Root])!;
             fixture.Update();
             built++;
 
@@ -381,9 +394,9 @@ public class AccessibilityTreeTests {
     static Control Make<T>(UiElement parent) where T : Control, new() => parent.Add<T>();
 
     static List<TreeRow> Rows(TreeView tree) =>
-        [.. tree.Rows.Where(static row => !row.HasClass("parked")).OrderBy(static row => row.Node!.Depth == 0 ? 0 : 1)];
+        [..tree.Rows.Where(static row => !row.HasClass("parked")).OrderBy(static row => row.Node!.Depth == 0 ? 0 : 1)];
 
-    static List<DockTab> Tabs(DockingHost host) => [.. Descendants(host).OfType<DockTab>()];
+    static List<DockTab> Tabs(DockingHost host) => [..Descendants(host).OfType<DockTab>()];
 
     static IEnumerable<UiElement> Descendants(UiElement root) {
         foreach (var child in root.Children) {

@@ -15,8 +15,12 @@ namespace Vixen.Animation.Constraints;
 /// <param name="V">Along, in <c>[0, 1]</c>. Zero at the bottom.</param>
 /// <remarks>
 ///     ⚠ <b>Normalised, and that is the whole point of the type.</b> Scale a shape and the same
-///     <c>(face, u, v)</c> resolves to a different world point that means <b>the same place on the
-///     body</b> — a hand on the belly of a slim character resolves to the belly of a heavy one, and
+///     <c>(face, u, v)</c> resolves to a different world point that means
+///     <b>
+///         the same place on the
+///         body
+///     </b>
+///     — a hand on the belly of a slim character resolves to the belly of a heavy one, and
 ///     the same clip works on both. There is no cheap correspondence between the vertices of two
 ///     meshes and there is an exact one between the surfaces of two boxes, which is why proxy shapes
 ///     exist at all and why a mesh cannot substitute for them.
@@ -42,7 +46,7 @@ public readonly record struct SurfaceSample(Vector3 Position, Vector3 Normal, Ve
     /// </remarks>
     public Quaternion Rotation() {
         var up = Normal.LengthSquared() > 1e-8f ? Vector3.Normalize(Normal) : Vector3.Up;
-        var along = Tangent - (up * Vector3.Dot(Tangent, up));
+        var along = Tangent - up * Vector3.Dot(Tangent, up);
 
         along = along.LengthSquared() > 1e-8f
             ? Vector3.Normalize(along)
@@ -55,13 +59,26 @@ public readonly record struct SurfaceSample(Vector3 Position, Vector3 Normal, Ve
 
         // Row-vector: the rows are where the basis axes land. Conventions.md.
         return BoneTransform.FromMatrix(
-            new Matrix4x4(
-                along.X, along.Y, along.Z, 0f,
-                up.X, up.Y, up.Z, 0f,
-                side.X, side.Y, side.Z, 0f,
-                0f, 0f, 0f, 1f
+                new(
+                    along.X,
+                    along.Y,
+                    along.Z,
+                    0f,
+                    up.X,
+                    up.Y,
+                    up.Z,
+                    0f,
+                    side.X,
+                    side.Y,
+                    side.Z,
+                    0f,
+                    0f,
+                    0f,
+                    0f,
+                    1f
+                )
             )
-        ).Rotation;
+            .Rotation;
     }
 }
 
@@ -74,8 +91,12 @@ public readonly record struct SurfaceSample(Vector3 Position, Vector3 Normal, Ve
 ///         otherwise break.
 ///     </para>
 ///     <para>
-///         ⚠ <b><see cref="Project" /> and <see cref="Evaluate" /> are exact inverses of each other
-///         through the residual, and that is the property to hold on to.</b> Projection is not always
+///         ⚠
+///         <b>
+///             <see cref="Project" /> and <see cref="Evaluate" /> are exact inverses of each other
+///             through the residual, and that is the property to hold on to.
+///         </b>
+///         Projection is not always
 ///         the true closest point — a tapered capsule's side is treated as a lerped-radius cone rather
 ///         than as the exact tangent conic, and the caps as hemispheres of the end radii — but the
 ///         residual absorbs whatever the projection missed, so an authored point round-trips to
@@ -136,8 +157,8 @@ public static class ShapeGeometry {
         var axis = face / 2;
         var sign = (face & 1) == 0 ? 1f : -1f;
         var height = dimensions.Extents.Y;
-        var u = (point.U * 2f) - 1f;
-        var v = (point.V * 2f) - 1f;
+        var u = point.U * 2f - 1f;
+        var v = point.V * 2f - 1f;
 
         // The two axes that are not the face's own, in a fixed order so a coordinate authored on one
         // body reads the same on another: U runs along the later axis for an X face and along X
@@ -163,7 +184,7 @@ public static class ShapeGeometry {
             var slope = (Component(dimensions.TopExtents, axis) - Component(dimensions.Extents, axis))
                 / (2f * height);
 
-            normal = Vector3.Normalize(With(new Vector3(0f, -slope * sign, 0f), axis, sign));
+            normal = Vector3.Normalize(With(new(0f, -slope * sign, 0f), axis, sign));
         }
 
         return new(position, normal, With(Vector3.Zero, across, 1f));
@@ -190,7 +211,7 @@ public static class ShapeGeometry {
         }
 
         var sign = Component(local, best) >= 0f ? 0 : 1;
-        var face = (best * 2) + sign;
+        var face = best * 2 + sign;
         var (across, along) = best switch {
             0 => (2, 1),
             1 => (0, 2),
@@ -212,7 +233,7 @@ public static class ShapeGeometry {
         }
 
         var height = dimensions.Extents.Y;
-        var t = height <= Epsilon ? 1f : MathUtil.Saturate(((y / height) + 1f) * 0.5f);
+        var t = height <= Epsilon ? 1f : MathUtil.Saturate((y / height + 1f) * 0.5f);
 
         return Vector3.Lerp(dimensions.Extents, dimensions.TopExtents, t);
     }
@@ -259,10 +280,10 @@ public static class ShapeGeometry {
             // A cap: a hemisphere of the end's own radius, sitting on the end of the straight part.
             var top = point.Face == 0;
             var radius = top ? dimensions.TopRadius : dimensions.Radius;
-            var direction = Direction(point.U, top ? 0.5f + (point.V * 0.5f) : point.V * 0.5f);
+            var direction = Direction(point.U, top ? 0.5f + point.V * 0.5f : point.V * 0.5f);
 
             return new(
-                new Vector3(0f, top ? height : -height, 0f) + (direction * radius),
+                new Vector3(0f, top ? height : -height, 0f) + direction * radius,
                 direction,
                 Tangent(point.U)
             );
@@ -275,7 +296,7 @@ public static class ShapeGeometry {
 
         return new(
             new Vector3(side.X * wide, y, side.Z * wide),
-            Vector3.Normalize(side - (Vector3.Up * slope)),
+            Vector3.Normalize(side - Vector3.Up * slope),
             Tangent(point.U)
         );
     }
@@ -324,7 +345,7 @@ public static class ShapeGeometry {
 
         return new(
             new Vector3(side.X * wide, y, side.Z * wide),
-            Vector3.Normalize(side - (Vector3.Up * slope)),
+            Vector3.Normalize(side - Vector3.Up * slope),
             Tangent(point.U)
         );
     }
@@ -336,7 +357,11 @@ public static class ShapeGeometry {
         var out2 = new Vector3(local.X, 0f, local.Z).Length();
 
         if (local.Y >= height && out2 < radius) {
-            return new(0, Azimuth(local), MathUtil.Saturate(out2 / MathF.Max(Taper(kind, dimensions, height).X, Epsilon)));
+            return new(
+                0,
+                Azimuth(local),
+                MathUtil.Saturate(out2 / MathF.Max(Taper(kind, dimensions, height).X, Epsilon))
+            );
         }
 
         if (local.Y <= -height && out2 < dimensions.Radius) {
@@ -380,7 +405,7 @@ public static class ShapeGeometry {
         return new(
             face,
             Azimuth(local),
-            1f - (MathF.Acos(MathUtil.Clamp(direction.Y, -1f, 1f)) / MathUtil.Pi)
+            1f - MathF.Acos(MathUtil.Clamp(direction.Y, -1f, 1f)) / MathUtil.Pi
         );
     }
 
@@ -394,9 +419,14 @@ public static class ShapeGeometry {
     }
 
     static float Fraction(float value, float extent) =>
-        extent <= Epsilon ? 0.5f : MathUtil.Saturate(((value / extent) + 1f) * 0.5f);
+        extent <= Epsilon ? 0.5f : MathUtil.Saturate((value / extent + 1f) * 0.5f);
 
-    static float Component(Vector3 value, int axis) => axis switch { 0 => value.X, 1 => value.Y, _ => value.Z };
+    static float Component(Vector3 value, int axis) =>
+        axis switch {
+            0 => value.X,
+            1 => value.Y,
+            _ => value.Z
+        };
 
     static Vector3 With(Vector3 value, int axis, float component) =>
         axis switch {

@@ -9,8 +9,12 @@ namespace Vixen.Ui.Controls.Tests;
 /// <summary>CSS Transforms 2's <c>rotate</c> and <c>scale</c>, from the stylesheet to the pixels.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Every assertion here is a pixel, and every one of them is chosen to fail for the
-///         <i>neighbouring</i> transform.</b> This is the lesson the colour filters cost: any
+///         ⚠
+///         <b>
+///             Every assertion here is a pixel, and every one of them is chosen to fail for the
+///             <i>neighbouring</i> transform.
+///         </b>
+///         This is the lesson the colour filters cost: any
 ///         transform changes the draw list by opening a group, so a test that looked at the draw list
 ///         — or a consumption gate that looks at anything the draw list can tell it — would pass a
 ///         <c>rotate</c> that came out a <c>scale</c>, a <c>scale</c> that came out the identity, and
@@ -23,8 +27,12 @@ namespace Vixen.Ui.Controls.Tests;
 ///         the shape, and so does one that did nothing.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The software rasteriser, not the device, and <c>UiCompositingTests</c> is what stops
-///         that being a hole.</b> What a rotation <i>is</i> has to be asserted against arithmetic and
+///         ⚠
+///         <b>
+///             The software rasteriser, not the device, and <c>UiCompositingTests</c> is what stops
+///             that being a hole.
+///         </b>
+///         What a rotation <i>is</i> has to be asserted against arithmetic and
 ///         a picture, which needs no GPU; that the two executors draw the same picture is a different
 ///         claim and lives over there. The same split <c>FilterColourTests</c> makes, for the same
 ///         reason.
@@ -48,10 +56,10 @@ public class TransformPaintTests {
 
         ui.Load(
             $$"""
-            root { width: {{Side}}px; height: {{Side}}px; background-color: #000000; }
-            .bar { position: absolute; left: 18px; top: 26px; width: 24px; height: 8px;
-                   background-color: #ffffff; {{transform}} }
-            """
+              root { width: {{Side}}px; height: {{Side}}px; background-color: #000000; }
+              .bar { position: absolute; left: 18px; top: 26px; width: 24px; height: 8px;
+                     background-color: #ffffff; {{transform}} }
+              """
         );
 
         ui.Create("div", null, "bar", "bar");
@@ -67,10 +75,10 @@ public class TransformPaintTests {
 
         ui.Load(
             $$"""
-            root { width: {{Side}}px; height: {{Side}}px; background-color: #000000; }
-            .box { position: absolute; left: 20px; top: 20px; width: 20px; height: 20px;
-                   background-color: #ffffff; {{transform}} }
-            """
+              root { width: {{Side}}px; height: {{Side}}px; background-color: #000000; }
+              .box { position: absolute; left: 20px; top: 20px; width: 20px; height: 20px;
+                     background-color: #ffffff; {{transform}} }
+              """
         );
 
         ui.Create("div", null, "box", "box");
@@ -102,7 +110,7 @@ public class TransformPaintTests {
     /// </remarks>
     [Fact]
     public void A_quarter_turn_moves_the_bars_length_onto_the_other_axis() {
-        using var upright = Bar("");
+        using var upright = Bar(string.Empty);
 
         Assert.True(Inked(upright, Middle - 10, Middle));
         Assert.False(Inked(upright, Middle, Middle - 10));
@@ -118,8 +126,12 @@ public class TransformPaintTests {
 
     /// <summary>And it turns clockwise, which is the half of a rotation a symmetric test cannot see.</summary>
     /// <remarks>
-    ///     ⚠ <b>A quarter turn of a bar is symmetric under a sign error, so the direction is asserted
-    ///     on an L instead.</b> `rotate: 90deg` and `rotate: -90deg` produce the identical picture for
+    ///     ⚠
+    ///     <b>
+    ///         A quarter turn of a bar is symmetric under a sign error, so the direction is asserted
+    ///         on an L instead.
+    ///     </b>
+    ///     `rotate: 90deg` and `rotate: -90deg` produce the identical picture for
     ///     every fixture above — the bar is its own 180° rotation — so a transform built with the
     ///     y-down convention got backwards would pass all of them. Here a small square sits at the
     ///     bar's left end; CSS Transforms 1 § 11 makes a positive angle clockwise on screen, and
@@ -133,12 +145,12 @@ public class TransformPaintTests {
 
         ui.Load(
             $$"""
-            root { width: {{Side}}px; height: {{Side}}px; background-color: #000000; }
-            .arm { position: absolute; left: 14px; top: 26px; width: 32px; height: 8px;
-                   background-color: #202020; rotate: 90deg; transform-origin: center; }
-            .tip { position: absolute; left: 0px; top: 0px; width: 8px; height: 8px;
-                   background-color: #ffffff; }
-            """
+              root { width: {{Side}}px; height: {{Side}}px; background-color: #000000; }
+              .arm { position: absolute; left: 14px; top: 26px; width: 32px; height: 8px;
+                     background-color: #202020; rotate: 90deg; transform-origin: center; }
+              .tip { position: absolute; left: 0px; top: 0px; width: 8px; height: 8px;
+                     background-color: #ffffff; }
+              """
         );
 
         var arm = ui.Create("div", null, "arm", "arm");
@@ -163,7 +175,7 @@ public class TransformPaintTests {
     /// </remarks>
     [Fact]
     public void A_scale_reaches_further_than_any_rotation_of_the_same_box() {
-        using var plain = Square("");
+        using var plain = Square(string.Empty);
         using var turned = Square("rotate: 45deg;");
         using var grown = Square("scale: 200%;");
 
@@ -181,7 +193,7 @@ public class TransformPaintTests {
     /// </remarks>
     [Fact]
     public void A_rotation_puts_a_corner_where_the_upright_box_had_none() {
-        using var plain = Square("");
+        using var plain = Square(string.Empty);
         using var turned = Square("rotate: 45deg;");
 
         // Thirteen out: past the upright box's ten, inside the rotated one's fourteen.
@@ -348,8 +360,12 @@ public class TransformPaintTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>A quarter of the way through <c>to { rotate: 90deg }</c> the arm has turned 22.5°, in
-    ///     the pixels</b> — where it used to be drawn at 90° from the first frame (#1410).
+    ///     ⚠
+    ///     <b>
+    ///         A quarter of the way through <c>to { rotate: 90deg }</c> the arm has turned 22.5°, in
+    ///         the pixels
+    ///     </b>
+    ///     — where it used to be drawn at 90° from the first frame (#1410).
     /// </summary>
     /// <remarks>
     ///     <para>
@@ -365,7 +381,7 @@ public class TransformPaintTests {
     /// </remarks>
     [Fact]
     public void A_to_only_rotate_is_drawn_a_quarter_turned_a_quarter_of_the_way_through() {
-        using var ui = UiTest.Create(120f, 120f, new UiTestOptions { FrameDelta = TimeSpan.FromMilliseconds(250) });
+        using var ui = UiTest.Create(120f, 120f, new() { FrameDelta = TimeSpan.FromMilliseconds(250) });
         ui.Document.Compositing = true;
 
         ui.Load(
@@ -390,8 +406,12 @@ public class TransformPaintTests {
     }
 
     /// <summary>
-    ///     ⚠ <b><c>rotate: z 90deg</c> and <c>rotate: 0 0 1 90deg</c> are the in-plane quarter turn, and
-    ///     both used to draw unrotated</b> (#1450).
+    ///     ⚠
+    ///     <b>
+    ///         <c>rotate: z 90deg</c> and <c>rotate: 0 0 1 90deg</c> are the in-plane quarter turn, and
+    ///         both used to draw unrotated
+    ///     </b>
+    ///     (#1450).
     /// </summary>
     /// <remarks>
     ///     Transforms 2 § 3 lets <c>rotate</c> name its axis, and the z axis — by keyword or as a
@@ -424,7 +444,10 @@ public class TransformPaintTests {
     [InlineData("rotate: 0 1 0 60deg;", true)]
     [InlineData("rotate: x 60deg;", false)]
     [InlineData("rotate: 1 0 0 60deg;", false)]
-    public void A_rotation_about_an_axis_out_of_the_plane_foreshortens_the_bar_along_that_axis(string rotate, bool aboutY) {
+    public void A_rotation_about_an_axis_out_of_the_plane_foreshortens_the_bar_along_that_axis(
+        string rotate,
+        bool aboutY
+    ) {
         using var turned = Bar(rotate);
 
         Assert.True(Inked(turned, Middle, Middle));
@@ -451,17 +474,17 @@ public class TransformPaintTests {
     [InlineData("z 90deg")]
     [InlineData("0 0 1 90deg")]
     public void A_to_only_rotate_about_z_is_drawn_a_quarter_turned_a_quarter_of_the_way_through(string rotate) {
-        using var ui = UiTest.Create(120f, 120f, new UiTestOptions { FrameDelta = TimeSpan.FromMilliseconds(250) });
+        using var ui = UiTest.Create(120f, 120f, new() { FrameDelta = TimeSpan.FromMilliseconds(250) });
         ui.Document.Compositing = true;
 
         ui.Load(
             $$"""
-            root { width: 120px; height: 120px; background-color: #000000; }
-            @keyframes turn { to { rotate: {{rotate}}; } }
-            .arm { position: absolute; left: 20px; top: 57px; width: 80px; height: 6px;
-                   background-color: #ffffff; transform-origin: 0px 3px;
-                   animation-name: turn; animation-duration: 1s; animation-timing-function: linear; }
-            """
+              root { width: 120px; height: 120px; background-color: #000000; }
+              @keyframes turn { to { rotate: {{rotate}}; } }
+              .arm { position: absolute; left: 20px; top: 57px; width: 80px; height: 6px;
+                     background-color: #ffffff; transform-origin: 0px 3px;
+                     animation-name: turn; animation-duration: 1s; animation-timing-function: linear; }
+              """
         );
 
         ui.Create("div", null, "arm", "arm");

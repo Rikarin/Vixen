@@ -18,15 +18,22 @@ public sealed record LayerAnchorUse(string Layer, string Where, AnchorReference 
 /// <param name="Id">The <see cref="LayerAsset.Id" />.</param>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>An id and not an index, and that is the whole reason <see cref="LayerAsset.Id" />
-///         exists.</b> A command records where it acted so that its undo can act in the same place,
+///         ⚠
+///         <b>
+///             An id and not an index, and that is the whole reason <see cref="LayerAsset.Id" />
+///             exists.
+///         </b>
+///         A command records where it acted so that its undo can act in the same place,
 ///         and both of the obvious coordinates move: an index moves when anything under the layer is
 ///         reordered, and a name moves when somebody renames it. An anchor already names a layer
 ///         this way for exactly that reason.
 ///     </para>
 ///     <para>
-///         ⚠ <b>What this does <em>not</em> inherit is a guarantee that the key is unique, and the
-///         remark here used to say it did</b>
+///         ⚠
+///         <b>
+///             What this does <em>not</em> inherit is a guarantee that the key is unique, and the
+///             remark here used to say it did
+///         </b>
 ///         (<a href="https://github.com/Rikarin/Vixen/issues/893">#893</a>).
 ///         <c>LayerStackGraph.Duplicates</c> is a <em>compile refusal</em>, and the panel builds its
 ///         rows from the document rather than from a compilation — so a stack that fails it was still
@@ -54,23 +61,37 @@ public readonly record struct LayerPath(string Set, string Id);
 /// <param name="Index">Where in it, counting from the bottom of the composite.</param>
 /// <remarks>
 ///     <para>
-///         <b>A different question from <see cref="LayerPath" />, and an insert is what makes the
-///         difference matter.</b> A path names a layer that exists and resolves to whichever list
+///         <b>
+///             A different question from <see cref="LayerPath" />, and an insert is what makes the
+///             difference matter.
+///         </b>
+///         A path names a layer that exists and resolves to whichever list
 ///         holds it; a slot names a place, which has to be said even when nothing is there — the
 ///         empty set's own list, or the gap a removed layer left. Every command that changes what a
 ///         list <em>contains</em> takes one of these, and every command that changes a layer takes a
 ///         path.
 ///     </para>
 ///     <para>
-///         ⚠ <b><paramref name="Parent" /> is nullable rather than empty-for-none, and that is not a
-///         style choice.</b> <see cref="LayerAsset.Id" /> defaults to <c>""</c> and a single id-less
-///         layer addresses perfectly well — <a href="https://github.com/Rikarin/Vixen/issues/966">
-///         #966</a> — so <c>""</c> here would mean both "the set's own list" and "the children of
+///         ⚠
+///         <b>
+///             <paramref name="Parent" /> is nullable rather than empty-for-none, and that is not a
+///             style choice.
+///         </b>
+///         <see cref="LayerAsset.Id" /> defaults to <c>""</c> and a single id-less
+///         layer addresses perfectly well —
+///         <a href="https://github.com/Rikarin/Vixen/issues/966">
+///             #966
+///         </a>
+///         — so <c>""</c> here would mean both "the set's own list" and "the children of
 ///         the layer with no id", and a group nobody named would swallow every top-level insert.
 ///     </para>
 ///     <para>
-///         ⚠ <b>An index and not a neighbour's id, which is the opposite of every other address in
-///         this file.</b> An index is exactly what a reorder invalidates — which is why
+///         ⚠
+///         <b>
+///             An index and not a neighbour's id, which is the opposite of every other address in
+///             this file.
+///         </b>
+///         An index is exactly what a reorder invalidates — which is why
 ///         <see cref="LayerPath" /> refuses one — but an insert has no layer to name yet, and the
 ///         two callers that hold a slot across time both re-resolve it: <see cref="AddLayerCommand" />
 ///         undoes by the id it inserted, and <see cref="RemoveLayerCommand" /> resolves the slot when
@@ -190,8 +211,11 @@ public static class LayerStackEdit {
     /// <exception cref="ArgumentNullException">The stack or the name is null.</exception>
     /// <remarks>
     ///     <para>
-    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/927">#927</a>'s decision, in one
-    ///         function so that seven call sites cannot each make it differently.</b> A texture set is
+    ///         <b>
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/927">#927</a>'s decision, in one
+    ///             function so that seven call sites cannot each make it differently.
+    ///         </b>
+    ///         A texture set is
     ///         a material slot of the model — <see cref="TextureSetAsset.Mesh" /> narrows it to one of
     ///         the model's meshes — so each set has its own atlas, its own channels, its own layers and
     ///         its own <c>.vxpaint</c> files. Two things follow and neither is a preference: a stroke
@@ -265,8 +289,12 @@ public static class LayerStackEdit {
     /// <returns>Where it is, or <see langword="null" /> when nothing answers to that path.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="stack" /> is null.</exception>
     /// <remarks>
-    ///     ⚠ <b>Its own walk rather than <see cref="TryFind" />'s, because the parent's <em>id</em> is
-    ///     the one thing that walk cannot report.</b> <see cref="TryFind" /> hands back the list and
+    ///     ⚠
+    ///     <b>
+    ///         Its own walk rather than <see cref="TryFind" />'s, because the parent's <em>id</em> is
+    ///         the one thing that walk cannot report.
+    ///     </b>
+    ///     <see cref="TryFind" /> hands back the list and
     ///     the index, which is everything a reorder needs and one short of what an insert needs: a
     ///     list is an object, and a command that held one across an undo would be holding a
     ///     collection the document may have replaced.
@@ -355,8 +383,12 @@ public static class LayerStackEdit {
     ///         (<a href="https://github.com/Rikarin/Vixen/issues/893">#893</a>).
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Every layer in the set counts, groups walked into, and not only the list being
-    ///         inserted into.</b> An id is unique in the <em>set</em> — that is what an anchor and a
+    ///         ⚠
+    ///         <b>
+    ///             Every layer in the set counts, groups walked into, and not only the list being
+    ///             inserted into.
+    ///         </b>
+    ///         An id is unique in the <em>set</em> — that is what an anchor and a
     ///         <see cref="LayerPath" /> both assume — so a per-list counter would hand the second
     ///         group's first child the id the first group's first child already has.
     ///     </para>
@@ -369,7 +401,7 @@ public static class LayerStackEdit {
 
         Walk(set.Layers);
 
-        for (var number = 1; ; number++) {
+        for (var number = 1;; number++) {
             var wanted = stem + "-" + number.ToString(CultureInfo.InvariantCulture);
 
             if (taken.Add(wanted)) {
@@ -514,7 +546,7 @@ public static class LayerStackEdit {
             return wanted;
         }
 
-        for (var number = 2; ; number++) {
+        for (var number = 2;; number++) {
             var numbered = wanted + " " + number.ToString(CultureInfo.InvariantCulture);
 
             if (!taken.ContainsKey(numbered)) {
@@ -537,9 +569,12 @@ public static class LayerStackEdit {
         ArgumentNullException.ThrowIfNull(layers);
         ArgumentNullException.ThrowIfNull(from);
         ArgumentNullException.ThrowIfNull(to);
+        return [..layers.Select(Layer)];
 
         AnchorReference Moved(AnchorReference reference) =>
-            string.Equals(reference.Anchor, from, StringComparison.Ordinal) ? reference with { Anchor = to } : reference;
+            string.Equals(reference.Anchor, from, StringComparison.Ordinal)
+                ? reference with { Anchor = to }
+                : reference;
 
         Dictionary<string, AnchorReference> Ports(Dictionary<string, AnchorReference> inputs) =>
             inputs.ToDictionary(static pair => pair.Key, pair => Moved(pair.Value), StringComparer.Ordinal);
@@ -559,18 +594,15 @@ public static class LayerStackEdit {
                     Anchor = Moved(layer.Mask.Anchor),
                     GeneratorInputs = Ports(layer.Mask.GeneratorInputs),
                     Layers = [
-                        .. layer.Mask.Layers.Select(entry => entry with {
-                                Anchor = Moved(entry.Anchor),
-                                GeneratorInputs = Ports(entry.GeneratorInputs)
+                        ..layer.Mask.Layers.Select(entry => entry with {
+                                Anchor = Moved(entry.Anchor), GeneratorInputs = Ports(entry.GeneratorInputs)
                             }
                         )
                     ],
-                    Effects = [.. layer.Mask.Effects.Select(effect => effect with { Inputs = Sources(effect.Inputs) })]
+                    Effects = [..layer.Mask.Effects.Select(effect => effect with { Inputs = Sources(effect.Inputs) })]
                 },
-                Children = [.. layer.Children.Select(Layer)]
+                Children = [..layer.Children.Select(Layer)]
             };
-
-        return [.. layers.Select(Layer)];
     }
 
     /// <summary>Whether a group can be flattened into a canvas that composites the picture it composites now.</summary>
@@ -603,7 +635,7 @@ public static class LayerStackEdit {
         ArgumentNullException.ThrowIfNull(id);
 
         backdrop = false;
-        reason = "";
+        reason = string.Empty;
 
         if (!Walk(set.Layers, id, out var parent, out var index)) {
             reason = $"This stack has no layer '{id}'.";
@@ -614,7 +646,8 @@ public static class LayerStackEdit {
         var group = parent[index];
 
         if (group.Kind != LayerKind.Group) {
-            reason = $"'{Named(group)}' is a {group.Kind.ToString().ToLowerInvariant()} layer, and only a group flattens.";
+            reason =
+                $"'{Named(group)}' is a {group.Kind.ToString().ToLowerInvariant()} layer, and only a group flattens.";
 
             return false;
         }
@@ -638,7 +671,8 @@ public static class LayerStackEdit {
 
         foreach (var use in AnchorUses(set)) {
             if (inside.Contains(use.Reference.Anchor) && !within.Contains(use.Layer)) {
-                reason = $"'{use.Layer}' reads the anchor point '{use.Reference.Anchor}' inside '{Named(group)}', which "
+                reason =
+                    $"'{use.Layer}' reads the anchor point '{use.Reference.Anchor}' inside '{Named(group)}', which "
                     + "a flattened group would no longer build. Point it elsewhere first.";
 
                 return false;
@@ -655,7 +689,8 @@ public static class LayerStackEdit {
             return true;
         }
 
-        reason = $"'{Named(group)}' passes through, and a layer inside it reads what is beneath the group — a filter, or "
+        reason =
+            $"'{Named(group)}' passes through, and a layer inside it reads what is beneath the group — a filter, or "
             + "a blend other than Copy — so no canvas could hold its picture without holding that too. Give the group a "
             + "blend mode of its own, or flatten the whole stack.";
 
@@ -665,7 +700,8 @@ public static class LayerStackEdit {
             layers.TrueForAll(static layer => !layer.Enabled
                 || (layer.Kind != LayerKind.Filter
                     && layer.Blend == LayerBlendMode.Copy
-                    && (layer.Kind != LayerKind.Group || layer.Flattened || Associative(layer.Children))));
+                    && (layer.Kind != LayerKind.Group || layer.Flattened || Associative(layer.Children)))
+            );
 
         // Nothing enabled beneath it, so what it composites over is the channel defaults.
         static bool Beneath(List<LayerAsset> layers, int index) {
@@ -728,16 +764,24 @@ public static class LayerStackEdit {
 ///         two of them are one edit, so both of those are parameters and nothing else is.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The record's collection members are shared by <c>with</c>, and a command that forgets
-///         it has no undo at all.</b> <c>after = before with { Blend = … }</c> hands the new value the
+///         ⚠
+///         <b>
+///             The record's collection members are shared by <c>with</c>, and a command that forgets
+///             it has no undo at all.
+///         </b>
+///         <c>after = before with { Blend = … }</c> hands the new value the
 ///         <em>same</em> <c>List&lt;string&gt; Channels</c> instance — so a caller that then mutated
 ///         that list in place would be mutating the before-image too, and <see cref="Undo" /> would
 ///         put back a layer that already holds the new value. Every caller here builds a new
 ///         collection instead; that is not a style preference, it is what makes the entry reversible.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Merging is by an explicit key rather than by type, because the two cases really are
-///         different.</b> Dragging an opacity slider is one edit and produces one entry; choosing a
+///         ⚠
+///         <b>
+///             Merging is by an explicit key rather than by type, because the two cases really are
+///             different.
+///         </b>
+///         Dragging an opacity slider is one edit and produces one entry; choosing a
 ///         blend mode twice is two decisions and produces two. A command type that merged with every
 ///         command of its own type would collapse the second into the first, and one that never
 ///         merged would put three hundred entries in the history for one drag. The key is what the
@@ -790,8 +834,12 @@ public sealed class SetLayerCommand : IAuthoringCommand {
 
     /// <inheritdoc />
     /// <remarks>
-    ///     ⚠ <b>Unlike <c>PaintStrokeCommand</c>, this one applies the change rather than recording an
-    ///     applied one.</b> A stroke exists because a brush already painted texels and the command is
+    ///     ⚠
+    ///     <b>
+    ///         Unlike <c>PaintStrokeCommand</c>, this one applies the change rather than recording an
+    ///         applied one.
+    ///     </b>
+    ///     A stroke exists because a brush already painted texels and the command is
     ///     built at pointer-up; a property set has nothing that happened first, so the caller builds
     ///     the command and <c>Execute</c> is what makes the edit. Both shapes are in this repository
     ///     and the difference is whose job the first application is.
@@ -803,8 +851,12 @@ public sealed class SetLayerCommand : IAuthoringCommand {
 
     /// <inheritdoc />
     /// <remarks>
-    ///     ⚠ <b>The merged entry keeps <em>this</em> command's after-image and the <em>previous</em>
-    ///     one's before-image</b>, which is what <see cref="IAuthoringCommand.TryMergeWith" /> asks for:
+    ///     ⚠
+    ///     <b>
+    ///         The merged entry keeps <em>this</em> command's after-image and the <em>previous</em>
+    ///         one's before-image
+    ///     </b>
+    ///     , which is what <see cref="IAuthoringCommand.TryMergeWith" /> asks for:
     ///     undoing a merged drag has to reach the value the slider held before the drag started, not
     ///     the one it held a frame ago.
     /// </remarks>
@@ -828,15 +880,21 @@ public sealed class SetLayerCommand : IAuthoringCommand {
 /// <summary>The stack bound to a different model, as one undo entry.</summary>
 /// <remarks>
 ///     <para>
-///         <b><a href="https://github.com/Rikarin/Vixen/issues/920">#920</a>, and it is the first
-///         command here that edits the stack rather than a layer in it.</b>
+///         <b>
+///             <a href="https://github.com/Rikarin/Vixen/issues/920">#920</a>, and it is the first
+///             command here that edits the stack rather than a layer in it.
+///         </b>
 ///         <see cref="SetLayerCommand" /> reaches a <see cref="LayerAsset" /> through a
 ///         <see cref="LayerPath" />; a binding is the whole file's, so what is replaced is
 ///         <c>ILayerStackDocument.Document</c> itself.
 ///     </para>
 ///     <para>
-///         ⚠ <b>A <c>with</c> on the record shares its <see cref="LayerStackAsset.Sets" /> list, and
-///         that is what makes this safe to interleave with layer edits.</b> The before-image and the
+///         ⚠
+///         <b>
+///             A <c>with</c> on the record shares its <see cref="LayerStackAsset.Sets" /> list, and
+///             that is what makes this safe to interleave with layer edits.
+///         </b>
+///         The before-image and the
 ///         after-image hold the <em>same</em> list, so a layer moved between binding and undoing
 ///         stays moved — which is what an artist means. It is the opposite of
 ///         <see cref="SetLayerCommand" />'s rule about collections, and for the opposite reason:
@@ -891,8 +949,11 @@ public sealed class SetModelCommand : IAuthoringCommand {
 /// <summary>Which of the model's meshes a set is narrowed to, as one undo entry.</summary>
 /// <remarks>
 ///     <para>
-///         <b><a href="https://github.com/Rikarin/Vixen/issues/941">#941</a>'s edit, and it is
-///         <see cref="SetModelCommand" /> one level down.</b> A model file splits into one mesh per
+///         <b>
+///             <a href="https://github.com/Rikarin/Vixen/issues/941">#941</a>'s edit, and it is
+///             <see cref="SetModelCommand" /> one level down.
+///         </b>
+///         A model file splits into one mesh per
 ///         material slot, which is what a texture set is; without narrowing, a two-set stack gets one
 ///         coverage map over every island in the model and the <c>Body</c> set can be painted
 ///         anywhere <c>Head</c> has surface.
@@ -962,8 +1023,11 @@ public sealed class SetMeshCommand : IAuthoringCommand {
 /// <summary>A layer moved past its neighbour, as one undo entry.</summary>
 /// <remarks>
 ///     <para>
-///         <b>What <a href="https://github.com/Rikarin/Vixen/issues/819">#819</a> names first, and the
-///         one edit whose effect is not a number.</b> A reorder changes which layer's operator reads
+///         <b>
+///             What <a href="https://github.com/Rikarin/Vixen/issues/819">#819</a> names first, and the
+///             one edit whose effect is not a number.
+///         </b>
+///         A reorder changes which layer's operator reads
 ///         which backdrop, so what it produces is a different <em>graph</em> — which is why the test
 ///         that covers it compares two compiled plans rather than two lists.
 ///     </para>
@@ -1034,8 +1098,12 @@ public sealed class MoveLayerCommand : IAuthoringCommand {
 
     /// <inheritdoc />
     /// <remarks>
-    ///     ⚠ <b>The opposite delta and not a remembered index, which is only the same thing because
-    ///     the move stays inside one list.</b> Removing at <c>i</c> and inserting at <c>i + d</c>
+    ///     ⚠
+    ///     <b>
+    ///         The opposite delta and not a remembered index, which is only the same thing because
+    ///         the move stays inside one list.
+    ///     </b>
+    ///     Removing at <c>i</c> and inserting at <c>i + d</c>
     ///     shifts everything between them by one step the other way, and putting the layer back at
     ///     <c>i</c> restores every one of them — so the inverse of a move is a move. A command that
     ///     could also change a layer's parent would need the whole position rather than the offset.
@@ -1068,8 +1136,12 @@ public sealed class MoveLayerCommand : IAuthoringCommand {
 ///         indices, applied to the one command that has to hold one.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Nothing here makes the id unique — <see cref="LayerStackEdit.FreeId" /> does, at the
-///         call site.</b> A command that generated one would generate it again on every redo, and a
+///         ⚠
+///         <b>
+///             Nothing here makes the id unique — <see cref="LayerStackEdit.FreeId" /> does, at the
+///             call site.
+///         </b>
+///         A command that generated one would generate it again on every redo, and a
 ///         redo that produced a different id would orphan every anchor an artist had pointed at the
 ///         layer in between.
 ///     </para>
@@ -1120,8 +1192,12 @@ public sealed class AddLayerCommand : IAuthoringCommand {
 /// <summary>A layer taken out of a stack, as one undo entry.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Where it was is resolved when it is removed, not when the command is built, and that
-///         is what makes a redo land in the right place.</b> A command is built once and can run many
+///         ⚠
+///         <b>
+///             Where it was is resolved when it is removed, not when the command is built, and that
+///             is what makes a redo land in the right place.
+///         </b>
+///         A command is built once and can run many
 ///         times — undo, then some other edit, then redo — so an index recorded at construction is an
 ///         index the stack has since renumbered. Every other command here keys on something stable; a
 ///         removal cannot, because the thing it names stops existing.

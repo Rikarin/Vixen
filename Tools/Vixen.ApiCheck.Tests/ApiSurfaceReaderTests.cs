@@ -22,12 +22,14 @@ namespace Vixen.ApiCheck.Tests;
 public sealed class ApiSurfaceReaderTests : IDisposable {
     readonly string directory = Path.Combine(Path.GetTempPath(), "vixen-api-check-tests", Guid.NewGuid().ToString("N"));
 
-    public ApiSurfaceReaderTests() => Directory.CreateDirectory(directory);
+    public ApiSurfaceReaderTests() {
+        Directory.CreateDirectory(directory);
+    }
 
     public void Dispose() {
         try {
             if (Directory.Exists(directory)) {
-                Directory.Delete(directory, recursive: true);
+                Directory.Delete(directory, true);
             }
         } catch (IOException) {
             // A temporary directory that would not go is not a test failure.
@@ -57,9 +59,9 @@ public sealed class ApiSurfaceReaderTests : IDisposable {
         Assert.Contains("Sample.Visible.Method() -> void", surface);
         Assert.Contains("Sample.Visible.Derivable() -> void", surface);
         Assert.Contains("Sample.Visible.Field -> int", surface);
-        Assert.DoesNotContain(surface, entry => entry.Contains("Hidden", StringComparison.Ordinal));
-        Assert.DoesNotContain(surface, entry => entry.Contains("Invisible", StringComparison.Ordinal));
-        Assert.DoesNotContain(surface, entry => entry.Contains("Sample.Internal", StringComparison.Ordinal));
+        Assert.DoesNotContain(surface, static entry => entry.Contains("Hidden", StringComparison.Ordinal));
+        Assert.DoesNotContain(surface, static entry => entry.Contains("Invisible", StringComparison.Ordinal));
+        Assert.DoesNotContain(surface, static entry => entry.Contains("Sample.Internal", StringComparison.Ordinal));
     }
 
     /// <summary>A nested type is API; a nested type inside an invisible one is not.</summary>
@@ -77,7 +79,7 @@ public sealed class ApiSurfaceReaderTests : IDisposable {
         );
 
         Assert.Contains("Sample.Outer.Inner -> class", surface);
-        Assert.DoesNotContain(surface, entry => entry.Contains("Deep", StringComparison.Ordinal));
+        Assert.DoesNotContain(surface, static entry => entry.Contains("Deep", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -141,8 +143,11 @@ public sealed class ApiSurfaceReaderTests : IDisposable {
 
         // `virtual` because that is what a delegate's Invoke is in metadata.
         Assert.Contains("virtual Sample.Transform.Invoke(int value, string label) -> int", surface);
-        Assert.DoesNotContain(surface, entry => entry.Contains("BeginInvoke", StringComparison.Ordinal));
-        Assert.DoesNotContain(surface, entry => entry.Contains("Transform.Transform(", StringComparison.Ordinal));
+        Assert.DoesNotContain(surface, static entry => entry.Contains("BeginInvoke", StringComparison.Ordinal));
+        Assert.DoesNotContain(
+            surface,
+            static entry => entry.Contains("Transform.Transform(", StringComparison.Ordinal)
+        );
     }
 
     [Fact]
@@ -224,9 +229,9 @@ public sealed class ApiSurfaceReaderTests : IDisposable {
 
         Assert.Contains("Sample.Point -> sealed record", surface);
         Assert.Contains("Sample.Point.X.get -> int", surface);
-        Assert.DoesNotContain(surface, entry => entry.Contains("EqualityContract", StringComparison.Ordinal));
-        Assert.DoesNotContain(surface, entry => entry.Contains("PrintMembers", StringComparison.Ordinal));
-        Assert.DoesNotContain(surface, entry => entry.Contains("Clone", StringComparison.Ordinal));
+        Assert.DoesNotContain(surface, static entry => entry.Contains("EqualityContract", StringComparison.Ordinal));
+        Assert.DoesNotContain(surface, static entry => entry.Contains("PrintMembers", StringComparison.Ordinal));
+        Assert.DoesNotContain(surface, static entry => entry.Contains("Clone", StringComparison.Ordinal));
     }
 
     /// <summary>
@@ -245,8 +250,8 @@ public sealed class ApiSurfaceReaderTests : IDisposable {
         var surface = ApiSurfaceReader.Read(EmitAssemblyWithAnUnspeakableNestedType());
 
         Assert.Contains("Sample.Extensions -> static class", surface);
-        Assert.DoesNotContain(surface, entry => entry.Contains('<', StringComparison.Ordinal));
-        Assert.DoesNotContain(surface, entry => entry.Contains('$', StringComparison.Ordinal));
+        Assert.DoesNotContain(surface, static entry => entry.Contains('<', StringComparison.Ordinal));
+        Assert.DoesNotContain(surface, static entry => entry.Contains('$', StringComparison.Ordinal));
     }
 
     /// <summary>
@@ -266,7 +271,10 @@ public sealed class ApiSurfaceReaderTests : IDisposable {
         );
 
         container
-            .DefineNestedType("<G>$7B1EA48CCC2BB39DA1D1E341962695C5", TypeAttributes.NestedPublic | TypeAttributes.Sealed)
+            .DefineNestedType(
+                "<G>$7B1EA48CCC2BB39DA1D1E341962695C5",
+                TypeAttributes.NestedPublic | TypeAttributes.Sealed
+            )
             .CreateType();
 
         container.CreateType();
@@ -304,17 +312,17 @@ public sealed class ApiSurfaceReaderTests : IDisposable {
     [Fact]
     public void TheReadingIsSortedAndStable() {
         const string source = """
-            namespace Sample;
+                              namespace Sample;
 
-            public class Zebra { public void Zoo() { } }
-            public class Alpha { public void Ant() { } }
-            """;
+                              public class Zebra { public void Zoo() { } }
+                              public class Alpha { public void Ant() { } }
+                              """;
 
         var first = Read(source, "stable-one");
         var second = Read(source, "stable-two");
 
         Assert.Equal(first, second);
-        Assert.Equal(first.OrderBy(entry => entry, StringComparer.Ordinal), first);
+        Assert.Equal(first.OrderBy(static entry => entry, StringComparer.Ordinal), first);
     }
 
     /// <summary>
@@ -330,15 +338,15 @@ public sealed class ApiSurfaceReaderTests : IDisposable {
     [Fact]
     public void WideningADynamicallyAccessedMembersRequirement_ChangesTheSurface() {
         const string template = """
-            using System;
-            using System.Diagnostics.CodeAnalysis;
+                                using System;
+                                using System.Diagnostics.CodeAnalysis;
 
-            namespace Sample;
+                                namespace Sample;
 
-            public static class Registry {
-                public static int Of([DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.KIND)] Type ownerType) => 0;
-            }
-            """;
+                                public static class Registry {
+                                    public static int Of([DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.KIND)] Type ownerType) => 0;
+                                }
+                                """;
 
         var narrow = Read(template.Replace("KIND", "NonPublicConstructors", StringComparison.Ordinal), "narrow");
         var wide = Read(template.Replace("KIND", "All", StringComparison.Ordinal), "wide");
@@ -400,17 +408,23 @@ public sealed class ApiSurfaceReaderTests : IDisposable {
 
         Assert.Contains("Sample.Scanner [type: RequiresUnreferencedCode()]", surface);
         Assert.Contains("Sample.Scanner.Emit() [method: RequiresDynamicCode()]", surface);
-        Assert.Contains("Sample.Pool<T> [typeparam T: DynamicallyAccessedMembers(PublicParameterlessConstructor)]", surface);
-        Assert.Contains("Sample.Pool<T>.Make() [return: DynamicallyAccessedMembers(PublicMethods | NonPublicFields)]", surface);
+        Assert.Contains(
+            "Sample.Pool<T> [typeparam T: DynamicallyAccessedMembers(PublicParameterlessConstructor)]",
+            surface
+        );
+        Assert.Contains(
+            "Sample.Pool<T>.Make() [return: DynamicallyAccessedMembers(PublicMethods | NonPublicFields)]",
+            surface
+        );
         Assert.Contains("Sample.Pool<T>.Kind [property: DynamicallyAccessedMembers(PublicProperties)]", surface);
         Assert.Contains("Sample.Pool<T>.Other.get [method: RequiresUnreferencedCode()]", surface);
         Assert.Contains("Sample.Pool<T>.Field [field: DynamicallyAccessedMembers(PublicEvents)]", surface);
 
         // An internal member's contract is nobody's business outside the assembly.
-        Assert.DoesNotContain(surface, entry => entry.Contains("Hidden", StringComparison.Ordinal));
+        Assert.DoesNotContain(surface, static entry => entry.Contains("Hidden", StringComparison.Ordinal));
 
         // The message is prose, and rewording a warning is not a change to what a caller must do.
-        Assert.DoesNotContain(surface, entry => entry.Contains("scans", StringComparison.Ordinal));
+        Assert.DoesNotContain(surface, static entry => entry.Contains("scans", StringComparison.Ordinal));
     }
 
     /// <summary>An event's accessors and an indexer's parameters carry trim contracts too.</summary>
@@ -443,12 +457,19 @@ public sealed class ApiSurfaceReaderTests : IDisposable {
         );
 
         Assert.Contains("Sample.Hub.Changed.add [method: RequiresUnreferencedCode()]", surface);
-        Assert.Contains(surface, entry => entry.Contains("this[", StringComparison.Ordinal) && entry.EndsWith("[param key: DynamicallyAccessedMembers(PublicMethods)]", StringComparison.Ordinal));
+        Assert.Contains(
+            surface,
+            static entry => entry.Contains("this[", StringComparison.Ordinal)
+                && entry.EndsWith("[param key: DynamicallyAccessedMembers(PublicMethods)]", StringComparison.Ordinal)
+        );
 
         // One line per contract: the indexer's parameter must not be reported by the indexer and
         // again by its getter, which would make one attribute change read as two.
-        Assert.Single(surface, entry => entry.Contains("DynamicallyAccessedMembers(PublicMethods)", StringComparison.Ordinal));
-        Assert.Single(surface, entry => entry.Contains("RequiresUnreferencedCode", StringComparison.Ordinal));
+        Assert.Single(
+            surface,
+            static entry => entry.Contains("DynamicallyAccessedMembers(PublicMethods)", StringComparison.Ordinal)
+        );
+        Assert.Single(surface, static entry => entry.Contains("RequiresUnreferencedCode", StringComparison.Ordinal));
     }
 
     IReadOnlyList<string> Read(string source, string name = "Sample") {
@@ -461,7 +482,7 @@ public sealed class ApiSurfaceReaderTests : IDisposable {
     string Compile(string source, string name) {
         var references = ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")!)
             .Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries)
-            .Select(path => (MetadataReference)MetadataReference.CreateFromFile(path));
+            .Select(static path => (MetadataReference)MetadataReference.CreateFromFile(path));
 
         var compilation = CSharpCompilation.Create(
             name,
@@ -476,7 +497,10 @@ public sealed class ApiSurfaceReaderTests : IDisposable {
         Assert.True(
             result.Success,
             "The fixture did not compile: "
-            + string.Join(Environment.NewLine, result.Diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error))
+            + string.Join(
+                Environment.NewLine,
+                result.Diagnostics.Where(static d => d.Severity == DiagnosticSeverity.Error)
+            )
         );
 
         return path;

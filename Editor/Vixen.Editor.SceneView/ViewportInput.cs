@@ -8,8 +8,11 @@ namespace Vixen.Editor.SceneView;
 /// <summary>Whatever gets first refusal on a pane's input before the pane itself reads it.</summary>
 /// <remarks>
 ///     <para>
-///         <b>This is the viewport's half of doc 20's <c>IEditorMode</c>, and it is deliberately not
-///         that interface.</b> A mode is a shell concept — it has a title, an icon, a place on the
+///         <b>
+///             This is the viewport's half of doc 20's <c>IEditorMode</c>, and it is deliberately not
+///             that interface.
+///         </b>
+///         A mode is a shell concept — it has a title, an icon, a place on the
 ///         mode bar and a claim on the keymap — and this assembly has never heard of a shell:
 ///         <c>Vixen.Editor.SceneView</c> does not reference <c>Vixen.Editor.Ui</c>, for the reason
 ///         doc 02 gives, which is that a viewport that needed the editor's chrome to be constructible

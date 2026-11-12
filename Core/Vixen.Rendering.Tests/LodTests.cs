@@ -55,10 +55,7 @@ public class LodTests : IDisposable {
         var system = new RenderSystem();
         var opaque = system.AddStage(new("Opaque"));
 
-        var meshes = new MeshRenderFeature {
-            Pipelines = new(device),
-            Describer = new EffectPipelineDescriber(device)
-        };
+        var meshes = new MeshRenderFeature { Pipelines = new(device), Describer = new EffectPipelineDescriber(device) };
 
         var materials = new MaterialRenderFeature { Effects = effects };
         var lods = new LodRenderFeature();
@@ -165,8 +162,7 @@ public class LodTests : IDisposable {
         var group = h.Lods.Add([0.5f, 0.1f]);
 
         var levels = new[] {
-            AddLevel(h, Vector3.Zero, group, 0),
-            AddLevel(h, Vector3.Zero, group, 1),
+            AddLevel(h, Vector3.Zero, group, 0), AddLevel(h, Vector3.Zero, group, 1),
             AddLevel(h, Vector3.Zero, group, 2)
         };
 
@@ -271,11 +267,11 @@ public class LodTests : IDisposable {
         RenderObjectId coarse;
 
         if (fineFirst) {
-            fine = AddLevel(h, Vector3.Zero, group, 0, radius: 1f);
-            coarse = AddLevel(h, Vector3.Zero, group, 1, radius: 0.5f);
+            fine = AddLevel(h, Vector3.Zero, group, 0);
+            coarse = AddLevel(h, Vector3.Zero, group, 1, 0.5f);
         } else {
-            coarse = AddLevel(h, Vector3.Zero, group, 1, radius: 0.5f);
-            fine = AddLevel(h, Vector3.Zero, group, 0, radius: 1f);
+            coarse = AddLevel(h, Vector3.Zero, group, 1, 0.5f);
+            fine = AddLevel(h, Vector3.Zero, group, 0);
         }
 
         Sized(h, fine, coarse, boundary * 0.75f);
@@ -326,9 +322,7 @@ public class LodTests : IDisposable {
         var coarse = AddLevel(h, far, group, 2);
 
         var shadow = new RenderView("cascade") {
-            Stages = h.Opaque.Mask,
-            Position = Vector3.Zero,
-            Frustum = h.Camera.Frustum
+            Stages = h.Opaque.Mask, Position = Vector3.Zero, Frustum = h.Camera.Frustum
         };
 
         h.System.SetViews([h.Camera, shadow]);
@@ -349,9 +343,7 @@ public class LodTests : IDisposable {
 
         var id = h.System.Objects.Add(
             new() {
-                Bounds = new(new Vector3(0f, 0f, -500f), 1f),
-                Stages = h.Opaque.Mask,
-                FeatureIndex = h.Meshes.Index
+                Bounds = new(new Vector3(0f, 0f, -500f), 1f), Stages = h.Opaque.Mask, FeatureIndex = h.Meshes.Index
             }
         );
 
@@ -468,8 +460,12 @@ public class LodTests : IDisposable {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>It used to be twice that, because <c>Select</c> advanced the transition once per
-    ///         visible <em>member</em> of the group rather than once for the group</b> —
+    ///         ⚠
+    ///         <b>
+    ///             It used to be twice that, because <c>Select</c> advanced the transition once per
+    ///             visible <em>member</em> of the group rather than once for the group
+    ///         </b>
+    ///         —
     ///         <a href="https://github.com/Rikarin/Vixen/issues/1183">#1183</a>. A fade is precisely
     ///         the state in which two members are visible, so the accumulator took two deltas per
     ///         frame while fading and one while not; an author who typed 200 ms into
@@ -604,7 +600,7 @@ public class LodTests : IDisposable {
         var pushes = device.Recorder.OfKind(RecordedCommandKind.PushConstants).ToArray();
 
         Assert.Equal(2, pushes.Length);
-        Assert.All(pushes, push => Assert.Equal((68, 4), (push.B, push.C)));
+        Assert.All(pushes, static push => Assert.Equal((68, 4), (push.B, push.C)));
     }
 
     // --- Registering and releasing groups -----------------------------------
@@ -711,9 +707,14 @@ public class LodTests : IDisposable {
         var target = device.CreateTextureView(
             device.CreateTexture(
                 new() {
-                    Width = 16, Height = 16, Depth = 1,
-                    MipLevels = 1, ArrayLayers = 1, SampleCount = 1,
-                    Format = PixelFormat.Rgba8UNorm, Usage = TextureUsage.ColourTarget
+                    Width = 16,
+                    Height = 16,
+                    Depth = 1,
+                    MipLevels = 1,
+                    ArrayLayers = 1,
+                    SampleCount = 1,
+                    Format = PixelFormat.Rgba8UNorm,
+                    Usage = TextureUsage.ColourTarget
                 }
             )
         );

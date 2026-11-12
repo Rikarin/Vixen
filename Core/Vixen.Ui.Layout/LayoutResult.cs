@@ -54,8 +54,12 @@ public struct LayoutResult {
     ///     applied to it.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>CSS Flexbox §9.2 makes the flex base size and the hypothetical main size two
-    ///     different numbers, and only this one is the base.</b> Step 3E sizes the item under a
+    ///     ⚠
+    ///     <b>
+    ///         CSS Flexbox §9.2 makes the flex base size and the hypothetical main size two
+    ///         different numbers, and only this one is the base.
+    ///     </b>
+    ///     Step 3E sizes the item under a
     ///     max-content constraint and takes the result as the flex base size; step 4 then clamps
     ///     that by the used min and max to get the hypothetical main size. Reading the base back out
     ///     of <see cref="MeasuredDimensions" /> collapses the two, because that value has already
@@ -204,8 +208,12 @@ public struct LayoutResult {
     ///     The vertical margins that escaped past this node's top edge, per CSS 2.1 §8.3.1.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>This, its sibling below and <see cref="MarginsCollapseThrough" /> are the entire cost
-    ///     of the store carrying a second layout algorithm</b>, and they are worth naming as such
+    ///     ⚠
+    ///     <b>
+    ///         This, its sibling below and <see cref="MarginsCollapseThrough" /> are the entire cost
+    ///         of the store carrying a second layout algorithm
+    ///     </b>
+    ///     , and they are worth naming as such
     ///     because grid will want to know. Flexbox needs nothing out of a child's layout but its size:
     ///     the parent asks "how big", places it, and is done. Block layout cannot work that way,
     ///     because a child's top margin may not belong to the child at all — with no border and no
@@ -226,8 +234,12 @@ public struct LayoutResult {
     ///     node did not establish one.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>The third algorithm cost the input side and the fourth costs the output side again —
-    ///     but for a reason block's margins were not.</b> A collapsible margin is an output because it
+    ///     ⚠
+    ///     <b>
+    ///         The third algorithm cost the input side and the fourth costs the output side again —
+    ///         but for a reason block's margins were not.
+    ///     </b>
+    ///     A collapsible margin is an output because it
     ///     belongs to somebody else. This is an output because it is <i>not recomputable</i>: CSS 2.1
     ///     §10.8.1 puts an <c>inline-block</c>'s baseline on its <b>last</b> line box, and which line
     ///     is last, and where its baseline fell, is known only inside the line-breaking walk. The
@@ -282,8 +294,12 @@ public struct LayoutResult {
 
     /// <summary>The grid area this out-of-flow child of a grid container is positioned against.</summary>
     /// <remarks>
-    ///     ⚠ <b>CSS Grid §9.2's containing block, and it is an output for the same reason
-    ///     <see cref="BlockStaticLeft" /> is: nothing can reconstruct it afterwards.</b> The rectangle
+    ///     ⚠
+    ///     <b>
+    ///         CSS Grid §9.2's containing block, and it is an output for the same reason
+    ///         <see cref="BlockStaticLeft" /> is: nothing can reconstruct it afterwards.
+    ///     </b>
+    ///     The rectangle
     ///     is cut out of the track offsets and sizes, which live in the grid's scratch arena and are
     ///     handed back the moment §11 finishes. Four floats — physical, measured from the grid
     ///     container's border-box origin — is what survives that.
@@ -421,10 +437,14 @@ public static class LayoutLimits {
     ///         — which is the actual reason the spec permits one. That is the whole justification.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>This used to claim the corpus had recorded Chrome's own cap, and cited
-    ///         <c>repeat(10000, 0px)</c>, <c>repeat(32768, …)</c> and <c>repeat(40000, 10px 10px)</c>
-    ///         as "in there specifically to pin the clamped answer". None of the three pins
-    ///         anything.</b> Every track in them is zero-sized, or the item under test sits in the
+    ///         ⚠
+    ///         <b>
+    ///             This used to claim the corpus had recorded Chrome's own cap, and cited
+    ///             <c>repeat(10000, 0px)</c>, <c>repeat(32768, …)</c> and <c>repeat(40000, 10px 10px)</c>
+    ///             as "in there specifically to pin the clamped answer". None of the three pins
+    ///             anything.
+    ///         </b>
+    ///         Every track in them is zero-sized, or the item under test sits in the
     ///         first track, so all three give the same answer at a cap of 10 000, at 65 535 and at
     ///         none. The claim was plausible, it was never checked, and it is why the value went
     ///         unexamined while five <c>grid_overlarge_*</c> families sat in GridKnownGaps.txt.

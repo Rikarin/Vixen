@@ -5,7 +5,6 @@ using System.Reflection;
 using Vixen.Authoring;
 using Vixen.Core;
 using Vixen.Ecs.Systems;
-using Vixen.Editor.Core;
 using Vixen.Engine.Diagnostics;
 using Vixen.Engine.Diagnostics.Overlays;
 using Vixen.Rendering;
@@ -70,8 +69,12 @@ public sealed class EditorPlaySession : IPlaySession {
 
     /// <inheritdoc />
     /// <remarks>
-    ///     Also one per editor. ⚠ <b>That alone does not carry a toggle across Stop, and this used to
-    ///     say it did.</b> <c>Enabled</c> lives on the overlay object, which is per session —
+    ///     Also one per editor. ⚠
+    ///     <b>
+    ///         That alone does not carry a toggle across Stop, and this used to
+    ///         say it did.
+    ///     </b>
+    ///     <c>Enabled</c> lives on the overlay object, which is per session —
     ///     <c>PlayPhysics</c> registers it and takes it back out, because it holds a
     ///     <c>PhysicsScene</c> that Stop destroys — so the next Play's overlay arrived switched off.
     ///     What outlives the session is <see cref="overlayWishes" />, which <see cref="Tick" />
@@ -194,8 +197,12 @@ public sealed class EditorPlaySession : IPlaySession {
     /// <param name="delta">How long the last frame took.</param>
     /// <returns>Whether the game's frame ran — which is what replaces the editor's transform pass.</returns>
     /// <remarks>
-    ///     ⚠ <b>Emptied before the step and read after it, which is the only order that shows this
-    ///     frame's colliders</b>: <c>PhysicsDebugDrawSystem</c> runs in <c>PreRender</c>, inside
+    ///     ⚠
+    ///     <b>
+    ///         Emptied before the step and read after it, which is the only order that shows this
+    ///         frame's colliders
+    ///     </b>
+    ///     : <c>PhysicsDebugDrawSystem</c> runs in <c>PreRender</c>, inside
     ///     <c>Tick</c>. Clearing afterwards would draw nothing at all and clearing nowhere would
     ///     accumulate every frame of the session into one solid mass of lines.
     /// </remarks>
@@ -214,8 +221,12 @@ public sealed class EditorPlaySession : IPlaySession {
     /// <summary>What the session runs, said in a sentence.</summary>
     /// <returns>The information line play mode writes to the log on the way in.</returns>
     /// <remarks>
-    ///     ⚠ <b>Read off the session rather than written out here, and that is the point of the list
-    ///     existing.</b> This sentence used to name physics as a thing an in-editor session does not
+    ///     ⚠
+    ///     <b>
+    ///         Read off the session rather than written out here, and that is the point of the list
+    ///         existing.
+    ///     </b>
+    ///     This sentence used to name physics as a thing an in-editor session does not
     ///     run, and an <c>IPlaySystems</c> contribution has since made that false for the editor Vixen
     ///     ships — a fixed sentence would now be a report that lies in the safe direction, which is
     ///     the one that costs somebody a day.
@@ -234,8 +245,12 @@ public sealed class EditorPlaySession : IPlaySession {
     /// <returns>The warning play mode logs and shows, or <see langword="null" />.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Doc 20's first bar applied to a frame rather than to a menu line: a thing that
-    ///         does not happen must be <i>visibly</i> not happening.</b> An in-editor session steps
+    ///         ⚠
+    ///         <b>
+    ///             Doc 20's first bar applied to a frame rather than to a menu line: a thing that
+    ///             does not happen must be <i>visibly</i> not happening.
+    ///         </b>
+    ///         An in-editor session steps
     ///         an <c>EngineLoop</c>'s default graph — behaviours, coroutines, transforms — and
     ///         nothing else, because every other system a game runs is registered by that game's own
     ///         <c>OnInitialise</c> against a <c>PhysicsScene</c>, an <c>AudioEngine</c>, an
@@ -280,11 +295,15 @@ public sealed class EditorPlaySession : IPlaySession {
         }
 
         if (unsatisfied.Count > 0) {
-            said.Add($"{unsatisfied.Count} declared system(s) whose services are not here: {string.Join("; ", unsatisfied)}.");
+            said.Add(
+                $"{unsatisfied.Count} declared system(s) whose services are not here: {string.Join("; ", unsatisfied)}."
+            );
         }
 
         if (behaviors.Count > 0) {
-            said.Add($"{behaviors.Count} behaviour(s) the session could not take over: {string.Join(", ", behaviors)}.");
+            said.Add(
+                $"{behaviors.Count} behaviour(s) the session could not take over: {string.Join(", ", behaviors)}."
+            );
         }
 
         // ⚠ A contribution that threw is the loudest of the three, because it is the editor's own

@@ -23,7 +23,7 @@ public class SegmentationTests {
     public void A_family_emoji_is_one_character_to_a_person_and_eleven_code_points_to_a_computer() {
         // 👨‍👩‍👧‍👦 — man, ZWJ, woman, ZWJ, girl, ZWJ, boy. Backspace has to delete the family,
         // not the boy, and this is the case everyone's text editor gets wrong at least once.
-        const string Family = "\U0001F468‍\U0001F469‍\U0001F467‍\U0001F466";
+        const string Family = "\U0001F468\u200D\U0001F469\u200D\U0001F467\u200D\U0001F466";
 
         Assert.Equal(11, Family.Length);
         Assert.Equal(1, GraphemeBreaker.Count(Family));
@@ -78,7 +78,7 @@ public class SegmentationTests {
     public void An_unpaired_surrogate_is_still_something_the_caret_can_move_over() {
         // A malformed string has to stay editable — that is how it gets fixed. Substituting U+FFFD
         // would move a boundary the caret is about to be put at.
-        var lone = "a" + (char) 0xD800 + "b";
+        var lone = "a" + (char)0xD800 + "b";
 
         Assert.Equal(3, GraphemeBreaker.Count(lone));
         Assert.Equal([0, 1, 2, 3], GraphemeBreaker.Boundaries(lone));
@@ -128,11 +128,11 @@ public class SegmentationTests {
     public void A_zero_width_joiner_does_not_join_two_letters() {
         // WB3c is `ZWJ × ExtendedPictographic`, and the pictographic half is what stops a joiner
         // between two letters gluing them into one word.
-        Assert.Equal([0, 3], WordBreaker.Boundaries("a‍b"));
+        Assert.Equal([0, 3], WordBreaker.Boundaries("a\u200Db"));
 
         // Two clusters, not three: GB9 attaches the joiner to whatever precedes it, so `a` keeps it
         // and `b` stands alone. The joiner never *starts* a cluster.
-        Assert.Equal(2, GraphemeBreaker.Count("a‍b"));
+        Assert.Equal(2, GraphemeBreaker.Count("a\u200Db"));
     }
 
     [Fact]

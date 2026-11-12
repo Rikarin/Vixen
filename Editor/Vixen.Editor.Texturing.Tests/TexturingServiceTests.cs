@@ -17,23 +17,23 @@ namespace Vixen.Editor.Texturing.Tests;
 public class TexturingServiceTests {
     /// <summary>A stack with a layer that travels onto the shelf.</summary>
     const string Stack = """
-        version: 1
-        name: Hull
-        model: Assets/Hull.fbx
-        baseWidth: 64
-        baseHeight: 64
-        sets:
-          - name: Body
-            channels:
-              - usage: baseColor
-                default: [0, 0, 0, 1]
-            layers:
-              - id: base
-                name: Base
-                kind: Fill
-                values:
-                  baseColor: [0.25, 0.5, 0.75, 1]
-        """;
+                         version: 1
+                         name: Hull
+                         model: Assets/Hull.fbx
+                         baseWidth: 64
+                         baseHeight: 64
+                         sets:
+                           - name: Body
+                             channels:
+                               - usage: baseColor
+                                 default: [0, 0, 0, 1]
+                             layers:
+                               - id: base
+                                 name: Base
+                                 kind: Fill
+                                 values:
+                                   baseColor: [0.25, 0.5, 0.75, 1]
+                         """;
 
     [Fact]
     public void The_module_publishes_itself_as_the_service_and_takes_it_back_on_unload() {
@@ -75,7 +75,10 @@ public class TexturingServiceTests {
 
         var target = Assert.Single(
             fixture.Project.Documents.OfType<LayerStackDocument>(),
-            document => document.AssetPath.EndsWith("Crate" + LayerStackDocument.Extension, StringComparison.Ordinal)
+            static document => document.AssetPath.EndsWith(
+                "Crate" + LayerStackDocument.Extension,
+                StringComparison.Ordinal
+            )
         );
 
         var before = target.Document.Sets[0].Layers.Count;
@@ -108,7 +111,7 @@ public class TexturingServiceTests {
         texturing.BakeStackMaterial();
         texturing.BakeMaterial();
 
-        Assert.Contains(fixture.Shell.Notifications.History, entry => entry.Message == "No layer stack is open");
-        Assert.Contains(fixture.Shell.Notifications.History, entry => entry.Message == "No graph is open");
+        Assert.Contains(fixture.Shell.Notifications.History, static entry => entry.Message == "No layer stack is open");
+        Assert.Contains(fixture.Shell.Notifications.History, static entry => entry.Message == "No graph is open");
     }
 }

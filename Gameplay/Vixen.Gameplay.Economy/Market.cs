@@ -17,8 +17,12 @@ public readonly record struct TradeRecord(DefId Asset, long UnitPrice, long Coun
 
 /// <summary>Somewhere prices come from.</summary>
 /// <remarks>
-///     <b>Doc 28's optional seam, and G-R6's bounded ambition:</b> <em>"a price model, not an economy
-///     simulation"</em>. What it is for is a vendor whose buy price responds to supply, and a client
+///     <b>Doc 28's optional seam, and G-R6's bounded ambition:</b>
+///     <em>
+///         "a price model, not an economy
+///         simulation"
+///     </em>
+///     . What it is for is a vendor whose buy price responds to supply, and a client
 ///     that can say "this is about what it goes for" — not for modelling a market.
 /// </remarks>
 public interface IMarketModel {
@@ -52,7 +56,9 @@ public sealed class MovingAverageMarket : IMarketModel {
 
     /// <summary>Makes one.</summary>
     /// <param name="window">How many sales of each thing it remembers.</param>
-    public MovingAverageMarket(int window = 20) => Window = Math.Max(1, window);
+    public MovingAverageMarket(int window = 20) {
+        Window = Math.Max(1, window);
+    }
 
     /// <summary>How many sales of each thing it remembers.</summary>
     public int Window { get; }

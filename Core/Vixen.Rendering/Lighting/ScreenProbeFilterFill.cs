@@ -97,7 +97,10 @@ public sealed class ScreenProbeFilterFill : IDisposable {
 
         var layout = history.Layout;
 
-        Parameters.Set(ScreenProbeFilterKeys.GridSize, new Core.Mathematics.Vector2(layout.GridSize.X, layout.GridSize.Y));
+        Parameters.Set(
+            ScreenProbeFilterKeys.GridSize,
+            new(layout.GridSize.X, layout.GridSize.Y)
+        );
         Parameters.Set(ScreenProbeFilterKeys.Strength, Strength);
         Parameters.Set(ScreenProbeFilterKeys.Tolerance, Tolerance);
 
@@ -108,15 +111,22 @@ public sealed class ScreenProbeFilterFill : IDisposable {
         commands.BindPipeline(pipeline);
         commands.BindDescriptorSet(DescriptorSetSlot.PerMaterial, material);
 
-        history.TransitionFiltered(commands, ResourceState.ShaderRead, ResourceState.ShaderWrite | ResourceState.ShaderRead);
+        history.TransitionFiltered(
+            commands,
+            ResourceState.ShaderRead,
+            ResourceState.ShaderWrite | ResourceState.ShaderRead
+        );
 
         commands.Dispatch(
             (layout.GridSize.X + 7) / 8,
-            (layout.GridSize.Y + 7) / 8,
-            1
+            (layout.GridSize.Y + 7) / 8
         );
 
-        history.TransitionFiltered(commands, ResourceState.ShaderWrite | ResourceState.ShaderRead, ResourceState.ShaderRead);
+        history.TransitionFiltered(
+            commands,
+            ResourceState.ShaderWrite | ResourceState.ShaderRead,
+            ResourceState.ShaderRead
+        );
 
         return layout.ProbeCount;
     }
@@ -141,7 +151,12 @@ public sealed class ScreenProbeFilterFill : IDisposable {
             }
 
             writes.Add(
-                DescriptorWrite.Uniform(declared.Binding, materialBlock.Buffer, materialBlock.Offset, materialBlock.Size)
+                DescriptorWrite.Uniform(
+                    declared.Binding,
+                    materialBlock.Buffer,
+                    materialBlock.Offset,
+                    materialBlock.Size
+                )
             );
         }
 
@@ -150,7 +165,7 @@ public sealed class ScreenProbeFilterFill : IDisposable {
                 return false;
             }
 
-            writes.Add(new DescriptorWrite(from.Binding, DescriptorKind.SampledTexture, TextureView: history.FrontView(plane)));
+            writes.Add(new(from.Binding, DescriptorKind.SampledTexture, TextureView: history.FrontView(plane)));
         }
 
         for (var plane = 0; plane < ScreenProbeHistoryTexture.FilteredPlanes; plane++) {
@@ -158,7 +173,7 @@ public sealed class ScreenProbeFilterFill : IDisposable {
                 return false;
             }
 
-            writes.Add(new DescriptorWrite(to.Binding, DescriptorKind.StorageTexture, TextureView: history.FilteredView(plane)));
+            writes.Add(new(to.Binding, DescriptorKind.StorageTexture, TextureView: history.FilteredView(plane)));
         }
 
         set = Descriptors!.Allocate(effect.SetLayouts[index], CollectionsMarshal.AsSpan(writes));

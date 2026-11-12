@@ -20,13 +20,16 @@ public class ShaderCompilerServiceTests {
     static RavenEffectCompiler Compiler() => new([Fixture]);
 
     static ShaderCompilerServer Serving(Func<string, IEffectSource?>? open = null) {
-        var server = new ShaderCompilerServer(IPAddress.Loopback, 0, open ?? (_ => Compiler()));
+        var server = new ShaderCompilerServer(IPAddress.Loopback, 0, open ?? (static _ => Compiler()));
         server.Start();
         return server;
     }
 
     static EffectKey Key(bool outer, bool inner) =>
-        EffectKey.Of("Nested", [new("Nested.Outer", outer ? "true" : "false"), new("Nested.Inner", inner ? "true" : "false")]);
+        EffectKey.Of(
+            "Nested",
+            [new("Nested.Outer", outer ? "true" : "false"), new("Nested.Inner", inner ? "true" : "false")]
+        );
 
     // --- The round trip -----------------------------------------------------
 
@@ -44,16 +47,16 @@ public class ShaderCompilerServiceTests {
         using var server = Serving();
         using var source = new RemoteEffectSource("localhost", server.Port);
 
-        var remote = source.TryGet(Key(outer: true, inner: true));
-        var local = Compiler().TryGet(Key(outer: true, inner: true));
+        var remote = source.TryGet(Key(true, true));
+        var local = Compiler().TryGet(Key(true, true));
 
         Assert.NotNull(remote);
         Assert.NotNull(local);
 
         Assert.Equal(local.ToKey(), remote.ToKey());
         Assert.Equal(
-            local.Stages.Single(stage => stage.Stage == ShaderStage.Fragment).Bytecode,
-            remote.Stages.Single(stage => stage.Stage == ShaderStage.Fragment).Bytecode
+            local.Stages.Single(static stage => stage.Stage == ShaderStage.Fragment).Bytecode,
+            remote.Stages.Single(static stage => stage.Stage == ShaderStage.Fragment).Bytecode
         );
 
         Assert.Equal(1, server.Served);
@@ -71,13 +74,13 @@ public class ShaderCompilerServiceTests {
         using var server = Serving();
         using var source = new RemoteEffectSource("localhost", server.Port);
 
-        var on = source.TryGet(Key(outer: true, inner: true))!;
-        var off = source.TryGet(Key(outer: true, inner: false))!;
+        var on = source.TryGet(Key(true, true))!;
+        var off = source.TryGet(Key(true, false))!;
 
         Assert.NotEqual(on.ToKey(), off.ToKey());
         Assert.NotEqual(
-            on.Stages.Single(stage => stage.Stage == ShaderStage.Fragment).Bytecode,
-            off.Stages.Single(stage => stage.Stage == ShaderStage.Fragment).Bytecode
+            on.Stages.Single(static stage => stage.Stage == ShaderStage.Fragment).Bytecode,
+            off.Stages.Single(static stage => stage.Stage == ShaderStage.Fragment).Bytecode
         );
 
         Assert.Equal(2, server.Served);
@@ -97,10 +100,10 @@ public class ShaderCompilerServiceTests {
     /// <summary>A target this machine cannot produce is said so rather than answered wrongly.</summary>
     [Fact]
     public void An_unavailable_target_is_refused() {
-        using var server = Serving(target => target is "spirv" or "" ? Compiler() : null);
+        using var server = Serving(static target => target is "spirv" or "" ? Compiler() : null);
         using var source = new RemoteEffectSource("localhost", server.Port) { Target = "metal" };
 
-        Assert.Null(source.TryGet(Key(outer: true, inner: true)));
+        Assert.Null(source.TryGet(Key(true, true)));
         Assert.Contains("metal", string.Join(" ", source.Diagnostics), StringComparison.Ordinal);
     }
 
@@ -124,7 +127,7 @@ public class ShaderCompilerServiceTests {
 
         using var source = new RemoteEffectSource("localhost", port) { Timeout = TimeSpan.FromSeconds(2) };
 
-        Assert.Null(source.TryGet(Key(outer: true, inner: true)));
+        Assert.Null(source.TryGet(Key(true, true)));
         Assert.NotEmpty(source.Diagnostics);
     }
 
@@ -137,7 +140,10 @@ public class ShaderCompilerServiceTests {
     [Fact]
     public void A_broken_shader_sends_back_its_diagnostics() {
         var path = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("n") + ".rvn");
-        File.WriteAllText(path, "package Vixen.Fixtures\n\nshader Broken {\n    var tint: float3\n\n    [FragmentShader]\n    [Semantic(\"SV_Target\")]\n    func Fragment(): float4 { return nonsense }\n}\n");
+        File.WriteAllText(
+            path,
+            "package Vixen.Fixtures\n\nshader Broken {\n    var tint: float3\n\n    [FragmentShader]\n    [Semantic(\"SV_Target\")]\n    func Fragment(): float4 { return nonsense }\n}\n"
+        );
 
         using var server = Serving(_ => new RavenEffectCompiler([path]));
         using var source = new RemoteEffectSource("localhost", server.Port);
@@ -167,11 +173,10 @@ public class ShaderCompilerServiceTests {
 
         var device = new EffectDiskCache(directory, "spirv", remote);
 
-        Assert.NotNull(device.TryGet(Key(outer: true, inner: true)));
-        Assert.NotNull(device.TryGet(Key(outer: true, inner: true)));
+        Assert.NotNull(device.TryGet(Key(true, true)));
+        Assert.NotNull(device.TryGet(Key(true, true)));
 
         Assert.Equal(1, server.Served);
         Assert.Equal(1, device.Hits);
     }
-
 }

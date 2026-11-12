@@ -28,21 +28,22 @@ namespace Vixen.Graphics.Vulkan;
 static unsafe class VulkanSurface {
     /// <summary>Which instance extensions a surface of this kind needs.</summary>
     /// <param name="kind">Which windowing system produced the handles.</param>
-    public static string[] RequiredExtensions(SurfaceKind kind) => kind switch {
-        SurfaceKind.None => [],
-        SurfaceKind.Win32 => [KhrSurface.ExtensionName, KhrWin32Surface.ExtensionName],
-        SurfaceKind.Xlib => [KhrSurface.ExtensionName, KhrXlibSurface.ExtensionName],
-        SurfaceKind.Wayland => [KhrSurface.ExtensionName, KhrWaylandSurface.ExtensionName],
-        SurfaceKind.Metal => [KhrSurface.ExtensionName, ExtMetalSurface.ExtensionName],
-        SurfaceKind.Android => [KhrSurface.ExtensionName, KhrAndroidSurface.ExtensionName],
+    public static string[] RequiredExtensions(SurfaceKind kind) =>
+        kind switch {
+            SurfaceKind.None => [],
+            SurfaceKind.Win32 => [KhrSurface.ExtensionName, KhrWin32Surface.ExtensionName],
+            SurfaceKind.Xlib => [KhrSurface.ExtensionName, KhrXlibSurface.ExtensionName],
+            SurfaceKind.Wayland => [KhrSurface.ExtensionName, KhrWaylandSurface.ExtensionName],
+            SurfaceKind.Metal => [KhrSurface.ExtensionName, ExtMetalSurface.ExtensionName],
+            SurfaceKind.Android => [KhrSurface.ExtensionName, KhrAndroidSurface.ExtensionName],
 
-        // ⚠ A surface kind with no windowing system behind it, and the only one in this list that a
-        // platform never reports. It is asked for by a run that wants the presenting path and has no
-        // display server — which is what gave `vkAcquireNextImageKHR` and `vkQueuePresentKHR` their
-        // first automated coverage, the previous answer having been that they need a window.
-        SurfaceKind.Headless => [KhrSurface.ExtensionName, ExtHeadlessSurface.ExtensionName],
-        _ => []
-    };
+            // ⚠ A surface kind with no windowing system behind it, and the only one in this list that a
+            // platform never reports. It is asked for by a run that wants the presenting path and has no
+            // display server — which is what gave `vkAcquireNextImageKHR` and `vkQueuePresentKHR` their
+            // first automated coverage, the previous answer having been that they need a window.
+            SurfaceKind.Headless => [KhrSurface.ExtensionName, ExtHeadlessSurface.ExtensionName],
+            _ => []
+        };
 
     /// <summary>Creates a surface for a window.</summary>
     /// <param name="instance">The instance, whose extensions must already include the right one.</param>
@@ -66,9 +67,7 @@ static unsafe class VulkanSurface {
                 }
 
                 var info = new Win32SurfaceCreateInfoKHR {
-                    SType = StructureType.Win32SurfaceCreateInfoKhr,
-                    Hinstance = handle.Display,
-                    Hwnd = handle.Handle
+                    SType = StructureType.Win32SurfaceCreateInfoKhr, Hinstance = handle.Display, Hwnd = handle.Handle
                 };
 
                 return Finish(win32.CreateWin32Surface(instance.Handle, &info, null, out surface), out reason);
@@ -81,9 +80,7 @@ static unsafe class VulkanSurface {
                 }
 
                 var info = new XlibSurfaceCreateInfoKHR {
-                    SType = StructureType.XlibSurfaceCreateInfoKhr,
-                    Dpy = (nint*)handle.Display,
-                    Window = handle.Handle
+                    SType = StructureType.XlibSurfaceCreateInfoKhr, Dpy = (nint*)handle.Display, Window = handle.Handle
                 };
 
                 return Finish(xlib.CreateXlibSurface(instance.Handle, &info, null, out surface), out reason);
@@ -114,8 +111,7 @@ static unsafe class VulkanSurface {
                 }
 
                 var info = new MetalSurfaceCreateInfoEXT {
-                    SType = StructureType.MetalSurfaceCreateInfoExt,
-                    PLayer = (nint*)handle.Handle
+                    SType = StructureType.MetalSurfaceCreateInfoExt, PLayer = (nint*)handle.Handle
                 };
 
                 return Finish(metal.CreateMetalSurface(instance.Handle, &info, null, out surface), out reason);
@@ -128,8 +124,7 @@ static unsafe class VulkanSurface {
                 }
 
                 var info = new AndroidSurfaceCreateInfoKHR {
-                    SType = StructureType.AndroidSurfaceCreateInfoKhr,
-                    Window = (nint*)handle.Handle
+                    SType = StructureType.AndroidSurfaceCreateInfoKhr, Window = (nint*)handle.Handle
                 };
 
                 return Finish(
@@ -148,9 +143,7 @@ static unsafe class VulkanSurface {
                     return false;
                 }
 
-                var info = new HeadlessSurfaceCreateInfoEXT {
-                    SType = StructureType.HeadlessSurfaceCreateInfoExt
-                };
+                var info = new HeadlessSurfaceCreateInfoEXT { SType = StructureType.HeadlessSurfaceCreateInfoExt };
 
                 return Finish(
                     none.CreateHeadlessSurface(instance.Handle, &info, null, out surface),
@@ -162,7 +155,6 @@ static unsafe class VulkanSurface {
                 reason = "A swapchain was asked for on a platform that has nothing to present to.";
                 return false;
 
-            case SurfaceKind.Web:
             default:
                 reason = $"The Vulkan backend has no surface path for {handle.Kind}.";
                 return false;

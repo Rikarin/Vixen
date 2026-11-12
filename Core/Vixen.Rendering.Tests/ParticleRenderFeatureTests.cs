@@ -58,9 +58,7 @@ public class ParticleRenderFeatureTests : IDisposable {
         var transparent = system.AddStage(new("Transparent"));
 
         var particles = new ParticleRenderFeature {
-            Device = device,
-            Pipelines = new(device),
-            Describer = new EffectPipelineDescriber(device)
+            Device = device, Pipelines = new(device), Describer = new EffectPipelineDescriber(device)
         };
 
         var materials = new MaterialRenderFeature { Effects = effects };
@@ -113,11 +111,7 @@ public class ParticleRenderFeatureTests : IDisposable {
 
     static RenderObjectId AddEffect(Harness h, VfxSystem effect, Material material) {
         var id = h.System.Objects.Add(
-            new() {
-                Bounds = new(Vector3.Zero, 4f),
-                Stages = h.Transparent.Mask,
-                FeatureIndex = h.Particles.Index
-            }
+            new() { Bounds = new(Vector3.Zero, 4f), Stages = h.Transparent.Mask, FeatureIndex = h.Particles.Index }
         );
 
         h.Particles.SetSystem(id, effect);
@@ -132,9 +126,14 @@ public class ParticleRenderFeatureTests : IDisposable {
         var target = device.CreateTextureView(
             device.CreateTexture(
                 new() {
-                    Width = 16, Height = 16, Depth = 1,
-                    MipLevels = 1, ArrayLayers = 1, SampleCount = 1,
-                    Format = PixelFormat.Rgba8UNorm, Usage = TextureUsage.ColourTarget
+                    Width = 16,
+                    Height = 16,
+                    Depth = 1,
+                    MipLevels = 1,
+                    ArrayLayers = 1,
+                    SampleCount = 1,
+                    Format = PixelFormat.Rgba8UNorm,
+                    Usage = TextureUsage.ColourTarget
                 }
             )
         );
@@ -166,7 +165,7 @@ public class ParticleRenderFeatureTests : IDisposable {
         using var h = Build();
         using var effect = Effect(10);
 
-        AddEffect(h, effect, new Material("Particle"));
+        AddEffect(h, effect, new("Particle"));
 
         Record(h);
 
@@ -185,8 +184,8 @@ public class ParticleRenderFeatureTests : IDisposable {
         using var first = Effect(4);
         using var second = Effect(6);
 
-        AddEffect(h, first, new Material("Particle"));
-        AddEffect(h, second, new Material("Particle"));
+        AddEffect(h, first, new("Particle"));
+        AddEffect(h, second, new("Particle"));
 
         Record(h);
 
@@ -205,8 +204,8 @@ public class ParticleRenderFeatureTests : IDisposable {
         using var first = Effect(4);
         using var second = Effect(6);
 
-        var a = AddEffect(h, first, new Material("Particle"));
-        var b = AddEffect(h, second, new Material("Particle"));
+        var a = AddEffect(h, first, new("Particle"));
+        var b = AddEffect(h, second, new("Particle"));
 
         h.System.Extract();
         h.System.Cull();
@@ -227,7 +226,7 @@ public class ParticleRenderFeatureTests : IDisposable {
 
         effect.Reset();
 
-        AddEffect(h, effect, new Material("Particle"));
+        AddEffect(h, effect, new("Particle"));
 
         Record(h);
 
@@ -242,14 +241,10 @@ public class ParticleRenderFeatureTests : IDisposable {
         using var h = Build();
 
         var id = h.System.Objects.Add(
-            new() {
-                Bounds = new(Vector3.Zero, 4f),
-                Stages = h.Transparent.Mask,
-                FeatureIndex = h.Particles.Index
-            }
+            new() { Bounds = new(Vector3.Zero, 4f), Stages = h.Transparent.Mask, FeatureIndex = h.Particles.Index }
         );
 
-        h.Materials.Assign(h.System, id, new Material("Particle"));
+        h.Materials.Assign(h.System, id, new("Particle"));
 
         Record(h);
 
@@ -262,9 +257,9 @@ public class ParticleRenderFeatureTests : IDisposable {
 
         // A burst that outlives one frame and not many. Resetting would not do here: it puts the
         // effect back to its start, and the burst simply happens again.
-        using var effect = Effect(10, lifetime: 0.2f);
+        using var effect = Effect(10, 0.2f);
 
-        AddEffect(h, effect, new Material("Particle"));
+        AddEffect(h, effect, new("Particle"));
 
         h.System.Extract();
         h.System.Cull();
@@ -288,7 +283,7 @@ public class ParticleRenderFeatureTests : IDisposable {
         using var h = Build();
         using var effect = Effect(10);
 
-        var id = AddEffect(h, effect, new Material("Particle"));
+        var id = AddEffect(h, effect, new("Particle"));
 
         h.Particles.SetSystem(id, null);
 
@@ -323,7 +318,7 @@ public class ParticleRenderFeatureTests : IDisposable {
 
         for (var strip = 0; strip < 2; strip++) {
             for (var along = 0; along < 4; along++) {
-                var index = (strip * 4) + along;
+                var index = strip * 4 + along;
 
                 positions[index] = new(along, strip, 0f);
                 strands[index] = strip;
@@ -376,7 +371,7 @@ public class ParticleRenderFeatureTests : IDisposable {
         using var h = Build();
         using var effect = Trail();
 
-        var id = AddEffect(h, effect, new Material("Ribbon"));
+        var id = AddEffect(h, effect, new("Ribbon"));
 
         Record(h);
 
@@ -400,8 +395,8 @@ public class ParticleRenderFeatureTests : IDisposable {
         using var first = Trail();
         using var second = Trail();
 
-        var a = AddEffect(h, first, new Material("Ribbon"));
-        var b = AddEffect(h, second, new Material("Ribbon"));
+        var a = AddEffect(h, first, new("Ribbon"));
+        var b = AddEffect(h, second, new("Ribbon"));
 
         h.System.Extract();
         h.System.Cull();
@@ -426,7 +421,7 @@ public class ParticleRenderFeatureTests : IDisposable {
         using var h = Build();
         using var effect = Rocks(12);
 
-        var id = AddEffect(h, effect, new Material("Rock"));
+        var id = AddEffect(h, effect, new("Rock"));
         h.Particles.SetMesh(id, Rock());
 
         Record(h);
@@ -451,7 +446,7 @@ public class ParticleRenderFeatureTests : IDisposable {
         using var h = Build();
         using var effect = Rocks(4);
 
-        AddEffect(h, effect, new Material("Rock"));
+        AddEffect(h, effect, new("Rock"));
 
         Record(h);
 
@@ -468,8 +463,8 @@ public class ParticleRenderFeatureTests : IDisposable {
         using var quads = Effect(4);
         using var trail = Trail();
 
-        AddEffect(h, quads, new Material("Particle"));
-        AddEffect(h, trail, new Material("Particle"));
+        AddEffect(h, quads, new("Particle"));
+        AddEffect(h, trail, new("Particle"));
 
         Record(h);
 
@@ -484,8 +479,8 @@ public class ParticleRenderFeatureTests : IDisposable {
         using var h = Build();
         using var effect = Effect(5);
 
-        AddEffect(h, effect, new Material("Particle"));
-        AddEffect(h, effect, new Material("Particle"));
+        AddEffect(h, effect, new("Particle"));
+        AddEffect(h, effect, new("Particle"));
 
         Record(h);
 
@@ -508,7 +503,7 @@ public class ParticleRenderFeatureTests : IDisposable {
         using var h = Build();
         using var effect = Effect(5);
 
-        AddEffect(h, effect, new Material("Particle"));
+        AddEffect(h, effect, new("Particle"));
 
         Record(h);
 
@@ -539,7 +534,7 @@ public class ParticleRenderFeatureTests : IDisposable {
         using var h = Build();
         using var effect = Effect(5);
 
-        AddEffect(h, effect, new Material("Particle"));
+        AddEffect(h, effect, new("Particle"));
 
         var reflection = new RenderView("reflection") {
             Stages = h.Transparent.Mask,
@@ -569,7 +564,7 @@ public class ParticleRenderFeatureTests : IDisposable {
         using var h = Build();
         using var effect = Effect(5);
 
-        AddEffect(h, effect, new Material("Particle"));
+        AddEffect(h, effect, new("Particle"));
 
         var cascade = new RenderView("cascade") {
             Stages = RenderStageMask.None,

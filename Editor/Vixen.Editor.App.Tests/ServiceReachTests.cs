@@ -8,7 +8,6 @@ using System.Text.RegularExpressions;
 using Vixen.Editor.Assets;
 using Vixen.Editor.Core;
 using Vixen.Editor.SceneView;
-using Vixen.Editor.Testing;
 using Vixen.Editor.Ui.Documents;
 using Vixen.Testing;
 using Xunit;
@@ -38,7 +37,7 @@ namespace Vixen.Editor.App.Tests;
 ///         <c>ISceneEditing</c> was the interface alone and for a self-call was nothing.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Shrink-only, the <c>CheckWhitespace</c> shape.</b> <see cref="ExemptFile" /> lists what is
+///         ⚠ <b>Shrink-only, the <c>CheckDocComments</c> shape.</b> <see cref="ExemptFile" /> lists what is
 ///         unreached today; a new unreached method fails, and so does a listed one that has gained a
 ///         caller. Regenerate with <c>VIXEN_REGENERATE=1</c> and read the diff — a line added is a verb
 ///         nobody can reach.
@@ -83,13 +82,18 @@ public sealed class ServiceReachTests {
         // The instrument first: a walk that read no IL reaches nothing and would agree with a list of
         // everything. `ISceneEditing.Group` is Ctrl+G, registered by `SceneModule` over the interface.
         Assert.True(walk.Methods > 10_000, $"only {walk.Methods} method bodies read — did the walk load the editor?");
-        Assert.True(walk.Unresolved < walk.References / 100, $"{walk.Unresolved} of {walk.References} method operands did not resolve");
+        Assert.True(
+            walk.Unresolved < walk.References / 100,
+            $"{walk.Unresolved} of {walk.References} method operands did not resolve"
+        );
 
         var measured = new List<string>();
         var reached = new List<string>();
 
         foreach (var service in Services) {
-            var implementations = walk.Types.Where(type => type is { IsInterface: false } && service.IsAssignableFrom(type)).ToList();
+            var implementations = walk.Types
+                .Where(type => type is { IsInterface: false } && service.IsAssignableFrom(type))
+                .ToList();
 
             Assert.NotEmpty(implementations);
 
@@ -120,7 +124,7 @@ public sealed class ServiceReachTests {
         }
 
         var recorded = File.Exists(path)
-            ? File.ReadAllLines(path).Where(line => line.Length > 0 && !line.StartsWith('#')).ToList()
+            ? File.ReadAllLines(path).Where(static line => line.Length > 0 && !line.StartsWith('#')).ToList()
             : [];
 
         var unreached = measured.Except(recorded).ToList();
@@ -131,10 +135,10 @@ public sealed class ServiceReachTests {
             $"""
              ⚠ A context service verb nothing outside its service calls — give it a caller (a command, a
              menu line, a module) or take it off the interface:
-             {string.Join("\n", unreached.Select(line => "  " + line))}
+             {string.Join("\n", unreached.Select(static line => "  " + line))}
 
              Listed in {ExemptFile} and reached now — delete the line (the list may only shrink):
-             {string.Join("\n", stale.Select(line => "  " + line))}
+             {string.Join("\n", stale.Select(static line => "  " + line))}
              """
         );
     }
@@ -143,12 +147,18 @@ public sealed class ServiceReachTests {
     [Fact]
     public void The_projects_the_walk_cannot_load_name_no_context_service() {
         var root = RepositoryFiles.Root;
-        var names = new Regex(@"\b(" + string.Join('|', Services.Select(service => Regex.Escape(service.Name))) + @")\b", RegexOptions.CultureInvariant);
+        var names = new Regex(
+            @"\b(" + string.Join('|', Services.Select(static service => Regex.Escape(service.Name))) + @")\b",
+            RegexOptions.CultureInvariant
+        );
 
         foreach (var project in Unwalked) {
             var directory = Path.Combine(root, "Editor", project);
 
-            Assert.True(Directory.Exists(directory), $"{project} is listed as unwalked and does not exist — take it off the list");
+            Assert.True(
+                Directory.Exists(directory),
+                $"{project} is listed as unwalked and does not exist — take it off the list"
+            );
 
             var naming = RepositoryFiles.Files(directory, "*.cs", "*.vxml")
                 .Where(file => names.IsMatch(File.ReadAllText(file)))
@@ -170,7 +180,8 @@ public sealed class ServiceReachTests {
             .Where(static name => !name.EndsWith(".Tests", StringComparison.Ordinal)
                 && !name.EndsWith(".Generator", StringComparison.Ordinal)
                 && name != "Vixen.Editor.Testing"
-                && File.Exists(Path.Combine(RepositoryFiles.Root, "Editor", name, name + ".csproj")))
+                && File.Exists(Path.Combine(RepositoryFiles.Root, "Editor", name, name + ".csproj"))
+            )
             .ToList();
 
         var here = Path.GetDirectoryName(typeof(ServiceReachTests).Assembly.Location)!;
@@ -190,7 +201,10 @@ public sealed class ServiceReachTests {
             loaded.Add(Assembly.Load(new AssemblyName(project)));
         }
 
-        Assert.True(missing.Count == 0, "Editor projects this walk neither reads nor excuses:\n" + string.Join("\n", missing));
+        Assert.True(
+            missing.Count == 0,
+            "Editor projects this walk neither reads nor excuses:\n" + string.Join("\n", missing)
+        );
 
         return loaded;
     }
@@ -204,7 +218,7 @@ public sealed class ServiceReachTests {
 
     /// <summary>Whether a type is one of the implementations, or nested in one — a lambda's closure, a state machine.</summary>
     static bool Within(Type type, List<Type> implementations) {
-        for (Type? at = type; at is not null; at = at.DeclaringType) {
+        for (var at = type; at is not null; at = at.DeclaringType) {
             if (implementations.Contains(at)) {
                 return true;
             }
@@ -216,12 +230,14 @@ public sealed class ServiceReachTests {
     /// <summary>The line a verb is listed under: its name, and its parameters only when the name is overloaded.</summary>
     static string Line(Type service, MethodInfo verb) {
         var overloaded = service.GetMethods(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly)
-            .Count(method => method.Name == verb.Name) > 1;
+                .Count(method => method.Name == verb.Name)
+            > 1;
 
         return service.Name + "." + verb.Name + (overloaded ? "(" + Signature(verb) + ")" : string.Empty);
     }
 
-    static string Signature(MethodInfo method) => string.Join(", ", method.GetParameters().Select(static parameter => parameter.ParameterType.Name));
+    static string Signature(MethodInfo method) =>
+        string.Join(", ", method.GetParameters().Select(static parameter => parameter.ParameterType.Name));
 
     /// <summary>What identifies a method across every instantiation of it: its module and its definition's token.</summary>
     /// <remarks>A method of a constructed generic type, and a constructed generic method, carry their definition's token.</remarks>
@@ -246,8 +262,11 @@ public sealed class ServiceReachTests {
             .Select(static field => (OpCode)field.GetValue(null)!)
             .ToDictionary(static code => code.Value);
 
-        const BindingFlags Everything = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance
-            | BindingFlags.Static | BindingFlags.DeclaredOnly;
+        const BindingFlags Everything = BindingFlags.Public
+            | BindingFlags.NonPublic
+            | BindingFlags.Instance
+            | BindingFlags.Static
+            | BindingFlags.DeclaredOnly;
 
         readonly Dictionary<(Guid, int), HashSet<Type>> callers = [];
 
@@ -272,13 +291,15 @@ public sealed class ServiceReachTests {
                 try {
                     types = assembly.GetTypes();
                 } catch (ReflectionTypeLoadException exception) {
-                    types = [.. exception.Types.OfType<Type>()];
+                    types = [..exception.Types.OfType<Type>()];
                 }
 
                 foreach (var type in types) {
                     walk.Types.Add(type);
 
-                    foreach (var method in type.GetMethods(Everything).Cast<MethodBase>().Concat(type.GetConstructors(Everything))) {
+                    foreach (var method in type.GetMethods(Everything)
+                                 .Cast<MethodBase>()
+                                 .Concat(type.GetConstructors(Everything))) {
                         walk.Read(type, method);
                     }
                 }
@@ -326,7 +347,11 @@ public sealed class ServiceReachTests {
 
                             set.Add(type);
                         }
-                    } catch (Exception exception) when (exception is ArgumentException or TypeLoadException or FileNotFoundException or BadImageFormatException or MissingMethodException) {
+                    } catch (Exception exception) when (exception is ArgumentException
+                                                            or TypeLoadException
+                                                            or FileNotFoundException
+                                                            or BadImageFormatException
+                                                            or MissingMethodException) {
                         Unresolved++;
                     }
                 }
@@ -336,7 +361,7 @@ public sealed class ServiceReachTests {
                     OperandType.ShortInlineBrTarget or OperandType.ShortInlineI or OperandType.ShortInlineVar => 1,
                     OperandType.InlineVar => 2,
                     OperandType.InlineI8 or OperandType.InlineR => 8,
-                    OperandType.InlineSwitch => 4 + (4 * BitConverter.ToInt32(il, offset)),
+                    OperandType.InlineSwitch => 4 + 4 * BitConverter.ToInt32(il, offset),
                     _ => 4
                 };
             }

@@ -12,8 +12,12 @@ namespace Vixen.Ui.Styling.Utilities.Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>This file exists because the consumption gate's verdict is a union and cannot answer
-///         the question it looks like it answers.</b> The gate says "some value of
+///         ⚠
+///         <b>
+///             This file exists because the consumption gate's verdict is a union and cannot answer
+///             the question it looks like it answers.
+///         </b>
+///         The gate says "some value of
 ///         <c>font-variant-numeric</c> moved a channel", which one live keyword satisfies for all
 ///         nine — the <c>visibility: collapse</c> shape that <c>docs/plan/43</c> Part 10 opens by
 ///         warning about. <c>UtilityFamilySupportTests</c> pins that each class resolves, and
@@ -21,8 +25,12 @@ namespace Vixen.Ui.Styling.Utilities.Tests;
 ///         Neither of those can fail for a keyword whose tag is right and whose picture never changes.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Every row below is a measurement and three of them contradicted the obvious guess,
-///         which is the reason to write the table down rather than reason about it.</b> The guess was
+///         ⚠
+///         <b>
+///             Every row below is a measurement and three of them contradicted the obvious guess,
+///             which is the reason to write the table down rather than reason about it.
+///         </b>
+///         The guess was
 ///         that <c>tabular-nums</c> and <c>slashed-zero</c> move and that <c>proportional-nums</c> and
 ///         <c>lining-nums</c> are the defaults. It is the other way round in Open Sans: its figures
 ///         are already lining <i>and</i> tabular, so <c>tnum</c> and <c>lnum</c> are what it already
@@ -31,8 +39,12 @@ namespace Vixen.Ui.Styling.Utilities.Tests;
 ///         indicators, so it fires on <c>"1o 2a"</c> and on nothing an English speaker would try.
 ///     </para>
 ///     <para>
-///         ⚠ <b>None of these is the <c>text-balance</c> shape, and the distinction is the whole
-///         point of the file.</b> <c>text-balance</c> is unregistered because <c>LineWrapper</c> is
+///         ⚠
+///         <b>
+///             None of these is the <c>text-balance</c> shape, and the distinction is the whole
+///             point of the file.
+///         </b>
+///         <c>text-balance</c> is unregistered because <c>LineWrapper</c> is
 ///         greedy first-fit by an argued decision, so no font, no text and no future short of a new
 ///         algorithm can make it differ from the default — the <i>engine</i> cannot express the
 ///         difference. Every keyword here resolves to a real OpenType tag that HarfBuzz applies; the
@@ -51,7 +63,7 @@ public class NumericFigureVisibilityTests {
             ? FontFeatureSet.None
             : FontFeatureSet.Of([new FontFeature(FontFeature.Pack(tag), value)]);
 
-        return TextShaper.Shape(Figures, text, features: features).Placements().Select(p => p.GlyphId).ToArray();
+        return [..TextShaper.Shape(Figures, text, features: features).Placements().Select(static p => p.GlyphId)];
     }
 
     /// <summary>The guard the whole file rests on: the face really does implement features.</summary>
@@ -129,8 +141,11 @@ public class NumericFigureVisibilityTests {
         );
 
     /// <summary>
-    ///     ⚠ <b>A feature's <i>value</i> reaches HarfBuzz as well as its tag, and nothing else in the
-    ///     numeric path asserts that.</b>
+    ///     ⚠
+    ///     <b>
+    ///         A feature's <i>value</i> reaches HarfBuzz as well as its tag, and nothing else in the
+    ///         numeric path asserts that.
+    ///     </b>
     /// </summary>
     /// <remarks>
     ///     Every row above sets a feature to one. A <c>Feature</c> whose value was dropped — or built

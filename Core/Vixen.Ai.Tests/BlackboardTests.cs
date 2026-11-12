@@ -54,9 +54,7 @@ public class BlackboardLayoutTests {
     public void ADuplicateNameIsRefused() {
         var builder = new BlackboardLayoutBuilder().Add("target", BlackboardValueType.Entity);
 
-        var error = Assert.Throws<InvalidOperationException>(
-            () => builder.Add("target", BlackboardValueType.Float)
-        );
+        var error = Assert.Throws<InvalidOperationException>(() => builder.Add("target", BlackboardValueType.Float));
 
         Assert.Contains("target", error.Message, StringComparison.Ordinal);
     }
@@ -103,8 +101,8 @@ public class BlackboardTests {
         Assert.True(board.GetBool(Layout.Key("flag")));
         Assert.Equal(-17, board.GetInt(Layout.Key("count")));
         Assert.Equal(4.25f, board.GetFloat(Layout.Key("distance")));
-        Assert.Equal(new Vector3(1f, -2f, 3f), board.GetVector3(Layout.Key("position")));
-        Assert.Equal(new Entity(7, 3, 1), board.GetEntity(Layout.Key("target")));
+        Assert.Equal(new(1f, -2f, 3f), board.GetVector3(Layout.Key("position")));
+        Assert.Equal(new(7, 3, 1), board.GetEntity(Layout.Key("target")));
         Assert.Equal(Symbol.Intern("hunting"), board.GetSymbol(Layout.Key("state")));
     }
 
@@ -238,9 +236,10 @@ public class BlackboardTests {
             handles[slot] = board.AddObserver(
                 Layout.Key("count"),
                 new DelegateObserver(() => {
-                    fired++;
-                    board.RemoveObserver(handles[slot]);
-                })
+                        fired++;
+                        board.RemoveObserver(handles[slot]);
+                    }
+                )
             );
         }
 
@@ -277,7 +276,7 @@ public class BlackboardTests {
     public void AKeyFromAnotherLayoutIsRefused() {
         var board = new Blackboard(new BlackboardLayoutBuilder().Add("only", BlackboardValueType.Int).Build());
 
-        Assert.Throws<ArgumentOutOfRangeException>(() => board.GetInt(new BlackboardKey(4)));
+        Assert.Throws<ArgumentOutOfRangeException>(() => board.GetInt(new(4)));
         Assert.Throws<ArgumentOutOfRangeException>(() => board.IsSet(BlackboardKey.Invalid));
     }
 
@@ -326,9 +325,7 @@ public class SharedBlackboardTests {
     public void AWriteOutsideAScopeIsRefused() {
         var shared = new SharedBlackboard(Layout);
 
-        Assert.Throws<InvalidOperationException>(
-            () => shared.Values.SetVector3(Layout.Key("objective"), Vector3.One)
-        );
+        Assert.Throws<InvalidOperationException>(() => shared.Values.SetVector3(Layout.Key("objective"), Vector3.One));
     }
 
     [Fact]
@@ -354,8 +351,12 @@ public class SharedBlackboardTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>A dedicated thread, and <c>Task.Run</c> is what this used to use and why it was
-    ///     flaky.</b> xUnit runs a test on the thread pool, an <c>await</c> hands that thread back, and
+    ///     ⚠
+    ///     <b>
+    ///         A dedicated thread, and <c>Task.Run</c> is what this used to use and why it was
+    ///         flaky.
+    ///     </b>
+    ///     xUnit runs a test on the thread pool, an <c>await</c> hands that thread back, and
     ///     the pool is then free to schedule the queued work item onto the very thread that opened the
     ///     scope — at which point the owner check is satisfied, nothing throws, and the test fails
     ///     about one run in three for a reason that has nothing to do with the blackboard.
@@ -366,8 +367,7 @@ public class SharedBlackboardTests {
 
         using (shared.BeginWrite()) {
             Exception? caught = null;
-            var thread = new Thread(
-                () => {
+            var thread = new Thread(() => {
                     try {
                         shared.Values.SetVector3(Layout.Key("objective"), Vector3.One);
                     } catch (Exception error) {

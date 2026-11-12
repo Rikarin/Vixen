@@ -59,7 +59,7 @@ public readonly record struct LedgerAccount {
     /// <summary>A character's account.</summary>
     /// <param name="player">Which character.</param>
     /// <returns>The account.</returns>
-    public static LedgerAccount Of(PlayerKey player) => new() { Player = player, World = "" };
+    public static LedgerAccount Of(PlayerKey player) => new() { Player = player, World = string.Empty };
 
     /// <summary>A named part of the world.</summary>
     /// <param name="name">Its name — <see cref="Loot" />, <see cref="Vendor" /> or a game's own.</param>
@@ -70,7 +70,7 @@ public readonly record struct LedgerAccount {
     ///     28's economy could not add a faucet without changing this assembly, and a typo shows up in
     ///     the dashboard as an account with one entry in it rather than as silent loss.
     /// </remarks>
-    public static LedgerAccount Of(string name) => new() { Player = PlayerKey.None, World = name ?? "" };
+    public static LedgerAccount Of(string name) => new() { Player = PlayerKey.None, World = name ?? string.Empty };
 
     /// <summary>Reads one back.</summary>
     /// <param name="text">What <see cref="ToString" /> wrote.</param>
@@ -99,10 +99,11 @@ public readonly record struct LedgerAccount {
     /// <returns>Whether they are equal.</returns>
     /// <remarks>Hand-written so <c>default</c> compares equal to a constructed empty one.</remarks>
     public bool Equals(LedgerAccount other) =>
-        Player == other.Player && string.Equals(World ?? "", other.World ?? "", StringComparison.Ordinal);
+        Player == other.Player
+        && string.Equals(World ?? string.Empty, other.World ?? string.Empty, StringComparison.Ordinal);
 
     /// <inheritdoc />
-    public override int GetHashCode() => HashCode.Combine(Player, World ?? "");
+    public override int GetHashCode() => HashCode.Combine(Player, World ?? string.Empty);
 
     /// <inheritdoc />
     public override string ToString() =>
@@ -131,10 +132,10 @@ public readonly record struct LedgerAccount {
 /// <param name="Address">The addressable address. Empty is <see cref="None" />.</param>
 public readonly record struct AssetId(string Address) {
     /// <summary>Nothing.</summary>
-    public static AssetId None => new("");
+    public static AssetId None => new(string.Empty);
 
     /// <summary>The address. Null only on <c>default</c>.</summary>
-    public string Address { get; } = Address ?? "";
+    public string Address { get; } = Address ?? string.Empty;
 
     /// <summary>Whether this names an asset at all.</summary>
     public bool IsValid => !string.IsNullOrEmpty(Address);
@@ -143,10 +144,10 @@ public readonly record struct AssetId(string Address) {
     /// <param name="other">The other id.</param>
     /// <returns>Whether they are equal.</returns>
     public bool Equals(AssetId other) =>
-        string.Equals(Address ?? "", other.Address ?? "", StringComparison.Ordinal);
+        string.Equals(Address ?? string.Empty, other.Address ?? string.Empty, StringComparison.Ordinal);
 
     /// <inheritdoc />
-    public override int GetHashCode() => (Address ?? "").GetHashCode(StringComparison.Ordinal);
+    public override int GetHashCode() => (Address ?? string.Empty).GetHashCode(StringComparison.Ordinal);
 
     /// <inheritdoc />
     public override string ToString() => IsValid ? Address : "nothing";

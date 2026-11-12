@@ -90,7 +90,7 @@ static class Highlighter {
             return;
         }
 
-        spans.Add(new DocSpan(text, kind));
+        spans.Add(new(text, kind));
     }
 
     static string KindOfTrivia(SyntaxTrivia trivia) =>
@@ -181,7 +181,7 @@ static class Highlighter {
                 }
 
                 if (parts[index].Length > 0) {
-                    current.Add(new DocSpan(parts[index], span.Kind));
+                    current.Add(new(parts[index], span.Kind));
                 }
             }
         }

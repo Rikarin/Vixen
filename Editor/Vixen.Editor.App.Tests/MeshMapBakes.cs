@@ -11,8 +11,11 @@ namespace Vixen.Editor.App.Tests;
 /// <summary>Both halves of a bake in one call, for a test that has no reason to separate them.</summary>
 /// <remarks>
 ///     <para>
-///         <b>This used to be <c>IMeshMapBaker.Bake</c>, and it is here because it was never anything
-///         else</b> — <a href="https://github.com/Rikarin/Vixen/issues/972">#972</a>. That member had
+///         <b>
+///             This used to be <c>IMeshMapBaker.Bake</c>, and it is here because it was never anything
+///             else
+///         </b>
+///         — <a href="https://github.com/Rikarin/Vixen/issues/972">#972</a>. That member had
 ///         three callers and all three were test classes: the editor bakes through
 ///         <c>MeshMapBaking.Bake</c> → <c>ContentTasks.BakeMeshMaps</c> →
 ///         <c>MapBaker.Bake</c> on the pool → <c>IMeshMapBaker.Write</c> on the frame thread, and the

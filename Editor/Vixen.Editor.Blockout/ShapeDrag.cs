@@ -23,8 +23,11 @@ public enum ShapeStage : byte {
 /// <summary>Doc 24's shape tool, as a two-stage gesture over the work plane.</summary>
 /// <remarks>
 ///     <para>
-///         <b>"Drag a footprint on the work plane, then drag the height", which is the table's own
-///         description and is the gesture every reference toolset uses.</b> Press and drag gives two
+///         <b>
+///             "Drag a footprint on the work plane, then drag the height", which is the table's own
+///             description and is the gesture every reference toolset uses.
+///         </b>
+///         Press and drag gives two
 ///         corners on the plane; release settles them; moving the pointer then sets the height without
 ///         a button held; a click commits. The shape that arrives has live parameters, so the numbers
 ///         a designer dragged are still numbers afterwards.
@@ -79,8 +82,10 @@ public sealed class ShapeDrag {
     public WorkPlane? Plane { get; set; }
 
     /// <summary>How tall a shape is before the height stage has moved, in world units.</summary>
-    /// <remarks>Not zero, because a shape with no height is one with no faces to see and no handle to
-    ///     grab — so the moment the footprint settles there is already something on screen.</remarks>
+    /// <remarks>
+    ///     Not zero, because a shape with no height is one with no faces to see and no handle to
+    ///     grab — so the moment the footprint settles there is already something on screen.
+    /// </remarks>
     public float MinimumHeight { get; set; } = 0.1f;
 
     /// <summary>Starts a footprint at a point on the work plane.</summary>

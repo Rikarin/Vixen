@@ -39,17 +39,17 @@ sealed record TaffyText(string Content, bool IsVertical);
 ///     </para>
 /// </remarks>
 static class TaffyAhemMeasure {
-    const char ZeroWidthSpace = '​';
+    const char ZeroWidthSpace = '\u200B';
     const float CharacterWidth = 10f;
     const float LineHeight = 10f;
 
     public static LayoutSize Measure(in MeasureRequest request) {
         if (request is { WidthMode: MeasureMode.Exactly, HeightMode: MeasureMode.Exactly }) {
-            return new LayoutSize(request.AvailableWidth, request.AvailableHeight);
+            return new(request.AvailableWidth, request.AvailableHeight);
         }
 
         if (request.Context is not TaffyText text) {
-            return new LayoutSize(
+            return new(
                 request.WidthMode == MeasureMode.Exactly ? request.AvailableWidth : 0f,
                 request.HeightMode == MeasureMode.Exactly ? request.AvailableHeight : 0f
             );
@@ -65,12 +65,15 @@ static class TaffyAhemMeasure {
             : (request.HeightMode, request.AvailableHeight);
 
         var words = text.Content.Split(ZeroWidthSpace);
-        var longestWord = words.Max(word => word.Length);
-        var allWords = words.Sum(word => word.Length);
+        var longestWord = words.Max(static word => word.Length);
+        var allWords = words.Sum(static word => word.Length);
 
         var inlineSize = inlineMode switch {
             MeasureMode.Exactly => inlineAvailable,
-            MeasureMode.AtMost => MathF.Max(MathF.Min(inlineAvailable, allWords * CharacterWidth), longestWord * CharacterWidth),
+            MeasureMode.AtMost => MathF.Max(
+                MathF.Min(inlineAvailable, allWords * CharacterWidth),
+                longestWord * CharacterWidth
+            ),
             _ => MathF.Max(allWords * CharacterWidth, longestWord * CharacterWidth)
         };
 

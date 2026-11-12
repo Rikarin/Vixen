@@ -7,7 +7,6 @@ using Vixen.Editor.NodeGraph;
 using Vixen.Editor.Ui.Documents;
 using Vixen.NodeGraph;
 using Vixen.Ui;
-using Vixen.Ui.Controls;
 
 namespace Vixen.Editor.AssetEditors.Compositor;
 

@@ -12,8 +12,12 @@ namespace Vixen.Ui.Styling.Utilities.Tests;
 /// <param name="Tag">Its tag name.</param>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>What half the variant table needs and <see cref="UtilityFixture.Computed" /> could
-///         not express.</b> <c>group-*</c> wants an ancestor in a state, <c>peer-*</c> a preceding
+///         ⚠
+///         <b>
+///             What half the variant table needs and <see cref="UtilityFixture.Computed" /> could
+///             not express.
+///         </b>
+///         <c>group-*</c> wants an ancestor in a state, <c>peer-*</c> a preceding
 ///         sibling in one, <c>ltr:</c>/<c>rtl:</c> an ancestor carrying <c>dir</c>, <c>dark:</c>
 ///         under the class strategy an ancestor carrying <c>.dark</c>, and the structural variants a
 ///         place among siblings. A fixture whose only knobs were <c>ElementState</c> and
@@ -21,8 +25,12 @@ namespace Vixen.Ui.Styling.Utilities.Tests;
 ///         had an end-to-end test.
 ///     </para>
 ///     <para>
-///         ⚠ <b><paramref name="Tag" /> is the knob the of-type variants needed, and a fixture
-///         without it would have passed them all while proving nothing.</b> Every probe used to be a
+///         ⚠
+///         <b>
+///             <paramref name="Tag" /> is the knob the of-type variants needed, and a fixture
+///             without it would have passed them all while proving nothing.
+///         </b>
+///         Every probe used to be a
 ///         <c>div</c>, and in a document of one tag <c>:nth-of-type(2)</c> and <c>:nth-child(2)</c>
 ///         select the same element — so a scene built out of identical siblings cannot tell an
 ///         of-type test from the child test it must not be.
@@ -55,49 +63,49 @@ sealed class UtilityFixture {
     ///     shipped default gets its own tests; this one is the plan's, verbatim.
     /// </remarks>
     public const string Theme = """
-        @theme {
-            --*: initial;
+                                @theme {
+                                    --*: initial;
 
-            --color-surface-1: #101014;
-            --color-surface-2: #17171d;
-            --color-surface-3: #1f1f26;
-            --color-accent: #4f7cff;
-            --color-accent-hover: #6a91ff;
-            --color-muted: #8a8a99;
+                                    --color-surface-1: #101014;
+                                    --color-surface-2: #17171d;
+                                    --color-surface-3: #1f1f26;
+                                    --color-accent: #4f7cff;
+                                    --color-accent-hover: #6a91ff;
+                                    --color-muted: #8a8a99;
 
-            --spacing: 4px;
+                                    --spacing: 4px;
 
-            --radius-sm: 2px;
-            --radius-md: 4px;
-            --radius-lg: 8px;
-            --radius-full: 9999px;
+                                    --radius-sm: 2px;
+                                    --radius-md: 4px;
+                                    --radius-lg: 8px;
+                                    --radius-full: 9999px;
 
-            --text-xs: 11px;   --text-xs--line-height: 16px;
-            --text-sm: 12px;   --text-sm--line-height: 18px;
-            --text-base: 14px; --text-base--line-height: 20px;
-            --text-lg: 17px;   --text-lg--line-height: 24px;
-            --text-xl: 21px;   --text-xl--line-height: 28px;
+                                    --text-xs: 11px;   --text-xs--line-height: 16px;
+                                    --text-sm: 12px;   --text-sm--line-height: 18px;
+                                    --text-base: 14px; --text-base--line-height: 20px;
+                                    --text-lg: 17px;   --text-lg--line-height: 24px;
+                                    --text-xl: 21px;   --text-xl--line-height: 28px;
 
-            --font-weight-normal: 400;
-            --font-weight-medium: 500;
-            --font-weight-semibold: 600;
-            --font-weight-bold: 700;
+                                    --font-weight-normal: 400;
+                                    --font-weight-medium: 500;
+                                    --font-weight-semibold: 600;
+                                    --font-weight-bold: 700;
 
-            --breakpoint-sm: 640px;
-            --breakpoint-md: 768px;
-            --breakpoint-lg: 1024px;
-            --breakpoint-xl: 1280px;
+                                    --breakpoint-sm: 640px;
+                                    --breakpoint-md: 768px;
+                                    --breakpoint-lg: 1024px;
+                                    --breakpoint-xl: 1280px;
 
-            --shadow: 0px 1px 2px rgba(0, 0, 0, 0.3);
-            --shadow-lg: 0px 8px 24px rgba(0, 0, 0, 0.45);
+                                    --shadow: 0px 1px 2px rgba(0, 0, 0, 0.3);
+                                    --shadow-lg: 0px 8px 24px rgba(0, 0, 0, 0.45);
 
-            --dark-mode: media;
-        }
-        """;
+                                    --dark-mode: media;
+                                }
+                                """;
 
     public UtilityFixture(string? theme = null) {
         Tokens = ThemeTokens.Parse(theme ?? Theme);
-        Generator = new UtilityGenerator(Tokens);
+        Generator = new(Tokens);
     }
 
     public ThemeTokens Tokens { get; }
@@ -114,7 +122,7 @@ sealed class UtilityFixture {
 
         var declarations = new List<UtilityDeclaration>();
         return UtilityFamilies.TryResolve(parsed, Tokens, declarations)
-            ? [.. declarations.Select(declaration => $"{declaration.Property}: {declaration.Value}")]
+            ? [..declarations.Select(static declaration => $"{declaration.Property}: {declaration.Value}")]
             : null;
     }
 
@@ -136,11 +144,19 @@ sealed class UtilityFixture {
     ///     here rather than reading a number off <see cref="ThemeTokens.Screens" />.
     /// </remarks>
     public Dictionary<string, float> ScreenPixels =>
-        Tokens.Screens.ToDictionary(pair => pair.Key, pair => AtDefaultText(pair.Value), StringComparer.Ordinal);
+        Tokens.Screens.ToDictionary(
+            static pair => pair.Key,
+            static pair => AtDefaultText(pair.Value),
+            StringComparer.Ordinal
+        );
 
     /// <summary>The theme's container sizes in pixels at 100 % text size, in the theme's order.</summary>
     public Dictionary<string, float> ContainerPixels =>
-        Tokens.Containers.ToDictionary(pair => pair.Key, pair => AtDefaultText(pair.Value), StringComparer.Ordinal);
+        Tokens.Containers.ToDictionary(
+            static pair => pair.Key,
+            static pair => AtDefaultText(pair.Value),
+            StringComparer.Ordinal
+        );
 
     /// <summary>A theme width in pixels at sixteen pixels a <c>rem</c>.</summary>
     /// <param name="width">A length in <c>rem</c> or pixels.</param>
@@ -227,7 +243,7 @@ sealed class UtilityFixture {
             Add(engine, sibling, parent, placed);
         }
 
-        var element = Add(engine, new Probe(classNames, state, attributes, tag), parent, placed);
+        var element = Add(engine, new(classNames, state, attributes, tag), parent, placed);
 
         foreach (var child in children ?? []) {
             Add(engine, child, element, placed);
@@ -258,7 +274,12 @@ sealed class UtilityFixture {
             : null;
     }
 
-    static StyleNodeId Add(StyleEngine engine, Probe probe, StyleNodeId? parent, Dictionary<Probe, StyleNodeId> placed) {
+    static StyleNodeId Add(
+        StyleEngine engine,
+        Probe probe,
+        StyleNodeId? parent,
+        Dictionary<Probe, StyleNodeId> placed
+    ) {
         var element = engine.Tree.CreateElement(probe.Tag, parent, classNames: probe.Classes);
         engine.Tree.SetState(element, probe.State);
 

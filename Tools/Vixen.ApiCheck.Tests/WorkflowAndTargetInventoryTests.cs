@@ -12,8 +12,11 @@ namespace Vixen.ApiCheck.Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>Every one of these lists has been wrong, and each was found by a person reading it
-///         rather than by anything running.</b> <c>docs/plan/12</c> named eleven CI jobs of which none
+///         <b>
+///             Every one of these lists has been wrong, and each was found by a person reading it
+///             rather than by anything running.
+///         </b>
+///         <c>docs/plan/12</c> named eleven CI jobs of which none
 ///         corresponded ([#340](https://github.com/Rikarin/Vixen/issues/340)); it then named eight
 ///         names that did not exist and missed fourteen that did; the body of
 ///         [#327](https://github.com/Rikarin/Vixen/issues/327) counted six jobs in <c>ci.yml</c> and
@@ -87,7 +90,7 @@ public sealed class WorkflowAndTargetInventoryTests {
 
         Assert.True(
             list.Success,
-            "README.md no longer carries a \"There are <n> targets: `…`\" list, so the one place a "
+            """README.md no longer carries a "There are <n> targets: `…`" list, so the one place a """
             + "reader is told what ./build.sh can do is either gone or written in a shape this "
             + "cannot read. Say which here rather than leaving the list unasserted."
         );
@@ -95,7 +98,7 @@ public sealed class WorkflowAndTargetInventoryTests {
         var named = list.Groups["names"].Value.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
 
         Assert.Equal(Word(targets.Count), list.Groups["count"].Value);
-        Assert.Equal(targets, named.Order(StringComparer.Ordinal).ToList());
+        Assert.Equal(targets, [..named.Order(StringComparer.Ordinal)]);
     }
 
     /// <summary>
@@ -113,18 +116,18 @@ public sealed class WorkflowAndTargetInventoryTests {
         var document = DocTwelve();
         var graph = Regex.Match(
             document,
-            @"The (?<count>[a-z-]+) targets, by what they depend on.*?```(?<block>.*?)```",
+            "The (?<count>[a-z-]+) targets, by what they depend on.*?```(?<block>.*?)```",
             RegexOptions.Singleline
         );
 
         Assert.True(
             graph.Success,
-            "docs/plan/12 no longer opens with a \"The <n> targets, by what they depend on\" graph. "
+            """docs/plan/12 no longer opens with a "The <n> targets, by what they depend on" graph. """
             + "That block is the only place the dependency edges are written down."
         );
 
         var drawn = Regex.Matches(graph.Groups["block"].Value, @"\b[A-Z][A-Za-z]+\b")
-            .Select(match => match.Value)
+            .Select(static match => match.Value)
             .ToHashSet(StringComparer.Ordinal);
 
         var missing = targets.Where(target => !drawn.Contains(target)).ToList();
@@ -171,12 +174,12 @@ public sealed class WorkflowAndTargetInventoryTests {
 
         Assert.True(
             sentence.Success,
-            "docs/plan/12 no longer carries a \"`nightly.yml`, <n> jobs:\" paragraph, so what runs "
+            """docs/plan/12 no longer carries a "`nightly.yml`, <n> jobs:" paragraph, so what runs """
             + "overnight is written down nowhere."
         );
 
-        var documented = Regex.Matches(sentence.Groups["body"].Value, @"`(?<name>[a-z][a-z0-9-]*)`")
-            .Select(match => match.Groups["name"].Value)
+        var documented = Regex.Matches(sentence.Groups["body"].Value, "`(?<name>[a-z][a-z0-9-]*)`")
+            .Select(static match => match.Groups["name"].Value)
             .Distinct(StringComparer.Ordinal)
             .Order(StringComparer.Ordinal)
             .ToList();
@@ -213,7 +216,11 @@ public sealed class WorkflowAndTargetInventoryTests {
         var targets = Targets().ToHashSet(StringComparer.Ordinal);
         var document = DocTwelve();
         var rows = Regex.Matches(document, @"^\| `(?<job>[a-z][a-z0-9-]*)` \|(?<body>.*)$", RegexOptions.Multiline)
-            .ToDictionary(match => match.Groups["job"].Value, match => match.Groups["body"].Value, StringComparer.Ordinal);
+            .ToDictionary(
+                static match => match.Groups["job"].Value,
+                static match => match.Groups["body"].Value,
+                StringComparer.Ordinal
+            );
 
         var invoked = 0;
         var undocumented = new List<string>();
@@ -224,9 +231,10 @@ public sealed class WorkflowAndTargetInventoryTests {
             }
 
             foreach (var run in Regex.Matches(body, @"\./build\.sh (?<targets>[A-Za-z ]+)")) {
-                foreach (var target in ((Match)run).Groups["targets"].Value
-                    .Split(' ', StringSplitOptions.RemoveEmptyEntries)
-                    .Where(targets.Contains)) {
+                foreach (var target in ((Match)run).Groups["targets"]
+                         .Value
+                         .Split(' ', StringSplitOptions.RemoveEmptyEntries)
+                         .Where(targets.Contains)) {
                     invoked++;
 
                     if (!row.Contains(target, StringComparison.Ordinal)) {
@@ -245,7 +253,7 @@ public sealed class WorkflowAndTargetInventoryTests {
 
         Assert.True(
             undocumented.Count == 0,
-            $"These targets are run by a CI job whose row in docs/plan/12 does not name them: "
+            "These targets are run by a CI job whose row in docs/plan/12 does not name them: "
             + $"{string.Join(", ", undocumented.Order(StringComparer.Ordinal))}. The table is what a "
             + "reader is told CI does, and a leg that quietly grew a target is how it stops being that."
         );
@@ -256,10 +264,10 @@ public sealed class WorkflowAndTargetInventoryTests {
     static List<string> Targets() {
         var build = Path.Combine(RepositoryRoot(), "build");
         var declarations = Directory.EnumerateFiles(build, "Build*.cs")
-            .SelectMany(file =>
-                Regex.Matches(File.ReadAllText(file), @"^\s*Target (?<name>\w+) => ", RegexOptions.Multiline)
+            .SelectMany(static file =>
+                Regex.Matches(File.ReadAllText(file), @"^\s*Target (?<name>\w+) =>", RegexOptions.Multiline)
             )
-            .Select(match => match.Groups["name"].Value)
+            .Select(static match => match.Groups["name"].Value)
             .Distinct(StringComparer.Ordinal)
             .Order(StringComparer.Ordinal)
             .ToList();
@@ -291,8 +299,12 @@ public sealed class WorkflowAndTargetInventoryTests {
 
         Assert.True(block.Success, $".github/workflows/{file} has no top-level jobs: block.");
 
-        var jobs = Regex.Matches(block.Groups["body"].Value, @"^  (?<name>[a-z][a-z0-9-]*):\s*$", RegexOptions.Multiline)
-            .Select(match => match.Groups["name"].Value)
+        var jobs = Regex.Matches(
+                block.Groups["body"].Value,
+                @"^  (?<name>[a-z][a-z0-9-]*):\s*$",
+                RegexOptions.Multiline
+            )
+            .Select(static match => match.Groups["name"].Value)
             .Order(StringComparer.Ordinal)
             .ToList();
 
@@ -321,11 +333,11 @@ public sealed class WorkflowAndTargetInventoryTests {
     /// <summary>The first backticked cell of every row of a table.</summary>
     /// <param name="rows">The table's rows.</param>
     /// <returns>The names, ordered, without the header separator.</returns>
-    static List<string> Rows(string rows) =>
-        Regex.Matches(rows, @"^\| `(?<name>[a-z][a-z0-9-]*)` \|", RegexOptions.Multiline)
-            .Select(match => match.Groups["name"].Value)
+    static List<string> Rows(string rows) => [
+        ..Regex.Matches(rows, @"^\| `(?<name>[a-z][a-z0-9-]*)` \|", RegexOptions.Multiline)
+            .Select(static match => match.Groups["name"].Value)
             .Order(StringComparer.Ordinal)
-            .ToList();
+    ];
 
     /// <summary>How a count is spelled in prose.</summary>
     /// <param name="count">The number.</param>

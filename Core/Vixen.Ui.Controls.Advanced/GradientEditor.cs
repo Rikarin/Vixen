@@ -45,9 +45,9 @@ public sealed partial class GradientBar : Control {
 
         for (var i = 0; i < Bands; i++) {
             context.FillRectangle(
-                new Rectangle(bounds.X + (i * slice), bounds.Y, slice + 1f, bounds.Height),
-                gradient.Evaluate(i / (float) Bands),
-                new BoxStyle(default, gradient.Evaluate((i + 1f) / Bands), new Vector2(1f, 0f))
+                new(bounds.X + i * slice, bounds.Y, slice + 1f, bounds.Height),
+                gradient.Evaluate(i / (float)Bands),
+                new BoxStyle(default, gradient.Evaluate((i + 1f) / Bands), new(1f, 0f))
             );
         }
     }
@@ -88,8 +88,12 @@ public sealed partial class GradientRail : Control {
 
     /// <inheritdoc />
     /// <remarks>
-    ///     ⚠ <b><c>Group</c> rather than <c>Slider</c>, and it is <c>RangeSlider</c>'s refusal
-    ///     rather than a new one.</b> Doc 46's table put this row under "a 1-D value with arrow-key
+    ///     ⚠
+    ///     <b>
+    ///         <c>Group</c> rather than <c>Slider</c>, and it is <c>RangeSlider</c>'s refusal
+    ///         rather than a new one.
+    ///     </b>
+    ///     Doc 46's table put this row under "a 1-D value with arrow-key
     ///     stepping — the shape <c>Slider</c> already has"; that is wrong for the same reason
     ///     <c>RangeSlider</c> gives for its second thumb, only more so. <c>aria-valuenow</c> is one
     ///     number and a rail carries N — a screen reader told the selected stop's position is the
@@ -133,7 +137,8 @@ public sealed partial class GradientRail : Control {
     public bool IsAlpha { get; internal set; }
 
     /// <summary>How many stops this rail carries.</summary>
-    public int Count => Owner is not { } owner ? 0 : IsAlpha ? owner.Gradient.AlphaStops.Count : owner.Gradient.ColorStops.Count;
+    public int Count =>
+        Owner is not { } owner ? 0 : IsAlpha ? owner.Gradient.AlphaStops.Count : owner.Gradient.ColorStops.Count;
 
     /// <summary>Where the selected stop is on this rail, or <c>-1</c> when none of them is.</summary>
     /// <remarks>
@@ -150,7 +155,9 @@ public sealed partial class GradientRail : Control {
 
             return IsAlpha
                 ? owner.SelectedAlphaStop is { } alpha ? IndexOf(owner.Gradient.AlphaStops, alpha) : -1
-                : owner.SelectedColorStop is { } colour ? IndexOf(owner.Gradient.ColorStops, colour) : -1;
+                : owner.SelectedColorStop is { } colour
+                    ? IndexOf(owner.Gradient.ColorStops, colour)
+                    : -1;
         }
     }
 
@@ -174,7 +181,7 @@ public sealed partial class GradientRail : Control {
     protected override void OnCreated() {
         base.OnCreated();
 
-        AddHandler<KeyEvent>(static (element, args) => ((GradientRail) element).Keyed(args));
+        AddHandler<KeyEvent>(static (element, args) => ((GradientRail)element).Keyed(args));
     }
 
     /// <summary>Selects the stop at an index of this rail's list, or nothing for an index outside it.</summary>
@@ -185,9 +192,13 @@ public sealed partial class GradientRail : Control {
         }
 
         if (IsAlpha) {
-            owner.Select(index >= 0 && index < owner.Gradient.AlphaStops.Count ? owner.Gradient.AlphaStops[index] : null);
+            owner.Select(
+                index >= 0 && index < owner.Gradient.AlphaStops.Count ? owner.Gradient.AlphaStops[index] : null
+            );
         } else {
-            owner.Select(index >= 0 && index < owner.Gradient.ColorStops.Count ? owner.Gradient.ColorStops[index] : null);
+            owner.Select(
+                index >= 0 && index < owner.Gradient.ColorStops.Count ? owner.Gradient.ColorStops[index] : null
+            );
         }
     }
 
@@ -254,11 +265,11 @@ public sealed partial class GradientRail : Control {
                 break;
 
             case InputKey.PageDown:
-                MoveSelected(position - (KeyStep * 10f));
+                MoveSelected(position - KeyStep * 10f);
                 break;
 
             case InputKey.PageUp:
-                MoveSelected(position + (KeyStep * 10f));
+                MoveSelected(position + KeyStep * 10f);
                 break;
 
             case InputKey.Home:
@@ -305,7 +316,7 @@ public sealed partial class GradientRail : Control {
                     context,
                     bounds,
                     stop.Position,
-                    new Color4(stop.Alpha, stop.Alpha, stop.Alpha, 1f),
+                    new(stop.Alpha, stop.Alpha, stop.Alpha, 1f),
                     accent,
                     ReferenceEquals(owner.SelectedAlphaStop, stop)
                 );
@@ -319,11 +330,18 @@ public sealed partial class GradientRail : Control {
         }
     }
 
-    static void Marker(DrawContext context, Rectangle bounds, float position, Color4 fill, Color4 outline, bool selected) {
+    static void Marker(
+        DrawContext context,
+        Rectangle bounds,
+        float position,
+        Color4 fill,
+        Color4 outline,
+        bool selected
+    ) {
         var size = MathF.Min(bounds.Height, 12f);
-        var x = bounds.X + (Math.Clamp(position, 0f, 1f) * bounds.Width);
+        var x = bounds.X + Math.Clamp(position, 0f, 1f) * bounds.Width;
 
-        var box = new Rectangle(x - (size * 0.5f), bounds.Y + ((bounds.Height - size) * 0.5f), size, size);
+        var box = new Rectangle(x - size * 0.5f, bounds.Y + (bounds.Height - size) * 0.5f, size, size);
 
         context.FillRectangle(box, fill, 2f);
         context.StrokeRectangle(
@@ -366,10 +384,15 @@ public sealed partial class GradientEditor : Control {
 
     /// <inheritdoc />
     /// <remarks>
-    ///     ⚠ <b>ARIA <c>application</c>, and it is a role with a cost that is worth paying
-    ///     here.</b> It tells assistive technology to stop intercepting the keyboard and pass every
+    ///     ⚠
+    ///     <b>
+    ///         ARIA <c>application</c>, and it is a role with a cost that is worth paying
+    ///         here.
+    ///     </b>
+    ///     It tells assistive technology to stop intercepting the keyboard and pass every
     ///     key through, because this element has a keyboard model of its own that no generic widget
-    ///     vocabulary describes. That is exactly true of a direct-manipulation surface — a rail of stops dragged along a bar — and it
+    ///     vocabulary describes. That is exactly true of a direct-manipulation surface — a rail of stops dragged along a bar —
+    ///     and it
     ///     is exactly false of a text field, which is why <c>CodeEditor</c> is a <c>textbox</c>
     ///     instead. Unnamed by default: what this one is a view of is the application's sentence,
     ///     and it is usually the panel title above it.
@@ -467,9 +490,9 @@ public sealed partial class GradientEditor : Control {
 
         gradient.Changed += OnGradientChanged;
 
-        AddHandler<PointerEvent>(static (element, args) => ((GradientEditor) element).Pointed(args));
-        AddHandler<TapEvent>(static (element, args) => ((GradientEditor) element).Tapped(args));
-        AddHandler<KeyEvent>(static (element, args) => ((GradientEditor) element).Keyed(args));
+        AddHandler<PointerEvent>(static (element, args) => ((GradientEditor)element).Pointed(args));
+        AddHandler<TapEvent>(static (element, args) => ((GradientEditor)element).Tapped(args));
+        AddHandler<KeyEvent>(static (element, args) => ((GradientEditor)element).Keyed(args));
     }
 
     /// <summary>Selects a colour stop, and shows the picker for it.</summary>
@@ -495,7 +518,7 @@ public sealed partial class GradientEditor : Control {
     /// <summary>Where a position along the gradient is, in document space.</summary>
     /// <param name="position">The position, from zero to one.</param>
     /// <returns>The x.</returns>
-    public float ToScreen(float position) => Bar.Bounds.X + (Math.Clamp(position, 0f, 1f) * Bar.Bounds.Width);
+    public float ToScreen(float position) => Bar.Bounds.X + Math.Clamp(position, 0f, 1f) * Bar.Bounds.Width;
 
     /// <summary>Which position along the gradient a document-space x is.</summary>
     /// <param name="x">The x.</param>
@@ -616,7 +639,7 @@ public sealed partial class GradientEditor : Control {
             case Rail.Color:
                 if (ColorStopAt(args.X) is { } existing) {
                     if (gradient.Remove(existing)) {
-                        Select((GradientColorStop?) null);
+                        Select((GradientColorStop?)null);
                     }
                 } else {
                     var position = ToPosition(args.X);
@@ -628,7 +651,7 @@ public sealed partial class GradientEditor : Control {
             case Rail.Alpha:
                 if (AlphaStopAt(args.X) is { } stop) {
                     if (gradient.Remove(stop)) {
-                        Select((GradientAlphaStop?) null);
+                        Select((GradientAlphaStop?)null);
                     }
                 } else {
                     var position = ToPosition(args.X);
@@ -674,9 +697,9 @@ public sealed partial class GradientEditor : Control {
         }
 
         if (SelectedColorStop is { } colour && gradient.Remove(colour)) {
-            Select((GradientColorStop?) null);
+            Select((GradientColorStop?)null);
         } else if (SelectedAlphaStop is { } alpha && gradient.Remove(alpha)) {
-            Select((GradientAlphaStop?) null);
+            Select((GradientAlphaStop?)null);
         }
 
         args.Handled = true;

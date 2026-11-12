@@ -28,10 +28,11 @@ public class ContentHostAddTests {
     /// <summary>Every concrete element type in the control set that can be made with <c>new()</c>.</summary>
     static IEnumerable<Type> Controls() =>
         typeof(Control).Assembly.GetTypes()
-            .Where(type => type is { IsAbstract: false, IsGenericTypeDefinition: false }
+            .Where(static type => type is { IsAbstract: false, IsGenericTypeDefinition: false }
                 && typeof(UiElement).IsAssignableFrom(type)
-                && type.GetConstructor(Type.EmptyTypes) is { IsPublic: true })
-            .OrderBy(type => type.FullName, StringComparer.Ordinal);
+                && type.GetConstructor(Type.EmptyTypes) is { IsPublic: true }
+            )
+            .OrderBy(static type => type.FullName, StringComparer.Ordinal);
 
     // ⚠ Through a helper of our own rather than `UiElement.Add<T>` itself: its `params ReadOnlySpan`
     // cannot be passed through `MethodInfo.Invoke`.
@@ -65,8 +66,10 @@ public class ContentHostAddTests {
             var typed = control.Add<UiElement>("typed-probe");
 
             if (!ReferenceEquals(plain.Parent, host) || !ReferenceEquals(typed.Parent, host)) {
-                wrong.Add($"{type.Name}: Add parented on {plain.Parent?.GetType().Name} '{plain.Parent?.Tag}', "
-                    + $"a nested tag goes to {host.GetType().Name} '{host.Tag}'");
+                wrong.Add(
+                    $"{type.Name}: Add parented on {plain.Parent?.GetType().Name} '{plain.Parent?.Tag}', "
+                    + $"a nested tag goes to {host.GetType().Name} '{host.Tag}'"
+                );
             }
         }
 
@@ -74,7 +77,10 @@ public class ContentHostAddTests {
 
         // ⚠ The instrument. The issue names sixteen overriding classes (seventeen with `MultiSelect`,
         // which inherits one); a census that reached none of them would have passed the line above.
-        Assert.True(routed.Count >= 16, $"only {routed.Count} controls route their content: {string.Join(", ", routed)}");
+        Assert.True(
+            routed.Count >= 16,
+            $"only {routed.Count} controls route their content: {string.Join(", ", routed)}"
+        );
         Assert.Contains(nameof(GroupBox), routed);
         Assert.Contains(nameof(ComboBox), routed);
         Assert.Contains(nameof(ScrollView), routed);

@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Editor.Texturing.Layers;
-using Vixen.Texturing.Layers;
 using Xunit;
 
 namespace Vixen.Editor.Texturing.Tests;
@@ -10,8 +9,11 @@ namespace Vixen.Editor.Texturing.Tests;
 /// <summary>Both panes dispatch through one evaluator, so a kernel they share is compiled once.</summary>
 /// <remarks>
 ///     <para>
-///         <b><a href="https://github.com/Rikarin/Vixen/issues/820">#820</a>, and it is a defect with
-///         no symptom.</b> Nothing reported two evaluators: both panes drew correctly, and the cost
+///         <b>
+///             <a href="https://github.com/Rikarin/Vixen/issues/820">#820</a>, and it is a defect with
+///             no symptom.
+///         </b>
+///         Nothing reported two evaluators: both panes drew correctly, and the cost
 ///         was memory plus the second panel's first-open latency. A
 ///         <c>TexturePlanEvaluator</c>'s variant cache is an <em>instance</em> field, so two of them
 ///         over one device are two Raven parses, two shader modules, two compute pipelines and two
@@ -19,8 +21,12 @@ namespace Vixen.Editor.Texturing.Tests;
 ///         session.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Measured rather than asserted structurally, because "one evaluator" is bookkeeping
-///         and the compilations are the thing.</b> A module that held one evaluator and rebuilt its
+///         ⚠
+///         <b>
+///             Measured rather than asserted structurally, because "one evaluator" is bookkeeping
+///             and the compilations are the thing.
+///         </b>
+///         A module that held one evaluator and rebuilt its
 ///         variants would satisfy a <c>ReferenceEquals</c> and cost exactly what the issue describes.
 ///         So the claim below is a differential taken on this machine at this moment: opening both
 ///         panes compiles strictly fewer variants than opening each of them alone adds up to.
@@ -37,9 +43,9 @@ public class SharedEvaluatorDeviceTests {
     public void Both_panes_share_one_evaluator_and_the_kernels_they_share_are_compiled_once() {
         using var device = TexturingDevice.Open();
 
-        var graphAlone = Compilations(device, graph: true, stack: false, out var builtForGraph);
-        var stackAlone = Compilations(device, graph: false, stack: true, out var builtForStack);
-        var together = Compilations(device, graph: true, stack: true, out var builtForBoth);
+        var graphAlone = Compilations(device, true, false, out var builtForGraph);
+        var stackAlone = Compilations(device, false, true, out var builtForStack);
+        var together = Compilations(device, true, true, out var builtForBoth);
 
         // ⚠ The instrument, before the finding. All three of these are zero on a run where nothing
         // was evaluated, and zero is smaller than zero plus zero is false — so the comparison below

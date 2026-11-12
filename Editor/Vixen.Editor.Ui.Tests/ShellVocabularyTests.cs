@@ -59,7 +59,7 @@ public class ShellVocabularyTests {
     /// <summary>No id the shell declares is built from a toolset's vocabulary.</summary>
     [Fact]
     public void The_shell_declares_no_id_a_toolset_owns() {
-        var owned = EditorStrings.All.Where(id => Owned.IsMatch(id.Id)).Select(id => id.Id).ToList();
+        var owned = EditorStrings.All.Where(static id => Owned.IsMatch(id.Id)).Select(static id => id.Id).ToList();
 
         Assert.True(
             owned.Count == 0,

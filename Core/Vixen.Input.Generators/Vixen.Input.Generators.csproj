@@ -65,6 +65,7 @@
     <ItemGroup>
         <Compile Include="..\Vixen.Generators.Shared\IsExternalInit.cs" LinkBase="Linked\Shared" />
         <Compile Include="..\Vixen.Generators.Shared\NotNullWhenAttribute.cs" LinkBase="Linked\Shared" />
+        <Compile Include="..\Vixen.Generators.Shared\IndexRange.cs" LinkBase="Linked\Shared" />
         <Compile Include="..\Vixen.Generators.Shared\StringPolyfills.cs" LinkBase="Linked\Shared" />
         <Compile Include="..\Vixen.Generators.Shared\CallerArgumentExpressionAttribute.cs" LinkBase="Linked\Shared" />
         <Compile Include="..\Vixen.Generators.Shared\ArgumentNullException.cs" LinkBase="Linked\Shared" />

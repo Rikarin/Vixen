@@ -110,8 +110,8 @@ public class UvPackingTests {
 
         Assert.Equal(3, placements.Count);
         Assert.Equal(3, report.ChartCount);
-        Assert.All(placements, placement => Assert.InRange(placement.Offset.X, 0f, 1f));
-        Assert.All(placements, placement => Assert.InRange(placement.Offset.Y, 0f, 1f));
+        Assert.All(placements, static placement => Assert.InRange(placement.Offset.X, 0f, 1f));
+        Assert.All(placements, static placement => Assert.InRange(placement.Offset.Y, 0f, 1f));
     }
 
     [Fact]
@@ -147,7 +147,7 @@ public class UvPackingTests {
         );
 
         Assert.Single(placements);
-        Assert.Contains(report.Warnings, warning => warning.Contains("texel density", StringComparison.Ordinal));
+        Assert.Contains(report.Warnings, static warning => warning.Contains("texel density", StringComparison.Ordinal));
         Assert.True(
             report.TexelDensity.Maximum < 512f,
             $"The report claims {report.TexelDensity.Maximum} texels per unit after a rescale that had to happen."
@@ -158,8 +158,7 @@ public class UvPackingTests {
     public void AnIslandLargerThanTheAtlasIsRefusedWhenRefusalIsAskedFor() {
         UvIsland[] islands = [IslandCorpus.Square(10f)];
 
-        var failure = Assert.Throws<InvalidOperationException>(
-            () => UvUnwrap.Pack(
+        var failure = Assert.Throws<InvalidOperationException>(() => UvUnwrap.Pack(
                 islands,
                 new() { Resolution = 256, Margin = 4, TexelDensity = 512f, Overflow = PackOverflow.Refuse }
             )
@@ -173,7 +172,7 @@ public class UvPackingTests {
         var islands = IslandCorpus.Trellis(40);
 
         var placements = UvUnwrap.Pack(islands, new() { Resolution = 16, Margin = 1 });
-        var map = PackedAtlas.Rasterize(islands, placements, 16, Int2.Zero, out var overlaps);
+        _ = PackedAtlas.Rasterize(islands, placements, 16, Int2.Zero, out var overlaps);
 
         Assert.Equal(40, placements.Count);
         Assert.Equal(0, overlaps);
@@ -181,16 +180,22 @@ public class UvPackingTests {
 
     [Fact]
     public void AMarginThatConsumesTheAtlasIsRefusedBeforeAnythingIsPacked() {
-        Assert.Throws<ArgumentOutOfRangeException>(
-            () => UvUnwrap.Pack([IslandCorpus.Square(1f)], new() { Resolution = 8, Margin = 4 })
+        Assert.Throws<ArgumentOutOfRangeException>(() => UvUnwrap.Pack(
+                [IslandCorpus.Square(1f)],
+                new() { Resolution = 8, Margin = 4 }
+            )
         );
 
-        Assert.Throws<ArgumentOutOfRangeException>(
-            () => UvUnwrap.Pack([IslandCorpus.Square(1f)], new() { Resolution = 0 })
+        Assert.Throws<ArgumentOutOfRangeException>(() => UvUnwrap.Pack(
+                [IslandCorpus.Square(1f)],
+                new() { Resolution = 0 }
+            )
         );
 
-        Assert.Throws<ArgumentOutOfRangeException>(
-            () => UvUnwrap.Pack([IslandCorpus.Square(1f)], new() { Resolution = 64, Margin = -1 })
+        Assert.Throws<ArgumentOutOfRangeException>(() => UvUnwrap.Pack(
+                [IslandCorpus.Square(1f)],
+                new() { Resolution = 64, Margin = -1 }
+            )
         );
     }
 
@@ -227,10 +232,10 @@ public class UvPackingTests {
             out var report
         );
 
-        var tiles = placements.Select(placement => placement.Tile).Distinct().ToList();
+        var tiles = placements.Select(static placement => placement.Tile).Distinct().ToList();
 
-        Assert.True(tiles.Count > 1, $"The corpus fitted one tile, so this proves nothing about straddling.");
-        Assert.Contains(report.Warnings, warning => warning.Contains("UDIM", StringComparison.Ordinal));
+        Assert.True(tiles.Count > 1, "The corpus fitted one tile, so this proves nothing about straddling.");
+        Assert.Contains(report.Warnings, static warning => warning.Contains("UDIM", StringComparison.Ordinal));
 
         for (var index = 0; index < placements.Count; index++) {
             var placement = placements[index];
@@ -340,7 +345,7 @@ public class UvPackingTests {
 
         Assert.Equal(300, placements.Count);
         Assert.Equal(0, overlaps);
-        Assert.Contains(report.Warnings, warning => warning.Contains("tail sweep", StringComparison.Ordinal));
+        Assert.Contains(report.Warnings, static warning => warning.Contains("tail sweep", StringComparison.Ordinal));
         Assert.True(PackedAtlas.Covered(map) > 0);
     }
 
@@ -367,7 +372,7 @@ public class UvPackingTests {
     public void UniformDensityHoldsAcrossEveryChart() {
         // docs/plan/42's exit criterion 5. Islands of wildly different world scale, one density.
         var islands = IslandCorpus.Trellis(150, scale: 1f)
-            .Select((island, index) => island with { Scale = 1f + (index % 7) })
+            .Select((island, index) => island with { Scale = 1f + index % 7 })
             .ToArray();
 
         UvUnwrap.Pack(islands, new() { Resolution = 1024, Margin = 4, TexelDensity = 64f }, out var report);

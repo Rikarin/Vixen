@@ -15,8 +15,12 @@ public readonly record struct PaletteItem(string Title, string Category, int Sco
     /// <summary>What the preview pane shows while this line is highlighted, or <c>null</c>.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Doc 20's A8 asks for a preview pane and this is the whole of what a source has to
-    ///         supply for one.</b> It is separate from <see cref="Detail" /> because the two answer
+    ///         ⚠
+    ///         <b>
+    ///             Doc 20's A8 asks for a preview pane and this is the whole of what a source has to
+    ///             supply for one.
+    ///         </b>
+    ///         It is separate from <see cref="Detail" /> because the two answer
     ///         different questions: the detail is what fits on the right of a row — a shortcut, a
     ///         folder — and the preview is the paragraph you read before deciding, which no row has
     ///         room for. A source with nothing more to say leaves it null and the pane shows the
@@ -87,8 +91,12 @@ public sealed class CommandPaletteSource : IPaletteSource {
 
     /// <summary>Whether every result is filed under <see cref="Category" /> rather than its own.</summary>
     /// <remarks>
-    ///     ⚠ <b>Off in the palette and on in search-everywhere, and the two want opposite
-    ///     answers.</b> A palette is entirely commands, so "File", "Edit" and "Scene" are the useful
+    ///     ⚠
+    ///     <b>
+    ///         Off in the palette and on in search-everywhere, and the two want opposite
+    ///         answers.
+    ///     </b>
+    ///     A palette is entirely commands, so "File", "Edit" and "Scene" are the useful
     ///     distinction and "Command" would be a column of one word. A search across assets, entities
     ///     and commands wants the opposite: which <i>kind</i> of thing a result is comes first, and
     ///     a grouped list whose command results were scattered into six categories would have six

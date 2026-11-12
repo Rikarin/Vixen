@@ -6,8 +6,12 @@ namespace Vixen.DocGen;
 /// <summary>How the written half's problems are reported, and to which stream.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>A target that prints <c>[ERR]</c> and then succeeds reads as a gate that passed, and
-///         this one has already cost something</b> —
+///         ⚠
+///         <b>
+///             A target that prints <c>[ERR]</c> and then succeeds reads as a gate that passed, and
+///             this one has already cost something
+///         </b>
+///         —
 ///         <a href="https://github.com/Rikarin/Vixen/issues/1018">#1018</a>. <c>./build.sh Docs</c>
 ///         on a tree with an undocumented public type printed
 ///         <c>[ERR] Docs: T:… has no guide page and no line in docs/DocsExempt.txt</c>, reported
@@ -20,8 +24,11 @@ namespace Vixen.DocGen;
 ///         <b>The division of labour is right and the <em>word</em> was wrong.</b> <c>Docs</c>
 ///         generates and <c>CheckDocs</c> gates; that is deliberate and CI runs the second. What is
 ///         not defensible is calling something an error on a run that will succeed whatever it says
-///         — this repository's own convention is <i>ask what a gate prints on the day it does not
-///         run, and if the answer is success, fix that first.</i>
+///         — this repository's own convention is
+///         <i>
+///             ask what a gate prints on the day it does not
+///             run, and if the answer is success, fix that first.
+///         </i>
 ///     </para>
 ///     <para>
 ///         ⚠ <b>The stream is the whole mechanism, because <c>[ERR]</c> is not this tool's word.</b>
@@ -75,10 +82,10 @@ static class ProblemReport {
             return (false, []);
         }
 
-        var plural = problems.Count == 1 ? "" : "s";
+        var plural = problems.Count == 1 ? string.Empty : "s";
 
         List<string> lines = [
-            "",
+            string.Empty,
             gating
                 ? $"{problems.Count} problem{plural} in the written half:"
                 : $"{problems.Count} problem{plural} in the written half. This run generates and does "

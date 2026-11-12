@@ -17,27 +17,40 @@ namespace Vixen.Graphics.WebGPU;
 ///         question is whether it was forgotten:
 ///     </para>
 ///     <list type="bullet">
-///         <item><description>
-///             <b>Geometry, tessellation and mesh shaders.</b> WebGPU has vertex, fragment and
-///             compute, and no plan for more.
-///         </description></item>
-///         <item><description>
-///             <b>Bindless.</b> No unbounded binding arrays, so GPU-driven culling and material
-///             batching take their non-bindless path — the same one MoltenVK forces (ADR-011).
-///         </description></item>
-///         <item><description>
-///             <b>Multi-draw indirect.</b> One indirect call issues one draw.
-///             <c>DrawIndexedIndirect</c> with a count above one is refused rather than looped, so
-///             the cost is visible at the call site.
-///         </description></item>
-///         <item><description>
-///             <b>Async compute and async transfer.</b> WebGPU has exactly one queue, so all three
-///             of the RHI's submitters are it.
-///         </description></item>
-///         <item><description>
-///             <b>Timeline semaphores, sparse resources, pipeline statistics, wireframe, float64,
-///             subgroups.</b> None exist in WebGPU.
-///         </description></item>
+///         <item>
+///             <description>
+///                 <b>Geometry, tessellation and mesh shaders.</b> WebGPU has vertex, fragment and
+///                 compute, and no plan for more.
+///             </description>
+///         </item>
+///         <item>
+///             <description>
+///                 <b>Bindless.</b> No unbounded binding arrays, so GPU-driven culling and material
+///                 batching take their non-bindless path — the same one MoltenVK forces (ADR-011).
+///             </description>
+///         </item>
+///         <item>
+///             <description>
+///                 <b>Multi-draw indirect.</b> One indirect call issues one draw.
+///                 <c>DrawIndexedIndirect</c> with a count above one is refused rather than looped, so
+///                 the cost is visible at the call site.
+///             </description>
+///         </item>
+///         <item>
+///             <description>
+///                 <b>Async compute and async transfer.</b> WebGPU has exactly one queue, so all three
+///                 of the RHI's submitters are it.
+///             </description>
+///         </item>
+///         <item>
+///             <description>
+///                 <b>
+///                     Timeline semaphores, sparse resources, pipeline statistics, wireframe, float64,
+///                     subgroups.
+///                 </b>
+///                 None exist in WebGPU.
+///             </description>
+///         </item>
 ///     </list>
 ///     <para>
 ///         And two are present that a reader might not expect. <b>Compute is always there</b> —
@@ -90,7 +103,6 @@ public static class WebGpuCapabilities {
             // web answer is "assume not", which costs a copy and is never wrong in the unsafe
             // direction.
             HasUnifiedMemory = adapter == WgpuAdapterType.IntegratedGpu,
-
             MaxTextureSize = limits.MaxTextureDimension2D,
             MaxTextureArrayLayers = limits.MaxTextureArrayLayers,
             MaxColourAttachments = limits.MaxColorAttachments,
@@ -132,6 +144,6 @@ public static class WebGpuCapabilities {
             WgpuFeatureName.TimestampQuery
         ];
 
-        return [.. wanted.Where(available)];
+        return [..wanted.Where(available)];
     }
 }

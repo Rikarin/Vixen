@@ -330,7 +330,7 @@ public sealed class CameraDirectorSystem : SystemBase, IDeclaredAccess {
                 position = Matrix4x4.TransformPosition(position, inverse);
 
                 if (Matrix4x4.Decompose(matrix, out _, out var parentRotation, out _)) {
-                    rotation = rotation * Quaternion.Conjugate(parentRotation);
+                    rotation *= Quaternion.Conjugate(parentRotation);
                 }
             }
         }

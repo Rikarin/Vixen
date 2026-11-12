@@ -38,7 +38,9 @@ public sealed class GoapDomainImporter : AssetImporter<GoapDomainImportSettings>
     /// <summary>The alias of the type this writes.</summary>
     public const string DomainType = "GoapDomainContent";
 
-    static GoapDomainImporter() => MathScalars.Register();
+    static GoapDomainImporter() {
+        MathScalars.Register();
+    }
 
     /// <inheritdoc />
     public override int Version => GoapDomainContent.Current;
@@ -92,7 +94,7 @@ public sealed class GoapDomainImporter : AssetImporter<GoapDomainImportSettings>
     }
 
     static bool Check(ImportContext context, GoapDomainContent content) {
-        GoapDomainContentCompiler.TryCompile(content, new BehaviorTreeResolver(), out var problems, out var domain);
+        GoapDomainContentCompiler.TryCompile(content, new(), out var problems, out var domain);
 
         var fatal = false;
 

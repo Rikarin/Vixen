@@ -51,8 +51,12 @@ public enum LayerKind {
 ///         let them land without rewriting every <c>.vxlayers</c> that exists.
 ///     </para>
 ///     <para>
-///         ⚠ <b>A projection means something only on a <see cref="LayerKind.Fill" /> that is not a
-///         constant</b>, and <c>LayerStackGraph.Project</c> warns rather than ignoring it anywhere
+///         ⚠
+///         <b>
+///             A projection means something only on a <see cref="LayerKind.Fill" /> that is not a
+///             constant
+///         </b>
+///         , and <c>LayerStackGraph.Project</c> warns rather than ignoring it anywhere
 ///         else: a paint layer's pixels are authored in the atlas, a filter reads whatever is under
 ///         it, and a constant is the same colour at every world position.
 ///     </para>
@@ -240,8 +244,12 @@ public sealed record LayerSurfacePath {
 
 /// <summary>Where a fill sits on the surface, in whichever projection it uses.</summary>
 /// <remarks>
-///     ⚠ <b>Its own record, not entries in <see cref="LayerAsset.Settings" />, because a graph fill
-///     hands its settings to the graph.</b> A graph with its own <c>Scale</c> parameter would otherwise
+///     ⚠
+///     <b>
+///         Its own record, not entries in <see cref="LayerAsset.Settings" />, because a graph fill
+///         hands its settings to the graph.
+///     </b>
+///     A graph with its own <c>Scale</c> parameter would otherwise
 ///     have one number doing two jobs. A <see cref="LayerProjection.Uv" /> fill reads everything here
 ///     but <see cref="Sharpness" />; a planar, spherical or cylindrical one reads the same.
 /// </remarks>
@@ -265,8 +273,11 @@ public sealed record LayerPlacement {
 /// <summary>Which world axis a <see cref="LayerProjection.Planar" /> layer projects along.</summary>
 /// <remarks>
 ///     <para>
-///         <b>A member on <see cref="LayerAsset" /> rather than three more
-///         <see cref="LayerProjection" /> members</b> —
+///         <b>
+///             A member on <see cref="LayerAsset" /> rather than three more
+///             <see cref="LayerProjection" /> members
+///         </b>
+///         —
 ///         <a href="https://github.com/Rikarin/Vixen/issues/1032">#1032</a>. Splitting
 ///         <c>Planar</c> into <c>PlanarX</c>/<c>PlanarY</c>/<c>PlanarZ</c> renumbers an enum that
 ///         every <c>.vxlayers</c> in every project already writes by name, and the whole reason
@@ -274,8 +285,12 @@ public sealed record LayerPlacement {
 ///         avoid rewriting files later. A second member costs one optional key.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The default is <see cref="Y" /> and it is deliberately <em>not</em> this enum's
-///         zero.</b> Y is what the compiler has always chosen and what a planar fill nearly always
+///         ⚠
+///         <b>
+///             The default is <see cref="Y" /> and it is deliberately <em>not</em> this enum's
+///             zero.
+///         </b>
+///         Y is what the compiler has always chosen and what a planar fill nearly always
 ///         wants — dirt, snow, dust on horizontal faces — so it has to survive as the default; but
 ///         writing it as the zero would make "the author said y" and "the author said nothing" the
 ///         same state, and that is the shape this repository loses features to. Both readers name
@@ -343,8 +358,12 @@ public enum LayerFillSource {
     ///     A published <c>.vxtexgraph</c>, by reference: a sub-graph inlined into the stack's graph.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>This said "not compiled in this build" and it has been compiled, on a device, since
-    ///     M8</b> — <a href="https://github.com/Rikarin/Vixen/issues/1045">#1045</a>. The
+    ///     ⚠
+    ///     <b>
+    ///         This said "not compiled in this build" and it has been compiled, on a device, since
+    ///         M8
+    ///     </b>
+    ///     — <a href="https://github.com/Rikarin/Vixen/issues/1045">#1045</a>. The
     ///     <c>ISubGraphSource</c> the old remark said was missing is what
     ///     <c>LayerStackCompiler.Library</c> supplies and what both <c>Compile</c> overloads take;
     ///     <c>LayerStackGraph.Fill</c> has a complete case that resolves the path against the
@@ -370,24 +389,35 @@ public enum LayerFillSource {
 ///         node types this build has.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The fourth used to be described here as "<see cref="LayerFillSource.Graph" />'s
-///         question, with the same answer", and that answer has been <em>yes</em> since M8</b> —
+///         ⚠
+///         <b>
+///             The fourth used to be described here as "<see cref="LayerFillSource.Graph" />'s
+///             question, with the same answer", and that answer has been <em>yes</em> since M8
+///         </b>
+///         —
 ///         <a href="https://github.com/Rikarin/Vixen/issues/1045">#1045</a>. A graph fill compiles,
 ///         on a device, in two test files; so a reader who took this line to mean "a graph
 ///         adjustment is owed for the same reason a graph fill is" was reading a claim that had
 ///         stopped being true of either half.
 ///     </para>
 ///     <para>
-///         ⚠ <b>What is genuinely not expressible is a graph adjustment on a <em>filter layer</em>,
-///         and it is not for the reason the old line gave.</b> <c>LayerStackGraph.Adjustment</c>
+///         ⚠
+///         <b>
+///             What is genuinely not expressible is a graph adjustment on a <em>filter layer</em>,
+///             and it is not for the reason the old line gave.
+///         </b>
+///         <c>LayerStackGraph.Adjustment</c>
 ///         takes its node type from this enum and from nothing else, so a filter layer can only be
 ///         one of these five. A mask's adjustments have no such limit —
 ///         <see cref="MaskEffectAsset.Node" /> names a node type, which is any published compound —
 ///         so § D10's fourth was already sayable of a mask and not of a layer.
 ///     </para>
 ///     <para>
-///         <b>Closed by <see cref="LayerAsset.FilterNode" />, which is the member
-///         <see cref="MaskEffectAsset" /> already had</b> —
+///         <b>
+///             Closed by <see cref="LayerAsset.FilterNode" />, which is the member
+///             <see cref="MaskEffectAsset" /> already had
+///         </b>
+///         —
 ///         <a href="https://github.com/Rikarin/Vixen/issues/1068">#1068</a>. Not a sixth member
 ///         here: an enum has to grow one per effect and still cannot reach a published compound.
 ///         These five stay exactly what they are, and compile to exactly what they compiled to,
@@ -419,8 +449,12 @@ public enum LayerMaskSource {
     /// <summary>One number over the whole surface.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Folded into the layer's opacity and compiled to nothing at all, when it is the
-    ///         whole mask</b> — <a href="https://github.com/Rikarin/Vixen/issues/789">#789</a>. A
+    ///         ⚠
+    ///         <b>
+    ///             Folded into the layer's opacity and compiled to nothing at all, when it is the
+    ///             whole mask
+    ///         </b>
+    ///         — <a href="https://github.com/Rikarin/Vixen/issues/789">#789</a>. A
     ///         mask multiplies into the foreground's coverage
     ///         (<a href="https://github.com/Rikarin/Vixen/issues/832">#832</a>) and
     ///         <c>Blend.rvn</c>'s <c>amount</c> is <c>opacity · mask · alpha</c>, so the fold is a
@@ -484,9 +518,13 @@ public enum LayerMaskSource {
 /// <summary>Which of the thirty-one operators a layer composites with.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>The names and the numbers are <c>Vixen.TextureGraph</c>'s
-///         <c>TextureBlendMode</c>, which is <c>internal</c> — so this is a second declaration of one
-///         list and the two can drift.</b> Nothing in the compilation would notice: a layer hands
+///         ⚠
+///         <b>
+///             The names and the numbers are <c>Vixen.TextureGraph</c>'s
+///             <c>TextureBlendMode</c>, which is <c>internal</c> — so this is a second declaration of one
+///             list and the two can drift.
+///         </b>
+///         Nothing in the compilation would notice: a layer hands
 ///         <c>Colour/Blend</c>'s <c>Mode</c> setting the <em>name</em>, and a name that assembly does
 ///         not know falls back to its own default, which is <c>Copy</c> — a stack whose every overlay
 ///         silently became a copy.
@@ -621,13 +659,13 @@ public enum LayerBlendMode {
 /// </remarks>
 public sealed record AnchorReference {
     /// <summary>The <see cref="LayerAsset.AnchorPoint" /> read.</summary>
-    public string Anchor { get; init; } = "";
+    public string Anchor { get; init; } = string.Empty;
 
     /// <summary>
     ///     The channel read, by usage. Empty means the channel being built, which only a fill or a filter layer's
     ///     input may say: a mask, a generator or a mask effect reading it would be another picture in every channel.
     /// </summary>
-    public string Channel { get; init; } = "";
+    public string Channel { get; init; } = string.Empty;
 }
 
 /// <summary>Where one image input of a filter, a mask step or a graph fill reads its picture.</summary>
@@ -674,14 +712,20 @@ public sealed record LayerInputAsset {
     /// <summary>Where the picture comes from.</summary>
     public LayerInputSource Source { get; init; } = LayerInputSource.Beneath;
 
-    /// <summary>The channel read beneath, by usage, for <see cref="LayerInputSource.Beneath" />. Empty is the channel being built.</summary>
-    public string Channel { get; init; } = "";
+    /// <summary>
+    ///     The channel read beneath, by usage, for <see cref="LayerInputSource.Beneath" />. Empty is the channel being
+    ///     built.
+    /// </summary>
+    public string Channel { get; init; } = string.Empty;
 
     /// <summary>The anchor point read, and in which channel, for <see cref="LayerInputSource.Anchor" />.</summary>
     public AnchorReference Anchor { get; init; } = new();
 
-    /// <summary>The node type or compound path, for <see cref="LayerInputSource.Generator" />: <c>Source/Noise</c>, <c>Noise/Clouds</c>.</summary>
-    public string Generator { get; init; } = "";
+    /// <summary>
+    ///     The node type or compound path, for <see cref="LayerInputSource.Generator" />: <c>Source/Noise</c>,
+    ///     <c>Noise/Clouds</c>.
+    /// </summary>
+    public string Generator { get; init; } = string.Empty;
 
     /// <summary>The generator's numbers, by the port name it declares.</summary>
     public Dictionary<string, float[]> Values { get; init; } = [];
@@ -690,10 +734,10 @@ public sealed record LayerInputAsset {
     public Dictionary<string, string> Texts { get; init; } = [];
 
     /// <summary>The imported image, for <see cref="LayerInputSource.Texture" />.</summary>
-    public string Asset { get; init; } = "";
+    public string Asset { get; init; } = string.Empty;
 
     /// <summary>What the mesh map measures, for <see cref="LayerInputSource.Bake" />.</summary>
-    public string Map { get; init; } = "";
+    public string Map { get; init; } = string.Empty;
 
     /// <summary>An input reading an anchor point.</summary>
     /// <param name="reference">The anchor point and its channel.</param>
@@ -757,10 +801,10 @@ public enum LayerMaskLane {
 /// <summary>The layer an <see cref="LayerKind.Instance" /> stands for: a layer's id, in a set of the stack.</summary>
 public sealed record InstanceReference {
     /// <summary>The texture set the source is in, by name, or empty for the instance's own set.</summary>
-    public string Set { get; init; } = "";
+    public string Set { get; init; } = string.Empty;
 
     /// <summary>The source layer's <see cref="LayerAsset.Id" />.</summary>
-    public string Layer { get; init; } = "";
+    public string Layer { get; init; } = string.Empty;
 }
 
 /// <summary>One entry in a mask's own small stack.</summary>
@@ -771,8 +815,12 @@ public sealed record InstanceReference {
 ///         conflict in a flat record is one a person can resolve.
 ///     </para>
 ///     <para>
-///         ⚠ <b>It carries a blend mode and an opacity, which is the whole of what makes a mask a
-///         stack rather than a source.</b> Curvature multiplied by occlusion is a dirt mask; either
+///         ⚠
+///         <b>
+///             It carries a blend mode and an opacity, which is the whole of what makes a mask a
+///             stack rather than a source.
+///         </b>
+///         Curvature multiplied by occlusion is a dirt mask; either
 ///         one alone is not. Doc 48 § D10.
 ///     </para>
 /// </remarks>
@@ -784,7 +832,7 @@ public sealed record MaskLayerAsset {
     public float Value { get; init; } = 1f;
 
     /// <summary>The imported image, for <see cref="LayerMaskSource.Texture" />.</summary>
-    public string Asset { get; init; } = "";
+    public string Asset { get; init; } = string.Empty;
 
     /// <summary>The anchor point read, and in which channel, for <see cref="LayerMaskSource.Anchor" />.</summary>
     public AnchorReference Anchor { get; init; } = new();
@@ -793,7 +841,7 @@ public sealed record MaskLayerAsset {
     ///     The published compound's node-type path, for <see cref="LayerMaskSource.Generator" /> —
     ///     <c>Generators/Dirt</c>, say.
     /// </summary>
-    public string Generator { get; init; } = "";
+    public string Generator { get; init; } = string.Empty;
 
     /// <summary>The generator's numbers, by the port name its compound exposes.</summary>
     public Dictionary<string, float[]> GeneratorValues { get; init; } = [];
@@ -811,10 +859,10 @@ public sealed record MaskLayerAsset {
     ///     <c>TextureMeshMaps.Known</c> — the shape five exact-equality roll calls in this workstream
     ///     have gone red on.
     /// </remarks>
-    public string Map { get; init; } = "";
+    public string Map { get; init; } = string.Empty;
 
     /// <summary>The <c>.vxpaint</c> this entry's painted pixels live in. M9.</summary>
-    public string Paint { get; init; } = "";
+    public string Paint { get; init; } = string.Empty;
 
     /// <summary>Which lane of its picture this entry reads.</summary>
     public LayerMaskLane Lane { get; init; } = LayerMaskLane.Red;
@@ -858,7 +906,7 @@ public sealed record MaskLayerAsset {
 /// </remarks>
 public sealed record MaskEffectAsset {
     /// <summary>The node type: <c>Colour/Levels</c>, <c>Filters/Blur</c>, a compound's path.</summary>
-    public string Node { get; init; } = "";
+    public string Node { get; init; } = string.Empty;
 
     /// <summary>Whether it runs.</summary>
     public bool Enabled { get; init; } = true;
@@ -895,8 +943,12 @@ public sealed record MaskEffectAsset {
 ///         operator; <see cref="Effects" /> then adjust the whole result.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The base is the legacy single source, kept rather than folded into
-///         <see cref="Layers" />.</b> Every <c>.vxlayers</c> that exists names its mask this way, and
+///         ⚠
+///         <b>
+///             The base is the legacy single source, kept rather than folded into
+///             <see cref="Layers" />.
+///         </b>
+///         Every <c>.vxlayers</c> that exists names its mask this way, and
 ///         a stack with a plain constant or texture mask must keep compiling to exactly the ops it
 ///         compiled to before — which is what makes the explode differential's byte-identity a claim
 ///         about this change rather than a re-blessing.
@@ -910,7 +962,7 @@ public sealed record MaskAsset {
     public float Value { get; init; } = 1f;
 
     /// <summary>The imported image, for <see cref="LayerMaskSource.Texture" />.</summary>
-    public string Asset { get; init; } = "";
+    public string Asset { get; init; } = string.Empty;
 
     /// <summary>The anchor point read, and in which channel, for <see cref="LayerMaskSource.Anchor" />.</summary>
     public AnchorReference Anchor { get; init; } = new();
@@ -924,13 +976,13 @@ public sealed record MaskAsset {
     ///     paint layer is not. <c>LayerStackShapeTests</c> walks this record's type closure and
     ///     refuses any member that could hold a buffer.
     /// </remarks>
-    public string Paint { get; init; } = "";
+    public string Paint { get; init; } = string.Empty;
 
     /// <summary>
     ///     The published compound's node-type path, for a base of
     ///     <see cref="LayerMaskSource.Generator" />.
     /// </summary>
-    public string Generator { get; init; } = "";
+    public string Generator { get; init; } = string.Empty;
 
     /// <summary>The generator's numbers, by the port name its compound exposes.</summary>
     public Dictionary<string, float[]> GeneratorValues { get; init; } = [];
@@ -942,15 +994,19 @@ public sealed record MaskAsset {
     public Dictionary<string, AnchorReference> GeneratorInputs { get; init; } = [];
 
     /// <summary>What the map measures, for a base of <see cref="LayerMaskSource.Bake" />.</summary>
-    public string Map { get; init; } = "";
+    public string Map { get; init; } = string.Empty;
 
     /// <summary>Which lane of its picture the base reads.</summary>
     public LayerMaskLane Lane { get; init; } = LayerMaskLane.Red;
 
     /// <summary>The entries composited over the base, bottom first.</summary>
     /// <remarks>
-    ///     ⚠ <b>The first entry has nothing beneath it when there is no base, so its own operator
-    ///     does nothing</b> — reported as a warning rather than silently ignored, because an artist
+    ///     ⚠
+    ///     <b>
+    ///         The first entry has nothing beneath it when there is no base, so its own operator
+    ///         does nothing
+    ///     </b>
+    ///     — reported as a warning rather than silently ignored, because an artist
     ///     who set the bottom of a mask stack to <c>Multiply</c> meant something by it.
     /// </remarks>
     public List<MaskLayerAsset> Layers { get; init; } = [];
@@ -985,20 +1041,24 @@ public sealed record MaskAsset {
 public sealed record LayerAsset {
     /// <summary>A stable identity, unique in the stack. What every editing command names.</summary>
     /// <remarks>
-    ///     ⚠ <b>Stable across renames and across reorders, which is why it is not the name and not
-    ///     the index.</b> ⚠ An anchor used to name a layer by this id; it names an <see cref="AnchorPoint" /> now
+    ///     ⚠
+    ///     <b>
+    ///         Stable across renames and across reorders, which is why it is not the name and not
+    ///         the index.
+    ///     </b>
+    ///     ⚠ An anchor used to name a layer by this id; it names an <see cref="AnchorPoint" /> now
     ///     (Patina #111), which is what an artist can read and what survives a copy into another stack.
     /// </remarks>
-    public string Id { get; init; } = "";
+    public string Id { get; init; } = string.Empty;
 
     /// <summary>What the artist calls it.</summary>
-    public string Name { get; init; } = "";
+    public string Name { get; init; } = string.Empty;
 
     /// <summary>
     ///     The name of the anchor point this layer publishes, or empty for none. Unique in the set. See
     ///     <see cref="AnchorReference" /> for what a reference reads.
     /// </summary>
-    public string AnchorPoint { get; init; } = "";
+    public string AnchorPoint { get; init; } = string.Empty;
 
     /// <summary>The colour an artist marks the layer with in a list, or <see cref="LayerTag.None" />.</summary>
     /// <remarks>Read by nothing that composites: a tag sorts a long stack by eye, and the picture is the same with any.</remarks>
@@ -1047,8 +1107,12 @@ public sealed record LayerAsset {
     ///     Which of the set's channels this layer writes, by usage. Empty means every one of them.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>Empty means <em>all</em>, and that is the one defaulting decision here that a reader
-    ///     could get wrong.</b> The alternative — an explicit list always — makes a channel added to
+    ///     ⚠
+    ///     <b>
+    ///         Empty means <em>all</em>, and that is the one defaulting decision here that a reader
+    ///         could get wrong.
+    ///     </b>
+    ///     The alternative — an explicit list always — makes a channel added to
     ///     the set later invisible to every layer that already exists, so the artist adds "height" to
     ///     a texture set and the whole stack stops writing it. Empty-means-all is the behaviour that
     ///     matches what an artist means by "this layer is not restricted".
@@ -1057,8 +1121,12 @@ public sealed record LayerAsset {
 
     /// <summary>The constant per channel, by usage, for a <see cref="LayerFillSource.Constant" />.</summary>
     /// <remarks>
-    ///     ⚠ <b>Four numbers — red, green, blue, alpha, linear — and a channel with no entry is a
-    ///     channel this layer does not write.</b> It used to take the channel's own
+    ///     ⚠
+    ///     <b>
+    ///         Four numbers — red, green, blue, alpha, linear — and a channel with no entry is a
+    ///         channel this layer does not write.
+    ///     </b>
+    ///     It used to take the channel's own
     ///     <see cref="ChannelAsset.Default" /> instead, which is
     ///     <a href="https://github.com/Rikarin/Vixen/issues/807">#807</a> · 2: because
     ///     <see cref="Channels" /> empty means <em>all</em>, a fill that sets roughness alone also
@@ -1075,7 +1143,7 @@ public sealed record LayerAsset {
     public LayerFillSource Fill { get; init; } = LayerFillSource.Constant;
 
     /// <summary>The published graph a <see cref="LayerFillSource.Graph" /> fill reads.</summary>
-    public string Graph { get; init; } = "";
+    public string Graph { get; init; } = string.Empty;
 
     /// <summary>The anchor point a <see cref="LayerFillSource.Anchor" /> fill reads.</summary>
     public AnchorReference Anchor { get; init; } = new();
@@ -1101,8 +1169,10 @@ public sealed record LayerAsset {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <b>Doc 48 § D10's fourth kind — "a graph with an <c>Input</c>" — and the member
-    ///         <see cref="MaskEffectAsset.Node" /> has had all along</b>
+    ///         <b>
+    ///             Doc 48 § D10's fourth kind — "a graph with an <c>Input</c>" — and the member
+    ///             <see cref="MaskEffectAsset.Node" /> has had all along
+    ///         </b>
     ///         (<a href="https://github.com/Rikarin/Vixen/issues/1068">#1068</a>). A mask's
     ///         adjustments were never limited to a list, because an effect is specified as anything
     ///         with one image in and one image out; a filter layer took its node type from
@@ -1110,8 +1180,12 @@ public sealed record LayerAsset {
     ///         and false of a layer. The asymmetry was invisible from either file alone.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A second member rather than a sixth <see cref="LayerFilterKind" />, and the
-    ///         argument is the one <c>MaskEffectAsset</c> already makes:</b> an enum has to grow a
+    ///         ⚠
+    ///         <b>
+    ///             A second member rather than a sixth <see cref="LayerFilterKind" />, and the
+    ///             argument is the one <c>MaskEffectAsset</c> already makes:
+    ///         </b>
+    ///         an enum has to grow a
     ///         member per effect and still cannot reach a published compound, because a compound is
     ///         content. ⚠ <b>And it takes precedence rather than sitting beside</b>
     ///         <see cref="Filter" />, whose default is a real value — <c>Levels</c> is zero, so a
@@ -1119,20 +1193,28 @@ public sealed record LayerAsset {
     ///         instructions at once.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The five enum members must keep compiling to exactly the ops they compile to
-    ///         now</b>, or <c>LayerStackExplodeTests</c>' byte-identical differential becomes a
+    ///         ⚠
+    ///         <b>
+    ///             The five enum members must keep compiling to exactly the ops they compile to
+    ///             now
+    ///         </b>
+    ///         , or <c>LayerStackExplodeTests</c>' byte-identical differential becomes a
     ///         re-blessing rather than a check. <c>LayerStackGraph.Adjustment</c> therefore branches
     ///         before the existing path rather than through it.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Its <em>settings</em> are <see cref="Texts" />, which this remark used to say a
-    ///         layer did not have</b> — <a href="https://github.com/Rikarin/Vixen/issues/1079">#1079</a>.
+    ///         ⚠
+    ///         <b>
+    ///             Its <em>settings</em> are <see cref="Texts" />, which this remark used to say a
+    ///             layer did not have
+    ///         </b>
+    ///         — <a href="https://github.com/Rikarin/Vixen/issues/1079">#1079</a>.
     ///         <see cref="Settings" /> is numbers by port name, so until that member arrived a
     ///         compound whose behaviour is chosen by a string took that setting's default here and
     ///         said nothing about it.
     ///     </para>
     /// </remarks>
-    public string FilterNode { get; init; } = "";
+    public string FilterNode { get; init; } = string.Empty;
 
     /// <summary>The layer's numbers, by the port name the node declares.</summary>
     /// <remarks>
@@ -1193,7 +1275,7 @@ public sealed record LayerAsset {
     ///     The <c>.vxpaint</c> holding a <see cref="LayerKind.Paint" /> layer's pixels, relative to
     ///     the stack — or, on a <see cref="LayerKind.Group" />, the canvas that group is flattened into.
     /// </summary>
-    public string Paint { get; init; } = "";
+    public string Paint { get; init; } = string.Empty;
 
     /// <summary>Whether this is a group flattened into a canvas, whose children are kept and not read.</summary>
     public bool Flattened => Kind == LayerKind.Group && Paint.Trim().Length > 0;
@@ -1237,7 +1319,7 @@ public sealed record ChannelAsset {
 /// <summary>One material slot on the mesh, and the maps it produces.</summary>
 public sealed record TextureSetAsset {
     /// <summary>The slot's name on the mesh.</summary>
-    public string Name { get; init; } = "";
+    public string Name { get; init; } = string.Empty;
 
     /// <summary>
     ///     Which mesh of <see cref="LayerStackAsset.Model" /> this slot is, by the name the model
@@ -1245,9 +1327,13 @@ public sealed record TextureSetAsset {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A part of the stack's <em>one</em> model and never a second model, which is the
-    ///         half of <a href="https://github.com/Rikarin/Vixen/issues/920">#920</a>'s design
-    ///         question that is not answered by putting the model on the stack.</b> A model file
+    ///         ⚠
+    ///         <b>
+    ///             A part of the stack's <em>one</em> model and never a second model, which is the
+    ///             half of <a href="https://github.com/Rikarin/Vixen/issues/920">#920</a>'s design
+    ///             question that is not answered by putting the model on the stack.
+    ///         </b>
+    ///         A model file
     ///         splits into one <c>MeshData</c> per material slot — Assimp splits an <c>aiMesh</c>
     ///         that way and <c>ModelReader</c> keeps it — so "two texture sets are two slots of one
     ///         mesh" and "each set is its own <c>MeshData</c>" are the same sentence. Without this
@@ -1264,7 +1350,7 @@ public sealed record TextureSetAsset {
     ///         case, which is one mesh.
     ///     </para>
     /// </remarks>
-    public string Mesh { get; init; } = "";
+    public string Mesh { get; init; } = string.Empty;
 
     /// <summary>
     ///     Which of the model's texture coordinate sets this slot is painted, baked and drawn in, by the file's own
@@ -1330,7 +1416,7 @@ public sealed record LayerStackAsset {
     public int Version { get; init; } = CurrentVersion;
 
     /// <summary>What the stack is called.</summary>
-    public string Name { get; init; } = "";
+    public string Name { get; init; } = string.Empty;
 
     /// <summary>
     ///     The model this stack is painted on, as a path relative to the project root. Empty for a
@@ -1338,8 +1424,11 @@ public sealed record LayerStackAsset {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/920">#920</a>, and the design
-    ///         question it poses is answered here rather than on the set.</b> A stack's texture sets
+    ///         <b>
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/920">#920</a>, and the design
+    ///             question it poses is answered here rather than on the set.
+    ///         </b>
+    ///         A stack's texture sets
     ///         are the material slots of <em>one</em> model: <see cref="TextureSetAsset.Name" />
     ///         already reads "the slot's name on the mesh", a bake writes one <c>.vxmat</c> for the
     ///         stack, and a mesh map is measured once and bound by usage — three things that all
@@ -1353,15 +1442,19 @@ public sealed record LayerStackAsset {
     ///         belongs to.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A project-relative path and not an <c>AssetId</c>, which is the shape every other
-    ///         reference in this file already has.</b> <see cref="LayerAsset.Textures" /> and
+    ///         ⚠
+    ///         <b>
+    ///             A project-relative path and not an <c>AssetId</c>, which is the shape every other
+    ///             reference in this file already has.
+    ///         </b>
+    ///         <see cref="LayerAsset.Textures" /> and
     ///         <see cref="MaskAsset.Asset" /> are paths the host resolves through
     ///         <c>AssetDatabase.TryGetByPath</c> — <c>LayerStackPreview.Resolve</c> is that host half
     ///         — so a GUID here would be a second scheme in one file, and a <c>.vxlayers</c> is a
     ///         file people read and merge.
     ///     </para>
     /// </remarks>
-    public string Model { get; init; } = "";
+    public string Model { get; init; } = string.Empty;
 
     /// <summary>The width the stack is authored at, in texels.</summary>
     public int BaseWidth { get; init; } = 1024;

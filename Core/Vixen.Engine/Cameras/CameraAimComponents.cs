@@ -71,14 +71,15 @@ public struct ComposerAim {
     /// </summary>
     /// <param name="damping">The damping time on both axes, in seconds.</param>
     /// <returns>The aim.</returns>
-    public static ComposerAim Centred(float damping = 0.5f) => new() {
-        TrackedOffset = Vector3.Zero,
-        ScreenPosition = Vector2.Zero,
-        DeadZone = new(0.1f, 0.1f),
-        SoftZone = new(0.8f, 0.8f),
-        HorizontalDamping = damping,
-        VerticalDamping = damping
-    };
+    public static ComposerAim Centred(float damping = 0.5f) =>
+        new() {
+            TrackedOffset = Vector3.Zero,
+            ScreenPosition = Vector2.Zero,
+            DeadZone = new(0.1f, 0.1f),
+            SoftZone = new(0.8f, 0.8f),
+            HorizontalDamping = damping,
+            VerticalDamping = damping
+        };
 }
 
 /// <summary>Points the camera straight at the target, every frame, exactly.</summary>
@@ -131,13 +132,14 @@ public struct PovAim {
     public float Damping;
 
     /// <summary>A level camera that may look 80° up and 80° down, following its input exactly.</summary>
-    public static PovAim Default => new() {
-        Yaw = 0f,
-        Pitch = 0f,
-        MinimumPitch = MathUtil.DegreesToRadians(-80f),
-        MaximumPitch = MathUtil.DegreesToRadians(80f),
-        Damping = 0f
-    };
+    public static PovAim Default =>
+        new() {
+            Yaw = 0f,
+            Pitch = 0f,
+            MinimumPitch = MathUtil.DegreesToRadians(-80f),
+            MaximumPitch = MathUtil.DegreesToRadians(80f),
+            Damping = 0f
+        };
 }
 
 /// <summary>Takes the follow target's orientation as the camera's own.</summary>

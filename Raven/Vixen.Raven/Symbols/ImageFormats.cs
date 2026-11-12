@@ -51,8 +51,12 @@ public sealed record ImageFormat(
 ///         actually writes. Adding one is a line here and nothing else.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Thirteen of the sixteen are in Vulkan's list of formats that <em>must</em> support
-///         storage, and this paragraph used to claim all sixteen were.</b> The mandatory set is
+///         ⚠
+///         <b>
+///             Thirteen of the sixteen are in Vulkan's list of formats that <em>must</em> support
+///             storage, and this paragraph used to claim all sixteen were.
+///         </b>
+///         The mandatory set is
 ///         <c>R32_{UINT,SINT,SFLOAT}</c>, <c>R32G32B32A32_{UINT,SINT,SFLOAT}</c>,
 ///         <c>R16G16B16A16_{UINT,SINT,SFLOAT}</c> and <c>R8G8B8A8_{UNORM,SNORM,UINT,SINT}</c> —
 ///         which does cover <c>rgba8_snorm</c>, so the exceptions are exactly <c>rg32f</c>,
@@ -81,9 +85,9 @@ public static class ImageFormats {
         new("rgba8_snorm", 5, SpecialType.Float),
         // ⚠ The three that are not mandatory. SPIR-V's Rg32f, Rg16f and R16f enumerants require the
         // StorageImageExtendedFormats capability; every other row here requires only Shader.
-        new("rg32f", 6, SpecialType.Float, RequiresExtendedFormats: true),
-        new("rg16f", 7, SpecialType.Float, RequiresExtendedFormats: true),
-        new("r16f", 9, SpecialType.Float, RequiresExtendedFormats: true),
+        new("rg32f", 6, SpecialType.Float, true),
+        new("rg16f", 7, SpecialType.Float, true),
+        new("r16f", 9, SpecialType.Float, true),
 
         new("rgba32i", 21, SpecialType.Int),
         new("rgba16i", 22, SpecialType.Int),
@@ -97,7 +101,7 @@ public static class ImageFormats {
     ];
 
     static readonly Dictionary<string, ImageFormat> ByName =
-        Known.ToDictionary(f => f.Name, StringComparer.OrdinalIgnoreCase);
+        Known.ToDictionary(static f => f.Name, StringComparer.OrdinalIgnoreCase);
 
     /// <summary>The recognised format names, in the order a diagnostic should list them.</summary>
     /// <remarks>
@@ -105,7 +109,7 @@ public static class ImageFormats {
     ///     is: this ends up in diagnostic text, and a message that varies between runs is a golden
     ///     test that fails for no reason.
     /// </remarks>
-    public static string Names => string.Join(", ", Known.Select(f => f.Name));
+    public static string Names => string.Join(", ", Known.Select(static f => f.Name));
 
     /// <summary>The format a <c>[Format("…")]</c> string names, or null.</summary>
     public static ImageFormat? Lookup(string? name) =>

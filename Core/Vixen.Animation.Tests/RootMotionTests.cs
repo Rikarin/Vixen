@@ -75,7 +75,7 @@ public class RootMotionTests {
             Vector3.One
         );
 
-        var to = new BoneTransform(new Vector3(0f, 0f, -1f), from.Rotation, Vector3.One);
+        var to = new BoneTransform(new(0f, 0f, -1f), from.Rotation, Vector3.One);
         var delta = RootMotionDelta.Between(from, to);
 
         TestRigs.Near(new(-1f, 0f, 0f), delta.Translation);
@@ -109,7 +109,7 @@ public class RootMotionTests {
     [Fact]
     public void ToTransform_ComposedOntoALocalTransform_MovesAlongTheCharactersOwnFacing() {
         var facingLeft = new BoneTransform(
-            new Vector3(5f, 0f, 0f),
+            new(5f, 0f, 0f),
             Quaternion.FromAxisAngle(Vector3.UnitY, MathUtil.PiOverTwo),
             Vector3.One
         );

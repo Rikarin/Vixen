@@ -71,8 +71,12 @@ public sealed class SceneGrid {
     /// <summary>The plane it draws, which is the ground until somebody moves it.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Doc 24's D5: the grid is a <i>view</i> of a <see cref="WorkPlane" /> rather than a
-    ///         thing of its own.</b> Everything above still holds — the 1-2-5 sequence, the emphasis on
+    ///         ⚠
+    ///         <b>
+    ///             Doc 24's D5: the grid is a <i>view</i> of a <see cref="WorkPlane" /> rather than a
+    ///             thing of its own.
+    ///         </b>
+    ///         Everything above still holds — the 1-2-5 sequence, the emphasis on
     ///         round numbers, the reach in screen heights — and all of it now happens in the plane's
     ///         own two directions rather than in world X and Z. A default plane is the identity, so a
     ///         grid nobody has moved is the grid that was here before.
@@ -161,10 +165,10 @@ public sealed class SceneGrid {
         // that wins — otherwise every major line is a major line with a faint one on top of it, which
         // at these alphas is a major line that is the wrong colour.
         if (levels.Fade > 0.01f) {
-            Level(lines, camera, levels.Fine, levels.Fade, major: false);
+            Level(lines, camera, levels.Fine, levels.Fade, false);
         }
 
-        Level(lines, camera, levels.Coarse, 1f, major: true);
+        Level(lines, camera, levels.Coarse, 1f, true);
 
         return lines;
     }
@@ -179,8 +183,12 @@ public sealed class SceneGrid {
     ///         jump by a factor of ten and spend most of the range at the wrong density.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The fine level is the previous step of that sequence, not a tenth of the coarse
-    ///         one.</b> A tenth is between four and five pixels apart at every distance — permanently
+    ///         ⚠
+    ///         <b>
+    ///             The fine level is the previous step of that sequence, not a tenth of the coarse
+    ///             one.
+    ///         </b>
+    ///         A tenth is between four and five pixels apart at every distance — permanently
     ///         too dense to read and permanently drawn — so the fade computed from it never moved off
     ///         a tenth and the level it controlled was a haze that cost two hundred segments a frame
     ///         and showed nothing. One step down is half or two fifths of the coarse spacing, which is
@@ -229,7 +237,7 @@ public sealed class SceneGrid {
         // that range, so the level goes from fully drawn to gone once per bracket rather than sitting
         // at one value for ever.
         var apart = fine / worldPerPixel;
-        var fade = Math.Clamp((apart - (TargetSpacing * 0.25f)) / (TargetSpacing * 0.3f), 0f, 1f);
+        var fade = Math.Clamp((apart - TargetSpacing * 0.25f) / (TargetSpacing * 0.3f), 0f, 1f);
 
         return (coarse, fine, fade);
     }
@@ -251,22 +259,22 @@ public sealed class SceneGrid {
         var originX = MathF.Round(centre.X / spacing) * spacing;
         var originZ = MathF.Round(centre.Z / spacing) * spacing;
 
-        var wanted = (int) MathF.Ceiling(Reach * camera.OrthographicHeight / spacing);
+        var wanted = (int)MathF.Ceiling(Reach * camera.OrthographicHeight / spacing);
         var extent = Math.Clamp(wanted, 1, Math.Min(Extent, MaximumLines / 2));
         var reach = extent * spacing;
 
         for (var step = -extent; step <= extent; step++) {
-            var x = originX + (step * spacing);
-            var z = originZ + (step * spacing);
+            var x = originX + step * spacing;
+            var z = originZ + step * spacing;
 
             // How far across the level this line sits. Squared, so the falloff is slow in the middle
             // — where the lines are being read — and quick at the rim, where the point is only that
             // there is no rim.
-            var across = MathF.Abs(step) / (float) extent;
-            var alpha = opacity * (1f - (across * across));
+            var across = MathF.Abs(step) / (float)extent;
+            var alpha = opacity * (1f - across * across);
 
-            Split(new(x, 0f, originZ), new Vector3(0f, 0f, reach), Colour(x, spacing, major, AxisZColour), alpha);
-            Split(new(originX, 0f, z), new Vector3(reach, 0f, 0f), Colour(z, spacing, major, AxisXColour), alpha);
+            Split(new(x, 0f, originZ), new(0f, 0f, reach), Colour(x, spacing, major, AxisZColour), alpha);
+            Split(new(originX, 0f, z), new(reach, 0f, 0f), Colour(z, spacing, major, AxisXColour), alpha);
         }
 
         void Split(Vector3 middle, Vector3 arm, Color4 colour, float alpha) {
@@ -289,8 +297,12 @@ public sealed class SceneGrid {
 
     /// <summary>What one line is drawn in: an axis, every tenth, or an ordinary one.</summary>
     /// <remarks>
-    ///     ⚠ <b>Both tests are on the world coordinate, and the "every tenth" one used to be on the
-    ///     loop index.</b> They are the same kind of question — is this line at a round place — and
+    ///     ⚠
+    ///     <b>
+    ///         Both tests are on the world coordinate, and the "every tenth" one used to be on the
+    ///         loop index.
+    ///     </b>
+    ///     They are the same kind of question — is this line at a round place — and
     ///     the index only answers it when the level happens to start at the origin, which it does
     ///     only when the pivot is there. Everywhere else the emphasis sat on ten arbitrary lines that
     ///     slid sideways as the view was panned.
@@ -311,7 +323,7 @@ public sealed class SceneGrid {
 
         var tenth = spacing * 10f;
 
-        return MathF.Abs(coordinate - (MathF.Round(coordinate / tenth) * tenth)) < tolerance
+        return MathF.Abs(coordinate - MathF.Round(coordinate / tenth) * tenth) < tolerance
             ? MajorColour
             : LineColour;
     }

@@ -3,7 +3,6 @@
 
 using System.Globalization;
 using Vixen.Live;
-using Vixen.Live.Cluster;
 
 namespace Vixen.Cli;
 
@@ -35,22 +34,21 @@ public static class LiveRunner {
         if (shards.Count == 0) {
             // ⚠ Not an error. A map with no shards is what every map looks like before anybody plays
             // it, and an operator who typed the name wrong wants to be told the name they typed.
-            await writer.WriteLineAsync($"No shards for {key}.").ConfigureAwait(false);
+            await writer.WriteLineAsync($"No shards for {key}.", cancellation).ConfigureAwait(false);
 
             return (int)ExitCode.Success;
         }
 
-        await writer.WriteLineAsync(
-                $"{"SHARD",-38} {"STATE",-10} {"POP",5} {"CAP",5}  ENDPOINT"
-            )
+        await writer.WriteLineAsync($"{"SHARD",-38} {"STATE",-10} {"POP",5} {"CAP",5}  ENDPOINT", cancellation)
             .ConfigureAwait(false);
 
-        foreach (var shard in shards.OrderBy(shard => shard.State).ThenBy(shard => shard.Shard.Value)) {
+        foreach (var shard in shards.OrderBy(static shard => shard.State).ThenBy(static shard => shard.Shard.Value)) {
             await writer.WriteLineAsync(
                     string.Create(
                         CultureInfo.InvariantCulture,
                         $"{shard.Shard,-38} {shard.State,-10} {shard.Population,5} {shard.Capacity.HardCap,5}  {shard.Endpoint}"
-                    )
+                    ),
+                    cancellation
                 )
                 .ConfigureAwait(false);
         }
@@ -84,7 +82,7 @@ public static class LiveRunner {
         ArgumentNullException.ThrowIfNull(writer);
 
         if (!shard.IsValid) {
-            await writer.WriteLineAsync("That is not a shard id.").ConfigureAwait(false);
+            await writer.WriteLineAsync("That is not a shard id.", cancellation).ConfigureAwait(false);
 
             return (int)ExitCode.UsageError;
         }
@@ -93,7 +91,8 @@ public static class LiveRunner {
 
         await writer.WriteLineAsync(
                 $"{shard} is draining: {reason}. Nobody is disconnected — players leave at safe moments, "
-                + "and the shard stops when the last one has gone."
+                + "and the shard stops when the last one has gone.",
+                cancellation
             )
             .ConfigureAwait(false);
 
@@ -119,12 +118,15 @@ public static class LiveRunner {
         ArgumentNullException.ThrowIfNull(writer);
 
         if (!player.IsValid) {
-            await writer.WriteLineAsync("That is not an account/character pair.").ConfigureAwait(false);
+            await writer.WriteLineAsync("That is not an account/character pair.", cancellation).ConfigureAwait(false);
 
             return (int)ExitCode.UsageError;
         }
 
-        await writer.WriteLineAsync(await operations.ExplainAsync(key, player, cancellation).ConfigureAwait(false))
+        await writer.WriteLineAsync(
+                await operations.ExplainAsync(key, player, cancellation).ConfigureAwait(false),
+                cancellation
+            )
             .ConfigureAwait(false);
 
         return (int)ExitCode.Success;
@@ -158,7 +160,8 @@ public static class LiveRunner {
 
             await writer.WriteLineAsync(
                     $"{region} is now rolling to {target}. Old-version shards drain as their players "
-                    + $"reach safe moments; roll back with the same command and the old pair."
+                    + "reach safe moments; roll back with the same command and the old pair.",
+                    cancellation
                 )
                 .ConfigureAwait(false);
 
@@ -173,7 +176,8 @@ public static class LiveRunner {
                         CultureInfo.InvariantCulture,
                         $"{region} is aiming at {current}; {spread:P1} of its shards are not there yet."
                     )
-                    : $"{region} has no target set, so every shard stays on whatever it started with."
+                    : $"{region} has no target set, so every shard stays on whatever it started with.",
+                cancellation
             )
             .ConfigureAwait(false);
 

@@ -65,7 +65,7 @@ public sealed class VirtualFileSystem {
             // Longest first. Ties cannot happen: two mounts with the same text are the same mount,
             // and the loop above dropped the old one.
             replaced.Sort(static (left, right) => right.Path.Value.Length.CompareTo(left.Path.Value.Length));
-            mounts = [.. replaced];
+            mounts = [..replaced];
         }
     }
 
@@ -86,7 +86,7 @@ public sealed class VirtualFileSystem {
             }
 
             if (removed) {
-                mounts = [.. remaining];
+                mounts = [..remaining];
             }
 
             return removed;
@@ -98,7 +98,11 @@ public sealed class VirtualFileSystem {
     /// <param name="provider">The provider that owns it.</param>
     /// <param name="providerPath">The path as that provider sees it — rooted, with the mount removed.</param>
     /// <returns><see langword="false" /> if no mount covers the path.</returns>
-    public bool TryResolve(VirtualPath path, [NotNullWhen(true)] out IFileProvider? provider, out VirtualPath providerPath) {
+    public bool TryResolve(
+        VirtualPath path,
+        [NotNullWhen(true)] out IFileProvider? provider,
+        out VirtualPath providerPath
+    ) {
         foreach (var mount in mounts) {
             if (mount.Path.Contains(path)) {
                 provider = mount.Provider;
@@ -123,7 +127,8 @@ public sealed class VirtualFileSystem {
     /// <param name="entry">What was found, with its full virtual path.</param>
     /// <returns><see langword="false" /> if nothing is there.</returns>
     public bool TryGetEntry(VirtualPath path, out FileEntry entry) {
-        if (TryResolve(path, out var provider, out var providerPath) && provider.TryGetEntry(providerPath, out var found)) {
+        if (TryResolve(path, out var provider, out var providerPath)
+            && provider.TryGetEntry(providerPath, out var found)) {
             entry = found with { Path = path };
             return true;
         }
@@ -261,7 +266,7 @@ public sealed class VirtualFileSystem {
                 continue;
             }
 
-            foreach (var entry in Enumerate(mount.Path, recursive: true)) {
+            foreach (var entry in Enumerate(mount.Path, true)) {
                 if (seen.Add(entry.Path)) {
                     yield return entry;
                 }
@@ -294,7 +299,7 @@ public sealed class VirtualFileSystem {
     /// <returns>The contents.</returns>
     public async ValueTask<string> ReadAllTextAsync(VirtualPath path, CancellationToken cancellationToken = default) {
         await using var stream = await OpenReadAsync(path, cancellationToken).ConfigureAwait(false);
-        using var reader = new StreamReader(stream, Encoding.UTF8, detectEncodingFromByteOrderMarks: true);
+        using var reader = new StreamReader(stream, Encoding.UTF8, true);
         return await reader.ReadToEndAsync(cancellationToken).ConfigureAwait(false);
     }
 
@@ -317,7 +322,11 @@ public sealed class VirtualFileSystem {
     /// <param name="contents">What to write.</param>
     /// <param name="cancellationToken">Cancels the write.</param>
     /// <returns>A task that completes when the file is written.</returns>
-    public ValueTask WriteAllTextAsync(VirtualPath path, string contents, CancellationToken cancellationToken = default) {
+    public ValueTask WriteAllTextAsync(
+        VirtualPath path,
+        string contents,
+        CancellationToken cancellationToken = default
+    ) {
         ArgumentNullException.ThrowIfNull(contents);
 
         // No BOM. Content is compared byte-for-byte by the build's determinism gate, and a BOM is
@@ -353,9 +362,7 @@ public sealed class VirtualFileSystem {
 
         var known = mounts.Length == 0 ? "nothing is mounted" : string.Join(", ", Mounts);
 
-        throw new DirectoryNotFoundException(
-            $"No mount covers '{path.Value}'. Mounted: {known}."
-        );
+        throw new DirectoryNotFoundException($"No mount covers '{path.Value}'. Mounted: {known}.");
     }
 
     readonly record struct MountEntry(VirtualPath Path, IFileProvider Provider);

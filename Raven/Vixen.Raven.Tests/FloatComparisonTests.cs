@@ -21,8 +21,12 @@ namespace Tests;
 ///         and no test in the tree asked.
 ///     </para>
 ///     <para>
-///         ⚠ <b>It also made <c>a != b</c> stop being the negation of <c>a == b</c> on the Vulkan
-///         path</b>: both were false when <c>a</c> was a NaN, because <c>==</c> is ordered in both
+///         ⚠
+///         <b>
+///             It also made <c>a != b</c> stop being the negation of <c>a == b</c> on the Vulkan
+///             path
+///         </b>
+///         : both were false when <c>a</c> was a NaN, because <c>==</c> is ordered in both
 ///         backends. C, C++, GLSL, HLSL and MSL all read <c>!=</c> as unordered, so the SPIR-V
 ///         backend was the outlier rather than the GLSL one — and the GLSL one is the one that
 ///         cannot be spelled otherwise, since GLSL has no ordered <c>!=</c> and <c>!(a == b)</c>

@@ -4,7 +4,6 @@
 using Vixen.Core.Syntax;
 using Vixen.Core.Syntax.Diagnostics;
 using Vixen.Raven;
-using Vixen.Raven.Diagnostics;
 using Vixen.Raven.Symbols;
 using Vixen.Raven.Syntax;
 using Xunit;
@@ -47,7 +46,7 @@ public static class SemanticTestBase {
 
         Assert.True(
             diagnostics.Count == 0,
-            "Expected no diagnostics, got:\n" + string.Join("\n", diagnostics.Select(d => d.ToString()))
+            "Expected no diagnostics, got:\n" + string.Join("\n", diagnostics.Select(static d => d.ToString()))
         );
 
         return compilation;
@@ -67,12 +66,12 @@ public static class SemanticTestBase {
     /// <summary>Asserts exactly the given diagnostic ids are reported, in order.</summary>
     public static IReadOnlyList<Diagnostic> AssertDiagnostics(string source, params string[] expectedIds) {
         var diagnostics = Diagnose(source);
-        var actual = diagnostics.Select(d => d.Id).ToArray();
+        var actual = diagnostics.Select(static d => d.Id).ToArray();
 
         Assert.True(
             expectedIds.SequenceEqual(actual),
             $"Expected [{string.Join(", ", expectedIds)}] but got:\n"
-            + string.Join("\n", diagnostics.Select(d => d.ToString()))
+            + string.Join("\n", diagnostics.Select(static d => d.ToString()))
         );
 
         return diagnostics;

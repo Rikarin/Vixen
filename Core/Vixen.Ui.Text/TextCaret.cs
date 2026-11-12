@@ -27,8 +27,12 @@ public readonly record struct ClusterSpan(int Start, int End, float X, float Adv
 ///         a run, and often at opposite ends of the line.
 ///     </para>
 ///     <para>
-///         ⚠ <b>This is what makes <see cref="ShapedText.CaretOffset(int, CaretAffinity)" /> and
-///         <see cref="ShapedText.CaretPositionAt" /> inverses of each other.</b> Without it the
+///         ⚠
+///         <b>
+///             This is what makes <see cref="ShapedText.CaretOffset(int, CaretAffinity)" /> and
+///             <see cref="ShapedText.CaretPositionAt" /> inverses of each other.
+///         </b>
+///         Without it the
 ///         first is a function from one index to two places and has to pick one, so hit-testing a
 ///         caret's own offset can return a caret drawn somewhere else — which on screen is a caret
 ///         that teleports across the line when the user clicks exactly where it already is.
@@ -67,8 +71,11 @@ public sealed partial class ShapedText {
     /// <returns>The caret's x, in design units from the start of the line.</returns>
     /// <remarks>
     ///     <para>
-    ///         <b>A shaping cluster is not a grapheme cluster, and the difference is the whole
-    ///         problem.</b> A cluster is what the shaper could not subdivide — a ligature, a
+    ///         <b>
+    ///             A shaping cluster is not a grapheme cluster, and the difference is the whole
+    ///             problem.
+    ///         </b>
+    ///         A cluster is what the shaper could not subdivide — a ligature, a
     ///         reordered Indic syllable — and it can hold several user-perceived characters behind
     ///         one glyph. A caret moves in graphemes and has to land <i>inside</i> such a glyph, so
     ///         its position is interpolated across the cluster by grapheme count. Snapping to the
@@ -94,8 +101,12 @@ public sealed partial class ShapedText {
     ///         holds here; the affinity decides only <i>which cluster</i> is interpolated across.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The two answers differ only at a direction boundary, and that is not a weakness
-    ///         of this design but the whole of the problem.</b> Clusters tile the text without gaps,
+    ///         ⚠
+    ///         <b>
+    ///             The two answers differ only at a direction boundary, and that is not a weakness
+    ///             of this design but the whole of the problem.
+    ///         </b>
+    ///         Clusters tile the text without gaps,
     ///         so inside a run the trailing edge of one and the leading edge of the next are the same
     ///         number. Where the direction changes the two clusters are at opposite ends of a run,
     ///         and one index therefore names two places that can be most of a line apart.
@@ -111,7 +122,7 @@ public sealed partial class ShapedText {
         if (affinity == CaretAffinity.Upstream) {
             foreach (var span in Clusters) {
                 if (clamped > span.Start && clamped <= span.End) {
-                    return Interpolate(span, Fraction(span, clamped, whenIndivisible: 1));
+                    return Interpolate(span, Fraction(span, clamped, 1));
                 }
             }
         }
@@ -142,8 +153,12 @@ public sealed partial class ShapedText {
     ///         lands back on the same index.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Where the direction changes it is not, and the missing half is exactly the
-    ///         affinity this drops.</b> <see cref="CaretPositionAt" /> returns both and round-trips
+    ///         ⚠
+    ///         <b>
+    ///             Where the direction changes it is not, and the missing half is exactly the
+    ///             affinity this drops.
+    ///         </b>
+    ///         <see cref="CaretPositionAt" /> returns both and round-trips
     ///         at a direction boundary; this returns the index alone, so feeding it back to
     ///         <see cref="CaretOffset(int)" /> can answer with the other end of the line. Prefer the
     ///         pair anywhere a caret is being <i>placed</i> rather than merely counted — this
@@ -157,16 +172,23 @@ public sealed partial class ShapedText {
     /// <returns>A UTF-16 index on a grapheme boundary, and the affinity that puts it back here.</returns>
     /// <remarks>
     ///     <para>
-    ///         <b>The inverse of <see cref="CaretOffset(int, CaretAffinity)" />, which
-    ///         <see cref="CaretIndexAt" /> could not be.</b> The affinity is read off which end of
+    ///         <b>
+    ///             The inverse of <see cref="CaretOffset(int, CaretAffinity)" />, which
+    ///             <see cref="CaretIndexAt" /> could not be.
+    ///         </b>
+    ///         The affinity is read off which end of
     ///         the landed-on cluster the point fell at, so feeding the pair back gives the same x —
     ///         at a direction boundary as well as inside a run. That round trip is the gate, and it
     ///         is worth more than any hand-written expectation about where a caret goes, because it
     ///         holds for scripts nobody thought to write a case for.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The index alone is still not recoverable, and that is a property of bidi text
-    ///         rather than a gap here.</b> In <c>abcلسان</c> the caret after the <c>c</c> and the
+    ///         ⚠
+    ///         <b>
+    ///             The index alone is still not recoverable, and that is a property of bidi text
+    ///             rather than a gap here.
+    ///         </b>
+    ///         In <c>abcلسان</c> the caret after the <c>c</c> and the
     ///         caret at the end of the text are the same point on the screen: a point names two
     ///         positions, and no return value can be both. This answers with the one belonging to
     ///         the cluster drawn first, so an editor that needs the other must carry it rather than
@@ -217,7 +239,7 @@ public sealed partial class ShapedText {
     }
 
     static float Interpolate(ClusterSpan span, float fraction) =>
-        span.IsRightToLeft ? span.Right - (span.Advance * fraction) : span.X + (span.Advance * fraction);
+        span.IsRightToLeft ? span.Right - span.Advance * fraction : span.X + span.Advance * fraction;
 
     /// <summary>How far across a cluster an index sits, counted in graphemes.</summary>
     /// <param name="span">The cluster.</param>
@@ -226,8 +248,12 @@ public sealed partial class ShapedText {
     ///     What to answer for a cluster with no grapheme boundary inside it to interpolate against —
     ///     the leading edge for a caret in front of it, the <i>trailing</i> edge for one behind it.
     ///     <para>
-    ///         ⚠ <b>This parameter is insurance and is labelled as such: answering 0 for both fails
-    ///         nothing.</b> The only span reached with no grapheme step in it is the one a glyphless
+    ///         ⚠
+    ///         <b>
+    ///             This parameter is insurance and is labelled as such: answering 0 for both fails
+    ///             nothing.
+    ///         </b>
+    ///         The only span reached with no grapheme step in it is the one a glyphless
     ///         run gets — a string of deleted joiners — and that span's <c>Advance</c> is zero, so
     ///         both edges are the same number and no assertion about an x can tell them apart. It is
     ///         kept because the two callers genuinely want opposite ends and a future span that is
@@ -283,7 +309,7 @@ public sealed partial class ShapedText {
     int[] BuildGraphemes() {
         var found = new List<int>();
         GraphemeBreaker.Collect(Text, found);
-        return [.. found];
+        return [..found];
     }
 
     /// <summary>Groups the glyphs into clusters and gives each one its place on the line.</summary>
@@ -306,13 +332,15 @@ public sealed partial class ShapedText {
 
         foreach (var run in Runs) {
             if (run.Glyphs.Count == 0) {
-                spans.Add(new ClusterSpan(
-                    run.Item.Start,
-                    run.Item.Start + run.Item.Length,
-                    penX,
-                    0,
-                    run.Item.IsRightToLeft
-                ));
+                spans.Add(
+                    new(
+                        run.Item.Start,
+                        run.Item.Start + run.Item.Length,
+                        penX,
+                        0,
+                        run.Item.IsRightToLeft
+                    )
+                );
 
                 continue;
             }
@@ -339,13 +367,15 @@ public sealed partial class ShapedText {
             }
 
             for (var k = 0; k < groups.Count; k++) {
-                spans.Add(new ClusterSpan(
-                    groups[k].Cluster,
-                    k + 1 < groups.Count ? groups[k + 1].Cluster : run.Item.Start + run.Item.Length,
-                    groups[k].X,
-                    groups[k].Advance,
-                    run.Item.IsRightToLeft
-                ));
+                spans.Add(
+                    new(
+                        groups[k].Cluster,
+                        k + 1 < groups.Count ? groups[k + 1].Cluster : run.Item.Start + run.Item.Length,
+                        groups[k].X,
+                        groups[k].Advance,
+                        run.Item.IsRightToLeft
+                    )
+                );
             }
         }
 

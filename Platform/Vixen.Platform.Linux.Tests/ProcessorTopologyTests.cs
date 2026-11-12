@@ -30,8 +30,7 @@ public class ProcessorTopologyTests {
     [InlineData("")]
     [InlineData("   ")]
     [InlineData("nonsense")]
-    public void NothingUsableIsAnEmptyList(string? text) =>
-        Assert.Empty(Sysfs.ParseCpuList(text));
+    public void NothingUsableIsAnEmptyList(string? text) => Assert.Empty(Sysfs.ParseCpuList(text));
 
     /// <summary>An absent sysfs file is the normal case in a container and is not an exception.</summary>
     [Fact]

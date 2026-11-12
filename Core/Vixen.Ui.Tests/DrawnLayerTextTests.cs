@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Reflection;
-using Vixen.Core.Mathematics;
 using Vixen.Ui.Text;
 using Xunit;
 
@@ -14,8 +13,11 @@ namespace Vixen.Ui.Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b><a href="https://github.com/Rikarin/Vixen/issues/1112">#1112</a>, and its premise is
-///         wrong.</b> That issue says a drawn layer "cannot put a character on the screen" because
+///         <b>
+///             <a href="https://github.com/Rikarin/Vixen/issues/1112">#1112</a>, and its premise is
+///             wrong.
+///         </b>
+///         That issue says a drawn layer "cannot put a character on the screen" because
 ///         <see cref="DrawContext" /> has no text primitive, and offers two answers: build one, or
 ///         write down that a drawn layer is shapes only. Neither is right, because the absence is a
 ///         missing <em>shorthand</em> and not a missing capability — every piece is already public
@@ -52,7 +54,7 @@ public class DrawnLayerTextTests {
 
     static FontFace LoadFont(string resource, string name) {
         using var stream = Assembly.GetExecutingAssembly()
-            .GetManifestResourceStream($"Vixen.Ui.Tests.Fonts.{resource}")
+                .GetManifestResourceStream($"Vixen.Ui.Tests.Fonts.{resource}")
             ?? throw new InvalidOperationException($"the test font '{resource}' is not embedded");
 
         using var memory = new MemoryStream();
@@ -87,7 +89,7 @@ public class DrawnLayerTextTests {
         run.Place(placed);
 
         context.List.Add(
-            new DrawCommand(DrawCommandKind.Text, x, baseline, run.Width, run.Height, context.Foreground, 0f, 0f) {
+            new(DrawCommandKind.Text, x, baseline, run.Width, run.Height, context.Foreground, 0f, 0f) {
                 Offset = context.List.AddGlyphs(placed),
                 Length = placed.Count,
                 Font = context.List.AddFont(face),

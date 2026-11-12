@@ -9,8 +9,12 @@ namespace Vixen.Editor.ShaderGraph.Nodes;
 /// <summary>The graph's procedural vocabulary, over the library that was written for it.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b><c>Raven/Library/Material/ComputeColor.rvn</c>'s procedural and UV sections were
-///         written for this and had no caller of any kind.</b> Its own header says so — "the shader-graph
+///         ⚠
+///         <b>
+///             <c>Raven/Library/Material/ComputeColor.rvn</c>'s procedural and UV sections were
+///             written for this and had no caller of any kind.
+///         </b>
+///         Its own header says so — "the shader-graph
 ///         node vocabulary: the primitives a visual material graph compiles down to" — and
 ///         <c>ValueNoise</c>, <c>FractalNoise</c>, <c>Checker</c>, <c>RotateUv</c> and
 ///         <c>FlipbookUv</c> were reachable from no node in this assembly. The nodes below are the
@@ -18,16 +22,23 @@ namespace Vixen.Editor.ShaderGraph.Nodes;
 ///         is already compiled by <c>CheckShaders</c>, and is already in both emitters' reach.
 ///     </para>
 ///     <para>
-///         ⚠ <b>They are also the first nodes that need an <c>import</c>, and the two shapes disagreed
-///         about imports.</b> A surface graph emits the four <c>Vixen.Shaders.*</c> packages
+///         ⚠
+///         <b>
+///             They are also the first nodes that need an <c>import</c>, and the two shapes disagreed
+///             about imports.
+///         </b>
+///         A surface graph emits the four <c>Vixen.Shaders.*</c> packages
 ///         unconditionally; a standalone graph emitted none at all. So each of these asks —
 ///         <see cref="RavenEmitter.Import" /> — rather than the preamble importing the library into
 ///         every graph, because a standalone graph is what the node preview compiles and that renderer
 ///         refuses a variant reflecting anything but its one uniform block.
 ///     </para>
 ///     <para>
-///         ⚠ <b>All of them declare <c>Preview</c> now, and until
-///         <a href="https://github.com/Rikarin/Vixen/issues/510">#510</a> none could.</b>
+///         ⚠
+///         <b>
+///             All of them declare <c>Preview</c> now, and until
+///             <a href="https://github.com/Rikarin/Vixen/issues/510">#510</a> none could.
+///         </b>
 ///         <see cref="ShaderGraphPreviewRenderer" /> compiled the emitted preview through
 ///         <c>RavenEffectCompiler.FromSources</c> with <em>one</em> source — the preview itself — so
 ///         nothing in the shipped library was in scope and any node calling into it failed to bind.
@@ -76,8 +87,12 @@ public sealed partial class NoiseNode : ShaderNode {
 
     /// <summary>The wired coordinate, or the stage's own when nothing is wired.</summary>
     /// <remarks>
-    ///     ⚠ <b>An unconnected port carries the literal its default made, which is not a
-    ///     coordinate</b> — the same trap <c>Texture/Sample 2D</c> documents, and the reason every
+    ///     ⚠
+    ///     <b>
+    ///         An unconnected port carries the literal its default made, which is not a
+    ///         coordinate
+    ///     </b>
+    ///     — the same trap <c>Texture/Sample 2D</c> documents, and the reason every
     ///     UV-taking node has to ask rather than read. A node that read the port would sample noise at
     ///     one point and shade the whole surface in one flat value, which looks like a broken hash.
     /// </remarks>

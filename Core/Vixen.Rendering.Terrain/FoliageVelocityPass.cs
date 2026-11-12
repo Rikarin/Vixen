@@ -12,8 +12,11 @@ namespace Vixen.Rendering.Terrain;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>The velocity half of a <see cref="FoliageDrawPass" />, on
-///         <see cref="GrassVelocityPass" />'s terms.</b> The meshes, the cull's three buffers and the
+///         <b>
+///             The velocity half of a <see cref="FoliageDrawPass" />, on
+///             <see cref="GrassVelocityPass" />'s terms.
+///         </b>
+///         The meshes, the cull's three buffers and the
 ///         patched indirect commands are all the colour pass's frame; what is this pass's own is the
 ///         block holding both matrices. A placed tree does not move, so unlike the grass there is no
 ///         second clock — the camera term is the whole motion, which is exactly what a static object
@@ -44,18 +47,26 @@ sealed class FoliageVelocityPass : IDisposable {
     /// <param name="shaders">The <c>FoliageVelocity</c> stages.</param>
     /// <param name="motionFormat">The frame's motion target format.</param>
     /// <param name="depthFormat">The scene depth it tests against.</param>
-    public FoliageVelocityPass(IGraphicsDevice device, TerrainShaders shaders, PixelFormat motionFormat, PixelFormat depthFormat) {
+    public FoliageVelocityPass(
+        IGraphicsDevice device,
+        TerrainShaders shaders,
+        PixelFormat motionFormat,
+        PixelFormat depthFormat
+    ) {
         ArgumentNullException.ThrowIfNull(device);
 
         if (!shaders.IsValid) {
-            throw new ArgumentException("A foliage velocity pass needs both a vertex and a fragment stage.", nameof(shaders));
+            throw new ArgumentException(
+                "A foliage velocity pass needs both a vertex and a fragment stage.",
+                nameof(shaders)
+            );
         }
 
         this.device = device;
         slots = Math.Max(1, device.FramesInFlight);
 
         // One block per frame in flight — FoliageDrawPass's ring, for its immediate-memcpy reason.
-        constantStride = ((FoliageVelocityKeys.ConstantBufferSize + SlotAlignment - 1) / SlotAlignment) * SlotAlignment;
+        constantStride = (FoliageVelocityKeys.ConstantBufferSize + SlotAlignment - 1) / SlotAlignment * SlotAlignment;
 
         constants = device.CreateBuffer(
             new(constantStride * slots, BufferUsage.Uniform, MemoryAccess.HostUpload, "foliage velocity constants")
@@ -65,19 +76,45 @@ sealed class FoliageVelocityPass : IDisposable {
             new(
                 DescriptorSetSlot.PerMaterial,
                 [
-                    new(FoliageVelocityKeys.ConstantBufferBinding, DescriptorKind.UniformBuffer, ShaderStage.Vertex | ShaderStage.Fragment),
-                    new(FoliageVelocityKeys.AlbedoMapBinding, DescriptorKind.SampledTexture, ShaderStage.Vertex | ShaderStage.Fragment),
-                    new(FoliageVelocityKeys.AlbedoSamplerBinding, DescriptorKind.Sampler, ShaderStage.Vertex | ShaderStage.Fragment),
-                    new(FoliageVelocityKeys.InstancesBinding, DescriptorKind.StorageBuffer, ShaderStage.Vertex | ShaderStage.Fragment),
-                    new(FoliageVelocityKeys.SurvivorsBinding, DescriptorKind.StorageBuffer, ShaderStage.Vertex | ShaderStage.Fragment),
-                    new(FoliageVelocityKeys.ParametersBinding, DescriptorKind.StorageBuffer, ShaderStage.Vertex | ShaderStage.Fragment)
+                    new(
+                        FoliageVelocityKeys.ConstantBufferBinding,
+                        DescriptorKind.UniformBuffer,
+                        ShaderStage.Vertex | ShaderStage.Fragment
+                    ),
+                    new(
+                        FoliageVelocityKeys.AlbedoMapBinding,
+                        DescriptorKind.SampledTexture,
+                        ShaderStage.Vertex | ShaderStage.Fragment
+                    ),
+                    new(
+                        FoliageVelocityKeys.AlbedoSamplerBinding,
+                        DescriptorKind.Sampler,
+                        ShaderStage.Vertex | ShaderStage.Fragment
+                    ),
+                    new(
+                        FoliageVelocityKeys.InstancesBinding,
+                        DescriptorKind.StorageBuffer,
+                        ShaderStage.Vertex | ShaderStage.Fragment
+                    ),
+                    new(
+                        FoliageVelocityKeys.SurvivorsBinding,
+                        DescriptorKind.StorageBuffer,
+                        ShaderStage.Vertex | ShaderStage.Fragment
+                    ),
+                    new(
+                        FoliageVelocityKeys.ParametersBinding,
+                        DescriptorKind.StorageBuffer,
+                        ShaderStage.Vertex | ShaderStage.Fragment
+                    )
                 ],
                 "foliage velocity"
             )
         );
 
         // Padded below the material set on TerrainRenderer's terms.
-        emptySetLayout = device.CreateDescriptorSetLayout(new(DescriptorSetSlot.PerFrame, [], "foliage velocity empty"));
+        emptySetLayout = device.CreateDescriptorSetLayout(
+            new(DescriptorSetSlot.PerFrame, [], "foliage velocity empty")
+        );
         layout = device.CreatePipelineLayout(new([emptySetLayout, emptySetLayout, setLayout], [], "foliage velocity"));
 
         pipeline = device.CreateGraphicsPipeline(
@@ -123,9 +160,11 @@ sealed class FoliageVelocityPass : IDisposable {
     /// <param name="cull">The cull whose survivors, parameters and instances the draw reads.</param>
     /// <param name="view">The camera's combined matrix — the colour pass's own value.</param>
     /// <param name="previousViewProjection">Last frame's matrix, unjittered like the current one.</param>
-    /// <remarks>Called after the cull's own prepare, for <see cref="FoliageDrawPass.Prepare" />'s
+    /// <remarks>
+    ///     Called after the cull's own prepare, for <see cref="FoliageDrawPass.Prepare" />'s
     ///     ring-slot reason — and after the colour pass's, whose first frame uploads the default
-    ///     albedo this set points at.</remarks>
+    ///     albedo this set points at.
+    /// </remarks>
     public void Prepare(
         FoliageDrawPass draw,
         FoliageCullPass cull,
@@ -157,7 +196,12 @@ sealed class FoliageVelocityPass : IDisposable {
         device.UpdateDescriptorSet(
             descriptors[slot],
             [
-                DescriptorWrite.Uniform(FoliageVelocityKeys.ConstantBufferBinding, constants, slot * constantStride, FoliageVelocityKeys.ConstantBufferSize),
+                DescriptorWrite.Uniform(
+                    FoliageVelocityKeys.ConstantBufferBinding,
+                    constants,
+                    slot * constantStride,
+                    FoliageVelocityKeys.ConstantBufferSize
+                ),
                 DescriptorWrite.Texture(FoliageVelocityKeys.AlbedoMapBinding, draw.AlbedoOrDefault),
                 DescriptorWrite.SamplerAt(FoliageVelocityKeys.AlbedoSamplerBinding, draw.AlbedoSampler),
                 DescriptorWrite.Storage(FoliageVelocityKeys.InstancesBinding, cull.Instances),
@@ -168,9 +212,11 @@ sealed class FoliageVelocityPass : IDisposable {
     }
 
     /// <summary>Binds everything the draws need and issues them — the colour pass's loop, verbatim.</summary>
-    /// <remarks>One draw per level per batch, empty levels included, meshless batches skipped —
+    /// <remarks>
+    ///     One draw per level per batch, empty levels included, meshless batches skipped —
     ///     <see cref="FoliageDrawPass.Record" />'s own contract, because the two passes must issue
-    ///     the same commands to cover the same pixels.</remarks>
+    ///     the same commands to cover the same pixels.
+    /// </remarks>
     public int Record(ICommandList commands, FoliageCullPass cull, IReadOnlyDictionary<int, FoliageMesh> meshes) {
         ArgumentNullException.ThrowIfNull(commands);
         ArgumentNullException.ThrowIfNull(cull);

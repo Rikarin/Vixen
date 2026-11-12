@@ -31,9 +31,9 @@ public class WindowReachabilityTests {
             bounds,
             bounds,
             1f,
-            new DisplayMode(new Int2((int) width, (int) height), 60f, IsHdr: false),
+            new(new((int)width, (int)height), 60f, false),
             [],
-            IsPrimary: true
+            true
         );
     }
 

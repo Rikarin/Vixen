@@ -12,7 +12,7 @@ public class LedgerTests : IAsyncLifetime {
     static readonly AssetId Sword = new("items/greatsword");
     static readonly DateTimeOffset Noon = new(2026, 8, 4, 12, 0, 0, TimeSpan.Zero);
 
-    readonly MemoryPersistence store = new() { Clock = () => Noon };
+    readonly MemoryPersistence store = new() { Clock = static () => Noon };
 
     PlayerKey alice;
     PlayerKey bob;
@@ -33,8 +33,18 @@ public class LedgerTests : IAsyncLifetime {
 
         Assert.Equal(LedgerVerdict.Applied, result.Verdict);
         Assert.True(result.Ok);
-        Assert.Equal(100, await store.Ledger.BalanceAsync(LedgerAccount.Of(alice), Gold, TestContext.Current.CancellationToken));
-        Assert.Equal(-100, await store.Ledger.BalanceAsync(LedgerAccount.Of(LedgerAccount.Loot), Gold, TestContext.Current.CancellationToken));
+        Assert.Equal(
+            100,
+            await store.Ledger.BalanceAsync(LedgerAccount.Of(alice), Gold, TestContext.Current.CancellationToken)
+        );
+        Assert.Equal(
+            -100,
+            await store.Ledger.BalanceAsync(
+                LedgerAccount.Of(LedgerAccount.Loot),
+                Gold,
+                TestContext.Current.CancellationToken
+            )
+        );
     }
 
     /// <summary>
@@ -59,10 +69,7 @@ public class LedgerTests : IAsyncLifetime {
     [Fact]
     public async Task An_unbalanced_intent_is_refused_whole() {
         var lopsided = new LedgerIntent {
-            Key = Key(alice, "bug", "1"),
-            LeaseEpoch = 1,
-            At = Noon,
-            Movements = [new(Account(alice), Gold, 500)]
+            Key = Key(alice, "bug", "1"), LeaseEpoch = 1, At = Noon, Movements = [new(Account(alice), Gold, 500)]
         };
 
         var result = await store.Ledger.AppendAsync(lopsided, TestContext.Current.CancellationToken);
@@ -85,7 +92,10 @@ public class LedgerTests : IAsyncLifetime {
 
         var first = await store.Ledger.AppendAsync(intent, TestContext.Current.CancellationToken);
         var second = await store.Ledger.AppendAsync(intent, TestContext.Current.CancellationToken);
-        var third = await store.Ledger.AppendAsync(intent with { Detail = "retried by a different realm" }, TestContext.Current.CancellationToken);
+        var third = await store.Ledger.AppendAsync(
+            intent with { Detail = "retried by a different realm" },
+            TestContext.Current.CancellationToken
+        );
 
         Assert.Equal(LedgerVerdict.Applied, first.Verdict);
         Assert.Equal(LedgerVerdict.Replayed, second.Verdict);
@@ -114,12 +124,18 @@ public class LedgerTests : IAsyncLifetime {
             50
         );
 
-        Assert.Equal(LedgerVerdict.Applied, (await store.Ledger.AppendAsync(spend, TestContext.Current.CancellationToken)).Verdict);
+        Assert.Equal(
+            LedgerVerdict.Applied,
+            (await store.Ledger.AppendAsync(spend, TestContext.Current.CancellationToken)).Verdict
+        );
         Assert.Equal(0, await store.Ledger.BalanceAsync(Account(alice), Gold, TestContext.Current.CancellationToken));
 
         // Alice cannot afford it now. The retry must still be a no-op rather than Insufficient,
         // because the caller cannot tell whether the first attempt reached the store.
-        Assert.Equal(LedgerVerdict.Replayed, (await store.Ledger.AppendAsync(spend, TestContext.Current.CancellationToken)).Verdict);
+        Assert.Equal(
+            LedgerVerdict.Replayed,
+            (await store.Ledger.AppendAsync(spend, TestContext.Current.CancellationToken)).Verdict
+        );
         Assert.Equal(0, await store.Ledger.BalanceAsync(Account(alice), Gold, TestContext.Current.CancellationToken));
     }
 
@@ -132,7 +148,10 @@ public class LedgerTests : IAsyncLifetime {
         var record = await store.Players.ReadAsync(alice, TestContext.Current.CancellationToken);
 
         Assert.NotNull(record);
-        Assert.Equal(WriteOutcome.Written, await store.Players.WriteAsync(record with { LeaseEpoch = 5 }, TestContext.Current.CancellationToken));
+        Assert.Equal(
+            WriteOutcome.Written,
+            await store.Players.WriteAsync(record with { LeaseEpoch = 5 }, TestContext.Current.CancellationToken)
+        );
 
         var late = await store.Ledger.AppendAsync(
             LedgerIntent.Transfer(Key(alice, "spend", "late"), 1, Noon, Account(alice), Account(bob), Gold, 10),
@@ -199,7 +218,10 @@ public class LedgerTests : IAsyncLifetime {
         };
 
         Assert.True(trade.IsBalanced());
-        Assert.Equal(LedgerVerdict.Applied, (await store.Ledger.AppendAsync(trade, TestContext.Current.CancellationToken)).Verdict);
+        Assert.Equal(
+            LedgerVerdict.Applied,
+            (await store.Ledger.AppendAsync(trade, TestContext.Current.CancellationToken)).Verdict
+        );
 
         Assert.Equal(0, await store.Ledger.BalanceAsync(Account(alice), Sword, TestContext.Current.CancellationToken));
         Assert.Equal(1, await store.Ledger.BalanceAsync(Account(bob), Sword, TestContext.Current.CancellationToken));
@@ -224,7 +246,10 @@ public class LedgerTests : IAsyncLifetime {
             ]
         };
 
-        Assert.Equal(LedgerVerdict.Insufficient, (await store.Ledger.AppendAsync(trade, TestContext.Current.CancellationToken)).Verdict);
+        Assert.Equal(
+            LedgerVerdict.Insufficient,
+            (await store.Ledger.AppendAsync(trade, TestContext.Current.CancellationToken)).Verdict
+        );
         Assert.Equal(1, await store.Ledger.BalanceAsync(Account(alice), Sword, TestContext.Current.CancellationToken));
         Assert.Equal(0, await store.Ledger.BalanceAsync(Account(bob), Sword, TestContext.Current.CancellationToken));
         Assert.Equal(10, await store.Ledger.BalanceAsync(Account(bob), Gold, TestContext.Current.CancellationToken));
@@ -267,7 +292,10 @@ public class LedgerTests : IAsyncLifetime {
         Assert.Equal(6, all.Count);
         Assert.True(all[0].Sequence > all[^1].Sequence);
 
-        var hers = await store.Ledger.HistoryAsync(new() { Account = Account(alice) }, TestContext.Current.CancellationToken);
+        var hers = await store.Ledger.HistoryAsync(
+            new() { Account = Account(alice) },
+            TestContext.Current.CancellationToken
+        );
 
         Assert.Equal(2, hers.Count);
         Assert.All(hers, row => Assert.Equal(Account(alice), row.Account));
@@ -276,7 +304,10 @@ public class LedgerTests : IAsyncLifetime {
 
         Assert.Equal(2, swords.Count);
 
-        var one = await store.Ledger.HistoryAsync(new() { Operation = Key(alice, "grant", Sword.Address) }, TestContext.Current.CancellationToken);
+        var one = await store.Ledger.HistoryAsync(
+            new() { Operation = Key(alice, "grant", Sword.Address) },
+            TestContext.Current.CancellationToken
+        );
 
         Assert.Equal(2, one.Count);
 
@@ -303,7 +334,9 @@ public class LedgerTests : IAsyncLifetime {
             TestContext.Current.CancellationToken
         );
 
-        var row = Assert.Single(await store.Ledger.HistoryAsync(new() { Account = Account(alice) }, TestContext.Current.CancellationToken));
+        var row = Assert.Single(
+            await store.Ledger.HistoryAsync(new() { Account = Account(alice) }, TestContext.Current.CancellationToken)
+        );
 
         Assert.Equal(realmSaidAt, row.At);
         Assert.Equal(Noon, row.Recorded);
@@ -316,9 +349,10 @@ public class LedgerTests : IAsyncLifetime {
         await Grant(alice, Gold, 1);
         await Grant(bob, Gold, 1);
 
-        var rows = (await store.Ledger.HistoryAsync(new(), TestContext.Current.CancellationToken)).Reverse().ToImmutableArray();
+        var rows = (await store.Ledger.HistoryAsync(new(), TestContext.Current.CancellationToken)).Reverse()
+            .ToImmutableArray();
 
-        Assert.Equal([1L, 2L, 3L, 4L], rows.Select(row => row.Sequence));
+        Assert.Equal([1L, 2L, 3L, 4L], rows.Select(static row => row.Sequence));
     }
 
     [Fact]

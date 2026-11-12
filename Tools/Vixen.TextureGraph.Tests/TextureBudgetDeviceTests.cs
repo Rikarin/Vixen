@@ -12,8 +12,11 @@ namespace Tests;
 /// <summary>What a kernel's own constants do to doc 48 § D8 when a bake scales a length past them.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>A ceiling inside a kernel is a second place a resolution can be decided, and § D8's
-///         whole point is that there is only one.</b>
+///         ⚠
+///         <b>
+///             A ceiling inside a kernel is a second place a resolution can be decided, and § D8's
+///             whole point is that there is only one.
+///         </b>
 ///         <a href="https://github.com/Rikarin/Vixen/issues/678">#678</a>: <c>Blur</c> clamped the
 ///         radius it was handed to a constant 64 — after <see cref="TexturePlan.Resolve" /> had
 ///         already scaled it into the written image's texels. An authored radius of 20 resolves to 20
@@ -74,7 +77,7 @@ public class TextureBudgetDeviceTests(ITestOutputHelper output) {
         for (var y = 0; y < side; y++) {
             for (var x = 0; x < side; x++) {
                 var value = (byte)(x < side / 2 ? 0 : 255);
-                var at = ((y * side) + x) * 4;
+                var at = (y * side + x) * 4;
 
                 pixels[at] = value;
                 pixels[at + 1] = value;
@@ -220,7 +223,7 @@ public class TextureBudgetDeviceTests(ITestOutputHelper output) {
             return baked.Read(1);
         }
 
-        int[] Downsample(Bitmap picture, int factor) {
+        static int[] Downsample(Bitmap picture, int factor) {
             var row = new int[picture.Width / factor];
 
             for (var x = 0; x < row.Length; x++) {
@@ -230,8 +233,8 @@ public class TextureBudgetDeviceTests(ITestOutputHelper output) {
                     for (var dx = 0; dx < factor; dx++) {
                         sum += TextureKernelHarness.At(
                             picture,
-                            (x * factor) + dx,
-                            ((picture.Height / 2 / factor) * factor) + dy,
+                            x * factor + dx,
+                            picture.Height / 2 / factor * factor + dy,
                             0
                         );
                     }
@@ -258,8 +261,12 @@ public class TextureBudgetDeviceTests(ITestOutputHelper output) {
     ///         else.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Measuring the ramp's <em>width</em> instead proves nothing, and that is
-    ///         <a href="https://github.com/Rikarin/Vixen/issues/707">#707</a>.</b> The obvious
+    ///         ⚠
+    ///         <b>
+    ///             Measuring the ramp's <em>width</em> instead proves nothing, and that is
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/707">#707</a>.
+    ///         </b>
+    ///         The obvious
     ///         sabotage — <c>spacing = wide / MaxTaps</c>, dropping the <c>max(1f, …)</c> that
     ///         confines the spreading to radii past the budget — leaves the width at exactly 24 and
     ///         the whole file green. At a radius of 12 that spacing is 0.1875, the loop runs all 64
@@ -280,7 +287,7 @@ public class TextureBudgetDeviceTests(ITestOutputHelper output) {
         using var evaluator = new TexturePlanEvaluator(device);
 
         const int Radius = 12;
-        const int Taps = (2 * Radius) + 1;
+        const int Taps = 2 * Radius + 1;
         const int Edge = Authored / 2;
 
         var plan = new TexturePlan {
@@ -295,7 +302,9 @@ public class TextureBudgetDeviceTests(ITestOutputHelper output) {
         var picture = bake.Read(1);
         var width = RampWidth(picture, Edge);
 
-        output.WriteLine($"adapter: {TextureKernelHarness.Adapter(device)}; a radius of {Radius} ramps over {width} texels");
+        output.WriteLine(
+            $"adapter: {TextureKernelHarness.Adapter(device)}; a radius of {Radius} ramps over {width} texels"
+        );
 
         Assert.Equal(2 * Radius, width);
 

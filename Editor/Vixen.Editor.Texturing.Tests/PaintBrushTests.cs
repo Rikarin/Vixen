@@ -2,9 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core.Mathematics;
-using Vixen.Editor.Texturing.Painting;
 using Vixen.Terrain;
-using Vixen.Texturing.Layers;
 using Vixen.Texturing.Painting;
 using Xunit;
 
@@ -70,7 +68,13 @@ public class PaintBrushTests {
     /// <summary>Falloff is the fraction that falls off, and zero is a hard disc.</summary>
     [Fact]
     public void A_brush_with_no_falloff_is_flat_to_its_edge_and_nothing_past_it() {
-        PaintBrush brush = new() { Radius = 10f, Flow = 1f, Opacity = 1f, Spacing = 0.2f, Falloff = 0f };
+        PaintBrush brush = new() {
+            Radius = 10f,
+            Flow = 1f,
+            Opacity = 1f,
+            Spacing = 0.2f,
+            Falloff = 0f
+        };
         PaintStamp stamp = new(new(0f, 0f), 0f, 10f, 1f);
 
         Assert.Equal(1f, brush.WeightAt(new(0f, 0f), stamp), 5);
@@ -81,7 +85,13 @@ public class PaintBrushTests {
     /// <summary>Flow is on the stamp, so a partial stamp deposits less.</summary>
     [Fact]
     public void Flow_scales_the_whole_stamp() {
-        PaintBrush brush = new() { Radius = 10f, Flow = 1f, Opacity = 1f, Spacing = 0.2f, Falloff = 0f };
+        PaintBrush brush = new() {
+            Radius = 10f,
+            Flow = 1f,
+            Opacity = 1f,
+            Spacing = 0.2f,
+            Falloff = 0f
+        };
 
         Assert.Equal(0.25f, brush.WeightAt(new(0f, 0f), new(new(0f, 0f), 0f, 10f, 0.25f)), 5);
     }
@@ -89,7 +99,7 @@ public class PaintBrushTests {
     /// <summary>A footprint is conservative, clipped, and never smaller than the disc.</summary>
     [Fact]
     public void A_footprint_covers_the_disc_and_is_clipped_to_the_atlas() {
-        PaintBrush brush = PaintBrush.Default with { Radius = 8f };
+        var brush = PaintBrush.Default with { Radius = 8f };
         var inside = brush.FootprintOf(new(new(20f, 20f), 0f, 8f, 1f), 64, 64);
 
         Assert.True(inside.X <= 12 && inside.Y <= 12, "The footprint did not reach the disc's low corner.");

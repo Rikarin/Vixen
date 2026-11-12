@@ -39,7 +39,7 @@ public class VariableHeightVirtualisationTests {
     static float Height(int item) => item % 2 == 0 ? Short : Tall;
 
     /// <summary>Where item <c>i</c> starts, worked out rather than asked.</summary>
-    static float Expected(int item) => ((item / 2) * (Short + Tall)) + (item % 2 == 0 ? 0f : Short);
+    static float Expected(int item) => item / 2 * (Short + Tall) + (item % 2 == 0 ? 0f : Short);
 
     /// <summary>A panel whose heights the caller states, which needs no measurement and no estimate.</summary>
     static (ControlFixture Fixture, VirtualizingPanel Panel) Stated(int count) {
@@ -225,15 +225,23 @@ public class VariableHeightVirtualisationTests {
     /// <summary>Learning how tall the rows above are does not drag the list out from under the reader.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>This is the half a correction gets wrong, and the symptom is the list fighting the
-    ///         wheel.</b> Every row here turns out to be ten times the estimate, so the moment the two
+    ///         ⚠
+    ///         <b>
+    ///             This is the half a correction gets wrong, and the symptom is the list fighting the
+    ///             wheel.
+    ///         </b>
+    ///         Every row here turns out to be ten times the estimate, so the moment the two
     ///         rows of overscan above the viewport are measured, everything below them moves down 360
     ///         pixels — on a frame the reader did nothing. A panel that wrote the new offsets without
     ///         compensating its own scroll would show them somewhere else in the list.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The first draft of this test did not catch it, and removing the compensation left
-    ///         it green.</b> Its rows were half the estimate rather than ten times it, so the shift was
+    ///         ⚠
+    ///         <b>
+    ///             The first draft of this test did not catch it, and removing the compensation left
+    ///             it green.
+    ///         </b>
+    ///         Its rows were half the estimate rather than ten times it, so the shift was
     ///         twenty pixels — two rows, and inside the tolerance of the assertion. The fixture was
     ///         rebuilt rather than the claim weakened: what makes an anchoring test mean anything is a
     ///         measurement that moves the content by much more than one row.

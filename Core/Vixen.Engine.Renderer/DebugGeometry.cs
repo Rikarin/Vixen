@@ -114,7 +114,7 @@ public sealed class DebugGeometry {
         var half = DebugFont.MeasureHeight(label.Text, label.Size) * 0.5f;
         var sink = new WorldSink(world, label.Position, view, half, label.Colour);
 
-        world.EnsureCapacity(world.Count + (DebugFont.SegmentCount(label.Text) * 2));
+        world.EnsureCapacity(world.Count + DebugFont.SegmentCount(label.Text) * 2);
         DebugFont.Emit(label.Text, Vector2.Zero, label.Size, ref sink);
     }
 
@@ -137,7 +137,6 @@ public sealed class DebugGeometry {
             destination.Add(new(Place(tail), colour));
         }
 
-        Vector3 Place(Vector2 point) =>
-            origin + (view.Right * point.X) + (view.Up * (rise - point.Y));
+        Vector3 Place(Vector2 point) => origin + view.Right * point.X + view.Up * (rise - point.Y);
     }
 }

@@ -10,8 +10,12 @@ namespace Vixen.App.Tests;
 ///     What the limiter did, counted — and only what is irreducibly a duration, timed.
 /// </summary>
 /// <remarks>
-///     ⚠ <b>Three of the assertions here used to be upper bounds in wall-clock time on work that is
-///     fast when it is actually scheduled</b>, which is the shape that made
+///     ⚠
+///     <b>
+///         Three of the assertions here used to be upper bounds in wall-clock time on work that is
+///         fast when it is actually scheduled
+///     </b>
+///     , which is the shape that made
 ///     <c>RealmClusterTests</c> the repo's one live failure: the number such an assertion reads is
 ///     the machine's spare CPU, not the property in the test's name. Twelve of these hosts run at
 ///     once under <c>nice -n 20</c> put <see cref="ARateIsActuallyHeld" /> at 3.9 s, 4.8 s and 2.7 s

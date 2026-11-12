@@ -42,8 +42,12 @@ public readonly record struct UtilityRefusal(
 ///         settled once, declaratively, and specificity never enters into it.
 ///     </para>
 ///     <para>
-///         ⚠ <b>And an <c>@layer base, components, utilities;</c> statement above it, which is what
-///         makes the layer worth anything.</b> A layer only wins if something loses to it, and until
+///         ⚠
+///         <b>
+///             And an <c>@layer base, components, utilities;</c> statement above it, which is what
+///             makes the layer worth anything.
+///         </b>
+///         A layer only wins if something loses to it, and until
 ///         the engine's own sheets moved into <c>components</c> nothing did: an unlayered rule beats
 ///         every layer, so a control default beat every utility silently and always. The statement is
 ///         also the ladder's *order*, and order is decided by whoever declares a name first — so a
@@ -87,8 +91,12 @@ public sealed class UtilityGenerator {
     /// <summary>The candidates that named a registered family and still produced no rule.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The distinction <see cref="Unrecognised" /> could not make, and the reason the
-    ///         list above was unreadable.</b> <c>bg-clip-text</c> and the English word <c>however</c>
+    ///         ⚠
+    ///         <b>
+    ///             The distinction <see cref="Unrecognised" /> could not make, and the reason the
+    ///             list above was unreadable.
+    ///         </b>
+    ///         <c>bg-clip-text</c> and the English word <c>however</c>
     ///         both used to arrive in one list of several hundred entries, so the one that is a real
     ///         Tailwind class Vixen half-supports was indistinguishable from the several hundred that
     ///         are prose — and indistinguishable-from-a-typo is the failure mode. Every entry here is
@@ -146,9 +154,7 @@ public sealed class UtilityGenerator {
                 // the refusal a property of *this* run — the same candidate is prose in a project
                 // whose theme lacks the family and news in one whose theme has it.
                 if (UtilityFamilies.IsRegistered(parsed.Name)) {
-                    unresolved.Add(
-                        new UtilityRefusal(candidate, parsed.Name, parsed.Value, UtilityRefusalKind.Value)
-                    );
+                    unresolved.Add(new(candidate, parsed.Name, parsed.Value, UtilityRefusalKind.Value));
                 } else {
                     unknown.Add(candidate);
                 }
@@ -162,9 +168,7 @@ public sealed class UtilityGenerator {
             if (selector is null) {
                 // The utility resolved, so this is news whatever the variant was: nothing here is
                 // prose — prose does not survive `TryResolve`.
-                unresolved.Add(
-                    new UtilityRefusal(candidate, parsed.Name, refusedVariant, UtilityRefusalKind.Variant)
-                );
+                unresolved.Add(new(candidate, parsed.Name, refusedVariant, UtilityRefusalKind.Variant));
                 continue;
             }
 
@@ -194,7 +198,7 @@ public sealed class UtilityGenerator {
                 group = group.Enter(atRule);
             }
 
-            Write(group.Body, selector, parsed.Important, 2 + (2 * atRuleScratch.Count));
+            Write(group.Body, selector, parsed.Important, 2 + 2 * atRuleScratch.Count);
             RuleCount++;
         }
 
@@ -216,8 +220,12 @@ public sealed class UtilityGenerator {
 
     /// <summary>One level of at-rule nesting: the rules directly inside it, and the levels below.</summary>
     /// <remarks>
-    ///     ⚠ <b>A trie over the at-rule chain rather than a dictionary keyed by the joined chain,
-    ///     because the point is to share prefixes.</b> <c>sm:p-4</c> and <c>sm:md:m-2</c> both open
+    ///     ⚠
+    ///     <b>
+    ///         A trie over the at-rule chain rather than a dictionary keyed by the joined chain,
+    ///         because the point is to share prefixes.
+    ///     </b>
+    ///     <c>sm:p-4</c> and <c>sm:md:m-2</c> both open
     ///     <c>@media (min-width: 640px)</c>, and a flat key would emit it twice; CSS Conditional 5
     ///     § 3 lets a conditional group rule contain another, so one wrapper holding both a rule and a
     ///     nested wrapper is what the specification already describes.
@@ -241,7 +249,7 @@ public sealed class UtilityGenerator {
                 return group;
             }
 
-            group = new AtRuleGroup();
+            group = new();
             Nested[atRule] = group;
 
             return group;
@@ -283,8 +291,12 @@ public sealed class UtilityGenerator {
     /// <returns>The selector, or <c>null</c> if a variant is not one this system knows.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A stack of conditions rather than one, which is what <c>sm:md:p-4</c> needs and
-    ///         what <c>@container</c> will need.</b> Two media variants on one utility used to be
+    ///         ⚠
+    ///         <b>
+    ///             A stack of conditions rather than one, which is what <c>sm:md:p-4</c> needs and
+    ///             what <c>@container</c> will need.
+    ///         </b>
+    ///         Two media variants on one utility used to be
     ///         dropped here, on the belief that Vixen's <c>@media</c> could not nest. It can — CSS
     ///         Conditional 5 § 3 nesting is what <c>StyleSheetLoader.LoadMedia</c> has always done by
     ///         recursing into the rule it just matched — so the limitation was this method carrying one
@@ -364,8 +376,12 @@ public sealed class UtilityGenerator {
     ///         <c>hover:w-1/2</c> unescaped reads as a pseudo-class on a class called <c>hover</c>.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A leading digit is escaped as a code point and not with a backslash, and the
-    ///         difference is the whole <c>2xl:</c> breakpoint.</b> CSS Syntax 3 § 4.3.8 says an
+    ///         ⚠
+    ///         <b>
+    ///             A leading digit is escaped as a code point and not with a backslash, and the
+    ///             difference is the whole <c>2xl:</c> breakpoint.
+    ///         </b>
+    ///         CSS Syntax 3 § 4.3.8 says an
     ///         identifier starting with a digit must have that digit written as
     ///         <c>\</c> + hex + a space, because <c>\2</c> <i>begins</i> a hex escape — so
     ///         <c>.2xl\:p-4</c> is not a selector at all and <c>.\2xl\:p-4</c> is a selector for
@@ -386,7 +402,7 @@ public sealed class UtilityGenerator {
             // The two positions § 4.3.8 calls out: the first character, and the second when the first
             // is a hyphen — `-2xl` would otherwise read as a negative number rather than an identifier.
             if (char.IsAsciiDigit(c) && (i == 0 || (i == 1 && name[0] == '-'))) {
-                escaped.Append("\\3").Append(c).Append(' ');
+                escaped.Append("""\3""").Append(c).Append(' ');
                 continue;
             }
 

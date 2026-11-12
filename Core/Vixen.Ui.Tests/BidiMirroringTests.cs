@@ -10,24 +10,35 @@ namespace Vixen.Ui.Tests;
 /// <summary>The two things that stay wrong when every glyph is already in the right order.</summary>
 /// <remarks>
 ///     <para>
-///         <b>Doc 09 § Text says "nothing mirrors", and by the time this was written that was two
-///         thirds untrue.</b> <c>direction</c> reaches the itemiser, runs are cut on level, and
+///         <b>
+///             Doc 09 § Text says "nothing mirrors", and by the time this was written that was two
+///             thirds untrue.
+///         </b>
+///         <c>direction</c> reaches the itemiser, runs are cut on level, and
 ///         <c>TextLine</c> reorders them by UAX#9 L2 — <c>BidiDirectionTests</c> proves the glyphs
 ///         land in the right order and <c>DrawListBuilder.Indent</c> already resolved a *declared*
 ///         <c>start</c> and <c>end</c> against the direction. What was left was two defects that a
 ///         glyph-order assertion cannot see, because in both of them the glyphs are correct.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The line is placed in the box by <c>text-align</c>, whose initial value is
-///         <c>start</c> — and a missing declaration was read as zero.</b> So a right-to-left
+///         ⚠
+///         <b>
+///             The line is placed in the box by <c>text-align</c>, whose initial value is
+///             <c>start</c> — and a missing declaration was read as zero.
+///         </b>
+///         So a right-to-left
 ///         paragraph that nobody had written a <c>text-align</c> for, which is every paragraph in a
 ///         plain interface, sat flush against the *left* edge with correctly-ordered text in it.
 ///         That is the picture doc 09 describes, arrived at from the opposite direction to the one
 ///         it names.
 ///     </para>
 ///     <para>
-///         ⚠ <b>And the hit test walked the runs in the order they are read, over pens that are
-///         stored in the order they are drawn.</b> On any line that changes direction those are not
+///         ⚠
+///         <b>
+///             And the hit test walked the runs in the order they are read, over pens that are
+///             stored in the order they are drawn.
+///         </b>
+///         On any line that changes direction those are not
 ///         the same order, so the first run whose pen span reaches the point is the one that reads
 ///         first rather than the one under the cursor. Asserted here as a round trip —
 ///         <c>CaretPositionAt(CaretOffset(i))</c> back to the same x — because a hit test that
@@ -41,7 +52,7 @@ public class BidiMirroringTests {
 
     static FontFace LoadFont(string resource, string name) {
         using var stream = Assembly.GetExecutingAssembly()
-            .GetManifestResourceStream($"Vixen.Ui.Tests.Fonts.{resource}")
+                .GetManifestResourceStream($"Vixen.Ui.Tests.Fonts.{resource}")
             ?? throw new InvalidOperationException($"the test font '{resource}' is not embedded");
 
         using var memory = new MemoryStream();
@@ -75,14 +86,13 @@ public class BidiMirroringTests {
     ///     compared with — the leading space is a level of its own. Counting commands would compare
     ///     two different things and call the difference a result.
     /// </remarks>
-    static List<float> LineLefts(UiDocument document) =>
-        [
-            .. document.Drawing.Commands
-                .Where(static command => command.Kind == DrawCommandKind.Text)
-                .GroupBy(static command => command.Y)
-                .OrderBy(static line => line.Key)
-                .Select(static line => line.Min(static command => command.X))
-        ];
+    static List<float> LineLefts(UiDocument document) => [
+        ..document.Drawing.Commands
+            .Where(static command => command.Kind == DrawCommandKind.Text)
+            .GroupBy(static command => command.Y)
+            .OrderBy(static line => line.Key)
+            .Select(static line => line.Min(static command => command.X))
+    ];
 
     /// <summary>
     ///     A wrapped right-to-left paragraph with no <c>text-align</c> of its own is flush with the
@@ -125,8 +135,12 @@ public class BidiMirroringTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The round trip is on the <i>x</i> and not on the index, and that is not a
-    ///         weakening.</b> In bidi text an index alone is not recoverable from a point — the caret
+    ///         ⚠
+    ///         <b>
+    ///             The round trip is on the <i>x</i> and not on the index, and that is not a
+    ///             weakening.
+    ///         </b>
+    ///         In bidi text an index alone is not recoverable from a point — the caret
     ///         after the last Latin character and the caret at the end of an <c>rtl</c> line are the
     ///         same pixel — so a test asserting the index would be asserting which of two correct
     ///         answers this implementation happens to give. The x is recoverable, and the pair that
@@ -168,8 +182,12 @@ public class BidiMirroringTests {
     ///         too, rather than at the far end beside the space that reads first.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Stated as "which half of the line" rather than as an index, because the index is
-    ///         not a discriminator.</b> A walk in logical order lands in the space's run with a
+    ///         ⚠
+    ///         <b>
+    ///             Stated as "which half of the line" rather than as an index, because the index is
+    ///             not a discriminator.
+    ///         </b>
+    ///         A walk in logical order lands in the space's run with a
     ///         negative distance, which clamps to that run's <i>trailing</i> edge — and the space's
     ///         trailing edge is index 1, the same index the correct answer gives. The two answers are
     ///         the same number at opposite ends of the line, which is exactly the shape of bug that
@@ -185,7 +203,7 @@ public class BidiMirroringTests {
 
         // A fiftieth of the way into the first glyph. A hit test answers with the *nearest* caret, so
         // a point at the middle of `A` is legitimately the caret after it.
-        var inside = line.PenOf(line.Runs.IndexOf(latin)) + (latin.Width * 0.02f);
+        var inside = line.PenOf(line.Runs.IndexOf(latin)) + latin.Width * 0.02f;
 
         var found = line.CaretPositionAt(inside);
         var where = line.CaretOffset(found.Index, found.Affinity);

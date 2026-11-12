@@ -63,9 +63,9 @@ public sealed class TradeOffer {
 
     /// <summary>What is on it, in asset order so two servers describe it the same way.</summary>
     public IEnumerable<(DefId Asset, long Amount)> Assets =>
-        assets.Where(entry => entry.Value > 0)
-            .Select(entry => (new DefId(entry.Key), entry.Value))
-            .OrderBy(entry => entry.Item1.Value);
+        assets.Where(static entry => entry.Value > 0)
+            .Select(static entry => (new DefId(entry.Key), entry.Value))
+            .OrderBy(static entry => entry.Item1.Value);
 
     /// <summary>How much of something is on it.</summary>
     /// <param name="asset">What.</param>
@@ -91,8 +91,12 @@ public sealed class TradeOffer {
 ///         somebody replaces a legendary with a grey the instant before you click accept.
 ///     </para>
 ///     <para>
-///         ⚠ <b>A confirmation quotes the revision it saw, and that is the part the document does not
-///         say.</b> "Any change re-opens both confirmations" is necessary and not sufficient: it loses
+///         ⚠
+///         <b>
+///             A confirmation quotes the revision it saw, and that is the part the document does not
+///             say.
+///         </b>
+///         "Any change re-opens both confirmations" is necessary and not sufficient: it loses
 ///         the race where a change and a confirmation cross in flight, because the confirmation
 ///         arrives after the change has already cleared the flags and simply sets one again — against
 ///         goods its sender never saw. Making the client quote a revision turns that race into a
@@ -169,8 +173,12 @@ public sealed class TradeSession {
     /// <param name="amount">How much. Zero removes it.</param>
     /// <returns>The refusal, or <see cref="TradeRefusal.None" />.</returns>
     /// <remarks>
-    ///     ⚠ <b>Every change bumps the revision, including one that puts the table back exactly as it
-    ///     was.</b> Detecting a no-op and leaving the confirmations standing would be a way to clear a
+    ///     ⚠
+    ///     <b>
+    ///         Every change bumps the revision, including one that puts the table back exactly as it
+    ///         was.
+    ///     </b>
+    ///     Detecting a no-op and leaving the confirmations standing would be a way to clear a
     ///     confirmation and set it again without the other side seeing anything move.
     /// </remarks>
     public TradeRefusal Offer(PlayerId player, DefId asset, long amount) {

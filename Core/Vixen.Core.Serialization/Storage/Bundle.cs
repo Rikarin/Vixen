@@ -4,7 +4,6 @@
 using System.Buffers.Binary;
 using System.Diagnostics.CodeAnalysis;
 using System.IO.Hashing;
-using System.Text;
 
 namespace Vixen.Core.Serialization.Storage;
 
@@ -38,7 +37,7 @@ public static class BundleFormat {
     /// <summary>Bytes per index entry: the id, then a 32-bit offset and length.</summary>
     public const int EntrySize = ObjectId.SizeInBytes + 8;
 
-    internal static int PayloadOffset(int entryCount) => HeaderSize + (entryCount * EntrySize);
+    internal static int PayloadOffset(int entryCount) => HeaderSize + entryCount * EntrySize;
 }
 
 /// <summary>Builds a <c>.bundle</c> from chunks.</summary>
@@ -92,7 +91,10 @@ public sealed class BundleWriter {
         foreach (var (id, blob) in entries) {
             id.WriteTo(bundle.AsSpan(index, ObjectId.SizeInBytes));
             BinaryPrimitives.WriteUInt32LittleEndian(bundle.AsSpan(index + ObjectId.SizeInBytes), (uint)offset);
-            BinaryPrimitives.WriteUInt32LittleEndian(bundle.AsSpan(index + ObjectId.SizeInBytes + 4), (uint)blob.Length);
+            BinaryPrimitives.WriteUInt32LittleEndian(
+                bundle.AsSpan(index + ObjectId.SizeInBytes + 4),
+                (uint)blob.Length
+            );
             blob.Span.CopyTo(bundle.AsSpan(payloadStart + offset));
             index += BundleFormat.EntrySize;
             offset += blob.Length;
@@ -143,7 +145,9 @@ public sealed class BundleOdbBackend : IOdbBackend, IDisposable {
         var version = BinaryPrimitives.ReadUInt32LittleEndian(span[8..]);
 
         if (version != BundleFormat.Version) {
-            throw new SerializationException($"The bundle is version {version} and this build reads version {BundleFormat.Version}.");
+            throw new SerializationException(
+                $"The bundle is version {version} and this build reads version {BundleFormat.Version}."
+            );
         }
 
         // ⚠ In 64-bit arithmetic, and narrowed only once the count is known to fit. The count is
@@ -151,10 +155,12 @@ public sealed class BundleOdbBackend : IOdbBackend, IDisposable {
         // to a negative int — which passes a "does this fit" test written in int, and leaves every
         // index read reaching past the end of a file the constructor has just accepted.
         var declared = BinaryPrimitives.ReadUInt32LittleEndian(span[12..]);
-        var payload = BundleFormat.HeaderSize + ((long)declared * BundleFormat.EntrySize);
+        var payload = BundleFormat.HeaderSize + (long)declared * BundleFormat.EntrySize;
 
         if (payload > span.Length) {
-            throw new SerializationException($"The bundle claims {declared} entries, which do not fit in {span.Length} bytes.");
+            throw new SerializationException(
+                $"The bundle claims {declared} entries, which do not fit in {span.Length} bytes."
+            );
         }
 
         entryCount = (int)declared;
@@ -205,7 +211,7 @@ public sealed class BundleOdbBackend : IOdbBackend, IDisposable {
             return false;
         }
 
-        var entry = bundle.Span.Slice(BundleFormat.HeaderSize + (index * BundleFormat.EntrySize), BundleFormat.EntrySize);
+        var entry = bundle.Span.Slice(BundleFormat.HeaderSize + index * BundleFormat.EntrySize, BundleFormat.EntrySize);
         var offset = BinaryPrimitives.ReadUInt32LittleEndian(entry[ObjectId.SizeInBytes..]);
         var length = BinaryPrimitives.ReadUInt32LittleEndian(entry[(ObjectId.SizeInBytes + 4)..]);
 
@@ -224,11 +230,15 @@ public sealed class BundleOdbBackend : IOdbBackend, IDisposable {
 
     /// <inheritdoc />
     public bool Write(ObjectId id, ReadOnlySpan<byte> blob) =>
-        throw new NotSupportedException("A bundle is built by the content build and read at runtime; it is not written to.");
+        throw new NotSupportedException(
+            "A bundle is built by the content build and read at runtime; it is not written to."
+        );
 
     /// <inheritdoc />
     public bool Delete(ObjectId id) =>
-        throw new NotSupportedException("A bundle is built by the content build and read at runtime; it is not written to.");
+        throw new NotSupportedException(
+            "A bundle is built by the content build and read at runtime; it is not written to."
+        );
 
     /// <inheritdoc />
     public IEnumerable<ObjectId> Enumerate() {
@@ -241,13 +251,19 @@ public sealed class BundleOdbBackend : IOdbBackend, IDisposable {
     public void Dispose() => owner?.Dispose();
 
     ObjectId IdAt(int index) =>
-        ObjectId.FromBytes(bundle.Span.Slice(BundleFormat.HeaderSize + (index * BundleFormat.EntrySize), ObjectId.SizeInBytes));
+        ObjectId.FromBytes(
+            bundle.Span.Slice(BundleFormat.HeaderSize + index * BundleFormat.EntrySize, ObjectId.SizeInBytes)
+        );
 
     /// <summary>Checks the index really is ascending, which is what the lookup assumes.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A binary search over an unsorted index does not fail — it answers "not
-    ///         found".</b> So a bundle whose entries were written in the wrong order reports most of
+    ///         ⚠
+    ///         <b>
+    ///             A binary search over an unsorted index does not fail — it answers "not
+    ///             found".
+    ///         </b>
+    ///         So a bundle whose entries were written in the wrong order reports most of
     ///         its own contents as missing, and the failure arrives somewhere else entirely as an
     ///         asset that will not load, with a file that opens cleanly and enumerates every id it
     ///         holds. Refusing at open is the only place the ordering can be established at all.
@@ -275,7 +291,7 @@ public sealed class BundleOdbBackend : IOdbBackend, IDisposable {
         var high = entryCount - 1;
 
         while (low <= high) {
-            var middle = low + ((high - low) / 2);
+            var middle = low + (high - low) / 2;
             var comparison = IdAt(middle).CompareTo(id);
 
             if (comparison == 0) {

@@ -18,8 +18,12 @@ public readonly record struct LayerRule(IReadOnlyList<string> Names, string? Bod
 ///         engine never learns that the front end had a gap.
 ///     </para>
 ///     <para>
-///         Two forms, and they do different jobs. The statement <c>@layer a, b;</c> <i>fixes the
-///         order</i> without contributing rules, which is the only way to say "utilities lose to
+///         Two forms, and they do different jobs. The statement <c>@layer a, b;</c>
+///         <i>
+///             fixes the
+///             order
+///         </i>
+///         without contributing rules, which is the only way to say "utilities lose to
 ///         components" at the top of a file when the utilities are generated into it later. The block
 ///         <c>@layer a { … }</c> contributes rules to a layer, creating it at that position if
 ///         nothing has named it yet. An anonymous <c>@layer { … }</c> is its own layer that nothing
@@ -66,7 +70,7 @@ public static class LayerRuleParser {
 
         var span = text!.AsSpan();
         var start = span.IndexOf('@') + "@layer".Length;
-        var body = (string?) null;
+        var body = (string?)null;
         var preludeEnd = -1;
 
         for (var i = start; i < span.Length; i++) {
@@ -111,7 +115,7 @@ public static class LayerRuleParser {
             return false;
         }
 
-        rule = new LayerRule(names, body);
+        rule = new(names, body);
         return true;
     }
 
@@ -125,8 +129,12 @@ public static class LayerRuleParser {
     ///         <c>content: "}"</c> is the whole reason this is not <c>IndexOf('}')</c>.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And an escape outside a string is stepped over, which is what a generated
-    ///         utility sheet is full of.</b> CSS Syntax 3 § 4.3.7 lets any character be escaped
+    ///         ⚠
+    ///         <b>
+    ///             And an escape outside a string is stepped over, which is what a generated
+    ///             utility sheet is full of.
+    ///         </b>
+    ///         CSS Syntax 3 § 4.3.7 lets any character be escaped
     ///         anywhere an identifier may appear, and a class name is where that actually happens
     ///         here: <c>font-features-["onum"_1]</c> escapes to the selector
     ///         <c>.font-features-\[\"onum\"_1\]</c>. Read without this branch the first <c>\"</c>
@@ -179,9 +187,6 @@ public static class LayerRuleParser {
                         return i;
                     }
 
-                    break;
-
-                default:
                     break;
             }
         }

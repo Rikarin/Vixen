@@ -42,7 +42,7 @@ static class PrefixCodes {
         }
 
         // Plain Huffman over the used symbols. Ties go to the lower node index, so a run is repeatable.
-        var parents = new int[(used.Count * 2) - 1];
+        var parents = new int[used.Count * 2 - 1];
         var queue = new PriorityQueue<int, (long, int)>();
 
         for (var at = 0; at < used.Count; at++) {

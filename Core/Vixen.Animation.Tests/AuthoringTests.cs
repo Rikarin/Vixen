@@ -91,7 +91,8 @@ public class AuthoringTests {
         Assert.Null(joint.Bake(rig));
     }
 
-    static ConstraintFrameRecord Frame(ConstraintFrameKind kind) => new() { Kind = kind, Slot = "ledge", Socket = "grip" };
+    static ConstraintFrameRecord Frame(ConstraintFrameKind kind) =>
+        new() { Kind = kind, Slot = "ledge", Socket = "grip" };
 
     // ---------------------------------------------------------------- the schema
 
@@ -107,7 +108,9 @@ public class AuthoringTests {
     public void TheSchemaAccountsForEveryFieldOfATag() {
         List<string> orphans = [];
 
-        foreach (var property in typeof(ConstraintTagRecord).GetProperties(BindingFlags.Public | BindingFlags.Instance)) {
+        foreach (var property in typeof(ConstraintTagRecord).GetProperties(
+                     BindingFlags.Public | BindingFlags.Instance
+                 )) {
             if (GoalKindSchema.Hidden.ContainsKey(property.Name)) {
                 continue;
             }
@@ -180,7 +183,7 @@ public class AuthoringTests {
         Assert.Equal(0, PriorityLadder.Default.Value("whatever-the-other-project-called-it"));
         Assert.False(PriorityLadder.Default.Declares("whatever-the-other-project-called-it"));
         Assert.True(PriorityLadder.Default.Declares("contact+3"));
-        Assert.True(PriorityLadder.Default.Declares(""));
+        Assert.True(PriorityLadder.Default.Declares(string.Empty));
     }
 
     // ---------------------------------------------------------------- templates
@@ -219,7 +222,7 @@ public class AuthoringTests {
     [Fact]
     public void AReapplyReportsWhatItWouldChangeAndLeavesHandPlacedTagsAlone() {
         var template = Seated();
-        List<ConstraintTagRecord> onTheClip = [.. template.Instantiate()];
+        List<ConstraintTagRecord> onTheClip = [..template.Instantiate()];
 
         // Somebody added one of their own, and the template moved on.
         onTheClip.Add(new() { Name = "chin clear of the shoulder", Effector = "Head" });
@@ -234,9 +237,16 @@ public class AuthoringTests {
         Assert.Equal(0, diff.Removed);
         Assert.Equal(0, diff.Edited);
 
-        Assert.Contains(diff.Changes, change => change.Tag == "left foot" && change.Kind == TemplateChangeKind.Added);
-        Assert.DoesNotContain(diff.Changes, change => change.Tag == "chin clear of the shoulder");
-        Assert.Contains(diff.Changes, change => change.Kind == TemplateChangeKind.Changed && change.Detail.Contains("weight", StringComparison.Ordinal));
+        Assert.Contains(
+            diff.Changes,
+            static change => change.Tag == "left foot" && change.Kind == TemplateChangeKind.Added
+        );
+        Assert.DoesNotContain(diff.Changes, static change => change.Tag == "chin clear of the shoulder");
+        Assert.Contains(
+            diff.Changes,
+            static change => change.Kind == TemplateChangeKind.Changed
+                && change.Detail.Contains("weight", StringComparison.Ordinal)
+        );
     }
 
     /// <summary>
@@ -246,7 +256,7 @@ public class AuthoringTests {
     [Fact]
     public void AHandEditToATemplatesOwnTagIsCalledOutSeparately() {
         var template = Seated();
-        List<ConstraintTagRecord> onTheClip = [.. template.Instantiate()];
+        List<ConstraintTagRecord> onTheClip = [..template.Instantiate()];
 
         onTheClip[0].MaxWeight = 0.3f;
 
@@ -270,7 +280,13 @@ public class AuthoringTests {
             Revision = 3,
             Meaning = "A character sitting: both hands on the arms of the chair, hips on the seat.",
             Tags = [
-                new() { Name = "right hand", Effector = "Wrist", Begin = 0f, End = 0.5f, EaseIn = 0.1f },
+                new() {
+                    Name = "right hand",
+                    Effector = "Wrist",
+                    Begin = 0f,
+                    End = 0.5f,
+                    EaseIn = 0.1f
+                },
                 new() { Name = "hips", Effector = "Root", Begin = 0f, End = 1f }
             ]
         };
@@ -290,7 +306,7 @@ public class AuthoringTests {
 
         var resting = ConstraintProposals.Find(
             rig,
-            Reaching(rig, hold: true),
+            Reaching(rig, true),
             shapes,
             [new(rig.IndexOf("Wrist"), rig.IndexOf("Shoulder"), Vector3.Zero)],
             ProposalSettings.Default
@@ -302,7 +318,10 @@ public class AuthoringTests {
         Assert.Equal(ConstraintFrameKind.Surface, proposal.Tag.Goal.Kind);
         Assert.Equal("belly", proposal.Tag.Goal.Shape);
         Assert.True(proposal.Tag.End - proposal.Tag.Begin > 0.3f, "the span should cover the hold");
-        Assert.True(proposal.Confidence > 0.5f, $"a still, near, long contact should be confident, was {proposal.Confidence}");
+        Assert.True(
+            proposal.Confidence > 0.5f,
+            $"a still, near, long contact should be confident, was {proposal.Confidence}"
+        );
 
         // ⚠ The ease is not zero. A contact that snaps on is the first thing an author fixes by hand,
         // and a default that creates work is a default nobody uses.
@@ -310,7 +329,7 @@ public class AuthoringTests {
 
         var passing = ConstraintProposals.Find(
             rig,
-            Reaching(rig, hold: false),
+            Reaching(rig, false),
             shapes,
             [new(rig.IndexOf("Wrist"), rig.IndexOf("Shoulder"), Vector3.Zero)],
             ProposalSettings.Default
@@ -326,13 +345,13 @@ public class AuthoringTests {
 
         var found = ConstraintProposals.Find(
             rig,
-            Reaching(rig, hold: true),
+            Reaching(rig, true),
             Shapes(rig, Resting(rig)),
             [new(rig.IndexOf("Wrist"), rig.IndexOf("Shoulder"), Vector3.Zero)],
             ProposalSettings.Default
         );
 
-        Assert.DoesNotContain(found, proposal => proposal.Shape == Symbol.Intern("right-palm"));
+        Assert.DoesNotContain(found, static proposal => proposal.Shape == Symbol.Intern("right-palm"));
     }
 
     // ---------------------------------------------------------------- the shape audit
@@ -340,11 +359,11 @@ public class AuthoringTests {
     [Fact]
     public void AShapeThatNeverMovesIsReportedAndOneThatDoesIsNot() {
         var rig = Rig();
-        var found = ProxyShapeAudit.Audit(Shapes(rig), rig, [Reaching(rig, hold: true)]);
+        var found = ProxyShapeAudit.Audit(Shapes(rig), rig, [Reaching(rig, true)]);
 
         // The belly hangs off the spine, which the clip does not touch.
-        Assert.Contains(found, entry => entry.Shape == Symbol.Intern("belly"));
-        Assert.DoesNotContain(found, entry => entry.Shape == Symbol.Intern("right-palm"));
+        Assert.Contains(found, static entry => entry.Shape == Symbol.Intern("belly"));
+        Assert.DoesNotContain(found, static entry => entry.Shape == Symbol.Intern("right-palm"));
     }
 
     /// <summary>The failure an author cannot notice by reading either set on its own.</summary>
@@ -365,9 +384,12 @@ public class AuthoringTests {
 
         var found = ProxyShapeAudit.Compare(Shapes(rig), theirs);
 
-        Assert.Contains(found, entry => entry.Shape == Symbol.Intern("right-palm"));
-        Assert.Contains(found, entry => entry.Shape == Symbol.Intern("palm-r"));
-        Assert.Contains(found, entry => entry.Message.Contains("silently does nothing", StringComparison.Ordinal));
+        Assert.Contains(found, static entry => entry.Shape == Symbol.Intern("right-palm"));
+        Assert.Contains(found, static entry => entry.Shape == Symbol.Intern("palm-r"));
+        Assert.Contains(
+            found,
+            static entry => entry.Message.Contains("silently does nothing", StringComparison.Ordinal)
+        );
     }
 
     [Fact]
@@ -393,13 +415,13 @@ public class AuthoringTests {
 
         Assert.Contains(
             ProxyShapeAudit.Audit(overlapping, rig),
-            entry => entry.Message.Contains("inside one another", StringComparison.Ordinal)
+            static entry => entry.Message.Contains("inside one another", StringComparison.Ordinal)
         );
 
         // And the ordinary case is silent: a shoulder overlapping an upper arm always will.
         Assert.DoesNotContain(
             ProxyShapeAudit.Audit(Shapes(rig), rig),
-            entry => entry.Message.Contains("inside one another", StringComparison.Ordinal)
+            static entry => entry.Message.Contains("inside one another", StringComparison.Ordinal)
         );
     }
 
@@ -444,10 +466,10 @@ public class AuthoringTests {
 
         var explained = MoveExplanations.Explain(
             moves,
-            new MoveQuery { Required = FacetSet.Of(("style", "injured")), Numeric = new() { Speed = 1f } }
+            new() { Required = FacetSet.Of(("style", "injured")), Numeric = new() { Speed = 1f } }
         );
 
-        var refused = explained.First(row => !row.Eligible);
+        var refused = explained.First(static row => !row.Eligible);
 
         Assert.Equal(Facet.Of("style", "injured"), refused.Missing);
         Assert.Contains("does not say", refused.ToString(), StringComparison.Ordinal);
@@ -459,8 +481,8 @@ public class AuthoringTests {
         var coverage = MoveCoverage.Sweep(
             Locomotion(),
             [FacetSet.Empty, FacetSet.Of(("style", "injured"))],
-            fastest: 9f,
-            steps: 10
+            9f,
+            10
         );
 
         Assert.True(coverage.FallsBack > 0, "nine metres a second is past anything in the set");
@@ -479,13 +501,13 @@ public class AuthoringTests {
                 "walk",
                 new Motions.ClipMotion(AnimationClip.Create(TestRigs.Hold("walk", "Root", Vector3.Zero), Rig())),
                 FacetSet.Of(("role", "loop")),
-                new MoveTraits { Speed = 1.4f, MinRate = 0.8f, MaxRate = 1.2f }
+                new() { Speed = 1.4f, MinRate = 0.8f, MaxRate = 1.2f }
             ),
             new MoveEntry(
                 "run",
                 new Motions.ClipMotion(AnimationClip.Create(TestRigs.Hold("run", "Root", Vector3.Zero), Rig())),
                 FacetSet.Of(("role", "loop")),
-                new MoveTraits { Speed = 4f, MinRate = 0.85f, MaxRate = 1.15f }
+                new() { Speed = 4f, MinRate = 0.85f, MaxRate = 1.15f }
             )
         );
 
@@ -509,7 +531,7 @@ public class AuthoringTests {
         var pose = new SkeletonPose(rig);
         var model = new BoneTransform[rig.JointCount];
 
-        Reaching(rig, hold: true).Sample(1f, pose.Bones);
+        Reaching(rig, true).Sample(1f, pose.Bones);
         pose.ComputeModelSpace(model);
 
         var spine = model[rig.IndexOf("Spine")].Translation;
@@ -518,7 +540,7 @@ public class AuthoringTests {
 
         // A radius back along the line from the spine, so the wrist lands on the surface rather than
         // inside it.
-        return (wrist - (Vector3.Normalize(towards) * 0.18f)) - spine;
+        return wrist - Vector3.Normalize(towards) * 0.18f - spine;
     }
 
     static ProxyShapeSet Shapes(Skeleton rig, Vector3? belly = null) =>
@@ -564,7 +586,7 @@ public class AuthoringTests {
             new() {
                 Name = hold ? "rest" : "pass",
                 Duration = 1f,
-                Channels = [new() { Target = "Shoulder", RotationTimes = [.. times], Rotations = [.. turns] }]
+                Channels = [new() { Target = "Shoulder", RotationTimes = [..times], Rotations = [..turns] }]
             },
             rig
         );

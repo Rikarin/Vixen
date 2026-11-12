@@ -15,8 +15,12 @@ namespace Vixen.Rendering;
 /// <param name="Centre">Where the mesh's bounding sphere is, in the mesh's own space.</param>
 /// <param name="Radius">And how far it reaches. Positive.</param>
 /// <remarks>
-///     ⚠ <b>The bounding sphere is the mesh's rather than the bake's, and both halves of the atlas
-///     depend on it.</b> Every cell of a grid is fitted to one radius — see
+///     ⚠
+///     <b>
+///         The bounding sphere is the mesh's rather than the bake's, and both halves of the atlas
+///         depend on it.
+///     </b>
+///     Every cell of a grid is fitted to one radius — see
 ///     <see cref="ImpostorBake.Record" /> — so a radius that is too small clips the silhouette on
 ///     every view at once, and one that is too large shrinks the tree inside its cell and spends the
 ///     atlas on empty texels.
@@ -39,8 +43,12 @@ public readonly record struct ImpostorMesh(
 ///         pipeline to hand it, so the bake had no caller at all.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The albedo is a constant, and that is a stated simplification rather than an
-///         oversight.</b> A tree is bark and leaves — two materials over one mesh — and a faithful
+///         ⚠
+///         <b>
+///             The albedo is a constant, and that is a stated simplification rather than an
+///             oversight.
+///         </b>
+///         A tree is bark and leaves — two materials over one mesh — and a faithful
 ///         bake draws it once per material through the same material system the level uses. What this
 ///         produces is the correct <em>silhouette</em> with a flat colour, which is the half of an
 ///         impostor a forest four hundred metres away actually reads; the alpha is the coverage, and
@@ -60,8 +68,12 @@ public sealed class ImpostorCapturePass : IDisposable {
 
     /// <summary>What one cell's constant block is aligned to.</summary>
     /// <remarks>
-    ///     ⚠ <b>256, which is the largest <c>minUniformBufferOffsetAlignment</c> in practice and is
-    ///     therefore the one number that is right everywhere.</b> The RHI does not report the device's
+    ///     ⚠
+    ///     <b>
+    ///         256, which is the largest <c>minUniformBufferOffsetAlignment</c> in practice and is
+    ///         therefore the one number that is right everywhere.
+    ///     </b>
+    ///     The RHI does not report the device's
     ///     own, and a bake is sixty-four blocks of a hundred and forty-four bytes — so over-aligning
     ///     costs seven kilobytes once and asking would cost an RHI addition for it.
     /// </remarks>
@@ -110,7 +122,7 @@ public sealed class ImpostorCapturePass : IDisposable {
         // device-imposed granularity. An offset a device refuses is a descriptor write that fails,
         // and a block read from an address the host did not write is a cell baked with another
         // cell's camera — sixty-four photographs of a tree from one angle.
-        stride = ((ImpostorCaptureKeys.ConstantBufferSize + BlockAlignment - 1) / BlockAlignment) * BlockAlignment;
+        stride = (ImpostorCaptureKeys.ConstantBufferSize + BlockAlignment - 1) / BlockAlignment * BlockAlignment;
 
         constants = device.CreateBuffer(
             new((long)stride * cells, BufferUsage.Uniform, MemoryAccess.HostUpload, "impostor capture constants")
@@ -140,9 +152,7 @@ public sealed class ImpostorCapturePass : IDisposable {
             new(DescriptorSetSlot.PerFrame, [], "impostor capture empty")
         );
 
-        layout = device.CreatePipelineLayout(
-            new([emptySetLayout, emptySetLayout, setLayout], [], "impostor capture")
-        );
+        layout = device.CreatePipelineLayout(new([emptySetLayout, emptySetLayout, setLayout], [], "impostor capture"));
 
         pipeline = device.CreateGraphicsPipeline(
             new(
@@ -220,7 +230,7 @@ public sealed class ImpostorCapturePass : IDisposable {
             mesh.Centre,
             mesh.Radius,
             (list, cell) => {
-                var slot = (cell.Cell.Z * side) + cell.Cell.X;
+                var slot = cell.Cell.Z * side + cell.Cell.X;
 
                 if (slot >= sets.Length) {
                     return;
@@ -252,7 +262,7 @@ public sealed class ImpostorCapturePass : IDisposable {
                 list.BindDescriptorSet(DescriptorSetSlot.PerMaterial, sets[slot]);
                 list.BindVertexBuffer(0, vertices);
                 list.BindIndexBuffer(indices, IndexFormat.UInt32);
-                list.DrawIndexed(indexCount, 1);
+                list.DrawIndexed(indexCount);
             }
         );
 

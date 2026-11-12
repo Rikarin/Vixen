@@ -42,13 +42,19 @@ public class ScrollSnapTests {
     ///     <c>mandatory</c> container asked again on the next layout and got the same unreachable
     ///     answer for ever.
     /// </remarks>
-    static (ControlFixture Fixture, ScrollView View, UiElement[] Rows) Rows(string view, string rows = "", string extra = "") {
-        var fixture = new ControlFixture(css: $$"""
-            root  { width: 400px; height: 300px; }
-            #view { width: 100px; height: 60px; {{view}} }
-            .row  { width: 100px; height: 40px; {{rows}} }
-            {{extra}}
-            """);
+    static (ControlFixture Fixture, ScrollView View, UiElement[] Rows) Rows(
+        string view,
+        string rows = "",
+        string extra = ""
+    ) {
+        var fixture = new ControlFixture(
+            css: $$"""
+                   root  { width: 400px; height: 300px; }
+                   #view { width: 100px; height: 60px; {{view}} }
+                   .row  { width: 100px; height: 40px; {{rows}} }
+                   {{extra}}
+                   """
+        );
 
         var scroller = fixture.Document.Create<ScrollView>(null, fixture.Document.Root, "view");
         var made = new UiElement[5];
@@ -65,12 +71,14 @@ public class ScrollSnapTests {
 
     /// <summary>A 100×60 view over five 40-pixel columns, for the axis the other helper cannot reach.</summary>
     static (ControlFixture Fixture, ScrollView View) Columns(string view, string columns) {
-        var fixture = new ControlFixture(css: $$"""
-            root  { width: 400px; height: 300px; }
-            #view scroll-content { flex-direction: row; }
-            #view { width: 60px; height: 100px; {{view}} }
-            .col  { width: 40px; height: 100px; flex-shrink: 0; {{columns}} }
-            """);
+        var fixture = new ControlFixture(
+            css: $$"""
+                   root  { width: 400px; height: 300px; }
+                   #view scroll-content { flex-direction: row; }
+                   #view { width: 60px; height: 100px; {{view}} }
+                   .col  { width: 40px; height: 100px; flex-shrink: 0; {{columns}} }
+                   """
+        );
 
         var scroller = fixture.Document.Create<ScrollView>(null, fixture.Document.Root, "view");
 
@@ -120,7 +128,11 @@ public class ScrollSnapTests {
     [InlineData("proximity", 30f, 40f)]
     [InlineData("mandatory", 20f, 0f)]
     [InlineData("mandatory", 30f, 40f)]
-    public void Proximity_leaves_a_scroll_that_stopped_between_candidates_where_it_is(string strictness, float delta, float rest) {
+    public void Proximity_leaves_a_scroll_that_stopped_between_candidates_where_it_is(
+        string strictness,
+        float delta,
+        float rest
+    ) {
         var (fixture, view, _) = Rows($"scroll-snap-type: y {strictness}", "scroll-snap-align: start");
         using var scope = fixture;
 
@@ -169,8 +181,14 @@ public class ScrollSnapTests {
     [InlineData("start", 80f)]
     [InlineData("center", 70f)]
     [InlineData("end", 60f)]
-    public void The_alignment_says_which_edge_of_the_candidate_meets_which_edge_of_the_snapport(string align, float rest) {
-        var (fixture, view, _) = Rows("scroll-snap-type: y mandatory", extra: $"#two {{ scroll-snap-align: {align}; }}");
+    public void The_alignment_says_which_edge_of_the_candidate_meets_which_edge_of_the_snapport(
+        string align,
+        float rest
+    ) {
+        var (fixture, view, _) = Rows(
+            "scroll-snap-type: y mandatory",
+            extra: $"#two {{ scroll-snap-align: {align}; }}"
+        );
         using var scope = fixture;
 
         Flick(fixture, view, 68f);
@@ -287,15 +305,15 @@ public class ScrollSnapTests {
         using var scope = fixture;
 
         var bar = view.VerticalBar.Bounds;
-        var x = bar.X + (bar.Width * 0.5f);
+        var x = bar.X + bar.Width * 0.5f;
 
-        fixture.Press(x, bar.Y + (bar.Height * 0.5f));
+        fixture.Press(x, bar.Y + bar.Height * 0.5f);
 
         var held = view.ScrollTop;
 
         Assert.Equal(70f, held, 1);
 
-        fixture.Release(x, bar.Y + (bar.Height * 0.5f));
+        fixture.Release(x, bar.Y + bar.Height * 0.5f);
 
         Assert.Equal(80f, view.ScrollTop, 1);
     }
@@ -308,13 +326,15 @@ public class ScrollSnapTests {
     /// </remarks>
     [Fact]
     public void A_nested_views_candidates_are_not_this_ones() {
-        var fixture = new ControlFixture(css: """
-            root   { width: 400px; height: 300px; }
-            #outer { width: 100px; height: 60px; scroll-snap-type: y mandatory; }
-            #lead  { width: 100px; height: 100px; }
-            #inner { width: 100px; height: 40px; }
-            .row   { width: 100px; height: 33px; scroll-snap-align: start; }
-            """);
+        var fixture = new ControlFixture(
+            css: """
+                 root   { width: 400px; height: 300px; }
+                 #outer { width: 100px; height: 60px; scroll-snap-type: y mandatory; }
+                 #lead  { width: 100px; height: 100px; }
+                 #inner { width: 100px; height: 40px; }
+                 .row   { width: 100px; height: 33px; scroll-snap-align: start; }
+                 """
+        );
 
         using var scope = fixture;
 

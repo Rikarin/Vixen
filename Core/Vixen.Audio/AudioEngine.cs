@@ -150,12 +150,12 @@ public sealed class AudioEngine : IAudioRenderSource, IDisposable {
 
         Device = device;
         this.logger = logger ?? NullLogger.Instance;
-        Mixer = new AudioMixer(options.VoiceCapacity);
+        Mixer = new(options.VoiceCapacity);
         voices = Mixer.Voices;
         fades = new FadeState[voices.Length];
         silence = new float[device.BufferFrames * device.Format.Channels];
-        voiceParameters = new VoiceParameters(voices.Length);
-        occlusion = new AudioOcclusion(voices.Length);
+        voiceParameters = new(voices.Length);
+        occlusion = new(voices.Length);
         ranking = new int[voices.Length];
         rankPriorities = new int[voices.Length];
         rankAudibility = new float[voices.Length];
@@ -166,7 +166,7 @@ public sealed class AudioEngine : IAudioRenderSource, IDisposable {
             ? options.AudibleVoices
             : 0;
 
-        Streams = new AudioStreamPump();
+        Streams = new();
         publishedListener.Write(listeners);
 
         // Prepare before Start, so the first block the device asks for finds sized buffers. The
@@ -175,7 +175,7 @@ public sealed class AudioEngine : IAudioRenderSource, IDisposable {
         Mixer.Prepare(device.Format, device.BufferFrames);
 
         if (options.MasterLimiter) {
-            Limiter = new LimiterEffect();
+            Limiter = new();
             Master.AddEffect(Limiter);
         }
 
@@ -217,7 +217,7 @@ public sealed class AudioEngine : IAudioRenderSource, IDisposable {
                     device.BufferFrames
                 );
 
-                return new AudioEngine(device, options, logger);
+                return new(device, options, logger);
             } catch (AudioDeviceException exception) {
                 AudioLog.DeviceUnavailable(log, backend.Name, exception.Message);
             }
@@ -226,15 +226,14 @@ public sealed class AudioEngine : IAudioRenderSource, IDisposable {
         }
 
         var fallback = new NullAudioBackend { Paced = true };
-        return new AudioEngine(fallback.OpenDevice(options.Device), options, logger);
+        return new(fallback.OpenDevice(options.Device), options, logger);
     }
 
     /// <summary>An engine on a backend, with the default options.</summary>
     /// <param name="backend">The backend to try.</param>
     /// <param name="logger">Where to report.</param>
     /// <returns>The engine.</returns>
-    public static AudioEngine Create(IAudioBackend backend, ILogger? logger = null) =>
-        Create(backend, new AudioEngineOptions(), logger);
+    public static AudioEngine Create(IAudioBackend backend, ILogger? logger = null) => Create(backend, new(), logger);
 
     /// <summary>Where the samples go.</summary>
     public IAudioDevice Device { get; }
@@ -312,7 +311,8 @@ public sealed class AudioEngine : IAudioRenderSource, IDisposable {
         AudioEventAsset asset,
         out IReadOnlyList<string> problems,
         IAudioEventLibrary? library = null
-    ) => AudioEventBuilder.Build(this, asset, out problems, library);
+    ) =>
+        AudioEventBuilder.Build(this, asset, out problems, library);
 
     /// <summary>The limiter on the master, if <see cref="AudioEngineOptions.MasterLimiter" /> asked for one.</summary>
     /// <remarks>
@@ -410,7 +410,7 @@ public sealed class AudioEngine : IAudioRenderSource, IDisposable {
     /// <summary>Plays a clip at full volume on the master bus.</summary>
     /// <param name="clip">The clip.</param>
     /// <returns>A handle, or <see cref="VoiceHandle.None" /> if every voice was busy.</returns>
-    public VoiceHandle Play(AudioClip clip) => Play(clip, new PlaybackSettings());
+    public VoiceHandle Play(AudioClip clip) => Play(clip, new());
 
     /// <summary>Plays a clip.</summary>
     /// <param name="clip">The clip. Not copied — it must outlive the sound.</param>
@@ -419,7 +419,7 @@ public sealed class AudioEngine : IAudioRenderSource, IDisposable {
     /// <exception cref="ArgumentNullException"><paramref name="clip" /> is null.</exception>
     public VoiceHandle Play(AudioClip clip, in PlaybackSettings settings) {
         ArgumentNullException.ThrowIfNull(clip);
-        return Play(new ClipSampleProvider(clip, settings.Loop), settings, ownsSource: true);
+        return Play(new ClipSampleProvider(clip, settings.Loop), settings, true);
     }
 
     /// <summary>Plays whatever a caller can produce samples from.</summary>
@@ -427,8 +427,7 @@ public sealed class AudioEngine : IAudioRenderSource, IDisposable {
     /// <param name="settings">How to play it.</param>
     /// <returns>A handle, or <see cref="VoiceHandle.None" /> if every voice was busy.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="source" /> is null.</exception>
-    public VoiceHandle Play(IAudioSampleProvider source, in PlaybackSettings settings) =>
-        Play(source, settings, ownsSource: false);
+    public VoiceHandle Play(IAudioSampleProvider source, in PlaybackSettings settings) => Play(source, settings, false);
 
     /// <summary>Plays a track without loading all of it, decoding as it goes.</summary>
     /// <param name="decoder">The decoder. Owned by the engine from here on and disposed when the voice ends.</param>
@@ -444,7 +443,7 @@ public sealed class AudioEngine : IAudioRenderSource, IDisposable {
 
         var provider = new StreamingSampleProvider(decoder, settings.Loop);
         Streams.Register(provider);
-        var handle = Play(provider, settings, ownsSource: true);
+        var handle = Play(provider, settings, true);
 
         if (!handle.IsValid) {
             Streams.Unregister(provider);
@@ -742,8 +741,7 @@ public sealed class AudioEngine : IAudioRenderSource, IDisposable {
     ///     What the parameter curves worked out, and not the air absorption — those are two filters
     ///     for two reasons and only this one is anybody's decision.
     /// </remarks>
-    public float LowPassOf(VoiceHandle handle) =>
-        TryResolve(handle, out var voice) ? voice.ParameterLowPassHz : 0f;
+    public float LowPassOf(VoiceHandle handle) => TryResolve(handle, out var voice) ? voice.ParameterLowPassHz : 0f;
 
     /// <summary>Whether a sound is still going.</summary>
     /// <param name="handle">Which one.</param>
@@ -766,7 +764,8 @@ public sealed class AudioEngine : IAudioRenderSource, IDisposable {
         float gain,
         TimeSpan duration,
         AudioFadeCurve curve = AudioFadeCurve.Decibel
-    ) => StartFade(handle, gain, duration, curve, stopAtEnd: false);
+    ) =>
+        StartFade(handle, gain, duration, curve, false);
 
     /// <summary>Fades a sound out and stops it when it gets there.</summary>
     /// <param name="handle">Which sound.</param>
@@ -780,7 +779,8 @@ public sealed class AudioEngine : IAudioRenderSource, IDisposable {
         VoiceHandle handle,
         TimeSpan duration,
         AudioFadeCurve curve = AudioFadeCurve.Decibel
-    ) => StartFade(handle, 0f, duration, curve, stopAtEnd: true);
+    ) =>
+        StartFade(handle, 0f, duration, curve, true);
 
     /// <summary>Whether a fade is running on a sound.</summary>
     /// <param name="handle">Which sound.</param>
@@ -856,7 +856,7 @@ public sealed class AudioEngine : IAudioRenderSource, IDisposable {
             (long)(Volatile.Read(ref lastRenderTicks) * (10_000_000.0 / Stopwatch.Frequency))
         );
 
-        Statistics = new AudioStatistics {
+        Statistics = new() {
             ActiveVoices = Mixer.ActiveVoices,
             VoiceCapacity = Mixer.VoiceCapacity,
             VirtualVoices = virtualVoices,
@@ -909,7 +909,7 @@ public sealed class AudioEngine : IAudioRenderSource, IDisposable {
             return;
         }
 
-        fades[handle.Index] = new FadeState {
+        fades[handle.Index] = new() {
             Active = true,
             Generation = handle.Generation,
             From = voice.Gain,
@@ -955,7 +955,7 @@ public sealed class AudioEngine : IAudioRenderSource, IDisposable {
             fade.Active = false;
 
             if (fade.StopAtEnd) {
-                Stop(new VoiceHandle(i, fade.Generation));
+                Stop(new(i, fade.Generation));
             }
         }
     }
@@ -1093,7 +1093,7 @@ public sealed class AudioEngine : IAudioRenderSource, IDisposable {
                 (int)(settings.StartPaused ? VoiceState.Paused : VoiceState.Playing)
             );
 
-            return new VoiceHandle(index, claimed.Generation);
+            return new(index, claimed.Generation);
         }
 
         if (!TrySteal(settings.Priority, out var victim)) {
@@ -1114,7 +1114,7 @@ public sealed class AudioEngine : IAudioRenderSource, IDisposable {
         // time the flag is seen.
         Volatile.Write(ref stolen.StealPending, 1);
         Interlocked.Increment(ref stolenVoices);
-        return new VoiceHandle(victim, stolen.Generation);
+        return new(victim, stolen.Generation);
     }
 
     void Describe(Voice voice, int index, in PlaybackSettings settings) {
@@ -1283,7 +1283,8 @@ public sealed class AudioEngine : IAudioRenderSource, IDisposable {
                 ref chosen.State,
                 (int)VoiceState.Stopping,
                 (int)chosenState
-            ) != (int)chosenState) {
+            )
+            != (int)chosenState) {
             // It finished on its own between the scan and here. Rare, and the answer is to try the
             // whole thing again rather than to steal a slot whose state moved underneath us.
             index = -1;
@@ -1304,7 +1305,8 @@ public sealed class AudioEngine : IAudioRenderSource, IDisposable {
                     ref voices[i].State,
                     (int)VoiceState.Claimed,
                     (int)VoiceState.Free
-                ) == (int)VoiceState.Free) {
+                )
+                == (int)VoiceState.Free) {
                 // Safe unguarded now: the slot is Claimed, and only this thread touches a claimed
                 // slot until the state moves on.
                 voices[i].Generation++;

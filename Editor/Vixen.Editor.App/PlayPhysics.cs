@@ -11,8 +11,11 @@ namespace Vixen.Editor.App;
 /// <summary>The simulation an in-editor play session runs, and nothing an editing one does.</summary>
 /// <remarks>
 ///     <para>
-///         <b>[31 § D10](../../docs/plan/31-terrain-grass-and-trees.md)'s last blocker, answered from
-///         the application rather than from a module.</b> The editor holds no <c>PhysicsScene</c> and
+///         <b>
+///             [31 § D10](../../docs/plan/31-terrain-grass-and-trees.md)'s last blocker, answered from
+///             the application rather than from a module.
+///         </b>
+///         The editor holds no <c>PhysicsScene</c> and
 ///         nothing under <c>Editor/</c> referenced <c>Vixen.Physics</c>; the reason given was that a
 ///         scene published into <c>PluginServices</c> would be a world nothing calls
 ///         <c>Synchronize</c> on. <c>PlayModeController</c> steps a real <c>EngineLoop</c> now, so
@@ -20,8 +23,12 @@ namespace Vixen.Editor.App;
 ///         render-time interpolation into it, through the same <c>AddPhysics</c> a game calls.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Created on Play and destroyed on Stop, which is the decision rather than an
-///         implementation detail.</b> A body that falls while somebody is dragging a gizmo is a scene
+///         ⚠
+///         <b>
+///             Created on Play and destroyed on Stop, which is the decision rather than an
+///             implementation detail.
+///         </b>
+///         A body that falls while somebody is dragging a gizmo is a scene
 ///         that edits itself, and an editor whose ground settles a centimetre every time you look at
 ///         it is one where nothing can be placed. Simulating only inside a session also puts every
 ///         body <em>inside</em> the snapshot: <c>WorldSnapshot.Capture</c> runs before this attaches
@@ -85,8 +92,12 @@ sealed class PlayPhysics : IPlaySystems {
     ///         they hit either.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Conditional, and <see cref="PlaySession.TryGet{T}" /> answering false is the
-    ///         ordinary case rather than a failure.</b> A session run by a harness with no viewport
+    ///         ⚠
+    ///         <b>
+    ///             Conditional, and <see cref="PlaySession.TryGet{T}" /> answering false is the
+    ///             ordinary case rather than a failure.
+    ///         </b>
+    ///         A session run by a harness with no viewport
     ///         has no accumulator and wants none; the simulation still runs, exactly as it did.
     ///     </para>
     ///     <para>

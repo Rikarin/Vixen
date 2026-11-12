@@ -126,7 +126,7 @@ public struct MoveIntent {
         var forward = new Vector3(-sin, 0f, -cos);
         var right = new Vector3(cos, 0f, -sin);
 
-        return (right * Move.X) + (forward * Move.Y);
+        return right * Move.X + forward * Move.Y;
     }
 }
 
@@ -171,12 +171,13 @@ public struct ControlRotation {
     ///     a zero minimum and a zero maximum, so it is pinned exactly level and the player's mouse
     ///     appears to be broken in one axis.
     /// </remarks>
-    public static ControlRotation Default => new() {
-        Yaw = 0f,
-        Pitch = 0f,
-        MinimumPitch = MathUtil.DegreesToRadians(-80f),
-        MaximumPitch = MathUtil.DegreesToRadians(80f)
-    };
+    public static ControlRotation Default =>
+        new() {
+            Yaw = 0f,
+            Pitch = 0f,
+            MinimumPitch = MathUtil.DegreesToRadians(-80f),
+            MaximumPitch = MathUtil.DegreesToRadians(80f)
+        };
 
     /// <summary>Turns by two angles, wrapping the yaw and clamping the pitch.</summary>
     /// <param name="yaw">How far to turn, in radians. Positive turns left.</param>
@@ -270,12 +271,7 @@ public struct PlayerController {
     ///     does not accept input — a controller created with <c>default</c> would be silently deaf
     ///     rather than visibly broken. The same trap <c>VirtualCamera.Default</c> exists to avoid.
     /// </remarks>
-    public static PlayerController Default => new() {
-        Slot = 0,
-        Owner = 0,
-        CameraChannel = 0,
-        AcceptsInput = true
-    };
+    public static PlayerController Default => new() { Slot = 0, Owner = 0, CameraChannel = 0, AcceptsInput = true };
 }
 
 /// <summary>What a controller is driving. Absent when it is driving nothing.</summary>

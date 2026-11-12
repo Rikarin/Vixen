@@ -67,7 +67,7 @@ public class MaterialFeatureOrderTests {
 
         Assert.True(Directory.Exists(root), $"the shipped shaders were not copied to {root}");
 
-        return Directory.EnumerateFiles(root, "*.rvn", SearchOption.AllDirectories).ToArray();
+        return [..Directory.EnumerateFiles(root, "*.rvn", SearchOption.AllDirectories)];
     }
 
     /// <summary>Every shader in the shipped library whose body writes the surface coordinate.</summary>
@@ -109,10 +109,10 @@ public class MaterialFeatureOrderTests {
     /// </remarks>
     static IMaterialFeature[] Features() {
         var features = typeof(MetalRoughnessFeature).Assembly.GetTypes()
-            .Where(type => type is { IsAbstract: false, IsInterface: false, IsGenericTypeDefinition: false })
-            .Where(type => typeof(IMaterialFeature).IsAssignableFrom(type))
-            .Where(type => type.GetConstructor(Type.EmptyTypes) is not null)
-            .Select(type => (IMaterialFeature)Activator.CreateInstance(type)!)
+            .Where(static type => type is { IsAbstract: false, IsInterface: false, IsGenericTypeDefinition: false })
+            .Where(static type => typeof(IMaterialFeature).IsAssignableFrom(type))
+            .Where(static type => type.GetConstructor(Type.EmptyTypes) is not null)
+            .Select(static type => (IMaterialFeature)Activator.CreateInstance(type)!)
             .ToArray();
 
         // The instrument: an empty roster is a reflection query that stopped matching, and it
@@ -134,8 +134,8 @@ public class MaterialFeatureOrderTests {
     [Fact]
     public void EveryShaderThatWritesTheCoordinateHasACoordinateFeature() {
         var declared = Features()
-            .Where(feature => feature.Stage == MaterialFeatureStage.Coordinate)
-            .Select(feature => feature.ShaderName)
+            .Where(static feature => feature.Stage == MaterialFeatureStage.Coordinate)
+            .Select(static feature => feature.ShaderName)
             .ToHashSet(StringComparer.Ordinal);
 
         foreach (var shader in CoordinateShaders()) {
@@ -159,7 +159,7 @@ public class MaterialFeatureOrderTests {
     public void EveryCoordinateFeatureNamesAShaderThatWritesTheCoordinate() {
         var writers = CoordinateShaders();
 
-        foreach (var feature in Features().Where(feature => feature.Stage == MaterialFeatureStage.Coordinate)) {
+        foreach (var feature in Features().Where(static feature => feature.Stage == MaterialFeatureStage.Coordinate)) {
             Assert.True(
                 writers.Contains(feature.ShaderName),
                 $"'{feature.GetType().Name}' declares MaterialFeatureStage.Coordinate and "
@@ -173,8 +173,12 @@ public class MaterialFeatureOrderTests {
     ///     And the pattern above still matches the library, on the day nothing is a writer.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>Both inventories above are green over an empty set today, so this is what makes them
-    ///     evidence.</b> Ask what they print on the day the regex stops matching: success, twice, for
+    ///     ⚠
+    ///     <b>
+    ///         Both inventories above are green over an empty set today, so this is what makes them
+    ///         evidence.
+    ///     </b>
+    ///     Ask what they print on the day the regex stops matching: success, twice, for
     ///     the same reason they print success now. The library assigns <c>d.uv</c> in three places —
     ///     <c>MaterialDefaults.Reset</c>, <c>MaterialDefaults.Begin</c> and <c>MaterialBlend.Mix</c> —
     ///     and every one of them is inside a <c>struct</c>, which is why the set of shader writers is
@@ -184,7 +188,7 @@ public class MaterialFeatureOrderTests {
     public void TheCoordinateWriteInventoryStillMatchesTheLibrary() {
         var writes = Shipped()
             .SelectMany(File.ReadAllLines)
-            .Count(line => Write.IsMatch(line.Trim()));
+            .Count(static line => Write.IsMatch(line.Trim()));
 
         Assert.True(writes >= 3, $"the coordinate-write pattern matched {writes} lines in the library");
     }
@@ -214,7 +218,7 @@ public class MaterialFeatureOrderTests {
     [Fact]
     public void AStructInsideAShaderDoesNotEndIt() {
         var file = Shipped()
-            .SingleOrDefault(one => Path.GetFileName(one) == "ImpostorCapture.rvn");
+            .SingleOrDefault(static one => Path.GetFileName(one) == "ImpostorCapture.rvn");
 
         Assert.True(
             file is not null,
@@ -223,7 +227,7 @@ public class MaterialFeatureOrderTests {
         );
 
         var lines = File.ReadAllLines(file!);
-        var nested = Array.FindIndex(lines, line => line.StartsWith("    struct ", StringComparison.Ordinal));
+        var nested = Array.FindIndex(lines, static line => line.StartsWith("    struct ", StringComparison.Ordinal));
 
         Assert.True(nested > 0, "ImpostorCapture.rvn no longer declares an indented struct.");
 

@@ -10,7 +10,8 @@ namespace Vixen.Geometry.Uv.Tests;
 public class UvTilesTests {
     /// <summary>A triangle in the square whose corner is at <paramref name="u" />, <paramref name="v" />, as a file says it.</summary>
     /// <remarks>A reader flips v, so a file's <c>v</c> is <c>1 − v</c> here.</remarks>
-    static Vector2[] In(float u, float v) => [new(u + 0.1f, 1f - (v + 0.1f)), new(u + 0.9f, 1f - (v + 0.1f)), new(u + 0.1f, 1f - (v + 0.9f))];
+    static Vector2[] In(float u, float v) =>
+        [new(u + 0.1f, 1f - (v + 0.1f)), new(u + 0.9f, 1f - (v + 0.1f)), new(u + 0.1f, 1f - (v + 0.9f))];
 
     [Fact]
     public void A_layout_inside_the_unit_square_is_tile_1001_alone() {
@@ -22,7 +23,7 @@ public class UvTilesTests {
 
     [Fact]
     public void Across_is_one_more_and_up_is_ten_more() {
-        Vector2[] corners = [.. In(1f, 0f), .. In(0f, 1f), .. In(0f, 0f)];
+        Vector2[] corners = [..In(1f, 0f), ..In(0f, 1f), ..In(0f, 0f)];
 
         var tiles = UvTiles.Reached(corners);
 
@@ -46,5 +47,5 @@ public class UvTilesTests {
 
     [Fact]
     public void Coordinates_that_are_not_whole_triangles_are_refused() =>
-        Assert.Throws<ArgumentException>(() => UvTiles.Reached(new Vector2[4]));
+        Assert.Throws<ArgumentException>(static () => UvTiles.Reached(new Vector2[4]));
 }

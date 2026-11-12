@@ -144,14 +144,22 @@ public sealed record SettingCondition(string Setting, string Value, bool Negated
 /// <param name="VisibleIf">When it is worth showing, or null for always.</param>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Deliberately not a <see cref="PortDefinition" /> with a tenth
-///         <see cref="PortKind" />.</b> A setting has no direction, no socket and no edge — see
+///         ⚠
+///         <b>
+///             Deliberately not a <see cref="PortDefinition" /> with a tenth
+///             <see cref="PortKind" />.
+///         </b>
+///         A setting has no direction, no socket and no edge — see
 ///         <see cref="SettingAttribute" /> — and folding it into the port list would mean every
 ///         consumer that walks ports had to remember which of them could not be connected to.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The last four exist because a published graph's parameters lost them crossing this
-///         boundary — <a href="https://github.com/Rikarin/Vixen/issues/730">#730</a>.</b> Doc 48 § D9
+///         ⚠
+///         <b>
+///             The last four exist because a published graph's parameters lost them crossing this
+///             boundary — <a href="https://github.com/Rikarin/Vixen/issues/730">#730</a>.
+///         </b>
+///         Doc 48 § D9
 ///         says an exposed parameter is "a name, a type, a default, a range and a group"; three of
 ///         the five fitted here, so a parameter declared <c>0…1</c> drew as a text box and a
 ///         <c>bool</c> one drew as a box in which <c>ture</c> is a value. The workaround was folding
@@ -159,14 +167,21 @@ public sealed record SettingCondition(string Setting, string Value, bool Negated
 ///         could act on.
 ///     </para>
 ///     <para>
-///         <b>Every one of them is optional and the record's old three-argument shape still
-///         compiles</b>, which is what keeps a setting that is genuinely a name — a menu path, an
+///         <b>
+///             Every one of them is optional and the record's old three-argument shape still
+///             compiles
+///         </b>
+///         , which is what keeps a setting that is genuinely a name — a menu path, an
 ///         expression, an asset reference — exactly as cheap to declare as it was.
 ///     </para>
 ///     <para>
-///         ⚠ <b><see cref="Accepted" /> is the fifth, and it exists because a set of legal names had
-///         no way across this boundary at all —
-///         <a href="https://github.com/Rikarin/Vixen/issues/964">#964</a>.</b> A node whose setting is
+///         ⚠
+///         <b>
+///             <see cref="Accepted" /> is the fifth, and it exists because a set of legal names had
+///             no way across this boundary at all —
+///             <a href="https://github.com/Rikarin/Vixen/issues/964">#964</a>.
+///         </b>
+///         A node whose setting is
 ///         one of nine measurements said so in its <see cref="Summary" /> prose and in the sentence it
 ///         refuses a tenth with, and every consumer that wanted to <em>offer</em> the nine — the node
 ///         inspector, a plugin's own panel — had to write them down again. Five exact-equality roll
@@ -200,15 +215,23 @@ public sealed record SettingDefinition(
     /// <summary>Every value this setting may hold, in declaration order, or empty for any name.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Normalised out of <c>default</c>, for <see cref="NodeTypeDefinition.Settings" />'s
-    ///         reason.</b> An <see cref="ImmutableArray{T}" /> parameter with no argument is not an
+    ///         ⚠
+    ///         <b>
+    ///             Normalised out of <c>default</c>, for <see cref="NodeTypeDefinition.Settings" />'s
+    ///             reason.
+    ///         </b>
+    ///         An <see cref="ImmutableArray{T}" /> parameter with no argument is not an
     ///         empty array but an uninitialised one, and every member on it throws — so a consumer
     ///         asking a setting that declares nothing what it accepts would fault rather than be told
     ///         "anything".
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And out of <em>empty</em> as well, which is record equality rather than
-    ///         tidiness.</b> <see cref="ImmutableArray{T}" /> compares by the identity of the array it
+    ///         ⚠
+    ///         <b>
+    ///             And out of <em>empty</em> as well, which is record equality rather than
+    ///             tidiness.
+    ///         </b>
+    ///         <see cref="ImmutableArray{T}" /> compares by the identity of the array it
     ///         wraps, so two settings that both accept nothing are unequal whenever their empty arrays
     ///         were built differently — which is exactly what a round trip through
     ///         <c>GraphParameterAsset</c> does, one side spreading a zero-length <c>string[]</c> and
@@ -253,12 +276,20 @@ public sealed record SettingDefinition(
     ///         <c>id</c> uppercases to something else must not decide whether a graph compiles.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And case-insensitively, which it was not — every refusal this mirrors ignores
-    ///         case.</b> <c>TextureSettings.Enum&lt;T&gt;</c> parses with <c>ignoreCase: true</c>,
+    ///         ⚠
+    ///         <b>
+    ///             And case-insensitively, which it was not — every refusal this mirrors ignores
+    ///             case.
+    ///         </b>
+    ///         <c>TextureSettings.Enum&lt;T&gt;</c> parses with <c>ignoreCase: true</c>,
     ///         and both nodes that walk a list of their own compare with
     ///         <see cref="StringComparison.OrdinalIgnoreCase" />; a graph holding <c>multiply</c>
-    ///         compiles today. So an exact-case predicate here was <em>stricter than the thing it
-    ///         exists to agree with</em>, and anything that had wired it in as a refusal would have
+    ///         compiles today. So an exact-case predicate here was
+    ///         <em>
+    ///             stricter than the thing it
+    ///             exists to agree with
+    ///         </em>
+    ///         , and anything that had wired it in as a refusal would have
     ///         rejected graphs that compile — which is the reason it could not be wired in, rather
     ///         than an argument that it should not be.
     ///         <see cref="StringComparison.OrdinalIgnoreCase" /> is culture-independent too, so the
@@ -276,8 +307,12 @@ public sealed record SettingDefinition(
     /// </returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b><see cref="Accepts" /> answers the wrong question, and this is why it had no
-    ///         caller</b> — <a href="https://github.com/Rikarin/Vixen/issues/1044">#1044</a>. The two
+    ///         ⚠
+    ///         <b>
+    ///             <see cref="Accepts" /> answers the wrong question, and this is why it had no
+    ///             caller
+    ///         </b>
+    ///         — <a href="https://github.com/Rikarin/Vixen/issues/1044">#1044</a>. The two
     ///         refusals in this repository that would adopt the predicate — <c>TextureMeshMaps</c>
     ///         and <c>TextureUsages</c> — each walked the same list themselves, and neither could
     ///         use a <c>bool</c>: a graph written <c>Multiply</c> and one written <c>multiply</c>
@@ -286,8 +321,12 @@ public sealed record SettingDefinition(
     ///         round to wiring and was a seam of the wrong shape.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The two share a walk rather than one calling the other, and the empty-string case
-    ///         is why.</b> Writing <c>Accepts</c> as <c>Canonical(value).Length > 0</c> is right for
+    ///         ⚠
+    ///         <b>
+    ///             The two share a walk rather than one calling the other, and the empty-string case
+    ///             is why.
+    ///         </b>
+    ///         Writing <c>Accepts</c> as <c>Canonical(value).Length > 0</c> is right for
     ///         every list anybody would declare and wrong for one containing <c>""</c> — the two
     ///         would then disagree about a value the list plainly states. A shared index costs one
     ///         private member and cannot drift, which is the whole reason #1044 asked for one list.
@@ -307,7 +346,7 @@ public sealed record SettingDefinition(
 
         var found = Match(value);
 
-        return found < 0 ? "" : Accepted[found];
+        return found < 0 ? string.Empty : Accepted[found];
     }
 
     /// <summary>Where a written value sits in <see cref="Accepted" />, or -1.</summary>
@@ -368,7 +407,7 @@ public sealed record NodeTypeDefinition(
     public string Title => Path[(Path.LastIndexOf('/') + 1)..];
 
     /// <summary>Everything before that: where it sits in the create menu.</summary>
-    public string Category => Path.LastIndexOf('/') is var slash && slash < 0 ? "" : Path[..slash];
+    public string Category => Path.LastIndexOf('/') is var slash && slash < 0 ? string.Empty : Path[..slash];
 
     /// <summary>One port by name.</summary>
     /// <param name="name">Its name.</param>

@@ -7,8 +7,12 @@ namespace Vixen.Gameplay.Movement;
 
 /// <summary>What sort of thing it is.</summary>
 /// <remarks>
-///     ⚠ <b>A mount is a single-seat vehicle whose model is a creature, and that is doc 28's whole
-///     point here:</b> it <em>"collapses two systems people usually write twice"</em>. The kind
+///     ⚠
+///     <b>
+///         A mount is a single-seat vehicle whose model is a creature, and that is doc 28's whole
+///         point here:
+///     </b>
+///     it <em>"collapses two systems people usually write twice"</em>. The kind
 ///     changes what physics config a game reaches for; it changes nothing in this library.
 /// </remarks>
 public enum VehicleKind {
@@ -191,7 +195,7 @@ public sealed class Vehicle {
         Definition = definition;
         Tag = tag;
         this.seats = seats;
-        DriverSeat = Array.FindIndex(seats, seat => seat.Controls);
+        DriverSeat = Array.FindIndex(seats, static seat => seat.Controls);
     }
 
     /// <summary>What it was compiled from.</summary>
@@ -224,7 +228,8 @@ public sealed class Vehicle {
     /// <summary>Finds a seat.</summary>
     /// <param name="id">Its id within the vehicle.</param>
     /// <returns>Its index, or −1.</returns>
-    public int IndexOf(string? id) => Array.FindIndex(seats, seat => string.Equals(seat.Id, id, StringComparison.Ordinal));
+    public int IndexOf(string? id) =>
+        Array.FindIndex(seats, seat => string.Equals(seat.Id, id, StringComparison.Ordinal));
 }
 
 /// <summary>Every vehicle a build knows, compiled once.</summary>
@@ -242,7 +247,7 @@ public sealed class MovementLibrary {
 
     /// <summary>Every vehicle, in address order.</summary>
     public IEnumerable<Vehicle> Vehicles =>
-        vehicles.Values.OrderBy(vehicle => vehicle.Definition.Address, StringComparer.Ordinal);
+        vehicles.Values.OrderBy(static vehicle => vehicle.Definition.Address, StringComparer.Ordinal);
 
     /// <summary>What did not resolve, and what a definition said that cannot be true at once.</summary>
     public IReadOnlyList<string> Problems => problems;
@@ -258,7 +263,7 @@ public sealed class MovementLibrary {
         var vehicles = new Dictionary<uint, Vehicle>();
 
         foreach (var definition in catalog.OfType<VehicleDefinition>()) {
-            var controlling = definition.Seats.Count(seat => seat.Controls);
+            var controlling = definition.Seats.Count(static seat => seat.Controls);
 
             // ⚠ Exactly one. A vehicle with none is one nobody can drive; a vehicle with two is one
             // where two clients both think they are authoritative over the same rigid body.
@@ -298,7 +303,7 @@ public sealed class MovementLibrary {
             vehicles.Add(definition.Id.Value, new(definition, tags.Resolve(definition.Tag), seats));
         }
 
-        return new(vehicles, [.. problems]);
+        return new(vehicles, [..problems]);
     }
 
     /// <summary>Finds a vehicle.</summary>

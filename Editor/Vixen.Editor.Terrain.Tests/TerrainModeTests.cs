@@ -54,8 +54,8 @@ public sealed class TerrainModeTests {
         var (shell, _) = Built();
         using var _shell = shell;
 
-        shell.Commands.Add("scene.bookmark-go-3", new StringId("test.bookmark", "View 3"), () => { });
-        shell.Keys.SetDefault("scene.bookmark-go-3", new KeyChord(InputKey.Number3, ModifierKeys.None));
+        shell.Commands.Add("scene.bookmark-go-3", new("test.bookmark", "View 3"), static () => { });
+        shell.Keys.SetDefault("scene.bookmark-go-3", new(InputKey.Number3, ModifierKeys.None));
 
         var chord = new KeyChord(InputKey.Number3, ModifierKeys.None);
 
@@ -69,8 +69,12 @@ public sealed class TerrainModeTests {
 
     /// <summary>The digits are bound to slots, not to named tools, because two sets share them.</summary>
     /// <remarks>
-    ///     ⚠ <b>Binding "Sculpt" and "Paint Layer" both to <c>1</c> would put two commands on one
-    ///     chord in one context</b>, and the keymap resolves that to whichever was registered last —
+    ///     ⚠
+    ///     <b>
+    ///         Binding "Sculpt" and "Paint Layer" both to <c>1</c> would put two commands on one
+    ///         chord in one context
+    ///     </b>
+    ///     , and the keymap resolves that to whichever was registered last —
     ///     silently, and differently depending on registration order. A slot command means what
     ///     [§ Part 2]'s sentence means, "the third tool", and the named commands keep the words an
     ///     artist searches the palette for.
@@ -84,7 +88,7 @@ public sealed class TerrainModeTests {
             .Select(slot => shell.Keys.ChordFor(TerrainMode.SlotCommand(slot)))
             .ToArray();
 
-        Assert.All(chords, chord => Assert.NotEqual(KeyChord.None, chord));
+        Assert.All(chords, static chord => Assert.NotEqual(KeyChord.None, chord));
         Assert.Equal(chords.Length, chords.Distinct().Count());
 
         Assert.Equal(new(InputKey.Number1, ModifierKeys.None), chords[0]);
@@ -147,17 +151,17 @@ public sealed class TerrainModeTests {
         using var _shell = shell;
 
         Assert.Equal(
-            new KeyChord(InputKey.RightBracket, ModifierKeys.None),
+            new(InputKey.RightBracket, ModifierKeys.None),
             shell.Keys.ChordFor(TerrainMode.GrowBrushCommand)
         );
 
         Assert.Equal(
-            new KeyChord(InputKey.LeftBracket, ModifierKeys.None),
+            new(InputKey.LeftBracket, ModifierKeys.None),
             shell.Keys.ChordFor(TerrainMode.ShrinkBrushCommand)
         );
 
-        Assert.Equal(new KeyChord(InputKey.Equals, ModifierKeys.None), shell.Keys.ChordFor(TerrainMode.HarderCommand));
-        Assert.Equal(new KeyChord(InputKey.Minus, ModifierKeys.None), shell.Keys.ChordFor(TerrainMode.SofterCommand));
+        Assert.Equal(new(InputKey.Equals, ModifierKeys.None), shell.Keys.ChordFor(TerrainMode.HarderCommand));
+        Assert.Equal(new(InputKey.Minus, ModifierKeys.None), shell.Keys.ChordFor(TerrainMode.SofterCommand));
 
         shell.Modes.Activate(TerrainMode.ModeId);
         mode.Editing.Terrain = Ground.Terrain();
@@ -176,7 +180,7 @@ public sealed class TerrainModeTests {
         var (shell, mode) = Built();
         using var _shell = shell;
 
-        Assert.Collection(shell.Modes.Bar(), entry => Assert.IsType<ToolbarGroup>(entry));
+        Assert.Collection(shell.Modes.Bar(), static entry => Assert.IsType<ToolbarGroup>(entry));
 
         shell.Modes.Activate(TerrainMode.ModeId);
 
@@ -188,12 +192,12 @@ public sealed class TerrainModeTests {
         Assert.IsType<ToolbarSeparator>(bar[3]);
 
         Assert.Equal(
-            [.. TerrainMode.Categories.Select(TerrainMode.CategoryCommand)],
+            [..TerrainMode.Categories.Select(TerrainMode.CategoryCommand)],
             Assert.IsType<ToolbarGroup>(bar[2]).CommandIds
         );
 
         Assert.Equal(
-            [.. TerrainMode.Tools.Select(TerrainMode.ToolCommand)],
+            [..TerrainMode.Tools.Select(TerrainMode.ToolCommand)],
             Assert.IsType<ToolbarGroup>(bar[4]).CommandIds
         );
 
@@ -201,7 +205,7 @@ public sealed class TerrainModeTests {
         mode.Category = TerrainCategory.Paint;
 
         Assert.Equal(
-            [.. TerrainMode.PaintTools.Select(TerrainMode.PaintToolCommand)],
+            [..TerrainMode.PaintTools.Select(TerrainMode.PaintToolCommand)],
             Assert.IsType<ToolbarGroup>(shell.Modes.Bar()[4]).CommandIds
         );
     }
@@ -253,8 +257,8 @@ public sealed class TerrainModeTests {
         shell.Modes.Activate(TerrainMode.ModeId);
         mode.Editing.Terrain = Ground.Terrain();
 
-        Assert.False(mode.Pointer(new PointerEvent()));
-        Assert.False(mode.Key(new KeyEvent()));
+        Assert.False(mode.Pointer(new()));
+        Assert.False(mode.Key(new()));
     }
 
     [Fact]

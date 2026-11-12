@@ -175,12 +175,7 @@ public sealed class AgentMemoryPool {
             Array.Resize(ref blocks, Math.Max(16, blocks.Length * 2));
         }
 
-        blocks[blockCount] = new() {
-            Page = pages.Count - 1,
-            Offset = pageUsed,
-            Capacity = rounded,
-            NextFree = -1
-        };
+        blocks[blockCount] = new() { Page = pages.Count - 1, Offset = pageUsed, Capacity = rounded, NextFree = -1 };
 
         pageUsed += rounded;
 

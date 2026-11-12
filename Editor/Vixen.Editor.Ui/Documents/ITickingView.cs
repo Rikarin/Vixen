@@ -3,7 +3,10 @@
 
 namespace Vixen.Editor.Ui.Documents;
 
-/// <summary>A document's view that moves by itself — a playing timeline, a simulating effect — and is stepped once a frame.</summary>
+/// <summary>
+///     A document's view that moves by itself — a playing timeline, a simulating effect — and is stepped once a
+///     frame.
+/// </summary>
 /// <remarks>
 ///     <para>
 ///         <b>What the application finds by walking the tree</b>, so it steps a VFX graph and a

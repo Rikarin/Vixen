@@ -67,8 +67,7 @@ public readonly record struct XrPose(Vector3 Position, Quaternion Orientation) {
     public static XrPose Identity => new(Vector3.Zero, Quaternion.Identity);
 
     /// <summary>The transform that takes this pose's local space into the reference space.</summary>
-    public Matrix4x4 ToMatrix() =>
-        Matrix4x4.FromQuaternion(Orientation) * Matrix4x4.FromTranslation(Position);
+    public Matrix4x4 ToMatrix() => Matrix4x4.FromQuaternion(Orientation) * Matrix4x4.FromTranslation(Position);
 
     /// <summary>The view matrix for a camera at this pose: reference space into eye space.</summary>
     /// <remarks>
@@ -89,10 +88,11 @@ public readonly record struct XrPose(Vector3 Position, Quaternion Orientation) {
     ///     because the rig can be rotated, and a game that only ever added positions works until
     ///     somebody turns the player round with a snap turn.
     /// </remarks>
-    public XrPose RelativeTo(in XrPose origin) => new(
-        origin.Position + Quaternion.Transform(Position, origin.Orientation),
-        origin.Orientation * Orientation
-    );
+    public XrPose RelativeTo(in XrPose origin) =>
+        new(
+            origin.Position + Quaternion.Transform(Position, origin.Orientation),
+            origin.Orientation * Orientation
+        );
 }
 
 /// <summary>The four half-angles of an asymmetric view frustum, in radians.</summary>
@@ -122,12 +122,13 @@ public readonly record struct XrFieldOfView(
     /// <param name="horizontal">The full horizontal field of view, in radians.</param>
     /// <param name="vertical">The full vertical field of view, in radians.</param>
     /// <returns>The angles.</returns>
-    public static XrFieldOfView Symmetric(float horizontal, float vertical) => new(
-        -horizontal * 0.5f,
-        horizontal * 0.5f,
-        vertical * 0.5f,
-        -vertical * 0.5f
-    );
+    public static XrFieldOfView Symmetric(float horizontal, float vertical) =>
+        new(
+            -horizontal * 0.5f,
+            horizontal * 0.5f,
+            vertical * 0.5f,
+            -vertical * 0.5f
+        );
 
     /// <summary>Whether it describes a frustum with any volume in it.</summary>
     public bool IsValid => AngleRight > AngleLeft && AngleUp > AngleDown;

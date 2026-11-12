@@ -152,9 +152,7 @@ public sealed class WindowsDialogs(INativeDialogs fallback) : INativeDialogs, ID
 
     /// <summary>Runs the dialog on a thread that exists for it and ends with it.</summary>
     static unsafe Task<string[]> OnStaThread(Func<string[]> work) {
-        var completion = new TaskCompletionSource<string[]>(
-            TaskCreationOptions.RunContinuationsAsynchronously
-        );
+        var completion = new TaskCompletionSource<string[]>(TaskCreationOptions.RunContinuationsAsynchronously);
 
         var thread = new Thread(() => {
                 var initialised = Win32.CoInitializeEx(null, Win32.CoinitApartmentThreaded);
@@ -172,10 +170,7 @@ public sealed class WindowsDialogs(INativeDialogs fallback) : INativeDialogs, ID
                     }
                 }
             }
-        ) {
-            IsBackground = true,
-            Name = "Vixen file dialog"
-        };
+        ) { IsBackground = true, Name = "Vixen file dialog" };
 
         thread.SetApartmentState(ApartmentState.STA);
         thread.Start();
@@ -361,7 +356,8 @@ public sealed class WindowsDialogs(INativeDialogs fallback) : INativeDialogs, ID
                         array,
                         index,
                         &item
-                    ) < 0
+                    )
+                    < 0
                     || item is null) {
                     continue;
                 }
@@ -375,7 +371,7 @@ public sealed class WindowsDialogs(INativeDialogs fallback) : INativeDialogs, ID
                 }
             }
 
-            return [.. paths];
+            return [..paths];
         } finally {
             Release(array);
         }
@@ -391,7 +387,8 @@ public sealed class WindowsDialogs(INativeDialogs fallback) : INativeDialogs, ID
                 item,
                 Win32.SigdnFileSysPath,
                 &name
-            ) < 0
+            )
+            < 0
             || name is null) {
             return null;
         }

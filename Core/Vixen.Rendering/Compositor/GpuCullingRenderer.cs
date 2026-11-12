@@ -163,8 +163,7 @@ public sealed class GpuCullingRenderer : SceneRenderer {
                 pass.Kind = PassKind.Graphics;
                 pass.SideEffect();
 
-                pass.Execute(
-                    context => {
+                pass.Execute(context => {
                         // Nothing to record when the group read its answer back — it dispatched and
                         // waited during Cull, and the arguments would be a second copy of a decision
                         // the work list already carries. A late node adds: nothing to record when

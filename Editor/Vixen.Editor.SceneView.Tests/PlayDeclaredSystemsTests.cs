@@ -21,8 +21,12 @@ namespace Vixen.Editor.SceneView.Tests;
 ///         service is keyed on its static type in both.
 ///     </para>
 ///     <para>
-///         ⚠ <b><see cref="ProjectSystem" /> asks for a service nothing else in this assembly
-///         provides, deliberately.</b> The registry is process-wide and every session reads all of
+///         ⚠
+///         <b>
+///             <see cref="ProjectSystem" /> asks for a service nothing else in this assembly
+///             provides, deliberately.
+///         </b>
+///         The registry is process-wide and every session reads all of
 ///         it, so a declared system that could be satisfied by accident would join the frame of every
 ///         other test in here — and <c>PlaySystemsTests</c> asserts on <c>Session.Running</c>
 ///         exactly.
@@ -49,7 +53,10 @@ public class PlayDeclaredSystemsTests {
         play.Play();
 
         Assert.Contains(nameof(ProjectSystem), play.Declared.Running);
-        Assert.DoesNotContain(play.Declared.Missing, line => line.Contains(nameof(ProjectSystem), StringComparison.Ordinal));
+        Assert.DoesNotContain(
+            play.Declared.Missing,
+            static line => line.Contains(nameof(ProjectSystem), StringComparison.Ordinal)
+        );
 
         play.Tick(Frame);
 
@@ -81,7 +88,7 @@ public class PlayDeclaredSystemsTests {
 
         var absent = Assert.Single(
             play.Declared.Missing,
-            line => line.Contains(nameof(ProjectSystem), StringComparison.Ordinal)
+            static line => line.Contains(nameof(ProjectSystem), StringComparison.Ordinal)
         );
 
         Assert.Contains(nameof(Warehouse), absent, StringComparison.Ordinal);
@@ -92,8 +99,12 @@ public class PlayDeclaredSystemsTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>And the same for a dependency that is a value, or the declaration would mean two
-    ///     different things.</b> <c>ServiceRegistry.AddValue</c> is what lets a shipped game satisfy
+    ///     ⚠
+    ///     <b>
+    ///         And the same for a dependency that is a value, or the declaration would mean two
+    ///         different things.
+    ///     </b>
+    ///     <c>ServiceRegistry.AddValue</c> is what lets a shipped game satisfy
     ///     an <c>IntruderSystem(Entity)</c>; without <c>PlaySession.ProvideValue</c> that identical
     ///     project would run the system in the game and report it missing for the whole of every play
     ///     session — the asymmetry <c>[GameSystem]</c> exists to rule out.
@@ -113,7 +124,7 @@ public class PlayDeclaredSystemsTests {
         play.Play();
 
         Assert.Contains(nameof(ValuedSystem), play.Declared.Running);
-        Assert.Equal(new Quota(12), ValuedSystem.Built);
+        Assert.Equal(new(12), ValuedSystem.Built);
 
         play.Tick(Frame);
 
@@ -134,7 +145,7 @@ public class PlayDeclaredSystemsTests {
 
         var absent = Assert.Single(
             play.Declared.Missing,
-            line => line.Contains(nameof(ValuedSystem), StringComparison.Ordinal)
+            static line => line.Contains(nameof(ValuedSystem), StringComparison.Ordinal)
         );
 
         Assert.Contains(nameof(Quota), absent, StringComparison.Ordinal);
@@ -155,7 +166,7 @@ public class PlayDeclaredSystemsTests {
         using var loop = new EngineLoop(world);
 
         var session = new PlaySession(loop, world);
-        var services = (IServiceProvider) session;
+        IServiceProvider services = session;
 
         Assert.Same(loop, services.GetService(typeof(EngineLoop)));
         Assert.Same(world, services.GetService(typeof(World)));
@@ -193,7 +204,9 @@ public sealed class Warehouse : IDisposable {
 public sealed class ValuedSystem : SystemBase {
     /// <summary>Builds it from the quota a contribution provided.</summary>
     /// <param name="quota">What it was handed.</param>
-    public ValuedSystem(Quota quota) => Built = quota;
+    public ValuedSystem(Quota quota) {
+        Built = quota;
+    }
 
     /// <summary>How many frames have reached it.</summary>
     public static int Ran { get; set; }

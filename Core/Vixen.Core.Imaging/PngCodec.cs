@@ -23,8 +23,11 @@ namespace Vixen.Core.Imaging;
 ///         <c>System.IO.Compression</c>'s.
 ///     </para>
 ///     <para>
-///         <b>Written for <c>Vixen.Graphics.Golden.Tests</c>, then owned by
-///         <c>Vixen.Ui.Testing</c>, and now here.</b> Each move was the same argument one step
+///         <b>
+///             Written for <c>Vixen.Graphics.Golden.Tests</c>, then owned by
+///             <c>Vixen.Ui.Testing</c>, and now here.
+///         </b>
+///         Each move was the same argument one step
 ///         further down: a picture is written by more things than the one that needed it first, and
 ///         the assembly a consumer cannot reference is the assembly that forces a second encoder.
 ///         A UI testing library was the wrong owner for the last of those reasons — a game head that
@@ -46,13 +49,13 @@ public static class PngCodec {
     /// <param name="image">What to encode.</param>
     /// <returns>The file's bytes.</returns>
     public static byte[] Encode(in Bitmap image) {
-        var raw = new byte[(image.Height * image.Width * 4) + image.Height];
+        var raw = new byte[image.Height * image.Width * 4 + image.Height];
 
         for (var y = 0; y < image.Height; y++) {
             // Filter type 0 (None) on every row. Filtering would compress better and would also mean
             // the encoder had to choose one per row, which is a heuristic with no right answer and an
             // obvious way to make two runs produce different bytes for the same picture.
-            var destination = y * ((image.Width * 4) + 1);
+            var destination = y * (image.Width * 4 + 1);
             raw[destination] = 0;
             Array.Copy(image.Pixels, y * image.Width * 4, raw, destination + 1, image.Width * 4);
         }
@@ -125,7 +128,7 @@ public static class PngCodec {
             throw new InvalidDataException("The PNG has no IHDR, or names an empty image.");
         }
 
-        var raw = Inflate(compressed.ToArray(), (height * width * 4) + height);
+        var raw = Inflate(compressed.ToArray(), height * width * 4 + height);
         return new(width, height, Unfilter(raw, width, height));
     }
 
@@ -154,11 +157,11 @@ public static class PngCodec {
         }
 
         var stride = width * channels * sizeof(ushort);
-        var raw = new byte[(height * stride) + height];
+        var raw = new byte[height * stride + height];
 
         for (var y = 0; y < height; y++) {
             var row = samples.Slice(y * width * channels, width * channels);
-            var at = (y * (stride + 1)) + 1;
+            var at = y * (stride + 1) + 1;
 
             foreach (var sample in row) {
                 BinaryPrimitives.WriteUInt16BigEndian(raw.AsSpan(at), sample);
@@ -205,10 +208,10 @@ public static class PngCodec {
         }
 
         var stride = width * channels;
-        var raw = new byte[(height * stride) + height];
+        var raw = new byte[height * stride + height];
 
         for (var y = 0; y < height; y++) {
-            samples.Slice(y * stride, stride).CopyTo(raw.AsSpan((y * (stride + 1)) + 1));
+            samples.Slice(y * stride, stride).CopyTo(raw.AsSpan(y * (stride + 1) + 1));
         }
 
         using var output = new MemoryStream();
@@ -280,7 +283,7 @@ public static class PngCodec {
 
         var bytes = depth / 8;
         var stride = width * channels * bytes;
-        var pixels = Reverse(Inflate(compressed.ToArray(), (height * stride) + height), stride, height, channels * bytes);
+        var pixels = Reverse(Inflate(compressed.ToArray(), height * stride + height), stride, height, channels * bytes);
         var samples = new ushort[width * height * channels];
 
         for (var index = 0; index < samples.Length; index++) {
@@ -298,7 +301,7 @@ public static class PngCodec {
 
         for (var y = 0; y < height; y++) {
             var filter = raw[y * (stride + 1)];
-            var source = (y * (stride + 1)) + 1;
+            var source = y * (stride + 1) + 1;
             var destination = y * stride;
 
             for (var x = 0; x < stride; x++) {
@@ -311,7 +314,7 @@ public static class PngCodec {
                     0 => value,
                     1 => (byte)(value + left),
                     2 => (byte)(value + up),
-                    3 => (byte)(value + ((left + up) / 2)),
+                    3 => (byte)(value + (left + up) / 2),
                     4 => (byte)(value + Paeth(left, up, upLeft)),
                     _ => throw new InvalidDataException($"Unknown PNG row filter {filter}.")
                 };
@@ -352,7 +355,7 @@ public static class PngCodec {
 
         for (var y = 0; y < height; y++) {
             var filter = raw[y * (stride + 1)];
-            var source = (y * (stride + 1)) + 1;
+            var source = y * (stride + 1) + 1;
             var destination = y * stride;
 
             for (var x = 0; x < stride; x++) {
@@ -365,7 +368,7 @@ public static class PngCodec {
                     0 => value,
                     1 => (byte)(value + left),
                     2 => (byte)(value + up),
-                    3 => (byte)(value + ((left + up) / 2)),
+                    3 => (byte)(value + (left + up) / 2),
                     4 => (byte)(value + Paeth(left, up, upLeft)),
                     _ => throw new InvalidDataException($"Unknown PNG row filter {filter}.")
                 };

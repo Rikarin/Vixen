@@ -23,8 +23,12 @@ namespace Vixen.Geometry.Remeshing;
 ///         means by "an edge".
 ///     </para>
 ///     <para>
-///         ⚠ <b>It is a curvature, so it is one over a length and it is deliberately not
-///         normalised.</b> A sphere of radius <i>r</i> reads <c>1/r</c> — that is the test — and the
+///         ⚠
+///         <b>
+///             It is a curvature, so it is one over a length and it is deliberately not
+///             normalised.
+///         </b>
+///         A sphere of radius <i>r</i> reads <c>1/r</c> — that is the test — and the
 ///         same sphere modelled a thousand times larger reads a thousandth of it, correctly.
 ///         Everything else in this library that reports a curvature multiplies by the diagonal to
 ///         make a dimensionless number for a threshold to compare against; a map is quantized rather
@@ -148,7 +152,7 @@ static class MeanCurvature {
         var toNext = (positions[slots[corner]] - positions[slots[next]]).LengthSquared();
         var toPrevious = (positions[slots[corner]] - positions[slots[previous]]).LengthSquared();
 
-        return ((toNext * cotangents[previous]) + (toPrevious * cotangents[next])) / 8f;
+        return (toNext * cotangents[previous] + toPrevious * cotangents[next]) / 8f;
     }
 
     /// <summary>Which vertices sit on an open rim, by counting each undirected edge's triangles.</summary>

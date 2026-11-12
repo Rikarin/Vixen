@@ -40,7 +40,10 @@ public sealed class HandshakeTraceTests {
         harness.Pump();
 
         Assert.NotEmpty(recorder.Finished);
-        Assert.All(recorder.Finished, activity => Assert.Equal(NetworkActivity.HandshakeName, activity.OperationName));
+        Assert.All(
+            recorder.Finished,
+            static activity => Assert.Equal(NetworkActivity.HandshakeName, activity.OperationName)
+        );
     }
 
     /// <summary>Both halves of an ordinary join get a span, and both say who arrived.</summary>
@@ -190,9 +193,10 @@ public sealed class HandshakeTraceTests {
         harness.StartClient();
         harness.Pump();
 
-        var refused = recorder.Finished.FindAll(
-            activity => (activity.GetTagItem("vixen.net.handshake.refusal") as string)
-                == nameof(SessionRejectReason.ServerFull)
+        var refused = recorder.Finished.FindAll(static activity => activity.GetTagItem(
+            "vixen.net.handshake.refusal"
+            ) as string
+            == nameof(SessionRejectReason.ServerFull)
         );
 
         // One from the server, which decided it, and one from the client it told.
@@ -223,8 +227,12 @@ public sealed class HandshakeTraceTests {
 
     /// <summary>A second connect on the client half ends the first handshake rather than losing it.</summary>
     /// <remarks>
-    ///     ⚠ <b>The client arm assumed exactly one transport-level connect per session lifetime and
-    ///     nothing enforced that assumption.</b> A transport that retries a route — which is what
+    ///     ⚠
+    ///     <b>
+    ///         The client arm assumed exactly one transport-level connect per session lifetime and
+    ///         nothing enforced that assumption.
+    ///     </b>
+    ///     A transport that retries a route — which is what
     ///     transport fallback is — reports <c>OnConnected(Client, …)</c> again, and the assignment
     ///     that started the new span used to overwrite the old one without ending it. That is
     ///     invisible with no listener registered, which is why nothing noticed, and a span that is
@@ -292,7 +300,7 @@ public sealed class HandshakeTraceTests {
     sealed class ScriptedClientTransport : ITransport {
         readonly Queue<(TransportRole Role, ConnectionId Connection)> connects = new();
 
-        public TransportCapabilities Capabilities => new(1200, IsInProcess: true, IsLossy: false);
+        public TransportCapabilities Capabilities => new(1200, true, false);
         public TransportState ServerState { get; private set; }
         public TransportState ClientState { get; private set; }
 
@@ -336,8 +344,12 @@ public sealed class HandshakeTraceTests {
     ///         compared with a null — the shape of a test that cannot fail.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And it filters by trace, which is not tidiness — the first version of this was
-    ///         flaky and passed alone.</b> An <c>ActivityListener</c> subscribes to a source
+    ///         ⚠
+    ///         <b>
+    ///             And it filters by trace, which is not tidiness — the first version of this was
+    ///             flaky and passed alone.
+    ///         </b>
+    ///         An <c>ActivityListener</c> subscribes to a source
     ///         <i>process-wide</i> and by name, so every other test in this assembly that runs a
     ///         session — and xunit runs classes in parallel — was dropping its handshakes into this
     ///         list. <c>One("server")</c> insists on exactly one and would find two, at random,
@@ -368,8 +380,8 @@ public sealed class HandshakeTraceTests {
 
         public Recorder() {
             listener = new() {
-                ShouldListenTo = source => source.Name is NetworkActivity.SourceName or OwnName,
-                Sample = (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllData,
+                ShouldListenTo = static source => source.Name is NetworkActivity.SourceName or OwnName,
+                Sample = static (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllData,
                 ActivityStopped = Keep
             };
 
@@ -383,7 +395,7 @@ public sealed class HandshakeTraceTests {
 
         /// <summary>The one span from that side, insisting there is exactly one.</summary>
         public Activity One(string role) {
-            var matching = Finished.FindAll(activity => (activity.GetTagItem("vixen.net.role") as string) == role);
+            var matching = Finished.FindAll(activity => activity.GetTagItem("vixen.net.role") as string == role);
 
             return Assert.Single(matching);
         }

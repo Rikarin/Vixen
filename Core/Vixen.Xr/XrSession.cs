@@ -137,8 +137,11 @@ public readonly record struct XrSessionOptions() {
 ///         looks exactly like a slow tracker.
 ///     </para>
 ///     <para>
-///         <b>Every frame between <see cref="BeginFrame" /> and <see cref="EndFrame" /> must be
-///         closed.</b> Including the ones where nothing is drawn, and including the ones where the
+///         <b>
+///             Every frame between <see cref="BeginFrame" /> and <see cref="EndFrame" /> must be
+///             closed.
+///         </b>
+///         Including the ones where nothing is drawn, and including the ones where the
 ///         game threw: a runtime that is waiting for a frame that never ends stops the compositor for
 ///         everybody.
 ///     </para>

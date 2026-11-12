@@ -300,7 +300,7 @@ public struct RenderLight {
             return axis;
         }
 
-        var squared = axis - (Direction * Vector3.Dot(axis, Direction));
+        var squared = axis - Direction * Vector3.Dot(axis, Direction);
         return squared.LengthSquared() < 1e-12f ? Orthogonal(Direction) : Vector3.Normalize(squared);
     }
 

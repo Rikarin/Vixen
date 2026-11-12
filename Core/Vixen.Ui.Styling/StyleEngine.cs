@@ -27,8 +27,12 @@ public sealed class StyleEngine {
     /// <param name="Media">
     ///     The context it named, or <c>null</c> to follow <see cref="StyleEngine.Media" />.
     ///     <para>
-    ///         ⚠ <b>Nullable, so that "this sheet is about a 320-pixel surface" and "this sheet is
-    ///         about whatever surface the document is on" are different states.</b> They were the same
+    ///         ⚠
+    ///         <b>
+    ///             Nullable, so that "this sheet is about a 320-pixel surface" and "this sheet is
+    ///             about whatever surface the document is on" are different states.
+    ///         </b>
+    ///         They were the same
     ///         state before, and the one that lost was the second: <c>default(MediaContext)</c> is a
     ///         surface nought pixels wide, so every <c>@media (min-width: …)</c> in the engine was
     ///         evaluated against a window that does not exist and every one of them was false.
@@ -50,17 +54,17 @@ public sealed class StyleEngine {
 
     /// <summary>Creates an engine with nothing loaded.</summary>
     public StyleEngine() {
-        Names = new NameTable();
-        Properties = new NameTable();
-        Values = new NameTable();
-        InlineStyles = new InlineStyleStore();
-        Tree = new StyleTree(Names);
+        Names = new();
+        Properties = new();
+        Values = new();
+        InlineStyles = new();
+        Tree = new(Names);
 
         // Before `Build`, which hands both to the loader and the resolver. `Scopes` outlives every
         // reload for the same reason `Tree` does: a scope id is written on an element, and the
         // surface it names is still that window after a hot edit of a stylesheet.
-        Scopes = new MediaScopes(Conditions);
-        ContainerScopes = new ContainerScopes(Containers);
+        Scopes = new(Conditions);
+        ContainerScopes = new(Containers);
         Build();
     }
 
@@ -116,8 +120,12 @@ public sealed class StyleEngine {
     /// <summary>Runs the transitions and the <c>@keyframes</c> animations.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Rebuilt with the rest of the derived state, which is what makes a reload forget
-    ///         what was in flight.</b> It holds the <see cref="Keyframes" /> table, and
+    ///         ⚠
+    ///         <b>
+    ///             Rebuilt with the rest of the derived state, which is what makes a reload forget
+    ///             what was in flight.
+    ///         </b>
+    ///         It holds the <see cref="Keyframes" /> table, and
     ///         <see cref="Build" /> replaces that — an animator kept across a reload would go on
     ///         interpolating against a <c>@keyframes</c> set the stylesheet no longer has.
     ///     </para>
@@ -155,8 +163,12 @@ public sealed class StyleEngine {
 
     /// <summary>Every container chain the document has, and what <c>@container</c> answers in each.</summary>
     /// <remarks>
-    ///     ⚠ <b>It answers nothing until something measures a box and calls
-    ///     <see cref="ContainerScopes.Enter" />.</b> The cascade reads an element's container scope
+    ///     ⚠
+    ///     <b>
+    ///         It answers nothing until something measures a box and calls
+    ///         <see cref="ContainerScopes.Enter" />.
+    ///     </b>
+    ///     The cascade reads an element's container scope
     ///     the way it reads its surface scope, and a document whose layout has never entered a
     ///     container leaves every element at <see cref="ContainerScopes.Root" /> — where no query has
     ///     an eligible container and every one of them is therefore false.
@@ -173,8 +185,12 @@ public sealed class StyleEngine {
     /// <summary>What <c>@media</c> is evaluated against for sheets that did not name a context.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The default is a nought-by-nought surface, and it is a deliberate non-answer rather
-    ///         than a sensible starting point.</b> An engine nobody has told about a window cannot know
+    ///         ⚠
+    ///         <b>
+    ///             The default is a nought-by-nought surface, and it is a deliberate non-answer rather
+    ///             than a sensible starting point.
+    ///         </b>
+    ///         An engine nobody has told about a window cannot know
     ///         how wide one is, and inventing a plausible width would make
     ///         <c>@media (min-width: 768px)</c> silently mean something. A host sets this through
     ///         <c>UiDocument</c>, which reads it off the surface it is already holding.
@@ -200,8 +216,12 @@ public sealed class StyleEngine {
     ///         flight goes on fading.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Still guarded on the verdicts rather than on the context, for the reason it always
-    ///         was.</b> A resize moves <see cref="MediaContext.Width" /> on every frame of it and
+    ///         ⚠
+    ///         <b>
+    ///             Still guarded on the verdicts rather than on the context, for the reason it always
+    ///             was.
+    ///         </b>
+    ///         A resize moves <see cref="MediaContext.Width" /> on every frame of it and
     ///         almost never moves an answer, and the caller uses the return value to decide whether to
     ///         forget every computed style it holds. A document with no <c>@media</c> in it — which is
     ///         every stylesheet this repository ships — has one group, compares one boolean and never
@@ -235,8 +255,12 @@ public sealed class StyleEngine {
     /// <summary>A transform every sheet's text goes through on its way to the parser.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The seam <c>@apply</c> needs, and the reason it is here rather than in front of
-    ///         <see cref="Load" />.</b> A caller can already transform its own text before handing it
+    ///         ⚠
+    ///         <b>
+    ///             The seam <c>@apply</c> needs, and the reason it is here rather than in front of
+    ///             <see cref="Load" />.
+    ///         </b>
+    ///         A caller can already transform its own text before handing it
     ///         over; what it cannot do is be present for a <see cref="Reload" />, and a reload is not
     ///         a rare event — <see cref="Replace" /> triggers one and <see cref="Reload" /> is one, and
     ///         both replay <see cref="SheetText" />. A transform applied by the caller would be applied
@@ -248,8 +272,12 @@ public sealed class StyleEngine {
     ///         resize costing a re-evaluation and a resize costing a reparse of every sheet.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>What <see cref="sheets" /> keeps is the text as it was handed in, not the text the
-    ///         parser saw.</b> That is what makes the transform re-runnable, and it is also what
+    ///         ⚠
+    ///         <b>
+    ///             What <see cref="sheets" /> keeps is the text as it was handed in, not the text the
+    ///             parser saw.
+    ///         </b>
+    ///         That is what makes the transform re-runnable, and it is also what
     ///         <c>HotReloadHost</c> depends on: a failed reload puts a sheet back, and putting back
     ///         an already-expanded sheet would expand it twice the next time round.
     ///     </para>
@@ -268,8 +296,12 @@ public sealed class StyleEngine {
     ///     A fixed surface to decide <c>@media</c> against, or <c>null</c> to let each surface decide
     ///     for itself.
     ///     <para>
-    ///         ⚠ <b><c>null</c> is the answer for a real stylesheet and naming a context is the
-    ///         special case.</b> A sheet that names one is asking a question with a single answer —
+    ///         ⚠
+    ///         <b>
+    ///             <c>null</c> is the answer for a real stylesheet and naming a context is the
+    ///             special case.
+    ///         </b>
+    ///         A sheet that names one is asking a question with a single answer —
     ///         "this sheet is about a 320-pixel surface" — so its <c>@media</c> blocks are decided
     ///         here and dropped or kept, as they always were. A sheet that names none is about
     ///         whatever surface it is being shown on, and a document can be shown on several at once;
@@ -418,12 +450,12 @@ public sealed class StyleEngine {
         nameof(Animations)
     )]
     void Build() {
-        Selectors = new SelectorTable();
-        Compiler = new SelectorCompiler(Selectors, Names);
-        Rules = new StyleRuleSet(Selectors, Names, Properties, Values);
-        Matcher = new SelectorMatcher(Selectors);
-        Interning = new ComputedStyleCache();
-        Keyframes = new KeyframesTable();
+        Selectors = new();
+        Compiler = new(Selectors, Names);
+        Rules = new(Selectors, Names, Properties, Values);
+        Matcher = new(Selectors);
+        Interning = new();
+        Keyframes = new();
 
         // ⚠ Cleared rather than replaced, because the scopes hold verdicts indexed by group and the
         // surfaces hold scope ids. Both are facts about windows and neither is derived from the
@@ -437,8 +469,8 @@ public sealed class StyleEngine {
         // exists and quietly answering every query false until the next layout pass.
         Containers.Reset();
 
-        Loader = new StyleSheetLoader(Rules, Keyframes, Compiler, Conditions, Containers);
-        Resolver = new StyleResolver(Rules, InlineStyles, Matcher, Interning, Scopes, ContainerScopes);
+        Loader = new(Rules, Keyframes, Compiler, Conditions, Containers);
+        Resolver = new(Rules, InlineStyles, Matcher, Interning, Scopes, ContainerScopes);
 
         // After `Keyframes`, which it holds — see the remarks on `Animations` for why it is rebuilt
         // here rather than kept. `Names` is the keyword table `StyleValueParser` interns identifiers
@@ -447,14 +479,13 @@ public sealed class StyleEngine {
         // about the user. `Replace` is a hot edit of a `.vcss` file and `Reload` is the same thing by
         // hand; neither is a reason to start animating at somebody who asked for stillness, and an
         // animator rebuilt with the default would do exactly that on the next keystroke in an editor.
-        Animations = new Animator(Properties, Values, Names, Keyframes) { ReduceMotion = reduceMotion };
+        Animations = new(Properties, Values, Names, Keyframes) { ReduceMotion = reduceMotion };
     }
 
     /// <summary>Records declarations written on an element itself.</summary>
     /// <param name="declarations">The declarations, as they would be written in a rule body.</param>
     /// <returns>A handle to hand to <see cref="StyleResolver.Resolve" />.</returns>
-    public InlineStyleId AddInlineStyle(ReadOnlySpan<Declaration> declarations) =>
-        InlineStyles.Add(declarations);
+    public InlineStyleId AddInlineStyle(ReadOnlySpan<Declaration> declarations) => InlineStyles.Add(declarations);
 
     /// <summary>Resolves every element in the tree, parents before children.</summary>
     /// <returns>One computed style per element, indexed by <see cref="StyleNodeId.Index" />.</returns>
@@ -482,7 +513,8 @@ public sealed class StyleEngine {
         // ancestor-first order. The updater's reader is put back afterwards, because the two share
         // one resolver.
         var previous = Resolver.ResolvedAncestor;
-        Resolver.ResolvedAncestor = (tree, index) => tree == Tree && (uint)index < (uint)styles.Length ? styles[index] : null;
+        Resolver.ResolvedAncestor =
+            (tree, index) => tree == Tree && (uint)index < (uint)styles.Length ? styles[index] : null;
 
         try {
             ResolveInto(styles);
@@ -506,7 +538,7 @@ public sealed class StyleEngine {
             var parent = Tree.ParentOf(i);
             styles[i] = Resolver.Resolve(
                 Tree,
-                new StyleNodeId(i),
+                new(i),
                 parent < 0 ? null : styles[parent],
                 Tree.InlineAt(i)
             );

@@ -147,10 +147,10 @@ public sealed class GlyphFieldCache {
         // reads past its own silhouette, and a cell cropped to the silhouette has nothing there.
         var padding = (int)MathF.Ceiling(Range);
         var scale = Resolution / MathF.Max(bounds.Width, bounds.Height);
-        var width = (int)MathF.Ceiling(bounds.Width * scale) + (2 * padding);
-        var height = (int)MathF.Ceiling(bounds.Height * scale) + (2 * padding);
+        var width = (int)MathF.Ceiling(bounds.Width * scale) + 2 * padding;
+        var height = (int)MathF.Ceiling(bounds.Height * scale) + 2 * padding;
 
-        var origin = new Vector2(bounds.MinX - (padding / scale), bounds.MinY - (padding / scale));
+        var origin = new Vector2(bounds.MinX - padding / scale, bounds.MinY - padding / scale);
         var field = DistanceField.Generate(outline, width, height, scale, origin, Range);
 
         if (!Atlas.Add(key, field, out var region)) {
@@ -163,11 +163,11 @@ public sealed class GlyphFieldCache {
         // In ems, so one entry serves every size. The quad covers the padded cell rather than the
         // glyph, because that is what the texture holds.
         var em = font.UnitsPerEm;
-        placement = new AtlasGlyph(
+        placement = new(
             region,
             origin.X / em,
-            (origin.Y + (height / scale)) / em,
-            (origin.X + (width / scale)) / em,
+            (origin.Y + height / scale) / em,
+            (origin.X + width / scale) / em,
             origin.Y / em,
             scale * em / Range
         );

@@ -25,8 +25,11 @@ namespace Vixen.Editor.SceneView;
 ///         and the barrier from that read, which is the point of declaring it.
 ///     </para>
 ///     <para>
-///         <b>The drawing half is a <c>RenderPassRenderer</c> this owns rather than a pass this
-///         declares.</b> Building the draw pass by hand would need <c>CompositorFrame.Context</c>,
+///         <b>
+///             The drawing half is a <c>RenderPassRenderer</c> this owns rather than a pass this
+///             declares.
+///         </b>
+///         Building the draw pass by hand would need <c>CompositorFrame.Context</c>,
 ///         which is internal to <c>Vixen.Rendering</c> — and rightly so, since a draw context is the
 ///         renderer's own plumbing. Composition is the seam <c>SceneRenderer.BuildChild</c> exists
 ///         for, and it means the picking pass gets every fix the ordinary pass node gets.
@@ -73,20 +76,19 @@ public sealed class PickingRenderer : SceneRenderer {
     ///     swapchain's colour space does to it; a 32-bit unsigned integer target is exact and is what
     ///     the value is. <see cref="TextureUsage.CopySource" /> is what lets the one pixel be read.
     /// </remarks>
-    public RenderResourceAsset IdResource => new() {
-        Name = IdTarget,
-        Format = PixelFormat.R32UInt,
-        Usage = TextureUsage.ColourTarget | TextureUsage.CopySource,
-        Scale = 1f
-    };
+    public RenderResourceAsset IdResource =>
+        new() {
+            Name = IdTarget,
+            Format = PixelFormat.R32UInt,
+            Usage = TextureUsage.ColourTarget | TextureUsage.CopySource,
+            Scale = 1f
+        };
 
     /// <summary>The depth declaration a compositor has to carry for <see cref="DepthTarget" />.</summary>
-    public RenderResourceAsset DepthResource => new() {
-        Name = DepthTarget,
-        Format = PixelFormat.Depth32Float,
-        Usage = TextureUsage.DepthStencilTarget,
-        Scale = 1f
-    };
+    public RenderResourceAsset DepthResource =>
+        new() {
+            Name = DepthTarget, Format = PixelFormat.Depth32Float, Usage = TextureUsage.DepthStencilTarget, Scale = 1f
+        };
 
     /// <inheritdoc />
     protected override void Collect(GraphicsCompositor compositor) {
@@ -124,13 +126,14 @@ public sealed class PickingRenderer : SceneRenderer {
                 pass.SideEffect();
 
                 pass.Execute(graphContext => {
-                    var region = new TextureRegion(
-                        graphContext.Texture(ids),
-                        Origin: new Int3(request.X, request.Y, 0)
-                    );
+                        var region = new TextureRegion(
+                            graphContext.Texture(ids),
+                            Origin: new(request.X, request.Y, 0)
+                        );
 
-                    graphContext.CommandList.CopyTextureToBuffer(region, PickingBuffer.CopySize, destination, 0);
-                });
+                        graphContext.CommandList.CopyTextureToBuffer(region, PickingBuffer.CopySize, destination, 0);
+                    }
+                );
             }
         );
     }

@@ -27,9 +27,13 @@ namespace Vixen.Ui.Styling.Tests;
 ///         failures nobody could keep green, and a gate nobody keeps green is a gate nobody reads.
 ///     </para>
 ///     <para>
-///         ⚠ <b>This paragraph used to go on to refuse the mirror direction for the same reason —
-///         "the sheets carry well over a hundred type selectors nothing currently creates" — and that
-///         number was wrong by two orders of magnitude.</b> Measured through this file's own scan on
+///         ⚠
+///         <b>
+///             This paragraph used to go on to refuse the mirror direction for the same reason —
+///             "the sheets carry well over a hundred type selectors nothing currently creates" — and that
+///             number was wrong by two orders of magnitude.
+///         </b>
+///         Measured through this file's own scan on
 ///         2026-09-05: <b>six</b>, out of 634. It could not have been a hundred while
 ///         <see cref="A_type_selector_names_a_tag_rather_than_a_class" /> was green, because a
 ///         declared name that is not a tag is, by that theory passing, a name written nowhere at all.
@@ -46,8 +50,12 @@ namespace Vixen.Ui.Styling.Tests;
 ///         they would be.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The mirror direction — a rule with no tag — is two questions and not one, and only
-///         the second one has a discriminator this file can use.</b> A type selector that names
+///         ⚠
+///         <b>
+///             The mirror direction — a rule with no tag — is two questions and not one, and only
+///             the second one has a discriminator this file can use.
+///         </b>
+///         A type selector that names
 ///         nothing is the normal case just argued. What is <i>not</i> normal is a type selector whose
 ///         name the repository does write, somewhere, but never as a tag: that is a name the author
 ///         had in hand and spelled into the wrong kind of selector, and
@@ -59,8 +67,12 @@ namespace Vixen.Ui.Styling.Tests;
 ///         at all.
 ///     </para>
 ///     <para>
-///         ⚠ <b>A misspelling has no such discriminator in general, and this file does not pretend
-///         otherwise.</b> <c>text-box</c> against a tag of <c>textbox</c> is not distinguishable from
+///         ⚠
+///         <b>
+///             A misspelling has no such discriminator in general, and this file does not pretend
+///             otherwise.
+///         </b>
+///         <c>text-box</c> against a tag of <c>textbox</c> is not distinguishable from
 ///         two legitimately different names by shape alone, and edit distance over the actual tag
 ///         vocabulary is not the answer either: at distance one it pairs <c>asset-tiles</c> with
 ///         <c>asset-tile</c>, which is a grid and the thing inside it. <i>Hyphenation</i> is the one
@@ -72,8 +84,12 @@ namespace Vixen.Ui.Styling.Tests;
 ///         rather than accusing an innocent selector.
 ///     </para>
 ///     <para>
-///         ⚠ <b>What <i>is</i> unambiguous is a hyphenated tag that differs from a declared one only
-///         by case.</b> Case carries meaning in VXML — <c>Vixen.Ui.Markup</c>'s rule is that a
+///         ⚠
+///         <b>
+///             What <i>is</i> unambiguous is a hyphenated tag that differs from a declared one only
+///             by case.
+///         </b>
+///         Case carries meaning in VXML — <c>Vixen.Ui.Markup</c>'s rule is that a
 ///         capitalised tag names a component type and a lowercase one names an intrinsic element — but
 ///         it can only carry it where a type name is possible, and a C# type name cannot contain a
 ///         hyphen. <c>ComponentEmitter</c> emits a capitalised tag as <c>Child&lt;Tag&gt;</c>, so
@@ -117,9 +133,11 @@ public partial class TypeSelectorReachTests {
     ///     <c>Control.Part</c>, <c>BuildContext.Element</c> and <c>Containers.Prepend</c>. The optional
     ///     leading argument is for <c>Element(parent, "tag")</c>, whose tag is second.
     /// </remarks>
-    [GeneratedRegex(""""
+    [GeneratedRegex(
+        """"
         \b(?:Add|Create|Part|Element|Prepend)\s*(?:<[^<>()]{0,80}>)?\s*\(\s*(?:[A-Za-z_][\w.]*\s*,\s*)?"(?<tag>[A-Za-z][A-Za-z0-9-]*)"
-        """")]
+        """"
+    )]
     private static partial Regex TagLiteral { get; }
 
     /// <summary>Every hyphenated, non-lowercase tag literal the repository's C# writes.</summary>
@@ -130,8 +148,11 @@ public partial class TypeSelectorReachTests {
     ///     time. <c>bin</c> and <c>obj</c> are skipped so the answer does not depend on what the last
     ///     build left behind.
     ///     <para>
-    ///         ⚠ <b><c>.claude</c> is skipped too, and that is not housekeeping — it is the difference
-    ///         between a test about this repository and a test about whatever else is on the disk.</b>
+    ///         ⚠
+    ///         <b>
+    ///             <c>.claude</c> is skipped too, and that is not housekeeping — it is the difference
+    ///             between a test about this repository and a test about whatever else is on the disk.
+    ///         </b>
     ///         Agent worktrees live under <c>.claude/worktrees/</c> and are full checkouts, so a sweep
     ///         that walks them asserts against other people's uncommitted work. This test failed a
     ///         gate run by finding the very <c>World-title</c> it exists to prevent, in a worktree
@@ -227,8 +248,12 @@ public partial class TypeSelectorReachTests {
     ///     kinds of name apart.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>The same argument as <see cref="The_scan_actually_ran" />, and it needs making twice
-    ///     because the two theories below fail by <i>finding nothing</i>.</b> An empty
+    ///     ⚠
+    ///     <b>
+    ///         The same argument as <see cref="The_scan_actually_ran" />, and it needs making twice
+    ///         because the two theories below fail by <i>finding nothing</i>.
+    ///     </b>
+    ///     An empty
     ///     <see cref="Declared" /> is a green pair of theories, and so is a <see cref="Written" />
     ///     whose tag table swallowed every name — a regex that stopped matching would make every
     ///     candidate look like a tag and nothing would ever be reported again. So the three
@@ -254,7 +279,7 @@ public partial class TypeSelectorReachTests {
         Assert.False(written.Tags.ContainsKey("flame-hue-0"), "'flame-hue-0' was mistaken for a tag.");
 
         // Declared, and a tag: `compiled-scene-facts` is written by `CompiledSceneView.vxml`.
-        Assert.Contains(Declared, candidate => candidate.Name == "compiled-scene-facts");
+        Assert.Contains(Declared, static candidate => candidate.Name == "compiled-scene-facts");
 
         // ⚠ Written nowhere at all — the third bucket, and the one that no longer has a *declared*
         // example. `model-facts` was it until #693 took the last six such names out of the sheets,
@@ -266,7 +291,7 @@ public partial class TypeSelectorReachTests {
             "'model-facts' turned up in a source, so it is no longer the never-written example."
         );
 
-        Assert.DoesNotContain(Declared, candidate => candidate.Name == "model-facts");
+        Assert.DoesNotContain(Declared, static candidate => candidate.Name == "model-facts");
 
         // ⚠ A fourth bucket, and the one this file used to put in the first: a name a `.vxml`
         // writes in something that is not markup (#1317). `paramref` and `inheritdoc` are XML doc
@@ -274,7 +299,7 @@ public partial class TypeSelectorReachTests {
         // `fieldset` is prose inside a `<!-- … -->` header. All four match the element rule
         // exactly, and while they counted as tags, a rule named after any of them could never be
         // reported dead — `b { … }` and `strong { … }` in one declaration got opposite verdicts.
-        // ⚠ `para` looks like the obvious fifth and is not one: `TextWrapTests.cs:473` does
+        // ⚠ `para` looks like the obvious fifth and is not one: `TextWrapTests.cs:481` does
         // `Root.Add("para")`, so it is a tag this repository really writes. Which of the doc
         // vocabulary is also a tag had to be measured rather than assumed.
         foreach (var name in new[] { "paramref", "inheritdoc", "int", "fieldset" }) {
@@ -336,8 +361,12 @@ public partial class TypeSelectorReachTests {
     /// <param name="name">The declared type selector.</param>
     /// <param name="sheet">The sheet that declares it.</param>
     /// <remarks>
-    ///     ⚠ <b>"Never as a tag" is measured over-inclusively and "written" narrowly, which is the
-    ///     safe way round.</b> Anything quoted on a line that also calls <c>Add</c>, <c>Create</c>,
+    ///     ⚠
+    ///     <b>
+    ///         "Never as a tag" is measured over-inclusively and "written" narrowly, which is the
+    ///         safe way round.
+    ///     </b>
+    ///     Anything quoted on a line that also calls <c>Add</c>, <c>Create</c>,
     ///     <c>Part</c>, <c>Element</c> or <c>Prepend</c> counts as a tag, so a name built in a ternary
     ///     — <c>Add(live ? "agent-row-live" : "agent-row")</c>, which is real — is seen for what it is;
     ///     a scan that missed it would accuse a rule that works. The cost is that a name a tag call
@@ -396,8 +425,12 @@ public partial class TypeSelectorReachTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>This is the question this file's own remarks said could not be asked, and the
-    ///         premise for that turned out to be false.</b> The header above still reads "the sheets
+    ///         ⚠
+    ///         <b>
+    ///             This is the question this file's own remarks said could not be asked, and the
+    ///             premise for that turned out to be false.
+    ///         </b>
+    ///         The header above still reads "the sheets
     ///         carry well over a hundred type selectors nothing currently creates … a wall of failures
     ///         nobody could keep green". Measured on 2026-09-05 through this file's own scan, the wall
     ///         is <b>six</b> names out of 634. It is not a hundred because
@@ -406,8 +439,12 @@ public partial class TypeSelectorReachTests {
     ///         passing* a name written nowhere at all, and there are six of those.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>What the other two theories let through, and why that is a gap rather than a
-    ///         decision.</b> Both discriminate on a name being <i>written</i> — one as a class, the
+    ///         ⚠
+    ///         <b>
+    ///             What the other two theories let through, and why that is a gap rather than a
+    ///             decision.
+    ///         </b>
+    ///         Both discriminate on a name being <i>written</i> — one as a class, the
     ///         other with the hyphens moved — so a selector nobody ever wrote anywhere is the one
     ///         shape neither can see, and it is the shape a whole abandoned feature leaves behind.
     ///         The biggest thing it found was five rules' worth of <c>notification-*</c> — a
@@ -437,7 +474,7 @@ public partial class TypeSelectorReachTests {
 
         var unreached = Declared
             .Where(candidate => !written.Tags.ContainsKey(candidate.Name))
-            .Select(candidate => candidate.Name)
+            .Select(static candidate => candidate.Name)
             .Order(StringComparer.Ordinal)
             .ToList();
 
@@ -452,7 +489,7 @@ public partial class TypeSelectorReachTests {
              The census of type selectors nothing creates is out of date.
 
              Named by a sheet and created by nothing, and not in {CensusFile}:
-             {Lines(arrived.Select(name => $"{name}  — declared in {Declared.First(d => d.Name == name).Sheet}"))}
+             {Lines(arrived.Select(static name => $"{name}  — declared in {Declared.First(d => d.Name == name).Sheet}"))}
 
              In {CensusFile}, and now created after all — delete the row:
              {Lines(departed)}
@@ -480,7 +517,7 @@ public partial class TypeSelectorReachTests {
         // is for. That is what is asserted instead, so a deleted file fails here rather than
         // turning the comparison below into a pass over two empty sets.
         Assert.True(
-            lines.Count(line => line.StartsWith('#')) >= 5,
+            lines.Count(static line => line.StartsWith('#')) >= 5,
             $"{CensusFile} has lost its header, so it was emptied rather than answered."
         );
 
@@ -505,7 +542,7 @@ public partial class TypeSelectorReachTests {
     }
 
     static string Lines(IEnumerable<string> names) {
-        var joined = string.Join("\n", names.Select(name => $"  {name}"));
+        var joined = string.Join("\n", names.Select(static name => $"  {name}"));
 
         return joined.Length == 0 ? "  (none)" : joined;
     }
@@ -536,8 +573,8 @@ public partial class TypeSelectorReachTests {
         }
 
         var collisions = groups.Values
-            .Where(names => names.Count > 1)
-            .Select(names => string.Join(" / ", names.Order(StringComparer.Ordinal)))
+            .Where(static names => names.Count > 1)
+            .Select(static names => string.Join(" / ", names.Order(StringComparer.Ordinal)))
             .Order(StringComparer.Ordinal)
             .ToList();
 
@@ -555,8 +592,12 @@ public partial class TypeSelectorReachTests {
     ///     file, and nothing after it.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>The sweep treats everything from <c>@code</c> to the end of the file as C#, and that
-    ///     is a shortcut rather than the grammar.</b> <c>VxmlParser</c> will take markup after a code
+    ///     ⚠
+    ///     <b>
+    ///         The sweep treats everything from <c>@code</c> to the end of the file as C#, and that
+    ///         is a shortcut rather than the grammar.
+    ///     </b>
+    ///     <c>VxmlParser</c> will take markup after a code
     ///     block; nothing in the tree writes any, and finding the closing brace without it would mean
     ///     counting braces without knowing where the strings are — which is precisely what
     ///     <c>VxmlLexer</c> needs a lexer to do. So the shortcut is asserted rather than assumed: the
@@ -585,7 +626,7 @@ public partial class TypeSelectorReachTests {
                 offenders.Add($"{name} — {blocks} `@code` lines, and the sweep enters at the first");
             }
 
-            var last = lines.LastOrDefault(text => text.Trim().Length > 0)?.Trim() ?? "";
+            var last = lines.LastOrDefault(static text => text.Trim().Length > 0)?.Trim() ?? string.Empty;
 
             if (!last.Equals("}", StringComparison.Ordinal)) {
                 offenders.Add($"{name} — its last line is '{last}' rather than the code block's brace");
@@ -631,6 +672,10 @@ public partial class TypeSelectorReachTests {
     /// </remarks>
     [GeneratedRegex(@"\b(?:Add|Create|Part|Element|Prepend)\s*(?:<[^<>()]{0,120}>)?\s*\(|\bTagName\b")]
     private static partial Regex TagSite { get; }
+
+    /// <summary>A creation call whose arguments start on the next line.</summary>
+    [GeneratedRegex(@"\b(?:Add|Create|Part|Element|Prepend)\s*(?:<[^<>()]{0,120}>)?\s*\(\s*$")]
+    private static partial Regex OpenedSite { get; }
 
     /// <summary>A quoted name.</summary>
     [GeneratedRegex("\"(?<name>[A-Za-z][A-Za-z0-9-]*)\"")]
@@ -679,6 +724,7 @@ public partial class TypeSelectorReachTests {
             }
 
             var line = 0;
+            var opened = false;
 
             foreach (var text in File.ReadLines(path)) {
                 line++;
@@ -688,7 +734,11 @@ public partial class TypeSelectorReachTests {
                     continue;
                 }
 
-                var creates = TagSite.IsMatch(text);
+                // ⚠ A creation call wrapped after its parenthesis, `parent.Add(` with the tag on the
+                // next line, is still a creation call: the formatter wraps any call that does not fit,
+                // and `dock-split` was reported unreachable the day it did.
+                var creates = TagSite.IsMatch(text) || opened;
+                opened = OpenedSite.IsMatch(text);
 
                 foreach (Match match in Quoted.Matches(text)) {
                     var name = match.Groups["name"].Value;
@@ -737,10 +787,11 @@ public partial class TypeSelectorReachTests {
                 }
 
                 foreach (Match match in MarkupClasses.Matches(text)) {
-                    foreach (var name in match.Groups["names"].Value.Split(
-                                 ' ',
-                                 StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries
-                             )) {
+                    foreach (var name in match.Groups["names"]
+                                 .Value.Split(
+                                     ' ',
+                                     StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries
+                                 )) {
                         Note(literals, name, path, line);
                     }
                 }
@@ -773,7 +824,7 @@ public partial class TypeSelectorReachTests {
             }
         }
 
-        return new Sources(tags, literals, hyphenless);
+        return new(tags, literals, hyphenless);
     }
 
     static List<(string Name, string Sheet)> ReadDeclared() {
@@ -783,12 +834,16 @@ public partial class TypeSelectorReachTests {
 
         foreach (var path in SourceFiles("*.vcss")) {
             var engine = new StyleEngine();
-            engine.Load(File.ReadAllText(path), StyleOrigin.Author);
+            engine.Load(File.ReadAllText(path));
 
             var sheet = Path.GetRelativePath(root, path);
 
             for (var rule = 0; rule < engine.Rules.Count; rule++) {
-                foreach (var name in RepositoryScan.Names(engine, engine.Rules[rule].Selector, SimpleSelectorKind.Type)) {
+                foreach (var name in RepositoryScan.Names(
+                             engine,
+                             engine.Rules[rule].Selector,
+                             SimpleSelectorKind.Type
+                         )) {
                     if (seen.Add(name)) {
                         list.Add((name, sheet));
                     }
@@ -800,12 +855,14 @@ public partial class TypeSelectorReachTests {
         return list;
     }
 
-    static string Hyphenless(string name) => name.Replace("-", "", StringComparison.Ordinal);
+    static string Hyphenless(string name) => name.Replace("-", string.Empty, StringComparison.Ordinal);
 
     static bool Lowercase(string name) => name.Equals(Lower(name), StringComparison.Ordinal);
 
-    /// <summary>What the sheets would have given <paramref name="declared" /> and do not give
-    /// <paramref name="written" />.</summary>
+    /// <summary>
+    ///     What the sheets would have given <paramref name="declared" /> and do not give
+    ///     <paramref name="written" />.
+    /// </summary>
     /// <param name="engine">The loaded sheets.</param>
     /// <param name="written">The tag as the source writes it.</param>
     /// <param name="declared">The spelling to compare against.</param>
@@ -831,9 +888,13 @@ public partial class TypeSelectorReachTests {
 
     /// <summary>Every file in the working tree matching a pattern.</summary>
     /// <remarks>
-    ///     ⚠ <b>The walk, its pruning and the reason for each pruned directory moved to
-    ///     <see cref="RepositoryScan" />, so that this census and the class one cannot come to
-    ///     disagree about what "the repository" is.</b> Two copies of a directory sweep are two
+    ///     ⚠
+    ///     <b>
+    ///         The walk, its pruning and the reason for each pruned directory moved to
+    ///         <see cref="RepositoryScan" />, so that this census and the class one cannot come to
+    ///         disagree about what "the repository" is.
+    ///     </b>
+    ///     Two copies of a directory sweep are two
     ///     chances to skip a different set of directories — and one of the directories is
     ///     <c>.claude</c>, whose worktrees are other people's uncommitted checkouts of this same
     ///     tree.

@@ -57,17 +57,18 @@ public sealed class NavAreaVolume {
     /// <param name="bounds">The box.</param>
     /// <param name="area">The area to stamp.</param>
     /// <returns>The volume.</returns>
-    public static NavAreaVolume Box(BoundingBox bounds, byte area) => new(
-        [
-            new(bounds.Minimum.X, bounds.Minimum.Y, bounds.Minimum.Z),
-            new(bounds.Minimum.X, bounds.Minimum.Y, bounds.Maximum.Z),
-            new(bounds.Maximum.X, bounds.Minimum.Y, bounds.Maximum.Z),
-            new(bounds.Maximum.X, bounds.Minimum.Y, bounds.Minimum.Z)
-        ],
-        bounds.Minimum.Y,
-        bounds.Maximum.Y,
-        area
-    );
+    public static NavAreaVolume Box(BoundingBox bounds, byte area) =>
+        new(
+            [
+                new(bounds.Minimum.X, bounds.Minimum.Y, bounds.Minimum.Z),
+                new(bounds.Minimum.X, bounds.Minimum.Y, bounds.Maximum.Z),
+                new(bounds.Maximum.X, bounds.Minimum.Y, bounds.Maximum.Z),
+                new(bounds.Maximum.X, bounds.Minimum.Y, bounds.Minimum.Z)
+            ],
+            bounds.Minimum.Y,
+            bounds.Maximum.Y,
+            area
+        );
 
     /// <summary>A volume shaped like a prism over a convex footprint.</summary>
     /// <param name="footprint">The footprint in XZ, convex, in either winding. Y is ignored.</param>
@@ -78,14 +79,20 @@ public sealed class NavAreaVolume {
     /// <exception cref="ArgumentException">The footprint has fewer than three points, or the height range is inverted.</exception>
     public static NavAreaVolume Convex(ReadOnlySpan<Vector3> footprint, float minimumY, float maximumY, byte area) {
         if (footprint.Length < 3) {
-            throw new ArgumentException($"A footprint needs at least three points and has {footprint.Length}.", nameof(footprint));
+            throw new ArgumentException(
+                $"A footprint needs at least three points and has {footprint.Length}.",
+                nameof(footprint)
+            );
         }
 
         if (maximumY < minimumY) {
-            throw new ArgumentException($"The height range runs from {minimumY} to {maximumY}, which is backwards.", nameof(maximumY));
+            throw new ArgumentException(
+                $"The height range runs from {minimumY} to {maximumY}, which is backwards.",
+                nameof(maximumY)
+            );
         }
 
-        return new([.. footprint], minimumY, maximumY, area);
+        return new([..footprint], minimumY, maximumY, area);
     }
 
     /// <summary>A volume shaped like an upright cylinder.</summary>
@@ -95,7 +102,10 @@ public sealed class NavAreaVolume {
     /// <param name="area">The area to stamp. <see cref="NavArea.Null" /> makes it an obstacle.</param>
     /// <param name="segments">How many sides the polygon approximating the circle has.</param>
     /// <returns>The volume.</returns>
-    /// <exception cref="ArgumentOutOfRangeException">The radius or height is not positive, or there are fewer than three segments.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">
+    ///     The radius or height is not positive, or there are fewer than three
+    ///     segments.
+    /// </exception>
     /// <remarks>
     ///     <para>
     ///         A polygon rather than a circle, so that there is one containment test rather than two.
@@ -121,9 +131,9 @@ public sealed class NavAreaVolume {
             var angle = index / (float)segments * MathF.Tau;
 
             footprint[index] = new(
-                centre.X + (outer * MathF.Cos(angle)),
+                centre.X + outer * MathF.Cos(angle),
                 centre.Y,
-                centre.Z + (outer * MathF.Sin(angle))
+                centre.Z + outer * MathF.Sin(angle)
             );
         }
 

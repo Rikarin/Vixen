@@ -264,9 +264,10 @@ sealed class TeleportingTestSolver : IChainSolver {
 
         if (request.PositionWeight > 0f) {
             local[joint].Translation = BoneTransform.Concatenate(
-                new(request.Position, Quaternion.Identity, Vector3.One),
-                inverse
-            ).Translation;
+                    new(request.Position, Quaternion.Identity, Vector3.One),
+                    inverse
+                )
+                .Translation;
         }
 
         if (request.RotationWeight > 0f) {

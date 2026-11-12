@@ -14,8 +14,12 @@ namespace Vixen.Ui.Rendering;
 /// <param name="Dy">The y translation, in document pixels.</param>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>This used to be six floats that deliberately could not express a projective map, and
-///         the argument for that was sound rather than mistaken.</b> It ran: the third row of a 2D
+///         ⚠
+///         <b>
+///             This used to be six floats that deliberately could not express a projective map, and
+///             the argument for that was sound rather than mistaken.
+///         </b>
+///         It ran: the third row of a 2D
 ///         affine is always <c>0 0 1</c>, storing it costs bytes on a type both executors compare by
 ///         value, and — the real point — a perspective divide is exactly what the composite quad's
 ///         linearly interpolated texture coordinates cannot survive, so a type that cannot express
@@ -32,8 +36,12 @@ namespace Vixen.Ui.Rendering;
 ///         matrix: a rasteriser divides by <c>w</c> because that is what a rasteriser does.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The affine case is bit-for-bit what it was, and that is a requirement rather than a
-///         nicety.</b> Every reference image in <c>Vixen.Graphics.Golden.Tests.UiCompositingTests</c>
+///         ⚠
+///         <b>
+///             The affine case is bit-for-bit what it was, and that is a requirement rather than a
+///             nicety.
+///         </b>
+///         Every reference image in <c>Vixen.Graphics.Golden.Tests.UiCompositingTests</c>
 ///         was rendered through the six-float arithmetic, so a rounding that moved would have to be
 ///         accepted into every one of them — and "both executors changed together" is precisely what
 ///         a bug in a shared specification looks like. <see cref="Then" />, <see cref="Apply" />,
@@ -44,16 +52,24 @@ namespace Vixen.Ui.Rendering;
 ///         equality rather than leaving it as reasoning.
 ///     </para>
 ///     <para>
-///         ⚠ <b>And <c>default</c> is still what it always was, which is why the third column is
-///         stored offset.</b> A homography's identity has <c>M33 = 1</c>, so a naively added field
+///         ⚠
+///         <b>
+///             And <c>default</c> is still what it always was, which is why the third column is
+///             stored offset.
+///         </b>
+///         A homography's identity has <c>M33 = 1</c>, so a naively added field
 ///         would make every zeroed struct divide by zero — turning today's defined-but-wrong
 ///         collapse-to-the-origin into a <c>NaN</c> that propagates into a vertex buffer. The field
 ///         behind <see cref="M33" /> holds <c>M33 − 1</c>, so a zeroed <see cref="UiTransform" /> is
 ///         affine and behaves exactly as it did before this type could be projective.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Expressed in <i>absolute document space</i>, with the transform origin already folded
-///         in.</b> CSS defines <c>rotate</c> about <c>transform-origin</c>, which is the border box's
+///         ⚠
+///         <b>
+///             Expressed in <i>absolute document space</i>, with the transform origin already folded
+///             in.
+///         </b>
+///         CSS defines <c>rotate</c> about <c>transform-origin</c>, which is the border box's
 ///         centre by default, so the matrix that reaches here is already
 ///         <c>T(origin) · R · S · T(-origin)</c>. Carrying the origin separately would put the same
 ///         composition in the geometry builder and in the hit test, which is the two-copies-of-the-
@@ -71,8 +87,12 @@ namespace Vixen.Ui.Rendering;
 public readonly record struct UiTransform(float M11, float M12, float M21, float M22, float Dx, float Dy) {
     /// <summary>How far <see cref="M33" /> is from one, which is what is actually stored.</summary>
     /// <remarks>
-    ///     ⚠ <b>The offset is the whole reason a projective column could be added without touching a
-    ///     single call site.</b> See the class remark: a zeroed struct has to stay affine, and the
+    ///     ⚠
+    ///     <b>
+    ///         The offset is the whole reason a projective column could be added without touching a
+    ///         single call site.
+    ///     </b>
+    ///     See the class remark: a zeroed struct has to stay affine, and the
     ///     identity's <c>M33</c> is one. Private, because nothing outside this type should ever have
     ///     to know that the storage differs from the name — <see cref="M33" /> is the number, this is
     ///     the representation.
@@ -84,8 +104,12 @@ public readonly record struct UiTransform(float M11, float M12, float M21, float
 
     /// <summary>How much a point's <i>x</i> contributes to its <c>w</c>.</summary>
     /// <remarks>
-    ///     ⚠ <b>Its unit is the reciprocal of a length, which is what makes every epsilon in this type
-    ///     wrong for it.</b> A <c>perspective(1000px)</c> puts about a thousandth here — the same
+    ///     ⚠
+    ///     <b>
+    ///         Its unit is the reciprocal of a length, which is what makes every epsilon in this type
+    ///         wrong for it.
+    ///     </b>
+    ///     A <c>perspective(1000px)</c> puts about a thousandth here — the same
     ///     order as <see cref="IsIdentity" />'s bound on the linear cells, which are dimensionless.
     ///     Judging this column by that bound would call a real perspective the identity and never open
     ///     a group for it. See <see cref="IsIdentity" />, which carries a separate bound and says why.
@@ -115,8 +139,12 @@ public readonly record struct UiTransform(float M11, float M12, float M21, float
 
     /// <summary>Whether this is a plain affine, so no <c>w</c> anywhere can be anything but one.</summary>
     /// <remarks>
-    ///     ⚠ <b>Exact rather than tolerant, and that is deliberate in a type whose other predicates
-    ///     are not.</b> <see cref="IsIdentity" /> asks "is this near enough to nothing that a group is
+    ///     ⚠
+    ///     <b>
+    ///         Exact rather than tolerant, and that is deliberate in a type whose other predicates
+    ///         are not.
+    ///     </b>
+    ///     <see cref="IsIdentity" /> asks "is this near enough to nothing that a group is
     ///     not worth opening", which is a question about pictures and needs a tolerance. This asks
     ///     "was a projective term ever written", which is a question about <i>arithmetic</i>: it
     ///     selects the code path in <see cref="Invert" /> that reproduces the pre-projective rounding
@@ -128,15 +156,23 @@ public readonly record struct UiTransform(float M11, float M12, float M21, float
 
     /// <summary>Whether this is <see cref="Identity" />, to the tolerance a pixel can tell.</summary>
     /// <remarks>
-    ///     ⚠ <b>The gate on opening a group at all, which is why the tolerance is stated rather than
-    ///     exact.</b> <c>rotate: 0deg</c> and <c>scale: 100%</c> are the initial values and are written
+    ///     ⚠
+    ///     <b>
+    ///         The gate on opening a group at all, which is why the tolerance is stated rather than
+    ///         exact.
+    ///     </b>
+    ///     <c>rotate: 0deg</c> and <c>scale: 100%</c> are the initial values and are written
     ///     constantly — every <c>rotate-0</c> in a stylesheet, every animation that has finished
     ///     returning to rest. Each one that reached <c>DrawListBuilder</c> as "a transform" would cost
     ///     a viewport-sized surface and a render pass to draw the identical picture. An exact
     ///     comparison would miss the ones that arrive as <c>cos(0)</c> and a rounding.
     ///     <para>
-    ///         ⚠ <b>The bound is on the coefficients, so it is a bound on how far a <i>unit</i> vector
-    ///         moves — not on how far the element's corner does.</b> It is scale-free where the real
+    ///         ⚠
+    ///         <b>
+    ///             The bound is on the coefficients, so it is a bound on how far a <i>unit</i> vector
+    ///             moves — not on how far the element's corner does.
+    ///         </b>
+    ///         It is scale-free where the real
     ///         question is not, and the honest statement of the gap is this: an element whose origin
     ///         sits near the document's, rotated by under about a twentieth of a degree, is dropped
     ///         even though a corner a thousand points out would have moved most of a pixel. Anywhere
@@ -160,8 +196,12 @@ public readonly record struct UiTransform(float M11, float M12, float M21, float
 
     /// <summary>How small a perspective term has to be before it counts as none.</summary>
     /// <remarks>
-    ///     ⚠ <b>A thousand times tighter than the bound beside it, because the two columns are not in
-    ///     the same units and the obvious value is catastrophically wrong.</b> <see cref="M13" /> and
+    ///     ⚠
+    ///     <b>
+    ///         A thousand times tighter than the bound beside it, because the two columns are not in
+    ///         the same units and the obvious value is catastrophically wrong.
+    ///     </b>
+    ///     <see cref="M13" /> and
     ///     <see cref="M23" /> are reciprocal lengths: a <c>perspective(1000px)</c> — an ordinary,
     ///     strong perspective — puts <c>1e-3</c> in one of them, which is exactly the bound the linear
     ///     cells use. Reusing it would declare that transform the identity, refuse to open a group for
@@ -183,8 +223,12 @@ public readonly record struct UiTransform(float M11, float M12, float M21, float
     ///         propagating an infinity into a vertex position.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>It stopped being "the area it multiplies by" when the third column arrived, and
-    ///         the old sentence is worth correcting rather than deleting.</b> An affine scales every
+    ///         ⚠
+    ///         <b>
+    ///             It stopped being "the area it multiplies by" when the third column arrived, and
+    ///             the old sentence is worth correcting rather than deleting.
+    ///         </b>
+    ///         An affine scales every
     ///         area by the same factor and this is that factor. A homography does not: it scales area
     ///         by <c>det / w³</c>, which varies across the element and is the whole visual point of a
     ///         perspective. What survives is the only thing either consumer asks — that a zero
@@ -199,9 +243,9 @@ public readonly record struct UiTransform(float M11, float M12, float M21, float
     ///     </para>
     /// </remarks>
     public float Determinant =>
-        (M11 * ((M22 * M33) - (M23 * Dy)))
-        - (M12 * ((M21 * M33) - (M23 * Dx)))
-        + (M13 * ((M21 * Dy) - (M22 * Dx)));
+        M11 * (M22 * M33 - M23 * Dy)
+        - M12 * (M21 * M33 - M23 * Dx)
+        + M13 * (M21 * Dy - M22 * Dx);
 
     /// <summary>A rotation about a point, in degrees clockwise.</summary>
     /// <remarks>
@@ -249,25 +293,21 @@ public readonly record struct UiTransform(float M11, float M12, float M21, float
         // The re-centred homogeneous scale, which is the factor the translation column below is in
         // terms of. ⚠ On an affine it is `1 - (0 + 0)`, so every use of it downstream is `× 1` and the
         // two translation cells come out as the expression this method has always had.
-        var scale = M33 - ((origin.X * M13) + (origin.Y * M23));
+        var scale = M33 - (origin.X * M13 + origin.Y * M23);
         var (x, y) = (M13, M23);
 
-        return new UiTransform(
-            M11 + (M13 * origin.X),
-            M12 + (M13 * origin.Y),
-            M21 + (M23 * origin.X),
-            M22 + (M23 * origin.Y),
+        return new(
+            M11 + M13 * origin.X,
+            M12 + M13 * origin.Y,
+            M21 + M23 * origin.X,
+            M22 + M23 * origin.Y,
 
             // ⚠ The *original* linear cells, not the re-centred ones above. `T(−o) · M · T(o)` puts
             // the untouched row into this product; substituting the new ones is the plausible slip,
             // and on an affine — where the two are equal — it is invisible.
-            Dx + (scale * origin.X) - ((M11 * origin.X) + (M21 * origin.Y)),
-            Dy + (scale * origin.Y) - ((M12 * origin.X) + (M22 * origin.Y))
-        ) {
-            M13 = x,
-            M23 = y,
-            M33 = scale
-        };
+            Dx + scale * origin.X - (M11 * origin.X + M21 * origin.Y),
+            Dy + scale * origin.Y - (M12 * origin.X + M22 * origin.Y)
+        ) { M13 = x, M23 = y, M33 = scale };
     }
 
     /// <summary>A linear map re-centred on <paramref name="about" />.</summary>
@@ -282,42 +322,50 @@ public readonly record struct UiTransform(float M11, float M12, float M21, float
             m12,
             m21,
             m22,
-            about.X - ((m11 * about.X) + (m21 * about.Y)),
-            about.Y - ((m12 * about.X) + (m22 * about.Y))
+            about.X - (m11 * about.X + m21 * about.Y),
+            about.Y - (m12 * about.X + m22 * about.Y)
         );
 
     /// <summary>This transform followed by <paramref name="then" />.</summary>
     /// <remarks>
-    ///     ⚠ <b>The argument is applied <i>second</i>, which is the opposite of CSS's written order and
-    ///     the same as its evaluation order.</b> <c>rotate</c> and <c>scale</c> are separate properties
+    ///     ⚠
+    ///     <b>
+    ///         The argument is applied <i>second</i>, which is the opposite of CSS's written order and
+    ///         the same as its evaluation order.
+    ///     </b>
+    ///     <c>rotate</c> and <c>scale</c> are separate properties
     ///     in Transforms 2 § 3 and compose translate, then rotate, then scale — so a point is scaled
     ///     first and rotated after. Naming the parameter for when it runs rather than where it is
     ///     written is what keeps the call sites readable.
     /// </remarks>
     public UiTransform Then(in UiTransform then) =>
         new(
-            (M11 * then.M11) + (M12 * then.M21) + (M13 * then.Dx),
-            (M11 * then.M12) + (M12 * then.M22) + (M13 * then.Dy),
-            (M21 * then.M11) + (M22 * then.M21) + (M23 * then.Dx),
-            (M21 * then.M12) + (M22 * then.M22) + (M23 * then.Dy),
+            M11 * then.M11 + M12 * then.M21 + M13 * then.Dx,
+            M11 * then.M12 + M12 * then.M22 + M13 * then.Dy,
+            M21 * then.M11 + M22 * then.M21 + M23 * then.Dx,
+            M21 * then.M12 + M22 * then.M22 + M23 * then.Dy,
 
             // ⚠ `M33 * then.Dx` where the affine version wrote `then.Dx`, which is the same float
             // because `M33` is one on an affine. Every added term on this constructor is `× 0` or
             // `× 1` for the same reason — see the class remark, and `UiTransformProjectiveTests`,
             // which asserts the equality rather than trusting this paragraph.
-            (Dx * then.M11) + (Dy * then.M21) + (M33 * then.Dx),
-            (Dx * then.M12) + (Dy * then.M22) + (M33 * then.Dy)
+            Dx * then.M11 + Dy * then.M21 + M33 * then.Dx,
+            Dx * then.M12 + Dy * then.M22 + M33 * then.Dy
         ) {
-            M13 = (M11 * then.M13) + (M12 * then.M23) + (M13 * then.M33),
-            M23 = (M21 * then.M13) + (M22 * then.M23) + (M23 * then.M33),
-            M33 = (Dx * then.M13) + (Dy * then.M23) + (M33 * then.M33)
+            M13 = M11 * then.M13 + M12 * then.M23 + M13 * then.M33,
+            M23 = M21 * then.M13 + M22 * then.M23 + M23 * then.M33,
+            M33 = Dx * then.M13 + Dy * then.M23 + M33 * then.M33
         };
 
     /// <summary>Where a point lands, projected.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>This is the whole of what the renderer does with a transform, and the reason the
-    ///         feature costs no shader <i>while it is affine</i>.</b> A composited group's quad is four
+    ///         ⚠
+    ///         <b>
+    ///             This is the whole of what the renderer does with a transform, and the reason the
+    ///             feature costs no shader <i>while it is affine</i>.
+    ///         </b>
+    ///         A composited group's quad is four
     ///         vertices whose texture coordinates name the surface the group was rasterised into;
     ///         moving those four positions and leaving the coordinates alone <i>is</i> the transform.
     ///         Both executors interpolate the coordinate across the two triangles linearly, and an
@@ -325,17 +373,25 @@ public readonly record struct UiTransform(float M11, float M12, float M21, float
     ///         approximation.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Under a homography it still returns the right point and the interpolation between
-    ///         two of them is no longer right, which is why <see cref="Project" /> exists beside
-    ///         it.</b> The <c>w</c> this divides away is exactly what a rasteriser needs in order to
+    ///         ⚠
+    ///         <b>
+    ///             Under a homography it still returns the right point and the interpolation between
+    ///             two of them is no longer right, which is why <see cref="Project" /> exists beside
+    ///             it.
+    ///         </b>
+    ///         The <c>w</c> this divides away is exactly what a rasteriser needs in order to
     ///         interpolate the coordinate correctly, so a caller that is placing <i>vertices</i> wants
     ///         the homogeneous form and a caller that wants <i>a point</i> — a hit test, a bound —
     ///         wants this one. Dividing here and multiplying back would be the same arithmetic done
     ///         twice and rounded twice.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A point with <c>w ≤ 0</c> is behind the eye and this returns its
-    ///         <i>reflection</i>.</b> The division is defined and the answer is finite and plausible,
+    ///         ⚠
+    ///         <b>
+    ///             A point with <c>w ≤ 0</c> is behind the eye and this returns its
+    ///             <i>reflection</i>.
+    ///         </b>
+    ///         The division is defined and the answer is finite and plausible,
     ///         which is the whole danger: it lands on the far side of the vanishing point, where
     ///         nothing is drawn. There is no value this could return that would say so, so it does not
     ///         try — a caller that can be handed such a point asks <see cref="Project" /> and reads the
@@ -349,7 +405,7 @@ public readonly record struct UiTransform(float M11, float M12, float M21, float
         // so this returns the same two floats the six-float version did, for every transform that
         // existed before the third column. Guarding the affine case with a branch instead would be a
         // second expression to keep in step for no arithmetic difference at all.
-        return new Vector2(projected.X / projected.Z, projected.Y / projected.Z);
+        return new(projected.X / projected.Z, projected.Y / projected.Z);
     }
 
     /// <summary>Where a point lands, before the divide: <c>x</c>, <c>y</c> and <c>w</c>.</summary>
@@ -362,8 +418,12 @@ public readonly record struct UiTransform(float M11, float M12, float M21, float
     ///         which does not.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The sign of <c>w</c> is the only thing that says a point is in front of the
-    ///         eye</b>, and it is discarded by the division. Positive is in front. Zero is on the eye
+    ///         ⚠
+    ///         <b>
+    ///             The sign of <c>w</c> is the only thing that says a point is in front of the
+    ///             eye
+    ///         </b>
+    ///         , and it is discarded by the division. Positive is in front. Zero is on the eye
     ///         plane and has no image at all; negative is behind, and its projection is a finite point
     ///         reflected through the vanishing point — a plausible answer to a question that has none.
     ///     </para>
@@ -372,12 +432,12 @@ public readonly record struct UiTransform(float M11, float M12, float M21, float
     /// <returns><c>(x, y, w)</c>, unprojected.</returns>
     public Vector3 Project(Vector2 point) =>
         new(
-            (M11 * point.X) + (M21 * point.Y) + Dx,
-            (M12 * point.X) + (M22 * point.Y) + Dy,
+            M11 * point.X + M21 * point.Y + Dx,
+            M12 * point.X + M22 * point.Y + Dy,
 
             // ⚠ `0 · x + 0 · y + 1` on an affine, which is exactly `1f` — so the division in `Apply`
             // is the identity and not merely close to it.
-            (M13 * point.X) + (M23 * point.Y) + M33
+            M13 * point.X + M23 * point.Y + M33
         );
 
     /// <summary>The transform that undoes this one, or null where there is none.</summary>
@@ -408,23 +468,23 @@ public readonly record struct UiTransform(float M11, float M12, float M21, float
             var a21 = -M21 * inverse;
             var a22 = M11 * inverse;
 
-            return new UiTransform(a11, a12, a21, a22, -((Dx * a11) + (Dy * a21)), -((Dx * a12) + (Dy * a22)));
+            return new UiTransform(a11, a12, a21, a22, -(Dx * a11 + Dy * a21), -(Dx * a12 + Dy * a22));
         }
 
         // The adjugate, transposed into this type's row-vector layout and scaled by 1/det. ⚠ The
         // third column is what an affine inverse never had: a homography's inverse is a homography,
         // and its perspective terms are the ones that map the far plane back.
         return new UiTransform(
-            ((M22 * M33) - (M23 * Dy)) * inverse,
-            ((M13 * Dy) - (M12 * M33)) * inverse,
-            ((M23 * Dx) - (M21 * M33)) * inverse,
-            ((M11 * M33) - (M13 * Dx)) * inverse,
-            ((M21 * Dy) - (M22 * Dx)) * inverse,
-            ((M12 * Dx) - (M11 * Dy)) * inverse
+            (M22 * M33 - M23 * Dy) * inverse,
+            (M13 * Dy - M12 * M33) * inverse,
+            (M23 * Dx - M21 * M33) * inverse,
+            (M11 * M33 - M13 * Dx) * inverse,
+            (M21 * Dy - M22 * Dx) * inverse,
+            (M12 * Dx - M11 * Dy) * inverse
         ) {
-            M13 = ((M12 * M23) - (M13 * M22)) * inverse,
-            M23 = ((M13 * M21) - (M11 * M23)) * inverse,
-            M33 = ((M11 * M22) - (M12 * M21)) * inverse
+            M13 = (M12 * M23 - M13 * M22) * inverse,
+            M23 = (M13 * M21 - M11 * M23) * inverse,
+            M33 = (M11 * M22 - M12 * M21) * inverse
         };
     }
 
@@ -443,8 +503,12 @@ public readonly record struct UiTransform(float M11, float M12, float M21, float
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>An affine always has one and a homography need not, which is why this exists and
-    ///         <see cref="Bounds" /> alone is no longer enough.</b> Under a perspective, part of the
+    ///         ⚠
+    ///         <b>
+    ///             An affine always has one and a homography need not, which is why this exists and
+    ///             <see cref="Bounds" /> alone is no longer enough.
+    ///         </b>
+    ///         Under a perspective, part of the
     ///         plane can lie behind the eye. The four corners of a rectangle straddling that line
     ///         project to four finite points — the ones behind are reflected through the vanishing
     ///         point — so the corner-wise box below is not merely loose, it is <i>wrong</i>: it
@@ -452,15 +516,23 @@ public readonly record struct UiTransform(float M11, float M12, float M21, float
     ///         from is on the wrong side of the screen.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>So the sign of <c>w</c> is checked before the box, and this refuses rather than
-    ///         approximating.</b> Clipping the quad against the <c>w = 0</c> plane and bounding what
+    ///         ⚠
+    ///         <b>
+    ///             So the sign of <c>w</c> is checked before the box, and this refuses rather than
+    ///             approximating.
+    ///         </b>
+    ///         Clipping the quad against the <c>w = 0</c> plane and bounding what
     ///         is left is the right answer and it belongs to the rasterizers, which have to clip
     ///         anyway; a bound computed here would be a second implementation of that clip, in a type
     ///         that draws nothing.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Used for bounds and never for painting, and the distinction is the whole of the
-    ///         refusal this feature replaced.</b> Approximating a rotated element <i>by</i> this box is
+    ///         ⚠
+    ///         <b>
+    ///             Used for bounds and never for painting, and the distinction is the whole of the
+    ///             refusal this feature replaced.
+    ///         </b>
+    ///         Approximating a rotated element <i>by</i> this box is
     ///         what would draw a 45-point square where a 32-point one was asked for. Using it to decide
     ///         how much surface to allocate, and then painting the real quad into it, is not the same
     ///         thing: the box is a conservative bound on a picture that is drawn exactly.
@@ -470,10 +542,10 @@ public readonly record struct UiTransform(float M11, float M12, float M21, float
     /// <param name="bounds">The box, or <c>default</c> where there is none.</param>
     /// <returns>Whether every corner is in front of the eye.</returns>
     public bool TryBounds(Rectangle rectangle, out Rectangle bounds) {
-        var a = Project(new Vector2(rectangle.X, rectangle.Y));
-        var b = Project(new Vector2(rectangle.X + rectangle.Width, rectangle.Y));
-        var c = Project(new Vector2(rectangle.X, rectangle.Y + rectangle.Height));
-        var d = Project(new Vector2(rectangle.X + rectangle.Width, rectangle.Y + rectangle.Height));
+        var a = Project(new(rectangle.X, rectangle.Y));
+        var b = Project(new(rectangle.X + rectangle.Width, rectangle.Y));
+        var c = Project(new(rectangle.X, rectangle.Y + rectangle.Height));
+        var d = Project(new(rectangle.X + rectangle.Width, rectangle.Y + rectangle.Height));
 
         // ⚠ Strictly positive. A corner exactly on the eye plane has no image at all, and the divide
         // below would hand back an infinity that `MathF.Min` propagates into every edge of the box.
@@ -492,7 +564,7 @@ public readonly record struct UiTransform(float M11, float M12, float M21, float
         var right = MathF.Max(MathF.Max(ax, bx), MathF.Max(cx, dx));
         var bottom = MathF.Max(MathF.Max(ay, by), MathF.Max(cy, dy));
 
-        bounds = new Rectangle(left, top, right - left, bottom - top);
+        bounds = new(left, top, right - left, bottom - top);
         return true;
     }
 }

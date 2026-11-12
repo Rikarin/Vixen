@@ -61,8 +61,12 @@ sealed partial class EmbossNode : TextureNode {
 
 /// <summary>A displacement by the gradient of a grey field.</summary>
 /// <remarks>
-///     ⚠ <b>The slope is taken per unit of <em>image width</em>, so a ramp spanning the whole image
-///     has a slope of one</b> — which is what makes <c>Intensity</c> readable as "how far a unit of
+///     ⚠
+///     <b>
+///         The slope is taken per unit of <em>image width</em>, so a ramp spanning the whole image
+///         has a slope of one
+///     </b>
+///     — which is what makes <c>Intensity</c> readable as "how far a unit of
 ///     slope pushes", in texels at the base resolution. A warp field of low contrast displaces
 ///     proportionally less, and that is the number, not a bug.
 /// </remarks>
@@ -157,8 +161,12 @@ sealed partial class DirectionalWarpNode : TextureNode {
 /// <summary>A displacement by a signed two-channel map.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Red is x and green is y, both <em>biased</em>: a half is rest, one is
-///         <c>+intensity</c> and zero is <c>−intensity</c>.</b> Reading the same bytes one-sidedly is
+///         ⚠
+///         <b>
+///             Red is x and green is y, both <em>biased</em>: a half is rest, one is
+///             <c>+intensity</c> and zero is <c>−intensity</c>.
+///         </b>
+///         Reading the same bytes one-sidedly is
 ///         half the amplitude and never negative, and it looks entirely plausible.
 ///     </para>
 ///     <para>
@@ -214,8 +222,12 @@ sealed partial class VectorWarpNode : TextureNode {
 ///         "the whole distance walked" until it was measured.
 ///     </para>
 ///     <para>
-///         ⚠ <b><c>Samples</c> changes the answer wherever the field curves, so it is part of the
-///         node rather than a quality setting.</b> Turning it down is a different erosion, not a
+///         ⚠
+///         <b>
+///             <c>Samples</c> changes the answer wherever the field curves, so it is part of the
+///             node rather than a quality setting.
+///         </b>
+///         Turning it down is a different erosion, not a
 ///         cheaper one — and 0 is a copy.
 ///     </para>
 /// </remarks>

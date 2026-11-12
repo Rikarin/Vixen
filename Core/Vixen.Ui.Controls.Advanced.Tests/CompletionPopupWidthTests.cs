@@ -26,7 +26,7 @@ public class CompletionPopupWidthTests {
     static (float Width, float Height, float Left) Open(int column) {
         using var fixture = new AdvancedFixture();
         var editor = fixture.Add<CodeEditor>();
-        editor.Source = new string(' ', column);
+        editor.Source = new(' ', column);
 
         fixture.Update();
         editor.Refresh();
@@ -35,7 +35,7 @@ public class CompletionPopupWidthTests {
 
         editor.CompletionProvider = static (_, _) => Items;
 
-        editor.Move(new TextPosition(0, column));
+        editor.Move(new(0, column));
         fixture.TypeText("St");
         fixture.Type(InputKey.Space, ModifierKeys.Control);
         fixture.Update();

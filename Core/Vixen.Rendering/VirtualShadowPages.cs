@@ -28,8 +28,11 @@ namespace Vixen.Rendering;
 ///         <see cref="TakePending" /> is that fact.
 ///     </para>
 ///     <para>
-///         <b>Eviction is what makes the page table dangerous, so it is what the store handles most
-///         carefully.</b> A slot handed to a new virtual page while a shading pass still points at it
+///         <b>
+///             Eviction is what makes the page table dangerous, so it is what the store handles most
+///             carefully.
+///         </b>
+///         A slot handed to a new virtual page while a shading pass still points at it
 ///         under the old one reads another part of the world's depth — a shadow of something that is
 ///         not there, in the right place, at a plausible depth. <see cref="IPageStore.Evict" /> clears
 ///         the table entry <em>before</em> the slot is reused, which is the frame boundary the service

@@ -193,13 +193,15 @@ public sealed class MixControl(AudioEngine engine) {
             controls.Add(new($"bus/{bus.Name}/mute", MixControlKind.BusMute, bus.Muted ? 1f : 0f, 0f, 1f));
 
             foreach (var send in bus.Sends) {
-                controls.Add(new(
-                    $"bus/{bus.Name}/send/{send.Target.Name}",
-                    MixControlKind.SendLevel,
-                    ToDecibels(send.Level),
-                    SilenceDb,
-                    12f
-                ));
+                controls.Add(
+                    new(
+                        $"bus/{bus.Name}/send/{send.Target.Name}",
+                        MixControlKind.SendLevel,
+                        ToDecibels(send.Level),
+                        SilenceDb,
+                        12f
+                    )
+                );
             }
 
             for (var slot = 0; slot < bus.Effects.Count; slot++) {
@@ -211,13 +213,15 @@ public sealed class MixControl(AudioEngine engine) {
                     // No range, because an effect's knobs are in the effect's own units — hertz,
                     // a ratio, seconds — and there is no bound this could invent that would be right
                     // for all of them. An editor draws a number box rather than a slider.
-                    controls.Add(new(
-                        $"bus/{bus.Name}/effect/{slot}/{property}",
-                        MixControlKind.EffectProperty,
-                        current,
-                        0f,
-                        0f
-                    ));
+                    controls.Add(
+                        new(
+                            $"bus/{bus.Name}/effect/{slot}/{property}",
+                            MixControlKind.EffectProperty,
+                            current,
+                            0f,
+                            0f
+                        )
+                    );
                 }
             }
         }
@@ -226,13 +230,15 @@ public sealed class MixControl(AudioEngine engine) {
             for (var i = 0; i < parameters.Count; i++) {
                 var parameter = parameters[i];
 
-                controls.Add(new(
-                    $"parameter/{parameter.Name}",
-                    MixControlKind.Parameter,
-                    parameters.ValueOf(i),
-                    parameter.Minimum,
-                    parameter.Maximum
-                ));
+                controls.Add(
+                    new(
+                        $"parameter/{parameter.Name}",
+                        MixControlKind.Parameter,
+                        parameters.ValueOf(i),
+                        parameter.Minimum,
+                        parameter.Maximum
+                    )
+                );
             }
         }
 
@@ -260,7 +266,8 @@ public sealed class MixControl(AudioEngine engine) {
         return null;
     }
 
-    static float ToDecibels(float linear) => linear <= 0f ? SilenceDb : MathF.Max(Decibels.FromLinear(linear), SilenceDb);
+    static float ToDecibels(float linear) =>
+        linear <= 0f ? SilenceDb : MathF.Max(Decibels.FromLinear(linear), SilenceDb);
 
     static float FromDecibels(float decibels) => decibels <= SilenceDb ? 0f : Decibels.ToLinear(decibels);
 }

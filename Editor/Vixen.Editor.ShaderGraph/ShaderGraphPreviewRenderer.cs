@@ -75,8 +75,12 @@ public interface IPreviewImages {
 ///         preview worth looking at.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The quad is in clip space and its texture coordinate follows the engine's
-///         convention.</b> Clip <c>y = +1</c> is the top — <c>Core/Vixen.Core.Mathematics/Conventions.md</c>,
+///         ⚠
+///         <b>
+///             The quad is in clip space and its texture coordinate follows the engine's
+///             convention.
+///         </b>
+///         Clip <c>y = +1</c> is the top — <c>Core/Vixen.Core.Mathematics/Conventions.md</c>,
 ///         and the Vulkan backend's negative-height viewport is what implements it — so the corner at
 ///         <c>y = +1</c> is given <c>texcoord.y = 0</c> and the target's first row is the top of the
 ///         picture. An interface image command therefore draws it unflipped, which is why
@@ -118,6 +122,7 @@ public sealed class ShaderGraphPreviewRenderer : INodePreviewSource, IDisposable
     ///     node alone would show one tab's picture under the other tab's node.
     /// </remarks>
     readonly Dictionary<(NodeGraphModel Graph, NodeId Node), Entry> entries = [];
+
     readonly Dictionary<NodeGraphModel, Watched> watched = [];
     readonly List<(NodeGraphModel Graph, NodeId Node)> recent = [];
     readonly List<(NodeGraphModel Graph, NodeId Node)> dirty = [];
@@ -133,7 +138,11 @@ public sealed class ShaderGraphPreviewRenderer : INodePreviewSource, IDisposable
     ///     has.
     /// </param>
     /// <exception cref="ArgumentNullException"><paramref name="device" /> or <paramref name="registry" /> is null.</exception>
-    public ShaderGraphPreviewRenderer(IGraphicsDevice device, NodeTypeRegistry registry, IPreviewImages? images = null) {
+    public ShaderGraphPreviewRenderer(
+        IGraphicsDevice device,
+        NodeTypeRegistry registry,
+        IPreviewImages? images = null
+    ) {
         ArgumentNullException.ThrowIfNull(device);
         ArgumentNullException.ThrowIfNull(registry);
 
@@ -141,7 +150,7 @@ public sealed class ShaderGraphPreviewRenderer : INodePreviewSource, IDisposable
         this.registry = registry;
         this.images = images;
 
-        loader = new EffectLoader(device);
+        loader = new(device);
     }
 
     /// <summary>How many nodes keep a target before the least recently asked for loses one.</summary>
@@ -249,7 +258,7 @@ public sealed class ShaderGraphPreviewRenderer : INodePreviewSource, IDisposable
                 }
             }
         } else {
-            entries[key] = new Entry { Source = source.Source, Revision = revision };
+            entries[key] = new() { Source = source.Source, Revision = revision };
             dirty.Add(key);
             Evict();
 
@@ -278,7 +287,7 @@ public sealed class ShaderGraphPreviewRenderer : INodePreviewSource, IDisposable
             return false;
         }
 
-        preview = new NodePreview(new Color4(1f, 1f, 1f, 1f), Image: entry.Image);
+        preview = new(new(1f, 1f, 1f, 1f), entry.Image);
 
         return true;
     }
@@ -287,8 +296,12 @@ public sealed class ShaderGraphPreviewRenderer : INodePreviewSource, IDisposable
     /// <returns>How many were rebuilt.</returns>
     /// <exception cref="ObjectDisposedException">The renderer has been disposed.</exception>
     /// <remarks>
-    ///     ⚠ <b>Called between <c>BeginFrame</c> and <c>EndFrame</c>, on the thread that owns the
-    ///     device</b>, like every other queue this editor drains. It records and submits a command
+    ///     ⚠
+    ///     <b>
+    ///         Called between <c>BeginFrame</c> and <c>EndFrame</c>, on the thread that owns the
+    ///         device
+    ///     </b>
+    ///     , like every other queue this editor drains. It records and submits a command
     ///     list of its own rather than taking one, so a caller does not have to find a point in the
     ///     frame where it is safe to be outside a render pass — and the submit is ordered before the
     ///     interface's own, which is what makes the target readable in the same frame it was drawn.
@@ -460,11 +473,15 @@ public sealed class ShaderGraphPreviewRenderer : INodePreviewSource, IDisposable
                 )
             );
 
-            device.Write(entry.Vertices, 0, MemoryMarshal.AsBytes<float>(vertices));
+            device.Write(entry.Vertices, 0, MemoryMarshal.AsBytes(vertices));
         }
 
         entry.Vertex = device.CreateShader(ShaderStage.Vertex, Bytecode(effect, ShaderStage.Vertex), "preview vertex");
-        entry.Fragment = device.CreateShader(ShaderStage.Fragment, Bytecode(effect, ShaderStage.Fragment), "preview fragment");
+        entry.Fragment = device.CreateShader(
+            ShaderStage.Fragment,
+            Bytecode(effect, ShaderStage.Fragment),
+            "preview fragment"
+        );
 
         entry.Pipeline = device.CreateGraphicsPipeline(
             new(
@@ -486,17 +503,19 @@ public sealed class ShaderGraphPreviewRenderer : INodePreviewSource, IDisposable
 
     /// <summary>Records one preview's pass.</summary>
     void Draw(ICommandList commands, Entry entry) {
-        commands.Barrier(new BarrierGroup([], [new TextureBarrier(entry.Texture, entry.State, ResourceState.ColourTarget)]));
+        commands.Barrier(
+            new BarrierGroup([], [new TextureBarrier(entry.Texture, entry.State, ResourceState.ColourTarget)])
+        );
 
         commands.BeginRenderPass(
             new RenderPassDescription(
-                [new ColourAttachment(entry.View, LoadAction.Clear, StoreAction.Store, new Color4(0f, 0f, 0f, 1f))],
+                [new ColourAttachment(entry.View, LoadAction.Clear, StoreAction.Store, new(0f, 0f, 0f, 1f))],
                 name: "shader graph preview"
             )
         );
 
-        commands.SetViewport(new Viewport(0f, 0f, Size, Size));
-        commands.SetScissor(new ScissorRect(0, 0, Size, Size));
+        commands.SetViewport(new(0f, 0f, Size, Size));
+        commands.SetScissor(new(0, 0, Size, Size));
         commands.BindPipeline(entry.Pipeline);
 
         if (entry.Descriptors.IsValid) {
@@ -511,7 +530,10 @@ public sealed class ShaderGraphPreviewRenderer : INodePreviewSource, IDisposable
         commands.EndRenderPass();
 
         commands.Barrier(
-            new BarrierGroup([], [new TextureBarrier(entry.Texture, ResourceState.ColourTarget, ResourceState.ShaderRead)])
+            new BarrierGroup(
+                [],
+                [new TextureBarrier(entry.Texture, ResourceState.ColourTarget, ResourceState.ShaderRead)]
+            )
         );
 
         entry.State = ResourceState.ShaderRead;
@@ -543,8 +565,12 @@ public sealed class ShaderGraphPreviewRenderer : INodePreviewSource, IDisposable
 
     /// <summary>Compiles one preview's Raven, in memory, beside the shader library.</summary>
     /// <remarks>
-    ///     ⚠ <b>"A graph's output imports nothing" is what this used to say, and it was the defect
-    ///     rather than the design</b> — <a href="https://github.com/Rikarin/Vixen/issues/510">#510</a>.
+    ///     ⚠
+    ///     <b>
+    ///         "A graph's output imports nothing" is what this used to say, and it was the defect
+    ///         rather than the design
+    ///     </b>
+    ///     — <a href="https://github.com/Rikarin/Vixen/issues/510">#510</a>.
     ///     A node's <c>Emit</c> may ask for an import, and the procedural and UV nodes do; with one
     ///     source in the compilation those names do not exist and the variant fails to bind, which
     ///     is why five shipped nodes declared no <c>Preview</c>. No composition still: a preview is
@@ -601,7 +627,7 @@ public sealed class ShaderGraphPreviewRenderer : INodePreviewSource, IDisposable
     static bool IsTransform(string name) {
         var bare = name.AsSpan()[(name.LastIndexOf('.') + 1)..];
 
-        return bare.SequenceEqual("worldViewProjection") || bare.SequenceEqual("world");
+        return bare is "worldViewProjection" || bare is "world";
     }
 
     /// <summary>The quad, interleaved for exactly the attributes this variant's vertex stage reads.</summary>
@@ -616,7 +642,7 @@ public sealed class ShaderGraphPreviewRenderer : INodePreviewSource, IDisposable
         List<(int Lanes, Func<Corner, Vector4> Of)> readers = [];
         var offset = 0;
 
-        foreach (var input in effect.VertexInputs.OrderBy(input => input.Location)) {
+        foreach (var input in effect.VertexInputs.OrderBy(static input => input.Location)) {
             var lanes = LanesOf(input.Kind);
 
             if (lanes == 0) {
@@ -636,38 +662,48 @@ public sealed class ShaderGraphPreviewRenderer : INodePreviewSource, IDisposable
                 var value = of(corner);
 
                 for (var lane = 0; lane < lanes; lane++) {
-                    floats.Add(lane switch { 0 => value.X, 1 => value.Y, 2 => value.Z, _ => value.W });
+                    floats.Add(
+                        lane switch {
+                            0 => value.X,
+                            1 => value.Y,
+                            2 => value.Z,
+                            _ => value.W
+                        }
+                    );
                 }
             }
         }
 
-        return ([.. floats], new Layout(stride, [.. elements]));
+        return ([..floats], new Layout(stride, [..elements]));
     }
 
-    static int LanesOf(ShaderValueKind kind) => kind switch {
-        ShaderValueKind.Float => 1,
-        ShaderValueKind.Float2 => 2,
-        ShaderValueKind.Float3 => 3,
-        ShaderValueKind.Float4 => 4,
-        _ => 0
-    };
+    static int LanesOf(ShaderValueKind kind) =>
+        kind switch {
+            ShaderValueKind.Float => 1,
+            ShaderValueKind.Float2 => 2,
+            ShaderValueKind.Float3 => 3,
+            ShaderValueKind.Float4 => 4,
+            _ => 0
+        };
 
-    static VertexFormat FormatOf(int lanes) => lanes switch {
-        1 => VertexFormat.Float32,
-        2 => VertexFormat.Float32X2,
-        3 => VertexFormat.Float32X3,
-        _ => VertexFormat.Float32X4
-    };
+    static VertexFormat FormatOf(int lanes) =>
+        lanes switch {
+            1 => VertexFormat.Float32,
+            2 => VertexFormat.Float32X2,
+            3 => VertexFormat.Float32X3,
+            _ => VertexFormat.Float32X4
+        };
 
     /// <summary>What one named vertex attribute holds, corner by corner.</summary>
-    static Func<Corner, Vector4> ReaderOf(string name) => name switch {
-        "texcoord" => corner => new Vector4(corner.Uv.X, corner.Uv.Y, 0f, 0f),
-        // Facing the viewer, so a graph reading a world normal previews a flat surface rather than
-        // one whose normal is zero — which normalises to a NaN and shades as nothing.
-        "normal" => _ => new Vector4(0f, 0f, 1f, 0f),
-        "colour" => _ => new Vector4(1f, 1f, 1f, 1f),
-        _ => corner => new Vector4(corner.Position.X, corner.Position.Y, 0f, 1f)
-    };
+    static Func<Corner, Vector4> ReaderOf(string name) =>
+        name switch {
+            "texcoord" => static corner => new Vector4(corner.Uv.X, corner.Uv.Y, 0f, 0f),
+            // Facing the viewer, so a graph reading a world normal previews a flat surface rather than
+            // one whose normal is zero — which normalises to a NaN and shades as nothing.
+            "normal" => static _ => new Vector4(0f, 0f, 1f, 0f),
+            "colour" => static _ => new Vector4(1f, 1f, 1f, 1f),
+            _ => static corner => new Vector4(corner.Position.X, corner.Position.Y, 0f, 1f)
+        };
 
     /// <summary>This graph's revision, subscribing to it the first time it is seen.</summary>
     /// <remarks>
@@ -795,7 +831,7 @@ public sealed class ShaderGraphPreviewRenderer : INodePreviewSource, IDisposable
     /// <summary>One graph's revision, and the handler that moves it.</summary>
     sealed class Watched {
         public int Revision = 1;
-        public Action<NodeGraphModel> Handler = _ => { };
+        public Action<NodeGraphModel> Handler = static _ => { };
     }
 
     sealed class Entry {

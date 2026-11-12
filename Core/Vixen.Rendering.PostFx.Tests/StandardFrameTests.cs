@@ -30,26 +30,28 @@ namespace Tests;
 /// </remarks>
 public class StandardFrameTests {
     /// <summary>Every knob at its floor, which is the bare frame: background, scene, curve.</summary>
-    static StandardFrameAsset AllOff => new() {
-        Quality = QualityTier.Low,
-        Shadows = ShadowMode.Off,
-        Gi = GiMode.Off,
-        Reflections = ReflectionsMode.Off,
-        Antialiasing = AntialiasingMode.Off,
-        Exposure = ExposureMode.Fixed,
-        Particles = false
-    };
+    static StandardFrameAsset AllOff =>
+        new() {
+            Quality = QualityTier.Low,
+            Shadows = ShadowMode.Off,
+            Gi = GiMode.Off,
+            Reflections = ReflectionsMode.Off,
+            Antialiasing = AntialiasingMode.Off,
+            Exposure = ExposureMode.Fixed,
+            Particles = false
+        };
 
     /// <summary>Every knob at its ceiling — the sample-13 configuration.</summary>
-    static StandardFrameAsset AllOn => new() {
-        Quality = QualityTier.Epic,
-        Shadows = ShadowMode.Virtual,
-        Gi = GiMode.Probes,
-        Reflections = ReflectionsMode.Screen,
-        Antialiasing = AntialiasingMode.TaaFxaa,
-        Exposure = ExposureMode.Automatic,
-        Particles = true
-    };
+    static StandardFrameAsset AllOn =>
+        new() {
+            Quality = QualityTier.Epic,
+            Shadows = ShadowMode.Virtual,
+            Gi = GiMode.Probes,
+            Reflections = ReflectionsMode.Screen,
+            Antialiasing = AntialiasingMode.TaaFxaa,
+            Exposure = ExposureMode.Automatic,
+            Particles = true
+        };
 
     static GraphicsCompositorAsset Expand(StandardFrameAsset frame, GraphicsCompositorAsset? document = null) =>
         StandardFrame.Expand((document ?? new()) with { Game = frame });
@@ -57,7 +59,7 @@ public class StandardFrameTests {
     static SequenceAsset Root(GraphicsCompositorAsset document) => Assert.IsType<SequenceAsset>(document.Game);
 
     static string[] Names(GraphicsCompositorAsset document) =>
-        [.. Root(document).Children.Select(child => child.Name)];
+        [..Root(document).Children.Select(static child => child.Name)];
 
     static TAsset Node<TAsset>(GraphicsCompositorAsset document, string name) =>
         Assert.IsType<TAsset>(Root(document).Children.Single(child => child.Name == name));
@@ -67,8 +69,11 @@ public class StandardFrameTests {
     ///     setting.
     /// </summary>
     /// <remarks>
-    ///     ⚠ This asserted three nodes until <see href="https://github.com/Rikarin/Vixen/issues/1243">
-    ///     #1243</see>. The lens node is the seat of the output dither and the dither belongs to the
+    ///     ⚠ This asserted three nodes until
+    ///     <see href="https://github.com/Rikarin/Vixen/issues/1243">
+    ///         #1243
+    ///     </see>
+    ///     . The lens node is the seat of the output dither and the dither belongs to the
     ///     <em>encode</em> rather than to a tier, so even the floor configuration pays for it — with
     ///     all three of that node's looks off, which is what
     ///     <see cref="The_lens_node_dithers_on_every_tier" /> holds.
@@ -97,14 +102,17 @@ public class StandardFrameTests {
 
         Assert.Equal("SceneGraded", glass.Source);
         Assert.Equal("SceneColour", glass.Output);
-        Assert.Equal("", tonemap.Bloom);
-        Assert.Equal("", tonemap.ExposureBuffer);
+        Assert.Equal(string.Empty, tonemap.Bloom);
+        Assert.Equal(string.Empty, tonemap.ExposureBuffer);
 
         // Fixed exposure is the camera's: the lens decides until a look profile pins an EV.
         Assert.Equal("Camera", tonemap.View);
 
-        Assert.Equal(["Opaque"], document.Stages.Select(stage => stage.Name));
-        Assert.Equal(["SceneColour", "SceneHdr", "SceneDepth"], document.Resources.Select(resource => resource.Name));
+        Assert.Equal(["Opaque"], document.Stages.Select(static stage => stage.Name));
+        Assert.Equal(
+            ["SceneColour", "SceneHdr", "SceneDepth"],
+            document.Resources.Select(static resource => resource.Name)
+        );
     }
 
     [Fact]
@@ -115,7 +123,7 @@ public class StandardFrameTests {
 
         // The caster stage carries the structural decisions, not the artistic ones: back faces,
         // zero raster bias, clamped depth, the depth-only override shader without composition.
-        var caster = document.Stages.Single(stage => stage.Name == "Shadow");
+        var caster = document.Stages.Single(static stage => stage.Name == "Shadow");
 
         Assert.Equal("ShadowCaster", caster.Shader);
         Assert.Equal(CullMode.Back, caster.Cull);
@@ -130,7 +138,7 @@ public class StandardFrameTests {
         var atlas = document.Resources.Single(resource => resource.Name == sun.Atlas);
         var expected = ShadowCascades.AtlasSize(sun.CascadeCount, sun.Resolution);
 
-        Assert.Equal(expected, new Int2(atlas.Width, atlas.Height));
+        Assert.Equal(expected, new(atlas.Width, atlas.Height));
 
         var lamps = Node<PunctualShadowAsset>(document, "Lamps");
         var punctual = document.Resources.Single(resource => resource.Name == lamps.Atlas);
@@ -147,7 +155,7 @@ public class StandardFrameTests {
 
         Assert.Equal(
             [("shadowMap", sun.Atlas), ("PunctualShadowAtlas.atlas", lamps.Atlas)],
-            main.SceneTextures.Select(seat => (seat.Binding, seat.Resource))
+            main.SceneTextures.Select(static seat => (seat.Binding, seat.Resource))
         );
 
         Assert.Equal("Camera", sun.View);
@@ -191,17 +199,19 @@ public class StandardFrameTests {
         Assert.Equal(gather.Output, combine.Irradiance);
         Assert.Equal(occlusion.Output, combine.Occlusion);
         Assert.Equal(contact.Output, combine.ContactOcclusion);
-        Assert.Equal("", combine.Reflections);
+        Assert.Equal(string.Empty, combine.Reflections);
 
         // The gather's host-side placement copies depth and normals back every frame, so the two
         // planes carry CopySource — without it the copy is a validation error per frame.
         Assert.True(
-            document.Resources.Single(resource => resource.Name == "SceneDepth").Usage
+            document.Resources.Single(static resource => resource.Name == "SceneDepth")
+                .Usage
                 .HasFlag(TextureUsage.CopySource)
         );
 
         Assert.True(
-            document.Resources.Single(resource => resource.Name == "SceneNormals").Usage
+            document.Resources.Single(static resource => resource.Name == "SceneNormals")
+                .Usage
                 .HasFlag(TextureUsage.CopySource)
         );
 
@@ -218,8 +228,12 @@ public class StandardFrameTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The producer and the consumer cannot be set separately, and the failure is
-    ///         silent both ways round.</b> <c>!Ssao</c>'s permutation writes the direction over rgb
+    ///         ⚠
+    ///         <b>
+    ///             The producer and the consumer cannot be set separately, and the failure is
+    ///             silent both ways round.
+    ///         </b>
+    ///         <c>!Ssao</c>'s permutation writes the direction over rgb
     ///         and moves the occlusion into alpha, so a frame with the producer on and the consumer
     ///         off multiplies its whole ambient term by a direction's x — a number in [0, 1] that
     ///         looks exactly like an occlusion — and a frame with the consumer on and the producer
@@ -303,10 +317,11 @@ public class StandardFrameTests {
         // back to the scene's own environment coefficients now; the seat below stays empty because
         // the sky is not a resource, and `The_combine_lights_a_frame_that_publishes_no_irradiance`
         // in `PostEffectTests` is where that is asserted.
-        Assert.Equal("", Node<AmbientCombineAsset>(document, "Combine").Irradiance);
+        Assert.Equal(string.Empty, Node<AmbientCombineAsset>(document, "Combine").Irradiance);
 
         Assert.False(
-            document.Resources.Single(resource => resource.Name == "SceneDepth").Usage
+            document.Resources.Single(static resource => resource.Name == "SceneDepth")
+                .Usage
                 .HasFlag(TextureUsage.CopySource)
         );
     }
@@ -328,8 +343,8 @@ public class StandardFrameTests {
         // splits, for the reflections, and so lost its whole diffuse ambient to a combine with
         // nothing to rebuild it from. The seats stay empty because no node here publishes those
         // planes; the ambient comes back off the scene's environment inside `AmbientCombine`.
-        Assert.Equal("", combine.Irradiance);
-        Assert.Equal("", combine.Occlusion);
+        Assert.Equal(string.Empty, combine.Irradiance);
+        Assert.Equal(string.Empty, combine.Occlusion);
     }
 
     [Fact]
@@ -347,7 +362,7 @@ public class StandardFrameTests {
         Assert.True(velocity.ReadOnlyDepth);
         Assert.Equal("Motion", Assert.IsType<SingleStageAsset>(velocity.Children.Single()).Stage);
 
-        var motion = document.Stages.Single(stage => stage.Name == "Motion");
+        var motion = document.Stages.Single(static stage => stage.Name == "Motion");
 
         Assert.Equal("MotionVectors", motion.Shader);
         Assert.Equal(DepthPreset.TestOnly, motion.Depth);
@@ -376,7 +391,7 @@ public class StandardFrameTests {
         // The pairing is structural: the buffer's name is the meter node's own plus `.Exposure`,
         // and a metered frame must not also hand the lens a vote.
         Assert.Equal("Meter.Exposure", tonemap.ExposureBuffer);
-        Assert.Equal("", tonemap.View);
+        Assert.Equal(string.Empty, tonemap.View);
         Assert.True(Node<AutoExposureAsset>(document, "Meter").UseHistogram);
     }
 
@@ -633,9 +648,9 @@ public class StandardFrameTests {
 
         // The four stages, and the sparks pass beside them; the ember stage's whole character is
         // structural — additive, test-only, unculled, sorted for the depth test.
-        Assert.Equal(["Opaque", "Shadow", "Motion", "Embers"], document.Stages.Select(stage => stage.Name));
+        Assert.Equal(["Opaque", "Shadow", "Motion", "Embers"], document.Stages.Select(static stage => stage.Name));
 
-        var embers = document.Stages.Single(stage => stage.Name == "Embers");
+        var embers = document.Stages.Single(static stage => stage.Name == "Embers");
 
         Assert.Equal(BlendPreset.Additive, embers.Blend);
         Assert.Equal(DepthPreset.TestOnly, embers.Depth);
@@ -707,8 +722,12 @@ public class StandardFrameTests {
 
     /// <summary>The frame's last pass dithers, because its target is eight bits (#1181).</summary>
     /// <remarks>
-    ///     ⚠ <b>The one node in the expansion that writes the frame's output resource, which is why
-    ///     it is the seat for this.</b> A dither is one code of the <i>stored</i> value broken up
+    ///     ⚠
+    ///     <b>
+    ///         The one node in the expansion that writes the frame's output resource, which is why
+    ///         it is the seat for this.
+    ///     </b>
+    ///     A dither is one code of the <i>stored</i> value broken up
     ///     just before the encode, so it belongs on the last pass and nowhere earlier; the tonemap
     ///     and the antialiasing hand along intermediates. The amplitude is the shader's — a
     ///     permutation on the target's transfer curve, since one stored code of
@@ -734,8 +753,8 @@ public class StandardFrameTests {
         Assert.Equal(Names(first), Names(second));
 
         Assert.Equal(
-            Root(first).Children.Select(child => child.GetType()),
-            Root(second).Children.Select(child => child.GetType())
+            Root(first).Children.Select(static child => child.GetType()),
+            Root(second).Children.Select(static child => child.GetType())
         );
 
         Assert.Equal(first.Stages, second.Stages);
@@ -761,8 +780,8 @@ public class StandardFrameTests {
         Assert.Equal(Names(plain), Names(dressed));
 
         Assert.Equal(
-            Root(plain).Children.Select(child => child.GetType()),
-            Root(dressed).Children.Select(child => child.GetType())
+            Root(plain).Children.Select(static child => child.GetType()),
+            Root(dressed).Children.Select(static child => child.GetType())
         );
 
         Assert.Equal(plain.Stages, dressed.Stages);
@@ -804,11 +823,7 @@ public class StandardFrameTests {
 
         var document = Expand(
             AllOn with {
-                Extensions = new() {
-                    AfterOpaque = [afterOpaque],
-                    BeforePost = [beforePost],
-                    BeforeUi = [beforeUi]
-                }
+                Extensions = new() { AfterOpaque = [afterOpaque], BeforePost = [beforePost], BeforeUi = [beforeUi] }
             }
         );
 
@@ -840,7 +855,7 @@ public class StandardFrameTests {
 
         var document = Expand(AllOff, agreeing);
 
-        Assert.Single(document.Resources, resource => resource.Name == "SceneHdr");
+        Assert.Single(document.Resources, static resource => resource.Name == "SceneHdr");
 
         // A differing one is refused by name: both readings of that document are somebody's bug.
         var contradicting = new GraphicsCompositorAsset {
@@ -862,8 +877,8 @@ public class StandardFrameTests {
             }
         );
 
-        Assert.Contains(document.Stages, stage => stage.Name == "Overlay");
-        Assert.Contains(document.Resources, resource => resource.Name == "Mask");
+        Assert.Contains(document.Stages, static stage => stage.Name == "Overlay");
+        Assert.Contains(document.Resources, static resource => resource.Name == "Mask");
     }
 
     [Fact]
@@ -874,9 +889,7 @@ public class StandardFrameTests {
 
         Assert.Throws<InvalidOperationException>(() => StandardFrame.Expand(two));
 
-        var nested = new GraphicsCompositorAsset {
-            Game = new RenderPassAsset { Name = "Outer", Children = [AllOff] }
-        };
+        var nested = new GraphicsCompositorAsset { Game = new RenderPassAsset { Name = "Outer", Children = [AllOff] } };
 
         Assert.Throws<InvalidOperationException>(() => StandardFrame.Expand(nested));
     }

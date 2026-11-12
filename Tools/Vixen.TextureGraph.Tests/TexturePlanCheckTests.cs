@@ -62,9 +62,9 @@ public class TexturePlanCheckTests {
             Images = [
                 new(TextureFormat.Rgba8, External: true),
                 new(TextureFormat.R16Float),
-                .. Enumerable.Repeat(new TextureImage(TextureFormat.Rgba16Float), scratch)
+                ..Enumerable.Repeat(new TextureImage(TextureFormat.Rgba16Float), scratch)
             ],
-            Ops = TextureAnalysis.Distance(1, 0, [.. Enumerable.Range(2, scratch)], emittedFor, emittedFor),
+            Ops = TextureAnalysis.Distance(1, 0, [..Enumerable.Range(2, scratch)], emittedFor, emittedFor),
             Outputs = [1]
         };
     }
@@ -75,8 +75,11 @@ public class TexturePlanCheckTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <b>This is <a href="https://github.com/Rikarin/Vixen/issues/678">#678</a> said out
-    ///         loud.</b> 4 texels at a 256 base is 16 at a 4× bake, and <c>Sharpen</c> loops to 8 —
+    ///         <b>
+    ///             This is <a href="https://github.com/Rikarin/Vixen/issues/678">#678</a> said out
+    ///             loud.
+    ///         </b>
+    ///         4 texels at a 256 base is 16 at a 4× bake, and <c>Sharpen</c> loops to 8 —
     ///         so the same graph is a different material at the larger size, and before #692 nothing
     ///         anywhere said so. Refusing it would be wrong: the bake is what the artist asked for
     ///         and the clip may be acceptable. There has to be a third state, and this is the
@@ -106,15 +109,18 @@ public class TexturePlanCheckTests {
     ///     Verify the instrument: the same graph at the resolution it was authored for says nothing.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>What this file prints on the day the check does not run is "no problems", which is
-    ///     also what a sound plan prints.</b> The pair above and here is what separates the two: one
+    ///     ⚠
+    ///     <b>
+    ///         What this file prints on the day the check does not run is "no problems", which is
+    ///         also what a sound plan prints.
+    ///     </b>
+    ///     The pair above and here is what separates the two: one
     ///     plan, two bake offsets, a warning at one and silence at the other — so a
     ///     <see cref="TexturePlan.Check" /> that returned nothing at all would fail the first test,
     ///     and one that warned about everything would fail this.
     /// </remarks>
     [Fact]
-    public void The_same_graph_at_the_resolution_it_was_authored_for_is_clean() =>
-        Assert.Empty(Sharpen(4f, 0).Check());
+    public void The_same_graph_at_the_resolution_it_was_authored_for_is_clean() => Assert.Empty(Sharpen(4f, 0).Check());
 
     /// <summary>
     ///     ⚠ A plan whose <em>shape</em> is broken is refused without the number check throwing out
@@ -144,7 +150,10 @@ public class TexturePlanCheckTests {
             Outputs = [1]
         };
 
-        Assert.Contains(plan.Validate(), problem => problem.Contains("the table holds", StringComparison.Ordinal));
+        Assert.Contains(
+            plan.Validate(),
+            static problem => problem.Contains("the table holds", StringComparison.Ordinal)
+        );
     }
 
     /// <summary>
@@ -163,8 +172,12 @@ public class TexturePlanCheckTests {
     ///         wrong at long range, which looks like a soft field rather than like a bug.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The issue's own reading of the mechanism was half wrong and it does not
-    ///         matter.</b> It says <see cref="TexturePlan.BakeLevelOffset" /> "reads as a field a
+    ///         ⚠
+    ///         <b>
+    ///             The issue's own reading of the mechanism was half wrong and it does not
+    ///             matter.
+    ///         </b>
+    ///         It says <see cref="TexturePlan.BakeLevelOffset" /> "reads as a field a
     ///         caller may change on an existing plan"; it is <c>init</c>-only on a class with no
     ///         <c>with</c>, so nobody mutates a plan. The hazard is the copy, not the mutation, and
     ///         the copy is the documented way to re-bake.
@@ -177,15 +190,19 @@ public class TexturePlanCheckTests {
         // Every refusal is this one: each of the six halvings the chain was emitted for is an op
         // whose existence the bake resolution decides.
         Assert.NotEmpty(problems);
-        Assert.All(problems, message => Assert.Contains("emitted for", message, StringComparison.Ordinal));
+        Assert.All(problems, static message => Assert.Contains("emitted for", message, StringComparison.Ordinal));
         Assert.Contains("64 texels", problems[0], StringComparison.Ordinal);
         Assert.Contains("128×128", problems[0], StringComparison.Ordinal);
     }
 
     /// <summary>Verify the instrument: the same chain, emitted for the bake it is run at, validates.</summary>
     /// <remarks>
-    ///     ⚠ <b>Without this the test above passes against a <see cref="TexturePlan.Check" /> that
-    ///     refuses every plan holding a jump flood</b>, which would be a check nobody could satisfy
+    ///     ⚠
+    ///     <b>
+    ///         Without this the test above passes against a <see cref="TexturePlan.Check" /> that
+    ///         refuses every plan holding a jump flood
+    ///     </b>
+    ///     , which would be a check nobody could satisfy
     ///     and which would take the § 4.5 device suite with it. The pair is one plan shape at two
     ///     extents: refused where the list is stale, clean where it was emitted for this bake.
     /// </remarks>
@@ -202,8 +219,12 @@ public class TexturePlanCheckTests {
 
     /// <summary>A CPU op is pooled and freed by the op order like any other.</summary>
     /// <remarks>
-    ///     ⚠ <b><a href="https://github.com/Rikarin/Vixen/issues/688">#688</a>'s seam is only worth
-    ///     having if the plan's shape does not change around it.</b> A CPU op writes one image, reads
+    ///     ⚠
+    ///     <b>
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/688">#688</a>'s seam is only worth
+    ///         having if the plan's shape does not change around it.
+    ///     </b>
+    ///     A CPU op writes one image, reads
     ///     by index and is written once, so <see cref="TexturePoolSchedule" /> needs to know nothing
     ///     about it — three ops threaded through two live images allocate two textures whether the
     ///     middle one is a dispatch or a solve.
@@ -265,7 +286,7 @@ public class TexturePlanCheckTests {
             BaseHeight = 256,
 
             // Level 1 is half the base on each axis, so the source is 128² and the target 256².
-            Images = [new(TextureFormat.Rgba8, LevelOffset: 1), new(TextureFormat.Rgba8)],
+            Images = [new(TextureFormat.Rgba8, 1), new(TextureFormat.Rgba8)],
             Ops = [
                 new() { Kernel = "Uniform", Output = 0 },
                 new() { Kernel = "Invert", Output = 1, Inputs = [0] }
@@ -297,8 +318,12 @@ public class TexturePlanCheckTests {
     /// <summary>And the op that means it says so, and is not cautioned about.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The property is on the op and not on the kernel, and <c>AutoLevels</c> is the
-    ///         evidence rather than the argument.</b> #801 proposed a list of six kernels "allowed to
+    ///         ⚠
+    ///         <b>
+    ///             The property is on the op and not on the kernel, and <c>AutoLevels</c> is the
+    ///             evidence rather than the argument.
+    ///         </b>
+    ///         #801 proposed a list of six kernels "allowed to
     ///         disagree", and this file's own tripwire argued the declaration had to be a property of
     ///         the kernel because "every construction of a <c>Resample</c> rescales wherever it is
     ///         built". Both are refuted by one op: <c>TextureAdjustKernels.AutoLevels</c>' final
@@ -307,8 +332,12 @@ public class TexturePlanCheckTests {
     ///         built from #801's own six would hold it.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>What this does <em>not</em> buy is the guard on that source, and the remark here
-    ///         used to claim it did.</b> "A kernel-level flag silences the guard for its full-size
+    ///         ⚠
+    ///         <b>
+    ///             What this does <em>not</em> buy is the guard on that source, and the remark here
+    ///             used to claim it did.
+    ///         </b>
+    ///         "A kernel-level flag silences the guard for its full-size
     ///         source — the exact case the guard exists for" is true, and it is equally true of the
     ///         per-op flag: <see cref="TexturePlan.Check" /> reads the property inside the loop over
     ///         the inputs, so declaring it silences every one of them. Per-op is narrower than
@@ -331,7 +360,7 @@ public class TexturePlanCheckTests {
             BaseHeight = 256,
             Images = [
                 new(TextureFormat.Rgba16Float),
-                new(TextureFormat.Rgba16Float, LevelOffset: 8),
+                new(TextureFormat.Rgba16Float, 8),
                 new(TextureFormat.Rgba16Float)
             ],
             Ops = [
@@ -355,9 +384,12 @@ public class TexturePlanCheckTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <b>The back-compatibility half of
-    ///         <a href="https://github.com/Rikarin/Vixen/issues/878">#878</a>, and it is the half that
-    ///         makes the narrowing safe to add.</b> The plan below is the <c>AutoLevels</c> shape with
+    ///         <b>
+    ///             The back-compatibility half of
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/878">#878</a>, and it is the half that
+    ///             makes the narrowing safe to add.
+    ///         </b>
+    ///         The plan below is the <c>AutoLevels</c> shape with
     ///         its <em>source</em> deliberately at level 1 — 128² read by an op writing 256², which is
     ///         precisely what
     ///         <see cref="A_pointwise_op_reading_a_smaller_image_than_it_writes_is_reported" />
@@ -381,8 +413,8 @@ public class TexturePlanCheckTests {
             BaseWidth = 256,
             BaseHeight = 256,
             Images = [
-                new(TextureFormat.Rgba16Float, LevelOffset: 1),
-                new(TextureFormat.Rgba16Float, LevelOffset: 8),
+                new(TextureFormat.Rgba16Float, 1),
+                new(TextureFormat.Rgba16Float, 8),
                 new(TextureFormat.Rgba16Float)
             ],
             Ops = [
@@ -407,8 +439,11 @@ public class TexturePlanCheckTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/878">#878</a>, and it is the same
-    ///         plan as the method above with one line added to the last op.</b> The declaration is
+    ///         <b>
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/878">#878</a>, and it is the same
+    ///             plan as the method above with one line added to the last op.
+    ///         </b>
+    ///         The declaration is
     ///         needed for the 1×1 statistics image and used to buy the 128² source its silence with
     ///         it; naming image 1 puts image 0 back under the guard that exists for exactly it.
     ///     </para>
@@ -424,8 +459,8 @@ public class TexturePlanCheckTests {
             BaseWidth = 256,
             BaseHeight = 256,
             Images = [
-                new(TextureFormat.Rgba16Float, LevelOffset: 1),
-                new(TextureFormat.Rgba16Float, LevelOffset: 8),
+                new(TextureFormat.Rgba16Float, 1),
+                new(TextureFormat.Rgba16Float, 8),
                 new(TextureFormat.Rgba16Float)
             ],
             Ops = [
@@ -467,8 +502,12 @@ public class TexturePlanCheckTests {
     ///         pointwise dispatch is cautioned about its source.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A compiled graph cannot reach this, and that is not a reason for the guard to be
-    ///         absent.</b> <c>TextureGraphCompiler.Rescale</c> makes every input of a compiled op the
+    ///         ⚠
+    ///         <b>
+    ///             A compiled graph cannot reach this, and that is not a reason for the guard to be
+    ///             absent.
+    ///         </b>
+    ///         <c>TextureGraphCompiler.Rescale</c> makes every input of a compiled op the
     ///         output's own extent, so this is a report to whoever hand-builds a plan — M7,
     ///         <c>TextureGraphPreview.Base</c> and most of this project.
     ///     </para>
@@ -481,11 +520,11 @@ public class TexturePlanCheckTests {
         var images = ImmutableArray.CreateBuilder<TextureImage>();
         var scratch = ImmutableArray.CreateBuilder<int>(levels.Length);
 
-        images.Add(new(TextureFormat.Rgba16Float, LevelOffset: 1));
+        images.Add(new(TextureFormat.Rgba16Float, 1));
 
         foreach (var offset in levels) {
             scratch.Add(images.Count);
-            images.Add(new(TextureFormat.Rgba16Float, LevelOffset: 1 + offset));
+            images.Add(new(TextureFormat.Rgba16Float, 1 + offset));
         }
 
         // And the map writes at the bake's own level, which is what makes it a 256² op over a 128²
@@ -500,7 +539,7 @@ public class TexturePlanCheckTests {
             Images = images.ToImmutable(),
             Ops = [
                 new() { Kernel = "Uniform", Output = 0 },
-                .. TextureAdjust.AutoLevels(written, 0, scratch.ToImmutable(), 128, 128)
+                ..TextureAdjust.AutoLevels(written, 0, scratch.ToImmutable(), 128, 128)
             ],
             Outputs = [written]
         };
@@ -545,8 +584,8 @@ sealed class TransposeRgba8 : ITextureCpuOperation {
 
         for (var y = 0; y < target.Height; y++) {
             for (var x = 0; x < target.Width; x++) {
-                var from = ((x * source.Width) + y) * 4;
-                var to = ((y * target.Width) + x) * 4;
+                var from = (x * source.Width + y) * 4;
+                var to = (y * target.Width + x) * 4;
 
                 source.Bytes.AsSpan(from, 4).CopyTo(target.Bytes.AsSpan(to, 4));
             }

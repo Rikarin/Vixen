@@ -81,14 +81,12 @@ public static class DataFormatDescriptor {
         if (format.IsSrgb()) {
             for (var index = 0; index < samples.Length; index++) {
                 if ((samples[index].ChannelType & 0x0F) == Alpha) {
-                    samples[index] = samples[index] with {
-                        ChannelType = (byte)(samples[index].ChannelType | Linear)
-                    };
+                    samples[index] = samples[index] with { ChannelType = (byte)(samples[index].ChannelType | Linear) };
                 }
             }
         }
 
-        var blockLength = BasicBlockLength + (samples.Length * SampleLength);
+        var blockLength = BasicBlockLength + samples.Length * SampleLength;
         var descriptor = new byte[4 + blockLength];
         var span = descriptor.AsSpan();
 
@@ -102,10 +100,10 @@ public static class DataFormatDescriptor {
         // versionNumber 2 in the low 16, descriptorBlockSize in the high 16.
         BinaryPrimitives.WriteUInt32LittleEndian(block[4..], 2u | ((uint)blockLength << 16));
 
-        block[8] = (byte)(compressed ? ColorModelOf(format) : 1);   // RGBSDA is 1
-        block[9] = 1;                                               // BT.709 primaries
-        block[10] = (byte)(format.IsSrgb() ? 2 : 1);                // sRGB is 2, linear is 1
-        block[11] = 0;                                              // straight alpha
+        block[8] = (byte)(compressed ? ColorModelOf(format) : 1); // RGBSDA is 1
+        block[9] = 1; // BT.709 primaries
+        block[10] = (byte)(format.IsSrgb() ? 2 : 1); // sRGB is 2, linear is 1
+        block[11] = 0; // straight alpha
 
         block[12] = (byte)(blockWidth - 1);
         block[13] = (byte)(blockHeight - 1);
@@ -117,7 +115,7 @@ public static class DataFormatDescriptor {
 
         for (var index = 0; index < samples.Length; index++) {
             var sample = samples[index];
-            var bytes = block[(BasicBlockLength + (index * SampleLength))..];
+            var bytes = block[(BasicBlockLength + index * SampleLength)..];
 
             BinaryPrimitives.WriteUInt16LittleEndian(bytes, sample.BitOffset);
             bytes[2] = sample.BitLength;
@@ -171,15 +169,19 @@ public static class DataFormatDescriptor {
     ///         channel is how a punch-through-alpha BC1 is distinguished from an opaque one.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>BC6H's <c>sampleLower</c> is where unsigned and signed differ in the
-    ///         descriptor.</b> Both carry the <c>FLOAT</c> qualifier and an upper of <c>+1.0f</c>;
+    ///         ⚠
+    ///         <b>
+    ///             BC6H's <c>sampleLower</c> is where unsigned and signed differ in the
+    ///             descriptor.
+    ///         </b>
+    ///         Both carry the <c>FLOAT</c> qualifier and an upper of <c>+1.0f</c>;
     ///         only the signed form adds <c>SIGNED</c> and a lower of <c>-1.0f</c>. Both are written
     ///         now, and <see cref="VkFormats" /> once named the signed one for the unsigned payload.
     ///     </para>
     /// </remarks>
     static Sample[] CompressedSamplesOf(PixelFormat format) {
         // A whole block as one sample: the block size in bits, less one, and the full integer range.
-        var whole = (byte)((format.BlockSize() * 8) - 1);
+        var whole = (byte)(format.BlockSize() * 8 - 1);
 
         return format switch {
             PixelFormat.Bc1RgbaUNorm or PixelFormat.Bc1RgbaUNormSrgb => [new(0, whole, 1, 0, uint.MaxValue)],
@@ -202,7 +204,7 @@ public static class DataFormatDescriptor {
                 new(0, 63, Alpha, 0, uint.MaxValue),
                 new(64, 63, 2, 0, uint.MaxValue)
             ],
-            _ => [new(0, whole, 0, 0, uint.MaxValue)]   // BC7 and ASTC: one sample, channel 0
+            _ => [new(0, whole, 0, 0, uint.MaxValue)] // BC7 and ASTC: one sample, channel 0
         };
     }
 
@@ -228,7 +230,11 @@ public static class DataFormatDescriptor {
     /// </remarks>
     static byte ChannelIdOf(PixelFormat format, int index) {
         var channel = format is PixelFormat.Bgra8UNorm or PixelFormat.Bgra8UNormSrgb
-            ? index switch { 0 => 2, 2 => 0, _ => index }
+            ? index switch {
+                0 => 2,
+                2 => 0,
+                _ => index
+            }
             : index;
 
         return (byte)(channel == 3 ? Alpha : channel);
@@ -243,6 +249,6 @@ public static class DataFormatDescriptor {
             PixelFormat.Bc6HRgbUFloat or PixelFormat.Bc6HRgbSFloat => 133,
             PixelFormat.Bc7RgbaUNorm or PixelFormat.Bc7RgbaUNormSrgb => 134,
             PixelFormat.Etc2Rgb8A1UNorm or PixelFormat.Etc2Rgba8UNorm => 161,
-            _ => 162   // ASTC
+            _ => 162 // ASTC
         };
 }

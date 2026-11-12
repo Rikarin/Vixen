@@ -43,11 +43,11 @@ public class NavigationTests {
     public void Children_separate_into_nodes_and_tokens_with_lists_flattened() {
         var root = Build();
 
-        Assert.Equal(["a"], root.ChildTokens().Select(t => t.Text));
+        Assert.Equal(["a"], root.ChildTokens().Select(static t => t.Text));
         var inner = Assert.Single(root.ChildNodes());
 
         // The list is gone: its two elements are the inner phrase's own children.
-        Assert.Equal(["b", ",", "c"], inner.ChildTokens().Select(t => t.Text));
+        Assert.Equal(["b", ",", "c"], inner.ChildTokens().Select(static t => t.Text));
         Assert.Empty(inner.ChildNodes());
     }
 
@@ -63,7 +63,7 @@ public class NavigationTests {
     public void Descendants_are_in_source_order() {
         var root = Build();
 
-        Assert.Equal(["a", "b", ",", "c"], root.DescendantTokens().Select(t => t.Text));
+        Assert.Equal(["a", "b", ",", "c"], root.DescendantTokens().Select(static t => t.Text));
         Assert.Single(root.DescendantNodes());
         Assert.Equal(2, root.DescendantNodesAndSelf().Count());
         Assert.Equal(5, root.DescendantNodesAndTokens().Count());
@@ -158,10 +158,10 @@ public class NavigationTests {
         Assert.Same(root, root.FindNode(TextSpan.FromBounds(0, 6)));
 
         // A token is not a node, so a span inside one answers with the node holding it.
-        Assert.Same(inner, root.FindNode(new TextSpan(2, 1)));
+        Assert.Same(inner, root.FindNode(new(2, 1)));
 
         // Nothing beneath the root covers the trailing trivia, which Span excludes.
-        Assert.Null(root.FindNode(new TextSpan(6, 1)));
+        Assert.Null(root.FindNode(new(6, 1)));
     }
 
     [Fact]
@@ -174,12 +174,12 @@ public class NavigationTests {
 
         var token = (SyntaxToken)root.GetSlot(0)!;
 
-        Assert.Equal(["  ", "/* why */"], token.LeadingTrivia.Select(t => t.Text));
-        Assert.Equal([(int)ToyKind.Space, (int)ToyKind.Comment], token.LeadingTrivia.Select(t => t.RawKind));
+        Assert.Equal(["  ", "/* why */"], token.LeadingTrivia.Select(static t => t.Text));
+        Assert.Equal([(int)ToyKind.Space, (int)ToyKind.Comment], token.LeadingTrivia.Select(static t => t.RawKind));
 
         // Positions are absolute, so a highlighter can colour the comment where it actually is.
-        Assert.Equal(new TextSpan(2, 9), token.LeadingTrivia[1].Span);
-        Assert.Equal(new TextSpan(12, 1), Assert.Single(token.TrailingTrivia).Span);
+        Assert.Equal(new(2, 9), token.LeadingTrivia[1].Span);
+        Assert.Equal(new(12, 1), Assert.Single(token.TrailingTrivia).Span);
     }
 
     [Fact]

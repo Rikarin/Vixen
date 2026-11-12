@@ -47,8 +47,12 @@ sealed class InspectorPanels {
     /// <summary>Every inspector panel that is open, with the component section under each.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A list because doc 20 § B1 asks for more than one, and "a second instance" was
-    ///         the hard half rather than "a second feature".</b> The panel already floats and already
+    ///         ⚠
+    ///         <b>
+    ///             A list because doc 20 § B1 asks for more than one, and "a second instance" was
+    ///             the hard half rather than "a second feature".
+    ///         </b>
+    ///         The panel already floats and already
     ///         has a lock; what it did not have was a second of it, because the application held one view
     ///         and one component section in two fields and <c>EditorApplication.ShowSelection</c> wrote to
     ///         both. Pinning one inspector to entity A while selecting entity B is how anybody copies
@@ -171,7 +175,7 @@ sealed class InspectorPanels {
             // start telling the truth at the next selection.
             // ⚠ Spread rather than passed, because `Inspect` takes `params ReadOnlySpan<object>` and a
             // `List<object>` binds to it as one element — an inspector showing the list.
-            view.Inspect([.. shown]);
+            view.Inspect([..shown]);
 
             // ⚠ Only this editor's own scene. The foldouts write through `scene.Stack`, and a
             // document opened as an asset has a stack of its own — showing its entity's components
@@ -215,8 +219,12 @@ sealed class InspectorPanels {
     /// <returns>The descriptor.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Doc 20 § B1's "multiple inspector windows", and what was missing was a second
-    ///         <i>instance</i> rather than a second feature.</b> The panel already floats and already
+    ///         ⚠
+    ///         <b>
+    ///             Doc 20 § B1's "multiple inspector windows", and what was missing was a second
+    ///             <i>instance</i> rather than a second feature.
+    ///         </b>
+    ///         The panel already floats and already
     ///         locks; this application held one view and one component section in two fields, and
     ///         every place that fed them wrote to exactly one. <see cref="inspectors" /> is the list
     ///         now and this is the factory both entries go through, so the second inspector is the
@@ -266,7 +274,7 @@ sealed class InspectorPanels {
                 section.Order = Preferences.ComponentOrder;
 
                 section.Reordered += arranged => {
-                    Preferences.ComponentOrder = [.. arranged];
+                    Preferences.ComponentOrder = [..arranged];
                     writePreferences();
                     RestatePreferences(section);
                 };
@@ -292,7 +300,7 @@ sealed class InspectorPanels {
                 section.Pinned = Preferences.PinnedMembers;
 
                 section.PinsChanged += pinned => {
-                    Preferences.PinnedMembers = [.. pinned];
+                    Preferences.PinnedMembers = [..pinned];
                     writePreferences();
                     RestatePreferences(section);
                 };
@@ -349,8 +357,12 @@ sealed class InspectorPanels {
     /// <param name="aimed">What row a secondary click landed on, asked at the moment it is needed.</param>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Doc 20 § B5's last row, and the surface is the row's own menu because that is
-    ///         where the curve is.</b> A preset is applied through <c>CurveEditor.Apply</c>, which
+    ///         ⚠
+    ///         <b>
+    ///             Doc 20 § B5's last row, and the surface is the row's own menu because that is
+    ///             where the curve is.
+    ///         </b>
+    ///         A preset is applied through <c>CurveEditor.Apply</c>, which
     ///         copies the keys into the curve the object already holds rather than swapping the
     ///         object — that is what makes applying one an undoable edit rather than an alias, and it
     ///         is why the drawer's <c>CurveChanged</c> is what writes it home.
@@ -361,16 +373,24 @@ sealed class InspectorPanels {
     ///         one is look for it.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Both menus, because there are two panels drawing rows and a curve can be in
-    ///         either.</b> <c>InspectorView</c> draws the members of one described type — a scene
+    ///         ⚠
+    ///         <b>
+    ///             Both menus, because there are two panels drawing rows and a curve can be in
+    ///             either.
+    ///         </b>
+    ///         <c>InspectorView</c> draws the members of one described type — a scene
     ///         entity, an asset — and <c>ComponentsView</c> draws what is on an entity; they are
     ///         siblings inside one scroll region with a context menu each. Lines added to one only
     ///         would be a feature that works on a curve in a custom inspector and silently does not
     ///         on a curve in a component, which is the shape of gap nobody reports.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Curves only, and the gradient half of the doc row is refused rather than
-    ///         forgotten</b> — see <see cref="CurvePresetLibrary" /> for the sweep that settles it.
+    ///         ⚠
+    ///         <b>
+    ///             Curves only, and the gradient half of the doc row is refused rather than
+    ///             forgotten
+    ///         </b>
+    ///         — see <see cref="CurvePresetLibrary" /> for the sweep that settles it.
     ///     </para>
     /// </remarks>
     void CurvePresetLines(ContextMenu menu, Func<InspectorRow?> aimed) {
@@ -393,6 +413,7 @@ sealed class InspectorPanels {
             if (apply.Opener is { } applyLine) {
                 applyLine.Disabled = !editing;
             }
+
             if (forget.Opener is { } forgetLine) {
                 forgetLine.Disabled = !editing || Presets.Curves.Count == 0;
             }
@@ -401,7 +422,9 @@ sealed class InspectorPanels {
 
             Fill(
                 forget,
-                editing ? [.. Presets.Curves.Select(saved => (saved.Name, CurvePresetLibrary.ToCurve(saved)))] : [],
+                editing
+                    ? [..Presets.Curves.Select(static saved => (saved.Name, CurvePresetLibrary.ToCurve(saved)))]
+                    : [],
                 name => {
                     if (Presets.Forget(name)) {
                         writePresets();
@@ -465,10 +488,11 @@ sealed class InspectorPanels {
 
         async Task Ask() {
             var typed = await shell.Dialogs.PromptAsync(
-                "Save Curve as Preset",
-                "It is kept beside your layouts and keymap rather than in the project.",
-                confirm: "Save"
-            ).ConfigureAwait(true);
+                    "Save Curve as Preset",
+                    "It is kept beside your layouts and keymap rather than in the project.",
+                    confirm: "Save"
+                )
+                .ConfigureAwait(true);
 
             if (typed is not { Length: > 0 } name || string.IsNullOrWhiteSpace(name)) {
                 return;

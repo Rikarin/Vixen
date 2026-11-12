@@ -15,8 +15,12 @@ namespace Vixen.Editor.Blockout;
 ///         the shape a helper hides best.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The labels are here rather than at the registration, and the ordering is the
-///         registration's.</b> A key the family does not carry throws while the mode registers,
+///         ⚠
+///         <b>
+///             The labels are here rather than at the registration, and the ordering is the
+///             registration's.
+///         </b>
+///         A key the family does not carry throws while the mode registers,
 ///         which is deterministic and is what <c>BlockoutModeTests</c> exercises on every run.
 ///     </para>
 ///     <para>
@@ -91,8 +95,10 @@ public static class BlockoutStrings {
             // ⚠ Was EditorStrings.CommandBlockoutToggleMesh (#1301): the shell held one of this
             // mode's command labels out of the family the other sixty-nine are in.
             new(BlockoutMode.ToggleMeshCommand, "Enter / Leave Mesh"),
-            .. BlockoutMode.Kinds.Select(
-                kind => new KeyValuePair<string, string>(BlockoutMode.KindCommand(kind), "Shape: " + kind)
+            ..BlockoutMode.Kinds.Select(static kind => new KeyValuePair<string, string>(
+                    BlockoutMode.KindCommand(kind),
+                    "Shape: " + kind
+                )
             ),
             new(BlockoutMode.ElementCommand(BlockoutElement.Object), "Object Mode"),
             new(BlockoutMode.ElementCommand(BlockoutElement.Vertex), "Vertex Mode"),
@@ -144,7 +150,7 @@ public static class BlockoutStrings {
     ///     <c>VXS0310</c> counts a <see cref="StringFamily" /> property as a declaration.
     /// </remarks>
     public static IReadOnlyList<StringId> All { get; } = [
-        .. Commands.All,
+        ..Commands.All,
         CategoryBlockout,
         ModeBlockout,
         PanelBlockout,

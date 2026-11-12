@@ -37,8 +37,11 @@ public static class WindowsAccessibility {
     /// <summary>The "Make text bigger" slider, as a multiplier.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A registry value and not a <c>SystemParametersInfo</c> action, unlike the two
-    ///         above, because Windows has no API for this outside WinRT.</b>
+    ///         ⚠
+    ///         <b>
+    ///             A registry value and not a <c>SystemParametersInfo</c> action, unlike the two
+    ///             above, because Windows has no API for this outside WinRT.
+    ///         </b>
     ///         <c>UISettings.TextScaleFactor</c> is the documented reader and it is a Windows Runtime
     ///         type; the slider writes <c>HKCU\Software\Microsoft\Accessibility\TextScaleFactor</c>
     ///         and WinUI reads the same key underneath. Taking the registry keeps this assembly free
@@ -53,7 +56,7 @@ public static class WindowsAccessibility {
     ///     </para>
     /// </remarks>
     static unsafe float? TextScale() {
-        var size = (uint)sizeof(uint);
+        uint size = sizeof(uint);
 
         var status = Win32.RegGetValue(
             Win32.HkeyCurrentUser,

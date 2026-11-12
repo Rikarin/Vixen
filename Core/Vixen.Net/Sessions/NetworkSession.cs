@@ -88,8 +88,12 @@ public sealed class NetworkSession : ITransportEvents, IDisposable {
 
     /// <summary>The transport underneath.</summary>
     /// <remarks>
-    ///     ⚠ <b>The <see cref="Simulation" /> when there is one, not the transport that was handed
-    ///     in.</b> That is what makes the loss counters and the capabilities read here agree with
+    ///     ⚠
+    ///     <b>
+    ///         The <see cref="Simulation" /> when there is one, not the transport that was handed
+    ///         in.
+    ///     </b>
+    ///     That is what makes the loss counters and the capabilities read here agree with
     ///     what this session is actually running on; <c>NetworkSimulation.Inner</c> is the way down
     ///     to the real one.
     /// </remarks>
@@ -246,7 +250,7 @@ public sealed class NetworkSession : ITransportEvents, IDisposable {
             throw new InvalidOperationException("A reconnect token is presented before connecting, not after.");
         }
 
-        reconnectToken = token.ToArray();
+        reconnectToken = [..token];
     }
 
     /// <summary>Listens and plays: one process, both halves, a loopback between them.</summary>
@@ -340,8 +344,7 @@ public sealed class NetworkSession : ITransportEvents, IDisposable {
     /// <param name="payload">The bytes.</param>
     /// <param name="channel">The delivery guarantee wanted.</param>
     /// <returns>Whether it was sent — false if this session has no client half in the game.</returns>
-    public bool SendToServer(ReadOnlySpan<byte> payload, Channel channel) =>
-        SendToServer(payload, channel, priority: 0);
+    public bool SendToServer(ReadOnlySpan<byte> payload, Channel channel) => SendToServer(payload, channel, 0);
 
     /// <summary>Sends to the server, from a client, saying how much it matters.</summary>
     /// <param name="payload">The bytes.</param>
@@ -379,7 +382,7 @@ public sealed class NetworkSession : ITransportEvents, IDisposable {
     /// <param name="channel">The delivery guarantee wanted.</param>
     /// <returns>Whether it was sent — false if they are not here, or not connected right now.</returns>
     public bool SendToPlayer(PlayerId player, ReadOnlySpan<byte> payload, Channel channel) =>
-        SendToPlayer(player, payload, channel, priority: 0);
+        SendToPlayer(player, payload, channel, 0);
 
     /// <summary>Sends to one player, from a server, saying how much it matters.</summary>
     /// <param name="player">Who to send to.</param>
@@ -415,7 +418,7 @@ public sealed class NetworkSession : ITransportEvents, IDisposable {
     /// <param name="payload">The bytes.</param>
     /// <param name="channel">The delivery guarantee wanted.</param>
     /// <returns>How many players it went to.</returns>
-    public int SendToAll(ReadOnlySpan<byte> payload, Channel channel) => SendToAll(payload, channel, priority: 0);
+    public int SendToAll(ReadOnlySpan<byte> payload, Channel channel) => SendToAll(payload, channel, 0);
 
     /// <summary>Sends to every connected player, from a server, saying how much it matters.</summary>
     /// <param name="payload">The bytes.</param>
@@ -747,7 +750,7 @@ public sealed class NetworkSession : ITransportEvents, IDisposable {
             resuming = owner;
         }
 
-        request = request with { Resuming = resuming, Payload = authPayload.ToArray(), Asked = true };
+        request = request with { Resuming = resuming, Payload = [..authPayload], Asked = true };
         pending[connection.Value] = request;
 
         Decide(connection, request);
@@ -840,10 +843,7 @@ public sealed class NetworkSession : ITransportEvents, IDisposable {
                 return;
             }
 
-            player = new(new(nextPlayerId++), identity) {
-                Connection = connection,
-                JoinedAt = Clock.Current
-            };
+            player = new(new(nextPlayerId++), identity) { Connection = connection, JoinedAt = Clock.Current };
 
             playersById[player.Id.Value] = player;
             players.Add(player);
@@ -877,7 +877,10 @@ public sealed class NetworkSession : ITransportEvents, IDisposable {
         player.ObservedOutbound = null;
 
         if (Options.ReconnectWindow <= TimeSpan.Zero) {
-            Remove(player, reason == DisconnectReason.Timeout ? PlayerLeaveReason.TimedOut : PlayerLeaveReason.Disconnected);
+            Remove(
+                player,
+                reason == DisconnectReason.Timeout ? PlayerLeaveReason.TimedOut : PlayerLeaveReason.Disconnected
+            );
 
             return;
         }
@@ -985,7 +988,7 @@ public sealed class NetworkSession : ITransportEvents, IDisposable {
         // Read before it is overwritten below: whether this acceptance resumed a seat is a fact
         // about the token that was *sent*, and by the next line that token is gone.
         var resumed = reconnectToken.Length != 0;
-        reconnectToken = token.ToArray();
+        reconnectToken = [..token];
 
         if (!playersById.TryGetValue(playerId, out var player)) {
             // A remote client: the server's player list is not ours to have, so the only player we
@@ -1092,8 +1095,12 @@ public sealed class NetworkSession : ITransportEvents, IDisposable {
     /// <param name="connection">Who to tell, or <see cref="ConnectionId.None" /> for the server.</param>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Per link, not per process, which is why <c>ITransport.LossFor</c> had to exist
-    ///         first.</b> <c>ITransport.Loss</c> adds every connection and both halves together, so a
+    ///         ⚠
+    ///         <b>
+    ///             Per link, not per process, which is why <c>ITransport.LossFor</c> had to exist
+    ///             first.
+    ///         </b>
+    ///         <c>ITransport.Loss</c> adds every connection and both halves together, so a
     ///         server sending that to eight players would tell each of them what it missed from all
     ///         eight. The number is only outbound loss if it was taken over the link it is sent down.
     ///     </para>
@@ -1176,7 +1183,7 @@ public sealed class NetworkSession : ITransportEvents, IDisposable {
         }
 
         var added = Options.BytesPerSecondPerPlayer * elapsed.TotalSeconds;
-        var depth = (double)Math.Max(0, Options.BurstBytes);
+        double depth = Math.Max(0, Options.BurstBytes);
 
         clientAllowance = Math.Min(depth, clientAllowance + added);
 

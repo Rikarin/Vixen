@@ -44,8 +44,11 @@ readonly record struct ArenaBox(Vector3 Position, Quaternion Rotation, Vector3 C
 ///         exists) gets.
 ///     </para>
 ///     <para>
-///         <b>The surface cache is captured and lit at load, on the terms the clipmap already
-///         earned.</b> This level is boxes whose exact half-extents the scene states, so the traced
+///         <b>
+///             The surface cache is captured and lit at load, on the terms the clipmap already
+///             earned.
+///         </b>
+///         This level is boxes whose exact half-extents the scene states, so the traced
 ///         reference capture over the composited clipmap is exact where a runtime rasterising
 ///         capture would be a scene-draw delegate this project does not own. The CPU radiosity then
 ///         lights and bounces the store once — the sun stands still (<c>Arena.SunPeriod</c> is zero)
@@ -64,8 +67,10 @@ readonly record struct ArenaBox(Vector3 Position, Quaternion Rotation, Vector3 C
 ///     </para>
 /// </remarks>
 sealed class ArenaIllumination : IDisposable {
-    /// <summary>Texels per world unit along a card's axes. Coarse deliberately — a card feeds
-    ///     bounce light, not a close-up — and the atlas budget is what it buys.</summary>
+    /// <summary>
+    ///     Texels per world unit along a card's axes. Coarse deliberately — a card feeds
+    ///     bounce light, not a close-up — and the atlas budget is what it buys.
+    /// </summary>
     const float CardTexelsPerUnit = 0.5f;
 
     /// <summary>The most texels a card gets along either axis, so the floor cannot eat the atlas.</summary>
@@ -87,8 +92,10 @@ sealed class ArenaIllumination : IDisposable {
     /// <summary>The depth pyramid the document's <c>!HiZ</c> builds and next frame's cull tests.</summary>
     public HiZPyramid Occluders { get; private set; } = null!;
 
-    /// <summary>The nearest-reduced chain the screen marches skip by — not the culling pyramid,
-    ///     because the two reductions answer opposite questions about a cell.</summary>
+    /// <summary>
+    ///     The nearest-reduced chain the screen marches skip by — not the culling pyramid,
+    ///     because the two reductions answer opposite questions about a cell.
+    /// </summary>
     public HiZPyramid TraceChain { get; private set; } = null!;
 
     /// <summary>Doc 22 phase 7's atlas: the sun's shadow pages, their table and their residency.</summary>
@@ -139,8 +146,10 @@ sealed class ArenaIllumination : IDisposable {
     /// <summary>The full-sphere average of the Preetham sky, for the single-colour sky knobs.</summary>
     public Vector3 AverageSky { get; private set; }
 
-    /// <summary>Builds every host-owned object the frame's GI and culling nodes need, and hands
-    ///     them to the builder for the reload that follows.</summary>
+    /// <summary>
+    ///     Builds every host-owned object the frame's GI and culling nodes need, and hands
+    ///     them to the builder for the reload that follows.
+    /// </summary>
     /// <param name="graphics">The host's graphics, for the device and the effect system.</param>
     /// <param name="field">The clipmap the frame composites — the one geometry every trace here marches.</param>
     /// <param name="frame">The baked sky, for the radiance every miss answers with.</param>
@@ -200,11 +209,7 @@ sealed class ArenaIllumination : IDisposable {
         wired.Visibility = new(device) { Effects = effects, Pipelines = pipelines };
         wired.Occluders = new(device) { Effects = effects, Pipelines = pipelines };
 
-        wired.TraceChain = new(device) {
-            Effects = effects,
-            Pipelines = pipelines,
-            Reduction = HiZReduction.Nearest
-        };
+        wired.TraceChain = new(device) { Effects = effects, Pipelines = pipelines, Reduction = HiZReduction.Nearest };
 
         builder.Visibility = wired.Visibility;
         builder.Occluders = wired.Occluders;
@@ -262,7 +267,7 @@ sealed class ArenaIllumination : IDisposable {
         // The composite first, because everything below marches it. Centred on the arena rather
         // than on a camera that does not exist yet; level 3 of the default clipmap reaches ±64 m,
         // which holds the whole 64 m level.
-        field.Update(new(0f, 4f, 0f), CollectionsMarshal.AsSpan(instances), parallel: true);
+        field.Update(new(0f, 4f, 0f), CollectionsMarshal.AsSpan(instances));
 
         wired.Cache = new(new SurfaceCacheAtlas(new(256, 256)));
 
@@ -287,9 +292,7 @@ sealed class ArenaIllumination : IDisposable {
         // Two gathers, because the second carries the first bounce's light into the corners and the
         // third would move things by less than the ray noise it costs.
         var radiosity = new CardRadiosity(field) {
-            Rays = 12,
-            MaxDistance = TraceDistance,
-            Sky = direction => PhysicalSky.Radiance(direction, frame.Atmosphere)
+            Rays = 12, MaxDistance = TraceDistance, Sky = direction => PhysicalSky.Radiance(direction, frame.Atmosphere)
         };
 
         radiosity.Light(wired.Cache, towardSun, sunIrradiance);
@@ -362,22 +365,14 @@ sealed class ArenaIllumination : IDisposable {
         };
 
         wired.ProbeResolver = new(device) {
-            Effects = effects,
-            Pipelines = pipelines,
-            Descriptors = builder.Descriptors
+            Effects = effects, Pipelines = pipelines, Descriptors = builder.Descriptors
         };
 
         wired.ProbeAccumulator = new(device) {
-            Effects = effects,
-            Pipelines = pipelines,
-            Descriptors = builder.Descriptors
+            Effects = effects, Pipelines = pipelines, Descriptors = builder.Descriptors
         };
 
-        wired.ProbeFilter = new(device) {
-            Effects = effects,
-            Pipelines = pipelines,
-            Descriptors = builder.Descriptors
-        };
+        wired.ProbeFilter = new(device) { Effects = effects, Pipelines = pipelines, Descriptors = builder.Descriptors };
 
         builder.ScreenProbeTracer = wired.ProbeTracer;
         builder.ScreenProbeResolver = wired.ProbeResolver;
@@ -534,15 +529,15 @@ sealed class ArenaIllumination : IDisposable {
         var centre = box.Position + Quaternion.Transform(box.Centre, box.Rotation);
 
         // The rotated box's world extents: the absolute sum of its three rotated axes.
-        var x = Quaternion.Transform(new Vector3(half.X, 0f, 0f), box.Rotation);
-        var y = Quaternion.Transform(new Vector3(0f, half.Y, 0f), box.Rotation);
-        var z = Quaternion.Transform(new Vector3(0f, 0f, half.Z), box.Rotation);
+        var x = Quaternion.Transform(new(half.X, 0f, 0f), box.Rotation);
+        var y = Quaternion.Transform(new(0f, half.Y, 0f), box.Rotation);
+        var z = Quaternion.Transform(new(0f, 0f, half.Z), box.Rotation);
 
         var extents = Vector3.Abs(x) + Vector3.Abs(y) + Vector3.Abs(z) + new Vector3(CardMargin);
 
         for (var axis = 0; axis < 6; axis++) {
-            var u = ((axis / 2) + 1) % 3;
-            var v = ((axis / 2) + 2) % 3;
+            var u = (axis / 2 + 1) % 3;
+            var v = (axis / 2 + 2) % 3;
 
             var card = new SurfaceCard(
                 axis,
@@ -563,7 +558,11 @@ sealed class ArenaIllumination : IDisposable {
         Math.Clamp((int)MathF.Ceiling(halfExtent * 2f * CardTexelsPerUnit), 2, CardMaxResolution);
 
     static float Component(Vector3 value, int index) =>
-        index switch { 0 => value.X, 1 => value.Y, _ => value.Z };
+        index switch {
+            0 => value.X,
+            1 => value.Y,
+            _ => value.Z
+        };
 
     /// <summary>The Preetham sky's radiance, averaged over the sphere.</summary>
     /// <remarks>
@@ -579,8 +578,8 @@ sealed class ArenaIllumination : IDisposable {
         var sum = Vector3.Zero;
 
         for (var index = 0; index < Samples; index++) {
-            var height = 1f - (2f * (index + 0.5f) / Samples);
-            var radius = MathF.Sqrt(MathF.Max(0f, 1f - (height * height)));
+            var height = 1f - 2f * (index + 0.5f) / Samples;
+            var radius = MathF.Sqrt(MathF.Max(0f, 1f - height * height));
             var angle = index * GoldenAngle;
 
             sum += PhysicalSky.Radiance(

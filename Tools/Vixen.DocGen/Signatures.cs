@@ -36,17 +36,19 @@ static class Signatures {
         var spans = new List<DocSpan>();
 
         void Keyword(string text) {
-            spans.Add(new DocSpan(text, "keyword"));
-            spans.Add(new DocSpan(" ", "space"));
+            spans.Add(new(text, "keyword"));
+            spans.Add(new(" ", "space"));
         }
 
-        Keyword(type.DeclaredAccessibility switch {
-            Accessibility.Public => "public",
-            Accessibility.Protected => "protected",
-            Accessibility.ProtectedOrInternal => "protected internal",
-            Accessibility.ProtectedAndInternal => "private protected",
-            _ => "internal"
-        });
+        Keyword(
+            type.DeclaredAccessibility switch {
+                Accessibility.Public => "public",
+                Accessibility.Protected => "protected",
+                Accessibility.ProtectedOrInternal => "protected internal",
+                Accessibility.ProtectedAndInternal => "private protected",
+                _ => "internal"
+            }
+        );
 
         if (type is { IsStatic: true }) {
             Keyword("static");
@@ -72,13 +74,15 @@ static class Signatures {
             Keyword("record");
         }
 
-        Keyword(type.TypeKind switch {
-            TypeKind.Interface => "interface",
-            TypeKind.Enum => "enum",
-            TypeKind.Delegate => "delegate",
-            TypeKind.Struct => "struct",
-            _ => "class"
-        });
+        Keyword(
+            type.TypeKind switch {
+                TypeKind.Interface => "interface",
+                TypeKind.Enum => "enum",
+                TypeKind.Delegate => "delegate",
+                TypeKind.Struct => "struct",
+                _ => "class"
+            }
+        );
 
         spans.AddRange(Of(type, format));
 
@@ -89,7 +93,7 @@ static class Signatures {
         var spans = new List<DocSpan>();
 
         foreach (var part in symbol.ToDisplayParts(format)) {
-            spans.Add(new DocSpan(part.ToString(), Kind(part.Kind), TypeId(part)));
+            spans.Add(new(part.ToString(), Kind(part.Kind), TypeId(part)));
         }
 
         return Merge(spans);
@@ -135,8 +139,7 @@ static class Signatures {
     }
 
     /// <summary>The plain text a classified signature reads as — what search indexes.</summary>
-    public static string Text(IReadOnlyList<DocSpan> spans) =>
-        string.Concat(spans.Select(span => span.Text));
+    public static string Text(IReadOnlyList<DocSpan> spans) => string.Concat(spans.Select(static span => span.Text));
 
     /// <summary>
     ///     Roslyn's part kinds, collapsed to the ones a page styles differently.
@@ -147,25 +150,26 @@ static class Signatures {
     ///     `LocalName`, and every distinct kind is a class the stylesheet has to define and the
     ///     theme has to get right in both modes.
     /// </remarks>
-    static string Kind(SymbolDisplayPartKind kind) => kind switch {
-        SymbolDisplayPartKind.Keyword => "keyword",
-        SymbolDisplayPartKind.ClassName or SymbolDisplayPartKind.RecordClassName => "class",
-        SymbolDisplayPartKind.StructName or SymbolDisplayPartKind.RecordStructName => "struct",
-        SymbolDisplayPartKind.InterfaceName => "interface",
-        SymbolDisplayPartKind.EnumName => "enum",
-        SymbolDisplayPartKind.DelegateName => "delegate",
-        SymbolDisplayPartKind.TypeParameterName => "type-parameter",
-        SymbolDisplayPartKind.ParameterName => "parameter",
-        SymbolDisplayPartKind.MethodName or SymbolDisplayPartKind.ExtensionMethodName => "method",
-        SymbolDisplayPartKind.PropertyName => "property",
-        SymbolDisplayPartKind.FieldName or SymbolDisplayPartKind.ConstantName => "field",
-        SymbolDisplayPartKind.EventName => "event",
-        SymbolDisplayPartKind.NamespaceName => "namespace",
-        SymbolDisplayPartKind.Punctuation => "punctuation",
-        SymbolDisplayPartKind.Operator => "operator",
-        SymbolDisplayPartKind.NumericLiteral => "number",
-        SymbolDisplayPartKind.StringLiteral => "string",
-        SymbolDisplayPartKind.Space or SymbolDisplayPartKind.LineBreak => "space",
-        _ => "text"
-    };
+    static string Kind(SymbolDisplayPartKind kind) =>
+        kind switch {
+            SymbolDisplayPartKind.Keyword => "keyword",
+            SymbolDisplayPartKind.ClassName or SymbolDisplayPartKind.RecordClassName => "class",
+            SymbolDisplayPartKind.StructName or SymbolDisplayPartKind.RecordStructName => "struct",
+            SymbolDisplayPartKind.InterfaceName => "interface",
+            SymbolDisplayPartKind.EnumName => "enum",
+            SymbolDisplayPartKind.DelegateName => "delegate",
+            SymbolDisplayPartKind.TypeParameterName => "type-parameter",
+            SymbolDisplayPartKind.ParameterName => "parameter",
+            SymbolDisplayPartKind.MethodName or SymbolDisplayPartKind.ExtensionMethodName => "method",
+            SymbolDisplayPartKind.PropertyName => "property",
+            SymbolDisplayPartKind.FieldName or SymbolDisplayPartKind.ConstantName => "field",
+            SymbolDisplayPartKind.EventName => "event",
+            SymbolDisplayPartKind.NamespaceName => "namespace",
+            SymbolDisplayPartKind.Punctuation => "punctuation",
+            SymbolDisplayPartKind.Operator => "operator",
+            SymbolDisplayPartKind.NumericLiteral => "number",
+            SymbolDisplayPartKind.StringLiteral => "string",
+            SymbolDisplayPartKind.Space or SymbolDisplayPartKind.LineBreak => "space",
+            _ => "text"
+        };
 }

@@ -26,7 +26,8 @@ public class TexturePortRangeTests(ITestOutputHelper output) {
     }
 
     static IEnumerable<PortDefinition> Numbers(NodeTypeDefinition type) =>
-        type.Ports.Where(static port => port is { Direction: PortDirection.Input, Kind: PortKind.Float or PortKind.Int });
+        type.Ports.Where(static port => port is { Direction: PortDirection.Input, Kind: PortKind.Float or PortKind.Int }
+        );
 
     [Fact]
     public void Every_declared_range_holds_its_default_in_order() {
@@ -41,11 +42,17 @@ public class TexturePortRangeTests(ITestOutputHelper output) {
                 Assert.InRange(value, port.Minimum, port.Maximum);
 
                 if (!float.IsInfinity(port.SoftMinimum)) {
-                    Assert.True(port.SoftMinimum >= port.Minimum && port.SoftMinimum <= value, $"{what}'s soft minimum.");
+                    Assert.True(
+                        port.SoftMinimum >= port.Minimum && port.SoftMinimum <= value,
+                        $"{what}'s soft minimum."
+                    );
                 }
 
                 if (!float.IsInfinity(port.SoftMaximum)) {
-                    Assert.True(port.SoftMaximum <= port.Maximum && port.SoftMaximum >= value, $"{what}'s soft maximum.");
+                    Assert.True(
+                        port.SoftMaximum <= port.Maximum && port.SoftMaximum >= value,
+                        $"{what}'s soft maximum."
+                    );
                 }
             }
         }
@@ -55,8 +62,9 @@ public class TexturePortRangeTests(ITestOutputHelper output) {
     [Fact]
     public void Most_of_the_numbers_in_the_library_declare_a_range() {
         var ports = Registry().Types.SelectMany(Numbers).ToArray();
-        var bounded = ports.Count(
-            static port => !float.IsInfinity(port.Minimum) || !float.IsInfinity(port.Maximum) || !float.IsInfinity(port.SoftMinimum)
+        var bounded = ports.Count(static port => !float.IsInfinity(port.Minimum)
+            || !float.IsInfinity(port.Maximum)
+            || !float.IsInfinity(port.SoftMinimum)
         );
 
         output.WriteLine($"{bounded} of {ports.Length} numeric ports declare a range.");
@@ -123,7 +131,9 @@ public class TexturePortRangeTests(ITestOutputHelper output) {
                         continue;
                     }
 
-                    var past = bound == port.Minimum ? bound - 1f : bound + (port.Kind == PortKind.Int ? 1f : Math.Max(1f, bound));
+                    var past = bound == port.Minimum
+                        ? bound - 1f
+                        : bound + (port.Kind == PortKind.Int ? 1f : Math.Max(1f, bound));
                     var at = Draw(device, evaluator, registry, type, port, bound);
                     var beyond = Draw(device, evaluator, registry, type, port, past);
 
@@ -170,7 +180,9 @@ public class TexturePortRangeTests(ITestOutputHelper output) {
 
         node.SetValue(port.Name, value);
 
-        var compiler = new TextureGraphCompiler(registry) { BaseWidth = Side, BaseHeight = Side, Seed = 7, PreviewEveryNode = true };
+        var compiler = new TextureGraphCompiler(registry) {
+            BaseWidth = Side, BaseHeight = Side, Seed = 7, PreviewEveryNode = true
+        };
         var compilation = compiler.Compile(graph);
 
         if (compilation.HasErrors) {
@@ -185,6 +197,6 @@ public class TexturePortRangeTests(ITestOutputHelper output) {
 
         using var bake = evaluator.Evaluate(compilation.Value, uploads.Externals);
 
-        return [.. bake.ReadTexels(compilation.Value.Outputs[^1])];
+        return [..bake.ReadTexels(compilation.Value.Outputs[^1])];
     }
 }

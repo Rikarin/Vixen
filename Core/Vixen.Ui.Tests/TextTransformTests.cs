@@ -24,8 +24,12 @@ namespace Vixen.Ui.Tests;
 ///         <c>straße</c> and not <c>hello</c>.
 ///     </para>
 ///     <para>
-///         ⚠ <b>But the round trip alone does not catch a missing map, and finding that out is worth
-///         more than the round trip.</b> It is satisfied by <i>any</i> pair of inverse functions, the
+///         ⚠
+///         <b>
+///             But the round trip alone does not catch a missing map, and finding that out is worth
+///             more than the round trip.
+///         </b>
+///         It is satisfied by <i>any</i> pair of inverse functions, the
 ///         identity included — so with both directions of the map removed it stays green, which is
 ///         the predicate-that-cannot-be-false this repository keeps meeting. Measured by sabotage,
 ///         twice. With <i>both</i> directions removed, what goes red is

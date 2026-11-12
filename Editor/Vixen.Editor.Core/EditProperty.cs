@@ -238,7 +238,11 @@ public class EditProperty {
     ///     than <see cref="Record" /> because a drag of a prefab instance puts its override claims in
     ///     the same entry.
     /// </remarks>
-    public IEditorCommand? CreateRecordCommand(IReadOnlyList<object?> before, IReadOnlyList<object?> after, string name) {
+    public IEditorCommand? CreateRecordCommand(
+        IReadOnlyList<object?> before,
+        IReadOnlyList<object?> after,
+        string name
+    ) {
         ArgumentNullException.ThrowIfNull(before);
         ArgumentNullException.ThrowIfNull(after);
         ArgumentException.ThrowIfNullOrEmpty(name);

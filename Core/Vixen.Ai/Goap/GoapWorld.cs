@@ -169,7 +169,8 @@ public sealed class GoapWorldKeys {
     /// <summary>What a key is called.</summary>
     /// <param name="key">The key.</param>
     /// <returns>Its name.</returns>
-    public Symbol NameOf(GoapWorldKey key) => key.IsValid && key.Index < keys.Length ? keys[key.Index].Name : Symbol.None;
+    public Symbol NameOf(GoapWorldKey key) =>
+        key.IsValid && key.Index < keys.Length ? keys[key.Index].Name : Symbol.None;
 
     /// <summary>Reads every key into a span.</summary>
     /// <param name="context">The agent.</param>

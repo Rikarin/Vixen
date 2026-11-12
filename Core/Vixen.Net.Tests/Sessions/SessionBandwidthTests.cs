@@ -54,7 +54,9 @@ public sealed class SessionBandwidthTests : IDisposable {
     /// </remarks>
     [Fact]
     public void PastTheBudgetASendIsRefusedAndCounted() {
-        var server = harness.StartServer(new() { BytesPerSecondPerPlayer = 4096, BurstBytes = 4096, ReservedFraction = 0 });
+        var server = harness.StartServer(
+            new() { BytesPerSecondPerPlayer = 4096, BurstBytes = 4096, ReservedFraction = 0 }
+        );
 
         harness.StartClient();
         harness.Pump();
@@ -103,7 +105,7 @@ public sealed class SessionBandwidthTests : IDisposable {
         // And the half it could not touch is still there for something that matters.
         var important = 0;
 
-        while (server.SendToPlayer(player, Payload(256), Channel.Unreliable, priority: 1)) {
+        while (server.SendToPlayer(player, Payload(256), Channel.Unreliable, 1)) {
             important++;
 
             Assert.True(important < 100, "the reserve was never exhausted either");
@@ -122,7 +124,9 @@ public sealed class SessionBandwidthTests : IDisposable {
     /// <summary>The bucket refills as the session runs, and stops at its depth.</summary>
     [Fact]
     public void TheBucketRefillsAndDoesNotOverfill() {
-        var server = harness.StartServer(new() { BytesPerSecondPerPlayer = 8192, BurstBytes = 8192, ReservedFraction = 0 });
+        var server = harness.StartServer(
+            new() { BytesPerSecondPerPlayer = 8192, BurstBytes = 8192, ReservedFraction = 0 }
+        );
 
         harness.StartClient();
         harness.Pump();
@@ -158,7 +162,9 @@ public sealed class SessionBandwidthTests : IDisposable {
     /// <summary>One player on a narrow budget is not a reason to stop talking to the others.</summary>
     [Fact]
     public void TheBudgetIsPerPlayerSoAFanOutReachesTheRest() {
-        var server = harness.StartServer(new() { BytesPerSecondPerPlayer = 2048, BurstBytes = 2048, ReservedFraction = 0 });
+        var server = harness.StartServer(
+            new() { BytesPerSecondPerPlayer = 2048, BurstBytes = 2048, ReservedFraction = 0 }
+        );
 
         harness.StartClient();
         harness.StartClient();

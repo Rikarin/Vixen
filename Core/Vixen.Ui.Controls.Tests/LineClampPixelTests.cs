@@ -31,7 +31,7 @@ public class LineClampPixelTests {
 
     static FontFace LoadFont() {
         using var stream = Assembly.GetExecutingAssembly()
-            .GetManifestResourceStream("Vixen.Ui.Controls.Tests.Fonts.OpenSans-Regular.ttf")
+                .GetManifestResourceStream("Vixen.Ui.Controls.Tests.Fonts.OpenSans-Regular.ttf")
             ?? throw new InvalidOperationException("the test font is not embedded");
 
         using var memory = new MemoryStream();
@@ -46,10 +46,10 @@ public class LineClampPixelTests {
 
         ui.Load(
             $$"""
-            root  { width: 200px; height: 400px; background-color: #000000; align-items: flex-start; }
-            .label { position: absolute; left: 8px; top: 8px; width: 70px; font-size: 16px;
-                     line-height: 2; color: #ffffff; {{declarations}} }
-            """
+              root  { width: 200px; height: 400px; background-color: #000000; align-items: flex-start; }
+              .label { position: absolute; left: 8px; top: 8px; width: 70px; font-size: 16px;
+                       line-height: 2; color: #ffffff; {{declarations}} }
+              """
         );
 
         ui.Create("div", null, "label", "label").Text = Paragraph;

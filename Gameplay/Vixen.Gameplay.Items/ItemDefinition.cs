@@ -57,8 +57,12 @@ public sealed class ItemStatDefinition {
 /// <summary>A rarity tier: what it is called, how it sorts, and how many affixes it buys.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>A definition rather than an enum, which is a deviation from doc 28's sketch and the
-///         reason is sorting.</b> The sketch authors <c>rarity: Legendary</c>, and the obvious
+///         ⚠
+///         <b>
+///             A definition rather than an enum, which is a deviation from doc 28's sketch and the
+///             reason is sorting.
+///         </b>
+///         The sketch authors <c>rarity: Legendary</c>, and the obvious
 ///         readings are a closed C# enum — which fixes every game to one ladder — or a
 ///         <see cref="GameplayTag" />, which is open but orders <em>alphabetically</em>, so a bag
 ///         sorted by rarity would put Common above Legendary for ever. A rarity needs a number, and a
@@ -156,8 +160,12 @@ public sealed record AffixPoolDefinition : Definition {
 ///     </para>
 ///     <para>
 ///         ⚠ <b><see cref="Slot" /> is a tag and <see cref="Rarity" /> is an address</b>, and the two
-///         being different shapes is deliberate. A slot is asked about hierarchically — <em>any
-///         one-handed weapon</em> — and never sorted; a rarity is sorted and never asked about
+///         being different shapes is deliberate. A slot is asked about hierarchically —
+///         <em>
+///             any
+///             one-handed weapon
+///         </em>
+///         — and never sorted; a rarity is sorted and never asked about
 ///         hierarchically. Each is the shape its questions want.
 ///     </para>
 /// </remarks>

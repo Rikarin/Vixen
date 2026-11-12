@@ -73,7 +73,7 @@ public class ClusterRoutingTests {
     /// </remarks>
     [Fact]
     public void A_view_with_no_error_scale_routes_nothing_to_software() {
-        Assert.False(GpuClusterCulling.IsSoftware(Vector3.Zero, 1f, Everywhere(1f, 1e6f, errorScale: 0f)));
+        Assert.False(GpuClusterCulling.IsSoftware(Vector3.Zero, 1f, Everywhere(1f, 1e6f, 0f)));
     }
 
     /// <summary>A large cluster stays with the hardware and a small one does not.</summary>
@@ -81,7 +81,7 @@ public class ClusterRoutingTests {
     public void The_threshold_is_the_clusters_screen_diameter() {
         // errorScale 1000, eye 1000 away: a radius of r is 2 * r * 1000 / (1000 - r) pixels across, so
         // a radius of 0.01 is about 0.02 pixels and a radius of 5 is about ten.
-        var view = Everywhere(1f, softwareThreshold: 1f);
+        var view = Everywhere(1f, 1f);
 
         Assert.True(GpuClusterCulling.IsSoftware(Vector3.Zero, 0.01f, view));
         Assert.False(GpuClusterCulling.IsSoftware(Vector3.Zero, 5f, view));
@@ -99,7 +99,7 @@ public class ClusterRoutingTests {
     /// </remarks>
     [Fact]
     public void A_cluster_reaching_the_near_plane_stays_with_the_hardware() {
-        var view = Everywhere(1f, softwareThreshold: 1e6f);
+        var view = Everywhere(1f, 1e6f);
 
         // A near plane through the origin, inward-facing along +z: a bound at the origin straddles it.
         view.Planes[0] = new(0f, 0f, 1f, 0f);
@@ -132,7 +132,7 @@ public class ClusterRoutingTests {
     /// </remarks>
     [Fact]
     public void Every_accepted_cluster_goes_to_exactly_one_raster() {
-        var scene = Chain(levels: 6);
+        var scene = Chain(6);
 
         var instance = new CullInstance {
             FirstCluster = 0,
@@ -145,7 +145,7 @@ public class ClusterRoutingTests {
             Flags = GpuCulling.Alive
         };
 
-        var baseline = GpuClusterCulling.Traverse(scene, instance, Everywhere(2f, 0f), _ => true);
+        var baseline = GpuClusterCulling.Traverse(scene, instance, Everywhere(2f, 0f), static _ => true);
 
         Assert.NotEmpty(baseline.Visible);
         Assert.Empty(baseline.Software);
@@ -153,7 +153,7 @@ public class ClusterRoutingTests {
         var routed = 0;
 
         foreach (var threshold in (float[])[0f, 0.5f, 2f, 8f, 32f, 128f, 1e6f]) {
-            var result = GpuClusterCulling.Traverse(scene, instance, Everywhere(2f, threshold), _ => true);
+            var result = GpuClusterCulling.Traverse(scene, instance, Everywhere(2f, threshold), static _ => true);
 
             // The cut is the cut, whatever the routing said about it.
             Assert.Equal(baseline.Visible, result.Visible);
@@ -169,7 +169,7 @@ public class ClusterRoutingTests {
         // routing that never fired — which is how this test would pass with the feature removed.
         Assert.True(routed > 0, "No threshold in the sweep routed anything to the software raster.");
 
-        var everything = GpuClusterCulling.Traverse(scene, instance, Everywhere(2f, 1e6f), _ => true);
+        var everything = GpuClusterCulling.Traverse(scene, instance, Everywhere(2f, 1e6f), static _ => true);
 
         Assert.Equal(everything.Visible, everything.Software);
     }
@@ -211,6 +211,6 @@ public class ClusterRoutingTests {
             };
         }
 
-        return new(clusters, [.. children], [0u]);
+        return new(clusters, [..children], [0u]);
     }
 }

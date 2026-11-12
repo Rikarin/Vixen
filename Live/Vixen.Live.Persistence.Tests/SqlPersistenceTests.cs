@@ -10,8 +10,12 @@ namespace Vixen.Live.Persistence.Tests;
 /// <summary>The same semantics, against a real PostgreSQL.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Everything else in this project runs against <c>MemoryPersistence</c>, and that is
-///         correct — the semantics are properties of the semantics.</b> What no in-memory store can
+///         ⚠
+///         <b>
+///             Everything else in this project runs against <c>MemoryPersistence</c>, and that is
+///             correct — the semantics are properties of the semantics.
+///         </b>
+///         What no in-memory store can
 ///         tell you is whether the SQL in <see cref="Schema" /> parses, whether
 ///         <c>on conflict do nothing</c> means what the idempotency claim assumes, whether the full
 ///         outer join in <c>ReconcileAsync</c> is valid, or whether serializable isolation actually
@@ -58,9 +62,21 @@ public class SqlPersistenceTests {
         Assert.False((await store.Accounts.EnsureAsync(handle, Noon, TestContext.Current.CancellationToken)).Created);
 
         var key = new PlayerKey(account.Id, Guid.NewGuid());
-        var record = new PlayerRecord(key, $"n{Guid.NewGuid():N}", Noon, Noon, "eu", "maps/queensdale", 1, new byte[] { 1, 2, 3 });
+        var record = new PlayerRecord(
+            key,
+            $"n{Guid.NewGuid():N}",
+            Noon,
+            Noon,
+            "eu",
+            "maps/queensdale",
+            1,
+            new byte[] { 1, 2, 3 }
+        );
 
-        Assert.Equal(WriteOutcome.Written, await store.Players.CreateAsync(record, TestContext.Current.CancellationToken));
+        Assert.Equal(
+            WriteOutcome.Written,
+            await store.Players.CreateAsync(record, TestContext.Current.CancellationToken)
+        );
 
         var read = await store.Players.ReadAsync(key, TestContext.Current.CancellationToken);
 
@@ -76,12 +92,21 @@ public class SqlPersistenceTests {
 
         var (record, _) = await CharacterAsync(store);
 
-        Assert.Equal(WriteOutcome.Written, await store.Players.WriteAsync(record with { LeaseEpoch = 4 }, TestContext.Current.CancellationToken));
-        Assert.Equal(WriteOutcome.Superseded, await store.Players.WriteAsync(record with { LeaseEpoch = 3 }, TestContext.Current.CancellationToken));
+        Assert.Equal(
+            WriteOutcome.Written,
+            await store.Players.WriteAsync(record with { LeaseEpoch = 4 }, TestContext.Current.CancellationToken)
+        );
+        Assert.Equal(
+            WriteOutcome.Superseded,
+            await store.Players.WriteAsync(record with { LeaseEpoch = 3 }, TestContext.Current.CancellationToken)
+        );
         Assert.Equal(4, await store.Players.FenceAsync(record.Key, TestContext.Current.CancellationToken));
 
         // The same epoch again is a realm writing repeatedly under one lease.
-        Assert.Equal(WriteOutcome.Written, await store.Players.WriteAsync(record with { LeaseEpoch = 4 }, TestContext.Current.CancellationToken));
+        Assert.Equal(
+            WriteOutcome.Written,
+            await store.Players.WriteAsync(record with { LeaseEpoch = 4 }, TestContext.Current.CancellationToken)
+        );
     }
 
     /// <summary>The `on conflict do nothing` the whole idempotency claim rests on.</summary>
@@ -107,7 +132,10 @@ public class SqlPersistenceTests {
         Assert.Equal(LedgerVerdict.Applied, first.Verdict);
         Assert.Equal(LedgerVerdict.Replayed, second.Verdict);
         Assert.Equal(first.Sequence, second.Sequence);
-        Assert.Equal(1, await store.Ledger.BalanceAsync(LedgerAccount.Of(record.Key), Sword, TestContext.Current.CancellationToken));
+        Assert.Equal(
+            1,
+            await store.Ledger.BalanceAsync(LedgerAccount.Of(record.Key), Sword, TestContext.Current.CancellationToken)
+        );
     }
 
     /// <summary>
@@ -221,7 +249,10 @@ public class SqlPersistenceTests {
             TestContext.Current.CancellationToken
         );
 
-        var byOperation = await store.Ledger.HistoryAsync(new() { Operation = operation }, TestContext.Current.CancellationToken);
+        var byOperation = await store.Ledger.HistoryAsync(
+            new() { Operation = operation },
+            TestContext.Current.CancellationToken
+        );
 
         Assert.Equal(2, byOperation.Count);
         Assert.All(byOperation, row => Assert.Equal(operation, row.Key));
@@ -263,7 +294,10 @@ public class SqlPersistenceTests {
         Assert.Single(await store.Guilds.ForAccountAsync(member.Key.Account, TestContext.Current.CancellationToken));
 
         // The revision fence, as the `where revision < @revision` it is written as.
-        Assert.Equal(WriteOutcome.Superseded, await store.Guilds.WriteAsync(row, TestContext.Current.CancellationToken));
+        Assert.Equal(
+            WriteOutcome.Superseded,
+            await store.Guilds.WriteAsync(row, TestContext.Current.CancellationToken)
+        );
 
         // And `on delete cascade` takes the roster with it, which is a property of the constraint
         // rather than of the code that deletes.
@@ -299,31 +333,32 @@ public class SqlPersistenceTests {
 
         var spends = Enumerable.Range(0, 2)
             .Select(index => Task.Run(async () => {
-                    try {
-                        return await store.Ledger.AppendAsync(
-                            LedgerIntent.Transfer(
-                                new(record.Key, "vendor", $"race-{index}"),
-                                1,
-                                Noon,
-                                who,
-                                LedgerAccount.Of(LedgerAccount.Vendor),
-                                Gold,
-                                100
-                            ),
-                            CancellationToken.None
-                        );
-                    } catch (NpgsqlException) {
-                        // A serialization failure is the database refusing the second one, which is
-                        // the correct outcome under a different name. Postgres surfaces it as an
-                        // error rather than as a verdict, and a caller retries or gives up.
-                        return new LedgerResult(LedgerVerdict.Superseded, 0, "serialization failure");
+                        try {
+                            return await store.Ledger.AppendAsync(
+                                LedgerIntent.Transfer(
+                                    new(record.Key, "vendor", $"race-{index}"),
+                                    1,
+                                    Noon,
+                                    who,
+                                    LedgerAccount.Of(LedgerAccount.Vendor),
+                                    Gold,
+                                    100
+                                ),
+                                CancellationToken.None
+                            );
+                        } catch (NpgsqlException) {
+                            // A serialization failure is the database refusing the second one, which is
+                            // the correct outcome under a different name. Postgres surfaces it as an
+                            // error rather than as a verdict, and a caller retries or gives up.
+                            return new(LedgerVerdict.Superseded, 0, "serialization failure");
+                        }
                     }
-                }
-            ));
+                )
+            );
 
         var results = await Task.WhenAll(spends);
 
-        Assert.Single(results, result => result.Verdict == LedgerVerdict.Applied);
+        Assert.Single(results, static result => result.Verdict == LedgerVerdict.Applied);
         Assert.True(await store.Ledger.BalanceAsync(who, Gold, TestContext.Current.CancellationToken) >= 0);
         Assert.Empty(await store.Ledger.ReconcileAsync(TestContext.Current.CancellationToken));
     }
@@ -340,7 +375,7 @@ public class SqlPersistenceTests {
             + "The nightly leg sets it; a laptop is expected not to."
         );
 
-        var store = new SqlPersistence(NpgsqlDataSource.Create(connection!), ownsSource: true);
+        var store = new SqlPersistence(NpgsqlDataSource.Create(connection!), true);
 
         await store.MigrateAsync(CancellationToken.None);
 
@@ -349,7 +384,11 @@ public class SqlPersistenceTests {
 
     /// <summary>A character nobody else's test shares, because the database is not torn down.</summary>
     static async Task<(PlayerRecord Record, AccountRecord Account)> CharacterAsync(SqlPersistence store) {
-        var (account, _) = await store.Accounts.EnsureAsync($"nightly:{Guid.NewGuid():N}", Noon, CancellationToken.None);
+        var (account, _) = await store.Accounts.EnsureAsync(
+            $"nightly:{Guid.NewGuid():N}",
+            Noon,
+            CancellationToken.None
+        );
 
         var record = new PlayerRecord(
             new(account.Id, Guid.NewGuid()),

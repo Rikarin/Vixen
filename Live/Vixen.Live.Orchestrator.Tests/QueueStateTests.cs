@@ -19,7 +19,13 @@ public sealed class QueueStateTests {
     static QueueEntry Solo(DateTimeOffset at) => new([new(Guid.NewGuid(), Guid.NewGuid())], 1500d, 200d, [], at);
 
     static QueueEntry Party(int size, DateTimeOffset at) =>
-        new([.. Enumerable.Range(0, size).Select(_ => new PlayerKey(Guid.NewGuid(), Guid.NewGuid()))], 1500d, 200d, [], at);
+        new(
+            [..Enumerable.Range(0, size).Select(static _ => new PlayerKey(Guid.NewGuid(), Guid.NewGuid()))],
+            1500d,
+            200d,
+            [],
+            at
+        );
 
     [Fact]
     public void JoiningGivesBackATicketThatCancelsIt() {
@@ -36,7 +42,7 @@ public sealed class QueueStateTests {
     [Fact]
     public void CancellingSomethingThatIsNotThereSaysSo() {
         Assert.False(queue.Cancel("never-issued"));
-        Assert.False(queue.Cancel(""));
+        Assert.False(queue.Cancel(string.Empty));
     }
 
     [Fact]
@@ -136,7 +142,7 @@ public sealed class QueueStateTests {
         // filled, so the caller sends the player to the shard that is already running.
         var running = Guid.NewGuid();
 
-        Assert.True(queue.Backfill(running, seats: 1));
+        Assert.True(queue.Backfill(running, 1));
 
         var joining = queue.Enqueue(Solo(Start));
         var match = Assert.Single(queue.Cycle(Start));
@@ -152,7 +158,7 @@ public sealed class QueueStateTests {
         // experience than one that has not started, so a waiting ticket goes to the running game.
         var running = Guid.NewGuid();
 
-        queue.Backfill(running, seats: 1);
+        queue.Backfill(running, 1);
 
         // Three, because the backfill takes one and a pair needs the other two — which is itself the
         // preference being demonstrated: with only two waiting, the running match gets one of them
@@ -173,7 +179,7 @@ public sealed class QueueStateTests {
     public void APartialBackfillKeepsAskingForTheRest() {
         var running = Guid.NewGuid();
 
-        queue.Backfill(running, seats: 3);
+        queue.Backfill(running, 3);
         queue.Enqueue(Solo(Start));
 
         Assert.Single(queue.Cycle(Start));
@@ -190,7 +196,7 @@ public sealed class QueueStateTests {
     public void APartyTooBigForTheSeatsIsNotSqueezedIn() {
         var running = Guid.NewGuid();
 
-        queue.Backfill(running, seats: 1);
+        queue.Backfill(running, 1);
         queue.Enqueue(Party(3, Start));
 
         Assert.Empty(queue.Cycle(Start));
@@ -245,7 +251,7 @@ public sealed class QueueStateTests {
 
         var running = Guid.NewGuid();
 
-        queue.Backfill(running, seats: 1);
+        queue.Backfill(running, 1);
 
         Assert.Equal([first.Id], Assert.Single(Assert.Single(queue.Cycle(Start.AddMinutes(11))).Teams).Tickets);
     }

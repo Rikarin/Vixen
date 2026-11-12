@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core;
-using Vixen.Ecs;
 using Vixen.Editor.Testing;
 using Vixen.Engine.Transforms;
 using Xunit;

@@ -82,7 +82,8 @@ public class BlockoutSettingsTests {
         // A drawer exists for a number, a flag and a choice. Everything else on these records is a
         // list a stroke produced, a plane a gizmo owns or an interface a plug-in supplies, and
         // `BlockoutSettings.cs` says so member by member.
-        static bool Drawable(Type type) => type.IsEnum || type == typeof(bool) || type == typeof(int)
+        static bool Drawable(Type type) =>
+            type.IsEnum || type == typeof(bool) || type == typeof(int)
             || type == typeof(float);
     }
 

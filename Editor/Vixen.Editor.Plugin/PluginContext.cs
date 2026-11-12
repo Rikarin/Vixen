@@ -83,8 +83,7 @@ public sealed class PluginContext {
     /// <param name="title">What it is called on screen.</param>
     /// <param name="run">What it does.</param>
     /// <returns>The command.</returns>
-    public EditorCommand AddCommand(string id, StringId title, Action run) =>
-        AddCommand(new EditorCommand(id, title, run));
+    public EditorCommand AddCommand(string id, StringId title, Action run) => AddCommand(new(id, title, run));
 
     /// <summary>Adds a panel and the command that shows it, and takes both out again on unload.</summary>
     /// <param name="descriptor">What the panel is.</param>
@@ -108,9 +107,13 @@ public sealed class PluginContext {
     /// <summary>Contributes a declaration class's words, and takes them back out on unload.</summary>
     /// <param name="declarations">The class's <c>All</c>, which is the whole of what it declares.</param>
     /// <remarks>
-    ///     ⚠ <b><c>StringContributions</c> is static, and a plugin's <c>All</c> is an array of that
-    ///     plugin's own values — so a contribution nothing withdraws pins the plugin's
-    ///     <c>AssemblyLoadContext</c> for the life of the process.</b> A module that unregisters
+    ///     ⚠
+    ///     <b>
+    ///         <c>StringContributions</c> is static, and a plugin's <c>All</c> is an array of that
+    ///         plugin's own values — so a contribution nothing withdraws pins the plugin's
+    ///         <c>AssemblyLoadContext</c> for the life of the process.
+    ///     </b>
+    ///     A module that unregisters
     ///     every panel, command and editor it added is still not collectible while its words are in
     ///     there, and the only reason that was noticed is that one of the five modules doing it has
     ///     a collectibility test.
@@ -133,8 +136,12 @@ public sealed class PluginContext {
     ///         module's rules stayed in the cascade after the module was gone.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Loaded where the module activates, which is after every sheet the shell and the
-    ///         application installed.</b> A rule here of the same specificity as one of theirs wins.
+    ///         ⚠
+    ///         <b>
+    ///             Loaded where the module activates, which is after every sheet the shell and the
+    ///             application installed.
+    ///         </b>
+    ///         A rule here of the same specificity as one of theirs wins.
     ///         That is what a module's own elements want, and it is the reason a sheet that used to be
     ///         installed between two of the application's is worth a picture when it moves here.
     ///     </para>
@@ -155,7 +162,7 @@ public sealed class PluginContext {
     /// <param name="build">Fills it.</param>
     /// <returns>The descriptor.</returns>
     public PanelDescriptor AddPanel(string id, StringId title, Action<DockPanel> build) =>
-        AddPanel(new PanelDescriptor(id, title, build));
+        AddPanel(new(id, title, build));
 
     /// <summary>Adds an editor mode and its button on the mode bar, and takes both out on unload.</summary>
     /// <param name="mode">The mode.</param>
@@ -233,8 +240,7 @@ public sealed class PluginContext {
             : Shell.Menus.InsertMenu(index, title);
 
         if (!existed) {
-            Registrations.Add(
-                () => {
+            Registrations.Add(() => {
                     Shell.Menus.Remove(group);
                     Shell.MenuBar.Rebuild();
                 }
@@ -293,8 +299,7 @@ public sealed class PluginContext {
         var group = index < 0 ? parent.AddSubmenu(title) : parent.InsertSubmenu(index, title);
         var entry = parent.Entries[index < 0 ? ^1 : Math.Clamp(index, 0, parent.Entries.Count - 1)];
 
-        Registrations.Add(
-            () => {
+        Registrations.Add(() => {
                 parent.Remove(entry);
                 Shell.MenuBar.Rebuild();
             }
@@ -316,8 +321,7 @@ public sealed class PluginContext {
 
         var entry = group.Add(commandId).Entries[^1];
 
-        Registrations.Add(
-            () => {
+        Registrations.Add(() => {
                 group.Remove(entry);
                 Shell.MenuBar.Rebuild();
             }
@@ -336,8 +340,7 @@ public sealed class PluginContext {
     ///     quietly dropping it, and a default the plugin re-declares on the next load lands on the
     ///     binding that is already there.
     /// </remarks>
-    public BindResult AddDefaultBinding(string commandId, KeyChord chord) =>
-        Shell.Keys.SetDefault(commandId, chord);
+    public BindResult AddDefaultBinding(string commandId, KeyChord chord) => Shell.Keys.SetDefault(commandId, chord);
 
     /// <summary>Asks to be called once a frame, and stops being called on unload.</summary>
     /// <param name="update">What to do. Handed how long the last frame took.</param>
@@ -350,8 +353,12 @@ public sealed class PluginContext {
     ///         application had to know to write — and the second feature was a second line.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>It runs on the frame thread, inside the editor's update, and it is not the place
-    ///         for work.</b> Everything registered here is between the layout pass and the draw, so a
+    ///         ⚠
+    ///         <b>
+    ///             It runs on the frame thread, inside the editor's update, and it is not the place
+    ///             for work.
+    ///         </b>
+    ///         Everything registered here is between the layout pass and the draw, so a
     ///         hundred milliseconds spent in one is a hundred milliseconds of dropped frame. Put real
     ///         work on <c>Shell.Tasks</c> and touch the interface from the continuation.
     ///     </para>
@@ -385,8 +392,12 @@ public sealed class PluginContext {
     ///         complain about.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>This runs while the device is still usable and that is the whole of the
-    ///         contract.</b> The host raises it before it stops answering with the device and long
+    ///         ⚠
+    ///         <b>
+    ///             This runs while the device is still usable and that is the whole of the
+    ///             contract.
+    ///         </b>
+    ///         The host raises it before it stops answering with the device and long
     ///         before it disposes it, so <c>Destroy</c> and <c>WaitIdle</c> are both legal here —
     ///         which is what separates it from <see cref="OnUnload" />, that runs at module unload
     ///         and therefore at the wrong time. A plugin noticing the change for itself, by comparing
@@ -540,8 +551,12 @@ public sealed class PluginContext {
     ///     );
     ///     </code>
     ///     <para>
-    ///         ⚠ <b>F4 called this "mutating a static", and the fix is that the host says which
-    ///         registry.</b> A plugin reaching for <c>DrawerRegistry.Default</c> writes to a process
+    ///         ⚠
+    ///         <b>
+    ///             F4 called this "mutating a static", and the fix is that the host says which
+    ///             registry.
+    ///         </b>
+    ///         A plugin reaching for <c>DrawerRegistry.Default</c> writes to a process
     ///         global whatever the host intended; asking for the published one means a host running
     ///         two editors, or a test running two plugins, gets two answers rather than one shared one.
     ///     </para>

@@ -9,8 +9,12 @@ namespace Vixen.Ui.Tests;
 /// <summary>The tree an element carries, and the one event that says it changed.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Both directions are asserted, on <c>CommandInvalidationTests</c>' terms and for its
-///         reason.</b> "At most once per frame" is satisfied perfectly by an event that never fires,
+///         ⚠
+///         <b>
+///             Both directions are asserted, on <c>CommandInvalidationTests</c>' terms and for its
+///             reason.
+///         </b>
+///         "At most once per frame" is satisfied perfectly by an event that never fires,
 ///         so every test that counts a coalesced raise is paired with one that would fail if the
 ///         raise stopped happening.
 ///     </para>

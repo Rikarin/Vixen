@@ -122,7 +122,7 @@ public sealed class WaterMaterial {
     /// <summary>A long string.</summary>
     [Inspector]
     [Multiline(Lines = 6)]
-    public string Notes = "";
+    public string Notes = string.Empty;
 }
 
 /// <summary>A base, to prove that a derived type shows what it inherits.</summary>
@@ -165,7 +165,7 @@ public sealed class Bounds {
 public sealed class Attribution {
     /// <summary>Who made it.</summary>
     [Inspector]
-    public string Author = "";
+    public string Author = string.Empty;
 
     /// <summary>Which year.</summary>
     [Inspector]
@@ -176,7 +176,7 @@ public sealed class Attribution {
 public sealed class Volume {
     /// <summary>A nested object, whose members become rows of their own.</summary>
     [Inspector]
-    public Bounds Extent = new() { Low = new Vector3(-1f), High = new Vector3(1f), Padding = 0.5f };
+    public Bounds Extent = new() { Low = new(-1f), High = new(1f), Padding = 0.5f };
 
     /// <summary>Another, to prove the drawer is about the shape rather than about one type.</summary>
     [Inspector]

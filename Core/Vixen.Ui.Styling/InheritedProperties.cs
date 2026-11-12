@@ -22,16 +22,23 @@ namespace Vixen.Ui.Styling;
 ///         recognised by their name, since there is no finite set of them.
 ///     </para>
 ///     <para>
-///         ⚠ <b>This cascade inherits <i>specified</i> values; CSS inherits <i>computed</i> ones,
-///         and the difference is not cosmetic.</b> A child inheriting <c>font-size: 1.5em</c> as
+///         ⚠
+///         <b>
+///             This cascade inherits <i>specified</i> values; CSS inherits <i>computed</i> ones,
+///             and the difference is not cosmetic.
+///         </b>
+///         A child inheriting <c>font-size: 1.5em</c> as
 ///         text would resolve that <c>em</c> against its own parent a second time, so a size meant
 ///         to be applied once compounds at every level — a two-deep tree comes out at 2.25× where
 ///         CSS says 1.5×, and the error grows with depth. CSS avoids it by computing
 ///         <c>font-size</c> to an absolute length before anyone inherits it.
 ///     </para>
 ///     <para>
-///         <b><c>font-size</c> is therefore removed from this list and inherited in computed form by
-///         <c>Vixen.Ui</c> instead</b>, which is the same thing CSS does and in the same place — an
+///         <b>
+///             <c>font-size</c> is therefore removed from this list and inherited in computed form by
+///             <c>Vixen.Ui</c> instead
+///         </b>
+///         , which is the same thing CSS does and in the same place — an
 ///         element that declares none simply keeps its parent's resolved pixel size. Nothing else
 ///         needs the specified string, and <c>UiElement.FontSize</c> is the value every consumer
 ///         actually wants.
@@ -50,8 +57,12 @@ namespace Vixen.Ui.Styling;
 ///         is rather than collapsing both to pixels.
 ///     </para>
 ///     <para>
-///         ⚠ <b>That gap is now closed, and closing it was a removal from this list rather than an
-///         addition to it.</b> <c>text-indent</c> left the sentence when <c>LineWrapper</c> learned a
+///         ⚠
+///         <b>
+///             That gap is now closed, and closing it was a removal from this list rather than an
+///             addition to it.
+///         </b>
+///         <c>text-indent</c> left the sentence when <c>LineWrapper</c> learned a
 ///         first-line width, and <c>word-spacing</c> left it when <c>TextRun</c> learned which
 ///         characters CSS separates words with. Neither joined this list on gaining a reader: both
 ///         take relative units, so both are computed and inherited beside <c>line-height</c> and
@@ -310,8 +321,12 @@ public sealed class InheritedProperties {
     /// </returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The animator is a tier laid <i>over</i> the finished cascade, so without this a
-    ///         fading inherited value reaches every descendant as its destination.</b> A panel with
+    ///         ⚠
+    ///         <b>
+    ///             The animator is a tier laid <i>over</i> the finished cascade, so without this a
+    ///             fading inherited value reaches every descendant as its destination.
+    ///         </b>
+    ///         A panel with
     ///         <c>transition: color 300ms</c> going red to blue resolves its children against its
     ///         <i>cascaded</i> style — <see cref="StyleUpdater" />'s <c>Resolve</c> inherits from the
     ///         parent's stored style — so a label inside it is blue on the panel's first frame and
@@ -319,9 +334,13 @@ public sealed class InheritedProperties {
     ///         cover it either, because <c>transition-*</c> do not inherit.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Applied in the per-frame overlay pass rather than by inheriting from the overlaid
-    ///         style in the cascade — and the second is not a more expensive version of this, it is a
-    ///         broken one.</b> A cascade is not a per-frame pass: <c>UiDocument.Tick</c> invalidates
+    ///         ⚠
+    ///         <b>
+    ///             Applied in the per-frame overlay pass rather than by inheriting from the overlaid
+    ///             style in the cascade — and the second is not a more expensive version of this, it is a
+    ///             broken one.
+    ///         </b>
+    ///         A cascade is not a per-frame pass: <c>UiDocument.Tick</c> invalidates
     ///         <i>positions</i> while a transition runs and never the cascade, so nothing re-resolves
     ///         between the frame a fade starts on and the frame something else changes. Inheriting the
     ///         overlaid style would therefore freeze each descendant at whatever the parent was
@@ -330,8 +349,12 @@ public sealed class InheritedProperties {
     ///         the frame is going.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>"The element inherited it" is inferred rather than recorded, and that is the one
-    ///         approximation here.</b> A <see cref="ComputedStyle" /> does not say where a value came
+    ///         ⚠
+    ///         <b>
+    ///             "The element inherited it" is inferred rather than recorded, and that is the one
+    ///             approximation here.
+    ///         </b>
+    ///         A <see cref="ComputedStyle" /> does not say where a value came
     ///         from, so the test is that this element's cascaded value <i>is</i> its parent's cascaded
     ///         value. An element that declared the same colour as its parent is therefore carried along
     ///         with it — the answer CSS would give for an inherited value, and a coincidence for a
@@ -390,7 +413,7 @@ public sealed class InheritedProperties {
             }
 
             overlaid ??= Copy(displayed);
-            overlaid[i] = new KeyValuePair<int, int>(property, moving);
+            overlaid[i] = new(property, moving);
         }
 
         return overlaid is null ? displayed : ComputedStyle.Create(overlaid, displayed.Parent);
@@ -399,7 +422,7 @@ public sealed class InheritedProperties {
     static List<KeyValuePair<int, int>> Copy(ComputedStyle style) {
         var pairs = new List<KeyValuePair<int, int>>(style.Count);
         for (var i = 0; i < style.Count; i++) {
-            pairs.Add(new KeyValuePair<int, int>(style.Properties[i], style.Values[i]));
+            pairs.Add(new(style.Properties[i], style.Values[i]));
         }
 
         return pairs;

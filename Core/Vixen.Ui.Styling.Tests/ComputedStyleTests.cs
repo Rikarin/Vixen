@@ -74,10 +74,12 @@ public class ComputedStyleTests {
     [Fact]
     public void Var_resolves_against_a_custom_property_the_element_inherited() {
         var fixture = new CascadeFixture();
-        fixture.Load("""
+        fixture.Load(
+            """
             .theme { --accent: teal }
             .label { color: var(--accent) }
-            """);
+            """
+        );
 
         fixture.Tree.CreateElement("div", classNames: ["theme"]);
         fixture.Tree.CreateElement("span", new StyleNodeId(0), classNames: ["label"]);
@@ -92,10 +94,12 @@ public class ComputedStyleTests {
         // Which is why substitution runs against the element's own resolved set and not its
         // parent's — resolving against the parent would give `teal` here.
         var fixture = new CascadeFixture();
-        fixture.Load("""
+        fixture.Load(
+            """
             .theme { --accent: teal }
             .label { --accent: coral; color: var(--accent) }
-            """);
+            """
+        );
 
         fixture.Tree.CreateElement("div", classNames: ["theme"]);
         fixture.Tree.CreateElement("span", new StyleNodeId(0), classNames: ["label"]);
@@ -108,10 +112,12 @@ public class ComputedStyleTests {
     [Fact]
     public void A_var_fallback_is_used_only_when_there_is_nothing_to_substitute() {
         var fixture = new CascadeFixture();
-        fixture.Load("""
+        fixture.Load(
+            """
             .a { color: var(--missing, fallback) }
             .b { --present: actual; color: var(--present, fallback) }
-            """);
+            """
+        );
 
         var a = fixture.Tree.CreateElement("div", classNames: ["a"]);
         var b = fixture.Tree.CreateElement("div", classNames: ["b"]);
@@ -137,11 +143,13 @@ public class ComputedStyleTests {
         // property behaves as though nothing had set it, which for an inherited property means the
         // parent's value.
         var fixture = new CascadeFixture();
-        fixture.Load("""
+        fixture.Load(
+            """
             .panel { color: inherited-colour }
             .label { color: would-have-won }
             .label { color: var(--missing) }
-            """);
+            """
+        );
 
         fixture.Tree.CreateElement("div", classNames: ["panel"]);
         fixture.Tree.CreateElement("span", new StyleNodeId(0), classNames: ["label"]);
@@ -180,10 +188,12 @@ public class ComputedStyleTests {
     [Fact]
     public void Interning_survives_a_property_set_arriving_in_a_different_order() {
         var fixture = new CascadeFixture();
-        fixture.Load("""
+        fixture.Load(
+            """
             .a { color: red; background: blue }
             .b { background: blue; color: red }
-            """);
+            """
+        );
 
         var first = fixture.Tree.CreateElement("div", classNames: ["a"]);
         var second = fixture.Tree.CreateElement("div", classNames: ["b"]);

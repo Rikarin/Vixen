@@ -34,7 +34,7 @@ public static class TiffWriter {
     /// <exception cref="ArgumentException">The shape is not one this writes.</exception>
     public static byte[] Encode8(int width, int height, int channels, ReadOnlySpan<byte> samples) {
         Check(width, height, channels, samples.Length);
-        return Write(width, height, channels, 8, 1, samples.ToArray());
+        return Write(width, height, channels, 8, 1, [..samples]);
     }
 
     /// <summary>Encodes sixteen-bit samples.</summary>
@@ -98,17 +98,21 @@ public static class TiffWriter {
         var strips = (height + rowsPerStrip - 1) / rowsPerStrip;
         var compressed = new byte[strips][];
 
-        Parallel.For(0, strips, strip => {
-            var first = strip * rowsPerStrip;
-            var rows = Math.Min(rowsPerStrip, height - first);
-            using var memory = new MemoryStream();
+        Parallel.For(
+            0,
+            strips,
+            strip => {
+                var first = strip * rowsPerStrip;
+                var rows = Math.Min(rowsPerStrip, height - first);
+                using var memory = new MemoryStream();
 
-            using (var zlib = new ZLibStream(memory, CompressionLevel.Optimal, true)) {
-                zlib.Write(pixels, first * row, rows * row);
+                using (var zlib = new ZLibStream(memory, CompressionLevel.Optimal, true)) {
+                    zlib.Write(pixels, first * row, rows * row);
+                }
+
+                compressed[strip] = memory.ToArray();
             }
-
-            compressed[strip] = memory.ToArray();
-        });
+        );
 
         using var output = new MemoryStream();
         output.Write("II*\0"u8);
@@ -148,7 +152,7 @@ public static class TiffWriter {
             entries.Add((338, 3, [2]));
         }
 
-        entries.Add((339, 3, [.. Enumerable.Repeat((uint)format, channels)]));
+        entries.Add((339, 3, [..Enumerable.Repeat((uint)format, channels)]));
 
         // Values that do not fit in an entry's four bytes go before the directory, word-aligned.
         if (output.Position % 2 != 0) {
@@ -177,7 +181,10 @@ public static class TiffWriter {
             buffer.Clear();
             BinaryPrimitives.WriteUInt16LittleEndian(buffer, tag);
             BinaryPrimitives.WriteUInt16LittleEndian(buffer[2..], type);
-            BinaryPrimitives.WriteUInt32LittleEndian(buffer[4..], (uint)(type == 5 ? values.Length / 2 : values.Length));
+            BinaryPrimitives.WriteUInt32LittleEndian(
+                buffer[4..],
+                (uint)(type == 5 ? values.Length / 2 : values.Length)
+            );
 
             if (outside.TryGetValue(at, out var where)) {
                 BinaryPrimitives.WriteUInt32LittleEndian(buffer[8..], where);
@@ -214,24 +221,28 @@ public static class TiffWriter {
     static void Predict(byte[] pixels, int height, int width, int channels, int bytesPerSample) {
         var row = width * channels * bytesPerSample;
 
-        Parallel.For(0, height, y => {
-            var start = y * row;
+        Parallel.For(
+            0,
+            height,
+            y => {
+                var start = y * row;
 
-            // Right to left, so every subtraction reads the value before it was changed.
-            for (var x = width - 1; x > 0; x--) {
-                for (var lane = 0; lane < channels; lane++) {
-                    var at = start + (((x * channels) + lane) * bytesPerSample);
-                    var left = at - (channels * bytesPerSample);
+                // Right to left, so every subtraction reads the value before it was changed.
+                for (var x = width - 1; x > 0; x--) {
+                    for (var lane = 0; lane < channels; lane++) {
+                        var at = start + (x * channels + lane) * bytesPerSample;
+                        var left = at - channels * bytesPerSample;
 
-                    if (bytesPerSample == 1) {
-                        pixels[at] = (byte)(pixels[at] - pixels[left]);
-                    } else {
-                        var value = (ushort)(BinaryPrimitives.ReadUInt16LittleEndian(pixels.AsSpan(at))
-                            - BinaryPrimitives.ReadUInt16LittleEndian(pixels.AsSpan(left)));
-                        BinaryPrimitives.WriteUInt16LittleEndian(pixels.AsSpan(at), value);
+                        if (bytesPerSample == 1) {
+                            pixels[at] = (byte)(pixels[at] - pixels[left]);
+                        } else {
+                            var value = (ushort)(BinaryPrimitives.ReadUInt16LittleEndian(pixels.AsSpan(at))
+                                - BinaryPrimitives.ReadUInt16LittleEndian(pixels.AsSpan(left)));
+                            BinaryPrimitives.WriteUInt16LittleEndian(pixels.AsSpan(at), value);
+                        }
                     }
                 }
             }
-        });
+        );
     }
 }

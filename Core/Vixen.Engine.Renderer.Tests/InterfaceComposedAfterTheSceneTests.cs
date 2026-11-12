@@ -44,66 +44,67 @@ public sealed class InterfaceComposedAfterTheSceneTests : IDisposable {
     readonly EffectSystem effects = new();
 
     /// <summary>The frame with the node: a scene pass, the compose, and the pass that draws the HUD.</summary>
-    static string Composed(bool enabled = true, bool sequenceEnabled = true) => $$"""
-        version: 2
-        resources:
-          - name: SceneColour
-            format: Bgra8UNorm
-            usage: ColourTarget, Sampled
-        stages:
-          - name: Ui
-            sortMode: ByGroup
-        game: !Sequence
-          name: Frame
-          children:
-            - !RenderPass
-              name: Scene
-              colourTargets: [SceneColour]
-            - !Sequence
-              name: Hud
-              enabled: {{(sequenceEnabled ? "true" : "false")}}
-              children:
-                - !UiCompose
-                  name: Compose
-                  enabled: {{(enabled ? "true" : "false")}}
-                  source: SceneColour
-            - !RenderPass
-              name: Interface
-              colourTargets: [SceneColour]
-              loaded: [SceneColour]
-              children:
-                - !SingleStage
-                  name: HudDraw
-                  view: Camera
-                  stage: Ui
-        """;
+    static string Composed(bool enabled = true, bool sequenceEnabled = true) =>
+        $$"""
+          version: 2
+          resources:
+            - name: SceneColour
+              format: Bgra8UNorm
+              usage: ColourTarget, Sampled
+          stages:
+            - name: Ui
+              sortMode: ByGroup
+          game: !Sequence
+            name: Frame
+            children:
+              - !RenderPass
+                name: Scene
+                colourTargets: [SceneColour]
+              - !Sequence
+                name: Hud
+                enabled: {{(sequenceEnabled ? "true" : "false")}}
+                children:
+                  - !UiCompose
+                    name: Compose
+                    enabled: {{(enabled ? "true" : "false")}}
+                    source: SceneColour
+              - !RenderPass
+                name: Interface
+                colourTargets: [SceneColour]
+                loaded: [SceneColour]
+                children:
+                  - !SingleStage
+                    name: HudDraw
+                    view: Camera
+                    stage: Ui
+          """;
 
     /// <summary>The same frame without it: the prologue composes, as it always did.</summary>
     const string Plain = """
-        version: 2
-        resources:
-          - name: SceneColour
-            format: Bgra8UNorm
-            usage: ColourTarget, Sampled
-        stages:
-          - name: Ui
-            sortMode: ByGroup
-        game: !Sequence
-          name: Frame
-          children:
-            - !RenderPass
-              name: Scene
-              colourTargets: [SceneColour]
-            - !RenderPass
-              name: Interface
-              colourTargets: [SceneColour]
-              loaded: [SceneColour]
-              children:
-                - !SingleStage
-                  name: HudDraw
-                  view: Camera
-                  stage: Ui
-        """;
+                         version: 2
+                         resources:
+                           - name: SceneColour
+                             format: Bgra8UNorm
+                             usage: ColourTarget, Sampled
+                         stages:
+                           - name: Ui
+                             sortMode: ByGroup
+                         game: !Sequence
+                           name: Frame
+                           children:
+                             - !RenderPass
+                               name: Scene
+                               colourTargets: [SceneColour]
+                             - !RenderPass
+                               name: Interface
+                               colourTargets: [SceneColour]
+                               loaded: [SceneColour]
+                               children:
+                                 - !SingleStage
+                                   name: HudDraw
+                                   view: Camera
+                                   stage: Ui
+                         """;
 
     [Fact]
     public void ANamedComposeRendersTheHudsGroupsAfterTheSceneOverTheScene() {
@@ -118,7 +119,7 @@ public sealed class InterfaceComposedAfterTheSceneTests : IDisposable {
 
         // After the scene, and once — the prologue left it to the node.
         Assert.True(surface > scene, "the group was composed before the scene: " + string.Join(", ", frame.Passes));
-        Assert.Single(frame.Passes, name => name == "ui layer 0");
+        Assert.Single(frame.Passes, static name => name == "ui layer 0");
         Assert.Equal(1, frame.ComposeCount);
 
         // Over the scene: its blend capture drew the scene under the prefix.
@@ -148,36 +149,36 @@ public sealed class InterfaceComposedAfterTheSceneTests : IDisposable {
 
     /// <summary>The frame with two nodes composing the same feature, one after the other.</summary>
     const string Twice = """
-        version: 2
-        resources:
-          - name: SceneColour
-            format: Bgra8UNorm
-            usage: ColourTarget, Sampled
-        stages:
-          - name: Ui
-            sortMode: ByGroup
-        game: !Sequence
-          name: Frame
-          children:
-            - !RenderPass
-              name: Scene
-              colourTargets: [SceneColour]
-            - !UiCompose
-              name: First
-              source: SceneColour
-            - !UiCompose
-              name: Second
-              source: SceneColour
-            - !RenderPass
-              name: Interface
-              colourTargets: [SceneColour]
-              loaded: [SceneColour]
-              children:
-                - !SingleStage
-                  name: HudDraw
-                  view: Camera
-                  stage: Ui
-        """;
+                         version: 2
+                         resources:
+                           - name: SceneColour
+                             format: Bgra8UNorm
+                             usage: ColourTarget, Sampled
+                         stages:
+                           - name: Ui
+                             sortMode: ByGroup
+                         game: !Sequence
+                           name: Frame
+                           children:
+                             - !RenderPass
+                               name: Scene
+                               colourTargets: [SceneColour]
+                             - !UiCompose
+                               name: First
+                               source: SceneColour
+                             - !UiCompose
+                               name: Second
+                               source: SceneColour
+                             - !RenderPass
+                               name: Interface
+                               colourTargets: [SceneColour]
+                               loaded: [SceneColour]
+                               children:
+                                 - !SingleStage
+                                   name: HudDraw
+                                   view: Camera
+                                   stage: Ui
+                         """;
 
     /// <summary>Two <c>!UiCompose</c> nodes in one frame compose the interface twice, and that is counted (#1461).</summary>
     /// <remarks>
@@ -190,8 +191,11 @@ public sealed class InterfaceComposedAfterTheSceneTests : IDisposable {
         var frame = Frame(Twice);
 
         // The instrument: two surface passes, both after the scene — the prologue stood aside.
-        Assert.Equal(2, frame.Passes.Count(name => name == "ui layer 0"));
-        Assert.True(frame.Passes.IndexOf("ui layer 0") > frame.Passes.IndexOf("Scene"), string.Join(", ", frame.Passes));
+        Assert.Equal(2, frame.Passes.Count(static name => name == "ui layer 0"));
+        Assert.True(
+            frame.Passes.IndexOf("ui layer 0") > frame.Passes.IndexOf("Scene"),
+            string.Join(", ", frame.Passes)
+        );
         Assert.Equal(1, frame.Recomposed);
     }
 
@@ -207,7 +211,10 @@ public sealed class InterfaceComposedAfterTheSceneTests : IDisposable {
                 var root = Assert.IsType<SceneRendererSequence>(renderer.Host.Compositor!.Game);
 
                 // Between the scene and the interface pass, where a document would have put it.
-                root.Children.Insert(1, new Hiding(new UiComposeRenderer { Name = "Hidden", Feature = renderer.Ui, Source = "SceneColour" }));
+                root.Children.Insert(
+                    1,
+                    new Hiding(new UiComposeRenderer { Name = "Hidden", Feature = renderer.Ui, Source = "SceneColour" })
+                );
 
                 // The instrument: the walk the prologue asks really cannot see it.
                 Assert.Empty(UiComposeRenderer.PathTo(root, renderer.Ui));
@@ -215,17 +222,23 @@ public sealed class InterfaceComposedAfterTheSceneTests : IDisposable {
         );
 
         // The prologue's compose before the scene, and the hidden node's after it.
-        var surfaces = frame.Passes.Select((name, index) => (name, index)).Where(pass => pass.name == "ui layer 0").ToList();
+        var surfaces = frame.Passes.Select(static (name, index) => (name, index))
+            .Where(static pass => pass.name == "ui layer 0")
+            .ToList();
 
         Assert.Equal(2, surfaces.Count);
-        Assert.True(surfaces[0].index < frame.Passes.IndexOf("Scene") && surfaces[1].index > frame.Passes.IndexOf("Scene"), string.Join(", ", frame.Passes));
+        Assert.True(
+            surfaces[0].index < frame.Passes.IndexOf("Scene") && surfaces[1].index > frame.Passes.IndexOf("Scene"),
+            string.Join(", ", frame.Passes)
+        );
         Assert.Equal(1, frame.Recomposed);
     }
 
     /// <summary>A parent that builds a child it does not list in <see cref="SceneRenderer.Nested" />.</summary>
     sealed class Hiding(SceneRenderer child) : SceneRenderer {
         /// <inheritdoc />
-        protected override void Build(GraphicsCompositor compositor, CompositorFrame frame) => BuildChild(child, compositor, frame);
+        protected override void Build(GraphicsCompositor compositor, CompositorFrame frame) =>
+            BuildChild(child, compositor, frame);
     }
 
     /// <summary>
@@ -244,16 +257,20 @@ public sealed class InterfaceComposedAfterTheSceneTests : IDisposable {
         var frame = Frame(Composed(enabled, sequenceEnabled));
 
         Assert.Equal(0, frame.ComposeCount);
-        Assert.Single(frame.Passes, name => name == "ui layer 0");
-        Assert.True(frame.Passes.IndexOf("ui layer 0") < frame.Passes.IndexOf("Scene"), string.Join(", ", frame.Passes));
+        Assert.Single(frame.Passes, static name => name == "ui layer 0");
+        Assert.True(
+            frame.Passes.IndexOf("ui layer 0") < frame.Passes.IndexOf("Scene"),
+            string.Join(", ", frame.Passes)
+        );
     }
 
     /// <summary>A source that cannot be sampled is refused when the frame is built, naming the fix.</summary>
     [Fact]
     public void ASourceThatCannotBeSampledIsRefused() {
-        var unsampled = Composed().Replace("usage: ColourTarget, Sampled", "usage: ColourTarget", StringComparison.Ordinal);
+        var unsampled = Composed()
+            .Replace("usage: ColourTarget, Sampled", "usage: ColourTarget", StringComparison.Ordinal);
 
-        var refused = Assert.Throws<CompositorBindingException>(() => Frame(unsampled, sampled: false));
+        var refused = Assert.Throws<CompositorBindingException>(() => Frame(unsampled, false));
 
         Assert.Contains("Sampled", refused.Message, StringComparison.Ordinal);
     }
@@ -297,14 +314,23 @@ public sealed class InterfaceComposedAfterTheSceneTests : IDisposable {
 
         if (mismatched) {
             Assert.NotNull(frame.Degraded);
-            Assert.Contains($"65×65 pixels and the scene beneath it is {target}×{target}", frame.Degraded, StringComparison.Ordinal);
+            Assert.Contains(
+                $"65×65 pixels and the scene beneath it is {target}×{target}",
+                frame.Degraded,
+                StringComparison.Ordinal
+            );
         } else {
             Assert.Null(frame.Degraded);
         }
     }
 
     /// <summary>What one frame recorded.</summary>
-    sealed record Recorded(List<string> Passes, bool SceneDrawnUnderTheCapture, int Sceneless, int ComposeCount, int Recomposed) {
+    sealed record Recorded(
+        List<string> Passes,
+        bool SceneDrawnUnderTheCapture,
+        int Sceneless,
+        int ComposeCount,
+        int Recomposed) {
         /// <summary>The compose node's <c>Degraded</c> after the frame, or null for none or no node.</summary>
         public string? Degraded { get; init; }
 
@@ -327,7 +353,7 @@ public sealed class InterfaceComposedAfterTheSceneTests : IDisposable {
         float scale = 1f,
         Action<WorldRenderer>? adjust = null
     ) {
-        using var renderer = new WorldRenderer(device, effects, vertexCapacity: 4096, indexCapacity: 8192);
+        using var renderer = new WorldRenderer(device, effects, 4096, 8192);
         using var ui = UiRendererFor(device);
 
         var view = Camera();
@@ -354,7 +380,13 @@ public sealed class InterfaceComposedAfterTheSceneTests : IDisposable {
 
         renderer.Host.Import(
             "SceneColour",
-            new(target, device.CreateTextureView(target), description, ResourceState.Undefined, ResourceState.ShaderRead)
+            new(
+                target,
+                device.CreateTextureView(target),
+                description,
+                ResourceState.Undefined,
+                ResourceState.ShaderRead
+            )
         );
 
         var stage = renderer.Host.Builder.Stages["Ui"];
@@ -383,7 +415,7 @@ public sealed class InterfaceComposedAfterTheSceneTests : IDisposable {
 
         foreach (var command in device.Recorder.Commands) {
             if (command.Kind == RecordedCommandKind.BeginRenderPass) {
-                passes.Add(command.Text ?? "");
+                passes.Add(command.Text ?? string.Empty);
 
                 // The render area is packed width-high, height-low; zero is "the whole target".
                 if (command.Text == "ui layer 0" && command.E != 0) {
@@ -405,11 +437,11 @@ public sealed class InterfaceComposedAfterTheSceneTests : IDisposable {
             }
         }
 
-        var composer = UiComposeRenderer.PathTo(renderer.Host.Compositor!.Game, renderer.Ui).LastOrDefault() as UiComposeRenderer;
+        var composer = UiComposeRenderer.PathTo(renderer.Host.Compositor!.Game, renderer.Ui)
+            .LastOrDefault() as UiComposeRenderer;
 
         return new(passes, drawnUnder, renderer.Ui.Sceneless, composer?.ComposeCount ?? 0, renderer.Ui.Recomposed) {
-            Degraded = composer?.Degraded,
-            LayerArea = layerArea
+            Degraded = composer?.Degraded, LayerArea = layerArea
         };
     }
 
@@ -427,16 +459,27 @@ public sealed class InterfaceComposedAfterTheSceneTests : IDisposable {
 
         list.BeginFrame();
         list.Add(
-            new Vixen.Ui.DrawCommand(DrawCommandKind.LayerPush, x, y, width, height, new Color4(1f, 1f, 1f, 1f), 0f, 0f) {
-                Blend = UiBlendMode.Multiply
-            }
+            new(
+                DrawCommandKind.LayerPush,
+                x,
+                y,
+                width,
+                height,
+                new(1f, 1f, 1f, 1f),
+                0f,
+                0f
+            ) { Blend = UiBlendMode.Multiply }
         );
-        list.Add(new Vixen.Ui.DrawCommand(DrawCommandKind.Rectangle, x, y, width, height, Color4.White, 0f, 0f));
-        list.Add(new Vixen.Ui.DrawCommand(DrawCommandKind.Rectangle, 12f, 12f, 10f, 8f, new Color4(1f, 0f, 0f, 1f), 0f, 0f));
-        list.Add(new Vixen.Ui.DrawCommand(DrawCommandKind.LayerPop, 0f, 0f, 0f, 0f, Color4.White, 0f, 0f));
+        list.Add(new(DrawCommandKind.Rectangle, x, y, width, height, Color4.White, 0f, 0f));
+        list.Add(new(DrawCommandKind.Rectangle, 12f, 12f, 10f, 8f, new(1f, 0f, 0f, 1f), 0f, 0f));
+        list.Add(new(DrawCommandKind.LayerPop, 0f, 0f, 0f, 0f, Color4.White, 0f, 0f));
         list.EndFrame();
 
-        var geometry = new UiGeometryBuilder().Build(list, new GlyphFieldCache(atlas), new Rectangle(0, 0, units, units));
+        var geometry = new UiGeometryBuilder().Build(
+            list,
+            new(atlas),
+            new(0, 0, units, units)
+        );
 
         // The instrument: one group, and it is the blended one.
         Assert.Equal(UiBlendMode.Multiply, Assert.Single(geometry.Layers).Blend);

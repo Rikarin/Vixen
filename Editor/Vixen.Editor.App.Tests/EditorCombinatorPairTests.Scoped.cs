@@ -13,9 +13,13 @@ namespace Vixen.Editor.App.Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>The pair gate cannot tell <c>shape-fields fact-value &gt; numeric-input</c> from
-///         <c>node-inspector fact-value &gt; numeric-input</c>, and the second is #525's own dead
-///         rule.</b> Both end in the same pairing, the pairing is live under <c>shape-fields</c>,
+///         ⚠
+///         <b>
+///             The pair gate cannot tell <c>shape-fields fact-value &gt; numeric-input</c> from
+///             <c>node-inspector fact-value &gt; numeric-input</c>, and the second is #525's own dead
+///             rule.
+///         </b>
+///         Both end in the same pairing, the pairing is live under <c>shape-fields</c>,
 ///         and so the pair gate is satisfied by the live one while the scoped one matches nothing.
 ///         What distinguishes them is the whole selector — the ancestor that scopes the pairing —
 ///         and a whole selector is exactly what the cascade's matcher evaluates. So this asks it:
@@ -23,8 +27,12 @@ namespace Vixen.Editor.App.Tests;
 ///         of an editor at some depth of the ladder the pair sweeps already climb?
 ///     </para>
 ///     <para>
-///         ⚠ <b>Type-only selectors and nothing else, which is a domain a static tree can
-///         decide.</b> A compound carrying a class or a state — <c>.selected</c>, <c>:hover</c>,
+///         ⚠
+///         <b>
+///             Type-only selectors and nothing else, which is a domain a static tree can
+///             decide.
+///         </b>
+///         A compound carrying a class or a state — <c>.selected</c>, <c>:hover</c>,
 ///         <c>:disabled</c> — depends on what a fixture did to the element, so its not matching says
 ///         nothing about the rule. A selector spelled entirely in tags is a claim about construction,
 ///         which is what the sweeps measure. The domain here is therefore wider than the pair
@@ -33,17 +41,29 @@ namespace Vixen.Editor.App.Tests;
 ///         the reason <c>CombinatorPairs.txt</c> is: a count somebody re-derives is not a domain.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Over the same four editors, and that is why it is a partial of the pair sweep
-///         rather than a class of its own.</b> The document sweep opens forty-odd documents and is
+///         ⚠
+///         <b>
+///             Over the same four editors, and that is why it is a partial of the pair sweep
+///             rather than a class of its own.
+///         </b>
+///         The document sweep opens forty-odd documents and is
 ///         most of this assembly's minutes; a second class starting its own editors would pay that
 ///         again to read the same trees. Each sweep hands its editor here before disposing it, and
 ///         a selector's verdict is the shallowest depth that matched it.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The census is proofs plus explicit non-proofs, and the loud direction is a row's
-///         verdict moving to <c>-</c>.</b> A selector that matched at some depth and now matches at
-///         none is a rule that stopped applying where it scopes — the <c>compositor-editor &gt;
-///         node-canvas</c> shape, as a whole selector rather than as a pairing. A row moving the
+///         ⚠
+///         <b>
+///             The census is proofs plus explicit non-proofs, and the loud direction is a row's
+///             verdict moving to <c>-</c>.
+///         </b>
+///         A selector that matched at some depth and now matches at
+///         none is a rule that stopped applying where it scopes — the
+///         <c>
+///             compositor-editor &gt;
+///             node-canvas
+///         </c>
+///         shape, as a whole selector rather than as a pairing. A row moving the
 ///         other way, from <c>-</c> to a depth, is ordinary and is regenerated after reading. What
 ///         the file does <em>not</em> claim is that a <c>-</c> row is dead: the ladder reaches what
 ///         it reaches, and a rule under a dialog nobody opens or a control the editor never builds
@@ -124,14 +144,21 @@ public partial class EditorCombinatorPairTests {
     ///     selectors of three shapes are credited no deeper than the depth that first builds them.
     ///     The third is what a floor cannot give: a matcher that answered true for everything, or a
     ///     domain read from the wrong files, keeps every count and fails here by name.
-    ///     ⚠ <b>The second claim is only worth making because <see cref="Scope" /> counts where the
-    ///     matcher answers.</b> It used to assign <c>ScopedDomain.Count</c> to the field outright,
+    ///     ⚠
+    ///     <b>
+    ///         The second claim is only worth making because <see cref="Scope" /> counts where the
+    ///         matcher answers.
+    ///     </b>
+    ///     It used to assign <c>ScopedDomain.Count</c> to the field outright,
     ///     which made this line compare a value with itself — a predicate whose only false case was
     ///     the sweep never running at all, while its prose claimed to prove every selector was asked.
     /// </remarks>
     [Fact]
     public void The_scoped_scan_actually_ran() {
-        Assert.True(ScopedDomain.Count >= 150, $"the sheets declare only {ScopedDomain.Count} type-only selectors, which is not the real table.");
+        Assert.True(
+            ScopedDomain.Count >= 150,
+            $"the sheets declare only {ScopedDomain.Count} type-only selectors, which is not the real table."
+        );
 
         // Force the shallowest sweep, which is what fills `scopedAsked`.
         _ = Observed;
@@ -186,7 +213,10 @@ public partial class EditorCombinatorPairTests {
     public void Every_depth_on_the_ladder_is_swept_before_a_verdict_is_read() {
         Climb();
 
-        Assert.True(Ladder.Length >= 4, $"the ladder has only {Ladder.Length} depths, which is not this class's four sweeps.");
+        Assert.True(
+            Ladder.Length >= 4,
+            $"the ladder has only {Ladder.Length} depths, which is not this class's four sweeps."
+        );
 
         var unswept = Ladder.Where(static depth => !Matched.ContainsKey(depth)).ToList();
 
@@ -232,7 +262,9 @@ public partial class EditorCombinatorPairTests {
         var census = ScopedCensus(path);
 
         var arrived = measured.Keys.Where(selector => !census.ContainsKey(selector)).ToList();
-        var departed = census.Keys.Where(selector => !measured.ContainsKey(selector)).Order(StringComparer.Ordinal).ToList();
+        var departed = census.Keys.Where(selector => !measured.ContainsKey(selector))
+            .Order(StringComparer.Ordinal)
+            .ToList();
 
         var lost = measured
             .Where(row => census.TryGetValue(row.Key, out var was) && was != Unmatched && row.Value == Unmatched)
@@ -240,7 +272,10 @@ public partial class EditorCombinatorPairTests {
             .ToList();
 
         var moved = measured
-            .Where(row => census.TryGetValue(row.Key, out var was) && was != row.Value && !(was != Unmatched && row.Value == Unmatched))
+            .Where(row => census.TryGetValue(row.Key, out var was)
+                && was != row.Value
+                && !(was != Unmatched && row.Value == Unmatched)
+            )
             .Select(row => $"{row.Key}: {census[row.Key]} -> {row.Value}")
             .ToList();
 
@@ -343,7 +378,10 @@ public partial class EditorCombinatorPairTests {
                 $"{ScopedFile} is malformed at '{row}'. Each row is `selector<TAB>depth-or-dash`."
             );
 
-            Assert.True(rows.TryAdd(columns[0].Trim(), columns[1].Trim()), $"'{columns[0]}' is listed twice in {ScopedFile}.");
+            Assert.True(
+                rows.TryAdd(columns[0].Trim(), columns[1].Trim()),
+                $"'{columns[0]}' is listed twice in {ScopedFile}."
+            );
         }
 
         return rows;

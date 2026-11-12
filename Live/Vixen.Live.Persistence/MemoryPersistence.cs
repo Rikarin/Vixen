@@ -6,8 +6,12 @@ namespace Vixen.Live.Persistence;
 /// <summary>The whole of persistence in a process. What every test in this tier runs against.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>This is <c>Vixen.Net.Transport.Local</c>'s place in doc 27's testing story, and
-///         <c>Placement.Process</c>'s.</b> § Testing asks for a conservation oracle over thousands of
+///         ⚠
+///         <b>
+///             This is <c>Vixen.Net.Transport.Local</c>'s place in doc 27's testing story, and
+///             <c>Placement.Process</c>'s.
+///         </b>
+///         § Testing asks for a conservation oracle over thousands of
 ///         randomised concurrent transfers, aborts and crashes; nobody runs that against a database
 ///         on every push, so nobody runs it. Here it is a unit test that finishes in a second, and
 ///         the property it proves — that the semantics conserve value — is a property of the
@@ -48,7 +52,7 @@ public sealed class MemoryPersistence : IPersistence, IAccountRepository, IPlaye
     ///     idea of when it decided something is evidence, and the order rows landed in is fact. Both
     ///     are on <see cref="LedgerEntry" />; this is the second one.
     /// </remarks>
-    public Func<DateTimeOffset> Clock { get; set; } = () => DateTimeOffset.UtcNow;
+    public Func<DateTimeOffset> Clock { get; set; } = static () => DateTimeOffset.UtcNow;
 
     /// <inheritdoc />
     public IAccountRepository Accounts => this;
@@ -72,8 +76,10 @@ public sealed class MemoryPersistence : IPersistence, IAccountRepository, IPlaye
     }
 
     /// <inheritdoc />
-    /// <remarks>There is no schema. Answers with the version <see cref="Schema" /> is at, so a test
-    /// that migrates before using a store behaves the same on either implementation.</remarks>
+    /// <remarks>
+    ///     There is no schema. Answers with the version <see cref="Schema" /> is at, so a test
+    ///     that migrates before using a store behaves the same on either implementation.
+    /// </remarks>
     public Task<int> MigrateAsync(CancellationToken cancellation) => Task.FromResult(Schema.Version);
 
     /// <inheritdoc />
@@ -105,7 +111,7 @@ public sealed class MemoryPersistence : IPersistence, IAccountRepository, IPlaye
     public Task<AccountRecord?> ByHandleAsync(string handle, CancellationToken cancellation) {
         lock (gate) {
             return Task.FromResult(
-                handles.TryGetValue(handle ?? "", out var id) ? accounts.GetValueOrDefault(id) : null
+                handles.TryGetValue(handle ?? string.Empty, out var id) ? accounts.GetValueOrDefault(id) : null
             );
         }
     }
@@ -158,7 +164,7 @@ public sealed class MemoryPersistence : IPersistence, IAccountRepository, IPlaye
     public Task<IReadOnlyList<PlayerRecord>> ForAccountAsync(Guid account, CancellationToken cancellation) {
         lock (gate) {
             return Task.FromResult<IReadOnlyList<PlayerRecord>>(
-                [.. players.Values.Where(row => row.Key.Account == account).OrderBy(row => row.Created)]
+                [..players.Values.Where(row => row.Key.Account == account).OrderBy(static row => row.Created)]
             );
         }
     }
@@ -304,7 +310,7 @@ public sealed class MemoryPersistence : IPersistence, IAccountRepository, IPlaye
             return Task.FromResult<IReadOnlyDictionary<AssetId, long>>(
                 balances
                     .Where(slot => slot.Key.Account == account && slot.Value != 0)
-                    .ToDictionary(slot => slot.Key.Asset, slot => slot.Value)
+                    .ToDictionary(static slot => slot.Key.Asset, static slot => slot.Value)
             );
         }
     }
@@ -337,7 +343,7 @@ public sealed class MemoryPersistence : IPersistence, IAccountRepository, IPlaye
             }
 
             return Task.FromResult<IReadOnlyList<LedgerEntry>>(
-                [.. rows.OrderByDescending(row => row.Sequence).Take(Math.Max(0, query.Limit))]
+                [..rows.OrderByDescending(static row => row.Sequence).Take(Math.Max(0, query.Limit))]
             );
         }
     }
@@ -386,11 +392,13 @@ public sealed class MemoryPersistence : IPersistence, IAccountRepository, IPlaye
     /// <inheritdoc />
     Task<IReadOnlyList<GuildRow>> IGuildRepository.ForAccountAsync(Guid account, CancellationToken cancellation) {
         lock (gate) {
-            return Task.FromResult<IReadOnlyList<GuildRow>>([
-                .. guilds.Values
-                    .Where(guild => guild.Members.Any(member => member.Player.Account == account))
-                    .OrderBy(guild => guild.Founded)
-            ]);
+            return Task.FromResult<IReadOnlyList<GuildRow>>(
+                [
+                    ..guilds.Values
+                        .Where(guild => guild.Members.Any(member => member.Player.Account == account))
+                        .OrderBy(static guild => guild.Founded)
+                ]
+            );
         }
     }
 
@@ -434,5 +442,4 @@ public sealed class MemoryPersistence : IPersistence, IAccountRepository, IPlaye
             return Task.FromResult(true);
         }
     }
-
 }

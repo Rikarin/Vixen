@@ -150,10 +150,17 @@ public class VolumeTests {
 
     [Fact]
     public void A_ray_hits_a_sphere_a_plane_and_a_triangle() {
-        Assert.True(new Ray(new(0f, 0f, -5f), Vector3.UnitZ).Intersects(new BoundingSphere(Vector3.Zero, 1f), out var toSphere));
+        Assert.True(
+            new Ray(new(0f, 0f, -5f), Vector3.UnitZ).Intersects(new BoundingSphere(Vector3.Zero, 1f), out var toSphere)
+        );
         Assert.Equal(4f, toSphere, 3);
 
-        Assert.True(new Ray(new(0f, 5f, 0f), Vector3.Down).Intersects(Plane.FromPointNormal(Vector3.Zero, Vector3.Up), out var toPlane));
+        Assert.True(
+            new Ray(new(0f, 5f, 0f), Vector3.Down).Intersects(
+                Plane.FromPointNormal(Vector3.Zero, Vector3.Up),
+                out var toPlane
+            )
+        );
         Assert.Equal(5f, toPlane, 3);
 
         // A ray straight down through a triangle lying in the XZ plane.
@@ -196,10 +203,10 @@ public class VolumeTests {
         var frustum = new BoundingFrustum(ViewProjection);
 
         Assert.True(frustum.Contains(new Vector3(0f, 0f, -50f)));
-        Assert.False(frustum.Contains(new Vector3(0f, 0f, -0.5f)));   // in front of the near plane
-        Assert.False(frustum.Contains(new Vector3(0f, 0f, -200f)));   // past the far plane
-        Assert.False(frustum.Contains(new Vector3(0f, 0f, 10f)));     // behind the camera
-        Assert.False(frustum.Contains(new Vector3(100f, 0f, -50f)));  // off to the side
+        Assert.False(frustum.Contains(new Vector3(0f, 0f, -0.5f))); // in front of the near plane
+        Assert.False(frustum.Contains(new Vector3(0f, 0f, -200f))); // past the far plane
+        Assert.False(frustum.Contains(new Vector3(0f, 0f, 10f))); // behind the camera
+        Assert.False(frustum.Contains(new Vector3(100f, 0f, -50f))); // off to the side
     }
 
     [Fact]
@@ -210,7 +217,10 @@ public class VolumeTests {
         Assert.Equal(ContainmentType.Intersects, frustum.Contains(new BoundingSphere(new(0f, 0f, -1f), 5f)));
         Assert.Equal(ContainmentType.Disjoint, frustum.Contains(new BoundingSphere(new(0f, 0f, 50f), 1f)));
 
-        Assert.Equal(ContainmentType.Contains, frustum.Contains(new BoundingBox(new(-1f, -1f, -51f), new(1f, 1f, -49f))));
+        Assert.Equal(
+            ContainmentType.Contains,
+            frustum.Contains(new BoundingBox(new(-1f, -1f, -51f), new(1f, 1f, -49f)))
+        );
         Assert.Equal(ContainmentType.Disjoint, frustum.Contains(new BoundingBox(new(-1f, -1f, 49f), new(1f, 1f, 51f))));
     }
 
@@ -237,7 +247,7 @@ public class VolumeTests {
             Gen.Float[-150f, 150f],
             Gen.Float[-150f, 150f],
             Gen.Float[-150f, 150f],
-            (x, y, z) => new Vector3(x, y, z)
+            static (x, y, z) => new Vector3(x, y, z)
         );
 
         var frustum = new BoundingFrustum(ViewProjection);
@@ -255,9 +265,12 @@ public class VolumeTests {
                 }
 
                 var clip = new Vector4(point, 1f) * ViewProjection;
-                var visible = clip.X >= -clip.W && clip.X <= clip.W
-                    && clip.Y >= -clip.W && clip.Y <= clip.W
-                    && clip.Z >= 0f && clip.Z <= clip.W;
+                var visible = clip.X >= -clip.W
+                    && clip.X <= clip.W
+                    && clip.Y >= -clip.W
+                    && clip.Y <= clip.W
+                    && clip.Z >= 0f
+                    && clip.Z <= clip.W;
 
                 Assert.Equal(visible, frustum.Contains(point));
             }
@@ -274,7 +287,10 @@ public class VolumeTests {
             Gen.Float[-60f, 60f],
             Gen.Float[-120f, 20f],
             Gen.Float[0.1f, 20f],
-            (x, y, z, size) => new BoundingBox(new Vector3(x, y, z) - new Vector3(size), new Vector3(x, y, z) + new Vector3(size))
+            static (x, y, z, size) => new BoundingBox(
+                new Vector3(x, y, z) - new Vector3(size),
+                new Vector3(x, y, z) + new Vector3(size)
+            )
         );
 
         boxes.Sample(box => {
@@ -357,10 +373,10 @@ public class VolumeTests {
         var floor = Plane.FromPointNormal(Vector3.Zero, Vector3.Up);
 
         foreach (var scale in new[] { 1f, 1e2f, 1e3f, 1e4f, 1e5f }) {
-            var below = new BoundingBox(new(scale, (-2f * scale) - 1f, scale), new(2f * scale, -1f, 2f * scale));
+            var below = new BoundingBox(new(scale, -2f * scale - 1f, scale), new(2f * scale, -1f, 2f * scale));
             Assert.Equal(PlaneIntersectionType.Back, below.Intersects(floor));
 
-            var above = new BoundingBox(new(scale, 1f, scale), new(2f * scale, (2f * scale) + 1f, 2f * scale));
+            var above = new BoundingBox(new(scale, 1f, scale), new(2f * scale, 2f * scale + 1f, 2f * scale));
             Assert.Equal(PlaneIntersectionType.Front, above.Intersects(floor));
 
             // And the sphere, whose margin is built from the same scale.

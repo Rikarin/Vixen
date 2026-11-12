@@ -5,7 +5,6 @@ using Vixen.Ai;
 using Vixen.Ai.Diagnostics;
 using Vixen.Ai.Ecs;
 using Vixen.Core;
-using Vixen.Core.Mathematics;
 using Vixen.Ecs;
 using Xunit;
 
@@ -24,7 +23,7 @@ public class BehaviorTreeServiceTests {
             BehaviorTree.Selector("root", BehaviorTree.Task("busy", "running"))
                 .With(new UpdateBlackboardService(sensor, Layout.Key("hunger")), 0.5f),
             Layout,
-            actions => TreeHarness.Probes(actions)
+            static actions => TreeHarness.Probes(actions)
         );
 
         // Due at once on entry, so a branch just chosen acts on fresh data rather than on whatever
@@ -54,7 +53,7 @@ public class BehaviorTreeServiceTests {
                 BehaviorTree.Task("idle", "running")
             ),
             gate,
-            actions => TreeHarness.Probes(actions)
+            static actions => TreeHarness.Probes(actions)
         );
 
         harness.Board.SetBool(gate.Key("gate"), true);
@@ -107,7 +106,13 @@ public class BehaviorTreeServiceTests {
                     entity,
                     board,
                     null,
-                    new(TimeSpan.FromSeconds(frame * 0.05), TimeSpan.FromSeconds(0.05), TimeSpan.FromSeconds(0.05), frame, 1f),
+                    new(
+                        TimeSpan.FromSeconds(frame * 0.05),
+                        TimeSpan.FromSeconds(0.05),
+                        TimeSpan.FromSeconds(0.05),
+                        frame,
+                        1f
+                    ),
                     AgentRandom.SeedOf(entity),
                     actions
                 );
@@ -118,7 +123,7 @@ public class BehaviorTreeServiceTests {
         }
 
         // The first pass is on entry for everybody; what matters is that the second one is not.
-        var spread = sensor.Frames.Where(frame => frame > 0).Distinct().Count();
+        var spread = sensor.Frames.Where(static frame => frame > 0).Distinct().Count();
 
         Assert.True(spread > 1, $"every agent ticked its service on the same frame ({spread} distinct).");
     }
@@ -158,7 +163,7 @@ public class BehaviorTreeTaskTests {
         using var harness = TreeHarness.For(
             BehaviorTree.Sequence("root", BehaviorTree.Task("pause", "wait")),
             Layout,
-            actions => {
+            static actions => {
                 TreeHarness.Probes(actions);
                 actions.Register("wait", new WaitTask(0.3f), WaitTask.StateSize);
             }
@@ -176,7 +181,7 @@ public class BehaviorTreeTaskTests {
         using var harness = TreeHarness.For(
             BehaviorTree.Sequence("root", BehaviorTree.Task("pause", "wait-key")),
             Layout,
-            actions => {
+            static actions => {
                 TreeHarness.Probes(actions);
                 actions.Register(
                     "wait-key",
@@ -197,9 +202,13 @@ public class BehaviorTreeTaskTests {
     [Fact]
     public void FinishWithEndsTheBranchAtOnce() {
         using var harness = TreeHarness.For(
-            BehaviorTree.Selector("root", BehaviorTree.Task("stop", "finish-fail"), BehaviorTree.Task("after", "succeed")),
+            BehaviorTree.Selector(
+                "root",
+                BehaviorTree.Task("stop", "finish-fail"),
+                BehaviorTree.Task("after", "succeed")
+            ),
             Layout,
-            actions => {
+            static actions => {
                 TreeHarness.Probes(actions);
                 actions.Register("finish-fail", new FinishWithTask(ActionStatus.Failed));
             }
@@ -222,7 +231,7 @@ public class BehaviorTreeTaskTests {
                 BehaviorTree.Task("clear", "clear")
             ),
             Layout,
-            actions => {
+            static actions => {
                 TreeHarness.Probes(actions);
                 actions.Register("set-count", SetBlackboardValueTask.Number(Layout.Key("count"), 7f));
                 actions.Register("set-where", SetBlackboardValueTask.At(Layout.Key("where"), new(1f, 2f, 3f)));
@@ -234,7 +243,7 @@ public class BehaviorTreeTaskTests {
         harness.Step();
 
         Assert.False(harness.Board.IsSet(Layout.Key("count")));
-        Assert.Equal(new Vector3(1f, 2f, 3f), harness.Board.GetVector3(Layout.Key("where")));
+        Assert.Equal(new(1f, 2f, 3f), harness.Board.GetVector3(Layout.Key("where")));
         Assert.Equal(Symbol.Intern("hunt"), harness.Board.GetSymbol(Layout.Key("state")));
     }
 
@@ -243,7 +252,7 @@ public class BehaviorTreeTaskTests {
         using var harness = TreeHarness.For(
             BehaviorTree.Sequence("root", BehaviorTree.Task("copy", "copy")),
             Layout,
-            actions => {
+            static actions => {
                 TreeHarness.Probes(actions);
                 actions.Register("copy", SetBlackboardValueTask.Copy(Layout.Key("count"), Layout.Key("count")));
             }
@@ -258,7 +267,7 @@ public class BehaviorTreeTaskTests {
         using var harness = TreeHarness.For(
             BehaviorTree.Sequence("root", BehaviorTree.Task("say", "log")),
             Layout,
-            actions => {
+            static actions => {
                 TreeHarness.Probes(actions);
                 actions.Register("log", new LogTask(Symbol.Intern("giving-up")));
             }
@@ -270,7 +279,7 @@ public class BehaviorTreeTaskTests {
         var records = new AgentDebugRecord[32];
         var written = harness.Debug.CopyTo(records);
 
-        Assert.Contains(records[..written], record => record.Action == Symbol.Intern("giving-up"));
+        Assert.Contains(records[..written], static record => record.Action == Symbol.Intern("giving-up"));
     }
 
     /// <summary>
@@ -350,7 +359,9 @@ public class AiSystemTreeTests {
     public void ATreeAgentAndAnActionAgentShareOneSystem() {
         var (world, system) = Build();
         var thinker = world.Create(AiAgent.Thinking(0));
-        var doer = world.Create(AiAgent.Running(system.Actions.TryGetIndex(Symbol.Intern("running"), out var index) ? index : (ushort)0));
+        var doer = world.Create(
+            AiAgent.Running(system.Actions.TryGetIndex(Symbol.Intern("running"), out var index) ? index : (ushort)0)
+        );
 
         system.Step(world, Frame(0));
 
@@ -399,7 +410,7 @@ public class AiSystemTreeTests {
 
         Assert.Contains(
             records[..written],
-            record => record.Planner == AiPlanner.BehaviorTree && record.Reason == Symbol.Intern("guard")
+            static record => record.Planner == AiPlanner.BehaviorTree && record.Reason == Symbol.Intern("guard")
         );
 
         world.Dispose();
@@ -428,11 +439,12 @@ public class AiSystemTreeTests {
         return (new World("system-tree"), system);
     }
 
-    static GameTime Frame(int index) => new(
-        TimeSpan.FromSeconds(index / 60.0),
-        TimeSpan.FromSeconds(1 / 60.0),
-        TimeSpan.FromSeconds(1 / 60.0),
-        index,
-        1f
-    );
+    static GameTime Frame(int index) =>
+        new(
+            TimeSpan.FromSeconds(index / 60.0),
+            TimeSpan.FromSeconds(1 / 60.0),
+            TimeSpan.FromSeconds(1 / 60.0),
+            index,
+            1f
+        );
 }

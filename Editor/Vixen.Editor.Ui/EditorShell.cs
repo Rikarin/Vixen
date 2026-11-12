@@ -8,7 +8,6 @@ using Vixen.Ui;
 using Vixen.Ui.Composition;
 using Vixen.Ui.Controls;
 using Vixen.Ui.Controls.Advanced;
-using Vixen.Ui.Reactive;
 
 namespace Vixen.Editor.Ui;
 
@@ -78,8 +77,12 @@ public sealed class EditorShell : IDisposable {
     /// <param name="logger">
     ///     Where a stylesheet the cascade could not read is reported.
     ///     <para>
-    ///         ⚠ <b>What makes <c>UiDocument</c>'s diagnostic drain reach a person in the one
-    ///         application that edits <c>.vcss</c> files.</b> The drain logs; a document handed no
+    ///         ⚠
+    ///         <b>
+    ///             What makes <c>UiDocument</c>'s diagnostic drain reach a person in the one
+    ///             application that edits <c>.vcss</c> files.
+    ///         </b>
+    ///         The drain logs; a document handed no
     ///         logger logs into <c>NullLogger</c>, which is the pre-existing silence with an extra
     ///         step. <c>Vixen.Editor.App</c> passes a logger over its own <c>RingBufferSink</c>, which
     ///         is the ring the Console panel reads — so a mistyped at-rule in <c>EditorTheme.vcss</c>
@@ -87,7 +90,7 @@ public sealed class EditorShell : IDisposable {
     ///     </para>
     /// </param>
     public EditorShell(float width, float height, ThemeMode mode = ThemeMode.Dark, ILogger? logger = null) {
-        Document = new UiDocument(width, height, logger: logger);
+        Document = new(width, height, logger: logger);
 
         // ⚠ In this order, and all three. Each is written against the tokens the one before it
         // declares, and a custom property nothing declared substitutes to nothing.
@@ -95,17 +98,17 @@ public sealed class EditorShell : IDisposable {
         AdvancedTheme.Install(Document);
         EditorTheme.Install(Document);
 
-        Theme = new ThemeService(Document, mode);
+        Theme = new(Document, mode);
 
         chrome = Document.Root.Add<UiElement>("editor-shell");
 
-        Commands = new CommandRegistry();
+        Commands = new();
 
         // ⚠ The preset lookup is pointed at the editor's three here and nowhere else. `KeyMap` came
         // down into `Vixen.Ui.Controls` with the layering and without the names (#650), so a keymap
         // built without this line resolves `preset: "Unreal"` to nothing — which is exactly what a
         // game that ships its own presets wants, and exactly what the editor must not be.
-        Keys = new KeyMap { PresetSource = KeyMapPresets.Find };
+        Keys = new() { PresetSource = KeyMapPresets.Find };
 
         // ⚠ Before the menu bar is built, because a menu item's shortcut text is written when the
         // item is made. Doing it later would leave the bar reading "Ctrl+S" on a machine whose every
@@ -116,7 +119,7 @@ public sealed class EditorShell : IDisposable {
         KeyChord.UsePlatformFormat(Document);
 
         Menus = DefaultMenus();
-        MenuBar = new MenuPresenter(chrome, Menus, Commands, Keys);
+        MenuBar = new(chrome, Menus, Commands, Keys);
 
         // ⚠ Between the menu bar and the toolbar, which is doc 20's frame: menu bar → mode bar →
         // toolbar → workspace → status bar. Its own host element rather than the chrome directly,
@@ -129,15 +132,15 @@ public sealed class EditorShell : IDisposable {
         modeBar = chrome.Add<UiElement>("mode-bar");
         modeBar.SetStyle("display", "none");
 
-        ModeBar = new ToolbarPresenter(modeBar, Commands, Keys);
+        ModeBar = new(modeBar, Commands, Keys);
 
-        Toolbar = new ToolbarPresenter(chrome, Commands, Keys);
-        Workspace = new DockingWorkspace(chrome.Add<UiElement>("editor-workspace"));
+        Toolbar = new(chrome, Commands, Keys);
+        Workspace = new(chrome.Add<UiElement>("editor-workspace"));
 
         // ⚠ After the workspace, because entering a mode may open the mode's panel. Nothing here
         // touches either until an application registers a mode, so the order is a statement rather
         // than a requirement — and a statement is what stops the next person moving it.
-        Modes = new EditorModes(this);
+        Modes = new(this);
         Modes.Changed += _ => RefreshModeBar();
 
         // ⚠ **The control, not a bare element with a class on it, and what changes is not the
@@ -176,8 +179,8 @@ public sealed class EditorShell : IDisposable {
         statusTasks.Label = EditorStrings.TasksTitle.Text;
 
         Toasts = Document.Root.Add<ToastHost>();
-        Notifications = new NotificationCenter(Toasts);
-        Tasks = new BackgroundTaskManager();
+        Notifications = new(Toasts);
+        Tasks = new();
 
         taskPopover = Document.Root.Add<Popover>();
 
@@ -207,7 +210,7 @@ public sealed class EditorShell : IDisposable {
         Search.RequiresQuery = true;
         Search.Limit = 20;
 
-        Dialogs = new DialogService(Document);
+        Dialogs = new(Document);
 
         // ⚠ Wired both ways, once, here. The registry answers "what context is this command in" so
         // the keymap can file a binding under it; the shell answers "what context has the focus" so
@@ -259,7 +262,7 @@ public sealed class EditorShell : IDisposable {
         // than on all of them.
         Document.CommandsInvalidated += RefreshStrips;
 
-        Dispatcher = new CommandDispatcher(Commands, Keys);
+        Dispatcher = new(Commands, Keys);
         Dispatcher.Attach(Document);
         // ⚠ The command's own reason where it has one. "Not available right now" is the honest answer
         // for a verb whose enablement is false this second; it is the wrong answer for one that has
@@ -284,8 +287,12 @@ public sealed class EditorShell : IDisposable {
 
     /// <summary>Raised when the keybinding panel is built, so a host can wire what it cannot.</summary>
     /// <remarks>
-    ///     ⚠ <b>Import and export need a file picker, which this assembly deliberately has no way to
-    ///     reach.</b> The panel says what the user asked for and something with an
+    ///     ⚠
+    ///     <b>
+    ///         Import and export need a file picker, which this assembly deliberately has no way to
+    ///         reach.
+    ///     </b>
+    ///     The panel says what the user asked for and something with an
     ///     <c>INativeDialogs</c> answers — and a host with none disables the two buttons rather than
     ///     leaving a pair that do nothing. Raised every time the panel is built, because a panel's
     ///     factory runs again when it is reopened and the view is a new one each time.
@@ -338,9 +345,7 @@ public sealed class EditorShell : IDisposable {
                     Messages = panel.Add<MessageLogView>();
                     Messages.Show(Notifications);
                 }
-            ) {
-                Closed = () => Messages = null
-            }
+            ) { Closed = () => Messages = null }
         );
     }
 
@@ -356,8 +361,12 @@ public sealed class EditorShell : IDisposable {
     /// </exception>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>An ordering problem rather than a markup one, and this is the second step it
-    ///         needs.</b> The task centre is the shell's one <c>.vxml</c> panel and it was the one
+    ///         ⚠
+    ///         <b>
+    ///             An ordering problem rather than a markup one, and this is the second step it
+    ///             needs.
+    ///         </b>
+    ///         The task centre is the shell's one <c>.vxml</c> panel and it was the one
     ///         panel a <c>dotnet watch</c> could not reach: only a component mounted through a
     ///         reload host is rebuilt when the runtime replaces its <c>Build</c>, and the host is
     ///         built over a document that this class's constructor is what creates. So the shell
@@ -371,8 +380,12 @@ public sealed class EditorShell : IDisposable {
     ///         every application that hosts a shell, to say something a <c>Func</c> already says.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And the type travels as a <see cref="Type" /> because it cannot travel any other
-    ///         way.</b> A component compiled from a <c>.vxml</c> is <c>internal</c> to the assembly
+    ///         ⚠
+    ///         <b>
+    ///             And the type travels as a <see cref="Type" /> because it cannot travel any other
+    ///             way.
+    ///         </b>
+    ///         A component compiled from a <c>.vxml</c> is <c>internal</c> to the assembly
     ///         the markup is in, so <c>Vixen.Editor.App</c> cannot write the name <c>TaskCenter</c>
     ///         at all — the caller supplies the tracking and this supplies the type, which is the
     ///         only division of labour the accessibility allows.
@@ -424,8 +437,12 @@ public sealed class EditorShell : IDisposable {
 
     /// <summary>The Window menu, which is where a panel or a layout adds itself.</summary>
     /// <remarks>
-    ///     ⚠ <b>Titled Window and reached as <see cref="View" /> too, and the ids under it are still
-    ///     <c>view.*</c>.</b> Doc 20's Part C calls this menu Window, which is what both reference
+    ///     ⚠
+    ///     <b>
+    ///         Titled Window and reached as <see cref="View" /> too, and the ids under it are still
+    ///         <c>view.*</c>.
+    ///     </b>
+    ///     Doc 20's Part C calls this menu Window, which is what both reference
     ///     editors call it and what somebody looking for "where did my panel go" reads. The property
     ///     and the command ids are not renamed with it: <see cref="View" /> is what every plugin
     ///     written against this shell already names, and a command id is what a saved keymap holds —
@@ -460,8 +477,12 @@ public sealed class EditorShell : IDisposable {
 
     /// <summary>The strip along the bottom.</summary>
     /// <remarks>
-    ///     ⚠ <b>Its cells are in <see cref="Vixen.Ui.Controls.StatusBar.Trailing" />, not directly
-    ///     under it.</b> The message is a part of its own, so a walk of <c>Children</c> here finds
+    ///     ⚠
+    ///     <b>
+    ///         Its cells are in <see cref="Vixen.Ui.Controls.StatusBar.Trailing" />, not directly
+    ///         under it.
+    ///     </b>
+    ///     The message is a part of its own, so a walk of <c>Children</c> here finds
     ///     two elements rather than five.
     /// </remarks>
     public StatusBar StatusBar { get; }
@@ -469,8 +490,12 @@ public sealed class EditorShell : IDisposable {
     /// <summary>A diagnostics panel this shell refreshes once a frame, or <c>null</c> for none.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The one thing an application cannot get right on its own, which is why the shell
-    ///         holds it and not the panel.</b> <see cref="DiagnosticsPanel.Refresh" /> has to run at
+    ///         ⚠
+    ///         <b>
+    ///             The one thing an application cannot get right on its own, which is why the shell
+    ///             holds it and not the panel.
+    ///         </b>
+    ///         <see cref="DiagnosticsPanel.Refresh" /> has to run at
     ///         the top of a frame — before the layout pass it is reporting on — and the top of the
     ///         editor's frame is inside <see cref="Tick" />, which the host calls and a panel cannot
     ///         see. A panel that refreshed itself from its own factory would report the numbers of
@@ -520,11 +545,14 @@ public sealed class EditorShell : IDisposable {
     /// <param name="fill">Anything else the dialog needs, above the Cancel button.</param>
     /// <returns>What was chosen, or <see langword="null" />.</returns>
     /// <remarks>
-    ///     ⚠ <b>Drawn rather than native, because every one of these is a question about the
-    ///     <i>project</i> rather than about the user's disk</b> — a destination folder carries a GUID
+    ///     ⚠
+    ///     <b>
+    ///         Drawn rather than native, because every one of these is a question about the
+    ///         <i>project</i> rather than about the user's disk
+    ///     </b>
+    ///     — a destination folder carries a GUID
     ///     and a project-relative path, and a native picker would happily answer with a directory
     ///     outside the project, which is the one answer the operation cannot take.
-    ///
     ///     ⚠ <b>The shell's rather than the application's (#1290).</b> It was a private method on
     ///     <c>EditorApplication</c>, so a verb that had to ask "which axis?" or "which set?" could only
     ///     be registered by the application; on the shell, a module reaches it through
@@ -569,7 +597,7 @@ public sealed class EditorShell : IDisposable {
                 }
 
                 fill?.Invoke(session);
-                session.AddButton(EditorStrings.DialogCancel.Text, () => null);
+                session.AddButton(EditorStrings.DialogCancel.Text, static () => null);
             }
         );
 
@@ -596,8 +624,12 @@ public sealed class EditorShell : IDisposable {
 
     /// <summary>Decides again how a shortcut is written, now that there is a font to judge with.</summary>
     /// <remarks>
-    ///     ⚠ <b>Called by the host after it installs a face, and the ordering is the whole reason
-    ///     this exists.</b> The shell is built before anything has a font — it is a
+    ///     ⚠
+    ///     <b>
+    ///         Called by the host after it installs a face, and the ordering is the whole reason
+    ///         this exists.
+    ///     </b>
+    ///     The shell is built before anything has a font — it is a
     ///     <c>UiDocument</c> and nothing else, which is what makes it testable headless — so the
     ///     first decision is made against no face at all and is necessarily the conservative one.
     ///     A machine whose borrowed font does have ⌘ should get ⌘, and that can only be known later.
@@ -675,15 +707,26 @@ public sealed class EditorShell : IDisposable {
     ///         pointer handler.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>This is not <c>UiElement.CommandScope</c>, and #642 asks five times over for it
-    ///         to be deleted in favour of one. It carries a fact the focus does not have.</b>
+    ///         ⚠
+    ///         <b>
+    ///             This is not <c>UiElement.CommandScope</c>, and #642 asks five times over for it
+    ///             to be deleted in favour of one. It carries a fact the focus does not have.
+    ///         </b>
     ///         <c>CommandRoute.ScopeOf</c> answers "which scope is the focused element in"; most
-    ///         writers here agree with that — every <c>panel.WhenPressedIn(() =&gt; Shell.Context =
-    ///         …)</c> in <c>EditorApplication</c>, <c>EditorWorlds</c>, <c>DiagnosticsModule</c> and
+    ///         writers here agree with that — every
+    ///         <c>
+    ///             panel.WhenPressedIn(() =&gt; Shell.Context =
+    ///             …)
+    ///         </c>
+    ///         in <c>EditorApplication</c>, <c>EditorWorlds</c>, <c>DiagnosticsModule</c> and
     ///         <c>BlockoutModulePanels</c> is a press inside a panel. Two writers do not.
     ///         <c>ScenePanes.cs:202</c> reads <c>shell.Modes.Context ?? context</c> (the scene context), and
-    ///         <c>RegisterModes</c> claims the context on entering a mode <i>without waiting for a
-    ///         press</i> — its own comment says why: somebody who has just pressed the Blockout
+    ///         <c>RegisterModes</c> claims the context on entering a mode
+    ///         <i>
+    ///             without waiting for a
+    ///             press
+    ///         </i>
+    ///         — its own comment says why: somebody who has just pressed the Blockout
     ///         button has aimed at the viewport and should not have to click it as well. The focus at
     ///         that instant is on the toolbar button, so a scope derived from it would report the
     ///         toolbar and the mode's own bindings would silently stop resolving.
@@ -744,8 +787,7 @@ public sealed class EditorShell : IDisposable {
 
         Commands.Add(
             new EditorCommand(PanelCommand(id), descriptor.Title, () => Workspace.Toggle(id)) {
-                Category = EditorStrings.CategoryPanel,
-                Checked = () => Workspace.IsOpen(id)
+                Category = EditorStrings.CategoryPanel, Checked = () => Workspace.IsOpen(id)
             }
         );
 
@@ -758,7 +800,7 @@ public sealed class EditorShell : IDisposable {
     /// <param name="build">Fills it.</param>
     /// <returns>The descriptor.</returns>
     public PanelDescriptor RegisterPanel(string id, StringId title, Action<DockPanel> build) =>
-        RegisterPanel(new PanelDescriptor(id, title, build));
+        RegisterPanel(new(id, title, build));
 
     /// <summary>Takes a panel and its command back out.</summary>
     /// <param name="id">Its id.</param>
@@ -819,14 +861,18 @@ public sealed class EditorShell : IDisposable {
     /// <param name="now">The time since the application started.</param>
     /// <param name="delta">How long the last frame took.</param>
     /// <remarks>
-    ///     ⚠ <b>The host drives the clock, and everything timed in the interface is built that
-    ///     way.</b> Nothing in <c>Vixen.Ui</c> knows what time it is except through an input event,
+    ///     ⚠
+    ///     <b>
+    ///         The host drives the clock, and everything timed in the interface is built that
+    ///         way.
+    ///     </b>
+    ///     Nothing in <c>Vixen.Ui</c> knows what time it is except through an input event,
     ///     so a toast that expires, a gesture that is a long press and a spinner that spins all need
     ///     telling. The background tasks are pumped here for a different reason: this is the point
     ///     in the frame at which the numbers may change without a layout pass seeing half of them.
     /// </remarks>
     public void Tick(TimeSpan now, TimeSpan delta) {
-        phase = (phase + (float) delta.TotalSeconds) % 1f;
+        phase = (phase + (float)delta.TotalSeconds) % 1f;
 
         // ⚠ **First, because everything below this line moves the numbers it reads.** The whole of
         // this method runs before the host's `Document.Update`, so any point in it is "the top of
@@ -954,8 +1000,12 @@ public sealed class EditorShell : IDisposable {
 
     /// <summary>Asks the two strips this shell owns for their state, when something says it moved.</summary>
     /// <remarks>
-    ///     ⚠ <b>These buttons, not the document, and the distinction is what stops this being the
-    ///     poll spelled differently.</b> The subscription is to the invalidation rather than to the
+    ///     ⚠
+    ///     <b>
+    ///         These buttons, not the document, and the distinction is what stops this being the
+    ///         poll spelled differently.
+    ///     </b>
+    ///     The subscription is to the invalidation rather than to the
     ///     frame, so on a quiet frame nothing is asked at all; when something does invalidate, the
     ///     bound `MenuItem`s wake themselves and this covers the two things a binding cannot — a
     ///     segmented group, whose appearance is one value across several ids.
@@ -987,7 +1037,14 @@ public sealed class EditorShell : IDisposable {
             // ⚠ Save, Revert and Close are the route's ids (#1494): the line answers for the document
             // the focus is in, and the registry's command of the same id is only the fallback.
             .Add("file.new-scene", "file.open-scene")
-            .Add(DocumentCommands.Save, "file.save", "file.save-as", "file.save-all", DocumentCommands.Revert, DocumentCommands.Close)
+            .Add(
+                DocumentCommands.Save,
+                "file.save",
+                "file.save-as",
+                "file.save-all",
+                DocumentCommands.Revert,
+                DocumentCommands.Close
+            )
             .AddSeparator()
             .Add("assets.import-files", "file.export-package")
             .AddSeparator()
@@ -1049,8 +1106,7 @@ public sealed class EditorShell : IDisposable {
 
         Commands.Add(
             new EditorCommand("mode.next", EditorStrings.NextMode, () => Modes.Next()) {
-                Category = EditorStrings.CategoryMode,
-                Enablement = () => Modes.Modes.Count > 1
+                Category = EditorStrings.CategoryMode, Enablement = () => Modes.Modes.Count > 1
             }
         );
 
@@ -1060,7 +1116,11 @@ public sealed class EditorShell : IDisposable {
         // sources gets an empty search rather than a dangling menu line, which is the same bargain
         // the palette makes.
         Commands.Add(
-            new EditorCommand("edit.search-everywhere", EditorStrings.CommandSearchEverywhere, () => Search.OpenPalette()) {
+            new EditorCommand(
+                "edit.search-everywhere",
+                EditorStrings.CommandSearchEverywhere,
+                () => Search.OpenPalette()
+            ) {
                 Category = EditorStrings.CategoryEdit,
                 Enablement = () => Search.Sources.Count > 0,
                 IsHiddenFromPalette = true
@@ -1069,13 +1129,12 @@ public sealed class EditorShell : IDisposable {
 
         Keys.SetDefault(
             "edit.search-everywhere",
-            new KeyChord(InputKey.F, ModifierKeys.Control | ModifierKeys.Shift)
+            new(InputKey.F, ModifierKeys.Control | ModifierKeys.Shift)
         );
 
         Commands.Add(
-            new EditorCommand("view.reset-layout", EditorStrings.CommandResetLayout, ResetLayout) {
-                Category = EditorStrings.CategoryView,
-                Enablement = () => Workspace.Presets.Count > 0
+            new("view.reset-layout", EditorStrings.CommandResetLayout, ResetLayout) {
+                Category = EditorStrings.CategoryView, Enablement = () => Workspace.Presets.Count > 0
             }
         );
 
@@ -1085,15 +1144,13 @@ public sealed class EditorShell : IDisposable {
         // the platform layer carries a `#if`.
         Commands.Add(
             new EditorCommand("view.float-panel", EditorStrings.CommandFloatPanel, () => Workspace.FloatActive()) {
-                Category = EditorStrings.CategoryView,
-                Enablement = () => Workspace.CanFloatActive
+                Category = EditorStrings.CategoryView, Enablement = () => Workspace.CanFloatActive
             }
         );
 
         Commands.Add(
-            new EditorCommand("view.toggle-theme", EditorStrings.CommandToggleTheme, Theme.Toggle) {
-                Category = EditorStrings.CategoryView,
-                Checked = () => Theme.Mode == ThemeMode.Dark
+            new("view.toggle-theme", EditorStrings.CommandToggleTheme, Theme.Toggle) {
+                Category = EditorStrings.CategoryView, Checked = () => Theme.Mode == ThemeMode.Dark
             }
         );
 
@@ -1101,8 +1158,7 @@ public sealed class EditorShell : IDisposable {
         // than the application's: what a tab *is* belongs to the docking workspace, which is here.
         Commands.Add(
             new EditorCommand("view.close-panel", EditorStrings.CommandClosePanel, () => Workspace.CloseActive()) {
-                Category = EditorStrings.CategoryView,
-                Enablement = () => Workspace.Host.Active is not null
+                Category = EditorStrings.CategoryView, Enablement = () => Workspace.Host.Active is not null
             }
         );
 
@@ -1121,17 +1177,17 @@ public sealed class EditorShell : IDisposable {
         // ⚠ `Ctrl+K`, not the `Ctrl+P` doc 11 named. `Ctrl+P` is Play in Unity and Print almost
         // everywhere else, and a palette on it is a palette that fights the muscle memory of anyone
         // who has used either. `Ctrl+K` is what every editor with a palette settled on.
-        Keys.SetDefault("view.palette", new KeyChord(InputKey.K, ModifierKeys.Control));
+        Keys.SetDefault("view.palette", new(InputKey.K, ModifierKeys.Control));
 
         // ⚠ Bare Tab, and it beats the interface's own focus traversal rather than fighting it.
         // `Keyboard.Dispatch` moves the focus only when the route left the event unhandled and the
         // command dispatcher is on that route. Blockout had this chord for its element-kind toggle;
         // a mode you can enter with Tab and not leave with it is the reason it does not any more.
-        Keys.SetDefault("mode.next", new KeyChord(InputKey.Tab, ModifierKeys.None));
-        Keys.SetDefault("view.toggle-theme", new KeyChord(InputKey.D, ModifierKeys.Control | ModifierKeys.Alt));
-        Keys.SetDefault("view.close-panel", new KeyChord(InputKey.W, ModifierKeys.Control));
-        Keys.SetDefault("view.next-tab", new KeyChord(InputKey.Tab, ModifierKeys.Control));
-        Keys.SetDefault("view.previous-tab", new KeyChord(InputKey.Tab, ModifierKeys.Control | ModifierKeys.Shift));
+        Keys.SetDefault("mode.next", new(InputKey.Tab, ModifierKeys.None));
+        Keys.SetDefault("view.toggle-theme", new(InputKey.D, ModifierKeys.Control | ModifierKeys.Alt));
+        Keys.SetDefault("view.close-panel", new(InputKey.W, ModifierKeys.Control));
+        Keys.SetDefault("view.next-tab", new(InputKey.Tab, ModifierKeys.Control));
+        Keys.SetDefault("view.previous-tab", new(InputKey.Tab, ModifierKeys.Control | ModifierKeys.Shift));
 
         // ⚠ Dynamic, because the panel list and the preset list both grow after the shell is built
         // — a plugin registers a panel, an application registers a layout — and a menu described
@@ -1142,7 +1198,7 @@ public sealed class EditorShell : IDisposable {
             .Add("view.save-layout", "view.reset-layout");
 
         Window.AddSubmenu(EditorStrings.MenuPanels)
-            .AddDynamic(() => Workspace.Panels.Select(panel => PanelCommand(panel.Id)));
+            .AddDynamic(() => Workspace.Panels.Select(static panel => PanelCommand(panel.Id)));
 
         Window.AddSeparator()
             .Add("view.float-panel", "view.close-panel", "view.next-tab", "view.previous-tab")
@@ -1155,7 +1211,7 @@ public sealed class EditorShell : IDisposable {
         var entries = Modes.Bar();
 
         modeBar.SetStyle("display", entries.Count == 0 ? "none" : "flex");
-        ModeBar.Show([.. entries]);
+        ModeBar.Show([..entries]);
     }
 
     void ResetLayout() {
@@ -1170,7 +1226,10 @@ public sealed class EditorShell : IDisposable {
                 break;
 
             case BackgroundTaskState.Cancelled:
-                Notifications.Show(task.Title + " — " + EditorStrings.TasksCancelled.Text, NotificationSeverity.Warning);
+                Notifications.Show(
+                    task.Title + " — " + EditorStrings.TasksCancelled.Text,
+                    NotificationSeverity.Warning
+                );
                 break;
 
             default:

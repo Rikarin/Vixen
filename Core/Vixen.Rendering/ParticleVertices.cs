@@ -10,8 +10,11 @@ namespace Vixen.Rendering;
 /// <summary>The vertex format <see cref="Features.ParticleRenderFeature" /> expands particles into.</summary>
 /// <remarks>
 ///     <para>
-///         <b><see cref="ParticleVertex" />'s schema, and it lives here rather than beside the struct
-///         because the struct's project has no graphics in it.</b> <c>Vixen.Vfx</c> references only the
+///         <b>
+///             <see cref="ParticleVertex" />'s schema, and it lives here rather than beside the struct
+///             because the struct's project has no graphics in it.
+///         </b>
+///         <c>Vixen.Vfx</c> references only the
 ///         core assemblies — no <see cref="VertexSchema" />, no <see cref="VertexFormat" /> — which is
 ///         deliberate and is what lets the expansion be tested without a device. So the description of
 ///         how those bytes reach a pipeline belongs on this side of that line, exactly as
@@ -49,8 +52,11 @@ public static class ParticleVertices {
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b><see cref="ParticleInstance" />'s schema, here rather than beside the struct for
-///         <see cref="ParticleVertices" />' reason</b> — <c>Vixen.Vfx</c> has no graphics in it.
+///         <b>
+///             <see cref="ParticleInstance" />'s schema, here rather than beside the struct for
+///             <see cref="ParticleVertices" />' reason
+///         </b>
+///         — <c>Vixen.Vfx</c> has no graphics in it.
 ///     </para>
 ///     <para>
 ///         <b>The half of the layout that is not the mesh's.</b> A mesh particle draws the mesh's own
@@ -103,8 +109,6 @@ public static class MeshParticleVertices {
     /// <summary>The mesh's own format, with the particle instance stream beside it.</summary>
     public static VertexSchema Schema { get; } = new(
         SurfaceVertex.SizeInBytes,
-        [.. SurfaceVertex.Schema.Attributes]
-    ) {
-        Instances = ParticleInstances.Schema
-    };
+        [..SurfaceVertex.Schema.Attributes]
+    ) { Instances = ParticleInstances.Schema };
 }

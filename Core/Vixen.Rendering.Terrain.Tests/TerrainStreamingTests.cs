@@ -52,8 +52,12 @@ public sealed class TerrainStreamingTests : IDisposable {
 
     static TerrainDescription Shape(int tiles) =>
         TerrainDescription.Default with {
-            TileSamples = 32, TilesX = tiles, TilesZ = tiles,
-            MetresPerQuad = 1f, MinHeight = -100f, MaxHeight = 100f
+            TileSamples = 32,
+            TilesX = tiles,
+            TilesZ = tiles,
+            MetresPerQuad = 1f,
+            MinHeight = -100f,
+            MaxHeight = 100f
         };
 
     TerrainRenderer Build(TerrainMap terrain) =>
@@ -79,7 +83,7 @@ public sealed class TerrainStreamingTests : IDisposable {
     /// <summary>A tile nobody has asked for is not resident, and one nearby is.</summary>
     [Fact]
     public void ASourceMakesTheTilesAroundItResidentAndNotTheRest() {
-        var description = Shape(tiles: 8);
+        var description = Shape(8);
         var terrain = new TerrainMap(description);
         using var streamer = new TerrainStreamer(in description, new TerrainTileSource(terrain));
 
@@ -99,9 +103,10 @@ public sealed class TerrainStreamingTests : IDisposable {
     /// </remarks>
     [Fact]
     public void AnAbsentTilesLevelIsFlooredRatherThanTheNodeDropped() {
-        var description = Shape(tiles: 8);
+        var description = Shape(8);
         var terrain = new TerrainMap(description);
-        using var streamer = new TerrainStreamer(in description, new TerrainTileSource(terrain)) { CoarseLevel = 3 };
+        using var streamer = new TerrainStreamer(in description, new TerrainTileSource(terrain));
+        streamer.CoarseLevel = 3;
 
         Assert.Equal(3f, streamer.LevelOf(7, 7, 0f));
         Assert.Equal(4f, streamer.LevelOf(7, 7, 4f));
@@ -110,9 +115,10 @@ public sealed class TerrainStreamingTests : IDisposable {
     /// <summary>And a resident tile keeps whatever level the quadtree chose.</summary>
     [Fact]
     public void AResidentTilesLevelIsWhateverWasChosen() {
-        var description = Shape(tiles: 4);
+        var description = Shape(4);
         var terrain = new TerrainMap(description);
-        using var streamer = new TerrainStreamer(in description, new TerrainTileSource(terrain)) { CoarseLevel = 3 };
+        using var streamer = new TerrainStreamer(in description, new TerrainTileSource(terrain));
+        streamer.CoarseLevel = 3;
 
         Settle(streamer, () => streamer.IsResident(0, 0));
 
@@ -122,21 +128,26 @@ public sealed class TerrainStreamingTests : IDisposable {
 
     /// <summary>The first frame of a large terrain moves far fewer bytes with a streamer than without.</summary>
     /// <remarks>
-    ///     ⚠ <b>This is the number the whole feature exists for, and it is the one a "streaming works"
-    ///     test that only asserted residency would not have read.</b> A renderer can hold a fully
+    ///     ⚠
+    ///     <b>
+    ///         This is the number the whole feature exists for, and it is the one a "streaming works"
+    ///         test that only asserted residency would not have read.
+    ///     </b>
+    ///     A renderer can hold a fully
     ///     serviced streamer and still copy every tile in full — that was the state the first draft of
     ///     this was in — and every counter would say the pages loaded.
     /// </remarks>
     [Fact]
     public void TheFirstFrameCopiesTheCoarseTailRatherThanEveryTileInFull() {
-        var description = Shape(tiles: 8);
+        var description = Shape(8);
 
         var plain = new TerrainMap(description);
         using var without = Build(plain);
 
         var streamed = new TerrainMap(description);
         using var with = Build(streamed);
-        using var streamer = new TerrainStreamer(in description, new TerrainTileSource(streamed)) { CoarseLevel = 2 };
+        using var streamer = new TerrainStreamer(in description, new TerrainTileSource(streamed));
+        streamer.CoarseLevel = 2;
 
         with.Streaming = streamer;
 
@@ -160,12 +171,12 @@ public sealed class TerrainStreamingTests : IDisposable {
     /// </remarks>
     [Fact]
     public async Task AnArrivalReachesTheAtlasAndIsHandedOverOnce() {
-        var description = Shape(tiles: 4);
+        var description = Shape(4);
         var terrain = new TerrainMap(description);
         var source = new TerrainTileSource(terrain);
-        var pages = new TerrainTilePages(source, slots: 4);
+        var pages = new TerrainTilePages(source, 4);
 
-        var key = new PageKey(TerrainStreamer.PageSource, (1 * 4) + 1);
+        var key = new PageKey(TerrainStreamer.PageSource, 1 * 4 + 1);
 
         var bytes = new byte[pages.PageSize];
         var read = await pages.LoadAsync(key, bytes, TestContext.Current.CancellationToken);
@@ -176,19 +187,20 @@ public sealed class TerrainStreamingTests : IDisposable {
         var handed = 0;
 
         pages.Drain((x, z, chain) => {
-            handed++;
+                handed++;
 
-            Assert.Equal((1, 1), (x, z));
+                Assert.Equal((1, 1), (x, z));
 
-            // The chain, not the page — what the pool put in front of it is the pool's.
-            Assert.Equal(read - TerrainTilePages.HeaderSize, chain.Length);
-        });
+                // The chain, not the page — what the pool put in front of it is the pool's.
+                Assert.Equal(read - TerrainTilePages.HeaderSize, chain.Length);
+            }
+        );
 
         Assert.Equal(1, handed);
 
         // Drained means handed over, not re-handed. A pool that kept its pending list would copy every
         // resident tile every frame, which is the upload the streamer was added to avoid.
-        pages.Drain((_, _, _) => Assert.Fail("the same arrival was handed over twice."));
+        pages.Drain(static (_, _, _) => Assert.Fail("the same arrival was handed over twice."));
     }
 
     /// <summary>An evicted slot's pending hand-over goes with it.</summary>
@@ -199,13 +211,17 @@ public sealed class TerrainStreamingTests : IDisposable {
     /// </remarks>
     [Fact]
     public async Task EvictingASlotDropsWhatWasWaitingToBeCopiedFromIt() {
-        var description = Shape(tiles: 4);
+        var description = Shape(4);
         var terrain = new TerrainMap(description);
         var source = new TerrainTileSource(terrain);
-        var pages = new TerrainTilePages(source, slots: 2);
+        var pages = new TerrainTilePages(source, 2);
 
         var bytes = new byte[pages.PageSize];
-        var read = await pages.LoadAsync(new(TerrainStreamer.PageSource, 0), bytes, TestContext.Current.CancellationToken);
+        var read = await pages.LoadAsync(
+            new(TerrainStreamer.PageSource, 0),
+            bytes,
+            TestContext.Current.CancellationToken
+        );
 
         pages.Place(new(TerrainStreamer.PageSource, 0), 0, bytes.AsSpan(0, read));
         pages.Evict(new(TerrainStreamer.PageSource, 0), 0);
@@ -213,22 +229,30 @@ public sealed class TerrainStreamingTests : IDisposable {
         Assert.False(pages.IsResident(0, 0));
         Assert.Equal(0, pages.Pending);
 
-        pages.Drain((_, _, _) => Assert.Fail("a tile evicted before it was copied was copied anyway."));
+        pages.Drain(static (_, _, _) => Assert.Fail("a tile evicted before it was copied was copied anyway."));
     }
 
     /// <summary>The pool refuses rather than overruns when a frame's hand-over is full.</summary>
     [Fact]
     public async Task APoolWithNoRoomLeftThisFrameSaysSo() {
-        var description = Shape(tiles: 4);
+        var description = Shape(4);
         var terrain = new TerrainMap(description);
         var source = new TerrainTileSource(terrain);
-        var pages = new TerrainTilePages(source, slots: 8) { MaxPending = 1 };
+        var pages = new TerrainTilePages(source, 8) { MaxPending = 1 };
 
         var first = new byte[pages.PageSize];
         var second = new byte[pages.PageSize];
 
-        var one = await pages.LoadAsync(new(TerrainStreamer.PageSource, 0), first, TestContext.Current.CancellationToken);
-        var two = await pages.LoadAsync(new(TerrainStreamer.PageSource, 1), second, TestContext.Current.CancellationToken);
+        var one = await pages.LoadAsync(
+            new(TerrainStreamer.PageSource, 0),
+            first,
+            TestContext.Current.CancellationToken
+        );
+        var two = await pages.LoadAsync(
+            new(TerrainStreamer.PageSource, 1),
+            second,
+            TestContext.Current.CancellationToken
+        );
 
         Assert.True(pages.Place(new(TerrainStreamer.PageSource, 0), 0, first.AsSpan(0, one)));
         Assert.False(pages.Place(new(TerrainStreamer.PageSource, 1), 1, second.AsSpan(0, two)));
@@ -241,8 +265,12 @@ public sealed class TerrainStreamingTests : IDisposable {
     /// <summary>Two tiles read at the same time each get their own heights.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The source ran on the thread pool from the day it was written and was written as if
-    ///         it did not.</b> <see cref="PageResidency.Service" /> dispatches up to <c>maxLoads</c>
+    ///         ⚠
+    ///         <b>
+    ///             The source ran on the thread pool from the day it was written and was written as if
+    ///             it did not.
+    ///         </b>
+    ///         <see cref="PageResidency.Service" /> dispatches up to <c>maxLoads</c>
     ///         reads through <c>Task.Run</c> with nothing serialising them, so one scratch array
     ///         belonging to the source is up to eight tiles building their chains into the same memory
     ///         — and what a person sees is a tile wearing its neighbour's hills, which reads as bad
@@ -257,13 +285,13 @@ public sealed class TerrainStreamingTests : IDisposable {
     /// </remarks>
     [Fact]
     public async Task TwoTilesReadAtOnceDoNotShareABuffer() {
-        var description = Shape(tiles: 4);
+        var description = Shape(4);
         var terrain = new TerrainMap(description);
 
         // Two tiles that could not be mistaken for each other: one raised, one left alone.
         var layer = terrain.AddLayer("hill");
 
-        foreach (var (x, z) in Samples(description, tileX: 0, tileZ: 0)) {
+        foreach (var (x, z) in Samples(description, 0, 0)) {
             layer.AddDelta(x, z, 4000);
         }
 
@@ -322,7 +350,7 @@ public sealed class TerrainStreamingTests : IDisposable {
     /// </remarks>
     [Fact]
     public async Task TheStreamerCompositesAndTheReadDoesNot() {
-        var description = Shape(tiles: 4);
+        var description = Shape(4);
         var terrain = new TerrainMap(description);
         var source = new TerrainTileSource(terrain);
 
@@ -349,8 +377,11 @@ public sealed class TerrainStreamingTests : IDisposable {
     ///         and copying it into the atlas puts the ground back as it was before the stroke.
     ///     </para>
     ///     <para>
-    ///         <b>Refused even though this particular read is clean, and that is the design rather than
-    ///         a missed optimisation.</b> The load is parked before it looks at a sample, so it builds
+    ///         <b>
+    ///             Refused even though this particular read is clean, and that is the design rather than
+    ///             a missed optimisation.
+    ///         </b>
+    ///         The load is parked before it looks at a sample, so it builds
     ///         its chain from the composite the stroke left behind and the bytes happen to be right.
     ///         Nothing at the arrival can tell that apart from a read the recomposite ran through the
     ///         middle of, which is a chain half of one terrain and half of the other — so the test is
@@ -359,12 +390,12 @@ public sealed class TerrainStreamingTests : IDisposable {
     /// </remarks>
     [Fact]
     public async Task ATileRecompositedUnderALoadIsRefusedAndThenReadAgain() {
-        var description = Shape(tiles: 4);
+        var description = Shape(4);
         var terrain = new TerrainMap(description);
         var gated = new GatedSource(new TerrainTileSource(terrain));
-        var pages = new TerrainTilePages(gated, slots: 4);
+        var pages = new TerrainTilePages(gated, 4);
 
-        var key = new PageKey(TerrainStreamer.PageSource, (1 * 4) + 1);
+        var key = new PageKey(TerrainStreamer.PageSource, 1 * 4 + 1);
         var bytes = new byte[pages.PageSize];
 
         var load = Task.Run(
@@ -378,7 +409,7 @@ public sealed class TerrainStreamingTests : IDisposable {
         // The frame thread, in that gap: a stroke on the tile the load is for.
         var layer = terrain.AddLayer("hill");
 
-        foreach (var (x, z) in Samples(description, tileX: 1, tileZ: 1)) {
+        foreach (var (x, z) in Samples(description, 1, 1)) {
             layer.AddDelta(x, z, 4000);
         }
 
@@ -397,22 +428,26 @@ public sealed class TerrainStreamingTests : IDisposable {
         Assert.Equal(1, pages.StaleArrivals);
         Assert.False(pages.IsResident(1, 1), "a refused arrival was counted as resident anyway.");
 
-        pages.Drain((_, _, _) => Assert.Fail("a refused arrival was handed to the atlas regardless."));
+        pages.Drain(static (_, _, _) => Assert.Fail("a refused arrival was handed to the atlas regardless."));
 
         // And the tile is simply asked for again — which is the half that makes refusing acceptable.
         var again = new byte[pages.PageSize];
         var second = await pages.LoadAsync(key, again, TestContext.Current.CancellationToken);
 
-        Assert.True(pages.Place(key, 0, again.AsSpan(0, second)), "the re-read was refused too, so the tile never arrives.");
+        Assert.True(
+            pages.Place(key, 0, again.AsSpan(0, second)),
+            "the re-read was refused too, so the tile never arrives."
+        );
 
         var expected = Chain(terrain, 1, 1);
         var handed = 0;
 
         pages.Drain((_, _, chain) => {
-            handed++;
+                handed++;
 
-            Assert.True(chain.SequenceEqual(expected), "the tile arrived without the stroke in it.");
-        });
+                Assert.True(chain.SequenceEqual(expected), "the tile arrived without the stroke in it.");
+            }
+        );
 
         Assert.Equal(1, handed);
     }
@@ -420,8 +455,12 @@ public sealed class TerrainStreamingTests : IDisposable {
     /// <summary>The streamer asks for a refused tile again by itself, and the tile ends up with the stroke.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Refusing an arrival is only half a fix, and the other half is nobody's job in
-    ///         particular.</b> <see cref="TerrainTilePages.Place" /> can say no; what makes the tile
+    ///         ⚠
+    ///         <b>
+    ///             Refusing an arrival is only half a fix, and the other half is nobody's job in
+    ///             particular.
+    ///         </b>
+    ///         <see cref="TerrainTilePages.Place" /> can say no; what makes the tile
     ///         arrive anyway is <see cref="PageResidency" /> having taken the key out of
     ///         <c>loading</c> before it placed, so the grid's next request is allowed to start a
     ///         second load. Nothing in the pool expresses that, and a refusal that left the key
@@ -430,8 +469,11 @@ public sealed class TerrainStreamingTests : IDisposable {
     ///         healthy.
     ///     </para>
     ///     <para>
-    ///         <b>Driven through <see cref="TerrainStreamer.Update" /> rather than by placing pages by
-    ///         hand</b>, which is the difference between this test and the one above it. That one
+    ///         <b>
+    ///             Driven through <see cref="TerrainStreamer.Update" /> rather than by placing pages by
+    ///             hand
+    ///         </b>
+    ///         , which is the difference between this test and the one above it. That one
     ///         proves the pool refuses and that a second read would be taken; this one proves the
     ///         second read is actually asked for, by the code that would have to ask.
     ///     </para>
@@ -447,14 +489,14 @@ public sealed class TerrainStreamingTests : IDisposable {
     /// </remarks>
     [Fact]
     public async Task ARefusedTileIsAskedForAgainByTheStreamerAndArrivesWithTheStroke() {
-        var description = Shape(tiles: 4);
+        var description = Shape(4);
         var terrain = new TerrainMap(description);
 
         // A hill over the tile the source stands in, switched off to begin with, so that the terrain
         // before the stroke and after it differ over exactly this tile.
         var layer = terrain.AddLayer("hill");
 
-        foreach (var (x, z) in Samples(description, tileX: 0, tileZ: 0)) {
+        foreach (var (x, z) in Samples(description, 0, 0)) {
             layer.AddDelta(x, z, 4000);
         }
 
@@ -464,7 +506,7 @@ public sealed class TerrainStreamingTests : IDisposable {
 
         var flat = Chain(terrain, 0, 0);
 
-        var gated = new GatedSource(new TerrainTileSource(terrain), only: (0, 0));
+        var gated = new GatedSource(new TerrainTileSource(terrain), (0, 0));
         using var streamer = new TerrainStreamer(in description, gated);
 
         var deadline = DateTime.UtcNow.AddSeconds(5);
@@ -475,7 +517,7 @@ public sealed class TerrainStreamingTests : IDisposable {
         // under test.
         while (!gated.Entered.Task.IsCompleted && DateTime.UtcNow < deadline) {
             streamer.Update([new(new(16f, 0f, 16f), 40f)]);
-            streamer.Pages.Drain((_, _, _) => { });
+            streamer.Pages.Drain(static (_, _, _) => { });
 
             await Task.Delay(2, TestContext.Current.CancellationToken);
         }
@@ -507,10 +549,9 @@ public sealed class TerrainStreamingTests : IDisposable {
         while (arrived is null && DateTime.UtcNow < deadline) {
             streamer.Update([new(new(16f, 0f, 16f), 40f)]);
 
-            streamer.Pages.Drain(
-                (tileX, tileZ, chain) => {
+            streamer.Pages.Drain((tileX, tileZ, chain) => {
                     if ((tileX, tileZ) == (0, 0)) {
-                        arrived = chain.ToArray();
+                        arrived = [..chain];
                     }
                 }
             );
@@ -527,8 +568,14 @@ public sealed class TerrainStreamingTests : IDisposable {
         var raised = Chain(terrain, 0, 0);
 
         Assert.False(flat.AsSpan().SequenceEqual(raised), "the two terrains are identical, so nothing is proved.");
-        Assert.False(arrived.AsSpan().SequenceEqual(flat), "the tile that arrived is the ground from before the stroke.");
-        Assert.True(arrived.AsSpan().SequenceEqual(raised), "the tile that arrived is neither terrain, so it is a blend.");
+        Assert.False(
+            arrived.AsSpan().SequenceEqual(flat),
+            "the tile that arrived is the ground from before the stroke."
+        );
+        Assert.True(
+            arrived.AsSpan().SequenceEqual(raised),
+            "the tile that arrived is neither terrain, so it is a blend."
+        );
         Assert.True(streamer.IsResident(0, 0), "the tile was handed over and still counts as not loaded.");
 
         // Last, because it is the one that says the tile got here the hard way. Without it every
@@ -558,18 +605,18 @@ public sealed class TerrainStreamingTests : IDisposable {
     /// </remarks>
     [Fact]
     public async Task WhatReachesTheAtlasIsOneTerrainOrTheOtherAndNeverBoth() {
-        var description = Shape(tiles: 4);
+        var description = Shape(4);
         var terrain = new TerrainMap(description);
-        var pages = new TerrainTilePages(new TerrainTileSource(terrain), slots: 4);
+        var pages = new TerrainTilePages(new TerrainTileSource(terrain), 4);
 
-        var key = new PageKey(TerrainStreamer.PageSource, (1 * 4) + 1);
+        var key = new PageKey(TerrainStreamer.PageSource, 1 * 4 + 1);
         var rect = description.SamplesOf(1, 1);
 
         // One tile that can be raised and lowered on its own, so the two terrains differ over exactly
         // the tile being read and nowhere else.
         var layer = terrain.AddLayer("hill");
 
-        foreach (var (x, z) in Samples(description, tileX: 1, tileZ: 1)) {
+        foreach (var (x, z) in Samples(description, 1, 1)) {
             layer.AddDelta(x, z, 4000);
         }
 
@@ -625,8 +672,7 @@ public sealed class TerrainStreamingTests : IDisposable {
                 continue;
             }
 
-            pages.Drain(
-                (_, _, chain) => Assert.True(
+            pages.Drain((_, _, chain) => Assert.True(
                     chain.SequenceEqual(flat) || chain.SequenceEqual(raised),
                     $"the chain placed on attempt {attempt} is neither terrain, so it is a blend of both."
                 )
@@ -665,8 +711,12 @@ public sealed class TerrainStreamingTests : IDisposable {
 
         /// <summary>Completed once a released read has built its bytes.</summary>
         /// <remarks>
-        ///     ⚠ <b>What makes "the chain describes the terrain from before the stroke" a fact rather
-        ///     than a likelihood.</b> Releasing the gate starts a race between the pool thread's read
+        ///     ⚠
+        ///     <b>
+        ///         What makes "the chain describes the terrain from before the stroke" a fact rather
+        ///         than a likelihood.
+        ///     </b>
+        ///     Releasing the gate starts a race between the pool thread's read
         ///     and the frame's next recomposite, and either order is refused — so a test that only
         ///     wants the refusal need not care. One that also wants to say <em>which</em> terrain the
         ///     refused bytes were does, because a read that woke up after the resolve came back
@@ -709,7 +759,7 @@ public sealed class TerrainStreamingTests : IDisposable {
         var chain = new ushort[TerrainMips.ChainSamples(terrain.Description.TileSamples)];
         var written = TerrainMips.Build(terrain, tileX, tileZ, chain);
 
-        return MemoryMarshal.AsBytes(chain.AsSpan(0, (int)written)).ToArray();
+        return [..MemoryMarshal.AsBytes(chain.AsSpan(0, (int)written))];
     }
 
     /// <summary>Every sample of one tile.</summary>
@@ -725,15 +775,19 @@ public sealed class TerrainStreamingTests : IDisposable {
 
     /// <summary>The pool is never larger than the terrain it is over.</summary>
     /// <remarks>
-    ///     ⚠ <b>A pool of a thousand slots over a sixteen-tile terrain is a budget that describes
-    ///     nothing</b> — nine hundred and eighty-four of them can never be filled, so the number a
+    ///     ⚠
+    ///     <b>
+    ///         A pool of a thousand slots over a sixteen-tile terrain is a budget that describes
+    ///         nothing
+    ///     </b>
+    ///     — nine hundred and eighty-four of them can never be filled, so the number a
     ///     person tunes has no relationship to what is resident.
     /// </remarks>
     [Fact]
     public void ThePoolIsClampedToTheTerrainsTileCount() {
-        var description = Shape(tiles: 2);
+        var description = Shape(2);
         var terrain = new TerrainMap(description);
-        using var streamer = new TerrainStreamer(in description, new TerrainTileSource(terrain), budget: 1L << 30);
+        using var streamer = new TerrainStreamer(in description, new TerrainTileSource(terrain), 1L << 30);
 
         Assert.Equal(4, streamer.Pages.SlotCount);
     }

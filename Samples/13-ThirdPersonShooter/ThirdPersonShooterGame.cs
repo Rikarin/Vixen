@@ -3,11 +3,8 @@
 
 using Vixen.App;
 using Vixen.Core;
-using Vixen.Core.Mathematics;
 using Vixen.Ecs;
-using Vixen.Engine.Players;
 using Vixen.Engine.Transforms;
-using Vixen.Physics.Ecs;
 
 namespace Vixen.Samples.ThirdPersonShooter;
 
@@ -103,9 +100,7 @@ public sealed class ThirdPersonShooterGame : Game {
         // is truthfulness — the sample this repository photographs most would be recorded as showing
         // a window on every capture run.
         config.Window = new() {
-            Title = "Vixen — Third-Person Shooter",
-            Size = new(1600, 900),
-            IsVisible = !config.Headless
+            Title = "Vixen — Third-Person Shooter", Size = new(1600, 900), IsVisible = !config.Headless
         };
 
         // The project's own frame: doc 22's virtualized path and doc 19's global illumination, both
@@ -213,7 +208,7 @@ public sealed class ThirdPersonShooterGame : Game {
         player.Register(loop, services.Graphics?.Overlays);
 
         if (Environment.GetEnvironmentVariable("VIXEN_VSMTRACE") is { Length: > 0 } path) {
-            shadowTrace = new(path, append: false);
+            shadowTrace = new(path, false);
 
             shadowTrace.WriteLine(
                 "frame,marked,answered,absent,drawn,invalidated,refit,movers,casterpages,pending,resident,"
@@ -222,12 +217,12 @@ public sealed class ThirdPersonShooterGame : Game {
         }
 
         if (Environment.GetEnvironmentVariable("VIXEN_LAMPTRACE") is { Length: > 0 } lamps) {
-            lampTrace = new(lamps, append: false);
+            lampTrace = new(lamps, false);
             lampTrace.WriteLine("frame,tiles,drawn,kept,moved,disturbed,dropped");
         }
 
         if (Environment.GetEnvironmentVariable("VIXEN_SUNTRACE") is { Length: > 0 } sun) {
-            sunTrace = new(sun, append: false);
+            sunTrace = new(sun, false);
             sunTrace.WriteLine("frame,tiles,rebuilds,refits,invalidations");
         }
     }
@@ -258,8 +253,11 @@ public sealed class ThirdPersonShooterGame : Game {
     /// <summary>Writes one row per frame of what the sun's cascades had to rasterise.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>⚠ <c>TraceLamps</c>' argument, one atlas along: a correct cache renders identically
-    ///         to no cache.</b> No picture this run can take says whether the level's geometry was
+    ///         <b>
+    ///             ⚠ <c>TraceLamps</c>' argument, one atlas along: a correct cache renders identically
+    ///             to no cache.
+    ///         </b>
+    ///         No picture this run can take says whether the level's geometry was
     ///         redrawn into the cascades or copied out of a cache, so the counters are the only
     ///         measurement there is.
     ///     </para>
@@ -298,8 +296,11 @@ public sealed class ThirdPersonShooterGame : Game {
     /// <summary>Writes one row per frame of how many lamp tiles the atlas had to redraw.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>⚠ The same argument <c>TraceShadows</c> makes, one atlas along: a correct cache
-    ///         renders identically to no cache.</b> Every picture this run can take is the same
+    ///         <b>
+    ///             ⚠ The same argument <c>TraceShadows</c> makes, one atlas along: a correct cache
+    ///             renders identically to no cache.
+    ///         </b>
+    ///         Every picture this run can take is the same
     ///         picture whether a tile was kept or redrawn, so a strip of frames cannot say whether
     ///         the cache did anything — only the counters can, and the number that matters is
     ///         <c>drawn</c> settling near zero while <c>kept</c> holds at the tile count.
@@ -381,8 +382,11 @@ public sealed class ThirdPersonShooterGame : Game {
     /// <summary>Asks for a picture of every frame in <c>VIXEN_STRIP</c>'s range.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>⚠ A temporal artefact is a difference between two <em>consecutive</em> frames, and
-    ///         until this there was no way to hold two.</b> <c>--vixen-capture</c> writes the last
+    ///         <b>
+    ///             ⚠ A temporal artefact is a difference between two <em>consecutive</em> frames, and
+    ///             until this there was no way to hold two.
+    ///         </b>
+    ///         <c>--vixen-capture</c> writes the last
     ///         frame only, so frame <i>N</i> and frame <i>N</i> + 1 were two whole runs — and two runs
     ///         differ by <em>when their textures finished loading</em> as well as by the thing being
     ///         looked for. Material loads and the streamer's mip swaps land on a wall-clock schedule,

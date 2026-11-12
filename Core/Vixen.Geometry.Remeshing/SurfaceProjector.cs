@@ -8,8 +8,11 @@ namespace Vixen.Geometry.Remeshing;
 /// <summary>The closest point on a fixed triangle set — what the pre-remesh reprojects onto every round.</summary>
 /// <remarks>
 ///     <para>
-///         <b>docs/plan/41 § D3 step 6: the relaxation is projected back onto the original surface each
-///         iteration, so the shape does not drift.</b> Tangential relaxation moves a vertex toward the
+///         <b>
+///             docs/plan/41 § D3 step 6: the relaxation is projected back onto the original surface each
+///             iteration, so the shape does not drift.
+///         </b>
+///         Tangential relaxation moves a vertex toward the
 ///         centroid of its ring, and the centroid of a ring on a curved surface is <i>inside</i> the
 ///         surface. Left alone, five rounds of it shrink a sphere visibly and round every corner off a
 ///         boolean result — the mesh becomes beautifully isotropic and stops being the model.
@@ -64,8 +67,12 @@ sealed class SurfaceProjector {
     /// <returns>The nearest point, or the query itself when the reference surface is empty.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Shells outward from the query's own cell, and the stopping rule is a distance
-    ///         rather than a hit count.</b> Stopping on the first shell that contains a triangle is
+    ///         ⚠
+    ///         <b>
+    ///             Shells outward from the query's own cell, and the stopping rule is a distance
+    ///             rather than a hit count.
+    ///         </b>
+    ///         Stopping on the first shell that contains a triangle is
     ///         the bug this exists to avoid: a triangle found in the shell at radius <c>r</c> can be
     ///         further away than one in the shell at <c>r + 1</c>, because a cell's far corner is
     ///         further from the query than the next cell's near face. Anything in the shell at
@@ -93,7 +100,7 @@ sealed class SurfaceProjector {
         // inside the box is at most the resolution and for one outside it is further.
         var reach = 0;
 
-        foreach (var axis in (int[]) [cell.X, cell.Y, cell.Z]) {
+        foreach (var axis in (int[])[cell.X, cell.Y, cell.Z]) {
             reach = Math.Max(reach, Math.Max(Math.Abs(axis), Math.Abs(axis - (resolution - 1))));
         }
 
@@ -118,16 +125,16 @@ sealed class SurfaceProjector {
                             continue;
                         }
 
-                        var index = (((z * resolution) + y) * resolution) + x;
+                        var index = (z * resolution + y) * resolution + x;
 
                         for (var at = cellStarts[index]; at < cellStarts[index + 1]; at++) {
                             var triangle = cells[at];
 
                             var point = ClosestOnTriangle(
                                 query,
-                                positions[triangles[(triangle * 3) + 0]],
-                                positions[triangles[(triangle * 3) + 1]],
-                                positions[triangles[(triangle * 3) + 2]]
+                                positions[triangles[triangle * 3]],
+                                positions[triangles[triangle * 3 + 1]],
+                                positions[triangles[triangle * 3 + 2]]
                             );
 
                             var distance = Vector3.DistanceSquared(point, query);
@@ -171,7 +178,7 @@ sealed class SurfaceProjector {
         // ⚠ The cell size is derived from the mesh, never fixed. Roughly one triangle per cell is
         // the target, so the resolution is the cube root of the triangle count clamped into a range
         // that keeps the table small on a two-triangle mesh and useful on a two-million one.
-        var steps = Math.Clamp((int) MathF.Cbrt(count) + 1, 1, 128);
+        var steps = Math.Clamp((int)MathF.Cbrt(count) + 1, 1, 128);
         var spacing = diagonal > 0f ? diagonal / steps : 1f;
 
         if (spacing <= 0f) {
@@ -187,9 +194,9 @@ sealed class SurfaceProjector {
         // rather than a hundred thousand lists.
         for (var pass = 0; pass < 2; pass++) {
             for (var triangle = 0; triangle < count; triangle++) {
-                var a = positions[triangles[(triangle * 3) + 0]];
-                var b = positions[triangles[(triangle * 3) + 1]];
-                var c = positions[triangles[(triangle * 3) + 2]];
+                var a = positions[triangles[triangle * 3]];
+                var b = positions[triangles[triangle * 3 + 1]];
+                var c = positions[triangles[triangle * 3 + 2]];
 
                 var low = Grid(Vector3.Min(Vector3.Min(a, b), c), origin, spacing, resolution);
                 var high = Grid(Vector3.Max(Vector3.Max(a, b), c), origin, spacing, resolution);
@@ -197,7 +204,7 @@ sealed class SurfaceProjector {
                 for (var x = low.X; x <= high.X; x++) {
                     for (var y = low.Y; y <= high.Y; y++) {
                         for (var z = low.Z; z <= high.Z; z++) {
-                            var index = (((z * resolution) + y) * resolution) + x;
+                            var index = (z * resolution + y) * resolution + x;
 
                             if (pass == 0) {
                                 starts[index + 1]++;
@@ -218,9 +225,9 @@ sealed class SurfaceProjector {
         var cursor = new int[total];
 
         for (var triangle = 0; triangle < count; triangle++) {
-            var a = positions[triangles[(triangle * 3) + 0]];
-            var b = positions[triangles[(triangle * 3) + 1]];
-            var c = positions[triangles[(triangle * 3) + 2]];
+            var a = positions[triangles[triangle * 3]];
+            var b = positions[triangles[triangle * 3 + 1]];
+            var c = positions[triangles[triangle * 3 + 2]];
 
             var low = Grid(Vector3.Min(Vector3.Min(a, b), c), origin, spacing, resolution);
             var high = Grid(Vector3.Max(Vector3.Max(a, b), c), origin, spacing, resolution);
@@ -228,7 +235,7 @@ sealed class SurfaceProjector {
             for (var x = low.X; x <= high.X; x++) {
                 for (var y = low.Y; y <= high.Y; y++) {
                     for (var z = low.Z; z <= high.Z; z++) {
-                        var index = (((z * resolution) + y) * resolution) + x;
+                        var index = (z * resolution + y) * resolution + x;
 
                         cells[starts[index] + cursor[index]] = triangle;
                         cursor[index]++;
@@ -272,12 +279,12 @@ sealed class SurfaceProjector {
             return b;
         }
 
-        var vc = (d1 * d4) - (d3 * d2);
+        var vc = d1 * d4 - d3 * d2;
 
         if (vc <= 0f && d1 >= 0f && d3 <= 0f) {
             var denominator = d1 - d3;
 
-            return denominator != 0f ? a + (ab * (d1 / denominator)) : a;
+            return denominator != 0f ? a + ab * (d1 / denominator) : a;
         }
 
         var cp = query - c;
@@ -288,20 +295,20 @@ sealed class SurfaceProjector {
             return c;
         }
 
-        var vb = (d5 * d2) - (d1 * d6);
+        var vb = d5 * d2 - d1 * d6;
 
         if (vb <= 0f && d2 >= 0f && d6 <= 0f) {
             var denominator = d2 - d6;
 
-            return denominator != 0f ? a + (ac * (d2 / denominator)) : a;
+            return denominator != 0f ? a + ac * (d2 / denominator) : a;
         }
 
-        var va = (d3 * d6) - (d5 * d4);
+        var va = d3 * d6 - d5 * d4;
 
         if (va <= 0f && d4 - d3 >= 0f && d5 - d6 >= 0f) {
             var denominator = d4 - d3 + (d5 - d6);
 
-            return denominator != 0f ? b + ((c - b) * ((d4 - d3) / denominator)) : b;
+            return denominator != 0f ? b + (c - b) * ((d4 - d3) / denominator) : b;
         }
 
         var total = va + vb + vc;
@@ -310,17 +317,17 @@ sealed class SurfaceProjector {
             return a;
         }
 
-        return a + (ab * (vb / total)) + (ac * (vc / total));
+        return a + ab * (vb / total) + ac * (vc / total);
     }
 
     bool Inside(int x, int y, int z) =>
-        (uint) x < (uint) resolution && (uint) y < (uint) resolution && (uint) z < (uint) resolution;
+        (uint)x < (uint)resolution && (uint)y < (uint)resolution && (uint)z < (uint)resolution;
 
     /// <summary>Which cell a query point falls in, unclamped — see <see cref="Project" />.</summary>
     (int X, int Y, int Z) Cell(Vector3 point) {
         var offset = (point - origin) / spacing;
 
-        return ((int) MathF.Floor(offset.X), (int) MathF.Floor(offset.Y), (int) MathF.Floor(offset.Z));
+        return ((int)MathF.Floor(offset.X), (int)MathF.Floor(offset.Y), (int)MathF.Floor(offset.Z));
     }
 
     /// <summary>Which cell a point of the reference surface is stored in, clamped into the grid.</summary>
@@ -328,9 +335,9 @@ sealed class SurfaceProjector {
         var offset = (point - origin) / spacing;
 
         return (
-            Math.Clamp((int) MathF.Floor(offset.X), 0, resolution - 1),
-            Math.Clamp((int) MathF.Floor(offset.Y), 0, resolution - 1),
-            Math.Clamp((int) MathF.Floor(offset.Z), 0, resolution - 1)
+            Math.Clamp((int)MathF.Floor(offset.X), 0, resolution - 1),
+            Math.Clamp((int)MathF.Floor(offset.Y), 0, resolution - 1),
+            Math.Clamp((int)MathF.Floor(offset.Z), 0, resolution - 1)
         );
     }
 }

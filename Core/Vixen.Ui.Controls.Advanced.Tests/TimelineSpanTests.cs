@@ -349,7 +349,7 @@ public class TimelineSpanTests {
     }
 
     static float LaneY(Timeline timeline, int track) =>
-        timeline.Lanes.AbsoluteTop + (track * timeline.TrackHeight) + (timeline.TrackHeight * 0.5f) - timeline.ScrollTop;
+        timeline.Lanes.AbsoluteTop + track * timeline.TrackHeight + timeline.TrackHeight * 0.5f - timeline.ScrollTop;
 
     static void Drag(AdvancedFixture fixture, Timeline timeline, int track, float from, float to) {
         var y = LaneY(timeline, track);

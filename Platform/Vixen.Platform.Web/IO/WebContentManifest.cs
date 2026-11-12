@@ -56,7 +56,9 @@ public readonly record struct WebContentEntry(
 public sealed class WebContentManifest {
     readonly Dictionary<string, WebContentEntry> entries;
 
-    WebContentManifest(Dictionary<string, WebContentEntry> entries) => this.entries = entries;
+    WebContentManifest(Dictionary<string, WebContentEntry> entries) {
+        this.entries = entries;
+    }
 
     /// <summary>An empty manifest, which is what an application with no shipped content has.</summary>
     public static WebContentManifest Empty { get; } = new([]);
@@ -212,11 +214,11 @@ public sealed class WebContentManifest {
         }
 
         foreach (var child in directories) {
-            yield return new(new(child), 0, default, IsDirectory: true);
+            yield return new(new(child), 0, default, true);
         }
 
         foreach (var (path, entry) in files) {
-            yield return new(new(path), entry.Length, Moment(entry.Modified), IsDirectory: false);
+            yield return new(new(path), entry.Length, Moment(entry.Modified), false);
         }
     }
 
@@ -230,8 +232,12 @@ public sealed class WebContentManifest {
 ///     <para>
 ///         <b>Written rather than taken off the shelf, and the reason is measured.</b> The obvious
 ///         answer is <c>System.Text.Json</c> with a source-generated context, which is what
-///         <c>Vixen.Shaders</c> uses and is trim-clean. On a browser build it costs <b>59 KB
-///         Brotli</b> for <c>System.Text.Json</c> plus <c>System.Text.Encodings.Web</c> — about six
+///         <c>Vixen.Shaders</c> uses and is trim-clean. On a browser build it costs
+///         <b>
+///             59 KB
+///             Brotli
+///         </b>
+///         for <c>System.Text.Json</c> plus <c>System.Text.Encodings.Web</c> — about six
 ///         per cent of the 930 KB payload floor <c>docs/plan/10 § Web</c> measures the whole target
 ///         against — to read one array of four-field objects, once, at start-up. That is not a
 ///         trade worth making on the one platform where the payload is the product.

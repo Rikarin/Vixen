@@ -99,7 +99,7 @@ public static class PathTessellator {
             // a scanline would run out of the shape and fill to whatever it meets next.
             for (var i = 0; i < contour.Count; i++) {
                 var from = points[contour.First + i];
-                var to = points[contour.First + ((i + 1) % contour.Count)];
+                var to = points[contour.First + (i + 1) % contour.Count];
                 AddEdge(edges, from, to);
             }
         }
@@ -154,7 +154,7 @@ public static class PathTessellator {
             crossings.Clear();
 
             foreach (var edge in active) {
-                crossings.Add(new Crossing(edge.At(middle), edge.At(top), edge.At(bottom), edge.Winding));
+                crossings.Add(new(edge.At(middle), edge.At(top), edge.At(bottom), edge.Winding));
             }
 
             if (crossings.Count < 2) {
@@ -233,7 +233,7 @@ public static class PathTessellator {
             }
 
             for (var i = 0; i < contour.Count; i++) {
-                AddEdge(edges, points[contour.First + i], points[contour.First + ((i + 1) % contour.Count)]);
+                AddEdge(edges, points[contour.First + i], points[contour.First + (i + 1) % contour.Count]);
             }
         }
 
@@ -249,7 +249,7 @@ public static class PathTessellator {
             }
 
             for (var i = 0; i < contour.Count; i++) {
-                outline.Add((points[contour.First + i], points[contour.First + ((i + 1) % contour.Count)]));
+                outline.Add((points[contour.First + i], points[contour.First + (i + 1) % contour.Count]));
             }
         }
 
@@ -322,8 +322,12 @@ public static class PathTessellator {
 
     /// <summary>Where along an edge it has to be cut, because something crosses it there.</summary>
     /// <remarks>
-    ///     ⚠ <b>An edge is not boundary or interior as a whole, and a self-crossing contour is made of
-    ///     edges that are both.</b> A pentagram drawn as five lines has every chord passing through
+    ///     ⚠
+    ///     <b>
+    ///         An edge is not boundary or interior as a whole, and a self-crossing contour is made of
+    ///         edges that are both.
+    ///     </b>
+    ///     A pentagram drawn as five lines has every chord passing through
     ///     the pentagon in the middle: probe such a chord once, at its midpoint, and the answer is
     ///     "interior" — so the whole chord gets no fringe and the star has no antialiased edge at all.
     ///     Cutting each edge where anything crosses it makes every piece wholly one or the other,
@@ -355,22 +359,22 @@ public static class PathTessellator {
 
         var here = to - from;
         var there = otherTo - otherFrom;
-        var denominator = (here.X * there.Y) - (here.Y * there.X);
+        var denominator = here.X * there.Y - here.Y * there.X;
 
         if (MathF.Abs(denominator) <= Epsilon) {
             return false;
         }
 
         var offset = otherFrom - from;
-        t = ((offset.X * there.Y) - (offset.Y * there.X)) / denominator;
-        var u = ((offset.X * here.Y) - (offset.Y * here.X)) / denominator;
+        t = (offset.X * there.Y - offset.Y * there.X) / denominator;
+        var u = (offset.X * here.Y - offset.Y * here.X) / denominator;
 
         // Strictly inside this edge, and anywhere along the other one: a crossing at a shared vertex
         // is already a piece boundary by being one.
         return t > Epsilon && t < 1f - Epsilon && u >= 0f && u <= 1f;
     }
 
-    static Vector2 Lerp(Vector2 from, Vector2 to, float t) => from + ((to - from) * t);
+    static Vector2 Lerp(Vector2 from, Vector2 to, float t) => from + (to - from) * t;
 
     /// <summary>Which side of an edge is outside the shape, if either is.</summary>
     /// <remarks>
@@ -396,8 +400,8 @@ public static class PathTessellator {
 
         var normal = Perpendicular(direction);
         var middle = (from + to) * 0.5f;
-        var ahead = Contains(edges, rule, middle + (normal * Probe));
-        var behind = Contains(edges, rule, middle - (normal * Probe));
+        var ahead = Contains(edges, rule, middle + normal * Probe);
+        var behind = Contains(edges, rule, middle - normal * Probe);
 
         if (ahead == behind) {
             // Inside on both sides, or outside on both: this edge is not a boundary here. Two
@@ -428,12 +432,12 @@ public static class PathTessellator {
         var outerFrom = from + offset;
         var outerTo = to + offset;
 
-        triangles.Add(new PathVertex(from, 1f));
-        triangles.Add(new PathVertex(to, 1f));
-        triangles.Add(new PathVertex(outerTo, 0f));
-        triangles.Add(new PathVertex(from, 1f));
-        triangles.Add(new PathVertex(outerTo, 0f));
-        triangles.Add(new PathVertex(outerFrom, 0f));
+        triangles.Add(new(from, 1f));
+        triangles.Add(new(to, 1f));
+        triangles.Add(new(outerTo, 0f));
+        triangles.Add(new(from, 1f));
+        triangles.Add(new(outerTo, 0f));
+        triangles.Add(new(outerFrom, 0f));
     }
 
     /// <summary>
@@ -455,9 +459,9 @@ public static class PathTessellator {
             return;
         }
 
-        triangles.Add(new PathVertex(vertex, 1f));
-        triangles.Add(new PathVertex(vertex + (first * width), 0f));
-        triangles.Add(new PathVertex(vertex + (second * width), 0f));
+        triangles.Add(new(vertex, 1f));
+        triangles.Add(new(vertex + first * width, 0f));
+        triangles.Add(new(vertex + second * width, 0f));
     }
 
     /// <summary>Whether a winding number counts as inside under a rule.</summary>
@@ -487,9 +491,13 @@ public static class PathTessellator {
 
     /// <summary>Every y a band can begin or end at: the vertices, and where edges cross.</summary>
     /// <remarks>
-    ///     ⚠ <b>Pairs are tested only while they overlap in y, which needs <paramref name="edges" />
-    ///     sorted by <see cref="FillEdge.Top" /> and is why <see cref="Fill" /> sorts before calling
-    ///     this.</b> Two edges that do not share a y range cannot cross, so the inner loop stops at the
+    ///     ⚠
+    ///     <b>
+    ///         Pairs are tested only while they overlap in y, which needs <paramref name="edges" />
+    ///         sorted by <see cref="FillEdge.Top" /> and is why <see cref="Fill" /> sorts before calling
+    ///         this.
+    ///     </b>
+    ///     Two edges that do not share a y range cannot cross, so the inner loop stops at the
     ///     first one that starts below where this one ends — and every edge after it starts lower
     ///     still. The all-pairs version this replaces was quadratic in the edge count whatever the
     ///     shape, which for an icon is not a detail: an editor glyph is a filled outline whose strokes
@@ -555,7 +563,7 @@ public static class PathTessellator {
             return false;
         }
 
-        y = ((b.X - (b.Slope * b.Top)) - (a.X - (a.Slope * a.Top))) / slope;
+        y = (b.X - b.Slope * b.Top - (a.X - a.Slope * a.Top)) / slope;
         return y > top + Epsilon && y < bottom - Epsilon;
     }
 
@@ -574,7 +582,7 @@ public static class PathTessellator {
         var bottom = down ? to : from;
 
         edges.Add(
-            new FillEdge(
+            new(
                 top.Y,
                 bottom.Y,
                 top.X,
@@ -592,7 +600,7 @@ public static class PathTessellator {
     /// <param name="Winding">+1 if the contour ran downwards through it, -1 if upwards.</param>
     readonly record struct FillEdge(float Top, float Bottom, float X, float Slope, int Winding) {
         /// <summary>Where this edge is at a given y.</summary>
-        public float At(float y) => X + (Slope * (y - Top));
+        public float At(float y) => X + Slope * (y - Top);
     }
 
     /// <summary>Where one edge cuts one band, at the sample line and at both boundaries.</summary>
@@ -681,16 +689,16 @@ public static class PathTessellator {
 
             for (var i = 0; i < last; i++) {
                 var from = points[contour.First + i];
-                var to = points[contour.First + ((i + 1) % contour.Count)];
+                var to = points[contour.First + (i + 1) % contour.Count];
                 Segment(triangles, from, to, half, fringe);
             }
 
             var first = closed ? 0 : 1;
 
             for (var i = first; i < last; i++) {
-                var previous = points[contour.First + ((i + contour.Count - 1) % contour.Count)];
+                var previous = points[contour.First + (i + contour.Count - 1) % contour.Count];
                 var vertex = points[contour.First + i];
-                var next = points[contour.First + ((i + 1) % contour.Count)];
+                var next = points[contour.First + (i + 1) % contour.Count];
                 Join(triangles, previous, vertex, next, half, join, tolerance, miterLimit, fringe);
             }
 
@@ -747,7 +755,7 @@ public static class PathTessellator {
             return;
         }
 
-        var turn = (incoming.X * outgoing.Y) - (incoming.Y * outgoing.X);
+        var turn = incoming.X * outgoing.Y - incoming.Y * outgoing.X;
 
         if (MathF.Abs(turn) <= Epsilon) {
             // Straight through, or doubled back. Straight needs nothing. A reversal has no outside to
@@ -759,8 +767,8 @@ public static class PathTessellator {
         // Which side the turn leaves uncovered. The two quads overlap on the inside of the corner, so
         // the wedge belongs to the other one.
         var side = turn > 0 ? -half : half;
-        var from = vertex + (Perpendicular(incoming) * side);
-        var to = vertex + (Perpendicular(outgoing) * side);
+        var from = vertex + Perpendicular(incoming) * side;
+        var to = vertex + Perpendicular(outgoing) * side;
 
         switch (join) {
             case LineJoin.Bevel:
@@ -775,8 +783,8 @@ public static class PathTessellator {
                 var finish = to - vertex;
 
                 var sweep = MathF.Atan2(
-                    (start.X * finish.Y) - (start.Y * finish.X),
-                    (start.X * finish.X) + (start.Y * finish.Y)
+                    start.X * finish.Y - start.Y * finish.X,
+                    start.X * finish.X + start.Y * finish.Y
                 );
 
                 Arc(triangles, vertex, from, sweep, MathF.Abs(side), tolerance, fringe);
@@ -784,7 +792,7 @@ public static class PathTessellator {
             }
 
             default: {
-                var bisector = from + to - (vertex * 2);
+                var bisector = from + to - vertex * 2;
                 var length = bisector.Length();
 
                 if (length <= Epsilon) {
@@ -805,7 +813,7 @@ public static class PathTessellator {
                     break;
                 }
 
-                var tip = vertex + (bisector * (MathF.Abs(side) * reach));
+                var tip = vertex + bisector * (MathF.Abs(side) * reach);
                 Triangle(triangles, vertex, from, tip);
                 Triangle(triangles, vertex, tip, to);
 
@@ -852,7 +860,7 @@ public static class PathTessellator {
             Triangle(triangles, end + normal, end - normal + reach, end - normal);
 
             if (fringe > 0) {
-                var centre = end + (reach * 0.5f);
+                var centre = end + reach * 0.5f;
                 FeatherFrom(triangles, end + normal, end + normal + reach, centre, fringe);
                 FeatherFrom(triangles, end + normal + reach, end - normal + reach, centre, fringe);
                 FeatherFrom(triangles, end - normal + reach, end - normal, centre, fringe);
@@ -900,7 +908,7 @@ public static class PathTessellator {
         // ⚠ The step comes from the radius, not from a constant. A chord of a circle of radius r
         // subtending θ sits r(1 − cos(θ/2)) from the arc, so the angle a tolerance allows shrinks as
         // the stroke gets wider — a fixed count is faceted on a thick line and wasteful on a hairline.
-        var ratio = Math.Clamp(1f - (tolerance / MathF.Max(radius, Epsilon)), -1f, 1f);
+        var ratio = Math.Clamp(1f - tolerance / MathF.Max(radius, Epsilon), -1f, 1f);
         var step = 2f * MathF.Acos(ratio);
         var count = Math.Clamp((int)MathF.Ceiling(MathF.Abs(sweep) / MathF.Max(step, 1e-3f)), 1, MaxArcSteps);
 
@@ -910,7 +918,7 @@ public static class PathTessellator {
             var angle = sweep * i / count;
             var cos = MathF.Cos(angle);
             var sin = MathF.Sin(angle);
-            var point = centre + new Vector2((start.X * cos) - (start.Y * sin), (start.X * sin) + (start.Y * cos));
+            var point = centre + new Vector2(start.X * cos - start.Y * sin, start.X * sin + start.Y * cos);
 
             Triangle(triangles, centre, previous, point);
 
@@ -923,9 +931,9 @@ public static class PathTessellator {
     }
 
     static void Triangle(List<PathVertex> triangles, Vector2 a, Vector2 b, Vector2 c) {
-        triangles.Add(new PathVertex(a, 1f));
-        triangles.Add(new PathVertex(b, 1f));
-        triangles.Add(new PathVertex(c, 1f));
+        triangles.Add(new(a, 1f));
+        triangles.Add(new(b, 1f));
+        triangles.Add(new(c, 1f));
     }
 
     static Vector2 Direction(Vector2 from, Vector2 to) {

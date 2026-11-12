@@ -32,19 +32,19 @@ public class AddComponentMenuTests {
     static AddComponentMenu Open(EditorSession editor) {
         Descendants(editor.Panel("inspector"))
             .OfType<ButtonBase>()
-            .First(button => button.Label == "Add Component")
+            .First(static button => button.Label == "Add Component")
             .Activate();
 
         editor.Settle();
 
         return Descendants(editor.Document.Root)
-            .OfType<AddComponentMenu>()
-            .FirstOrDefault(candidate => candidate.IsOpen)
+                .OfType<AddComponentMenu>()
+                .FirstOrDefault(static candidate => candidate.IsOpen)
             ?? throw editor.Fail("the Add Component picker did not open");
     }
 
     static Button Trigger(EditorSession editor) =>
-        Descendants(editor.Panel("inspector")).OfType<Button>().First(button => button.Label == "Add Component");
+        Descendants(editor.Panel("inspector")).OfType<Button>().First(static button => button.Label == "Add Component");
 
     [Fact]
     public void It_is_as_wide_as_the_button_that_dropped_it() {
@@ -120,18 +120,18 @@ public class AddComponentMenuTests {
 
         var picker = Open(editor);
 
-        var headings = picker.Rows.Where(row => row.Index >= 0).Select(row => row.Label).ToList();
+        var headings = picker.Rows.Where(static row => row.Index >= 0).Select(static row => row.Label).ToList();
 
         // Categories, not components — a heading is not the name of anything that can be added.
         Assert.DoesNotContain("Camera", headings);
         Assert.Contains(headings, name => name is not null && picker.Offered.Any(entry => entry.Category == name));
 
-        var audio = picker.Offered.First(entry => entry.Bridge.ComponentType == typeof(AudioSource)).Category;
+        var audio = picker.Offered.First(static entry => entry.Bridge.ComponentType == typeof(AudioSource)).Category;
 
         picker.Show(audio);
         editor.Settle();
 
-        var inside = picker.Rows.Where(row => row.Index >= 0).Select(row => row.Label).ToList();
+        var inside = picker.Rows.Where(static row => row.Index >= 0).Select(static row => row.Label).ToList();
 
         Assert.Contains("Audio Source", inside);
 
@@ -144,7 +144,10 @@ public class AddComponentMenuTests {
         picker.Show(null);
         editor.Settle();
 
-        Assert.DoesNotContain("Audio Source", picker.Rows.Where(row => row.Index >= 0).Select(row => row.Label));
+        Assert.DoesNotContain(
+            "Audio Source",
+            picker.Rows.Where(static row => row.Index >= 0).Select(static row => row.Label)
+        );
     }
 
     /// <summary>
@@ -157,12 +160,12 @@ public class AddComponentMenuTests {
         using var editor = Selected();
 
         var picker = Open(editor);
-        var audio = picker.Offered.First(entry => entry.Bridge.ComponentType == typeof(AudioSource)).Category;
+        var audio = picker.Offered.First(static entry => entry.Bridge.ComponentType == typeof(AudioSource)).Category;
 
         picker.Field.Value = audio;
         editor.Settle();
 
-        var found = picker.Rows.Where(row => row.Index >= 0).Select(row => row.Label).ToList();
+        var found = picker.Rows.Where(static row => row.Index >= 0).Select(static row => row.Label).ToList();
 
         // The category is called "Audio" and `AudioSource` is written out as "Audio Source", so the
         // query matches components *whose names contain it* and never the heading itself.
@@ -173,7 +176,7 @@ public class AddComponentMenuTests {
         // against is gone (doc 36 § F7 wave 8), so this now says the stronger thing it always meant —
         // and `AddComponentMenuDumpTests.Narrowing_the_query_leaves_nothing_behind` says it against
         // the tree, where a hidden element still counts.
-        Assert.DoesNotContain(picker.Rows.Where(row => row.Index >= 0), row => row.HasClass("parked"));
+        Assert.DoesNotContain(picker.Rows.Where(static row => row.Index >= 0), static row => row.HasClass("parked"));
         Assert.All(found, name => Assert.Contains(picker.Offered, entry => entry.Bridge.DisplayName == name));
     }
 
@@ -182,7 +185,7 @@ public class AddComponentMenuTests {
         using var editor = Selected();
 
         var picker = Open(editor);
-        var audio = picker.Offered.First(entry => entry.Bridge.ComponentType == typeof(AudioSource)).Category;
+        var audio = picker.Offered.First(static entry => entry.Bridge.ComponentType == typeof(AudioSource)).Category;
 
         picker.Show(audio);
         editor.Settle();
@@ -193,7 +196,7 @@ public class AddComponentMenuTests {
         // ⚠ A scope somebody has to notice and clear is a mode, and a search that quietly answered
         // from three components while the name being typed is somewhere else looks broken.
         Assert.Null(picker.Category);
-        Assert.Contains("Camera", picker.Rows.Where(row => row.Index >= 0).Select(row => row.Label));
+        Assert.Contains("Camera", picker.Rows.Where(static row => row.Index >= 0).Select(static row => row.Label));
     }
 
     [Fact]
@@ -205,7 +208,7 @@ public class AddComponentMenuTests {
         picker.Field.Value = "Camera";
         editor.Settle();
 
-        picker.Rows.First(row => row.Index >= 0 && row.Label == "Camera").Activate();
+        picker.Rows.First(static row => row.Index >= 0 && row.Label == "Camera").Activate();
         editor.Settle();
 
         Assert.False(picker.IsOpen);
@@ -217,8 +220,12 @@ public class AddComponentMenuTests {
     /// <summary>Reopening the picker starts on an empty query, and the box empties itself.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>This is the editor's first two-way binding, and the assertion is on the
-    ///         <i>control</i>.</b> Issue #663 measures <c>bind:</c> at thirteen attributes across one
+    ///         ⚠
+    ///         <b>
+    ///             This is the editor's first two-way binding, and the assertion is on the
+    ///             <i>control</i>.
+    ///         </b>
+    ///         Issue #663 measures <c>bind:</c> at thirteen attributes across one
     ///         sample and one test fixture and concludes the feature is too narrow to be used. What
     ///         this panel had instead was a <c>change:</c>, which carries a value <i>out</i> only —
     ///         so clearing the query meant writing <c>Field.Value</c> and the signal beside it in two
@@ -279,9 +286,9 @@ public class AddComponentMenuTests {
 
         var bridges = ComponentsView.Default();
 
-        var light = bridges.First(bridge => bridge.ComponentType == typeof(Light));
-        var camera = bridges.First(bridge => bridge.ComponentType == typeof(Camera));
-        var source = bridges.First(bridge => bridge.ComponentType == typeof(AudioSource));
+        var light = bridges.First(static bridge => bridge.ComponentType == typeof(Light));
+        var camera = bridges.First(static bridge => bridge.ComponentType == typeof(Camera));
+        var source = bridges.First(static bridge => bridge.ComponentType == typeof(AudioSource));
 
         // Vixen.Rendering.Ecs → Rendering, Vixen.Audio.Ecs → Audio.
         Assert.Equal("Rendering", ComponentsView.CategoryOf(light));

@@ -21,22 +21,22 @@ namespace Vixen.Editor.AssetEditors.Tests;
 /// <summary>What the frame document does to a <c>.vxcompositor</c>, and what it refuses to.</summary>
 public class FrameDocumentTests : IDisposable {
     const string Knobs = """
-        version: 2
-        game: !StandardFrame
-          quality: High
-          shadows: Cascades
-          antialiasing: Taa
-          look: !Look
-            settings:
-              ev100: 13
-              fogDensity: 0.02
-        """;
+                         version: 2
+                         game: !StandardFrame
+                           quality: High
+                           shadows: Cascades
+                           antialiasing: Taa
+                           look: !Look
+                             settings:
+                               ev100: 13
+                               fogDensity: 0.02
+                         """;
 
     const string Authored = """
-        version: 2
-        game: !SingleStage
-          name: Opaque
-        """;
+                            version: 2
+                            game: !SingleStage
+                              name: Opaque
+                            """;
 
     readonly EditorFixture fixture = new();
 
@@ -180,7 +180,7 @@ public class FrameDocumentTests : IDisposable {
 
         var knob = ResolvedQualityTable
             .Resolve(document.Tier, document.Preset, document.Node?.Preset)
-            .Single(entry => entry.Path == "shadows.cascadeResolution");
+            .Single(static entry => entry.Path == "shadows.cascadeResolution");
 
         Assert.Equal(QualityLayer.Project, knob.Layer);
         Assert.Equal("4096", knob.Value);
@@ -211,7 +211,7 @@ public class FrameQualityTableTests {
 
         var members = typeof(ResolvedQuality)
             .GetProperties(BindingFlags.Public | BindingFlags.Instance)
-            .ToDictionary(property => property.Name, StringComparer.OrdinalIgnoreCase);
+            .ToDictionary(static property => property.Name, StringComparer.OrdinalIgnoreCase);
 
         var table = ResolvedQualityTable.Resolve(tier);
 
@@ -241,7 +241,7 @@ public class FrameQualityTableTests {
     public void EngineDefaultsAreAttributedToTheEngine() =>
         Assert.All(
             ResolvedQualityTable.Resolve(QualityTier.High),
-            knob => {
+            static knob => {
                 Assert.Equal(QualityLayer.Engine, knob.Layer);
                 Assert.False(knob.Overridden);
             }
@@ -259,13 +259,11 @@ public class FrameQualityTableTests {
     public void StatingTheEnginesOwnValueIsStillAnOverride() {
         var engine = RenderQuality.Resolve(QualityTier.High).CascadeCount;
 
-        var project = new RenderQualityAsset {
-            High = new QualityTierOverrides { Shadows = new ShadowQuality { CascadeCount = engine } }
-        };
+        var project = new RenderQualityAsset { High = new() { Shadows = new() { CascadeCount = engine } } };
 
         var knob = ResolvedQualityTable
             .Resolve(QualityTier.High, project)
-            .Single(entry => entry.Path == "shadows.cascadeCount");
+            .Single(static entry => entry.Path == "shadows.cascadeCount");
 
         Assert.Equal(QualityLayer.Project, knob.Layer);
         Assert.True(knob.Overridden);
@@ -274,28 +272,25 @@ public class FrameQualityTableTests {
     /// <summary>And a document's inline preset out-votes the project's.</summary>
     [Fact]
     public void TheDocumentOverlayIsTheTopVote() {
-        var project = new RenderQualityAsset {
-            High = new QualityTierOverrides { Shadows = new ShadowQuality { CascadeCount = 3 } }
-        };
+        var project = new RenderQualityAsset { High = new() { Shadows = new() { CascadeCount = 3 } } };
 
-        var overlay = new RenderQualityAsset {
-            High = new QualityTierOverrides { Shadows = new ShadowQuality { CascadeCount = 2 } }
-        };
+        var overlay = new RenderQualityAsset { High = new() { Shadows = new() { CascadeCount = 2 } } };
 
         var knob = ResolvedQualityTable
             .Resolve(QualityTier.High, project, overlay)
-            .Single(entry => entry.Path == "shadows.cascadeCount");
+            .Single(static entry => entry.Path == "shadows.cascadeCount");
 
         Assert.Equal(QualityLayer.Document, knob.Layer);
         Assert.Equal("2", knob.Value);
     }
 
-    static string Format(object? value) => value switch {
-        bool flag => flag ? "true" : "false",
-        float number => number.ToString("0.####", CultureInfo.InvariantCulture),
-        IFormattable formattable => formattable.ToString(null, CultureInfo.InvariantCulture),
-        _ => value?.ToString() ?? "—"
-    };
+    static string Format(object? value) =>
+        value switch {
+            bool flag => flag ? "true" : "false",
+            float number => number.ToString("0.####", CultureInfo.InvariantCulture),
+            IFormattable formattable => formattable.ToString(null, CultureInfo.InvariantCulture),
+            _ => value?.ToString() ?? "—"
+        };
 }
 
 /// <summary>The per-camera volume stack, against the fold it reads.</summary>
@@ -330,7 +325,7 @@ public class FrameVolumeStackTests : IDisposable {
     /// <summary>The look alone is a layer, at full weight, and it is named as one.</summary>
     [Fact]
     public void TheLookIsTheBaseLayer() {
-        var stack = new ResolvedVolumes { Look = new PostProcessSettings { Ev100 = 13f } };
+        var stack = new ResolvedVolumes { Look = new() { Ev100 = 13f } };
         var report = stack.Fold(world);
 
         Assert.True(report.HasLook);
@@ -350,7 +345,10 @@ public class FrameVolumeStackTests : IDisposable {
     [Fact]
     public void WhatDoesNotReachIsStillCounted() {
         Volume(new(0f, 0f, 0f), new() { Unbound = true, Weight = 1f, Settings = new() { Saturation = 1.1f } });
-        Volume(new(500f, 0f, 0f), new() { Extents = new(1f, 1f, 1f), Weight = 1f, Settings = new() { Saturation = 0f } });
+        Volume(
+            new(500f, 0f, 0f),
+            new() { Extents = new(1f, 1f, 1f), Weight = 1f, Settings = new() { Saturation = 0f } }
+        );
 
         var report = new ResolvedVolumes().Fold(world);
 
@@ -366,7 +364,10 @@ public class FrameVolumeStackTests : IDisposable {
     /// </remarks>
     [Fact]
     public void ThePriorityOrderIsTheAnswer() {
-        Volume(new(0f, 0f, 0f), new() { Unbound = true, Priority = -100, Weight = 1f, Settings = new() { Saturation = 1.1f } });
+        Volume(
+            new(0f, 0f, 0f),
+            new() { Unbound = true, Priority = -100, Weight = 1f, Settings = new() { Saturation = 1.1f } }
+        );
 
         Volume(
             new(0f, 0f, 0f),
@@ -415,7 +416,9 @@ public class FrameVolumeStackTests : IDisposable {
 public class FrameInspectorMarkupTests : IDisposable {
     readonly UiDocument document = new(420f, 900f);
 
-    public FrameInspectorMarkupTests() => InspectorTheme.Install(document);
+    public FrameInspectorMarkupTests() {
+        InspectorTheme.Install(document);
+    }
 
     public void Dispose() {
         document.Dispose();
@@ -428,7 +431,7 @@ public class FrameInspectorMarkupTests : IDisposable {
         MarkupBinding.Bind(view.Root, new InspectorTarget([edited]));
         document.Update();
 
-        return [.. Descendants(view.Root).OfType<PropertyField>()];
+        return [..Descendants(view.Root).OfType<PropertyField>()];
     }
 
     /// <summary>Every knob the node has is on the form, and every row found its member.</summary>
@@ -436,11 +439,11 @@ public class FrameInspectorMarkupTests : IDisposable {
     public void TheFrameFormDrawsEveryKnob() {
         var fields = Fields<StandardFrameInspector>(new StandardFrameSettings());
 
-        Assert.All(fields, field => Assert.NotNull(field.Row));
+        Assert.All(fields, static field => Assert.NotNull(field.Row));
 
         Assert.Equal(
             ["Quality", "Shadows", "Gi", "Reflections", "Antialiasing", "Exposure", "Particles", "Output"],
-            fields.Select(field => field.Path)
+            fields.Select(static field => field.Path)
         );
     }
 
@@ -449,7 +452,7 @@ public class FrameInspectorMarkupTests : IDisposable {
     public void TheLookFormDrawsEveryOpinion() {
         var fields = Fields<LookInspector>(new LookSettings());
 
-        Assert.All(fields, field => Assert.NotNull(field.Row));
+        Assert.All(fields, static field => Assert.NotNull(field.Row));
         Assert.Equal(29, fields.Count);
     }
 
@@ -459,7 +462,7 @@ public class FrameInspectorMarkupTests : IDisposable {
         var settings = new StandardFrameSettings();
         var fields = Fields<StandardFrameInspector>(settings);
 
-        var row = fields.Single(field => field.Path == "Shadows").Row;
+        var row = fields.Single(static field => field.Path == "Shadows").Row;
 
         Assert.NotNull(row);
         Assert.True(row.Field.Write(ShadowMode.Virtual));

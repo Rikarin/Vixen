@@ -27,9 +27,12 @@ public readonly record struct AddressConstantsResult(string Source, int Count, I
 ///         sees the compilation and nothing else; the address list is a property of the *content*
 ///         build, which runs beside the compiler rather than inside it. <c>Vixen.Sdk</c>'s import
 ///         target already runs <c>BeforeTargets="CoreCompile"</c> for exactly this — its comment says
-///         <em>"generated C# … has to exist before CoreCompile reads the compile items. Nothing
-///         generates C# yet; the ordering is what makes that a scheduling detail later rather than a
-///         redesign."</em> This is the first thing to use it.
+///         <em>
+///             "generated C# … has to exist before CoreCompile reads the compile items. Nothing
+///             generates C# yet; the ordering is what makes that a scheduling detail later rather than a
+///             redesign."
+///         </em>
+///         This is the first thing to use it.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>The id is computed from the string, never emitted as a literal.</b> Writing
@@ -145,7 +148,11 @@ public static class AddressConstants {
         // actually survived rather than from what was accepted along the way.
         count = tree.Count();
 
-        return new(count == 0 ? string.Empty : Write(tree, @namespace, root, ids), count, [.. problems.Order(StringComparer.Ordinal)]);
+        return new(
+            count == 0 ? string.Empty : Write(tree, @namespace, root, ids),
+            count,
+            [..problems.Order(StringComparer.Ordinal)]
+        );
     }
 
     /// <summary>Turns one address segment into a C# identifier, or empty when nothing can be.</summary>
@@ -223,7 +230,10 @@ public static class AddressConstants {
         source.AppendLine(CultureInfo.InvariantCulture, $"{indent}public static partial class {node.Name} {{");
 
         if (node.Address is { } address) {
-            source.AppendLine(CultureInfo.InvariantCulture, $"{inner}/// <summary>The address: <c>{address}</c>.</summary>");
+            source.AppendLine(
+                CultureInfo.InvariantCulture,
+                $"{inner}/// <summary>The address: <c>{address}</c>.</summary>"
+            );
             source.AppendLine(
                 CultureInfo.InvariantCulture,
                 $"{inner}public const string {AddressMember} = \"{address}\";"
@@ -231,7 +241,10 @@ public static class AddressConstants {
 
             if (ids) {
                 source.AppendLine();
-                source.AppendLine(CultureInfo.InvariantCulture, $"{inner}/// <summary>The id of <c>{address}</c>.</summary>");
+                source.AppendLine(
+                    CultureInfo.InvariantCulture,
+                    $"{inner}/// <summary>The id of <c>{address}</c>.</summary>"
+                );
                 source.AppendLine(
                     CultureInfo.InvariantCulture,
                     $"{inner}public static readonly DefId {IdMember} = DefId.From({AddressMember});"
@@ -264,7 +277,8 @@ public static class AddressConstants {
 
         public bool HasChildren => children.Count > 0;
 
-        public IEnumerable<Node> Children => children.Values.OrderBy(child => child.Name, StringComparer.Ordinal);
+        public IEnumerable<Node> Children =>
+            children.Values.OrderBy(static child => child.Name, StringComparer.Ordinal);
 
         public void Add(IReadOnlyList<string> path, string address) {
             var node = this;

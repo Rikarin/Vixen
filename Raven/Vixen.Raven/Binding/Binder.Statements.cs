@@ -4,7 +4,6 @@
 using Vixen.Core.Syntax;
 using Vixen.Raven.Diagnostics;
 using Vixen.Raven.Symbols;
-using Vixen.Raven.Symbols.Source;
 using Vixen.Raven.Syntax;
 
 namespace Vixen.Raven.Binding;
@@ -137,8 +136,10 @@ internal abstract partial class Binder {
             BoundAssignmentExpression => true,
             BoundInvocationExpression => true,
             BoundUnaryExpression unary => unary.OperatorKind
-                is UnaryOperatorKind.PreIncrement or UnaryOperatorKind.PreDecrement
-                or UnaryOperatorKind.PostIncrement or UnaryOperatorKind.PostDecrement,
+                is UnaryOperatorKind.PreIncrement
+                or UnaryOperatorKind.PreDecrement
+                or UnaryOperatorKind.PostIncrement
+                or UnaryOperatorKind.PostDecrement,
             BoundErrorExpression => true,
 
             // A conversion is inserted around a value, never around the effect: unwrap it so a

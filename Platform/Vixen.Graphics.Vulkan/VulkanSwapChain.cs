@@ -277,7 +277,7 @@ sealed unsafe class VulkanSwapChain : ISwapChain {
         VulkanDevice.Check(
             surfaces.GetPhysicalDeviceSurfaceSupport(
                 device.Adapters.Handle,
-                ((VulkanQueue) device.GraphicsQueue).Family,
+                ((VulkanQueue)device.GraphicsQueue).Family,
                 surface,
                 &supported
             ),
@@ -309,12 +309,13 @@ sealed unsafe class VulkanSwapChain : ISwapChain {
     ///         ([05](../../docs/plan/05-graphics-rhi.md)).
     ///     </para>
     /// </remarks>
-    internal static SwapChainStatus Translate(Result result) => result switch {
-        Result.Success => SwapChainStatus.Ready,
-        Result.SuboptimalKhr => SwapChainStatus.Suboptimal,
-        Result.ErrorOutOfDateKhr => SwapChainStatus.OutOfDate,
-        _ => SwapChainStatus.DeviceLost
-    };
+    internal static SwapChainStatus Translate(Result result) =>
+        result switch {
+            Result.Success => SwapChainStatus.Ready,
+            Result.SuboptimalKhr => SwapChainStatus.Suboptimal,
+            Result.ErrorOutOfDateKhr => SwapChainStatus.OutOfDate,
+            _ => SwapChainStatus.DeviceLost
+        };
 
     /// <summary>Picks a surface format, preferring the one asked for.</summary>
     /// <remarks>
@@ -333,8 +334,12 @@ sealed unsafe class VulkanSwapChain : ISwapChain {
     /// <returns>The chosen pairing, which may be narrower than the one requested.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A wide colour space is only ever accepted together with enough precision to use
-    ///         it, and that pairing is a rule here rather than a coincidence.</b> Eight bits spread
+    ///         ⚠
+    ///         <b>
+    ///             A wide colour space is only ever accepted together with enough precision to use
+    ///             it, and that pairing is a rule here rather than a coincidence.
+    ///         </b>
+    ///         Eight bits spread
     ///         across P3 are coarser per step than eight bits across sRGB, so
     ///         <c>B8G8R8A8_UNORM</c> on a P3 surface bands visibly in gradients that were clean in
     ///         sRGB — a strictly worse picture in exchange for the wider primaries. MoltenVK offers
@@ -409,21 +414,22 @@ sealed unsafe class VulkanSwapChain : ISwapChain {
     }
 
     /// <summary>The colour spaces that would satisfy a request for this gamut, best first.</summary>
-    static ColorSpaceKHR[] WideSpaces(ColorGamut gamut) => gamut switch {
-        ColorGamut.DisplayP3 => [
-            ColorSpaceKHR.SpaceExtendedSrgbLinearExt,
-            ColorSpaceKHR.SpaceDisplayP3NonlinearExt
-        ],
+    static ColorSpaceKHR[] WideSpaces(ColorGamut gamut) =>
+        gamut switch {
+            ColorGamut.DisplayP3 => [
+                ColorSpaceKHR.SpaceExtendedSrgbLinearExt,
+                ColorSpaceKHR.SpaceDisplayP3NonlinearExt
+            ],
 
-        // Nothing narrower than Rec. 2020 can stand in for it, but extended sRGB is unbounded and so
-        // covers it: the primaries are sRGB's, and the values simply run past them.
-        ColorGamut.Rec2020 => [
-            ColorSpaceKHR.SpaceExtendedSrgbLinearExt,
-            ColorSpaceKHR.SpaceBT2020LinearExt
-        ],
+            // Nothing narrower than Rec. 2020 can stand in for it, but extended sRGB is unbounded and so
+            // covers it: the primaries are sRGB's, and the values simply run past them.
+            ColorGamut.Rec2020 => [
+                ColorSpaceKHR.SpaceExtendedSrgbLinearExt,
+                ColorSpaceKHR.SpaceBT2020LinearExt
+            ],
 
-        _ => []
-    };
+            _ => []
+        };
 
     /// <summary>How well a format serves a colour space, or zero if it must not be paired with it.</summary>
     /// <remarks>
@@ -453,8 +459,12 @@ sealed unsafe class VulkanSwapChain : ISwapChain {
     ///         display.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>For extended sRGB the answer is a deliberate approximation, and worth knowing
-    ///         which way it errs.</b> That space is unbounded — its primaries are sRGB's and values
+    ///         ⚠
+    ///         <b>
+    ///             For extended sRGB the answer is a deliberate approximation, and worth knowing
+    ///             which way it errs.
+    ///         </b>
+    ///         That space is unbounded — its primaries are sRGB's and values
     ///         simply run past them — so there is no gamut the <i>swapchain</i> imposes at all, and
     ///         Rec. 2020 is the engine's way of saying "send it, do not repair it". The physical
     ///         panel still has a gamut, and what happens to a colour beyond it is then the
@@ -464,12 +474,13 @@ sealed unsafe class VulkanSwapChain : ISwapChain {
     ///         ask for <see cref="ColorGamut.DisplayP3" /> storage and map to it itself.
     ///     </para>
     /// </remarks>
-    internal static ColorGamut GamutOf(ColorSpaceKHR space) => space switch {
-        ColorSpaceKHR.SpaceExtendedSrgbLinearExt => ColorGamut.Rec2020,
-        ColorSpaceKHR.SpaceDisplayP3NonlinearExt or ColorSpaceKHR.SpaceDisplayP3LinearExt => ColorGamut.DisplayP3,
-        ColorSpaceKHR.SpaceBT2020LinearExt => ColorGamut.Rec2020,
-        _ => ColorGamut.Srgb
-    };
+    internal static ColorGamut GamutOf(ColorSpaceKHR space) =>
+        space switch {
+            ColorSpaceKHR.SpaceExtendedSrgbLinearExt => ColorGamut.Rec2020,
+            ColorSpaceKHR.SpaceDisplayP3NonlinearExt or ColorSpaceKHR.SpaceDisplayP3LinearExt => ColorGamut.DisplayP3,
+            ColorSpaceKHR.SpaceBT2020LinearExt => ColorGamut.Rec2020,
+            _ => ColorGamut.Srgb
+        };
 
     /// <summary>Picks a present mode, falling back to the one every driver must support.</summary>
     internal static PresentModeKHR ChoosePresentMode(
@@ -535,14 +546,15 @@ sealed unsafe class VulkanSwapChain : ISwapChain {
         ImageFormatProperties properties;
 
         return api.GetPhysicalDeviceImageFormatProperties(
-            physical,
-            format,
-            ImageType.Type2D,
-            ImageTiling.Optimal,
-            ImageUsageFlags.ColorAttachmentBit | ImageUsageFlags.TransferDstBit | ImageUsageFlags.SampledBit,
-            0,
-            &properties
-        ) == Result.Success;
+                physical,
+                format,
+                ImageType.Type2D,
+                ImageTiling.Optimal,
+                ImageUsageFlags.ColorAttachmentBit | ImageUsageFlags.TransferDstBit | ImageUsageFlags.SampledBit,
+                0,
+                &properties
+            )
+            == Result.Success;
     }
 
     void Build(Int2 size, PixelFormat preferredFormat, PresentMode preferredMode, int preferredCount) {
@@ -586,7 +598,8 @@ sealed unsafe class VulkanSwapChain : ISwapChain {
         // hand the driver a chain it never promised.
         var sampled = (capabilities.SupportedUsageFlags & ImageUsageFlags.SampledBit) != 0
             && SamplesAs(api, physical, chosen.Format);
-        var usage = ImageUsageFlags.ColorAttachmentBit | ImageUsageFlags.TransferDstBit
+        var usage = ImageUsageFlags.ColorAttachmentBit
+            | ImageUsageFlags.TransferDstBit
             | (sampled ? ImageUsageFlags.SampledBit : 0);
 
         var create = new SwapchainCreateInfoKHR {

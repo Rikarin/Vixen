@@ -85,7 +85,8 @@ public sealed class TickManager {
     ///     half a round trip, plus a margin for jitter, plus one.
     /// </summary>
     public int LeadTicks =>
-        IsSynchronized ? Math.Max(0, Rate.ToTicks(RoundTrip.OneWay) + Rate.ToTicks(RoundTrip.Jitter * 2) + 1 + LeadBias)
+        IsSynchronized
+            ? Math.Max(0, Rate.ToTicks(RoundTrip.OneWay) + Rate.ToTicks(RoundTrip.Jitter * 2) + 1 + LeadBias)
             : 0;
 
     /// <summary>An adjustment to the lead, in ticks, for something that measured better than a guess.</summary>
@@ -284,6 +285,6 @@ public sealed class TickManager {
 
         // Behind (a positive error) means shorter ticks, so more of them fit in a second.
         var response = Math.Clamp(TickError / (double)DriftResponseTicks, -1.0, 1.0);
-        DriftScale = 1.0 - (response * MaxDriftRatio);
+        DriftScale = 1.0 - response * MaxDriftRatio;
     }
 }

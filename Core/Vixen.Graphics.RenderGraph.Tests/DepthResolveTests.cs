@@ -20,8 +20,12 @@ namespace Vixen.Graphics.RenderGraph.Tests;
 ///         <see cref="DepthResolveMode" /> exists and why the depth attachment carries one.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The assertion that earns this file is the one about the default being
-///         <see cref="DepthResolveMode.Max" />.</b> The engine is reversed-Z: the near plane is depth
+///         ⚠
+///         <b>
+///             The assertion that earns this file is the one about the default being
+///             <see cref="DepthResolveMode.Max" />.
+///         </b>
+///         The engine is reversed-Z: the near plane is depth
 ///         1 and the far plane is 0, so the sample <em>nearest the camera</em> is the largest value,
 ///         not the smallest. Both choices resolve without an error and render a picture that looks
 ///         right; only the passes that read the resolved depth — reprojection, screen-space tracing,
@@ -75,26 +79,32 @@ public sealed class DepthResolveTests : IDisposable {
     ///     draft of this file did, and the sabotage run is what caught it.
     /// </remarks>
     DepthStencilAttachment Run(GraphTexture samples, GraphTexture resolved, DepthResolveMode? mode = null) {
-        graph.AddPass("draw", pass => {
-            if (mode is { } named) {
-                pass.DepthAttachment(samples, resolve: resolved, resolveMode: named);
-            } else {
-                pass.DepthAttachment(samples, resolve: resolved);
+        graph.AddPass(
+            "draw",
+            pass => {
+                if (mode is { } named) {
+                    pass.DepthAttachment(samples, resolve: resolved, resolveMode: named);
+                } else {
+                    pass.DepthAttachment(samples, resolve: resolved);
+                }
+
+                pass.Execute(static context => context.CommandList.Draw(3));
             }
+        );
 
-            pass.Execute(context => context.CommandList.Draw(3));
-        });
-
-        graph.AddPass("read", pass => {
-            pass.Reads(resolved);
-            pass.SideEffect();
-            pass.Execute(_ => { });
-        });
+        graph.AddPass(
+            "read",
+            pass => {
+                pass.Reads(resolved);
+                pass.SideEffect();
+                pass.Execute(static _ => { });
+            }
+        );
 
         var list = new TrackingCommandList();
         graph.Execute(list);
 
-        var drawn = Assert.Single(list.Passes, pass => pass.Name == "draw");
+        var drawn = Assert.Single(list.Passes, static pass => pass.Name == "draw");
 
         return Assert.NotNull(drawn.Depth);
     }
@@ -145,8 +155,10 @@ public sealed class DepthResolveTests : IDisposable {
     }
 
     /// <summary>
-    ///     <b>The derivation would have thrown the samples away, and this is why the resolve overrides
-    ///     it.</b>
+    ///     <b>
+    ///         The derivation would have thrown the samples away, and this is why the resolve overrides
+    ///         it.
+    ///     </b>
     /// </summary>
     /// <remarks>
     ///     Exactly the failure the colour path has: nothing reads the multisampled depth buffer, so
@@ -176,21 +188,27 @@ public sealed class DepthResolveTests : IDisposable {
         var samples = graph.CreateTexture(Multisampled("depth"));
         var resolved = graph.CreateTexture(Single("resolved"));
 
-        graph.AddPass("draw", pass => {
-            pass.DepthAttachment(samples, resolve: resolved);
-            pass.Execute(context => context.CommandList.Draw(3));
-        });
+        graph.AddPass(
+            "draw",
+            pass => {
+                pass.DepthAttachment(samples, resolve: resolved);
+                pass.Execute(static context => context.CommandList.Draw(3));
+            }
+        );
 
-        graph.AddPass("read", pass => {
-            pass.Reads(resolved);
-            pass.SideEffect();
-            pass.Execute(_ => { });
-        });
+        graph.AddPass(
+            "read",
+            pass => {
+                pass.Reads(resolved);
+                pass.SideEffect();
+                pass.Execute(static _ => { });
+            }
+        );
 
         var list = new TrackingCommandList();
         graph.Execute(list);
 
-        Assert.Contains(list.Passes, pass => pass.Name == "draw");
+        Assert.Contains(list.Passes, static pass => pass.Name == "draw");
     }
 
     /// <summary>
@@ -218,11 +236,13 @@ public sealed class DepthResolveTests : IDisposable {
         var samples = graph.CreateTexture(Multisampled("depth"));
         var resolved = graph.CreateTexture(Single("resolved"));
 
-        var error = Assert.Throws<RenderGraphException>(
-            () => graph.AddPass("draw", pass => {
-                pass.DepthAttachment(samples, readOnly: true, resolve: resolved);
-                pass.Execute(_ => { });
-            })
+        var error = Assert.Throws<RenderGraphException>(() => graph.AddPass(
+                "draw",
+                pass => {
+                    pass.DepthAttachment(samples, readOnly: true, resolve: resolved);
+                    pass.Execute(static _ => { });
+                }
+            )
         );
 
         Assert.Contains("read-only", error.Message, StringComparison.Ordinal);
@@ -234,11 +254,13 @@ public sealed class DepthResolveTests : IDisposable {
         var samples = graph.CreateTexture(Single("depth"));
         var resolved = graph.CreateTexture(Single("resolved"));
 
-        Assert.Throws<RenderGraphException>(
-            () => graph.AddPass("draw", pass => {
-                pass.DepthAttachment(samples, resolve: resolved);
-                pass.Execute(_ => { });
-            })
+        Assert.Throws<RenderGraphException>(() => graph.AddPass(
+                "draw",
+                pass => {
+                    pass.DepthAttachment(samples, resolve: resolved);
+                    pass.Execute(static _ => { });
+                }
+            )
         );
     }
 
@@ -248,11 +270,13 @@ public sealed class DepthResolveTests : IDisposable {
         var samples = graph.CreateTexture(Multisampled("depth"));
         var resolved = graph.CreateTexture(Multisampled("resolved", 2));
 
-        Assert.Throws<RenderGraphException>(
-            () => graph.AddPass("draw", pass => {
-                pass.DepthAttachment(samples, resolve: resolved);
-                pass.Execute(_ => { });
-            })
+        Assert.Throws<RenderGraphException>(() => graph.AddPass(
+                "draw",
+                pass => {
+                    pass.DepthAttachment(samples, resolve: resolved);
+                    pass.Execute(static _ => { });
+                }
+            )
         );
     }
 
@@ -262,11 +286,13 @@ public sealed class DepthResolveTests : IDisposable {
         var samples = graph.CreateTexture(Multisampled("depth"));
         var resolved = graph.CreateTexture(Single("resolved", 32));
 
-        Assert.Throws<RenderGraphException>(
-            () => graph.AddPass("draw", pass => {
-                pass.DepthAttachment(samples, resolve: resolved);
-                pass.Execute(_ => { });
-            })
+        Assert.Throws<RenderGraphException>(() => graph.AddPass(
+                "draw",
+                pass => {
+                    pass.DepthAttachment(samples, resolve: resolved);
+                    pass.Execute(static _ => { });
+                }
+            )
         );
     }
 
@@ -279,11 +305,14 @@ public sealed class DepthResolveTests : IDisposable {
     public void ADepthAttachmentWithNoResolveTargetCarriesNoResolveView() {
         var depthTexture = graph.CreateTexture(Single("depth"));
 
-        graph.AddPass("draw", pass => {
-            pass.DepthAttachment(depthTexture);
-            pass.SideEffect();
-            pass.Execute(context => context.CommandList.Draw(3));
-        });
+        graph.AddPass(
+            "draw",
+            pass => {
+                pass.DepthAttachment(depthTexture);
+                pass.SideEffect();
+                pass.Execute(static context => context.CommandList.Draw(3));
+            }
+        );
 
         var list = new TrackingCommandList();
         graph.Execute(list);

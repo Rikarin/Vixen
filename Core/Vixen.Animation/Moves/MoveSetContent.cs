@@ -3,7 +3,6 @@
 
 using Vixen.Animation.Motions;
 using Vixen.Core;
-using Vixen.Core.Mathematics;
 
 namespace Vixen.Animation.Moves;
 
@@ -62,7 +61,7 @@ public sealed class MoveEntryRecord {
         return new(
             Name,
             motion,
-            FacetSet.Of([.. Facets.Select(static facet => facet.Bake())]),
+            FacetSet.Of([..Facets.Select(static facet => facet.Bake())]),
             new() {
                 Speed = Speed,
                 TurnRate = TurnRate,
@@ -134,8 +133,8 @@ public sealed class TransitionRuleRecord {
         }
 
         return new(
-            new(FacetSet.Of([.. From.Select(static facet => facet.Bake())])),
-            new(FacetSet.Of([.. To.Select(static facet => facet.Bake())])),
+            new(FacetSet.Of([..From.Select(static facet => facet.Bake())])),
+            new(FacetSet.Of([..To.Select(static facet => facet.Bake())])),
             new(Duration, Easing, Sync, mask, Allowed)
         );
     }
@@ -208,7 +207,7 @@ public sealed class MoveSetContent {
             }
         }
 
-        return MoveSet.Compose(Name, bases, [.. entries]);
+        return MoveSet.Compose(Name, bases, [..entries]);
     }
 
     /// <summary>Every row, baked against nothing, for asking questions about the table.</summary>
@@ -224,7 +223,10 @@ public sealed class MoveSetContent {
         MoveSet.Compose(
             Name,
             bases,
-            [.. Entries.Where(static entry => entry.Name.Length > 0).Select(static entry => entry.Bake(UnresolvedMotion.Shared))]
+            [
+                ..Entries.Where(static entry => entry.Name.Length > 0)
+                    .Select(static entry => entry.Bake(UnresolvedMotion.Shared))
+            ]
         );
 
     /// <summary>The transition policy this set declares.</summary>
@@ -233,8 +235,7 @@ public sealed class MoveSetContent {
     ///     <see langword="null" /> for a policy whose transitions all move the whole body.
     /// </param>
     /// <returns>The policy.</returns>
-    public RuleTransitionPolicy Policy(Skeleton? skeleton = null) =>
-        new([.. Rules.Select(rule => rule.Bake(skeleton))]);
+    public RuleTransitionPolicy Policy(Skeleton? skeleton = null) => new([..Rules.Select(rule => rule.Bake(skeleton))]);
 }
 
 /// <summary>A move whose clip is not loaded. Poses nothing, and says so.</summary>

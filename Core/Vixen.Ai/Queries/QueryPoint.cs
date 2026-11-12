@@ -20,9 +20,10 @@ namespace Vixen.Ai;
 /// </remarks>
 public readonly record struct QueryPoint(Vector3 Position, Entity Entity = default) {
     /// <inheritdoc />
-    public override string ToString() => Entity.IsNull
-        ? Position.ToString()
-        : string.Create(CultureInfo.InvariantCulture, $"{Position} ({Entity})");
+    public override string ToString() =>
+        Entity.IsNull
+            ? Position.ToString()
+            : string.Create(CultureInfo.InvariantCulture, $"{Position} ({Entity})");
 }
 
 /// <summary>A generated point, what it scored, and whether a filter threw it away.</summary>
@@ -34,10 +35,11 @@ public readonly record struct ScoredQueryPoint(QueryPoint Point, float Score, bo
     public Vector3 Position => Point.Position;
 
     /// <inheritdoc />
-    public override string ToString() => string.Create(
-        CultureInfo.InvariantCulture,
-        $"{Point} {(Filtered ? "filtered" : $"{Score:0.###}")}"
-    );
+    public override string ToString() =>
+        string.Create(
+            CultureInfo.InvariantCulture,
+            $"{Point} {(Filtered ? "filtered" : $"{Score:0.###}")}"
+        );
 }
 
 /// <summary>

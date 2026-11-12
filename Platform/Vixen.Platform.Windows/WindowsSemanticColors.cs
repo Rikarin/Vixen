@@ -8,10 +8,13 @@ namespace Vixen.Platform.Windows;
 /// <summary>The palette Windows is drawing with, read only while a high-contrast scheme is on.</summary>
 /// <remarks>
 ///     <para>
-///         <b>The classic system colours — <c>COLOR_WINDOW</c>, <c>COLOR_WINDOWTEXT</c>,
-///         <c>COLOR_BTNFACE</c> and the rest — are the one place Windows publishes a whole
-///         semantic palette, and ⚠ they are only the palette the user is looking at while a
-///         high-contrast scheme is on.</b> Dark mode does not touch them: on a Windows 10 or 11 set
+///         <b>
+///             The classic system colours — <c>COLOR_WINDOW</c>, <c>COLOR_WINDOWTEXT</c>,
+///             <c>COLOR_BTNFACE</c> and the rest — are the one place Windows publishes a whole
+///             semantic palette, and ⚠ they are only the palette the user is looking at while a
+///             high-contrast scheme is on.
+///         </b>
+///         Dark mode does not touch them: on a Windows 10 or 11 set
 ///         to dark with no high-contrast scheme, <c>GetSysColor(COLOR_WINDOW)</c> still answers
 ///         white and <c>COLOR_WINDOWTEXT</c> black, because the classic table predates the
 ///         Personalize key and nothing rewrites it when the app theme flips. A reader that supplied
@@ -20,8 +23,11 @@ namespace Vixen.Platform.Windows;
 ///         and quieter, since a light field on a dark window reads as a choice rather than a bug.
 ///     </para>
 ///     <para>
-///         <b>Under a high-contrast scheme the table is exactly right, and it is the read that
-///         matters most.</b> A high-contrast scheme is a palette the user picked — Aquatic, Desert,
+///         <b>
+///             Under a high-contrast scheme the table is exactly right, and it is the read that
+///             matters most.
+///         </b>
+///         A high-contrast scheme is a palette the user picked — Aquatic, Desert,
 ///         Dusk, Night sky, or their own edit of one — and <c>SystemPalette.HighContrast</c> is a
 ///         fixed guess at it that cannot know which. This is the same gate Chromium's forced-colours
 ///         path uses: system colours from <c>GetSysColor</c> while <c>HCF_HIGHCONTRASTON</c> is
@@ -30,8 +36,12 @@ namespace Vixen.Platform.Windows;
 ///         flag, <c>Repalette</c> resets to it, and a role supplied here survives that reset.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The dark-mode half is not unwritten but blocked at this layer, and the block is
-///         worth naming so nobody widens the gate to close it.</b> What follows the app theme is
+///         ⚠
+///         <b>
+///             The dark-mode half is not unwritten but blocked at this layer, and the block is
+///             worth naming so nobody widens the gate to close it.
+///         </b>
+///         What follows the app theme is
 ///         WinRT's <c>UISettings.GetColorValue(UIColorType.Foreground)</c> and its
 ///         <c>Background</c>, which are a COM activation away and not a <c>user32</c> call; nothing
 ///         in this assembly activates a WinRT class today. Until that exists, a Windows in dark mode
@@ -73,18 +83,18 @@ public static class WindowsSemanticColors {
         var highlight = Win32.GetSysColor(Win32.ColorHighlight);
         var highlightText = Win32.GetSysColor(Win32.ColorHighlightText);
 
-        return new SystemSemanticColors(
-            Canvas: WindowsAccent.FromColorRef(window),
-            CanvasText: WindowsAccent.FromColorRef(windowText),
-            LinkText: WindowsAccent.FromColorRef(Win32.GetSysColor(Win32.ColorHotlight)),
-            ButtonFace: WindowsAccent.FromColorRef(Win32.GetSysColor(Win32.ColorButtonFace)),
-            ButtonText: WindowsAccent.FromColorRef(Win32.GetSysColor(Win32.ColorButtonText)),
-            ButtonBorder: WindowsAccent.FromColorRef(Win32.GetSysColor(Win32.ColorButtonText)),
-            Field: WindowsAccent.FromColorRef(window),
-            FieldText: WindowsAccent.FromColorRef(windowText),
-            Highlight: highlight == highlightText ? null : WindowsAccent.FromColorRef(highlight),
-            HighlightText: highlight == highlightText ? null : WindowsAccent.FromColorRef(highlightText),
-            GrayText: WindowsAccent.FromColorRef(Win32.GetSysColor(Win32.ColorGrayText))
+        return new(
+            WindowsAccent.FromColorRef(window),
+            WindowsAccent.FromColorRef(windowText),
+            WindowsAccent.FromColorRef(Win32.GetSysColor(Win32.ColorHotlight)),
+            WindowsAccent.FromColorRef(Win32.GetSysColor(Win32.ColorButtonFace)),
+            WindowsAccent.FromColorRef(Win32.GetSysColor(Win32.ColorButtonText)),
+            WindowsAccent.FromColorRef(Win32.GetSysColor(Win32.ColorButtonText)),
+            WindowsAccent.FromColorRef(window),
+            WindowsAccent.FromColorRef(windowText),
+            highlight == highlightText ? null : WindowsAccent.FromColorRef(highlight),
+            highlight == highlightText ? null : WindowsAccent.FromColorRef(highlightText),
+            WindowsAccent.FromColorRef(Win32.GetSysColor(Win32.ColorGrayText))
         );
     }
 }

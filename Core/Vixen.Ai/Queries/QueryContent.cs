@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core;
-using Vixen.Core.Curves;
 
 namespace Vixen.Ai;
 
@@ -129,20 +128,25 @@ public sealed class QueryTestContent {
     /// <summary>The curve this describes.</summary>
     /// <returns>The curve.</returns>
     /// <remarks>
-    ///     ⚠ <b>The same <see cref="ResponseCurve" /> a utility consideration builds, from the same
-    ///     fields.</b> doc 37 § D14: a test's scoring equation is a consideration's curve, so the
+    ///     ⚠
+    ///     <b>
+    ///         The same <see cref="ResponseCurve" /> a utility consideration builds, from the same
+    ///         fields.
+    ///     </b>
+    ///     doc 37 § D14: a test's scoring equation is a consideration's curve, so the
     ///     editor's curve control draws both and an author who has tuned one has tuned the other.
     /// </remarks>
-    public ResponseCurve BuildCurve() => new() {
-        Kind = Curve,
-        Slope = Slope,
-        Exponent = Exponent,
-        Shift = Shift,
-        Centre = Centre,
-        Keys = Curve == ResponseCurveKind.Sampled && Keys.Count > 0
-            ? [.. Keys.OrderBy(key => key.Time).Select(key => key.ToSample())]
-            : null
-    };
+    public ResponseCurve BuildCurve() =>
+        new() {
+            Kind = Curve,
+            Slope = Slope,
+            Exponent = Exponent,
+            Shift = Shift,
+            Centre = Centre,
+            Keys = Curve == ResponseCurveKind.Sampled && Keys.Count > 0
+                ? [..Keys.OrderBy(static key => key.Time).Select(static key => key.ToSample())]
+                : null
+        };
 }
 
 /// <summary>An environment query as a file: generators, then tests in order.</summary>

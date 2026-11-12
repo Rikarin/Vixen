@@ -55,15 +55,21 @@ public sealed class SceneBlock {
 /// <summary>A compiled entity hierarchy: the runtime form of an authored scene or prefab.</summary>
 /// <remarks>
 ///     <para>
-///         <b>This is the shape the authoring format is compiled *into*, and the two are shaped by
-///         opposite forces.</b> A <c>.vxscene</c> nests its entities, spells its numbers out and is
+///         <b>
+///             This is the shape the authoring format is compiled *into*, and the two are shaped by
+///             opposite forces.
+///         </b>
+///         A <c>.vxscene</c> nests its entities, spells its numbers out and is
 ///         built to be read by a person and merged by git. This is flat, positional and binary, and
 ///         is built to be turned into a world in one pass — see <c>SceneSerializer</c> for the other
 ///         half of the bargain.
 ///     </para>
 ///     <para>
-///         <b>Entities are stored in the order they must be created: a parent before anything that
-///         hangs from it.</b> <see cref="Parents" /> holds an index rather than an identity, so
+///         <b>
+///             Entities are stored in the order they must be created: a parent before anything that
+///             hangs from it.
+///         </b>
+///         <see cref="Parents" /> holds an index rather than an identity, so
 ///         rebuilding the hierarchy is an array read per entity and needs no map — which is what
 ///         makes a load linear in the number of entities rather than a walk of a tree.
 ///     </para>
@@ -116,8 +122,7 @@ public sealed class SceneContent {
     /// <summary>What each entity is called, or the empty string when the names were stripped.</summary>
     /// <param name="index">Which entity.</param>
     /// <returns>The name.</returns>
-    public string NameOf(int index) =>
-        (uint) index < (uint) Names.Length ? Names[index] : string.Empty;
+    public string NameOf(int index) => (uint)index < (uint)Names.Length ? Names[index] : string.Empty;
 
     /// <summary>Creates every entity, with its components, its transform and its place in the tree.</summary>
     /// <param name="world">Where to put them.</param>
@@ -282,7 +287,7 @@ public sealed class SceneContent {
 
         var content = new SceneContent {
             Count = order.Count,
-            Parents = [.. parents],
+            Parents = [..parents],
             Positions = new Vector3[order.Count],
             Rotations = new Quaternion[order.Count],
             Scales = new Vector3[order.Count],
@@ -322,8 +327,8 @@ public sealed class SceneContent {
                 }
             }
 
-            carried.Sort((left, right) => string.CompareOrdinal(left.Name, right.Name));
-            var key = string.Join('\0', carried.Select(binder => binder.Name));
+            carried.Sort(static (left, right) => string.CompareOrdinal(left.Name, right.Name));
+            var key = string.Join('\0', carried.Select(static binder => binder.Name));
 
             if (!blocks.TryGetValue(key, out var entries)) {
                 blocks[key] = entries = [];
@@ -347,13 +352,13 @@ public sealed class SceneContent {
                 }
 
                 writer.Flush();
-                columns.Add(new() { Component = binder.Name, Data = buffer.WrittenSpan.ToArray() });
+                columns.Add(new() { Component = binder.Name, Data = [..buffer.WrittenSpan] });
             }
 
-            built.Add(new() { Entities = [.. entries], Columns = [.. columns] });
+            built.Add(new() { Entities = [..entries], Columns = [..columns] });
         }
 
-        content.Blocks = [.. built];
+        content.Blocks = [..built];
         return content;
     }
 
@@ -394,7 +399,7 @@ public sealed class SceneContent {
 
         foreach (var block in Blocks) {
             foreach (var entity in block.Entities) {
-                if ((uint) entity >= (uint) Count) {
+                if ((uint)entity >= (uint)Count) {
                     throw new ArgumentException(
                         $"A block names entity {entity} and the scene has {Count}. The asset is truncated or "
                         + "was written by something that does not agree with this format."
@@ -458,8 +463,7 @@ public sealed class SceneContent {
         // adding a component per entity is an archetype move per entity, and the whole point of a
         // block is one CreateMany and a walk down each column.
         var ids = new List<ComponentTypeId>(block.Columns.Length + 3) {
-            ComponentType<LocalTransform>.Id,
-            ComponentType<WorldTransform>.Id
+            ComponentType<LocalTransform>.Id, ComponentType<WorldTransform>.Id
         };
 
         for (var index = 0; index < block.Columns.Length; index++) {

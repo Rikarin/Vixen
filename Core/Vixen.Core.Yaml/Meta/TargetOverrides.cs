@@ -80,11 +80,11 @@ public static class TargetOverrides {
             }
 
             if (Applies(name.Value, target)) {
-                applicable.Add((name.Value.Count(character => character == '/'), patch));
+                applicable.Add((name.Value.Count(static character => character == '/'), patch));
             }
         }
 
-        foreach (var (_, patch) in applicable.OrderBy(entry => entry.Depth)) {
+        foreach (var (_, patch) in applicable.OrderBy(static entry => entry.Depth)) {
             foreach (var (key, value) in patch.Entries) {
                 if (!string.Equals(key, TargetKey, StringComparison.Ordinal)) {
                     resolved.Set(key, value);

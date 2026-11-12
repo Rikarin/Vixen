@@ -72,6 +72,6 @@ public class SyntaxToken : SyntaxNode {
             }
         }
 
-        return [.. collected];
+        return [..collected];
     }
 }

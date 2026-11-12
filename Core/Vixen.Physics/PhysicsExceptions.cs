@@ -7,19 +7,16 @@ namespace Vixen.Physics;
 public sealed class PhysicsInitializationException : InvalidOperationException {
     /// <summary>Creates the exception.</summary>
     /// <param name="message">What went wrong.</param>
-    public PhysicsInitializationException(string message) : base(message) {
-    }
+    public PhysicsInitializationException(string message) : base(message) { }
 
     /// <summary>Creates the exception with a cause.</summary>
     /// <param name="message">What went wrong.</param>
     /// <param name="innerException">The cause.</param>
     public PhysicsInitializationException(string message, Exception innerException)
-        : base(message, innerException) {
-    }
+        : base(message, innerException) { }
 
     /// <summary>Creates the exception with no message.</summary>
-    public PhysicsInitializationException() {
-    }
+    public PhysicsInitializationException() { }
 }
 
 /// <summary>
@@ -34,18 +31,15 @@ public sealed class PhysicsInitializationException : InvalidOperationException {
 public sealed class PhysicsHandleException : InvalidOperationException {
     /// <summary>Creates the exception.</summary>
     /// <param name="message">What is wrong with the handle.</param>
-    public PhysicsHandleException(string message) : base(message) {
-    }
+    public PhysicsHandleException(string message) : base(message) { }
 
     /// <summary>Creates the exception with a cause.</summary>
     /// <param name="message">What is wrong with the handle.</param>
     /// <param name="innerException">The cause.</param>
-    public PhysicsHandleException(string message, Exception innerException) : base(message, innerException) {
-    }
+    public PhysicsHandleException(string message, Exception innerException) : base(message, innerException) { }
 
     /// <summary>Creates the exception with no message.</summary>
-    public PhysicsHandleException() {
-    }
+    public PhysicsHandleException() { }
 }
 
 /// <summary>A shape could not be built from the description it was given.</summary>
@@ -58,22 +52,18 @@ public sealed class PhysicsHandleException : InvalidOperationException {
 public sealed class PhysicsShapeException : ArgumentException {
     /// <summary>Creates the exception.</summary>
     /// <param name="message">What is wrong with the description.</param>
-    public PhysicsShapeException(string message) : base(message) {
-    }
+    public PhysicsShapeException(string message) : base(message) { }
 
     /// <summary>Creates the exception naming the offending argument.</summary>
     /// <param name="message">What is wrong with the description.</param>
     /// <param name="paramName">The parameter that carried it.</param>
-    public PhysicsShapeException(string message, string? paramName) : base(message, paramName) {
-    }
+    public PhysicsShapeException(string message, string? paramName) : base(message, paramName) { }
 
     /// <summary>Creates the exception with a cause.</summary>
     /// <param name="message">What is wrong with the description.</param>
     /// <param name="innerException">The cause.</param>
-    public PhysicsShapeException(string message, Exception innerException) : base(message, innerException) {
-    }
+    public PhysicsShapeException(string message, Exception innerException) : base(message, innerException) { }
 
     /// <summary>Creates the exception with no message.</summary>
-    public PhysicsShapeException() {
-    }
+    public PhysicsShapeException() { }
 }

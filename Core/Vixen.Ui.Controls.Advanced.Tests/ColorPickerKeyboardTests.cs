@@ -66,7 +66,7 @@ public class ColorPickerKeyboardTests {
         using var fixture = new AdvancedFixture();
 
         var picker = fixture.Add<ColorPicker>();
-        picker.Value = new Color4(0.2f, 0.4f, 0.6f, 1f);
+        picker.Value = new(0.2f, 0.4f, 0.6f, 1f);
 
         fixture.Update();
         Assert.True(fixture.Document.Focus(picker.AlphaStrip));
@@ -225,5 +225,5 @@ public class ColorPickerKeyboardTests {
         Assert.Empty(AccessibilitySnapshot.Unnamed(picker));
     }
 
-    static List<ColorSwatch> Chips(ColorPicker picker) => [.. picker.Palette.Children.OfType<ColorSwatch>()];
+    static List<ColorSwatch> Chips(ColorPicker picker) => [..picker.Palette.Children.OfType<ColorSwatch>()];
 }

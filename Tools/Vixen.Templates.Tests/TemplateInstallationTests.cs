@@ -42,13 +42,15 @@ public sealed class TemplateHive : IDisposable {
     public string Listing => installed.Value.Output;
 
     /// <summary>Prepares the fixture. Nothing is packed until a test asks.</summary>
-    public TemplateHive() => installed = new(Install);
+    public TemplateHive() {
+        installed = new(Install);
+    }
 
     /// <inheritdoc />
     public void Dispose() {
         try {
             if (Directory.Exists(Root)) {
-                Directory.Delete(Root, recursive: true);
+                Directory.Delete(Root, true);
             }
         } catch (IOException) {
             // A temporary directory that would not go is not a test failure.
@@ -61,9 +63,7 @@ public sealed class TemplateHive : IDisposable {
     public static (bool Succeeded, string Output) Run(params string[] arguments) {
         var process = new Process {
             StartInfo = new("dotnet") {
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                UseShellExecute = false
+                RedirectStandardOutput = true, RedirectStandardError = true, UseShellExecute = false
             }
         };
 
@@ -141,8 +141,11 @@ public sealed class TemplateHive : IDisposable {
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>Everything else in this project reads the templates through
-///         <see cref="TemplateCatalog" />, which is <i>ours</i>.</b> It parses <c>template.json</c>
+///         <b>
+///             Everything else in this project reads the templates through
+///             <see cref="TemplateCatalog" />, which is <i>ours</i>.
+///         </b>
+///         It parses <c>template.json</c>
 ///         with its own reader and applies its own substitution, so a pack the real template engine
 ///         cannot even open passes every one of those tests. That is not hypothetical:
 ///         <c>Vixen.Templates.csproj</c> carries <c>NoDefaultExcludes</c> because NuGet drops
@@ -150,8 +153,12 @@ public sealed class TemplateHive : IDisposable {
 ///         no templates at all" — a sentence in a comment, guarded by nothing.
 ///     </para>
 ///     <para>
-///         ⚠ <b>What this cannot do, and the reason issue #114 stays open: none of the six targets is
-///         exercised here.</b> Every one of them needs a restore and a restore needs a feed with the
+///         ⚠
+///         <b>
+///             What this cannot do, and the reason issue #114 stays open: none of the six targets is
+///             exercised here.
+///         </b>
+///         Every one of them needs a restore and a restore needs a feed with the
 ///         engine packages on it. Doc 14 § Phase 11's clean-machine criterion is a feed problem, not
 ///         a template problem, and no test on a developer's machine can stand in for it.
 ///     </para>
@@ -195,8 +202,11 @@ public sealed class TemplateInstallationTests(TemplateHive hive) : IClassFixture
     }
 
     /// <summary>
-    ///     ⚠ <b><c>dotnet new vixen-game</c> and <c>vixen new game</c> write the same directory,
-    ///     asserted against the real engine rather than against ourselves.</b>
+    ///     ⚠
+    ///     <b>
+    ///         <c>dotnet new vixen-game</c> and <c>vixen new game</c> write the same directory,
+    ///         asserted against the real engine rather than against ourselves.
+    ///     </b>
     /// </summary>
     /// <remarks>
     ///     <para>
@@ -232,7 +242,7 @@ public sealed class TemplateInstallationTests(TemplateHive hive) : IClassFixture
 
         var scaffolded = template.Instantiate("Kestrel", ScaffoldRunner.SdkVersion);
 
-        Assert.Equal(scaffolded.Select(file => file.Path).Order(StringComparer.Ordinal).ToArray(), written);
+        Assert.Equal(scaffolded.Select(static file => file.Path).Order(StringComparer.Ordinal).ToArray(), written);
 
         foreach (var file in scaffolded) {
             Assert.Equal(file.Content, File.ReadAllBytes(Path.Combine(where, file.Path)));
@@ -245,8 +255,11 @@ public sealed class TemplateInstallationTests(TemplateHive hive) : IClassFixture
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <b>The necessary condition for the clean-machine restore that <i>can</i> be checked
-    ///         without a feed.</b> A template naming a package nobody publishes fails at the one
+    ///         <b>
+    ///             The necessary condition for the clean-machine restore that <i>can</i> be checked
+    ///             without a feed.
+    ///         </b>
+    ///         A template naming a package nobody publishes fails at the one
     ///         moment its author has no context to debug it — the judgement <c>vixen-plugin</c>
     ///         waited a whole phase on, and the reason three of doc 27's eight projects are still not
     ///         scaffolded. A restore proves the positive; this rules out the negative.

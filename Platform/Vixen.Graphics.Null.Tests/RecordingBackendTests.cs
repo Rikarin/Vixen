@@ -30,9 +30,9 @@ public sealed class RecordingBackendTests : IDisposable {
 
     [Fact]
     public void ADrawIsFoundByItsArguments() {
-        Frame(list => list.DrawIndexed(36, instanceCount: 4));
+        Frame(static list => list.DrawIndexed(36, 4));
 
-        var draw = device.Log().ShouldContainDrawIndexed(36, instances: 4).Command;
+        var draw = device.Log().ShouldContainDrawIndexed(36, 4).Command;
 
         Assert.Equal(36, draw.A);
     }
@@ -40,9 +40,9 @@ public sealed class RecordingBackendTests : IDisposable {
     /// <summary>What it prints on the day the draw is wrong: the count, and the stream under it.</summary>
     [Fact]
     public void ADrawWithTheWrongCountIsRefusedAndTheStreamIsInTheMessage() {
-        Frame(list => list.DrawIndexed(35, instanceCount: 4));
+        Frame(static list => list.DrawIndexed(35, 4));
 
-        var failure = Assert.Throws<XunitException>(() => device.Log().ShouldContainDrawIndexed(36, instances: 4));
+        var failure = Assert.Throws<XunitException>(() => device.Log().ShouldContainDrawIndexed(36, 4));
 
         Assert.Contains("expected a DrawIndexed indices=36 instances=4", failure.Message, StringComparison.Ordinal);
         Assert.Contains("indices=35", failure.Message, StringComparison.Ordinal);
@@ -62,14 +62,14 @@ public sealed class RecordingBackendTests : IDisposable {
 
     [Fact]
     public void ANegativeAssertionOverAFrameThatRanIsTheClaimItLooksLike() {
-        Frame(list => list.Draw(3));
+        Frame(static list => list.Draw(3));
 
         device.Log().ShouldNotContain(RecordedCommandKind.Dispatch);
     }
 
     [Fact]
     public void ANegativeAssertionIsRedWhenTheCallIsThere() {
-        Frame(list => list.Draw(3));
+        Frame(static list => list.Draw(3));
 
         Assert.Throws<XunitException>(() => device.Log().ShouldNotContain(RecordedCommandKind.Draw));
     }
@@ -77,7 +77,7 @@ public sealed class RecordingBackendTests : IDisposable {
     /// <summary>Zero occurrences spelled as a count is the vacuity written the other way round.</summary>
     [Fact]
     public void AnExpectationOfZeroIsRefusedByName() {
-        Frame(list => list.Draw(3));
+        Frame(static list => list.Draw(3));
 
         var failure = Assert.Throws<XunitException>(() => device.Log().ShouldContain(RecordedCommandKind.Draw, 0));
 
@@ -108,8 +108,7 @@ public sealed class RecordingBackendTests : IDisposable {
         var opaque = Pipeline("Opaque");
         var shadow = Pipeline("Shadow");
 
-        Frame(
-            list => {
+        Frame(list => {
                 list.BindPipeline(opaque);
                 list.BindPipeline(shadow);
                 list.Draw(3);
@@ -125,7 +124,7 @@ public sealed class RecordingBackendTests : IDisposable {
 
     [Fact]
     public void ADrawUnderNoPipelineAtAllIsRefused() {
-        Frame(list => list.Draw(3));
+        Frame(static list => list.Draw(3));
 
         var failure = Assert.Throws<XunitException>(() => device.Log().ShouldContainDraw(3).AfterBinding(Pipeline()));
 
@@ -139,10 +138,10 @@ public sealed class RecordingBackendTests : IDisposable {
     /// </summary>
     [Fact]
     public void AnOrderingQuestionAboutACallThatNeverHappenedIsRed() {
-        Frame(list => list.Draw(3));
+        Frame(static list => list.Draw(3));
 
-        var failure = Assert.Throws<XunitException>(
-            () => device.Log().ShouldContainDraw(3).After(RecordedCommandKind.BindDescriptorSet)
+        var failure = Assert.Throws<XunitException>(() =>
+            device.Log().ShouldContainDraw(3).After(RecordedCommandKind.BindDescriptorSet)
         );
 
         Assert.Contains("no BindDescriptorSet at all", failure.Message, StringComparison.Ordinal);
@@ -150,8 +149,7 @@ public sealed class RecordingBackendTests : IDisposable {
 
     [Fact]
     public void OrderIsASubsequenceSoAMarkerBetweenTheTwoDoesNotBreakIt() {
-        Frame(
-            list => {
+        Frame(list => {
                 list.BindPipeline(Pipeline());
                 list.InsertDebugMarker("Between");
                 list.Draw(3);
@@ -163,15 +161,14 @@ public sealed class RecordingBackendTests : IDisposable {
 
     [Fact]
     public void OrderInReverseIsRed() {
-        Frame(
-            list => {
+        Frame(list => {
                 list.BindPipeline(Pipeline());
                 list.Draw(3);
             }
         );
 
-        var failure = Assert.Throws<XunitException>(
-            () => device.Log().ShouldRecordInOrder(RecordedCommandKind.Draw, RecordedCommandKind.BindPipeline)
+        var failure = Assert.Throws<XunitException>(() =>
+            device.Log().ShouldRecordInOrder(RecordedCommandKind.Draw, RecordedCommandKind.BindPipeline)
         );
 
         Assert.Contains("Draw → BindPipeline", failure.Message, StringComparison.Ordinal);
@@ -179,15 +176,14 @@ public sealed class RecordingBackendTests : IDisposable {
 
     [Fact]
     public void AnOrderOverNoCallsIsRefusedRatherThanSatisfied() {
-        Frame(list => list.Draw(3));
+        Frame(static list => list.Draw(3));
 
         Assert.Throws<XunitException>(() => device.Log().ShouldRecordInOrder());
     }
 
     [Fact]
     public void ADrawIsInsideEveryGroupOpenAroundIt() {
-        Frame(
-            list => {
+        Frame(static list => {
                 list.PushDebugGroup("Opaque");
                 list.PushDebugGroup("Instanced");
                 list.Draw(3);
@@ -201,16 +197,14 @@ public sealed class RecordingBackendTests : IDisposable {
 
     [Fact]
     public void ADrawIsNotInsideAGroupThatClosedBeforeIt() {
-        Frame(
-            list => {
+        Frame(static list => {
                 list.PushDebugGroup("Shadows");
                 list.PopDebugGroup();
                 list.Draw(3);
             }
         );
 
-        var failure = Assert.Throws<XunitException>(
-            () => device.Log().ShouldContainDraw(3).InsideDebugGroup("Shadows")
+        var failure = Assert.Throws<XunitException>(() => device.Log().ShouldContainDraw(3).InsideDebugGroup("Shadows")
         );
 
         Assert.Contains("no group was open", failure.Message, StringComparison.Ordinal);
@@ -218,8 +212,7 @@ public sealed class RecordingBackendTests : IDisposable {
 
     [Fact]
     public void ACountThatDisagreesCarriesTheStream() {
-        Frame(
-            list => {
+        Frame(static list => {
                 list.Draw(3);
                 list.Draw(3);
             }
@@ -233,7 +226,7 @@ public sealed class RecordingBackendTests : IDisposable {
 
     [Fact]
     public void ARenderPassIsFoundByItsName() {
-        Frame(list => list.Draw(3));
+        Frame(static list => list.Draw(3));
 
         device.Log().ShouldContainRenderPass("Opaque").Before(RecordedCommandKind.EndRenderPass);
     }
@@ -244,7 +237,7 @@ public sealed class RecordingBackendTests : IDisposable {
     /// <param name="body">What the frame does inside the pass.</param>
     void Frame(Action<ICommandList> body) {
         using var list = device.BeginCommandList(name: "Frame");
-        list.BeginRenderPass(new RenderPassDescription(Attachments(), null, "Opaque"));
+        list.BeginRenderPass(new(Attachments(), null, "Opaque"));
         body(list);
         list.EndRenderPass();
         list.Finish();

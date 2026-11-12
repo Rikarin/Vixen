@@ -3,12 +3,10 @@
 
 using Vixen.Core;
 using Vixen.Core.Imaging;
-using Vixen.Core.Mathematics;
 using Vixen.Core.Yaml;
 using Vixen.Editor.Assets.Materials;
 using Vixen.Editor.Texturing.Layers;
 using Vixen.Rendering.Materials;
-using Vixen.Texturing.Layers;
 using Vixen.Texturing.Painting;
 using Xunit;
 
@@ -17,8 +15,11 @@ namespace Vixen.Editor.Texturing.Tests;
 /// <summary>Doc 48 § M11's last verb: a painted layer stack becomes a splat map, through the editor.</summary>
 /// <remarks>
 ///     <para>
-///         <b><a href="https://github.com/Rikarin/Vixen/issues/1124">#1124</a>, and therefore the road
-///         to <a href="https://github.com/Rikarin/Vixen/issues/1073">#1073</a>.</b> The pixels existed
+///         <b>
+///             <a href="https://github.com/Rikarin/Vixen/issues/1124">#1124</a>, and therefore the road
+///             to <a href="https://github.com/Rikarin/Vixen/issues/1073">#1073</a>.
+///         </b>
+///         The pixels existed
 ///         — M9 paints per-layer masks and <c>LayerStackGraph</c> composites them — and nothing put
 ///         three or four of them into one RGBA file. An artist who wanted a layered material exported
 ///         the masks by hand, packed them in another editor and named the result in the
@@ -51,8 +52,12 @@ public class SplatBakeDeviceTests(ITestOutputHelper output) {
     ///         layer and therefore no weight in alpha.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Every one of those four numbers is different, which is what makes the assertion
-    ///         discriminate.</b> Packed in the panel's order rather than the material's, red and blue
+    ///         ⚠
+    ///         <b>
+    ///             Every one of those four numbers is different, which is what makes the assertion
+    ///             discriminate.
+    ///         </b>
+    ///         Packed in the panel's order rather than the material's, red and blue
     ///         swap — a lit surface of the wrong layers. Packed as the masks stand, with no
     ///         resolution, the answer is <c>(1, 0.25, 0.5)</c> and the shader's normalisation blends
     ///         three layers where the artist painted snow over moss over rock. Packed with the ORM
@@ -77,7 +82,7 @@ public class SplatBakeDeviceTests(ITestOutputHelper output) {
         fixture.Host.Activate(TexturingModule.ModuleId, TexturingModule.ModuleName, new TexturingModule());
 
         Open(fixture);
-        Layered(fixture, layers: 3);
+        Layered(fixture, 3);
 
         Assert.True(
             fixture.Shell.Commands.Execute(TexturingModule.BakeSplatCommand),
@@ -118,7 +123,7 @@ public class SplatBakeDeviceTests(ITestOutputHelper output) {
         fixture.Host.Activate(TexturingModule.ModuleId, TexturingModule.ModuleName, new TexturingModule());
 
         Open(fixture);
-        Layered(fixture, layers: 3);
+        Layered(fixture, 3);
 
         Assert.True(fixture.Shell.Commands.Execute(TexturingModule.BakeSplatCommand), $"{adapter}: {Say(fixture)}");
 
@@ -130,7 +135,7 @@ public class SplatBakeDeviceTests(ITestOutputHelper output) {
 
         var bound = Assert.Single(
             content.Textures,
-            texture => texture.Parameter == new TexturedMaterialLayersFeature().SplatMap
+            static texture => texture.Parameter == new TexturedMaterialLayersFeature().SplatMap
         );
 
         Assert.NotEqual(AssetReference.Null, bound.Texture);
@@ -138,7 +143,7 @@ public class SplatBakeDeviceTests(ITestOutputHelper output) {
         // ⚠ And the normal map the fixture's material already carried is still there. A splat write
         // that went through `MaterialBake.Material` would have replaced `Features` and `Textures`
         // whole and handed back a material with neither.
-        Assert.Contains(content.Features, one => one is TexturedNormalMapFeature);
+        Assert.Contains(content.Features, static one => one is TexturedNormalMapFeature);
         output.WriteLine($"{adapter}: {content.Features.Length} features, {content.Textures.Length} textures");
     }
 
@@ -161,7 +166,7 @@ public class SplatBakeDeviceTests(ITestOutputHelper output) {
         fixture.Host.Activate(TexturingModule.ModuleId, TexturingModule.ModuleName, new TexturingModule());
 
         Open(fixture);
-        Layered(fixture, layers: 3);
+        Layered(fixture, 3);
 
         Assert.True(fixture.Shell.Commands.Execute(TexturingModule.BakeSplatCommand), $"{adapter}: {Say(fixture)}");
 
@@ -171,7 +176,7 @@ public class SplatBakeDeviceTests(ITestOutputHelper output) {
             Name + "_splat" + MaterialMapNaming.PortableExtension
         );
 
-        var painted = PngCodec.Encode(new Bitmap(64, 64, new byte[64 * 64 * 4]));
+        var painted = PngCodec.Encode(new(64, 64, new byte[64 * 64 * 4]));
 
         File.WriteAllBytes(file, painted);
         Assert.True(fixture.Shell.Commands.Execute(TexturingModule.BakeSplatCommand));
@@ -223,8 +228,12 @@ public class SplatBakeDeviceTests(ITestOutputHelper output) {
     /// <remarks>
     ///     <para>
     ///         Patina's wave 5 found it: <c>LayerStackSplat.Coverage</c> compiles one channel called
-    ///         <c>mask</c>, and a paint layer's content is its canvas read <em>under the channel being
-    ///         compiled</em> — so a coverage read the canvas's <c>mask</c> channel, which no stroke on a
+    ///         <c>mask</c>, and a paint layer's content is its canvas read
+    ///         <em>
+    ///             under the channel being
+    ///             compiled
+    ///         </em>
+    ///         — so a coverage read the canvas's <c>mask</c> channel, which no stroke on a
     ///         layer ever writes. An absent channel reads as transparency, and the layer weighed
     ///         <b>zero</b> everywhere while painting perfectly in the picture.
     ///     </para>
@@ -261,7 +270,7 @@ public class SplatBakeDeviceTests(ITestOutputHelper output) {
 
         fixture.Project.Selection.Set(fixture.AddStack(Name, PaintedStack));
         Assert.True(fixture.Shell.Commands.Execute(TexturingModule.OpenStackCommand));
-        Layered(fixture, layers: 2);
+        Layered(fixture, 2);
 
         Assert.True(fixture.Shell.Commands.Execute(TexturingModule.BakeSplatCommand), $"{adapter}: {Say(fixture)}");
 
@@ -275,29 +284,29 @@ public class SplatBakeDeviceTests(ITestOutputHelper output) {
 
     /// <summary>A rock fill under a paint layer, over two channels, for the paint layer's weight.</summary>
     const string PaintedStack = """
-        version: 1
-        name: Painted Stack
-        baseWidth: 64
-        baseHeight: 64
-        sets:
-          - name: Ground
-            channels:
-              - usage: roughness
-                default: [0, 0, 0, 1]
-              - usage: baseColor
-                default: [0, 0, 0, 1]
-            layers:
-              - id: rock
-                name: Rock
-                kind: Fill
-                values:
-                  baseColor: [0.5, 0.5, 0.5, 1]
-                  roughness: [0.5, 0.5, 0.5, 1]
-              - id: strokes
-                name: Strokes
-                kind: Paint
-                paint: strokes.vxpaint
-        """;
+                                version: 1
+                                name: Painted Stack
+                                baseWidth: 64
+                                baseHeight: 64
+                                sets:
+                                  - name: Ground
+                                    channels:
+                                      - usage: roughness
+                                        default: [0, 0, 0, 1]
+                                      - usage: baseColor
+                                        default: [0, 0, 0, 1]
+                                    layers:
+                                      - id: rock
+                                        name: Rock
+                                        kind: Fill
+                                        values:
+                                          baseColor: [0.5, 0.5, 0.5, 1]
+                                          roughness: [0.5, 0.5, 0.5, 1]
+                                      - id: strokes
+                                        name: Strokes
+                                        kind: Paint
+                                        paint: strokes.vxpaint
+                                """;
 
     /// <summary>Scans the committed fixture in and opens it through the verb.</summary>
     static LayerStackDocument Open(TexturingFixture fixture) {
@@ -334,8 +343,8 @@ public class SplatBakeDeviceTests(ITestOutputHelper output) {
             Features = [
                 new TexturedMaterialLayersFeature {
                     Layers = [
-                        .. Enumerable.Range(0, layers)
-                            .Select(at => new MaterialLayerValue(new Vector3(0.25f * at), 0f, 0.5f, 1f))
+                        ..Enumerable.Range(0, layers)
+                            .Select(static at => new MaterialLayerValue(new(0.25f * at), 0f, 0.5f, 1f))
                     ]
                 },
                 new TexturedNormalMapFeature()
@@ -386,6 +395,9 @@ public class SplatBakeDeviceTests(ITestOutputHelper output) {
     /// <summary>What the verb said, for a message that would otherwise only say "no file".</summary>
     static string Say(TexturingFixture fixture) =>
         fixture.Shell.Notifications.History.Count > 0
-            ? string.Join(" · ", fixture.Shell.Notifications.History.Select(one => one.Message + ": " + one.Detail))
+            ? string.Join(
+                " · ",
+                fixture.Shell.Notifications.History.Select(static one => one.Message + ": " + one.Detail)
+            )
             : "The verb said nothing at all, which is itself the finding.";
 }

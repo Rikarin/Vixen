@@ -14,8 +14,12 @@ namespace Vixen.DocGen.Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>This is the half of <see cref="Coverage.Check" /> that redded master's CI for two
-///         days</b> (<a href="https://github.com/Rikarin/Vixen/issues/915">#915</a>). Commit
+///         ⚠
+///         <b>
+///             This is the half of <see cref="Coverage.Check" /> that redded master's CI for two
+///             days
+///         </b>
+///         (<a href="https://github.com/Rikarin/Vixen/issues/915">#915</a>). Commit
 ///         <c>92ed644f</c> deleted the duplicate <c>Ui.rvn</c> under
 ///         <c>Editor/Vixen.Editor.Host/Shaders</c> and the five <c>.reflect.json</c> beside it —
 ///         <c>UiBox</c>, <c>UiImage</c>, <c>UiSolid</c>, <c>UiText</c>, <c>UiVertex</c> — and with them
@@ -27,8 +31,12 @@ namespace Vixen.DocGen.Tests;
 ///         failure.
 ///     </para>
 ///     <para>
-///         ⚠ <b>#915 guessed the cause was machine-dependent generation — a type present on a
-///         developer Mac and absent on <c>ubuntu-latest</c> — and that is refuted.</b> The generator
+///         ⚠
+///         <b>
+///             #915 guessed the cause was machine-dependent generation — a type present on a
+///             developer Mac and absent on <c>ubuntu-latest</c> — and that is refuted.
+///         </b>
+///         The generator
 ///         reads committed <c>.reflect.json</c> and an MSBuild property; both are in the tree and
 ///         neither consults the machine. The gate gives the same answer everywhere. What differed was
 ///         not the platform but the running: <c>Docs</c> needs a Release build of the solution and
@@ -95,7 +103,7 @@ public class RealExemptionTests {
             }
 
             var isInternal = document.Descendants("VixenShaderBindingsInternal")
-                .Any(element => string.Equals(element.Value.Trim(), "true", StringComparison.OrdinalIgnoreCase));
+                .Any(static element => string.Equals(element.Value.Trim(), "true", StringComparison.OrdinalIgnoreCase));
 
             var into = isInternal ? hidden : visible;
 
@@ -113,7 +121,7 @@ public class RealExemptionTests {
 
         foreach (var item in document.Descendants("AdditionalFiles")) {
             foreach (var include in (item.Attribute("Include")?.Value ?? string.Empty)
-                .Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)) {
+                     .Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)) {
                 if (!include.EndsWith(Suffix, StringComparison.OrdinalIgnoreCase)) {
                     continue;
                 }
@@ -121,9 +129,12 @@ public class RealExemptionTests {
                 // MSBuild writes Windows separators in this repository's project files and resolves
                 // them on every platform; a walk that did not would find nothing here on macOS or
                 // Linux and say the exemptions were all stale.
-                var resolved = Path.GetFullPath(Path.Combine(
-                    directory,
-                    include.Replace('\\', Path.DirectorySeparatorChar)));
+                var resolved = Path.GetFullPath(
+                    Path.Combine(
+                        directory,
+                        include.Replace('\\', Path.DirectorySeparatorChar)
+                    )
+                );
 
                 var folder = Path.GetDirectoryName(resolved);
 
@@ -152,7 +163,7 @@ public class RealExemptionTests {
     static IReadOnlyList<Exemption> GeneratedExemptions() {
         var (entries, _) = Coverage.Read(Root);
 
-        return [.. entries.Where(entry => entry.Id.StartsWith(GeneratedPrefix, StringComparison.Ordinal))];
+        return [..entries.Where(static entry => entry.Id.StartsWith(GeneratedPrefix, StringComparison.Ordinal))];
     }
 
     /// <summary>
@@ -208,25 +219,27 @@ public class RealExemptionTests {
 
         var stale = GeneratedExemptions()
             .Where(entry => {
-                var type = entry.Id[GeneratedPrefix.Length..];
+                    var type = entry.Id[GeneratedPrefix.Length..];
 
-                return !visible.Any(shader => type.StartsWith(shader, StringComparison.Ordinal));
-            })
+                    return !visible.Any(shader => type.StartsWith(shader, StringComparison.Ordinal));
+                }
+            )
             .Select(entry => {
-                var type = entry.Id[GeneratedPrefix.Length..];
+                    var type = entry.Id[GeneratedPrefix.Length..];
 
-                var reason = hidden.Any(shader => type.StartsWith(shader, StringComparison.Ordinal))
-                    ? "its shader is reflected only where VixenShaderBindingsInternal makes the "
-                    + "bindings internal, so the class is not in the graph"
-                    : "no .reflect.json in the tree is named after it any more";
+                    var reason = hidden.Any(shader => type.StartsWith(shader, StringComparison.Ordinal))
+                        ? "its shader is reflected only where VixenShaderBindingsInternal makes the "
+                        + "bindings internal, so the class is not in the graph"
+                        : "no .reflect.json in the tree is named after it any more";
 
-                return $"{Coverage.RelativePath}:{entry.Line}: `{entry.Id}` — {reason}";
-            })
+                    return $"{Coverage.RelativePath}:{entry.Line}: `{entry.Id}` — {reason}";
+                }
+            )
             .ToArray();
 
         Assert.True(
             stale.Length == 0,
-            $"Exemption line(s) naming a generated class the graph does not have. `Docs` fails on "
+            "Exemption line(s) naming a generated class the graph does not have. `Docs` fails on "
             + $"each of these, eleven minutes into a Release build:{Environment.NewLine}  "
             + string.Join($"{Environment.NewLine}  ", stale)
             + $"{Environment.NewLine}Delete the line in the commit that removed or hid the shader — "

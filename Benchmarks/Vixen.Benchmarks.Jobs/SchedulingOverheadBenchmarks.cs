@@ -73,7 +73,7 @@ public class SchedulingOverheadBenchmarks {
         scheduler.Complete(handle);
     }
 
-    struct TouchJob(int[] sink) : IJob {
+    readonly struct TouchJob(int[] sink) : IJob {
         public void Execute() => sink[0]++;
     }
 }

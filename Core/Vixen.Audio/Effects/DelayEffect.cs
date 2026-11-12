@@ -110,7 +110,7 @@ public sealed class DelayEffect : IAudioEffect {
 
         for (var frame = 0; frame < frameCount; frame++) {
             var offset = frame * channels;
-            var read = ((cursor - delay + lineFrames) % lineFrames) * channels;
+            var read = (cursor - delay + lineFrames) % lineFrames * channels;
             var write = cursor * channels;
 
             // Read and damp every channel before writing any of them. Ping-pong crosses the channels
@@ -122,7 +122,7 @@ public sealed class DelayEffect : IAudioEffect {
                 // Damped once on its way back round, so each repeat is darker than the last rather
                 // than the whole tail being filtered once.
                 fed[channel] = damping[channel] =
-                    (echoed[channel] * (1f - damp)) + (damping[channel] * damp);
+                    echoed[channel] * (1f - damp) + damping[channel] * damp;
             }
 
             for (var channel = 0; channel < channels; channel++) {
@@ -131,8 +131,8 @@ public sealed class DelayEffect : IAudioEffect {
                 // The dry signal always enters its own line; it is the *feedback* that crosses, which
                 // is what makes a sound bounce left, right, left instead of appearing in both at once.
                 var returning = bounce ? fed[1 - channel] : fed[channel];
-                lines[write + channel] = input + (returning * feedback);
-                buffer[offset + channel] = (input * dry) + (echoed[channel] * wet);
+                lines[write + channel] = input + returning * feedback;
+                buffer[offset + channel] = input * dry + echoed[channel] * wet;
             }
 
             cursor++;

@@ -22,12 +22,12 @@ public class TerrainPanelTests {
         using var fixture = EditorSession.Start();
 
         foreach (var id in (string[]) [
-            TerrainMode.PanelId,
-            FoliageMode.PanelId,
-            "terrain.growth",
-            "terrain.splines",
-            "terrain.grass"
-        ]) {
+                     TerrainMode.PanelId,
+                     FoliageMode.PanelId,
+                     "terrain.growth",
+                     "terrain.splines",
+                     "terrain.grass"
+                 ]) {
             Assert.Contains(fixture.Shell.Workspace.Panels, panel => panel.Id == id);
         }
     }
@@ -78,9 +78,9 @@ public class TerrainPanelTests {
 
         var text = Text(fixture.Panel(TerrainMode.PanelId));
 
-        Assert.Contains(text, line => line.Contains("Extent", StringComparison.Ordinal));
-        Assert.Contains(text, line => line.Contains("(derived)", StringComparison.Ordinal));
-        Assert.Contains(text, line => line.Contains("MB", StringComparison.Ordinal));
+        Assert.Contains(text, static line => line.Contains("Extent", StringComparison.Ordinal));
+        Assert.Contains(text, static line => line.Contains("(derived)", StringComparison.Ordinal));
+        Assert.Contains(text, static line => line.Contains("MB", StringComparison.Ordinal));
     }
 
     /// <summary>With no terrain, the layer stack says so rather than being blank.</summary>
@@ -90,13 +90,20 @@ public class TerrainPanelTests {
 
         fixture.Open(TerrainMode.PanelId);
 
-        Assert.Contains(Text(fixture.Panel(TerrainMode.PanelId)), line => line.Contains("No terrain", StringComparison.Ordinal));
+        Assert.Contains(
+            Text(fixture.Panel(TerrainMode.PanelId)),
+            static line => line.Contains("No terrain", StringComparison.Ordinal)
+        );
     }
 
     /// <summary>And with no palette, the foliage panel does.</summary>
     /// <remarks>
-    ///     ⚠ <b>Entering a mode that does nothing and says nothing is the state every one of these
-    ///     toolsets puts a new user in.</b> <c>FoliageEdit.Refusal</c> is what the panel says instead.
+    ///     ⚠
+    ///     <b>
+    ///         Entering a mode that does nothing and says nothing is the state every one of these
+    ///         toolsets puts a new user in.
+    ///     </b>
+    ///     <c>FoliageEdit.Refusal</c> is what the panel says instead.
     /// </remarks>
     [Fact]
     public void With_no_palette_the_foliage_panel_says_what_to_do() {
@@ -104,7 +111,10 @@ public class TerrainPanelTests {
 
         fixture.Open(FoliageMode.PanelId);
 
-        Assert.Contains(Text(fixture.Panel(FoliageMode.PanelId)), line => line.Contains("No types", StringComparison.Ordinal));
+        Assert.Contains(
+            Text(fixture.Panel(FoliageMode.PanelId)),
+            static line => line.Contains("No types", StringComparison.Ordinal)
+        );
     }
 
     /// <summary>The growth panel says it has not run rather than showing a forest of zeroes.</summary>
@@ -114,13 +124,20 @@ public class TerrainPanelTests {
 
         fixture.Open("terrain.growth");
 
-        Assert.Contains(Text(fixture.Panel("terrain.growth")), line => line.Contains("Not run yet", StringComparison.Ordinal));
+        Assert.Contains(
+            Text(fixture.Panel("terrain.growth")),
+            static line => line.Contains("Not run yet", StringComparison.Ordinal)
+        );
     }
 
     /// <summary>Growing with no volume is a notification, not an exception and not silence.</summary>
     /// <remarks>
-    ///     ⚠ <b>This runs from a button's own handler, where an exception takes the frame down with
-    ///     the scene unsaved</b> — and a growth run with no volume is an ordinary thing to attempt.
+    ///     ⚠
+    ///     <b>
+    ///         This runs from a button's own handler, where an exception takes the frame down with
+    ///         the scene unsaved
+    ///     </b>
+    ///     — and a growth run with no volume is an ordinary thing to attempt.
     /// </remarks>
     [Fact]
     public void Growing_with_nothing_to_grow_into_is_a_notification() {
@@ -136,7 +153,10 @@ public class TerrainPanelTests {
         fixture.Frames(2);
 
         // The editor is still up, and the panel still reads as never having run.
-        Assert.Contains(Text(fixture.Panel("terrain.growth")), line => line.Contains("Not run yet", StringComparison.Ordinal));
+        Assert.Contains(
+            Text(fixture.Panel("terrain.growth")),
+            static line => line.Contains("Not run yet", StringComparison.Ordinal)
+        );
     }
 
     /// <summary>The spline panel's reach is derived from the profile and moves with it.</summary>
@@ -152,13 +172,13 @@ public class TerrainPanelTests {
 
         Assert.Contains(
             Text(fixture.Panel("terrain.splines")),
-            line => line.Contains("Reach from centre line", StringComparison.Ordinal)
+            static line => line.Contains("Reach from centre line", StringComparison.Ordinal)
         );
 
         // And it says the curve editor is owed rather than pretending a panel can author one.
         Assert.Contains(
             Text(fixture.Panel("terrain.splines")),
-            line => line.Contains("not yet on the gizmo", StringComparison.Ordinal)
+            static line => line.Contains("not yet on the gizmo", StringComparison.Ordinal)
         );
     }
 
@@ -192,11 +212,11 @@ public class TerrainPanelTests {
 
         var text = Text(fixture.Panel("terrain.grass"));
 
-        Assert.Contains(text, line => line.Contains("Ring size", StringComparison.Ordinal));
-        Assert.Contains(text, line => line.Contains("MB (derived)", StringComparison.Ordinal));
+        Assert.Contains(text, static line => line.Contains("Ring size", StringComparison.Ordinal));
+        Assert.Contains(text, static line => line.Contains("MB (derived)", StringComparison.Ordinal));
 
         // And it is not a mode: nothing in the mode list claims it.
-        Assert.DoesNotContain("grass", fixture.Shell.Modes.Modes.Select(mode => mode.Id));
+        Assert.DoesNotContain("grass", fixture.Shell.Modes.Modes.Select(static mode => mode.Id));
     }
 
     /// <summary>A switch off and a density of zero produce the same field, and it says which.</summary>
@@ -215,8 +235,12 @@ public class TerrainPanelTests {
 
     /// <summary>The wind's strength scales and its direction replaces.</summary>
     /// <remarks>
-    ///     ⚠ <b>Two fields on one level blowing in different directions is not weather, it is a
-    ///     bug</b> — but two fields fluttering differently in the same wind is exactly what an author
+    ///     ⚠
+    ///     <b>
+    ///         Two fields on one level blowing in different directions is not weather, it is a
+    ///         bug
+    ///     </b>
+    ///     — but two fields fluttering differently in the same wind is exactly what an author
     ///     authored them for.
     /// </remarks>
     [Fact]
@@ -269,7 +293,7 @@ public class TerrainPanelTests {
 
         Assert.Contains(
             fixture.Shell.Notifications.History,
-            note => note.Message.Contains("Terrain mode", StringComparison.Ordinal)
+            static note => note.Message.Contains("Terrain mode", StringComparison.Ordinal)
         );
     }
 
@@ -347,8 +371,9 @@ public class TerrainPanelTests {
     static Button? Button(UiElement root, string label) =>
         Descendants(root).OfType<Button>().FirstOrDefault(button => button.Label == label);
 
-    static List<string> Text(UiElement root) =>
-        [.. Descendants(root).Select(element => element.Text ?? string.Empty).Where(text => text.Length > 0)];
+    static List<string> Text(UiElement root) => [
+        ..Descendants(root).Select(static element => element.Text ?? string.Empty).Where(static text => text.Length > 0)
+    ];
 
     static IEnumerable<UiElement> Descendants(UiElement element) {
         foreach (var child in element.Children) {

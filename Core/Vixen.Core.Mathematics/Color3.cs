@@ -13,7 +13,7 @@ namespace Vixen.Core.Mathematics;
 /// </summary>
 [DataContract]
 [StructLayout(LayoutKind.Sequential)]
-public readonly struct Color3 : IEquatable<Color3>, IFormattable, ISpanFormattable {
+public readonly struct Color3 : IEquatable<Color3>, ISpanFormattable {
     /// <summary>Number of components.</summary>
     public const int ComponentCount = 3;
 
@@ -76,8 +76,7 @@ public readonly struct Color3 : IEquatable<Color3>, IFormattable, ISpanFormattab
 
     /// <summary>Encodes this linear colour as sRGB.</summary>
     /// <returns>The encoded colour.</returns>
-    public Color3 ToSrgb() =>
-        new(ColorSpace.LinearToSrgb(R), ColorSpace.LinearToSrgb(G), ColorSpace.LinearToSrgb(B));
+    public Color3 ToSrgb() => new(ColorSpace.LinearToSrgb(R), ColorSpace.LinearToSrgb(G), ColorSpace.LinearToSrgb(B));
 
     /// <summary>Interpolates between two colours.</summary>
     /// <param name="from">The colour at <paramref name="amount" /> = 0.</param>

@@ -12,8 +12,12 @@ namespace Tests;
 /// <summary>What is actually in the library, against what the module says is in it.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>The README's table drifted by seven nodes with a green suite, because nothing asserted
-///         the registry's <em>contents</em>.</b> <c>Every_block_in_the_library_compiles_both_ways</c> is
+///         ⚠
+///         <b>
+///             The README's table drifted by seven nodes with a green suite, because nothing asserted
+///             the registry's <em>contents</em>.
+///         </b>
+///         <c>Every_block_in_the_library_compiles_both_ways</c> is
 ///         registry-driven, so it covers whatever is there and says nothing about what is missing —
 ///         which is the right shape for a smoke test and the wrong one for a claim about the library.
 ///     </para>
@@ -63,13 +67,17 @@ public sealed class VfxNodeLibraryTests {
     /// <summary>The library is exactly the list the module README prints.</summary>
     [Fact]
     public void The_library_is_the_list_the_readme_prints() =>
-        Assert.Equal(Registered, Library().Types.Select(type => type.Path).Order(StringComparer.Ordinal));
+        Assert.Equal(Registered, Library().Types.Select(static type => type.Path).Order(StringComparer.Ordinal));
 
     /// <summary>Every opcode the runtime implements is reachable from a graph.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>This is the assertion the node census cannot make, and the one that was silently
-    ///         false for five opcodes.</b> <c>SetPosition</c>, <c>VelocityInCone</c>,
+    ///         ⚠
+    ///         <b>
+    ///             This is the assertion the node census cannot make, and the one that was silently
+    ///             false for five opcodes.
+    ///         </b>
+    ///         <c>SetPosition</c>, <c>VelocityInCone</c>,
     ///         <c>SetRotation</c>, <c>SetAngularVelocity</c> and <c>Rotate</c> were each implemented in
     ///         <c>VfxSimulation</c> and in <c>VfxShaderEmitter</c> — two backends, in agreement, for
     ///         behaviour no author could ask for.
@@ -104,7 +112,7 @@ public sealed class VfxNodeLibraryTests {
 
         var reached = result.Value.Graph.Initializers
             .Concat(result.Value.Graph.Updaters)
-            .Select(operation => operation.Opcode)
+            .Select(static operation => operation.Opcode)
             .ToHashSet();
 
         var unreachable = Enum.GetValues<VfxOpcode>().Where(opcode => !reached.Contains(opcode)).ToArray();

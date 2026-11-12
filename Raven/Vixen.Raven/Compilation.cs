@@ -112,7 +112,7 @@ public sealed class Compilation {
         new(assemblyName, syntaxTrees, PermutationValues.Empty, ComposeBindings.Empty, []);
 
     public static Compilation Create(string assemblyName, IEnumerable<SyntaxTree> syntaxTrees) =>
-        new(assemblyName, syntaxTrees.ToArray(), PermutationValues.Empty, ComposeBindings.Empty, []);
+        new(assemblyName, [..syntaxTrees], PermutationValues.Empty, ComposeBindings.Empty, []);
 
     /// <summary>Creates a compilation that binds against compiled libraries.</summary>
     public static Compilation Create(
@@ -160,7 +160,7 @@ public sealed class Compilation {
         ArgumentNullException.ThrowIfNull(references);
         ArgumentNullException.ThrowIfNull(syntaxTrees);
 
-        return new(assemblyName, syntaxTrees.ToArray(), permutationValues, composeBindings, references.ToArray());
+        return new(assemblyName, [..syntaxTrees], permutationValues, composeBindings, [..references]);
     }
 
     /// <summary>
@@ -243,9 +243,9 @@ public sealed class Compilation {
     /// <summary>Entry-point methods across every shader in the compilation.</summary>
     public IReadOnlyList<MethodSymbol> GetEntryPoints() =>
         GetAllTypes()
-            .Where(t => t.TypeKind == TypeKind.Shader)
-            .SelectMany(t => t.GetMembers().OfType<MethodSymbol>())
-            .Where(m => m.Stage != ShaderStage.None)
+            .Where(static t => t.TypeKind == TypeKind.Shader)
+            .SelectMany(static t => t.GetMembers().OfType<MethodSymbol>())
+            .Where(static m => m.Stage != ShaderStage.None)
             .ToArray();
 
     /// <summary>
@@ -270,17 +270,21 @@ public sealed class Compilation {
         all.AddRange(declarationDiagnostics.ToArray());
 
         return all
-            .OrderBy(d => d.Location.FilePath, StringComparer.Ordinal)
-            .ThenBy(d => d.Location.SourceSpan.Start)
-            .ThenBy(d => d.Id, StringComparer.Ordinal)
+            .OrderBy(static d => d.Location.FilePath, StringComparer.Ordinal)
+            .ThenBy(static d => d.Location.SourceSpan.Start)
+            .ThenBy(static d => d.Id, StringComparer.Ordinal)
             .ToArray();
     }
 
     /// <summary>Refuses a call graph with a cycle in it — <c>RVN2139</c>.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Here rather than in <see cref="SemanticModel" />, because a call graph is the
-    ///         compilation's and not a file's.</b> Two structs in two files calling each other's
+    ///         ⚠
+    ///         <b>
+    ///             Here rather than in <see cref="SemanticModel" />, because a call graph is the
+    ///             compilation's and not a file's.
+    ///         </b>
+    ///         Two structs in two files calling each other's
     ///         methods is the same defect as one function calling itself, and a per-tree check would
     ///         close the second and leave the first — through which the identical
     ///         <c>spirv-val</c> refusal escapes. Every model is bound by the loop above, so by this

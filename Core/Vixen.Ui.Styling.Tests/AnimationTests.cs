@@ -30,7 +30,7 @@ public class AnimationTests {
         fixture.Load("@keyframes fade { to { opacity: 1 } 25% { opacity: 0.5 } from { opacity: 0 } }");
 
         Assert.True(fixture.Engine.Keyframes.TryGet("fade", out var stops));
-        Assert.Equal([0f, 0.25f, 1f], stops.Select(stop => stop.Offset));
+        Assert.Equal([0f, 0.25f, 1f], stops.Select(static stop => stop.Offset));
     }
 
     [Fact]
@@ -38,10 +38,12 @@ public class AnimationTests {
         // CSS's rule, and easy to get wrong: merging would let a stop from a discarded definition
         // survive into the one that replaced it, which is a value nobody wrote appearing mid-loop.
         var fixture = new CascadeFixture();
-        fixture.Load("""
+        fixture.Load(
+            """
             @keyframes fade { from { opacity: 0 } 50% { opacity: 0.9 } to { opacity: 1 } }
             @keyframes fade { from { opacity: 0 } to { opacity: 1 } }
-            """);
+            """
+        );
 
         Assert.True(fixture.Engine.Keyframes.TryGet("fade", out var stops));
         Assert.Equal(2, stops.Count);
@@ -49,10 +51,12 @@ public class AnimationTests {
 
     [Fact]
     public void An_animation_interpolates_between_the_stops_it_is_between() {
-        var fixture = Fixture("""
+        var fixture = Fixture(
+            """
             @keyframes fade { from { opacity: 0 } to { opacity: 1 } }
             .a { animation: fade 2s linear }
-            """);
+            """
+        );
 
         var element = fixture.Tree.CreateElement("div", classNames: ["a"]);
         var animator = Animator(fixture);
@@ -70,10 +74,12 @@ public class AnimationTests {
 
     [Fact]
     public void A_middle_stop_is_used_where_it_sits() {
-        var fixture = Fixture("""
+        var fixture = Fixture(
+            """
             @keyframes fade { from { opacity: 0 } 25% { opacity: 1 } to { opacity: 0 } }
             .a { animation: fade 1s linear }
-            """);
+            """
+        );
 
         var element = fixture.Tree.CreateElement("div", classNames: ["a"]);
         var animator = Animator(fixture);
@@ -93,10 +99,12 @@ public class AnimationTests {
 
     [Fact]
     public void An_infinite_animation_loops() {
-        var fixture = Fixture("""
+        var fixture = Fixture(
+            """
             @keyframes fade { from { opacity: 0 } to { opacity: 1 } }
             .a { animation: fade 1s linear infinite }
-            """);
+            """
+        );
 
         var element = fixture.Tree.CreateElement("div", classNames: ["a"]);
         var animator = Animator(fixture);
@@ -113,10 +121,12 @@ public class AnimationTests {
 
     [Fact]
     public void Alternate_runs_the_odd_iterations_backwards() {
-        var fixture = Fixture("""
+        var fixture = Fixture(
+            """
             @keyframes fade { from { opacity: 0 } to { opacity: 1 } }
             .a { animation: fade 1s linear infinite alternate }
-            """);
+            """
+        );
 
         var element = fixture.Tree.CreateElement("div", classNames: ["a"]);
         var animator = Animator(fixture);
@@ -133,8 +143,12 @@ public class AnimationTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>A <c>to</c>-only block travels from the property's initial value when no style is
-    ///     given</b>, where it used to hold its one stop for the whole run (#1381).
+    ///     ⚠
+    ///     <b>
+    ///         A <c>to</c>-only block travels from the property's initial value when no style is
+    ///         given
+    ///     </b>
+    ///     , where it used to hold its one stop for the whole run (#1381).
     /// </summary>
     /// <remarks>
     ///     The public reader has no cascaded style to take an underlying value from, so it takes the
@@ -144,7 +158,8 @@ public class AnimationTests {
     /// </remarks>
     [Fact]
     public void A_to_only_block_travels_from_the_initial_value() {
-        var (animator, element, opacity) = Running("@keyframes dim { to { opacity: 0.2 } } .a { animation: dim 1s linear }");
+        var (animator, element, opacity) =
+            Running("@keyframes dim { to { opacity: 0.2 } } .a { animation: dim 1s linear }");
 
         Assert.True(animator.TryGetAnimated(element, opacity, 0.5f, out var half));
         Assert.Equal(0.6f, half.Number, Tolerance);
@@ -155,8 +170,12 @@ public class AnimationTests {
 
     [Fact]
     public void Fill_decides_what_is_left_behind_before_and_after() {
-        var none = Running("@keyframes fade { from { opacity: 0.2 } to { opacity: 0.8 } } .a { animation: fade 1s linear 1s }");
-        var both = Running("@keyframes fade { from { opacity: 0.2 } to { opacity: 0.8 } } .a { animation: fade 1s linear 1s both }");
+        var none = Running(
+            "@keyframes fade { from { opacity: 0.2 } to { opacity: 0.8 } } .a { animation: fade 1s linear 1s }"
+        );
+        var both = Running(
+            "@keyframes fade { from { opacity: 0.2 } to { opacity: 0.8 } } .a { animation: fade 1s linear 1s both }"
+        );
 
         // During the delay, and after the end.
         Assert.False(none.Animator.TryGetAnimated(none.Element, none.Opacity, 0.5f, out _));
@@ -173,10 +192,12 @@ public class AnimationTests {
     public void The_easing_applies_within_each_iteration_and_not_across_the_whole_run() {
         // CSS's rule, and the one people are surprised by: `animation: spin 2s ease-in-out infinite`
         // eases in and out on every revolution rather than once over the run.
-        var fixture = Fixture("""
+        var fixture = Fixture(
+            """
             @keyframes fade { from { opacity: 0 } to { opacity: 1 } }
             .a { animation: fade 1s ease-in-out infinite }
-            """);
+            """
+        );
 
         var element = fixture.Tree.CreateElement("div", classNames: ["a"]);
         var animator = Animator(fixture);
@@ -196,11 +217,13 @@ public class AnimationTests {
         // Restarting the animation whenever the style is re-resolved would make a spinner stutter
         // every time anything else changed — which, with invalidation working properly, is exactly
         // when it would be least expected.
-        var fixture = Fixture("""
+        var fixture = Fixture(
+            """
             @keyframes fade { from { opacity: 0 } to { opacity: 1 } }
             .a { animation: fade 1s linear infinite }
             .a.wide { padding-left: 8px }
-            """);
+            """
+        );
 
         var element = fixture.Tree.CreateElement("div", classNames: ["a"]);
         var animator = Animator(fixture);
@@ -222,11 +245,13 @@ public class AnimationTests {
         // CSS Cascading 5 §6.2 puts transitions above animations, and it is the order that reads
         // right: a transition is a response to something that just happened and has to win over a
         // loop that was already running.
-        var fixture = Fixture("""
+        var fixture = Fixture(
+            """
             @keyframes fade { from { opacity: 0 } to { opacity: 0.2 } }
             .a { opacity: 0; animation: fade 1s linear infinite; transition: opacity 1s linear }
             .a.shown { opacity: 1 }
-            """);
+            """
+        );
 
         var element = fixture.Tree.CreateElement("div", classNames: ["a"]);
         var animator = Animator(fixture);
@@ -245,8 +270,12 @@ public class AnimationTests {
     /// <summary>A <c>@keyframes</c> name is a custom ident, and its case is not the parser's to fold.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The guard on the keyword case fold, and the reason it was written at the intern
-    ///         call site rather than in <see cref="NameTable" />.</b> A "keyword" to
+    ///         ⚠
+    ///         <b>
+    ///             The guard on the keyword case fold, and the reason it was written at the intern
+    ///             call site rather than in <see cref="NameTable" />.
+    ///         </b>
+    ///         A "keyword" to
     ///         <c>StyleValueParser</c> is any identifier it did not recognise, and CSS Values 4
     ///         § 3.1's case-insensitivity is a rule about <i>keywords</i> only — a custom ident is
     ///         matched exactly. Folding the table would have made <c>FadeIn</c> and <c>fadein</c> one
@@ -261,10 +290,12 @@ public class AnimationTests {
     /// </remarks>
     [Fact]
     public void A_keyframes_name_keeps_the_case_the_author_wrote() {
-        var (animator, element, opacity) = Running("""
+        var (animator, element, opacity) = Running(
+            """
             @keyframes FadeIn { from { opacity: 0 } to { opacity: 1 } }
             .a { animation: FadeIn 2s linear }
-            """);
+            """
+        );
 
         Assert.Equal(1, animator.AnimationCount);
         Assert.True(animator.TryGetAnimated(element, opacity, 1f, out var half));
@@ -279,10 +310,12 @@ public class AnimationTests {
     /// </remarks>
     [Fact]
     public void A_keyframes_name_in_another_case_matches_nothing() {
-        var (animator, element, opacity) = Running("""
+        var (animator, element, opacity) = Running(
+            """
             @keyframes FadeIn { from { opacity: 0 } to { opacity: 1 } }
             .a { animation: fadein 2s linear }
-            """);
+            """
+        );
 
         Assert.False(animator.TryGetAnimated(element, opacity, 1f, out _));
     }

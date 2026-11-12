@@ -25,8 +25,11 @@ namespace Vixen.Fuzz.Targets;
 ///         buffers keyed by a number the sender chose.
 ///     </para>
 ///     <para>
-///         <b>It establishes a real connection first, and that is what makes the target reach
-///         anything.</b> The first version of this did not, and it managed two distinct behaviours in
+///         <b>
+///             It establishes a real connection first, and that is what makes the target reach
+///             anything.
+///         </b>
+///         The first version of this did not, and it managed two distinct behaviours in
 ///         two million cases — every datagram was refused at the handshake, because completing one
 ///         needs the server's cookie and the cookie is eight random bytes the fuzzer cannot guess.
 ///         That is the cookie working exactly as designed, and it means the reliability layer and the
@@ -73,11 +76,15 @@ public sealed class UdpTransportTarget : IFuzzTarget, IDisposable {
     ///     A refused datagram allocates nothing — the kind switch and the length checks are all
     ///     comparisons. An accepted handshake allocates a connection and its channel state, and an
     ///     accepted fragment rents a pooled buffer, so the per-byte term covers the reassembler
-    ///     copying a payload it was given. What the allowance is really asserting is that <b>nothing
-    ///     allocates in proportion to a number inside the datagram</b>, which is the whole family of
+    ///     copying a payload it was given. What the allowance is really asserting is that
+    ///     <b>
+    ///         nothing
+    ///         allocates in proportion to a number inside the datagram
+    ///     </b>
+    ///     , which is the whole family of
     ///     bug this target exists for.
     /// </remarks>
-    public long AllowanceFor(int inputLength) => 8192 + (64L * inputLength);
+    public long AllowanceFor(int inputLength) => 8192 + 64L * inputLength;
 
     /// <summary>How many connections the server is holding.</summary>
     /// <remarks>
@@ -170,11 +177,11 @@ public sealed class UdpTransportTarget : IFuzzTarget, IDisposable {
         transport.Poll(TimeSpan.Zero, events);
 
         var after = Read();
-        var signature = ((after.Connections - before.Connections) * 7919L)
-            + ((after.Rejected - before.Rejected) * 131L)
-            + ((after.Connected - before.Connected) * 127L)
-            + ((after.Disconnected - before.Disconnected) * 113L)
-            + ((after.Data - before.Data) * 109L)
+        var signature = (after.Connections - before.Connections) * 7919L
+            + (after.Rejected - before.Rejected) * 131L
+            + (after.Connected - before.Connected) * 127L
+            + (after.Disconnected - before.Disconnected) * 113L
+            + (after.Data - before.Data) * 109L
             + (after.Bytes - before.Bytes);
 
         before = after;
@@ -188,7 +195,7 @@ public sealed class UdpTransportTarget : IFuzzTarget, IDisposable {
         sockets.Dispose();
     }
 
-    static void Add(ICollection<byte[]> corpus, byte[] buffer, int length) => corpus.Add(buffer[..length].ToArray());
+    static void Add(ICollection<byte[]> corpus, byte[] buffer, int length) => corpus.Add([..buffer[..length]]);
 
     Counters Read() =>
         new(
@@ -209,7 +216,7 @@ public sealed class UdpTransportTarget : IFuzzTarget, IDisposable {
         // A stranger, derived from the input rather than random so a case reproduces whole, with the
         // clock folded in so a replayed corpus entry is a different stranger each cycle — which is
         // what makes the exhaustion shape reachable at all.
-        var host = input.IsEmpty ? clock : (uint)(input[0] | (clock << 8));
+        var host = input.IsEmpty ? clock : (input[0] | (clock << 8));
 
         return new(new IPAddress((host & 0x00FF_FFFF) | 0x0B00_0000), 1 + (int)(host % 60000));
     }
@@ -242,7 +249,13 @@ public sealed class UdpTransportTarget : IFuzzTarget, IDisposable {
         }
     }
 
-    readonly record struct Counters(int Connections, long Rejected, long Connected, long Disconnected, long Data, long Bytes);
+    readonly record struct Counters(
+        int Connections,
+        long Rejected,
+        long Connected,
+        long Disconnected,
+        long Data,
+        long Bytes);
 
     /// <summary>A socket that hands out whatever the fuzzer last offered it.</summary>
     sealed class FuzzSocketFactory : IDatagramSocketFactory, IDisposable {
@@ -373,15 +386,18 @@ public sealed class WebSocketUpgradeTarget : IFuzzTarget {
     ///     megabytes for four kilobytes sent — so the per-byte term is small enough to catch its
     ///     return.
     /// </remarks>
-    public long AllowanceFor(int inputLength) => 2048 + (4L * inputLength);
+    public long AllowanceFor(int inputLength) => 2048 + 4L * inputLength;
 
     /// <inheritdoc />
     public void Seed(ICollection<byte[]> corpus) {
         ArgumentNullException.ThrowIfNull(corpus);
 
         // What a browser sends, which is the shape everything else is a mutation of.
-        Add(corpus, "GET / HTTP/1.1\r\nHost: localhost\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n"
-            + "Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\nSec-WebSocket-Version: 13\r\n\r\n");
+        Add(
+            corpus,
+            "GET / HTTP/1.1\r\nHost: localhost\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n"
+            + "Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\nSec-WebSocket-Version: 13\r\n\r\n"
+        );
 
         // The case differences a proxy is entitled to produce, and the header on its own.
         Add(corpus, "GET / HTTP/1.1\r\nsec-websocket-key: abc\r\n\r\n");
@@ -400,7 +416,7 @@ public sealed class WebSocketUpgradeTarget : IFuzzTarget {
         // A terminator that straddles a read boundary is what the incremental scan exists for, and a
         // request with no terminator at all is what the length bound exists for.
         Add(corpus, "Sec-WebSocket-Key: abc\r\n\r");
-        Add(corpus, new string('A', WebSocketUpgrade.MaxRequestBytes));
+        Add(corpus, new('A', WebSocketUpgrade.MaxRequestBytes));
 
         // Lines with no terminator, an empty request, and bytes that are not text at all.
         Add(corpus, "Sec-WebSocket-Key");
@@ -446,7 +462,7 @@ public sealed class WebSocketUpgradeTarget : IFuzzTarget {
         return (complete ? 1_000_003L : 0)
             + (accepted ? 7919L : 0)
             + (SplitDisagreementCount > 0 ? 131L : 0)
-            + (where * 17L)
+            + where * 17L
             + size;
     }
 
@@ -456,7 +472,7 @@ public sealed class WebSocketUpgradeTarget : IFuzzTarget {
 
         // A split derived from the input, so a case reproduces whole and different requests are torn
         // in different places.
-        var chunk = 1 + (input.Length % 7);
+        var chunk = 1 + input.Length % 7;
         var read = 0;
 
         while (read < input.Length) {

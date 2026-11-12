@@ -31,7 +31,7 @@ public class TextIndentTests {
 
     static FontFace LoadFont() {
         using var stream = Assembly.GetExecutingAssembly()
-            .GetManifestResourceStream("Vixen.Ui.Tests.Fonts.TestShapeLana.ttf")
+                .GetManifestResourceStream("Vixen.Ui.Tests.Fonts.TestShapeLana.ttf")
             ?? throw new InvalidOperationException("the test font is not embedded");
 
         using var memory = new MemoryStream();
@@ -91,8 +91,11 @@ public class TextIndentTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>A percentage is measured against the width the text is laid out in, which is a used
-    ///     value and not a computed one.</b>
+    ///     ⚠
+    ///     <b>
+    ///         A percentage is measured against the width the text is laid out in, which is a used
+    ///         value and not a computed one.
+    ///     </b>
     /// </summary>
     /// <remarks>
     ///     <para>
@@ -126,8 +129,11 @@ public class TextIndentTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>A percentage inherits as a percentage, so two boxes of different widths under one
-    ///     declaration are indented by different numbers of pixels.</b>
+    ///     ⚠
+    ///     <b>
+    ///         A percentage inherits as a percentage, so two boxes of different widths under one
+    ///         declaration are indented by different numbers of pixels.
+    ///     </b>
     /// </summary>
     /// <remarks>
     ///     This is the fact that makes a second field necessary rather than a nicety. CSS inherits
@@ -161,8 +167,11 @@ public class TextIndentTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>A length written after a percentage replaces it, and a percentage after a length
-    ///     replaces that.</b>
+    ///     ⚠
+    ///     <b>
+    ///         A length written after a percentage replaces it, and a percentage after a length
+    ///         replaces that.
+    ///     </b>
     /// </summary>
     /// <remarks>
     ///     The two halves of the indent travel in separate fields, so the plausible bug is leaving
@@ -211,8 +220,11 @@ public class TextIndentTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>Declaring a percentage where there was none re-measures the element, even though the
-    ///     computed value did not move.</b>
+    ///     ⚠
+    ///     <b>
+    ///         Declaring a percentage where there was none re-measures the element, even though the
+    ///         computed value did not move.
+    ///     </b>
     /// </summary>
     /// <remarks>
     ///     <c>UiDocument.Apply</c> marks a text node dirty by comparing what the last pass resolved
@@ -270,7 +282,7 @@ public class TextIndentTests {
 
         Assert.True(block.Lines.Length > 1, "the label did not wrap, so there is no second line");
         Assert.Equal(12f, block.Lines[0].Offset, Tolerance);
-        Assert.All(block.Lines.Skip(1), line => Assert.Equal(0f, line.Offset));
+        Assert.All(block.Lines.Skip(1), static line => Assert.Equal(0f, line.Offset));
     }
 
     /// <summary>
@@ -364,8 +376,11 @@ public class TextIndentTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>A hit test on the <i>second</i> line is not shifted, which is the assertion that
-    ///     fails for an implementation that applied the indent to the block instead of the line.</b>
+    ///     ⚠
+    ///     <b>
+    ///         A hit test on the <i>second</i> line is not shifted, which is the assertion that
+    ///         fails for an implementation that applied the indent to the block instead of the line.
+    ///     </b>
     /// </summary>
     [Fact]
     public void The_second_line_is_hit_tested_from_zero() {

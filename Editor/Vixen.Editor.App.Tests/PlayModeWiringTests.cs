@@ -28,7 +28,9 @@ namespace Vixen.Editor.App.Tests;
 /// </remarks>
 public class PlayModeWiringTests {
     /// <inheritdoc cref="BehaviorAuthoringTests" path="/remarks/para[1]" />
-    static PlayModeWiringTests() => SceneBehaviorRegistry.Register<Drifter>();
+    static PlayModeWiringTests() {
+        SceneBehaviorRegistry.Register<Drifter>();
+    }
 
     [Fact]
     public void Playing_advances_the_scene_and_stopping_puts_it_back() {
@@ -132,6 +134,6 @@ public sealed class Drifter : Behavior {
     protected override void Update() {
         ref var local = ref World.Get<LocalTransform>(Entity);
 
-        local.Position = local.Position + new Vector3(1f, 0f, 0f);
+        local.Position += new Vector3(1f, 0f, 0f);
     }
 }

@@ -35,8 +35,12 @@ namespace Vixen.Ui.Rendering;
 ///         for the same reason: the consumer switches on the batch anyway.
 ///     </para>
 ///     <para>
-///         ⚠ <b><paramref name="Position" /> is the <i>projected</i> point and <paramref name="W" />
-///         is what it was divided by, rather than the homogeneous triple.</b> Every reader of a
+///         ⚠
+///         <b>
+///             <paramref name="Position" /> is the <i>projected</i> point and <paramref name="W" />
+///             is what it was divided by, rather than the homogeneous triple.
+///         </b>
+///         Every reader of a
 ///         vertex outside the two rasterisers — the ink bounds, the fill rule, the hit test's picture
 ///         of where a quad landed — wants the point on the screen, and on the affine geometry that is
 ///         all of a frame but one quad, the two forms are the same floats. The vertex stage
@@ -82,9 +86,13 @@ public readonly record struct UiDraw(BatchKind Kind, int First, int Count, int F
 /// <param name="Alpha">What the composite is faded by.</param>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>The offscreen surface is the size of the whole viewport, not of
-///         <paramref name="Bounds" />, and that is the decision that keeps the two renderers
-///         honest.</b> A surface the size of the group would need every vertex inside it translated
+///         ⚠
+///         <b>
+///             The offscreen surface is the size of the whole viewport, not of
+///             <paramref name="Bounds" />, and that is the decision that keeps the two renderers
+///             honest.
+///         </b>
+///         A surface the size of the group would need every vertex inside it translated
 ///         by the group's origin, on both paths, in the same direction, with the same rounding — and
 ///         a disagreement there is a subtree drawn a pixel off, which no unit test would be looking
 ///         at and which the goldens would report as a diff somewhere else entirely. At viewport size
@@ -102,8 +110,12 @@ public readonly record struct UiDraw(BatchKind Kind, int First, int Count, int F
 ///         <c>overflow: visible</c> promises to keep.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Every surface this names is colour, and #232's <c>background-clip: text</c> wants a
-///         coverage one.</b> <see cref="Image" />, <see cref="ShadowImage" /> and
+///         ⚠
+///         <b>
+///             Every surface this names is colour, and #232's <c>background-clip: text</c> wants a
+///             coverage one.
+///         </b>
+///         <see cref="Image" />, <see cref="ShadowImage" /> and
 ///         <see cref="BackdropImage" /> are all the group's own pixels; nothing here can say "the
 ///         shape my glyphs covered". The standing assumption is that adding one costs #783's second
 ///         descriptor set, because it would be a second sampled texture beside the group's colour —
@@ -119,8 +131,12 @@ public readonly record struct UiDraw(BatchKind Kind, int First, int Count, int F
 public readonly record struct UiLayer(int First, int Count, Rectangle Bounds, float Alpha) {
     /// <summary>The number the composite draw names its surface by.</summary>
     /// <remarks>
-    ///     ⚠ <b>Assigned here rather than by a renderer, because two renderers have to agree on
-    ///     it.</b> A composited group is drawn as an ordinary <see cref="BatchKind.Image" />, and an
+    ///     ⚠
+    ///     <b>
+    ///         Assigned here rather than by a renderer, because two renderers have to agree on
+    ///         it.
+    ///     </b>
+    ///     A composited group is drawn as an ordinary <see cref="BatchKind.Image" />, and an
     ///     image names its texture with a number this assembly deliberately does not interpret — so
     ///     whoever executes the frame has to know which number stands for which group. Deriving it
     ///     from the layer's index means the GPU renderer and the software one arrive at the same
@@ -131,8 +147,12 @@ public readonly record struct UiLayer(int First, int Count, Rectangle Bounds, fl
     /// <summary>The standard deviation of the Gaussian its surface is blurred by, in document pixels.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The standard deviation, and <i>not</i> the half-extent the shadow path calls a
-    ///         blur.</b> Filter Effects 1 § 8.4 defines <c>blur(r)</c> as a Gaussian with σ equal to
+    ///         ⚠
+    ///         <b>
+    ///             The standard deviation, and <i>not</i> the half-extent the shadow path calls a
+    ///             blur.
+    ///         </b>
+    ///         Filter Effects 1 § 8.4 defines <c>blur(r)</c> as a Gaussian with σ equal to
     ///         <c>r</c>, so the length in the stylesheet arrives here unchanged. <c>box-shadow</c>'s
     ///         third length is the <i>total</i> distance an edge fades over and
     ///         <c>DrawListBuilder.EmitShadow</c> halves it on the way to the shader — copying that
@@ -152,8 +172,11 @@ public readonly record struct UiLayer(int First, int Count, Rectangle Bounds, fl
     /// <summary>How its composite is mixed with the picture already under it.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The one field on this record that is a function of <i>two</i> pictures, and that
-    ///         is what makes it unlike <see cref="Alpha" /> rather than another value of it.</b>
+    ///         ⚠
+    ///         <b>
+    ///             The one field on this record that is a function of <i>two</i> pictures, and that
+    ///             is what makes it unlike <see cref="Alpha" /> rather than another value of it.
+    ///         </b>
     ///         Fading a surface in never looks at what is beneath it: <c>Alpha</c>, <see cref="Blur" />,
     ///         <see cref="Filter" /> and <see cref="MaskCount" /> are all computable from this group's
     ///         own surface, which is why an executor can produce the composite's colour before it
@@ -168,16 +191,24 @@ public readonly record struct UiLayer(int First, int Count, Rectangle Bounds, fl
     ///         there.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The <i>backdrop</i> a blend mixes with is whatever surface this group's composite
-    ///         lands in, which is exactly what <c>isolation</c> means.</b> A nested group's draws are
+    ///         ⚠
+    ///         <b>
+    ///             The <i>backdrop</i> a blend mixes with is whatever surface this group's composite
+    ///             lands in, which is exactly what <c>isolation</c> means.
+    ///         </b>
+    ///         A nested group's draws are
     ///         executed into its parent's surface, so a blended descendant of an isolated ancestor
     ///         mixes with that ancestor's accumulation and never with the page behind it. So
     ///         <c>isolation: isolate</c> costs nothing beyond a sixth reason to open a group — the
     ///         boundary does the work, as CSS Compositing 1 § 3 says it does.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b><see cref="UiBlendMode.Normal" /> is zero and is the only value that changes
-    ///         nothing.</b> A consumer that ignores this composites the group source-over, which is
+    ///         ⚠
+    ///         <b>
+    ///             <see cref="UiBlendMode.Normal" /> is zero and is the only value that changes
+    ///             nothing.
+    ///         </b>
+    ///         A consumer that ignores this composites the group source-over, which is
     ///         the same bargain <see cref="Blur" /> and <see cref="Filter" /> make: the picture the
     ///         frame would have had without the declaration rather than a wrong one. ⚠ <c>UiRenderer</c>
     ///         was such a consumer until #783; it now composites a blended group through
@@ -191,8 +222,12 @@ public readonly record struct UiLayer(int First, int Count, Rectangle Bounds, fl
     /// <summary>The colour transform its surface is put through, or null where there is none.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Costs neither a surface nor a pass, and that is the whole reason it is a separate
-    ///         field from <see cref="Blur" /> rather than a second thing "the filter" means.</b> A
+    ///         ⚠
+    ///         <b>
+    ///             Costs neither a surface nor a pass, and that is the whole reason it is a separate
+    ///             field from <see cref="Blur" /> rather than a second thing "the filter" means.
+    ///         </b>
+    ///         A
     ///         blur is a neighbourhood operation, so it cannot read and write one attachment and the
     ///         device needs a scratch target and two more passes for it; <see cref="Bounds" /> has to
     ///         be outset by the kernel as well, because coverage moves. A colour matrix is per pixel.
@@ -203,8 +238,12 @@ public readonly record struct UiLayer(int First, int Count, Rectangle Bounds, fl
     ///         would be paying a blur's price for something that is not a blur.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Where in the pipeline it is applied is deliberately <i>not</i> specified, because
-    ///         it does not matter and pinning it down would cost one of the executors a pass.</b> The
+    ///         ⚠
+    ///         <b>
+    ///             Where in the pipeline it is applied is deliberately <i>not</i> specified, because
+    ///             it does not matter and pinning it down would cost one of the executors a pass.
+    ///         </b>
+    ///         The
     ///         transform is affine in premultiplied colour and a Gaussian is a weighted sum, so the
     ///         two commute exactly; the transform is also linear, so it commutes with a bilinear
     ///         sampler. <c>SoftwareUiRasterizer</c> therefore applies it to the finished surface, at
@@ -230,28 +269,45 @@ public readonly record struct UiLayer(int First, int Count, Rectangle Bounds, fl
     /// <summary>How many entries of <see cref="UiGeometry.Masks" /> this group is masked by.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Where this is applied <i>is</i> specified, which is the whole difference between
-    ///         it and <see cref="Filter" /> one paragraph up.</b> That field can be left to each
+    ///         ⚠
+    ///         <b>
+    ///             Where this is applied <i>is</i> specified, which is the whole difference between
+    ///             it and <see cref="Filter" /> one paragraph up.
+    ///         </b>
+    ///         That field can be left to each
     ///         executor's convenience because a colour matrix is the same map at every pixel and so
     ///         passes through both a Gaussian and a bilinear tap. A mask is a scalar that varies with
     ///         position and passes through neither: <c>m(p)·Σ wᵢsᵢ</c> is not <c>Σ wᵢ·m(pᵢ)·sᵢ</c>.
-    ///         So the seam is named rather than left open — <b>both executors apply the mask in the
-    ///         composite draw</b>, after the blur and after the matrix, from the composite quad's own
+    ///         So the seam is named rather than left open —
+    ///         <b>
+    ///             both executors apply the mask in the
+    ///             composite draw
+    ///         </b>
+    ///         , after the blur and after the matrix, from the composite quad's own
     ///         texture coordinate. A mask folded into the surface by one of them would be a different
     ///         picture wherever the ramp crosses a blurred edge, which is precisely where anyone
     ///         would put one.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A list, and composing it is part of that seam rather than something an executor
-    ///         may do earlier.</b> Folding the entries into one coverage <i>before</i> the composite
+    ///         ⚠
+    ///         <b>
+    ///             A list, and composing it is part of that seam rather than something an executor
+    ///             may do earlier.
+    ///         </b>
+    ///         Folding the entries into one coverage <i>before</i> the composite
     ///         draw is fine — it is a per-pixel function of the same texture coordinate — but
     ///         applying different entries at different seams is not, and neither is applying one of
-    ///         them to the surface. See <see cref="UiMask.Coverage(System.ReadOnlySpan{UiMask},Vixen.Core.Mathematics.Vector2)" />,
+    ///         them to the surface. See
+    ///         <see cref="UiMask.Coverage(System.ReadOnlySpan{UiMask},Vixen.Core.Mathematics.Vector2)" />,
     ///         which is the fold both executors run.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Each entry's box is carried inside <see cref="UiMask" /> and is not
-    ///         <see cref="Bounds" />.</b> These bounds are the group's ink and have already been
+    ///         ⚠
+    ///         <b>
+    ///             Each entry's box is carried inside <see cref="UiMask" /> and is not
+    ///             <see cref="Bounds" />.
+    ///         </b>
+    ///         These bounds are the group's ink and have already been
     ///         outset by <see cref="Blur" />; CSS resolves <c>mask-image</c> against the border box,
     ///         which has not. Reading the bounds here would make a ramp shift when a blur was added
     ///         beside it.
@@ -268,19 +324,31 @@ public readonly record struct UiLayer(int First, int Count, Rectangle Bounds, fl
     /// <summary>The shadow this group's <c>filter: drop-shadow()</c> casts, or null where there is none.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Where this is applied is named, like the mask's and unlike the matrix's, and for
-    ///         a third reason again.</b> A mask is pinned to the composite draw because it does not
+    ///         ⚠
+    ///         <b>
+    ///             Where this is applied is named, like the mask's and unlike the matrix's, and for
+    ///             a third reason again.
+    ///         </b>
+    ///         A mask is pinned to the composite draw because it does not
     ///         commute with the Gaussian. A shadow is pinned to the <i>seam</i> — the moment the
     ///         group's own surface is finished — because it does not commute with the group's own
     ///         blur: <c>blur(σ) drop-shadow(0 0 τ)</c> blurs the alpha channel twice and
     ///         <c>drop-shadow(0 0 τ) blur(σ)</c> blurs the whole picture after the shadow is under
-    ///         it, and those are different frames. <b>Both executors blur the finished surface into
-    ///         <see cref="ShadowImage" /> and composite that quad first</b>, which is the order
+    ///         it, and those are different frames.
+    ///         <b>
+    ///             Both executors blur the finished surface into
+    ///             <see cref="ShadowImage" /> and composite that quad first
+    ///         </b>
+    ///         , which is the order
     ///         <c>UtilityComposition.Filter</c> assembles.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b><see cref="Bounds" /> is outset by whichever of the two blurs is wider, and that
-    ///         is not an approximation.</b> The shadow's kernel reads the group's surface, so the
+    ///         ⚠
+    ///         <b>
+    ///             <see cref="Bounds" /> is outset by whichever of the two blurs is wider, and that
+    ///             is not an approximation.
+    ///         </b>
+    ///         The shadow's kernel reads the group's surface, so the
     ///         group's own pass has to leave defined every texel the shadow will sample — outsetting
     ///         only by <see cref="Blur" /> would have the shadow's outermost taps read whatever the
     ///         previous frame left there. Taking the wider of the two is exact because the shadow
@@ -299,8 +367,11 @@ public readonly record struct UiLayer(int First, int Count, Rectangle Bounds, fl
 
     /// <summary>The number the shadow's surface is named by. Meaningless when <see cref="Shadow" /> is null.</summary>
     /// <remarks>
-    ///     ⚠ <b>A second number out of <see cref="UiGeometryBuilder.LayerImage" />'s space rather
-    ///     than a derivation of <see cref="Image" />, and the derivation is the tempting mistake.</b>
+    ///     ⚠
+    ///     <b>
+    ///         A second number out of <see cref="UiGeometryBuilder.LayerImage" />'s space rather
+    ///         than a derivation of <see cref="Image" />, and the derivation is the tempting mistake.
+    ///     </b>
     ///     <c>Image - 1</c> or <c>Image ^ 1</c> would need no counter and would collide with the next
     ///     group's the moment two groups are adjacent — which is every list. Both numbers come off
     ///     the same counter and are therefore distinct by construction, the same way two groups are.
@@ -310,9 +381,13 @@ public readonly record struct UiLayer(int First, int Count, Rectangle Bounds, fl
     /// <summary>What this group's <c>backdrop-filter</c> does to the picture behind it, or null.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The one member of this record whose surface is not a function of the group's own
-    ///         draws, and that is what makes it a scheduling constraint rather than another
-    ///         field.</b> <see cref="Blur" />, <see cref="Filter" />, <see cref="MaskCount" /> and
+    ///         ⚠
+    ///         <b>
+    ///             The one member of this record whose surface is not a function of the group's own
+    ///             draws, and that is what makes it a scheduling constraint rather than another
+    ///             field.
+    ///         </b>
+    ///         <see cref="Blur" />, <see cref="Filter" />, <see cref="MaskCount" /> and
     ///         <see cref="Shadow" /> are all read off the surface this group renders. A backdrop is
     ///         read off <i>everything painted behind it</i> — the prefix of its parent's draw range up
     ///         to <see cref="First" /> — so the group's capture pass may not run until every group in
@@ -344,22 +419,33 @@ public readonly record struct UiLayer(int First, int Count, Rectangle Bounds, fl
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Not <see cref="Bounds" />, and the difference is visible on the commonest layout
-    ///         there is.</b> These bounds are the group's <i>ink</i> — outset by the blur, and grown by
+    ///         ⚠
+    ///         <b>
+    ///             Not <see cref="Bounds" />, and the difference is visible on the commonest layout
+    ///             there is.
+    ///         </b>
+    ///         These bounds are the group's <i>ink</i> — outset by the blur, and grown by
     ///         any child that overflows the element. CSS clips a backdrop filter to the element's own
     ///         border box, so filtering over the ink would put a blurred rectangle outside the panel
     ///         wherever a tooltip, a shadow-casting child or a <c>blur-*</c> pushed the ink out.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Rectangular, and the rounding is <see cref="BackdropBox" />'s job rather than
-    ///         this rectangle's.</b> A rounded rectangle is a box and a radius together, and clipping
+    ///         ⚠
+    ///         <b>
+    ///             Rectangular, and the rounding is <see cref="BackdropBox" />'s job rather than
+    ///             this rectangle's.
+    ///         </b>
+    ///         A rounded rectangle is a box and a radius together, and clipping
     ///         a box moves its corners — so rounding <i>these</i> bounds would put a curve at the
     ///         corners of whatever the clip left. That is the whole reason there are two rectangles;
     ///         see the other one.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Five audits of #229 priced the missing curve as a <i>channel</i> nobody had, and
-    ///         the channel turned out to be two <c>float4</c> of push constants nobody had measured.</b>
+    ///         ⚠
+    ///         <b>
+    ///             Five audits of #229 priced the missing curve as a <i>channel</i> nobody had, and
+    ///             the channel turned out to be two <c>float4</c> of push constants nobody had measured.
+    ///         </b>
     ///         The record of what those audits believed is kept on <see cref="BackdropRadius" />,
     ///         because every one of the beliefs was about how to reach a fragment and not about this
     ///         rectangle. What is true of this one is only the first paragraph: it is the ink's box
@@ -373,8 +459,12 @@ public readonly record struct UiLayer(int First, int Count, Rectangle Bounds, fl
     ///     <see cref="BackdropRadius" /> rounds. Meaningless when <see cref="Backdrop" /> is null.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>Not <see cref="BackdropBounds" />, and the difference is the whole reason this is a
-    ///     second rectangle rather than a radius on the first.</b> A rounded rectangle is defined by
+    ///     ⚠
+    ///     <b>
+    ///         Not <see cref="BackdropBounds" />, and the difference is the whole reason this is a
+    ///         second rectangle rather than a radius on the first.
+    ///     </b>
+    ///     A rounded rectangle is defined by
     ///     a box and a radius together; clipping the box moves its corners, so rounding
     ///     <see cref="BackdropBounds" /> would put a curve at the corners of whatever the clip left
     ///     behind — a panel half-scrolled out of a list would grow a rounded edge in the middle of
@@ -388,8 +478,11 @@ public readonly record struct UiLayer(int First, int Count, Rectangle Bounds, fl
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <b>#229 divergence 1, closed on both executors — the software one on 2026-09-08 and
-    ///         the device on 2026-09-09.</b> CSS clips a filtered backdrop to the element's border
+    ///         <b>
+    ///             #229 divergence 1, closed on both executors — the software one on 2026-09-08 and
+    ///             the device on 2026-09-09.
+    ///         </b>
+    ///         CSS clips a filtered backdrop to the element's border
     ///         box <i>including its radius</i>, and until then nothing carried one:
     ///         <c>rounded-2xl backdrop-blur-md bg-white/30</c> — the canonical use of the feature —
     ///         showed square corners just outside the rounded ones on both executors. The picture is
@@ -397,8 +490,12 @@ public readonly record struct UiLayer(int First, int Count, Rectangle Bounds, fl
     ///         compares the two on a device.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Four audits priced that divergence as a shader problem and every one of them was
-    ///         looking below the seam where it actually was.</b> "A composite quad has no
+    ///         ⚠
+    ///         <b>
+    ///             Four audits priced that divergence as a shader problem and every one of them was
+    ///             looking below the seam where it actually was.
+    ///         </b>
+    ///         "A composite quad has no
     ///         <c>UiShape</c>", "the push constants are full", "the <c>shape</c> stream has three free
     ///         lanes and a backdrop needs seven" — all true, and all about how to tell a fragment
     ///         something this frame did not know. <c>DrawListBuilder</c> passed a literal <c>0f</c>
@@ -407,8 +504,12 @@ public readonly record struct UiLayer(int First, int Count, Rectangle Bounds, fl
     ///         slot was there the whole time.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And the device half's price was refuted before it was paid, measured against the
-    ///         committed reflection.</b> Five audits wrote "the push constants are full" and the
+    ///         ⚠
+    ///         <b>
+    ///             And the device half's price was refuted before it was paid, measured against the
+    ///             committed reflection.
+    ///         </b>
+    ///         Five audits wrote "the push constants are full" and the
     ///         fifth concluded from it that the cheapest channel is a fourth <c>MaskEntry</c> shape,
     ///         whose cost is routing every rounded backdrop through the mask pipeline. They were not
     ///         full. The composite blocks were <c>UiBlur</c> 32 bytes, <c>UiColour</c> 64 and
@@ -419,8 +520,12 @@ public readonly record struct UiLayer(int First, int Count, Rectangle Bounds, fl
     ///         whole 128, so no host change attended it.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>What <c>UiImage</c> declaring none costs, and it is the one thing that did not
-    ///         come free.</b> A composite with neither a filter nor a mask used to go through the
+    ///         ⚠
+    ///         <b>
+    ///             What <c>UiImage</c> declaring none costs, and it is the one thing that did not
+    ///             come free.
+    ///         </b>
+    ///         A composite with neither a filter nor a mask used to go through the
     ///         image pipeline; a rounded one now goes through <c>colourPipeline</c> carrying an
     ///         identity matrix, on the precedence the mask pipeline already sets. So a host that hands
     ///         over no colour stage draws its backdrop square, which is what
@@ -448,8 +553,12 @@ public readonly record struct UiLayer(int First, int Count, Rectangle Bounds, fl
     /// <summary>The affine this group's <c>rotate</c> and <c>scale</c> place its surface under.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Already spent on the composite quad's vertices, and carried anyway for one
-    ///         consumer and one reader.</b> Unlike <see cref="Filter" /> or <see cref="Shadow" />,
+    ///         ⚠
+    ///         <b>
+    ///             Already spent on the composite quad's vertices, and carried anyway for one
+    ///             consumer and one reader.
+    ///         </b>
+    ///         Unlike <see cref="Filter" /> or <see cref="Shadow" />,
     ///         nothing has to <i>apply</i> this: <c>UiGeometryBuilder.Layer</c> emits the composite
     ///         quad's four positions already transformed, and both executors then draw a quad the way
     ///         they draw every quad — the software one interpolates the texture coordinate
@@ -458,8 +567,12 @@ public readonly record struct UiLayer(int First, int Count, Rectangle Bounds, fl
     ///         vertex format and no executor branch.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The consumer is <c>UiRenderer.BlurSurface</c>, and it is the one place a transform
-    ///         cannot be left baked in.</b> That method convolves the group's surface by drawing
+    ///         ⚠
+    ///         <b>
+    ///             The consumer is <c>UiRenderer.BlurSurface</c>, and it is the one place a transform
+    ///             cannot be left baked in.
+    ///         </b>
+    ///         That method convolves the group's surface by drawing
     ///         <i>through</i> the composite quad's geometry — cheaper than a full-screen sweep, and
     ///         correct only while the quad and the surface are in the same space. Under a transform
     ///         they are not: the surface holds the group untransformed and the quad no longer covers
@@ -483,8 +596,12 @@ public readonly record struct UiLayer(int First, int Count, Rectangle Bounds, fl
 
     /// <summary>Where this group's own composite draw sits in <see cref="UiGeometry.Draws" />.</summary>
     /// <remarks>
-    ///     ⚠ <b>A property rather than the arithmetic written out, because the arithmetic changed and
-    ///     the two places that had written it out did not.</b> The composite quad used to be
+    ///     ⚠
+    ///     <b>
+    ///         A property rather than the arithmetic written out, because the arithmetic changed and
+    ///         the two places that had written it out did not.
+    ///     </b>
+    ///     The composite quad used to be
     ///     <c>First + Count</c> exactly — the draw immediately after the group's own — and a shadow
     ///     puts its quad in between. Both executors index it: the software one only to keep walking,
     ///     which is harmless, and <c>UiRenderer.BlurSurface</c> to find the geometry it convolves
@@ -508,8 +625,12 @@ public readonly record struct UiLayer(int First, int Count, Rectangle Bounds, fl
 
     /// <summary>The widest kernel either executor will run, in texels each side of the centre.</summary>
     /// <remarks>
-    ///     ⚠ <b>A cap and not a limit on what may be asked for, and the two executors truncate
-    ///     identically because they both come here for the number.</b> Three sigma each side is 385
+    ///     ⚠
+    ///     <b>
+    ///         A cap and not a limit on what may be asked for, and the two executors truncate
+    ///         identically because they both come here for the number.
+    ///     </b>
+    ///     Three sigma each side is 385
     ///     taps at <c>blur-16</c>, twice, over a viewport-sized target; past this the tail being
     ///     dropped is under a thousandth of the kernel's mass and the weights are renormalised over
     ///     the taps actually taken, so the picture dims by nothing. What it is <i>not</i> is a
@@ -535,7 +656,7 @@ public readonly record struct UiLayer(int First, int Count, Rectangle Bounds, fl
     public static int KernelRadius(float blur, float scale) =>
         blur <= 0f || scale <= 0f || !float.IsFinite(blur) || !float.IsFinite(scale)
             ? 0
-            : Math.Min(MaximumKernel, (int) MathF.Ceiling(3f * blur * scale));
+            : Math.Min(MaximumKernel, (int)MathF.Ceiling(3f * blur * scale));
 }
 
 /// <summary>A frame's worth of interface geometry.</summary>
@@ -597,9 +718,13 @@ public readonly record struct UiGeometry(
     /// <summary>What the white in <see cref="UiVertex.Color" /> is worth, in the target's units.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Carried on the frame so that a consumer can tell a HUD that was scaled from one
-    ///         that was not, which is otherwise the difference between a picture and a pass that
-    ///         never ran.</b> <see cref="UiGeometryBuilder.WhiteLevel" /> is spent at build time —
+    ///         ⚠
+    ///         <b>
+    ///             Carried on the frame so that a consumer can tell a HUD that was scaled from one
+    ///             that was not, which is otherwise the difference between a picture and a pass that
+    ///             never ran.
+    ///         </b>
+    ///         <see cref="UiGeometryBuilder.WhiteLevel" /> is spent at build time —
     ///         the colours in <see cref="Vertices" /> already hold it and no later stage can undo or
     ///         apply it — so the number itself is the only thing that survives into the geometry,
     ///         and without it the black frame and the correct one are byte-identical apart from a
@@ -621,11 +746,18 @@ public readonly record struct UiGeometry(
     /// </remarks>
     public float WhiteLevel { get; init; } = 1f;
 
-    /// <summary>The <see cref="UiGeometryBuilder.Tolerance" /> the curves in this frame were flattened to, or zero when nothing says.</summary>
+    /// <summary>
+    ///     The <see cref="UiGeometryBuilder.Tolerance" /> the curves in this frame were flattened to, or zero when
+    ///     nothing says.
+    /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Carried for <see cref="WhiteLevel" />'s reason: the number is spent inside the
-    ///         triangles and nothing downstream can recover it</b> (#1343). A chord error is in
+    ///         ⚠
+    ///         <b>
+    ///             Carried for <see cref="WhiteLevel" />'s reason: the number is spent inside the
+    ///             triangles and nothing downstream can recover it
+    ///         </b>
+    ///         (#1343). A chord error is in
     ///         document pixels and the projection magnifies it, so geometry flattened for scale one
     ///         and drawn at <c>UiInterface.Scale</c> two is twice as far off every curve — a softness
     ///         and not a fault, which no counter and no exception would otherwise report.
@@ -652,8 +784,12 @@ public readonly record struct UiGeometry(
     /// <summary>Which build of a <see cref="UiGeometryBuilder" /> this is, or zero when none stamped it.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The identity a device-side copy is keyed on, and the reason a still window uploads
-    ///         its vertices once rather than once per frame.</b> <see cref="UiGeometryBuilder.TryBuild" />
+    ///         ⚠
+    ///         <b>
+    ///             The identity a device-side copy is keyed on, and the reason a still window uploads
+    ///             its vertices once rather than once per frame.
+    ///         </b>
+    ///         <see cref="UiGeometryBuilder.TryBuild" />
     ///         answers a frame whose drawing did not change with the geometry it already holds, and
     ///         the lists in it are the builder's own — rewritten in place by the next build — so
     ///         nothing about the lists says whether they are the ones a renderer has already copied

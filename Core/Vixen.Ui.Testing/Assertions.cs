@@ -25,7 +25,7 @@ public sealed partial class UiSubject {
     /// <summary>At least one element matches.</summary>
     /// <returns>This, so it reads as part of a chain.</returns>
     public UiSubject ShouldExist() =>
-        Assert("should exist", matched => matched.Count > 0 ? null : "no elements");
+        Assert("should exist", static matched => matched.Count > 0 ? null : "no elements");
 
     /// <summary>Nothing matches.</summary>
     /// <returns>This.</returns>
@@ -70,7 +70,10 @@ public sealed partial class UiSubject {
     ///     </para>
     /// </remarks>
     public UiSubject ShouldBeVisible() =>
-        Assert("should be visible", matched => Every(matched, IsVisible, element => Invisibility(element) ?? "not visible"));
+        Assert(
+            "should be visible",
+            matched => Every(matched, IsVisible, element => Invisibility(element) ?? "not visible")
+        );
 
     /// <summary>No match is visible, or nothing matches.</summary>
     /// <returns>This.</returns>
@@ -79,7 +82,7 @@ public sealed partial class UiSubject {
             "should not be visible",
             matched => matched.All(element => !IsVisible(element))
                 ? null
-                : Describe(matched.Where(IsVisible).ToList()) + " visible"
+                : Describe([..matched.Where(IsVisible)]) + " visible"
         );
 
     /// <summary>A click at the centre of every match would actually reach it.</summary>
@@ -90,8 +93,12 @@ public sealed partial class UiSubject {
     ///         A modal backdrop, a full-screen overlay left up by a state machine, a tooltip that
     ///         forgot <c>pointer-events: none</c> — every one of these leaves a button visible, laid
     ///         out and completely unclickable, and a suite that asserts visibility passes while the
-    ///         game is unplayable. This hit-tests the centre and fails naming <i>what it hit
-    ///         instead</i>, which turns a mystifying "the click did nothing" into a sentence.
+    ///         game is unplayable. This hit-tests the centre and fails naming
+    ///         <i>
+    ///             what it hit
+    ///             instead
+    ///         </i>
+    ///         , which turns a mystifying "the click did nothing" into a sentence.
     ///     </para>
     ///     <para>
     ///         Descendants count as reaching it: a button whose centre lands on its own label has
@@ -99,19 +106,22 @@ public sealed partial class UiSubject {
     ///     </para>
     /// </remarks>
     public UiSubject ShouldBeHittable() =>
-        Assert("should be hittable", matched => {
-            if (matched.Count == 0) {
-                return "no elements";
-            }
-
-            foreach (var element in matched) {
-                if (Blocker(element) is { } blocker) {
-                    return blocker;
+        Assert(
+            "should be hittable",
+            matched => {
+                if (matched.Count == 0) {
+                    return "no elements";
                 }
-            }
 
-            return null;
-        });
+                foreach (var element in matched) {
+                    if (Blocker(element) is { } blocker) {
+                        return blocker;
+                    }
+                }
+
+                return null;
+            }
+        );
 
     /// <summary>Every match has exactly this text.</summary>
     /// <param name="text">What it should say.</param>
@@ -124,7 +134,7 @@ public sealed partial class UiSubject {
             matched => Every(
                 matched,
                 element => string.Equals(element.Text, text, StringComparison.Ordinal),
-                element => $"says \"{element.Text}\""
+                static element => $"says \"{element.Text}\""
             )
         );
     }
@@ -140,7 +150,7 @@ public sealed partial class UiSubject {
             matched => Every(
                 matched,
                 element => element.Text is { } value && value.Contains(text, StringComparison.Ordinal),
-                element => $"says \"{element.Text}\""
+                static element => $"says \"{element.Text}\""
             )
         );
     }
@@ -184,7 +194,7 @@ public sealed partial class UiSubject {
             matched => Every(
                 matched,
                 element => (element.State & state) == state,
-                element => $"is {element.State}"
+                static element => $"is {element.State}"
             )
         );
 
@@ -303,8 +313,12 @@ public sealed partial class UiSubject {
     ///         the box came out, which is this one.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And it waits, which is why reading <see cref="UiElement.Width" /> is not the same
-    ///         thing.</b> Layout runs inside <see cref="UiTest.Frame" />, so an element created or
+    ///         ⚠
+    ///         <b>
+    ///             And it waits, which is why reading <see cref="UiElement.Width" /> is not the same
+    ///             thing.
+    ///         </b>
+    ///         Layout runs inside <see cref="UiTest.Frame" />, so an element created or
     ///         restyled by the line above has a width of zero until a frame runs; a test reading the
     ///         property directly either sees the previous arrangement or has a hand-written
     ///         <c>Frames(n)</c> in front of it, guessing at <i>n</i>. This runs frames until the box
@@ -318,7 +332,7 @@ public sealed partial class UiSubject {
                 matched,
                 element => MathF.Abs(element.Width - width) <= tolerance
                     && MathF.Abs(element.Height - height) <= tolerance,
-                element => $"is {element.Width:0.##}×{element.Height:0.##}"
+                static element => $"is {element.Width:0.##}×{element.Height:0.##}"
             )
         );
 
@@ -341,7 +355,7 @@ public sealed partial class UiSubject {
                 matched,
                 element => MathF.Abs(element.AbsoluteLeft - left) <= tolerance
                     && MathF.Abs(element.AbsoluteTop - top) <= tolerance,
-                element => $"is at ({element.AbsoluteLeft:0.##}, {element.AbsoluteTop:0.##})"
+                static element => $"is at ({element.AbsoluteLeft:0.##}, {element.AbsoluteTop:0.##})"
             )
         );
 
@@ -409,7 +423,7 @@ public sealed partial class UiSubject {
 
     /// <summary>Where a click at an element's centre would land.</summary>
     internal static (float X, float Y) Centre(UiElement element) =>
-        (element.AbsoluteLeft + (element.Width / 2f), element.AbsoluteTop + (element.Height / 2f));
+        (element.AbsoluteLeft + element.Width / 2f, element.AbsoluteTop + element.Height / 2f);
 
     /// <summary>What is in the way of an element, or <c>null</c> if nothing is.</summary>
     internal string? Blocker(UiElement element) {

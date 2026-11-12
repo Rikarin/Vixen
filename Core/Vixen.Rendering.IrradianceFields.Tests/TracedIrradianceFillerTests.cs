@@ -29,8 +29,8 @@ public class TracedIrradianceFillerTests {
         // Fibonacci directions cover the sphere to about a third of a per cent, and a probe is that
         // far from exact however bright the environment is.
         foreach (var normal in (Vector3[]) [
-            new(0, 1, 0), new(0, -1, 0), new(1, 0, 0), Vector3.Normalize(new(1, 2, -3))
-        ]) {
+                     new(0, 1, 0), new(0, -1, 0), new(1, 0, 0), Vector3.Normalize(new(1, 2, -3))
+                 ]) {
             Assert.Equal(sky, probe.Irradiance(normal).X, sky * 0.005f);
         }
     }
@@ -257,8 +257,8 @@ public class TracedIrradianceFillerTests {
         field.SyncBorders();
 
         foreach (var point in (Vector3[]) [
-            Vector3.Zero, new(2f, 0f, 0f), new(-2f, 1f, 2f), new(2.4f, 2.4f, 2.4f)
-        ]) {
+                     Vector3.Zero, new(2f, 0f, 0f), new(-2f, 1f, 2f), new(2.4f, 2.4f, 2.4f)
+                 ]) {
             Assert.True(
                 field.Irradiance(point, new(0, 1, 0)).X < 0.01f,
                 $"the sky reached {point} inside a closed box"

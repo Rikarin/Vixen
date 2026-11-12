@@ -12,8 +12,12 @@ namespace Vixen.Editor.Water.Tests;
 
 /// <summary>The two panels' readout blocks, held to the loops they replace.</summary>
 /// <remarks>
-///     ⚠ <b>The assertion is the whole element tree with every rectangle in it, not a property
-///     read.</b> A part that draws the same rows a pixel to the left is a defect and a count
+///     ⚠
+///     <b>
+///         The assertion is the whole element tree with every rectangle in it, not a property
+///         read.
+///     </b>
+///     A part that draws the same rows a pixel to the left is a defect and a count
 ///     assertion cannot see it, so this builds the hand-written form, writes down what the document
 ///     looks like, throws it away, builds the part in exactly the same place, and compares the two
 ///     dumps as strings. Same place, because <c>UiTest.Tree</c> prints absolute positions.
@@ -64,20 +68,22 @@ public sealed class WaterFactsTests : IDisposable {
     [InlineData("the snap grid is not a whole number of texels")]
     public void The_zone_part_builds_the_tree_the_hand_written_loop_did(string? why) {
         var handWritten = Dump(() => {
-            var host = test.Document.Root.Add("water-zone-facts");
+                var host = test.Document.Root.Add("water-zone-facts");
 
-            HandWritten(host, Zone, why);
+                HandWritten(host, Zone, why);
 
-            return host;
-        });
+                return host;
+            }
+        );
 
         var part = Dump(() => {
-            var block = test.Document.Root.Add<WaterZoneFacts>();
+                var block = test.Document.Root.Add<WaterZoneFacts>();
 
-            block.Show(Zone, why);
+                block.Show(Zone, why);
 
-            return block;
-        });
+                return block;
+            }
+        );
 
         Assert.Equal(handWritten, part);
     }
@@ -96,20 +102,22 @@ public sealed class WaterFactsTests : IDisposable {
         ];
 
         var handWritten = Dump(() => {
-            var host = test.Document.Root.Add("water-facts");
+                var host = test.Document.Root.Add("water-facts");
 
-            HandWritten(host, rows, null);
+                HandWritten(host, rows, null);
 
-            return host;
-        });
+                return host;
+            }
+        );
 
         var part = Dump(() => {
-            var block = test.Document.Root.Add<WaterZoneFacts>("water-facts");
+                var block = test.Document.Root.Add<WaterZoneFacts>("water-facts");
 
-            block.Show(rows, null);
+                block.Show(rows, null);
 
-            return block;
-        });
+                return block;
+            }
+        );
 
         Assert.Equal(handWritten, part);
     }
@@ -123,22 +131,24 @@ public sealed class WaterFactsTests : IDisposable {
     [InlineData("Create zone is not available: there is no scene open to put one in.")]
     public void The_notice_builds_the_tree_the_hand_written_one_did(string message) {
         var handWritten = Dump(() => {
-            var host = test.Document.Root.Add("water-notice");
+                var host = test.Document.Root.Add("water-notice");
 
-            if (message.Length > 0) {
-                host.Add("water-refusal").Add("text").Text = message;
+                if (message.Length > 0) {
+                    host.Add("water-refusal").Add("text").Text = message;
+                }
+
+                return host;
             }
-
-            return host;
-        });
+        );
 
         var part = Dump(() => {
-            var block = test.Document.Root.Add<WaterNotice>();
+                var block = test.Document.Root.Add<WaterNotice>();
 
-            block.Notice = message;
+                block.Notice = message;
 
-            return block;
-        });
+                return block;
+            }
+        );
 
         Assert.Equal(handWritten, part);
     }

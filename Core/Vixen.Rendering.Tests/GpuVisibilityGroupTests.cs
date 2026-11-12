@@ -144,12 +144,12 @@ public class GpuVisibilityGroupTests : IDisposable {
     [Fact]
     public void The_mirror_of_the_shader_agrees_with_the_cpu_path() {
         var scene = Gen.Select(
-                Gen.Float[-150f, 150f],
-                Gen.Float[-150f, 150f],
-                Gen.Float[-150f, 150f],
-                Gen.Float[0.1f, 12f],
-                Gen.Int[0, 1]
-            )
+            Gen.Float[-150f, 150f],
+            Gen.Float[-150f, 150f],
+            Gen.Float[-150f, 150f],
+            Gen.Float[0.1f, 12f],
+            Gen.Int[0, 1]
+        )
             .Array[1, 200];
 
         scene.Sample(
@@ -159,15 +159,13 @@ public class GpuVisibilityGroupTests : IDisposable {
 
                 foreach (var (x, y, z, radius, stage) in objects) {
                     store.Add(
-                        new() {
-                            Bounds = new(new(x, y, z), radius),
-                            Stages = RenderStageMask.Of(stage),
-                            IsAlive = true
-                        }
+                        new() { Bounds = new(new(x, y, z), radius), Stages = RenderStageMask.Of(stage), IsAlive = true }
                     );
                 }
 
-                var views = new[] { Camera(RenderStageMask.Of(0) | RenderStageMask.Of(1)), Camera(RenderStageMask.Of(0), 90f) };
+                var views = new[] {
+                    Camera(RenderStageMask.Of(0) | RenderStageMask.Of(1)), Camera(RenderStageMask.Of(0), 90f)
+                };
                 expected.Cull(store, views);
 
                 var wordCount = GpuCulling.WordsFor(store.Count);
@@ -197,7 +195,9 @@ public class GpuVisibilityGroupTests : IDisposable {
     public void A_removed_object_is_culled_by_its_flag() {
         using var store = new RenderObjectStore();
 
-        var id = store.Add(new() { Bounds = new(new(0f, 0f, 10f), 1f), Stages = RenderStageMask.Of(0), IsAlive = true });
+        var id = store.Add(
+            new() { Bounds = new(new(0f, 0f, 10f), 1f), Stages = RenderStageMask.Of(0), IsAlive = true }
+        );
         store.Remove(id);
 
         var view = GpuCulling.Pack(Camera(RenderStageMask.Of(0)), store.Count, GpuCulling.WordsFor(store.Count));
@@ -351,16 +351,16 @@ public class GpuVisibilityGroupTests : IDisposable {
         // Nothing occludes: an empty pyramid is far everywhere, and under reverse-Z far is zero.
         static float Open(int x, int y, int level) => 0f;
 
-        Assert.True(GpuCulling.IsLate(candidate, view, drawn: false, new(64, 64), Open));
-        Assert.False(GpuCulling.IsLate(candidate, view, drawn: true, new(64, 64), Open));
+        Assert.True(GpuCulling.IsLate(candidate, view, false, new(64, 64), Open));
+        Assert.False(GpuCulling.IsLate(candidate, view, true, new(64, 64), Open));
 
         // And a wall in front of it is not late either, however little the main pass drew.
         static float Wall(int x, int y, int level) => 1f;
 
-        Assert.False(GpuCulling.IsLate(candidate, view, drawn: false, new(64, 64), Wall));
+        Assert.False(GpuCulling.IsLate(candidate, view, false, new(64, 64), Wall));
 
         // Nor is something the frustum rejects.
-        Assert.False(GpuCulling.IsLate(GpuCulling.Pack(Object(-10f)), view, drawn: false, new(64, 64), Open));
+        Assert.False(GpuCulling.IsLate(GpuCulling.Pack(Object(-10f)), view, false, new(64, 64), Open));
     }
 
     // --- The frame ----------------------------------------------------------
@@ -414,9 +414,15 @@ public class GpuVisibilityGroupTests : IDisposable {
         var effectsFor = new EffectSystem();
         effectsFor.AddProvider(new AlwaysCompiles(limited));
 
-        using var visibility = new GpuVisibilityGroup(limited) { Effects = effectsFor, Pipelines = new(limited) };
-        using var pyramid = new HiZPyramid(limited) { Effects = effectsFor, Pipelines = new(limited) };
-        using var arguments = new GpuDrawArguments(limited) { Effects = effectsFor, Pipelines = new(limited) };
+        using var visibility = new GpuVisibilityGroup(limited);
+        visibility.Effects = effectsFor;
+        visibility.Pipelines = new(limited);
+        using var pyramid = new HiZPyramid(limited);
+        pyramid.Effects = effectsFor;
+        pyramid.Pipelines = new(limited);
+        using var arguments = new GpuDrawArguments(limited);
+        arguments.Effects = effectsFor;
+        arguments.Pipelines = new(limited);
 
         Assert.False(GpuCulling.IsSupported(limited));
 
@@ -512,9 +518,9 @@ public class GpuVisibilityGroupTests : IDisposable {
         Assert.True(visibility.Bits.IsValid);
 
         var stream = device.Recorder!.Commands.ToList();
-        var dispatch = stream.FindIndex(command => command.Kind == RecordedCommandKind.Dispatch);
-        var copy = stream.FindIndex(command => command.Kind == RecordedCommandKind.CopyBuffer);
-        var barrier = stream.FindIndex(dispatch + 1, command => command.Kind == RecordedCommandKind.Barrier);
+        var dispatch = stream.FindIndex(static command => command.Kind == RecordedCommandKind.Dispatch);
+        var copy = stream.FindIndex(static command => command.Kind == RecordedCommandKind.CopyBuffer);
+        var barrier = stream.FindIndex(dispatch + 1, static command => command.Kind == RecordedCommandKind.Barrier);
 
         Assert.True(dispatch >= 0, "nothing dispatched");
         Assert.Equal(GpuCulling.Groups(GpuCulling.WordsFor(store.Count)), stream[dispatch].A);
@@ -657,8 +663,8 @@ public class GpuVisibilityGroupTests : IDisposable {
         var view = Occluding(Camera(RenderStageMask.Of(0)));
         var candidate = GpuCulling.Pack(Object(10f));
 
-        Assert.True(GpuCulling.IsOccluded(candidate, view, new(64, 64), (_, _, _) => 1f));
-        Assert.False(GpuCulling.IsOccluded(candidate, view, new(64, 64), (_, _, _) => 0f));
+        Assert.True(GpuCulling.IsOccluded(candidate, view, new(64, 64), static (_, _, _) => 1f));
+        Assert.False(GpuCulling.IsOccluded(candidate, view, new(64, 64), static (_, _, _) => 0f));
     }
 
     /// <summary>A view with no pyramid to test against is never occluded by one.</summary>
@@ -671,7 +677,7 @@ public class GpuVisibilityGroupTests : IDisposable {
     public void A_view_with_no_pyramid_is_never_occluded() {
         var view = GpuCulling.Pack(Camera(RenderStageMask.Of(0)), 1, 1);
 
-        Assert.False(GpuCulling.IsOccluded(GpuCulling.Pack(Object(10f)), view, new(64, 64), (_, _, _) => 1f));
+        Assert.False(GpuCulling.IsOccluded(GpuCulling.Pack(Object(10f)), view, new(64, 64), static (_, _, _) => 1f));
     }
 
     /// <summary>
@@ -685,10 +691,10 @@ public class GpuVisibilityGroupTests : IDisposable {
     [Fact]
     public void An_object_reaching_behind_the_camera_is_kept() {
         var view = Occluding(Camera(RenderStageMask.Of(0)));
-        var candidate = GpuCulling.Pack(Object(1f, radius: 5f));
+        var candidate = GpuCulling.Pack(Object(1f, 5f));
 
         Assert.False(GpuCulling.ScreenBounds(candidate, view, out _, out _));
-        Assert.False(GpuCulling.IsOccluded(candidate, view, new(64, 64), (_, _, _) => 1f));
+        Assert.False(GpuCulling.IsOccluded(candidate, view, new(64, 64), static (_, _, _) => 1f));
     }
 
     /// <summary>
@@ -712,9 +718,9 @@ public class GpuVisibilityGroupTests : IDisposable {
     /// <summary>A level's size is the mip chain's, floored and never zero.</summary>
     [Fact]
     public void A_levels_size_is_the_mip_chains() {
-        Assert.Equal(new Int2(960, 540), GpuCulling.LevelSize(new(960, 540), 0));
-        Assert.Equal(new Int2(480, 270), GpuCulling.LevelSize(new(960, 540), 1));
-        Assert.Equal(new Int2(1, 1), GpuCulling.LevelSize(new(960, 540), 20));
+        Assert.Equal(new(960, 540), GpuCulling.LevelSize(new(960, 540), 0));
+        Assert.Equal(new(480, 270), GpuCulling.LevelSize(new(960, 540), 1));
+        Assert.Equal(new(1, 1), GpuCulling.LevelSize(new(960, 540), 20));
     }
 
     /// <summary>
@@ -758,7 +764,7 @@ public class GpuVisibilityGroupTests : IDisposable {
 
         Assert.True(Build(pyramid, new(1920, 1080)));
 
-        Assert.Equal(new Int2(960, 540), pyramid.Size);
+        Assert.Equal(new(960, 540), pyramid.Size);
         Assert.Equal(10, pyramid.Levels);
         Assert.True(pyramid.IsBuilt);
         Assert.True(pyramid.View.IsValid);
@@ -784,7 +790,7 @@ public class GpuVisibilityGroupTests : IDisposable {
         Assert.Equal(6, pyramid.Levels);
 
         var stream = device.Recorder!.Commands.ToList();
-        var dispatches = stream.Where(command => command.Kind == RecordedCommandKind.Dispatch).ToList();
+        var dispatches = stream.Where(static command => command.Kind == RecordedCommandKind.Dispatch).ToList();
 
         Assert.Equal(pyramid.Levels, dispatches.Count);
 
@@ -794,8 +800,14 @@ public class GpuVisibilityGroupTests : IDisposable {
         Assert.Equal(1, dispatches[^1].A);
 
         foreach (var dispatch in dispatches) {
-            var before = stream.FindLastIndex(dispatch.Sequence, command => command.Kind == RecordedCommandKind.Barrier);
-            var after = stream.FindIndex(dispatch.Sequence, command => command.Kind == RecordedCommandKind.Barrier);
+            var before = stream.FindLastIndex(
+                dispatch.Sequence,
+                static command => command.Kind == RecordedCommandKind.Barrier
+            );
+            var after = stream.FindIndex(
+                dispatch.Sequence,
+                static command => command.Kind == RecordedCommandKind.Barrier
+            );
 
             Assert.True(before >= 0, "a level was written with no barrier before its dispatch");
             Assert.True(after > dispatch.Sequence, "a level was left in the state its dispatch wrote it in");
@@ -831,7 +843,7 @@ public class GpuVisibilityGroupTests : IDisposable {
 
         Build(pyramid, new(128, 128));
 
-        Assert.Equal(new Int2(64, 64), pyramid.Size);
+        Assert.Equal(new(64, 64), pyramid.Size);
         Assert.Equal(7, pyramid.Levels);
     }
 
@@ -965,8 +977,7 @@ public class GpuVisibilityGroupTests : IDisposable {
         var texture = device.CreateTexture(description);
 
         var compositor = new GraphicsCompositor(system) {
-            FrameSize = new(64, 64),
-            Game = new SceneRendererSequence { Children = { prepass, reduce } }
+            FrameSize = new(64, 64), Game = new SceneRendererSequence { Children = { prepass, reduce } }
         };
 
         compositor.Imports["SceneDepth"] = new(texture, device.CreateTextureView(texture), description);
@@ -984,8 +995,8 @@ public class GpuVisibilityGroupTests : IDisposable {
         Assert.True(pyramid.IsBuilt);
 
         var stream = device.Recorder!.Commands.ToList();
-        var pass = stream.FindIndex(command => command.Kind == RecordedCommandKind.EndRenderPass);
-        var dispatch = stream.FindIndex(command => command.Kind == RecordedCommandKind.Dispatch);
+        var pass = stream.FindIndex(static command => command.Kind == RecordedCommandKind.EndRenderPass);
+        var dispatch = stream.FindIndex(static command => command.Kind == RecordedCommandKind.Dispatch);
 
         Assert.True(pass >= 0, "the depth pass did not run");
         Assert.True(dispatch > pass, "the pyramid was reduced before the depth it reduces was written");
@@ -998,8 +1009,7 @@ public class GpuVisibilityGroupTests : IDisposable {
         var graph = new RenderGraph(device);
 
         var compositor = new GraphicsCompositor(system) {
-            FrameSize = new(64, 64),
-            Game = new HiZRenderer { Name = "HiZ", Depth = "SceneDepth" }
+            FrameSize = new(64, 64), Game = new HiZRenderer { Name = "HiZ", Depth = "SceneDepth" }
         };
 
         using (var list = device.BeginCommandList()) {
@@ -1028,7 +1038,9 @@ public class GpuVisibilityGroupTests : IDisposable {
     /// </remarks>
     [Fact]
     public void Updating_without_filling_is_refused() {
-        using var arguments = new GpuDrawArguments(device) { Effects = effects, Pipelines = pipelines };
+        using var arguments = new GpuDrawArguments(device);
+        arguments.Effects = effects;
+        arguments.Pipelines = pipelines;
         using var list = device.BeginCommandList(QueueKind.Compute);
 
         var bits = device.CreateBuffer(new(64, BufferUsage.Storage, MemoryAccess.DeviceLocal, "Bits"));
@@ -1326,7 +1338,9 @@ public class GpuVisibilityGroupTests : IDisposable {
     public void The_node_culls_and_writes_arguments_in_one_list() {
         using var system = new RenderSystem();
         using var visibility = Configured();
-        using var arguments = new GpuDrawArguments(device) { Effects = effects, Pipelines = pipelines };
+        using var arguments = new GpuDrawArguments(device);
+        arguments.Effects = effects;
+        arguments.Pipelines = pipelines;
 
         visibility.ReadBack = false;
         system.Visibility = visibility;
@@ -1336,7 +1350,9 @@ public class GpuVisibilityGroupTests : IDisposable {
         system.AddFeature(meshes);
 
         system.Objects.Add(
-            new() { Bounds = new(new(0f, 0f, 10f), 1f), Stages = stage.Mask, IsAlive = true, FeatureIndex = meshes.Index }
+            new() {
+                Bounds = new(new(0f, 0f, 10f), 1f), Stages = stage.Mask, IsAlive = true, FeatureIndex = meshes.Index
+            }
         );
 
         // A pass that draws the stage, because a view only exists if a node declares one — and with
@@ -1349,8 +1365,7 @@ public class GpuVisibilityGroupTests : IDisposable {
             FrameSize = new(64, 64),
             Game = new SceneRendererSequence {
                 Children = {
-                    new GpuCullingRenderer { Name = "Culling", Visibility = visibility, Arguments = arguments },
-                    colour
+                    new GpuCullingRenderer { Name = "Culling", Visibility = visibility, Arguments = arguments }, colour
                 }
             }
         };
@@ -1382,11 +1397,11 @@ public class GpuVisibilityGroupTests : IDisposable {
         Assert.True(arguments.Commands.IsValid);
 
         var stream = device.Recorder!.Commands.ToList();
-        var dispatches = stream.Where(command => command.Kind == RecordedCommandKind.Dispatch).ToList();
+        var dispatches = stream.Where(static command => command.Kind == RecordedCommandKind.Dispatch).ToList();
 
         Assert.Equal(2, dispatches.Count);
         Assert.True(
-            stream.FindIndex(dispatches[0].Sequence, command => command.Kind == RecordedCommandKind.Barrier)
+            stream.FindIndex(dispatches[0].Sequence, static command => command.Kind == RecordedCommandKind.Barrier)
             < dispatches[1].Sequence,
             "the arguments were written with no barrier after the cull they read"
         );
@@ -1454,7 +1469,9 @@ public class GpuVisibilityGroupTests : IDisposable {
     public void An_objects_arguments_sit_at_its_own_slot() {
         using var store = new RenderObjectStore();
         using var visibility = Configured();
-        using var arguments = new GpuDrawArguments(device) { Effects = effects, Pipelines = pipelines };
+        using var arguments = new GpuDrawArguments(device);
+        arguments.Effects = effects;
+        arguments.Pipelines = pipelines;
 
         visibility.ReadBack = false;
 
@@ -1778,7 +1795,9 @@ public class GpuVisibilityGroupTests : IDisposable {
 
     /// <summary>A shipped shader's source, found by walking up rather than by counting directories.</summary>
     static string Source(string folder, string file) {
-        for (var directory = new DirectoryInfo(AppContext.BaseDirectory); directory is not null; directory = directory.Parent) {
+        for (var directory = new DirectoryInfo(AppContext.BaseDirectory);
+             directory is not null;
+             directory = directory.Parent) {
             var candidate = Path.Combine(directory.FullName, "Raven", "Library", folder, file);
 
             if (File.Exists(candidate)) {
@@ -1786,7 +1805,9 @@ public class GpuVisibilityGroupTests : IDisposable {
             }
         }
 
-        throw new FileNotFoundException($"Raven/Library/{folder}/{file} was not found above '{AppContext.BaseDirectory}'.");
+        throw new FileNotFoundException(
+            $"Raven/Library/{folder}/{file} was not found above '{AppContext.BaseDirectory}'."
+        );
     }
 
     /// <summary>
@@ -1870,7 +1891,10 @@ public class GpuVisibilityGroupTests : IDisposable {
         ///     what a fixture that invented a leaner variant for the frustum-only case let the host
         ///     get wrong. The binding order is the real one too: the texture first.
         /// </remarks>
-        public static Effect Culling(EffectKey key = default, ImmutableArray<DescriptorSetLayoutHandle> layouts = default) =>
+        public static Effect Culling(
+            EffectKey key = default,
+            ImmutableArray<DescriptorSetLayoutHandle> layouts = default
+        ) =>
             new() {
                 Key = key.ShaderName is null ? EffectKey.Of(GpuCulling.ShaderName) : key,
                 SetLayouts = layouts.IsDefault ? [] : layouts,
@@ -1901,7 +1925,7 @@ public class GpuVisibilityGroupTests : IDisposable {
             }
 
             var declared = bindings
-                .Select(binding => new DescriptorBinding(binding.Binding, binding.Kind, ShaderStage.Compute))
+                .Select(static binding => new DescriptorBinding(binding.Binding, binding.Kind, ShaderStage.Compute))
                 .ToArray();
 
             var all = new DescriptorSetLayoutHandle[(int)DescriptorSetSlot.PerMaterial + 1];
@@ -1910,7 +1934,7 @@ public class GpuVisibilityGroupTests : IDisposable {
                 new(DescriptorSetSlot.PerMaterial, declared, shader)
             );
 
-            made = [.. all];
+            made = [..all];
             layouts[shader] = made;
 
             return made;

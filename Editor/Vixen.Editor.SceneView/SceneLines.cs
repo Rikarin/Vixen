@@ -4,7 +4,6 @@
 using System.Runtime.InteropServices;
 using Vixen.Core;
 using Vixen.Core.Mathematics;
-using Vixen.Ecs;
 using Vixen.Engine.Transforms;
 using Vixen.Geometry;
 using Vixen.Rendering;
@@ -65,8 +64,10 @@ public sealed class SceneLines {
     public Color4 MarkerColour { get; set; } = new(0.55f, 0.58f, 0.62f, 0.9f);
 
     /// <summary>The colour of a reference volume's wireframe.</summary>
-    /// <remarks>Deliberately neither the selection's nor a marker's: a scale reference is neither
-    ///     something in the scene nor something you chose, and it has to read as an annotation.</remarks>
+    /// <remarks>
+    ///     Deliberately neither the selection's nor a marker's: a scale reference is neither
+    ///     something in the scene nor something you chose, and it has to read as an annotation.
+    /// </remarks>
     public Color4 ReferenceColour { get; set; } = new(0.35f, 0.75f, 0.55f, 0.55f);
 
     /// <summary>The colour of the tape measure.</summary>
@@ -107,8 +108,12 @@ public sealed class SceneLines {
     /// <param name="viewport">The pane drawing it.</param>
     /// <param name="height">How tall the pane is, in render pixels.</param>
     /// <remarks>
-    ///     ⚠ <b>Every source asks <see cref="SceneViewport.Show" /> and none of them is a
-    ///     <c>continue</c> inside its own loop.</b> A flag that is off has to cost nothing rather than
+    ///     ⚠
+    ///     <b>
+    ///         Every source asks <see cref="SceneViewport.Show" /> and none of them is a
+    ///         <c>continue</c> inside its own loop.
+    ///     </b>
+    ///     A flag that is off has to cost nothing rather than
     ///     cost a walk over the scene that emits no vertices — which for the parent links, the only
     ///     one that is a test per entity, is the difference between skipping a branch and skipping the
     ///     pass.
@@ -265,8 +270,12 @@ public sealed class SceneLines {
     /// <summary>A wire box round every shaped entity, in the entity's own axes.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The shape's bounds through the entity's matrix, not an axis-aligned box round the
-    ///         result.</b> A world-aligned box round a rotated crate is bigger than the crate on every
+    ///         ⚠
+    ///         <b>
+    ///             The shape's bounds through the entity's matrix, not an axis-aligned box round the
+    ///             result.
+    ///         </b>
+    ///         A world-aligned box round a rotated crate is bigger than the crate on every
     ///         axis and touches it at four points, which answers a question — "what would the
     ///         broadphase see" — that nobody looking at a viewport is asking. What this shows is the
     ///         extent the geometry actually occupies, turned the way the geometry is turned.
@@ -310,11 +319,12 @@ public sealed class SceneLines {
             var extent = (bounds.Maximum - bounds.Minimum) * 0.5f;
 
             for (var index = 0; index < 8; index++) {
-                var local = centre + new Vector3(
-                    (index & 1) == 0 ? -extent.X : extent.X,
-                    (index & 2) == 0 ? -extent.Y : extent.Y,
-                    (index & 4) == 0 ? -extent.Z : extent.Z
-                );
+                var local = centre
+                    + new Vector3(
+                        (index & 1) == 0 ? -extent.X : extent.X,
+                        (index & 2) == 0 ? -extent.Y : extent.Y,
+                        (index & 4) == 0 ? -extent.Z : extent.Z
+                    );
 
                 corners[index] = Matrix4x4.TransformPosition(local, matrix);
             }
@@ -388,8 +398,11 @@ public sealed class SceneLines {
     /// <summary>Where each of a selected LOD group's thresholds actually falls, as a ring on the ground.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>A threshold is a fraction of the viewport's height and an author is standing in a
-    ///         viewport</b>, so the two are only relatable by walking backwards until the mesh
+    ///         <b>
+    ///             A threshold is a fraction of the viewport's height and an author is standing in a
+    ///             viewport
+    ///         </b>
+    ///         , so the two are only relatable by walking backwards until the mesh
     ///         changes and reading the number off. What decides the switch is
     ///         <c>height = radius × ScreenHeightScale / distance</c>
     ///         (<c>LodRenderFeature.Height</c>), so the camera positions at which a given threshold
@@ -404,8 +417,11 @@ public sealed class SceneLines {
     ///         runtime is worse than no handle. <see cref="SceneViewport.Camera" /> has the number.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The radius is the runtime's own, and the reason that is possible is not obvious:
-    ///         the extraction's sphere is derived from the same box this already has.</b>
+    ///         ⚠
+    ///         <b>
+    ///             The radius is the runtime's own, and the reason that is possible is not obvious:
+    ///             the extraction's sphere is derived from the same box this already has.
+    ///         </b>
     ///         <c>SurfaceGeometry.BoundsOf</c> is <c>BoundingSphere.FromBox(mesh.Bounds)</c> for any
     ///         mesh with an extent, and <c>MeshExtractionSystem.Transformed</c> then scales it by the
     ///         largest of the three axis scales — so both halves are computable here exactly rather
@@ -627,8 +643,12 @@ public sealed class SceneLines {
 
     /// <summary>The reference volumes the pane is showing, as wireframe boxes.</summary>
     /// <remarks>
-    ///     ⚠ <b>Lines rather than entities, which is doc 24's own word for it: "drawn and not
-    ///     shipped".</b> Nothing to select, nothing to save, and nothing to leave in a level by
+    ///     ⚠
+    ///     <b>
+    ///         Lines rather than entities, which is doc 24's own word for it: "drawn and not
+    ///         shipped".
+    ///     </b>
+    ///     Nothing to select, nothing to save, and nothing to leave in a level by
     ///     accident — which is the whole difference between this and the cube everybody scales to 1.8
     ///     and then forgets about.
     /// </remarks>
@@ -640,11 +660,12 @@ public sealed class SceneLines {
             var extent = volume.Size * 0.5f;
 
             for (var index = 0; index < 8; index++) {
-                corners[index] = centre + new Vector3(
-                    (index & 1) == 0 ? -extent.X : extent.X,
-                    (index & 2) == 0 ? -extent.Y : extent.Y,
-                    (index & 4) == 0 ? -extent.Z : extent.Z
-                );
+                corners[index] = centre
+                    + new Vector3(
+                        (index & 1) == 0 ? -extent.X : extent.X,
+                        (index & 2) == 0 ? -extent.Y : extent.Y,
+                        (index & 4) == 0 ? -extent.Z : extent.Z
+                    );
             }
 
             for (var from = 0; from < 8; from++) {
@@ -696,8 +717,12 @@ public sealed class SceneLines {
     /// <summary>The colour a selected element is drawn in.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Sky blue rather than the entity selection's amber, and the two disagreeing is the
-    ///         point.</b> An entity selection and an element selection are different claims — "this
+    ///         ⚠
+    ///         <b>
+    ///             Sky blue rather than the entity selection's amber, and the two disagreeing is the
+    ///             point.
+    ///         </b>
+    ///         An entity selection and an element selection are different claims — "this
     ///         object" against "this face of it" — and a face highlighted in the same amber as the
     ///         object around it is a face you cannot see is chosen. It is also the hue the interface's
     ///         accent and the object outline already use, so "chosen" reads the same way in the
@@ -715,7 +740,6 @@ public sealed class SceneLines {
     ///     ⚠ <b>A third colour, not a brighter selection.</b> Hover and selection answer different
     ///     questions — "what would a click take" against "what a click took" — and an element that is
     ///     both has to read as selected, which it does because the selection is drawn after this.
-    ///
     ///     ⚠ <b>Near-white now that the selection is blue.</b> The two were a blue and an amber and
     ///     could be any pair; they are a blue and a white because a hover is a lighter statement than a
     ///     selection and because a third *hue* on a surface that is already carrying two is one more
@@ -724,15 +748,21 @@ public sealed class SceneLines {
     public Color4 HoverColour { get; set; } = new(0.95f, 0.98f, 1f, 1f);
 
     /// <summary>How big a vertex handle is, in render pixels.</summary>
-    /// <remarks>Smaller than <c>SubObjectPicker.DefaultTolerance</c>, deliberately and for the reason
-    ///     that constant gives: what is aimed at is drawn smaller than what answers.</remarks>
+    /// <remarks>
+    ///     Smaller than <c>SubObjectPicker.DefaultTolerance</c>, deliberately and for the reason
+    ///     that constant gives: what is aimed at is drawn smaller than what answers.
+    /// </remarks>
     public float VertexSize { get; set; } = 3.5f;
 
     /// <summary>The cage, the vertices, and whatever is selected or hovered, for one edited mesh.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Drawn in the overlay rather than in the world list, which is what makes it an
-    ///         edit cage rather than a wireframe.</b> Half of what a designer selects while modelling is
+    ///         ⚠
+    ///         <b>
+    ///             Drawn in the overlay rather than in the world list, which is what makes it an
+    ///             edit cage rather than a wireframe.
+    ///         </b>
+    ///         Half of what a designer selects while modelling is
     ///         on the far side of the surface — the back wall of a room seen from inside it — and a
     ///         depth-tested cage would show the elements that are already reachable and hide the ones
     ///         that are not. It is the same argument the gizmo's own overlay makes, and it is the
@@ -823,13 +853,13 @@ public sealed class SceneLines {
 
     /// <summary>One face, as a fan of triangles in the solid overlay.</summary>
     void Fill(EditMesh mesh, in Matrix4x4 transform, int face, Color4 colour) {
-        if ((uint) face >= (uint) mesh.FaceCount) {
+        if ((uint)face >= (uint)mesh.FaceCount) {
             return;
         }
 
         var loop = mesh.CornersOf(face);
         var facing = Matrix4x4.TransformDirection(mesh.Normal(face), transform);
-        var first = (uint) handles.Count;
+        var first = (uint)handles.Count;
 
         // Premultiplied, because the pipeline the solid overlay is drawn with expects it — a straight
         // alpha colour here is a face highlight that is brighter the more transparent it is asked to be.
@@ -839,7 +869,7 @@ public sealed class SceneLines {
             handles.Add(new(Place(mesh.Positions[corner], transform), facing, tint));
         }
 
-        for (var corner = 1u; corner + 1 < (uint) loop.Length; corner++) {
+        for (var corner = 1u; corner + 1 < (uint)loop.Length; corner++) {
             handleIndices.Add(first);
             handleIndices.Add(first + corner);
             handleIndices.Add(first + corner + 1);
@@ -847,8 +877,10 @@ public sealed class SceneLines {
     }
 
     /// <summary>How solid a selected face's tint is.</summary>
-    /// <remarks>Enough to read as chosen and little enough to leave the shading under it visible, which
-    ///     is what tells a designer whether the face they took is the one facing them.</remarks>
+    /// <remarks>
+    ///     Enough to read as chosen and little enough to leave the shading under it visible, which
+    ///     is what tells a designer whether the face they took is the one facing them.
+    /// </remarks>
     const float Alpha = 0.35f;
 
     static Vector3 Place(Vector3 local, in Matrix4x4 transform) => Matrix4x4.TransformPosition(local, transform);
@@ -894,8 +926,12 @@ public sealed class SceneLines {
     /// <summary>What each light in the scene reaches, drawn in its own colour.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A light is invisible, so without this it is a name in the hierarchy and a marker
-    ///         cross in the viewport.</b> Which way a spot points and how far a point light carries
+    ///         ⚠
+    ///         <b>
+    ///             A light is invisible, so without this it is a name in the hierarchy and a marker
+    ///             cross in the viewport.
+    ///         </b>
+    ///         Which way a spot points and how far a point light carries
     ///         are the two things somebody placing lights is actually adjusting, and neither is
     ///         legible from a transform gizmo — a spot aimed at the ceiling and one aimed at the floor
     ///         look identical until the cone is drawn.
@@ -925,7 +961,7 @@ public sealed class SceneLines {
                 case LightKind.Directional: {
                     // Parallel rays, which is what makes it read as a sun rather than as a spot: four
                     // of them from a disc, all pointing the same way and none of them spreading.
-                    var reach = origin + (forward * SunLength);
+                    var reach = origin + forward * SunLength;
 
                     Ring(origin, right, up, MarkerSize, colour);
                     Segment(origin, reach, colour);
@@ -951,13 +987,13 @@ public sealed class SceneLines {
                     // The outer cone and not the inner: the outer is where the light stops, and two
                     // cones drawn together are a shape nobody can read at a glance.
                     var apex = origin;
-                    var centre = origin + (forward * light.Range);
+                    var centre = origin + forward * light.Range;
                     var radius = light.Range * MathF.Tan(light.OuterAngle);
 
                     Ring(centre, right, up, radius, colour);
 
                     for (var i = 0; i < 4; i++) {
-                        Segment(apex, centre + (Around(right, up, i / 4f) * radius), colour);
+                        Segment(apex, centre + Around(right, up, i / 4f) * radius, colour);
                     }
 
                     break;
@@ -974,7 +1010,7 @@ public sealed class SceneLines {
                     Segment(origin + across + down, origin - across + down, colour);
                     Segment(origin - across + down, origin - across - down, colour);
 
-                    Segment(origin, origin + (forward * MarkerSize * 2f), colour);
+                    Segment(origin, origin + forward * MarkerSize * 2f, colour);
                     break;
                 }
 
@@ -987,9 +1023,6 @@ public sealed class SceneLines {
 
                     break;
                 }
-
-                default:
-                    break;
             }
         }
     }
@@ -1014,7 +1047,7 @@ public sealed class SceneLines {
     /// <param name="turn">How far round, from 0 to 1.</param>
     static Vector3 Around(Vector3 first, Vector3 second, float turn) {
         var angle = turn * MathF.Tau;
-        return (first * MathF.Cos(angle)) + (second * MathF.Sin(angle));
+        return first * MathF.Cos(angle) + second * MathF.Sin(angle);
     }
 
     void Segment(Vector3 from, Vector3 to, Color4 colour) {
@@ -1028,10 +1061,10 @@ public sealed class SceneLines {
             return;
         }
 
-        var previous = centre + (first * radius);
+        var previous = centre + first * radius;
 
         for (var i = 1; i <= Segments; i++) {
-            var next = centre + (Around(first, second, i / Segments) * radius);
+            var next = centre + Around(first, second, i / Segments) * radius;
 
             Segment(previous, next, colour);
             previous = next;

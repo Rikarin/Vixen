@@ -4,7 +4,6 @@
 using System.Runtime.InteropServices;
 using Vixen.Core.Mathematics;
 using Vixen.Graphics.Vulkan;
-using Vixen.Rendering;
 using Vixen.Rendering.DistanceFields;
 using Vixen.Rendering.Lighting;
 using Vixen.Rendering.SurfaceCache;
@@ -28,8 +27,10 @@ namespace Vixen.Graphics.Golden.Tests;
 [Collection("Vulkan")]
 public sealed class SurfaceCardCaptureDeviceTests {
     /// <summary>Texel (x, y)'s centre projects to texel (x, y)'s NDC centre, for every frame.</summary>
-    /// <remarks>The convention everything else leans on, pinned without a device: if this holds,
-    ///     the rasteriser and <c>TryProject</c> address the same texels by construction.</remarks>
+    /// <remarks>
+    ///     The convention everything else leans on, pinned without a device: if this holds,
+    ///     the rasteriser and <c>TryProject</c> address the same texels by construction.
+    /// </remarks>
     [Fact]
     public void TheProjectionPutsATexelWhereTheCardSaysItIs() {
         foreach (var axis in new[] { 0, 1, 2, 3, 4, 5 }) {
@@ -42,8 +43,8 @@ public sealed class SurfaceCardCaptureDeviceTests {
                     var clip = Matrix4x4.TransformVector4(new(card.TexelOrigin(texel), 1f), projection);
 
                     Assert.Equal(1f, clip.W, 1e-6f);
-                    Assert.Equal(((x + 0.5f) / card.Resolution.X * 2f) - 1f, clip.X, 1e-5f);
-                    Assert.Equal(((y + 0.5f) / card.Resolution.Y * 2f) - 1f, clip.Y, 1e-5f);
+                    Assert.Equal((x + 0.5f) / card.Resolution.X * 2f - 1f, clip.X, 1e-5f);
+                    Assert.Equal((y + 0.5f) / card.Resolution.Y * 2f - 1f, clip.Y, 1e-5f);
 
                     // The near plane is device depth one — reversed, like everything the engine draws.
                     Assert.Equal(1f, clip.Z, 1e-5f);
@@ -88,19 +89,24 @@ public sealed class SurfaceCardCaptureDeviceTests {
             lines.Vertex,
             lines.Fragment,
             BlendState.Opaque,
-            new DepthStencilState { DepthTest = true, DepthWrite = true, DepthCompare = CompareFunction.Greater },
-            [new VertexBufferLayout(Vertex.Stride, [new(0, VertexFormat.Float32X3, 0), new(1, VertexFormat.Float32X4, 12)])],
-            pushConstantBytes: 64,
-            rasterizer: RasterizerState.TwoSided,
+            new() { DepthTest = true, DepthWrite = true, DepthCompare = CompareFunction.Greater },
+            [
+                new VertexBufferLayout(
+                    Vertex.Stride,
+                    [new(0, VertexFormat.Float32X3, 0), new(1, VertexFormat.Float32X4, 12)]
+                )
+            ],
+            64,
+            RasterizerState.TwoSided,
             targets: [new ColourTargetState(PixelFormat.Rgba32Float, BlendState.Opaque)]
         );
 
         // The half-floor as two triangles, wider than the card in z so the edge under test is the
         // one at x = 0 and no other.
         var quads = new Dictionary<SurfaceCapturePlane, BufferHandle> {
-            [SurfaceCapturePlane.Albedo] = owned.Buffer<Vertex>(Quad(new(0.5f, 0.25f, 0.125f)), BufferUsage.Vertex),
-            [SurfaceCapturePlane.Normal] = owned.Buffer<Vertex>(Quad(new(0f, 1f, 0f)), BufferUsage.Vertex),
-            [SurfaceCapturePlane.Emissive] = owned.Buffer<Vertex>(Quad(new(2f, 1f, 0.5f)), BufferUsage.Vertex)
+            [SurfaceCapturePlane.Albedo] = owned.Buffer(Quad(new(0.5f, 0.25f, 0.125f)), BufferUsage.Vertex),
+            [SurfaceCapturePlane.Normal] = owned.Buffer(Quad(new(0f, 1f, 0f)), BufferUsage.Vertex),
+            [SurfaceCapturePlane.Emissive] = owned.Buffer(Quad(new(2f, 1f, 0.5f)), BufferUsage.Vertex)
         };
 
         using var capture = new SurfaceCardCapture(device) { MaxResolution = 16 };
@@ -115,7 +121,7 @@ public sealed class SurfaceCardCaptureDeviceTests {
                     list.BindPipeline(pipeline);
                     list.PushConstants(ShaderStage.Vertex, 0, MemoryMarshal.AsBytes([viewProjection]));
                     list.BindVertexBuffer(0, quads[plane]);
-                    list.Draw(6, 1);
+                    list.Draw(6);
                 }
             );
 
@@ -182,7 +188,10 @@ public sealed class SurfaceCardCaptureDeviceTests {
         var effects = new EffectSystem();
 
         effects.AddProvider(
-            new Compiling(loader, _ => RavenEffects.Only(["Core", "DistanceFields", "IrradianceFields", "SurfaceCache"]))
+            new Compiling(
+                loader,
+                static _ => RavenEffects.Only(["Core", "DistanceFields", "IrradianceFields", "SurfaceCache"])
+            )
         );
 
         var effect = effects.Resolve(
@@ -193,12 +202,12 @@ public sealed class SurfaceCardCaptureDeviceTests {
         Assert.False(effect!.IsPlaceholder);
         Assert.Empty(effects.Misses);
 
-        Effect compiled = effect!;
+        var compiled = effect!;
 
         ShaderHandle Stage(Fixture host, ShaderStage stage) {
             foreach (var candidate in compiled.Stages) {
                 if (candidate.Stage == stage) {
-                    var handle = host.Device.CreateShader(stage, [.. candidate.Bytecode], $"SurfaceCardRaster.{stage}");
+                    var handle = host.Device.CreateShader(stage, [..candidate.Bytecode], $"SurfaceCardRaster.{stage}");
 
                     host.Owns(() => host.Device.Destroy(handle));
 
@@ -251,7 +260,7 @@ public sealed class SurfaceCardCaptureDeviceTests {
 
         var pushStages = compiled.PushConstants[0].Stages;
 
-        var buffer = owned.Buffer<MrtVertex>(MrtQuad(), BufferUsage.Vertex);
+        var buffer = owned.Buffer(MrtQuad(), BufferUsage.Vertex);
 
         using var capture = new SurfaceCardCapture(device) { MaxResolution = 16, SinglePass = true };
 
@@ -265,7 +274,7 @@ public sealed class SurfaceCardCaptureDeviceTests {
                     list.BindPipeline(pipeline);
                     list.PushConstants(pushStages, 0, MemoryMarshal.AsBytes([viewProjection]));
                     list.BindVertexBuffer(0, buffer);
-                    list.Draw(6, 1);
+                    list.Draw(6);
                 }
             );
 

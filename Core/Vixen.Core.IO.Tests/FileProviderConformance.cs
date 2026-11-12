@@ -79,8 +79,11 @@ public abstract class FileProviderConformance : IDisposable {
     [Fact]
     public void OpeningSomethingThatIsNotThereThrowsFileNotFound() {
         Assert.Throws<FileNotFoundException>(() => Provider.OpenRead(new("/missing.txt")));
-        Assert.Throws<FileNotFoundException>(
-            () => Provider.OpenReadAsync(new("/missing.txt"), TestContext.Current.CancellationToken).AsTask().GetAwaiter().GetResult()
+        Assert.Throws<FileNotFoundException>(() =>
+            Provider.OpenReadAsync(new("/missing.txt"), TestContext.Current.CancellationToken)
+                .AsTask()
+                .GetAwaiter()
+                .GetResult()
         );
     }
 
@@ -90,7 +93,7 @@ public abstract class FileProviderConformance : IDisposable {
         Write(new("/a.txt"), "a");
         Write(new("/sub/c.txt"), "c");
 
-        var entries = Provider.Enumerate(VirtualPath.Root).Select(entry => entry.Path.Value).ToArray();
+        var entries = Provider.Enumerate(VirtualPath.Root).Select(static entry => entry.Path.Value).ToArray();
 
         Assert.Equal(["/a.txt", "/b.txt", "/sub"], entries);
     }
@@ -100,7 +103,9 @@ public abstract class FileProviderConformance : IDisposable {
         Write(new("/sub/deep/c.txt"), "c");
         Write(new("/a.txt"), "a");
 
-        var entries = Provider.Enumerate(VirtualPath.Root, recursive: true).Select(entry => entry.Path.Value).ToArray();
+        var entries = Provider.Enumerate(VirtualPath.Root, true)
+            .Select(static entry => entry.Path.Value)
+            .ToArray();
 
         Assert.Equal(["/a.txt", "/sub", "/sub/deep", "/sub/deep/c.txt"], entries);
     }
@@ -254,17 +259,15 @@ public sealed class PhysicalFileProviderConformance : FileProviderConformance {
 
     readonly PhysicalFileProvider provider;
 
-    public PhysicalFileProviderConformance() =>
-        // Forced on rather than probed, so the case-sensitivity conformance tests assert the
-        // provider's behaviour on every runner instead of only on the ones with a case-insensitive
-        // volume. A Linux runner would otherwise pass them for the kernel's reasons, not ours.
+    public PhysicalFileProviderConformance() {
         provider = new(directory, enforceCaseSensitivity: true);
+    }
 
     public override void Dispose() {
         base.Dispose();
 
         if (Directory.Exists(directory)) {
-            Directory.Delete(directory, recursive: true);
+            Directory.Delete(directory, true);
         }
     }
 }

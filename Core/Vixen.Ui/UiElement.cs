@@ -16,8 +16,11 @@ namespace Vixen.Ui;
 /// <summary>One node of the user interface.</summary>
 /// <remarks>
 ///     <para>
-///         <b>Elements are classes, and that is a deliberate departure from the rest of the
-///         engine.</b> An ECS component is a struct because there are a million of them in a hot
+///         <b>
+///             Elements are classes, and that is a deliberate departure from the rest of the
+///             engine.
+///         </b>
+///         An ECS component is a struct because there are a million of them in a hot
 ///         loop; a UI node has identity, virtual behaviour and event handlers, and there are ten
 ///         thousand of them. The struct-of-arrays discipline lives where the loops actually are —
 ///         the layout store and, later, the draw list — and this type is a handle into them.
@@ -71,7 +74,8 @@ public partial class UiElement : Composition.IComposable {
     public UiDocument Document =>
         IsRemoved
             ? throw new InvalidOperationException($"this {GetType().Name} has been removed from its document")
-            : document ?? throw new InvalidOperationException(
+            : document
+            ?? throw new InvalidOperationException(
                 $"this {GetType().Name} is not in a document — create it with UiDocument.Create or UiElement.Add"
             );
 
@@ -92,9 +96,13 @@ public partial class UiElement : Composition.IComposable {
     ///         panel meant to write.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Public because <see cref="TagName" /> is <c>protected internal</c>, which is
-    ///         reachable from a subclass and from <c>Vixen.Ui</c> and from nowhere a rule about a
-    ///         whole panel can be written</b> —
+    ///         ⚠
+    ///         <b>
+    ///             Public because <see cref="TagName" /> is <c>protected internal</c>, which is
+    ///             reachable from a subclass and from <c>Vixen.Ui</c> and from nowhere a rule about a
+    ///             whole panel can be written
+    ///         </b>
+    ///         —
     ///         <a href="https://github.com/Rikarin/Vixen/issues/1131">#1131</a>. The issue asked for
     ///         a <c>TagOf(Type)</c> and a non-generic <c>Add(Type)</c> to make an instance with; that
     ///         is not needed and this is the refutation of it. <see cref="TagName" /> is a
@@ -130,8 +138,12 @@ public partial class UiElement : Composition.IComposable {
     ///         <i>part</i> rather than the control — answers with that part.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The control-side mirror of <c>Component.Content</c>, and markup is what needs
-    ///         it.</b> <c>&lt;ScrollView&gt;&lt;row /&gt;&lt;/ScrollView&gt;</c> means the row is in
+    ///         ⚠
+    ///         <b>
+    ///             The control-side mirror of <c>Component.Content</c>, and markup is what needs
+    ///             it.
+    ///         </b>
+    ///         <c>&lt;ScrollView&gt;&lt;row /&gt;&lt;/ScrollView&gt;</c> means the row is in
     ///         the scrolled area; hung off the control itself it would sit beside the viewport and
     ///         the scrollbars, be laid out by neither, and never move when the view scrolled.
     ///     </para>
@@ -146,8 +158,10 @@ public partial class UiElement : Composition.IComposable {
 
     /// <summary>Where content addressed to one of this control's named slots goes.</summary>
     /// <param name="name">The name, as written in <c>slot="…"</c>.</param>
-    /// <returns>The element to build under, or <see langword="null" /> when the control publishes
-    ///     nothing under that name.</returns>
+    /// <returns>
+    ///     The element to build under, or <see langword="null" /> when the control publishes
+    ///     nothing under that name.
+    /// </returns>
     /// <remarks>
     ///     <para>
     ///         ⚠ <b><see cref="ContentHost" /> is one place and some controls are two things.</b> An
@@ -158,8 +172,12 @@ public partial class UiElement : Composition.IComposable {
     ///         editor panel out of <c>.vxml</c>.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A lookup rather than one property per part, and <see cref="ContentHost" /> stays
-    ///         the default.</b> A control publishes the extra places it has and no more; a name it
+    ///         ⚠
+    ///         <b>
+    ///             A lookup rather than one property per part, and <see cref="ContentHost" /> stays
+    ///             the default.
+    ///         </b>
+    ///         A control publishes the extra places it has and no more; a name it
     ///         does not publish throws in <c>BuildContext.Into</c> rather than falling back on the
     ///         content host, because content landing silently in the body when the author asked for
     ///         the header draws a panel that is wrong in a way nothing reports.
@@ -177,8 +195,12 @@ public partial class UiElement : Composition.IComposable {
 
     /// <summary>The surface this element <i>is</i> the root of, if it is one.</summary>
     /// <remarks>
-    ///     ⚠ <b>Not "the surface this element is in" — that is
-    ///     <see cref="UiDocument.SurfaceOf" />.</b> Three passes need to know where one window's tree
+    ///     ⚠
+    ///     <b>
+    ///         Not "the surface this element is in" — that is
+    ///         <see cref="UiDocument.SurfaceOf" />.
+    ///     </b>
+    ///     Three passes need to know where one window's tree
     ///     stops and the next one's begins, and they all ask the same question of a child: is this
     ///     one somewhere else? A property that answered "which window am I in" would be true of every
     ///     element and would answer none of them.
@@ -197,7 +219,6 @@ public partial class UiElement : Composition.IComposable {
     ///     a per-frame pass can be built on. <see cref="UiDocument" />'s <c>Apply</c> and
     ///     <c>Accumulate</c> take this; everything that runs on a mutation takes
     ///     <see cref="Children" />, because there the clarity is worth more than the enumerator.
-    ///
     ///     Internal, and a mutable list only incidentally: the outside reads <see cref="Children" />,
     ///     and nothing on this side of the wall may write through this.
     /// </remarks>
@@ -240,8 +261,12 @@ public partial class UiElement : Composition.IComposable {
     ///         property takes relative units. Zero when nothing said.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>It narrows the first line as well as moving it, which is what makes it an
-    ///         indent rather than a translation.</b> <see cref="Block(float)" /> hands the wrapper two
+    ///         ⚠
+    ///         <b>
+    ///             It narrows the first line as well as moving it, which is what makes it an
+    ///             indent rather than a translation.
+    ///         </b>
+    ///         <see cref="Block(float)" /> hands the wrapper two
     ///         widths, so the first line wraps a word earlier and the ones after it do not — and the
     ///         indent then travels on the line as <c>TextLine.Offset</c>, which the draw list, the
     ///         caret and the hit test all read. A negative value hangs the first line out to the left,
@@ -261,8 +286,12 @@ public partial class UiElement : Composition.IComposable {
     /// <summary>The percentage a <c>text-indent</c> named, or NaN when it named a length.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A second field rather than a percent-capable <see cref="TextIndent" />, which is
-    ///         the same shape <c>line-height</c> already has one property over.</b> A unitless
+    ///         ⚠
+    ///         <b>
+    ///             A second field rather than a percent-capable <see cref="TextIndent" />, which is
+    ///             the same shape <c>line-height</c> already has one property over.
+    ///         </b>
+    ///         A unitless
     ///         <c>line-height</c> travels as <c>ComputedText.LineHeightFactor</c> beside the pixels
     ///         for exactly this reason: the two are different kinds of answer and a struct that held
     ///         one slot would have to encode "which kind" in a sentinel. Here the sentinel is NaN and
@@ -282,8 +311,12 @@ public partial class UiElement : Composition.IComposable {
     /// <summary>The indent this element actually gets in a box of a given width.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The used-value stage this property had no equivalent of, and the reason
-    ///         `Rikarin/Vixen#457` could not be a one-line fix.</b> Box lengths carry a percentage
+    ///         ⚠
+    ///         <b>
+    ///             The used-value stage this property had no equivalent of, and the reason
+    ///             `Rikarin/Vixen#457` could not be a one-line fix.
+    ///         </b>
+    ///         Box lengths carry a percentage
     ///         into <c>Vixen.Ui.Layout</c> through <c>StyleLength.Percent</c> and are resolved there
     ///         against a real containing block; the text properties had no such hand-off, so a
     ///         <c>text-indent: 25%</c> was resolved to zero in the style pass and never mentioned
@@ -402,8 +435,12 @@ public partial class UiElement : Composition.IComposable {
     ///         has an index, and then cached until the children or one of their indices change.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b><see cref="List{T}" /> rather than <see cref="IReadOnlyList{T}" />, and the
-    ///         difference was the whole of the steady frame's allocation.</b> Both branches return a
+    ///         ⚠
+    ///         <b>
+    ///             <see cref="List{T}" /> rather than <see cref="IReadOnlyList{T}" />, and the
+    ///             difference was the whole of the steady frame's allocation.
+    ///         </b>
+    ///         Both branches return a
     ///         list, so the type is exact and the draw walk's <c>foreach</c> gets the struct
     ///         enumerator — where the interface boxed one per element with children, every frame, on a
     ///         document nothing had changed in. That is the same defect <see cref="ChildList" />
@@ -469,7 +506,8 @@ public partial class UiElement : Composition.IComposable {
             ordered.Sort(static (left, right) =>
                 left.zIndex != right.zIndex ? left.zIndex.CompareTo(right.zIndex)
                 : left.flexOrder != right.flexOrder ? left.flexOrder.CompareTo(right.flexOrder)
-                : left.paintKey.CompareTo(right.paintKey));
+                : left.paintKey.CompareTo(right.paintKey)
+            );
 
             return ordered;
         }
@@ -591,8 +629,12 @@ public partial class UiElement : Composition.IComposable {
     ///         defaulted parameter.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The child goes under <see cref="ContentHost" />, which is where a nested markup tag
-    ///         goes, and until #1425 it did not.</b> This parented on the element it was called on,
+    ///         ⚠
+    ///         <b>
+    ///             The child goes under <see cref="ContentHost" />, which is where a nested markup tag
+    ///             goes, and until #1425 it did not.
+    ///         </b>
+    ///         This parented on the element it was called on,
     ///         so on every control whose visible interior is a part — a <c>GroupBox</c>'s content, a
     ///         <c>Card</c>'s body, a <c>Select</c>'s list — <c>groupBox.Add&lt;TextBox&gt;()</c>
     ///         compiled, drew, and put the field beside the legend, outside the group, with nothing to
@@ -602,8 +644,12 @@ public partial class UiElement : Composition.IComposable {
     ///         words.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>So a control builds its own parts with <see cref="UiDocument.Create{T}" />, not
-    ///         with this</b> — <c>Control.Part</c> does — because once the content part exists every
+    ///         ⚠
+    ///         <b>
+    ///             So a control builds its own parts with <see cref="UiDocument.Create{T}" />, not
+    ///             with this
+    ///         </b>
+    ///         — <c>Control.Part</c> does — because once the content part exists every
     ///         later <c>Add</c> on the control lands inside it, and a footer or a scrollbar made that
     ///         way would be content. The same explicit spelling is what a caller writes for something
     ///         that belongs beside the parts rather than among the content, such as a tooltip hung off
@@ -656,7 +702,8 @@ public partial class UiElement : Composition.IComposable {
     ///     <c>binding-path</c> — which names a member of an editing target and is joined to it after
     ///     the tree is built, so something has to be able to walk the tree and ask. See doc 36 § P4.
     /// </remarks>
-    public string? Attribute(string name) => StyleNode.IsValid ? Document.Styles.Tree.GetAttribute(StyleNode, name) : null;
+    public string? Attribute(string name) =>
+        StyleNode.IsValid ? Document.Styles.Tree.GetAttribute(StyleNode, name) : null;
 
     /// <summary>Sets an attribute.</summary>
     /// <param name="name">The attribute name.</param>
@@ -677,8 +724,12 @@ public partial class UiElement : Composition.IComposable {
     /// <summary>What language this element's own text is written in, as a BCP-47 tag.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>An attribute rather than a style property, and CSS is the authority for that
-    ///         rather than convenience.</b> There is no <c>lang</c> property in any CSS module —
+    ///         ⚠
+    ///         <b>
+    ///             An attribute rather than a style property, and CSS is the authority for that
+    ///             rather than convenience.
+    ///         </b>
+    ///         There is no <c>lang</c> property in any CSS module —
     ///         a language is a fact about the <i>document</i> that stylesheets <i>select on</i>, and
     ///         a property would let a theme assert what language somebody's words are in. That is
     ///         exactly the assertion the five consumers of this must not let a theme make: font
@@ -691,8 +742,12 @@ public partial class UiElement : Composition.IComposable {
     ///         <c>BuildContext.Attribute</c> already writes an attribute of that name.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Those two spellings are not the same selector, which this paragraph asserted
-    ///         until #606 measured it.</b> They share a <i>comparison</i> — CSS Selectors 4 defines
+    ///         ⚠
+    ///         <b>
+    ///             Those two spellings are not the same selector, which this paragraph asserted
+    ///             until #606 measured it.
+    ///         </b>
+    ///         They share a <i>comparison</i> — CSS Selectors 4 defines
     ///         both as the BCP-47 range match, so <c>de-AT</c> matches <c>de</c> and <c>den</c> does
     ///         not — and differ in their <i>subject</i>. <c>[lang|="de"]</c> asks what this element
     ///         declares. <c>:lang(de)</c> asks what language this element's content is in, which is
@@ -700,8 +755,12 @@ public partial class UiElement : Composition.IComposable {
     ///         the pseudo-class knows it.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b><see langword="null" /> means "declares none", which is not "English" and not
-    ///         the machine's locale.</b> See <see cref="ResolvedLanguage" />. Assigning
+    ///         ⚠
+    ///         <b>
+    ///             <see langword="null" /> means "declares none", which is not "English" and not
+    ///             the machine's locale.
+    ///         </b>
+    ///         See <see cref="ResolvedLanguage" />. Assigning
     ///         <see langword="null" /> writes the empty tag rather than removing the attribute,
     ///         because <c>StyleTree</c> appends attributes and never removes one; an empty tag reads
     ///         back as <see langword="null" /> and inherits from the ancestor above, which is what
@@ -711,7 +770,10 @@ public partial class UiElement : Composition.IComposable {
     public string? Language {
         // ⚠ A generated box has no slot and declares no language; it reads its originating
         // element's through `ResolvedLanguage`, as CSS has it inherit everything else.
-        get => StyleNode.IsValid && Document.Styles.Tree.GetAttribute(StyleNode, LanguageAttribute) is { Length: > 0 } tag ? tag : null;
+        get =>
+            StyleNode.IsValid && Document.Styles.Tree.GetAttribute(StyleNode, LanguageAttribute) is { Length: > 0 } tag
+                ? tag
+                : null;
         set => SetAttribute(LanguageAttribute, value ?? string.Empty);
     }
 
@@ -754,15 +816,22 @@ public partial class UiElement : Composition.IComposable {
     ///         setting, and a bridge that caches and diffs re-reads the computed answer itself.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b><see cref="ElementState.Checked" /> is the carrier for three different announced
-    ///         states</b>, which is why one bit covers so much: a toggle is ticked with it, a tab, an
+    ///         ⚠
+    ///         <b>
+    ///             <see cref="ElementState.Checked" /> is the carrier for three different announced
+    ///             states
+    ///         </b>
+    ///         , which is why one bit covers so much: a toggle is ticked with it, a tab, an
     ///         option, a tree row, a grid row and a docked tab are <i>selected</i> with it, and an
     ///         expander header is <i>open</i> with it. Each control says which of the three its flag
     ///         means, in its own <see cref="NativeAccessibleState" />; what they share is the write.
     ///     </para>
     ///     <para>
-    ///         <b><see cref="ElementState.Hover" /> and <see cref="ElementState.Active" /> are
-    ///         excluded because they are not announced</b>, and including them would set the flag on
+    ///         <b>
+    ///             <see cref="ElementState.Hover" /> and <see cref="ElementState.Active" /> are
+    ///             excluded because they are not announced
+    ///         </b>
+    ///         , and including them would set the flag on
     ///         every frame the pointer moves — which is a bridge diffing its whole cached tree for
     ///         the mouse crossing a button. The three focus bits are excluded for the opposite
     ///         reason: <c>UiDocument.Focus</c> already invalidates, and a second raise from the
@@ -908,8 +977,12 @@ public partial class UiElement : Composition.IComposable {
     ///         shaping is size-independent.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The block itself is cached too, and that is what makes per-character fallback and
-    ///         wrapping affordable.</b> Deciding which face draws which cluster asks the font about
+    ///         ⚠
+    ///         <b>
+    ///             The block itself is cached too, and that is what makes per-character fallback and
+    ///             wrapping affordable.
+    ///         </b>
+    ///         Deciding which face draws which cluster asks the font about
     ///         every code point, which is a native call each — cheap once and ruinous twice a frame
     ///         per element. The cache is invalidated by comparing everything the answer depends on,
     ///         including the width and <see cref="FontRegistry.Revision" />: registering a face
@@ -921,7 +994,7 @@ public partial class UiElement : Composition.IComposable {
     /// <summary>Its text wrapped to a given width.</summary>
     /// <param name="width">How wide a line may be, in pixels, or infinity not to wrap.</param>
     /// <returns>The block, or null if it has no text or no font.</returns>
-    public TextLayout? Block(float width) => Block(width, bandSource: null);
+    public TextLayout? Block(float width) => Block(width, null);
 
     /// <summary>The same, asking the layout store what each line's own width is.</summary>
     /// <param name="width">How wide a line may be, in pixels, or infinity not to wrap.</param>
@@ -1194,7 +1267,7 @@ public partial class UiElement : Composition.IComposable {
             lines.Count = clamp;
         }
 
-        block = new TextLayout(lines.ToImmutable(), lastLineHangs: hangs);
+        block = new(lines.ToImmutable(), hangs);
 
         // ⚠ Copied rather than aliased: `bandScratch` is refilled by the next probe, and a key that
         // compared a list with itself would find every paragraph unchanged for ever.
@@ -1260,8 +1333,12 @@ public partial class UiElement : Composition.IComposable {
     ///         path only the draw list takes.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And it happens here, at paint, because this is the first moment the number
-    ///         exists.</b> Under <c>white-space: nowrap</c> — which <c>truncate</c> always sets —
+    ///         ⚠
+    ///         <b>
+    ///             And it happens here, at paint, because this is the first moment the number
+    ///             exists.
+    ///         </b>
+    ///         Under <c>white-space: nowrap</c> — which <c>truncate</c> always sets —
     ///         <see cref="Block(float)" /> is handed an infinite width on purpose, so the wrap pass
     ///         cannot know what the line has to fit into. The box only gets its real width when its
     ///         parent shrinks it, which is after layout. Measuring is <i>supposed</i> to report the
@@ -1492,15 +1569,22 @@ public partial class UiElement : Composition.IComposable {
     /// <summary>Shapes one stretch of the text into the runs its faces and its levels need.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>Two things cut a line into runs, and a run has to be a stretch over which both are
-    ///         constant.</b> <see cref="FontRegistry.Cover" /> cuts where the face changes; UAX#9 cuts
+    ///         <b>
+    ///             Two things cut a line into runs, and a run has to be a stretch over which both are
+    ///             constant.
+    ///         </b>
+    ///         <see cref="FontRegistry.Cover" /> cuts where the face changes; UAX#9 cuts
     ///         where the embedding level changes. A run gets one shaping call and one position on the
     ///         line, so it cannot straddle either — and <see cref="TextLine" /> reorders whole runs by
     ///         L2, which is sound only because each of them has a single level.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Cutting on coverage alone is the bug this shape exists to prevent, and it renders
-    ///         plausibly.</b> Runs laid down in logical order reorder within each face and not across
+    ///         ⚠
+    ///         <b>
+    ///             Cutting on coverage alone is the bug this shape exists to prevent, and it renders
+    ///             plausibly.
+    ///         </b>
+    ///         Runs laid down in logical order reorder within each face and not across
     ///         the boundary between them, so a line whose Arabic and whose Latin come from different
     ///         files draws both words correctly, at the right total width, in the wrong order.
     ///     </para>
@@ -1564,7 +1648,7 @@ public partial class UiElement : Composition.IComposable {
                         : ParagraphDirection.LeftToRight;
 
                     runs.Add(
-                        new TextRun(
+                        new(
                             span.Font,
                             Document.Shaping.Shape(
                                 span.Font,
@@ -1585,15 +1669,19 @@ public partial class UiElement : Composition.IComposable {
             }
         }
 
-        return new TextLine(runs.ToImmutable(), width, offset, transformed, tabStop, keepSpaces);
+        return new(runs.ToImmutable(), width, offset, transformed, tabStop, keepSpaces);
     }
 
     /// <summary>A line, with a soft hyphen it ends on replaced by one that draws.</summary>
     /// <param name="line">The line's own text, cut out of the paragraph.</param>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The visible half of <c>hyphens: manual</c>, and its absence was a defect rather
-    ///         than a gap.</b> <see cref="LineBreaker" /> has always offered a break after U+00AD —
+    ///         ⚠
+    ///         <b>
+    ///             The visible half of <c>hyphens: manual</c>, and its absence was a defect rather
+    ///             than a gap.
+    ///         </b>
+    ///         <see cref="LineBreaker" /> has always offered a break after U+00AD —
     ///         <c>"sup­ply"</c> and <c>"sup-ply"</c> return the identical opportunity list — so
     ///         Vixen already broke <c>sup|ply</c>. It then drew no hyphen at all, because U+00AD is
     ///         <c>Default_Ignorable</c> and <c>TextShaper</c> sets
@@ -1601,8 +1689,12 @@ public partial class UiElement : Composition.IComposable {
     ///         <i>even though the face has the glyph</i>. A word split with nothing to show for it.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>U+002D and not U+2010, which is what the sizing for this said and is measurably
-    ///         wrong.</b> <c>FontFace.GlyphFor(0x2010)</c> is <b>0</b> — <c>.notdef</c> — in Open
+    ///         ⚠
+    ///         <b>
+    ///             U+002D and not U+2010, which is what the sizing for this said and is measurably
+    ///             wrong.
+    ///         </b>
+    ///         <c>FontFace.GlyphFor(0x2010)</c> is <b>0</b> — <c>.notdef</c> — in Open
     ///         Sans and in <c>TestShapeLana</c> alike. What glyph 0 <i>draws</i> then differs by
     ///         face, and both outcomes are bad: <c>TestShapeLana</c>'s has two contours and is the
     ///         familiar hollow box, while Open Sans' has <b>zero</b> and draws nothing at all. So the
@@ -1625,7 +1717,7 @@ public partial class UiElement : Composition.IComposable {
     ///     </para>
     /// </remarks>
     static string Hyphenated(string line) =>
-        line.Length > 0 && line[^1] == '­' ? string.Concat(line.AsSpan(0, line.Length - 1), "-") : line;
+        line.Length > 0 && line[^1] == '\u00AD' ? string.Concat(line.AsSpan(0, line.Length - 1), "-") : line;
 
     /// <summary>What the hyphen a broken line draws costs, in pixels.</summary>
     /// <param name="chain">The resolved font chain, whose first face draws it.</param>
@@ -1654,8 +1746,12 @@ public partial class UiElement : Composition.IComposable {
     /// <param name="chain">The resolved font chain, whose first face owns the space that is counted.</param>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Zero whenever the text has no tab in it, which is free rather than a special
-    ///         case.</b> Zero is a real stop distance downstream — a tab at it occupies nothing — and
+    ///         ⚠
+    ///         <b>
+    ///             Zero whenever the text has no tab in it, which is free rather than a special
+    ///             case.
+    ///         </b>
+    ///         Zero is a real stop distance downstream — a tab at it occupies nothing — and
     ///         a string with no tab has none to occupy anything, so the two answers coincide. What
     ///         the early return buys is the substring and the shaping call per fragment in
     ///         <c>Segments</c>, which is the expensive half.
@@ -1698,8 +1794,12 @@ public partial class UiElement : Composition.IComposable {
     ///         the substring and the shaping call per fragment, which is the expensive half.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The cut does not depend on how wide the stops are, and reading it that way was a
-    ///         defect.</b> A version of this skipped the split when the stop was zero, on the
+    ///         ⚠
+    ///         <b>
+    ///             The cut does not depend on how wide the stops are, and reading it that way was a
+    ///             defect.
+    ///         </b>
+    ///         A version of this skipped the split when the stop was zero, on the
     ///         reasoning that a zero stop meant "no tabs to place" — so under <c>tab-size: 0</c> the
     ///         tab stayed inside its neighbours' run, <see cref="TextRun.IsTab" /> was false for it,
     ///         and it was measured as the .notdef glyph the face maps U+0009 to. What makes a tab
@@ -1760,8 +1860,12 @@ public partial class UiElement : Composition.IComposable {
 
     /// <summary>Breaks the text into lines and shapes each of them.</summary>
     /// <remarks>
-    ///     ⚠ <b>The advances are built in pixels across the runs, which is the whole reason wrapping
-    ///     lives here.</b> A line mixing a Latin face and a fallback has no single design-unit scale,
+    ///     ⚠
+    ///     <b>
+    ///         The advances are built in pixels across the runs, which is the whole reason wrapping
+    ///         lives here.
+    ///     </b>
+    ///     A line mixing a Latin face and a fallback has no single design-unit scale,
     ///     so <c>LineWrapper</c>'s <c>ShapedText</c> overload cannot measure it — the per-character
     ///     array is assembled a run at a time, each scaled by its own font, and handed to the overload
     ///     that takes one.
@@ -1801,7 +1905,7 @@ public partial class UiElement : Composition.IComposable {
         // for `TabStop`'s reason — a fallback is a face the element never asked for, and the hyphen
         // that gets drawn comes from the run the substitution lands in, which is the same face the
         // letters before it are in.
-        var hyphen = hyphens == HyphenMode.Manual && text.Contains('­') ? HyphenWidth(chain) : 0f;
+        var hyphen = hyphens == HyphenMode.Manual && text.Contains('\u00AD') ? HyphenWidth(chain) : 0f;
 
         // Where each wrapped line begins on its own line box. Empty unless a float put the lines at
         // different places, which is the only thing that makes them differ from the indent rule.
@@ -1909,8 +2013,12 @@ public partial class UiElement : Composition.IComposable {
     /// <summary>Breaks the text one line at a time while the room it has keeps changing.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>One call per band and then one for the rest, rather than a wrapper that takes a
-    ///         list of widths.</b> A greedy wrapper's state at a line boundary is one integer — where
+    ///         ⚠
+    ///         <b>
+    ///             One call per band and then one for the rest, rather than a wrapper that takes a
+    ///             list of widths.
+    ///         </b>
+    ///         A greedy wrapper's state at a line boundary is one integer — where
     ///         the next line starts — so asking it for the first line of what is left, at this line's
     ///         own width, is the same answer a per-line width would have produced, and it needs
     ///         nothing new below <c>Vixen.Ui</c>. The bands run out at the lowest float's bottom edge,
@@ -1925,8 +2033,12 @@ public partial class UiElement : Composition.IComposable {
     ///         measured from the line box's own start edge rather than from the text's.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Each segment is broken from the line's own start, which is what a browser does
-    ///         and is not free.</b> UAX #14 reads context around an opportunity, so a break decided
+    ///         ⚠
+    ///         <b>
+    ///             Each segment is broken from the line's own start, which is what a browser does
+    ///             and is not free.
+    ///         </b>
+    ///         UAX #14 reads context around an opportunity, so a break decided
     ///         with the paragraph in hand can in principle differ from one decided from the line
     ///         start. Blink re-breaks from the line start too, and the alternative — a wrapper that
     ///         carries the whole paragraph and a per-line width — is the shape this deliberately did
@@ -2091,9 +2203,13 @@ public partial class UiElement : Composition.IComposable {
     ///         or inline-block lays its own lines out from its own content edge.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A <c>display: inline</c> element in an inline formatting context is answered from
-    ///         its neighbours, and it was once left untrimmed at both ends on the belief that only its
-    ///         line could answer (#1363).</b> Its start is removed where nothing in the formatting
+    ///         ⚠
+    ///         <b>
+    ///             A <c>display: inline</c> element in an inline formatting context is answered from
+    ///             its neighbours, and it was once left untrimmed at both ends on the belief that only its
+    ///             line could answer (#1363).
+    ///         </b>
+    ///         Its start is removed where nothing in the formatting
     ///         context comes before it (it begins the container's first line), where a block-level box
     ///         or a segment break does (it begins a line after one), and where the inline content
     ///         before it ends in a collapsible space — § 4.1.1, "even outside the boundary of the
@@ -2154,7 +2270,10 @@ public partial class UiElement : Composition.IComposable {
         Content
     }
 
-    /// <summary>The element whose inline formatting context this one's text is laid out in, or null if it is a paragraph of its own.</summary>
+    /// <summary>
+    ///     The element whose inline formatting context this one's text is laid out in, or null if it is a paragraph of
+    ///     its own.
+    /// </summary>
     /// <remarks>
     ///     The nearest ancestor that is not itself flattened into its parent's lines — which is where
     ///     <c>LayoutTree.Inline</c> lays out the boxes, whatever depth of <c>span</c>s they sit in.
@@ -2182,7 +2301,9 @@ public partial class UiElement : Composition.IComposable {
         }
 
         return element.Parent is { } parent
-            && Document.Layout.GetStyle(parent.LayoutNode).Display is not (Display.Flex or Display.InlineFlex or Display.Grid);
+            && Document.Layout.GetStyle(parent.LayoutNode).Display is not (Display.Flex
+                or Display.InlineFlex
+                or Display.Grid);
     }
 
     /// <summary>What comes before an element in its formatting context, walking out of every span it is in.</summary>
@@ -2239,7 +2360,9 @@ public partial class UiElement : Composition.IComposable {
 
             // ⚠ Collapsible only where that element collapses. A space `normal` preserves is not
             // one § 4.1.1 collapses onto, so `foo␠` under `normal` keeps the space after it.
-            return TransformedText.IsCollapsible(last) && Collapses(element) ? InlineNeighbour.Space : InlineNeighbour.Content;
+            return TransformedText.IsCollapsible(last) && Collapses(element)
+                ? InlineNeighbour.Space
+                : InlineNeighbour.Content;
         }
 
         var children = element.ChildList;
@@ -2299,8 +2422,12 @@ public partial class UiElement : Composition.IComposable {
 
     /// <summary>The answer for a box that is not flattened inline content, or null for one to walk into.</summary>
     /// <remarks>
-    ///     ⚠ <b>Every <c>display: inline</c> box is walked into, and the layout does not flatten every
-    ///     one</b>: <c>LayoutTree.IsNonAtomicInline</c> keeps atomic an inline with a measure function
+    ///     ⚠
+    ///     <b>
+    ///         Every <c>display: inline</c> box is walked into, and the layout does not flatten every
+    ///         one
+    ///     </b>
+    ///     : <c>LayoutTree.IsNonAtomicInline</c> keeps atomic an inline with a measure function
     ///     and one holding a float (an empty one is flattened since #1479). That was recorded
     ///     as owed — such a box that draws is found empty here and looked past — and it is not a
     ///     divergence (#249). The layout's atomicity is how it lays a box out, not what CSS calls an
@@ -2424,7 +2551,8 @@ public partial class UiElement : Composition.IComposable {
         // while this element has one its words are measured in an anonymous box beside it instead,
         // and the element's own node never takes the measure function (#1481). It used to drop the
         // boxes, which is how `label::after` on a label with text generated nothing at all.
-        if (this is not GeneratedBox && (GeneratedBefore is not null || GeneratedAfter is not null || AnonymousText is not null)) {
+        if (this is not GeneratedBox
+            && (GeneratedBefore is not null || GeneratedAfter is not null || AnonymousText is not null)) {
             Document.SyncOwnText(this);
         } else if (string.IsNullOrEmpty(previous) != string.IsNullOrEmpty(current)) {
             // ⚠ The measure function is attached and detached rather than left in place answering
@@ -2492,8 +2620,7 @@ public partial class UiElement : Composition.IComposable {
     ///         belong after the ones it inherited, in painting order and in the tab order both.
     ///     </para>
     /// </remarks>
-    protected internal virtual void OnCreated() {
-    }
+    protected internal virtual void OnCreated() { }
 
     /// <summary>Called on the parent, once a child of it has been created and initialised.</summary>
     /// <remarks>
@@ -2507,15 +2634,23 @@ public partial class UiElement : Composition.IComposable {
     ///         choice with no value and no exclusivity.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>So the rule for a container is: do the registering <i>here</i>, and let the
-    ///         <c>AddX</c> method be sugar over <c>Add&lt;T&gt;()</c> and a property or two.</b> Both
+    ///         ⚠
+    ///         <b>
+    ///             So the rule for a container is: do the registering <i>here</i>, and let the
+    ///             <c>AddX</c> method be sugar over <c>Add&lt;T&gt;()</c> and a property or two.
+    ///         </b>
+    ///         Both
     ///         routes then arrive at the same state by the same code, which is the only arrangement
     ///         where markup and C# cannot disagree — and a container that registers in its method
     ///         instead has an <c>AddX</c> that works and a tag that silently does not.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>After the child's <see cref="OnCreated" />, which is why it is not
-    ///         <c>Attach</c>.</b> A control builds its parts in <c>OnCreated</c>, so a parent told
+    ///         ⚠
+    ///         <b>
+    ///             After the child's <see cref="OnCreated" />, which is why it is not
+    ///             <c>Attach</c>.
+    ///         </b>
+    ///         A control builds its parts in <c>OnCreated</c>, so a parent told
     ///         any earlier gets a <c>MenuItem</c> with no label element and a
     ///         <c>Select</c> with no popover — and the first thing a registrar does is read one of
     ///         those.
@@ -2528,8 +2663,12 @@ public partial class UiElement : Composition.IComposable {
     ///         the thing doing the moving.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Called on the element the child was created under, which is the
-    ///         <see cref="ContentHost" /> it was added to rather than the control.</b> Those differ for
+    ///         ⚠
+    ///         <b>
+    ///             Called on the element the child was created under, which is the
+    ///             <see cref="ContentHost" /> it was added to rather than the control.
+    ///         </b>
+    ///         Those differ for
     ///         every control that has parts: a <c>&lt;Card&gt;</c>'s nested tag and a
     ///         <c>card.Add&lt;T&gt;()</c> both land in its body, so it is the <i>body</i> that hears about
     ///         it. A container that routes its
@@ -2541,8 +2680,7 @@ public partial class UiElement : Composition.IComposable {
     ///     </para>
     /// </remarks>
     /// <param name="child">The child that arrived.</param>
-    protected internal virtual void OnChildAdded(UiElement child) {
-    }
+    protected internal virtual void OnChildAdded(UiElement child) { }
 
     /// <summary>Called once, as the element leaves the document.</summary>
     /// <remarks>
@@ -2573,8 +2711,7 @@ public partial class UiElement : Composition.IComposable {
     ///         An override must call its base.
     ///     </para>
     /// </remarks>
-    protected internal virtual void OnRemoved() {
-    }
+    protected internal virtual void OnRemoved() { }
 
     /// <summary>Raised after any generated UI property changes.</summary>
     /// <remarks>
@@ -2585,8 +2722,7 @@ public partial class UiElement : Composition.IComposable {
     ///     silent.
     /// </remarks>
     /// <param name="key">Which property changed.</param>
-    protected internal virtual void OnPropertyChanged(UiPropertyKey key) {
-    }
+    protected internal virtual void OnPropertyChanged(UiPropertyKey key) { }
 
     /// <summary>Raised after any generated UI property changes.</summary>
     /// <remarks>
@@ -2630,8 +2766,7 @@ public partial class UiElement : Composition.IComposable {
     ///         mode flag on the whole document; said plainly instead.
     ///     </para>
     /// </remarks>
-    protected internal virtual void OnDraw(DrawContext context) {
-    }
+    protected internal virtual void OnDraw(DrawContext context) { }
 
     /// <summary>How far this element and everything inside it is shifted from where layout put it.</summary>
     /// <remarks>
@@ -2706,8 +2841,12 @@ public partial class UiElement : Composition.IComposable {
     ///         this element's composited group instead.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Null and not <see cref="UiTransform.Identity" />, and the distinction is a
-    ///         viewport-sized surface.</b> A non-null value is what makes
+    ///         ⚠
+    ///         <b>
+    ///             Null and not <see cref="UiTransform.Identity" />, and the distinction is a
+    ///             viewport-sized surface.
+    ///         </b>
+    ///         A non-null value is what makes
     ///         <c>DrawListBuilder</c> open a composited group for the subtree, which costs a surface
     ///         and a render pass; <c>rotate: 0deg</c> is written far too often for that to be spent on
     ///         a picture that is identical either way. <see cref="TransformReader" /> collapses an
@@ -2726,8 +2865,12 @@ public partial class UiElement : Composition.IComposable {
     /// <summary>Whether this element has turned its back and asked not to be drawn when it does.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Both halves in one bit, and it is stored rather than derived because the answer is
-    ///         not in <see cref="Transform" />.</b> Reducing the composition to a homography throws
+    ///         ⚠
+    ///         <b>
+    ///             Both halves in one bit, and it is stored rather than derived because the answer is
+    ///             not in <see cref="Transform" />.
+    ///         </b>
+    ///         Reducing the composition to a homography throws
     ///         away the z row and column, and those are the only thing that separates a
     ///         <c>rotateY(180deg)</c> — which really has turned the plane over — from a
     ///         <c>scaleX(-1)</c>, which draws the identical picture and is still facing the viewer.
@@ -2735,8 +2878,12 @@ public partial class UiElement : Composition.IComposable {
     ///         answers while it still has the 4×4 and this carries the answer.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The <c>backface-visibility</c> keyword is folded in here rather than left to the
-    ///         consumers</b>, for the reason <see cref="Transform" />'s own remark gives one paragraph
+    ///         ⚠
+    ///         <b>
+    ///             The <c>backface-visibility</c> keyword is folded in here rather than left to the
+    ///             consumers
+    ///         </b>
+    ///         , for the reason <see cref="Transform" />'s own remark gives one paragraph
     ///         up: the draw list and the hit test must agree, and a two-term predicate written out
     ///         twice is the shape that drifts. An element that is drawn where it cannot be clicked is
     ///         the failure this whole path is arranged against.
@@ -2747,15 +2894,23 @@ public partial class UiElement : Composition.IComposable {
     /// <summary>The lengths this element's own declarations resolve against after layout.</summary>
     /// <remarks>
     ///     <para>
-    ///         Written by <c>UiDocument.Accumulate</c> — the position walk, which is one walk <i>per
-    ///         surface</i> seeded with that surface's <see cref="UiSurface.Metrics" /> — as the same
+    ///         Written by <c>UiDocument.Accumulate</c> — the position walk, which is one walk
+    ///         <i>
+    ///             per
+    ///             surface
+    ///         </i>
+    ///         seeded with that surface's <see cref="UiSurface.Metrics" /> — as the same
     ///         context it hands <c>translate</c>, <c>position: sticky</c> and <c>transform</c>: this
     ///         element's own font size and line height (#1339) and the query container the style walk
     ///         found above it (<see cref="WithAppliedContainer" />).
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Stored because the draw list has no surface to seed one from, and until #1345 it
-    ///         seeded one from the wrong window.</b> <c>DrawListBuilder</c> is handed a surface's
+    ///         ⚠
+    ///         <b>
+    ///             Stored because the draw list has no surface to seed one from, and until #1345 it
+    ///             seeded one from the wrong window.
+    ///         </b>
+    ///         <c>DrawListBuilder</c> is handed a surface's
     ///         <i>root</i> and never the <see cref="UiSurface" />, so its shadow and filter readers
     ///         rebuilt the context from <c>UiDocument.Viewport</c> — the <i>primary</i> window's — and
     ///         a <c>box-shadow: 0 5vw</c> in a torn-off window measured the main one. Reading the
@@ -2783,8 +2938,12 @@ public partial class UiElement : Composition.IComposable {
     ///         overlay usable.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The two reasons look alike here and are not the same rule, which is why they are
-    ///         two calls rather than one.</b> <c>pointer-events: none</c> is not inherited and says
+    ///         ⚠
+    ///         <b>
+    ///             The two reasons look alike here and are not the same rule, which is why they are
+    ///             two calls rather than one.
+    ///         </b>
+    ///         <c>pointer-events: none</c> is not inherited and says
     ///         only "let the pointer through me"; <c>visibility: hidden</c> <i>is</i> inherited, so
     ///         reading it per element gives a hidden subtree for free and still lets a descendant
     ///         that declares <c>visible</c> be clicked — the same asymmetry the paint walk relies on.
@@ -2796,8 +2955,12 @@ public partial class UiElement : Composition.IComposable {
 
     /// <summary>Whether <c>display: none</c> has taken this element and its subtree out of the tree.</summary>
     /// <remarks>
-    ///     ⚠ <b>Reads the private field rather than <see cref="Document" />, so a detached element
-    ///     answers false instead of throwing.</b> <see cref="UiDocument.TabOrder" /> is public, static
+    ///     ⚠
+    ///     <b>
+    ///         Reads the private field rather than <see cref="Document" />, so a detached element
+    ///         answers false instead of throwing.
+    ///     </b>
+    ///     <see cref="UiDocument.TabOrder" /> is public, static
     ///     and takes any element, and it has never needed a document; making it throw on one that was
     ///     built but not yet added would be a new failure in a method that used to be a tree walk.
     ///     An unbound element's <see cref="Style" /> is <c>ComputedStyle.Empty</c>, which declares
@@ -2816,12 +2979,16 @@ public partial class UiElement : Composition.IComposable {
     ///     Whether to run even after something has handled it. For the listeners that need to know
     ///     an event happened rather than to act on it — a focus manager, a diagnostic overlay.
     /// </param>
-    public void AddHandler<T>(Action<UiElement, T> handler, RoutingStrategy strategy = RoutingStrategy.Bubble, bool handledEventsToo = false)
+    public void AddHandler<T>(
+        Action<UiElement, T> handler,
+        RoutingStrategy strategy = RoutingStrategy.Bubble,
+        bool handledEventsToo = false
+    )
         where T : UiEvent {
         ArgumentNullException.ThrowIfNull(handler);
 
         handlers ??= [];
-        handlers.Add(new HandlerRegistration(typeof(T), handler, strategy, handledEventsToo));
+        handlers.Add(new(typeof(T), handler, strategy, handledEventsToo));
     }
 
     /// <summary>Stops listening.</summary>
@@ -2871,11 +3038,17 @@ public partial class UiElement : Composition.IComposable {
             }
 
             args.Current = this;
-            ((Action<UiElement, T>) registration.Handler)(this, args);
+            ((Action<UiElement, T>)registration.Handler)(this, args);
         }
     }
 
-    internal void Bind(UiDocument owner, string tag, UiElement? parent, StyleNodeId styleNode, LayoutNodeId layoutNode) {
+    internal void Bind(
+        UiDocument owner,
+        string tag,
+        UiElement? parent,
+        StyleNodeId styleNode,
+        LayoutNodeId layoutNode
+    ) {
         document = owner;
         Tag = tag;
         Parent = parent;
@@ -2919,8 +3092,12 @@ public partial class UiElement : Composition.IComposable {
 
     /// <summary>Which <see cref="FontRegistry.Revision" /> the strut was resolved against.</summary>
     /// <remarks>
-    ///     ⚠ <b>The strut has the same "styled before the font was registered" trap the measure
-    ///     function had, and this is the same cure.</b> A face that arrives after an element was
+    ///     ⚠
+    ///     <b>
+    ///         The strut has the same "styled before the font was registered" trap the measure
+    ///         function had, and this is the same cure.
+    ///     </b>
+    ///     A face that arrives after an element was
     ///     styled changes nothing about that element's <c>ComputedStyle</c>, its font size or its line
     ///     height — so without a revision in the test, an interface built before its font is installed
     ///     keeps a strut of nothing for ever and every line box in it stays as tall as the boxes on
@@ -2930,8 +3107,12 @@ public partial class UiElement : Composition.IComposable {
 
     /// <summary>The box this element handed its descendants as a query container, last pass.</summary>
     /// <remarks>
-    ///     ⚠ <b>The settle loop's other driver, and without it a <c>cqw</c> is resolved once against
-    ///     a box of nothing and never again.</b> Styles are built before layout runs, so the first
+    ///     ⚠
+    ///     <b>
+    ///         The settle loop's other driver, and without it a <c>cqw</c> is resolved once against
+    ///         a box of nothing and never again.
+    ///     </b>
+    ///     Styles are built before layout runs, so the first
     ///     pass of a document resolves every container unit against an unmeasured container — the
     ///     second pass is what makes it right, and a second pass happens only because something
     ///     invalidated the document. <c>Recontain</c> is that something for a <c>@container</c>
@@ -2963,8 +3144,11 @@ public partial class UiElement : Composition.IComposable {
 
     /// <summary>Which axes the container above this element had claimed when its style was built.</summary>
     /// <remarks>
-    ///     ⚠ <b>Not part of the rebuild test above and written on every pass, because it is not a
-    ///     staleness key — it is the other half of a number.</b>
+    ///     ⚠
+    ///     <b>
+    ///         Not part of the rebuild test above and written on every pass, because it is not a
+    ///         staleness key — it is the other half of a number.
+    ///     </b>
     ///     <see cref="AppliedContainerInline" /> stores what the getter answered, which for an
     ///     element under no container is the viewport's width; without the flag beside it there is no
     ///     way to tell that reading apart from a container that happens to be viewport-wide, and
@@ -2977,8 +3161,12 @@ public partial class UiElement : Composition.IComposable {
     /// <param name="metrics">A context for the surface this element is on.</param>
     /// <returns>The same context, carrying the query container the style walk found above it.</returns>
     /// <remarks>
-    ///     ⚠ <b>This exists because a container unit has <i>two</i> readers and only one of them is
-    ///     on the style walk.</b> <c>UiDocument.Apply</c> descends with a
+    ///     ⚠
+    ///     <b>
+    ///         This exists because a container unit has <i>two</i> readers and only one of them is
+    ///         on the style walk.
+    ///     </b>
+    ///     <c>UiDocument.Apply</c> descends with a
     ///     <see cref="LengthContext" /> that <c>Containers.WithContainerOf</c> has narrowed at every
     ///     query container, so <c>width: 50cqi</c> is right; <c>UiDocument.Accumulate</c> and
     ///     <c>DrawListBuilder</c> build theirs from the surface and never see that walk, so
@@ -2988,8 +3176,12 @@ public partial class UiElement : Composition.IComposable {
     ///     would be a second copy of the search; the walk's own answer is recorded instead, and every
     ///     later reader asks the element for it.
     ///     <para>
-    ///         ⚠ <b>An element under no container <i>resets</i> the container rather than passing the
-    ///         argument through</b>, which is not tidiness: the two callers that re-base a context —
+    ///         ⚠
+    ///         <b>
+    ///             An element under no container <i>resets</i> the container rather than passing the
+    ///             argument through
+    ///         </b>
+    ///         , which is not tidiness: the two callers that re-base a context —
     ///         <c>TransformReader.Established</c>, for the parent's <c>perspective</c> — hand in a
     ///         context that already carries somebody else's container, and a pass-through would let
     ///         it stand. Reset to <see cref="ContainerKind.Normal" /> the answer is the surface's

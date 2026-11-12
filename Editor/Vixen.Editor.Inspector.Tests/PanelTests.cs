@@ -17,7 +17,9 @@ public class PanelTests : IDisposable {
     ///     and without the stylesheet the panel has no width and no row height — every rectangle is
     ///     empty, so every click lands at the origin and the menu is asked about no row at all.
     /// </remarks>
-    public PanelTests() => InspectorTheme.Install(document);
+    public PanelTests() {
+        InspectorTheme.Install(document);
+    }
 
     public void Dispose() {
         document.Dispose();
@@ -99,7 +101,7 @@ public class PanelTests : IDisposable {
 
         Assert.Equal(
             ["Copy", "Paste", "Reset to Default", "Revert to Prefab"],
-            menu.Items.Select(item => item.Label)
+            menu.Items.Select(static item => item.Label)
         );
     }
 
@@ -119,17 +121,17 @@ public class PanelTests : IDisposable {
     public void A_line_is_disabled_when_it_would_do_nothing() {
         var view = View();
 
-        view.Clipboard = new PropertyClipboard();
+        view.Clipboard = new();
         view.Inspect(new WaterMaterial());
 
         var menu = view.Contextualise();
 
-        Open(view, menu, row: null);
+        Open(view, menu, null);
 
         // No row under the pointer: every line is about a member, so none of them mean anything.
-        Assert.All(menu.Items, item => Assert.True(item.Disabled));
+        Assert.All(menu.Items, static item => Assert.True(item.Disabled));
 
-        var roughness = view.Rows.Single(row => row.Field.Member.Name == "Roughness");
+        var roughness = view.Rows.Single(static row => row.Field.Member.Name == "Roughness");
 
         Open(view, menu, roughness);
 
@@ -147,18 +149,18 @@ public class PanelTests : IDisposable {
     public void Copying_a_row_and_pasting_into_another_goes_through_the_menu() {
         var view = View();
 
-        view.Clipboard = new PropertyClipboard();
+        view.Clipboard = new();
         view.Inspect(new WaterMaterial());
 
         var menu = view.Contextualise();
-        var roughness = view.Rows.Single(row => row.Field.Member.Name == "Roughness");
+        var roughness = view.Rows.Single(static row => row.Field.Member.Name == "Roughness");
 
         Assert.True(roughness.Field.Write(0.75f));
 
         Open(view, menu, roughness);
         menu.Items[0].Activate();
 
-        var level = view.Rows.Single(row => row.Field.Member.Name == "Level");
+        var level = view.Rows.Single(static row => row.Field.Member.Name == "Level");
 
         Open(view, menu, level);
 
@@ -186,7 +188,7 @@ public class PanelTests : IDisposable {
                 typeof(WaterMaterial),
                 (body, target) => {
                     bound = target.Find("Roughness");
-                    InspectorRows.Add(body, (InspectorField) bound!, DrawerRegistry.Default);
+                    InspectorRows.Add(body, (InspectorField)bound!, DrawerRegistry.Default);
                 }
             )
         );
@@ -223,7 +225,7 @@ public class PanelTests : IDisposable {
         using var registration = registry.Add(
             new CustomInspector(
                 typeof(WaterMaterial),
-                (body, target) => {
+                static (body, target) => {
                     var slider = body.Add<Slider>();
 
                     slider.Minimum = 0f;
@@ -266,7 +268,7 @@ public class PanelTests : IDisposable {
         view.ValueChanged += (_, _) => written++;
         view.Inspect(new WaterMaterial());
 
-        Assert.True(view.Rows.Single(row => row.Field.Member.Name == "Roughness").Field.Write(0.75f));
+        Assert.True(view.Rows.Single(static row => row.Field.Member.Name == "Roughness").Field.Write(0.75f));
         Assert.Equal(1, written);
     }
 
@@ -300,10 +302,10 @@ public class PanelTests : IDisposable {
             }
         );
 
-        menu.Close(CloseReason.Code);
+        menu.Close();
         menu.OpenAt(Math.Max(x, 0f), Math.Max(y, 0f));
     }
 
     static (float X, float Y) Centre(UiElement element) =>
-        (element.Bounds.X + (element.Bounds.Width * 0.5f), element.Bounds.Y + (element.Bounds.Height * 0.5f));
+        (element.Bounds.X + element.Bounds.Width * 0.5f, element.Bounds.Y + element.Bounds.Height * 0.5f);
 }

@@ -99,16 +99,23 @@ public class TextureMeshMapNodeTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <b>Doc 48 § D12's own sentence, made mechanical: an id is "nearest-sampled and never
-    ///         filtered".</b> Interpolating two material indices produces a third that belongs to no
+    ///         <b>
+    ///             Doc 48 § D12's own sentence, made mechanical: an id is "nearest-sampled and never
+    ///             filtered".
+    ///         </b>
+    ///         Interpolating two material indices produces a third that belongs to no
     ///         material, so an id map bilinearly resampled into the graph's resolution grows a
     ///         hairline of a fourth material along every boundary — which is the same defect the
     ///         gutter dilation is excluded from, arriving by a different door. It is invisible in
     ///         every counter and looks like an antialiased edge.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And the other eight are asserted too, because a node that point-sampled
-    ///         everything would pass the half of this that is about <c>id</c>.</b> A continuous
+    ///         ⚠
+    ///         <b>
+    ///             And the other eight are asserted too, because a node that point-sampled
+    ///             everything would pass the half of this that is about <c>id</c>.
+    ///         </b>
+    ///         A continuous
     ///         measurement read nearest is a blocky curvature map, which reads as a low bake
     ///         resolution rather than as a bug.
     ///     </para>
@@ -119,7 +126,7 @@ public class TextureMeshMapNodeTests {
             var compiler = Compiler();
             var compilation = compiler.Compile(Graph(usage, out _));
             var op = Assert.Single(compilation.Value.Ops);
-            var filter = Assert.Single(op.Parameters, parameter => parameter.Name == "filter");
+            var filter = Assert.Single(op.Parameters, static parameter => parameter.Name == "filter");
 
             Assert.Equal(usage == "id" ? 0f : 1f, filter.Value);
 
@@ -129,7 +136,7 @@ public class TextureMeshMapNodeTests {
             // direction. The colour map is a picture the bake writes in sRGB, so it alone is decoded.
             Assert.Equal(
                 usage == TextureMeshMaps.Colour ? 1f : 0f,
-                Assert.Single(op.Parameters, parameter => parameter.Name == "srgb").Value
+                Assert.Single(op.Parameters, static parameter => parameter.Name == "srgb").Value
             );
         }
     }
@@ -170,8 +177,12 @@ public class TextureMeshMapNodeTests {
 
     /// <summary>A usage nothing bakes is refused, naming the node and the setting.</summary>
     /// <remarks>
-    ///     ⚠ <b>Refused rather than defaulted, and the difference is the whole point of binding by
-    ///     usage.</b> A misspelt <c>curvatur</c> that fell back to the first member would hand a
+    ///     ⚠
+    ///     <b>
+    ///         Refused rather than defaulted, and the difference is the whole point of binding by
+    ///         usage.
+    ///     </b>
+    ///     A misspelt <c>curvatur</c> that fell back to the first member would hand a
     ///     generator the <em>normal</em> map — a perfectly plausible picture, wired to the wrong
     ///     measurement, with nothing anywhere saying so. Every mesh map looks like a mesh map.
     /// </remarks>
@@ -182,7 +193,7 @@ public class TextureMeshMapNodeTests {
     public void A_usage_nothing_bakes_is_refused_rather_than_defaulted(string usage) {
         var compiler = Compiler();
         var compilation = compiler.Compile(Graph(usage, out var node));
-        var refusal = Assert.Single(compilation.Diagnostics, diagnostic => diagnostic.Id == "TG0010");
+        var refusal = Assert.Single(compilation.Diagnostics, static diagnostic => diagnostic.Id == "TG0010");
 
         Assert.Equal(node.Id, refusal.Node);
         Assert.Equal("Map", refusal.Port);
@@ -199,8 +210,11 @@ public class TextureMeshMapNodeTests {
     /// <summary>Two nodes asking for the same map are handed one external image.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/800">#800</a>, and this case is the
-    ///         tripwire that was written to go red when it landed.</b> It asserted two entries and two
+    ///         <b>
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/800">#800</a>, and this case is the
+    ///             tripwire that was written to go red when it landed.
+    ///         </b>
+    ///         It asserted two entries and two
     ///         images, and said in its own remarks that a generator reading curvature in two places
     ///         makes a host upload one PNG twice — which § 4.9's compounds turn into the normal case,
     ///         because Dirt reads curvature and occlusion and a stack containing both Dirt and
@@ -235,12 +249,12 @@ public class TextureMeshMapNodeTests {
         var external = Assert.Single(compiler.Externals);
 
         Assert.Equal("meshmap:curvature", external.Asset);
-        Assert.Single(compilation.Value.Images, image => image.External);
+        Assert.Single(compilation.Value.Images, static image => image.External);
 
         // ⚠ Two resamples still, and that is right rather than a leftover: a mesh map is uploaded at
         // the bake's resolution and each node resamples it into the graph's, so what is shared is the
         // upload and not the dispatch. Both of them read the one image, which is the claim.
-        var resamples = compilation.Value.Ops.Where(op => op.Kernel == "Bitmap").ToList();
+        var resamples = compilation.Value.Ops.Where(static op => op.Kernel == "Bitmap").ToList();
 
         Assert.Equal(2, resamples.Count);
         Assert.All(resamples, op => Assert.Equal([external.Image], op.Inputs));

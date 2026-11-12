@@ -29,12 +29,12 @@ public class AgentDebugModelTests {
         Assert.Equal(AgentDebugOrigin.Local, model.Origin);
         Assert.Equal(Symbol.Intern("villager"), model.Snapshot.Asset);
         Assert.Equal(2, model.Section(AiDebugSection.Doing).Count());
-        Assert.Contains(model.Section(AiDebugSection.Doing), row => row.Active);
+        Assert.Contains(model.Section(AiDebugSection.Doing), static row => row.Active);
     }
 
     [Fact]
     public void TheLogIsTheAgentsOwnAndTheFindingsAreDrawnFromIt() {
-        using var fixture = new AgentFixture(flapping: true);
+        using var fixture = new AgentFixture(true);
 
         fixture.Steps(40);
 
@@ -44,7 +44,7 @@ public class AgentDebugModelTests {
 
         Assert.NotEmpty(model.Log);
         Assert.All(model.Log, record => Assert.Equal(fixture.Entity, record.Entity));
-        Assert.Contains(model.SelectedFindings(), finding => finding.Symptom == AiSymptom.Flapping);
+        Assert.Contains(model.SelectedFindings(), static finding => finding.Symptom == AiSymptom.Flapping);
     }
 
     /// <summary>
@@ -98,7 +98,7 @@ public class AgentDebugModelTests {
 public class AgentDebuggerViewTests {
     [Fact]
     public void EveryListIsBuiltFromTheModel() {
-        using var fixture = new AgentFixture(flapping: true);
+        using var fixture = new AgentFixture(true);
 
         fixture.Steps(40);
 
@@ -155,15 +155,18 @@ sealed class AgentFixture : IDisposable {
     readonly AgentActionRegistry registry = new();
 
     public AgentFixture(bool flapping = false, bool tree = false) {
-        registry.Register("wander", new Idle(), 0);
-        registry.Register("run", new Idle(), 0);
+        registry.Register("wander", new Idle());
+        registry.Register("run", new Idle());
 
         System = new(registry, Layout);
         System.Debug.Enabled = true;
         World = new("agent-debugger");
 
         if (tree) {
-            var asset = BehaviorTree.Asset("guard", BehaviorTree.Sequence("root", BehaviorTree.Task("stand", "wander")));
+            var asset = BehaviorTree.Asset(
+                "guard",
+                BehaviorTree.Sequence("root", BehaviorTree.Task("stand", "wander"))
+            );
 
             System.Trees.Add(BehaviorTreeCompiler.Compile(asset, registry, Layout));
             Entity = World.Create(AiAgent.Thinking(0));
@@ -172,14 +175,11 @@ sealed class AgentFixture : IDisposable {
         }
 
         System.Sets.Add(
-            new UtilitySet(
+            new(
                 Symbol.Intern("villager"),
-                Candidate("wander", 0, () => 0.5f),
+                Candidate("wander", 0, static () => 0.5f),
                 Candidate("run", 1, () => Danger)
-            ) {
-                CommitmentBonus = flapping ? 0f : 0.15f,
-                DecisionInterval = flapping ? 0f : 0.2f
-            }
+            ) { CommitmentBonus = flapping ? 0f : 0.15f, DecisionInterval = flapping ? 0f : 0.2f }
         );
 
         Flapping = flapping;

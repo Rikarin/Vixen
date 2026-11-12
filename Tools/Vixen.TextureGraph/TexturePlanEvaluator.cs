@@ -5,7 +5,6 @@ using System.Collections.Immutable;
 using System.Globalization;
 using Vixen.Core.Mathematics;
 using Vixen.Graphics;
-using Vixen.ShaderCompiler;
 using Vixen.Shaders;
 
 namespace Vixen.TextureGraph;
@@ -18,8 +17,15 @@ namespace Vixen.TextureGraph;
 ///     plan's <see cref="TexturePlan.Outputs" /> is what stops the pool from handing an output's slot
 ///     to a later op, and nothing about the handle says which it was.
 ///     <para>
-///         ⚠ <b>Except from <see cref="TexturePlanEvaluator.EvaluateIncremental(TexturePlan, IReadOnlyDictionary{int, TextureExternal})" />, where it owns
-///         nothing.</b> Those textures are the result cache's, and this holds a claim on them until it
+///         ⚠
+///         <b>
+///             Except from
+///             <see
+///                 cref="TexturePlanEvaluator.EvaluateIncremental(TexturePlan, IReadOnlyDictionary{int, TextureExternal})" />,
+///             where it owns
+///             nothing.
+///         </b>
+///         Those textures are the result cache's, and this holds a claim on them until it
 ///         is disposed: reading stays valid through any later evaluation, and only what the plan
 ///         names in its outputs and what fitted the budget can be read at all.
 ///     </para>
@@ -60,8 +66,12 @@ public sealed class TextureBake : IDisposable {
 
     /// <summary>The queue the evaluation ran on, and the only one this bake's textures are touched from.</summary>
     /// <remarks>
-    ///     ⚠ <b>The submitter itself rather than a <see cref="QueueKind" />, so that the queue a
-    ///     read-back records on and the queue it submits to cannot drift apart.</b> That is exactly
+    ///     ⚠
+    ///     <b>
+    ///         The submitter itself rather than a <see cref="QueueKind" />, so that the queue a
+    ///         read-back records on and the queue it submits to cannot drift apart.
+    ///     </b>
+    ///     That is exactly
     ///     how <a href="https://github.com/Rikarin/Vixen/issues/617">#617</a> happened: the dispatches
     ///     named <see cref="QueueKind.Compute" /> in one method and the read-back named
     ///     <see cref="QueueKind.Graphics" /> in another, and on every adapter this engine has been
@@ -75,8 +85,12 @@ public sealed class TextureBake : IDisposable {
 
     /// <summary>What this bake drew differently from the graph, and drew anyway.</summary>
     /// <remarks>
-    ///     ⚠ <b><a href="https://github.com/Rikarin/Vixen/issues/692">#692</a>: the middle state
-    ///     between "fine" and "refused", and the case that needed it is a clipped radius.</b> A blur
+    ///     ⚠
+    ///     <b>
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/692">#692</a>: the middle state
+    ///         between "fine" and "refused", and the case that needed it is a clipped radius.
+    ///     </b>
+    ///     A blur
     ///     authored at 20 texels on a 1K graph resolves to 80 at a 4× bake and the kernel loops to
     ///     64 — so the bake succeeds and is a different material, which before this was silent
     ///     everywhere. A caller showing a bake to an artist shows these beside the resolution they
@@ -124,7 +138,7 @@ public sealed class TextureBake : IDisposable {
         // ⚠ Clipped here, because a repair is on whole workgroups and an image need not be. A
         // dispatch clips itself; a copy past the edge of a texture does not.
         return [
-            .. rects.Select(rect => new TextureRect(
+            ..rects.Select(rect => new TextureRect(
                     rect.X,
                     rect.Y,
                     Math.Min(rect.EndX, size.X) - rect.X,
@@ -192,8 +206,12 @@ public sealed class TextureBake : IDisposable {
     ///         because what is being looked at is a mask and a red mask is unreadable.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The copy is recorded on <see cref="Queue" /> — the queue the bake wrote on — and
-    ///         that is a correctness requirement rather than a tidiness one.</b> See
+    ///         ⚠
+    ///         <b>
+    ///             The copy is recorded on <see cref="Queue" /> — the queue the bake wrote on — and
+    ///             that is a correctness requirement rather than a tidiness one.
+    ///         </b>
+    ///         See
     ///         <see cref="TexturePlanEvaluator" />: every texture here is
     ///         <c>ResourceSharing.Exclusive</c>, and reading one from a second queue family without an
     ///         ownership transfer is undefined. The list kind comes from the same object as the
@@ -325,7 +343,7 @@ public sealed class TextureBake : IDisposable {
         }
 
         if (total == 0) {
-            return [.. rects.Select(static _ => Array.Empty<byte>())];
+            return [..rects.Select(static _ => Array.Empty<byte>())];
         }
 
         var readback = device.CreateBuffer(
@@ -423,7 +441,7 @@ public sealed class TextureBake : IDisposable {
             copies[index] = copy;
         }
 
-        TextureHandle[] touched = [.. distinct.Values.Select(static copy => copy.Texture).Distinct()];
+        TextureHandle[] touched = [..distinct.Values.Select(static copy => copy.Texture).Distinct()];
         var before = new TextureBarrier[touched.Length];
         var after = new TextureBarrier[touched.Length];
 
@@ -443,7 +461,7 @@ public sealed class TextureBake : IDisposable {
 
             foreach (var copy in distinct.Values) {
                 commands.CopyTextureToBuffer(
-                    new TextureRegion(copy.Texture),
+                    new(copy.Texture),
                     new(copy.Size.X, copy.Size.Y, 1),
                     readback,
                     copy.Offset
@@ -480,7 +498,7 @@ public sealed class TextureBake : IDisposable {
                 Plan.Images[image].External
                     ? $"Image {image} is supplied by the caller, so this bake does not hold it."
                     : $"Image {image} is an intermediate of an incremental evaluation, which keeps what the plan "
-                      + "names in its outputs and whatever else fits the budget. Name it an output to read it.",
+                    + "names in its outputs and whatever else fits the budget. Name it an output to read it.",
                 nameof(image)
             );
         }
@@ -498,15 +516,23 @@ public sealed class TextureBake : IDisposable {
     /// <param name="image">Its index in <see cref="TexturePlan.Images" />.</param>
     /// <param name="path">Where to write it.</param>
     /// <remarks>
-    ///     ⚠ <b>The <c>Vixen.</c> on the front is load-bearing, here and on <see cref="Read(int)" />, and
-    ///     shortening it is a build failure in a file nobody edited</b> —
+    ///     ⚠
+    ///     <b>
+    ///         The <c>Vixen.</c> on the front is load-bearing, here and on <see cref="Read(int)" />, and
+    ///         shortening it is a build failure in a file nobody edited
+    ///     </b>
+    ///     —
     ///     <a href="https://github.com/Rikarin/Vixen/issues/717">#717</a>. A relative <c>Core.Imaging</c>
     ///     is resolved by walking out from <c>Vixen.TextureGraph</c> until something called
     ///     <c>Core</c> turns up: that used to be <c>Vixen.Core</c>, and the moment
     ///     <c>Vixen.Editor.Core</c> is visible to this compilation — it arrives through
     ///     <c>Vixen.Editor.NodeGraph</c> — the nearer <c>Vixen.Editor</c> wins and names a namespace
-    ///     with no <c>Imaging</c> in it. ⚠ <b>A <c>global using Core = Vixen.Core;</c> does not fix
-    ///     it</b>: a compilation-unit alias is consulted only after the enclosing-namespace walk. Only
+    ///     with no <c>Imaging</c> in it. ⚠
+    ///     <b>
+    ///         A <c>global using Core = Vixen.Core;</c> does not fix
+    ///         it
+    ///     </b>
+    ///     : a compilation-unit alias is consulted only after the enclosing-namespace walk. Only
     ///     <c>DisableTransitiveProjectReferences</c> was keeping the short spelling alive, and that
     ///     property is set for an unrelated reason it should not have to answer for.
     /// </remarks>
@@ -559,8 +585,12 @@ public sealed class TextureBake : IDisposable {
 ///         called sixty times a second.
 ///     </para>
 ///     <para>
-///         ⚠ <b>That rule is now <em>checked</em>, and it was a sentence with nothing behind it for
-///         four batches</b> — <a href="https://github.com/Rikarin/Vixen/issues/775">#775</a>. The
+///         ⚠
+///         <b>
+///             That rule is now <em>checked</em>, and it was a sentence with nothing behind it for
+///             four batches
+///         </b>
+///         — <a href="https://github.com/Rikarin/Vixen/issues/775">#775</a>. The
 ///         paragraph above has been here since this class was written and every route that obeyed it
 ///         obeyed it by accident of where it was called from, because a caller had no way to ask:
 ///         <see cref="IGraphicsDevice" /> published <c>BeginFrame</c>, <c>EndFrame</c>,
@@ -569,10 +599,14 @@ public sealed class TextureBake : IDisposable {
 ///         <see cref="RefuseInsideAFrame" /> is where the sentence became a refusal.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Every command list a bake records — the dispatches, and every later read-back — goes
-///         to <see cref="IGraphicsDevice.ComputeQueue" />, recorded for that submitter's own
-///         <see cref="ICommandSubmitter.Kind" />, and that is a correctness requirement rather than a
-///         preference.</b> (On a unified adapter that kind <em>is</em>
+///         ⚠
+///         <b>
+///             Every command list a bake records — the dispatches, and every later read-back — goes
+///             to <see cref="IGraphicsDevice.ComputeQueue" />, recorded for that submitter's own
+///             <see cref="ICommandSubmitter.Kind" />, and that is a correctness requirement rather than a
+///             preference.
+///         </b>
+///         (On a unified adapter that kind <em>is</em>
 ///         <see cref="QueueKind.Graphics" />, because the backend collapses a queue sharing the
 ///         graphics family — which is precisely why the defect below was invisible here.) The pool's
 ///         textures are created with
@@ -586,8 +620,11 @@ public sealed class TextureBake : IDisposable {
 ///         somebody else's machine and a clean run on every machine here.
 ///     </para>
 ///     <para>
-///         <b>One queue rather than the ownership-transfer pair, and a future reader should not
-///         "optimise" it back.</b> A transfer is two barriers with identical parameters plus a
+///         <b>
+///             One queue rather than the ownership-transfer pair, and a future reader should not
+///             "optimise" it back.
+///         </b>
+///         A transfer is two barriers with identical parameters plus a
 ///         semaphore edge between the submissions (<c>TextureBarrier.TransfersOwnership</c>) — and the
 ///         release half would have to be recorded at the end of the bake's own list, for every image,
 ///         before anybody knows which ones will ever be read, how often, or whether at all. An image
@@ -616,7 +653,8 @@ public sealed class TextureBake : IDisposable {
 ///         <see cref="Compilations" /> cannot: it counts what was built and never what is held.
 ///     </para>
 ///     <para>
-///         <b>Two ways in, one way through.</b> <see cref="EvaluateIncremental(TexturePlan, IReadOnlyDictionary{int, TextureExternal})" /> keeps results in
+///         <b>Two ways in, one way through.</b>
+///         <see cref="EvaluateIncremental(TexturePlan, IReadOnlyDictionary{int, TextureExternal})" /> keeps results in
 ///         <see cref="Results" /> and runs what has no result; the <c>Evaluate</c> overloads run
 ///         everything and keep nothing past the bake. Both end in the one recording loop, because a
 ///         second one is how a preview and a bake come to disagree. A bake that ends in a file stays
@@ -626,8 +664,12 @@ public sealed class TextureBake : IDisposable {
 public sealed partial class TexturePlanEvaluator : IDisposable {
     /// <summary>The workgroup size every kernel in <c>Shaders/</c> declares.</summary>
     /// <remarks>
-    ///     ⚠ <b>Duplicated from the <c>[ComputeShader(8, 8, 1)]</c> in each source, and a kernel that
-    ///     disagreed would leave the tail of an image unwritten.</b> Raven puts the size on the stage
+    ///     ⚠
+    ///     <b>
+    ///         Duplicated from the <c>[ComputeShader(8, 8, 1)]</c> in each source, and a kernel that
+    ///         disagreed would leave the tail of an image unwritten.
+    ///     </b>
+    ///     Raven puts the size on the stage
     ///     attribute so it cannot be separated from the stage; it does not put it in the reflection,
     ///     so a host still has to know it. <c>TextureKernelTests</c> is what asserts the two agree.
     /// </remarks>
@@ -666,14 +708,18 @@ public sealed partial class TexturePlanEvaluator : IDisposable {
         ArgumentNullException.ThrowIfNull(device);
 
         this.device = device;
-        loader = new EffectLoader(device);
+        loader = new(device);
         Results = new(device);
     }
 
     /// <summary>Where this evaluator's images, modules and pipelines live.</summary>
     /// <remarks>
-    ///     ⚠ <b>Here so that a caller who was lent an evaluator does not have to hold a device
-    ///     beside it</b> — <a href="https://github.com/Rikarin/Vixen/issues/1089">#1089</a>.
+    ///     ⚠
+    ///     <b>
+    ///         Here so that a caller who was lent an evaluator does not have to hold a device
+    ///         beside it
+    ///     </b>
+    ///     — <a href="https://github.com/Rikarin/Vixen/issues/1089">#1089</a>.
     ///     <c>TextureUploads</c> takes a device, so anything that wants to supply a plan's external
     ///     images needs one; and a pane that kept its own would be the shape
     ///     <c>TextureGraphPreviews</c>' constructor refuses, because the frame after a device loss
@@ -691,9 +737,13 @@ public sealed partial class TexturePlanEvaluator : IDisposable {
 
     /// <summary>How many compiled variants are held right now — modules and pipelines on the device.</summary>
     /// <remarks>
-    ///     ⚠ <b>The counter that did not exist, and its absence is why
-    ///     <a href="https://github.com/Rikarin/Vixen/issues/1091">#1091</a> was a reasoned claim
-    ///     rather than a measured one.</b> <see cref="Compilations" /> counts what has been
+    ///     ⚠
+    ///     <b>
+    ///         The counter that did not exist, and its absence is why
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/1091">#1091</a> was a reasoned claim
+    ///         rather than a measured one.
+    ///     </b>
+    ///     <see cref="Compilations" /> counts what has been
     ///     <em>built</em> and only ever rises; nothing counted what was still <em>held</em>, so a
     ///     cache that never evicted and a cache that evicted perfectly printed the same numbers.
     /// </remarks>
@@ -754,8 +804,12 @@ public sealed partial class TexturePlanEvaluator : IDisposable {
     ///         what the texture was created with.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And it declares no <see cref="TextureExternal.Size" />, which is the half that
-    ///         used to be invisible</b> —
+    ///         ⚠
+    ///         <b>
+    ///             And it declares no <see cref="TextureExternal.Size" />, which is the half that
+    ///             used to be invisible
+    ///         </b>
+    ///         —
     ///         <a href="https://github.com/Rikarin/Vixen/issues/1014">#1014</a>. There is no size to
     ///         put here: the overload's whole convenience is a dictionary of handles, and a handle is
     ///         an opaque number. So the extent guard
@@ -769,8 +823,12 @@ public sealed partial class TexturePlanEvaluator : IDisposable {
     ///         which declares the size from the value it already remembers.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Every caller is a test fixture again, and the sentence has now been false in both
-    ///         directions.</b> <a href="https://github.com/Rikarin/Vixen/issues/1014">#1014</a> said
+    ///         ⚠
+    ///         <b>
+    ///             Every caller is a test fixture again, and the sentence has now been false in both
+    ///             directions.
+    ///         </b>
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/1014">#1014</a> said
     ///         it and was refuted by <c>TextureGraphPreviews.Rebuild</c>, which called this with
     ///         <see langword="null" /> and threw <c>ArgumentException</c> out of a plugin's per-frame
     ///         work (<a href="https://github.com/Rikarin/Vixen/issues/1089">#1089</a>); #1089's
@@ -785,9 +843,10 @@ public sealed partial class TexturePlanEvaluator : IDisposable {
         Evaluate(
             plan,
             externals?.ToDictionary(
-                supplied => supplied.Key,
-                supplied => new TextureExternal(supplied.Value, TextureExternal.Sampled)
-            ) ?? []
+                static supplied => supplied.Key,
+                static supplied => new TextureExternal(supplied.Value, TextureExternal.Sampled)
+            )
+            ?? []
         );
 
     /// <summary>Evaluates a plan, with the caller declaring what its own textures can be used for.</summary>
@@ -874,8 +933,8 @@ public sealed partial class TexturePlanEvaluator : IDisposable {
 
         var problems = plan.Check();
         var refusals = problems
-            .Where(problem => problem.Severity == TextureProblemSeverity.Error)
-            .Select(problem => problem.Message)
+            .Where(static problem => problem.Severity == TextureProblemSeverity.Error)
+            .Select(static problem => problem.Message)
             .ToArray();
 
         if (refusals.Length > 0) {
@@ -898,14 +957,14 @@ public sealed partial class TexturePlanEvaluator : IDisposable {
         IReadOnlyDictionary<int, TextureExternal> externals
     ) =>
         [
-            .. problems
-                .Where(problem => problem.Severity == TextureProblemSeverity.Warning)
-                .Select(problem => problem.Message),
+            ..problems
+                .Where(static problem => problem.Severity == TextureProblemSeverity.Warning)
+                .Select(static problem => problem.Message),
 
             // ⚠ #632: the half of the extent guard the plan cannot make. `TexturePlan.Check` skips
             // an external input because it has no size for one; the declaration does, and it only
             // exists here.
-            .. ExternalExtentCautions(plan, externals)
+            ..ExternalExtentCautions(plan, externals)
         ];
 
     /// <inheritdoc />
@@ -940,11 +999,18 @@ public sealed partial class TexturePlanEvaluator : IDisposable {
     /// <param name="plan">The plan about to be evaluated, whose own kernels are never evicted.</param>
     /// <remarks>
     ///     <para>
-    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/1091">#1091</a>, and the reason it
-    ///         costs nothing is a refutation of the reason it was filed rather than fixed.</b> That
+    ///         <b>
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/1091">#1091</a>, and the reason it
+    ///             costs nothing is a refutation of the reason it was filed rather than fixed.
+    ///         </b>
+    ///         That
     ///         issue says an eviction "needs the same <c>WaitIdle</c> <see cref="Dispose" /> does — an
-    ///         eviction on the interactive path is a device stall". ⚠ <b>There is no stall, because
-    ///         the wait has already happened.</b> <c>Run</c> ends
+    ///         eviction on the interactive path is a device stall". ⚠
+    ///         <b>
+    ///             There is no stall, because
+    ///             the wait has already happened.
+    ///         </b>
+    ///         <c>Run</c> ends
     ///         <c>device.EndFrame(); device.WaitIdle();</c> on both of its exits — the ordinary one and
     ///         the one a <see cref="TextureOp.Cpu" /> op takes — so an <c>Evaluate</c> returns with the
     ///         device idle, and <c>TextureBake.Read</c> waits again for its own copy. Nothing but this
@@ -1015,9 +1081,12 @@ public sealed partial class TexturePlanEvaluator : IDisposable {
     /// <exception cref="InvalidOperationException">The device has a frame open.</exception>
     /// <remarks>
     ///     <para>
-    ///         <b>The check <a href="https://github.com/Rikarin/Vixen/issues/775">#775</a> asked for,
-    ///         and until <see cref="IGraphicsDevice.IsFrameOpen" /> existed a caller could not have
-    ///         written it either.</b> This class's own remarks have said "an evaluation is not a
+    ///         <b>
+    ///             The check <a href="https://github.com/Rikarin/Vixen/issues/775">#775</a> asked for,
+    ///             and until <see cref="IGraphicsDevice.IsFrameOpen" /> existed a caller could not have
+    ///             written it either.
+    ///         </b>
+    ///         This class's own remarks have said "an evaluation is not a
     ///         frame" since it was written; what they could not say was how to tell, so every route
     ///         that is safe today is safe by accident of where it is called from. A panel build, a
     ///         command handler and a thumbnail pump all run outside the editor's <c>Present</c>; a
@@ -1056,16 +1125,24 @@ public sealed partial class TexturePlanEvaluator : IDisposable {
     /// <summary>Refuses a caller's texture that was not created for what the plan does to it.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The usage bits a Vulkan image was created with are part of what its commands are
-    ///         allowed to be, and MoltenVK enforces none of them</b> — so this refusal is the whole of
+    ///         ⚠
+    ///         <b>
+    ///             The usage bits a Vulkan image was created with are part of what its commands are
+    ///             allowed to be, and MoltenVK enforces none of them
+    ///         </b>
+    ///         — so this refusal is the whole of
     ///         the enforcement on the machine this is developed on.
     ///         <a href="https://github.com/Rikarin/Vixen/issues/722">#722</a>: the CPU-op seam copied
     ///         out of a caller's image for a whole batch with no <c>TRANSFER_SRC</c> on it, past a
     ///         device test, because a unified adapter reads it anyway.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b><see cref="TextureUsage.Sampled" /> is required of <em>every</em> external image
-    ///         and not only of one a dispatch reads</b> —
+    ///         ⚠
+    ///         <b>
+    ///             <see cref="TextureUsage.Sampled" /> is required of <em>every</em> external image
+    ///             and not only of one a dispatch reads
+    ///         </b>
+    ///         —
     ///         <a href="https://github.com/Rikarin/Vixen/issues/745">#745</a>, which was this method's
     ///         own defect reproduced inside its fix. The first version computed the requirement from
     ///         what the plan does to each image, so an image only a <see cref="TextureOp.Cpu" /> op
@@ -1156,16 +1233,23 @@ public sealed partial class TexturePlanEvaluator : IDisposable {
     /// <exception cref="ArgumentException">A CPU op reads an external image of undeclared size.</exception>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b><a href="https://github.com/Rikarin/Vixen/issues/1000">#1000</a>, and the reason
-    ///         it is asked of a CPU op alone is that nothing else has ever needed a number.</b> A
+    ///         ⚠
+    ///         <b>
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/1000">#1000</a>, and the reason
+    ///             it is asked of a CPU op alone is that nothing else has ever needed a number.
+    ///         </b>
+    ///         A
     ///         dispatch binds the caller's texture as a sampled image and every kernel in
     ///         <c>Shaders/</c> clamps its taps to that image's own <c>GetDimensions</c>, so the
     ///         plan's nominal level never reaches the GPU. <see cref="OnCpu" /> is a
     ///         <c>vkCmdCopyImageToBuffer</c>, and a copy has to name an extent.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A refusal rather than a fall-back to the nominal size, and it can be one because
-    ///         the path that cannot answer cannot get here.</b>
+    ///         ⚠
+    ///         <b>
+    ///             A refusal rather than a fall-back to the nominal size, and it can be one because
+    ///             the path that cannot answer cannot get here.
+    ///         </b>
     ///         <see cref="Evaluate(TexturePlan,IReadOnlyDictionary{int,TextureHandle})" /> declares
     ///         <see cref="TextureExternal.Sampled" /> and nothing else, so
     ///         <see cref="CheckExternalUsage" /> has already refused every plan whose CPU op reads an
@@ -1209,8 +1293,12 @@ public sealed partial class TexturePlanEvaluator : IDisposable {
     /// <returns>One message per op that reads a supplied picture at a size it did not mean to.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b><a href="https://github.com/Rikarin/Vixen/issues/632">#632</a>'s own cited case
-    ///         is the one <see cref="TexturePlan.Check" /> structurally cannot see.</b> The plan's
+    ///         ⚠
+    ///         <b>
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/632">#632</a>'s own cited case
+    ///             is the one <see cref="TexturePlan.Check" /> structurally cannot see.
+    ///         </b>
+    ///         The plan's
     ///         extent guard (<a href="https://github.com/Rikarin/Vixen/issues/801">#801</a>) skips an
     ///         external input, because an imported bitmap is whatever size it is and the plan has no
     ///         number for it — so a pointwise kernel over a 512-texel import in a 1K graph drew the
@@ -1295,8 +1383,12 @@ public sealed partial class TexturePlanEvaluator : IDisposable {
 
     /// <summary>A view onto each external image, made once and destroyed with the bake.</summary>
     /// <remarks>
-    ///     ⚠ <b>Unconditional, which is why <see cref="CheckExternalUsage" /> asks every external for
-    ///     <see cref="TextureUsage.Sampled" />.</b> A view over an image created for transfers alone
+    ///     ⚠
+    ///     <b>
+    ///         Unconditional, which is why <see cref="CheckExternalUsage" /> asks every external for
+    ///         <see cref="TextureUsage.Sampled" />.
+    ///     </b>
+    ///     A view over an image created for transfers alone
     ///     is invalid — VUID-VkImageViewCreateInfo-image-04441 — and this loop runs before any op
     ///     does, so "no dispatch reads it" is not a reason it does not happen.
     ///     <a href="https://github.com/Rikarin/Vixen/issues/745">#745</a>: the two were written from
@@ -1399,7 +1491,7 @@ public sealed partial class TexturePlanEvaluator : IDisposable {
                 }
 
                 if (barriers.Count > 0) {
-                    commands.Barrier(new BarrierGroup([], [.. barriers]));
+                    commands.Barrier(new BarrierGroup([], [..barriers]));
                 }
 
                 commands.BindPipeline(variant.Pipeline);
@@ -1446,7 +1538,7 @@ public sealed partial class TexturePlanEvaluator : IDisposable {
             }
 
             if (settle.Count > 0) {
-                commands.Barrier(new BarrierGroup([], [.. settle]));
+                commands.Barrier(new BarrierGroup([], [..settle]));
             }
 
             commands.Finish();
@@ -1475,8 +1567,12 @@ public sealed partial class TexturePlanEvaluator : IDisposable {
     /// <returns>The command list the rest of the plan carries on recording into.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Doc 48 § 4.6's exception to § D3, and the whole of what makes it an exception is
-    ///         here.</b> A dispatch is appended to the list already in flight and costs nothing but
+    ///         ⚠
+    ///         <b>
+    ///             Doc 48 § 4.6's exception to § D3, and the whole of what makes it an exception is
+    ///             here.
+    ///         </b>
+    ///         A dispatch is appended to the list already in flight and costs nothing but
     ///         its own time; this closes that list, ends the frame, waits for the device, maps every
     ///         input into host memory, runs, writes the answer back and opens a new frame. Two full
     ///         drains and the bandwidth of every image involved — so a chain of these serialises the
@@ -1538,7 +1634,7 @@ public sealed partial class TexturePlanEvaluator : IDisposable {
         }
 
         if (barriers.Count > 0) {
-            commands.Barrier(new BarrierGroup([], [.. barriers]));
+            commands.Barrier(new BarrierGroup([], [..barriers]));
         }
 
         foreach (var input in op.Inputs) {
@@ -1558,7 +1654,7 @@ public sealed partial class TexturePlanEvaluator : IDisposable {
             reads.Add((input, buffer));
 
             commands.CopyTextureToBuffer(
-                new TextureRegion(TextureFor(schedule, bake, externalTextures, input)),
+                new(TextureFor(schedule, bake, externalTextures, input)),
                 new(size.X, size.Y, 1),
                 buffer,
                 0
@@ -1619,7 +1715,7 @@ public sealed partial class TexturePlanEvaluator : IDisposable {
         }
 
         if (restore.Count > 0) {
-            next.Barrier(new BarrierGroup([], [.. restore]));
+            next.Barrier(new BarrierGroup([], [..restore]));
         }
 
         return next;
@@ -1647,8 +1743,12 @@ public sealed partial class TexturePlanEvaluator : IDisposable {
     /// <param name="image">The image's index in <see cref="TexturePlan.Images" />.</param>
     /// <returns>The picture's real size in texels.</returns>
     /// <remarks>
-    ///     ⚠ <b>Two answerers rather than one, because <see cref="TexturePlan" /> genuinely does not
-    ///     know</b> — <a href="https://github.com/Rikarin/Vixen/issues/1000">#1000</a> and
+    ///     ⚠
+    ///     <b>
+    ///         Two answerers rather than one, because <see cref="TexturePlan" /> genuinely does not
+    ///         know
+    ///     </b>
+    ///     — <a href="https://github.com/Rikarin/Vixen/issues/1000">#1000</a> and
     ///     <a href="https://github.com/Rikarin/Vixen/issues/1008">#1008</a>. An image the pool made
     ///     has the size the plan's level says, because the plan is what created it; an image the
     ///     caller supplied has the size the caller declared, because an imported bitmap is whatever
@@ -1744,7 +1844,7 @@ public sealed partial class TexturePlanEvaluator : IDisposable {
             );
         }
 
-        device.UpdateDescriptorSet(set, [.. writes]);
+        device.UpdateDescriptorSet(set, [..writes]);
 
         return set;
     }
@@ -1830,16 +1930,23 @@ public sealed partial class TexturePlanEvaluator : IDisposable {
 
     /// <summary>The compiled module one op runs, built once per kernel and output format.</summary>
     /// <remarks>
-    ///     ⚠ <b>The source comes off the <em>plan</em> and not off this assembly's embedded
-    ///     resources, which is <a href="https://github.com/Rikarin/Vixen/issues/729">#729</a>.</b> A
+    ///     ⚠
+    ///     <b>
+    ///         The source comes off the <em>plan</em> and not off this assembly's embedded
+    ///         resources, which is <a href="https://github.com/Rikarin/Vixen/issues/729">#729</a>.
+    ///     </b>
+    ///     A
     ///     graph may author a kernel — doc 48 § D6's Pixel Processor puts a Raven expression through
     ///     the real front end and emits an op naming the module it generated — and such a kernel is
     ///     not embedded and never will be. <see cref="TexturePlan.Source" /> is what answers for
     ///     both, so the ordinary case is unchanged and the authored one stops throwing about a
     ///     resource nobody could have added.
     ///     <para>
-    ///         ⚠ <b>The compilation is the kernel <em>and</em> the shader library, which is
-    ///         <a href="https://github.com/Rikarin/Vixen/issues/635">#635</a>.</b>
+    ///         ⚠
+    ///         <b>
+    ///             The compilation is the kernel <em>and</em> the shader library, which is
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/635">#635</a>.
+    ///         </b>
     ///         <see cref="TextureKernelPrelude" /> is what supplies the second half, and it is why
     ///         <c>Hsl</c> can write <c>ComputeColor.HueRotate</c> and <c>Noise</c>
     ///         <c>Random.Hash</c> instead of transcribing them. There are still no
@@ -1854,14 +1961,22 @@ public sealed partial class TexturePlanEvaluator : IDisposable {
     ///         <c>TextureKernelLanguageSeamTests</c> rather than by anything here.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>If a permutation is ever threaded through, the cache key below grows in the same
-    ///         commit.</b> It is <c>(kernel, output)</c>, so a permutation reaching
+    ///         ⚠
+    ///         <b>
+    ///             If a permutation is ever threaded through, the cache key below grows in the same
+    ///             commit.
+    ///         </b>
+    ///         It is <c>(kernel, output)</c>, so a permutation reaching
     ///         <see cref="EffectKey" /> and not reaching the key would put two ops with different
     ///         permutations on one pipeline and the second would draw the first one's picture.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The library <see cref="TextureKernelPrelude" /> prepends does <em>not</em> widen
-    ///         what a variant is, which was worth checking rather than assuming</b> —
+    ///         ⚠
+    ///         <b>
+    ///             The library <see cref="TextureKernelPrelude" /> prepends does <em>not</em> widen
+    ///             what a variant is, which was worth checking rather than assuming
+    ///         </b>
+    ///         —
     ///         <a href="https://github.com/Rikarin/Vixen/issues/635">#635</a> put three more sources
     ///         into every compilation, and a key that had become incomplete would be invisible.
     ///         <see cref="TextureKernelPrelude.Sources" /> is one process-wide list read from this
@@ -1876,8 +1991,11 @@ public sealed partial class TexturePlanEvaluator : IDisposable {
     ///         first one's module.
     ///     </para>
     ///     <para>
-    ///         <b>#1080 asks whether the convention behind that refusal is enough, and the answer is
-    ///         yes — but not for the reason it looks like.</b> Folding the authored text into the key
+    ///         <b>
+    ///             #1080 asks whether the convention behind that refusal is enough, and the answer is
+    ///             yes — but not for the reason it looks like.
+    ///         </b>
+    ///         Folding the authored text into the key
     ///         would make a collision impossible, and it is the worse trade twice over. It does not
     ///         shrink this dictionary, it <em>grows</em> it: a second spelling would take a second
     ///         module and pipeline instead of a message. And it would let a front end that does not
@@ -1895,8 +2013,12 @@ public sealed partial class TexturePlanEvaluator : IDisposable {
     ///         price for one authoring mistake and it would not be one for a mechanism.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And the convention that makes the refusal unnecessary is what made this dictionary
-    ///         unbounded</b> — <a href="https://github.com/Rikarin/Vixen/issues/1091">#1091</a>.
+    ///         ⚠
+    ///         <b>
+    ///             And the convention that makes the refusal unnecessary is what made this dictionary
+    ///             unbounded
+    ///         </b>
+    ///         — <a href="https://github.com/Rikarin/Vixen/issues/1091">#1091</a>.
     ///         <c>TexturePixelProcessor</c> names its shader after a digest of the expression, so
     ///         <em>every distinct expression an author types</em> was a new key, a new
     ///         <see cref="ShaderHandle" />, a new <see cref="PipelineHandle" /> and a new pipeline
@@ -1974,9 +2096,7 @@ public sealed partial class TexturePlanEvaluator : IDisposable {
             Data = data,
             Effect = effect,
             Module = module,
-            Pipeline = device.CreateComputePipeline(
-                new(module, effect.Layout, name, device.SupportsDispatchBase)
-            ),
+            Pipeline = device.CreateComputePipeline(new(module, effect.Layout, name, device.SupportsDispatchBase)),
             SetLayout = effect.SetLayouts[(int)DescriptorSetSlot.PerMaterial]
         };
 

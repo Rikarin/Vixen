@@ -9,8 +9,12 @@ namespace Vixen.Platform.Windows.Tests;
 /// <summary>The classic system colours, read as a palette only while a high-contrast scheme is on.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>The assertion that matters is the negative one, and it is the one every runner can
-///         make.</b> Outside a high-contrast scheme <c>GetSysColor(COLOR_WINDOW)</c> answers white
+///         ⚠
+///         <b>
+///             The assertion that matters is the negative one, and it is the one every runner can
+///             make.
+///         </b>
+///         Outside a high-contrast scheme <c>GetSysColor(COLOR_WINDOW)</c> answers white
 ///         whatever the app theme is set to, so a reader that supplied the classic table
 ///         unconditionally would put a white canvas under a dark document — a wrong answer that
 ///         reads as a choice. No CI runner has a high-contrast scheme on, so the gate is what is

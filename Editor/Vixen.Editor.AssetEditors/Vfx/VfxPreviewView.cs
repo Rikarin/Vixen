@@ -71,7 +71,7 @@ public sealed class VfxPreviewView : UiElement {
             return;
         }
 
-        var step = Math.Clamp((float) delta.TotalSeconds, 0f, MaximumStep);
+        var step = Math.Clamp((float)delta.TotalSeconds, 0f, MaximumStep);
 
         if (step <= 0f) {
             return;
@@ -136,7 +136,7 @@ public sealed class VfxPreviewView : UiElement {
                 : new Color4(1f, 0.82f, 0.45f, 1f);
 
             context.FillRectangle(
-                new Rectangle(point.X - radius, point.Y - radius, radius * 2f, radius * 2f),
+                new(point.X - radius, point.Y - radius, radius * 2f, radius * 2f),
                 colour,
                 radius
             );
@@ -185,15 +185,15 @@ public sealed class VfxPreviewView : UiElement {
         // One field of view for both axes, scaled by the shorter one, so the picture does not
         // stretch when the panel is docked into a wide strip.
         var scale = Math.Min(bounds.Width, bounds.Height) * 0.5f;
-        var centre = new Vector2(bounds.X + (bounds.Width * 0.5f), bounds.Y + (bounds.Height * 0.5f));
+        var centre = new Vector2(bounds.X + bounds.Width * 0.5f, bounds.Y + bounds.Height * 0.5f);
 
         for (var index = 0; index < count && index < positions.Length; index++) {
             var world = positions[index];
 
-            var x = (world.X * cosYaw) - (world.Z * sinYaw);
-            var z = (world.X * sinYaw) + (world.Z * cosYaw);
-            var y = (world.Y * cosPitch) - (z * sinPitch);
-            var depth = (world.Y * sinPitch) + (z * cosPitch) + Distance;
+            var x = world.X * cosYaw - world.Z * sinYaw;
+            var z = world.X * sinYaw + world.Z * cosYaw;
+            var y = world.Y * cosPitch - z * sinPitch;
+            var depth = world.Y * sinPitch + z * cosPitch + Distance;
 
             if (depth <= 0.05f) {
                 projected[index] = new(0f, 0f, 0f);
@@ -202,7 +202,7 @@ public sealed class VfxPreviewView : UiElement {
 
             var perspective = scale / depth;
 
-            projected[index] = new(centre.X + (x * perspective), centre.Y - (y * perspective), depth);
+            projected[index] = new(centre.X + x * perspective, centre.Y - y * perspective, depth);
             radii[index] = (sizes.Length > index ? Math.Max(sizes[index], 0.01f) : 0.1f) * perspective * 0.5f;
         }
     }
@@ -213,7 +213,7 @@ public sealed class VfxPreviewView : UiElement {
     void Grid(DrawContext context, Rectangle bounds) {
         grid.Clear();
 
-        var centre = new Vector2(bounds.X + (bounds.Width * 0.5f), bounds.Y + (bounds.Height * 0.5f));
+        var centre = new Vector2(bounds.X + bounds.Width * 0.5f, bounds.Y + bounds.Height * 0.5f);
         var scale = Math.Min(bounds.Width, bounds.Height) * 0.5f;
 
         var cosYaw = MathF.Cos(Yaw);
@@ -226,7 +226,7 @@ public sealed class VfxPreviewView : UiElement {
             Segment(new(-GridExtent, 0f, line), new(GridExtent, 0f, line));
         }
 
-        context.Stroke(grid, new Color4(1f, 1f, 1f, 0.08f), 1f);
+        context.Stroke(grid, new(1f, 1f, 1f, 0.08f), 1f);
 
         void Segment(Vector3 from, Vector3 to) {
             if (!Screen(from, out var a) || !Screen(to, out var b)) {
@@ -237,10 +237,10 @@ public sealed class VfxPreviewView : UiElement {
         }
 
         bool Screen(Vector3 world, out Vector2 point) {
-            var x = (world.X * cosYaw) - (world.Z * sinYaw);
-            var z = (world.X * sinYaw) + (world.Z * cosYaw);
-            var y = (world.Y * cosPitch) - (z * sinPitch);
-            var depth = (world.Y * sinPitch) + (z * cosPitch) + Distance;
+            var x = world.X * cosYaw - world.Z * sinYaw;
+            var z = world.X * sinYaw + world.Z * cosYaw;
+            var y = world.Y * cosPitch - z * sinPitch;
+            var depth = world.Y * sinPitch + z * cosPitch + Distance;
 
             if (depth <= 0.05f) {
                 point = default;
@@ -249,7 +249,7 @@ public sealed class VfxPreviewView : UiElement {
 
             var perspective = scale / depth;
 
-            point = new(centre.X + (x * perspective), centre.Y - (y * perspective));
+            point = new(centre.X + x * perspective, centre.Y - y * perspective);
             return true;
         }
     }

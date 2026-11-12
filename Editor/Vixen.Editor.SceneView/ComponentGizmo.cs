@@ -15,8 +15,12 @@ namespace Vixen.Editor.SceneView;
 /// <param name="Forward">Its local Z, normalised.</param>
 /// <param name="Scale">Its lossy world scale.</param>
 /// <remarks>
-///     ⚠ <b>Five vectors rather than the <c>Transform</c> they came from, and the reason is that
-///     <c>Transform</c> is a <c>ref struct</c>.</b> One cannot be a field, boxed, or captured, which
+///     ⚠
+///     <b>
+///         Five vectors rather than the <c>Transform</c> they came from, and the reason is that
+///         <c>Transform</c> is a <c>ref struct</c>.
+///     </b>
+///     One cannot be a field, boxed, or captured, which
 ///     rules out handing it to a drawer that wants to keep it for a moment — and it needs a
 ///     <c>World</c> and an <c>Entity</c> to exist at all, so a test for a gizmo would have to build a
 ///     world to call one. This is what a gizmo actually reads, in a shape a test can write a literal
@@ -94,11 +98,12 @@ public sealed class GizmoDraw {
             return;
         }
 
-        var previous = centre + (first * radius);
+        var previous = centre + first * radius;
 
         for (var i = 1; i <= Segments; i++) {
-            var turn = i / (float) Segments;
-            var next = centre + (((first * MathF.Cos(turn * MathF.Tau)) + (second * MathF.Sin(turn * MathF.Tau))) * radius);
+            var turn = i / (float)Segments;
+            var next = centre
+                + (first * MathF.Cos(turn * MathF.Tau) + second * MathF.Sin(turn * MathF.Tau)) * radius;
 
             Line(previous, next, colour);
             previous = next;
@@ -146,9 +151,9 @@ public sealed class GizmoDraw {
     /// <param name="arm">How far each of the six arms reaches.</param>
     /// <param name="colour">Its colour.</param>
     public void Cross(Vector3 origin, float arm, Color4 colour) {
-        Line(origin - (Vector3.UnitX * arm), origin + (Vector3.UnitX * arm), colour);
-        Line(origin - (Vector3.UnitY * arm), origin + (Vector3.UnitY * arm), colour);
-        Line(origin - (Vector3.UnitZ * arm), origin + (Vector3.UnitZ * arm), colour);
+        Line(origin - Vector3.UnitX * arm, origin + Vector3.UnitX * arm, colour);
+        Line(origin - Vector3.UnitY * arm, origin + Vector3.UnitY * arm, colour);
+        Line(origin - Vector3.UnitZ * arm, origin + Vector3.UnitZ * arm, colour);
     }
 }
 
@@ -166,16 +171,23 @@ public delegate void GizmoDrawer(GizmoDraw draw, object component, GizmoPlacemen
 /// <param name="Order">Which of two gizmos draws first, low first.</param>
 /// <remarks>
 ///     <para>
-///         <b>Doc 36 § D4's <c>AddGizmo</c>, whose "Replaces the hardcoding at" column said
-///         <i>nothing</i>.</b> That was wrong and it is the useful part of building this:
+///         <b>
+///             Doc 36 § D4's <c>AddGizmo</c>, whose "Replaces the hardcoding at" column said
+///             <i>nothing</i>.
+///         </b>
+///         That was wrong and it is the useful part of building this:
 ///         <c>SceneLines.LightShapes</c> is a walk over the scene testing for one component type and
 ///         switching on its kind, which is exactly this mechanism written once, in the application's
 ///         own assembly, for the one component the application happens to know about. A plugin's
 ///         component had no way to be drawn at all.
 ///     </para>
 ///     <para>
-///         ⚠ <b><see cref="SelectedOnly" /> is Unity's <c>GizmoType.Selected</c> and it earns its
-///         place.</b> A trigger volume drawn for every entity in a level is a scene nobody can see
+///         ⚠
+///         <b>
+///             <see cref="SelectedOnly" /> is Unity's <c>GizmoType.Selected</c> and it earns its
+///             place.
+///         </b>
+///         A trigger volume drawn for every entity in a level is a scene nobody can see
 ///         through; the same volume drawn for the one you clicked is the reason you clicked it. A
 ///         gizmo that is cheap and always relevant — a light's reach — wants the default.
 ///     </para>
@@ -201,14 +213,22 @@ public sealed record ComponentGizmo(Type Target, GizmoDrawer Draw, bool Selected
 ///         }
 ///     </code>
 ///     <para>
-///         ⚠ <b>The component is <see cref="object" /> rather than the target type, and casting it is
-///         the author's line.</b> A typed delegate would need the attribute to be generic, which an
+///         ⚠
+///         <b>
+///             The component is <see cref="object" /> rather than the target type, and casting it is
+///             the author's line.
+///         </b>
+///         A typed delegate would need the attribute to be generic, which an
 ///         attribute cannot be over a type argument the scanner discovers at run time. The cast is
 ///         checked — the drawer is only ever called for an entity carrying <see cref="Target" />.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Read by a scan of the assembly that declared it, and only for a plugin or a project
-///         script</b> — see <c>CustomInspectorAttribute</c> for why that is bounded rather than the
+///         ⚠
+///         <b>
+///             Read by a scan of the assembly that declared it, and only for a plugin or a project
+///             script
+///         </b>
+///         — see <c>CustomInspectorAttribute</c> for why that is bounded rather than the
 ///         assembly scanning ADR-002 refuses. In-tree code registers a <see cref="ComponentGizmo" />
 ///         directly.
 ///     </para>
@@ -277,7 +297,7 @@ public sealed class ComponentGizmos {
         // ⚠ Gizmos outside the entity loop and entities inside it, not the other way round. A scene
         // has thousands of entities and a session has a handful of gizmos, so the bridge lookup and
         // the order sort happen once per gizmo rather than once per entity.
-        foreach (var gizmo in gizmos.OrderBy(entry => entry.Order)) {
+        foreach (var gizmo in gizmos.OrderBy(static entry => entry.Order)) {
             if (!map.TryGetValue(gizmo.Target, out var bridge)) {
                 continue;
             }
@@ -291,7 +311,7 @@ public sealed class ComponentGizmos {
                     continue;
                 }
 
-                var placement = GizmoPlacement.Of(new Transform(document.World, entity));
+                var placement = GizmoPlacement.Of(new(document.World, entity));
 
                 gizmo.Draw(draw, bridge.Read(document.World, entity), placement, selected);
             }

@@ -10,14 +10,18 @@ namespace Vixen.Rendering;
 
 /// <summary>Which way a <see cref="HiZPyramid" /> reduces, which is which question it answers.</summary>
 public enum HiZReduction {
-    /// <summary>The farthest texel per cell — the minimum, under reversed depth. Occlusion culling's
+    /// <summary>
+    ///     The farthest texel per cell — the minimum, under reversed depth. Occlusion culling's
     ///     question: an object is hidden only when its nearest point is behind every pixel of the
-    ///     tile. <c>HiZReduce.rvn</c>.</summary>
+    ///     tile. <c>HiZReduce.rvn</c>.
+    /// </summary>
     Furthest,
 
-    /// <summary>The nearest texel per cell — the maximum, under reversed depth. The screen march's
+    /// <summary>
+    ///     The nearest texel per cell — the maximum, under reversed depth. The screen march's
     ///     question: a cell cannot stop a ray that passes nearer than everything in it.
-    ///     <c>NearestReduce.rvn</c>, and <c>ScreenDepthPyramid</c> is its CPU referee.</summary>
+    ///     <c>NearestReduce.rvn</c>, and <c>ScreenDepthPyramid</c> is its CPU referee.
+    /// </summary>
     Nearest
 }
 
@@ -78,21 +82,25 @@ public sealed class HiZPyramid : IDisposable {
     // above another renumbers it — and the generated constant moves with it while a literal does not.
     // The two reduce shaders are deliberately the same shape, but each is read through its own keys,
     // so a drift between them is a compile error here rather than a wrong binding there.
-    DescriptorSetSlot Slot => (DescriptorSetSlot)(Reduction == HiZReduction.Nearest
-        ? NearestReduceKeys.SourceSet
-        : HiZReduceKeys.SourceSet);
+    DescriptorSetSlot Slot =>
+        (DescriptorSetSlot)(Reduction == HiZReduction.Nearest
+            ? NearestReduceKeys.SourceSet
+            : HiZReduceKeys.SourceSet);
 
-    uint SourceBinding => Reduction == HiZReduction.Nearest
-        ? NearestReduceKeys.SourceBinding
-        : HiZReduceKeys.SourceBinding;
+    uint SourceBinding =>
+        Reduction == HiZReduction.Nearest
+            ? NearestReduceKeys.SourceBinding
+            : HiZReduceKeys.SourceBinding;
 
-    uint TargetBinding => Reduction == HiZReduction.Nearest
-        ? NearestReduceKeys.TargetBinding
-        : HiZReduceKeys.TargetBinding;
+    uint TargetBinding =>
+        Reduction == HiZReduction.Nearest
+            ? NearestReduceKeys.TargetBinding
+            : HiZReduceKeys.TargetBinding;
 
-    string ShaderName => Reduction == HiZReduction.Nearest
-        ? NearestReduceKeys.ShaderName
-        : HiZReduceKeys.ShaderName;
+    string ShaderName =>
+        Reduction == HiZReduction.Nearest
+            ? NearestReduceKeys.ShaderName
+            : HiZReduceKeys.ShaderName;
 
     Effect? allocatedFor;
     bool disposed;
@@ -106,10 +114,12 @@ public sealed class HiZPyramid : IDisposable {
     }
 
     /// <summary>Which way the chain reduces. Furthest is culling's; Nearest is the screen march's.</summary>
-    /// <remarks>⚠ Decided before the first build: the chain's texels mean one thing or the other,
+    /// <remarks>
+    ///     ⚠ Decided before the first build: the chain's texels mean one thing or the other,
     ///     and a consumer cannot tell which from the texture. Changing it later merely reduces the
     ///     next build the other way — into a chain whose earlier readers keep their old answer's
-    ///     name for it.</remarks>
+    ///     name for it.
+    /// </remarks>
     public HiZReduction Reduction { get; set; }
 
     /// <summary>Where the reduction variant is resolved from. Null builds nothing.</summary>
@@ -202,7 +212,7 @@ public sealed class HiZPyramid : IDisposable {
 
         for (var level = 0; level < Levels; level++) {
             var size = GpuCulling.LevelSize(Size, level);
-            var set = sets[(ring * Levels) + level];
+            var set = sets[ring * Levels + level];
 
             device.UpdateDescriptorSet(
                 set,

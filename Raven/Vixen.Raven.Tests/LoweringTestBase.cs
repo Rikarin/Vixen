@@ -3,7 +3,6 @@
 
 using Vixen.Core.Syntax.Diagnostics;
 using Vixen.Raven;
-using Vixen.Raven.Diagnostics;
 using Vixen.Raven.IR;
 using Vixen.Raven.Lowering;
 using Vixen.Raven.Syntax;
@@ -22,7 +21,7 @@ public static class LoweringTestBase {
 
         Assert.True(
             diagnostics.Count == 0,
-            "Expected no lowering diagnostics, got:\n" + string.Join("\n", diagnostics.Select(d => d.ToString()))
+            "Expected no lowering diagnostics, got:\n" + string.Join("\n", diagnostics.Select(static d => d.ToString()))
         );
 
         return module;
@@ -38,7 +37,7 @@ public static class LoweringTestBase {
 
         Assert.True(
             semantic.Count == 0,
-            "Expected no semantic diagnostics, got:\n" + string.Join("\n", semantic.Select(d => d.ToString()))
+            "Expected no semantic diagnostics, got:\n" + string.Join("\n", semantic.Select(static d => d.ToString()))
         );
 
         var bag = new DiagnosticBag();

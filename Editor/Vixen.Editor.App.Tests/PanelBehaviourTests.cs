@@ -134,7 +134,7 @@ public class PanelBehaviourTests {
         fixture.Open("inspector");
         fixture.Click(Panel(fixture, "inspector"));
 
-        var marked = fixture.Shell.Workspace.Host.Groups.Count(group => group.HasClass("active"));
+        var marked = fixture.Shell.Workspace.Host.Groups.Count(static group => group.HasClass("active"));
 
         Assert.Equal(1, marked);
     }
@@ -164,7 +164,7 @@ public class PanelBehaviourTests {
         fixture.Shell.Workspace.Host.Groups.FirstOrDefault(group => group.Node?.IndexOf(id) >= 0)
         ?? throw new InvalidOperationException($"no group holds '{id}'");
 
-    static List<string> Rows(TreeView tree) => [.. Nodes(tree.Root).Select(node => node.Text ?? string.Empty)];
+    static List<string> Rows(TreeView tree) => [..Nodes(tree.Root).Select(static node => node.Text ?? string.Empty)];
 
     static IEnumerable<TreeNode> Nodes(TreeNode node) {
         foreach (var child in node.Children) {

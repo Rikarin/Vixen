@@ -8,8 +8,6 @@ using Vixen.Core.Yaml.Meta;
 using Vixen.Editor.Assets.Materials;
 using Vixen.Editor.Assets.MeshMaps;
 using Vixen.Editor.Core;
-using Vixen.Geometry;
-using Vixen.Geometry.Remeshing;
 
 namespace Vixen.Editor.App;
 
@@ -22,8 +20,12 @@ namespace Vixen.Editor.App;
 ///         bake, and it is that file rather than a new idea, deliberately.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Ordinary files with ordinary sidecars, and § D12 says why in one sentence: an artist
-///         wants to look at the curvature map when a generator misbehaves.</b> The same pixels
+///         ⚠
+///         <b>
+///             Ordinary files with ordinary sidecars, and § D12 says why in one sentence: an artist
+///             wants to look at the curvature map when a generator misbehaves.
+///         </b>
+///         The same pixels
 ///         written into <c>Library/</c> would be a cache — invisible in the browser, unopenable,
 ///         un-referenceable by a material, and gone on the next clean. What lands here is a PNG a
 ///         double-click opens.
@@ -50,8 +52,12 @@ namespace Vixen.Editor.App;
 ///         <c>Barrel_ao_3</c> while every generator went on reading the first one.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Except over a map somebody has painted on, which is the sentence the one above
-///         stopped one step short of</b> —
+///         ⚠
+///         <b>
+///             Except over a map somebody has painted on, which is the sentence the one above
+///             stopped one step short of
+///         </b>
+///         —
 ///         <a href="https://github.com/Rikarin/Vixen/issues/716">#716</a>. Overwriting is right for a
 ///         re-bake of untouched files and is exactly what must not happen to a file an artist has
 ///         edited, and until <see cref="MeshMapNaming.DigestKey" /> existed nothing here could tell
@@ -59,8 +65,12 @@ namespace Vixen.Editor.App;
 ///         meant it.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The hash comes from <see cref="MaterialProvenance.Digest" /> rather than being
-///         spelled again here</b>, which reads as a mesh map borrowing a material's type and is the
+///         ⚠
+///         <b>
+///             The hash comes from <see cref="MaterialProvenance.Digest" /> rather than being
+///             spelled again here
+///         </b>
+///         , which reads as a mesh map borrowing a material's type and is the
 ///         point: a sidecar digest that a person, a tool or the next bake may compare across the two
 ///         bakes has to be one spelling — <c>sha256:</c> and lower-case hexadecimal — and a second
 ///         private SHA-256 is how the day arrives when the two disagree about the prefix.
@@ -167,7 +177,7 @@ public sealed class ProjectMeshMapBaker(EditorProject project, string folder = M
 
             project.Assets.WillWrite(AssetMetaFile.PathFor(files[at]));
             Describe(files[at], entry.Guid, model, name, images[at]);
-            references[images[at].Usage] = new AssetReference(entry.Guid);
+            references[images[at].Usage] = new(entry.Guid);
         }
 
         project.Assets.Save();
@@ -180,10 +190,14 @@ public sealed class ProjectMeshMapBaker(EditorProject project, string folder = M
     /// <param name="usage">What that file measures, which is the name a generator would ask for.</param>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A refusal rather than <see cref="AssetReference.Null" />, which is
-    ///         <a href="https://github.com/Rikarin/Vixen/issues/731">#731</a> and is
-    ///         <a href="https://github.com/Rikarin/Vixen/issues/724">#724</a>'s shape one asset type
-    ///         over.</b> It survived the material fix because it is in another assembly, and the two
+    ///         ⚠
+    ///         <b>
+    ///             A refusal rather than <see cref="AssetReference.Null" />, which is
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/731">#731</a> and is
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/724">#724</a>'s shape one asset type
+    ///             over.
+    ///         </b>
+    ///         It survived the material fix because it is in another assembly, and the two
     ///         refusals are written separately for the same reason — <c>ProjectMaterialBaker</c> is
     ///         in <c>Vixen.Editor.Assets</c> and this is in the application, so the shared spelling
     ///         would be a new public type owing a guide page to say one sentence.
@@ -244,7 +258,11 @@ public sealed class ProjectMeshMapBaker(EditorProject project, string folder = M
 
             try {
                 if (File.Exists(file)
-                    && !string.Equals(MaterialProvenance.Digest(File.ReadAllBytes(file)), digest, StringComparison.Ordinal)) {
+                    && !string.Equals(
+                        MaterialProvenance.Digest(File.ReadAllBytes(file)),
+                        digest,
+                        StringComparison.Ordinal
+                    )) {
                     painted.Add(image.Usage);
                 }
             } catch (Exception failure) when (failure is IOException or UnauthorizedAccessException) {
@@ -276,8 +294,12 @@ public sealed class ProjectMeshMapBaker(EditorProject project, string folder = M
     /// <returns>The stem every file in the set is named from.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A re-bake and a collision produce the same nine file names, and only the model
-    ///         tells them apart.</b> Overwriting is right for the first — an artist raising the ray
+    ///         ⚠
+    ///         <b>
+    ///             A re-bake and a collision produce the same nine file names, and only the model
+    ///             tells them apart.
+    ///         </b>
+    ///         Overwriting is right for the first — an artist raising the ray
     ///         count has to change the maps their generators already read, which is what
     ///         <see cref="ProjectMeshBaker" />'s remarks argue — and catastrophic for the second: two
     ///         models whose meshes are both called <c>Cube</c>, which is Blender's default object
@@ -299,8 +321,12 @@ public sealed class ProjectMeshMapBaker(EditorProject project, string folder = M
     ///         with the ray-casting maps turned off.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Two passes, and one pass was the whole of
-    ///         <a href="https://github.com/Rikarin/Vixen/issues/708">#708</a>.</b> A single walk that
+    ///         ⚠
+    ///         <b>
+    ///             Two passes, and one pass was the whole of
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/708">#708</a>.
+    ///         </b>
+    ///         A single walk that
     ///         accepted the first candidate that was free <i>or</i> this model's own takes the free
     ///         one, because a free stem comes first — so the day the set that displaced this one is
     ///         renamed or deleted, a re-bake walks back to suffix 1, mints nine fresh GUIDs, and
@@ -365,8 +391,12 @@ public sealed class ProjectMeshMapBaker(EditorProject project, string folder = M
     ///         opens a file per turn rather than a judgement about what is reasonable.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Since <see cref="SetName" /> takes two passes it is a hundred sidecar lookups on
-    ///         every bake rather than one</b>, and that is affordable for a reason worth writing down:
+    ///         ⚠
+    ///         <b>
+    ///             Since <see cref="SetName" /> takes two passes it is a hundred sidecar lookups on
+    ///             every bake rather than one
+    ///         </b>
+    ///         , and that is affordable for a reason worth writing down:
     ///         all but the first few are <c>File.Exists</c> against a name nothing is under, and the
     ///         call they sit in front of casts several hundred rays per texel of an atlas. Ordering
     ///         the search cheaply instead — stopping the ownership pass at the first free stem — is
@@ -381,9 +411,7 @@ public sealed class ProjectMeshMapBaker(EditorProject project, string folder = M
     ///     whose it is — see <see cref="SetName" />, which adopts one.
     /// </remarks>
     static AssetId? OwnerOf(string directory, string name) {
-        var sidecar = AssetMetaFile.PathFor(
-            Path.Combine(directory, MeshMapNaming.FileName(name, MeshMapUsage.Normal))
-        );
+        var sidecar = AssetMetaFile.PathFor(Path.Combine(directory, MeshMapNaming.FileName(name, MeshMapUsage.Normal)));
 
         if (Existing(sidecar) is not { } meta) {
             return null;
@@ -414,8 +442,12 @@ public sealed class ProjectMeshMapBaker(EditorProject project, string folder = M
     ///         remarks say which of the two wins.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Read then rewritten, so a re-bake keeps everything about the asset that is not
-    ///         the bake's.</b> An addressable block an artist set on the id map, and the sub-asset
+    ///         ⚠
+    ///         <b>
+    ///             Read then rewritten, so a re-bake keeps everything about the asset that is not
+    ///             the bake's.
+    ///         </b>
+    ///         An addressable block an artist set on the id map, and the sub-asset
     ///         list the last import recorded, both belong to the file rather than to this run — and a
     ///         bake that helpfully replaced the whole sidecar would drop an address a build resolves
     ///         through. What is deliberately <i>not</i> preserved is the importer block: it carries
@@ -471,8 +503,8 @@ public sealed class ProjectMeshMapBaker(EditorProject project, string folder = M
             return File.Exists(sidecar) ? AssetMetaFile.ReadFile(sidecar) : null;
         } catch (Exception failure)
             when (failure is IOException or YamlParseException or YamlBindingException or MetaVersionException) {
-            return null;
-        }
+                return null;
+            }
     }
 
     /// <summary>Sanitised rather than trusted, for the reason <see cref="ProjectMeshBaker" />'s is.</summary>

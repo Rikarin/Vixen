@@ -55,20 +55,19 @@ public sealed partial class PhysicsWorld {
             in position,
             in rotation,
             ToJolt(description.Motion),
-            new ObjectLayer(description.Layer.Index)
-        ) {
-            LinearVelocity = JoltMath.ToJolt(description.LinearVelocity),
-            AngularVelocity = JoltMath.ToJolt(description.AngularVelocity),
-            AllowedDOFs = ToJolt(description.DegreesOfFreedom),
-            IsSensor = description.IsSensor,
-            AllowSleeping = description.AllowSleeping,
-            Friction = description.Friction,
-            Restitution = description.Restitution,
-            LinearDamping = description.LinearDamping,
-            AngularDamping = description.AngularDamping,
-            GravityFactor = description.GravityFactor,
-            UserData = description.UserData
-        };
+            new(description.Layer.Index)
+        );
+        settings.LinearVelocity = JoltMath.ToJolt(description.LinearVelocity);
+        settings.AngularVelocity = JoltMath.ToJolt(description.AngularVelocity);
+        settings.AllowedDOFs = ToJolt(description.DegreesOfFreedom);
+        settings.IsSensor = description.IsSensor;
+        settings.AllowSleeping = description.AllowSleeping;
+        settings.Friction = description.Friction;
+        settings.Restitution = description.Restitution;
+        settings.LinearDamping = description.LinearDamping;
+        settings.AngularDamping = description.AngularDamping;
+        settings.GravityFactor = description.GravityFactor;
+        settings.UserData = description.UserData;
 
         if (description.Mass > 0f) {
             // CalculateMass keeps the shape's inertia distribution and scales the whole thing to the
@@ -509,7 +508,7 @@ public sealed partial class PhysicsWorld {
         };
 
     static AllowedDOFs ToJolt(BodyDegreesOfFreedom degrees) {
-        var result = (AllowedDOFs)0;
+        AllowedDOFs result = 0;
 
         if ((degrees & BodyDegreesOfFreedom.TranslationX) != 0) {
             result |= AllowedDOFs.TranslationX;

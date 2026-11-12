@@ -4,7 +4,6 @@
 using System.Collections.Immutable;
 using Vixen.Core.Imaging;
 using Vixen.Editor.Core;
-using Vixen.Editor.TextureGraph;
 using Vixen.Graphics;
 using Vixen.Graphics.Null;
 using Vixen.TextureGraph;
@@ -50,14 +49,16 @@ public sealed class TextureProjectImagesTests : IDisposable {
 
     readonly NullDevice device = new(new());
 
-    public TextureProjectImagesTests() => Directory.CreateDirectory(Path.Combine(root, "Assets"));
+    public TextureProjectImagesTests() {
+        Directory.CreateDirectory(Path.Combine(root, "Assets"));
+    }
 
     public void Dispose() {
         device.Dispose();
 
         try {
             if (Directory.Exists(root)) {
-                Directory.Delete(root, recursive: true);
+                Directory.Delete(root, true);
             }
         } catch (IOException) {
             // A temporary directory that would not go is not a test failure.
@@ -99,7 +100,7 @@ public sealed class TextureProjectImagesTests : IDisposable {
     /// <summary>A reference nothing has imported is named, and the project is named as the reason.</summary>
     [Fact]
     public void A_reference_no_asset_matches_is_refused_without_touching_the_disk() {
-        var project = Project(import: false);
+        var project = Project(false);
         var plan = Plan();
 
         using TextureUploads uploads = new(device);
@@ -147,7 +148,7 @@ public sealed class TextureProjectImagesTests : IDisposable {
             uploads,
             plan,
             new(0, default, reference, 8, 8, []),
-            _ => (Picture(PixelFormat.Rgba8UNorm, 8, 8), null)
+            static _ => (Picture(PixelFormat.Rgba8UNorm, 8, 8), null)
         );
 
         Assert.NotNull(why);
@@ -163,9 +164,13 @@ public sealed class TextureProjectImagesTests : IDisposable {
     ///         every real graph — the failure mode is silent because the sentence looks deliberate.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Asserted on the reference and not on a folder, because the first version of this
-    ///         case made a directory called <c>Set:A</c> — which Windows refuses, so it threw in its
-    ///         first statement on one of CI's three legs.</b> The property is decided before any
+    ///         ⚠
+    ///         <b>
+    ///             Asserted on the reference and not on a folder, because the first version of this
+    ///             case made a directory called <c>Set:A</c> — which Windows refuses, so it threw in its
+    ///             first statement on one of CI's three legs.
+    ///         </b>
+    ///         The property is decided before any
     ///         file system is involved: <c>SchemeOf</c> stops at the first separator, so a colon
     ///         after one cannot name a scheme. Going to disk to prove that tested the platform
     ///         rather than the rule.
@@ -186,7 +191,7 @@ public sealed class TextureProjectImagesTests : IDisposable {
             uploads,
             Plan(),
             new(0, default, reference, 8, 8, []),
-            _ => (Picture(PixelFormat.Rgba8UNorm, 8, 8), null)
+            static _ => (Picture(PixelFormat.Rgba8UNorm, 8, 8), null)
         );
 
         // ⚠ Not `Assert.Null`: the file is not in the project, so a refusal is correct. What this
@@ -198,8 +203,12 @@ public sealed class TextureProjectImagesTests : IDisposable {
 
     /// <summary>A picture in a format the plan's slot cannot hold is refused by name.</summary>
     /// <remarks>
-    ///     ⚠ <b>Before the upload, so the message is about the file rather than about a byte
-    ///     count.</b> A block-compressed asset has the wrong length for the Rgba8 image it would
+    ///     ⚠
+    ///     <b>
+    ///         Before the upload, so the message is about the file rather than about a byte
+    ///         count.
+    ///     </b>
+    ///     A block-compressed asset has the wrong length for the Rgba8 image it would
     ///     fill, and <c>TextureUploads.Add</c> would refuse it with arithmetic nobody can act on.
     /// </remarks>
     [Fact]
@@ -214,7 +223,7 @@ public sealed class TextureProjectImagesTests : IDisposable {
             uploads,
             plan,
             new(0, default, Reference, 8, 8, []),
-            _ => (Picture(PixelFormat.Rgba16Float, 8, 8), null)
+            static _ => (Picture(PixelFormat.Rgba16Float, 8, 8), null)
         );
 
         Assert.NotNull(why);
@@ -236,7 +245,7 @@ public sealed class TextureProjectImagesTests : IDisposable {
             uploads,
             plan,
             new(0, default, Reference, 8, 8, []),
-            _ => (null, "nothing here decodes '.png'.")
+            static _ => (null, "nothing here decodes '.png'.")
         );
 
         Assert.NotNull(why);
@@ -245,8 +254,11 @@ public sealed class TextureProjectImagesTests : IDisposable {
 
     /// <summary>⚠ Every entry is answered, not only the first.</summary>
     /// <remarks>
-    ///     <b>A host that stopped at the first would send an author round the loop once per missing
-    ///     picture</b>, which for a stack moved between projects is once per layer. The two entries
+    ///     <b>
+    ///         A host that stopped at the first would send an author round the loop once per missing
+    ///         picture
+    ///     </b>
+    ///     , which for a stack moved between projects is once per layer. The two entries
     ///     fail for different reasons on purpose: a loop that reported the same sentence twice would
     ///     satisfy a count.
     /// </remarks>
@@ -262,7 +274,7 @@ public sealed class TextureProjectImagesTests : IDisposable {
             uploads,
             plan,
             [new(0, default, "meshmap:curvature", 8, 8, []), new(1, default, "Assets/Missing.png", 8, 8, [])],
-            _ => (Picture(PixelFormat.Rgba8UNorm, 8, 8), null)
+            static _ => (Picture(PixelFormat.Rgba8UNorm, 8, 8), null)
         );
 
         Assert.Equal(2, unresolved.Count);
@@ -290,7 +302,7 @@ public sealed class TextureProjectImagesTests : IDisposable {
         new() {
             BaseWidth = 8,
             BaseHeight = 8,
-            Images = [.. Enumerable.Repeat(new TextureImage(TextureFormat.Rgba8, External: true), images)],
+            Images = [..Enumerable.Repeat(new TextureImage(TextureFormat.Rgba8, External: true), images)],
 
             // Nothing here evaluates: an upload is filed against the image table alone, and a plan
             // with no op is one `Validate` would refuse for a reason none of these tests is about.

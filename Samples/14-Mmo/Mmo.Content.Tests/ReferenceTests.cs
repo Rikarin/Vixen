@@ -36,8 +36,11 @@ namespace Vixen.Samples.Mmo.Content.Tests;
 ///         kills the thing that drops it.
 ///     </para>
 ///     <para>
-///         <b>So this is the only place with every library at once, and therefore the only place the
-///         check can live.</b> It belongs in the engine eventually — a <c>vixen content check</c>
+///         <b>
+///             So this is the only place with every library at once, and therefore the only place the
+///             check can live.
+///         </b>
+///         It belongs in the engine eventually — a <c>vixen content check</c>
 ///         that walks the whole catalog — and until then a game's own content test is where it goes,
 ///         which is worth copying out of this sample more than most of what is in it.
 ///     </para>
@@ -51,11 +54,7 @@ public sealed class ReferenceTests : IAsyncLifetime {
     public async ValueTask InitializeAsync() => content = await AuthoredContent.LoadAsync();
 
     /// <inheritdoc />
-    public ValueTask DisposeAsync() {
-        GC.SuppressFinalize(this);
-
-        return ValueTask.CompletedTask;
-    }
+    public ValueTask DisposeAsync() => ValueTask.CompletedTask;
 
     [Fact]
     public void EveryLootEntryDropsSomethingThatExists() {
@@ -100,7 +99,9 @@ public sealed class ReferenceTests : IAsyncLifetime {
         foreach (var quest in QuestLibrary.Compile(Catalog).Quests) {
             var rewards = quest.Definition.Rewards;
 
-            foreach (var grant in rewards.Items.Concat(rewards.Choices).Concat(rewards.Currencies).Concat(rewards.Reputation)) {
+            foreach (var grant in rewards.Items.Concat(rewards.Choices)
+                         .Concat(rewards.Currencies)
+                         .Concat(rewards.Reputation)) {
                 Resolves(grant.Def, $"{quest.Definition.Address} pays");
             }
         }
@@ -166,9 +167,7 @@ public sealed class ReferenceTests : IAsyncLifetime {
         // CreatureLibrary already checks this and reports it as a content problem — asserted here
         // too because the check belongs to the *sample's* own definition type, and a test that only
         // trusted the library would not notice the library being deleted.
-        var libraries = MmoLibraries.Load(
-            content.Definitions.Select(entry => (entry.Address, entry.Bytes))
-        );
+        var libraries = MmoLibraries.Load(content.Definitions.Select(static entry => (entry.Address, entry.Bytes)));
 
         Assert.Empty(libraries.Creatures.Problems);
         Assert.True(libraries.Creatures.Count > 0, "No creatures at all, which is where this started.");

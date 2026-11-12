@@ -72,7 +72,7 @@ public sealed class TruePeakMeter {
             // Blackman, for the same reason SincTable uses one: the stopband matters more than the
             // width of the transition, because what leaks through is an aliased image of the signal.
             var t = 2.0 * Math.PI * i / (length - 1);
-            var window = 0.42 - (0.5 * Math.Cos(t)) + (0.08 * Math.Cos(2.0 * t));
+            var window = 0.42 - 0.5 * Math.Cos(t) + 0.08 * Math.Cos(2.0 * t);
 
             phases[i] = (float)(sinc * window);
         }
@@ -84,7 +84,7 @@ public sealed class TruePeakMeter {
             var sum = 0.0;
 
             for (var tap = 0; tap < Taps; tap++) {
-                sum += phases[(tap * Oversampling) + phase];
+                sum += phases[tap * Oversampling + phase];
             }
 
             if (Math.Abs(sum) < 1e-9) {
@@ -92,7 +92,7 @@ public sealed class TruePeakMeter {
             }
 
             for (var tap = 0; tap < Taps; tap++) {
-                phases[(tap * Oversampling) + phase] /= (float)sum;
+                phases[tap * Oversampling + phase] /= (float)sum;
             }
         }
     }
@@ -125,7 +125,7 @@ public sealed class TruePeakMeter {
             for (var tap = 0; tap < Taps; tap++) {
                 // Oldest first, so the taps line up with a filter written left to right.
                 var index = (cursors[channel] + tap) % Taps;
-                sum += phases[(tap * Oversampling) + phase] * history[offset + index];
+                sum += phases[tap * Oversampling + phase] * history[offset + index];
             }
 
             loudest = MathF.Max(loudest, MathF.Abs(sum));

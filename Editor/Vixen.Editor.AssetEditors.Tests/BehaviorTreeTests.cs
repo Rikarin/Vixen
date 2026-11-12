@@ -66,13 +66,13 @@ public class BehaviorTreeDocumentTests {
 
         // And the reopened tree is the same tree, not merely the same number of bytes.
         Assert.Equal(
-            document.Model.Walk().Select(node => $"{node.Name}:{node.Type}").ToArray(),
-            reopened.Model.Walk().Select(node => $"{node.Name}:{node.Type}").ToArray()
+            document.Model.Walk().Select(static node => $"{node.Name}:{node.Type}").ToArray(),
+            reopened.Model.Walk().Select(static node => $"{node.Name}:{node.Type}").ToArray()
         );
 
         Assert.Equal(
-            document.Model.Content.Keys.Select(key => $"{key.Name}:{key.Type}").ToArray(),
-            reopened.Model.Content.Keys.Select(key => $"{key.Name}:{key.Type}").ToArray()
+            document.Model.Content.Keys.Select(static key => $"{key.Name}:{key.Type}").ToArray(),
+            reopened.Model.Content.Keys.Select(static key => $"{key.Name}:{key.Type}").ToArray()
         );
     }
 
@@ -93,7 +93,7 @@ public class BehaviorTreeDocumentTests {
         // reason.
         Assert.DoesNotContain(
             document.Diagnostics,
-            problem => !problem.Message.Contains("sensor", StringComparison.Ordinal)
+            static problem => !problem.Message.Contains("sensor", StringComparison.Ordinal)
         );
 
         // The compiled tree is the authored one: pre-order, and every attachment carried across.
@@ -104,7 +104,10 @@ public class BehaviorTreeDocumentTests {
         // Dropping it and saying so is the documented behaviour: the alternative is a compiler that
         // refuses, which would make every tree in a project unopenable until its code existed.
         Assert.Empty(template.Services.ToArray());
-        Assert.Contains(document.Diagnostics, problem => problem.Message.Contains("sensor", StringComparison.Ordinal));
+        Assert.Contains(
+            document.Diagnostics,
+            static problem => problem.Message.Contains("sensor", StringComparison.Ordinal)
+        );
     }
 
     [Fact]
@@ -115,7 +118,7 @@ public class BehaviorTreeDocumentTests {
         var document = new BehaviorTreeDocument(fixture.Project, AssetId.Empty, path);
         var before = document.Model.Count;
 
-        document.Edit("Add Node", model => model.Insert(model.Content.Root, Node("Sequence", "extra")));
+        document.Edit("Add Node", static model => model.Insert(model.Content.Root, Node("Sequence", "extra")));
         Assert.Equal(before + 1, document.Model.Count);
 
         Assert.True(document.Stack.Undo());
@@ -137,7 +140,7 @@ public class BehaviorTreeDocumentTests {
         var path = fixture.Write("Assets/Keys.vxbt", string.Empty);
         var document = new BehaviorTreeDocument(fixture.Project, AssetId.Empty, path);
 
-        document.Edit("Add Key", model => model.AddKey("target", BlackboardValueType.Entity));
+        document.Edit("Add Key", static model => model.AddKey("target", BlackboardValueType.Entity));
 
         var gated = document.Model.Content.Root!.Children[0];
 
@@ -151,7 +154,7 @@ public class BehaviorTreeDocumentTests {
             }
         );
 
-        document.Edit("Rename Key", model => model.RenameKey(model.Content.Keys[0], "quarry"));
+        document.Edit("Rename Key", static model => model.RenameKey(model.Content.Keys[0], "quarry"));
 
         Assert.Equal("quarry", Current(document).Children[0].Decorators[0].Fields["Key"]);
 
@@ -169,7 +172,7 @@ public class BehaviorTreeDocumentTests {
         for (var step = 1; step <= 10; step++) {
             var to = step * 10f;
 
-            document.Edit("Move Nodes", model => model.Move(model.Content.Root!, to, to), mergeKey: "move");
+            document.Edit("Move Nodes", model => model.Move(model.Content.Root!, to, to), "move");
         }
 
         Assert.Equal(100f, Current(document).X);
@@ -203,13 +206,16 @@ public class BehaviorTreeDocumentTests {
 
     /// <summary>Thirty nodes, put there the way the editor puts them there.</summary>
     static void Author(BehaviorTreeDocument document) {
-        document.Edit("Add Keys", model => {
-            model.AddKey("target", BlackboardValueType.Entity);
-            model.AddKey("alert", BlackboardValueType.Bool);
-            model.AddKey("home", BlackboardValueType.Vector3);
-            model.AddKey("here", BlackboardValueType.Vector3);
-            model.AddKey("wait", BlackboardValueType.Float);
-        });
+        document.Edit(
+            "Add Keys",
+            static model => {
+                model.AddKey("target", BlackboardValueType.Entity);
+                model.AddKey("alert", BlackboardValueType.Bool);
+                model.AddKey("home", BlackboardValueType.Vector3);
+                model.AddKey("here", BlackboardValueType.Vector3);
+                model.AddKey("wait", BlackboardValueType.Float);
+            }
+        );
 
         var root = document.Model.Content.Root!;
 
@@ -262,7 +268,9 @@ public class BehaviorTreeDocumentTests {
         document.Edit(
             "Watch",
             model => {
-                var service = new BehaviorAttachmentContent { Type = "UpdateBlackboard", Interval = 0.4f, RandomDeviation = 0.1f };
+                var service = new BehaviorAttachmentContent {
+                    Type = "UpdateBlackboard", Interval = 0.4f, RandomDeviation = 0.1f
+                };
 
                 service.Fields["Sensor"] = "nearest";
                 service.Fields["Key"] = "target";

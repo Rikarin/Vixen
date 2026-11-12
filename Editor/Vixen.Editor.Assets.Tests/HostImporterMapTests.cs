@@ -22,14 +22,14 @@ public sealed class HostImporterMapTests {
     /// </remarks>
     [Fact]
     public void The_pipelines_own_registry_is_the_map_less_the_linked_rows() {
-        var pipeline = HostImporterMap.Of(BuiltInImporters.Create(new ImporterContributions(), new ImporterContributions()));
+        var pipeline = HostImporterMap.Of(BuiltInImporters.Create(new(), new()));
 
         Assert.Equal(
             HostImporterMap.Expected.Except(HostImporterMap.LinkedOnly, StringComparer.Ordinal),
             pipeline
         );
 
-        Assert.All(HostImporterMap.LinkedOnly, row => Assert.Contains(row, HostImporterMap.Expected));
+        Assert.All(HostImporterMap.LinkedOnly, static row => Assert.Contains(row, HostImporterMap.Expected));
     }
 
     /// <summary>⚠ A host that linked nothing it should have is red, and says which row.</summary>
@@ -39,7 +39,9 @@ public sealed class HostImporterMapTests {
     /// </remarks>
     [Fact]
     public void A_registry_missing_a_row_fails_the_gate() {
-        var crippled = HostImporterMap.Of(new ImporterRegistry().Add(new TextureImporter()).AddFallback(new RawImporter()));
+        var crippled = HostImporterMap.Of(
+            new ImporterRegistry().Add(new TextureImporter()).AddFallback(new RawImporter())
+        );
 
         Assert.Contains(".png TextureImporter", crippled);
         Assert.Contains("* RawImporter", crippled);

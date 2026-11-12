@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Audio.Spatial;
-using Vixen.Core.Mathematics;
 using Xunit;
 
 namespace Vixen.Audio.Tests;
@@ -27,7 +26,7 @@ public sealed class SurroundTests {
         var radians = degrees * MathF.PI / 180f;
 
         var source = new SpatialSettings {
-            Position = new Vector3(MathF.Sin(radians) * 10f, 0f, -MathF.Cos(radians) * 10f),
+            Position = new(MathF.Sin(radians) * 10f, 0f, -MathF.Cos(radians) * 10f),
             MinDistance = 1f,
             MaxDistance = 1_000f,
             Attenuation = AttenuationModel.None,
@@ -150,7 +149,7 @@ public sealed class SurroundTests {
     /// <summary>What a source walking into its reference distance does, and what Spread asks for.</summary>
     [Fact]
     public void FullSpreadIsEqualPowerAcrossEveryPlacedSpeaker() {
-        var gains = At(90f, 6, spread: 1f);
+        var gains = At(90f, 6, 1f);
 
         // Five placed speakers in 5.1, so each is 1/√5 of full scale — and the LFE is still none.
         var expected = 1f / MathF.Sqrt(5f);
@@ -165,8 +164,8 @@ public sealed class SurroundTests {
     [Fact]
     public void PartialSpreadIsSomewhereBetweenAPointAndEverywhere() {
         var point = At(90f, 6);
-        var half = At(90f, 6, spread: 0.5f);
-        var everywhere = At(90f, 6, spread: 1f);
+        var half = At(90f, 6, 0.5f);
+        var everywhere = At(90f, 6, 1f);
 
         // The speaker it was in gives some up, and one it was not in picks some up.
         Assert.True(half[SideRight] < point[SideRight]);

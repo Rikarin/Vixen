@@ -44,8 +44,12 @@ namespace Vixen.Graphics.Golden.Tests;
 ///         collection xunit will not run in parallel with itself.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The fourth is that argument again about the validation counter, and it is the one
-///         that had been lost fifty-four times over.</b> <c>Fixture.TryOpen</c> resets
+///         ⚠
+///         <b>
+///             The fourth is that argument again about the validation counter, and it is the one
+///             that had been lost fifty-four times over.
+///         </b>
+///         <c>Fixture.TryOpen</c> resets
 ///         <c>VulkanDiagnostics</c> at the door precisely so that everything a fixture <em>builds</em>
 ///         is covered by the <c>ErrorCount</c> check it makes later (#1174). A second
 ///         <c>VulkanDiagnostics.Reset()</c> anywhere downstream throws that window away — the check
@@ -144,13 +148,16 @@ public sealed class DeviceGuardTests {
     public void OnlyTheFixtureOpensADevice() {
         var sources = Directory.GetFiles(ProjectDirectory(), "*.cs", SearchOption.TopDirectoryOnly);
 
-        Assert.True(sources.Length >= 50, $"{sources.Length} sources under '{ProjectDirectory()}' is not this project.");
+        Assert.True(
+            sources.Length >= 50,
+            $"{sources.Length} sources under '{ProjectDirectory()}' is not this project."
+        );
 
         var creators = sources
-            .Where(path => !string.Equals(Path.GetFileName(path), Self, StringComparison.Ordinal))
-            .Where(path => File.ReadAllText(path).Contains(Creation, StringComparison.Ordinal))
-            .Select(path => Path.GetFileName(path)!)
-            .OrderBy(name => name, StringComparer.Ordinal)
+            .Where(static path => !string.Equals(Path.GetFileName(path), Self, StringComparison.Ordinal))
+            .Where(static path => File.ReadAllText(path).Contains(Creation, StringComparison.Ordinal))
+            .Select(static path => Path.GetFileName(path)!)
+            .OrderBy(static name => name, StringComparer.Ordinal)
             .ToArray();
 
         Assert.Equal(["Fixture.cs"], creators);
@@ -180,7 +187,10 @@ public sealed class DeviceGuardTests {
     public void OnlyTheFixtureResetsTheValidationCounter() {
         var sources = Directory.GetFiles(ProjectDirectory(), "*.cs", SearchOption.TopDirectoryOnly);
 
-        Assert.True(sources.Length >= 50, $"{sources.Length} sources under '{ProjectDirectory()}' is not this project.");
+        Assert.True(
+            sources.Length >= 50,
+            $"{sources.Length} sources under '{ProjectDirectory()}' is not this project."
+        );
 
         // ⚠ The instrument, first. A tree where nothing resets passes the census below perfectly.
         Assert.True(
@@ -191,10 +201,10 @@ public sealed class DeviceGuardTests {
         );
 
         var zeroing = sources
-            .Where(path => !string.Equals(Path.GetFileName(path), Self, StringComparison.Ordinal))
-            .Where(path => File.ReadLines(path).Any(Calls))
-            .Select(path => Path.GetFileName(path)!)
-            .OrderBy(name => name, StringComparer.Ordinal)
+            .Where(static path => !string.Equals(Path.GetFileName(path), Self, StringComparison.Ordinal))
+            .Where(static path => File.ReadLines(path).Any(Calls))
+            .Select(static path => Path.GetFileName(path)!)
+            .OrderBy(static name => name, StringComparer.Ordinal)
             .ToArray();
 
         Assert.True(
@@ -262,7 +272,7 @@ public sealed class DeviceGuardTests {
 
             var collection = type
                 .GetCustomAttributes(true)
-                .FirstOrDefault(attribute => attribute.GetType().Name is "CollectionAttribute");
+                .FirstOrDefault(static attribute => attribute.GetType().Name is "CollectionAttribute");
 
             var name = collection?.GetType().GetProperty("Name")?.GetValue(collection) as string;
 
@@ -270,7 +280,7 @@ public sealed class DeviceGuardTests {
                 string.Equals(name, Serialised, StringComparison.Ordinal),
                 $"{type.Name} calls `{Door}` and is in collection '{name ?? "<none>"}' rather than "
                 + $"'{Serialised}', so it opens a device while the serialised collection has one. "
-                + $"VulkanDiagnostics is process-wide: the next validation error will be reported "
+                + "VulkanDiagnostics is process-wide: the next validation error will be reported "
                 + "against whichever fixture reads it first, which is not the one that caused it."
             );
 
@@ -300,7 +310,7 @@ public sealed class DeviceGuardTests {
 
             var facts = type
                 .GetMethods(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly)
-                .Any(method => method.GetCustomAttributes(true).Any(IsFact));
+                .Any(static method => method.GetCustomAttributes(true).Any(IsFact));
 
             if (!facts) {
                 continue;
@@ -337,7 +347,9 @@ public sealed class DeviceGuardTests {
     ///     them and reports on a tree nobody is editing.
     /// </remarks>
     static string ProjectDirectory() {
-        for (var directory = new DirectoryInfo(AppContext.BaseDirectory); directory is not null; directory = directory.Parent) {
+        for (var directory = new DirectoryInfo(AppContext.BaseDirectory);
+             directory is not null;
+             directory = directory.Parent) {
             var candidate = Path.Combine(directory.FullName, "Platform", "Vixen.Graphics.Golden.Tests");
 
             if (File.Exists(Path.Combine(candidate, "Fixture.cs"))) {
@@ -345,6 +357,8 @@ public sealed class DeviceGuardTests {
             }
         }
 
-        throw new DirectoryNotFoundException($"this project's sources were not found above '{AppContext.BaseDirectory}'.");
+        throw new DirectoryNotFoundException(
+            $"this project's sources were not found above '{AppContext.BaseDirectory}'."
+        );
     }
 }

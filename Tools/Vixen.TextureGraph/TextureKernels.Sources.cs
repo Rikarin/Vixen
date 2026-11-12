@@ -7,8 +7,12 @@ namespace Vixen.TextureGraph;
 
 /// <summary>Which of <c>Shape</c>'s fifteen patterns an op draws.</summary>
 /// <remarks>
-///     ⚠ <b>The numbers are the contract with <c>Shaders/Shape.rvn</c>'s <c>kind</c>, which compares
-///     against them literally.</b> Nothing in the compilation would notice a renumbering — the picture
+///     ⚠
+///     <b>
+///         The numbers are the contract with <c>Shaders/Shape.rvn</c>'s <c>kind</c>, which compares
+///         against them literally.
+///     </b>
+///     Nothing in the compilation would notice a renumbering — the picture
 ///     would simply be a different shape, which is a perfectly plausible picture. What pins them is
 ///     <c>TextureSourceDeviceTests</c>, where every kind is identified by a closed form that only it
 ///     satisfies.
@@ -124,16 +128,23 @@ internal enum TextureNoiseProfile {
 /// <summary>How a <c>Worley</c> lattice measures the distance to a feature point.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>The metric is what a cell's <em>shape</em> is, and it was euclidean and nothing else
-///         until <a href="https://github.com/Rikarin/Vixen/issues/1101">#1101</a>.</b>
+///         ⚠
+///         <b>
+///             The metric is what a cell's <em>shape</em> is, and it was euclidean and nothing else
+///             until <a href="https://github.com/Rikarin/Vixen/issues/1101">#1101</a>.
+///         </b>
 ///         <see cref="Chebyshev" /> gives square cells and <see cref="Manhattan" /> diamonds, which
 ///         between them are most of what a cellular pattern library is for — tile, cracked mud, snake
 ///         skin, hex-ish plate. Round cells were not a decision; they were the only thing
 ///         <c>length</c> could say.
 ///     </para>
 ///     <para>
-///         ⚠ <b>A uniform rather than a <c>[Permutation]</c>, for <see cref="TextureNoiseBasis" />'s
-///         reason and not by analogy with it.</b> There is nowhere in the evaluator for a plan to
+///         ⚠
+///         <b>
+///             A uniform rather than a <c>[Permutation]</c>, for <see cref="TextureNoiseBasis" />'s
+///             reason and not by analogy with it.
+///         </b>
+///         There is nowhere in the evaluator for a plan to
 ///         name a permutation value, so one here would take its <c>.rvn</c> default in every op for
 ///         ever — and twelve modules would become thirty-six, for two branches every invocation in a
 ///         dispatch takes the same way.
@@ -168,8 +179,12 @@ internal enum TextureCellMetric {
 ///         picture by naming the wrong one. Every builder here emits the complete set.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Every parameter is a scalar, and that is a property of the evaluator rather than a
-///         style.</b> <c>Uniforms</c> writes one <see cref="float" /> per uniform-block member, so a
+///         ⚠
+///         <b>
+///             Every parameter is a scalar, and that is a property of the evaluator rather than a
+///             style.
+///         </b>
+///         <c>Uniforms</c> writes one <see cref="float" /> per uniform-block member, so a
 ///         <c>float2</c> or <c>float4</c> member would receive its first component and zeros for the
 ///         rest — a centre of <c>(0.5, 0)</c> where <c>(0.5, 0.5)</c> was meant, which is a picture
 ///         nobody would call broken. So a colour is four parameters and a centre is two, in every
@@ -424,7 +439,7 @@ internal static class TextureSources {
     /// </remarks>
     public static ImmutableArray<TextureOp> All { get; } = [
         Uniform(0, 0.5f),
-        Bitmap(0, 1, srgb: true),
+        Bitmap(0, 1, true),
         Gradient(0, 1),
         Shape(0),
         Noise(0),

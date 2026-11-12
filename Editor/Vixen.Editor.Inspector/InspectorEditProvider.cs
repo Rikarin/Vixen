@@ -28,8 +28,12 @@ namespace Vixen.Editor.Inspector;
 ///         target with no properties rather than an error.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The cost sentence above survives the change, which is why the fallback is here
-///         rather than in a second provider callers opt into.</b> <c>TypeRegistry</c> is filled by
+///         ⚠
+///         <b>
+///             The cost sentence above survives the change, which is why the fallback is here
+///             rather than in a second provider callers opt into.
+///         </b>
+///         <c>TypeRegistry</c> is filled by
 ///         a <c>[ModuleInitializer]</c> the generator emits per assembly — its own remarks say
 ///         there is no scan and nothing that stops working when the trimmer removes metadata — so
 ///         "reflected" in <see cref="ReflectedDescriptor" /> names <c>Vixen.Core.Reflection</c> and

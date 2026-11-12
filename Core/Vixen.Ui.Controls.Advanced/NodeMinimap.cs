@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core.Mathematics;
-using Vixen.Input;
 
 namespace Vixen.Ui.Controls.Advanced;
 
@@ -37,7 +36,7 @@ public sealed partial class NodeMinimap : Control {
     /// <inheritdoc />
     protected override void OnCreated() {
         base.OnCreated();
-        AddHandler<PointerEvent>(static (element, args) => ((NodeMinimap) element).Pointed(args));
+        AddHandler<PointerEvent>(static (element, args) => ((NodeMinimap)element).Pointed(args));
     }
 
     /// <summary>What the whole picture covers, in graph units.</summary>
@@ -92,12 +91,12 @@ public sealed partial class NodeMinimap : Control {
 
         var scale = MathF.Min(bounds.Width / extent.Width, bounds.Height / extent.Height);
 
-        return new Fit(
+        return new(
             extent,
             scale,
-            new Vector2(
-                bounds.X + ((bounds.Width - (extent.Width * scale)) * 0.5f),
-                bounds.Y + ((bounds.Height - (extent.Height * scale)) * 0.5f)
+            new(
+                bounds.X + (bounds.Width - extent.Width * scale) * 0.5f,
+                bounds.Y + (bounds.Height - extent.Height * scale) * 0.5f
             )
         );
     }
@@ -117,8 +116,8 @@ public sealed partial class NodeMinimap : Control {
         return fit.Scale <= 0f
             ? default
             : new Vector2(
-                fit.Extent.X + ((x - fit.Origin.X) / fit.Scale),
-                fit.Extent.Y + ((y - fit.Origin.Y) / fit.Scale)
+                fit.Extent.X + (x - fit.Origin.X) / fit.Scale,
+                fit.Extent.Y + (y - fit.Origin.Y) / fit.Scale
             );
     }
 
@@ -144,7 +143,7 @@ public sealed partial class NodeMinimap : Control {
             var origin = fit.ToScreen(rectangle.Position);
 
             context.FillRectangle(
-                new Rectangle(
+                new(
                     origin.X,
                     origin.Y,
                     // ⚠ At least a pixel. A node a hundred graph units wide in a map scaled to a
@@ -169,7 +168,7 @@ public sealed partial class NodeMinimap : Control {
 
     readonly record struct Fit(Rectangle Extent, float Scale, Vector2 Origin) {
         public Vector2 ToScreen(Vector2 point) =>
-            new(Origin.X + ((point.X - Extent.X) * Scale), Origin.Y + ((point.Y - Extent.Y) * Scale));
+            new(Origin.X + (point.X - Extent.X) * Scale, Origin.Y + (point.Y - Extent.Y) * Scale);
     }
 
     /// <remarks>
@@ -211,6 +210,6 @@ public sealed partial class NodeMinimap : Control {
         var point = ToGraph(args.X, args.Y);
         var view = canvas.View;
 
-        canvas.Pan = new Vector2(point.X - (view.Width * 0.5f), point.Y - (view.Height * 0.5f));
+        canvas.Pan = new(point.X - view.Width * 0.5f, point.Y - view.Height * 0.5f);
     }
 }

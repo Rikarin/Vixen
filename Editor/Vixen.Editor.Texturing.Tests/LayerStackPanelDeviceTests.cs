@@ -3,7 +3,6 @@
 
 using Vixen.Core.Imaging;
 using Vixen.Editor.Texturing.Layers;
-using Vixen.Editor.Texturing.Painting;
 using Vixen.Texturing.Layers;
 using Vixen.Texturing.Painting;
 using Vixen.Ui;
@@ -15,8 +14,11 @@ namespace Vixen.Editor.Texturing.Tests;
 /// <summary>A layer stack becomes a picture in a panel, on a real adapter.</summary>
 /// <remarks>
 ///     <para>
-///         <b>The half of <a href="https://github.com/Rikarin/Vixen/issues/806">#806</a> a
-///         device-free suite cannot settle.</b> The registration is worth nothing if the panel it
+///         <b>
+///             The half of <a href="https://github.com/Rikarin/Vixen/issues/806">#806</a> a
+///             device-free suite cannot settle.
+///         </b>
+///         The registration is worth nothing if the panel it
 ///         opens shows nothing, and "the document opened" is satisfied by a preview that evaluates
 ///         no plan at all. This runs the whole route — activate, select, run the verb, compile the
 ///         stack through the public <c>TextureGraphCompiler</c>, evaluate, upload, show — and reads
@@ -30,8 +32,12 @@ namespace Vixen.Editor.Texturing.Tests;
 ///         <c>TexturePreviewDeviceTests</c>' own arrangement, unchanged.
 ///     </para>
 ///     <para>
-///         ⚠ <b>And the authored colour is <em>not</em> the channel default, which is the whole
-///         instrument.</b> <c>LayerStackDocument.DefaultChannels</c> starts base colour at a mid
+///         ⚠
+///         <b>
+///             And the authored colour is <em>not</em> the channel default, which is the whole
+///             instrument.
+///         </b>
+///         <c>LayerStackDocument.DefaultChannels</c> starts base colour at a mid
 ///         grey; a stack whose fill never reached the plan, a plan that never ran and an image nobody
 ///         wrote all produce a flat picture, and two of the three produce a plausible one. Three
 ///         ordered components that are not each other is a closed form no flat answer satisfies.
@@ -115,9 +121,7 @@ public class LayerStackPanelDeviceTests {
             fixture.Project,
             LayerStackPanelTests.AddStack(fixture, "Hull"),
             fixture.Paths.Absolute("Assets/Hull" + LayerStackDocument.Extension)
-        ) {
-            Document = Painted(64)
-        };
+        ) { Document = Painted(64) };
 
         var picture = preview.Evaluate(document);
 
@@ -206,10 +210,7 @@ public class LayerStackPanelDeviceTests {
                 Source = LayerMaskSource.Constant,
                 Value = 1f,
                 Effects = [
-                    new() {
-                        Node = "Filters/Sharpen",
-                        Values = { ["Radius"] = [32f] }
-                    }
+                    new() { Node = "Filters/Sharpen", Values = { ["Radius"] = [32f] } }
                 ]
             }
         };
@@ -218,9 +219,7 @@ public class LayerStackPanelDeviceTests {
             fixture.Project,
             LayerStackPanelTests.AddStack(fixture, "Hull"),
             fixture.Paths.Absolute("Assets/Hull" + LayerStackDocument.Extension)
-        ) {
-            Document = stack
-        };
+        ) { Document = stack };
 
         var picture = preview.Evaluate(document);
 
@@ -236,9 +235,7 @@ public class LayerStackPanelDeviceTests {
             fixture.Project,
             LayerStackPanelTests.AddStack(fixture, "Plain"),
             fixture.Paths.Absolute("Assets/Plain" + LayerStackDocument.Extension)
-        ) {
-            Document = Painted(64)
-        };
+        ) { Document = Painted(64) };
 
         Assert.DoesNotContain("⚠", preview.Evaluate(plain).Status, StringComparison.Ordinal);
     }
@@ -246,8 +243,12 @@ public class LayerStackPanelDeviceTests {
     /// <summary>A texture-fill layer's imported picture is read out of the project and drawn.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b><a href="https://github.com/Rikarin/Vixen/issues/818">#818</a>: the commonest
-    ///         stack there is, and the pane used to answer it with a sentence.</b> A compiler must
+    ///         ⚠
+    ///         <b>
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/818">#818</a>: the commonest
+    ///             stack there is, and the pane used to answer it with a sentence.
+    ///         </b>
+    ///         A compiler must
     ///         not touch an <c>AssetDatabase</c> — it runs on every edit — so what crossed was the
     ///         reference, and nothing on the panel's side read it. Skipping the entry was never an
     ///         option: <c>TexturePlanEvaluator.Evaluate</c> refuses a plan whose external nothing
@@ -273,10 +274,14 @@ public class LayerStackPanelDeviceTests {
 
         // A 2×2 whose top-left is red and whose bottom-right is blue, written as a real PNG through
         // the project's own codec and scanned in as an asset the database can resolve by path.
-        Bitmap picture = new(2, 2, [
-            255, 0, 0, 255, 0, 255, 0, 255,
-            0, 0, 255, 255, 255, 255, 255, 255
-        ]);
+        Bitmap picture = new(
+            2,
+            2,
+            [
+                255, 0, 0, 255, 0, 255, 0, 255,
+                0, 0, 255, 255, 255, 255, 255, 255
+            ]
+        );
 
         Directory.CreateDirectory(Path.Combine(fixture.Paths.Assets, "Textures"));
         File.WriteAllBytes(
@@ -294,16 +299,14 @@ public class LayerStackPanelDeviceTests {
             // ⚠ Restricted, because an empty channel list means *every* channel — so a texture fill
             // that named one picture would be refused six times for the six it did not.
             Channels = ["baseColor"],
-            Textures = new Dictionary<string, string> { ["baseColor"] = "Assets/Textures/corners.png" }
+            Textures = new() { ["baseColor"] = "Assets/Textures/corners.png" }
         };
 
         var document = new LayerStackDocument(
             fixture.Project,
             LayerStackPanelTests.AddStack(fixture, "Hull"),
             fixture.Paths.Absolute("Assets/Hull" + LayerStackDocument.Extension)
-        ) {
-            Document = stack
-        };
+        ) { Document = stack };
 
         // The instrument: the document really is the texture-fill stack, so a green run below is
         // about the resolution rather than about a constant fill that never needed one.
@@ -368,16 +371,14 @@ public class LayerStackPanelDeviceTests {
         stack.Sets[0].Layers[0] = stack.Sets[0].Layers[0] with {
             Fill = LayerFillSource.Texture,
             Channels = ["baseColor"],
-            Textures = new Dictionary<string, string> { ["baseColor"] = "Assets/Textures/nothing-here.png" }
+            Textures = new() { ["baseColor"] = "Assets/Textures/nothing-here.png" }
         };
 
         var document = new LayerStackDocument(
             fixture.Project,
             LayerStackPanelTests.AddStack(fixture, "Hull"),
             fixture.Paths.Absolute("Assets/Hull" + LayerStackDocument.Extension)
-        ) {
-            Document = stack
-        };
+        ) { Document = stack };
 
         var shown = preview.Evaluate(document);
 
@@ -396,6 +397,7 @@ public class LayerStackPanelDeviceTests {
 
         return stack with { BaseWidth = side, BaseHeight = side };
     }
+
     static T? Find<T>(UiElement element) where T : UiElement {
         if (element is T found) {
             return found;

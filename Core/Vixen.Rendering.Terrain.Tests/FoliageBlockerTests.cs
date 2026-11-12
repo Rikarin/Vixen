@@ -18,7 +18,10 @@ public sealed class FoliageBlockerTests {
     static Entity Blocker(World world, Vector3 at, Vector3 extent, Vector3 scale = default, bool enabled = true) {
         var entity = world.Create();
 
-        world.Add(entity, LocalTransform.Identity with { Position = at, Scale = scale == default ? Vector3.One : scale });
+        world.Add(
+            entity,
+            LocalTransform.Identity with { Position = at, Scale = scale == default ? Vector3.One : scale }
+        );
         world.Add(entity, new FoliageBlockerComponent { Extent = extent, IsEnabled = enabled });
 
         return entity;
@@ -34,13 +37,17 @@ public sealed class FoliageBlockerTests {
         var blockers = FoliageBlockers.Gather(world);
 
         Assert.Equal(2, blockers.Count);
-        Assert.Contains(blockers, blocker => blocker.Centre == new Vector3(10f, 0f, 10f));
+        Assert.Contains(blockers, static blocker => blocker.Centre == new Vector3(10f, 0f, 10f));
     }
 
     /// <summary>The zero value blocks: a component nobody configured is enabled.</summary>
     /// <remarks>
-    ///     ⚠ <b>A default-constructed blocker — added with no fields set, or read from a scene file
-    ///     that omits the member — is a blocker somebody placed.</b> One that arrived switched off
+    ///     ⚠
+    ///     <b>
+    ///         A default-constructed blocker — added with no fields set, or read from a scene file
+    ///         that omits the member — is a blocker somebody placed.
+    ///     </b>
+    ///     One that arrived switched off
     ///     would block nothing, silently, which reads as the volume not working rather than as a
     ///     field nobody set.
     /// </remarks>
@@ -56,7 +63,7 @@ public sealed class FoliageBlockerTests {
 
         var blocker = Assert.Single(FoliageBlockers.Gather(world));
 
-        Assert.Equal(new Vector3(3f, 0f, 3f), blocker.Centre);
+        Assert.Equal(new(3f, 0f, 3f), blocker.Centre);
     }
 
     /// <summary>And a disabled one is not.</summary>
@@ -84,12 +91,12 @@ public sealed class FoliageBlockerTests {
     public void TheTransformPlacesItAndScalesIt() {
         using var world = new World();
 
-        Blocker(world, new(5f, 1f, -5f), new(2f, 3f, 4f), scale: new(2f, 1f, 0.5f));
+        Blocker(world, new(5f, 1f, -5f), new(2f, 3f, 4f), new(2f, 1f, 0.5f));
 
         var blocker = Assert.Single(FoliageBlockers.Gather(world));
 
-        Assert.Equal(new Vector3(5f, 1f, -5f), blocker.Centre);
-        Assert.Equal(new Vector3(4f, 3f, 2f), blocker.Extent);
+        Assert.Equal(new(5f, 1f, -5f), blocker.Centre);
+        Assert.Equal(new(4f, 3f, 2f), blocker.Extent);
     }
 
     /// <summary>A negative scale mirrors the box rather than turning it inside out.</summary>
@@ -101,11 +108,11 @@ public sealed class FoliageBlockerTests {
     public void ANegativeScaleStillBlocks() {
         using var world = new World();
 
-        Blocker(world, Vector3.Zero, new(3f), scale: new(-1f, 1f, -1f));
+        Blocker(world, Vector3.Zero, new(3f), new(-1f, 1f, -1f));
 
         var blocker = Assert.Single(FoliageBlockers.Gather(world));
 
-        Assert.Equal(new Vector3(3f), blocker.Extent);
+        Assert.Equal(new(3f), blocker.Extent);
         Assert.True(blocker.Contains(new(1f, 0f, 1f)));
     }
 
@@ -124,13 +131,11 @@ public sealed class FoliageBlockerTests {
 
         volume.AddType(
             FoliageType.Of("Pine") with {
-                Mesh = "Meshes/pine",
-                Radius = 2f,
-                Ecology = FoliageEcology.Tree with { SeedDensity = 0.01f }
+                Mesh = "Meshes/pine", Radius = 2f, Ecology = FoliageEcology.Tree with { SeedDensity = 0.01f }
             }
         );
 
-        var settings = FoliageGrowthSettings.Over(new(0f, 0f), new(100f, 100f), seed: 4242u) with { Steps = 4 };
+        var settings = FoliageGrowthSettings.Over(new(0f, 0f), new(100f, 100f), 4242u) with { Steps = 4 };
         var blockers = FoliageBlockers.Gather(world);
 
         var result = FoliageGrowth.Simulate(volume, new Flat(), settings, blockers);

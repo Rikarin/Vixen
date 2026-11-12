@@ -13,23 +13,34 @@ namespace Vixen.Geometry.Uv;
 /// <param name="Scale">Coordinates per world unit, so that texel density is a fact rather than a guess.</param>
 /// <remarks>
 ///     <para>
-///         <b>This is the value that makes <c>Pack</c> a peer of a standalone packer rather than an
-///         internal detail.</b> docs/plan/42 § D1: an artist who cut seams by hand in another package
+///         <b>
+///             This is the value that makes <c>Pack</c> a peer of a standalone packer rather than an
+///             internal detail.
+///         </b>
+///         docs/plan/42 § D1: an artist who cut seams by hand in another package
 ///         wants those seams kept and the islands rearranged, and that is most of why a standalone
 ///         packer is a product at all. An island can therefore come from this library's own charter,
 ///         from the remesher's patch layout, or from a file — the packer does not ask.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Coordinates are per <i>corner</i>, not per position, and that is not an
-///         implementation detail.</b> A seam is one shared position whose two sides carry different
+///         ⚠
+///         <b>
+///             Coordinates are per <i>corner</i>, not per position, and that is not an
+///             implementation detail.
+///         </b>
+///         A seam is one shared position whose two sides carry different
 ///         coordinates; <see cref="EditMesh" />'s corner layer represents that for nothing, and a
 ///         per-vertex structure represents it by duplicating the vertex. Doing the arithmetic in the
 ///         representation where a seam is free is what keeps the split at the very end, where a
 ///         renderer wants it, instead of threaded through every stage.
 ///     </para>
 ///     <para>
-///         ⚠ <b><see cref="Scale" /> travels with the island because the packer is allowed to move
-///         it and not to resize it.</b> docs/plan/42 § D9: non-uniform texel density is invisible in
+///         ⚠
+///         <b>
+///             <see cref="Scale" /> travels with the island because the packer is allowed to move
+///             it and not to resize it.
+///         </b>
+///         docs/plan/42 § D9: non-uniform texel density is invisible in
 ///         the atlas and glaring in the game — the classic symptom being a character's face at half
 ///         the resolution of their boots — so a packer that quietly rescales an island to make it fit
 ///         has to be able to say that it did.
@@ -96,6 +107,6 @@ public readonly record struct UvPlacement(
             _ => local
         };
 
-        return Offset + (turned * Scale) + new Vector2(Tile.X, Tile.Y);
+        return Offset + turned * Scale + new Vector2(Tile.X, Tile.Y);
     }
 }

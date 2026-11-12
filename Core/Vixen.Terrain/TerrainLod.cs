@@ -15,8 +15,12 @@ namespace Vixen.Terrain;
 ///         screen-space size of a quad roughly constant: twice as far away, twice as coarse.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The morph band of a level ends exactly where the next level begins, and that identity
-///         is the whole no-crack argument.</b> A node is fully morphed into its parent's grid by the
+///         ⚠
+///         <b>
+///             The morph band of a level ends exactly where the next level begins, and that identity
+///             is the whole no-crack argument.
+///         </b>
+///         A node is fully morphed into its parent's grid by the
 ///         time the parent takes over, so the two agree along the boundary they share. Any other
 ///         arrangement — a global morph distance, a band that stops short, a ratio applied to the
 ///         wrong end — leaves the finer node's shared edge somewhere the coarser node has no vertex,
@@ -52,8 +56,7 @@ public readonly record struct TerrainLodRanges {
     public float MorphStartRatio { get; init; }
 
     /// <summary>Five levels from 64 m, morphing over the last two fifths of each band.</summary>
-    public static TerrainLodRanges Default =>
-        new() { NearRange = 64f, LevelCount = 5, MorphStartRatio = 0.6f };
+    public static TerrainLodRanges Default => new() { NearRange = 64f, LevelCount = 5, MorphStartRatio = 0.6f };
 
     /// <summary>How far this level reaches, in metres. Beyond it, the next level takes over.</summary>
     /// <param name="level">Which level. 0 is the finest.</param>
@@ -70,7 +73,7 @@ public readonly record struct TerrainLodRanges {
     /// <returns>The distance.</returns>
     public float MorphStartOf(int level) {
         var start = BandStartOf(level);
-        return start + ((RangeOf(level) - start) * Math.Clamp(MorphStartRatio, 0f, 0.99f));
+        return start + (RangeOf(level) - start) * Math.Clamp(MorphStartRatio, 0f, 0.99f);
     }
 
     /// <summary>Where this level is fully morphed into its parent. Its range, exactly.</summary>
@@ -112,7 +115,7 @@ public readonly record struct TerrainLodRanges {
         }
 
         if (!(MorphStartRatio >= 0f) || MorphStartRatio >= 1f) {
-            return $"The morph must start somewhere inside the band, so the ratio must be at least "
+            return "The morph must start somewhere inside the band, so the ratio must be at least "
                 + $"zero and less than one; it was {MorphStartRatio}. A ratio of one leaves every "
                 + "level boundary undegenerate, which is a crack at every transition.";
         }
@@ -160,9 +163,12 @@ public readonly record struct TerrainLodNode(int X, int Z, int Quads, int Level,
 ///         must be written before the renderer, not after it.
 ///     </para>
 ///     <para>
-///         <b>The descent itself is <see cref="PatchSelector" />'s, and water is its second
-///         consumer</b>
-///         ([35 § D4](../../docs/plan/35-water.md#d4-the-surface-is-the-terrains-quadtree-with-a-different-height-source)).
+///         <b>
+///             The descent itself is <see cref="PatchSelector" />'s, and water is its second
+///             consumer
+///         </b>
+///         ([35 §
+///         D4](../../docs/plan/35-water.md#d4-the-surface-is-the-terrains-quadtree-with-a-different-height-source)).
 ///         What is left here is the part that is about a <em>terrain</em>: where its samples are, how
 ///         tall it is, and how a morphed grid index becomes a heightmap lookup. The selection, the
 ///         morph and their two tests are shared, which is the point — Unreal has two quadtrees and
@@ -302,8 +308,8 @@ public sealed class TerrainLodTree {
         var step = node.Quads / (float)GridQuads;
 
         return new(
-            node.X + (MorphIndex(gridX, node.Morph) * step),
-            node.Z + (MorphIndex(gridZ, node.Morph) * step)
+            node.X + MorphIndex(gridX, node.Morph) * step,
+            node.Z + MorphIndex(gridZ, node.Morph) * step
         );
     }
 
@@ -344,7 +350,7 @@ public sealed class TerrainLodTree {
         var c = terrain.Composite.MetresAt(x0, z0 + 1);
         var d = terrain.Composite.MetresAt(x0 + 1, z0 + 1);
 
-        return (((a * (1f - fx)) + (b * fx)) * (1f - fz)) + (((c * (1f - fx)) + (d * fx)) * fz);
+        return (a * (1f - fx) + b * fx) * (1f - fz) + (c * (1f - fx) + d * fx) * fz;
     }
 
     /// <summary>A terrain, as the shared descent asks about it.</summary>
@@ -368,7 +374,6 @@ public sealed class TerrainLodTree {
         ///     Off the edge of a terrain that is not a square power of two patches. Skipped rather
         ///     than clamped, because a clamped node would draw one patch's worth of ground twice.
         /// </remarks>
-        public bool Covers(int x, int z, int quads) =>
-            x < description.SamplesX - 1 && z < description.SamplesZ - 1;
+        public bool Covers(int x, int z, int quads) => x < description.SamplesX - 1 && z < description.SamplesZ - 1;
     }
 }

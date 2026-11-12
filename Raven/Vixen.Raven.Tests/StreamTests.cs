@@ -7,7 +7,6 @@ using Vixen.Raven.Artefacts;
 using Vixen.Raven.CodeGen;
 using Vixen.Raven.CodeGen.Glsl;
 using Vixen.Raven.CodeGen.Spirv;
-using Vixen.Raven.Diagnostics;
 using Vixen.Raven.IR;
 using Vixen.Raven.Lowering;
 using Vixen.Raven.Reflection;
@@ -68,7 +67,7 @@ public class StreamTests {
     static string GlslFor(IrModule module, ShaderStage stage) {
         var bag = new DiagnosticBag();
         var generated = new GlslBackend().Generate(module, bag);
-        Assert.DoesNotContain(bag.ToArray(), d => d.IsError);
+        Assert.DoesNotContain(bag.ToArray(), static d => d.IsError);
 
         return Assert.Single(generated, unit => unit.Stage == stage).Code;
     }
@@ -84,11 +83,11 @@ public class StreamTests {
         var module = Lower(Source);
 
         var vertex = Stage(module, ShaderStage.Vertex);
-        Assert.Equal(["normalWS", "uv"], vertex.StreamOutputs.Select(s => s.Name));
+        Assert.Equal(["normalWS", "uv"], vertex.StreamOutputs.Select(static s => s.Name));
         Assert.Empty(vertex.StreamInputs);
 
         var fragment = Stage(module, ShaderStage.Fragment);
-        Assert.Equal(["normalWS", "uv"], fragment.StreamInputs.Select(s => s.Name));
+        Assert.Equal(["normalWS", "uv"], fragment.StreamInputs.Select(static s => s.Name));
         Assert.Empty(fragment.StreamOutputs);
     }
 
@@ -106,7 +105,7 @@ public class StreamTests {
 
         // The entry point does not touch normalWS itself — only the helper does.
         Assert.Contains(writer, CallGraph.Calls(vertex.Function.Body));
-        Assert.Contains("normalWS", vertex.StreamOutputs.Select(s => s.Name));
+        Assert.Contains("normalWS", vertex.StreamOutputs.Select(static s => s.Name));
     }
 
     /// <summary>
@@ -264,8 +263,8 @@ public class StreamTests {
 
         var reflection = ReflectionBuilder.Describe(LitOf(module), []);
 
-        Assert.Equal(["tangent", "position"], reflection.VertexInputs.Select(i => i.Name));
-        Assert.Equal([0, 1], reflection.VertexInputs.Select(i => i.Location));
+        Assert.Equal(["tangent", "position"], reflection.VertexInputs.Select(static i => i.Name));
+        Assert.Equal([0, 1], reflection.VertexInputs.Select(static i => i.Location));
     }
 
     /// <summary>
@@ -298,14 +297,14 @@ public class StreamTests {
         var module = Lower(Source);
         var bag = new DiagnosticBag();
         var generated = new SpirvBackend().Generate(module, bag);
-        Assert.DoesNotContain(bag.ToArray(), d => d.IsError);
+        Assert.DoesNotContain(bag.ToArray(), static d => d.IsError);
 
         foreach (var unit in generated) {
             SpirvTestBase.Validate(unit);
         }
 
-        var vertex = Assert.Single(generated, u => u.Stage == ShaderStage.Vertex).Code;
-        var fragment = Assert.Single(generated, u => u.Stage == ShaderStage.Fragment).Code;
+        var vertex = Assert.Single(generated, static u => u.Stage == ShaderStage.Vertex).Code;
+        var fragment = Assert.Single(generated, static u => u.Stage == ShaderStage.Fragment).Code;
 
         // Matched by name, since the two modules number their ids independently.
         Assert.Contains(
@@ -379,14 +378,14 @@ public class StreamTests {
         var module = Lower(Indexed);
         var bag = new DiagnosticBag();
         var generated = new SpirvBackend().Generate(module, bag);
-        Assert.DoesNotContain(bag.ToArray(), d => d.IsError);
+        Assert.DoesNotContain(bag.ToArray(), static d => d.IsError);
 
         foreach (var unit in generated) {
             SpirvTestBase.Validate(unit);
         }
 
-        var vertex = Assert.Single(generated, u => u.Stage == ShaderStage.Vertex).Code;
-        var fragment = Assert.Single(generated, u => u.Stage == ShaderStage.Fragment).Code;
+        var vertex = Assert.Single(generated, static u => u.Stage == ShaderStage.Vertex).Code;
+        var fragment = Assert.Single(generated, static u => u.Stage == ShaderStage.Fragment).Code;
 
         Assert.Contains(
             $"OpDecorate {SpirvTestBase.IdNamed(fragment, "in_objectIndex")} Flat",
@@ -456,12 +455,14 @@ public class StreamTests {
         var shader = LitOf(module);
 
         // The one binding is the uniform `scale`, not the two streams.
-        Assert.Equal(["scale"], shader.Bindings.Select(b => b.Name));
+        Assert.Equal(["scale"], shader.Bindings.Select(static b => b.Name));
 
         var reflection = ReflectionBuilder.Describe(shader, []);
-        var members = reflection.Sets.SelectMany(s => s.Bindings).SelectMany(b => b.Members).Select(m => m.Name);
+        var members = reflection.Sets.SelectMany(static s => s.Bindings)
+            .SelectMany(static b => b.Members)
+            .Select(static m => m.Name);
         Assert.DoesNotContain("normalWS", members);
-        Assert.Empty(reflection.Parameters.Where(p => p.Name.Contains("normalWS", StringComparison.Ordinal)));
+        Assert.Empty(reflection.Parameters.Where(static p => p.Name.Contains("normalWS", StringComparison.Ordinal)));
     }
 
     // --- Diagnostics ------------------------------------------------------
@@ -482,7 +483,7 @@ public class StreamTests {
             """
         );
 
-        Assert.Contains(diagnostics, d => d.Id == "RVN2100");
+        Assert.Contains(diagnostics, static d => d.Id == "RVN2100");
     }
 
     /// <summary>
@@ -509,7 +510,7 @@ public class StreamTests {
               """
         );
 
-        Assert.Contains(diagnostics, d => d.Id == "RVN2101");
+        Assert.Contains(diagnostics, static d => d.Id == "RVN2101");
     }
 
     /// <summary>A stream's value comes from the stage that writes it, so an initializer is dead text.</summary>
@@ -526,7 +527,7 @@ public class StreamTests {
             """
         );
 
-        Assert.Contains(diagnostics, d => d.Id == "RVN2102");
+        Assert.Contains(diagnostics, static d => d.Id == "RVN2102");
     }
 
     /// <summary>
@@ -549,7 +550,7 @@ public class StreamTests {
               """
         );
 
-        Assert.Contains(diagnostics, d => d.Id == "RVN2103");
+        Assert.Contains(diagnostics, static d => d.Id == "RVN2103");
     }
 
     /// <summary>
@@ -575,7 +576,7 @@ public class StreamTests {
             """
         );
 
-        var warning = Assert.Single(diagnostics, d => d.Id == "RVN3005");
+        var warning = Assert.Single(diagnostics, static d => d.Id == "RVN3005");
         Assert.Equal(DiagnosticSeverity.Warning, warning.Severity);
         Assert.Contains("normalWS", warning.GetMessage(), StringComparison.Ordinal);
     }
@@ -676,18 +677,18 @@ public class StreamTests {
     public void AStreamTheFoldedVariantNeverReadsTakesNoVaryingSlot() {
         var module = LowerWith(Gated, PermutationValues.Empty);
         var shader = FindShader(module, "Prepass");
-        var vertex = Assert.Single(shader.EntryPoints, e => e.Stage == ShaderStage.Vertex);
-        var fragment = Assert.Single(shader.EntryPoints, e => e.Stage == ShaderStage.Fragment);
+        var vertex = Assert.Single(shader.EntryPoints, static e => e.Stage == ShaderStage.Vertex);
+        var fragment = Assert.Single(shader.EntryPoints, static e => e.Stage == ShaderStage.Fragment);
 
         Assert.Empty(vertex.StreamOutputs);
-        Assert.Equal(["uv"], vertex.PrivateStreams.Select(s => s.Name));
+        Assert.Equal(["uv"], vertex.PrivateStreams.Select(static s => s.Name));
         Assert.Empty(fragment.StreamInputs);
 
         var bag = new DiagnosticBag();
         var generated = new GlslBackend().Generate(module, bag);
-        Assert.DoesNotContain(bag.ToArray(), d => d.IsError);
+        Assert.DoesNotContain(bag.ToArray(), static d => d.IsError);
 
-        var code = Assert.Single(generated, unit => unit.Stage == ShaderStage.Vertex).Code;
+        var code = Assert.Single(generated, static unit => unit.Stage == ShaderStage.Vertex).Code;
 
         // The store survives — it is the declaration's qualifier that goes.
         Assert.Contains("vec2 out_uv;", code, StringComparison.Ordinal);
@@ -703,18 +704,18 @@ public class StreamTests {
     public void TheVariantThatReadsTheStreamStillGetsAVarying() {
         var module = LowerWith(Gated, PermutationValues.Create([new("AlphaTested", true)]));
         var shader = FindShader(module, "Prepass");
-        var vertex = Assert.Single(shader.EntryPoints, e => e.Stage == ShaderStage.Vertex);
+        var vertex = Assert.Single(shader.EntryPoints, static e => e.Stage == ShaderStage.Vertex);
 
-        Assert.Equal(["uv"], vertex.StreamOutputs.Select(s => s.Name));
+        Assert.Equal(["uv"], vertex.StreamOutputs.Select(static s => s.Name));
         Assert.Empty(vertex.PrivateStreams);
 
         var bag = new DiagnosticBag();
         var generated = new GlslBackend().Generate(module, bag);
-        Assert.DoesNotContain(bag.ToArray(), d => d.IsError);
+        Assert.DoesNotContain(bag.ToArray(), static d => d.IsError);
 
         Assert.Contains(
             "layout(location = 0) out vec2 out_uv;",
-            Assert.Single(generated, unit => unit.Stage == ShaderStage.Vertex).Code,
+            Assert.Single(generated, static unit => unit.Stage == ShaderStage.Vertex).Code,
             StringComparison.Ordinal
         );
     }
@@ -745,23 +746,23 @@ public class StreamTests {
         var module = LowerWith(Split, PermutationValues.Empty);
         var vertex = Assert.Single(FindShader(module, "Blit").EntryPoints);
 
-        Assert.Equal(["colour"], vertex.StreamOutputs.Select(s => s.Name));
+        Assert.Equal(["colour"], vertex.StreamOutputs.Select(static s => s.Name));
         Assert.Empty(vertex.PrivateStreams);
 
         var bag = new DiagnosticBag();
         var generated = new GlslBackend().Generate(module, bag);
-        Assert.DoesNotContain(bag.ToArray(), d => d.IsError);
+        Assert.DoesNotContain(bag.ToArray(), static d => d.IsError);
 
         // The two halves have to agree on location 0 or the host's program does not link.
         Assert.Contains(
             "layout(location = 0) out vec4 out_colour;",
-            Assert.Single(generated, unit => unit.Name.StartsWith("Blit.", StringComparison.Ordinal)).Code,
+            Assert.Single(generated, static unit => unit.Name.StartsWith("Blit.", StringComparison.Ordinal)).Code,
             StringComparison.Ordinal
         );
 
         Assert.Contains(
             "layout(location = 0) in vec4 in_colour;",
-            Assert.Single(generated, unit => unit.Name.StartsWith("Tint.", StringComparison.Ordinal)).Code,
+            Assert.Single(generated, static unit => unit.Name.StartsWith("Tint.", StringComparison.Ordinal)).Code,
             StringComparison.Ordinal
         );
     }
@@ -784,13 +785,13 @@ public class StreamTests {
         var module = LowerWith(Gated, PermutationValues.Empty);
         var bag = new DiagnosticBag();
         var generated = new SpirvBackend().Generate(module, bag);
-        Assert.DoesNotContain(bag.ToArray(), d => d.IsError);
+        Assert.DoesNotContain(bag.ToArray(), static d => d.IsError);
 
         foreach (var unit in generated) {
             SpirvTestBase.Validate(unit);
         }
 
-        var vertex = Assert.Single(generated, u => u.Stage == ShaderStage.Vertex).Code;
+        var vertex = Assert.Single(generated, static u => u.Stage == ShaderStage.Vertex).Code;
         var id = SpirvTestBase.IdNamed(vertex, "out_uv");
 
         Assert.DoesNotContain($"OpDecorate {id} Location", vertex, StringComparison.Ordinal);
@@ -798,7 +799,7 @@ public class StreamTests {
 
         var entryPoint = Assert.Single(
             vertex.Split('\n'),
-            line => line.StartsWith("OpEntryPoint ", StringComparison.Ordinal)
+            static line => line.StartsWith("OpEntryPoint ", StringComparison.Ordinal)
         );
 
         Assert.DoesNotContain(id, entryPoint.Split(' '));
@@ -835,18 +836,18 @@ public class StreamTests {
         );
 
         var compilation = Compilation.Create("Features", tree);
-        Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.IsError);
+        Assert.DoesNotContain(compilation.GetDiagnostics(), static d => d.IsError);
 
         var bag = new DiagnosticBag();
         var lowered = Lowerer.LowerWithLinks(compilation, bag);
         var library = LibraryBuilder.Build(compilation, lowered, bag);
 
-        var refused = Assert.Single(bag.ToArray(), d => d.Id == "RVN5007");
+        var refused = Assert.Single(bag.ToArray(), static d => d.Id == "RVN5007");
         Assert.Contains("normalWS", refused.GetMessage(), StringComparison.Ordinal);
 
         // Refused means not exported: the declaration travels, the body does not.
-        var surface = Assert.Single(library.Types, t => t.Name == "Surface");
-        Assert.True(Assert.Single(surface.Fields, f => f.Name == "normalWS").IsStream);
+        var surface = Assert.Single(library.Types, static t => t.Name == "Surface");
+        Assert.True(Assert.Single(surface.Fields, static f => f.Name == "normalWS").IsStream);
         Assert.Null(Assert.Single(surface.Methods).IrFunction);
     }
 }

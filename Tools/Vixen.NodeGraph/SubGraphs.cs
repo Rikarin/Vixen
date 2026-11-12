@@ -11,7 +11,8 @@ namespace Vixen.NodeGraph;
 /// <remarks>
 ///     A <see cref="NodeTypeDefinition" /> has to be able to make one, and a sub-graph node never
 ///     survives to be visited:
-///     <see cref="SubGraphs.Flatten(NodeGraphModel, ISubGraphSource, out IReadOnlyList{NodeDiagnostic})" /> replaces it with the graph's contents
+///     <see cref="SubGraphs.Flatten(NodeGraphModel, ISubGraphSource, out IReadOnlyList{NodeDiagnostic})" /> replaces it
+///     with the graph's contents
 ///     before the compiler walks anything. So this exists to satisfy the definition and to be a
 ///     recognisable thing in a debugger, and its <see cref="Bind" /> does nothing because there are no
 ///     port fields to fill.
@@ -70,8 +71,11 @@ public sealed record SubGraphScope(
 /// <summary>Who to ask what an unfed sub-graph input is worth, when it is not a literal.</summary>
 /// <remarks>
 ///     <para>
-///         <b>Inlining decides a port's value mid-walk, and until this interface that decision could
-///         only read numbers</b> — <a href="https://github.com/Rikarin/Vixen/issues/1074">#1074</a>.
+///         <b>
+///             Inlining decides a port's value mid-walk, and until this interface that decision could
+///             only read numbers
+///         </b>
+///         — <a href="https://github.com/Rikarin/Vixen/issues/1074">#1074</a>.
 ///         <see cref="SubGraphs.Flatten(NodeGraphModel,ISubGraphSource,out IReadOnlyList{NodeDiagnostic})" />
 ///         took an unfed interface input's value from <c>node.Values</c> or the port's declared
 ///         default, so anything a containing graph wanted to <em>compute</em> about that expansion had
@@ -80,8 +84,12 @@ public sealed record SubGraphScope(
 ///         overrides, and both are discovered by this walk.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The implementation is asked which keys it claims rather than being handed a
-///         spelling.</b> A <c>Texts</c> key beginning <c>=</c> is a Raven expression in
+///         ⚠
+///         <b>
+///             The implementation is asked which keys it claims rather than being handed a
+///             spelling.
+///         </b>
+///         A <c>Texts</c> key beginning <c>=</c> is a Raven expression in
 ///         <c>Vixen.TextureGraph</c> and nowhere else; teaching this assembly that character
 ///         would make one front end's convention the graph model's. <see cref="Claims" /> is what
 ///         keeps it where it belongs, and what lets a second front end adopt the seam without
@@ -147,7 +155,8 @@ public sealed class SubGraphLibrary : ISubGraphSource {
     }
 
     /// <inheritdoc />
-    public bool TryGet(string type, [NotNullWhen(true)] out NodeGraphModel? graph) => graphs.TryGetValue(type, out graph);
+    public bool TryGet(string type, [NotNullWhen(true)] out NodeGraphModel? graph) =>
+        graphs.TryGetValue(type, out graph);
 }
 
 /// <summary>Where an inlined node came from.</summary>
@@ -195,8 +204,12 @@ public readonly record struct NodeOrigin(NodeId Node, NodeId Source, string Type
 ///         the graph's own compiler can answer.
 ///     </para>
 ///     <para>
-///         ⚠ <b><see cref="Path" /> is the middle of the walk, and only its two ends used to be
-///         recorded</b> — <a href="https://github.com/Rikarin/Vixen/issues/925">#925</a>.
+///         ⚠
+///         <b>
+///             <see cref="Path" /> is the middle of the walk, and only its two ends used to be
+///             recorded
+///         </b>
+///         — <a href="https://github.com/Rikarin/Vixen/issues/925">#925</a>.
 ///         <see cref="Source" /> is the outermost node and <see cref="NodeOrigin.Inner" /> is an
 ///         identity in the innermost file, so two sibling instances of one compound nested inside
 ///         another share both, share <see cref="Type" />, and are indistinguishable to anything
@@ -207,7 +220,7 @@ public readonly record struct NodeOrigin(NodeId Node, NodeId Source, string Type
 ///     </para>
 ///     <para>
 ///         <b>Every element is stable within its own file</b>, which is the property that makes this
-///         usable where the counter is not: each is a <see cref="NodeId"/> read out of the
+///         usable where the counter is not: each is a <see cref="NodeId" /> read out of the
 ///         <em>containing</em> graph's document, and a document never renumbers or reuses one. So the
 ///         chain moves only when an author moves the compound node it names.
 ///     </para>
@@ -312,7 +325,7 @@ public sealed class NodeGraphInlining {
     public string Describe(NodeId node) =>
         origins.TryGetValue(node, out var origin)
             ? $" It is {origin.Inner} inside '{origin.Type}', which {origin.Source} stands for."
-            : "";
+            : string.Empty;
 }
 
 /// <summary>What lifting some nodes out into a sub-graph would do.</summary>
@@ -423,7 +436,7 @@ public static class SubGraphs {
                 : graph.Name,
             // A compound that hands a picture back has one to draw, like the nodes beside it.
             graph.Interface.Any(static port => port is { Direction: PortDirection.Output, Kind: PortKind.Image }),
-            [.. graph.Parameters],
+            [..graph.Parameters],
             !(graph.Settings.TryGetValue(AdjustmentSetting, out var adjustment)
                 && string.Equals(adjustment.Trim(), "false", StringComparison.OrdinalIgnoreCase))
         );
@@ -524,7 +537,8 @@ public static class SubGraphs {
         NodeGraphModel graph,
         ISubGraphSource source,
         out IReadOnlyList<NodeDiagnostic> diagnostics
-    ) => Flatten(graph, source, null, out diagnostics, out _);
+    ) =>
+        Flatten(graph, source, null, out diagnostics, out _);
 
     /// <inheritdoc cref="Flatten(NodeGraphModel,ISubGraphSource,out IReadOnlyList{NodeDiagnostic})" />
     /// <param name="graph">The graph.</param>
@@ -536,7 +550,8 @@ public static class SubGraphs {
         ISubGraphSource source,
         out IReadOnlyList<NodeDiagnostic> diagnostics,
         out NodeGraphInlining inlining
-    ) => Flatten(graph, source, null, out diagnostics, out inlining);
+    ) =>
+        Flatten(graph, source, null, out diagnostics, out inlining);
 
     /// <inheritdoc cref="Flatten(NodeGraphModel,ISubGraphSource,out IReadOnlyList{NodeDiagnostic})" />
     /// <param name="graph">The graph.</param>
@@ -594,8 +609,11 @@ public static class SubGraphs {
     ///         identical inputs wired to the same thing.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b><see cref="NodeGraphModel.Parameters" /> cross whole, and the alternative was
-    ///         argued and refused — <a href="https://github.com/Rikarin/Vixen/issues/802">#802</a>.</b>
+    ///         ⚠
+    ///         <b>
+    ///             <see cref="NodeGraphModel.Parameters" /> cross whole, and the alternative was
+    ///             argued and refused — <a href="https://github.com/Rikarin/Vixen/issues/802">#802</a>.
+    ///         </b>
     ///         A copied node keeps its <see cref="GraphNode.Texts" />, which is where a front end
     ///         stores an expression an author wrote over the graph's knobs, so an extraction that took
     ///         the texts and left the declarations produced a sub-graph carrying
@@ -611,7 +629,8 @@ public static class SubGraphs {
     ///         <b><see cref="NodeGraphModel.Settings" /> deliberately do not cross</b>, and the
     ///         silence about that was the other half of #802. A texture graph's settings are its base
     ///         resolution and its seed;
-    ///         <see cref="Flatten(NodeGraphModel, ISubGraphSource, out IReadOnlyList{NodeDiagnostic})" /> keeps the <em>containing</em> graph's
+    ///         <see cref="Flatten(NodeGraphModel, ISubGraphSource, out IReadOnlyList{NodeDiagnostic})" /> keeps the
+    ///         <em>containing</em> graph's
     ///         and drops an inlined one's, so a sub-graph that carried a copy of them would be
     ///         carrying two numbers that are read exactly nowhere and shown in an inspector as though
     ///         they were.
@@ -664,7 +683,7 @@ public static class SubGraphs {
             copy.Bypassed = node.Bypassed;
 
             foreach (var (port, value) in node.Values) {
-                copy.SetValue(port, [.. value]);
+                copy.SetValue(port, [..value]);
             }
 
             // ⚠ And the names. A node extracted into a sub-graph without them is the same node with
@@ -704,7 +723,9 @@ public static class SubGraphs {
                     port = names.Take(Suggest(graph, edge.To));
                     inbound[edge.From] = port;
 
-                    extracted.Interface.Add(new(port, PortDirection.Input, KindOf(graph, registry, edge.From, PortDirection.Output)));
+                    extracted.Interface.Add(
+                        new(port, PortDirection.Input, KindOf(graph, registry, edge.From, PortDirection.Output))
+                    );
                 }
 
                 extracted.Connect(new(entry.Id, port), edge.To);
@@ -721,20 +742,26 @@ public static class SubGraphs {
                 leaving = names.Take(Suggest(graph, edge.From));
                 outbound[edge.From] = leaving;
 
-                extracted.Interface.Add(new(leaving, PortDirection.Output, KindOf(graph, registry, edge.From, PortDirection.Output)));
+                extracted.Interface.Add(
+                    new(leaving, PortDirection.Output, KindOf(graph, registry, edge.From, PortDirection.Output))
+                );
                 extracted.Connect(edge.From, new(exit.Id, leaving));
             }
 
             outgoing.Add(edge);
         }
 
-        return new(extracted, [.. moved], [.. incoming], [.. outgoing], inbound, outbound);
+        return new(extracted, [..moved], [..incoming], [..outgoing], inbound, outbound);
     }
 
     /// <summary>Says no to a selection with a node outside it between two inside it.</summary>
     /// <remarks>
-    ///     ⚠ <b>A sub-graph is one node, so a path leaving the selection and coming back becomes a cycle
-    ///     through it</b> — and that only surfaced half way through <see cref="ExtractSubGraphCommand" />,
+    ///     ⚠
+    ///     <b>
+    ///         A sub-graph is one node, so a path leaving the selection and coming back becomes a cycle
+    ///         through it
+    ///     </b>
+    ///     — and that only surfaced half way through <see cref="ExtractSubGraphCommand" />,
     ///     as an exception from <c>Connect</c> with the selected nodes already gone. Refused here, where
     ///     nothing has changed.
     /// </remarks>
@@ -771,7 +798,9 @@ public static class SubGraphs {
     ///     the width from whatever ends up connected, which is what the author would have chosen.
     /// </remarks>
     static PortKind KindOf(NodeGraphModel graph, NodeTypeRegistry? registry, PortRef port, PortDirection direction) {
-        if (registry is null || !graph.TryGet(port.Node, out var node) || !registry.TryGet(node.Type, out var definition)) {
+        if (registry is null
+            || !graph.TryGet(port.Node, out var node)
+            || !registry.TryGet(node.Type, out var definition)) {
             return PortKind.Dynamic;
         }
 
@@ -800,7 +829,7 @@ public static class SubGraphs {
                 return name;
             }
 
-            for (var index = 2; ; index++) {
+            for (var index = 2;; index++) {
                 var candidate = $"{name} {index}";
 
                 if (taken.Add(candidate)) {
@@ -813,7 +842,7 @@ public static class SubGraphs {
     /// <summary>The inlining, which is one walk per graph with a shared accumulator.</summary>
     sealed class Flattener(ISubGraphSource source, ISubGraphValues? values) {
         static readonly SubGraphScope Outermost =
-            new("", 0, new Dictionary<string, string>(StringComparer.Ordinal), NodeId.None);
+            new(string.Empty, 0, new Dictionary<string, string>(StringComparer.Ordinal), NodeId.None);
 
         readonly List<NodeDiagnostic> diagnostics = [];
         readonly HashSet<string> open = new(StringComparer.Ordinal);
@@ -845,7 +874,7 @@ public static class SubGraphs {
                 next = Math.Max(next, node.Id.Value);
             }
 
-            Expand(graph, default, [], [], preserve: true, depth: 0, NodeId.None, Outermost, path: []);
+            Expand(graph, default, [], [], true, 0, NodeId.None, Outermost, []);
 
             // Everything the author's own graph is besides its nodes and edges — its furniture, its
             // interface, its settings and its parameters. A group inside a sub-graph describes that
@@ -948,7 +977,7 @@ public static class SubGraphs {
                 }
 
                 foreach (var (port, value) in node.Values) {
-                    copy.SetValue(port, [.. value]);
+                    copy.SetValue(port, [..value]);
                 }
 
                 foreach (var (port, text) in node.Texts) {
@@ -974,7 +1003,7 @@ public static class SubGraphs {
                 if (edge.From.Node == entry
                     && constants.TryGetValue(edge.From.Port, out var value)
                     && result.TryGet(target, out var node)) {
-                    node.SetValue(edge.To.Port, [.. value]);
+                    node.SetValue(edge.To.Port, [..value]);
                 }
             }
 
@@ -1031,23 +1060,27 @@ public static class SubGraphs {
             var blamed = origin.IsValid ? origin : node.Id;
 
             if (depth >= MaximumDepth) {
-                diagnostics.Add(new(
-                    "NG0110",
-                    $"Sub-graphs nest more than {MaximumDepth} deep at '{node.Type}', which is a mistake "
-                    + "whatever it is. Nothing below it was inlined.",
-                    blamed
-                ));
+                diagnostics.Add(
+                    new(
+                        "NG0110",
+                        $"Sub-graphs nest more than {MaximumDepth} deep at '{node.Type}', which is a mistake "
+                        + "whatever it is. Nothing below it was inlined.",
+                        blamed
+                    )
+                );
 
                 return [];
             }
 
             if (!open.Add(node.Type)) {
-                diagnostics.Add(new(
-                    "NG0111",
-                    $"'{node.Type}' contains itself, directly or through another sub-graph. A sub-graph is "
-                    + "inlined rather than called, so a recursive one has no finite form.",
-                    blamed
-                ));
+                diagnostics.Add(
+                    new(
+                        "NG0111",
+                        $"'{node.Type}' contains itself, directly or through another sub-graph. A sub-graph is "
+                        + "inlined rather than called, so a recursive one has no finite form.",
+                        blamed
+                    )
+                );
 
                 return [];
             }
@@ -1088,8 +1121,8 @@ public static class SubGraphs {
                     constants[port.Name] = resolved.TryGetValue(port.Name, out var asked)
                         ? asked
                         : node.Values.TryGetValue(port.Name, out var inline)
-                            ? [.. inline]
-                            : [.. port.Default];
+                            ? [..inline]
+                            : [..port.Default];
                 }
 
                 // ⚠ Per expansion and not per type, and the settings are copied rather than held.
@@ -1112,10 +1145,10 @@ public static class SubGraphs {
                     offset + node.Position,
                     inbound,
                     constants,
-                    preserve: false,
+                    false,
                     depth + 1,
                     blamed,
-                    new SubGraphScope(node.Type, expansion, settings, blamed),
+                    new(node.Type, expansion, settings, blamed),
                     descended
                 );
             } finally {
@@ -1125,8 +1158,12 @@ public static class SubGraphs {
 
         /// <summary>What a resolver makes of the keys it claims on one sub-graph node.</summary>
         /// <remarks>
-        ///     ⚠ <b>The claimed keys are gathered against the <em>unfed</em> inputs and handed over in
-        ///     one call.</b> Both halves are the cost story: a resolver that compiles something is
+        ///     ⚠
+        ///     <b>
+        ///         The claimed keys are gathered against the <em>unfed</em> inputs and handed over in
+        ///         one call.
+        ///     </b>
+        ///     Both halves are the cost story: a resolver that compiles something is
         ///     asked once per node rather than once per port, and never at all about a port whose
         ///     answer a wire has already given.
         /// </remarks>
@@ -1167,7 +1204,7 @@ public static class SubGraphs {
                 // ⚠ Copied on the way in as well as on the way out. What comes back crosses an
                 // interface a plugin may implement, and a `float[]` kept by reference is one the
                 // implementation could go on writing to after the graph was flattened.
-                answered[port] = [.. value];
+                answered[port] = [..value];
             }
 
             return answered;

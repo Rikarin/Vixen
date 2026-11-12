@@ -2,8 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core;
-using Vixen.Geometry;
-using Vixen.Geometry.Remeshing;
 
 namespace Vixen.Editor.Assets.MeshMaps;
 
@@ -71,8 +69,12 @@ public interface IMeshMapBaker {
     ///         <see cref="MeshMapNaming.ModelKey" />.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The half that must run where the asset database lives, and the reason the two
-    ///         halves are separable at all.</b> A bake of a 2K atlas with a hemisphere at every texel
+    ///         ⚠
+    ///         <b>
+    ///             The half that must run where the asset database lives, and the reason the two
+    ///             halves are separable at all.
+    ///         </b>
+    ///         A bake of a 2K atlas with a hemisphere at every texel
     ///         is seconds to minutes of arithmetic and belongs on a pool thread; a scan is a
     ///         directory walk that rewrites the index every panel in the editor is reading. Splitting
     ///         them is what lets the editor bake without freezing and without a second thread
@@ -81,8 +83,12 @@ public interface IMeshMapBaker {
     ///         calls this, which is two lines and says plainly which of the two is the slow one.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A map whose bytes are no longer what the last bake wrote is refused rather than
-    ///         replaced, and <paramref name="force" /> is how a person says they meant it</b> —
+    ///         ⚠
+    ///         <b>
+    ///             A map whose bytes are no longer what the last bake wrote is refused rather than
+    ///             replaced, and <paramref name="force" /> is how a person says they meant it
+    ///         </b>
+    ///         —
     ///         <a href="https://github.com/Rikarin/Vixen/issues/716">#716</a>, which is § D4's rule
     ///         for the material bake applied to the nine files this one lands. The most common reason
     ///         a baked map differs from what the bake wrote is that somebody painted on it, and § D12's

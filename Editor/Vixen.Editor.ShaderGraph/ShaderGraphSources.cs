@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core.Yaml;
-using Vixen.Editor.NodeGraph;
 using Vixen.NodeGraph;
 
 namespace Vixen.Editor.ShaderGraph;
@@ -26,16 +25,24 @@ public readonly record struct ShaderGraphSourceFile(
 
     /// <summary>The compilation itself, or null where there is none.</summary>
     /// <remarks>
-    ///     ⚠ <b>Null does not mean "did not compile", and a caller that reads it that way says the
-    ///     wrong thing to an author.</b> There are two nulls: a compile that failed, which carries
+    ///     ⚠
+    ///     <b>
+    ///         Null does not mean "did not compile", and a caller that reads it that way says the
+    ///         wrong thing to an author.
+    ///     </b>
+    ///     There are two nulls: a compile that failed, which carries
     ///     <see cref="Diagnostics" />; and an <em>empty file</em>, which never reached the compiler at
     ///     all because "create shader graph" leaves one behind and a build must not complain about
     ///     it. The second carries no diagnostics, so <see cref="Compiled" /> is what tells them apart.
     /// </remarks>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Carried because <see cref="Text" /> is not what every caller wants, and dropping
-    ///         it cost a second copy of this file's middle</b> —
+    ///         ⚠
+    ///         <b>
+    ///             Carried because <see cref="Text" /> is not what every caller wants, and dropping
+    ///             it cost a second copy of this file's middle
+    ///         </b>
+    ///         —
     ///         <a href="https://github.com/Rikarin/Vixen/issues/1117">#1117</a>. A shader compilation
     ///         wants the generated Raven; a caller composing the graph <em>as a material feature</em>
     ///         wants <c>ShaderGraphSource.Properties</c> and <c>Maps</c>, which
@@ -60,15 +67,22 @@ public readonly record struct ShaderGraphSourceFile(
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>The step that turns "the graph emits text nobody reads" into a shader a material can
-///         name.</b> Both compilations in this repository — the editor's <c>EditorEffects</c> and the
+///         <b>
+///             The step that turns "the graph emits text nobody reads" into a shader a material can
+///             name.
+///         </b>
+///         Both compilations in this repository — the editor's <c>EditorEffects</c> and the
 ///         build's <c>ShaderBuildRunner</c> — were assembled from <c>*.rvn</c> found on disk under
 ///         <c>Assets/</c>, so a graph that emitted perfect Raven was invisible to both. This is what
 ///         they enumerate as well.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Generated in memory and never written to disk, which is a decision and not a
-///         shortcut.</b> A generated <c>.rvn</c> beside its graph would acquire a <c>.meta</c>, an
+///         ⚠
+///         <b>
+///             Generated in memory and never written to disk, which is a decision and not a
+///             shortcut.
+///         </b>
+///         A generated <c>.rvn</c> beside its graph would acquire a <c>.meta</c>, an
 ///         address and a place in the asset browser; it would be committed by somebody, edited by
 ///         somebody else, and then silently overwritten by the next import. <c>RavenEffectCompiler</c>
 ///         has taken in-memory sources since the graph previews needed them, and its own remarks say
@@ -188,11 +202,13 @@ public static class ShaderGraphSources {
                     path,
                     registry,
                     graph,
-                    [.. repairs.Select(repair => $"{repair.Id}: {repair.Message}")]
+                    [..repairs.Select(static repair => $"{repair.Id}: {repair.Message}")]
                 );
             }
-        } catch (Exception failure) when (failure is YamlParseException or YamlBindingException
-                                              or FormatException or NotSupportedException) {
+        } catch (Exception failure) when (failure is YamlParseException
+                                              or YamlBindingException
+                                              or FormatException
+                                              or NotSupportedException) {
             return new(path, string.Empty, string.Empty, [$"It is not a readable shader graph: {failure.Message}"]);
         }
 
@@ -206,11 +222,11 @@ public static class ShaderGraphSources {
         NodeGraphModel graph,
         List<string> notes
     ) {
-        var result = new ShaderGraphCompiler(registry) {
-            DefaultName = System.IO.Path.GetFileNameWithoutExtension(path)
-        }.Compile(graph);
+        var result = new ShaderGraphCompiler(registry) { DefaultName = Path.GetFileNameWithoutExtension(path) }.Compile(
+            graph
+        );
 
-        notes.AddRange(result.Diagnostics.Select(diagnostic => $"{diagnostic.Id}: {diagnostic.Message}"));
+        notes.AddRange(result.Diagnostics.Select(static diagnostic => $"{diagnostic.Id}: {diagnostic.Message}"));
 
         if (!result.Succeeded) {
             return new(path, string.Empty, string.Empty, notes);

@@ -41,8 +41,12 @@ public interface ITagComponent;
 ///         <see cref="World.Add{T}(Entity)" /> is unchanged for everybody.
 ///     </para>
 ///     <para>
-///         ⚠ <b>This is consulted where something creates a component from nothing, and nowhere
-///         else.</b> The ECS hands back zeroed storage and continues to — a chunk row is a memset and
+///         ⚠
+///         <b>
+///             This is consulted where something creates a component from nothing, and nowhere
+///             else.
+///         </b>
+///         The ECS hands back zeroed storage and continues to — a chunk row is a memset and
 ///         <see cref="World.Add{T}(Entity)" /> still writes <c>default</c>. What reads this is the
 ///         authoring half: the editor's Add Component, and anything else building a value it is about
 ///         to hand to a person to edit. That boundary is the whole reason this is an interface and not
@@ -186,13 +190,14 @@ public static class ComponentType<T> {
     ///     are unaligned loads regardless, so this is about layout tidiness and false-sharing, not
     ///     about correctness.
     /// </remarks>
-    static int Alignment(int size) => size switch {
-        <= 1 => 1,
-        <= 2 => 2,
-        <= 4 => 4,
-        <= 8 => 8,
-        _ => 16
-    };
+    static int Alignment(int size) =>
+        size switch {
+            <= 1 => 1,
+            <= 2 => 2,
+            <= 4 => 4,
+            <= 8 => 8,
+            _ => 16
+        };
 }
 
 /// <summary>

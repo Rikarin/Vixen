@@ -22,7 +22,7 @@ public class TextureGraphBypassTests {
         return new(registry) { BaseWidth = Side, BaseHeight = Side, Seed = 7 };
     }
 
-    static string Kernels(TexturePlan plan) => string.Join(",", plan.Ops.Select(op => op.Kernel));
+    static string Kernels(TexturePlan plan) => string.Join(",", plan.Ops.Select(static op => op.Kernel));
 
     /// <summary>Noise, then Levels, then an Output — with the Levels switched off or not.</summary>
     static (NodeGraphModel Graph, GraphNode Levels) Chain(bool bypassed) {
@@ -56,7 +56,7 @@ public class TextureGraphBypassTests {
         Assert.NotNull(full.Value);
         Assert.NotNull(bypassed.Value);
         Assert.NotNull(reference.Value);
-        Assert.Contains(full.Value.Ops, op => op.Kernel.Contains("Levels", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(full.Value.Ops, static op => op.Kernel.Contains("Levels", StringComparison.OrdinalIgnoreCase));
         Assert.Equal(Kernels(reference.Value), Kernels(bypassed.Value));
         Assert.NotEqual(Kernels(full.Value), Kernels(bypassed.Value));
     }
@@ -76,7 +76,7 @@ public class TextureGraphBypassTests {
 
         var compiled = Compiler().Compile(bent);
 
-        Assert.DoesNotContain(compiled.Diagnostics, diagnostic => diagnostic.Severity == NodeSeverity.Error);
+        Assert.DoesNotContain(compiled.Diagnostics, static diagnostic => diagnostic.Severity == NodeSeverity.Error);
         Assert.Equal(Kernels(Compiler().Compile(straight).Value!), Kernels(compiled.Value!));
     }
 
@@ -96,7 +96,7 @@ public class TextureGraphBypassTests {
     public void A_value_on_a_node_beside_a_bypassed_one_still_refreshes() {
         var compiler = Compiler();
         var (graph, levels) = Chain(true);
-        var noise = graph.Nodes.First(node => node.Type == "Source/Noise");
+        var noise = graph.Nodes.First(static node => node.Type == "Source/Noise");
 
         Assert.NotNull(compiler.Compile(graph).Value);
 

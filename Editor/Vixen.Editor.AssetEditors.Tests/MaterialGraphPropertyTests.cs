@@ -2,14 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core;
-using Vixen.Core.Mathematics;
 using Vixen.Core.Yaml;
 using Vixen.Editor.AssetEditors.Materials;
-using Vixen.Editor.NodeGraph;
 using Vixen.Editor.ShaderGraph;
 using Vixen.NodeGraph;
 using Vixen.Rendering.Materials;
-using Vixen.Ui;
 using Vixen.Ui.Controls;
 using Xunit;
 
@@ -18,8 +15,12 @@ namespace Vixen.Editor.AssetEditors.Tests;
 /// <summary>Authoring a graph-composed material's properties in the panel rather than in the YAML.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b><a href="https://github.com/Rikarin/Vixen/issues/494">#494</a>'s gap, and it was the
-///         plain one: a mechanism whose caller did not exist.</b> A <c>.vxmat</c> could name a graph's
+///         ⚠
+///         <b>
+///             <a href="https://github.com/Rikarin/Vixen/issues/494">#494</a>'s gap, and it was the
+///             plain one: a mechanism whose caller did not exist.
+///         </b>
+///         A <c>.vxmat</c> could name a graph's
 ///         surface, and <c>ShaderGraphMaterial.Values</c> could say exactly which properties an author
 ///         must fill in — and a sweep of <c>.cs</c> <em>and</em> <c>.vxml</c> found that method called
 ///         from tests and from nowhere else. So the only way to give a graph material its values was
@@ -113,7 +114,7 @@ public class MaterialGraphPropertyTests {
             "guid: 0123456789abcdef0123456789abcdef\nmetaVersion: 1\n"
         );
 
-        MaterialAsset asset = new() { Shader = "AuthoredSurface", Graph = linked, Features = [.. features] };
+        MaterialAsset asset = new() { Shader = "AuthoredSurface", Graph = linked, Features = [..features] };
         var path = harness.Project.WriteAsset("Assets/stone.vxmat", asset.ToYaml());
 
         harness.Project.Project.Assets.Scan();
@@ -156,8 +157,12 @@ public class MaterialGraphPropertyTests {
     ///         the slider back did not remove it.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And the composed feature carries no numbers, which is the half that would be
-    ///         wrong the other way.</b> A <c>GraphSurfaceNumber</c> entry <em>overrides</em> the
+    ///         ⚠
+    ///         <b>
+    ///             And the composed feature carries no numbers, which is the half that would be
+    ///             wrong the other way.
+    ///         </b>
+    ///         A <c>GraphSurfaceNumber</c> entry <em>overrides</em> the
     ///         generated shader's declared default, so a link that seeded one per property would
     ///         replace every graph default with black — the exact trap <c>SetGraphValue</c> leaves an
     ///         untouched property out for. The row count above it is the instrument: the graph
@@ -303,8 +308,11 @@ public class MaterialGraphPropertyTests {
     /// <summary>A graph with a standalone master is named as one rather than called broken.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/1117">#1117</a>'s trap, from the
-    ///         side that loses a sentence.</b> <c>ReadGraph</c> now takes its compilation from
+    ///         <b>
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/1117">#1117</a>'s trap, from the
+    ///             side that loses a sentence.
+    ///         </b>
+    ///         <c>ReadGraph</c> now takes its compilation from
     ///         <c>ShaderGraphSources</c>, which packages a standalone graph as a record whose
     ///         generated <em>text</em> is empty — deliberately, since a standalone graph contributes
     ///         no Raven to a shader build. A panel that read "no text" as "did not compile" would
@@ -372,11 +380,11 @@ public class MaterialGraphPropertyTests {
 
         // The instrument: the graph declares the texture's slot index too, so a `Values` that had
         // stopped filtering would show three here and this would not be a claim about filtering.
-        Assert.Contains(source.Properties, property => property.Type == "uint");
+        Assert.Contains(source.Properties, static property => property.Type == "uint");
 
         Assert.Equal(
             ["roughness", "tint"],
-            ShaderGraphMaterial.Values(source).Select(property => property.Name).Order(StringComparer.Ordinal)
+            ShaderGraphMaterial.Values(source).Select(static property => property.Name).Order(StringComparer.Ordinal)
         );
 
         var view = harness.Ui.Document.Root.Add<MaterialView>();
@@ -395,7 +403,7 @@ public class MaterialGraphPropertyTests {
 
     /// <summary>How many number fields each row drew, in the order the rows were built.</summary>
     static int[] Fields(MaterialView view) => [
-        .. view.GraphProperties.Children.Select(row => row.Children.OfType<NumericInput>().Count())
+        ..view.GraphProperties.Children.Select(static row => row.Children.OfType<NumericInput>().Count())
     ];
 
     /// <summary>⚠ Typing into a row writes the file, which is the half a document test cannot see.</summary>
@@ -419,7 +427,7 @@ public class MaterialGraphPropertyTests {
         Assert.Null(document.Surface);
 
         var tint = view.GraphProperties.Children
-            .First(row => row.Children.OfType<NumericInput>().Count() == 4)
+            .First(static row => row.Children.OfType<NumericInput>().Count() == 4)
             .Children.OfType<NumericInput>()
             .ToArray();
 
@@ -429,7 +437,7 @@ public class MaterialGraphPropertyTests {
         var surface = Assert.IsType<GraphSurfaceFeature>(document.Surface);
 
         Assert.Equal("tint", Assert.Single(surface.Vectors).Name);
-        Assert.Equal(new Vector4(0f, 0f, 0.75f, 0f), surface.Vectors[0].Value);
+        Assert.Equal(new(0f, 0f, 0.75f, 0f), surface.Vectors[0].Value);
     }
 
     /// <summary>Setting a property writes a graph feature, and a float4 keeps all four lanes.</summary>
@@ -449,7 +457,7 @@ public class MaterialGraphPropertyTests {
         var surface = Assert.IsType<GraphSurfaceFeature>(document.Surface);
 
         Assert.Equal("AuthoredSurface", surface.Shader);
-        Assert.Equal(new Vector4(0.8f, 0.2f, 0.1f, 1f), Assert.Single(surface.Vectors).Value);
+        Assert.Equal(new(0.8f, 0.2f, 0.1f, 1f), Assert.Single(surface.Vectors).Value);
 
         // ⚠ And a `float` property takes X and drops the rest rather than being stored as a vector.
         // The runtime reads `Numbers` and `Vectors` as different parameter kinds, so a scalar written
@@ -575,8 +583,12 @@ public class MaterialGraphPropertyTests {
 
     /// <summary>A property the graph does not declare is refused rather than written.</summary>
     /// <remarks>
-    ///     ⚠ <b>Because a <c>GraphSurfaceNumber</c> naming nothing is not an error anywhere
-    ///     downstream.</b> <c>GraphSurfaceFeature.Compile</c> sets a parameter by name and a name no
+    ///     ⚠
+    ///     <b>
+    ///         Because a <c>GraphSurfaceNumber</c> naming nothing is not an error anywhere
+    ///         downstream.
+    ///     </b>
+    ///     <c>GraphSurfaceFeature.Compile</c> sets a parameter by name and a name no
     ///     shader declares is a parameter nothing reads — so a typo would be saved, drawn, and
     ///     silent.
     /// </remarks>
@@ -597,8 +609,11 @@ public class MaterialGraphPropertyTests {
     /// <summary>⚠ Clearing the link takes the rows with it, and the rows stop being able to write.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>One click on the asset field's <em>Clear</em>, which is a gesture and not an edge
-    ///         case.</b> The rebuild first went in after <c>Restate</c>'s existing early return for
+    ///         <b>
+    ///             One click on the asset field's <em>Clear</em>, which is a gesture and not an edge
+    ///             case.
+    ///         </b>
+    ///         The rebuild first went in after <c>Restate</c>'s existing early return for
     ///         an empty link, so the unlinked branch never reached it: the previous graph's rows
     ///         stayed on screen, still bound, and nudging one wrote a <c>GraphSurfaceFeature</c>
     ///         naming a shader the material no longer links — beside a <c>Graph:</c> of all zeroes in
@@ -713,8 +728,12 @@ public class MaterialGraphPropertyTests {
     ///         exactly the gesture that did not repaint it. The link half below is that case.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>This reads the <em>event</em>, where every other case in this file reads the
-    ///         document.</b> A preview that never repaints leaves the document identical, so nothing
+    ///         ⚠
+    ///         <b>
+    ///             This reads the <em>event</em>, where every other case in this file reads the
+    ///             document.
+    ///         </b>
+    ///         A preview that never repaints leaves the document identical, so nothing
     ///         written the usual way here could have seen it.
     ///     </para>
     ///     <para>

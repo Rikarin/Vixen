@@ -74,9 +74,9 @@ public class NoContractionTests {
         var bag = new DiagnosticBag();
         var generated = new SpirvBackend().Generate(Lower(source), bag);
 
-        Assert.DoesNotContain(bag.ToArray(), d => d.IsError);
+        Assert.DoesNotContain(bag.ToArray(), static d => d.IsError);
 
-        var unit = Assert.Single(generated, u => u.Stage == ShaderStage.Fragment);
+        var unit = Assert.Single(generated, static u => u.Stage == ShaderStage.Fragment);
 
         // Runs spirv-val where it is installed and returns without a word where it is not, which is
         // this machine. Called anyway so the CI leg that has one judges these modules too.
@@ -94,12 +94,12 @@ public class NoContractionTests {
     /// </remarks>
     static string[] Body(string listing, string name) {
         var id = SpirvTestBase.IdNamed(listing, name);
-        var lines = listing.Split('\n').Select(line => line.TrimEnd('\r')).ToArray();
+        var lines = listing.Split('\n').Select(static line => line.TrimEnd('\r')).ToArray();
         var first = Array.FindIndex(lines, line => line.StartsWith($"{id} = OpFunction ", StringComparison.Ordinal));
 
         Assert.True(first >= 0, $"no OpFunction for {name} ({id})");
 
-        var last = Array.FindIndex(lines, first, lines.Length - first, line => line == "OpFunctionEnd");
+        var last = Array.FindIndex(lines, first, lines.Length - first, static line => line == "OpFunctionEnd");
 
         Assert.True(last > first, $"no OpFunctionEnd after {name}");
 
@@ -107,13 +107,12 @@ public class NoContractionTests {
     }
 
     /// <summary>The result ids of the arithmetic a body emitted, in listing order.</summary>
-    static string[] Arithmetic(IEnumerable<string> body) =>
-        [
-            .. body
-                .Where(line => line.Contains(" = Op", StringComparison.Ordinal))
-                .Where(line => Contractible.Any(op => line.Contains($" = {op} ", StringComparison.Ordinal)))
-                .Select(line => line.Split(' ')[0])
-        ];
+    static string[] Arithmetic(IEnumerable<string> body) => [
+        ..body
+            .Where(static line => line.Contains(" = Op", StringComparison.Ordinal))
+            .Where(static line => Contractible.Any(op => line.Contains($" = {op} ", StringComparison.Ordinal)))
+            .Select(static line => line.Split(' ')[0])
+    ];
 
     static readonly string[] Contractible = [
         "OpFAdd", "OpFSub", "OpFMul", "OpFDiv", "OpFRem", "OpFMod", "OpVectorTimesScalar",
@@ -122,14 +121,13 @@ public class NoContractionTests {
     ];
 
     /// <summary>Every id the listing decorates <c>NoContraction</c>.</summary>
-    static string[] Decorated(string listing) =>
-        [
-            .. listing.Split('\n')
-                .Select(line => line.TrimEnd('\r'))
-                .Where(line => line.StartsWith("OpDecorate ", StringComparison.Ordinal))
-                .Where(line => line.EndsWith(" NoContraction", StringComparison.Ordinal))
-                .Select(line => line.Split(' ')[1])
-        ];
+    static string[] Decorated(string listing) => [
+        ..listing.Split('\n')
+            .Select(static line => line.TrimEnd('\r'))
+            .Where(static line => line.StartsWith("OpDecorate ", StringComparison.Ordinal))
+            .Where(static line => line.EndsWith(" NoContraction", StringComparison.Ordinal))
+            .Select(static line => line.Split(' ')[1])
+    ];
 
     // --- The declaration reaches the IR ------------------------------------
 
@@ -141,7 +139,8 @@ public class NoContractionTests {
     /// </remarks>
     [Fact]
     public void TheDeclaredFlagReachesTheIr() {
-        var functions = FindShader(Lower(Source), "Edge").Functions.ToDictionary(f => f.Name, f => f.NoContraction);
+        var functions = FindShader(Lower(Source), "Edge")
+            .Functions.ToDictionary(static f => f.Name, static f => f.NoContraction);
 
         Assert.True(functions["Fused"]);
         Assert.False(functions["Free"]);
@@ -185,7 +184,7 @@ public class NoContractionTests {
 
         foreach (var id in decorated) {
             var definition = Assert.Single(
-                listing.Split('\n').Select(line => line.TrimEnd('\r')),
+                listing.Split('\n').Select(static line => line.TrimEnd('\r')),
                 line => line.StartsWith($"{id} = Op", StringComparison.Ordinal)
             );
 
@@ -239,8 +238,12 @@ public class NoContractionTests {
     /// <summary>A marked method of a generic struct is still marked in every instantiation.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The path the flag was likeliest to be lost on, and the only one of the three the
-    ///         first landing did not cover.</b> A generic's body is bound once, against the open
+    ///         ⚠
+    ///         <b>
+    ///             The path the flag was likeliest to be lost on, and the only one of the three the
+    ///             first landing did not cover.
+    ///         </b>
+    ///         A generic's body is bound once, against the open
     ///         definition, and lowered once per instantiation through a substitution — so the symbol
     ///         the lowering reads is a <c>SubstitutedMethodSymbol</c> and not the one the file was
     ///         written for. Sabotaging that symbol's forwarder left the whole 2049-test suite
@@ -286,7 +289,7 @@ public class NoContractionTests {
         // rather than the instantiation would mean monomorphisation did not happen and the fixture
         // is about nothing. ⚠ Off the module and not off the shader: an instantiation of a
         // struct's method is a module-level function, which is the whole point of the name.
-        var names = Lower(source).Functions.Select(f => f.Name).ToArray();
+        var names = Lower(source).Functions.Select(static f => f.Name).ToArray();
 
         Assert.Contains("Box_float_Fused", names);
         Assert.DoesNotContain("Fused", names);
@@ -319,7 +322,7 @@ public class NoContractionTests {
         var bag = new DiagnosticBag();
         new GlslBackend().Generate(Lower(Source), bag);
 
-        var reported = Assert.Single(bag.ToArray(), d => d.Id == "RVN4003");
+        var reported = Assert.Single(bag.ToArray(), static d => d.Id == "RVN4003");
 
         Assert.False(reported.IsError);
         Assert.Contains("Fused", reported.GetMessage(), StringComparison.Ordinal);
@@ -348,7 +351,7 @@ public class NoContractionTests {
         var bag = new DiagnosticBag();
         new GlslBackend().Generate(Lower(source), bag);
 
-        Assert.DoesNotContain(bag.ToArray(), d => d.Id == "RVN4003");
+        Assert.DoesNotContain(bag.ToArray(), static d => d.Id == "RVN4003");
     }
 
     // --- The library, which is where a flag gets lost ----------------------
@@ -379,27 +382,27 @@ public class NoContractionTests {
         var encoded = LibraryIrEncoder.Encode(
             [],
             [function, plain],
-            s => s.Name,
-            s => s.Name,
-            f => "Test::" + f.Name
+            static s => s.Name,
+            static s => s.Name,
+            static f => "Test::" + f.Name
         );
 
-        Assert.True(Assert.Single(encoded.Functions, f => f.Name == "Fused").NoContraction);
-        Assert.False(Assert.Single(encoded.Functions, f => f.Name == "Free").NoContraction);
+        Assert.True(Assert.Single(encoded.Functions, static f => f.Name == "Fused").NoContraction);
+        Assert.False(Assert.Single(encoded.Functions, static f => f.Name == "Free").NoContraction);
 
-        var decoder = new LibraryIrDecoder(name => name);
+        var decoder = new LibraryIrDecoder(static name => name);
         decoder.DecodeStructs(encoded);
         decoder.DecodeFunctions();
 
-        Assert.True(decoder.Functions.Values.Single(f => f.Name == "Fused").NoContraction);
-        Assert.False(decoder.Functions.Values.Single(f => f.Name == "Free").NoContraction);
+        Assert.True(decoder.Functions.Values.Single(static f => f.Name == "Fused").NoContraction);
+        Assert.False(decoder.Functions.Values.Single(static f => f.Name == "Free").NoContraction);
 
         // And the same encoded record through the bytes a consumer is actually handed, because the
         // serializer is the layer that drops a property nobody listed.
         var written = CompiledLibraryWriter.Write(new() { Name = "Test", Ir = encoded });
         var read = CompiledLibraryReader.Read(written);
 
-        Assert.True(Assert.Single(read.Ir.Functions, f => f.Name == "Fused").NoContraction);
-        Assert.False(Assert.Single(read.Ir.Functions, f => f.Name == "Free").NoContraction);
+        Assert.True(Assert.Single(read.Ir.Functions, static f => f.Name == "Fused").NoContraction);
+        Assert.False(Assert.Single(read.Ir.Functions, static f => f.Name == "Free").NoContraction);
     }
 }

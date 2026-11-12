@@ -32,7 +32,11 @@ public partial class StylesheetTests {
     ///     where a utility says what it does at the use site.
     /// </remarks>
     static readonly HashSet<string> Ours = new(StringComparer.Ordinal) {
-        "slot", "on-cooldown", "unusable", "quest", "ready"
+        "slot",
+        "on-cooldown",
+        "unusable",
+        "quest",
+        "ready"
     };
 
     /// <summary>The names assembled at run time, which the build safelists on this project's behalf.</summary>
@@ -179,7 +183,12 @@ public partial class StylesheetTests {
     ///     mentioned in a comment or in a custom property's value from counting.
     /// </remarks>
     static bool HasRule(string name) =>
-        Regex.IsMatch(MmoStyles.Css, @"\." + Regex.Escape(name) + @"(?![-\w])", RegexOptions.None, TimeSpan.FromSeconds(5));
+        Regex.IsMatch(
+            MmoStyles.Css,
+            @"\." + Regex.Escape(name) + @"(?![-\w])",
+            RegexOptions.None,
+            TimeSpan.FromSeconds(5)
+        );
 
     static IEnumerable<string> Markup() => MarkupFiles().Select(File.ReadAllText);
 
@@ -200,15 +209,24 @@ public partial class StylesheetTests {
         // a copy of a `.vxml` under either is a build output, and counting one would make the
         // assertion below depend on what the last build left behind.
         return [
-            .. Directory.EnumerateFiles(project, "*.vxml", SearchOption.AllDirectories)
-                .Where(path => !path.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}", StringComparison.Ordinal)
-                    && !path.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.Ordinal))
+            ..Directory.EnumerateFiles(project, "*.vxml", SearchOption.AllDirectories)
+                .Where(static path => !path.Contains(
+                        $"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}",
+                        StringComparison.Ordinal
+                    )
+                    && !path.Contains(
+                        $"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}",
+                        StringComparison.Ordinal
+                    )
+                )
                 .Order(StringComparer.Ordinal)
         ];
     }
 
     static string RepositoryRoot() {
-        for (var directory = new DirectoryInfo(AppContext.BaseDirectory); directory is not null; directory = directory.Parent) {
+        for (var directory = new DirectoryInfo(AppContext.BaseDirectory);
+             directory is not null;
+             directory = directory.Parent) {
             if (Directory.Exists(Path.Combine(directory.FullName, "Raven", "Library"))) {
                 return directory.FullName;
             }

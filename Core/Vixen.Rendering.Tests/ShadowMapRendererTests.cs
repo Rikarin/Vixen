@@ -30,10 +30,7 @@ public class ShadowMapRendererTests : IDisposable {
     // --- Fixture ------------------------------------------------------------
 
     static Effect Compiled(EffectKey key) =>
-        new() {
-            Key = key,
-            Stages = [new(ShaderStage.Vertex, [1, 2, 3, 4], "main")]
-        };
+        new() { Key = key, Stages = [new(ShaderStage.Vertex, [1, 2, 3, 4], "main")] };
 
     sealed class AlwaysCompiles : IEffectProvider {
         public Effect? TryGet(EffectKey key) => Compiled(key);
@@ -58,10 +55,7 @@ public class ShadowMapRendererTests : IDisposable {
     Harness Build(int cascades = 4) {
         var system = new RenderSystem();
 
-        var meshes = new MeshRenderFeature {
-            Pipelines = new(device),
-            Describer = new EffectPipelineDescriber(device)
-        };
+        var meshes = new MeshRenderFeature { Pipelines = new(device), Describer = new EffectPipelineDescriber(device) };
 
         var materials = new MaterialRenderFeature { Effects = effects };
         meshes.Add(materials);
@@ -256,23 +250,23 @@ public class ShadowMapRendererTests : IDisposable {
 
         var corners = device.Recorder!
             .OfKind(RecordedCommandKind.SetScissor)
-            .Select(command => (command.C, command.D))
+            .Select(static command => (command.C, command.D))
             .ToArray();
 
         Assert.Equal(4, corners.Distinct().Count());
-        Assert.Equal(new Int2(1024, 1024), h.Shadows.AtlasSize);
+        Assert.Equal(new(1024, 1024), h.Shadows.AtlasSize);
     }
 
     /// <summary>A single cascade is one viewport over the whole atlas.</summary>
     [Fact]
     public void One_cascade_is_one_viewport() {
-        using var h = Build(cascades: 1);
+        using var h = Build(1);
         AddCaster(h, new(0f, 0f, -10f));
 
         Frame(h);
 
         Assert.Single(device.Recorder!.OfKind(RecordedCommandKind.SetViewport));
-        Assert.Equal(new Int2(512, 512), h.Shadows.AtlasSize);
+        Assert.Equal(new(512, 512), h.Shadows.AtlasSize);
     }
 
     /// <summary>A caster is drawn once per cascade that can see it, not once in total.</summary>
@@ -285,7 +279,7 @@ public class ShadowMapRendererTests : IDisposable {
         using var h = Build();
 
         // Large enough to sit inside every cascade's fitted sphere.
-        AddCaster(h, new(0f, 0f, -5f), radius: 60f);
+        AddCaster(h, new(0f, 0f, -5f), 60f);
 
         Frame(h);
 
@@ -318,9 +312,7 @@ public class ShadowMapRendererTests : IDisposable {
     /// </remarks>
     [Fact]
     public void A_views_camera_supplies_the_fit() {
-        var camera = new RenderView("camera") {
-            Camera = RenderCamera.Default with { Position = new(0f, 0f, 50f) }
-        };
+        var camera = new RenderView("camera") { Camera = RenderCamera.Default with { Position = new(0f, 0f, 50f) } };
 
         var node = new ShadowMapRenderer {
             CasterStage = new("Caster"),
@@ -335,12 +327,7 @@ public class ShadowMapRendererTests : IDisposable {
 
         var fitted = Fit(node);
         var loose = Fit(
-            new ShadowMapRenderer {
-                CasterStage = new("Caster"),
-                Atlas = "Atlas",
-                CascadeCount = 1,
-                Eye = new(0f, 0f, 50f)
-            }
+            new() { CasterStage = new("Caster"), Atlas = "Atlas", CascadeCount = 1, Eye = new(0f, 0f, 50f) }
         );
 
         Assert.Equal(loose.Centre, fitted.Centre, Close);
@@ -368,12 +355,7 @@ public class ShadowMapRendererTests : IDisposable {
 
         var withSun = Fit(node);
         var without = Fit(
-            new ShadowMapRenderer {
-                CasterStage = new("Caster"),
-                Atlas = "Atlas",
-                CascadeCount = 1,
-                LightDirection = new(0f, -1f, 0f)
-            }
+            new() { CasterStage = new("Caster"), Atlas = "Atlas", CascadeCount = 1, LightDirection = new(0f, -1f, 0f) }
         );
 
         // The same slice, so the same sphere — and a different light, so a different projection.
@@ -393,12 +375,7 @@ public class ShadowMapRendererTests : IDisposable {
         };
 
         var without = Fit(
-            new ShadowMapRenderer {
-                CasterStage = new("Caster"),
-                Atlas = "Atlas",
-                CascadeCount = 1,
-                LightDirection = new(0f, -1f, 0f)
-            }
+            new() { CasterStage = new("Caster"), Atlas = "Atlas", CascadeCount = 1, LightDirection = new(0f, -1f, 0f) }
         );
 
         Assert.Equal(without.ViewProjection, Fit(node).ViewProjection);
@@ -431,7 +408,7 @@ public class ShadowMapRendererTests : IDisposable {
     [Fact]
     public void The_lighting_features_sun_is_answered_in_the_collect_phase() {
         var lighting = new ForwardLightingRenderFeature();
-        var direction = Vector3.Normalize(new Vector3(0.4f, -1f, 0.3f));
+        var direction = Vector3.Normalize(new(0.4f, -1f, 0.3f));
 
         lighting.Lights.Add(RenderLight.Directional(direction, new(1f), 5f));
 
@@ -457,7 +434,7 @@ public class ShadowMapRendererTests : IDisposable {
         // Against the same node fitted along the scene's direction by hand, rather than against
         // "not the fallback" — a projection that matched neither would pass that and be wrong.
         var expected = Fit(
-            new ShadowMapRenderer {
+            new() {
                 CasterStage = new("Caster"),
                 Atlas = "Atlas",
                 CascadeCount = 1,
@@ -514,11 +491,11 @@ public class ShadowMapRendererTests : IDisposable {
 
         Assert.Equal(camera.Position, view.Position);
         Assert.Equal(camera.ViewProjection, view.ViewProjection);
-        Assert.Equal(new BoundingFrustum(camera.ViewProjection), view.Frustum);
+        Assert.Equal(new(camera.ViewProjection), view.Frustum);
     }
 
     /// <summary>Two centres are the same when they agree to a millimetre.</summary>
-    static readonly Func<Vector3, Vector3, bool> Close = (a, b) => (a - b).Length() < 0.001f;
+    static readonly Func<Vector3, Vector3, bool> Close = static (a, b) => (a - b).Length() < 0.001f;
 
     /// <summary>Runs the collect phase far enough to get the cascades out.</summary>
     static ShadowCascade Fit(ShadowMapRenderer node) {

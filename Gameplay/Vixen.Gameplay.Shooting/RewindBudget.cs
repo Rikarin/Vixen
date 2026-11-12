@@ -6,15 +6,22 @@ namespace Vixen.Gameplay.Shooting;
 /// <summary>How much rewinding one connection may cost the server, per second.</summary>
 /// <remarks>
 ///     <para>
-///         <b>Doc 16's owed "cost budget for rewinds", closed here because doc 28 § Shooting says
-///         this library is the reason to close it.</b> A rewound hit claim costs a physics scene
+///         <b>
+///             Doc 16's owed "cost budget for rewinds", closed here because doc 28 § Shooting says
+///             this library is the reason to close it.
+///         </b>
+///         A rewound hit claim costs a physics scene
 ///         rolled back and re-traced; an ordinary remote call costs a dictionary lookup. A rate
 ///         limiter that counts them the same lets a client spend a whole server frame with a flood
 ///         that is, packet for packet, entirely inside its rate.
 ///     </para>
 ///     <para>
-///         ⚠ <b>A deeper rewind costs more, and that is the whole reason this is not just a second
-///         rate limit.</b> Rolling back two ticks is cheap and rolling back thirty is not, so charging
+///         ⚠
+///         <b>
+///             A deeper rewind costs more, and that is the whole reason this is not just a second
+///             rate limit.
+///         </b>
+///         Rolling back two ticks is cheap and rolling back thirty is not, so charging
 ///         per tick makes the price track the work. A player on a bad connection legitimately pays
 ///         more — which is correct, because they legitimately cost more — and the refill rate is
 ///         where a game decides how much of that it is willing to fund.
@@ -71,8 +78,7 @@ public sealed class RewindBudget {
     /// <summary>How much one connection has left.</summary>
     /// <param name="connection">Which one.</param>
     /// <returns>Its remaining budget.</returns>
-    public float RemainingFor(ulong connection) =>
-        remaining.TryGetValue(connection, out var left) ? left : Capacity;
+    public float RemainingFor(ulong connection) => remaining.TryGetValue(connection, out var left) ? left : Capacity;
 
     /// <summary>Spends a rewind's cost, if there is room for it.</summary>
     /// <param name="connection">Which connection.</param>

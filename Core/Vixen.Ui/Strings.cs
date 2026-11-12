@@ -48,8 +48,12 @@ public readonly record struct StringId(string Id, string Source) {
 ///         instead.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The catalog in use is a <see cref="Signal{T}" />, and that is what makes a language
-///         change re-label a running interface.</b> Every <c>@expr</c> in a <c>.vxml</c> is a
+///         ⚠
+///         <b>
+///             The catalog in use is a <see cref="Signal{T}" />, and that is what makes a language
+///             change re-label a running interface.
+///         </b>
+///         Every <c>@expr</c> in a <c>.vxml</c> is a
 ///         region-scoped <c>Effect</c>, so an expression that reads a string is a consumer of this
 ///         signal without saying so: <see cref="Use" /> marks it dirty, the document's next flush
 ///         re-runs it, and the label changes. No application writes a line of code for that, nothing
@@ -67,8 +71,12 @@ public readonly record struct StringId(string Id, string Source) {
 public static class Strings {
     /// <summary>The ids asked for that the catalog in use lacks. Every touch holds its lock.</summary>
     /// <remarks>
-    ///     ⚠ <b>Locked, because it is the one piece of process-wide mutable state here that is not a
-    ///     single reference</b> (#1433). <see cref="inUse" /> is one volatile write and the node is
+    ///     ⚠
+    ///     <b>
+    ///         Locked, because it is the one piece of process-wide mutable state here that is not a
+    ///         single reference
+    ///     </b>
+    ///     (#1433). <see cref="inUse" /> is one volatile write and the node is
     ///     per thread, but this is a red-black tree that <see cref="Get" /> writes from whatever
     ///     thread resolves a string: two writers at once lost ids and threw from inside a rotation, and
     ///     a reader walking the live set threw "collection was modified" — even on one thread, when
@@ -85,8 +93,12 @@ public static class Strings {
     static volatile StringCatalog inUse = StringCatalog.Source;
 
     /// <summary>
-    ///     ⚠ <b>A <see cref="Signal{T}" /> per thread, and it was one for the process until
-    ///     <a href="https://github.com/Rikarin/Vixen/issues/1413">#1413</a>.</b> The language is a
+    ///     ⚠
+    ///     <b>
+    ///         A <see cref="Signal{T}" /> per thread, and it was one for the process until
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/1413">#1413</a>.
+    ///     </b>
+    ///     The language is a
     ///     property of the person and stays process-wide in <see cref="inUse" />; this is only the
     ///     graph node that <em>announces</em> a change, and a graph node belongs to one graph.
     /// </summary>
@@ -118,7 +130,8 @@ public static class Strings {
     ///         not a case worth a comparer that reports nothing equal.
     ///     </para>
     /// </remarks>
-    [ThreadStatic] static Signal<StringCatalog>? announced;
+    [ThreadStatic]
+    static Signal<StringCatalog>? announced;
 
     /// <summary>This thread's node, made the first time this thread asks.</summary>
     static Signal<StringCatalog> Announced => announced ??= new(inUse);
@@ -167,7 +180,7 @@ public static class Strings {
     public static IReadOnlyCollection<string> Missing {
         get {
             lock (MissingIds) {
-                return [.. MissingIds];
+                return [..MissingIds];
             }
         }
     }

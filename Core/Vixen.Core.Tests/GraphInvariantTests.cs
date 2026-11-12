@@ -10,8 +10,8 @@ namespace Vixen.Core.Tests;
 ///     no document.
 /// </summary>
 public class GraphInvariantTests {
-    static readonly Func<(int From, int To), int> From = edge => edge.From;
-    static readonly Func<(int From, int To), int> To = edge => edge.To;
+    static readonly Func<(int From, int To), int> From = static edge => edge.From;
+    static readonly Func<(int From, int To), int> To = static edge => edge.To;
 
     [Fact]
     public void A_node_reaches_itself() {

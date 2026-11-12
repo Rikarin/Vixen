@@ -24,18 +24,19 @@ namespace Vixen.Video.Tests;
 /// </remarks>
 public sealed class ColourRoundTripTests {
     /// <summary>The seven bars, in the order a test pattern puts them.</summary>
-    public static TheoryData<byte, byte, byte> Bars => new() {
-        { 255, 255, 255 },
-        { 255, 255, 0 },
-        { 0, 255, 255 },
-        { 0, 255, 0 },
-        { 255, 0, 255 },
-        { 255, 0, 0 },
-        { 0, 0, 255 },
-        { 0, 0, 0 },
-        { 128, 128, 128 },
-        { 30, 90, 200 }
-    };
+    public static TheoryData<byte, byte, byte> Bars =>
+        new() {
+            { 255, 255, 255 },
+            { 255, 255, 0 },
+            { 0, 255, 255 },
+            { 0, 255, 0 },
+            { 255, 0, 255 },
+            { 255, 0, 0 },
+            { 0, 0, 255 },
+            { 0, 0, 0 },
+            { 128, 128, 128 },
+            { 30, 90, 200 }
+        };
 
     [Theory]
     [MemberData(nameof(Bars))]
@@ -93,20 +94,20 @@ public sealed class ColourRoundTripTests {
         var r = red / 255f;
         var g = green / 255f;
         var b = blue / 255f;
-        var luma = (kr * r) + ((1f - kr - kb) * g) + (kb * b);
+        var luma = kr * r + (1f - kr - kb) * g + kb * b;
 
         if (range == VideoColourRange.Full) {
             return (
                 Clamp(luma * 255f),
-                Clamp(128f + (255f * 0.5f * (b - luma) / (1f - kb))),
-                Clamp(128f + (255f * 0.5f * (r - luma) / (1f - kr)))
+                Clamp(128f + 255f * 0.5f * (b - luma) / (1f - kb)),
+                Clamp(128f + 255f * 0.5f * (r - luma) / (1f - kr))
             );
         }
 
         return (
-            Clamp(16f + (219f * luma)),
-            Clamp(128f + (224f * 0.5f * (b - luma) / (1f - kb))),
-            Clamp(128f + (224f * 0.5f * (r - luma) / (1f - kr)))
+            Clamp(16f + 219f * luma),
+            Clamp(128f + 224f * 0.5f * (b - luma) / (1f - kb)),
+            Clamp(128f + 224f * 0.5f * (r - luma) / (1f - kr))
         );
     }
 
@@ -120,7 +121,7 @@ public sealed class ColourRoundTripTests {
     ) {
         var frame = new VideoFrame();
 
-        frame.Reset(new VideoFormat(2, 2, VideoPixelLayout.Yuv420Planar, Range: range, Matrix: matrix));
+        frame.Reset(new(2, 2, VideoPixelLayout.Yuv420Planar, Range: range, Matrix: matrix));
         frame.Plane(0).Fill(y);
         frame.Plane(1).Fill(u);
         frame.Plane(2).Fill(v);

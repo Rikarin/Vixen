@@ -143,7 +143,7 @@ public sealed class WebGpuCommandTests : IDisposable {
         var thrown = Assert.Throws<NotSupportedException>(() => list.DrawIndexedIndirect(arguments, 0, 8));
         Assert.Contains("HasMultiDrawIndirect", thrown.Message, StringComparison.Ordinal);
 
-        list.DrawIndexedIndirect(arguments, 0);
+        list.DrawIndexedIndirect(arguments);
     }
 
     /// <summary>
@@ -194,7 +194,7 @@ public sealed class WebGpuCommandTests : IDisposable {
 
         using var list = device.BeginCommandList(QueueKind.Graphics, "Main");
         list.BeginRenderPass(Pass(view, "Opaque"));
-        list.SetViewport(new Viewport(0, 0, 64, 64));
+        list.SetViewport(new(0, 0, 64, 64));
         list.SetScissor(new(0, 0, 64, 64));
         list.BindVertexBuffer(0, buffer);
         list.Draw(3);
@@ -232,7 +232,7 @@ public sealed class WebGpuCommandTests : IDisposable {
         binding.Clear();
 
         using var list = device.BeginCommandList(QueueKind.Compute);
-        list.Dispatch(4, 2, 1);
+        list.Dispatch(4, 2);
         list.Dispatch(1);
         list.CopyBuffer(source, 0, destination, 0, 16);
         list.Finish();
@@ -308,9 +308,7 @@ public sealed class WebGpuCommandTests : IDisposable {
 
         using var list = device.BeginCommandList();
 
-        list.Barrier(
-            new([new(buffer, ResourceState.ShaderWrite, ResourceState.VertexInput)], [])
-        );
+        list.Barrier(new([new(buffer, ResourceState.ShaderWrite, ResourceState.VertexInput)], []));
 
         list.Finish();
         device.GraphicsQueue.Submit([list]);
@@ -379,7 +377,7 @@ public sealed class WebGpuCommandTests : IDisposable {
         device.GraphicsQueue.Submit([list]);
 
         Assert.Equal(WebGpuCapabilities.PushConstantSize, binding.LastWrite.Length);
-        Assert.Equal<byte[]>([1, 2, 3, 4, 5, 6, 7, 8], binding.LastWrite[..8]);
+        Assert.Equal([1, 2, 3, 4, 5, 6, 7, 8], binding.LastWrite[..8]);
     }
 
     [Fact]
@@ -402,9 +400,7 @@ public sealed class WebGpuCommandTests : IDisposable {
         using var device = new WebGpuDevice(binding);
 
         using var list = device.BeginCommandList();
-        Assert.Throws<ArgumentOutOfRangeException>(
-            () => list.PushConstants(ShaderStage.Vertex, 120, new byte[16])
-        );
+        Assert.Throws<ArgumentOutOfRangeException>(() => list.PushConstants(ShaderStage.Vertex, 120, new byte[16]));
     }
 
     // ── Copies ──────────────────────────────────────────────────────────────────────────────
@@ -463,15 +459,21 @@ public sealed class WebGpuCommandTests : IDisposable {
     [Fact]
     public void CopyingDepth24PlusIsRefused() {
         using var device = new WebGpuDevice(binding);
-        var destination = device.CreateBuffer(new(65536, BufferUsage.CopyDestination, MemoryAccess.HostReadback, "Readback"));
+        var destination = device.CreateBuffer(
+            new(65536, BufferUsage.CopyDestination, MemoryAccess.HostReadback, "Readback")
+        );
         var texture = device.CreateTexture(
             new(PixelFormat.Depth24UNormStencil8, 64, 64, TextureUsage.CopySource, Name: "Depth")
         );
 
         using var list = device.BeginCommandList();
 
-        var thrown = Assert.Throws<NotSupportedException>(
-            () => list.CopyTextureToBuffer(new(texture), new(64, 64, 1), destination, 0)
+        var thrown = Assert.Throws<NotSupportedException>(() => list.CopyTextureToBuffer(
+                new(texture),
+                new(64, 64, 1),
+                destination,
+                0
+            )
         );
 
         Assert.Contains("Depth32Float", thrown.Message, StringComparison.Ordinal);

@@ -4,7 +4,6 @@
 using System.Globalization;
 using System.Net;
 using System.Net.Http.Headers;
-using System.Net.Http.Json;
 
 namespace Vixen.Live.Client;
 
@@ -64,8 +63,7 @@ public sealed class GateClient(HttpClient http) {
 
     /// <summary>The bearer header a service-plane socket needs.</summary>
     /// <remarks>Null until signed in. <c>GateConnection</c> is the consumer.</remarks>
-    public AuthenticationHeaderValue? Authorization =>
-        Session is null ? null : new("Bearer", Session.Token);
+    public AuthenticationHeaderValue? Authorization => Session is null ? null : new("Bearer", Session.Token);
 
     /// <summary>What the fleet is running. The call to make before any other.</summary>
     /// <param name="cancellation">Gives up.</param>
@@ -91,7 +89,7 @@ public sealed class GateClient(HttpClient http) {
         var answer = await SendAsync(
                 HttpMethod.Post,
                 "session",
-                content => JsonContent.Create(new SignInRequest(scheme, credential), GateJson.Default.SignInRequest),
+                content => JsonContent.Create(new(scheme, credential), GateJson.Default.SignInRequest),
                 GateJson.Default.SignInResponse,
                 cancellation
             )
@@ -159,8 +157,12 @@ public sealed class GateClient(HttpClient http) {
     /// <param name="cancellation">Gives up.</param>
     /// <returns>The last answer — placed, refused, or still starting after <paramref name="attempts" />.</returns>
     /// <remarks>
-    ///     ⚠ <b>It waits for <c>Starting</c> and returns <c>UpdateRequired</c> untouched, and the
-    ///     asymmetry is the point.</b> A shard coming up needs nothing from the game but patience;
+    ///     ⚠
+    ///     <b>
+    ///         It waits for <c>Starting</c> and returns <c>UpdateRequired</c> untouched, and the
+    ///         asymmetry is the point.
+    ///     </b>
+    ///     A shard coming up needs nothing from the game but patience;
     ///     fetching a catalog is the game's own asset system doing work it must decide to do, on a
     ///     connection the player may be paying for. A helper that quietly downloaded a gigabyte would
     ///     be a helper nobody could trust.
@@ -210,7 +212,11 @@ public sealed class GateClient(HttpClient http) {
                 var value = await response.Content.ReadFromJsonAsync(shape, cancellation).ConfigureAwait(false);
 
                 return value is null
-                    ? new(default, new("malformed", "The gate answered with something that was not the shape it should be."), status)
+                    ? new(
+                        default,
+                        new("malformed", "The gate answered with something that was not the shape it should be."),
+                        status
+                    )
                     : new(value, null, status);
             }
 
@@ -220,7 +226,8 @@ public sealed class GateClient(HttpClient http) {
             var problem = await ReadProblemAsync(response, cancellation).ConfigureAwait(false);
 
             return new(default, problem, status);
-        } catch (Exception failure) when (failure is HttpRequestException or TaskCanceledException && !cancellation.IsCancellationRequested) {
+        } catch (Exception failure) when (failure is HttpRequestException or TaskCanceledException
+                                          && !cancellation.IsCancellationRequested) {
             return new(
                 default,
                 new("unreachable", $"The gate did not answer: {failure.Message}"),
@@ -232,8 +239,8 @@ public sealed class GateClient(HttpClient http) {
     static async Task<GateProblem> ReadProblemAsync(HttpResponseMessage response, CancellationToken cancellation) {
         try {
             return await response.Content.ReadFromJsonAsync(GateJson.Default.GateProblem, cancellation)
-                       .ConfigureAwait(false)
-                   ?? Unexplained(response.StatusCode);
+                    .ConfigureAwait(false)
+                ?? Unexplained(response.StatusCode);
         } catch (Exception failure) when (failure is System.Text.Json.JsonException or NotSupportedException) {
             return Unexplained(response.StatusCode);
         }

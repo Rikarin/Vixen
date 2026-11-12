@@ -6,7 +6,6 @@ using Vixen.Ai;
 using Vixen.Core;
 using Vixen.Core.Mathematics;
 using Vixen.Editor.Ai;
-using Vixen.Editor.Core;
 using Vixen.Input;
 using Vixen.Ui;
 using Vixen.Ui.Controls;
@@ -154,16 +153,19 @@ public sealed class BehaviorTreeView : Control {
         Search = Document.Root.Add<BehaviorSearchPopup>();
         Search.Chosen += Created;
 
-        AddHandler<ClickEvent>(static (element, args) => ((BehaviorTreeView) element).Chosen(args));
+        AddHandler<ClickEvent>(static (element, args) => ((BehaviorTreeView)element).Chosen(args));
 
         // Capture, so Space is taken before the canvas reads it as "activate the node the arrows
         // are on" — the trade `NodeGraphView` makes for the same key, and Enter still does that.
         // Only with the focus in the canvas, though; see `Keyed`.
-        AddHandler<KeyEvent>(static (element, args) => ((BehaviorTreeView) element).Keyed(args), RoutingStrategy.Capture);
+        AddHandler<KeyEvent>(
+            static (element, args) => ((BehaviorTreeView)element).Keyed(args),
+            RoutingStrategy.Capture
+        );
         AddHandler<PointerEvent>(
-            static (element, args) => ((BehaviorTreeView) element).pointer = new(args.X, args.Y),
+            static (element, args) => ((BehaviorTreeView)element).pointer = new(args.X, args.Y),
             RoutingStrategy.Capture,
-            handledEventsToo: true
+            true
         );
     }
 
@@ -219,8 +221,12 @@ public sealed class BehaviorTreeView : Control {
     /// <summary>Follows a running agent, tinting the canvas by what it is doing.</summary>
     /// <param name="value">The debugger's model, or null to stop following one.</param>
     /// <remarks>
-    ///     ⚠ <b>doc 37 § Part 5's "Live, in play mode", and it is the canvas rather than a second
-    ///     panel.</b> The agent debugger already lists the active path; what an author wants while
+    ///     ⚠
+    ///     <b>
+    ///         doc 37 § Part 5's "Live, in play mode", and it is the canvas rather than a second
+    ///         panel.
+    ///     </b>
+    ///     The agent debugger already lists the active path; what an author wants while
     ///     reading a tree is to see it <i>on the tree</i>, tinted by what each node last returned —
     ///     "why is the second child running" is answered by the first one being red.
     /// </remarks>
@@ -378,7 +384,8 @@ public sealed class BehaviorTreeView : Control {
     }
 
     bool IsComposite(BehaviorNodeContent? node) =>
-        node is not null && document is not null
+        node is not null
+        && document is not null
         && (node.Children.Count > 0 || document.Model.TypeOf(node) is { Slot: BehaviorSlot.Composite });
 
     void Keyed(KeyEvent args) {
@@ -482,7 +489,9 @@ public sealed class BehaviorTreeView : Control {
 
         var type = selectedAttachment is { } attachment
             ? document.Model.TypeOf(attachment)
-            : selected is null ? null : document.Model.TypeOf(selected);
+            : selected is null
+                ? null
+                : document.Model.TypeOf(selected);
 
         if (type is null) {
             Inspector.Add("inspector-note").Text = selected is null
@@ -508,7 +517,9 @@ public sealed class BehaviorTreeView : Control {
     void RefreshOverlay() {
         Canvas.Overlay.Clear();
 
-        if (document is null || selected is null || selectedAttachment is null
+        if (document is null
+            || selected is null
+            || selectedAttachment is null
             || selectedSlot != BehaviorAttachmentSlot.Decorator) {
             Canvas.Refresh();
 
@@ -519,7 +530,9 @@ public sealed class BehaviorTreeView : Control {
 
         if (scope.Count > 0
             && projection.RegionOf(scope, Canvas) is { Width: > 0f } region) {
-            Canvas.Overlay.Add(new(region, new Color4(0.42f, 0.48f, 0.88f, 0.14f), new Color4(0.42f, 0.48f, 0.88f, 0.5f)));
+            Canvas.Overlay.Add(
+                new(region, new Color4(0.42f, 0.48f, 0.88f, 0.14f), new Color4(0.42f, 0.48f, 0.88f, 0.5f))
+            );
         }
 
         Canvas.Refresh();
@@ -554,7 +567,7 @@ public sealed class BehaviorTreeView : Control {
                     }
                 }
             },
-            mergeKey: "move"
+            "move"
         );
     }
 
@@ -570,7 +583,7 @@ public sealed class BehaviorTreeView : Control {
             return;
         }
 
-        var target = Under(point, except: moved);
+        var target = Under(point, moved);
 
         if (target is null || ReferenceEquals(target, moved)) {
             return;
@@ -625,7 +638,11 @@ public sealed class BehaviorTreeView : Control {
             case BehaviorSlot.Decorator:
                 document.Edit(
                     "Add Decorator",
-                    model => model.Attach(selected, BehaviorAttachmentSlot.Decorator, BehaviorTreeModel.MakeAttachment(type))
+                    model => model.Attach(
+                        selected,
+                        BehaviorAttachmentSlot.Decorator,
+                        BehaviorTreeModel.MakeAttachment(type)
+                    )
                 );
 
                 break;
@@ -633,7 +650,11 @@ public sealed class BehaviorTreeView : Control {
             case BehaviorSlot.Service:
                 document.Edit(
                     "Add Service",
-                    model => model.Attach(selected, BehaviorAttachmentSlot.Service, BehaviorTreeModel.MakeAttachment(type))
+                    model => model.Attach(
+                        selected,
+                        BehaviorAttachmentSlot.Service,
+                        BehaviorTreeModel.MakeAttachment(type)
+                    )
                 );
 
                 break;
@@ -662,11 +683,11 @@ public sealed class BehaviorTreeView : Control {
     }
 
 /// <summary>Empties a list element, which the framework does one child at a time.</summary>
-    /// <remarks>
-    ///     Removal is final in this framework — see <c>NodeCanvas</c>'s pooling — so a panel that is
-    ///     rebuilt on every selection change pays for it. These lists are a handful of rows and the
-    ///     alternative is a pool per panel, which is machinery for a picture nobody scrolls.
-    /// </remarks>
+/// <remarks>
+///     Removal is final in this framework — see <c>NodeCanvas</c>'s pooling — so a panel that is
+///     rebuilt on every selection change pays for it. These lists are a handful of rows and the
+///     alternative is a pool per panel, which is machinery for a picture nobody scrolls.
+/// </remarks>
     static void Empty(UiElement list) {
         while (list.Children.Count > 0) {
             list.Children[^1].Remove();
@@ -699,7 +720,10 @@ public sealed class BehaviorTreeView : Control {
             }
 
             if (ReferenceEquals(element, AddDecorator) || ReferenceEquals(element, AddService)) {
-                OpenUnder(element, ReferenceEquals(element, AddDecorator) ? BehaviorSlot.Decorator : BehaviorSlot.Service);
+                OpenUnder(
+                    element,
+                    ReferenceEquals(element, AddDecorator) ? BehaviorSlot.Decorator : BehaviorSlot.Service
+                );
                 args.Handled = true;
 
                 return;

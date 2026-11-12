@@ -22,8 +22,12 @@ namespace Vixen.Editor.Inspector;
 ///         the other thing an author writes on a loose static method.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Read by a scan of the assembly that declared it, and only for a plugin or a project
-///         script.</b> ADR-002 forbids assembly scanning as a way of building the editor — a scan
+///         ⚠
+///         <b>
+///             Read by a scan of the assembly that declared it, and only for a plugin or a project
+///             script.
+///         </b>
+///         ADR-002 forbids assembly scanning as a way of building the editor — a scan
 ///         reads metadata a trimmed publish has deleted and makes start-up cost grow with what is
 ///         installed. Neither applies to one discrete assembly the editor has just loaded or just
 ///         compiled, and the plugin loader already enumerates a plugin's types to find its entry
@@ -53,8 +57,12 @@ public sealed class CustomInspectorAttribute(Type target) : Attribute {
 ///         public sealed class CurveDrawer : IPropertyDrawer { … }
 ///     </code>
 ///     <para>
-///         ⚠ <b>A type <i>or</i> an attribute, because <c>DrawerRegistry</c> resolves both and the
-///         difference is not cosmetic.</b> By type is "every <c>Curve</c> is drawn like this"; by
+///         ⚠
+///         <b>
+///             A type <i>or</i> an attribute, because <c>DrawerRegistry</c> resolves both and the
+///             difference is not cosmetic.
+///         </b>
+///         By type is "every <c>Curve</c> is drawn like this"; by
 ///         attribute is "every member carrying <c>[ColorUsage]</c> is", which is how one drawer serves
 ///         a member's *intent* rather than its storage. <see cref="ForAttribute" /> says which of the
 ///         two <see cref="Target" /> means.

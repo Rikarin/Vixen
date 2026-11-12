@@ -32,8 +32,12 @@ public class RemeshReportTests {
     /// <summary>Every irregular vertex, checked against the output mesh rather than against the extraction.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b><see cref="RemeshMetrics.Singularities" /> returns a pair and only the second half
-    ///         of it was ever asserted.</b> The count on features is checked in three places; the list
+    ///         ⚠
+    ///         <b>
+    ///             <see cref="RemeshMetrics.Singularities" /> returns a pair and only the second half
+    ///             of it was ever asserted.
+    ///         </b>
+    ///         The count on features is checked in three places; the list
     ///         itself was read by nothing, so an empty list, a duplicated entry or a valence off by one
     ///         would have gone through every existing test. The recomputation here walks the output's
     ///         one-rings directly: an interior vertex whose valence is not four is a singularity, and
@@ -76,7 +80,7 @@ public class RemeshReportTests {
         }
 
         Assert.Equal(expected.Count, report.Singularities.Count);
-        Assert.Equal(expected.Count, report.Singularities.Select(entry => entry.Position).Distinct().Count());
+        Assert.Equal(expected.Count, report.Singularities.Select(static entry => entry.Position).Distinct().Count());
 
         // Ascending by position, which is what makes the list itself a deterministic artefact rather
         // than a set that happens to have the right members.
@@ -96,22 +100,33 @@ public class RemeshReportTests {
     /// <summary>On a closed result the indices sum to four times the Euler characteristic.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>The Poincaré–Hopf statement for a 4-RoSy field, and the strongest single check the
-    ///         list admits.</b> Every quad has four sides, so <c>4F = 2E</c>; summing
+    ///         <b>
+    ///             The Poincaré–Hopf statement for a 4-RoSy field, and the strongest single check the
+    ///             list admits.
+    ///         </b>
+    ///         Every quad has four sides, so <c>4F = 2E</c>; summing
     ///         <c>4 − valence</c> over every vertex gives <c>4V − 2E = 4(V − E + F) = 4χ</c>, and a
     ///         regular vertex contributes nothing — so the sum over the <i>irregular</i> ones is the
     ///         whole of it. A list that dropped an entry, counted one twice or recorded a valence
     ///         wrongly cannot satisfy this by accident.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Closed results only, and the guard is the boundary rather than
-    ///         <see cref="MeshReport.IsSolid" />.</b> The identity above counts quarter turns around a
+    ///         ⚠
+    ///         <b>
+    ///             Closed results only, and the guard is the boundary rather than
+    ///             <see cref="MeshReport.IsSolid" />.
+    ///         </b>
+    ///         The identity above counts quarter turns around a
     ///         closed one-ring; a vertex on a rim has an open one-ring and contributes a term this
     ///         arithmetic does not have.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Measured on a 400-quad budget: four of the five fixtures now come out closed
-    ///         <i>and</i> manifold, where one did.</b> A sphere always did, at <c>χ = 2</c>, summing to
+    ///         ⚠
+    ///         <b>
+    ///             Measured on a 400-quad budget: four of the five fixtures now come out closed
+    ///             <i>and</i> manifold, where one did.
+    ///         </b>
+    ///         A sphere always did, at <c>χ = 2</c>, summing to
     ///         exactly 8; a box, a plate and a flight of stairs joined it when the layout stopped
     ///         leaving slits in the partition — every one of them used to lose patches to the
     ///         extractor's refusal and come back either non-manifold or with a rim. A cylinder still
@@ -142,8 +157,8 @@ public class RemeshReportTests {
             incidences += quads.EdgesAt(position).Length;
         }
 
-        var euler = quads.PositionCount - (incidences / 2) + quads.FaceCount;
-        var sum = report.Singularities.Sum(entry => entry.Index);
+        var euler = quads.PositionCount - incidences / 2 + quads.FaceCount;
+        var sum = report.Singularities.Sum(static entry => entry.Index);
 
         Assert.Equal(0, incidences % 2);
         Assert.Equal(4 * euler, sum);
@@ -189,8 +204,12 @@ public class RemeshReportTests {
     /// <summary>The mean deviation, against a brute-force recomputation over every conditioned triangle.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Unasserted until now, while <see cref="RemeshReport.MaxDeviation" /> is checked in
-    ///         three places.</b> The two are returned from one call, so a mean that was accumulating
+    ///         ⚠
+    ///         <b>
+    ///             Unasserted until now, while <see cref="RemeshReport.MaxDeviation" /> is checked in
+    ///             three places.
+    ///         </b>
+    ///         The two are returned from one call, so a mean that was accumulating
     ///         the wrong samples, dividing by the wrong count or quietly reporting the max again would
     ///         have been invisible.
     ///     </para>
@@ -252,9 +271,9 @@ public class RemeshReportTests {
             for (var triangle = 0; triangle < indices.Length / 3; triangle++) {
                 var closest = SurfaceProjector.ClosestOnTriangle(
                     query,
-                    points[indices[(triangle * 3) + 0]],
-                    points[indices[(triangle * 3) + 1]],
-                    points[indices[(triangle * 3) + 2]]
+                    points[indices[triangle * 3]],
+                    points[indices[triangle * 3 + 1]],
+                    points[indices[triangle * 3 + 2]]
                 );
 
                 nearest = MathF.Min(nearest, Vector3.Distance(query, closest));
@@ -281,8 +300,12 @@ public class RemeshReportTests {
 
     /// <summary>Every stage says how much it handled, and each count is the artefact it handled.</summary>
     /// <remarks>
-    ///     ⚠ <b><see cref="RemeshStageTiming.Elements" /> was populated for all seven stages and read by
-    ///     nothing.</b> The field is half of what makes § D1's stage boundaries a debugging surface —
+    ///     ⚠
+    ///     <b>
+    ///         <see cref="RemeshStageTiming.Elements" /> was populated for all seven stages and read by
+    ///         nothing.
+    ///     </b>
+    ///     The field is half of what makes § D1's stage boundaries a debugging surface —
     ///     <i>which stage dropped something</i> is the question it answers, and a stage that reported
     ///     the wrong count would send whoever asked to the wrong stage. Three of the seven can be
     ///     checked against a number that is in the report anyway, which is exactly the two-ways
@@ -303,7 +326,7 @@ public class RemeshReportTests {
             Assert.True(timing.Elapsed >= TimeSpan.Zero, $"{timing.Stage} took {timing.Elapsed}.");
         }
 
-        var stages = report.Stages.ToDictionary(timing => timing.Stage);
+        var stages = report.Stages.ToDictionary(static timing => timing.Stage);
 
         Assert.Equal(report.Conditioning.Triangles, stages[RemeshStage.Condition].Elements);
         Assert.Equal(quads.FaceCount, stages[RemeshStage.Extract].Elements);

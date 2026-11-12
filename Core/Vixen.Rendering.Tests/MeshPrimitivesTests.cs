@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core.Mathematics;
-using Vixen.Rendering;
 using Xunit;
 
 namespace Vixen.Rendering.Tests;
@@ -118,7 +117,7 @@ public class MeshPrimitivesTests {
         var seen = new HashSet<(int X, int Y, int Z)>();
 
         foreach (var normal in cube.Normals) {
-            seen.Add(((int) MathF.Round(normal.X), (int) MathF.Round(normal.Y), (int) MathF.Round(normal.Z)));
+            seen.Add(((int)MathF.Round(normal.X), (int)MathF.Round(normal.Y), (int)MathF.Round(normal.Z)));
         }
 
         Assert.Equal(6, seen.Count);
@@ -155,18 +154,18 @@ public class MeshPrimitivesTests {
     public void A_capsule_that_is_no_taller_than_it_is_wide_is_refused() {
         // It would be a sphere, and silently building one is worse than saying so: the caller asked
         // for a capsule and would get geometry that is right and not what they described.
-        Assert.Throws<ArgumentOutOfRangeException>(() => MeshPrimitives.Capsule(0.25f, 0.4f));
+        Assert.Throws<ArgumentOutOfRangeException>(static () => MeshPrimitives.Capsule(0.25f, 0.4f));
     }
 
     [Fact]
     public void A_shape_too_coarse_to_be_a_solid_is_refused() {
-        Assert.Throws<ArgumentOutOfRangeException>(() => MeshPrimitives.Sphere(0.5f, 2, 8));
-        Assert.Throws<ArgumentOutOfRangeException>(() => MeshPrimitives.Cylinder(0.5f, 1f, 2));
+        Assert.Throws<ArgumentOutOfRangeException>(static () => MeshPrimitives.Sphere(0.5f, 2, 8));
+        Assert.Throws<ArgumentOutOfRangeException>(static () => MeshPrimitives.Cylinder(0.5f, 1f, 2));
     }
 
     [Fact]
     public void A_kind_that_is_not_one_is_refused() {
-        Assert.Throws<ArgumentOutOfRangeException>(() => MeshPrimitives.Create((PrimitiveKind) 99));
+        Assert.Throws<ArgumentOutOfRangeException>(static () => MeshPrimitives.Create((PrimitiveKind)99));
     }
 
     [Fact]

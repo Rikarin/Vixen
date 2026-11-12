@@ -14,8 +14,12 @@ namespace Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>This is the load-bearing half of <c>[Setting(AcceptedFrom = …)]</c>, and the dropdown
-///         is the visible one.</b> A picker that cannot reach a value the compiler accepts is worse
+///         ⚠
+///         <b>
+///             This is the load-bearing half of <c>[Setting(AcceptedFrom = …)]</c>, and the dropdown
+///             is the visible one.
+///         </b>
+///         A picker that cannot reach a value the compiler accepts is worse
 ///         than the text box it replaced, because the text box could reach it — and that failure is
 ///         silent in the one direction nobody looks. So the assertion is not "the list is right"; it
 ///         is "the list a picker offers and the set a refusal enumerates are the same set".
@@ -73,7 +77,7 @@ public class TextureSettingChoiceTests {
             // what anybody wants held still.
             var withheld = Withheld
                 .Where(row => row.Path == definition.Path && row.Setting == setting.Name)
-                .Select(row => row.Value)
+                .Select(static row => row.Value)
                 .ToImmutableArray();
 
             Assert.Equal(
@@ -120,8 +124,12 @@ public class TextureSettingChoiceTests {
 
     /// <summary>A generated list is the enum as written, not the enum as <c>Enum.GetNames</c> sorts it.</summary>
     /// <remarks>
-    ///     ⚠ <b>The one enum in the library where the two differ, which is why this is a test rather
-    ///     than a remark.</b> <c>TextureResampleSize</c> is <c>Quadruple = -2</c> through
+    ///     ⚠
+    ///     <b>
+    ///         The one enum in the library where the two differ, which is why this is a test rather
+    ///         than a remark.
+    ///     </b>
+    ///     <c>TextureResampleSize</c> is <c>Quadruple = -2</c> through
     ///     <c>Quarter = 2</c> — the value is the mip-level offset, so the sign carries meaning — and
     ///     <c>Enum.GetNames</c>, sorting by the unsigned bit pattern, answers
     ///     <c>Same, Half, Quarter, Quadruple, Double</c>. A picker offering that would be offering an
@@ -145,9 +153,13 @@ public class TextureSettingChoiceTests {
     /// <summary>The settings that deliberately offer fewer names than their refusal enumerates.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A narrowing is a claim, and this is the list of them so that
-    ///         <see cref="Every_refused_setting_offers_exactly_the_names_its_refusal_enumerates" />
-    ///         stays an equality rather than becoming a subset.</b> "Offered ⊆ refused" would be
+    ///         ⚠
+    ///         <b>
+    ///             A narrowing is a claim, and this is the list of them so that
+    ///             <see cref="Every_refused_setting_offers_exactly_the_names_its_refusal_enumerates" />
+    ///             stays an equality rather than becoming a subset.
+    ///         </b>
+    ///         "Offered ⊆ refused" would be
     ///         satisfied by a picker that offered nothing at all, which is the weaker assertion in
     ///         the direction that matters — a value the compiler accepts and no dropdown can reach
     ///         is exactly what #1013 was filed about.
@@ -309,8 +321,12 @@ public class TextureSettingChoiceTests {
     /// <param name="refusal">The message.</param>
     /// <returns>The names, or empty when the sentence is not the shape this reads.</returns>
     /// <remarks>
-    ///     ⚠ <b>Cut at the first full stop that ends the list, because one refusal says more
-    ///     afterwards.</b> <c>Source/Mesh Map</c>'s adds a sentence about what a mesh map is bound
+    ///     ⚠
+    ///     <b>
+    ///         Cut at the first full stop that ends the list, because one refusal says more
+    ///         afterwards.
+    ///     </b>
+    ///     <c>Source/Mesh Map</c>'s adds a sentence about what a mesh map is bound
     ///     by; no member name of any of these enums contains a full stop, so the first one is the end
     ///     of the list wherever the sentence goes on.
     /// </remarks>
@@ -330,7 +346,7 @@ public class TextureSettingChoiceTests {
             list = list[..stop];
         }
 
-        return [.. list.Split(", ", StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)];
+        return [..list.Split(", ", StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)];
     }
 
     /// <summary>Whether a refusal is about one named setting.</summary>

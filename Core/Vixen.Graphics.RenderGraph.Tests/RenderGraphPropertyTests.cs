@@ -33,8 +33,11 @@ public readonly record struct GraphSpec(int ResourceCount, PassSpec[] Passes);
 ///         <em>not</em> a second implementation of the graph's barrier planner — that would agree with
 ///         it for the same reasons it is wrong. It replays the command stream the graph actually
 ///         emitted, maintains its own idea of what state each resource is in from the barriers alone,
-///         and asserts the property that matters: <b>at the moment a pass runs, every resource it
-///         declared is in the state it declared.</b>
+///         and asserts the property that matters:
+///         <b>
+///             at the moment a pass runs, every resource it
+///             declared is in the state it declared.
+///         </b>
 ///     </para>
 ///     <para>
 ///         That is the invariant a renderer depends on and the one a driver punishes. It cannot be
@@ -116,10 +119,10 @@ public sealed class RenderGraphPropertyTests {
 
             // The last pass always has a side effect, so the graph is not culled to nothing — which
             // is a legal outcome and a boring one to generate over and over.
-            passes.Add(new($"p{index}", [.. uses], index == passCount - 1));
+            passes.Add(new($"p{index}", [..uses], index == passCount - 1));
         }
 
-        return new(resourceCount, [.. passes]);
+        return new(resourceCount, [..passes]);
     }
 
     /// <summary>
@@ -127,7 +130,8 @@ public sealed class RenderGraphPropertyTests {
     /// </summary>
     [Fact]
     public void EveryPassSeesTheStateItAskedFor() =>
-        Graphs.Sample(spec => {
+        Graphs.Sample(
+            static spec => {
                 using var device = new NullDevice();
                 using var pool = new TransientResourcePool(device);
                 var graph = new RenderGraph(device, pool);
@@ -181,7 +185,8 @@ public sealed class RenderGraphPropertyTests {
     /// </summary>
     [Fact]
     public void AliasedResourcesNeverOverlapInTime() =>
-        Graphs.Sample(spec => {
+        Graphs.Sample(
+            static spec => {
                 using var device = new NullDevice();
                 using var pool = new TransientResourcePool(device);
                 var graph = new RenderGraph(device, pool);
@@ -237,14 +242,15 @@ public sealed class RenderGraphPropertyTests {
     /// </summary>
     [Fact]
     public void CullingKeepsExactlyWhatIsReachableFromAnOutput() =>
-        Graphs.Sample(spec => {
+        Graphs.Sample(
+            static spec => {
                 using var device = new NullDevice();
                 using var pool = new TransientResourcePool(device);
                 var graph = new RenderGraph(device, pool);
                 var list = new TrackingCommandList();
 
                 var (_, order) = Run(graph, pool, spec, list);
-                var ran = order.Where(step => !step.IsBarrierGroup).Select(step => step.Pass).ToHashSet();
+                var ran = order.Where(static step => !step.IsBarrierGroup).Select(static step => step.Pass).ToHashSet();
 
                 // Independently: walk backwards from every side-effect pass, keeping whatever wrote
                 // something a kept pass reads.
@@ -276,9 +282,8 @@ public sealed class RenderGraphPropertyTests {
                                     continue;
                                 }
 
-                                if (spec.Passes[later].Uses.Any(
-                                        other => !other.IsWrite && other.Resource == use.Resource
-                                    )) {
+                                if (spec.Passes[later]
+                                    .Uses.Any(other => !other.IsWrite && other.Resource == use.Resource)) {
                                     needed.Add(index);
                                     changed = true;
                                     break;
@@ -303,7 +308,8 @@ public sealed class RenderGraphPropertyTests {
     /// </summary>
     [Fact]
     public void NoBarrierMisstatesWhatItIsTransitioningFrom() =>
-        Graphs.Sample(spec => {
+        Graphs.Sample(
+            static spec => {
                 using var device = new NullDevice();
                 using var pool = new TransientResourcePool(device);
                 var graph = new RenderGraph(device, pool);
@@ -343,14 +349,19 @@ public sealed class RenderGraphPropertyTests {
         var handles = new GraphTexture[spec.ResourceCount];
 
         for (var index = 0; index < spec.ResourceCount; index++) {
-            handles[index] = graph.CreateTexture(new(
-                PixelFormat.Rgba8UNorm,
-                64,
-                64,
-                TextureUsage.ColourTarget | TextureUsage.Sampled | TextureUsage.Storage
-                | TextureUsage.CopySource | TextureUsage.CopyDestination,
-                Name: $"r{index}"
-            ));
+            handles[index] = graph.CreateTexture(
+                new(
+                    PixelFormat.Rgba8UNorm,
+                    64,
+                    64,
+                    TextureUsage.ColourTarget
+                    | TextureUsage.Sampled
+                    | TextureUsage.Storage
+                    | TextureUsage.CopySource
+                    | TextureUsage.CopyDestination,
+                    Name: $"r{index}"
+                )
+            );
         }
 
         var order = new List<Step>();
@@ -359,21 +370,24 @@ public sealed class RenderGraphPropertyTests {
             var pass = spec.Passes[index];
             var passIndex = index;
 
-            graph.AddPass(pass.Name, builder => {
-                foreach (var use in pass.Uses) {
-                    if (use.IsWrite) {
-                        builder.Writes(handles[use.Resource], use.State);
-                    } else {
-                        builder.Reads(handles[use.Resource], use.State);
+            graph.AddPass(
+                pass.Name,
+                builder => {
+                    foreach (var use in pass.Uses) {
+                        if (use.IsWrite) {
+                            builder.Writes(handles[use.Resource], use.State);
+                        } else {
+                            builder.Reads(handles[use.Resource], use.State);
+                        }
                     }
-                }
 
-                if (pass.SideEffect) {
-                    builder.SideEffect();
-                }
+                    if (pass.SideEffect) {
+                        builder.SideEffect();
+                    }
 
-                builder.Execute(_ => order.Add(new(false, -1, passIndex)));
-            });
+                    builder.Execute(_ => order.Add(new(false, -1, passIndex)));
+                }
+            );
         }
 
         var groups = 0;

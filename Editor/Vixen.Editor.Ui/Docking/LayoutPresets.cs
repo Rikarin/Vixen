@@ -27,7 +27,7 @@ public static class LayoutPresets {
     /// <returns>The arrangement.</returns>
     public static DockLayout Single(string panel) {
         ArgumentNullException.ThrowIfNull(panel);
-        return new DockLayout { Root = new DockGroupNode(panel) };
+        return new() { Root = new DockGroupNode(panel) };
     }
 
     /// <summary>A browser, a centre, an inspector, and a console under the middle.</summary>
@@ -61,7 +61,7 @@ public static class LayoutPresets {
             middle = new DockSplitNode(Orientation.Horizontal, middle, inspector, 0.74f);
         }
 
-        return new DockLayout {
+        return new() {
             Root = Group(left) is { } browser
                 ? new DockSplitNode(Orientation.Horizontal, browser, middle, 0.2f)
                 : middle
@@ -80,7 +80,7 @@ public static class LayoutPresets {
         var left = Group(first);
         var right = Group(second);
 
-        return new DockLayout {
+        return new() {
             Root = left is null
                 ? right
                 : right is null
@@ -96,5 +96,5 @@ public static class LayoutPresets {
     ///     with nothing in it.
     /// </remarks>
     static DockGroupNode? Group(IReadOnlyList<string>? panels) =>
-        panels is { Count: > 0 } ? new DockGroupNode([.. panels]) : null;
+        panels is { Count: > 0 } ? new DockGroupNode([..panels]) : null;
 }

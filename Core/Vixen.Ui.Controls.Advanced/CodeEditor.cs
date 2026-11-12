@@ -216,8 +216,12 @@ public sealed partial class CodeEditor : Control, ITextInputTarget {
 
     /// <summary>Which buffer line each visible row shows.</summary>
     /// <remarks>
-    ///     ⚠ <b>A line appears once per <i>visual</i> row, so with <see cref="WordWrap" /> on the
-    ///     same number appears several times in a run.</b> That is what keeps wrapping out of the
+    ///     ⚠
+    ///     <b>
+    ///         A line appears once per <i>visual</i> row, so with <see cref="WordWrap" /> on the
+    ///         same number appears several times in a run.
+    ///     </b>
+    ///     That is what keeps wrapping out of the
     ///     virtualiser, the scroll range and the gutter — all three count rows and none of them has
     ///     to know a line can be more than one.
     /// </remarks>
@@ -284,8 +288,12 @@ public sealed partial class CodeEditor : Control, ITextInputTarget {
 
     /// <inheritdoc />
     /// <remarks>
-    ///     ⚠ <b><c>textbox</c> and not <c>application</c>, which is the opposite call from the four
-    ///     canvases in this assembly.</b> A viewport and a node graph own their keyboard and want a
+    ///     ⚠
+    ///     <b>
+    ///         <c>textbox</c> and not <c>application</c>, which is the opposite call from the four
+    ///         canvases in this assembly.
+    ///     </b>
+    ///     A viewport and a node graph own their keyboard and want a
     ///     screen reader to pass keys straight through; a code editor is a multi-line text field
     ///     whose keyboard is the one a screen-reader user already knows, and announcing it as an
     ///     application would turn off exactly the reading and review commands that make text
@@ -445,8 +453,12 @@ public sealed partial class CodeEditor : Control, ITextInputTarget {
 
     /// <summary>The pre-edit an input method is composing at the caret, or an empty string.</summary>
     /// <remarks>
-    ///     ⚠ <b>Internal rather than public, unlike <c>TextField.Composition</c>, and that is a
-    ///     scope decision rather than an oversight.</b> Nothing outside this assembly has a use for
+    ///     ⚠
+    ///     <b>
+    ///         Internal rather than public, unlike <c>TextField.Composition</c>, and that is a
+    ///         scope decision rather than an oversight.
+    ///     </b>
+    ///     Nothing outside this assembly has a use for
     ///     a provisional string it must not commit, and the two members would otherwise be a public
     ///     surface addition on a change whose point is that the editor stops being blind to
     ///     compositions. Promote them when something outside asks.
@@ -509,8 +521,12 @@ public sealed partial class CodeEditor : Control, ITextInputTarget {
     ///         everywhere it exists, which is what this is.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The break is arithmetic and not a text layout, because this control is a
-    ///         monospace grid.</b> Every column is <see cref="CharacterWidth" /> wide by
+    ///         ⚠
+    ///         <b>
+    ///             The break is arithmetic and not a text layout, because this control is a
+    ///             monospace grid.
+    ///         </b>
+    ///         Every column is <see cref="CharacterWidth" /> wide by
     ///         construction — that is what makes the caret, the selection, the hit test and the
     ///         gutter one multiplication each — so the wrap column is
     ///         <c>viewport ÷ CharacterWidth</c> exactly, with no measurement and nothing to disagree
@@ -554,9 +570,13 @@ public sealed partial class CodeEditor : Control, ITextInputTarget {
 
     /// <summary>How tall one row of the virtualiser is.</summary>
     /// <remarks>
-    ///     ⚠ <b>Named for the row rather than for the line, because
-    ///     <see cref="UiElement.LineHeight" /> is the cascade's own and may be
-    ///     <see cref="float.NaN" />.</b> This is the resolved number the arithmetic needs: whatever
+    ///     ⚠
+    ///     <b>
+    ///         Named for the row rather than for the line, because
+    ///         <see cref="UiElement.LineHeight" /> is the cascade's own and may be
+    ///         <see cref="float.NaN" />.
+    ///     </b>
+    ///     This is the resolved number the arithmetic needs: whatever
     ///     <c>line-height</c> said if it said anything, and the font's own line height otherwise.
     ///     The other virtualised controls in this assembly call the same thing <c>RowHeight</c>,
     ///     which is what it is here too.
@@ -651,18 +671,18 @@ public sealed partial class CodeEditor : Control, ITextInputTarget {
         // document's command — and ⌘Z would have to be pressed twice per edit. The seam's owner
         // records, not the control.
 
-        AddHandler<KeyEvent>(static (element, args) => ((CodeEditor) element).Keyed(args));
-        AddHandler<TextInputEvent>(static (element, args) => ((CodeEditor) element).Typed(args));
-        AddHandler<PointerEvent>(static (element, args) => ((CodeEditor) element).Pointed(args));
-        AddHandler<TapEvent>(static (element, args) => ((CodeEditor) element).Tapped(args));
-        AddHandler<LongPressEvent>(static (element, args) => ((CodeEditor) element).LongPressed(args));
+        AddHandler<KeyEvent>(static (element, args) => ((CodeEditor)element).Keyed(args));
+        AddHandler<TextInputEvent>(static (element, args) => ((CodeEditor)element).Typed(args));
+        AddHandler<PointerEvent>(static (element, args) => ((CodeEditor)element).Pointed(args));
+        AddHandler<TapEvent>(static (element, args) => ((CodeEditor)element).Tapped(args));
+        AddHandler<LongPressEvent>(static (element, args) => ((CodeEditor)element).LongPressed(args));
 
         // ⚠ **The fourth event, and its absence was not a missing line but a whole invisible mode.**
         // Without it a Japanese, Chinese or Korean pre-edit is not drawn at all until it commits, so
         // the editor shows nothing while somebody types into it and the candidate list floats over
         // an unchanged file. `TextField` has handled it since it was written; this control declared
         // `AcceptsTextInput` and then ignored half of what that turns on.
-        AddHandler<TextCompositionEvent>(static (element, args) => ((CodeEditor) element).Composing(args));
+        AddHandler<TextCompositionEvent>(static (element, args) => ((CodeEditor)element).Composing(args));
 
         // ⚠ Only for the losing half. A pre-edit belongs to whatever has the focus, and the platform
         // sends the end of an abandoned one to whatever *took* the focus — so an editor that lost it
@@ -670,10 +690,11 @@ public sealed partial class CodeEditor : Control, ITextInputTarget {
         // method that has forgotten about it. Deliberately without `TextField`'s select-all on gain:
         // Tab into a code file must not select the file.
         AddHandler<FocusEvent>(static (element, args) => {
-            if (!args.Gained) {
-                ((CodeEditor) element).CancelComposition();
+                if (!args.Gained) {
+                    ((CodeEditor)element).CancelComposition();
+                }
             }
-        });
+        );
     }
 
     // ── Metrics ──────────────────────────────────────────────────────────────
@@ -785,13 +806,17 @@ public sealed partial class CodeEditor : Control, ITextInputTarget {
     /// <summary>How many characters fit across the viewport, or nought when nothing is wrapping.</summary>
     int WrapColumns =>
         WordWrap && Scroller.Width > 0f && CharacterWidth > 0f
-            ? Math.Max(1, (int) (Scroller.Width / CharacterWidth))
+            ? Math.Max(1, (int)(Scroller.Width / CharacterWidth))
             : 0;
 
     /// <summary>Where the row starting at <paramref name="at" /> ends, which is where the next begins.</summary>
     /// <remarks>
-    ///     ⚠ <b>After the last space that fits, so a word is not cut in half — and the space stays on
-    ///     the row it ended.</b> Breaking at the column would split identifiers, which in a code
+    ///     ⚠
+    ///     <b>
+    ///         After the last space that fits, so a word is not cut in half — and the space stays on
+    ///         the row it ended.
+    ///     </b>
+    ///     Breaking at the column would split identifiers, which in a code
     ///     editor is the one thing wrapping must not do; keeping the trailing space on the earlier
     ///     row is what stops the next one from starting with a blank cell. A word longer than the
     ///     whole viewport has nowhere to break and is cut at the column, because the alternative is
@@ -903,8 +928,12 @@ public sealed partial class CodeEditor : Control, ITextInputTarget {
             return;
         }
 
-        var capacity = Math.Min(rows.Count, (int) MathF.Ceiling(height / cell) + (Overscan * 2) + 1);
-        first = Math.Clamp((int) MathF.Floor(Scroller.ScrollTop / cell) - Overscan, 0, Math.Max(0, rows.Count - capacity));
+        var capacity = Math.Min(rows.Count, (int)MathF.Ceiling(height / cell) + Overscan * 2 + 1);
+        first = Math.Clamp(
+            (int)MathF.Floor(Scroller.ScrollTop / cell) - Overscan,
+            0,
+            Math.Max(0, rows.Count - capacity)
+        );
 
         while (pool.Count < capacity) {
             pool.Add(Lines.Add<CodeLine>());
@@ -979,19 +1008,20 @@ public sealed partial class CodeEditor : Control, ITextInputTarget {
 
             gutterRow.Number.Text = continued
                 ? string.Empty
-                : (index + 1).ToString(System.Globalization.CultureInfo.InvariantCulture);
+                : (index + 1).ToString(CultureInfo.InvariantCulture);
 
             // ⚠ Positioned against the viewport rather than against the content, because the gutter
             // is outside the scroller: it follows the vertical scroll and must not follow the
             // horizontal one, which is exactly what subtracting only `ScrollTop` gives.
-            gutterRow.SetStyle("top", Inline.Px((row * cell) - Scroller.ScrollTop));
+            gutterRow.SetStyle("top", Inline.Px(row * cell - Scroller.ScrollTop));
             gutterRow.SetStyle("height", Inline.Px(cell));
 
             // The arrow belongs to the line rather than to the row, so a continuation row does not
             // get a second one that would collapse the region the row is inside.
             if (!continued && FoldAt(index) is not null) {
                 gutterRow.RemoveClass("unfoldable");
-                gutterRow.Fold.Geometry = collapsed.Contains(index) ? ControlIcons.ChevronRight : ControlIcons.ChevronDown;
+                gutterRow.Fold.Geometry =
+                    collapsed.Contains(index) ? ControlIcons.ChevronRight : ControlIcons.ChevronDown;
             } else {
                 gutterRow.AddClass("unfoldable");
             }
@@ -1006,7 +1036,7 @@ public sealed partial class CodeEditor : Control, ITextInputTarget {
 
         foreach (var diagnostic in diagnostics) {
             if (diagnostic.Line == line) {
-                severity = Math.Max(severity, (int) diagnostic.Severity);
+                severity = Math.Max(severity, (int)diagnostic.Severity);
             }
         }
 
@@ -1015,19 +1045,16 @@ public sealed partial class CodeEditor : Control, ITextInputTarget {
         element.RemoveClass("has-error");
 
         switch (severity) {
-            case (int) CodeSeverity.Hint:
+            case (int)CodeSeverity.Hint:
                 element.AddClass("has-hint");
                 break;
 
-            case (int) CodeSeverity.Warning:
+            case (int)CodeSeverity.Warning:
                 element.AddClass("has-warning");
                 break;
 
-            case (int) CodeSeverity.Error:
+            case (int)CodeSeverity.Error:
                 element.AddClass("has-error");
-                break;
-
-            default:
                 break;
         }
     }
@@ -1134,7 +1161,7 @@ public sealed partial class CodeEditor : Control, ITextInputTarget {
             // row, so every arrow key would move it somewhere that is not on screen and the editor
             // would look frozen.
             if (Caret.Line > fold.Start && Caret.Line <= fold.End) {
-                Move(new TextPosition(fold.Start, buffer[fold.Start].Length), false);
+                Move(new(fold.Start, buffer[fold.Start].Length));
             }
         }
 
@@ -1189,7 +1216,7 @@ public sealed partial class CodeEditor : Control, ITextInputTarget {
             }
 
             if (end > line) {
-                folds.Add(new CodeFold(line, end));
+                folds.Add(new(line, end));
             }
         }
 
@@ -1212,9 +1239,9 @@ public sealed partial class CodeEditor : Control, ITextInputTarget {
         var row = RowAt(position);
         var content = Scroller.Content;
 
-        return new Vector2(
-            content.AbsoluteLeft + ((position.Column - StartOf(row)) * CharacterWidth),
-            content.AbsoluteTop + (Math.Max(row, 0) * RowHeight)
+        return new(
+            content.AbsoluteLeft + (position.Column - StartOf(row)) * CharacterWidth,
+            content.AbsoluteTop + Math.Max(row, 0) * RowHeight
         );
     }
 
@@ -1228,12 +1255,12 @@ public sealed partial class CodeEditor : Control, ITextInputTarget {
     public TextPosition ToPosition(float x, float y) {
         var content = Scroller.Content;
 
-        var row = Math.Clamp((int) MathF.Floor((y - content.AbsoluteTop) / RowHeight), 0, Math.Max(0, rows.Count - 1));
+        var row = Math.Clamp((int)MathF.Floor((y - content.AbsoluteTop) / RowHeight), 0, Math.Max(0, rows.Count - 1));
         var line = rows.Count == 0 ? 0 : rows[row];
 
         // ⚠ Rounded rather than floored, so a click on the right half of a character puts the caret
         // after it. Flooring makes the last column of every line unreachable by clicking.
-        var column = StartOf(row) + (int) MathF.Round((x - content.AbsoluteLeft) / CharacterWidth);
+        var column = StartOf(row) + (int)MathF.Round((x - content.AbsoluteLeft) / CharacterWidth);
 
         // ⚠ Clamped to this row's own end and not only to the line's. Clicking past the end of the
         // first of three wrapped rows would otherwise land two rows further on, on a character the
@@ -1242,7 +1269,7 @@ public sealed partial class CodeEditor : Control, ITextInputTarget {
             column = Math.Min(column, CaretLimitOf(row));
         }
 
-        return buffer.Clamp(new TextPosition(line, column));
+        return buffer.Clamp(new(line, column));
     }
 
     // ── Drawing ──────────────────────────────────────────────────────────────
@@ -1257,9 +1284,9 @@ public sealed partial class CodeEditor : Control, ITextInputTarget {
 
             if (only >= 0 && Document.ColorOf(Style, currentLineColor) is { } lit) {
                 context.FillRectangle(
-                    new Rectangle(
+                    new(
                         content.AbsoluteLeft,
-                        content.AbsoluteTop + (only * cell),
+                        content.AbsoluteTop + only * cell,
                         MathF.Max(content.Width, Scroller.Width),
                         cell
                     ),
@@ -1298,9 +1325,9 @@ public sealed partial class CodeEditor : Control, ITextInputTarget {
             var end = Math.Min(upper, IsLastRowOf(row) ? buffer[line].Length + 1 : starts[row + 1]);
 
             context.FillRectangle(
-                new Rectangle(
-                    content.AbsoluteLeft + ((start - starts[row]) * width),
-                    content.AbsoluteTop + (row * cell),
+                new(
+                    content.AbsoluteLeft + (start - starts[row]) * width,
+                    content.AbsoluteTop + row * cell,
                     MathF.Max(0f, (end - start) * width),
                     cell
                 ),
@@ -1341,8 +1368,12 @@ public sealed partial class CodeEditor : Control, ITextInputTarget {
 
     /// <inheritdoc />
     /// <remarks>
-    ///     ⚠ <b>The rectangle used to exist only as four expressions inside <see cref="DrawCaret" />,
-    ///     which is why an input method's candidate window could not be placed against it.</b> The
+    ///     ⚠
+    ///     <b>
+    ///         The rectangle used to exist only as four expressions inside <see cref="DrawCaret" />,
+    ///         which is why an input method's candidate window could not be placed against it.
+    ///     </b>
+    ///     The
     ///     draw now reads this, so the caret an editor shows and the caret the operating system is
     ///     told about cannot drift apart.
     ///     <para>
@@ -1363,8 +1394,8 @@ public sealed partial class CodeEditor : Control, ITextInputTarget {
             return row < 0
                 ? new(content.AbsoluteLeft, content.AbsoluteTop, 1f, MathF.Max(RowHeight, 1f))
                 : new Rectangle(
-                    content.AbsoluteLeft + ((DisplayCaret.Column - starts[row]) * CharacterWidth),
-                    content.AbsoluteTop + (row * RowHeight),
+                    content.AbsoluteLeft + (DisplayCaret.Column - starts[row]) * CharacterWidth,
+                    content.AbsoluteTop + row * RowHeight,
                     MathF.Max(1f, CharacterWidth * 0.1f),
                     RowHeight
                 );
@@ -1402,9 +1433,9 @@ public sealed partial class CodeEditor : Control, ITextInputTarget {
         var thickness = MathF.Max(1f, cell * 0.06f);
 
         context.FillRectangle(
-            new Rectangle(
-                content.AbsoluteLeft + ((start - starts[row]) * width),
-                content.AbsoluteTop + (row * cell) + cell - thickness,
+            new(
+                content.AbsoluteLeft + (start - starts[row]) * width,
+                content.AbsoluteTop + row * cell + cell - thickness,
                 MathF.Max(0f, composition.Length * width),
                 thickness
             ),
@@ -1839,13 +1870,13 @@ public sealed partial class CodeEditor : Control, ITextInputTarget {
                 return;
             }
 
-            Move(position, extend: true);
+            Move(position, true);
         }
 
         Erase(false);
     }
 
-    int VisibleRows => Math.Max(1, (int) (Scroller.Height / MathF.Max(1f, RowHeight)) - 1);
+    int VisibleRows => Math.Max(1, (int)(Scroller.Height / MathF.Max(1f, RowHeight)) - 1);
 
     /// <summary>Where Home goes: the first non-space, or column zero if it is already there.</summary>
     /// <remarks>
@@ -1872,7 +1903,7 @@ public sealed partial class CodeEditor : Control, ITextInputTarget {
         var target = Math.Clamp(row + delta, 0, rows.Count - 1);
         var column = Math.Min(starts[target] + (Caret.Column - starts[row]), CaretLimitOf(target));
 
-        Move(new TextPosition(rows[target], column), extend);
+        Move(new(rows[target], column), extend);
     }
 
     /// <summary>Tab: indents the selected lines, or inserts spaces.</summary>
@@ -1882,7 +1913,7 @@ public sealed partial class CodeEditor : Control, ITextInputTarget {
         }
 
         if (!HasSelection && forward) {
-            Insert(new string(' ', Math.Max(1, TabSize)));
+            Insert(new(' ', Math.Max(1, TabSize)));
             return;
         }
 
@@ -1896,14 +1927,14 @@ public sealed partial class CodeEditor : Control, ITextInputTarget {
         try {
             for (var line = from; line <= to; line++) {
                 if (forward) {
-                    buffer.Insert(new TextPosition(line, 0), pad);
+                    buffer.Insert(new(line, 0), pad);
                     continue;
                 }
 
                 var indent = Math.Min(buffer.IndentOf(line), pad.Length);
 
                 if (indent > 0) {
-                    buffer.Delete(new TextPosition(line, 0), new TextPosition(line, indent));
+                    buffer.Delete(new(line, 0), new(line, indent));
                 }
             }
         } finally {
@@ -1995,7 +2026,7 @@ public sealed partial class CodeEditor : Control, ITextInputTarget {
                 return;
             }
 
-            Move(ToPosition(args.X, args.Y), false);
+            Move(ToPosition(args.X, args.Y));
 
             args.Handled = true;
             return;
@@ -2050,9 +2081,10 @@ public sealed partial class CodeEditor : Control, ITextInputTarget {
             Caret = at;
         } else {
             var column = at.Column;
-            var index = column < line.Length && (column == 0 || CodeBuffer.IsWord(line[column]) || !CodeBuffer.IsWord(line[column - 1]))
-                ? column
-                : column - 1;
+            var index = column < line.Length
+                && (column == 0 || CodeBuffer.IsWord(line[column]) || !CodeBuffer.IsWord(line[column - 1]))
+                    ? column
+                    : column - 1;
 
             if (char.IsWhiteSpace(line[index])) {
                 var start = index;
@@ -2129,7 +2161,7 @@ public sealed partial class CodeEditor : Control, ITextInputTarget {
         var caret = ToScreen(Caret);
 
         Completion.RemoveClass("hidden");
-        Completion.SetStyle("left", Inline.Px(caret.X - (prefix.Length * CharacterWidth) - AbsoluteLeft));
+        Completion.SetStyle("left", Inline.Px(caret.X - prefix.Length * CharacterWidth - AbsoluteLeft));
         Completion.SetStyle("top", Inline.Px(caret.Y + RowHeight - AbsoluteTop));
     }
 
@@ -2181,7 +2213,8 @@ public sealed partial class CodeEditor : Control, ITextInputTarget {
                 break;
 
             case InputKey.Up:
-                completionIndex = (completionIndex + Math.Max(1, completions.Count) - 1) % Math.Max(1, completions.Count);
+                completionIndex = (completionIndex + Math.Max(1, completions.Count) - 1)
+                    % Math.Max(1, completions.Count);
                 break;
 
             case InputKey.Enter or InputKey.KeypadEnter or InputKey.Tab:

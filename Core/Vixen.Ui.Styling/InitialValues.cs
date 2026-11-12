@@ -6,8 +6,11 @@ namespace Vixen.Ui.Styling;
 /// <summary>What a property computes to on an element that never mentioned it.</summary>
 /// <remarks>
 ///     <para>
-///         <b>The computed-value stage this cascade does not otherwise have, cut down to the one
-///         question that needs it.</b> A <see cref="ComputedStyle" /> here holds only the properties
+///         <b>
+///             The computed-value stage this cascade does not otherwise have, cut down to the one
+///             question that needs it.
+///         </b>
+///         A <see cref="ComputedStyle" /> here holds only the properties
 ///         some declaration or some inheritance put in it, so "the element had no
 ///         <c>margin-left</c>" and "the element's <c>margin-left</c> computes to <c>0px</c>" are the
 ///         same state and are indistinguishable from the outside. Every reader downstream is fine
@@ -18,8 +21,12 @@ namespace Vixen.Ui.Styling;
 ///         <c>0px</c> did.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Which properties are in here is not a design choice, and reading it as one is what
-///         made this look bigger than it is.</b> Two rules decide the whole table, and both are
+///         ⚠
+///         <b>
+///             Which properties are in here is not a design choice, and reading it as one is what
+///             made this look bigger than it is.
+///         </b>
+///         Two rules decide the whole table, and both are
 ///         checkable rather than tasteful:
 ///     </para>
 ///     <list type="number">
@@ -37,8 +44,12 @@ namespace Vixen.Ui.Styling;
 ///             <c>left: auto</c> interpolates discretely in CSS as well, so an entry for it would buy
 ///             a jump at the halfway mark in place of no transition at all — a different picture and
 ///             not a better one.
-///             ⚠ <b>This used to name <c>filter: none</c>, <c>rotate: none</c> and
-///             <c>box-shadow: none</c> beside it, and CSS interpolates all three</b> (#1410): a
+///             ⚠
+///             <b>
+///                 This used to name <c>filter: none</c>, <c>rotate: none</c> and
+///                 <c>box-shadow: none</c> beside it, and CSS interpolates all three
+///             </b>
+///             (#1410): a
 ///             <c>none</c> transform is the identity against the other end, a <c>none</c> filter the
 ///             other list's functions at their initial values, a missing shadow a transparent
 ///             zero-offset one. None of them is a fixed value either, because each is shaped by the
@@ -49,8 +60,12 @@ namespace Vixen.Ui.Styling;
 ///         </item>
 ///     </list>
 ///     <para>
-///         ⚠ <b>The border widths are the one place this states a value CSS does not, and the
-///         divergence is named rather than smuggled.</b> CSS gives <c>border-width</c> an initial of
+///         ⚠
+///         <b>
+///             The border widths are the one place this states a value CSS does not, and the
+///             divergence is named rather than smuggled.
+///         </b>
+///         CSS gives <c>border-width</c> an initial of
 ///         <c>medium</c>, which computes to <c>3px</c> — and then to <c>0</c> anyway, because
 ///         <c>border-style</c>'s initial is <c>none</c> and a border with no style has no width.
 ///         This engine has no <c>medium</c> and paints nothing for an undeclared border, so

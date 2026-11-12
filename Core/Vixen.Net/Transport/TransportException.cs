@@ -16,16 +16,13 @@ namespace Vixen.Net.Transport;
 public sealed class TransportException : InvalidOperationException {
     /// <summary>Creates the exception with a message.</summary>
     /// <param name="message">What was asked for, and why it cannot be done.</param>
-    public TransportException(string message) : base(message) {
-    }
+    public TransportException(string message) : base(message) { }
 
     /// <summary>Creates the exception with a message and a cause.</summary>
     /// <param name="message">What was asked for, and why it cannot be done.</param>
     /// <param name="innerException">The cause.</param>
-    public TransportException(string message, Exception innerException) : base(message, innerException) {
-    }
+    public TransportException(string message, Exception innerException) : base(message, innerException) { }
 
     /// <summary>Creates the exception with no message.</summary>
-    public TransportException() {
-    }
+    public TransportException() { }
 }

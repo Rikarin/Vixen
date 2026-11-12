@@ -65,11 +65,11 @@ public class PercentageMinColumnTests {
     [Fact]
     public void A_percentage_minimum_in_a_column_of_stated_height_is_a_fraction_of_that_column() {
         var (tree, column, item) = Build(
-            (t, c) => {
+            static (t, c) => {
                 t.SetDimension(c, Dimension.Height, StyleLength.Points(200f));
                 t.SetAlignSelf(c, Align.FlexStart);
             },
-            (t, i) => t.SetMinDimension(i, Dimension.Height, StyleLength.Percent(50f))
+            static (t, i) => t.SetMinDimension(i, Dimension.Height, StyleLength.Percent(50f))
         );
 
         Assert.Equal(200f, tree.GetHeight(column));
@@ -86,12 +86,12 @@ public class PercentageMinColumnTests {
     [Fact]
     public void A_percentage_maximum_in_a_column_of_stated_height_is_a_fraction_of_that_column() {
         var (tree, _, item) = Build(
-            (t, c) => {
+            static (t, c) => {
                 t.SetDimension(c, Dimension.Height, StyleLength.Points(600f));
                 t.SetAlignSelf(c, Align.FlexStart);
             },
-            (t, i) => t.SetMaxDimension(i, Dimension.Height, StyleLength.Percent(50f)),
-            itemHeight: 500f
+            static (t, i) => t.SetMaxDimension(i, Dimension.Height, StyleLength.Percent(50f)),
+            500f
         );
 
         Assert.Equal(300f, tree.GetHeight(item));
@@ -104,13 +104,13 @@ public class PercentageMinColumnTests {
     [Fact]
     public void Padding_comes_off_the_basis() {
         var (tree, _, item) = Build(
-            (t, c) => {
+            static (t, c) => {
                 t.SetDimension(c, Dimension.Height, StyleLength.Points(200f));
                 t.SetBoxSizing(c, BoxSizing.BorderBox);
                 t.SetPadding(c, Edge.Top, StyleLength.Points(100f));
                 t.SetAlignSelf(c, Align.FlexStart);
             },
-            (t, i) => t.SetMinDimension(i, Dimension.Height, StyleLength.Percent(50f))
+            static (t, i) => t.SetMinDimension(i, Dimension.Height, StyleLength.Percent(50f))
         );
 
         Assert.Equal(50f, tree.GetHeight(item));
@@ -125,8 +125,8 @@ public class PercentageMinColumnTests {
     [Fact]
     public void A_percentage_minimum_in_a_content_sized_column_resolves_to_nothing() {
         var (tree, column, item) = Build(
-            (t, c) => t.SetAlignSelf(c, Align.FlexStart),
-            (t, i) => t.SetMinDimension(i, Dimension.Height, StyleLength.Percent(50f))
+            static (t, c) => t.SetAlignSelf(c, Align.FlexStart),
+            static (t, i) => t.SetMinDimension(i, Dimension.Height, StyleLength.Percent(50f))
         );
 
         Assert.Equal(10f, tree.GetHeight(column));
@@ -141,8 +141,8 @@ public class PercentageMinColumnTests {
     [Fact]
     public void A_stretched_column_is_a_definite_basis() {
         var (tree, column, item) = Build(
-            (t, c) => t.SetPadding(c, Edge.Top, StyleLength.Points(100f)),
-            (t, i) => t.SetMinDimension(i, Dimension.Height, StyleLength.Percent(50f))
+            static (t, c) => t.SetPadding(c, Edge.Top, StyleLength.Points(100f)),
+            static (t, i) => t.SetMinDimension(i, Dimension.Height, StyleLength.Percent(50f))
         );
 
         Assert.Equal(400f, tree.GetHeight(column));

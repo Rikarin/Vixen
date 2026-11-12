@@ -19,7 +19,8 @@ namespace Vixen.Video.Gpu;
 ///         <b>A staging buffer per frame in flight.</b> The RHI defers destruction for the caller but
 ///         explicitly does not defer <em>overwriting</em>: a staging buffer the GPU is still copying
 ///         out of must not be written again, and "still" lasts <c>FramesInFlight</c> frames. So there
-///         is one buffer per slot and <see cref="Upload(ICommandList, VideoFrame)" /> rotates through them, which is the same
+///         is one buffer per slot and <see cref="Upload(ICommandList, VideoFrame)" /> rotates through them, which is the
+///         same
 ///         answer <c>DescriptorAllocator</c> arrives at for the same reason.
 ///     </para>
 ///     <para>
@@ -50,7 +51,8 @@ public sealed class VideoTexture : IDisposable {
     /// <param name="name">A name for the debugger and captures.</param>
     /// <exception cref="ArgumentNullException"><paramref name="device" /> is null.</exception>
     /// <remarks>
-    ///     Nothing is allocated until the first <see cref="Upload(ICommandList, VideoFrame)" />, because the size of a video is
+    ///     Nothing is allocated until the first <see cref="Upload(ICommandList, VideoFrame)" />, because the size of a video
+    ///     is
     ///     not known until a frame has been decoded — and creating a texture for the container's
     ///     stated size would be creating the wrong one for any stream whose codec disagrees.
     /// </remarks>
@@ -107,14 +109,12 @@ public sealed class VideoTexture : IDisposable {
     /// <summary>A plane's texture.</summary>
     /// <param name="plane">Which plane.</param>
     /// <returns>The texture, or a null handle if there is no such plane yet.</returns>
-    public TextureHandle Plane(int plane) =>
-        plane >= 0 && plane < PlaneCount ? textures[plane] : default;
+    public TextureHandle Plane(int plane) => plane >= 0 && plane < PlaneCount ? textures[plane] : default;
 
     /// <summary>A plane's view, which is what a descriptor set binds.</summary>
     /// <param name="plane">Which plane.</param>
     /// <returns>The view, or a null handle if there is no such plane yet.</returns>
-    public TextureViewHandle PlaneView(int plane) =>
-        plane >= 0 && plane < PlaneCount ? views[plane] : default;
+    public TextureViewHandle PlaneView(int plane) => plane >= 0 && plane < PlaneCount ? views[plane] : default;
 
     /// <summary>Copies a player's current frame into the textures, if it is a new one.</summary>
     /// <param name="commands">A list to record the copy into. Must not be inside a render pass.</param>
@@ -174,7 +174,7 @@ public sealed class VideoTexture : IDisposable {
         Span<TextureBarrier> before = stackalloc TextureBarrier[planes];
 
         for (var plane = 0; plane < planes; plane++) {
-            before[plane] = new TextureBarrier(
+            before[plane] = new(
                 textures[plane],
                 recreated ? ResourceState.Undefined : ResourceState.ShaderRead,
                 ResourceState.CopyDestination
@@ -187,15 +187,15 @@ public sealed class VideoTexture : IDisposable {
             commands.CopyBufferToTexture(
                 buffer,
                 planeOffsets[plane],
-                new TextureRegion(textures[plane]),
-                new Int3(Format.PlaneWidth(plane) / BytesPerTexel(plane), Format.PlaneHeight(plane), 1)
+                new(textures[plane]),
+                new(Format.PlaneWidth(plane) / BytesPerTexel(plane), Format.PlaneHeight(plane), 1)
             );
         }
 
         Span<TextureBarrier> after = stackalloc TextureBarrier[planes];
 
         for (var plane = 0; plane < planes; plane++) {
-            after[plane] = new TextureBarrier(
+            after[plane] = new(
                 textures[plane],
                 ResourceState.CopyDestination,
                 ResourceState.ShaderRead
@@ -211,8 +211,7 @@ public sealed class VideoTexture : IDisposable {
     ///     One for every plane of every layout except the packed one, where a row of
     ///     <c>width × 4</c> bytes is <c>width</c> BGRA texels.
     /// </remarks>
-    int BytesPerTexel(int plane) =>
-        Format.Layout == VideoPixelLayout.Bgra8 && plane == 0 ? 4 : 1;
+    int BytesPerTexel(int plane) => Format.Layout == VideoPixelLayout.Bgra8 && plane == 0 ? 4 : 1;
 
     void Recreate(in VideoFormat format) {
         DestroyPlanes();
@@ -228,7 +227,7 @@ public sealed class VideoTexture : IDisposable {
             var height = format.PlaneHeight(plane);
 
             textures[plane] = device.CreateTexture(
-                new TextureDescription(
+                new(
                     isPacked ? PixelFormat.Bgra8UNorm : PixelFormat.R8UNorm,
                     width,
                     height,
@@ -250,7 +249,7 @@ public sealed class VideoTexture : IDisposable {
                 }
 
                 staging[index] = device.CreateBuffer(
-                    new BufferDescription(
+                    new(
                         offset,
                         BufferUsage.CopySource,
                         MemoryAccess.HostUpload,

@@ -166,7 +166,7 @@ public class UiPropertyTests {
 
     [Fact]
     public void A_derived_type_reports_its_own_properties_and_its_base_s() {
-        var names = UiPropertyRegistry.Of(typeof(Card)).Select(key => key.Name).ToList();
+        var names = UiPropertyRegistry.Of(typeof(Card)).Select(static key => key.Name).ToList();
 
         Assert.Contains("Elevation", names);
         Assert.Contains("Radius", names);
@@ -231,7 +231,7 @@ public class UiPropertyTests {
     /// </remarks>
     [Fact]
     public void An_untouched_base_s_properties_reach_a_cold_leaf_s_answer() {
-        var names = UiPropertyRegistry.Of(typeof(ChainedLeaf)).Select(key => key.Name).ToList();
+        var names = UiPropertyRegistry.Of(typeof(ChainedLeaf)).Select(static key => key.Name).ToList();
 
         Assert.Contains("LeafWeight", names);
         Assert.Contains("BaseWeight", names);
@@ -273,7 +273,7 @@ public class UiPropertyTests {
 
         Assert.Contains(
             "LinkedWeight",
-            UiPropertyRegistry.DeclaredBy(typeof(LinkedBase)).Select(key => key.Name)
+            UiPropertyRegistry.DeclaredBy(typeof(LinkedBase)).Select(static key => key.Name)
         );
     }
 
@@ -310,7 +310,7 @@ public class UiPropertyTests {
 
         Assert.Contains(
             "SilentWeight",
-            UiPropertyRegistry.Of(typeof(SilentLeaf)).Select(key => key.Name)
+            UiPropertyRegistry.Of(typeof(SilentLeaf)).Select(static key => key.Name)
         );
     }
 

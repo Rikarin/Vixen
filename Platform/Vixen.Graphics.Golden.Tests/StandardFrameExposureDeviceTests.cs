@@ -89,7 +89,7 @@ public sealed class StandardFrameExposureDeviceTests {
 
         Assert.True(
             comparison.Fraction > 0.02,
-            $"A metered frame and a fixed one render the same picture: only "
+            "A metered frame and a fixed one render the same picture: only "
             + $"{comparison.DifferingPixels} of {comparison.TotalPixels} pixels differ. Either the "
             + "meter stopped reaching the tonemap, or the tonemap stopped reading it."
         );
@@ -117,7 +117,7 @@ public sealed class StandardFrameExposureDeviceTests {
     static TierScene Stage(Fixture fixture, ExposureMode exposure) {
         var effects = new EffectSystem();
 
-        effects.AddProvider(new Compiling(new(fixture.Device), _ => RavenEffects.Everything()));
+        effects.AddProvider(new Compiling(new(fixture.Device), static _ => RavenEffects.Everything()));
 
         var scene = TierScene.Open(fixture, effects, Document(exposure), QualityTier.High);
 
@@ -133,14 +133,15 @@ public sealed class StandardFrameExposureDeviceTests {
         return scene;
     }
 
-    static Material Rough => Compile(new(0.42f, 0.46f, 0.38f), roughness: 0.85f);
+    static Material Rough => Compile(new(0.42f, 0.46f, 0.38f), 0.85f);
 
     /// <summary>The block a meter has to be dragged by, and bloom has to find.</summary>
-    static Material Bright => Compile(
-        new(0.9f, 0.55f, 0.25f),
-        roughness: 0.5f,
-        emissive: new(9_000f, 5_200f, 2_100f)
-    );
+    static Material Bright =>
+        Compile(
+            new(0.9f, 0.55f, 0.25f),
+            0.5f,
+            new(9_000f, 5_200f, 2_100f)
+        );
 
     static Material Compile(Vector3 colour, float roughness, Vector3? emissive = null) {
         var features = new List<IMaterialFeature> {
@@ -155,7 +156,7 @@ public sealed class StandardFrameExposureDeviceTests {
 
         Assert.False(
             compilation.Failed,
-            string.Join(Environment.NewLine, compilation.Diagnostics.Select(diagnostic => diagnostic.ToString()))
+            string.Join(Environment.NewLine, compilation.Diagnostics.Select(static diagnostic => diagnostic.ToString()))
         );
 
         return compilation.Material!;

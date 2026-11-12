@@ -2,10 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Diagnostics.CodeAnalysis;
-using Vixen.Core.Mathematics;
 using CoreGraphics;
 using Foundation;
 using UIKit;
+using Vixen.Core.Mathematics;
 
 namespace Vixen.Platform.Ios;
 

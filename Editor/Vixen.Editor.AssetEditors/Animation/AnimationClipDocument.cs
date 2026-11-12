@@ -3,21 +3,21 @@
 
 using Vixen.Animation;
 using Vixen.Animation.Constraints;
-using Vixen.Authoring;
 using Vixen.Core;
-using Vixen.Core.Curves;
 using Vixen.Core.Yaml;
 using Vixen.Editor.Assets.Animation;
 using Vixen.Editor.Core;
-using Vixen.Ui.Controls.Advanced;
 
 namespace Vixen.Editor.AssetEditors.Animation;
 
 /// <summary>A hand-authored animation clip, open for editing.</summary>
 /// <remarks>
 ///     <para>
-///         <b>Doc 20 files this row as "the format does not exist", and this is the format plus the
-///         two operations an editor needs on top of it.</b> Everything a person does to a clip —
+///         <b>
+///             Doc 20 files this row as "the format does not exist", and this is the format plus the
+///             two operations an editor needs on top of it.
+///         </b>
+///         Everything a person does to a clip —
 ///         adding a curve, moving a key, adding an event, changing the duration — has to be one
 ///         entry on the undo stack, and a document that let a view mutate the asset directly would
 ///         be the bug <see cref="IEditorCommand" /> exists to make obvious.
@@ -30,8 +30,12 @@ namespace Vixen.Editor.AssetEditors.Animation;
 ///         curve is tens of keys, not thousands.
 ///     </para>
 ///     <para>
-///         ⚠ <b>A file this build cannot read throws from <see cref="AnimationClipAsset.FromYaml" />
-///         and is caught here.</b> The document opens empty with the failure in
+///         ⚠
+///         <b>
+///             A file this build cannot read throws from <see cref="AnimationClipAsset.FromYaml" />
+///             and is caught here.
+///         </b>
+///         The document opens empty with the failure in
 ///         <see cref="LoadError" />, for <c>CompositorDocument</c>'s reason: a panel that could show
 ///         the problem has to be reachable.
 ///     </para>
@@ -130,7 +134,8 @@ public sealed class AnimationClipDocument : EditorDocument {
         try {
             Clip = AnimationClipAsset.FromYaml(AssetFile.Read(path));
         } catch (Exception exception) when (exception is YamlBindingException
-            or YamlParseException or NotSupportedException) {
+                                                or YamlParseException
+                                                or NotSupportedException) {
             Clip = new();
             LoadError = exception.Message;
         }
@@ -241,9 +246,7 @@ public sealed class AnimationClipDocument : EditorDocument {
         var replacement = keys.Count == 0
             ? null
             : new AnimationCurveData {
-                Property = property,
-                Shape = shape,
-                Keys = [.. keys.OrderBy(key => key.Time)]
+                Property = property, Shape = shape, Keys = [..keys.OrderBy(static key => key.Time)]
             };
 
         Run(
@@ -287,7 +290,7 @@ public sealed class AnimationClipDocument : EditorDocument {
         shape ??= string.Empty;
 
         List<AnimationKeyData> keys = Curve(target, property, shape) is { } curve
-            ? [.. curve.Keys.Where(key => Math.Abs(key.Time - time) > KeyEpsilon).Select(Copy)]
+            ? [..curve.Keys.Where(key => Math.Abs(key.Time - time) > KeyEpsilon).Select(Copy)]
             : [];
 
         keys.Add(new() { Time = time, Value = value });
@@ -303,13 +306,14 @@ public sealed class AnimationClipDocument : EditorDocument {
     /// </remarks>
     public const float KeyEpsilon = 1f / 480f;
 
-    static AnimationKeyData Copy(AnimationKeyData key) => new() {
-        Time = key.Time,
-        Value = key.Value,
-        InTangent = key.InTangent,
-        OutTangent = key.OutTangent,
-        Mode = key.Mode
-    };
+    static AnimationKeyData Copy(AnimationKeyData key) =>
+        new() {
+            Time = key.Time,
+            Value = key.Value,
+            InTangent = key.InTangent,
+            OutTangent = key.OutTangent,
+            Mode = key.Mode
+        };
 
     /// <summary>Adds an event, undoably.</summary>
     /// <param name="name">What it is called.</param>
@@ -649,7 +653,7 @@ public sealed class AnimationClipDocument : EditorDocument {
     }
 
     /// <summary>How many keys the clip carries, across every curve.</summary>
-    public int KeyCount => Clip.Targets.Sum(target => target.Curves.Sum(curve => curve.Keys.Count));
+    public int KeyCount => Clip.Targets.Sum(static target => target.Curves.Sum(static curve => curve.Keys.Count));
 
     /// <summary>Records an edit on this document's stack and tells whoever is drawing it.</summary>
     void Run(string name, Action apply, Action revert) {

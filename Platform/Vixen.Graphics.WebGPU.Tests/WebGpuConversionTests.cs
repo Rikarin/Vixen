@@ -20,7 +20,7 @@ public class WebGpuConversionTests {
         // specification has 16-bit integer and half-float formats and no 16-bit normalised ones.
         PixelFormat[] absent = [PixelFormat.R16UNorm, PixelFormat.Rg16UNorm, PixelFormat.Rgba16UNorm];
 
-        foreach (var format in System.Enum.GetValues<PixelFormat>()) {
+        foreach (var format in Enum.GetValues<PixelFormat>()) {
             if (format == PixelFormat.Undefined) {
                 continue;
             }
@@ -38,7 +38,7 @@ public class WebGpuConversionTests {
 
     [Fact]
     public void FormatsRoundTripBackToTheEngine() {
-        foreach (var format in System.Enum.GetValues<PixelFormat>()) {
+        foreach (var format in Enum.GetValues<PixelFormat>()) {
             var mapped = format.ToWebGpu();
 
             if (mapped == WgpuTextureFormat.Undefined) {
@@ -51,8 +51,8 @@ public class WebGpuConversionTests {
 
     [Fact]
     public void AMissingFormatSaysWhatIsMissing() {
-        var thrown = Assert.Throws<NotSupportedException>(
-            () => PixelFormat.Rgba16UNorm.Require("Terrain.Heights")
+        var thrown = Assert.Throws<NotSupportedException>(static () =>
+            PixelFormat.Rgba16UNorm.Require("Terrain.Heights")
         );
 
         Assert.Contains("Terrain.Heights", thrown.Message, StringComparison.Ordinal);
@@ -89,8 +89,7 @@ public class WebGpuConversionTests {
     /// </summary>
     [Fact]
     public void AnAccelerationStructureBindingIsRefusedByName() {
-        var thrown = Assert.Throws<NotSupportedException>(
-            () => WebGpuConversions.ToWebGpu(
+        var thrown = Assert.Throws<NotSupportedException>(static () => WebGpuConversions.ToWebGpu(
                 new DescriptorBinding(0, DescriptorKind.AccelerationStructure, ShaderStage.Fragment)
             )
         );
@@ -185,7 +184,14 @@ public class WebGpuConversionTests {
     [Fact]
     public void VolumesUseDepthAndArraysUseLayers() {
         var volume = WebGpuConversions.ToWebGpu(
-            new TextureDescription(PixelFormat.Rgba8UNorm, 8, 8, TextureUsage.Sampled, Depth: 4, Dimension: TextureDimension.Texture3D)
+            new TextureDescription(
+                PixelFormat.Rgba8UNorm,
+                8,
+                8,
+                TextureUsage.Sampled,
+                4,
+                Dimension: TextureDimension.Texture3D
+            )
         );
 
         var array = WebGpuConversions.ToWebGpu(
@@ -210,9 +216,7 @@ public class WebGpuConversionTests {
 
     [Fact]
     public void AlphaBlendingMapsBothHalves() {
-        var target = WebGpuConversions.ToWebGpu(
-            new ColourTargetState(PixelFormat.Rgba8UNorm, BlendState.AlphaBlend)
-        );
+        var target = WebGpuConversions.ToWebGpu(new ColourTargetState(PixelFormat.Rgba8UNorm, BlendState.AlphaBlend));
 
         Assert.True(target.BlendEnabled);
         Assert.Equal(WgpuBlendFactor.SrcAlpha, target.Colour.SourceFactor);
@@ -230,7 +234,7 @@ public class WebGpuConversionTests {
         var depth = WebGpuConversions.ToWebGpu(
             DepthStencilState.Default,
             PixelFormat.Depth32Float,
-            new RasterizerState(CullMode.Back, DepthBias: 4f, DepthBiasSlope: 1.5f)
+            new(CullMode.Back, DepthBias: 4f, DepthBiasSlope: 1.5f)
         );
 
         Assert.Equal(4, depth.DepthBias);
@@ -318,7 +322,7 @@ public class WebGpuConversionTests {
         var features = WebGpuCapabilities.Describe(
             WebGpuLimits.Guaranteed,
             WgpuAdapterType.Unknown,
-            _ => false
+            static _ => false
         );
 
         Assert.True(features.HasCompute);
@@ -359,9 +363,7 @@ public class WebGpuConversionTests {
     [Fact]
     public void AnUnreportedLimitBecomesTheGuaranteedFloor() {
         var reported = WebGpuLimits.Guaranteed with {
-            MaxTextureDimension2D = 16384,
-            MaxColorAttachments = 0,
-            MinUniformBufferOffsetAlignment = 0
+            MaxTextureDimension2D = 16384, MaxColorAttachments = 0, MinUniformBufferOffsetAlignment = 0
         };
 
         var normalised = reported.OrGuaranteed();
@@ -376,7 +378,7 @@ public class WebGpuConversionTests {
 
     [Fact]
     public void ADeviceReportingNothingAtAllStillLooksLikeWebGpu() {
-        var features = WebGpuCapabilities.Describe(default, WgpuAdapterType.Unknown, _ => false);
+        var features = WebGpuCapabilities.Describe(default, WgpuAdapterType.Unknown, static _ => false);
 
         Assert.Equal(8192, features.MaxTextureSize);
         Assert.Equal(4, features.MaxDescriptorSets);
@@ -390,7 +392,7 @@ public class WebGpuConversionTests {
         var with = WebGpuCapabilities.Describe(
             WebGpuLimits.Guaranteed,
             WgpuAdapterType.DiscreteGpu,
-            feature => feature == WgpuFeatureName.DepthClipControl
+            static feature => feature == WgpuFeatureName.DepthClipControl
         );
 
         Assert.True(with.HasDepthClamp);
@@ -405,7 +407,10 @@ public class WebGpuConversionTests {
     [InlineData(WgpuAdapterType.DiscreteGpu, false)]
     [InlineData(WgpuAdapterType.Unknown, false)]
     public void UnifiedMemoryFollowsTheAdapterKind(WgpuAdapterType kind, bool unified) =>
-        Assert.Equal(unified, WebGpuCapabilities.Describe(WebGpuLimits.Guaranteed, kind, _ => false).HasUnifiedMemory);
+        Assert.Equal(
+            unified,
+            WebGpuCapabilities.Describe(WebGpuLimits.Guaranteed, kind, static _ => false).HasUnifiedMemory
+        );
 
     /// <summary>
     ///     Asking for a feature an adapter lacks fails device creation outright, so the request is an
@@ -413,14 +418,14 @@ public class WebGpuConversionTests {
     /// </summary>
     [Fact]
     public void OnlyFeaturesTheAdapterOffersAreAskedFor() {
-        var wanted = WebGpuCapabilities.Wanted(
-            feature => feature is WgpuFeatureName.TextureCompressionBc or WgpuFeatureName.DepthClipControl
+        var wanted = WebGpuCapabilities.Wanted(static feature => feature is WgpuFeatureName.TextureCompressionBc
+            or WgpuFeatureName.DepthClipControl
         );
 
         Assert.Contains(WgpuFeatureName.TextureCompressionBc, wanted);
         Assert.Contains(WgpuFeatureName.DepthClipControl, wanted);
         Assert.DoesNotContain(WgpuFeatureName.TextureCompressionAstc, wanted);
-        Assert.Empty(WebGpuCapabilities.Wanted(_ => false));
+        Assert.Empty(WebGpuCapabilities.Wanted(static _ => false));
     }
 
     /// <summary>

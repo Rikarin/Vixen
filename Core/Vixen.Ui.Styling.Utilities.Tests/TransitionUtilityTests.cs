@@ -19,8 +19,12 @@ namespace Vixen.Ui.Styling.Utilities.Tests;
 ///         <c>value_gap</c> in prose because no test could hold it.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The whole instrument of the first test is that no <c>duration-*</c> is written in
-///         it.</b> <c>transition-duration</c> initially computes to <b>zero</b>, and a transition of
+///         ⚠
+///         <b>
+///             The whole instrument of the first test is that no <c>duration-*</c> is written in
+///             it.
+///         </b>
+///         <c>transition-duration</c> initially computes to <b>zero</b>, and a transition of
 ///         zero duration is indistinguishable from no transition at all — both put the property at
 ///         its destination on the very next frame. So the reading that matters is a value strictly
 ///         <i>between</i> the two endpoints, for <c>Vixen.Ui.Tests.TransitionTests</c>' reason: an
@@ -35,10 +39,10 @@ namespace Vixen.Ui.Styling.Utilities.Tests;
 public class TransitionUtilityTests {
     /// <summary>The theme the generated sheet resolves its tokens against.</summary>
     const string Theme = """
-        @theme {
-          --spacing: 4px;
-        }
-        """;
+                         @theme {
+                           --spacing: 4px;
+                         }
+                         """;
 
     /// <summary>A `transition` and nothing else, over a width the hover variant moves.</summary>
     /// <remarks>
@@ -49,10 +53,10 @@ public class TransitionUtilityTests {
     ///     prove or work around — it is what a stylesheet has to look like for any transition to run.
     /// </remarks>
     const string Css = """
-        root { width: 400px; height: 200px; }
-        #box { width: 10px; height: 20px; }
-        #box.wide { width: 110px; }
-        """;
+                       root { width: 400px; height: 200px; }
+                       #box { width: 10px; height: 20px; }
+                       #box.wide { width: 110px; }
+                       """;
 
     [Fact]
     public void The_bare_transition_class_animates_with_no_duration_beside_it() {
@@ -60,7 +64,7 @@ public class TransitionUtilityTests {
         var generator = new UtilityGenerator(tokens);
 
         using var document = new UiDocument(400f, 200f);
-        document.Load(Css + '\n' + generator.Generate(["transition"]), StyleOrigin.Author);
+        document.Load(Css + '\n' + generator.Generate(["transition"]));
 
         var box = document.Create("div", document.Root, "box", "transition");
 
@@ -107,9 +111,13 @@ public class TransitionUtilityTests {
 
     /// <summary>A <c>duration-*</c> beside it still wins, so the default is a default and not a floor.</summary>
     /// <remarks>
-    ///     ⚠ <b>Without this the change above could have been made by writing the duration into the
-    ///     family's own <c>Properties</c>, which would break every <c>transition duration-700</c> in
-    ///     the interface.</b> The two declarations land on one element with equal specificity, so what
+    ///     ⚠
+    ///     <b>
+    ///         Without this the change above could have been made by writing the duration into the
+    ///         family's own <c>Properties</c>, which would break every <c>transition duration-700</c> in
+    ///         the interface.
+    ///     </b>
+    ///     The two declarations land on one element with equal specificity, so what
     ///     decides the winner is source order within the generated sheet — and that is a property of
     ///     the generator's ordering rather than of anything either family says. A test that only
     ///     proved the default works would be green for both arrangements.
@@ -120,7 +128,7 @@ public class TransitionUtilityTests {
         var generator = new UtilityGenerator(tokens);
 
         using var document = new UiDocument(400f, 200f);
-        document.Load(Css + '\n' + generator.Generate(["transition", "duration-1000"]), StyleOrigin.Author);
+        document.Load(Css + '\n' + generator.Generate(["transition", "duration-1000"]));
 
         var box = document.Create("div", document.Root, "box", "transition", "duration-1000");
 
@@ -148,8 +156,12 @@ public class TransitionUtilityTests {
 
     /// <summary>An <c>ease-*</c> beside it survives too, which it does by the family staying silent.</summary>
     /// <remarks>
-    ///     ⚠ <b>The hazard here is the same ordering one and the answer is the opposite — say nothing
-    ///     rather than say it through a fragment.</b> <c>ease-linear</c> sorts before <c>transition</c>,
+    ///     ⚠
+    ///     <b>
+    ///         The hazard here is the same ordering one and the answer is the opposite — say nothing
+    ///         rather than say it through a fragment.
+    ///     </b>
+    ///     <c>ease-linear</c> sorts before <c>transition</c>,
     ///     so a <c>transition</c> emitting <c>transition-timing-function: ease</c> would overwrite it;
     ///     but unlike the duration, CSS's <i>initial</i> timing function is already <c>ease</c>, so the
     ///     family gets v4's curve for free and a fragment would be mechanism bought for nothing.
@@ -162,7 +174,7 @@ public class TransitionUtilityTests {
         var generator = new UtilityGenerator(tokens);
 
         using var document = new UiDocument(400f, 200f);
-        document.Load(Css + '\n' + generator.Generate(["transition", "ease-linear"]), StyleOrigin.Author);
+        document.Load(Css + '\n' + generator.Generate(["transition", "ease-linear"]));
 
         var box = document.Create("div", document.Root, "box", "transition", "ease-linear");
 

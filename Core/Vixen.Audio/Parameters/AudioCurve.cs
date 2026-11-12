@@ -71,7 +71,7 @@ public sealed class AudioCurve {
         AudioCurveInterpolation interpolation = AudioCurveInterpolation.Linear
     ) {
         Interpolation = interpolation;
-        this.points = points.ToArray();
+        this.points = [..points];
         Array.Sort(this.points, static (a, b) => a.Position.CompareTo(b.Position));
     }
 
@@ -128,9 +128,9 @@ public sealed class AudioCurve {
         var t = span > 0f ? (position - start.Position) / span : 0f;
 
         if (Interpolation is AudioCurveInterpolation.Smooth) {
-            t = t * t * (3f - (2f * t));
+            t = t * t * (3f - 2f * t);
         }
 
-        return start.Value + ((end.Value - start.Value) * t);
+        return start.Value + (end.Value - start.Value) * t;
     }
 }

@@ -12,8 +12,12 @@ namespace Tests;
 /// <summary>Every kernel in <c>Shaders/</c>, through the real Raven front end, with no device.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>This is what replaces <c>CheckShaders</c>' editor half for this assembly, and it is a
-///         stronger instrument than the thing it replaces.</b> That gate proves a committed
+///         ⚠
+///         <b>
+///             This is what replaces <c>CheckShaders</c>' editor half for this assembly, and it is a
+///             stronger instrument than the thing it replaces.
+///         </b>
+///         That gate proves a committed
 ///         <c>.spv</c> matches the <c>.rvn</c> beside it; there is no committed module here, because a
 ///         storage image's format is part of its type and a kernel is compiled once per format a plan
 ///         can ask it to write. So what is asserted instead is the thing the gate was a proxy for:
@@ -35,7 +39,10 @@ public class TextureKernelTests {
         Path.GetFullPath(
             Path.Combine(
                 AppContext.BaseDirectory,
-                "..", "..", "..", "..",
+                "..",
+                "..",
+                "..",
+                "..",
                 "Vixen.TextureGraph",
                 "Shaders"
             )
@@ -55,7 +62,7 @@ public class TextureKernelTests {
         }
     }
 
-    public static TheoryData<string> Kernels => [.. TextureKernels.Names];
+    public static TheoryData<string> Kernels => [..TextureKernels.Names];
 
     /// <summary>The embedded set is the folder's set — the check that keeps every theory below honest.</summary>
     [Fact]
@@ -65,7 +72,7 @@ public class TextureKernelTests {
         var onDisk = Directory
             .EnumerateFiles(ShaderRoot, "*.rvn")
             .Select(Path.GetFileNameWithoutExtension)
-            .OrderBy(name => name, StringComparer.Ordinal)
+            .OrderBy(static name => name, StringComparer.Ordinal)
             .ToArray();
 
         Assert.NotEmpty(onDisk);
@@ -78,7 +85,7 @@ public class TextureKernelTests {
     public void A_kernel_declares_the_shader_its_file_is_named_after(string kernel) {
         var declared = Regex
             .Matches(TextureKernels.Source(kernel), @"^shader\s+(\w+)", RegexOptions.Multiline)
-            .Select(match => match.Groups[1].Value)
+            .Select(static match => match.Groups[1].Value)
             .ToArray();
 
         Assert.Equal([kernel], declared);
@@ -92,7 +99,7 @@ public class TextureKernelTests {
 
         Assert.Equal(kernel, data.ShaderName);
 
-        var compute = Assert.Single(data.Stages, stage => stage.Stage == ShaderStage.Compute);
+        var compute = Assert.Single(data.Stages, static stage => stage.Stage == ShaderStage.Compute);
 
         Assert.NotEmpty(compute.Bytecode);
 
@@ -105,8 +112,12 @@ public class TextureKernelTests {
     ///     The variant actually carries the format asked for, which is the whole of the rewrite.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>Without this, <see cref="A_kernel_compiles_in_every_storable_format" /> would pass on a
-    ///     rewrite that did nothing.</b> Every variant would be the committed <c>rgba16f</c> source,
+    ///     ⚠
+    ///     <b>
+    ///         Without this, <see cref="A_kernel_compiles_in_every_storable_format" /> would pass on a
+    ///         rewrite that did nothing.
+    ///     </b>
+    ///     Every variant would be the committed <c>rgba16f</c> source,
     ///     which compiles perfectly — and the failure would surface as an image written through the
     ///     wrong format decoration on a device, which is undefined behaviour and not an error.
     /// </remarks>
@@ -134,20 +145,26 @@ public class TextureKernelTests {
     [InlineData("Blend", "background", "foreground")]
     [InlineData("Blur", "source")]
     [InlineData("Levels", "source")]
-    public void A_kernel_declares_its_inputs_in_the_order_the_evaluator_binds_them(string kernel, params string[] inputs) {
+    public void A_kernel_declares_its_inputs_in_the_order_the_evaluator_binds_them(
+        string kernel,
+        params string[] inputs
+    ) {
         var data = Compile(kernel, TextureFormat.Rgba8);
 
         var textures = data.Bindings
-            .Where(binding => binding is { Set: DescriptorSetSlot.PerMaterial, Kind: DescriptorKind.SampledTexture })
-            .OrderBy(binding => binding.Binding)
-            .Select(binding => binding.Name)
+            .Where(static binding => binding is {
+                    Set: DescriptorSetSlot.PerMaterial, Kind: DescriptorKind.SampledTexture
+                }
+            )
+            .OrderBy(static binding => binding.Binding)
+            .Select(static binding => binding.Name)
             .ToArray();
 
         Assert.Equal(inputs, textures);
 
         Assert.Single(
             data.Bindings,
-            binding => binding is { Set: DescriptorSetSlot.PerMaterial, Kind: DescriptorKind.StorageTexture }
+            static binding => binding is { Set: DescriptorSetSlot.PerMaterial, Kind: DescriptorKind.StorageTexture }
         );
     }
 
@@ -156,8 +173,12 @@ public class TextureKernelTests {
     ///     reflection does not carry.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>A kernel declaring <c>[ComputeShader(16, 16, 1)]</c> against a host dispatching in
-    ///     eights leaves three quarters of every image unwritten</b> — and an unwritten storage image
+    ///     ⚠
+    ///     <b>
+    ///         A kernel declaring <c>[ComputeShader(16, 16, 1)]</c> against a host dispatching in
+    ///         eights leaves three quarters of every image unwritten
+    ///     </b>
+    ///     — and an unwritten storage image
     ///     is whatever the allocator left, which on a fresh device is often zero and therefore looks
     ///     like a kernel that ran and produced black.
     /// </remarks>
@@ -180,8 +201,10 @@ public class TextureKernelTests {
     /// </remarks>
     [Fact]
     public void An_unknown_kernel_is_refused_by_name() {
-        var failure = Assert.Throws<ArgumentException>(
-            () => TextureKernels.Variant("NoKernelIsCalledThis", TextureFormat.Rgba8)
+        var failure = Assert.Throws<ArgumentException>(static () => TextureKernels.Variant(
+                "NoKernelIsCalledThis",
+                TextureFormat.Rgba8
+            )
         );
 
         Assert.Contains("NoKernelIsCalledThis", failure.Message, StringComparison.Ordinal);

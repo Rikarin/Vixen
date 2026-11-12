@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Globalization;
-using Vixen.Ui.Text;
 using Xunit;
 
 namespace Vixen.Ui.Text.Tests;
@@ -65,8 +64,12 @@ public class FinalSigmaTests {
     ///     <c>MidNumLet</c> and an apostrophe is <c>Single_Quote</c>, so the sigma before either is
     ///     still followed by a cased letter and is not final.
     ///     <para>
-    ///         ⚠ <b>Every row here has a cased letter on both sides, and that is what makes them
-    ///         discriminating.</b> Without the word-break half a full stop is neither cased nor
+    ///         ⚠
+    ///         <b>
+    ///             Every row here has a cased letter on both sides, and that is what makes them
+    ///             discriminating.
+    ///         </b>
+    ///         Without the word-break half a full stop is neither cased nor
     ///         ignorable, the forward walk stops on it and answers "not followed by a letter", and
     ///         the sigma turns ς. A row like <c>Σ.Σ</c> would come out the same either way — the
     ///         first sigma has nothing cased before it whichever rule is used — and would pin

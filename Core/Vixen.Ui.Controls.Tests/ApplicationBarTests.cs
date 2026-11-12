@@ -46,7 +46,7 @@ public class ApplicationBarTests {
 
             Assert.Equal(3, items.Count);
             Assert.Same(items[0], bar.Active);
-            Assert.Equal([0, -1, -1], items.Select(item => item.TabIndex));
+            Assert.Equal([0, -1, -1], items.Select(static item => item.TabIndex));
         }
     }
 
@@ -59,7 +59,7 @@ public class ApplicationBarTests {
             bar.Add<Button>().Label = "late";
             fixture.Update();
 
-            Assert.Equal([0, -1, -1, -1], bar.Items.Select(item => item.TabIndex));
+            Assert.Equal([0, -1, -1, -1], bar.Items.Select(static item => item.TabIndex));
         }
     }
 
@@ -75,7 +75,7 @@ public class ApplicationBarTests {
             fixture.Type(InputKey.Right);
             Assert.Same(items[1], bar.Active);
             Assert.Same(items[1], fixture.Document.Focused);
-            Assert.Equal([-1, 0, -1], items.Select(item => item.TabIndex));
+            Assert.Equal([-1, 0, -1], items.Select(static item => item.TabIndex));
 
             fixture.Type(InputKey.Right);
             fixture.Type(InputKey.Right);
@@ -115,8 +115,12 @@ public class ApplicationBarTests {
     ///     Clicking the third button and tabbing away comes back to the third button.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>A roving index maintained only by the arrow keys sends the user back to the
-    ///     first.</b> The focus arriving by any route has to move the stop, which is why the strip
+    ///     ⚠
+    ///     <b>
+    ///         A roving index maintained only by the arrow keys sends the user back to the
+    ///         first.
+    ///     </b>
+    ///     The focus arriving by any route has to move the stop, which is why the strip
     ///     listens for the focus rather than only for keys.
     /// </remarks>
     [Fact]
@@ -128,7 +132,7 @@ public class ApplicationBarTests {
             fixture.Document.Focus(items[2]);
 
             Assert.Same(items[2], bar.Active);
-            Assert.Equal([-1, -1, 0], items.Select(item => item.TabIndex));
+            Assert.Equal([-1, -1, 0], items.Select(static item => item.TabIndex));
         }
     }
 
@@ -206,10 +210,10 @@ public class ApplicationBarTests {
             Assert.Equal(AccessibleRole.Radio, strip.Segments[0].Role);
 
             strip.Value = "grid";
-            Assert.Equal([false, true, false], strip.Segments.Select(segment => segment.IsChecked));
+            Assert.Equal([false, true, false], strip.Segments.Select(static segment => segment.IsChecked));
 
             strip.Value = "gallery";
-            Assert.Equal([false, false, true], strip.Segments.Select(segment => segment.IsChecked));
+            Assert.Equal([false, false, true], strip.Segments.Select(static segment => segment.IsChecked));
         }
     }
 
@@ -231,8 +235,12 @@ public class ApplicationBarTests {
 
     /// <summary>Clicking the chosen segment again leaves it chosen.</summary>
     /// <remarks>
-    ///     ⚠ <b>Otherwise the strip reaches a state with nothing selected that the keyboard cannot
-    ///     get out of</b> — the same reason a radio cannot be unchecked by clicking it.
+    ///     ⚠
+    ///     <b>
+    ///         Otherwise the strip reaches a state with nothing selected that the keyboard cannot
+    ///         get out of
+    ///     </b>
+    ///     — the same reason a radio cannot be unchecked by clicking it.
     /// </remarks>
     [Fact]
     public void Clicking_the_chosen_segment_again_does_not_unchoose_it() {
@@ -258,7 +266,7 @@ public class ApplicationBarTests {
 
             fixture.Type(InputKey.Right);
             Assert.Equal("grid", strip.Value);
-            Assert.Equal([-1, 0, -1], strip.Segments.Select(segment => segment.TabIndex));
+            Assert.Equal([-1, 0, -1], strip.Segments.Select(static segment => segment.TabIndex));
 
             fixture.Type(InputKey.Right);
             fixture.Type(InputKey.Right);
@@ -283,6 +291,6 @@ public class ApplicationBarTests {
         fixture.Update();
 
         Assert.True(grid.IsChecked);
-        Assert.Equal([-1, 0], strip.Segments.Select(segment => segment.TabIndex));
+        Assert.Equal([-1, 0], strip.Segments.Select(static segment => segment.TabIndex));
     }
 }

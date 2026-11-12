@@ -86,8 +86,12 @@ public sealed class InspectorDescriptor {
     ///         per row — would be worse than one that quietly offers no reset button.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A member this descriptor does not own has no default here, and asking is not an
-    ///         error.</b> A composite drawer builds fields over members that belong to something else
+    ///         ⚠
+    ///         <b>
+    ///             A member this descriptor does not own has no default here, and asking is not an
+    ///             error.
+    ///         </b>
+    ///         A composite drawer builds fields over members that belong to something else
     ///         — a list's third element belongs to the list — and hands them the descriptor it has,
     ///         because a field needs one. Reading such a member off a fresh instance of <i>this</i>
     ///         type is a cast that cannot succeed, and it used to be an exception thrown while

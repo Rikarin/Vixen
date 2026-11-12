@@ -23,7 +23,7 @@ public sealed class TangentBakeTests {
 
         Vector3 On(int side, int row) {
             var around = MathF.Tau * side / sides;
-            var up = 1.1f * (((float)row / rows) - 0.5f);
+            var up = 1.1f * ((float)row / rows - 0.5f);
 
             return new(MathF.Cos(around) * MathF.Cos(up), MathF.Sin(up), MathF.Sin(around) * MathF.Cos(up));
         }
@@ -31,7 +31,7 @@ public sealed class TangentBakeTests {
         Vector2 Uv(int side, int row) {
             var along = (float)side / sides;
 
-            return new(0.05f + (0.9f * (mirrored ? 1f - along : along)), 0.1f + (0.8f * row / rows));
+            return new(0.05f + 0.9f * (mirrored ? 1f - along : along), 0.1f + 0.8f * row / rows);
         }
 
         void Triangle((int Side, int Row) a, (int Side, int Row) b, (int Side, int Row) c) {
@@ -53,8 +53,8 @@ public sealed class TangentBakeTests {
             }
         }
 
-        mesh.SetNormals([.. normals]);
-        mesh.SetTexCoords([.. uvs]);
+        mesh.SetNormals([..normals]);
+        mesh.SetTexCoords([..uvs]);
 
         return mesh;
     }
@@ -75,9 +75,9 @@ public sealed class TangentBakeTests {
             var loop = low.CornersOf(face);
 
             for (var at = 0; at < 3; at++) {
-                points[(face * 3) + at] = low.Positions[loop[at]];
-                normals[(face * 3) + at] = low.Normals[(face * 3) + at];
-                uvs[(face * 3) + at] = low.TexCoords[(face * 3) + at];
+                points[face * 3 + at] = low.Positions[loop[at]];
+                normals[face * 3 + at] = low.Normals[face * 3 + at];
+                uvs[face * 3 + at] = low.TexCoords[face * 3 + at];
             }
         }
 
@@ -96,13 +96,15 @@ public sealed class TangentBakeTests {
                         continue;
                     }
 
-                    var n = (normals[at] * weights.X) + (normals[at + 1] * weights.Y) + (normals[at + 2] * weights.Z);
-                    var blended = (tangents[at] * weights.X) + (tangents[at + 1] * weights.Y) + (tangents[at + 2] * weights.Z);
+                    var n = normals[at] * weights.X + normals[at + 1] * weights.Y + normals[at + 2] * weights.Z;
+                    var blended = tangents[at] * weights.X
+                        + tangents[at + 1] * weights.Y
+                        + tangents[at + 2] * weights.Z;
                     var t = new Vector3(blended.X, blended.Y, blended.Z);
                     var b = Vector3.Cross(n, t) * tangents[at].W;
-                    var stored = maps.Normals[(y * Size) + x];
-                    var shaded = Vector3.Normalize((t * stored.X) + (b * stored.Y) + (n * stored.Z));
-                    var truth = maps.WorldNormal![(y * Size) + x];
+                    var stored = maps.Normals[y * Size + x];
+                    var shaded = Vector3.Normalize(t * stored.X + b * stored.Y + n * stored.Z);
+                    var truth = maps.WorldNormal![y * Size + x];
 
                     worst = MathF.Max(worst, Vector3.Cross(shaded, truth).Length());
                     checkedTexels++;
@@ -118,9 +120,9 @@ public sealed class TangentBakeTests {
     }
 
     static Vector3? Weights(Vector2 place, Vector2 a, Vector2 b, Vector2 c) {
-        var area = ((b.X - a.X) * (c.Y - a.Y)) - ((b.Y - a.Y) * (c.X - a.X));
-        var one = (((b.X - place.X) * (c.Y - place.Y)) - ((b.Y - place.Y) * (c.X - place.X))) / area;
-        var two = (((c.X - place.X) * (a.Y - place.Y)) - ((c.Y - place.Y) * (a.X - place.X))) / area;
+        var area = (b.X - a.X) * (c.Y - a.Y) - (b.Y - a.Y) * (c.X - a.X);
+        var one = ((b.X - place.X) * (c.Y - place.Y) - (b.Y - place.Y) * (c.X - place.X)) / area;
+        var two = ((c.X - place.X) * (a.Y - place.Y) - (c.Y - place.Y) * (a.X - place.X)) / area;
         var three = 1f - one - two;
 
         // Well inside: a texel touching two triangles belongs to the lower one, whichever holds its centre.

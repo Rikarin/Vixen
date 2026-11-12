@@ -134,7 +134,7 @@ public class TransferOracleTests {
 
         var histogram = a.Transfers.Metrics.AbortHistogram();
 
-        Assert.Contains(histogram, entry => entry.Reason == TransferAbort.ClientNeverArrived);
+        Assert.Contains(histogram, static entry => entry.Reason == TransferAbort.ClientNeverArrived);
     }
 
     /// <summary>
@@ -188,7 +188,10 @@ public class TransferOracleTests {
 
         // Nothing was lost, nothing was created, and people actually moved.
         Assert.Equal(expected, travellers.Sum(traveller => fleet.Holding(traveller)));
-        Assert.True(fleet.Committed > 20, $"only {fleet.Committed} transfers committed — the loop is not exercising anything");
+        Assert.True(
+            fleet.Committed > 20,
+            $"only {fleet.Committed} transfers committed — the loop is not exercising anything"
+        );
 
         foreach (var traveller in travellers) {
             Assert.Equal(traveller.Epoch, fleet.Fence(traveller));
@@ -212,7 +215,8 @@ public class TransferOracleTests {
             " | ",
             fleet.Realms.Select(realm =>
                 $"{realm.Map}: joined={realm.Joined(traveller.Key) is not null} "
-                + $"arrival={realm.Transfers.Arriving.Arrivals.FirstOrDefault(entry => entry.Player == traveller.Key)?.State.ToString() ?? "none"}")
+                + $"arrival={realm.Transfers.Arriving.Arrivals.FirstOrDefault(entry => entry.Player == traveller.Key)?.State.ToString() ?? "none"}"
+            )
         );
 
         Assert.Fail(
@@ -238,8 +242,12 @@ public class TransferOracleTests {
         };
 
     /// <summary>
-    ///     ⚠ <b>The leg doc 27 § Testing names and this file used to say plainly that it did not
-    ///     have.</b> Every traveller now holds a real session, and during the overlap a second one to
+    ///     ⚠
+    ///     <b>
+    ///         The leg doc 27 § Testing names and this file used to say plainly that it did not
+    ///         have.
+    ///     </b>
+    ///     Every traveller now holds a real session, and during the overlap a second one to
     ///     the target — so the wire carries a handshake that a loss profile can actually spoil, and
     ///     residency is what each realm's own <c>PlayerAdmission</c> says rather than what the harness
     ///     remembered to update.
@@ -271,7 +279,9 @@ public class TransferOracleTests {
 
         var a = fleet.AddRealm("maps/a");
         var b = fleet.AddRealm("maps/b");
-        var travellers = Enumerable.Range(0, 3).Select(index => fleet.Admit(index % 2 == 0 ? a : b, 100 + index)).ToList();
+        var travellers = Enumerable.Range(0, 3)
+            .Select(index => fleet.Admit(index % 2 == 0 ? a : b, 100 + index))
+            .ToList();
         var expected = travellers.Sum(fleet.Holding);
 
         for (var step = 0; step < 3_000; step++) {
@@ -302,9 +312,16 @@ public class TransferOracleTests {
     // ── Bounded prediction resets ───────────────────────────────────────────────────────────────
 
     /// <summary>
-    ///     ⚠ <b>Doc 27 § Intra-map seams states the price of a transfer and this is the assertion of
-    ///     it:</b> <i>"the visible cost of a transfer is one interpolation delay of extra smoothing and
-    ///     one prediction reset"</i>. One per commit, none per abort.
+    ///     ⚠
+    ///     <b>
+    ///         Doc 27 § Intra-map seams states the price of a transfer and this is the assertion of
+    ///         it:
+    ///     </b>
+    ///     <i>
+    ///         "the visible cost of a transfer is one interpolation delay of extra smoothing and
+    ///         one prediction reset"
+    ///     </i>
+    ///     . One per commit, none per abort.
     /// </summary>
     /// <remarks>
     ///     ⚠ <b>Every traveller runs a real <c>ClientPrediction</c> that steps on every pump</b>, so
@@ -361,7 +378,7 @@ public class TransferOracleTests {
 
         Assert.Equal(
             fleet.Committed,
-            fleet.Realms.Sum(realm => realm.Transfers.Metrics.PredictionResets)
+            fleet.Realms.Sum(static realm => realm.Transfers.Metrics.PredictionResets)
         );
     }
 

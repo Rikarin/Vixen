@@ -9,8 +9,11 @@ namespace Vixen.Geometry.Remeshing.Tests;
 /// <summary>The pre-remesh's reprojection, and the sabotage that proves the assertion can fail.</summary>
 /// <remarks>
 ///     <para>
-///         <b>docs/plan/41 § D3 step 6: "The relaxation is projected back onto the original surface
-///         each iteration, so the shape does not drift."</b> A bound on the deviation is only a test
+///         <b>
+///             docs/plan/41 § D3 step 6: "The relaxation is projected back onto the original surface
+///             each iteration, so the shape does not drift."
+///         </b>
+///         A bound on the deviation is only a test
 ///         if it fails when the thing it is bounding is removed —
 ///         <see cref="IsotropicRemesh.Run" />'s <c>reproject</c> parameter exists so that this file
 ///         can turn the reprojection off and watch the bound break, in the suite, permanently, rather
@@ -33,7 +36,7 @@ public class ReprojectionTests {
 
     [Fact]
     public void ReprojectingKeepsThePreRemeshOnTheOriginalSurface() {
-        var (deviation, _) = Deviate(BrokenMeshes.StaircaseSphere(), 5, reproject: true);
+        var (deviation, _) = Deviate(BrokenMeshes.StaircaseSphere(), 5, true);
 
         Assert.True(deviation < Bound, $"Max deviation was {deviation:E3} of the diagonal.");
     }
@@ -56,8 +59,8 @@ public class ReprojectionTests {
     public void WithoutReprojectionTheSameBoundIsBroken() {
         var source = BrokenMeshes.StaircaseSphere();
 
-        var (kept, _) = Deviate(source, 5, reproject: true);
-        var (drifted, _) = Deviate(source, 5, reproject: false);
+        var (kept, _) = Deviate(source, 5, true);
+        var (drifted, _) = Deviate(source, 5, false);
 
         Assert.True(
             drifted > Bound,
@@ -91,8 +94,8 @@ public class ReprojectionTests {
     public void WithoutReprojectionTheSurfaceDeflatesRatherThanWandering() {
         var source = MeshShapes.Create(ShapeKind.Sphere);
 
-        var (_, kept) = Deviate(source, 5, reproject: true);
-        var (_, drifted) = Deviate(source, 5, reproject: false);
+        var (_, kept) = Deviate(source, 5, true);
+        var (_, drifted) = Deviate(source, 5, false);
 
         // Measured at 0.49596 reprojected against 0.49306 not, over five rounds — a shrink of 0.586
         // percent, on a sphere nobody asked to be made smaller.
@@ -106,7 +109,7 @@ public class ReprojectionTests {
     [Fact]
     public void ThePreRemeshLeavesACleanMeshManifoldAndConsistent() {
         var soup = TriangleSoup.From(MeshShapes.Create(ShapeKind.Sphere));
-        var reference = SurfaceProjector.Build([.. soup.Positions], [.. soup.Triangles]);
+        var reference = SurfaceProjector.Build([..soup.Positions], [..soup.Triangles]);
 
         IsotropicRemesh.Run(soup, reference, 0f, 5);
 
@@ -124,7 +127,7 @@ public class ReprojectionTests {
         var box = source.Bounds;
 
         var soup = TriangleSoup.From(source);
-        var reference = SurfaceProjector.Build([.. soup.Positions], [.. soup.Triangles]);
+        var reference = SurfaceProjector.Build([..soup.Positions], [..soup.Triangles]);
 
         IsotropicRemesh.Run(soup, reference, 0f, 5);
 
@@ -175,7 +178,7 @@ public class ReprojectionTests {
 
         return (
             diagonal > 0f ? furthest / diagonal : furthest,
-            soup.Positions.Count == 0 ? 0f : (float) (radius / soup.Positions.Count)
+            soup.Positions.Count == 0 ? 0f : (float)(radius / soup.Positions.Count)
         );
     }
 }

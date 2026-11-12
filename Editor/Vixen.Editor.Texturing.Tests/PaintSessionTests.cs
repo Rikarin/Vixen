@@ -3,9 +3,6 @@
 
 using Vixen.Core.Mathematics;
 using Vixen.Editor.Core;
-using Vixen.Editor.Texturing.Layers;
-using Vixen.Editor.Texturing.Painting;
-using Vixen.Texturing.Layers;
 using Vixen.Texturing.Painting;
 using Xunit;
 
@@ -75,7 +72,7 @@ public class PaintSessionTests {
     [Fact]
     public void Symmetry_is_a_second_path_and_one_undo_entry() {
         PaintImage layer = new(128, 128);
-        PaintTarget target = new(layer, PaintCoverage.Everywhere(128, 128), Gutter: 0);
+        PaintTarget target = new(layer, PaintCoverage.Everywhere(128, 128), 0);
         var session = PaintSession.Begin(target, PaintStrokeTests.Hard(6f), Opaque);
 
         for (var step = 0; step <= 20; step++) {
@@ -107,9 +104,10 @@ public class PaintSessionTests {
         session.Move(new(20f, 20f));
 
         Assert.Throws<ArgumentException>(() => {
-            Span<Vector2> two = [new(21f, 20f), new(21f, 40f)];
+                Span<Vector2> two = [new(21f, 20f), new(21f, 40f)];
 
-            session.MoveAll(two);
-        });
+                session.MoveAll(two);
+            }
+        );
     }
 }

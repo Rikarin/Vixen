@@ -5,7 +5,6 @@ using Vixen.Ai.Perception.Ecs;
 using Vixen.Core;
 using Vixen.Core.Mathematics;
 using Vixen.Core.Threading;
-using Vixen.Ecs;
 using Vixen.Ecs.Systems;
 using Vixen.Engine.Frames;
 using Vixen.Engine.Transforms;
@@ -15,16 +14,23 @@ namespace Vixen.Samples.AiVillage;
 /// <summary>Where the intruder is, as a function of how long the village has been running.</summary>
 /// <remarks>
 ///     <para>
-///         <b>The only thing in this sample that moves without deciding to, and that is what makes
-///         it evidence.</b> Everything else — the guard leaving its beat, the villager running for
+///         <b>
+///             The only thing in this sample that moves without deciding to, and that is what makes
+///             it evidence.
+///         </b>
+///         Everything else — the guard leaving its beat, the villager running for
 ///         the refuge, the guard going back to its beat — is a consequence of where this is. A
 ///         sample that drove the agents would prove that the agents can be driven.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>A pure function of elapsed seconds, and the caller accumulates the seconds.</b>
 ///         <c>Samples/13</c>'s <c>ScriptedWalk</c> records why: a script that reads a clock walks a
-///         different path on a slower machine, and the test that catches it is <i>"wall time passing
-///         does not advance the script"</i> — hand it a delta of zero after sleeping and nothing may
+///         different path on a slower machine, and the test that catches it is
+///         <i>
+///             "wall time passing
+///             does not advance the script"
+///         </i>
+///         — hand it a delta of zero after sleeping and nothing may
 ///         move. There is no <c>Stopwatch</c> here and no <c>DateTime</c>.
 ///     </para>
 ///     <para>
@@ -81,7 +87,7 @@ public static class Intrusion {
 
             // A zero-length leg would divide by zero; two waypoints at the same instant mean the
             // later one, which is what a reader of the table above expects.
-            return span <= 0.0 ? where : Vector3.Lerp(from, where, (float) ((seconds - start) / span));
+            return span <= 0.0 ? where : Vector3.Lerp(from, where, (float)((seconds - start) / span));
         }
 
         return Waypoints[^1].Where;
@@ -91,8 +97,12 @@ public static class Intrusion {
 /// <summary>Walks the intruder along <see cref="Intrusion" />'s script, once a frame.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>A system with a declared order rather than a line in <c>OnUpdate</c>, and the
-///         difference is a frame.</b> <c>VixenApplication</c> runs <c>EngineLoop.Frame</c> <i>before</i>
+///         ⚠
+///         <b>
+///             A system with a declared order rather than a line in <c>OnUpdate</c>, and the
+///             difference is a frame.
+///         </b>
+///         <c>VixenApplication</c> runs <c>EngineLoop.Frame</c> <i>before</i>
 ///         the game's own update — deliberately, so that a game reads a world that has already been
 ///         stepped — so an intruder moved from <c>OnUpdate</c> is an intruder every agent perceives
 ///         one frame late. Declaring <c>[UpdateBefore(typeof(PerceptionSystem))]</c> puts the move

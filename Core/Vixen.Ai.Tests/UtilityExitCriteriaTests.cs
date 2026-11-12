@@ -26,8 +26,8 @@ public class UtilityOscillationTests {
 
     [Fact]
     public void AnAgentWithTheDefaultsHoldsItsChoiceAndOneWithoutInertiaFlaps() {
-        var settled = Switches(commitment: 0.15f, interval: 0.2f);
-        var flapping = Switches(commitment: 0f, interval: 0f);
+        var settled = Switches(0.15f, 0.2f);
+        var flapping = Switches(0f, 0f);
         var report = $"{settled} switches with the defaults, {flapping} with inertia disabled.";
 
         Assert.True(settled < 3, report);
@@ -43,12 +43,9 @@ public class UtilityOscillationTests {
         var clock = 0f;
         var set = new UtilitySet(
             Symbol.Intern("close-run"),
-            new UtilityAction(Symbol.Intern("steady"), 0, Reading(_ => 0.50f)),
-            new UtilityAction(Symbol.Intern("wobble"), 1, Reading(_ => 0.49f + (0.02f * MathF.Sin(MathF.Tau * clock))))
-        ) {
-            CommitmentBonus = commitment,
-            DecisionInterval = interval
-        };
+            new UtilityAction(Symbol.Intern("steady"), 0, Reading(static _ => 0.50f)),
+            new UtilityAction(Symbol.Intern("wobble"), 1, Reading(_ => 0.49f + 0.02f * MathF.Sin(MathF.Tau * clock)))
+        ) { CommitmentBonus = commitment, DecisionInterval = interval };
 
         var state = UtilityState.Fresh;
         var context = Harness.Context();
@@ -85,8 +82,12 @@ public class UtilityOscillationTests {
 ///     rank.
 /// </summary>
 /// <remarks>
-///     ⚠ <b>The naive product is what everybody writes first, and it is wrong in a way that is hard to
-///     see.</b> With every term in <c>[0,1]</c>, an action with more considerations is
+///     ⚠
+///     <b>
+///         The naive product is what everybody writes first, and it is wrong in a way that is hard to
+///         see.
+///     </b>
+///     With every term in <c>[0,1]</c>, an action with more considerations is
 ///     <i>structurally</i> worse than one with fewer — so tuning an action by adding an axis quietly
 ///     demotes it, and the demotion is invisible because every individual number still looks right.
 ///     Every assertion here fails under a plain product.
@@ -128,7 +129,7 @@ public class UtilityCompensationTests {
         var context = Harness.Context();
 
         Assert.Equal(0f, Action("vetoed", 0, 1f, 1f, 0f, 1f).Score(in context));
-        Assert.Equal(0f, UtilityScoring.Combine([1f, 1f, 0f, 1f], weight: 5f));
+        Assert.Equal(0f, UtilityScoring.Combine([1f, 1f, 0f, 1f], 5f));
     }
 
     /// <summary>The detail span reports every consideration, including the ones after the veto.</summary>
@@ -149,14 +150,14 @@ public class UtilityCompensationTests {
         new(
             Symbol.Intern(name),
             index,
-            values.Select(
-                    value => new UtilityConsideration(
+            [
+                ..values.Select(static value => new UtilityConsideration(
                         Symbol.Intern("axis"),
                         UtilityInputs.Constant(value),
                         ResponseCurve.Identity
                     )
                 )
-                .ToArray()
+            ]
         );
 }
 

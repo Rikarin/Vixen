@@ -19,15 +19,21 @@ namespace Vixen.TailwindParity;
 /// <param name="Name">The variant as v4 names it.</param>
 /// <param name="Probe">A prefix that compiles in v4, or <c>null</c>.</param>
 sealed record TailwindVariant(
-    [property: JsonPropertyName("name")] string Name,
-    [property: JsonPropertyName("probe")] string? Probe
+    [property: JsonPropertyName("name")]
+    string Name,
+    [property: JsonPropertyName("probe")]
+    string? Probe
 );
 
 /// <summary>A committed snapshot of tailwindcss's <c>__unstable__loadDesignSystem()</c> registry.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>This is the half of doc 43's cross product that no test in this repository could
-///         see.</b> Part 0 of <c>docs/plan/43-web-styling-parity.md</c> says the Tailwind side —
+///         ⚠
+///         <b>
+///             This is the half of doc 43's cross product that no test in this repository could
+///             see.
+///         </b>
+///         Part 0 of <c>docs/plan/43-web-styling-parity.md</c> says the Tailwind side —
 ///         which roots exist, which classes each root covers — was transcribed by hand from
 ///         <c>tailwindcss@4.3.3</c> on 2026-08-07, and nothing in the tree could check the
 ///         transcription, because the package is not in the tree. So the ledger's measured columns
@@ -46,15 +52,15 @@ sealed record TailwindVariant(
 sealed record TailwindRegistry {
     /// <summary>The npm package the snapshot was taken from.</summary>
     [JsonPropertyName("package")]
-    public string Package { get; init; } = "";
+    public string Package { get; init; } = string.Empty;
 
     /// <summary>The exact version npm resolved, not the one the command line asked for.</summary>
     [JsonPropertyName("version")]
-    public string Version { get; init; } = "";
+    public string Version { get; init; } = string.Empty;
 
     /// <summary>The day the snapshot was taken.</summary>
     [JsonPropertyName("taken")]
-    public string Taken { get; init; } = "";
+    public string Taken { get; init; } = string.Empty;
 
     /// <summary>Every static utility root — a class name that carries no value.</summary>
     [JsonPropertyName("staticRoots")]

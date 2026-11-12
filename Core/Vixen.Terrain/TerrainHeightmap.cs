@@ -164,13 +164,12 @@ public static class TerrainHeightmap {
     /// <summary>How many bytes a terrain exports as.</summary>
     /// <param name="description">The terrain's shape.</param>
     /// <returns>The byte count.</returns>
-    public static long ExportByteCount(TerrainDescription description) =>
-        description.SampleCount * sizeof(ushort);
+    public static long ExportByteCount(TerrainDescription description) => description.SampleCount * sizeof(ushort);
 
     static void Validate(ReadOnlySpan<byte> bytes, in TerrainHeightmapFormat format) {
         if (format.Width < 2 || format.Height < 2) {
             throw new ArgumentException(
-                $"A heightmap must be at least two samples along each axis; it was "
+                "A heightmap must be at least two samples along each axis; it was "
                 + $"{format.Width}×{format.Height}.",
                 nameof(format)
             );
@@ -212,16 +211,16 @@ public static class TerrainHeightmap {
         var c = Read(bytes, in format, x0, z0 + 1);
         var d = Read(bytes, in format, x0 + 1, z0 + 1);
 
-        var top = (a * (1f - fx)) + (b * fx);
-        var bottom = (c * (1f - fx)) + (d * fx);
+        var top = a * (1f - fx) + b * fx;
+        var bottom = c * (1f - fx) + d * fx;
 
-        return (ushort)Math.Clamp(MathF.Round((top * (1f - fz)) + (bottom * fz)), 0f, ushort.MaxValue);
+        return (ushort)Math.Clamp(MathF.Round(top * (1f - fz) + bottom * fz), 0f, ushort.MaxValue);
     }
 
     static ushort Read(ReadOnlySpan<byte> bytes, in TerrainHeightmapFormat format, int x, int z) {
         var clampedX = Math.Clamp(x, 0, format.Width - 1);
         var clampedZ = Math.Clamp(z, 0, format.Height - 1);
-        var offset = (((clampedZ * format.Width) + clampedX) * sizeof(ushort));
+        var offset = (clampedZ * format.Width + clampedX) * sizeof(ushort);
         var slice = bytes.Slice(offset, sizeof(ushort));
 
         return format.BigEndian

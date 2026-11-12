@@ -11,17 +11,16 @@ namespace Vixen.Rendering.Terrain.Tests;
 public sealed class FoliageRendererTests {
     static FoliageType Tree =>
         FoliageType.Of("Tree") with {
-            Mesh = "Meshes/pine",
-            Radius = 2f,
-            StartCullDistance = 180f,
-            EndCullDistance = 200f
+            Mesh = "Meshes/pine", Radius = 2f, StartCullDistance = 180f, EndCullDistance = 200f
         };
 
     static FoliageDraw Draws(int type, params float[] distances) =>
         new(
             type,
-            [.. Enumerable.Range(0, distances.Length + 1)
-                .Select(level => new DrawCommand { IndexCount = (uint)(600 >> level) })],
+            [
+                ..Enumerable.Range(0, distances.Length + 1)
+                    .Select(level => new DrawCommand { IndexCount = (uint)(600 >> level) })
+            ],
             distances
         );
 
@@ -42,7 +41,7 @@ public sealed class FoliageRendererTests {
         for (var index = 0; index < count; index++) {
             volume.Add(
                 type,
-                new(new(((index % 16) - 8) * spread / 16f, 0f, z), Quaternion.Identity, 1f)
+                new(new((index % 16 - 8) * spread / 16f, 0f, z), Quaternion.Identity, 1f)
             );
         }
     }
@@ -54,7 +53,7 @@ public sealed class FoliageRendererTests {
         var (volume, type) = Built();
         var renderer = new FoliageRenderer();
 
-        Fill(volume, type, 200, z: 300f);
+        Fill(volume, type, 200, 300f);
 
         renderer.Cull(volume, [Draws(type)], Looking(), Vector3.Zero);
 
@@ -69,7 +68,7 @@ public sealed class FoliageRendererTests {
         var (volume, type) = Built();
         var renderer = new FoliageRenderer();
 
-        Fill(volume, type, 100, z: -50f);
+        Fill(volume, type, 100, -50f);
 
         Assert.True(renderer.Cull(volume, [Draws(type)], Looking(), Vector3.Zero) > 0);
         Assert.True(renderer.CellsDrawn > 0);
@@ -81,7 +80,7 @@ public sealed class FoliageRendererTests {
         var (volume, type) = Built();
         var renderer = new FoliageRenderer();
 
-        Fill(volume, type, 50, z: -50f);
+        Fill(volume, type, 50, -50f);
 
         Assert.Equal(0, renderer.Cull(volume, [], Looking(), Vector3.Zero));
         Assert.Equal(0, renderer.CellsConsidered);
@@ -134,10 +133,10 @@ public sealed class FoliageRendererTests {
         var batch = Assert.Single(renderer.Batches);
 
         Assert.Equal(3, batch.Commands.Length);
-        Assert.All(batch.Commands, command => Assert.True(command.InstanceCount > 0));
+        Assert.All(batch.Commands, static command => Assert.True(command.InstanceCount > 0));
 
         // Every level's run is inside this cell's slice of the frame buffer, and they tile it.
-        var total = batch.Commands.Sum(command => (int)command.InstanceCount);
+        var total = batch.Commands.Sum(static command => (int)command.InstanceCount);
 
         Assert.Equal(batch.Count, total);
     }
@@ -190,7 +189,7 @@ public sealed class FoliageRendererTests {
         var renderer = new FoliageRenderer();
 
         for (var cell = 0; cell < 6; cell++) {
-            Fill(volume, type, 40, z: -40f - (cell * 32f));
+            Fill(volume, type, 40, -40f - cell * 32f);
         }
 
         var drawn = renderer.Cull(volume, [Draws(type)], Looking(), Vector3.Zero);
@@ -200,7 +199,7 @@ public sealed class FoliageRendererTests {
 
         var at = 0;
 
-        foreach (var batch in renderer.Batches.OrderBy(batch => batch.First)) {
+        foreach (var batch in renderer.Batches.OrderBy(static batch => batch.First)) {
             Assert.Equal(at, batch.First);
             at += batch.Count;
         }
@@ -224,7 +223,10 @@ public sealed class FoliageRendererTests {
 
         renderer.Cull(volume, [Draws(type)], Looking(), Vector3.Zero);
 
-        var fades = renderer.Parameters.ToArray().Select(parameters => parameters.Fade).OrderBy(fade => fade).ToArray();
+        var fades = renderer.Parameters.ToArray()
+            .Select(static parameters => parameters.Fade)
+            .OrderBy(static fade => fade)
+            .ToArray();
 
         Assert.Equal(2, fades.Length);
         Assert.InRange(fades[0], 0.1f, 0.9f);
@@ -241,12 +243,12 @@ public sealed class FoliageRendererTests {
         var (volume, type) = Built();
         var renderer = new FoliageRenderer();
 
-        Fill(volume, type, 200, z: -50f);
+        Fill(volume, type, 200, -50f);
 
-        var first = renderer.Cull(volume, [Draws(type)], Looking(), Vector3.Zero, densityScale: 0.5f);
+        var first = renderer.Cull(volume, [Draws(type)], Looking(), Vector3.Zero, 0.5f);
         var kept = renderer.Transforms.ToArray();
 
-        var second = renderer.Cull(volume, [Draws(type)], Looking(), Vector3.Zero, densityScale: 0.5f);
+        var second = renderer.Cull(volume, [Draws(type)], Looking(), Vector3.Zero, 0.5f);
 
         Assert.Equal(first, second);
         Assert.Equal(kept, renderer.Transforms.ToArray());

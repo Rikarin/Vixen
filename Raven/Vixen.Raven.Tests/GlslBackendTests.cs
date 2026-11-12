@@ -46,9 +46,9 @@ public class GlslBackendTests {
         );
 
         Assert.Equal(2, generated.Count);
-        Assert.Equal(["Lit.vert", "Lit.frag"], generated.Select(g => g.Name));
-        Assert.Equal([ShaderStage.Vertex, ShaderStage.Fragment], generated.Select(g => g.Stage));
-        Assert.All(generated, unit => Assert.StartsWith("#version 450", unit.Code));
+        Assert.Equal(["Lit.vert", "Lit.frag"], generated.Select(static g => g.Name));
+        Assert.Equal([ShaderStage.Vertex, ShaderStage.Fragment], generated.Select(static g => g.Stage));
+        Assert.All(generated, static unit => Assert.StartsWith("#version 450", unit.Code));
     }
 
     [Fact]
@@ -80,8 +80,8 @@ public class GlslBackendTests {
             """
         );
 
-        var vertex = generated.Single(g => g.Stage == ShaderStage.Vertex).Code;
-        var fragment = generated.Single(g => g.Stage == ShaderStage.Fragment).Code;
+        var vertex = generated.Single(static g => g.Stage == ShaderStage.Vertex).Code;
+        var fragment = generated.Single(static g => g.Stage == ShaderStage.Fragment).Code;
 
         Assert.Contains("OnlyVertex", vertex);
         Assert.DoesNotContain("OnlyFragment", vertex);
@@ -133,8 +133,7 @@ public class GlslBackendTests {
     public void A_texel_fetch_declares_the_samplerless_extension() {
         var fetching = GeneratePixel(
             "        return albedo.Load(int3(1, 2, 0))",
-            "    var albedo: Texture2D\n",
-            "func Fragment(): float4"
+            "    var albedo: Texture2D\n"
         );
 
         Assert.Contains("#extension GL_EXT_samplerless_texture_functions : require", fetching);
@@ -156,8 +155,7 @@ public class GlslBackendTests {
     public void Every_set_gets_its_own_block_named_for_the_set() {
         var code = GeneratePixel(
             "        return tint * time",
-            "    [PerFrame] var time: float\n    var tint: float4\n",
-            "func Fragment(): float4"
+            "    [PerFrame] var time: float\n    var tint: float4\n"
         );
 
         Assert.Contains("layout(std140, set = 0, binding = 0) uniform SPerFrameUniforms {", code);
@@ -403,7 +401,7 @@ public class GlslBackendTests {
     public void An_unsized_array_is_rejected_rather_than_emitted() {
         Assert.Contains(
             UnsizedArrayDiagnostics("glsl"),
-            d => d.Id == "RVN4001" && d.IsError
+            static d => d.Id == "RVN4001" && d.IsError
         );
     }
 

@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core.Mathematics;
-using Vixen.Ecs;
 using Vixen.Editor.SceneView;
 using Vixen.Editor.Testing;
 using Vixen.Engine.Transforms;
@@ -93,7 +92,7 @@ public class WorkPlaneCommandTests {
 
         // Somewhere that is not the origin, or "the plane went to the selection" and "the plane never
         // moved" are the same assertion.
-        var cube = fixture.Scene.Add("Cube", LocalTransform.At(new Vector3(3f, 2f, 1f)));
+        var cube = fixture.Scene.Add("Cube", LocalTransform.At(new(3f, 2f, 1f)));
 
         fixture.Scene.Selection.Set([cube]);
         fixture.Frames(2);
@@ -104,7 +103,7 @@ public class WorkPlaneCommandTests {
 
         var plane = fixture.Viewport!.Grid.Plane;
 
-        Assert.True(Vector3.NearEqual(plane.Origin, new Vector3(3f, 2f, 1f), 1e-3f), $"at {plane.Origin}");
+        Assert.True(Vector3.NearEqual(plane.Origin, new(3f, 2f, 1f), 1e-3f), $"at {plane.Origin}");
 
         // ⚠ Level, not tilted onto whatever the entity's own rotation is. Until there are faces to
         // select, "to selection" is a statement about *where* you are building and not about which way
@@ -128,7 +127,7 @@ public class WorkPlaneCommandTests {
         Assert.True(pane.Measure.IsActive);
 
         pane.Measure.Add(Vector3.Zero);
-        pane.Measure.Add(new Vector3(0f, 0f, 6f));
+        pane.Measure.Add(new(0f, 0f, 6f));
 
         Assert.Equal("6.00 m", pane.Measure.Describe());
         Assert.True(fixture.CanRun("scene.measure-clear"));

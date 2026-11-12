@@ -49,7 +49,7 @@ public sealed class EffectBundleBuilder(RavenEffectCompiler compiler) {
     ///     the first. A compilation <em>error</em> is different and does throw: that is a broken
     ///     shader, not a stale request.
     /// </remarks>
-    public ImmutableArray<EffectKey> Missing => [.. missing];
+    public ImmutableArray<EffectKey> Missing => [..missing];
 
     /// <summary>Compiles everything a manifest names.</summary>
     /// <exception cref="ShaderCompilationException">One of them did not compile.</exception>
@@ -105,7 +105,7 @@ public sealed class EffectBundleBuilder(RavenEffectCompiler compiler) {
         ArgumentException.ThrowIfNullOrEmpty(path);
 
         if (Path.GetDirectoryName(path) is { Length: > 0 } directory) {
-            System.IO.Directory.CreateDirectory(directory);
+            Directory.CreateDirectory(directory);
         }
 
         File.WriteAllBytes(path, Serializer.ToBytes(Build()));

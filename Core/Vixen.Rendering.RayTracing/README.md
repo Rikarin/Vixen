@@ -123,7 +123,7 @@ closing this needs, since nothing in the repository can conjure a device that ha
   have no caller anywhere outside the three backends that implement them and one render-graph test
   double, and the only `sceneStructure` binding written in the tree is
   `AccelerationStructureDeviceTests`', by hand. A composed slot's bindings are named for the shader
-  filling it, so selecting this one writes the pass's set short — and `StandardFrame.cs:716` states
+  filling it, so selecting this one writes the pass's set short — and `StandardFrame.cs:726` states
   the consequence for the clipmap in terms: *"a pass that composes the field without this line is a
   set written short — every draw refused"*. The switch would therefore break the frame on exactly
   the hardware it was added for, and pass everywhere else by never firing.

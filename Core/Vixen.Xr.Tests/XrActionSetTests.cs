@@ -10,7 +10,7 @@ namespace Vixen.Xr.Tests;
 public sealed class XrActionSetTests {
     [Fact]
     public void AnActionSetHoldsItsActions() {
-        var set = new XrActionSet("gameplay", "Gameplay", priority: 3);
+        var set = new XrActionSet("gameplay", "Gameplay", 3);
         var fire = set.CreateAction("fire", XrActionType.Boolean, "Fire");
 
         Assert.Equal("gameplay", set.Name);
@@ -43,8 +43,11 @@ public sealed class XrActionSetTests {
         var menu = new XrActionSet("menu");
         var fire = gameplay.CreateAction("fire", XrActionType.Boolean);
 
-        Assert.Throws<ArgumentException>(
-            () => menu.SuggestBinding(XrInteractionProfiles.Simple, fire, XrPaths.SelectClick)
+        Assert.Throws<ArgumentException>(() => menu.SuggestBinding(
+                XrInteractionProfiles.Simple,
+                fire,
+                XrPaths.SelectClick
+            )
         );
     }
 
@@ -57,12 +60,12 @@ public sealed class XrActionSetTests {
 
         Assert.Equal(
             ["/user/hand/left/input/squeeze/value", "/user/hand/right/input/squeeze/value"],
-            set.Bindings.Select(binding => binding.BindingPath)
+            set.Bindings.Select(static binding => binding.BindingPath)
         );
 
         Assert.All(
             set.Bindings,
-            binding => Assert.Equal(XrInteractionProfiles.OculusTouch, binding.InteractionProfile)
+            static binding => Assert.Equal(XrInteractionProfiles.OculusTouch, binding.InteractionProfile)
         );
     }
 
@@ -71,7 +74,7 @@ public sealed class XrActionSetTests {
         var set = new XrActionSet("gameplay");
         var grab = set.CreateAction("grab", XrActionType.Boolean);
 
-        grab.Publish(XrHand.Right, new XrActionState(IsActive: true, Boolean: true));
+        grab.Publish(XrHand.Right, new(true, Boolean: true));
 
         Assert.True(grab.IsPressed);
         Assert.False(grab.State(XrHand.Left).Boolean);
@@ -84,10 +87,10 @@ public sealed class XrActionSetTests {
         var set = new XrActionSet("gameplay");
         var jump = set.CreateAction("jump", XrActionType.Boolean);
 
-        jump.Publish(XrHand.Left, new XrActionState(IsActive: true, Changed: true, Boolean: true));
+        jump.Publish(XrHand.Left, new(true, true, true));
         Assert.True(jump.WasPressedThisFrame);
 
-        jump.Publish(XrHand.Left, new XrActionState(IsActive: true, Boolean: true));
+        jump.Publish(XrHand.Left, new(true, Boolean: true));
         Assert.True(jump.IsPressed);
         Assert.False(jump.WasPressedThisFrame);
     }
@@ -99,7 +102,7 @@ public sealed class XrActionSetTests {
         var set = new XrActionSet("gameplay");
         var fire = set.CreateAction("fire", XrActionType.Boolean);
 
-        fire.Publish(XrHand.Right, new XrActionState(IsActive: false, Boolean: true));
+        fire.Publish(XrHand.Right, new(false, Boolean: true));
 
         Assert.False(fire.IsPressed);
     }
@@ -109,8 +112,8 @@ public sealed class XrActionSetTests {
         var set = new XrActionSet("gameplay");
         var fire = set.CreateAction("fire", XrActionType.Boolean);
 
-        fire.Publish(XrHand.Left, new XrActionState(IsActive: true, Boolean: true));
-        fire.Publish(XrHand.Right, new XrActionState(IsActive: true, Boolean: true));
+        fire.Publish(XrHand.Left, new(true, Boolean: true));
+        fire.Publish(XrHand.Right, new(true, Boolean: true));
         fire.Deactivate();
 
         Assert.False(fire.State(XrHand.Left).IsActive);
@@ -119,7 +122,11 @@ public sealed class XrActionSetTests {
 
     [Fact]
     public void AnEmptyNameIsRefused() {
-        Assert.Throws<ArgumentException>(() => new XrActionSet(""));
-        Assert.Throws<ArgumentException>(() => new XrActionSet("gameplay").CreateAction("", XrActionType.Boolean));
+        Assert.Throws<ArgumentException>(static () => new XrActionSet(string.Empty));
+        Assert.Throws<ArgumentException>(static () => new XrActionSet("gameplay").CreateAction(
+                string.Empty,
+                XrActionType.Boolean
+            )
+        );
     }
 }

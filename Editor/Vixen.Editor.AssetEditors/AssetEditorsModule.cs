@@ -7,7 +7,6 @@ using Vixen.Editor.NodeGraph;
 using Vixen.Editor.Plugin;
 using Vixen.Editor.SceneView;
 using Vixen.Editor.Ui.Documents;
-using Vixen.NodeGraph;
 using Vixen.Ui.HotReload;
 
 namespace Vixen.Editor.AssetEditors;
@@ -23,8 +22,12 @@ namespace Vixen.Editor.AssetEditors;
 ///         supplies it. This module is that somebody.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The panels are inert without it, which is what makes this the last mile rather than
-///         a nicety.</b> Unbound, the shape viewport draws nothing, Run says it has no project and
+///         ⚠
+///         <b>
+///             The panels are inert without it, which is what makes this the last mile rather than
+///             a nicety.
+///         </b>
+///         Unbound, the shape viewport draws nothing, Run says it has no project and
 ///         Propose Contacts says it has no scene — all three honest, all three useless.
 ///     </para>
 ///     <para>
@@ -64,7 +67,7 @@ public sealed partial class AssetEditorsModule : IEditorPlugin {
         context.AddStyleSheet(AssetEditorTheme.Css);
         context.AddStyleSheet(AssetEditorTheme.Utilities);
 
-        binder = new AnimationBinder(project);
+        binder = new(project);
 
         editors.Opened += binder.Bind;
         context.OnUnload(() => editors.Opened -= binder.Bind);
@@ -114,8 +117,12 @@ public sealed partial class AssetEditorsModule : IEditorPlugin {
     ///         arguments there.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Found in the workspace by document type rather than constructed here, because a host may have built its own
-    ///         registry.</b> An editor assembled from a different set of factories should get the
+    ///         ⚠
+    ///         <b>
+    ///             Found in the workspace by document type rather than constructed here, because a host may have built its own
+    ///             registry.
+    ///         </b>
+    ///         An editor assembled from a different set of factories should get the
     ///         binding for the frame editor it has, or no binding at all — not a second frame editor
     ///         that clashes with the first over <c>.vxcompositor</c>.
     ///     </para>
@@ -143,16 +150,17 @@ public sealed partial class AssetEditorsModule : IEditorPlugin {
         frames.Contributions = registry;
 
         foreach (var contribution in StandardFrameEditorFactory.Contribute(
-            registry,
-            context.Services.TryGet<HotReloadHost>(out var reload) ? reload : null
-        )) {
+                     registry,
+                     context.Services.TryGet<HotReloadHost>(out var reload) ? reload : null
+                 )) {
             context.Owns(contribution);
         }
 
         context.OnUnload(() => {
-            frames.Contributions = null;
-            frames.Scene = null;
-            frames.Eye = null;
-        });
+                frames.Contributions = null;
+                frames.Scene = null;
+                frames.Eye = null;
+            }
+        );
     }
 }

@@ -7,18 +7,19 @@ namespace Vixen.DocGen.Tests;
 
 /// <summary>What the graph documents, and how it picks when two assemblies claim one URL.</summary>
 public class ScopeTests {
-    static DocNode Node(string assembly, bool packable, string slug = "vixen.core.syntax/diagnostic") => new() {
-        Id = "T:Vixen.Core.Syntax.Diagnostic",
-        Kind = DocKind.Class,
-        Name = "Diagnostic",
-        QualifiedName = "Vixen.Core.Syntax.Diagnostic",
-        Namespace = "Vixen.Core.Syntax",
-        Assembly = assembly,
-        Area = "Core",
-        Slug = slug,
-        Signature = [new DocSpan("public sealed class Diagnostic", "text")],
-        IsPackable = packable
-    };
+    static DocNode Node(string assembly, bool packable, string slug = "vixen.core.syntax/diagnostic") =>
+        new() {
+            Id = "T:Vixen.Core.Syntax.Diagnostic",
+            Kind = DocKind.Class,
+            Name = "Diagnostic",
+            QualifiedName = "Vixen.Core.Syntax.Diagnostic",
+            Namespace = "Vixen.Core.Syntax",
+            Assembly = assembly,
+            Area = "Core",
+            Slug = slug,
+            Signature = [new DocSpan("public sealed class Diagnostic", "text")],
+            IsPackable = packable
+        };
 
     [Theory]
     [InlineData("Core", "Vixen.Ecs", true)]
@@ -33,7 +34,8 @@ public class ScopeTests {
         string area,
         string project,
         bool expected
-    ) => Assert.Equal(expected, Scope.IsDocumented(area, project));
+    ) =>
+        Assert.Equal(expected, Scope.IsDocumented(area, project));
 
     /// <summary>
     ///     ⚠ A documentation id is unique inside an assembly, not across a solution: this repository
@@ -42,10 +44,12 @@ public class ScopeTests {
     /// </summary>
     [Fact]
     public void ThePackableCopyKeepsTheUrl() {
-        var (nodes, merged) = Scope.Deduplicate([
-            Node("Vixen.Ui.Markup.Generators", packable: false),
-            Node("Vixen.Core.Syntax", packable: true)
-        ]);
+        var (nodes, merged) = Scope.Deduplicate(
+            [
+                Node("Vixen.Ui.Markup.Generators", false),
+                Node("Vixen.Core.Syntax", true)
+            ]
+        );
 
         var node = Assert.Single(nodes);
 
@@ -69,13 +73,15 @@ public class ScopeTests {
 
     [Fact]
     public void DistinctSlugsAreLeftAlone() {
-        var (nodes, merged) = Scope.Deduplicate([
-            Node("Vixen.Core.Syntax", true),
-            Node("Vixen.Ecs", true, "vixen.ecs/world")
-        ]);
+        var (nodes, merged) = Scope.Deduplicate(
+            [
+                Node("Vixen.Core.Syntax", true),
+                Node("Vixen.Ecs", true, "vixen.ecs/world")
+            ]
+        );
 
         Assert.Equal(2, nodes.Count);
         Assert.Equal(0, merged);
-        Assert.All(nodes, node => Assert.Empty(node.AlsoIn));
+        Assert.All(nodes, static node => Assert.Empty(node.AlsoIn));
     }
 }

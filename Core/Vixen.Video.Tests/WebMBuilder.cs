@@ -145,7 +145,7 @@ sealed class WebMBuilder {
     }
 
     public WebMBuilder Cluster(long timestamp) {
-        clusters.Add(new PendingCluster(timestamp));
+        clusters.Add(new(timestamp));
 
         return this;
     }
@@ -196,9 +196,6 @@ sealed class WebMBuilder {
 
                 break;
             }
-
-            default:
-                break;
         }
 
         foreach (var frame in frames) {
@@ -345,7 +342,7 @@ sealed class WebMBuilder {
     }
 
     /// <summary>The file as a seekable stream, which is what a demuxer is usually given.</summary>
-    public MemoryStream Stream() => new(Build(), writable: false);
+    public MemoryStream Stream() => new(Build(), false);
 
     // ── Primitives ──────────────────────────────────────────────────────────────────────────
 
@@ -385,7 +382,7 @@ sealed class WebMBuilder {
         var length = 1;
 
         while (length < 8) {
-            var half = (1L << ((7 * length) - 1)) - 1;
+            var half = (1L << (7 * length - 1)) - 1;
 
             if (value >= -half && value <= half) {
                 break;
@@ -394,7 +391,7 @@ sealed class WebMBuilder {
             length++;
         }
 
-        WriteSizeOfWidth(stream, value + ((1L << ((7 * length) - 1)) - 1), length);
+        WriteSizeOfWidth(stream, value + ((1L << (7 * length - 1)) - 1), length);
     }
 
     static void WriteSizeOfWidth(Stream stream, long value, int length) {
@@ -432,7 +429,7 @@ sealed class WebMBuilder {
             start++;
         }
 
-        return bytes[start..].ToArray();
+        return [..bytes[start..]];
     }
 
     static byte[] Signed(long value) {
@@ -447,7 +444,7 @@ sealed class WebMBuilder {
             start++;
         }
 
-        return bytes[start..].ToArray();
+        return [..bytes[start..]];
     }
 
     static byte[] Float(double value) {

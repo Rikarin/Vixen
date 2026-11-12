@@ -40,7 +40,7 @@ static class Program {
         var listen = new IPEndPoint(IPAddress.Loopback, 0);
         var factory = new UdpDatagramSocketFactory();
 
-        using var serverTransport = new UdpTransport(factory, new UdpTransportOptions { ListenEndPoint = listen });
+        using var serverTransport = new UdpTransport(factory, new() { ListenEndPoint = listen });
         using var server = new NetworkSession(serverTransport);
         var relay = new Relay(server);
         server.StartServer();
@@ -54,8 +54,8 @@ static class Program {
 
         Console.WriteLine($"server listening on {address}");
 
-        using var alice = new Peer("Alice", factory, address, toneHz: 220f);
-        using var bob = new Peer("Bob", factory, address, toneHz: 330f);
+        using var alice = new Peer("Alice", factory, address, 220f);
+        using var bob = new Peer("Bob", factory, address, 330f);
 
         // A frame is 20 ms of a talker, which is also one Opus packet — so the loop below is the
         // game loop, at the rate voice actually moves.
@@ -64,8 +64,8 @@ static class Program {
         for (var frame = 0; frame < TalkFrames; frame++) {
             // Alice talks for the first half, Bob for the second, and they overlap in the middle —
             // so both the one-talker and the two-talker cases actually run.
-            alice.Talk(aloud: frame < TalkFrames * 3 / 5);
-            bob.Talk(aloud: frame > TalkFrames * 2 / 5);
+            alice.Talk(frame < TalkFrames * 3 / 5);
+            bob.Talk(frame > TalkFrames * 2 / 5);
 
             alice.Pump(step);
             bob.Pump(step);
@@ -88,7 +88,9 @@ static class Program {
         bob.Report();
 
         Console.WriteLine($"\nserver relayed {relay.Relayed} packets, {relay.Bytes:N0} bytes");
-        Console.WriteLine($"which is {relay.Bytes * 8.0 / 5_000:N0} kbit a second, for two people talking most of the time");
+        Console.WriteLine(
+            $"which is {relay.Bytes * 8.0 / 5_000:N0} kbit a second, for two people talking most of the time"
+        );
 
         // Not "packets arrived" but "a sound came out of the mixer", which is the whole claim.
         var heard = alice.Loudest > 0.01f && bob.Loudest > 0.01f;
@@ -151,27 +153,21 @@ sealed class Peer : ISessionMessageHandler, IDisposable {
         this.name = name;
         this.toneHz = toneHz;
 
-        transport = new UdpTransport(factory, new UdpTransportOptions {
-            ListenEndPoint = new IPEndPoint(IPAddress.Loopback, 0),
-            RemoteEndPoint = server
-        });
+        transport = new(factory, new() { ListenEndPoint = new(IPAddress.Loopback, 0), RemoteEndPoint = server });
 
-        session = new NetworkSession(transport);
+        session = new(transport);
         session.StartClient();
 
-        sender = new VoiceSender();
+        sender = new();
         captured = new float[sender.FrameSize];
 
         // The null backend, because this sample is about the path and not about the speakers: it
         // renders on demand, which is what lets the loop below assert that sound actually came out
         // rather than merely that packets arrived. A real game swaps this one line for OpenAL.
         var backend = new NullAudioBackend();
-        device = (NullAudioDevice)backend.OpenDevice(new AudioDeviceOptions {
-            Format = new AudioFormat(48_000, 2),
-            BufferFrames = 480
-        });
+        device = (NullAudioDevice)backend.OpenDevice(new() { Format = new(48_000, 2), BufferFrames = 480 });
 
-        engine = new AudioEngine(device, new AudioEngineOptions { VoiceCapacity = 16, StreamOnOwnThread = false });
+        engine = new(device, new() { VoiceCapacity = 16, StreamOnOwnThread = false });
         voiceBus = engine.CreateBus("Voice");
         block = new float[480 * 2];
     }
@@ -216,7 +212,7 @@ sealed class Peer : ISessionMessageHandler, IDisposable {
             // Positioning it is then ordinary spatial audio — and the per-instance parameters are
             // what would put this one player underwater without touching the other.
             if (!voices.TryGetValue(id, out var handle) || !engine.IsPlaying(handle)) {
-                voices[id] = engine.Play(receiver.Provider, new PlaybackSettings { Bus = voiceBus.Index });
+                voices[id] = engine.Play(receiver.Provider, new() { Bus = voiceBus.Index });
             }
         }
 
@@ -232,14 +228,15 @@ sealed class Peer : ISessionMessageHandler, IDisposable {
     }
 
     public void OnMessage(PlayerId from, Channel channel, ReadOnlySpan<byte> payload) {
-        if (channel is not Channel.Sequenced || !VoiceLink.ReadRelayed(payload, out var who, out var header, out var opus)) {
+        if (channel is not Channel.Sequenced
+            || !VoiceLink.ReadRelayed(payload, out var who, out var header, out var opus)) {
             return;
         }
 
         // One receiver per talker, because Opus carries state between packets: two people through
         // one decoder would each be extrapolating from the other's voice when a packet went missing.
         if (!talkers.TryGetValue(who, out var receiver)) {
-            receiver = new VoiceReceiver();
+            receiver = new();
             talkers[who] = receiver;
         }
 

@@ -67,7 +67,13 @@ public sealed class ChatDraft {
     /// <param name="text">What they said.</param>
     /// <param name="scene">Which map they said it on.</param>
     /// <param name="recipient">Who it is for, on a direct channel.</param>
-    public ChatDraft(PlayerId sender, ChatChannel channel, string text, DefId scene = default, PlayerId recipient = default) {
+    public ChatDraft(
+        PlayerId sender,
+        ChatChannel channel,
+        string text,
+        DefId scene = default,
+        PlayerId recipient = default
+    ) {
         ArgumentNullException.ThrowIfNull(channel);
 
         Sender = sender;
@@ -119,8 +125,12 @@ public interface IChatContext {
 
 /// <summary>One rule a message has to pass.</summary>
 /// <remarks>
-///     Doc 28 names this seam: <em>"moderation is a pipeline of <c>IChatFilter</c>s… applied
-///     server-side before fan-out, with the rejection reason returned to the sender"</em>. The shipped
+///     Doc 28 names this seam:
+///     <em>
+///         "moderation is a pipeline of <c>IChatFilter</c>s… applied
+///         server-side before fan-out, with the rejection reason returned to the sender"
+///     </em>
+///     . The shipped
 ///     filters are ordinary implementations of it, which is G-R1's discipline — the extension point is
 ///     the one the engine itself uses.
 /// </remarks>

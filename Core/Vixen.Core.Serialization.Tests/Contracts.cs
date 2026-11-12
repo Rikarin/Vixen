@@ -28,13 +28,17 @@ public sealed class SettableClass {
 /// <summary>Ignored and reordered members.</summary>
 [DataContract]
 public sealed class AnnotatedClass {
-    [DataMember(2)] public int Third { get; set; }
+    [DataMember(2)]
+    public int Third { get; set; }
 
-    [DataMember(0)] public int First { get; set; }
+    [DataMember(0)]
+    public int First { get; set; }
 
-    [DataMember(1)] public int Second { get; set; }
+    [DataMember(1)]
+    public int Second { get; set; }
 
-    [DataMemberIgnore] public int Cache { get; set; }
+    [DataMemberIgnore]
+    public int Cache { get; set; }
 }
 
 public enum Facing : byte {
@@ -155,7 +159,9 @@ public sealed class MigratedClass {
 /// </summary>
 [DataContract]
 public sealed class Reading {
-    public Reading(int raw) => Raw = raw;
+    public Reading(int raw) {
+        Raw = raw;
+    }
 
     public int Raw { get; set; }
 
@@ -194,7 +200,7 @@ public sealed record InitOnlySettings {
 
 /// <summary>An init-only member on a struct, where the write has to land in the caller's value.</summary>
 [DataContract]
-public struct InitOnlyExtent {
+public readonly struct InitOnlyExtent {
     public int Width { get; init; }
     public int Height { get; init; }
 }

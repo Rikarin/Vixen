@@ -151,8 +151,12 @@ public sealed class TerrainWeightStroke {
 
     /// <summary>Puts a whole sample's weights back, bypassing the redistribution.</summary>
     /// <remarks>
-    ///     ⚠ <b>Through <see cref="TerrainWeights.Restore" /> rather than through
-    ///     <c>SetWeight</c> once per layer.</b> <c>SetWeight</c> redistributes, so restoring six
+    ///     ⚠
+    ///     <b>
+    ///         Through <see cref="TerrainWeights.Restore" /> rather than through
+    ///         <c>SetWeight</c> once per layer.
+    ///     </b>
+    ///     <c>SetWeight</c> redistributes, so restoring six
     ///     layers one at a time would have the first five moved again by the sixth — an undo that
     ///     lands somewhere near where the stroke started and not on it. Restoring a whole sample at
     ///     once is the only spelling that is exact, and it is exact because the recorded row summed

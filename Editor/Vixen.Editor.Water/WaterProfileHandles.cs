@@ -10,8 +10,11 @@ namespace Vixen.Editor.Water;
 /// <summary>The half of the Profile tool a person aims at: the handles, drawn and hit-tested.</summary>
 /// <remarks>
 ///     <para>
-///         <b><c>WaterEdit.HandlesOf</c> knew where the handles were for two phases and nothing drew
-///         them.</b> A viewport handle that is not on screen is a number field with worse ergonomics
+///         <b>
+///             <c>WaterEdit.HandlesOf</c> knew where the handles were for two phases and nothing drew
+///             them.
+///         </b>
+///         A viewport handle that is not on screen is a number field with worse ergonomics
 ///         — the author has nothing to aim at, so the tool reads as doing nothing at all. This is
 ///         <c>SplineOverlay</c>'s job for water's three handles and <c>TransformGizmo.HitTest</c>'s
 ///         for the click that grabs one.
@@ -157,9 +160,9 @@ static class WaterProfileHandles {
 
             var lit = handle == held && index == heldPoint ? HeldColour : colour;
 
-            draw.Line(at - (Vector3.UnitX * size), at + (Vector3.UnitX * size), lit);
-            draw.Line(at - (Vector3.UnitY * size), at + (Vector3.UnitY * size), lit);
-            draw.Line(at - (Vector3.UnitZ * size), at + (Vector3.UnitZ * size), lit);
+            draw.Line(at - Vector3.UnitX * size, at + Vector3.UnitX * size, lit);
+            draw.Line(at - Vector3.UnitY * size, at + Vector3.UnitY * size, lit);
+            draw.Line(at - Vector3.UnitZ * size, at + Vector3.UnitZ * size, lit);
         }
     }
 }

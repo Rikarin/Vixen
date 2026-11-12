@@ -18,7 +18,7 @@ namespace Vixen.Core.Mathematics;
 /// </remarks>
 [DataContract]
 [StructLayout(LayoutKind.Sequential)]
-public readonly struct Color4 : IEquatable<Color4>, IFormattable, ISpanFormattable {
+public readonly struct Color4 : IEquatable<Color4>, ISpanFormattable {
     /// <summary>Number of components.</summary>
     public const int ComponentCount = 4;
 

@@ -169,15 +169,15 @@ public sealed class PhysicsDebugDraw {
 
             if (axis.LengthSquared() > 1e-9f) {
                 var centre = (first + second) * 0.5f;
-                draw.Line(centre - (axis * ConstraintAxisLength), centre + (axis * ConstraintAxisLength), ConstraintColour);
+                draw.Line(centre - axis * ConstraintAxisLength, centre + axis * ConstraintAxisLength, ConstraintColour);
             }
         }
     }
 
     static void Cross(Vector3 centre, float size, Color4 colour, DebugDraw draw) {
-        draw.Line(centre - (Vector3.UnitX * size), centre + (Vector3.UnitX * size), colour);
-        draw.Line(centre - (Vector3.UnitY * size), centre + (Vector3.UnitY * size), colour);
-        draw.Line(centre - (Vector3.UnitZ * size), centre + (Vector3.UnitZ * size), colour);
+        draw.Line(centre - Vector3.UnitX * size, centre + Vector3.UnitX * size, colour);
+        draw.Line(centre - Vector3.UnitY * size, centre + Vector3.UnitY * size, colour);
+        draw.Line(centre - Vector3.UnitZ * size, centre + Vector3.UnitZ * size, colour);
     }
 
     static Color4 ColourOf(PhysicsWorld world, BodyHandle body) {
@@ -300,20 +300,20 @@ public sealed class PhysicsDebugDraw {
         var up = Rotate(Vector3.UnitY, rotation);
         var right = Rotate(Vector3.UnitX, rotation);
         var forward = Rotate(Vector3.UnitZ, rotation);
-        var top = centre + (up * halfHeight);
-        var bottom = centre - (up * halfHeight);
+        var top = centre + up * halfHeight;
+        var bottom = centre - up * halfHeight;
 
         Ring(top, radius, right, forward, colour, draw);
         Ring(bottom, radius, right, forward, colour, draw);
 
         // The caps as half rings in two planes, which is what tells a capsule from a cylinder.
-        Ring(top, radius, right, up, colour, draw, half: true);
-        Ring(top, radius, forward, up, colour, draw, half: true);
-        Ring(bottom, radius, right, -up, colour, draw, half: true);
-        Ring(bottom, radius, forward, -up, colour, draw, half: true);
+        Ring(top, radius, right, up, colour, draw, true);
+        Ring(top, radius, forward, up, colour, draw, true);
+        Ring(bottom, radius, right, -up, colour, draw, true);
+        Ring(bottom, radius, forward, -up, colour, draw, true);
 
         foreach (var axis in (ReadOnlySpan<Vector3>)[right, -right, forward, -forward]) {
-            draw.Line(top + (axis * radius), bottom + (axis * radius), colour);
+            draw.Line(top + axis * radius, bottom + axis * radius, colour);
         }
     }
 
@@ -328,14 +328,14 @@ public sealed class PhysicsDebugDraw {
         var up = Rotate(Vector3.UnitY, rotation);
         var right = Rotate(Vector3.UnitX, rotation);
         var forward = Rotate(Vector3.UnitZ, rotation);
-        var top = centre + (up * halfHeight);
-        var bottom = centre - (up * halfHeight);
+        var top = centre + up * halfHeight;
+        var bottom = centre - up * halfHeight;
 
         Ring(top, radius, right, forward, colour, draw);
         Ring(bottom, radius, right, forward, colour, draw);
 
         foreach (var axis in (ReadOnlySpan<Vector3>)[right, -right, forward, -forward]) {
-            draw.Line(top + (axis * radius), bottom + (axis * radius), colour);
+            draw.Line(top + axis * radius, bottom + axis * radius, colour);
         }
     }
 
@@ -361,14 +361,14 @@ public sealed class PhysicsDebugDraw {
             var extent = Half * Spacing;
 
             draw.Line(
-                origin + (right * offset) - (forward * extent),
-                origin + (right * offset) + (forward * extent),
+                origin + right * offset - forward * extent,
+                origin + right * offset + forward * extent,
                 colour
             );
 
             draw.Line(
-                origin + (forward * offset) - (right * extent),
-                origin + (forward * offset) + (right * extent),
+                origin + forward * offset - right * extent,
+                origin + forward * offset + right * extent,
                 colour
             );
         }
@@ -411,11 +411,11 @@ public sealed class PhysicsDebugDraw {
     ) {
         var segments = half ? RingSegments / 2 : RingSegments;
         var sweep = half ? MathUtil.Pi : MathUtil.TwoPi;
-        var previous = centre + (right * radius);
+        var previous = centre + right * radius;
 
         for (var step = 1; step <= segments; step++) {
             var angle = step / (float)segments * sweep;
-            var next = centre + (right * (MathF.Cos(angle) * radius)) + (up * (MathF.Sin(angle) * radius));
+            var next = centre + right * (MathF.Cos(angle) * radius) + up * (MathF.Sin(angle) * radius);
             draw.Line(previous, next, colour);
             previous = next;
         }

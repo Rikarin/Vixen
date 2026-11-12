@@ -38,27 +38,31 @@ public sealed class SplineOverlayTests {
         var lines = new List<LineVertex>();
         var one = new SplineAsset("Road", []);
 
-        one.Add(new SplinePoint(Vector3.Zero, Vector3.Zero, Vector3.Zero));
+        one.Add(new(Vector3.Zero, Vector3.Zero, Vector3.Zero));
 
         // ⚠ `Build` throws for one point, so `Draw` asks `CanBuild` rather than catching. The point
         // is still drawn: somebody who has clicked once has to be able to see where they clicked.
         Assert.False(one.CanBuild);
         Assert.Equal(3, SplineOverlay.Draw(one, lines));
-        Assert.All(lines, vertex => Assert.NotEqual(SplineOverlay.CurveColour, vertex.Colour));
+        Assert.All(lines, static vertex => Assert.NotEqual(SplineOverlay.CurveColour, vertex.Colour));
     }
 
     /// <summary>The curve is sampled by arc length, so a longer road gets more lines.</summary>
     /// <remarks>
-    ///     ⚠ <b>A fixed count per segment draws a tight corner with the same number of lines as a
-    ///     straight kilometre</b> — the corner reads as faceted and the straight bit as wasteful.
+    ///     ⚠
+    ///     <b>
+    ///         A fixed count per segment draws a tight corner with the same number of lines as a
+    ///         straight kilometre
+    ///     </b>
+    ///     — the corner reads as faceted and the straight bit as wasteful.
     /// </remarks>
     [Fact]
     public void ALongerCurveIsSampledMoreFinely() {
         var near = new List<LineVertex>();
         var far = new List<LineVertex>();
 
-        var shortSegments = SplineOverlay.Curve(Road(points: 3, spacing: 5f).Build(), near);
-        var longSegments = SplineOverlay.Curve(Road(points: 3, spacing: 50f).Build(), far);
+        var shortSegments = SplineOverlay.Curve(Road(3, 5f).Build(), near);
+        var longSegments = SplineOverlay.Curve(Road(3, 50f).Build(), far);
 
         Assert.True(longSegments > shortSegments * 4, $"{longSegments} against {shortSegments}.");
     }
@@ -72,7 +76,7 @@ public sealed class SplineOverlayTests {
     [Fact]
     public void AnEnormousCurveIsCapped() {
         var lines = new List<LineVertex>();
-        var segments = SplineOverlay.Curve(Road(points: 8, spacing: 20_000f).Build(), lines);
+        var segments = SplineOverlay.Curve(Road(8, 20_000f).Build(), lines);
 
         Assert.Equal(SplineOverlay.MaximumSamples, segments);
     }
@@ -150,8 +154,8 @@ public sealed class SplineOverlayTests {
 
         Assert.Equal(SplineOverlay.CurveColour, lines[0].Colour);
 
-        var firstPoint = lines.FindIndex(vertex => vertex.Colour == SplineOverlay.PointColour);
-        var lastCurve = lines.FindLastIndex(vertex => vertex.Colour == SplineOverlay.CurveColour);
+        var firstPoint = lines.FindIndex(static vertex => vertex.Colour == SplineOverlay.PointColour);
+        var lastCurve = lines.FindLastIndex(static vertex => vertex.Colour == SplineOverlay.CurveColour);
 
         Assert.True(firstPoint > lastCurve, "a control point was drawn before the curve was finished.");
     }
@@ -162,9 +166,9 @@ public sealed class SplineOverlayTests {
     /// </remarks>
     [Fact]
     public void DrawingNothingIsRefused() {
-        Assert.Throws<ArgumentNullException>(() => SplineOverlay.Draw(null!, new List<LineVertex>()));
-        Assert.Throws<ArgumentNullException>(() => SplineOverlay.Draw(Road(), (List<LineVertex>) null!));
-        Assert.Throws<ArgumentNullException>(() => SplineOverlay.Draw(Road(), (GizmoDraw) null!));
+        Assert.Throws<ArgumentNullException>(static () => SplineOverlay.Draw(null!, new List<LineVertex>()));
+        Assert.Throws<ArgumentNullException>(static () => SplineOverlay.Draw(Road(), (List<LineVertex>)null!));
+        Assert.Throws<ArgumentNullException>(static () => SplineOverlay.Draw(Road(), (GizmoDraw)null!));
     }
 
     /// <summary>⚠ The pane channel gets exactly what the list does, because it is the same code.</summary>
@@ -176,12 +180,12 @@ public sealed class SplineOverlayTests {
     /// </remarks>
     [Fact]
     public void TheGizmoOverloadDrawsWhatTheListOverloadDraws() {
-        var asset = Road(points: 4, spacing: 12f);
+        var asset = Road(4, 12f);
         var listed = new List<LineVertex>();
         var drawn = new List<LineVertex>();
 
-        var fromList = SplineOverlay.Draw(asset, listed, selected: 1);
-        var fromDraw = SplineOverlay.Draw(asset, new GizmoDraw(drawn), selected: 1);
+        var fromList = SplineOverlay.Draw(asset, listed, 1);
+        var fromDraw = SplineOverlay.Draw(asset, new GizmoDraw(drawn), 1);
 
         Assert.Equal(fromList, fromDraw);
         Assert.NotEmpty(drawn);

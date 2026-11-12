@@ -47,7 +47,7 @@ public sealed class ShapingCache {
         ArgumentOutOfRangeException.ThrowIfLessThan(capacity, 1);
 
         this.capacity = capacity;
-        entries = new Dictionary<Key, LinkedListNode<Entry>>(capacity);
+        entries = new(capacity);
     }
 
     /// <summary>How many paragraphs are held.</summary>
@@ -122,8 +122,12 @@ public sealed class ShapingCache {
     }
 
     /// <remarks>
-    ///     ⚠ <b>The size is deliberately absent and the variation position deliberately present, and
-    ///     the two are not in tension.</b> Shaping happens at design-unit scale, so one entry serves
+    ///     ⚠
+    ///     <b>
+    ///         The size is deliberately absent and the variation position deliberately present, and
+    ///         the two are not in tension.
+    ///     </b>
+    ///     Shaping happens at design-unit scale, so one entry serves
     ///     every pixel size — that is what holding the font unscaled buys. An axis position is not a
     ///     scale: moving <c>wght</c> changes advances in design units, so the same string in the same
     ///     face at two weights is two different shapings. Leaving it out gives a cache that answers
@@ -131,8 +135,12 @@ public sealed class ShapingCache {
     ///     animate.
     /// </remarks>
     /// <remarks>
-    ///     ⚠ <b>And the feature set is here for the same reason the variation position is, and it is
-    ///     the half of <c>font-feature-settings</c> most likely to have shipped broken.</b> A feature
+    ///     ⚠
+    ///     <b>
+    ///         And the feature set is here for the same reason the variation position is, and it is
+    ///         the half of <c>font-feature-settings</c> most likely to have shipped broken.
+    ///     </b>
+    ///     A feature
     ///     array changes which glyphs come back — that is what asking for one <i>means</i> — so the
     ///     same string in the same face with <c>"tnum" 1</c> and without it is two shapings. Left out,
     ///     the first paragraph drawn wins and every later one silently gets its glyphs: a table of

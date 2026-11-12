@@ -74,8 +74,9 @@ public readonly record struct LocalAvoidanceSettings {
 public sealed class LocalAvoidance {
     /// <summary>Creates an avoidance sampler.</summary>
     /// <param name="settings">The weights and the sample counts.</param>
-    public LocalAvoidance(LocalAvoidanceSettings settings = default) =>
+    public LocalAvoidance(LocalAvoidanceSettings settings = default) {
         Settings = settings == default ? new() : settings;
+    }
 
     /// <summary>The weights and sample counts in use.</summary>
     public LocalAvoidanceSettings Settings { get; }
@@ -118,7 +119,7 @@ public sealed class LocalAvoidance {
             for (var sample = 0; sample < Settings.Samples; sample++) {
                 // Every other ring is offset by half a step, so the samples do not all lie on the
                 // same few directions — the same reason a dither pattern is not a grid.
-                var angle = baseAngle + (sample * step) + (ring % 2 == 0 ? step * 0.5f : 0f);
+                var angle = baseAngle + sample * step + (ring % 2 == 0 ? step * 0.5f : 0f);
                 var candidate = new Vector3(MathF.Cos(angle) * speed, 0f, MathF.Sin(angle) * speed);
                 var penalty = Penalty(position, radius, velocity, desired, candidate, maxSpeed, neighbours);
 
@@ -151,7 +152,7 @@ public sealed class LocalAvoidance {
         foreach (var neighbour in neighbours) {
             // The reciprocal assumption: both agents are expected to move, so the relative velocity
             // this candidate implies is twice it, less both agents' current velocities.
-            var relative = (candidate * 2f) - velocity - neighbour.Velocity;
+            var relative = candidate * 2f - velocity - neighbour.Velocity;
 
             var towards = neighbour.Position - position;
             var distance = towards.Length();
@@ -164,7 +165,7 @@ public sealed class LocalAvoidance {
                 : new Vector3(direction.Z, 0f, -direction.X);
 
             side += Math.Clamp(
-                MathF.Min((Dot2D(direction, relative) * 0.5f) + 0.5f, Dot2D(perpendicular, relative) * 2f),
+                MathF.Min(Dot2D(direction, relative) * 0.5f + 0.5f, Dot2D(perpendicular, relative) * 2f),
                 0f,
                 1f
             );
@@ -187,13 +188,20 @@ public sealed class LocalAvoidance {
         }
 
         var sidePenalty = counted > 0 ? Settings.SideWeight * (side / counted) : 0f;
-        var timePenalty = Settings.TimeWeight / (0.1f + (soonest / Settings.TimeHorizon));
+        var timePenalty = Settings.TimeWeight / (0.1f + soonest / Settings.TimeHorizon);
 
         return desiredPenalty + currentPenalty + sidePenalty + timePenalty;
     }
 
     /// <summary>When two circles moving at a constant relative velocity would touch, and stop touching.</summary>
-    static bool Sweep(Vector3 position, float radius, Vector3 relative, in AvoidanceNeighbour neighbour, out float enter, out float exit) {
+    static bool Sweep(
+        Vector3 position,
+        float radius,
+        Vector3 relative,
+        in AvoidanceNeighbour neighbour,
+        out float enter,
+        out float exit
+    ) {
         enter = 0f;
         exit = 0f;
 
@@ -207,8 +215,8 @@ public sealed class LocalAvoidance {
         }
 
         var b = Dot2D(relative, offset);
-        var c = Dot2D(offset, offset) - (combined * combined);
-        var discriminant = (b * b) - (a * c);
+        var c = Dot2D(offset, offset) - combined * combined;
+        var discriminant = b * b - a * c;
 
         if (discriminant < 0f) {
             return false;
@@ -221,5 +229,5 @@ public sealed class LocalAvoidance {
         return true;
     }
 
-    static float Dot2D(Vector3 left, Vector3 right) => (left.X * right.X) + (left.Z * right.Z);
+    static float Dot2D(Vector3 left, Vector3 right) => left.X * right.X + left.Z * right.Z;
 }

@@ -24,7 +24,8 @@ public sealed class CameraExtractionTests {
     public void TheViewIsAimedFromTheCamerasTransform() {
         using var world = new World();
         var view = new RenderView("Camera");
-        var system = new CameraExtractionSystem(view) { AspectRatio = 16f / 9f };
+        using var system = new CameraExtractionSystem(view);
+        system.AspectRatio = 16f / 9f;
 
         var entity = Placed(world, new(0f, 5f, 10f));
         world.Add(entity, Camera.Perspective);
@@ -33,7 +34,7 @@ public sealed class CameraExtractionTests {
         system.Extract(world);
 
         Assert.True(system.Found);
-        Assert.Equal(new Vector3(0f, 5f, 10f), view.Position);
+        Assert.Equal(new(0f, 5f, 10f), view.Position);
 
         Assert.Equal(
             CameraMath.ViewProjection(Camera.Perspective, world.Read<WorldTransform>(entity), 16f / 9f),
@@ -51,14 +52,15 @@ public sealed class CameraExtractionTests {
     public void TheFrustumIsTheMatrixTheShaderGets() {
         using var world = new World();
         var view = new RenderView("Camera");
-        var system = new CameraExtractionSystem(view) { AspectRatio = 1f };
+        using var system = new CameraExtractionSystem(view);
+        system.AspectRatio = 1f;
 
         world.Add(Placed(world, new(0f, 0f, 4f)), Camera.Perspective);
         Resolve(world);
 
         system.Extract(world);
 
-        Assert.Equal(new BoundingFrustum(view.ViewProjection), view.Frustum);
+        Assert.Equal(new(view.ViewProjection), view.Frustum);
     }
 
     /// <summary>
@@ -69,7 +71,8 @@ public sealed class CameraExtractionTests {
     public void ACameraWithItsOwnAspectRatioKeepsIt() {
         using var world = new World();
         var view = new RenderView("Camera");
-        var system = new CameraExtractionSystem(view) { AspectRatio = 16f / 9f };
+        using var system = new CameraExtractionSystem(view);
+        system.AspectRatio = 16f / 9f;
 
         var camera = Camera.Perspective with { AspectRatio = 1f };
         world.Add(Placed(world, Vector3.Zero), camera);
@@ -93,7 +96,8 @@ public sealed class CameraExtractionTests {
     public void TheLowestOrderCameraWins() {
         using var world = new World();
         var view = new RenderView("Camera");
-        var system = new CameraExtractionSystem(view) { AspectRatio = 1f };
+        using var system = new CameraExtractionSystem(view);
+        system.AspectRatio = 1f;
 
         world.Add(Placed(world, new(1f, 0f, 0f)), Camera.Perspective with { Order = 10 });
         world.Add(Placed(world, new(2f, 0f, 0f)), Camera.Perspective with { Order = -3 });
@@ -103,7 +107,7 @@ public sealed class CameraExtractionTests {
         system.Extract(world);
 
         Assert.Equal(3, system.CameraCount);
-        Assert.Equal(new Vector3(2f, 0f, 0f), view.Position);
+        Assert.Equal(new(2f, 0f, 0f), view.Position);
     }
 
     /// <summary>
@@ -114,9 +118,10 @@ public sealed class CameraExtractionTests {
     [Fact]
     public void NoCameraLeavesTheViewAloneAndSaysSo() {
         using var world = new World();
-        var aimed = Matrix4x4.FromTranslation(new Vector3(7f, 7f, 7f));
+        var aimed = Matrix4x4.FromTranslation(new(7f, 7f, 7f));
         var view = new RenderView("Camera") { ViewProjection = aimed };
-        var system = new CameraExtractionSystem(view) { AspectRatio = 1f };
+        using var system = new CameraExtractionSystem(view);
+        system.AspectRatio = 1f;
 
         system.Extract(world);
 
@@ -134,7 +139,8 @@ public sealed class CameraExtractionTests {
     public void AnOrthographicCameraDescribesNoCone() {
         using var world = new World();
         var view = new RenderView("Camera");
-        var system = new CameraExtractionSystem(view) { AspectRatio = 1f };
+        using var system = new CameraExtractionSystem(view);
+        system.AspectRatio = 1f;
 
         world.Add(Placed(world, Vector3.Zero), Camera.Orthographic2D);
         Resolve(world);
@@ -154,7 +160,8 @@ public sealed class CameraExtractionTests {
     public void ThePerspectiveScreenScaleIsTheProjectionsHalfAngle() {
         using var world = new World();
         var view = new RenderView("Camera");
-        var system = new CameraExtractionSystem(view) { AspectRatio = 1f };
+        using var system = new CameraExtractionSystem(view);
+        system.AspectRatio = 1f;
 
         var camera = Camera.Perspective with { FieldOfView = MathF.PI / 2f };
         world.Add(Placed(world, Vector3.Zero), camera);
@@ -168,8 +175,12 @@ public sealed class CameraExtractionTests {
     // ------------------------------------------------------------- the sub-pixel offset
 
     /// <summary>
-    ///     ⚠ <b>The whole point of the offset: it moves the picture by exactly that much of a pixel,
-    ///     at every depth.</b> A jitter that shifted near geometry more than far geometry would not be
+    ///     ⚠
+    ///     <b>
+    ///         The whole point of the offset: it moves the picture by exactly that much of a pixel,
+    ///         at every depth.
+    ///     </b>
+    ///     A jitter that shifted near geometry more than far geometry would not be
     ///     a camera shake, it would be a shear — and it would resolve into a frame that is subtly
     ///     wrong in a way no counter reports.
     /// </summary>
@@ -178,7 +189,15 @@ public sealed class CameraExtractionTests {
     [InlineData(7f)]
     [InlineData(400f)]
     public void TheOffsetMovesTheProjectedPointByItselfAtEveryDepth(float distance) {
-        var camera = new RenderCamera(Vector3.Zero, -Vector3.UnitZ, Vector3.UnitY, MathF.PI / 3f, 16f / 9f, 0.1f, 1000f);
+        var camera = new RenderCamera(
+            Vector3.Zero,
+            -Vector3.UnitZ,
+            Vector3.UnitY,
+            MathF.PI / 3f,
+            16f / 9f,
+            0.1f,
+            1000f
+        );
         var jitter = new Vector2(0.013f, -0.007f);
         var offset = camera with { Jitter = jitter };
         var point = new Vector3(0.6f, -0.3f, -distance);
@@ -233,10 +252,7 @@ public sealed class CameraExtractionTests {
         using var world = new World();
         var view = new RenderView("Camera");
 
-        var system = new CameraExtractionSystem(view) {
-            AspectRatio = 16f / 9f,
-            JitterTarget = new(1600, 900)
-        };
+        var system = new CameraExtractionSystem(view) { AspectRatio = 16f / 9f, JitterTarget = new(1600, 900) };
 
         world.Add(Placed(world, new(0f, 2f, 6f)), Camera.Perspective);
         Resolve(world);
@@ -294,10 +310,7 @@ public sealed class CameraExtractionTests {
         using var world = new World();
         var view = new RenderView("Camera");
 
-        var system = new CameraExtractionSystem(view) {
-            AspectRatio = 1f,
-            JitterTarget = new(64, 64)
-        };
+        var system = new CameraExtractionSystem(view) { AspectRatio = 1f, JitterTarget = new(64, 64) };
 
         world.Add(Placed(world, Vector3.Zero), Camera.Perspective);
         Resolve(world);
@@ -311,8 +324,8 @@ public sealed class CameraExtractionTests {
 
         // Eight distinct points inside the pixel, and then the same eight again.
         Assert.Equal(8, seen.Distinct().Count());
-        Assert.All(seen, offset => Assert.InRange(offset.X, -0.5f, 0.5f));
-        Assert.All(seen, offset => Assert.InRange(offset.Y, -0.5f, 0.5f));
+        Assert.All(seen, static offset => Assert.InRange(offset.X, -0.5f, 0.5f));
+        Assert.All(seen, static offset => Assert.InRange(offset.Y, -0.5f, 0.5f));
 
         for (var frame = 0; frame < 8; frame++) {
             system.Extract(world);

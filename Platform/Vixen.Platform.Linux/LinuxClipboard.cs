@@ -56,12 +56,12 @@ public sealed class LinuxClipboard(IClipboard fallback) : IClipboard {
     ///     formats would be a pair of methods that always fail, which the portable implementation
     ///     already provides.
     /// </remarks>
-    public static bool IsAvailable => IsWayland
-        ? ExternalTool.Exists("wl-paste") && ExternalTool.Exists("wl-copy")
-        : ExternalTool.Exists("xclip");
+    public static bool IsAvailable =>
+        IsWayland
+            ? ExternalTool.Exists("wl-paste") && ExternalTool.Exists("wl-copy")
+            : ExternalTool.Exists("xclip");
 
-    static bool IsWayland =>
-        !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("WAYLAND_DISPLAY"));
+    static bool IsWayland => !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("WAYLAND_DISPLAY"));
 
     /// <inheritdoc />
     public bool TryGetText([NotNullWhen(true)] out string? text) => fallback.TryGetText(out text);
@@ -133,7 +133,8 @@ public sealed class LinuxClipboard(IClipboard fallback) : IClipboard {
             : ExternalTool.TryRead("xclip", ["-selection", "clipboard", "-o", "-t", "TARGETS"], out bytes);
 
         return listed
-            ? Encoding.UTF8.GetString(bytes).Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            ? Encoding.UTF8.GetString(bytes)
+                .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
             : [];
     }
 }

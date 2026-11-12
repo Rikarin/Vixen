@@ -110,7 +110,7 @@ public sealed class ContentBuilder {
 
         // Sorted here rather than trusted from the caller: the whole determinism story rests on this
         // one ordering, and an enumerable's order is the caller's business right up until it isn't.
-        var ordered = assets.OrderBy(asset => asset.Address, StringComparer.Ordinal).ToArray();
+        var ordered = assets.OrderBy(static asset => asset.Address, StringComparer.Ordinal).ToArray();
         var planned = new SortedDictionary<string, List<BuildableAsset>>(StringComparer.Ordinal);
         var bundleOf = new Dictionary<string, string>(StringComparer.Ordinal);
 
@@ -259,10 +259,10 @@ public sealed class ContentBuilder {
     ///     describes content it already has.
     /// </summary>
     static ObjectId BuildHash(ImmutableArray<BuiltBundle>.Builder bundles) {
-        var hashing = new System.IO.Hashing.XxHash128();
+        var hashing = new XxHash128();
         Span<byte> buffer = stackalloc byte[ObjectId.SizeInBytes];
 
-        foreach (var bundle in bundles.OrderBy(bundle => bundle.Name, StringComparer.Ordinal)) {
+        foreach (var bundle in bundles.OrderBy(static bundle => bundle.Name, StringComparer.Ordinal)) {
             bundle.Hash.WriteTo(buffer);
             hashing.Append(buffer);
         }

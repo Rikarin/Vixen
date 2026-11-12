@@ -33,8 +33,11 @@ readonly record struct FieldSingularity(int Triangle, int Index);
 /// <summary>Reading the singularities off the field, and then putting them where an artist would.</summary>
 /// <remarks>
 ///     <para>
-///         <b>docs/plan/41 § D6, which is the single pass most responsible for whether the output
-///         looks artist-made.</b> A field minimizing smoothness alone scatters singularity pairs
+///         <b>
+///             docs/plan/41 § D6, which is the single pass most responsible for whether the output
+///             looks artist-made.
+///         </b>
+///         A field minimizing smoothness alone scatters singularity pairs
 ///         across flat regions, and a remesh with scattered singularities is what artists mean when
 ///         they say automatic topology looks wrong. Three corrections, in order: cancel adjacent
 ///         opposite pairs, push singularities off feature lines, attract them to Gaussian curvature.
@@ -46,8 +49,12 @@ readonly record struct FieldSingularity(int Triangle, int Index);
 ///         rather than until a learned prior arrives.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Corrections two and three are one mechanism with two signs, and it is the edge
-///         weight.</b> The energy is <c>Σ w·deviation</c>; a heavy edge is one the field may not turn
+///         ⚠
+///         <b>
+///             Corrections two and three are one mechanism with two signs, and it is the edge
+///             weight.
+///         </b>
+///         The energy is <c>Σ w·deviation</c>; a heavy edge is one the field may not turn
 ///         across and a light one is where turning is cheap. Stiffening round a feature repels;
 ///         releasing at a large angle defect attracts. See <see cref="FieldLevel.Weights" />.
 ///     </para>
@@ -112,8 +119,12 @@ static class SingularityPass {
     ///         nothing, the jumps are determined by the residuals alone.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The rotation into the plane is what carries the curvature, and it is why this sums
-    ///         to the Euler characteristic rather than to zero.</b> The same edge is flattened into two
+    ///         ⚠
+    ///         <b>
+    ///             The rotation into the plane is what carries the curvature, and it is why this sums
+    ///             to the Euler characteristic rather than to zero.
+    ///         </b>
+    ///         The same edge is flattened into two
     ///         different planes by its two triangles, and the difference between those two flattenings
     ///         is the dihedral angle — so the residuals do not cancel across an edge, and what
     ///         survives summing over the whole surface is <c>4χ</c>. Replace the rotation with a
@@ -158,7 +169,7 @@ static class SingularityPass {
         for (var corner = 0; corner < 3; corner++) {
             var delta = angles[(corner + 1) % 3] - angles[corner];
 
-            jumps += (int) MathF.Round(delta / quarter, MidpointRounding.AwayFromZero);
+            jumps += (int)MathF.Round(delta / quarter, MidpointRounding.AwayFromZero);
         }
 
         // ⚠ The period jumps are summed as integers rather than the residuals as floats, and the two
@@ -174,8 +185,12 @@ static class SingularityPass {
     /// <param name="triangle">Which triangle.</param>
     /// <returns>Whether any of its three edges is a feature edge whose ends are not both corners.</returns>
     /// <remarks>
-    ///     ⚠ <b>The interior of a chain, and never a corner, and a cube is the proof that the
-    ///     difference is not pedantry.</b> § D6 step two says a singularity on a hard <i>edge</i> is a
+    ///     ⚠
+    ///     <b>
+    ///         The interior of a chain, and never a corner, and a cube is the proof that the
+    ///         difference is not pedantry.
+    ///     </b>
+    ///     § D6 step two says a singularity on a hard <i>edge</i> is a
     ///     visible pinch and the exit criterion is zero on features; § D6 step three says the right
     ///     place for one is where the surface is not developable and names "the corner of a box". On
     ///     <c>MeshShapes</c>' box every vertex is a feature corner and every edge is a feature edge, and
@@ -188,7 +203,7 @@ static class SingularityPass {
         ArgumentNullException.ThrowIfNull(features);
 
         for (var side = 0; side < 3; side++) {
-            var half = (triangle * 3) + side;
+            var half = triangle * 3 + side;
 
             if (!features.IsFeatureEdge(half)) {
                 continue;
@@ -253,8 +268,12 @@ static class SingularityPass {
 
     /// <summary>One weighted correction, kept only if it improved the two things § D6 cares about.</summary>
     /// <remarks>
-    ///     ⚠ <b>Every one of the three corrections is reverted when it does not help, and that is what
-    ///     makes this pass safe to run unattended.</b> § D6 describes three rearrangements of where the
+    ///     ⚠
+    ///     <b>
+    ///         Every one of the three corrections is reverted when it does not help, and that is what
+    ///         makes this pass safe to run unattended.
+    ///     </b>
+    ///     § D6 describes three rearrangements of where the
     ///     turning sits, and a rearrangement is a bet: releasing the edges at a large angle defect
     ///     lets a singularity move onto a fingertip, and it also lets a perfectly quiet region acquire
     ///     one. The score is lexicographic — first how many singularities sit on a feature line, then
@@ -313,7 +332,8 @@ static class SingularityPass {
         CurvatureField curvature,
         float[]? stiffness,
         Vector3[] directions
-    ) => CrossFieldSolver.Base(mesh, settings, features, curvature, stiffness, directions);
+    ) =>
+        CrossFieldSolver.Base(mesh, settings, features, curvature, stiffness, directions);
 
     static void Sweep(FieldLevel level, int iterations) {
         for (var iteration = 0; iteration < iterations; iteration++) {
@@ -368,7 +388,7 @@ static class SingularityPass {
             if (depth[vertex] <= FeatureRings) {
                 // Falling off with distance rather than a step, so the boundary of the stiffened
                 // region is not itself a cheap ring the turning migrates into.
-                stiffness[vertex] = 1f + ((FeatureStiffness - 1f) * (1f - ((float) depth[vertex] / (FeatureRings + 1))));
+                stiffness[vertex] = 1f + (FeatureStiffness - 1f) * (1f - (float)depth[vertex] / (FeatureRings + 1));
             }
         }
 
@@ -387,7 +407,7 @@ static class SingularityPass {
             // developable a vertex is, and it is already scale-free — an angle has no units.
             var defect = MathF.Min(1f, MathF.Abs(curvature.AngleDefect(vertex)) / quarter);
 
-            stiffness[vertex] /= 1f + (CurvatureRelease * defect);
+            stiffness[vertex] /= 1f + CurvatureRelease * defect;
         }
 
         return stiffness;
@@ -396,8 +416,12 @@ static class SingularityPass {
     /// <summary>Finds opposite pairs a few dual steps apart and re-smooths their neighbourhood away.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Reverted when it does not work, which is what makes § D6's "strictly better" a
-    ///         statement rather than a hope.</b> Extra iterations on a patch can trade one pair for a
+    ///         ⚠
+    ///         <b>
+    ///             Reverted when it does not work, which is what makes § D6's "strictly better" a
+    ///             statement rather than a hope.
+    ///         </b>
+    ///         Extra iterations on a patch can trade one pair for a
     ///         worse one somewhere else <i>in the same patch</i>, so checking only the two triangles
     ///         that were aimed at would report a cancellation that moved the problem three triangles
     ///         over. The measure is the total absolute index over every triangle the patch touches,

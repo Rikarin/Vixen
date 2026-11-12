@@ -9,15 +9,23 @@ namespace Vixen.Geometry.Uv;
 /// <summary>The three stages, each callable on its own, because conflating them is the first mistake.</summary>
 /// <remarks>
 ///     <para>
-///         docs/plan/42 § D1. Charting asks <i>where do we cut</i>, flattening asks <i>how does a
-///         chart become flat</i>, and packing asks <i>where does each island sit</i>. They have
+///         docs/plan/42 § D1. Charting asks <i>where do we cut</i>, flattening asks
+///         <i>
+///             how does a
+///             chart become flat
+///         </i>
+///         , and packing asks <i>where does each island sit</i>. They have
 ///         different literatures, different failure modes and different runtimes, and a tool that
 ///         exposes only the fused verb cannot be debugged.
 ///     </para>
 ///     <para>
-///         ⚠ <b><see cref="Pack(IReadOnlyList{UvIsland}, PackSettings)" /> takes islands rather than a
-///         mesh, and that is what makes it a peer of a standalone packer rather than an internal
-///         detail.</b> An artist who cut seams by hand and wants them respected is the exact case a
+///         ⚠
+///         <b>
+///             <see cref="Pack(IReadOnlyList{UvIsland}, PackSettings)" /> takes islands rather than a
+///             mesh, and that is what makes it a peer of a standalone packer rather than an internal
+///             detail.
+///         </b>
+///         An artist who cut seams by hand and wants them respected is the exact case a
 ///         fused-verb unwrapper cannot serve, and it is most of why standalone packers are products.
 ///         Islands can come from this library's charter, from the remesher's patch layout, from
 ///         another package or from a file — the packer does not ask.
@@ -117,7 +125,7 @@ public static partial class UvUnwrap {
         ArgumentOutOfRangeException.ThrowIfNegative(settings.Margin);
         ArgumentOutOfRangeException.ThrowIfNegative(settings.CoreLimit);
 
-        if ((2 * settings.Margin) + 1 > settings.Resolution) {
+        if (2 * settings.Margin + 1 > settings.Resolution) {
             throw new ArgumentOutOfRangeException(
                 nameof(settings),
                 settings.Margin,
@@ -130,7 +138,8 @@ public static partial class UvUnwrap {
         for (var index = 0; index < islands.Count; index++) {
             var island = islands[index];
 
-            if (island.Coordinates is not null && island.Corners is not null
+            if (island.Coordinates is not null
+                && island.Corners is not null
                 && island.Coordinates.Count != island.Corners.Count) {
                 throw new ArgumentException(
                     $"Island {index} carries {island.Coordinates.Count} coordinates for "

@@ -68,7 +68,7 @@ public class ContributionWriterTests {
         foreach (var file in RepositoryFiles.Files(Path.Combine(root, "Editor"), "*.cs", "*.vxml")) {
             var relative = Path.GetRelativePath(root, file).Replace('\\', '/');
 
-            if (relative.Split('/').Any(part => part.EndsWith(".Tests", StringComparison.Ordinal))) {
+            if (relative.Split('/').Any(static part => part.EndsWith(".Tests", StringComparison.Ordinal))) {
                 continue;
             }
 
@@ -78,7 +78,9 @@ public class ContributionWriterTests {
             // is `.All<T>()` (#1299) — so its `T` is not a kind, and its call sites are the readers.
             // Taking `T` at its word failed the census on "resolves to 0 types"; skipping it alone
             // would have dropped IVegetationScene, which nothing else reads.
-            var forwarders = Forwarder.Matches(text).Select(match => (Name: match.Groups[1].Value, Parameter: match.Groups[2].Value)).ToList();
+            var forwarders = Forwarder.Matches(text)
+                .Select(static match => (Name: match.Groups[1].Value, Parameter: match.Groups[2].Value))
+                .ToList();
 
             foreach (Match match in Reader.Matches(text)) {
                 if (!forwarders.Any(forwarder => forwarder.Parameter == match.Groups[1].Value)) {
@@ -87,7 +89,10 @@ public class ContributionWriterTests {
             }
 
             foreach (var (name, parameter) in forwarders) {
-                foreach (Match match in new Regex($@"\b{name}<([A-Z][A-Za-z0-9_]*)>\(\)", RegexOptions.CultureInvariant).Matches(text)) {
+                foreach (Match match in new Regex(
+                             $@"\b{name}<([A-Z][A-Za-z0-9_]*)>\(\)",
+                             RegexOptions.CultureInvariant
+                         ).Matches(text)) {
                     if (match.Groups[1].Value != parameter) {
                         kinds.Add(match.Groups[1].Value);
                     }
@@ -115,16 +120,19 @@ public class ContributionWriterTests {
         }
 
         return [
-            .. AppDomain.CurrentDomain.GetAssemblies()
-                .Where(assembly => assembly.GetName().Name?.StartsWith("Vixen.", StringComparison.Ordinal) == true)
-                .Where(assembly => !assembly.GetName().Name!.EndsWith(".Tests", StringComparison.Ordinal))
-                .SelectMany(assembly => {
-                    try {
-                        return assembly.GetTypes();
-                    } catch (ReflectionTypeLoadException exception) {
-                        return exception.Types.OfType<Type>().ToArray();
+            ..AppDomain.CurrentDomain.GetAssemblies()
+                .Where(static assembly => assembly.GetName().Name?.StartsWith("Vixen.", StringComparison.Ordinal)
+                    == true
+                )
+                .Where(static assembly => !assembly.GetName().Name!.EndsWith(".Tests", StringComparison.Ordinal))
+                .SelectMany(static assembly => {
+                        try {
+                            return assembly.GetTypes();
+                        } catch (ReflectionTypeLoadException exception) {
+                            return exception.Types.OfType<Type>().ToArray();
+                        }
                     }
-                })
+                )
         ];
     }
 
@@ -145,11 +153,13 @@ public class ContributionWriterTests {
         var types = EditorTypes();
 
         foreach (var name in names) {
-            var candidates = types.Where(type => type.Name == name && (type.IsClass || type.IsInterface)).Distinct().ToList();
+            var candidates = types.Where(type => type.Name == name && (type.IsClass || type.IsInterface))
+                .Distinct()
+                .ToList();
 
             Assert.True(
                 candidates.Count == 1,
-                $"The contribution kind '{name}' resolves to {candidates.Count} types ({string.Join(", ", candidates.Select(type => type.FullName))}); "
+                $"The contribution kind '{name}' resolves to {candidates.Count} types ({string.Join(", ", candidates.Select(static type => type.FullName))}); "
                 + "a kind this test cannot name is one it cannot count."
             );
 
@@ -167,15 +177,27 @@ public class ContributionWriterTests {
         // application writes into, both read as "nothing is written" — so the kinds the editor
         // demonstrably writes on every start must be there and non-empty before an empty one means
         // anything: the Create ▸ kinds `BuiltInAssetKinds` adds, and the inspectors the modules add.
-        Assert.True(census.Count >= 12, $"Only {census.Count} contribution kinds were read: {string.Join(", ", census.Keys)}.");
-        Assert.True(census.GetValueOrDefault("NewAssetKind") > 0, "NewAssetKind read as empty — the census is reading the wrong registry.");
-        Assert.True(census.GetValueOrDefault("CustomInspector") > 0, "CustomInspector read as empty — the census is reading the wrong registry.");
+        Assert.True(
+            census.Count >= 12,
+            $"Only {census.Count} contribution kinds were read: {string.Join(", ", census.Keys)}."
+        );
+        Assert.True(
+            census.GetValueOrDefault("NewAssetKind") > 0,
+            "NewAssetKind read as empty — the census is reading the wrong registry."
+        );
+        Assert.True(
+            census.GetValueOrDefault("CustomInspector") > 0,
+            "CustomInspector read as empty — the census is reading the wrong registry."
+        );
 
         // And a kind read only through a generic forwarder, `ScenePresenter.Latest<IVegetationScene>()`,
         // so a forwarder the grep stopped following is a red rather than a kind quietly dropped.
-        Assert.True(census.ContainsKey("IVegetationScene"), "IVegetationScene was not read — the grep no longer follows ScenePresenter.Latest<T>.");
+        Assert.True(
+            census.ContainsKey("IVegetationScene"),
+            "IVegetationScene was not read — the grep no longer follows ScenePresenter.Latest<T>."
+        );
 
-        var unwritten = census.Where(row => row.Value == 0).Select(row => row.Key).ToList();
+        var unwritten = census.Where(static row => row.Value == 0).Select(static row => row.Key).ToList();
 
         Assert.True(
             unwritten.Except(Unwritten.Keys).ToList() is { Count: 0 },
@@ -183,12 +205,13 @@ public class ContributionWriterTests {
             + string.Join(", ", unwritten.Except(Unwritten.Keys))
             + ". A registry nobody writes is a list with a longer name — give it a first-party writer, or add it to "
             + "Unwritten with the reason it is plugin-only. Census: "
-            + string.Join(", ", census.Select(row => $"{row.Key}={row.Value}"))
+            + string.Join(", ", census.Select(static row => $"{row.Key}={row.Value}"))
         );
 
         Assert.True(
             Unwritten.Keys.Except(unwritten).ToList() is { Count: 0 },
-            "On the Unwritten list and written now: " + string.Join(", ", Unwritten.Keys.Except(unwritten))
+            "On the Unwritten list and written now: "
+            + string.Join(", ", Unwritten.Keys.Except(unwritten))
             + ". Delete the line — the list may only shrink."
         );
     }

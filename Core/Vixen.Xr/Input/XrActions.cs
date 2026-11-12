@@ -106,7 +106,8 @@ public sealed class XrAction {
     public XrActionState State(XrHand hand) => states[(int)hand];
 
     /// <summary>Whether it is pressed on either hand.</summary>
-    public bool IsPressed => states[0] is { IsActive: true, Boolean: true }
+    public bool IsPressed =>
+        states[0] is { IsActive: true, Boolean: true }
         || states[1] is { IsActive: true, Boolean: true };
 
     /// <summary>Whether it became pressed this frame, on either hand.</summary>
@@ -114,7 +115,8 @@ public sealed class XrAction {
     ///     The edge rather than the level, which is what almost every use of a button actually wants
     ///     and what a game otherwise reimplements per action with a field of last frame's value.
     /// </remarks>
-    public bool WasPressedThisFrame => states[0] is { IsActive: true, Boolean: true, Changed: true }
+    public bool WasPressedThisFrame =>
+        states[0] is { IsActive: true, Boolean: true, Changed: true }
         || states[1] is { IsActive: true, Boolean: true, Changed: true };
 
     /// <summary>Sets a hand's state. Called by the session during a sync.</summary>
@@ -245,7 +247,7 @@ public sealed class XrActionSet {
             );
         }
 
-        bindings.Add(new XrSuggestedBinding(interactionProfile, action, bindingPath));
+        bindings.Add(new(interactionProfile, action, bindingPath));
     }
 
     /// <summary>Suggests the same binding for both hands, with <c>/user/hand/{left,right}</c> filled in.</summary>

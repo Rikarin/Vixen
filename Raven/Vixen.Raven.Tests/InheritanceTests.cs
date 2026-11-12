@@ -60,11 +60,11 @@ public class InheritanceTests {
 
                               """;
 
-        var shader = LoweringTestBase.FindShader(LoweringTestBase.Lower(Source), "Derived");
+        var shader = FindShader(Lower(Source), "Derived");
 
         // The shader's own first, then what it pulls in — the same rule `compose` follows, so a
         // shader's own layout does not move when a base gains a field.
-        Assert.Equal(["extra", "tint"], shader.Bindings.Select(b => b.Name));
+        Assert.Equal(["extra", "tint"], shader.Bindings.Select(static b => b.Name));
 
         CodeGenTestBase.GenerateClean(Source);
         CodeGenTestBase.GenerateClean(Source, "spirv");
@@ -105,13 +105,17 @@ public class InheritanceTests {
 
                               """;
 
-        var module = LoweringTestBase.Lower(Source);
-        var derived = Assert.Single(module.Structs, s => s.Name == "Derived");
+        var module = Lower(Source);
+        var derived = Assert.Single(module.Structs, static s => s.Name == "Derived");
 
-        Assert.Equal(["a", "b"], derived.Fields.Select(f => f.Name));
+        Assert.Equal(["a", "b"], derived.Fields.Select(static f => f.Name));
 
         // The read of `a` is index 0 of the derived struct, which is what used to be `b`'s.
-        Assert.Contains("load !d.0 : f32", LoweringTestBase.PrintFunction(module, "Fragment"), StringComparison.Ordinal);
+        Assert.Contains(
+            "load !d.0 : f32",
+            PrintFunction(module, "Fragment"),
+            StringComparison.Ordinal
+        );
 
         CodeGenTestBase.GenerateClean(Source);
         CodeGenTestBase.GenerateClean(Source, "spirv");
@@ -152,11 +156,11 @@ public class InheritanceTests {
 
                               """;
 
-        var module = LoweringTestBase.Lower(Source);
-        var derived = LoweringTestBase.FindShader(module, "Derived");
+        var module = Lower(Source);
+        var derived = FindShader(module, "Derived");
 
         // Derived's copy of Compute calls Derived's Shade, not the base's.
-        var compute = Assert.Single(derived.Functions, f => f.Name == "Derived_Compute");
+        var compute = Assert.Single(derived.Functions, static f => f.Name == "Derived_Compute");
         Assert.Contains(
             "call Derived_Shade",
             Vixen.Raven.IR.IrPrinter.Print(compute),
@@ -164,10 +168,10 @@ public class InheritanceTests {
         );
 
         // And the base's own copy is untouched — it is still a shader of its own.
-        var @base = LoweringTestBase.FindShader(module, "Base");
+        var @base = FindShader(module, "Base");
         Assert.Contains(
             "call Shade",
-            Vixen.Raven.IR.IrPrinter.Print(Assert.Single(@base.Functions, f => f.Name == "Compute")),
+            Vixen.Raven.IR.IrPrinter.Print(Assert.Single(@base.Functions, static f => f.Name == "Compute")),
             StringComparison.Ordinal
         );
 
@@ -216,22 +220,25 @@ public class InheritanceTests {
 
                               """;
 
-        var module = LoweringTestBase.Lower(Source);
+        var module = Lower(Source);
 
         // Base-to-derived, so a value's prefix is its base's layout.
-        Assert.Equal(["a", "b", "c"], Assert.Single(module.Structs, t => t.Name == "C1").Fields.Select(f => f.Name));
+        Assert.Equal(
+            ["a", "b", "c"],
+            Assert.Single(module.Structs, static t => t.Name == "C1").Fields.Select(static f => f.Name)
+        );
 
         // `Twice` is inherited twice over and copied once per type, and C1's copy reaches C1's
         // override — two levels down from where the call is written.
         Assert.Contains(
             "call C1_Value",
-            Vixen.Raven.IR.IrPrinter.Print(LoweringTestBase.FindFunction(module, "C1_Twice")),
+            Vixen.Raven.IR.IrPrinter.Print(FindFunction(module, "C1_Twice")),
             StringComparison.Ordinal
         );
 
         Assert.Contains(
             "call B1_Value",
-            Vixen.Raven.IR.IrPrinter.Print(LoweringTestBase.FindFunction(module, "B1_Twice")),
+            Vixen.Raven.IR.IrPrinter.Print(FindFunction(module, "B1_Twice")),
             StringComparison.Ordinal
         );
 
@@ -274,10 +281,10 @@ public class InheritanceTests {
 
                               """;
 
-        var shader = LoweringTestBase.FindShader(LoweringTestBase.Lower(Source), "Derived");
+        var shader = FindShader(Lower(Source), "Derived");
 
-        Assert.Equal(["uv"], shader.Streams.Select(stream => stream.Name));
-        Assert.Contains(shader.Bindings, b => b.Name == "albedo");
+        Assert.Equal(["uv"], shader.Streams.Select(static stream => stream.Name));
+        Assert.Contains(shader.Bindings, static b => b.Name == "albedo");
 
         CodeGenTestBase.GenerateClean(Source);
         CodeGenTestBase.GenerateClean(Source, "spirv");
@@ -322,6 +329,6 @@ public class InheritanceTests {
             ComposeBindings.Parse(["diffuse=Derived"])
         );
 
-        Assert.DoesNotContain(diagnostics, d => d.Id == "RVN3002");
+        Assert.DoesNotContain(diagnostics, static d => d.Id == "RVN3002");
     }
 }

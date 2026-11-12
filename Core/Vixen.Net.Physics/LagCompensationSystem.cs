@@ -28,7 +28,7 @@ namespace Vixen.Net.Physics;
 ///         rewinding a player.
 ///     </para>
 /// </remarks>
-public struct LagCompensated : ITagComponent;
+public readonly struct LagCompensated : ITagComponent;
 
 /// <summary>Fills the pose ring, once a tick, for every body that asked to be in it.</summary>
 /// <remarks>

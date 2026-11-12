@@ -41,7 +41,7 @@ public class ShapeVocabularyTests {
 
         document.AddTerm("belly", "The front of the torso.");
 
-        var humanoid = document.AddClass("humanoid");
+        var humanoid = document.AddClass();
         var member = document.AddMember(humanoid);
 
         // ⚠ Defaults to a name this vocabulary declares. A member naming nothing is the one mistake
@@ -69,7 +69,7 @@ public class ShapeVocabularyTests {
 
         document.AddTerm("belly", "The front of the torso.");
 
-        var humanoid = document.AddClass("humanoid");
+        var humanoid = document.AddClass();
 
         Assert.Empty(document.Problems());
 
@@ -105,7 +105,7 @@ public class ShapeVocabularyTests {
     public void ThePanelsProblemsAreTheContentsOwnAnswer() {
         var content = new ShapeVocabularyContent {
             Name = "humanoid",
-            Shapes = [new("belly", "")],
+            Shapes = [new("belly", string.Empty)],
             Classes = [new("humanoid", [new("left-palm", ShapeKind.Box, [], new(0.1f), Vector3.Zero, true)])]
         };
 
@@ -118,8 +118,12 @@ public class ShapeVocabularyTests {
     // ── The panel ────────────────────────────────────────────────────────────
 
     /// <summary>
-    ///     ⚠ <b>Names and classes are in one list, because the mistake is only visible when both are
-    ///     in front of each other.</b> Three tabs would hide exactly the relationship being authored.
+    ///     ⚠
+    ///     <b>
+    ///         Names and classes are in one list, because the mistake is only visible when both are
+    ///         in front of each other.
+    ///     </b>
+    ///     Three tabs would hide exactly the relationship being authored.
     /// </summary>
     [Fact]
     public void TheListShowsNamesTagsAndClassesTogetherWithMembersUnderTheirClass() {
@@ -129,7 +133,7 @@ public class ShapeVocabularyTests {
         document.AddTerm("belly", "The front of the torso.");
         document.AddTag("affords=grip-surface", "Something a hand may hold.");
 
-        var humanoid = document.AddClass("humanoid");
+        var humanoid = document.AddClass();
         document.AddMember(humanoid);
 
         var view = harness.Ui.Document.Root.Add<ShapeVocabularyView>();
@@ -150,7 +154,7 @@ public class ShapeVocabularyTests {
 
         document.AddTerm("belly", "The front of the torso.");
 
-        var humanoid = document.AddClass("humanoid");
+        var humanoid = document.AddClass();
 
         document.AddMember(humanoid, "left-palm");
 
@@ -168,7 +172,7 @@ public class ShapeVocabularyTests {
         // makes while typing a class, and a check they have to remember to press is one they press
         // after they have finished.
         Assert.NotEmpty(view.Report.Children);
-        Assert.Contains(view.Report.Children, child => child.HasClass("fatal"));
+        Assert.Contains(view.Report.Children, static child => child.HasClass("fatal"));
     }
 
     /// <summary>The buttons add the right kind of thing, and Add Required Shape follows the selection.</summary>
@@ -218,7 +222,7 @@ public class ShapeVocabularyTests {
 
         document.AddTerm("belly", "The front of the torso.");
 
-        var humanoid = document.AddClass("humanoid");
+        var humanoid = document.AddClass();
         document.AddMember(humanoid);
 
         var view = harness.Ui.Document.Root.Add<ShapeVocabularyView>();
@@ -244,7 +248,7 @@ public class ShapeVocabularyTests {
 
         document.AddTerm("belly", "The front of the torso.");
         document.AddTag("affords=lean-on", "Something a body may rest against.");
-        document.AddMember(document.AddClass("humanoid"));
+        document.AddMember(document.AddClass());
         document.Save();
 
         var reopened = new ShapeVocabularyDocument(project.Project, AssetId.New(), document.AssetPath);
@@ -258,8 +262,12 @@ public class ShapeVocabularyTests {
     /// <summary>A vocabulary longer than the pane can reach its last row.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The sheet gave <c>vocab-list</c> <c>overflow: auto</c>, and in this UI that clips
-    ///         and does not scroll</b> — <c>OverflowReader</c> decides which edges cut off what hangs
+    ///         ⚠
+    ///         <b>
+    ///             The sheet gave <c>vocab-list</c> <c>overflow: auto</c>, and in this UI that clips
+    ///             and does not scroll
+    ///         </b>
+    ///         — <c>OverflowReader</c> decides which edges cut off what hangs
     ///         outside, and scrolling is <c>ScrollView</c>'s alone. So every name past the fold was
     ///         unreachable by pointer or wheel for as long as the file had more of them than the pane
     ///         had room for, which is the same defect the New Asset… picker had (#1275). The list is
@@ -333,7 +341,7 @@ public class ShapeVocabularyTests {
 
         document.AddTerm("belly", "The front of the torso.");
 
-        var humanoid = document.AddClass("humanoid");
+        var humanoid = document.AddClass();
 
         // Each member names a shape the vocabulary does not declare, which is one problem each.
         // ⚠ The class record is threaded through the return value: a `ShapeClassRecord` is immutable
@@ -380,11 +388,15 @@ public class ShapeVocabularyTests {
     }
 
     static void Click(ViewHarness harness, UiElement element) {
-        var x = element.AbsoluteLeft + (element.Width / 2f);
-        var y = element.AbsoluteTop + (element.Height / 2f);
+        var x = element.AbsoluteLeft + element.Width / 2f;
+        var y = element.AbsoluteTop + element.Height / 2f;
 
-        harness.Ui.Document.Dispatch(new PointerEvent { X = x, Y = y, Action = PointerAction.Pressed, Button = PointerButton.Primary });
-        harness.Ui.Document.Dispatch(new PointerEvent { X = x, Y = y, Action = PointerAction.Released, Button = PointerButton.Primary });
+        harness.Ui.Document.Dispatch(
+            new PointerEvent { X = x, Y = y, Action = PointerAction.Pressed, Button = PointerButton.Primary }
+        );
+        harness.Ui.Document.Dispatch(
+            new PointerEvent { X = x, Y = y, Action = PointerAction.Released, Button = PointerButton.Primary }
+        );
 
         harness.Ui.Frame();
     }

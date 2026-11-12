@@ -4,7 +4,6 @@
 using Vixen.Assets;
 using Vixen.Core;
 using Vixen.Geometry;
-using Vixen.Rendering;
 using Vixen.Rendering.Ecs;
 
 namespace Vixen.Engine.Renderer;

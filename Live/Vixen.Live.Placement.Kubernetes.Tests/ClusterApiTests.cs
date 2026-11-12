@@ -8,8 +8,12 @@ namespace Vixen.Live.Placement.Tests;
 /// <summary>The pod this backend builds, against a real API server.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Everything else in this project is asserted against <c>FakeCluster</c>, and its own
-///         remark says why: the API server is faked and the pod is not.</b> Every decision ADR-019
+///         ⚠
+///         <b>
+///             Everything else in this project is asserted against <c>FakeCluster</c>, and its own
+///             remark says why: the API server is faked and the pod is not.
+///         </b>
+///         Every decision ADR-019
 ///         spends its length on — a Pod rather than a Deployment, a <c>hostPort</c> rather than a
 ///         Service, an owner reference that is not a controller reference — is about the object this
 ///         builds, and those are worth asserting on every push. What a fake cannot answer is whether
@@ -82,18 +86,14 @@ public class ClusterApiTests {
             + "at whatever context a developer has is how realms end up somewhere real."
         );
 
-        var client = new k8s.Kubernetes(
-            k8s.KubernetesClientConfiguration.BuildConfigFromConfigFile(kubeconfig)
-        );
+        var client = new k8s.Kubernetes(k8s.KubernetesClientConfiguration.BuildConfigFromConfigFile(kubeconfig));
 
         return new(
             new() {
                 // A tiny image that sits still, so a pod that is never cleaned up costs a few
                 // megabytes rather than a crash loop. What is under test is the API server's
                 // acceptance of the object, not what runs inside it.
-                Image = "registry.k8s.io/pause:3.10",
-                Namespace = Namespace,
-                Ports = new(31000, 31099)
+                Image = "registry.k8s.io/pause:3.10", Namespace = Namespace, Ports = new(31000, 31099)
             },
             new ClusterApi(client)
         );

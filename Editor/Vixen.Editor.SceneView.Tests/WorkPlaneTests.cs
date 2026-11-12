@@ -37,31 +37,31 @@ public class WorkPlaneTests {
     public void Setting_it_to_a_surface_turns_the_grid_onto_that_surface() {
         var plane = new WorkPlane();
 
-        plane.SetTo(new Vector3(2f, 1f, 0f), Vector3.UnitX);
+        plane.SetTo(new(2f, 1f, 0f), Vector3.UnitX);
 
         Assert.False(plane.IsGround);
         Assert.True(Vector3.NearEqual(plane.Normal, Vector3.UnitX, 1e-4f));
 
         // A point in the plane's own floor is on the wall in the world: its local Y is out of it.
-        var onWall = plane.ToWorld(new Vector3(3f, 0f, 4f));
+        var onWall = plane.ToWorld(new(3f, 0f, 4f));
 
         Assert.Equal(2f, onWall.X, 4);
     }
 
     [Fact]
     public void The_grid_is_drawn_in_the_planes_own_directions() {
-        var grid = new SceneGrid { Plane = new WorkPlane() };
+        var grid = new SceneGrid { Plane = new() };
         var camera = Camera();
 
-        grid.Plane.SetTo(new Vector3(5f, 0f, 0f), Vector3.UnitX);
+        grid.Plane.SetTo(new(5f, 0f, 0f), Vector3.UnitX);
 
         var lines = grid.Build(camera, Height);
 
         Assert.NotEmpty(lines);
 
         // Every line lies in the wall, so every end of every one of them is at x = 5.
-        Assert.All(lines, line => Assert.Equal(5f, line.From.X, 3));
-        Assert.All(lines, line => Assert.Equal(5f, line.To.X, 3));
+        Assert.All(lines, static line => Assert.Equal(5f, line.From.X, 3));
+        Assert.All(lines, static line => Assert.Equal(5f, line.To.X, 3));
     }
 
     [Fact]
@@ -74,7 +74,7 @@ public class WorkPlaneTests {
         // ⚠ D5's third gesture is "the second floor at three metres without doing arithmetic", and on
         // a wall the same verb is "one wall-thickness further along". An offset along world Y would
         // slide the plane *within* the wall and look like it did nothing.
-        Assert.True(Vector3.NearEqual(plane.Origin, new Vector3(3f, 0f, 0f), 1e-4f));
+        Assert.True(Vector3.NearEqual(plane.Origin, new(3f, 0f, 0f), 1e-4f));
     }
 
     [Fact]
@@ -97,7 +97,7 @@ public class WorkPlaneTests {
 
     [Fact]
     public void A_chosen_step_is_what_the_grid_draws_however_far_away_the_camera_is() {
-        var grid = new SceneGrid { Plane = new WorkPlane() };
+        var grid = new SceneGrid { Plane = new() };
 
         grid.Plane.Coarsen(grid.Spacing(Camera(), Height));
 
@@ -116,7 +116,7 @@ public class WorkPlaneTests {
 
     [Fact]
     public void The_grid_I_can_see_and_the_grid_I_snap_to_are_one_number() {
-        var grid = new SceneGrid { Plane = new WorkPlane() };
+        var grid = new SceneGrid { Plane = new() };
         var snap = new SnapContext { Plane = grid.Plane, SnapPosition = true };
 
         grid.Plane.Step = 4f;
@@ -145,7 +145,7 @@ public class WorkPlaneTests {
     public void Resetting_puts_it_back_on_the_ground_with_an_automatic_step() {
         var plane = new WorkPlane();
 
-        plane.SetTo(new Vector3(1f, 2f, 3f), Vector3.UnitZ);
+        plane.SetTo(new(1f, 2f, 3f), Vector3.UnitZ);
         plane.Coarsen(1f);
 
         Assert.False(plane.IsGround);

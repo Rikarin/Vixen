@@ -65,16 +65,23 @@ public static class ImageDecoders {
     /// <exception cref="InvalidDataException">The bytes are not a picture the codec can decode.</exception>
     /// <remarks>
     ///     <para>
-    ///         <b><c>ThumbnailCache</c>'s two fixes (#1326, #1407), said once for every editor decode
-    ///         site.</b> It began as the texturing plugin's internal <c>PictureFile</c> (#1432) and
+    ///         <b>
+    ///             <c>ThumbnailCache</c>'s two fixes (#1326, #1407), said once for every editor decode
+    ///             site.
+    ///         </b>
+    ///         It began as the texturing plugin's internal <c>PictureFile</c> (#1432) and
     ///         moved here for <a href="https://github.com/Rikarin/Vixen/issues/1471">#1471</a>, because
     ///         the import panel's preview and the CLI's bake had the same two defects and could not
     ///         see a plugin's internals — and a plugin may not be a friend assembly, which is what
     ///         <c>ModuleReferenceTests</c> guards. This assembly is the one all three already reference.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The file is read whole and closed before the codec sees a byte, and it is opened
-    ///         sharing writes and deletes.</b> <c>File.OpenRead</c> shares for reading only and its
+    ///         ⚠
+    ///         <b>
+    ///             The file is read whole and closed before the codec sees a byte, and it is opened
+    ///             sharing writes and deletes.
+    ///         </b>
+    ///         <c>File.OpenRead</c> shares for reading only and its
     ///         handle lived for the length of the decode, so on Windows — where a share mode is enforced
     ///         and not advisory — an artist saving over a picture in their paint program while the
     ///         editor decoded it got a sharing violation from the paint program.

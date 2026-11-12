@@ -161,8 +161,12 @@ public sealed class CharacterController : IDisposable {
     /// <summary>The steepest slope it can stand on, in radians. Changeable while it walks.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Jolt does <i>not</i> fix this at creation, and the belief that it does is what
-    ///         deferred per-character slope limits.</b> <c>CharacterBase</c> carries a setter, which
+    ///         ⚠
+    ///         <b>
+    ///             Jolt does <i>not</i> fix this at creation, and the belief that it does is what
+    ///             deferred per-character slope limits.
+    ///         </b>
+    ///         <c>CharacterBase</c> carries a setter, which
     ///         recomputes the cosine the ground test actually uses; nothing has to be recreated and no
     ///         contact state is lost. The claim this file and
     ///         <c>Core/Vixen.Physics/README.md</c> used to make — that exposing it "means recreating
@@ -271,8 +275,12 @@ public sealed class CharacterController : IDisposable {
     ///         cut-off for what counts as a wall rather than a stair.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A whole function rather than one assignment because every property of the struct is
-    ///         <c>init</c>-only</b>, which is also the reason the step height looked fixed at creation:
+    ///         ⚠
+    ///         <b>
+    ///             A whole function rather than one assignment because every property of the struct is
+    ///             <c>init</c>-only
+    ///         </b>
+    ///         , which is also the reason the step height looked fixed at creation:
     ///         the value is per-update, but nothing could write it after the object initializer ran.
     ///     </para>
     /// </remarks>

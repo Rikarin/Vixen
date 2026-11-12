@@ -16,8 +16,12 @@ namespace Vixen.Editor.SceneView;
 ///         through the same <c>PluginContext</c> a third party uses.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Every verb acts on <see cref="Active" /> and its selection, and every edit is one undo
-///         entry on that scene's stack.</b> A verb that touches several entities opens one
+///         ⚠
+///         <b>
+///             Every verb acts on <see cref="Active" /> and its selection, and every edit is one undo
+///             entry on that scene's stack.
+///         </b>
+///         A verb that touches several entities opens one
 ///         transaction or executes one command; none writes behind the stack's back.
 ///     </para>
 ///     <para>

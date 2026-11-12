@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Reflection;
-using Vixen.Core.Mathematics;
 using Vixen.NodeGraph;
 using Xunit;
 
@@ -13,8 +12,12 @@ namespace Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b><a href="https://github.com/Rikarin/Vixen/issues/780">#780</a> was not a bug in the
-///         flattener so much as a shape that guarantees one.</b> <c>Flattener.Run</c> built a fresh
+///         ⚠
+///         <b>
+///             <a href="https://github.com/Rikarin/Vixen/issues/780">#780</a> was not a bug in the
+///             flattener so much as a shape that guarantees one.
+///         </b>
+///         <c>Flattener.Run</c> built a fresh
 ///         <see cref="NodeGraphModel" /> and copied the three side tables that existed the day it was
 ///         written; two more were added to the model on the day it was last read, and a graph
 ///         declaring 512×512 with a seed compiled at its host's numbers the moment it contained a
@@ -22,8 +25,11 @@ namespace Tests;
 ///         failure, reached by another route, on the day it closed.
 ///     </para>
 ///     <para>
-///         <b>So the interesting test here is not that the two new tables survive — it is
-///         <see cref="Every_side_table_of_a_graph_is_carried_or_exempt" />.</b> That one reads the
+///         <b>
+///             So the interesting test here is not that the two new tables survive — it is
+///             <see cref="Every_side_table_of_a_graph_is_carried_or_exempt" />.
+///         </b>
+///         That one reads the
 ///         model's own properties rather than a list of them, so the <em>next</em> side table
 ///         somebody adds is red here on the day it is declared, naming itself, rather than silently
 ///         absent from every flattened graph.
@@ -38,41 +44,45 @@ public class GraphDocumentTests {
     /// </remarks>
     static readonly Dictionary<string, (Action<NodeGraphModel> Fill, Func<NodeGraphModel, bool> Carried)> Carried =
         new(StringComparer.Ordinal) {
-            ["Name"] = (graph => graph.Name = "Rust", graph => graph.Name == "Rust"),
+            ["Name"] = (static graph => graph.Name = "Rust", static graph => graph.Name == "Rust"),
             ["Groups"] = (
                 graph => graph.Groups.Add(new() { Title = "Masks" }),
-                graph => graph.Groups.Any(group => group.Title == "Masks")
+                static graph => graph.Groups.Any(static group => group.Title == "Masks")
             ),
             ["Comments"] = (
                 graph => graph.Comments.Add(new() { Text = "the edge is deliberate" }),
-                graph => graph.Comments.Any(comment => comment.Text == "the edge is deliberate")
+                static graph => graph.Comments.Any(static comment => comment.Text == "the edge is deliberate")
             ),
             ["Interface"] = (
-                graph => graph.Interface.Add(new("Amount", PortDirection.Input, PortKind.Float)),
-                graph => graph.Interface.Any(port => port.Name == "Amount")
+                static graph => graph.Interface.Add(new("Amount", PortDirection.Input, PortKind.Float)),
+                static graph => graph.Interface.Any(static port => port.Name == "Amount")
             ),
             ["Settings"] = (
-                graph => graph.Settings["texture.baseWidth"] = "512",
-                graph => graph.SettingOf("texture.baseWidth") == "512"
+                static graph => graph.Settings["texture.baseWidth"] = "512",
+                static graph => graph.SettingOf("texture.baseWidth") == "512"
             ),
             ["Parameters"] = (
-                graph => graph.Parameters.Add(new("Grunge", "0.5", "", SettingKind.Float, 0f, 1f)),
-                graph => graph.Parameters.Any(parameter => parameter.Name == "Grunge")
+                static graph => graph.Parameters.Add(new("Grunge", "0.5", string.Empty, SettingKind.Float, 0f, 1f)),
+                static graph => graph.Parameters.Any(static parameter => parameter.Name == "Grunge")
             ),
             ["Presets"] = (
                 graph => graph.Presets.Add(new() { Name = "Rusty" }),
-                graph => graph.Presets.Any(preset => preset.Name == "Rusty")
+                static graph => graph.Presets.Any(static preset => preset.Name == "Rusty")
             ),
             ["Info"] = (
                 graph => graph.Info = GraphInfo.None with { Author = "Ines" },
-                graph => graph.Info.Author == "Ines"
+                static graph => graph.Info.Author == "Ines"
             )
         };
 
     /// <summary>What it deliberately does not carry, and why.</summary>
     /// <remarks>
-    ///     ⚠ <b>A reason each, because an exemption with no reason is how a roll call becomes a
-    ///     rubber stamp.</b> The first two are what the callers of a document copy exist to rewrite:
+    ///     ⚠
+    ///     <b>
+    ///         A reason each, because an exemption with no reason is how a roll call becomes a
+    ///         rubber stamp.
+    ///     </b>
+    ///     The first two are what the callers of a document copy exist to rewrite:
     ///     an inlining renumbers node identities as it copies and traces every edge through the
     ///     boundary nodes it is deleting, so a copy that brought them along would be the inlining
     ///     with an opinion about which half to keep.
@@ -138,9 +148,13 @@ public class GraphDocumentTests {
     /// <summary>A published graph's knobs are the settings of the node that stands for it.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The seam <a href="https://github.com/Rikarin/Vixen/issues/730">#730</a> widened
-    ///         <see cref="SettingDefinition" /> for, and until this it had no declaration site at
-    ///         all.</b> The kind, the range and the group were carried, saved, loaded and drawn —
+    ///         ⚠
+    ///         <b>
+    ///             The seam <a href="https://github.com/Rikarin/Vixen/issues/730">#730</a> widened
+    ///             <see cref="SettingDefinition" /> for, and until this it had no declaration site at
+    ///             all.
+    ///         </b>
+    ///         The kind, the range and the group were carried, saved, loaded and drawn —
     ///         <c>NodeSettingMember</c> turns a bounded numeric setting into a slider — and nothing
     ///         in the tree ever produced one: no <c>[Setting]</c> in any node library declares a
     ///         kind, because every setting those libraries hold is an enumeration spelled as a name,
@@ -177,9 +191,14 @@ public class GraphDocumentTests {
 
     /// <summary>A graph's declarations survive being flattened, which is what #780 was about.</summary>
     /// <remarks>
-    ///     ⚠ <b>Through
-    ///     <see cref="SubGraphs.Flatten(NodeGraphModel, ISubGraphSource, out IReadOnlyList{NodeDiagnostic}, out NodeGraphInlining)" />
-    ///     rather than through the copy</b>, because the
+    ///     ⚠
+    ///     <b>
+    ///         Through
+    ///         <see
+    ///             cref="SubGraphs.Flatten(NodeGraphModel, ISubGraphSource, out IReadOnlyList{NodeDiagnostic}, out NodeGraphInlining)" />
+    ///         rather than through the copy
+    ///     </b>
+    ///     , because the
     ///     defect was never in the copy — there was no copy. Every declaration test in this
     ///     repository used a flat graph, and a flat graph is precisely the one input for which
     ///     <c>Flatten</c> is not called at all.
@@ -202,9 +221,9 @@ public class GraphDocumentTests {
 
         host.Settings["texture.baseWidth"] = "512";
         host.Settings["texture.seed"] = "90210";
-        host.Parameters.Add(new("Grunge", "0.5", "", SettingKind.Float, 0f, 1f));
+        host.Parameters.Add(new("Grunge", "0.5", string.Empty, SettingKind.Float, 0f, 1f));
         host.Groups.Add(new() { Title = "Masks" });
-        host.Add("Sub-graphs/Tint", new Vector2(40f, 40f));
+        host.Add("Sub-graphs/Tint", new(40f, 40f));
 
         var flattened = SubGraphs.Flatten(host, library, out var diagnostics, out _);
 
@@ -216,6 +235,6 @@ public class GraphDocumentTests {
 
         // The instrument: the flatten actually did something — the sub-graph node is gone from the
         // result — so the declarations above survived an inlining rather than a no-op.
-        Assert.DoesNotContain(flattened.Nodes, node => node.Type == "Sub-graphs/Tint");
+        Assert.DoesNotContain(flattened.Nodes, static node => node.Type == "Sub-graphs/Tint");
     }
 }

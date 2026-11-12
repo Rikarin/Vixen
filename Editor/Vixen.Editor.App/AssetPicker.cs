@@ -8,8 +8,6 @@ using Vixen.Editor.Core;
 using Vixen.Editor.Inspector;
 using Vixen.Editor.Inspector.Drawers;
 using Vixen.Editor.Ui;
-using Vixen.Geometry;
-using Vixen.Ui;
 using Vixen.Ui.Controls;
 
 namespace Vixen.Editor.App;
@@ -17,15 +15,22 @@ namespace Vixen.Editor.App;
 /// <summary>The grid of assets a field opens when its button is pressed.</summary>
 /// <remarks>
 ///     <para>
-///         <b>Doc 20's B3 calls this "small, and every asset field is dead without it", and both
-///         halves were true.</b> <c>AssetDrawer</c> has raised <c>PickRequested</c> since it was
+///         <b>
+///             Doc 20's B3 calls this "small, and every asset field is dead without it", and both
+///             halves were true.
+///         </b>
+///         <c>AssetDrawer</c> has raised <c>PickRequested</c> since it was
 ///         written and nothing has ever listened, so pressing the button in an inspector did
 ///         precisely nothing — which is doc 20's second bar failed in one click: a promise the editor
 ///         breaks the first time it is used, never mind the second.
 ///     </para>
 ///     <para>
-///         ⚠ <b>A dialog rather than a panel, which is still not doc 20's end state — but the
-///         thumbnails are in.</b> B3 asks for an "asset picker browser" with pictures in it, and the
+///         ⚠
+///         <b>
+///             A dialog rather than a panel, which is still not doc 20's end state — but the
+///             thumbnails are in.
+///         </b>
+///         B3 asks for an "asset picker browser" with pictures in it, and the
 ///         pictures were the half that had to wait for a device: <see cref="AssetGrid" /> and
 ///         <c>ThumbnailCache</c> are the Project panel's, reused here rather than reimplemented.
 ///         What remains a dialog is the frame round it, through the shell's own
@@ -65,9 +70,13 @@ sealed class AssetPicker {
 
     /// <summary>Which importer claims which extension, for the assets no import has run over yet.</summary>
     /// <remarks>
-    ///     ⚠ <b>Because <c>AssetEntry.ImporterTag</c> is not filled in until the file has actually
-    ///     been imported, and a filter that trusted it alone would refuse everything in a project
-    ///     nobody has pressed Import Assets in yet.</b> A scan writes a sidecar and gives a file its
+    ///     ⚠
+    ///     <b>
+    ///         Because <c>AssetEntry.ImporterTag</c> is not filled in until the file has actually
+    ///         been imported, and a filter that trusted it alone would refuse everything in a project
+    ///         nobody has pressed Import Assets in yet.
+    ///     </b>
+    ///     A scan writes a sidecar and gives a file its
     ///     identity; which importer claims it is decided by the pipeline, which is a background task
     ///     the user may never have run. The extension is the same answer arrived at early — it is
     ///     literally what the pipeline will consult — so a freshly-dropped model is assignable to a
@@ -123,7 +132,7 @@ sealed class AssetPicker {
         ArgumentNullException.ThrowIfNull(drawers);
 
         var served = drawers.Drawers.OfType<AssetDrawer>().ToList();
-        Func<AssetId, string?> resolve = NameOf;
+        var resolve = NameOf;
 
         foreach (var drawer in served) {
             drawer.Resolve = resolve;
@@ -157,8 +166,7 @@ sealed class AssetPicker {
     ///     GUID shows as <c>Missing (…)</c> with the id in it — an asset deleted out from under a
     ///     scene is exactly what somebody needs to see, and a name invented here would hide it.
     /// </remarks>
-    public string? NameOf(AssetId asset) =>
-        project.Assets.TryGetByGuid(asset, out var entry) ? entry.Name : null;
+    public string? NameOf(AssetId asset) => project.Assets.TryGetByGuid(asset, out var entry) ? entry.Name : null;
 
     /// <summary>Opens the picker for a field and assigns whatever is chosen.</summary>
     /// <param name="field">The field the button belongs to.</param>
@@ -195,9 +203,10 @@ sealed class AssetPicker {
 
             try {
                 var chosen = await dialogs.ShowAsync<AssetId?>(
-                    "Select " + field.Member.DisplayName,
-                    session => grid = Fill(session, candidates, field.Member.AllowNull, KindOf(field.Member))
-                ).ConfigureAwait(true);
+                        "Select " + field.Member.DisplayName,
+                        session => grid = Fill(session, candidates, field.Member.AllowNull, KindOf(field.Member))
+                    )
+                    .ConfigureAwait(true);
 
                 // ⚠ Through the drawer rather than straight into the field, because the member may
                 // hold an `AssetReference` rather than an `AssetId` — and `Write` boxes whatever it
@@ -220,8 +229,12 @@ sealed class AssetPicker {
     /// <param name="asset">What is being offered to it.</param>
     /// <returns>Whether the assignment is one the picker would have offered.</returns>
     /// <remarks>
-    ///     ⚠ <b>The same question the picker's list answers, asked one asset at a time — and it has
-    ///     to be the same code.</b> A drag is a second way to assign, and a drop path with its own
+    ///     ⚠
+    ///     <b>
+    ///         The same question the picker's list answers, asked one asset at a time — and it has
+    ///         to be the same code.
+    ///     </b>
+    ///     A drag is a second way to assign, and a drop path with its own
     ///     opinion about what a mesh field accepts is one that takes a texture the picker would never
     ///     have listed. A folder is refused outright: it has an identity in the database, so it can
     ///     be dragged, and there is no member anywhere that means "a folder".
@@ -249,21 +262,24 @@ sealed class AssetPicker {
         var wanted = ImporterFor(assetType);
 
         return [
-            .. project.Assets.Entries
-                .Where(entry => !entry.IsFolder)
-                .Where(
-                    entry => wanted is null
-                        || string.Equals(ImporterOf(entry), wanted, StringComparison.OrdinalIgnoreCase)
+            ..project.Assets.Entries
+                .Where(static entry => !entry.IsFolder)
+                .Where(entry => wanted is null
+                    || string.Equals(ImporterOf(entry), wanted, StringComparison.OrdinalIgnoreCase)
                 )
-                .OrderBy(entry => entry.Name, StringComparer.OrdinalIgnoreCase)
+                .OrderBy(static entry => entry.Name, StringComparer.OrdinalIgnoreCase)
         ];
     }
 
     /// <summary>Which importer's output a runtime type comes from.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>These are the importers' own names, and the fact that they had not been is why no
-    ///         typed picker had ever shown a single row.</b> An importer is named after its settings
+    ///         ⚠
+    ///         <b>
+    ///             These are the importers' own names, and the fact that they had not been is why no
+    ///             typed picker had ever shown a single row.
+    ///         </b>
+    ///         An importer is named after its settings
     ///         type's <c>[DataContract]</c> alias — <c>TextureImporter</c>, <c>AudioImporter</c> —
     ///         and that is what a <c>.meta</c> file records and what <c>AssetEntry.ImporterTag</c>
     ///         holds. This table answered <c>"texture"</c>, which matches nothing, so every
@@ -313,14 +329,21 @@ sealed class AssetPicker {
     /// <returns>The grid, so the caller can rebind it when a picture arrives.</returns>
     /// <remarks>
     ///     <para>
-    ///         <b>Doc 20's B3 asked for an "asset picker browser" with thumbnails and this is that
-    ///         half.</b> A name is what an asset is <i>called</i> and a picture is which one it is:
+    ///         <b>
+    ///             Doc 20's B3 asked for an "asset picker browser" with thumbnails and this is that
+    ///             half.
+    ///         </b>
+    ///         A name is what an asset is <i>called</i> and a picture is which one it is:
     ///         choosing between <c>T_Crate_01</c> and <c>T_Crate_02</c> off a list of names is
     ///         reading, guessing and undoing, which is exactly what a picker exists to avoid.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The same <see cref="AssetGrid" /> the Project panel uses, over a folder that is
-    ///         invented here.</b> A second grid for the flat case would be a second answer to "what
+    ///         ⚠
+    ///         <b>
+    ///             The same <see cref="AssetGrid" /> the Project panel uses, over a folder that is
+    ///             invented here.
+    ///         </b>
+    ///         A second grid for the flat case would be a second answer to "what
     ///         does a tile look like", and F12 is what that costs: the same asset drawn two ways in
     ///         two panes of one panel, which nobody reports and everybody notices.
     ///     </para>
@@ -376,10 +399,10 @@ sealed class AssetPicker {
         if (allowNull) {
             // ⚠ Only where the member permits it. A field that cannot be null offering a "None"
             // button is a button that either fails silently or writes something the type forbids.
-            session.AddButton("None", () => AssetId.Empty);
+            session.AddButton("None", static () => AssetId.Empty);
         }
 
-        session.AddButton(EditorStrings.DialogCancel.Text, () => null);
+        session.AddButton(EditorStrings.DialogCancel.Text, static () => null);
 
         return grid;
 
@@ -388,9 +411,9 @@ sealed class AssetPicker {
                 new AssetTreeNode(
                     Results,
                     string.Empty,
-                    IsFolder: true,
+                    true,
                     AssetId.Empty,
-                    [.. shown.Select(entry => new AssetTreeNode(entry.Name, entry.Path, false, entry.Guid, []))]
+                    [..shown.Select(static entry => new AssetTreeNode(entry.Name, entry.Path, false, entry.Guid, []))]
                 )
             );
 
@@ -416,8 +439,12 @@ sealed class AssetPicker {
 
     /// <summary>Which glyph an asset gets, resolved the way the Project panel resolves it.</summary>
     /// <remarks>
-    ///     ⚠ <b>Through <c>EditorArt</c> and the <c>AssetIcon</c> contributions, not a switch of its
-    ///     own.</b> A picker with its own table is a picker that draws a plugin's asset kind as a
+    ///     ⚠
+    ///     <b>
+    ///         Through <c>EditorArt</c> and the <c>AssetIcon</c> contributions, not a switch of its
+    ///         own.
+    ///     </b>
+    ///     A picker with its own table is a picker that draws a plugin's asset kind as a
     ///     blank page while the browser two panels away draws it properly.
     /// </remarks>
     IconArt Art(AssetTreeNode asset) =>
@@ -425,7 +452,8 @@ sealed class AssetPicker {
             extensions?.All<AssetIcon>() ?? StandardIcons.Assets,
             asset.IsIndexed && project.Assets.TryGetByGuid(asset.Guid, out var entry) ? ImporterOf(entry) : null,
             asset.Name
-        ) ?? StandardIcons.Unknown;
+        )
+        ?? StandardIcons.Unknown;
 
     /// <summary>The picture for an asset, asking for one if there is none yet.</summary>
     ulong Pictured(AssetTreeNode asset) =>

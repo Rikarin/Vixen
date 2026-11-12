@@ -84,7 +84,9 @@ public sealed class TrackingCommandList : ICommandList {
 
     /// <summary>Creates one for a queue.</summary>
     /// <param name="kind">Which queue it claims to belong to.</param>
-    public TrackingCommandList(QueueKind kind = QueueKind.Graphics) => Kind = kind;
+    public TrackingCommandList(QueueKind kind = QueueKind.Graphics) {
+        Kind = kind;
+    }
 
     /// <inheritdoc />
     public QueueKind Kind { get; }
@@ -97,7 +99,7 @@ public sealed class TrackingCommandList : ICommandList {
 
     /// <inheritdoc />
     public void BeginRenderPass(in RenderPassDescription description) {
-        passes.Add(new(description.Name, description.ColourAttachments.ToArray(), description.DepthStencil));
+        passes.Add(new(description.Name, [..description.ColourAttachments], description.DepthStencil));
         order.Add($"pass {description.Name}");
     }
 

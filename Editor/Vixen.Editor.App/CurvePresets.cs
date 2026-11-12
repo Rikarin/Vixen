@@ -46,30 +46,45 @@ public sealed class CurvePreset {
 /// <summary>The curves somebody has kept, which travel with the person rather than with the project.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Doc 20 § B5 decided where this goes and the decision is worth keeping: a library of
-///         saved presets is a <i>user-store file</i> rather than an editor surface — it belongs
-///         beside the layouts and the keymap, not in an asset editor.</b> The consequence is the
+///         ⚠
+///         <b>
+///             Doc 20 § B5 decided where this goes and the decision is worth keeping: a library of
+///             saved presets is a <i>user-store file</i> rather than an editor surface — it belongs
+///             beside the layouts and the keymap, not in an asset editor.
+///         </b>
+///         The consequence is the
 ///         point of saying it: presets are not project assets, get no importer, and do not travel
 ///         with the repository. A team-shared library is a different feature and must not be
 ///         smuggled in by making this one an asset.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The shipped shapes are <i>defaults</i> rather than entries, which is what
-///         <see cref="Shipped" /> is for.</b> A store seeded with linear and the three eases is one
+///         ⚠
+///         <b>
+///             The shipped shapes are <i>defaults</i> rather than entries, which is what
+///             <see cref="Shipped" /> is for.
+///         </b>
+///         A store seeded with linear and the three eases is one
 ///         where deleting a built-in is a thing that can happen and cannot be undone — so they are
 ///         offered by this class and never written to the file. An emptied store still offers them.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Curves only, and the gradient half of that doc row is refused rather than
-///         forgotten.</b> <c>GradientEditor</c> has no caller anywhere in the editor — no drawer, no
+///         ⚠
+///         <b>
+///             Curves only, and the gradient half of that doc row is refused rather than
+///             forgotten.
+///         </b>
+///         <c>GradientEditor</c> has no caller anywhere in the editor — no drawer, no
 ///         asset editor, no panel; the only uses in the tree are its own tests and the sample
 ///         gallery — so a gradient preset library would be a library with nothing to apply a preset
 ///         <i>to</i>, which is this repository's commonest defect written down deliberately. The
 ///         curve control, by contrast, is a drawer in the inspector and is in two AI asset editors.
 ///     </para>
 ///     <para>
-///         ⚠ <b>That refusal was already written down before this file existed, and the record is the
-///         thing to read rather than re-derive.</b>
+///         ⚠
+///         <b>
+///             That refusal was already written down before this file existed, and the record is the
+///             thing to read rather than re-derive.
+///         </b>
 ///         <c>Core/Vixen.Ui.Controls.Advanced/README.md</c> § GradientEditor gives three reasons that
 ///         are all outside the control — no gradient asset, doc 48's predicted consumer shipped
 ///         taking a texture name, and the obvious host does not reference the controls assembly — and
@@ -79,16 +94,22 @@ public sealed class CurvePreset {
 ///         <c>*.vxml</c> sweep answers "is it called" and not "was this decided".
 ///     </para>
 ///     <para>
-///         ⚠ <b>The three panes that edit a curve without a row do not offer these yet, and the two
-///         things stopping them are both measured rather than assumed.</b>
+///         ⚠
+///         <b>
+///             The three panes that edit a curve without a row do not offer these yet, and the two
+///             things stopping them are both measured rather than assumed.
+///         </b>
 ///         <c>Ai/QueryView</c>, <c>Ai/UtilitySetView</c> and <c>Animation/AnimationClipView</c> hold a
 ///         <c>CurveEditor</c> directly, so they never pass through the <c>InspectorRow</c> the menu
 ///         lines are attached to. First, <b>they cannot see this type</b>: the project reference runs
 ///         <c>Vixen.Editor.App</c> → <c>Vixen.Editor.AssetEditors</c>, so offering the presets there
 ///         means moving the library down to <c>Vixen.Editor.Core</c> and giving the views a seam to
 ///         reach the instance. Second — and this is the part that rules out the cheap workaround —
-///         <b>a context menu attached from the host would be competing with the control's own
-///         gesture</b>: <c>CurveEditor.Begin</c> takes a <c>Secondary</c> press as a <em>pan</em> and
+///         <b>
+///             a context menu attached from the host would be competing with the control's own
+///             gesture
+///         </b>
+///         : <c>CurveEditor.Begin</c> takes a <c>Secondary</c> press as a <em>pan</em> and
 ///         captures the pointer for it, and <c>Pointed</c> marks every press handled. So the surface
 ///         has to be a control beside the curve, in the view, which is why this is
 ///         <a href="https://github.com/Rikarin/Vixen/issues/1148">#1148</a>'s second half rather than
@@ -102,13 +123,16 @@ public sealed class CurvePresetLibrary {
 
     /// <summary>The shapes the editor always offers, whatever the file holds.</summary>
     /// <remarks>
-    ///     ⚠ <b>Rebuilt per call, because an <c>AnimationCurve</c> is mutable and
-    ///     <c>CurveEditor.Apply</c> copies keys out of what it is handed.</b> A cached instance
+    ///     ⚠
+    ///     <b>
+    ///         Rebuilt per call, because an <c>AnimationCurve</c> is mutable and
+    ///         <c>CurveEditor.Apply</c> copies keys out of what it is handed.
+    ///     </b>
+    ///     A cached instance
     ///     handed to two rows would be one object two panels could edit — the aliasing
     ///     <c>CurveDrawer</c>'s own remarks refuse for exactly the same reason.
     /// </remarks>
-    public static IReadOnlyList<(string Name, AnimationCurve Curve)> Shipped =>
-    [
+    public static IReadOnlyList<(string Name, AnimationCurve Curve)> Shipped => [
         ("Linear", AnimationCurve.Linear()),
         ("Ease In", AnimationCurve.EaseIn()),
         ("Ease Out", AnimationCurve.EaseOut()),
@@ -153,10 +177,10 @@ public sealed class CurvePresetLibrary {
         Curves.RemoveAll(saved => string.Equals(saved.Name, name, StringComparison.Ordinal));
 
         Curves.Add(
-            new CurvePreset {
+            new() {
                 Name = name,
                 Keys = [
-                    .. curve.Keys.Select(key =>
+                    ..curve.Keys.Select(key =>
                         new CurvePresetKey {
                             Time = key.Time,
                             Value = key.Value,
@@ -184,8 +208,12 @@ public sealed class CurvePresetLibrary {
     /// <param name="preset">The saved shape.</param>
     /// <returns>The curve.</returns>
     /// <remarks>
-    ///     ⚠ <b>A mode the file names that this version does not know falls back to
-    ///     <c>Auto</c>.</b> A preset written by a later editor must not be a preset that throws
+    ///     ⚠
+    ///     <b>
+    ///         A mode the file names that this version does not know falls back to
+    ///         <c>Auto</c>.
+    ///     </b>
+    ///     A preset written by a later editor must not be a preset that throws
     ///     while a menu is being drawn.
     /// </remarks>
     public static AnimationCurve ToCurve(CurvePreset preset) {
@@ -196,12 +224,7 @@ public sealed class CurvePresetLibrary {
         foreach (var key in preset.Keys) {
             var mode = Enum.TryParse<TangentMode>(key.Mode, out var parsed) ? parsed : TangentMode.Auto;
 
-            curve.Add(
-                new CurveKey(key.Time, key.Value, mode) {
-                    InTangent = key.InTangent,
-                    OutTangent = key.OutTangent
-                }
-            );
+            curve.Add(new(key.Time, key.Value, mode) { InTangent = key.InTangent, OutTangent = key.OutTangent });
         }
 
         return curve;

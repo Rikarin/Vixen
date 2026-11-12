@@ -40,7 +40,7 @@ public sealed class SystemIoPathAnalyzer : DiagnosticAnalyzer {
         + "VirtualFileSystem; System.IO.Path belongs to Vixen.Platform.*, the editor and the tools.",
         "Vixen.IO",
         DiagnosticSeverity.Warning,
-        isEnabledByDefault: true,
+        true,
         "Six platforms have six ideas about where files are, and a path assembled from System.IO.Path "
         + "carries the ideas of the one it was assembled on: a separator, a root, a case-insensitive "
         + "comparison. Engine code says /app/textures/x.ktx2 and lets the mounted provider decide what "
@@ -55,8 +55,7 @@ public sealed class SystemIoPathAnalyzer : DiagnosticAnalyzer {
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
         context.EnableConcurrentExecution();
 
-        context.RegisterCompilationStartAction(
-            start => {
+        context.RegisterCompilationStartAction(static start => {
                 var path = start.Compilation.GetTypeByMetadataName(PathMetadataName);
 
                 if (path is null) {

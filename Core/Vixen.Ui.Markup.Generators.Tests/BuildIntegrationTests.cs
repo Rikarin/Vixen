@@ -38,7 +38,7 @@ public sealed class BuildIntegrationTests : IDisposable {
     public void Dispose() {
         try {
             if (Directory.Exists(root)) {
-                Directory.Delete(root, recursive: true);
+                Directory.Delete(root, true);
             }
         } catch (IOException) {
             // A temporary directory that would not go is not a test failure.
@@ -70,7 +70,7 @@ public sealed class BuildIntegrationTests : IDisposable {
         // Named from the root namespace and the file's own folders, which is only possible if the
         // glob found it and both MSBuild properties reached the generator.
         var generated = Directory.EnumerateFiles(root, "*.g.cs", SearchOption.AllDirectories)
-            .Single(path => path.EndsWith("Ui_Widgets_Counter.g.cs", StringComparison.Ordinal));
+            .Single(static path => path.EndsWith("Ui_Widgets_Counter.g.cs", StringComparison.Ordinal));
 
         Assert.Contains("namespace Demo.Ui.Widgets;", File.ReadAllText(generated), StringComparison.Ordinal);
     }
@@ -165,8 +165,11 @@ public sealed class BuildIntegrationTests : IDisposable {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/1102">#1102</a>, and the two
-    ///         states are the same fixture with one property.</b> This project self-imports the
+    ///         <b>
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/1102">#1102</a>, and the two
+    ///             states are the same fixture with one property.
+    ///         </b>
+    ///         This project self-imports the
     ///         <c>.targets</c>, so the <c>.vxml</c> is <c>AdditionalFiles</c> and
     ///         <c>VixenUiBuildImported</c> is set before <c>Directory.Build.targets</c> is evaluated.
     ///         That flag used to guard the generator references as well as the globs, so
@@ -345,8 +348,12 @@ public sealed class BuildIntegrationTests : IDisposable {
 
     /// <summary>Builds the fixture and returns what the build said.</summary>
     /// <remarks>
-    ///     ⚠ <b>Node reuse off, and it is not a speed choice — it is what keeps this from hanging
-    ///     forever.</b> A reusable MSBuild worker outlives the <c>dotnet build</c> that spawned it
+    ///     ⚠
+    ///     <b>
+    ///         Node reuse off, and it is not a speed choice — it is what keeps this from hanging
+    ///         forever.
+    ///     </b>
+    ///     A reusable MSBuild worker outlives the <c>dotnet build</c> that spawned it
     ///     and inherits the redirected pipes, so the child can exit while the read handle stays open
     ///     and <see cref="Process.WaitForExit()" /> — which waits for the streams as well as for the
     ///     process — never returns. Observed: the fixture's own <c>obj</c> finished at one minute
@@ -356,7 +363,7 @@ public sealed class BuildIntegrationTests : IDisposable {
     /// </remarks>
     (bool Succeeded, string Output) Run() {
         var process = new Process {
-            StartInfo = new ProcessStartInfo("dotnet") {
+            StartInfo = new("dotnet") {
                 WorkingDirectory = root,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,

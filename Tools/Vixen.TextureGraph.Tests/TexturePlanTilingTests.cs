@@ -10,14 +10,22 @@ namespace Tests;
 /// <summary>Which of this assembly's chains a tiled evaluation would compute wrongly, and why.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b><a href="https://github.com/Rikarin/Vixen/issues/636">#636</a>, and doc 48 § 4.2 said
-///         of <c>Auto Levels</c> that the plan runner has to know.</b> It did not. Every op in the
+///         ⚠
+///         <b>
+///             <a href="https://github.com/Rikarin/Vixen/issues/636">#636</a>, and doc 48 § 4.2 said
+///             of <c>Auto Levels</c> that the plan runner has to know.
+///         </b>
+///         It did not. Every op in the
 ///         catalogue before that node had a bounded neighbourhood, so nothing had ever needed to ask,
 ///         and the three chains that are global carried the knowledge in prose beside their kernels.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Nothing evaluates in tiles today, and that is the argument for writing this now
-///         rather than later.</b> The failure a tiled evaluator produces is a picture and not an
+///         ⚠
+///         <b>
+///             Nothing evaluates in tiles today, and that is the argument for writing this now
+///             rather than later.
+///         </b>
+///         The failure a tiled evaluator produces is a picture and not an
 ///         error — every tile stretched by its own extremes looks correct, and the seams between them
 ///         are a different contrast, which reads as a lighting problem in whatever consumes the map.
 ///         The classification can only be made by whoever wrote the chain, so a tiled evaluator
@@ -57,9 +65,9 @@ public class TexturePlanTilingTests {
             Images = [
                 new(TextureFormat.Rgba8, External: true),
                 new(TextureFormat.R16Float),
-                .. Enumerable.Repeat(new TextureImage(TextureFormat.Rgba32Float), scratch)
+                ..Enumerable.Repeat(new TextureImage(TextureFormat.Rgba32Float), scratch)
             ],
-            Ops = TextureAnalysis.Distance(1, 0, [.. Enumerable.Range(2, scratch)], 64, 64),
+            Ops = TextureAnalysis.Distance(1, 0, [..Enumerable.Range(2, scratch)], 64, 64),
             Outputs = [1]
         };
     }
@@ -74,7 +82,7 @@ public class TexturePlanTilingTests {
 
         foreach (var offset in levels) {
             scratch.Add(images.Count);
-            images.Add(new(TextureFormat.Rgba16Float, LevelOffset: offset));
+            images.Add(new(TextureFormat.Rgba16Float, offset));
         }
 
         var written = images.Count;
@@ -87,7 +95,7 @@ public class TexturePlanTilingTests {
             Images = images.ToImmutable(),
             Ops = [
                 new() { Kernel = "Uniform", Output = 0 },
-                .. TextureAdjust.AutoLevels(written, 0, scratch.ToImmutable(), 64, 64)
+                ..TextureAdjust.AutoLevels(written, 0, scratch.ToImmutable(), 64, 64)
             ],
             Outputs = [written]
         };
@@ -120,7 +128,7 @@ public class TexturePlanTilingTests {
         // The instrument: there are more ops than refusals, so "everything is refused" is not what
         // is being read.
         Assert.Equal(plan.Ops.Length - 1, refusals.Length);
-        Assert.All(refusals, message => Assert.Contains("JumpFlood", message, StringComparison.Ordinal));
+        Assert.All(refusals, static message => Assert.Contains("JumpFlood", message, StringComparison.Ordinal));
         Assert.False(plan.Ops[^1].DependsOnEveryTexel);
 
         // And it bakes: a global op is not a defect in the plan, it is a constraint on how the plan
@@ -148,8 +156,14 @@ public class TexturePlanTilingTests {
 
         // Every op of the chain but the `Uniform` that fills the source is named.
         Assert.Equal(plan.Ops.Length - 1, plan.TilingRefusals().Length);
-        Assert.Contains(plan.TilingRefusals(), message => message.Contains("AutoLevels", StringComparison.Ordinal));
-        Assert.Contains(plan.TilingRefusals(), message => message.Contains("MinMaxReduce", StringComparison.Ordinal));
+        Assert.Contains(
+            plan.TilingRefusals(),
+            static message => message.Contains("AutoLevels", StringComparison.Ordinal)
+        );
+        Assert.Contains(
+            plan.TilingRefusals(),
+            static message => message.Contains("MinMaxReduce", StringComparison.Ordinal)
+        );
         Assert.Empty(plan.Validate());
     }
 
@@ -163,7 +177,7 @@ public class TexturePlanTilingTests {
     public void A_refusal_names_the_op_and_the_picture_a_tile_would_draw() {
         var message = Assert.Single(
             Distance().TilingRefusals(),
-            candidate => candidate.Contains("Op 0", StringComparison.Ordinal)
+            static candidate => candidate.Contains("Op 0", StringComparison.Ordinal)
         );
 
         Assert.Contains("JumpFlood", message, StringComparison.Ordinal);

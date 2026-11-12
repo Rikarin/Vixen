@@ -20,29 +20,29 @@ public class ComponentParameterTests {
     ///     <see cref="AnalyzerHarness.StringId" />'s terms.
     /// </remarks>
     const string Framework = """
-        namespace Vixen.Ui.Composition {
-            public sealed class BuildContext { }
+                             namespace Vixen.Ui.Composition {
+                                 public sealed class BuildContext { }
 
-            public abstract class Component {
-                protected abstract void Build(BuildContext ctx);
-            }
-        }
+                                 public abstract class Component {
+                                     protected abstract void Build(BuildContext ctx);
+                                 }
+                             }
 
-        namespace Vixen.Ui.Reactive {
-            public interface IReadOnlySignal<out T> { T Value { get; } }
+                             namespace Vixen.Ui.Reactive {
+                                 public interface IReadOnlySignal<out T> { T Value { get; } }
 
-            public sealed class Signal<T> : IReadOnlySignal<T> {
-                public Signal(T initial) { Value = initial; }
+                                 public sealed class Signal<T> : IReadOnlySignal<T> {
+                                     public Signal(T initial) { Value = initial; }
 
-                public T Value { get; set; }
-            }
-        }
-        """;
+                                     public T Value { get; set; }
+                                 }
+                             }
+                             """;
 
     static async Task<string[]> Reported(string source) {
         var reported = await AnalyzerHarness.RunAsync(source, new ComponentParameterAnalyzer(), Framework);
 
-        return [.. reported.Select(AnalyzerHarness.Underlined)];
+        return [..reported.Select(AnalyzerHarness.Underlined)];
     }
 
     /// <summary>A plain settable property is a parameter a binding cannot keep current.</summary>
@@ -84,7 +84,7 @@ public class ComponentParameterTests {
 
         Assert.Equal(ComponentParameterAnalyzer.PlainParameterId, one.Id);
         Assert.Equal(DiagnosticSeverity.Info, one.Severity);
-        Assert.Contains("Signal<int>", one.GetMessage(null), StringComparison.Ordinal);
+        Assert.Contains("Signal<int>", one.GetMessage(), StringComparison.Ordinal);
     }
 
     /// <summary>Signal-backed is the shape the rule is asking for, so it says nothing about it.</summary>
@@ -204,15 +204,22 @@ public class ComponentParameterTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <b>The objection to a diagnostic in generated C# is that the author cannot edit
-    ///         it</b>, and for a file no directive maps that is still true. The analyzer now sets
+    ///         <b>
+    ///             The objection to a diagnostic in generated C# is that the author cannot edit
+    ///             it
+    ///         </b>
+    ///         , and for a file no directive maps that is still true. The analyzer now sets
     ///         <c>GeneratedCodeAnalysisFlags.Analyze</c> — so such a declaration <i>is</i> looked at
     ///         — and withholds <c>ReportDiagnostics</c>, so a diagnostic whose location is still
     ///         inside the generated tree is dropped by Roslyn rather than by the rule.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The partial arrangement is the one worth testing, and it is a third answer
-    ///         again.</b> A class that is half hand-written — which is every <c>.vxml</c> with a
+    ///         ⚠
+    ///         <b>
+    ///             The partial arrangement is the one worth testing, and it is a third answer
+    ///             again.
+    ///         </b>
+    ///         A class that is half hand-written — which is every <c>.vxml</c> with a
     ///         code-behind — was analyzed even before the change, with the diagnostic on the
     ///         generated half dropped afterwards. Both halves are asserted here at once:
     ///         <c>Rank</c> is hand-written and reported, <c>Title</c> is emitted under no mapping
@@ -256,8 +263,12 @@ public class ComponentParameterTests {
     ///         to do with how much code was at fault.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>What makes it safe is the directive, not a decision to tolerate a diagnostic on
-    ///         generated code.</b> <c>ComponentEmitter</c> copies each block under a <c>#line</c>
+    ///         ⚠
+    ///         <b>
+    ///             What makes it safe is the directive, not a decision to tolerate a diagnostic on
+    ///             generated code.
+    ///         </b>
+    ///         <c>ComponentEmitter</c> copies each block under a <c>#line</c>
     ///         span, so the location resolves to characters in the <c>.vxml</c> that the author
     ///         wrote — which is what this asserts, rather than merely that something was reported.
     ///         Nothing had tested that a <c>#line</c> survives as far as a diagnostic's location;
@@ -286,7 +297,7 @@ public class ComponentParameterTests {
         var where = one.Location.GetLineSpan();
 
         Assert.Equal(ComponentParameterAnalyzer.PlainParameterId, one.Id);
-        Assert.Contains("'Panel.Title'", one.GetMessage(null), StringComparison.Ordinal);
+        Assert.Contains("'Panel.Title'", one.GetMessage(), StringComparison.Ordinal);
         Assert.Equal("Panels/Inspector.vxml", where.Path);
         Assert.Equal(8, where.StartLinePosition.Line);
     }
@@ -303,8 +314,12 @@ public class ComponentParameterTests {
     ///         <c>Samples/02-HelloUi/Panels/Inspector.vxml</c>'s <c>Model</c> is written this way.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>What decides it is the getter, and this test is the reason the analyzer reads
-    ///         accessor bodies at all.</b> An effect subscribes to what it reads; reading this
+    ///         ⚠
+    ///         <b>
+    ///             What decides it is the getter, and this test is the reason the analyzer reads
+    ///             accessor bodies at all.
+    ///         </b>
+    ///         An effect subscribes to what it reads; reading this
     ///         property reads <c>title.Value</c>, so it takes the dependency however plain
     ///         <c>string</c> looks.
     ///     </para>

@@ -27,8 +27,11 @@ namespace Vixen.Cli;
 ///         only be checked by running a process is one whose behaviour is not checked.
 ///     </para>
 ///     <para>
-///         <b>A verb that parses and then apologises is worse than one that is not there, because a
-///         build script can only discover the second kind.</b> That rule is why <c>new</c>, <c>run</c>
+///         <b>
+///             A verb that parses and then apologises is worse than one that is not there, because a
+///             build script can only discover the second kind.
+///         </b>
+///         That rule is why <c>new</c>, <c>run</c>
 ///         and <c>build</c> were absent until doc 17's shipping story gave them something to wrap, and
 ///         it is why <c>live up</c>, <c>live down</c> and <c>live upgrade --content</c> still are. It
 ///         is also why <c>remesh</c> has no <c>--bake</c>: docs/plan/41 § D16's example line has one
@@ -93,8 +96,12 @@ public static class VixenCommand {
     ///         ⚠ <b>A verb because the read side had no caller.</b>
     ///         <a href="https://github.com/Rikarin/Vixen/issues/702">#702</a>: nine files land in
     ///         <c>Assets/MeshMaps/</c> with a sidecar saying what each measures, and nothing in the
-    ///         repository resolved one by usage. ⚠ <b>§ 4.8's Mesh Map Input is that node and it is
-    ///         registered</b> — <c>Source/Mesh Map</c> — so this line's "the node that will" is a
+    ///         repository resolved one by usage. ⚠
+    ///         <b>
+    ///             § 4.8's Mesh Map Input is that node and it is
+    ///             registered
+    ///         </b>
+    ///         — <c>Source/Mesh Map</c> — so this line's "the node that will" is a
     ///         batch out of date; the verb runs the same index, and what it prints is what that node
     ///         binds.
     ///     </para>
@@ -109,19 +116,17 @@ public static class VixenCommand {
 
         var set = new Option<string>("--set") {
             Description = "Only this set — the stem every file in it is named from.",
-            DefaultValueFactory = _ => string.Empty
+            DefaultValueFactory = static _ => string.Empty
         };
 
         var usage = new Option<string>("--usage") {
             Description = "Only this measurement's suffix: normal, height, ao, bent, curvature, thickness, "
                 + "position, world, id.",
-            DefaultValueFactory = _ => string.Empty
+            DefaultValueFactory = static _ => string.Empty
         };
 
         var list = new Command("list", "Show the baked mesh maps a graph would bind, by usage.") {
-            project,
-            set,
-            usage
+            project, set, usage
         };
 
         list.SetAction(parseResult => {
@@ -140,7 +145,7 @@ public static class VixenCommand {
             }
         );
 
-        return new Command("mesh-maps", "Work with the maps baked from a mesh's geometry.") { list };
+        return new("mesh-maps", "Work with the maps baked from a mesh's geometry.") { list };
     }
 
     /// <summary>`vixen texture bake` — docs/plan/48 § M5's CLI row.</summary>
@@ -192,13 +197,12 @@ public static class VixenCommand {
         };
 
         var name = new Option<string>("--name") {
-            Description = "What the material is called. Its maps are named from it.",
-            Required = true
+            Description = "What the material is called. Its maps are named from it.", Required = true
         };
 
         var folder = new Option<string>("--folder") {
             Description = "Which folder under Assets/ to write into.",
-            DefaultValueFactory = _ => MaterialMapNaming.DefaultFolder
+            DefaultValueFactory = static _ => MaterialMapNaming.DefaultFolder
         };
 
         // ⚠ Recorded and never asserted, which is § D4's decision rather than an omission: a re-bake
@@ -206,7 +210,7 @@ public static class VixenCommand {
         // another GPU a bug report.
         var adapter = new Option<string>("--adapter") {
             Description = "What to record as the adapter that ran the bake. Recorded, never compared.",
-            DefaultValueFactory = _ => string.Empty
+            DefaultValueFactory = static _ => string.Empty
         };
 
         var force = new Option<bool>("--force") {
@@ -235,8 +239,8 @@ public static class VixenCommand {
 
         bake.SetAction(parseResult => {
                 var complain = error ?? Console.Error;
-                var folderIn = parseResult.GetValue(from) ?? "";
-                var graphIn = parseResult.GetValue(graph) ?? "";
+                var folderIn = parseResult.GetValue(from) ?? string.Empty;
+                var graphIn = parseResult.GetValue(graph) ?? string.Empty;
 
                 if (folderIn.Length == 0 == (graphIn.Length == 0)) {
                     complain.WriteLine(
@@ -290,7 +294,7 @@ public static class VixenCommand {
             }
         );
 
-        return new Command("texture", "Bake texture-graph outputs into material assets.") { bake };
+        return new("texture", "Bake texture-graph outputs into material assets.") { bake };
     }
 
     /// <summary>`vixen remesh` — docs/plan/41 § D16's CLI row, batchable over a directory.</summary>
@@ -313,18 +317,17 @@ public static class VixenCommand {
         var (input, into) = Files("The mesh file to retopologise.");
 
         var quads = new Option<int>("--quads") {
-            Description = "How many quads to aim for, per mesh.",
-            DefaultValueFactory = _ => 5000
+            Description = "How many quads to aim for, per mesh.", DefaultValueFactory = static _ => 5000
         };
 
         var adaptivity = new Option<float>("--adaptivity") {
             Description = "Zero for uniform squares, one to let curvature decide the density.",
-            DefaultValueFactory = _ => 0.5f
+            DefaultValueFactory = static _ => 0.5f
         };
 
         var angle = new Option<float>("--feature-angle") {
             Description = "The angle, in degrees, above which a shared edge is a hard feature.",
-            DefaultValueFactory = _ => 35f
+            DefaultValueFactory = static _ => 35f
         };
 
         var symmetry = new Option<string?>("--symmetry") {
@@ -340,16 +343,23 @@ public static class VixenCommand {
         var guides = new Option<string[]>("--guide") {
             Description = "A .vxspline whose curve the edge flow should follow. Repeatable.",
             AllowMultipleArgumentsPerToken = false,
-            DefaultValueFactory = _ => []
+            DefaultValueFactory = static _ => []
         };
 
         var strength = new Option<float>("--guide-strength") {
-            Description = "How hard the guides pull, in [0, 1].",
-            DefaultValueFactory = _ => 1f
+            Description = "How hard the guides pull, in [0, 1].", DefaultValueFactory = static _ => 1f
         };
 
         var command = new Command("remesh", "Retopologise a mesh file into all-quads.") {
-            input, into, quads, adaptivity, angle, symmetry, seams, guides, strength
+            input,
+            into,
+            quads,
+            adaptivity,
+            angle,
+            symmetry,
+            seams,
+            guides,
+            strength
         };
 
         command.SetAction(parseResult => {
@@ -358,12 +368,12 @@ public static class VixenCommand {
                 if (axis is { Length: > 0 } named && Axis(named) is null) {
                     (error ?? Console.Error).WriteLine($"'{named}' is not an axis. It is x, y or z.");
 
-                    return (int) ExitCode.UsageError;
+                    return (int)ExitCode.UsageError;
                 }
 
                 var pull = parseResult.GetValue(strength);
 
-                return (int) GeometryRunner.Remesh(
+                return (int)GeometryRunner.Remesh(
                     parseResult.GetRequiredValue(input),
                     parseResult.GetRequiredValue(into),
                     new() {
@@ -373,7 +383,7 @@ public static class VixenCommand {
                         KeepUvSeams = parseResult.GetValue(seams),
                         Symmetry = axis is { Length: > 0 } ? Axis(axis) : null
                     },
-                    [.. (parseResult.GetValue(guides) ?? []).Select(path => (path, pull))],
+                    [..(parseResult.GetValue(guides) ?? []).Select(path => (path, pull))],
                     output ?? Console.Out,
                     error ?? Console.Error
                 );
@@ -389,15 +399,19 @@ public static class VixenCommand {
         var (resolution, margin, density) = Atlas();
 
         var angle = new Option<float>("--feature-angle") {
-            Description = "The angle, in degrees, a seam prefers to run along.",
-            DefaultValueFactory = _ => 40f
+            Description = "The angle, in degrees, a seam prefers to run along.", DefaultValueFactory = static _ => 40f
         };
 
         var command = new Command("unwrap", "Cut, flatten and pack a mesh file's texture coordinates.") {
-            input, into, resolution, margin, density, angle
+            input,
+            into,
+            resolution,
+            margin,
+            density,
+            angle
         };
 
-        command.SetAction(parseResult => (int) GeometryRunner.Unwrap(
+        command.SetAction(parseResult => (int)GeometryRunner.Unwrap(
                 parseResult.GetRequiredValue(input),
                 parseResult.GetRequiredValue(into),
                 new() { FeatureAngle = parseResult.GetValue(angle) },
@@ -416,8 +430,12 @@ public static class VixenCommand {
 
     /// <summary>`vixen uv pack` — docs/plan/42's third stage alone, which is the UV-Packer comparison.</summary>
     /// <remarks>
-    ///     ⚠ <b>A group with one verb rather than a bare <c>vixen pack</c>, because "pack" on its own
-    ///     is what a build tool calls bundling content</b> — which this repository already has under
+    ///     ⚠
+    ///     <b>
+    ///         A group with one verb rather than a bare <c>vixen pack</c>, because "pack" on its own
+    ///         is what a build tool calls bundling content
+    ///     </b>
+    ///     — which this repository already has under
     ///     <c>content build</c>, and two unrelated meanings of one word on one command line is a
     ///     mistake somebody makes at four in the afternoon.
     /// </remarks>
@@ -428,9 +446,15 @@ public static class VixenCommand {
         var pack = new Command(
             "pack",
             "Repack a mesh file's existing islands. Seams and island shapes are untouched."
-        ) { input, into, resolution, margin, density };
+        ) {
+            input,
+            into,
+            resolution,
+            margin,
+            density
+        };
 
-        pack.SetAction(parseResult => (int) GeometryRunner.Pack(
+        pack.SetAction(parseResult => (int)GeometryRunner.Pack(
                 parseResult.GetRequiredValue(input),
                 parseResult.GetRequiredValue(into),
                 new() {
@@ -443,17 +467,17 @@ public static class VixenCommand {
             )
         );
 
-        return new Command("uv", "Work with a mesh file's texture coordinates.") { pack };
+        return new("uv", "Work with a mesh file's texture coordinates.") { pack };
     }
 
     /// <summary>The input and output arguments the three geometry verbs share.</summary>
     static (Argument<string> Input, Argument<string> Output) Files(string description) =>
-        (
-            new Argument<string>("input") { Description = description },
-            new Argument<string>("output") {
-                Description = "Where to write it. The extension chooses the format: .obj, .gltf or .glb."
-            }
-        );
+    (
+        new Argument<string>("input") { Description = description },
+        new Argument<string>("output") {
+            Description = "Where to write it. The extension chooses the format: .obj, .gltf or .glb."
+        }
+    );
 
     /// <summary>The three atlas options the two packing verbs share.</summary>
     /// <remarks>
@@ -462,20 +486,20 @@ public static class VixenCommand {
     ///     every island of every atlas, which is how a bleed appears on the small islands only.
     /// </remarks>
     static (Option<int> Resolution, Option<int> Margin, Option<float> Density) Atlas() =>
-        (
-            new Option<int>("--resolution") {
-                Description = "The atlas resolution the margin is counted in texels of.",
-                DefaultValueFactory = _ => 1024
-            },
-            new Option<int>("--margin") {
-                Description = "How many texels of empty space each island keeps around it.",
-                DefaultValueFactory = _ => 4
-            },
-            new Option<float>("--density") {
-                Description = "Texels per world unit to hold across every chart, or zero to fill the atlas.",
-                DefaultValueFactory = _ => 0f
-            }
-        );
+    (
+        new Option<int>("--resolution") {
+            Description = "The atlas resolution the margin is counted in texels of.",
+            DefaultValueFactory = static _ => 1024
+        },
+        new Option<int>("--margin") {
+            Description = "How many texels of empty space each island keeps around it.",
+            DefaultValueFactory = static _ => 4
+        },
+        new Option<float>("--density") {
+            Description = "Texels per world unit to hold across every chart, or zero to fill the atlas.",
+            DefaultValueFactory = static _ => 0f
+        }
+    );
 
     /// <summary>An axis name as the plane through the origin it stands for.</summary>
     static Vixen.Core.Mathematics.Plane? Axis(string? name) =>
@@ -489,8 +513,12 @@ public static class VixenCommand {
     /// <summary>`vixen live` — doc 27 § Diagnostics, in a terminal, because 3 a.m.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b><c>up</c>, <c>down</c> and <c>upgrade --content</c> are missing rather than
-    ///         stubbed</b>, on the same rule the header states for <c>new</c>, <c>run</c> and
+    ///         ⚠
+    ///         <b>
+    ///             <c>up</c>, <c>down</c> and <c>upgrade --content</c> are missing rather than
+    ///             stubbed
+    ///         </b>
+    ///         , on the same rule the header states for <c>new</c>, <c>run</c> and
     ///         <c>build</c>. <c>up</c> and <c>down</c> stand a silo and a fleet up, which is a hosting
     ///         story doc 17 owns and which needs something to deploy; <c>upgrade --content</c> cannot
     ///         answer honestly until the content build records a shape per address, because
@@ -506,10 +534,16 @@ public static class VixenCommand {
     static Command Live(TextWriter? output, TextWriter? error) {
         var live = new Command("live", "Operate a running fleet: what it is doing, and what to do about it.");
 
-        var map = new Option<string>("--map") { Description = "The map address, e.g. maps/queensdale.", Required = true };
+        var map = new Option<string>("--map") {
+            Description = "The map address, e.g. maps/queensdale.", Required = true
+        };
         var region = new Option<string>("--region") { Description = "The latency zone.", Required = true };
-        var version = new Option<string?>("--version") { Description = "The build and content pair, e.g. 0.1.0+00000000c0ffee." };
-        var cluster = new Option<string?>("--cluster") { Description = "The Orleans cluster to reach. Default: localhost." };
+        var version = new Option<string?>("--version") {
+            Description = "The build and content pair, e.g. 0.1.0+00000000c0ffee."
+        };
+        var cluster = new Option<string?>("--cluster") {
+            Description = "The Orleans cluster to reach. Default: localhost."
+        };
 
         var status = new Command("status", "Every shard of a map: state, population, endpoint.");
 
@@ -518,25 +552,34 @@ public static class VixenCommand {
         status.Options.Add(version);
         status.Options.Add(cluster);
         status.SetAction((parsed, token) =>
-            LiveRunner.StatusAsync(Connect(parsed, cluster), KeyOf(parsed, map, region, version), output ?? Console.Out, token)
+            LiveRunner.StatusAsync(
+                Connect(parsed, cluster),
+                KeyOf(parsed, map, region, version),
+                output ?? Console.Out,
+                token
+            )
         );
 
         var shard = new Option<string>("--shard") { Description = "Which shard.", Required = true };
-        var why = new Option<string>("--reason") { Description = "Why, for the log and the fleet view.", DefaultValueFactory = _ => "asked by an operator" };
+        var why = new Option<string>("--reason") {
+            Description = "Why, for the log and the fleet view.",
+            DefaultValueFactory = static _ => "asked by an operator"
+        };
         var drain = new Command("drain", "Move a shard's players out. Nobody is disconnected.");
 
         drain.Options.Add(shard);
         drain.Options.Add(why);
         drain.Options.Add(cluster);
         drain.SetAction((parsed, token) => {
-            return LiveRunner.DrainAsync(
-                Connect(parsed, cluster),
-                ShardOf(parsed.GetValue(shard)),
-                parsed.GetValue(why) ?? "",
-                output ?? Console.Out,
-                token
-            );
-        });
+                return LiveRunner.DrainAsync(
+                    Connect(parsed, cluster),
+                    ShardOf(parsed.GetValue(shard)),
+                    parsed.GetValue(why) ?? string.Empty,
+                    output ?? Console.Out,
+                    token
+                );
+            }
+        );
 
         var player = new Option<string>("--player") { Description = "account/character.", Required = true };
         var explain = new Command("explain", "Why a player went where they went.");
@@ -547,29 +590,34 @@ public static class VixenCommand {
         explain.Options.Add(version);
         explain.Options.Add(cluster);
         explain.SetAction((parsed, token) => {
-            return LiveRunner.ExplainAsync(
-                Connect(parsed, cluster),
-                KeyOf(parsed, map, region, version),
-                PlayerOf(parsed.GetValue(player)),
-                output ?? Console.Out,
-                token
-            );
-        });
+                return LiveRunner.ExplainAsync(
+                    Connect(parsed, cluster),
+                    KeyOf(parsed, map, region, version),
+                    PlayerOf(parsed.GetValue(player)),
+                    output ?? Console.Out,
+                    token
+                );
+            }
+        );
 
-        var upgrade = new Command("upgrade", "Read a region's rollout target, or point it somewhere. Rolling back is the same command.");
+        var upgrade = new Command(
+            "upgrade",
+            "Read a region's rollout target, or point it somewhere. Rolling back is the same command."
+        );
 
         upgrade.Options.Add(region);
         upgrade.Options.Add(version);
         upgrade.Options.Add(cluster);
         upgrade.SetAction((parsed, token) => {
-            return LiveRunner.UpgradeAsync(
-                Connect(parsed, cluster),
-                parsed.GetRequiredValue(region),
-                VersionOf(parsed.GetValue(version)),
-                output ?? Console.Out,
-                token
-            );
-        });
+                return LiveRunner.UpgradeAsync(
+                    Connect(parsed, cluster),
+                    parsed.GetRequiredValue(region),
+                    VersionOf(parsed.GetValue(version)),
+                    output ?? Console.Out,
+                    token
+                );
+            }
+        );
 
         live.Subcommands.Add(status);
         live.Subcommands.Add(drain);
@@ -587,7 +635,7 @@ public static class VixenCommand {
     /// </remarks>
     internal static Func<string?, ILiveOperations>? LiveOperationsFactory { get; set; }
 
-    static ILiveOperations Connect(System.CommandLine.ParseResult parsed, Option<string?> cluster) =>
+    static ILiveOperations Connect(ParseResult parsed, Option<string?> cluster) =>
         LiveOperationsFactory is { } factory
             ? factory(parsed.GetValue(cluster))
             : throw new InvalidOperationException(
@@ -596,13 +644,12 @@ public static class VixenCommand {
             );
 
     static ShardKey KeyOf(
-        System.CommandLine.ParseResult parsed,
+        ParseResult parsed,
         Option<string> map,
         Option<string> region,
         Option<string?> version
-    ) {
-        return new(parsed.GetRequiredValue(map), parsed.GetRequiredValue(region), VersionOf(parsed.GetValue(version)));
-    }
+    ) =>
+        new(parsed.GetRequiredValue(map), parsed.GetRequiredValue(region), VersionOf(parsed.GetValue(version)));
 
     // ⚠ The failures are deliberately silent HERE and loud in LiveRunner. A shard id that will not
     // parse becomes ShardId.None, which the runner recognises and explains — one place that knows how
@@ -616,7 +663,8 @@ public static class VixenCommand {
 
     static Option<string?> ProjectOption() =>
         new("--project", "-p") {
-            Description = "The project directory. Default: the working directory or the nearest ancestor with an Assets/ folder."
+            Description =
+                "The project directory. Default: the working directory or the nearest ancestor with an Assets/ folder."
         };
 
     /// <summary>
@@ -626,13 +674,14 @@ public static class VixenCommand {
     static Option<DiagnosticFormat> FormatOption() =>
         new("--format") {
             Description = "How to write diagnostics: text for a person, msbuild for a build.",
-            DefaultValueFactory = _ => DiagnosticFormat.Text
+            DefaultValueFactory = static _ => DiagnosticFormat.Text
         };
 
     static Option<string> TargetOption() =>
         new("--target", "-t") {
-            Description = "Which build target — Windows, Linux, MacOS, Android, iOS, Web, optionally narrowed as Android/Vulkan.",
-            DefaultValueFactory = _ => Project.HostTarget
+            Description =
+                "Which build target — Windows, Linux, MacOS, Android, iOS, Web, optionally narrowed as Android/Vulkan.",
+            DefaultValueFactory = static _ => Project.HostTarget
         };
 
     /// <summary>
@@ -649,7 +698,7 @@ public static class VixenCommand {
                 "A built game assembly whose components this build should know about. Repeatable. "
                 + "Vixen.Sdk passes the project's own; a path that does not exist is skipped.",
             AllowMultipleArgumentsPerToken = false,
-            DefaultValueFactory = _ => []
+            DefaultValueFactory = static _ => []
         };
 
     static Command Import(TextWriter? output, TextWriter? error) {
@@ -657,7 +706,9 @@ public static class VixenCommand {
         var target = TargetOption();
         var format = FormatOption();
         var assemblies = AssemblyOption();
-        var verbose = new Option<bool>("--verbose", "-v") { Description = "Name every asset, not only the ones with something to say." };
+        var verbose = new Option<bool>("--verbose", "-v") {
+            Description = "Name every asset, not only the ones with something to say."
+        };
 
         // Off by default. It costs a process start and a copy of every artefact over a pipe, and
         // what it buys — surviving an importer that takes its process down rather than one that
@@ -778,7 +829,14 @@ public static class VixenCommand {
                         Path.GetFullPath(into),
                         parseResult.GetValue(addressNamespace) is { Length: > 0 } named
                             ? named
-                            : AddressConstants.Identifier(Path.GetFileName(opened.Paths.Root.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar))),
+                            : AddressConstants.Identifier(
+                                Path.GetFileName(
+                                    opened.Paths.Root.TrimEnd(
+                                        Path.DirectorySeparatorChar,
+                                        Path.AltDirectorySeparatorChar
+                                    )
+                                )
+                            ),
                         parseResult.GetValue(addressIds),
                         diagnostics
                     )) {
@@ -794,9 +852,7 @@ public static class VixenCommand {
 
     static Command Content(TextWriter? output, TextWriter? error) =>
         new("content", "Build and serve the project's addressable content.") {
-            ContentBuild(output, error),
-            ContentLoose(output, error),
-            ContentServe(output, error)
+            ContentBuild(output, error), ContentLoose(output, error), ContentServe(output, error)
         };
 
     /// <summary>
@@ -837,7 +893,7 @@ public static class VixenCommand {
 
                 if (!parseResult.GetValue(noImport)) {
                     var summary = await ImportRunner
-                        .RunAsync(opened, forTarget, diagnostics, false, isolated: false, cancellationToken)
+                        .RunAsync(opened, forTarget, diagnostics, false, false, cancellationToken)
                         .ConfigureAwait(false);
 
                     ImportRunner.Report(summary, diagnostics);
@@ -902,7 +958,7 @@ public static class VixenCommand {
         // an OpenGL backend.
         var shaderTarget = new Option<string>("--shader-target") {
             Description = "Which Raven backend to compile the shader bundle for: spirv or glsl.",
-            DefaultValueFactory = _ => ShaderBuildRunner.DefaultBackend
+            DefaultValueFactory = static _ => ShaderBuildRunner.DefaultBackend
         };
 
         // Doc 17's build variants, and the only one this step behaves differently for is Server.
@@ -967,7 +1023,14 @@ public static class VixenCommand {
                 // changed — and a build that packed a stale artefact because somebody forgot a step
                 // is a bug report about the wrong thing.
                 if (!parseResult.GetValue(noImport)) {
-                    var summary = await ImportRunner.RunAsync(opened, forTarget, diagnostics, false, isolated: false, cancellationToken)
+                    var summary = await ImportRunner.RunAsync(
+                            opened,
+                            forTarget,
+                            diagnostics,
+                            false,
+                            false,
+                            cancellationToken
+                        )
                         .ConfigureAwait(false);
 
                     ImportRunner.Report(summary, diagnostics);
@@ -998,14 +1061,14 @@ public static class VixenCommand {
                 // After the content, and into the same directory. A shipping build's only effect
                 // source is this file, so it belongs wherever the catalog it ships beside does.
                 return (int)(ShaderBuildRunner.Run(
-                        opened,
-                        parseResult.GetRequiredValue(shaderTarget),
-                        directory,
-                        diagnostics,
-                        forServer
-                    )
-                        ? ExitCode.Success
-                        : ExitCode.Failed);
+                    opened,
+                    parseResult.GetRequiredValue(shaderTarget),
+                    directory,
+                    diagnostics,
+                    forServer
+                )
+                    ? ExitCode.Success
+                    : ExitCode.Failed);
             }
         );
 
@@ -1032,13 +1095,18 @@ public static class VixenCommand {
             Description = "What to serve. Default: the project's build for the target."
         };
 
-        var port = new Option<int>("--port") { Description = "What to listen on.", DefaultValueFactory = _ => 8080 };
+        var port = new Option<int>("--port") {
+            Description = "What to listen on.", DefaultValueFactory = static _ => 8080
+        };
 
         var any = new Option<bool>("--any") {
             Description = "Bind every interface rather than localhost, which is what a phone on the same network needs."
         };
 
-        var command = new Command("serve", "Serve a content build over HTTP, so a device can be pointed at this machine.") {
+        var command = new Command(
+            "serve",
+            "Serve a content build over HTTP, so a device can be pointed at this machine."
+        ) {
             project,
             target,
             root,
@@ -1070,10 +1138,14 @@ public static class VixenCommand {
                 }
 
                 var files = new VirtualFileSystem();
-                files.Mount(new("/content"), new PhysicalFileProvider(directory, isReadOnly: true));
+                files.Mount(new("/content"), new PhysicalFileProvider(directory, true));
 
                 var server = new Vixen.ContentServer.ContentServer(files, new("/content"));
-                using var listener = new ContentServerHost(server, parseResult.GetValue(port), parseResult.GetValue(any) ? "+" : "localhost");
+                using var listener = new ContentServerHost(
+                    server,
+                    parseResult.GetValue(port),
+                    parseResult.GetValue(any) ? "+" : "localhost"
+                );
 
                 writer.WriteLine($"Serving {directory} at {listener.Prefix}");
                 writer.WriteLine("A development server: no TLS, no authentication. Ctrl-C to stop.");
@@ -1124,7 +1196,7 @@ public static class VixenCommand {
             )
         );
 
-        return new Command("frame", "Work with a project's frame document.") { explode };
+        return new("frame", "Work with a project's frame document.") { explode };
     }
 
     static Command Doctor(TextWriter? output, TextWriter? error) {
@@ -1132,10 +1204,7 @@ public static class VixenCommand {
         var target = TargetOption();
 
         var command = new Command("doctor", "Say what is wrong with the project, and change nothing.") {
-            project,
-            target,
-            DoctorSystems(output, error),
-            DoctorBehaviors(output, error)
+            project, target, DoctorSystems(output, error), DoctorBehaviors(output, error)
         };
 
         command.SetAction(parseResult => {
@@ -1217,7 +1286,7 @@ public static class VixenCommand {
                 "An authored .vxscene to count behaviour instances in. Repeatable. Without one this "
                 + "lists the behaviour types and counts nothing.",
             AllowMultipleArgumentsPerToken = false,
-            DefaultValueFactory = _ => []
+            DefaultValueFactory = static _ => []
         };
 
         var command = new Command(
@@ -1251,7 +1320,7 @@ public static class VixenCommand {
     static Option<string> VariantOption() =>
         new("--variant") {
             Description = "Which build variant — Debug, Development, Release or Server. See docs/plan/17.",
-            DefaultValueFactory = _ => "Release"
+            DefaultValueFactory = static _ => "Release"
         };
 
     /// <summary>
@@ -1267,12 +1336,13 @@ public static class VixenCommand {
         // which is how `dotnet new vixen-app` and `vixen new app` end up disagreeing about what
         // exists.
         var template = new Argument<string>("template") {
-            Description = "What to write: " + string.Join(", ", TemplateCatalog.All.Select(known => known.ShortName)) + "."
+            Description = "What to write: "
+                + string.Join(", ", TemplateCatalog.All.Select(static known => known.ShortName))
+                + "."
         };
 
         var name = new Argument<string?>("name") {
-            Description = "The project's name. Default: the output directory's name.",
-            Arity = ArgumentArity.ZeroOrOne
+            Description = "The project's name. Default: the output directory's name.", Arity = ArgumentArity.ZeroOrOne
         };
 
         var directory = new Option<string?>("--output", "-o") {
@@ -1323,7 +1393,12 @@ public static class VixenCommand {
         };
 
         var command = new Command("build", "Build the content and publish the application.") {
-            project, target, variant, format, into, noContent
+            project,
+            target,
+            variant,
+            format,
+            into,
+            noContent
         };
 
         command.SetAction(async (parseResult, cancellationToken) => {
@@ -1361,9 +1436,19 @@ public static class VixenCommand {
                 var chosenVariant = parseResult.GetRequiredValue(variant);
 
                 var code = await BuildAsync(
-                    opened, projectFile, forTarget, shape, chosenVariant, artefact,
-                    parseResult.GetValue(format), parseResult.GetValue(noContent), writer, complaints, cancellationToken
-                ).ConfigureAwait(false);
+                        opened,
+                        projectFile,
+                        forTarget,
+                        shape,
+                        chosenVariant,
+                        artefact,
+                        parseResult.GetValue(format),
+                        parseResult.GetValue(noContent),
+                        writer,
+                        complaints,
+                        cancellationToken
+                    )
+                    .ConfigureAwait(false);
 
                 if (code is ExitCode.Success) {
                     writer.WriteLine();
@@ -1388,18 +1473,18 @@ public static class VixenCommand {
     static Command Run(TextWriter? output, TextWriter? error) {
         var project = ProjectOption();
         var variant = new Option<string>("--variant") {
-            Description = "Which build variant. Default: Debug.",
-            DefaultValueFactory = _ => "Debug"
+            Description = "Which build variant. Default: Debug.", DefaultValueFactory = static _ => "Debug"
         };
 
         var format = FormatOption();
 
         var passthrough = new Argument<string[]>("arguments") {
-            Description = "Passed to the application. Put them after `--`.",
-            Arity = ArgumentArity.ZeroOrMore
+            Description = "Passed to the application. Put them after `--`.", Arity = ArgumentArity.ZeroOrMore
         };
 
-        var command = new Command("run", "Build for this machine and run it.") { project, variant, format, passthrough };
+        var command = new Command("run", "Build for this machine and run it.") {
+            project, variant, format, passthrough
+        };
 
         command.SetAction(async (parseResult, cancellationToken) => {
                 var writer = output ?? Console.Out;
@@ -1427,9 +1512,19 @@ public static class VixenCommand {
                 var chosenVariant = parseResult.GetRequiredValue(variant);
 
                 var code = await BuildAsync(
-                    opened, projectFile, forTarget, shape, chosenVariant, artefact,
-                    parseResult.GetValue(format), skipContent: false, writer, complaints, cancellationToken
-                ).ConfigureAwait(false);
+                        opened,
+                        projectFile,
+                        forTarget,
+                        shape,
+                        chosenVariant,
+                        artefact,
+                        parseResult.GetValue(format),
+                        false,
+                        writer,
+                        complaints,
+                        cancellationToken
+                    )
+                    .ConfigureAwait(false);
 
                 if (code is not ExitCode.Success) {
                     return (int)code;
@@ -1438,13 +1533,14 @@ public static class VixenCommand {
                 writer.WriteLine();
 
                 return await PlayerBuild.LaunchAsync(
-                    artefact,
-                    Path.GetFileNameWithoutExtension(projectFile),
-                    parseResult.GetValue(passthrough) ?? [],
-                    writer,
-                    capture: false,
-                    cancellationToken
-                ).ConfigureAwait(false);
+                        artefact,
+                        Path.GetFileNameWithoutExtension(projectFile),
+                        parseResult.GetValue(passthrough) ?? [],
+                        writer,
+                        false,
+                        cancellationToken
+                    )
+                    .ConfigureAwait(false);
             }
         );
 
@@ -1463,8 +1559,12 @@ public static class VixenCommand {
     ///         button — were both missing. This is the first of the two.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>It says Chrome <c>trace_event</c> JSON rather than Perfetto, because that is what
-    ///         is written</b> (issue 25). The document opens in the same viewer, and a verb that named
+    ///         ⚠
+    ///         <b>
+    ///             It says Chrome <c>trace_event</c> JSON rather than Perfetto, because that is what
+    ///             is written
+    ///         </b>
+    ///         (issue 25). The document opens in the same viewer, and a verb that named
     ///         a format it does not produce would send somebody looking for a protobuf parser.
     ///     </para>
     ///     <para>
@@ -1477,15 +1577,14 @@ public static class VixenCommand {
     static Command Trace(TextWriter? output, TextWriter? error) {
         var project = ProjectOption();
         var variant = new Option<string>("--variant") {
-            Description = "Which build variant. Default: Debug.",
-            DefaultValueFactory = _ => "Debug"
+            Description = "Which build variant. Default: Debug.", DefaultValueFactory = static _ => "Debug"
         };
 
         var format = FormatOption();
 
         var duration = new Option<string>("--duration") {
             Description = "How long to record: 10s, 500ms, 2m. Default: 10s.",
-            DefaultValueFactory = _ => DefaultTraceDuration
+            DefaultValueFactory = static _ => DefaultTraceDuration
         };
 
         var into = new Option<string?>("--output", "-o") {
@@ -1493,12 +1592,16 @@ public static class VixenCommand {
         };
 
         var passthrough = new Argument<string[]>("arguments") {
-            Description = "Passed to the application. Put them after `--`.",
-            Arity = ArgumentArity.ZeroOrMore
+            Description = "Passed to the application. Put them after `--`.", Arity = ArgumentArity.ZeroOrMore
         };
 
         var record = new Command("record", "Run the game for a while and write a Chrome trace_event document.") {
-            project, variant, format, duration, into, passthrough
+            project,
+            variant,
+            format,
+            duration,
+            into,
+            passthrough
         };
 
         record.SetAction(async (parseResult, cancellationToken) => {
@@ -1547,9 +1650,19 @@ public static class VixenCommand {
                 var artefact = Path.Combine(opened.Paths.Root, "Build", forTarget);
 
                 var code = await BuildAsync(
-                    opened, projectFile, forTarget, shape, parseResult.GetRequiredValue(variant), artefact,
-                    chosenFormat, skipContent: false, writer, complaints, cancellationToken
-                ).ConfigureAwait(false);
+                        opened,
+                        projectFile,
+                        forTarget,
+                        shape,
+                        parseResult.GetRequiredValue(variant),
+                        artefact,
+                        chosenFormat,
+                        false,
+                        writer,
+                        complaints,
+                        cancellationToken
+                    )
+                    .ConfigureAwait(false);
 
                 if (code is not ExitCode.Success) {
                     return (int)code;
@@ -1560,13 +1673,14 @@ public static class VixenCommand {
                 writer.WriteLine();
 
                 var exit = await PlayerBuild.LaunchAsync(
-                    artefact,
-                    name,
-                    TraceArguments(trace, window, parseResult.GetValue(passthrough) ?? []),
-                    writer,
-                    capture: false,
-                    cancellationToken
-                ).ConfigureAwait(false);
+                        artefact,
+                        name,
+                        TraceArguments(trace, window, parseResult.GetValue(passthrough) ?? []),
+                        writer,
+                        false,
+                        cancellationToken
+                    )
+                    .ConfigureAwait(false);
 
                 // ⚠ Asked rather than assumed. The trace is written when the loop shuts down, so a
                 // run that crashed or was killed leaves nothing — and the one thing this verb must
@@ -1592,7 +1706,7 @@ public static class VixenCommand {
             }
         );
 
-        return new Command("trace", "Record and export what the profiler saw.") { record };
+        return new("trace", "Record and export what the profiler saw.") { record };
     }
 
     /// <summary>What the child is told, so that the composition is testable without a build.</summary>
@@ -1616,7 +1730,7 @@ public static class VixenCommand {
             trace,
             "--vixen-run-for",
             duration.TotalSeconds.ToString("R", CultureInfo.InvariantCulture),
-            .. passthrough
+            ..passthrough
         ];
     }
 
@@ -1690,7 +1804,7 @@ public static class VixenCommand {
 
         if (!skipContent) {
             var summary = await ImportRunner
-                .RunAsync(opened, target, diagnostics, verbose: false, isolated: false, cancellationToken)
+                .RunAsync(opened, target, diagnostics, false, false, cancellationToken)
                 .ConfigureAwait(false);
 
             ImportRunner.Report(summary, diagnostics);
@@ -1734,7 +1848,7 @@ public static class VixenCommand {
         // in-place progress belong; a window with no console of its own is where they have to be
         // read back and written into a panel. Same call, one flag.
         var published = await PlayerBuild
-            .PublishAsync(projectFile, shape, variant, artefact, writer, capture: false, cancellationToken)
+            .PublishAsync(projectFile, shape, variant, artefact, writer, false, cancellationToken)
             .ConfigureAwait(false);
 
         return published ? ExitCode.Success : ExitCode.Failed;

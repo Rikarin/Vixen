@@ -1071,7 +1071,7 @@ public static class SemanticDiagnostics {
     public static readonly DiagnosticDescriptor StorageImageNeedsFormat = new(
         "RVN2123",
         "Storage image has no format",
-        "'{0}' needs a '[Format(\"…\")]': a storage image's texel format is part of its "
+        """'{0}' needs a '[Format("…")]': a storage image's texel format is part of its """
         + "declaration in both targets. One of: {1}",
         Declaration,
         DiagnosticSeverity.Error
@@ -1081,7 +1081,7 @@ public static class SemanticDiagnostics {
     public static readonly DiagnosticDescriptor StorageImageFormatMismatch = new(
         "RVN2124",
         "Storage image format does not match its element",
-        "'{0}' is declared '[Format(\"{1}\")]', which {2}",
+        """'{0}' is declared '[Format("{1}")]', which {2}""",
         Declaration,
         DiagnosticSeverity.Error
     );
@@ -1141,9 +1141,13 @@ public static class SemanticDiagnostics {
     ///         atomic on storage only one invocation can reach has nothing to be indivisible against.
     ///     </para>
     ///     <para>
-    ///         The second half is not pedantry: GLSL refuses it outright — <i>"only l-values
-    ///         corresponding to shader block storage or shared variables can be used with atomic
-    ///         memory functions"</i> — so allowing it here would be a shader that binds, verifies and
+    ///         The second half is not pedantry: GLSL refuses it outright —
+    ///         <i>
+    ///             "only l-values
+    ///             corresponding to shader block storage or shared variables can be used with atomic
+    ///             memory functions"
+    ///         </i>
+    ///         — so allowing it here would be a shader that binds, verifies and
     ///         then fails in one backend. Reported at the call for the same reason every other
     ///         two-backend rule is reported before them.
     ///     </para>
@@ -1332,8 +1336,12 @@ public static class SemanticDiagnostics {
     ///         answer stops existing.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>An error rather than a warning, and reported here rather than left to the
-    ///         backend.</b> SPIR-V has no call stack in its execution model and forbids recursion
+    ///         ⚠
+    ///         <b>
+    ///             An error rather than a warning, and reported here rather than left to the
+    ///             backend.
+    ///         </b>
+    ///         SPIR-V has no call stack in its execution model and forbids recursion
     ///         outright, so a cycle is not something that lowers badly — there is no program to emit.
     ///         Left alone, a recursive shader compiled with nothing to say and produced a module
     ///         <c>spirv-val</c> refuses with
@@ -1370,8 +1378,12 @@ public static class SemanticDiagnostics {
     ///         zero is not a size (<c>RVN2116</c>).
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The type it used to get instead was <c>?[0]</c>, and every position that could
-    ///         reject it did — except the one that does not look.</b> Assigning it reported
+    ///         ⚠
+    ///         <b>
+    ///             The type it used to get instead was <c>?[0]</c>, and every position that could
+    ///             reject it did — except the one that does not look.
+    ///         </b>
+    ///         Assigning it reported
     ///         <c>RVN2020</c> and declaring it reported <c>RVN2116</c>, so the only survivor was
     ///         <c>[]</c> as an expression statement, where nothing asks what it is: the binder said
     ///         nothing, the lowerer said <c>RVN3001</c>, and the SPIR-V backend — which the fuzz
@@ -1529,7 +1541,7 @@ public static class SemanticDiagnostics {
         "RVN2144",
         "Interpolation not available for this type",
         "'{0}' is of integer type '{1}', which has no interpolation to take — every fragment reads "
-        + "the provoking vertex's value. Write [Interpolation(\"flat\")] or nothing at all",
+        + """the provoking vertex's value. Write [Interpolation("flat")] or nothing at all""",
         Declaration,
         DiagnosticSeverity.Error
     );

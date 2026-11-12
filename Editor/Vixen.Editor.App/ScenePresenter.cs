@@ -45,8 +45,12 @@ namespace Vixen.Editor.App;
 ///         there is one of them.
 ///     </para>
 ///     <para>
-///         ⚠ <b>What is missing <em>here</em> is materials, not geometry — and the pane that wants
-///         them uses the other presenter.</b> There is one key direction, one ambient term and a
+///         ⚠
+///         <b>
+///             What is missing <em>here</em> is materials, not geometry — and the pane that wants
+///             them uses the other presenter.
+///         </b>
+///         There is one key direction, one ambient term and a
 ///         colour per instance in this path; a per-face material, a texture or the blockout checker
 ///         needs the viewport driven by <c>RenderSystem</c> through a <c>GraphicsCompositor</c>, and
 ///         that is <see cref="FramePresenter" /> over <c>EditorWorldRenderer</c>'s compositor, which
@@ -57,8 +61,12 @@ namespace Vixen.Editor.App;
 ///         stage it is waiting to leave.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The target is recreated when the viewport resizes, and the registration is redone
-///         with it.</b> A number registered against a destroyed view is a descriptor set pointing at
+///         ⚠
+///         <b>
+///             The target is recreated when the viewport resizes, and the registration is redone
+///             with it.
+///         </b>
+///         A number registered against a destroyed view is a descriptor set pointing at
 ///         freed memory, and the frame that draws it is undefined behaviour rather than an error —
 ///         see <c>UiRenderer.RegisterImage</c>. Unregistering first is what keeps that impossible.
 ///     </para>
@@ -134,8 +142,12 @@ sealed class ScenePresenter : IDisposable {
 
     /// <summary>One renderer per terrain the pane has drawn, kept across frames.</summary>
     /// <remarks>
-    ///     ⚠ <b>Per terrain rather than per pane-frame, because a <c>TerrainRenderer</c> owns an
-    ///     atlas.</b> Building one per frame would upload the whole heightfield every frame and
+    ///     ⚠
+    ///     <b>
+    ///         Per terrain rather than per pane-frame, because a <c>TerrainRenderer</c> owns an
+    ///         atlas.
+    ///     </b>
+    ///     Building one per frame would upload the whole heightfield every frame and
     ///     allocate a texture per frame to do it — and keying it by the terrain object rather than by
     ///     the entity is what makes two entities placing one heightfield share the upload.
     /// </remarks>
@@ -248,16 +260,19 @@ sealed class ScenePresenter : IDisposable {
     ///     do is draw what it is handed.
     /// </remarks>
     /// <remarks>
-    ///     ⚠ <b>Set by hand, or the last one contributed to <see cref="Extensions" /> — asked every
-    ///     time, never copied.</b> The host used to copy the contribution onto the pane when it made
+    ///     ⚠
+    ///     <b>
+    ///         Set by hand, or the last one contributed to <see cref="Extensions" /> — asked every
+    ///         time, never copied.
+    ///     </b>
+    ///     The host used to copy the contribution onto the pane when it made
     ///     the pane, so a pane went on drawing an unloaded module's terrain and holding the module.
     /// </remarks>
     public ITerrainScene? TerrainScene {
-        get => terrainScene ?? Latest<ITerrainScene>();
-        set => terrainScene = value;
+        get => field ?? Latest<ITerrainScene>();
+        set => field = value;
     }
 
-    ITerrainScene? terrainScene;
 
     /// <summary>Where the painted foliage comes from, or null while nothing supplies it.</summary>
     /// <remarks>
@@ -267,11 +282,10 @@ sealed class ScenePresenter : IDisposable {
     /// </remarks>
     /// <remarks><see cref="TerrainScene" />'s arrangement: set by hand, or the registry's last.</remarks>
     public IVegetationScene? VegetationScene {
-        get => vegetationScene ?? Latest<IVegetationScene>();
-        set => vegetationScene = value;
+        get => field ?? Latest<IVegetationScene>();
+        set => field = value;
     }
 
-    IVegetationScene? vegetationScene;
 
     /// <summary>The last contribution of a kind, which is the ordinary override rule.</summary>
     T? Latest<T>() where T : class => Extensions?.All<T>() is [.., var last] ? last : null;
@@ -405,7 +419,7 @@ sealed class ScenePresenter : IDisposable {
 
         // ⚠ Before the shapes, and outside the render pass like everything else here: a terrain's
         // upload is a buffer write and a texture copy, and Vulkan refuses a transfer inside a pass.
-        var ratio = size.Y <= 0 ? 1f : (float) size.X / size.Y;
+        var ratio = size.Y <= 0 ? 1f : (float)size.X / size.Y;
 
         UploadTerrain(commands, viewport.Camera, ratio);
 
@@ -465,22 +479,30 @@ sealed class ScenePresenter : IDisposable {
         // readout that ignored it would say "0 tris" over a lake. `MeshRenderer.Dropped` is what says
         // the ring overflowed; this is what says how much it was asked for.
         stats.Triangles = meshes.Triangles + water.Triangles;
-        stats.Segments = ((geometry.World.Count + geometry.Overlay.Count) / 2) + meshes.Segments;
+        stats.Segments = (geometry.World.Count + geometry.Overlay.Count) / 2 + meshes.Segments;
     }
 
     /// <summary>Chooses this frame's terrain patches and stages what the device needs.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The placement rides the view matrix rather than a per-terrain world transform,
-    ///         because the shader has no field for one.</b> <c>TerrainConstants</c> carries the sample
+    ///         ⚠
+    ///         <b>
+    ///             The placement rides the view matrix rather than a per-terrain world transform,
+    ///             because the shader has no field for one.
+    ///         </b>
+    ///         <c>TerrainConstants</c> carries the sample
     ///         grid and the height range and nothing about where the terrain is; a terrain's samples
     ///         <em>are</em> its space — <c>TerrainComponent</c>'s own constraint. Pre-multiplying the
     ///         camera's matrix by the entity's translation puts it where the entity is without giving
     ///         the shader a concept it deliberately does not have.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The frustum is built from the <em>combined</em> matrix, so culling happens in the
-    ///         terrain's own space.</b> Selecting against the camera's world frustum while the patches
+    ///         ⚠
+    ///         <b>
+    ///             The frustum is built from the <em>combined</em> matrix, so culling happens in the
+    ///             terrain's own space.
+    ///         </b>
+    ///         Selecting against the camera's world frustum while the patches
     ///         are placed in sample space would cull the wrong nodes for any terrain not at the
     ///         origin — visible as ground that disappears when you look at it from one side.
     ///     </para>
@@ -653,8 +675,12 @@ sealed class ScenePresenter : IDisposable {
 
     /// <summary>How many shapes the last frame could not find staging room for.</summary>
     /// <remarks>
-    ///     ⚠ <b>A number that stays up is a scene whose geometry is bigger than one staging region and
-    ///     is not converging</b> — which would otherwise look like a viewport that draws most of a
+    ///     ⚠
+    ///     <b>
+    ///         A number that stays up is a scene whose geometry is bigger than one staging region and
+    ///         is not converging
+    ///     </b>
+    ///     — which would otherwise look like a viewport that draws most of a
     ///     level. It falls to zero on the frame after a reservation has taken effect.
     /// </remarks>
     public int Deferred { get; private set; }
@@ -683,8 +709,12 @@ sealed class ScenePresenter : IDisposable {
     /// <summary>Gives back the space an edited mesh's previous revision was registered under.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Deferred by the ring's depth rather than freed on the spot, and this is the one
-    ///         place a <c>WaitIdle</c> would be wrong.</b> Freeing a slice hands its bytes to the next
+    ///         ⚠
+    ///         <b>
+    ///             Deferred by the ring's depth rather than freed on the spot, and this is the one
+    ///             place a <c>WaitIdle</c> would be wrong.
+    ///         </b>
+    ///         Freeing a slice hands its bytes to the next
     ///         registration — see <see cref="Resolve" />'s own note — and an edited mesh is registered
     ///         again on every frame of a drag. Idling the device per frame of a drag is precisely the
     ///         four-frames-a-second tool <c>docs/plan/24-blockout-tools.md</c> § B1 called a blocker;
@@ -761,7 +791,7 @@ sealed class ScenePresenter : IDisposable {
             ResourceState.DepthStencilWrite
         );
 
-        var aspect = size.Y <= 0 ? 1f : (float) size.X / size.Y;
+        var aspect = size.Y <= 0 ? 1f : (float)size.X / size.Y;
         var camera = viewport.Camera;
         var viewProjection = camera.ViewProjection(aspect);
 
@@ -780,52 +810,53 @@ sealed class ScenePresenter : IDisposable {
         graph.AddPass(
             "scene",
             pass => {
-                pass.ColourAttachment(target, LoadAction.Clear, new Color4(0.10f, 0.11f, 0.13f, 1f));
+                pass.ColourAttachment(target, LoadAction.Clear, new(0.10f, 0.11f, 0.13f, 1f));
 
                 // Zero is *far* under the engine's reversed-Z convention, which the mesh and line
                 // pipelines' GREATER comparison agrees with.
-                pass.DepthAttachment(depthTarget, LoadAction.Clear, 0f);
+                pass.DepthAttachment(depthTarget);
                 pass.SideEffect();
 
                 pass.Execute(context => {
-                    // ⚠ The terrain before the shapes, and it writes depth like them. It is the
-                    // ground everything else stands on, so a marker or a grid line below it has to be
-                    // hidden by it — which only happens if it is in the buffer before they are tested.
-                    var ground = RecordTerrain(context.CommandList);
+                        // ⚠ The terrain before the shapes, and it writes depth like them. It is the
+                        // ground everything else stands on, so a marker or a grid line below it has to be
+                        // hidden by it — which only happens if it is in the buffer before they are tested.
+                        var ground = RecordTerrain(context.CommandList);
 
-                    // ⚠ The vegetation right after the ground and before everything else, because it
-                    // is the other depth-writing geometry here: a marker behind a tree has to lose
-                    // the depth test to it, and the grass draws read arguments a compute pass wrote
-                    // during the upload — which is the ordering the dispatch's own barriers close.
-                    ground += vegetation.Record(context.CommandList);
+                        // ⚠ The vegetation right after the ground and before everything else, because it
+                        // is the other depth-writing geometry here: a marker behind a tree has to lose
+                        // the depth test to it, and the grass draws read arguments a compute pass wrote
+                        // during the upload — which is the ordering the dispatch's own barriers close.
+                        ground += vegetation.Record(context.CommandList);
 
-                    // ⚠ The shapes next, because they are the only other thing here that writes depth
-                    // — the two line pipelines test it and neither fills it. Drawn after the grid they
-                    // would be correct and pointless; drawn after nothing they are what the grid and
-                    // the markers are then tested against.
-                    meshes.Record(context.CommandList, view);
+                        // ⚠ The shapes next, because they are the only other thing here that writes depth
+                        // — the two line pipelines test it and neither fills it. Drawn after the grid they
+                        // would be correct and pointless; drawn after nothing they are what the grid and
+                        // the markers are then tested against.
+                        meshes.Record(context.CommandList, view);
 
-                    // ⚠ The water after every opaque thing and before the lines, and both halves
-                    // matter. It blends premultiplied, so whatever it covers has to be in the target
-                    // already — a lake recorded before the ground would be composited against the
-                    // clear colour and read as a flat blue card. And it writes depth, so the grid
-                    // and the markers under it are hidden by it, which is what makes a submerged
-                    // object read as submerged rather than as floating over the water.
-                    var wet = water.Record(context.CommandList, viewProjection);
+                        // ⚠ The water after every opaque thing and before the lines, and both halves
+                        // matter. It blends premultiplied, so whatever it covers has to be in the target
+                        // already — a lake recorded before the ground would be composited against the
+                        // clear colour and read as a flat blue card. And it writes depth, so the grid
+                        // and the markers under it are hidden by it, which is what makes a submerged
+                        // object read as submerged rather than as floating over the water.
+                        var wet = water.Record(context.CommandList, viewProjection);
 
-                    lines.Record(context.CommandList, viewProjection);
+                        lines.Record(context.CommandList, viewProjection);
 
-                    // Last, and with the depth test off. See the fields' own remarks. The solid
-                    // parts go after the shafts so that an opaque cone covers the end of the line
-                    // running into it rather than being drawn over by it, and so that the ball in
-                    // the middle covers the inner end of all three — the arms are built from the
-                    // origin outwards and it is what hides that.
-                    overlay.Record(context.CommandList, viewProjection, depthTested: false);
-                    handles.Record(context.CommandList, viewProjection, depthTested: false);
+                        // Last, and with the depth test off. See the fields' own remarks. The solid
+                        // parts go after the shafts so that an opaque cone covers the end of the line
+                        // running into it rather than being drawn over by it, and so that the ball in
+                        // the middle covers the inner end of all three — the arms are built from the
+                        // origin outwards and it is what hides that.
+                        overlay.Record(context.CommandList, viewProjection, false);
+                        handles.Record(context.CommandList, viewProjection, false);
 
-                    viewport.Stats.Draws =
-                        ground + wet + meshes.Draws + lines.Draws + overlay.Draws + handles.Draws;
-                });
+                        viewport.Stats.Draws =
+                            ground + wet + meshes.Draws + lines.Draws + overlay.Draws + handles.Draws;
+                    }
+                );
             }
         );
 

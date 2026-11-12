@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Reflection;
-using Vixen.Ui.Layout;
 using Vixen.Ui.Text;
 using Xunit;
 
@@ -14,8 +13,12 @@ namespace Vixen.Ui.Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>The arithmetic is <c>InlineStrutTests</c>'s in the layout store; what is under test
-///         here is that anything <i>writes</i> the numbers.</b> This repository's commonest defect is
+///         ⚠
+///         <b>
+///             The arithmetic is <c>InlineStrutTests</c>'s in the layout store; what is under test
+///             here is that anything <i>writes</i> the numbers.
+///         </b>
+///         This repository's commonest defect is
 ///         a finished thing nothing calls, and a strut is exactly that shape: the store would go on
 ///         laying every line out as tall as the boxes on it, silently and correctly, for ever — every
 ///         layout test green — if <c>UiDocument.ApplyStyle</c> never called
@@ -42,13 +45,13 @@ public class InlineStrutWiringTests {
     /// </remarks>
     [Fact]
     public void A_registered_font_gives_the_container_a_strut() {
-        using var withFont = Documented(registerFont: true);
+        using var withFont = Documented(true);
         var lined = Box(withFont);
 
         Assert.Equal(30f, lined.Parent!.Height, Tolerance);
         Assert.True(lined.Top > 0f, $"the box should hang from the strut's baseline, and sits at {lined.Top}");
 
-        using var without = Documented(registerFont: false);
+        using var without = Documented(false);
         var unlined = Box(without);
 
         // ⚠ The control, and it is the assertion that would catch this feature being deleted: with no
@@ -59,8 +62,12 @@ public class InlineStrutWiringTests {
 
     /// <summary><c>vertical-align: middle</c> reaches the layout store from a stylesheet.</summary>
     /// <remarks>
-    ///     ⚠ <b>This is the value that was dropped at the bridge for the whole life of the
-    ///     property</b>, so the assertion that matters is that it now <i>differs</i> from
+    ///     ⚠
+    ///     <b>
+    ///         This is the value that was dropped at the bridge for the whole life of the
+    ///         property
+    ///     </b>
+    ///     , so the assertion that matters is that it now <i>differs</i> from
     ///     <c>baseline</c> — which is what a silent fallback looked like and what
     ///     <c>A_font_relative_vertical_align_falls_back_to_the_baseline_with_no_strut</c> still pins
     ///     for a document with no font. The exact offset is half the face's x-height and belongs to
@@ -68,8 +75,8 @@ public class InlineStrutWiringTests {
     /// </remarks>
     [Fact]
     public void Vertical_align_middle_reaches_the_store_and_moves_the_box() {
-        using var middle = Documented(registerFont: true, extra: "vertical-align: middle;");
-        using var baseline = Documented(registerFont: true);
+        using var middle = Documented(true, "vertical-align: middle;");
+        using var baseline = Documented(true);
 
         Assert.NotEqual(Box(baseline).Top, Box(middle).Top);
     }
@@ -86,7 +93,7 @@ public class InlineStrutWiringTests {
     /// </remarks>
     [Fact]
     public void A_font_registered_after_the_first_layout_reaches_the_strut() {
-        using var document = Documented(registerFont: false);
+        using var document = Documented(false);
 
         Assert.Equal(10f, Box(document).Parent!.Height, Tolerance);
 
@@ -108,7 +115,7 @@ public class InlineStrutWiringTests {
     [Fact]
     public void A_spans_own_line_height_grows_its_line() {
         using var tall = Wrapped("line-height: 60px;");
-        using var same = Wrapped("");
+        using var same = Wrapped(string.Empty);
 
         Assert.Equal(60f, tall.Root.Children[0].Height, Tolerance);
         Assert.Equal(30f, same.Root.Children[0].Height, Tolerance);
@@ -159,7 +166,7 @@ public class InlineStrutWiringTests {
 
     static FontFace LoadFont(string resource, string name) {
         using var stream = Assembly.GetExecutingAssembly()
-            .GetManifestResourceStream($"Vixen.Ui.Tests.Fonts.{resource}")
+                .GetManifestResourceStream($"Vixen.Ui.Tests.Fonts.{resource}")
             ?? throw new InvalidOperationException($"the test font '{resource}' is not embedded");
 
         using var memory = new MemoryStream();

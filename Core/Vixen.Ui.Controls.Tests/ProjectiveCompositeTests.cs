@@ -4,7 +4,6 @@
 using Vixen.Core.Mathematics;
 using Vixen.Ui.Rendering;
 using Vixen.Ui.Testing.Visual;
-using Vixen.Ui.Text.Rasterizing;
 using Xunit;
 
 namespace Vixen.Ui.Controls.Tests;
@@ -23,8 +22,12 @@ namespace Vixen.Ui.Controls.Tests;
 ///         right picture.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Every assertion is a pixel chosen to fail for the linear interpolation this
-///         replaces, and a second one chosen to fail the other way.</b> The image of a square's
+///         ⚠
+///         <b>
+///             Every assertion is a pixel chosen to fail for the linear interpolation this
+///             replaces, and a second one chosen to fail the other way.
+///         </b>
+///         The image of a square's
 ///         centre under a homography is the intersection of its image diagonals, which is on the
 ///         diagonal the two triangles share at a screen parameter that is <i>not</i> a half; an
 ///         interpolator that ignores <c>w</c> samples the texel at that parameter's linear position
@@ -34,8 +37,12 @@ namespace Vixen.Ui.Controls.Tests;
 ///         for ink at one and none at the other.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The software rasteriser and not the device, and <c>UiCompositingTests</c> is what
-///         stops that being a hole</b> — the same split <c>TransformPaintTests</c> makes. What the
+///         ⚠
+///         <b>
+///             The software rasteriser and not the device, and <c>UiCompositingTests</c> is what
+///             stops that being a hole
+///         </b>
+///         — the same split <c>TransformPaintTests</c> makes. What the
 ///         right picture <i>is</i> can be asserted against arithmetic and needs no GPU; that the
 ///         hardware draws the same one is a different claim and lives over there.
 ///     </para>
@@ -96,7 +103,10 @@ public class ProjectiveCompositeTests {
 
         // The perspective: the marker is at the centre's image, and NOT where a linear interpolation
         // of the texture coordinate would have put it.
-        Assert.True(IsMarker(seen, 100, 100), "the marker is not at the image of the centre, so the texel there is the wrong one.");
+        Assert.True(
+            IsMarker(seen, 100, 100),
+            "the marker is not at the image of the centre, so the texel there is the wrong one."
+        );
         Assert.False(IsMarker(seen, 84, 84), "the marker is where a linear interpolation would put it.");
     }
 
@@ -134,10 +144,16 @@ public class ProjectiveCompositeTests {
         uint[] indices = [0, 1, 2];
 
         var geometry = new UiGeometry(vertices, indices, [new UiDraw(BatchKind.PathFill, 0, 3, 0, Viewport)], []);
-        var pixels = SoftwareUiRasterizer.RenderLinear(geometry, new GlyphAtlas(64, 64), Side, Side, Color4.Transparent);
+        var pixels = SoftwareUiRasterizer.RenderLinear(geometry, new(64, 64), Side, Side, Color4.Transparent);
 
-        Assert.True(Alpha(pixels, 110, 5) > 0.99f, "the visible part of the triangle, above the edge A–B, was not drawn.");
-        Assert.True(Alpha(pixels, 110, 150) < 0.01f, "the reflected triangle was drawn, which is the naive rasteriser's picture.");
+        Assert.True(
+            Alpha(pixels, 110, 5) > 0.99f,
+            "the visible part of the triangle, above the edge A–B, was not drawn."
+        );
+        Assert.True(
+            Alpha(pixels, 110, 150) < 0.01f,
+            "the reflected triangle was drawn, which is the naive rasteriser's picture."
+        );
 
         // And the whole of the in-front edge is inked, with nothing below it: the cut is against the
         // eye plane and not against something that happens to pass through A and B.
@@ -152,27 +168,27 @@ public class ProjectiveCompositeTests {
         list.BeginFrame();
 
         list.Add(
-            new DrawCommand(DrawCommandKind.LayerPush, Box.X, Box.Y, Box.Width, Box.Height, Color4.White, 0f, 0f) {
+            new(DrawCommandKind.LayerPush, Box.X, Box.Y, Box.Width, Box.Height, Color4.White, 0f, 0f) {
                 Transform = placed
             }
         );
 
-        list.Add(new DrawCommand(DrawCommandKind.Rectangle, Box.X, Box.Y, Box.Width, Box.Height, Field, 0f, 0f));
-        list.Add(new DrawCommand(DrawCommandKind.Rectangle, Centre.X - 3f, Centre.Y - 3f, 6f, 6f, Color4.White, 0f, 0f));
-        list.Add(new DrawCommand(DrawCommandKind.LayerPop, 0f, 0f, 0f, 0f, Color4.White, 0f, 0f));
+        list.Add(new(DrawCommandKind.Rectangle, Box.X, Box.Y, Box.Width, Box.Height, Field, 0f, 0f));
+        list.Add(new(DrawCommandKind.Rectangle, Centre.X - 3f, Centre.Y - 3f, 6f, 6f, Color4.White, 0f, 0f));
+        list.Add(new(DrawCommandKind.LayerPop, 0f, 0f, 0f, 0f, Color4.White, 0f, 0f));
         list.EndFrame();
 
-        var geometry = new UiGeometryBuilder().Build(list, new GlyphFieldCache(new GlyphAtlas(256, 256)), Viewport);
+        var geometry = new UiGeometryBuilder().Build(list, new(new(256, 256)), Viewport);
 
         // The instrument: a group was opened for the transform, so what is drawn below is its surface
         // composited through the quad and not the rectangles drawn directly.
         Assert.Single(geometry.Layers);
 
-        return SoftwareUiRasterizer.RenderLinear(geometry, new GlyphAtlas(64, 64), Side, Side, new Color4(0f, 0f, 0f, 1f));
+        return SoftwareUiRasterizer.RenderLinear(geometry, new(64, 64), Side, Side, new(0f, 0f, 0f, 1f));
     }
 
     /// <summary>Whether the pixel is the marker's white rather than the field's grey.</summary>
-    static bool IsMarker(float[] pixels, int x, int y) => pixels[((y * Side) + x) * 4] > 0.6f;
+    static bool IsMarker(float[] pixels, int x, int y) => pixels[(y * Side + x) * 4] > 0.6f;
 
-    static float Alpha(float[] pixels, int x, int y) => pixels[(((y * Side) + x) * 4) + 3];
+    static float Alpha(float[] pixels, int x, int y) => pixels[(y * Side + x) * 4 + 3];
 }

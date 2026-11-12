@@ -108,12 +108,13 @@ public readonly record struct GizmoDrag(
     ///     the uniform scale handle, so a drag of it in <see cref="GizmoMode.Transform" /> is a scale
     ///     and the history has to say so.
     /// </remarks>
-    public string Verb => Mode switch {
-        GizmoMode.Rotate => "Rotate",
-        GizmoMode.Scale => "Scale",
-        GizmoMode.Transform when Handle == GizmoHandle.Uniform => "Scale",
-        _ => "Move"
-    };
+    public string Verb =>
+        Mode switch {
+            GizmoMode.Rotate => "Rotate",
+            GizmoMode.Scale => "Scale",
+            GizmoMode.Transform when Handle == GizmoHandle.Uniform => "Scale",
+            _ => "Move"
+        };
 }
 
 /// <summary>What a finished drag turned into: the entry that undoes it, and the history it belongs on.</summary>
@@ -136,8 +137,12 @@ public readonly record struct GizmoEdit(IEditorCommand Command, CommandStack? St
 ///         pixels move it the right distance" a unit test rather than a screenshot somebody looks at.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Whoever supplies the targets owns the undo entry, and <see cref="Record" /> is where
-///         that is written down.</b> It used to be a hook on the viewport plus a type test beside it,
+///         ⚠
+///         <b>
+///             Whoever supplies the targets owns the undo entry, and <see cref="Record" /> is where
+///             that is written down.
+///         </b>
+///         It used to be a hook on the viewport plus a type test beside it,
 ///         which meant the viewport held a list of the exceptions to its own rule and a third kind of
 ///         target was a third exception. A target knows what document it came out of and what its
 ///         edit is called; nothing else does.

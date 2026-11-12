@@ -8,8 +8,11 @@ namespace Vixen.TextureGraph.Nodes;
 /// <summary>Where a height field shadows itself under one light.</summary>
 /// <remarks>
 ///     <para>
-///         <b>One where lit, nought where something between the texel and the light stands above the
-///         ray to it</b> — Patina #176. A march toward the light keeps the steepest rise, so a wall of
+///         <b>
+///             One where lit, nought where something between the texel and the light stands above the
+///             ray to it
+///         </b>
+///         — Patina #176. A march toward the light keeps the steepest rise, so a wall of
 ///         height <c>h</c> casts a shadow <c>h · Height Scale · width / tan(Elevation)</c> texels long on
 ///         flat ground. <c>Height Scale</c> is <c>Ambient Occlusion</c>'s, so the two agree about how
 ///         tall a height of one is.
@@ -79,8 +82,11 @@ sealed partial class HeightShadowNode : TextureNode {
 /// <summary>A height field pushed out along one direction, every raised shape trailing a side.</summary>
 /// <remarks>
 ///     <para>
-///         <b>Each texel takes the highest of the heights behind it along <c>Angle</c>, up to <c>Length</c> away,
-///         each lowered by how far back it is</b> (Patina #168's height extrude). At a <c>Falloff</c> of nought a
+///         <b>
+///             Each texel takes the highest of the heights behind it along <c>Angle</c>, up to <c>Length</c> away,
+///             each lowered by how far back it is
+///         </b>
+///         (Patina #168's height extrude). At a <c>Falloff</c> of nought a
 ///         shape is drawn out at its full height, a block's side seen at an angle; at one its side ramps down to
 ///         nought at the full length, a slope. Nothing ends lower than it was.
 ///     </para>
@@ -89,7 +95,11 @@ sealed partial class HeightShadowNode : TextureNode {
 ///         longer than 512 texels strides further than one. It wraps on a graph that tiles.
 ///     </para>
 /// </remarks>
-[Node("Surface/Height Extrude", Preview = true, Summary = "Pushes a height field's shapes out along one direction, each trailing a side.")]
+[Node(
+    "Surface/Height Extrude",
+    Preview = true,
+    Summary = "Pushes a height field's shapes out along one direction, each trailing a side."
+)]
 sealed partial class HeightExtrudeNode : TextureNode {
     /// <summary>The height field. A single channel.</summary>
     [Input(Name = "Height")]
@@ -192,6 +202,8 @@ sealed partial class NormalBlendNode : TextureNode {
             return;
         }
 
-        emitter.Dispatch(TextureRelief.NormalBlend(target, background, foreground, mask, emitter.Number(nameof(Opacity))));
+        emitter.Dispatch(
+            TextureRelief.NormalBlend(target, background, foreground, mask, emitter.Number(nameof(Opacity)))
+        );
     }
 }

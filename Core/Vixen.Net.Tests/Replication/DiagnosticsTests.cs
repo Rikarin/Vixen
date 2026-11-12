@@ -70,7 +70,7 @@ public sealed class DiagnosticsTests : IDisposable {
         // it, and what is left over is the padding to a whole byte. Stated exactly rather than as a
         // tolerance, because a breakdown that does not add up is one where the missing bits are the
         // ones being looked for.
-        var unaccounted = sent - ledger.TotalBits - (snapshots * PerSnapshot);
+        var unaccounted = sent - ledger.TotalBits - snapshots * PerSnapshot;
 
         Assert.InRange(unaccounted, 0, snapshots * 7);
     }

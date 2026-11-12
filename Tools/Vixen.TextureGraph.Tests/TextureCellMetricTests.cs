@@ -4,7 +4,6 @@
 using System.Globalization;
 using System.Text.RegularExpressions;
 using Vixen.Core.Imaging;
-using Vixen.Graphics;
 using Vixen.Graphics.Vulkan;
 using Vixen.TextureGraph;
 using Xunit;
@@ -23,13 +22,21 @@ namespace Tests;
 ///         square cells and diamond cells are most of what a cellular pattern library is for.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The device assertion is a per-texel inequality, and it is the one thing a picture of
-///         cells can be checked against without a golden.</b> Chebyshev ≤ euclidean ≤ manhattan holds
+///         ⚠
+///         <b>
+///             The device assertion is a per-texel inequality, and it is the one thing a picture of
+///             cells can be checked against without a golden.
+///         </b>
+///         Chebyshev ≤ euclidean ≤ manhattan holds
 ///         for <em>every</em> displacement by the definition of the three metrics; it survives taking
 ///         a minimum over the nine candidates (the k-th smallest of a pointwise-smaller sequence is
 ///         smaller), and it survives the <c>saturate</c>, so it holds channel by channel over the
-///         whole image on both F1 and F2. ⚠ <b>What it needs is that the normalisation is divided
-///         back out first</b>, since the three scales differ on purpose — which is exactly the thing
+///         whole image on both F1 and F2. ⚠
+///         <b>
+///             What it needs is that the normalisation is divided
+///             back out first
+///         </b>
+///         , since the three scales differ on purpose — which is exactly the thing
 ///         a test comparing the three pictures naively would get wrong and call a bug.
 ///     </para>
 ///     <para>
@@ -67,9 +74,9 @@ public class TextureCellMetricTests(ITestOutputHelper output) {
         Assert.True(close > open, "`Normalisation`'s body has no closing brace at this file's indentation");
 
         float[] returned = [
-            .. Returned
+            ..Returned
                 .Matches(source[open..close])
-                .Select(match => float.Parse(match.Groups[1].Value, CultureInfo.InvariantCulture))
+                .Select(static match => float.Parse(match.Groups[1].Value, CultureInfo.InvariantCulture))
         ];
 
         // The instrument. A body that parsed to nothing would make every comparison below a claim
@@ -83,8 +90,12 @@ public class TextureCellMetricTests(ITestOutputHelper output) {
     /// <summary>Each metric's normalisation is its own bound's share of euclidean's.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The claim the kernel makes is that these three are <em>derived</em>, and this is
-    ///         what makes that checkable.</b> A candidate's offset has each component strictly inside
+    ///         ⚠
+    ///         <b>
+    ///             The claim the kernel makes is that these three are <em>derived</em>, and this is
+    ///             what makes that checkable.
+    ///         </b>
+    ///         A candidate's offset has each component strictly inside
     ///         ±2 cells over a 3×3 search, so the bound is 2√2 under euclidean, 2 under chebyshev and
     ///         4 under manhattan. Euclidean has always reported in units of two cells — a half — so
     ///         each of the other two is that half times the ratio of the bounds, which is what keeps
@@ -121,8 +132,12 @@ public class TextureCellMetricTests(ITestOutputHelper output) {
     /// <summary>The raw distance a cell reports rises with the metric, at every texel.</summary>
     /// <param name="channel">0 for F1, 1 for F2.</param>
     /// <remarks>
-    ///     ⚠ <b>Both channels, because they answer different questions and only one of them is what a
-    ///     border is made of.</b> <c>Patterns/Cells</c> computes its joint as F2 − F1, so a metric
+    ///     ⚠
+    ///     <b>
+    ///         Both channels, because they answer different questions and only one of them is what a
+    ///         border is made of.
+    ///     </b>
+    ///     <c>Patterns/Cells</c> computes its joint as F2 − F1, so a metric
     ///     that changed F1 and left F2 alone would draw a plausible pattern of the wrong shape.
     /// </remarks>
     [Theory]

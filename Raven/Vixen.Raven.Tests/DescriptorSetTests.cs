@@ -3,7 +3,6 @@
 
 using Vixen.Core.Syntax.Diagnostics;
 using Vixen.Raven;
-using Vixen.Raven.Diagnostics;
 using Vixen.Raven.IR;
 using Vixen.Raven.Lowering;
 using Vixen.Raven.Reflection;
@@ -54,7 +53,7 @@ public class DescriptorSetTests {
         var bag = new DiagnosticBag();
         var module = Lowerer.Lower(compilation, bag);
         IrVerifier.Verify(module, bag);
-        Assert.DoesNotContain(bag.ToArray(), d => d.IsError);
+        Assert.DoesNotContain(bag.ToArray(), static d => d.IsError);
 
         return FindShader(module, name);
     }
@@ -68,21 +67,23 @@ public class DescriptorSetTests {
     /// </summary>
     [Fact]
     public void An_unmarked_binding_is_per_material() {
-        var plan = BindingPlan.Of(Lower(
-            """
-            package A
+        var plan = BindingPlan.Of(
+            Lower(
+                """
+                package A
 
-            shader S {
-                var tint: float4
+                shader S {
+                    var tint: float4
 
-                [FragmentShader]
-                func Fragment(): float4 {
-                    return tint
+                    [FragmentShader]
+                    func Fragment(): float4 {
+                        return tint
+                    }
                 }
-            }
 
-            """
-        ));
+                """
+            )
+        );
 
         Assert.Equal(ResourceSet.PerMaterial, Assert.Single(plan).Set);
     }
@@ -102,7 +103,7 @@ public class DescriptorSetTests {
                 (ResourceSet.PerMaterial, 2, "linear"),
                 (ResourceSet.PerDraw, 0, "SPerDrawUniforms")
             ],
-            plan.Select(b => (b.Set, b.Binding, b.Name))
+            plan.Select(static b => (b.Set, b.Binding, b.Name))
         );
     }
 
@@ -114,35 +115,37 @@ public class DescriptorSetTests {
     public void Sets_are_ordered_and_the_block_precedes_its_resources() {
         var plan = BindingPlan.Of(Lower(Source));
 
-        Assert.Equal(plan.Select(b => (int)b.Set).Order(), plan.Select(b => (int)b.Set));
+        Assert.Equal(plan.Select(static b => (int)b.Set).Order(), plan.Select(static b => (int)b.Set));
 
-        foreach (var set in plan.GroupBy(b => b.Set)) {
-            Assert.Equal(Enumerable.Range(0, set.Count()), set.Select(b => b.Binding));
-            Assert.True(set.First().IsBlock || set.All(b => !b.IsBlock));
+        foreach (var set in plan.GroupBy(static b => b.Set)) {
+            Assert.Equal(Enumerable.Range(0, set.Count()), set.Select(static b => b.Binding));
+            Assert.True(set.First().IsBlock || set.All(static b => !b.IsBlock));
         }
     }
 
     [Fact]
     public void A_set_with_no_uniforms_gets_no_block() {
-        var plan = BindingPlan.Of(Lower(
-            """
-            package A
+        var plan = BindingPlan.Of(
+            Lower(
+                """
+                package A
 
-            shader S {
-                [PerFrame] var albedo: Texture2D
-                [PerFrame] var linear: Sampler
+                shader S {
+                    [PerFrame] var albedo: Texture2D
+                    [PerFrame] var linear: Sampler
 
-                [FragmentShader]
-                func Fragment(uv: float2): float4 {
-                    return albedo.Sample(linear, uv)
+                    [FragmentShader]
+                    func Fragment(uv: float2): float4 {
+                        return albedo.Sample(linear, uv)
+                    }
                 }
-            }
 
-            """
-        ));
+                """
+            )
+        );
 
-        Assert.DoesNotContain(plan, b => b.IsBlock);
-        Assert.Equal([0, 1], plan.Select(b => b.Binding));
+        Assert.DoesNotContain(plan, static b => b.IsBlock);
+        Assert.Equal([0, 1], plan.Select(static b => b.Binding));
     }
 
     /// <summary>
@@ -166,19 +169,19 @@ public class DescriptorSetTests {
         var shader = Lower(ProbeArray);
         var plan = BindingPlan.Of(shader);
 
-        var probes = Assert.Single(plan, b => b.Name == "probes");
+        var probes = Assert.Single(plan, static b => b.Name == "probes");
 
         Assert.False(probes.IsBlock);
         Assert.Equal(IrBindingKind.Texture, probes.Kind);
 
         // And the block that does exist holds the index and nothing else — an array of images in it
         // is what this is here to prevent.
-        var block = Assert.Single(plan, b => b.IsBlock);
-        Assert.Equal(["probeIndex"], block.Members.Select(m => m.Variable.Name));
+        var block = Assert.Single(plan, static b => b.IsBlock);
+        Assert.Equal(["probeIndex"], block.Members.Select(static m => m.Variable.Name));
 
         // The count reaches the reflection, which is what a host builds a descriptor set layout from.
         var reflection = ReflectionBuilder.Describe(shader);
-        var described = reflection.Sets.SelectMany(s => s.Bindings).Single(b => b.Name == "probes");
+        var described = reflection.Sets.SelectMany(static s => s.Bindings).Single(static b => b.Name == "probes");
 
         Assert.Equal(DescriptorType.SampledTexture, described.Type);
         Assert.Equal(4, described.Count);
@@ -192,13 +195,13 @@ public class DescriptorSetTests {
     /// </remarks>
     [Fact]
     public void An_array_of_textures_is_declared_outside_the_block() {
-        var glsl = CodeGenTestBase.GenerateClean(ProbeArray, "glsl").Single().Code;
+        var glsl = CodeGenTestBase.GenerateClean(ProbeArray).Single().Code;
 
         Assert.Contains(
             "uniform textureCube probes[4]",
             Assert.Single(
                 glsl.Split('\n'),
-                line => line.StartsWith("layout(", StringComparison.Ordinal)
+                static line => line.StartsWith("layout(", StringComparison.Ordinal)
                     && line.Contains(" probes[", StringComparison.Ordinal)
             ),
             StringComparison.Ordinal
@@ -242,11 +245,11 @@ public class DescriptorSetTests {
         // The reflection.
         var reflection = ReflectionBuilder.Describe(shader);
         Assert.Equal(
-            plan.Select(b => ((int)b.Set, b.Binding, b.Name)),
-            reflection.Sets.SelectMany(s => s.Bindings.Select(b => (s.Set, b.Binding, b.Name)))
+            plan.Select(static b => ((int)b.Set, b.Binding, b.Name)),
+            reflection.Sets.SelectMany(static s => s.Bindings.Select(b => (s.Set, b.Binding, b.Name)))
         );
 
-        var glsl = CodeGenTestBase.GenerateClean(Source, "glsl").Single().Code;
+        var glsl = CodeGenTestBase.GenerateClean(Source).Single().Code;
         var spirv = CodeGenTestBase.GenerateClean(Source, "spirv").Single().Code;
 
         foreach (var planned in plan) {

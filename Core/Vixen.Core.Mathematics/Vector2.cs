@@ -13,7 +13,7 @@ namespace Vixen.Core.Mathematics;
 /// <remarks>UV origin is top-left, so V increases downward. See <c>Conventions.md</c>.</remarks>
 [DataContract]
 [StructLayout(LayoutKind.Sequential)]
-public readonly struct Vector2 : IEquatable<Vector2>, IFormattable, ISpanFormattable {
+public readonly struct Vector2 : IEquatable<Vector2>, ISpanFormattable {
     /// <summary>Number of components.</summary>
     public const int ComponentCount = 2;
 
@@ -75,11 +75,11 @@ public readonly struct Vector2 : IEquatable<Vector2>, IFormattable, ISpanFormatt
 
     /// <summary>The length of the vector.</summary>
     /// <returns>The length.</returns>
-    public float Length() => MathF.Sqrt((X * X) + (Y * Y));
+    public float Length() => MathF.Sqrt(X * X + Y * Y);
 
     /// <summary>The squared length, which avoids a square root where only comparison matters.</summary>
     /// <returns>The squared length.</returns>
-    public float LengthSquared() => (X * X) + (Y * Y);
+    public float LengthSquared() => X * X + Y * Y;
 
     /// <summary>Whether every component is zero.</summary>
     public bool IsZero => X == 0f && Y == 0f;
@@ -104,7 +104,7 @@ public readonly struct Vector2 : IEquatable<Vector2>, IFormattable, ISpanFormatt
     /// <param name="left">The first vector.</param>
     /// <param name="right">The second vector.</param>
     /// <returns>The scalar product.</returns>
-    public static float Dot(Vector2 left, Vector2 right) => (left.X * right.X) + (left.Y * right.Y);
+    public static float Dot(Vector2 left, Vector2 right) => left.X * right.X + left.Y * right.Y;
 
     /// <summary>
     ///     The Z component of the 3D cross product — the signed area of the parallelogram, positive
@@ -113,7 +113,7 @@ public readonly struct Vector2 : IEquatable<Vector2>, IFormattable, ISpanFormatt
     /// <param name="left">The first vector.</param>
     /// <param name="right">The second vector.</param>
     /// <returns>The signed area.</returns>
-    public static float Cross(Vector2 left, Vector2 right) => (left.X * right.Y) - (left.Y * right.X);
+    public static float Cross(Vector2 left, Vector2 right) => left.X * right.Y - left.Y * right.X;
 
     /// <summary>The distance between two points.</summary>
     /// <param name="left">The first point.</param>
@@ -132,7 +132,7 @@ public readonly struct Vector2 : IEquatable<Vector2>, IFormattable, ISpanFormatt
     /// <param name="to">The vector at <paramref name="amount" /> = 1.</param>
     /// <param name="amount">The interpolant. Not clamped.</param>
     /// <returns>The interpolated vector.</returns>
-    public static Vector2 Lerp(Vector2 from, Vector2 to, float amount) => from + ((to - from) * amount);
+    public static Vector2 Lerp(Vector2 from, Vector2 to, float amount) => from + (to - from) * amount;
 
     /// <summary>The component-wise minimum.</summary>
     /// <param name="left">The first vector.</param>

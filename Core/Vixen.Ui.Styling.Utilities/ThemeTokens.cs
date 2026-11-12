@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Globalization;
-using System.Reflection;
 using System.Text;
 
 namespace Vixen.Ui.Styling.Utilities;
@@ -30,16 +29,24 @@ public readonly record struct FontSizeToken(float Size, float LineHeight);
 ///         to one monolithic application than it ever did to a website.
 ///     </para>
 ///     <para>
-///         ⚠ <b>A token is a custom property in an <c>@theme</c> block, and that is Tailwind v4's
-///         model rather than a resemblance to it.</b> Declaring <c>--color-mint-500</c> does two
+///         ⚠
+///         <b>
+///             A token is a custom property in an <c>@theme</c> block, and that is Tailwind v4's
+///             model rather than a resemblance to it.
+///         </b>
+///         Declaring <c>--color-mint-500</c> does two
 ///         things at once: it makes the variable available to hand-written CSS, and it tells the
 ///         generator that <c>bg-mint-500</c>, <c>text-mint-500</c> and <c>border-mint-500</c> exist.
 ///         There is no configuration file, which is the point — the thing that declares the token and
 ///         the thing that uses it are the same language.
 ///     </para>
 ///     <para>
-///         ⚠ <b>This replaces a <c>vixen.ui.yaml</c> reader, and the YAML is deleted rather than
-///         supported.</b> The editor's copy of it declared no colours of its own: every entry was a
+///         ⚠
+///         <b>
+///             This replaces a <c>vixen.ui.yaml</c> reader, and the YAML is deleted rather than
+///             supported.
+///         </b>
+///         The editor's copy of it declared no colours of its own: every entry was a
 ///         <c>var(--…)</c> pointing at a property <c>EditorTheme</c> put on the root, which is
 ///         <c>@theme</c> with an extra file in front of it. The two limitations that file carried in
 ///         its own comments — a radius that could not be a <c>var()</c>, and an opacity modifier that
@@ -58,8 +65,12 @@ public readonly record struct FontSizeToken(float Size, float LineHeight);
 public sealed class ThemeTokens {
     /// <summary>The key a namespace uses for its unqualified form.</summary>
     /// <remarks>
-    ///     ⚠ <b>In a stylesheet it is spelled by leaving the suffix off: <c>--shadow</c> is the
-    ///     <c>DEFAULT</c> shadow and <c>--shadow-lg</c> is the large one.</b> The constant survives
+    ///     ⚠
+    ///     <b>
+    ///         In a stylesheet it is spelled by leaving the suffix off: <c>--shadow</c> is the
+    ///         <c>DEFAULT</c> shadow and <c>--shadow-lg</c> is the large one.
+    ///     </b>
+    ///     The constant survives
     ///     the move from YAML because the <i>resolver</i> uses it — a bare <c>shadow</c> class has an
     ///     empty value and looks the token up under this key — so the two spellings meet here rather
     ///     than in every family that has an unqualified form.
@@ -109,8 +120,12 @@ public sealed class ThemeTokens {
 
     /// <summary>Inner shadows, as the <c>box-shadow</c> text they stand for, keyed by suffix.</summary>
     /// <remarks>
-    ///     ⚠ <b>A namespace of its own for <see cref="DropShadow" />'s reason, and the values are not
-    ///     the same numbers with a keyword in front.</b> An outer shadow is read as height above the
+    ///     ⚠
+    ///     <b>
+    ///         A namespace of its own for <see cref="DropShadow" />'s reason, and the values are not
+    ///         the same numbers with a keyword in front.
+    ///     </b>
+    ///     An outer shadow is read as height above the
     ///     surface and is mostly hidden behind the thing casting it; an inner one is read as depth
     ///     below it and every pixel of it is seen, so v4's scale is shorter and much tighter — three
     ///     steps against seven, none of them offset by more than two points. Reading a
@@ -123,8 +138,12 @@ public sealed class ThemeTokens {
     /// <summary>Drop shadows, as the <c>drop-shadow()</c> arguments they stand for, keyed by suffix.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The function's <i>arguments</i> and not the function, which is where this differs
-    ///         from <see cref="Shadow" /> beside it.</b> A <c>box-shadow</c> token is a whole
+    ///         ⚠
+    ///         <b>
+    ///             The function's <i>arguments</i> and not the function, which is where this differs
+    ///             from <see cref="Shadow" /> beside it.
+    ///         </b>
+    ///         A <c>box-shadow</c> token is a whole
     ///         declaration because that property takes one; a <c>drop-shadow</c> is one item of
     ///         <c>filter</c>'s ordered list, and the list is assembled by
     ///         <c>UtilityComposition.Filter</c>. So the token holds <c>0 4px 4px rgb(0 0 0 / 0.15)</c>
@@ -133,8 +152,12 @@ public sealed class ThemeTokens {
     ///         value that composes.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A namespace of its own and not a member of <see cref="Shadow" />, even though a
-    ///         browser would accept either text in either place.</b> They are different scales in v4
+    ///         ⚠
+    ///         <b>
+    ///             A namespace of its own and not a member of <see cref="Shadow" />, even though a
+    ///             browser would accept either text in either place.
+    ///         </b>
+    ///         They are different scales in v4
     ///         and they have to be: a <c>box-shadow</c> may be a comma-separated list and several of
     ///         the shipped ones are, while <c>filter</c>'s items are separated by spaces and a comma
     ///         in one would invalidate the whole declaration. <c>--drop-shadow-*</c> read as a
@@ -176,8 +199,12 @@ public sealed class ThemeTokens {
 
     /// <summary>Blur radii in pixels, keyed by suffix — <c>sm</c>, <c>2xl</c>.</summary>
     /// <remarks>
-    ///     ⚠ <b>A named scale where this engine had only an arithmetic one, and the difference is
-    ///     which classes a Tailwind user can write.</b> <c>blur-*</c> resolved through the spacing
+    ///     ⚠
+    ///     <b>
+    ///         A named scale where this engine had only an arithmetic one, and the difference is
+    ///         which classes a Tailwind user can write.
+    ///     </b>
+    ///     <c>blur-*</c> resolved through the spacing
     ///     base, so <c>blur-8</c> worked and <c>blur-md</c> — the spelling v4 has and the only one
     ///     v4 has — resolved to nothing at all. That is not the v3-to-v4 step shift doc 43 § C2
     ///     went looking for; it is a namespace that was never shipped, and the shift is what makes
@@ -192,9 +219,13 @@ public sealed class ThemeTokens {
 
     /// <summary>Container-query widths, keyed by variant name, in the unit the theme wrote them in.</summary>
     /// <remarks>
-    ///     ⚠ <b>A different set of numbers under the same names as <see cref="Screens" />, and that
-    ///     is the whole reason the namespace has to exist rather than <c>@sm:</c> reading the
-    ///     breakpoints.</b> <c>sm</c> is a 40 rem <i>window</i> and <c>@sm</c> is a 24 rem
+    ///     ⚠
+    ///     <b>
+    ///         A different set of numbers under the same names as <see cref="Screens" />, and that
+    ///         is the whole reason the namespace has to exist rather than <c>@sm:</c> reading the
+    ///         breakpoints.
+    ///     </b>
+    ///     <c>sm</c> is a 40 rem <i>window</i> and <c>@sm</c> is a 24 rem
     ///     <i>box</i>; a dockable panel is a few hundred pixels wide, so every container variant
     ///     driven off the breakpoint scale would be correct CSS with a threshold nothing in an
     ///     editor ever reaches — a query that never matches, which nothing warns about.
@@ -295,8 +326,12 @@ public sealed class ThemeTokens {
     /// <param name="css">The stylesheet.</param>
     /// <returns>The stylesheet without them.</returns>
     /// <remarks>
-    ///     ⚠ <b>Because <c>@theme</c> is a build-time construct and the cascade has never heard of
-    ///     it.</b> ExCSS hands an unknown at-rule back unparsed and <see cref="StyleSheetLoader" />
+    ///     ⚠
+    ///     <b>
+    ///         Because <c>@theme</c> is a build-time construct and the cascade has never heard of
+    ///         it.
+    ///     </b>
+    ///     ExCSS hands an unknown at-rule back unparsed and <see cref="StyleSheetLoader" />
     ///     drops it with a diagnostic, so a sheet that reached the engine with its <c>@theme</c> still
     ///     in it would work — and would report a diagnostic on every load, for a block whose entire
     ///     content has already been turned into the <c>root</c> rule beside it.
@@ -428,12 +463,12 @@ public sealed class ThemeTokens {
                 return;
             }
 
-            Clear(name.Equals("--*", StringComparison.Ordinal) ? "--" : name[..^1], exact: false);
+            Clear(name.Equals("--*", StringComparison.Ordinal) ? "--" : name[..^1], false);
             return;
         }
 
         if (initial) {
-            Clear(name, exact: true);
+            Clear(name, true);
             return;
         }
 
@@ -554,8 +589,12 @@ public sealed class ThemeTokens {
     ///     transcribed from the editor's old pair syntax writes them as pixels. Both have to land.
     ///     <para>
     ///         ⚠ And the two are kept apart from the size rather than folded into
-    ///         <see cref="FontSize" /> as they arrive, because <b>the order the two declarations are
-    ///         written in is the author's business</b>. Folding early means a ratio filed before its
+    ///         <see cref="FontSize" /> as they arrive, because
+    ///         <b>
+    ///             the order the two declarations are
+    ///             written in is the author's business
+    ///         </b>
+    ///         . Folding early means a ratio filed before its
     ///         size has nowhere to sit but the line-height slot, where the size — arriving second —
     ///         cannot tell it from a length. Two side tables and one recomputation make both orders
     ///         the same.
@@ -589,13 +628,17 @@ public sealed class ThemeTokens {
             : ratios.TryGetValue(key, out var ratio) ? MathF.Round(size * ratio)
             : MathF.Round(size * 1.4f);
 
-        FontSize[key] = new FontSizeToken(size, height);
+        FontSize[key] = new(size, height);
     }
 
     /// <summary>Empties a namespace, or one token, and keeps both representations in step.</summary>
     /// <remarks>
-    ///     ⚠ <b>The typed dictionaries are pruned against <see cref="variables" /> rather than by
-    ///     prefix of their own.</b> A key in <see cref="FontSize" /> is <c>xs</c> and the variable
+    ///     ⚠
+    ///     <b>
+    ///         The typed dictionaries are pruned against <see cref="variables" /> rather than by
+    ///         prefix of their own.
+    ///     </b>
+    ///     A key in <see cref="FontSize" /> is <c>xs</c> and the variable
     ///     that made it is <c>--text-xs</c>; re-deriving the full name in two places is how the two
     ///     halves drift, and the drift shows up as a token that clears from one and not the other —
     ///     a colour still generating a utility whose variable no longer exists.
@@ -604,7 +647,8 @@ public sealed class ThemeTokens {
         if (exact) {
             variables.Remove(prefix);
         } else {
-            foreach (var name in variables.Keys.Where(name => name.StartsWith(prefix, StringComparison.Ordinal)).ToList()) {
+            foreach (var name in variables.Keys.Where(name => name.StartsWith(prefix, StringComparison.Ordinal))
+                         .ToList()) {
                 variables.Remove(name);
             }
         }
@@ -657,8 +701,12 @@ public sealed class ThemeTokens {
 
     /// <summary>Reads a query width, keeping <c>rem</c> as <c>rem</c>; <c>px</c> and a bare number are pixels.</summary>
     /// <remarks>
-    ///     ⚠ <b>Not <see cref="Length(string, out float)" />, which is right for a blur radius and
-    ///     wrong here</b>: a radius is drawn in pixels whatever the text size, and a breakpoint is a
+    ///     ⚠
+    ///     <b>
+    ///         Not <see cref="Length(string, out float)" />, which is right for a blur radius and
+    ///         wrong here
+    ///     </b>
+    ///     : a radius is drawn in pixels whatever the text size, and a breakpoint is a
     ///     question the query evaluator asks against the live font. See <see cref="Screens" />.
     /// </remarks>
     static bool Width(string value, out StyleValue width) {
@@ -693,8 +741,12 @@ public sealed class ThemeTokens {
 
     /// <summary>The key a name carries inside a namespace, or null if it is not in it.</summary>
     /// <remarks>
-    ///     ⚠ <b>The namespace's own name is <see cref="DefaultKey" />, which is what v4 spells
-    ///     <c>DEFAULT</c>.</b> <c>--shadow: …</c> is what makes the bare class <c>shadow</c> mean
+    ///     ⚠
+    ///     <b>
+    ///         The namespace's own name is <see cref="DefaultKey" />, which is what v4 spells
+    ///         <c>DEFAULT</c>.
+    ///     </b>
+    ///     <c>--shadow: …</c> is what makes the bare class <c>shadow</c> mean
     ///     something, next to <c>--shadow-lg</c> making <c>shadow-lg</c> mean something, and the
     ///     resolver already looks the bare form up under that key. Without this the two spellings
     ///     would be unrelated tokens and the bare class would resolve to nothing, silently.
@@ -771,7 +823,12 @@ public sealed class ThemeTokens {
                 }
 
                 if (float.TryParse(text[..at].Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out var left)
-                    && float.TryParse(text[(at + 1)..].Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out var right)
+                    && float.TryParse(
+                        text[(at + 1)..].Trim(),
+                        NumberStyles.Float,
+                        CultureInfo.InvariantCulture,
+                        out var right
+                    )
                     && (op == '*' || right != 0f)) {
                     ratio = op == '/' ? left / right : left * right;
                     return true;
@@ -985,7 +1042,8 @@ public sealed class ThemeTokens {
         using var stream = assembly.GetManifestResourceStream(name)
             ?? throw new InvalidOperationException(
                 $"the shipped theme '{name}' is not embedded in {assembly.GetName().Name}. "
-                + "It is added by the .vcss glob in Vixen.Ui.targets.");
+                + "It is added by the .vcss glob in Vixen.Ui.targets."
+            );
 
         using var reader = new StreamReader(stream);
         return defaultSheet = reader.ReadToEnd();

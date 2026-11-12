@@ -76,8 +76,7 @@ public abstract class IrType {
     ///     that adding a width does not mean finding every list of two kinds that had become a list
     ///     of four.
     /// </remarks>
-    public bool IsInteger =>
-        Kind is IrTypeKind.Int or IrTypeKind.UInt or IrTypeKind.Int64 or IrTypeKind.UInt64;
+    public bool IsInteger => Kind is IrTypeKind.Int or IrTypeKind.UInt or IrTypeKind.Int64 or IrTypeKind.UInt64;
 
     /// <summary>Whether this scalar is unsigned, which decides half of SPIR-V's integer opcodes.</summary>
     public bool IsUnsigned => Kind is IrTypeKind.UInt or IrTypeKind.UInt64;
@@ -322,8 +321,7 @@ public sealed class IrStorageImageType : IrType, IEquatable<IrStorageImageType> 
 
     public override IrTypeKind Kind => IrTypeKind.StorageImage;
 
-    public override string Name =>
-        $"image{(Dimension == IrTextureDimension.Texture3D ? "3d" : "2d")}<{Format}>";
+    public override string Name => $"image{(Dimension == IrTextureDimension.Texture3D ? "3d" : "2d")}<{Format}>";
 
     public IrStorageImageType(IrTextureDimension dimension, IrType texelType, string format) {
         Dimension = dimension;

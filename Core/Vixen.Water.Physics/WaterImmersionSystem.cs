@@ -16,8 +16,12 @@ namespace Vixen.Water.Physics;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>[35 § D11](../../docs/plan/35-water.md#d11-swimming-is-a-fourth-move-mode-and-immersion-is-the-only-new-number)'s
-///         only new number, written.</b> <c>CharacterMoveMode.Swimming</c> exists,
+///         <b>
+///             [35 §
+///             D11](../../docs/plan/35-water.md#d11-swimming-is-a-fourth-move-mode-and-immersion-is-the-only-new-number)'s
+///             only new number, written.
+///         </b>
+///         <c>CharacterMoveMode.Swimming</c> exists,
 ///         <c>CharacterMotion</c> implements wading, the swim restoring force, the drag, the speed
 ///         scale and the two-threshold hysteresis, and <c>CharacterMovement.Default</c> ships tuned
 ///         numbers for all of it — and <c>CharacterState.Immersion</c> was written by <em>nothing</em>
@@ -32,8 +36,12 @@ namespace Vixen.Water.Physics;
 ///         turns immersion into a mode, the other turns it into a lift.
 ///     </para>
 ///     <para>
-///         ⚠ <b>It finds the water through <see cref="IWaterSurface" /> and never through
-///         <c>WaterZoneSystem</c>.</b> The zone fold lives in <c>Vixen.Rendering.Water</c>, and a
+///         ⚠
+///         <b>
+///             It finds the water through <see cref="IWaterSurface" /> and never through
+///             <c>WaterZoneSystem</c>.
+///         </b>
+///         The zone fold lives in <c>Vixen.Rendering.Water</c>, and a
 ///         reference to it from here would drag a graphics device into the path a dedicated server
 ///         runs — the one line § D1 exists to forbid. <c>WaterZoneSystem</c> implements the kernel
 ///         interface, so a game passes the fold it already has and a headless build passes its own.

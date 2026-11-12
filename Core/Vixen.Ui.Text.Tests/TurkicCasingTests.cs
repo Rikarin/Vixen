@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Globalization;
-using Vixen.Ui.Text;
 using Xunit;
 
 namespace Vixen.Ui.Text.Tests;
@@ -108,8 +107,12 @@ public class TurkicCasingTests {
     /// <summary>A capital <c>I</c> separated from its dot by another mark comes out dotless, and should not.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>This asserts the wrong answer on purpose, because the row is producing wrong
-    ///         output today rather than merely missing.</b> SpecialCasing's two <c>tr</c> rows are
+    ///         ⚠
+    ///         <b>
+    ///             This asserts the wrong answer on purpose, because the row is producing wrong
+    ///             output today rather than merely missing.
+    ///         </b>
+    ///         SpecialCasing's two <c>tr</c> rows are
     ///         <c>0049; 0131; …; tr Not_Before_Dot</c> and <c>0307; ; …; tr After_I</c>, and
     ///         "before dot" skips an intervening character that is neither combining class 0 nor
     ///         230. U+0316 is class 220, so the dot above is still the dot of this <c>I</c>: the
@@ -156,7 +159,7 @@ public class TurkicCasingTests {
     /// </remarks>
     [Fact]
     public void The_invariant_mode_trap_is_real_and_is_what_forced_the_table() {
-        Assert.Throws<CultureNotFoundException>(() => CultureInfo.GetCultureInfo("tr-TR"));
+        Assert.Throws<CultureNotFoundException>(static () => CultureInfo.GetCultureInfo("tr-TR"));
         Assert.Equal(string.Empty, CultureInfo.CurrentCulture.Name);
     }
 }

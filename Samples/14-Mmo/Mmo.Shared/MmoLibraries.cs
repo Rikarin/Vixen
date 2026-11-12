@@ -28,13 +28,20 @@ namespace Vixen.Samples.Mmo.Rules;
 /// <summary>Every library compiled once, against one catalog, with every problem in one list.</summary>
 /// <remarks>
 ///     <para>
-///         <b>One object, because the alternative is nineteen fields on the realm and nineteen more
-///         on the client.</b> Compiling is not cheap and it is not idempotent-free — a library holds
+///         <b>
+///             One object, because the alternative is nineteen fields on the realm and nineteen more
+///             on the client.
+///         </b>
+///         Compiling is not cheap and it is not idempotent-free — a library holds
 ///         resolved tag ranges, and two copies compiled from two catalogs would answer differently.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The tags come first and the definitions second, and swapping them is a bug with a
-///         very confusing shape.</b> Most tags reach the table because a definition mentions them; a
+///         ⚠
+///         <b>
+///             The tags come first and the definitions second, and swapping them is a bug with a
+///             very confusing shape.
+///         </b>
+///         Most tags reach the table because a definition mentions them; a
 ///         tag only <em>code</em> knows never does. <c>Event.Kill</c> is the one that bites —
 ///         <c>QuestModule</c> declares it, it is the verb a Kill objective counts, and no quest file
 ///         mentions it anywhere. Seed the catalog from <c>Composition.Tags</c> or every objective in
@@ -78,7 +85,7 @@ public sealed class MmoLibraries {
 
         // Last, because it reads every library above. Compiled exactly once: a library holds
         // resolved tag ranges, and two copies compiled from two catalogs answer differently.
-        Problems = [.. Collect()];
+        Problems = [..Collect()];
     }
 
     /// <summary>What the game composed.</summary>

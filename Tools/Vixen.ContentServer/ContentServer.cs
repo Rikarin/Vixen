@@ -230,7 +230,9 @@ public sealed class ContentServer {
         using var buffer = new MemoryStream();
         reading.CopyTo(buffer);
 
-        var text = Encoding.UTF8.GetBytes(ContentHash.Compute(buffer.GetBuffer().AsSpan(0, (int)buffer.Length)).ToString());
+        var text = Encoding.UTF8.GetBytes(
+            ContentHash.Compute(buffer.GetBuffer().AsSpan(0, (int)buffer.Length)).ToString()
+        );
 
         if (!TryParseRange(range, text.Length, out var offset, out var length)) {
             return length < 0

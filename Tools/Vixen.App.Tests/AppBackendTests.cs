@@ -12,8 +12,12 @@ namespace Vixen.App.Tests;
 
 /// <summary>Where the platform and the device come from, once the host stopped choosing them.</summary>
 /// <remarks>
-///     ⚠ <b>The seam exists because of a build rule, so a test that only checked the happy path would
-///     miss the whole point.</b> <c>Vixen.App.Hosting</c> is in <c>Core/</c> and
+///     ⚠
+///     <b>
+///         The seam exists because of a build rule, so a test that only checked the happy path would
+///         miss the whole point.
+///     </b>
+///     <c>Vixen.App.Hosting</c> is in <c>Core/</c> and
 ///     <c>CheckArchitecture</c> forbids it referencing <c>Platform/</c>, where Vulkan, Null, the
 ///     desktop platform and the headless platform all are. So a builder that nobody installed
 ///     backends into has neither — and what it does about that is the behaviour worth pinning down,
@@ -122,7 +126,7 @@ public sealed class AppBackendTests {
     /// </remarks>
     [Fact]
     public void TheShippedBackendAnswersNoWindowWithADeviceAndAReason() {
-        var device = GraphicsHost.Instance.Create(new GraphicsOptions(), window: null, logs: null, out var reason);
+        var device = GraphicsHost.Instance.Create(new(), null, null, out var reason);
 
         Assert.NotNull(device);
         Assert.NotNull(reason);
@@ -139,8 +143,12 @@ public sealed class AppBackendTests {
     ///     had the Null one. Nothing about the server would look wrong until it was deployed to a
     ///     machine with no driver.
     ///     <para>
-    ///         The old <c>GraphicsHost</c> got this right by short-circuiting on <c>window is
-    ///         null</c> before it chose anything. The preference list has to reproduce that as a
+    ///         The old <c>GraphicsHost</c> got this right by short-circuiting on
+    ///         <c>
+    ///             window is
+    ///             null
+    ///         </c>
+    ///         before it chose anything. The preference list has to reproduce that as a
     ///         refusal from the presenting backends themselves, or the short-circuit is lost.
     ///     </para>
     /// </remarks>
@@ -151,7 +159,7 @@ public sealed class AppBackendTests {
         options.Backends.Add(GraphicsBackend.Vulkan);
         options.Backends.Add(GraphicsBackend.Null);
 
-        var device = GraphicsHost.Create(options, window: null, logs: null, out var reason);
+        var device = GraphicsHost.Create(options, null, null, out var reason);
 
         Assert.NotNull(device);
         Assert.IsType<NullDevice>(device);
@@ -167,7 +175,7 @@ public sealed class AppBackendTests {
 
         options.Backends.Add(GraphicsBackend.Vulkan);
 
-        Assert.Null(GraphicsHost.Create(options, window: null, logs: null, out _));
+        Assert.Null(GraphicsHost.Create(options, null, null, out _));
     }
 
     /// <summary>An empty preference list is the order this package has always used.</summary>
@@ -189,7 +197,7 @@ public sealed class AppBackendTests {
         options.Backends.Add(GraphicsBackend.OpenGl);
         options.Backends.Add(GraphicsBackend.Null);
 
-        var device = GraphicsHost.Create(options, window: null, logs: null, out var reason);
+        var device = GraphicsHost.Create(options, null, null, out var reason);
 
         Assert.NotNull(device);
 
@@ -213,7 +221,7 @@ public sealed class AppBackendTests {
 
         options.Backends.Add(GraphicsBackend.OpenGl);
 
-        var device = GraphicsHost.Create(options, window: null, logs: null, out var reason);
+        var device = GraphicsHost.Create(options, null, null, out var reason);
 
         Assert.Null(device);
         Assert.NotNull(reason);
@@ -231,8 +239,11 @@ public sealed class AppBackendTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>A run that asked to render offscreen is refused by the Null device rather than
-    ///     served by it — even when the caller named Null itself.</b>
+    ///     ⚠
+    ///     <b>
+    ///         A run that asked to render offscreen is refused by the Null device rather than
+    ///         served by it — even when the caller named Null itself.
+    ///     </b>
     /// </summary>
     /// <remarks>
     ///     <para>
@@ -256,7 +267,7 @@ public sealed class AppBackendTests {
 
         options.Backends.Add(GraphicsBackend.Null);
 
-        var device = GraphicsHost.Create(options, window: null, logs: null, out var reason);
+        var device = GraphicsHost.Create(options, null, null, out var reason);
 
         Assert.Null(device);
         Assert.Contains("draws nothing", reason!, StringComparison.Ordinal);
@@ -264,8 +275,11 @@ public sealed class AppBackendTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>And it is what lifts Vulkan's no-surface refusal, which until now only a capture
-    ///     path could.</b>
+    ///     ⚠
+    ///     <b>
+    ///         And it is what lifts Vulkan's no-surface refusal, which until now only a capture
+    ///         path could.
+    ///     </b>
     /// </summary>
     /// <remarks>
     ///     <para>
@@ -286,14 +300,14 @@ public sealed class AppBackendTests {
 
         refusing.Backends.Add(GraphicsBackend.Vulkan);
 
-        Assert.Null(GraphicsHost.Create(refusing, window: null, logs: null, out var declined));
+        Assert.Null(GraphicsHost.Create(refusing, null, null, out var declined));
         Assert.Contains("asked for no window", declined!, StringComparison.Ordinal);
 
         var asking = new GraphicsOptions { Offscreen = true };
 
         asking.Backends.Add(GraphicsBackend.Vulkan);
 
-        using var device = GraphicsHost.Create(asking, window: null, logs: null, out var reason);
+        using var device = GraphicsHost.Create(asking, null, null, out var reason);
 
         // One or the other, and never the sentence above: either this machine has Vulkan and the
         // device is real, or it does not and the refusal is the loader's rather than the chain's.
@@ -320,7 +334,7 @@ public sealed class AppBackendTests {
 
         options.Backends.Add(GraphicsBackend.Null);
 
-        Assert.Null(GraphicsHost.Create(options, window: null, logs: null, out var reason));
+        Assert.Null(GraphicsHost.Create(options, null, null, out var reason));
         Assert.Contains("draws nothing", reason!, StringComparison.Ordinal);
     }
 
@@ -340,7 +354,7 @@ public sealed class AppBackendTests {
 
         options.Backends.Add(GraphicsBackend.Null);
 
-        using var device = GraphicsHost.Create(options, window: null, logs: null, out var reason);
+        using var device = GraphicsHost.Create(options, null, null, out var reason);
 
         Assert.IsType<NullDevice>(device);
         Assert.Contains("draws nothing by design", reason!, StringComparison.Ordinal);
@@ -364,7 +378,7 @@ public sealed class AppBackendTests {
 
         options.Backends.Add(GraphicsBackend.OpenGl);
 
-        Assert.Null(GraphicsHost.Create(options, window: null, logs: null, out var reason));
+        Assert.Null(GraphicsHost.Create(options, null, null, out var reason));
         Assert.Contains("window", reason!, StringComparison.OrdinalIgnoreCase);
     }
 

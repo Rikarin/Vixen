@@ -9,15 +9,22 @@ namespace Vixen.Editor.SceneView;
 /// <summary>What vegetation a viewport should draw: the painted volume, and how to name its meshes.</summary>
 /// <remarks>
 ///     <para>
-///         <b><c>ITerrainScene</c>'s sibling, for the things that grow on the ground rather than the
-///         ground itself.</b> The foliage tools paint into a <see cref="FoliageVolume" /> the terrain
+///         <b>
+///             <c>ITerrainScene</c>'s sibling, for the things that grow on the ground rather than the
+///             ground itself.
+///         </b>
+///         The foliage tools paint into a <see cref="FoliageVolume" /> the terrain
 ///         module owns, and the presenter that could draw those instances had no way to reach it — so
 ///         the very editor that authors foliage showed none. This is the seam: the module answers
 ///         "what is painted", the presenter draws what it is handed.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Here rather than in <c>Vixen.Rendering.Terrain</c>, because both ends are editor
-///         assemblies.</b> <c>ITerrainScene</c> sits in Core because a shipping renderer consumes it;
+///         ⚠
+///         <b>
+///             Here rather than in <c>Vixen.Rendering.Terrain</c>, because both ends are editor
+///             assemblies.
+///         </b>
+///         <c>ITerrainScene</c> sits in Core because a shipping renderer consumes it;
 ///         what this answers — a palette entry's mesh <em>name</em> turned into an asset reference the
 ///         viewport's own mesh source understands — is the editor's project database speaking, and a
 ///         Core contract would drag that concept into an assembly whose job is a draw call.

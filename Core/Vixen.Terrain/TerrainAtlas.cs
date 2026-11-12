@@ -18,8 +18,11 @@ public readonly record struct TerrainAtlasTexel(int TileX, int TileZ, int X, int
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>[docs/plan/31 § T2]'s owed per-tile split, and it is a split of the <em>layout</em>
-///         rather than of the texture.</b> The plan wants the tile to be the unit of everything
+///         <b>
+///             [docs/plan/31 § T2]'s owed per-tile split, and it is a split of the <em>layout</em>
+///             rather than of the texture.
+///         </b>
+///         The plan wants the tile to be the unit of everything
 ///         including load ([§ D2]); the draw wants one texture, because a CDLOD patch straddles a
 ///         tile boundary except by luck and a texture per tile makes every straddling patch either two
 ///         draws or a shader sampling two textures. An atlas is both: one texture to bind, and a block
@@ -48,8 +51,12 @@ public readonly record struct TerrainAtlasTexel(int TileX, int TileZ, int X, int
 ///         block.
 ///     </para>
 ///     <para>
-///         ⚠ <b>A sample on a boundary belongs to the <em>upper</em> tile, and the choice has to be
-///         the same everywhere.</b> <see cref="TerrainDescription.TileOf" /> already made it —
+///         ⚠
+///         <b>
+///             A sample on a boundary belongs to the <em>upper</em> tile, and the choice has to be
+///             the same everywhere.
+///         </b>
+///         <see cref="TerrainDescription.TileOf" /> already made it —
 ///         <c>x / TileQuads</c> sends sample 127 of a 128-sample tiling to tile 1, not tile 0 — and
 ///         this follows it rather than making it again. Two answers to "which tile is sample 127 in"
 ///         is a terrain that reads one block and was written into another.
@@ -153,18 +160,22 @@ public readonly record struct TerrainAtlas {
         var tileX = Math.Clamp(x / TileQuads, 0, TilesX - 1);
         var tileZ = Math.Clamp(z / TileQuads, 0, TilesZ - 1);
 
-        var localX = x - (tileX * TileQuads);
-        var localZ = z - (tileZ * TileQuads);
+        var localX = x - tileX * TileQuads;
+        var localZ = z - tileZ * TileQuads;
 
-        return new(tileX, tileZ, (tileX * TileSamples) + localX, (tileZ * TileSamples) + localZ);
+        return new(tileX, tileZ, tileX * TileSamples + localX, tileZ * TileSamples + localZ);
     }
 
     /// <summary>The texture coordinate a sample coordinate reads, at level 0.</summary>
     /// <param name="sample">Where, in the packed grid's own continuous coordinates.</param>
     /// <returns>The coordinate, 0…1 over the whole atlas.</returns>
     /// <remarks>
-    ///     ⚠ <b>The transliteration of <c>Terrain.rvn</c>'s <c>AtlasUv</c>, and the reason it exists
-    ///     here is that a wrong one is invisible.</b> An atlas coordinate that is off by one block
+    ///     ⚠
+    ///     <b>
+    ///         The transliteration of <c>Terrain.rvn</c>'s <c>AtlasUv</c>, and the reason it exists
+    ///         here is that a wrong one is invisible.
+    ///     </b>
+    ///     An atlas coordinate that is off by one block
     ///     draws a terrain made of the wrong tiles — which reads as a corrupt heightmap rather than as
     ///     an arithmetic error, and a device is not needed to catch it.
     /// </remarks>
@@ -172,12 +183,12 @@ public readonly record struct TerrainAtlas {
         var tileX = Math.Clamp((int)MathF.Floor(sample.X / TileQuads), 0, TilesX - 1);
         var tileZ = Math.Clamp((int)MathF.Floor(sample.Y / TileQuads), 0, TilesZ - 1);
 
-        var localX = sample.X - (tileX * TileQuads);
-        var localZ = sample.Y - (tileZ * TileQuads);
+        var localX = sample.X - tileX * TileQuads;
+        var localZ = sample.Y - tileZ * TileQuads;
 
         return new(
-            ((tileX * TileSamples) + localX + 0.5f) / Width,
-            ((tileZ * TileSamples) + localZ + 0.5f) / Height
+            (tileX * TileSamples + localX + 0.5f) / Width,
+            (tileZ * TileSamples + localZ + 0.5f) / Height
         );
     }
 }

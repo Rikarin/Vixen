@@ -51,8 +51,12 @@ public static class ScaffoldRunner {
     /// <param name="output">Where to report what was written.</param>
     /// <returns>Success, or a usage error with the reason already written.</returns>
     /// <remarks>
-    ///     ⚠ <b>The decisions moved to <see cref="ProjectScaffold" /> and what is left here is the
-    ///     console.</b> That is the split <c>ImportRunner</c> and <c>ContentPipeline</c> already
+    ///     ⚠
+    ///     <b>
+    ///         The decisions moved to <see cref="ProjectScaffold" /> and what is left here is the
+    ///         console.
+    ///     </b>
+    ///     That is the split <c>ImportRunner</c> and <c>ContentPipeline</c> already
     ///     make, and it happened for the same reason: the editor's New Project needs the four
     ///     decisions — which template, is the name usable, what would be overwritten, what to write
     ///     — and does not need a <see cref="TextWriter" />.
@@ -115,8 +119,12 @@ public static class ScaffoldRunner {
         if (chosen.Id is "vixen-tool") {
             output.WriteLine();
             output.WriteLine("  dotnet run     — checks the content beside the binary; a new project has none");
-            output.WriteLine("  dotnet run -- --vixen-loose-content <game>/Build/<target>   — point it at a real build");
-            output.WriteLine("  --vixen-capture <path> opens a device and writes a frame; --vixen-frames N runs more than one");
+            output.WriteLine(
+                "  dotnet run -- --vixen-loose-content <game>/Build/<target>   — point it at a real build"
+            );
+            output.WriteLine(
+                "  --vixen-capture <path> opens a device and writes a frame; --vixen-frames N runs more than one"
+            );
         }
 
         // Five directories and no idea which one to open is a worse first minute than one project

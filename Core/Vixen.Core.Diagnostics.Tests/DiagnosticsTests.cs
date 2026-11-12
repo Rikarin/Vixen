@@ -46,7 +46,7 @@ public class DiagnosticsTests : IDisposable {
         Assert.Equal(ProfilingKey.None, default);
         Assert.Equal("<none>", ProfilingKey.None.Name);
         Assert.False(ProfilingKey.TryGet("never registered", out _));
-        Assert.Throws<ArgumentException>(() => ProfilingKey.Register("  "));
+        Assert.Throws<ArgumentException>(static () => ProfilingKey.Register("  "));
     }
 
     [Fact]
@@ -119,7 +119,7 @@ public class DiagnosticsTests : IDisposable {
 
         using (Profiler.Begin(Outer)) { }
 
-        var thread = new Thread(() => {
+        var thread = new Thread(static () => {
                 Thread.CurrentThread.Name = "worker";
                 using (Profiler.Begin(Inner)) { }
             }
@@ -131,8 +131,8 @@ public class DiagnosticsTests : IDisposable {
         var collected = Profiler.Collect();
 
         Assert.Equal(2, collected.Length);
-        Assert.Contains(collected, entry => entry.ThreadName == "worker");
-        Assert.All(collected, entry => Assert.Single(entry.Samples));
+        Assert.Contains(collected, static entry => entry.ThreadName == "worker");
+        Assert.All(collected, static entry => Assert.Single(entry.Samples));
     }
 
     [Fact]
@@ -229,9 +229,9 @@ public class DiagnosticsTests : IDisposable {
         Assert.Equal(3, events.Length);
 
         var scopes = events[1..];
-        Assert.All(scopes, element => Assert.Equal("X", element.GetProperty("ph").GetString()));
-        Assert.Contains(scopes, element => element.GetProperty("name").GetString() == "Test.Inner");
-        Assert.All(scopes, element => Assert.True(element.GetProperty("dur").GetDouble() >= 0));
+        Assert.All(scopes, static element => Assert.Equal("X", element.GetProperty("ph").GetString()));
+        Assert.Contains(scopes, static element => element.GetProperty("name").GetString() == "Test.Inner");
+        Assert.All(scopes, static element => Assert.True(element.GetProperty("dur").GetDouble() >= 0));
     }
 
     [Fact]
@@ -284,7 +284,7 @@ public class DiagnosticsTests : IDisposable {
         TestLog.Error(logger);
 
         Assert.Equal(2, sink.Count);
-        Assert.All(sink.Snapshot(), record => Assert.True(record.Level >= LogLevel.Warning));
+        Assert.All(sink.Snapshot(), static record => Assert.True(record.Level >= LogLevel.Warning));
         Assert.False(logger.IsEnabled(LogLevel.Information));
     }
 
@@ -292,7 +292,8 @@ public class DiagnosticsTests : IDisposable {
     public void The_longest_matching_category_prefix_wins() {
         // Which is what makes "verbose asset loading without render spam" a two-line configuration
         // rather than an ordering puzzle.
-        var sink = new RingBufferSink(64) { MinimumLevel = LogLevel.Warning };
+        using var sink = new RingBufferSink(64);
+        sink.MinimumLevel = LogLevel.Warning;
         sink.SetCategoryLevel("Vixen", LogLevel.Error);
         sink.SetCategoryLevel("Vixen.Assets", LogLevel.Trace);
 
@@ -355,7 +356,8 @@ public class DiagnosticsTests : IDisposable {
 
     [Fact]
     public void Level_None_records_nothing_whatever_the_configuration_says() {
-        var sink = new RingBufferSink(4) { MinimumLevel = LogLevel.Trace };
+        using var sink = new RingBufferSink(4);
+        sink.MinimumLevel = LogLevel.Trace;
         Assert.False(sink.IsEnabled("Test", LogLevel.None));
     }
 }

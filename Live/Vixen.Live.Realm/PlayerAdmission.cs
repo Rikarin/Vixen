@@ -100,7 +100,7 @@ public sealed class PlayerAdmission : ISessionAuthenticator {
     readonly ShardCapacity capacity;
 
     /// <summary>The realm's clock, for expiry. Replaceable so a test does not have to wait.</summary>
-    public Func<DateTimeOffset> Now { get; init; } = () => DateTimeOffset.UtcNow;
+    public Func<DateTimeOffset> Now { get; init; } = static () => DateTimeOffset.UtcNow;
 
     /// <summary>Whether the shard is taking arrivals.</summary>
     public bool IsDraining { get; set; }
@@ -233,7 +233,7 @@ public sealed class PlayerAdmission : ISessionAuthenticator {
         try {
             return Encoding.UTF8.GetString(payload);
         } catch (ArgumentException) {
-            return "";
+            return string.Empty;
         }
     }
 }

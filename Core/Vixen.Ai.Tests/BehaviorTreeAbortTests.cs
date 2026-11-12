@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Ai;
-using Vixen.Core;
 using Xunit;
 
 namespace Vixen.Ai.Tests;
@@ -249,7 +248,7 @@ public class BehaviorTreeAbortTests {
     }
 
     static TreeHarness Build(BehaviorNodeDefinition root) =>
-        TreeHarness.For(root, Layout, actions => TreeHarness.Probes(actions));
+        TreeHarness.For(root, Layout, static actions => TreeHarness.Probes(actions));
 
     static BehaviorNodeDefinition Task(string name, string action) => BehaviorTree.Task(name, action);
 

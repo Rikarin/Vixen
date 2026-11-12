@@ -47,7 +47,7 @@ public sealed class PlayerCameraTests {
         var controller = Player.Create(rig.World);
         var pawn = rig.Pawn(new(2f, 0f, 5f));
 
-        var camera = PlayerCameras.FirstPerson(rig.World, controller, eyeHeight: 1.7f);
+        var camera = PlayerCameras.FirstPerson(rig.World, controller, 1.7f);
         Player.Possess(rig.World, controller, pawn);
 
         rig.World.Get<ControlRotation>(controller).Turn(MathUtil.PiOverTwo, 0f);
@@ -90,7 +90,7 @@ public sealed class PlayerCameraTests {
         var controller = Player.Create(rig.World);
         var pawn = rig.Pawn(Vector3.Zero);
 
-        var camera = PlayerCameras.ThirdPerson(rig.World, controller, distance: 4f, shoulderHeight: 1.4f, damping: 0f);
+        var camera = PlayerCameras.ThirdPerson(rig.World, controller, 4f, 1.4f, 0f);
         Player.Possess(rig.World, controller, pawn);
         rig.Tick();
 
@@ -112,7 +112,7 @@ public sealed class PlayerCameraTests {
         var controller = Player.Create(rig.World);
         var pawn = rig.Pawn(Vector3.Zero);
 
-        var camera = PlayerCameras.ThirdPerson(rig.World, controller, distance: 4f, damping: 0f);
+        var camera = PlayerCameras.ThirdPerson(rig.World, controller, 4f, damping: 0f);
         Player.Possess(rig.World, controller, pawn);
 
         rig.World.Get<ControlRotation>(controller).Turn(MathUtil.PiOverTwo, 0f);
@@ -133,7 +133,7 @@ public sealed class PlayerCameraTests {
         var controller = Player.Create(rig.World);
         var pawn = rig.Pawn(Vector3.Zero);
 
-        var camera = PlayerCameras.ThirdPerson(rig.World, controller, distance: 4f, shoulderHeight: 1.4f, damping: 0f);
+        var camera = PlayerCameras.ThirdPerson(rig.World, controller, 4f, 1.4f, 0f);
         Player.Possess(rig.World, controller, pawn);
         rig.Tick();
 
@@ -154,7 +154,7 @@ public sealed class PlayerCameraTests {
         var controller = Player.Create(rig.World);
         var pawn = rig.Pawn(new(0f, 0f, -3f));
 
-        var camera = PlayerCameras.FirstPerson(rig.World, controller, eyeHeight: 1.6f);
+        var camera = PlayerCameras.FirstPerson(rig.World, controller, 1.6f);
         Player.Possess(rig.World, controller, pawn);
 
         for (var frame = 0; frame < 5; frame++) {
@@ -176,12 +176,12 @@ public sealed class PlayerCameraTests {
     public void TwoPlayersGetTwoCamerasOnTwoChannels() {
         using var rig = new Rig();
         var one = Player.Create(rig.World);
-        var two = Player.Create(rig.World, slot: 1);
+        var two = Player.Create(rig.World, 1);
         var firstPawn = rig.Pawn(new(-5f, 0f, 0f));
         var secondPawn = rig.Pawn(new(5f, 0f, 0f));
 
-        var first = PlayerCameras.FirstPerson(rig.World, one, eyeHeight: 1.6f);
-        var second = PlayerCameras.FirstPerson(rig.World, two, eyeHeight: 1.6f);
+        var first = PlayerCameras.FirstPerson(rig.World, one, 1.6f);
+        var second = PlayerCameras.FirstPerson(rig.World, two, 1.6f);
 
         Player.Possess(rig.World, one, firstPawn);
         Player.Possess(rig.World, two, secondPawn);
@@ -205,7 +205,7 @@ public sealed class PlayerCameraTests {
     public void SeatZerosCameraRendersFirst() {
         using var rig = new Rig();
         var one = Player.Create(rig.World);
-        var two = Player.Create(rig.World, slot: 1);
+        var two = Player.Create(rig.World, 1);
 
         var first = PlayerCameras.ThirdPerson(rig.World, one);
         var second = PlayerCameras.ThirdPerson(rig.World, two);
@@ -248,7 +248,7 @@ public sealed class PlayerCameraTests {
         var controller = Player.Create(rig.World);
         var first = rig.Pawn(new(0f, 0f, 0f));
 
-        var camera = PlayerCameras.FirstPerson(rig.World, controller, eyeHeight: 1.6f);
+        var camera = PlayerCameras.FirstPerson(rig.World, controller, 1.6f);
         Player.Possess(rig.World, controller, first);
         rig.Tick();
 

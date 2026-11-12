@@ -8,17 +8,29 @@ namespace Vixen.Ui.Layout;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>A float is the first thing in this store whose geometry is read by a box that is not
-///         its parent.</b> Everything else — margins, alignment, tracks, even the collapsible margin
+///         ⚠
+///         <b>
+///             A float is the first thing in this store whose geometry is read by a box that is not
+///             its parent.
+///         </b>
+///         Everything else — margins, alignment, tracks, even the collapsible margin
 ///         sets that cross a block boundary — travels up and down the parent link. A float does not:
 ///         it is placed by whichever container holds it, and then it narrows a <i>cousin</i>, because
-///         §9.5's unit is the block formatting context and not the box. <c>float_bfc_avoids_float_from
-///         _sibling_subtree</c> is that fixture exactly — a float two levels down one subtree moves a
+///         §9.5's unit is the block formatting context and not the box.
+///         <c>
+///             float_bfc_avoids_float_from
+///             _sibling_subtree
+///         </c>
+///         is that fixture exactly — a float two levels down one subtree moves a
 ///         box in the next one.
 ///     </para>
 ///     <para>
-///         ⚠ <b>So the list is per formatting context, and the coordinates in it are the context
-///         root's.</b> <see cref="floatOriginX" /> and <see cref="floatOriginY" /> hold where the
+///         ⚠
+///         <b>
+///             So the list is per formatting context, and the coordinates in it are the context
+///             root's.
+///         </b>
+///         <see cref="floatOriginX" /> and <see cref="floatOriginY" /> hold where the
 ///         container currently being walked has its <i>border-box</i> top-left in those coordinates,
 ///         so a child written at container-relative <c>p</c> is at <c>origin + p</c> in the list.
 ///         Entering a formatting context root resets the pair to <c>(-insetLeft, -insetTop)</c>,
@@ -26,8 +38,12 @@ namespace Vixen.Ui.Layout;
 ///         are all stated against.
 ///     </para>
 ///     <para>
-///         ⚠ <b><see cref="floatScopeStart" /> is why a nested context cannot see the outer one's
-///         floats, and why it does not need a second list to prove it.</b> A block formatting context
+///         ⚠
+///         <b>
+///             <see cref="floatScopeStart" /> is why a nested context cannot see the outer one's
+///             floats, and why it does not need a second list to prove it.
+///         </b>
+///         A block formatting context
 ///         root is defined by not being affected by floats outside it; the entries below the mark are
 ///         simply invisible, and the mark is restored on the way out along with the entries the inner
 ///         context added. One list, one integer, no allocation per context.
@@ -70,8 +86,12 @@ public sealed partial class LayoutTree {
 
     /// <summary>Whose box <see cref="floatOriginX" /> and <see cref="floatOriginY" /> describe.</summary>
     /// <remarks>
-    ///     ⚠ <b>The whole of what makes <see cref="ContentBands" /> answerable, and it is a guard
-    ///     rather than a convenience.</b> The origin is a walk cursor: it names the child the block
+    ///     ⚠
+    ///     <b>
+    ///         The whole of what makes <see cref="ContentBands" /> answerable, and it is a guard
+    ///         rather than a convenience.
+    ///     </b>
+    ///     The origin is a walk cursor: it names the child the block
     ///     walk is laying out at this instant and means nothing before or after that call. A query
     ///     that trusted it without checking whose it is would hand a node the band belonging to
     ///     whichever sibling happened to be measured last — right on the paragraph beside the float
@@ -112,9 +132,13 @@ public sealed partial class LayoutTree {
 
     /// <summary>Which physical side a <c>float</c> keyword names, once the direction is known.</summary>
     /// <remarks>
-    ///     ⚠ <b>This is the whole of what CSS Logical Properties' <c>inline-start</c> costs here, and
-    ///     the reason it is one line is that a flow-relative float is a <see cref="Direction" />
-    ///     question rather than a writing-mode one.</b> The two were conflated: doc 43's ledger,
+    ///     ⚠
+    ///     <b>
+    ///         This is the whole of what CSS Logical Properties' <c>inline-start</c> costs here, and
+    ///         the reason it is one line is that a flow-relative float is a <see cref="Direction" />
+    ///         question rather than a writing-mode one.
+    ///     </b>
+    ///     The two were conflated: doc 43's ledger,
     ///     <c>UtilityFamilies</c> and <c>LayoutStyleBuilder</c> all recorded <c>float-start</c> as
     ///     waiting on a writing mode this store had decided never to gain (#282), and then reasoned
     ///     that the only choices left were to alias it onto <see cref="FloatSide.Left" /> — right in
@@ -122,8 +146,12 @@ public sealed partial class LayoutTree {
     ///     fourth: resolve it, which needs the direction and nothing else, because with no vertical
     ///     writing mode the inline axis is horizontal in every configuration the engine can be in.
     ///     <para>
-    ///         ⚠ <b>That last clause is a PREMISE and not a property of this method, and #282 did not
-    ///         decide it for ever.</b> What #282 settled is that none of its fourteen logical utility
+    ///         ⚠
+    ///         <b>
+    ///             That last clause is a PREMISE and not a property of this method, and #282 did not
+    ///             decide it for ever.
+    ///         </b>
+    ///         What #282 settled is that none of its fourteen logical utility
     ///         roots needed a writing mode; it recorded in the same breath that one corpus fixture
     ///         does, and <c>Rikarin/Vixen#952</c> is that fixture filed as an open request for a
     ///         field on <c>LayoutStyle</c>. The day it lands, this method is wrong rather than
@@ -247,16 +275,24 @@ public sealed partial class LayoutTree {
     /// <returns>How many slots were written.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Only from inside the node's own measure function, and the guard is what says
-    ///         so.</b> A block-level box's position among the floats is known at exactly one moment —
+    ///         ⚠
+    ///         <b>
+    ///             Only from inside the node's own measure function, and the guard is what says
+    ///             so.
+    ///         </b>
+    ///         A block-level box's position among the floats is known at exactly one moment —
     ///         while <c>WalkBlockChildren</c> is laying it out, with the exclusion list's origin set
     ///         to its own box — and that is the moment its measure function runs. Called at any other
     ///         time, on any other node, or on a tree with no float in it, this answers zero and the
     ///         caller keeps whatever it had.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>This is CSS 2.1 §9.5 for a leaf that does its own line breaking, and the reason
-    ///         the leaf could not do it on its own.</b> A float shortens the LINE BOXES beside it and
+    ///         ⚠
+    ///         <b>
+    ///             This is CSS 2.1 §9.5 for a leaf that does its own line breaking, and the reason
+    ///             the leaf could not do it on its own.
+    ///         </b>
+    ///         A float shortens the LINE BOXES beside it and
     ///         leaves the block box full width — Chrome 148.0.7778.280, a 300-wide flow-root with a
     ///         100×60 left float: the paragraph's own rectangle is 300 wide at x = 0, its first three
     ///         lines start at x = 100 with 200 to run in, and the line whose top is the float's bottom
@@ -269,7 +305,12 @@ public sealed partial class LayoutTree {
     ///         than saying it per line for a paragraph of any length.
     ///     </para>
     /// </remarks>
-    public int ContentBands(LayoutNodeId node, float lineHeight, float width, List<(float Start, float Available)> bands) {
+    public int ContentBands(
+        LayoutNodeId node,
+        float lineHeight,
+        float width,
+        List<(float Start, float Available)> bands
+    ) {
         ArgumentNullException.ThrowIfNull(bands);
         bands.Clear();
 
@@ -281,9 +322,11 @@ public sealed partial class LayoutTree {
             return 0;
         }
 
-        var insetLeft = results[node.Index].Padding[(int) Edge.Left] + results[node.Index].Border[(int) Edge.Left]
+        var insetLeft = results[node.Index].Padding[(int)Edge.Left]
+            + results[node.Index].Border[(int)Edge.Left]
             + ScrollbarGutterAt(node.Index, Edge.Left, floatOriginDirection);
-        var insetTop = results[node.Index].Padding[(int) Edge.Top] + results[node.Index].Border[(int) Edge.Top]
+        var insetTop = results[node.Index].Padding[(int)Edge.Top]
+            + results[node.Index].Border[(int)Edge.Top]
             + ScrollbarGutterAt(node.Index, Edge.Top, floatOriginDirection);
 
         var contentTop = floatOriginY + insetTop;
@@ -297,12 +340,12 @@ public sealed partial class LayoutTree {
         // of a fraction of a point and a float a thousand points tall is a list nobody wants and no
         // paragraph has. Past it the caller's own full width is the answer, which is what it would
         // have used anyway.
-        var slots = (int) MathF.Min(MathF.Ceiling(reach / lineHeight), MaxBandSlots);
+        var slots = (int)MathF.Min(MathF.Ceiling(reach / lineHeight), MaxBandSlots);
         var contentLeft = floatOriginX + insetLeft;
         var narrowed = false;
 
         for (var i = 0; i < slots; i++) {
-            var (bandLeft, bandRight) = FloatBandAt(contentTop + (i * lineHeight), lineHeight);
+            var (bandLeft, bandRight) = FloatBandAt(contentTop + i * lineHeight, lineHeight);
 
             var left = MathF.Max(0f, bandLeft - contentLeft);
             var right = MathF.Min(width, bandRight - contentLeft);
@@ -383,9 +426,13 @@ public sealed partial class LayoutTree {
     ///     The band a slice leaves, narrowed to the containing block the box being placed lives in.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>CSS 2.1 §9.5.1's rules 1 and 7 name the float's <i>containing block</i>, and the
-    ///     exclusion list is expressed in the <i>formatting context root's</i> coordinates — which are
-    ///     the same edges only when the float's parent chain adds no inset.</b> Every fixture in
+    ///     ⚠
+    ///     <b>
+    ///         CSS 2.1 §9.5.1's rules 1 and 7 name the float's <i>containing block</i>, and the
+    ///         exclusion list is expressed in the <i>formatting context root's</i> coordinates — which are
+    ///         the same edges only when the float's parent chain adds no inset.
+    ///     </b>
+    ///     Every fixture in
     ///     <c>Corpus/float.xml</c> is that case: <c>float_bfc_avoids_float_from_sibling_subtree</c> is
     ///     the only one that nests a float at all, and the box it nests it in has no margin, no
     ///     padding and no width of its own. So a float in a container with a left margin was placed at
@@ -476,8 +523,10 @@ public sealed partial class LayoutTree {
     ) {
         var marginStart = StyleResolution.InlineStartMargin(in styles[child], FlexDirection.Row, direction, innerWidth);
         var marginEnd = StyleResolution.InlineEndMargin(in styles[child], FlexDirection.Row, direction, innerWidth);
-        var marginTop = StyleResolution.InlineStartMargin(in styles[child], FlexDirection.Column, direction, innerWidth);
-        var marginBottom = StyleResolution.InlineEndMargin(in styles[child], FlexDirection.Column, direction, innerWidth);
+        var marginTop =
+            StyleResolution.InlineStartMargin(in styles[child], FlexDirection.Column, direction, innerWidth);
+        var marginBottom =
+            StyleResolution.InlineEndMargin(in styles[child], FlexDirection.Column, direction, innerWidth);
 
         var box = ResolveBlockChildBox(child, direction, innerWidth, innerHeightForPercentages);
 
@@ -515,8 +564,8 @@ public sealed partial class LayoutTree {
             currentDepth
         );
 
-        var borderWidth = results[child].MeasuredDimensions[(int) Dimension.Width];
-        var borderHeight = results[child].MeasuredDimensions[(int) Dimension.Height];
+        var borderWidth = results[child].MeasuredDimensions[(int)Dimension.Width];
+        var borderHeight = results[child].MeasuredDimensions[(int)Dimension.Height];
 
         var usedLeftMargin = direction == Direction.Ltr ? marginStart : marginEnd;
         var usedRightMargin = direction == Direction.Ltr ? marginEnd : marginStart;
@@ -552,22 +601,26 @@ public sealed partial class LayoutTree {
 
         var marginLeft = side == FloatSide.Left ? bandLeft : bandRight - marginWidth;
 
-        floatExclusions.Add(new PlacedFloat(side, marginLeft, marginLeft + marginWidth, top, top + marginHeight));
+        floatExclusions.Add(new(side, marginLeft, marginLeft + marginWidth, top, top + marginHeight));
 
         if (!performLayout) {
             return;
         }
 
-        results[child].Position[(int) Edge.Left] = marginLeft + usedLeftMargin - floatOriginX
+        results[child].Position[(int)Edge.Left] = marginLeft
+            + usedLeftMargin
+            - floatOriginX
             + (direction == Direction.Ltr
                 ? RelativePosition(child, FlexDirection.Row, direction, innerWidth)
                 : -RelativePosition(child, FlexDirection.Row, direction, innerWidth));
 
-        results[child].Position[(int) Edge.Top] = top + marginTop - floatOriginY
+        results[child].Position[(int)Edge.Top] = top
+            + marginTop
+            - floatOriginY
             + RelativePosition(child, FlexDirection.Column, direction, innerHeightForPercentages.OrZero());
 
-        results[child].Margin[(int) Edge.Left] = usedLeftMargin;
-        results[child].Margin[(int) Edge.Right] = usedRightMargin;
+        results[child].Margin[(int)Edge.Left] = usedLeftMargin;
+        results[child].Margin[(int)Edge.Right] = usedRightMargin;
     }
 
     /// <summary>Where a float-avoiding box goes, and how wide it is allowed to be.</summary>
@@ -590,8 +643,12 @@ public sealed partial class LayoutTree {
     ///         are written to pin.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>An <c>auto</c> width narrows and a stated one moves down, and the two are not the
-    ///         same test.</b> <c>float_bfc_narrows_beside_float</c> and <c>float_bfc_moves_below_float</c>
+    ///         ⚠
+    ///         <b>
+    ///             An <c>auto</c> width narrows and a stated one moves down, and the two are not the
+    ///             same test.
+    ///         </b>
+    ///         <c>float_bfc_narrows_beside_float</c> and <c>float_bfc_moves_below_float</c>
     ///         are the same shape with and without a <c>width</c>: the first comes out 50 wide beside
     ///         the float, the second keeps its 200 and goes underneath. So the stated width is asked
     ///         to fit and the automatic one is simply told what it gets.
@@ -624,8 +681,12 @@ public sealed partial class LayoutTree {
     /// <param name="clampRight">Its containing block's content-box right, in context coordinates.</param>
     /// <returns>Where it ends up and how wide it may be.</returns>
     /// <remarks>
-    ///     ⚠ <b>The band is narrowed to the box's own containing block and then translated into it,
-    ///     and both halves are the fix for <c>Rikarin/Vixen#781</c>.</b> The exclusion list is in the
+    ///     ⚠
+    ///     <b>
+    ///         The band is narrowed to the box's own containing block and then translated into it,
+    ///         and both halves are the fix for <c>Rikarin/Vixen#781</c>.
+    ///     </b>
+    ///     The exclusion list is in the
     ///     formatting context ROOT's coordinates and everything this returns is relative to the
     ///     CONTAINER being walked; the two are the same edges only when the container's content box
     ///     coincides with the root's, which is true of every fixture in <c>Corpus/float.xml</c> —
@@ -677,7 +738,7 @@ public sealed partial class LayoutTree {
         // pinned it to the content edge at 100. NaN is the signal, and the caller reads it as "use the
         // ordinary inline-axis rule".
         if (bandLeft <= 0f && bandRight >= innerWidth) {
-            return new FloatAvoidance(top, float.NaN, float.NaN);
+            return new(top, float.NaN, float.NaN);
         }
 
         // ⚠ The ABSORPTION is physical and does not consult `direction`, which is the half that looks
@@ -687,13 +748,13 @@ public sealed partial class LayoutTree {
         // container's inline start. Every one of the three that do differ states a `width`, which is
         // the only thing the anchor below can change.
         if (direction == Direction.Rtl && !float.IsNaN(statedWidth)) {
-            return new FloatAvoidance(top, MathF.Min(bandRight, innerWidth - marginRight) - statedWidth, statedWidth);
+            return new(top, MathF.Min(bandRight, innerWidth - marginRight) - statedWidth, statedWidth);
         }
 
         var borderLeft = bandLeft > 0f ? MathF.Max(bandLeft, marginLeft) : marginLeft;
         var width = float.IsNaN(statedWidth) ? MathF.Max(0f, bandRight - borderLeft - marginRight) : statedWidth;
 
-        return new FloatAvoidance(top, borderLeft, width);
+        return new(top, borderLeft, width);
     }
 
     /// <summary>Whether a float-avoiding box can sit in the band at this height.</summary>

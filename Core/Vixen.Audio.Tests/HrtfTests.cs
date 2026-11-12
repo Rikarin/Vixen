@@ -15,7 +15,12 @@ public sealed class HrtfTests {
     const int Rate = 48_000;
 
     /// <summary>Runs a signal through and hands back both ears.</summary>
-    static (float[] Left, float[] Right) Render(float azimuth, float elevation, Func<int, float> signal, int frames = 4_096) {
+    static (float[] Left, float[] Right) Render(
+        float azimuth,
+        float elevation,
+        Func<int, float> signal,
+        int frames = 4_096
+    ) {
         var panner = new HrtfPanner(Rate);
         var left = new float[frames];
         var right = new float[frames];
@@ -64,7 +69,7 @@ public sealed class HrtfTests {
     [Fact]
     public void TheNearEarHearsItFirst() {
         // A click, so the arrival time is a thing that can be pointed at.
-        var (left, right) = Render(90f, 0f, i => i == 64 ? 1f : 0f, 512);
+        var (left, right) = Render(90f, 0f, static i => i == 64 ? 1f : 0f, 512);
 
         static int FirstMovement(ReadOnlySpan<float> signal) {
             for (var i = 0; i < signal.Length; i++) {
@@ -80,7 +85,10 @@ public sealed class HrtfTests {
         var toLeft = FirstMovement(left);
 
         Assert.True(toRight > 0 && toLeft > 0);
-        Assert.True(toRight < toLeft, $"the right ear heard a sound on the right at {toRight} and the left at {toLeft}");
+        Assert.True(
+            toRight < toLeft,
+            $"the right ear heard a sound on the right at {toRight} and the left at {toLeft}"
+        );
 
         // Two thirds of a millisecond at the widest, which is what a head is worth.
         var difference = (toLeft - toRight) / (float)Rate;
@@ -132,7 +140,7 @@ public sealed class HrtfTests {
             var samples = new float[count];
 
             for (var i = 0; i < count; i++) {
-                samples[i] = (float)((random.NextDouble() * 2.0) - 1.0) * 0.4f;
+                samples[i] = (float)(random.NextDouble() * 2.0 - 1.0) * 0.4f;
             }
 
             return samples;
@@ -166,7 +174,7 @@ public sealed class HrtfTests {
         var noise = new float[8_192];
 
         for (var i = 0; i < noise.Length; i++) {
-            noise[i] = (float)((random.NextDouble() * 2.0) - 1.0) * 0.4f;
+            noise[i] = (float)(random.NextDouble() * 2.0 - 1.0) * 0.4f;
         }
 
         var (level, _) = Render(0f, 0f, i => noise[i], noise.Length);
@@ -197,7 +205,7 @@ public sealed class HrtfTests {
 
     [Fact]
     public void SilenceStaysSilent() {
-        var (left, right) = Render(45f, 30f, _ => 0f, 1_024);
+        var (left, right) = Render(45f, 30f, static _ => 0f, 1_024);
 
         Assert.Equal(0f, Rms(left, 0));
         Assert.Equal(0f, Rms(right, 0));
@@ -225,7 +233,7 @@ public sealed class HrtfTests {
 
     [Fact]
     public void ARateItCannotWorkAtIsRefused() =>
-        Assert.Throws<ArgumentOutOfRangeException>(() => new HrtfPanner(0));
+        Assert.Throws<ArgumentOutOfRangeException>(static () => new HrtfPanner(0));
 
     /// <summary>It stays finite everywhere, which a filter whose coefficients move every sample might not.</summary>
     [Theory]
@@ -256,16 +264,16 @@ public sealed class HrtfTests {
     [Fact]
     public void ThroughTheEngineFrontAndBehindStopBeingTheSameSound() {
         static float[] Rendered(bool hrtf, float z) {
-            var (engine, device) = AudioTestData.Engine(channels: 2);
+            var (engine, device) = AudioTestData.Engine();
 
             using (engine) {
                 engine.UseHrtf = hrtf;
-                engine.SetListener(new AudioListener());
+                engine.SetListener(new());
 
-                engine.Play(AudioTestData.Tone(4_000f, 48_000), new Mixing.PlaybackSettings {
-                    IsSpatial = true,
-                    Spatial = new SpatialSettings { Position = new Core.Mathematics.Vector3(0f, 0f, z), MaxDistance = 1_000f }
-                });
+                engine.Play(
+                    AudioTestData.Tone(4_000f, 48_000),
+                    new() { IsSpatial = true, Spatial = new() { Position = new(0f, 0f, z), MaxDistance = 1_000f } }
+                );
 
                 engine.Update(0f);
                 return AudioTestData.Render(device, 2_048);
@@ -273,8 +281,8 @@ public sealed class HrtfTests {
         }
 
         // Amplitude panning puts both of these dead centre and cannot tell them apart.
-        var pannedFront = Rendered(hrtf: false, z: 10f);
-        var pannedBehind = Rendered(hrtf: false, z: -10f);
+        var pannedFront = Rendered(false, 10f);
+        var pannedBehind = Rendered(false, -10f);
 
         var same = 0f;
 
@@ -284,8 +292,8 @@ public sealed class HrtfTests {
 
         Assert.True(same < 1e-5f, $"panning already told them apart by {same:F6}, so this test proves nothing");
 
-        var front = Rendered(hrtf: true, z: 10f);
-        var behind = Rendered(hrtf: true, z: -10f);
+        var front = Rendered(true, 10f);
+        var behind = Rendered(true, -10f);
 
         var difference = 0f;
 
@@ -298,7 +306,7 @@ public sealed class HrtfTests {
 
     [Fact]
     public void ItIsOffUnlessSomethingAsksForIt() {
-        var (engine, _) = AudioTestData.Engine(channels: 2);
+        var (engine, _) = AudioTestData.Engine();
 
         using (engine) {
             Assert.False(engine.UseHrtf);
@@ -311,16 +319,16 @@ public sealed class HrtfTests {
     /// <summary>There is no head model for five speakers, and a surround rig already has the cue.</summary>
     [Fact]
     public void ASurroundDeviceIgnoresIt() {
-        var (engine, device) = AudioTestData.Engine(channels: 6);
+        var (engine, device) = AudioTestData.Engine(6);
 
         using (engine) {
             engine.UseHrtf = true;
-            engine.SetListener(new AudioListener());
+            engine.SetListener(new());
 
-            engine.Play(AudioTestData.Constant(48_000, 1f), new Mixing.PlaybackSettings {
-                IsSpatial = true,
-                Spatial = new SpatialSettings { Position = new Core.Mathematics.Vector3(5f, 0f, 0f), MaxDistance = 1_000f }
-            });
+            engine.Play(
+                AudioTestData.Constant(48_000, 1f),
+                new() { IsSpatial = true, Spatial = new() { Position = new(5f, 0f, 0f), MaxDistance = 1_000f } }
+            );
 
             engine.Update(0f);
 

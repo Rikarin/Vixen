@@ -31,8 +31,12 @@ namespace Vixen.Rendering.Ecs;
 ///         both its components and the system that bridges them.
 ///     </para>
 ///     <para>
-///         ⚠ <b><c>[Component]</c> and <c>[DataContract]</c>, which together are what declares it to
-///         <c>SceneComponentRegistry</c>.</b> The contract gives it a serializer and a member
+///         ⚠
+///         <b>
+///             <c>[Component]</c> and <c>[DataContract]</c>, which together are what declares it to
+///             <c>SceneComponentRegistry</c>.
+///         </b>
+///         The contract gives it a serializer and a member
 ///         description — the rows an inspector draws — and the pair is the claim that a compiled scene
 ///         may name it. Nothing calls a registration method; the engine's component generator emits
 ///         one declaration per assembly from these two attributes.
@@ -82,8 +86,12 @@ public struct Light : IDefaultComponent<Light> {
 
     /// <summary>A point light you can see by, which is what an Add Component hands over.</summary>
     /// <remarks>
-    ///     ⚠ <b>Explicit, so <c>Light.Default</c> does not become a second spelling of
-    ///     <see cref="Lights.Default(LightKind)" />.</b> That one takes the kind and this one has to
+    ///     ⚠
+    ///     <b>
+    ///         Explicit, so <c>Light.Default</c> does not become a second spelling of
+    ///         <see cref="Lights.Default(LightKind)" />.
+    ///     </b>
+    ///     That one takes the kind and this one has to
     ///     pick, and a point light is the pick: it is the only kind that shows every field doing
     ///     something — a directional light does not use the range, and a spot needs two angles
     ///     explained before it looks like anything.
@@ -118,8 +126,12 @@ public static class Lights {
     /// <param name="kind">The kind.</param>
     /// <returns>Its title.</returns>
     /// <remarks>
-    ///     ⚠ <b>Not the same string as <see cref="NameOf" />, which is a departure from how shapes are
-    ///     named and is forced.</b> "Cube" is a complete answer to what a menu line makes and "Point"
+    ///     ⚠
+    ///     <b>
+    ///         Not the same string as <see cref="NameOf" />, which is a departure from how shapes are
+    ///         named and is forced.
+    ///     </b>
+    ///     "Cube" is a complete answer to what a menu line makes and "Point"
     ///     is not — every one of these lines makes a <i>light</i>, and a Create menu that read
     ///     "Directional, Point, Spot" leaves the reader to supply the noun. <c>Rect</c> is the shader's
     ///     name for the shape and "Area Light" is what every author calls it, so that one differs by
@@ -142,7 +154,7 @@ public static class Lights {
     /// </remarks>
     public static bool TryParse(string? text, out LightKind kind) {
         if (!string.IsNullOrWhiteSpace(text)) {
-            return Enum.TryParse(text.Trim(), ignoreCase: true, out kind) && All.Contains(kind);
+            return Enum.TryParse(text.Trim(), true, out kind) && All.Contains(kind);
         }
 
         kind = default;
@@ -180,8 +192,12 @@ public static class Lights {
     ///         plane and every matrix built from it is degenerate.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>"A light you can see by" is a different number for every kind, and that is the
-    ///         correction this paragraph records.</b> This method used to hand back <c>Intensity = 1</c>
+    ///         ⚠
+    ///         <b>
+    ///             "A light you can see by" is a different number for every kind, and that is the
+    ///             correction this paragraph records.
+    ///         </b>
+    ///         This method used to hand back <c>Intensity = 1</c>
     ///         for all five with <see cref="Light.Unit" /> left at <see cref="LightUnit.Native" />, and
     ///         the claim was only true of the punctual ones — one candela is a dim candle, and one
     ///         <em>lux</em> is a directional light four to five decimal orders below the sky it is
@@ -190,14 +206,20 @@ public static class Lights {
     ///         Each kind now gets a real lamp in its own unit:
     ///         <list type="bullet">
     ///             <item>Directional — <see cref="DaylightIlluminance" /> lux, a clear midday sun.</item>
-    ///             <item>Point and Spot — <see cref="LampFlux" /> lumens as candela, so the spot is the
-    ///             brighter of the two by exactly what its cone concentrates.</item>
+    ///             <item>
+    ///                 Point and Spot — <see cref="LampFlux" /> lumens as candela, so the spot is the
+    ///                 brighter of the two by exactly what its cone concentrates.
+    ///             </item>
     ///             <item>Rect and Tube — the same lamp as nits through the surface each one has.</item>
     ///         </list>
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The unit is stated rather than left at <see cref="LightUnit.Native" />, and it is
-    ///         always the kind's own.</b> Native and the kind's own unit are the same arithmetic —
+    ///         ⚠
+    ///         <b>
+    ///             The unit is stated rather than left at <see cref="LightUnit.Native" />, and it is
+    ///             always the kind's own.
+    ///         </b>
+    ///         Native and the kind's own unit are the same arithmetic —
     ///         <see cref="Photometry.Intensity" /> only ever divides for <see cref="LightUnit.Lumen" />
     ///         — so writing it changes no pixel and labels the number, which is the whole difference
     ///         between an inspector row that reads "100000" and one that reads "100000 lux".
@@ -211,12 +233,7 @@ public static class Lights {
     ///     </para>
     /// </remarks>
     public static Light Default(LightKind kind) {
-        var light = new Light {
-            Kind = kind,
-            Colour = new Color3(1f, 1f, 1f),
-            Unit = NativeUnitOf(kind),
-            Range = 10f
-        };
+        var light = new Light { Kind = kind, Colour = new(1f, 1f, 1f), Unit = NativeUnitOf(kind), Range = 10f };
 
         switch (kind) {
             case LightKind.Directional:
@@ -268,8 +285,12 @@ public static class Lights {
 
     /// <summary>The unit a kind's own numbers are already in — what <c>Native</c> means for it.</summary>
     /// <remarks>
-    ///     ⚠ <b>Named after <see cref="LightUnit.Native" />'s own summary and has to keep agreeing with
-    ///     it.</b> That enum member is documented as "candela for a point or a spot, lux for a
+    ///     ⚠
+    ///     <b>
+    ///         Named after <see cref="LightUnit.Native" />'s own summary and has to keep agreeing with
+    ///         it.
+    ///     </b>
+    ///     That enum member is documented as "candela for a point or a spot, lux for a
     ///     directional light, nits for an area one", and <see cref="Photometry.Intensity" /> is written
     ///     so that both readings coincide. A kind that disagreed here would be a default whose label
     ///     said one thing and whose arithmetic did another.

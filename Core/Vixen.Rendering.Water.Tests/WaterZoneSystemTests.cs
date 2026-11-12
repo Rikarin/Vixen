@@ -36,7 +36,6 @@ public sealed class WaterZoneSystemTests : IDisposable {
     /// <inheritdoc />
     public void Dispose() {
         world.Dispose();
-        GC.SuppressFinalize(this);
     }
 
     /// <summary>A source that hands out one square lake, wherever it is asked.</summary>
@@ -60,10 +59,10 @@ public sealed class WaterZoneSystemTests : IDisposable {
                         new(origin.X + half, origin.Y, origin.Z + half),
                         new(origin.X - half, origin.Y, origin.Z + half)
                     ],
-                    closed: true,
-                    tension: 1f
+                    true,
+                    1f
                 ),
-                closed: true
+                true
             );
         }
     }
@@ -148,7 +147,7 @@ public sealed class WaterZoneSystemTests : IDisposable {
         Zone(WaterZoneComponent.Default);
 
         Body(new(0f, 2f, 0f));
-        Body(new(0f, 2f, 0f), spline: string.Empty);
+        Body(new(0f, 2f, 0f), string.Empty);
 
         var system = System();
 
@@ -217,7 +216,7 @@ public sealed class WaterZoneSystemTests : IDisposable {
 
         // A lake four kilometres to a side against a 512-metre window: every boundary point is
         // thousands of metres outside it.
-        var system = System(half: 4_000f);
+        var system = System(4_000f);
 
         system.Fold(world);
 
@@ -233,8 +232,11 @@ public sealed class WaterZoneSystemTests : IDisposable {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <b>The claim the whole amortisation rests on, and the one that is invisible when it
-    ///         fails.</b> A field re-rasterised every frame looks identical to one re-rasterised every
+    ///         <b>
+    ///             The claim the whole amortisation rests on, and the one that is invisible when it
+    ///             fails.
+    ///         </b>
+    ///         A field re-rasterised every frame looks identical to one re-rasterised every
     ///         hundredth; the only symptom is frame time.
     ///     </para>
     ///     <para>
@@ -333,7 +335,7 @@ public sealed class WaterZoneSystemTests : IDisposable {
 
         Body(new(0f, 2f, 0f));
 
-        var system = System(half: 4_000f);
+        var system = System(4_000f);
 
         system.Fold(world);
 
@@ -475,8 +477,11 @@ public sealed class WaterZoneSystemTests : IDisposable {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <b>The fold caches a body against its component and its placement, and it used to cache
-    ///         the <em>failure</em> with it.</b> A body whose <c>SplineFor</c> answered null was
+    ///         <b>
+    ///             The fold caches a body against its component and its placement, and it used to cache
+    ///             the <em>failure</em> with it.
+    ///         </b>
+    ///         A body whose <c>SplineFor</c> answered null was
     ///         recorded as unresolved, and because nothing about the component or the transform then
     ///         changed it was never asked again for the life of the world — so a lake named in a scene
     ///         could never appear in a running game, and the failure was permanent rather than
@@ -583,8 +588,12 @@ public sealed class WaterZoneSystemTests : IDisposable {
 
     /// <summary>A named sea state replaces the inline one, in the component every consumer reads.</summary>
     /// <remarks>
-    ///     ⚠ <b>Asserted through <see cref="WaterZoneSystem.Zones" /> rather than through a resolver
-    ///     the test calls itself.</b> The whole design is that the name becomes a value in exactly one
+    ///     ⚠
+    ///     <b>
+    ///         Asserted through <see cref="WaterZoneSystem.Zones" /> rather than through a resolver
+    ///         the test calls itself.
+    ///     </b>
+    ///     The whole design is that the name becomes a value in exactly one
     ///     place, so that the vertex stage and the underwater shape cannot disagree about what sea
     ///     this is — and the only way to check that is to read what those two read.
     /// </remarks>

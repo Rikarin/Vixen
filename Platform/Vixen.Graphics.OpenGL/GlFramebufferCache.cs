@@ -26,8 +26,10 @@ sealed class GlFramebufferCache(IGlApi gl) : IDisposable {
     readonly Dictionary<Key, uint> framebuffers = [];
 
     /// <summary>How many framebuffer objects the cache is holding.</summary>
-    /// <remarks>What a leak test asserts: a renderer with a fixed set of passes reaches a fixed
-    /// number here and stays there.</remarks>
+    /// <remarks>
+    ///     What a leak test asserts: a renderer with a fixed set of passes reaches a fixed
+    ///     number here and stays there.
+    /// </remarks>
     public int Count => framebuffers.Count;
 
     /// <summary>The framebuffer for an attachment set, creating it the first time.</summary>
@@ -37,7 +39,8 @@ sealed class GlFramebufferCache(IGlApi gl) : IDisposable {
     public uint Get(
         ReadOnlySpan<GlAttachment> attachments,
         int colourCount,
-        Func<TextureViewHandle, (uint Name, uint Target, int Level, int Layer, bool Layered, PixelFormat Format)> resolve
+        Func<TextureViewHandle, (uint Name, uint Target, int Level, int Layer, bool Layered, PixelFormat Format)>
+            resolve
     ) {
         var key = Key.Of(attachments);
 

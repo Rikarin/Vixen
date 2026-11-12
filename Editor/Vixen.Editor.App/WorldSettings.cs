@@ -43,8 +43,12 @@ public sealed class EnvironmentSettings {
 
 /// <summary>The dynamic global illumination doc 19 settled on, per scene.</summary>
 /// <remarks>
-///     ⚠ <b>There is nothing here about lightmaps, and that is doc 19's decision rather than an
-///     omission.</b> Baked lightmaps are retired, so a lighting panel is about the three things a
+///     ⚠
+///     <b>
+///         There is nothing here about lightmaps, and that is doc 19's decision rather than an
+///         omission.
+///     </b>
+///     Baked lightmaps are retired, so a lighting panel is about the three things a
 ///     dynamic solution has budgets for: how far the distance fields reach, how densely the
 ///     irradiance probes are placed, and how much of the surface cache a frame may spend.
 /// </remarks>
@@ -161,16 +165,24 @@ public sealed class NavigationSettings {
 ///         moment somebody notices.
 ///     </para>
 ///     <para>
-///         ⚠ <b>A sidecar beside the <c>.vxscene</c> rather than a block inside it, and the reason is
-///         merge conflicts.</b> A scene file is where every entity anybody adds lands, so it is the
+///         ⚠
+///         <b>
+///             A sidecar beside the <c>.vxscene</c> rather than a block inside it, and the reason is
+///             merge conflicts.
+///         </b>
+///         A scene file is where every entity anybody adds lands, so it is the
 ///         file two people on a team touch every day; the world settings change once a month and are
 ///         edited by one person. Keeping them apart means changing the fog does not conflict with
 ///         somebody else having moved a crate. It is the same argument doc 08 makes for <c>.meta</c>
 ///         files being beside their assets rather than inside a database.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Every group here is a <c>[DataContract]</c> with <c>[Inspector]</c> members and no
-///         dialog code at all</b> — doc 11's "adding a setting is declaring a type", applied to the
+///         ⚠
+///         <b>
+///             Every group here is a <c>[DataContract]</c> with <c>[Inspector]</c> members and no
+///             dialog code at all
+///         </b>
+///         — doc 11's "adding a setting is declaring a type", applied to the
 ///         scene. The panels below are three <c>InspectorView</c>s over three of these properties.
 ///     </para>
 /// </remarks>
@@ -225,8 +237,10 @@ public sealed class WorldSettings {
             var settings = YamlSerializer.Parse<WorldSettings>(File.ReadAllText(path));
 
             return settings.Version <= Current ? settings : new();
-        } catch (Exception exception) when (exception is IOException or UnauthorizedAccessException
-            or YamlBindingException or YamlParseException) {
+        } catch (Exception exception) when (exception is IOException
+                                                or UnauthorizedAccessException
+                                                or YamlBindingException
+                                                or YamlParseException) {
             return new();
         }
     }

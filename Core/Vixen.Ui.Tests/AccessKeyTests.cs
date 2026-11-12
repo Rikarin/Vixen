@@ -116,7 +116,7 @@ public class AccessKeyTests {
         var field = document.Root.Add("div");
 
         field.Focusable = true;
-        field.AddHandler<KeyEvent>((_, args) => args.Handled = true);
+        field.AddHandler<KeyEvent>(static (_, args) => args.Handled = true);
 
         var reached = Listening(save);
         document.Update();
@@ -229,7 +229,7 @@ public class AccessKeyTests {
     public void An_element_that_cannot_take_the_focus_still_hears_it() {
         using var document = Documented();
 
-        var element = Keyed(document.Root, 'X', focusable: false);
+        var element = Keyed(document.Root, 'X', false);
         var reached = Listening(element);
 
         document.Update();

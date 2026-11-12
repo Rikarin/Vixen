@@ -24,15 +24,13 @@ public class AnchorChannelDeviceTests(ITestOutputHelper output) {
                 Values = { ["baseColor"] = [0.2f, 0.2f, 0.2f, 1f], ["roughness"] = [0.9f, 0.9f, 0.9f, 1f] }
             },
             new LayerAsset {
-                Id = "black",
-                Values = { ["baseColor"] = [0f, 0f, 0f, 1f], ["roughness"] = [0f, 0f, 0f, 1f] }
+                Id = "black", Values = { ["baseColor"] = [0f, 0f, 0f, 1f], ["roughness"] = [0f, 0f, 0f, 1f] }
             },
             new LayerAsset {
                 Id = "b",
                 Values = { ["baseColor"] = [1f, 1f, 1f, 1f], ["roughness"] = [1f, 1f, 1f, 1f] },
                 Mask = new() {
-                    Source = LayerMaskSource.Anchor,
-                    Anchor = new() { Anchor = "Wear", Channel = "roughness" }
+                    Source = LayerMaskSource.Anchor, Anchor = new() { Anchor = "Wear", Channel = "roughness" }
                 }
             }
         );
@@ -59,15 +57,13 @@ public class AnchorChannelDeviceTests(ITestOutputHelper output) {
                 Values = { ["baseColor"] = [0.2f, 0.2f, 0.2f, 1f] }
             },
             new LayerAsset {
-                Id = "black",
-                Values = { ["baseColor"] = [0f, 0f, 0f, 1f], ["roughness"] = [0f, 0f, 0f, 1f] }
+                Id = "black", Values = { ["baseColor"] = [0f, 0f, 0f, 1f], ["roughness"] = [0f, 0f, 0f, 1f] }
             },
             new LayerAsset {
                 Id = "b",
                 Values = { ["baseColor"] = [1f, 1f, 1f, 1f], ["roughness"] = [1f, 1f, 1f, 1f] },
                 Mask = new() {
-                    Source = LayerMaskSource.Anchor,
-                    Anchor = new() { Anchor = "Colour only", Channel = "roughness" }
+                    Source = LayerMaskSource.Anchor, Anchor = new() { Anchor = "Colour only", Channel = "roughness" }
                 }
             }
         );
@@ -89,9 +85,7 @@ public class AnchorChannelDeviceTests(ITestOutputHelper output) {
             Worn(),
             Black(),
             new LayerAsset {
-                Id = "clone",
-                Fill = LayerFillSource.Anchor,
-                Anchor = new() { Anchor = "Wear", Channel = channel }
+                Id = "clone", Fill = LayerFillSource.Anchor, Anchor = new() { Anchor = "Wear", Channel = channel }
             }
         );
 
@@ -160,8 +154,11 @@ public class AnchorChannelDeviceTests(ITestOutputHelper output) {
 
         var refused = LayerStackGraph.Build(stack, stack.Sets[0]);
 
-        Assert.Contains(refused.Problems, problem => problem.Severity == Vixen.NodeGraph.NodeSeverity.Error
-            && problem.Message.Contains(said, StringComparison.Ordinal));
+        Assert.Contains(
+            refused.Problems,
+            problem => problem.Severity == Vixen.NodeGraph.NodeSeverity.Error
+                && problem.Message.Contains(said, StringComparison.Ordinal)
+        );
 
         var drafted = LayerStackGraph.Build(stack, stack.Sets[0], draft: true);
 
@@ -175,7 +172,7 @@ public class AnchorChannelDeviceTests(ITestOutputHelper output) {
 
         var build = LayerStackGraph.Build(stack, stack.Sets[0]);
 
-        Assert.Contains(build.Problems, problem => problem.Message.Contains("publish the anchor point 'Wear'"));
+        Assert.Contains(build.Problems, static problem => problem.Message.Contains("publish the anchor point 'Wear'"));
     }
 
     static LayerAsset Worn() =>
@@ -200,7 +197,7 @@ public class AnchorChannelDeviceTests(ITestOutputHelper output) {
                         new() { Usage = "baseColor", Default = [0.5f, 0.5f, 0.5f, 1f] },
                         new() { Usage = "roughness", Default = [0.5f, 0.5f, 0.5f, 1f] }
                     ],
-                    Layers = [.. layers]
+                    Layers = [..layers]
                 }
             ]
         };

@@ -115,5 +115,5 @@ public sealed class EbmlReaderTests {
         Assert.Throws<InvalidDataException>(() => reader.Skip(9));
     }
 
-    static EbmlReader Read(byte[] bytes) => new(new MemoryStream(bytes, writable: false));
+    static EbmlReader Read(byte[] bytes) => new(new MemoryStream(bytes, false));
 }

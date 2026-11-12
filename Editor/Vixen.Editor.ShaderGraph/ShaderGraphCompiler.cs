@@ -3,7 +3,6 @@
 
 using System.Collections.Immutable;
 using System.Text;
-using Vixen.Editor.NodeGraph;
 using Vixen.NodeGraph;
 
 namespace Vixen.Editor.ShaderGraph;
@@ -79,8 +78,11 @@ public sealed record ShaderGraphSource(
     /// <inheritdoc cref="ShaderGraphSource" />
     /// <remarks>
     ///     <para>
-    ///         <b>This is the half of doc 07's "diagnostics mapped back to node ports" that the graph
-    ///         side owes.</b> Raven's complaints about generated text name a line; an author can act on
+    ///         <b>
+    ///             This is the half of doc 07's "diagnostics mapped back to node ports" that the graph
+    ///             side owes.
+    ///         </b>
+    ///         Raven's complaints about generated text name a line; an author can act on
     ///         a node. <see cref="NodeAt" /> is the join.
     ///     </para>
     ///     <para>
@@ -158,6 +160,7 @@ public sealed class ShaderGraphCompiler : NodeGraphCompiler<ShaderGraphSource> {
         "Vixen.Shaders.Shading",
         "Vixen.Shaders.Material"
     ];
+
     readonly List<ShaderGraphSpan> spans = [];
     readonly Dictionary<string, NodeId> declaredBy = new(StringComparer.Ordinal);
     readonly Dictionary<ShaderStageInput, NodeId> stagedBy = [];
@@ -168,8 +171,12 @@ public sealed class ShaderGraphCompiler : NodeGraphCompiler<ShaderGraphSource> {
 
     /// <summary>What a feature may not read, and what to say about each.</summary>
     /// <remarks>
-    ///     ⚠ <b>A refusal rather than a substitution, and this is the decision the whole surface path
-    ///     turns on.</b> Neither value is on <c>MaterialData</c>, so the honest answers a feature
+    ///     ⚠
+    ///     <b>
+    ///         A refusal rather than a substitution, and this is the decision the whole surface path
+    ///         turns on.
+    ///     </b>
+    ///     Neither value is on <c>MaterialData</c>, so the honest answers a feature
     ///     could give are the origin and white — both of which compile, draw, and produce a surface
     ///     lit as though the graph said something it did not. Doc 06's rule is that a feature is
     ///     composed into a pass it has never seen; a graph that reads what no pass promises is a
@@ -236,24 +243,28 @@ public sealed class ShaderGraphCompiler : NodeGraphCompiler<ShaderGraphSource> {
     /// <inheritdoc />
     protected override void Visit(GraphNode node, NodeTypeDefinition definition, Node instance, NodeBinding binding) {
         if (instance is not ShaderNode shader) {
-            Report(new(
-                ShaderGraphDiagnostics.NodeIsNotAShaderNode,
-                $"'{definition.Path}' is in this graph's library but is not a shader node, so there is "
-                + "nothing it could emit.",
-                node.Id
-            ));
+            Report(
+                new(
+                    ShaderGraphDiagnostics.NodeIsNotAShaderNode,
+                    $"'{definition.Path}' is in this graph's library but is not a shader node, so there is "
+                    + "nothing it could emit.",
+                    node.Id
+                )
+            );
 
             return;
         }
 
         if (shader is ShaderMasterNode found) {
             if (master is not null) {
-                Report(new(
-                    ShaderGraphDiagnostics.GraphHasTwoMasters,
-                    $"This graph has two master nodes, {masterId} and {node.Id}. A shader has one output, "
-                    + "so one of them is the one that matters and the graph does not say which.",
-                    node.Id
-                ));
+                Report(
+                    new(
+                        ShaderGraphDiagnostics.GraphHasTwoMasters,
+                        $"This graph has two master nodes, {masterId} and {node.Id}. A shader has one output, "
+                        + "so one of them is the one that matters and the graph does not say which.",
+                        node.Id
+                    )
+                );
 
                 return;
             }
@@ -296,12 +307,14 @@ public sealed class ShaderGraphCompiler : NodeGraphCompiler<ShaderGraphSource> {
     /// <inheritdoc />
     protected override ShaderGraphSource? Finish(NodeGraphModel graph) {
         if (master is null) {
-            Report(new(
-                ShaderGraphDiagnostics.GraphHasNoMaster,
-                "This graph has no master node, so there is nothing for the shader to write. Add one from "
-                + "the Master category.",
-                NodeId.None
-            ));
+            Report(
+                new(
+                    ShaderGraphDiagnostics.GraphHasNoMaster,
+                    "This graph has no master node, so there is nothing for the shader to write. Add one from "
+                    + "the Master category.",
+                    NodeId.None
+                )
+            );
 
             return null;
         }
@@ -314,7 +327,9 @@ public sealed class ShaderGraphCompiler : NodeGraphCompiler<ShaderGraphSource> {
 
         var text = new StringBuilder();
 
-        text.AppendLine("// Generated from a node graph by Vixen.Editor.ShaderGraph. The graph is the source; this is not.")
+        text.AppendLine(
+                "// Generated from a node graph by Vixen.Editor.ShaderGraph. The graph is the source; this is not."
+            )
             .AppendLine()
             .AppendLine("package Vixen.ShaderGraph.Generated")
             .AppendLine();
@@ -349,7 +364,7 @@ public sealed class ShaderGraphCompiler : NodeGraphCompiler<ShaderGraphSource> {
 
         text.AppendLine()
             .AppendLine("    [VertexShader]")
-            .AppendLine("    [Semantic(\"SV_Position\")]")
+            .AppendLine("""    [Semantic("SV_Position")]""")
             .AppendLine($"    func Vertex({string.Join(", ", VertexParameters())}): float4 {{");
 
         foreach (var input in stage.Order()) {
@@ -360,7 +375,7 @@ public sealed class ShaderGraphCompiler : NodeGraphCompiler<ShaderGraphSource> {
             .AppendLine("    }")
             .AppendLine()
             .AppendLine("    [FragmentShader]")
-            .AppendLine("    [Semantic(\"SV_Target\")]")
+            .AppendLine("""    [Semantic("SV_Target")]""")
             .AppendLine("    func Fragment(): float4 {");
 
         // ⚠ Read here, between the header and the body, because this is the one moment the offset is
@@ -379,8 +394,8 @@ public sealed class ShaderGraphCompiler : NodeGraphCompiler<ShaderGraphSource> {
             text.ToString(),
             Properties(),
             [
-                .. declarations,
-                .. spans.Select(span => span with { Span = new(span.Span.Line + offset, span.Span.Lines) })
+                ..declarations,
+                ..spans.Select(span => span with { Span = new(span.Span.Line + offset, span.Span.Lines) })
             ]
         );
     }
@@ -388,8 +403,11 @@ public sealed class ShaderGraphCompiler : NodeGraphCompiler<ShaderGraphSource> {
     /// <summary>The graph as a material feature: no stages, no entry point, no <c>return</c>.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>The shape doc 08's material compiler needed, and the reason a graph could not draw
-    ///         before there was one.</b> A standalone shader declares its own transforms and its own
+    ///         <b>
+    ///             The shape doc 08's material compiler needed, and the reason a graph could not draw
+    ///             before there was one.
+    ///         </b>
+    ///         A standalone shader declares its own transforms and its own
     ///         bindings, and a draw in this engine supplies neither by those names — so putting one on
     ///         a mesh would have meant a second render feature, a second pass and a second way of
     ///         being lit. This is composed into <c>CompositeSurface</c> beside the hand-written
@@ -415,12 +433,14 @@ public sealed class ShaderGraphCompiler : NodeGraphCompiler<ShaderGraphSource> {
                 continue;
             }
 
-            Report(new(
-                ShaderGraphDiagnostics.SurfaceReadsAForbiddenStream,
-                $"A surface graph cannot read {Stream(input)}: {reason}. Take it out, or use a master "
-                + "that makes a standalone shader.",
-                stagedBy.TryGetValue(input, out var asker) ? Inlining.Resolve(asker) : NodeId.None
-            ));
+            Report(
+                new(
+                    ShaderGraphDiagnostics.SurfaceReadsAForbiddenStream,
+                    $"A surface graph cannot read {Stream(input)}: {reason}. Take it out, or use a master "
+                    + "that makes a standalone shader.",
+                    stagedBy.TryGetValue(input, out var asker) ? Inlining.Resolve(asker) : NodeId.None
+                )
+            );
 
             refused = true;
         }
@@ -431,7 +451,9 @@ public sealed class ShaderGraphCompiler : NodeGraphCompiler<ShaderGraphSource> {
 
         var text = new StringBuilder();
 
-        text.AppendLine("// Generated from a node graph by Vixen.Editor.ShaderGraph. The graph is the source; this is not.")
+        text.AppendLine(
+                "// Generated from a node graph by Vixen.Editor.ShaderGraph. The graph is the source; this is not."
+            )
             .AppendLine()
             .AppendLine("package Vixen.ShaderGraph.Generated")
             .AppendLine()
@@ -447,7 +469,7 @@ public sealed class ShaderGraphCompiler : NodeGraphCompiler<ShaderGraphSource> {
         }
 
         text.AppendLine()
-            .AppendLine($"shader {name} : {(maps.Count > 0 ? "MaterialTextures, " : "")}IMaterialSurface {{");
+            .AppendLine($"shader {name} : {(maps.Count > 0 ? "MaterialTextures, " : string.Empty)}IMaterialSurface {{");
 
         List<ShaderGraphSpan> declarations = [];
 
@@ -467,11 +489,14 @@ public sealed class ShaderGraphCompiler : NodeGraphCompiler<ShaderGraphSource> {
             text.ToString(),
             Properties(),
             [
-                .. declarations,
-                .. spans.Select(span => span with { Span = new(span.Span.Line + offset, span.Span.Lines) })
+                ..declarations,
+                ..spans.Select(span => span with { Span = new(span.Span.Line + offset, span.Span.Lines) })
             ],
             ShaderGraphKind.Surface,
-            [.. maps.OrderBy(entry => entry.Key, StringComparer.Ordinal).Select(entry => new ShaderGraphMap(entry.Key, entry.Value))]
+            [
+                ..maps.OrderBy(static entry => entry.Key, StringComparer.Ordinal)
+                    .Select(static entry => new ShaderGraphMap(entry.Key, entry.Value))
+            ]
         );
     }
 
@@ -487,7 +512,7 @@ public sealed class ShaderGraphCompiler : NodeGraphCompiler<ShaderGraphSource> {
         // rather than a rescan of a builder that is getting longer.
         var cursor = Lines(text) - 1;
 
-        foreach (var (uniform, type) in uniforms.OrderBy(entry => entry.Key, StringComparer.Ordinal)) {
+        foreach (var (uniform, type) in uniforms.OrderBy(static entry => entry.Key, StringComparer.Ordinal)) {
             text.AppendLine().AppendLine($"    var {uniform}: {type}");
 
             // A blank line and then the declaration, so the declaration is the second of the two.
@@ -503,8 +528,8 @@ public sealed class ShaderGraphCompiler : NodeGraphCompiler<ShaderGraphSource> {
 
     /// <summary>Every property the graph asked for, in the order they were declared in.</summary>
     ImmutableArray<ShaderGraphProperty> Properties() => [
-        .. uniforms.OrderBy(entry => entry.Key, StringComparer.Ordinal)
-            .Select(entry => new ShaderGraphProperty(entry.Key, entry.Value))
+        ..uniforms.OrderBy(static entry => entry.Key, StringComparer.Ordinal)
+            .Select(static entry => new ShaderGraphProperty(entry.Key, entry.Value))
     ];
 
     /// <summary>How many lines a builder holds, counting a trailing newline as ending one.</summary>
@@ -535,7 +560,9 @@ public sealed class ShaderGraphCompiler : NodeGraphCompiler<ShaderGraphSource> {
         }
 
         if (kind == PortKind.Int) {
-            return ((int)(value.Length > 0 ? value[0] : 0f)).ToString(System.Globalization.CultureInfo.InvariantCulture);
+            return ((int)(value.Length > 0 ? value[0] : 0f)).ToString(
+                System.Globalization.CultureInfo.InvariantCulture
+            );
         }
 
         if (lanes <= 1) {
@@ -610,25 +637,28 @@ public sealed class ShaderGraphCompiler : NodeGraphCompiler<ShaderGraphSource> {
         }
     }
 
-    static string VertexAssignment(ShaderStageInput input) => input switch {
-        ShaderStageInput.Uv => "texcoord",
-        ShaderStageInput.WorldPosition => "(world * float4(position, 1f)).xyz",
-        ShaderStageInput.WorldNormal => "(world * float4(normal, 0f)).xyz",
-        _ => "colour"
-    };
+    static string VertexAssignment(ShaderStageInput input) =>
+        input switch {
+            ShaderStageInput.Uv => "texcoord",
+            ShaderStageInput.WorldPosition => "(world * float4(position, 1f)).xyz",
+            ShaderStageInput.WorldNormal => "(world * float4(normal, 0f)).xyz",
+            _ => "colour"
+        };
 
-    static string Stream(ShaderStageInput input) => input switch {
-        ShaderStageInput.Uv => "uv",
-        ShaderStageInput.WorldPosition => "worldPosition",
-        ShaderStageInput.WorldNormal => "worldNormal",
-        _ => "vertexColour"
-    };
+    static string Stream(ShaderStageInput input) =>
+        input switch {
+            ShaderStageInput.Uv => "uv",
+            ShaderStageInput.WorldPosition => "worldPosition",
+            ShaderStageInput.WorldNormal => "worldNormal",
+            _ => "vertexColour"
+        };
 
-    static string StreamType(ShaderStageInput input) => input switch {
-        ShaderStageInput.Uv => "float2",
-        ShaderStageInput.VertexColour => "float4",
-        _ => "float3"
-    };
+    static string StreamType(ShaderStageInput input) =>
+        input switch {
+            ShaderStageInput.Uv => "float2",
+            ShaderStageInput.VertexColour => "float4",
+            _ => "float3"
+        };
 
     /// <summary>A graph's name, as something Raven would accept as one.</summary>
     static string Identifier(string name) {

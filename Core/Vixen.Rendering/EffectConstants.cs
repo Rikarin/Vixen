@@ -189,9 +189,7 @@ public sealed class EffectConstants(IGraphicsDevice device, string name = "Const
         var alignment = Math.Max(1, Alignment);
         Stride = (Size + alignment - 1) / alignment * alignment;
 
-        buffer = device.CreateBuffer(
-            new(Stride * slots, BufferUsage.Uniform, MemoryAccess.HostUpload, name)
-        );
+        buffer = device.CreateBuffer(new(Stride * slots, BufferUsage.Uniform, MemoryAccess.HostUpload, name));
     }
 
     /// <inheritdoc />

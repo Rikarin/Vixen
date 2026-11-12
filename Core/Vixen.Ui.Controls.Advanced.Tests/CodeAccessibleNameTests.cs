@@ -26,8 +26,12 @@ namespace Vixen.Ui.Controls.Advanced.Tests;
 ///         it compares against the declaration table, and a word no class declares is not in it.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The property name is not the question, and a scan that thought it was would be a
-///         census of log messages.</b> <c>Message = "…"</c> is every <c>[LoggerMessage]</c> in the
+///         ⚠
+///         <b>
+///             The property name is not the question, and a scan that thought it was would be a
+///             census of log messages.
+///         </b>
+///         <c>Message = "…"</c> is every <c>[LoggerMessage]</c> in the
 ///         tree, <c>Description = "…"</c> every command-line option, <c>Title = "…"</c> every window
 ///         the samples open — measured, a bare name match over production C# is overwhelmingly those.
 ///         What makes a literal a spoken name is the <i>receiver</i>: a <c>Button</c>'s <c>Label</c> is
@@ -131,7 +135,10 @@ public class CodeAccessibleNameTests {
     ///     </para>
     /// </remarks>
     static Dictionary<string, IReadOnlySet<string>> Probe() {
-        var make = typeof(CodeAccessibleNameTests).GetMethod(nameof(Make), BindingFlags.NonPublic | BindingFlags.Static)!;
+        var make = typeof(CodeAccessibleNameTests).GetMethod(
+            nameof(Make),
+            BindingFlags.NonPublic | BindingFlags.Static
+        )!;
         var table = new Dictionary<string, IReadOnlySet<string>>(StringComparer.Ordinal);
 
         var types = new[] { typeof(UiElement).Assembly, typeof(Button).Assembly, typeof(DataGrid).Assembly }
@@ -141,12 +148,17 @@ public class CodeAccessibleNameTests {
             .OrderBy(static type => type.FullName, StringComparer.Ordinal);
 
         foreach (var type in types) {
-            Assert.False(table.ContainsKey(type.Name), $"two element types are called {type.Name}, so a name in the source no longer picks one.");
+            Assert.False(
+                table.ContainsKey(type.Name),
+                $"two element types are called {type.Name}, so a name in the source no longer picks one."
+            );
 
             var speaks = new HashSet<string>(Direct, StringComparer.Ordinal);
 
             foreach (var property in MarkupAccessibleNameTests.Watched.Except(Direct)) {
-                if (type.GetProperty(property, BindingFlags.Public | BindingFlags.Instance) is not { CanWrite: true } setter
+                if (type.GetProperty(property, BindingFlags.Public | BindingFlags.Instance) is not {
+                        CanWrite: true
+                    } setter
                     || setter.PropertyType != typeof(string)
                     || setter.SetMethod is not { IsPublic: true }) {
                     continue;
@@ -160,7 +172,8 @@ public class CodeAccessibleNameTests {
                 setter.SetValue(element, sentinel);
                 fixture.Update();
 
-                if (MarkupAccessibleNameTests.Announced(fixture.Document.Root).Contains(sentinel, StringComparer.Ordinal)) {
+                if (MarkupAccessibleNameTests.Announced(fixture.Document.Root)
+                    .Contains(sentinel, StringComparer.Ordinal)) {
                     speaks.Add(property);
                 }
             }
@@ -204,7 +217,7 @@ public class CodeAccessibleNameTests {
             }
         }
 
-        return new Code([.. rows], sites, untyped, foreign, files);
+        return new Code([..rows], sites, untyped, foreign, files);
     }
 
     /// <summary>A <c>.vxml</c>'s <c>@code</c> body as a compilation unit, or nothing when it has none.</summary>
@@ -236,7 +249,11 @@ public class CodeAccessibleNameTests {
     /// <param name="source">The C#.</param>
     /// <param name="spoken">Which element types speak which properties.</param>
     /// <returns>Its literal rows, and how many sites it had and could not judge.</returns>
-    internal static Code ScanFile(string name, string source, IReadOnlyDictionary<string, IReadOnlySet<string>> spoken) {
+    internal static Code ScanFile(
+        string name,
+        string source,
+        IReadOnlyDictionary<string, IReadOnlySet<string>> spoken
+    ) {
         var watched = MarkupAccessibleNameTests.Watched.ToHashSet(StringComparer.Ordinal);
         var tree = CSharpSyntaxTree.ParseText(source);
         var rows = new SortedSet<string>(StringComparer.Ordinal);
@@ -246,7 +263,9 @@ public class CodeAccessibleNameTests {
 
         foreach (var assignment in tree.GetRoot().DescendantNodes().OfType<AssignmentExpressionSyntax>()) {
             if (!assignment.IsKind(SyntaxKind.SimpleAssignmentExpression)
-                || assignment.Right is not LiteralExpressionSyntax { RawKind: (int)SyntaxKind.StringLiteralExpression } literal) {
+                || assignment.Right is not LiteralExpressionSyntax {
+                    RawKind: (int)SyntaxKind.StringLiteralExpression
+                } literal) {
                 continue;
             }
 
@@ -260,7 +279,8 @@ public class CodeAccessibleNameTests {
                 // unjudged, nor counted: the one hole the remark above says this file does not have.
                 // A local or parameter of that name is a variable being assigned, not a property.
                 IdentifierNameSyntax bare when Binding(bare.Identifier.ValueText, assignment) is null
-                    => (bare.Identifier.ValueText, Self(bare.Identifier.ValueText, assignment, spoken, inherited: false)),
+                    => (bare.Identifier.ValueText,
+                        Self(bare.Identifier.ValueText, assignment, spoken, false)),
                 MemberAccessExpressionSyntax access
                     => (access.Name.Identifier.ValueText, TypeOf(access.Expression, assignment, spoken)),
                 _ => (null, null)
@@ -293,15 +313,15 @@ public class CodeAccessibleNameTests {
                 continue;
             }
 
-            var escaped = value.Replace("\\", "\\\\", StringComparison.Ordinal)
-                .Replace("\n", "\\n", StringComparison.Ordinal)
-                .Replace("\r", "\\r", StringComparison.Ordinal)
-                .Replace("\t", "\\t", StringComparison.Ordinal);
+            var escaped = value.Replace("""\""", """\\""", StringComparison.Ordinal)
+                .Replace("\n", """\n""", StringComparison.Ordinal)
+                .Replace("\r", """\r""", StringComparison.Ordinal)
+                .Replace("\t", """\t""", StringComparison.Ordinal);
 
             rows.Add($"{name}\t{receiver}.{property}\t{escaped}");
         }
 
-        return new Code([.. rows], sites, untyped, foreign, 1);
+        return new Code([..rows], sites, untyped, foreign, 1);
     }
 
     /// <summary>The type an object initializer's <c>new</c> names, if it names one.</summary>
@@ -314,7 +334,9 @@ public class CodeAccessibleNameTests {
 
     /// <summary>What a target-typed <c>new()</c> is declared as, when it is declared at all.</summary>
     static string? Target(ExpressionSyntax expression) =>
-        expression.Parent is EqualsValueClauseSyntax { Parent: VariableDeclaratorSyntax { Parent: VariableDeclarationSyntax declaration } }
+        expression.Parent is EqualsValueClauseSyntax {
+            Parent: VariableDeclaratorSyntax { Parent: VariableDeclarationSyntax declaration }
+        }
         && !declaration.Type.IsVar
             ? Simple(declaration.Type)
             : null;
@@ -323,14 +345,21 @@ public class CodeAccessibleNameTests {
     /// <param name="receiver">What is left of the dot.</param>
     /// <param name="at">The assignment, which bounds which declarations are visible.</param>
     /// <param name="spoken">Which element types speak which properties, for a receiver that is <c>this</c>.</param>
-    static string? TypeOf(ExpressionSyntax receiver, SyntaxNode at, IReadOnlyDictionary<string, IReadOnlySet<string>> spoken) =>
+    static string? TypeOf(
+        ExpressionSyntax receiver,
+        SyntaxNode at,
+        IReadOnlyDictionary<string, IReadOnlySet<string>> spoken
+    ) =>
         receiver switch {
             IdentifierNameSyntax identifier => Declared(identifier.Identifier.ValueText, at),
-            MemberAccessExpressionSyntax { Expression: ThisExpressionSyntax } member => Member(member.Name.Identifier.ValueText, at),
+            MemberAccessExpressionSyntax { Expression: ThisExpressionSyntax } member => Member(
+                member.Name.Identifier.ValueText,
+                at
+            ),
             ThisExpressionSyntax when at is AssignmentExpressionSyntax { Left: MemberAccessExpressionSyntax access }
-                => Self(access.Name.Identifier.ValueText, at, spoken, inherited: false),
+                => Self(access.Name.Identifier.ValueText, at, spoken, false),
             BaseExpressionSyntax when at is AssignmentExpressionSyntax { Left: MemberAccessExpressionSyntax access }
-                => Self(access.Name.Identifier.ValueText, at, spoken, inherited: true),
+                => Self(access.Name.Identifier.ValueText, at, spoken, true),
             ParenthesizedExpressionSyntax parenthesized => TypeOf(parenthesized.Expression, at, spoken),
             _ => Produced(receiver)
         };
@@ -351,7 +380,12 @@ public class CodeAccessibleNameTests {
     ///     property, so its base answers — and a base the probe did not build either is
     ///     <see cref="Code.Foreign" />, counted, the same as any other control this assembly cannot load.
     /// </remarks>
-    static string? Self(string name, SyntaxNode at, IReadOnlyDictionary<string, IReadOnlySet<string>> spoken, bool inherited) {
+    static string? Self(
+        string name,
+        SyntaxNode at,
+        IReadOnlyDictionary<string, IReadOnlySet<string>> spoken,
+        bool inherited
+    ) {
         if (at.Ancestors().OfType<TypeDeclarationSyntax>().FirstOrDefault() is not { } type) {
             return null;
         }
@@ -366,10 +400,14 @@ public class CodeAccessibleNameTests {
             }
 
             var declares = type.Members.Any(member => member switch {
-                PropertyDeclarationSyntax property => property.Identifier.ValueText == name,
-                FieldDeclarationSyntax field => field.Declaration.Variables.Any(variable => variable.Identifier.ValueText == name),
-                _ => false
-            });
+                    PropertyDeclarationSyntax property => property.Identifier.ValueText == name,
+                    FieldDeclarationSyntax field => field.Declaration.Variables.Any(variable => variable.Identifier
+                            .ValueText
+                        == name
+                    ),
+                    _ => false
+                }
+            );
 
             if (declares) {
                 return own;
@@ -391,11 +429,12 @@ public class CodeAccessibleNameTests {
             ObjectCreationExpressionSyntax creation => Simple(creation.Type),
             CastExpressionSyntax cast => Simple(cast.Type),
             BinaryExpressionSyntax { RawKind: (int)SyntaxKind.AsExpression, Right: TypeSyntax type } => Simple(type),
+            InvocationExpressionSyntax { Expression: GenericNameSyntax { TypeArgumentList.Arguments.Count: 1 } generic }
+                => Simple(generic.TypeArgumentList.Arguments[0]),
             InvocationExpressionSyntax {
-                Expression: GenericNameSyntax { TypeArgumentList.Arguments.Count: 1 } generic
-            } => Simple(generic.TypeArgumentList.Arguments[0]),
-            InvocationExpressionSyntax {
-                Expression: MemberAccessExpressionSyntax { Name: GenericNameSyntax { TypeArgumentList.Arguments.Count: 1 } generic }
+                Expression: MemberAccessExpressionSyntax {
+                    Name: GenericNameSyntax { TypeArgumentList.Arguments.Count: 1 } generic
+                }
             } => Simple(generic.TypeArgumentList.Arguments[0]),
             ParenthesizedExpressionSyntax parenthesized => Produced(parenthesized.Expression),
             _ => null
@@ -414,10 +453,14 @@ public class CodeAccessibleNameTests {
     /// <summary>The nearest local declared before the use, or the parameter, that a name refers to.</summary>
     /// <returns>A <see cref="VariableDeclaratorSyntax" /> or a <see cref="ParameterSyntax" />, or nothing for a member.</returns>
     static SyntaxNode? Binding(string name, SyntaxNode at) {
-        var scope = at.Ancestors().FirstOrDefault(static node =>
-            node is BaseMethodDeclarationSyntax or AccessorDeclarationSyntax or LocalFunctionStatementSyntax
-                or PropertyDeclarationSyntax or CompilationUnitSyntax
-        );
+        var scope = at.Ancestors()
+            .FirstOrDefault(static node =>
+                node is BaseMethodDeclarationSyntax
+                    or AccessorDeclarationSyntax
+                    or LocalFunctionStatementSyntax
+                    or PropertyDeclarationSyntax
+                    or CompilationUnitSyntax
+            );
 
         if (scope is null) {
             return null;
@@ -446,7 +489,10 @@ public class CodeAccessibleNameTests {
                     case PropertyDeclarationSyntax property when property.Identifier.ValueText == name:
                         return Simple(property.Type);
 
-                    case FieldDeclarationSyntax field when field.Declaration.Variables.Any(variable => variable.Identifier.ValueText == name):
+                    case FieldDeclarationSyntax field when field.Declaration.Variables.Any(variable => variable
+                            .Identifier.ValueText
+                        == name
+                    ):
                         return Simple(field.Declaration.Type);
                 }
             }
@@ -491,7 +537,10 @@ public class CodeAccessibleNameTests {
 
         found.RemoveAll(static path =>
             path.Contains(".Tests" + Path.DirectorySeparatorChar, StringComparison.Ordinal)
-            || path.Contains(Path.DirectorySeparatorChar + "Benchmarks" + Path.DirectorySeparatorChar, StringComparison.Ordinal)
+            || path.Contains(
+                Path.DirectorySeparatorChar + "Benchmarks" + Path.DirectorySeparatorChar,
+                StringComparison.Ordinal
+            )
         );
 
         found.Sort(StringComparer.Ordinal);
@@ -504,8 +553,11 @@ public class CodeAccessibleNameTests {
     ///     speaks.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>Both halves, because a probe that said "yes" to everything would make every
-    ///     <c>Title</c> on a window a row and one that said "no" would empty the census.</b>
+    ///     ⚠
+    ///     <b>
+    ///         Both halves, because a probe that said "yes" to everything would make every
+    ///         <c>Title</c> on a window a row and one that said "no" would empty the census.
+    ///     </b>
     ///     <c>Button</c>'s <c>Label</c> is the issue's own example, and <c>IconButton</c> inherits it;
     ///     <c>Alert</c>'s <c>Title</c> and <c>Toast</c>'s <c>Message</c> are two other overrides the
     ///     markup census names. And a <c>Panel</c> speaks nothing beyond the two direct spellings —
@@ -537,73 +589,73 @@ public class CodeAccessibleNameTests {
     [Fact]
     public void The_receiver_decides_whether_a_literal_is_spoken() {
         const string source = """
-            using Vixen.Ui.Controls;
+                              using Vixen.Ui.Controls;
 
-            class Panelish : UiElement {
-                public IconButton Reset { get; private set; } = null!;
+                              class Panelish : UiElement {
+                                  public IconButton Reset { get; private set; } = null!;
 
-                [LoggerMessage(Message = "not a control")]
-                partial void Log();
+                                  [LoggerMessage(Message = "not a control")]
+                                  partial void Log();
 
-                void Build(UiElement row, Alert warning) {
-                    Reset = Part<IconButton>();
-                    Reset.Label = "From A Property";
+                                  void Build(UiElement row, Alert warning) {
+                                      Reset = Part<IconButton>();
+                                      Reset.Label = "From A Property";
 
-                    var add = row.Add<Button>();
-                    add.Label = "From A Local";
-                    add.Label = EditorStrings.Add.Text;
-                    add.Label = $"Interpolated {row}";
+                                      var add = row.Add<Button>();
+                                      add.Label = "From A Local";
+                                      add.Label = EditorStrings.Add.Text;
+                                      add.Label = $"Interpolated {row}";
 
-                    warning.Title = "From A Parameter";
+                                      warning.Title = "From A Parameter";
 
-                    var made = new Button { Label = "From An Initializer" };
-                    Button typed = new() { Label = "From A Typed New" };
+                                      var made = new Button { Label = "From An Initializer" };
+                                      Button typed = new() { Label = "From A Typed New" };
 
-                    var window = new WindowOptions { Title = "Not A Control" };
-                    window.Title = "Still Not A Control";
+                                      var window = new WindowOptions { Title = "Not A Control" };
+                                      window.Title = "Still Not A Control";
 
-                    row.Children[0].Label = "Unjudged";
-                    Lookup().Label = "Also Unjudged";
-                    var flag = new Option<bool>("--verbose") { Description = "A Flag, Not An Option" };
-                }
-            }
+                                      row.Children[0].Label = "Unjudged";
+                                      Lookup().Label = "Also Unjudged";
+                                      var flag = new Option<bool>("--verbose") { Description = "A Flag, Not An Option" };
+                                  }
+                              }
 
-            class CloseButton : Button {
-                void Build() {
-                    Label = "From Its Own Class";
-                    this.Label = "From This";
-                    base.Label = "From Base";
-                    var Title = "";
-                    Title = "A Local, Not A Property";
-                }
-            }
+                              class CloseButton : Button {
+                                  void Build() {
+                                      Label = "From Its Own Class";
+                                      this.Label = "From This";
+                                      base.Label = "From Base";
+                                      var Title = "";
+                                      Title = "A Local, Not A Property";
+                                  }
+                              }
 
-            partial class Alert {
-                void Set() => Title = "From The Control Itself";
-            }
+                              partial class Alert {
+                                  void Set() => Title = "From The Control Itself";
+                              }
 
-            partial class Elsewhere {
-                void Set() => Label = "Its Base Is In Another Part";
-            }
+                              partial class Elsewhere {
+                                  void Set() => Label = "Its Base Is In Another Part";
+                              }
 
-            class Settings {
-                public string Title { get; set; } = "";
-                void Set() => Title = "Its Own Property";
-            }
+                              class Settings {
+                                  public string Title { get; set; } = "";
+                                  void Set() => Title = "Its Own Property";
+                              }
 
-            class OverlayRenderer : RenderFeature {
-                void Set() => Name = "Not A Control Either";
-            }
-            """;
+                              class OverlayRenderer : RenderFeature {
+                                  void Set() => Name = "Not A Control Either";
+                              }
+                              """;
 
         var table = new Dictionary<string, IReadOnlySet<string>>(StringComparer.Ordinal) {
-            ["Button"] = new HashSet<string>(["Label", .. Direct]),
-            ["IconButton"] = new HashSet<string>(["Label", .. Direct]),
-            ["Alert"] = new HashSet<string>(["Title", .. Direct]),
-            ["Option"] = new HashSet<string>(["Label", "Description", .. Direct]),
+            ["Button"] = new HashSet<string>(["Label", ..Direct]),
+            ["IconButton"] = new HashSet<string>(["Label", ..Direct]),
+            ["Alert"] = new HashSet<string>(["Title", ..Direct]),
+            ["Option"] = new HashSet<string>(["Label", "Description", ..Direct])
         };
 
-        var found = CodeAccessibleNameTests.ScanFile("Synthetic.cs", source, table);
+        var found = ScanFile("Synthetic.cs", source, table);
 
         Assert.Equal(
             [
@@ -630,25 +682,32 @@ public class CodeAccessibleNameTests {
         // of this count, so it was not even unjudged.
         Assert.Equal(17, found.Sites);
         Assert.Equal(["Synthetic.cs:26", "Synthetic.cs:27", "Synthetic.cs:47"], found.Untyped);
-        Assert.Equal(new Dictionary<string, int> { ["Option`1"] = 1, ["RenderFeature"] = 1, ["Settings"] = 1, ["WindowOptions"] = 2 }, found.Foreign);
+        Assert.Equal(
+            new Dictionary<string, int> {
+                ["Option`1"] = 1, ["RenderFeature"] = 1, ["Settings"] = 1, ["WindowOptions"] = 2
+            },
+            found.Foreign
+        );
     }
 
     /// <summary>A <c>@code</c> body is read, and the markup and prose around it are not.</summary>
     [Fact]
     public void A_code_body_is_read_and_its_markup_is_not() {
-        var code = CodeOf([
-            "<!-- Written as `add.Label = \"From A Comment\";` in a panel's body. -->",
-            "<Button Label=\"From Markup\" />",
-            "@code {",
-            "    void Build(UiElement row) {",
-            "        var add = row.Add<Button>();",
-            "        add.Label = \"From Code\";",
-            "    }",
-            "}"
-        ]);
+        var code = CodeOf(
+            [
+                """<!-- Written as `add.Label = "From A Comment";` in a panel's body. -->""",
+                """<Button Label="From Markup" />""",
+                "@code {",
+                "    void Build(UiElement row) {",
+                "        var add = row.Add<Button>();",
+                """        add.Label = "From Code";""",
+                "    }",
+                "}"
+            ]
+        );
 
         var table = new Dictionary<string, IReadOnlySet<string>>(StringComparer.Ordinal) {
-            ["Button"] = new HashSet<string>(["Label", .. Direct])
+            ["Button"] = new HashSet<string>(["Label", ..Direct])
         };
 
         Assert.Equal(["View.vxml\tButton.Label\tFrom Code"], ScanFile("View.vxml", code, table).Literal);
@@ -668,7 +727,10 @@ public class CodeAccessibleNameTests {
         var code = Scanned;
 
         Assert.True(code.Files >= 3000, $"only {code.Files} source files were found, against 3 351 measured.");
-        Assert.True(code.Sites >= 50, $"only {code.Sites} literals were assigned to a watched name, which is not this repository.");
+        Assert.True(
+            code.Sites >= 50,
+            $"only {code.Sites} literals were assigned to a watched name, which is not this repository."
+        );
 
         // `ListDrawer.cs` builds the list's add button with `editor.Fold.Content.Add<Button>()` and
         // labels it in English — the shape the issue names, in C#.

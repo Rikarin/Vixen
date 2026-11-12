@@ -9,8 +9,12 @@ namespace Vixen.Ui.Tests;
 /// <summary>A <c>filter</c> transition, read in the middle of its run.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>No filter transition interpolated at all before #1439, not even
-///         <c>blur(2px)</c> → <c>blur(8px)</c>.</b> A filter function parses as a list headed by its
+///         ⚠
+///         <b>
+///             No filter transition interpolated at all before #1439, not even
+///             <c>blur(2px)</c> → <c>blur(8px)</c>.
+///         </b>
+///         A filter function parses as a list headed by its
 ///         name, <c>[blur, 2px]</c>, and <see cref="StyleValue.CanInterpolate" /> refused a keyword pair
 ///         even when the two were the same word — so every filter list was discrete, and under
 ///         <c>transition-behavior: normal</c> a discrete value is applied at once.
@@ -28,12 +32,12 @@ public class FilterTransitionTests {
     static UiElement Settled(UiDocument document, string rest, string on) {
         document.Load(
             $$"""
-            root { width: 200px; height: 100px; }
-            #box { width: 40px; height: 20px; background-color: #ffffff;
-                   transition-property: filter; transition-duration: 1s;
-                   transition-timing-function: linear; {{rest}} }
-            #box.on { {{on}} }
-            """
+              root { width: 200px; height: 100px; }
+              #box { width: 40px; height: 20px; background-color: #ffffff;
+                     transition-property: filter; transition-duration: 1s;
+                     transition-timing-function: linear; {{rest}} }
+              #box.on { {{on}} }
+              """
         );
 
         var box = document.Create("div", document.Root, "box");
@@ -56,13 +60,19 @@ public class FilterTransitionTests {
 
     /// <summary>The filter the cascade holds now, parsed.</summary>
     static StyleValue Filter(UiDocument document, UiElement box) {
-        Assert.True(box.Style.TryGet(document.Styles.Properties.Lookup("filter"), out var value), "filter never arrived");
+        Assert.True(
+            box.Style.TryGet(document.Styles.Properties.Lookup("filter"), out var value),
+            "filter never arrived"
+        );
 
         return new StyleValueParser(document.Styles.Values, document.Styles.Names).Parse(value);
     }
 
     static string Text(UiDocument document, UiElement box) {
-        Assert.True(box.Style.TryGet(document.Styles.Properties.Lookup("filter"), out var value), "filter never arrived");
+        Assert.True(
+            box.Style.TryGet(document.Styles.Properties.Lookup("filter"), out var value),
+            "filter never arrived"
+        );
 
         return document.Styles.Values.NameOf(value);
     }
@@ -73,13 +83,15 @@ public class FilterTransitionTests {
 
         var layer = Assert.Single(
             document.Drawing.Commands,
-            command => command.Kind == DrawCommandKind.LayerPush && command.Blur > 0f
+            static command => command.Kind == DrawCommandKind.LayerPush && command.Blur > 0f
         );
 
         return layer.Blur;
     }
 
-    /// <summary>⚠ <b>The issue's own case: half way from <c>blur(2px)</c> to <c>blur(8px)</c> is <c>blur(5px)</c>.</b></summary>
+    /// <summary>
+    ///     ⚠ <b>The issue's own case: half way from <c>blur(2px)</c> to <c>blur(8px)</c> is <c>blur(5px)</c>.</b>
+    /// </summary>
     [Fact]
     public void A_blur_is_half_way_at_the_midpoint() {
         using var document = new UiDocument(200f, 100f);
@@ -119,7 +131,7 @@ public class FilterTransitionTests {
     [Fact]
     public void An_undeclared_start_travels_from_each_functions_own_identity() {
         using var document = new UiDocument(200f, 100f);
-        var box = Settled(document, "", "filter: brightness(3) sepia(1) hue-rotate(90deg);");
+        var box = Settled(document, string.Empty, "filter: brightness(3) sepia(1) hue-rotate(90deg);");
 
         Assert.Equal("brightness(2) sepia(0.5) hue-rotate(45deg)", Text(document, box));
     }

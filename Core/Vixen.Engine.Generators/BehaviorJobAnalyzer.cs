@@ -22,8 +22,12 @@ namespace Vixen.Engine.Generators;
 ///         slow path.
 ///     </para>
 ///     <para>
-///         ⚠ <b>And the least visible member of the set is <c>Get&lt;T&gt;</c> of a <em>managed</em>
-///         component.</b> Nothing at the call site says so: the world resolves a managed cell through
+///         ⚠
+///         <b>
+///             And the least visible member of the set is <c>Get&lt;T&gt;</c> of a <em>managed</em>
+///             component.
+///         </b>
+///         Nothing at the call site says so: the world resolves a managed cell through
 ///         <c>StoreFor&lt;T&gt;()</c>, which can resize the world's table and allocate a row's slot,
 ///         so two behaviours reading the same managed component for the first time race each other.
 ///         The <em>read</em> half of that was fixed — <c>Read&lt;T&gt;</c> and <c>TryGet&lt;T&gt;</c>
@@ -33,8 +37,12 @@ namespace Vixen.Engine.Generators;
 ///     <para>
 ///         <b>What it reads is the two bodies that are dispatched</b> — the marked type's
 ///         <c>Update</c> and <c>LateUpdate</c>, and the lambdas and local functions inside them — and
-///         nothing further down. ⚠ <b>That bound is stated because it is the same one
-///         <c>VXHP0001</c> states about itself</b>: a helper method two calls away can queue a
+///         nothing further down. ⚠
+///         <b>
+///             That bound is stated because it is the same one
+///             <c>VXHP0001</c> states about itself
+///         </b>
+///         : a helper method two calls away can queue a
 ///         lifecycle change and this will not see it. Widening it to every method of a marked type
 ///         would be worse than the gap, because <c>Awake</c> and <c>OnEnable</c> run on the drain
 ///         thread where every one of these calls is correct.
@@ -92,7 +100,7 @@ public sealed class BehaviorJobAnalyzer : DiagnosticAnalyzer {
         + "attribute off the type, or move this out of the dispatched pass: {2}.",
         "Vixen.Engine",
         DiagnosticSeverity.Error,
-        isEnabledByDefault: true,
+        true,
         "[BehaviorJob] promises that a type's Update may be run for every instance at once. The "
         + "behaviour API's convenience members do not all keep that promise: Enabled, Destroy and Run "
         + "queue into unsynchronised lists, Get<T> of a managed component allocates in a table the "
@@ -107,7 +115,7 @@ public sealed class BehaviorJobAnalyzer : DiagnosticAnalyzer {
         + "the attribute claims a parallelism that never happens",
         "Vixen.Engine",
         DiagnosticSeverity.Warning,
-        isEnabledByDefault: true,
+        true,
         "The attribute is read by the behaviour bucket, which only exists for a type attached through "
         + "BehaviorStore.Add<T>. On anything else it is a mark that reads from a call site exactly "
         + "like an enforced one and does nothing."
@@ -125,8 +133,7 @@ public sealed class BehaviorJobAnalyzer : DiagnosticAnalyzer {
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
         context.EnableConcurrentExecution();
 
-        context.RegisterCompilationStartAction(
-            start => {
+        context.RegisterCompilationStartAction(static start => {
                 var behavior = start.Compilation.GetTypeByMetadataName(BehaviorMetadataName);
                 var attribute = start.Compilation.GetTypeByMetadataName(AttributeMetadataName);
 

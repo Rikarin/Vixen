@@ -69,7 +69,7 @@ internal sealed class MetadataMethodSymbol : MethodSymbol {
 
     public override IReadOnlyList<ParameterSymbol> Parameters =>
         parameters ??= model.Parameters
-            .OrderBy(p => p.Ordinal)
+            .OrderBy(static p => p.Ordinal)
             .Select(p => (ParameterSymbol)new MetadataParameterSymbol(this, containingType, p))
             .ToArray();
 
@@ -88,15 +88,16 @@ internal sealed class MetadataMethodSymbol : MethodSymbol {
         this.containingType = containingType;
         this.model = model;
 
-        typeParameters = model.TypeParameters
-            .OrderBy(p => p.Ordinal)
-            .Select(p => new TypeParameterSymbol(this, p.Name, p.Ordinal))
-            .ToArray();
+        typeParameters = [
+            ..model.TypeParameters
+                .OrderBy(static p => p.Ordinal)
+                .Select(p => new TypeParameterSymbol(this, p.Name, p.Ordinal))
+        ];
 
         foreach (var parameter in typeParameters) {
             var declared = model.TypeParameters.First(p => p.Ordinal == parameter.Ordinal);
             if (!declared.Constraints.IsDefaultOrEmpty) {
-                parameter.SetConstraintTypes([.. declared.Constraints.Select(c => containingType.Resolve(c, this))]);
+                parameter.SetConstraintTypes([..declared.Constraints.Select(c => containingType.Resolve(c, this))]);
             }
         }
     }

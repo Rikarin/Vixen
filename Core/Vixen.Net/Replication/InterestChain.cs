@@ -246,8 +246,12 @@ public sealed class InterestChain : IInterestResolver {
 ///         by a scripted event, a teammate shown through walls.
 ///     </para>
 ///     <para>
-///         ⚠ <b>It is a rule <i>and</i> a source, and it has to be both for any of those examples to
-///         work.</b> This is where these remarks were a promise the type could not keep: they said
+///         ⚠
+///         <b>
+///             It is a rule <i>and</i> a source, and it has to be both for any of those examples to
+///             work.
+///         </b>
+///         This is where these remarks were a promise the type could not keep: they said
 ///         "placed before the distance grid in the chain", and the grid is not in the chain's rule
 ///         list at all — it is the <see cref="IInterestSource" /> ahead of every rule, so a rule is
 ///         only ever asked about what the grid already decided to offer. Hiding therefore always
@@ -259,8 +263,12 @@ public sealed class InterestChain : IInterestResolver {
 ///     <para>
 ///         Keyed by <see cref="NetworkId" /> rather than by <c>Entity</c>, because an override is a
 ///         decision about the object rather than about the row it currently occupies, and because it
-///         is the id a game has in hand when a rule fires. <b>The entity handed to
-///         <see cref="Show" /> is a nomination rather than the key</b>: it is checked against the id
+///         is the id a game has in hand when a rule fires.
+///         <b>
+///             The entity handed to
+///             <see cref="Show" /> is a nomination rather than the key
+///         </b>
+///         : it is checked against the id
 ///         before it is offered, so a handle whose object has been destroyed and whose slot has been
 ///         reused nominates nothing rather than the wrong thing.
 ///     </para>
@@ -281,8 +289,7 @@ public sealed class ExplicitInterestRule : IInterestRule, IInterestSource {
     ///     Its network id, which is the key. The pair is checked before anything is nominated, so an
     ///     entity that no longer carries this id is quietly ignored.
     /// </param>
-    public void Show(PlayerId player, Entity shown, NetworkId id) =>
-        Set(player, id, new(Interest.Observed, shown));
+    public void Show(PlayerId player, Entity shown, NetworkId id) => Set(player, id, new(Interest.Observed, shown));
 
     /// <summary>Hides one from them whatever anything after this would say.</summary>
     /// <param name="player">Who.</param>

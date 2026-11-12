@@ -6,7 +6,6 @@ using Vixen.Graphics.Null;
 using Vixen.Rendering;
 using Vixen.Rendering.Compositor;
 using Vixen.Rendering.IrradianceFields;
-using Vixen.Shaders;
 using Xunit;
 
 namespace Tests;
@@ -72,10 +71,7 @@ public sealed class IrradianceRefinementTests : IDisposable {
         using var system = Scene(new(-3.2f), 0.2f);
 
         using var node = new IrradianceFieldRenderer {
-            Name = "Field",
-            Field = field,
-            Device = device,
-            Refinement = new() { Bands = { new(0f, 1) } }
+            Name = "Field", Field = field, Device = device, Refinement = new() { Bands = { new(0f, 1) } }
         };
 
         node.Build(new(system) { FrameSize = new(16, 16) }, Frame());
@@ -117,10 +113,7 @@ public sealed class IrradianceRefinementTests : IDisposable {
         system.SetViews([]);
 
         using var node = new IrradianceFieldRenderer {
-            Name = "Field",
-            Field = field,
-            Device = device,
-            Refinement = new() { Bands = { new(0f, 1) } }
+            Name = "Field", Field = field, Device = device, Refinement = new() { Bands = { new(0f, 1) } }
         };
 
         node.Build(new(system) { FrameSize = new(16, 16) }, Frame());
@@ -140,10 +133,7 @@ public sealed class IrradianceRefinementTests : IDisposable {
         using var system = Scene(new(-3.2f), 0.2f);
 
         using var node = new IrradianceFieldRenderer {
-            Name = "Field",
-            Field = field,
-            Device = device,
-            Refinement = new() { Bands = { new(0f, 1) } }
+            Name = "Field", Field = field, Device = device, Refinement = new() { Bands = { new(0f, 1) } }
         };
 
         var compositor = new GraphicsCompositor(system) { FrameSize = new(16, 16) };
@@ -160,10 +150,5 @@ public sealed class IrradianceRefinementTests : IDisposable {
 
     /// <summary>A frame to declare into. Nothing executes it.</summary>
     CompositorFrame Frame() =>
-        new() {
-            Graph = new(device, new(device)),
-            Effects = new(),
-            Device = device,
-            Size = new(16, 16)
-        };
+        new() { Graph = new(device, new(device)), Effects = new(), Device = device, Size = new(16, 16) };
 }

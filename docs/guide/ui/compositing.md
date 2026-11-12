@@ -911,7 +911,7 @@ the twelve separable ones and all four non-separable ones, named after the same 
 device that exposes it a blended group would need no second texture, no capture, no second descriptor
 set and no fragment arithmetic: only a different `BlendState` on the composite draw it already makes.
 It is nevertheless **not** the path here, for two reasons that are checkable rather than aesthetic.
-`Vixen.Graphics.BlendOperation` (`Core/Vixen.Graphics/GraphicsEnums.cs:331`) has five members —
+`Vixen.Graphics.BlendOperation` (`Core/Vixen.Graphics/GraphicsEnums.cs:335`) has five members —
 `Add`, `Subtract`, `ReverseSubtract`, `Min`, `Max`, which are core Vulkan's — so the abstraction
 cannot spell one, and widening it means an optional-extension capability query threaded to every
 backend. And the extension is optional: MoltenVK does not expose it, so the machine this engine's

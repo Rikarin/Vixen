@@ -44,7 +44,6 @@ public sealed class WaterDebugDrawTests : IDisposable {
     public void Dispose() {
         WaterDebug.Reset();
         world.Dispose();
-        GC.SuppressFinalize(this);
     }
 
     /// <summary>A source that hands out one square river with a velocity.</summary>
@@ -53,18 +52,18 @@ public sealed class WaterDebugDrawTests : IDisposable {
             name.Length == 0
                 ? null
                 : new(
-                    Spline.SmoothTangents(
-                        [new(-half, height, 0f), new(0f, height, 0f), new(half, height, 0f)],
-                        closed: false
-                    ),
-                    closed: false
+                    Spline.SmoothTangents([new(-half, height, 0f), new(0f, height, 0f), new(half, height, 0f)]),
+                    false
                 );
     }
 
     WaterZoneSystem Folded(float velocity = 0f) {
         var zone = world.Create();
 
-        world.Add(zone, WaterZoneComponent.Default with { Extent = 128f, Resolution = 65, Waves = WaterWaveSpectrum.Calm });
+        world.Add(
+            zone,
+            WaterZoneComponent.Default with { Extent = 128f, Resolution = 65, Waves = WaterWaveSpectrum.Calm }
+        );
         world.Add(zone, new WorldTransform { Value = Matrix4x4.Identity });
 
         var body = world.Create();
@@ -82,10 +81,7 @@ public sealed class WaterDebugDrawTests : IDisposable {
 
         world.Add(body, new WorldTransform { Value = Matrix4x4.Identity });
 
-        var system = new WaterZoneSystem(view) {
-            Splines = new Straight(50f, 2f),
-            Ground = new FlatWaterGround(-5f)
-        };
+        var system = new WaterZoneSystem(view) { Splines = new Straight(50f, 2f), Ground = new FlatWaterGround(-5f) };
 
         system.Fold(world);
 
@@ -117,7 +113,7 @@ public sealed class WaterDebugDrawTests : IDisposable {
     /// </remarks>
     [Fact]
     public void Show_flow_draws_arrows_on_the_surface() {
-        var zones = Folded(velocity: 3f);
+        var zones = Folded(3f);
 
         WaterDebug.ShowFlow = true;
 
@@ -144,7 +140,7 @@ public sealed class WaterDebugDrawTests : IDisposable {
     /// </remarks>
     [Fact]
     public void A_draw_handed_its_own_flags_answers_to_those_and_not_the_process() {
-        var zones = Folded(velocity: 3f);
+        var zones = Folded(3f);
         var session = new WaterDebugFlags();
 
         // The process's set on and this draw's off: an editor session whose author never touched the
@@ -195,7 +191,7 @@ public sealed class WaterDebugDrawTests : IDisposable {
     /// </remarks>
     [Fact]
     public void Show_info_charts_the_four_channels_separately() {
-        var zones = Folded(velocity: 2f);
+        var zones = Folded(2f);
 
         WaterDebug.ShowInfo = true;
 
@@ -265,13 +261,13 @@ public sealed class WaterDebugDrawTests : IDisposable {
     public void Show_tiles_colours_a_river_patch_differently_from_the_skirt() {
         var zones = Folded();
         var state = zones.States.Values.First();
-        var mesh = new WaterSurfaceMesh(state.Window, TerrainLodRanges.Default, gridQuads: 8);
+        var mesh = new WaterSurfaceMesh(state.Window, TerrainLodRanges.Default, 8);
 
         // One patch over the river's middle, and one far outside it — as the skirt is.
         var over = new TerrainLodNode(state.Window.Resolution / 2 - 4, state.Window.Resolution / 2 - 4, 8, 0, 0f);
         var away = new TerrainLodNode(0, 0, 8, 3, 0f);
 
-        new WaterDebugDraw().Tiles(draw, state, mesh, [away, over], farCount: 1);
+        new WaterDebugDraw().Tiles(draw, state, mesh, [away, over], 1);
 
         var colours = new HashSet<(float, float, float)>();
 
@@ -297,7 +293,7 @@ public sealed class WaterDebugDrawTests : IDisposable {
         var zones = Folded();
         var state = zones.States.Values.First();
         var ranges = TerrainLodRanges.Default with { LevelCount = 3 };
-        var mesh = new WaterSurfaceMesh(state.Window, ranges, gridQuads: 8);
+        var mesh = new WaterSurfaceMesh(state.Window, ranges, 8);
 
         WaterDebugDraw.Bands(draw, mesh, Vector3.Zero);
 

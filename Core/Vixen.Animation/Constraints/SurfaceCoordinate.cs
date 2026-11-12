@@ -69,8 +69,12 @@ public readonly record struct LimbSpan(int From, int To, float Along, Vector3 Of
 /// <summary>Where on a body a goal is, expressed so it means the same thing on another body.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Three sources, chosen independently, and that is the decision rather than a
-///         convenience.</b> Collapsing origin, orientation and scale into one choice is what forces an
+///         ⚠
+///         <b>
+///             Three sources, chosen independently, and that is the decision rather than a
+///             convenience.
+///         </b>
+///         Collapsing origin, orientation and scale into one choice is what forces an
 ///         author to pick the least-wrong single frame and then hand-correct the result — because the
 ///         three genuinely want different sources more often than not. Project the origin onto a
 ///         surface, take the orientation from a bone, take the scale from the world so a
@@ -113,8 +117,12 @@ public readonly record struct SurfaceCoordinate {
     ///     own frame.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>Applied at the scale <see cref="Scale" /> names, which for a gap is
-    ///     <see cref="ScaleSource.Model" />.</b> A deliberate one-centimetre clearance authored on a
+    ///     ⚠
+    ///     <b>
+    ///         Applied at the scale <see cref="Scale" /> names, which for a gap is
+    ///         <see cref="ScaleSource.Model" />.
+    ///     </b>
+    ///     A deliberate one-centimetre clearance authored on a
     ///     slim character is one centimetre on a heavy one; a residual that scaled with the shape
     ///     would be two.
     /// </remarks>

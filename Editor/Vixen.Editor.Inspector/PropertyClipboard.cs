@@ -90,8 +90,12 @@ public sealed class PropertyClipboard {
 
     /// <summary>Puts the clipboard's value on every object the field reaches.</summary>
     /// <remarks>
-    ///     ⚠ <b>One copy per object for an owned type, and one <c>EditProperty.Write</c>
-    ///     would have been an aliasing bug rather than a preference.</b> A single write puts the
+    ///     ⚠
+    ///     <b>
+    ///         One copy per object for an owned type, and one <c>EditProperty.Write</c>
+    ///         would have been an aliasing bug rather than a preference.
+    ///     </b>
+    ///     A single write puts the
     ///     <i>same instance</i> on every selected object, so editing any one of them afterwards
     ///     silently edits all of them — and the clipboard is holding that instance too. Twenty
     ///     distinct copies is the only reading of "paste this into all of them" that survives the

@@ -68,7 +68,8 @@ public readonly record struct NodeSearchResult(NodeTypeDefinition Type, string P
 ///         <b>The score is a small integer with a stated ladder</b> rather than a fuzzy distance,
 ///         because what an author expects from a create menu is boring: an exact title first, then
 ///         titles that start with what was typed, then titles that contain it, then the category, then
-///         the summary. A whole path counts as an exact title. A subsequence matcher — which the command palette does use, because a command
+///         the summary. A whole path counts as an exact title. A subsequence matcher — which the command palette does use,
+///         because a command
 ///         is looked up by a phrase — puts <c>Sample Texture 2D</c> above <c>Sample</c> for the query
 ///         <c>st</c>, which reads as a shuffle.
 ///     </para>
@@ -134,11 +135,11 @@ public static class NodeSearch {
     ) {
         ArgumentNullException.ThrowIfNull(types);
 
-        var text = query?.Trim() ?? "";
+        var text = query?.Trim() ?? string.Empty;
         List<NodeSearchResult> found = [];
 
         foreach (var definition in types) {
-            var port = "";
+            var port = string.Empty;
 
             if (filter is { } wanted) {
                 if (Landing(definition, wanted) is not { } landing) {
@@ -158,9 +159,10 @@ public static class NodeSearch {
         found.Sort(static (left, right) =>
             left.Score != right.Score
                 ? right.Score - left.Score
-                : string.CompareOrdinal(left.Type.Path, right.Type.Path));
+                : string.CompareOrdinal(left.Type.Path, right.Type.Path)
+        );
 
-        return limit > 0 && found.Count > limit ? [.. found.Take(limit)] : [.. found];
+        return limit > 0 && found.Count > limit ? [..found.Take(limit)] : [..found];
     }
 
     /// <summary>The first port of a type a dragged wire could land on.</summary>

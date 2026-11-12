@@ -36,7 +36,7 @@ sealed record EditorServices(INativeDialogs? Dialogs, Func<string, bool>? OpenUr
     /// <returns>The services, with whatever the platform actually supports in them.</returns>
     public static EditorServices Of(IPlatform platform) {
         ArgumentNullException.ThrowIfNull(platform);
-        return new EditorServices(platform.Pickers(), platform.TryOpenUrl);
+        return new(platform.Pickers(), platform.TryOpenUrl);
     }
 
     /// <summary>Whether there is a file picker to open.</summary>
@@ -109,8 +109,11 @@ sealed class Deferred {
     /// </param>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A call that has already answered is queued from here, and until it was, this
-    ///         method turned every synchronous answer into a wait on the thread pool's mood.</b>
+    ///         ⚠
+    ///         <b>
+    ///             A call that has already answered is queued from here, and until it was, this
+    ///             method turned every synchronous answer into a wait on the thread pool's mood.
+    ///         </b>
     ///         <c>ContinueWith</c> against <see cref="TaskScheduler.Default" /> schedules a pool work
     ///         item <em>even for a task that has already completed</em> — it does not run inline —
     ///         so a provider that answered without yielding still had its <c>Post</c> made by a pool
@@ -165,21 +168,22 @@ sealed class Deferred {
             return;
         }
 
-        work.AsTask().ContinueWith(
-            finished => {
-                if (finished.IsFaulted) {
-                    var failure = finished.Exception.GetBaseException();
-                    Post(() => failed(failure));
-                } else if (finished.IsCompletedSuccessfully) {
-                    var result = finished.Result;
-                    Post(() => next(result));
-                } else if (cancelled is not null) {
-                    Post(cancelled);
-                }
-            },
-            CancellationToken.None,
-            TaskContinuationOptions.None,
-            TaskScheduler.Default
-        );
+        work.AsTask()
+            .ContinueWith(
+                finished => {
+                    if (finished.IsFaulted) {
+                        var failure = finished.Exception.GetBaseException();
+                        Post(() => failed(failure));
+                    } else if (finished.IsCompletedSuccessfully) {
+                        var result = finished.Result;
+                        Post(() => next(result));
+                    } else if (cancelled is not null) {
+                        Post(cancelled);
+                    }
+                },
+                CancellationToken.None,
+                TaskContinuationOptions.None,
+                TaskScheduler.Default
+            );
     }
 }

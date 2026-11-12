@@ -78,8 +78,10 @@ sealed class TerrainCasterRenderer : SceneRenderer {
     public string ShadowAtlas { get; init; } = "ShadowAtlas";
 
     /// <summary>Which pass's names the cascades are published under.</summary>
-    /// <remarks>Carried for symmetry with the terrain node it serves; the cascades themselves are
-    ///     read straight off the shadow node, whose <c>ShaderName</c> is one seam earlier.</remarks>
+    /// <remarks>
+    ///     Carried for symmetry with the terrain node it serves; the cascades themselves are
+    ///     read straight off the shadow node, whose <c>ShaderName</c> is one seam earlier.
+    /// </remarks>
     public string ScenePass { get; init; } = "ForwardPlus";
 
     /// <summary>Where the frame's terrains come from — the same list the surface node draws.</summary>
@@ -92,8 +94,10 @@ sealed class TerrainCasterRenderer : SceneRenderer {
     public EffectPipelineDescriber? Modules { get; set; }
 
     /// <summary>The surface node whose draw sets the casters borrow — the factory pairs the two.</summary>
-    /// <remarks>Null draws nothing quietly: a caster node no terrain node answered is a document
-    ///     holding half the contract, and half a contract casts no shadow.</remarks>
+    /// <remarks>
+    ///     Null draws nothing quietly: a caster node no terrain node answered is a document
+    ///     holding half the contract, and half a contract casts no shadow.
+    /// </remarks>
     internal TerrainSceneRenderer? Surfaces { get; set; }
 
     /// <summary>How many cascades the last build found published.</summary>
@@ -174,8 +178,7 @@ sealed class TerrainCasterRenderer : SceneRenderer {
                 // area, not the scissor — a clear here would wipe all four tiles at once.
                 pass.DepthAttachment(atlas, LoadAction.Load);
 
-                pass.Execute(
-                    context => {
+                pass.Execute(context => {
                         // Resolved now rather than at build, so the surface node's set sync for
                         // this frame — including a mode flip's rebuild — has already happened.
                         active.Clear();

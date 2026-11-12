@@ -24,7 +24,7 @@ public class ConstraintStageTests {
 
         world.Create(new AnimatorComponent { Value = animator });
 
-        var system = new AnimationSystem();
+        using var system = new AnimationSystem();
 
         for (var frame = 0; frame < 60; frame++) {
             system.Run(world, 1f / 60f);
@@ -46,7 +46,8 @@ public class ConstraintStageTests {
         world.Create(new AnimatorComponent { Value = second.Animator });
 
         var scheduler = new OneGroupTestScheduler();
-        var system = new AnimationSystem { Scheduler = scheduler };
+        using var system = new AnimationSystem();
+        system.Scheduler = scheduler;
 
         system.Run(world, 1f / 60f);
 
@@ -101,7 +102,8 @@ public class ConstraintStageTests {
         world.Create(new AnimatorComponent { Value = animator });
 
         var scheduler = new OneGroupTestScheduler();
-        var system = new AnimationSystem { Scheduler = scheduler };
+        using var system = new AnimationSystem();
+        system.Scheduler = scheduler;
 
         system.Run(world, 1f / 60f);
 
@@ -121,20 +123,12 @@ public class ConstraintStageTests {
         var solver = new TeleportingTestSolver();
         var stack = new ConstraintStack(skeleton, solver: solver);
 
-        stack.Add(
-            new PositionGoal {
-                Effector = 2,
-                Chain = new(0, 2),
-                Goal = new ModelTestFrame(target),
-                EaseIn = 0f
-            }
-        );
+        stack.Add(new PositionGoal { Effector = 2, Chain = new(0, 2), Goal = new ModelTestFrame(target), EaseIn = 0f });
 
         animator.PoseProcessors.Add(stack);
 
         return (animator, stack, solver);
     }
 
-    ClipMotion Idle() =>
-        new(AnimationClip.Create(TestRigs.Hold("Idle", "Root", Vector3.Zero), skeleton));
+    ClipMotion Idle() => new(AnimationClip.Create(TestRigs.Hold("Idle", "Root", Vector3.Zero), skeleton));
 }

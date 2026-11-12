@@ -42,8 +42,7 @@ namespace Vixen.Fuzz;
 /// </remarks>
 public static class FuzzTargets {
     /// <summary>The names, for a command line and for a report.</summary>
-    public static IReadOnlyList<string> Names { get; } =
-    [
+    public static IReadOnlyList<string> Names { get; } = [
         "packet", "bits", "handshake", "client", "snapshot", "inspect", "delta", "rpc", "synclist", "input", "udp",
         "upgrade", "bundle", "chunk", "heightmap", "meta", "stylevalue", "layerrule", "vxml", "raven"
     ];

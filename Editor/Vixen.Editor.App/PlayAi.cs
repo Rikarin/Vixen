@@ -33,8 +33,12 @@ namespace Vixen.Editor.App;
 ///         when nothing is declared would be reported as broken on every such Play.
 ///     </para>
 ///     <para>
-///         ⚠ <b>What it does not do: fill <c>Trees</c>, <c>Sets</c> or <c>Domains</c>, or place
-///         agents.</b> <c>AiAgent</c> is deliberately not scene-placeable — its remarks defer the
+///         ⚠
+///         <b>
+///             What it does not do: fill <c>Trees</c>, <c>Sets</c> or <c>Domains</c>, or place
+///             agents.
+///         </b>
+///         <c>AiAgent</c> is deliberately not scene-placeable — its remarks defer the
 ///         authored form to the behaviour-tree asset — so the agents a session runs are the ones a
 ///         project's own <c>[GameSystem]</c> spawns, handed this system to do it with.
 ///     </para>

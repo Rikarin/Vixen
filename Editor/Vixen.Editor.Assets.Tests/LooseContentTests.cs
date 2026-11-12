@@ -35,7 +35,7 @@ public sealed class LooseContentTests : IDisposable {
 
     public void Dispose() {
         if (Directory.Exists(root)) {
-            Directory.Delete(root, recursive: true);
+            Directory.Delete(root, true);
         }
     }
 
@@ -46,7 +46,10 @@ public sealed class LooseContentTests : IDisposable {
         List<ContentDiagnostic> said = [];
         var written = LooseContent.Write(workspace, said.Add);
 
-        Assert.True(written.Succeeded, string.Join(Environment.NewLine, said.Select(diagnostic => diagnostic.Message)));
+        Assert.True(
+            written.Succeeded,
+            string.Join(Environment.NewLine, said.Select(static diagnostic => diagnostic.Message))
+        );
         Assert.Equal(1, written.Addresses);
         Assert.Equal(workspace.Paths.Library, written.Directory);
 
@@ -68,10 +71,10 @@ public sealed class LooseContentTests : IDisposable {
         // And the chunk it names is really in the store the import wrote, read the way a player reads
         // it: through the virtual file system, with nothing of the project's own machinery in reach.
         var files = new VirtualFileSystem();
-        files.Mount(new("/library"), new PhysicalFileProvider(workspace.Paths.Library, isReadOnly: true));
+        files.Mount(new("/library"), new PhysicalFileProvider(workspace.Paths.Library, true));
 
         var database = new ObjectDatabase(
-            new FileOdbBackend(files, new("/library/" + LooseContent.ArtifactFolderName), isReadOnly: true)
+            new FileOdbBackend(files, new("/library/" + LooseContent.ArtifactFolderName), true)
         );
 
         var assets = new AssetManager(catalog, new LocalBundleSource(files, new("/library")), database);
@@ -105,7 +108,7 @@ public sealed class LooseContentTests : IDisposable {
         reopened.Cache.TryLoad(reopened.CacheFile);
         reopened.Database.Scan();
 
-        var written = LooseContent.Write(reopened, _ => { });
+        var written = LooseContent.Write(reopened, static _ => { });
 
         Assert.True(written.Succeeded);
 
@@ -131,12 +134,12 @@ public sealed class LooseContentTests : IDisposable {
         Directory.CreateDirectory(Path.GetDirectoryName(absolute)!);
         File.WriteAllText(absolute, contents, Encoding.UTF8);
 
-        var workspace = new ProjectWorkspace(new ProjectPaths(root));
+        var workspace = new ProjectWorkspace(new(root));
 
         await ContentPipeline.ImportAsync(
             workspace,
             ProjectWorkspace.HostTarget,
-            _ => { },
+            static _ => { },
             cancellationToken: TestContext.Current.CancellationToken
         );
 

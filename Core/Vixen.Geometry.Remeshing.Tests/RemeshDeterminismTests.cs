@@ -9,8 +9,11 @@ namespace Vixen.Geometry.Remeshing.Tests;
 /// <summary>docs/plan/41 § R4's gate, run over the whole pipeline rather than over one stage.</summary>
 /// <remarks>
 ///     <para>
-///         <b>§ R4 is where the solver design gets <i>audited</i> rather than where determinism gets
-///         added.</b> <c>FieldDeterminismTests</c> sweeps R2's solve and <c>RemesherTests</c> compares
+///         <b>
+///             § R4 is where the solver design gets <i>audited</i> rather than where determinism gets
+///             added.
+///         </b>
+///         <c>FieldDeterminismTests</c> sweeps R2's solve and <c>RemesherTests</c> compares
 ///         one run per worker count; neither is ten runs at three worker counts through all six stages
 ///         that exist, and an ordering dependence introduced by the layout, the quantization or the
 ///         extraction would survive both. If one of these fails it is a bug in R2 or R3 and not
@@ -23,8 +26,15 @@ namespace Vixen.Geometry.Remeshing.Tests;
 ///         content build rebuild-unstable without ever looking wrong.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The batch-size axis is <i>not</i> reachable through <see cref="Remesher.Remesh(Vixen.Geometry.EditMesh, RemeshSettings, out RemeshReport, Vixen.Core.Threading.JobScheduler?)" />, and
-///         that is a gap rather than an omission.</b> <see cref="CrossFieldSolver.Solve" /> takes a
+///         ⚠
+///         <b>
+///             The batch-size axis is <i>not</i> reachable through
+///             <see
+///                 cref="Remesher.Remesh(Vixen.Geometry.EditMesh, RemeshSettings, out RemeshReport, Vixen.Core.Threading.JobScheduler?)" />,
+///             and
+///             that is a gap rather than an omission.
+///         </b>
+///         <see cref="CrossFieldSolver.Solve" /> takes a
 ///         batch size and <c>Remesh</c> does not forward one, so the second axis
 ///         <c>FieldDeterminismTests</c> sweeps stops at the stage boundary. The field solve is the only
 ///         threaded stage today, so nothing is currently unswept — but the moment a second stage takes
@@ -148,8 +158,12 @@ public class RemeshDeterminismTests {
     /// <summary>Renumbering the input's positions, which a thread sweep cannot catch.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Measured, and it does not hold — this test records a real finding rather than a
-    ///         property.</b> A vertex numbering is not a property of a surface: an importer, a weld and
+    ///         ⚠
+    ///         <b>
+    ///             Measured, and it does not hold — this test records a real finding rather than a
+    ///             property.
+    ///         </b>
+    ///         A vertex numbering is not a property of a surface: an importer, a weld and
     ///         a boolean all renumber a mesh routinely, and docs/plan/42 § D5's flattener chooses its
     ///         pins by <i>position</i> precisely so that the map does not move when they do. The
     ///         remesher has no such guard. Its graph colouring is greedy by index, its colour order is
@@ -165,8 +179,12 @@ public class RemeshDeterminismTests {
     ///         conditioning renumbers them back into a canonical order anyway.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The finding got smaller, and the reason says something about where it came
-    ///         from.</b> These numbers were 5,047 → 3,312 on a box and 3,836 → 1,720 on a cylinder, and
+    ///         ⚠
+    ///         <b>
+    ///             The finding got smaller, and the reason says something about where it came
+    ///             from.
+    ///         </b>
+    ///         These numbers were 5,047 → 3,312 on a box and 3,836 → 1,720 on a cylinder, and
     ///         <i>a flight of stairs used to stop producing anything at all</i> under the permutation.
     ///         What changed is not this test's subject: once <see cref="PatchLayout" /> stopped leaving
     ///         dangling cuts, the partition stopped depending on which of several slits the flood
@@ -199,8 +217,8 @@ public class RemeshDeterminismTests {
 
         // The permutation actually permuted something, or the rest of this proves nothing.
         Assert.NotEqual(
-            Enumerable.Range(0, source.PositionCount).Select(index => source.Positions[index]).ToArray(),
-            Enumerable.Range(0, moved.PositionCount).Select(index => moved.Positions[index]).ToArray()
+            [..Enumerable.Range(0, source.PositionCount).Select(index => source.Positions[index])],
+            [..Enumerable.Range(0, moved.PositionCount).Select(index => moved.Positions[index])]
         );
 
         var renumbered = Remesher.Remesh(moved, settings, out var after);
@@ -293,8 +311,12 @@ public class RemeshDeterminismTests {
 
     /// <summary>Every conditioning count, and the surface report under it element by element.</summary>
     /// <remarks>
-    ///     ⚠ <b><see cref="ConditioningReport" /> cannot be compared with <c>Assert.Equal</c> and the
-    ///     reason is a trap rather than a preference.</b> It is a record struct whose generated equality
+    ///     ⚠
+    ///     <b>
+    ///         <see cref="ConditioningReport" /> cannot be compared with <c>Assert.Equal</c> and the
+    ///         reason is a trap rather than a preference.
+    ///     </b>
+    ///     It is a record struct whose generated equality
     ///     is memberwise, and one of its members is a <see cref="MeshReport" /> whose four members are
     ///     <see cref="IReadOnlyList{T}" /> — so the comparison lands on <c>List&lt;int&gt;</c>'s
     ///     <i>reference</i> equality and two identical reports from two runs are never equal. It fails

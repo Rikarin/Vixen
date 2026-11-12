@@ -9,8 +9,12 @@ namespace Vixen.Ui.Controls.Tests;
 /// <summary>What one pixel of drag does to a number, at every magnitude a member can hold.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Every one of these drives a real pointer rather than reading
-///         <see cref="NumericInput.Step" /> back.</b> The bug this file exists for was not a property
+///         ⚠
+///         <b>
+///             Every one of these drives a real pointer rather than reading
+///             <see cref="NumericInput.Step" /> back.
+///         </b>
+///         The bug this file exists for was not a property
 ///         holding the wrong value — the property held exactly what the drawer assigned it — it was
 ///         what the gesture did with it, and a test asserting that <c>Step</c> was set would have
 ///         passed throughout.
@@ -125,7 +129,7 @@ public class ScrubTests {
         // re-read its own magnitude on every move would compound — 100 000 × 1.01¹⁰⁰ ≈ 270 481 —
         // and would give a different answer on a machine that delivered a different number of move
         // events for the same physical gesture.
-        Drag(fixture, field, Enumerable.Repeat(1f, 100).ToArray());
+        Drag(fixture, field, [..Enumerable.Repeat(1f, 100)]);
 
         Assert.Equal(200_000d, field.Number);
     }
@@ -277,8 +281,8 @@ public class ScrubTests {
     /// </remarks>
     static (float X, float Y) Start(ControlFixture fixture, NumericInput field) {
         var bounds = field.Bounds;
-        var x = MathF.Round(bounds.X + (bounds.Width * 0.5f));
-        var y = MathF.Round(bounds.Y + (bounds.Height * 0.5f));
+        var x = MathF.Round(bounds.X + bounds.Width * 0.5f);
+        var y = MathF.Round(bounds.Y + bounds.Height * 0.5f);
 
         fixture.Press(x, y);
         return (x, y);

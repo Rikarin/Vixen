@@ -23,8 +23,12 @@ namespace Vixen.Cli;
 ///         bucket and the store summed it away.
 ///     </para>
 ///     <para>
-///         ⚠ <b>What it counts is what a scene <em>authors</em>, and in this repository that is
-///         nothing.</b> All fourteen committed <c>.vxscene</c> files name components and no
+///         ⚠
+///         <b>
+///             What it counts is what a scene <em>authors</em>, and in this repository that is
+///             nothing.
+///         </b>
+///         All fourteen committed <c>.vxscene</c> files name components and no
 ///         behaviours; every behaviour instance in <c>Samples/13</c> is attached from code —
 ///         <c>loop.Behaviors.Add(lamps[index], new LampFlicker …)</c>, one per point light the level
 ///         placed. So a report over a real project's scenes can legitimately be a list of zeroes,
@@ -33,8 +37,12 @@ namespace Vixen.Cli;
 ///         named no behaviour at all.
 ///     </para>
 ///     <para>
-///         ⚠ <b>It runs no lifecycle, which is the same line <see cref="SystemsRunner" /> does not
-///         cross.</b> Attaching a behaviour queues <c>Awake</c>; draining that queue is running
+///         ⚠
+///         <b>
+///             It runs no lifecycle, which is the same line <see cref="SystemsRunner" /> does not
+///             cross.
+///         </b>
+///         Attaching a behaviour queues <c>Awake</c>; draining that queue is running
 ///         somebody's game code to find out how much of it there is. So the enabled/disabled split
 ///         is read from <see cref="Behavior.Enabled" /> on the authored instances rather than from
 ///         the bucket's partition, which before a drain is zero for everything.
@@ -106,9 +114,9 @@ internal static class BehaviorsRunner {
             }
 
             types.AddRange(
-                found.Where(type => type is { IsAbstract: false, IsGenericTypeDefinition: false }
-                        && typeof(Behavior).IsAssignableFrom(type)
-                    )!
+                found.Where(static type => type is { IsAbstract: false, IsGenericTypeDefinition: false }
+                    && typeof(Behavior).IsAssignableFrom(type)
+                )!
             );
         }
 
@@ -134,7 +142,7 @@ internal static class BehaviorsRunner {
             )
         );
 
-        foreach (var type in types.OrderBy(one => one.Name, StringComparer.Ordinal)) {
+        foreach (var type in types.OrderBy(static one => one.Name, StringComparer.Ordinal)) {
             findings.Add(
                 new(
                     Health.Fine,
@@ -150,8 +158,12 @@ internal static class BehaviorsRunner {
 
     /// <summary>Loads one scene's behaviours into a scratch world and reports the per-type count.</summary>
     /// <remarks>
-    ///     ⚠ <b>Through <see cref="ISceneBehaviorBinder.AttachTo" /> and a real
-    ///     <see cref="BehaviorStore" />, rather than by counting the parsed objects.</b> The store is
+    ///     ⚠
+    ///     <b>
+    ///         Through <see cref="ISceneBehaviorBinder.AttachTo" /> and a real
+    ///         <see cref="BehaviorStore" />, rather than by counting the parsed objects.
+    ///     </b>
+    ///     The store is
     ///     what buckets by concrete type, and the bucket is what the authoring rule is about — a
     ///     tally kept here would be a second implementation of the thing being measured, and would
     ///     agree with it right up until <c>Add&lt;T&gt;</c>'s bucketing changed.
@@ -169,8 +181,8 @@ internal static class BehaviorsRunner {
         try {
             file = SceneFile.FromYaml(File.ReadAllText(full));
         } catch (Exception failure) when (failure is YamlParseException
-                                             or YamlBindingException
-                                             or NotSupportedException) {
+                                              or YamlBindingException
+                                              or NotSupportedException) {
             // A binding failure is usually a name this build does not claim, which is a real answer
             // to "what is wrong with my project" and not a reason to say nothing.
             findings.Add(new(Health.Broken, Path.GetFileName(full), $"could not be read: {failure.Message}"));
@@ -215,7 +227,10 @@ internal static class BehaviorsRunner {
 
         foreach (var (type, total, _) in population) {
             var off = disabled.GetValueOrDefault(type);
-            var detail = string.Create(CultureInfo.InvariantCulture, $"{total} authored, {total - off} of them enabled.");
+            var detail = string.Create(
+                CultureInfo.InvariantCulture,
+                $"{total} authored, {total - off} of them enabled."
+            );
 
             if (total >= BehaviorScale.Many) {
                 // The number as a string first: interpolating an int would take the current culture,

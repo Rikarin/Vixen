@@ -36,8 +36,12 @@ public enum GradientShape : byte {
 /// <summary>Which space a gradient's stops are interpolated in.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Three answers coexisted before this enum existed, and none of them was wrong on its
-///         own terms.</b> Vixen paints in linear RGB and lerped there; CSS's default for a gradient
+///         ⚠
+///         <b>
+///             Three answers coexisted before this enum existed, and none of them was wrong on its
+///             own terms.
+///         </b>
+///         Vixen paints in linear RGB and lerped there; CSS's default for a gradient
 ///         with no <c>in &lt;space&gt;</c> hint is sRGB; and Tailwind v4 emits <c>in oklab</c> on
 ///         every gradient it generates. Picking one and calling it "the" answer would have made two of
 ///         the three sources of gradients in this engine draw something their author did not write, so
@@ -83,8 +87,12 @@ public enum GradientSpace : byte {
 ///         instead puts the transition in the wrong place over the whole box.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The all-zero value means <see cref="Default" />, and that is the same argument
-///         <see cref="BoxStyle.GradientAxis" /> makes for its own zero.</b> Three stops all at zero
+///         ⚠
+///         <b>
+///             The all-zero value means <see cref="Default" />, and that is the same argument
+///             <see cref="BoxStyle.GradientAxis" /> makes for its own zero.
+///         </b>
+///         Three stops all at zero
 ///         put every pixel at or past the last one, which is a flat fill of the end colour — not a
 ///         gradient anybody can mean, so the value is free to carry "nobody said". That is what lets
 ///         <c>default(BoxStyle)</c> and a hand-written <see cref="BoxStyle.Vertical" /> describe the

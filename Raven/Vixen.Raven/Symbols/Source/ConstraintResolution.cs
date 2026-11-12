@@ -32,7 +32,7 @@ internal static class ConstraintResolution {
                 }
             }
 
-            parameter.SetConstraintTypes(constraints.ToArray());
+            parameter.SetConstraintTypes([..constraints]);
         }
     }
 }

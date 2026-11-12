@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core.Mathematics;
-using Vixen.Ecs;
 using Vixen.Engine.Transforms;
 using Vixen.Geometry;
 
@@ -11,8 +10,11 @@ namespace Vixen.Editor.SceneView;
 /// <summary>A mesh's selected elements, as one thing the gizmo can move.</summary>
 /// <remarks>
 ///     <para>
-///         <b><see cref="EntityGizmoTarget" />'s counterpart for doc 24's P2, and it is deliberately
-///         one target rather than one per position.</b> The gizmo's arithmetic recomputes every target
+///         <b>
+///             <see cref="EntityGizmoTarget" />'s counterpart for doc 24's P2, and it is deliberately
+///             one target rather than one per position.
+///         </b>
+///         The gizmo's arithmetic recomputes every target
 ///         from where it was at mouse-down — see <c>TransformGizmo</c> — so a hundred selected
 ///         vertices as a hundred targets would work and would rotate each of them about its own
 ///         centre, which is not what rotating a face means. One target whose origin is the selection's
@@ -55,8 +57,10 @@ public sealed class MeshGizmoTarget : IGizmoTarget {
     }
 
     /// <summary>Which positions this drag is moving, and where each of them started.</summary>
-    /// <remarks>What <c>EditMeshCommand.Moved</c> records, and the reason it is captured at
-    ///     construction: the gizmo's targets are built at mouse-down and read again at the end.</remarks>
+    /// <remarks>
+    ///     What <c>EditMeshCommand.Moved</c> records, and the reason it is captured at
+    ///     construction: the gizmo's targets are built at mouse-down and read again at the end.
+    /// </remarks>
     public IReadOnlyList<int> Positions => covered;
 
     /// <summary>Where each of them was when the drag began.</summary>
@@ -93,8 +97,10 @@ public sealed class MeshGizmoTarget : IGizmoTarget {
     }
 
     /// <inheritdoc />
-    /// <remarks>The entity's own matrix, so that <c>GizmoSpace.Parent</c> in an element mode means
-    ///     the mesh's axes — which is what "along this wall" means while you are inside it.</remarks>
+    /// <remarks>
+    ///     The entity's own matrix, so that <c>GizmoSpace.Parent</c> in an element mode means
+    ///     the mesh's axes — which is what "along this wall" means while you are inside it.
+    /// </remarks>
     public Matrix4x4 ParentToWorld => Placement;
 
     /// <summary>Whether there is anything to move.</summary>
@@ -125,8 +131,8 @@ public sealed class MeshGizmoTarget : IGizmoTarget {
         var command = EditMeshCommand.Moved(
             document,
             editing.Target,
-            [.. covered],
-            [.. started],
+            [..covered],
+            [..started],
             editing.Element switch {
                 MeshElementKind.Vertex => "Move Vertices",
                 MeshElementKind.Edge => "Move Edges",

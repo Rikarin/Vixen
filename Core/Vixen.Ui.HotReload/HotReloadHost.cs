@@ -49,7 +49,7 @@ public sealed class HotReloadHost {
     public UiDocument Document { get; }
 
     /// <summary>The components being watched, in mount order.</summary>
-    public IReadOnlyList<Component> Components => [.. entries.Select(entry => entry.Component)];
+    public IReadOnlyList<Component> Components => [..entries.Select(static entry => entry.Component)];
 
     /// <summary>Raised after every reload, successful or not.</summary>
     public event Action<ReloadReport>? Reloaded;
@@ -61,7 +61,7 @@ public sealed class HotReloadHost {
     public T Mount<T>(UiElement parent) where T : Component, new() {
         ArgumentNullException.ThrowIfNull(parent);
 
-        return (T) Track(new T(), parent, static () => new T());
+        return (T)Track(new T(), parent, static () => new T());
     }
 
     /// <summary>Builds a component whose type is only known at run time, and keeps track of it.</summary>
@@ -92,7 +92,7 @@ public sealed class HotReloadHost {
             throw new ArgumentException($"'{type}' cannot be created without arguments.", nameof(type));
         }
 
-        return Track(component, parent, () => (Component) Activator.CreateInstance(type)!);
+        return Track(component, parent, () => (Component)Activator.CreateInstance(type)!);
     }
 
     /// <summary>Tracks a component somebody else constructed, and how to construct another.</summary>
@@ -103,8 +103,12 @@ public sealed class HotReloadHost {
     /// <param name="parent">Where it hangs.</param>
     /// <returns>The component.</returns>
     /// <remarks>
-    ///     ⚠ <b>The overload a host in front of an application framework needs, and the reason it
-    ///     takes a factory rather than an instance alone.</b> <c>UiApplicationOptions.Content</c> is
+    ///     ⚠
+    ///     <b>
+    ///         The overload a host in front of an application framework needs, and the reason it
+    ///         takes a factory rather than an instance alone.
+    ///     </b>
+    ///     <c>UiApplicationOptions.Content</c> is
     ///     already a <c>Func&lt;Component&gt;</c> — an application writes
     ///     <c>() =&gt; new Shell { Model = model }</c> — so the factory that built the first instance
     ///     is exactly the one that should build its replacement. Handed only the instance, a recreate
@@ -139,8 +143,12 @@ public sealed class HotReloadHost {
     ///         restoring it costs one more load and turns a mangled screen into a message.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>What rolls it back is a diagnostic this save <i>introduced</i>, not a diagnostic
-    ///         the document happens to have.</b> A reload replays every sheet — that is what makes a
+    ///         ⚠
+    ///         <b>
+    ///             What rolls it back is a diagnostic this save <i>introduced</i>, not a diagnostic
+    ///             the document happens to have.
+    ///         </b>
+    ///         A reload replays every sheet — that is what makes a
     ///         deleted rule stop applying — so the diagnostics afterwards are the whole document's,
     ///         and one unsupported selector anywhere in any sheet would roll back every save of every
     ///         other sheet for ever. Found in the editor, whose chrome at the time contained a
@@ -150,8 +158,12 @@ public sealed class HotReloadHost {
     ///         what is new to it counts.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>That particular selector is supported now, and the rule is not one bit less
-    ///         necessary.</b> The bug was never about <c>:empty</c> — it was about reading the
+    ///         ⚠
+    ///         <b>
+    ///             That particular selector is supported now, and the rule is not one bit less
+    ///             necessary.
+    ///         </b>
+    ///         The bug was never about <c>:empty</c> — it was about reading the
     ///         document's diagnostics as though they were this save's, and any selector the compiler
     ///         does not implement reproduces it exactly. Naming the one that happened to catch us is
     ///         history, not the reason.
@@ -171,7 +183,7 @@ public sealed class HotReloadHost {
             Diagnostics();
         }
 
-        return Report(new(ReloadChannel.Styles, 0, FocusRestored: true, errors));
+        return Report(new(ReloadChannel.Styles, 0, true, errors));
     }
 
     /// <summary>What is in the second list that the first did not already account for.</summary>
@@ -208,14 +220,22 @@ public sealed class HotReloadHost {
     /// <summary>Drives a frame and reads what every producer refused during it.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The loader and the selector compiler keep separate lists, and reading only the
-    ///         loader's misses exactly the mistakes a person makes while typing a selector</b> —
+    ///         ⚠
+    ///         <b>
+    ///             The loader and the selector compiler keep separate lists, and reading only the
+    ///             loader's misses exactly the mistakes a person makes while typing a selector
+    ///         </b>
+    ///         —
     ///         which is most of them. Found by a test that expected a rollback and did not get one.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And those two are half of the four, which is what #583 was: a saved sheet
-    ///         declaring <c>grid-template-rows: 4furlongs</c> or <c>letter-spacing: 2deg</c> parses
-    ///         and compiles perfectly.</b> It is a well-formed declaration with a value nothing can
+    ///         ⚠
+    ///         <b>
+    ///             And those two are half of the four, which is what #583 was: a saved sheet
+    ///             declaring <c>grid-template-rows: 4furlongs</c> or <c>letter-spacing: 2deg</c> parses
+    ///             and compiles perfectly.
+    ///         </b>
+    ///         It is a well-formed declaration with a value nothing can
     ///         use, so the load reported nothing, <see cref="Introduced" /> was empty, and the host
     ///         called the reload a success while the panel laid out as one row. The refusal reached
     ///         the log — that is what #521 landed — and the verdict was blind to it.
@@ -243,7 +263,7 @@ public sealed class HotReloadHost {
         Document.Update();
         Document.Draw();
 
-        return [.. Document.Refusals()];
+        return [..Document.Refusals()];
     }
 
     // ================================================================== Markup
@@ -272,8 +292,12 @@ public sealed class HotReloadHost {
     ///         does not change what an instance holds.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>What this adds is the case where rebuilding <i>cannot</i> work, and it is a real
-    ///         one rather than a hypothetical.</b> The runtime can add an instance field to a live
+    ///         ⚠
+    ///         <b>
+    ///             What this adds is the case where rebuilding <i>cannot</i> work, and it is a real
+    ///             one rather than a hypothetical.
+    ///         </b>
+    ///         The runtime can add an instance field to a live
     ///         type, and the field initialisers that would have filled it do not run on an object
     ///         that already exists — so a component holding a <c>Signal&lt;T&gt;</c> field the edit
     ///         introduced holds <see langword="null" /> there, and the new <c>Build</c> dereferences
@@ -328,9 +352,7 @@ public sealed class HotReloadHost {
         }
 
         return Report(
-            new(ReloadChannel.Markup, entries.Count, RestoreFocus(focus), errors.ToImmutable()) {
-                Replaced = replaced
-            }
+            new(ReloadChannel.Markup, entries.Count, RestoreFocus(focus), errors.ToImmutable()) { Replaced = replaced }
         );
     }
 
@@ -359,7 +381,8 @@ public sealed class HotReloadHost {
     ///     ⚠ A type with no public parameterless constructor cannot be recreated from here *unless the
     ///     caller supplied a factory* — see <see cref="Mount(Func{Component}, UiElement)" />, which is
     ///     how an application hands over the one that built the first instance. Without it this has
-    ///     nothing to supply the new one's arguments from. Answered <see langword="false" /> so the original failure is what gets reported,
+    ///     nothing to supply the new one's arguments from. Answered <see langword="false" /> so the original failure is what
+    ///     gets reported,
     ///     rather than a second exception about reflection that says nothing about the edit. The same
     ///     goes for a replacement whose own <c>Build</c> throws: the first exception is the one that
     ///     describes the edit.
@@ -390,8 +413,12 @@ public sealed class HotReloadHost {
     /// <returns>What happened.</returns>
     /// <exception cref="ArgumentException">The component is not one of this host's.</exception>
     /// <remarks>
-    ///     ⚠ <b>Reached from <see cref="ReloadComponents(IReadOnlyCollection{Type})" /> as well as
-    ///     by hand.</b> The runtime hands the metadata-update handler the types it changed, and an
+    ///     ⚠
+    ///     <b>
+    ///         Reached from <see cref="ReloadComponents(IReadOnlyCollection{Type})" /> as well as
+    ///         by hand.
+    ///     </b>
+    ///     The runtime hands the metadata-update handler the types it changed, and an
     ///     instance of one of them that can no longer run its own <c>Build</c> is exactly what this
     ///     is for — see that overload for why rebuilding cannot cover that case. The explicit form
     ///     stays because the factory is the half a caller may need: a component that is not
@@ -433,7 +460,7 @@ public sealed class HotReloadHost {
         // ⚠ The factory carries over. A component replaced once can be replaced again, and the
         // second replacement has to know what the first one did — otherwise the parameters survive
         // exactly one incompatible edit.
-        entries[index] = new(replacement, context, entry.Parent, entry.Create);
+        entries[index] = entry with { Component = replacement, Context = context };
     }
 
     // ================================================================== State
@@ -449,8 +476,6 @@ public sealed class HotReloadHost {
                     break;
                 case PropertyInfo property when property.CanRead:
                     captured[property.Name] = property.GetValue(component);
-                    break;
-                default:
                     break;
             }
         }
@@ -473,16 +498,13 @@ public sealed class HotReloadHost {
                 // { get; } = new(0)` — and there is a backing field behind it that can be written
                 // even though the property cannot.
                 case PropertyInfo property when property.SetMethod is not null
-                                                && Assignable(property.PropertyType, value):
+                    && Assignable(property.PropertyType, value):
                     property.SetValue(component, value);
                     break;
 
                 case PropertyInfo property when Backing(property) is { } backing
-                                                && Assignable(backing.FieldType, value):
+                    && Assignable(backing.FieldType, value):
                     backing.SetValue(component, value);
-                    break;
-
-                default:
                     break;
             }
         }
@@ -503,12 +525,13 @@ public sealed class HotReloadHost {
     ///     the framework" into "that value did not come across".
     /// </remarks>
     static bool Assignable(Type target, object? value) =>
-        value is null ? !target.IsValueType || Nullable.GetUnderlyingType(target) is not null
+        value is null
+            ? !target.IsValueType || Nullable.GetUnderlyingType(target) is not null
             : target.IsInstanceOfType(value);
 
     static IEnumerable<MemberInfo> Members(Type type) =>
         type.GetMembers(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
-            .Where(member => member.IsDefined(typeof(HotReloadStateAttribute), inherit: true));
+            .Where(static member => member.IsDefined(typeof(HotReloadStateAttribute), true));
 
     // ================================================================== Focus
 
@@ -575,7 +598,7 @@ public sealed class HotReloadHost {
     // ================================================================== Bookkeeping
 
     /// <summary>Forgets components whose elements someone else took out of the document.</summary>
-    void Prune() => entries.RemoveAll(entry => entry.Component.Root.IsRemoved);
+    void Prune() => entries.RemoveAll(static entry => entry.Component.Root.IsRemoved);
 
     ReloadReport Report(ReloadReport report) {
         Reloaded?.Invoke(report);
@@ -587,8 +610,12 @@ public sealed class HotReloadHost {
     /// <param name="Parent">Where it hangs.</param>
     /// <param name="Create">
     ///     How to make a replacement, or <see langword="null" /> to construct one from the type.
-    ///     ⚠ <b>This is what lets a component with constructor arguments — or with parameters its
-    ///     caller assigned — survive being re-created.</b> Without it <see cref="Recreate" /> can only
+    ///     ⚠
+    ///     <b>
+    ///         This is what lets a component with constructor arguments — or with parameters its
+    ///         caller assigned — survive being re-created.
+    ///     </b>
+    ///     Without it <see cref="Recreate" /> can only
     ///     call <c>Activator.CreateInstance</c>, so the new instance comes up with every parameter at
     ///     its default and the panel is bound to a model nothing else holds. Nothing reports that: the
     ///     reload succeeds and the interface is simply wrong.

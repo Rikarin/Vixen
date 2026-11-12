@@ -33,8 +33,12 @@ namespace Vixen.Rendering.Water;
 ///         re-rasterised a hundred frames apart, so what this costs per frame is nothing.
 ///     </para>
 ///     <para>
-///         ⚠ <b>It uploads only when the field changed, and <see cref="UploadCount" /> is what says
-///         so.</b> A texture re-uploaded every frame is a megabyte a frame across the bus to say what
+///         ⚠
+///         <b>
+///             It uploads only when the field changed, and <see cref="UploadCount" /> is what says
+///             so.
+///         </b>
+///         A texture re-uploaded every frame is a megabyte a frame across the bus to say what
 ///         it already said — which does not show up in a picture, only in a capture.
 ///     </para>
 /// </remarks>
@@ -205,7 +209,7 @@ public sealed class WaterInfoTexture : IDisposable {
         for (var z = 0; z < resolution; z++) {
             for (var x = 0; x < resolution; x++) {
                 var sample = field.At(x, z);
-                var at = (((z * resolution) + x) * Channels);
+                var at = (z * resolution + x) * Channels;
 
                 staged[at] = sample.SurfaceHeight;
                 staged[at + 1] = sample.Flow.X;

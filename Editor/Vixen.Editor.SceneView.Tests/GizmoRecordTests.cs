@@ -22,8 +22,8 @@ public sealed class GizmoRecordTests : IDisposable {
     readonly SceneDocument document;
 
     public GizmoRecordTests() {
-        var project = new EditorProject(new ProjectPaths(Path.Combine(Path.GetTempPath(), "vixen-gizmo-record")));
-        document = new SceneDocument(project, world, AssetId.Empty, "Test");
+        var project = new EditorProject(new(Path.Combine(Path.GetTempPath(), "vixen-gizmo-record")));
+        document = new(project, world, AssetId.Empty, "Test");
     }
 
     public void Dispose() => world.Dispose();
@@ -43,7 +43,7 @@ public sealed class GizmoRecordTests : IDisposable {
         ];
 
         for (var index = 0; index < targets.Length; index++) {
-            targets[index].Position = new Vector3(index, 0f, 0f);
+            targets[index].Position = new(index, 0f, 0f);
         }
 
         // A world position is read from `WorldTransform`, which the editor resolves every frame.
@@ -59,7 +59,7 @@ public sealed class GizmoRecordTests : IDisposable {
         Resolve();
 
         // The fixture's own check: the drag is visible to a reader, which is what the gizmo reads.
-        Assert.Equal(new Vector3(2f, 5f, 0f), targets[2].Position);
+        Assert.Equal(new(2f, 5f, 0f), targets[2].Position);
 
         var drag = new GizmoDrag(targets, GizmoMode.Translate, GizmoHandle.AxisY, captured, document);
         var edit = targets[0].Record(drag);
@@ -77,14 +77,14 @@ public sealed class GizmoRecordTests : IDisposable {
         Resolve();
 
         for (var index = 0; index < targets.Length; index++) {
-            Assert.Equal(new Vector3(index, 0f, 0f), targets[index].Position);
+            Assert.Equal(new(index, 0f, 0f), targets[index].Position);
         }
 
         document.Stack.Redo();
         Resolve();
 
         for (var index = 0; index < targets.Length; index++) {
-            Assert.Equal(new Vector3(index, 5f, 0f), targets[index].Position);
+            Assert.Equal(new(index, 5f, 0f), targets[index].Position);
         }
     }
 
@@ -94,7 +94,13 @@ public sealed class GizmoRecordTests : IDisposable {
 
         Resolve();
 
-        var drag = new GizmoDrag([target], GizmoMode.Translate, GizmoHandle.AxisX, [GizmoTransformMember.State(target)], document);
+        var drag = new GizmoDrag(
+            [target],
+            GizmoMode.Translate,
+            GizmoHandle.AxisX,
+            [GizmoTransformMember.State(target)],
+            document
+        );
 
         Assert.Null(target.Record(drag));
     }

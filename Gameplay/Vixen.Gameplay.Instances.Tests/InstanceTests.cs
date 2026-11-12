@@ -114,7 +114,7 @@ public class InstanceRunTests {
     Instance Crypt => library.Find(DefId.From(Content.Crypt))!;
 
     static IReadOnlyList<PlayerId> Party(int size = 3) =>
-        [.. Enumerable.Range(1, size).Select(who => Content.Player((ulong)who))];
+        [..Enumerable.Range(1, size).Select(static who => Content.Player((ulong)who))];
 
     InstanceRun Enter(string difficulty = "normal", int size = 3, double now = 0d) {
         var refusal = InstanceRun.Enter(Crypt, difficulty, Party(size), lockouts, now, out var run, attuned);
@@ -344,7 +344,8 @@ public class InstanceRunTests {
         Assert.Equal(2f, run.Difficulty.HealthScale);
         Assert.DoesNotContain(
             typeof(InstanceRun).GetMethods(),
-            method => method.Name.Contains("Difficulty", StringComparison.Ordinal) && method.Name.StartsWith("set_", StringComparison.Ordinal)
+            static method => method.Name.Contains("Difficulty", StringComparison.Ordinal)
+                && method.Name.StartsWith("set_", StringComparison.Ordinal)
         );
     }
 }
@@ -355,43 +356,40 @@ public class InstanceLibraryTests {
 
     [Fact]
     public void AnInstanceWithNoDifficultiesIsAProblem() =>
-        Assert.Contains(Problems(new()), problem => problem.Contains("no difficulties", StringComparison.Ordinal));
+        Assert.Contains(
+            Problems(new()),
+            static problem => problem.Contains("no difficulties", StringComparison.Ordinal)
+        );
 
     [Fact]
     public void ASizeNoGroupSatisfiesIsAProblem() =>
         Assert.Contains(
             Problems(new() { MinimumPlayers = 10, MaximumPlayers = 5, Difficulties = [new() { Id = "n" }] }),
-            problem => problem.Contains("no group satisfies", StringComparison.Ordinal)
+            static problem => problem.Contains("no group satisfies", StringComparison.Ordinal)
         );
 
     [Fact]
     public void TwoDifficultiesWithOneIdIsAProblem() =>
         Assert.Contains(
             Problems(new() { Difficulties = [new() { Id = "n" }, new() { Id = "n" }] }),
-            problem => problem.Contains("two difficulties called 'n'", StringComparison.Ordinal)
+            static problem => problem.Contains("two difficulties called 'n'", StringComparison.Ordinal)
         );
 
     [Fact]
     public void AnInstanceWithNoCheckpointIsAProblem() =>
         Assert.Contains(
             Problems(
-                new() {
-                    Difficulties = [new() { Id = "n" }],
-                    Encounters = [new() { Id = "a", IsCheckpoint = false }]
-                }
+                new() { Difficulties = [new() { Id = "n" }], Encounters = [new() { Id = "a", IsCheckpoint = false }] }
             ),
-            problem => problem.Contains("no checkpoint", StringComparison.Ordinal)
+            static problem => problem.Contains("no checkpoint", StringComparison.Ordinal)
         );
 
     [Fact]
     public void TwoEncountersWithOneIdIsAProblem() =>
         Assert.Contains(
             Problems(
-                new() {
-                    Difficulties = [new() { Id = "n" }],
-                    Encounters = [new() { Id = "a" }, new() { Id = "a" }]
-                }
+                new() { Difficulties = [new() { Id = "n" }], Encounters = [new() { Id = "a" }, new() { Id = "a" }] }
             ),
-            problem => problem.Contains("two encounters called 'a'", StringComparison.Ordinal)
+            static problem => problem.Contains("two encounters called 'a'", StringComparison.Ordinal)
         );
 }

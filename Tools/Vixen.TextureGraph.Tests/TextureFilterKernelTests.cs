@@ -52,12 +52,16 @@ public class TextureFilterKernelTests {
     /// </remarks>
     static readonly ImmutableHashSet<string> NotLengths = ["Emboss.intensity"];
 
-    public static TheoryData<string> Kernels => [.. TextureFilters.All];
+    public static TheoryData<string> Kernels => [..TextureFilters.All];
 
     /// <summary>Every op this slice can build, so a theory over them cannot forget one.</summary>
     /// <remarks>
-    ///     ⚠ <b>A theory with an <c>InlineData</c> per builder passes silently when a twelfth builder
-    ///     is added and not listed.</b> This is the list the parameter-agreement test walks, and a
+    ///     ⚠
+    ///     <b>
+    ///         A theory with an <c>InlineData</c> per builder passes silently when a twelfth builder
+    ///         is added and not listed.
+    ///     </b>
+    ///     This is the list the parameter-agreement test walks, and a
     ///     builder reaches it by existing rather than by being remembered — the same move
     ///     <c>TextureSources.All</c> makes for § 4.1.
     /// </remarks>
@@ -109,8 +113,12 @@ public class TextureFilterKernelTests {
     ///     Each kernel declares its inputs in the order the evaluator binds an op's images over them.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>Nothing in the C# would notice a kernel that declared its two textures the other way
-    ///     round.</b> <c>BindingPlan</c> puts the uniform block at binding 0 and the textures in
+    ///     ⚠
+    ///     <b>
+    ///         Nothing in the C# would notice a kernel that declared its two textures the other way
+    ///         round.
+    ///     </b>
+    ///     <c>BindingPlan</c> puts the uniform block at binding 0 and the textures in
     ///     declaration order, and <c>TexturePlanEvaluator.Bind</c> walks an op's inputs positionally
     ///     over them — so a <c>NonUniformBlur</c> that declared its radius map first would blur the
     ///     radius map by the picture and produce something entirely plausible. This is where the
@@ -131,9 +139,12 @@ public class TextureFilterKernelTests {
         var data = Compile(kernel);
 
         var textures = data.Bindings
-            .Where(binding => binding is { Set: DescriptorSetSlot.PerMaterial, Kind: DescriptorKind.SampledTexture })
-            .OrderBy(binding => binding.Binding)
-            .Select(binding => binding.Name)
+            .Where(static binding => binding is {
+                    Set: DescriptorSetSlot.PerMaterial, Kind: DescriptorKind.SampledTexture
+                }
+            )
+            .OrderBy(static binding => binding.Binding)
+            .Select(static binding => binding.Name)
             .ToArray();
 
         Assert.Equal(inputs, textures);
@@ -141,8 +152,12 @@ public class TextureFilterKernelTests {
 
     /// <summary>No filter asks for a sampler, because the evaluator cannot bind one.</summary>
     /// <remarks>
-    ///     ⚠ <b><c>TexturePlanEvaluator.Bind</c> handles a uniform block, sampled textures and one
-    ///     storage image, and throws on anything else.</b> Every bilinear tap in this slice is
+    ///     ⚠
+    ///     <b>
+    ///         <c>TexturePlanEvaluator.Bind</c> handles a uniform block, sampled textures and one
+    ///         storage image, and throws on anything else.
+    ///     </b>
+    ///     Every bilinear tap in this slice is
     ///     therefore four <c>Load</c>s and three <c>lerp</c>s, written out per kernel — which is also
     ///     why a warp cannot ask for a mip and why the blurs are separable rather than mip-assisted.
     /// </remarks>
@@ -153,12 +168,12 @@ public class TextureFilterKernelTests {
 
         Assert.DoesNotContain(
             data.Bindings,
-            binding => binding.Set == DescriptorSetSlot.PerMaterial && binding.Kind == DescriptorKind.Sampler
+            static binding => binding.Set == DescriptorSetSlot.PerMaterial && binding.Kind == DescriptorKind.Sampler
         );
 
         Assert.Single(
             data.Bindings,
-            binding => binding is { Set: DescriptorSetSlot.PerMaterial, Kind: DescriptorKind.StorageTexture }
+            static binding => binding is { Set: DescriptorSetSlot.PerMaterial, Kind: DescriptorKind.StorageTexture }
         );
     }
 
@@ -168,8 +183,11 @@ public class TextureFilterKernelTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <b>This is the guard against the defect batch 2's review found: a declared parameter
-    ///         with nothing that would notice its absence.</b> One half is enforced at run time —
+    ///         <b>
+    ///             This is the guard against the defect batch 2's review found: a declared parameter
+    ///             with nothing that would notice its absence.
+    ///         </b>
+    ///         One half is enforced at run time —
     ///         <c>TexturePlanEvaluator.Uniforms</c> refuses an op that leaves a member out, because
     ///         zero is a valid-looking number for almost every one of them. The other half is not
     ///         enforced anywhere: a builder emitting <c>ammount</c> for <c>amount</c> would hand the
@@ -188,15 +206,15 @@ public class TextureFilterKernelTests {
         var data = Compile(op.Kernel);
 
         var declared = data.Parameters
-            .Where(member => member.Set == DescriptorSetSlot.PerMaterial)
-            .Select(member => member.Name.Split('.')[^1])
-            .Where(name => !TexturePlan.Supplies(name))
-            .OrderBy(name => name, StringComparer.Ordinal)
+            .Where(static member => member.Set == DescriptorSetSlot.PerMaterial)
+            .Select(static member => member.Name.Split('.')[^1])
+            .Where(static name => !TexturePlan.Supplies(name))
+            .OrderBy(static name => name, StringComparer.Ordinal)
             .ToArray();
 
         var emitted = op.Parameters
-            .Select(parameter => parameter.Name)
-            .OrderBy(name => name, StringComparer.Ordinal)
+            .Select(static parameter => parameter.Name)
+            .OrderBy(static name => name, StringComparer.Ordinal)
             .ToArray();
 
         Assert.Equal(declared, emitted);
@@ -236,8 +254,12 @@ public class TextureFilterKernelTests {
 
     /// <summary>The slope-blur mode numbering in the kernel is the one the enum spells.</summary>
     /// <remarks>
-    ///     ⚠ <b>The kernel cannot raise, so a mode it does not recognise falls through to the
-    ///     blend.</b> A min where a max was meant is an erosion where a dilation was meant, which is
+    ///     ⚠
+    ///     <b>
+    ///         The kernel cannot raise, so a mode it does not recognise falls through to the
+    ///         blend.
+    ///     </b>
+    ///     A min where a max was meant is an erosion where a dilation was meant, which is
     ///     a picture — so the two tables are pinned against each other here and each mode's actual
     ///     behaviour is pinned on a device.
     /// </remarks>
@@ -286,8 +308,12 @@ public class TextureFilterKernelTests {
 
     /// <summary>A plan whose radii fit the kernels' loops has nothing reported against it.</summary>
     /// <remarks>
-    ///     ⚠ <b>Verify the instrument first: ask what <see cref="TextureFilters.Verify" /> says on the
-    ///     day nothing is wrong.</b> A walk that reported every op, or that reported none because it
+    ///     ⚠
+    ///     <b>
+    ///         Verify the instrument first: ask what <see cref="TextureFilters.Verify" /> says on the
+    ///         day nothing is wrong.
+    ///     </b>
+    ///     A walk that reported every op, or that reported none because it
     ///     never matched a kernel name, would be indistinguishable from a working one in the test
     ///     below it — which only ever asks for a non-empty answer.
     /// </remarks>
@@ -305,8 +331,11 @@ public class TextureFilterKernelTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <b>The number that matters is the resolved one, and nothing else in this assembly
-    ///         computes it against a ceiling.</b> A sharpen of 4 texels at a 1K base is 16 texels in a 4K
+    ///         <b>
+    ///             The number that matters is the resolved one, and nothing else in this assembly
+    ///             computes it against a ceiling.
+    ///         </b>
+    ///         A sharpen of 4 texels at a 1K base is 16 texels in a 4K
     ///         bake, and the kernel loops to 8 — so what the artist would get is an 8-texel sharpen,
     ///         silently. <c>TexturePlan.Validate</c> cannot say so: it knows nothing about what a kernel's
     ///         loop bound is. The kernel cannot say so either: a shader has nowhere to raise.
@@ -328,8 +357,12 @@ public class TextureFilterKernelTests {
         var problems = TextureFilters.Verify(plan);
 
         Assert.Single(problems);
-        Assert.DoesNotContain(problems, line => line.Contains("NonUniformBlur", StringComparison.Ordinal));
-        Assert.Contains(problems, line => line.Contains("Sharpen", StringComparison.Ordinal) && line.Contains("16", StringComparison.Ordinal));
+        Assert.DoesNotContain(problems, static line => line.Contains("NonUniformBlur", StringComparison.Ordinal));
+        Assert.Contains(
+            problems,
+            static line => line.Contains("Sharpen", StringComparison.Ordinal)
+                && line.Contains("16", StringComparison.Ordinal)
+        );
     }
 
     /// <summary>A scalar parameter is never mistaken for a radius, whatever the bake.</summary>
@@ -341,7 +374,7 @@ public class TextureFilterKernelTests {
     /// </remarks>
     [Fact]
     public void A_count_is_not_a_radius_and_is_never_scaled() {
-        var plan = Plan(-2, TextureFilters.SlopeBlurOp(2, 0, 1, 2f, 30), TextureFilters.SharpenOp(3, 2, 1f, 1f));
+        var plan = Plan(-2, TextureFilters.SlopeBlurOp(2, 0, 1, 2f, 30), TextureFilters.SharpenOp(3, 2, 1f));
 
         Assert.Empty(TextureFilters.Verify(plan));
     }
@@ -357,7 +390,7 @@ public class TextureFilterKernelTests {
                 new(TextureFormat.Rgba16Float),
                 new(TextureFormat.Rgba8)
             ],
-            Ops = [.. ops],
+            Ops = [..ops],
             Outputs = [3]
         };
 

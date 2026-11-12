@@ -10,8 +10,12 @@ namespace Vixen.Ui.Text;
 /// <remarks>
 ///     <para>
 ///         CSS Fonts 4 gives two ways to ask for one and they arrive here as the same thing.
-///         <c>font-feature-settings: "tnum" 1</c> names the tag directly; <c>font-variant-numeric:
-///         tabular-nums</c> names a typographic intention that <i>is</i> that tag. So the high-level
+///         <c>font-feature-settings: "tnum" 1</c> names the tag directly;
+///         <c>
+///             font-variant-numeric:
+///             tabular-nums
+///         </c>
+///         names a typographic intention that <i>is</i> that tag. So the high-level
 ///         property is a table of these and the low-level one is a parser for them, and the shaper
 ///         below never learns which of the two a feature came from.
 ///     </para>
@@ -47,7 +51,7 @@ public readonly record struct FontFeature(uint Tag, uint Value) {
                 return 0u;
             }
 
-            packed = (packed << 8) | (byte) character;
+            packed = (packed << 8) | (byte)character;
         }
 
         return packed;
@@ -59,7 +63,9 @@ public readonly record struct FontFeature(uint Tag, uint Value) {
     public static string Unpack(uint tag) =>
         tag == 0u
             ? string.Empty
-            : new string([(char) (tag >> 24), (char) ((tag >> 16) & 0xFF), (char) ((tag >> 8) & 0xFF), (char) (tag & 0xFF)]);
+            : new string(
+                [(char)(tag >> 24), (char)((tag >> 16) & 0xFF), (char)((tag >> 8) & 0xFF), (char)(tag & 0xFF)]
+            );
 
     /// <summary>Reads one <c>&lt;feature-tag-value&gt;</c>, as CSS Fonts 4 § 6.4 spells it.</summary>
     /// <param name="text">
@@ -101,27 +107,32 @@ public readonly record struct FontFeature(uint Tag, uint Value) {
             0 => 1u,
             _ when rest.Equals("on", StringComparison.OrdinalIgnoreCase) => 1u,
             _ when rest.Equals("off", StringComparison.OrdinalIgnoreCase) => 0u,
-            _ => uint.TryParse(rest, NumberStyles.None, CultureInfo.InvariantCulture, out var number) ? number : uint.MaxValue
+            _ => uint.TryParse(rest, NumberStyles.None, CultureInfo.InvariantCulture, out var number)
+                ? number
+                : uint.MaxValue
         };
 
         if (value == uint.MaxValue) {
             return false;
         }
 
-        feature = new FontFeature(tag, value);
+        feature = new(tag, value);
         return true;
     }
 
     /// <inheritdoc />
-    public override string ToString() =>
-        string.Create(CultureInfo.InvariantCulture, $"\"{Unpack(Tag)}\" {Value}");
+    public override string ToString() => string.Create(CultureInfo.InvariantCulture, $"\"{Unpack(Tag)}\" {Value}");
 }
 
 /// <summary>The OpenType features a run is shaped with, as one comparable value.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>This exists because of <see cref="ShapingCache" />'s key, and that is the part of the
-///         feature most likely to have shipped broken.</b> The cache is keyed on the font and the
+///         ⚠
+///         <b>
+///             This exists because of <see cref="ShapingCache" />'s key, and that is the part of the
+///             feature most likely to have shipped broken.
+///         </b>
+///         The cache is keyed on the font and the
 ///         string, because shaping is a function of those two — which stopped being true the moment a
 ///         feature array could differ between two callers. Without the set in the key, the first
 ///         paragraph shaped wins and every later one gets its glyphs: a table of tabular figures next
@@ -129,8 +140,12 @@ public readonly record struct FontFeature(uint Tag, uint Value) {
 ///         nothing anywhere would say so.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Sorted and deduplicated on the way in, so two declarations that ask for the same
-///         thing in a different order are one cache entry.</b> A later duplicate wins, which is CSS's
+///         ⚠
+///         <b>
+///             Sorted and deduplicated on the way in, so two declarations that ask for the same
+///             thing in a different order are one cache entry.
+///         </b>
+///         A later duplicate wins, which is CSS's
 ///         rule for a repeated <c>&lt;feature-tag-value&gt;</c> and is also what makes
 ///         <c>font-feature-settings</c> able to override <c>font-variant-numeric</c>: the high-level
 ///         property's features are added first and the low-level escape hatch's after them.
@@ -183,10 +198,10 @@ public sealed class FontFeatureSet : IEquatable<FontFeatureSet> {
         var builder = ImmutableArray.CreateBuilder<FontFeature>(byTag.Count);
 
         foreach (var (tag, value) in byTag) {
-            builder.Add(new FontFeature(tag, value));
+            builder.Add(new(tag, value));
         }
 
-        return new FontFeatureSet(builder.MoveToImmutable());
+        return new(builder.MoveToImmutable());
     }
 
     /// <inheritdoc />

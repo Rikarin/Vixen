@@ -24,8 +24,12 @@ namespace Vixen.Gameplay;
 ///         wrong one for a value compared on the damage path.
 ///     </para>
 ///     <para>
-///         ⚠ <b>An index is only meaningful against the table that assigned it, and adding a tag
-///         renumbers.</b> Two consequences, both deliberate and both stated here because getting
+///         ⚠
+///         <b>
+///             An index is only meaningful against the table that assigned it, and adding a tag
+///             renumbers.
+///         </b>
+///         Two consequences, both deliberate and both stated here because getting
 ///         either wrong is silent. On the wire: both ends must hold the same table, which they do
 ///         because the session handshake compares the catalog's build hash before anything is
 ///         dispatched ([16](../../../docs/plan/16-networking.md) § Security) and
@@ -88,8 +92,11 @@ public readonly record struct GameplayTag(uint Index) : IComparable<GameplayTag>
 /// <summary>A resolved tag prefix: one tag and everything beneath it, as a half-open range.</summary>
 /// <remarks>
 ///     <para>
-///         <b>This is the authored half of a tag comparison and the reason the dynamic half is four
-///         bytes.</b> A rule says <em>fire resistance reduces <c>Damage.Fire.*</c></em>; the prefix
+///         <b>
+///             This is the authored half of a tag comparison and the reason the dynamic half is four
+///             bytes.
+///         </b>
+///         A rule says <em>fire resistance reduces <c>Damage.Fire.*</c></em>; the prefix
 ///         comes out of a definition and is resolved against the table exactly once, at load, into
 ///         the two numbers that make the test. What is compared a thousand times a frame is a
 ///         <see cref="GameplayTag" /> against one of these, with no table read and no string.

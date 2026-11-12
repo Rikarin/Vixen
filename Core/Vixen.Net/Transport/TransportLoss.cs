@@ -9,8 +9,11 @@ namespace Vixen.Net.Transport;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>Four counters and no ratio, because the two directions are measured by different
-///         evidence and only one of them is loss that was observed.</b> Inbound, a receiver knows
+///         <b>
+///             Four counters and no ratio, because the two directions are measured by different
+///             evidence and only one of them is loss that was observed.
+///         </b>
+///         Inbound, a receiver knows
 ///         exactly what it did not get: the sender's sequence numbers are consecutive, so a gap that
 ///         falls out of the acknowledgement window is a datagram that was sent and never came —
 ///         <see cref="Missing" /> out of <see cref="Expected" /> is loss that happened, not loss
@@ -38,8 +41,12 @@ namespace Vixen.Net.Transport;
 ///     Reliable datagrams handed to the socket for the first time — retransmissions of them are
 ///     <see cref="Retransmitted" /> and are not counted here again.
 ///     <para>
-///         ⚠ <b>Datagrams rather than messages or bytes, and reliable ones rather than all of
-///         them.</b> Datagrams because a datagram is what the network drops: a router discards a
+///         ⚠
+///         <b>
+///             Datagrams rather than messages or bytes, and reliable ones rather than all of
+///             them.
+///         </b>
+///         Datagrams because a datagram is what the network drops: a router discards a
 ///         whole packet, so a payload split into eight fragments is eight chances to lose something
 ///         and one message is not one trial. Not bytes, because loss is not proportional to size
 ///         over the range a datagram spans and a byte ratio would weight the answer by how large the
@@ -64,8 +71,12 @@ namespace Vixen.Net.Transport;
 ///     Inbound sequences that have passed out of the acknowledgement window, and so can no longer
 ///     arrive. Every one of them either came or did not, which is what makes this a denominator.
 ///     <para>
-///         ⚠ <b>Counted when they leave the window rather than when the gap appears, which is what
-///         keeps a late datagram from being mourned.</b> A sequence sits under judgement for the
+///         ⚠
+///         <b>
+///             Counted when they leave the window rather than when the gap appears, which is what
+///             keeps a late datagram from being mourned.
+///         </b>
+///         A sequence sits under judgement for the
 ///         thirty-two that follow it; reordering inside that window is invisible here, and anything
 ///         still in the window is in neither total yet.
 ///     </para>

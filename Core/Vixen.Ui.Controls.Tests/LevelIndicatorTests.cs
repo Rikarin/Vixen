@@ -29,8 +29,11 @@ public class LevelIndicatorTests {
     const int Height = 12;
 
     /// <summary>
-    ///     ⚠ <b>The thresholds' order is the direction, and this is the whole design of the
-    ///     control.</b>
+    ///     ⚠
+    ///     <b>
+    ///         The thresholds' order is the direction, and this is the whole design of the
+    ///         control.
+    ///     </b>
     /// </summary>
     /// <remarks>
     ///     A disk is worse as it fills and a battery is worse as it empties, and both are level
@@ -92,8 +95,11 @@ public class LevelIndicatorTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>A lone <c>Critical</c> reads critical at a full charge until the direction is stated
-    ///     (#1353).</b>
+    ///     ⚠
+    ///     <b>
+    ///         A lone <c>Critical</c> reads critical at a full charge until the direction is stated
+    ///         (#1353).
+    ///     </b>
     /// </summary>
     /// <remarks>
     ///     <para>
@@ -181,8 +187,11 @@ public class LevelIndicatorTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>A stated direction is obeyed against the pair, and the contradiction is loud rather
-    ///     than silent.</b>
+    ///     ⚠
+    ///     <b>
+    ///         A stated direction is obeyed against the pair, and the contradiction is loud rather
+    ///         than silent.
+    ///     </b>
     /// </summary>
     /// <remarks>
     ///     The type used to refuse a direction property on the ground that one contradicting the
@@ -213,8 +222,11 @@ public class LevelIndicatorTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>The level reaches the stylesheet as a class, which is the only way the theme can own
-    ///     the colour.</b>
+    ///     ⚠
+    ///     <b>
+    ///         The level reaches the stylesheet as a class, which is the only way the theme can own
+    ///         the colour.
+    ///     </b>
     /// </summary>
     [Fact]
     public void The_level_is_written_on_the_element_for_the_theme_to_select_on() {
@@ -246,8 +258,11 @@ public class LevelIndicatorTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>A meter and not a progress bar, and it announces the reading rather than a
-    ///     fraction.</b>
+    ///     ⚠
+    ///     <b>
+    ///         A meter and not a progress bar, and it announces the reading rather than a
+    ///         fraction.
+    ///     </b>
     /// </summary>
     /// <remarks>
     ///     "Progress bar, eighty-seven per cent" about a disk tells a listener a job is nearly
@@ -288,12 +303,12 @@ public class LevelIndicatorTests {
         ui.Frame();
         var half = Lit(ui);
 
-        Assert.InRange((half * 2) - full, -2, 2);
+        Assert.InRange(half * 2 - full, -2, 2);
 
         meter.Value = 0.25f;
         ui.Frame();
 
-        Assert.InRange((Lit(ui) * 4) - full, -4, 4);
+        Assert.InRange(Lit(ui) * 4 - full, -4, 4);
 
         meter.Value = 0f;
         ui.Frame();
@@ -302,8 +317,11 @@ public class LevelIndicatorTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>The block boundary rounds rather than truncating, and the difference is one block at
-    ///     every reading a meter actually sits on.</b>
+    ///     ⚠
+    ///     <b>
+    ///         The block boundary rounds rather than truncating, and the difference is one block at
+    ///         every reading a meter actually sits on.
+    ///     </b>
     /// </summary>
     /// <remarks>
     ///     Four blocks at a half is two either way. Four at three-fifths is two truncating and two
@@ -343,8 +361,12 @@ public class LevelIndicatorTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>A level indicator draws the ticks it inherits, over the bar, with the last one on the
-    ///     bar's last column</b> (#1444).
+    ///     ⚠
+    ///     <b>
+    ///         A level indicator draws the ticks it inherits, over the bar, with the last one on the
+    ///         bar's last column
+    ///     </b>
+    ///     (#1444).
     /// </summary>
     /// <remarks>
     ///     <para>

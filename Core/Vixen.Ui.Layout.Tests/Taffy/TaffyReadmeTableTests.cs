@@ -10,8 +10,12 @@ namespace Vixen.Ui.Layout.Tests.Taffy;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>The last count in this directory that nothing contradicted, and the one that cannot
-///         be checked against the suites' constants.</b> Each conformance suite pins a total across
+///         ⚠
+///         <b>
+///             The last count in this directory that nothing contradicted, and the one that cannot
+///             be checked against the suites' constants.
+///         </b>
+///         Each conformance suite pins a total across
 ///         the categories it owns — <c>TaffyGridConformanceTests</c> pins 2 104 / 16 / 0 for
 ///         <c>grid</c>, <c>blockgrid</c> and <c>gridflex</c> together — so a table row that moved
 ///         sixteen fixtures from <c>grid</c> into <c>gridflex</c> would agree with every constant in
@@ -31,8 +35,12 @@ namespace Vixen.Ui.Layout.Tests.Taffy;
 ///         is a judgement and not a fact this can derive.
 ///     </para>
 ///     <para>
-///         ⚠ <b>It costs nothing, and that was the question this had to answer before it was worth
-///         doing at all.</b> A per-category census is another full run of all 5 524 fixtures, which
+///         ⚠
+///         <b>
+///             It costs nothing, and that was the question this had to answer before it was worth
+///             doing at all.
+///         </b>
+///         A per-category census is another full run of all 5 524 fixtures, which
 ///         is roughly what this whole project costs. It is free here because it is not another run:
 ///         <see cref="TaffyCensus.TallyOf" /> memoises per category, and the four suites'
 ///         <c>The_corpus_stands_where_it_is_recorded_as_standing</c> already ask for all eight
@@ -122,7 +130,7 @@ public class TaffyReadmeTableTests {
         if (Regenerating) {
             // ⚠ Rewrites the rows it found and inserts none, so a table somebody has cut down to six
             // rows fails even here. Joined on "\n" because `WriteAllLines` uses the platform's
-            // newline, and regenerating on Windows would otherwise hand `CheckWhitespace` a diff of
+            // newline, and regenerating on Windows would otherwise hand the formatting gate a diff of
             // the whole document to explain one digit.
             Array.Copy(expected, 0, lines, top + 2, expected.Length);
             File.WriteAllText(path, string.Join('\n', lines) + '\n');
@@ -133,7 +141,7 @@ public class TaffyReadmeTableTests {
         for (var i = 0; i < expected.Length; i++) {
             Assert.True(
                 lines[top + 2 + i] == expected[i],
-                $"README.md's census table disagrees with a census of the committed corpus:\n"
+                "README.md's census table disagrees with a census of the committed corpus:\n"
                 + $"  file:   {lines[top + 2 + i]}\n  census: {expected[i]}\n"
                 + "Re-run with VIXEN_REGENERATE=1 once the corpus is what it should be."
             );

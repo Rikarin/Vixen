@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core;
-using Vixen.Core.Mathematics;
 using Vixen.Ecs;
 using Vixen.Engine.Cameras;
 using Vixen.Engine.Players;
@@ -68,7 +67,7 @@ public sealed class PossessionTests {
     public void PossessingATakenPawnStealsItRatherThanSharingIt() {
         using var world = new World();
         var first = Player.Create(world);
-        var second = Player.Create(world, slot: 1);
+        var second = Player.Create(world, 1);
         var pawn = world.Create(LocalTransform.Identity);
 
         Player.Possess(world, first, pawn);
@@ -144,8 +143,8 @@ public sealed class PossessionTests {
     [Fact]
     public void TheControllerOutlivesItsPawn() {
         using var world = new World();
-        var system = new PossessionSystem();
-        var controller = Player.Create(world, slot: 2);
+        using var system = new PossessionSystem();
+        var controller = Player.Create(world, 2);
         var pawn = world.Create(LocalTransform.Identity);
 
         Player.Possess(world, controller, pawn);
@@ -190,7 +189,7 @@ public sealed class PossessionTests {
         using var world = new World();
         var controllers = new List<Entity>();
         var pawns = new List<Entity>();
-        var system = new PossessionSystem();
+        using var system = new PossessionSystem();
 
         for (var index = 0; index < 4; index++) {
             controllers.Add(Player.Create(world, (byte)index));
@@ -240,7 +239,7 @@ public sealed class PossessionTests {
     [Fact]
     public void PossessionRetargetsTheBoundShot() {
         using var world = new World();
-        var system = new PossessionSystem();
+        using var system = new PossessionSystem();
         var controller = Player.Create(world);
         var first = world.Create(LocalTransform.Identity);
         var second = world.Create(LocalTransform.Identity);
@@ -263,7 +262,7 @@ public sealed class PossessionTests {
     [Fact]
     public void UnbindingTheCameraLeavesTheShotAlone() {
         using var world = new World();
-        var system = new PossessionSystem();
+        using var system = new PossessionSystem();
         var controller = Player.Create(world);
         var pawn = world.Create(LocalTransform.Identity);
         var other = world.Create(LocalTransform.Identity);
@@ -285,7 +284,7 @@ public sealed class PossessionTests {
     [Fact]
     public void APovShotTakesThePlayersAim() {
         using var world = new World();
-        var system = new PossessionSystem();
+        using var system = new PossessionSystem();
         var controller = Player.Create(world);
         var pawn = world.Create(LocalTransform.Identity);
         var shot = world.Create(VirtualCamera.Default, PovAim.Default);
@@ -306,7 +305,7 @@ public sealed class PossessionTests {
     [Fact]
     public void IntentReachesThePawnOnTheFrameItIsPossessed() {
         using var world = new World();
-        var system = new PossessionSystem();
+        using var system = new PossessionSystem();
         var controller = Player.Create(world);
         var pawn = world.Create(LocalTransform.Identity);
 
@@ -322,7 +321,7 @@ public sealed class PossessionTests {
     [Fact]
     public void AnUnpossessedPawnKeepsItsOwnIntent() {
         using var world = new World();
-        var system = new PossessionSystem();
+        using var system = new PossessionSystem();
         var controller = Player.Create(world);
         var pawn = world.Create(LocalTransform.Identity);
 

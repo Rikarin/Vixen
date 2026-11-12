@@ -113,7 +113,7 @@ public sealed class StreamingGrid {
     /// <param name="x">Its X index.</param>
     /// <param name="z">Its Z index.</param>
     /// <returns>The key.</returns>
-    public PageKey KeyOf(int x, int z) => new(source, (z * countX) + x);
+    public PageKey KeyOf(int x, int z) => new(source, z * countX + x);
 
     /// <summary>Which cell a page index is.</summary>
     /// <param name="index">The page's index within this grid.</param>
@@ -141,7 +141,7 @@ public sealed class StreamingGrid {
         var dx = MathF.Max(0f, MathF.Max(low.X - point.X, point.X - high.X));
         var dz = MathF.Max(0f, MathF.Max(low.Y - point.Y, point.Y - high.Y));
 
-        return MathF.Sqrt((dx * dx) + (dz * dz));
+        return MathF.Sqrt(dx * dx + dz * dz);
     }
 
     /// <summary>
@@ -224,7 +224,7 @@ public sealed class StreamingGrid {
                     continue;
                 }
 
-                var index = (z * countX) + x;
+                var index = z * countX + x;
 
                 if (distance <= radius) {
                     touched.Add(index);

@@ -18,8 +18,12 @@ namespace Tests;
 ///         named this as the missing step, and this file is the proof that it is not lossy.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Every test here names its adapter and skips loudly rather than passing without
-///         one.</b> Without a real device a headless run falls back to the Null device, exits 0 and
+///         ⚠
+///         <b>
+///             Every test here names its adapter and skips loudly rather than passing without
+///             one.
+///         </b>
+///         Without a real device a headless run falls back to the Null device, exits 0 and
 ///         prints identical healthy counters — and a round trip asserted there would have proved that
 ///         a black image equals a black image, because <c>NullDevice</c> reads back zeroes whatever
 ///         was written. <c>VIXEN_REQUIRE_VULKAN=1</c> turns the skip into a failure.
@@ -102,7 +106,7 @@ public class TextureUploadDeviceTests(ITestOutputHelper output) {
         var texels = new Half[Side * Side * 4];
 
         for (var at = 0; at < texels.Length; at++) {
-            texels[at] = (Half)(0.5f + (at % 8 / 2550f));
+            texels[at] = (Half)(0.5f + at % 8 / 2550f);
         }
 
         using var uploads = new TextureUploads(device);
@@ -184,7 +188,7 @@ public class TextureUploadDeviceTests(ITestOutputHelper output) {
 
         for (var y = 0; y < Side; y++) {
             for (var x = 0; x < Side; x++) {
-                mask[(y * Side) + x] = (byte)(x * 4);
+                mask[y * Side + x] = (byte)(x * 4);
             }
         }
 
@@ -201,7 +205,7 @@ public class TextureUploadDeviceTests(ITestOutputHelper output) {
 
         for (var y = 0; y < Side; y++) {
             for (var x = 0; x < Side; x++) {
-                Assert.Equal(mask[(y * Side) + x], TextureKernelHarness.At(picture, x, y, 0));
+                Assert.Equal(mask[y * Side + x], TextureKernelHarness.At(picture, x, y, 0));
                 Assert.Equal(0, TextureKernelHarness.At(picture, x, y, 1));
                 Assert.Equal(0, TextureKernelHarness.At(picture, x, y, 2));
                 Assert.Equal(255, TextureKernelHarness.At(picture, x, y, 3));
@@ -228,7 +232,7 @@ public class TextureUploadDeviceTests(ITestOutputHelper output) {
 
         for (var y = 0; y < Side; y++) {
             for (var x = 0; x < Side; x++) {
-                coverage[(y * Side) + x] = x / (float)(Side - 1);
+                coverage[y * Side + x] = x / (float)(Side - 1);
             }
         }
 
@@ -254,7 +258,7 @@ public class TextureUploadDeviceTests(ITestOutputHelper output) {
                 // produced the bytes: an assertion against the code under test is an assertion that
                 // cannot fail, and this loop is 4 096 texels of exactly that shape.
                 Assert.Equal(
-                    (byte)((coverage[(y * Side) + x] * 255f) + 0.5f),
+                    (byte)(coverage[y * Side + x] * 255f + 0.5f),
                     TextureKernelHarness.At(picture, x, y, 0)
                 );
             }
@@ -267,8 +271,12 @@ public class TextureUploadDeviceTests(ITestOutputHelper output) {
 
     /// <summary>A picture that is not the plan's base resolution is read at its own size.</summary>
     /// <remarks>
-    ///     ⚠ <b>An external image is the one place an absolute size enters a plan, and this is what
-    ///     that means in practice.</b> The plan's base is 64² and the upload is 16 wide; every kernel
+    ///     ⚠
+    ///     <b>
+    ///         An external image is the one place an absolute size enters a plan, and this is what
+    ///         that means in practice.
+    ///     </b>
+    ///     The plan's base is 64² and the upload is 16 wide; every kernel
     ///     clamps its taps to the <em>source's</em> dimensions, so the right-hand three quarters of
     ///     the output repeat the source's last column rather than reading outside it. A kernel that
     ///     clamped to the target's dimensions instead — the recurring mistake in this folder — would
@@ -290,7 +298,7 @@ public class TextureUploadDeviceTests(ITestOutputHelper output) {
 
         uploads.Add(plan, 0, Narrow, Narrow, source);
 
-        Assert.Equal(new Int2(Narrow, Narrow), uploads.SizeOf(0));
+        Assert.Equal(new(Narrow, Narrow), uploads.SizeOf(0));
 
         // ⚠ And the plan refuses to give a second answer — #715, #1008. It used to return the
         // nominal 64×64 here, a number no picture produced, read off the level of an image nothing
@@ -334,8 +342,10 @@ public class TextureUploadDeviceTests(ITestOutputHelper output) {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/1014">#1014</a>: a mechanism whose
-    ///         caller passes the default.</b>
+    ///         <b>
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/1014">#1014</a>: a mechanism whose
+    ///             caller passes the default.
+    ///         </b>
     ///         <c>Evaluate(TexturePlan, IReadOnlyDictionary&lt;int, TextureHandle&gt;)</c> fills in
     ///         <c>new TextureExternal(handle, Sampled)</c> and cannot fill in a size — a handle is an
     ///         opaque number — so the extent guard had nothing to compare and was <em>silent</em> for
@@ -344,9 +354,13 @@ public class TextureUploadDeviceTests(ITestOutputHelper output) {
     ///         reports success on the day it did not run.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The same plan, the same upload and the same undersized picture as
-    ///         <see cref="An_upload_smaller_than_the_plan_is_clamped_to_its_own_edge" />, through the
-    ///         other overload.</b> That is what makes this a claim about the overload rather than
+    ///         ⚠
+    ///         <b>
+    ///             The same plan, the same upload and the same undersized picture as
+    ///             <see cref="An_upload_smaller_than_the_plan_is_clamped_to_its_own_edge" />, through the
+    ///             other overload.
+    ///         </b>
+    ///         That is what makes this a claim about the overload rather than
     ///         about the guard: one of them names the sizes and the other says it does not have them,
     ///         and before this the second said nothing at all.
     ///     </para>
@@ -388,8 +402,12 @@ public class TextureUploadDeviceTests(ITestOutputHelper output) {
 
     /// <summary>And an op that means to read another extent is silent about the same upload.</summary>
     /// <remarks>
-    ///     ⚠ <b>The half that stops the caution being "every import that is not the graph's size is a
-    ///     warning".</b> <c>Resample</c>, <c>Crop</c>, <c>Tile</c>, <c>Transform2D</c> and
+    ///     ⚠
+    ///     <b>
+    ///         The half that stops the caution being "every import that is not the graph's size is a
+    ///         warning".
+    ///     </b>
+    ///     <c>Resample</c>, <c>Crop</c>, <c>Tile</c>, <c>Transform2D</c> and
     ///     <c>Bitmap</c> all read their source's extent on purpose and say so on the op, and the
     ///     evaluator's guard asks <c>TexturePlan.Declared</c> — the same predicate the plan's own
     ///     guard asks — rather than re-spelling it. It is the same plan, the same upload and the same
@@ -426,8 +444,11 @@ public class TextureUploadDeviceTests(ITestOutputHelper output) {
     /// <summary>⚠ A CPU op reading an undersized upload is handed that picture, not the plan's size.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/1000">#1000</a>, and the fixture
-    ///         is the whole finding.</b> Every other CPU-op case in this assembly uploads at its
+    ///         <b>
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/1000">#1000</a>, and the fixture
+    ///             is the whole finding.
+    ///         </b>
+    ///         Every other CPU-op case in this assembly uploads at its
     ///         plan's own resolution, where the plan's nominal answer for an external image happens
     ///         to be right — so eight green tests covered a read-back sized from a number no picture
     ///         had. Sixteen texels in a sixty-four-texel plan is the case none of them varied.
@@ -473,17 +494,21 @@ public class TextureUploadDeviceTests(ITestOutputHelper output) {
         using var evaluator = new TexturePlanEvaluator(device);
         using var bake = evaluator.Evaluate(plan, uploads.Externals);
 
-        Assert.Equal(new Int2(Narrow, Narrow), probe.Size);
+        Assert.Equal(new(Narrow, Narrow), probe.Size);
         Assert.Equal(source, probe.Bytes);
 
         // And the operation's own output is still the plan's size, which is what it writes into.
-        Assert.Equal(new Int2(Side, Side), probe.Wrote);
+        Assert.Equal(new(Side, Side), probe.Wrote);
     }
 
     /// <summary>An external image a CPU op reads whose size the caller did not declare is refused.</summary>
     /// <remarks>
-    ///     ⚠ <b>A refusal rather than a fall-back, and it can be one because the path that cannot
-    ///     answer cannot get here.</b> The bare-handle overload of <c>Evaluate</c> declares
+    ///     ⚠
+    ///     <b>
+    ///         A refusal rather than a fall-back, and it can be one because the path that cannot
+    ///         answer cannot get here.
+    ///     </b>
+    ///     The bare-handle overload of <c>Evaluate</c> declares
     ///     <see cref="TextureUsage.Sampled" /> alone, so a plan whose CPU op reads an external image
     ///     is already refused for the usage before any of this — a caller reaching the size check has
     ///     spelled a <see cref="TextureExternal" /> out, and the size is the same sentence. A default
@@ -511,8 +536,7 @@ public class TextureUploadDeviceTests(ITestOutputHelper output) {
 
         using var evaluator = new TexturePlanEvaluator(device);
 
-        var refusal = Assert.Throws<ArgumentException>(
-            () => evaluator.Evaluate(
+        var refusal = Assert.Throws<ArgumentException>(() => evaluator.Evaluate(
                 plan,
                 new Dictionary<int, TextureExternal> { [0] = new(texture, TextureUploads.UploadUsage) }
             )
@@ -551,7 +575,7 @@ sealed class RecordTheInput : ITextureCpuOperation {
         var source = invocation.Inputs[0];
 
         Size = new(source.Width, source.Height);
-        Bytes = [.. source.Bytes];
+        Bytes = [..source.Bytes];
         Wrote = new(invocation.Output.Width, invocation.Output.Height);
     }
 }

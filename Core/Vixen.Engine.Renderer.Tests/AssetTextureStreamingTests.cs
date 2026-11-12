@@ -4,9 +4,8 @@
 using Microsoft.Extensions.Logging;
 using Vixen.Assets;
 using Vixen.Core;
-using Vixen.Core.Imaging;
 using Vixen.Core.IO;
-using Vixen.Core.Serialization;
+using Vixen.Core.Imaging;
 using Vixen.Core.Serialization.Storage;
 using Vixen.Engine.Renderer;
 using Vixen.Graphics;
@@ -47,8 +46,8 @@ public sealed class AssetTextureStreamingTests : IDisposable {
 
         var copies = recorder.OfKind(RecordedCommandKind.CopyBufferToTexture);
 
-        Assert.Equal(0, copies[0].D);   // level 0
-        Assert.Equal(2, copies[0].E);   // 2 texels wide
+        Assert.Equal(0, copies[0].D); // level 0
+        Assert.Equal(2, copies[0].E); // 2 texels wide
         Assert.Equal(1, copies[1].D);
         Assert.Equal(1, copies[1].E);
 
@@ -112,12 +111,12 @@ public sealed class AssetTextureStreamingTests : IDisposable {
             source,
             () => source.Streaming.ResidentLevel(0) == 0 && source.StreamingSwaps > 0,
             "the texture never reached its full resolution",
-            frame => Assert.True(frame.TryGet(Bark, out var view) && view.IsValid)
+            static frame => Assert.True(frame.TryGet(Bark, out var view) && view.IsValid)
         );
 
         Assert.Contains(
             device.Recorder!.OfKind(RecordedCommandKind.CopyBufferToTexture),
-            copy => copy is { D: 0, E: 256 }
+            static copy => copy is { D: 0, E: 256 }
         );
 
         Assert.Equal(0L, source.StreamingRefusals);
@@ -129,15 +128,23 @@ public sealed class AssetTextureStreamingTests : IDisposable {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The sixty frames used to have to be the decode's deadline as well as the claim,
-    ///         and it failed as one</b> — measured 2026-08-19, one run in six on an <i>idle</i>
+    ///         ⚠
+    ///         <b>
+    ///             The sixty frames used to have to be the decode's deadline as well as the claim,
+    ///             and it failed as one
+    ///         </b>
+    ///         — measured 2026-08-19, one run in six on an <i>idle</i>
     ///         machine, at the last line: the texture was not viewable because sixty milliseconds is
     ///         not long enough for a thread pool to be certain to have run
     ///         <c>AssetTextureSource</c>'s decode task.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And when it failed that way it was failing kindly, because the assertion above it
-    ///         had been passing vacuously.</b> "No copy of a 256-wide level was recorded" is trivially
+    ///         ⚠
+    ///         <b>
+    ///             And when it failed that way it was failing kindly, because the assertion above it
+    ///             had been passing vacuously.
+    ///         </b>
+    ///         "No copy of a 256-wide level was recorded" is trivially
     ///         true of a source that has not decoded anything yet, so on any run where the decode
     ///         landed late the negative claim was made about a handful of frames rather than sixty.
     ///         Waiting for the texture first fixes both: the wait asks for 32 texels every frame like
@@ -171,7 +178,7 @@ public sealed class AssetTextureStreamingTests : IDisposable {
 
         Assert.DoesNotContain(
             device.Recorder!.OfKind(RecordedCommandKind.CopyBufferToTexture),
-            copy => copy.E == 256
+            static copy => copy.E == 256
         );
 
         Assert.True(source.TryGet(Bark, out var view) && view.IsValid);
@@ -193,14 +200,14 @@ public sealed class AssetTextureStreamingTests : IDisposable {
             source,
             () => source.Streaming!.Rejections > 0,
             "nothing was refused by a one-page pool",
-            frame => frame.TryGet(Bark, out _)
+            static frame => frame.TryGet(Bark, out _)
         );
 
         Assert.True(source.Streaming!.ResidentBytes <= source.Streaming.Budget);
         Assert.True(source.TryGet(Bark, out var view) && view.IsValid);
         Assert.DoesNotContain(
             device.Recorder!.OfKind(RecordedCommandKind.CopyBufferToTexture),
-            copy => copy.E == 256
+            static copy => copy.E == 256
         );
     }
 
@@ -235,7 +242,8 @@ public sealed class AssetTextureStreamingTests : IDisposable {
     public void ARefusalReachesTheLoggerTheHostHandedTheSource() {
         var log = new CaptureLogger();
 
-        using var source = new AssetTextureSource(device, Content(256, 256), 64 * 1024) { Logger = log };
+        using var source = new AssetTextureSource(device, Content(256, 256), 64 * 1024);
+        source.Logger = log;
 
         // The first forward, before a frame has run: what a host set is what the streamer holds.
         Assert.Same(log, source.Streaming!.Logger);
@@ -246,12 +254,12 @@ public sealed class AssetTextureStreamingTests : IDisposable {
             source,
             () => log.Lines.Count > 0,
             "the refusal never reached the logger the host handed the source",
-            frame => frame.TryGet(Bark, out _)
+            static frame => frame.TryGet(Bark, out _)
         );
 
         Assert.True(source.Streaming.Rejections > 0, "nothing was refused by a one-page pool");
 
-        var refused = Assert.Single(log.Lines, line => line.Id == 4001);
+        var refused = Assert.Single(log.Lines, static line => line.Id == 4001);
 
         Assert.Equal(LogLevel.Warning, refused.Level);
 
@@ -268,7 +276,8 @@ public sealed class AssetTextureStreamingTests : IDisposable {
     public void ASourceWithNoPoolStillRoundTripsTheLoggerItWasGiven() {
         var log = new CaptureLogger();
 
-        using var source = new AssetTextureSource(device, Content(2, 2)) { Logger = log };
+        using var source = new AssetTextureSource(device, Content(2, 2));
+        source.Logger = log;
 
         Assert.Null(source.Streaming);
         Assert.Same(log, source.Logger);
@@ -292,7 +301,8 @@ public sealed class AssetTextureStreamingTests : IDisposable {
             TState state,
             Exception? exception,
             Func<TState, Exception?, string> formatter
-        ) => Lines.Add((eventId.Id, logLevel, formatter(state, exception)));
+        ) =>
+            Lines.Add((eventId.Id, logLevel, formatter(state, exception)));
     }
 
     /// <summary>Records one frame's uploads and submits them, which is what reaches the recorder.</summary>
@@ -342,8 +352,12 @@ public sealed class AssetTextureStreamingTests : IDisposable {
     ///         to run it.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>All three, and <see cref="AssetTextureSource.Reading" /> is the one that is easy
-    ///         to leave out.</b> Before the header read has been taken up the streamer has no texture
+    ///         ⚠
+    ///         <b>
+    ///             All three, and <see cref="AssetTextureSource.Reading" /> is the one that is easy
+    ///             to leave out.
+    ///         </b>
+    ///         Before the header read has been taken up the streamer has no texture
     ///         registered at all, so <c>Loading</c> and <c>PendingRequests</c> are both zero — the
     ///         predicate would be vacuously satisfied on the first frame and the settle would fail
     ///         before anything had been asked for.
@@ -376,11 +390,15 @@ public sealed class AssetTextureStreamingTests : IDisposable {
     ///         that finished the job answers on that frame and not the next one.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A hand-written copy of
-    ///         <see cref="Settling.Until(System.Action, System.Func{bool}, System.Func{Settling.Work}, string)" />
-    ///         rather than a call to it is what let this fixture inherit a hang the shared
-    ///         helper was later given a guard
-    ///         against.</b> Under a <c>PageResidency</c> sabotaged to refuse every arrival this class
+    ///         ⚠
+    ///         <b>
+    ///             A hand-written copy of
+    ///             <see cref="Settling.Until(System.Action, System.Func{bool}, System.Func{Settling.Work}, string)" />
+    ///             rather than a call to it is what let this fixture inherit a hang the shared
+    ///             helper was later given a guard
+    ///             against.
+    ///         </b>
+    ///         Under a <c>PageResidency</c> sabotaged to refuse every arrival this class
     ///         ran past 300 s without finishing a test, because the copy had the idle give-up and not
     ///         the spin one. It is a call now, so there is one loop to fix and one place that says
     ///         why.
@@ -399,8 +417,12 @@ public sealed class AssetTextureStreamingTests : IDisposable {
 
     /// <summary>What the source has outstanding, and how the outstanding work is going.</summary>
     /// <remarks>
-    ///     ⚠ <b>All three, and <see cref="AssetTextureSource.Reading" /> is the one that is easy to
-    ///     leave out.</b> Before the header read has been taken up the streamer has no texture
+    ///     ⚠
+    ///     <b>
+    ///         All three, and <see cref="AssetTextureSource.Reading" /> is the one that is easy to
+    ///         leave out.
+    ///     </b>
+    ///     Before the header read has been taken up the streamer has no texture
     ///     registered at all, so <c>Loading</c> and <c>PendingRequests</c> are both zero — a settle
     ///     that looked only at those two would call the source idle on its first frame, before
     ///     anything had been asked for, and give up vacuously.
@@ -454,8 +476,8 @@ public sealed class AssetTextureStreamingTests : IDisposable {
             CatalogFormat.Version,
             default,
             "Windows",
-            [new("bark", texture, "Main", ContentProvider.Local, [], [], 0, Reference: Bark)],
-            [new("Main", "", default, 0, 0, CompressionMethod.None, [])]
+            [new("bark", texture, "Main", ContentProvider.Local, [], [], 0, Bark)],
+            [new("Main", string.Empty, default, 0, 0, CompressionMethod.None, [])]
         );
 
         return new(catalog, new LocalBundleSource(files, new("/bundles")));

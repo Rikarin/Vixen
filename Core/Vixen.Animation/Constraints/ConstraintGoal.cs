@@ -206,7 +206,7 @@ public abstract class ConstraintGoal {
 
     /// <inheritdoc />
     public override string ToString() =>
-        $"{Kind}{(Mode is GoalMode.Additive ? "+" : "")} on {Effector} via [{Chain.First}..{Chain.Effector}]";
+        $"{Kind}{(Mode is GoalMode.Additive ? "+" : string.Empty)} on {Effector} via [{Chain.First}..{Chain.Effector}]";
 }
 
 /// <summary>A joint, or an offset from one, should be at a point.</summary>
@@ -228,8 +228,12 @@ public sealed class PositionGoal : ConstraintGoal {
     ///     Half-extents of the volume the point may be anywhere inside, in the frame's own axes.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>One branch in the error function, and it buys most of what authored intent actually
-    ///     is.</b> "The hand is exactly here" is rarely what somebody meant; "the hand is somewhere on
+    ///     ⚠
+    ///     <b>
+    ///         One branch in the error function, and it buys most of what authored intent actually
+    ///         is.
+    ///     </b>
+    ///     "The hand is exactly here" is rarely what somebody meant; "the hand is somewhere on
     ///     this shelf" usually is, and a region says so instead of over-constraining the arm.
     /// </remarks>
     public Vector3 Region { get; init; }
@@ -266,8 +270,12 @@ public sealed class OrientationGoal : ConstraintGoal {
 /// <summary>An axis on a joint should point at something.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Parameterised by angular deviation and an authored distance, not by a target
-///         point.</b> "Point at this position" retargets badly: the same authored deviation applied
+///         ⚠
+///         <b>
+///             Parameterised by angular deviation and an authored distance, not by a target
+///             point.
+///         </b>
+///         "Point at this position" retargets badly: the same authored deviation applied
 ///         from a different origin, or at a different distance, either overshoots or falls short, and
 ///         it is worst exactly where it is most visible — a character spraying past the window it was
 ///         authored to spray into.
@@ -314,7 +322,7 @@ public sealed class AimGoal : ConstraintGoal {
         var scale = AuthoredDistance > 0f ? AuthoredDistance / distance : 1f;
         var direction = Quaternion.Transform(toFrame / distance, ScaleRotation(Deviation, scale));
 
-        return origin + (direction * distance);
+        return origin + direction * distance;
     }
 
     /// <summary>The same rotation through a fraction of its angle.</summary>
@@ -331,7 +339,7 @@ public sealed class AimGoal : ConstraintGoal {
         var normalized = Quaternion.Normalize(rotation);
         var w = MathUtil.Clamp(normalized.W, -1f, 1f);
         var half = MathF.Acos(w);
-        var sin = MathF.Sqrt(MathF.Max(1f - (w * w), 0f));
+        var sin = MathF.Sqrt(MathF.Max(1f - w * w, 0f));
 
         if (sin <= 1e-6f) {
             return Quaternion.Identity;

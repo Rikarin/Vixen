@@ -22,8 +22,7 @@ public readonly record struct LayoutNodeId(int Index) {
     public bool IsValid => Index >= 0;
 
     /// <inheritdoc />
-    public override string ToString() =>
-        IsValid ? "node " + Index.ToString(CultureInfo.InvariantCulture) : "no node";
+    public override string ToString() => IsValid ? "node " + Index.ToString(CultureInfo.InvariantCulture) : "no node";
 }
 
 /// <summary>A measured size.</summary>

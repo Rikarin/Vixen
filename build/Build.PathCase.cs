@@ -22,9 +22,12 @@ partial class Build {
     /// </remarks>
     const int PathCaseFloor = 3000;
 
-    Target CheckPathCase => definition => definition
-        .Description("Fails if a committed file references a committed path in the wrong case, or if two committed paths differ only in case")
-        .Executes(CheckPathCaseReferences);
+    Target CheckPathCase =>
+        definition => definition
+            .Description(
+                "Fails if a committed file references a committed path in the wrong case, or if two committed paths differ only in case"
+            )
+            .Executes(CheckPathCaseReferences);
 
     /// <summary>
     ///     Fails <see cref="CheckFormat" /> if a reference names a committed path in a case Linux
@@ -120,14 +123,19 @@ partial class Build {
         );
 
         var reported = violations.Where(violation => !exempt.Contains(violation.Key())).ToList();
-        var stale = exempt.Where(key => violations.All(violation => violation.Key() != key)).Order(StringComparer.Ordinal);
+        var stale = exempt.Where(key => violations.All(violation => violation.Key() != key))
+            .Order(StringComparer.Ordinal);
 
         foreach (var violation in reported) {
             Log.Error("{Violation}", violation.ToString());
         }
 
         foreach (var key in stale) {
-            Log.Error("{Key} is exempt in {File} and is no longer reported — delete the line.", key, PathCaseRule.ExemptionsFile);
+            Log.Error(
+                "{Key} is exempt in {File} and is no longer reported — delete the line.",
+                key,
+                PathCaseRule.ExemptionsFile
+            );
         }
 
         Assert.True(

@@ -12,8 +12,12 @@ public sealed class TerrainMipTests {
 
     /// <summary>A tile's levels halve its quads, not its samples.</summary>
     /// <remarks>
-    ///     ⚠ <b>A tile is a power of two <em>plus one</em> samples, so a level is not half its
-    ///     parent.</b> 129 → 65 → 33 keeps the boundary sample on the boundary; 129 → 64 drops the
+    ///     ⚠
+    ///     <b>
+    ///         A tile is a power of two <em>plus one</em> samples, so a level is not half its
+    ///         parent.
+    ///     </b>
+    ///     129 → 65 → 33 keeps the boundary sample on the boundary; 129 → 64 drops the
     ///     last row, and the seam it opens is one texel wide and permanent.
     /// </remarks>
     [Theory]
@@ -72,7 +76,7 @@ public sealed class TerrainMipTests {
 
         for (var level = 0; level < TerrainMips.LevelCount(Description.TileSamples); level++) {
             var samples = TerrainMips.SamplesAt(Description.TileSamples, level);
-            var highest = (ushort)0;
+            ushort highest = 0;
 
             for (var index = 0; index < samples * samples; index++) {
                 highest = Math.Max(highest, chain[at + index]);
@@ -107,7 +111,7 @@ public sealed class TerrainMipTests {
         var second = samples * samples;
         var secondSize = TerrainMips.SamplesAt(samples, 1);
 
-        Assert.Equal(peak, chain[second + ((20 * secondSize) + 20)]);
+        Assert.Equal(peak, chain[second + (20 * secondSize + 20)]);
     }
 
     [Fact]
@@ -123,7 +127,7 @@ public sealed class TerrainMipTests {
 
         for (var z = 0; z < Description.TileSamples; z++) {
             for (var x = 0; x < Description.TileSamples; x++) {
-                Assert.Equal(terrain.Composite[x, z], chain[(z * Description.TileSamples) + x]);
+                Assert.Equal(terrain.Composite[x, z], chain[z * Description.TileSamples + x]);
             }
         }
     }
@@ -158,7 +162,7 @@ public sealed class TerrainMipTests {
 
         // The first column of level 1 covers columns 0 and 1 of level 0, neither of which is the wall.
         for (var z = 0; z < size; z++) {
-            Assert.Equal(rest, chain[at + (z * size)]);
+            Assert.Equal(rest, chain[at + z * size]);
         }
     }
 
@@ -166,9 +170,7 @@ public sealed class TerrainMipTests {
     public void ADestinationTooSmallIsRefused() {
         var terrain = new Terrain(Description, 0f);
 
-        var thrown = Assert.Throws<ArgumentException>(
-            () => TerrainMips.Build(terrain, 0, 0, new ushort[16])
-        );
+        var thrown = Assert.Throws<ArgumentException>(() => TerrainMips.Build(terrain, 0, 0, new ushort[16]));
 
         Assert.Contains("chain is", thrown.Message, StringComparison.Ordinal);
     }
@@ -195,7 +197,7 @@ public sealed class TerrainMipTests {
 
         // Sample 7 is the left tile's last column and the right tile's first.
         for (var z = 0; z < 8; z++) {
-            Assert.Equal(left[(z * 8) + 7], right[z * 8]);
+            Assert.Equal(left[z * 8 + 7], right[z * 8]);
         }
     }
 }

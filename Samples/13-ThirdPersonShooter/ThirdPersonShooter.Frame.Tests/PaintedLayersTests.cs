@@ -13,8 +13,11 @@ namespace Vixen.Samples.ThirdPersonShooter.Tests;
 /// <summary>The plaza: the first shipping material whose layer weights come out of a splat map.</summary>
 /// <remarks>
 ///     <para>
-///         <b>Doc 48's M11 remainder, and what these check is that it is an asset rather than a
-///         claim</b> — <a href="https://github.com/Rikarin/Vixen/issues/1073">#1073</a>.
+///         <b>
+///             Doc 48's M11 remainder, and what these check is that it is an asset rather than a
+///             claim
+///         </b>
+///         — <a href="https://github.com/Rikarin/Vixen/issues/1073">#1073</a>.
 ///         <c>TexturedMaterialLayersFeature</c> and its Raven surface have been complete since M11
 ///         landed and photographed by a golden since 2026-09-07; what did not exist was any material
 ///         an artist could open that carried one, which made it a feature waiting for a caller.
@@ -29,16 +32,20 @@ namespace Vixen.Samples.ThirdPersonShooter.Tests;
 ///     </para>
 /// </remarks>
 public class PaintedLayersTests {
-    /// <summary>The same registration <c>MaterialImporter</c> makes, for the same reason: a layer's
+    /// <summary>
+    ///     The same registration <c>MaterialImporter</c> makes, for the same reason: a layer's
     ///     base colour is written as a plain scalar — <c>baseColor: 0.22 0.21 0.19</c> — and the
-    ///     generator describes no such shape on its own.</summary>
+    ///     generator describes no such shape on its own.
+    /// </summary>
     /// <remarks>
     ///     ⚠ Per class rather than per assembly, and this file is the second to need it. Without it
     ///     the bind throws here rather than in the game, because the runtime reads a baked chunk and
     ///     the editor's importer registers in its own static constructor — so the omission is only
     ///     ever visible from a test that parses the authored file.
     /// </remarks>
-    static PaintedLayersTests() => MathScalars.Register();
+    static PaintedLayersTests() {
+        MathScalars.Register();
+    }
 
     /// <summary>How wide a square of the splat map each of the pure-channel checks reads.</summary>
     /// <remarks>
@@ -54,8 +61,10 @@ public class PaintedLayersTests {
     /// <summary>The top-left texel of a square that is pure in R, in G and in B, in that order.</summary>
     static readonly (int Row, int Column)[] PureAt = [(320, 296), (8, 416), (184, 264)];
 
-    /// <summary>The plaza carries the painted stack, names its map the one name a host pairs, and is
-    ///     the only material in the arena that does.</summary>
+    /// <summary>
+    ///     The plaza carries the painted stack, names its map the one name a host pairs, and is
+    ///     the only material in the arena that does.
+    /// </summary>
     /// <remarks>
     ///     <para>
     ///         ⚠ <b>The file is compiled rather than inspected</b>, on
@@ -64,8 +73,12 @@ public class PaintedLayersTests {
     ///         <c>MaterialCompiler</c> is what accepts it.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The compile is not what catches a fourth layer, which was worth finding out by
-    ///         trying it.</b> <c>UnpaintedLayer</c> is reported at warning severity, so a fourth
+    ///         ⚠
+    ///         <b>
+    ///             The compile is not what catches a fourth layer, which was worth finding out by
+    ///             trying it.
+    ///         </b>
+    ///         <c>UnpaintedLayer</c> is reported at warning severity, so a fourth
     ///         layer added over this three-channel map leaves <c>compilation.Failed</c> false and the
     ///         count below is the assertion that goes red. And the inverse — four layers with
     ///         <c>paintedChannels: 4</c> over a map whose alpha is 255 everywhere — raises no
@@ -89,7 +102,7 @@ public class PaintedLayersTests {
 
         var compilation = MaterialCompiler.Compile(plaza.ToDescriptor(shading));
 
-        Assert.False(compilation.Failed, string.Join("; ", compilation.Diagnostics.Select(one => one.Message)));
+        Assert.False(compilation.Failed, string.Join("; ", compilation.Diagnostics.Select(static one => one.Message)));
 
         var layered = Assert.Single(plaza.Features.OfType<TexturedMaterialLayersFeature>());
 
@@ -109,7 +122,7 @@ public class PaintedLayersTests {
         // A layer's weight is a *scale* on its painted channel rather than the weight itself, so one
         // is "the map exactly" — and zero would be a layer the author switched off, which over a
         // three-channel partition of unity is a third of the surface gone black.
-        Assert.All(layered.Layers, layer => Assert.Equal(1f, layer.Weight));
+        Assert.All(layered.Layers, static layer => Assert.Equal(1f, layer.Weight));
 
         var binding = Assert.Single(plaza.Textures, entry => entry.Parameter == layered.SplatMap);
 
@@ -131,8 +144,12 @@ public class PaintedLayersTests {
     /// <summary>The plaza survives the round trip the content build puts it through.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>This is the check the whole of #1073 was missing, and it was red for a reason
-    ///         nobody had had the chance to find.</b> A <c>.vxmat</c> reaching a game is YAML on the
+    ///         ⚠
+    ///         <b>
+    ///             This is the check the whole of #1073 was missing, and it was red for a reason
+    ///             nobody had had the chance to find.
+    ///         </b>
+    ///         A <c>.vxmat</c> reaching a game is YAML on the
     ///         way in and a chunk on the way out — <c>MaterialImporter</c> ends in
     ///         <c>Serializer.ToBytes(content)</c> — and the two halves are different code. The YAML
     ///         half had always worked; the binary half <em>threw</em> for any material carrying either
@@ -201,21 +218,27 @@ public class PaintedLayersTests {
         Assert.NotEmpty(plaza);
         Assert.All(
             plaza,
-            uv => Assert.True(
+            static uv => Assert.True(
                 uv.U is >= 0f and <= 1f && uv.V is >= 0f and <= 1f,
                 $"arena-plaza.obj leaves the tile at ({uv.U}, {uv.V}), so its splat map wraps"
             )
         );
 
-        Assert.True(plaza.Min(uv => uv.U) < 0.01f && plaza.Max(uv => uv.U) > 0.99f, "u does not span the tile");
-        Assert.True(plaza.Min(uv => uv.V) < 0.01f && plaza.Max(uv => uv.V) > 0.99f, "v does not span the tile");
+        Assert.True(
+            plaza.Min(static uv => uv.U) < 0.01f && plaza.Max(static uv => uv.U) > 0.99f,
+            "u does not span the tile"
+        );
+        Assert.True(
+            plaza.Min(static uv => uv.V) < 0.01f && plaza.Max(static uv => uv.V) > 0.99f,
+            "v does not span the tile"
+        );
 
         foreach (var other in new[] { "arena-floor.obj", "arena-wall.obj", "arena-pillar.obj", "arena-ramp.obj" }) {
             var coordinates = TexCoords(other);
 
             Assert.NotEmpty(coordinates);
             Assert.True(
-                coordinates.Any(uv => uv.U is < 0f or > 1f || uv.V is < 0f or > 1f),
+                coordinates.Any(static uv => uv.U is < 0f or > 1f || uv.V is < 0f or > 1f),
                 $"{other} now fits inside one tile, so the plaza is no longer the only mesh that could "
                 + "carry a splat map — which is a decision to revisit rather than a test to relax"
             );
@@ -269,7 +292,11 @@ public class PaintedLayersTests {
             for (var row = top; row < top + PureSide; row++) {
                 for (var column = left; column < left + PureSide; column++) {
                     var (r, g, b, _) = Texel(map, row, column);
-                    var painted = channel switch { 0 => r, 1 => g, _ => b };
+                    var painted = channel switch {
+                        0 => r,
+                        1 => g,
+                        _ => b
+                    };
 
                     Assert.True(
                         painted == 255 && r + g + b == 255,
@@ -310,26 +337,24 @@ public class PaintedLayersTests {
     /// <param name="file">The asset's file name, without the <c>.meta</c>.</param>
     static string GuidOf(string folder, string file) {
         var meta = File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Assets", folder, $"{file}.meta"));
-        var line = meta.Split('\n').First(one => one.StartsWith("guid:", StringComparison.Ordinal));
+        var line = meta.Split('\n').First(static one => one.StartsWith("guid:", StringComparison.Ordinal));
 
         return line["guid:".Length..].Trim();
     }
 
     /// <summary>Every <c>vt</c> line of a committed mesh, in the file's own order.</summary>
     /// <param name="file">The mesh's file name.</param>
-    static (float U, float V)[] TexCoords(string file) =>
-        [
-            .. File.ReadLines(Path.Combine(AppContext.BaseDirectory, "Assets", "Models", file))
-                .Where(line => line.StartsWith("vt ", StringComparison.Ordinal))
-                .Select(
-                    line => {
-                        var parts = line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+    static (float U, float V)[] TexCoords(string file) => [
+        ..File.ReadLines(Path.Combine(AppContext.BaseDirectory, "Assets", "Models", file))
+            .Where(static line => line.StartsWith("vt ", StringComparison.Ordinal))
+            .Select(static line => {
+                    var parts = line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
 
-                        return (float.Parse(parts[1], CultureInfo.InvariantCulture),
-                            float.Parse(parts[2], CultureInfo.InvariantCulture));
-                    }
-                )
-        ];
+                    return (float.Parse(parts[1], CultureInfo.InvariantCulture),
+                        float.Parse(parts[2], CultureInfo.InvariantCulture));
+                }
+            )
+    ];
 
     /// <summary>One texel of a decoded map.</summary>
     /// <param name="map">The picture.</param>

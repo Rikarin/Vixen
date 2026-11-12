@@ -7,8 +7,12 @@ namespace Vixen.Ui.Layout;
 ///     The grid half of the style surface, kept apart because four of its properties are lists.
 /// </summary>
 /// <remarks>
-///     ⚠ <b>Every other setter in this store writes a fixed number of bytes into a struct; these four
-///     write into an arena.</b> That is the whole of what grid cost the store on the input side, and
+///     ⚠
+///     <b>
+///         Every other setter in this store writes a fixed number of bytes into a struct; these four
+///         write into an arena.
+///     </b>
+///     That is the whole of what grid cost the store on the input side, and
 ///     it is why the track lists are not fields on <see cref="LayoutStyle" /> the way <c>gap</c> and
 ///     <c>flex-basis</c> are. See <see cref="TrackArena" />.
 /// </remarks>
@@ -17,7 +21,14 @@ public sealed partial class LayoutTree {
     /// <param name="node">The node.</param>
     /// <param name="tracks">The explicit column tracks, in order.</param>
     public void SetGridTemplateColumns(LayoutNodeId node, ReadOnlySpan<GridTrackSize> tracks) =>
-        WriteTemplate(node, ref TemplateOf(Validate(node), GridTemplateSlot.Columns), tracks, GridAutoRepeat.None, 0, -1);
+        WriteTemplate(
+            node,
+            ref TemplateOf(Validate(node), GridTemplateSlot.Columns),
+            tracks,
+            GridAutoRepeat.None,
+            0,
+            -1
+        );
 
     /// <summary>Sets <c>grid-template-rows</c>.</summary>
     /// <param name="node">The node.</param>
@@ -47,7 +58,14 @@ public sealed partial class LayoutTree {
         int autoRepeatIndex,
         int autoRepeatCount
     ) =>
-        WriteTemplate(node, ref TemplateOf(Validate(node), GridTemplateSlot.Columns), tracks, kind, autoRepeatCount, autoRepeatIndex);
+        WriteTemplate(
+            node,
+            ref TemplateOf(Validate(node), GridTemplateSlot.Columns),
+            tracks,
+            kind,
+            autoRepeatCount,
+            autoRepeatIndex
+        );
 
     /// <inheritdoc cref="SetGridTemplateColumns(LayoutNodeId,ReadOnlySpan{GridTrackSize},GridAutoRepeat,int,int)" />
     public void SetGridTemplateRows(
@@ -57,19 +75,40 @@ public sealed partial class LayoutTree {
         int autoRepeatIndex,
         int autoRepeatCount
     ) =>
-        WriteTemplate(node, ref TemplateOf(Validate(node), GridTemplateSlot.Rows), tracks, kind, autoRepeatCount, autoRepeatIndex);
+        WriteTemplate(
+            node,
+            ref TemplateOf(Validate(node), GridTemplateSlot.Rows),
+            tracks,
+            kind,
+            autoRepeatCount,
+            autoRepeatIndex
+        );
 
     /// <summary>Sets <c>grid-auto-columns</c>, the sizes implicit columns cycle through.</summary>
     /// <param name="node">The node.</param>
     /// <param name="tracks">The sizes, in cycling order. Empty means <c>auto</c>.</param>
     public void SetGridAutoColumns(LayoutNodeId node, ReadOnlySpan<GridTrackSize> tracks) =>
-        WriteTemplate(node, ref TemplateOf(Validate(node), GridTemplateSlot.AutoColumns), tracks, GridAutoRepeat.None, 0, -1);
+        WriteTemplate(
+            node,
+            ref TemplateOf(Validate(node), GridTemplateSlot.AutoColumns),
+            tracks,
+            GridAutoRepeat.None,
+            0,
+            -1
+        );
 
     /// <summary>Sets <c>grid-auto-rows</c>, the sizes implicit rows cycle through.</summary>
     /// <param name="node">The node.</param>
     /// <param name="tracks">The sizes, in cycling order. Empty means <c>auto</c>.</param>
     public void SetGridAutoRows(LayoutNodeId node, ReadOnlySpan<GridTrackSize> tracks) =>
-        WriteTemplate(node, ref TemplateOf(Validate(node), GridTemplateSlot.AutoRows), tracks, GridAutoRepeat.None, 0, -1);
+        WriteTemplate(
+            node,
+            ref TemplateOf(Validate(node), GridTemplateSlot.AutoRows),
+            tracks,
+            GridAutoRepeat.None,
+            0,
+            -1
+        );
 
     /// <summary>Reads back a node's <c>grid-template-columns</c>.</summary>
     /// <param name="node">The node.</param>
@@ -107,8 +146,12 @@ public sealed partial class LayoutTree {
     /// <param name="template">The named areas, or <see langword="null" /> for <c>none</c>.</param>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A template makes the explicit grid at least as large as itself, and the tracks it
-    ///         adds are sized by <c>grid-auto-rows</c>/<c>grid-auto-columns</c>.</b> §7.1: "the size
+    ///         ⚠
+    ///         <b>
+    ///             A template makes the explicit grid at least as large as itself, and the tracks it
+    ///             adds are sized by <c>grid-auto-rows</c>/<c>grid-auto-columns</c>.
+    ///         </b>
+    ///         §7.1: "the size
     ///         of the explicit grid is determined by the larger of the number of rows/columns defined
     ///         by <c>grid-template-areas</c> and the number sized by
     ///         <c>grid-template-rows</c>/<c>-columns</c>" — so a three-row template against a
@@ -151,15 +194,23 @@ public sealed partial class LayoutTree {
     /// <param name="name">The area's name, or <see langword="null" /> to go back to the numeric placement.</param>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A name beats the numeric placement on the same edge rather than sitting beside
-    ///         it.</b> There is one CSS declaration per edge and it is either a line or a name, so
+    ///         ⚠
+    ///         <b>
+    ///             A name beats the numeric placement on the same edge rather than sitting beside
+    ///             it.
+    ///         </b>
+    ///         There is one CSS declaration per edge and it is either a line or a name, so
     ///         the two can never both be meant; the bridge writes whichever the cascade produced and
     ///         clears the other. A store that let both stand would answer differently depending on
     ///         which setter ran last.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The name is resolved against the <i>container's</i> template, which is why it is
-    ///         stored rather than resolved here.</b> An item can be reparented into a grid with
+    ///         ⚠
+    ///         <b>
+    ///             The name is resolved against the <i>container's</i> template, which is why it is
+    ///             stored rather than resolved here.
+    ///         </b>
+    ///         An item can be reparented into a grid with
     ///         different areas without its own style changing at all, and it can be set before its
     ///         parent's template is.
     ///     </para>
@@ -205,8 +256,7 @@ public sealed partial class LayoutTree {
     /// <param name="node">The node.</param>
     /// <param name="edge">Which edge.</param>
     /// <returns>The area's name, or <see langword="null" /> when the edge is placed numerically.</returns>
-    public string? GetGridPlacementName(LayoutNodeId node, Edge edge) =>
-        placementNames?[Validate(node)].Of(edge);
+    public string? GetGridPlacementName(LayoutNodeId node, Edge edge) => placementNames?[Validate(node)].Of(edge);
 
     /// <summary>Sets which axis auto-placement fills, and whether it backfills.</summary>
     /// <param name="node">The node.</param>
@@ -248,7 +298,7 @@ public sealed partial class LayoutTree {
         // named one — it replaces it. Done before the equality check below, because a node whose
         // numeric placement is already `auto` and whose name is `header` would otherwise keep the
         // name through a write that meant to take it away.
-        SetGridPlacement(node, edge, name: null);
+        SetGridPlacement(node, edge, null);
 
         ref var slot = ref PlacementOf(index, edge);
         if (slot == placement) {
@@ -306,7 +356,12 @@ public sealed partial class LayoutTree {
     }
 
     /// <summary>Which of the four track lists a call is about.</summary>
-    enum GridTemplateSlot { Columns, Rows, AutoColumns, AutoRows }
+    enum GridTemplateSlot {
+        Columns,
+        Rows,
+        AutoColumns,
+        AutoRows
+    }
 
     ref GridTemplate TemplateOf(int index, GridTemplateSlot slot) {
         ref var style = ref styles[index];
@@ -381,20 +436,26 @@ public sealed partial class LayoutTree {
     ///     A record struct rather than four slots in one flat array, so that <c>Array.Resize</c> in
     ///     <c>Grow</c> is the whole of the capacity story and an index is a node index everywhere.
     /// </remarks>
-    readonly record struct GridPlacementNames(string? RowStart, string? RowEnd, string? ColumnStart, string? ColumnEnd) {
-        public string? Of(Edge edge) => edge switch {
-            Edge.Top => RowStart,
-            Edge.Bottom => RowEnd,
-            Edge.Left => ColumnStart,
-            _ => ColumnEnd
-        };
+    readonly record struct GridPlacementNames(
+        string? RowStart,
+        string? RowEnd,
+        string? ColumnStart,
+        string? ColumnEnd) {
+        public string? Of(Edge edge) =>
+            edge switch {
+                Edge.Top => RowStart,
+                Edge.Bottom => RowEnd,
+                Edge.Left => ColumnStart,
+                _ => ColumnEnd
+            };
 
-        public GridPlacementNames With(Edge edge, string? name) => edge switch {
-            Edge.Top => this with { RowStart = name },
-            Edge.Bottom => this with { RowEnd = name },
-            Edge.Left => this with { ColumnStart = name },
-            _ => this with { ColumnEnd = name }
-        };
+        public GridPlacementNames With(Edge edge, string? name) =>
+            edge switch {
+                Edge.Top => this with { RowStart = name },
+                Edge.Bottom => this with { RowEnd = name },
+                Edge.Left => this with { ColumnStart = name },
+                _ => this with { ColumnEnd = name }
+            };
     }
 
     /// <summary>How many explicit tracks a container's named areas ask for on one axis.</summary>
@@ -434,7 +495,8 @@ public sealed partial class LayoutTree {
             return declared;
         }
 
-        if (gridAreas?[container] is not { } template || !template.TryGetArea(name, out var rowStart, out var rowEnd, out var columnStart, out var columnEnd)) {
+        if (gridAreas?[container] is not { } template
+            || !template.TryGetArea(name, out var rowStart, out var rowEnd, out var columnStart, out var columnEnd)) {
             return GridPlacement.Auto;
         }
 

@@ -58,13 +58,16 @@ sealed class Region {
 
     /// <summary>The regions of the elements this one built, which it also ends.</summary>
     /// <remarks>
-    ///     ⚠ <b>Beside <see cref="slots" /> rather than in it, because these belong to a different
-    ///     parent element.</b> A slot is a run of <i>this</i> parent's children and is what
+    ///     ⚠
+    ///     <b>
+    ///         Beside <see cref="slots" /> rather than in it, because these belong to a different
+    ///         parent element.
+    ///     </b>
+    ///     A slot is a run of <i>this</i> parent's children and is what
     ///     <see cref="Start" />, <see cref="End" /> and <see cref="Reposition" /> compute indices
     ///     from; a region hanging off a <c>&lt;div&gt;</c> this region created has nothing to say
     ///     about where this region's own content sits, and counting it would move elements into
     ///     each other's runs.
-    ///
     ///     ⚠ <b>What it is for is reach.</b> A region hangs off the element its content has as a
     ///     parent, so an <c>@for</c> written inside a nested <c>&lt;div&gt;</c> opens against that
     ///     div — and before this list, nothing above it pointed at it. Clearing the branch that
@@ -138,7 +141,6 @@ sealed class Region {
     ///     ⚠ <b>Subscriptions first, elements second.</b> An effect disposed after its element is
     ///     removed may already have run against a detached element; disposing it first means the
     ///     only thing that could still write to these elements has stopped before they go.
-    ///
     ///     ⚠ And <see cref="linked" /> before either, for the same reason one step further down: a
     ///     region opened against an element this one built holds effects that write to elements
     ///     inside it, and those elements go when this region's slots do.
@@ -175,8 +177,6 @@ sealed class Region {
                 case UiElement element when !element.IsRemoved:
                     element.Remove();
                     break;
-                default:
-                    break;
             }
         }
 
@@ -190,8 +190,12 @@ sealed class Region {
     /// <param name="spec">How long it stays, and what marks it while it does.</param>
     /// <param name="finished">What to tell the owner once it has gone.</param>
     /// <remarks>
-    ///     ⚠ <b><see cref="Stop" /> and not a delayed <see cref="Clear" />, and this is the half of
-    ///     an exit that is easy to get wrong.</b> A row animating out is a row whose model has
+    ///     ⚠
+    ///     <b>
+    ///         <see cref="Stop" /> and not a delayed <see cref="Clear" />, and this is the half of
+    ///         an exit that is easy to get wrong.
+    ///     </b>
+    ///     A row animating out is a row whose model has
     ///     already stopped containing it — the item is gone from the sequence — so an effect of its
     ///     that survived the removal would spend the fade reading a signal about something that no
     ///     longer exists and assigning the answer to an element on its way off screen. The bindings
@@ -209,11 +213,7 @@ sealed class Region {
             }
         }
 
-        exit = new RegionExit {
-            Region = this,
-            Deadline = parent.Document.Now + spec.Duration,
-            Finished = finished
-        };
+        exit = new() { Region = this, Deadline = parent.Document.Now + spec.Duration, Finished = finished };
 
         parent.Document.Defer(exit);
     }
@@ -240,14 +240,17 @@ sealed class Region {
 
     /// <summary>Stops everything this region subscribed, and leaves its elements alone.</summary>
     /// <remarks>
-    ///     ⚠ <b><see cref="Clear" /> without the removal, for the callers whose elements are already
-    ///     going.</b> A markup-authored <see cref="UiElement" /> disposes its composition from
+    ///     ⚠
+    ///     <b>
+    ///         <see cref="Clear" /> without the removal, for the callers whose elements are already
+    ///         going.
+    ///     </b>
+    ///     A markup-authored <see cref="UiElement" /> disposes its composition from
     ///     <c>OnRemoved</c>, which the document raises <i>while</i> it is taking the subtree out — so
     ///     the elements below it need no removing, and removing them anyway would mean a nested
     ///     <c>Document.Remove</c> per element inside the walk that is already removing them. What does
     ///     have to stop is the effects: an effect outliving its element keeps assigning to it and
     ///     keeps it alive through its closure, which is the whole reason regions track subscriptions.
-    ///
     ///     ⚠ <b>And a <see cref="Component" />'s teardown, on the same terms.</b> Everything a
     ///     component built is under its host, and whatever ended the component — the enclosing region
     ///     clearing, or the document removing the host — is already taking that host out. See
@@ -389,7 +392,12 @@ sealed class Region {
     ///     subsequence itself can be read back rather than only its length. Strictly increasing,
     ///     which two distinct children always are.
     /// </remarks>
-    static bool[] LongestIncreasingRun(List<UiElement> elements, Dictionary<UiElement, int> positions, int from, int to) {
+    static bool[] LongestIncreasingRun(
+        List<UiElement> elements,
+        Dictionary<UiElement, int> positions,
+        int from,
+        int to
+    ) {
         var count = elements.Count;
         var keep = new bool[count];
 
@@ -448,9 +456,6 @@ sealed class Region {
                     }
                 }
 
-                break;
-
-            default:
                 break;
         }
     }

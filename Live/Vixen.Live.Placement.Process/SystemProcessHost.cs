@@ -23,7 +23,7 @@ public sealed class SystemProcessHost : IRealmProcessHost {
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             UseShellExecute = false,
-            WorkingDirectory = request.WorkingDirectory ?? ""
+            WorkingDirectory = request.WorkingDirectory ?? string.Empty
         };
 
         foreach (var argument in request.Arguments) {
@@ -98,7 +98,9 @@ public sealed class SystemProcessHost : IRealmProcessHost {
                 process.StandardInput.Flush();
 
                 return true;
-            } catch (Exception failure) when (failure is IOException or ObjectDisposedException or InvalidOperationException) {
+            } catch (Exception failure) when (failure is IOException
+                                                  or ObjectDisposedException
+                                                  or InvalidOperationException) {
                 // It exited between the check and the write, which is not an error condition — it is
                 // the ordinary race between draining a realm and the realm finishing on its own.
                 return false;
@@ -108,7 +110,7 @@ public sealed class SystemProcessHost : IRealmProcessHost {
         public void Kill() {
             try {
                 if (!process.HasExited) {
-                    process.Kill(entireProcessTree: true);
+                    process.Kill(true);
                 }
             } catch (Exception failure) when (failure is InvalidOperationException or NotSupportedException) {
                 // Already gone, or a platform that will not say. Either way there is nothing left

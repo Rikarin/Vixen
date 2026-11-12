@@ -55,7 +55,7 @@ public class DynamicUniformBlockTests {
     public void A_block_the_shader_marks_is_dynamic() =>
         Assert.Equal(
             DescriptorKind.DynamicUniformBuffer,
-            KindOf(Block(DescriptorSetSlot.PerDraw, ShaderStage.Vertex | ShaderStage.Fragment, declared: true))
+            KindOf(Block(DescriptorSetSlot.PerDraw, ShaderStage.Vertex | ShaderStage.Fragment, true))
         );
 
     /// <summary>
@@ -71,7 +71,7 @@ public class DynamicUniformBlockTests {
     public void A_per_draw_block_the_shader_does_not_mark_is_plain() =>
         Assert.Equal(
             DescriptorKind.UniformBuffer,
-            KindOf(Block(DescriptorSetSlot.PerDraw, ShaderStage.Vertex | ShaderStage.Fragment, declared: false))
+            KindOf(Block(DescriptorSetSlot.PerDraw, ShaderStage.Vertex | ShaderStage.Fragment, false))
         );
 
     /// <summary>
@@ -88,12 +88,12 @@ public class DynamicUniformBlockTests {
     public void The_stage_is_no_longer_part_of_the_question() {
         Assert.Equal(
             DescriptorKind.UniformBuffer,
-            KindOf(Block(DescriptorSetSlot.PerDraw, ShaderStage.Compute, declared: false))
+            KindOf(Block(DescriptorSetSlot.PerDraw, ShaderStage.Compute, false))
         );
 
         Assert.Equal(
             DescriptorKind.DynamicUniformBuffer,
-            KindOf(Block(DescriptorSetSlot.PerDraw, ShaderStage.Compute, declared: true))
+            KindOf(Block(DescriptorSetSlot.PerDraw, ShaderStage.Compute, true))
         );
     }
 
@@ -107,7 +107,7 @@ public class DynamicUniformBlockTests {
     public void Nor_is_the_set() =>
         Assert.Equal(
             DescriptorKind.DynamicUniformBuffer,
-            KindOf(Block(DescriptorSetSlot.PerMaterial, ShaderStage.Fragment, declared: true))
+            KindOf(Block(DescriptorSetSlot.PerMaterial, ShaderStage.Fragment, true))
         );
 
     /// <summary>Only a uniform block. A storage buffer has no dynamic form here.</summary>
@@ -124,7 +124,10 @@ public class DynamicUniformBlockTests {
             DynamicOffset: true
         );
 
-        Assert.Equal(DescriptorKind.StorageBuffer, new EffectLoader(device).Load(Data(storage)).BindingOf("lights")!.Value.Kind);
+        Assert.Equal(
+            DescriptorKind.StorageBuffer,
+            new EffectLoader(device).Load(Data(storage)).BindingOf("lights")!.Value.Kind
+        );
     }
 
     /// <summary>
@@ -143,7 +146,7 @@ public class DynamicUniformBlockTests {
         using var device = new NullDevice();
 
         var effect = new EffectLoader(device)
-            .Load(Data(Block(DescriptorSetSlot.PerDraw, ShaderStage.Vertex | ShaderStage.Fragment, declared: true)));
+            .Load(Data(Block(DescriptorSetSlot.PerDraw, ShaderStage.Vertex | ShaderStage.Fragment, true)));
 
         var binding = effect.BindingOf("lights")!.Value;
         var layout = effect.SetLayouts[(int)DescriptorSetSlot.PerDraw];
@@ -156,8 +159,10 @@ public class DynamicUniformBlockTests {
         device.UpdateDescriptorSet(set, [DescriptorWrite.DynamicUniform(binding.Binding, buffer, 0, binding.Size)]);
 
         // And the other kind is refused, naming both — the loud failure the inference relied on.
-        var thrown = Assert.Throws<ArgumentException>(
-            () => device.UpdateDescriptorSet(set, [DescriptorWrite.Uniform(binding.Binding, buffer, 0, binding.Size)])
+        var thrown = Assert.Throws<ArgumentException>(() => device.UpdateDescriptorSet(
+                set,
+                [DescriptorWrite.Uniform(binding.Binding, buffer, 0, binding.Size)]
+            )
         );
 
         Assert.Contains("DynamicUniformBuffer", thrown.Message, StringComparison.Ordinal);

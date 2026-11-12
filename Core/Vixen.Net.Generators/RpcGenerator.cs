@@ -63,7 +63,7 @@ public sealed class RpcGenerator : IIncrementalGenerator {
         "'{0}' takes a {1}, which cannot be put on the wire. Take an argument of a supported type, or send an id and look the thing up.",
         "Vixen.Net",
         DiagnosticSeverity.Error,
-        isEnabledByDefault: true
+        true
     );
 
     static readonly DiagnosticDescriptor NotPartial = new(
@@ -72,7 +72,7 @@ public sealed class RpcGenerator : IIncrementalGenerator {
         "'{0}' declares remote calls, so its senders and dispatch table are generated into it. Make it partial.",
         "Vixen.Net",
         DiagnosticSeverity.Error,
-        isEnabledByDefault: true
+        true
     );
 
     static readonly DiagnosticDescriptor NotAnRpcObject = new(
@@ -81,7 +81,7 @@ public sealed class RpcGenerator : IIncrementalGenerator {
         "'{0}' declares remote calls but does not implement IRpcObject. A generated sender needs a NetworkId to address and a router to send through.",
         "Vixen.Net",
         DiagnosticSeverity.Error,
-        isEnabledByDefault: true
+        true
     );
 
     static readonly DiagnosticDescriptor MustReturnVoid = new(
@@ -90,7 +90,7 @@ public sealed class RpcGenerator : IIncrementalGenerator {
         "'{0}' returns {1}. A handler is one way: it is sent, and it happens later or it does not. To await an answer, keep the handler void and call it through RpcRouter.CallAsync<T>.",
         "Vixen.Net",
         DiagnosticSeverity.Error,
-        isEnabledByDefault: true
+        true
     );
 
     static readonly DiagnosticDescriptor BothDirections = new(
@@ -99,7 +99,7 @@ public sealed class RpcGenerator : IIncrementalGenerator {
         "'{0}' is both a ServerRpc and a ClientRpc. One handler travels one way; declare two.",
         "Vixen.Net",
         DiagnosticSeverity.Error,
-        isEnabledByDefault: true
+        true
     );
 
     static readonly DiagnosticDescriptor CannotBeGeneratedInto = new(
@@ -108,7 +108,7 @@ public sealed class RpcGenerator : IIncrementalGenerator {
         "'{0}' is nested, generic, or not a class. Generated senders are emitted as a partial class in a namespace.",
         "Vixen.Net",
         DiagnosticSeverity.Error,
-        isEnabledByDefault: true
+        true
     );
 
     static readonly DiagnosticDescriptor QuantizeNotFloat = new(
@@ -117,7 +117,7 @@ public sealed class RpcGenerator : IIncrementalGenerator {
         "'{0}' is a {1}. [Quantize] declares the range of a float or a Vector3; an integer already knows what it is worth, and a rotation has no range to declare.",
         "Vixen.Net",
         DiagnosticSeverity.Error,
-        isEnabledByDefault: true
+        true
     );
 
     static readonly DiagnosticDescriptor CollidingIds = new(
@@ -126,7 +126,7 @@ public sealed class RpcGenerator : IIncrementalGenerator {
         "'{0}' and '{1}' both hash to {2}. A packet carries a call's position in a table ordered by id, so two calls with one id cannot be told apart. Rename one of them.",
         "Vixen.Net",
         DiagnosticSeverity.Error,
-        isEnabledByDefault: true
+        true
     );
 
     /// <inheritdoc />
@@ -172,7 +172,10 @@ public sealed class RpcGenerator : IIncrementalGenerator {
         }
 
         if (named.Count != 0) {
-            production.AddSource("RpcMethods.g.cs", SourceText.From(EmitRegistration(named.ToImmutable()), Encoding.UTF8));
+            production.AddSource(
+                "RpcMethods.g.cs",
+                SourceText.From(EmitRegistration(named.ToImmutable()), Encoding.UTF8)
+            );
         }
     }
 
@@ -186,8 +189,8 @@ public sealed class RpcGenerator : IIncrementalGenerator {
 
         var declaringType = type.ToDisplayString(
             new SymbolDisplayFormat(
-                globalNamespaceStyle: SymbolDisplayGlobalNamespaceStyle.Omitted,
-                typeQualificationStyle: SymbolDisplayTypeQualificationStyle.NameAndContainingTypesAndNamespaces
+                SymbolDisplayGlobalNamespaceStyle.Omitted,
+                SymbolDisplayTypeQualificationStyle.NameAndContainingTypesAndNamespaces
             )
         );
 
@@ -284,7 +287,13 @@ public sealed class RpcGenerator : IIncrementalGenerator {
         }
 
         if (quantize is { } range && range.Bits is >= 1 and <= 32 && range.Max > range.Min) {
-            return new(parameter.Name, WireCodec.KindOf(parameter.Type, quantized: true), range.Min, range.Max, range.Bits);
+            return new(
+                parameter.Name,
+                WireCodec.KindOf(parameter.Type, true),
+                range.Min,
+                range.Max,
+                range.Bits
+            );
         }
 
         var kind = WireCodec.KindOf(parameter.Type);
@@ -495,7 +504,9 @@ public sealed class RpcGenerator : IIncrementalGenerator {
                 source.Append(", ");
             }
 
-            source.Append(WireCodec.Convert(handler.Arguments[i], $"argument{i.ToString(CultureInfo.InvariantCulture)}"));
+            source.Append(
+                WireCodec.Convert(handler.Arguments[i], $"argument{i.ToString(CultureInfo.InvariantCulture)}")
+            );
         }
 
         source.AppendLine(");");
@@ -524,7 +535,9 @@ public sealed class RpcGenerator : IIncrementalGenerator {
         source.AppendLine("                return;");
         source.AppendLine("            }");
         source.AppendLine();
-        source.AppendLine($"            var __method = RpcMethodTable[{index.ToString(CultureInfo.InvariantCulture)}];");
+        source.AppendLine(
+            $"            var __method = RpcMethodTable[{index.ToString(CultureInfo.InvariantCulture)}];"
+        );
         source.AppendLine("            var __writer = __router.BeginCall(__method, __target.NetworkId);");
 
         foreach (var argument in handler.Arguments) {
@@ -540,7 +553,8 @@ public sealed class RpcGenerator : IIncrementalGenerator {
         WireCodec.Read(in argument, local).Replace(argument.RangeName, RangeName(handler, argument));
 
     static string Write(HandlerModel handler, in WireValue argument) =>
-        WireCodec.Write(in argument, argument.Name, "__writer").Replace(argument.RangeName, RangeName(handler, argument));
+        WireCodec.Write(in argument, argument.Name, "__writer")
+            .Replace(argument.RangeName, RangeName(handler, argument));
 
     static string EmitRegistration(ImmutableArray<string> types) {
         var source = new StringBuilder();
@@ -552,12 +566,14 @@ public sealed class RpcGenerator : IIncrementalGenerator {
         source.AppendLine();
         source.AppendLine("/// <summary>Every remote call declared in this assembly.</summary>");
         source.AppendLine("/// <remarks>");
-        source.AppendLine("///     The closed set a packet's indices are resolved against. An index outside it is a packet");
+        source.AppendLine(
+            "///     The closed set a packet's indices are resolved against. An index outside it is a packet"
+        );
         source.AppendLine("///     that is refused, which is why nothing here is discovered at run time.");
         source.AppendLine("/// </remarks>");
         source.AppendLine("internal static class RpcMethods {");
         source.AppendLine("    /// <summary>Hands every call table in this assembly to a manifest.</summary>");
-        source.AppendLine("    /// <param name=\"manifest\">The manifest.</param>");
+        source.AppendLine("""    /// <param name="manifest">The manifest.</param>""");
         source.AppendLine("    public static void RegisterAll(global::Vixen.Net.Rpc.RpcManifest manifest) {");
 
         foreach (var type in types) {
@@ -658,9 +674,6 @@ public sealed class RpcGenerator : IIncrementalGenerator {
                         _ => "Observers"
                     };
 
-                    break;
-
-                default:
                     break;
             }
         }

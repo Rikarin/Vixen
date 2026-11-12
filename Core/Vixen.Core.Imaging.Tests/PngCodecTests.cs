@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using CsCheck;
-using Vixen.Core.Imaging;
 using Xunit;
 
 namespace Vixen.Core.Imaging.Tests;
@@ -44,7 +43,8 @@ public sealed class PngCodecTests {
     [Fact]
     public void EveryImageSurvivesARoundTrip() =>
         Gen.Select(Gen.Int[1, 40], Gen.Int[1, 40], Gen.Int[0, int.MaxValue])
-            .Sample(size => {
+            .Sample(
+                static size => {
                     var (width, height, seed) = size;
                     var pixels = new byte[width * height * 4];
                     var state = (uint)seed | 1u;
@@ -57,7 +57,9 @@ public sealed class PngCodecTests {
                     }
 
                     var decoded = PngCodec.Decode(PngCodec.Encode(new(width, height, pixels)));
-                    return decoded.Width == width && decoded.Height == height && decoded.Pixels.AsSpan().SequenceEqual(pixels);
+                    return decoded.Width == width
+                        && decoded.Height == height
+                        && decoded.Pixels.AsSpan().SequenceEqual(pixels);
                 },
                 iter: 500
             );
@@ -79,7 +81,7 @@ public sealed class PngCodecTests {
 
         for (var y = 0; y < 4; y++) {
             for (var x = 0; x < 4; x++) {
-                var offset = ((y * 4) + x) * 4;
+                var offset = (y * 4 + x) * 4;
                 expected[offset] = (byte)(x * 40);
                 expected[offset + 1] = (byte)(y * 40);
                 expected[offset + 2] = (byte)((x + y) * 20);
@@ -93,7 +95,7 @@ public sealed class PngCodecTests {
 
     [Fact]
     public void AFileThatIsNotAPngIsRefused() =>
-        Assert.Throws<InvalidDataException>(() => PngCodec.Decode(new byte[32]));
+        Assert.Throws<InvalidDataException>(static () => PngCodec.Decode(new byte[32]));
 
     /// <summary>A golden image in an unexpected format is a broken fixture, not a guess.</summary>
     [Fact]
@@ -112,20 +114,20 @@ public sealed class PngCodecTests {
         var raw = new byte[height * (stride + 1)];
 
         for (var y = 0; y < height; y++) {
-            var filter = (byte)((y % 4) + 1);
+            var filter = (byte)(y % 4 + 1);
             var destination = y * (stride + 1);
             raw[destination] = filter;
 
             for (var x = 0; x < stride; x++) {
-                var value = pixels[(y * stride) + x];
-                var left = x >= 4 ? pixels[(y * stride) + x - 4] : 0;
-                var up = y > 0 ? pixels[((y - 1) * stride) + x] : 0;
-                var upLeft = y > 0 && x >= 4 ? pixels[((y - 1) * stride) + x - 4] : 0;
+                var value = pixels[y * stride + x];
+                var left = x >= 4 ? pixels[y * stride + x - 4] : 0;
+                var up = y > 0 ? pixels[(y - 1) * stride + x] : 0;
+                var upLeft = y > 0 && x >= 4 ? pixels[(y - 1) * stride + x - 4] : 0;
 
                 raw[destination + 1 + x] = filter switch {
                     1 => (byte)(value - left),
                     2 => (byte)(value - up),
-                    3 => (byte)(value - ((left + up) / 2)),
+                    3 => (byte)(value - (left + up) / 2),
                     _ => (byte)(value - Predict(left, up, upLeft))
                 };
             }
@@ -222,12 +224,12 @@ public sealed class PngCodecTests {
         var (width, height, read, wide) = PngCodec.Decode16(PngCodec.Encode8(5, 3, channels, samples));
 
         Assert.Equal((5, 3, channels), (width, height, read));
-        Assert.Equal(samples.Select(sample => (ushort)(sample * 257)), wide);
+        Assert.Equal(samples.Select(static sample => (ushort)(sample * 257)), wide);
     }
 
     [Fact]
     public void EightBitSamplesThatDoNotFillTheImageAreRefused() {
-        Assert.Throws<ArgumentException>(() => PngCodec.Encode8(4, 4, 1, new byte[15]));
-        Assert.Throws<ArgumentException>(() => PngCodec.Encode8(4, 4, 2, new byte[32]));
+        Assert.Throws<ArgumentException>(static () => PngCodec.Encode8(4, 4, 1, new byte[15]));
+        Assert.Throws<ArgumentException>(static () => PngCodec.Encode8(4, 4, 2, new byte[32]));
     }
 }

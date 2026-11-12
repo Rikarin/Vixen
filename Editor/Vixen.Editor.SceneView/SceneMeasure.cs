@@ -9,8 +9,11 @@ namespace Vixen.Editor.SceneView;
 /// <summary>A tape measure: click two points and read the distance, three and read the angle.</summary>
 /// <remarks>
 ///     <para>
-///         <b>Doc 24 puts this in the group that "separates a toolset a professional will use from one
-///         they will try".</b> Everything a level designer asserts is a measurement — the player fits
+///         <b>
+///             Doc 24 puts this in the group that "separates a toolset a professional will use from one
+///             they will try".
+///         </b>
+///         Everything a level designer asserts is a measurement — the player fits
 ///         through the gap, the jump is makeable, the sightline reaches — and an editor with no way to
 ///         ask "how far is that" makes every one of them a guess or a temporary cube.
 ///     </para>

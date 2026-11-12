@@ -26,13 +26,20 @@ public enum BakeSpace : byte {
 /// <summary>Which of the mesh maps to measure, beyond the normal and the displacement.</summary>
 /// <remarks>
 ///     <para>
-///         <b>The normal map and the displacement map are not in here because they are not
-///         optional.</b> They fall out of the one ray the bake already casts, and the seven below are
+///         <b>
+///             The normal map and the displacement map are not in here because they are not
+///             optional.
+///         </b>
+///         They fall out of the one ray the bake already casts, and the seven below are
 ///         further measurements at the same texel, on the surface point that ray found.
 ///     </para>
 ///     <para>
-///         ⚠ <b><see cref="AmbientOcclusion" />, <see cref="BentNormal" /> and
-///         <see cref="Thickness" /> are the expensive ones and nothing else here is.</b> They are the
+///         ⚠
+///         <b>
+///             <see cref="AmbientOcclusion" />, <see cref="BentNormal" /> and
+///             <see cref="Thickness" /> are the expensive ones and nothing else here is.
+///         </b>
+///         They are the
 ///         only three that cast rays of their own — <see cref="BakeSettings.OcclusionSamples" /> of
 ///         them per texel, against the same tree — and the three of them together cost what one of
 ///         them costs, because they share both the sample set and the loop. The other four are
@@ -154,8 +161,12 @@ public enum HeightRange : byte {
 
 /// <summary>What to bake, at what size, and how far to look for the source.</summary>
 /// <remarks>
-///     ⚠ <b><see cref="SearchRadius" /> is a fraction of the source's bounding-box diagonal and
-///     never a distance.</b> A ray cage measured in metres is a claim about how big a model is, and
+///     ⚠
+///     <b>
+///         <see cref="SearchRadius" /> is a fraction of the source's bounding-box diagonal and
+///         never a distance.
+///     </b>
+///     A ray cage measured in metres is a claim about how big a model is, and
 ///     it is the same claim <see cref="ScaleSafe" /> exists to stop this library making — a bake
 ///     tuned on a character silently finds nothing on the same character exported in centimetres.
 /// </remarks>
@@ -226,8 +237,12 @@ public sealed record BakeSettings {
     ///     ⚠ <b>A fraction by default, for the reason <see cref="SearchRadius" /> is one</b> — and a
     ///     different fraction, because the two answer different questions. The search radius is how
     ///     far the cage strayed from the surface and is small; this is how far away an occluder still
-    ///     counts and is a large part of the model. ⚠ <b><see cref="BakedMaps.Thickness" /> is
-    ///     measured in it</b>: a depth of this or more reads one, which is why measuring the inside of
+    ///     counts and is a large part of the model. ⚠
+    ///     <b>
+    ///         <see cref="BakedMaps.Thickness" /> is
+    ///         measured in it
+    ///     </b>
+    ///     : a depth of this or more reads one, which is why measuring the inside of
     ///     a closed shape wants it at or above the shape's widest part.
     /// </remarks>
     public float OcclusionRadius { get; init; } = 0.5f;
@@ -327,8 +342,12 @@ public sealed record BakeSettings {
     /// <remarks>
     ///     <para>
     ///         Zero, the default, follows the direction that is continuous across a hard edge, which is
-    ///         what stops a seam there; see <see cref="MapBaker" />. ⚠ <b>The price is that rays near a
-    ///         hard edge are slanted</b>, so a bolt sitting on a flat face next to one bakes sheared
+    ///         what stops a seam there; see <see cref="MapBaker" />. ⚠
+    ///         <b>
+    ///             The price is that rays near a
+    ///             hard edge are slanted
+    ///         </b>
+    ///         , so a bolt sitting on a flat face next to one bakes sheared
     ///         towards the edge. One casts along the target's own normal, which keeps the bolt round
     ///         and brings the seam back. Between the two is the trade, and a map says where to make it.
     ///     </para>
@@ -388,7 +407,7 @@ public sealed record BakeMask(int Resolution, IReadOnlyList<float> Values) {
         var x = Math.Clamp((int)(uv.X * Resolution), 0, Resolution - 1);
         var y = Math.Clamp((int)(uv.Y * Resolution), 0, Resolution - 1);
 
-        return Values[(y * Resolution) + x];
+        return Values[y * Resolution + x];
     }
 }
 
@@ -431,7 +450,8 @@ public sealed record BakeParts(IReadOnlyList<int> Source, IReadOnlyList<int> Tar
             key = key[..dot];
         }
 
-        foreach (var suffix in suffixes.Select(static s => s.Trim().ToLowerInvariant()).OrderByDescending(static s => s.Length)) {
+        foreach (var suffix in suffixes.Select(static s => s.Trim().ToLowerInvariant())
+                     .OrderByDescending(static s => s.Length)) {
             if (suffix.Length > 0 && key.Length > suffix.Length && key.EndsWith(suffix, StringComparison.Ordinal)) {
                 return key[..^suffix.Length];
             }
@@ -447,7 +467,8 @@ public sealed record BakeParts(IReadOnlyList<int> Source, IReadOnlyList<int> Tar
     public static BakeParts ByName(
         IReadOnlyList<(string Name, int Faces)> source,
         IReadOnlyList<(string Name, int Faces)> target
-    ) => ByName(source, target, Suffixes, Suffixes);
+    ) =>
+        ByName(source, target, Suffixes, Suffixes);
 
     /// <summary>Numbers named meshes, with the endings each side's names carry.</summary>
     /// <param name="source">Each source mesh's name and face count, in merge order.</param>
@@ -502,8 +523,12 @@ public sealed record BakeParts(IReadOnlyList<int> Source, IReadOnlyList<int> Tar
 ///         of that reaches this assembly.
 ///     </para>
 ///     <para>
-///         ⚠ <b><see cref="Displacement" /> is in the model's own units and is deliberately not
-///         normalised.</b> A displacement map quantized into <c>[0, 1]</c> needs a scale stored
+///         ⚠
+///         <b>
+///             <see cref="Displacement" /> is in the model's own units and is deliberately not
+///             normalised.
+///         </b>
+///         A displacement map quantized into <c>[0, 1]</c> needs a scale stored
 ///         beside it or it means nothing, and half of the ways that goes wrong are the scale and the
 ///         pixels being written by different code. <see cref="DisplacementRange" /> is what a caller
 ///         quantizes with, and it is measured rather than assumed.
@@ -549,8 +574,12 @@ public sealed record BakedMaps {
 
     /// <summary>The unoccluded fraction of the hemisphere per texel, or null if it was not asked for.</summary>
     /// <remarks>
-    ///     One is open sky and zero is sealed. ⚠ <b>Measured at the <i>source</i>'s surface point and
-    ///     about the <i>source</i>'s normal</b>, not at the cage's — the whole reason to bake a mesh
+    ///     One is open sky and zero is sealed. ⚠
+    ///     <b>
+    ///         Measured at the <i>source</i>'s surface point and
+    ///         about the <i>source</i>'s normal
+    ///     </b>
+    ///     , not at the cage's — the whole reason to bake a mesh
     ///     map is that the cage does not have the geometry that does the occluding.
     /// </remarks>
     public IReadOnlyList<float>? AmbientOcclusion { get; init; }
@@ -567,8 +596,12 @@ public sealed record BakedMaps {
 
     /// <summary>Mean curvature per texel, in reciprocal model units, or null if it was not asked for.</summary>
     /// <remarks>
-    ///     ⚠ <b>A sphere of radius <i>r</i> reads <c>1/r</c>, so this is a length⁻¹ and it moves with
-    ///     the model's scale.</b> Positive is convex along the source's own normal — an edge —
+    ///     ⚠
+    ///     <b>
+    ///         A sphere of radius <i>r</i> reads <c>1/r</c>, so this is a length⁻¹ and it moves with
+    ///         the model's scale.
+    ///     </b>
+    ///     Positive is convex along the source's own normal — an edge —
     ///     and negative is a crease. <see cref="CurvatureRange" /> is what a caller quantizes with,
     ///     as <see cref="DisplacementRange" /> is, except that it is not the largest value: the
     ///     sharpest one texel in a hundred lies beyond it. ⚠ An open rim reads zero rather than a
@@ -580,8 +613,12 @@ public sealed record BakedMaps {
     /// <summary>How deep the surface goes per texel, or null if it was not asked for.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The mean depth along the same hemisphere turned through the surface, over
-    ///         <see cref="BakeSettings.OcclusionRadius" /></b>: <c>4r/3</c> of the reach inside a sphere
+    ///         ⚠
+    ///         <b>
+    ///             The mean depth along the same hemisphere turned through the surface, over
+    ///             <see cref="BakeSettings.OcclusionRadius" />
+    ///         </b>
+    ///         : <c>4r/3</c> of the reach inside a sphere
     ///         of radius <i>r</i>, and zero on a single sheet with nothing behind it, because a ray that
     ///         finds no far wall counts nothing.
     ///     </para>
@@ -686,8 +723,12 @@ public sealed record BakeReachShell(IReadOnlyList<Vector3> Outer, IReadOnlyList<
 ///         opposed hits is the answer available to a content build with nobody watching.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The ray follows the direction averaged over every corner on a position, not the
-///         corner's own normal.</b> The two are the same on a smooth surface. At a hard edge the
+///         ⚠
+///         <b>
+///             The ray follows the direction averaged over every corner on a position, not the
+///             corner's own normal.
+///         </b>
+///         The two are the same on a smooth surface. At a hard edge the
 ///         corner normals disagree, so rays cast along them leave a wedge of the source nothing
 ///         strikes and two charts that see different things at the same point, which is the seam a
 ///         hard edge shows. The averaged direction is continuous there: both sides of the edge cast
@@ -702,8 +743,12 @@ public sealed record BakeReachShell(IReadOnlyList<Vector3> Outer, IReadOnlyList<
 ///         So the atlas does not depend on the thread count, which a content hash needs.
 ///     </para>
 ///     <para>
-///         ⚠ <b>A texel that finds nothing falls back to the closest point rather than to a
-///         default.</b> A default normal in the middle of a chart is a flat patch that reads as a
+///         ⚠
+///         <b>
+///             A texel that finds nothing falls back to the closest point rather than to a
+///             default.
+///         </b>
+///         A default normal in the middle of a chart is a flat patch that reads as a
 ///         modelling error; the closest point is at worst the right answer measured from slightly the
 ///         wrong place, and <see cref="BakedMaps.Missed" /> says how often it happened.
 ///     </para>
@@ -736,7 +781,7 @@ public static class MapBaker {
     ///     one below it.
     /// </remarks>
     public static BakedMaps Bake(EditMesh source, EditMesh target, BakeSettings settings) =>
-        Bake(source, target, settings, progress: null, CancellationToken.None);
+        Bake(source, target, settings, null, CancellationToken.None);
 
     /// <summary>Bakes a normal and a displacement map, reporting progress and stopping when asked.</summary>
     /// <param name="source">The high-resolution surface. Read, never modified.</param>
@@ -767,14 +812,21 @@ public static class MapBaker {
     ///         already running finish the row they are in, so a cancel lands within a row or so.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b><paramref name="progress" /> is a fraction of the rows holding chart content, and is
-    ///         called from whichever thread finished one, one call at a time and never going back.</b>
+    ///         ⚠
+    ///         <b>
+    ///             <paramref name="progress" /> is a fraction of the rows holding chart content, and is
+    ///             called from whichever thread finished one, one call at a time and never going back.
+    ///         </b>
     ///         An atlas row with nothing on it costs nothing, so counting it would be a bar that jumps
     ///         through the gutters.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The dilation is deliberately outside the reported fraction and cannot be
-    ///         cancelled.</b> It is a fixed number of passes over the atlas with no rays in it, so it
+    ///         ⚠
+    ///         <b>
+    ///             The dilation is deliberately outside the reported fraction and cannot be
+    ///             cancelled.
+    ///         </b>
+    ///         It is a fixed number of passes over the atlas with no rays in it, so it
     ///         is the part a caller is never waiting on — and a half-dilated buffer handed back as a
     ///         finished bake is a set of maps whose gutters lie.
     ///     </para>
@@ -909,20 +961,25 @@ public static class MapBaker {
 
         var cast = new Casting(progress, charts.RowsWithContent(), cancellationToken);
 
-        Parallel.For(0, resolution, options, (row, loop) => {
-            if (cancellationToken.IsCancellationRequested) {
-                loop.Stop();
+        Parallel.For(
+            0,
+            resolution,
+            options,
+            (row, loop) => {
+                if (cancellationToken.IsCancellationRequested) {
+                    loop.Stop();
 
-                return;
+                    return;
+                }
+
+                if (charts.RowIsEmpty(row)) {
+                    return;
+                }
+
+                bake.Row(row, charts);
+                cast.Row();
             }
-
-            if (charts.RowIsEmpty(row)) {
-                return;
-            }
-
-            bake.Row(row, charts);
-            cast.Row();
-        });
+        );
 
         cancellationToken.ThrowIfCancellationRequested();
         cast.Done();
@@ -1007,14 +1064,14 @@ public static class MapBaker {
                 var direction = ScaleSafe.Unit(along[corner]);
 
                 if (settings.Cage is { } shell) {
-                    var start = point + ((shell.Positions[shell.CornersOf(face)[at]] - point) * stretch);
+                    var start = point + (shell.Positions[shell.CornersOf(face)[at]] - point) * stretch;
                     var inward = ScaleSafe.Unit(point - start);
 
                     outer[corner] = start;
-                    inner[corner] = point + ((inward.LengthSquared() > 0f ? inward : -direction) * (rear * stretch));
+                    inner[corner] = point + (inward.LengthSquared() > 0f ? inward : -direction) * (rear * stretch);
                 } else {
-                    outer[corner] = point + (direction * (front * stretch));
-                    inner[corner] = point - (direction * (rear * stretch));
+                    outer[corner] = point + direction * (front * stretch);
+                    inner[corner] = point - direction * (rear * stretch);
                 }
             }
         }
@@ -1121,8 +1178,12 @@ public static class MapBaker {
     /// <returns>An id per face, and whether the ids are packed colours.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A face group is a material boundary only where somebody assigned it, and reading it
-    ///         as one otherwise is the § D12 defect at its loudest.</b> <c>EditMesh.FromTriangles</c>
+    ///         ⚠
+    ///         <b>
+    ///             A face group is a material boundary only where somebody assigned it, and reading it
+    ///             as one otherwise is the § D12 defect at its loudest.
+    ///         </b>
+    ///         <c>EditMesh.FromTriangles</c>
     ///         ends in <c>Regroup</c>, whose groups are coplanar connected components — on a generated
     ///         or sculpted blob almost no two adjacent triangles are within half a degree, so every
     ///         triangle is its own group and 25 439 of them measured 13 965. Baked straight, an id map
@@ -1132,8 +1193,12 @@ public static class MapBaker {
     ///         this was the one consumer that did not.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Shells rather than a refusal, because § D12 asks for "the source's material
-    ///         <i>or island</i> index" and the island is the half that survives a guess.</b> A
+    ///         ⚠
+    ///         <b>
+    ///             Shells rather than a refusal, because § D12 asks for "the source's material
+    ///             <i>or island</i> index" and the island is the half that survives a guess.
+    ///         </b>
+    ///         A
     ///         connected component is a fact about the mesh whatever its groups mean — two props in
     ///         one file are two ids, and one closed blob is one id, which is the honest answer for a
     ///         surface with no material boundaries on it rather than a hole in the output. A caller
@@ -1171,8 +1236,8 @@ public static class MapBaker {
 
         if (settings.IdSource is BakeIdSource.Automatic && !assigned) {
             warnings.Add(
-                $"The source's face groups came from EditMesh.Regroup's coplanarity guess rather than from "
-                + $"an assignment, so they are not material boundaries — on a faceted surface they are one "
+                "The source's face groups came from EditMesh.Regroup's coplanarity guess rather than from "
+                + "an assignment, so they are not material boundaries — on a faceted surface they are one "
                 + $"group per triangle. The id map holds the {count} connected shell(s) instead. Set "
                 + "EditMesh.GroupSource to Assigned on a mesh whose groups are materials somebody chose."
             );
@@ -1210,7 +1275,7 @@ public static class MapBaker {
     ///     never to a blend of two of them — the map that gets filtered is the one that grows a
     ///     fourth material along every border.
     /// </remarks>
-    public static Vector3 IdColour(int id) => id < 0 ? Vector3.Zero : Hue((id * 0.6180339887f) % 1f);
+    public static Vector3 IdColour(int id) => id < 0 ? Vector3.Zero : Hue(id * 0.6180339887f % 1f);
 
     /// <summary>Colours every texel's id as a palette says, black where there is none.</summary>
     /// <param name="ids">An id per texel, <c>-1</c> for none.</param>
@@ -1219,8 +1284,12 @@ public static class MapBaker {
     /// <returns>A colour per texel, in <c>[0, 1]³</c>.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="ids" /> is null.</exception>
     /// <remarks>
-    ///     ⚠ <b><see cref="IdPalette.HueShift" /> and <see cref="IdPalette.Grey" /> rank the ids that
-    ///     occur, so they depend on the whole map and not on the id alone.</b> That is the point of
+    ///     ⚠
+    ///     <b>
+    ///         <see cref="IdPalette.HueShift" /> and <see cref="IdPalette.Grey" /> rank the ids that
+    ///         occur, so they depend on the whole map and not on the id alone.
+    ///     </b>
+    ///     That is the point of
     ///     them — three ids get three far-apart colours rather than wherever the golden ratio puts
     ///     them — and the reason <see cref="IdColour" /> stays the default: the same id is the same
     ///     colour in every bake only there.
@@ -1238,7 +1307,10 @@ public static class MapBaker {
             return made;
         }
 
-        var ranks = ids.Where(static id => id >= 0).Distinct().Order().Select(static (id, rank) => (id, rank))
+        var ranks = ids.Where(static id => id >= 0)
+            .Distinct()
+            .Order()
+            .Select(static (id, rank) => (id, rank))
             .ToDictionary(static pair => pair.id, static pair => pair.rank);
         var count = Math.Max(ranks.Count, 1);
 
@@ -1265,8 +1337,8 @@ public static class MapBaker {
         const float value = 0.95f;
         const float low = value * (1f - 0.65f);
 
-        var rising = low + ((value - low) * fraction);
-        var falling = value - ((value - low) * fraction);
+        var rising = low + (value - low) * fraction;
+        var falling = value - (value - low) * fraction;
 
         return sector switch {
             0 => new(value, rising, low),
@@ -1288,8 +1360,12 @@ public static class MapBaker {
     ///         all but one report in every few is a callback nobody could see the effect of.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>An <see cref="Action{T}" /> rather than an <see cref="IProgress{T}" />, which is
-    ///         the opposite of the usual advice and is right here.</b> <c>Progress&lt;T&gt;</c>
+    ///         ⚠
+    ///         <b>
+    ///             An <see cref="Action{T}" /> rather than an <see cref="IProgress{T}" />, which is
+    ///             the opposite of the usual advice and is right here.
+    ///         </b>
+    ///         <c>Progress&lt;T&gt;</c>
     ///         captures a synchronisation context at construction and <i>posts</i> to it — so the
     ///         reports arrive out of band, possibly out of order, and possibly after the bake has
     ///         returned. This callback runs before the row's thread moves on, under a lock, so a caller
@@ -1339,15 +1415,22 @@ public static class MapBaker {
     /// <summary>Grows the charts outward into the background, never over another chart's content.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b><c>ImpostorBake</c> solves the same problem as a compute shader and the idea
-    ///         transfers even though the code does not</b> — it is one layer above this assembly and
+    ///         <b>
+    ///             <c>ImpostorBake</c> solves the same problem as a compute shader and the idea
+    ///             transfers even though the code does not
+    ///         </b>
+    ///         — it is one layer above this assembly and
     ///         it needs a device. Rounds of four-neighbour flood, each round reading what the last one
     ///         wrote, which is a jump flood's cheap cousin and is exact for a distance of
     ///         <see cref="BakeSettings.Gutter" /> texels.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b><c>Coverage</c> is read and never written, so a chart's gutter cannot overwrite
-    ///         the chart beside it.</b> The filled set is a second array; a texel joins it and never
+    ///         ⚠
+    ///         <b>
+    ///             <c>Coverage</c> is read and never written, so a chart's gutter cannot overwrite
+    ///             the chart beside it.
+    ///         </b>
+    ///         The filled set is a second array; a texel joins it and never
     ///         joins <c>Coverage</c>, so the next round can spread from it and the content pass's
     ///         answer stays authoritative.
     ///     </para>
@@ -1369,106 +1452,111 @@ public static class MapBaker {
 
             // ⚠ A row writes only texels `filled` says are empty and reads only texels it says are
             // full, so rows cannot see each other's writes and may run in any order.
-            Parallel.For(0, resolution, options, y => {
-                Span<int> offsets = stackalloc int[4];
-                var added = 0;
+            Parallel.For(
+                0,
+                resolution,
+                options,
+                y => {
+                    Span<int> offsets = stackalloc int[4];
+                    var added = 0;
 
-                for (var x = 0; x < resolution; x++) {
-                    var index = (y * resolution) + x;
+                    for (var x = 0; x < resolution; x++) {
+                        var index = y * resolution + x;
 
-                    if (filled[index]) {
-                        continue;
-                    }
-
-                    offsets[0] = x > 0 ? index - 1 : -1;
-                    offsets[1] = x + 1 < resolution ? index + 1 : -1;
-                    offsets[2] = y > 0 ? index - resolution : -1;
-                    offsets[3] = y + 1 < resolution ? index + resolution : -1;
-
-                    var normal = Vector3.Zero;
-                    var height = 0f;
-                    var open = 0f;
-                    var unoccluded = Vector3.Zero;
-                    var curve = 0f;
-                    var inside = 0f;
-                    var position = Vector3.Zero;
-                    var world = Vector3.Zero;
-                    var colour = Vector4.Zero;
-                    var found = 0;
-
-                    foreach (var neighbour in offsets) {
-                        if (neighbour < 0 || !filled[neighbour]) {
+                        if (filled[index]) {
                             continue;
                         }
 
-                        // ⚠ Nearest, and only for this channel. An id is a label: the mean of ids 0
-                        // and 2 is id 1, a material that exists nowhere in the source, and every
-                        // generator keyed off the map then grows a hairline of it along every chart
-                        // border. The first filled neighbour in a fixed order is a real id and is
-                        // the same id on every run — which averaging is not, and which "whichever
-                        // the scan happened to reach" would not be either.
-                        if (found == 0 && buffers.Ids is { } ids) {
-                            ids[index] = ids[neighbour];
+                        offsets[0] = x > 0 ? index - 1 : -1;
+                        offsets[1] = x + 1 < resolution ? index + 1 : -1;
+                        offsets[2] = y > 0 ? index - resolution : -1;
+                        offsets[3] = y + 1 < resolution ? index + resolution : -1;
+
+                        var normal = Vector3.Zero;
+                        var height = 0f;
+                        var open = 0f;
+                        var unoccluded = Vector3.Zero;
+                        var curve = 0f;
+                        var inside = 0f;
+                        var position = Vector3.Zero;
+                        var world = Vector3.Zero;
+                        var colour = Vector4.Zero;
+                        var found = 0;
+
+                        foreach (var neighbour in offsets) {
+                            if (neighbour < 0 || !filled[neighbour]) {
+                                continue;
+                            }
+
+                            // ⚠ Nearest, and only for this channel. An id is a label: the mean of ids 0
+                            // and 2 is id 1, a material that exists nowhere in the source, and every
+                            // generator keyed off the map then grows a hairline of it along every chart
+                            // border. The first filled neighbour in a fixed order is a real id and is
+                            // the same id on every run — which averaging is not, and which "whichever
+                            // the scan happened to reach" would not be either.
+                            if (found == 0 && buffers.Ids is { } ids) {
+                                ids[index] = ids[neighbour];
+                            }
+
+                            normal += buffers.Normals[neighbour];
+                            height += buffers.Displacement[neighbour];
+                            found++;
+
+                            if (buffers.Occlusion is { } occlusion) {
+                                open += occlusion[neighbour];
+                            }
+
+                            if (buffers.Bent is { } average) {
+                                unoccluded += average[neighbour];
+                            }
+
+                            if (buffers.Curvature is { } curvature) {
+                                curve += curvature[neighbour];
+                            }
+
+                            if (buffers.Thickness is { } thickness) {
+                                inside += thickness[neighbour];
+                            }
+
+                            if (buffers.Position is { } points) {
+                                position += points[neighbour];
+                            }
+
+                            if (buffers.WorldNormal is { } normals) {
+                                world += normals[neighbour];
+                            }
+
+                            if (buffers.Colour is { } colours) {
+                                colour += colours[neighbour];
+                            }
                         }
 
-                        normal += buffers.Normals[neighbour];
-                        height += buffers.Displacement[neighbour];
-                        found++;
-
-                        if (buffers.Occlusion is { } occlusion) {
-                            open += occlusion[neighbour];
+                        if (found == 0) {
+                            continue;
                         }
 
-                        if (buffers.Bent is { } average) {
-                            unoccluded += average[neighbour];
-                        }
+                        // ⚠ The value is written now and the texel is committed at the end of the round.
+                        // The scan reads `filled` and never the values, so an early write cannot seed a
+                        // later texel in the same round — and it is the flag, not the write, that would
+                        // let the gutter reach further right and upward than left and downward.
+                        buffers.Normals[index] = Unit(normal / found);
+                        buffers.Displacement[index] = height / found;
 
-                        if (buffers.Curvature is { } curvature) {
-                            curve += curvature[neighbour];
-                        }
+                        Write(buffers.Occlusion, index, open / found);
+                        Write(buffers.Curvature, index, curve / found);
+                        Write(buffers.Thickness, index, inside / found);
+                        Write(buffers.Position, index, position / found);
+                        Write(buffers.Bent, index, Unit(unoccluded / found));
+                        Write(buffers.WorldNormal, index, Unit(world / found));
+                        Write(buffers.Colour, index, colour / found);
 
-                        if (buffers.Thickness is { } thickness) {
-                            inside += thickness[neighbour];
-                        }
-
-                        if (buffers.Position is { } points) {
-                            position += points[neighbour];
-                        }
-
-                        if (buffers.WorldNormal is { } normals) {
-                            world += normals[neighbour];
-                        }
-
-                        if (buffers.Colour is { } colours) {
-                            colour += colours[neighbour];
-                        }
+                        next[index] = true;
+                        added++;
                     }
 
-                    if (found == 0) {
-                        continue;
-                    }
-
-                    // ⚠ The value is written now and the texel is committed at the end of the round.
-                    // The scan reads `filled` and never the values, so an early write cannot seed a
-                    // later texel in the same round — and it is the flag, not the write, that would
-                    // let the gutter reach further right and upward than left and downward.
-                    buffers.Normals[index] = Unit(normal / found);
-                    buffers.Displacement[index] = height / found;
-
-                    Write(buffers.Occlusion, index, open / found);
-                    Write(buffers.Curvature, index, curve / found);
-                    Write(buffers.Thickness, index, inside / found);
-                    Write(buffers.Position, index, position / found);
-                    Write(buffers.Bent, index, Unit(unoccluded / found));
-                    Write(buffers.WorldNormal, index, Unit(world / found));
-                    Write(buffers.Colour, index, colour / found);
-
-                    next[index] = true;
-                    added++;
+                    Interlocked.Add(ref grown, added);
                 }
-
-                Interlocked.Add(ref grown, added);
-            });
+            );
 
             total += grown;
             next.CopyTo(filled, 0);
@@ -1516,5 +1604,4 @@ public static class MapBaker {
             CurvatureRange = buffers.CurvatureRange,
             Warnings = warnings
         };
-
 }

@@ -5,8 +5,12 @@ namespace Vixen.Gameplay.Pvp;
 
 /// <summary>One objective's live state.</summary>
 /// <remarks>
-///     ⚠ <b>Progress is a signed number towards one team, and taking a point back has to pass through
-///     neutral.</b> Two separate per-team meters would let a point flip the instant the last defender
+///     ⚠
+///     <b>
+///         Progress is a signed number towards one team, and taking a point back has to pass through
+///         neutral.
+///     </b>
+///     Two separate per-team meters would let a point flip the instant the last defender
 ///     dies, because the attackers' meter had been filling the whole time they were being held off.
 ///     One meter that has to be pushed down to zero and then up again is what makes a contested point
 ///     take time to lose as well as to gain.
@@ -319,10 +323,13 @@ public sealed class PvpMatch {
             rounds[team]++;
         }
 
-        var needed = (Map.Rounds / 2) + 1;
+        var needed = Map.Rounds / 2 + 1;
 
         if (team >= 0 && rounds[team] >= needed) {
-            return Finish(Map.ScoreToWin > 0 && scores[team] >= Map.ScoreToWin ? MatchOutcome.Score : MatchOutcome.Time, team);
+            return Finish(
+                Map.ScoreToWin > 0 && scores[team] >= Map.ScoreToWin ? MatchOutcome.Score : MatchOutcome.Time,
+                team
+            );
         }
 
         if (Round >= Map.Rounds) {

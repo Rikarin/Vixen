@@ -13,12 +13,16 @@ namespace Vixen.Platform;
 ///     surface, and a backend only ever needs this half.
 /// </remarks>
 public interface ISurface {
-    /// <summary>The native handles, or <see cref="SurfaceHandle.None" /> when there is nothing to
-    /// present to.</summary>
+    /// <summary>
+    ///     The native handles, or <see cref="SurfaceHandle.None" /> when there is nothing to
+    ///     present to.
+    /// </summary>
     SurfaceHandle Handle { get; }
 
-    /// <summary>The surface's size in physical pixels, which is the size a swapchain is built
-    /// at.</summary>
+    /// <summary>
+    ///     The surface's size in physical pixels, which is the size a swapchain is built
+    ///     at.
+    /// </summary>
     /// <remarks>
     ///     Not the window's logical size. On a HiDPI display the two differ by the scale factor,
     ///     and confusing them renders a quarter of the window or four times too much of it.

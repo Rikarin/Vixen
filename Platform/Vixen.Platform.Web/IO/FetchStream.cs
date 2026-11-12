@@ -97,8 +97,10 @@ public sealed class FetchStream : Stream {
     /// </remarks>
     public int RequestCount { get; private set; }
 
-    /// <summary>Whether <paramref name="count" /> bytes from <paramref name="offset" /> can be read
-    /// synchronously.</summary>
+    /// <summary>
+    ///     Whether <paramref name="count" /> bytes from <paramref name="offset" /> can be read
+    ///     synchronously.
+    /// </summary>
     public bool IsResident(long offset, int count) =>
         chunkOffset >= 0 && offset >= chunkOffset && offset + count <= chunkOffset + chunk.Length;
 
@@ -222,8 +224,7 @@ public sealed class FetchStream : Stream {
 
     /// <inheritdoc />
     /// <exception cref="NotSupportedException">Always. Content served over HTTP is read-only.</exception>
-    public override void SetLength(long value) =>
-        throw new NotSupportedException("A fetched file is read-only.");
+    public override void SetLength(long value) => throw new NotSupportedException("A fetched file is read-only.");
 
     /// <inheritdoc />
     /// <exception cref="NotSupportedException">Always. Content served over HTTP is read-only.</exception>
@@ -242,8 +243,7 @@ public sealed class FetchStream : Stream {
     }
 
     /// <summary>How much of a requested read is actually within the file.</summary>
-    int Available(int wanted) =>
-        position >= length ? 0 : (int)Math.Min(wanted, length - position);
+    int Available(int wanted) => position >= length ? 0 : (int)Math.Min(wanted, length - position);
 
     async ValueTask FetchChunkAsync(long offset, CancellationToken cancellationToken) {
         // Aligned to a chunk boundary rather than starting at the read. Two reads either side of a

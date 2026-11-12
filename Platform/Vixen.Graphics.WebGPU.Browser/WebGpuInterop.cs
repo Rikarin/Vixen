@@ -40,8 +40,10 @@ internal static partial class WebGpuInterop {
     public static partial bool IsSupported();
 
     /// <summary>Requests an adapter and a device, and configures the canvas if there is one.</summary>
-    /// <param name="canvasSelector">A CSS selector for the canvas, or an empty string for
-    /// offscreen.</param>
+    /// <param name="canvasSelector">
+    ///     A CSS selector for the canvas, or an empty string for
+    ///     offscreen.
+    /// </param>
     /// <param name="powerPreference">"low-power", "high-performance", or an empty string.</param>
     /// <returns>An empty string on success, or why it failed.</returns>
     [JSImport("initialise", ModuleName)]
@@ -278,7 +280,6 @@ internal static partial class WebGpuInterop {
     ///     and what went wrong arrives only here, which is exactly the reason
     ///     <c>NativeWebGpuErrors</c> exists on the other surface. The browser half had the same
     ///     mechanism and no wire out of it.
-    ///
     ///     Found by <c>InteropSurfaceTests</c>, which compares this file's import names against the
     ///     module's exports in both directions.
     /// </remarks>

@@ -2,13 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Ai.Ecs;
-using Vixen.Ai.Nodes.Ecs;
 using Vixen.Core;
 using Vixen.Core.Mathematics;
 using Vixen.Ecs;
 using Vixen.Engine.Transforms;
 using Vixen.Navigation;
-using Vixen.Navigation.Agents;
 using Vixen.Navigation.Baking;
 using Vixen.Navigation.Ecs;
 
@@ -25,12 +23,12 @@ sealed class Level {
     public Level(float extent = 40f) {
         var geometry = new NavTestFloor(extent);
 
-        Mesh = new NavMesh(NavMeshParams.Single);
+        Mesh = new(NavMeshParams.Single);
         Mesh.AddTile(NavMeshBaker.Bake(geometry.Vertices, geometry.Indices, new() { AgentRadius = 0.6f })!);
 
-        Query = new NavMeshQuery(Mesh);
-        World = new World("nodes-test");
-        Navigation = new NavigationSystem(new Crowd(Mesh));
+        Query = new(Mesh);
+        World = new("nodes-test");
+        Navigation = new(new(Mesh));
     }
 
     public World World { get; }
@@ -67,13 +65,14 @@ sealed class Level {
         }
     }
 
-    public static GameTime Frame(int index) => new(
-        TimeSpan.FromSeconds((index + 1) / 60.0),
-        TimeSpan.FromSeconds(1 / 60.0),
-        TimeSpan.FromSeconds(1 / 60.0),
-        index,
-        1f
-    );
+    public static GameTime Frame(int index) =>
+        new(
+            TimeSpan.FromSeconds((index + 1) / 60.0),
+            TimeSpan.FromSeconds(1 / 60.0),
+            TimeSpan.FromSeconds(1 / 60.0),
+            index,
+            1f
+        );
 }
 
 /// <summary>A flat floor, wound so that its upward face is the front one.</summary>

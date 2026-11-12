@@ -20,8 +20,12 @@ namespace Vixen.Editor.Debugger;
 ///         state than one that pretends to scan.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Deploy is a request rather than a call, for exactly <c>AttachRequested</c>'s
-///         reason.</b> It needs a build — which is doc 20's E6 and lives behind
+///         ⚠
+///         <b>
+///             Deploy is a request rather than a call, for exactly <c>AttachRequested</c>'s
+///             reason.
+///         </b>
+///         It needs a build — which is doc 20's E6 and lives behind
 ///         <c>build.settings</c> — and what "deploy" means differs per kind of device: this machine
 ///         is a publish and a launch, a phone is <c>adb install</c>, a console is a vendor SDK. A
 ///         debugger assembly that picked one would be a panel that could only deploy to that one, so

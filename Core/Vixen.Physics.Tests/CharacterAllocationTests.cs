@@ -4,7 +4,6 @@
 using Vixen.Core.Mathematics;
 using Vixen.Engine.Players;
 using Vixen.Engine.Transforms;
-using Vixen.Physics.Bodies;
 using Vixen.Physics.Characters;
 using Vixen.Physics.Ecs;
 using Vixen.Testing;
@@ -39,8 +38,7 @@ public sealed class CharacterAllocationTests {
             entities.Add(
                 walker,
                 CharacterMovement.Default with {
-                    Shape = scene.Shapes.Capsule(0.6f, 0.3f),
-                    CrouchShape = scene.Shapes.Capsule(0.3f, 0.3f)
+                    Shape = scene.Shapes.Capsule(0.6f, 0.3f), CrouchShape = scene.Shapes.Capsule(0.3f, 0.3f)
                 }
             );
 
@@ -56,7 +54,7 @@ public sealed class CharacterAllocationTests {
         }
 
         Assert.Equal(4, scene.CharacterCount);
-        Measured.NothingAllocated(() => scene.StepCharacters(Step), warmUp: 16, passes: 300);
+        Measured.NothingAllocated(() => scene.StepCharacters(Step), 16, 300);
     }
 
     /// <summary>
@@ -71,8 +69,7 @@ public sealed class CharacterAllocationTests {
 
         Measured.NothingAllocated(
             () => CharacterMotion.Step(settings, ref state, intent, CharacterGround.Grounded, Step),
-            warmUp: 16,
-            passes: 1_000
+            16
         );
     }
 }

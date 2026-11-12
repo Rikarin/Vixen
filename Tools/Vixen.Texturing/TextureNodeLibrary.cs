@@ -36,9 +36,13 @@ public sealed record TextureLibrary(
 ///         puts it in this menu with no edit anywhere.
 ///     </para>
 ///     <para>
-///         ⚠ <b>And a second half, which had no caller anywhere in the tree until now —
-///         <a href="https://github.com/Rikarin/Vixen/issues/799">#799</a> and
-///         <a href="https://github.com/Rikarin/Vixen/issues/803">#803</a>.</b> Doc 48 § 4.9's four
+///         ⚠
+///         <b>
+///             And a second half, which had no caller anywhere in the tree until now —
+///             <a href="https://github.com/Rikarin/Vixen/issues/799">#799</a> and
+///             <a href="https://github.com/Rikarin/Vixen/issues/803">#803</a>.
+///         </b>
+///         Doc 48 § 4.9's four
 ///         compounds ship inside <c>Vixen.TextureGraph</c> as <c>.vxtexgraph</c> files and
 ///         § D9's published graphs are the same mechanism; <c>TextureCompoundLibrary.Publish</c> is
 ///         what turns either into a node type, and it was called from three tests and nothing else.
@@ -58,8 +62,12 @@ public sealed record TextureLibrary(
 public static class TextureNodeLibrary {
     /// <summary>Where a project keeps the graphs it publishes as nodes, under <c>Assets/</c>.</summary>
     /// <remarks>
-    ///     ⚠ <b>An alias, and the convention itself is <see cref="TextureCompoundLibrary.Folder" />
-    ///     one assembly down</b> — <a href="https://github.com/Rikarin/Vixen/issues/1088">#1088</a>.
+    ///     ⚠
+    ///     <b>
+    ///         An alias, and the convention itself is <see cref="TextureCompoundLibrary.Folder" />
+    ///         one assembly down
+    ///     </b>
+    ///     — <a href="https://github.com/Rikarin/Vixen/issues/1088">#1088</a>.
     ///     It was spelled here, where <c>Tools/Vixen.Cli</c> cannot reach it, so the CLI spelled it
     ///     again. The name is kept because a dozen call sites read well with it and because this is
     ///     where a plugin author looks; what is gone is the second string.
@@ -78,8 +86,12 @@ public static class TextureNodeLibrary {
     /// <summary>What a mesh-map reference may measure, as the node itself declares it.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b><a href="https://github.com/Rikarin/Vixen/issues/964">#964</a>, and it is a
-    ///         plugin seam rather than a convenience.</b> The list lives in
+    ///         ⚠
+    ///         <b>
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/964">#964</a>, and it is a
+    ///             plugin seam rather than a convenience.
+    ///         </b>
+    ///         The list lives in
     ///         <c>Vixen.TextureGraph</c> and is <see langword="internal" /> to it — that
     ///         assembly's one <c>InternalsVisibleTo</c> names its own tests — so a panel in this
     ///         plugin could not ask what the nine were and shipped a <c>TextBox</c> in which a typo
@@ -116,7 +128,7 @@ public static class TextureNodeLibrary {
     public static NodeTypeRegistry Create() {
         var registry = new NodeTypeRegistry();
 
-        global::Vixen.TextureGraph.NodeTypes.Register(registry);
+        NodeTypes.Register(registry);
 
         return registry;
     }
@@ -144,8 +156,12 @@ public static class TextureNodeLibrary {
     /// <param name="assets">A project's <c>Assets/</c> folder, or <see langword="null" /> for none.</param>
     /// <returns>The folder, or <see langword="null" /> when there is no project.</returns>
     /// <remarks>
-    ///     ⚠ <b>The join itself is <see cref="TextureCompoundLibrary.FolderOf" /> one assembly
-    ///     down</b> — <a href="https://github.com/Rikarin/Vixen/issues/1088">#1088</a> — because
+    ///     ⚠
+    ///     <b>
+    ///         The join itself is <see cref="TextureCompoundLibrary.FolderOf" /> one assembly
+    ///         down
+    ///     </b>
+    ///     — <a href="https://github.com/Rikarin/Vixen/issues/1088">#1088</a> — because
     ///     <c>Tools/Vixen.Cli</c> needs the same three lines and cannot reference this plugin.
     ///     Kept here as the name this plugin's own callers already use.
     /// </remarks>

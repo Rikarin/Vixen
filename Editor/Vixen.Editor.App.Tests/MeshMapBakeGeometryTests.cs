@@ -5,7 +5,6 @@ using Vixen.Core.Yaml.Meta;
 using Vixen.Editor.Assets.Content;
 using Vixen.Editor.Assets.MeshMaps;
 using Vixen.Editor.Assets.Models;
-using Vixen.Editor.Core;
 using Vixen.Editor.Testing;
 using Xunit;
 
@@ -17,16 +16,23 @@ namespace Vixen.Editor.App.Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>The fixture is a cube with no <c>vt</c> line in it, imported with
-///         <c>UnwrapMode.Always</c> and its one mesh renamed.</b> So the file has no atlas at all and
+///         <b>
+///             The fixture is a cube with no <c>vt</c> line in it, imported with
+///             <c>UnwrapMode.Always</c> and its one mesh renamed.
+///         </b>
+///         So the file has no atlas at all and
 ///         the project has a perfectly good one — which is exactly the state an artist is in when
 ///         they ask for mesh maps, because unwrapping is what they did in order to be able to.
 ///         Reading the file, which is what this verb did, refused it with "none of its meshes carries
 ///         texture coordinates".
 ///     </para>
 ///     <para>
-///         ⚠ <b>The assertion is the task's title and not a written map, because the bake is on the
-///         pool.</b> <c>ContentTasks.BakeMeshMaps</c> starts it and returns; how long the casting
+///         ⚠
+///         <b>
+///             The assertion is the task's title and not a written map, because the bake is on the
+///             pool.
+///         </b>
+///         <c>ContentTasks.BakeMeshMaps</c> starts it and returns; how long the casting
 ///         takes is the machine's business, and a suite that waited for the PNGs would be a
 ///         wall-clock budget calibrated on an idle machine — this repository's largest flake source.
 ///         The title carries both halves of the claim anyway: a bake was started at all, and it is
@@ -42,29 +48,29 @@ namespace Vixen.Editor.App.Tests;
 public sealed class MeshMapBakeGeometryTests : IDisposable {
     /// <summary>A cube with no texture coordinates, so an atlas can only have been generated.</summary>
     const string Cube = """
-        o Cube
-        v -0.5 -0.5 -0.5
-        v 0.5 -0.5 -0.5
-        v 0.5 0.5 -0.5
-        v -0.5 0.5 -0.5
-        v -0.5 -0.5 0.5
-        v 0.5 -0.5 0.5
-        v 0.5 0.5 0.5
-        v -0.5 0.5 0.5
-        f 5 6 7
-        f 5 7 8
-        f 1 4 3
-        f 1 3 2
-        f 2 3 7
-        f 2 7 6
-        f 1 5 8
-        f 1 8 4
-        f 4 8 7
-        f 4 7 3
-        f 1 2 6
-        f 1 6 5
+                        o Cube
+                        v -0.5 -0.5 -0.5
+                        v 0.5 -0.5 -0.5
+                        v 0.5 0.5 -0.5
+                        v -0.5 0.5 -0.5
+                        v -0.5 -0.5 0.5
+                        v 0.5 -0.5 0.5
+                        v 0.5 0.5 0.5
+                        v -0.5 0.5 0.5
+                        f 5 6 7
+                        f 5 7 8
+                        f 1 4 3
+                        f 1 3 2
+                        f 2 3 7
+                        f 2 7 6
+                        f 1 5 8
+                        f 1 8 4
+                        f 4 8 7
+                        f 4 7 3
+                        f 1 2 6
+                        f 1 6 5
 
-        """;
+                        """;
 
     readonly string root = Path.Combine(
         Path.GetTempPath(),
@@ -74,7 +80,7 @@ public sealed class MeshMapBakeGeometryTests : IDisposable {
     /// <inheritdoc />
     public void Dispose() {
         if (Directory.Exists(root)) {
-            Directory.Delete(root, recursive: true);
+            Directory.Delete(root, true);
         }
     }
 
@@ -91,7 +97,10 @@ public sealed class MeshMapBakeGeometryTests : IDisposable {
         view.ResolutionPicker.Value = "256";
         view.SamplesPicker.Value = "16";
 
-        foreach (var box in new[] { view.Occlusion, view.Bent, view.Curvature, view.Thickness, view.PositionMap, view.WorldNormal, view.Identifiers }) {
+        foreach (var box in new[] {
+                     view.Occlusion, view.Bent, view.Curvature, view.Thickness, view.PositionMap, view.WorldNormal,
+                     view.Identifiers
+                 }) {
             box.IsChecked = false;
         }
 
@@ -106,16 +115,16 @@ public sealed class MeshMapBakeGeometryTests : IDisposable {
         session.Click(view.BakeButton);
         session.Settle();
 
-        titles.AddRange(session.Shell.Tasks.Tasks.Select(task => task.Title));
+        titles.AddRange(session.Shell.Tasks.Tasks.Select(static task => task.Title));
 
         // ⚠ 'Body' and not 'Cube'. The name is the sidecar's, which `SubAssetNames` chose; a bake
         // filed under the file's name would be a set no stack narrowed by `TextureSetAsset.Mesh`
         // could bind, which is the same rename read from the other end.
-        Assert.Contains(titles, title => title.Contains("Body", StringComparison.Ordinal));
+        Assert.Contains(titles, static title => title.Contains("Body", StringComparison.Ordinal));
 
         Assert.DoesNotContain(
             session.Shell.Notifications.History,
-            message => message.Message.Contains("Nothing to bake into", StringComparison.Ordinal)
+            static message => message.Message.Contains("Nothing to bake into", StringComparison.Ordinal)
         );
     }
 
@@ -144,7 +153,7 @@ public sealed class MeshMapBakeGeometryTests : IDisposable {
 
         Assert.Contains(
             session.Shell.Notifications.History,
-            message => (message.Detail ?? "").Contains("never imported", StringComparison.Ordinal)
+            static message => (message.Detail ?? string.Empty).Contains("never imported", StringComparison.Ordinal)
         );
     }
 
@@ -153,8 +162,10 @@ public sealed class MeshMapBakeGeometryTests : IDisposable {
 
     /// <summary>Selects the fixture's model in the project the session opened.</summary>
     static void Select(EditorSession session) {
-        var entry = session.Project.Assets.Entries.First(
-            candidate => candidate.Path.EndsWith("Hull.obj", StringComparison.Ordinal)
+        var entry = session.Project.Assets.Entries.First(static candidate => candidate.Path.EndsWith(
+                "Hull.obj",
+                StringComparison.Ordinal
+            )
         );
 
         session.Project.Selection.Set([entry.Guid]);
@@ -176,7 +187,7 @@ public sealed class MeshMapBakeGeometryTests : IDisposable {
 
         File.WriteAllText(absolute, Cube);
 
-        var workspace = new ProjectWorkspace(new ProjectPaths(root));
+        var workspace = new ProjectWorkspace(new(root));
 
         workspace.Database.Scan();
 
@@ -195,7 +206,7 @@ public sealed class MeshMapBakeGeometryTests : IDisposable {
 
         Assert.True(
             summary.Failed == 0,
-            "the import failed: " + string.Join("; ", said.Select(diagnostic => diagnostic.Message))
+            "the import failed: " + string.Join("; ", said.Select(static diagnostic => diagnostic.Message))
         );
 
         workspace.Save();

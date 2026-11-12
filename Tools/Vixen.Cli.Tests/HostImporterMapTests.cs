@@ -15,5 +15,6 @@ namespace Vixen.Cli.Tests;
 public sealed class HostImporterMapTests {
     /// <summary>The gate.</summary>
     [Fact]
-    public void The_clis_registry_has_every_hosts_map() => HostImporterMap.AssertHost("vixen CLI", VixenCommand.LinkImporters);
+    public void The_clis_registry_has_every_hosts_map() =>
+        HostImporterMap.AssertHost("vixen CLI", VixenCommand.LinkImporters);
 }

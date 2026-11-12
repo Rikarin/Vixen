@@ -26,15 +26,23 @@ namespace Vixen.Ui.Desktop;
 ///         wrong picture. A host that has to name eight modules is a host where somebody names four.
 ///     </para>
 ///     <para>
-///         ⚠ <b>These are Raven's, compiled from <c>Shaders/Ui.rvn</c> by this repository's own
-///         compiler.</b> They were hand-written GLSL until 2026-08-23, committed three times and
+///         ⚠
+///         <b>
+///             These are Raven's, compiled from <c>Shaders/Ui.rvn</c> by this repository's own
+///             compiler.
+///         </b>
+///         They were hand-written GLSL until 2026-08-23, committed three times and
 ///         compiled by whatever <c>glslc</c> was on the machine of whoever last touched them — which
 ///         is what <c>SharedUiShaderTests</c> existed to police, after two of the three copies had
 ///         already lost the whole shadow path.
 ///     </para>
 ///     <para>
-///         ⚠ <b>So the vertex attribute locations are not 0 to 3, and that is the one thing a host
-///         cannot guess.</b> Raven's <c>StreamPlan</c> puts a stage's own parameters <i>after</i> the
+///         ⚠
+///         <b>
+///             So the vertex attribute locations are not 0 to 3, and that is the one thing a host
+///             cannot guess.
+///         </b>
+///         Raven's <c>StreamPlan</c> puts a stage's own parameters <i>after</i> the
 ///         shader's streams, so <c>Ui.rvn</c>'s three streams push the four vertex attributes to 3
 ///         through 6 — and adding a stream moves them again. They are read out of the compiler's own
 ///         reflection below rather than written down, because a wrong location is not a validation
@@ -56,7 +64,7 @@ public static class UiShaderLibrary {
     public static UiShaders Load(IGraphicsDevice device) {
         ArgumentNullException.ThrowIfNull(device);
 
-        return new UiShaders(
+        return new(
             device.CreateShader(ShaderStage.Vertex, Module("UiVertex.vert.spv"), "ui vertex"),
             device.CreateShader(ShaderStage.Fragment, Module("UiBox.frag.spv"), "ui box"),
             device.CreateShader(ShaderStage.Fragment, Module("UiText.frag.spv"), "ui text"),

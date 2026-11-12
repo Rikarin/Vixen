@@ -52,12 +52,15 @@ public sealed class InstanceApiLifetimeTests {
                     reuses++;
                 }
 
-                var cached = instance.Api.GetPhysicalDevices(instance.Handle).Select(d => d.Handle).Order().ToArray();
-                var live = Enumerate(instance).Select(d => d.Handle).Order().ToArray();
+                var cached = instance.Api.GetPhysicalDevices(instance.Handle)
+                    .Select(static d => d.Handle)
+                    .Order()
+                    .ToArray();
+                var live = Enumerate(instance).Select(static d => d.Handle).Order().ToArray();
 
                 if (!cached.SequenceEqual(live)) {
                     wrong.Add(
-                        $"attempt {attempt}: instance 0x{address:X}{(reused ? " (a reused address)" : "")} "
+                        $"attempt {attempt}: instance 0x{address:X}{(reused ? " (a reused address)" : string.Empty)} "
                         + $"was answered with [{Hex(cached)}] while it enumerates [{Hex(live)}]"
                     );
                 }
@@ -67,11 +70,14 @@ public sealed class InstanceApiLifetimeTests {
         Assert.True(
             wrong.Count == 0,
             $"{wrong.Count} device(s) were told about physical devices that are not their instance's — "
-            + "a destroyed instance's freed handles:\n" + string.Join("\n", wrong)
+            + "a destroyed instance's freed handles:\n"
+            + string.Join("\n", wrong)
         );
 
         if (reuses == 0) {
-            Assert.Skip($"No instance address repeated in {Attempts} devices, so nothing here could see a stale cache.");
+            Assert.Skip(
+                $"No instance address repeated in {Attempts} devices, so nothing here could see a stale cache."
+            );
         }
     }
 
@@ -87,5 +93,5 @@ public sealed class InstanceApiLifetimeTests {
         return devices;
     }
 
-    static string Hex(nint[] handles) => string.Join(", ", handles.Select(h => $"0x{h:X}"));
+    static string Hex(nint[] handles) => string.Join(", ", handles.Select(static h => $"0x{h:X}"));
 }

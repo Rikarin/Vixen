@@ -51,9 +51,7 @@ public sealed class DesktopSupplementTests {
     public void WithoutASupplementTheServicesAreSdlsAndThereAreNoDialogs() {
         Assert.SkipUnless(SdlLibrary.IsAvailable, "SDL2 is not installed on this machine.");
 
-        using var platform = new DesktopPlatform(
-            Options(null) with { UseNativeSupplement = false }
-        );
+        using var platform = new DesktopPlatform(Options(null) with { UseNativeSupplement = false });
 
         Assert.IsType<DesktopClipboard>(platform.Clipboard);
         Assert.IsType<DesktopDialogs>(platform.Dialogs);

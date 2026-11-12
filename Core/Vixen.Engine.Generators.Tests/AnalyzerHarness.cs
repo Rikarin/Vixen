@@ -30,108 +30,108 @@ namespace Vixen.Engine.Generators.Tests;
 public static class AnalyzerHarness {
     /// <summary>Enough of the engine for the rules to bind against.</summary>
     public const string Engine = """
-        namespace Vixen.Core {
-            public readonly record struct Entity(int Id, int Version, short WorldId);
+                                 namespace Vixen.Core {
+                                     public readonly record struct Entity(int Id, int Version, short WorldId);
 
-            [System.AttributeUsage(System.AttributeTargets.Struct | System.AttributeTargets.Class)]
-            public sealed class ComponentAttribute : System.Attribute;
+                                     [System.AttributeUsage(System.AttributeTargets.Struct | System.AttributeTargets.Class)]
+                                     public sealed class ComponentAttribute : System.Attribute;
 
-            [System.AttributeUsage(System.AttributeTargets.Struct | System.AttributeTargets.Class)]
-            public sealed class DataContractAttribute : System.Attribute {
-                public DataContractAttribute() { }
-                public DataContractAttribute(string alias) { }
-            }
-        }
+                                     [System.AttributeUsage(System.AttributeTargets.Struct | System.AttributeTargets.Class)]
+                                     public sealed class DataContractAttribute : System.Attribute {
+                                         public DataContractAttribute() { }
+                                         public DataContractAttribute(string alias) { }
+                                     }
+                                 }
 
-        namespace Vixen.Ecs {
-            using Vixen.Core;
+                                 namespace Vixen.Ecs {
+                                     using Vixen.Core;
 
-            public interface ITagComponent;
+                                     public interface ITagComponent;
 
-            public sealed class QueryDescription;
+                                     public sealed class QueryDescription;
 
-            public readonly struct Chunk {
-                public int Count => 0;
-            }
+                                     public readonly struct Chunk {
+                                         public int Count => 0;
+                                     }
 
-            public readonly struct ChunkSequence {
-                public Enumerator GetEnumerator() => new();
+                                     public readonly struct ChunkSequence {
+                                         public Enumerator GetEnumerator() => new();
 
-                public struct Enumerator {
-                    public Chunk Current => default;
-                    public bool MoveNext() => false;
-                }
-            }
+                                         public struct Enumerator {
+                                             public Chunk Current => default;
+                                             public bool MoveNext() => false;
+                                         }
+                                     }
 
-            static class Storage<T> {
-                public static T Value = default!;
-            }
+                                     static class Storage<T> {
+                                         public static T Value = default!;
+                                     }
 
-            public sealed class Query {
-                public ChunkSequence Chunks(uint since = 0) => default;
-            }
+                                     public sealed class Query {
+                                         public ChunkSequence Chunks(uint since = 0) => default;
+                                     }
 
-            public sealed class World {
-                public Entity Create() => default;
-                public void CreateMany(int count) { }
-                public void Destroy(Entity entity) { }
-                public void Add<T>(Entity entity, in T value) { }
-                public void Remove<T>(Entity entity) { }
-                public void Set<T>(Entity entity, in T value) { }
-                public ref T Get<T>(Entity entity) => ref Storage<T>.Value;
-                public ref readonly T Read<T>(Entity entity) => ref Storage<T>.Value;
-                public Query Query(QueryDescription description) => new();
-                public ChunkSequence Chunks(QueryDescription description, uint since = 0) => default;
-            }
+                                     public sealed class World {
+                                         public Entity Create() => default;
+                                         public void CreateMany(int count) { }
+                                         public void Destroy(Entity entity) { }
+                                         public void Add<T>(Entity entity, in T value) { }
+                                         public void Remove<T>(Entity entity) { }
+                                         public void Set<T>(Entity entity, in T value) { }
+                                         public ref T Get<T>(Entity entity) => ref Storage<T>.Value;
+                                         public ref readonly T Read<T>(Entity entity) => ref Storage<T>.Value;
+                                         public Query Query(QueryDescription description) => new();
+                                         public ChunkSequence Chunks(QueryDescription description, uint since = 0) => default;
+                                     }
 
-            public delegate void QueryAction<T0>(ref T0 component0);
+                                     public delegate void QueryAction<T0>(ref T0 component0);
 
-            public interface IForEach<T0> {
-                void Update(ref T0 component0);
-            }
+                                     public interface IForEach<T0> {
+                                         void Update(ref T0 component0);
+                                     }
 
-            public static class WorldQueryExtensions {
-                public static void Query<T0>(this World world, QueryDescription description, QueryAction<T0> action, uint since = 0) { }
+                                     public static class WorldQueryExtensions {
+                                         public static void Query<T0>(this World world, QueryDescription description, QueryAction<T0> action, uint since = 0) { }
 
-                public static void ForEach<TVisitor, T0>(this World world, QueryDescription description, ref TVisitor visitor, uint since = 0)
-                    where TVisitor : struct, IForEach<T0> { }
-            }
-        }
+                                         public static void ForEach<TVisitor, T0>(this World world, QueryDescription description, ref TVisitor visitor, uint since = 0)
+                                             where TVisitor : struct, IForEach<T0> { }
+                                     }
+                                 }
 
-        namespace Vixen.Engine.Coroutines {
-            public sealed class Coroutine;
+                                 namespace Vixen.Engine.Coroutines {
+                                     public sealed class Coroutine;
 
-            public readonly struct CoroutineHandle;
+                                     public readonly struct CoroutineHandle;
 
-            public sealed class CoroutineScheduler {
-                public CoroutineHandle Run(Coroutine coroutine) => default;
-            }
-        }
+                                     public sealed class CoroutineScheduler {
+                                         public CoroutineHandle Run(Coroutine coroutine) => default;
+                                     }
+                                 }
 
-        namespace Vixen.Engine.Behaviors {
-            using Vixen.Core;
-            using Vixen.Ecs;
-            using Vixen.Engine.Coroutines;
+                                 namespace Vixen.Engine.Behaviors {
+                                     using Vixen.Core;
+                                     using Vixen.Ecs;
+                                     using Vixen.Engine.Coroutines;
 
-            [System.AttributeUsage(System.AttributeTargets.Class, Inherited = false)]
-            public sealed class BehaviorJobAttribute : System.Attribute;
+                                     [System.AttributeUsage(System.AttributeTargets.Class, Inherited = false)]
+                                     public sealed class BehaviorJobAttribute : System.Attribute;
 
-            public abstract class Behavior {
-                public Entity Entity { get; set; }
-                public World World { get; set; } = new();
-                public bool Enabled { get; set; }
-                public CoroutineScheduler Coroutines => new();
-                public ref T Get<T>() => ref World.Get<T>(Entity);
-                public ref readonly T Read<T>() => ref World.Read<T>(Entity);
-                public void Destroy() { }
-                public CoroutineHandle Run(Coroutine coroutine) => Coroutines.Run(coroutine);
-                public void StopCoroutines() { }
-                protected virtual void Awake() { }
-                protected virtual void Update() { }
-                protected virtual void LateUpdate() { }
-            }
-        }
-        """;
+                                     public abstract class Behavior {
+                                         public Entity Entity { get; set; }
+                                         public World World { get; set; } = new();
+                                         public bool Enabled { get; set; }
+                                         public CoroutineScheduler Coroutines => new();
+                                         public ref T Get<T>() => ref World.Get<T>(Entity);
+                                         public ref readonly T Read<T>() => ref World.Read<T>(Entity);
+                                         public void Destroy() { }
+                                         public CoroutineHandle Run(Coroutine coroutine) => Coroutines.Run(coroutine);
+                                         public void StopCoroutines() { }
+                                         protected virtual void Awake() { }
+                                         protected virtual void Update() { }
+                                         protected virtual void LateUpdate() { }
+                                     }
+                                 }
+                                 """;
 
     static readonly ImmutableArray<MetadataReference> References = CollectReferences();
 
@@ -157,20 +157,18 @@ public static class AnalyzerHarness {
         );
 
         var broken = compilation.GetDiagnostics()
-            .Where(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error)
+            .Where(static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error)
             .ToImmutableArray();
 
         if (broken.Length != 0) {
-            throw new InvalidOperationException(
-                $"The source under test does not compile: {string.Join("; ", broken)}"
-            );
+            throw new InvalidOperationException($"The source under test does not compile: {string.Join("; ", broken)}");
         }
 
         var reported = await compilation
             .WithAnalyzers(ImmutableArray.Create(analyzer))
             .GetAnalyzerDiagnosticsAsync(TestContext.Current.CancellationToken);
 
-        return [.. reported.OrderBy(diagnostic => diagnostic.Location.SourceSpan.Start)];
+        return [..reported.OrderBy(static diagnostic => diagnostic.Location.SourceSpan.Start)];
     }
 
     /// <summary>The source a diagnostic underlined.</summary>

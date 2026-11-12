@@ -30,10 +30,18 @@ public class TextureNoiseFamilyDeviceTests(ITestOutputHelper output) {
         int side = Side,
         bool tiling = true
     ) =>
-        Bake(device, "Source/Noise", side, side, [], node => {
-            node.SetText("Basis", basis);
-            numbers(node);
-        }, tiling: tiling);
+        Bake(
+            device,
+            "Source/Noise",
+            side,
+            side,
+            [],
+            node => {
+                node.SetText("Basis", basis);
+                numbers(node);
+            },
+            tiling: tiling
+        );
 
     static void Each(int side, Action<int, int> check) {
         for (var y = 0; y < side; y++) {
@@ -54,25 +62,39 @@ public class TextureNoiseFamilyDeviceTests(ITestOutputHelper output) {
         output.WriteLine($"adapter: {TextureKernelHarness.Adapter(device)}");
 
         foreach (var basis in (string[])["Gradient", "Value", "Gaussian"]) {
-            var still = Noise(device, basis, node => node.SetValue("Octaves", 3f));
-            var rolled = Noise(device, basis, node => {
-                node.SetValue("Octaves", 3f);
-                node.SetValue("Offset X", 5f / 8f);
-                node.SetValue("Offset Y", 9f / 8f);
-            });
-            var round = Noise(device, basis, node => {
-                node.SetValue("Octaves", 3f);
-                node.SetValue("Offset X", 8f);
-                node.SetValue("Offset Y", -16f);
-            });
+            var still = Noise(device, basis, static node => node.SetValue("Octaves", 3f));
+            var rolled = Noise(
+                device,
+                basis,
+                static node => {
+                    node.SetValue("Octaves", 3f);
+                    node.SetValue("Offset X", 5f / 8f);
+                    node.SetValue("Offset Y", 9f / 8f);
+                }
+            );
+            var round = Noise(
+                device,
+                basis,
+                static node => {
+                    node.SetValue("Octaves", 3f);
+                    node.SetValue("Offset X", 8f);
+                    node.SetValue("Offset Y", -16f);
+                }
+            );
 
-            Each(Side, (x, y) => {
-                Assert.Equal(still.At((x + 5) % Side, (y + 9) % Side, 0), rolled.At(x, y, 0), 0.0005f);
-                Assert.Equal(still.At(x, y, 0), round.At(x, y, 0), 0.0005f);
-            });
+            Each(
+                Side,
+                (x, y) => {
+                    Assert.Equal(still.At((x + 5) % Side, (y + 9) % Side, 0), rolled.At(x, y, 0), 0.0005f);
+                    Assert.Equal(still.At(x, y, 0), round.At(x, y, 0), 0.0005f);
+                }
+            );
 
             // ⚠ And the offset moved something: a roll of a field that ignored it is the field.
-            Assert.True(MathF.Abs(still.At(3, 3, 0) - rolled.At(3, 3, 0)) > 0.0001f || MathF.Abs(still.At(40, 17, 0) - rolled.At(40, 17, 0)) > 0.0001f);
+            Assert.True(
+                MathF.Abs(still.At(3, 3, 0) - rolled.At(3, 3, 0)) > 0.0001f
+                || MathF.Abs(still.At(40, 17, 0) - rolled.At(40, 17, 0)) > 0.0001f
+            );
         }
     }
 
@@ -86,28 +108,43 @@ public class TextureNoiseFamilyDeviceTests(ITestOutputHelper output) {
 
         foreach (var basis in (string[])["Gradient", "Value", "Worley", "White"]) {
             var plain = Noise(device, basis, static node => node.SetValue("Octaves", 3f));
-            var nought = Noise(device, basis, static node => {
-                node.SetValue("Octaves", 3f);
-                node.SetValue("Seed", 0f);
-            });
-            var seven = Noise(device, basis, static node => {
-                node.SetValue("Octaves", 3f);
-                node.SetValue("Seed", 7f);
-            });
-            var again = Noise(device, basis, static node => {
-                node.SetValue("Octaves", 3f);
-                node.SetValue("Seed", 7f);
-            });
+            var nought = Noise(
+                device,
+                basis,
+                static node => {
+                    node.SetValue("Octaves", 3f);
+                    node.SetValue("Seed", 0f);
+                }
+            );
+            var seven = Noise(
+                device,
+                basis,
+                static node => {
+                    node.SetValue("Octaves", 3f);
+                    node.SetValue("Seed", 7f);
+                }
+            );
+            var again = Noise(
+                device,
+                basis,
+                static node => {
+                    node.SetValue("Octaves", 3f);
+                    node.SetValue("Seed", 7f);
+                }
+            );
             var moved = 0;
 
-            Each(Side, (x, y) => {
-                Assert.Equal(plain.At(x, y, 0), nought.At(x, y, 0), 0.0001f);
-                Assert.Equal(seven.At(x, y, 0), again.At(x, y, 0), 0.0001f);
+            Each(
+                Side,
+                (x, y) => {
+                    Assert.Equal(plain.At(x, y, 0), nought.At(x, y, 0), 0.0001f);
+                    Assert.Equal(seven.At(x, y, 0), again.At(x, y, 0), 0.0001f);
 
-                if (MathF.Abs(plain.At(x, y, 0) - seven.At(x, y, 0)) > 0.01f) {
-                    moved++;
+                    if (MathF.Abs(plain.At(x, y, 0) - seven.At(x, y, 0)) > 0.01f) {
+                        moved++;
+                    }
                 }
-            });
+            );
 
             // Most texels of an independent draw disagree; a seed the kernel ignored would move none.
             Assert.True(moved > Side * Side / 2, $"{basis}: a seed of 7 moved {moved} of {Side * Side} texels.");
@@ -122,19 +159,30 @@ public class TextureNoiseFamilyDeviceTests(ITestOutputHelper output) {
         // eight tall, and no taller — whether the axis rounds to a period because it wraps or takes the
         // number as it is because it does not.
         foreach (var tiling in (bool[])[true, false]) {
-            Blocks(Noise(device, "White", node => {
-                node.SetValue("Scale", 16f);
-                node.SetValue("Scale Y", 0.5f);
-            }, tiling: tiling));
+            Blocks(
+                Noise(
+                    device,
+                    "White",
+                    static node => {
+                        node.SetValue("Scale", 16f);
+                        node.SetValue("Scale Y", 0.5f);
+                    },
+                    tiling: tiling
+                )
+            );
         }
 
         // And x alone: thirty-two across and eight down.
-        var stretched = Noise(device, "White", node => {
-            node.SetValue("Scale", 8f);
-            node.SetValue("Scale X", 4f);
-        });
+        var stretched = Noise(
+            device,
+            "White",
+            static node => {
+                node.SetValue("Scale", 8f);
+                node.SetValue("Scale X", 4f);
+            }
+        );
 
-        Each(Side, (x, y) => Assert.Equal(stretched.At(x - (x % 2), y - (y % 8), 0), stretched.At(x, y, 0), 0.0001f));
+        Each(Side, (x, y) => Assert.Equal(stretched.At(x - x % 2, y - y % 8, 0), stretched.At(x, y, 0), 0.0001f));
         Assert.NotEqual(stretched.At(0, 0, 0), stretched.At(2, 0, 0), 0.0001f);
     }
 
@@ -147,7 +195,7 @@ public class TextureNoiseFamilyDeviceTests(ITestOutputHelper output) {
 
                 for (var y = 0; y < 8; y++) {
                     for (var x = 0; x < 4; x++) {
-                        Assert.Equal(value, white.At((bx * 4) + x, (by * 8) + y, 0), 0.0001f);
+                        Assert.Equal(value, white.At(bx * 4 + x, by * 8 + y, 0), 0.0001f);
                     }
                 }
 
@@ -165,35 +213,43 @@ public class TextureNoiseFamilyDeviceTests(ITestOutputHelper output) {
 
         const float Gain = 0.6f;
 
-        foreach (var (basis, profile) in (ReadOnlySpan<(string, string)>)[("Value", "Plain"), ("Gradient", "Ridged"), ("Worley", "Plain")]) {
+        foreach (var (basis, profile) in (ReadOnlySpan<(string, string)>)
+                 [("Value", "Plain"), ("Gradient", "Ridged"), ("Worley", "Plain")]) {
             Lanes Sum(int first, int count) =>
-                Noise(device, basis, node => {
-                    node.SetText("Profile", profile);
-                    node.SetValue("Scale", 4f);
-                    node.SetValue("Gain", Gain);
-                    node.SetValue("Min Octave", first);
-                    node.SetValue("Octaves", count);
-                });
+                Noise(
+                    device,
+                    basis,
+                    node => {
+                        node.SetText("Profile", profile);
+                        node.SetValue("Scale", 4f);
+                        node.SetValue("Gain", Gain);
+                        node.SetValue("Min Octave", first);
+                        node.SetValue("Octaves", count);
+                    }
+                );
 
             var whole = Sum(0, 2);
             var head = Sum(0, 1);
             var tail = Sum(1, 1);
             var differs = 0;
 
-            Each(Side, (x, y) => {
-                // Worley sums F1 in red and F2 in green; every other basis is grey.
-                for (var lane = 0; lane < (basis == "Worley" ? 2 : 1); lane++) {
-                    var expected = (head.At(x, y, lane) + (Gain * tail.At(x, y, lane))) / (1f + Gain);
+            Each(
+                Side,
+                (x, y) => {
+                    // Worley sums F1 in red and F2 in green; every other basis is grey.
+                    for (var lane = 0; lane < (basis == "Worley" ? 2 : 1); lane++) {
+                        var expected = (head.At(x, y, lane) + Gain * tail.At(x, y, lane)) / (1f + Gain);
 
-                    Assert.Equal(expected, whole.At(x, y, lane), 0.0005f);
+                        Assert.Equal(expected, whole.At(x, y, lane), 0.0005f);
+                    }
+
+                    differs += MathF.Abs(head.At(x, y, 0) - tail.At(x, y, 0)) > 0.05f ? 1 : 0;
                 }
-
-                differs += MathF.Abs(head.At(x, y, 0) - tail.At(x, y, 0)) > 0.05f ? 1 : 0;
-            });
+            );
 
             // ⚠ The tail is its own octave: a kernel that ignored the first octave would make the identity
             // hold between three copies of one picture.
-            Assert.True(differs > (Side * Side) / 4, $"{basis}: the octave a sum starts at made no difference.");
+            Assert.True(differs > Side * Side / 4, $"{basis}: the octave a sum starts at made no difference.");
 
             if (basis == "Worley") {
                 // The cell index is the first summed octave's, and the sum leaves it alone.
@@ -207,21 +263,28 @@ public class TextureNoiseFamilyDeviceTests(ITestOutputHelper output) {
         using var device = TextureKernelHarness.Open();
 
         Lanes Folded(string profile, int octaves) =>
-            Noise(device, "Gradient", node => {
-                node.SetText("Profile", profile);
-                node.SetValue("Octaves", octaves);
-            });
+            Noise(
+                device,
+                "Gradient",
+                node => {
+                    node.SetText("Profile", profile);
+                    node.SetValue("Octaves", octaves);
+                }
+            );
 
         var plain = Folded("Plain", 1);
         var ridged = Folded("Ridged", 1);
         var billow = Folded("Billow", 1);
 
-        Each(Side, (x, y) => {
-            var v = plain.At(x, y, 0);
+        Each(
+            Side,
+            (x, y) => {
+                var v = plain.At(x, y, 0);
 
-            Assert.Equal(1f - MathF.Abs((2f * v) - 1f), ridged.At(x, y, 0), 0.0005f);
-            Assert.Equal(MathF.Abs((2f * v) - 1f), billow.At(x, y, 0), 0.0005f);
-        });
+                Assert.Equal(1f - MathF.Abs(2f * v - 1f), ridged.At(x, y, 0), 0.0005f);
+                Assert.Equal(MathF.Abs(2f * v - 1f), billow.At(x, y, 0), 0.0005f);
+            }
+        );
 
         // ⚠ Per octave and not on the sum: folding a three-octave sum once is a contour line, and it is not
         // what the kernel draws.
@@ -229,7 +292,13 @@ public class TextureNoiseFamilyDeviceTests(ITestOutputHelper output) {
         var foldedSum = Folded("Ridged", 3);
         var largest = 0f;
 
-        Each(Side, (x, y) => largest = MathF.Max(largest, MathF.Abs(1f - MathF.Abs((2f * sum.At(x, y, 0)) - 1f) - foldedSum.At(x, y, 0))));
+        Each(
+            Side,
+            (x, y) => largest = MathF.Max(
+                largest,
+                MathF.Abs(1f - MathF.Abs(2f * sum.At(x, y, 0) - 1f) - foldedSum.At(x, y, 0))
+            )
+        );
 
         Assert.True(largest > 0.05f, $"A ridged sum is within {largest} of the folded plain sum.");
     }
@@ -243,20 +312,25 @@ public class TextureNoiseFamilyDeviceTests(ITestOutputHelper output) {
         using var device = TextureKernelHarness.Open();
 
         foreach (var basis in (string[])["Value", "Gradient", "Worley", "White", "Gaussian"]) {
-            var field = Noise(device, basis, node => {
-                node.SetText("Profile", "Ridged");
-                node.SetValue("Scale", 3.3f);
-                node.SetValue("Scale X", 1.7f);
-                node.SetValue("Scale Y", 0.6f);
-                node.SetValue("Offset X", 0.31f);
-                node.SetValue("Offset Y", 0.77f);
-                node.SetValue("Min Octave", 1f);
-                node.SetValue("Octaves", 3f);
-                node.SetValue("Lacunarity", 2.3f);
-            }, 128);
+            var field = Noise(
+                device,
+                basis,
+                static node => {
+                    node.SetText("Profile", "Ridged");
+                    node.SetValue("Scale", 3.3f);
+                    node.SetValue("Scale X", 1.7f);
+                    node.SetValue("Scale Y", 0.6f);
+                    node.SetValue("Offset X", 0.31f);
+                    node.SetValue("Offset Y", 0.77f);
+                    node.SetValue("Min Octave", 1f);
+                    node.SetValue("Octaves", 3f);
+                    node.SetValue("Lacunarity", 2.3f);
+                },
+                128
+            );
 
             for (var lane = 0; lane < (basis == "Worley" ? 2 : 1); lane++) {
-                float Mean(Func<int, float> difference) {
+                static float Mean(Func<int, float> difference) {
                     var sum = 0f;
 
                     for (var line = 0; line < 128; line++) {
@@ -276,8 +350,14 @@ public class TextureNoiseFamilyDeviceTests(ITestOutputHelper output) {
                     stepY = MathF.Max(stepY, Mean(x => MathF.Abs(field.At(x, at + 1, lane) - field.At(x, at, lane))));
                 }
 
-                Assert.True(acrossX <= (1.2f * stepX) + 0.001f, $"{basis} lane {lane}: x seam {acrossX} against steps of {stepX}");
-                Assert.True(acrossY <= (1.2f * stepY) + 0.001f, $"{basis} lane {lane}: y seam {acrossY} against steps of {stepY}");
+                Assert.True(
+                    acrossX <= 1.2f * stepX + 0.001f,
+                    $"{basis} lane {lane}: x seam {acrossX} against steps of {stepX}"
+                );
+                Assert.True(
+                    acrossY <= 1.2f * stepY + 0.001f,
+                    $"{basis} lane {lane}: y seam {acrossY} against steps of {stepY}"
+                );
             }
         }
     }
@@ -295,22 +375,30 @@ public class TextureNoiseFamilyDeviceTests(ITestOutputHelper output) {
         const int Wide = 128;
 
         (float Mean, float Deviation, float WithinOne) Moments(string basis) {
-            var lattice = Noise(device, basis, node => {
-                node.SetValue("Scale", Wide);
-                node.SetValue("Offset X", -0.5f);
-                node.SetValue("Offset Y", -0.5f);
-            }, Wide);
+            var lattice = Noise(
+                device,
+                basis,
+                node => {
+                    node.SetValue("Scale", Wide);
+                    node.SetValue("Offset X", -0.5f);
+                    node.SetValue("Offset Y", -0.5f);
+                },
+                Wide
+            );
 
             double sum = 0;
             double squares = 0;
 
-            Each(Wide, (x, y) => {
-                sum += lattice.At(x, y, 0);
-                squares += lattice.At(x, y, 0) * lattice.At(x, y, 0);
-            });
+            Each(
+                Wide,
+                (x, y) => {
+                    sum += lattice.At(x, y, 0);
+                    squares += lattice.At(x, y, 0) * lattice.At(x, y, 0);
+                }
+            );
 
             var mean = sum / (Wide * Wide);
-            var deviation = Math.Sqrt((squares / (Wide * Wide)) - (mean * mean));
+            var deviation = Math.Sqrt(squares / (Wide * Wide) - mean * mean);
             var within = 0;
 
             Each(Wide, (x, y) => within += Math.Abs(lattice.At(x, y, 0) - mean) < deviation ? 1 : 0);

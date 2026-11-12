@@ -85,7 +85,7 @@ public class ImageViewTests {
         var view = Hosted(fixture);
 
         view.Zoom = 1f;
-        view.Pan = new Vector2(10f, 20f);
+        view.Pan = new(10f, 20f);
         fixture.Update();
 
         // ⚠ Deliberately not the centre of the pane. The centre is the fixed point of a zoom about
@@ -150,7 +150,7 @@ public class ImageViewTests {
 
         var image = view.ImageBounds;
 
-        Assert.Equal(new Rectangle(0f, 0f, 100f, 50f), image);
+        Assert.Equal(new(0f, 0f, 100f, 50f), image);
 
         // The light half is one rectangle over exactly the visible part of the image — so a
         // transparent texture reads as see-through and the pane around it does not.
@@ -213,8 +213,8 @@ public class ImageViewTests {
         var view = Hosted(fixture, 100, 50);
 
         view.Zoom = 4f;
-        view.Pan = new Vector2(5f, 10f);
-        view.Overlay.Add(new ImageOverlaySegment(new Vector2(10f, 20f), new Vector2(60f, 30f)));
+        view.Pan = new(5f, 10f);
+        view.Overlay.Add(new(new(10f, 20f), new(60f, 30f)));
         fixture.Update();
 
         var stroke = fixture.Document.Drawing.Commands
@@ -228,7 +228,7 @@ public class ImageViewTests {
 
         // The same arithmetic the image is drawn through, which is the whole point of the overlay
         // being in image space: (10, 20) with the view panned to (5, 10) at 4× is (20, 40).
-        Assert.Equal(view.ToScreen(new Vector2(10f, 20f)).X, from.X, 3);
+        Assert.Equal(view.ToScreen(new(10f, 20f)).X, from.X, 3);
         Assert.Equal(20f, from.X, 3);
         Assert.Equal(40f, from.Y, 3);
         Assert.Equal(220f, to.X, 3);
@@ -247,7 +247,7 @@ public class ImageViewTests {
             static command => command.Kind == DrawCommandKind.PathStroke
         );
 
-        view.Overlay.Add(new ImageOverlaySegment(default, new Vector2(1f, 1f)));
+        view.Overlay.Add(new ImageOverlaySegment(default, new(1f, 1f)));
         fixture.Update();
 
         Assert.Contains(
@@ -275,7 +275,7 @@ public class ImageViewTests {
         view.ColorSpace = ImageColorSpace.Linear;
         Assert.Equal(2, asked);
 
-        Assert.Equal(new ImageViewRequest(ImageChannels.Alpha, ImageColorSpace.Linear), view.Requested);
+        Assert.Equal(new(ImageChannels.Alpha, ImageColorSpace.Linear), view.Requested);
     }
 
     /// <summary>
@@ -283,8 +283,12 @@ public class ImageViewTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>This test used to assert the opposite, and the claim it pinned was true when it
-    ///         was written.</b> The draw list's image command carried a tint and a source rectangle;
+    ///         ⚠
+    ///         <b>
+    ///             This test used to assert the opposite, and the claim it pinned was true when it
+    ///             was written.
+    ///         </b>
+    ///         The draw list's image command carried a tint and a source rectangle;
     ///         a tint multiplies, and neither an alpha isolate nor a transfer function is a multiply,
     ///         so both toggles were a request nothing had to honour.
     ///         <see href="https://github.com/Rikarin/Vixen/issues/611">#611</see> gave the command a
@@ -321,9 +325,10 @@ public class ImageViewTests {
         view.ColorSpace = ImageColorSpace.Linear;
         fixture.Update();
 
-        var isolated = fixture.Document.Drawing.Commands.Single(static command => command.Kind == DrawCommandKind.Image);
+        var isolated = fixture.Document.Drawing.Commands.Single(static command => command.Kind == DrawCommandKind.Image
+        );
 
-        Assert.Equal(new UiImageView(UiImageChannel.Alpha, true), isolated.View);
+        Assert.Equal(new(UiImageChannel.Alpha, true), isolated.View);
 
         // ⚠ And nothing else moved. A control that reached the picture by tinting, by drawing a
         // second command or by narrowing the source rectangle would be caught by exactly these three
@@ -356,7 +361,7 @@ public class ImageViewTests {
         var view = fixture.Add<ImageView>();
 
         view.Image = 12;
-        view.Overlay.Add(new ImageOverlaySegment(default, new Vector2(1f, 1f)));
+        view.Overlay.Add(new ImageOverlaySegment(default, new(1f, 1f)));
         fixture.Update();
 
         // ⚠ The extent is the denominator of every coordinate here, so a handle without one is a

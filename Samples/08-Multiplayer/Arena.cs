@@ -5,7 +5,6 @@ using Vixen.Core;
 using Vixen.Core.Mathematics;
 using Vixen.Ecs;
 using Vixen.Engine.Behaviors;
-using Vixen.Net.Engine;
 using Vixen.Net.Motion;
 using Vixen.Net.Replication;
 using Vixen.Net.Rpc;
@@ -306,7 +305,7 @@ internal sealed class Arena {
                 fighter.Intent = Vector3.Zero;
             }
 
-            var position = world.Read<NetworkTransform>(fighter.Entity).Position + (fighter.Intent * Speed * step);
+            var position = world.Read<NetworkTransform>(fighter.Entity).Position + fighter.Intent * Speed * step;
 
             if (position.LengthSquared() > Radius * Radius) {
                 position = Vector3.Normalize(position) * Radius;

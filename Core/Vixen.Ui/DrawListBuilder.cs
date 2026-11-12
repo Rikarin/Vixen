@@ -62,10 +62,12 @@ public sealed partial class DrawListBuilder {
     ///     rather than two.
     /// </remarks>
     readonly List<ResolvedShadow> shadows = [];
+
     readonly StyleValueParser parser;
 
     /// <summary>The two tables a refusal needs to name the declaration it refused.</summary>
     readonly NameTable propertyNames;
+
     readonly NameTable valueNames;
 
     readonly List<SelectorDiagnostic> diagnostics = [];
@@ -73,6 +75,7 @@ public sealed partial class DrawListBuilder {
 
     /// <summary>The four <c>border-*-color</c> longhands, clockwise from the top.</summary>
     readonly int[] borderColors;
+
     readonly int[] borderStyles;
 
     /// <summary>The four <c>border-*-radius</c> longhands, clockwise from the top left.</summary>
@@ -80,9 +83,13 @@ public sealed partial class DrawListBuilder {
 
     /// <summary>The four logical corner radii, in the physical order they take under <c>ltr</c>.</summary>
     /// <remarks>
-    ///     ⚠ <b>Indexed to match <see cref="borderRadii" /> under <c>direction: ltr</c> and not under
-    ///     <c>rtl</c>, which is the whole reason this array is separate rather than merged in at
-    ///     load.</b> <c>border-start-start-radius</c> is the top-left corner in one direction and the
+    ///     ⚠
+    ///     <b>
+    ///         Indexed to match <see cref="borderRadii" /> under <c>direction: ltr</c> and not under
+    ///         <c>rtl</c>, which is the whole reason this array is separate rather than merged in at
+    ///         load.
+    ///     </b>
+    ///     <c>border-start-start-radius</c> is the top-left corner in one direction and the
     ///     top-right in the other, so which physical corner a logical longhand feeds is not known
     ///     until an element is in hand — see <see cref="Corners" />.
     /// </remarks>
@@ -90,8 +97,12 @@ public sealed partial class DrawListBuilder {
 
     /// <summary>The four <c>outline-*</c> longhands.</summary>
     /// <remarks>
-    ///     ⚠ <b>An outline is not a thin border, and the three ways it differs are all in
-    ///     <see cref="EmitOutline" /> rather than here.</b> It is drawn <i>outside</i> the border box
+    ///     ⚠
+    ///     <b>
+    ///         An outline is not a thin border, and the three ways it differs are all in
+    ///         <see cref="EmitOutline" /> rather than here.
+    ///     </b>
+    ///     It is drawn <i>outside</i> the border box
     ///     rather than inside it, it takes no space in the layout — <c>Vixen.Ui.Layout</c> is never
     ///     told about it, which is what makes that true rather than approximately true — and it
     ///     follows the border radius outward instead of sharing it.
@@ -116,8 +127,12 @@ public sealed partial class DrawListBuilder {
 
     /// <summary><c>mask-image</c>, read by <see cref="MasksFor" /> and by nothing else.</summary>
     /// <remarks>
-    ///     ⚠ <b>Two of the <c>mask-*</c> longhands are read and the rest are absent rather than
-    ///     ignored.</b> <c>mask-position</c>, <c>mask-size</c>, <c>mask-origin</c> and
+    ///     ⚠
+    ///     <b>
+    ///         Two of the <c>mask-*</c> longhands are read and the rest are absent rather than
+    ///         ignored.
+    ///     </b>
+    ///     <c>mask-position</c>, <c>mask-size</c>, <c>mask-origin</c> and
     ///     <c>mask-repeat</c> all describe where a mask <i>image</i> is placed inside a box it does
     ///     not already fill; a gradient sized to the border box needs none of them, and honouring one
     ///     without the rest would place a mask the next property could not move. See
@@ -133,6 +148,7 @@ public sealed partial class DrawListBuilder {
     ///     one, and a keyword comparison would have had to fall back to text for the rest anyway.
     /// </remarks>
     readonly int maskComposite;
+
     readonly int maskMode;
     readonly int maskPosition;
     readonly int maskSize;
@@ -147,6 +163,7 @@ public sealed partial class DrawListBuilder {
 
     /// <summary>The table declaration values are interned in, for <see cref="MasksFor" />.</summary>
     readonly NameTable values;
+
     readonly int textColor;
     readonly OverflowReader overflow;
 
@@ -163,6 +180,7 @@ public sealed partial class DrawListBuilder {
 
     /// <summary>Scratch for a broken ring's marks, as one path with a sub-path each.</summary>
     readonly PathBuilder dashes = new();
+
     readonly int visibility;
     readonly int hidden;
     readonly int collapse;
@@ -171,8 +189,12 @@ public sealed partial class DrawListBuilder {
 
     /// <summary>The property <see cref="Backdrop" /> reads, which is <i>not</i> <see cref="filter" />.</summary>
     /// <remarks>
-    ///     ⚠ <b>A second property and not a second value of the first, because the two transform
-    ///     different pictures and an element may carry both.</b> <c>filter</c> transforms what the
+    ///     ⚠
+    ///     <b>
+    ///         A second property and not a second value of the first, because the two transform
+    ///         different pictures and an element may carry both.
+    ///     </b>
+    ///     <c>filter</c> transforms what the
     ///     element drew; <c>backdrop-filter</c> transforms what is behind it. Reading one into the
     ///     other's field draws a picture that is wrong in a way the draw list cannot show, because
     ///     both open the same bracket.
@@ -200,9 +222,13 @@ public sealed partial class DrawListBuilder {
 
     /// <summary>The property that makes an element a stacking context and nothing else.</summary>
     /// <remarks>
-    ///     ⚠ <b>Its only defined effect is on somebody <i>else</i>'s <c>mix-blend-mode</c>, which is
-    ///     why it is worth nothing at all until a blend exists and worth exactly a group once one
-    ///     does.</b> A blended descendant mixes with whatever surface its composite lands in, and a
+    ///     ⚠
+    ///     <b>
+    ///         Its only defined effect is on somebody <i>else</i>'s <c>mix-blend-mode</c>, which is
+    ///         why it is worth nothing at all until a blend exists and worth exactly a group once one
+    ///         does.
+    ///     </b>
+    ///     A blended descendant mixes with whatever surface its composite lands in, and a
     ///     nested group's draws are executed into its parent's surface — so opening a group here is
     ///     the whole of the feature. See <see cref="Rendering.UiLayer.Blend" />.
     /// </remarks>
@@ -214,8 +240,12 @@ public sealed partial class DrawListBuilder {
 
     /// <summary>The <c>opacity()</c> function, which only <c>backdrop-filter</c> accepts.</summary>
     /// <remarks>
-    ///     ⚠ <b>Refused inside <c>filter</c> deliberately, and it is not an omission waiting to be
-    ///     filled.</b> <c>UtilityComposition.Filter</c> emits nine functions and this is not one of
+    ///     ⚠
+    ///     <b>
+    ///         Refused inside <c>filter</c> deliberately, and it is not an omission waiting to be
+    ///         filled.
+    ///     </b>
+    ///     <c>UtilityComposition.Filter</c> emits nine functions and this is not one of
     ///     them, so nothing in the engine generates it there — while
     ///     <c>UtilityComposition.BackdropFilter</c> emits it for <c>backdrop-opacity-*</c>, which is one
     ///     of the ten roots the feature exists for. Accepting it in both would mean <see cref="ElementFilter" />
@@ -276,7 +306,7 @@ public sealed partial class DrawListBuilder {
         ArgumentNullException.ThrowIfNull(keywords);
 
         this.palette = palette ?? new SystemPalette();
-        parser = new StyleValueParser(values, keywords, this.palette);
+        parser = new(values, keywords, this.palette);
         forcedColorAdjust = properties.Intern("forced-color-adjust");
         propertyNames = properties;
         valueNames = values;
@@ -288,7 +318,7 @@ public sealed partial class DrawListBuilder {
         // matters the moment a gradient's near stop is `transparent`, as every `bg-linear-*` with no
         // `from-*` is. Reading one and skipping the other would be a coin toss dressed as a choice.
         backgroundImage = properties.Intern("background-image");
-        gradients = new GradientReader(values, parser);
+        gradients = new(values, parser);
 
         // ⚠ <b>The three that place the layer, and they are only observable together.</b> A
         // `background-size` smaller than the box is what gives `background-position` somewhere to move
@@ -407,10 +437,10 @@ public sealed partial class DrawListBuilder {
         styleDouble = values.Intern("double");
 
         textColor = properties.Intern("color");
-        overflow = new OverflowReader(properties, values);
+        overflow = new(properties, values);
 
         visibility = properties.Intern("visibility");
-        this.hidden = values.Intern("hidden");
+        hidden = values.Intern("hidden");
         collapse = values.Intern("collapse");
         opacity = properties.Intern("opacity");
         filter = properties.Intern("filter");
@@ -517,14 +547,18 @@ public sealed partial class DrawListBuilder {
         // identifier `StyleValueParser` does not recognise as a colour, so it arrives interned there.
         inset = keywords.Intern("inset");
 
-        this.rtl = values.Intern("rtl");
+        rtl = values.Intern("rtl");
     }
 
     /// <summary>Whether a translucent subtree is isolated into a group, or faded element by element.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>On by default since both executors landed, and the default is about the
-    ///         <i>consumer</i> rather than about which answer is right.</b> Isolating is what CSS
+    ///         ⚠
+    ///         <b>
+    ///             On by default since both executors landed, and the default is about the
+    ///             <i>consumer</i> rather than about which answer is right.
+    ///         </b>
+    ///         Isolating is what CSS
     ///         Compositing 1 § 3 specifies and <see cref="DrawCommandKind.LayerPush" /> is how this asks
     ///         for it; fading each element is the approximation this file carried for years. But a group
     ///         only becomes a picture if whoever executes the draw list can render an offscreen surface
@@ -533,8 +567,12 @@ public sealed partial class DrawListBuilder {
     ///         composite, so a faded panel comes out opaque.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>So turning this on is not a property of this file, and setting it back to true after
-    ///         someone turns it off is not the whole of restoring it.</b> Both executors composite now —
+    ///         ⚠
+    ///         <b>
+    ///             So turning this on is not a property of this file, and setting it back to true after
+    ///             someone turns it off is not the whole of restoring it.
+    ///         </b>
+    ///         Both executors composite now —
     ///         <c>SoftwareUiRasterizer</c> always did, <c>UiRenderer.Compose</c> does as of the GPU half
     ///         — but a renderer that <i>can</i> composite still does not unless its host calls
     ///         <c>Compose</c> once a frame, and <c>Compose</c> itself returns having done nothing when
@@ -572,8 +610,12 @@ public sealed partial class DrawListBuilder {
     /// <summary>What this builder could not draw, and why.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The third list of this shape, and the first one produced in the <i>draw</i> pass
-    ///         rather than at load or in the style pass.</b> <c>StyleSheetLoader</c> reports what
+    ///         ⚠
+    ///         <b>
+    ///             The third list of this shape, and the first one produced in the <i>draw</i> pass
+    ///             rather than at load or in the style pass.
+    ///         </b>
+    ///         <c>StyleSheetLoader</c> reports what
     ///         would not parse and <c>LayoutStyleBuilder</c> what parsed and meant nothing to layout;
     ///         this reports what parsed, reached an element, and then could not be painted — a
     ///         <c>box-shadow</c> whose offset is in a unit that measures no distance, a
@@ -612,8 +654,12 @@ public sealed partial class DrawListBuilder {
 
     /// <summary>Records a declaration that reached this file and could not be drawn.</summary>
     /// <remarks>
-    ///     ⚠ <b>No <c>Rule</c>, for <see cref="LayoutStyleBuilder" />'s reason and not a weaker
-    ///     one.</b> `Rikarin/Vixen#520` made a refusal name the rule it was written in wherever the
+    ///     ⚠
+    ///     <b>
+    ///         No <c>Rule</c>, for <see cref="LayoutStyleBuilder" />'s reason and not a weaker
+    ///         one.
+    ///     </b>
+    ///     `Rikarin/Vixen#520` made a refusal name the rule it was written in wherever the
     ///     rule is still in hand — the compiler's and the loader's, which run while a sheet is being
     ///     read. This one is handed a <see cref="UiElement" /> whose <c>Style</c> is interned
     ///     property and value ids: the rule that declared them, its origin, its layer and its
@@ -633,7 +679,7 @@ public sealed partial class DrawListBuilder {
             }
         }
 
-        diagnostics.Add(new SelectorDiagnostic(text, reason));
+        diagnostics.Add(new(text, reason));
     }
 
     /// <summary>Walks a document and fills a draw list.</summary>
@@ -684,8 +730,12 @@ public sealed partial class DrawListBuilder {
     /// </param>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Opacity <s>is carried down as a multiplier rather than composited as a group</s> is
-    ///         a group, and the difference was visible.</b> CSS Compositing 1 § 3 renders a translucent
+    ///         ⚠
+    ///         <b>
+    ///             Opacity <s>is carried down as a multiplier rather than composited as a group</s> is
+    ///             a group, and the difference was visible.
+    ///         </b>
+    ///         CSS Compositing 1 § 3 renders a translucent
     ///         element's subtree into its own surface and blends that surface once, so two overlapping
     ///         children of a half-opaque panel do <i>not</i> show through each other. Multiplying each
     ///         element's alpha instead made them show through. That was owed here for as long as this
@@ -700,8 +750,11 @@ public sealed partial class DrawListBuilder {
     ///         <c>opacity-*</c> in this repository is written on.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b><paramref name="inherited" /> is the fade still waiting to be applied by
-    ///         multiplication, which is not the same as the accumulated opacity once groups exist.</b>
+    ///         ⚠
+    ///         <b>
+    ///             <paramref name="inherited" /> is the fade still waiting to be applied by
+    ///             multiplication, which is not the same as the accumulated opacity once groups exist.
+    ///         </b>
     ///         With <see cref="Compositing" /> off it <i>is</i> the accumulated opacity and this file
     ///         behaves exactly as it always did. With it on, a group resets it to one — the group's
     ///         surface carries the fade instead — so it is one everywhere, and what composes two nested
@@ -710,8 +763,12 @@ public sealed partial class DrawListBuilder {
     ///         is the product.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A group that survives always contributes at least three commands, which is what
-    ///         makes the collapse safe to nest.</b> A push, its contents and a pop cannot be mistaken
+    ///         ⚠
+    ///         <b>
+    ///             A group that survives always contributes at least three commands, which is what
+    ///             makes the collapse safe to nest.
+    ///         </b>
+    ///         A push, its contents and a pop cannot be mistaken
     ///         by an enclosing element for the single command it is allowed to fade in place — so a
     ///         parent can never collapse <i>across</i> a child's surviving surface and quietly fade its
     ///         contents twice.
@@ -904,8 +961,8 @@ public sealed partial class DrawListBuilder {
                 || placed is not null
                 || blend != UiBlendMode.Normal
                 || isolated)
-            ? into.Count
-            : -1;
+                ? into.Count
+                : -1;
 
         // ⚠ <b>The group's own corner radius, and it was a hard zero here until 2026-09-08 — which is
         // the first half of #229's divergence 1 and the half nobody had looked at.</b> Four audits
@@ -934,13 +991,13 @@ public sealed partial class DrawListBuilder {
             var groupRadius = Corners(element).IsUniformCircular(out var groupUniform) ? groupUniform : 0f;
 
             into.Add(
-                new DrawCommand(
+                new(
                     DrawCommandKind.LayerPush,
                     element.AbsoluteLeft,
                     element.AbsoluteTop,
                     width,
                     height,
-                    new Color4(0f, 0f, 0f, own),
+                    new(0f, 0f, 0f, own),
                     groupRadius,
                     0f
                 ) {
@@ -968,7 +1025,7 @@ public sealed partial class DrawListBuilder {
         // behaviour when <see cref="Compositing" /> is off.
         var alpha = group >= 0 ? 1f : inherited * own;
 
-        EmitBody(document, element, into, alpha, width, height, decorate: !empty);
+        EmitBody(document, element, into, alpha, width, height, !empty);
 
         if (group < 0) {
             return;
@@ -1049,13 +1106,13 @@ public sealed partial class DrawListBuilder {
         }
 
         into.Add(
-            new DrawCommand(
+            new(
                 DrawCommandKind.LayerPop,
                 element.AbsoluteLeft,
                 element.AbsoluteTop,
                 width,
                 height,
-                new Color4(0f, 0f, 0f, own),
+                new(0f, 0f, 0f, own),
                 0f,
                 0f
             ) {
@@ -1225,7 +1282,7 @@ public sealed partial class DrawListBuilder {
             // silently overdrew its neighbour. It survived because a clip is invisible to the
             // element tree: every rectangle was the right size and the glyphs went somewhere else.
             EmitText(document, element, into, alpha);
-            element.OnDraw(new DrawContext(element, into, alpha));
+            element.OnDraw(new(element, into, alpha));
         }
 
         // Paint order rather than document order, which are the same list unless some child carries
@@ -1268,13 +1325,13 @@ public sealed partial class DrawListBuilder {
             var shadowed = ReadShadows(document, element);
 
             if (shadowed) {
-                EmitShadows(into, boxX, boxY, boxWidth, boxHeight, boxCorners, boxRadius, alpha, inner: false);
+                EmitShadows(into, boxX, boxY, boxWidth, boxHeight, boxCorners, boxRadius, alpha, false);
             }
 
             if (Color(element, backgroundColor) is { } fill) {
                 into.Add(
                     Styled(
-                        new DrawCommand(
+                        new(
                             DrawCommandKind.Rectangle,
                             boxX,
                             boxY,
@@ -1317,7 +1374,7 @@ public sealed partial class DrawListBuilder {
             // every element that has an opaque one, and those are the elements the declaration is
             // written on. See `EmitShadows`.
             if (shadowed) {
-                EmitShadows(into, boxX, boxY, boxWidth, boxHeight, boxCorners, boxRadius, alpha, inner: true);
+                EmitShadows(into, boxX, boxY, boxWidth, boxHeight, boxCorners, boxRadius, alpha, true);
             }
 
             // The border is drawn after the background and before the children, which is the order
@@ -1347,8 +1404,11 @@ public sealed partial class DrawListBuilder {
     /// <summary>Emits an element's border: one ring when it is uniform, one band per edge when not.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>The uniform case is the one that already worked, and it comes out byte for byte the
-    ///         same.</b> Four equal widths and four equal colours are a single
+    ///         <b>
+    ///             The uniform case is the one that already worked, and it comes out byte for byte the
+    ///             same.
+    ///         </b>
+    ///         Four equal widths and four equal colours are a single
     ///         <see cref="DrawCommandKind.Border" /> command — one quad, one distance field, one
     ///         antialiased outer edge shared by the border and the fill it sits on. Every box in every
     ///         theme in this repository that draws a border at all takes this path, which is what makes
@@ -1366,8 +1426,12 @@ public sealed partial class DrawListBuilder {
     ///         batch with the backgrounds around them.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The horizontal edges take the corners and the vertical ones are inset between
-    ///         them</b>, which is the join CSS draws only when the two edges meeting at a corner are
+    ///         ⚠
+    ///         <b>
+    ///             The horizontal edges take the corners and the vertical ones are inset between
+    ///             them
+    ///         </b>
+    ///         , which is the join CSS draws only when the two edges meeting at a corner are
     ///         the same colour — otherwise it mitres them diagonally. A mitre is a triangle and this
     ///         emits rectangles, so the difference shows exactly when two adjacent edges are both thick
     ///         <i>and</i> differently coloured; at the one pixel every such rule in this repository
@@ -1443,7 +1507,7 @@ public sealed partial class DrawListBuilder {
                 case StrokeStyle.Solid:
                     into.Add(
                         Styled(
-                            new DrawCommand(DrawCommandKind.Border, x, y, width, height, colour, radius, top),
+                            new(DrawCommandKind.Border, x, y, width, height, colour, radius, top),
                             into,
                             corners
                         )
@@ -1461,21 +1525,21 @@ public sealed partial class DrawListBuilder {
 
                     into.Add(
                         Styled(
-                            new DrawCommand(DrawCommandKind.Border, x, y, width, height, colour, radius, third),
+                            new(DrawCommandKind.Border, x, y, width, height, colour, radius, third),
                             into,
                             corners
                         )
                     );
 
-                    var innerWidth = width - (step * 2f);
-                    var innerHeight = height - (step * 2f);
+                    var innerWidth = width - step * 2f;
+                    var innerHeight = height - step * 2f;
 
                     if (innerWidth > 0f && innerHeight > 0f) {
                         var inner = Shrink(corners, step, innerWidth * 0.5f, innerHeight * 0.5f);
 
                         into.Add(
                             Styled(
-                                new DrawCommand(
+                                new(
                                     DrawCommandKind.Border,
                                     x + step,
                                     y + step,
@@ -1507,7 +1571,7 @@ public sealed partial class DrawListBuilder {
 
                     if (Rings.Dash(outline, top, topStyle, marks, dashes)) {
                         into.Add(
-                            new DrawCommand(DrawCommandKind.PathStroke, 0f, 0f, 0f, 0f, colour, 0f, top) {
+                            new(DrawCommandKind.PathStroke, 0f, 0f, 0f, 0f, colour, 0f, top) {
                                 Offset = into.AddPath(dashes),
                                 Length = dashes.Count,
                                 Join = LineJoin.Round,
@@ -1528,9 +1592,33 @@ public sealed partial class DrawListBuilder {
         var middle = MathF.Max(height - top - bottom, 0f);
 
         Band(topColor, topStyle, top, x, y, width, top, corners.TopLeft, corners.TopRight, default, default);
-        Band(bottomColor, bottomStyle, bottom, x, y + height - bottom, width, bottom, default, default, corners.BottomRight, corners.BottomLeft);
+        Band(
+            bottomColor,
+            bottomStyle,
+            bottom,
+            x,
+            y + height - bottom,
+            width,
+            bottom,
+            default,
+            default,
+            corners.BottomRight,
+            corners.BottomLeft
+        );
         Band(leftColor, leftStyle, left, x, y + top, left, middle, default, default, default, default);
-        Band(rightColor, rightStyle, right, x + width - right, y + top, right, middle, default, default, default, default);
+        Band(
+            rightColor,
+            rightStyle,
+            right,
+            x + width - right,
+            y + top,
+            right,
+            middle,
+            default,
+            default,
+            default,
+            default
+        );
 
         void Band(
             Color4? colour,
@@ -1545,7 +1633,10 @@ public sealed partial class DrawListBuilder {
             Vector2 bottomRight,
             Vector2 bottomLeft
         ) {
-            if (thickness <= 0f || bandWidth <= 0f || bandHeight <= 0f || colour is not { } fill
+            if (thickness <= 0f
+                || bandWidth <= 0f
+                || bandHeight <= 0f
+                || colour is not { } fill
                 || style == StrokeStyle.None) {
                 return;
             }
@@ -1595,7 +1686,7 @@ public sealed partial class DrawListBuilder {
 
                     into.Add(
                         Styled(
-                            new DrawCommand(
+                            new(
                                 DrawCommandKind.Rectangle,
                                 horizontal ? bandX + mark.Start : bandX,
                                 horizontal ? bandY : bandY + mark.Start,
@@ -1637,7 +1728,7 @@ public sealed partial class DrawListBuilder {
 
                         Strip(
                             bandX,
-                            bandY + (third * 2f),
+                            bandY + third * 2f,
                             bandWidth,
                             third,
                             new CornerRadii(default, default, bottomRight, bottomLeft)
@@ -1646,7 +1737,7 @@ public sealed partial class DrawListBuilder {
                         Strip(bandX, bandY, third, bandHeight, new CornerRadii(topLeft, default, default, bottomLeft));
 
                         Strip(
-                            bandX + (third * 2f),
+                            bandX + third * 2f,
                             bandY,
                             third,
                             bandHeight,
@@ -1663,7 +1754,7 @@ public sealed partial class DrawListBuilder {
             // pixel tall into nothing at all.
             into.Add(
                 Styled(
-                    new DrawCommand(
+                    new(
                         DrawCommandKind.Rectangle,
                         bandX,
                         bandY,
@@ -1691,7 +1782,7 @@ public sealed partial class DrawListBuilder {
             void Strip(float stripX, float stripY, float stripWidth, float stripHeight, CornerRadii ends) =>
                 into.Add(
                     Styled(
-                        new DrawCommand(
+                        new(
                             DrawCommandKind.Rectangle,
                             stripX,
                             stripY,
@@ -1709,12 +1800,13 @@ public sealed partial class DrawListBuilder {
     }
 
     /// <summary>A set of corner radii moved inwards, clamped to the box that is left.</summary>
-    static CornerRadii Shrink(CornerRadii corners, float by, float halfWidth, float halfHeight) => new(
-        Pull(corners.TopLeft, by, halfWidth, halfHeight),
-        Pull(corners.TopRight, by, halfWidth, halfHeight),
-        Pull(corners.BottomRight, by, halfWidth, halfHeight),
-        Pull(corners.BottomLeft, by, halfWidth, halfHeight)
-    );
+    static CornerRadii Shrink(CornerRadii corners, float by, float halfWidth, float halfHeight) =>
+        new(
+            Pull(corners.TopLeft, by, halfWidth, halfHeight),
+            Pull(corners.TopRight, by, halfWidth, halfHeight),
+            Pull(corners.BottomRight, by, halfWidth, halfHeight),
+            Pull(corners.BottomLeft, by, halfWidth, halfHeight)
+        );
 
     /// <summary>One corner radius moved inwards. A square corner stays square.</summary>
     /// <remarks>
@@ -1723,15 +1815,20 @@ public sealed partial class DrawListBuilder {
     ///     ring of a <c>double</c> border on a square box would be a rounded rectangle inside a
     ///     square one.
     /// </remarks>
-    static Vector2 Pull(Vector2 corner, float by, float halfWidth, float halfHeight) => new(
-        corner.X > 0f ? Math.Clamp(corner.X - by, 0f, halfWidth) : 0f,
-        corner.Y > 0f ? Math.Clamp(corner.Y - by, 0f, halfHeight) : 0f
-    );
+    static Vector2 Pull(Vector2 corner, float by, float halfWidth, float halfHeight) =>
+        new(
+            corner.X > 0f ? Math.Clamp(corner.X - by, 0f, halfWidth) : 0f,
+            corner.Y > 0f ? Math.Clamp(corner.Y - by, 0f, halfHeight) : 0f
+        );
 
     /// <summary>An element's <c>border-style</c> or <c>outline-style</c> on one edge.</summary>
     /// <remarks>
-    ///     ⚠ <b>An absent declaration is <see cref="StrokeStyle.Solid" /> and so is an unrecognised
-    ///     one</b>, which departs from CSS twice over and does so deliberately — see
+    ///     ⚠
+    ///     <b>
+    ///         An absent declaration is <see cref="StrokeStyle.Solid" /> and so is an unrecognised
+    ///         one
+    ///     </b>
+    ///     , which departs from CSS twice over and does so deliberately — see
     ///     <see cref="StrokeStyle" /> for the first and for why <c>groove</c>, <c>ridge</c>,
     ///     <c>inset</c> and <c>outset</c> are not listed.
     /// </remarks>
@@ -1758,9 +1855,13 @@ public sealed partial class DrawListBuilder {
     /// <summary>Emits an element's outline: a ring outside the border box that costs the layout nothing.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The whole feature is a <see cref="DrawCommandKind.Border" /> command on a bigger
-    ///         rectangle, and reusing that kind rather than adding one is the load-bearing decision
-    ///         here.</b> The box shader already resolves a ring as the difference of two coverages —
+    ///         ⚠
+    ///         <b>
+    ///             The whole feature is a <see cref="DrawCommandKind.Border" /> command on a bigger
+    ///             rectangle, and reusing that kind rather than adding one is the load-bearing decision
+    ///             here.
+    ///         </b>
+    ///         The box shader already resolves a ring as the difference of two coverages —
     ///         the shape, and the shape pushed <c>thickness</c> inwards — so a rectangle grown by
     ///         <c>offset + width</c> with a thickness of <c>width</c> produces a band occupying
     ///         exactly <c>[border edge + offset, border edge + offset + width]</c>, which is CSS UI 4
@@ -1770,8 +1871,12 @@ public sealed partial class DrawListBuilder {
     ///         a picture the existing one already draws.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Nothing here touches the layout, and that is the property the reuse could most
-    ///         easily have broken.</b> An outline does not take space: <c>Vixen.Ui.Layout</c> is never
+    ///         ⚠
+    ///         <b>
+    ///             Nothing here touches the layout, and that is the property the reuse could most
+    ///             easily have broken.
+    ///         </b>
+    ///         An outline does not take space: <c>Vixen.Ui.Layout</c> is never
     ///         told about <c>outline-width</c>, no <c>GetComputedBorder</c> is consulted, and the
     ///         rectangle is grown at paint time out of the box the layout already finished. So a ring
     ///         appearing on focus moves nothing on the screen — which is the entire reason CSS has a
@@ -1786,12 +1891,20 @@ public sealed partial class DrawListBuilder {
     ///         unrounded box in the editor would have grown soft corners the moment it took focus.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b><c>outline-style</c> is read for exactly two keywords and every other value draws
-    ///         solid.</b> <c>none</c> and <c>hidden</c> switch the ring off — CSS UI 4 makes them
+    ///         ⚠
+    ///         <b>
+    ///             <c>outline-style</c> is read for exactly two keywords and every other value draws
+    ///             solid.
+    ///         </b>
+    ///         <c>none</c> and <c>hidden</c> switch the ring off — CSS UI 4 makes them
     ///         synonyms on an outline, unlike on a border — and that pair is what <c>outline-none</c>
-    ///         and <c>outline-hidden</c> compile to. <b>They are synonyms in every mode but one, and
-    ///         the exception is the forced-colours half of Tailwind's <c>outline-hidden</c>, which
-    ///         this method now emulates.</b> v4 pairs the <c>none</c> with a transparent two-pixel
+    ///         and <c>outline-hidden</c> compile to.
+    ///         <b>
+    ///             They are synonyms in every mode but one, and
+    ///             the exception is the forced-colours half of Tailwind's <c>outline-hidden</c>, which
+    ///             this method now emulates.
+    ///         </b>
+    ///         v4 pairs the <c>none</c> with a transparent two-pixel
     ///         ring inside <c>@media (forced-colors: active)</c> so a high-contrast user keeps the
     ///         focus indicator the sighted default hid; a sheet could write that block long before
     ///         there was a mode for it to mean anything in. With one, the two spellings can be told
@@ -1865,8 +1978,8 @@ public sealed partial class DrawListBuilder {
         // ring inverts, and a negative width is a shape the geometry builder cannot make.
         var grow = OutlineLength(element, outlineOffset) + thickness;
 
-        var ringWidth = width + (2f * grow);
-        var ringHeight = height + (2f * grow);
+        var ringWidth = width + 2f * grow;
+        var ringHeight = height + 2f * grow;
 
         if (ringWidth <= 0f || ringHeight <= 0f) {
             return;
@@ -1893,11 +2006,8 @@ public sealed partial class DrawListBuilder {
 
             if (Rings.Dash(outline, thickness, style, marks, dashes)) {
                 into.Add(
-                    new DrawCommand(DrawCommandKind.PathStroke, 0f, 0f, 0f, 0f, colour, 0f, thickness) {
-                        Offset = into.AddPath(dashes),
-                        Length = dashes.Count,
-                        Join = LineJoin.Round,
-                        Cap = LineCap.Butt
+                    new(DrawCommandKind.PathStroke, 0f, 0f, 0f, 0f, colour, 0f, thickness) {
+                        Offset = into.AddPath(dashes), Length = dashes.Count, Join = LineJoin.Round, Cap = LineCap.Butt
                     }
                 );
             }
@@ -1909,7 +2019,7 @@ public sealed partial class DrawListBuilder {
 
         into.Add(
             Styled(
-                new DrawCommand(
+                new(
                     DrawCommandKind.Border,
                     x - grow,
                     y - grow,
@@ -1926,15 +2036,15 @@ public sealed partial class DrawListBuilder {
 
         if (style == StrokeStyle.Double) {
             var step = ringThickness * 2f;
-            var innerWidth = ringWidth - (step * 2f);
-            var innerHeight = ringHeight - (step * 2f);
+            var innerWidth = ringWidth - step * 2f;
+            var innerHeight = ringHeight - step * 2f;
 
             if (innerWidth > 0f && innerHeight > 0f) {
                 var inner = Shrink(grown, step, innerWidth * 0.5f, innerHeight * 0.5f);
 
                 into.Add(
                     Styled(
-                        new DrawCommand(
+                        new(
                             DrawCommandKind.Border,
                             x - grow + step,
                             y - grow + step,
@@ -1954,10 +2064,11 @@ public sealed partial class DrawListBuilder {
         // A square corner stays square, and only a corner that already had a curve grows one. The
         // component-wise max is what keeps a shrinking ring — a negative offset — from folding a
         // small radius through zero into a curve bending the other way.
-        static Vector2 Grow(Vector2 corner, float by) => new(
-            corner.X > 0f ? MathF.Max(corner.X + by, 0f) : 0f,
-            corner.Y > 0f ? MathF.Max(corner.Y + by, 0f) : 0f
-        );
+        static Vector2 Grow(Vector2 corner, float by) =>
+            new(
+                corner.X > 0f ? MathF.Max(corner.X + by, 0f) : 0f,
+                corner.Y > 0f ? MathF.Max(corner.Y + by, 0f) : 0f
+            );
     }
 
     /// <summary>One <c>outline-*</c> length, in absolute pixels.</summary>
@@ -2058,7 +2169,7 @@ public sealed partial class DrawListBuilder {
 
             // The bars go under the glyphs and not under the indent, so they start where the glyphs
             // do. `PenOf` carries the same offset, which is why the runs below need nothing.
-            EmitDecoration(into, line, decoration, decorationColour, x + line.Offset, y, under: true);
+            EmitDecoration(into, line, decoration, decorationColour, x + line.Offset, y, true);
 
             for (var i = 0; i < line.Runs.Length; i++) {
                 var run = line.Runs[i];
@@ -2075,7 +2186,7 @@ public sealed partial class DrawListBuilder {
                 // labels in different places then hold identical glyph runs, which is what will let
                 // the batcher notice.
                 into.Add(
-                    new DrawCommand(
+                    new(
                         DrawCommandKind.Text,
                         x + line.PenOf(i),
                         y,
@@ -2101,7 +2212,7 @@ public sealed partial class DrawListBuilder {
                 );
             }
 
-            EmitDecoration(into, line, decoration, decorationColour, x + line.Offset, y, under: false);
+            EmitDecoration(into, line, decoration, decorationColour, x + line.Offset, y, false);
         }
     }
 
@@ -2115,16 +2226,24 @@ public sealed partial class DrawListBuilder {
     /// <param name="under">Whether to emit the lines painted under the glyphs or the ones over them.</param>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A decoration is a rectangle, which is why this needed no command kind, no shader
-    ///         and no second implementation.</b> It goes out as <see cref="DrawCommandKind.Rectangle" />
+    ///         ⚠
+    ///         <b>
+    ///             A decoration is a rectangle, which is why this needed no command kind, no shader
+    ///             and no second implementation.
+    ///         </b>
+    ///         It goes out as <see cref="DrawCommandKind.Rectangle" />
     ///         with a zero radius, so it reaches <c>UiGeometryBuilder.Box</c>, the rounded-box field
     ///         and both executors by exactly the path a background already takes — the software
     ///         rasteriser and the device draw the same bar because they are drawing the same quad,
     ///         rather than because two ports of a line-drawing routine were kept in step.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Per <i>line</i>, spanning <c>line.Width</c>, and taking its metrics from the
-    ///         line's first run.</b> Three consequences worth stating. It decorates the gaps between
+    ///         ⚠
+    ///         <b>
+    ///             Per <i>line</i>, spanning <c>line.Width</c>, and taking its metrics from the
+    ///             line's first run.
+    ///         </b>
+    ///         Three consequences worth stating. It decorates the gaps between
     ///         runs, which a per-run bar would leave as visible breaks in the middle of a word that
     ///         happened to change face. It is one rectangle rather than one per run, on a list that is
     ///         compared command by command every frame. And it uses the same width the alignment used
@@ -2179,7 +2298,7 @@ public sealed partial class DrawListBuilder {
 
             if (!Dashes.Broken(style)) {
                 into.Add(
-                    new DrawCommand(
+                    new(
                         DrawCommandKind.Rectangle,
                         x,
                         y + bar.Top,
@@ -2198,7 +2317,7 @@ public sealed partial class DrawListBuilder {
 
             foreach (var mark in marks) {
                 into.Add(
-                    new DrawCommand(
+                    new(
                         DrawCommandKind.Rectangle,
                         x + mark.Start,
                         y + bar.Top,
@@ -2224,14 +2343,22 @@ public sealed partial class DrawListBuilder {
     ///     <para>
     ///         <b>A list is a command each, painted last to first.</b> CSS paints the earlier
     ///         shadows of a list over the later ones, and this draw list paints later commands over
-    ///         earlier ones, so the walk runs backwards. ⚠ <b>The whole declaration is refused if any
-    ///         one item cannot be read</b>, which is CSS's own rule for an invalid declaration and is
+    ///         earlier ones, so the walk runs backwards. ⚠
+    ///         <b>
+    ///             The whole declaration is refused if any
+    ///             one item cannot be read
+    ///         </b>
+    ///         , which is CSS's own rule for an invalid declaration and is
     ///         the half that matters here: painting the first shadow and dropping the rest is worse
     ///         than painting none, because it looks like it worked.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The list is split here, over the declaration's text, and it must not be done in
-    ///         <see cref="StyleValueParser" />.</b> That parser splits a value on top-level
+    ///         ⚠
+    ///         <b>
+    ///             The list is split here, over the declaration's text, and it must not be done in
+    ///             <see cref="StyleValueParser" />.
+    ///         </b>
+    ///         That parser splits a value on top-level
     ///         <i>whitespace</i>, which every other property in this file depends on — so in
     ///         <c>0 4px 12px #000, 0 8px 24px #f00</c> the token <c>#000,</c> is not a colour and the
     ///         whole value arrives here as <see cref="StyleValueKind.Unknown" />. That is why this
@@ -2240,8 +2367,12 @@ public sealed partial class DrawListBuilder {
     ///         commas of its own, and the shipped theme's <c>--shadow</c> is written exactly that way.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b><c>inset</c> is drawn since 2026-09-06, and it was a different distance field
-    ///         rather than a missing branch.</b> An inner shadow's coverage is the complement of the
+    ///         ⚠
+    ///         <b>
+    ///             <c>inset</c> is drawn since 2026-09-06, and it was a different distance field
+    ///             rather than a missing branch.
+    ///         </b>
+    ///         An inner shadow's coverage is the complement of the
     ///         outer one's, in a rectangle offset and shrunk inside the box, masked to the box — so an
     ///         inset shadow drawn as an outer one was never a near miss, it was a shadow on the wrong
     ///         side of the box. ⚠ What blocked it was recorded as a decision — "there is no lane left
@@ -2327,8 +2458,12 @@ public sealed partial class DrawListBuilder {
     ///         do.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Two passes over one list because the two halves sit on opposite sides of the
-    ///         background, and one pass would have put an inner shadow under it.</b> § 7.1.1 paints an
+    ///         ⚠
+    ///         <b>
+    ///             Two passes over one list because the two halves sit on opposite sides of the
+    ///             background, and one pass would have put an inner shadow under it.
+    ///         </b>
+    ///         § 7.1.1 paints an
     ///         outer shadow <i>below</i> the background — which is why a translucent background shows
     ///         its own shadow through itself — and an inner one <i>above</i> it and below the border.
     ///         A single pass before the background is right for every outer shadow there has ever been
@@ -2358,13 +2493,23 @@ public sealed partial class DrawListBuilder {
     /// <summary>Reads every shadow of an already-split list.</summary>
     /// <returns>Whether all of them read; nothing is emitted unless they did.</returns>
     /// <remarks>
-    ///     ⚠ <b>The split that produced <paramref name="parts" /> is depth-aware, because a shadow's
-    ///     colour carries commas.</b> The shipped theme's <c>--shadow</c> is
+    ///     ⚠
+    ///     <b>
+    ///         The split that produced <paramref name="parts" /> is depth-aware, because a shadow's
+    ///         colour carries commas.
+    ///     </b>
+    ///     The shipped theme's <c>--shadow</c> is
     ///     <c>0px 1px 2px rgba(0, 0, 0, 0.3)</c>: a naive split makes four items of one shadow, none
     ///     of them readable, and refuses a declaration this engine has drawn for as long as it has
     ///     had a theme — with a diagnostic blaming the author.
     /// </remarks>
-    bool TryShadowList(UiDocument document, UiElement element, int id, ReadOnlySpan<char> text, ReadOnlySpan<Range> parts) {
+    bool TryShadowList(
+        UiDocument document,
+        UiElement element,
+        int id,
+        ReadOnlySpan<char> text,
+        ReadOnlySpan<Range> parts
+    ) {
         foreach (var part in parts) {
             var item = parser.Parse(text[part]);
 
@@ -2490,7 +2635,7 @@ public sealed partial class DrawListBuilder {
         // shader's is the half-extent either side of the boundary — passing the whole radius makes
         // every shadow twice as soft as it was asked to be, which reads as a blurry renderer rather
         // than as a unit mistake.
-        shadows.Add(new ResolvedShadow(lengths[0], lengths[1], lengths[2] / 2f, lengths[3], colour, inner));
+        shadows.Add(new(lengths[0], lengths[1], lengths[2] / 2f, lengths[3], colour, inner));
 
         return true;
     }
@@ -2549,7 +2694,7 @@ public sealed partial class DrawListBuilder {
 
             into.Add(
                 Styled(
-                    new DrawCommand(
+                    new(
                         DrawCommandKind.Shadow,
                         x,
                         y,
@@ -2561,9 +2706,7 @@ public sealed partial class DrawListBuilder {
                     ),
                     into,
                     BoxStyle.Rounded(corners) with {
-                        Inset = true,
-                        InsetOffset = new Vector2(shadow.X, shadow.Y),
-                        InsetSpread = spread
+                        Inset = true, InsetOffset = new(shadow.X, shadow.Y), InsetSpread = spread
                     }
                 )
             );
@@ -2590,8 +2733,8 @@ public sealed partial class DrawListBuilder {
 
         // The spread grows the box in every direction, and the corner radius with it: a spread that
         // kept the original corner would give a shadow visibly squarer than the thing casting it.
-        var wide = width + (spread * 2f);
-        var tall = height + (spread * 2f);
+        var wide = width + spread * 2f;
+        var tall = height + spread * 2f;
 
         if (wide <= 0f || tall <= 0f) {
             return;
@@ -2599,7 +2742,7 @@ public sealed partial class DrawListBuilder {
 
         into.Add(
             Styled(
-                new DrawCommand(
+                new(
                     DrawCommandKind.Shadow,
                     x + shadow.X - spread,
                     y + shadow.Y - spread,
@@ -2652,7 +2795,7 @@ public sealed partial class DrawListBuilder {
                 return 0;
             }
 
-            parts[count++] = new Range(start, index);
+            parts[count++] = new(start, index);
             start = index + 1;
         }
 
@@ -2680,7 +2823,7 @@ public sealed partial class DrawListBuilder {
             return corners;
         }
 
-        return new CornerRadii(
+        return new(
             Grow(corners.TopLeft, spread),
             Grow(corners.TopRight, spread),
             Grow(corners.BottomRight, spread),
@@ -2714,8 +2857,12 @@ public sealed partial class DrawListBuilder {
     ///     </para>
     /// </remarks>
     /// <remarks>
-    ///     ⚠ <b>The rule moved to <see cref="UiDocument.TextAlignShift" /> and this is now a caller
-    ///     of it.</b> The glyphs are not the only thing on the line: a caret, a selection band and a
+    ///     ⚠
+    ///     <b>
+    ///         The rule moved to <see cref="UiDocument.TextAlignShift" /> and this is now a caller
+    ///         of it.
+    ///     </b>
+    ///     The glyphs are not the only thing on the line: a caret, a selection band and a
     ///     hit test have to land on the identical number, and while this owned the rule privately
     ///     they could not read it — a wrapped RTL field drew its caret against the left edge of the
     ///     block while the short line it belonged to sat flush against the right.
@@ -2739,8 +2886,12 @@ public sealed partial class DrawListBuilder {
         ///     Only ever set while reading a <c>backdrop-filter</c>.
         /// </summary>
         /// <remarks>
-        ///     ⚠ <b>Nullable rather than defaulting to one, because a record struct's default is
-        ///     zero and zero is the value that erases the picture.</b> The distinction it buys is the
+        ///     ⚠
+        ///     <b>
+        ///         Nullable rather than defaulting to one, because a record struct's default is
+        ///         zero and zero is the value that erases the picture.
+        ///     </b>
+        ///     The distinction it buys is the
         ///     same one <see cref="Colour" /> needs: "nobody wrote an <c>opacity()</c>" and "somebody
         ///     wrote <c>opacity(0)</c>" are different declarations and the second is legal.
         ///     ⚠ It cannot ride <see cref="Colour" />: <see cref="UiColorMatrix" /> is three rows and
@@ -2752,8 +2903,12 @@ public sealed partial class DrawListBuilder {
 
         /// <summary>Whether this is worth opening a group for.</summary>
         /// <remarks>
-        ///     ⚠ <b>An identity matrix does not count, and that is a deliberate departure from CSS
-        ///     with a real cost behind it.</b> Filter Effects 1 § 5 makes <i>any</i> <c>filter</c>
+        ///     ⚠
+        ///     <b>
+        ///         An identity matrix does not count, and that is a deliberate departure from CSS
+        ///         with a real cost behind it.
+        ///     </b>
+        ///     Filter Effects 1 § 5 makes <i>any</i> <c>filter</c>
         ///     other than <c>none</c> a stacking context, so a browser isolates for
         ///     <c>brightness(1)</c>. A group here costs a viewport-sized render target and a pass —
         ///     see <c>UiRenderer.Compose</c> — and the utility layer assembles all eight functions
@@ -2763,8 +2918,12 @@ public sealed partial class DrawListBuilder {
         ///     cheap: <c>Compositing</c> off already declines every group there is.
         /// </remarks>
         /// <remarks>
-        ///     ⚠ <b>A transparent shadow does not count, on the same terms as the identity matrix
-        ///     above and for a sharper reason.</b> <c>UtilityComposition.Filter</c> assembles all nine
+        ///     ⚠
+        ///     <b>
+        ///         A transparent shadow does not count, on the same terms as the identity matrix
+        ///         above and for a sharper reason.
+        ///     </b>
+        ///     <c>UtilityComposition.Filter</c> assembles all nine
         ///     functions into every <c>filter</c> it emits, and <c>drop-shadow</c>'s identity is a
         ///     shadow painted in <c>transparent</c> — so a bare <c>blur-2</c> carries one, on every
         ///     blurred element in the engine. Counted, it would buy each of them a second surface and
@@ -2790,8 +2949,11 @@ public sealed partial class DrawListBuilder {
     /// <returns>What it asks for, or <c>default</c> — which is every element that says nothing.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The whole declaration is refused rather than partly applied, which is the rule
-    ///         <see cref="ReadShadows" /> already keeps and the one that matters most here.</b>
+    ///         ⚠
+    ///         <b>
+    ///             The whole declaration is refused rather than partly applied, which is the rule
+    ///             <see cref="ReadShadows" /> already keeps and the one that matters most here.
+    ///         </b>
     ///         <c>filter</c> is an ordered list of functions and this reads eight of them; a
     ///         <c>filter: drop-shadow(2px 2px 4px black) blur(4px)</c> that quietly dropped the shadow
     ///         would draw a blurred element that is missing something and look like a blur bug. So a
@@ -2801,8 +2963,11 @@ public sealed partial class DrawListBuilder {
     ///         additive change with no silent middle state.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Order is honoured among the colour functions and is <i>meaningless</i> between one
-    ///         of them and a blur, and both halves of that are load-bearing.</b>
+    ///         ⚠
+    ///         <b>
+    ///             Order is honoured among the colour functions and is <i>meaningless</i> between one
+    ///             of them and a blur, and both halves of that are load-bearing.
+    ///         </b>
     ///         <c>invert(1) brightness(2)</c> is not <c>brightness(2) invert(1)</c>, so the matrices
     ///         are composed left to right by <see cref="UiColorMatrix.Then" /> in the order the list
     ///         is walked. A Gaussian, on the other hand, is a weighted sum with weights summing to
@@ -2826,8 +2991,7 @@ public sealed partial class DrawListBuilder {
     ///         clamped, because there the spec says so.
     ///     </para>
     /// </remarks>
-    ElementFilter Filter(UiDocument document, UiElement element) =>
-        Functions(document, element, filter, backdrop: false);
+    ElementFilter Filter(UiDocument document, UiElement element) => Functions(document, element, filter, false);
 
     /// <summary>Reads an element's <c>backdrop-filter</c> declaration.</summary>
     /// <param name="document">The document, for the length context relative units resolve against.</param>
@@ -2835,8 +2999,11 @@ public sealed partial class DrawListBuilder {
     /// <returns>What it asks for, or null — which is every element that says nothing.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The same grammar as <see cref="Filter" /> with two functions swapped, and the swap
-    ///         is what the two properties actually differ by rather than a simplification.</b>
+    ///         ⚠
+    ///         <b>
+    ///             The same grammar as <see cref="Filter" /> with two functions swapped, and the swap
+    ///             is what the two properties actually differ by rather than a simplification.
+    ///         </b>
     ///         <c>drop-shadow()</c> is refused here — it is a Gaussian over an <i>alpha silhouette</i>
     ///         composited <i>under</i> the thing it belongs to, which is meaningless for a backdrop
     ///         that is already behind everything, and Tailwind emits no <c>backdrop-drop-shadow-*</c>.
@@ -2855,7 +3022,7 @@ public sealed partial class DrawListBuilder {
     ///     </para>
     /// </remarks>
     UiBackdrop? Backdrop(UiDocument document, UiElement element) {
-        var read = Functions(document, element, backdropFilter, backdrop: true);
+        var read = Functions(document, element, backdropFilter, true);
         var backdrop = new UiBackdrop(read.Blur, read.Alpha ?? 1f, read.Colour);
 
         return backdrop.IsIdentity ? null : backdrop;
@@ -2991,8 +3158,12 @@ public sealed partial class DrawListBuilder {
     /// <summary>Folds one <c>filter</c> function into what has been read so far.</summary>
     /// <returns>Null when the function or its argument is one this refuses.</returns>
     /// <remarks>
-    ///     ⚠ <b>Two blurs compose by quadrature rather than being refused, and that is the one place
-    ///     this method is more generous than the rest of the file.</b> Convolving a Gaussian of σ₁
+    ///     ⚠
+    ///     <b>
+    ///         Two blurs compose by quadrature rather than being refused, and that is the one place
+    ///         this method is more generous than the rest of the file.
+    ///     </b>
+    ///     Convolving a Gaussian of σ₁
     ///     with one of σ₂ gives a Gaussian of √(σ₁² + σ₂²) exactly — it is not an approximation — so
     ///     <c>blur(3px) blur(4px)</c> has a single correct answer of <c>5px</c> and refusing it would
     ///     be refusing something this executor can do perfectly. Nothing else in a filter list has
@@ -3076,7 +3247,7 @@ public sealed partial class DrawListBuilder {
                 return null;
             }
 
-            return into with { Blur = MathF.Sqrt((into.Blur * into.Blur) + (pixels * pixels)) };
+            return into with { Blur = MathF.Sqrt(into.Blur * into.Blur + pixels * pixels) };
         }
 
         var which = Array.IndexOf(filterFunctions, keyword);
@@ -3085,7 +3256,7 @@ public sealed partial class DrawListBuilder {
             return null;
         }
 
-        var function = (FilterFunction) which;
+        var function = (FilterFunction)which;
 
         // A percentage and a number are the same value written two ways for all seven — `50%` and
         // `0.5` are one filter — and `hue-rotate` takes neither, so its unit is checked on its own
@@ -3103,7 +3274,7 @@ public sealed partial class DrawListBuilder {
 
         // The angle is the only one of the seven that is not a proportion, so it is the only one a
         // unit tells apart. A `hue-rotate(50%)` reaching here would be a parser that let it.
-        if ((function == FilterFunction.HueRotate) != (argument.Unit == StyleUnit.Degrees)
+        if (function == FilterFunction.HueRotate != (argument.Unit == StyleUnit.Degrees)
             && !(function == FilterFunction.HueRotate && amount == 0f)) {
             return null;
         }
@@ -3143,9 +3314,13 @@ public sealed partial class DrawListBuilder {
     /// <returns>Null when the arguments are a shape this refuses, which refuses the whole list.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The walk is <see cref="ReadShadows" />'s, deliberately and almost line for line,
-    ///         because the two functions have the same grammar problem and only one of them had
-    ///         solved it.</b> A length, a bare zero and a colour are told apart by kind rather than by
+    ///         ⚠
+    ///         <b>
+    ///             The walk is <see cref="ReadShadows" />'s, deliberately and almost line for line,
+    ///             because the two functions have the same grammar problem and only one of them had
+    ///             solved it.
+    ///         </b>
+    ///         A length, a bare zero and a colour are told apart by kind rather than by
     ///         position — Filter Effects 1 § 8.4 puts the colour at either end — and
     ///         <c>currentcolor</c> is resolved here because it is the computed <c>color</c> and the
     ///         parser cannot see an element. What is <i>not</i> shared is the halving: <c>box-shadow</c>
@@ -3154,8 +3329,12 @@ public sealed partial class DrawListBuilder {
     ///         only one of them applies here.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>One shadow per element and a second one refuses the list, which is a real limit
-    ///         and the same one <c>box-shadow</c> keeps.</b> CSS lets <c>filter</c> hold any number of
+    ///         ⚠
+    ///         <b>
+    ///             One shadow per element and a second one refuses the list, which is a real limit
+    ///             and the same one <c>box-shadow</c> keeps.
+    ///         </b>
+    ///         CSS lets <c>filter</c> hold any number of
     ///         <c>drop-shadow()</c>s and each is a surface and two passes on the device; drawing the
     ///         first and dropping the rest is the silent-middle-state this whole method exists to
     ///         avoid. Refusing is what makes the second one a visible change rather than an invisible
@@ -3232,7 +3411,7 @@ public sealed partial class DrawListBuilder {
 
         return into with {
             Shadow = new UiDropShadow(
-                new Vector2(lengths[0], lengths[1]),
+                new(lengths[0], lengths[1]),
                 lengths[2],
                 shade ?? document.ForegroundOf(element)
             )
@@ -3258,8 +3437,12 @@ public sealed partial class DrawListBuilder {
     /// <summary>An element's <c>mix-blend-mode</c>.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The scan starts at one rather than zero, which is what makes an undeclared
-    ///         property and an explicit <c>normal</c> the same answer.</b> They are the same picture
+    ///         ⚠
+    ///         <b>
+    ///             The scan starts at one rather than zero, which is what makes an undeclared
+    ///             property and an explicit <c>normal</c> the same answer.
+    ///         </b>
+    ///         They are the same picture
     ///         and CSS says so — <c>normal</c> is the initial value — so spending a comparison to tell
     ///         them apart would buy a distinction nothing downstream can act on, and an unrecognised
     ///         keyword falls through to the same place for the same reason.
@@ -3278,7 +3461,7 @@ public sealed partial class DrawListBuilder {
 
         for (var i = 1; i < blendKeywords.Length; i++) {
             if (blendKeywords[i] == id) {
-                return (UiBlendMode) i;
+                return (UiBlendMode)i;
             }
         }
 
@@ -3298,8 +3481,11 @@ public sealed partial class DrawListBuilder {
     /// <summary>An element's <c>text-decoration</c>, resolved as far as anything but a run can.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b><see cref="TextDecoration.IsNone" /> is the answer for almost every element in
-    ///         every frame, and this returns it after one <see cref="ComputedStyle.TryGet" />.</b>
+    ///         ⚠
+    ///         <b>
+    ///             <see cref="TextDecoration.IsNone" /> is the answer for almost every element in
+    ///             every frame, and this returns it after one <see cref="ComputedStyle.TryGet" />.
+    ///         </b>
     ///         Text is the most-emitted thing in an interface and undecorated text is nearly all of
     ///         it; four more lookups per label to discover that a colour and a thickness were never
     ///         set is a cost paid on every frame for nothing.
@@ -3328,7 +3514,7 @@ public sealed partial class DrawListBuilder {
                 ? keyword.Keyword
                 : 0;
 
-        return new TextDecoration(
+        return new(
             lines,
             decorationStyleKeyword == keywordDouble ? TextDecorationStyle.Double
             : decorationStyleKeyword == keywordDashed ? TextDecorationStyle.Dashed
@@ -3386,8 +3572,12 @@ public sealed partial class DrawListBuilder {
     /// <param name="property">Which length.</param>
     /// <param name="auto">What <c>auto</c>, <c>from-font</c> and anything unreadable mean.</param>
     /// <remarks>
-    ///     ⚠ <b>Every keyword lands on <paramref name="auto" />, including one CSS has never heard
-    ///     of, and that is the specified behaviour rather than a shrug.</b> The only two either
+    ///     ⚠
+    ///     <b>
+    ///         Every keyword lands on <paramref name="auto" />, including one CSS has never heard
+    ///         of, and that is the specified behaviour rather than a shrug.
+    ///     </b>
+    ///     The only two either
     ///     property accepts are <c>auto</c> and <c>from-font</c>, which mean the same thing here —
     ///     see the interning of <c>from-font</c> above — and CSS drops an invalid declaration, which
     ///     leaves the initial value, which is <c>auto</c>. So the three cases genuinely have one
@@ -3435,22 +3625,29 @@ public sealed partial class DrawListBuilder {
     ///     <c>forced-color-adjust: none</c>, inherited — see <see cref="InheritedProperties" />, where
     ///     the reason the property has to inherit is that it is written on containers.
     /// </remarks>
-    bool Preserved(UiElement element) =>
-        element.Style.TryGet(forcedColorAdjust, out var adjust) && adjust == styleNone;
+    bool Preserved(UiElement element) => element.Style.TryGet(forcedColorAdjust, out var adjust) && adjust == styleNone;
 
     /// <summary>Substitutes one authored colour for the forced palette's.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A zero alpha survives, and that exception is what stops the mode turning the frame
-    ///         into one flat rectangle.</b> Almost every element in a real tree has
+    ///         ⚠
+    ///         <b>
+    ///             A zero alpha survives, and that exception is what stops the mode turning the frame
+    ///             into one flat rectangle.
+    ///         </b>
+    ///         Almost every element in a real tree has
     ///         <c>background-color: transparent</c> — it is the initial value — so forcing every
     ///         parsed colour without this would paint <c>Canvas</c> behind every one of them, and the
     ///         result would not read as a high-contrast theme, it would read as a blank window.
     ///         Browsers keep a transparent background transparent for the same reason.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Two roles and not fifteen, and the fourteen this does not use are still worth
-    ///         having.</b> The mapping here is CSS Color Adjust 1's generic one — a background becomes
+    ///         ⚠
+    ///         <b>
+    ///             Two roles and not fifteen, and the fourteen this does not use are still worth
+    ///             having.
+    ///         </b>
+    ///         The mapping here is CSS Color Adjust 1's generic one — a background becomes
     ///         <c>Canvas</c> and everything else in the box model becomes <c>CanvasText</c> — because
     ///         this builder draws boxes and does not know a button from a panel. <c>ButtonFace</c> and
     ///         its siblings are what a <i>control</i> names for itself in a sheet, which is the other
@@ -3469,7 +3666,7 @@ public sealed partial class DrawListBuilder {
         // The authored alpha rather than the palette's, so a half-transparent overlay stays an
         // overlay. CSS Color Adjust says the used value is the system colour; it says nothing that
         // requires discarding a translucency the layout was built around.
-        return new Color4(substitute.R, substitute.G, substitute.B, authored.A);
+        return new(substitute.R, substitute.G, substitute.B, authored.A);
     }
 
     /// <summary>The radii a single fragment of a box may curve, which is the ends it really has.</summary>
@@ -3477,8 +3674,12 @@ public sealed partial class DrawListBuilder {
     /// <param name="ends">Which of the box's two real ends this fragment carries.</param>
     /// <returns>The radii for this fragment.</returns>
     /// <remarks>
-    ///     ⚠ <b>A break gets a square corner for the same reason it gets no border: it is not an edge
-    ///     of the box.</b> CSS Display §2.2 puts the box's inline-start decorations on the first
+    ///     ⚠
+    ///     <b>
+    ///         A break gets a square corner for the same reason it gets no border: it is not an edge
+    ///         of the box.
+    ///     </b>
+    ///     CSS Display §2.2 puts the box's inline-start decorations on the first
     ///     fragment and its inline-end ones on the last, and a rounded corner is a decoration —
     ///     rounding a break would draw a pill in the middle of a paragraph and leave a notch of
     ///     background between the two halves of one word's run.
@@ -3496,16 +3697,24 @@ public sealed partial class DrawListBuilder {
     /// <summary>An element's four corner radii, each elliptical.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A corner arrives as <i>two</i> lengths — <c>8px 8px</c> — even when the stylesheet
-    ///         wrote one</b>, because that is what the shorthand expands to. Both are read now: the pair
+    ///         ⚠
+    ///         <b>
+    ///             A corner arrives as <i>two</i> lengths — <c>8px 8px</c> — even when the stylesheet
+    ///             wrote one
+    ///         </b>
+    ///         , because that is what the shorthand expands to. Both are read now: the pair
     ///         is the horizontal and vertical radius of an ellipse, which is CSS's
     ///         <c>border-radius: 40px / 20px</c> and what a pill-shaped button whose height is not its
     ///         width actually needs. Taking the first and dropping the second drew every such corner as a
     ///         circle.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The logical longhand wins over the physical one, which is CSS Cascade's rule read
-    ///         the only way this cascade can read it.</b> CSS settles a conflict between
+    ///         ⚠
+    ///         <b>
+    ///             The logical longhand wins over the physical one, which is CSS Cascade's rule read
+    ///             the only way this cascade can read it.
+    ///         </b>
+    ///         CSS settles a conflict between
     ///         <c>border-start-start-radius</c> and <c>border-top-left-radius</c> by declaration
     ///         order, because they are two properties writing one used value. This cascade stores a
     ///         property-to-value map with no order in it, so declaration order is not recoverable
@@ -3539,11 +3748,18 @@ public sealed partial class DrawListBuilder {
             // Reversing would send `start-start` to the *bottom*-right, which is the block axis — and
             // the block axis does not flip, because there is no writing mode to flip it. Only the
             // inline half of each name moves: 0↔1 across the top and 3↔2 across the bottom.
-            var target = mirrored ? corner switch { 0 => 1, 1 => 0, 2 => 3, _ => 2 } : corner;
+            var target = mirrored
+                ? corner switch {
+                    0 => 1,
+                    1 => 0,
+                    2 => 3,
+                    _ => 2
+                }
+                : corner;
             physical[target] = Radius(element, logicalRadii[corner]);
         }
 
-        return new CornerRadii(physical[0], physical[1], physical[2], physical[3]);
+        return new(physical[0], physical[1], physical[2], physical[3]);
     }
 
     /// <summary>One corner's horizontal and vertical radius.</summary>
@@ -3561,7 +3777,7 @@ public sealed partial class DrawListBuilder {
 
         if (value.Kind != StyleValueKind.List) {
             var single = Pixels(value);
-            return new Vector2(single, single);
+            return new(single, single);
         }
 
         if (value.Items.Length == 0) {
@@ -3571,7 +3787,7 @@ public sealed partial class DrawListBuilder {
         var horizontal = Pixels(value.Items[0]);
         var vertical = value.Items.Length > 1 ? Pixels(value.Items[1]) : horizontal;
 
-        return new Vector2(horizontal, vertical);
+        return new(horizontal, vertical);
 
         static float Pixels(StyleValue value) =>
             value.Kind == StyleValueKind.Length && value.Unit == StyleUnit.Pixels ? value.Number : 0f;
@@ -3579,8 +3795,12 @@ public sealed partial class DrawListBuilder {
 
     /// <summary>Attaches a box style to a command, unless the cheap uniform path covers it.</summary>
     /// <remarks>
-    ///     ⚠ <b>The whole reason the side buffer is worth having is that this usually returns the
-    ///     command unchanged.</b> <see cref="DrawList.Boxes" /> is compared entry by entry every frame
+    ///     ⚠
+    ///     <b>
+    ///         The whole reason the side buffer is worth having is that this usually returns the
+    ///         command unchanged.
+    ///     </b>
+    ///     <see cref="DrawList.Boxes" /> is compared entry by entry every frame
     ///     alongside the commands, so an entry written for a box whose four corners are the same
     ///     circle would be pure cost — the scalar <see cref="DrawCommand.Radius" /> already says
     ///     everything about it, and <see cref="Rendering.UiGeometryBuilder" /> expands that scalar back
@@ -3598,8 +3818,12 @@ public sealed partial class DrawListBuilder {
     /// <param name="style">The entry.</param>
     /// <returns>The command, pointing at its entry.</returns>
     /// <remarks>
-    ///     ⚠ <b>No uniform-corner shortcut, because the shortcut is a statement about corners and this
-    ///     overload exists for the styles that say something else.</b> An <c>inset</c> shadow on a
+    ///     ⚠
+    ///     <b>
+    ///         No uniform-corner shortcut, because the shortcut is a statement about corners and this
+    ///         overload exists for the styles that say something else.
+    ///     </b>
+    ///     An <c>inset</c> shadow on a
     ///     square box is `Inset` set and four zero radii; the corner test would leave it out of the
     ///     side buffer, and a shadow with nothing to say it is an inner one is drawn as an outer one,
     ///     square across the element it was meant to be inside.
@@ -3642,9 +3866,13 @@ public sealed partial class DrawListBuilder {
     /// <returns>How many entries were written. Zero when there is nothing to mask by.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A mask this cannot resolve masks <i>nothing</i>, which is the opposite of the
-    ///         default and is the whole of why the refusal path is written out rather than left to a
-    ///         null-conditional.</b> A background gradient that cannot be read is simply not painted
+    ///         ⚠
+    ///         <b>
+    ///             A mask this cannot resolve masks <i>nothing</i>, which is the opposite of the
+    ///             default and is the whole of why the refusal path is written out rather than left to a
+    ///             null-conditional.
+    ///         </b>
+    ///         A background gradient that cannot be read is simply not painted
     ///         and the element keeps its own colour: the picture is missing something. A mask that
     ///         cannot be resolved, left out the same way, would leave the element <i>unmasked</i> —
     ///         also the picture missing something. But a mask that failed <i>closed</i> would erase
@@ -3652,15 +3880,23 @@ public sealed partial class DrawListBuilder {
     ///         the same thing for the same reason: a mask resource that cannot be fetched is ignored.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>One unreadable layer refuses the <i>whole</i> list, and that is the fail-open
-    ///         answer rather than a shortcut.</b> Dropping just the bad layer changes the arithmetic
+    ///         ⚠
+    ///         <b>
+    ///             One unreadable layer refuses the <i>whole</i> list, and that is the fail-open
+    ///             answer rather than a shortcut.
+    ///         </b>
+    ///         Dropping just the bad layer changes the arithmetic
     ///         of every operator around it — a missing <c>subtract</c> leaves the thing it was meant
     ///         to punch out — so a partly-resolved list is a mask that is confidently wrong. The
     ///         whole declaration is dropped instead, and the element is drawn plainly.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A list that provably changes nothing returns zero rather than an identity list,
-    ///         and it has to, because a mask is what <i>opens the group</i>.</b> Returning entries
+    ///         ⚠
+    ///         <b>
+    ///             A list that provably changes nothing returns zero rather than an identity list,
+    ///             and it has to, because a mask is what <i>opens the group</i>.
+    ///         </b>
+    ///         Returning entries
     ///         that cover everything would spend a viewport-sized surface and a composite pass on a
     ///         mask that changes no pixel. <c>UiColorMatrix</c>'s identity is dropped by
     ///         <c>UiRenderer</c> instead, one level down, because a `grayscale(0)` still isolates a
@@ -3668,8 +3904,12 @@ public sealed partial class DrawListBuilder {
     ///         are provably nothing.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The zero-axis guard is on the shape and not on the axis, and the difference is
-    ///         deliberate.</b> A radial mask has no axis at all — <see cref="BackgroundGradient.Axis" />
+    ///         ⚠
+    ///         <b>
+    ///             The zero-axis guard is on the shape and not on the axis, and the difference is
+    ///             deliberate.
+    ///         </b>
+    ///         A radial mask has no axis at all — <see cref="BackgroundGradient.Axis" />
     ///         returns zero for one legitimately — so a guard written against the axis would delete
     ///         every round mask while looking like it guarded a division.
     ///     </para>
@@ -3733,7 +3973,7 @@ public sealed partial class DrawListBuilder {
             // `linear-gradient(to right, #ff0000, #00ff0000)` are the same mask. Carrying the colours
             // to find that out later would be carrying a field whose only correct use is being
             // ignored.
-            into[layer] = new UiMask(
+            into[layer] = new(
                 centre + moved,
                 reach,
                 axis,
@@ -3767,8 +4007,12 @@ public sealed partial class DrawListBuilder {
     /// </returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b><c>PaintArea</c>'s arithmetic and its guard, on a different box — and the guard is
-    ///         load-bearing here for a second reason.</b> Nothing is written unless a size or a
+    ///         ⚠
+    ///         <b>
+    ///             <c>PaintArea</c>'s arithmetic and its guard, on a different box — and the guard is
+    ///             load-bearing here for a second reason.
+    ///         </b>
+    ///         Nothing is written unless a size or a
     ///         position was stated, because with the tile equal to the mask box every keyword of
     ///         <c>mask-repeat</c> is the same picture; and because <c>UiMask.IsOpaque</c> answers
     ///         false for any clipping tile, a lane written to say nothing would stop
@@ -3776,8 +4020,12 @@ public sealed partial class DrawListBuilder {
     ///         one-entry list into six and opening a group for each.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The positioning area is the border box, so <c>mask-origin</c> and
-    ///         <c>mask-clip</c> stay unread.</b> Masking 1 gives both a default of <c>border-box</c>
+    ///         ⚠
+    ///         <b>
+    ///             The positioning area is the border box, so <c>mask-origin</c> and
+    ///             <c>mask-clip</c> stay unread.
+    ///         </b>
+    ///         Masking 1 gives both a default of <c>border-box</c>
     ///         and this engine has no second rectangle to resolve a padding box against; every value
     ///         of either would draw the same picture, which is the inert family the consumption gate
     ///         exists to keep out.
@@ -3798,13 +4046,13 @@ public sealed partial class DrawListBuilder {
             return (Vector2.Zero, Vector2.Zero);
         }
 
-        var anchor = placed ?? new GradientPoint(new GradientOffset(0f, 0f), new GradientOffset(0f, 0f));
+        var anchor = placed ?? new GradientPoint(new(0f, 0f), new(0f, 0f));
         var free = box - tile;
         var corner = new Vector2(anchor.X.Resolve(free.X), anchor.Y.Resolve(free.Y));
         var repeat = MaskRepeat(element);
 
         return (
-            corner + (tile * 0.5f) - (box * 0.5f),
+            corner + tile * 0.5f - box * 0.5f,
             new Vector2(tile.X * 0.5f * (repeat.X ? 1f : -1f), tile.Y * 0.5f * (repeat.Y ? 1f : -1f))
         );
     }
@@ -3818,8 +4066,12 @@ public sealed partial class DrawListBuilder {
     /// <param name="half">Half the mask box, which is the border box.</param>
     /// <returns>The centre's offset from the box's centre, and the reach.</returns>
     /// <remarks>
-    ///     ⚠ <b>The reach is <see cref="BackgroundGradient.Reach" />'s, and it is shared code now
-    ///     rather than a shared derivation.</b> This remark used to say the two "must not disagree,
+    ///     ⚠
+    ///     <b>
+    ///         The reach is <see cref="BackgroundGradient.Reach" />'s, and it is shared code now
+    ///         rather than a shared derivation.
+    ///     </b>
+    ///     This remark used to say the two "must not disagree,
     ///     because a <c>mask-radial-*</c> and a <c>bg-radial-*</c> written with the same <c>at</c>
     ///     have to line up" — and while the only ending was <c>farthest-corner</c> the two closed
     ///     forms were one line each and prose was enough to keep them equal. There are eight endings
@@ -3830,7 +4082,8 @@ public sealed partial class DrawListBuilder {
     /// </remarks>
     static (Vector2 Centre, Vector2 Reach) MaskFrame(BackgroundGradient gradient, Vector2 half) {
         if (gradient.Shape != GradientShape.Radial) {
-            return (gradient.Centre is { } placed ? placed.Resolve(half.X * 2f, half.Y * 2f) - half : Vector2.Zero, half);
+            return (gradient.Centre is { } placed ? placed.Resolve(half.X * 2f, half.Y * 2f) - half : Vector2.Zero,
+                half);
         }
 
         var offset = gradient.Centre is { } at ? at.Resolve(half.X * 2f, half.Y * 2f) - half : Vector2.Zero;
@@ -3844,8 +4097,12 @@ public sealed partial class DrawListBuilder {
     /// <returns>The from, via and to coverages.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Computed here rather than carried, which is what makes <c>mask-mode</c> cost no
-    ///         lane in <c>MaskEntry</c> and no branch in either executor.</b> CSS Masking 1 § 7.2
+    ///         ⚠
+    ///         <b>
+    ///             Computed here rather than carried, which is what makes <c>mask-mode</c> cost no
+    ///             lane in <c>MaskEntry</c> and no branch in either executor.
+    ///         </b>
+    ///         CSS Masking 1 § 7.2
     ///         defines a luminance mask's value as <c>luminance(rgb) × a</c> — a scalar per stop —
     ///         so the mode is a question about how to read three colours this builder already has,
     ///         and the answer is three floats of exactly the shape the alpha reading produces.
@@ -3884,8 +4141,12 @@ public sealed partial class DrawListBuilder {
     /// <returns>How many entries are left.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>An optimisation with a correctness consequence, which is why it is here and not
-    ///         in an executor.</b> A mask is what opens a composited group, so a list that reduces to
+    ///         ⚠
+    ///         <b>
+    ///             An optimisation with a correctness consequence, which is why it is here and not
+    ///             in an executor.
+    ///         </b>
+    ///         A mask is what opens a composited group, so a list that reduces to
     ///         nothing has to reduce to nothing <i>before</i> the group is decided on — otherwise a
     ///         <c>mask-t-from-*</c> that happens to be fully opaque would still cost a
     ///         viewport-sized surface and two passes to composite a picture identical to the one that
@@ -3939,8 +4200,12 @@ public sealed partial class DrawListBuilder {
     /// <summary>The <c>mask-composite</c> operators an element declares, in order.</summary>
     /// <returns>The operators, or empty when the property is absent or unreadable.</returns>
     /// <remarks>
-    ///     ⚠ <b>Empty and not <c>[add]</c>, so that "nobody wrote one" and "somebody wrote
-    ///     <c>add</c>" are the same picture without being the same value.</b> An unreadable keyword
+    ///     ⚠
+    ///     <b>
+    ///         Empty and not <c>[add]</c>, so that "nobody wrote one" and "somebody wrote
+    ///         <c>add</c>" are the same picture without being the same value.
+    ///     </b>
+    ///     An unreadable keyword
     ///     drops the whole property rather than the one operator it appeared in, for
     ///     <see cref="MasksFor" />'s reason: a list with one operator silently replaced is a mask
     ///     that is confidently wrong, and CSS discards an invalid declaration whole.
@@ -3964,7 +4229,7 @@ public sealed partial class DrawListBuilder {
                 continue;
             }
 
-            parts[count++] = new Range(start, index);
+            parts[count++] = new(start, index);
             start = index + 1;
         }
 
@@ -3978,7 +4243,7 @@ public sealed partial class DrawListBuilder {
                 _ when name.Equals("subtract", StringComparison.OrdinalIgnoreCase) => MaskComposite.Subtract,
                 _ when name.Equals("intersect", StringComparison.OrdinalIgnoreCase) => MaskComposite.Intersect,
                 _ when name.Equals("exclude", StringComparison.OrdinalIgnoreCase) => MaskComposite.Exclude,
-                _ => (MaskComposite) (-1)
+                _ => (MaskComposite)(-1)
             };
 
             if (operators[index] < 0) {
@@ -4073,8 +4338,8 @@ public sealed partial class DrawListBuilder {
             }
 
             areaCentre += new Vector2(
-                rampX + (rampWidth * 0.5f) - x - (width * 0.5f),
-                rampY + (rampHeight * 0.5f) - y - (height * 0.5f)
+                rampX + rampWidth * 0.5f - x - width * 0.5f,
+                rampY + rampHeight * 0.5f - y - height * 0.5f
             );
         }
 
@@ -4082,7 +4347,7 @@ public sealed partial class DrawListBuilder {
         // uniformly rounded box needs nothing but its scalar radius — and a gradient is precisely a
         // box that needs more than that, so the test that skips the record has to be skipped here.
         var offset = into.AddBox(
-            new BoxStyle(corners, Fade(gradient.End, alpha), axis) {
+            new(corners, Fade(gradient.End, alpha), axis) {
                 Shape = gradient.Shape,
                 Space = gradient.Space,
                 GradientVia = Fade(gradient.Via, alpha),
@@ -4096,7 +4361,7 @@ public sealed partial class DrawListBuilder {
         );
 
         into.Add(
-            new DrawCommand(
+            new(
                 DrawCommandKind.Rectangle,
                 x,
                 y,
@@ -4105,10 +4370,7 @@ public sealed partial class DrawListBuilder {
                 Fade(gradient.Start, alpha),
                 radius,
                 0f
-            ) {
-                Offset = offset,
-                Length = 1
-            }
+            ) { Offset = offset, Length = 1 }
         );
     }
 
@@ -4130,8 +4392,12 @@ public sealed partial class DrawListBuilder {
     /// </returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Nothing at all is written unless a size or a position was stated, and that is
-    ///         load-bearing rather than an optimisation.</b> With the tile equal to the border box the
+    ///         ⚠
+    ///         <b>
+    ///             Nothing at all is written unless a size or a position was stated, and that is
+    ///             load-bearing rather than an optimisation.
+    ///         </b>
+    ///         With the tile equal to the border box the
     ///         clip runs along the box's own edge — where the rounded-rect coverage is already
     ///         antialiasing — and multiplying two half-covered edges gives a quarter. That is a
     ///         one-pixel darkening around every gradient in the interface, on exactly the frames that
@@ -4140,21 +4406,33 @@ public sealed partial class DrawListBuilder {
     ///         it must not reach it.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A stated <c>background-repeat</c> alone is deliberately not enough to write the
-    ///         lane.</b> Its keywords are indistinguishable while the tile is the box — which is the
+    ///         ⚠
+    ///         <b>
+    ///             A stated <c>background-repeat</c> alone is deliberately not enough to write the
+    ///             lane.
+    ///         </b>
+    ///         Its keywords are indistinguishable while the tile is the box — which is the
     ///         measurement the ledger recorded as <c>refused, measured</c> for the whole root — so
     ///         honouring one on its own would be a lane written to say nothing.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The positioning area is the border box, and <c>background-origin</c> is still
-    ///         refused.</b> CSS's initial value is <c>padding-box</c>, so this is a stated deviation
+    ///         ⚠
+    ///         <b>
+    ///             The positioning area is the border box, and <c>background-origin</c> is still
+    ///             refused.
+    ///         </b>
+    ///         CSS's initial value is <c>padding-box</c>, so this is a stated deviation
     ///         and not an oversight: <c>DrawListBuilder</c> paints the background to the border box —
     ///         which is what makes a background show <i>under</i> a translucent border — and nothing
     ///         in the draw command carries a second rectangle to resolve a padding box against.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b><c>auto</c>, <c>cover</c> and <c>contain</c> are all the positioning area here, and
-    ///         that is CSS rather than a simplification.</b> Backgrounds 3 § 3.9 resolves all three
+    ///         ⚠
+    ///         <b>
+    ///             <c>auto</c>, <c>cover</c> and <c>contain</c> are all the positioning area here, and
+    ///             that is CSS rather than a simplification.
+    ///         </b>
+    ///         Backgrounds 3 § 3.9 resolves all three
     ///         against the image's intrinsic dimensions, and a gradient has none and no intrinsic
     ///         ratio — so for the only kind of <c>background-image</c> this engine paints, the three
     ///         keywords are one picture. They are not registered as utilities for that reason.
@@ -4179,22 +4457,26 @@ public sealed partial class DrawListBuilder {
 
         // CSS's initial `background-position` is `0% 0%` — the top left, not the middle — so a size
         // written with no position tucks the tile into the corner rather than centring it.
-        var anchor = placed ?? new GradientPoint(new GradientOffset(0f, 0f), new GradientOffset(0f, 0f));
+        var anchor = placed ?? new GradientPoint(new(0f, 0f), new(0f, 0f));
         var free = box - tile;
         var corner = new Vector2(anchor.X.Resolve(free.X), anchor.Y.Resolve(free.Y));
         var repeat = Repeat(element);
 
         return (
-            corner + (tile * 0.5f) - (box * 0.5f),
+            corner + tile * 0.5f - box * 0.5f,
             new Vector2(tile.X * 0.5f * (repeat.X ? 1f : -1f), tile.Y * 0.5f * (repeat.Y ? 1f : -1f))
         );
     }
 
     /// <summary>Which axes <c>background-repeat</c> tiles along. CSS's initial value is both.</summary>
     /// <remarks>
-    ///     ⚠ <b><c>round</c> and <c>space</c> are not honoured and are not silently treated as
-    ///     <c>repeat</c> either — they fall out of the table and the whole declaration is dropped,
-    ///     which leaves the initial value.</b> Both rescale or re-space the tile so that a whole number
+    ///     ⚠
+    ///     <b>
+    ///         <c>round</c> and <c>space</c> are not honoured and are not silently treated as
+    ///         <c>repeat</c> either — they fall out of the table and the whole declaration is dropped,
+    ///         which leaves the initial value.
+    ///     </b>
+    ///     Both rescale or re-space the tile so that a whole number
     ///     of them fits, which is a second size computed from the box rather than a flag: <c>round</c>
     ///     changes the tile the ramp is drawn in, and <c>space</c> leaves gaps that are not a period
     ///     the shader's <c>mod</c> can express. Painting them as plain <c>repeat</c> would be a tiling
@@ -4242,9 +4524,13 @@ public sealed partial class DrawListBuilder {
     /// </returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The radial reach is <see cref="BackgroundGradient.Reach" />'s, which for CSS's
-    ///         default ending is the <i>farthest-side</i> distance and is exactly right rather than an
-    ///         approximation.</b> The derivation is on that method, and the surprise is worth keeping
+    ///         ⚠
+    ///         <b>
+    ///             The radial reach is <see cref="BackgroundGradient.Reach" />'s, which for CSS's
+    ///             default ending is the <i>farthest-side</i> distance and is exactly right rather than an
+    ///             approximation.
+    ///         </b>
+    ///         The derivation is on that method, and the surprise is worth keeping
     ///         here: <c>farthest-corner</c> is the ellipse with the farthest-side aspect ratio scaled
     ///         to pass through the farthest corner, a corner maximises each axis independently, so the
     ///         scale is <c>√(1 + 1)</c> whatever the centre — and the shader's own parameterisation is
@@ -4253,15 +4539,23 @@ public sealed partial class DrawListBuilder {
     ///         endings either.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The zero return is a claim about the <i>ending</i> as well as about the centre
-    ///         now.</b> Zero means "the ramp is the box", which is a farthest-corner ellipse centred
+    ///         ⚠
+    ///         <b>
+    ///             The zero return is a claim about the <i>ending</i> as well as about the centre
+    ///             now.
+    ///         </b>
+    ///         Zero means "the ramp is the box", which is a farthest-corner ellipse centred
     ///         in it — so a <c>closest-side</c> or a <c>circle</c> has to write its lane even when
     ///         nothing moved, or the class resolves, computes, and paints the ending it was written to
     ///         replace.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A linear gradient's reach is the tile and not the ellipse, and a conic reads no
-    ///         reach at all.</b> Writing the radial pair into all three would run every linear ramp
+    ///         ⚠
+    ///         <b>
+    ///             A linear gradient's reach is the tile and not the ellipse, and a conic reads no
+    ///             reach at all.
+    ///         </b>
+    ///         Writing the radial pair into all three would run every linear ramp
     ///         across a distance that grows as its centre moves, and a conic sweep does not have one.
     ///     </para>
     /// </remarks>

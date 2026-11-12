@@ -145,16 +145,18 @@ public sealed class SurfaceCacheStore {
     public Vector3 Outgoing(int card, Int2 texel) {
         var at = Index(cards[card].Origin, Validated(card, texel));
 
-        return valid[at] ? texels[at].Emissive + (texels[at].Albedo * (direct[at] + gathered[at])) : Vector3.Zero;
+        return valid[at] ? texels[at].Emissive + texels[at].Albedo * (direct[at] + gathered[at]) : Vector3.Zero;
     }
 
     /// <summary>What a surface at a point radiates, if some card captured it.</summary>
     /// <param name="position">Where the surface is, in world space.</param>
     /// <param name="normal">Which way it faces.</param>
     /// <param name="radiance">Its outgoing radiance.</param>
-    /// <returns>False when no resident card holds that surface — the caller's answer is black, the
+    /// <returns>
+    ///     False when no resident card holds that surface — the caller's answer is black, the
     ///     honest reading of an uncached hit, exactly what the tracers returned before a cache
-    ///     existed at all.</returns>
+    ///     existed at all.
+    /// </returns>
     public bool TryRadiance(Vector3 position, Vector3 normal, out Vector3 radiance) {
         radiance = default;
 
@@ -190,7 +192,7 @@ public sealed class SurfaceCacheStore {
         return true;
     }
 
-    int Index(Int2 origin, Int2 texel) => ((origin.Y + texel.Y) * Atlas.Size.X) + origin.X + texel.X;
+    int Index(Int2 origin, Int2 texel) => (origin.Y + texel.Y) * Atlas.Size.X + origin.X + texel.X;
 
     Int2 Validated(int card, Int2 texel) {
         var resolution = cards[card].Card.Resolution;

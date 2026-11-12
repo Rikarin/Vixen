@@ -339,7 +339,7 @@ public sealed class ParticleBuffer : IDisposable {
             var width = lanes[slot];
 
             for (var lane = 0; lane < width; lane++) {
-                values[(to * width) + lane] = values[(from * width) + lane];
+                values[to * width + lane] = values[from * width + lane];
             }
         }
     }

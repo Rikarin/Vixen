@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core.Mathematics;
-using Vixen.Editor.NodeGraph;
 using Vixen.NodeGraph;
 using Vixen.Vfx;
 
@@ -75,7 +74,7 @@ public sealed class VfxGraphBuilder {
     ///     that writes its strip attribute would look up a name that has not been declared yet.
     ///     Resolving it after the walk makes the answer the same whatever order the graph was built in.
     /// </remarks>
-    public string RibbonAttribute { get; set; } = "";
+    public string RibbonAttribute { get; set; } = string.Empty;
 
     /// <summary>The slot a named custom attribute occupies, declaring it if this is the first mention.</summary>
     /// <param name="name">What the author called it.</param>
@@ -96,7 +95,7 @@ public sealed class VfxGraphBuilder {
     ///     </para>
     /// </remarks>
     public int Custom(string name, VfxAttributeType type) {
-        var trimmed = (name ?? "").Trim();
+        var trimmed = (name ?? string.Empty).Trim();
 
         if (trimmed.Length == 0) {
             Problems.Add(
@@ -136,7 +135,7 @@ public sealed class VfxGraphBuilder {
     ///     strip: one tangled ribbon rather than the many the author drew.
     /// </remarks>
     public int SlotOf(string name) {
-        var trimmed = (name ?? "").Trim();
+        var trimmed = (name ?? string.Empty).Trim();
 
         for (var slot = 0; slot < Customs.Count; slot++) {
             if (string.Equals(Customs[slot].Name, trimmed, StringComparison.Ordinal)) {

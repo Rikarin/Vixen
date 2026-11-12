@@ -63,7 +63,9 @@ public readonly record struct OutlineSegment(
 ///     </para>
 /// </remarks>
 public sealed class GlyphOutline {
-    internal GlyphOutline(ImmutableArray<OutlineSegment> segments) => Segments = segments;
+    internal GlyphOutline(ImmutableArray<OutlineSegment> segments) {
+        Segments = segments;
+    }
 
     /// <summary>An outline with nothing in it — a space, or a glyph the font does not draw.</summary>
     public static GlyphOutline Empty { get; } = new([]);
@@ -72,8 +74,12 @@ public sealed class GlyphOutline {
     /// <param name="segments">The contours, in the order they are drawn.</param>
     /// <returns>The outline, or <see cref="Empty" /> if there were none.</returns>
     /// <remarks>
-    ///     ⚠ <b>The one door into this type that a font did not walk through, and it is here so that
-    ///     an icon can use the machinery a glyph uses.</b> <c>Vixen.Ui</c> owns <c>PathBuilder</c> and
+    ///     ⚠
+    ///     <b>
+    ///         The one door into this type that a font did not walk through, and it is here so that
+    ///         an icon can use the machinery a glyph uses.
+    ///     </b>
+    ///     <c>Vixen.Ui</c> owns <c>PathBuilder</c> and
     ///     cannot be referenced from here — the dependency runs the other way — so a caller converts
     ///     its own verbs and hands the result over. What this must not become is a path type: it is
     ///     the input to a distance field and nothing else, and everything that makes a path a path
@@ -83,9 +89,9 @@ public sealed class GlyphOutline {
     public static GlyphOutline FromSegments(IEnumerable<OutlineSegment> segments) {
         ArgumentNullException.ThrowIfNull(segments);
 
-        var collected = segments as IReadOnlyCollection<OutlineSegment> ?? [.. segments];
+        var collected = segments as IReadOnlyCollection<OutlineSegment> ?? [..segments];
 
-        return collected.Count == 0 ? Empty : new GlyphOutline([.. collected]);
+        return collected.Count == 0 ? Empty : new GlyphOutline([..collected]);
     }
 
     /// <summary>The segments, in order, contour by contour.</summary>
@@ -143,8 +149,8 @@ public sealed class GlyphOutline {
                         var t = (float)i / samples;
                         var u = 1 - t;
                         Hit(
-                            (u * u * x) + (2 * u * t * segment.X0) + (t * t * segment.X1),
-                            (u * u * y) + (2 * u * t * segment.Y0) + (t * t * segment.Y1)
+                            u * u * x + 2 * u * t * segment.X0 + t * t * segment.X1,
+                            u * u * y + 2 * u * t * segment.Y0 + t * t * segment.Y1
                         );
                     }
 
@@ -157,10 +163,14 @@ public sealed class GlyphOutline {
                         var t = (float)i / samples;
                         var u = 1 - t;
                         Hit(
-                            (u * u * u * x) + (3 * u * u * t * segment.X0) + (3 * u * t * t * segment.X1)
-                            + (t * t * t * segment.X2),
-                            (u * u * u * y) + (3 * u * u * t * segment.Y0) + (3 * u * t * t * segment.Y1)
-                            + (t * t * t * segment.Y2)
+                            u * u * u * x
+                            + 3 * u * u * t * segment.X0
+                            + 3 * u * t * t * segment.X1
+                            + t * t * t * segment.X2,
+                            u * u * u * y
+                            + 3 * u * u * t * segment.Y0
+                            + 3 * u * t * t * segment.Y1
+                            + t * t * t * segment.Y2
                         );
                     }
 
@@ -172,13 +182,10 @@ public sealed class GlyphOutline {
                     x = startX;
                     y = startY;
                     break;
-
-                default:
-                    break;
             }
         }
 
-        return new GlyphBounds(minX, minY, maxX, maxY);
+        return new(minX, minY, maxX, maxY);
     }
 }
 

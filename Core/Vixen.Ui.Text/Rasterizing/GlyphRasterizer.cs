@@ -14,7 +14,7 @@ public readonly record struct CoverageBitmap(int Width, int Height, float[] Cove
     /// <summary>One pixel's coverage.</summary>
     /// <param name="x">Column.</param>
     /// <param name="y">Row.</param>
-    public float this[int x, int y] => Coverage[(y * Width) + x];
+    public float this[int x, int y] => Coverage[y * Width + x];
 
     /// <summary>The total covered area, in pixels.</summary>
     public float Area {
@@ -49,8 +49,12 @@ public readonly record struct CoverageBitmap(int Width, int Height, float[] Cove
 ///         <c>Vixen.Ui.Text</c>, for one editor-side caller.
 ///     </para>
 ///     <para>
-///         ⚠ <b>That editor-side caller does not exist, and until it does this option is a finished
-///         thing nothing calls.</b> Swept over <c>.cs</c> and <c>.vxml</c> on 2026-09-08: the only
+///         ⚠
+///         <b>
+///             That editor-side caller does not exist, and until it does this option is a finished
+///             thing nothing calls.
+///         </b>
+///         Swept over <c>.cs</c> and <c>.vxml</c> on 2026-09-08: the only
 ///         sites naming <see cref="EvenOdd" /> anywhere in the tree are three assertions in
 ///         <c>RasterizerTests</c>. That is not an argument for deleting it — the blocker it removes
 ///         is real and #753 now carries the measured route to the node — but a reader who assumes an
@@ -85,8 +89,12 @@ public enum FillRule {
 ///         than a golden image, which only says the output has not changed.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Non-zero winding unless a caller says otherwise, and every caller in this assembly
-///         is a font.</b> A counter in an <c>o</c> is a contour wound the other way, and both rules
+///         ⚠
+///         <b>
+///             Non-zero winding unless a caller says otherwise, and every caller in this assembly
+///             is a font.
+///         </b>
+///         A counter in an <c>o</c> is a contour wound the other way, and both rules
 ///         agree about that; they disagree where two <em>same-wound</em> contours overlap, which
 ///         happens in scripts that build a letter out of stacked strokes and where even-odd is
 ///         simply wrong. <see cref="FillRule" /> carries why the option exists at all.
@@ -110,8 +118,12 @@ public static class GlyphRasterizer {
     /// <param name="rule">Which crossings count as inside. Defaults to what a glyph wants.</param>
     /// <returns>The coverage.</returns>
     /// <remarks>
-    ///     ⚠ <b>The rule is the last parameter and has a default, so the four call sites in this
-    ///     assembly and the two in the editor are unchanged and still say "a font".</b> A rule
+    ///     ⚠
+    ///     <b>
+    ///         The rule is the last parameter and has a default, so the four call sites in this
+    ///         assembly and the two in the editor are unchanged and still say "a font".
+    ///     </b>
+    ///     A rule
     ///     threaded through as a required argument would have made every one of them state a choice
     ///     it does not have — and the one that matters, the distance-field oracle, would then be one
     ///     edit away from judging a field against a shape the rasteriser filled differently.
@@ -131,7 +143,7 @@ public static class GlyphRasterizer {
 
         var coverage = new float[width * height];
         if (outline.IsEmpty) {
-            return new CoverageBitmap(width, height, coverage);
+            return new(width, height, coverage);
         }
 
         // Flattened in *pixel* space, at half a sub-scanline's worth of tolerance — which is the
@@ -149,8 +161,8 @@ public static class GlyphRasterizer {
                 // Bitmap rows run down and the outline runs up, so the sample's y is measured from
                 // the bottom. Half-offsets keep the samples off the pixel boundaries, where an edge
                 // that lands exactly on one would otherwise be counted twice or not at all.
-                var pixelY = height - 1 - y + ((sub + 0.5f) / SubScanlines);
-                var sampleY = (pixelY / scale) + origin.Y;
+                var pixelY = height - 1 - y + (sub + 0.5f) / SubScanlines;
+                var sampleY = pixelY / scale + origin.Y;
 
                 crossings.Clear();
                 foreach (var edge in edges) {
@@ -171,7 +183,7 @@ public static class GlyphRasterizer {
             }
         }
 
-        return new CoverageBitmap(width, height, coverage);
+        return new(width, height, coverage);
     }
 
     /// <summary>Where an edge crosses a horizontal line, and which way it is going.</summary>
@@ -190,7 +202,7 @@ public static class GlyphRasterizer {
         }
 
         var t = (y - from.Y) / (to.Y - from.Y);
-        crossings.Add((from.X + (t * (to.X - from.X)), down ? -1 : 1));
+        crossings.Add((from.X + t * (to.X - from.X), down ? -1 : 1));
     }
 
     /// <summary>Adds one sub-scanline's spans to a row, with exact coverage at the ends.</summary>
@@ -202,8 +214,12 @@ public static class GlyphRasterizer {
     ///         contours solid under the first and a hole under the second.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Counting is written here rather than <c>winding &amp; 1</c>, and the claim that
-    ///         the two could disagree is false.</b> It was written into this remark first and a
+    ///         ⚠
+    ///         <b>
+    ///             Counting is written here rather than <c>winding &amp; 1</c>, and the claim that
+    ///             the two could disagree is false.
+    ///         </b>
+    ///         It was written into this remark first and a
     ///         sabotage refuted it: <see cref="Cross" /> adds ±1 and nothing else, and the parity of
     ///         a sum of ±1 is the parity of how many there were — so the two spellings are equal for
     ///         every input this rasteriser can produce, and no test can tell them apart. The count

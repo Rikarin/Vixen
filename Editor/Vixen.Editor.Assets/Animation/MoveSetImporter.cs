@@ -37,7 +37,9 @@ public sealed class MoveSetImporter : AssetImporter<MoveSetImportSettings> {
     /// <summary>The alias of the type this writes.</summary>
     public const string SetType = "MoveSetContent";
 
-    static MoveSetImporter() => MathScalars.Register();
+    static MoveSetImporter() {
+        MathScalars.Register();
+    }
 
     /// <inheritdoc />
     public override int Version => MoveSetContent.Current;
@@ -118,7 +120,10 @@ public sealed class MoveSetImporter : AssetImporter<MoveSetImportSettings> {
         }
 
         if (entry.MinRate <= 0f) {
-            context.Report(ImportSeverity.Error, $"'{entry.Name}' admits a rate of {entry.MinRate}, which stops or reverses it.");
+            context.Report(
+                ImportSeverity.Error,
+                $"'{entry.Name}' admits a rate of {entry.MinRate}, which stops or reverses it."
+            );
         }
 
         // ⚠ Not an error. A move that goes nowhere — an idle, a gesture — legitimately has no speed

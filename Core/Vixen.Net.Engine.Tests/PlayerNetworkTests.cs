@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core;
-using Vixen.Core.Mathematics;
 using Vixen.Ecs;
 using Vixen.Engine.Players;
 using Vixen.Engine.Scenes;
@@ -19,10 +18,7 @@ public sealed class PlayerMoveInputTests {
     [Fact]
     public void AnIntentSurvivesTheRoundTripToWithinTheStatedError() {
         var intent = new MoveIntent {
-            Move = new(-0.5f, 0.75f),
-            Yaw = 1.2f,
-            Pitch = -0.4f,
-            Buttons = MoveButtons.Jump | MoveButtons.Sprint
+            Move = new(-0.5f, 0.75f), Yaw = 1.2f, Pitch = -0.4f, Buttons = MoveButtons.Jump | MoveButtons.Sprint
         };
 
         var decoded = PlayerMoveInput.Round(intent);
@@ -261,7 +257,9 @@ public sealed class LocalPlayerSystemTests : IDisposable {
     [Fact]
     public void AClientTakesChargeOfThePawnItOwns() {
         var controller = Player.Create(world);
-        var system = new LocalPlayerSystem { Local = Mine, Controller = controller };
+        using var system = new LocalPlayerSystem();
+        system.Local = Mine;
+        system.Controller = controller;
         var mine = Pawn(Mine);
         var theirs = Pawn(Theirs);
 
@@ -276,7 +274,9 @@ public sealed class LocalPlayerSystemTests : IDisposable {
     [Fact]
     public void AdoptingTwiceTakesNothingTheSecondTime() {
         var controller = Player.Create(world);
-        var system = new LocalPlayerSystem { Local = Mine, Controller = controller };
+        using var system = new LocalPlayerSystem();
+        system.Local = Mine;
+        system.Controller = controller;
 
         Pawn(Mine);
 
@@ -287,7 +287,8 @@ public sealed class LocalPlayerSystemTests : IDisposable {
     [Fact]
     public void AClientThatHasNotConnectedAdoptsNothing() {
         var controller = Player.Create(world);
-        var system = new LocalPlayerSystem { Controller = controller };
+        using var system = new LocalPlayerSystem();
+        system.Controller = controller;
 
         Pawn(Mine);
 
@@ -296,7 +297,8 @@ public sealed class LocalPlayerSystemTests : IDisposable {
 
     [Fact]
     public void AClientWithNoControllerAdoptsNothing() {
-        var system = new LocalPlayerSystem { Local = Mine };
+        using var system = new LocalPlayerSystem();
+        system.Local = Mine;
 
         Pawn(Mine);
 
@@ -311,7 +313,9 @@ public sealed class LocalPlayerSystemTests : IDisposable {
     [Fact]
     public void AStandInThatHasNotBeenBuiltIsNotAdopted() {
         var controller = Player.Create(world);
-        var system = new LocalPlayerSystem { Local = Mine, Controller = controller };
+        using var system = new LocalPlayerSystem();
+        system.Local = Mine;
+        system.Controller = controller;
 
         var waiting = world.Create(LocalTransform.Identity);
         world.Add(waiting, default(PlayerPawn));
@@ -324,8 +328,10 @@ public sealed class LocalPlayerSystemTests : IDisposable {
     [Fact]
     public void ANewBodyIsTakenAfterTheOldOneDies() {
         var controller = Player.Create(world);
-        var system = new LocalPlayerSystem { Local = Mine, Controller = controller };
-        var possession = new PossessionSystem();
+        using var system = new LocalPlayerSystem();
+        system.Local = Mine;
+        system.Controller = controller;
+        using var possession = new PossessionSystem();
         var first = Pawn(Mine);
 
         system.Adopt(world);

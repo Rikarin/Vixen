@@ -5,8 +5,6 @@ using System.Diagnostics;
 using Microsoft.Extensions.Logging;
 using Vixen.Core;
 using Vixen.Core.Diagnostics;
-using Vixen.Core.IO;
-using Vixen.Core.Threading;
 using Vixen.Engine.Diagnostics.Overlays;
 using Vixen.Engine.Frames;
 using Vixen.Engine.Scenes;
@@ -77,6 +75,7 @@ public sealed class VixenApplication : IDisposable {
 
     /// <summary>The console panel, when this build has one. See <see cref="Initialise" />.</summary>
     ConsoleOverlay? console;
+
     bool initialised;
     bool stopped;
     bool disposed;
@@ -247,9 +246,7 @@ public sealed class VixenApplication : IDisposable {
             // Taking the collection over, before the first frame draws anything. See the field.
             frameGraph = Services.Graphics?.Overlays?.Registered.OfType<FrameGraphOverlay>().FirstOrDefault();
 
-            if (frameGraph is not null) {
-                frameGraph.Collects = false;
-            }
+            frameGraph?.Collects = false;
         }
 
         // At startup rather than at the end, because the end of a run with no frame count is
@@ -279,7 +276,7 @@ public sealed class VixenApplication : IDisposable {
                 // Counted into a local rather than inside the call: the walk happens once at startup
                 // over a handful of bundles either way, and a LINQ argument to a generated log method
                 // is work done whether or not anybody is listening.
-                var downloadable = assets.Catalog.Bundles.Count(bundle => bundle.Url.Length > 0);
+                var downloadable = assets.Catalog.Bundles.Count(static bundle => bundle.Url.Length > 0);
 
                 HostLog.RemoteContent(logger, downloadable, cache.Root);
             }
@@ -349,8 +346,10 @@ public sealed class VixenApplication : IDisposable {
         lastTimestamp = Stopwatch.GetTimestamp();
     }
 
-    /// <summary>Runs one frame: events, main-thread work, and — unless the frame's own events ended
-    /// the application — update, render, pacing.</summary>
+    /// <summary>
+    ///     Runs one frame: events, main-thread work, and — unless the frame's own events ended
+    ///     the application — update, render, pacing.
+    /// </summary>
     /// <remarks>
     ///     <para>
     ///         The whole loop body, exposed. An editor's play mode drives this from its own frame,
@@ -500,8 +499,9 @@ public sealed class VixenApplication : IDisposable {
         try {
             TraceExporter.WriteChromeTrace(trace, path);
             HostLog.TraceWritten(logger, path, tracedSamples, tracedFrames, Profiler.DroppedSampleCount);
-        } catch (Exception failure) when (failure is IOException or UnauthorizedAccessException
-                                          or NotSupportedException) {
+        } catch (Exception failure) when (failure is IOException
+                                              or UnauthorizedAccessException
+                                              or NotSupportedException) {
             HostLog.TraceNotWritten(logger, path, failure.Message);
         }
     }
@@ -723,9 +723,6 @@ public sealed class VixenApplication : IDisposable {
                 case PlatformEventKind.Quit:
                     stopped = true;
                     break;
-
-                default:
-                    break;
             }
         }
 
@@ -744,8 +741,12 @@ public sealed class VixenApplication : IDisposable {
     ///         This is the answer for the shipped host and it is the whole of it.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Characters come from <see cref="PlatformEventKind.TextInput" /> and never from
-    ///         key codes.</b> A key is a physical position: mapping <c>Key.A</c> to <c>'a'</c> gives
+    ///         ⚠
+    ///         <b>
+    ///             Characters come from <see cref="PlatformEventKind.TextInput" /> and never from
+    ///             key codes.
+    ///         </b>
+    ///         A key is a physical position: mapping <c>Key.A</c> to <c>'a'</c> gives
     ///         a console that types the wrong letters on AZERTY and nothing at all in Japanese, and
     ///         the platform already does this properly. On SDL desktop the events arrive without
     ///         anything asking — see the <see cref="ITextInput" /> handling below, which starts it
@@ -819,11 +820,11 @@ public sealed class VixenApplication : IDisposable {
                         break;
 
                     case Key.Up:
-                        console.Recall(back: true);
+                        console.Recall(true);
                         break;
 
                     case Key.Down:
-                        console.Recall(back: false);
+                        console.Recall(false);
                         break;
 
                     case Key.Escape:
@@ -834,9 +835,6 @@ public sealed class VixenApplication : IDisposable {
                             activatedTextInput = false;
                         }
 
-                        break;
-
-                    default:
                         break;
                 }
 
@@ -856,9 +854,13 @@ public sealed class VixenApplication : IDisposable {
 
     /// <summary>The key that opens the console — both of them, and the second is not a courtesy.</summary>
     /// <remarks>
-    ///     ⚠ <b>The physical key below <kbd>Esc</kbd> is <see cref="Key.Grave" /> on an ANSI keyboard
-    ///     and the one beside left shift is <see cref="Key.NonUsBackslash" /> on an ISO one, and on a
-    ///     Mac the key that types a backtick is the <em>second</em> of those.</b> A check for
+    ///     ⚠
+    ///     <b>
+    ///         The physical key below <kbd>Esc</kbd> is <see cref="Key.Grave" /> on an ANSI keyboard
+    ///         and the one beside left shift is <see cref="Key.NonUsBackslash" /> on an ISO one, and on a
+    ///         Mac the key that types a backtick is the <em>second</em> of those.
+    ///     </b>
+    ///     A check for
     ///     <c>Grave</c> alone opens the console for nobody in Europe, which is how the first run of
     ///     this on a real machine reported "the key does nothing" with every count reading correct —
     ///     a scancode is a position on a board, not a character, and the two keyboards disagree about

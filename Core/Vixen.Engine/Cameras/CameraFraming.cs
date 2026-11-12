@@ -18,8 +18,12 @@ namespace Vixen.Engine.Cameras;
 ///         point and to the stages that need it without a matrix.
 ///     </para>
 ///     <para>
-///         ⚠ <b>This was internal, and the reason it stopped being internal is the reason it was
-///         internal.</b> The note here read "a second public way to project a point is a second place
+///         ⚠
+///         <b>
+///             This was internal, and the reason it stopped being internal is the reason it was
+///             internal.
+///         </b>
+///         The note here read "a second public way to project a point is a second place
 ///         for the reverse-Z convention to be got wrong" — and then a second consumer arrived, in
 ///         another assembly: <c>Vixen.Animation.Constraints</c>'s <c>ScreenFrame</c>, which asks where
 ///         a camera would have to be for a subject to land at a given place in the frame. Keeping this
@@ -106,7 +110,7 @@ public static class CameraFraming {
             return 0f;
         }
 
-        return error - (MathF.Sign(error) * slack);
+        return error - MathF.Sign(error) * slack;
     }
 
     /// <summary>

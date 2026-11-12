@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Editor.Texturing.Painting;
-using Vixen.Texturing.Layers;
 using Vixen.Texturing.Painting;
 using Xunit;
 
@@ -11,8 +10,11 @@ namespace Vixen.Editor.Texturing.Tests;
 /// <summary>How far past an island edge a stroke's dilation may write, and what decides it.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b><a href="https://github.com/Rikarin/Vixen/issues/868">#868</a>: the reach compounded
-///         across stamps, so it was a function of the brush spacing rather than of the gutter.</b>
+///         ⚠
+///         <b>
+///             <a href="https://github.com/Rikarin/Vixen/issues/868">#868</a>: the reach compounded
+///             across stamps, so it was a function of the brush spacing rather than of the gutter.
+///         </b>
 ///         <c>PaintStroke.Dilate</c> grows outward in <c>gutter</c> four-neighbour rounds from
 ///         whatever it finds in <c>reached</c> — and <c>reached</c> is a <em>stroke-wide</em> record
 ///         that already holds the texels stamp N−1 dilated. So stamp N started its rounds from the
@@ -75,8 +77,8 @@ public class PaintDilationReachTests {
                     continue;
                 }
 
-                if (distance[(y * Side) + x] > worst) {
-                    worst = distance[(y * Side) + x];
+                if (distance[y * Side + x] > worst) {
+                    worst = distance[y * Side + x];
                     at = (x, y);
                 }
             }
@@ -97,8 +99,10 @@ public class PaintDilationReachTests {
     /// <summary>⚠ A later stamp offering a shorter path lowers the distance, at equal reach.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>The mirror of the test above, and the half the <c>reached</c> guard hid —
-    ///         <a href="https://github.com/Rikarin/Vixen/issues/896">#896</a>.</b>
+    ///         <b>
+    ///             The mirror of the test above, and the half the <c>reached</c> guard hid —
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/896">#896</a>.
+    ///         </b>
     ///         <c>Dilate</c>'s scan skipped a texel whose recorded reach was already at least what
     ///         this round offered, and the distance was written in the commit loop the skip jumped
     ///         over. So a texel reached the long way round by an earlier stamp kept the long
@@ -168,9 +172,12 @@ public class PaintDilationReachTests {
     /// <summary>⚠ A round that only shortens a distance still runs, and the round after it paints.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>The half <a href="https://github.com/Rikarin/Vixen/issues/896">#896</a>'s fix could
-    ///         not reach, because the loop it wrote into ends before the round that uses the number —
-    ///         <a href="https://github.com/Rikarin/Vixen/issues/926">#926</a>.</b> <c>Dilate</c>
+    ///         <b>
+    ///             The half <a href="https://github.com/Rikarin/Vixen/issues/896">#896</a>'s fix could
+    ///             not reach, because the loop it wrote into ends before the round that uses the number —
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/926">#926</a>.
+    ///         </b>
+    ///         <c>Dilate</c>
     ///         ended the whole dilation on the first round that queued nothing to paint. A round can
     ///         queue nothing and still have *proved* something: every candidate it found was already
     ///         at the reach this round offered, so none was repainted, while their distances fell to
@@ -345,7 +352,7 @@ public class PaintDilationReachTests {
                     continue;
                 }
 
-                var neighbour = (ny * Side) + nx;
+                var neighbour = ny * Side + nx;
 
                 if (coverage.IsCovered(neighbour) || distance[neighbour] != int.MaxValue) {
                     continue;
@@ -385,7 +392,7 @@ public class PaintDilationReachTests {
 
         for (var y = 0; y < Side; y++) {
             for (var x = 0; x < Side; x++) {
-                raster[(y * Side) + x] = x < LeftEdge || x >= RightEdge;
+                raster[y * Side + x] = x is < LeftEdge or >= RightEdge;
             }
         }
 
@@ -415,7 +422,7 @@ public class PaintDilationReachTests {
                     continue;
                 }
 
-                var neighbour = (ny * Side) + nx;
+                var neighbour = ny * Side + nx;
 
                 if (distance[neighbour] != int.MaxValue) {
                     continue;

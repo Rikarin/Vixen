@@ -76,7 +76,7 @@ sealed class VoiceParameters {
         }
 
         var clamped = Math.Clamp(value, sheet[parameter].Minimum, sheet[parameter].Maximum);
-        targets[(index * AudioParameterSheet.MaxParameters) + parameter] = clamped;
+        targets[index * AudioParameterSheet.MaxParameters + parameter] = clamped;
         return true;
     }
 
@@ -85,7 +85,7 @@ sealed class VoiceParameters {
         var sheet = SheetOf(index, generation);
 
         return sheet is not null && (uint)parameter < (uint)sheet.Count
-            ? values[(index * AudioParameterSheet.MaxParameters) + parameter]
+            ? values[index * AudioParameterSheet.MaxParameters + parameter]
             : 0f;
     }
 

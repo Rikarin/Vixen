@@ -8,7 +8,10 @@ using Xunit;
 
 namespace Vixen.Editor.App.Tests;
 
-/// <summary>#1505: source control is a published service, and Revert, Show History and the revisions panel a module over it.</summary>
+/// <summary>
+///     #1505: source control is a published service, and Revert, Show History and the revisions panel a module over
+///     it.
+/// </summary>
 /// <remarks>
 ///     Over a provider written here, on <c>SourceControlColumnTests</c>' terms: what is proved is where the
 ///     sweep is taken and who owns the verbs, not what this machine's git says.
@@ -96,7 +99,7 @@ public class SourceControlModuleTests {
 
         Assert.Null(editor.Shell.Commands["assets.history"]);
         Assert.Null(editor.Shell.Commands["assets.revert"]);
-        Assert.DoesNotContain(editor.Shell.Workspace.Panels, panel => panel.Id == AssetRevisions.PanelId);
+        Assert.DoesNotContain(editor.Shell.Workspace.Panels, static panel => panel.Id == AssetRevisions.PanelId);
 
         // ⚠ The service is the application's and outlives the module: a column still has its answer.
         Assert.True(editor.Plugins.Services.Require<ISourceControl>().IsKnown);
@@ -139,7 +142,7 @@ public class SourceControlModuleTests {
 
     /// <summary>Selects exactly one file in the project, and says which.</summary>
     static string Select(EditorSession editor) {
-        var files = editor.Project.Assets.Entries.Where(candidate => !candidate.IsFolder).ToList();
+        var files = editor.Project.Assets.Entries.Where(static candidate => !candidate.IsFolder).ToList();
 
         if (files.Count == 0) {
             throw editor.Fail("the fixture project has no file to select");
@@ -204,7 +207,7 @@ public class SourceControlModuleTests {
         var reverted = 0;
 
         sourceControl.Reverted += () => reverted++;
-        sourceControl.Use(new Cancelling(later: false, cancelsStatus: false));
+        sourceControl.Use(new Cancelling(false, false));
 
         sourceControl.Revert([Fixed.Path, "Assets/Other.txt"]);
 
@@ -226,9 +229,11 @@ public class SourceControlModuleTests {
                 return Cancelled<IReadOnlyDictionary<string, SourceControlStatus>>();
             }
 
-            return new((IReadOnlyDictionary<string, SourceControlStatus>)new Dictionary<string, SourceControlStatus>(StringComparer.Ordinal) {
-                [Fixed.Path] = SourceControlStatus.Modified
-            });
+            return new(
+                (IReadOnlyDictionary<string, SourceControlStatus>)new Dictionary<string, SourceControlStatus>(
+                    StringComparer.Ordinal
+                ) { [Fixed.Path] = SourceControlStatus.Modified }
+            );
         }
 
         public ValueTask<string?> RevertAsync(string requested) => Cancelled<string?>();
@@ -243,15 +248,18 @@ public class SourceControlModuleTests {
 
         ValueTask<T> Cancelled<T>() {
             if (!later) {
-                return ValueTask.FromCanceled<T>(new CancellationToken(canceled: true));
+                return ValueTask.FromCanceled<T>(new(true));
             }
 
             var source = new TaskCompletionSource<T>(TaskCreationOptions.RunContinuationsAsynchronously);
 
-            _ = Task.Run(async () => {
-                await Task.Delay(20, TestContext.Current.CancellationToken).ConfigureAwait(false);
-                source.SetCanceled(TestContext.Current.CancellationToken);
-            }, TestContext.Current.CancellationToken);
+            _ = Task.Run(
+                async () => {
+                    await Task.Delay(20, TestContext.Current.CancellationToken).ConfigureAwait(false);
+                    source.SetCanceled(TestContext.Current.CancellationToken);
+                },
+                TestContext.Current.CancellationToken
+            );
 
             return new(source.Task);
         }
@@ -279,9 +287,11 @@ public class SourceControlModuleTests {
         public string Name => "Fixed";
 
         public ValueTask<IReadOnlyDictionary<string, SourceControlStatus>> StatusAsync() =>
-            new((IReadOnlyDictionary<string, SourceControlStatus>)new Dictionary<string, SourceControlStatus>(StringComparer.Ordinal) {
-                [path] = SourceControlStatus.Modified
-            });
+            new(
+                (IReadOnlyDictionary<string, SourceControlStatus>)new Dictionary<string, SourceControlStatus>(
+                    StringComparer.Ordinal
+                ) { [path] = SourceControlStatus.Modified }
+            );
 
         public ValueTask<string?> RevertAsync(string requested) {
             Reverts.Add(requested);
@@ -291,8 +301,14 @@ public class SourceControlModuleTests {
         public ValueTask<IReadOnlyList<SourceControlRevision>> HistoryAsync(string requested, int limit) =>
             new(
                 string.Equals(requested, path, StringComparison.Ordinal)
-                    ? (IReadOnlyList<SourceControlRevision>)[
-                        new SourceControlRevision(new string('1', 40), "1111111", "Suite", DateTimeOffset.UnixEpoch, "only")
+                    ? (IReadOnlyList<SourceControlRevision>) [
+                        new SourceControlRevision(
+                            new('1', 40),
+                            "1111111",
+                            "Suite",
+                            DateTimeOffset.UnixEpoch,
+                            "only"
+                        )
                     ]
                     : []
             );

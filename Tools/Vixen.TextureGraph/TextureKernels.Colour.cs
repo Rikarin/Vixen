@@ -5,8 +5,12 @@ namespace Vixen.TextureGraph;
 
 /// <summary>Which channel of which input one output channel of <c>ChannelShuffle</c> takes.</summary>
 /// <remarks>
-///     ⚠ <b>The numbers are the kernel's, and nothing but this file and a test keeps the two
-///     tables the same.</b> <c>ChannelShuffle.rvn</c> reads a bare <c>int</c> and falls through to
+///     ⚠
+///     <b>
+///         The numbers are the kernel's, and nothing but this file and a test keeps the two
+///         tables the same.
+///     </b>
+///     <c>ChannelShuffle.rvn</c> reads a bare <c>int</c> and falls through to
 ///     the first input's red for anything it does not recognise, because a shader has nowhere to
 ///     raise from — so a selector that drifted would produce a plausible picture rather than an
 ///     error. <c>TextureColourKernelTests</c> reads the selector names out of the source and
@@ -183,8 +187,12 @@ enum TextureFilter {
 static class TextureColourKernels {
     /// <summary>An input range remapped through a gamma into an output range.</summary>
     /// <remarks>
-    ///     ⚠ <b>Doc 48 § 4.2's first entry, shipped by § M1 and declared by nobody until
-    ///     <a href="https://github.com/Rikarin/Vixen/issues/756">#756</a>.</b> Every other kernel in
+    ///     ⚠
+    ///     <b>
+    ///         Doc 48 § 4.2's first entry, shipped by § M1 and declared by nobody until
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/756">#756</a>.
+    ///     </b>
+    ///     Every other kernel in
     ///     this assembly is a <c>const string</c> on a surface and a member of that surface's
     ///     <c>All</c>; <c>Levels</c> was a bare literal in <c>LevelsNode</c> and nowhere else, so a
     ///     mistyped name was a missing-resource exception at bake time rather than a build error, and
@@ -239,8 +247,12 @@ static class TextureColourKernels {
     ///     here that reads no input.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>The node is <c>Colour/Metal Reflectance</c> and the § 4.9 compound over it is
-    ///     <c>Surface/Metal Reflectance</c>, and the two menus are not a preference.</b> A published
+    ///     ⚠
+    ///     <b>
+    ///         The node is <c>Colour/Metal Reflectance</c> and the § 4.9 compound over it is
+    ///         <c>Surface/Metal Reflectance</c>, and the two menus are not a preference.
+    ///     </b>
+    ///     A published
     ///     compound and a node class share one path namespace, so an atom and the compound that wraps
     ///     it cannot both be called the row's name — <c>TextureCompoundLibrary</c> refuses the second
     ///     with "Two different node types claim the path". Same shape as

@@ -23,8 +23,12 @@ namespace Vixen.Editor.AssetEditors.Scenes;
 ///         make visible at the moment somebody can still act on it.
 ///     </para>
 ///     <para>
-///         ⚠ <b>It compiles the open document rather than reading the artefact the last import
-///         wrote, and that is a choice with a cost.</b> What it shows is what this scene <i>would</i>
+///         ⚠
+///         <b>
+///             It compiles the open document rather than reading the artefact the last import
+///             wrote, and that is a choice with a cost.
+///         </b>
+///         What it shows is what this scene <i>would</i>
 ///         compile to, not what the build store currently holds — so it cannot show you a stale
 ///         artefact, and it cannot be wrong about an edit you have not saved. The alternative
 ///         answers a different and also useful question ("what is actually in the build") and needs

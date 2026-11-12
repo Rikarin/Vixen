@@ -52,7 +52,7 @@ public static class StandardEditors {
         ArgumentNullException.ThrowIfNull(prefabs);
 
         return [
-            .. WorldlessKinds(),
+            ..WorldlessKinds(),
             new SceneEditorFactory(scenes),
             new PrefabEditorFactory(prefabs)
         ];
@@ -129,13 +129,12 @@ public static class StandardEditors {
         Func<DocumentRequest, World> scenes,
         Func<DocumentRequest, World> prefabs
     ) =>
-        Fill(new DocumentHost(project), Kinds(scenes, prefabs));
+        Fill(new(project), Kinds(scenes, prefabs));
 
     /// <summary>A host over a project with every kind that needs no world.</summary>
     /// <param name="project">The project.</param>
     /// <returns>The host.</returns>
-    public static DocumentHost CreateWorldless(EditorProject project) =>
-        Fill(new DocumentHost(project), WorldlessKinds());
+    public static DocumentHost CreateWorldless(EditorProject project) => Fill(new(project), WorldlessKinds());
 
     /// <summary>A workspace with every view registered.</summary>
     /// <returns>The workspace.</returns>

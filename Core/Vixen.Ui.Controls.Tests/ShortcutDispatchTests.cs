@@ -54,7 +54,7 @@ public class ShortcutDispatchTests {
         DocumentCommands.Install(panel);
 
         var keys = new KeyMap();
-        keys.SetDefault(DocumentCommands.Save, new KeyChord(InputKey.S, ModifierKeys.Control));
+        keys.SetDefault(DocumentCommands.Save, new(InputKey.S, ModifierKeys.Control));
 
         // ⚠ What the sample does, and it is one call rather than three lines since #650: the row
         // shows the keymap's chord in this machine's spelling, read out of the table that answers
@@ -67,7 +67,7 @@ public class ShortcutDispatchTests {
 
         var shown = new KeyChord(label.Key, label.Modifiers);
 
-        var dispatcher = new CommandDispatcher(new CommandRegistry(), keys);
+        var dispatcher = new CommandDispatcher(new(), keys);
         document.Root.AddHandler<KeyEvent>((_, args) => dispatcher.Pressed(document, args));
 
         document.Focus(field);
@@ -87,7 +87,7 @@ public class ShortcutDispatchTests {
         Assert.False(note.IsDirty.Value);
 
         // Held ⌘S is one save.
-        document.Dispatch(Press(shown, repeat: true));
+        document.Dispatch(Press(shown, true));
         Assert.Equal(1, note.Saves);
     }
 
@@ -106,9 +106,9 @@ public class ShortcutDispatchTests {
         DocumentCommands.Install(panel);
 
         var keys = new KeyMap();
-        keys.SetDefault(DocumentCommands.Save, new KeyChord(InputKey.S, ModifierKeys.Control));
+        keys.SetDefault(DocumentCommands.Save, new(InputKey.S, ModifierKeys.Control));
 
-        var dispatcher = new CommandDispatcher(new CommandRegistry(), keys);
+        var dispatcher = new CommandDispatcher(new(), keys);
         document.Root.AddHandler<KeyEvent>((_, args) => dispatcher.Pressed(document, args));
         document.Update();
 
@@ -127,8 +127,11 @@ public class ShortcutDispatchTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <b>The defect the <see cref="KeyMap" /> overload exists for, and it was live in the
-    ///         editor.</b> <c>SceneMenus</c> guarded with <c>if (keys.ChordFor(id) is { } chord)</c>
+    ///         <b>
+    ///             The defect the <see cref="KeyMap" /> overload exists for, and it was live in the
+    ///             editor.
+    ///         </b>
+    ///         <c>SceneMenus</c> guarded with <c>if (keys.ChordFor(id) is { } chord)</c>
     ///         — <see cref="KeyChord" /> is a struct, so that pattern matches
     ///         <see cref="KeyChord.None" /> exactly as well as a real chord and the guard refused
     ///         nothing. <c>ShowShortcut(InputKey.Unknown, None)</c> then asked the formatter for a
@@ -156,7 +159,7 @@ public class ShortcutDispatchTests {
         ControlTheme.Install(document);
 
         var keys = new KeyMap();
-        keys.SetDefault(DocumentCommands.Save, new KeyChord(InputKey.S, ModifierKeys.Control));
+        keys.SetDefault(DocumentCommands.Save, new(InputKey.S, ModifierKeys.Control));
 
         var item = document.Root.Add<MenuItem>();
 
@@ -172,7 +175,7 @@ public class ShortcutDispatchTests {
         // And a row that had a chord loses it when the command is unbound, rather than going on
         // showing a key it no longer answers to — the keybinding editor's Clear, which is
         // `Bind(id, KeyChord.None, replace: true)`.
-        keys.Bind(DocumentCommands.Save, KeyChord.None, replace: true);
+        keys.Bind(DocumentCommands.Save, KeyChord.None, true);
 
         Assert.Null(item.ShowShortcut(keys, DocumentCommands.Save));
         document.Update();
@@ -183,7 +186,7 @@ public class ShortcutDispatchTests {
         // by the chord-drawing overload rather than by anything the hiding remembers. Without the
         // `display: flex` that overload writes, the row stays blank for the rest of the session and
         // every assertion above still passes.
-        keys.Bind(DocumentCommands.Save, new KeyChord(InputKey.S, ModifierKeys.Control), replace: true);
+        keys.Bind(DocumentCommands.Save, new(InputKey.S, ModifierKeys.Control), true);
 
         Assert.NotNull(item.ShowShortcut(keys, DocumentCommands.Save));
         document.Update();

@@ -47,7 +47,7 @@ public sealed class RecreateTests {
     public void An_entity_that_never_existed_cannot_be_recreated() {
         using var world = new World();
 
-        Assert.False(world.CanRecreate(new Entity(500, 0, world.Id)));
+        Assert.False(world.CanRecreate(new(500, 0, world.Id)));
         Assert.False(world.CanRecreate(default));
     }
 
@@ -126,7 +126,9 @@ public sealed class RecreateTests {
         var entity = world.Create(new Position(), new Velocity());
 
         world.Destroy(entity);
-        Assert.True(world.TryRecreate(entity, world.ArchetypeOf([ComponentType<Position>.Id, ComponentType<Velocity>.Id])));
+        Assert.True(
+            world.TryRecreate(entity, world.ArchetypeOf([ComponentType<Position>.Id, ComponentType<Velocity>.Id]))
+        );
 
         Assert.True(world.Has<Position>(entity));
         Assert.True(world.Has<Velocity>(entity));

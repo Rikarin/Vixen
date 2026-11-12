@@ -82,8 +82,12 @@ public struct RasterMesh {
 
     /// <summary>What <see cref="MorphRunBase" /> holds for a mesh with no blend shapes.</summary>
     /// <remarks>
-    ///     ⚠ <b>The record's three morph words are the twelve bytes of padding
-    ///     <c>RasterMesh</c> was carrying</b>, so the size and the stride are unchanged and every
+    ///     ⚠
+    ///     <b>
+    ///         The record's three morph words are the twelve bytes of padding
+    ///         <c>RasterMesh</c> was carrying
+    ///     </b>
+    ///     , so the size and the stride are unchanged and every
     ///     mesh registered before blend shapes existed reads <see cref="NoMorphs" /> out of the zeros
     ///     it was padded with — which is not true, and is why the writer sets it explicitly rather
     ///     than relying on a default.
@@ -113,8 +117,11 @@ public struct RasterMesh {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <b>The word the padding was, and it pays for itself the way
-    ///         <see cref="CullInstance.Mesh" /> did.</b> A page holds a vertex's rest position and the
+    ///         <b>
+    ///             The word the padding was, and it pays for itself the way
+    ///             <see cref="CullInstance.Mesh" /> did.
+    ///         </b>
+    ///         A page holds a vertex's rest position and the
     ///         weights that move it are the <em>instance's</em>, so a paged mesh is morphed where it
     ///         is decoded rather than by a pre-pass — see <see cref="MorphIndex" /> for why a scatter
     ///         has nowhere to write.
@@ -481,7 +488,7 @@ public sealed class GpuClusterVisibility : IDisposable {
     ///     everywhere else, and a table that is right by luck for the first mesh registered is right
     ///     for no other. A test that could only ask the shader would be asking the picture.
     /// </remarks>
-    public ReadOnlySpan<uint> MorphRecords => System.Runtime.InteropServices.CollectionsMarshal.AsSpan(morphs);
+    public ReadOnlySpan<uint> MorphRecords => CollectionsMarshal.AsSpan(morphs);
 
     /// <summary>This frame's blend-shape weights, one run per morphed instance.</summary>
     public BufferHandle MorphWeights => morphWeights.Buffer;
@@ -522,8 +529,7 @@ public sealed class GpuClusterVisibility : IDisposable {
 
     /// <summary>Where this frame's instance records start, in records rather than bytes.</summary>
     /// <inheritdoc cref="BoneBase" select="/remarks" />
-    public int InstanceBase =>
-        (int)(instances.Offset / System.Runtime.CompilerServices.Unsafe.SizeOf<CullInstance>());
+    public int InstanceBase => (int)(instances.Offset / Unsafe.SizeOf<CullInstance>());
 
     /// <summary>Every skinned instance's matrices, for the raster and the resolve to read.</summary>
     public BufferHandle Bones => bones.Buffer;
@@ -539,7 +545,7 @@ public sealed class GpuClusterVisibility : IDisposable {
     ///     offset. A shader that adds a base to its index reads the right region on both paths; a
     ///     descriptor offset would be right in the raster and silently a frame stale in the resolve.
     /// </remarks>
-    public int BoneBase => (int)(bones.Offset / System.Runtime.CompilerServices.Unsafe.SizeOf<Matrix4x4>());
+    public int BoneBase => (int)(bones.Offset / Unsafe.SizeOf<Matrix4x4>());
 
     /// <summary>How many matrices this frame's palettes hold, including the leading identity.</summary>
     public int BoneCount => bones.Count;
@@ -595,10 +601,7 @@ public sealed class GpuClusterVisibility : IDisposable {
 
         foreach (var record in scene.Clusters) {
             clusters.Add(
-                record with {
-                    FirstChild = record.FirstChild + childBase,
-                    Page = record.Page + (uint)entry.FirstPage
-                }
+                record with { FirstChild = record.FirstChild + childBase, Page = record.Page + (uint)entry.FirstPage }
             );
         }
 
@@ -651,8 +654,8 @@ public sealed class GpuClusterVisibility : IDisposable {
         }
 
         PageSize = Math.Max(PageSize, pages.PageSize);
-        MaterialCount = Math.Max(MaterialCount, mesh.Meshlets.Max(meshlet => meshlet.MaterialIndex) + 1);
-        MaximumTriangles = Math.Max(MaximumTriangles, mesh.Meshlets.Max(meshlet => meshlet.TriangleCount));
+        MaterialCount = Math.Max(MaterialCount, mesh.Meshlets.Max(static meshlet => meshlet.MaterialIndex) + 1);
+        MaximumTriangles = Math.Max(MaximumTriangles, mesh.Meshlets.Max(static meshlet => meshlet.TriangleCount));
         PageCount += pages.Pages.Length;
         meshes.Add(entry);
         meshesDirty = true;
@@ -724,7 +727,7 @@ public sealed class GpuClusterVisibility : IDisposable {
     ///     <see cref="ClusterMesh.FirstPage" /> says what the offset <em>should</em> be and these say
     ///     what it was, and a check of only the first would pass with the second never applied.
     /// </remarks>
-    public ReadOnlySpan<CullCluster> Records => System.Runtime.InteropServices.CollectionsMarshal.AsSpan(clusters);
+    public ReadOnlySpan<CullCluster> Records => CollectionsMarshal.AsSpan(clusters);
 
     /// <summary>
     ///     The merged geometry records, as the raster will read them.
@@ -734,8 +737,7 @@ public sealed class GpuClusterVisibility : IDisposable {
     ///     triangle counts are applied here and are invisible from anywhere else, so a check of the
     ///     registration alone would pass with the records never written.
     /// </remarks>
-    public ReadOnlySpan<RasterCluster> GeometryRecords =>
-        System.Runtime.InteropServices.CollectionsMarshal.AsSpan(geometry);
+    public ReadOnlySpan<RasterCluster> GeometryRecords => CollectionsMarshal.AsSpan(geometry);
 
     /// <summary>One grid per registered mesh, as the raster and the resolve read them.</summary>
     /// <remarks>
@@ -743,8 +745,7 @@ public sealed class GpuClusterVisibility : IDisposable {
     ///     vertices carry bone influences, which the registration derives from the page set — so a check
     ///     of the page set alone passes with every mesh registered as rigid.
     /// </remarks>
-    public ReadOnlySpan<RasterMesh> MeshRecords =>
-        System.Runtime.InteropServices.CollectionsMarshal.AsSpan(grids);
+    public ReadOnlySpan<RasterMesh> MeshRecords => CollectionsMarshal.AsSpan(grids);
 
     /// <summary>This frame's instance records, before they reach the device.</summary>
     public ReadOnlySpan<CullInstance> InstanceRecords => instances.Items;
@@ -1208,7 +1209,7 @@ public sealed class GpuClusterVisibility : IDisposable {
                 new(GpuClusterCulling.ClustersKey, "true"),
                 new(GpuCulling.LateKey, "false")
             ],
-            global::Vixen.Rendering.Materials.MaterialCompiler.PassComposition()
+            Vixen.Rendering.Materials.MaterialCompiler.PassComposition()
         );
 
     static long RequestBytes => (long)(RequestCapacity + 1) * sizeof(uint);
@@ -1233,17 +1234,17 @@ public sealed class GpuClusterVisibility : IDisposable {
         pendingMeshCopies.Clear();
         stagedMeshBytes = 0;
 
-        Stage(clusterBuffer, MemoryMarshal.AsBytes<CullCluster>(clusters.ToArray()));
-        Stage(childBuffer, MemoryMarshal.AsBytes<uint>(children.Count > 0 ? children.ToArray() : [0u]));
-        Stage(rootBuffer, MemoryMarshal.AsBytes<uint>(roots.Count > 0 ? roots.ToArray() : [0u]));
-        Stage(geometryBuffer, MemoryMarshal.AsBytes<RasterCluster>(geometry.ToArray()));
-        Stage(gridBuffer, MemoryMarshal.AsBytes<RasterMesh>(grids.ToArray()));
-        Stage(materialBuffer, MemoryMarshal.AsBytes<uint>(materials.Count > 0 ? materials.ToArray() : [0u]));
+        Stage(clusterBuffer, MemoryMarshal.AsBytes(clusters.ToArray()));
+        Stage(childBuffer, MemoryMarshal.AsBytes(children.Count > 0 ? children.ToArray() : [0u]));
+        Stage(rootBuffer, MemoryMarshal.AsBytes(roots.Count > 0 ? roots.ToArray() : [0u]));
+        Stage(geometryBuffer, MemoryMarshal.AsBytes(geometry.ToArray()));
+        Stage(gridBuffer, MemoryMarshal.AsBytes(grids.ToArray()));
+        Stage(materialBuffer, MemoryMarshal.AsBytes(materials.Count > 0 ? materials.ToArray() : [0u]));
 
         // ⚠ A single zero word for a scene with no blend shapes in it, not nothing. The three rasters
         // declare the binding whatever the branch does, and an uninitialised device-local buffer is
         // what a shader that took the branch by mistake would scatter a face across.
-        Stage(morphBuffer, MemoryMarshal.AsBytes<uint>(morphs.Count > 0 ? morphs.ToArray() : [0u]));
+        Stage(morphBuffer, MemoryMarshal.AsBytes(morphs.Count > 0 ? morphs.ToArray() : [0u]));
 
         meshesDirty = false;
         morphsDirty = false;
@@ -1292,9 +1293,7 @@ public sealed class GpuClusterVisibility : IDisposable {
         morphsDirty = true;
 
         return grid with {
-            MorphClusterBase = (uint)clusterBase,
-            MorphRunBase = (uint)runBase,
-            MorphEntryBase = (uint)entryBase
+            MorphClusterBase = (uint)clusterBase, MorphRunBase = (uint)runBase, MorphEntryBase = (uint)entryBase
         };
     }
 
@@ -1319,10 +1318,10 @@ public sealed class GpuClusterVisibility : IDisposable {
 
     /// <summary>How many bytes the mesh records take between them, for the staging buffer.</summary>
     long MeshStagingBytes =>
-        ((long)clusters.Count * Unsafe.SizeOf<CullCluster>())
-        + ((long)geometry.Count * Unsafe.SizeOf<RasterCluster>())
-        + ((long)grids.Count * Unsafe.SizeOf<RasterMesh>())
-        + ((long)(children.Count + roots.Count + materials.Count + morphs.Count + 4) * sizeof(uint));
+        (long)clusters.Count * Unsafe.SizeOf<CullCluster>()
+        + (long)geometry.Count * Unsafe.SizeOf<RasterCluster>()
+        + (long)grids.Count * Unsafe.SizeOf<RasterMesh>()
+        + (long)(children.Count + roots.Count + materials.Count + morphs.Count + 4) * sizeof(uint);
 
     void UploadViews(
         IReadOnlyList<RenderView> frameViews,
@@ -1343,7 +1342,9 @@ public sealed class GpuClusterVisibility : IDisposable {
         var routable = device.Features.HasInt64Atomics;
 
         var levels = Occluders?.Levels ?? 0;
-        var usable = levels > 0 && Occluders is { IsBuilt: true, View.IsValid: true } && projections.Matches(frameViews.Count);
+        var usable = levels > 0
+            && Occluders is { IsBuilt: true, View.IsValid: true }
+            && projections.Matches(frameViews.Count);
 
         for (var i = 0; i < frameViews.Count; i++) {
             // Occlusion per view rather than per dispatch, and against the matrix this view was seen
@@ -1617,7 +1618,7 @@ public sealed class GpuClusterVisibility : IDisposable {
         // head of a frame and two host-visible buffers would be two maps to answer one question.
         requestReadbackBuffer = device.CreateBuffer(
             new(
-                RequestBytes + ((long)VisibleBase * sizeof(uint)),
+                RequestBytes + (long)VisibleBase * sizeof(uint),
                 BufferUsage.CopyDestination,
                 MemoryAccess.HostReadback,
                 "ClusterCulling.RequestReadback"
@@ -1640,7 +1641,7 @@ public sealed class GpuClusterVisibility : IDisposable {
         meshRecordCapacity = wantedRecords;
 
         if (zeros.IsValid) {
-            device.Write(zeros, 0, MemoryMarshal.AsBytes<uint>([0u, 0u, 0u, 0u]));
+            device.Write(zeros, 0, MemoryMarshal.AsBytes([0u, 0u, 0u, 0u]));
         }
 
         if (!placeholder.IsValid) {
@@ -1702,8 +1703,7 @@ public sealed class GpuClusterVisibility : IDisposable {
     }
 
     void Release() {
-        foreach (var buffer in (BufferHandle[])
-                 [
+        foreach (var buffer in (BufferHandle[]) [
                      clusterBuffer, childBuffer, rootBuffer, geometryBuffer, gridBuffer, materialBuffer,
                      morphBuffer, visibleBuffer, requestBuffer, requestReadbackBuffer, zeros, staging
                  ]) {

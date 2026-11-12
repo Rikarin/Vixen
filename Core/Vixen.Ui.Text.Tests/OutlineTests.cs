@@ -43,8 +43,9 @@ public class OutlineTests {
         return Assembly.GetExecutingAssembly()
             .GetManifestResourceNames()
             .Where(resource => resource.StartsWith(Prefix, StringComparison.Ordinal)
-                               && (resource.EndsWith(".ttf", StringComparison.Ordinal)
-                                   || resource.EndsWith(".otf", StringComparison.Ordinal)))
+                && (resource.EndsWith(".ttf", StringComparison.Ordinal)
+                    || resource.EndsWith(".otf", StringComparison.Ordinal))
+            )
             .Select(resource => resource[Prefix.Length..])
             .Order(StringComparer.Ordinal);
     }
@@ -54,8 +55,12 @@ public class OutlineTests {
     /// </summary>
     /// <param name="font">Which font.</param>
     /// <remarks>
-    ///     ⚠ <b>Control-point bounds, not curve bounds, and the difference is the oracle rather than
-    ///     the parser.</b> For a <c>glyf</c> font HarfBuzz returns the box the font *stores*, and a
+    ///     ⚠
+    ///     <b>
+    ///         Control-point bounds, not curve bounds, and the difference is the oracle rather than
+    ///         the parser.
+    ///     </b>
+    ///     For a <c>glyf</c> font HarfBuzz returns the box the font *stores*, and a
     ///     TrueType font stores the box of its control points — so comparing sampled curve bounds
     ///     measures the font's own convention and reads as a 5 % failure rate. What this checks is
     ///     that the points decoded are the points the font holds, which is the question a table
@@ -175,14 +180,15 @@ public class OutlineTests {
     static string Describe(GlyphOutline outline) =>
         string.Join(
             " ",
-            outline.Segments.Select(segment => segment.Verb switch {
-                OutlineVerb.Move => $"M{segment.X0:F0},{segment.Y0:F0}",
-                OutlineVerb.Line => $"L{segment.X0:F0},{segment.Y0:F0}",
-                OutlineVerb.Quadratic => $"Q{segment.X0:F0},{segment.Y0:F0} {segment.X1:F0},{segment.Y1:F0}",
-                OutlineVerb.Cubic =>
-                    $"C{segment.X0:F0},{segment.Y0:F0} {segment.X1:F0},{segment.Y1:F0} {segment.X2:F0},{segment.Y2:F0}",
-                _ => "Z"
-            })
+            outline.Segments.Select(static segment => segment.Verb switch {
+                    OutlineVerb.Move => $"M{segment.X0:F0},{segment.Y0:F0}",
+                    OutlineVerb.Line => $"L{segment.X0:F0},{segment.Y0:F0}",
+                    OutlineVerb.Quadratic => $"Q{segment.X0:F0},{segment.Y0:F0} {segment.X1:F0},{segment.Y1:F0}",
+                    OutlineVerb.Cubic =>
+                        $"C{segment.X0:F0},{segment.Y0:F0} {segment.X1:F0},{segment.Y1:F0} {segment.X2:F0},{segment.Y2:F0}",
+                    _ => "Z"
+                }
+            )
         );
 
     /// <summary>
@@ -194,13 +200,22 @@ public class OutlineTests {
     ///     because neither end is on the curve.
     /// </summary>
     [Theory]
-    [InlineData("NotoSansBalinese-Regular.ttf", 4, "M-553,1650 Q-507,1650 -472,1616 Q-438,1583 -438,1533 Q-438,1486 -471,1452 Q-504,1417 -553,1417 Q-603,1417 -636,1452 Q-670,1487 -670,1533 Q-670,1581 -636,1616 Q-601,1650 -553,1650 Z M-350,1320 Q-284,1415 -267,1467 Q-250,1519 -250,1593 Q-250,1713 -330,1776 Q-410,1840 -553,1840 Q-706,1840 -792,1776 Q-877,1711 -877,1593 Q-877,1517 -860,1466 Q-843,1414 -777,1320 L-827,1270 Q-957,1430 -957,1602 Q-957,1790 -854,1890 Q-751,1990 -560,1990 Q-373,1990 -272,1889 Q-170,1788 -170,1602 Q-170,1432 -300,1270 L-350,1320 Z")]
-    [InlineData("TestShapeLana.ttf", 8, "M190,0 L940,1493 L1124,1493 L374,0 L190,0 Z M190,1309 Q190,1493 374,1493 Q558,1493 558,1309 Q558,1125 374,1125 Q190,1125 190,1309 Z M756,184 Q756,368 940,368 Q1124,368 1124,184 Q1124,0 940,0 Q756,0 756,184 Z")]
+    [InlineData(
+        "NotoSansBalinese-Regular.ttf",
+        4,
+        "M-553,1650 Q-507,1650 -472,1616 Q-438,1583 -438,1533 Q-438,1486 -471,1452 Q-504,1417 -553,1417 Q-603,1417 -636,1452 Q-670,1487 -670,1533 Q-670,1581 -636,1616 Q-601,1650 -553,1650 Z M-350,1320 Q-284,1415 -267,1467 Q-250,1519 -250,1593 Q-250,1713 -330,1776 Q-410,1840 -553,1840 Q-706,1840 -792,1776 Q-877,1711 -877,1593 Q-877,1517 -860,1466 Q-843,1414 -777,1320 L-827,1270 Q-957,1430 -957,1602 Q-957,1790 -854,1890 Q-751,1990 -560,1990 Q-373,1990 -272,1889 Q-170,1788 -170,1602 Q-170,1432 -300,1270 L-350,1320 Z"
+    )]
+    [InlineData(
+        "TestShapeLana.ttf",
+        8,
+        "M190,0 L940,1493 L1124,1493 L374,0 L190,0 Z M190,1309 Q190,1493 374,1493 Q558,1493 558,1309 Q558,1125 374,1125 Q190,1125 190,1309 Z M756,184 Q756,368 940,368 Q1124,368 1124,184 Q1124,0 940,0 Q756,0 756,184 Z"
+    )]
     public void A_contour_that_starts_off_the_curve_begins_where_TrueType_says(
         string font,
         int glyph,
         string expected
-    ) => Assert.Equal(expected, Describe(TestFonts.Load(font).GetOutline((ushort)glyph)));
+    ) =>
+        Assert.Equal(expected, Describe(TestFonts.Load(font).GetOutline((ushort)glyph)));
 
     [Fact]
     public void Every_contour_opens_with_a_move_and_ends_with_a_close() {
@@ -233,7 +248,7 @@ public class OutlineTests {
     static ushort Glyph(FontFace face, char character) => face.GlyphFor(character);
 
     static HashSet<OutlineVerb> Verbs(FontFace face, char character) =>
-        [.. face.GetOutline(Glyph(face, character)).Segments.Select(segment => segment.Verb)];
+        [..face.GetOutline(Glyph(face, character)).Segments.Select(static segment => segment.Verb)];
 
     static HashSet<OutlineVerb> AllVerbs(FontFace face) {
         var verbs = new HashSet<OutlineVerb>();
@@ -282,7 +297,7 @@ public class OutlineTests {
             }
         }
 
-        return new GlyphBounds(minX, minY, maxX, maxY);
+        return new(minX, minY, maxX, maxY);
     }
 
     static float Off(GlyphBounds actual, GlyphBounds expected) =>

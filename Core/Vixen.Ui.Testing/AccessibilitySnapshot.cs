@@ -8,16 +8,23 @@ namespace Vixen.Ui.Testing;
 /// <summary>The accessibility tree of a document, as text a test can compare.</summary>
 /// <remarks>
 ///     <para>
-///         <b>Doc 09's Testing table promises an "ARIA-role snapshot" per control, and this is the
-///         thing that makes writing one a line of test code.</b> It captures the accessibility tree
+///         <b>
+///             Doc 09's Testing table promises an "ARIA-role snapshot" per control, and this is the
+///             thing that makes writing one a line of test code.
+///         </b>
+///         It captures the accessibility tree
 ///         with <see cref="AccessibilityTree" /> and renders each node as its role, its accessible
 ///         name, its value and its states, indented by depth. A control's snapshot is then a string
 ///         literal in a test, and a change to what a screen reader would say shows up as a diff
 ///         rather than as nothing.
 ///     </para>
 ///     <para>
-///         ⚠ <b>A snapshot that is empty is a snapshot that passes, which is why
-///         <see cref="Unnamed" /> exists beside it.</b> "The tree matches this expected text" is
+///         ⚠
+///         <b>
+///             A snapshot that is empty is a snapshot that passes, which is why
+///             <see cref="Unnamed" /> exists beside it.
+///         </b>
+///         "The tree matches this expected text" is
 ///         satisfied perfectly by a tree with nothing in it and an expectation to match, and that is
 ///         this repository's commonest defect rather than a hypothetical. <see cref="Unnamed" /> is
 ///         the assertion that cannot be satisfied vacuously: every element that a user can operate
@@ -86,8 +93,12 @@ public static class AccessibilitySnapshot {
     ///         that a snapshot does not churn on a set's iteration order.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The walk is <see cref="AccessibilityTree" />'s and not this file's, which is what
-    ///         makes a snapshot test a bridge's evidence rather than a parallel universe.</b> Two
+    ///         ⚠
+    ///         <b>
+    ///             The walk is <see cref="AccessibilityTree" />'s and not this file's, which is what
+    ///             makes a snapshot test a bridge's evidence rather than a parallel universe.
+    ///         </b>
+    ///         Two
     ///         rules decide the shape — an element that is not a node is walked <i>through</i> rather
     ///         than skipped, and an element reached by <see cref="AccessibleRelation.Owns" /> is
     ///         emitted under its owner rather than where the element tree has it — and both used to
@@ -152,8 +163,11 @@ public static class AccessibilitySnapshot {
     /// <exception cref="ArgumentNullException"><paramref name="root" /> or <paramref name="declarations" /> is null.</exception>
     /// <remarks>
     ///     <para>
-    ///         <b>The gate for the one defect neither an accessibility test nor a localisation test
-    ///         can see, because each asserts its own half.</b> An accessible name is answered by a
+    ///         <b>
+    ///             The gate for the one defect neither an accessibility test nor a localisation test
+    ///             can see, because each asserts its own half.
+    ///         </b>
+    ///         An accessible name is answered by a
     ///         virtual, and a control that reads what it already shows gets the catalogue for free
     ///         while a control that answers with a literal of its own does not. The two are
     ///         indistinguishable from outside: both compile, both pass, and in English both look
@@ -161,11 +175,18 @@ public static class AccessibilitySnapshot {
     ///         <i>displays</i> the translation and <i>announces</i> the English.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Written against the declarations rather than against a list of controls, which
-    ///         is what stops it rotting.</b> A test naming the controls it knows about is a test
+    ///         ⚠
+    ///         <b>
+    ///             Written against the declarations rather than against a list of controls, which
+    ///             is what stops it rotting.
+    ///         </b>
+    ///         A test naming the controls it knows about is a test
     ///         that says nothing about the next one populated. This asks a different question —
-    ///         <i>is any announced word in this window still the source text of a string that has a
-    ///         translation loaded</i> — and the answer stays meaningful as controls are added, as
+    ///         <i>
+    ///             is any announced word in this window still the source text of a string that has a
+    ///             translation loaded
+    ///         </i>
+    ///         — and the answer stays meaningful as controls are added, as
     ///         strings are added, and as names move between the two.
     ///     </para>
     ///     <para>
@@ -250,7 +271,8 @@ public static class AccessibilitySnapshot {
 
         if (element.Focusable && role == AccessibleRole.None) {
             offenders.Add($"<{element.Tag}> is focusable and has no role");
-        } else if ((Widgets.Contains(role) || NamedLandmarks.Contains(role)) && string.IsNullOrEmpty(element.AccessibleName)) {
+        } else if ((Widgets.Contains(role) || NamedLandmarks.Contains(role))
+                   && string.IsNullOrEmpty(element.AccessibleName)) {
             offenders.Add($"<{element.Tag}> is a {Token(role)} and has no accessible name");
         }
 

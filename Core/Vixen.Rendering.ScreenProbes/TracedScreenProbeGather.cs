@@ -41,8 +41,10 @@ public readonly record struct ScreenProbeGatherSettings {
     /// </remarks>
     public float SurfaceBias { get; init; } = 0.01f;
 
-    /// <summary>How far off every nearby probe's plane a pixel's surface may stand before it gets
-    ///     a probe of its own, in world units. Zero, the default, places none.</summary>
+    /// <summary>
+    ///     How far off every nearby probe's plane a pixel's surface may stand before it gets
+    ///     a probe of its own, in world units. Zero, the default, places none.
+    /// </summary>
     /// <remarks>
     ///     Doc 19 § L3's "adaptive placement at disocclusions". A tile's corner pixels are the
     ///     detectors: a corner farther than this from the plane of <i>every</i> probe it bilinearly
@@ -66,8 +68,11 @@ public readonly record struct ScreenProbeGatherSettings {
 /// <summary>Fills screen probes by marching a distance field, on the CPU.</summary>
 /// <remarks>
 ///     <para>
-///         <b>Doc 19 § L3's gather, written where it can be checked — and deliberately only its first
-///         half.</b> The shipping version traces the screen against the HZB before it ever touches a
+///         <b>
+///             Doc 19 § L3's gather, written where it can be checked — and deliberately only its first
+///             half.
+///         </b>
+///         The shipping version traces the screen against the HZB before it ever touches a
 ///         distance field, importance-samples the map against the BRDF and last frame's lighting, and
 ///         filters spatially and temporally before anything resolves. None of that is here, and that
 ///         is the point: one deterministic ray per octahedral texel is the arrangement with nothing
@@ -252,7 +257,7 @@ public sealed class TracedScreenProbeGather {
                         continue;
                     }
 
-                    var origin = position + (normal * Settings.SurfaceBias);
+                    var origin = position + normal * Settings.SurfaceBias;
 
                     // Buried is buried, whoever asks — the field filler's rule.
                     if (geometry.Sample(origin) < 0f) {
@@ -272,7 +277,7 @@ public sealed class TracedScreenProbeGather {
 
                     for (var my = 0; my < resolution; my++) {
                         for (var mx = 0; mx < resolution; mx++) {
-                            atlas[index, new Int2(mx, my)] =
+                            atlas[index, new(mx, my)] =
                                 TexelRadiance(origin, new(mx, my), resolution, trace);
                         }
                     }
@@ -295,7 +300,7 @@ public sealed class TracedScreenProbeGather {
     public bool FillProbe(ScreenProbeAtlas atlas, Int2 probe, Vector3 position, Vector3 normal) {
         ArgumentNullException.ThrowIfNull(atlas);
 
-        var origin = position + (normal * Settings.SurfaceBias);
+        var origin = position + normal * Settings.SurfaceBias;
 
         if (geometry.Sample(origin) < 0f) {
             atlas.Invalidate(probe);
@@ -344,7 +349,7 @@ public sealed class TracedScreenProbeGather {
             return sky;
         }
 
-        if (!FarField.TrySample(origin + (direction * Settings.MaxDistance), out var probe)) {
+        if (!FarField.TrySample(origin + direction * Settings.MaxDistance, out var probe)) {
             return sky;
         }
 

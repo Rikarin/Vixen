@@ -9,8 +9,12 @@ namespace Vixen.Raven;
 /// </summary>
 /// <remarks>
 ///     There are no options yet, so every instance is equivalent to every other and
-///     equality is constant. <b>When the first option is added, both members below
-///     must start reading it</b> — otherwise anything caching on a
+///     equality is constant.
+///     <b>
+///         When the first option is added, both members below
+///         must start reading it
+///     </b>
+///     — otherwise anything caching on a
 ///     <see cref="ParseOptions" /> key will silently reuse a tree parsed under
 ///     different settings.
 /// </remarks>

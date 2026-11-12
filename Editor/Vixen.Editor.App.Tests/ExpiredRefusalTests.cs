@@ -14,16 +14,23 @@ namespace Vixen.Editor.App.Tests;
 /// <summary>Doc 20's <c>Planned</c> mechanism, and the one way it goes wrong.</summary>
 /// <remarks>
 ///     <para>
-///         <b>A verb that is not implemented is greyed with a written reason, which is right — and
-///         nothing re-reads the reason.</b> A blocker that closed months ago leaves a verb
+///         <b>
+///             A verb that is not implemented is greyed with a written reason, which is right — and
+///             nothing re-reads the reason.
+///         </b>
+///         A blocker that closed months ago leaves a verb
 ///         indistinguishable from one that is genuinely blocked, with a tooltip actively telling the
 ///         reader not to try. Six of the twenty were in that state and a seventh, the clipboard's,
 ///         was not even on the list: <c>SceneClone</c>'s own remarks call themselves "the thing doc
 ///         20's clipboard was blocked on".
 ///     </para>
 ///     <para>
-///         ⚠ <b>"Is this reason still true" is not a test that can be written, and that is the whole
-///         difficulty.</b> What <i>can</i> be written is the rule that separated the good reasons
+///         ⚠
+///         <b>
+///             "Is this reason still true" is not a test that can be written, and that is the whole
+///             difficulty.
+///         </b>
+///         What <i>can</i> be written is the rule that separated the good reasons
 ///         from the expired ones: a reason naming a <i>mechanism</i> is falsifiable by looking at the
 ///         tree, and a reason naming a <i>milestone</i> is not — it is a claim about a schedule, and
 ///         a schedule that has since closed leaves the sentence reading as true. So this suite
@@ -110,8 +117,12 @@ public class ExpiredRefusalTests {
 
     /// <summary>Set Parent moves the selection, and draws its refusals rather than hiding them.</summary>
     /// <remarks>
-    ///     ⚠ <b>Both halves, because a dialog that offered only the legal answers would pass the
-    ///     first.</b> Dropping a parent into its own child is a thing people try on purpose; the row
+    ///     ⚠
+    ///     <b>
+    ///         Both halves, because a dialog that offered only the legal answers would pass the
+    ///         first.
+    ///     </b>
+    ///     Dropping a parent into its own child is a thing people try on purpose; the row
     ///     has to be there and has to say no.
     /// </remarks>
     [Fact]
@@ -134,9 +145,9 @@ public class ExpiredRefusalTests {
         var rows = Buttons(fixture).ToList();
 
         // Its own descendant is listed and cannot be pressed; the entity itself likewise.
-        Assert.True(Assert.Single(rows, button => button.Label == "Test Nail").Disabled);
-        Assert.True(Assert.Single(rows, button => button.Label == "Test Crate").Disabled);
-        Assert.False(Assert.Single(rows, button => button.Label == "Test Shelf").Disabled);
+        Assert.True(Assert.Single(rows, static button => button.Label == "Test Nail").Disabled);
+        Assert.True(Assert.Single(rows, static button => button.Label == "Test Crate").Disabled);
+        Assert.False(Assert.Single(rows, static button => button.Label == "Test Shelf").Disabled);
 
         fixture.Answer("Test Shelf");
 
@@ -193,9 +204,15 @@ public class ExpiredRefusalTests {
         Assert.True(fixture.IsAsking);
 
         // The choices only — the footer's Cancel is a button too and is not a kind.
-        var rows = Buttons(fixture).Where(static button => button.HasClass("choice")).Select(static button => button.Label).ToList();
+        var rows = Buttons(fixture)
+            .Where(static button => button.HasClass("choice"))
+            .Select(static button => button.Label)
+            .ToList();
 
-        Assert.True(rows.Count > 6, $"only {rows.Count} kinds are listed, so nothing here is below the fold and this proves nothing");
+        Assert.True(
+            rows.Count > 6,
+            $"only {rows.Count} kinds are listed, so nothing here is below the fold and this proves nothing"
+        );
         Assert.Equal(last.Title.Text, rows[^1]);
 
         fixture.Answer(last.Title.Text);

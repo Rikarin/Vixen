@@ -5,7 +5,6 @@ using Vixen.Ai.Ecs;
 using Vixen.Ai.Perception.Ecs;
 using Vixen.Core;
 using Vixen.Core.Mathematics;
-using Vixen.Ecs;
 using Xunit;
 
 namespace Vixen.Ai.Perception.Tests;
@@ -25,13 +24,13 @@ public class PerceptionNodeTests {
     [Fact]
     public void ATreeThatNamesThePerceptionNodesCompilesAndRuns() {
         var fleet = new Fleet();
-        var enemy = fleet.Source(new(0f, 0f, -5f), team: 1);
+        var enemy = fleet.Source(new(0f, 0f, -5f));
         var content = Tree();
-        var resolver = new BehaviorTreeResolver { Schema = new BehaviorNodeSchema() };
+        var resolver = new BehaviorTreeResolver { Schema = new() };
 
         PerceptionNodes.Register(resolver, fleet.System);
 
-        var layout = content.BuildLayout(null);
+        var layout = content.BuildLayout();
 
         Assert.True(BehaviorTreeContentCompiler.TryCompile(content, resolver, out var diagnostics, out var template));
         Assert.Empty(diagnostics);
@@ -91,17 +90,20 @@ public class PerceptionNodeTests {
     [Fact]
     public void ANodeTheResolverWasNotTaughtIsReportedRatherThanBuilt() {
         var content = Tree();
-        var resolver = new BehaviorTreeResolver { Schema = PerceptionNodes.Register(new BehaviorNodeSchema()) };
+        var resolver = new BehaviorTreeResolver { Schema = PerceptionNodes.Register(new()) };
 
         BehaviorTreeContentCompiler.TryCompile(content, resolver, out var diagnostics, out _);
 
-        Assert.Contains(diagnostics, problem => problem.Message.Contains("no factory registered", StringComparison.Ordinal));
+        Assert.Contains(
+            diagnostics,
+            static problem => problem.Message.Contains("no factory registered", StringComparison.Ordinal)
+        );
     }
 
     /// <summary>Registering into a schema twice is what a game does when two systems both do it.</summary>
     [Fact]
     public void RegisteringTwiceIsHarmless() {
-        var schema = PerceptionNodes.Register(new BehaviorNodeSchema());
+        var schema = PerceptionNodes.Register(new());
         var before = schema.Types.Count;
 
         PerceptionNodes.Register(schema);
@@ -130,10 +132,8 @@ public class PerceptionNodeTests {
         root.Children.Add(chase);
         root.Children.Add(new() { Name = "Idle", Type = "Wait", Fields = { ["Seconds"] = "1" } });
 
-        return new BehaviorTreeContent {
-            Name = "guard",
-            Root = root,
-            Keys = { new() { Name = "target", Type = BlackboardValueType.Entity } }
+        return new() {
+            Name = "guard", Root = root, Keys = { new() { Name = "target", Type = BlackboardValueType.Entity } }
         };
     }
 

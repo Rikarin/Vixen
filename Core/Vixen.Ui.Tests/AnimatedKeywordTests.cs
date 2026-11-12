@@ -8,8 +8,12 @@ namespace Vixen.Ui.Tests;
 /// <summary>An animated or transitioned value with a keyword in it, written back into the cascade.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Two intern tables, and the animator wrote with the one its parser had not read
-///         with</b> (#1445). <c>StyleValueParser</c> interns an identifier in the <i>keywords</i> table
+///         ⚠
+///         <b>
+///             Two intern tables, and the animator wrote with the one its parser had not read
+///             with
+///         </b>
+///         (#1445). <c>StyleValueParser</c> interns an identifier in the <i>keywords</i> table
 ///         (<c>StyleEngine.Names</c>) and the animator formatted the value it overlays with the
 ///         <i>values</i> table, so a keyword id was looked up in a table it did not come from. Out of
 ///         range it threw out of <c>UiDocument.Update</c>; in range it named some other word, which
@@ -22,9 +26,9 @@ namespace Vixen.Ui.Tests;
 /// </remarks>
 public class AnimatedKeywordTests {
     const string Base = """
-        root { width: 400px; height: 300px; }
-        #box { width: 100px; height: 40px; background-color: #202020; }
-        """;
+                        root { width: 400px; height: 300px; }
+                        #box { width: 100px; height: 40px; background-color: #202020; }
+                        """;
 
     static UiElement Settled(UiDocument document, string css) {
         document.Load(Base + css);
@@ -42,7 +46,10 @@ public class AnimatedKeywordTests {
     }
 
     static string Rotate(UiDocument document, UiElement box) {
-        Assert.True(box.Style.TryGet(document.Styles.Properties.Lookup("rotate"), out var value), "rotate never arrived");
+        Assert.True(
+            box.Style.TryGet(document.Styles.Properties.Lookup("rotate"), out var value),
+            "rotate never arrived"
+        );
 
         return document.Styles.Values.NameOf(value);
     }

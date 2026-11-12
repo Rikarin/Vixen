@@ -64,7 +64,8 @@ public static class TerrainSculpt {
         in TerrainDescription description,
         in TerrainBrush brush,
         in BrushStamp stamp
-    ) => SampleRectOf(description, brush.FootprintOf(stamp));
+    ) =>
+        SampleRectOf(description, brush.FootprintOf(stamp));
 
     /// <summary>Raises or lowers the ground under a stamp.</summary>
     /// <param name="terrain">The terrain.</param>
@@ -86,7 +87,12 @@ public static class TerrainSculpt {
         var step = metres / description.MetresPerStep;
 
         Apply(
-            terrain, layer, brush, stamp, mask, rect,
+            terrain,
+            layer,
+            brush,
+            stamp,
+            mask,
+            rect,
             (x, z, weight) => layer.AddDelta(x, z, (int)MathF.Round(step * weight))
         );
 
@@ -121,7 +127,12 @@ public static class TerrainSculpt {
         var only = direction;
 
         Apply(
-            terrain, layer, brush, stamp, mask, rect,
+            terrain,
+            layer,
+            brush,
+            stamp,
+            mask,
+            rect,
             (x, z, weight) => {
                 var current = terrain.CompositeAt(x, z);
 
@@ -130,7 +141,7 @@ public static class TerrainSculpt {
                     return;
                 }
 
-                var wanted = (int)MathF.Round(current + ((stored - current) * weight));
+                var wanted = (int)MathF.Round(current + (stored - current) * weight);
                 layer.AddDelta(x, z, wanted - current);
             }
         );
@@ -163,7 +174,12 @@ public static class TerrainSculpt {
         var read = rect.Grow(NeighbourMargin);
 
         Apply(
-            terrain, layer, brush, stamp, mask, rect,
+            terrain,
+            layer,
+            brush,
+            stamp,
+            mask,
+            rect,
             (x, z, weight) => {
                 var total = 0;
 
@@ -205,7 +221,12 @@ public static class TerrainSculpt {
         var noise = settings;
 
         Apply(
-            terrain, layer, brush, stamp, mask, rect,
+            terrain,
+            layer,
+            brush,
+            stamp,
+            mask,
+            rect,
             (x, z, weight) => layer.AddDelta(x, z, (int)MathF.Round(noise.At(x, z) * step * weight))
         );
 
@@ -242,7 +263,12 @@ public static class TerrainSculpt {
         var flow = Math.Clamp(rate, 0f, 1f);
 
         Apply(
-            terrain, layer, brush, stamp, mask, rect,
+            terrain,
+            layer,
+            brush,
+            stamp,
+            mask,
+            rect,
             (x, z, weight) => {
                 var here = Sample(snapshot, read, x, z);
                 var lowest = here;
@@ -304,7 +330,12 @@ public static class TerrainSculpt {
         var flow = Math.Clamp(rate, 0f, 1f);
 
         Apply(
-            terrain, layer, brush, stamp, mask, rect,
+            terrain,
+            layer,
+            brush,
+            stamp,
+            mask,
+            rect,
             (x, z, weight) => {
                 var here = Sample(snapshot, read, x, z);
                 var lowest = here;
@@ -397,7 +428,7 @@ public static class TerrainSculpt {
                     continue;
                 }
 
-                var across = MathF.Abs(Vector2.Dot(point - from, new Vector2(-direction.Y, direction.X)));
+                var across = MathF.Abs(Vector2.Dot(point - from, new(-direction.Y, direction.X)));
 
                 if (across >= halfWidth) {
                     continue;
@@ -407,9 +438,7 @@ public static class TerrainSculpt {
                     ? 1f
                     : 0.5f * (1f + MathF.Cos(MathF.PI * ((across - flat) / (halfWidth - flat))));
 
-                var wanted = description.StoreHeight(
-                    fromHeight + ((toHeight - fromHeight) * (along / length))
-                );
+                var wanted = description.StoreHeight(fromHeight + (toHeight - fromHeight) * (along / length));
 
                 var current = terrain.CompositeAt(x, z);
                 layer.AddDelta(x, z, (int)MathF.Round((wanted - current) * weight));
@@ -553,7 +582,7 @@ public static class TerrainSculpt {
                 // Clamped rather than clipped, so a stamp at the edge reads the boundary sample
                 // repeatedly and smooths as if the terrain continued flat — the same rule
                 // TerrainSamples' indexer uses, applied to the copy.
-                buffer[(z * rect.Width) + x] = terrain.Composite[
+                buffer[z * rect.Width + x] = terrain.Composite[
                     Math.Clamp(rect.X + x, clipped.X, Math.Max(clipped.X, clipped.EndX - 1)),
                     Math.Clamp(rect.Z + z, clipped.Z, Math.Max(clipped.Z, clipped.EndZ - 1))
                 ];
@@ -566,7 +595,7 @@ public static class TerrainSculpt {
     static int Sample(ushort[] snapshot, TerrainRect rect, int x, int z) {
         var localX = Math.Clamp(x - rect.X, 0, rect.Width - 1);
         var localZ = Math.Clamp(z - rect.Z, 0, rect.Height - 1);
-        return snapshot[(localZ * rect.Width) + localX];
+        return snapshot[localZ * rect.Width + localX];
     }
 
     static TerrainRect SampleRectOf(in TerrainDescription description, BrushFootprint footprint) =>
@@ -643,10 +672,10 @@ public readonly record struct TerrainNoise(
         var c = Corner(x0, z0 + 1, seed);
         var d = Corner(x0 + 1, z0 + 1, seed);
 
-        return (((a * (1f - fx)) + (b * fx)) * (1f - fz)) + (((c * (1f - fx)) + (d * fx)) * fz);
+        return (a * (1f - fx) + b * fx) * (1f - fz) + (c * (1f - fx) + d * fx) * fz;
     }
 
-    static float Smoothstep(float t) => t * t * (3f - (2f * t));
+    static float Smoothstep(float t) => t * t * (3f - 2f * t);
 
     static float Corner(int x, int z, uint seed) {
         var hash = (uint)x * 0x9E3779B1u;
@@ -657,6 +686,6 @@ public readonly record struct TerrainNoise(
         hash *= 0x2545F491u;
         hash ^= hash >> 13;
 
-        return (hash / (float)uint.MaxValue * 2f) - 1f;
+        return hash / (float)uint.MaxValue * 2f - 1f;
     }
 }

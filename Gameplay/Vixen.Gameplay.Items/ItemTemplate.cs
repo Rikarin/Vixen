@@ -12,7 +12,7 @@ public readonly record struct AffixStat(AttributeId Attribute, ModifierOp Op, fl
     /// <summary>The value at a roll.</summary>
     /// <param name="roll">Where in the range, from zero to one.</param>
     /// <returns>The value.</returns>
-    public float At(float roll) => Minimum + ((Maximum - Minimum) * Math.Clamp(roll, 0f, 1f));
+    public float At(float roll) => Minimum + (Maximum - Minimum) * Math.Clamp(roll, 0f, 1f);
 }
 
 /// <summary>A rarity tier with its names resolved.</summary>

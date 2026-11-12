@@ -89,7 +89,7 @@ public class ScreenSpaceTraceTests {
         var outward = OctahedralMap.Texel(new(0f, 0f, 1f), resolution);
 
         Assert.Equal(Vector3.Zero, atlas[probe, inward]);
-        Assert.Equal(new Vector3(1f), atlas[probe, outward]);
+        Assert.Equal(new(1f), atlas[probe, outward]);
     }
 
     [Fact]
@@ -124,7 +124,7 @@ public class ScreenSpaceTraceTests {
         var without = Fill(Gather(null));
         var with = Gather(Trace(WallDepth));
 
-        with.ScreenColour = _ => new(1f);
+        with.ScreenColour = static _ => new(1f);
 
         var texels = Fill(with);
 
@@ -162,7 +162,7 @@ public class ScreenSpaceTraceTests {
 
         for (var y = 0; y < resolution; y++) {
             for (var x = 0; x < resolution; x++) {
-                texels[(y * resolution) + x] = atlas[probe, new(x, y)];
+                texels[y * resolution + x] = atlas[probe, new(x, y)];
             }
         }
 

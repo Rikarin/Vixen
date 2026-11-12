@@ -56,8 +56,8 @@ public class CodeEditorClipboardTests {
 
         var (editor, clipboard) = Editor(fixture, "one\ntwo\nthree");
 
-        editor.Move(new TextPosition(0, 1));
-        editor.Move(new TextPosition(2, 2), extend: true);
+        editor.Move(new(0, 1));
+        editor.Move(new(2, 2), true);
 
         fixture.Type(InputKey.C, ModifierKeys.Control);
 
@@ -71,8 +71,8 @@ public class CodeEditorClipboardTests {
 
         var (editor, clipboard) = Editor(fixture, "one\ntwo\nthree");
 
-        editor.Move(new TextPosition(0, 1));
-        editor.Move(new TextPosition(2, 2), extend: true);
+        editor.Move(new(0, 1));
+        editor.Move(new(2, 2), true);
 
         fixture.Type(InputKey.X, ModifierKeys.Control);
 

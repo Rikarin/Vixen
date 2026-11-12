@@ -31,8 +31,12 @@ public interface IWaterFieldSource {
 ///         server could not run it.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The clock is on this interface and it is read-only, which is the whole "one water
-///         clock" rule made structural.</b> A solver that reached for its own frame time would be a
+///         ⚠
+///         <b>
+///             The clock is on this interface and it is read-only, which is the whole "one water
+///             clock" rule made structural.
+///         </b>
+///         A solver that reached for its own frame time would be a
 ///         force that changes when the frame rate does, and a solver a frame behind the vertex stage
 ///         is a boat that hovers — invisible until the frame rate changes. Whoever implements this
 ///         owns the number; everybody else reads it.
@@ -82,8 +86,7 @@ public interface IWaterSurface {
 public sealed class WaterQuery {
     readonly GerstnerWave[] waves;
     int waveCount;
-    WaterField? standalone;
-    WaterAttenuation attenuation;
+
 
     /// <summary>Creates a query over a field and a sea state.</summary>
     /// <param name="field">The rasterised bodies and the ground beneath them, or null for open water.</param>
@@ -118,24 +121,28 @@ public sealed class WaterQuery {
     ///     source: a caller assigning a field by hand has said which object it means.
     /// </remarks>
     public WaterField? Field {
-        get => FieldSource is { } live ? live.Field : standalone;
+        get => FieldSource is { } live ? live.Field : field;
         set {
             FieldSource = null;
-            standalone = value;
+            field = value;
         }
     }
 
     /// <summary>How the sea state falls off as the ground rises.</summary>
     /// <remarks>
-    ///     ⚠ <b>A depth of zero or less takes <see cref="WaterAttenuation.Default" />, on every entry
-    ///     path.</b> Zero is what a defaulted argument and a zeroed struct both hold, and an
+    ///     ⚠
+    ///     <b>
+    ///         A depth of zero or less takes <see cref="WaterAttenuation.Default" />, on every entry
+    ///         path.
+    ///     </b>
+    ///     Zero is what a defaulted argument and a zeroed struct both hold, and an
     ///     attenuation of zero is a swell lapping over dry sand — the contract is that waves are gone
     ///     at zero depth. A sea state that genuinely wants no shallow-water damping states a small
     ///     positive depth rather than an unset one.
     /// </remarks>
     public WaterAttenuation Attenuation {
-        get => attenuation;
-        set => attenuation = value.Depth > 0f ? value : WaterAttenuation.Default;
+        get => field;
+        set => field = value.Depth > 0f ? value : WaterAttenuation.Default;
     }
 
     /// <summary>The spectrum the waves were summed from.</summary>
@@ -159,7 +166,8 @@ public sealed class WaterQuery {
     ///     A rollback re-simulating six ticks needs the surface at six past times, and a height field
     ///     advanced a step at a time cannot answer that — so the network path asks for the closed form
     ///     alone and gets an answer that is exact and reproducible. See
-    ///     [§ D12](../../docs/plan/35-water.md#d12-ripples-are-a-sliding-window-height-field-and-they-are-displacement-not-geometry).
+    ///     [§
+    ///     D12](../../docs/plan/35-water.md#d12-ripples-are-a-sliding-window-height-field-and-they-are-displacement-not-geometry).
     /// </remarks>
     public IWaterRipples? Ripples { get; set; }
 
@@ -184,8 +192,7 @@ public sealed class WaterQuery {
     /// <param name="position">Where, on the ground plane — world X and Z.</param>
     /// <param name="waterTime">The simulation's water time, in seconds.</param>
     /// <returns>The sample, with the ripple simulation included if there is one.</returns>
-    public WaterSample Sample(Vector2 position, float waterTime) =>
-        Evaluator().Sample(position, waterTime, Ripples);
+    public WaterSample Sample(Vector2 position, float waterTime) => Evaluator().Sample(position, waterTime, Ripples);
 
     /// <summary>What the surface is like, ignoring any ripple simulation.</summary>
     /// <param name="position">Where, on the ground plane.</param>
@@ -195,18 +202,17 @@ public sealed class WaterQuery {
     ///     <b>What a rollback asks for.</b> It is a closed-form function of position and time, so the
     ///     surface six ticks ago costs exactly what the surface now costs — which is what makes a
     ///     predicted, rewound buoyancy force answerable at all, and is one of the two reasons
-    ///     [§ D7](../../docs/plan/35-water.md#d7-waves-are-a-spectrum-summed-as-gerstner-and-the-fft-is-deferred-with-arithmetic)
+    ///     [§
+    ///     D7](../../docs/plan/35-water.md#d7-waves-are-a-spectrum-summed-as-gerstner-and-the-fft-is-deferred-with-arithmetic)
     ///     puts Gerstner before FFT.
     /// </remarks>
-    public WaterSample ClosedForm(Vector2 position, float waterTime) =>
-        Evaluator().Sample(position, waterTime);
+    public WaterSample ClosedForm(Vector2 position, float waterTime) => Evaluator().Sample(position, waterTime);
 
     /// <summary>Where the surface is, and nothing else.</summary>
     /// <param name="position">Where, on the ground plane.</param>
     /// <param name="waterTime">The simulation's water time, in seconds.</param>
     /// <returns>The height, in world units.</returns>
-    public float Height(Vector2 position, float waterTime) =>
-        Evaluator().Height(position, waterTime, Ripples);
+    public float Height(Vector2 position, float waterTime) => Evaluator().Height(position, waterTime, Ripples);
 
     /// <summary>How much of a capsule is under the surface, 0…1.</summary>
     /// <param name="position">Where it stands, on the ground plane.</param>

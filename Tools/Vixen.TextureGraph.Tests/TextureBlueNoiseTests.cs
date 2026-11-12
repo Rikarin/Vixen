@@ -43,7 +43,7 @@ public class TextureBlueNoiseTests(ITestOutputHelper output) {
 
                 dx = Math.Min(dx, Side - dx);
                 dy = Math.Min(dy, Side - dy);
-                nearest = Math.Min(nearest, Math.Sqrt((dx * dx) + (dy * dy)));
+                nearest = Math.Min(nearest, Math.Sqrt(dx * dx + dy * dy));
             }
         }
 
@@ -56,7 +56,7 @@ public class TextureBlueNoiseTests(ITestOutputHelper output) {
 
         Assert.Equal(Side * Side, ranks.Count);
         Assert.Equal(
-            Enumerable.Range(0, Side * Side).Select(rank => rank / (float)(Side * Side)),
+            Enumerable.Range(0, Side * Side).Select(static rank => rank / (float)(Side * Side)),
             ranks.Order()
         );
     }
@@ -77,7 +77,7 @@ public class TextureBlueNoiseTests(ITestOutputHelper output) {
 
                 for (var dy = 0; dy < Window; dy++) {
                     for (var dx = 0; dx < Window; dx++) {
-                        lit += ranks[(((y + dy) % Side) * Side) + ((x + dx) % Side)] >= level ? 1 : 0;
+                        lit += ranks[(y + dy) % Side * Side + (x + dx) % Side] >= level ? 1 : 0;
                     }
                 }
 
@@ -90,7 +90,7 @@ public class TextureBlueNoiseTests(ITestOutputHelper output) {
 
         var mean = sum / (Side * Side);
 
-        return (squares / (Side * Side)) - (mean * mean);
+        return squares / (Side * Side) - mean * mean;
     }
 
     /// <summary>Every threshold spreads its points evenly, where a white noise of the same density clumps.</summary>
@@ -116,13 +116,18 @@ public class TextureBlueNoiseTests(ITestOutputHelper output) {
         var white = Uneven(shuffled, level);
         var expected = level * (1 - level) / 64;
 
-        output.WriteLine($"at {level}: blue's windows vary by {blue:E2}, white's by {white:E2} (expected {expected:E2})");
+        output.WriteLine(
+            $"at {level}: blue's windows vary by {blue:E2}, white's by {white:E2} (expected {expected:E2})"
+        );
 
         Assert.True(white > expected * 0.5, $"The white instrument's {white:E2} is not a white noise's {expected:E2}.");
         Assert.True(blue < white * 0.2, $"Above {level} the windows vary by {blue:E2}, against white's {white:E2}.");
 
         if (level >= 0.9f) {
-            Assert.True(Nearest(ranks, level) >= 2.0, $"Two of the tenth brightest are {Nearest(ranks, level):0.00} texels apart.");
+            Assert.True(
+                Nearest(ranks, level) >= 2.0,
+                $"Two of the tenth brightest are {Nearest(ranks, level):0.00} texels apart."
+            );
             Assert.True(Nearest(shuffled, level) < 2.0, "The white instrument's tenth has no close pair either.");
         }
     }
@@ -136,10 +141,17 @@ public class TextureBlueNoiseTests(ITestOutputHelper output) {
 
         output.WriteLine($"adapter: {TextureKernelHarness.Adapter(device)}");
 
-        var noise = Bake(device, "Source/Blue Noise", Side, Side, [], node => {
-            node.SetValue("Scale", 1f);
-            node.SetValue("Seed", seed);
-        });
+        var noise = Bake(
+            device,
+            "Source/Blue Noise",
+            Side,
+            Side,
+            [],
+            node => {
+                node.SetValue("Scale", 1f);
+                node.SetValue("Seed", seed);
+            }
+        );
 
         var drawn = new List<float>(Side * Side);
 
@@ -150,8 +162,8 @@ public class TextureBlueNoiseTests(ITestOutputHelper output) {
         }
 
         Assert.Equal(
-            TextureBlueNoise.Ranks.Order().Select(rank => MathF.Round(rank * Side * Side)),
-            drawn.Order().Select(value => MathF.Round(value * Side * Side))
+            TextureBlueNoise.Ranks.Order().Select(static rank => MathF.Round(rank * Side * Side)),
+            drawn.Order().Select(static value => MathF.Round(value * Side * Side))
         );
     }
 
@@ -160,12 +172,19 @@ public class TextureBlueNoiseTests(ITestOutputHelper output) {
     public void A_seed_moves_the_tile() {
         using var device = TextureKernelHarness.Open();
 
-        var first = Bake(device, "Source/Blue Noise", Side, Side, [], node => node.SetValue("Scale", 1f));
-        var again = Bake(device, "Source/Blue Noise", Side, Side, [], node => node.SetValue("Scale", 1f));
-        var other = Bake(device, "Source/Blue Noise", Side, Side, [], node => {
-            node.SetValue("Scale", 1f);
-            node.SetValue("Seed", 5f);
-        });
+        var first = Bake(device, "Source/Blue Noise", Side, Side, [], static node => node.SetValue("Scale", 1f));
+        var again = Bake(device, "Source/Blue Noise", Side, Side, [], static node => node.SetValue("Scale", 1f));
+        var other = Bake(
+            device,
+            "Source/Blue Noise",
+            Side,
+            Side,
+            [],
+            static node => {
+                node.SetValue("Scale", 1f);
+                node.SetValue("Seed", 5f);
+            }
+        );
 
         var same = 0;
         var moved = 0;

@@ -51,12 +51,13 @@ static class ModuleRegistrationRule {
 
     /// <summary>Each side door, and the name its rows carry.</summary>
     static readonly (Regex Pattern, Func<Match, string> Name)[] SideDoors = [
-        (new(@"\b[Ss]hell\.RegisterPanel\s*\(", RegexOptions.CultureInvariant), _ => "Shell.RegisterPanel"),
-        (new(@"\b[Ss]hell\.RegisterLayout\s*\(", RegexOptions.CultureInvariant), _ => "Shell.RegisterLayout"),
-        (new(@"\b[Ss]hell\.Modes\.Add\s*\(", RegexOptions.CultureInvariant), _ => "Shell.Modes.Add"),
-        (new(@"\b[Ss]hell\.Commands\.Add\s*\(", RegexOptions.CultureInvariant), _ => "Shell.Commands.Add"),
-        (new(@"\b(\w*Theme)\.Install\s*\(", RegexOptions.CultureInvariant), match => match.Groups[1].Value + ".Install"),
-        (new(@"\bServices\.Add\s*[<(]", RegexOptions.CultureInvariant), _ => "Services.Add")
+        (new(@"\b[Ss]hell\.RegisterPanel\s*\(", RegexOptions.CultureInvariant), static _ => "Shell.RegisterPanel"),
+        (new(@"\b[Ss]hell\.RegisterLayout\s*\(", RegexOptions.CultureInvariant), static _ => "Shell.RegisterLayout"),
+        (new(@"\b[Ss]hell\.Modes\.Add\s*\(", RegexOptions.CultureInvariant), static _ => "Shell.Modes.Add"),
+        (new(@"\b[Ss]hell\.Commands\.Add\s*\(", RegexOptions.CultureInvariant), static _ => "Shell.Commands.Add"),
+        (new(@"\b(\w*Theme)\.Install\s*\(", RegexOptions.CultureInvariant),
+            static match => match.Groups[1].Value + ".Install"),
+        (new(@"\bServices\.Add\s*[<(]", RegexOptions.CultureInvariant), static _ => "Services.Add")
     ];
 
     /// <summary>The projects that declare a module, by directory relative to the root.</summary>
@@ -71,13 +72,16 @@ static class ModuleRegistrationRule {
         // interface at all, which is a few dozen files rather than every source in the repository.
         var projects = RepositoryFiles.Files(root, "*.csproj")
             .Select(project => Path.GetRelativePath(root, Path.GetDirectoryName(project)!).Replace('\\', '/'))
-            .Where(directory => !directory.EndsWith(".Tests", StringComparison.Ordinal) && Path.GetFileName(directory) != Contract)
+            .Where(static directory => !directory.EndsWith(".Tests", StringComparison.Ordinal)
+                && Path.GetFileName(directory) != Contract
+            )
             .ToList();
 
         foreach (var file in RepositoryFiles.Files(root, "*.cs")) {
             var text = File.ReadAllText(file);
 
-            if (!text.Contains("IEditorPlugin", StringComparison.Ordinal) || !Plugin.IsMatch(FeatureNameRule.Lex(text).Code)) {
+            if (!text.Contains("IEditorPlugin", StringComparison.Ordinal)
+                || !Plugin.IsMatch(FeatureNameRule.Lex(text).Code)) {
                 continue;
             }
 
@@ -85,12 +89,12 @@ static class ModuleRegistrationRule {
 
             // The nearest project above the file owns it.
             if (projects.Where(project => relative.StartsWith(project + "/", StringComparison.Ordinal))
-                    .MaxBy(project => project.Length) is { } owner) {
+                    .MaxBy(static project => project.Length) is { } owner) {
                 subjects.Add(owner);
             }
         }
 
-        return [.. subjects];
+        return [..subjects];
     }
 
     /// <summary>Every side door every subject opens.</summary>
@@ -122,7 +126,7 @@ static class ModuleRegistrationRule {
             }
         }
 
-        return [.. findings.OrderBy(finding => finding.Key, StringComparer.Ordinal)];
+        return [..findings.OrderBy(static finding => finding.Key, StringComparer.Ordinal)];
     }
 
     /// <summary>The side doors one file's code opens.</summary>
@@ -225,15 +229,25 @@ static class ModuleRegistrationRule {
 
         var text = new StringBuilder();
 
-        text.Append("# Registrations an editor module makes round the side of PluginContext (doc 50 § D6, #1281). Read by\n")
+        text.Append(
+                "# Registrations an editor module makes round the side of PluginContext (doc 50 § D6, #1281). Read by\n"
+            )
             .Append("# CheckArchitecture through build/ModuleRegistrationRule.cs. `<file> <door> <count> [reason]`.\n")
             .Append("#\n")
-            .Append("# ⚠ This list can only SHRINK: a new door fails, a count above its row fails, and a row above its file's\n")
-            .Append("# count, or for a door the file no longer opens, fails too. Subjects are every non-test project holding a\n")
-            .Append("# class that implements IEditorPlugin; the doors are Shell.RegisterPanel / RegisterLayout / Modes.Add /\n")
+            .Append(
+                "# ⚠ This list can only SHRINK: a new door fails, a count above its row fails, and a row above its file's\n"
+            )
+            .Append(
+                "# count, or for a door the file no longer opens, fails too. Subjects are every non-test project holding a\n"
+            )
+            .Append(
+                "# class that implements IEditorPlugin; the doors are Shell.RegisterPanel / RegisterLayout / Modes.Add /\n"
+            )
             .Append("# Commands.Add, any *Theme.Install, and Services.Add.\n")
             .Append("#\n")
-            .Append("# Regenerate after a merge with `").Append(Regenerate).Append("`, and read the diff.\n\n");
+            .Append("# Regenerate after a merge with `")
+            .Append(Regenerate)
+            .Append("`, and read the diff.\n\n");
 
         foreach (var finding in findings) {
             text.Append(finding.File).Append(' ').Append(finding.Name).Append(' ').Append(finding.Count);

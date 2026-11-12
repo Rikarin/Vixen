@@ -10,8 +10,12 @@ namespace Vixen.Terrain.Tests;
 public sealed class TerrainPaintTests {
     static TerrainDescription Shape =>
         TerrainDescription.Default with {
-            TileSamples = 32, TilesX = 2, TilesZ = 2,
-            MetresPerQuad = 1f, MinHeight = -100f, MaxHeight = 100f
+            TileSamples = 32,
+            TilesX = 2,
+            TilesZ = 2,
+            MetresPerQuad = 1f,
+            MinHeight = -100f,
+            MaxHeight = 100f
         };
 
     static Terrain Built(params string[] names) {
@@ -33,7 +37,7 @@ public sealed class TerrainPaintTests {
     public void Painting_a_layer_raises_it_and_lowers_the_rest() {
         var terrain = Built();
 
-        TerrainPaint.Paint(terrain, 1, Brush(), new(new(30f, 30f)), amount: 200);
+        TerrainPaint.Paint(terrain, 1, Brush(), new(new(30f, 30f)), 200);
 
         Assert.True(terrain.Weights.WeightAt(1, 30, 30) > 150);
         Assert.True(terrain.Weights.WeightAt(0, 30, 30) < 105);
@@ -44,10 +48,10 @@ public sealed class TerrainPaintTests {
     public void Painting_with_a_negative_amount_gives_the_weight_back() {
         var terrain = Built();
 
-        TerrainPaint.Paint(terrain, 1, Brush(), new(new(30f, 30f)), amount: 255);
+        TerrainPaint.Paint(terrain, 1, Brush(), new(new(30f, 30f)), 255);
         Assert.Equal(255, terrain.Weights.WeightAt(1, 30, 30));
 
-        TerrainPaint.Paint(terrain, 1, Brush(), new(new(30f, 30f)), amount: -255);
+        TerrainPaint.Paint(terrain, 1, Brush(), new(new(30f, 30f)), -255);
 
         Assert.Equal(0, terrain.Weights.WeightAt(1, 30, 30));
         Assert.Equal(255, terrain.Weights.WeightAt(0, 30, 30));
@@ -58,7 +62,7 @@ public sealed class TerrainPaintTests {
     public void The_brushs_falloff_reaches_the_weights_the_same_way_it_reaches_the_heights() {
         var terrain = Built();
 
-        TerrainPaint.Paint(terrain, 1, Brush(radius: 8f, falloff: 1f), new(new(30f, 30f)), amount: 255);
+        TerrainPaint.Paint(terrain, 1, Brush(8f, falloff: 1f), new(new(30f, 30f)), 255);
 
         var centre = terrain.Weights.WeightAt(1, 30, 30);
         var middle = terrain.Weights.WeightAt(1, 34, 30);
@@ -75,7 +79,7 @@ public sealed class TerrainPaintTests {
         terrain.Weights.AddLayer("Grass");
         var snow = terrain.Weights.AddLayer("Snow", TerrainBlend.NonWeight);
 
-        TerrainPaint.Paint(terrain, snow, Brush(), new(new(30f, 30f)), amount: 255);
+        TerrainPaint.Paint(terrain, snow, Brush(), new(new(30f, 30f)), 255);
 
         // Snow lies over the grass rather than replacing it, which is the whole of the mode.
         Assert.Equal(255, terrain.Weights.WeightAt(snow, 30, 30));
@@ -89,12 +93,12 @@ public sealed class TerrainPaintTests {
     public void Smoothing_softens_a_hard_edge_between_two_layers() {
         var terrain = Built();
 
-        TerrainPaint.Paint(terrain, 1, Brush(radius: 6f, falloff: 0f), new(new(30f, 30f)), amount: 255);
+        TerrainPaint.Paint(terrain, 1, Brush(6f, falloff: 0f), new(new(30f, 30f)), 255);
 
         var before = terrain.Weights.WeightAt(1, 30, 30);
         Assert.Equal(255, before);
 
-        TerrainPaint.Smooth(terrain, 1, Brush(radius: 10f), new(new(36f, 30f)));
+        TerrainPaint.Smooth(terrain, 1, Brush(10f), new(new(36f, 30f)));
 
         // The rim of the disc is pulled towards its neighbours.
         Assert.InRange(terrain.Weights.WeightAt(1, 36, 30), 1, 254);
@@ -113,14 +117,14 @@ public sealed class TerrainPaintTests {
         var right = Built();
 
         foreach (var terrain in (Terrain[])[left, right]) {
-            TerrainPaint.Paint(terrain, 1, Brush(radius: 5f, falloff: 0f), new(new(30f, 30f)), amount: 255);
+            TerrainPaint.Paint(terrain, 1, Brush(5f, falloff: 0f), new(new(30f, 30f)), 255);
         }
 
-        TerrainPaint.Smooth(left, 1, Brush(radius: 10f), new(new(30f, 30f)));
+        TerrainPaint.Smooth(left, 1, Brush(10f), new(new(30f, 30f)));
 
         // The same stamp, applied twice with the halves in the other order, has to land in the same
         // place — which it can only do if neither half read what the other wrote.
-        TerrainPaint.Smooth(right, 1, Brush(radius: 10f), new(new(30f, 30f)));
+        TerrainPaint.Smooth(right, 1, Brush(10f), new(new(30f, 30f)));
 
         for (var z = 20; z < 40; z++) {
             for (var x = 20; x < 40; x++) {
@@ -136,7 +140,7 @@ public sealed class TerrainPaintTests {
         var terrain = Built();
 
         for (var pass = 0; pass < 8; pass++) {
-            TerrainPaint.Flatten(terrain, 1, Brush(falloff: 0f), new(new(30f, 30f)), target: 0.5f);
+            TerrainPaint.Flatten(terrain, 1, Brush(falloff: 0f), new(new(30f, 30f)), 0.5f);
         }
 
         // Half of 255, to within the rounding of eight passes.
@@ -150,8 +154,8 @@ public sealed class TerrainPaintTests {
     public void Noise_scatters_the_weight_without_breaking_the_sum() {
         var terrain = Built();
 
-        TerrainPaint.Flatten(terrain, 1, Brush(radius: 12f, falloff: 0f), new(new(30f, 30f)), target: 0.5f);
-        TerrainPaint.Noise(terrain, 1, Brush(radius: 12f), new(new(30f, 30f)), amount: 120, new(Frequency: 0.3f));
+        TerrainPaint.Flatten(terrain, 1, Brush(12f, falloff: 0f), new(new(30f, 30f)), 0.5f);
+        TerrainPaint.Noise(terrain, 1, Brush(12f), new(new(30f, 30f)), 120, new(Frequency: 0.3f));
 
         var seen = new HashSet<byte>();
 
@@ -195,7 +199,7 @@ public sealed class TerrainPaintTests {
             };
 
             var stamp = new BrushStamp(
-                new Vector2(
+                new(
                     (float)random.NextDouble() * terrain.Description.WidthX,
                     (float)random.NextDouble() * terrain.Description.WidthZ
                 )
@@ -262,11 +266,11 @@ public sealed class TerrainPaintTests {
         var before = Snapshot(terrain);
 
         var stroke = new TerrainWeightStroke(terrain);
-        var brush = Brush(radius: 8f);
+        var brush = Brush(8f);
 
         foreach (var at in (Vector2[])[new(20f, 20f), new(26f, 24f), new(32f, 28f)]) {
             stroke.Record(brush, new(at));
-            TerrainPaint.Paint(terrain, 1, brush, new(at), amount: 200);
+            TerrainPaint.Paint(terrain, 1, brush, new(at), 200);
         }
 
         Assert.NotEqual(before, Snapshot(terrain));
@@ -287,14 +291,14 @@ public sealed class TerrainPaintTests {
     public void A_stroke_records_a_sample_once_however_often_it_is_crossed() {
         var terrain = Built();
         var stroke = new TerrainWeightStroke(terrain);
-        var brush = Brush(radius: 6f);
+        var brush = Brush();
 
         stroke.Record(brush, new(new(30f, 30f)));
         var first = stroke.RecordedSamples;
 
         for (var pass = 0; pass < 20; pass++) {
             stroke.Record(brush, new(new(30f, 30f)));
-            TerrainPaint.Paint(terrain, 1, brush, new(new(30f, 30f)), amount: 10);
+            TerrainPaint.Paint(terrain, 1, brush, new(new(30f, 30f)), 10);
         }
 
         Assert.Equal(first, stroke.RecordedSamples);
@@ -321,7 +325,7 @@ public sealed class TerrainPaintTests {
     public void Restoring_a_sample_puts_back_exactly_what_was_read() {
         var terrain = Built("A", "B", "C", "D");
 
-        TerrainPaint.Paint(terrain, 2, Brush(), new(new(30f, 30f)), amount: 130);
+        TerrainPaint.Paint(terrain, 2, Brush(), new(new(30f, 30f)), 130);
 
         var was = new byte[4];
 
@@ -329,7 +333,7 @@ public sealed class TerrainPaintTests {
             was[layer] = terrain.Weights.WeightAt(layer, 30, 30);
         }
 
-        TerrainPaint.Paint(terrain, 0, Brush(), new(new(30f, 30f)), amount: 200);
+        TerrainPaint.Paint(terrain, 0, Brush(), new(new(30f, 30f)), 200);
         terrain.Weights.Restore(30, 30, was);
 
         for (var layer = 0; layer < 4; layer++) {

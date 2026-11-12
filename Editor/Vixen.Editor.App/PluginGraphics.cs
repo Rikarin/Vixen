@@ -70,8 +70,12 @@ sealed class PluginGraphics : IEditorGraphics {
 
     /// <inheritdoc />
     /// <remarks>
-    ///     ⚠ <b>The handle is checked against the surface that made it, not merely against the
-    ///     interface.</b> An image number is a number: one belonging to a previous surface — the
+    ///     ⚠
+    ///     <b>
+    ///         The handle is checked against the surface that made it, not merely against the
+    ///         interface.
+    ///     </b>
+    ///     An image number is a number: one belonging to a previous surface — the
     ///     window went and came back — names a live image of the current one, so a plugin holding a
     ///     stale handle would write its pixels into somebody else's picture rather than be told no.
     /// </remarks>
@@ -86,8 +90,12 @@ sealed class PluginGraphics : IEditorGraphics {
 
     /// <summary>One uploaded picture, released once whatever happens to it.</summary>
     /// <remarks>
-    ///     ⚠ <b>Idempotent, because a plugin that both releases its image and hands it to
-    ///     <c>PluginContext.Owns</c> is doing the right thing twice.</b> A second release would give
+    ///     ⚠
+    ///     <b>
+    ///         Idempotent, because a plugin that both releases its image and hands it to
+    ///         <c>PluginContext.Owns</c> is doing the right thing twice.
+    ///     </b>
+    ///     A second release would give
     ///     the same number back to the surface's free list, and the number after it would then be
     ///     handed out to two owners.
     /// </remarks>

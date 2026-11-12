@@ -123,7 +123,7 @@ public sealed class FrameGraphOverlay : IDiagnosticOverlay {
                 continue;
             }
 
-            var fraction = sample.DurationTicks / (float) span;
+            var fraction = sample.DurationTicks / (float)span;
 
             // A scope thinner than a pixel is a bar nobody can see and a name nobody can read; the
             // total it belongs to is still visible as its parent's width.
@@ -131,9 +131,9 @@ public sealed class FrameGraphOverlay : IDiagnosticOverlay {
                 continue;
             }
 
-            var x = (sample.BeginTicks - begin) / (float) span * width;
+            var x = (sample.BeginTicks - begin) / (float)span * width;
             var bar = MathF.Max(fraction * width, 1f);
-            var y = top + (sample.Depth * BarHeight);
+            var y = top + sample.Depth * BarHeight;
             var colour = Hue(sample.Key);
 
             region.Fill(new(x, y), new(bar, BarHeight - 1f), OverlayTheme.Fade(colour, 0.55f));
@@ -209,9 +209,9 @@ public sealed class FrameGraphOverlay : IDiagnosticOverlay {
     ///     exactly what changes when the thing being investigated happens.
     /// </remarks>
     static Color4 Hue(ProfilingKey key) {
-        var hash = (uint) key.Id * 2_654_435_761u;
+        var hash = (uint)key.Id * 2_654_435_761u;
         var hue = hash % 360u / 360f * 6f;
-        var sector = (int) hue;
+        var sector = (int)hue;
         var fraction = hue - sector;
 
         var (r, g, b) = sector switch {
@@ -224,6 +224,6 @@ public sealed class FrameGraphOverlay : IDiagnosticOverlay {
         };
 
         // Pulled toward grey, so eight adjacent bars read as eight bars rather than as a rainbow.
-        return new((r * 0.55f) + 0.30f, (g * 0.55f) + 0.30f, (b * 0.55f) + 0.30f, 1f);
+        return new(r * 0.55f + 0.30f, g * 0.55f + 0.30f, b * 0.55f + 0.30f, 1f);
     }
 }

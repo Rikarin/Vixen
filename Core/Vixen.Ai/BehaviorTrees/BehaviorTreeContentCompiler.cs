@@ -35,11 +35,9 @@ public sealed class BehaviorTreeResolver {
     readonly Dictionary<string, BehaviorTaskFactory> tasks = new(StringComparer.Ordinal);
 
     /// <summary>Creates a resolver with the placeholder action a failed lookup falls back to.</summary>
-    public BehaviorTreeResolver() =>
-        // ⚠ Registered up front rather than on demand, because the compiler that needs it is
-        // reporting a problem at the time and a second failure — "no action called __unresolved" —
-        // would bury the first. A branch that could not be built reads as the dead end it is.
+    public BehaviorTreeResolver() {
         Actions.Register(Unresolved, new FinishWithTask(ActionStatus.Failed));
+    }
 
     /// <summary>What a task whose type could not be resolved runs instead.</summary>
     public const string Unresolved = "__unresolved";
@@ -298,8 +296,12 @@ public static class BehaviorTreeContentCompiler {
     /// <returns>Whether it resolved to something other than the placeholder.</returns>
     /// <exception cref="ArgumentNullException">Any argument is null.</exception>
     /// <remarks>
-    ///     ⚠ <b>A utility set names its tasks the same way a tree does, and this is the seam that makes
-    ///     that true rather than merely intended.</b> One schema, one factory table, one registry and
+    ///     ⚠
+    ///     <b>
+    ///         A utility set names its tasks the same way a tree does, and this is the seam that makes
+    ///         that true rather than merely intended.
+    ///     </b>
+    ///     One schema, one factory table, one registry and
     ///     one set of rules about sharing an action between two callers that describe it identically —
     ///     which is doc 37 § D2 stated as code rather than as a paragraph.
     /// </remarks>
@@ -351,7 +353,7 @@ public static class BehaviorTreeContentCompiler {
         var state = new BuildState(resolver, layout, diagnostics);
         var root = content.Root is null
             ? Placeholder("root", diagnostics, "The tree has no root.")
-            : state.Node(content.Root, new HashSet<string>(StringComparer.Ordinal) { content.Name });
+            : state.Node(content.Root, new(StringComparer.Ordinal) { content.Name });
 
         return BehaviorTree.Asset(content.Name, root);
     }
@@ -385,7 +387,11 @@ public static class BehaviorTreeContentCompiler {
         return template is not null && problems.Count == 0;
     }
 
-    static BehaviorNodeDefinition Placeholder(string name, ICollection<BehaviorTreeDiagnostic> diagnostics, string why) {
+    static BehaviorNodeDefinition Placeholder(
+        string name,
+        ICollection<BehaviorTreeDiagnostic> diagnostics,
+        string why
+    ) {
         diagnostics.Add(new(Symbol.Intern(name), why));
 
         return BehaviorTree.Task(name, BehaviorTreeResolver.Unresolved);
@@ -411,7 +417,11 @@ public static class BehaviorTreeContentCompiler {
             };
         }
 
-        BehaviorNodeDefinition Composite(BehaviorNodeContent content, BehaviorNodeType type, HashSet<string> openTrees) {
+        BehaviorNodeDefinition Composite(
+            BehaviorNodeContent content,
+            BehaviorNodeType type,
+            HashSet<string> openTrees
+        ) {
             var kind = Enum.TryParse<BehaviorCompositeKind>(type.Type, out var parsed)
                 ? parsed
                 : BehaviorCompositeKind.Selector;
@@ -427,7 +437,7 @@ public static class BehaviorTreeContentCompiler {
                 node.Add(Node(child, openTrees));
             }
 
-            Attach(node, content, composite: true);
+            Attach(node, content, true);
 
             return node;
         }
@@ -442,7 +452,7 @@ public static class BehaviorTreeContentCompiler {
             var action = Action(content, type);
             var node = BehaviorTree.Task(content.Name, action);
 
-            Attach(node, content, composite: false);
+            Attach(node, content, false);
 
             return node;
         }
@@ -464,7 +474,7 @@ public static class BehaviorTreeContentCompiler {
 
             var node = BehaviorTree.Subtree(content.Name, BehaviorTree.Asset(name, spliced));
 
-            Attach(node, content, composite: false);
+            Attach(node, content, false);
 
             return node;
         }
@@ -568,7 +578,12 @@ public static class BehaviorTreeContentCompiler {
             }
 
             if (key.IsValid && key.Index < layout.Count && layout[key].Type == BlackboardValueType.Symbol) {
-                return BlackboardDecorator.Word(key, Word(type, row.Fields, "Word"), test != BlackboardTest.NotEqual, aborts);
+                return BlackboardDecorator.Word(
+                    key,
+                    Word(type, row.Fields, "Word"),
+                    test != BlackboardTest.NotEqual,
+                    aborts
+                );
             }
 
             return BlackboardDecorator.Number(key, test, BehaviorNodeSchema.Number(type, row.Fields, "Value"), aborts);
@@ -598,7 +613,7 @@ public static class BehaviorTreeContentCompiler {
                 }
             }
 
-            return [.. built];
+            return [..built];
         }
 
         CompositeDecorator? Joined(BehaviorNodeType type, BehaviorAttachmentContent row, ObserverAborts aborts) {
@@ -612,7 +627,7 @@ public static class BehaviorTreeContentCompiler {
                 return null;
             }
 
-            return new CompositeDecorator(
+            return new(
                 BehaviorNodeSchema.Choice<DecoratorLogic>(type, row.Fields, "Logic"),
                 aborts,
                 operands
@@ -633,7 +648,7 @@ public static class BehaviorTreeContentCompiler {
                 return null;
             }
 
-            return new ConditionalLoopDecorator(operands[0]);
+            return new(operands[0]);
         }
 
         static LoopDecorator Loop(BehaviorNodeType type, BehaviorAttachmentContent row) {
@@ -654,7 +669,9 @@ public static class BehaviorTreeContentCompiler {
                 var registered = resolver.BuildService(Context(type, row.Fields));
 
                 if (registered is null) {
-                    diagnostics.Add(new(Symbol.Intern(row.Type), $"'{row.Type}' has no factory registered to build it."));
+                    diagnostics.Add(
+                        new(Symbol.Intern(row.Type), $"'{row.Type}' has no factory registered to build it.")
+                    );
                 }
 
                 return registered;
@@ -711,20 +728,23 @@ public static class BehaviorTreeContentCompiler {
             return key;
         }
 
-        IAgentAction? Build(BehaviorNodeContent content, BehaviorNodeType type) => type.Type switch {
-            "Wait" => new WaitTask(BehaviorNodeSchema.Number(type, content.Fields, "Seconds")),
-            "WaitBlackboardTime" => new WaitBlackboardTimeTask(
-                Key(type, content.Fields, "Key"),
-                BehaviorNodeSchema.Number(type, content.Fields, "Deviation")
-            ),
-            "FinishWith" => new FinishWithTask(BehaviorNodeSchema.Choice<ActionStatus>(type, content.Fields, "Result")),
-            "SetBlackboardValue" => SetValue(type, content),
-            "ClearBlackboardValue" => new ClearBlackboardValueTask(Key(type, content.Fields, "Key")),
-            "Log" => new LogTask(Word(type, content.Fields, "Message")),
-            "RunSubtreeDynamic" => new RunSubtreeDynamicTask(Key(type, content.Fields, "Key"), resolver.Library),
-            "RunUtilitySet" => Scoring(type, content),
-            _ => null
-        };
+        IAgentAction? Build(BehaviorNodeContent content, BehaviorNodeType type) =>
+            type.Type switch {
+                "Wait" => new WaitTask(BehaviorNodeSchema.Number(type, content.Fields, "Seconds")),
+                "WaitBlackboardTime" => new WaitBlackboardTimeTask(
+                    Key(type, content.Fields, "Key"),
+                    BehaviorNodeSchema.Number(type, content.Fields, "Deviation")
+                ),
+                "FinishWith" => new FinishWithTask(
+                    BehaviorNodeSchema.Choice<ActionStatus>(type, content.Fields, "Result")
+                ),
+                "SetBlackboardValue" => SetValue(type, content),
+                "ClearBlackboardValue" => new ClearBlackboardValueTask(Key(type, content.Fields, "Key")),
+                "Log" => new LogTask(Word(type, content.Fields, "Message")),
+                "RunSubtreeDynamic" => new RunSubtreeDynamicTask(Key(type, content.Fields, "Key"), resolver.Library),
+                "RunUtilitySet" => Scoring(type, content),
+                _ => null
+            };
 
         /// <summary>The set a <c>RunUtilitySet</c> names, or a task that fails rather than a crash.</summary>
         /// <remarks>
@@ -765,13 +785,14 @@ public static class BehaviorTreeContentCompiler {
         ///     <see cref="RunUtilitySetTask" /> is the one node whose size is a property of what it
         ///     was given rather than of what it is.
         /// </summary>
-        static int StateSize(string type, IAgentAction action) => type switch {
-            "Wait" => WaitTask.StateSize,
-            "WaitBlackboardTime" => WaitBlackboardTimeTask.StateSize,
-            "RunSubtreeDynamic" => RunSubtreeDynamicTask.StateSize,
-            "RunUtilitySet" => action is RunUtilitySetTask running ? running.RequiredState : 0,
-            _ => 0
-        };
+        static int StateSize(string type, IAgentAction action) =>
+            type switch {
+                "Wait" => WaitTask.StateSize,
+                "WaitBlackboardTime" => WaitBlackboardTimeTask.StateSize,
+                "RunSubtreeDynamic" => RunSubtreeDynamicTask.StateSize,
+                "RunUtilitySet" => action is RunUtilitySetTask running ? running.RequiredState : 0,
+                _ => 0
+            };
 
         static string Key(BehaviorNodeType type, Dictionary<string, string> fields) {
             var text = new System.Text.StringBuilder(type.Type);

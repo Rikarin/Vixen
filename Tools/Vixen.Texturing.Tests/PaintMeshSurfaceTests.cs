@@ -257,7 +257,10 @@ public class PaintMeshSurfaceTests {
 
         var aim = side.Project(new(0f, 0f, 0f));
 
-        Assert.True(Painted(side, PaintOcclusion.Default, aim) > 0, "The stamp missed, so the zero below says nothing.");
+        Assert.True(
+            Painted(side, PaintOcclusion.Default, aim) > 0,
+            "The stamp missed, so the zero below says nothing."
+        );
         Assert.Equal(0, Painted(side, steep, aim));
         Assert.True(Painted(Facing(4f, 512), steep, new(256f, 256f)) > 0);
     }
@@ -267,7 +270,14 @@ public class PaintMeshSurfaceTests {
         var surface = Wall();
         PaintImage image = new(Side, Side);
 
-        Stroke(image, surface, surface.Through(new(new(0f, 0f, -4f), new(-1f, 0f, 0f), new(0f, 1f, 0f), new(0f, 0f, 1f), 0.7f, 512, 512)), 0)
+        Stroke(
+                image,
+                surface,
+                surface.Through(
+                    new(new(0f, 0f, -4f), new(-1f, 0f, 0f), new(0f, 1f, 0f), new(0f, 0f, 1f), 0.7f, 512, 512)
+                ),
+                0
+            )
             .MoveTo(new(256f, 256f));
 
         var painted = Columns(image, 51, 0, Side);
@@ -291,13 +301,14 @@ public class PaintMeshSurfaceTests {
         var view = Facing(4f, 512);
         PaintImage image = new(Side, Side);
 
-        Stroke(image, surface, surface.Through(view, PaintSymmetryGroup.Mirror(PaintSymmetry.X)), 0).MoveTo(new(150f, 256f));
+        Stroke(image, surface, surface.Through(view, PaintSymmetryGroup.Mirror(PaintSymmetry.X)), 0)
+            .MoveTo(new(150f, 256f));
 
         var left = Columns(image, 89, 0, 128);
         var right = Columns(image, 89, 128, Side);
 
         Assert.InRange(left.Last - left.First, 1, 128);
-        Assert.InRange(MathF.Abs((LeftSeam - left.Last) - (right.First - RightSeam)), 0f, 1.5f);
+        Assert.InRange(MathF.Abs(LeftSeam - left.Last - (right.First - RightSeam)), 0f, 1.5f);
     }
 
     /// <summary>A stylus that eases off narrows a stroke, stamp by stamp along one move.</summary>
@@ -336,27 +347,30 @@ public class PaintMeshSurfaceTests {
 
         Gen.Select(Gen.Float[60f, 450f], Gen.Float[150f, 360f])
             .Array[2, 8]
-            .Sample(moves => {
-                PaintImage whole = new(Side, Side);
-                PaintImage parts = new(Side, Side);
-                var first = Stroke(whole, surface, surface.Through(view));
-                var second = Stroke(parts, surface, surface.Through(view));
+            .Sample(
+                moves => {
+                    PaintImage whole = new(Side, Side);
+                    PaintImage parts = new(Side, Side);
+                    var first = Stroke(whole, surface, surface.Through(view));
+                    var second = Stroke(parts, surface, surface.Through(view));
 
-                foreach (var (x, y) in moves) {
-                    first.MoveTo(new(x, y));
-                    second.MoveTo(new(x, y));
-                }
+                    foreach (var (x, y) in moves) {
+                        first.MoveTo(new(x, y));
+                        second.MoveTo(new(x, y));
+                    }
 
-                Assert.Equal(whole.Digest, parts.Digest);
+                    Assert.Equal(whole.Digest, parts.Digest);
 
-                for (var y = 0; y < Side; y++) {
-                    for (var x = 0; x < Side; x++) {
-                        if (whole.At(x, y) != 0u) {
-                            Assert.True(Near(surface.Coverage, x, y, 4), $"({x}, {y}) is painted and on nothing.");
+                    for (var y = 0; y < Side; y++) {
+                        for (var x = 0; x < Side; x++) {
+                            if (whole.At(x, y) != 0u) {
+                                Assert.True(Near(surface.Coverage, x, y, 4), $"({x}, {y}) is painted and on nothing.");
+                            }
                         }
                     }
-                }
-            }, iter: 12);
+                },
+                iter: 12
+            );
     }
 
     static bool Near(PaintCoverage coverage, int x, int y, int reach) {

@@ -133,7 +133,7 @@ public struct PooledList<T> : IDisposable {
 
     /// <summary>Copies the elements into a new array — the one place this type allocates.</summary>
     /// <returns>An array holding the elements.</returns>
-    public readonly T[] ToArray() => Span.ToArray();
+    public readonly T[] ToArray() => [..Span];
 
     /// <summary>Returns the buffer to the pool. The list is empty and reusable afterwards.</summary>
     public void Dispose() {

@@ -3,7 +3,6 @@
 
 using Vixen.Core.Syntax.Diagnostics;
 using Vixen.Core.Syntax.Text;
-using Vixen.Raven.Diagnostics;
 using Vixen.Raven.Syntax;
 using Xunit;
 
@@ -53,7 +52,7 @@ public class DiagnosticsTests {
         var source = "package A.B\n\nshader Foo {\n    func M(] {\n    }\n}\n";
         var tree = SyntaxTree.ParseText(source);
 
-        var diagnostic = Assert.Single(tree.Diagnostics, d => d.Id == "RVN1001");
+        var diagnostic = Assert.Single(tree.Diagnostics, static d => d.Id == "RVN1001");
         var span = diagnostic.Location.SourceSpan;
 
         // The offending `]` is the character the diagnostic should point at.
@@ -65,7 +64,7 @@ public class DiagnosticsTests {
         var source = "package A.B\n\nshader Foo {\n    func M(] {\n    }\n}\n";
         var tree = SyntaxTree.ParseText(source);
 
-        var diagnostic = Assert.Single(tree.Diagnostics, d => d.Id == "RVN1001");
+        var diagnostic = Assert.Single(tree.Diagnostics, static d => d.Id == "RVN1001");
         var lineSpan = diagnostic.Location.GetLineSpan();
 
         // `]` sits on the 4th line (index 3).

@@ -17,8 +17,12 @@ namespace Vixen.Samples.ThirdPersonShooter;
 /// <remarks>
 ///     <para>
 ///         <b>The rule that makes this type necessary.</b> <c>ForwardPlus</c> declares thirteen
-///         bindings in its per-frame set and declares all of them <i>whatever the permutations
-///         say</i> — a variant with shadows, image-based lighting, reflection probes, the probe field
+///         bindings in its per-frame set and declares all of them
+///         <i>
+///             whatever the permutations
+///             say
+///         </i>
+///         — a variant with shadows, image-based lighting, reflection probes, the probe field
 ///         and clustered lights all switched off still has a <c>shadowMap</c>, an <c>environment</c>,
 ///         a <c>probes</c> array, a <c>clusters</c> buffer and five irradiance volumes in its plan.
 ///         <c>EffectSetWriter</c> writes every binding of a set or none, so one unfilled resource is
@@ -91,8 +95,12 @@ public sealed class ArenaFrame : IDisposable {
 
     /// <summary>How much light the sun delivers to a surface facing it, in lux.</summary>
     /// <remarks>
-    ///     ⚠ <b>Read off the atmosphere rather than typed into the scene, and that is the point of
-    ///     the model being here.</b> A scene file naming both a sun direction and a sun brightness is
+    ///     ⚠
+    ///     <b>
+    ///         Read off the atmosphere rather than typed into the scene, and that is the point of
+    ///         the model being here.
+    ///     </b>
+    ///     A scene file naming both a sun direction and a sun brightness is
     ///     a scene that can be a sunset sky over a noon sun, and nothing reports it — so the level
     ///     says where the sun <em>is</em> and this says what that means. At eight degrees of
     ///     elevation it is about a tenth of what it is overhead.
@@ -142,12 +150,12 @@ public sealed class ArenaFrame : IDisposable {
     public static ArenaFrame Bake(IGraphicsDevice graphics, Vector3 sunDirection) {
         ArgumentNullException.ThrowIfNull(graphics);
 
-        var sky = new SkyParameters(sunDirection, Turbidity: 2.6f, GroundAlbedo: 0.15f);
+        var sky = new SkyParameters(sunDirection, 2.6f, 0.15f);
         var source = PhysicalSky.Bake(SourceSize, sky);
 
         return new(
             graphics,
-            EnvironmentTexture.Bake(graphics, source, Levels),
+            EnvironmentTexture.Bake(graphics, source),
             SphericalHarmonics.Project(source),
             sky
         );
@@ -295,7 +303,7 @@ public sealed class ArenaFrame : IDisposable {
         }
 
         clusterStandIn = device.CreateBuffer(
-            new BufferDescription(
+            new(
                 ClusterGrid.BufferSize,
                 BufferUsage.Storage,
                 MemoryAccess.HostUpload,
@@ -306,7 +314,7 @@ public sealed class ArenaFrame : IDisposable {
         device.Write(clusterStandIn, 0, new byte[ClusterGrid.BufferSize]);
 
         opaque = device.CreateTexture(
-            new TextureDescription(
+            new(
                 PixelFormat.Rgba8UNorm,
                 1,
                 1,
@@ -318,18 +326,14 @@ public sealed class ArenaFrame : IDisposable {
         opaqueView = device.CreateTextureView(opaque);
         opaqueSampler = device.CreateSampler(SamplerDescription.LinearClamp with { Name = "Opacity.Opaque" });
 
-        bindPose = device.CreateBuffer(
-            new BufferDescription(64, BufferUsage.Storage, MemoryAccess.HostUpload, "Bones.BindPose")
-        );
+        bindPose = device.CreateBuffer(new(64, BufferUsage.Storage, MemoryAccess.HostUpload, "Bones.BindPose"));
 
         var identity = Matrix4x4.Identity;
 
         device.Write(bindPose, 0, MemoryMarshal.AsBytes(MemoryMarshal.CreateReadOnlySpan(ref identity, 1)));
 
         // The four opaque bytes, staged, because a texture is device memory and only a copy reaches it.
-        var staging = device.CreateBuffer(
-            new BufferDescription(4, BufferUsage.CopySource, MemoryAccess.HostUpload, "Opacity.Staging")
-        );
+        var staging = device.CreateBuffer(new(4, BufferUsage.CopySource, MemoryAccess.HostUpload, "Opacity.Staging"));
 
         device.Write(staging, 0, [byte.MaxValue, byte.MaxValue, byte.MaxValue, byte.MaxValue]);
 
@@ -341,11 +345,9 @@ public sealed class ArenaFrame : IDisposable {
         // transition them: one list, submitted at load, is the whole of it.
         using var commands = device.BeginCommandList(name: "StandIns");
 
-        commands.Barrier(
-            new([], [new TextureBarrier(opaque, ResourceState.Undefined, ResourceState.CopyDestination)])
-        );
+        commands.Barrier(new([], [new TextureBarrier(opaque, ResourceState.Undefined, ResourceState.CopyDestination)]));
 
-        commands.CopyBufferToTexture(staging, 0, new TextureRegion(opaque), new Int3(1, 1, 1));
+        commands.CopyBufferToTexture(staging, 0, new(opaque), new(1, 1, 1));
 
         commands.Barrier(
             new([], [new TextureBarrier(opaque, ResourceState.CopyDestination, ResourceState.ShaderRead)])

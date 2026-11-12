@@ -46,7 +46,7 @@ public sealed class InterfaceInAWorldTests : IDisposable {
     /// </remarks>
     [Fact]
     public void TheRendererAGameGetsCarriesTheInterfaceFeature() {
-        using var renderer = new WorldRenderer(device, effects, vertexCapacity: 4096, indexCapacity: 8192);
+        using var renderer = new WorldRenderer(device, effects, 4096, 8192);
 
         Assert.Contains(renderer.Ui, renderer.Host.System.Features);
         Assert.Same(renderer.Host.System, renderer.Ui.System);
@@ -65,7 +65,7 @@ public sealed class InterfaceInAWorldTests : IDisposable {
     /// </remarks>
     [Fact]
     public void AMountedInterfaceIsCollectedForTheFeatureThatMountedIt() {
-        using var renderer = new WorldRenderer(device, effects, vertexCapacity: 4096, indexCapacity: 8192);
+        using var renderer = new WorldRenderer(device, effects, 4096, 8192);
 
         var system = renderer.Host.System;
         var stage = system.AddStage(new("Ui", RenderSortMode.ByGroup));
@@ -76,7 +76,7 @@ public sealed class InterfaceInAWorldTests : IDisposable {
         system.Draw();
 
         var nodes = system.Nodes(camera, stage);
-        Assert.Equal([id], nodes.Select(node => node.Object));
+        Assert.Equal([id], nodes.Select(static node => node.Object));
         Assert.Equal(renderer.Ui.Index, system.Objects[id].FeatureIndex);
     }
 
@@ -101,7 +101,7 @@ public sealed class InterfaceInAWorldTests : IDisposable {
     /// </remarks>
     [Fact]
     public void AnInterfaceIsNotCulledByWhereTheCameraLooks() {
-        using var renderer = new WorldRenderer(device, effects, vertexCapacity: 4096, indexCapacity: 8192);
+        using var renderer = new WorldRenderer(device, effects, 4096, 8192);
 
         var system = renderer.Host.System;
         var stage = system.AddStage(new("Ui", RenderSortMode.ByGroup));
@@ -122,7 +122,7 @@ public sealed class InterfaceInAWorldTests : IDisposable {
         system.SetViews([camera]);
         system.Draw();
 
-        var drawn = system.Nodes(camera, stage).Select(node => node.Object).ToList();
+        var drawn = system.Nodes(camera, stage).Select(static node => node.Object).ToList();
 
         Assert.Contains(mounted, drawn);
         Assert.DoesNotContain(behind, drawn);
@@ -138,15 +138,15 @@ public sealed class InterfaceInAWorldTests : IDisposable {
     /// </remarks>
     [Fact]
     public void SurfacesAreOrderedAgainstEachOtherBeforeTheFirstSet() {
-        using var renderer = new WorldRenderer(device, effects, vertexCapacity: 4096, indexCapacity: 8192);
+        using var renderer = new WorldRenderer(device, effects, 4096, 8192);
 
         var system = renderer.Host.System;
         var stage = system.AddStage(new("Ui", RenderSortMode.ByGroup));
 
         // Mounted back to front, so the answer cannot be the order they were added in.
-        var tooltip = renderer.Ui.Mount(stage.Mask, order: 2);
-        var document = renderer.Ui.Mount(stage.Mask, order: 0);
-        var modal = renderer.Ui.Mount(stage.Mask, order: 1);
+        var tooltip = renderer.Ui.Mount(stage.Mask, 2);
+        var document = renderer.Ui.Mount(stage.Mask);
+        var modal = renderer.Ui.Mount(stage.Mask, 1);
 
         var camera = Camera(stage.Mask);
         system.SetViews([camera]);
@@ -154,7 +154,7 @@ public sealed class InterfaceInAWorldTests : IDisposable {
 
         Assert.Equal(
             [document, modal, tooltip],
-            system.Nodes(camera, stage).Select(node => node.Object)
+            system.Nodes(camera, stage).Select(static node => node.Object)
         );
     }
 
@@ -166,7 +166,7 @@ public sealed class InterfaceInAWorldTests : IDisposable {
     /// </remarks>
     [Fact]
     public void UnmountingLeavesNothingInTheFrame() {
-        using var renderer = new WorldRenderer(device, effects, vertexCapacity: 4096, indexCapacity: 8192);
+        using var renderer = new WorldRenderer(device, effects, 4096, 8192);
 
         var system = renderer.Host.System;
         var stage = system.AddStage(new("Ui", RenderSortMode.ByGroup));
@@ -219,7 +219,7 @@ public sealed class InterfaceInAWorldTests : IDisposable {
     /// </remarks>
     [Fact]
     public void AMountedInterfacesFrameReachesTheGpu() {
-        using var renderer = new WorldRenderer(device, effects, vertexCapacity: 4096, indexCapacity: 8192);
+        using var renderer = new WorldRenderer(device, effects, 4096, 8192);
         using var ui = UiRendererFor(device);
 
         var system = renderer.Host.System;
@@ -255,7 +255,7 @@ public sealed class InterfaceInAWorldTests : IDisposable {
     /// </remarks>
     [Fact]
     public void NothingMountedUploadsNothing() {
-        using var renderer = new WorldRenderer(device, effects, vertexCapacity: 4096, indexCapacity: 8192);
+        using var renderer = new WorldRenderer(device, effects, 4096, 8192);
         using var ui = UiRendererFor(device);
         using var commands = device.BeginCommandList(QueueKind.Graphics, "ui");
 
@@ -274,8 +274,12 @@ public sealed class InterfaceInAWorldTests : IDisposable {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>"Both drew" is what the broken arrangement prints too, so the assertion is about
-    ///         each renderer having consumed exactly one region.</b> A <c>UiRenderer</c> advances its
+    ///         ⚠
+    ///         <b>
+    ///             "Both drew" is what the broken arrangement prints too, so the assertion is about
+    ///             each renderer having consumed exactly one region.
+    ///         </b>
+    ///         A <c>UiRenderer</c> advances its
     ///         region inside <c>Upload</c> and <c>Record</c> reads whatever the <em>last</em> upload
     ///         wrote, so two interfaces through one renderer consume two regions in a frame and both
     ///         come out drawn from the second one's geometry — the modal and the document behind it
@@ -290,15 +294,15 @@ public sealed class InterfaceInAWorldTests : IDisposable {
     /// </remarks>
     [Fact]
     public void TwoMountedInterfacesUploadThroughTheirOwnRenderers() {
-        using var renderer = new WorldRenderer(device, effects, vertexCapacity: 4096, indexCapacity: 8192);
+        using var renderer = new WorldRenderer(device, effects, 4096, 8192);
         using var behind = UiRendererFor(device);
         using var front = UiRendererFor(device);
 
         var system = renderer.Host.System;
         var stage = system.AddStage(new("Ui", RenderSortMode.ByGroup));
 
-        var document = renderer.Ui.Mount(stage.Mask, order: 0, renderer: behind);
-        var modal = renderer.Ui.Mount(stage.Mask, order: 1, renderer: front);
+        var document = renderer.Ui.Mount(stage.Mask, 0, behind);
+        var modal = renderer.Ui.Mount(stage.Mask, 1, front);
 
         Assert.Same(behind, renderer.Ui.RendererOf(document));
         Assert.Same(front, renderer.Ui.RendererOf(modal));
@@ -328,15 +332,19 @@ public sealed class InterfaceInAWorldTests : IDisposable {
     ///     Two interfaces through one renderer is refused, on the frame rather than in the picture.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>A refusal and not a best effort, because the alternative is not a missing HUD but a
-    ///     convincing wrong one.</b> The failure has no error and no validation warning in it — the
+    ///     ⚠
+    ///     <b>
+    ///         A refusal and not a best effort, because the alternative is not a missing HUD but a
+    ///         convincing wrong one.
+    ///     </b>
+    ///     The failure has no error and no validation warning in it — the
     ///     descriptor sets are valid, the draws are the right draws, and the vertices they read are
     ///     the other surface's. A frame lost to an exception that names the cause is worth more than
     ///     a frame spent drawing the modal twice.
     /// </remarks>
     [Fact]
     public void TwoInterfacesThroughOneRendererAreRefusedRatherThanDrawnTwice() {
-        using var renderer = new WorldRenderer(device, effects, vertexCapacity: 4096, indexCapacity: 8192);
+        using var renderer = new WorldRenderer(device, effects, 4096, 8192);
         using var shared = UiRendererFor(device);
 
         var system = renderer.Host.System;
@@ -346,8 +354,8 @@ public sealed class InterfaceInAWorldTests : IDisposable {
 
         // Neither names a renderer, so both fall back to the one the feature holds. This is the
         // arrangement a host reaches by mounting a second interface and changing nothing else.
-        var document = renderer.Ui.Mount(stage.Mask, order: 0);
-        var modal = renderer.Ui.Mount(stage.Mask, order: 1);
+        var document = renderer.Ui.Mount(stage.Mask);
+        var modal = renderer.Ui.Mount(stage.Mask, 1);
 
         var atlas = new GlyphAtlas(64, 64);
 
@@ -372,8 +380,10 @@ public sealed class InterfaceInAWorldTests : IDisposable {
         Assert.Throws<InvalidOperationException>(() => system.Record(camera, stage, context));
     }
 
-    /// <summary>An interface that names no renderer keeps using the feature's, which is one
-    /// interface's arrangement and stays free of ceremony.</summary>
+    /// <summary>
+    ///     An interface that names no renderer keeps using the feature's, which is one
+    ///     interface's arrangement and stays free of ceremony.
+    /// </summary>
     /// <remarks>
     ///     The half that makes the refusal above a rule about sharing rather than a rule about
     ///     counting: mounting one and setting <c>Renderer</c> is what every host does today and must
@@ -381,7 +391,7 @@ public sealed class InterfaceInAWorldTests : IDisposable {
     /// </remarks>
     [Fact]
     public void AnInterfaceThatNamesNoRendererUsesTheFeaturesOwn() {
-        using var renderer = new WorldRenderer(device, effects, vertexCapacity: 4096, indexCapacity: 8192);
+        using var renderer = new WorldRenderer(device, effects, 4096, 8192);
         using var shared = UiRendererFor(device);
         using var own = UiRendererFor(device);
 
@@ -390,8 +400,8 @@ public sealed class InterfaceInAWorldTests : IDisposable {
 
         renderer.Ui.Renderer = shared;
 
-        var document = renderer.Ui.Mount(stage.Mask, order: 0);
-        var modal = renderer.Ui.Mount(stage.Mask, order: 1, renderer: own);
+        var document = renderer.Ui.Mount(stage.Mask);
+        var modal = renderer.Ui.Mount(stage.Mask, 1, own);
 
         Assert.Same(shared, renderer.Ui.RendererOf(document));
         Assert.Same(own, renderer.Ui.RendererOf(modal));
@@ -418,8 +428,12 @@ public sealed class InterfaceInAWorldTests : IDisposable {
     /// <summary>A mounted interface's composited groups are rendered into surfaces of their own.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The third outside-the-pass half, and the one whose absence is a picture rather
-    ///         than an absence of one.</b> <c>UiRenderer.Compose</c> documents itself as optional and
+    ///         ⚠
+    ///         <b>
+    ///             The third outside-the-pass half, and the one whose absence is a picture rather
+    ///             than an absence of one.
+    ///         </b>
+    ///         <c>UiRenderer.Compose</c> documents itself as optional and
     ///         is, read alone: <c>Record</c> skips a group's own draws only where a surface exists,
     ///         so a host that never composes still draws every one of them. What it draws is the
     ///         defect. <c>UiGeometryBuilder</c> emits a group's contents at alpha <em>one</em>
@@ -435,7 +449,7 @@ public sealed class InterfaceInAWorldTests : IDisposable {
     /// </remarks>
     [Fact]
     public void AMountedInterfacesGroupsAreComposedIntoSurfacesOfTheirOwn() {
-        using var renderer = new WorldRenderer(device, effects, vertexCapacity: 4096, indexCapacity: 8192);
+        using var renderer = new WorldRenderer(device, effects, 4096, 8192);
         using var ui = UiRendererFor(device);
 
         var system = renderer.Host.System;
@@ -486,7 +500,7 @@ public sealed class InterfaceInAWorldTests : IDisposable {
     /// </remarks>
     [Fact]
     public void DrawingTheWorldUploadsAndComposesAMountedInterface() {
-        using var renderer = new WorldRenderer(device, effects, vertexCapacity: 4096, indexCapacity: 8192);
+        using var renderer = new WorldRenderer(device, effects, 4096, 8192);
         using var ui = UiRendererFor(device);
 
         var stage = renderer.Host.System.AddStage(new("Ui", RenderSortMode.ByGroup));
@@ -520,7 +534,7 @@ public sealed class InterfaceInAWorldTests : IDisposable {
     /// </remarks>
     [Fact]
     public void NothingMountedComposesNothing() {
-        using var renderer = new WorldRenderer(device, effects, vertexCapacity: 4096, indexCapacity: 8192);
+        using var renderer = new WorldRenderer(device, effects, 4096, 8192);
         using var ui = UiRendererFor(device);
         using var commands = device.BeginCommandList(QueueKind.Graphics, "ui");
 
@@ -537,8 +551,12 @@ public sealed class InterfaceInAWorldTests : IDisposable {
     /// <summary>Both of the feature's calls into the renderer draw at the interface's own scale.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A scissor is the only place the two spaces are not the same, which is what makes
-    ///         it the instrument.</b> The projection maps geometry units onto clip space and needs
+    ///         ⚠
+    ///         <b>
+    ///             A scissor is the only place the two spaces are not the same, which is what makes
+    ///             it the instrument.
+    ///         </b>
+    ///         The projection maps geometry units onto clip space and needs
     ///         the geometry's extent; a scissor is submitted in <em>framebuffer</em> pixels. So an
     ///         interface laid out in device-independent units and drawn with a scale of one is not a
     ///         renderer that looks slightly wrong — it clips to the top-left <c>1/scale</c> of the
@@ -546,8 +564,12 @@ public sealed class InterfaceInAWorldTests : IDisposable {
     ///         that is right.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Both phases, in one test, because the failure that matters is them
-    ///         disagreeing.</b> A group's surface is allocated at <c>Compose</c>'s scale and sampled
+    ///         ⚠
+    ///         <b>
+    ///             Both phases, in one test, because the failure that matters is them
+    ///             disagreeing.
+    ///         </b>
+    ///         A group's surface is allocated at <c>Compose</c>'s scale and sampled
     ///         at <c>Record</c>'s: a density that reached one and not the other would be a
     ///         composited panel adrift from the frame around it, which is a stranger picture than a
     ///         uniformly small interface and would pass a test that only looked at one of them.
@@ -563,15 +585,15 @@ public sealed class InterfaceInAWorldTests : IDisposable {
     /// </remarks>
     [Fact]
     public void AMountedInterfaceIsComposedAndRecordedAtItsOwnScale() {
-        var one = ScissorsOfAFrame(scale: 1f);
-        var two = ScissorsOfAFrame(scale: 2f);
+        var one = ScissorsOfAFrame(1f);
+        var two = ScissorsOfAFrame(2f);
 
         // The instrument, before the measurement. A frame that set no scissor, or set an empty one,
         // makes both halves below vacuous.
         Assert.NotEmpty(one.Composed);
         Assert.NotEmpty(one.Recorded);
-        Assert.All(one.Composed, rect => Assert.True(rect.Width > 0 && rect.Height > 0));
-        Assert.All(one.Recorded, rect => Assert.True(rect.Width > 0 && rect.Height > 0));
+        Assert.All(one.Composed, static rect => Assert.True(rect.Width > 0 && rect.Height > 0));
+        Assert.All(one.Recorded, static rect => Assert.True(rect.Width > 0 && rect.Height > 0));
 
         Assert.Equal(Doubled(one.Composed), two.Composed);
         Assert.Equal(Doubled(one.Recorded), two.Recorded);
@@ -611,7 +633,7 @@ public sealed class InterfaceInAWorldTests : IDisposable {
 
         // And the renderer answers for the pass it was built for rather than for a default.
         using var hdr = UiRendererFor(device, PixelFormat.Rgba16Float);
-        using var sdr = UiRendererFor(device, PixelFormat.Bgra8UNorm);
+        using var sdr = UiRendererFor(device);
 
         Assert.Equal(UiRenderer.ReferenceWhite, hdr.WhiteLevel);
         Assert.Equal(1f, sdr.WhiteLevel);
@@ -628,8 +650,12 @@ public sealed class InterfaceInAWorldTests : IDisposable {
     ///         halves are known and the answer is a number.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Three cases, because two of them would pass a counter that just says "float
-    ///         pass".</b> The same geometry into an eight-bit pass is not dim — its white is the
+    ///         ⚠
+    ///         <b>
+    ///             Three cases, because two of them would pass a counter that just says "float
+    ///             pass".
+    ///         </b>
+    ///         The same geometry into an eight-bit pass is not dim — its white is the
     ///         display's and the frame is right. And geometry built at the pass's own white is not
     ///         dim in the float pass either, which is the case that says <c>Dim</c> reads the
     ///         geometry rather than the format. Take that half away and the counter would report
@@ -638,23 +664,31 @@ public sealed class InterfaceInAWorldTests : IDisposable {
     /// </remarks>
     [Fact]
     public void AHudBuiltAtTheDisplaysWhiteIsDimInASceneReferredPass() {
-        Assert.Equal(1, DimAfterUploading(PixelFormat.Rgba16Float, white: 1f));
-        Assert.Equal(0, DimAfterUploading(PixelFormat.Bgra8UNorm, white: 1f));
-        Assert.Equal(0, DimAfterUploading(PixelFormat.Rgba16Float, white: UiRenderer.ReferenceWhite));
+        Assert.Equal(1, DimAfterUploading(PixelFormat.Rgba16Float, 1f));
+        Assert.Equal(0, DimAfterUploading(PixelFormat.Bgra8UNorm, 1f));
+        Assert.Equal(0, DimAfterUploading(PixelFormat.Rgba16Float, UiRenderer.ReferenceWhite));
     }
 
     /// <summary>A HUD whose builder was left at scale one, drawn at a scale of two, is counted as soft.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>#1343: <see cref="UiInterface.Scale" /> is the projection's density and not the
-    ///         geometry's.</b> A host that set it right and left its own builder at the defaults
+    ///         ⚠
+    ///         <b>
+    ///             #1343: <see cref="UiInterface.Scale" /> is the projection's density and not the
+    ///             geometry's.
+    ///         </b>
+    ///         A host that set it right and left its own builder at the defaults
     ///         drew a correctly placed HUD flattened to 0.4 device pixels of chord error with a whole
     ///         device pixel of fringe each side — a softness nothing reported. <c>Soft</c> reads the
     ///         two numbers the geometry now records against what the scale asks for.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Six cases, because a counter that said "scale is not one" would pass the first
-    ///         two.</b> The builder set from the same scale is not soft; a builder correct for its
+    ///         ⚠
+    ///         <b>
+    ///             Six cases, because a counter that said "scale is not one" would pass the first
+    ///             two.
+    ///         </b>
+    ///         The builder set from the same scale is not soft; a builder correct for its
     ///         tolerance and wrong for its fringe is — so neither number alone can stand for both;
     ///         a fringe of zero is the multisampled pass's legitimate "off"; scale one at the
     ///         defaults is the ordinary desktop frame; and geometry built by hand states no
@@ -664,39 +698,38 @@ public sealed class InterfaceInAWorldTests : IDisposable {
     [Fact]
     public void AHudBuiltForScaleOneIsSoftWhenDrawnAtTwo() {
         var atTwo = new UiGeometryBuilder {
-            Tolerance = UiGeometryBuilder.ToleranceFor(2f),
-            Fringe = UiGeometryBuilder.FringeFor(2f)
+            Tolerance = UiGeometryBuilder.ToleranceFor(2f), Fringe = UiGeometryBuilder.FringeFor(2f)
         };
 
-        Assert.Equal(1, SoftAfterUploading(new UiGeometryBuilder(), scale: 2f));
-        Assert.Equal(0, SoftAfterUploading(atTwo, scale: 2f));
+        Assert.Equal(1, SoftAfterUploading(new(), 2f));
+        Assert.Equal(0, SoftAfterUploading(atTwo, 2f));
 
         Assert.Equal(
             1,
-            SoftAfterUploading(new UiGeometryBuilder { Tolerance = UiGeometryBuilder.ToleranceFor(2f) }, scale: 2f)
+            SoftAfterUploading(new() { Tolerance = UiGeometryBuilder.ToleranceFor(2f) }, 2f)
         );
 
         Assert.Equal(
             1,
-            SoftAfterUploading(new UiGeometryBuilder { Fringe = UiGeometryBuilder.FringeFor(2f) }, scale: 2f)
+            SoftAfterUploading(new() { Fringe = UiGeometryBuilder.FringeFor(2f) }, 2f)
         );
 
         Assert.Equal(
             0,
             SoftAfterUploading(
-                new UiGeometryBuilder { Tolerance = UiGeometryBuilder.ToleranceFor(2f), Fringe = 0f },
-                scale: 2f
+                new() { Tolerance = UiGeometryBuilder.ToleranceFor(2f), Fringe = 0f },
+                2f
             )
         );
 
-        Assert.Equal(0, SoftAfterUploading(new UiGeometryBuilder(), scale: 1f));
+        Assert.Equal(0, SoftAfterUploading(new(), 1f));
 
         // Built by hand: four positional arguments and nothing stated about a flattening.
         var atlas = new GlyphAtlas(64, 64);
         var built = Geometry(atlas);
         var byHand = new UiGeometry(built.Vertices, built.Indices, built.Draws, built.Shapes);
 
-        Assert.Equal(0, SoftAfterUploading(byHand, atlas, scale: 2f));
+        Assert.Equal(0, SoftAfterUploading(byHand, atlas, 2f));
     }
 
     /// <summary>Uploads one interface built by <paramref name="builder" /> at <paramref name="scale" />.</summary>
@@ -707,10 +740,10 @@ public sealed class InterfaceInAWorldTests : IDisposable {
         var list = new DrawList();
 
         list.BeginFrame();
-        list.Add(new Vixen.Ui.DrawCommand(DrawCommandKind.Rectangle, 8f, 8f, 120f, 40f, Color4.White, 0f, 0f));
+        list.Add(new(DrawCommandKind.Rectangle, 8f, 8f, 120f, 40f, Color4.White, 0f, 0f));
         list.EndFrame();
 
-        var geometry = builder.Build(list, new GlyphFieldCache(atlas), new Rectangle(0, 0, 400, 300));
+        var geometry = builder.Build(list, new(atlas), new(0, 0, 400, 300));
 
         // The recording is the builder's, not a default that happens to agree with it.
         Assert.Equal(builder.Tolerance, geometry.Tolerance);
@@ -724,7 +757,7 @@ public sealed class InterfaceInAWorldTests : IDisposable {
     /// <param name="atlas">The atlas it was built against.</param>
     /// <param name="scale">What the interface says one of its units is worth in framebuffer pixels.</param>
     int SoftAfterUploading(UiGeometry geometry, GlyphAtlas atlas, float scale) {
-        using var renderer = new WorldRenderer(device, effects, vertexCapacity: 4096, indexCapacity: 8192);
+        using var renderer = new WorldRenderer(device, effects, 4096, 8192);
         using var ui = UiRendererFor(device);
 
         var stage = renderer.Host.System.AddStage(new("Ui", RenderSortMode.ByGroup));
@@ -749,7 +782,7 @@ public sealed class InterfaceInAWorldTests : IDisposable {
     /// <param name="format">The pass's colour format, which is what its white level comes from.</param>
     /// <param name="white">What the geometry was built at.</param>
     int DimAfterUploading(PixelFormat format, float white) {
-        using var renderer = new WorldRenderer(device, effects, vertexCapacity: 4096, indexCapacity: 8192);
+        using var renderer = new WorldRenderer(device, effects, 4096, 8192);
         using var ui = UiRendererFor(device, format);
 
         var system = renderer.Host.System;
@@ -782,7 +815,7 @@ public sealed class InterfaceInAWorldTests : IDisposable {
     ///     which "some scissor doubled" was true.
     /// </remarks>
     (List<ScissorRect> Composed, List<ScissorRect> Recorded) ScissorsOfAFrame(float scale) {
-        using var renderer = new WorldRenderer(device, effects, vertexCapacity: 4096, indexCapacity: 8192);
+        using var renderer = new WorldRenderer(device, effects, 4096, 8192);
         using var ui = UiRendererFor(device);
 
         var system = renderer.Host.System;
@@ -835,7 +868,7 @@ public sealed class InterfaceInAWorldTests : IDisposable {
             "ui draw",
             list => {
                 list.BeginRenderPass(new([new(target)], name: "Ui"));
-                system.Record(camera, stage, new RenderDrawContext(list, effects));
+                system.Record(camera, stage, new(list, effects));
                 list.EndRenderPass();
             }
         );
@@ -855,16 +888,21 @@ public sealed class InterfaceInAWorldTests : IDisposable {
         device.Recorder!.Clear();
         device.GraphicsQueue.Submit([commands]);
 
-        return
-        [
-            .. device.Recorder.OfKind(RecordedCommandKind.SetScissor)
-                .Select(command => new ScissorRect((int)command.C, (int)command.D, (int)command.A, (int)command.B))
+        return [
+            ..device.Recorder.OfKind(RecordedCommandKind.SetScissor)
+                .Select(static command => new ScissorRect(
+                        (int)command.C,
+                        (int)command.D,
+                        (int)command.A,
+                        (int)command.B
+                    )
+                )
         ];
     }
 
     /// <summary>The same rectangles at twice the density.</summary>
     static List<ScissorRect> Doubled(List<ScissorRect> rects) =>
-        [.. rects.Select(rect => new ScissorRect(rect.X * 2, rect.Y * 2, rect.Width * 2, rect.Height * 2))];
+        [..rects.Select(static rect => new ScissorRect(rect.X * 2, rect.Y * 2, rect.Width * 2, rect.Height * 2))];
 
     /// <remarks>
     ///     ⚠ <c>Image</c> is set, and without it <c>Compose</c> returns having done nothing — there
@@ -903,13 +941,13 @@ public sealed class InterfaceInAWorldTests : IDisposable {
 
         // ⚠ Qualified: `Vixen.Rendering` has a `DrawCommand` of its own, and the two mean different
         // things — one is an element's paint, the other an indirect draw's arguments.
-        list.Add(new Vixen.Ui.DrawCommand(DrawCommandKind.Rectangle, 8f, 8f, 120f, 40f, Color4.White, 0f, 0f));
+        list.Add(new(DrawCommandKind.Rectangle, 8f, 8f, 120f, 40f, Color4.White, 0f, 0f));
         list.EndFrame();
 
         return new UiGeometryBuilder { WhiteLevel = white }.Build(
             list,
-            new GlyphFieldCache(atlas),
-            new Rectangle(0, 0, 400, 300)
+            new(atlas),
+            new(0, 0, 400, 300)
         );
     }
 
@@ -927,24 +965,25 @@ public sealed class InterfaceInAWorldTests : IDisposable {
         list.BeginFrame();
 
         list.Add(
-            new Vixen.Ui.DrawCommand(
+            new(
                 DrawCommandKind.LayerPush,
                 8f,
                 8f,
                 160f,
                 80f,
-                new Color4(1f, 1f, 1f, 0.5f),
+                new(1f, 1f, 1f, 0.5f),
                 0f,
                 0f
             )
         );
 
-        list.Add(new Vixen.Ui.DrawCommand(DrawCommandKind.Rectangle, 16f, 16f, 120f, 40f, Color4.White, 0f, 0f));
-        list.Add(new Vixen.Ui.DrawCommand(DrawCommandKind.LayerPop, 0f, 0f, 0f, 0f, Color4.White, 0f, 0f));
+        list.Add(new(DrawCommandKind.Rectangle, 16f, 16f, 120f, 40f, Color4.White, 0f, 0f));
+        list.Add(new(DrawCommandKind.LayerPop, 0f, 0f, 0f, 0f, Color4.White, 0f, 0f));
         list.EndFrame();
 
-        return new UiGeometryBuilder().Build(list, new GlyphFieldCache(atlas), new Rectangle(0, 0, 400, 300));
+        return new UiGeometryBuilder().Build(list, new(atlas), new(0, 0, 400, 300));
     }
+
     /// <summary>
     ///     A HUD group that reads its backdrop at the top level is counted, because inside a world
     ///     renderer that backdrop has no scene in it (#1378); a nested one, or one that reads nothing,
@@ -970,15 +1009,18 @@ public sealed class InterfaceInAWorldTests : IDisposable {
     public void AHudsTopLevelBackdropReadersAreCountedAsSeeingNoScene() {
         var atlas = new GlyphAtlas(64, 64);
 
-        Assert.Equal(1, ScenelessAfterComposing(Layered(atlas, blend: UiBlendMode.Multiply), atlas));
-        Assert.Equal(1, ScenelessAfterComposing(Layered(atlas, backdrop: new UiBackdrop(0f, 1f, UiColorMatrix.Invert(1f))), atlas));
-        Assert.Equal(0, ScenelessAfterComposing(Layered(atlas, blend: UiBlendMode.Multiply, nested: true), atlas));
+        Assert.Equal(1, ScenelessAfterComposing(Layered(atlas, UiBlendMode.Multiply), atlas));
+        Assert.Equal(
+            1,
+            ScenelessAfterComposing(Layered(atlas, backdrop: new UiBackdrop(0f, 1f, UiColorMatrix.Invert(1f))), atlas)
+        );
+        Assert.Equal(0, ScenelessAfterComposing(Layered(atlas, UiBlendMode.Multiply, nested: true), atlas));
         Assert.Equal(0, ScenelessAfterComposing(Layered(atlas), atlas));
     }
 
     /// <summary>Mounts one interface, uploads and composes it, and returns what <c>Sceneless</c> read.</summary>
     int ScenelessAfterComposing(UiGeometry geometry, GlyphAtlas atlas) {
-        using var renderer = new WorldRenderer(device, effects, vertexCapacity: 4096, indexCapacity: 8192);
+        using var renderer = new WorldRenderer(device, effects, 4096, 8192);
         using var ui = UiRendererFor(device);
 
         var stage = renderer.Host.System.AddStage(new("Ui", RenderSortMode.ByGroup));
@@ -1015,29 +1057,46 @@ public sealed class InterfaceInAWorldTests : IDisposable {
         list.BeginFrame();
 
         if (nested) {
-            list.Add(new Vixen.Ui.DrawCommand(DrawCommandKind.LayerPush, 8f, 8f, 200f, 120f, new Color4(1f, 1f, 1f, 0.5f), 0f, 0f));
-            list.Add(new Vixen.Ui.DrawCommand(DrawCommandKind.Rectangle, 8f, 8f, 200f, 120f, Color4.White, 0f, 0f));
+            list.Add(
+                new(
+                    DrawCommandKind.LayerPush,
+                    8f,
+                    8f,
+                    200f,
+                    120f,
+                    new(1f, 1f, 1f, 0.5f),
+                    0f,
+                    0f
+                )
+            );
+            list.Add(new(DrawCommandKind.Rectangle, 8f, 8f, 200f, 120f, Color4.White, 0f, 0f));
         }
 
         // Faded as well, so the plain case is still a group and the zero is about the backdrop.
         list.Add(
-            new Vixen.Ui.DrawCommand(DrawCommandKind.LayerPush, 16f, 16f, 120f, 60f, new Color4(1f, 1f, 1f, 0.8f), 0f, 0f) {
-                Blend = blend,
-                Backdrop = backdrop
-            }
+            new(
+                DrawCommandKind.LayerPush,
+                16f,
+                16f,
+                120f,
+                60f,
+                new(1f, 1f, 1f, 0.8f),
+                0f,
+                0f
+            ) { Blend = blend, Backdrop = backdrop }
         );
 
-        list.Add(new Vixen.Ui.DrawCommand(DrawCommandKind.Rectangle, 16f, 16f, 120f, 60f, Color4.White, 0f, 0f));
-        list.Add(new Vixen.Ui.DrawCommand(DrawCommandKind.Rectangle, 24f, 24f, 40f, 20f, new Color4(1f, 0f, 0f, 1f), 0f, 0f));
-        list.Add(new Vixen.Ui.DrawCommand(DrawCommandKind.LayerPop, 0f, 0f, 0f, 0f, Color4.White, 0f, 0f));
+        list.Add(new(DrawCommandKind.Rectangle, 16f, 16f, 120f, 60f, Color4.White, 0f, 0f));
+        list.Add(new(DrawCommandKind.Rectangle, 24f, 24f, 40f, 20f, new(1f, 0f, 0f, 1f), 0f, 0f));
+        list.Add(new(DrawCommandKind.LayerPop, 0f, 0f, 0f, 0f, Color4.White, 0f, 0f));
 
         if (nested) {
-            list.Add(new Vixen.Ui.DrawCommand(DrawCommandKind.LayerPop, 0f, 0f, 0f, 0f, Color4.White, 0f, 0f));
+            list.Add(new(DrawCommandKind.LayerPop, 0f, 0f, 0f, 0f, Color4.White, 0f, 0f));
         }
 
         list.EndFrame();
 
-        var geometry = new UiGeometryBuilder().Build(list, new GlyphFieldCache(atlas), new Rectangle(0, 0, 400, 300));
+        var geometry = new UiGeometryBuilder().Build(list, new(atlas), new(0, 0, 400, 300));
 
         // The instrument: every case is the number of groups it claims to be.
         Assert.Equal(nested ? 2 : 1, geometry.Layers.Count);

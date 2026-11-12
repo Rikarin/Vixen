@@ -54,7 +54,7 @@ public class PortValueTests : IDisposable {
         graph.Touch();
         fixture.Update();
 
-        Assert.Equal([0.5f, 0.6f, 0.7f], Fields(node.Id, "Base Colour").Boxes.Select(box => (float) box.Number));
+        Assert.Equal([0.5f, 0.6f, 0.7f], Fields(node.Id, "Base Colour").Boxes.Select(static box => (float)box.Number));
     }
 
     /// <remarks>
@@ -172,7 +172,7 @@ public class PortValueTests : IDisposable {
         fixture.Update();
 
         Assert.False(graph.Nodes.Single().Values.ContainsKey("Base Colour"));
-        Assert.Equal([0.1f, 0.2f, 0.3f], Fields(node.Id, "Base Colour").Boxes.Select(box => (float) box.Number));
+        Assert.Equal([0.1f, 0.2f, 0.3f], Fields(node.Id, "Base Colour").Boxes.Select(static box => (float)box.Number));
     }
 
     [Fact]
@@ -250,8 +250,12 @@ public class PortValueTests : IDisposable {
     // ── The gestures it has to take away from the canvas ─────────────────────
 
     /// <remarks>
-    ///     ⚠ <b>This passes with the canvas's guard deleted, and the remark here used to claim
-    ///     otherwise.</b> A number box is a <c>NumericInput</c>, which is a <c>TextField</c>, which
+    ///     ⚠
+    ///     <b>
+    ///         This passes with the canvas's guard deleted, and the remark here used to claim
+    ///         otherwise.
+    ///     </b>
+    ///     A number box is a <c>NumericInput</c>, which is a <c>TextField</c>, which
     ///     marks a primary press <c>Handled</c> where it places the caret — so the press never
     ///     reaches <c>NodeCanvas.Pointed</c> and no guard of the canvas's is what protects it. What
     ///     is asserted below is the behaviour, which is worth having; what it is <i>evidence</i> for
@@ -281,8 +285,12 @@ public class PortValueTests : IDisposable {
     ///     ordinary way to do that.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>Pressed and not clicked, and the difference is the whole of whether the wire half
-    ///     can fail.</b> A release finishes whatever drag the press began, so <c>PendingPort</c>
+    ///     ⚠
+    ///     <b>
+    ///         Pressed and not clicked, and the difference is the whole of whether the wire half
+    ///         can fail.
+    ///     </b>
+    ///     A release finishes whatever drag the press began, so <c>PendingPort</c>
     ///     reads null after a full click whether or not a wire was ever pending — which is the
     ///     predicate that cannot fail #505 was filed about. Both assertions below were measured red
     ///     with <c>Under&lt;NodePortEditor&gt;</c> deleted: the press starts a wire from the port
@@ -301,10 +309,10 @@ public class PortValueTests : IDisposable {
         fixture.Click(box);
         Assert.Same(box, fixture.Ui.Focused);
 
-        var lane = fields.Children.First(child => child.Tag == "node-port-lane" && child.Bounds.Width > 0f);
+        var lane = fields.Children.First(static child => child.Tag == "node-port-lane" && child.Bounds.Width > 0f);
         var bounds = lane.Bounds;
 
-        fixture.Press(bounds.X + (bounds.Width * 0.5f), bounds.Y + (bounds.Height * 0.5f));
+        fixture.Press(bounds.X + bounds.Width * 0.5f, bounds.Y + bounds.Height * 0.5f);
 
         Assert.Null(View.Canvas.PendingPort);
         Assert.Same(box, fixture.Ui.Focused);
@@ -352,8 +360,8 @@ public class PortValueTests : IDisposable {
 
         // Enabled and Count. A flow port carries no value and is not offered a row at all.
         Assert.Equal(2, inspector.RowCount);
-        Assert.Contains(Inside<CheckBox>(inspector), toggle => toggle.IsChecked);
-        Assert.Contains(Inside<NumericInput>(inspector), box => box.Number == 3d);
+        Assert.Contains(Inside<CheckBox>(inspector), static toggle => toggle.IsChecked);
+        Assert.Contains(Inside<NumericInput>(inspector), static box => box.Number == 3d);
     }
 
     [Fact]
@@ -366,7 +374,7 @@ public class PortValueTests : IDisposable {
         fixture.Update();
 
         Assert.Equal(2, inspector.RowCount);
-        Assert.Contains(Inside<NumericInput>(inspector), box => box.Number == 0.25d);
+        Assert.Contains(Inside<NumericInput>(inspector), static box => box.Number == 0.25d);
     }
 
     [Fact]
@@ -383,7 +391,7 @@ public class PortValueTests : IDisposable {
         Fields(node.Id, "A").Boxes[0].Number = 0.75f;
         fixture.Update();
 
-        Assert.Contains(Inside<NumericInput>(inspector), box => box.Number == 0.75d);
+        Assert.Contains(Inside<NumericInput>(inspector), static box => box.Number == 0.75d);
     }
 
     /// <remarks>

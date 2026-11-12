@@ -52,7 +52,7 @@ public class StorageImageTests {
     [Fact]
     public void An_image_binds_as_its_own_descriptor_type_carrying_its_format() {
         var shader = LoweringTestBase.FindShader(LoweringTestBase.Lower(Post), "Post");
-        var binding = Assert.Single(shader.Bindings, b => b.Kind == IrBindingKind.StorageImage);
+        var binding = Assert.Single(shader.Bindings, static b => b.Kind == IrBindingKind.StorageImage);
 
         var image = Assert.IsType<IrStorageImageType>(binding.Type);
         Assert.Equal("rgba16f", image.Format);
@@ -61,8 +61,8 @@ public class StorageImageTests {
 
         // A sampled texture and a storage image are two descriptor types, because the host has to
         // create the view with different usage for each.
-        var descriptors = ReflectionBuilder.Describe(shader).Sets.SelectMany(s => s.Bindings);
-        Assert.Contains(descriptors, b => b.Type == DescriptorType.StorageImage && b.Name == "target");
+        var descriptors = ReflectionBuilder.Describe(shader).Sets.SelectMany(static s => s.Bindings);
+        Assert.Contains(descriptors, static b => b.Type == DescriptorType.StorageImage && b.Name == "target");
     }
 
     [Fact]
@@ -75,7 +75,11 @@ public class StorageImageTests {
     public void GLSL_declares_the_format_in_the_layout_and_stores_as_a_statement() {
         var unit = Assert.Single(GenerateClean(Post));
 
-        Assert.Contains("layout(rgba16f, set = 2, binding = 2) uniform image2D target;", unit.Code, StringComparison.Ordinal);
+        Assert.Contains(
+            "layout(rgba16f, set = 2, binding = 2) uniform image2D target;",
+            unit.Code,
+            StringComparison.Ordinal
+        );
         Assert.Contains("imageLoad(target,", unit.Code, StringComparison.Ordinal);
         Assert.Contains("imageSize(target)", unit.Code, StringComparison.Ordinal);
 
@@ -135,12 +139,12 @@ public class StorageImageTests {
 
         Assert.Equal(
             ["rg32f", "rg16f", "r16f"],
-            known.Where(format => format.RequiresExtendedFormats).Select(format => format.Name)
+            known.Where(static format => format.RequiresExtendedFormats).Select(static format => format.Name)
         );
 
         // The other direction, and the one the issue's own count got wrong: rgba8_snorm is in
         // Vulkan's required list, so it is not one of these.
-        Assert.Equal(13, known.Count(format => !format.RequiresExtendedFormats));
+        Assert.Equal(13, known.Count(static format => !format.RequiresExtendedFormats));
         Assert.False(ImageFormats.Lookup("rgba8_snorm")!.RequiresExtendedFormats);
     }
 
@@ -241,7 +245,7 @@ public class StorageImageTests {
     public void An_image_needs_a_format() {
         var error = Assert.Single(
             SemanticTestBase.Diagnose("package A\n\nshader S {\n    var target: RWTexture2D<float4>\n}\n"),
-            d => d.Id == "RVN2123"
+            static d => d.Id == "RVN2123"
         );
 
         Assert.True(error.IsError);
@@ -258,7 +262,7 @@ public class StorageImageTests {
             SemanticTestBase.Diagnose(
                 $"package A\n\nshader S {{\n    [Format(\"{format}\")] var target: RWTexture2D<float4>\n}}\n"
             ),
-            d => d.Id == "RVN2124"
+            static d => d.Id == "RVN2124"
         );
 
         Assert.True(error.IsError);
@@ -279,17 +283,15 @@ public class StorageImageTests {
             SemanticTestBase.Diagnose(
                 $"package A\n\nshader S {{\n    [Format(\"rgba16f\")] var target: RWTexture2D<{element}>\n}}\n"
             ),
-            d => d.Id == "RVN2122" && d.IsError
+            static d => d.Id == "RVN2122" && d.IsError
         );
     }
 
     [Fact]
     public void A_format_on_something_with_no_texels_says_nothing() {
         var warning = Assert.Single(
-            SemanticTestBase.Diagnose(
-                "package A\n\nshader S {\n    [Format(\"rgba16f\")] var albedo: Texture2D\n}\n"
-            ),
-            d => d.Id == "RVN2125"
+            SemanticTestBase.Diagnose("package A\n\nshader S {\n    [Format(\"rgba16f\")] var albedo: Texture2D\n}\n"),
+            static d => d.Id == "RVN2125"
         );
 
         Assert.False(warning.IsError);
@@ -388,7 +390,7 @@ public class StorageImageTests {
 
                 """
             ),
-            d => d.Id == "RVN2119" && d.IsError
+            static d => d.Id == "RVN2119" && d.IsError
         );
     }
 
@@ -521,9 +523,12 @@ public class StorageImageTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <b>This is the case that makes the untraced flag more than decoration, and it did not
-    ///         exist until a sabotage showed the flag could be deleted with every test still
-    ///         green.</b> The test above passes an image to a helper and nothing else, so the
+    ///         <b>
+    ///             This is the case that makes the untraced flag more than decoration, and it did not
+    ///             exist until a sabotage showed the flag could be deleted with every test still
+    ///             green.
+    ///         </b>
+    ///         The test above passes an image to a helper and nothing else, so the
     ///         binding is written by nobody the walk can see and gets no qualifier for a reason that
     ///         has nothing to do with tracing.
     ///     </para>
@@ -574,8 +579,12 @@ public class StorageImageTests {
     ///     <para>
     ///         <b>Both halves, because only the second says the qualifier is load-bearing.</b> The
     ///         string assertions above would be satisfied by a qualifier nothing needed; this is
-    ///         glslc reporting <c>'rgba16f' : format requires readonly or writeonly memory
-    ///         qualifier</c> on Raven's own output the moment the two words are taken back out —
+    ///         glslc reporting
+    ///         <c>
+    ///             'rgba16f' : format requires readonly or writeonly memory
+    ///             qualifier
+    ///         </c>
+    ///         on Raven's own output the moment the two words are taken back out —
     ///         the exact error #476 quotes, reproduced on a shader written for this test rather
     ///         than found in the library.
     ///     </para>

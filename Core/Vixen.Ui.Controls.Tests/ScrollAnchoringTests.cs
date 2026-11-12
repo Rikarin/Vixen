@@ -14,8 +14,12 @@ namespace Vixen.Ui.Controls.Tests;
 ///         correction that is merely in the right direction passing for one that is right.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Two of these are instrument tests and are supposed to stay green under the
-///         sabotage.</b> A view at the start edge and a view whose offset moved on the same frame must
+///         ⚠
+///         <b>
+///             Two of these are instrument tests and are supposed to stay green under the
+///             sabotage.
+///         </b>
+///         A view at the start edge and a view whose offset moved on the same frame must
 ///         <i>not</i> be corrected, so a test suite that only ever asserted a correction would be
 ///         satisfied by anchoring that fired unconditionally — which is the version that cancels a
 ///         virtualiser's scroll, and the reason this feature sat unlanded.
@@ -29,13 +33,15 @@ public class ScrollAnchoringTests {
     ///     class change cannot be confused with the anchor itself being replaced.
     /// </remarks>
     static (ControlFixture Fixture, ScrollView View, UiElement[] Row) Rows(string css = "") {
-        var fixture = new ControlFixture(css: $$"""
-            root   { width: 400px; height: 400px; }
-            #view  { width: 300px; height: 200px; }
-            .row   { width: 260px; height: 40px; }
-            .grown { height: 120px; }
-            {{css}}
-            """);
+        var fixture = new ControlFixture(
+            css: $$"""
+                   root   { width: 400px; height: 400px; }
+                   #view  { width: 300px; height: 200px; }
+                   .row   { width: 260px; height: 40px; }
+                   .grown { height: 120px; }
+                   {{css}}
+                   """
+        );
 
         var view = fixture.Document.Create<ScrollView>(null, fixture.Document.Root, "view");
         var rows = new UiElement[10];
@@ -71,8 +77,12 @@ public class ScrollAnchoringTests {
 
     /// <summary>And content shrinking above it moves the offset back the same way.</summary>
     /// <remarks>
-    ///     ⚠ <b>The direction is worth a test of its own, not because the subtraction has two
-    ///     directions but because the clamp does.</b> A shrink reduces <c>MaximumTop</c>, so a
+    ///     ⚠
+    ///     <b>
+    ///         The direction is worth a test of its own, not because the subtraction has two
+    ///         directions but because the clamp does.
+    ///     </b>
+    ///     A shrink reduces <c>MaximumTop</c>, so a
     ///     correction that arrived after <see cref="ScrollView.Refresh" />'s own clamp would be
     ///     coerced against a range it had already left.
     /// </remarks>

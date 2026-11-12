@@ -3,8 +3,6 @@
 
 using Vixen.Core.Mathematics;
 using Vixen.Editor.Core;
-using Vixen.Editor.Texturing.Painting;
-using Vixen.Texturing.Layers;
 using Vixen.Texturing.Painting;
 using Xunit;
 
@@ -15,9 +13,12 @@ namespace Vixen.Editor.Texturing.Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>⚠ The question this file exists to answer is not whether the arithmetic is right — that
-///         is <c>PaintProjectionTests</c>' — but whether the 3D path goes <em>through</em> the chain
-///         that already exists or around it.</b> Doc 48 § D13's warning is that a stroke crossing a
+///         <b>
+///             ⚠ The question this file exists to answer is not whether the arithmetic is right — that
+///             is <c>PaintProjectionTests</c>' — but whether the 3D path goes <em>through</em> the chain
+///             that already exists or around it.
+///         </b>
+///         Doc 48 § D13's warning is that a stroke crossing a
 ///         UV island edge leaves a hairline that only appears after mipping, and the dilation that
 ///         prevents it lives in <c>PaintStroke</c>. A projection that composed its own stamps would
 ///         look identical in the pane and be wrong three mips down, which is precisely the defect
@@ -41,8 +42,12 @@ public class PaintProjectorTests {
 
     /// <summary>A camera set so that one render pixel is exactly one texel.</summary>
     /// <remarks>
-    ///     ⚠ <b>Chosen so the conversion is the identity, which is what makes every radius below
-    ///     readable.</b> Eight units of view over 512 pixels is 1/64 of a unit per pixel, and this
+    ///     ⚠
+    ///     <b>
+    ///         Chosen so the conversion is the identity, which is what makes every radius below
+    ///         readable.
+    ///     </b>
+    ///     Eight units of view over 512 pixels is 1/64 of a unit per pixel, and this
     ///     fixture's layout is 64 texels per unit — so a brush of <i>n</i> screen pixels is a brush
     ///     of <i>n</i> texels. The conversion itself is <c>PaintFootprintTests</c>' subject; here it
     ///     is deliberately made to disappear so that a failure is about the drag.
@@ -74,8 +79,12 @@ public class PaintProjectorTests {
     ///         plausibly have been given its own command.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The count is not the property, and the first version of this case asserted
-    ///         nothing else.</b> It ended with <c>Assert.NotNull(session.End(…))</c> on the line after
+    ///         ⚠
+    ///         <b>
+    ///             The count is not the property, and the first version of this case asserted
+    ///             nothing else.
+    ///         </b>
+    ///         It ended with <c>Assert.NotNull(session.End(…))</c> on the line after
     ///         <c>Assert.False(session.IsEmpty)</c> — and <c>PaintSession.End</c> returns null exactly
     ///         when <c>IsEmpty</c>, so that assertion could not fail. What a mirrored undo can
     ///         actually get wrong is <em>which</em> strokes it takes back: an entry built from the
@@ -102,7 +111,7 @@ public class PaintProjectorTests {
         var session = Session(footprint.Radius, out var image);
 
         for (var step = 0; step <= 10; step++) {
-            session.MoveAll(projector.Resolve(PaintProjectionTests.Down(0.2f + (step * 0.02f), 0.5f)));
+            session.MoveAll(projector.Resolve(PaintProjectionTests.Down(0.2f + step * 0.02f, 0.5f)));
         }
 
         Assert.Equal(paths, session.Strokes);
@@ -147,7 +156,7 @@ public class PaintProjectorTests {
 
         for (var y = 0; y < Size; y++) {
             for (var x = from; x < to; x++) {
-                if (image[(y * Size) + x] != 0u) {
+                if (image[y * Size + x] != 0u) {
                     painted++;
                 }
             }
@@ -170,9 +179,7 @@ public class PaintProjectorTests {
     public void A_symmetry_plane_changed_during_a_drag_is_ignored_until_the_next_one() {
         var projection = PaintProjectionTests.Plane();
 
-        PaintProjector projector = new(projection, Size, Size) {
-            Symmetry = new(new(1f, 0f, 0f), 0.5f)
-        };
+        PaintProjector projector = new(projection, Size, Size) { Symmetry = new(new(1f, 0f, 0f), 0.5f) };
 
         Assert.True(projector.Begin(Eye(), PaintProjectionTests.Down(0.25f, 0.5f), 4f, out _));
         Assert.Equal(2, projector.Paths);
@@ -196,8 +203,12 @@ public class PaintProjectorTests {
 
     /// <summary>A mirrored drag paints on both sides, and the second side is where the plane says.</summary>
     /// <remarks>
-    ///     ⚠ <b>The mirror is applied to the ray and not to the atlas, so this case is the proof that
-    ///     the two agree where they can be made to.</b> This fixture's layout is the identity, which
+    ///     ⚠
+    ///     <b>
+    ///         The mirror is applied to the ray and not to the atlas, so this case is the proof that
+    ///         the two agree where they can be made to.
+    ///     </b>
+    ///     This fixture's layout is the identity, which
     ///     is the only arrangement in which a mirrored hit's texel is predictable from the primary
     ///     one — and on any real mesh it is not, which is exactly why <c>PaintSymmetry</c> mirrors
     ///     the ray.
@@ -225,8 +236,12 @@ public class PaintProjectorTests {
 
     /// <summary>A mirror whose ray leaves the mesh holds its place and lays nothing.</summary>
     /// <remarks>
-    ///     ⚠ <b><c>PaintSession.MoveAll</c> throws when a move supplies a different number of paths
-    ///     from the last one, and it is right to.</b> A mirror that vanished for one move would leave
+    ///     ⚠
+    ///     <b>
+    ///         <c>PaintSession.MoveAll</c> throws when a move supplies a different number of paths
+    ///         from the last one, and it is right to.
+    ///     </b>
+    ///     A mirror that vanished for one move would leave
     ///     that stroke with no record of it, so the drag's single undo entry would restore half of
     ///     what was painted. Holding is free because <c>BrushStroke.MoveTo</c> lays a stamp only for
     ///     a movement with a length — so this case asserts both halves: the count is stable, and the
@@ -271,8 +286,12 @@ public class PaintProjectorTests {
 
     /// <summary>Two panels with a gap between them, so a mirrored ray has somewhere to miss.</summary>
     /// <remarks>
-    ///     ⚠ <b>A hole in the mesh rather than its outer edge, because the outer edge cannot make
-    ///     this case.</b> On one convex panel every ray whose mirror leaves the mesh is a ray that
+    ///     ⚠
+    ///     <b>
+    ///         A hole in the mesh rather than its outer edge, because the outer edge cannot make
+    ///         this case.
+    ///     </b>
+    ///     On one convex panel every ray whose mirror leaves the mesh is a ray that
     ///     has left it too — the two are symmetric — so a fixture built from one quad can only show
     ///     both paths missing at once, which is a different behaviour and not the one this asserts.
     /// </remarks>
@@ -318,8 +337,12 @@ public class PaintProjectorTests {
 
     /// <summary>The stack is evaluated once for a whole projected drag, not once per stamp.</summary>
     /// <remarks>
-    ///     ⚠ <b>Doc 48 § M9's eighth exit criterion, as the property that makes it reachable
-    ///     rather than as a stopwatch.</b> One session takes the whole drag: the projector casts a
+    ///     ⚠
+    ///     <b>
+    ///         Doc 48 § M9's eighth exit criterion, as the property that makes it reachable
+    ///         rather than as a stopwatch.
+    ///     </b>
+    ///     One session takes the whole drag: the projector casts a
     ///     ray per path per pointer move and never asks the stack for anything, so the per-stamp cost
     ///     carries no term in the layer count.
     /// </remarks>
@@ -337,7 +360,7 @@ public class PaintProjectorTests {
         var session = Session(footprint.Radius, out _);
 
         for (var step = 0; step < 20; step++) {
-            session.MoveAll(projector.Resolve(PaintProjectionTests.Down(0.2f + (step * 0.02f), 0.5f)));
+            session.MoveAll(projector.Resolve(PaintProjectionTests.Down(0.2f + step * 0.02f, 0.5f)));
         }
 
         // The instrument: every stamp of the drag landed in the one session.
@@ -363,8 +386,12 @@ public class PaintProjectorTests {
 
     /// <summary>A mirror through a plane away from the origin reflects the position and not the direction.</summary>
     /// <remarks>
-    ///     ⚠ <b>The offset cancels in a direction and does not in a point, and a plane through the
-    ///     origin cannot tell the two apart.</b> Reflecting a ray's direction as though it were a
+    ///     ⚠
+    ///     <b>
+    ///         The offset cancels in a direction and does not in a point, and a plane through the
+    ///         origin cannot tell the two apart.
+    ///     </b>
+    ///     Reflecting a ray's direction as though it were a
     ///     point is the classic form of this bug and is invisible in exactly the fixture anybody
     ///     would write first, so the plane here is deliberately at x = 2.
     /// </remarks>

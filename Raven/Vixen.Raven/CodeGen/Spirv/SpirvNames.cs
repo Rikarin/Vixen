@@ -11,8 +11,12 @@ namespace Vixen.Raven.CodeGen.Spirv;
 ///         <strong><c>OpName</c> is debug information that decides whether a shader runs.</strong>
 ///         SPIR-V itself does not care what anything is called — validation passes either way. But a
 ///         SPIR-V module is rarely the last step: MoltenVK cross-compiles it to Metal Shading
-///         Language, D3D12 backends to HLSL, and both take variable names <em>from these very
-///         strings</em>. A name that is an ordinary identifier in Raven and a keyword in the language
+///         Language, D3D12 backends to HLSL, and both take variable names
+///         <em>
+///             from these very
+///             strings
+///         </em>
+///         . A name that is an ordinary identifier in Raven and a keyword in the language
 ///         downstream produces source that will not compile, and the failure arrives as
 ///         <c>vkCreateComputePipelines … ErrorInitializationFailed</c> with no mention of a name.
 ///     </para>

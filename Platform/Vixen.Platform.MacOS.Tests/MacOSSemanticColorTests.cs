@@ -125,8 +125,12 @@ public class MacOSSemanticColorTests {
     ///         swapped fails here, in both appearances, whichever way round the swap went.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>What this prints off a Mac is "skipped", and that is the whole of its
-    ///         weakness.</b> There is no oracle for an AppKit selector anywhere else — a Windows
+    ///         ⚠
+    ///         <b>
+    ///             What this prints off a Mac is "skipped", and that is the whole of its
+    ///             weakness.
+    ///         </b>
+    ///         There is no oracle for an AppKit selector anywhere else — a Windows
     ///         runner cannot tell <c>separatorColor</c> from <c>separatorColour</c> — so this closes
     ///         the gap on the machine the code runs on and nowhere else. A macOS CI leg is what
     ///         makes it a gate rather than a courtesy.
@@ -144,7 +148,7 @@ public class MacOSSemanticColorTests {
         // into a list here that would stop growing the day somebody forgot it.
         var roles = typeof(SystemSemanticColors)
             .GetProperties(BindingFlags.Public | BindingFlags.Instance)
-            .Where(role => role.PropertyType == typeof(Color4?))
+            .Where(static role => role.PropertyType == typeof(Color4?))
             .ToArray();
 
         Assert.Equal(11, roles.Length);
@@ -195,8 +199,7 @@ public class MacOSSemanticColorTests {
         var light = SystemSemanticColors.Unknown;
         var dark = SystemSemanticColors.Unknown;
 
-        var worker = new Thread(
-            () => {
+        var worker = new Thread(() => {
                 SetAppearance("NSAppearanceNameAqua");
                 light = MacOSSemanticColors.Read();
 
@@ -240,8 +243,7 @@ public class MacOSSemanticColorTests {
         var light = default((Rgba, Rgba, Rgba));
         var dark = default((Rgba, Rgba, Rgba));
 
-        var worker = new Thread(
-            () => {
+        var worker = new Thread(() => {
                 light = ReadUnder("NSAppearanceNameAqua");
                 dark = ReadUnder("NSAppearanceNameDarkAqua");
             }

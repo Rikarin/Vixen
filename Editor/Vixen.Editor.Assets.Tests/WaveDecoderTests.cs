@@ -84,7 +84,7 @@ public sealed class WaveDecoderTests {
     [Fact]
     public void ChunksBetweenTheHeaderAndTheSamplesAreWalkedPast() {
         var clip = WaveDecoder.Decode(
-            Wave.Pcm(48_000, 1, 16, [0x01, 0x00], before: [("LIST", "INFOIART Somebody"u8.ToArray())])
+            Wave.Pcm(48_000, 1, 16, [0x01, 0x00], [("LIST", "INFOIART Somebody"u8.ToArray())])
         );
 
         Assert.Equal([1], clip.AsInt16().ToArray());
@@ -96,9 +96,7 @@ public sealed class WaveDecoderTests {
     /// </summary>
     [Fact]
     public void AnOddLengthChunkIsFollowedByAPadByte() {
-        var clip = WaveDecoder.Decode(
-            Wave.Pcm(48_000, 1, 16, [0x02, 0x00], before: [("note", "odd"u8.ToArray())])
-        );
+        var clip = WaveDecoder.Decode(Wave.Pcm(48_000, 1, 16, [0x02, 0x00], [("note", "odd"u8.ToArray())]));
 
         Assert.Equal([2], clip.AsInt16().ToArray());
     }
@@ -115,7 +113,7 @@ public sealed class WaveDecoderTests {
 
     [Fact]
     public void SomethingThatIsNotAWaveFileSaysSoRatherThanReadingGarbage() {
-        var failure = Assert.Throws<AudioFormatException>(() => WaveDecoder.Decode("not a wave at all"u8));
+        var failure = Assert.Throws<AudioFormatException>(static () => WaveDecoder.Decode("not a wave at all"u8));
 
         Assert.Contains("RIFF", failure.Message, StringComparison.Ordinal);
     }
@@ -123,8 +121,8 @@ public sealed class WaveDecoderTests {
     [Fact]
     public void ACompressedWavIsRefusedByName() {
         // 0x0011 is IMA ADPCM, which doc 08 wants eventually and nothing here decodes.
-        var failure = Assert.Throws<AudioFormatException>(
-            () => WaveDecoder.Decode(Wave.Build(0x0011, 22_050, 1, 4, [0, 0, 0, 0], []))
+        var failure = Assert.Throws<AudioFormatException>(static () =>
+            WaveDecoder.Decode(Wave.Build(0x0011, 22_050, 1, 4, [0, 0, 0, 0], []))
         );
 
         Assert.Contains("0x0011", failure.Message, StringComparison.Ordinal);
@@ -132,7 +130,7 @@ public sealed class WaveDecoderTests {
 
     [Fact]
     public void AFileWithNoFormatChunkSaysWhatIsMissing() {
-        var failure = Assert.Throws<AudioFormatException>(() => WaveDecoder.Decode(Wave.DataOnly()));
+        var failure = Assert.Throws<AudioFormatException>(static () => WaveDecoder.Decode(Wave.DataOnly()));
 
         Assert.Contains("fmt", failure.Message, StringComparison.Ordinal);
     }
@@ -171,7 +169,7 @@ public sealed class WaveDecoderTests {
             var format = new byte[16];
             Write(format, tag, rate, channels, bits);
 
-            return Riff([("fmt ", format), .. before, ("data", data)]);
+            return Riff([("fmt ", format), ..before, ("data", data)]);
         }
 
         internal static byte[] DataOnly() => Riff([("data", [1, 0])]);

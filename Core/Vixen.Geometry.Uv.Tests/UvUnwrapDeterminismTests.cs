@@ -10,8 +10,11 @@ namespace Vixen.Geometry.Uv.Tests;
 /// <summary>docs/plan/42 § U5's gate, over the fused verb and over the numbers it reports.</summary>
 /// <remarks>
 ///     <para>
-///         <b>What this adds to <c>UvChartDeterminismTests</c> and <c>UvPackDeterminismTests</c>, which
-///         already sweep, is the three things a per-stage gate cannot reach.</b> § D12 asks for
+///         <b>
+///             What this adds to <c>UvChartDeterminismTests</c> and <c>UvPackDeterminismTests</c>, which
+///             already sweep, is the three things a per-stage gate cannot reach.
+///         </b>
+///         § D12 asks for
 ///         byte-identical output at any thread count; the existing classes run each parallel leg
 ///         <i>once</i> and compare the <i>coordinates</i> on <i>one</i> shape. So: ten runs at each
 ///         worker count rather than one, every worker count against every other rather than each
@@ -160,15 +163,23 @@ public class UvUnwrapDeterminismTests {
     /// <summary>Renumbering the input's positions, which no thread sweep can catch.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A vertex numbering is not a property of a surface, and this is the sweep that says
-    ///         so.</b> An importer, a weld and a boolean renumber a mesh routinely. § D5's pins are
+    ///         ⚠
+    ///         <b>
+    ///             A vertex numbering is not a property of a surface, and this is the sweep that says
+    ///             so.
+    ///         </b>
+    ///         An importer, a weld and a boolean renumber a mesh routinely. § D5's pins are
     ///         chosen by <i>position</i> rather than by index for exactly this reason, and the charter's
     ///         seeds and merge order are sorted rather than enumerated — so the atlas has to survive a
     ///         permutation of the input that changes nothing about the shape.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A tolerance rather than a bit comparison, and the reason is arithmetic rather than
-    ///         a hedge.</b> The renumbered mesh assembles the same linear system with its rows
+    ///         ⚠
+    ///         <b>
+    ///             A tolerance rather than a bit comparison, and the reason is arithmetic rather than
+    ///             a hedge.
+    ///         </b>
+    ///         The renumbered mesh assembles the same linear system with its rows
     ///         permuted, and the same sums added in another order differ in the last bits. What must
     ///         not move is the <i>atlas</i>: the same charts, the same seam length to a part in a
     ///         thousand, and every coordinate within a thousandth of the unit square.
@@ -187,8 +198,8 @@ public class UvUnwrapDeterminismTests {
         var moved = ShapeCorpus.Renumber(mesh, 0x51F3u);
 
         Assert.NotEqual(
-            Enumerable.Range(0, mesh.PositionCount).Select(index => mesh.Positions[index]).ToArray(),
-            Enumerable.Range(0, moved.PositionCount).Select(index => moved.Positions[index]).ToArray()
+            [..Enumerable.Range(0, mesh.PositionCount).Select(index => mesh.Positions[index])],
+            [..Enumerable.Range(0, moved.PositionCount).Select(index => moved.Positions[index])]
         );
 
         var before = UvUnwrap.All(mesh, new(), Packing, out var first);
@@ -287,10 +298,11 @@ public class UvUnwrapDeterminismTests {
             $"{what}: {field} is {actual:E6} against {expected:E6}. Close is not the contract."
         );
 
-    static EditMesh Fixture(string shape) => shape switch {
-        "dumbbell" => ShapeCorpus.Dumbbell(),
-        "sphere-cut-open" => ShapeCorpus.SphereCutOpen(),
-        "torus-closed" => ShapeCorpus.TorusClosed(),
-        _ => throw new ArgumentOutOfRangeException(nameof(shape), shape, "No such fixture.")
-    };
+    static EditMesh Fixture(string shape) =>
+        shape switch {
+            "dumbbell" => ShapeCorpus.Dumbbell(),
+            "sphere-cut-open" => ShapeCorpus.SphereCutOpen(),
+            "torus-closed" => ShapeCorpus.TorusClosed(),
+            _ => throw new ArgumentOutOfRangeException(nameof(shape), shape, "No such fixture.")
+        };
 }

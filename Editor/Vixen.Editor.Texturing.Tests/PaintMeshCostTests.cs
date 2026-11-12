@@ -4,7 +4,6 @@
 using System.Diagnostics;
 using Vixen.Core.Mathematics;
 using Vixen.Editor.Texturing.Painting;
-using Vixen.Texturing.Layers;
 using Vixen.Texturing.Painting;
 using Xunit;
 
@@ -16,8 +15,11 @@ namespace Vixen.Editor.Texturing.Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>The criterion is "a stroke on a 4K texture set with twelve layers under it stays under
-///         16 ms per stamp", and <c>PaintCostTests</c> already gates the atlas half of it.</b> What a
+///         <b>
+///             The criterion is "a stroke on a 4K texture set with twelve layers under it stays under
+///             16 ms per stamp", and <c>PaintCostTests</c> already gates the atlas half of it.
+///         </b>
+///         What a
 ///         3D view adds to the per-stamp path is the <em>picture</em>: the pointer is over a render
 ///         of the model, and every stamp has to put its texels back on that render. A pane that
 ///         rasterised the mesh again per pointer move would satisfy every counter that suite has and
@@ -26,14 +28,19 @@ namespace Vixen.Editor.Texturing.Tests;
 ///     </para>
 ///     <para>
 ///         ⚠ <b>Counters and a clock, in that order of authority.</b> The mesh is rasterised once; the
-///         pane pixels shaded per stamp are bounded by the brush's own disc rather than by the pane. All three are exact and none
+///         pane pixels shaded per stamp are bounded by the brush's own disc rather than by the pane. All three are exact
+///         and none
 ///         of them is a wall clock — the milliseconds are reported beside them as evidence, with an
 ///         absurd ceiling that is a hang check and says so, which is this repository's rule for a
 ///         budget calibrated on an idle machine.
 ///     </para>
 ///     <para>
-///         ⚠ <b>And the bound is in pane pixels on purpose, because that is the quantity that has to
-///         stop depending on the two axes.</b> A stamp's shaded count here is a function of the
+///         ⚠
+///         <b>
+///             And the bound is in pane pixels on purpose, because that is the quantity that has to
+///             stop depending on the two axes.
+///         </b>
+///         A stamp's shaded count here is a function of the
 ///         brush's radius on screen and of nothing else: not of the twelve layers, not of the 4096
 ///         texels, not of the model's triangle count. Asserting it against a fraction of the pane
 ///         would be a weaker claim that a full-pane scan could still satisfy at these sizes.
@@ -67,7 +74,7 @@ public class PaintMeshCostTests(ITestOutputHelper output) {
         raster.Draw(mesh, camera, Wide, Tall);
 
         PaintImage layer = new(Size, Size);
-        PaintTarget target = new(layer, PaintCoverage.Everywhere(Size, Size), Gutter: 4);
+        PaintTarget target = new(layer, PaintCoverage.Everywhere(Size, Size), 4);
 
         raster.Texture(layer);
 
@@ -89,9 +96,7 @@ public class PaintMeshCostTests(ITestOutputHelper output) {
         var session = PaintSession.Begin(
             target,
             PaintStrokeTests.Hard(footprint.Radius) with {
-                Spacing = 1f,
-                Aspect = footprint.Aspect,
-                AspectAngle = footprint.Angle
+                Spacing = 1f, Aspect = footprint.Aspect, AspectAngle = footprint.Angle
             },
             Opaque
         );
@@ -104,7 +109,7 @@ public class PaintMeshCostTests(ITestOutputHelper output) {
         for (var step = 0; step < Moves; step++) {
             // One brush radius per move, which is what makes a move a stamp — the same relation
             // `PaintCostTests` uses, in pane pixels rather than in texels.
-            var ray = camera.Ray((Wide * 0.5f) - 160f + (step * Radius), Tall * 0.5f, Wide, Tall);
+            var ray = camera.Ray(Wide * 0.5f - 160f + step * Radius, Tall * 0.5f, Wide, Tall);
 
             session.MoveAll(projector.Resolve(ray), dirtied);
 
@@ -135,7 +140,7 @@ public class PaintMeshCostTests(ITestOutputHelper output) {
         // The closed form, in pane pixels and in nothing else: a stamp covers a disc of the brush's
         // screen radius, whose bounding square is (2r + 2)². Twice that is the slack for the atlas
         // rectangle being a square around an ellipse and for the seam gutter around it.
-        var square = (long)((2f * Radius) + 2f) * (long)((2f * Radius) + 2f);
+        var square = (long)(2f * Radius + 2f) * (long)(2f * Radius + 2f);
 
         Assert.True(
             shaded <= session.StampCount * square * 2L,
@@ -161,8 +166,12 @@ public class PaintMeshCostTests(ITestOutputHelper output) {
 
     /// <summary>Turning the camera costs one geometry pass and painting costs none.</summary>
     /// <remarks>
-    ///     ⚠ <b>The other half of the same counter, and without it the assertion above could be met
-    ///     by a rasteriser that had stopped drawing.</b> <c>Renders</c> not moving during a drag is
+    ///     ⚠
+    ///     <b>
+    ///         The other half of the same counter, and without it the assertion above could be met
+    ///         by a rasteriser that had stopped drawing.
+    ///     </b>
+    ///     <c>Renders</c> not moving during a drag is
     ///     only evidence if it moves when the camera does — a <c>Draw</c> that early-returned would
     ///     make the stroke assertion pass and this one fail.
     /// </remarks>
@@ -197,8 +206,11 @@ public class PaintMeshCostTests(ITestOutputHelper output) {
     /// <summary>What one frame of an orbit costs, at a docked pane's size and at a maximised 4K one.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/1107">#1107</a>: the stamp path
-    ///         was measured and the <em>camera</em> path was not.</b> An orbit calls
+    ///         <b>
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/1107">#1107</a>: the stamp path
+    ///             was measured and the <em>camera</em> path was not.
+    ///         </b>
+    ///         An orbit calls
     ///         <c>PaintMeshRaster.Draw</c> once per pointer move at whatever size the pane is — and
     ///         the case above measures 1280×720, which says nothing at all about the
     ///         8.3 million pixels of a maximised pane on a 4K display. The issue asks for the
@@ -265,8 +277,11 @@ public class PaintMeshCostTests(ITestOutputHelper output) {
     /// <summary>What the row bands buy, as a differential taken on one machine in one second.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/1107">#1107</a>'s second answer,
-    ///         reported rather than asserted.</b> The two draws are the same mesh, the same camera
+    ///         <b>
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/1107">#1107</a>'s second answer,
+    ///             reported rather than asserted.
+    ///         </b>
+    ///         The two draws are the same mesh, the same camera
     ///         and the same pane, differing only in the band count — so the load that would inflate
     ///         one inflates the other, which is the only honest way to put a wall clock near a
     ///         parallel raster on a developer machine running four other agents.
@@ -425,21 +440,21 @@ public class PaintMeshCostTests(ITestOutputHelper output) {
                 var u = (float)column / cells;
                 var v = (float)row / cells;
 
-                points.Add(new((u * 2f) - 1f, (v * 2f) - 1f, 0f));
+                points.Add(new(u * 2f - 1f, v * 2f - 1f, 0f));
                 layout.Add(new(u, v));
             }
         }
 
         for (var row = 0; row < cells; row++) {
             for (var column = 0; column < cells; column++) {
-                var corner = (row * (cells + 1)) + column;
+                var corner = row * (cells + 1) + column;
 
                 indices.AddRange([corner, corner + 1, corner + cells + 2]);
                 indices.AddRange([corner, corner + cells + 2, corner + cells + 1]);
             }
         }
 
-        return PaintProjection.Over([.. points], [.. layout], [.. indices]);
+        return PaintProjection.Over([..points], [..layout], [..indices]);
     }
 
     /// <summary>A quad in the z = 0 plane whose layout is the whole unit square.</summary>

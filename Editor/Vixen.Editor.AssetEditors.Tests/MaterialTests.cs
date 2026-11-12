@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core;
-using Vixen.Core.Mathematics;
 using Vixen.Core.Yaml;
 using Vixen.Editor.AssetEditors.Materials;
 using Vixen.Rendering.Materials;
@@ -24,7 +23,7 @@ public class MaterialTests {
     /// <summary>⚠ A file from a newer editor is refused rather than half-bound.</summary>
     [Fact]
     public void ANewerFileIsRefused() =>
-        Assert.Throws<NotSupportedException>(() => MaterialAsset.FromYaml("version: 99\nshader: Standard\n"));
+        Assert.Throws<NotSupportedException>(static () => MaterialAsset.FromYaml("version: 99\nshader: Standard\n"));
 
     /// <summary>Every parameter kind round-trips through its own tag.</summary>
     [Fact]
@@ -57,7 +56,7 @@ public class MaterialTests {
             Parameters = [new ColourParameter { Name = "tint", Value = new(0.25f, 0.5f, 0.75f, 1f) }]
         };
 
-        var read = (ColourParameter) MaterialAsset.FromYaml(material.ToYaml()).Find("tint")!;
+        var read = (ColourParameter)MaterialAsset.FromYaml(material.ToYaml()).Find("tint")!;
 
         Assert.Equal(0.25f, read.Value.R, 5);
         Assert.Equal(0.75f, read.Value.B, 5);
@@ -68,9 +67,7 @@ public class MaterialTests {
     public void ATextureIsWrittenAsAReference() {
         var texture = AssetId.New();
 
-        var material = new MaterialAsset {
-            Parameters = [new TextureParameter { Name = "albedo", Value = texture }]
-        };
+        var material = new MaterialAsset { Parameters = [new TextureParameter { Name = "albedo", Value = texture }] };
 
         Assert.Contains(texture.ToString(), material.ToYaml(), StringComparison.Ordinal);
     }

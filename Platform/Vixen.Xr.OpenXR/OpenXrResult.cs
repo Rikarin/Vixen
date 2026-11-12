@@ -11,7 +11,9 @@ public sealed class OpenXrException : Exception {
     /// <param name="call">Which call.</param>
     /// <param name="result">What it returned.</param>
     public OpenXrException(string call, Result result)
-        : base($"{call} returned {result}.") => Result = result;
+        : base($"{call} returned {result}.") {
+        Result = result;
+    }
 
     /// <summary>Creates one with a message.</summary>
     /// <param name="message">The message.</param>

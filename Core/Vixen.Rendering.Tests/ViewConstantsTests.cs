@@ -75,7 +75,7 @@ public class ViewConstantsTests : IDisposable {
         view.ViewProjection = Matrix4x4.PerspectiveFieldOfView(MathF.PI / 3f, 1f, 0.1f, 100f);
 
         Assert.NotEqual(before, view.Frustum);
-        Assert.Equal(new BoundingFrustum(view.ViewProjection), view.Frustum);
+        Assert.Equal(new(view.ViewProjection), view.Frustum);
     }
 
     /// <summary>Each view gets its own block, holding its own matrix.</summary>
@@ -117,7 +117,7 @@ public class ViewConstantsTests : IDisposable {
         var binds = device.Recorder!.OfKind(RecordedCommandKind.BindDescriptorSet).ToList();
 
         Assert.Equal(2, binds.Count);
-        Assert.All(binds, bind => Assert.Equal((long)DescriptorSetSlot.PerView, bind.A));
+        Assert.All(binds, static bind => Assert.Equal((long)DescriptorSetSlot.PerView, bind.A));
         Assert.NotEqual(binds[0].B, binds[1].B);
     }
 

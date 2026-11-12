@@ -9,10 +9,8 @@ using Vixen.Rendering;
 using Vixen.Rendering.Compositor;
 using Vixen.Rendering.Features;
 using Vixen.Rendering.Materials;
-using Vixen.ShaderCompiler;
 using Vixen.Shaders;
 using Vixen.Shaders.Generated;
-using Vixen.Ui.Testing.Visual;
 using Xunit;
 
 namespace Vixen.Graphics.Golden.Tests;
@@ -29,8 +27,12 @@ namespace Vixen.Graphics.Golden.Tests;
 ///         that reached neither.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The consequence is not the one the comments in this tree described, and that is what
-///         this fixture is for.</b> "The shader reads past what the host filled" cannot happen in
+///         ⚠
+///         <b>
+///             The consequence is not the one the comments in this tree described, and that is what
+///             this fixture is for.
+///         </b>
+///         "The shader reads past what the host filled" cannot happen in
 ///         either direction: the loop in <c>Punctual</c> is bounded by <c>MaxLights</c> and broken
 ///         out of at <c>lightCount</c>, and the feature never writes a count longer than the block it
 ///         sized. What happens instead is that <em>the shorter of the two wins in silence</em>, and
@@ -117,7 +119,10 @@ public sealed class MaxLightsDeviceTests {
         var centre = Pixel(image, image.Width / 2, image.Height / 2).X;
 
         Assert.True(centre > 0.2f, $"the quad is not lit at all: {centre:0.000}");
-        Assert.True(centre < 0.95f, $"the frame clips at twelve lights, so no drop below it is visible: {centre:0.000}");
+        Assert.True(
+            centre < 0.95f,
+            $"the frame clips at twelve lights, so no drop below it is visible: {centre:0.000}"
+        );
     }
 
     /// <summary>
@@ -191,13 +196,13 @@ public sealed class MaxLightsDeviceTests {
 
         Assert.True(
             starved < all * 0.6f,
-            $"a variant compiled for four shaded with more than four of the twelve the block held: "
+            "a variant compiled for four shaded with more than four of the twelve the block held: "
             + $"{starved:0.000} against {all:0.000}"
         );
 
         Assert.True(
             Math.Abs(starved - matched) < 0.02f,
-            $"a block of twelve read by an array of four is not the same picture as a block of four: "
+            "a block of twelve read by an array of four is not the same picture as a block of four: "
             + $"{starved:0.000} against {matched:0.000}"
         );
     }
@@ -226,7 +231,7 @@ public sealed class MaxLightsDeviceTests {
 
         var loader = new EffectLoader(device);
         var effects = new EffectSystem();
-        effects.AddProvider(new Compiling(loader, _ => RavenEffects.Everything()));
+        effects.AddProvider(new Compiling(loader, static _ => RavenEffects.Everything()));
 
         var effect = effects.Resolve(Key(material.Composition, declared));
 
@@ -238,19 +243,19 @@ public sealed class MaxLightsDeviceTests {
         Assert.Contains(
             effect!.Bindings,
             binding => binding.Set == DescriptorSetSlot.PerDraw
-                && binding.Size == ForwardLightingRenderFeature.HeaderSize + (declared * 80)
+                && binding.Size == ForwardLightingRenderFeature.HeaderSize + declared * 80
         );
 
         using var allocator = new DescriptorAllocator(device);
         using var samplers = new SamplerCache(device);
         using var system = new RenderSystem();
 
-        using var view = new ViewConstants(device) {
-            Descriptors = allocator,
-            Layout = effect.SetLayouts[(int)DescriptorSetSlot.PerView]
-        };
+        using var view = new ViewConstants(device);
+        view.Descriptors = allocator;
+        view.Layout = effect.SetLayouts[(int)DescriptorSetSlot.PerView];
 
-        using var scene = new SceneConstants(device) { Descriptors = allocator };
+        using var scene = new SceneConstants(device);
+        scene.Descriptors = allocator;
         var opaque = system.AddStage(new("Opaque"));
 
         var describer = new EffectPipelineDescriber(device);
@@ -261,16 +266,21 @@ public sealed class MaxLightsDeviceTests {
 
         var offsets = new[] { 0, 12, 24, 40 };
 
-        describer.VertexLayouts.Add([
-            new VertexBufferLayout(
-                Vertex.Stride,
-                [
-                    .. effect.VertexInputs.Select(
-                        (input, index) => new VertexElement((uint)input.Location, formats[index], offsets[index])
-                    )
-                ]
-            )
-        ]);
+        describer.VertexLayouts.Add(
+            [
+                new VertexBufferLayout(
+                    Vertex.Stride,
+                    [
+                        ..effect.VertexInputs.Select((input, index) => new VertexElement(
+                                (uint)input.Location,
+                                formats[index],
+                                offsets[index]
+                            )
+                        )
+                    ]
+                )
+            ]
+        );
 
         var meshes = new MeshRenderFeature { Pipelines = new(device), Describer = describer };
         var materials = new MaterialRenderFeature { Effects = effects, Device = device, Descriptors = allocator };
@@ -278,10 +288,7 @@ public sealed class MaxLightsDeviceTests {
         // ⚠ `Materials` is what the per-object set's layout comes off, and the block this fixture is
         // about is that set: unset, the frame binds no set 3 and every draw in the pass is refused.
         var lighting = new ForwardLightingRenderFeature {
-            Device = device,
-            Scene = scene.Parameters,
-            Materials = materials,
-            MaxLightsPerObject = budget
+            Device = device, Scene = scene.Parameters, Materials = materials, MaxLightsPerObject = budget
         };
 
         var transforms = new TransformRenderFeature { Device = device, Scene = scene.Parameters };
@@ -312,7 +319,7 @@ public sealed class MaxLightsDeviceTests {
         );
 
         system.Objects.Data.Data(meshes.Draws)[quad.Index] = new() {
-            VertexBuffer = fixture.Buffer<Vertex>(Vertex.Quad, BufferUsage.Vertex),
+            VertexBuffer = fixture.Buffer(Vertex.Quad, BufferUsage.Vertex),
             IndexBuffer = fixture.Buffer<ushort>([0, 1, 2, 2, 1, 3], BufferUsage.Index),
             IndexFormat = IndexFormat.UInt16,
             Count = 6,
@@ -341,8 +348,7 @@ public sealed class MaxLightsDeviceTests {
         var display = fixture.Owned("Display", TextureUsage.ColourTarget | TextureUsage.CopySource);
 
         var compositor = new GraphicsCompositor(system) {
-            FrameSize = new(Fixture.Side, Fixture.Side),
-            Game = new SceneRendererSequence { Children = { pass } }
+            FrameSize = new(Fixture.Side, Fixture.Side), Game = new SceneRendererSequence { Children = { pass } }
         };
 
         compositor.Imports["Display"] = new(
@@ -356,7 +362,7 @@ public sealed class MaxLightsDeviceTests {
         // Imported and empty: this frame is unclustered, and a permutation folds code rather than
         // bindings — so the grid is still declared and a set one binding short is not bound at all.
         compositor.BufferImports["Clusters"] = new(
-            fixture.Buffer<uint>(new uint[ClusterGrid.BufferSize / sizeof(uint)], BufferUsage.Storage),
+            fixture.Buffer(new uint[ClusterGrid.BufferSize / sizeof(uint)], BufferUsage.Storage),
             new(ClusterGrid.BufferSize, BufferUsage.Storage, MemoryAccess.HostUpload, "Clusters"),
             ResourceState.ShaderRead,
             ResourceState.ShaderRead
@@ -373,8 +379,11 @@ public sealed class MaxLightsDeviceTests {
                 new(
                     [],
                     [
-                        .. unused.Select(
-                            texture => new TextureBarrier(texture, ResourceState.Undefined, ResourceState.ShaderRead)
+                        ..unused.Select(static texture => new TextureBarrier(
+                                texture,
+                                ResourceState.Undefined,
+                                ResourceState.ShaderRead
+                            )
                         )
                     ]
                 )
@@ -398,8 +407,7 @@ public sealed class MaxLightsDeviceTests {
     /// <summary>Twelve identical lights, evenly spaced around the quad's axis.</summary>
     static IEnumerable<RenderLight> Ring() =>
         Enumerable.Range(0, SceneLights)
-            .Select(
-                index => {
+            .Select(static index => {
                     var angle = index * MathF.Tau / SceneLights;
 
                     return RenderLight.Point(
@@ -450,9 +458,16 @@ public sealed class MaxLightsDeviceTests {
     static (TextureHandle Texture, TextureViewHandle View) Flat(VulkanDevice device, Fixture fixture) {
         var texture = device.CreateTexture(
             new() {
-                Width = 4, Height = 4, Depth = 1, MipLevels = 1, ArrayLayers = 1, SampleCount = 1,
+                Width = 4,
+                Height = 4,
+                Depth = 1,
+                MipLevels = 1,
+                ArrayLayers = 1,
+                SampleCount = 1,
                 Dimension = TextureDimension.Texture2D,
-                Format = PixelFormat.Rgba8UNorm, Usage = TextureUsage.Sampled, Name = "unused"
+                Format = PixelFormat.Rgba8UNorm,
+                Usage = TextureUsage.Sampled,
+                Name = "unused"
             }
         );
 
@@ -465,9 +480,16 @@ public sealed class MaxLightsDeviceTests {
     static (TextureHandle Texture, TextureViewHandle View) Cube(VulkanDevice device, Fixture fixture) {
         var texture = device.CreateTexture(
             new() {
-                Width = 4, Height = 4, Depth = 1, MipLevels = 1, ArrayLayers = 6, SampleCount = 1,
+                Width = 4,
+                Height = 4,
+                Depth = 1,
+                MipLevels = 1,
+                ArrayLayers = 6,
+                SampleCount = 1,
                 Dimension = TextureDimension.TextureCube,
-                Format = PixelFormat.Rgba8UNorm, Usage = TextureUsage.Sampled, Name = "unused cube"
+                Format = PixelFormat.Rgba8UNorm,
+                Usage = TextureUsage.Sampled,
+                Name = "unused cube"
             }
         );
 
@@ -507,7 +529,7 @@ public sealed class MaxLightsDeviceTests {
                 Position = new(x, y, QuadZ),
                 Normal = new(0f, 0f, 1f),
                 Tangent = new(1f, 0f, 0f, 1f),
-                Texcoord = new((x / QuadHalf * 0.5f) + 0.5f, (y / QuadHalf * 0.5f) + 0.5f)
+                Texcoord = new(x / QuadHalf * 0.5f + 0.5f, y / QuadHalf * 0.5f + 0.5f)
             };
     }
 
@@ -522,7 +544,7 @@ public sealed class MaxLightsDeviceTests {
 
         Assert.False(
             compilation.Failed,
-            string.Join(Environment.NewLine, compilation.Diagnostics.Select(diagnostic => diagnostic.ToString()))
+            string.Join(Environment.NewLine, compilation.Diagnostics.Select(static diagnostic => diagnostic.ToString()))
         );
 
         return compilation.Material!;

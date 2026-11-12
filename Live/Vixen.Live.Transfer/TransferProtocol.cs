@@ -8,8 +8,12 @@ namespace Vixen.Live.Transfer;
 
 /// <summary>Where a transfer has got to. Doc 27 § The overlap's seven timestamps, as states.</summary>
 /// <remarks>
-///     ⚠ <b>The player is playing on the source realm for every state up to and including
-///     <see cref="Committing" />.</b> That is the whole design: the second session is opened, the map
+///     ⚠
+///     <b>
+///         The player is playing on the source realm for every state up to and including
+///         <see cref="Committing" />.
+///     </b>
+///     That is the whole design: the second session is opened, the map
 ///     is loaded and the first snapshot arrives while they are still shooting on the first realm, so
 ///     the cost of a map change is a preload rather than a reconnect.
 /// </remarks>
@@ -41,8 +45,12 @@ public enum TransferPhase : byte {
 
 /// <summary>Why a transfer did not happen.</summary>
 /// <remarks>
-///     ⚠ <b>Every value here leaves the player where they already were, which is always a valid
-///     state.</b> Doc 27 calls that asymmetry deliberate and it is the property the whole failure
+///     ⚠
+///     <b>
+///         Every value here leaves the player where they already were, which is always a valid
+///         state.
+///     </b>
+///     Doc 27 calls that asymmetry deliberate and it is the property the whole failure
 ///     story rests on: the source never commits until the target has acknowledged, so an abort is a
 ///     transfer that did not start rather than one that half-finished.
 /// </remarks>

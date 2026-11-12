@@ -118,7 +118,14 @@ sealed class PlayModule : IEditorPlugin {
             () => play.State == PlayState.Paused
         );
 
-        Transport(context, "play.stop", EditorStrings.CommandPlayStop, EditorIcons.Stop, () => play.Leave(), () => play.IsPlaying);
+        Transport(
+            context,
+            "play.stop",
+            EditorStrings.CommandPlayStop,
+            EditorIcons.Stop,
+            () => play.Leave(),
+            () => play.IsPlaying
+        );
 
         // ── Play ▸ Mode and Mute Audio, declared and disabled with the reason (#1296) ──────────────
         // ⚠ Standalone and Server both named milestone E6, and E6 has shipped — `build.settings` is a
@@ -130,9 +137,8 @@ sealed class PlayModule : IEditorPlugin {
         // a schedule stayed on screen for two milestones after its schedule closed.
         foreach (var (id, title) in PlannedLines) {
             context.AddCommand(
-                new EditorCommand(id, title, () => { }) {
-                    Category = EditorStrings.CategoryPlay,
-                    Unavailable = EditorStrings.PlannedReasons[id]
+                new EditorCommand(id, title, static () => { }) {
+                    Category = EditorStrings.CategoryPlay, Unavailable = EditorStrings.PlannedReasons[id]
                 }
             );
         }
@@ -148,10 +154,11 @@ sealed class PlayModule : IEditorPlugin {
             var overlay = name;
 
             context.AddCommand(
-                new EditorCommand(OverlayCommand(overlay), EditorStrings.PlayOverlays[overlay], () => play.SwitchOverlay(overlay)) {
-                    Category = EditorStrings.CategoryPlay,
-                    Checked = () => play.IsOverlayOn(overlay)
-                }
+                new EditorCommand(
+                    OverlayCommand(overlay),
+                    EditorStrings.PlayOverlays[overlay],
+                    () => play.SwitchOverlay(overlay)
+                ) { Category = EditorStrings.CategoryPlay, Checked = () => play.IsOverlayOn(overlay) }
             );
         }
 
@@ -162,9 +169,8 @@ sealed class PlayModule : IEditorPlugin {
         var maximise = new PlayMaximise(context.Services.Require<ScenePanes>());
 
         context.AddCommand(
-            new EditorCommand("play.maximise", EditorStrings.CommandPlayMaximise, maximise.Toggle) {
-                Category = EditorStrings.CategoryPlay,
-                Checked = () => maximise.IsOn
+            new("play.maximise", EditorStrings.CommandPlayMaximise, maximise.Toggle) {
+                Category = EditorStrings.CategoryPlay, Checked = () => maximise.IsOn
             }
         );
 
@@ -174,7 +180,7 @@ sealed class PlayModule : IEditorPlugin {
         var console = context.Services.Require<EditorConsole>();
 
         context.AddCommand(
-            new EditorCommand("play.clear-console", EditorStrings.CommandPlayClearConsole, console.ToggleClearsOnPlay) {
+            new("play.clear-console", EditorStrings.CommandPlayClearConsole, console.ToggleClearsOnPlay) {
                 Category = EditorStrings.CategoryPlay,
                 Enablement = () => console.View is not null,
                 Checked = () => console.ClearsOnPlay
@@ -206,16 +212,17 @@ sealed class PlayModule : IEditorPlugin {
         play.Left += Left;
 
         context.OnUnload(() => {
-            play.Entered -= Entered;
-            play.Left -= Left;
+                play.Entered -= Entered;
+                play.Left -= Left;
 
-            maximise.Left();
-        });
+                maximise.Left();
+            }
+        );
 
-        context.AddDefaultBinding("play.play", new KeyChord(InputKey.F5, ModifierKeys.None));
-        context.AddDefaultBinding("play.pause", new KeyChord(InputKey.P, ModifierKeys.Control | ModifierKeys.Shift));
-        context.AddDefaultBinding("play.step", new KeyChord(InputKey.F10, ModifierKeys.None));
-        context.AddDefaultBinding("play.stop", new KeyChord(InputKey.F5, ModifierKeys.Shift));
+        context.AddDefaultBinding("play.play", new(InputKey.F5, ModifierKeys.None));
+        context.AddDefaultBinding("play.pause", new(InputKey.P, ModifierKeys.Control | ModifierKeys.Shift));
+        context.AddDefaultBinding("play.step", new(InputKey.F10, ModifierKeys.None));
+        context.AddDefaultBinding("play.stop", new(InputKey.F5, ModifierKeys.Shift));
     }
 
     /// <summary>Says that play-mode edits are discarded, what the session runs, and anything it is not running.</summary>
@@ -276,7 +283,7 @@ sealed class PlayModule : IEditorPlugin {
 
     /// <summary>The overlay names the editor has a declared word for, in menu order.</summary>
     internal static IEnumerable<string> SwitchableOverlays() =>
-        EditorStrings.PlayOverlays.All.Select(id => id.Id[EditorStrings.PlayOverlays.Prefix.Length..]);
+        EditorStrings.PlayOverlays.All.Select(static id => id.Id[EditorStrings.PlayOverlays.Prefix.Length..]);
 
     /// <summary>Registers one of the four transport verbs: an icon, a colour, and a state.</summary>
     /// <remarks>
@@ -294,7 +301,7 @@ sealed class PlayModule : IEditorPlugin {
         Func<bool>? on = null
     ) =>
         context.AddCommand(
-            new EditorCommand(id, title, run) {
+            new(id, title, run) {
                 Category = EditorStrings.CategoryPlay,
                 Icon = icon,
                 ClassName = "transport-" + id["play.".Length..],

@@ -5,7 +5,6 @@ using Vixen.Core;
 using Vixen.Editor.Inspector;
 using Vixen.Editor.Plugin;
 using Vixen.Editor.Ui;
-using Vixen.Ui;
 using Vixen.Ui.Controls;
 using Vixen.Ui.Controls.Advanced;
 
@@ -14,8 +13,11 @@ namespace Vixen.Editor.Blockout;
 /// <summary>The settings panel doc 24 § P3 and doc 36 § P1 both owed, as one panel over three objects.</summary>
 /// <remarks>
 ///     <para>
-///         <b>What was missing was a panel, not a provider — doc 36 § P1's audit says so in as many
-///         words.</b> The remesher's and the unwrapper's settings are ordinary members of ordinary
+///         <b>
+///             What was missing was a panel, not a provider — doc 36 § P1's audit says so in as many
+///             words.
+///         </b>
+///         The remesher's and the unwrapper's settings are ordinary members of ordinary
 ///         classes here, <c>InspectorEditProvider</c> describes them and <c>InspectorView</c> draws
 ///         them, which is the same arrangement the terrain panels have had all along. Nothing in this
 ///         file builds a row.
@@ -143,5 +145,4 @@ public sealed partial class BlockoutModule {
 
     /// <summary>A titled divider, which is all a section is.</summary>
     static void Section(DockPanel panel, string title) => panel.Add("world-title").Text = title;
-
 }

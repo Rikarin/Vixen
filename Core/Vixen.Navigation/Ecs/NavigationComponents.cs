@@ -46,14 +46,15 @@ public struct NavigationAgent {
 
     /// <summary>A human-sized walker, not yet joined to a crowd.</summary>
     /// <returns>The component.</returns>
-    public static NavigationAgent Default() => new() {
-        Radius = 0.6f,
-        Height = 2f,
-        MaxSpeed = 3.5f,
-        MaxAcceleration = 8f,
-        AvoidanceEnabled = true,
-        Handle = CrowdAgentHandle.Null
-    };
+    public static NavigationAgent Default() =>
+        new() {
+            Radius = 0.6f,
+            Height = 2f,
+            MaxSpeed = 3.5f,
+            MaxAcceleration = 8f,
+            AvoidanceEnabled = true,
+            Handle = CrowdAgentHandle.Null
+        };
 }
 
 /// <summary>Where an entity has been told to go.</summary>

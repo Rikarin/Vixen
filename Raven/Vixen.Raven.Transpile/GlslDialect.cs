@@ -53,5 +53,6 @@ static class GlslDialects {
         };
 
     /// <summary>The name to put in a diagnostic — <c>RVN4001</c>'s <c>{1}</c>.</summary>
-    public static string Describe(this GlslDialect dialect) => $"ESSL {dialect.Version() / 100}.{dialect.Version() % 100 / 10:0}0";
+    public static string Describe(this GlslDialect dialect) =>
+        $"ESSL {dialect.Version() / 100}.{dialect.Version() % 100 / 10:0}0";
 }

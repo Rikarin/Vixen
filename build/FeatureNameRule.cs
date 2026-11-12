@@ -30,16 +30,24 @@ namespace Vixen.Build;
 ///     </para>
 ///     <list type="bullet">
 ///         <item>a <b>namespace</b> <c>Vixen.Editor.&lt;Feature&gt;</c>, for every feature assembly;</item>
-///         <item>a <b>type</b> declared in a feature assembly and declared nowhere outside one — a name a
-///         runtime or shell assembly also declares is not the feature's to own;</item>
-///         <item>an <b>extension literal</b> <c>".vx…"</c> spelled in a feature and in no runtime source
-///         (<c>Core/</c>, <c>Platform/</c>, <c>Tools/</c>, …), so <c>.vxanim</c>, which the runtime
-///         owns, is not a feature's;</item>
-///         <item>a <b>panel id</b> a feature registers — a literal handed to <c>AddPanel</c> or
-///         <c>RegisterPanel</c>, or the value of a <c>const string …Panel… = "…"</c>;</item>
-///         <item>a <b>command-id prefix</b> — the feature's own name lowercased (<c>terrain.</c>,
-///         <c>blockout.</c>) and the first segment of any dotted panel id it registers
-///         (<c>foliage.</c>).</item>
+///         <item>
+///             a <b>type</b> declared in a feature assembly and declared nowhere outside one — a name a
+///             runtime or shell assembly also declares is not the feature's to own;
+///         </item>
+///         <item>
+///             an <b>extension literal</b> <c>".vx…"</c> spelled in a feature and in no runtime source
+///             (<c>Core/</c>, <c>Platform/</c>, <c>Tools/</c>, …), so <c>.vxanim</c>, which the runtime
+///             owns, is not a feature's;
+///         </item>
+///         <item>
+///             a <b>panel id</b> a feature registers — a literal handed to <c>AddPanel</c> or
+///             <c>RegisterPanel</c>, or the value of a <c>const string …Panel… = "…"</c>;
+///         </item>
+///         <item>
+///             a <b>command-id prefix</b> — the feature's own name lowercased (<c>terrain.</c>,
+///             <c>blockout.</c>) and the first segment of any dotted panel id it registers
+///             (<c>foliage.</c>).
+///         </item>
 ///     </list>
 ///     <para>
 ///         ⚠ <b>Types and namespaces are matched in code, ids and extensions in string literals</b>, and
@@ -55,8 +63,12 @@ namespace Vixen.Build;
 ///         with a row that asserts nothing. Every other hit is in the exemption file.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Its count is not doc 50 § F9's 110, and the difference is a definition, not a
-///         miss.</b> F9's audit also counted runtime names a shell holds — <c>TerrainComponent</c>,
+///         ⚠
+///         <b>
+///             Its count is not doc 50 § F9's 110, and the difference is a definition, not a
+///             miss.
+///         </b>
+///         F9's audit also counted runtime names a shell holds — <c>TerrainComponent</c>,
 ///         <c>WaterZoneComponent</c>, <c>BuoyancyBody</c> live in <c>Core/</c>, and a shell naming an
 ///         engine component is not a shell naming an editor feature — and members that spell a
 ///         feature's word (<c>ModeArt.Blockout</c>, <c>MaterialIcons.Terrain</c>), which no derivation
@@ -100,24 +112,60 @@ static class FeatureNameRule {
     public static readonly string[] ByDesign = ["Editor/Vixen.Editor.Host/EditorModules.cs"];
 
     /// <summary>Top-level directories whose declarations make a type name not a feature's to own.</summary>
-    static readonly string[] Outside = ["Benchmarks", "Core", "Gameplay", "Live", "Platform", "Raven", "Samples", "Testing", "Tools"];
+    static readonly string[] Outside =
+        ["Benchmarks", "Core", "Gameplay", "Live", "Platform", "Raven", "Samples", "Testing", "Tools"];
 
     /// <summary>Directories under which an extension literal belongs to the runtime rather than to a feature.</summary>
     static readonly string[] Runtime = ["Core", "Gameplay", "Live", "Platform", "Raven", "Samples", "Tools"];
 
-    static readonly Regex TypeDeclaration = new(@"\b(?:class|struct|interface|enum|record)\s+([A-Z][A-Za-z0-9_]*)", RegexOptions.CultureInvariant);
-    static readonly Regex Identifier = new(@"(?<![A-Za-z0-9_.])[A-Z][A-Za-z0-9_]*", RegexOptions.CultureInvariant);
-    static readonly Regex MemberDeclaration = new(@"([A-Za-z_][A-Za-z0-9_]*|[>\]?])\s+([A-Z][A-Za-z0-9_]*)\s*(?:\(|\{\s*(?:get|set|init)\b|=>)", RegexOptions.CultureInvariant);
+    static readonly Regex TypeDeclaration = new(
+        @"\b(?:class|struct|interface|enum|record)\s+([A-Z][A-Za-z0-9_]*)",
+        RegexOptions.CultureInvariant
+    );
+
+    static readonly Regex Identifier = new("(?<![A-Za-z0-9_.])[A-Z][A-Za-z0-9_]*", RegexOptions.CultureInvariant);
+
+    static readonly Regex MemberDeclaration = new(
+        @"([A-Za-z_][A-Za-z0-9_]*|[>\]?])\s+([A-Z][A-Za-z0-9_]*)\s*(?:\(|\{\s*(?:get|set|init)\b|=>)",
+        RegexOptions.CultureInvariant
+    );
 
     /// <summary>Words that put a type name before <c>(</c> without declaring a member called it.</summary>
     static readonly HashSet<string> NotADeclarator = new(StringComparer.Ordinal) {
-        "new", "return", "throw", "await", "is", "as", "case", "in", "out", "ref", "else", "yield", "using",
-        "typeof", "nameof", "when", "not", "and", "or", "class", "struct", "record", "interface", "enum"
+        "new",
+        "return",
+        "throw",
+        "await",
+        "is",
+        "as",
+        "case",
+        "in",
+        "out",
+        "ref",
+        "else",
+        "yield",
+        "using",
+        "typeof",
+        "nameof",
+        "when",
+        "not",
+        "and",
+        "or",
+        "class",
+        "struct",
+        "record",
+        "interface",
+        "enum"
     };
 
     static readonly Regex Extension = new(@"^\.vx[a-z0-9]+$", RegexOptions.CultureInvariant);
-    static readonly Regex PanelRegistration = new(@"\b(?:AddPanel|RegisterPanel)\(\s*""([^""]+)""", RegexOptions.CultureInvariant);
-    static readonly Regex PanelConstant = new(@"const\s+string\s+\w*Panel\w*\s*=\s*""([^""]+)""", RegexOptions.CultureInvariant);
+
+    static readonly Regex PanelRegistration =
+        new(@"\b(?:AddPanel|RegisterPanel)\(\s*""([^""]+)""", RegexOptions.CultureInvariant);
+
+    static readonly Regex PanelConstant =
+        new(@"const\s+string\s+\w*Panel\w*\s*=\s*""([^""]+)""", RegexOptions.CultureInvariant);
+
     static readonly Regex DottedId = new(@"^[a-z][a-z0-9-]*(\.[a-z0-9-]+)+\.?$", RegexOptions.CultureInvariant);
 
     /// <summary>One shell file naming one feature name some number of times.</summary>
@@ -162,15 +210,20 @@ static class FeatureNameRule {
             return [];
         }
 
-        return Directory.EnumerateDirectories(editor)
-            .Where(directory => Directory.EnumerateFiles(directory, "*.csproj").Any())
-            .Select(Path.GetFileName)
-            .Select(name => name!)
-            .Where(name => name.StartsWith("Vixen.Editor.", StringComparison.Ordinal))
-            .Where(name => !name.EndsWith(".Tests", StringComparison.Ordinal) && !name.EndsWith(".Generator", StringComparison.Ordinal))
-            .Where(name => !Shell.Contains(name, StringComparer.Ordinal) && !Neither.Contains(name, StringComparer.Ordinal))
-            .Order(StringComparer.Ordinal)
-            .ToList();
+        return [
+            ..Directory.EnumerateDirectories(editor)
+                .Where(static directory => Directory.EnumerateFiles(directory, "*.csproj").Any())
+                .Select(Path.GetFileName)
+                .Select(static name => name!)
+                .Where(static name => name.StartsWith("Vixen.Editor.", StringComparison.Ordinal))
+                .Where(static name => !name.EndsWith(".Tests", StringComparison.Ordinal)
+                    && !name.EndsWith(".Generator", StringComparison.Ordinal)
+                )
+                .Where(static name => !Shell.Contains(name, StringComparer.Ordinal)
+                    && !Neither.Contains(name, StringComparer.Ordinal)
+                )
+                .Order(StringComparer.Ordinal)
+        ];
     }
 
     /// <summary>Production source under a directory: <c>.cs</c> and <c>.vxml</c>, as git lists them, no tests.</summary>
@@ -191,8 +244,11 @@ static class FeatureNameRule {
         string[] patterns = markup ? ["*.cs", "*.vxml"] : ["*.cs"];
 
         return RepositoryFiles.Files(directory, patterns)
-            .Where(file => !Path.GetRelativePath(directory, file).Replace('\\', '/').Split('/')
-                .Any(part => part.EndsWith(".Tests", StringComparison.Ordinal)));
+            .Where(file => !Path.GetRelativePath(directory, file)
+                .Replace('\\', '/')
+                .Split('/')
+                .Any(static part => part.EndsWith(".Tests", StringComparison.Ordinal))
+            );
     }
 
     /// <summary>Builds the vocabulary from the tree.</summary>
@@ -243,7 +299,7 @@ static class FeatureNameRule {
             }
         }
 
-        foreach (var id in panelIds.Where(id => id.Contains('.', StringComparison.Ordinal))) {
+        foreach (var id in panelIds.Where(static id => id.Contains('.', StringComparison.Ordinal))) {
             prefixes.Add(id[..id.IndexOf('.', StringComparison.Ordinal)]);
         }
 
@@ -251,8 +307,11 @@ static class FeatureNameRule {
         // runtime also declares (a feature's nested `Settings`) would otherwise flag every shell
         // file that names the runtime's, and `.vxanim` — which `Core/Vixen.Animation` owns — would
         // flag the import pipeline for importing what the engine ships.
-        var outside = Outside.SelectMany(top => Sources(Path.Combine(root, top), markup: false))
-            .Concat(Shell.Concat(Neither).SelectMany(project => Sources(Path.Combine(root, "Editor", project), markup: false)));
+        var outside = Outside.SelectMany(top => Sources(Path.Combine(root, top), false))
+            .Concat(
+                Shell.Concat(Neither)
+                    .SelectMany(project => Sources(Path.Combine(root, "Editor", project), false))
+            );
 
         foreach (var file in outside) {
             var text = File.ReadAllText(file);
@@ -271,7 +330,7 @@ static class FeatureNameRule {
             }
         }
 
-        foreach (var file in Runtime.SelectMany(top => Sources(Path.Combine(root, top), markup: false))) {
+        foreach (var file in Runtime.SelectMany(top => Sources(Path.Combine(root, top), false))) {
             var text = File.ReadAllText(file);
 
             if (!text.Contains("\".vx", StringComparison.Ordinal)) {
@@ -283,7 +342,8 @@ static class FeatureNameRule {
             }
         }
 
-        var namespaces = features.Select(feature => "Vixen.Editor." + feature["Vixen.Editor.".Length..].Split('.')[0])
+        var namespaces = features
+            .Select(static feature => "Vixen.Editor." + feature["Vixen.Editor.".Length..].Split('.')[0])
             .Distinct(StringComparer.Ordinal)
             .Order(StringComparer.Ordinal)
             .ToList();
@@ -355,7 +415,7 @@ static class FeatureNameRule {
             }
         }
 
-        return [.. findings.OrderBy(finding => finding.Key, StringComparer.Ordinal)];
+        return [..findings.OrderBy(static finding => finding.Key, StringComparer.Ordinal)];
     }
 
     /// <summary>The feature names in one lexed file, with their counts.</summary>
@@ -370,7 +430,10 @@ static class FeatureNameRule {
         void Count(string name) => names[name] = names.GetValueOrDefault(name) + 1;
 
         foreach (var space in vocabulary.Namespaces) {
-            foreach (Match _ in Regex.Matches(lexed.Code, @"(?<![A-Za-z0-9_.])" + Regex.Escape(space) + @"(?![A-Za-z0-9_])")) {
+            foreach (Match _ in Regex.Matches(
+                         lexed.Code,
+                         "(?<![A-Za-z0-9_.])" + Regex.Escape(space) + "(?![A-Za-z0-9_])"
+                     )) {
                 Count(space);
             }
         }
@@ -384,7 +447,8 @@ static class FeatureNameRule {
         foreach (var literal in lexed.Strings) {
             if (vocabulary.Extensions.Contains(literal) || vocabulary.PanelIds.Contains(literal)) {
                 Count(literal);
-            } else if (DottedId.IsMatch(literal) && vocabulary.Prefixes.Contains(literal[..literal.IndexOf('.', StringComparison.Ordinal)])) {
+            } else if (DottedId.IsMatch(literal)
+                       && vocabulary.Prefixes.Contains(literal[..literal.IndexOf('.', StringComparison.Ordinal)])) {
                 Count(literal);
             }
         }
@@ -602,7 +666,10 @@ static class FeatureNameRule {
             return "No feature assembly was found under Editor/, so the feature-name rule is checking nothing.";
         }
 
-        if (vocabulary.Types.Count == 0 || vocabulary.Extensions.Count == 0 || vocabulary.PanelIds.Count == 0 || vocabulary.Prefixes.Count == 0) {
+        if (vocabulary.Types.Count == 0
+            || vocabulary.Extensions.Count == 0
+            || vocabulary.PanelIds.Count == 0
+            || vocabulary.Prefixes.Count == 0) {
             return $"The feature vocabulary is missing a kind (types {vocabulary.Types.Count}, extensions "
                 + $"{vocabulary.Extensions.Count}, panel ids {vocabulary.PanelIds.Count}, prefixes "
                 + $"{vocabulary.Prefixes.Count}) — the rule has stopped reading one of its questions.";
@@ -615,7 +682,10 @@ static class FeatureNameRule {
     /// <param name="findings">What <see cref="Scan" /> found.</param>
     /// <param name="exempt">The list.</param>
     /// <returns>One sentence per violation.</returns>
-    public static List<string> Violations(IReadOnlyList<Finding> findings, IReadOnlyDictionary<string, (int Count, string Reason)> exempt) {
+    public static List<string> Violations(
+        IReadOnlyList<Finding> findings,
+        IReadOnlyDictionary<string, (int Count, string Reason)> exempt
+    ) {
         ArgumentNullException.ThrowIfNull(findings);
         ArgumentNullException.ThrowIfNull(exempt);
 
@@ -659,25 +729,42 @@ static class FeatureNameRule {
     /// <param name="findings">What <see cref="Scan" /> found.</param>
     /// <param name="previous">The list as it was.</param>
     /// <returns>The file's text.</returns>
-    public static string Render(IReadOnlyList<Finding> findings, IReadOnlyDictionary<string, (int Count, string Reason)> previous) {
+    public static string Render(
+        IReadOnlyList<Finding> findings,
+        IReadOnlyDictionary<string, (int Count, string Reason)> previous
+    ) {
         ArgumentNullException.ThrowIfNull(findings);
         ArgumentNullException.ThrowIfNull(previous);
 
         var text = new StringBuilder();
 
-        text.Append("# Feature names the editor's shell still holds (doc 50 § D6, #1278). Read by CheckArchitecture through\n")
+        text.Append(
+                "# Feature names the editor's shell still holds (doc 50 § D6, #1278). Read by CheckArchitecture through\n"
+            )
             .Append("# build/FeatureNameRule.cs. One row per shell file and name: `<file> <name> <count> [reason]`.\n")
             .Append("#\n")
-            .Append("# ⚠ This list can only SHRINK. A shell file naming a feature name with no row fails, a count above its\n")
-            .Append("# row fails, and a row whose count is above the file's — or whose file no longer names it — fails too,\n")
+            .Append(
+                "# ⚠ This list can only SHRINK. A shell file naming a feature name with no row fails, a count above its\n"
+            )
+            .Append(
+                "# row fails, and a row whose count is above the file's — or whose file no longer names it — fails too,\n"
+            )
             .Append("# so every doc 50 phase deletes lines from here in the commit that moves the name.\n")
             .Append("#\n")
-            .Append("# Shell: Vixen.Editor.{App,Ui,Host,Core,SceneView,Inspector,Assets}. A feature is every other Editor/\n")
-            .Append("# project but Plugin, Testing, tests and generators. The vocabulary — namespaces, types declared only in\n")
-            .Append("# features, .vx extension literals no runtime source spells, panel ids features register, and command-id\n")
+            .Append(
+                "# Shell: Vixen.Editor.{App,Ui,Host,Core,SceneView,Inspector,Assets}. A feature is every other Editor/\n"
+            )
+            .Append(
+                "# project but Plugin, Testing, tests and generators. The vocabulary — namespaces, types declared only in\n"
+            )
+            .Append(
+                "# features, .vx extension literals no runtime source spells, panel ids features register, and command-id\n"
+            )
             .Append("# prefixes — is derived by the rule; see its remarks. Comments are not read.\n")
             .Append("#\n")
-            .Append("# Regenerate after a merge with `").Append(Regenerate).Append("` — and read the\n")
+            .Append("# Regenerate after a merge with `")
+            .Append(Regenerate)
+            .Append("` — and read the\n")
             .Append("# diff: a row that appeared or grew is the shell learning a feature's name.\n\n");
 
         foreach (var finding in findings) {

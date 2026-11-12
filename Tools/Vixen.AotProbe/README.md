@@ -130,7 +130,7 @@ comments records that putting the `GetApi()` call back brings all six diagnostic
 outcome.**
 
 ⚠ **That sentence was written while `Vixen.Xr` was still off the rooted set, which is what makes it
-worth keeping.** It named the defect and quoted its six diagnostics; `OpenXrBackend.cs:73` had the
+worth keeping.** It named the defect and quoted its six diagnostics; `OpenXrBackend.cs:71` had the
 call; and the gate could say nothing about it, because a rule only reaches what is rooted. The
 sentence held anyway — the findings were exactly the six, and #1239 was the same thirty lines — but
 what caught it was somebody reading this file, not the gate running.

@@ -30,7 +30,7 @@ public sealed class TextLayout {
 
     /// <summary>Builds a block from its lines, in order.</summary>
     /// <param name="lines">The lines. At least one.</param>
-    public TextLayout(ImmutableArray<TextLine> lines) : this(lines, lastLineHangs: true) { }
+    public TextLayout(ImmutableArray<TextLine> lines) : this(lines, true) { }
 
     /// <summary>Builds a block whose last line may end in the middle of a line box rather than at its end.</summary>
     /// <param name="lines">The lines. At least one.</param>
@@ -69,7 +69,10 @@ public sealed class TextLayout {
             // that the same two spaces do *not* leave the line box for `text-align`. Reading `Width`
             // here made every label ending in a space that much too wide, with a gap on the end that
             // reads as a padding mistake.
-            widest = MathF.Max(widest, lines[i].Offset + (lastLineHangs || i < lines.Length - 1 ? lines[i].Trimmed : lines[i].Width));
+            widest = MathF.Max(
+                widest,
+                lines[i].Offset + (lastLineHangs || i < lines.Length - 1 ? lines[i].Trimmed : lines[i].Width)
+            );
         }
 
         Height = y;
@@ -175,8 +178,12 @@ public sealed class TextLayout {
     /// <param name="y">Distance from the top, in pixels.</param>
     /// <returns>A UTF-16 index into the element's text, and the affinity that puts it back here.</returns>
     /// <remarks>
-    ///     ⚠ <b>The y picks the line and therefore settles the wrap-boundary affinity before the
-    ///     line is asked anything.</b> A click on the second row of a wrapped word means the caret is
+    ///     ⚠
+    ///     <b>
+    ///         The y picks the line and therefore settles the wrap-boundary affinity before the
+    ///         line is asked anything.
+    ///     </b>
+    ///     A click on the second row of a wrapped word means the caret is
     ///     on that row whatever the index turns out to be — so a hit at the very start of a
     ///     continuation line comes back <c>Downstream</c>, which is what puts it back on that row
     ///     rather than at the end of the row above.
@@ -214,9 +221,13 @@ public sealed class TextLayout {
     ///         question.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The answer is a whole number of device pixels, and rounding it <i>here</i> rather
-    ///         than at the end of the layout is what makes the two ways of writing the same paragraph
-    ///         agree.</b> A block of four lines at 27.875 each is 111.5 pixels tall. Reported as
+    ///         ⚠
+    ///         <b>
+    ///             The answer is a whole number of device pixels, and rounding it <i>here</i> rather
+    ///             than at the end of the layout is what makes the two ways of writing the same paragraph
+    ///             agree.
+    ///         </b>
+    ///         A block of four lines at 27.875 each is 111.5 pixels tall. Reported as
     ///         111.5, it reaches <c>LayoutTree.RoundToPixelGrid</c>, where a node that measured itself
     ///         is ceiled to 112 and a node that merely <i>contains</i> the measured one is rounded to
     ///         nearest — 111. An element's own <c>Text</c> is the first case; the <c>text</c> child a
@@ -244,7 +255,7 @@ public sealed class TextLayout {
     /// </remarks>
     public static LayoutSize Measure(in MeasureRequest request) {
         if (request.Context is not UiElement element) {
-            return new LayoutSize(0f, 0f);
+            return new(0f, 0f);
         }
 
         // ⚠ The mode alone, and an earlier draft also tested the width for `NaN`. The layout hands
@@ -257,11 +268,11 @@ public sealed class TextLayout {
         // `LayoutTree.ContentBands` can say where its lines sit among the floats. Everywhere else
         // the paragraph reuses what this pass decided — see `UiElement.Block(float, LayoutTree?)`.
         if (element.Block(width, request.Tree) is not { } block) {
-            return new LayoutSize(0f, 0f);
+            return new(0f, 0f);
         }
 
         var scale = request.Tree.PointScaleFactor;
-        return new LayoutSize(WholePixels(block.Width, scale), WholePixels(block.Height, scale));
+        return new(WholePixels(block.Width, scale), WholePixels(block.Height, scale));
     }
 
     /// <summary>Rounds a measured length up to the next whole device pixel.</summary>
@@ -270,8 +281,12 @@ public sealed class TextLayout {
     /// <returns>The length, no smaller, landing on the device grid.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The <i>device</i> grid and not the layout one, because the two differ wherever the
-    ///         surface is not at 1×.</b> At 2× a block of 111.5 already covers exactly 223 device
+    ///         ⚠
+    ///         <b>
+    ///             The <i>device</i> grid and not the layout one, because the two differ wherever the
+    ///             surface is not at 1×.
+    ///         </b>
+    ///         At 2× a block of 111.5 already covers exactly 223 device
     ///         pixels and needs nothing; ceiling it to 112 layout pixels would hand it half a device
     ///         pixel it has no use for, on every paragraph in the interface.
     ///     </para>

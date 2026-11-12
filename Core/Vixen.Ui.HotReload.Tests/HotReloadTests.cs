@@ -81,16 +81,24 @@ public class HotReloadTests {
     /// <summary>And a declaration only the per-element pass can refuse rolls back too.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The loader and the selector compiler are two of four producers, and a snapshot
-    ///         that reads only them reports a broken save as a successful one.</b> A
+    ///         ⚠
+    ///         <b>
+    ///             The loader and the selector compiler are two of four producers, and a snapshot
+    ///             that reads only them reports a broken save as a successful one.
+    ///         </b>
+    ///         A
     ///         <c>grid-template-rows</c> whose unit does not exist parses and compiles perfectly —
     ///         it is a well-formed declaration with a value nothing can use — so the sheet loads,
     ///         <c>Introduced</c> is empty, and the host used to say the reload had worked while the
     ///         panel it styles laid out as one row.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Which is why the snapshot has to be taken after a pass rather than after the
-    ///         load.</b> The other two producers run per element and per frame and have nothing in
+    ///         ⚠
+    ///         <b>
+    ///             Which is why the snapshot has to be taken after a pass rather than after the
+    ///             load.
+    ///         </b>
+    ///         The other two producers run per element and per frame and have nothing in
     ///         them at the moment the sheet is replaced; a host that read them there would read an
     ///         empty list twice and conclude the same thing by a different route.
     ///     </para>
@@ -202,17 +210,20 @@ public class HotReloadTests {
         document.Draw();
 
         var box = component.Root.Children[0];
-        Assert.DoesNotContain(sink.Snapshot(), record => record.EventId.Id == 7009);
+        Assert.DoesNotContain(sink.Snapshot(), static record => record.EventId.Id == 7009);
 
         var report = host.ReloadStyles(sheet, "box { width: 40px; height: 20px; overflow: auto; }");
 
-        Assert.True(report.Succeeded, $"a save adding 'overflow: auto' was rolled back: {string.Join(" | ", report.Errors)}");
+        Assert.True(
+            report.Succeeded,
+            $"a save adding 'overflow: auto' was rolled back: {string.Join(" | ", report.Errors)}"
+        );
         Assert.Empty(report.Errors);
 
         document.Update();
         Assert.Equal(40f, box.Width);
 
-        var warning = Assert.Single(sink.Snapshot(), record => record.EventId.Id == 7009);
+        var warning = Assert.Single(sink.Snapshot(), static record => record.EventId.Id == 7009);
         Assert.Equal(LogLevel.Warning, warning.Level);
         Assert.Contains("'box'", warning.Message, StringComparison.Ordinal);
     }
@@ -239,7 +250,7 @@ public class HotReloadTests {
     ///     its signals do, and every effect the new build registers reads the value that was there.
     /// </summary>
     [Fact]
-    public void Signal_values_survive_a_markup_reload_without_being_carried()  {
+    public void Signal_values_survive_a_markup_reload_without_being_carried() {
         using var document = new UiDocument(200f, 200f);
         var host = new HotReloadHost(document);
         var component = host.Mount<Counting>(document.Root);
@@ -412,8 +423,12 @@ public class HotReloadTests {
     // ------------------------------------------- Replacement the runtime asks for
 
     /// <summary>
-    ///     ⚠ <b>The case that gives <see cref="HotReloadHost.Replace" /> a caller, and it is the one
-    ///     rebuilding cannot cover.</b> The runtime can add an instance field to a live type, and the
+    ///     ⚠
+    ///     <b>
+    ///         The case that gives <see cref="HotReloadHost.Replace" /> a caller, and it is the one
+    ///         rebuilding cannot cover.
+    ///     </b>
+    ///     The runtime can add an instance field to a live type, and the
     ///     initialiser that would fill it does not run on an object that already exists — so the new
     ///     <c>Build</c> dereferences a null the old instance has no way to acquire, and rebuilding
     ///     again fails identically for ever. <see cref="Stale" /> is that shape in miniature: it
@@ -439,8 +454,12 @@ public class HotReloadTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>And a component whose type the runtime did not name keeps its instance, its fields
-    ///     and its error.</b> Replacing on any failure would make an ordinary mistake — a null the
+    ///     ⚠
+    ///     <b>
+    ///         And a component whose type the runtime did not name keeps its instance, its fields
+    ///         and its error.
+    ///     </b>
+    ///     Replacing on any failure would make an ordinary mistake — a null the
     ///     developer just introduced, a bad index — cost every signal in the panel, which is the one
     ///     thing this channel exists to protect. A <c>.vxml</c> with a typo does not compile, so no
     ///     update arrives for it at all; a throw from a type nobody edited is not a stale instance.
@@ -495,7 +514,7 @@ public class HotReloadTests {
         component.Missing = null;
 
         _ = host.ReloadComponents([typeof(Stale)]);
-        var replacement = (Stale) Assert.Single(host.Components);
+        var replacement = (Stale)Assert.Single(host.Components);
 
         Assert.Equal(7, replacement.Kept.Value);
         Assert.Equal("initial", replacement.Dropped);
@@ -569,9 +588,10 @@ public class HotReloadTests {
         protected override void Build(BuildContext ctx) {
             var label = ctx.Element(null, "label");
             ctx.Bind(() => {
-                Runs++;
-                label.Text = Count.Value.ToString(System.Globalization.CultureInfo.InvariantCulture);
-            });
+                    Runs++;
+                    label.Text = Count.Value.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                }
+            );
         }
     }
 
@@ -583,9 +603,11 @@ public class HotReloadTests {
     }
 
     sealed class Carrying : Component {
-        [HotReloadState] public Signal<int> Kept { get; } = new(0);
+        [HotReloadState]
+        public Signal<int> Kept { get; } = new(0);
 
-        [HotReloadState] public string Note { get; set; } = "kept";
+        [HotReloadState]
+        public string Note { get; set; } = "kept";
 
         public string Dropped { get; set; } = "initial";
 
@@ -604,7 +626,8 @@ public class HotReloadTests {
     sealed class Stale : Component {
         public object? Missing { get; set; } = new();
 
-        [HotReloadState] public Signal<int> Kept { get; } = new(0);
+        [HotReloadState]
+        public Signal<int> Kept { get; } = new(0);
 
         public string Dropped { get; set; } = "initial";
 

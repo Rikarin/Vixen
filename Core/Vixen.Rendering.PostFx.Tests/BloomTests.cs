@@ -104,7 +104,7 @@ public class BloomTests : IDisposable {
     /// </remarks>
     [Fact]
     public void A_chain_with_no_modules_says_what_its_output_holds_instead() {
-        using var h = Build(composite: false);
+        using var h = Build(false);
 
         h.Bloom.Modules = null;
         Frame(h);
@@ -126,7 +126,7 @@ public class BloomTests : IDisposable {
     /// </remarks>
     [Fact]
     public void A_chain_of_no_levels_quotes_the_setting() {
-        using var h = Build(composite: false);
+        using var h = Build(false);
 
         h.Bloom.Levels = 0;
         Frame(h);
@@ -139,7 +139,7 @@ public class BloomTests : IDisposable {
     /// <summary>And a chain handed its modules back leaves the report the same frame.</summary>
     [Fact]
     public void A_chain_that_is_handed_its_modules_back_leaves_the_report() {
-        using var h = Build(composite: false);
+        using var h = Build(false);
         var modules = h.Bloom.Modules;
 
         h.Bloom.Modules = null;
@@ -194,9 +194,9 @@ public class BloomTests : IDisposable {
 
         // The prefilter reads the full-resolution scene; the first downsample reads level 0, which is
         // half of it; the second reads level 1, a quarter.
-        Assert.Equal(new Vector2(1f / 320f, 1f / 180f), h.Bloom.Passes[0].Parameters.Get(TexelSize));
-        Assert.Equal(new Vector2(1f / 160f, 1f / 90f), h.Bloom.Passes[1].Parameters.Get(TexelSize));
-        Assert.Equal(new Vector2(1f / 80f, 1f / 45f), h.Bloom.Passes[2].Parameters.Get(TexelSize));
+        Assert.Equal(new(1f / 320f, 1f / 180f), h.Bloom.Passes[0].Parameters.Get(TexelSize));
+        Assert.Equal(new(1f / 160f, 1f / 90f), h.Bloom.Passes[1].Parameters.Get(TexelSize));
+        Assert.Equal(new(1f / 80f, 1f / 45f), h.Bloom.Passes[2].Parameters.Get(TexelSize));
     }
 
     /// <summary>The four modes are four variants of one shader.</summary>
@@ -236,7 +236,7 @@ public class BloomTests : IDisposable {
         Frame(h);
 
         var weighting = h.Bloom.Passes.Take(h.Bloom.PassCount)
-            .Where(pass => pass.Parameters.Get(Mode) == 1)
+            .Where(static pass => pass.Parameters.Get(Mode) == 1)
             .ToList();
 
         Assert.Single(weighting);
@@ -254,11 +254,11 @@ public class BloomTests : IDisposable {
         using var h = Build();
         Frame(h);
 
-        var upsamples = h.Bloom.Passes.Take(h.Bloom.PassCount).Where(p => p.Parameters.Get(Mode) == 3).ToList();
+        var upsamples = h.Bloom.Passes.Take(h.Bloom.PassCount).Where(static p => p.Parameters.Get(Mode) == 3).ToList();
 
         Assert.Equal(4, upsamples.Count);
-        Assert.All(upsamples, pass => Assert.Equal(2, pass.Reads.Count));
-        Assert.All(h.Bloom.Passes.Take(5), pass => Assert.Single(pass.Reads));
+        Assert.All(upsamples, static pass => Assert.Equal(2, pass.Reads.Count));
+        Assert.All(h.Bloom.Passes.Take(5), static pass => Assert.Single(pass.Reads));
     }
 
     /// <summary>
@@ -271,7 +271,7 @@ public class BloomTests : IDisposable {
     /// </remarks>
     [Fact]
     public void A_bloom_nothing_reads_costs_nothing() {
-        using var h = Build(composite: false);
+        using var h = Build(false);
         Frame(h);
 
         Assert.Equal(9, h.Bloom.PassCount);
@@ -311,10 +311,10 @@ public class BloomTests : IDisposable {
             Frame(h);
         }
 
-        Assert.All(h.Bloom.Passes.Take(h.Bloom.PassCount), pass => Assert.Equal(1, pass.PipelineCount));
+        Assert.All(h.Bloom.Passes.Take(h.Bloom.PassCount), static pass => Assert.Equal(1, pass.PipelineCount));
 
         // The texel sizes did not change either, so nothing re-uploaded after the first frame.
-        Assert.All(h.Bloom.Passes.Take(h.Bloom.PassCount), pass => Assert.Equal(1, pass.UploadCount));
+        Assert.All(h.Bloom.Passes.Take(h.Bloom.PassCount), static pass => Assert.Equal(1, pass.UploadCount));
     }
 
     /// <summary>
@@ -449,10 +449,7 @@ public class BloomTests : IDisposable {
         }
 
         var tonemap = new FullScreenRenderer {
-            Name = "Composite",
-            ShaderName = TonemapKeys.ShaderName,
-            Modules = describer,
-            Device = device
+            Name = "Composite", ShaderName = TonemapKeys.ShaderName, Modules = describer, Device = device
         };
 
         tonemap.ColourTargets.Add("Display");

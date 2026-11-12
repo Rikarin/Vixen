@@ -120,14 +120,21 @@ public enum HousingRefusal {
 /// <summary>Who a plot belongs to: one player, or one guild.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>An opaque key rather than a <c>GuildId</c>, because doc 28's spine forbids the
-///         edge.</b> Only <c>Items</c> and <c>Combat</c> may be depended on horizontally, so housing
+///         ⚠
+///         <b>
+///             An opaque key rather than a <c>GuildId</c>, because doc 28's spine forbids the
+///             edge.
+///         </b>
+///         Only <c>Items</c> and <c>Combat</c> may be depended on horizontally, so housing
 ///         cannot reference <c>Vixen.Gameplay.Social</c>. The guild half is a <see cref="Guid" />
 ///         because that is what a <c>GuildId</c> wraps, and a game converts at the edge.
 ///     </para>
 ///     <para>
-///         <b>Doc 28 says guild housing is "the same thing with an <c>IGuildGrain</c> owner and a
-///         permission matrix instead of a single owner", and that is exactly what happens here:</b> a
+///         <b>
+///             Doc 28 says guild housing is "the same thing with an <c>IGuildGrain</c> owner and a
+///             permission matrix instead of a single owner", and that is exactly what happens here:
+///         </b>
+///         a
 ///         guild plot has no implicit owner, so <see cref="HousePlot.TierOf" /> answers from the
 ///         explicit grants alone. Mapping a guild rank onto a house tier is the guild's matrix, and it
 ///         is applied by whoever owns the guild — not by this library, which would have to guess.
@@ -168,8 +175,12 @@ public sealed record FurnitureDefinition : Definition {
 
     /// <summary>What it costs against the plot's budget.</summary>
     /// <remarks>
-    ///     ⚠ <b>The budget is the only thing standing between a housing feature and a realm that
-    ///     cannot load.</b> Ten thousand plots with unbounded furniture is unbounded work on every
+    ///     ⚠
+    ///     <b>
+    ///         The budget is the only thing standing between a housing feature and a realm that
+    ///         cannot load.
+    ///     </b>
+    ///     Ten thousand plots with unbounded furniture is unbounded work on every
     ///     zone-in, and a cost per piece is how a designer says a chandelier is not a candle.
     /// </remarks>
     public int Cost { get; set; } = 1;
@@ -336,19 +347,24 @@ public sealed class Plot {
     /// <summary>The lowest standing a verb needs.</summary>
     /// <param name="action">Which verb.</param>
     /// <returns>The tier.</returns>
-    public HouseTier Needs(HouseAction action) => action switch {
-        HouseAction.Enter => Definition.EnterTier,
-        HouseAction.Use => Definition.UseTier,
-        HouseAction.Decorate => Definition.DecorateTier,
-        _ => Definition.AdministerTier
-    };
+    public HouseTier Needs(HouseAction action) =>
+        action switch {
+            HouseAction.Enter => Definition.EnterTier,
+            HouseAction.Use => Definition.UseTier,
+            HouseAction.Decorate => Definition.DecorateTier,
+            _ => Definition.AdministerTier
+        };
 
     /// <summary>Puts a point on the grid.</summary>
     /// <param name="position">Where the player pointed.</param>
     /// <returns>Where it actually goes.</returns>
     /// <remarks>
-    ///     ⚠ <b>Called by the client to preview and by the realm to store, and it must be the same
-    ///     call.</b> That is why it is here rather than in the editor's gizmo or in a client's input
+    ///     ⚠
+    ///     <b>
+    ///         Called by the client to preview and by the realm to store, and it must be the same
+    ///         call.
+    ///     </b>
+    ///     That is why it is here rather than in the editor's gizmo or in a client's input
     ///     code — the manipulation grammar is doc 24's, but the rounding is content's.
     /// </remarks>
     public Vector3 Snap(Vector3 position) {
@@ -397,11 +413,12 @@ public sealed class HousingLibrary {
     public static HousingLibrary Empty { get; } = Compile(DefinitionCatalog.Empty);
 
     /// <summary>Every plot, in address order.</summary>
-    public IEnumerable<Plot> Plots => plots.Values.OrderBy(plot => plot.Definition.Address, StringComparer.Ordinal);
+    public IEnumerable<Plot> Plots =>
+        plots.Values.OrderBy(static plot => plot.Definition.Address, StringComparer.Ordinal);
 
     /// <summary>Every piece of furniture, in address order.</summary>
     public IEnumerable<Furniture> Furniture =>
-        furniture.Values.OrderBy(piece => piece.Definition.Address, StringComparer.Ordinal);
+        furniture.Values.OrderBy(static piece => piece.Definition.Address, StringComparer.Ordinal);
 
     /// <summary>What did not resolve, and what a definition said that cannot be true at once.</summary>
     public IReadOnlyList<string> Problems => problems;
@@ -478,7 +495,7 @@ public sealed class HousingLibrary {
             }
         }
 
-        return new(plots, furniture, [.. problems]);
+        return new(plots, furniture, [..problems]);
     }
 
     /// <summary>Finds a plot.</summary>

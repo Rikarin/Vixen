@@ -13,8 +13,12 @@ namespace Vixen.Graphics.Vulkan.Tests;
 /// </summary>
 public sealed class VulkanBarrierTests {
     /// <summary>
-    ///     ⚠ <b>What <c>Undefined</c> means as a <em>use</em>, which is not what it means as a
-    ///     barrier's source half.</b> No stage of this queue is using the resource and no access is
+    ///     ⚠
+    ///     <b>
+    ///         What <c>Undefined</c> means as a <em>use</em>, which is not what it means as a
+    ///         barrier's source half.
+    ///     </b>
+    ///     No stage of this queue is using the resource and no access is
     ///     being performed on it — see
     ///     <see cref="AnUndefinedSourceOrdersAfterEverythingBecauseTheMemoryHadATenant" /> for the
     ///     question this one is not the answer to.
@@ -27,8 +31,11 @@ public sealed class VulkanBarrierTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>An <c>Undefined</c> source waits for everything, because the memory has a previous
-    ///     tenant.</b>
+    ///     ⚠
+    ///     <b>
+    ///         An <c>Undefined</c> source waits for everything, because the memory has a previous
+    ///         tenant.
+    ///     </b>
     /// </summary>
     /// <remarks>
     ///     <para>

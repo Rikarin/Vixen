@@ -43,7 +43,6 @@ public sealed class ClusterResolveTests : IDisposable {
 
     public void Dispose() {
         device.Dispose();
-        GC.SuppressFinalize(this);
     }
 
     /// <summary>
@@ -72,7 +71,10 @@ public sealed class ClusterResolveTests : IDisposable {
         Assert.Equal(material.Composition, key.Composition);
 
         // The gradients are on, which is what makes the sampling defined in a stage with no quad.
-        Assert.Contains(key.Values, pair => pair.Key == GpuClusterResolve.AnalyticGradientsKey && pair.Value == "true");
+        Assert.Contains(
+            key.Values,
+            static pair => pair.Key == GpuClusterResolve.AnalyticGradientsKey && pair.Value == "true"
+        );
 
         // Two materials with different compositions are two variants; the same material twice is one.
         Assert.NotEqual(key, GpuClusterResolve.Key(Untextured()));
@@ -80,7 +82,7 @@ public sealed class ClusterResolveTests : IDisposable {
 
         // And the ambient permutation reaches the key, so a project that turns IBL off gets a variant
         // without it rather than one that samples an unbound cube.
-        Assert.NotEqual(key, GpuClusterResolve.Key(material, imageBasedLighting: false));
+        Assert.NotEqual(key, GpuClusterResolve.Key(material, false));
 
         // The ambient split too — the same key name the forward pass compiles under, because the two
         // paths shade the same frame and must split together or not at all.
@@ -88,7 +90,7 @@ public sealed class ClusterResolveTests : IDisposable {
 
         Assert.Contains(
             GpuClusterResolve.Key(material, splitOutputs: true).Values,
-            pair => pair.Key == VisibilityResolveKeys.SplitOutputs.Name && pair.Value == "true"
+            static pair => pair.Key == VisibilityResolveKeys.SplitOutputs.Name && pair.Value == "true"
         );
     }
 
@@ -104,8 +106,12 @@ public sealed class ClusterResolveTests : IDisposable {
     ///         its own to bind.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>That half alone does not catch a forgotten alias, and it used to be the whole
-    ///         test.</b> <c>EffectSetWriter</c> asks whether a name is <em>set</em>, not whether what
+    ///         ⚠
+    ///         <b>
+    ///             That half alone does not catch a forgotten alias, and it used to be the whole
+    ///             test.
+    ///         </b>
+    ///         <c>EffectSetWriter</c> asks whether a name is <em>set</em>, not whether what
     ///         it is set to exists — so a <c>Prepare</c> that passed the caller's invalid plane
     ///         straight through instead of aliasing the colour into it produced a complete set of
     ///         well-formed descriptors, one of which named nothing, and this test passed. Verified by
@@ -125,7 +131,10 @@ public sealed class ClusterResolveTests : IDisposable {
     public void The_split_planes_are_filled_in_every_variant() {
         using var visibility = Registered(out var pages, out var source);
         using var pool = new MeshletPagePool(device, source, pages.Pages.Length, pages.PageSize);
-        using var tiles = new GpuVisibilityTiles(device) { Effects = effects, Pipelines = pipelines, Visibility = visibility };
+        using var tiles = new GpuVisibilityTiles(device);
+        tiles.Effects = effects;
+        tiles.Pipelines = pipelines;
+        tiles.Visibility = visibility;
         using var resolve = Resolve(visibility, tiles, pool);
 
         resolve.Materials = [new(Textured(), 0)];
@@ -165,8 +174,12 @@ public sealed class ClusterResolveTests : IDisposable {
     ///         another is the same defect.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The buffers as well as the views, which they were not while this fixture stopped
-    ///         short of preparing the traversal.</b> Seven of the resolve's bindings are
+    ///         ⚠
+    ///         <b>
+    ///             The buffers as well as the views, which they were not while this fixture stopped
+    ///             short of preparing the traversal.
+    ///         </b>
+    ///         Seven of the resolve's bindings are
     ///         <c>GpuClusterVisibility</c>'s buffers, made in <c>EnsureBuffers</c> and reached only from
     ///         its own <c>Prepare</c> — so a fixture that never ran one wrote <c>visible</c>,
     ///         <c>geometry</c>, <c>meshes</c>, <c>residency</c> and <c>clusterMaterials</c> naming
@@ -178,10 +191,10 @@ public sealed class ClusterResolveTests : IDisposable {
     /// </remarks>
     void EveryDescriptorNamesSomething() {
         Assert.All(
-            device.RecordedWrites!.Where(
-                write => write.Kind is DescriptorKind.SampledTexture or DescriptorKind.StorageTexture
+            device.RecordedWrites!.Where(static write => write.Kind is DescriptorKind.SampledTexture
+                or DescriptorKind.StorageTexture
             ),
-            write => Assert.True(
+            static write => Assert.True(
                 write.TextureView.IsValid,
                 $"Binding {write.Binding} was written as a {write.Kind} naming nothing. The set is "
                 + "complete and the descriptor is well-formed, which is exactly why this is not "
@@ -190,10 +203,10 @@ public sealed class ClusterResolveTests : IDisposable {
         );
 
         Assert.All(
-            device.RecordedWrites!.Where(
-                write => write.Kind is DescriptorKind.StorageBuffer or DescriptorKind.DynamicStorageBuffer
+            device.RecordedWrites!.Where(static write => write.Kind is DescriptorKind.StorageBuffer
+                or DescriptorKind.DynamicStorageBuffer
             ),
-            write => Assert.True(
+            static write => Assert.True(
                 write.Buffer.IsValid,
                 $"Binding {write.Binding} was written as a {write.Kind} naming nothing. The commonest "
                 + "way to get here is a traversal that registered meshes and never prepared: MeshCount "
@@ -222,7 +235,10 @@ public sealed class ClusterResolveTests : IDisposable {
     public void Every_material_dispatches_against_its_own_bin() {
         using var visibility = Registered(out var pages, out var source);
         using var pool = new MeshletPagePool(device, source, pages.Pages.Length, pages.PageSize);
-        using var tiles = new GpuVisibilityTiles(device) { Effects = effects, Pipelines = pipelines, Visibility = visibility };
+        using var tiles = new GpuVisibilityTiles(device);
+        tiles.Effects = effects;
+        tiles.Pipelines = pipelines;
+        tiles.Visibility = visibility;
         using var resolve = Resolve(visibility, tiles, pool);
 
         resolve.Materials = [new(Textured(), 0), new(Untextured(), 3)];
@@ -239,8 +255,8 @@ public sealed class ClusterResolveTests : IDisposable {
         var recorded = Record(list => resolve.Record(list));
 
         var dispatches = recorded
-            .Where(command => command.Kind == RecordedCommandKind.DispatchIndirect)
-            .Select(command => command.B)
+            .Where(static command => command.Kind == RecordedCommandKind.DispatchIndirect)
+            .Select(static command => command.B)
             .ToArray();
 
         Assert.Equal(2, dispatches.Length);
@@ -267,7 +283,10 @@ public sealed class ClusterResolveTests : IDisposable {
     public void A_bin_with_no_material_is_counted_rather_than_drawn() {
         using var visibility = Registered(out var pages, out var source);
         using var pool = new MeshletPagePool(device, source, pages.Pages.Length, pages.PageSize);
-        using var tiles = new GpuVisibilityTiles(device) { Effects = effects, Pipelines = pipelines, Visibility = visibility };
+        using var tiles = new GpuVisibilityTiles(device);
+        tiles.Effects = effects;
+        tiles.Pipelines = pipelines;
+        tiles.Visibility = visibility;
         using var resolve = Resolve(visibility, tiles, pool);
 
         resolve.Materials = [new(null!, 0), new(Textured(), GpuVisibilityTiles.MaxMaterials), new(Textured(), -1)];
@@ -281,7 +300,7 @@ public sealed class ClusterResolveTests : IDisposable {
 
         Assert.DoesNotContain(
             Record(list => resolve.Record(list)),
-            command => command.Kind == RecordedCommandKind.DispatchIndirect
+            static command => command.Kind == RecordedCommandKind.DispatchIndirect
         );
     }
 
@@ -298,7 +317,10 @@ public sealed class ClusterResolveTests : IDisposable {
     public void A_bin_dispatches_once_per_preparation() {
         using var visibility = Registered(out var pages, out var source);
         using var pool = new MeshletPagePool(device, source, pages.Pages.Length, pages.PageSize);
-        using var tiles = new GpuVisibilityTiles(device) { Effects = effects, Pipelines = pipelines, Visibility = visibility };
+        using var tiles = new GpuVisibilityTiles(device);
+        tiles.Effects = effects;
+        tiles.Pipelines = pipelines;
+        tiles.Visibility = visibility;
         using var resolve = Resolve(visibility, tiles, pool);
 
         resolve.Materials = [new(Textured(), 0)];
@@ -330,8 +352,12 @@ public sealed class ClusterResolveTests : IDisposable {
     ///     </para>
     ///     <para>
     ///         So both consumers used to go ahead: the binning bound three of the traversal's buffers and
-    ///         the resolve seven, all of them naming nothing, and <em>every counter reported a healthy
-    ///         pass</em> — <c>EffectSetWriter</c> counts a descriptor naming nothing as filled, so the
+    ///         the resolve seven, all of them naming nothing, and
+    ///         <em>
+    ///             every counter reported a healthy
+    ///             pass
+    ///         </em>
+    ///         — <c>EffectSetWriter</c> counts a descriptor naming nothing as filled, so the
     ///         set completed, <c>ResolvedMaterials</c> was one and <c>Unresolved</c> was zero. That is
     ///         the whole reason this is asserted through <c>RecordedWrites</c> and not through the
     ///         return values alone: the return values were the thing that lied.
@@ -347,9 +373,12 @@ public sealed class ClusterResolveTests : IDisposable {
     /// </remarks>
     [Fact]
     public void A_traversal_that_never_prepared_binds_nothing() {
-        using var visibility = Registered(out var pages, out var source, prepared: false);
+        using var visibility = Registered(out var pages, out var source, false);
         using var pool = new MeshletPagePool(device, source, pages.Pages.Length, pages.PageSize);
-        using var tiles = new GpuVisibilityTiles(device) { Effects = effects, Pipelines = pipelines, Visibility = visibility };
+        using var tiles = new GpuVisibilityTiles(device);
+        tiles.Effects = effects;
+        tiles.Pipelines = pipelines;
+        tiles.Visibility = visibility;
         using var resolve = Resolve(visibility, tiles, pool);
 
         resolve.Materials = [new(Textured(), 0)];
@@ -371,7 +400,7 @@ public sealed class ClusterResolveTests : IDisposable {
 
         Assert.DoesNotContain(
             Record(list => resolve.Record(list)),
-            command => command.Kind == RecordedCommandKind.DispatchIndirect
+            static command => command.Kind == RecordedCommandKind.DispatchIndirect
         );
 
         // And the point of the whole thing: nothing was written, so nothing dead was written.
@@ -397,23 +426,28 @@ public sealed class ClusterResolveTests : IDisposable {
 
         var declared = root.GetProperty("Sets")
             .EnumerateArray()
-            .Single(set => set.GetProperty("Set").GetInt32() == (int)DescriptorSetSlot.PerMaterial)
+            .Single(static set => set.GetProperty("Set").GetInt32() == (int)DescriptorSetSlot.PerMaterial)
             .GetProperty("Bindings")
             .EnumerateArray()
-            .Select(binding => (binding.GetProperty("Name").GetString()!, binding.GetProperty("Binding").GetInt32()))
+            .Select(static binding => (binding.GetProperty("Name").GetString()!,
+                    binding.GetProperty("Binding").GetInt32())
+            )
             .ToArray();
 
         // The uniform block is named for the shader in the reflection and for its slot in the fixture,
         // which is the one difference that is not drift.
         Assert.Equal(
             declared.Skip(1).ToArray(),
-            AlwaysCompiles.Resolve.Skip(1).Select(binding => (binding.Name, (int)binding.Binding)).ToArray()
+            AlwaysCompiles.Resolve.Skip(1).Select(static binding => (binding.Name, (int)binding.Binding)).ToArray()
         );
     }
 
     static string ReflectionPath() {
-        for (var directory = new DirectoryInfo(AppContext.BaseDirectory); directory is not null; directory = directory.Parent) {
-            var candidate = Path.Combine(directory.FullName, "Raven", "Library", "Pipeline", "VisibilityResolve.reflect.json");
+        for (var directory = new DirectoryInfo(AppContext.BaseDirectory);
+             directory is not null;
+             directory = directory.Parent) {
+            var candidate =
+                Path.Combine(directory.FullName, "Raven", "Library", "Pipeline", "VisibilityResolve.reflect.json");
 
             if (File.Exists(candidate)) {
                 return candidate;
@@ -451,7 +485,11 @@ public sealed class ClusterResolveTests : IDisposable {
     ///     <c>Prepare</c> reaches — so a fixture that skipped it wrote seven descriptors naming nothing
     ///     and every assertion about the set was an assertion about a state no frame has.
     /// </remarks>
-    GpuClusterVisibility Registered(out MeshletPageSet pages, out MemoryMeshletPageSource source, bool prepared = true) {
+    GpuClusterVisibility Registered(
+        out MeshletPageSet pages,
+        out MemoryMeshletPageSource source,
+        bool prepared = true
+    ) {
         var input = Sphere(8, 16);
         var mesh = MeshletBuilder.Build(input);
 
@@ -483,8 +521,12 @@ public sealed class ClusterResolveTests : IDisposable {
     /// <summary>A mesh registered after the first frame is staged into buffers that fit it.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b><c>EnsureBuffers</c> only ever watched two numbers, and the mesh records were not
-    ///         among them.</b> Its early-out asked whether the visible list had outgrown its capacity
+    ///         ⚠
+    ///         <b>
+    ///             <c>EnsureBuffers</c> only ever watched two numbers, and the mesh records were not
+    ///             among them.
+    ///         </b>
+    ///         Its early-out asked whether the visible list had outgrown its capacity
     ///         and whether the morph tables had, and returned. Every other buffer it makes —
     ///         <c>Clusters</c>, <c>Children</c>, <c>Roots</c>, <c>Geometry</c>, <c>Grids</c>,
     ///         <c>Materials</c> and the host-visible <c>Staging</c> they are all copied through — is
@@ -502,8 +544,12 @@ public sealed class ClusterResolveTests : IDisposable {
     ///         would not.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The instance count is held at two across both frames, and that is the whole
-    ///         fixture.</b> A first draft grew it from one to two and passed against the unfixed code —
+    ///         ⚠
+    ///         <b>
+    ///             The instance count is held at two across both frames, and that is the whole
+    ///             fixture.
+    ///         </b>
+    ///         A first draft grew it from one to two and passed against the unfixed code —
     ///         because the visible list is sized from the instance count, so a frame that adds an
     ///         instance reallocates everything as a side effect and the mesh records come along for
     ///         free. The defect is only reachable when the registration is the thing that changed,
@@ -521,7 +567,9 @@ public sealed class ClusterResolveTests : IDisposable {
         var mesh = MeshletBuilder.Build(input);
         var pages = MeshletPageBuilder.Build(mesh, input.Positions, [], new() { PageSize = 4 * 1024 });
 
-        using var visibility = new GpuClusterVisibility(device) { Effects = effects, Pipelines = pipelines };
+        using var visibility = new GpuClusterVisibility(device);
+        visibility.Effects = effects;
+        visibility.Pipelines = pipelines;
 
         visibility.Register(mesh, pages, 0);
         Populate(visibility);
@@ -559,8 +607,12 @@ public sealed class ClusterResolveTests : IDisposable {
 
     /// <summary>How many buffer copies the prepared frame recorded, this frame alone.</summary>
     /// <remarks>
-    ///     ⚠ <b>From an index taken before the recording, because <c>CommandRecorder</c> is
-    ///     cumulative over the whole fixture.</b> The first draft grouped every <c>CopyBuffer</c> in
+    ///     ⚠
+    ///     <b>
+    ///         From an index taken before the recording, because <c>CommandRecorder</c> is
+    ///         cumulative over the whole fixture.
+    ///     </b>
+    ///     The first draft grouped every <c>CopyBuffer</c> in
     ///     the stream by its source handle and took the largest group, reasoning that the mesh copies
     ///     all come out of the staging buffer — which is true, and which made the count 7 only
     ///     because the fixed code <em>reallocates</em> the staging buffer and so gives the second
@@ -571,7 +623,7 @@ public sealed class ClusterResolveTests : IDisposable {
         var before = device.Recorder!.Commands.Count;
         var commands = Record(list => visibility.Record(list));
 
-        return commands.Skip(before).Count(command => command.Kind == RecordedCommandKind.CopyBuffer);
+        return commands.Skip(before).Count(static command => command.Kind == RecordedCommandKind.CopyBuffer);
     }
 
     /// <summary>The same as <see cref="Record" />, keeping what the recorded call answered.</summary>
@@ -592,15 +644,18 @@ public sealed class ClusterResolveTests : IDisposable {
         return device.Recorder!.Commands;
     }
 
-    ICommandList Open() {
-        var list = device.BeginCommandList(QueueKind.Compute);
-        return list;
-    }
+    ICommandList Open() => device.BeginCommandList(QueueKind.Compute);
 
     TextureViewHandle Identities() =>
         device.CreateTextureView(
             device.CreateTexture(
-                new(GpuClusterRaster.Format, 64, 64, TextureUsage.ColourTarget | TextureUsage.Sampled, Name: "Identities")
+                new(
+                    GpuClusterRaster.Format,
+                    64,
+                    64,
+                    TextureUsage.ColourTarget | TextureUsage.Sampled,
+                    Name: "Identities"
+                )
             )
         );
 
@@ -659,7 +714,7 @@ public sealed class ClusterResolveTests : IDisposable {
         var indices = new List<int>();
         var last = positions.Count - 1;
 
-        int At(int ring, int segment) => 1 + ((ring - 1) * segments) + (segment % segments);
+        int At(int ring, int segment) => 1 + (ring - 1) * segments + segment % segments;
 
         for (var segment = 0; segment < segments; segment++) {
             indices.AddRange([0, At(1, segment + 1), At(1, segment)]);
@@ -678,7 +733,7 @@ public sealed class ClusterResolveTests : IDisposable {
             }
         }
 
-        return new() { Positions = [.. positions], Indices = [.. indices] };
+        return new() { Positions = [..positions], Indices = [..indices] };
     }
 
     /// <summary>
@@ -772,7 +827,11 @@ public sealed class ClusterResolveTests : IDisposable {
                 _ => new() { Key = key, Stages = [new(ShaderStage.Compute, [1, 2, 3, 4], "main")] }
             };
 
-        static Effect Compiled(EffectKey key, ImmutableArray<EffectBinding> bindings, DescriptorSetLayoutHandle layout) =>
+        static Effect Compiled(
+            EffectKey key,
+            ImmutableArray<EffectBinding> bindings,
+            DescriptorSetLayoutHandle layout
+        ) =>
             new() {
                 Key = key,
                 Stages = [new(ShaderStage.Compute, [1, 2, 3, 4], "main")],
@@ -785,11 +844,15 @@ public sealed class ClusterResolveTests : IDisposable {
                 Bindings = bindings
             };
 
-        static DescriptorSetLayoutHandle Layout(NullDevice device, ImmutableArray<EffectBinding> bindings, string name) =>
+        static DescriptorSetLayoutHandle Layout(
+            NullDevice device,
+            ImmutableArray<EffectBinding> bindings,
+            string name
+        ) =>
             device.CreateDescriptorSetLayout(
                 new(
                     DescriptorSetSlot.PerMaterial,
-                    [.. bindings.Select(b => new DescriptorBinding(b.Binding, b.Kind, ShaderStage.Compute))],
+                    [..bindings.Select(static b => new DescriptorBinding(b.Binding, b.Kind, ShaderStage.Compute))],
                     name
                 )
             );

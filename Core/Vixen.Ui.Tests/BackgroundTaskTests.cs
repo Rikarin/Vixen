@@ -46,7 +46,7 @@ public class BackgroundTaskTests {
     [Fact]
     public async Task Work_that_throws_ends_as_failed_rather_than_taking_the_process_down() {
         using var tasks = new BackgroundTaskManager();
-        var task = tasks.Start("Building", _ => throw new InvalidOperationException("no compiler"));
+        var task = tasks.Start("Building", static _ => throw new InvalidOperationException("no compiler"));
 
         await Drain(tasks, task);
 
@@ -95,7 +95,7 @@ public class BackgroundTaskTests {
             task.Report("file " + i);
         }
 
-        tasks.Pump(budget: 3);
+        tasks.Pump(3);
         Assert.Equal("file 2", task.Status);
 
         tasks.Pump();
@@ -109,8 +109,12 @@ public class BackgroundTaskTests {
     ///     work reports, without anybody subscribing to an event or bumping a revision counter.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>An <see cref="Effect" /> rather than a direct read, because a direct read passes
-    ///     even if the properties are plain fields.</b> What is being pinned is that reading
+    ///     ⚠
+    ///     <b>
+    ///         An <see cref="Effect" /> rather than a direct read, because a direct read passes
+    ///         even if the properties are plain fields.
+    ///     </b>
+    ///     What is being pinned is that reading
     ///     <c>Progress</c> inside a reactive scope *subscribes* to it — which is what makes
     ///     `TaskCenter.vxml` a panel over the model rather than a view that is told to look.
     /// </remarks>

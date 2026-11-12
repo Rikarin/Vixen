@@ -3,10 +3,8 @@
 
 using System.Runtime.InteropServices;
 using Vixen.Core.Imaging;
-using Vixen.Core.Mathematics;
 using Vixen.Graphics.Vulkan;
 using Vixen.Rendering;
-using Vixen.Ui.Testing.Visual;
 using Xunit;
 using Graph = Vixen.Graphics.RenderGraph.RenderGraph;
 using GraphTexture = Vixen.Graphics.RenderGraph.GraphTexture;
@@ -69,8 +67,11 @@ sealed class Fixture : IDisposable {
     /// <returns>Whether a device was opened.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>It writes the adapter into the running test's output itself, which is what makes
-    ///         a number out of this suite attributable</b>
+    ///         ⚠
+    ///         <b>
+    ///             It writes the adapter into the running test's output itself, which is what makes
+    ///             a number out of this suite attributable
+    ///         </b>
     ///         (<a href="https://github.com/Rikarin/Vixen/issues/795" />). Nineteen device files here
     ///         named no adapter at all, so a picture that differed, a timing that regressed or a leak
     ///         that appeared could not be pinned to a machine — and this is the suite whose numbers
@@ -78,8 +79,12 @@ sealed class Fixture : IDisposable {
     ///         skipped without a device until 2026-08-21.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Here rather than in a rule over the files, and that is why it is possible at
-    ///         all.</b> #795 looked for a <c>build/</c> scope that covered this suite and found none
+    ///         ⚠
+    ///         <b>
+    ///             Here rather than in a rule over the files, and that is why it is possible at
+    ///             all.
+    ///         </b>
+    ///         #795 looked for a <c>build/</c> scope that covered this suite and found none
     ///         that was not either too wide or a written list. It needs neither: <c>TryOpen</c> is
     ///         the only door — <see cref="DeviceGuardTests.OnlyTheFixtureOpensADevice" /> holds it at
     ///         one — so naming the adapter at the door names it for every device test in the
@@ -136,8 +141,12 @@ sealed class Fixture : IDisposable {
 
     /// <summary>The line stages, out of the assembly that embeds them.</summary>
     /// <remarks>
-    ///     ⚠ <b>Read from <c>Vixen.Rendering</c>'s embedded resources, and this suite used to keep a
-    ///     byte-identical copy of all four files under its own <c>Shaders/</c> instead</b> (#637).
+    ///     ⚠
+    ///     <b>
+    ///         Read from <c>Vixen.Rendering</c>'s embedded resources, and this suite used to keep a
+    ///         byte-identical copy of all four files under its own <c>Shaders/</c> instead
+    ///     </b>
+    ///     (#637).
     ///     Source and module were identical on both sides, so the copy bought nothing and was one
     ///     more pair somebody had to keep in step by hand — and this suite is the only other reader
     ///     of a line stage in the tree.
@@ -160,9 +169,7 @@ sealed class Fixture : IDisposable {
     public BufferHandle Buffer<T>(ReadOnlySpan<T> data, BufferUsage usage) where T : unmanaged {
         var bytes = MemoryMarshal.AsBytes(data);
 
-        var handle = device.CreateBuffer(
-            new(bytes.Length, usage, MemoryAccess.HostUpload, $"fixture {usage}")
-        );
+        var handle = device.CreateBuffer(new(bytes.Length, usage, MemoryAccess.HostUpload, $"fixture {usage}"));
 
         device.Write(handle, 0, bytes);
         cleanup.Add(() => device.Destroy(handle));
@@ -200,30 +207,35 @@ sealed class Fixture : IDisposable {
         PixelFormat depthFormat = PixelFormat.Depth32Float,
         int sampleCount = 1
     ) {
-        var layout = device.CreatePipelineLayout(new(
-            sets ?? [],
-            pushConstantBytes > 0 ? [new(ShaderStage.Vertex, 0, pushConstantBytes)] : null,
-            "fixture layout"
-        ));
+        var layout = device.CreatePipelineLayout(
+            new(
+                sets ?? [],
+                pushConstantBytes > 0 ? [new(ShaderStage.Vertex, 0, pushConstantBytes)] : null,
+                "fixture layout"
+            )
+        );
 
-        var pipeline = device.CreateGraphicsPipeline(new(
-            vertex,
-            fragment,
-            layout,
-            targets ?? [new(PixelFormat.Rgba8UNorm, blend)],
-            vertices,
-            topology,
-            rasterizer ?? RasterizerState.TwoSided,
-            depth,
-            depth.DepthTest || depth.StencilTest ? depthFormat : PixelFormat.Undefined,
-            sampleCount,
-            "fixture"
-        ));
+        var pipeline = device.CreateGraphicsPipeline(
+            new(
+                vertex,
+                fragment,
+                layout,
+                targets ?? [new(PixelFormat.Rgba8UNorm, blend)],
+                vertices,
+                topology,
+                rasterizer ?? RasterizerState.TwoSided,
+                depth,
+                depth.DepthTest || depth.StencilTest ? depthFormat : PixelFormat.Undefined,
+                sampleCount,
+                "fixture"
+            )
+        );
 
         cleanup.Add(() => {
-            device.Destroy(pipeline);
-            device.Destroy(layout);
-        });
+                device.Destroy(pipeline);
+                device.Destroy(layout);
+            }
+        );
 
         return pipeline;
     }
@@ -355,10 +367,14 @@ sealed class Fixture : IDisposable {
     ///         throwing out of the recording block leaves a command list that is never submitted and
     ///         a readback buffer nobody frees, and a leak reported at device teardown would bury the
     ///         message that says what actually went wrong.
-    /// </para>
+    ///     </para>
     ///     <para>
-    ///         ⚠ <b>What it reads reaches back to <see cref="TryOpen" />, not to the top of
-    ///         <see cref="Render" />.</b> The counter is reset when the device is opened, so a
+    ///         ⚠
+    ///         <b>
+    ///             What it reads reaches back to <see cref="TryOpen" />, not to the top of
+    ///             <see cref="Render" />.
+    ///         </b>
+    ///         The counter is reset when the device is opened, so a
     ///         fixture that built an illegal resource fails here even though the picture itself was
     ///         drawn cleanly — which is the point, because the picture was drawn on a device that had
     ///         already been told it was doing something the spec forbids. A fixture that opens a
@@ -440,12 +456,13 @@ sealed class Fixture : IDisposable {
         var view = (usage & Viewable) != 0 ? device.CreateTextureView(texture) : TextureViewHandle.Null;
 
         cleanup.Add(() => {
-            if (view.IsValid) {
-                device.Destroy(view);
-            }
+                if (view.IsValid) {
+                    device.Destroy(view);
+                }
 
-            device.Destroy(texture);
-        });
+                device.Destroy(texture);
+            }
+        );
 
         return (texture, view, description);
     }
@@ -455,13 +472,15 @@ sealed class Fixture : IDisposable {
 
     /// <summary>A depth target the graph will provide.</summary>
     public GraphTexture DepthTarget(string name) =>
-        Graph.CreateTexture(new(
-            PixelFormat.Depth32Float,
-            Side,
-            Side,
-            TextureUsage.DepthStencilTarget,
-            Name: name
-        ));
+        Graph.CreateTexture(
+            new(
+                PixelFormat.Depth32Float,
+                Side,
+                Side,
+                TextureUsage.DepthStencilTarget,
+                Name: name
+            )
+        );
 
     /// <summary>A combined depth-stencil target the graph will provide.</summary>
     /// <remarks>
@@ -479,13 +498,15 @@ sealed class Fixture : IDisposable {
     ///     </para>
     /// </remarks>
     public GraphTexture DepthStencilTarget(string name) =>
-        Graph.CreateTexture(new(
-            PixelFormat.Depth32FloatStencil8,
-            Side,
-            Side,
-            TextureUsage.DepthStencilTarget,
-            Name: name
-        ));
+        Graph.CreateTexture(
+            new(
+                PixelFormat.Depth32FloatStencil8,
+                Side,
+                Side,
+                TextureUsage.DepthStencilTarget,
+                Name: name
+            )
+        );
 
     /// <inheritdoc />
     public void Dispose() {

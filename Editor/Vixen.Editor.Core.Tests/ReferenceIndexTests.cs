@@ -64,7 +64,7 @@ public sealed class ReferenceIndexTests {
         Assert.Equal([scene], index.ReferrersOf(model));
         var reference = Assert.Single(index.ReferencesFrom(scene));
         Assert.Equal(model, reference.Asset);
-        Assert.Equal(new SubAssetId(0x2b9e5f13), reference.SubAsset);
+        Assert.Equal(new(0x2b9e5f13), reference.SubAsset);
     }
 
     [Fact]

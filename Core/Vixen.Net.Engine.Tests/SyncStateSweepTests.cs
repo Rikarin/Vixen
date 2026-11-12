@@ -45,7 +45,9 @@ public sealed class LootBehaviour : NetworkBehaviour {
 
     readonly LootState state = new();
 
-    public LootBehaviour() => Items = DeclareList(new SyncList<int>(), nameof(Items));
+    public LootBehaviour() {
+        Items = DeclareList(new SyncList<int>(), nameof(Items));
+    }
 
     /// <summary>What to append on the next <c>Update</c>, or null.</summary>
     public int? Pending { get; set; }
@@ -65,7 +67,9 @@ public sealed class LootBehaviour : NetworkBehaviour {
     public sealed class LootState : NetworkModule {
         public SyncVar<int> Version { get; }
 
-        public LootState() => Version = Declare(new SyncVar<int>(0), nameof(Version));
+        public LootState() {
+            Version = Declare(new SyncVar<int>(0), nameof(Version));
+        }
     }
 }
 
@@ -111,8 +115,12 @@ public sealed class SyncStateSweepTests : IDisposable {
 
     /// <summary>Without the system, a <c>SyncVar</c> written from <c>Update</c> never leaves the server.</summary>
     /// <remarks>
-    ///     ⚠ <b>The sabotage half, and it fails silently in exactly the way that makes it worth a
-    ///     test.</b> Nothing throws, nothing is logged, and the server's own copy is correct — the
+    ///     ⚠
+    ///     <b>
+    ///         The sabotage half, and it fails silently in exactly the way that makes it worth a
+    ///         test.
+    ///     </b>
+    ///     Nothing throws, nothing is logged, and the server's own copy is correct — the
     ///     entity simply never acquires a <see cref="SyncStateVersion" />, so
     ///     <see cref="SyncStateReplicator{T}" /> does not consider it and the client never hears
     ///     about the object at all.
@@ -199,8 +207,12 @@ public sealed class SyncStateSweepTests : IDisposable {
     ///         object that costs a hash comparison every tick for ever.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>"Captured" and not "swept" is the condition, and the capture in the middle of
-    ///         this test is load-bearing.</b> A field's dirt is cleared by
+    ///         ⚠
+    ///         <b>
+    ///             "Captured" and not "swept" is the condition, and the capture in the middle of
+    ///             this test is load-bearing.
+    ///         </b>
+    ///         A field's dirt is cleared by
     ///         <see cref="SyncStateReplicator{T}" /> writing it, so a sweep that runs twice between
     ///         two captures marks twice — deliberately, because that is what makes a capture which
     ///         skipped a frame still see the change.
@@ -238,7 +250,7 @@ public sealed class SyncStateSweepTests : IDisposable {
     /// </remarks>
     [Fact]
     public void ABehaviourOnAnEntityWithNoNetworkId_IsNotVisited() {
-        var sweep = new SyncStateSweepSystem(loop.Behaviors);
+        using var sweep = new SyncStateSweepSystem(loop.Behaviors);
 
         var offline = loop.World.Create();
         var networked = loop.World.Create(new NetworkId(1));
@@ -336,7 +348,7 @@ public sealed class SyncStateSweepOrderTests {
 
         Assert.Equal(
             [nameof(BehaviorLateUpdateSystem), nameof(SyncStateSweepSystem)],
-            late.Select(placement => placement.Name)
+            late.Select(static placement => placement.Name)
         );
 
         // ⚠ An `[UpdateAfter]` naming a system that is not in the set is dropped in silence. An

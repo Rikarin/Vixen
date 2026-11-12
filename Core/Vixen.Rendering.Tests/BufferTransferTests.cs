@@ -106,7 +106,7 @@ public class BufferTransferTests : IDisposable {
                         pass.Kind = PassKind.Compute;
                         pass.Reads(target);
                         pass.SideEffect();
-                        pass.Execute(context => context.CommandList.Dispatch(1));
+                        pass.Execute(static context => context.CommandList.Dispatch(1));
                     }
                 );
             }
@@ -208,9 +208,7 @@ public class BufferTransferTests : IDisposable {
         var counter = 0u;
 
         using var upload = new BufferUploadRenderer {
-            Name = "Fill",
-            Buffer = "Histogram",
-            OnUpload = node => node.Set<uint>([++counter, counter])
+            Name = "Fill", Buffer = "Histogram", OnUpload = node => node.Set([++counter, counter])
         };
 
         var compositor = Compositor(upload, Consumer("Histogram"));
@@ -221,7 +219,7 @@ public class BufferTransferTests : IDisposable {
 
         Assert.Equal(2, upload.UploadCount);
         Assert.Equal([2u, 2u], MemoryMarshal.Cast<byte, uint>(upload.Data).ToArray());
-        Assert.All(Copies, copy => Assert.Equal(8, copy.E));
+        Assert.All(Copies, static copy => Assert.Equal(8, copy.E));
     }
 
     /// <summary>
@@ -254,11 +252,7 @@ public class BufferTransferTests : IDisposable {
     public void An_upload_that_overruns_the_buffer_is_refused() {
         var target = Imported("Histogram", BufferUsage.Storage | BufferUsage.CopyDestination);
 
-        using var upload = new BufferUploadRenderer {
-            Name = "Fill",
-            Buffer = "Histogram",
-            Offset = Size - 4
-        };
+        using var upload = new BufferUploadRenderer { Name = "Fill", Buffer = "Histogram", Offset = Size - 4 };
 
         upload.Set<uint>([1, 2, 3]);
 
@@ -365,7 +359,7 @@ public class BufferTransferTests : IDisposable {
         Frame(compositor);
         Frame(compositor);
 
-        var offsets = Copies.Select(copy => copy.D).ToArray();
+        var offsets = Copies.Select(static copy => copy.D).ToArray();
 
         // Two frames in flight, so two regions, and the third frame is back where the first was —
         // which is a region the device has finished with by then.
@@ -468,10 +462,7 @@ public class BufferTransferTests : IDisposable {
         var source = Imported("Exposure", BufferUsage.Storage | BufferUsage.CopySource);
 
         using var readback = new BufferReadbackRenderer {
-            Name = "Read",
-            Buffer = "Exposure",
-            Offset = Size - 8,
-            Size = 32
+            Name = "Read", Buffer = "Exposure", Offset = Size - 8, Size = 32
         };
 
         var compositor = Compositor(readback);
@@ -535,26 +526,26 @@ public class BufferTransferTests : IDisposable {
     // --- As a document ------------------------------------------------------
 
     const string Document = """
-        version: 2
-        stages:
-          - name: Opaque
-        buffers:
-          - name: Scratch
-            size: 256
-            usage: Storage, CopySource, CopyDestination
-        game: !Sequence
-          name: Frame
-          children:
-            - !Upload
-              name: Seed
-              buffer: Scratch
-              offset: 32
-            - !Readback
-              name: Answer
-              buffer: Scratch
-              size: 16
-              latency: 2
-        """;
+                            version: 2
+                            stages:
+                              - name: Opaque
+                            buffers:
+                              - name: Scratch
+                                size: 256
+                                usage: Storage, CopySource, CopyDestination
+                            game: !Sequence
+                              name: Frame
+                              children:
+                                - !Upload
+                                  name: Seed
+                                  buffer: Scratch
+                                  offset: 32
+                                - !Readback
+                                  name: Answer
+                                  buffer: Scratch
+                                  size: 16
+                                  latency: 2
+                            """;
 
     /// <summary>
     ///     A document places both nodes, and the host is handed the ends it has to fill and drain.

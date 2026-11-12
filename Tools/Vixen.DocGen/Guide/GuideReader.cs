@@ -28,7 +28,6 @@ sealed record GuidePage {
 
     /// <summary>
     ///     Classified fences, keyed by the fence's position in the body — § 3.4.
-    ///
     ///     Filled by <see cref="Highlighter" /> after the graph exists, because colouring a C# fence
     ///     properly means binding it, and binding it means the engine's compilations. Null for a page
     ///     whose fences are in a language nothing here reads.
@@ -70,7 +69,7 @@ static partial class GuideReader {
         string repositoryRoot,
         SourceLinks links
     ) {
-        var guide = System.IO.Path.Combine(repositoryRoot, "docs", "guide");
+        var guide = Path.Combine(repositoryRoot, "docs", "guide");
         var pages = new List<GuidePage>();
         var errors = new List<string>();
 
@@ -79,9 +78,9 @@ static partial class GuideReader {
         }
 
         foreach (var path in Directory
-            .EnumerateFiles(guide, "*.md", SearchOption.AllDirectories)
-            .OrderBy(path => path, StringComparer.Ordinal)) {
-            var relative = System.IO.Path.GetRelativePath(repositoryRoot, path).Replace('\\', '/');
+                     .EnumerateFiles(guide, "*.md", SearchOption.AllDirectories)
+                     .OrderBy(static path => path, StringComparer.Ordinal)) {
+            var relative = Path.GetRelativePath(repositoryRoot, path).Replace('\\', '/');
             var (page, pageErrors) = ReadPage(repositoryRoot, path, relative, links);
 
             errors.AddRange(pageErrors.Select(error => $"{relative}: {error}"));
@@ -92,12 +91,14 @@ static partial class GuideReader {
         }
 
         var duplicates = pages
-            .GroupBy(page => page.Front.Slug, StringComparer.Ordinal)
-            .Where(group => group.Count() > 1);
+            .GroupBy(static page => page.Front.Slug, StringComparer.Ordinal)
+            .Where(static group => group.Count() > 1);
 
         foreach (var duplicate in duplicates) {
-            errors.Add($"two pages claim the slug `{duplicate.Key}`: "
-                + string.Join(", ", duplicate.Select(page => page.Path)));
+            errors.Add(
+                $"two pages claim the slug `{duplicate.Key}`: "
+                + string.Join(", ", duplicate.Select(static page => page.Path))
+            );
         }
 
         return (pages, errors);
@@ -145,19 +146,22 @@ static partial class GuideReader {
     }
 
     static List<DocHeading> Headings(string body) => [
-        .. HeadingLine().Matches(body)
-            .Where(match => match.Groups[1].Value.Length <= 3)
-            .Select(match => new DocHeading(
-                Anchor(match.Groups[2].Value),
-                match.Groups[2].Value.Trim(),
-                match.Groups[1].Value.Length))
+        ..HeadingLine()
+            .Matches(body)
+            .Where(static match => match.Groups[1].Value.Length <= 3)
+            .Select(static match => new DocHeading(
+                    Anchor(match.Groups[2].Value),
+                    match.Groups[2].Value.Trim(),
+                    match.Groups[1].Value.Length
+                )
+            )
     ];
 
     /// <summary>
     ///     The five headings, present, in order, and with something under each.
     /// </summary>
     static IEnumerable<string> ContractErrors(IReadOnlyList<DocHeading> headings, string body) {
-        var top = headings.Where(heading => heading.Level == 2).Select(heading => heading.Text).ToList();
+        var top = headings.Where(static heading => heading.Level == 2).Select(static heading => heading.Text).ToList();
 
         foreach (var required in RequiredHeadings) {
             if (!top.Contains(required, StringComparer.Ordinal)) {
@@ -167,10 +171,10 @@ static partial class GuideReader {
 
         var order = RequiredHeadings
             .Select(required => top.IndexOf(required))
-            .Where(index => index >= 0)
+            .Where(static index => index >= 0)
             .ToList();
 
-        if (order.Count > 1 && !order.SequenceEqual(order.OrderBy(index => index))) {
+        if (order.Count > 1 && !order.SequenceEqual(order.OrderBy(static index => index))) {
             yield return "the contract's headings are out of order";
         }
 
@@ -241,30 +245,30 @@ static partial class GuideReader {
         }
 
         foreach (Match match in SnippetInclude().Matches(body)) {
-            Append(body[copied..match.Index], expanded: false);
+            Append(body[copied..match.Index], false);
             copied = match.Index + match.Length;
 
             var include = match.Value;
             var replacement = Expand(match);
 
             if (replacement is null) {
-                Append(include, expanded: false);
+                Append(include, false);
             } else {
                 // An include that spans lines still moves the file on by its own newlines.
-                Append(replacement, expanded: true);
+                Append(replacement, true);
                 bodyLine += include.AsSpan().Count('\n');
             }
         }
 
-        Append(body[copied..], expanded: false);
+        Append(body[copied..], false);
 
-        return (resolved.ToString(), [.. bodyLineOf], errors);
+        return (resolved.ToString(), [..bodyLineOf], errors);
 
         // Null leaves the include as written, its error reported.
         string? Expand(Match match) {
             var file = match.Groups[1].Value;
             var region = match.Groups[2].Value;
-            var path = System.IO.Path.Combine(repositoryRoot, file.Replace('/', System.IO.Path.DirectorySeparatorChar));
+            var path = Path.Combine(repositoryRoot, file.Replace('/', Path.DirectorySeparatorChar));
 
             if (!File.Exists(path)) {
                 errors.Add($"the snippet names `{file}`, which does not exist");
@@ -281,7 +285,7 @@ static partial class GuideReader {
                 return null;
             }
 
-            var language = System.IO.Path.GetExtension(path) switch {
+            var language = Path.GetExtension(path) switch {
                 ".cs" => "csharp",
                 ".rvn" => "rvn",
                 ".vxml" => "vxml",
@@ -296,7 +300,8 @@ static partial class GuideReader {
     }
 
     static string? Region(string text, string name) {
-        var start = RegionStart().Matches(text)
+        var start = RegionStart()
+            .Matches(text)
             .FirstOrDefault(match => string.Equals(match.Groups[1].Value, name, StringComparison.Ordinal));
 
         if (start is null) {
@@ -314,8 +319,8 @@ static partial class GuideReader {
 
         var lines = text[(from + 1)..to].Split('\n');
         var indent = lines
-            .Where(line => line.Trim().Length > 0)
-            .Select(line => line.Length - line.TrimStart().Length)
+            .Where(static line => line.Trim().Length > 0)
+            .Select(static line => line.Length - line.TrimStart().Length)
             .DefaultIfEmpty(0)
             .Min();
 
@@ -358,8 +363,9 @@ static partial class GuideReader {
             var language = words.Count > 0 && !words[0].Contains('=') ? words[0] : string.Empty;
             var compile = words.Contains("compile") || words.Contains("compile:fragment");
             var fragment = words.Contains("compile:fragment");
-            var reason = words.FirstOrDefault(word => word.StartsWith("no-compile=", StringComparison.Ordinal))?
-                ["no-compile=".Length..].Trim('"');
+            var reason = words.FirstOrDefault(static word => word.StartsWith("no-compile=", StringComparison.Ordinal))?
+                ["no-compile=".Length..]
+                .Trim('"');
 
             if (words.Contains("no-compile") && reason is null) {
                 // An exemption with no reason is an exemption nobody reviewed. § 4.3 prints these in
@@ -375,7 +381,7 @@ static partial class GuideReader {
                 problems.Add($"the C# fence at line {opened} is neither `compile` nor `no-compile=\"why\"`");
             }
 
-            examples.Add(new Example(page, opened, language, code.ToString().TrimEnd(), compile, fragment, reason));
+            examples.Add(new(page, opened, language, code.ToString().TrimEnd(), compile, fragment, reason));
         }
 
         return examples;

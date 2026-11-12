@@ -12,7 +12,7 @@ namespace Vixen.Ui.Text.Tests;
 public class GlyphFieldCacheTests {
     [Fact]
     public void A_glyph_is_encoded_once_and_found_thereafter() {
-        var cache = new GlyphFieldCache(new GlyphAtlas(256, 256));
+        var cache = new GlyphFieldCache(new(256, 256));
         var face = TestFonts.Load(TestFonts.Kannada);
         var glyph = face.GlyphFor('ಕ');
 
@@ -26,7 +26,7 @@ public class GlyphFieldCacheTests {
 
     [Fact]
     public void A_glyph_that_draws_nothing_is_reported_as_such_and_not_encoded_twice() {
-        var cache = new GlyphFieldCache(new GlyphAtlas(256, 256));
+        var cache = new GlyphFieldCache(new(256, 256));
         var face = TestFonts.Load(TestFonts.Kannada);
         var space = face.GlyphFor(' ');
 
@@ -50,7 +50,7 @@ public class GlyphFieldCacheTests {
     /// </summary>
     [Fact]
     public void The_placement_is_the_same_whatever_size_it_will_be_drawn_at() {
-        var cache = new GlyphFieldCache(new GlyphAtlas(256, 256));
+        var cache = new GlyphFieldCache(new(256, 256));
         var face = TestFonts.Load(TestFonts.Kannada);
 
         Assert.True(cache.TryGet(face, 0, face.GlyphFor('ಕ'), out var placement));
@@ -69,14 +69,14 @@ public class GlyphFieldCacheTests {
     /// </summary>
     [Fact]
     public void The_quad_is_larger_than_the_glyph_because_the_field_is_padded() {
-        var cache = new GlyphFieldCache(new GlyphAtlas(256, 256), resolution: 32, range: 4f);
+        var cache = new GlyphFieldCache(new(256, 256), 32, 4f);
         var face = TestFonts.Load(TestFonts.Kannada);
         var glyph = face.GlyphFor('ಕ');
 
         Assert.True(cache.TryGet(face, 0, glyph, out var placement));
 
         var bounds = face.GetOutline(glyph).Bounds();
-        var em = (float)face.UnitsPerEm;
+        float em = face.UnitsPerEm;
 
         Assert.True(placement.Left < bounds.MinX / em, "the quad starts inside the glyph");
         Assert.True(placement.Right > bounds.MaxX / em, "the quad ends inside the glyph");
@@ -89,7 +89,7 @@ public class GlyphFieldCacheTests {
     /// </summary>
     [Fact]
     public void A_glyph_evicted_and_asked_for_again_keeps_where_it_sits() {
-        var cache = new GlyphFieldCache(new GlyphAtlas(64, 64), resolution: 16);
+        var cache = new GlyphFieldCache(new(64, 64), 16);
         var face = TestFonts.Load(TestFonts.Kannada);
         var glyph = face.GlyphFor('ಕ');
 
@@ -113,13 +113,13 @@ public class GlyphFieldCacheTests {
         // whatever else has since been packed at the origin — found by a sabotage doing exactly
         // that and passing.
         Assert.False(after.IsEmpty);
-        Assert.True(cache.Atlas.TryGet(new GlyphKey(0, glyph, cache.Resolution), out var region));
+        Assert.True(cache.Atlas.TryGet(new(0, glyph, cache.Resolution), out var region));
         Assert.Equal(region, after.Region);
     }
 
     [Fact]
     public void Two_fonts_with_the_same_glyph_id_are_different_glyphs() {
-        var cache = new GlyphFieldCache(new GlyphAtlas(256, 256));
+        var cache = new GlyphFieldCache(new(256, 256));
         var kannada = TestFonts.Load(TestFonts.Kannada);
         var balinese = TestFonts.Load("NotoSansBalinese-Regular.ttf");
 
@@ -138,8 +138,8 @@ public class GlyphFieldCacheTests {
     [Fact]
     public void The_screen_pixel_range_is_reported_per_em() {
         var atlas = new GlyphAtlas(512, 512);
-        var coarse = new GlyphFieldCache(atlas, resolution: 16, range: 4f);
-        var fine = new GlyphFieldCache(new GlyphAtlas(512, 512), resolution: 64, range: 4f);
+        var coarse = new GlyphFieldCache(atlas, 16, 4f);
+        var fine = new GlyphFieldCache(new(512, 512), 64, 4f);
         var face = TestFonts.Load(TestFonts.Kannada);
         var glyph = face.GlyphFor('ಕ');
 

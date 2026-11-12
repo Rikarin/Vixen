@@ -19,8 +19,12 @@ namespace Tests;
 ///         ⚠ <b>The engine used to infer this from the set index</b>, and the inference was two
 ///         claims wearing one number. <c>EffectLoader.KindOf</c> read "a uniform block in the
 ///         per-draw set, used by a graphics stage" as "bound at a dynamic offset", so <c>[PerDraw]</c>
-///         answered both <i>where a binding lives</i> and <i>whether its contents change between
-///         draws</i> — and a shader wanting the first without the second had no way to decline. It
+///         answered both <i>where a binding lives</i> and
+///         <i>
+///             whether its contents change between
+///             draws
+///         </i>
+///         — and a shader wanting the first without the second had no way to decline. It
 ///         needed a carve-out for compute, because a dispatch has no draws and a compute shader
 ///         marking a block <c>[PerDraw]</c> is using the set index for storage; and the next shader
 ///         wanting a plain per-draw block would have met a refusal it could not fix in the shader.
@@ -105,22 +109,21 @@ public class DynamicOffsetTests {
         var bag = new DiagnosticBag();
         var module = Lowerer.Lower(compilation, bag);
 
-        Assert.True(IrVerifier.Verify(module, bag), string.Join("\n", bag.Select(d => d.ToString())));
-        Assert.True(bag.IsEmpty, string.Join("\n", bag.Select(d => d.ToString())));
+        Assert.True(IrVerifier.Verify(module, bag), string.Join("\n", bag.Select(static d => d.ToString())));
+        Assert.True(bag.IsEmpty, string.Join("\n", bag.Select(static d => d.ToString())));
 
         return module;
     }
 
-    static RavenReflection Describe(string source) =>
-        ReflectionBuilder.Describe(Assert.Single(Lower(source).Shaders));
+    static RavenReflection Describe(string source) => ReflectionBuilder.Describe(Assert.Single(Lower(source).Shaders));
 
     /// <summary>The uniform block of one set.</summary>
     static BindingInfo Block(RavenReflection reflection, int set) =>
         Assert.Single(
             reflection.Sets.Single(s => s.Set == set).Bindings,
-            binding => binding.Type == DescriptorType.UniformBuffer
+            static binding => binding.Type == DescriptorType.UniformBuffer
         );
 
     static IrBinding FindBinding(IrModule module, string name) =>
-        module.Shaders.SelectMany(shader => shader.Bindings).Single(binding => binding.Name == name);
+        module.Shaders.SelectMany(static shader => shader.Bindings).Single(binding => binding.Name == name);
 }

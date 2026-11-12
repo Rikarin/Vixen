@@ -81,16 +81,16 @@ public sealed record EffectManifest {
 
         return new() {
             Effects = [
-                .. keys
+                ..keys
                     .Distinct()
-                    .OrderBy(key => key.ToString(), StringComparer.Ordinal)
+                    .OrderBy(static key => key.ToString(), StringComparer.Ordinal)
                     .Select(EffectRequest.From)
             ]
         };
     }
 
     /// <summary>The keys it names.</summary>
-    public IEnumerable<EffectKey> ToKeys() => Effects.Select(request => request.ToKey());
+    public IEnumerable<EffectKey> ToKeys() => Effects.Select(static request => request.ToKey());
 
     /// <summary>Reads a manifest.</summary>
     /// <exception cref="InvalidDataException">The text is not a manifest.</exception>

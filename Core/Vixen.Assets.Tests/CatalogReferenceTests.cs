@@ -20,8 +20,8 @@ public sealed class CatalogReferenceTests {
     [Fact]
     public void AnAssetsMainObjectResolvesToItsAddress() {
         var catalog = Catalog(
-            Entry("characters/hero", new AssetReference(Hero)),
-            Entry("props/crate", new AssetReference(Crate))
+            Entry("characters/hero", new(Hero)),
+            Entry("props/crate", new(Crate))
         );
 
         Assert.True(catalog.TryGetAddress(new AssetReference(Hero), out var address));
@@ -31,7 +31,7 @@ public sealed class CatalogReferenceTests {
     /// <remarks>A component holding a bare id means the main object, which is the common case.</remarks>
     [Fact]
     public void AnAssetIdResolvesWithoutSpellingOutTheMainSubAsset() {
-        var catalog = Catalog(Entry("characters/hero", new AssetReference(Hero)));
+        var catalog = Catalog(Entry("characters/hero", new(Hero)));
 
         Assert.True(catalog.TryGetAddress(Hero, out var address));
         Assert.Equal("characters/hero", address);
@@ -44,10 +44,10 @@ public sealed class CatalogReferenceTests {
     /// </remarks>
     [Fact]
     public void APartOfAnAssetResolvesToItsOwnAddress() {
-        var mesh = new AssetReference(Hero, new SubAssetId(0x2b9e5f13));
+        var mesh = new AssetReference(Hero, new(0x2b9e5f13));
 
         var catalog = Catalog(
-            Entry("characters/hero", new AssetReference(Hero)),
+            Entry("characters/hero", new(Hero)),
             Entry("characters/hero#Hero_Mesh", mesh)
         );
 
@@ -57,7 +57,7 @@ public sealed class CatalogReferenceTests {
 
     [Fact]
     public void AReferenceNothingShippedIsNotFoundRatherThanEmpty() {
-        var catalog = Catalog(Entry("characters/hero", new AssetReference(Hero)));
+        var catalog = Catalog(Entry("characters/hero", new(Hero)));
 
         Assert.False(catalog.TryGetAddress(new AssetReference(Crate), out var address));
         Assert.Equal(string.Empty, address);
@@ -65,7 +65,7 @@ public sealed class CatalogReferenceTests {
 
     [Fact]
     public void ANullReferenceResolvesToNothing() {
-        var catalog = Catalog(Entry("characters/hero", new AssetReference(Hero)));
+        var catalog = Catalog(Entry("characters/hero", new(Hero)));
 
         Assert.False(catalog.TryGetAddress(AssetReference.Null, out _));
     }
@@ -88,8 +88,8 @@ public sealed class CatalogReferenceTests {
     /// </remarks>
     [Fact]
     public void TwoAddressesClaimingOneReferenceIsRefused() {
-        var error = Assert.Throws<ArgumentException>(() =>
-            Catalog(Entry("characters/hero", new AssetReference(Hero)), Entry("old/hero", new AssetReference(Hero)))
+        var error = Assert.Throws<ArgumentException>(static () =>
+            Catalog(Entry("characters/hero", new(Hero)), Entry("old/hero", new(Hero)))
         );
 
         Assert.Contains("both claim to be", error.Message, StringComparison.Ordinal);
@@ -97,7 +97,7 @@ public sealed class CatalogReferenceTests {
 
     [Fact]
     public void AReferenceSurvivesTheFileFormat() {
-        var mesh = new AssetReference(Hero, new SubAssetId(0x2b9e5f13));
+        var mesh = new AssetReference(Hero, new(0x2b9e5f13));
         var written = CatalogFormat.Write(Catalog(Entry("characters/hero#Hero_Mesh", mesh)));
 
         var read = CatalogFormat.Read(written);
@@ -114,8 +114,8 @@ public sealed class CatalogReferenceTests {
     /// </remarks>
     [Fact]
     public void AnUpdateThatMovesAnAssetDropsTheAddressItLeft() {
-        var shipped = Catalog(Entry("characters/hero", new AssetReference(Hero)));
-        var update = Catalog(Entry("characters/hero_v2", new AssetReference(Hero)));
+        var shipped = Catalog(Entry("characters/hero", new(Hero)));
+        var update = Catalog(Entry("characters/hero_v2", new(Hero)));
 
         var merged = shipped.MergedWith(update);
 
@@ -126,8 +126,8 @@ public sealed class CatalogReferenceTests {
 
     [Fact]
     public void AnUpdateInPlaceKeepsTheAddressAndTheReference() {
-        var shipped = Catalog(Entry("characters/hero", new AssetReference(Hero)));
-        var update = Catalog(Entry("characters/hero", new AssetReference(Hero)));
+        var shipped = Catalog(Entry("characters/hero", new(Hero)));
+        var update = Catalog(Entry("characters/hero", new(Hero)));
 
         var merged = shipped.MergedWith(update);
 

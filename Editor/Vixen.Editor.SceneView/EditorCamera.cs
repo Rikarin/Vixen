@@ -71,7 +71,7 @@ public sealed class EditorCamera {
 
     /// <summary>How far off vertical the pitch is held, in radians.</summary>
     /// <remarks>A thousandth of a radian: invisible, and enough to keep the basis well conditioned.</remarks>
-    public const float PitchLimit = (MathF.PI * 0.5f) - 0.001f;
+    public const float PitchLimit = MathF.PI * 0.5f - 0.001f;
 
     float distance = 10f;
 
@@ -120,7 +120,7 @@ public sealed class EditorCamera {
     public float FlySpeed { get; set; } = 4f;
 
     /// <summary>Where the camera is.</summary>
-    public Vector3 Position => Pivot - (Forward * Distance);
+    public Vector3 Position => Pivot - Forward * Distance;
 
     /// <summary>Which way it looks.</summary>
     public Vector3 Forward {
@@ -137,9 +137,10 @@ public sealed class EditorCamera {
     }
 
     /// <summary>Its own +X, in world space.</summary>
-    public Vector3 Right => Vector3.Normalize(Vector3.Cross(Forward, Vector3.UnitY)) is var right && right.IsZero
-        ? Vector3.UnitX
-        : right;
+    public Vector3 Right =>
+        Vector3.Normalize(Vector3.Cross(Forward, Vector3.UnitY)) is var right && right.IsZero
+            ? Vector3.UnitX
+            : right;
 
     /// <summary>Its own +Y, in world space.</summary>
     public Vector3 Up => Vector3.Normalize(Vector3.Cross(Right, Forward));
@@ -152,10 +153,22 @@ public sealed class EditorCamera {
             var backward = -Forward;
 
             return new(
-                right.X, right.Y, right.Z, 0f,
-                up.X, up.Y, up.Z, 0f,
-                backward.X, backward.Y, backward.Z, 0f,
-                0f, 0f, 0f, 1f
+                right.X,
+                right.Y,
+                right.Z,
+                0f,
+                up.X,
+                up.Y,
+                up.Z,
+                0f,
+                backward.X,
+                backward.Y,
+                backward.Z,
+                0f,
+                0f,
+                0f,
+                0f,
+                1f
             );
         }
     }
@@ -247,8 +260,12 @@ public sealed class EditorCamera {
     ///         read in the camera's own basis before the turn and rebuilt in the basis after it.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Measured against the basis the turn actually produced, not the one it asked
-    ///         for.</b> <see cref="Turn" /> clamps the pitch, so at the poles the rotation applied is
+    ///         ⚠
+    ///         <b>
+    ///             Measured against the basis the turn actually produced, not the one it asked
+    ///             for.
+    ///         </b>
+    ///         <see cref="Turn" /> clamps the pitch, so at the poles the rotation applied is
     ///         smaller than the rotation requested — and rebuilding the offset from the requested one
     ///         would slide the pivot a little further every frame somebody held the drag at the top of
     ///         its travel. That is a view that drifts only when it is already at its limit, which is
@@ -267,7 +284,7 @@ public sealed class EditorCamera {
 
         Orbit(deltaX, deltaY);
 
-        Pivot = anchor + (Right * local.X) + (Up * local.Y) + (Forward * local.Z);
+        Pivot = anchor + Right * local.X + Up * local.Y + Forward * local.Z;
     }
 
     /// <summary>Slides the view sideways and up, keeping the direction.</summary>
@@ -285,7 +302,7 @@ public sealed class EditorCamera {
         }
 
         var worldPerPixel = OrthographicHeight / viewportHeight;
-        Pivot += (Right * (-deltaX * worldPerPixel)) + (Up * (deltaY * worldPerPixel));
+        Pivot += Right * (-deltaX * worldPerPixel) + Up * (deltaY * worldPerPixel);
     }
 
     /// <summary>Moves the camera towards or away from its pivot.</summary>
@@ -322,7 +339,7 @@ public sealed class EditorCamera {
 
         // Similar triangles: the whole rig scales about the target, so a point at the pivot's depth
         // keeps the screen position it had.
-        Pivot = target + ((Pivot - target) * (Distance / before));
+        Pivot = target + (Pivot - target) * (Distance / before);
     }
 
     /// <summary>How many world units one render pixel covers, at a point.</summary>
@@ -331,8 +348,11 @@ public sealed class EditorCamera {
     /// <returns>The scale, or one when there is no viewport to measure against.</returns>
     /// <remarks>
     ///     <para>
-    ///         <b>The one conversion that makes "a constant size on screen" expressible in world
-    ///         units</b>, and there are four things in the viewport that need it: the gizmo's handles,
+    ///         <b>
+    ///             The one conversion that makes "a constant size on screen" expressible in world
+    ///             units
+    ///         </b>
+    ///         , and there are four things in the viewport that need it: the gizmo's handles,
     ///         the sphere that stands in for a marker in the picker, the thickness of a stroke, and
     ///         the width of a selection outline. It was written out three times before it was a
     ///         method, and the copies agreed — which is the state a fourth copy ends.
@@ -365,8 +385,12 @@ public sealed class EditorCamera {
     ///     depth by. One when there is no viewport to measure against.
     /// </returns>
     /// <remarks>
-    ///     ⚠ <b>Split out for a consumer that cannot call <see cref="WorldPerPixel" /> at all: a vertex
-    ///     stage.</b> The selection outline is expanded by a width in pixels at every vertex of the
+    ///     ⚠
+    ///     <b>
+    ///         Split out for a consumer that cannot call <see cref="WorldPerPixel" /> at all: a vertex
+    ///         stage.
+    ///     </b>
+    ///     The selection outline is expanded by a width in pixels at every vertex of the
     ///     selected geometry, and the instanced mesh path has no vertex on the processor to expand —
     ///     so what crosses to the shader is this number, and the multiplication by depth happens there.
     ///     <c>MeshInstanceView.WorldPerPixel</c> is the mirror, and a test asserts the two agree at a
@@ -399,7 +423,7 @@ public sealed class EditorCamera {
             return Pivot;
         }
 
-        return ray.Origin + (ray.Direction * (Vector3.Dot(Pivot - ray.Origin, normal) / denominator));
+        return ray.Origin + ray.Direction * (Vector3.Dot(Pivot - ray.Origin, normal) / denominator);
     }
 
     /// <summary>Moves the view along its own basis, for WASDQE flight.</summary>
@@ -414,7 +438,7 @@ public sealed class EditorCamera {
     /// </remarks>
     public void Fly(float right, float up, float forward, float seconds, bool fast = false) {
         var speed = FlySpeed * Distance * seconds * (fast ? 4f : 1f);
-        Pivot += ((Right * right) + (Vector3.UnitY * up) + (Forward * forward)) * speed;
+        Pivot += (Right * right + Vector3.UnitY * up + Forward * forward) * speed;
     }
 
     /// <summary>Points the camera at something, from where it already is.</summary>
@@ -504,8 +528,12 @@ public sealed class EditorCamera {
     /// <returns>Whether the point is in front of the eye and has a screen position.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A perspective projection has an answer for points behind the camera and the
-    ///         answer is a lie.</b> The divide by <c>w</c> is a divide by a negative number back
+    ///         ⚠
+    ///         <b>
+    ///             A perspective projection has an answer for points behind the camera and the
+    ///             answer is a lie.
+    ///         </b>
+    ///         The divide by <c>w</c> is a divide by a negative number back
     ///         there, so a point behind the eye comes back mirrored through the middle of the pane —
     ///         a real pixel position, on the wrong side, moving the wrong way. Nothing downstream can
     ///         tell that from a real one.

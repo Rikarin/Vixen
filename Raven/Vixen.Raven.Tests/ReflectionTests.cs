@@ -3,7 +3,6 @@
 
 using Vixen.Core.Syntax.Diagnostics;
 using Vixen.Raven;
-using Vixen.Raven.Diagnostics;
 using Vixen.Raven.IR;
 using Vixen.Raven.Lowering;
 using Vixen.Raven.Reflection;
@@ -27,13 +26,13 @@ public class ReflectionTests {
         var semantic = compilation.GetDiagnostics();
         Assert.True(
             semantic.Count == 0,
-            "Expected no semantic diagnostics, got:\n" + string.Join("\n", semantic.Select(d => d.ToString()))
+            "Expected no semantic diagnostics, got:\n" + string.Join("\n", semantic.Select(static d => d.ToString()))
         );
 
         var bag = new DiagnosticBag();
         var module = Lowerer.Lower(compilation, bag);
         IrVerifier.Verify(module, bag);
-        Assert.DoesNotContain(bag.ToArray(), d => d.IsError);
+        Assert.DoesNotContain(bag.ToArray(), static d => d.IsError);
 
         return (compilation, module);
     }
@@ -107,18 +106,18 @@ public class ReflectionTests {
             """
         );
 
-        Assert.Equal([0, 1, 2, 3], reflection.Sets.Select(s => s.Set));
+        Assert.Equal([0, 1, 2, 3], reflection.Sets.Select(static s => s.Set));
 
-        Assert.Equal(["SPerFrameUniforms"], reflection.Sets[0].Bindings.Select(b => b.Name));
-        Assert.Equal(["SPerViewUniforms"], reflection.Sets[1].Bindings.Select(b => b.Name));
-        Assert.Equal(["SPerDrawUniforms"], reflection.Sets[3].Bindings.Select(b => b.Name));
+        Assert.Equal(["SPerFrameUniforms"], reflection.Sets[0].Bindings.Select(static b => b.Name));
+        Assert.Equal(["SPerViewUniforms"], reflection.Sets[1].Bindings.Select(static b => b.Name));
+        Assert.Equal(["SPerDrawUniforms"], reflection.Sets[3].Bindings.Select(static b => b.Name));
 
         // Each set is its own binding namespace, so every set starts again at 0.
-        Assert.Equal([0], reflection.Sets[0].Bindings.Select(b => b.Binding));
-        Assert.Equal([0, 1, 2], reflection.Sets[2].Bindings.Select(b => b.Binding));
+        Assert.Equal([0], reflection.Sets[0].Bindings.Select(static b => b.Binding));
+        Assert.Equal([0, 1, 2], reflection.Sets[2].Bindings.Select(static b => b.Binding));
         Assert.Equal(
             ["SPerMaterialUniforms", "albedo", "linear"],
-            reflection.Sets[2].Bindings.Select(b => b.Name)
+            reflection.Sets[2].Bindings.Select(static b => b.Name)
         );
     }
 
@@ -142,8 +141,8 @@ public class ReflectionTests {
             )
             .Parameters;
 
-        Assert.Equal((int)ResourceSet.PerFrame, Assert.Single(parameters, p => p.Name == "time").Set);
-        Assert.Equal((int)ResourceSet.PerMaterial, Assert.Single(parameters, p => p.Name == "tint").Set);
+        Assert.Equal((int)ResourceSet.PerFrame, Assert.Single(parameters, static p => p.Name == "time").Set);
+        Assert.Equal((int)ResourceSet.PerMaterial, Assert.Single(parameters, static p => p.Name == "tint").Set);
     }
 
     /// <summary>
@@ -154,18 +153,18 @@ public class ReflectionTests {
     public void Every_block_member_carries_an_explicit_offset_and_size() {
         var block = Assert.Single(Describe(Material).Sets).Bindings[0];
 
-        Assert.Equal(["tint", "roughness", "direction"], block.Members.Select(m => m.Name));
+        Assert.Equal(["tint", "roughness", "direction"], block.Members.Select(static m => m.Name));
 
         // float4 at 0 (16 bytes), float at 16 (4), float3 aligns to 32 — not 20.
-        Assert.Equal([0, 16, 32], block.Members.Select(m => m.Offset));
-        Assert.Equal([16, 4, 12], block.Members.Select(m => m.Size));
+        Assert.Equal([0, 16, 32], block.Members.Select(static m => m.Offset));
+        Assert.Equal([16, 4, 12], block.Members.Select(static m => m.Size));
         Assert.Equal(48, block.Size);
     }
 
     [Fact]
     public void A_matrix_member_reports_its_stride_and_a_scalar_reports_none() {
         var block = Assert.Single(
-                Describe(
+            Describe(
                     """
                     package A
 
@@ -182,15 +181,15 @@ public class ReflectionTests {
                     """
                 )
                 .Sets
-            )
+        )
             .Bindings[0];
 
-        var transform = Assert.Single(block.Members, m => m.Name == "transform");
+        var transform = Assert.Single(block.Members, static m => m.Name == "transform");
         Assert.Equal(16, transform.MatrixStride);
         Assert.Equal(64, transform.Size);
         Assert.True(transform.Type.IsMatrix);
 
-        var scale = Assert.Single(block.Members, m => m.Name == "scale");
+        var scale = Assert.Single(block.Members, static m => m.Name == "scale");
         Assert.Equal(0, scale.MatrixStride);
         Assert.Equal(0, scale.ArrayStride);
     }
@@ -207,14 +206,17 @@ public class ReflectionTests {
         var block = Assert.Single(ReflectionBuilder.Describe(shader).Sets).Bindings[0];
 
         var uniformTypes = shader.Bindings
-            .Where(b => b.Kind == IrBindingKind.Uniform)
-            .Select(b => b.Type)
+            .Where(static b => b.Kind == IrBindingKind.Uniform)
+            .Select(static b => b.Type)
             .ToArray();
 
         var (offsets, size) = ShaderLayout.Members(uniformTypes);
 
-        Assert.Equal(offsets, block.Members.Where(m => !m.Name.Contains('.', StringComparison.Ordinal))
-            .Select(m => m.Offset));
+        Assert.Equal(
+            offsets,
+            block.Members.Where(static m => !m.Name.Contains('.', StringComparison.Ordinal))
+                .Select(static m => m.Offset)
+        );
         Assert.Equal(size, block.Size);
     }
 
@@ -246,10 +248,10 @@ public class ReflectionTests {
             """
         );
 
-        Assert.Equal([0, 1], reflection.VertexInputs.Select(i => i.Location));
-        Assert.Equal(["position", "uv"], reflection.VertexInputs.Select(i => i.Name));
-        Assert.Equal(["POSITION", "TEXCOORD0"], reflection.VertexInputs.Select(i => i.Semantic));
-        Assert.Equal([3, 2], reflection.VertexInputs.Select(i => i.Type.Rows));
+        Assert.Equal([0, 1], reflection.VertexInputs.Select(static i => i.Location));
+        Assert.Equal(["position", "uv"], reflection.VertexInputs.Select(static i => i.Name));
+        Assert.Equal(["POSITION", "TEXCOORD0"], reflection.VertexInputs.Select(static i => i.Semantic));
+        Assert.Equal([3, 2], reflection.VertexInputs.Select(static i => i.Type.Rows));
     }
 
     /// <summary>
@@ -280,8 +282,8 @@ public class ReflectionTests {
             """
         );
 
-        Assert.Equal(["position", "colour"], reflection.VertexInputs.Select(i => i.Name));
-        Assert.Equal([0, 2], reflection.VertexInputs.Select(i => i.Location));
+        Assert.Equal(["position", "colour"], reflection.VertexInputs.Select(static i => i.Name));
+        Assert.Equal([0, 2], reflection.VertexInputs.Select(static i => i.Location));
     }
 
     /// <summary>
@@ -342,7 +344,7 @@ public class ReflectionTests {
     public void Parameters_carry_the_set_binding_and_offset_needed_to_write_them() {
         var parameters = Describe(Material).Parameters;
 
-        var direction = Assert.Single(parameters, p => p.Name == "direction");
+        var direction = Assert.Single(parameters, static p => p.Name == "direction");
         Assert.Equal((int)ResourceSet.PerMaterial, direction.Set);
         Assert.Equal(0, direction.Binding);
         Assert.Equal(32, direction.Offset);
@@ -351,7 +353,7 @@ public class ReflectionTests {
 
     [Fact]
     public void An_opaque_resource_contributes_no_parameters() =>
-        Assert.DoesNotContain("albedo", Describe(Material).Parameters.Select(p => p.Name));
+        Assert.DoesNotContain("albedo", Describe(Material).Parameters.Select(static p => p.Name));
 
     /// <summary>
     ///     A uniform's initialiser is reported, because it is the <em>host's</em> default.
@@ -372,32 +374,33 @@ public class ReflectionTests {
     [Fact]
     public void A_uniforms_initialiser_is_reported_as_its_default() {
         var parameters = Describe(
-            """
-            package A
+                """
+                package A
 
-            shader S {
-                var exposure: float = 2.5f
-                var samples: int = 8
-                var enabled: uint = 1u
-                var tint: float4
+                shader S {
+                    var exposure: float = 2.5f
+                    var samples: int = 8
+                    var enabled: uint = 1u
+                    var tint: float4
 
-                [FragmentShader]
-                func Fragment(): float4 {
-                    return tint * exposure
+                    [FragmentShader]
+                    func Fragment(): float4 {
+                        return tint * exposure
+                    }
                 }
-            }
 
-            """
-        ).Parameters;
+                """
+            )
+            .Parameters;
 
-        Assert.Equal("2.5", Assert.Single(parameters, p => p.Name == "exposure").DefaultValue);
-        Assert.Equal("8", Assert.Single(parameters, p => p.Name == "samples").DefaultValue);
+        Assert.Equal("2.5", Assert.Single(parameters, static p => p.Name == "exposure").DefaultValue);
+        Assert.Equal("8", Assert.Single(parameters, static p => p.Name == "samples").DefaultValue);
         // A uint rather than the bool this used to be: a binding cannot hold a boolean (RVN2137),
         // so the "true"/"false" spelling is a permutation default's business and is asserted there.
-        Assert.Equal("1", Assert.Single(parameters, p => p.Name == "enabled").DefaultValue);
+        Assert.Equal("1", Assert.Single(parameters, static p => p.Name == "enabled").DefaultValue);
 
         // Nothing written is nothing reported, rather than a zero that looks authored.
-        Assert.Equal(string.Empty, Assert.Single(parameters, p => p.Name == "tint").DefaultValue);
+        Assert.Equal(string.Empty, Assert.Single(parameters, static p => p.Name == "tint").DefaultValue);
     }
 
     /// <summary>
@@ -410,32 +413,33 @@ public class ReflectionTests {
     [Fact]
     public void A_structs_fields_do_not_inherit_the_blocks_default() {
         var parameters = Describe(
-            """
-            package A
+                """
+                package A
 
-            struct Fog {
-                var density: float
-                var height: float
-            }
-
-            shader S {
-                var fog: Fog
-                var scale: float = 3f
-
-                [FragmentShader]
-                func Fragment(): float4 {
-                    return float4(fog.density * scale, 0f, 0f, 1f)
+                struct Fog {
+                    var density: float
+                    var height: float
                 }
-            }
 
-            """
-        ).Parameters;
+                shader S {
+                    var fog: Fog
+                    var scale: float = 3f
 
-        Assert.Equal("3", Assert.Single(parameters, p => p.Name == "scale").DefaultValue);
+                    [FragmentShader]
+                    func Fragment(): float4 {
+                        return float4(fog.density * scale, 0f, 0f, 1f)
+                    }
+                }
+
+                """
+            )
+            .Parameters;
+
+        Assert.Equal("3", Assert.Single(parameters, static p => p.Name == "scale").DefaultValue);
 
         Assert.All(
-            parameters.Where(p => p.Name.StartsWith("fog", StringComparison.Ordinal)),
-            p => Assert.Equal(string.Empty, p.DefaultValue)
+            parameters.Where(static p => p.Name.StartsWith("fog", StringComparison.Ordinal)),
+            static p => Assert.Equal(string.Empty, p.DefaultValue)
         );
     }
 
@@ -460,43 +464,44 @@ public class ReflectionTests {
     [Fact]
     public void A_struct_array_reports_its_element_layout_once_with_the_stride_on_each_leaf() {
         var parameters = Describe(
-            """
-            package A
+                """
+                package A
 
-            struct Light {
-                var position: float3
-                var range: float
-                var color: float3
-                var intensity: float
-            }
-
-            shader S {
-                var lights: Light[4]
-
-                [FragmentShader]
-                func Fragment(): float4 {
-                    return float4(lights[0].color, lights[1].range)
+                struct Light {
+                    var position: float3
+                    var range: float
+                    var color: float3
+                    var intensity: float
                 }
-            }
 
-            """
-        ).Parameters;
+                shader S {
+                    var lights: Light[4]
+
+                    [FragmentShader]
+                    func Fragment(): float4 {
+                        return float4(lights[0].color, lights[1].range)
+                    }
+                }
+
+                """
+            )
+            .Parameters;
 
         Assert.Equal(
             ["lights[].position", "lights[].range", "lights[].color", "lights[].intensity"],
-            parameters.Select(p => p.Name)
+            parameters.Select(static p => p.Name)
         );
 
-        var color = Assert.Single(parameters, p => p.Name == "lights[].color");
+        var color = Assert.Single(parameters, static p => p.Name == "lights[].color");
         Assert.Equal(16, color.Offset);
         Assert.Equal(12, color.Size);
 
         // 32 is the element's std140 stride, so `lights[2].color` is at 16 + 2 * 32.
-        Assert.All(parameters, p => Assert.Equal(32, p.ArrayStride));
+        Assert.All(parameters, static p => Assert.Equal(32, p.ArrayStride));
 
         // The aggregate itself is not writable through this list — it has no scalar type to write —
         // so it appears in the block's members and not here.
-        Assert.DoesNotContain("lights", parameters.Select(p => p.Name));
+        Assert.DoesNotContain("lights", parameters.Select(static p => p.Name));
     }
 
     // --- Capabilities and permutation keys ----------------------------------
@@ -604,11 +609,11 @@ public class ReflectionTests {
     public void Declared_permutation_keys_are_reported_with_their_type_and_default() {
         var permutations = DescribeVariants().Permutations;
 
-        Assert.Equal(["UseDetail", "CascadeCount", "Unread"], permutations.Select(p => p.Name));
-        Assert.Equal(["false", "4", "7"], permutations.Select(p => p.DefaultValue));
+        Assert.Equal(["UseDetail", "CascadeCount", "Unread"], permutations.Select(static p => p.Name));
+        Assert.Equal(["false", "4", "7"], permutations.Select(static p => p.DefaultValue));
         Assert.Equal(
             [IrTypeKind.Bool, IrTypeKind.Int, IrTypeKind.UInt],
-            permutations.Select(p => p.Type.Scalar)
+            permutations.Select(static p => p.Type.Scalar)
         );
     }
 
@@ -621,7 +626,7 @@ public class ReflectionTests {
     public void A_declared_key_is_reported_even_when_this_variant_never_read_it() {
         var reflection = DescribeVariants();
 
-        Assert.Contains("Unread", reflection.Permutations.Select(p => p.Name));
+        Assert.Contains("Unread", reflection.Permutations.Select(static p => p.Name));
         Assert.DoesNotContain("Unread", reflection.UsedPermutationKeys);
     }
 
@@ -669,7 +674,7 @@ public class ReflectionTests {
         Assert.Equal(IrTypeKind.Int, parameter.Type.Scalar);
 
         // It is not mixed in with the defaulted keys.
-        Assert.DoesNotContain("TapCount", DescribeVariants().Permutations.Select(p => p.Name));
+        Assert.DoesNotContain("TapCount", DescribeVariants().Permutations.Select(static p => p.Name));
     }
 
     [Fact]
@@ -748,8 +753,12 @@ public class ReflectionTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The asymmetry this exists to prevent: a scalar's default is a <em>literal</em> and
-    ///         a vector's is a <em>construction</em>.</b> <c>SourceFieldSymbol.DeclaredValue</c> read
+    ///         ⚠
+    ///         <b>
+    ///             The asymmetry this exists to prevent: a scalar's default is a <em>literal</em> and
+    ///             a vector's is a <em>construction</em>.
+    ///         </b>
+    ///         <c>SourceFieldSymbol.DeclaredValue</c> read
     ///         the first and answered null for the second, so a shader declaring
     ///         <c>float4(1f, 1f, 1f, 1f)</c> reported no default at all — and everything downstream
     ///         treats "no default" as zero.

@@ -112,10 +112,10 @@ public static class SoftwareUiRasterizer {
         var target = new float[width * height * 4];
 
         for (var i = 0; i < width * height; i++) {
-            target[(i * 4) + 0] = background.R * background.A;
-            target[(i * 4) + 1] = background.G * background.A;
-            target[(i * 4) + 2] = background.B * background.A;
-            target[(i * 4) + 3] = background.A;
+            target[i * 4] = background.R * background.A;
+            target[i * 4 + 1] = background.G * background.A;
+            target[i * 4 + 2] = background.B * background.A;
+            target[i * 4 + 3] = background.A;
         }
 
         var frame = new Frame(geometry, atlas, width, height);
@@ -147,9 +147,10 @@ public static class SoftwareUiRasterizer {
             var squareY = MathF.Abs(point.Y) - half.Y;
 
             return MathF.Sqrt(
-                (MathF.Max(squareX, 0f) * MathF.Max(squareX, 0f))
-                + (MathF.Max(squareY, 0f) * MathF.Max(squareY, 0f))
-            ) + MathF.Min(MathF.Max(squareX, squareY), 0f);
+                    MathF.Max(squareX, 0f) * MathF.Max(squareX, 0f)
+                    + MathF.Max(squareY, 0f) * MathF.Max(squareY, 0f)
+                )
+                + MathF.Min(MathF.Max(squareX, squareY), 0f);
         }
 
         if (q.X <= 0f && q.Y <= 0f) {
@@ -165,7 +166,7 @@ public static class SoftwareUiRasterizer {
         }
 
         var scaled = new Vector2(q.X / r.X, q.Y / r.Y);
-        return (MathF.Sqrt((scaled.X * scaled.X) + (scaled.Y * scaled.Y)) - 1f) * MathF.Min(r.X, r.Y);
+        return (MathF.Sqrt(scaled.X * scaled.X + scaled.Y * scaled.Y) - 1f) * MathF.Min(r.X, r.Y);
     }
 
     /// <summary>
@@ -174,8 +175,11 @@ public static class SoftwareUiRasterizer {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Just above zero rather than at it, because a vertex <i>on</i> the eye plane
-    ///         projects to infinity and the clip has to produce vertices it can then rasterise.</b>
+    ///         ⚠
+    ///         <b>
+    ///             Just above zero rather than at it, because a vertex <i>on</i> the eye plane
+    ///             projects to infinity and the clip has to produce vertices it can then rasterise.
+    ///         </b>
     ///         The plane the hit test refuses on is <c>w ≤ 0</c> (<c>UiDocument.HitTest</c>) and the
     ///         device's is the same — a vertex at <c>z = 0</c> is inside Vulkan's clip volume exactly
     ///         when <c>w ≥ 0</c> — so this is the one executor whose plane is a hair in front of the
@@ -196,8 +200,11 @@ public static class SoftwareUiRasterizer {
     /// <summary>One triangle, clipped against the eye plane where it needs to be, then rasterised.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Three <c>w</c>s of exactly one is the whole of a frame but a composited group's
-    ///         quad under a perspective, and it takes the path it always took, float for float.</b>
+    ///         ⚠
+    ///         <b>
+    ///             Three <c>w</c>s of exactly one is the whole of a frame but a composited group's
+    ///             quad under a perspective, and it takes the path it always took, float for float.
+    ///         </b>
     ///         Interpolating <c>u/w</c> and <c>1/w</c> and dividing is the identity on an affine in
     ///         exact arithmetic and is <i>not</i> in floats — three barycentrics divided by one and
     ///         summed do not come back to exactly one — so the perspective-correct path is a branch
@@ -206,8 +213,12 @@ public static class SoftwareUiRasterizer {
     ///         across this change because of it.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Clipped in homogeneous space and before any bound is taken, because a corner
-    ///         behind the eye has no finite projection for a bound to be taken over.</b> Its
+    ///         ⚠
+    ///         <b>
+    ///             Clipped in homogeneous space and before any bound is taken, because a corner
+    ///             behind the eye has no finite projection for a bound to be taken over.
+    ///         </b>
+    ///         Its
     ///         projected position is a plausible point reflected through the vanishing point, and the
     ///         naive bounding box over three such points is not loose but <i>wrong</i> — a shape that
     ///         runs to infinity drawn as a finite one on the wrong side of the screen. The homogeneous
@@ -234,12 +245,46 @@ public static class SoftwareUiRasterizer {
         float white
     ) {
         if (a.W == 1f && b.W == 1f && c.W == 1f) {
-            Rasterise(target, width, height, a, b, c, kind, shapes, atlas, clip, surface, masks, blend, rounded, white, false);
+            Rasterise(
+                target,
+                width,
+                height,
+                a,
+                b,
+                c,
+                kind,
+                shapes,
+                atlas,
+                clip,
+                surface,
+                masks,
+                blend,
+                rounded,
+                white,
+                false
+            );
             return;
         }
 
         if (a.W >= NearW && b.W >= NearW && c.W >= NearW) {
-            Rasterise(target, width, height, a, b, c, kind, shapes, atlas, clip, surface, masks, blend, rounded, white, true);
+            Rasterise(
+                target,
+                width,
+                height,
+                a,
+                b,
+                c,
+                kind,
+                shapes,
+                atlas,
+                clip,
+                surface,
+                masks,
+                blend,
+                rounded,
+                white,
+                true
+            );
             return;
         }
 
@@ -281,8 +326,12 @@ public static class SoftwareUiRasterizer {
     /// <param name="into">Room for the four corners a triangle cut by one plane can have.</param>
     /// <returns>How many corners survived: zero, three or four.</returns>
     /// <remarks>
-    ///     ⚠ <b>The attributes are interpolated on the homogeneous edge, which is linear in the
-    ///     element's own plane, and that is what makes the cut invisible.</b> A texture coordinate is
+    ///     ⚠
+    ///     <b>
+    ///         The attributes are interpolated on the homogeneous edge, which is linear in the
+    ///         element's own plane, and that is what makes the cut invisible.
+    ///     </b>
+    ///     A texture coordinate is
     ///     an affine function of the untransformed point, and so is the homogeneous triple; a point a
     ///     fraction <c>t</c> along the edge in element space is at the same fraction along both. The
     ///     projected position is then recovered by the divide, so the new corner is exactly where the
@@ -321,16 +370,16 @@ public static class SoftwareUiRasterizer {
 
         var w = Lerp(from.W, to.W, t);
 
-        return new UiVertex(
-            new Vector2(Lerp(fromX, toX, t) / w, Lerp(fromY, toY, t) / w),
-            new Vector2(Lerp(from.Texture.X, to.Texture.X, t), Lerp(from.Texture.Y, to.Texture.Y, t)),
-            new Color4(
+        return new(
+            new(Lerp(fromX, toX, t) / w, Lerp(fromY, toY, t) / w),
+            new(Lerp(from.Texture.X, to.Texture.X, t), Lerp(from.Texture.Y, to.Texture.Y, t)),
+            new(
                 Lerp(from.Color.R, to.Color.R, t),
                 Lerp(from.Color.G, to.Color.G, t),
                 Lerp(from.Color.B, to.Color.B, t),
                 Lerp(from.Color.A, to.Color.A, t)
             ),
-            new Vector4(
+            new(
                 Lerp(from.Shape.X, to.Shape.X, t),
                 Lerp(from.Shape.Y, to.Shape.Y, t),
                 Lerp(from.Shape.Z, to.Shape.Z, t),
@@ -436,18 +485,18 @@ public static class SoftwareUiRasterizer {
                 }
 
                 var texture = new Vector2(
-                    (a.Texture.X * w0) + (b.Texture.X * w1) + (c.Texture.X * w2),
-                    (a.Texture.Y * w0) + (b.Texture.Y * w1) + (c.Texture.Y * w2)
+                    a.Texture.X * w0 + b.Texture.X * w1 + c.Texture.X * w2,
+                    a.Texture.Y * w0 + b.Texture.Y * w1 + c.Texture.Y * w2
                 );
 
                 var colour = new Color4(
-                    (a.Color.R * w0) + (b.Color.R * w1) + (c.Color.R * w2),
-                    (a.Color.G * w0) + (b.Color.G * w1) + (c.Color.G * w2),
-                    (a.Color.B * w0) + (b.Color.B * w1) + (c.Color.B * w2),
-                    (a.Color.A * w0) + (b.Color.A * w1) + (c.Color.A * w2)
+                    a.Color.R * w0 + b.Color.R * w1 + c.Color.R * w2,
+                    a.Color.G * w0 + b.Color.G * w1 + c.Color.G * w2,
+                    a.Color.B * w0 + b.Color.B * w1 + c.Color.B * w2,
+                    a.Color.A * w0 + b.Color.A * w1 + c.Color.A * w2
                 );
 
-                var shape = (a.Shape.X * w0) + (b.Shape.X * w1) + (c.Shape.X * w2);
+                var shape = a.Shape.X * w0 + b.Shape.X * w1 + c.Shape.X * w2;
 
                 var fragment = kind switch {
                     BatchKind.Geometry => Box(texture, colour, shapes, (int)(shape + 0.5f), x, y),
@@ -463,7 +512,7 @@ public static class SoftwareUiRasterizer {
                     _ => Solid(colour, shape)
                 };
 
-                Blend(target, ((y * width) + x) * 4, fragment, blend, white);
+                Blend(target, (y * width + x) * 4, fragment, blend, white);
             }
         }
     }
@@ -599,7 +648,7 @@ public static class SoftwareUiRasterizer {
                 var tile = new Vector2(MathF.Abs(shape.Area.Z), MathF.Abs(shape.Area.W));
                 var inside = texture - new Vector2(shape.Area.X, shape.Area.Y);
 
-                local = new Vector2(
+                local = new(
                     shape.Area.Z > 0f ? Wrap(inside.X, tile.X) : inside.X,
                     shape.Area.W > 0f ? Wrap(inside.Y, tile.Y) : inside.Y
                 );
@@ -623,7 +672,7 @@ public static class SoftwareUiRasterizer {
 
             if (shape.Paint.Z > 0f && shape.Paint.W > 0f) {
                 local -= new Vector2(shape.Paint.X, shape.Paint.Y);
-                reach = new Vector2(shape.Paint.Z, shape.Paint.W);
+                reach = new(shape.Paint.Z, shape.Paint.W);
             }
 
             fill = GradientColour(shape, colour, Parameter(shape, local, reach));
@@ -644,7 +693,7 @@ public static class SoftwareUiRasterizer {
         var period = half * 2f;
         var shifted = value + half;
 
-        return shifted - (period * MathF.Floor(shifted / period)) - half;
+        return shifted - period * MathF.Floor(shifted / period) - half;
     }
 
     /// <summary>Where this pixel sits along the ramp, as <c>UiBox.Parameter</c> evaluates it.</summary>
@@ -656,9 +705,9 @@ public static class SoftwareUiRasterizer {
     ///     frame in <see cref="Box" /> before this is called rather than branching inside it.
     /// </remarks>
     internal static float Parameter(UiShape shape, Vector2 point, Vector2 half) {
-        var kind = (int) (shape.Size.W + 0.5f);
+        var kind = (int)(shape.Size.W + 0.5f);
 
-        if (kind == (int) GradientShape.Radial) {
+        if (kind == (int)GradientShape.Radial) {
             // `ellipse farthest-corner at center`: the farthest-*side* ellipse is the point divided
             // by the half size, on which the corner sits at root two — so the reciprocal of root two
             // is the whole of `farthest-corner`.
@@ -667,25 +716,25 @@ public static class SoftwareUiRasterizer {
                 point.Y / MathF.Max(half.Y, 1e-4f)
             );
 
-            return MathF.Sqrt((normalised.X * normalised.X) + (normalised.Y * normalised.Y)) * 0.70710678f;
+            return MathF.Sqrt(normalised.X * normalised.X + normalised.Y * normalised.Y) * 0.70710678f;
         }
 
-        if (kind == (int) GradientShape.Conic) {
+        if (kind == (int)GradientShape.Conic) {
             // CSS starts at twelve o'clock and sweeps clockwise; screen space is y-down, so up is -y
             // and `Atan2(x, -y)` is already CSS's angle. The axis's own angle is the `from <angle>`.
             var angle = MathF.Atan2(point.X, -point.Y) - MathF.Atan2(shape.Axis.X, -shape.Axis.Y);
 
             // ⚠ The shader's reciprocal literal, multiplied, and not a division by `Tau` — see
             // `UiMask.Progress`, which is the same line for the same reason. #1256.
-            var turns = (angle * 0.15915494309189535f) + 1f;
+            var turns = angle * 0.15915494309189535f + 1f;
 
             return turns - MathF.Floor(turns);
         }
 
-        var axis = Normalize(new Vector2(shape.Axis.X, shape.Axis.Y));
+        var axis = Normalize(new(shape.Axis.X, shape.Axis.Y));
         var reach = MathF.Abs(axis.X * half.X) + MathF.Abs(axis.Y * half.Y);
 
-        return ((((point.X * axis.X) + (point.Y * axis.Y)) / MathF.Max(reach, 1e-4f)) * 0.5f) + 0.5f;
+        return (point.X * axis.X + point.Y * axis.Y) / MathF.Max(reach, 1e-4f) * 0.5f + 0.5f;
     }
 
     /// <summary>The colour at <c>t</c>, as <c>UiBox.GradientColour</c> evaluates it.</summary>
@@ -715,13 +764,19 @@ public static class SoftwareUiRasterizer {
 
         return width > 1e-4f
             ? Math.Clamp((t - from) / width, 0f, 1f)
-            : t < from ? 0f : 1f;
+            : t < from
+                ? 0f
+                : 1f;
     }
 
     /// <summary>Mixes two stops in whichever space the record names.</summary>
     /// <remarks>
-    ///     ⚠ <b>Oklab goes through <see cref="Oklab.Lerp(Color4, Color4, float)" /> rather than being
-    ///     transcribed the way the rest of this file transcribes the shader</b>, and that is the one
+    ///     ⚠
+    ///     <b>
+    ///         Oklab goes through <see cref="Oklab.Lerp(Color4, Color4, float)" /> rather than being
+    ///         transcribed the way the rest of this file transcribes the shader
+    ///     </b>
+    ///     , and that is the one
     ///     deliberate departure from "port the shader as written". The shader cannot call the host's
     ///     implementation and spells the same matrices out; keeping <i>one</i> of the two authoritative
     ///     means a mistake in the transcription shows up as a diff here instead of agreeing with
@@ -730,14 +785,14 @@ public static class SoftwareUiRasterizer {
     ///     bit-identical — which is a real limit on how tightly a device golden could ever pin this.
     /// </remarks>
     static Color4 MixStops(UiShape shape, Color4 a, Color4 b, float u) {
-        var space = (GradientSpace) (int) (shape.Axis.W + 0.5f);
+        var space = (GradientSpace)(int)(shape.Axis.W + 0.5f);
 
         if (space == GradientSpace.Oklab) {
             return Oklab.Lerp(a, b, u);
         }
 
         if (space == GradientSpace.Srgb) {
-            return new Color4(
+            return new(
                 ColorSpace.SrgbToLinear(Lerp(ColorSpace.LinearToSrgb(a.R), ColorSpace.LinearToSrgb(b.R), u)),
                 ColorSpace.SrgbToLinear(Lerp(ColorSpace.LinearToSrgb(a.G), ColorSpace.LinearToSrgb(b.G), u)),
                 ColorSpace.SrgbToLinear(Lerp(ColorSpace.LinearToSrgb(a.B), ColorSpace.LinearToSrgb(b.B), u)),
@@ -745,7 +800,7 @@ public static class SoftwareUiRasterizer {
             );
         }
 
-        return new Color4(Lerp(a.R, b.R, u), Lerp(a.G, b.G, u), Lerp(a.B, b.B, u), Lerp(a.A, b.A, u));
+        return new(Lerp(a.R, b.R, u), Lerp(a.G, b.G, u), Lerp(a.B, b.B, u), Lerp(a.A, b.A, u));
     }
 
     /// <summary>A glyph, as <c>ui-text.frag</c> evaluates it.</summary>
@@ -757,7 +812,7 @@ public static class SoftwareUiRasterizer {
         // reconstructs the shape keep the corner. Treating the three as RGB is the classic mistake
         // and draws text that is too thin.
         var distance = Median(field.X, field.Y, field.Z) - 0.5f;
-        var coverage = Math.Clamp((distance * MathF.Max(pixelRange, 1e-4f)) + 0.5f, 0f, 1f);
+        var coverage = Math.Clamp(distance * MathF.Max(pixelRange, 1e-4f) + 0.5f, 0f, 1f);
 
         var alpha = colour.A * coverage;
         return new(colour.R * alpha, colour.G * alpha, colour.B * alpha, alpha);
@@ -781,8 +836,8 @@ public static class SoftwareUiRasterizer {
     ///     put the far edge of the atlas into the first glyph in it.
     /// </remarks>
     static Vector4 Sample(GlyphAtlas atlas, Vector2 uv) {
-        var x = (uv.X * atlas.Width) - 0.5f;
-        var y = (uv.Y * atlas.Height) - 0.5f;
+        var x = uv.X * atlas.Width - 0.5f;
+        var y = uv.Y * atlas.Height - 0.5f;
 
         var x0 = (int)MathF.Floor(x);
         var y0 = (int)MathF.Floor(y);
@@ -806,7 +861,7 @@ public static class SoftwareUiRasterizer {
         x = Math.Clamp(x, 0, atlas.Width - 1);
         y = Math.Clamp(y, 0, atlas.Height - 1);
 
-        var offset = ((y * atlas.Width) + x) * 3;
+        var offset = (y * atlas.Width + x) * 3;
         return new(atlas.Pixels[offset], atlas.Pixels[offset + 1], atlas.Pixels[offset + 2], 0f);
     }
 
@@ -828,7 +883,7 @@ public static class SoftwareUiRasterizer {
         };
 
     /// <summary>Coverage across a one-pixel band, from the derivative of the distance itself.</summary>
-    static float Coverage(float distance, float width) => Math.Clamp(0.5f - (distance / width), 0f, 1f);
+    static float Coverage(float distance, float width) => Math.Clamp(0.5f - distance / width, 0f, 1f);
 
     /// <summary>A shadow's coverage: the same distance, faded over the blur instead of over a pixel.</summary>
     /// <param name="distance">The signed distance to the box, negative inside.</param>
@@ -853,12 +908,11 @@ public static class SoftwareUiRasterizer {
     /// </remarks>
     static float Smoothstep(float from, float to, float value) {
         var t = Math.Clamp((value - from) / (to - from), 0f, 1f);
-        return t * t * (3f - (2f * t));
+        return t * t * (3f - 2f * t);
     }
 
     /// <summary>Branchless via min and max, as the shader has it.</summary>
-    static float Median(float a, float b, float c) =>
-        MathF.Max(MathF.Min(a, b), MathF.Min(MathF.Max(a, b), c));
+    static float Median(float a, float b, float c) => MathF.Max(MathF.Min(a, b), MathF.Min(MathF.Max(a, b), c));
 
     /// <summary>Source-over, with a blend mode's change of source colour applied first.</summary>
     /// <param name="target">The destination buffer, premultiplied.</param>
@@ -874,8 +928,12 @@ public static class SoftwareUiRasterizer {
     ///     blend handed a one in a frame built at 203 returns one candela. See <see cref="UiBlend.Apply" />.
     /// </param>
     /// <remarks>
-    ///     ⚠ <b>The one line in this file that reads the destination for anything but the source-over
-    ///     itself, and it is what a blend mode costs.</b> Every other group-wide effect — the fade,
+    ///     ⚠
+    ///     <b>
+    ///         The one line in this file that reads the destination for anything but the source-over
+    ///         itself, and it is what a blend mode costs.
+    ///     </b>
+    ///     Every other group-wide effect — the fade,
     ///     the Gaussian, the colour matrix, the mask — is a function of the group's own surface, so it
     ///     is applied at the seam where that surface is finished and this method never learns of it.
     ///     A blend is a function of both operands and there is nowhere earlier to put it. See
@@ -893,16 +951,16 @@ public static class SoftwareUiRasterizer {
             source = UiBlend.Apply(
                 mode,
                 source,
-                new Color4(target[offset], target[offset + 1], target[offset + 2], target[offset + 3]),
+                new(target[offset], target[offset + 1], target[offset + 2], target[offset + 3]),
                 white
             );
         }
 
         var inverse = 1f - source.A;
-        target[offset + 0] = source.R + (target[offset + 0] * inverse);
-        target[offset + 1] = source.G + (target[offset + 1] * inverse);
-        target[offset + 2] = source.B + (target[offset + 2] * inverse);
-        target[offset + 3] = source.A + (target[offset + 3] * inverse);
+        target[offset] = source.R + target[offset] * inverse;
+        target[offset + 1] = source.G + target[offset + 1] * inverse;
+        target[offset + 2] = source.B + target[offset + 2] * inverse;
+        target[offset + 3] = source.A + target[offset + 3] * inverse;
     }
 
     /// <summary>Whether a sample exactly on an edge belongs to this triangle.</summary>
@@ -945,14 +1003,14 @@ public static class SoftwareUiRasterizer {
     static bool Covers(float weight, bool inclusive) => weight > 0f || (weight == 0f && inclusive);
 
     static float Edge(Vector2 a, Vector2 b, Vector2 point) =>
-        ((b.X - a.X) * (point.Y - a.Y)) - ((b.Y - a.Y) * (point.X - a.X));
+        (b.X - a.X) * (point.Y - a.Y) - (b.Y - a.Y) * (point.X - a.X);
 
     static Vector2 Normalize(Vector2 value) {
-        var length = MathF.Sqrt((value.X * value.X) + (value.Y * value.Y));
+        var length = MathF.Sqrt(value.X * value.X + value.Y * value.Y);
         return length < 1e-6f ? new(0f, 0f) : new(value.X / length, value.Y / length);
     }
 
-    static float Lerp(float from, float to, float t) => from + ((to - from) * t);
+    static float Lerp(float from, float to, float t) => from + (to - from) * t;
 
     static float Min3(float a, float b, float c) => MathF.Min(a, MathF.Min(b, c));
 
@@ -968,8 +1026,12 @@ public static class SoftwareUiRasterizer {
 
     /// <summary>A composited group's surface, as <c>UiImage.Fragment</c> evaluates it.</summary>
     /// <remarks>
-    ///     ⚠ <b>The sample is <i>already</i> premultiplied and is not multiplied again, which is the
-    ///     whole difference between this and an ordinary image.</b> Every UI pipeline writes
+    ///     ⚠
+    ///     <b>
+    ///         The sample is <i>already</i> premultiplied and is not multiplied again, which is the
+    ///         whole difference between this and an ordinary image.
+    ///     </b>
+    ///     Every UI pipeline writes
     ///     premultiplied colour because that is what the blend state consumes, so a group's surface
     ///     holds premultiplied colour too — where a texture a host uploaded holds straight alpha and has
     ///     to be premultiplied on the way out. Doing it twice darkens every partly covered pixel, which
@@ -1045,7 +1107,7 @@ public static class SoftwareUiRasterizer {
             var half = new Vector2(shape.Box.Width * 0.5f, shape.Box.Height * 0.5f);
             var centre = new Vector2(shape.Box.X + half.X, shape.Box.Y + half.Y);
 
-            coverage *= Coverage(BoxDistance(point - centre, half, new Vector2(shape.Radius)), 1f);
+            coverage *= Coverage(BoxDistance(point - centre, half, new(shape.Radius)), 1f);
         }
 
         // ⚠ <b>All four channels, because the sample is premultiplied.</b> Scaling coverage on
@@ -1055,7 +1117,7 @@ public static class SoftwareUiRasterizer {
         // mask closes, which reads as a glow along the fading edge.
         var scale = tint.A * coverage;
 
-        return new Color4(
+        return new(
             sampled.X * scale,
             sampled.Y * scale,
             sampled.Z * scale,
@@ -1084,8 +1146,8 @@ public static class SoftwareUiRasterizer {
     ///     </para>
     /// </remarks>
     static Vector4 SampleSurface(float[] surface, int width, int height, Vector2 uv) {
-        var x = (uv.X * width) - 0.5f;
-        var y = (uv.Y * height) - 0.5f;
+        var x = uv.X * width - 0.5f;
+        var y = uv.Y * height - 0.5f;
 
         var x0 = (int)MathF.Floor(x);
         var y0 = (int)MathF.Floor(y);
@@ -1114,15 +1176,19 @@ public static class SoftwareUiRasterizer {
         x = Math.Clamp(x, 0, width - 1);
         y = Math.Clamp(y, 0, height - 1);
 
-        var offset = ((y * width) + x) * 4;
+        var offset = (y * width + x) * 4;
         return new(surface[offset], surface[offset + 1], surface[offset + 2], surface[offset + 3]);
     }
 
     /// <summary>One frame's walk, with a surface of its own for each composited group.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The same execution the GPU renderer performs, in the same order, and that is the
-    ///         point of it being written this way.</b> A group is rendered into a surface first and the
+    ///         ⚠
+    ///         <b>
+    ///             The same execution the GPU renderer performs, in the same order, and that is the
+    ///             point of it being written this way.
+    ///         </b>
+    ///         A group is rendered into a surface first and the
     ///         result is drawn back as an ordinary image afterwards, on both paths — rather than this
     ///         one taking the shortcut it could easily take of blending a subtree's fragments with the
     ///         alpha folded in. A shortcut would agree with the device on the cases anybody thought to
@@ -1139,9 +1205,13 @@ public static class SoftwareUiRasterizer {
 
         /// <summary>Each composited group's mask list, as a range of <see cref="UiGeometry.Masks" />.</summary>
         /// <remarks>
-        ///     ⚠ <b>A second dictionary beside <see cref="surfaces" /> rather than a pass beside
-        ///     <c>Blurred</c> and <c>Filtered</c>, and the shape is <c>UiRenderer.layerMasks</c>'
-        ///     on purpose.</b> A mask cannot be folded into a surface — see <see cref="UiMask" /> —
+        ///     ⚠
+        ///     <b>
+        ///         A second dictionary beside <see cref="surfaces" /> rather than a pass beside
+        ///         <c>Blurred</c> and <c>Filtered</c>, and the shape is <c>UiRenderer.layerMasks</c>'
+        ///         on purpose.
+        ///     </b>
+        ///     A mask cannot be folded into a surface — see <see cref="UiMask" /> —
         ///     so it has to survive until the composite draw reads it, which is precisely what
         ///     keying it by <c>UiLayer.Image</c> buys. The device does the same lookup in
         ///     <c>SubmitDraw</c>, so the two paths find the mask at the same moment as well as apply
@@ -1154,8 +1224,12 @@ public static class SoftwareUiRasterizer {
 
         /// <summary>Each composited group's blend mode, keyed the way <see cref="masks" /> is.</summary>
         /// <remarks>
-        ///     ⚠ <b>A third dictionary rather than a field on the surface, because the mode is a
-        ///     property of the <i>composite</i> and not of the pixels.</b> The surface is finished
+        ///     ⚠
+        ///     <b>
+        ///         A third dictionary rather than a field on the surface, because the mode is a
+        ///         property of the <i>composite</i> and not of the pixels.
+        ///     </b>
+        ///     The surface is finished
         ///     before anything knows where its quad lands; the mode is only meaningful at the moment
         ///     it does. Recorded here and read in <see cref="Execute" /> is the same arrangement the
         ///     masks have, and for the same reason: neither may be folded into the surface.
@@ -1167,8 +1241,12 @@ public static class SoftwareUiRasterizer {
         ///     <para>
         ///         ⚠ <b>#229 divergence 1, and this is the half that ran first.</b> CSS clips a
         ///         filtered backdrop to the element's border box <i>including its radius</i>; both
-        ///         executors drew a square one until 2026-09-08, so <c>rounded-2xl
-        ///         backdrop-blur-md</c> showed square corners just outside the rounded ones. This path
+        ///         executors drew a square one until 2026-09-08, so
+        ///         <c>
+        ///             rounded-2xl
+        ///             backdrop-blur-md
+        ///         </c>
+        ///         showed square corners just outside the rounded ones. This path
         ///         closed it that day because a <see cref="Composite" /> here already evaluates a
         ///         per-fragment coverage for the mask, and <c>UiRenderer</c> followed on 2026-09-09 by
         ///         pushing the box to the composite fragment. The two are compared on a device in
@@ -1176,8 +1254,12 @@ public static class SoftwareUiRasterizer {
         ///         <c>UiRenderer.SquareBackdrops</c> now counts only a host with no colour stage.
         ///     </para>
         ///     <para>
-        ///         ⚠ <b>Keyed by <c>BackdropImage</c> and never by <c>Image</c>, which is the whole of
-        ///         what makes it the backdrop's clip rather than the group's.</b> A group's own
+        ///         ⚠
+        ///         <b>
+        ///             Keyed by <c>BackdropImage</c> and never by <c>Image</c>, which is the whole of
+        ///             what makes it the backdrop's clip rather than the group's.
+        ///         </b>
+        ///         A group's own
         ///         composite quad is bounded by its ink and is not rounded by anything — an element
         ///         with a radius still paints a square surface, because the rounding is in the box it
         ///         drew and not in the surface it drew into. Rounding <c>Image</c> here would cut the
@@ -1192,7 +1274,7 @@ public static class SoftwareUiRasterizer {
         ///     <c>ReadOnlySpan</c>, so the copy happens once per frame here rather than once per
         ///     <i>pixel</i> at the composite.
         /// </remarks>
-        readonly UiMask[] entries = [.. geometry.Masks];
+        readonly UiMask[] entries = [..geometry.Masks];
 
         int next;
 
@@ -1227,7 +1309,7 @@ public static class SoftwareUiRasterizer {
                     // implemented, and would surface as a compositing divergence rather than as a
                     // missing feature.
                     if (layer.Backdrop is { } behind) {
-                        var captured = (float[]) target.Clone();
+                        var captured = (float[])target.Clone();
 
                         // The same seam and the same order as the group's own surface below: the
                         // Gaussian first, the matrix after it. Both commute here — see `UiBackdrop` —
@@ -1363,8 +1445,12 @@ public static class SoftwareUiRasterizer {
         /// <returns>A new surface. The one handed in is left alone.</returns>
         /// <remarks>
         ///     <para>
-        ///         ⚠ <b>Two one-dimensional passes and not one two-dimensional kernel, and the
-        ///         reason is agreement rather than speed.</b> A Gaussian is separable exactly, so the
+        ///         ⚠
+        ///         <b>
+        ///             Two one-dimensional passes and not one two-dimensional kernel, and the
+        ///             reason is agreement rather than speed.
+        ///         </b>
+        ///         A Gaussian is separable exactly, so the
         ///         two give the same answer in real arithmetic — but not in <c>float</c>, and the
         ///         device has no choice: it cannot read and write one attachment, so it is separable
         ///         there whatever this does. Summing the square here would put a rounding difference
@@ -1381,8 +1467,11 @@ public static class SoftwareUiRasterizer {
         ///         under a zero alpha is not a colour.
         ///     </para>
         ///     <para>
-        ///         ⚠ <b>The weights are normalised over the <i>whole</i> kernel and not over the taps
-        ///         that landed inside the surface, and the difference is a bright rim.</b>
+        ///         ⚠
+        ///         <b>
+        ///             The weights are normalised over the <i>whole</i> kernel and not over the taps
+        ///             that landed inside the surface, and the difference is a bright rim.
+        ///         </b>
         ///         Renormalising per pixel is what a clamp-to-edge sampler amounts to — it makes the
         ///         edge row stand in for everything past it — and near a group that runs to the
         ///         viewport edge that lifts the result towards the edge's own colour instead of
@@ -1421,11 +1510,11 @@ public static class SoftwareUiRasterizer {
 
             var scratch = new float[surface.Length];
 
-            Sweep(surface, scratch, reach, weights, horizontal: true);
+            Sweep(surface, scratch, reach, weights, true);
 
             var result = new float[surface.Length];
 
-            Sweep(scratch, result, reach, weights, horizontal: false);
+            Sweep(scratch, result, reach, weights, false);
 
             return result;
         }
@@ -1435,15 +1524,23 @@ public static class SoftwareUiRasterizer {
         /// <param name="matrix">The transform.</param>
         /// <returns>A new surface. The one handed in is left alone.</returns>
         /// <remarks>
-        ///     ⚠ <b>A new buffer rather than a rewrite in place, and it costs an allocation to buy the
-        ///     same shape <see cref="Blurred" /> has.</b> The blur cannot be in place — a convolution
+        ///     ⚠
+        ///     <b>
+        ///         A new buffer rather than a rewrite in place, and it costs an allocation to buy the
+        ///         same shape <see cref="Blurred" /> has.
+        ///     </b>
+        ///     The blur cannot be in place — a convolution
         ///     reads neighbours — so it returns a new array, and a filter that mutated its argument
         ///     would leave the caller with two functions that look interchangeable and are not. The
         ///     device's cost is not this: its transform is nine multiplies in a fragment shader that
         ///     was already running, and this file's job is the picture rather than the cost.
         ///     <para>
-        ///         ⚠ <b>At the frame's white, read off the geometry for the reason the rasteriser's
-        ///         blend reads it there (#1418).</b> A surface on a float pass holds colour scaled by
+        ///         ⚠
+        ///         <b>
+        ///             At the frame's white, read off the geometry for the reason the rasteriser's
+        ///             blend reads it there (#1418).
+        ///         </b>
+        ///         A surface on a float pass holds colour scaled by
         ///         <see cref="UiGeometry.WhiteLevel" />, and a matrix clamped to the alpha as if the
         ///         white were one caps every filtered pixel at one candela and leaves a drop shadow's
         ///         colour a factor of the white too dark. <see cref="UiColorMatrix.Apply(Color4, float)" />
@@ -1455,7 +1552,7 @@ public static class SoftwareUiRasterizer {
 
             for (var offset = 0; offset < surface.Length; offset += 4) {
                 var filtered = matrix.Apply(
-                    new Color4(surface[offset], surface[offset + 1], surface[offset + 2], surface[offset + 3]),
+                    new(surface[offset], surface[offset + 1], surface[offset + 2], surface[offset + 3]),
                     geometry.WhiteLevel
                 );
 
@@ -1489,12 +1586,12 @@ public static class SoftwareUiRasterizer {
                         }
 
                         var weight = weights[Math.Abs(i)];
-                        var offset = ((sampleY * width) + sampleX) * 4;
+                        var offset = (sampleY * width + sampleX) * 4;
 
                         sum += new Vector4(from[offset], from[offset + 1], from[offset + 2], from[offset + 3]) * weight;
                     }
 
-                    var destination = ((y * width) + x) * 4;
+                    var destination = (y * width + x) * 4;
 
                     into[destination] = sum.X;
                     into[destination + 1] = sum.Y;

@@ -51,7 +51,6 @@ public sealed class MaterialImporterTests {
     ///     build that succeeds and a game that throws about content it just made. This importer wrote
     ///     <c>"Material"</c>, which is <c>MaterialDescriptor</c>'s alias, while writing
     ///     <c>MaterialContent</c>'s bytes.
-    ///
     ///     Asserting the constant against the registry rather than against a literal is deliberate:
     ///     a literal here would have been copied from the same mistaken place.
     /// </remarks>
@@ -221,7 +220,14 @@ public sealed class MaterialImporterTests {
         files.Seed(path, text);
 
         var importer = new MaterialImporter();
-        var context = new ImportContext(AssetId.New(), path, importer.CreateSettings(), files, importer.Name, "Windows");
+        var context = new ImportContext(
+            AssetId.New(),
+            path,
+            importer.CreateSettings(),
+            files,
+            importer.Name,
+            "Windows"
+        );
 
         return (context, await importer.ImportAsync(context, TestContext.Current.CancellationToken));
     }

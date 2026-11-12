@@ -75,12 +75,7 @@ public class ConstraintTests {
         var target = new Vector3(0.6f, 1.6f, 0f);
 
         stack.Add(
-            new PositionGoal {
-                Effector = 2,
-                Chain = new(0, 2),
-                Goal = new ModelTestFrame(target),
-                Weight = 0.5f
-            }
+            new PositionGoal { Effector = 2, Chain = new(0, 2), Goal = new ModelTestFrame(target), Weight = 0.5f }
         );
 
         var settled = Settle(stack, pose, model);
@@ -233,7 +228,7 @@ public class ConstraintTests {
 
             pose.ComputeModelSpace(model);
 
-            var facing = Quaternion.Transform(new Vector3(0f, 0f, 1f), model[2].Rotation);
+            var facing = Quaternion.Transform(new(0f, 0f, 1f), model[2].Rotation);
             var lateral = MathF.Abs(distance * facing.X / facing.Z);
 
             // ⚠ The reason an aim goal stores an angle and a distance rather than a point. Store the
@@ -314,7 +309,13 @@ public class ConstraintTests {
     [Fact]
     public void AClipReportsItsTagsThroughTheAnimator() {
         var target = new Vector3(0.5f, 1.5f, 0f);
-        var clip = AnimationClip.Create(TestRigs.Hold("Reach", "Root", Vector3.Zero), skeleton, null, null, Track(target));
+        var clip = AnimationClip.Create(
+            TestRigs.Hold("Reach", "Root", Vector3.Zero),
+            skeleton,
+            null,
+            null,
+            Track(target)
+        );
 
         var animator = new Animator(skeleton);
         animator.AddLayer("Base", new([new AnimationState("Reach", new ClipMotion(clip))]));
@@ -334,21 +335,14 @@ public class ConstraintTests {
         new(
             new ConstraintTag {
                 Goal = new PositionGoal {
-                    Effector = 2,
-                    Chain = new(0, 2),
-                    Goal = new ModelTestFrame(target),
-                    EaseIn = 0f
+                    Effector = 2, Chain = new(0, 2), Goal = new ModelTestFrame(target), EaseIn = 0f
                 }
             }
         );
 
     [Fact]
     public void ATagOutsideItsSpanDoesNothingAndOneStraddlingTheLoopPointDoes() {
-        var tag = new ConstraintTag {
-            Goal = new PositionGoal { Effector = 2 },
-            Begin = 0.8f,
-            End = 0.2f
-        };
+        var tag = new ConstraintTag { Goal = new PositionGoal { Effector = 2 }, Begin = 0.8f, End = 0.2f };
 
         Assert.Equal(0f, tag.Activation(0.5f));
         Assert.Equal(1f, tag.Activation(0.9f));
@@ -361,7 +355,9 @@ public class ConstraintTests {
     public void AGoalThatStopsResolvingEasesOutInsteadOfSnapping() {
         var stack = Stack();
         var (pose, model) = Fresh();
-        var prop = new TransformBinding { Transform = new(new Vector3(0.9f, 1.3f, 0f), Quaternion.Identity, Vector3.One) };
+        var prop = new TransformBinding {
+            Transform = new(new Vector3(0.9f, 1.3f, 0f), Quaternion.Identity, Vector3.One)
+        };
 
         stack.Bindings.Set("held-item", prop);
 
@@ -453,10 +449,7 @@ public class ConstraintTests {
 
         var handle = stack.Add(
             new PositionGoal {
-                Effector = 2,
-                Chain = new(0, 2),
-                Goal = new ModelTestFrame(new(0.9f, 1.3f, 0f)),
-                EaseIn = 1f
+                Effector = 2, Chain = new(0, 2), Goal = new ModelTestFrame(new(0.9f, 1.3f, 0f)), EaseIn = 1f
             }
         );
 
@@ -548,14 +541,7 @@ public class ConstraintTests {
 
         stack.Add(new PositionGoal { Effector = 2, Chain = new(0, 2), Goal = new ModelTestFrame(loses) });
 
-        stack.Add(
-            new PositionGoal {
-                Effector = 2,
-                Chain = new(0, 2),
-                Goal = new ModelTestFrame(wins),
-                Priority = 1
-            }
-        );
+        stack.Add(new PositionGoal { Effector = 2, Chain = new(0, 2), Goal = new ModelTestFrame(wins), Priority = 1 });
 
         var settled = Settle(stack, pose, model);
 
@@ -579,11 +565,7 @@ public class ConstraintTests {
         );
 
         stack.Add(
-            new PositionGoal {
-                Effector = 2,
-                Chain = new(0, 2),
-                Goal = new WorldFrame(new Vector3(10.9f, 1.3f, 0f))
-            }
+            new PositionGoal { Effector = 2, Chain = new(0, 2), Goal = new WorldFrame(new Vector3(10.9f, 1.3f, 0f)) }
         );
 
         // A metre to the character's own left, because it is facing the other way.
@@ -597,20 +579,13 @@ public class ConstraintTests {
 
         stack.Bindings.Set(
             "held-item",
-            new ComputedTestBinding(
-                socket => socket == Symbol.Intern("grip")
-                    ? new BoneTransform(new Vector3(0.9f, 1.3f, 0f), Quaternion.Identity, Vector3.One)
+            new ComputedTestBinding(static socket => socket == Symbol.Intern("grip")
+                    ? new BoneTransform(new(0.9f, 1.3f, 0f), Quaternion.Identity, Vector3.One)
                     : null
             )
         );
 
-        stack.Add(
-            new PositionGoal {
-                Effector = 2,
-                Chain = new(0, 2),
-                Goal = new SocketFrame("held-item", "muzzle")
-            }
-        );
+        stack.Add(new PositionGoal { Effector = 2, Chain = new(0, 2), Goal = new SocketFrame("held-item", "muzzle") });
 
         TestRigs.Near(new(0f, 2f, 0f), Settle(stack, pose, model), "a missing socket is not the prop's origin");
     }
@@ -655,10 +630,7 @@ public class ConstraintTests {
 
         stack.Add(
             new PositionGoal {
-                Effector = 2,
-                Chain = new(0, 2),
-                Goal = new ModelTestFrame(new(5f, 5f, 5f)),
-                EaseIn = 0f
+                Effector = 2, Chain = new(0, 2), Goal = new ModelTestFrame(new(5f, 5f, 5f)), EaseIn = 0f
             }
         );
 
@@ -685,10 +657,7 @@ public class ConstraintTests {
 
         stack.Add(
             new PositionGoal {
-                Effector = 2,
-                Chain = new(0, 2),
-                Goal = new SocketFrame("held-item", "grip"),
-                EaseIn = 0f
+                Effector = 2, Chain = new(0, 2), Goal = new SocketFrame("held-item", "grip"), EaseIn = 0f
             }
         );
 

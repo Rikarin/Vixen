@@ -56,7 +56,7 @@ public sealed class WebSocketLoop : IWebSocketFactory {
             return client;
         }
 
-        listener.Offer(new Channel(theirs, ours));
+        listener.Offer(new(theirs, ours));
         client.Open();
 
         return client;
@@ -74,7 +74,7 @@ public sealed class WebSocketLoop : IWebSocketFactory {
 
         public void Write(ReadOnlySpan<byte> message) {
             if (!Closed) {
-                messages.Enqueue(message.ToArray());
+                messages.Enqueue([..message]);
             }
         }
 

@@ -74,8 +74,11 @@ public sealed class MemoryMeshletPageSource : IMeshletPageSource {
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>The source a shipping build uses, and the reason
-///         <see cref="MeshletPageSet.WithoutData" /> exists.</b> A build writes a mesh's records and
+///         <b>
+///             The source a shipping build uses, and the reason
+///             <see cref="MeshletPageSet.WithoutData" /> exists.
+///         </b>
+///         A build writes a mesh's records and
 ///         its geometry as two artefacts; the records are deserialised whole at load, and this reads
 ///         the geometry a page at a time from wherever the second one landed. What it never does is
 ///         read the whole blob, which is the difference between streaming and loading.
@@ -197,8 +200,11 @@ public sealed class StreamMeshletPageSource : IMeshletPageSource, IDisposable {
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>This is <see cref="GeometryBuffer" /> with a residency policy instead of a load-time
-///         one</b>, which is what <c>docs/plan/22-virtualized-geometry.md</c> phase 2 says it should be. The
+///         <b>
+///             This is <see cref="GeometryBuffer" /> with a residency policy instead of a load-time
+///             one
+///         </b>
+///         , which is what <c>docs/plan/22-virtualized-geometry.md</c> phase 2 says it should be. The
 ///         same fixed capacity, the same device-local memory written through staging, the same
 ///         two-call <c>Write</c>/<c>Flush</c> split because a page arrives on one thread and the copy
 ///         belongs at one known point in one command list. What differs is the allocator: that one

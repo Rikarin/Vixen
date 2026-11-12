@@ -98,7 +98,7 @@ public sealed class EffectStore : IEffectSource {
     /// <summary>The bundle this store would bake, ordered so two builds of the same set match.</summary>
     public EffectBundle ToBundle() =>
         new() {
-            Effects = [.. effects.Values.OrderBy(effect => effect.ToKey().ToString(), StringComparer.Ordinal)]
+            Effects = [..effects.Values.OrderBy(static effect => effect.ToKey().ToString(), StringComparer.Ordinal)]
         };
 
     /// <inheritdoc />

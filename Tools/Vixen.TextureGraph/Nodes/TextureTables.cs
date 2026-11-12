@@ -8,9 +8,12 @@ namespace Vixen.TextureGraph.Nodes;
 /// <summary>The one-row tables three nodes read: a colour ramp and a curve.</summary>
 /// <remarks>
 ///     <para>
-///         <b>Every one of them is an <em>external</em> image, and that is the whole of why
-///         <c>Gradient</c>, <c>Curve</c> and <c>GradientMap</c> had no node until
-///         <a href="https://github.com/Rikarin/Vixen/issues/732">#732</a>.</b> A table is not
+///         <b>
+///             Every one of them is an <em>external</em> image, and that is the whole of why
+///             <c>Gradient</c>, <c>Curve</c> and <c>GradientMap</c> had no node until
+///             <a href="https://github.com/Rikarin/Vixen/issues/732">#732</a>.
+///         </b>
+///         A table is not
 ///         computed by a kernel — it is baked on the CPU out of the evaluator the editor already has
 ///         for that shape, which is what stops a graph from acquiring a second opinion about what a
 ///         stop list or a tangent means. <see cref="TextureRamp" /> is that bake and this is where a
@@ -56,7 +59,7 @@ static class TextureTables {
             TextureChannels.Colour,
             TextureRamp.Entries,
             1,
-            TextureRamp.FromRamp(position => new Color4(position, position, position, 1f))
+            TextureRamp.FromRamp(static position => new(position, position, position, 1f))
         );
     }
 

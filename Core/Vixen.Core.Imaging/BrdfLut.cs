@@ -45,7 +45,7 @@ public static class BrdfLut {
         ArgumentOutOfRangeException.ThrowIfLessThan(size, 1);
         ArgumentOutOfRangeException.ThrowIfLessThan(samples, 1);
 
-        var table = new TextureData(PixelFormat.Rg16Float, size, size, levelCount: 1);
+        var table = new TextureData(PixelFormat.Rg16Float, size, size, 1);
         var pixels = table.PixelSpan();
 
         for (var y = 0; y < size; y++) {
@@ -54,7 +54,7 @@ public static class BrdfLut {
             for (var x = 0; x < size; x++) {
                 var cosine = (x + 0.5f) / size;
                 var (scale, bias) = Integrate(cosine, roughness, samples);
-                var texel = ((y * size) + x) * 4;
+                var texel = (y * size + x) * 4;
 
                 BinaryPrimitives.WriteUInt16LittleEndian(pixels[texel..], BitConverter.HalfToUInt16Bits((Half)scale));
                 BinaryPrimitives.WriteUInt16LittleEndian(
@@ -75,7 +75,7 @@ public static class BrdfLut {
     public static (float Scale, float Bias) Read(TextureData table, int x, int y) {
         ArgumentNullException.ThrowIfNull(table);
 
-        var texel = ((y * table.Width) + x) * 4;
+        var texel = (y * table.Width + x) * 4;
         var pixels = table.Pixels;
 
         return (
@@ -90,7 +90,7 @@ public static class BrdfLut {
     /// <param name="samples">How many directions.</param>
     /// <returns>The scale for F0 and the bias to add to it.</returns>
     public static (float Scale, float Bias) Integrate(float cosine, float roughness, int samples) {
-        var view = new Vector3(MathF.Sqrt(Math.Max(0f, 1f - (cosine * cosine))), 0f, cosine);
+        var view = new Vector3(MathF.Sqrt(Math.Max(0f, 1f - cosine * cosine)), 0f, cosine);
         var normal = Vector3.UnitZ;
 
         var scale = 0f;
@@ -103,7 +103,7 @@ public static class BrdfLut {
                 normal
             );
 
-            var light = (2f * Vector3.Dot(view, half) * half) - view;
+            var light = 2f * Vector3.Dot(view, half) * half - view;
             var lightCosine = light.Z;
 
             if (lightCosine <= 0f) {
@@ -116,7 +116,8 @@ public static class BrdfLut {
             // Schlick's Fresnel split so that F0 comes out of the integral: the scale multiplies it
             // and the bias replaces it, which is what lets one table serve every material.
             var fresnel = MathF.Pow(1f - viewHalf, 5f);
-            var visibility = Geometry(cosine, lightCosine, roughness) * viewHalf
+            var visibility = Geometry(cosine, lightCosine, roughness)
+                * viewHalf
                 / (halfCosine * Math.Max(cosine, 1e-6f));
 
             scale += (1f - fresnel) * visibility;
@@ -138,6 +139,6 @@ public static class BrdfLut {
 
         return Schlick(viewCosine, k) * Schlick(lightCosine, k);
 
-        static float Schlick(float cosine, float k) => cosine / ((cosine * (1f - k)) + k);
+        static float Schlick(float cosine, float k) => cosine / (cosine * (1f - k) + k);
     }
 }

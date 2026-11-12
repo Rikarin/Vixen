@@ -25,13 +25,13 @@ public class GoapDomainTests {
             new(Symbol.Intern("fire"), GoapWorldSources.Constant(0))
         );
 
-        var gather = new GoapAction(Symbol.Intern("gather"), 0, [], new GoapEffect(wood, Increases: true));
-        var burn = new GoapAction(Symbol.Intern("burn"), 1, [], new GoapEffect(wood, Increases: false));
+        var gather = new GoapAction(Symbol.Intern("gather"), 0, [], new GoapEffect(wood, true));
+        var burn = new GoapAction(Symbol.Intern("burn"), 1, [], new GoapEffect(wood, false));
         var light = new GoapAction(
             Symbol.Intern("light"),
             2,
             [new(wood, GoapComparison.Greater, 0)],
-            new GoapEffect(fire, Increases: true)
+            new GoapEffect(fire, true)
         );
 
         var domain = new GoapDomain(Symbol.Intern("camp"), keys, [gather, burn, light], []);
@@ -71,7 +71,7 @@ public class GoapDomainTests {
             [],
             [
                 new(Symbol.Intern("eat"), [new(hunger, GoapComparison.Less, 20)]),
-                new(Symbol.Intern("flee"), [new(danger, GoapComparison.Less, 1)], Priority: 5)
+                new(Symbol.Intern("flee"), [new(danger, GoapComparison.Less, 1)], 5)
             ]
         );
 
@@ -120,7 +120,7 @@ public class GoapCostTests {
         var target = new GoapTarget(true, new(0f, 0f, 10f), Entity.Null);
         var context = GoapHarness.Context();
 
-        Assert.Equal(3f, ActionCostModels.StraightLine(0.1f).Cost(in context, action, Vector3.Zero, in target), 3);
+        Assert.Equal(3f, ActionCostModels.StraightLine().Cost(in context, action, Vector3.Zero, in target), 3);
         Assert.Equal(2f, ActionCostModels.Flat.Cost(in context, action, Vector3.Zero, in target), 3);
     }
 
@@ -158,18 +158,18 @@ public class ReplanPolicyTests {
     public void ReactiveThinksAgainWhenThereIsNothingToDoOrTheStepEnded() {
         var policy = ReplanPolicies.Reactive;
 
-        Assert.True(policy.ShouldReplan(new(HasPlan: false, false, false, 0f, 0, false)));
-        Assert.True(policy.ShouldReplan(new(HasPlan: true, Finished: true, false, 0f, 2, false)));
-        Assert.True(policy.ShouldReplan(new(HasPlan: true, false, Failed: true, 0f, 2, false)));
-        Assert.False(policy.ShouldReplan(new(HasPlan: true, false, false, 99f, 2, false)));
+        Assert.True(policy.ShouldReplan(new(false, false, false, 0f, 0, false)));
+        Assert.True(policy.ShouldReplan(new(true, true, false, 0f, 2, false)));
+        Assert.True(policy.ShouldReplan(new(true, false, true, 0f, 2, false)));
+        Assert.False(policy.ShouldReplan(new(true, false, false, 99f, 2, false)));
     }
 
     [Fact]
     public void ProactiveAlsoThinksAgainOnItsInterval() {
-        var policy = ReplanPolicies.Proactive(2f);
+        var policy = ReplanPolicies.Proactive();
 
-        Assert.False(policy.ShouldReplan(new(HasPlan: true, false, false, 1.9f, 2, false)));
-        Assert.True(policy.ShouldReplan(new(HasPlan: true, false, false, 2.1f, 2, false)));
+        Assert.False(policy.ShouldReplan(new(true, false, false, 1.9f, 2, false)));
+        Assert.True(policy.ShouldReplan(new(true, false, false, 2.1f, 2, false)));
     }
 
     /// <summary>⚠ Manual still re-plans with no plan at all, or an agent stands there for ever.</summary>
@@ -177,9 +177,9 @@ public class ReplanPolicyTests {
     public void ManualWaitsToBeAskedButNotWhenItHasNothingToDo() {
         var policy = ReplanPolicies.Manual;
 
-        Assert.False(policy.ShouldReplan(new(HasPlan: true, Finished: true, false, 99f, 2, false)));
-        Assert.True(policy.ShouldReplan(new(HasPlan: true, false, false, 0f, 2, Asked: true)));
-        Assert.True(policy.ShouldReplan(new(HasPlan: false, false, false, 0f, 0, false)));
+        Assert.False(policy.ShouldReplan(new(true, true, false, 99f, 2, false)));
+        Assert.True(policy.ShouldReplan(new(true, false, false, 0f, 2, true)));
+        Assert.True(policy.ShouldReplan(new(false, false, false, 0f, 0, false)));
     }
 }
 
@@ -189,8 +189,20 @@ public class GoapAgentTests {
     public void TheSystemRunsThePlansHeadAndThenTheStepAfterIt() {
         var pears = new GoapPearTests.Pantry { OnGround = 1, Carried = 0, Hunger = 80 };
         var registry = new AgentActionRegistry();
-        var pickUp = new Finishing(after: 2, () => { pears.OnGround--; pears.Carried++; });
-        var eat = new Finishing(after: 2, () => { pears.Carried--; pears.Hunger = 5; });
+        var pickUp = new Finishing(
+            2,
+            () => {
+                pears.OnGround--;
+                pears.Carried++;
+            }
+        );
+        var eat = new Finishing(
+            2,
+            () => {
+                pears.Carried--;
+                pears.Hunger = 5;
+            }
+        );
 
         registry.Register("pick-up", pickUp, Finishing.Size);
         registry.Register("eat", eat, Finishing.Size);
@@ -225,8 +237,8 @@ public class GoapAgentTests {
     public void AHeadThatIsNoLongerRunnableIsThrownAwayRatherThanStarted() {
         var pears = new GoapPearTests.Pantry { OnGround = 1, Carried = 0, Hunger = 80 };
         var registry = new AgentActionRegistry();
-        var pickUp = new Finishing(after: 100, () => { });
-        var eat = new Finishing(after: 1, () => pears.Hunger = 5);
+        var pickUp = new Finishing(100, static () => { });
+        var eat = new Finishing(1, () => pears.Hunger = 5);
 
         registry.Register("pick-up", pickUp, Finishing.Size);
         registry.Register("eat", eat, Finishing.Size);
@@ -260,8 +272,8 @@ public class GoapAgentTests {
         var pears = new GoapPearTests.Pantry { OnGround = 1, Carried = 0, Hunger = 80 };
         var registry = new AgentActionRegistry();
 
-        registry.Register("pick-up", new Finishing(100, () => { }), Finishing.Size);
-        registry.Register("eat", new Finishing(100, () => { }), Finishing.Size);
+        registry.Register("pick-up", new Finishing(100, static () => { }), Finishing.Size);
+        registry.Register("eat", new Finishing(100, static () => { }), Finishing.Size);
 
         var system = new AiSystem(registry, BlackboardLayout.Empty);
 

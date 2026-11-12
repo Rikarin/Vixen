@@ -56,7 +56,12 @@ public class TableLayoutTests {
         }
 
         /// <summary>A cell holding one block of the given size, so its content height is written rather than measured.</summary>
-        public LayoutNodeId Cell(LayoutNodeId row, float width = float.NaN, float contentWidth = 0f, float contentHeight = 0f) {
+        public LayoutNodeId Cell(
+            LayoutNodeId row,
+            float width = float.NaN,
+            float contentWidth = 0f,
+            float contentHeight = 0f
+        ) {
             var cell = Tree.CreateNode();
             Tree.SetDisplay(cell, Display.TableCell);
             if (!float.IsNaN(width)) {
@@ -93,13 +98,13 @@ public class TableLayoutTests {
     /// </remarks>
     [Fact]
     public void A_fixed_table_takes_its_columns_from_the_first_row() {
-        using var table = new Table(spacing: 10f);
+        using var table = new Table(10f);
         var first = table.Row();
-        var a = table.Cell(first, width: 50f, contentHeight: 20f);
+        var a = table.Cell(first, 50f, contentHeight: 20f);
         var b = table.Cell(first, contentHeight: 40f);
         var c = table.Cell(first);
         var second = table.Row();
-        var d = table.Cell(second, width: 200f, contentHeight: 30f);
+        var d = table.Cell(second, 200f, contentHeight: 30f);
         var e = table.Cell(second);
         table.Lay();
 
@@ -122,10 +127,10 @@ public class TableLayoutTests {
     /// <summary>When every column is decided and they fall short, the room is shared in proportion.</summary>
     [Fact]
     public void Decided_columns_that_fall_short_of_the_table_grow_in_proportion() {
-        using var table = new Table(spacing: 0f);
+        using var table = new Table(0f);
         var row = table.Row();
-        var a = table.Cell(row, width: 50f);
-        var b = table.Cell(row, width: 150f);
+        var a = table.Cell(row, 50f);
+        var b = table.Cell(row, 150f);
         table.Lay();
 
         Assert.Equal(75f, table.Tree.GetWidth(a));
@@ -136,10 +141,10 @@ public class TableLayoutTests {
     /// <summary>§17.5.2.1's "the greater of": columns that need more than the table's width widen the table.</summary>
     [Fact]
     public void Decided_columns_wider_than_the_table_widen_it() {
-        using var table = new Table(spacing: 10f);
+        using var table = new Table(10f);
         var row = table.Row();
-        table.Cell(row, width: 200f);
-        var b = table.Cell(row, width: 200f);
+        table.Cell(row, 200f);
+        var b = table.Cell(row, 200f);
         table.Lay();
 
         Assert.Equal(430f, table.Tree.GetWidth(table.Node));
@@ -152,7 +157,7 @@ public class TableLayoutTests {
     /// </summary>
     [Fact]
     public void A_taller_table_grows_its_rows_in_proportion() {
-        using var table = new Table(spacing: 0f);
+        using var table = new Table(0f);
         table.Tree.SetDimension(table.Node, Dimension.Height, StyleLength.Points(120f));
         var first = table.Row();
         table.Cell(first, contentHeight: 20f);
@@ -169,7 +174,7 @@ public class TableLayoutTests {
     /// <summary>And a stated height smaller than the rows does not shrink them.</summary>
     [Fact]
     public void A_shorter_table_is_as_tall_as_its_rows() {
-        using var table = new Table(spacing: 5f);
+        using var table = new Table(5f);
         table.Tree.SetDimension(table.Node, Dimension.Height, StyleLength.Points(10f));
         var row = table.Row();
         table.Cell(row, contentHeight: 40f);
@@ -181,9 +186,9 @@ public class TableLayoutTests {
     /// <summary>CSS 2.1 §17.5: in an <c>rtl</c> table the first column is the rightmost.</summary>
     [Fact]
     public void An_rtl_table_puts_its_first_column_on_the_right() {
-        using var table = new Table(spacing: 10f);
+        using var table = new Table(10f);
         var row = table.Row();
-        var a = table.Cell(row, width: 50f);
+        var a = table.Cell(row, 50f);
         var b = table.Cell(row);
         table.Lay(Direction.Rtl);
 
@@ -204,9 +209,9 @@ public class TableLayoutTests {
     /// </remarks>
     [Fact]
     public void Changing_the_first_row_moves_the_columns_of_every_row() {
-        using var table = new Table(spacing: 0f);
+        using var table = new Table(0f);
         var first = table.Row();
-        var a = table.Cell(first, width: 100f);
+        var a = table.Cell(first, 100f);
         table.Cell(first);
         var second = table.Row();
         table.Cell(second);
@@ -225,9 +230,9 @@ public class TableLayoutTests {
     /// <summary>Margins do not apply to a row or a cell, CSS 2.1 §17.</summary>
     [Fact]
     public void A_cells_margin_does_not_apply() {
-        using var table = new Table(spacing: 0f);
+        using var table = new Table(0f);
         var row = table.Row();
-        var a = table.Cell(row, width: 100f);
+        var a = table.Cell(row, 100f);
         var b = table.Cell(row);
         table.Tree.SetMargin(a, Edge.All, StyleLength.Points(7f));
         table.Tree.SetMargin(row, Edge.All, StyleLength.Points(7f));
@@ -250,7 +255,7 @@ public class TableLayoutTests {
     [InlineData(TableLayout.Auto)]
     [InlineData(TableLayout.Fixed)]
     public void An_auto_width_table_shrinks_to_its_content(TableLayout layout) {
-        using var table = new Table(spacing: 10f, layout, width: float.NaN);
+        using var table = new Table(10f, layout, float.NaN);
         var row = table.Row();
         var a = table.Cell(row, contentWidth: 60f, contentHeight: 10f);
         var b = table.Cell(row, contentWidth: 30f, contentHeight: 10f);
@@ -268,7 +273,7 @@ public class TableLayoutTests {
     /// <remarks>300 − 3 × 10 = 270 for columns whose maxima are 60 and 30: 180 and 90.</remarks>
     [Fact]
     public void An_auto_table_with_a_width_shares_the_extra_by_max_content() {
-        using var table = new Table(spacing: 10f, TableLayout.Auto);
+        using var table = new Table(10f, TableLayout.Auto);
         var row = table.Row();
         var a = table.Cell(row, contentWidth: 60f);
         var b = table.Cell(row, contentWidth: 30f);
@@ -283,9 +288,9 @@ public class TableLayoutTests {
     /// <summary>A child of a table that is not a row stands in for a one-cell row in the first column.</summary>
     [Fact]
     public void A_stray_child_is_a_one_cell_row_in_the_first_column() {
-        using var table = new Table(spacing: 10f);
+        using var table = new Table(10f);
         var row = table.Row();
-        table.Cell(row, width: 50f, contentHeight: 20f);
+        table.Cell(row, 50f, contentHeight: 20f);
         table.Cell(row, contentHeight: 20f);
 
         var stray = table.Tree.CreateNode();
@@ -305,9 +310,9 @@ public class TableLayoutTests {
     /// </summary>
     [Fact]
     public void A_table_in_a_cell_does_not_disturb_the_columns_around_it() {
-        using var table = new Table(spacing: 0f);
+        using var table = new Table(0f);
         var row = table.Row();
-        var outer = table.Cell(row, width: 100f);
+        var outer = table.Cell(row, 100f);
         var after = table.Cell(row);
 
         var inner = table.Tree.CreateNode();

@@ -27,27 +27,27 @@ namespace Vixen.Editor.Texturing.Tests;
 public class SmartMaterialWiringTests {
     /// <summary>A stack whose one set has a layer worth carrying and one that cannot travel.</summary>
     const string Stack = """
-        version: 1
-        name: Hull
-        model: Assets/Hull.fbx
-        baseWidth: 64
-        baseHeight: 64
-        sets:
-          - name: Body
-            channels:
-              - usage: baseColor
-                default: [0, 0, 0, 1]
-            layers:
-              - id: base
-                name: Base
-                kind: Fill
-                values:
-                  baseColor: [0.25, 0.5, 0.75, 1]
-              - id: strokes
-                name: Hand Painted
-                kind: Paint
-                paint: Hull.Body.strokes.vxpaint
-        """;
+                         version: 1
+                         name: Hull
+                         model: Assets/Hull.fbx
+                         baseWidth: 64
+                         baseHeight: 64
+                         sets:
+                           - name: Body
+                             channels:
+                               - usage: baseColor
+                                 default: [0, 0, 0, 1]
+                             layers:
+                               - id: base
+                                 name: Base
+                                 kind: Fill
+                                 values:
+                                   baseColor: [0.25, 0.5, 0.75, 1]
+                               - id: strokes
+                                 name: Hand Painted
+                                 kind: Paint
+                                 paint: Hull.Body.strokes.vxpaint
+                         """;
 
     /// <summary>The stack on disk becomes a file on the shelf, through the verb.</summary>
     [Fact]
@@ -76,8 +76,8 @@ public class SmartMaterialWiringTests {
         // read is the same as no file. The mesh binding is gone and the paint layer stayed behind.
         var material = LayerStackYaml.Read(File.ReadAllText(file));
 
-        Assert.Equal("", material.Model);
-        Assert.Equal(["base"], Assert.Single(material.Sets).Layers.Select(layer => layer.Id));
+        Assert.Equal(string.Empty, material.Model);
+        Assert.Equal(["base"], Assert.Single(material.Sets).Layers.Select(static layer => layer.Id));
 
         // ⚠ And the drop is disclosed in the notification the artist actually sees, which is the
         // difference between this design and "silently drops the artist's strokes".
@@ -121,7 +121,10 @@ public class SmartMaterialWiringTests {
 
         var target = Assert.Single(
             fixture.Project.Documents.OfType<LayerStackDocument>(),
-            document => document.AssetPath.EndsWith("Crate" + LayerStackDocument.Extension, StringComparison.Ordinal)
+            static document => document.AssetPath.EndsWith(
+                "Crate" + LayerStackDocument.Extension,
+                StringComparison.Ordinal
+            )
         );
 
         var before = target.Document.Sets[0].Layers.Count;
@@ -143,18 +146,18 @@ public class SmartMaterialWiringTests {
         );
 
         Assert.Equal(before + 1, target.Document.Sets[0].Layers.Count);
-        Assert.Contains(target.Document.Sets[0].Layers, layer => layer.Id == "base-2");
+        Assert.Contains(target.Document.Sets[0].Layers, static layer => layer.Id == "base-2");
 
         // ⚠ One entry for the whole material, which is what a person means by "undo that".
         Assert.Equal(depth + 1, target.Stack.Depth.Value);
         Assert.True(target.Stack.Undo());
         Assert.Equal(before, target.Document.Sets[0].Layers.Count);
-        Assert.DoesNotContain(target.Document.Sets[0].Layers, layer => layer.Id == "base-2");
+        Assert.DoesNotContain(target.Document.Sets[0].Layers, static layer => layer.Id == "base-2");
 
         // And a redo puts back the same ids rather than minting new ones, which is why the layers are
         // settled before the command is built rather than inside its `Do`.
         Assert.True(target.Stack.Redo());
-        Assert.Contains(target.Document.Sets[0].Layers, layer => layer.Id == "base-2");
+        Assert.Contains(target.Document.Sets[0].Layers, static layer => layer.Id == "base-2");
     }
 
     /// <summary>With nothing selected, the refusal says what the shelf holds.</summary>
@@ -199,7 +202,7 @@ public class SmartMaterialWiringTests {
         fixture.Shell.Notifications.History.Count > 0
             ? string.Join(
                 " · ",
-                fixture.Shell.Notifications.History.Select(one => one.Message + ": " + one.Detail)
+                fixture.Shell.Notifications.History.Select(static one => one.Message + ": " + one.Detail)
             )
             : "The module said nothing at all, which is itself the finding.";
 }

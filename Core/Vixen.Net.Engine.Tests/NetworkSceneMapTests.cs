@@ -13,8 +13,12 @@ namespace Vixen.Net.Engine.Tests;
 /// <summary>A spawn into a scene says which scene, without anybody building a map by hand.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b><c>NetworkSceneMap</c> had one construction site in the whole repository and it was a
-///         test</b> (<see href="https://github.com/Rikarin/Vixen/issues/491" />), which is worse than
+///         ⚠
+///         <b>
+///             <c>NetworkSceneMap</c> had one construction site in the whole repository and it was a
+///             test
+///         </b>
+///         (<see href="https://github.com/Rikarin/Vixen/issues/491" />), which is worse than
 ///         an unreached type: <c>NetworkSpawner.Spawn</c> read <c>SceneIds?.IdOf(scene)</c> and wrote
 ///         <see cref="NetworkSceneId.None" /> when there was no map — so every spawn into a scene
 ///         went out as "wherever the receiver puts it", holding the handle and the name the whole
@@ -59,7 +63,7 @@ public sealed class NetworkSceneMapTests : IDisposable {
         var level = scenes.Create("Level1");
         var spawner = new NetworkSpawner(prefabs, ids) { Scenes = scenes };
 
-        var root = spawner.Spawn(server, Address, at: null, level);
+        var root = spawner.Spawn(server, Address, null, level);
 
         Assert.Equal(NetworkSceneId.From("Level1").Value, server.Read<NetworkSpawn>(root).Scene);
         Assert.NotNull(spawner.SceneIds);
@@ -79,11 +83,11 @@ public sealed class NetworkSceneMapTests : IDisposable {
     [Fact]
     public void ASpawnerWithNoScenesStillNamesNoScene() {
         var spawner = new NetworkSpawner(prefabs, ids);
-        var root = spawner.Spawn(server, Address, at: null, new SceneHandle(7));
+        var root = spawner.Spawn(server, Address, null, new(7));
 
         Assert.Equal(0u, server.Read<NetworkSpawn>(root).Scene);
         Assert.Null(spawner.SceneIds);
-        Assert.Equal(NetworkSceneId.None, spawner.IdOf(new SceneHandle(7)));
+        Assert.Equal(NetworkSceneId.None, spawner.IdOf(new(7)));
     }
 
     /// <summary>The receiving half waits for the scene and then builds into it, map or no map.</summary>
@@ -101,10 +105,7 @@ public sealed class NetworkSceneMapTests : IDisposable {
 
         client.Add(
             standIn,
-            new NetworkSpawn {
-                Prefab = prefabs.Require(Address).Id.Value,
-                Scene = NetworkSceneId.From("Level1").Value
-            }
+            new NetworkSpawn { Prefab = prefabs.Require(Address).Id.Value, Scene = NetworkSceneId.From("Level1").Value }
         );
 
         Assert.Equal(0, building.Build(client));
@@ -126,10 +127,7 @@ public sealed class NetworkSceneMapTests : IDisposable {
 
         client.Add(
             standIn,
-            new NetworkSpawn {
-                Prefab = prefabs.Require(Address).Id.Value,
-                Scene = NetworkSceneId.From("Level1").Value
-            }
+            new NetworkSpawn { Prefab = prefabs.Require(Address).Id.Value, Scene = NetworkSceneId.From("Level1").Value }
         );
 
         Assert.Equal(0, building.Build(client));
@@ -172,7 +170,7 @@ public sealed class NetworkSceneMapTests : IDisposable {
         var scenes = new SceneManager(server);
         var map = new NetworkSceneMap();
 
-        scenes.Create("");
+        scenes.Create(string.Empty);
 
         Assert.Equal(0, map.TrackAll(scenes));
         Assert.Equal(0, map.Count);

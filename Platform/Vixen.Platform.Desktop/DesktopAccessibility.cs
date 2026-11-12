@@ -7,8 +7,10 @@ using Vixen.Platform.Windows;
 
 namespace Vixen.Platform.Desktop;
 
-/// <summary>The OS accessibility settings, read for whichever desktop this is, and re-read at a
-/// bounded rate.</summary>
+/// <summary>
+///     The OS accessibility settings, read for whichever desktop this is, and re-read at a
+///     bounded rate.
+/// </summary>
 /// <remarks>
 ///     <para>
 ///         <b>The same shape as <see cref="DesktopAppearance" /> and deliberately the same cadence.</b>

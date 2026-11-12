@@ -44,7 +44,7 @@ public sealed class UiPropertyGenerator : IIncrementalGenerator {
         "'{0}' is marked [UiProperty] but is not declared partial, so there is nothing for the generator to implement",
         "Vixen.Ui",
         DiagnosticSeverity.Error,
-        isEnabledByDefault: true,
+        true,
         "The generator supplies the accessors. A property that already has them has nowhere for them to go."
     );
 
@@ -54,7 +54,7 @@ public sealed class UiPropertyGenerator : IIncrementalGenerator {
         "'{0}' declares a [UiProperty] but is not declared partial",
         "Vixen.Ui",
         DiagnosticSeverity.Error,
-        isEnabledByDefault: true,
+        true,
         "Generated members are added in a second part of the type, which needs the first to be partial."
     );
 
@@ -64,7 +64,7 @@ public sealed class UiPropertyGenerator : IIncrementalGenerator {
         "'{0}' declares a [UiProperty] but does not derive from UiElement",
         "Vixen.Ui",
         DiagnosticSeverity.Error,
-        isEnabledByDefault: true,
+        true,
         "A UI property is addressed through an element — the registry's accessors take one — so a type "
         + "that is not one could declare a property nothing could ever read."
     );
@@ -75,7 +75,7 @@ public sealed class UiPropertyGenerator : IIncrementalGenerator {
         "'{0}' names '{1}', which '{2}' does not declare",
         "Vixen.Ui",
         DiagnosticSeverity.Error,
-        isEnabledByDefault: true,
+        true,
         "Reported here rather than left to the compiler, because the error would otherwise point at a "
         + "line of generated code the author did not write."
     );
@@ -95,7 +95,8 @@ public sealed class UiPropertyGenerator : IIncrementalGenerator {
     }
 
     static PropertyModel? Describe(GeneratorAttributeSyntaxContext context) {
-        if (context.TargetSymbol is not IPropertySymbol property || context.TargetNode is not PropertyDeclarationSyntax syntax) {
+        if (context.TargetSymbol is not IPropertySymbol property
+            || context.TargetNode is not PropertyDeclarationSyntax syntax) {
             return null;
         }
 
@@ -107,7 +108,7 @@ public sealed class UiPropertyGenerator : IIncrementalGenerator {
         var coerce = NamedArgument(attribute, "Coerce") as string;
         var defaultValue = NamedArgumentTyped(attribute, "Default");
 
-        return new PropertyModel(
+        return new(
             property.Name,
             owner.Name,
             owner.ContainingNamespace.IsGlobalNamespace ? null : owner.ContainingNamespace.ToDisplayString(),
@@ -132,8 +133,12 @@ public sealed class UiPropertyGenerator : IIncrementalGenerator {
     /// <summary>The closest base type that declares a <c>[UiProperty]</c> of its own, fully qualified, or null.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>This is what an AOT build's answer to "which properties does this type have"
-    ///         depends on</b> (#1240). A generated static constructor registers its type's
+    ///         ⚠
+    ///         <b>
+    ///             This is what an AOT build's answer to "which properties does this type have"
+    ///             depends on
+    ///         </b>
+    ///         (#1240). A generated static constructor registers its type's
     ///         properties, and a base type's runs only if something triggers it. On CoreCLR the
     ///         registry could force every level of the base chain by handle; ILC preserves a class
     ///         constructor it can <em>name</em> and not one reached through <c>Type.BaseType</c> at
@@ -214,12 +219,12 @@ public sealed class UiPropertyGenerator : IIncrementalGenerator {
             // ⚠ The float is formatted as a float rather than widened. "R" on the double a float
             // widens to gives 0.10000000149011612 for 0.1f — which compiles, and is a different
             // number from the one that was written.
-            SpecialType.System_Single => Special((float) value, "float")
-                ?? ((float) value).ToString("R", CultureInfo.InvariantCulture) + "f",
-            SpecialType.System_Double => Special((double) value, "double")
-                ?? ((double) value).ToString("R", CultureInfo.InvariantCulture) + "d",
-            SpecialType.System_Decimal => ((decimal) value).ToString(CultureInfo.InvariantCulture) + "m",
-            _ => SymbolDisplay.FormatPrimitive(value, quoteStrings: true, useHexadecimalNumbers: false)
+            SpecialType.System_Single => Special((float)value, "float")
+                ?? ((float)value).ToString("R", CultureInfo.InvariantCulture) + "f",
+            SpecialType.System_Double => Special((double)value, "double")
+                ?? ((double)value).ToString("R", CultureInfo.InvariantCulture) + "d",
+            SpecialType.System_Decimal => ((decimal)value).ToString(CultureInfo.InvariantCulture) + "m",
+            _ => SymbolDisplay.FormatPrimitive(value, true, false)
                 ?? throw new InvalidOperationException($"'{value}' is not a primitive constant.")
         };
     }
@@ -297,7 +302,10 @@ public sealed class UiPropertyGenerator : IIncrementalGenerator {
 
         foreach (var pair in byOwner) {
             var first = pair.Value[0];
-            context.AddSource($"{Sanitise(pair.Key)}.UiProperties.g.cs", SourceText.From(Render(first, pair.Value), Encoding.UTF8));
+            context.AddSource(
+                $"{Sanitise(pair.Key)}.UiProperties.g.cs",
+                SourceText.From(Render(first, pair.Value), Encoding.UTF8)
+            );
         }
     }
 
@@ -321,12 +329,16 @@ public sealed class UiPropertyGenerator : IIncrementalGenerator {
         }
 
         if (!model.HasChanged) {
-            context.ReportDiagnostic(Diagnostic.Create(CallbackMissing, model.Location, model.Name, model.Changed, model.OwnerName));
+            context.ReportDiagnostic(
+                Diagnostic.Create(CallbackMissing, model.Location, model.Name, model.Changed, model.OwnerName)
+            );
             broken = true;
         }
 
         if (!model.HasCoerce) {
-            context.ReportDiagnostic(Diagnostic.Create(CallbackMissing, model.Location, model.Name, model.Coerce, model.OwnerName));
+            context.ReportDiagnostic(
+                Diagnostic.Create(CallbackMissing, model.Location, model.Name, model.Coerce, model.OwnerName)
+            );
             broken = true;
         }
 
@@ -368,16 +380,21 @@ public sealed class UiPropertyGenerator : IIncrementalGenerator {
         // Of(typeof(Derived)) with the derived type's properties and NOTHING from any base. Naming
         // the nearest declaring ancestor here is what keeps its constructor, and that constructor
         // names the next, so touching the leaf registers the whole chain in either runtime.
-        builder.Append("    /// <summary>Registers this type's properties before an instance of it can exist.</summary>\n");
+        builder.Append(
+            "    /// <summary>Registers this type's properties before an instance of it can exist.</summary>\n"
+        );
         builder.Append("    /// <remarks>See the generator: without it the class is beforefieldinit and the\n");
-        builder.Append("    ///     registrations below may not have run when something looks one up by name.</remarks>\n");
+        builder.Append(
+            "    ///     registrations below may not have run when something looks one up by name.</remarks>\n"
+        );
         builder.Append("    static ").Append(Bare(owner.OwnerName)).Append("() {\n");
 
         if (owner.NearestDeclaringAncestor is { } ancestor) {
             builder.Append("        // Chains to the nearest ancestor that declares properties, by name, so an\n");
             builder.Append("        // ahead-of-time build keeps that ancestor's constructor and its registrations.\n");
             builder.Append("        System.Runtime.CompilerServices.RuntimeHelpers.RunClassConstructor(typeof(")
-                .Append(ancestor).Append(").TypeHandle);\n");
+                .Append(ancestor)
+                .Append(").TypeHandle);\n");
         }
 
         builder.Append("    }\n");
@@ -401,32 +418,56 @@ public sealed class UiPropertyGenerator : IIncrementalGenerator {
         var type = property.Type;
         var initial = property.Default ?? $"default({type})";
 
-        builder.Append("\n    /// <summary>Identity for <see cref=\"").Append(property.Name).Append("\" />.</summary>\n");
+        builder.Append("\n    /// <summary>Identity for <see cref=\"")
+            .Append(property.Name)
+            .Append("\" />.</summary>\n");
         builder.Append("    public static readonly UiPropertyKey ").Append(property.Name).Append("Property =\n");
         builder.Append("        UiPropertyRegistry.Register(\n");
         builder.Append("            \"").Append(property.Name).Append("\",\n");
         builder.Append("            typeof(").Append(property.OwnerQualifiedName).Append("),\n");
         builder.Append("            typeof(").Append(property.TypeForTypeof).Append("),\n");
         builder.Append("            ").Append(property.Inherits ? "true" : "false").Append(",\n");
-        builder.Append("            static element => ((").Append(property.OwnerQualifiedName).Append(") element).").Append(property.Name).Append(",\n");
-        builder.Append("            static (element, value) => ((").Append(property.OwnerQualifiedName).Append(") element).")
-            .Append(property.Name).Append(" = (").Append(type).Append(") value!\n");
+        builder.Append("            static element => ((")
+            .Append(property.OwnerQualifiedName)
+            .Append(") element).")
+            .Append(property.Name)
+            .Append(",\n");
+        builder.Append("            static (element, value) => ((")
+            .Append(property.OwnerQualifiedName)
+            .Append(") element).")
+            .Append(property.Name)
+            .Append(" = (")
+            .Append(type)
+            .Append(") value!\n");
         builder.Append("        );\n\n");
 
         builder.Append("    ").Append(type).Append(' ').Append(field).Append("Value = ").Append(initial).Append(";\n");
         builder.Append("    bool ").Append(field).Append("IsSet;\n\n");
 
         builder.Append("    /// <inheritdoc />\n");
-        builder.Append("    ").Append(property.Accessibility).Append(" partial ").Append(type).Append(' ').Append(property.Name).Append(" {\n");
+        builder.Append("    ")
+            .Append(property.Accessibility)
+            .Append(" partial ")
+            .Append(type)
+            .Append(' ')
+            .Append(property.Name)
+            .Append(" {\n");
         builder.Append("        get {\n");
         builder.Append("            if (").Append(field).Append("IsSet) {\n");
         builder.Append("                return ").Append(field).Append("Value;\n            }\n\n");
 
         if (property.Inherits) {
-            builder.Append("            for (var ancestor = Parent; ancestor is not null; ancestor = ancestor.Parent) {\n");
-            builder.Append("                if (ancestor is ").Append(property.OwnerQualifiedName).Append(" owner && owner.")
-                .Append(field).Append("IsSet) {\n");
-            builder.Append("                    return owner.").Append(field).Append("Value;\n                }\n            }\n\n");
+            builder.Append(
+                "            for (var ancestor = Parent; ancestor is not null; ancestor = ancestor.Parent) {\n"
+            );
+            builder.Append("                if (ancestor is ")
+                .Append(property.OwnerQualifiedName)
+                .Append(" owner && owner.")
+                .Append(field)
+                .Append("IsSet) {\n");
+            builder.Append("                    return owner.")
+                .Append(field)
+                .Append("Value;\n                }\n            }\n\n");
         }
 
         builder.Append("            return ").Append(initial).Append(";\n");
@@ -441,7 +482,8 @@ public sealed class UiPropertyGenerator : IIncrementalGenerator {
         builder.Append("            var previous = ").Append(property.Name).Append(";\n\n");
         builder.Append("            ").Append(field).Append("Value = incoming;\n");
         builder.Append("            ").Append(field).Append("IsSet = true;\n\n");
-        builder.Append("            if (!System.Collections.Generic.EqualityComparer<").Append(type)
+        builder.Append("            if (!System.Collections.Generic.EqualityComparer<")
+            .Append(type)
             .Append(">.Default.Equals(previous, incoming)) {\n");
 
         if (property.Changed is not null) {
@@ -453,14 +495,20 @@ public sealed class UiPropertyGenerator : IIncrementalGenerator {
         builder.Append("        }\n");
         builder.Append("    }\n\n");
 
-        builder.Append("    /// <summary>Unsets <see cref=\"").Append(property.Name)
+        builder.Append("    /// <summary>Unsets <see cref=\"")
+            .Append(property.Name)
             .Append("\" />, so it takes its default or its ancestor's value again.</summary>\n");
-        builder.Append("    ").Append(property.Accessibility).Append(" void Clear").Append(property.Name).Append("() {\n");
+        builder.Append("    ")
+            .Append(property.Accessibility)
+            .Append(" void Clear")
+            .Append(property.Name)
+            .Append("() {\n");
         builder.Append("        if (!").Append(field).Append("IsSet) {\n            return;\n        }\n\n");
         builder.Append("        var previous = ").Append(field).Append("Value;\n");
         builder.Append("        ").Append(field).Append("IsSet = false;\n\n");
         builder.Append("        var current = ").Append(property.Name).Append(";\n");
-        builder.Append("        if (!System.Collections.Generic.EqualityComparer<").Append(type)
+        builder.Append("        if (!System.Collections.Generic.EqualityComparer<")
+            .Append(type)
             .Append(">.Default.Equals(previous, current)) {\n");
 
         if (property.Changed is not null) {
@@ -472,8 +520,7 @@ public sealed class UiPropertyGenerator : IIncrementalGenerator {
         builder.Append("    }\n");
     }
 
-    static string Camel(string name) =>
-        name.Length == 0 ? name : char.ToLowerInvariant(name[0]) + name.Substring(1);
+    static string Camel(string name) => name.Length == 0 ? name : char.ToLowerInvariant(name[0]) + name.Substring(1);
 
     static string Sanitise(string name) => name.Replace('.', '_').Replace('<', '_').Replace('>', '_');
 

@@ -11,8 +11,12 @@ namespace Vixen.Ui.Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>This file exists because of the ONE way <c>display: table</c> could go wrong, and it
-///         is not the way an unimplemented feature usually goes wrong.</b> Five audits of
+///         ⚠
+///         <b>
+///             This file exists because of the ONE way <c>display: table</c> could go wrong, and it
+///             is not the way an unimplemented feature usually goes wrong.
+///         </b>
+///         Five audits of
 ///         <c>Rikarin/Vixen#258</c> reached the same conclusion — a table formatting context is a
 ///         fifth layout algorithm and none of it is written — and every one of them ended by warning
 ///         against the same shortcut: aliasing <c>table</c> onto <see cref="Display.Block" /> so the
@@ -21,16 +25,24 @@ namespace Vixen.Ui.Tests;
 ///         tree would have contradicted it. Now something does.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Three of the ten table keywords are accepted now, and each is a box type of its
-///         own</b> — <see cref="Display.Table" />, <see cref="Display.TableRow" /> and
+///         ⚠
+///         <b>
+///             Three of the ten table keywords are accepted now, and each is a box type of its
+///             own
+///         </b>
+///         — <see cref="Display.Table" />, <see cref="Display.TableRow" /> and
 ///         <see cref="Display.TableCell" />, laid out by <c>LayoutTree.Table.cs</c>. They moved
 ///         from the denial list to the accepted pairs, which is the move this file was written to
 ///         force: the coverage fact went red the moment the enum grew, and stayed red until each
 ///         member had a keyword. The other seven still need boxes the store does not generate.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The two halves check each other, which is what makes this an instrument rather than
-///         a list.</b> The first is derived: every member of <see cref="Display" /> has to be
+///         ⚠
+///         <b>
+///             The two halves check each other, which is what makes this an instrument rather than
+///             a list.
+///         </b>
+///         The first is derived: every member of <see cref="Display" /> has to be
 ///         reachable, and the keyword count has to equal the enum's, so a ninth member cannot arrive
 ///         unnamed. The second is an explicit denial list, so a keyword that starts resolving reddens
 ///         it by name. A test that only did the first would pass on the day <c>table</c> became an
@@ -85,20 +97,19 @@ public class DisplayKeywordSurfaceTests {
     ///     Every CSS <c>display</c> value this store has no box type for, table-internal and
     ///     otherwise.
     /// </summary>
-    public static TheoryData<string> Refused =>
-        [
-            "inline-table",
-            "table-row-group",
-            "table-header-group",
-            "table-footer-group",
-            "table-column-group",
-            "table-column",
-            "table-caption",
-            "list-item",
-            "contents",
-            "ruby",
-            "inline-grid"
-        ];
+    public static TheoryData<string> Refused => [
+        "inline-table",
+        "table-row-group",
+        "table-header-group",
+        "table-footer-group",
+        "table-column-group",
+        "table-column",
+        "table-caption",
+        "list-item",
+        "contents",
+        "ruby",
+        "inline-grid"
+    ];
 
     [Theory]
     [MemberData(nameof(Accepted))]
@@ -121,7 +132,7 @@ public class DisplayKeywordSurfaceTests {
     [Fact]
     public void The_accepted_keywords_cover_the_display_enum_exactly() {
         var members = Enum.GetValues<Display>();
-        var named = AcceptedPairs.Select(pair => pair.Display).ToHashSet();
+        var named = AcceptedPairs.Select(static pair => pair.Display).ToHashSet();
 
         Assert.Equal(members.Length, AcceptedPairs.Length);
         Assert.Equal(members.ToHashSet(), named);
@@ -140,16 +151,23 @@ public class DisplayKeywordSurfaceTests {
     ///         declaration changed nothing at all is the one predicate that catches every version of it.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The default is MEASURED here rather than typed, and the difference is not
-    ///         tidiness.</b> Written as the literal <see cref="Display.Flex" />, this theory reddens
+    ///         ⚠
+    ///         <b>
+    ///             The default is MEASURED here rather than typed, and the difference is not
+    ///             tidiness.
+    ///         </b>
+    ///         Written as the literal <see cref="Display.Flex" />, this theory reddens
     ///         when the bridge's default moves — a question that is <i>not</i> what it is asking — and
     ///         the obvious repair is to retype the new default. Do that with <see cref="Display.Block" />
     ///         and the predicate quietly stops being able to fail in the way it exists to fail:
     ///         <c>block</c> is precisely the box type six audits warned <c>table</c> would be aliased
     ///         onto, so "dropped" and "aliased" would be the same answer. Reading the no-declaration
     ///         element instead keeps the two questions apart —
-    ///         <c>LayoutStyleBridgeTests.The_display_this_method_leaves_alone_is_what_a_ceiling_two_
-    ///         projects_away_stands_on</c> owns the default, and this owns the silence.
+    ///         <c>
+    ///             LayoutStyleBridgeTests.The_display_this_method_leaves_alone_is_what_a_ceiling_two_
+    ///             projects_away_stands_on
+    ///         </c>
+    ///         owns the default, and this owns the silence.
     ///     </para>
     ///     <para>
     ///         ⚠ And the limit that leaves, written down because nothing else in the tree can see it:
@@ -177,10 +195,14 @@ public class DisplayKeywordSurfaceTests {
     ///     default is not the box type an alias would choose.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>An assumption a test rests on, asserted rather than assumed — this file's whole
-    ///     argument against aliasing <c>display: table</c> onto <see cref="Display.Block" /> is
-    ///     observable only because a box that did that would differ from a box with no
-    ///     <c>display</c> at all.</b> The day <c>CreateCssInitial</c>'s display becomes <c>block</c>,
+    ///     ⚠
+    ///     <b>
+    ///         An assumption a test rests on, asserted rather than assumed — this file's whole
+    ///         argument against aliasing <c>display: table</c> onto <see cref="Display.Block" /> is
+    ///         observable only because a box that did that would differ from a box with no
+    ///         <c>display</c> at all.
+    ///     </b>
+    ///     The day <c>CreateCssInitial</c>'s display becomes <c>block</c>,
     ///     that stops being true and the denial theory silently loses its teeth without changing a
     ///     line. This fails on that day instead, and what it is asking for is a replacement
     ///     discriminator — the builder's own keyword table, which is where "is this keyword read at
@@ -200,8 +222,12 @@ public class DisplayKeywordSurfaceTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>This case was written to assert the opposite, went red, and the test was the
-    ///         defect rather than the code.</b> The intended assertion was that a <c>display</c> the
+    ///         ⚠
+    ///         <b>
+    ///             This case was written to assert the opposite, went red, and the test was the
+    ///             defect rather than the code.
+    ///         </b>
+    ///         The intended assertion was that a <c>display</c> the
     ///         bridge cannot read does not overwrite one it could — <c>display: grid</c> then
     ///         <c>display: table</c> coming out as <see cref="Display.Grid" />. It comes out as
     ///         <see cref="Display.Flex" />, and that is right: the CASCADE collapses the two

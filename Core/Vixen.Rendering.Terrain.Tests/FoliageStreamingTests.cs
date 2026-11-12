@@ -9,7 +9,6 @@ namespace Vixen.Rendering.Terrain.Tests;
 
 /// <summary>The cell streamer — the foliage half of [docs/plan/31 § D13].</summary>
 public sealed class FoliageStreamingTests {
-
     /// <summary>Services the streamer until something is true, or gives up with a message.</summary>
     /// <remarks>
     ///     ⚠ <b>A deadline rather than a fixed number of iterations.</b> A page load goes through
@@ -36,13 +35,13 @@ public sealed class FoliageStreamingTests {
     }
 
     static FoliageVolume Forest(int cells, int perCell = 4) {
-        var volume = new FoliageVolume(new(Size: 32f));
+        var volume = new FoliageVolume(new(32f));
         var type = volume.AddType(FoliageType.Of("Pine") with { Radius = 2f });
 
         for (var z = 0; z < cells; z++) {
             for (var x = 0; x < cells; x++) {
                 for (var index = 0; index < perCell; index++) {
-                    volume.Add(type, new(new((x * 32f) + 4f + index, 0f, (z * 32f) + 4f), Quaternion.Identity, 1f));
+                    volume.Add(type, new(new(x * 32f + 4f + index, 0f, z * 32f + 4f), Quaternion.Identity, 1f));
                 }
             }
         }
@@ -53,7 +52,7 @@ public sealed class FoliageStreamingTests {
     /// <summary>A cell nobody is near is not uploaded, and one under a source is.</summary>
     [Fact]
     public void ASourceMakesTheCellsAroundItResidentAndNotTheRest() {
-        var volume = Forest(cells: 8);
+        var volume = Forest(8);
         using var streamer = new FoliageStreamer(volume);
 
         Settle(streamer, () => streamer.IsResident(new(0, 0)));
@@ -71,7 +70,7 @@ public sealed class FoliageStreamingTests {
     /// </remarks>
     [Fact]
     public void ACellBeyondTheWindowIsUploaded() {
-        var volume = Forest(cells: 2);
+        var volume = Forest(2);
         using var streamer = new FoliageStreamer(volume);
 
         Assert.True(streamer.IsResident(new(400, 400)));
@@ -79,13 +78,17 @@ public sealed class FoliageStreamingTests {
 
     /// <summary>The resident set changing is visible, and accepting it clears the flag.</summary>
     /// <remarks>
-    ///     ⚠ <b>Without this a host has no way to tell an ordinary frame from one that must
-    ///     re-upload</b>, so it re-uploads every frame — which is the cost the streamer was added to
+    ///     ⚠
+    ///     <b>
+    ///         Without this a host has no way to tell an ordinary frame from one that must
+    ///         re-upload
+    ///     </b>
+    ///     , so it re-uploads every frame — which is the cost the streamer was added to
     ///     remove, arriving through the other door.
     /// </remarks>
     [Fact]
     public void TheResidentSetSaysWhenItHasMoved() {
-        var volume = Forest(cells: 4);
+        var volume = Forest(4);
         using var streamer = new FoliageStreamer(volume);
 
         Assert.False(streamer.Changed);
@@ -102,7 +105,7 @@ public sealed class FoliageStreamingTests {
     /// <summary>An empty volume is a streamer, not a refusal.</summary>
     [Fact]
     public void AVolumeWithNothingInItStreams() {
-        var volume = new FoliageVolume(new(Size: 32f));
+        var volume = new FoliageVolume(new(32f));
         using var streamer = new FoliageStreamer(volume);
 
         Assert.Equal(1, streamer.Grid.CellCount);
@@ -112,7 +115,7 @@ public sealed class FoliageStreamingTests {
     /// <summary>A rebuilt window follows a volume that grew past it.</summary>
     [Fact]
     public void RebuildingFollowsAVolumeThatGrew() {
-        var volume = Forest(cells: 2);
+        var volume = Forest(2);
         using var streamer = new FoliageStreamer(volume);
 
         Assert.Equal(4, streamer.Grid.CellCount);

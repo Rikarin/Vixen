@@ -13,16 +13,23 @@ namespace Vixen.Editor.Assets.Tests;
 /// <summary>The weights a layered material paints from, packed into one file.</summary>
 /// <remarks>
 ///     <para>
-///         <b>docs/plan/48 § M11 and <a href="https://github.com/Rikarin/Vixen/issues/1124">#1124</a>,
-///         the half that needs no device.</b> Everything here is a pure function of bitmaps a test
+///         <b>
+///             docs/plan/48 § M11 and <a href="https://github.com/Rikarin/Vixen/issues/1124">#1124</a>,
+///             the half that needs no device.
+///         </b>
+///         Everything here is a pure function of bitmaps a test
 ///         wrote by hand — which matters more for this map than for any other, because every way of
 ///         getting it wrong <em>draws</em>: a permuted channel is a plausible surface of the wrong
 ///         layers, an invented alpha is a surface entirely of the last one, and raw masks copied
 ///         straight across are a surface of everything at once.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The oracle is doc 48's own, and it is closed-form rather than a picture somebody
-///         looked at</b>: a map pure red over one half of a surface and pure green over the other has
+///         ⚠
+///         <b>
+///             The oracle is doc 48's own, and it is closed-form rather than a picture somebody
+///             looked at
+///         </b>
+///         : a map pure red over one half of a surface and pure green over the other has
 ///         to render as layer 0's material over the first half and layer 1's over the second. That is
 ///         what <see cref="Layer_zero_is_red_and_a_layer_over_another_takes_the_texel" /> asserts on
 ///         the writer's side of the seam.
@@ -37,8 +44,12 @@ public sealed class MaterialSplatTests {
     ///         map has to come back pure red on the left and pure green on the right.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Both halves of that are a decision the writer could have got wrong and neither
-    ///         would report anything.</b> Packed in the other order the left texel is green — a lit
+    ///         ⚠
+    ///         <b>
+    ///             Both halves of that are a decision the writer could have got wrong and neither
+    ///             would report anything.
+    ///         </b>
+    ///         Packed in the other order the left texel is green — a lit
     ///         surface of the wrong layer. Packed as the masks stand, without resolving them by
     ///         <c>over</c>, the right texel is <c>(255, 255)</c> and the shader — which divides by the
     ///         sum of the weights — blends the two layers half and half exactly where the artist
@@ -82,8 +93,12 @@ public sealed class MaterialSplatTests {
 
     /// <summary>The channels of a texel sum to what was painted, not to that plus an invented alpha.</summary>
     /// <remarks>
-    ///     ⚠ <b>The property the <c>over</c> resolution buys, stated as arithmetic rather than as a
-    ///     colour.</b> The shader divides by the sum, so the sum is the one number that decides
+    ///     ⚠
+    ///     <b>
+    ///         The property the <c>over</c> resolution buys, stated as arithmetic rather than as a
+    ///         colour.
+    ///     </b>
+    ///     The shader divides by the sum, so the sum is the one number that decides
     ///     whether the normalised blend is the picture the stack composited. A bottom layer covering
     ///     everything makes it exactly one texel's worth, whatever the layers above it do.
     /// </remarks>
@@ -117,17 +132,17 @@ public sealed class MaterialSplatTests {
     /// <summary>A splat map carries one to four layers, and anything else is refused.</summary>
     [Fact]
     public void A_stack_with_no_layers_or_more_than_four_is_refused() {
-        Assert.Throws<ArgumentException>(() => MaterialBake.Splat([]));
-        Assert.Throws<ArgumentException>(
-            () => MaterialBake.Splat([Everywhere(), Everywhere(), Everywhere(), Everywhere(), Everywhere()])
+        Assert.Throws<ArgumentException>(static () => MaterialBake.Splat([]));
+        Assert.Throws<ArgumentException>(static () =>
+            MaterialBake.Splat([Everywhere(), Everywhere(), Everywhere(), Everywhere(), Everywhere()])
         );
     }
 
     /// <summary>And two coverages at different sizes are refused rather than resampled.</summary>
     [Fact]
     public void Two_coverages_of_different_sizes_are_refused() =>
-        Assert.Throws<ArgumentException>(
-            () => MaterialBake.Splat([Everywhere(), new Bitmap(4, 4, new byte[4 * 4 * 4])])
+        Assert.Throws<ArgumentException>(static () =>
+            MaterialBake.Splat([Everywhere(), new Bitmap(4, 4, new byte[4 * 4 * 4])])
         );
 
     /// <summary>⚠ No graph bake can write a splat map, which is #1118's decision as code.</summary>
@@ -153,16 +168,19 @@ public sealed class MaterialSplatTests {
     public void A_graph_bake_cannot_write_a_splat_map() {
         Assert.Empty(MaterialMapNaming.Packed(MaterialMapTarget.Splat));
 
-        var every = MaterialMapNaming.Every.ToDictionary(usage => usage, _ => Everywhere());
+        var every = MaterialMapNaming.Every.ToDictionary(static usage => usage, static _ => Everywhere());
         var written = MaterialBake.Encode(every);
 
         // ⚠ The instrument first: `DoesNotContain` is true of an empty list, so an `Encode` that
         // stopped producing anything would satisfy the assertion below while proving nothing. Every
         // target but the splat map is written when every usage is supplied.
         Assert.Equal(MaterialMapNaming.EveryTarget.Count - 1, written.Count);
-        Assert.DoesNotContain(written, image => image.Target == MaterialMapTarget.Splat);
-        Assert.DoesNotContain(MaterialMapNaming.Every, usage => MaterialMapNaming.TargetOf(usage) is
-            MaterialMapTarget.Splat);
+        Assert.DoesNotContain(written, static image => image.Target == MaterialMapTarget.Splat);
+        Assert.DoesNotContain(
+            MaterialMapNaming.Every,
+            static usage => MaterialMapNaming.TargetOf(usage) is
+                MaterialMapTarget.Splat
+        );
     }
 
     /// <summary>The splat map ships as four linear channels, which is neither of the neighbours' answer.</summary>
@@ -187,8 +205,12 @@ public sealed class MaterialSplatTests {
 
     /// <summary>Binding one onto a material keeps everything the material already had.</summary>
     /// <remarks>
-    ///     ⚠ <b>The difference between <c>Splatted</c> and <c>Material</c>, which is the whole reason
-    ///     the splat write is a second path.</b> A graph bake replaces <c>Features</c> and
+    ///     ⚠
+    ///     <b>
+    ///         The difference between <c>Splatted</c> and <c>Material</c>, which is the whole reason
+    ///         the splat write is a second path.
+    ///     </b>
+    ///     A graph bake replaces <c>Features</c> and
     ///     <c>Textures</c> whole because it owns the set; a splat write adds one file to a material
     ///     somebody else authored, so the normal map, the emissive and the shading model all have to
     ///     survive it.
@@ -197,12 +219,15 @@ public sealed class MaterialSplatTests {
     public void Binding_a_splat_map_keeps_the_rest_of_the_material() {
         var patched = MaterialBake.Splatted(Layered(3), Reference(9), 3);
 
-        Assert.Contains(patched.Features, feature => feature is TexturedNormalMapFeature);
-        Assert.Contains(patched.Textures, texture => texture.Parameter == new TexturedNormalMapFeature().NormalMap);
+        Assert.Contains(patched.Features, static feature => feature is TexturedNormalMapFeature);
+        Assert.Contains(
+            patched.Textures,
+            static texture => texture.Parameter == new TexturedNormalMapFeature().NormalMap
+        );
 
         var splat = Assert.Single(
             patched.Textures,
-            texture => texture.Parameter == new TexturedMaterialLayersFeature().SplatMap
+            static texture => texture.Parameter == new TexturedMaterialLayersFeature().SplatMap
         );
 
         Assert.Equal(Reference(9), splat.Texture);
@@ -219,7 +244,8 @@ public sealed class MaterialSplatTests {
     public void Binding_a_splat_map_says_how_many_channels_it_painted() {
         foreach (var count in new[] { 1, 2, 3, 4 }) {
             var feature = Assert.Single(
-                MaterialBake.Splatted(Layered(count), Reference(9), count).Features
+                MaterialBake.Splatted(Layered(count), Reference(9), count)
+                    .Features
                     .OfType<TexturedMaterialLayersFeature>()
             );
 
@@ -250,15 +276,17 @@ public sealed class MaterialSplatTests {
 
     /// <summary>A material with no layered surface has no layer list, so there is nothing to weigh.</summary>
     /// <remarks>
-    ///     ⚠ <b>Refused rather than composed, because composing one needs a layer list nothing here
-    ///     has.</b> A <see cref="TexturedMaterialLayersFeature" /> with an empty list compiles,
+    ///     ⚠
+    ///     <b>
+    ///         Refused rather than composed, because composing one needs a layer list nothing here
+    ///         has.
+    ///     </b>
+    ///     A <see cref="TexturedMaterialLayersFeature" /> with an empty list compiles,
     ///     resolves <c>LayerCount</c> to one, and shades every texel from a layer nobody authored.
     /// </remarks>
     [Fact]
     public void A_material_with_no_layered_surface_is_refused() =>
-        Assert.Throws<ArgumentException>(
-            () => MaterialBake.Splatted(new MaterialContent(), Reference(9), 2)
-        );
+        Assert.Throws<ArgumentException>(static () => MaterialBake.Splatted(new(), Reference(9), 2));
 
     /// <summary>And a map written for a different number of layers is refused.</summary>
     /// <remarks>
@@ -268,12 +296,12 @@ public sealed class MaterialSplatTests {
     /// </remarks>
     [Fact]
     public void A_map_written_for_a_different_layer_list_is_refused() =>
-        Assert.Throws<ArgumentException>(() => MaterialBake.Splatted(Layered(3), Reference(9), 2));
+        Assert.Throws<ArgumentException>(static () => MaterialBake.Splatted(Layered(3), Reference(9), 2));
 
     /// <summary>A splat map bound to nothing is the fallback checker read as weights.</summary>
     [Fact]
     public void A_splat_map_bound_to_nothing_is_refused() =>
-        Assert.Throws<ArgumentException>(() => MaterialBake.Splatted(Layered(2), AssetReference.Null, 2));
+        Assert.Throws<ArgumentException>(static () => MaterialBake.Splatted(Layered(2), AssetReference.Null, 2));
 
     /// <summary>The texel this test's pictures call the left half.</summary>
     const int Left = 1;
@@ -285,8 +313,7 @@ public sealed class MaterialSplatTests {
     const int Side = 8;
 
     /// <summary>The bytes of one texel of a row of the packed map.</summary>
-    static byte[] At(Bitmap packed, int column) =>
-        packed.Pixels[(column * 4)..(column * 4 + 4)];
+    static byte[] At(Bitmap packed, int column) => packed.Pixels[(column * 4)..(column * 4 + 4)];
 
     /// <summary>The written file, read back as pixels.</summary>
     /// <remarks>
@@ -302,16 +329,16 @@ public sealed class MaterialSplatTests {
     }
 
     /// <summary>A layer painted over the whole surface — the base of an ordinary stack.</summary>
-    static Bitmap Everywhere() => Painted(_ => 255);
+    static Bitmap Everywhere() => Painted(static _ => 255);
 
     /// <summary>One painted nowhere.</summary>
-    static Bitmap Nowhere() => Painted(_ => 0);
+    static Bitmap Nowhere() => Painted(static _ => 0);
 
     /// <summary>One painted over the right half.</summary>
-    static Bitmap RightHalf() => Painted(column => column >= Side / 2 ? (byte)255 : (byte)0);
+    static Bitmap RightHalf() => Painted(static column => column >= Side / 2 ? (byte)255 : (byte)0);
 
     /// <summary>And one painted at half strength everywhere.</summary>
-    static Bitmap Half() => Painted(_ => 128);
+    static Bitmap Half() => Painted(static _ => 128);
 
     /// <summary>A coverage picture, whose red is what the packer reads.</summary>
     /// <remarks>
@@ -341,7 +368,7 @@ public sealed class MaterialSplatTests {
         new() {
             Features = [
                 new TexturedMaterialLayersFeature {
-                    Layers = [.. Enumerable.Range(0, layers).Select(_ => new MaterialLayerValue())]
+                    Layers = [..Enumerable.Range(0, layers).Select(static _ => new MaterialLayerValue())]
                 },
                 new TexturedNormalMapFeature()
             ],

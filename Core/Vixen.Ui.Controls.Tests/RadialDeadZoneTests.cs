@@ -57,8 +57,8 @@ public class RadialDeadZoneTests {
 
         menu.DeadZone = 0f;
 
-        Assert.Equal(0, menu.WedgeAt(new Vector2(0f, -1f)));
-        Assert.Equal(1, menu.WedgeAt(new Vector2(1f, 0f)));
+        Assert.Equal(0, menu.WedgeAt(new(0f, -1f)));
+        Assert.Equal(1, menu.WedgeAt(new(1f, 0f)));
     }
 
     static RadialMenu Menu(ControlFixture fixture) {

@@ -3,7 +3,6 @@
 
 using System.Globalization;
 using Vixen.Terrain;
-using Vixen.Texturing.Layers;
 using Vixen.Texturing.Painting;
 using Vixen.Ui;
 using Vixen.Ui.Controls;
@@ -19,14 +18,22 @@ namespace Vixen.Editor.Texturing.Painting;
 ///         <see cref="PaintSession" />'s remarks say precisely what those owe.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Its own type rather than more of <c>LayerStackView</c>, and the reason is the
-///         panel.</b> That file is a list of rows and a preview pane; a brush inspector is neither,
+///         ⚠
+///         <b>
+///             Its own type rather than more of <c>LayerStackView</c>, and the reason is the
+///             panel.
+///         </b>
+///         That file is a list of rows and a preview pane; a brush inspector is neither,
 ///         and folding it in would make one class that grows on two axes. It also keeps this whole
 ///         surface in <c>Painting/</c>, beside the model it drives.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Built in C# rather than <c>.vxml</c>, and that is <c>LayerStackView</c>'s debt
-///         rather than a new one.</b> Doc 36 § P4 makes markup the authoring path and
+///         ⚠
+///         <b>
+///             Built in C# rather than <c>.vxml</c>, and that is <c>LayerStackView</c>'s debt
+///             rather than a new one.
+///         </b>
+///         Doc 36 § P4 makes markup the authoring path and
 ///         <c>TerrainBrushInspector.vxml</c> is the worked example — <c>PropertyField</c> against an
 ///         <c>[Inspector]</c>-annotated settings object, with the reset button and the undo arriving
 ///         free. ⚠ The obstacle here is specific and is written down in this project's csproj: a
@@ -36,8 +43,12 @@ namespace Vixen.Editor.Texturing.Painting;
 ///         declaration. <a href="https://github.com/Rikarin/Vixen/issues/881">#881</a>.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Every control writes through <see cref="PaintTool" /> and none of them writes a
-///         <c>PaintBrush</c> field.</b> That is where the clamping is, so a slider whose range
+///         ⚠
+///         <b>
+///             Every control writes through <see cref="PaintTool" /> and none of them writes a
+///             <c>PaintBrush</c> field.
+///         </b>
+///         That is where the clamping is, so a slider whose range
 ///         somebody widens cannot produce a brush the stroke would have to defend itself against —
 ///         and a NaN out of a half-typed field cannot become a radius that makes every weight a NaN.
 ///     </para>
@@ -60,8 +71,12 @@ sealed class PaintBrushInspector {
     readonly UiElement alphaStatus;
 
     /// <summary>
-    ///     ⚠ <b>Set while <see cref="Refresh" /> is writing the controls, and read by every handler
-    ///     that writes the tool.</b> A control and a model that follow each other are a loop: a
+    ///     ⚠
+    ///     <b>
+    ///         Set while <see cref="Refresh" /> is writing the controls, and read by every handler
+    ///         that writes the tool.
+    ///     </b>
+    ///     A control and a model that follow each other are a loop: a
     ///     refresh that sets a slider raises its changed event, which sets the tool, which refreshes.
     ///     It settles by itself where the value round-trips exactly and does not where a clamp moves
     ///     it — a radius pushed past the maximum is the case — so the flag is what makes "the panel
@@ -134,17 +149,26 @@ sealed class PaintBrushInspector {
         // who wants 32 cannot hit it, and 32 is the brush they reach for most. Every other setting
         // here is a fraction over a unit interval, where a slider is the better control and a field
         // would be four keystrokes for something worth dragging.
-        Row("Radius", PaintTool.MinimumRadius, PaintTool.MaximumRadius, () => tool.Brush.Radius,
-            tool.SetRadius, () => tool.Brush.Radius.ToString("0.#", CultureInfo.InvariantCulture) + " px",
-            typed: true);
+        Row(
+            "Radius",
+            PaintTool.MinimumRadius,
+            PaintTool.MaximumRadius,
+            () => tool.Brush.Radius,
+            tool.SetRadius,
+            () => tool.Brush.Radius.ToString("0.#", CultureInfo.InvariantCulture) + " px",
+            true
+        );
 
-        Picker("Curve", Enum.GetValues<BrushFalloffKind>().Select(curve => curve.ToString()),
+        Picker(
+            "Curve",
+            Enum.GetValues<BrushFalloffKind>().Select(static curve => curve.ToString()),
             () => tool.Brush.Curve.ToString(),
             value => {
                 if (Enum.TryParse<BrushFalloffKind>(value, out var chosen)) {
                     tool.SetCurve(chosen);
                 }
-            });
+            }
+        );
 
         Row("Falloff", 0f, 1f, () => tool.Brush.Falloff, tool.SetFalloff, () => Percent(tool.Brush.Falloff));
         Row("Flow", 0f, 1f, () => tool.Brush.Flow, tool.SetFlow, () => Percent(tool.Brush.Flow));
@@ -165,11 +189,23 @@ sealed class PaintBrushInspector {
 
         jitter.Text = "Jitter";
 
-        Row("Position", 0f, 1f, () => tool.Brush.PositionJitter, tool.SetPositionJitter,
-            () => Percent(tool.Brush.PositionJitter));
+        Row(
+            "Position",
+            0f,
+            1f,
+            () => tool.Brush.PositionJitter,
+            tool.SetPositionJitter,
+            () => Percent(tool.Brush.PositionJitter)
+        );
 
-        Row("Angle jitter", 0f, 180f, () => tool.AngleJitterDegrees, tool.SetAngleJitter,
-            () => tool.AngleJitterDegrees.ToString("0", CultureInfo.InvariantCulture) + "°");
+        Row(
+            "Angle jitter",
+            0f,
+            180f,
+            () => tool.AngleJitterDegrees,
+            tool.SetAngleJitter,
+            () => tool.AngleJitterDegrees.ToString("0", CultureInfo.InvariantCulture) + "°"
+        );
 
         Row("Size", 0f, 1f, () => tool.Brush.SizeJitter, tool.SetSizeJitter, () => Percent(tool.Brush.SizeJitter));
 
@@ -182,18 +218,29 @@ sealed class PaintBrushInspector {
     /// <summary>How an asset path becomes a brush alpha, or null where nothing can resolve one.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/1090">#1090</a>'s real blocker,
-    ///         which is not the one the issue names.</b> The issue points at
+    ///         <b>
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/1090">#1090</a>'s real blocker,
+    ///             which is not the one the issue names.
+    ///         </b>
+    ///         The issue points at
     ///         <a href="https://github.com/Rikarin/Vixen/issues/881">#881</a> and
     ///         <c>PropertyField</c>, and that is true and not operative: nothing in this column's
     ///         construction chain carries an <c>EditorProject</c> at all. This type is built by
     ///         <c>LayerStackView</c>, which is built by <c>TexturingModule</c>, and only the last of
-    ///         the three has ever resolved the project. So a decoder had nowhere to be <em>called
-    ///         from</em> until a resolution seam existed, and this is that seam.
+    ///         the three has ever resolved the project. So a decoder had nowhere to be
+    ///         <em>
+    ///             called
+    ///             from
+    ///         </em>
+    ///         until a resolution seam existed, and this is that seam.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A property set after construction rather than a constructor parameter, and the
-    ///         reason is an ownership boundary rather than taste.</b> Threading a project through
+    ///         ⚠
+    ///         <b>
+    ///             A property set after construction rather than a constructor parameter, and the
+    ///             reason is an ownership boundary rather than taste.
+    ///         </b>
+    ///         Threading a project through
     ///         <c>LayerStackView</c>'s constructor is an edit to the layers panel, which is a
     ///         different slice's file this batch; the panel already exposes the inspector it built,
     ///         so the module can reach across without either file learning about the other's
@@ -227,8 +274,12 @@ sealed class PaintBrushInspector {
 
     /// <summary>Re-reads the tool, after a change made anywhere but a slider.</summary>
     /// <remarks>
-    ///     ⚠ <b>A command binding and a slider are two writers of one model, and this is the pull the
-    ///     second needs.</b> <c>TexturingModule</c>'s verb toggles the mode from a menu or a keymap;
+    ///     ⚠
+    ///     <b>
+    ///         A command binding and a slider are two writers of one model, and this is the pull the
+    ///         second needs.
+    ///     </b>
+    ///     <c>TexturingModule</c>'s verb toggles the mode from a menu or a keymap;
     ///     without this the segmented control would keep showing what the artist last clicked, which
     ///     is the state the panel is in exactly when they used the shortcut instead.
     /// </remarks>
@@ -261,9 +312,7 @@ sealed class PaintBrushInspector {
                 // left the slider showing what the artist last dragged it to.
                 slider.Value = Math.Clamp(current(), slider.Minimum, slider.Maximum);
 
-                if (box is not null) {
-                    box.Number = current();
-                }
+                box?.Number = current();
             }
 
             foreach (var (picker, value) in pickers) {
@@ -281,14 +330,16 @@ sealed class PaintBrushInspector {
         }
     }
 
-    static string Percent(float value) =>
-        (value * 100f).ToString("0", CultureInfo.InvariantCulture) + "%";
+    static string Percent(float value) => (value * 100f).ToString("0", CultureInfo.InvariantCulture) + "%";
 
     /// <summary>The alpha and the two rotation settings that only mean anything with one.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>One section rather than three settings, because they are one feature —
-    ///         <a href="https://github.com/Rikarin/Vixen/issues/1083">#1083</a>.</b>
+    ///         ⚠
+    ///         <b>
+    ///             One section rather than three settings, because they are one feature —
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/1083">#1083</a>.
+    ///         </b>
     ///         <c>PaintBrush.KernelFor</c> picks <c>BrushShape.Circle</c> for a null alpha and
     ///         <c>TerrainBrush.WeightAt</c> turns nothing about a disc, so an angle shipped without a
     ///         mask to choose would be a control that drags and changes no texel — which reads as a
@@ -315,27 +366,41 @@ sealed class PaintBrushInspector {
         // ⚠ The box is cleared here rather than in `Refresh`, because this is the one direction in
         // which the tool overrules what the artist typed: `PaintTool.SetAlpha` clears `AlphaAsset`,
         // and a box that went on showing the path would name a picture no texel is reading.
-        Picker("Alpha", PaintAlphas.Names, () => tool.AlphaName,
+        Picker(
+            "Alpha",
+            PaintAlphas.Names,
+            () => tool.AlphaName,
             name => {
                 tool.SetAlpha(name);
 
-                alphaAsset.Value = "";
-                alphaStatus.Text = "";
-            });
+                alphaAsset.Value = string.Empty;
+                alphaStatus.Text = string.Empty;
+            }
+        );
 
         var imported = Imported();
 
-        Picker("Rotation", Enum.GetValues<BrushRotation>().Select(rotation => rotation.ToString()),
+        Picker(
+            "Rotation",
+            Enum.GetValues<BrushRotation>().Select(static rotation => rotation.ToString()),
             () => tool.Brush.Rotation.ToString(),
             value => {
                 if (Enum.TryParse<BrushRotation>(value, out var chosen)) {
                     tool.SetRotation(chosen);
                 }
-            });
+            }
+        );
 
-        Row("Angle", 0f, 360f, () => tool.AngleDegrees, tool.SetAngle,
-            () => tool.AngleDegrees.ToString("0", CultureInfo.InvariantCulture) + "°"
-                + (tool.IsAngled ? "" : Inert));
+        Row(
+            "Angle",
+            0f,
+            360f,
+            () => tool.AngleDegrees,
+            tool.SetAngle,
+            () => tool.AngleDegrees.ToString("0", CultureInfo.InvariantCulture)
+                + "°"
+                + (tool.IsAngled ? string.Empty : Inert)
+        );
 
         return imported;
     }
@@ -344,8 +409,11 @@ sealed class PaintBrushInspector {
     /// <returns>The box and the line under it.</returns>
     /// <remarks>
     ///     <para>
-    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/1090">#1090</a>, in the shape this
-    ///         plugin already uses for naming an asset.</b> A typed project-relative path is what
+    ///         <b>
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/1090">#1090</a>, in the shape this
+    ///             plugin already uses for naming an asset.
+    ///         </b>
+    ///         A typed project-relative path is what
     ///         <c>LayerStackView</c>'s texture-fill row and its mask row both are — the browse dialog
     ///         and the drag target live in <c>Vixen.Editor.App</c>'s <c>AssetPicker</c>, which is
     ///         <see langword="internal" /> to that assembly and reached through the
@@ -396,7 +464,7 @@ sealed class PaintBrushInspector {
                 return;
             }
 
-            Load(field.Value ?? "", status);
+            Load(field.Value ?? string.Empty, status);
             Refresh();
         };
 
@@ -414,7 +482,7 @@ sealed class PaintBrushInspector {
     /// </remarks>
     void Load(string typed, UiElement status) {
         if (typed.Trim().Length == 0) {
-            tool.SetAlphaAsset("", null);
+            tool.SetAlphaAsset(string.Empty, null);
             status.Text = "Press Enter to load.";
 
             return;

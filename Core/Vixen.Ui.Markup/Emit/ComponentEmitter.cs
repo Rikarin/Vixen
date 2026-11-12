@@ -19,8 +19,11 @@ namespace Vixen.Ui.Markup.Emit;
 ///         effect, which assigns exactly that property — no tree walk and no diff.
 ///     </para>
 ///     <para>
-///         <b>Every fragment of C# that came from the <c>.vxml</c> is emitted under a
-///         <c>#line</c> span directive.</b> That is the detail the whole approach rests on: it is
+///         <b>
+///             Every fragment of C# that came from the <c>.vxml</c> is emitted under a
+///             <c>#line</c> span directive.
+///         </b>
+///         That is the detail the whole approach rests on: it is
 ///         what lets the binder do no type resolution at all, because a misspelt component, an
 ///         unknown parameter and a wrong expression type are then reported by Roslyn against the
 ///         exact characters the author wrote — not against generated code they have never seen.
@@ -158,16 +161,23 @@ public sealed class ComponentEmitter {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b><c>OnCreated</c> is the element-side of <c>Component.Mount</c> and the timing is
-    ///         the same.</b> <c>UiDocument.Adopt</c> binds the element, attaches it, and only then
+    ///         ⚠
+    ///         <b>
+    ///             <c>OnCreated</c> is the element-side of <c>Component.Mount</c> and the timing is
+    ///             the same.
+    ///         </b>
+    ///         <c>UiDocument.Adopt</c> binds the element, attaches it, and only then
     ///         calls the hook — so by here the element has a document, a parent and a layout node,
     ///         which is exactly what the markup's first <c>ctx.Element</c> needs. A constructor could
     ///         not have any of them.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>And the pair of overrides is why <c>@code</c> may not write either of them.</b>
-    ///         What an author wants those hooks for is <see cref="EmitHooks">
-    ///         <c>OnComposed</c> and <c>OnUnmounted</c></see>, which run in the same places and are
+    ///         What an author wants those hooks for is
+    ///         <see cref="EmitHooks">
+    ///             <c>OnComposed</c> and <c>OnUnmounted</c>
+    ///         </see>
+    ///         , which run in the same places and are
     ///         partial methods rather than overrides — so the generated half cannot be forgotten and
     ///         a missing <c>base.OnCreated()</c> cannot silently unstyle a control.
     ///     </para>
@@ -241,7 +251,7 @@ public sealed class ComponentEmitter {
         Line(
             component.CssIsScoped
                 ? $"Document.LoadOnce(typeof({component.Name}), {RuntimeNamespace}.ScopedStyles.Scope({literal}, "
-                  + $"{RuntimeNamespace}.ScopedStyles.ScopeOf(typeof({component.Name}))));"
+                + $"{RuntimeNamespace}.ScopedStyles.ScopeOf(typeof({component.Name}))));"
                 : $"Document.LoadOnce(typeof({component.Name}), {literal});"
         );
     }
@@ -419,9 +429,6 @@ public sealed class ComponentEmitter {
             case BoundRows rows:
                 EmitRows(rows, context, parent);
                 break;
-
-            default:
-                break;
         }
     }
 
@@ -585,7 +592,7 @@ public sealed class ComponentEmitter {
 
         Line($"({innerContext}, {innerParent}, {rows.Index}) => {{");
         depth++;
-        EmitElement(row, innerContext, innerParent, adopt: innerParent);
+        EmitElement(row, innerContext, innerParent, innerParent);
         depth--;
         Line("});");
         depth--;
@@ -594,15 +601,23 @@ public sealed class ComponentEmitter {
     /// <summary>A component tag's children, each into the slot it named or the default one.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A partition and not a per-child parent expression, because grouping is what keeps
-    ///         document order inside each slot.</b> Two children of one slot have to arrive under it
+    ///         ⚠
+    ///         <b>
+    ///             A partition and not a per-child parent expression, because grouping is what keeps
+    ///             document order inside each slot.
+    ///         </b>
+    ///         Two children of one slot have to arrive under it
     ///         in the order they were written; emitting each against its own <c>Into</c> call would
     ///         also do that, but at the cost of one call per child rather than one per slot, on the
     ///         hot path every component tag in the file takes.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The unnamed children go first and keep the exact call the emitter always
-    ///         wrote.</b> Almost every component tag in the tree has no <c>slot="…"</c> on anything,
+    ///         ⚠
+    ///         <b>
+    ///             The unnamed children go first and keep the exact call the emitter always
+    ///             wrote.
+    ///         </b>
+    ///         Almost every component tag in the tree has no <c>slot="…"</c> on anything,
     ///         and for those this has to produce byte-for-byte what it produced before — <c>Inner</c>
     ///         resolves the default slot through <c>Component.Content</c>, which is not the same
     ///         thing as <c>Into(…, "default")</c>: a component that declares no slot at all has no
@@ -646,11 +661,11 @@ public sealed class ComponentEmitter {
         }
 
         if (unnamed is not null) {
-            EmitNodes([.. unnamed], context, $"{RuntimeNamespace}.BuildContext.Inner({name})");
+            EmitNodes([..unnamed], context, $"{RuntimeNamespace}.BuildContext.Inner({name})");
         }
 
         foreach (var (slot, nodes) in named) {
-            EmitNodes([.. nodes], context, $"{RuntimeNamespace}.BuildContext.Into({name}, {Quote(slot)})");
+            EmitNodes([..nodes], context, $"{RuntimeNamespace}.BuildContext.Into({name}, {Quote(slot)})");
         }
     }
 
@@ -669,8 +684,12 @@ public sealed class ComponentEmitter {
 
     /// <summary>Evaluates a computed <c>tag</c> into a local, and hands back the local's name.</summary>
     /// <remarks>
-    ///     ⚠ <b>Once, into a variable, and that is the semantics rather than an emitter
-    ///     convenience.</b> The expression is read at the moment the element is created and never
+    ///     ⚠
+    ///     <b>
+    ///         Once, into a variable, and that is the semantics rather than an emitter
+    ///         convenience.
+    ///     </b>
+    ///     The expression is read at the moment the element is created and never
     ///     again — a tag is not a binding, because a rule that matched one name this frame and
     ///     another the next is a cascade nobody can reason about. A row whose tag depends on its
     ///     data therefore has to say so in its <c>key</c>: a surviving key keeps its element, and an
@@ -820,10 +839,10 @@ public sealed class ComponentEmitter {
                 // panel makes — `fold.Header.AddHandler<DragEvent>(…)` — and not a filter over
                 // `args.Source` that agrees with it most of the time. A control that publishes no
                 // such part says so from `Into`, naming the control and the slot.
-                var slot = attribute.Modifiers.Select(Binder.SlotOf).FirstOrDefault(one => one is not null);
+                var slot = attribute.Modifiers.Select(Binder.SlotOf).FirstOrDefault(static one => one is not null);
 
                 var modifiers = string.Concat(
-                    attribute.Modifiers.Where(m => Binder.SlotOf(m) is null).Select(m => $", {Quote(m)}")
+                    attribute.Modifiers.Where(static m => Binder.SlotOf(m) is null).Select(static m => $", {Quote(m)}")
                 );
 
                 var target = slot is null
@@ -842,7 +861,7 @@ public sealed class ComponentEmitter {
                 // *when* the write-back happens rather than qualifying it. No names at all is every
                 // change, which is what every binding in the tree wants and what the default has to
                 // stay: a control with no commit moment would otherwise never write.
-                var commits = string.Concat(attribute.Modifiers.Select(m => $", {Quote(m)}"));
+                var commits = string.Concat(attribute.Modifiers.Select(static m => $", {Quote(m)}"));
 
                 Mapped(bound, $"{context}.TwoWay({Bindable(element, name)}, {Quote(attribute.Name)}, () => ", ",");
                 Indented(() => Mapped(bound, "__v => ", $" = __v{commits});"));
@@ -894,9 +913,6 @@ public sealed class ComponentEmitter {
                     $"{context}.Attribute({Target(element, name)}, {Quote(attribute.Name)}, "
                     + $"{Quote(attribute.Literal ?? string.Empty)});"
                 );
-                break;
-
-            default:
                 break;
         }
     }
@@ -976,7 +992,7 @@ public sealed class ComponentEmitter {
         Line(@if.Else.IsEmpty ? "-1," : $"{@if.Branches.Length.ToString(CultureInfo.InvariantCulture)},");
         depth--;
 
-        EmitArms([.. @if.Branches.Select(branch => branch.Body), .. @if.Else.IsEmpty ? [] : new[] { @if.Else }]);
+        EmitArms([..@if.Branches.Select(static branch => branch.Body), ..@if.Else.IsEmpty ? [] : new[] { @if.Else }]);
     }
 
     void EmitSwitch(BoundSwitch @switch, string context, string parent) {
@@ -998,16 +1014,17 @@ public sealed class ComponentEmitter {
         // The catch-all goes in only when the markup did not write one. A `default:` arm already
         // emitted `_ =>`, and a second discard after it is unreachable — which C# reports, turning
         // a correct switch into a build error.
-        if (!@switch.Cases.Any(section => section.Pattern is null)) {
+        if (!@switch.Cases.Any(static section => section.Pattern is null)) {
             Line("_ => -1");
         } else {
             Trim();
         }
+
         depth--;
         Line("},");
         depth--;
 
-        EmitArms([.. @switch.Cases.Select(section => section.Body)]);
+        EmitArms([..@switch.Cases.Select(static section => section.Body)]);
     }
 
     void EmitArms(ImmutableArray<ImmutableArray<BoundNode>> arms) {
@@ -1123,8 +1140,12 @@ public sealed class ComponentEmitter {
     ///     being it.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>Two callers, and both are text about a name the author wrote rather than the name
-    ///     itself.</b> The <c>ref</c> case: a failed conversion is reported by Roslyn at the value
+    ///     ⚠
+    ///     <b>
+    ///         Two callers, and both are text about a name the author wrote rather than the name
+    ///         itself.
+    ///     </b>
+    ///     The <c>ref</c> case: a failed conversion is reported by Roslyn at the value
     ///     rather than at the target, so a <c>ref</c> whose member is of the wrong type would
     ///     squiggle <c>n3</c> — a name the author has never seen. The <c>@inject</c> case: the
     ///     property it generates mentions the key twice, so the whole line has to map to the one
@@ -1159,8 +1180,6 @@ public sealed class ComponentEmitter {
                     break;
                 case BoundExpressionPart part:
                     Mapped(part.Expression, string.Empty, separator);
-                    break;
-                default:
                     break;
             }
         }

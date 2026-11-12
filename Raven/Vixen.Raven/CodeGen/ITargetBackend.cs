@@ -4,7 +4,6 @@
 using Vixen.Core.Syntax.Diagnostics;
 using Vixen.Raven.CodeGen.Glsl;
 using Vixen.Raven.CodeGen.Spirv;
-using Vixen.Raven.Diagnostics;
 using Vixen.Raven.IR;
 using Vixen.Raven.Symbols;
 
@@ -86,11 +85,12 @@ public interface ITargetBackend {
 /// </remarks>
 public static class TargetBackends {
     static readonly Dictionary<string, Func<ITargetBackend>> Factories = new(StringComparer.OrdinalIgnoreCase) {
-        ["glsl"] = () => new GlslBackend(), ["spirv"] = () => new SpirvBackend()
+        ["glsl"] = static () => new GlslBackend(), ["spirv"] = static () => new SpirvBackend()
     };
 
     /// <summary>Names accepted by <see cref="Create" />, in a stable order.</summary>
-    public static IReadOnlyList<string> Names => Factories.Keys.OrderBy(n => n, StringComparer.Ordinal).ToArray();
+    public static IReadOnlyList<string> Names =>
+        Factories.Keys.OrderBy(static n => n, StringComparer.Ordinal).ToArray();
 
     /// <summary>Creates a backend by name, or null when there is no such target.</summary>
     public static ITargetBackend? Create(string name) =>

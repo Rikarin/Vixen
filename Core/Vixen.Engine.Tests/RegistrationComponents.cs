@@ -23,7 +23,7 @@ public struct Shield {
 /// <summary>A tag of the same shape, which has a bit in the archetype and no bytes anywhere.</summary>
 [Component]
 [DataContract("RegistrationTestWarded")]
-public struct Warded : ITagComponent;
+public readonly struct Warded : ITagComponent;
 
 /// <summary>A handle a bridge writes, of the shape <c>PhysicsBody</c> has.</summary>
 /// <remarks>

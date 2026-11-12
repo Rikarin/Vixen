@@ -347,8 +347,7 @@ public sealed class AudioEvent {
     ///     A convenience over <c>AudioEngine.SetParameter</c>, so a caller holding an event does not
     ///     also have to hold the engine. It resolves the name every call.
     /// </remarks>
-    public bool SetParameter(VoiceHandle handle, string name, float value) =>
-        engine.SetParameter(handle, name, value);
+    public bool SetParameter(VoiceHandle handle, string name, float value) => engine.SetParameter(handle, name, value);
 
     /// <summary>Stops every copy of it that is still sounding, and everything it layered.</summary>
     /// <remarks>
@@ -398,11 +397,12 @@ public sealed class AudioEvent {
     ///     settings — writing a bare position over them would replace the event's rolloff and cone
     ///     with whatever the caller happened to have, one frame after it started.
     /// </remarks>
-    public SpatialSettings Place(Vector3 position, Vector3 velocity, Vector3 coneDirection) => Spatial with {
-        Position = position,
-        Velocity = velocity,
-        ConeDirection = coneDirection == Vector3.Zero ? Spatial.ConeDirection : coneDirection
-    };
+    public SpatialSettings Place(Vector3 position, Vector3 velocity, Vector3 coneDirection) =>
+        Spatial with {
+            Position = position,
+            Velocity = velocity,
+            ConeDirection = coneDirection == Vector3.Zero ? Spatial.ConeDirection : coneDirection
+        };
 
     SpatialSettings Locate(in AudioEventPlayback attributes) =>
         Place(attributes.Position, attributes.Velocity, attributes.ConeDirection);

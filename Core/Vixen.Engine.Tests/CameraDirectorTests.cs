@@ -63,8 +63,8 @@ public sealed class CameraDirectorTests {
     [Fact]
     public void TheHighestPriorityShotIsTheOneRendered() {
         using var rig = new Rig();
-        rig.Shot(new(1f, 0f, 0f), priority: 10);
-        var winner = rig.Shot(new(2f, 0f, 0f), priority: 20);
+        rig.Shot(new(1f, 0f, 0f), 10);
+        var winner = rig.Shot(new(2f, 0f, 0f), 20);
 
         rig.Tick();
 
@@ -75,8 +75,8 @@ public sealed class CameraDirectorTests {
     [Fact]
     public void ADisabledShotIsNotACandidate() {
         using var rig = new Rig();
-        var enabled = rig.Shot(new(1f, 0f, 0f), priority: 10);
-        rig.Shot(new(2f, 0f, 0f), priority: 20, enabled: false);
+        var enabled = rig.Shot(new(1f, 0f, 0f), 10);
+        rig.Shot(new(2f, 0f, 0f), 20, false);
 
         rig.Tick();
 
@@ -91,8 +91,8 @@ public sealed class CameraDirectorTests {
     [Fact]
     public void EqualPrioritiesGoToWhicheverWasEnabledLast() {
         using var rig = new Rig(CameraDirector.Default with { DefaultBlend = CameraBlend.Cut });
-        var first = rig.Shot(new(1f, 0f, 0f), priority: 10);
-        var second = rig.Shot(new(2f, 0f, 0f), priority: 10, enabled: false);
+        var first = rig.Shot(new(1f, 0f, 0f), 10);
+        var second = rig.Shot(new(2f, 0f, 0f), 10, false);
 
         rig.Tick();
         Assert.Equal(first, rig.Director.LiveCameraOf(rig.Eye));
@@ -112,8 +112,8 @@ public sealed class CameraDirectorTests {
     [Fact]
     public void ACutArrivesAtOnce() {
         using var rig = new Rig(CameraDirector.Default with { DefaultBlend = CameraBlend.Cut });
-        rig.Shot(new(1f, 0f, 0f), priority: 10);
-        var next = rig.Shot(new(50f, 0f, 0f), priority: 0);
+        rig.Shot(new(1f, 0f, 0f), 10);
+        var next = rig.Shot(new(50f, 0f, 0f), 0);
 
         rig.Tick();
         rig.World.Get<VirtualCamera>(next).Priority = 20;
@@ -126,13 +126,11 @@ public sealed class CameraDirectorTests {
     [Fact]
     public void ABlendTakesTheTimeItSaysAndEndsWhereItSaid() {
         using var rig = new Rig(
-            CameraDirector.Default with {
-                DefaultBlend = new() { Style = CameraBlendStyle.Linear, Duration = 1f }
-            }
+            CameraDirector.Default with { DefaultBlend = new() { Style = CameraBlendStyle.Linear, Duration = 1f } }
         );
 
-        var from = rig.Shot(Vector3.Zero, priority: 10);
-        var to = rig.Shot(new(10f, 0f, 0f), priority: 0);
+        var from = rig.Shot(Vector3.Zero, 10);
+        var to = rig.Shot(new(10f, 0f, 0f), 0);
 
         rig.Tick();
         AssertNear(Vector3.Zero, rig.Position);
@@ -166,14 +164,12 @@ public sealed class CameraDirectorTests {
     [Fact]
     public void AnInterruptedBlendDoesNotPop() {
         using var rig = new Rig(
-            CameraDirector.Default with {
-                DefaultBlend = new() { Style = CameraBlendStyle.Linear, Duration = 2f }
-            }
+            CameraDirector.Default with { DefaultBlend = new() { Style = CameraBlendStyle.Linear, Duration = 2f } }
         );
 
-        rig.Shot(Vector3.Zero, priority: 10);
-        var second = rig.Shot(new(100f, 0f, 0f), priority: 0);
-        var third = rig.Shot(new(0f, 0f, 100f), priority: 0);
+        rig.Shot(Vector3.Zero, 10);
+        var second = rig.Shot(new(100f, 0f, 0f), 0);
+        var third = rig.Shot(new(0f, 0f, 100f), 0);
 
         rig.Tick();
         rig.World.Get<VirtualCamera>(second).Priority = 20;
@@ -196,8 +192,8 @@ public sealed class CameraDirectorTests {
         rig.World.Add(other, Camera.Perspective);
         rig.World.Add(other, CameraDirector.Default with { Channel = 1 });
 
-        rig.Shot(new(1f, 0f, 0f), priority: 10);
-        rig.Shot(new(9f, 0f, 0f), priority: 99, channel: 1);
+        rig.Shot(new(1f, 0f, 0f), 10);
+        rig.Shot(new(9f, 0f, 0f), 99, channel: 1);
 
         rig.Tick();
 
@@ -209,11 +205,10 @@ public sealed class CameraDirectorTests {
     public void TheLiveShotsLensReachesTheCamera() {
         using var rig = new Rig();
 
-        var shot = rig.Shot(Vector3.Zero, priority: 10);
+        var shot = rig.Shot(Vector3.Zero, 10);
 
         rig.World.Get<VirtualCamera>(shot).Lens = CameraLens.Default with {
-            FieldOfView = MathUtil.DegreesToRadians(30f),
-            FarPlane = 500f
+            FieldOfView = MathUtil.DegreesToRadians(30f), FarPlane = 500f
         };
 
         rig.Tick();
@@ -227,7 +222,7 @@ public sealed class CameraDirectorTests {
     public void ADirectorThatDoesNotOwnTheLensLeavesItAlone() {
         using var rig = new Rig(CameraDirector.Default with { WriteLens = false });
         rig.World.Get<Camera>(rig.Eye).FieldOfView = MathUtil.DegreesToRadians(12f);
-        rig.Shot(Vector3.Zero, priority: 10);
+        rig.Shot(Vector3.Zero, 10);
 
         rig.Tick();
 
@@ -246,15 +241,14 @@ public sealed class CameraDirectorTests {
         var parent = Hierarchy.CreateTransform(
             rig.World,
             LocalTransform.Identity with {
-                Position = new(3f, 4f, 5f),
-                Rotation = Quaternion.FromAxisAngle(Vector3.UnitY, MathUtil.PiOverTwo)
+                Position = new(3f, 4f, 5f), Rotation = Quaternion.FromAxisAngle(Vector3.UnitY, MathUtil.PiOverTwo)
             }
         );
 
         Hierarchy.SetParent(rig.World, rig.Eye, parent);
 
         var target = Hierarchy.CreateTransform(rig.World, LocalTransform.At(new(0f, 0f, -20f)));
-        var shot = rig.Shot(new(10f, 2f, 0f), priority: 10);
+        var shot = rig.Shot(new(10f, 2f, 0f), 10);
         rig.World.Get<CameraTargets>(shot).LookAt = target;
         rig.World.Add(shot, new HardLookAim());
 
@@ -273,13 +267,11 @@ public sealed class CameraDirectorTests {
     [Fact]
     public void ResettingADirectorMakesItsNextFrameACut() {
         using var rig = new Rig(
-            CameraDirector.Default with {
-                DefaultBlend = new() { Style = CameraBlendStyle.Linear, Duration = 10f }
-            }
+            CameraDirector.Default with { DefaultBlend = new() { Style = CameraBlendStyle.Linear, Duration = 10f } }
         );
 
-        rig.Shot(Vector3.Zero, priority: 10);
-        var next = rig.Shot(new(80f, 0f, 0f), priority: 0);
+        rig.Shot(Vector3.Zero, 10);
+        var next = rig.Shot(new(80f, 0f, 0f), 0);
 
         rig.Tick();
         rig.World.Get<VirtualCamera>(next).Priority = 20;
@@ -336,7 +328,7 @@ public sealed class CameraDirectorTests {
         var target = Hierarchy.CreateTransform(rig.World, LocalTransform.At(new(5f, 0f, 0f)));
 
         for (var index = 0; index < 100; index++) {
-            var shot = rig.Shot(new(index, 0f, 0f), priority: index);
+            var shot = rig.Shot(new(index, 0f, 0f), index);
             rig.World.Get<CameraTargets>(shot) = CameraTargets.Both(target);
 
             switch (index % 4) {
@@ -362,7 +354,7 @@ public sealed class CameraDirectorTests {
             }
         }
 
-        Measured.NothingAllocated(Frame, warmUp: 8, passes: 500);
+        Measured.NothingAllocated(Frame, 8, 500);
 
         return;
 

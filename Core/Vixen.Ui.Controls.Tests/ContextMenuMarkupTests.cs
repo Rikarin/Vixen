@@ -10,14 +10,22 @@ namespace Vixen.Ui.Controls.Tests;
 /// <summary>What <c>context-menu="@Menu"</c> in a <c>.vxml</c> reaches.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Asserted by dispatching the gesture, not by the attribute having bound without
-///         error.</b> The failure this is guarding against is the one an attribute test cannot see:
+///         ⚠
+///         <b>
+///             Asserted by dispatching the gesture, not by the attribute having bound without
+///             error.
+///         </b>
+///         The failure this is guarding against is the one an attribute test cannot see:
 ///         a directive that evaluates its expression, calls nothing, and leaves a panel whose
 ///         right-click does nothing at all.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The spelling is an expression rather than a nested <c>&lt;ContextMenu&gt;</c>, and
-///         the reason belongs to the binder rather than to the menu.</b> An overlay has to be a
+///         ⚠
+///         <b>
+///             The spelling is an expression rather than a nested <c>&lt;ContextMenu&gt;</c>, and
+///             the reason belongs to the binder rather than to the menu.
+///         </b>
+///         An overlay has to be a
 ///         child of the document root, and deciding that a tag needs re-parenting means knowing that
 ///         the tag names an overlay — the type resolution VXML deliberately does not do. A
 ///         <c>&lt;ContextMenu&gt;</c> written where it is used would compile, build, and open inside
@@ -36,7 +44,7 @@ public class ContextMenuMarkupTests {
         ui.Frame();
 
         Assert.True(sheet.Rows.IsOpen);
-        Assert.Equal(["Rename", "Delete"], sheet.Rows.Items.Select(item => item.Label));
+        Assert.Equal(["Rename", "Delete"], sheet.Rows.Items.Select(static item => item.Label));
     }
 
     /// <summary>A primary press does not, which is the half that says the button was read.</summary>

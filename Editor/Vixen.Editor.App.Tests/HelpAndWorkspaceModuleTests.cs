@@ -27,7 +27,10 @@ public class HelpAndWorkspaceModuleTests {
         // A headless session has no opener, which is the state each link line greys itself in.
         Assert.False(links.CanOpen);
 
-        foreach (var id in (string[])["help.documentation", "help.api-reference", "help.release-notes", "help.report-bug", "help.show-log-folder"]) {
+        foreach (var id in (string[]) [
+                     "help.documentation", "help.api-reference", "help.release-notes", "help.report-bug",
+                     "help.show-log-folder"
+                 ]) {
             Assert.NotNull(session.Shell.Commands[id]);
             Assert.False(session.CanRun(id), $"'{id}' is enabled on a host that cannot open a link.");
         }

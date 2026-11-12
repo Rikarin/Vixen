@@ -8,8 +8,12 @@ namespace Vixen.Ui.Desktop.Tests;
 /// <summary>The tests that touch <see cref="UiDevelopment" />, which is process-wide.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>A hook that turns hot reload on for every application in the process turns it on for
-///         every test in the process too, and xunit runs test classes in parallel.</b> Without this
+///         ⚠
+///         <b>
+///             A hook that turns hot reload on for every application in the process turns it on for
+///             every test in the process too, and xunit runs test classes in parallel.
+///         </b>
+///         Without this
 ///         a test that set <c>UiDevelopment.Mount</c> mounted some *other* test's application —
 ///         which is exactly what happened: an assertion in <c>UiApplicationTests</c> came back with
 ///         a component from <c>HotReloadSeamTests</c>, in a window of the wrong size.

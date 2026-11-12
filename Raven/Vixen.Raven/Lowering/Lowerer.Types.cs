@@ -5,7 +5,6 @@ using Vixen.Core.Syntax;
 using Vixen.Raven.Diagnostics;
 using Vixen.Raven.IR;
 using Vixen.Raven.Symbols;
-using Vixen.Raven.Syntax;
 
 namespace Vixen.Raven.Lowering;
 
@@ -210,7 +209,7 @@ public sealed partial class Lowerer {
         }
 
         var structType = new IrStructType(name);
-        structType.SetFields([.. fields]);
+        structType.SetFields([..fields]);
 
         tuples[tuple] = structType;
         structuralStructs.Add(structType);
@@ -222,13 +221,13 @@ public sealed partial class Lowerer {
     ///     A deterministic, identifier-safe name for a tuple shape: <c>Tuple_f32_i32</c>.
     /// </summary>
     static string TupleName(IReadOnlyList<IrField> fields) {
-        var parts = fields.Select(f => Identifier(f.Type.Name));
+        var parts = fields.Select(static f => Identifier(f.Type.Name));
         return "Tuple_" + string.Join('_', parts);
     }
 
     /// <summary>An IR type name reduced to an identifier: <c>vec&lt;f32,3&gt;</c> → <c>vec_f32_3</c>.</summary>
     static string Identifier(string name) {
-        var cleaned = new string(name.Select(c => char.IsLetterOrDigit(c) ? c : '_').ToArray());
+        var cleaned = new string(name.Select(static c => char.IsLetterOrDigit(c) ? c : '_').ToArray());
 
         while (cleaned.Contains("__", StringComparison.Ordinal)) {
             cleaned = cleaned.Replace("__", "_", StringComparison.Ordinal);

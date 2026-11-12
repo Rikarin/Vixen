@@ -27,8 +27,12 @@ abstract class SyntaxParser {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A node's span is not the extent of the text its parse read, and an incremental
-    ///         reparse that assumed it was built the wrong tree.</b> Raven decides whether
+    ///         ⚠
+    ///         <b>
+    ///             A node's span is not the extent of the text its parse read, and an incremental
+    ///             reparse that assumed it was built the wrong tree.
+    ///         </b>
+    ///         Raven decides whether
     ///         <c>float[…</c> is an array type by scanning ahead for the matching bracket — as far as
     ///         the end of the line, however many tokens that is — and, on a <c>{</c> before it,
     ///         declines and leaves the member ending at <c>float</c>. That node's full span stops
@@ -94,7 +98,7 @@ abstract class SyntaxParser {
         }
 
         if (split is null) {
-            split = [.. Tokens];
+            split = [..Tokens];
             Tokens = split;
         }
 
@@ -107,7 +111,9 @@ abstract class SyntaxParser {
 
         split.Insert(
             RawPosition + 1,
-            new(secondRawKind, token.Text[firstWidth..], token.Position + firstWidth, token.Flags)
+            token with {
+                RawKind = secondRawKind, Text = token.Text[firstWidth..], Position = token.Position + firstWidth
+            }
         );
     }
 

@@ -38,8 +38,7 @@ public sealed class CompositorGraphCompiler : NodeGraphCompiler<GraphicsComposit
 
     /// <summary>Compiles against a node library.</summary>
     /// <param name="registry">The node types this build has.</param>
-    public CompositorGraphCompiler(NodeTypeRegistry registry) : base(registry) {
-    }
+    public CompositorGraphCompiler(NodeTypeRegistry registry) : base(registry) { }
 
     /// <summary>A registry holding this assembly's compositor nodes.</summary>
     /// <returns>The registry.</returns>
@@ -49,7 +48,7 @@ public sealed class CompositorGraphCompiler : NodeGraphCompiler<GraphicsComposit
     /// </remarks>
     public static NodeTypeRegistry CreateRegistry() {
         var registry = new NodeTypeRegistry();
-        Vixen.Editor.AssetEditors.NodeTypes.Register(registry);
+        NodeTypes.Register(registry);
 
         return registry;
     }
@@ -76,12 +75,14 @@ public sealed class CompositorGraphCompiler : NodeGraphCompiler<GraphicsComposit
         ArgumentNullException.ThrowIfNull(instance);
 
         if (instance is not CompositorNode compositor) {
-            Report(new(
-                AssetEditorDiagnostics.CompositorNodeIsForeign,
-                $"'{node.Type}' is not a compositor node. A graph mixing node libraries has one of them "
-                + "registered by mistake.",
-                node.Id
-            ));
+            Report(
+                new(
+                    AssetEditorDiagnostics.CompositorNodeIsForeign,
+                    $"'{node.Type}' is not a compositor node. A graph mixing node libraries has one of them "
+                    + "registered by mistake.",
+                    node.Id
+                )
+            );
 
             return;
         }
@@ -94,11 +95,13 @@ public sealed class CompositorGraphCompiler : NodeGraphCompiler<GraphicsComposit
         }
 
         if (frame.IsValid) {
-            Report(new(
-                AssetEditorDiagnostics.CompositorHasTwoFrames,
-                "This graph has two frame nodes, so there are two answers to what it renders. Delete one.",
-                node.Id
-            ));
+            Report(
+                new(
+                    AssetEditorDiagnostics.CompositorHasTwoFrames,
+                    "This graph has two frame nodes, so there are two answers to what it renders. Delete one.",
+                    node.Id
+                )
+            );
 
             return;
         }
@@ -111,11 +114,13 @@ public sealed class CompositorGraphCompiler : NodeGraphCompiler<GraphicsComposit
         ArgumentNullException.ThrowIfNull(graph);
 
         if (!frame.IsValid) {
-            Report(new(
-                AssetEditorDiagnostics.CompositorHasNoFrame,
-                "This graph has no frame node, so nothing says what it renders. Add one from Frame/Frame.",
-                NodeId.None
-            ));
+            Report(
+                new(
+                    AssetEditorDiagnostics.CompositorHasNoFrame,
+                    "This graph has no frame node, so nothing says what it renders. Add one from Frame/Frame.",
+                    NodeId.None
+                )
+            );
 
             return null;
         }
@@ -132,17 +137,19 @@ public sealed class CompositorGraphCompiler : NodeGraphCompiler<GraphicsComposit
                 continue;
             }
 
-            Report(new(
-                AssetEditorDiagnostics.CompositorNodeIsUnreachable,
-                $"'{node.Type}' is not on the frame's chain, so it does not run. Wire it in, or delete it.",
-                node.Id
-            ));
+            Report(
+                new(
+                    AssetEditorDiagnostics.CompositorNodeIsUnreachable,
+                    $"'{node.Type}' is not on the frame's chain, so it does not run. Wire it in, or delete it.",
+                    node.Id
+                )
+            );
         }
 
         return new() {
-            Stages = [.. declarations.Stages],
-            Resources = [.. declarations.Resources],
-            Buffers = [.. declarations.Buffers],
+            Stages = [..declarations.Stages],
+            Resources = [..declarations.Resources],
+            Buffers = [..declarations.Buffers],
             ViewBlock = declarations.ViewBlock,
             Game = game
         };
@@ -170,11 +177,13 @@ public sealed class CompositorGraphCompiler : NodeGraphCompiler<GraphicsComposit
                 // The model refuses cycles as they are made, so reaching a node twice means one node
                 // is on two chains — a wire from a pass's body back into the outer sequence. Stopping
                 // is what keeps the walk finite.
-                Report(new(
-                    AssetEditorDiagnostics.CompositorNodeRunsTwice,
-                    "This node is on two chains, so it would run twice. Disconnect one.",
-                    current
-                ));
+                Report(
+                    new(
+                        AssetEditorDiagnostics.CompositorNodeRunsTwice,
+                        "This node is on two chains, so it would run twice. Disconnect one.",
+                        current
+                    )
+                );
 
                 break;
             }
@@ -205,11 +214,13 @@ public sealed class CompositorGraphCompiler : NodeGraphCompiler<GraphicsComposit
             }
 
             if (found.IsValid) {
-                Report(new(
-                    AssetEditorDiagnostics.CompositorFlowForks,
-                    $"Two nodes are wired to '{port}', and two nodes cannot both be next. Chain them instead.",
-                    node
-                ));
+                Report(
+                    new(
+                        AssetEditorDiagnostics.CompositorFlowForks,
+                        $"Two nodes are wired to '{port}', and two nodes cannot both be next. Chain them instead.",
+                        node
+                    )
+                );
 
                 break;
             }

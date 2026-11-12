@@ -45,7 +45,7 @@ public sealed class PrefabOverrideTests {
             Position = position,
             Prefab = Asset,
             Source = source,
-            Overrides = [.. overrides],
+            Overrides = [..overrides],
             Components = [new TestLamp { Intensity = intensity, Tint = new(1f, 0.5f, 0.25f) }]
         };
 
@@ -62,7 +62,7 @@ public sealed class PrefabOverrideTests {
             ]
         };
 
-    static SceneFile Scene(params SceneEntityData[] roots) => new() { Name = "Level", Roots = [.. roots] };
+    static SceneFile Scene(params SceneEntityData[] roots) => new() { Name = "Level", Roots = [..roots] };
 
     // ── The link ────────────────────────────────────────────────────────────────────────────────
 
@@ -97,7 +97,7 @@ public sealed class PrefabOverrideTests {
         // ⚠ And the vector is not zero. A format whose scalars were not registered reads a Vector3 back
         // as a default, silently and only when it runs before anything else scene-shaped — which is
         // exactly the code an override list would be.
-        Assert.Equal(new Vector3(1f, 2f, 3f), entity.Position);
+        Assert.Equal(new(1f, 2f, 3f), entity.Position);
     }
 
     [Fact]
@@ -113,19 +113,19 @@ public sealed class PrefabOverrideTests {
     [Fact]
     public void AFileWithoutTheKeysReadsAsNotAnInstance() {
         const string yaml = """
-            version: 1
-            name: Level
-            roots:
-              - id: 1a2b3c4d5e6f708192a3b4c5d6e7f809
-                name: Crate
-                position: 1 2 3
-            """;
+                            version: 1
+                            name: Level
+                            roots:
+                              - id: 1a2b3c4d5e6f708192a3b4c5d6e7f809
+                                name: Crate
+                                position: 1 2 3
+                            """;
 
         var entity = SceneFile.FromYaml(yaml).Roots[0];
 
         Assert.False(PrefabOverrides.IsInstance(entity));
         Assert.Empty(entity.Overrides);
-        Assert.Equal(new Vector3(1f, 2f, 3f), entity.Position);
+        Assert.Equal(new(1f, 2f, 3f), entity.Position);
     }
 
     // ── Presence is the override ────────────────────────────────────────────────────────────────
@@ -140,7 +140,7 @@ public sealed class PrefabOverrideTests {
 
         PrefabOverrides.Reconcile(scene, Asset, Template(source, 12f, Vector3.Zero));
 
-        Assert.Equal(0f, ((TestLamp) instance.Components[0]).Intensity);
+        Assert.Equal(0f, ((TestLamp)instance.Components[0]).Intensity);
     }
 
     [Fact]
@@ -153,7 +153,7 @@ public sealed class PrefabOverrideTests {
 
         PrefabOverrides.Reconcile(scene, Asset, Template(source, 1f, new(9f, 0f, 0f)));
 
-        Assert.Equal(new Vector3(5f, 0f, 0f), instance.Position);
+        Assert.Equal(new(5f, 0f, 0f), instance.Position);
     }
 
     // ── Propagation ─────────────────────────────────────────────────────────────────────────────
@@ -166,8 +166,8 @@ public sealed class PrefabOverrideTests {
 
         var written = PrefabOverrides.Reconcile(scene, Asset, Template(source, 12f, new(4f, 5f, 6f)));
 
-        Assert.Equal(12f, ((TestLamp) instance.Components[0]).Intensity);
-        Assert.Equal(new Vector3(4f, 5f, 6f), instance.Position);
+        Assert.Equal(12f, ((TestLamp)instance.Components[0]).Intensity);
+        Assert.Equal(new(4f, 5f, 6f), instance.Position);
         Assert.True(written > 0);
     }
 
@@ -179,7 +179,7 @@ public sealed class PrefabOverrideTests {
         Assert.True(PrefabOverrides.Clear(instance, "TestLamp.Intensity"));
         PrefabOverrides.Reconcile(Scene(instance), Asset, Template(source, 12f, Vector3.Zero));
 
-        Assert.Equal(12f, ((TestLamp) instance.Components[0]).Intensity);
+        Assert.Equal(12f, ((TestLamp)instance.Components[0]).Intensity);
     }
 
     [Fact]
@@ -190,8 +190,8 @@ public sealed class PrefabOverrideTests {
 
         PrefabOverrides.Reconcile(Scene(first, second), Asset, Template(source, 7f, Vector3.Zero));
 
-        Assert.Equal(7f, ((TestLamp) first.Components[0]).Intensity);
-        Assert.Equal(7f, ((TestLamp) second.Components[0]).Intensity);
+        Assert.Equal(7f, ((TestLamp)first.Components[0]).Intensity);
+        Assert.Equal(7f, ((TestLamp)second.Components[0]).Intensity);
     }
 
     [Fact]
@@ -203,7 +203,7 @@ public sealed class PrefabOverrideTests {
         var written = PrefabOverrides.Reconcile(Scene(mine), Asset, Template(source, 7f, Vector3.Zero));
 
         Assert.Equal(0, written);
-        Assert.Equal(0f, ((TestLamp) mine.Components[0]).Intensity);
+        Assert.Equal(0f, ((TestLamp)mine.Components[0]).Intensity);
     }
 
     // ── Nothing is ever removed ─────────────────────────────────────────────────────────────────
@@ -217,8 +217,8 @@ public sealed class PrefabOverrideTests {
         PrefabOverrides.Reconcile(scene, Asset, Template(EntityId.New(), 9f, Vector3.Zero), reports);
 
         Assert.Same(instance, scene.Roots[0]);
-        Assert.Equal(4f, ((TestLamp) instance.Components[0]).Intensity);
-        Assert.Contains(reports, report => report.Kind == PrefabReportKind.OrphanedEntity);
+        Assert.Equal(4f, ((TestLamp)instance.Components[0]).Intensity);
+        Assert.Contains(reports, static report => report.Kind == PrefabReportKind.OrphanedEntity);
     }
 
     [Fact]
@@ -233,7 +233,7 @@ public sealed class PrefabOverrideTests {
 
         Assert.Contains(
             reports,
-            report => report.Kind == PrefabReportKind.OrphanedOverride && report.Detail == "TestGone.Whatever"
+            static report => report.Kind == PrefabReportKind.OrphanedOverride && report.Detail == "TestGone.Whatever"
         );
     }
 
@@ -251,7 +251,7 @@ public sealed class PrefabOverrideTests {
 
         Assert.Contains(
             reports,
-            report => report.Kind == PrefabReportKind.MissingComponent && report.Detail == "TestTag"
+            static report => report.Kind == PrefabReportKind.MissingComponent && report.Detail == "TestTag"
         );
     }
 
@@ -263,7 +263,7 @@ public sealed class PrefabOverrideTests {
 
         PrefabOverrides.Reconcile(Scene(instance), Asset, Template(source, 9f, Vector3.Zero));
 
-        Assert.Equal("mine", ((TestTag) instance.Components[1]).Label);
+        Assert.Equal("mine", ((TestTag)instance.Components[1]).Label);
     }
 
     /// <summary>⚠ A child the template gained reaches the instance — doc 47 row 4.</summary>
@@ -366,10 +366,10 @@ public sealed class PrefabOverrideTests {
         Assert.NotEqual(deeper.Id, bolt);
 
         // ⚠ The values came across, at both depths and inside a component.
-        Assert.Equal(new Vector3(1f, 2f, 3f), added.Position);
-        Assert.Equal(new Vector3(4f, 5f, 6f), deeper.Position);
-        Assert.Equal(5f, ((TestLamp) added.Components[0]).Intensity);
-        Assert.Equal(new Vector3(0.25f, 0.5f, 0.75f), ((TestLamp) added.Components[0]).Tint);
+        Assert.Equal(new(1f, 2f, 3f), added.Position);
+        Assert.Equal(new(4f, 5f, 6f), deeper.Position);
+        Assert.Equal(5f, ((TestLamp)added.Components[0]).Intensity);
+        Assert.Equal(new(0.25f, 0.5f, 0.75f), ((TestLamp)added.Components[0]).Tint);
     }
 
     /// <summary>⚠ The graft is a copy, so editing the level never reaches back into the prefab.</summary>
@@ -395,7 +395,7 @@ public sealed class PrefabOverrideTests {
 
         Assert.NotSame(template.Roots[0].Children[0], added);
 
-        ((TestLamp) added.Components[0]).Intensity = 99f;
+        ((TestLamp)added.Components[0]).Intensity = 99f;
 
         Assert.Equal(3f, lamp.Intensity);
     }
@@ -457,7 +457,7 @@ public sealed class PrefabOverrideTests {
         PrefabOverrides.Reconcile(scene, Asset, template);
         PrefabOverrides.Reconcile(scene, Asset, template);
 
-        Assert.Equal(["Housing"], scene.Roots[0].Children.Select(child => child.Name));
+        Assert.Equal(["Housing"], scene.Roots[0].Children.Select(static child => child.Name));
     }
 
     /// <summary>
@@ -473,8 +473,12 @@ public sealed class PrefabOverrideTests {
     ///         it, one deliberate deletion is a warning on every open of that level, for ever.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And now the list decides what is <i>done</i> about the absence rather than only what
-    ///         is said about it.</b> Add-back landed, so the same two lines that used to suppress a
+    ///         ⚠
+    ///         <b>
+    ///             And now the list decides what is <i>done</i> about the absence rather than only what
+    ///             is said about it.
+    ///         </b>
+    ///         Add-back landed, so the same two lines that used to suppress a
     ///         warning are what stop the level regrowing the entity — which is why doc 47 § 6 insisted
     ///         on the order.
     ///     </para>
@@ -495,7 +499,7 @@ public sealed class PrefabOverrideTests {
         PrefabOverrides.Reconcile(scene, Asset, template, reports);
 
         Assert.Empty(scene.Roots[0].Children);
-        Assert.DoesNotContain(reports, report => report.Kind == PrefabReportKind.AddedByTemplate);
+        Assert.DoesNotContain(reports, static report => report.Kind == PrefabReportKind.AddedByTemplate);
     }
 
     /// <summary>A child the template gained is still reported when the instance removed a different one.</summary>
@@ -518,8 +522,8 @@ public sealed class PrefabOverrideTests {
         Assert.Equal(
             [added.ToString()],
             reports
-                .Where(report => report.Kind == PrefabReportKind.AddedByTemplate)
-                .Select(report => report.Detail)
+                .Where(static report => report.Kind == PrefabReportKind.AddedByTemplate)
+                .Select(static report => report.Detail)
         );
     }
 
@@ -533,9 +537,7 @@ public sealed class PrefabOverrideTests {
             Name = "Bulb",
             Roots = [
                 new() {
-                    Id = root,
-                    Name = "Bulb",
-                    Components = [new TestLamp { Intensity = 1f, Tint = new(1f, 1f, 1f) }]
+                    Id = root, Name = "Bulb", Components = [new TestLamp { Intensity = 1f, Tint = new(1f, 1f, 1f) }]
                 }
             ]
         };
@@ -606,12 +608,11 @@ public sealed class PrefabOverrideTests {
         PrefabOverrides.Reconcile(
             scene,
             new Dictionary<string, SceneFile>(StringComparer.OrdinalIgnoreCase) {
-                [Asset] = Turret(root, inner, 42f),
-                [Inner] = Bulb(inner)
+                [Asset] = Turret(root, inner, 42f), [Inner] = Bulb(inner)
             }
         );
 
-        Assert.Equal(42f, ((TestLamp) scene.Roots[0].Children[0].Components[0]).Intensity);
+        Assert.Equal(42f, ((TestLamp)scene.Roots[0].Children[0].Components[0]).Intensity);
     }
 
     /// <summary>⚠ The outer template is composed against the inner one first, and then the scene.</summary>
@@ -630,7 +631,7 @@ public sealed class PrefabOverrideTests {
         var bulb = Bulb(inner);
 
         bulb.Roots[0].Name = "Bulb Mk II";
-        ((TestLamp) bulb.Roots[0].Components[0]).Tint = new(0f, 1f, 0f);
+        ((TestLamp)bulb.Roots[0].Components[0]).Tint = new(0f, 1f, 0f);
 
         PrefabOverrides.Reconcile(outer, Inner, bulb);
 
@@ -638,8 +639,8 @@ public sealed class PrefabOverrideTests {
 
         // The name and the tint follow the inner prefab; the intensity is the outer author's.
         Assert.Equal("Bulb Mk II", nested.Name);
-        Assert.Equal(new Vector3(0f, 1f, 0f), ((TestLamp) nested.Components[0]).Tint);
-        Assert.Equal(42f, ((TestLamp) nested.Components[0]).Intensity);
+        Assert.Equal(new(0f, 1f, 0f), ((TestLamp)nested.Components[0]).Tint);
+        Assert.Equal(42f, ((TestLamp)nested.Components[0]).Intensity);
     }
 
     /// <summary>⚠ A run inside an instance whose template is missing is left exactly as the file has it.</summary>
@@ -659,7 +660,7 @@ public sealed class PrefabOverrideTests {
         var written = PrefabOverrides.Reconcile(scene, Inner, Bulb(inner));
 
         Assert.Equal(0, written);
-        Assert.Equal(42f, ((TestLamp) scene.Roots[0].Children[0].Components[0]).Intensity);
+        Assert.Equal(42f, ((TestLamp)scene.Roots[0].Children[0].Components[0]).Intensity);
     }
 
     /// <summary>An instance of another prefab dropped under this one is an addition, and is left alone.</summary>
@@ -681,12 +682,11 @@ public sealed class PrefabOverrideTests {
         PrefabOverrides.Reconcile(
             scene,
             new Dictionary<string, SceneFile>(StringComparer.OrdinalIgnoreCase) {
-                [Asset] = bare,
-                [Inner] = Bulb(inner)
+                [Asset] = bare, [Inner] = Bulb(inner)
             }
         );
 
-        Assert.Equal(1f, ((TestLamp) scene.Roots[0].Children[0].Components[0]).Intensity);
+        Assert.Equal(1f, ((TestLamp)scene.Roots[0].Children[0].Components[0]).Intensity);
     }
 
     /// <summary>⚠ A nested instance the outer prefab gained is grafted whole, inner link intact.</summary>
@@ -701,20 +701,14 @@ public sealed class PrefabOverrideTests {
         var root = EntityId.New();
         var inner = EntityId.New();
 
-        var instance = new SceneEntityData {
-            Id = EntityId.New(),
-            Name = "Turret",
-            Prefab = Asset,
-            Source = root
-        };
+        var instance = new SceneEntityData { Id = EntityId.New(), Name = "Turret", Prefab = Asset, Source = root };
 
         var scene = Scene(instance);
 
         PrefabOverrides.Reconcile(
             scene,
             new Dictionary<string, SceneFile>(StringComparer.OrdinalIgnoreCase) {
-                [Asset] = Turret(root, inner, 42f),
-                [Inner] = Bulb(inner)
+                [Asset] = Turret(root, inner, 42f), [Inner] = Bulb(inner)
             }
         );
 
@@ -723,7 +717,7 @@ public sealed class PrefabOverrideTests {
         Assert.Equal(Inner, added.Prefab);
         Assert.Equal(inner, added.Source);
         Assert.Equal(["TestLamp.Intensity"], added.Overrides);
-        Assert.Equal(42f, ((TestLamp) added.Components[0]).Intensity);
+        Assert.Equal(42f, ((TestLamp)added.Components[0]).Intensity);
     }
 
     /// <summary>⚠⚠ A nested instance the designer deleted is not regrown by the outer's add-back.</summary>
@@ -748,8 +742,7 @@ public sealed class PrefabOverrideTests {
         PrefabOverrides.Reconcile(
             Scene(instance),
             new Dictionary<string, SceneFile>(StringComparer.OrdinalIgnoreCase) {
-                [Asset] = Turret(root, inner, 42f),
-                [Inner] = Bulb(inner)
+                [Asset] = Turret(root, inner, 42f), [Inner] = Bulb(inner)
             }
         );
 

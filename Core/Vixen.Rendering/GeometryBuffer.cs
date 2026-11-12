@@ -374,10 +374,10 @@ public sealed class GeometryBuffer : IDisposable {
         // index buffer, having just been told it would fit.
         EnsureStaging(stagingUsed + vertices.Length + indices.Length);
 
-        Stage(vertices, (long)slice.BaseVertex * VertexStride, index: false);
+        Stage(vertices, (long)slice.BaseVertex * VertexStride, false);
 
         if (!indices.IsEmpty) {
-            Stage(indices, (long)slice.FirstIndex * IndexStride, index: true);
+            Stage(indices, (long)slice.FirstIndex * IndexStride, true);
         }
     }
 

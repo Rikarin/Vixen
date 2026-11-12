@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using CsCheck;
-using Vixen.Core.Mathematics;
 using Vixen.Geometry.Testing;
 using Xunit;
 
@@ -20,15 +19,23 @@ namespace Vixen.Geometry.Remeshing.Tests;
 ///         from.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The scale property is the one this repository has been bitten by three times in one
-///         day</b> — <c>EditMesh.Normal</c>, <c>ManifoldMesh.TriangleNormal</c> and doc 24's capsule
+///         ⚠
+///         <b>
+///             The scale property is the one this repository has been bitten by three times in one
+///             day
+///         </b>
+///         — <c>EditMesh.Normal</c>, <c>ManifoldMesh.TriangleNormal</c> and doc 24's capsule
 ///         poles — because <c>Vector3.Normalize</c> gives up below an <i>absolute</i>
 ///         <c>MathUtil.ZeroTolerance</c> of <c>1e-6</c>, and a cross product scales as the square of
 ///         the model. <see cref="ScaleSafe" /> is the established fix and this is the net under it.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Exact invariance is not expected everywhere, and each place it is not is measured and
-///         named rather than tolerated.</b> Past one round the pre-remesh's four operators are
+///         ⚠
+///         <b>
+///             Exact invariance is not expected everywhere, and each place it is not is measured and
+///             named rather than tolerated.
+///         </b>
+///         Past one round the pre-remesh's four operators are
 ///         threshold comparisons on lengths, and <c>0.001f</c> is not a binary fraction — so a mesh
 ///         full of exactly-equal edges breaks its ties differently at a thousandth scale and five
 ///         rounds amplify one different decision into a different mesh;
@@ -48,16 +55,24 @@ public class ConditioningPropertyTests {
     /// <summary>docs/plan/41's robustness criterion, over the space and under the clock.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Every setting is swept, not just the defaults, because five of the seven steps are
-    ///         optional and a step that does not run cannot fail.</b> Hole filling, the shrinkwrap and
+    ///         ⚠
+    ///         <b>
+    ///             Every setting is swept, not just the defaults, because five of the seven steps are
+    ///             optional and a step that does not run cannot fail.
+    ///         </b>
+    ///         Hole filling, the shrinkwrap and
     ///         the pre-remesh round count are all caller-controlled, and the shrinkwrap in particular
     ///         re-runs the cheap half of conditioning over a surface it has just re-extracted — which
     ///         is fresh input with fresh defects, and the one place in the stage where a defect can be
     ///         manufactured rather than found.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The pre-remesh round count stops at three, and that is a finding rather than a
-    ///         convenience.</b> <see cref="IsotropicRemesh" />'s loop is bounded by its iteration count
+    ///         ⚠
+    ///         <b>
+    ///             The pre-remesh round count stops at three, and that is a finding rather than a
+    ///             convenience.
+    ///         </b>
+    ///         <see cref="IsotropicRemesh" />'s loop is bounded by its iteration count
     ///         and cannot fail to terminate, but each round splits every edge longer than four thirds
     ///         of the target, so a target far below the mesh's own mean quadruples the triangle count
     ///         every round: measured, one triangle two thousand units across at a target of one gives
@@ -67,10 +82,18 @@ public class ConditioningPropertyTests {
     ///         not pass one. <see cref="RunawayGuard" /> is what would catch it if it did.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>This property is nearly the whole cost of the remeshing suite, it is concentrated
-    ///         in an eighth of its own draws, and a reader who does not know that will read the
-    ///         concentration as a regression.</b> Split by setting over four traced runs: <b>393 cases
-    ///         with <c>shrinkwrap</c> true cost 108 s and 407 with it false cost 1.0 s</b> — 275 ms
+    ///         ⚠
+    ///         <b>
+    ///             This property is nearly the whole cost of the remeshing suite, it is concentrated
+    ///             in an eighth of its own draws, and a reader who does not know that will read the
+    ///             concentration as a regression.
+    ///         </b>
+    ///         Split by setting over four traced runs:
+    ///         <b>
+    ///             393 cases
+    ///             with <c>shrinkwrap</c> true cost 108 s and 407 with it false cost 1.0 s
+    ///         </b>
+    ///         — 275 ms
     ///         against 2.3 ms in the mean. Narrower still, every one of the fifty dearest draws at
     ///         each of three pinned seeds is <c>rounds 0, shrinkwrap true</c>, which is a quarter of a
     ///         half of the space.
@@ -81,8 +104,12 @@ public class ConditioningPropertyTests {
     ///         passes no target at all — meaning "the mesh's own mean edge length" — so a draw at zero
     ///         rounds hands <see cref="VoxelShrinkwrap" /> a zero, which is its documented fallback of
     ///         <b>sixty-four steps along the longest axis</b>. Measured on
-    ///         <c>new(ShapeKind.Box, 7, 1, [], 3, 0f, 0.001f)</c>: <b>5.9 s and 50 832 triangles at
-    ///         zero rounds, 4.5 ms and 720 at one</b>, because one round supplies a mean edge length
+    ///         <c>new(ShapeKind.Box, 7, 1, [], 3, 0f, 0.001f)</c>:
+    ///         <b>
+    ///             5.9 s and 50 832 triangles at
+    ///             zero rounds, 4.5 ms and 720 at one
+    ///         </b>
+    ///         , because one round supplies a mean edge length
     ///         that clamps the grid to its eight-step floor instead. Both callers in the tree
     ///         (<see cref="Remesher" />, <c>RemeshDump</c>) size that length from the source's own
     ///         area, which is positive for anything with area, so this corner is this suite's in
@@ -90,9 +117,13 @@ public class ConditioningPropertyTests {
     ///         which is a reason to keep it rather than to trim it.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>So the slowest case is a different recipe every run and the same <i>shape</i> of
-    ///         recipe every run, and <see cref="RunawayGuard.Cap" />'s remarks carry the
-    ///         distribution.</b> Twelve replicates of this property's own 200 draws give a slowest
+    ///         ⚠
+    ///         <b>
+    ///             So the slowest case is a different recipe every run and the same <i>shape</i> of
+    ///             recipe every run, and <see cref="RunawayGuard.Cap" />'s remarks carry the
+    ///             distribution.
+    ///         </b>
+    ///         Twelve replicates of this property's own 200 draws give a slowest
     ///         case of 1.0 s to 5.4 s with a median of 4.9 s; anything above that on a wall clock is
     ///         the machine and not the draw.
     ///     </para>
@@ -104,16 +135,14 @@ public class ConditioningPropertyTests {
                 Gen.Int[0, 3],
                 Gen.Bool,
                 Gen.Bool,
-                (recipe, rounds, fill, shrinkwrap) => (recipe, rounds, fill, shrinkwrap)
+                static (recipe, rounds, fill, shrinkwrap) => (recipe, rounds, fill, shrinkwrap)
             )
             .Sample(
                 entry => {
                     var (recipe, rounds, fill, shrinkwrap) = entry;
 
                     var settings = new ConditioningSettings {
-                        PreRemeshIterations = rounds,
-                        FillHoles = fill,
-                        Shrinkwrap = shrinkwrap
+                        PreRemeshIterations = rounds, FillHoles = fill, Shrinkwrap = shrinkwrap
                     };
 
                     var what = $"conditioning {recipe} with {rounds} rounds, fill {fill}, shrinkwrap {shrinkwrap}";
@@ -155,18 +184,27 @@ public class ConditioningPropertyTests {
     /// <summary>Steps one to four, over the space, at a thousandth and a thousand times.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>Four facts exactly and two counts within a tenth, and the split is where the finding
-    ///         is.</b> Whether the mesh came out manifold, whether it came out closed, whether the
+    ///         <b>
+    ///             Four facts exactly and two counts within a tenth, and the split is where the finding
+    ///             is.
+    ///         </b>
+    ///         Whether the mesh came out manifold, whether it came out closed, whether the
     ///         orientation flood fill gave up and whether the shrinkwrap fired are statements about
     ///         topology: <see cref="ScaleInvarianceTests.Compare" /> asserts all four at every strength.
     ///         The triangle and vertex counts do move, by up to 3.45 per cent.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Closedness did move once, and it was a real defect in the weld rather than a tie
-    ///         to be tolerated — which is the whole reason these four are asserted exactly.</b>
+    ///         ⚠
+    ///         <b>
+    ///             Closedness did move once, and it was a real defect in the weld rather than a tie
+    ///             to be tolerated — which is the whole reason these four are asserted exactly.
+    ///         </b>
     ///         Measured, on seed <c>dUYtdAFHQOs2</c>:
-    ///         <c>new(ShapeKind.Stairs, 7, 5, [SelfIntersection, Slivers, FlippedWinding], 1,
-    ///         0.16551921f, 1f)</c> came out closed at a thousandth scale and open at a thousand
+    ///         <c>
+    ///             new(ShapeKind.Stairs, 7, 5, [SelfIntersection, Slivers, FlippedWinding], 1,
+    ///             0.16551921f, 1f)
+    ///         </c>
+    ///         came out closed at a thousandth scale and open at a thousand
     ///         times. The cause was <see cref="MeshConditioner.CrossNoise" />'s: the sliver bound was
     ///         <c>1e-9 × diagonal²</c>, which is two decades <i>below</i> what a single-precision
     ///         cross product of two diagonal-sized differences can resolve, so an exactly-degenerate
@@ -175,8 +213,11 @@ public class ConditioningPropertyTests {
     ///         fails the same way an absolute one does, and this is the property that caught it.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Exact agreement is a property of the eighteen named fixtures and not of the space,
-    ///         and the difference is a finding rather than a weakening.</b>
+    ///         ⚠
+    ///         <b>
+    ///             Exact agreement is a property of the eighteen named fixtures and not of the space,
+    ///             and the difference is a finding rather than a weakening.
+    ///         </b>
     ///         <see cref="ScaleInvarianceTests.TheFirstFiveStepsGiveTheSameAnswerAtBothScales" /> gets
     ///         every count and every triangle index to agree on <see cref="BrokenMeshes" />' corpus;
     ///         over the space it does not, and the case that breaks it is instructive. Measured:
@@ -215,8 +256,11 @@ public class ConditioningPropertyTests {
     /// <summary>Step five, whose threshold is relative and whose comparison is still a knife edge.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>⚠ Hole filling is the one step of the seven that is not scale-invariant, and what
-    ///         moves is not a count — it is whether the result is a closed surface.</b> Measured over
+    ///         <b>
+    ///             ⚠ Hole filling is the one step of the seven that is not scale-invariant, and what
+    ///             moves is not a count — it is whether the result is a closed surface.
+    ///         </b>
+    ///         Measured over
     ///         eight runs of a hundred and fifty generated recipes: two of them produced "one scale
     ///         came out closed and the other did not", both on a flight of stairs, and the same sweep
     ///         with filling off produced none in three thousand. The remaining disagreements are
@@ -224,8 +268,11 @@ public class ConditioningPropertyTests {
     ///         <c>27 triangles against 25</c>.
     ///     </para>
     ///     <para>
-    ///         <b>It is a tie rather than an absolute constant, and the distinction decides what the
-    ///         fix would be.</b> The bound is <c>HoleSize × diagonal</c>, a fraction of the model like
+    ///         <b>
+    ///             It is a tie rather than an absolute constant, and the distinction decides what the
+    ///             fix would be.
+    ///         </b>
+    ///         The bound is <c>HoleSize × diagonal</c>, a fraction of the model like
     ///         everything else in the stage. What it compares against is a hole's own extent, and a
     ///         hole sitting on the line falls the other way once every coordinate has been perturbed by
     ///         an ulp — which is what multiplying by <c>0.001f</c> does, because it is not a binary
@@ -233,8 +280,12 @@ public class ConditioningPropertyTests {
     ///         other; it would fill every hole at one scale and none at the other.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>So this pins the size of the disagreement rather than denying it, and deliberately
-    ///         does not use <see cref="ScaleInvarianceTests.Compare" />:</b> that helper asserts
+    ///         ⚠
+    ///         <b>
+    ///             So this pins the size of the disagreement rather than denying it, and deliberately
+    ///             does not use <see cref="ScaleInvarianceTests.Compare" />:
+    ///         </b>
+    ///         that helper asserts
     ///         closedness at every strength, which is the assertion this step cannot satisfy. One hole
     ///         either way is float noise on a threshold; two would be something else, and this is where
     ///         that would be caught.
@@ -290,9 +341,12 @@ public class ConditioningPropertyTests {
     ///         thousandth-scale mesh into one triangle and the thousand-scale one into a million.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A rate, where
-    ///         <see cref="ScaleInvarianceTests.OneRoundOfThePreRemeshGivesTheSameCountsAtBothScales" />
-    ///         asserts exact counts — and that difference is a finding rather than a weakening.</b>
+    ///         ⚠
+    ///         <b>
+    ///             A rate, where
+    ///             <see cref="ScaleInvarianceTests.OneRoundOfThePreRemeshGivesTheSameCountsAtBothScales" />
+    ///             asserts exact counts — and that difference is a finding rather than a weakening.
+    ///         </b>
     ///         Exact counts hold on its five named fixtures and do not hold over the space: measured
     ///         over three thousand generated recipes with no floor under them, 41 disagreed at one
     ///         round, the worst by 11.1 per cent, and the family that does it is the cone. A cone's
@@ -305,10 +359,14 @@ public class ConditioningPropertyTests {
     ///         care which of the eight it was given.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b><see cref="Floor" /> triangles or the case is skipped, for the same reason
-    ///         <see cref="Five_rounds_of_the_pre_remesh_stay_within_a_rate_of_each_other" /> has one —
-    ///         and it is here because the property failed on a nineteen-triangle cone at nightly
-    ///         budget.</b> Measured over four thousand recipes: 1445 reach the floor and the worst
+    ///         ⚠
+    ///         <b>
+    ///             <see cref="Floor" /> triangles or the case is skipped, for the same reason
+    ///             <see cref="Five_rounds_of_the_pre_remesh_stay_within_a_rate_of_each_other" /> has one —
+    ///             and it is here because the property failed on a nineteen-triangle cone at nightly
+    ///             budget.
+    ///         </b>
+    ///         Measured over four thousand recipes: 1445 reach the floor and the worst
     ///         disagreement among them is 3.03 per cent, where below it the worst is 14.3 per cent on
     ///         a mesh of fourteen triangles. By candidate floor, 16 gives 11.1 per cent, 24 gives
     ///         8.33, 32 gives 6.25, 48 gives 4.17, 64 gives 3.03, 96 gives 1.96 and 128 gives 1.92.
@@ -318,9 +376,13 @@ public class ConditioningPropertyTests {
     ///         that drifted below the floor could not pass this by testing nothing.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The case that forced it is worth keeping, because it is a tie sitting
-    ///         <i>exactly</i> on a threshold rather than near one — and it is the de-speck's, not the
-    ///         pre-remesh's.</b> Seed <c>2hVxfasvzdi1</c>:
+    ///         ⚠
+    ///         <b>
+    ///             The case that forced it is worth keeping, because it is a tie sitting
+    ///             <i>exactly</i> on a threshold rather than near one — and it is the de-speck's, not the
+    ///             pre-remesh's.
+    ///         </b>
+    ///         Seed <c>2hVxfasvzdi1</c>:
     ///         <c>new(ShapeKind.Cone, 7, 1, [TJunction, Specks, Unwelded], 1, 0.2811629f, 1f)</c> gave
     ///         19 triangles against 14 — five apart and not two, because what moved was a whole
     ///         component. Measured at seven scales from a thousandth to a thousand times, the
@@ -342,8 +404,12 @@ public class ConditioningPropertyTests {
     ///         <c>1000 &lt; 1000.00006</c> drops it.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>So this one is not <see cref="MeshConditioner.CrossNoise" />'s and no bound wants
-    ///         moving.</b> There the comparison sat two decades under what the arithmetic could
+    ///         ⚠
+    ///         <b>
+    ///             So this one is not <see cref="MeshConditioner.CrossNoise" />'s and no bound wants
+    ///             moving.
+    ///         </b>
+    ///         There the comparison sat two decades under what the arithmetic could
     ///         resolve, which made it unevaluable; here the ratio is resolved to five digits and the
     ///         threshold is relative and well conditioned — the fixture is simply sitting on it. Every
     ///         threshold has a boundary and a fixture placed exactly on one will fall either way. What
@@ -398,8 +464,10 @@ public class ConditioningPropertyTests {
     /// <summary>Five rounds, where exact agreement is not achievable and the reason is not a constant.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>Measured and reported rather than papered over, and the bound is
-    ///         <see cref="ScaleInvarianceTests.FiveRoundsOfThePreRemeshStayWithinARateOfEachOther" />'s.</b>
+    ///         <b>
+    ///             Measured and reported rather than papered over, and the bound is
+    ///             <see cref="ScaleInvarianceTests.FiveRoundsOfThePreRemeshStayWithinARateOfEachOther" />'s.
+    ///         </b>
     ///         From the second round the counts separate: on the staircase sphere, five rounds give
     ///         348 triangles at a thousandth scale against 394 at unit scale and 394 at a thousand
     ///         times. That is float sensitivity in the fixture — <c>0.001f</c> is not a binary
@@ -409,13 +477,20 @@ public class ConditioningPropertyTests {
     ///         room for the tie-breaking that is genuinely there.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A third here, where the named fixtures next door hold at a quarter, and the case
-    ///         that moved it is worth naming.</b> The quarter was chosen against eleven hundred
+    ///         ⚠
+    ///         <b>
+    ///             A third here, where the named fixtures next door hold at a quarter, and the case
+    ///             that moved it is worth naming.
+    ///         </b>
+    ///         The quarter was chosen against eleven hundred
     ///         qualifying recipes whose worst disagreement was 12.1 per cent; the sample is 150 recipes
     ///         out of a much larger space, and CI eventually drew one that beats it. Seed
     ///         <c>3n-hlR7sg8l1</c>:
-    ///         <c>new(ShapeKind.Capsule, 3, 1, [SelfIntersection, TJunction, TinyComponent], 3,
-    ///         0.26731214f, 1f)</c> gives 177 triangles against 237, which is 25.3 per cent — a capsule
+    ///         <c>
+    ///             new(ShapeKind.Capsule, 3, 1, [SelfIntersection, TJunction, TinyComponent], 3,
+    ///             0.26731214f, 1f)
+    ///         </c>
+    ///         gives 177 triangles against 237, which is 25.3 per cent — a capsule
     ///         carrying three defects at once, which is the roughest input this space builds. It is the
     ///         same tie-breaking the paragraph above describes and it is nowhere near the order of
     ///         magnitude an absolute tolerance would produce, so what a bound of a quarter was catching
@@ -423,8 +498,12 @@ public class ConditioningPropertyTests {
     ///         those five meshes the quarter is measured rather than sampled.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b><see cref="Floor" /> triangles or the case is skipped, and the reason is that a
-    ///         rate is not a measurement on a mesh of ten triangles.</b> Over three thousand recipes
+    ///         ⚠
+    ///         <b>
+    ///             <see cref="Floor" /> triangles or the case is skipped, and the reason is that a
+    ///             rate is not a measurement on a mesh of ten triangles.
+    ///         </b>
+    ///         Over three thousand recipes
     ///         with no floor the worst disagreement was 40 per cent — four triangles out of ten, on a
     ///         cone that five rounds had eaten down to nothing much. With the floor the worst over
     ///         eleven hundred qualifying recipes was 12.1 per cent, which is what leaves the quarter
@@ -480,7 +559,7 @@ public class ConditioningPropertyTests {
     [Fact]
     public void Every_generated_mesh_really_is_six_orders_of_magnitude_from_its_own_small_copy() {
         BrokenMeshSpace.Recipe.Sample(
-            recipe => {
+            static recipe => {
                 var mesh = BrokenMeshSpace.Build(recipe);
 
                 if (mesh.PositionCount == 0) {

@@ -44,11 +44,8 @@ public struct CameraConfiner {
     /// <param name="bounds">The box.</param>
     /// <param name="damping">The damping time in seconds.</param>
     /// <returns>The confiner.</returns>
-    public static CameraConfiner Within(BoundingBox bounds, float damping = 0f) => new() {
-        Minimum = bounds.Minimum,
-        Maximum = bounds.Maximum,
-        Damping = damping
-    };
+    public static CameraConfiner Within(BoundingBox bounds, float damping = 0f) =>
+        new() { Minimum = bounds.Minimum, Maximum = bounds.Maximum, Damping = damping };
 
     /// <summary>The box, as a bounding box.</summary>
     public readonly BoundingBox Bounds => new(Minimum, Maximum);
@@ -62,8 +59,12 @@ public struct CameraConfiner {
 ///         whatever blocked it, and eases back out when the way is clear again.
 ///     </para>
 ///     <para>
-///         ⚠ <b>It needs something that can answer "is this line blocked", and <c>Vixen.Engine</c>
-///         has no such thing.</b> The engine references no physics — that direction is deliberate and
+///         ⚠
+///         <b>
+///             It needs something that can answer "is this line blocked", and <c>Vixen.Engine</c>
+///             has no such thing.
+///         </b>
+///         The engine references no physics — that direction is deliberate and
 ///         is what keeps <c>Vixen.Physics</c> an optional subsystem rather than a dependency of the
 ///         frame loop. So the question is asked through <see cref="ICameraOcclusion" />, which the
 ///         host implements over whatever it has: a physics world, a navigation mesh, a hand-written
@@ -97,8 +98,12 @@ public struct CameraOcclusion {
 
     /// <summary>How far from the target the camera is currently allowed to be. Engine-owned.</summary>
     /// <remarks>
-    ///     ⚠ <b>The one piece of state in the stage components, and it is here because easing back
-    ///     out needs a memory.</b> A body stage recomputes its ideal position from scratch every
+    ///     ⚠
+    ///     <b>
+    ///         The one piece of state in the stage components, and it is here because easing back
+    ///         out needs a memory.
+    ///     </b>
+    ///     A body stage recomputes its ideal position from scratch every
     ///     frame, so a correction that is only applied while something is in the way disappears the
     ///     instant it clears — the camera would duck in smoothly and snap out. What has to persist is
     ///     the distance itself, which is what this is. Writing it does nothing but make the camera
@@ -128,14 +133,15 @@ public struct CameraOcclusion {
     /// <summary>An avoider that ducks in at once and comes back out over half a second.</summary>
     /// <param name="radius">The probe radius.</param>
     /// <returns>The extension.</returns>
-    public static CameraOcclusion Default(float radius = 0.2f) => new() {
-        Radius = radius,
-        MinimumDistance = 0.5f,
-        PullInDamping = 0f,
-        PullOutDamping = 0.5f,
-        Applied = 0f,
-        PivotOffset = Vector3.Zero
-    };
+    public static CameraOcclusion Default(float radius = 0.2f) =>
+        new() {
+            Radius = radius,
+            MinimumDistance = 0.5f,
+            PullInDamping = 0f,
+            PullOutDamping = 0.5f,
+            Applied = 0f,
+            PivotOffset = Vector3.Zero
+        };
 }
 
 /// <summary>What the engine asks when a shot wants to know whether it can see its subject.</summary>

@@ -37,7 +37,9 @@ public sealed class ShapeVocabularyImporter : AssetImporter<ShapeVocabularyImpor
     /// <summary>The alias of the type this writes.</summary>
     public const string VocabularyType = "ShapeVocabularyContent";
 
-    static ShapeVocabularyImporter() => MathScalars.Register();
+    static ShapeVocabularyImporter() {
+        MathScalars.Register();
+    }
 
     /// <inheritdoc />
     public override int Version => ShapeVocabularyContent.Current;
@@ -78,8 +80,12 @@ public sealed class ShapeVocabularyImporter : AssetImporter<ShapeVocabularyImpor
 /// <summary>Compiles a <c>.vxproxyshapes</c>, and checks it against the vocabulary it names.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>This is the payoff D13 claims for a declared vocabulary, and it only exists because
-///         the check runs here.</b> A clip's constraint refers to a shape by name, and the clip is
+///         ⚠
+///         <b>
+///             This is the payoff D13 claims for a declared vocabulary, and it only exists because
+///             the check runs here.
+///         </b>
+///         A clip's constraint refers to a shape by name, and the clip is
 ///         portable exactly as far as that name is present and means the same thing on every body it
 ///         might play on. Without the check the failure is a clip that silently does nothing on one
 ///         character, discovered by a player. With it, it is an error at import naming the set and the
@@ -98,7 +104,9 @@ public sealed class ProxyShapeSetImporter : AssetImporter<ProxyShapeSetImportSet
 
     // A shape is mostly vectors, so the scalar converters have to be in the process-wide table before
     // the first file is bound. Same static-constructor placement, and same reason, as MaterialImporter.
-    static ProxyShapeSetImporter() => MathScalars.Register();
+    static ProxyShapeSetImporter() {
+        MathScalars.Register();
+    }
 
     /// <inheritdoc />
     public override int Version => ProxyShapeSetContent.Current;
@@ -211,7 +219,10 @@ public sealed class ProxyShapeSetImporter : AssetImporter<ProxyShapeSetImportSet
                 await reader.ReadToEndAsync(cancellationToken).ConfigureAwait(false)
             );
         } catch (Exception failure) when (failure is YamlParseException or YamlBindingException or IOException) {
-            context.Report(ImportSeverity.Error, $"Its vocabulary '{set.Vocabulary}' could not be read: {failure.Message}");
+            context.Report(
+                ImportSeverity.Error,
+                $"Its vocabulary '{set.Vocabulary}' could not be read: {failure.Message}"
+            );
             return;
         }
 
@@ -243,7 +254,7 @@ public sealed class ProxyShapeSetImporter : AssetImporter<ProxyShapeSetImportSet
             );
         }
 
-        return ProxyShapeSet.Of(set.Name, set.Vocabulary, [.. shapes]);
+        return ProxyShapeSet.Of(set.Name, set.Vocabulary, [..shapes]);
     }
 }
 

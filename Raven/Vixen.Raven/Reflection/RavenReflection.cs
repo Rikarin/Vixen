@@ -45,8 +45,12 @@ public enum DescriptorType {
     ///     A depth texture: a shadow map, read by comparison.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>Its own value rather than <see cref="SampledTexture" /> with a flag beside it, and
-    ///     the reason is what a host does with an answer it does not understand.</b> A flag defaults
+    ///     ⚠
+    ///     <b>
+    ///         Its own value rather than <see cref="SampledTexture" /> with a flag beside it, and
+    ///         the reason is what a host does with an answer it does not understand.
+    ///     </b>
+    ///     A flag defaults
     ///     to false, so a translator written before depth textures existed reports every shadow map
     ///     as an ordinary sampled texture and the layout is wrong with nothing to read. A value the
     ///     translator has no arm for reaches its fallback, and a fallback is a thing somebody
@@ -123,7 +127,7 @@ public sealed record ShaderDataType(
             IrMatrixType matrix => new(matrix.Component.Kind, matrix.Rows, matrix.Columns),
             IrArrayType array => From(array.Element) with { ArrayLength = array.Length ?? 0 },
             IrStructType structType => new(IrTypeKind.Struct, StructName: structType.Name),
-            IrTextureType or IrSamplerType => new(IrTypeKind.Void),
+
             _ => new(IrTypeKind.Void)
         };
     }
@@ -189,8 +193,12 @@ public sealed record BindingInfo(
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Reported because the engine's previous answer was an inference off the set
-    ///         index.</b> <c>EffectLoader.KindOf</c> called a uniform block in the per-draw set
+    ///         ⚠
+    ///         <b>
+    ///             Reported because the engine's previous answer was an inference off the set
+    ///             index.
+    ///         </b>
+    ///         <c>EffectLoader.KindOf</c> called a uniform block in the per-draw set
     ///         dynamic whenever a graphics stage used it, which made one number carry two claims —
     ///         where a binding lives, and whether its contents change between draws — with no way for
     ///         a shader wanting the first to decline the second. It needed a carve-out for compute,
@@ -312,7 +320,6 @@ public sealed record ValueParameterInfo(string Name, ShaderDataType Type);
 /// <param name="DefaultValue">
 ///     What the author initialised it to, as text, or empty when it had no initialiser or a computed
 ///     one.
-///
 ///     <para>
 ///         This is the <em>host's</em> default, not the shader's: a uniform block arrives already
 ///         filled, so a uniform's initialiser never runs anywhere. It says what a host should put

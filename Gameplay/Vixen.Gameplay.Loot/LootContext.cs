@@ -17,7 +17,9 @@ public sealed class LootContext : IRequirementContext {
 
     /// <summary>Makes a context.</summary>
     /// <param name="tags">What is true of the kill, or null for nothing.</param>
-    public LootContext(GameplayTagSet? tags = null) => Tags = tags;
+    public LootContext(GameplayTagSet? tags = null) {
+        Tags = tags;
+    }
 
     /// <summary>A context with no tags and no values. Every unconditional row is in.</summary>
     public static LootContext Empty { get; } = new();

@@ -2,8 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Editor.NodeGraph;
-using Vixen.Editor.Texturing.Layers;
-using Vixen.Editor.Texturing.Painting;
 using Vixen.NodeGraph;
 using Vixen.Texturing.Layers;
 using Vixen.Texturing.Painting;
@@ -16,8 +14,11 @@ namespace Vixen.Editor.Texturing.Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b><a href="https://github.com/Rikarin/Vixen/issues/852">#852</a>, and it is this
-///         repository's commonest defect rather than a missing feature.</b> Batch 9 built the brush,
+///         <b>
+///             <a href="https://github.com/Rikarin/Vixen/issues/852">#852</a>, and it is this
+///             repository's commonest defect rather than a missing feature.
+///         </b>
+///         Batch 9 built the brush,
 ///         the stroke, the composite, the seam dilation, the undo command and the <c>.vxpaint</c>
 ///         with fifty-two tests behind them, and <c>LayerStackGraph</c> refused both layer kinds by
 ///         name — so every one of those tests exercised a model nothing in the editor could reach.
@@ -32,8 +33,12 @@ namespace Vixen.Editor.Texturing.Tests;
 public class PaintWiringTests {
     /// <summary>A reference survives being written and read back, path and channel both.</summary>
     /// <remarks>
-    ///     ⚠ <b>The path holds the awkward characters and the channel does not, which is why the
-    ///     channel is first.</b> A round trip over a name with spaces, dots and a folder in it is the
+    ///     ⚠
+    ///     <b>
+    ///         The path holds the awkward characters and the channel does not, which is why the
+    ///         channel is first.
+    ///     </b>
+    ///     A round trip over a name with spaces, dots and a folder in it is the
     ///     case a split-from-the-back parser gets wrong.
     /// </remarks>
     [Fact]
@@ -64,8 +69,8 @@ public class PaintWiringTests {
     public void A_painted_reference_with_no_channel_is_claimed_and_refused() {
         Assert.True(PaintReference.Claims("vxpaint:Body.vxpaint"));
         Assert.False(PaintReference.TryParse("vxpaint:Body.vxpaint", out var path, out var usage));
-        Assert.Equal("", path);
-        Assert.Equal("", usage);
+        Assert.Equal(string.Empty, path);
+        Assert.Equal(string.Empty, usage);
     }
 
     /// <summary>A paint layer emits one bitmap per channel it writes, each naming its own.</summary>
@@ -82,7 +87,9 @@ public class PaintWiringTests {
         Assert.NotNull(compilation.Plan);
         Assert.Empty(compilation.Problems);
 
-        var named = compilation.Externals.Select(external => external.Asset).OrderBy(name => name).ToArray();
+        var named = compilation.Externals.Select(static external => external.Asset)
+            .OrderBy(static name => name)
+            .ToArray();
 
         Assert.Equal(
             ["vxpaint:baseColor|Hull.paint.vxpaint", "vxpaint:roughness|Hull.paint.vxpaint"],
@@ -93,12 +100,9 @@ public class PaintWiringTests {
     /// <summary>A paint layer restricted to one channel names one, and it is that one.</summary>
     [Fact]
     public void A_paint_layer_restricted_to_a_channel_names_only_it() {
-        var stack = Two(new() {
-            Id = "paint",
-            Kind = LayerKind.Paint,
-            Paint = "Hull.paint.vxpaint",
-            Channels = ["roughness"]
-        });
+        var stack = Two(
+            new() { Id = "paint", Kind = LayerKind.Paint, Paint = "Hull.paint.vxpaint", Channels = ["roughness"] }
+        );
 
         var compilation = LayerStackCompiler.Compile(stack, stack.Sets[0]);
         var external = Assert.Single(compilation.Externals);
@@ -119,33 +123,45 @@ public class PaintWiringTests {
         var stack = Two(new() { Id = "paint", Kind = LayerKind.Paint });
 
         // A fill under it, so a green run means "the others compiled" rather than "nothing did".
-        stack.Sets[0].Layers.Insert(0, new() {
-            Id = "base",
-            Kind = LayerKind.Fill,
-            Fill = LayerFillSource.Constant,
-            Values = { ["baseColor"] = [1f, 0f, 0f, 1f] }
-        });
+        stack.Sets[0]
+            .Layers.Insert(
+                0,
+                new() {
+                    Id = "base",
+                    Kind = LayerKind.Fill,
+                    Fill = LayerFillSource.Constant,
+                    Values = { ["baseColor"] = [1f, 0f, 0f, 1f] }
+                }
+            );
 
         var compilation = LayerStackCompiler.Compile(stack, stack.Sets[0]);
 
         Assert.NotNull(compilation.Plan);
         Assert.Empty(compilation.Externals);
-        Assert.All(compilation.Problems, problem => Assert.Equal(NodeSeverity.Warning, problem.Severity));
-        Assert.Contains(compilation.Problems, problem => problem.Layer == "paint");
+        Assert.All(compilation.Problems, static problem => Assert.Equal(NodeSeverity.Warning, problem.Severity));
+        Assert.Contains(compilation.Problems, static problem => problem.Layer == "paint");
     }
 
     /// <summary>A painted mask compiles to a bitmap over the mask channel of its canvas.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The usage is <c>mask</c> and not the layer's channel, and that is the one asymmetry
-    ///         between the two paint sources.</b> A mask is one image whatever the layer under it
+    ///         ⚠
+    ///         <b>
+    ///             The usage is <c>mask</c> and not the layer's channel, and that is the one asymmetry
+    ///             between the two paint sources.
+    ///         </b>
+    ///         A mask is one image whatever the layer under it
     ///         writes — <c>PaintCanvas</c>' degenerate case — so a mask compiled per channel would name
     ///         seven images in a file that holds one and refuse six of them.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>This asserted two entries, and the sentence beside them said they were one image
-    ///         — which they were not until <a href="https://github.com/Rikarin/Vixen/issues/800">#800</a>
-    ///         landed.</b> A two-channel layer made a host decode and upload one <c>.vxpaint</c> twice,
+    ///         ⚠
+    ///         <b>
+    ///             This asserted two entries, and the sentence beside them said they were one image
+    ///             — which they were not until <a href="https://github.com/Rikarin/Vixen/issues/800">#800</a>
+    ///             landed.
+    ///         </b>
+    ///         A two-channel layer made a host decode and upload one <c>.vxpaint</c> twice,
     ///         and a seven-channel one seven times; the compiler now hands the second asker the first
     ///         asker's image. What both counts have to be is the point of the two assertions below: one
     ///         upload, and still one bitmap per channel reading it.
@@ -153,13 +169,15 @@ public class PaintWiringTests {
     /// </remarks>
     [Fact]
     public void A_painted_mask_names_the_mask_channel_once_however_many_channels_the_layer_writes() {
-        var stack = Two(new() {
-            Id = "l",
-            Kind = LayerKind.Fill,
-            Fill = LayerFillSource.Constant,
-            Values = { ["baseColor"] = [1f, 0f, 0f, 1f], ["roughness"] = [0.5f, 0.5f, 0.5f, 1f] },
-            Mask = new() { Source = LayerMaskSource.Paint, Paint = "Hull.l.mask.vxpaint" }
-        });
+        var stack = Two(
+            new() {
+                Id = "l",
+                Kind = LayerKind.Fill,
+                Fill = LayerFillSource.Constant,
+                Values = { ["baseColor"] = [1f, 0f, 0f, 1f], ["roughness"] = [0.5f, 0.5f, 0.5f, 1f] },
+                Mask = new() { Source = LayerMaskSource.Paint, Paint = "Hull.l.mask.vxpaint" }
+            }
+        );
 
         var compilation = LayerStackCompiler.Compile(stack, stack.Sets[0]);
 
@@ -169,7 +187,7 @@ public class PaintWiringTests {
         var external = Assert.Single(compilation.Externals);
 
         Assert.Equal("vxpaint:mask|Hull.l.mask.vxpaint", external.Asset);
-        Assert.Single(compilation.Plan.Images, image => image.External);
+        Assert.Single(compilation.Plan.Images, static image => image.External);
 
         // ⚠ And the second channel still reads it, which is what tells a de-duplication from a
         // dropped node: two ops take the one image as an input, one per channel the layer writes.
@@ -179,19 +197,21 @@ public class PaintWiringTests {
     /// <summary>A painted mask with no canvas warns and leaves the layer unmasked.</summary>
     [Fact]
     public void A_painted_mask_with_no_canvas_yet_warns_rather_than_refusing() {
-        var stack = Two(new() {
-            Id = "l",
-            Kind = LayerKind.Fill,
-            Fill = LayerFillSource.Constant,
-            Values = { ["baseColor"] = [1f, 0f, 0f, 1f] },
-            Mask = new() { Source = LayerMaskSource.Paint }
-        });
+        var stack = Two(
+            new() {
+                Id = "l",
+                Kind = LayerKind.Fill,
+                Fill = LayerFillSource.Constant,
+                Values = { ["baseColor"] = [1f, 0f, 0f, 1f] },
+                Mask = new() { Source = LayerMaskSource.Paint }
+            }
+        );
 
         var compilation = LayerStackCompiler.Compile(stack, stack.Sets[0]);
 
         Assert.NotNull(compilation.Plan);
         Assert.Empty(compilation.Externals);
-        Assert.All(compilation.Problems, problem => Assert.Equal(NodeSeverity.Warning, problem.Severity));
+        Assert.All(compilation.Problems, static problem => Assert.Equal(NodeSeverity.Warning, problem.Severity));
     }
 
     /// <summary>A stack whose set writes base colour and roughness, over the given layers.</summary>

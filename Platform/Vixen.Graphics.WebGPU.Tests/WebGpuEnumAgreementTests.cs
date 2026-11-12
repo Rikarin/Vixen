@@ -274,10 +274,10 @@ public class WebGpuEnumAgreementTests {
     /// </remarks>
     [Fact]
     public void EnginePresentModesAreNotWebGpuPresentModes() {
-        Assert.NotEqual((uint)Graphics.PresentMode.Mailbox, (uint)WgpuPresentMode.Mailbox);
-        Assert.NotEqual((uint)Graphics.PresentMode.Immediate, (uint)WgpuPresentMode.Immediate);
+        Assert.NotEqual((uint)PresentMode.Mailbox, (uint)WgpuPresentMode.Mailbox);
+        Assert.NotEqual((uint)PresentMode.Immediate, (uint)WgpuPresentMode.Immediate);
 
-        Assert.Equal(WgpuPresentMode.Mailbox, WebGpuConversions.ToWebGpu(Graphics.PresentMode.Mailbox));
-        Assert.Equal(WgpuPresentMode.Immediate, WebGpuConversions.ToWebGpu(Graphics.PresentMode.Immediate));
+        Assert.Equal(WgpuPresentMode.Mailbox, WebGpuConversions.ToWebGpu(PresentMode.Mailbox));
+        Assert.Equal(WgpuPresentMode.Immediate, WebGpuConversions.ToWebGpu(PresentMode.Immediate));
     }
 }

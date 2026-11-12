@@ -4,12 +4,8 @@
 using Vixen.Core.IO;
 using Vixen.Core.IO.Watch;
 using Vixen.Editor.Core;
-using Vixen.Editor.NodeGraph;
 using Vixen.NodeGraph;
-using Vixen.TextureGraph;
 using Vixen.Texturing;
-using Vixen.Texturing.Layers;
-using Vixen.Texturing.Painting;
 using Xunit;
 
 namespace Vixen.Editor.Texturing.Tests;
@@ -25,8 +21,12 @@ namespace Vixen.Editor.Texturing.Tests;
 ///         defaults, and the bake made from it was that old graph with nothing saying so.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The shape chosen is a notification on <c>EditorDocument</c>, and the issue's other
-///         option is not merely worse — it cannot be written.</b> "The host that owns the
+///         ⚠
+///         <b>
+///             The shape chosen is a notification on <c>EditorDocument</c>, and the issue's other
+///             option is not merely worse — it cannot be written.
+///         </b>
+///         "The host that owns the
 ///         <c>ExternalEdits</c> calls <c>Republish()</c> on every open <c>TextureGraphDocument</c>"
 ///         asks <c>EditorApplication</c> to name a type in a plugin it deliberately does not
 ///         reference, which is doc 48 § D14's whole claim. <c>OnProjectFileChanged</c> is the
@@ -72,8 +72,11 @@ public class ExternalCompoundTests {
 
     /// <summary>⚠ And an overflow, where the watcher cannot say which file it was.</summary>
     /// <remarks>
-    ///     <b>The conservative answer, and the same one <c>ExternalEdits.Rescan</c> gives about a
-    ///     document's own file.</b> Losing events says nothing about what changed, so a graph that
+    ///     <b>
+    ///         The conservative answer, and the same one <c>ExternalEdits.Rescan</c> gives about a
+    ///         document's own file.
+    ///     </b>
+    ///     Losing events says nothing about what changed, so a graph that
     ///     assumed the best would go on inlining a compound nobody can see is old — the cost of being
     ///     wrong the other way is one republish.
     /// </remarks>
@@ -124,15 +127,19 @@ public class ExternalCompoundTests {
     /// <param name="fixture">The project.</param>
     /// <param name="relative">The path under <c>Assets/</c> that changed.</param>
     /// <remarks>
-    ///     ⚠ <b>No watcher, which is a state the constructor documents and a project on an unwatched
-    ///     share is really in.</b> What a watcher buys is suppression of the editor's own saves, and
+    ///     ⚠
+    ///     <b>
+    ///         No watcher, which is a state the constructor documents and a project on an unwatched
+    ///         share is really in.
+    ///     </b>
+    ///     What a watcher buys is suppression of the editor's own saves, and
     ///     there is no save here; the routing is the same code either way, and the virtual path is
     ///     then relative to the root, which is what a watcher mounted on <c>Assets/</c> reports.
     /// </remarks>
     static void Route(TexturingFixture fixture, string relative) {
         using ExternalEdits edits = new(fixture.Project);
 
-        edits.Apply([new FileChange(new VirtualPath("/" + relative), FileChangeKind.Changed, default)]);
+        edits.Apply([new FileChange(new("/" + relative), FileChangeKind.Changed, default)]);
     }
 
     /// <summary>The red the graph's one inlined <c>Uniform</c> writes, as the compiler produced it.</summary>
@@ -142,7 +149,7 @@ public class ExternalCompoundTests {
         Assert.NotNull(compilation.Plan);
 
         var uniform = Assert.Single(
-            compilation.Plan!.Ops.Where(op => string.Equals(op.Kernel, "Uniform", StringComparison.Ordinal))
+            compilation.Plan!.Ops.Where(static op => string.Equals(op.Kernel, "Uniform", StringComparison.Ordinal))
         );
 
         return uniform.Find("red")!.Value.Value;
@@ -182,7 +189,7 @@ public class ExternalCompoundTests {
 
     /// <summary>Puts the compound on disk with a new colour, without saving it.</summary>
     static void Rewrite(TextureGraphDocument compound, float red) {
-        var colour = compound.Graph.Nodes.Single(node => node.Type == "Source/Uniform");
+        var colour = compound.Graph.Nodes.Single(static node => node.Type == "Source/Uniform");
 
         colour.SetValue("Colour", red, red, red, 1f);
 
@@ -199,9 +206,9 @@ public class ExternalCompoundTests {
 
         Assert.True(document.Registry.TryGet(Published, out _), "the compound is not a node type this graph has");
 
-        var output = document.Graph.Nodes.Single(node => node.Type == "Output/Output");
+        var output = document.Graph.Nodes.Single(static node => node.Type == "Output/Output");
 
-        foreach (var node in document.Graph.Nodes.Where(node => node.Type == "Source/Uniform").ToArray()) {
+        foreach (var node in document.Graph.Nodes.Where(static node => node.Type == "Source/Uniform").ToArray()) {
             document.Graph.Remove(node.Id, out _);
         }
 

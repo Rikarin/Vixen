@@ -8,8 +8,12 @@ namespace Vixen.Live.Placement.Tests;
 /// <summary>The hand-written Engine API client, against a real Docker daemon.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Everything else in this project is asserted against a fake <c>HttpMessageHandler</c>,
-///         and that is right</b> — the placement logic is what changes, and a fake makes it assertable
+///         ⚠
+///         <b>
+///             Everything else in this project is asserted against a fake <c>HttpMessageHandler</c>,
+///             and that is right
+///         </b>
+///         — the placement logic is what changes, and a fake makes it assertable
 ///         on every push. What a fake cannot answer is whether the calls this client makes are the
 ///         calls the Engine API actually has: whether the socket path is right, whether
 ///         <c>v1.43</c> is a version a modern daemon still serves, whether the container spec is
@@ -39,8 +43,12 @@ public class DockerEngineTests {
     ///     by its label before it is stopped.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>A realm image is one that stays up and tolerates its arguments, and almost no
-    ///     off-the-shelf image is both.</b> Nearly every published entrypoint ends in
+    ///     ⚠
+    ///     <b>
+    ///         A realm image is one that stays up and tolerates its arguments, and almost no
+    ///         off-the-shelf image is both.
+    ///     </b>
+    ///     Nearly every published entrypoint ends in
     ///     <c>exec "$@"</c>, so a stock image handed <c>--realm-spec …</c> exits before this test can
     ///     look at it — which is why <see cref="Entrypoint" /> supplies the one thing a real realm
     ///     image carries in its own <c>ENTRYPOINT</c>.
@@ -71,8 +79,12 @@ public class DockerEngineTests {
 
     /// <summary>
     ///     The regression this suite exists for. An image with no entrypoint makes
-    ///     <c>--realm-spec</c> the program, and the daemon's answer — <c>executable file not found in
-    ///     $PATH</c> — is a 400 from a container that already exists. A backend that only found that
+    ///     <c>--realm-spec</c> the program, and the daemon's answer —
+    ///     <c>
+    ///         executable file not found in
+    ///         $PATH
+    ///     </c>
+    ///     — is a 400 from a container that already exists. A backend that only found that
     ///     out from the daemon would be one nightly failure away from silence.
     /// </summary>
     [Fact]
@@ -86,7 +98,7 @@ public class DockerEngineTests {
         using var placement = new DockerPlacement(
             new() { Image = EntrypointlessImage },
             engine,
-            ownsEngine: false
+            false
         );
 
         var probe = await placement.ProbeAsync(TestContext.Current.CancellationToken);
@@ -94,8 +106,10 @@ public class DockerEngineTests {
         Assert.False(probe.Available);
         Assert.Contains(RealmSpec.ArgumentName, probe.Detail, StringComparison.Ordinal);
 
-        var failure = await Assert.ThrowsAsync<InvalidOperationException>(
-            async () => await placement.StartAsync(Realm(), TestContext.Current.CancellationToken)
+        var failure = await Assert.ThrowsAsync<InvalidOperationException>(async () => await placement.StartAsync(
+                Realm(),
+                TestContext.Current.CancellationToken
+            )
         );
 
         Assert.Contains(EntrypointlessImage, failure.Message, StringComparison.Ordinal);
@@ -178,7 +192,7 @@ public class DockerEngineTests {
                 StopGrace = TimeSpan.FromSeconds(1)
             },
             engine,
-            ownsEngine: true
+            true
         );
     }
 

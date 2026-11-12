@@ -13,8 +13,12 @@ namespace Vixen.Live.Cluster;
 ///         versions would be answering for two fleets at once during every rollout.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Single-threaded by construction, which is the correctness property rather than a
-///         performance one.</b> Two players zoning in at the same instant are two turns of the same
+///         ⚠
+///         <b>
+///             Single-threaded by construction, which is the correctness property rather than a
+///             performance one.
+///         </b>
+///         Two players zoning in at the same instant are two turns of the same
 ///         grain, so the fleet cannot decide twice that it is short of capacity — which is doc 27's
 ///         named twenty-shards failure expressed as a scheduling guarantee instead of a lock.
 ///     </para>
@@ -235,7 +239,7 @@ public static class Keys {
     /// <summary>The key of a region's fleet grain.</summary>
     /// <param name="region">The latency zone.</param>
     /// <returns>The grain key.</returns>
-    public static string ForFleet(string region) => region ?? "";
+    public static string ForFleet(string region) => region ?? string.Empty;
 }
 
 /// <summary>One account's own state, which is not one character's. Doc 28 § Collections.</summary>
@@ -308,13 +312,21 @@ public interface IAccountGrain : IGrainWithGuidKey {
 /// <remarks>
 ///     <para>
 ///         <b>Left undeclared at L1 on purpose, and this is what was being waited for.</b> Doc 27's
-///         reason was that <em>"declaring an interface nobody implements is a promise rather than a
-///         contract"</em> — the feature belonged to doc 28 and doc 28 had not built it. G4 did.
+///         reason was that
+///         <em>
+///             "declaring an interface nobody implements is a promise rather than a
+///             contract"
+///         </em>
+///         — the feature belonged to doc 28 and doc 28 had not built it. G4 did.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>The grain decides ordering; the caller decides permission.</b> A charter's
-///         permissions are tags on a compiled <c>GuildCharter</c>, so <em>"may this officer
-///         kick"</em> is a content question and the realm answers it with the same code the client
+///         permissions are tags on a compiled <c>GuildCharter</c>, so
+///         <em>
+///             "may this officer
+///             kick"
+///         </em>
+///         is a content question and the realm answers it with the same code the client
 ///         greys the button with. What the realm <em>cannot</em> answer is whether the roster still
 ///         looks that way by the time the write lands, because two officers demoting each other at
 ///         once is a race no local check can win. So the grain re-checks the one part that is
@@ -383,9 +395,17 @@ public interface IGuildGrain : IGrainWithGuidKey {
 ///         belonged to doc 28 and doc 28 had not built it. G6 did.
 ///     </para>
 ///     <para>
-///         ⚠ <b>A lockout is fleet-wide, which is the whole reason it is a grain and not a realm's
-///         table.</b> Doc 28 says so directly — <em>"a lockout one shard knew about is a lockout a
-///         player evades by zoning"</em>. There is exactly one place that decides whether somebody is
+///         ⚠
+///         <b>
+///             A lockout is fleet-wide, which is the whole reason it is a grain and not a realm's
+///             table.
+///         </b>
+///         Doc 28 says so directly —
+///         <em>
+///             "a lockout one shard knew about is a lockout a
+///             player evades by zoning"
+///         </em>
+///         . There is exactly one place that decides whether somebody is
 ///         saved to this instance, and it is here.
 ///     </para>
 ///     <para>

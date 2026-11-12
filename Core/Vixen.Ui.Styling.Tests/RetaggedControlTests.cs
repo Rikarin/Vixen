@@ -11,8 +11,12 @@ namespace Vixen.Ui.Styling.Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>A control's own rule is keyed on its tag, so renaming the tag silently deletes the
-///         rule.</b> <c>tag="…"</c> on a capitalised markup tag — and <c>Add&lt;T&gt;("some-tag")</c>
+///         ⚠
+///         <b>
+///             A control's own rule is keyed on its tag, so renaming the tag silently deletes the
+///             rule.
+///         </b>
+///         <c>tag="…"</c> on a capitalised markup tag — and <c>Add&lt;T&gt;("some-tag")</c>
 ///         in C# — is the sanctioned way to put a control under a name a stylesheet already knows,
 ///         and it is a good mechanism. What neither it nor its documentation says is that the
 ///         cascade has no other handle on the control: <c>scroll-view { … }</c> matches a
@@ -21,8 +25,12 @@ namespace Vixen.Ui.Styling.Tests;
 ///         See `Rikarin/Vixen#1327`.
 ///     </para>
 ///     <para>
-///         ⚠ <b>For <c>ScrollView</c> the lost declarations are the clip and the bars' anchor, and
-///         neither failure shows up where the mistake is.</b> Without <c>overflow: hidden</c> the
+///         ⚠
+///         <b>
+///             For <c>ScrollView</c> the lost declarations are the clip and the bars' anchor, and
+///             neither failure shows up where the mistake is.
+///         </b>
+///         Without <c>overflow: hidden</c> the
 ///         scrolled-off rows draw over whatever is above the view; without
 ///         <c>position: relative</c> the absolutely-positioned bars anchor to the nearest positioned
 ///         ancestor instead of to the view, so the scrollbar is somewhere else on screen. It had
@@ -34,7 +42,7 @@ namespace Vixen.Ui.Styling.Tests;
 ///         <b>This is the third of the three shapes #1327 ranked, and it is the cheap one.</b> It
 ///         only ever sees what is committed, which is exactly right for a mistake that is made by
 ///         copying a tag's previous declarations into a new rule: the copy happens in the tree, and
-///         the tree is what this reads. Written like <c>docs/WhitespaceExempt.txt</c> and
+///         the tree is what this reads. Written like <c>docs/DocCommentExempt.txt</c> and
 ///         <c>OverflowLedgerTests</c> — the known losses are named with the property each one costs,
 ///         a new one fails, and a loss that has been closed and is still listed fails too, so the
 ///         ledger can only shrink.
@@ -51,8 +59,12 @@ public sealed partial class RetaggedControlTests {
     /// <summary>The losses that are known and accepted, as <c>Type under tag: properties</c>.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Empty, and the two entries it held were closed by restating what was drawn rather
-    ///         than what was lost.</b> Both were <c>TextBlock</c> — the viewport's
+    ///         ⚠
+    ///         <b>
+    ///             Empty, and the two entries it held were closed by restating what was drawn rather
+    ///             than what was lost.
+    ///         </b>
+    ///         Both were <c>TextBlock</c> — the viewport's
     ///         <c>viewport-stats</c> and <c>viewport-readout</c> — whose own rule is
     ///         <c>text { display: inline }</c>. They were recorded rather than restated because
     ///         restating <c>inline</c> changes what the editor draws. But the rename had already
@@ -113,8 +125,12 @@ public sealed partial class RetaggedControlTests {
     /// <summary>The instrument, over a sheet whose answer is known.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The comparison is over <i>resolved</i> properties rather than over declaration
-    ///         text</b>, which is what makes a rule that beats another, or one sealed in a
+    ///         ⚠
+    ///         <b>
+    ///             The comparison is over <i>resolved</i> properties rather than over declaration
+    ///             text
+    ///         </b>
+    ///         , which is what makes a rule that beats another, or one sealed in a
     ///         <c>@media</c>, count for what it actually computes — see
     ///         <see cref="RepositoryScan.Missing" />.
     ///     </para>
@@ -141,8 +157,7 @@ public sealed partial class RetaggedControlTests {
             per-axis { flex-direction: column; overflow-x: hidden; overflow-y: hidden; position: relative; }
             partial-rule { flex-direction: column; }
             unruled-neighbour { color: #fff; }
-            """,
-            StyleOrigin.Author
+            """
         );
 
         Assert.Empty(RepositoryScan.Missing(engine, "restated", "own-tag"));
@@ -182,11 +197,11 @@ public sealed partial class RetaggedControlTests {
         Assert.Equal("water-zone-facts", declared["WaterZoneFacts"]);
 
         // Both spellings of a retag reach the site list: the markup attribute and the C# call.
-        Assert.Contains(sites, site => site is { Type: "ScrollView", Tag: "add-component-list" });
-        Assert.Contains(sites, site => site is { Type: "ScrollView", Tag: "choice-scroller" });
+        Assert.Contains(sites, static site => site is { Type: "ScrollView", Tag: "add-component-list" });
+        Assert.Contains(sites, static site => site is { Type: "ScrollView", Tag: "choice-scroller" });
 
         // And a test fixture standing a control up under a name of its own is not a site.
-        Assert.DoesNotContain(sites, site => site is { Type: "Button", Tag: "go" });
+        Assert.DoesNotContain(sites, static site => site is { Type: "Button", Tag: "go" });
     }
 
     /// <summary>An element written inside a markup comment is prose, and the line count survives it.</summary>
@@ -221,12 +236,12 @@ public sealed partial class RetaggedControlTests {
         );
 
         var tagged = MarkupElement.Matches(markup)
-            .Where(match => MarkupTagAttribute.IsMatch(match.Groups["attributes"].Value))
+            .Where(static match => MarkupTagAttribute.IsMatch(match.Groups["attributes"].Value))
             .ToList();
 
         Assert.DoesNotContain(
             tagged,
-            match => MarkupTagAttribute.Match(match.Groups["attributes"].Value).Groups["tag"].Value
+            static match => MarkupTagAttribute.Match(match.Groups["attributes"].Value).Groups["tag"].Value
                 == "explained-in-prose"
         );
 
@@ -235,7 +250,7 @@ public sealed partial class RetaggedControlTests {
         Assert.Equal("really-here", MarkupTagAttribute.Match(real.Groups["attributes"].Value).Groups["tag"].Value);
 
         // And it is still on line 5, counted exactly as `Sites` counts it.
-        Assert.Equal(5, markup.Take(real.Index).Count(character => character == '\n') + 1);
+        Assert.Equal(5, markup.Take(real.Index).Count(static character => character == '\n') + 1);
     }
 
     /// <summary>Every production site that creates a control under a tag, as type, tag and where.</summary>
@@ -286,7 +301,7 @@ public sealed partial class RetaggedControlTests {
                         match.Groups["type"].Value,
                         attribute.Groups["tag"].Value,
                         path,
-                        markup.Take(match.Index).Count(character => character == '\n') + 1
+                        markup.Take(match.Index).Count(static character => character == '\n') + 1
                     );
                 }
             }
@@ -317,7 +332,7 @@ public sealed partial class RetaggedControlTests {
     static string Uncommented(string markup) =>
         MarkupComment.Replace(
             markup,
-            match => new string(match.Value.Select(character => character == '\n' ? '\n' : ' ').ToArray())
+            static match => new(match.Value.Select(static character => character == '\n' ? '\n' : ' ').ToArray())
         );
 
     /// <summary>What tag each type carries when nobody renames it.</summary>
@@ -367,12 +382,16 @@ public sealed partial class RetaggedControlTests {
     static bool Production(string root, string path) =>
         !Path.GetRelativePath(root, path)
             .Split('/', '\\')
-            .Any(segment => segment.EndsWith(".Tests", StringComparison.Ordinal));
+            .Any(static segment => segment.EndsWith(".Tests", StringComparison.Ordinal));
 
     /// <summary>A creation call whose <b>first</b> argument is the tag the control is to carry.</summary>
     /// <remarks>
-    ///     ⚠ <b>The first argument and only the first, which cost this census its first six
-    ///     findings.</b> <c>Add&lt;T&gt;(tag, id, params classNames)</c> and
+    ///     ⚠
+    ///     <b>
+    ///         The first argument and only the first, which cost this census its first six
+    ///         findings.
+    ///     </b>
+    ///     <c>Add&lt;T&gt;(tag, id, params classNames)</c> and
     ///     <c>Part&lt;T&gt;(tag, params classNames)</c> take a tag first and <i>classes</i> after it,
     ///     so <c>Part&lt;ColorStrip&gt;(null, "hue")</c> is a colour strip keeping its own tag and
     ///     gaining a class — not a strip renamed to <c>hue</c>. A pattern that took any string
@@ -381,9 +400,11 @@ public sealed partial class RetaggedControlTests {
     ///     each of the three is styled by <c>icon.submenu</c> or its like, a class selector, and
     ///     nothing was wrong with any of them.
     /// </remarks>
-    [GeneratedRegex("""
+    [GeneratedRegex(
+        """
         \b(?:Add|Create|Part|Prepend)\s*<\s*(?<type>[A-Za-z_]\w*)\s*>\s*\(\s*"(?<tag>[a-z][a-z0-9-]*)"
-        """)]
+        """
+    )]
     private static partial Regex TagFirstCall { get; }
 
     /// <summary>The one creation call whose tag is second, because its first argument is the parent.</summary>
@@ -391,9 +412,11 @@ public sealed partial class RetaggedControlTests {
     ///     <c>BuildContext.Child&lt;T&gt;(parent, tag)</c> is what markup's <c>tag=</c> is emitted
     ///     as, so this arm is the hand-written spelling of the attribute the markup sweep reads.
     /// </remarks>
-    [GeneratedRegex("""
+    [GeneratedRegex(
+        """
         \bChild\s*<\s*(?<type>[A-Za-z_]\w*)\s*>\s*\(\s*[^,()"]+,\s*"(?<tag>[a-z][a-z0-9-]*)"
-        """)]
+        """
+    )]
     private static partial Regex ChildCall { get; }
 
     /// <summary>A capitalised markup element and everything up to its closing angle bracket.</summary>
@@ -416,9 +439,11 @@ public sealed partial class RetaggedControlTests {
 
     /// <summary>The <c>tag="…"</c> attribute, which renames what a capitalised tag creates.</summary>
     /// <remarks>⚠ Preceded by whitespace rather than <c>\b</c>, so <c>data-tag="…"</c> is not one.</remarks>
-    [GeneratedRegex(""""
+    [GeneratedRegex(
+        """"
         (?<=\s)tag\s*=\s*"(?<tag>[a-z][a-z0-9-]*)"
-        """")]
+        """"
+    )]
     private static partial Regex MarkupTagAttribute { get; }
 
     /// <summary>A class or record declaration, from which the next <c>TagName</c> override hangs.</summary>
@@ -428,9 +453,11 @@ public sealed partial class RetaggedControlTests {
     private static partial Regex TypeDeclaration { get; }
 
     /// <summary>The one line a control writes to name its own tag.</summary>
-    [GeneratedRegex(""""
+    [GeneratedRegex(
+        """"
         ^\s*protected\s+(?:internal\s+)?override\s+string\s+TagName\s*=>\s*"(?<tag>[a-z][a-z0-9-]*)"
-        """")]
+        """"
+    )]
     private static partial Regex TagOverride { get; }
 
     /// <summary>The <c>@tag</c> directive, which is a component's spelling of the same override.</summary>

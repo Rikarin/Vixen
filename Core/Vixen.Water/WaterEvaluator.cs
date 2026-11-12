@@ -8,9 +8,14 @@ namespace Vixen.Water;
 /// <summary>A ripple simulation's contribution, where one covers a place.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Separate from the wave sum in the evaluator's signature, and the asymmetry is the
-///         point</b> —
-///         [35 § D12](../../docs/plan/35-water.md#d12-ripples-are-a-sliding-window-height-field-and-they-are-displacement-not-geometry).
+///         ⚠
+///         <b>
+///             Separate from the wave sum in the evaluator's signature, and the asymmetry is the
+///             point
+///         </b>
+///         —
+///         [35 §
+///         D12](../../docs/plan/35-water.md#d12-ripples-are-a-sliding-window-height-field-and-they-are-displacement-not-geometry).
 ///         The closed-form part is exact and is held to a tolerance of exact-to-the-float; the
 ///         simulated part is a height field advanced a step at a time, is compared at a stated
 ///         non-exact tolerance, and cannot answer "where was the surface six ticks ago" at all.
@@ -63,7 +68,8 @@ public readonly record struct WaterSample(
 /// <remarks>
 ///     <para>
 ///         ⚠ <b>In the evaluator and not in the material</b>
-///         ([§ D7](../../docs/plan/35-water.md#d7-waves-are-a-spectrum-summed-as-gerstner-and-the-fft-is-deferred-with-arithmetic)).
+///         ([§
+///         D7](../../docs/plan/35-water.md#d7-waves-are-a-spectrum-summed-as-gerstner-and-the-fft-is-deferred-with-arithmetic)).
 ///         A wave whose amplitude does not fall off as the ground rises produces a crest that
 ///         intersects the beach; every project that hits it solves the visible half in a material,
 ///         and then discovers that buoyancy is still using the unattenuated height and a boat in the
@@ -94,8 +100,11 @@ public readonly record struct WaterAttenuation(float Depth) {
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>[35 § D2](../../docs/plan/35-water.md#d2-one-evaluator-two-hosts-and-the-seam-is-a-test),
-///         which is the decision the rest of the document hangs off.</b> The surface height at a
+///         <b>
+///             [35 § D2](../../docs/plan/35-water.md#d2-one-evaluator-two-hosts-and-the-seam-is-a-test),
+///             which is the decision the rest of the document hangs off.
+///         </b>
+///         The surface height at a
 ///         position is arithmetic over the field's surface channel, the Gerstner sum at that position
 ///         and time attenuated by the local depth, and the ripple field's displacement where a
 ///         simulation covers it. That arithmetic exists in exactly two places — here and in
@@ -118,12 +127,19 @@ public readonly record struct WaterAttenuation(float Depth) {
 ///         invisible until the frame rate changes.
 ///     </para>
 ///     <para>
-///         <b>A struct over borrowed arrays, so a hundred pontoons and forty swimmers cost nothing to
-///         ask.</b> Nothing here allocates, and the tests say so.
+///         <b>
+///             A struct over borrowed arrays, so a hundred pontoons and forty swimmers cost nothing to
+///             ask.
+///         </b>
+///         Nothing here allocates, and the tests say so.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The Gerstner phase is evaluated at the query position rather than at the position the
-///         surface point came from, and that is a stated approximation.</b> A Gerstner wave displaces
+///         ⚠
+///         <b>
+///             The Gerstner phase is evaluated at the query position rather than at the position the
+///             surface point came from, and that is a stated approximation.
+///         </b>
+///         A Gerstner wave displaces
 ///         horizontally as well as vertically, so the point that ends up above <c>p</c> did not start
 ///         there; inverting that is a fixed-point iteration. It is not done, for the reason everything
 ///         else here is done the way it is — an iteration count is a second thing the two hosts would
@@ -225,8 +241,11 @@ public readonly ref struct WaterEvaluator {
     /// <param name="normal">Which way the surface faces there. Unit length.</param>
     /// <remarks>
     ///     <para>
-    ///         <b>The whole of the wave model, and the only place it exists on this side of the
-    ///         seam.</b> The horizontal terms are what make a Gerstner wave read as water rather than
+    ///         <b>
+    ///             The whole of the wave model, and the only place it exists on this side of the
+    ///             seam.
+    ///         </b>
+    ///         The horizontal terms are what make a Gerstner wave read as water rather than
     ///         as corrugated iron: crests sharpen and troughs broaden because the surface bunches
     ///         toward the crest.
     ///     </para>
@@ -262,8 +281,8 @@ public readonly ref struct WaterEvaluator {
 
             var k = WaterMath.Tau / wave.Wavelength;
             var speed = MathF.Sqrt(GerstnerWave.Gravity * k);
-            var phase = (k * ((wave.Direction.X * position.X) + (wave.Direction.Y * position.Y)))
-                + (speed * waterTime)
+            var phase = k * (wave.Direction.X * position.X + wave.Direction.Y * position.Y)
+                + speed * waterTime
                 + wave.Phase;
 
             WaterMath.SinCos(phase, out var sin, out var cos);
@@ -320,8 +339,8 @@ public readonly ref struct WaterEvaluator {
 
             var k = WaterMath.Tau / wave.Wavelength;
             var speed = MathF.Sqrt(GerstnerWave.Gravity * k);
-            var phase = (k * ((wave.Direction.X * position.X) + (wave.Direction.Y * position.Y)))
-                + (speed * waterTime)
+            var phase = k * (wave.Direction.X * position.X + wave.Direction.Y * position.Y)
+                + speed * waterTime
                 + wave.Phase;
 
             height += amplitude * WaterMath.Sin(phase);

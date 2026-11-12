@@ -117,10 +117,13 @@ public sealed class NativeResolutionTests {
                 StringComparison.Ordinal
             );
 
-            Assert.Contains(candidates, path => path.StartsWith("/somewhere/else", StringComparison.Ordinal));
-            Assert.Contains(candidates, path => path.EndsWith("1.dylib", StringComparison.Ordinal)
-                || path.EndsWith(".so.1", StringComparison.Ordinal)
-                || path.EndsWith("-1.dll", StringComparison.Ordinal));
+            Assert.Contains(candidates, static path => path.StartsWith("/somewhere/else", StringComparison.Ordinal));
+            Assert.Contains(
+                candidates,
+                static path => path.EndsWith("1.dylib", StringComparison.Ordinal)
+                    || path.EndsWith(".so.1", StringComparison.Ordinal)
+                    || path.EndsWith("-1.dll", StringComparison.Ordinal)
+            );
         } finally {
             NativeLibraries.BaseDirectory = was;
         }
@@ -136,7 +139,7 @@ public sealed class NativeResolutionTests {
         var candidates = NativeLibraries.Candidates("neverdescribed").ToList();
 
         Assert.NotEmpty(candidates);
-        Assert.All(candidates, path => Assert.Contains("neverdescribed", path, StringComparison.Ordinal));
+        Assert.All(candidates, static path => Assert.Contains("neverdescribed", path, StringComparison.Ordinal));
     }
 
     /// <summary>

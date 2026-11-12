@@ -50,7 +50,7 @@ public static class UtilitySetContentCompiler {
             actions.Add(Action(authored, resolver, board, problems));
         }
 
-        set = new UtilitySet(Symbol.Intern(content.Name), [.. actions]) {
+        set = new UtilitySet(Symbol.Intern(content.Name), [..actions]) {
             Selector = content.BuildSelector(),
             CommitmentBonus = content.CommitmentBonus,
             DecisionInterval = content.DecisionInterval
@@ -67,7 +67,14 @@ public static class UtilitySetContentCompiler {
         BlackboardLayout layout,
         List<BehaviorTreeDiagnostic> problems
     ) {
-        BehaviorTreeContentCompiler.TryResolveTask(resolver, layout, content.Task, content.Fields, problems, out var task);
+        BehaviorTreeContentCompiler.TryResolveTask(
+            resolver,
+            layout,
+            content.Task,
+            content.Fields,
+            problems,
+            out var task
+        );
 
         var considerations = new UtilityConsideration[content.Considerations.Count];
 
@@ -75,10 +82,8 @@ public static class UtilitySetContentCompiler {
             considerations[index] = Consideration(content.Considerations[index], resolver, layout, problems);
         }
 
-        return new UtilityAction(Symbol.Intern(content.Name), task, considerations) {
-            Weight = content.Weight,
-            Cooldown = content.Cooldown,
-            Bucket = content.Bucket
+        return new(Symbol.Intern(content.Name), task, considerations) {
+            Weight = content.Weight, Cooldown = content.Cooldown, Bucket = content.Bucket
         };
     }
 

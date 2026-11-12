@@ -8,8 +8,11 @@ namespace Vixen.Rendering.ScreenProbes;
 /// <summary>The whole sphere of directions as a square of texels, and back.</summary>
 /// <remarks>
 ///     <para>
-///         <b>The same fold as <c>Math.EncodeOctahedral</c> in the Raven library, and that is a
-///         contract rather than a coincidence.</b> A screen probe's radiance map is written by one
+///         <b>
+///             The same fold as <c>Math.EncodeOctahedral</c> in the Raven library, and that is a
+///             contract rather than a coincidence.
+///         </b>
+///         A screen probe's radiance map is written by one
 ///         side and read by the other, so the direction a texel stands for has to be one function
 ///         evaluated twice. The shader's version exists first (it encodes G-buffer normals); this is
 ///         its C# counterpart, with the tie at zero broken the same way — a zero component picks the
@@ -17,8 +20,11 @@ namespace Vixen.Rendering.ScreenProbes;
 ///         exactly the kind that passes every test until a probe sits on an axis.
 ///     </para>
 ///     <para>
-///         <b>Solid angles are computed exactly, not approximated by a Jacobian at the texel
-///         centre.</b> A projection into spherical harmonics is an integral, so every texel has to
+///         <b>
+///             Solid angles are computed exactly, not approximated by a Jacobian at the texel
+///             centre.
+///         </b>
+///         A projection into spherical harmonics is an integral, so every texel has to
 ///         carry the area of sphere it stands for — <c>SphericalHarmonicsL1.Accumulated</c> says the
 ///         same thing from the other side. The octahedral map is not equal-area, and the error of a
 ///         centre-point approximation is largest exactly where the map distorts most, which is where
@@ -75,8 +81,8 @@ public static class OctahedralMap {
         Validate(texel, resolution);
 
         return new(
-            (((texel.X + 0.5f) / resolution) * 2f) - 1f,
-            (((texel.Y + 0.5f) / resolution) * 2f) - 1f
+            (texel.X + 0.5f) / resolution * 2f - 1f,
+            (texel.Y + 0.5f) / resolution * 2f - 1f
         );
     }
 
@@ -127,7 +133,7 @@ public static class OctahedralMap {
 
             for (var y = 0; y < resolution; y++) {
                 for (var x = 0; x < resolution; x++) {
-                    table[(y * resolution) + x] = (float)ExactSolidAngle(x, y, resolution);
+                    table[y * resolution + x] = (float)ExactSolidAngle(x, y, resolution);
                 }
             }
 
@@ -144,7 +150,7 @@ public static class OctahedralMap {
     public static float SolidAngle(Int2 texel, int resolution) {
         Validate(texel, resolution);
 
-        return SolidAngles(resolution).Span[(texel.Y * resolution) + texel.X];
+        return SolidAngles(resolution).Span[texel.Y * resolution + texel.X];
     }
 
     static readonly Dictionary<int, float[]> CachedSolidAngles = [];
@@ -176,10 +182,10 @@ public static class OctahedralMap {
     // map does not have.
 
     static double ExactSolidAngle(int x, int y, int resolution) {
-        var x0 = ((double)x / resolution * 2.0) - 1.0;
-        var x1 = ((double)(x + 1) / resolution * 2.0) - 1.0;
-        var y0 = ((double)y / resolution * 2.0) - 1.0;
-        var y1 = ((double)(y + 1) / resolution * 2.0) - 1.0;
+        var x0 = (double)x / resolution * 2.0 - 1.0;
+        var x1 = (double)(x + 1) / resolution * 2.0 - 1.0;
+        var y0 = (double)y / resolution * 2.0 - 1.0;
+        var y1 = (double)(y + 1) / resolution * 2.0 - 1.0;
 
         Span<double> px = stackalloc double[16];
         Span<double> py = stackalloc double[16];
@@ -222,14 +228,23 @@ public static class OctahedralMap {
     }
 
     /// <summary>Sutherland–Hodgman against the half-plane a·u + b·v + c ≥ 0, in place.</summary>
-    static int Clip(Span<double> px, Span<double> py, Span<double> qx, Span<double> qy, int count, double a, double b, double c) {
+    static int Clip(
+        Span<double> px,
+        Span<double> py,
+        Span<double> qx,
+        Span<double> qy,
+        int count,
+        double a,
+        double b,
+        double c
+    ) {
         var written = 0;
 
         for (var index = 0; index < count; index++) {
             var next = (index + 1) % count;
 
-            var here = (a * px[index]) + (b * py[index]) + c;
-            var there = (a * px[next]) + (b * py[next]) + c;
+            var here = a * px[index] + b * py[index] + c;
+            var there = a * px[next] + b * py[next] + c;
 
             if (here >= 0.0) {
                 qx[written] = px[index];
@@ -240,8 +255,8 @@ public static class OctahedralMap {
             if ((here > 0.0 && there < 0.0) || (here < 0.0 && there > 0.0)) {
                 var t = here / (here - there);
 
-                qx[written] = px[index] + (t * (px[next] - px[index]));
-                qy[written] = py[index] + (t * (py[next] - py[index]));
+                qx[written] = px[index] + t * (px[next] - px[index]);
+                qy[written] = py[index] + t * (py[next] - py[index]);
                 written++;
             }
         }
@@ -264,16 +279,16 @@ public static class OctahedralMap {
             double dx, dy, dz;
 
             if (outer) {
-                dx = sx * (1.0 - (sy * py[index]));
-                dy = sy * (1.0 - (sx * px[index]));
-                dz = 1.0 - (sx * px[index]) - (sy * py[index]);
+                dx = sx * (1.0 - sy * py[index]);
+                dy = sy * (1.0 - sx * px[index]);
+                dz = 1.0 - sx * px[index] - sy * py[index];
             } else {
                 dx = px[index];
                 dy = py[index];
-                dz = 1.0 - (sx * px[index]) - (sy * py[index]);
+                dz = 1.0 - sx * px[index] - sy * py[index];
             }
 
-            var length = Math.Sqrt((dx * dx) + (dy * dy) + (dz * dz));
+            var length = Math.Sqrt(dx * dx + dy * dy + dz * dz);
 
             if (length < 1e-15) {
                 continue;
@@ -286,7 +301,7 @@ public static class OctahedralMap {
             // Clipping can leave two corners of one piece on the same ray; a zero-length arc adds
             // nothing and its triangle would be pure rounding noise.
             if (vertices > 0) {
-                var same = (dx * vx[vertices - 1]) + (dy * vy[vertices - 1]) + (dz * vz[vertices - 1]) > 1.0 - 1e-14;
+                var same = dx * vx[vertices - 1] + dy * vy[vertices - 1] + dz * vz[vertices - 1] > 1.0 - 1e-14;
 
                 if (same) {
                     continue;
@@ -300,7 +315,7 @@ public static class OctahedralMap {
         }
 
         if (vertices >= 2) {
-            var closes = (vx[0] * vx[vertices - 1]) + (vy[0] * vy[vertices - 1]) + (vz[0] * vz[vertices - 1]) > 1.0 - 1e-14;
+            var closes = vx[0] * vx[vertices - 1] + vy[0] * vy[vertices - 1] + vz[0] * vz[vertices - 1] > 1.0 - 1e-14;
 
             if (closes) {
                 vertices--;
@@ -315,9 +330,15 @@ public static class OctahedralMap {
 
         for (var index = 1; index < vertices - 1; index++) {
             total += Triangle(
-                vx[0], vy[0], vz[0],
-                vx[index], vy[index], vz[index],
-                vx[index + 1], vy[index + 1], vz[index + 1]
+                vx[0],
+                vy[0],
+                vz[0],
+                vx[index],
+                vy[index],
+                vz[index],
+                vx[index + 1],
+                vy[index + 1],
+                vz[index + 1]
             );
         }
 
@@ -325,16 +346,26 @@ public static class OctahedralMap {
     }
 
     /// <summary>Van Oosterom and Strackee's signed solid angle of one spherical triangle.</summary>
-    static double Triangle(double ax, double ay, double az, double bx, double by, double bz, double cx, double cy, double cz) {
+    static double Triangle(
+        double ax,
+        double ay,
+        double az,
+        double bx,
+        double by,
+        double bz,
+        double cx,
+        double cy,
+        double cz
+    ) {
         var determinant =
-            (ax * ((by * cz) - (bz * cy)))
-            + (ay * ((bz * cx) - (bx * cz)))
-            + (az * ((bx * cy) - (by * cx)));
+            ax * (by * cz - bz * cy)
+            + ay * (bz * cx - bx * cz)
+            + az * (bx * cy - by * cx);
 
         var denominator = 1.0
-            + ((ax * bx) + (ay * by) + (az * bz))
-            + ((bx * cx) + (by * cy) + (bz * cz))
-            + ((ax * cx) + (ay * cy) + (az * cz));
+            + (ax * bx + ay * by + az * bz)
+            + (bx * cx + by * cy + bz * cz)
+            + (ax * cx + ay * cy + az * cz);
 
         return 2.0 * Math.Atan2(determinant, denominator);
     }

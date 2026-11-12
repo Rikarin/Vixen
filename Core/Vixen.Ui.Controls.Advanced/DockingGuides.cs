@@ -31,7 +31,7 @@ public sealed partial class DockingHost {
     const float GuideStep = GuideSize + GuideGap;
 
     /// <summary>How wide and tall the whole cluster is.</summary>
-    internal const float GuideSpan = (GuideStep * 2f) + GuideSize;
+    internal const float GuideSpan = GuideStep * 2f + GuideSize;
 
     /// <summary>The five handles shown over the group a drag is currently over.</summary>
     /// <remarks>
@@ -89,8 +89,8 @@ public sealed partial class DockingHost {
     /// <summary>Where the cluster goes over a group: the middle of it.</summary>
     internal static Rectangle Cluster(Rectangle bounds) =>
         new(
-            bounds.X + ((bounds.Width - GuideSpan) * 0.5f),
-            bounds.Y + ((bounds.Height - GuideSpan) * 0.5f),
+            bounds.X + (bounds.Width - GuideSpan) * 0.5f,
+            bounds.Y + (bounds.Height - GuideSpan) * 0.5f,
             GuideSpan,
             GuideSpan
         );
@@ -103,13 +103,17 @@ public sealed partial class DockingHost {
         var cluster = Cluster(bounds);
         var offset = Offset(zone);
 
-        return new Rectangle(cluster.X + offset.X, cluster.Y + offset.Y, GuideSize, GuideSize);
+        return new(cluster.X + offset.X, cluster.Y + offset.Y, GuideSize, GuideSize);
     }
 
     /// <summary>Whether a group has room for the cluster.</summary>
     /// <remarks>
-    ///     ⚠ <b>A pane smaller than the cluster gets no guides at all rather than guides hanging
-    ///     over its neighbours.</b> Handles drawn outside the group they belong to would offer a drop
+    ///     ⚠
+    ///     <b>
+    ///         A pane smaller than the cluster gets no guides at all rather than guides hanging
+    ///         over its neighbours.
+    ///     </b>
+    ///     Handles drawn outside the group they belong to would offer a drop
     ///     on top of the panel next door and dock it somewhere else — and the edge proximity that
     ///     <see cref="ZoneOf" /> reads is still there, so a narrow pane is docked into exactly as it
     ///     was before any of this existed.
@@ -137,8 +141,12 @@ public sealed partial class DockingHost {
 
     /// <summary>Where a drop on a group would put the panel.</summary>
     /// <remarks>
-    ///     ⚠ <b>A handle wins over the edge it is nowhere near, and that is the point of having
-    ///     them.</b> The proximity rule <see cref="ZoneOf" /> applies is a quarter of the pane deep,
+    ///     ⚠
+    ///     <b>
+    ///         A handle wins over the edge it is nowhere near, and that is the point of having
+    ///         them.
+    ///     </b>
+    ///     The proximity rule <see cref="ZoneOf" /> applies is a quarter of the pane deep,
     ///     so the whole middle of a group means "stack it here" — which is right until the user wants
     ///     a split and has to guess how close to the edge is close enough. The handles are that
     ///     answer written down, and they sit in the middle precisely so that aiming at one is never

@@ -80,7 +80,7 @@ public static class CardGenerator {
             }
 
             var positive = (component == 0 ? cross.X : component == 1 ? cross.Y : cross.Z) >= 0f;
-            var axis = (component * 2) + (positive ? 0 : 1);
+            var axis = component * 2 + (positive ? 0 : 1);
 
             area[axis] += size;
             minimum[axis] = Vector3.Min(Vector3.Min(minimum[axis], a), Vector3.Min(b, c));

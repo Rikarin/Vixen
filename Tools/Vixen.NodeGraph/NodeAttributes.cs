@@ -27,7 +27,7 @@ public sealed class NodeAttribute(string path) : Attribute {
     public string Path { get; } = path;
 
     /// <summary>One line saying what the node is for. Shown in the create menu and on hover.</summary>
-    public string Summary { get; init; } = "";
+    public string Summary { get; init; } = string.Empty;
 
     /// <summary>Whether the node is worth drawing a preview thumbnail for.</summary>
     /// <remarks>
@@ -69,10 +69,10 @@ public sealed class InputAttribute : Attribute {
     ///     <c>Uv</c> — and for renaming a field without orphaning every saved edge, since a saved
     ///     graph stores port <i>names</i>.
     /// </remarks>
-    public string Name { get; init; } = "";
+    public string Name { get; init; } = string.Empty;
 
     /// <summary>One line saying what the port means.</summary>
-    public string Summary { get; init; } = "";
+    public string Summary { get; init; } = string.Empty;
 
     /// <summary>The value the port takes when nothing is connected, one float per lane.</summary>
     /// <remarks>
@@ -149,10 +149,10 @@ public sealed class SettingAttribute : Attribute {
     ///     The key it is stored under in <see cref="GraphNode.Texts" />, so renaming it orphans what a
     ///     saved graph already holds — the same bargain a port's name makes.
     /// </remarks>
-    public string Name { get; init; } = "";
+    public string Name { get; init; } = string.Empty;
 
     /// <summary>One line saying what it means.</summary>
-    public string Summary { get; init; } = "";
+    public string Summary { get; init; } = string.Empty;
 
     /// <summary>What it says when the author has not said anything.</summary>
     /// <remarks>
@@ -161,7 +161,7 @@ public sealed class SettingAttribute : Attribute {
     ///     attribute was found in. The initializer is the ordinary way to write it and this wins when
     ///     both are given.
     /// </remarks>
-    public string Default { get; init; } = "";
+    public string Default { get; init; } = string.Empty;
 
     /// <summary>How its text is read: a name, a flag, a count or a number.</summary>
     /// <remarks>
@@ -190,13 +190,17 @@ public sealed class SettingAttribute : Attribute {
     ///     Consecutive settings sharing a group are one section, in declaration order — so a group is
     ///     a property of where a field is written rather than a second ordering to maintain.
     /// </remarks>
-    public string Group { get; init; } = "";
+    public string Group { get; init; } = string.Empty;
 
     /// <summary>Every value this setting may hold, or empty when it may hold any name.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The declaration a set of legal names had nowhere to live —
-    ///         <a href="https://github.com/Rikarin/Vixen/issues/964">#964</a>.</b> A node whose
+    ///         ⚠
+    ///         <b>
+    ///             The declaration a set of legal names had nowhere to live —
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/964">#964</a>.
+    ///         </b>
+    ///         A node whose
     ///         setting is one of nine wrote the nine into its <see cref="Summary" /> prose and into
     ///         the sentence it refuses a tenth with, and a picker anywhere else had to transcribe
     ///         them. This is the one place they are written; the compiler's refusal and every
@@ -215,8 +219,12 @@ public sealed class SettingAttribute : Attribute {
     /// <summary>The enum whose member names are every value this setting may hold.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The declaration that costs nothing to keep in step, and
-    ///         <see cref="Accepted" /> is the one that does.</b> Twenty-three settings in the texture
+    ///         ⚠
+    ///         <b>
+    ///             The declaration that costs nothing to keep in step, and
+    ///             <see cref="Accepted" /> is the one that does.
+    ///         </b>
+    ///         Twenty-three settings in the texture
     ///         graph name one member of a real C# enum, and every one of them is read back by
     ///         <c>TextureSettings.Enum&lt;T&gt;</c>, whose refusal enumerates <c>Enum.GetNames</c>.
     ///         Writing those names again in an attribute argument is a second transcription of a set
@@ -231,8 +239,12 @@ public sealed class SettingAttribute : Attribute {
     ///         picker over it, with no edit anywhere else.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Declaration order, which is <em>not</em> what
-    ///         <see cref="System.Enum.GetNames{T}()" /> answers.</b> That method sorts by the
+    ///         ⚠
+    ///         <b>
+    ///             Declaration order, which is <em>not</em> what
+    ///             <see cref="System.Enum.GetNames{T}()" /> answers.
+    ///         </b>
+    ///         That method sorts by the
     ///         underlying value read as unsigned, so <c>TextureResampleSize</c> — written
     ///         <c>Quadruple = -2</c> through <c>Quarter = 2</c>, largest picture first — comes back
     ///         from it as <c>Same, Half, Quarter, Quadruple, Double</c>. The refusal a setting is
@@ -254,8 +266,8 @@ public sealed class SettingAttribute : Attribute {
 [AttributeUsage(AttributeTargets.Field)]
 public sealed class OutputAttribute : Attribute {
     /// <summary>What the port is called, if not the field's own name.</summary>
-    public string Name { get; init; } = "";
+    public string Name { get; init; } = string.Empty;
 
     /// <summary>One line saying what the port means.</summary>
-    public string Summary { get; init; } = "";
+    public string Summary { get; init; } = string.Empty;
 }

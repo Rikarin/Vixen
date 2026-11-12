@@ -36,7 +36,7 @@ public sealed class CharacterControllerTests {
 
             velocity = character.IsGrounded
                 ? new(horizontal.X, MathF.Max(velocity.Y, 0f), horizontal.Z)
-                : new(horizontal.X, velocity.Y + (world.Gravity.Y * Step), horizontal.Z);
+                : new(horizontal.X, velocity.Y + world.Gravity.Y * Step, horizontal.Z);
 
             character.Velocity = velocity;
             world.Step(Step);
@@ -78,9 +78,7 @@ public sealed class CharacterControllerTests {
     public void ACharacterIsStoppedByAWallRatherThanPassingThroughIt() {
         using var world = WorldWithFloor(out var settings);
 
-        world.CreateBody(
-            BodyDescription.Static(world.Shapes.Box(new Vector3(0.5f, 3f, 10f)), new(3f, 2f, 0f))
-        );
+        world.CreateBody(BodyDescription.Static(world.Shapes.Box(new Vector3(0.5f, 3f, 10f)), new(3f, 2f, 0f)));
 
         using var character = world.CreateCharacter(settings);
 
@@ -95,9 +93,7 @@ public sealed class CharacterControllerTests {
     public void ACharacterWalksUpAStepWithoutJumping() {
         using var world = WorldWithFloor(out var settings);
 
-        world.CreateBody(
-            BodyDescription.Static(world.Shapes.Box(new Vector3(2f, 0.15f, 2f)), new(3f, 0.15f, 0f))
-        );
+        world.CreateBody(BodyDescription.Static(world.Shapes.Box(new Vector3(2f, 0.15f, 2f)), new(3f, 0.15f, 0f)));
 
         using var character = world.CreateCharacter(settings);
 
@@ -141,9 +137,7 @@ public sealed class CharacterControllerTests {
         var crouched = world.Shapes.Capsule(0.2f, 0.3f);
 
         // A ceiling low enough for the crouched capsule and not the standing one.
-        world.CreateBody(
-            BodyDescription.Static(world.Shapes.Box(new Vector3(5f, 0.1f, 5f)), new(0f, 1.2f, 0f))
-        );
+        world.CreateBody(BodyDescription.Static(world.Shapes.Box(new Vector3(5f, 0.1f, 5f)), new(0f, 1.2f, 0f)));
 
         using var character = world.CreateCharacter(settings with { Shape = crouched, Position = new(0f, 0.5f, 0f) });
 
@@ -164,12 +158,12 @@ public sealed class CharacterControllerTests {
 
         world.CreateBody(
             BodyDescription.Static(world.Shapes.Box(new Vector3(50f, 1f, 50f)), new(0f, -1f, 0f))
-                with {
-                    Rotation = Quaternion.FromAxisAngle(
-                        Vector3.UnitZ,
-                        MathUtil.DegreesToRadians(slopeDegrees)
-                    )
-                }
+            with {
+                Rotation = Quaternion.FromAxisAngle(
+                    Vector3.UnitZ,
+                    MathUtil.DegreesToRadians(slopeDegrees)
+                )
+            }
         );
 
         settings = new() { Shape = world.Shapes.Capsule(0.6f, 0.3f), Position = new(0f, 2f, 0f) };
@@ -186,9 +180,7 @@ public sealed class CharacterControllerTests {
     public void TheSlopeLimitDecidesWhetherAThirtyDegreeFaceIsGround(float limit, CharacterGround expected) {
         using var world = WorldWithRamp(out var settings, 30f);
 
-        using var character = world.CreateCharacter(
-            settings with { MaxSlopeAngle = MathUtil.DegreesToRadians(limit) }
-        );
+        using var character = world.CreateCharacter(settings with { MaxSlopeAngle = MathUtil.DegreesToRadians(limit) });
 
         Advance(world, character, 90, Vector3.Zero);
 
@@ -204,9 +196,7 @@ public sealed class CharacterControllerTests {
     public void TheSlopeLimitTakesEffectOnACharacterThatIsAlreadyStanding() {
         using var world = WorldWithRamp(out var settings, 30f);
 
-        using var character = world.CreateCharacter(
-            settings with { MaxSlopeAngle = MathUtil.DegreesToRadians(60f) }
-        );
+        using var character = world.CreateCharacter(settings with { MaxSlopeAngle = MathUtil.DegreesToRadians(60f) });
 
         Advance(world, character, 90, Vector3.Zero);
         Assert.Equal(CharacterGround.Grounded, character.Ground);
@@ -236,9 +226,7 @@ public sealed class CharacterControllerTests {
     public void TheStepLimitDecidesWhetherALipIsClimbed(float stepHeight, bool climbs) {
         using var world = WorldWithFloor(out var settings);
 
-        world.CreateBody(
-            BodyDescription.Static(world.Shapes.Box(new Vector3(2f, 0.15f, 2f)), new(3f, 0.15f, 0f))
-        );
+        world.CreateBody(BodyDescription.Static(world.Shapes.Box(new Vector3(2f, 0.15f, 2f)), new(3f, 0.15f, 0f)));
 
         using var character = world.CreateCharacter(settings with { StepHeight = stepHeight });
 
@@ -263,9 +251,7 @@ public sealed class CharacterControllerTests {
     public void TheStepLimitTakesEffectOnTheNextStepRatherThanAtCreation() {
         using var world = WorldWithFloor(out var settings);
 
-        world.CreateBody(
-            BodyDescription.Static(world.Shapes.Box(new Vector3(2f, 0.15f, 2f)), new(3f, 0.15f, 0f))
-        );
+        world.CreateBody(BodyDescription.Static(world.Shapes.Box(new Vector3(2f, 0.15f, 2f)), new(3f, 0.15f, 0f)));
 
         using var character = world.CreateCharacter(settings with { StepHeight = 0.1f });
 

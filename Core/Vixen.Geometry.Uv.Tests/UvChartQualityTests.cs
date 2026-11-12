@@ -10,8 +10,11 @@ namespace Vixen.Geometry.Uv.Tests;
 /// <summary>The baseline docs/plan/42 § U3 exists to move, and which half of § D3 moved it.</summary>
 /// <remarks>
 ///     <para>
-///         <b>docs/plan/42's first exit criterion compares against xatlas on a 500-mesh corpus, and that
-///         comparison cannot be run here.</b> xatlas is a native library and this repository has none.
+///         <b>
+///             docs/plan/42's first exit criterion compares against xatlas on a 500-mesh corpus, and that
+///             comparison cannot be run here.
+///         </b>
+///         xatlas is a native library and this repository has none.
 ///         What can be run is the same measurement on a fixed set of shapes chosen so each fails
 ///         differently, quoted against the published figures: MeshTailor reports <b>10.4</b> charts at
 ///         <b>1.097</b> distortion where xatlas gets <b>51.6</b> at <b>1.064</b> and Blender's Smart UV
@@ -22,14 +25,26 @@ namespace Vixen.Geometry.Uv.Tests;
 ///         garment is a large, nearly developable surface with a natural seam structure, and this corpus
 ///         is eleven primitives. The figures are not comparable as levels and the document should not
 ///         pretend they are — what <i>is</i> comparable is the mechanism, and § Part 6 says exactly what
-///         it expects from it: <i>"a τ-driven recursion with a merge-back pass should land far below
-///         xatlas and above MeshTailor, and the document is not going to pretend otherwise until U3 is
-///         measured"</i>.
+///         it expects from it:
+///         <i>
+///             "a τ-driven recursion with a merge-back pass should land far below
+///             xatlas and above MeshTailor, and the document is not going to pretend otherwise until U3 is
+///             measured"
+///         </i>
+///         .
 ///     </para>
 ///     <para>
-///         ⚠ <b>The one number this phase can honestly produce is the separate contribution of the two
-///         halves.</b> § D3: <i>"step 4 is the cheap half of the fix and step 3's top-down direction is
-///         the expensive half"</i>. Running the recursion with the merge-back pass disabled measures the
+///         ⚠
+///         <b>
+///             The one number this phase can honestly produce is the separate contribution of the two
+///             halves.
+///         </b>
+///         § D3:
+///         <i>
+///             "step 4 is the cheap half of the fix and step 3's top-down direction is
+///             the expensive half"
+///         </i>
+///         . Running the recursion with the merge-back pass disabled measures the
 ///         second alone, and the difference is the first — and that is a claim about this
 ///         implementation rather than about somebody else's corpus.
 ///     </para>
@@ -41,20 +56,19 @@ public class UvChartQualityTests {
     ///     must come back as a single chart are left out, because averaging them in would flatter the
     ///     figure with cases no unwrapper can get wrong.
     /// </remarks>
-    public static string[] Corpus =>
-        [
-            "sphere-cut-open",
-            "cylinder-slit",
-            "cylinder-closed",
-            "torus-slit",
-            "torus-closed",
-            "hemisphere",
-            "saddle",
-            "obtuse-grid",
-            "sphere-nearly-closed",
-            "dumbbell",
-            "strip"
-        ];
+    public static string[] Corpus => [
+        "sphere-cut-open",
+        "cylinder-slit",
+        "cylinder-closed",
+        "torus-slit",
+        "torus-closed",
+        "hemisphere",
+        "saddle",
+        "obtuse-grid",
+        "sphere-nearly-closed",
+        "dumbbell",
+        "strip"
+    ];
 
     /// <summary>The merge-back pass never costs charts and never costs correctness.</summary>
     /// <remarks>
@@ -110,8 +124,11 @@ public class UvChartQualityTests {
     /// <summary>The corpus baseline: chart count and L² stretch, with the merge pass and without it.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>Measured: 3.09 charts at an L² stretch of 1.0059, against 3.64 charts with the
-    ///         merge-back pass disabled.</b> So on this corpus the top-down recursion is what produces
+    ///         <b>
+    ///             Measured: 3.09 charts at an L² stretch of 1.0059, against 3.64 charts with the
+    ///             merge-back pass disabled.
+    ///         </b>
+    ///         So on this corpus the top-down recursion is what produces
     ///         the low count and the merge-back pass takes a further <b>15 %</b> off it — and that 15 %
     ///         is not spread evenly, it is concentrated entirely on the two shapes that fragment at all:
     ///         the closed torus goes 14 → 11 and the dumbbell 9 → 6, while the nine shapes that already
@@ -119,22 +136,34 @@ public class UvChartQualityTests {
     ///         exactly the way that description implies.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The published figures are not a like-for-like comparison and this file will not
-    ///         pretend they are.</b> MeshTailor's 10.4, xatlas's 51.6 and Blender's 74.3 are averages
+    ///         ⚠
+    ///         <b>
+    ///             The published figures are not a like-for-like comparison and this file will not
+    ///             pretend they are.
+    ///         </b>
+    ///         MeshTailor's 10.4, xatlas's 51.6 and Blender's 74.3 are averages
     ///         over GarmentCodeData — large, nearly developable garment surfaces with a natural seam
     ///         structure — and this is eleven primitives chosen so that each one fails a different way.
     ///         The levels are not comparable. What the numbers do support is the weaker claim § Part 6
     ///         actually makes, that a τ-driven recursion with a merge-back pass does not fragment.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The L² figure is the whole-mesh area-weighted one, so a charter that fragmented would
-    ///         <i>improve</i> it.</b> That is why the chart count is asserted beside it and never on its
+    ///         ⚠
+    ///         <b>
+    ///             The L² figure is the whole-mesh area-weighted one, so a charter that fragmented would
+    ///             <i>improve</i> it.
+    ///         </b>
+    ///         That is why the chart count is asserted beside it and never on its
     ///         own: stretch alone is a metric any unwrapper can win by cutting more, which is precisely
     ///         the failure § D3 says produces 51.6 charts.
     ///     </para>
     ///     <para>
-    ///         The bounds below are the measured figures with room, and they are a <b>regression fence
-    ///         rather than a target</b> — the interesting output is the table in the failure message.
+    ///         The bounds below are the measured figures with room, and they are a
+    ///         <b>
+    ///             regression fence
+    ///             rather than a target
+    ///         </b>
+    ///         — the interesting output is the table in the failure message.
     ///     </para>
     /// </remarks>
     [Fact]
@@ -214,14 +243,21 @@ public class UvChartQualityTests {
     /// <summary>Asked to cut a dumbbell in two, the decomposition cuts it at the waist.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>docs/plan/42 § D4 is a claim about seam <i>quality</i>, and this is the test that
-    ///         measures it.</b> Everything else in this file asserts that a chart is a disk and that the
+    ///         <b>
+    ///             docs/plan/42 § D4 is a claim about seam <i>quality</i>, and this is the test that
+    ///             measures it.
+    ///         </b>
+    ///         Everything else in this file asserts that a chart is a disk and that the
     ///         count is an outcome, both of which a charter cutting at random would satisfy. The dumbbell
     ///         has exactly one answer a person would give.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>It asks the decomposition directly rather than reading the finished atlas, and that
-    ///         is the only way to ask this question cleanly.</b> The measurement that provoked this:
+    ///         ⚠
+    ///         <b>
+    ///             It asks the decomposition directly rather than reading the finished atlas, and that
+    ///             is the only way to ask this question cleanly.
+    ///         </b>
+    ///         The measurement that provoked this:
     ///         a bulb of this dumbbell — a deep cap whose boundary is the waist's tiny circle — is very
     ///         nearly <c>SphereNearlyClosed</c>, so it <i>folds</i>, so § D3's recursion keeps cutting it
     ///         whatever τ says, and the merge-back pass then reassembles the pieces into charts that
@@ -242,7 +278,7 @@ public class UvChartQualityTests {
     public void AskedToCutADumbbellInTwoTheDecompositionCutsItAtTheWaist() {
         var mesh = ShapeCorpus.Dumbbell();
         var graph = SeamGraph.Build(mesh, new());
-        var parts = Bisection.Split(graph, [.. Enumerable.Range(0, mesh.FaceCount)]);
+        var parts = Bisection.Split(graph, [..Enumerable.Range(0, mesh.FaceCount)]);
 
         Assert.Equal(2, parts.Count);
 
@@ -291,8 +327,12 @@ public class UvChartQualityTests {
     /// <summary>A bulb of the dumbbell folds, and the merge pass is what gets the two charts back.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Recorded as a fact about the corpus rather than assumed, because it is what makes the
-    ///         test above measure the decomposition instead of the finished atlas.</b> § D5's third rung
+    ///         ⚠
+    ///         <b>
+    ///             Recorded as a fact about the corpus rather than assumed, because it is what makes the
+    ///             test above measure the decomposition instead of the finished atlas.
+    ///         </b>
+    ///         § D5's third rung
     ///         ends in <i>"split the chart and recurse"</i>, and a chart that folds is refused however
     ///         generous τ is — a flipped triangle is a correctness failure and no threshold applies to
     ///         it. So even at a distortion bound nothing can fail, the recursion does not stop at the two
@@ -301,8 +341,12 @@ public class UvChartQualityTests {
     ///     <para>
     ///         <b>And then it does, because of step four.</b> The recursion cuts a folding bulb into
     ///         pieces that do not fold, and the merge-back pass reassembles those pieces into two charts
-    ///         that flatten — which is docs/plan/42 § D3's <i>"nothing that ever puts two back
-    ///         together"</i> answered on the one shape in this corpus where it matters most.
+    ///         that flatten — which is docs/plan/42 § D3's
+    ///         <i>
+    ///             "nothing that ever puts two back
+    ///             together"
+    ///         </i>
+    ///         answered on the one shape in this corpus where it matters most.
     ///     </para>
     /// </remarks>
     [Fact]
@@ -310,7 +354,7 @@ public class UvChartQualityTests {
         var mesh = ShapeCorpus.Dumbbell();
         var settings = new UvSettings { DistortionThreshold = 100f };
         var graph = SeamGraph.Build(mesh, new());
-        var parts = Bisection.Split(graph, [.. Enumerable.Range(0, mesh.FaceCount)]);
+        var parts = Bisection.Split(graph, [..Enumerable.Range(0, mesh.FaceCount)]);
         var assignment = new int[mesh.FaceCount];
 
         for (var part = 0; part < parts.Count; part++) {

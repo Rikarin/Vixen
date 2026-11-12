@@ -117,7 +117,7 @@ public class PrimitiveShapeTests : IDisposable {
 
     [Fact]
     public void A_shape_survives_a_file_round_trip() {
-        scene.CreateShape(PrimitiveKind.Capsule, LocalTransform.At(new Vector3(1f, 2f, 3f)));
+        scene.CreateShape(PrimitiveKind.Capsule, LocalTransform.At(new(1f, 2f, 3f)));
 
         var yaml = SceneSerializer.ToYaml(scene);
         Assert.Contains("Capsule", yaml, StringComparison.Ordinal);
@@ -148,7 +148,7 @@ public class PrimitiveShapeTests : IDisposable {
     [Fact]
     public void A_shape_the_file_names_and_this_editor_does_not_leaves_the_entity_in_place() {
         var file = new SceneFile();
-        file.Roots.Add(new SceneEntityData { Name = "From the future", Shape = "Dodecahedron" });
+        file.Roots.Add(new() { Name = "From the future", Shape = "Dodecahedron" });
 
         using var other = new World("Reloaded");
         var reloaded = new SceneDocument(project, other, AssetId.Empty, "Untitled");
@@ -190,7 +190,7 @@ public class PrimitiveShapeTests : IDisposable {
     [Fact]
     public void A_hundred_shapes_of_one_kind_are_one_batch_of_a_hundred_instances() {
         for (var index = 0; index < 100; index++) {
-            scene.CreateShape(PrimitiveKind.Cube, LocalTransform.At(new Vector3(index * 2f, 0f, 0f)));
+            scene.CreateShape(PrimitiveKind.Cube, LocalTransform.At(new(index * 2f, 0f, 0f)));
         }
 
         var meshes = new SceneMeshes();
@@ -212,9 +212,9 @@ public class PrimitiveShapeTests : IDisposable {
     /// </remarks>
     [Fact]
     public void Two_kinds_are_two_batches_and_each_run_is_contiguous() {
-        scene.CreateShape(PrimitiveKind.Cube, LocalTransform.At(new Vector3(0f, 0f, 0f)));
-        scene.CreateShape(PrimitiveKind.Sphere, LocalTransform.At(new Vector3(3f, 0f, 0f)));
-        scene.CreateShape(PrimitiveKind.Cube, LocalTransform.At(new Vector3(6f, 0f, 0f)));
+        scene.CreateShape(PrimitiveKind.Cube, LocalTransform.At(new(0f, 0f, 0f)));
+        scene.CreateShape(PrimitiveKind.Sphere, LocalTransform.At(new(3f, 0f, 0f)));
+        scene.CreateShape(PrimitiveKind.Cube, LocalTransform.At(new(6f, 0f, 0f)));
 
         var meshes = new SceneMeshes();
         meshes.Build(scene);
@@ -222,8 +222,8 @@ public class PrimitiveShapeTests : IDisposable {
         Assert.Equal(2, meshes.Batches.Count);
         Assert.Equal(3, meshes.Instances.Length);
 
-        var cubes = Assert.Single(meshes.Batches, batch => batch.Kind == PrimitiveKind.Cube);
-        var spheres = Assert.Single(meshes.Batches, batch => batch.Kind == PrimitiveKind.Sphere);
+        var cubes = Assert.Single(meshes.Batches, static batch => batch.Kind == PrimitiveKind.Cube);
+        var spheres = Assert.Single(meshes.Batches, static batch => batch.Kind == PrimitiveKind.Sphere);
 
         Assert.Equal(2, cubes.Count);
         Assert.Equal(1, spheres.Count);
@@ -235,7 +235,7 @@ public class PrimitiveShapeTests : IDisposable {
 
     [Fact]
     public void A_shape_is_drawn_where_its_transform_says() {
-        scene.CreateShape(PrimitiveKind.Cube, LocalTransform.At(new Vector3(10f, 0f, 0f)));
+        scene.CreateShape(PrimitiveKind.Cube, LocalTransform.At(new(10f, 0f, 0f)));
 
         var meshes = new SceneMeshes();
         meshes.Build(scene);
@@ -244,19 +244,15 @@ public class PrimitiveShapeTests : IDisposable {
         // from — see `MeshInstanced.rvn` on why the rows cross the boundary rather than a mat4.
         var instance = meshes.Instances[0];
 
-        Assert.Equal(new Vector3(10f, 0f, 0f), instance.Transform.Translation);
-        Assert.Equal(new Vector3(10f, 0f, 0f), Matrix4x4.TransformPosition(Vector3.Zero, instance.Transform));
+        Assert.Equal(new(10f, 0f, 0f), instance.Transform.Translation);
+        Assert.Equal(new(10f, 0f, 0f), Matrix4x4.TransformPosition(Vector3.Zero, instance.Transform));
     }
 
     [Fact]
     public void A_non_uniform_scale_leaves_the_normals_perpendicular_to_their_faces() {
         scene.CreateShape(
             PrimitiveKind.Cube,
-            new LocalTransform {
-                Position = Vector3.Zero,
-                Rotation = Quaternion.Identity,
-                Scale = new Vector3(4f, 1f, 1f)
-            }
+            new() { Position = Vector3.Zero, Rotation = Quaternion.Identity, Scale = new(4f, 1f, 1f) }
         );
 
         var meshes = new SceneMeshes();

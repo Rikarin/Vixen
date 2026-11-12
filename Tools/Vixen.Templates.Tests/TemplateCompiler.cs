@@ -8,7 +8,6 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.CodeAnalysis.Text;
-using Vixen.Cli;
 using Vixen.Editor.Core;
 using Vixen.Ui.Markup.Generators;
 
@@ -29,9 +28,8 @@ sealed class TemplateMarkup(string path, string text) : AdditionalText {
 /// </remarks>
 sealed class TemplateBuildOptions(string projectDirectory, string rootNamespace) : AnalyzerConfigOptionsProvider {
     public override AnalyzerConfigOptions GlobalOptions { get; } = new Options(
-        new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) {
-            ["build_property.projectdir"] = projectDirectory,
-            ["build_property.rootnamespace"] = rootNamespace
+        new(StringComparer.OrdinalIgnoreCase) {
+            ["build_property.projectdir"] = projectDirectory, ["build_property.rootnamespace"] = rootNamespace
         }
     );
 
@@ -75,12 +73,12 @@ static class TemplateCompiler {
     ///     output directory.
     /// </remarks>
     static readonly ImmutableArray<MetadataReference> References = [
-        .. ((string) AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")!)
+        ..((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")!)
             .Split(Path.PathSeparator)
             .Concat(Directory.EnumerateFiles(AppContext.BaseDirectory, "Vixen.*.dll"))
-            .Where(path => path.EndsWith(".dll", StringComparison.OrdinalIgnoreCase))
+            .Where(static path => path.EndsWith(".dll", StringComparison.OrdinalIgnoreCase))
             .Distinct(StringComparer.Ordinal)
-            .Select(path => (MetadataReference) MetadataReference.CreateFromFile(path))
+            .Select(static path => (MetadataReference)MetadataReference.CreateFromFile(path))
     ];
 
     /// <summary>
@@ -93,14 +91,14 @@ static class TemplateCompiler {
     ///     <c>Microsoft.NET.Sdk</c>.
     /// </remarks>
     const string ImplicitUsings = """
-        global using global::System;
-        global using global::System.Collections.Generic;
-        global using global::System.IO;
-        global using global::System.Linq;
-        global using global::System.Net.Http;
-        global using global::System.Threading;
-        global using global::System.Threading.Tasks;
-        """;
+                                  global using global::System;
+                                  global using global::System.Collections.Generic;
+                                  global using global::System.IO;
+                                  global using global::System.Linq;
+                                  global using global::System.Net.Http;
+                                  global using global::System.Threading;
+                                  global using global::System.Threading.Tasks;
+                                  """;
 
     /// <summary>How the templates are parsed.</summary>
     /// <remarks>
@@ -126,9 +124,13 @@ static class TemplateCompiler {
     /// <returns>The scaffolded project, as a loaded assembly.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A step past what the rest of this file does, and worth the extra thirty lines
-    ///         for exactly one kind of claim: what a template's code <em>does</em> when the host
-    ///         calls it.</b> A template can name every type correctly, compile clean, and still be
+    ///         ⚠
+    ///         <b>
+    ///             A step past what the rest of this file does, and worth the extra thirty lines
+    ///             for exactly one kind of claim: what a template's code <em>does</em> when the host
+    ///             calls it.
+    ///         </b>
+    ///         A template can name every type correctly, compile clean, and still be
     ///         wrong about the order the host calls it in — <c>AppConfig.Apply</c> runs before
     ///         <c>Game.OnConfigure</c>, so a scaffold that assigns a property the command line also
     ///         sets silently throws the operator's value away. That is a behaviour, and no amount of
@@ -157,7 +159,10 @@ static class TemplateCompiler {
         if (!emitted.Success) {
             throw new InvalidOperationException(
                 $"{template.Id} compiles and does not emit:{Environment.NewLine}"
-                + string.Join(Environment.NewLine, emitted.Diagnostics.Select(diagnostic => diagnostic.ToString()))
+                + string.Join(
+                    Environment.NewLine,
+                    emitted.Diagnostics.Select(static diagnostic => diagnostic.ToString())
+                )
             );
         }
 
@@ -171,8 +176,8 @@ static class TemplateCompiler {
         var files = template.Instantiate(projectName, "0.1.0");
 
         var sources = files
-            .Where(file => file.Path.EndsWith(".cs", StringComparison.Ordinal))
-            .Select(file => CSharpSyntaxTree.ParseText(
+            .Where(static file => file.Path.EndsWith(".cs", StringComparison.Ordinal))
+            .Select(static file => CSharpSyntaxTree.ParseText(
                     Encoding.UTF8.GetString(file.Content),
                     ParseOptions,
                     ProjectDirectory + file.Path
@@ -197,7 +202,7 @@ static class TemplateCompiler {
         // from `.Contracts` compiles here whether or not the csproj says so. That is asserted
         // separately, by reading the project files, which is where the reference graph is written
         // down anyway.
-        var projects = files.Where(file => file.Path.EndsWith(".csproj", StringComparison.Ordinal)).ToList();
+        var projects = files.Where(static file => file.Path.EndsWith(".csproj", StringComparison.Ordinal)).ToList();
 
         var executable = projects.Count == 1
             && Encoding.UTF8.GetString(projects[0].Content)
@@ -207,7 +212,7 @@ static class TemplateCompiler {
             projectName,
             sources,
             References,
-            new CSharpCompilationOptions(
+            new(
                 executable ? OutputKind.ConsoleApplication : OutputKind.DynamicallyLinkedLibrary,
                 nullableContextOptions: NullableContextOptions.Enable
             )
@@ -220,8 +225,12 @@ static class TemplateCompiler {
         // while the markup beside it went unparsed. `Vixen.Ui.Markup.Generators` is referenced as a
         // library for exactly this, the way `Vixen.Ui.Markup.Generators.Tests` does.
         var markup = files
-            .Where(file => file.Path.EndsWith(".vxml", StringComparison.Ordinal))
-            .Select(file => new TemplateMarkup(ProjectDirectory + file.Path, Encoding.UTF8.GetString(file.Content)))
+            .Where(static file => file.Path.EndsWith(".vxml", StringComparison.Ordinal))
+            .Select(static file => new TemplateMarkup(
+                    ProjectDirectory + file.Path,
+                    Encoding.UTF8.GetString(file.Content)
+                )
+            )
             .ToArray();
 
         if (markup.Length > 0) {
@@ -234,23 +243,23 @@ static class TemplateCompiler {
                 )
                 .RunGeneratorsAndUpdateCompilation(compilation, out var updated, out var produced);
 
-            compilation = (CSharpCompilation) updated;
+            compilation = (CSharpCompilation)updated;
 
             // The generator's own diagnostics point at the `.vxml`, with its line and column. They
             // are the ones worth reading when a template's markup is wrong, so they are reported
             // rather than left to show up as a missing type in the C# that mounts the component.
             return (compilation, [
-                .. produced
+                ..produced
                     .Concat(compilation.GetDiagnostics())
-                    .Where(diagnostic => diagnostic.Severity is DiagnosticSeverity.Error)
-                    .Select(diagnostic => diagnostic.ToString())
+                    .Where(static diagnostic => diagnostic.Severity is DiagnosticSeverity.Error)
+                    .Select(static diagnostic => diagnostic.ToString())
             ]);
         }
 
         return (compilation, [
-            .. compilation.GetDiagnostics()
-                .Where(diagnostic => diagnostic.Severity is DiagnosticSeverity.Error)
-                .Select(diagnostic => diagnostic.ToString())
+            ..compilation.GetDiagnostics()
+                .Where(static diagnostic => diagnostic.Severity is DiagnosticSeverity.Error)
+                .Select(static diagnostic => diagnostic.ToString())
         ]);
     }
 
@@ -289,20 +298,20 @@ static class TemplateCompiler {
     ///     </para>
     /// </remarks>
     static IEnumerable<SyntaxTree> StyleSheetAccessors(IReadOnlyList<TemplateFile> files, string projectName) {
-        if (!files.Any(file => Path.GetFileName(file.Path) == "vixen.ui.vcss")) {
+        if (!files.Any(static file => Path.GetFileName(file.Path) == "vixen.ui.vcss")) {
             yield break;
         }
 
         yield return CSharpSyntaxTree.ParseText(
             $$"""
-            namespace {{projectName}};
+              namespace {{projectName}};
 
-            internal static class VixenUtilityStyles {
-                public const string Utilities = "";
-                public const string Css = "";
-                public const int RuleCount = 0;
-            }
-            """,
+              internal static class VixenUtilityStyles {
+                  public const string Utilities = "";
+                  public const string Css = "";
+                  public const int RuleCount = 0;
+              }
+              """,
             ParseOptions
         );
     }

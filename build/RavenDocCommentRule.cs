@@ -2,9 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
 using System.Text.RegularExpressions;
 
 namespace Vixen.Build;
@@ -25,8 +22,12 @@ namespace Vixen.Build;
 ///         helper.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The rule #1076 proposed — "a block whose prose names a different <c>func</c> in the
-///         same file" — was measured and refused.</b> It reports 49 findings on today's tree and
+///         ⚠
+///         <b>
+///             The rule #1076 proposed — "a block whose prose names a different <c>func</c> in the
+///             same file" — was measured and refused.
+///         </b>
+///         It reports 49 findings on today's tree and
 ///         every one sampled is a deliberate cross-reference (<c>Lift</c>'s block says what
 ///         <c>Combine</c> does with its fourth lane, on purpose). It also misses the defect it was
 ///         proposed for: <c>Combine</c>'s old summary named no function at all. A rule with that
@@ -42,8 +43,12 @@ namespace Vixen.Build;
 ///         <c>Blend.rvn</c> text.
 ///     </para>
 ///     <para>
-///         ⚠ <b>And it fires on eight places in a tree everybody believed was clean, two of which are
-///         live staples</b> — <c>IIrradianceSource</c>'s block sat on <c>struct IrradianceSample</c>
+///         ⚠
+///         <b>
+///             And it fires on eight places in a tree everybody believed was clean, two of which are
+///             live staples
+///         </b>
+///         — <c>IIrradianceSource</c>'s block sat on <c>struct IrradianceSample</c>
 ///         with the protocol left undocumented, and <c>CascadeTile</c>'s sat on
 ///         <c>CascadeContaining</c> ninety lines above the function it describes. Those are the
 ///         <c>KeyChord.MacFormat</c> defect in a shader, and they are why this is a gate rather than a
@@ -112,7 +117,8 @@ static class RavenDocCommentRule {
     static readonly Regex DocLine = new(@"^\s*///(?<text>.*)$", RegexOptions.Compiled);
 
     /// <summary>A <c>func</c> declaration, with the parameter list a block may name into.</summary>
-    static readonly Regex Function = new(@"\bfunc\s+(?<name>[A-Za-z_]\w*)\s*\((?<parameters>[^)]*)\)", RegexOptions.Compiled);
+    static readonly Regex Function =
+        new(@"\bfunc\s+(?<name>[A-Za-z_]\w*)\s*\((?<parameters>[^)]*)\)", RegexOptions.Compiled);
 
     /// <summary>The XML parameter tag, which one library shader uses and a staple would misname.</summary>
     static readonly Regex ParamTag = new(@"<param\s+name=""(?<name>[^""]+)""", RegexOptions.Compiled);
@@ -121,10 +127,10 @@ static class RavenDocCommentRule {
     static readonly Regex Attributes = new(@"^(\[[^\]]*\]\s*)+", RegexOptions.Compiled);
 
     /// <summary>A line that opens a new sentence rather than continuing one.</summary>
-    static readonly Regex OpensSentence = new(@"^[⚠A-Z`*_]", RegexOptions.Compiled);
+    static readonly Regex OpensSentence = new("^[⚠A-Z`*_]", RegexOptions.Compiled);
 
     /// <summary>A line that finishes a sentence, allowing for the markup that trails one.</summary>
-    static readonly Regex ClosesSentence = new(@"[.!?][)*`_\]""]*$", RegexOptions.Compiled);
+    static readonly Regex ClosesSentence = new("""[.!?][)*`_\]"]*$""", RegexOptions.Compiled);
 
     /// <summary>Where the files this rule is not asked about today are listed.</summary>
     /// <remarks>
@@ -143,13 +149,24 @@ static class RavenDocCommentRule {
 
         var normalised = root.Replace('\\', '/').TrimEnd('/');
 
-        return Directory
-            .EnumerateFiles(normalised, "*.rvn", SearchOption.AllDirectories)
-            .Select(path => path.Replace('\\', '/'))
-            .Where(path => !SkippedFragments.Any(fragment => path.Contains(fragment, StringComparison.Ordinal)))
-            .Where(path => !SkippedRoots.Any(directory => path.StartsWith($"{normalised}/{directory}", StringComparison.Ordinal)))
-            .Order(StringComparer.Ordinal)
-            .ToList();
+        return [
+            ..Directory
+                .EnumerateFiles(normalised, "*.rvn", SearchOption.AllDirectories)
+                .Select(static path => path.Replace('\\', '/'))
+                .Where(static path => !SkippedFragments.Any(fragment => path.Contains(
+                            fragment,
+                            StringComparison.Ordinal
+                        )
+                    )
+                )
+                .Where(path => !SkippedRoots.Any(directory => path.StartsWith(
+                            $"{normalised}/{directory}",
+                            StringComparison.Ordinal
+                        )
+                    )
+                )
+                .Order(StringComparer.Ordinal)
+        ];
     }
 
     /// <summary>The files this rule is not asked about today.</summary>
@@ -163,8 +180,8 @@ static class RavenDocCommentRule {
         return File.Exists(file)
             ? File
                 .ReadAllLines(file)
-                .Select(line => line.Trim())
-                .Where(line => line.Length > 0 && !line.StartsWith('#'))
+                .Select(static line => line.Trim())
+                .Where(static line => line.Length > 0 && !line.StartsWith('#'))
                 .ToHashSet(StringComparer.Ordinal)
             : new HashSet<string>(StringComparer.Ordinal);
     }
@@ -173,8 +190,12 @@ static class RavenDocCommentRule {
     /// <param name="text">The file's Raven.</param>
     /// <returns>The number of <c>///</c> runs.</returns>
     /// <remarks>
-    ///     ⚠ <b>The instrument, and the only number that separates "this tree is clean" from "the run
-    ///     splitter stopped splitting".</b> A caller asserts the whole tree's total, the way
+    ///     ⚠
+    ///     <b>
+    ///         The instrument, and the only number that separates "this tree is clean" from "the run
+    ///         splitter stopped splitting".
+    ///     </b>
+    ///     A caller asserts the whole tree's total, the way
     ///     <c>CheckDocComments</c> asserts its file count — a sweep that reads no blocks reports no
     ///     findings, and no findings is what success looks like.
     /// </remarks>
@@ -205,7 +226,10 @@ static class RavenDocCommentRule {
         ArgumentNullException.ThrowIfNull(text);
 
         var lines = Lines(text);
-        var wrap = lines.Where(line => DocLine.IsMatch(line)).Select(line => line.TrimEnd().Length).DefaultIfEmpty(0).Max();
+        var wrap = lines.Where(static line => DocLine.IsMatch(line))
+            .Select(static line => line.TrimEnd().Length)
+            .DefaultIfEmpty(0)
+            .Max();
         List<DocCommentRule.Finding> findings = [];
 
         foreach (var run in Runs(lines)) {
@@ -214,13 +238,13 @@ static class RavenDocCommentRule {
             findings.AddRange(Parameters(file, lines, run));
         }
 
-        return findings.OrderBy(finding => finding.Line).ToList();
+        return [..findings.OrderBy(static finding => finding.Line)];
     }
 
     /// <summary>The file's lines, with no trailing carriage returns.</summary>
     /// <param name="text">The file's Raven.</param>
     /// <returns>One entry per line.</returns>
-    static List<string> Lines(string text) => text.Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n').ToList();
+    static List<string> Lines(string text) => [..text.Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n')];
 
     /// <summary>Every run of consecutive <c>///</c> lines, as half-open index ranges.</summary>
     /// <param name="lines">The file's lines.</param>
@@ -304,7 +328,12 @@ static class RavenDocCommentRule {
     ///     separator every other paragraph in this tree has. That is what a block pasted onto the end
     ///     of another block looks like.
     /// </remarks>
-    static IEnumerable<DocCommentRule.Finding> Splice(string file, List<string> lines, (int Start, int End) run, int wrap) {
+    static IEnumerable<DocCommentRule.Finding> Splice(
+        string file,
+        List<string> lines,
+        (int Start, int End) run,
+        int wrap
+    ) {
         for (var index = run.Start; index < run.End - 1; index++) {
             var current = DocLine.Match(lines[index]).Groups["text"].Value.Trim();
             var following = DocLine.Match(lines[index + 1]).Groups["text"].Value.Trim();
@@ -343,15 +372,20 @@ static class RavenDocCommentRule {
         List<string> documented = [];
 
         for (var index = run.Start; index < run.End; index++) {
-            documented.AddRange(ParamTag.Matches(lines[index]).Select(match => match.Groups["name"].Value));
+            documented.AddRange(ParamTag.Matches(lines[index]).Select(static match => match.Groups["name"].Value));
         }
 
         if (documented.Count == 0) {
             yield break;
         }
 
-        foreach (var duplicate in documented.GroupBy(name => name, StringComparer.Ordinal).Where(group => group.Count() > 1)) {
-            yield return new(file, run.Start + 1, $"this doc comment block documents the parameter `{duplicate.Key}` {duplicate.Count()} times.");
+        foreach (var duplicate in documented.GroupBy(static name => name, StringComparer.Ordinal)
+                     .Where(static group => group.Count() > 1)) {
+            yield return new(
+                file,
+                run.Start + 1,
+                $"this doc comment block documents the parameter `{duplicate.Key}` {duplicate.Count()} times."
+            );
         }
 
         // ⚠ Through the same attribute skip the orphan check uses, and not `lines[run.End]`. The one
@@ -367,8 +401,8 @@ static class RavenDocCommentRule {
             .Groups["parameters"]
             .Value
             .Split(',', StringSplitOptions.RemoveEmptyEntries)
-            .Select(parameter => parameter.Split(':')[0].Trim())
-            .Where(parameter => parameter.Length > 0)
+            .Select(static parameter => parameter.Split(':')[0].Trim())
+            .Where(static parameter => parameter.Length > 0)
             .ToHashSet(StringComparer.Ordinal);
 
         foreach (var name in documented.Distinct(StringComparer.Ordinal).Where(name => !declared.Contains(name))) {

@@ -70,7 +70,7 @@ internal sealed class ContentLibrary : IContentLibrary {
         this.filters = filters;
         this.writeFilters = writeFilters;
         this.import = import;
-        this.busy = busy ?? (() => false);
+        this.busy = busy ?? (static () => false);
         Shown = shown ?? new ShownContent();
     }
 
@@ -203,8 +203,12 @@ internal sealed class ContentLibrary : IContentLibrary {
     ///         broken.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A directory is copied whole, and until it was, the commonest drag there is did
-    ///         nothing.</b> "Drag a folder of textures in from Finder" is doc 20's own wording for
+    ///         ⚠
+    ///         <b>
+    ///             A directory is copied whole, and until it was, the commonest drag there is did
+    ///             nothing.
+    ///         </b>
+    ///         "Drag a folder of textures in from Finder" is doc 20's own wording for
     ///         this row, and <c>File.Copy</c> over a directory throws — so the dialog half reported
     ///         "could not copy the files" for the one input every user tries first.
     ///     </para>
@@ -329,8 +333,12 @@ internal sealed class ContentLibrary : IContentLibrary {
     /// <param name="directory">The directory it might be under.</param>
     /// <returns>Whether it is.</returns>
     /// <remarks>
-    ///     ⚠ <b>Compared with a separator on the end, so <c>ProjectTwo</c> is not "inside"
-    ///     <c>Project</c>.</b> A prefix test without one is the check that refuses a legitimate
+    ///     ⚠
+    ///     <b>
+    ///         Compared with a separator on the end, so <c>ProjectTwo</c> is not "inside"
+    ///         <c>Project</c>.
+    ///     </b>
+    ///     A prefix test without one is the check that refuses a legitimate
     ///     import from the folder next door and gives a reason that is not true.
     /// </remarks>
     static bool Inside(string path, string directory) {
@@ -398,11 +406,12 @@ internal sealed class ContentLibrary : IContentLibrary {
     ///     purpose. Find References answers "who points at this" because a person is about to look at
     ///     the answer: open one, delete the lot, or see what they have in common.
     /// </remarks>
-    public IReadOnlyList<AssetId> Referrers(IEnumerable<AssetId> assets) => Walk(assets, project.References.ReferrersOf);
+    public IReadOnlyList<AssetId> Referrers(IEnumerable<AssetId> assets) =>
+        Walk(assets, project.References.ReferrersOf);
 
     /// <inheritdoc />
     public IReadOnlyList<AssetId> Dependencies(IEnumerable<AssetId> assets) =>
-        Walk(assets, asset => project.References.ReferencesFrom(asset).Select(reference => reference.Asset));
+        Walk(assets, asset => project.References.ReferencesFrom(asset).Select(static reference => reference.Asset));
 
     /// <summary>Walks one edge of the reference graph from some assets.</summary>
     /// <param name="assets">Where to start.</param>
@@ -497,29 +506,28 @@ internal sealed class ContentLibrary : IContentLibrary {
             // ⚠ Truncated rather than opened. `ZipArchiveMode.Create` over an existing file appends
             // to whatever is in it, which for a second export to the same name is an archive with
             // two copies of every asset — and a reader that takes the first one.
-            using (var stream = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.None))
-            using (var archive = new ZipArchive(stream, ZipArchiveMode.Create)) {
-                foreach (var asset in assets) {
-                    if (!project.Assets.TryGetByGuid(asset, out var entry) || entry.IsFolder) {
-                        continue;
-                    }
-
-                    var absolute = project.Paths.Absolute(entry.Path);
-
-                    if (!File.Exists(absolute)) {
-                        continue;
-                    }
-
-                    archive.CreateEntryFromFile(absolute, entry.Path);
-
-                    var meta = AssetMetaFile.PathFor(absolute);
-
-                    if (File.Exists(meta)) {
-                        archive.CreateEntryFromFile(meta, AssetMetaFile.PathFor(entry.Path));
-                    }
-
-                    written++;
+            using var stream = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.None);
+            using var archive = new ZipArchive(stream, ZipArchiveMode.Create);
+            foreach (var asset in assets) {
+                if (!project.Assets.TryGetByGuid(asset, out var entry) || entry.IsFolder) {
+                    continue;
                 }
+
+                var absolute = project.Paths.Absolute(entry.Path);
+
+                if (!File.Exists(absolute)) {
+                    continue;
+                }
+
+                archive.CreateEntryFromFile(absolute, entry.Path);
+
+                var meta = AssetMetaFile.PathFor(absolute);
+
+                if (File.Exists(meta)) {
+                    archive.CreateEntryFromFile(meta, AssetMetaFile.PathFor(entry.Path));
+                }
+
+                written++;
             }
         } catch (Exception exception) when (exception is IOException or UnauthorizedAccessException) {
             notify("Could not export", NotificationSeverity.Error, exception.Message);
@@ -592,7 +600,7 @@ internal sealed class ContentLibrary : IContentLibrary {
         var saved = filters();
 
         saved.RemoveAll(filter => string.Equals(filter.Name, name, StringComparison.Ordinal));
-        saved.Add(new SavedAssetFilter { Name = name, Search = query, Kind = kind });
+        saved.Add(new() { Name = name, Search = query, Kind = kind });
         writeFilters();
     }
 

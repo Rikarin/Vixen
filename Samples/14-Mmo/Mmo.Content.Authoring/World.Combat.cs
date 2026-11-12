@@ -12,11 +12,11 @@ partial class World {
         // Per class: a damage-over-time, a snare, a shield and a rally.
         foreach (var cls in Tables.Classes) {
             foreach (var (id, name, seconds, stacking, attribute, value, granted) in new[] {
-                ("burn", "Searing", 6f, "StackTo", $"{cls.School}Taken", 0.05f, $"State.{cls.Name}.Burning"),
-                ("snare", "Hobbled", 8f, "Refresh", "MoveSpeed", -0.5f, "State.Snared"),
-                ("ward", "Warded", 12f, "Refresh", "Armour", 0.25f, "State.Warded"),
-                ("rally", "Rallied", 20f, "Refresh", "MaximumHealth", 0.15f, "State.Rallied")
-            }) {
+                         ("burn", "Searing", 6f, "StackTo", $"{cls.School}Taken", 0.05f, $"State.{cls.Name}.Burning"),
+                         ("snare", "Hobbled", 8f, "Refresh", "MoveSpeed", -0.5f, "State.Snared"),
+                         ("ward", "Warded", 12f, "Refresh", "Armour", 0.25f, "State.Warded"),
+                         ("rally", "Rallied", 20f, "Refresh", "MaximumHealth", 0.15f, "State.Rallied")
+                     }) {
                 var address = $"effects/{cls.Id}-{id}";
 
                 Write(
@@ -45,10 +45,10 @@ partial class World {
         // Per zone: what its food and its potion do.
         foreach (var zone in Tables.Zones) {
             foreach (var (id, name, seconds, attribute, value) in new[] {
-                ("well-fed", "Well Fed", 900f, "Stamina", zone.High * 0.5f),
-                ("fortified", "Fortified", 600f, "Armour", zone.High * 2f),
-                ("quickened", "Quickened", 300f, "CritChance", 0.03f)
-            }) {
+                         ("well-fed", "Well Fed", 900f, "Stamina", zone.High * 0.5f),
+                         ("fortified", "Fortified", 600f, "Armour", zone.High * 2f),
+                         ("quickened", "Quickened", 300f, "CritChance", 0.03f)
+                     }) {
                 var address = $"effects/{zone.Id}-{id}";
 
                 Write(
@@ -77,7 +77,9 @@ partial class World {
     /// <summary>Thirty-odd abilities a class, banded by level, plus one per creature family.</summary>
     /// <param name="effects">What an ability can apply, by id.</param>
     /// <returns>Every ability address, and the per-family creature ones.</returns>
-    public (List<string> Player, Dictionary<string, List<string>> Creature) Abilities(Dictionary<string, string> effects) {
+    public (List<string> Player, Dictionary<string, List<string>> Creature) Abilities(
+        Dictionary<string, string> effects
+    ) {
         var player = new List<string>();
         var creature = new Dictionary<string, List<string>>(StringComparer.Ordinal);
 
@@ -103,7 +105,7 @@ partial class World {
             // the same nine buttons, getting bigger, unlocked over the levels.
             foreach (var shape in shapes) {
                 for (var tier = 1; tier <= 4; tier++) {
-                    var level = Math.Min(25, (rank++ * 25 / (shapes.Length * 4)) + 1);
+                    var level = Math.Min(25, rank++ * 25 / (shapes.Length * 4) + 1);
                     var address = $"abilities/{cls.Id}/{shape.Id}-{tier}";
                     var applies = shape.Applies is null ? null : effects.GetValueOrDefault($"{cls.Id}-{shape.Applies}");
 
@@ -118,7 +120,13 @@ partial class World {
                         .Put("channelPeriod", shape.Channel > 0 ? 1f : 0f, 0f)
                         .Put("cooldown", shape.Cooldown, 0f)
                         .Put("charges", shape.Charges, 0)
-                        .List("tags", [$"Ability.{cls.Name}.{shape.Name.Replace(" ", string.Empty, StringComparison.Ordinal)}", $"Ability.School.{cls.School}"])
+                        .List(
+                            "tags",
+                            [
+                                $"Ability.{cls.Name}.{shape.Name.Replace(" ", string.Empty, StringComparison.Ordinal)}",
+                                $"Ability.School.{cls.School}"
+                            ]
+                        )
                         .Item("requirements")
                         .Put("kind", "Value")
                         .Put("subject", "Level")
@@ -129,7 +137,7 @@ partial class World {
                     if (shape.Power > 0) {
                         yaml.Item("costs")
                             .Put("attribute", cls.Resource)
-                            .Put("amount", Nice(10 + (tier * 8)))
+                            .Put("amount", Nice(10 + tier * 8))
                             .Close();
                     }
 
@@ -231,5 +239,11 @@ partial class World {
         return written;
     }
 
-    static string Roman(int value) => value switch { 1 => "I", 2 => "II", 3 => "III", _ => "IV" };
+    static string Roman(int value) =>
+        value switch {
+            1 => "I",
+            2 => "II",
+            3 => "III",
+            _ => "IV"
+        };
 }

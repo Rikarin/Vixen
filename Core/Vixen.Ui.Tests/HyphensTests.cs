@@ -10,8 +10,12 @@ namespace Vixen.Ui.Tests;
 /// <summary><c>hyphens</c>: the break that already worked, and the hyphen that was never drawn.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>This closed a defect rather than an absence, and the two halves were in different
-///         files.</b> <c>LineBreaker.Opportunities("sup­ply")</c> has always returned <c>[4,7]</c> —
+///         ⚠
+///         <b>
+///             This closed a defect rather than an absence, and the two halves were in different
+///             files.
+///         </b>
+///         <c>LineBreaker.Opportunities("sup­ply")</c> has always returned <c>[4,7]</c> —
 ///         byte-identical to <c>"sup-ply"</c>, where <c>"supply"</c> returns <c>[6]</c> — so Vixen
 ///         already broke <c>sup|ply</c> where the author asked. It then drew nothing at the break,
 ///         because U+00AD is <c>Default_Ignorable</c> and <c>TextShaper</c> sets
@@ -20,15 +24,23 @@ namespace Vixen.Ui.Tests;
 ///         the half that was missing.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The substitution is U+002D and the sizing said U+2010, which was measurably
-///         wrong.</b> <see cref="The_drawn_hyphen_is_one_the_face_actually_has" /> is that
+///         ⚠
+///         <b>
+///             The substitution is U+002D and the sizing said U+2010, which was measurably
+///             wrong.
+///         </b>
+///         <see cref="The_drawn_hyphen_is_one_the_face_actually_has" /> is that
 ///         assertion, and it is here rather than in a comment because it is the one mistake in this
 ///         area that would have looked like a success: <c>.notdef</c> has a glyph id and an advance,
 ///         so a test that counted glyphs or measured a width passes against it.
 ///     </para>
 ///     <para>
-///         ⚠ <b>And what U+2010 would have <i>drawn</i> depends on the face, which matters because
-///         the harmless-sounding outcome is the dangerous one.</b> Glyph 0 in <c>TestShapeLana</c>
+///         ⚠
+///         <b>
+///             And what U+2010 would have <i>drawn</i> depends on the face, which matters because
+///             the harmless-sounding outcome is the dangerous one.
+///         </b>
+///         Glyph 0 in <c>TestShapeLana</c>
 ///         has two contours — a hollow box, visible and obviously wrong. In Open Sans it has
 ///         <b>zero</b> and draws nothing, so in the engine's own interface face the prescribed
 ///         substitution would have reproduced the exact defect it was written to fix and looked like
@@ -37,12 +49,12 @@ namespace Vixen.Ui.Tests;
 /// </remarks>
 public class HyphensTests {
     const float Tolerance = 0.05f;
-    const string Soft = "­";
+    const string Soft = "\u00AD";
     static readonly FontFace Font = LoadFont();
 
     static FontFace LoadFont() {
         using var stream = Assembly.GetExecutingAssembly()
-            .GetManifestResourceStream("Vixen.Ui.Tests.Fonts.OpenSans-Regular.ttf")
+                .GetManifestResourceStream("Vixen.Ui.Tests.Fonts.OpenSans-Regular.ttf")
             ?? throw new InvalidOperationException("the test font is not embedded");
 
         using var memory = new MemoryStream();
@@ -74,7 +86,7 @@ public class HyphensTests {
         var block = element.Block(width);
         Assert.NotNull(block);
 
-        return [.. block.Lines];
+        return [..block.Lines];
     }
 
     /// <summary>Every character the line actually put on the page, in order.</summary>
@@ -125,8 +137,12 @@ public class HyphensTests {
 
     /// <summary>A line broken at a soft hyphen ends in a hyphen that is drawn.</summary>
     /// <remarks>
-    ///     ⚠ <b>Asserted as a glyph count as well as a character, because the character alone was
-    ///     never the problem.</b> U+00AD was in the line's text before this change too — what was
+    ///     ⚠
+    ///     <b>
+    ///         Asserted as a glyph count as well as a character, because the character alone was
+    ///         never the problem.
+    ///     </b>
+    ///     U+00AD was in the line's text before this change too — what was
     ///     missing is that it reached the page. Four characters and four glyphs is the claim; before
     ///     the fix the same line held four characters and three glyphs.
     /// </remarks>
@@ -142,8 +158,12 @@ public class HyphensTests {
 
     /// <summary>The drawn hyphen is a glyph the face has, and U+2010 is not one.</summary>
     /// <remarks>
-    ///     ⚠ <b>The assertion that refutes the sizing, and it is about the font rather than the
-    ///     engine.</b> The plan document said to substitute U+2010 HYPHEN. `GlyphFor` reads the
+    ///     ⚠
+    ///     <b>
+    ///         The assertion that refutes the sizing, and it is about the font rather than the
+    ///         engine.
+    ///     </b>
+    ///     The plan document said to substitute U+2010 HYPHEN. `GlyphFor` reads the
     ///     cmap: U+2010 is glyph <b>0</b> — <c>.notdef</c> — in Open Sans and in
     ///     <c>TestShapeLana</c> alike, so that substitution draws a box in the one and nothing at
     ///     all in the other. U+002D is glyph 16 in both. The second half of this test is what makes
@@ -168,8 +188,12 @@ public class HyphensTests {
     ///         `"sup-"`.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>This does NOT catch the tofu box, and a first draft of this comment claimed it
-    ///         did.</b> The reasoning was that `.notdef` is 1229 design units in Open Sans against
+    ///         ⚠
+    ///         <b>
+    ///             This does NOT catch the tofu box, and a first draft of this comment claimed it
+    ///             did.
+    ///         </b>
+    ///         The reasoning was that `.notdef` is 1229 design units in Open Sans against
     ///         the hyphen's 659, so a wrong glyph would measure wrong — and it is measurably false:
     ///         a wrapped line reports the *wrapper's* width, and the wrapper charges
     ///         `UiElement.HyphenWidth`, which measures U+002D whatever the substitution then draws.
@@ -192,8 +216,12 @@ public class HyphensTests {
 
     /// <summary>A soft hyphen the line did not break at goes on drawing nothing.</summary>
     /// <remarks>
-    ///     ⚠ <b>The other half of what the character means, and the one a careless substitution
-    ///     breaks.</b> U+00AD is a *conditional* hyphen: visible where the line ends, invisible
+    ///     ⚠
+    ///     <b>
+    ///         The other half of what the character means, and the one a careless substitution
+    ///         breaks.
+    ///     </b>
+    ///     U+00AD is a *conditional* hyphen: visible where the line ends, invisible
     ///     everywhere else. Substituting it in the paragraph rather than in the line would put a
     ///     hyphen in the middle of `supply` on every box wide enough not to break it.
     /// </remarks>
@@ -212,8 +240,12 @@ public class HyphensTests {
 
     /// <summary>A paragraph that merely ends on a soft hyphen does not grow one.</summary>
     /// <remarks>
-    ///     ⚠ <b>The edge the substitution would have got wrong if it had keyed on "last character of
-    ///     the line".</b> The last line of a paragraph ends where the text does, not at a break — so
+    ///     ⚠
+    ///     <b>
+    ///         The edge the substitution would have got wrong if it had keyed on "last character of
+    ///         the line".
+    ///     </b>
+    ///     The last line of a paragraph ends where the text does, not at a break — so
     ///     a trailing U+00AD was never used as a hyphenation point and has nothing to show.
     /// </remarks>
     [Fact]

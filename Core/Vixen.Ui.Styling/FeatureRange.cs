@@ -5,8 +5,12 @@ namespace Vixen.Ui.Styling;
 
 /// <summary>How a feature's measured value is compared with the one the author wrote.</summary>
 /// <remarks>
-///     ⚠ <b><see cref="Below" /> and <see cref="Above" /> are not decoration on
-///     <see cref="AtMost" />/<see cref="AtLeast" />.</b> They differ on exactly one value — the
+///     ⚠
+///     <b>
+///         <see cref="Below" /> and <see cref="Above" /> are not decoration on
+///         <see cref="AtMost" />/<see cref="AtLeast" />.
+///     </b>
+///     They differ on exactly one value — the
 ///     threshold — and that is the only width at which a <c>max-width: 448px</c> and a
 ///     <c>width &lt; 448px</c> disagree at all. Everything else about the two spellings is identical,
 ///     which is why the gap was invisible until <c>@max-*</c> gave the exclusive form a name.
@@ -70,9 +74,13 @@ readonly ref struct FeatureTerms {
 /// <summary>Reads a media or container feature, in either spelling, and compares one.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Shared rather than copied, because the two spellings have to agree in both
-///         evaluators or a stylesheet means one thing under <c>@media</c> and another under
-///         <c>@container</c>.</b> The prefix forms were duplicated once already and the duplicate is
+///         ⚠
+///         <b>
+///             Shared rather than copied, because the two spellings have to agree in both
+///             evaluators or a stylesheet means one thing under <c>@media</c> and another under
+///             <c>@container</c>.
+///         </b>
+///         The prefix forms were duplicated once already and the duplicate is
 ///         what let <c>max-</c> stay inclusive in both places without anybody having to decide it
 ///         twice.
 ///     </para>
@@ -101,7 +109,7 @@ static class FeatureRange {
         var after = feature[(at + length)..];
 
         if (feature.IndexOf(':') >= 0) {
-            reason = $"'{feature.ToString()}' mixes the colon and the comparison forms";
+            reason = $"'{feature}' mixes the colon and the comparison forms";
             return false;
         }
 
@@ -111,7 +119,7 @@ static class FeatureRange {
             var right = after.Trim();
 
             if (left.IsEmpty || right.IsEmpty) {
-                reason = $"'{feature.ToString()}' is missing a side of its comparison";
+                reason = $"'{feature}' is missing a side of its comparison";
                 return false;
             }
 
@@ -119,15 +127,11 @@ static class FeatureRange {
             var name = reversed ? right : left;
 
             if (!IsName(name)) {
-                reason = $"'{feature.ToString()}' compares two values rather than a feature";
+                reason = $"'{feature}' compares two values rather than a feature";
                 return false;
             }
 
-            terms = new FeatureTerms {
-                Name = name,
-                Comparison = reversed ? Flip(first) : first,
-                Value = reversed ? left : right
-            };
+            terms = new() { Name = name, Comparison = reversed ? Flip(first) : first, Value = reversed ? left : right };
 
             return true;
         }
@@ -136,7 +140,7 @@ static class FeatureRange {
         var end = after[(secondAt + secondLength)..].Trim();
 
         if (left.IsEmpty || middle.IsEmpty || end.IsEmpty || !IsName(middle)) {
-            reason = $"'{feature.ToString()}' is not a range Vixen can read";
+            reason = $"'{feature}' is not a range Vixen can read";
             return false;
         }
 
@@ -146,11 +150,11 @@ static class FeatureRange {
         if (first == FeatureComparison.Exact
             || second == FeatureComparison.Exact
             || PointsUp(first) != PointsUp(second)) {
-            reason = $"'{feature.ToString()}' compares in two directions at once";
+            reason = $"'{feature}' compares in two directions at once";
             return false;
         }
 
-        terms = new FeatureTerms {
+        terms = new() {
             Name = middle,
             Comparison = Flip(first),
             Value = left,
@@ -193,7 +197,7 @@ static class FeatureRange {
             name = name[4..];
         }
 
-        terms = new FeatureTerms { Name = name, Comparison = comparison, Value = value };
+        terms = new() { Name = name, Comparison = comparison, Value = value };
         return true;
     }
 

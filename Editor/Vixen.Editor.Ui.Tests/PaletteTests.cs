@@ -40,11 +40,15 @@ public class PaletteTests {
     public void The_palette_ranks_across_every_source() {
         using var shell = new EditorShell(900f, 600f);
 
-        shell.Commands.Add("file.save", Title("Save"), () => { });
-        shell.Commands.Add("file.save-all", Title("Save All"), () => { });
+        shell.Commands.Add("file.save", Title("Save"), static () => { });
+        shell.Commands.Add("file.save-all", Title("Save All"), static () => { });
 
         shell.Palette.AddSource(
-            new DelegatePaletteSource("Asset", () => ["Materials/Water.vxmat", "Scenes/Sandbox.vxscene"], _ => { })
+            new DelegatePaletteSource(
+                "Asset",
+                static () => ["Materials/Water.vxmat", "Scenes/Sandbox.vxscene"],
+                static _ => { }
+            )
         );
 
         shell.Palette.OpenPalette();
@@ -58,7 +62,7 @@ public class PaletteTests {
         // in the list — below both commands, which is the whole point of scoring rather than
         // filtering. A palette that dropped it would be one that could not find an asset by the
         // letters somebody remembered.
-        Assert.Contains(shell.Palette.Results, item => item.Category == "Asset");
+        Assert.Contains(shell.Palette.Results, static item => item.Category == "Asset");
         Assert.True(shell.Palette.Results[0].Score > shell.Palette.Results[^1].Score);
     }
 
@@ -68,7 +72,14 @@ public class PaletteTests {
         using var shell = new EditorShell(900f, 600f);
 
         var asked = 0;
-        var source = new DelegatePaletteSource("Asset", () => { asked++; return ["Water.vxmat"]; }, _ => { });
+        var source = new DelegatePaletteSource(
+            "Asset",
+            () => {
+                asked++;
+                return ["Water.vxmat"];
+            },
+            static _ => { }
+        );
         // Equal by value to `source` — a record — and still not the one that was added.
         var stranger = source with { };
 
@@ -116,8 +127,8 @@ public class PaletteTests {
     public void The_highlight_wraps_and_the_field_keeps_the_focus() {
         using var shell = new EditorShell(900f, 600f);
 
-        shell.Commands.Add("a.one", Title("Alpha"), () => { });
-        shell.Commands.Add("a.two", Title("Beta"), () => { });
+        shell.Commands.Add("a.one", Title("Alpha"), static () => { });
+        shell.Commands.Add("a.two", Title("Beta"), static () => { });
 
         shell.Palette.OpenPalette();
 
@@ -142,7 +153,7 @@ public class PaletteTests {
         shell.Palette.Field.Value = "palette";
         shell.Palette.Refresh();
 
-        Assert.DoesNotContain(shell.Palette.Results, item => item.Title == EditorStrings.CommandPalette.Source);
+        Assert.DoesNotContain(shell.Palette.Results, static item => item.Title == EditorStrings.CommandPalette.Source);
     }
 
     [Fact]
@@ -150,10 +161,10 @@ public class PaletteTests {
         var registry = new CommandRegistry();
         var ran = 0;
 
-        registry.Add(new EditorCommand("edit.undo", Title("Undo"), () => ran++) { Enablement = () => false });
+        registry.Add(new EditorCommand("edit.undo", Title("Undo"), () => ran++) { Enablement = static () => false });
 
         var results = new List<PaletteItem>();
-        new CommandPaletteSource(registry, new KeyMap()).Search("undo", results, 10);
+        new CommandPaletteSource(registry, new()).Search("undo", results, 10);
 
         // Hiding it would make "there is nothing to undo" and "the editor has forgotten how"
         // indistinguishable.
@@ -181,5 +192,6 @@ public class PaletteTests {
         Assert.Equal(1, ran);
     }
 
-    static UiElement? Find(UiElement parent, int index) => index < parent.Children.Count ? parent.Children[index] : null;
+    static UiElement? Find(UiElement parent, int index) =>
+        index < parent.Children.Count ? parent.Children[index] : null;
 }

@@ -15,16 +15,24 @@ namespace Vixen.Graphics.Golden.Tests;
 /// <summary>The black-HUD defect on a real device, in a pass whose units are cd/m².</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>#670's remaining half, and it is a different claim from the one the software
-///         fixture makes.</b> <c>Vixen.Ui.Controls.Tests.HudLuminanceTests</c> runs the fragment
+///         ⚠
+///         <b>
+///             #670's remaining half, and it is a different claim from the one the software
+///             fixture makes.
+///         </b>
+///         <c>Vixen.Ui.Controls.Tests.HudLuminanceTests</c> runs the fragment
 ///         arithmetic on the CPU over the geometry the GPU would be given, so what it proves is that
 ///         <see cref="UiGeometryBuilder.WhiteLevel" /> reaches the pixels. It cannot prove that the
 ///         Vulkan path agrees, and its own remarks say so. This does — same fixture, same numbers,
 ///         <c>UiRenderer</c> and a float attachment instead.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The float attachment is the whole of what makes the picture possible, on either
-///         executor.</b> An eight-bit target leaves a scene at a hundred candelas and a HUD at one
+///         ⚠
+///         <b>
+///             The float attachment is the whole of what makes the picture possible, on either
+///             executor.
+///         </b>
+///         An eight-bit target leaves a scene at a hundred candelas and a HUD at one
 ///         both clamped to 255, so the two frames this file is about are byte-identical through that
 ///         door — which is the standing photometric trap wearing its rendering hat: a pass lit by an
 ///         authored 0–1 tint is pixel-identical to a pass that never ran. <c>Rgba32Float</c> is the
@@ -177,11 +185,14 @@ public sealed class HudLuminanceDeviceTests {
 
         fixture.Owns(renderer.Dispose);
 
-        fixture.Graph.AddPass(name, pass => {
-            pass.ColourAttachment(colour, LoadAction.Clear, Wall);
-            pass.SideEffect();
-            pass.Execute(context => renderer.Record(context.CommandList, geometry, new(Side, Side)));
-        });
+        fixture.Graph.AddPass(
+            name,
+            pass => {
+                pass.ColourAttachment(colour, LoadAction.Clear, Wall);
+                pass.SideEffect();
+                pass.Execute(context => renderer.Record(context.CommandList, geometry, new(Side, Side)));
+            }
+        );
 
         var readback = device.CreateBuffer(
             new(Side * Side * 16, BufferUsage.CopyDestination, MemoryAccess.HostReadback, "hud readback")
@@ -215,9 +226,9 @@ public sealed class HudLuminanceDeviceTests {
         for (var index = 0; index < pixels.Length; index++) {
             pixels[index] = new(
                 floats[index * 4],
-                floats[(index * 4) + 1],
-                floats[(index * 4) + 2],
-                floats[(index * 4) + 3]
+                floats[index * 4 + 1],
+                floats[index * 4 + 2],
+                floats[index * 4 + 3]
             );
         }
 
@@ -225,10 +236,10 @@ public sealed class HudLuminanceDeviceTests {
     }
 
     /// <summary>One pixel's green channel, which is grey here and so is the luminance.</summary>
-    static float At(Vector4[] frame, int x, int y) => frame[(y * Side) + x].Y;
+    static float At(Vector4[] frame, int x, int y) => frame[y * Side + x].Y;
 
     /// <summary>And its coverage, so a reading can be told apart from the wall behind it.</summary>
-    static float Alpha(Vector4[] frame, int x, int y) => frame[(y * Side) + x].W;
+    static float Alpha(Vector4[] frame, int x, int y) => frame[y * Side + x].W;
 
     /// <summary>Opens a device, or skips — unless the environment promised one.</summary>
     static bool TryOpen(out Fixture? fixture, out string? reason) {

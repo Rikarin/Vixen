@@ -6,7 +6,6 @@ using Vixen.Core;
 using Vixen.Core.IO;
 using Vixen.Core.Mathematics;
 using Vixen.Core.Serialization;
-using Vixen.Core.Yaml.Meta;
 using Vixen.Editor.Assets.Models;
 using Vixen.Geometry;
 using Vixen.Interchange;
@@ -19,37 +18,37 @@ namespace Vixen.Editor.Assets.Tests;
 
 public sealed class ModelImporterTests {
     const string Triangle = """
-        o Tri
-        v 0 0 0
-        v 1 0 0
-        v 0 1 0
-        f 1 2 3
-        """;
+                            o Tri
+                            v 0 0 0
+                            v 1 0 0
+                            v 0 1 0
+                            f 1 2 3
+                            """;
 
     /// <summary>A closed unit cube, wound so every face looks outward. What a field can be checked against.</summary>
     const string Cube = """
-        o Cube
-        v -0.5 -0.5 -0.5
-        v 0.5 -0.5 -0.5
-        v 0.5 0.5 -0.5
-        v -0.5 0.5 -0.5
-        v -0.5 -0.5 0.5
-        v 0.5 -0.5 0.5
-        v 0.5 0.5 0.5
-        v -0.5 0.5 0.5
-        f 5 6 7
-        f 5 7 8
-        f 1 4 3
-        f 1 3 2
-        f 2 3 7
-        f 2 7 6
-        f 1 5 8
-        f 1 8 4
-        f 4 8 7
-        f 4 7 3
-        f 1 2 6
-        f 1 6 5
-        """;
+                        o Cube
+                        v -0.5 -0.5 -0.5
+                        v 0.5 -0.5 -0.5
+                        v 0.5 0.5 -0.5
+                        v -0.5 0.5 -0.5
+                        v -0.5 -0.5 0.5
+                        v 0.5 -0.5 0.5
+                        v 0.5 0.5 0.5
+                        v -0.5 0.5 0.5
+                        f 5 6 7
+                        f 5 7 8
+                        f 1 4 3
+                        f 1 3 2
+                        f 2 3 7
+                        f 2 7 6
+                        f 1 5 8
+                        f 1 8 4
+                        f 4 8 7
+                        f 4 7 3
+                        f 1 2 6
+                        f 1 6 5
+                        """;
 
     /// <summary>A five-by-five grid: thirty-two triangles, which is enough to be cut into clusters.</summary>
     static string Grid {
@@ -64,10 +63,22 @@ public sealed class ModelImporterTests {
 
             for (var z = 0; z < 4; z++) {
                 for (var x = 0; x < 4; x++) {
-                    var corner = (z * 5) + x + 1;
+                    var corner = z * 5 + x + 1;
 
-                    text.Append("f ").Append(corner).Append(' ').Append(corner + 5).Append(' ').Append(corner + 1).Append('\n');
-                    text.Append("f ").Append(corner + 1).Append(' ').Append(corner + 5).Append(' ').Append(corner + 6).Append('\n');
+                    text.Append("f ")
+                        .Append(corner)
+                        .Append(' ')
+                        .Append(corner + 5)
+                        .Append(' ')
+                        .Append(corner + 1)
+                        .Append('\n');
+                    text.Append("f ")
+                        .Append(corner + 1)
+                        .Append(' ')
+                        .Append(corner + 5)
+                        .Append(' ')
+                        .Append(corner + 6)
+                        .Append('\n');
                 }
             }
 
@@ -95,12 +106,12 @@ public sealed class ModelImporterTests {
 
         Assert.True(result.Succeeded);
 
-        var model = Assert.Single(result.Artifacts, artifact => artifact.SubAsset == SubAssetId.Main);
-        var mesh = Assert.Single(result.Artifacts, artifact => artifact.Type == ModelImporter.MeshType);
+        var model = Assert.Single(result.Artifacts, static artifact => artifact.SubAsset == SubAssetId.Main);
+        var mesh = Assert.Single(result.Artifacts, static artifact => artifact.Type == ModelImporter.MeshType);
 
         Assert.Equal("Model", model.Type);
         Assert.NotEqual(SubAssetId.Main, mesh.SubAsset);
-        Assert.Contains(result.SubAssets, entry => entry.Type == "Mesh");
+        Assert.Contains(result.SubAssets, static entry => entry.Type == "Mesh");
         Assert.Empty(context.AssetDependencies);
     }
 
@@ -114,10 +125,11 @@ public sealed class ModelImporterTests {
         var (_, result) = await Import("hero.obj", Triangle);
 
         var model = Serializer.Read<ModelData>(
-            Assert.Single(result.Artifacts, artifact => artifact.SubAsset == SubAssetId.Main).Content.Span.ToArray()
+            Assert.Single(result.Artifacts, static artifact => artifact.SubAsset == SubAssetId.Main)
+                .Content.Span.ToArray()
         );
 
-        var declared = result.SubAssets.Select(entry => entry.Name).ToHashSet(StringComparer.Ordinal);
+        var declared = result.SubAssets.Select(static entry => entry.Name).ToHashSet(StringComparer.Ordinal);
 
         Assert.All(model.Parts, part => Assert.Contains(part.Mesh, declared));
     }
@@ -127,7 +139,8 @@ public sealed class ModelImporterTests {
         var (_, result) = await Import("hero.obj", Triangle);
 
         var mesh = Serializer.Read<MeshData>(
-            Assert.Single(result.Artifacts, artifact => artifact.Type == ModelImporter.MeshType).Content.Span.ToArray()
+            Assert.Single(result.Artifacts, static artifact => artifact.Type == ModelImporter.MeshType)
+                .Content.Span.ToArray()
         );
 
         Assert.Equal(3, mesh.VertexCount);
@@ -154,7 +167,7 @@ public sealed class ModelImporterTests {
 
         Assert.True(result.Succeeded);
         Assert.Single(result.Artifacts);
-        Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Severity == ImportSeverity.Warning);
+        Assert.Contains(result.Diagnostics, static diagnostic => diagnostic.Severity == ImportSeverity.Warning);
     }
 
     /// <summary>
@@ -168,9 +181,15 @@ public sealed class ModelImporterTests {
 
         Assert.True(result.Succeeded);
 
-        var field = Assert.Single(result.Artifacts, artifact => artifact.Type == ModelImporter.DistanceFieldType);
+        var field = Assert.Single(
+            result.Artifacts,
+            static artifact => artifact.Type == ModelImporter.DistanceFieldType
+        );
 
-        Assert.Equal("DistanceField", Assert.Single(result.SubAssets, entry => entry.Type == "DistanceField").Type);
+        Assert.Equal(
+            "DistanceField",
+            Assert.Single(result.SubAssets, static entry => entry.Type == "DistanceField").Type
+        );
         Assert.NotEqual(SubAssetId.Main, field.SubAsset);
     }
 
@@ -184,7 +203,8 @@ public sealed class ModelImporterTests {
         var (_, result) = await Import("crate.obj", Cube, Fast);
 
         var field = Serializer.Read<MeshDistanceField>(
-            Assert.Single(result.Artifacts, artifact => artifact.Type == ModelImporter.DistanceFieldType).Content.Span.ToArray()
+            Assert.Single(result.Artifacts, static artifact => artifact.Type == ModelImporter.DistanceFieldType)
+                .Content.Span.ToArray()
         );
 
         field.Validate();
@@ -199,21 +219,30 @@ public sealed class ModelImporterTests {
         var (_, result) = await Import("crate.obj", Cube, new() { GenerateDistanceFields = false });
 
         Assert.True(result.Succeeded);
-        Assert.DoesNotContain(result.Artifacts, artifact => artifact.Type == ModelImporter.DistanceFieldType);
-        Assert.Contains(result.Artifacts, artifact => artifact.Type == ModelImporter.MeshType);
+        Assert.DoesNotContain(result.Artifacts, static artifact => artifact.Type == ModelImporter.DistanceFieldType);
+        Assert.Contains(result.Artifacts, static artifact => artifact.Type == ModelImporter.MeshType);
     }
 
     [Fact]
     public async Task TheBakeSettingsInTheMetaReachTheBake() {
-        var (_, coarse) = await Import("crate.obj", Cube, new() { DistanceFieldResolution = 8, DistanceFieldSignRays = 8 });
-        var (_, fine) = await Import("crate.obj", Cube, new() { DistanceFieldResolution = 20, DistanceFieldSignRays = 8 });
+        var (_, coarse) = await Import(
+            "crate.obj",
+            Cube,
+            new() { DistanceFieldResolution = 8, DistanceFieldSignRays = 8 }
+        );
+        var (_, fine) = await Import(
+            "crate.obj",
+            Cube,
+            new() { DistanceFieldResolution = 20, DistanceFieldSignRays = 8 }
+        );
 
         Assert.Equal(8, Field(coarse).Resolution.X);
         Assert.Equal(20, Field(fine).Resolution.X);
 
         static MeshDistanceField Field(ImportResult result) =>
             Serializer.Read<MeshDistanceField>(
-                Assert.Single(result.Artifacts, artifact => artifact.Type == ModelImporter.DistanceFieldType).Content.Span.ToArray()
+                Assert.Single(result.Artifacts, static artifact => artifact.Type == ModelImporter.DistanceFieldType)
+                    .Content.Span.ToArray()
             );
     }
 
@@ -225,18 +254,18 @@ public sealed class ModelImporterTests {
     public async Task EachMeshGetsAClusterHierarchyBesideIt() {
         var (_, result) = await Import("crate.obj", Cube, Fast);
 
-        var artifact = Assert.Single(result.Artifacts, entry => entry.Type == "Clusters");
+        var artifact = Assert.Single(result.Artifacts, static entry => entry.Type == "Clusters");
         var meshlets = Serializer.Read<VirtualGeometryAsset>(artifact.Content.Span.ToArray()).Hierarchy;
 
         Assert.True(result.Succeeded);
         Assert.NotEmpty(meshlets.Meshlets);
         Assert.NotEmpty(meshlets.Fallback);
-        Assert.Contains(result.SubAssets, entry => entry.Type == "Clusters");
+        Assert.Contains(result.SubAssets, static entry => entry.Type == "Clusters");
 
         // A cube is twelve triangles, so the whole of it is one cluster and there is nothing to
         // simplify. What matters here is that it survives the round trip through the serializer with
         // its ranges intact, which is what the runtime will read.
-        Assert.Equal(12, meshlets.Meshlets.Sum(meshlet => meshlet.TriangleCount));
+        Assert.Equal(12, meshlets.Meshlets.Sum(static meshlet => meshlet.TriangleCount));
     }
 
     /// <summary>
@@ -262,8 +291,8 @@ public sealed class ModelImporterTests {
     public async Task EachMeshGetsItsGeometryInPagesBesideIt() {
         var (_, result) = await Import("crate.obj", Cube, Fast);
 
-        var records = Assert.Single(result.Artifacts, entry => entry.Type == "Clusters");
-        var data = Assert.Single(result.Artifacts, entry => entry.Type == "ClusterPages");
+        var records = Assert.Single(result.Artifacts, static entry => entry.Type == "Clusters");
+        var data = Assert.Single(result.Artifacts, static entry => entry.Type == "ClusterPages");
         var pages = Serializer.Read<VirtualGeometryAsset>(records.Content.Span.ToArray()).Pages;
 
         Assert.True(result.Succeeded);
@@ -300,22 +329,23 @@ public sealed class ModelImporterTests {
         var (_, result) = await Import("crate.obj", Cube, Fast);
 
         var asset = Serializer.Read<VirtualGeometryAsset>(
-            Assert.Single(result.Artifacts, entry => entry.Type == "Clusters").Content.Span.ToArray()
+            Assert.Single(result.Artifacts, static entry => entry.Type == "Clusters").Content.Span.ToArray()
         );
 
         var pages = asset.Pages;
 
         var meshlets = Serializer.Read<VirtualGeometryAsset>(
-            Assert.Single(result.Artifacts, entry => entry.Type == "Clusters").Content.Span.ToArray()
-        ).Hierarchy;
+                Assert.Single(result.Artifacts, static entry => entry.Type == "Clusters").Content.Span.ToArray()
+            )
+            .Hierarchy;
 
-        var data = Assert.Single(result.Artifacts, entry => entry.Type == "ClusterPages").Content.ToArray();
+        var data = Assert.Single(result.Artifacts, static entry => entry.Type == "ClusterPages").Content.ToArray();
 
         // Reattached, which is what a runtime does not do — it seeks — but is the only way to decode here
         // without standing up a pool. The decoder is the one MeshletPageSet documents as the arithmetic a
         // resolve shader will do per vertex.
         var reattached = pages with { Data = data };
-        var positions = new Vector3[meshlets.Meshlets.Max(meshlet => meshlet.VertexCount)];
+        var positions = new Vector3[meshlets.Meshlets.Max(static meshlet => meshlet.VertexCount)];
 
         for (var cluster = 0; cluster < meshlets.Meshlets.Length; cluster++) {
             var meshlet = meshlets.Meshlets[cluster];
@@ -336,10 +366,10 @@ public sealed class ModelImporterTests {
         var (_, result) = await Import("crate.obj", Cube, Fast with { GenerateMeshlets = false });
 
         Assert.True(result.Succeeded);
-        Assert.DoesNotContain(result.Artifacts, artifact => artifact.Type == "Clusters");
+        Assert.DoesNotContain(result.Artifacts, static artifact => artifact.Type == "Clusters");
 
         // And no pages either: pages are a packing of a hierarchy, so there is nothing to pack.
-        Assert.DoesNotContain(result.Artifacts, artifact => artifact.Type == "ClusterPages");
+        Assert.DoesNotContain(result.Artifacts, static artifact => artifact.Type == "ClusterPages");
     }
 
     [Fact]
@@ -347,17 +377,17 @@ public sealed class ModelImporterTests {
         var (_, result) = await Import("plane.obj", Grid, Fast with { MeshletTriangles = 4 });
 
         var meshlets = Serializer.Read<MeshletMesh>(
-            Assert.Single(result.Artifacts, artifact => artifact.Type == "Clusters").Content.Span.ToArray()
+            Assert.Single(result.Artifacts, static artifact => artifact.Type == "Clusters").Content.Span.ToArray()
         );
 
-        Assert.All(meshlets.Meshlets, meshlet => Assert.InRange(meshlet.TriangleCount, 1, 4));
+        Assert.All(meshlets.Meshlets, static meshlet => Assert.InRange(meshlet.TriangleCount, 1, 4));
     }
 
     /// <summary>Cheap enough to run in a test, and still enough resolution to be checkable.</summary>
     static ModelImportSettings Fast => new() { DistanceFieldResolution = 16, DistanceFieldSignRays = 16 };
 
     static Task<(ImportContext Context, ImportResult Result)> Import(string name, string text) =>
-        Import(name, text, new ModelImportSettings());
+        Import(name, text, new());
 
     static async Task<(ImportContext Context, ImportResult Result)> Import(
         string name,

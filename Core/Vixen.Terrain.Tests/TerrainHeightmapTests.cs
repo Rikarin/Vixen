@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Buffers.Binary;
-using Vixen.Terrain;
 using Xunit;
 
 namespace Vixen.Terrain.Tests;
@@ -11,8 +10,12 @@ namespace Vixen.Terrain.Tests;
 public sealed class TerrainHeightmapTests {
     static TerrainDescription Shape(int tiles = 1) =>
         TerrainDescription.Default with {
-            TileSamples = 8, TilesX = tiles, TilesZ = tiles,
-            MetresPerQuad = 1f, MinHeight = -100f, MaxHeight = 100f
+            TileSamples = 8,
+            TilesX = tiles,
+            TilesZ = tiles,
+            MetresPerQuad = 1f,
+            MinHeight = -100f,
+            MaxHeight = 100f
         };
 
     /// <summary>A heightmap whose value ramps with X, so a shear or a flip is visible.</summary>
@@ -22,7 +25,7 @@ public sealed class TerrainHeightmapTests {
         for (var z = 0; z < height; z++) {
             for (var x = 0; x < width; x++) {
                 var value = (ushort)(x * 65_535 / Math.Max(1, width - 1));
-                var slice = bytes.AsSpan(((z * width) + x) * sizeof(ushort), sizeof(ushort));
+                var slice = bytes.AsSpan((z * width + x) * sizeof(ushort), sizeof(ushort));
 
                 if (bigEndian) {
                     BinaryPrimitives.WriteUInt16BigEndian(slice, value);
@@ -52,13 +55,15 @@ public sealed class TerrainHeightmapTests {
 
     [Fact]
     public void ExportThenImportIsTheIdentity() {
-        var terrain = new Terrain(Shape(tiles: 2));
+        var terrain = new Terrain(Shape(2));
         var layer = terrain.AddLayer("Sculpt");
 
         TerrainSculpt.Sculpt(
-            terrain, layer,
+            terrain,
+            layer,
             TerrainBrush.Default with { Radius = 4f, Strength = 1f },
-            new(new(7f, 7f)), 30f
+            new(new(7f, 7f)),
+            30f
         );
 
         terrain.Resolve();
@@ -67,7 +72,7 @@ public sealed class TerrainHeightmapTests {
         var bytes = new byte[TerrainHeightmap.ExportByteCount(terrain.Description)];
         Assert.Equal(bytes.Length, TerrainHeightmap.Export(terrain, bytes));
 
-        var reloaded = new Terrain(Shape(tiles: 2));
+        var reloaded = new Terrain(Shape(2));
         TerrainHeightmap.Import(reloaded, bytes, TerrainHeightmapFormat.Of(reloaded.Description));
         reloaded.Resolve();
 
@@ -79,12 +84,12 @@ public sealed class TerrainHeightmapTests {
         var terrain = new Terrain(Shape());
         var format = TerrainHeightmapFormat.Of(terrain.Description) with { BigEndian = true };
 
-        TerrainHeightmap.Import(terrain, Ramp(format.Width, format.Height, bigEndian: true), format);
+        TerrainHeightmap.Import(terrain, Ramp(format.Width, format.Height, true), format);
         terrain.Resolve();
         var expected = terrain.Composite.Span.ToArray();
 
         var bytes = new byte[TerrainHeightmap.ExportByteCount(terrain.Description)];
-        TerrainHeightmap.Export(terrain, bytes, bigEndian: true);
+        TerrainHeightmap.Export(terrain, bytes, true);
 
         var reloaded = new Terrain(Shape());
         TerrainHeightmap.Import(reloaded, bytes, format);
@@ -109,7 +114,7 @@ public sealed class TerrainHeightmapTests {
         TerrainHeightmap.Import(other, bytes, format with { BigEndian = true });
         other.Resolve();
 
-        Assert.NotEqual(little, other.Composite.Span.ToArray());
+        Assert.NotEqual(little, [..other.Composite.Span]);
     }
 
     /// <summary>
@@ -141,7 +146,7 @@ public sealed class TerrainHeightmapTests {
 
     [Fact]
     public void ASmallerHeightmapUpsamplesWithoutABlockyEdge() {
-        var terrain = new Terrain(Shape(tiles: 4));
+        var terrain = new Terrain(Shape(4));
         TerrainHeightmap.Import(terrain, Ramp(4, 4), new(4, 4));
         terrain.Resolve();
 
@@ -222,8 +227,7 @@ public sealed class TerrainHeightmapTests {
     [Fact]
     public void TooFewBytesIsRefusedWithTheWidthNamedAsTheLikelyCause() {
         var terrain = new Terrain(Shape());
-        var thrown = Assert.Throws<ArgumentException>(
-            () => TerrainHeightmap.Import(terrain, new byte[10], new(64, 64))
+        var thrown = Assert.Throws<ArgumentException>(() => TerrainHeightmap.Import(terrain, new byte[10], new(64, 64))
         );
 
         Assert.Contains("width", thrown.Message, StringComparison.Ordinal);
@@ -237,9 +241,7 @@ public sealed class TerrainHeightmapTests {
     public void ADegenerateFormatIsRefused(int width, int height) {
         var terrain = new Terrain(Shape());
 
-        Assert.Throws<ArgumentException>(
-            () => TerrainHeightmap.Import(terrain, new byte[4096], new(width, height))
-        );
+        Assert.Throws<ArgumentException>(() => TerrainHeightmap.Import(terrain, new byte[4096], new(width, height)));
     }
 
     [Fact]
@@ -262,7 +264,7 @@ public sealed class TerrainHeightmapTests {
         var bytes = new byte[TerrainHeightmap.ExportByteCount(terrain.Description)];
         TerrainHeightmap.Export(terrain, bytes);
 
-        var offset = ((3 * terrain.Description.SamplesX) + 3) * sizeof(ushort);
+        var offset = (3 * terrain.Description.SamplesX + 3) * sizeof(ushort);
         var written = BinaryPrimitives.ReadUInt16LittleEndian(bytes.AsSpan(offset, 2));
 
         Assert.Equal(terrain.Composite[3, 3], written);

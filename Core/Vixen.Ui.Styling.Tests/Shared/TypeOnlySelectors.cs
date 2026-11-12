@@ -9,8 +9,12 @@ namespace Vixen.Ui.Styling.Testing;
 /// <summary>Every whole selector the committed sheets spell entirely in tags and combinators.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Compiled into two assemblies rather than written twice, which is why its namespace
-///         matches neither.</b> <c>EditorCombinatorPairTests</c>' scoped half asks a running editor
+///         ⚠
+///         <b>
+///             Compiled into two assemblies rather than written twice, which is why its namespace
+///             matches neither.
+///         </b>
+///         <c>EditorCombinatorPairTests</c>' scoped half asks a running editor
 ///         whether each of these selectors matches anything, and commits the answer to
 ///         <c>ScopedSelectors.txt</c>; <c>CombinatorCensusDriftTests</c> in
 ///         <c>Vixen.Ui.Styling.Tests</c> asks whether that file still names exactly the selectors
@@ -20,8 +24,12 @@ namespace Vixen.Ui.Styling.Testing;
 ///         the same way.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Off the sheet's text, and the reason that is safe here and was not for the pair
-///         domain.</b> Four hand-rolled parsers gave that domain four sizes because a compound
+///         ⚠
+///         <b>
+///             Off the sheet's text, and the reason that is safe here and was not for the pair
+///             domain.
+///         </b>
+///         Four hand-rolled parsers gave that domain four sizes because a compound
 ///         carrying a class beside its tag, or a tag inside <c>:is()</c>, is a judgement a regular
 ///         expression makes differently each time. This domain admits a selector only when the whole
 ///         of it is tags and combinators, which one pattern decides without judgement — and every
@@ -65,7 +73,10 @@ static class TypeOnlySelectors {
                 }
 
                 foreach (var part in prelude.Split(',')) {
-                    var selector = string.Join(' ', part.Split((char[])[' ', '\t', '\r', '\n'], StringSplitOptions.RemoveEmptyEntries));
+                    var selector = string.Join(
+                        ' ',
+                        part.Split((char[])[' ', '\t', '\r', '\n'], StringSplitOptions.RemoveEmptyEntries)
+                    );
 
                     // One spelling per selector, so `a>b` and `a > b` are the same row.
                     selector = Regex.Replace(selector, @"\s*>\s*", " > ");

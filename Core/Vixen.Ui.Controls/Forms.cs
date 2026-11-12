@@ -8,15 +8,22 @@ namespace Vixen.Ui.Controls;
 /// <summary>A caption, the control it names, and somewhere to say what went wrong.</summary>
 /// <remarks>
 ///     <para>
-///         <b>The row every form is made of, and the one shape this control set had no way to
-///         say.</b> Doc 49 § 7.1 ranks <c>LabeledContent</c> beside <c>GroupBox</c>, <c>Form</c> and
+///         <b>
+///             The row every form is made of, and the one shape this control set had no way to
+///             say.
+///         </b>
+///         Doc 49 § 7.1 ranks <c>LabeledContent</c> beside <c>GroupBox</c>, <c>Form</c> and
 ///         <c>Section</c> as rank 4 of the missing controls, and notes that <see cref="Card" /> and
 ///         <see cref="KeyValueList" /> only approximate it. What they approximate is the
 ///         <i>picture</i>; what none of them has is the join.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Two <c>div</c>s side by side is not this, and the difference is that a screen reader
-///         reads out an unnamed field.</b> A <see cref="TextBox" />, a <see cref="NumericInput" />, a
+///         ⚠
+///         <b>
+///             Two <c>div</c>s side by side is not this, and the difference is that a screen reader
+///             reads out an unnamed field.
+///         </b>
+///         A <see cref="TextBox" />, a <see cref="NumericInput" />, a
 ///         <see cref="Slider" /> and a <see cref="Select" /> all deliberately answer <c>null</c> to
 ///         their native accessible name — a placeholder is a hint and a number is not a name — so a
 ///         form of eight fields beside a column of words is eight unnamed fields, and nothing in the
@@ -238,8 +245,12 @@ public sealed partial class LabeledContent : Control {
 ///         walked past them at all.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The name is written on the group rather than fetched from the legend by a
-///         relation</b>, which is the opposite of what <see cref="LabeledContent" /> does and for a
+///         ⚠
+///         <b>
+///             The name is written on the group rather than fetched from the legend by a
+///             relation
+///         </b>
+///         , which is the opposite of what <see cref="LabeledContent" /> does and for a
 ///         difference that matters. A row's caption names a control the row does not own, so the
 ///         join has to be a relation; a legend is part of this control, and a fieldset's own name is
 ///         computed from it. One string, one copy, and no second node carrying the same words.
@@ -335,8 +346,12 @@ public sealed partial class GroupBox : Control {
 ///         an application's OK button had to know every field it sat under.
 ///     </para>
 ///     <para>
-///         ⚠ <b>HTML's three submission rules, and each is a place an application used to write the
-///         form by hand.</b> Enter in a field that does not want it for a line break submits
+///         ⚠
+///         <b>
+///             HTML's three submission rules, and each is a place an application used to write the
+///             form by hand.
+///         </b>
+///         Enter in a field that does not want it for a line break submits
 ///         (<i>implicit submission</i> — heard as the routed <see cref="SubmitEvent" /> a field raises,
 ///         so the field decides what Enter means and a text area keeps its line breaks); a click on
 ///         the form's default button submits; and a submission with a field that will not take its
@@ -451,10 +466,11 @@ public sealed partial class Form : Control {
         AddHandler<SubmitEvent>(static (element, args) => ((Form)element).Heard(args.Source));
 
         AddHandler<ClickEvent>(static (element, args) => {
-            if (args.Source is Button { IsDefault: true } button) {
-                ((Form)element).Heard(button);
+                if (args.Source is Button { IsDefault: true } button) {
+                    ((Form)element).Heard(button);
+                }
             }
-        });
+        );
     }
 
     void Heard(UiElement? source) {
@@ -512,9 +528,17 @@ public sealed partial class Form : Control {
 /// <summary>A titled part of a page that a screen reader can jump to: a heading, and what it heads.</summary>
 /// <remarks>
 ///     <para>
-///         <b>The landmark half of doc 49 § 7.1's rank 4.</b> <see cref="GroupBox" /> says <i>these
-///         controls answer one question</i>; <see cref="Form" /> says <i>these fields are sent
-///         together</i>; this says <i>this is a part of the page, and here is its name</i>. It is
+///         <b>The landmark half of doc 49 § 7.1's rank 4.</b> <see cref="GroupBox" /> says
+///         <i>
+///             these
+///             controls answer one question
+///         </i>
+///         ; <see cref="Form" /> says
+///         <i>
+///             these fields are sent
+///             together
+///         </i>
+///         ; this says <i>this is a part of the page, and here is its name</i>. It is
 ///         HTML's <c>&lt;section aria-labelledby&gt;</c> with its <c>&lt;h2&gt;</c>, and it is what a
 ///         settings window made of "Display", "Audio" and "Controls" is built from.
 ///     </para>
@@ -530,8 +554,12 @@ public sealed partial class Form : Control {
 ///         place while two nodes read it.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Unnamed, it is still a region — and an unnamed region is a defect the tree reports
-///         rather than hides.</b> ARIA exposes a <c>&lt;section&gt;</c> with no name as a plain
+///         ⚠
+///         <b>
+///             Unnamed, it is still a region — and an unnamed region is a defect the tree reports
+///             rather than hides.
+///         </b>
+///         ARIA exposes a <c>&lt;section&gt;</c> with no name as a plain
 ///         generic, so a role that appeared only once a title was set would look correct and make
 ///         the omission invisible: <c>AccessibilitySnapshot.Unnamed</c> cannot see a landmark that is
 ///         not there. Kept a region, a titleless section is an unnamed node that gate reports, which
@@ -540,8 +568,12 @@ public sealed partial class Form : Control {
 ///         wins over the relation.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The heading's role does move with <see cref="Title" />, and that is the other answer
-///         on purpose.</b> The heading part is hidden when there is no title, and a hidden part is
+///         ⚠
+///         <b>
+///             The heading's role does move with <see cref="Title" />, and that is the other answer
+///             on purpose.
+///         </b>
+///         The heading part is hidden when there is no title, and a hidden part is
 ///         still walked by the accessibility tree — <c>display</c> is a picture, not a statement
 ///         about the tree — so an empty heading would be announced as a heading with no name. No
 ///         title means no heading; the section it belongs to is what stays put.

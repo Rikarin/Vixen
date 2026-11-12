@@ -42,13 +42,21 @@ public sealed class VisibilityResolveTests {
         var source = Source("Pipeline", "VisibilityTiles.rvn");
 
         Assert.Contains($"const val Size = {GpuVisibilityTiles.TileSize}", source, StringComparison.Ordinal);
-        Assert.Contains($"const val Capacity = {GpuVisibilityTiles.DefaultTileCapacity}", source, StringComparison.Ordinal);
+        Assert.Contains(
+            $"const val Capacity = {GpuVisibilityTiles.DefaultTileCapacity}",
+            source,
+            StringComparison.Ordinal
+        );
 
         // And the capacity the shader actually indexes with is a uniform, so a frame that overflowed
         // can be answered rather than only reported.
         Assert.Contains("var tileCapacity: uint", source, StringComparison.Ordinal);
         Assert.Contains("if (at < tileCapacity) {", source, StringComparison.Ordinal);
-        Assert.Contains($"const val MaxMaterials = {GpuVisibilityTiles.MaxMaterials}", source, StringComparison.Ordinal);
+        Assert.Contains(
+            $"const val MaxMaterials = {GpuVisibilityTiles.MaxMaterials}",
+            source,
+            StringComparison.Ordinal
+        );
 
         Assert.Contains(
             $"const val ArgumentWords = {GpuVisibilityTiles.ArgumentWords}",
@@ -94,7 +102,7 @@ public sealed class VisibilityResolveTests {
 
             for (var y = 0; y < count.Y; y++) {
                 for (var x = 0; x < count.X; x++) {
-                    var index = (y * count.X) + x;
+                    var index = y * count.X + x;
 
                     Assert.Equal(x, index % count.X);
                     Assert.Equal(y, index / count.X);
@@ -165,7 +173,7 @@ public sealed class VisibilityResolveTests {
             );
 
             Assert.Equal(
-                GpuVisibilityTiles.ArgumentOffset(material - 1) + (GpuVisibilityTiles.ArgumentWords * sizeof(uint)),
+                GpuVisibilityTiles.ArgumentOffset(material - 1) + GpuVisibilityTiles.ArgumentWords * sizeof(uint),
                 GpuVisibilityTiles.ArgumentOffset(material)
             );
         }
@@ -189,8 +197,8 @@ public sealed class VisibilityResolveTests {
         using var device = new NullDevice();
         using var visibility = new GpuClusterVisibility(device);
 
-        var (first, firstPages) = Scene(materialIndex: 0);
-        var (second, secondPages) = Scene(materialIndex: 3);
+        var (first, firstPages) = Scene(0);
+        var (second, secondPages) = Scene(3);
 
         var a = visibility.Register(first, firstPages, 0);
         var b = visibility.Register(second, secondPages, 1);
@@ -303,7 +311,7 @@ public sealed class VisibilityResolveTests {
         var indices = new List<int>();
         var last = positions.Count - 1;
 
-        int At(int ring, int segment) => 1 + ((ring - 1) * segments) + (segment % segments);
+        int At(int ring, int segment) => 1 + (ring - 1) * segments + segment % segments;
 
         for (var segment = 0; segment < segments; segment++) {
             indices.AddRange([0, At(1, segment + 1), At(1, segment)]);
@@ -322,11 +330,13 @@ public sealed class VisibilityResolveTests {
             }
         }
 
-        return new() { Positions = [.. positions], Indices = [.. indices] };
+        return new() { Positions = [..positions], Indices = [..indices] };
     }
 
     static string Source(string folder, string file) {
-        for (var directory = new DirectoryInfo(AppContext.BaseDirectory); directory is not null; directory = directory.Parent) {
+        for (var directory = new DirectoryInfo(AppContext.BaseDirectory);
+             directory is not null;
+             directory = directory.Parent) {
             var candidate = Path.Combine(directory.FullName, "Raven", "Library", folder, file);
 
             if (File.Exists(candidate)) {
@@ -334,6 +344,8 @@ public sealed class VisibilityResolveTests {
             }
         }
 
-        throw new FileNotFoundException($"Raven/Library/{folder}/{file} was not found above '{AppContext.BaseDirectory}'.");
+        throw new FileNotFoundException(
+            $"Raven/Library/{folder}/{file} was not found above '{AppContext.BaseDirectory}'."
+        );
     }
 }

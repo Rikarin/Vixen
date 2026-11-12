@@ -4,7 +4,6 @@
 using System.Collections.Concurrent;
 using Vixen.Core;
 using Vixen.Core.Imaging;
-using Vixen.Editor.Assets.Textures;
 using Vixen.Editor.Core;
 using Vixen.Graphics;
 using Vixen.Interchange;
@@ -37,8 +36,12 @@ interface IThumbnailSurface {
     /// <param name="rgba">Its own pixels, four bytes each, rows tightly packed.</param>
     /// <returns>Whether the surface took it.</returns>
     /// <remarks>
-    ///     ⚠ <b>Here rather than only on <c>IEditorGraphics</c>, because the staging buffer and the
-    ///     two barriers are the host's</b> — <c>PluginGraphics</c> has an image number and nothing to
+    ///     ⚠
+    ///     <b>
+    ///         Here rather than only on <c>IEditorGraphics</c>, because the staging buffer and the
+    ///         two barriers are the host's
+    ///     </b>
+    ///     — <c>PluginGraphics</c> has an image number and nothing to
     ///     write it with. This is the same seam <see cref="Upload" /> is, one operation along, and a
     ///     cache that has no device answers both the same way.
     /// </remarks>
@@ -66,8 +69,12 @@ interface IThumbnailSurface {
 ///         you scan and a grid you read.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Decoded on a background task and uploaded on the frame thread, and the split is not
-///         negotiable.</b> Decoding a 4K PNG is tens of milliseconds — done inline it is a stutter
+///         ⚠
+///         <b>
+///             Decoded on a background task and uploaded on the frame thread, and the split is not
+///             negotiable.
+///         </b>
+///         Decoding a 4K PNG is tens of milliseconds — done inline it is a stutter
 ///         every time the grid scrolls — and the device is not thread-safe, so the upload cannot go
 ///         where the decode does. What crosses back is a queue of finished pixels, the same
 ///         arrangement <c>ContentTasks</c> uses and for the same reason.
@@ -113,6 +120,7 @@ sealed class ThumbnailCache : IDisposable {
 
     /// <summary>What is ready, by asset, with the order they were last asked for.</summary>
     readonly Dictionary<AssetId, ulong> ready = [];
+
     readonly List<AssetId> recent = [];
 
     /// <summary>What has been asked for and not answered, so it is not asked twice.</summary>
@@ -177,8 +185,12 @@ sealed class ThumbnailCache : IDisposable {
 
     /// <summary>What can upload, or <see langword="null" /> for a headless editor.</summary>
     /// <remarks>
-    ///     ⚠ <b>Set afterwards rather than taken in the constructor, because of when the device
-    ///     exists.</b> <c>EditorHost</c> builds the application first and the Vulkan device second —
+    ///     ⚠
+    ///     <b>
+    ///         Set afterwards rather than taken in the constructor, because of when the device
+    ///         exists.
+    ///     </b>
+    ///     <c>EditorHost</c> builds the application first and the Vulkan device second —
     ///     the window has to be up before a surface can be made from it — so a cache that demanded
     ///     its uploader up front would be a cache the host could not construct. Null is the ordinary
     ///     state on a headless run and in every test, and the browser draws type glyphs.
@@ -207,8 +219,12 @@ sealed class ThumbnailCache : IDisposable {
     /// <summary>Completes when every decode started so far has queued its answer.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The signal a waiter blocks on, so that it waits as long as the work takes and no
-    ///         longer.</b> <see cref="IsBusy" /> says <i>whether</i> something is in flight and a
+    ///         ⚠
+    ///         <b>
+    ///             The signal a waiter blocks on, so that it waits as long as the work takes and no
+    ///             longer.
+    ///         </b>
+    ///         <see cref="IsBusy" /> says <i>whether</i> something is in flight and a
     ///         loop polling it has to choose how long to keep asking — which is a clock, and a clock
     ///         calibrated on an idle machine is what made the thumbnail tests fail under load
     ///         (<a href="https://github.com/Rikarin/Vixen/issues/1407">#1407</a>). A waiter that blocks
@@ -332,8 +348,12 @@ sealed class ThumbnailCache : IDisposable {
     ///     ⚠ <b>Only the refusals, and never what is already drawn.</b> A new contributor changes the
     ///     answer for the files that had <em>none</em>; a picture that has been uploaded is still the
     ///     right picture of its file, so dropping it would be a re-decode of every asset on screen
-    ///     for nothing. ⚠ <b>That is a statement about this event and not about releasing in
-    ///     general</b> — <see cref="Forget()" /> does release what is drawn, because a file that
+    ///     for nothing. ⚠
+    ///     <b>
+    ///         That is a statement about this event and not about releasing in
+    ///         general
+    ///     </b>
+    ///     — <see cref="Forget()" /> does release what is drawn, because a file that
     ///     changed on disk makes the picture wrong rather than merely older.
     /// </remarks>
     void Reconsider(Type kind) {
@@ -348,8 +368,12 @@ sealed class ThumbnailCache : IDisposable {
     /// <summary>Forgets every picture, so the next look at a file decodes it as it now is.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>There was no invalidation path at all until
-    ///         <a href="https://github.com/Rikarin/Vixen/issues/1187">#1187</a>.</b> An entry left
+    ///         ⚠
+    ///         <b>
+    ///             There was no invalidation path at all until
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/1187">#1187</a>.
+    ///         </b>
+    ///         An entry left
     ///         <see cref="ready" /> on capacity and on nothing else, so a <c>.png</c> repainted in
     ///         another program and re-imported kept the picture it had when it was first looked at —
     ///         until 512 other assets pushed it out or the editor was restarted. ⚠ Silent in the
@@ -358,8 +382,12 @@ sealed class ThumbnailCache : IDisposable {
     ///         supposed to prevent.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Everything rather than one asset, and that is
-    ///         <c>ProjectSession.FollowDisk</c>'s own argument rather than laziness.</b> The three
+    ///         ⚠
+    ///         <b>
+    ///             Everything rather than one asset, and that is
+    ///             <c>ProjectSession.FollowDisk</c>'s own argument rather than laziness.
+    ///         </b>
+    ///         The three
     ///         callers — the watcher's drain, <c>assets.refresh</c> and the frame-thread half of a
     ///         finished import — know <em>whether</em> the project changed and deliberately not what:
     ///         resolving a watched path back to an asset here would be a second, worse copy of the
@@ -373,8 +401,12 @@ sealed class ThumbnailCache : IDisposable {
     ///         file changing.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Releasing an image a tile is holding is safe <em>here</em>, and the reason is not
-    ///         a general one.</b> <c>ThumbnailSurface</c> hands out numbers from a counter that only
+    ///         ⚠
+    ///         <b>
+    ///             Releasing an image a tile is holding is safe <em>here</em>, and the reason is not
+    ///             a general one.
+    ///         </b>
+    ///         <c>ThumbnailSurface</c> hands out numbers from a counter that only
     ///         ever increases, so a released number is never handed out again and a tile that draws
     ///         one draws nothing rather than another asset's picture. <see cref="Changed" /> is
     ///         raised so the grid rebinds in the same frame and asks again.
@@ -485,7 +517,7 @@ sealed class ThumbnailCache : IDisposable {
             }
 
             if (ImageDecoders.For(ImageDecoders.BuiltIn, extension) is not { } decoder) {
-                return new Decoded(asset, 0, 0, null);
+                return new(asset, 0, 0, null);
             }
 
             using var bytes = Read(path, reading);
@@ -495,7 +527,7 @@ sealed class ThumbnailCache : IDisposable {
             // the bytes and needs a tone map to look like anything — and a thumbnail that showed a
             // clipped exposure would be a worse answer than the type glyph.
             if (texture.Format != PixelFormat.Rgba8UNorm || texture.Width <= 0 || texture.Height <= 0) {
-                return new Decoded(asset, 0, 0, null);
+                return new(asset, 0, 0, null);
             }
 
             return Reduce(asset, texture);
@@ -508,15 +540,19 @@ sealed class ThumbnailCache : IDisposable {
             // condition held before the decode had run (#1407). The codec is third-party and reads
             // bytes anybody could have written, so what it throws is as unbounded as a plugin's
             // delegate — `Contributed`'s argument, and `TexturePreview.Read`'s wide net.
-            return new Decoded(asset, 0, 0, null);
+            return new(asset, 0, 0, null);
         }
     }
 
     /// <summary>Reads a whole file into memory without standing in the way of anybody saving it.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b><a href="https://github.com/Rikarin/Vixen/issues/1326">#1326</a>: on Windows a
-    ///         thumbnail being decoded made the file unsaveable.</b> The decode held
+    ///         ⚠
+    ///         <b>
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/1326">#1326</a>: on Windows a
+    ///             thumbnail being decoded made the file unsaveable.
+    ///         </b>
+    ///         The decode held
     ///         <c>File.OpenRead</c>'s handle — which shares for reading only — for the whole of the
     ///         decode, and on Windows a share mode is enforced by <c>CreateFile</c>, so a
     ///         <c>File.WriteAllBytes</c> over the same path in that window failed with a sharing
@@ -564,15 +600,19 @@ sealed class ThumbnailCache : IDisposable {
                 ? Reduce(asset, drawn.Width, drawn.Height, drawn.Rgba)
                 : new Decoded(asset, 0, 0, null);
         } catch (Exception) {
-            return new Decoded(asset, 0, 0, null);
+            return new(asset, 0, 0, null);
         }
     }
 
     /// <summary>Box-filters a decoded image down to a square thumbnail.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A box filter and not nearest, which is the difference between a thumbnail and
-    ///         noise.</b> Taking one source pixel per destination pixel of a 4096-wide texture samples
+    ///         ⚠
+    ///         <b>
+    ///             A box filter and not nearest, which is the difference between a thumbnail and
+    ///             noise.
+    ///         </b>
+    ///         Taking one source pixel per destination pixel of a 4096-wide texture samples
     ///         one in sixty-four, so a brick wall becomes a moiré pattern and a UI atlas becomes
     ///         static. Averaging the block each destination pixel covers costs a pass over the source
     ///         and is what makes the picture recognisable.
@@ -594,9 +634,9 @@ sealed class ThumbnailCache : IDisposable {
     ///     the same grid.
     /// </remarks>
     static Decoded Reduce(AssetId asset, int sourceWidth, int sourceHeight, ReadOnlySpan<byte> source) {
-        var scale = Math.Min((float) Size / sourceWidth, (float) Size / sourceHeight);
-        var width = Math.Max(1, (int) (sourceWidth * scale));
-        var height = Math.Max(1, (int) (sourceHeight * scale));
+        var scale = Math.Min((float)Size / sourceWidth, (float)Size / sourceHeight);
+        var width = Math.Max(1, (int)(sourceWidth * scale));
+        var height = Math.Max(1, (int)(sourceHeight * scale));
 
         var pixels = new byte[width * height * 4];
 
@@ -615,7 +655,7 @@ sealed class ThumbnailCache : IDisposable {
                     var row = sy * sourceWidth * 4;
 
                     for (var sx = left; sx < right; sx++) {
-                        var at = row + (sx * 4);
+                        var at = row + sx * 4;
 
                         if (at + 3 >= source.Length) {
                             continue;
@@ -633,16 +673,16 @@ sealed class ThumbnailCache : IDisposable {
                     continue;
                 }
 
-                var to = ((y * width) + x) * 4;
+                var to = (y * width + x) * 4;
 
-                pixels[to] = (byte) (r / taken);
-                pixels[to + 1] = (byte) (g / taken);
-                pixels[to + 2] = (byte) (b / taken);
-                pixels[to + 3] = (byte) (a / taken);
+                pixels[to] = (byte)(r / taken);
+                pixels[to + 1] = (byte)(g / taken);
+                pixels[to + 2] = (byte)(b / taken);
+                pixels[to + 3] = (byte)(a / taken);
             }
         }
 
-        return new Decoded(asset, width, height, pixels);
+        return new(asset, width, height, pixels);
     }
 
     void Touch(AssetId asset) {

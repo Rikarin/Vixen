@@ -80,8 +80,7 @@ public sealed class NetworkTelemetry : IDisposable {
             builder.AddRuntimeInstrumentation();
         }
 
-        builder.AddOtlpExporter(
-            (exporter, reader) => {
+        builder.AddOtlpExporter((exporter, reader) => {
                 if (settings.Endpoint is not null) {
                     exporter.Endpoint = settings.Endpoint;
                 }
@@ -92,9 +91,9 @@ public sealed class NetworkTelemetry : IDisposable {
         );
 
         if (settings.AlsoWriteToConsole) {
-            builder.AddConsoleExporter(
-                (_, reader) => reader.PeriodicExportingMetricReaderOptions.ExportIntervalMilliseconds =
-                    (int)settings.ExportInterval.TotalMilliseconds
+            builder.AddConsoleExporter((_, reader) =>
+                reader.PeriodicExportingMetricReaderOptions.ExportIntervalMilliseconds =
+                (int)settings.ExportInterval.TotalMilliseconds
             );
         }
 
@@ -121,8 +120,7 @@ public sealed class NetworkTelemetry : IDisposable {
             builder.SetSampler(new TraceIdRatioBasedSampler(Math.Max(0, settings.TraceSampleRatio)));
         }
 
-        builder.AddOtlpExporter(
-            exporter => {
+        builder.AddOtlpExporter(exporter => {
                 if (settings.Endpoint is not null) {
                     exporter.Endpoint = settings.Endpoint;
                 }

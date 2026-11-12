@@ -25,7 +25,7 @@ public class NodeLayeringTests {
     [Fact]
     public void TheNodesReferenceNothingAboveThem() {
         var violations = References()
-            .Where(name => Forbidden.Any(prefix => name.StartsWith(prefix, StringComparison.Ordinal)))
+            .Where(static name => Forbidden.Any(prefix => name.StartsWith(prefix, StringComparison.Ordinal)))
             .ToList();
 
         Assert.True(
@@ -66,7 +66,7 @@ public class NodeLayeringTests {
         };
 
         var unexpected = References()
-            .Where(name => name.StartsWith("Vixen.", StringComparison.Ordinal))
+            .Where(static name => name.StartsWith("Vixen.", StringComparison.Ordinal))
             .Where(name => !allowed.Contains(name))
             .ToList();
 
@@ -84,28 +84,27 @@ public class NodeLayeringTests {
     [Fact]
     public void NothingLoadedAlongsideTheseNodesDependsOnThem() {
         var dependents = AppDomain.CurrentDomain.GetAssemblies()
-            .Where(assembly => assembly.GetName().Name?.StartsWith("Vixen.", StringComparison.Ordinal) == true)
-            .Where(assembly => assembly.GetName().Name != "Vixen.Ai.Nodes")
-            .Where(assembly => assembly.GetName().Name != "Vixen.Ai.Nodes.Tests")
-            .Where(
-                assembly => assembly.GetReferencedAssemblies()
-                    .Any(reference => reference.Name == "Vixen.Ai.Nodes")
+            .Where(static assembly => assembly.GetName().Name?.StartsWith("Vixen.", StringComparison.Ordinal) == true)
+            .Where(static assembly => assembly.GetName().Name != "Vixen.Ai.Nodes")
+            .Where(static assembly => assembly.GetName().Name != "Vixen.Ai.Nodes.Tests")
+            .Where(static assembly => assembly.GetReferencedAssemblies()
+                    .Any(static reference => reference.Name == "Vixen.Ai.Nodes")
             )
-            .Select(assembly => assembly.GetName().Name)
+            .Select(static assembly => assembly.GetName().Name)
             .ToList();
 
         Assert.True(dependents.Count == 0, $"{string.Join(", ", dependents)} depends on Vixen.Ai.Nodes.");
     }
 
     static IEnumerable<string> References() =>
-        typeof(WorldNodes).Assembly.GetReferencedAssemblies().Select(assembly => assembly.Name ?? string.Empty);
+        typeof(WorldNodes).Assembly.GetReferencedAssemblies().Select(static assembly => assembly.Name ?? string.Empty);
 }
 
 public class WorldNodeRegistrationTests {
     [Fact]
     public void EverySchemaEntryHasAFactoryWhenTheThingsItNeedsExist() {
         var level = new Level();
-        var resolver = new BehaviorTreeResolver { Schema = new BehaviorNodeSchema() };
+        var resolver = new BehaviorTreeResolver { Schema = new() };
         var sounds = new Dictionary<string, Audio.AudioClip> { ["step"] = Rig.Clip(0.2f) };
 
         WorldNodes.Register(resolver, level.Query, sounds);
@@ -132,21 +131,22 @@ public class WorldNodeRegistrationTests {
             Keys = { new() { Name = "target", Type = BlackboardValueType.Vector3 } }
         };
 
-        content.Root!.Children[0].Decorators.Add(
-            new() { Type = "DoesPathExist", Fields = { ["Key"] = "target" } }
-        );
+        content.Root!.Children[0].Decorators.Add(new() { Type = "DoesPathExist", Fields = { ["Key"] = "target" } });
 
-        var resolver = new BehaviorTreeResolver { Schema = new BehaviorNodeSchema() };
+        var resolver = new BehaviorTreeResolver { Schema = new() };
 
         WorldNodes.Register(resolver);
         BehaviorTreeContentCompiler.TryCompile(content, resolver, out var diagnostics, out _);
 
-        Assert.Contains(diagnostics, problem => problem.Message.Contains("no factory registered", StringComparison.Ordinal));
+        Assert.Contains(
+            diagnostics,
+            static problem => problem.Message.Contains("no factory registered", StringComparison.Ordinal)
+        );
     }
 
     [Fact]
     public void RegisteringTwiceIsHarmless() {
-        var schema = WorldNodes.Register(new BehaviorNodeSchema());
+        var schema = WorldNodes.Register(new());
         var before = schema.Types.Count;
 
         WorldNodes.Register(schema);
@@ -184,7 +184,11 @@ public class WorldNodeRegistrationTests {
 
         BehaviorTreeContentCompiler.TryCompile(content, resolver, out var diagnostics, out _);
 
-        return diagnostics.All(problem => !problem.Message.Contains("no factory registered", StringComparison.Ordinal));
+        return diagnostics.All(static problem => !problem.Message.Contains(
+                "no factory registered",
+                StringComparison.Ordinal
+            )
+        );
     }
 
     static BehaviorAttachmentContent Row(BehaviorNodeType type) {

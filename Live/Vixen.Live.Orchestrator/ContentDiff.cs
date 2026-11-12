@@ -16,13 +16,13 @@ namespace Vixen.Live.Orchestration;
 /// </param>
 public readonly record struct ContentEntry(string Address, ulong Hash, string Kind, string Schema = "") {
     /// <summary>The address. Null only on <c>default</c>.</summary>
-    public string Address { get; init; } = Address ?? "";
+    public string Address { get; init; } = Address ?? string.Empty;
 
     /// <summary>The kind. Null only on <c>default</c>.</summary>
-    public string Kind { get; init; } = Kind ?? "";
+    public string Kind { get; init; } = Kind ?? string.Empty;
 
     /// <summary>The schema. Null only on <c>default</c>. <b>Empty means unknown, not unchanging.</b></summary>
-    public string Schema { get; init; } = Schema ?? "";
+    public string Schema { get; init; } = Schema ?? string.Empty;
 
     /// <summary>Whether the shape of this entry is known at all.</summary>
     /// <remarks>
@@ -38,8 +38,7 @@ public readonly record struct ContentEntry(string Address, ulong Hash, string Ki
     public bool IsValid => !string.IsNullOrEmpty(Address);
 
     /// <inheritdoc />
-    public override string ToString() =>
-        string.Create(CultureInfo.InvariantCulture, $"{Address} ({Kind}) {Hash:x16}");
+    public override string ToString() => string.Create(CultureInfo.InvariantCulture, $"{Address} ({Kind}) {Hash:x16}");
 }
 
 /// <summary>
@@ -104,8 +103,12 @@ public readonly record struct ContentDelta(
 ///         finding out.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The classifier is deliberately pessimistic, and the asymmetry is the whole safety
-///         argument.</b> Calling a non-additive change additive means a live reload that corrupts a
+///         ⚠
+///         <b>
+///             The classifier is deliberately pessimistic, and the asymmetry is the whole safety
+///             argument.
+///         </b>
+///         Calling a non-additive change additive means a live reload that corrupts a
 ///         running world; calling an additive change non-additive means a drain nobody needed. The
 ///         first is unrecoverable and the second costs an evening, so every case this cannot decide
 ///         is <em>not</em> additive.
@@ -138,8 +141,12 @@ public static class ContentDiff {
     /// <returns>The projection.</returns>
     /// <exception cref="ArgumentNullException">Either argument is null.</exception>
     /// <remarks>
-    ///     ⚠ <b>An entry whose <c>Shape</c> is zero projects to an unknown shape, and every change to
-    ///     it is therefore non-additive.</b> That is not a limitation to work around: a catalog built
+    ///     ⚠
+    ///     <b>
+    ///         An entry whose <c>Shape</c> is zero projects to an unknown shape, and every change to
+    ///         it is therefore non-additive.
+    ///     </b>
+    ///     That is not a limitation to work around: a catalog built
     ///     before the shape was recorded cannot distinguish a rebalance from a layout change, and
     ///     guessing wrong in that direction reloads a definition under a world of entities built
     ///     against the old one.
@@ -158,11 +165,11 @@ public static class ContentDiff {
                 new(
                     entry.Address,
                     entry.Content,
-                    kind(entry.Address) ?? "",
+                    kind(entry.Address) ?? string.Empty,
 
                     // Zero is "this build did not say", and the empty string is how ContentEntry
                     // spells the same thing — so the refusal falls out rather than being coded twice.
-                    entry.Shape == 0 ? "" : entry.Shape.ToString("x16", CultureInfo.InvariantCulture)
+                    entry.Shape == 0 ? string.Empty : entry.Shape.ToString("x16", CultureInfo.InvariantCulture)
                 )
             );
         }
@@ -190,7 +197,7 @@ public static class ContentDiff {
             if (!old.TryGetValue(address, out var previous)) {
                 // Nothing live can refer to an address that did not exist, so a new one is the one
                 // change that is additive without qualification. This is doc 28's entire premise.
-                deltas.Add(new(address, ContentChange.Added, entry.Kind, true, ""));
+                deltas.Add(new(address, ContentChange.Added, entry.Kind, true, string.Empty));
 
                 continue;
             }
@@ -216,7 +223,7 @@ public static class ContentDiff {
             }
         }
 
-        return [.. deltas.OrderBy(delta => delta.Address, StringComparer.Ordinal)];
+        return [..deltas.OrderBy(static delta => delta.Address, StringComparer.Ordinal)];
     }
 
     /// <summary>Whether a whole diff can be applied to a running fleet.</summary>
@@ -231,7 +238,7 @@ public static class ContentDiff {
     public static bool IsAdditive(IReadOnlyCollection<ContentDelta> deltas) {
         ArgumentNullException.ThrowIfNull(deltas);
 
-        return deltas.All(delta => delta.Additive);
+        return deltas.All(static delta => delta.Additive);
     }
 
     /// <summary>Why an update cannot be applied live, as sentences for an operator.</summary>
@@ -247,7 +254,7 @@ public static class ContentDiff {
     public static ImmutableArray<string> Blockers(IReadOnlyCollection<ContentDelta> deltas) {
         ArgumentNullException.ThrowIfNull(deltas);
 
-        return [.. deltas.Where(delta => !delta.Additive).Select(delta => delta.ToString())];
+        return [..deltas.Where(static delta => !delta.Additive).Select(static delta => delta.ToString())];
     }
 
     static ContentDelta Classify(ContentEntry previous, ContentEntry entry) {
@@ -293,7 +300,9 @@ public static class ContentDiff {
             ContentChange.Modified,
             entry.Kind,
             reloadable,
-            reloadable ? "" : $"a `{entry.Kind}` is baked into things that already exist and cannot be reloaded under them"
+            reloadable
+                ? string.Empty
+                : $"a `{entry.Kind}` is baked into things that already exist and cannot be reloaded under them"
         );
     }
 

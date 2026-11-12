@@ -36,8 +36,12 @@ public readonly record struct VertexChannel(string Name, VertexFormat Format, in
 ///         every pass that draws it.
 ///     </para>
 ///     <para>
-///         ⚠ <b>An attribute the shader declares and this does not have is refused, and that is the
-///         point.</b> Binding nothing to a declared location is not a validation error on most
+///         ⚠
+///         <b>
+///             An attribute the shader declares and this does not have is refused, and that is the
+///             point.
+///         </b>
+///         Binding nothing to a declared location is not a validation error on most
 ///         drivers — it is a stage reading whatever was left in the slot — and describing a location
 ///         the pipeline has no variable at <em>is</em> one. Both are silent failures a long way from
 ///         their cause, so the join is checked here where both halves are in hand.
@@ -137,25 +141,25 @@ public sealed class VertexSchema {
             throw new InvalidOperationException(
                 $"'{effect.Key.ShaderName}' reads a vertex attribute called '{input.Name}' at location "
                 + $"{input.Location}, and this vertex format holds "
-                + $"{string.Join(", ", attributes.Select(a => a.Name))}"
+                + $"{string.Join(", ", attributes.Select(static a => a.Name))}"
                 + (Instances is null
                     ? string.Empty
-                    : $" with an instance stream holding {string.Join(", ", Instances.attributes.Select(a => a.Name))}")
+                    : $" with an instance stream holding {string.Join(", ", Instances.attributes.Select(static a => a.Name))}")
                 + ". A pipeline that described no attribute there would be refused, and one that "
                 + "described the wrong bytes would draw."
             );
         }
 
         if (Instances is not { } stream) {
-            return [new VertexBufferLayout(Stride, perVertex.ToArray())];
+            return [new VertexBufferLayout(Stride, [..perVertex])];
         }
 
         // Both buffers, always, even where the stage read nothing from one of them: the feature binds
         // two and a description that named one would leave the other bound to a layout with no
         // binding at that index.
         return [
-            new VertexBufferLayout(Stride, perVertex.ToArray()),
-            new VertexBufferLayout(stream.Stride, perInstance!.ToArray(), VertexStepMode.Instance)
+            new VertexBufferLayout(Stride, [..perVertex]),
+            new VertexBufferLayout(stream.Stride, [..perInstance!], VertexStepMode.Instance)
         ];
     }
 

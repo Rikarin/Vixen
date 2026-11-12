@@ -3,7 +3,6 @@
 
 using System.Globalization;
 using System.IO.Pipes;
-using System.Net.Http.Json;
 using System.Net.Sockets;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -29,8 +28,12 @@ public sealed record DockerContainer(string Id, IReadOnlyDictionary<string, stri
 /// <param name="Environment">Variables to set.</param>
 /// <param name="Port">The UDP port to publish, host and container alike.</param>
 /// <remarks>
-///     ⚠ <b><paramref name="Arguments" /> is the container's <c>Cmd</c>, which is not the whole
-///     command.</b> Docker execs the image's <c>ENTRYPOINT</c> with <c>Cmd</c> appended, so these are
+///     ⚠
+///     <b>
+///         <paramref name="Arguments" /> is the container's <c>Cmd</c>, which is not the whole
+///         command.
+///     </b>
+///     Docker execs the image's <c>ENTRYPOINT</c> with <c>Cmd</c> appended, so these are
 ///     the realm's arguments only — and only when the image has an entrypoint to append them to. An
 ///     image without one turns <c>Arguments[0]</c> into the program, which is how a container comes up
 ///     dead saying <c>--realm-spec: executable file not found</c>.
@@ -92,13 +95,13 @@ public sealed class DockerEngine : IDisposable {
     /// <param name="endpoint">
     ///     A socket path, a <c>npipe://</c> pipe name, or null for the platform's default.
     /// </param>
-    public DockerEngine(string? endpoint = null) : this(Connect(endpoint), ownsClient: true) { }
+    public DockerEngine(string? endpoint = null) : this(Connect(endpoint), true) { }
 
     /// <summary>Opens a client on a handler the caller built.</summary>
     /// <param name="handler">What to send over. Disposed with this.</param>
     /// <exception cref="ArgumentNullException"><paramref name="handler" /> is null.</exception>
     public DockerEngine(HttpMessageHandler handler)
-        : this(new HttpClient(handler) { BaseAddress = new("http://docker/") }, ownsClient: true) { }
+        : this(new(handler) { BaseAddress = new("http://docker/") }, true) { }
 
     DockerEngine(HttpClient client, bool ownsClient) {
         ArgumentNullException.ThrowIfNull(client);
@@ -119,16 +122,19 @@ public sealed class DockerEngine : IDisposable {
             using var response = await client.GetAsync(Url("version"), cancellation).ConfigureAwait(false);
 
             if (!response.IsSuccessStatusCode) {
-                return new(false, "", $"the daemon answered {(int)response.StatusCode}");
+                return new(false, string.Empty, $"the daemon answered {(int)response.StatusCode}");
             }
 
             var version = await response.Content
                 .ReadFromJsonAsync<VersionResponse>(Json, cancellation)
                 .ConfigureAwait(false);
 
-            return new(true, version?.Version ?? "", $"Engine {version?.Version} on {version?.Os}");
-        } catch (Exception failure) when (failure is HttpRequestException or SocketException or IOException or JsonException) {
-            return new(false, "", failure.Message);
+            return new(true, version?.Version ?? string.Empty, $"Engine {version?.Version} on {version?.Os}");
+        } catch (Exception failure) when (failure is HttpRequestException
+                                              or SocketException
+                                              or IOException
+                                              or JsonException) {
+            return new(false, string.Empty, failure.Message);
         }
     }
 
@@ -149,21 +155,19 @@ public sealed class DockerEngine : IDisposable {
             // Null, not empty, when nothing was asked for: an entrypoint of `[]` clears the image's
             // rather than leaving it alone, and a cleared entrypoint is what promotes the first
             // argument to the program. `WhenWritingNull` is what drops the field entirely.
-            Entrypoint = create.Entrypoint.Count > 0 ? [.. create.Entrypoint] : null,
-            Cmd = [.. create.Arguments],
+            Entrypoint = create.Entrypoint.Count > 0 ? [..create.Entrypoint] : null,
+            Cmd = [..create.Arguments],
             Labels = create.Labels.ToDictionary(StringComparer.Ordinal),
-            Env = [.. create.Environment.Select(entry => $"{entry.Key}={entry.Value}")],
+            Env = [..create.Environment.Select(static entry => $"{entry.Key}={entry.Value}")],
 
             // ⚠ Not a TTY. Without one the log stream is framed, which this client demultiplexes —
             // and with one, stdout and stderr are merged into a single stream with no way to tell a
             // realm's ready line from something it printed to stderr. Doc 27's lifecycle travels on
             // stdout, and a merged stream would make "ready" a substring match on everything.
             Tty = false,
-            ExposedPorts = new Dictionary<string, object> { [$"{port}/udp"] = new() },
+            ExposedPorts = new() { [$"{port}/udp"] = new() },
             HostConfig = new() {
-                PortBindings = new Dictionary<string, List<PortBinding>> {
-                    [$"{port}/udp"] = [new() { HostPort = port }]
-                },
+                PortBindings = new() { [$"{port}/udp"] = [new() { HostPort = port }] },
 
                 // A realm that exits has exited. Doc 27 § Health: a shard whose process is gone is
                 // Lost and its replacement is a *placement* — a container the daemon restarted
@@ -217,8 +221,12 @@ public sealed class DockerEngine : IDisposable {
     /// <returns>When the image is there.</returns>
     /// <exception cref="InvalidOperationException">The daemon refused, or the pull failed.</exception>
     /// <remarks>
-    ///     ⚠ <b>Not called by <see cref="DockerPlacement" />, and that is a policy decision rather than
-    ///     an omission.</b> Whether a node pulls on every placement, only when the image is absent, or
+    ///     ⚠
+    ///     <b>
+    ///         Not called by <see cref="DockerPlacement" />, and that is a policy decision rather than
+    ///         an omission.
+    ///     </b>
+    ///     Whether a node pulls on every placement, only when the image is absent, or
     ///     never — because a deployment pre-warms its nodes — is the orchestrator's to make. What this
     ///     backend owes it is the ability to.
     /// </remarks>
@@ -228,7 +236,7 @@ public sealed class DockerEngine : IDisposable {
         using var response = await client
             .PostAsync(
                 Url($"images/create?fromImage={Uri.EscapeDataString(name)}&tag={Uri.EscapeDataString(tag)}"),
-                content: null,
+                null,
                 cancellation
             )
             .ConfigureAwait(false);
@@ -252,7 +260,7 @@ public sealed class DockerEngine : IDisposable {
     /// <exception cref="InvalidOperationException">The daemon refused.</exception>
     public async Task StartAsync(string id, CancellationToken cancellation) {
         using var response = await client
-            .PostAsync(Url($"containers/{id}/start"), content: null, cancellation)
+            .PostAsync(Url($"containers/{id}/start"), null, cancellation)
             .ConfigureAwait(false);
 
         await Refuse(response, $"start {id}", cancellation).ConfigureAwait(false);
@@ -272,7 +280,7 @@ public sealed class DockerEngine : IDisposable {
         var seconds = Math.Max(0, (int)patience.TotalSeconds).ToString(CultureInfo.InvariantCulture);
 
         using var response = await client
-            .PostAsync(Url($"containers/{id}/stop?t={seconds}"), content: null, cancellation)
+            .PostAsync(Url($"containers/{id}/stop?t={seconds}"), null, cancellation)
             .ConfigureAwait(false);
 
         if (response.StatusCode is System.Net.HttpStatusCode.NotFound or System.Net.HttpStatusCode.NotModified) {
@@ -318,12 +326,11 @@ public sealed class DockerEngine : IDisposable {
             .ReadFromJsonAsync<List<ListResponse>>(Json, cancellation)
             .ConfigureAwait(false);
 
-        return
-        [
-            .. (listed ?? []).Select(entry => new DockerContainer(
-                    entry.Id ?? "",
+        return [
+            ..(listed ?? []).Select(static entry => new DockerContainer(
+                    entry.Id ?? string.Empty,
                     entry.Labels ?? new Dictionary<string, string>(StringComparer.Ordinal),
-                    entry.State ?? ""
+                    entry.State ?? string.Empty
                 )
             )
         ];
@@ -371,7 +378,7 @@ public sealed class DockerEngine : IDisposable {
     /// <returns>Its exit code, or zero if the daemon would not say.</returns>
     public async Task<int> WaitAsync(string id, CancellationToken cancellation) {
         using var response = await client
-            .PostAsync(Url($"containers/{id}/wait"), content: null, cancellation)
+            .PostAsync(Url($"containers/{id}/wait"), null, cancellation)
             .ConfigureAwait(false);
 
         if (!response.IsSuccessStatusCode) {
@@ -403,7 +410,7 @@ public sealed class DockerEngine : IDisposable {
     static (string Name, string Tag) Reference(string image) {
         // A digest is asked for whole: `fromImage=repo@sha256:…` with no tag beside it.
         if (image.Contains('@', StringComparison.Ordinal)) {
-            return (image, "");
+            return (image, string.Empty);
         }
 
         var colon = image.LastIndexOf(':');
@@ -424,9 +431,7 @@ public sealed class DockerEngine : IDisposable {
         // image" and "port is already allocated" are the two an operator actually hits.
         var said = await response.Content.ReadAsStringAsync(cancellation).ConfigureAwait(false);
 
-        throw new InvalidOperationException(
-            $"Docker would not {what}: {(int)response.StatusCode} {said.Trim()}"
-        );
+        throw new InvalidOperationException($"Docker would not {what}: {(int)response.StatusCode} {said.Trim()}");
     }
 
     static HttpClient Connect(string? endpoint) {
@@ -438,9 +443,12 @@ public sealed class DockerEngine : IDisposable {
     static async ValueTask<Stream> Dial(string? endpoint, CancellationToken cancellation) {
         var target = endpoint ?? (OperatingSystem.IsWindows() ? DefaultPipe : DefaultSocket);
 
-        if (target.StartsWith("npipe://", StringComparison.OrdinalIgnoreCase) || target.StartsWith(@"\\.\pipe\", StringComparison.Ordinal)) {
+        if (target.StartsWith("npipe://", StringComparison.OrdinalIgnoreCase)
+            || target.StartsWith(@"\\.\pipe\", StringComparison.Ordinal)) {
             var name = target.StartsWith("npipe://", StringComparison.OrdinalIgnoreCase)
-                ? target["npipe://".Length..].TrimStart('.', '/', '\\').Replace("pipe/", "", StringComparison.Ordinal)
+                ? target["npipe://".Length..]
+                    .TrimStart('.', '/', '\\')
+                    .Replace("pipe/", string.Empty, StringComparison.Ordinal)
                 : target[@"\\.\pipe\".Length..];
 
             var pipe = new NamedPipeClientStream(".", name, PipeDirection.InOut, PipeOptions.Asynchronous);
@@ -454,7 +462,7 @@ public sealed class DockerEngine : IDisposable {
 
         await socket.ConnectAsync(new UnixDomainSocketEndPoint(target), cancellation).ConfigureAwait(false);
 
-        return new NetworkStream(socket, ownsSocket: true);
+        return new NetworkStream(socket, true);
     }
 
     sealed class VersionResponse {

@@ -82,8 +82,12 @@ sealed partial class NoiseNode : TextureNode {
     ///     <c>Manhattan</c> — diamond. ⚠ Read by <c>Worley</c> and ignored by the other three.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>A setting that three of the four bases ignore, and there is no way for the node to say
-    ///     so</b> — <c>Shape</c>'s <c>Falloff</c> has exactly the same shape, and a setting cannot
+    ///     ⚠
+    ///     <b>
+    ///         A setting that three of the four bases ignore, and there is no way for the node to say
+    ///         so
+    ///     </b>
+    ///     — <c>Shape</c>'s <c>Falloff</c> has exactly the same shape, and a setting cannot
     ///     hide a setting. What it buys is the whole of a cellular pattern library that is not round:
     ///     <a href="https://github.com/Rikarin/Vixen/issues/1101">#1101</a> found it authoring
     ///     <c>Patterns/Cells</c>, where tile, cracked mud and snake skin all want a metric that was
@@ -198,7 +202,11 @@ sealed partial class NoiseNode : TextureNode {
 ///         1024 base.
 ///     </para>
 /// </remarks>
-[Node("Source/Blue Noise", Preview = true, Summary = "Evenly spread noise with no clumps: every threshold is a well-spaced set of points.")]
+[Node(
+    "Source/Blue Noise",
+    Preview = true,
+    Summary = "Evenly spread noise with no clumps: every threshold is a well-spaced set of points."
+)]
 sealed partial class BlueNoiseNode : TextureNode {
     /// <summary>How many tiles across the image, and down. Each tile is 64 texels square.</summary>
     [Input(Minimum = 1f, SoftMaximum = 64f)]
@@ -229,15 +237,20 @@ sealed partial class BlueNoiseNode : TextureNode {
             return;
         }
 
-        emitter.Dispatch(TextureSources.BlueNoise(target, tile, emitter.Integer(nameof(Scale)), emitter.Integer(nameof(Seed))));
+        emitter.Dispatch(
+            TextureSources.BlueNoise(target, tile, emitter.Integer(nameof(Scale)), emitter.Integer(nameof(Seed)))
+        );
     }
 }
 
 /// <summary>One of fifteen analytic patterns, on a grey.</summary>
 /// <remarks>
 ///     <para>
-///         <b>The splatter's usual pattern input, which is why it is worth having as its own
-///         node</b> rather than as a mode of something larger: <c>Tile Sampler</c> and
+///         <b>
+///             The splatter's usual pattern input, which is why it is worth having as its own
+///             node
+///         </b>
+///         rather than as a mode of something larger: <c>Tile Sampler</c> and
 ///         <c>Splatter</c> read a stamp, and a disc with a soft edge is the stamp most graphs want.
 ///     </para>
 ///     <para>
@@ -262,7 +275,11 @@ sealed partial class BlueNoiseNode : TextureNode {
 ///         is that the kernels agree, and <c>TextureAngleUnitTests</c> is what keeps them agreeing.
 ///     </para>
 /// </remarks>
-[Node("Source/Shape", Preview = true, Summary = "A disc, polygon, star, ring, capsule or crescent, or one of seven profiles.")]
+[Node(
+    "Source/Shape",
+    Preview = true,
+    Summary = "A disc, polygon, star, ring, capsule or crescent, or one of seven profiles."
+)]
 sealed partial class ShapeNode : TextureNode {
     /// <summary>
     ///     Which pattern: <c>Disc</c>, <c>Square</c>, <c>Triangle</c>, <c>Paraboloid</c>,
@@ -289,7 +306,11 @@ sealed partial class ShapeNode : TextureNode {
     public Int Sides = 6;
 
     /// <summary>A star's valleys, a ring's hole, a capsule's half thickness or a crescent's cut, in radii.</summary>
-    [Input(Minimum = 0f, Maximum = 1f, Summary = "Star valleys, ring hole, capsule half thickness or crescent cut, in radii.")]
+    [Input(
+        Minimum = 0f,
+        Maximum = 1f,
+        Summary = "Star valleys, ring hole, capsule half thickness or crescent cut, in radii."
+    )]
     public Scalar Inner = 0.5f;
 
     /// <summary>Where it sits along x, in 0..1 of the image.</summary>
@@ -383,8 +404,12 @@ sealed partial class CheckerNode : TextureNode {
 
 /// <summary>Which colour space an imported picture's values are in.</summary>
 /// <remarks>
-///     ⚠ <b>Doc 48 § 4.1: "an sRGB texture decoded as linear and then blended is the commonest
-///     wrong-looking graph there is."</b> The decode happens once, in <c>Bitmap.rvn</c>, at the only
+///     ⚠
+///     <b>
+///         Doc 48 § 4.1: "an sRGB texture decoded as linear and then blended is the commonest
+///         wrong-looking graph there is."
+///     </b>
+///     The decode happens once, in <c>Bitmap.rvn</c>, at the only
 ///     node that touches an asset — so every image <em>inside</em> a graph is linear by construction
 ///     and no other kernel has to ask.
 /// </remarks>
@@ -414,8 +439,12 @@ enum TextureColourSpace {
 ///         editor, and a host outside this tree walks it the same way.
 ///     </para>
 ///     <para>
-///         ⚠ <b>No minification filter, which is the kernel's property and worth knowing before
-///         importing a 4K stamp.</b> A bitmap larger than the image it is resampled into is
+///         ⚠
+///         <b>
+///             No minification filter, which is the kernel's property and worth knowing before
+///             importing a 4K stamp.
+///         </b>
+///         A bitmap larger than the image it is resampled into is
 ///         undersampled and will alias; <c>Space/Resample</c> is where that is answered, because only
 ///         there is the target's size the whole of the answer.
 ///     </para>
@@ -424,12 +453,16 @@ enum TextureColourSpace {
 sealed partial class BitmapNode : TextureNode {
     /// <summary>The imported image this graph reads, as a host resolves it.</summary>
     [Setting(Name = "Source", Summary = "The imported image, by the reference a host resolves.")]
-    public string Asset = "";
+    public string Asset = string.Empty;
 
     /// <summary>Whether the asset's values need decoding: <c>Linear</c> or <c>Srgb</c>.</summary>
     /// <remarks>
-    ///     ⚠ <b><c>Linear</c> by default, which is the kernel's own default and is deliberately the
-    ///     one that does nothing.</b> <c>Bitmap.rvn</c> calls this "the asset's declared space
+    ///     ⚠
+    ///     <b>
+    ///         <c>Linear</c> by default, which is the kernel's own default and is deliberately the
+    ///         one that does nothing.
+    ///     </b>
+    ///     <c>Bitmap.rvn</c> calls this "the asset's declared space
     ///     arriving as a number" — it is a fact about the picture, and the node cannot see the
     ///     picture. Defaulting to <c>Srgb</c> would darken every imported mask by a curve nobody
     ///     asked for, which is as silent as the over-bright colour map it would fix; a host that has
@@ -440,8 +473,12 @@ sealed partial class BitmapNode : TextureNode {
 
     /// <summary>How it is resampled: <c>Point</c> or <c>Bilinear</c>. ⚠ Not <c>Box</c>.</summary>
     /// <remarks>
-    ///     ⚠ <b>Listed rather than <c>AcceptedFrom = typeof(TextureFilter)</c>, because this node
-    ///     refuses the enum's third member.</b> A picker generated off the whole enum would offer
+    ///     ⚠
+    ///     <b>
+    ///         Listed rather than <c>AcceptedFrom = typeof(TextureFilter)</c>, because this node
+    ///         refuses the enum's third member.
+    ///     </b>
+    ///     A picker generated off the whole enum would offer
     ///     <c>Box</c> and the compiler would then refuse it — which is the defect
     ///     <c>[Setting(Accepted = …)]</c> exists to remove, arriving from the other side.
     ///     <c>TextureSettingChoiceTests</c> holds the narrowing to a real refusal rather than to an
@@ -505,8 +542,11 @@ sealed partial class BitmapNode : TextureNode {
 /// <summary>A sweep along a ramp: linear, radial, angular or reflected.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>The ramp is an image and not a list of uniforms, which is what keeps this from being
-///         a second opinion about what a gradient means.</b>
+///         ⚠
+///         <b>
+///             The ramp is an image and not a list of uniforms, which is what keeps this from being
+///             a second opinion about what a gradient means.
+///         </b>
 ///         <c>Vixen.Ui.Controls.Advanced</c>'s <c>Gradient</c> already decides that, including which
 ///         of three spaces the stops are mixed in — sRGB, linear and Oklab disagree visibly — so the
 ///         strip is baked from <em>that</em> evaluator by <see cref="TextureRamp.FromRamp" /> and the
@@ -527,7 +567,7 @@ sealed partial class GradientNode : TextureNode {
 
     /// <summary>The gradient asset the strip is baked from, or empty for black to white.</summary>
     [Setting(Name = "Ramp", Summary = "The gradient asset a host resolves. Empty is black to white.")]
-    public string RampAsset = "";
+    public string RampAsset = string.Empty;
 
     /// <summary>The direction of a linear or reflected sweep, in radians, clockwise on screen.</summary>
     [Input(SoftMinimum = -MathF.PI, SoftMaximum = MathF.PI)]

@@ -16,8 +16,12 @@ namespace Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Every test here binds the generated source against the <em>real</em> shader library,
-///         not on its own.</b> That is the whole difference from
+///         ⚠
+///         <b>
+///             Every test here binds the generated source against the <em>real</em> shader library,
+///             not on its own.
+///         </b>
+///         That is the whole difference from
 ///         <see cref="ShaderGraphCompilerTests" />, and it is not thoroughness — it is the only way
 ///         the assertion can be true. A standalone shader is self-contained, so compiling it alone
 ///         proves it; a feature names <c>IMaterialSurface</c>, <c>MaterialData</c>,
@@ -72,7 +76,7 @@ public class SurfaceGraphTests {
     /// </remarks>
     static void BindsIntoTheChain(ShaderGraphSource source) {
         var trees = LibraryFiles()
-            .Select(file => SyntaxTree.ParseText(File.ReadAllText(file), path: Path.GetFileName(file)))
+            .Select(static file => SyntaxTree.ParseText(File.ReadAllText(file), path: Path.GetFileName(file)))
             .Append(SyntaxTree.ParseText(source.Source, path: source.Name + ".rvn"))
             .ToArray();
 
@@ -116,7 +120,7 @@ public class SurfaceGraphTests {
         Assert.True(
             diagnostics.Count == 0,
             "The generated feature did not bind into the material chain:\n"
-            + string.Join("\n", diagnostics.Select(diagnostic => diagnostic.ToString()))
+            + string.Join("\n", diagnostics.Select(static diagnostic => diagnostic.ToString()))
             + "\n\n"
             + source.Source
         );
@@ -216,8 +220,12 @@ public class SurfaceGraphTests {
 
     /// <summary>A coordinate the graph computed is the coordinate the texture is read at.</summary>
     /// <remarks>
-    ///     ⚠ <b>The reason the emitter indexes the table itself rather than calling
-    ///     <c>SampleSurface</c>.</b> That helper samples at <c>d.uv</c> unconditionally, so a graph
+    ///     ⚠
+    ///     <b>
+    ///         The reason the emitter indexes the table itself rather than calling
+    ///         <c>SampleSurface</c>.
+    ///     </b>
+    ///     That helper samples at <c>d.uv</c> unconditionally, so a graph
     ///     with a <c>Tiling and Offset</c> node in it would compile, draw, and sample somewhere the
     ///     author did not ask for — a wrong image with nothing to blame it on.
     /// </remarks>
@@ -322,13 +330,16 @@ public class SurfaceGraphTests {
         var input = graph.Add(type);
         var master = graph.Add("Master/Surface");
 
-        graph.Connect(new(input.Id, input.Type == "Input/World Position" ? "Position" : "Colour"), new(master.Id, "BaseColour"));
+        graph.Connect(
+            new(input.Id, input.Type == "Input/World Position" ? "Position" : "Colour"),
+            new(master.Id, "BaseColour")
+        );
 
         var result = new ShaderGraphCompiler(Library()).Compile(graph);
 
         Assert.False(result.Succeeded);
 
-        var diagnostic = Assert.Single(result.Diagnostics, candidate => candidate.Id == "SG0004");
+        var diagnostic = Assert.Single(result.Diagnostics, static candidate => candidate.Id == "SG0004");
 
         Assert.Contains(named, diagnostic.Message, StringComparison.Ordinal);
 
@@ -377,8 +388,12 @@ public class SurfaceGraphTests {
 
     /// <summary>A node's span still points at the line it wrote, in the surface shape too.</summary>
     /// <remarks>
-    ///     ⚠ <b>The offset is different arithmetic in each shape and there is nothing to notice when
-    ///     it drifts.</b> Both count the compiler's own header and then add it to spans the emitter
+    ///     ⚠
+    ///     <b>
+    ///         The offset is different arithmetic in each shape and there is nothing to notice when
+    ///         it drifts.
+    ///     </b>
+    ///     Both count the compiler's own header and then add it to spans the emitter
     ///     numbered from zero, but the surface header is four imports and no vertex stage while the
     ///     standalone one is two transforms and every varying the graph asked for. A span off by a
     ///     line still resolves to a node, and the squiggle lands on the statement above or below the
@@ -426,7 +441,8 @@ public class SurfaceGraphTests {
         // author is sent when the name they typed is refused.
         var declaration = Assert.Single(
             result.Value.Spans,
-            candidate => candidate.Node == sample.Id && lines[candidate.Span.Line].Contains("var albedoIndex", StringComparison.Ordinal)
+            candidate => candidate.Node == sample.Id
+                && lines[candidate.Span.Line].Contains("var albedoIndex", StringComparison.Ordinal)
         );
 
         Assert.Equal(1, declaration.Span.Lines);
@@ -486,7 +502,7 @@ public class SurfaceGraphTests {
         // would notice.
         Assert.Equal(
             1,
-            result.Value.Source.Split('\n').Count(line => line.Trim() == "import Vixen.Shaders.Material")
+            result.Value.Source.Split('\n').Count(static line => line.Trim() == "import Vixen.Shaders.Material")
         );
 
         BindsIntoTheChain(result.Value);
@@ -494,8 +510,12 @@ public class SurfaceGraphTests {
 
     /// <summary>A standalone graph imports what its nodes asked for, and only that.</summary>
     /// <remarks>
-    ///     ⚠ <b>The standalone shape emitted no imports at all, which is what a node preview needs and
-    ///     what a node calling a library function cannot have.</b> So the preamble is empty until
+    ///     ⚠
+    ///     <b>
+    ///         The standalone shape emitted no imports at all, which is what a node preview needs and
+    ///         what a node calling a library function cannot have.
+    ///     </b>
+    ///     So the preamble is empty until
     ///     something asks — <c>RavenEmitter.Import</c> — rather than the shading library being pulled
     ///     into every graph: <c>ShaderGraphPreviewRenderer</c> binds one uniform block and refuses any
     ///     variant whose reflection wants more, so an unused import is paid for by every node that
@@ -529,7 +549,12 @@ public class SurfaceGraphTests {
         // grew without the arithmetic following it blames whichever node happens to sit that far down.
         var lines = asked.Value.Source.Split('\n');
 
-        Assert.True(asked.Value.NodeAt(Array.FindIndex(lines, line => line.Contains("ValueNoise", StringComparison.Ordinal)), out var span));
+        Assert.True(
+            asked.Value.NodeAt(
+                Array.FindIndex(lines, static line => line.Contains("ValueNoise", StringComparison.Ordinal)),
+                out var span
+            )
+        );
         Assert.Equal(noise.Id, span.Node);
     }
 }

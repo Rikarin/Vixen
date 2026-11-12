@@ -33,12 +33,14 @@ sealed class SourceLinks(string repositoryRoot, string repositoryUrl, string? co
     public IReadOnlyList<DocSource> All(ISymbol symbol) {
         var documented = !string.IsNullOrWhiteSpace(symbol.GetDocumentationCommentXml());
 
-        return [.. symbol.Locations
-            .Where(location => location.IsInSource)
-            .Select(location => location.GetLineSpan())
-            .Where(span => !string.IsNullOrEmpty(span.Path))
-            .OrderByDescending(_ => documented)
-            .Select(span => Create(span.Path, span.StartLinePosition.Line + 1, span.EndLinePosition.Line + 1))];
+        return [
+            ..symbol.Locations
+                .Where(static location => location.IsInSource)
+                .Select(static location => location.GetLineSpan())
+                .Where(static span => !string.IsNullOrEmpty(span.Path))
+                .OrderByDescending(_ => documented)
+                .Select(span => Create(span.Path, span.StartLinePosition.Line + 1, span.EndLinePosition.Line + 1))
+        ];
     }
 
     /// <summary>True when the file is generator output rather than a file in the tree.</summary>
@@ -70,7 +72,7 @@ sealed class SourceLinks(string repositoryRoot, string repositoryUrl, string? co
             ? null
             : $"{repositoryUrl.TrimEnd('/')}/blob/{commit}/{relative}#L{startLine}-L{endLine}";
 
-        return new DocSource(relative, startLine, endLine, url);
+        return new(relative, startLine, endLine, url);
     }
 
     /// <summary>

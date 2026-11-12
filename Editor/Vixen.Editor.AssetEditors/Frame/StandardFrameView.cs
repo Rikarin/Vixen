@@ -2,16 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Globalization;
-using Vixen.Core.Mathematics;
-using Vixen.Ecs;
 using Vixen.Editor.Core;
 using Vixen.Editor.Inspector;
 using Vixen.Editor.SceneView;
 using Vixen.Editor.Ui.Documents;
-using Vixen.Rendering;
-using Vixen.Rendering.Compositor;
 using Vixen.Ui;
-using Vixen.Ui.Controls;
 using Vixen.Ui.Controls.Advanced;
 using Vixen.Ui.HotReload;
 
@@ -28,8 +23,12 @@ namespace Vixen.Editor.AssetEditors.Frame;
 ///         second opinion about what the frame is.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Both stacks say where a number came from, and that is the whole reason they are
-///         panels rather than readouts.</b> The quality waterfall folds per parameter across three
+///         ⚠
+///         <b>
+///             Both stacks say where a number came from, and that is the whole reason they are
+///             panels rather than readouts.
+///         </b>
+///         The quality waterfall folds per parameter across three
 ///         files and the volume fold across four layers, so every number on this screen has a
 ///         provenance that is not visible in the number. A table of decided values would answer
 ///         "what is it" while the question somebody opens this panel with is always "why is it
@@ -121,8 +120,12 @@ internal sealed class FrameGroup : UiElement {
 
 /// <summary>A bare sentence where a table would be, under the tag an interpolation would have made.</summary>
 /// <remarks>
-///     ⚠ <b>A type rather than an interpolation, because the target is the element's <i>own</i>
-///     text.</b> <c>Quality.Add("text").Text = …</c> puts the words on the <c>text</c> element;
+///     ⚠
+///     <b>
+///         A type rather than an interpolation, because the target is the element's <i>own</i>
+///         text.
+///     </b>
+///     <c>Quality.Add("text").Text = …</c> puts the words on the <c>text</c> element;
 ///     writing <c>&lt;text&gt;@Message&lt;/text&gt;</c> would put a second <c>text</c> inside the
 ///     first. Shape 5 again, and the same four lines.
 /// </remarks>
@@ -135,8 +138,12 @@ internal sealed class TextLine : UiElement {
 /// <remarks>
 ///     <para>
 ///         ⚠ <b>It claims <c>.vxcompositor</c>, which nothing claimed before it.</b>
-///         <c>CompositorEditorFactory</c> claims <c>.vxcomp</c> — a node graph that <em>compiles
-///         to</em> a frame — and the frame document itself opened in nothing at all: double-clicking
+///         <c>CompositorEditorFactory</c> claims <c>.vxcomp</c> — a node graph that
+///         <em>
+///             compiles
+///             to
+///         </em>
+///         a frame — and the frame document itself opened in nothing at all: double-clicking
 ///         the file a project actually ships did nothing. So this is the editor for the format,
 ///         with the knobs as its main view and the resolved stacks shown for a hand-authored
 ///         document too.
@@ -186,14 +193,15 @@ public sealed class StandardFrameEditorFactory : DocumentKind {
                     MarkupInspector.Of<StandardFrameInspector>(reload)
                 )
             ),
-            registry.Add(
-                new CustomInspector(typeof(LookSettings), MarkupInspector.Of<LookInspector>(reload))
-            )
+            registry.Add(new CustomInspector(typeof(LookSettings), MarkupInspector.Of<LookInspector>(reload)))
         ];
     }
 }
 
-/// <summary>What <see cref="StandardFrameEditorFactory" />'s documents are shown in: the Workspace half of the pair (#1294).</summary>
+/// <summary>
+///     What <see cref="StandardFrameEditorFactory" />'s documents are shown in: the Workspace half of the pair
+///     (#1294).
+/// </summary>
 public sealed class StandardFrameEditorView : DocumentView<StandardFrameDocument> {
     /// <summary>Where the markup inspectors are registered, or null for the generated rows.</summary>
     /// <remarks>On the view since #1294: the kind opens a document and never read any of these three.</remarks>

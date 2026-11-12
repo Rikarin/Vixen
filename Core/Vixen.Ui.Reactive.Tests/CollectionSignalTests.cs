@@ -23,69 +23,71 @@ public class CollectionSignalTests {
 
         Assert.True(items.TryGetChangesSince(start, out var changes));
         Assert.Equal(4, changes.Length);
-        Assert.Equal(new CollectionChange(CollectionChangeKind.Inserted, 2), changes[0]);
-        Assert.Equal(new CollectionChange(CollectionChangeKind.Inserted, 0), changes[1]);
-        Assert.Equal(new CollectionChange(CollectionChangeKind.Removed, 2), changes[2]);
-        Assert.Equal(new CollectionChange(CollectionChangeKind.Moved, 0, 1), changes[3]);
+        Assert.Equal(new(CollectionChangeKind.Inserted, 2), changes[0]);
+        Assert.Equal(new(CollectionChangeKind.Inserted, 0), changes[1]);
+        Assert.Equal(new(CollectionChangeKind.Removed, 2), changes[2]);
+        Assert.Equal(new(CollectionChangeKind.Moved, 0, 1), changes[3]);
     }
 
     [Fact]
     public void Replaying_the_log_onto_a_copy_reproduces_the_collection() {
         // The property that makes the log worth having: a consumer that only ever sees the changes
         // ends up with what a consumer that re-read everything would have.
-        Gen.Select(Gen.Int[0, 4], Gen.Int[0, 9]).Array[0, 40].Sample(script => {
-                var items = new CollectionSignal<int>(changeLogCapacity: 256);
-                var mirror = new List<int>();
-                var cursor = items.Revision;
+        Gen.Select(Gen.Int[0, 4], Gen.Int[0, 9])
+            .Array[0, 40]
+            .Sample(static script => {
+                    var items = new CollectionSignal<int>(changeLogCapacity: 256);
+                    var mirror = new List<int>();
+                    var cursor = items.Revision;
 
-                foreach (var (operation, value) in script) {
-                    switch (operation) {
-                        case 0:
-                            items.Add(value);
-                            break;
-                        case 1 when items.Peek().Length > 0:
-                            items.Insert(value % items.Peek().Length, value);
-                            break;
-                        case 2 when items.Peek().Length > 0:
-                            items.RemoveAt(value % items.Peek().Length);
-                            break;
-                        case 3 when items.Peek().Length > 0:
-                            items[value % items.Peek().Length] = value;
-                            break;
-                        case 4 when items.Peek().Length > 1:
-                            items.Move(value % items.Peek().Length, (value + 1) % items.Peek().Length);
-                            break;
-                        default:
-                            continue;
+                    foreach (var (operation, value) in script) {
+                        switch (operation) {
+                            case 0:
+                                items.Add(value);
+                                break;
+                            case 1 when items.Peek().Length > 0:
+                                items.Insert(value % items.Peek().Length, value);
+                                break;
+                            case 2 when items.Peek().Length > 0:
+                                items.RemoveAt(value % items.Peek().Length);
+                                break;
+                            case 3 when items.Peek().Length > 0:
+                                items[value % items.Peek().Length] = value;
+                                break;
+                            case 4 when items.Peek().Length > 1:
+                                items.Move(value % items.Peek().Length, (value + 1) % items.Peek().Length);
+                                break;
+                            default:
+                                continue;
+                        }
                     }
-                }
 
-                Assert.True(items.TryGetChangesSince(cursor, out var changes));
-                foreach (var change in changes) {
-                    switch (change.Kind) {
-                        case CollectionChangeKind.Inserted:
-                            mirror.Insert(change.Index, 0);
-                            break;
-                        case CollectionChangeKind.Removed:
-                            mirror.RemoveAt(change.Index);
-                            break;
-                        case CollectionChangeKind.Replaced:
-                            break;
-                        case CollectionChangeKind.Moved:
-                            var moved = mirror[change.Index];
-                            mirror.RemoveAt(change.Index);
-                            mirror.Insert(change.Target, moved);
-                            break;
-                        default:
-                            throw new InvalidOperationException($"unknown change {change.Kind}");
+                    Assert.True(items.TryGetChangesSince(cursor, out var changes));
+                    foreach (var change in changes) {
+                        switch (change.Kind) {
+                            case CollectionChangeKind.Inserted:
+                                mirror.Insert(change.Index, 0);
+                                break;
+                            case CollectionChangeKind.Removed:
+                                mirror.RemoveAt(change.Index);
+                                break;
+                            case CollectionChangeKind.Replaced:
+                                break;
+                            case CollectionChangeKind.Moved:
+                                var moved = mirror[change.Index];
+                                mirror.RemoveAt(change.Index);
+                                mirror.Insert(change.Target, moved);
+                                break;
+                            default:
+                                throw new InvalidOperationException($"unknown change {change.Kind}");
+                        }
                     }
-                }
 
-                // The values are not replayed — the log carries positions, which is what a keyed
-                // reconciler needs — so what is checked is that the shape agrees.
-                Assert.Equal(items.Peek().Length, mirror.Count);
-            }
-        );
+                    // The values are not replayed — the log carries positions, which is what a keyed
+                    // reconciler needs — so what is checked is that the shape agrees.
+                    Assert.Equal(items.Peek().Length, mirror.Count);
+                }
+            );
     }
 
     [Fact]
@@ -114,8 +116,8 @@ public class CollectionSignalTests {
 
         Assert.True(items.TryGetChangesSince(cursor, out var changes));
         Assert.Equal(4, changes.Length);
-        Assert.Equal(new CollectionChange(CollectionChangeKind.Inserted, 3), changes[0]);
-        Assert.Equal(new CollectionChange(CollectionChangeKind.Inserted, 6), changes[3]);
+        Assert.Equal(new(CollectionChangeKind.Inserted, 3), changes[0]);
+        Assert.Equal(new(CollectionChangeKind.Inserted, 6), changes[3]);
     }
 
     [Fact]
@@ -127,8 +129,8 @@ public class CollectionSignalTests {
 
         Assert.True(items.TryGetChangesSince(cursor, out var changes));
         Assert.Equal(3, changes.Length);
-        Assert.Equal(new CollectionChange(CollectionChangeKind.Removed, 2), changes[0]);
-        Assert.Equal(new CollectionChange(CollectionChangeKind.Removed, 0), changes[2]);
+        Assert.Equal(new(CollectionChangeKind.Removed, 2), changes[0]);
+        Assert.Equal(new(CollectionChangeKind.Removed, 0), changes[2]);
     }
 
     [Fact]
@@ -138,7 +140,8 @@ public class CollectionSignalTests {
         var seen = 0;
         var runs = 0;
 
-        using var effect = new Effect(() => {
+        using var effect = new Effect(
+            () => {
                 runs++;
                 seen = items.Count;
             },
@@ -162,7 +165,8 @@ public class CollectionSignalTests {
         var items = new CollectionSignal<int>([1]);
         var runs = 0;
 
-        using var effect = new Effect(() => {
+        using var effect = new Effect(
+            () => {
                 runs++;
                 _ = items.Peek().Length;
             },

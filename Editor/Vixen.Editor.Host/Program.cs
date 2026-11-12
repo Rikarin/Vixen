@@ -3,7 +3,6 @@
 
 using System.Globalization;
 using Vixen.Core.Mathematics;
-using Vixen.Platform;
 using Vixen.Platform.Desktop;
 
 namespace Vixen.Editor.App;
@@ -73,10 +72,10 @@ static class Program {
         // and the platform puts the window where it would have.
         var position = saved is { } where && WindowPlacement.IsVisible(platform, where, size)
             ? where
-            : (Int2?) null;
+            : (Int2?)null;
 
         using var window = platform.CreateWindow(
-            new WindowOptions {
+            new() {
                 Title = "Vixen Editor",
                 Size = size,
                 Position = position,

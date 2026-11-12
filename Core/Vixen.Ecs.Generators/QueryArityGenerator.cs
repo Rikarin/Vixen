@@ -41,7 +41,7 @@ public sealed class QueryArityGenerator : IIncrementalGenerator {
 
     /// <inheritdoc />
     public void Initialize(IncrementalGeneratorInitializationContext context) =>
-        context.RegisterPostInitializationOutput(output => {
+        context.RegisterPostInitializationOutput(static output => {
                 output.AddSource("QueryDescription.Arities.g.cs", SourceText.From(Descriptions(), Encoding.UTF8));
                 output.AddSource("QueryDelegates.g.cs", SourceText.From(Delegates(), Encoding.UTF8));
                 output.AddSource("QueryVisitors.g.cs", SourceText.From(Visitors(), Encoding.UTF8));
@@ -62,7 +62,7 @@ public sealed class QueryArityGenerator : IIncrementalGenerator {
 
         """;
 
-    static string Parameters(int arity) => string.Join(", ", Range(arity).Select(index => $"T{index}"));
+    static string Parameters(int arity) => string.Join(", ", Range(arity).Select(static index => $"T{index}"));
 
     static string TypeArguments(int arity) => $"<{Parameters(arity)}>";
 
@@ -71,9 +71,10 @@ public sealed class QueryArityGenerator : IIncrementalGenerator {
     static string TypeParameterDocumentation(int arity, string indent) =>
         string.Join(
             "\n",
-            Range(arity).Select(index =>
-                $"{indent}/// <typeparam name=\"T{index}\">Component type {index}.</typeparam>"
-            )
+            Range(arity)
+                .Select(index =>
+                    $"{indent}/// <typeparam name=\"T{index}\">Component type {index}.</typeparam>"
+                )
         );
 
     // ---------------------------------------------------------------- description builders
@@ -116,7 +117,9 @@ public sealed class QueryArityGenerator : IIncrementalGenerator {
         text.AppendLine(TypeParameterDocumentation(arity, "    "));
         text.AppendLine("    /// <returns>This description, for chaining.</returns>");
         text.AppendLine($"    public QueryDescription {name}{TypeArguments(arity)}() =>");
-        text.AppendLine($"        {target}([{string.Join(", ", Range(arity).Select(index => $"ComponentType<T{index}>.Id"))}]);");
+        text.AppendLine(
+            $"        {target}([{string.Join(", ", Range(arity).Select(static index => $"ComponentType<T{index}>.Id"))}]);"
+        );
         text.AppendLine();
     }
 
@@ -131,10 +134,13 @@ public sealed class QueryArityGenerator : IIncrementalGenerator {
         text.AppendLine();
 
         foreach (var arity in Enumerable.Range(1, MaxArity)) {
-            var refParameters = string.Join(", ", Range(arity).Select(index => $"ref T{index} component{index}"));
+            var refParameters = string.Join(
+                ", ",
+                Range(arity).Select(static index => $"ref T{index} component{index}")
+            );
 
             text.AppendLine("/// <summary>What a query does to each entity's components.</summary>");
-            text.AppendLine(TypeParameterDocumentation(arity, ""));
+            text.AppendLine(TypeParameterDocumentation(arity, string.Empty));
 
             foreach (var index in Range(arity)) {
                 text.AppendLine($"/// <param name=\"component{index}\">A reference into the chunk.</param>");
@@ -144,8 +150,8 @@ public sealed class QueryArityGenerator : IIncrementalGenerator {
             text.AppendLine();
 
             text.AppendLine("/// <summary>What a query does to each entity and its components.</summary>");
-            text.AppendLine(TypeParameterDocumentation(arity, ""));
-            text.AppendLine("/// <param name=\"entity\">The entity the components belong to.</param>");
+            text.AppendLine(TypeParameterDocumentation(arity, string.Empty));
+            text.AppendLine("""/// <param name="entity">The entity the components belong to.</param>""");
 
             foreach (var index in Range(arity)) {
                 text.AppendLine($"/// <param name=\"component{index}\">A reference into the chunk.</param>");
@@ -172,13 +178,22 @@ public sealed class QueryArityGenerator : IIncrementalGenerator {
         text.AppendLine();
 
         foreach (var arity in Enumerable.Range(1, MaxArity)) {
-            var refParameters = string.Join(", ", Range(arity).Select(index => $"ref T{index} component{index}"));
+            var refParameters = string.Join(
+                ", ",
+                Range(arity).Select(static index => $"ref T{index} component{index}")
+            );
 
-            text.AppendLine("/// <summary>A struct visitor a query calls per entity, with no delegate to dispatch through.</summary>");
-            text.AppendLine(TypeParameterDocumentation(arity, ""));
+            text.AppendLine(
+                "/// <summary>A struct visitor a query calls per entity, with no delegate to dispatch through.</summary>"
+            );
+            text.AppendLine(TypeParameterDocumentation(arity, string.Empty));
             text.AppendLine("/// <remarks>");
-            text.AppendLine("///     Constrained to <c>struct</c> where it is used, so the call is monomorphic and the JIT");
-            text.AppendLine("///     inlines the body into the loop. This is the form to reach for when the delegate's");
+            text.AppendLine(
+                "///     Constrained to <c>struct</c> where it is used, so the call is monomorphic and the JIT"
+            );
+            text.AppendLine(
+                "///     inlines the body into the loop. This is the form to reach for when the delegate's"
+            );
             text.AppendLine("///     indirect call shows up in a profile.");
             text.AppendLine("/// </remarks>");
             text.AppendLine($"public interface IForEach{TypeArguments(arity)} {{");
@@ -192,11 +207,13 @@ public sealed class QueryArityGenerator : IIncrementalGenerator {
             text.AppendLine("}");
             text.AppendLine();
 
-            text.AppendLine("/// <summary>A struct visitor a query calls per entity, with the entity handle.</summary>");
-            text.AppendLine(TypeParameterDocumentation(arity, ""));
+            text.AppendLine(
+                "/// <summary>A struct visitor a query calls per entity, with the entity handle.</summary>"
+            );
+            text.AppendLine(TypeParameterDocumentation(arity, string.Empty));
             text.AppendLine($"public interface IForEachWithEntity{TypeArguments(arity)} {{");
             text.AppendLine("    /// <summary>Runs on one entity and its components.</summary>");
-            text.AppendLine("    /// <param name=\"entity\">The entity the components belong to.</param>");
+            text.AppendLine("""    /// <param name="entity">The entity the components belong to.</param>""");
 
             foreach (var index in Range(arity)) {
                 text.AppendLine($"    /// <param name=\"component{index}\">A reference into the chunk.</param>");
@@ -225,10 +242,10 @@ public sealed class QueryArityGenerator : IIncrementalGenerator {
         text.AppendLine("public static class WorldQueryExtensions {");
 
         foreach (var arity in Enumerable.Range(1, MaxArity)) {
-            Loop(text, arity, withEntity: false, visitor: false);
-            Loop(text, arity, withEntity: true, visitor: false);
-            Loop(text, arity, withEntity: false, visitor: true);
-            Loop(text, arity, withEntity: true, visitor: true);
+            Loop(text, arity, false, false);
+            Loop(text, arity, true, false);
+            Loop(text, arity, false, true);
+            Loop(text, arity, true, true);
         }
 
         text.AppendLine("}");
@@ -236,7 +253,7 @@ public sealed class QueryArityGenerator : IIncrementalGenerator {
     }
 
     static void Loop(StringBuilder text, int arity, bool withEntity, bool visitor) {
-        var suffix = withEntity ? "WithEntity" : "";
+        var suffix = withEntity ? "WithEntity" : string.Empty;
         var name = visitor ? $"ForEach{suffix}" : $"Query{suffix}";
         var interfaceName = withEntity ? "IForEachWithEntity" : "IForEach";
         var delegateName = withEntity ? "QueryEntityAction" : "QueryAction";
@@ -252,19 +269,23 @@ public sealed class QueryArityGenerator : IIncrementalGenerator {
         text.AppendLine("    /// <summary>Runs the body over every entity the query matches.</summary>");
 
         if (visitor) {
-            text.AppendLine("    /// <typeparam name=\"TVisitor\">The visitor's type, so the call is not virtual.</typeparam>");
+            text.AppendLine(
+                """    /// <typeparam name="TVisitor">The visitor's type, so the call is not virtual.</typeparam>"""
+            );
         }
 
         text.AppendLine(TypeParameterDocumentation(arity, "    "));
-        text.AppendLine("    /// <param name=\"world\">The world to iterate.</param>");
-        text.AppendLine("    /// <param name=\"description\">Which entities.</param>");
+        text.AppendLine("""    /// <param name="world">The world to iterate.</param>""");
+        text.AppendLine("""    /// <param name="description">Which entities.</param>""");
         text.AppendLine(
             visitor
-                ? "    /// <param name=\"visitor\">The body. Passed by reference, so it can accumulate.</param>"
-                : "    /// <param name=\"action\">The body.</param>"
+                ? """    /// <param name="visitor">The body. Passed by reference, so it can accumulate.</param>"""
+                : """    /// <param name="action">The body.</param>"""
         );
 
-        text.AppendLine("    /// <param name=\"since\">Only chunks written after this version, when the description filters on change.</param>");
+        text.AppendLine(
+            """    /// <param name="since">Only chunks written after this version, when the description filters on change.</param>"""
+        );
         text.AppendLine($"    public static void {name}{typeArguments}(");
         text.AppendLine("        this World world,");
         text.AppendLine("        QueryDescription description,");
@@ -302,16 +323,17 @@ public sealed class QueryArityGenerator : IIncrementalGenerator {
 
         var arguments = string.Join(
             ", ",
-            Range(arity).Select(index => $"ref Unsafe.Add(ref component{index}, index)")
+            Range(arity).Select(static index => $"ref Unsafe.Add(ref component{index}, index)")
         );
 
         if (withEntity) {
             arguments = $"Unsafe.Add(ref entities, index), {arguments}";
         }
 
-        text.AppendLine(visitor
-            ? $"                visitor.Execute({arguments});"
-            : $"                action({arguments});"
+        text.AppendLine(
+            visitor
+                ? $"                visitor.Execute({arguments});"
+                : $"                action({arguments});"
         );
 
         text.AppendLine("            }");

@@ -22,7 +22,7 @@ public class EditMeshTests {
 
         // And the tables agree with each other, which is what nothing above would notice.
         Assert.Equal(mesh.CornerCount, Total(mesh));
-        Assert.All(mesh.Faces, face => Assert.True(face.Count >= 3));
+        Assert.All(mesh.Faces, static face => Assert.True(face.Count >= 3));
 
         foreach (var corner in mesh.Corners) {
             Assert.InRange(corner, 0, mesh.PositionCount - 1);
@@ -63,16 +63,16 @@ public class EditMeshTests {
         Face(Vector3.UnitZ, Vector3.UnitX, Vector3.UnitY);
         Face(-Vector3.UnitZ, -Vector3.UnitX, Vector3.UnitY);
 
-        return ([.. positions], [.. indices]);
+        return ([..positions], [..indices]);
 
         void Face(Vector3 normal, Vector3 right, Vector3 up) {
             var origin = normal * half;
             var start = positions.Count;
 
-            positions.Add(origin - (right * half) - (up * half));
-            positions.Add(origin + (right * half) - (up * half));
-            positions.Add(origin + (right * half) + (up * half));
-            positions.Add(origin - (right * half) + (up * half));
+            positions.Add(origin - right * half - up * half);
+            positions.Add(origin + right * half - up * half);
+            positions.Add(origin + right * half + up * half);
+            positions.Add(origin - right * half + up * half);
 
             indices.AddRange([start, start + 1, start + 2, start, start + 2, start + 3]);
         }
@@ -134,7 +134,7 @@ public class EditMeshTests {
         var mesh = new EditMesh();
 
         Quad(mesh, Vector3.Zero);
-        Quad(mesh, new Vector3(0f, 0f, 5f));
+        Quad(mesh, new(0f, 0f, 5f));
 
         mesh.Regroup();
 
@@ -228,7 +228,7 @@ public class EditMeshTests {
     public void A_position_no_face_uses_is_counted() {
         var mesh = Cube();
 
-        mesh.AddPosition(new Vector3(9f, 9f, 9f));
+        mesh.AddPosition(new(9f, 9f, 9f));
 
         Assert.Equal(1, mesh.Validate().Orphans);
     }
@@ -238,12 +238,12 @@ public class EditMeshTests {
         var mesh = Cube();
         var before = mesh.Edges.ToArray();
 
-        mesh.MovePosition(0, new Vector3(5f, 5f, 5f));
+        mesh.MovePosition(0, new(5f, 5f, 5f));
 
         // ⚠ Dragging a corner changes where the geometry is, not what is joined to what — and a table
         // rebuilt per frame of a drag is the whole cost of the drag.
         Assert.Equal(before, mesh.Edges);
-        Assert.Equal(new Vector3(5f, 5f, 5f), mesh.Positions[0]);
+        Assert.Equal(new(5f, 5f, 5f), mesh.Positions[0]);
     }
 
     // ── Construction and output ─────────────────────────────────────────────────────────────────
@@ -296,11 +296,11 @@ public class EditMeshTests {
 
         // An L, whose reflex corner is the one a fan from the first corner cuts straight across.
         mesh.AddPosition(Vector3.Zero);
-        mesh.AddPosition(new Vector3(2f, 0f, 0f));
-        mesh.AddPosition(new Vector3(2f, 1f, 0f));
-        mesh.AddPosition(new Vector3(1f, 1f, 0f));
-        mesh.AddPosition(new Vector3(1f, 2f, 0f));
-        mesh.AddPosition(new Vector3(0f, 2f, 0f));
+        mesh.AddPosition(new(2f, 0f, 0f));
+        mesh.AddPosition(new(2f, 1f, 0f));
+        mesh.AddPosition(new(1f, 1f, 0f));
+        mesh.AddPosition(new(1f, 2f, 0f));
+        mesh.AddPosition(new(0f, 2f, 0f));
 
         mesh.AddFace([0, 1, 2, 3, 4, 5]);
 
@@ -440,8 +440,8 @@ public class EditMeshTests {
 
         var bounds = Cube(2f).Bounds;
 
-        Assert.Equal(new Vector3(-1f), bounds.Minimum);
-        Assert.Equal(new Vector3(1f), bounds.Maximum);
+        Assert.Equal(new(-1f), bounds.Minimum);
+        Assert.Equal(new(1f), bounds.Maximum);
     }
 
     [Fact]
@@ -449,13 +449,13 @@ public class EditMeshTests {
         var mesh = new EditMesh();
 
         var a = mesh.AddPosition(Vector3.Zero);
-        var b = mesh.AddPosition(new Vector3(1f, 0f, 0f));
+        var b = mesh.AddPosition(new(1f, 0f, 0f));
 
         // Almost on the line from a to b, which is what makes the cross product of the first three
         // corners noise — and what Newell's area-weighted sum over the whole loop is immune to.
-        var c = mesh.AddPosition(new Vector3(2f, 1e-6f, 0f));
-        var d = mesh.AddPosition(new Vector3(2f, 1f, 0f));
-        var e = mesh.AddPosition(new Vector3(0f, 1f, 0f));
+        var c = mesh.AddPosition(new(2f, 1e-6f, 0f));
+        var d = mesh.AddPosition(new(2f, 1f, 0f));
+        var e = mesh.AddPosition(new(0f, 1f, 0f));
 
         mesh.AddFace([a, b, c, d, e]);
 
@@ -484,9 +484,9 @@ public class EditMeshTests {
 
         mesh.SetNormals(new Vector3[mesh.CornerCount]);
 
-        var a = mesh.AddPosition(new Vector3(4f, 0f, 0f));
-        var b = mesh.AddPosition(new Vector3(5f, 0f, 0f));
-        var c = mesh.AddPosition(new Vector3(4f, 1f, 0f));
+        var a = mesh.AddPosition(new(4f, 0f, 0f));
+        var b = mesh.AddPosition(new(5f, 0f, 0f));
+        var c = mesh.AddPosition(new(4f, 1f, 0f));
 
         mesh.AddFace([a, b, c]);
 
@@ -500,7 +500,7 @@ public class EditMeshTests {
         var mesh = Cube();
         var copy = new EditMesh(mesh);
 
-        mesh.MovePosition(0, new Vector3(9f, 9f, 9f));
+        mesh.MovePosition(0, new(9f, 9f, 9f));
         mesh.SetGroup(0, 42);
 
         // ⚠ This is what an undo entry holds for a topology change, and a shallow copy is the mistake

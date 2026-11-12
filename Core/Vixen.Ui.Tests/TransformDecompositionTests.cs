@@ -45,7 +45,7 @@ public class TransformDecompositionTests {
 
         for (var attempt = 0; attempt < 400 && checkedCount < 200; attempt++) {
             for (var index = 0; index < 16; index++) {
-                cells[index] = (float)((random.NextDouble() * 4d) - 2d);
+                cells[index] = (float)(random.NextDouble() * 4d - 2d);
             }
 
             // A perspective column small enough that the matrix is a plausible projection rather
@@ -56,22 +56,37 @@ public class TransformDecompositionTests {
             cells[15] = (float)(0.5d + random.NextDouble());
 
             var matrix = new Matrix4x4(
-                cells[0], cells[1], cells[2], cells[3],
-                cells[4], cells[5], cells[6], cells[7],
-                cells[8], cells[9], cells[10], cells[11],
-                cells[12], cells[13], cells[14], cells[15]
+                cells[0],
+                cells[1],
+                cells[2],
+                cells[3],
+                cells[4],
+                cells[5],
+                cells[6],
+                cells[7],
+                cells[8],
+                cells[9],
+                cells[10],
+                cells[11],
+                cells[12],
+                cells[13],
+                cells[14],
+                cells[15]
             );
 
             // Near-singular upper 3×3s are real but prove precision rather than algebra.
-            var upper = (cells[0] * ((cells[5] * cells[10]) - (cells[6] * cells[9])))
-                - (cells[1] * ((cells[4] * cells[10]) - (cells[6] * cells[8])))
-                + (cells[2] * ((cells[4] * cells[9]) - (cells[5] * cells[8])));
+            var upper = cells[0] * (cells[5] * cells[10] - cells[6] * cells[9])
+                - cells[1] * (cells[4] * cells[10] - cells[6] * cells[8])
+                + cells[2] * (cells[4] * cells[9] - cells[5] * cells[8]);
 
             if (MathF.Abs(upper) < 0.25f) {
                 continue;
             }
 
-            Assert.True(TransformDecomposition.TryDecompose(matrix, out var parts), $"matrix {attempt} did not decompose");
+            Assert.True(
+                TransformDecomposition.TryDecompose(matrix, out var parts),
+                $"matrix {attempt} did not decompose"
+            );
 
             var back = parts.Recompose();
             var w = cells[15];
@@ -84,8 +99,11 @@ public class TransformDecompositionTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>A half turn about a skew axis comes back as itself, and not as the half turn about
-    ///     that axis's mirror image.</b>
+    ///     ⚠
+    ///     <b>
+    ///         A half turn about a skew axis comes back as itself, and not as the half turn about
+    ///         that axis's mirror image.
+    ///     </b>
     /// </summary>
     /// <remarks>
     ///     <para>
@@ -123,10 +141,22 @@ public class TransformDecompositionTests {
     [Fact]
     public void A_diagonal_reflection_recomposes_to_itself() {
         var reflection = new Matrix4x4(
-            0f, 1f, 0f, 0f,
-            1f, 0f, 0f, 0f,
-            0f, 0f, 1f, 0f,
-            0f, 0f, 0f, 1f
+            0f,
+            1f,
+            0f,
+            0f,
+            1f,
+            0f,
+            0f,
+            0f,
+            0f,
+            0f,
+            1f,
+            0f,
+            0f,
+            0f,
+            0f,
+            1f
         );
 
         Assert.True(TransformDecomposition.TryDecompose(reflection, out var parts));
@@ -155,8 +185,18 @@ public class TransformDecompositionTests {
     /// </remarks>
     [Fact]
     public void Half_way_to_a_large_turn_goes_the_short_way_round() {
-        AssertCells(Rotation(-75f), TransformDecomposition.Interpolate(Rotation(0f), Rotation(-150f), 0.5f), 1e-5f, "half of −150°");
-        AssertCells(Rotation(75f), TransformDecomposition.Interpolate(Rotation(0f), Rotation(150f), 0.5f), 1e-5f, "half of +150°");
+        AssertCells(
+            Rotation(-75f),
+            TransformDecomposition.Interpolate(Rotation(0f), Rotation(-150f), 0.5f),
+            1e-5f,
+            "half of −150°"
+        );
+        AssertCells(
+            Rotation(75f),
+            TransformDecomposition.Interpolate(Rotation(0f), Rotation(150f), 0.5f),
+            1e-5f,
+            "half of +150°"
+        );
     }
 
     /// <summary>
@@ -171,16 +211,38 @@ public class TransformDecompositionTests {
     [Fact]
     public void A_matrix_that_cannot_be_decomposed_flips_at_the_midpoint() {
         var collapsed = new Matrix4x4(
-            0f, 0f, 0f, 0f,
-            0f, 0f, 0f, 0f,
-            0f, 0f, 1f, 0f,
-            0f, 0f, 0f, 1f
+            0f,
+            0f,
+            0f,
+            0f,
+            0f,
+            0f,
+            0f,
+            0f,
+            0f,
+            0f,
+            1f,
+            0f,
+            0f,
+            0f,
+            0f,
+            1f
         );
 
         Assert.False(TransformDecomposition.TryDecompose(collapsed, out _));
 
-        AssertCells(collapsed, TransformDecomposition.Interpolate(collapsed, Matrix4x4.Identity, 0.4f), 0f, "before the midpoint");
-        AssertCells(Matrix4x4.Identity, TransformDecomposition.Interpolate(collapsed, Matrix4x4.Identity, 0.6f), 0f, "after it");
+        AssertCells(
+            collapsed,
+            TransformDecomposition.Interpolate(collapsed, Matrix4x4.Identity, 0.4f),
+            0f,
+            "before the midpoint"
+        );
+        AssertCells(
+            Matrix4x4.Identity,
+            TransformDecomposition.Interpolate(collapsed, Matrix4x4.Identity, 0.6f),
+            0f,
+            "after it"
+        );
     }
 
     /// <summary>The row-vector turn a <c>rotate()</c> is — the same arithmetic <c>TransformReader</c> uses.</summary>
@@ -188,33 +250,69 @@ public class TransformDecompositionTests {
         var radians = degrees * (MathF.PI / 180f);
         var (cos, sin) = (MathF.Cos(radians), MathF.Sin(radians));
 
-        return new Matrix4x4(
-            cos, sin, 0f, 0f,
-            -sin, cos, 0f, 0f,
-            0f, 0f, 1f, 0f,
-            0f, 0f, 0f, 1f
+        return new(
+            cos,
+            sin,
+            0f,
+            0f,
+            -sin,
+            cos,
+            0f,
+            0f,
+            0f,
+            0f,
+            1f,
+            0f,
+            0f,
+            0f,
+            0f,
+            1f
         );
     }
 
     /// <summary>A half turn about an axis, <c>2·n·nᵀ − I</c>, which is symmetric and so its own transpose.</summary>
     static Matrix4x4 HalfTurn(float x, float y, float z) {
-        var length = MathF.Sqrt((x * x) + (y * y) + (z * z));
+        var length = MathF.Sqrt(x * x + y * y + z * z);
         var (a, b, c) = (x / length, y / length, z / length);
 
-        return new Matrix4x4(
-            (2f * a * a) - 1f, 2f * a * b, 2f * a * c, 0f,
-            2f * a * b, (2f * b * b) - 1f, 2f * b * c, 0f,
-            2f * a * c, 2f * b * c, (2f * c * c) - 1f, 0f,
-            0f, 0f, 0f, 1f
+        return new(
+            2f * a * a - 1f,
+            2f * a * b,
+            2f * a * c,
+            0f,
+            2f * a * b,
+            2f * b * b - 1f,
+            2f * b * c,
+            0f,
+            2f * a * c,
+            2f * b * c,
+            2f * c * c - 1f,
+            0f,
+            0f,
+            0f,
+            0f,
+            1f
         );
     }
 
     static Matrix4x4 Scaled(in Matrix4x4 m, float k) =>
         new(
-            m.M11 * k, m.M12 * k, m.M13 * k, m.M14 * k,
-            m.M21 * k, m.M22 * k, m.M23 * k, m.M24 * k,
-            m.M31 * k, m.M32 * k, m.M33 * k, m.M34 * k,
-            m.M41 * k, m.M42 * k, m.M43 * k, m.M44 * k
+            m.M11 * k,
+            m.M12 * k,
+            m.M13 * k,
+            m.M14 * k,
+            m.M21 * k,
+            m.M22 * k,
+            m.M23 * k,
+            m.M24 * k,
+            m.M31 * k,
+            m.M32 * k,
+            m.M33 * k,
+            m.M34 * k,
+            m.M41 * k,
+            m.M42 * k,
+            m.M43 * k,
+            m.M44 * k
         );
 
     static void AssertCells(in Matrix4x4 expected, in Matrix4x4 actual, float tolerance, string what) {
@@ -237,7 +335,7 @@ public class TransformDecompositionTests {
 
             Assert.True(
                 MathF.Abs(e[index] - a[index]) <= allowed,
-                $"{what}: cell M{(index / 4) + 1}{(index % 4) + 1} is {a[index]}, expected {e[index]}"
+                $"{what}: cell M{index / 4 + 1}{index % 4 + 1} is {a[index]}, expected {e[index]}"
             );
         }
     }

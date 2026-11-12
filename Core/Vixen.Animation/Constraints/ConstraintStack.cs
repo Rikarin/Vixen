@@ -61,8 +61,11 @@ public sealed class ConstraintHandle : IDisposable {
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>An <see cref="IPoseProcessor" />, because that hook already exists and already argues
-///         for itself.</b> It runs after the layer mix and before skinning, with a model-space
+///         <b>
+///             An <see cref="IPoseProcessor" />, because that hook already exists and already argues
+///             for itself.
+///         </b>
+///         It runs after the layer mix and before skinning, with a model-space
 ///         scratch buffer — which is exactly where a correction to the blended pose belongs, and is
 ///         where the three existing IK solvers already are. They keep working beside this one, in
 ///         whatever order the list gives.
@@ -429,9 +432,9 @@ public sealed class ConstraintStack : IPoseProcessor {
         // everything else <em>is</em>. A world-space goal twenty centimetres out of reach becomes a
         // goal in reach once the character has been asked to stand somewhere else, and solving the
         // pose first would spend the whole correction on the arm.
-        Gather(model, deltaTime, root: true);
+        Gather(model, deltaTime, true);
         SolveRoot();
-        Gather(model, deltaTime, root: false);
+        Gather(model, deltaTime, false);
 
         if (count == 0) {
             Prune();
@@ -478,7 +481,12 @@ public sealed class ConstraintStack : IPoseProcessor {
             return;
         }
 
-        var placed = RigidBodySolver.Solve(BoneTransform.Identity, placement.AsSpan(0, roots), out var moved, out var turned);
+        var placed = RigidBodySolver.Solve(
+            BoneTransform.Identity,
+            placement.AsSpan(0, roots),
+            out var moved,
+            out var turned
+        );
 
         if (moved <= 1e-5f && turned <= 1e-5f) {
             return;
@@ -592,8 +600,12 @@ public sealed class ConstraintStack : IPoseProcessor {
     ///     — or the pose pass, which is everything else.
     /// </param>
     /// <remarks>
-    ///     ⚠ <b>Two passes rather than one filtered afterwards, because the first changes the answers
-    ///     the second gets.</b> A goal wearing the root label is solved as the character's placement
+    ///     ⚠
+    ///     <b>
+    ///         Two passes rather than one filtered afterwards, because the first changes the answers
+    ///         the second gets.
+    ///     </b>
+    ///     A goal wearing the root label is solved as the character's placement
     ///     and is excluded from the pose solve; a project using <c>root</c> to mean something of its
     ///     own would find those goals moving the character instead of its limbs.
     /// </remarks>
@@ -763,7 +775,7 @@ public sealed class ConstraintStack : IPoseProcessor {
     }
 
     static float MoveTowards(float from, float to, float step) =>
-        MathF.Abs(to - from) <= step ? to : from + (MathF.Sign(to - from) * step);
+        MathF.Abs(to - from) <= step ? to : from + MathF.Sign(to - from) * step;
 
     /// <summary>What identifies a goal from one frame to the next.</summary>
     /// <remarks>

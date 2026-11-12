@@ -80,7 +80,7 @@ sealed class CongestionWindow {
 
         var before = Limit;
 
-        window = Math.Min(maximum, window + (count / window));
+        window = Math.Min(maximum, window + count / window);
 
         if (Limit > before) {
             GrowthCount++;

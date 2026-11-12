@@ -11,8 +11,11 @@ namespace Vixen.Editor.App.Tests;
 /// <summary>The fourth state of doc 20 Part F's panel-lifecycle row: floated, and brought home again.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>The row said this state could not be covered because "tearing a panel out needs a
-///         window host and the harness has none", and that refusal has expired.</b>
+///         ⚠
+///         <b>
+///             The row said this state could not be covered because "tearing a panel out needs a
+///             window host and the harness has none", and that refusal has expired.
+///         </b>
 ///         <see cref="IUiWindowHost" /> is four members in <c>Vixen.Ui</c> with no platform in them,
 ///         and <c>Vixen.Ui.Controls.Advanced.Tests</c> has been exercising the whole tear-out path
 ///         over a double of it for as long as the path has existed. What was missing was the double
@@ -186,7 +189,10 @@ public class PanelFloatLifecycleTests {
 
         public event Action<IUiWindow>? Moved;
 
-        public event Action<IUiWindow>? DidBecomeKey { add { } remove { } }
+        public event Action<IUiWindow>? DidBecomeKey {
+            add { }
+            remove { }
+        }
 
         public void Dispose() {
             if (IsClosed) {

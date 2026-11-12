@@ -28,8 +28,12 @@ namespace Vixen.Editor.Ui;
 ///         public struct Stamina { … }
 ///     </code>
 ///     <para>
-///         ⚠ <b>Two forms, told apart by the extension, because both are what people actually
-///         have.</b> An icon copied out of Material or Lucide is a <c>d</c> string and wants no file
+///         ⚠
+///         <b>
+///             Two forms, told apart by the extension, because both are what people actually
+///             have.
+///         </b>
+///         An icon copied out of Material or Lucide is a <c>d</c> string and wants no file
 ///         and no IO; an icon a designer drew is an <c>.svg</c> on disk beside the plugin. Anything
 ///         ending in <c>.svg</c> is a path relative to the declaring plugin's directory, and anything
 ///         else is the data itself.
@@ -75,8 +79,12 @@ public sealed partial class EditorIconAttribute(string source) : Attribute {
     /// <param name="reason">Why it could not be read, when it could not.</param>
     /// <returns>The art, or <see langword="null" />.</returns>
     /// <remarks>
-    ///     ⚠ <b>The file is read relative to the plugin's own directory and is not allowed to leave
-    ///     it.</b> A manifest is a file a third party wrote; <c>"../../../etc/passwd"</c> in an
+    ///     ⚠
+    ///     <b>
+    ///         The file is read relative to the plugin's own directory and is not allowed to leave
+    ///         it.
+    ///     </b>
+    ///     A manifest is a file a third party wrote; <c>"../../../etc/passwd"</c> in an
     ///     attribute would otherwise be a plugin reading whatever it likes through a mechanism nobody
     ///     was watching. It is the same containment <c>PluginDiscovery</c> gives an assembly path.
     /// </remarks>
@@ -92,10 +100,9 @@ public sealed partial class EditorIconAttribute(string source) : Attribute {
 
         var data = source;
 
-        if (source.EndsWith(".svg", StringComparison.OrdinalIgnoreCase)) {
-            if (Read(directory, source, out data, out reason) is false) {
-                return null;
-            }
+        if (source.EndsWith(".svg", StringComparison.OrdinalIgnoreCase)
+            && Read(directory, source, out data, out reason) is false) {
+            return null;
         }
 
         if (SvgPath.TryParse(data) is not { Count: > 0 } geometry) {
@@ -106,7 +113,7 @@ public sealed partial class EditorIconAttribute(string source) : Attribute {
         var box = ViewBox > 0f ? ViewBox : 24f;
 
         return new IconArt(
-            new Rectangle(0f, 0f, box, box),
+            new(0f, 0f, box, box),
             [new IconPath(geometry, Paint(Tint), FillRule: PathFillRule.NonZero)]
         );
     }
@@ -153,7 +160,7 @@ public sealed partial class EditorIconAttribute(string source) : Attribute {
             return false;
         }
 
-        data = string.Join(' ', found.Select(match => match.Groups[1].Value));
+        data = string.Join(' ', found.Select(static match => match.Groups[1].Value));
         return true;
     }
 
@@ -190,7 +197,7 @@ public sealed partial class EditorIconAttribute(string source) : Attribute {
         var digits = text.StartsWith('#') ? text[1..] : text;
 
         if (digits.Length == 3) {
-            digits = string.Concat(digits.Select(character => new string(character, 2)));
+            digits = string.Concat(digits.Select(static character => new string(character, 2)));
         }
 
         if (digits.Length is not (6 or 8)) {
@@ -200,7 +207,12 @@ public sealed partial class EditorIconAttribute(string source) : Attribute {
         Span<float> channels = [0f, 0f, 0f, 1f];
 
         for (var index = 0; index * 2 < digits.Length; index++) {
-            if (!byte.TryParse(digits.AsSpan(index * 2, 2), NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var value)) {
+            if (!byte.TryParse(
+                    digits.AsSpan(index * 2, 2),
+                    NumberStyles.HexNumber,
+                    CultureInfo.InvariantCulture,
+                    out var value
+                )) {
                 return null;
             }
 

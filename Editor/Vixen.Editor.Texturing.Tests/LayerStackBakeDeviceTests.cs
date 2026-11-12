@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core.Imaging;
-using Vixen.Editor.Texturing.Layers;
 using Vixen.Graphics.Vulkan;
 using Vixen.TextureGraph;
 using Vixen.Texturing.Layers;
@@ -169,7 +168,7 @@ public class LayerStackBakeDeviceTests(ITestOutputHelper output) {
         for (var y = 0; y < Side; y++) {
             for (var x = 0; x < Side; x++) {
                 var value = (byte)(((x + y) & 1) == 0 ? 255 : 32);
-                var offset = ((y * Side) + x) * 4;
+                var offset = (y * Side + x) * 4;
 
                 texels[offset] = value;
                 texels[offset + 1] = value;

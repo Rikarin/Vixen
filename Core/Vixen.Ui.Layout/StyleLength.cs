@@ -86,11 +86,12 @@ public readonly struct StyleLength : IEquatable<StyleLength> {
     /// <param name="referenceLength">The containing size a percentage is a fraction of.</param>
     /// <returns>The resolved length, or NaN.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public float Resolve(float referenceLength) => Unit switch {
-        LayoutUnit.Point => Value,
-        LayoutUnit.Percent => Value * referenceLength * 0.01f,
-        _ => float.NaN
-    };
+    public float Resolve(float referenceLength) =>
+        Unit switch {
+            LayoutUnit.Point => Value,
+            LayoutUnit.Percent => Value * referenceLength * 0.01f,
+            _ => float.NaN
+        };
 
     /// <inheritdoc />
     public bool Equals(StyleLength other) =>
@@ -115,10 +116,11 @@ public readonly struct StyleLength : IEquatable<StyleLength> {
     public static bool operator !=(StyleLength left, StyleLength right) => !left.Equals(right);
 
     /// <inheritdoc />
-    public override string ToString() => Unit switch {
-        LayoutUnit.Undefined => "undefined",
-        LayoutUnit.Point => Value.ToString(CultureInfo.InvariantCulture),
-        LayoutUnit.Percent => Value.ToString(CultureInfo.InvariantCulture) + "%",
-        _ => Unit.ToString().ToLowerInvariant()
-    };
+    public override string ToString() =>
+        Unit switch {
+            LayoutUnit.Undefined => "undefined",
+            LayoutUnit.Point => Value.ToString(CultureInfo.InvariantCulture),
+            LayoutUnit.Percent => Value.ToString(CultureInfo.InvariantCulture) + "%",
+            _ => Unit.ToString().ToLowerInvariant()
+        };
 }

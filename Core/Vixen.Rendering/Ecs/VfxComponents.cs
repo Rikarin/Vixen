@@ -52,8 +52,11 @@ public struct VfxEmitter : IDefaultComponent<VfxEmitter> {
     /// <summary>What each particle is an instance of, for an effect authored as a mesh renderer.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>The emitter's rather than the effect's, and that is the same split
-    ///         <see cref="VfxExtractionSystem.Material" /> makes.</b> A <c>.vxvfx</c> says how particles
+    ///         <b>
+    ///             The emitter's rather than the effect's, and that is the same split
+    ///             <see cref="VfxExtractionSystem.Material" /> makes.
+    ///         </b>
+    ///         A <c>.vxvfx</c> says how particles
     ///         <em>move</em> and that they are drawn as meshes; it says nothing about <em>which</em>
     ///         mesh, because the node library has no asset picker in it and an effect that named one
     ///         could not be reused for two kinds of debris. So the choice sits on the entity, beside
@@ -116,8 +119,12 @@ public struct VfxEmitter : IDefaultComponent<VfxEmitter> {
 
     /// <summary>A playing emitter with a bound that is not zero, and no effect chosen yet.</summary>
     /// <remarks>
-    ///     ⚠ <b>Explicit, so this does not become a second public name for
-    ///     <see cref="VfxEmitters.Default(AssetReference)" />.</b> That one takes the effect, which an
+    ///     ⚠
+    ///     <b>
+    ///         Explicit, so this does not become a second public name for
+    ///         <see cref="VfxEmitters.Default(AssetReference)" />.
+    ///     </b>
+    ///     That one takes the effect, which an
     ///     Add Component has no answer to — the picker in the row is the answer, and
     ///     <see cref="Effect" /> being null is a real state rather than a mistake. What is worth
     ///     carrying across is the pair of fields whose zeroes stop the emitter dead.

@@ -134,10 +134,13 @@ public class DefinitionContentCompositionTests {
     public async Task ANullCompositionIsRefusedRatherThanTreatedAsNoTags() {
         var shipped = new Shipped().Build();
 
-        await Assert.ThrowsAsync<ArgumentNullException>(
-            async () => await DefinitionContent.LoadAsync(
+        // A typed local rather than `composition: null!`: the name is what picked the overload, and an
+        // untyped null is ambiguous between the composition and the tag list.
+        GameplayComposition composition = null!;
+
+        await Assert.ThrowsAsync<ArgumentNullException>(async () => await DefinitionContent.LoadAsync(
                 shipped.Assets,
-                composition: null!,
+                composition,
                 TestContext.Current.CancellationToken
             )
         );

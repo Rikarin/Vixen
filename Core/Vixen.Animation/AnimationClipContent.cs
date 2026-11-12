@@ -5,7 +5,6 @@ using Vixen.Animation.Constraints;
 using Vixen.Core;
 using Vixen.Core.Mathematics;
 using Vixen.Geometry;
-using Vixen.Rendering;
 
 namespace Vixen.Animation;
 
@@ -42,8 +41,12 @@ public sealed class AnimationClipContent {
     ///         clip drive a blend shape.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The bump is a re-import trigger, not a compatibility fence, and the difference is
-    ///         worth being exact about.</b> The generated serializer writes a member count and refuses
+    ///         ⚠
+    ///         <b>
+    ///             The bump is a re-import trigger, not a compatibility fence, and the difference is
+    ///             worth being exact about.
+    ///         </b>
+    ///         The generated serializer writes a member count and refuses
     ///         only <c>count &gt; MemberCount</c> — so <em>appended</em> members read back as their
     ///         defaults out of older bytes, and a version 1 artefact answers "no weight track", which
     ///         is the true answer. Nothing would break without the bump. What would happen is nothing:
@@ -94,8 +97,12 @@ public sealed class AnimationClipContent {
 
     /// <summary>The constraints authored on it, in the order they were placed.</summary>
     /// <remarks>
-    ///     ⚠ <b>Records rather than resolved goals, because a joint is named here and indexed at
-    ///     <see cref="Bake(Skeleton, string?)" />.</b> The same argument <c>AnimationClipData</c>'s channels make: an
+    ///     ⚠
+    ///     <b>
+    ///         Records rather than resolved goals, because a joint is named here and indexed at
+    ///         <see cref="Bake(Skeleton, string?)" />.
+    ///     </b>
+    ///     The same argument <c>AnimationClipData</c>'s channels make: an
     ///     index is a fact about the rig the clip was marked up against, and one that survives a
     ///     joint being inserted is worth more than one that loads a byte faster.
     /// </remarks>
@@ -239,7 +246,7 @@ public sealed class AnimationClipContent {
 
             var at = Math.Clamp(time, 0f, Data.Duration > 0f ? Data.Duration : time);
 
-            weight = Interpolate(channel.WeightTimes, channel.Weights, at, 0f, static (a, b, t) => a + ((b - a) * t));
+            weight = Interpolate(channel.WeightTimes, channel.Weights, at, 0f, static (a, b, t) => a + (b - a) * t);
 
             return true;
         }

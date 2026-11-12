@@ -17,8 +17,12 @@ namespace Vixen.Ui.Styling.Tests;
 ///         the implementation; asserting against an equivalent tree asserts the claim.
 ///     </para>
 ///     <para>
-///         What tombstoning protected is one unwritten invariant — <i>a parent's index is lower than
-///         its children's</i> — and it has its own test, because it is the thing a free list would
+///         What tombstoning protected is one unwritten invariant —
+///         <i>
+///             a parent's index is lower than
+///             its children's
+///         </i>
+///         — and it has its own test, because it is the thing a free list would
 ///         have broken and therefore the thing compaction exists to preserve.
 ///     </para>
 /// </remarks>
@@ -57,7 +61,7 @@ public class CompactionTests {
 
         // ...and the ids the caller was handed back point at those same elements, closed up: the two
         // slots the removed span and its child occupied are gone, so everything after them moved down.
-        Assert.Equal([0, 1, 2, 3], survivors.Select(survivor => survivor.Index));
+        Assert.Equal([0, 1, 2, 3], survivors.Select(static survivor => survivor.Index));
         Assert.Equal(["root", "div", "div", "b"], survivors.Select(compacted.Tree.GetTagName));
         Assert.Equal(["top", "keep-1", "keep-2", "grandchild"], survivors.Select(compacted.Tree.GetId));
 
@@ -105,7 +109,7 @@ public class CompactionTests {
         fixture.Tree.Compact(new int[fixture.Tree.Count]);
 
         // The surviving child still has its three classes, and nothing else does.
-        var kept = fixture.Tree.GetChild(new StyleNodeId(0), 0);
+        var kept = fixture.Tree.GetChild(new(0), 0);
         Assert.Equal(["one", "two", "three"], fixture.Tree.GetClassNames(kept));
         Assert.Equal(2, fixture.Tree.Count);
     }
@@ -138,11 +142,11 @@ public class CompactionTests {
         engine.Tree.Compact(remap);
         updater.Compact(remap);
 
-        Assert.Same(beforeA, updater.StyleOf(new StyleNodeId(remap[a.Index])));
-        Assert.Same(beforeB, updater.StyleOf(new StyleNodeId(remap[b.Index])));
+        Assert.Same(beforeA, updater.StyleOf(new(remap[a.Index])));
+        Assert.Same(beforeB, updater.StyleOf(new(remap[b.Index])));
 
         // The tail is cleared, so a slot the tree has not handed out has no style waiting for it.
-        Assert.Same(ComputedStyle.Empty, updater.StyleOf(new StyleNodeId(engine.Tree.Count)));
+        Assert.Same(ComputedStyle.Empty, updater.StyleOf(new(engine.Tree.Count)));
     }
 
     /// <summary>
@@ -183,7 +187,7 @@ public class CompactionTests {
 
         // Halfway through, and read from the slot the element moved to rather than the one it left.
         Assert.True(
-            animator.TryGetCurrent(new StyleNodeId(remap[moving.Index]), opacity, 0.5f, out var value),
+            animator.TryGetCurrent(new(remap[moving.Index]), opacity, 0.5f, out var value),
             "the transition did not follow the element"
         );
 

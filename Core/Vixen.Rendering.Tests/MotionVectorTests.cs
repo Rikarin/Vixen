@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core.Mathematics;
-using Vixen.Graphics;
 using Vixen.Graphics.Null;
 using Vixen.Rendering;
 using Vixen.Rendering.Compositor;
@@ -140,7 +139,7 @@ public sealed class MotionVectorTests : IDisposable {
     public void The_previous_matrix_lands_at_byte_one_hundred_and_forty_four() {
         using var constants = new ViewConstants(device);
 
-        var member = constants.Members.Single(entry => entry.Key == ViewConstants.PreviousViewProjection);
+        var member = constants.Members.Single(static entry => entry.Key == ViewConstants.PreviousViewProjection);
 
         Assert.Equal(144, member.Offset);
         Assert.Equal(64, member.Size);

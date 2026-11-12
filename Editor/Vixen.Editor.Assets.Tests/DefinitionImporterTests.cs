@@ -29,35 +29,33 @@ public sealed class DefinitionImporterTests {
     [Fact]
     public async Task AnEffectDefinitionRoundTripsThroughTheArtefact() {
         const string Yaml = """
-            !EffectDefinition
-            displayName: Burning
-            duration: 6
-            period: 2
-            stacking: StackTo
-            maximumStacks: 3
-            tags:
-              - Effect.Damage.Burning
-            grantedTags:
-              - State.Burning
-            cancelOn:
-              - Event.Cleansed
-            modifiers:
-              - attribute: Power
-                op: AddPercent
-                value: -0.1
-            """;
+                            !EffectDefinition
+                            displayName: Burning
+                            duration: 6
+                            period: 2
+                            stacking: StackTo
+                            maximumStacks: 3
+                            tags:
+                              - Effect.Damage.Burning
+                            grantedTags:
+                              - State.Burning
+                            cancelOn:
+                              - Event.Cleansed
+                            modifiers:
+                              - attribute: Power
+                                op: AddPercent
+                                value: -0.1
+                            """;
 
         var result = await Import("/Assets/effects/burning.vxeffect", Yaml);
 
-        Assert.DoesNotContain(result.Diagnostics, entry => entry.Severity == ImportSeverity.Error);
+        Assert.DoesNotContain(result.Diagnostics, static entry => entry.Severity == ImportSeverity.Error);
 
         var artefact = Assert.Single(result.Artifacts);
 
         Assert.Equal(DefinitionImporter.ArtefactType, artefact.Type);
 
-        var definition = Assert.IsType<EffectDefinition>(
-            DefinitionSerialization.FromBytes(artefact.Content.ToArray())
-        );
+        var definition = Assert.IsType<EffectDefinition>(DefinitionSerialization.FromBytes(artefact.Content.ToArray()));
 
         Assert.Equal("Burning", definition.DisplayName);
         Assert.Equal(6f, definition.Duration);
@@ -79,7 +77,7 @@ public sealed class DefinitionImporterTests {
     public async Task AFileWithNoTypeTagIsRefused() {
         var result = await Import("/Assets/effects/nameless.vxdef", "duration: 6\n");
 
-        Assert.Contains(result.Diagnostics, entry => entry.Severity == ImportSeverity.Error);
+        Assert.Contains(result.Diagnostics, static entry => entry.Severity == ImportSeverity.Error);
         Assert.Empty(result.Artifacts);
     }
 
@@ -87,7 +85,7 @@ public sealed class DefinitionImporterTests {
     public async Task AFileWhoseTagNamesNothingIsRefused() {
         var result = await Import("/Assets/effects/odd.vxdef", "!NoSuchDefinition\nduration: 6\n");
 
-        Assert.Contains(result.Diagnostics, entry => entry.Severity == ImportSeverity.Error);
+        Assert.Contains(result.Diagnostics, static entry => entry.Severity == ImportSeverity.Error);
         Assert.Empty(result.Artifacts);
     }
 
@@ -113,7 +111,14 @@ public sealed class DefinitionImporterTests {
 
         files.Seed(path, text);
 
-        var context = new ImportContext(AssetId.New(), path, importer.CreateSettings(), files, importer.Name, "Windows");
+        var context = new ImportContext(
+            AssetId.New(),
+            path,
+            importer.CreateSettings(),
+            files,
+            importer.Name,
+            "Windows"
+        );
 
         return await importer.ImportAsync(context, TestContext.Current.CancellationToken);
     }

@@ -37,8 +37,12 @@ partial class Build : NukeBuild {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Capping this is very nearly free, which is the opposite of what a concurrency
-    ///         limit usually is.</b> Measured from the 176 TRX of the 2026-09-02 run: the
+    ///         ⚠
+    ///         <b>
+    ///             Capping this is very nearly free, which is the opposite of what a concurrency
+    ///             limit usually is.
+    ///         </b>
+    ///         Measured from the 176 TRX of the 2026-09-02 run: the
     ///         per-assembly wall times sum to 3 024 s, the longest single assembly
     ///         (<c>Vixen.Editor.App.Tests</c>) is 695 s on its own, and the unbounded run finished
     ///         in 17 min — so unbounded concurrency was buying about five minutes, while 395
@@ -46,8 +50,12 @@ partial class Build : NukeBuild {
     ///         core count, take the machine away from everything else on it.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The floor that argument was written against is gone, and this paragraph used to
-    ///         say it was <c>max(695, 3024 / 10) ≈ 11.6 min</c>.</b> That figure was arithmetic —
+    ///         ⚠
+    ///         <b>
+    ///             The floor that argument was written against is gone, and this paragraph used to
+    ///             say it was <c>max(695, 3024 / 10) ≈ 11.6 min</c>.
+    ///         </b>
+    ///         That figure was arithmetic —
     ///         total CPU over ten cores — and never bound anything. What did bind was first the
     ///         schedule (<c>Vixen.Editor.App.Tests</c> was dispatched last and started at t=300 s,
     ///         #592) and then that assembly's own wall (#557). Both moved, and the run is no longer
@@ -91,8 +99,12 @@ partial class Build : NukeBuild {
     ///         412 and the same 3.93×, which is the point of quoting a ratio rather than a wall.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Peak concurrency observed in those intervals is exactly four, and checking that
-    ///         is the point.</b> A run whose <c>-m</c> never arrived would look identical in every
+    ///         ⚠
+    ///         <b>
+    ///             Peak concurrency observed in those intervals is exactly four, and checking that
+    ///             is the point.
+    ///         </b>
+    ///         A run whose <c>-m</c> never arrived would look identical in every
     ///         other respect — same tests, same TRX, a plausible elapsed — which is not a
     ///         hypothetical: <c>d27cb75b</c> fixed a rerouted <c>Test</c> whose whole command line
     ///         arrived as one quoted argument, and it failed in under a second having run nothing at
@@ -156,8 +168,12 @@ partial class Build : NukeBuild {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>This is what <c>.runsettings</c> used to do, and it had to move because the
-    ///         platform runner does not read that file</b> (#560). The symptom it prevents is
+    ///         ⚠
+    ///         <b>
+    ///             This is what <c>.runsettings</c> used to do, and it had to move because the
+    ///             platform runner does not read that file
+    ///         </b>
+    ///         (#560). The symptom it prevents is
     ///         baffling and the fix looks unrelated: on macOS the Homebrew validation layer
     ///         enumerates and then refuses to load, because its manifest names the library by bare
     ///         filename and <c>dlopen</c>'s default search path on macOS is <c>/usr/local/lib</c> and
@@ -200,45 +216,57 @@ partial class Build : NukeBuild {
         Environment.SetEnvironmentVariable("VIXEN_TEST_SETTINGS_APPLIED", "1");
     }
 
-    Target Clean => definition => definition
-        .Description("Removes every build output, including the artifacts directory")
-        .Executes(() => {
-                foreach (var directory in RootDirectory.GlobDirectories("*/*/bin", "*/*/obj", "build/bin", "build/obj")) {
-                    directory.DeleteDirectory();
+    Target Clean =>
+        definition => definition
+            .Description("Removes every build output, including the artifacts directory")
+            .Executes(() => {
+                    foreach (var directory in RootDirectory.GlobDirectories(
+                                 "*/*/bin",
+                                 "*/*/obj",
+                                 "build/bin",
+                                 "build/obj"
+                             )) {
+                        directory.DeleteDirectory();
+                    }
+
+                    ArtifactsDirectory.CreateOrCleanDirectory();
                 }
+            );
 
-                ArtifactsDirectory.CreateOrCleanDirectory();
-            }
-        );
+    Target Restore =>
+        definition => definition
+            .Description("Restores NuGet packages")
+            .Executes(() =>
+                DotNetRestore(settings => settings
+                    .SetProjectFile(Solution)
+                    .AddProcessAdditionalArguments(WorkerArguments)
+                )
+            );
 
-    Target Restore => definition => definition
-        .Description("Restores NuGet packages")
-        .Executes(() =>
-            DotNetRestore(settings => settings
-                .SetProjectFile(Solution)
-                .AddProcessAdditionalArguments(WorkerArguments)
-            )
-        );
-
-    Target Compile => definition => definition
-        .Description("Builds the solution with warnings as errors")
-        .DependsOn(Restore)
-        .Executes(() =>
-            DotNetBuild(settings => settings
-                .SetProjectFile(Solution)
-                .SetConfiguration(Configuration)
-                .EnableNoRestore()
-                .AddProcessAdditionalArguments(WorkerArguments)
-            )
-        );
+    Target Compile =>
+        definition => definition
+            .Description("Builds the solution with warnings as errors")
+            .DependsOn(Restore)
+            .Executes(() =>
+                DotNetBuild(settings => settings
+                    .SetProjectFile(Solution)
+                    .SetConfiguration(Configuration)
+                    .EnableNoRestore()
+                    .AddProcessAdditionalArguments(WorkerArguments)
+                )
+            );
 
     /// <summary>
     ///     The solution in Release, built once for every gate whose subject is a shipped assembly.
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Release whatever <c>--configuration</c> says, and that is the point of the target
-    ///         rather than a detail of it.</b> <see cref="CheckApi" /> records why — the engine has
+    ///         ⚠
+    ///         <b>
+    ///             Release whatever <c>--configuration</c> says, and that is the point of the target
+    ///             rather than a detail of it.
+    ///         </b>
+    ///         <see cref="CheckApi" /> records why — the engine has
     ///         <c>public const bool</c> feature flags whose values are <c>#if DEBUG</c>, so a
     ///         surface baselined against Debug is a promise about a package nobody ships. Reading
     ///         <see cref="Configuration" /> here would make the gate change subject on a developer
@@ -259,138 +287,144 @@ partial class Build : NukeBuild {
     ///         paid this cost and adding the dependency would hand it one.
     ///     </para>
     /// </remarks>
-    Target CompileRelease => definition => definition
-        .Description("Builds the solution in Release — the subject every shipped-assembly gate reads")
-        .DependsOn(Restore)
-        .Executes(() =>
-            DotNetBuild(settings => settings
-                .SetProjectFile(Solution)
-                .SetConfiguration(Configuration.Release)
-                .EnableNoRestore()
-                .AddProcessAdditionalArguments(WorkerArguments)
-            )
-        );
+    Target CompileRelease =>
+        definition => definition
+            .Description("Builds the solution in Release — the subject every shipped-assembly gate reads")
+            .DependsOn(Restore)
+            .Executes(() =>
+                DotNetBuild(settings => settings
+                    .SetProjectFile(Solution)
+                    .SetConfiguration(Configuration.Release)
+                    .EnableNoRestore()
+                    .AddProcessAdditionalArguments(WorkerArguments)
+                )
+            );
 
-    Target Test => definition => definition
-        .Description("Runs every test project")
-        .DependsOn(Compile)
-        .Produces(TestResultsDirectory / "*.trx")
-        .Executes(() => {
-                TestResultsDirectory.CreateOrCleanDirectory();
+    Target Test =>
+        definition => definition
+            .Description("Runs every test project")
+            .DependsOn(Compile)
+            .Produces(TestResultsDirectory / "*.trx")
+            .Executes(() => {
+                    TestResultsDirectory.CreateOrCleanDirectory();
 
-                // ⚠ `dotnet msbuild -t:VSTest` rather than `dotnet test`, and the reason is the one
-                // thing the CLI does not expose: how many assemblies may run at once. `dotnet test`
-                // takes no `-m`, and passing MSBuild switches through it does not reach the node
-                // count either — but `dotnet test` *is* this MSBuild target underneath, so invoking
-                // it directly loses nothing and gains the switch. Every argument below is the
-                // property the CLI would have set for us; they are named here rather than typed
-                // because the typed settings are `DotNetTest`'s, and this is no longer that.
-                //
-                // Raw rather than through Nuke's typed MSBuild settings for the reason CheckFormat
-                // already records: the typed shape has moved between versions and the CLI's has not.
-                // ⚠ One interpolated string literal, not a joined list. Nuke's
-                // `ArgumentStringHandler` quotes an interpolation hole whose value contains
-                // whitespace, so handing it a whole pre-joined command line produced a single
-                // quoted argument and `dotnet` looked for a command by that name — the target died
-                // in under a second having run no assembly at all. The holes below each hold one
-                // whitespace-free value, which is why the manual quotes around the two paths are
-                // the ones that survive to the process.
-                var workers = Workers > 0 ? $"-m:{Workers}" : string.Empty;
+                    // ⚠ `dotnet msbuild -t:VSTest` rather than `dotnet test`, and the reason is the one
+                    // thing the CLI does not expose: how many assemblies may run at once. `dotnet test`
+                    // takes no `-m`, and passing MSBuild switches through it does not reach the node
+                    // count either — but `dotnet test` *is* this MSBuild target underneath, so invoking
+                    // it directly loses nothing and gains the switch. Every argument below is the
+                    // property the CLI would have set for us; they are named here rather than typed
+                    // because the typed settings are `DotNetTest`'s, and this is no longer that.
+                    //
+                    // Raw rather than through Nuke's typed MSBuild settings for the reason CheckFormat
+                    // already records: the typed shape has moved between versions and the CLI's has not.
+                    // ⚠ One interpolated string literal, not a joined list. Nuke's
+                    // `ArgumentStringHandler` quotes an interpolation hole whose value contains
+                    // whitespace, so handing it a whole pre-joined command line produced a single
+                    // quoted argument and `dotnet` looked for a command by that name — the target died
+                    // in under a second having run no assembly at all. The holes below each hold one
+                    // whitespace-free value, which is why the manual quotes around the two paths are
+                    // the ones that survive to the process.
+                    var workers = Workers > 0 ? $"-m:{Workers}" : string.Empty;
 
-                // ⚠ A generated traversal project rather than the solution, and the reason is
-                // scheduling and not taste: a solution build of a custom target walks each project's
-                // dependencies first, so the assembly referencing the most of the tree is dispatched
-                // last — and that assembly is, for the same reason, the slowest one. In the
-                // 2026-09-05 run it started 218 s in and was the only thing still running for the
-                // final five and a half minutes. Nothing here needs building, so the edges buy the
-                // schedule nothing. See Build.TestOrder.cs.
-                var projects = OrderedTestProjects();
-                var traversal = WriteTestTraversalProject(projects);
+                    // ⚠ A generated traversal project rather than the solution, and the reason is
+                    // scheduling and not taste: a solution build of a custom target walks each project's
+                    // dependencies first, so the assembly referencing the most of the tree is dispatched
+                    // last — and that assembly is, for the same reason, the slowest one. In the
+                    // 2026-09-05 run it started 218 s in and was the only thing still running for the
+                    // final five and a half minutes. Nothing here needs building, so the edges buy the
+                    // schedule nothing. See Build.TestOrder.cs.
+                    var projects = OrderedTestProjects();
+                    var traversal = WriteTestTraversalProject(projects);
 
-                // ⚠ Not `-p:VSTestSetting=`, and that is not a simplification. The assemblies run
-                // through Microsoft.Testing.Platform now (#560, Directory.Build.props), which does
-                // not read a .runsettings at all — a settings file left on this command line would
-                // have become one MTP0001 warning inside a five-hundred-second log and Vulkan
-                // validation would have been off. The one thing that file carried is set here
-                // instead, on this process, because dyld reads it at process start.
-                ExportLayerLibraryPath();
+                    // ⚠ Not `-p:VSTestSetting=`, and that is not a simplification. The assemblies run
+                    // through Microsoft.Testing.Platform now (#560, Directory.Build.props), which does
+                    // not read a .runsettings at all — a settings file left on this command line would
+                    // have become one MTP0001 warning inside a five-hundred-second log and Vulkan
+                    // validation would have been off. The one thing that file carried is set here
+                    // instead, on this process, because dyld reads it at process start.
+                    ExportLayerLibraryPath();
 
-                // ⚠ The exit code is captured rather than thrown on, so that a red run still reaches
-                // the post-condition below and says *which* assemblies are red and why, instead of
-                // one MSBuild error line at the end of a five-hundred-second log.
-                var exitCode = 0;
-                var output = DotNet(
-                    $"msbuild \"{traversal}\" -t:VSTest -nologo -p:Configuration={Configuration} -p:VSTestNoBuild=true -p:VSTestResultsDirectory=\"{TestResultsDirectory}\" {workers}",
-                    exitHandler: process => exitCode = process.ExitCode
-                );
+                    // ⚠ The exit code is captured rather than thrown on, so that a red run still reaches
+                    // the post-condition below and says *which* assemblies are red and why, instead of
+                    // one MSBuild error line at the end of a five-hundred-second log.
+                    var exitCode = 0;
+                    var output = DotNet(
+                        $"msbuild \"{traversal}\" -t:VSTest -nologo -p:Configuration={Configuration} -p:VSTestNoBuild=true -p:VSTestResultsDirectory=\"{TestResultsDirectory}\" {workers}",
+                        exitHandler: process => exitCode = process.ExitCode
+                    );
 
-                // ⚠ The post-condition #1360 asked for: every scheduled assembly printed a summary
-                // line, none of them red, each agreeing with its TRX — and a non-zero exit is a
-                // failure even when every line is green. A host that dies after its last test
-                // prints no summary and leaves a complete TRX behind, and every reader that greps
-                // for `Failed:` calls that clean; this is the reader that does not.
-                var trxTotals = TestResultsDirectory.GlobFiles("*.trx")
-                    .ToDictionary(result => result.NameWithoutExtension, TestCaseCount, StringComparer.OrdinalIgnoreCase);
-                var problems = TestRunSummary.Problems(
-                    [.. projects.Select(project => project.NameWithoutExtension)],
-                    output.Select(line => line.Text),
-                    exitCode,
-                    trxTotals
-                );
+                    // ⚠ The post-condition #1360 asked for: every scheduled assembly printed a summary
+                    // line, none of them red, each agreeing with its TRX — and a non-zero exit is a
+                    // failure even when every line is green. A host that dies after its last test
+                    // prints no summary and leaves a complete TRX behind, and every reader that greps
+                    // for `Failed:` calls that clean; this is the reader that does not.
+                    var trxTotals = TestResultsDirectory.GlobFiles("*.trx")
+                        .ToDictionary(
+                            result => result.NameWithoutExtension,
+                            TestCaseCount,
+                            StringComparer.OrdinalIgnoreCase
+                        );
+                    var problems = TestRunSummary.Problems(
+                        [..projects.Select(project => project.NameWithoutExtension)],
+                        output.Select(line => line.Text),
+                        exitCode,
+                        trxTotals
+                    );
 
-                Assert.True(
-                    problems.Count == 0,
-                    $"{problems.Count} problem(s) with the test run:\n  " + string.Join("\n  ", problems)
-                );
+                    Assert.True(
+                        problems.Count == 0,
+                        $"{problems.Count} problem(s) with the test run:\n  " + string.Join("\n  ", problems)
+                    );
 
-                // ⚠ The instrument, checked after it has run. A schedule that quietly dropped half
-                // the tree is indistinguishable from a schedule that worked — it is simply a faster
-                // green run — so the count of TRX is compared with the count of assemblies that were
-                // supposed to write one. This is only reached when every assembly summarised green.
-                var written = TestResultsDirectory.GlobFiles("*.trx").Count;
+                    // ⚠ The instrument, checked after it has run. A schedule that quietly dropped half
+                    // the tree is indistinguishable from a schedule that worked — it is simply a faster
+                    // green run — so the count of TRX is compared with the count of assemblies that were
+                    // supposed to write one. This is only reached when every assembly summarised green.
+                    var written = TestResultsDirectory.GlobFiles("*.trx").Count;
 
-                Assert.True(
-                    written == projects.Count,
-                    $"{projects.Count} test assembly(ies) were scheduled and {written} TRX were "
-                    + $"written to {TestResultsDirectory}. A run that skips an assembly and exits "
-                    + "zero looks exactly like a fast one."
-                );
+                    Assert.True(
+                        written == projects.Count,
+                        $"{projects.Count} test assembly(ies) were scheduled and {written} TRX were "
+                        + $"written to {TestResultsDirectory}. A run that skips an assembly and exits "
+                        + "zero looks exactly like a fast one."
+                    );
 
-                // ⚠ The instrument that replaces the exit code this build has stopped reading.
-                // Directory.Build.props tells the platform to ignore exit code 8 — "zero tests ran"
-                // — because an assembly whose every case skips ran none, and two suites that were
-                // skipping for exactly the right reason (a macOS platform suite on Linux, a GPU
-                // suite with no device) were failing their leg for it (#1023). ⚠ And the flag the
-                // issue proposed does not exist: the platform rejects
-                // `minimum-expected-tests 0` outright — "expects a single non-zero positive
-                // integer value" — so ignoring the code is the only spelling there is.
-                //
-                // Two different things look identical from that exit code, though, and the one this
-                // repository cares about is the other one: a suite whose discovery returned nothing
-                // at all. The TRX separates them and the exit code cannot, because a skipped case
-                // is still a case in the file — the macOS suite writes total="12" executed="0",
-                // while a run that found no tests writes total="0". Both shapes were produced and
-                // read before this was written.
-                var empty = TestResultsDirectory.GlobFiles("*.trx")
-                    .Where(result => TestCaseCount(result) == 0)
-                    .Select(result => result.NameWithoutExtension)
-                    .ToList();
+                    // ⚠ The instrument that replaces the exit code this build has stopped reading.
+                    // Directory.Build.props tells the platform to ignore exit code 8 — "zero tests ran"
+                    // — because an assembly whose every case skips ran none, and two suites that were
+                    // skipping for exactly the right reason (a macOS platform suite on Linux, a GPU
+                    // suite with no device) were failing their leg for it (#1023). ⚠ And the flag the
+                    // issue proposed does not exist: the platform rejects
+                    // `minimum-expected-tests 0` outright — "expects a single non-zero positive
+                    // integer value" — so ignoring the code is the only spelling there is.
+                    //
+                    // Two different things look identical from that exit code, though, and the one this
+                    // repository cares about is the other one: a suite whose discovery returned nothing
+                    // at all. The TRX separates them and the exit code cannot, because a skipped case
+                    // is still a case in the file — the macOS suite writes total="12" executed="0",
+                    // while a run that found no tests writes total="0". Both shapes were produced and
+                    // read before this was written.
+                    var empty = TestResultsDirectory.GlobFiles("*.trx")
+                        .Where(result => TestCaseCount(result) == 0)
+                        .Select(result => result.NameWithoutExtension)
+                        .ToList();
 
-                Assert.True(
-                    empty.Count == 0,
-                    $"{string.Join(", ", empty)} wrote a TRX with no test case in it. An assembly "
-                    + "that skips every one of its cases still records every one of them, so a "
-                    + "total of zero is a suite that never found its tests."
-                );
+                    Assert.True(
+                        empty.Count == 0,
+                        $"{string.Join(", ", empty)} wrote a TRX with no test case in it. An assembly "
+                        + "that skips every one of its cases still records every one of them, so a "
+                        + "total of zero is a suite that never found its tests."
+                    );
 
-                // ⚠ And the second half of the same idea: those TRX also say whether the schedule
-                // the run was packed from is still true. Three guards over build/test-cost.txt were
-                // all about a project *name*, so a line whose name was real and whose number was 2x
-                // wrong failed nothing — and that number is read as evidence as well as scheduled
-                // on. See Build.TestOrder.cs (#863).
-                AssertTestCostsStillDescribeTheRun();
-            }
-        );
+                    // ⚠ And the second half of the same idea: those TRX also say whether the schedule
+                    // the run was packed from is still true. Three guards over build/test-cost.txt were
+                    // all about a project *name*, so a line whose name was real and whose number was 2x
+                    // wrong failed nothing — and that number is read as evidence as well as scheduled
+                    // on. See Build.TestOrder.cs (#863).
+                    AssertTestCostsStillDescribeTheRun();
+                }
+            );
 
     /// <summary>How many test cases a TRX records, the skipped ones included.</summary>
     /// <param name="result">The <c>.trx</c> one assembly wrote.</param>
@@ -428,303 +462,210 @@ partial class Build : NukeBuild {
 
     AbsolutePath GoldenDiffDirectory => ArtifactsDirectory / "golden-diff";
 
-    Target GoldenImages => definition => definition
-        .Description("Renders the fixture suite and compares it with the committed reference images")
-        .DependsOn(Compile)
-        .Produces(GoldenDiffDirectory / "*.png")
-        .Executes(() => {
-                GoldenDiffDirectory.CreateOrCleanDirectory();
+    Target GoldenImages =>
+        definition => definition
+            .Description("Renders the fixture suite and compares it with the committed reference images")
+            .DependsOn(Compile)
+            .Produces(GoldenDiffDirectory / "*.png")
+            .Executes(() => {
+                    GoldenDiffDirectory.CreateOrCleanDirectory();
 
-                // Set on this process so the test host inherits them. Nuke's typed settings have
-                // moved their environment API between versions and the inherited environment has
-                // not — the same reasoning as CheckFormat's raw CLI invocation above.
-                Environment.SetEnvironmentVariable("VIXEN_GOLDEN_DIFF", GoldenDiffDirectory);
-                Environment.SetEnvironmentVariable(
-                    "VIXEN_UPDATE_GOLDEN",
-                    ForceGolden ? "force" : UpdateGolden ? "1" : "0"
-                );
+                    // Set on this process so the test host inherits them. Nuke's typed settings have
+                    // moved their environment API between versions and the inherited environment has
+                    // not — the same reasoning as CheckFormat's raw CLI invocation above.
+                    Environment.SetEnvironmentVariable("VIXEN_GOLDEN_DIFF", GoldenDiffDirectory);
+                    Environment.SetEnvironmentVariable(
+                        "VIXEN_UPDATE_GOLDEN",
+                        ForceGolden ? "force" : UpdateGolden ? "1" : "0"
+                    );
 
-                // ⚠ What this target printed on the day it did not run was `Passed!`. Every fixture
-                // in the suite skips itself when no Vulkan device opens — correctly, because a
-                // machine with no driver is not a broken renderer — and a target whose entire
-                // subject is a picture then compared nothing, exited 0, and said so. Nothing else
-                // covered it: `ci.yml` sets VIXEN_REQUIRE_VULKAN on the ubuntu `Test` leg and never
-                // runs `GoldenImages` at all, so the only caller is a developer at a terminal, on
-                // the machine most likely to be missing the device.
-                //
-                // ⚠ Device only, and that is why this is safe rather than a flood of red: the guard
-                // turns a missing *device* into a failure and says nothing about missing
-                // *capabilities*, so the suites that legitimately skip on MoltenVK still skip.
-                // Set rather than forced — an explicit `VIXEN_REQUIRE_VULKAN=0` in the environment
-                // is left alone, because the escape hatch has to be reachable by somebody who has
-                // read this and meant it.
-                //
-                // ⚠ And scoped to this target with a restore, which the two neighbours above do not
-                // need. `VIXEN_GOLDEN_DIFF` and `VIXEN_UPDATE_GOLDEN` are inert outside this suite;
-                // this one is read tree-wide — `VulkanRequirement` in two projects and a CLI test all
-                // *fail* rather than skip on it — so leaving it set on the build process would make
-                // `./build.sh GoldenImages Test` fail suites that have nothing to do with pictures,
-                // on a machine with no device, with a message about a driver.
-                var required = Environment.GetEnvironmentVariable("VIXEN_REQUIRE_VULKAN");
+                    // ⚠ What this target printed on the day it did not run was `Passed!`. Every fixture
+                    // in the suite skips itself when no Vulkan device opens — correctly, because a
+                    // machine with no driver is not a broken renderer — and a target whose entire
+                    // subject is a picture then compared nothing, exited 0, and said so. Nothing else
+                    // covered it: `ci.yml` sets VIXEN_REQUIRE_VULKAN on the ubuntu `Test` leg and never
+                    // runs `GoldenImages` at all, so the only caller is a developer at a terminal, on
+                    // the machine most likely to be missing the device.
+                    //
+                    // ⚠ Device only, and that is why this is safe rather than a flood of red: the guard
+                    // turns a missing *device* into a failure and says nothing about missing
+                    // *capabilities*, so the suites that legitimately skip on MoltenVK still skip.
+                    // Set rather than forced — an explicit `VIXEN_REQUIRE_VULKAN=0` in the environment
+                    // is left alone, because the escape hatch has to be reachable by somebody who has
+                    // read this and meant it.
+                    //
+                    // ⚠ And scoped to this target with a restore, which the two neighbours above do not
+                    // need. `VIXEN_GOLDEN_DIFF` and `VIXEN_UPDATE_GOLDEN` are inert outside this suite;
+                    // this one is read tree-wide — `VulkanRequirement` in two projects and a CLI test all
+                    // *fail* rather than skip on it — so leaving it set on the build process would make
+                    // `./build.sh GoldenImages Test` fail suites that have nothing to do with pictures,
+                    // on a machine with no device, with a message about a driver.
+                    var required = Environment.GetEnvironmentVariable("VIXEN_REQUIRE_VULKAN");
 
-                if (string.IsNullOrEmpty(required)) {
-                    Environment.SetEnvironmentVariable("VIXEN_REQUIRE_VULKAN", "1");
+                    if (string.IsNullOrEmpty(required)) {
+                        Environment.SetEnvironmentVariable("VIXEN_REQUIRE_VULKAN", "1");
+                    }
+
+                    try {
+                        RunGoldenImages();
+                    } finally {
+                        Environment.SetEnvironmentVariable("VIXEN_REQUIRE_VULKAN", required);
+                    }
                 }
-
-                try {
-                    RunGoldenImages();
-                } finally {
-                    Environment.SetEnvironmentVariable("VIXEN_REQUIRE_VULKAN", required);
-                }
-            }
-        );
+            );
 
     /// <summary>The body of <see cref="GoldenImages" />, so its environment can be restored around it.</summary>
     void RunGoldenImages() {
-                ExportLayerLibraryPath();
+        ExportLayerLibraryPath();
 
-                // Run separately from `Test` rather than only as part of it. The fixtures need a
-                // driver, they write artefacts a human looks at, and `--update-golden` rewrites the
-                // repository — none of which belongs behind a target whose job is to be run on every
-                // save. They still run under `Test` too, so a broken picture fails a normal build.
-                DotNetTest(settings => settings
-                    .SetProjectFile(RootDirectory / "Platform" / "Vixen.Graphics.Golden.Tests"
-                        / "Vixen.Graphics.Golden.Tests.csproj")
-                    .SetConfiguration(Configuration)
-                    .EnableNoRestore()
-                    .EnableNoBuild()
-                    .SetResultsDirectory(TestResultsDirectory)
-                );
+        // Run separately from `Test` rather than only as part of it. The fixtures need a
+        // driver, they write artefacts a human looks at, and `--update-golden` rewrites the
+        // repository — none of which belongs behind a target whose job is to be run on every
+        // save. They still run under `Test` too, so a broken picture fails a normal build.
+        DotNetTest(settings => settings
+            .SetProjectFile(
+                RootDirectory / "Platform" / "Vixen.Graphics.Golden.Tests"
+                / "Vixen.Graphics.Golden.Tests.csproj"
+            )
+            .SetConfiguration(Configuration)
+            .EnableNoRestore()
+            .EnableNoBuild()
+            .SetResultsDirectory(TestResultsDirectory)
+        );
 
-                // ⚠ What the run itself said used to be nothing at all: nine passing tests whether it
-                // had rewritten five files or none, with `git status` the only record of which. The
-                // suite now writes a line per fixture — recorded or kept, and what it spent of its
-                // tolerance — and this is what puts that in front of the person who typed the switch.
-                var report = GoldenDiffDirectory
-                    / (UpdateGolden || ForceGolden ? "golden-update.tsv" : "golden-headroom.tsv");
+        // ⚠ What the run itself said used to be nothing at all: nine passing tests whether it
+        // had rewritten five files or none, with `git status` the only record of which. The
+        // suite now writes a line per fixture — recorded or kept, and what it spent of its
+        // tolerance — and this is what puts that in front of the person who typed the switch.
+        var report = GoldenDiffDirectory
+            / (UpdateGolden || ForceGolden ? "golden-update.tsv" : "golden-headroom.tsv");
 
-                if (report.FileExists()) {
-                    Serilog.Log.Information("Per-fixture report:\n{Report}", report.ReadAllText());
-                }
+        if (report.FileExists()) {
+            Serilog.Log.Information("Per-fixture report:\n{Report}", report.ReadAllText());
+        }
 
-                if (UpdateGolden || ForceGolden) {
-                    Serilog.Log.Warning(
-                        "The reference images have been rewritten. Look at them before committing: a "
-                        + "suite that updates its own expectations is a suite that always passes."
-                    );
-                }
+        if (UpdateGolden || ForceGolden) {
+            Serilog.Log.Warning(
+                "The reference images have been rewritten. Look at them before committing: a "
+                + "suite that updates its own expectations is a suite that always passes."
+            );
+        }
     }
 
     /// <summary>
-    ///     Every formatting and licence obligation, over the workspace the built assemblies belong to.
+    ///     Every formatting and licence obligation: the SPDX headers, the attribution manifest, doc
+    ///     comment placement in C# and Raven, path case, and Skala's formatter over the C#.
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The <c>analyzers</c> pass reads a compilation, and a compilation is only the code
-    ///         if the source generators are in it</b> — which is why this target now builds first and
-    ///         pins the configuration <c>dotnet format</c> evaluates. Every generator in this tree
-    ///         reaches its consumer as a <c>ProjectReference</c> with
-    ///         <c>OutputItemType="Analyzer"</c>, so the workspace resolves it to a path under
-    ///         <c>bin/$(Configuration)/</c> and loads whatever is there. When nothing is there the
-    ///         generator never runs and the pass analyses a compilation with every generated partial
-    ///         missing from it. ⚠ <b>Silently</b> — the run was repeated at
-    ///         <c>--verbosity diagnostic</c> and the missing assembly is not named once; the only
-    ///         workspace warnings are pre-existing duplicate-<c>AdditionalFiles</c> ones about the
-    ///         analyzer projects' own release-tracking markdown.
+    ///         ⚠ <b>Skala replaced <c>dotnet format</c> here.</b> The target used to run
+    ///         <c>dotnet format style</c> and <c>analyzers</c> over a Release workspace, and could not
+    ///         run <c>whitespace</c> over the whole tree: this repository indented a lambda passed as an
+    ///         argument one level further than that formatter does, no <c>.editorconfig</c> key says
+    ///         so, and 551 files sat in an exemption list while mis-indentation reached master three
+    ///         times (#516). Skala formats every file from the same <c>.editorconfig</c>, and there is
+    ///         no exemption list.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And that is not a loud failure — it is a quiet one, because
-    ///         <c>dotnet format analyzers</c> reports analyzer diagnostics and not compiler ones.</b>
-    ///         A type that exists only in generated code simply vanishes, and the CS0246 that says so
-    ///         is filtered out. What survives to the console is the subset of nonsense an *analyzer*
-    ///         can express about the wreckage: on master that was ten <c>CA2021</c> errors saying
-    ///         <c>UiElement</c> is incompatible with <c>ComponentsView</c> — true of the compilation
-    ///         `dotnet format` built, and false of the code (#1022). The call sites were correct all
-    ///         along.
+    ///         Formatting is syntactic, so this target no longer builds first: the Release build was
+    ///         there for the <c>analyzers</c> pass, which needed the generators' output to see the
+    ///         code at all (#1022). Analysis is the <c>Skala</c> workflow's job
+    ///         (<c>.github/workflows/skala.yml</c>): it builds Release with a binary log, so the
+    ///         generated code is in what it reads, and runs <c>skala check</c> under the gates in
+    ///         <c>skala.jsonc</c>. The compiler's own analyzers already fail the build.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>CI hit it because the <c>checks</c> leg builds Release and <c>dotnet format</c>
-    ///         defaults to Debug.</b> Measured in a worktree with nothing built:
-    ///         <c>dotnet format analyzers Editor/Vixen.Editor.App.Tests</c> exits <b>2</b> with ten
-    ///         CA2021; after <c>dotnet build Core/Vixen.Ui.Markup.Generators -c Debug</c> — 2.3 s, one
-    ///         project — the same command exits <b>0</b>. With only the Release generator built, which
-    ///         is exactly CI's state, it exits 2 again, and
-    ///         <c>Configuration=Release dotnet format …</c> exits 0. The environment variable is the
-    ///         lever because <c>dotnet format</c> has no configuration switch and MSBuild reads the
-    ///         environment as global properties.
-    ///     </para>
-    ///     <para>
-    ///         Release rather than <see cref="Configuration" />, for the reason
-    ///         <see cref="CheckApi" /> and <c>Docs</c> already hard-code it — a gate that changes
-    ///         subject between a developer machine and CI cannot be reproduced — and because those
-    ///         two already depend on <see cref="CompileRelease" />, so the leg that runs the three
-    ///         together pays for one solution build rather than two.
-    ///     </para>
-    ///     <para>
-    ///         So the bug was never in the eleven call sites the diagnostic named, and the damage was
-    ///         wider than those: <b>every</b> ProjectReference-supplied analyzer was absent from CI's
-    ///         format run, so the pass has been checking a fraction of what it appears to. It also
-    ///         took <see cref="CheckArchitecture" /> and <see cref="CheckApi" /> down with it, since
-    ///         one leg runs the three in one invocation.
+    ///         Under <see cref="Since" /> the formatter is handed the changed <c>.cs</c> files rather
+    ///         than the tree. That is an inner-loop convenience and not the gate, for the reason
+    ///         <c>--since</c> never is: a branch narrowed to its own diff cannot see a file its
+    ///         neighbour's merge broke. The other checks here run over everything either way, because
+    ///         none of them loads a workspace.
     ///     </para>
     /// </remarks>
-    Target CheckFormat => definition => definition
-        .Description("Fails if a file deviates from .editorconfig, lacks its SPDX header, or is a dependency nothing attributes")
-        .DependsOn(CompileRelease)
-        .Executes(() => {
-                // First, because it takes milliseconds and the two passes below take minutes. A
-                // developer who forgot a header finds out before the format run, not after it.
-                CheckLicenceHeaders();
+    Target CheckFormat =>
+        definition => definition
+            .Description(
+                "Fails if a file deviates from Skala's formatting, lacks its SPDX header, or is a dependency nothing attributes"
+            )
+            .Executes(() => {
+                    // The cheap checks first, so a missing header is reported before the formatter runs.
+                    CheckLicenceHeaders();
 
-                // The other half of ADR-015's licence obligation, and here for the same reason: it
-                // reads three files and takes milliseconds. The header says whose each file is; this
-                // says whose everything we did not write is. Also a target of its own — `nuke
-                // CheckAttribution` — so it can be run, and watched failing, without the two
-                // minute-long passes below.
-                CheckAttributionManifest();
+                    // The other half of ADR-015's licence obligation: the header says whose each file is;
+                    // this says whose everything we did not write is. Also `nuke CheckAttribution`.
+                    CheckAttributionManifest();
 
-                // Third, because it is 13.6 s against the minutes below and it is the pass that
-                // catches damage a human notices and this target could not: see CheckWhitespace,
-                // which is also a target of its own.
-                CheckWhitespaceFormatting();
+                    // ⚠ A doc comment stapled above the wrong member is not a formatting question and not
+                    // a Roslyn diagnostic at any severity (#866), so the formatter is green on it by
+                    // construction. See CheckDocComments, which is also a target of its own.
+                    CheckDocCommentPlacement();
 
-                // Fourth, and for the third time the same argument: it parses the tree and loads no
-                // workspace, so it costs about twenty seconds. ⚠ It is here rather than only as its
-                // own target because the defect it catches is one the two passes below are green on
-                // by construction — a doc comment stapled above the wrong member is not a formatting
-                // question and not a Roslyn diagnostic at any severity (#866). See CheckDocComments.
-                CheckDocCommentPlacement();
+                    // The same defect in a `.rvn`, which nothing that parses C# can see (#1076).
+                    CheckRavenDocCommentPlacement();
 
-                // Fifth, and the same argument a fourth time — a folder walk, no workspace, and it
-                // is the only thing in this repository that can see the defect above in a `.rvn`.
-                // ⚠ `CheckDocCommentPlacement` parses C#, so the 176 committed shaders were outside
-                // every gate until #1076; two of the eight blocks it found stapled were library
-                // functions whose own documentation had been on a neighbour for months.
-                CheckRavenDocCommentPlacement();
+                    // A reference in a case only a case-folding filesystem forgives (#329). See
+                    // CheckPathCase, which is also a target of its own.
+                    CheckPathCaseReferences();
 
-                // Sixth, and the argument a fifth time: it reads git's index and the bytes of the
-                // committed text files, loads no workspace, and takes about a second.
-                // ⚠ It is here because the defect it catches is one every other gate is green on by
-                // construction — this repository is authored on filesystems that fold case, so a
-                // reference to `Assets/Textures/Crate.PNG` opens `Crate.png` locally and 404s on
-                // Linux, on Android and over HTTP. doc 10 § Cross-platform discipline claimed a CI
-                // check for exactly this and there was none (#329). See CheckPathCase, which is
-                // also a target of its own.
-                CheckPathCaseReferences();
-
-                // Invoked raw rather than through Nuke's typed settings, whose shape has moved
-                // between versions; the CLI's has not.
-                //
-                // `style` and `analyzers`, deliberately not `whitespace`. The repository indents a
-                // lambda body passed as an argument one level further than `dotnet format` does,
-                // consistently, in every file — and there is no .editorconfig key that expresses
-                // that, so the whitespace pass reports violations against code that is entirely
-                // consistent with itself. The brace and spacing rules the config *can* express are
-                // set (see .editorconfig § Layout), which is what took that number down from roughly
-                // forty thousand.
-                //
-                // ⚠ That argument is about 551 files out of 4 842, and it was used to refuse the
-                // pass over all of them — so mis-indentation was ungated everywhere and reached
-                // master three times (#516). `CheckWhitespaceFormatting` above now runs it against
-                // the other seven eighths, with those 551 named in docs/WhitespaceExempt.txt. The
-                // two numbers this comment used to carry were both wrong: "about nine hundred"
-                // violations are 5 167, and "twenty-eight files" are 551.
-                // ⚠ Pinned to the configuration `CompileRelease` just built, on the process
-                // environment, because `dotnet format` has no configuration switch and MSBuild reads
-                // environment variables as global properties. Without this the workspace evaluates
-                // Debug while CI has built only Release, every ProjectReference-supplied generator
-                // resolves to a `bin/Debug/` path that does not exist, and the analyzers pass reads a
-                // compilation with no generated code in it.
-                //
-                // Release rather than `Configuration`, on the same grounds `Docs` and `CheckApi`
-                // hard-code it: a gate that changes subject between a developer machine and CI is a
-                // gate whose result cannot be reproduced. It is also one solution build instead of
-                // two — CI's `checks` leg runs this beside those two, which already depend on
-                // `CompileRelease`.
-                //
-                // Set and restored around the two passes rather than for the whole target, because a
-                // `Configuration` left in this process's environment is a global property for every
-                // MSBuild invocation that follows it.
-                var configuration = Environment.GetEnvironmentVariable("Configuration");
-                Environment.SetEnvironmentVariable("Configuration", Configuration.Release);
-
-                try {
-                    foreach (var workspace in FormatWorkspaces()) {
-                        DotNet($"format style \"{workspace}\" --verify-no-changes --severity warn --no-restore");
-                        DotNet($"format analyzers \"{workspace}\" --verify-no-changes --severity warn --no-restore");
-                    }
-                } finally {
-                    Environment.SetEnvironmentVariable("Configuration", configuration);
+                    CheckSkalaFormatting();
                 }
-            }
-        );
+            );
 
     /// <summary>
-    ///     What the two format passes are pointed at: the solution, or — under
-    ///     <see cref="Since" /> — the projects that own what changed.
+    ///     <c>skala format --check</c> over the tree, or over the <c>.cs</c> files changed since
+    ///     <see cref="Since" />.
     /// </summary>
     /// <remarks>
-    ///     <para>
-    ///         ⚠ <b><c>--include</c> is not where the saving is, and the issue that asked for it
-    ///         (#556) is refuted on its own terms.</b> Measured on this tree, one project
-    ///         (<c>Core/Vixen.Net</c>, 70 files) warm: the unscoped <c>style</c> pass takes
-    ///         <b>5.03 s</b>, the same pass with <c>--include</c> naming a single file takes
-    ///         <b>4.90 s</b>. Scoping the input scopes the analysis and not the load, and the load is
-    ///         essentially all of it — about 1.9 ms per file against roughly 4.8 s of workspace
-    ///         evaluation. Extrapolated to the 4 510 files in scope that is under ten seconds off a
-    ///         pass the target's own comment calls minute-long, so <c>--include</c> against the
-    ///         solution would buy single-digit percent.
-    ///     </para>
-    ///     <para>
-    ///         So the workspace is what gets narrowed. A project is a workspace <c>dotnet format</c>
-    ///         accepts, and pointing it at four of them instead of at 395 is the 20-fold difference
-    ///         the measurement above says the load is worth.
-    ///     </para>
-    ///     <para>
-    ///         ⚠ <b>This is an inner-loop convenience and not the gate.</b> The unattended run — CI,
-    ///         and the sweep on master — passes no <c>--since</c> and checks the solution, because a
-    ///         branch narrowed to its own diff cannot see a file its neighbour's merge broke, which
-    ///         is the mechanism #516 records reaching master three times. Narrowing also drops the
-    ///         two whole-tree checks' scope not at all: <see cref="CheckLicenceHeaders" /> and
-    ///         <see cref="CheckAttributionManifest" /> run over everything either way, because they
-    ///         take milliseconds.
-    ///     </para>
+    ///     Skala walks the files git tracks, so an agent's checkout under <c>.claude/worktrees</c> is
+    ///     not reported as this tree's. It exits 2 when anything would change and prints each file;
+    ///     <c>dotnet skala format</c> with the same paths rewrites them.
     /// </remarks>
-    IReadOnlyList<AbsolutePath> FormatWorkspaces() {
+    void CheckSkalaFormatting() {
+        // The tool is pinned in .config/dotnet-tools.json; restoring is a no-op once it is there, and
+        // without it a fresh clone or a CI leg fails on a missing command rather than on formatting.
+        DotNet($"tool restore", RootDirectory, logOutput: false);
+
         if (Since is null) {
-            // ⚠ And the build itself. Every target here finds its subject through the solution, and
-            // `build/_build.csproj` is not in it — so the twenty files that define every gate in
-            // this repository were the only C# no gate looked at (#584). A directory checked by
-            // nothing is where a rule rots quietest, because the code deciding what "checked" means
-            // lives in it.
-            //
-            // Pointed at rather than added to Vixen.slnx: a Nuke build project inside the solution
-            // it builds is an ordering question nobody needs to answer, and membership would hand it
-            // the packing, documentation and API-baseline obligations of a shipped library.
-            // `dotnet format` takes a project as a workspace, which buys the check without either.
-            // ⚠ `BuildProjectFile` is NukeBuild's own — this file declared a second one and got
-            // CS0108 for it.
-            //
-            // The unscoped run only: --since narrows to solution projects, so an edit under build/
-            // is checked by the gate and not by the inner loop, which is recorded in
-            // `SolutionProjects`.
-            return [Solution.Path, BuildProjectFile];
+            DotNet($"skala format --check", RootDirectory);
+
+            return;
         }
 
-        var projects = AffectedProjectsSince(Since);
+        var changed = ChangedFiles(Since).Where(static path => path.HasExtension(".cs")).ToList();
 
-        if (projects.Count == 0) {
-            Log.Information("Nothing changed since {Since} belongs to a project — no format pass to run.", Since);
-        } else {
-            Log.Information(
-                "Formatting {Count} project(s) changed since {Since}: {Projects}",
-                projects.Count,
-                Since,
-                string.Join(", ", projects.Select(project => project.NameWithoutExtension))
+        if (changed.Count == 0) {
+            Log.Information("No C# file changed since {Since} — no formatting to check.", Since);
+
+            return;
+        }
+
+        // ⚠ One file per call. DotNet quotes each interpolation hole as one argument, so a list joined
+        // into a hole reaches Skala as a single path that names nothing (BuildArgumentQuotingTests).
+        var unformatted = new List<string>();
+
+        foreach (var path in changed) {
+            var relative = RootDirectory.GetRelativePathTo(path).ToUnixRelativePath();
+
+            DotNet(
+                $"skala format --check {relative}",
+                RootDirectory,
+                logOutput: false,
+                exitHandler: process => {
+                    if (process.ExitCode != 0) {
+                        unformatted.Add(relative);
+                    }
+
+                    return null;
+                }
             );
         }
 
-        return projects;
+        Assert.True(
+            unformatted.Count == 0,
+            $"{unformatted.Count} file(s) changed since {Since} are not formatted; `dotnet skala format` "
+            + "with the same paths rewrites them: "
+            + string.Join(", ", unformatted)
+        );
     }
 
     /// <summary>
@@ -765,8 +706,11 @@ partial class Build : NukeBuild {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <b>Extensions chosen from what the tree already does rather than from what would be
-    ///         nice.</b> <c>.cs</c>, <c>.g4</c>, <c>.vxml</c>, <c>.vcss</c> and <c>.ts</c> are the
+    ///         <b>
+    ///             Extensions chosen from what the tree already does rather than from what would be
+    ///             nice.
+    ///         </b>
+    ///         <c>.cs</c>, <c>.g4</c>, <c>.vxml</c>, <c>.vcss</c> and <c>.ts</c> are the
     ///         authored source languages here, and every one of them was already at or within a
     ///         rounding error of complete coverage when this gate was written — 4 476 of 4 493 C#
     ///         files, and 100% of the other four types. A gate written to match an existing
@@ -774,8 +718,12 @@ partial class Build : NukeBuild {
     ///         rewrite gets turned off instead.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b><c>.rvn</c> is the exception to that rule, and it was carried as a note instead
-    ///         of a gate for exactly as long as the rewrite was outstanding.</b> The note said "one
+    ///         ⚠
+    ///         <b>
+    ///             <c>.rvn</c> is the exception to that rule, and it was carried as a note instead
+    ///             of a gate for exactly as long as the rewrite was outstanding.
+    ///         </b>
+    ///         The note said "one
     ///         shader of 125 carries a header"; the measurement was <em>zero</em> of 114 in
     ///         <c>Raven/Library</c>, and the one headed file in the tree was a parser fixture. A
     ///         hand-maintained count is what produced that, so there is no count here now — the
@@ -875,13 +823,17 @@ partial class Build : NukeBuild {
     HashSet<AbsolutePath> TrackedFiles() {
         var output = GitTasks.Git("ls-files", RootDirectory, logOutput: false, logInvocation: false);
 
-        return [.. output.Select(line => RootDirectory / line.Text.Trim()).Where(path => path.FileExists())];
+        return [..output.Select(line => RootDirectory / line.Text.Trim()).Where(path => path.FileExists())];
     }
 
     /// <summary>A path with every separator a forward slash, for the substring tests below.</summary>
     /// <remarks>
-    ///     ⚠ <b><see cref="AbsolutePath" /> prints the operating system's separator, and every
-    ///     exclusion in this build is written with the other one.</b> On Windows
+    ///     ⚠
+    ///     <b>
+    ///         <see cref="AbsolutePath" /> prints the operating system's separator, and every
+    ///         exclusion in this build is written with the other one.
+    ///     </b>
+    ///     On Windows
     ///     <c>path.ToString().Contains("/bin/")</c> is false for every file under <c>bin</c>, so
     ///     <c>CheckStrings</c> read <c>obj/</c>, the sibling worktrees and its own fixtures and
     ///     reported 66 violations on a clean tree, and <c>CheckAttribution</c> and <c>CheckApi</c>
@@ -897,8 +849,12 @@ partial class Build : NukeBuild {
     ///         and restored dependencies — git ignores all four, and so does this.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b><c>Tools/Vixen.Templates/templates/</c> is the load-bearing exclusion, and it is
-    ///         the same one <see cref="CheckArchitecture" /> makes.</b> Those files are not this
+    ///         ⚠
+    ///         <b>
+    ///             <c>Tools/Vixen.Templates/templates/</c> is the load-bearing exclusion, and it is
+    ///             the same one <see cref="CheckArchitecture" /> makes.
+    ///         </b>
+    ///         Those files are not this
     ///         repository's source: they are what <c>dotnet new</c> writes into somebody else's
     ///         directory, and stamping <c>Copyright (c) Rikarin</c> on the first file of a third
     ///         party's game would be a false claim about their code. None of the four shipped
@@ -957,8 +913,12 @@ partial class Build : NukeBuild {
     ///         rather than three-thirds of one check.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The publish succeeding is not the check, and until <see cref="AssertAotOutput" />
-    ///         existed it was the whole of it.</b> A publish that quietly stopped being ahead-of-time
+    ///         ⚠
+    ///         <b>
+    ///             The publish succeeding is not the check, and until <see cref="AssertAotOutput" />
+    ///             existed it was the whole of it.
+    ///         </b>
+    ///         A publish that quietly stopped being ahead-of-time
     ///         — <c>PublishAot</c> edited out of the project, a runtime identifier the ILC package
     ///         does not cover, a future SDK that warns instead of failing — still exits 0 and still
     ///         writes an output directory. What comes back is then a framework-dependent publish:
@@ -969,10 +929,11 @@ partial class Build : NukeBuild {
     ///         that would have made it pass while measuring nothing.
     ///     </para>
     /// </remarks>
-    Target CheckAot => definition => definition
-        .Description("Fails if any runtime assembly cannot be published ahead of time")
-        .DependsOn(Restore)
-        .Executes(RunCheckAot);
+    Target CheckAot =>
+        definition => definition
+            .Description("Fails if any runtime assembly cannot be published ahead of time")
+            .DependsOn(Restore)
+            .Executes(RunCheckAot);
 
     /// <summary>
     ///     <see cref="CheckAot" />'s whole body, which <see cref="AffectedTests" /> also runs when the
@@ -990,7 +951,11 @@ partial class Build : NukeBuild {
         var path = Environment.GetEnvironmentVariable("PATH");
 
         if (OperatingSystem.IsWindows()) {
-            var linkable = VswhereLocation.PathFor(path, Environment.GetEnvironmentVariable("ProgramFiles(x86)"), File.Exists);
+            var linkable = VswhereLocation.PathFor(
+                path,
+                Environment.GetEnvironmentVariable("ProgramFiles(x86)"),
+                File.Exists
+            );
 
             Assert.True(linkable != null, VswhereLocation.Missing);
             Environment.SetEnvironmentVariable("PATH", linkable);
@@ -1063,7 +1028,10 @@ partial class Build : NukeBuild {
 
         var binary = output.GlobFiles("vixen-aot-probe", "vixen-aot-probe.exe").FirstOrDefault();
 
-        Assert.True(binary != null, $"no native probe binary in {output.Name}/, so nothing was compiled ahead of time.");
+        Assert.True(
+            binary != null,
+            $"no native probe binary in {output.Name}/, so nothing was compiled ahead of time."
+        );
 
         var megabytes = new FileInfo(binary!).Length / 1024d / 1024d;
 
@@ -1093,8 +1061,12 @@ partial class Build : NukeBuild {
     ///         returned a derived type's UI property and nothing above it.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Both the exit code and the line, because each alone is an instrument that can
-    ///         report success.</b> A <c>Main</c> that forgot the argument prints the banner and exits
+    ///         ⚠
+    ///         <b>
+    ///             Both the exit code and the line, because each alone is an instrument that can
+    ///             report success.
+    ///         </b>
+    ///         A <c>Main</c> that forgot the argument prints the banner and exits
     ///         0; a check that threw before printing would exit non-zero with nothing said about why.
     ///         The probe prints <c>SmokePassed</c> only after every closed-form check held, and
     ///         <c>SmokeFailed: …</c> on stderr for each that did not.
@@ -1165,7 +1137,9 @@ partial class Build : NukeBuild {
 
         var problems = referenced
             .Except(rooted)
-            .Select(name => $"{name} is referenced by the AOT probe and not rooted, so only what Main reaches is checked.")
+            .Select(name =>
+                $"{name} is referenced by the AOT probe and not rooted, so only what Main reaches is checked."
+            )
             .Concat(rooted.Except(referenced).Select(name => $"{name} is rooted by the AOT probe and not referenced."))
             .OrderBy(problem => problem, StringComparer.Ordinal)
             .ToList();
@@ -1190,8 +1164,12 @@ partial class Build : NukeBuild {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The check above compares the probe against itself; this one compares it against
-    ///         the tree, and that is the difference between a gate and a paragraph</b> (#506). A
+    ///         ⚠
+    ///         <b>
+    ///             The check above compares the probe against itself; this one compares it against
+    ///             the tree, and that is the difference between a gate and a paragraph
+    ///         </b>
+    ///         (#506). A
     ///         probe that references three assemblies and roots the same three satisfies
     ///         <see cref="AssertProbeRootsEveryAssemblyItReferences" /> completely — so nothing here
     ///         could see that the probe roots 29 of 95 runtime assemblies while its README said it
@@ -1269,8 +1247,12 @@ partial class Build : NukeBuild {
     ///         three lines somebody can delete while the publish goes on succeeding.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Which is why this asks <see cref="AotProbeProjectFile" /> rather than the
-    ///         string.</b> It used to be <c>project.Contains("&lt;PublishAot&gt;true&lt;/PublishAot&gt;")</c>,
+    ///         ⚠
+    ///         <b>
+    ///             Which is why this asks <see cref="AotProbeProjectFile" /> rather than the
+    ///             string.
+    ///         </b>
+    ///         It used to be <c>project.Contains("&lt;PublishAot&gt;true&lt;/PublishAot&gt;")</c>,
     ///         and a commented-out declaration contains that substring — so the one edit somebody
     ///         makes while debugging a probe was the one edit this could not see, on the target where
     ///         it is the only check there is.
@@ -1281,7 +1263,7 @@ partial class Build : NukeBuild {
             ("PublishAot", "true", "the publish is a framework-dependent one and ILC never runs"),
             ("TreatWarningsAsErrors", "true", "a C# warning no longer fails the publish"),
             ("ILLinkTreatWarningsAsErrors", "true", "an ILC trim or AOT warning no longer fails the publish"),
-            ("TrimmerSingleWarn", "false", "ILC collapses a whole assembly's warnings into one line"),
+            ("TrimmerSingleWarn", "false", "ILC collapses a whole assembly's warnings into one line")
         };
 
         var missing = required
@@ -1325,8 +1307,12 @@ partial class Build : NukeBuild {
     ///         device.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The publish's exit code was the whole of this target, and that is the defect
-    ///         #218 fixed one target over.</b> It is not fixed here. What the two checks below buy
+    ///         ⚠
+    ///         <b>
+    ///             The publish's exit code was the whole of this target, and that is the defect
+    ///             #218 fixed one target over.
+    ///         </b>
+    ///         It is not fixed here. What the two checks below buy
     ///         is everything that can be asserted about an iOS publish <em>without</em> looking at
     ///         one: that the probe still roots every assembly it references, and that it still
     ///         declares <c>PublishAot</c> and the three warning properties. That covers the
@@ -1335,8 +1321,12 @@ partial class Build : NukeBuild {
     ///         half is the only thing enforced at all and it is three deletable lines.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>What is still owed is the iOS analogue of <see cref="AssertAotOutput" />, and
-    ///         it is #634.</b> Reading the output is the stronger instrument: it is what would catch
+    ///         ⚠
+    ///         <b>
+    ///             What is still owed is the iOS analogue of <see cref="AssertAotOutput" />, and
+    ///             it is #634.
+    ///         </b>
+    ///         Reading the output is the stronger instrument: it is what would catch
     ///         a runtime identifier the ILC package does not cover, or an SDK that begins warning
     ///         where it used to fail. It cannot be written blind — where a <c>net11.0-ios</c>
     ///         publish puts its <c>.app</c>, and whether an <c>.ipa</c> appears at all without
@@ -1346,29 +1336,29 @@ partial class Build : NukeBuild {
     ///         <c>dotnet workload list</c> reporting none installed.
     ///     </para>
     /// </remarks>
-    Target CheckAotIos => definition => definition
-        .Description("Fails if the runtime assemblies cannot be published for iOS ahead of time")
-        .Requires(() => RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+    Target CheckAotIos =>
+        definition => definition
+            .Description("Fails if the runtime assemblies cannot be published for iOS ahead of time")
+            .Requires(() => RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
 
-        // The probe links MoltenVK, which is pinned and checksummed rather than committed. Depending
-        // on the restore rather than assuming it is what lets a fresh clone run this target.
-        .DependsOn(RestoreNativeDeps)
-        .Executes(() => {
-                // 21 rather than the desktop probe's 25: this probe roots the assemblies a phone
-                // links, which is a smaller set on purpose. The floor is the instrument check — a
-                // regex that stopped matching would compare two empty sets and call them equal.
-                AssertProbeRootsEveryAssemblyItReferences(AotProbeIosProject, atLeast: 21);
-                AssertProbePublishesAheadOfTime(AotProbeIosProject);
+            // The probe links MoltenVK, which is pinned and checksummed rather than committed. Depending
+            // on the restore rather than assuming it is what lets a fresh clone run this target.
+            .DependsOn(RestoreNativeDeps)
+            .Executes(() => {
+                    // 21 rather than the desktop probe's 25: this probe roots the assemblies a phone
+                    // links, which is a smaller set on purpose. The floor is the instrument check — a
+                    // regex that stopped matching would compare two empty sets and call them equal.
+                    AssertProbeRootsEveryAssemblyItReferences(AotProbeIosProject, atLeast: 21);
+                    AssertProbePublishesAheadOfTime(AotProbeIosProject);
 
-                DotNetPublish(settings => settings
-                    .SetProject(AotProbeIosProject)
-                    .SetConfiguration(Configuration.Release)
-                );
-            }
-        );
+                    DotNetPublish(settings => settings
+                        .SetProject(AotProbeIosProject)
+                        .SetConfiguration(Configuration.Release)
+                    );
+                }
+            );
 
-    AbsolutePath AotProbeIosProject =>
-        RootDirectory / "Tools" / "Vixen.AotProbe.iOS" / "Vixen.AotProbe.iOS.csproj";
+    AbsolutePath AotProbeIosProject => RootDirectory / "Tools" / "Vixen.AotProbe.iOS" / "Vixen.AotProbe.iOS.csproj";
 
     /// <summary>
     ///     Builds the two mobile platform assemblies, which the solution cannot contain.
@@ -1412,56 +1402,61 @@ partial class Build : NukeBuild {
     ///         ⚠ It is inert today: no workflow invokes this target, which is the rest of #327.
     ///     </para>
     /// </remarks>
-    Target CompileMobile => definition => definition
-        .Description("Builds the iOS and Android platform assemblies, which cannot live in the solution")
-        .Executes(() => {
-                DotNetBuild(settings => settings
-                    .SetProjectFile(RootDirectory / "Platform" / "Vixen.Platform.Android" / "Vixen.Platform.Android.csproj")
-                    .SetConfiguration(Configuration)
-                );
-
-                DotNetBuild(settings => settings
-                    .SetProjectFile(RootDirectory / "Samples" / "01-HelloTriangle.Android" / "HelloTriangle.Android.csproj")
-                    .SetConfiguration(Configuration)
-                );
-
-                if (!RuntimeInformation.IsOSPlatform(OSPlatform.OSX)) {
-                    // ⚠ A skip is a fair answer on a developer's Linux box and never on a runner.
-                    // The whole of a CI leg's report is this target's exit code, so a `mobile` job
-                    // pointed at ubuntu would build Android, log one line about iOS and go green
-                    // having proved half of what the target's own name claims — which is the shape
-                    // #327 says to close before wiring the leg, and the same shape as the Null
-                    // device that let a headless GPU run print healthy counters.
-                    //
-                    // A leg that wants only Android wants a target that only claims Android; this
-                    // one says iOS in its name, its description and its remarks.
-                    Assert.True(
-                        IsLocalBuild,
-                        "CompileMobile cannot build Vixen.Platform.iOS off macOS, and a CI leg that "
-                        + "let it skip would report success having built only the Android half. Run "
-                        + "this target on a macOS runner with Xcode and the `ios` workload, or split "
-                        + "the Android half into a target that claims only Android."
+    Target CompileMobile =>
+        definition => definition
+            .Description("Builds the iOS and Android platform assemblies, which cannot live in the solution")
+            .Executes(() => {
+                    DotNetBuild(settings => settings
+                        .SetProjectFile(
+                            RootDirectory / "Platform" / "Vixen.Platform.Android" / "Vixen.Platform.Android.csproj"
+                        )
+                        .SetConfiguration(Configuration)
                     );
 
-                    Log.Information("Skipping Vixen.Platform.iOS: it needs macOS and Xcode.");
+                    DotNetBuild(settings => settings
+                        .SetProjectFile(
+                            RootDirectory / "Samples" / "01-HelloTriangle.Android" / "HelloTriangle.Android.csproj"
+                        )
+                        .SetConfiguration(Configuration)
+                    );
 
-                    return;
+                    if (!RuntimeInformation.IsOSPlatform(OSPlatform.OSX)) {
+                        // ⚠ A skip is a fair answer on a developer's Linux box and never on a runner.
+                        // The whole of a CI leg's report is this target's exit code, so a `mobile` job
+                        // pointed at ubuntu would build Android, log one line about iOS and go green
+                        // having proved half of what the target's own name claims — which is the shape
+                        // #327 says to close before wiring the leg, and the same shape as the Null
+                        // device that let a headless GPU run print healthy counters.
+                        //
+                        // A leg that wants only Android wants a target that only claims Android; this
+                        // one says iOS in its name, its description and its remarks.
+                        Assert.True(
+                            IsLocalBuild,
+                            "CompileMobile cannot build Vixen.Platform.iOS off macOS, and a CI leg that "
+                            + "let it skip would report success having built only the Android half. Run "
+                            + "this target on a macOS runner with Xcode and the `ios` workload, or split "
+                            + "the Android half into a target that claims only Android."
+                        );
+
+                        Log.Information("Skipping Vixen.Platform.iOS: it needs macOS and Xcode.");
+
+                        return;
+                    }
+
+                    DotNetBuild(settings => settings
+                        .SetProjectFile(RootDirectory / "Platform" / "Vixen.Platform.iOS" / "Vixen.Platform.iOS.csproj")
+                        .SetConfiguration(Configuration)
+                    );
+
+                    // The sample heads too, because a platform assembly that compiles and an application
+                    // that runs are different claims — and the second is the one the phase's exit
+                    // criterion makes.
+                    DotNetBuild(settings => settings
+                        .SetProjectFile(RootDirectory / "Samples" / "01-HelloTriangle.iOS" / "HelloTriangle.iOS.csproj")
+                        .SetConfiguration(Configuration)
+                    );
                 }
-
-                DotNetBuild(settings => settings
-                    .SetProjectFile(RootDirectory / "Platform" / "Vixen.Platform.iOS" / "Vixen.Platform.iOS.csproj")
-                    .SetConfiguration(Configuration)
-                );
-
-                // The sample heads too, because a platform assembly that compiles and an application
-                // that runs are different claims — and the second is the one the phase's exit
-                // criterion makes.
-                DotNetBuild(settings => settings
-                    .SetProjectFile(RootDirectory / "Samples" / "01-HelloTriangle.iOS" / "HelloTriangle.iOS.csproj")
-                    .SetConfiguration(Configuration)
-                );
-            }
-        );
+            );
 
     /// <summary>
     ///     Every project in the tree that targets <c>net11.0-browser</c>. Three, and the list is the
@@ -1476,7 +1471,9 @@ partial class Build : NukeBuild {
         // binding — Vixen.Platform.Web's README says where it belongs, and it ships no JavaScript
         // at all. It is here for the reason the list exists: the solution cannot contain a
         // net11.0-browser project, so a browser project that is not named here is built by nothing.
-        RootDirectory / "Core" / "Vixen.Net.Transport.WebSocket.Browser"
+        RootDirectory
+        / "Core"
+        / "Vixen.Net.Transport.WebSocket.Browser"
         / "Vixen.Net.Transport.WebSocket.Browser.csproj"
     ];
 
@@ -1493,8 +1490,12 @@ partial class Build : NukeBuild {
     ///         That is the whole reason this target exists.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>It built one of the three, and its own description said "the browser
-    ///         assemblies".</b> Only <c>Vixen.Audio.Backend.WebAudio</c> was named here, which is why
+    ///         ⚠
+    ///         <b>
+    ///             It built one of the three, and its own description said "the browser
+    ///             assemblies".
+    ///         </b>
+    ///         Only <c>Vixen.Audio.Backend.WebAudio</c> was named here, which is why
     ///         it finished in six seconds; <c>Vixen.Graphics.WebGPU.Browser.csproj</c> even carried a
     ///         comment saying <em>"nuke Compile does not build it and neither does CI today"</em>,
     ///         and nothing contradicted it. A gate that covers a quarter of its subject and reports
@@ -1508,8 +1509,11 @@ partial class Build : NukeBuild {
     ///         constants by linking their source rather than by referencing the assembly.
     ///     </para>
     ///     <para>
-    ///         <b>The cost is the same one <see cref="CompileMobile" /> names, and compiling is the
-    ///         floor rather than the ceiling.</b> None of the three is seen by <see cref="Test" />,
+    ///         <b>
+    ///             The cost is the same one <see cref="CompileMobile" /> names, and compiling is the
+    ///             floor rather than the ceiling.
+    ///         </b>
+    ///         None of the three is seen by <see cref="Test" />,
     ///         <see cref="CheckFormat" />, <see cref="CheckApi" /> or <see cref="Pack" /> —
     ///         <see cref="CheckArchitecture" /> does see them, because it globs
     ///         <c>Platform/**/*.csproj</c> rather than reading the solution — and a compiler cannot
@@ -1519,19 +1523,20 @@ partial class Build : NukeBuild {
     ///         <see cref="PublishWeb" />, which puts a real head through the SDK.
     ///     </para>
     /// </remarks>
-    Target CompileWeb => definition => definition
-        .Description("Builds the three browser assemblies, which cannot live in the solution")
-        .Executes(() => {
-                foreach (var project in BrowserProjects) {
-                    Log.Information("Building {Project}", project.Name);
+    Target CompileWeb =>
+        definition => definition
+            .Description("Builds the three browser assemblies, which cannot live in the solution")
+            .Executes(() => {
+                    foreach (var project in BrowserProjects) {
+                        Log.Information("Building {Project}", project.Name);
 
-                    DotNetBuild(settings => settings
-                        .SetProjectFile(project)
-                        .SetConfiguration(Configuration)
-                    );
+                        DotNetBuild(settings => settings
+                            .SetProjectFile(project)
+                            .SetConfiguration(Configuration)
+                        );
+                    }
                 }
-            }
-        );
+            );
 
     AbsolutePath WebPublishDirectory => ArtifactsDirectory / "web";
 
@@ -1551,8 +1556,11 @@ partial class Build : NukeBuild {
     ///         default module URL to resolve, and <c>dotnet.run()</c> tears the runtime down.
     ///     </para>
     ///     <para>
-    ///         <b>It answers the first two as questions about a directory, and the third only as far
-    ///         as a file's shape — which is the difference that shapes the whole problem.</b> Where
+    ///         <b>
+    ///             It answers the first two as questions about a directory, and the third only as far
+    ///             as a file's shape — which is the difference that shapes the whole problem.
+    ///         </b>
+    ///         Where
     ///         a file landed is something a publish can see. Whether the runtime is still alive after
     ///         <c>Main</c> returns is not: it is a question about what happens once the page loads,
     ///         and only something that loads the page can answer it. So the third check reads the
@@ -1594,117 +1602,121 @@ partial class Build : NukeBuild {
     ///         is reported by the target whose subject it is rather than as a link failure later.
     ///     </para>
     /// </remarks>
-    Target PublishWeb => definition => definition
-        .Description("Publishes a browser head and checks the page it produces is loadable")
+    Target PublishWeb =>
+        definition => definition
+            .Description("Publishes a browser head and checks the page it produces is loadable")
 
-        // So that a compile error in a binding is reported as a compile error, in the target whose
-        // subject it is, rather than as an emcc link failure two minutes later. The head references
-        // two of the three browser projects; this puts the third in front of the publish too.
-        .DependsOn(CompileWeb)
-        .Produces(WebPublishDirectory / "**")
-        .Executes(() => {
-                var head = RootDirectory / "Tools" / "Vixen.WebProbe" / "Vixen.WebProbe.csproj";
+            // So that a compile error in a binding is reported as a compile error, in the target whose
+            // subject it is, rather than as an emcc link failure two minutes later. The head references
+            // two of the three browser projects; this puts the third in front of the publish too.
+            .DependsOn(CompileWeb)
+            .Produces(WebPublishDirectory / "**")
+            .Executes(() => {
+                    var head = RootDirectory / "Tools" / "Vixen.WebProbe" / "Vixen.WebProbe.csproj";
 
-                if (!head.FileExists()) {
-                    Assert.Fail(
-                        $"the web head this target publishes is not at '{head}'. If it moved, point "
-                        + "PublishWeb at wherever it went; if it was deleted, this gate went with it "
-                        + "and the three defects in docs/plan/spikes/web-head/RESULT.md are "
-                        + "uncovered again."
+                    if (!head.FileExists()) {
+                        Assert.Fail(
+                            $"the web head this target publishes is not at '{head}'. If it moved, point "
+                            + "PublishWeb at wherever it went; if it was deleted, this gate went with it "
+                            + "and the three defects in docs/plan/spikes/web-head/RESULT.md are "
+                            + "uncovered again."
+                        );
+                    }
+
+                    WebPublishDirectory.CreateOrCleanDirectory();
+
+                    DotNetPublish(settings => settings
+                        .SetProject(head)
+                        .SetConfiguration(Configuration.Release)
+                        .SetOutput(WebPublishDirectory)
                     );
-                }
 
-                WebPublishDirectory.CreateOrCleanDirectory();
+                    // The site root, which is not the output root: Microsoft.NET.Sdk.WebAssembly puts
+                    // the page and everything fetched by URL under wwwroot/, and the runtime under
+                    // wwwroot/_framework/. Both halves of the module-URL invariant are about that
+                    // relationship, so both are read from here rather than assumed.
+                    var siteRoot = WebPublishDirectory / "wwwroot";
 
-                DotNetPublish(settings => settings
-                    .SetProject(head)
-                    .SetConfiguration(Configuration.Release)
-                    .SetOutput(WebPublishDirectory)
-                );
+                    // index.html and main.js: defect 3. A WasmMainJSPath outside wwwroot/ is not a
+                    // static web asset, so the page 404s on its own entry point and nothing happens —
+                    // with no build error, because nothing was wrong with the build.
+                    //
+                    // vixen-platform.js and vixen-webgpu.js: defect 1's second half. The default module
+                    // URL is "../", resolved against the runtime's module in _framework/, and that is
+                    // only correct while these land *here*. If a future SDK or a packaging change moves
+                    // them, the constant becomes wrong and this is what says so.
+                    foreach (var required in new[] {
+                                 "index.html", "main.js", "vixen-platform.js", "vixen-webgpu.js"
+                             }) {
+                        Assert.FileExists(
+                            siteRoot / required,
+                            $"the published head has no '{required}' at its site root. See "
+                            + "docs/plan/spikes/web-head/RESULT.md; a page missing any of these loads "
+                            + "and then does nothing, which is the failure this target exists to catch."
+                        );
+                    }
 
-                // The site root, which is not the output root: Microsoft.NET.Sdk.WebAssembly puts
-                // the page and everything fetched by URL under wwwroot/, and the runtime under
-                // wwwroot/_framework/. Both halves of the module-URL invariant are about that
-                // relationship, so both are read from here rather than assumed.
-                var siteRoot = WebPublishDirectory / "wwwroot";
-
-                // index.html and main.js: defect 3. A WasmMainJSPath outside wwwroot/ is not a
-                // static web asset, so the page 404s on its own entry point and nothing happens —
-                // with no build error, because nothing was wrong with the build.
-                //
-                // vixen-platform.js and vixen-webgpu.js: defect 1's second half. The default module
-                // URL is "../", resolved against the runtime's module in _framework/, and that is
-                // only correct while these land *here*. If a future SDK or a packaging change moves
-                // them, the constant becomes wrong and this is what says so.
-                foreach (var required in new[] { "index.html", "main.js", "vixen-platform.js", "vixen-webgpu.js" }) {
-                    Assert.FileExists(
-                        siteRoot / required,
-                        $"the published head has no '{required}' at its site root. See "
-                        + "docs/plan/spikes/web-head/RESULT.md; a page missing any of these loads "
-                        + "and then does nothing, which is the failure this target exists to catch."
+                    Assert.DirectoryExists(
+                        siteRoot / "_framework",
+                        "the published head has no _framework/ directory, so there is no runtime and "
+                        + "nothing for the browser bindings' relative module URLs to resolve against."
                     );
+
+                    // Defect 2, as far as a published file can show it. `dotnet.run()` tears the runtime down
+                    // the moment Main returns and every requestAnimationFrame callback WebFrameLoop
+                    // registered dies with it, which the page reports as "Assert failed: .NET runtime
+                    // already exited with 0". A head must call `runtime.runMain()`.
+                    //
+                    // ⚠ This is a regression guard on the boot script's shape and NOT an assertion that
+                    // the frame loop lives. Only a loaded page can make that one — the Playwright leg
+                    // above. It is here because the check is free and the defect is a single call.
+                    //
+                    // ⚠ Comment lines are dropped first, and that is not tidiness. The head's own
+                    // main.js explains the rule in a comment that says `dotnet.run()`, so the first
+                    // version of this check failed on the correct file — which is at least a gate that
+                    // reported the truth about itself the first time it ran.
+                    var bootScript = (siteRoot / "main.js")
+                        .ReadAllLines()
+                        .Select(line => line.TrimStart())
+                        .Where(line => !line.StartsWith("//", StringComparison.Ordinal))
+                        .Where(line => !line.StartsWith('*'))
+                        .ToList();
+
+                    Assert.True(
+                        bootScript.Any(line => line.Contains("runMain(", StringComparison.Ordinal))
+                        && !bootScript.Any(line => line.Contains(".run(", StringComparison.Ordinal)),
+                        "the published head's main.js does not boot with runtime.runMain(). dotnet.run() "
+                        + "exits the runtime when Main returns, killing the frame loop — see defect 2 in "
+                        + "docs/plan/spikes/web-head/RESULT.md. This checks the call and not the loop; "
+                        + "only a browser can check the loop."
+                    );
+
+                    Log.Information("Published a loadable head to {Directory}", WebPublishDirectory);
                 }
+            );
 
-                Assert.DirectoryExists(
-                    siteRoot / "_framework",
-                    "the published head has no _framework/ directory, so there is no runtime and "
-                    + "nothing for the browser bindings' relative module URLs to resolve against."
-                );
+    Target Pack =>
+        definition => definition
+            .Description("Produces the NuGet packages")
+            .DependsOn(Test)
+            .Produces(PackagesDirectory / "*.nupkg")
+            .Executes(() => {
+                    PackagesDirectory.CreateOrCleanDirectory();
 
-                // Defect 2, as far as a published file can show it. `dotnet.run()` tears the runtime down
-                // the moment Main returns and every requestAnimationFrame callback WebFrameLoop
-                // registered dies with it, which the page reports as "Assert failed: .NET runtime
-                // already exited with 0". A head must call `runtime.runMain()`.
-                //
-                // ⚠ This is a regression guard on the boot script's shape and NOT an assertion that
-                // the frame loop lives. Only a loaded page can make that one — the Playwright leg
-                // above. It is here because the check is free and the defect is a single call.
-                //
-                // ⚠ Comment lines are dropped first, and that is not tidiness. The head's own
-                // main.js explains the rule in a comment that says `dotnet.run()`, so the first
-                // version of this check failed on the correct file — which is at least a gate that
-                // reported the truth about itself the first time it ran.
-                var bootScript = (siteRoot / "main.js")
-                    .ReadAllLines()
-                    .Select(line => line.TrimStart())
-                    .Where(line => !line.StartsWith("//", StringComparison.Ordinal))
-                    .Where(line => !line.StartsWith('*'))
-                    .ToList();
+                    DotNetPack(settings => settings
+                        .SetProject(Solution)
+                        .SetConfiguration(Configuration)
+                        .EnableNoRestore()
+                        .EnableNoBuild()
+                        .SetOutputDirectory(PackagesDirectory)
+                    );
 
-                Assert.True(
-                    bootScript.Any(line => line.Contains("runMain(", StringComparison.Ordinal))
-                    && !bootScript.Any(line => line.Contains(".run(", StringComparison.Ordinal)),
-                    "the published head's main.js does not boot with runtime.runMain(). dotnet.run() "
-                    + "exits the runtime when Main returns, killing the frame loop — see defect 2 in "
-                    + "docs/plan/spikes/web-head/RESULT.md. This checks the call and not the loop; "
-                    + "only a browser can check the loop."
-                );
-
-                Log.Information("Published a loadable head to {Directory}", WebPublishDirectory);
-            }
-        );
-
-    Target Pack => definition => definition
-        .Description("Produces the NuGet packages")
-        .DependsOn(Test)
-        .Produces(PackagesDirectory / "*.nupkg")
-        .Executes(() => {
-                PackagesDirectory.CreateOrCleanDirectory();
-
-                DotNetPack(settings => settings
-                    .SetProject(Solution)
-                    .SetConfiguration(Configuration)
-                    .EnableNoRestore()
-                    .EnableNoBuild()
-                    .SetOutputDirectory(PackagesDirectory)
-                );
-
-                CheckApacheObligations();
-                CheckPackedToolsAreComplete(everyPackageExpected: true);
-                CheckStyleGenIsShippable();
-                CheckCliIsShippable();
-            }
-        );
+                    CheckApacheObligations();
+                    CheckPackedToolsAreComplete(everyPackageExpected: true);
+                    CheckStyleGenIsShippable();
+                    CheckCliIsShippable();
+                }
+            );
 
     /// <summary>
     ///     The package-contents half of <see cref="Pack" />, on its own, over whatever is already in
@@ -1722,15 +1734,16 @@ partial class Build : NukeBuild {
     ///         gives a stale answer, and an empty one is reported as skipped rather than passed.
     ///     </para>
     /// </remarks>
-    Target CheckPackages => definition => definition
-        .Description("Checks the packages already in artifacts/packages, without packing")
-        .Executes(() => {
-                CheckApacheObligations();
-                CheckPackedToolsAreComplete(everyPackageExpected: false);
-                CheckStyleGenIsShippable();
-                CheckCliIsShippable();
-            }
-        );
+    Target CheckPackages =>
+        definition => definition
+            .Description("Checks the packages already in artifacts/packages, without packing")
+            .Executes(() => {
+                    CheckApacheObligations();
+                    CheckPackedToolsAreComplete(everyPackageExpected: false);
+                    CheckStyleGenIsShippable();
+                    CheckCliIsShippable();
+                }
+            );
 
     /// <summary>What <c>build/PackedToolExempt.txt</c> excuses, by package id.</summary>
     /// <remarks>
@@ -1772,7 +1785,11 @@ partial class Build : NukeBuild {
             paths.Add(parts[1]);
         }
 
-        return excused.ToDictionary(pair => pair.Key, pair => (IReadOnlySet<string>)pair.Value, StringComparer.OrdinalIgnoreCase);
+        return excused.ToDictionary(
+            pair => pair.Key,
+            pair => (IReadOnlySet<string>)pair.Value,
+            StringComparer.OrdinalIgnoreCase
+        );
     }
 
     /// <summary>The package id out of a <c>.nupkg</c> file name, which carries the version too.</summary>
@@ -1877,7 +1894,10 @@ partial class Build : NukeBuild {
                 + "something other than the solution, and the answer it gave is about nothing."
             );
 
-            Log.Information("None of the {Count} packages ships a tools/; the packed-tools check was skipped", packages.Count);
+            Log.Information(
+                "None of the {Count} packages ships a tools/; the packed-tools check was skipped",
+                packages.Count
+            );
 
             return;
         }
@@ -1896,8 +1916,12 @@ partial class Build : NukeBuild {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Both are satisfied today, and that is the reason to check them rather than an
-    ///         argument against it.</b> Neither is written by a package's own project: the expression
+    ///         ⚠
+    ///         <b>
+    ///             Both are satisfied today, and that is the reason to check them rather than an
+    ///             argument against it.
+    ///         </b>
+    ///         Neither is written by a package's own project: the expression
     ///         comes from <c>PackageLicenseExpression</c> in <c>Directory.Build.props</c>, and the
     ///         <c>NOTICE</c> from a <c>None</c> item at the bottom of the same file, conditioned on
     ///         <c>IsPackable</c>. A project that sets a property early, a profile that stops matching
@@ -1907,9 +1931,14 @@ partial class Build : NukeBuild {
     ///         the same lesson <see cref="CheckStyleGenIsShippable" /> was written from.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The third obligation docs/plan/12 names — the generated third-party attribution
-    ///         manifest — is not checked here because no package ships it at all</b>, and whether it
-    ///         should is a licence decision rather than a build one (<see href="https://github.com/Rikarin/Vixen/issues/129" />).
+    ///         ⚠
+    ///         <b>
+    ///             The third obligation docs/plan/12 names — the generated third-party attribution
+    ///             manifest — is not checked here because no package ships it at all
+    ///         </b>
+    ///         , and whether it
+    ///         should is a licence decision rather than a build one
+    ///         (<see href="https://github.com/Rikarin/Vixen/issues/129" />).
     ///         <c>CheckAttribution</c> holds <c>docs/manual/third-party.md</c> against the pins; it
     ///         says nothing about any package's contents, and this says nothing about the manifest.
     ///     </para>
@@ -1995,8 +2024,12 @@ partial class Build : NukeBuild {
     ///     can actually start from.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>This is the one failure in the tree that shipped in every package and could only be
-    ///     found by extracting one.</b> <c>Tools/Vixen.StyleGen</c> is packed by path into this
+    ///     ⚠
+    ///     <b>
+    ///         This is the one failure in the tree that shipped in every package and could only be
+    ///         found by extracting one.
+    ///     </b>
+    ///     <c>Tools/Vixen.StyleGen</c> is packed by path into this
     ///     package's <c>tools/</c> and run as <c>dotnet "…/Vixen.StyleGen.dll"</c> by
     ///     <c>buildTransitive/Vixen.Ui.Styling.Utilities.targets</c>. For a while what was packed was
     ///     the entry point alone — no <c>Vixen.Ui.Styling.Utilities.dll</c>, no <c>.deps.json</c> — so
@@ -2005,8 +2038,12 @@ partial class Build : NukeBuild {
     ///     see it: every in-repo project takes the third rung of the tool-path ladder and runs
     ///     <c>bin/</c> directly, so the packed copy is the one arrangement no build here exercises.
     ///     <para>
-    ///         ⚠ <b>Conditional on the package having been produced, and that is deliberate rather
-    ///         than lenient.</b> The pack above is solution-wide, so the file is there on any ordinary
+    ///         ⚠
+    ///         <b>
+    ///             Conditional on the package having been produced, and that is deliberate rather
+    ///             than lenient.
+    ///         </b>
+    ///         The pack above is solution-wide, so the file is there on any ordinary
     ///         run; a filtered pack that did not produce it should not fail on a package it was not
     ///         asked to build. What must not happen is the file being produced and being empty.
     ///     </para>
@@ -2032,11 +2069,9 @@ partial class Build : NukeBuild {
         var entries = archive.Entries.Select(entry => entry.FullName).ToHashSet(StringComparer.OrdinalIgnoreCase);
 
         foreach (var required in new[] {
-                     "tools/Vixen.StyleGen.dll",
-                     "tools/Vixen.StyleGen.deps.json",
-                     "tools/Vixen.StyleGen.runtimeconfig.json",
-                     "tools/Vixen.Ui.Styling.Utilities.dll",
-                     "buildTransitive/Vixen.Ui.Styling.Utilities.targets",
+                     "tools/Vixen.StyleGen.dll", "tools/Vixen.StyleGen.deps.json",
+                     "tools/Vixen.StyleGen.runtimeconfig.json", "tools/Vixen.Ui.Styling.Utilities.dll",
+                     "buildTransitive/Vixen.Ui.Styling.Utilities.targets"
                  }) {
             Assert.True(
                 entries.Contains(required),
@@ -2056,8 +2091,12 @@ partial class Build : NukeBuild {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A launch and not a file list, and the difference is the whole reason this is worth
-    ///         more than its sibling above.</b> <see cref="CheckStyleGenIsShippable" /> can only name
+    ///         ⚠
+    ///         <b>
+    ///             A launch and not a file list, and the difference is the whole reason this is worth
+    ///             more than its sibling above.
+    ///         </b>
+    ///         <see cref="CheckStyleGenIsShippable" /> can only name
     ///         the four files that were missing, because running that tool needs a project to point it
     ///         at; <c>vixen --version</c> needs nothing at all. So the question asked here is the one
     ///         that actually matters — does the host start this thing — and it is asked of the

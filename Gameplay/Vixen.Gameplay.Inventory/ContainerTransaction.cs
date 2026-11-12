@@ -94,8 +94,12 @@ public sealed class ContainerResult {
 ///         validator and one place a duplication bug could be.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Atomicity is the whole reason the type exists, and it is not an optimisation to skip
-///         it.</b> A two-step move — take from the bank, put in the bag — that fails on the second
+///         ⚠
+///         <b>
+///             Atomicity is the whole reason the type exists, and it is not an optimisation to skip
+///             it.
+///         </b>
+///         A two-step move — take from the bank, put in the bag — that fails on the second
 ///         step has destroyed an item; one that applies the second step first has duplicated it. The
 ///         transaction snapshots every container it touches before the first step and restores them
 ///         all if any step fails.

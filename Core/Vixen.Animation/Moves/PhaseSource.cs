@@ -82,8 +82,12 @@ public readonly record struct PhaseSource(PhaseSourceMode Mode, IPhaseSource? So
     /// <param name="ownFootPhase">Where the follower's move plants, in <c>[0, 1]</c>.</param>
     /// <returns>The phase to sample at.</returns>
     /// <remarks>
-    ///     ⚠ <b>The offset is the difference between the two contacts, not between the two
-    ///     phases.</b> Matching phases makes the two cycles agree about where their <i>starts</i> are,
+    ///     ⚠
+    ///     <b>
+    ///         The offset is the difference between the two contacts, not between the two
+    ///         phases.
+    ///     </b>
+    ///     Matching phases makes the two cycles agree about where their <i>starts</i> are,
     ///     which is a fact about how somebody trimmed the clips and not about the character.
     /// </remarks>
     public float Resolve(float own, float ownFootPhase) {

@@ -138,8 +138,12 @@ public static class MaterialProvenance {
 
     /// <summary>The key naming where a splat write's weights came from.</summary>
     /// <remarks>
-    ///     ⚠ <b>Its own key rather than <see cref="SourceKey" />, because the two are written by
-    ///     different runs and neither may overwrite the other.</b> A material's <c>texturing:</c>
+    ///     ⚠
+    ///     <b>
+    ///         Its own key rather than <see cref="SourceKey" />, because the two are written by
+    ///         different runs and neither may overwrite the other.
+    ///     </b>
+    ///     A material's <c>texturing:</c>
     ///     block records the graph bake that made its maps; a splat map is added afterwards, by
     ///     <c>ProjectMaterialBaker.WriteSplat</c>, from a layer stack that is usually a different
     ///     asset. Sharing one key would make each write erase where the other one came from, and the
@@ -148,7 +152,9 @@ public static class MaterialProvenance {
     public const string SplatSourceKey = "texturing.splat.source";
 
     /// <summary>And when it ran.</summary>
-    /// <remarks><inheritdoc cref="SplatSourceKey" path="/remarks" /></remarks>
+    /// <remarks>
+    ///     <inheritdoc cref="SplatSourceKey" path="/remarks" />
+    /// </remarks>
     public const string SplatAtKey = "texturing.splat.at";
 
     /// <summary>The key on a map's own sidecar saying which of the seven it is.</summary>
@@ -258,7 +264,10 @@ public static class MaterialProvenance {
 
         var written = new Dictionary<string, string>(StringComparer.Ordinal) {
             [SourceKey] = record.Source,
-            [OutputsKey] = string.Join(Separator, images.Select(image => MaterialMapNaming.Suffix(image.Target))),
+            [OutputsKey] = string.Join(
+                Separator,
+                images.Select(static image => MaterialMapNaming.Suffix(image.Target))
+            ),
             [ResolutionKey] = Resolution(images[0].Width, images[0].Height),
             [WrittenDigestKey] = Written(images),
 
@@ -304,8 +313,12 @@ public static class MaterialProvenance {
     /// <exception cref="ArgumentNullException">An argument is null.</exception>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>This is what makes "a file an artist has painted over is never silently
-    ///         regenerated" a check rather than a hope.</b> § D4 is explicit that the most common
+    ///         ⚠
+    ///         <b>
+    ///             This is what makes "a file an artist has painted over is never silently
+    ///             regenerated" a check rather than a hope.
+    ///         </b>
+    ///         § D4 is explicit that the most common
     ///         reason a baked file's bytes have changed is that somebody painted on it, and a bake
     ///         that overwrote it would be destroying the work in the one moment it looked like
     ///         success.

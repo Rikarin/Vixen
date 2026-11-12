@@ -29,7 +29,7 @@ public class ManipulationTests {
         var scale = pane.Viewport.Gizmo.WorldPerPixel(pane.Camera, pane.Control.RenderHeight)
             * pane.Viewport.Gizmo.HandleLength;
 
-        return pane.Screen(new Vector3(scale * fraction, 0f, 0f));
+        return pane.Screen(new(scale * fraction, 0f, 0f));
     }
 
     static StubTarget Selected(Pane pane) {
@@ -65,7 +65,7 @@ public class ManipulationTests {
 
         // A move with no button carries `PointerButton.None`, so a viewport that only looked at the
         // primary button never asked what was under the pointer at all.
-        pane.Move(new Vector2(20f, 20f));
+        pane.Move(new(20f, 20f));
         Assert.Equal(GizmoHandle.None, pane.Viewport.Gizmo.Hovered);
     }
 
@@ -133,7 +133,7 @@ public class ManipulationTests {
         var target = Selected(pane);
         var grab = AlongX(pane);
 
-        target.Position = new Vector3(0f, 0f, 0f);
+        target.Position = new(0f, 0f, 0f);
 
         pane.Press(PointerButton.Primary, grab);
         pane.Move(grab + new Vector2(120f, 0f));

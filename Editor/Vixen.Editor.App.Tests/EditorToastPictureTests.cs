@@ -48,10 +48,16 @@ public sealed class EditorToastPictureTests {
                 $"a toast is {box} in a {width}×{height} editor (#1400)."
             );
 
-            Assert.True(toast.MessagePart.Block()!.Lines.Length > 1, $"a toast {box.Width} px wide holds its message on one line.");
+            Assert.True(
+                toast.MessagePart.Block()!.Lines.Length > 1,
+                $"a toast {box.Width} px wide holds its message on one line."
+            );
 
             var close = toast.CloseButton.Bounds;
-            Assert.True(close.Left >= box.Left && close.Right <= box.Right, $"the close button {close} is outside its toast {box}.");
+            Assert.True(
+                close.Left >= box.Left && close.Right <= box.Right,
+                $"the close button {close} is outside its toast {box}."
+            );
         }
 
         Assert.True(toasts[0].Bounds.Bottom <= toasts[1].Bounds.Top + 0.5f, "the two toasts overlap.");

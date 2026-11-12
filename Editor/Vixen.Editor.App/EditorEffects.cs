@@ -22,22 +22,34 @@ namespace Vixen.Editor.App;
 ///         twenty lines.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Compiled rather than baked, which is the editor's answer and not a shipping
-///         build's.</b> A shipping build enumerates its permutations and asserts the miss list is
+///         ⚠
+///         <b>
+///             Compiled rather than baked, which is the editor's answer and not a shipping
+///             build's.
+///         </b>
+///         A shipping build enumerates its permutations and asserts the miss list is
 ///         empty; an editor cannot, because the next thing somebody does is add a material with a
 ///         shading model nothing has ever asked for. What that costs is a stall on the frame a new
 ///         variant is first needed, and what the disk cache buys is that it is the <em>first</em>
 ///         frame only, once per machine.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The cache is under the project's <c>Library/</c> and is keyed by a hash of the
-///         sources.</b> Editing a shader changes the hash and invalidates exactly its variants —
+///         ⚠
+///         <b>
+///             The cache is under the project's <c>Library/</c> and is keyed by a hash of the
+///             sources.
+///         </b>
+///         Editing a shader changes the hash and invalidates exactly its variants —
 ///         which is <see cref="EffectDiskCache" />'s own contract — so a stale bytecode surviving an
 ///         edit is a state that cannot be reached by editing.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The engine's library ships beside the editor, and a project's own shaders are read
-///         from <c>Assets/</c>.</b> Both are one compilation, for the reason <c>CheckShaders</c> gives
+///         ⚠
+///         <b>
+///             The engine's library ships beside the editor, and a project's own shaders are read
+///             from <c>Assets/</c>.
+///         </b>
+///         Both are one compilation, for the reason <c>CheckShaders</c> gives
 ///         at length: a package's declarations are visible to a sibling file only within one, so a
 ///         project shader that imports <c>Vixen.Shaders.Core</c> needs the library's files in the same
 ///         compilation rather than a reference to a built artefact.
@@ -76,8 +88,12 @@ sealed class EditorEffects : IDisposable {
     ///         release theirs and this one cannot. Bounded per loader and monotonic across a session.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Hoisting it is the whole fix, and it is a fix rather than a deferral because a
-    ///         layout is a function of the binding shape and of nothing else</b> — see
+    ///         ⚠
+    ///         <b>
+    ///             Hoisting it is the whole fix, and it is a fix rather than a deferral because a
+    ///             layout is a function of the binding shape and of nothing else
+    ///         </b>
+    ///         — see
     ///         <c>EffectLoader.PipelineLayoutOf</c>'s remarks. Editing a shader changes the
     ///         bytecode, not the shape, so the loader a rebuild wants is bit-for-bit the loader it
     ///         already had. What that buys is not a smaller leak: it is the right lifetime. These
@@ -85,8 +101,11 @@ sealed class EditorEffects : IDisposable {
     ///         they go when it does.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Deliberately not <see cref="EffectLoader.Release" />d by <see cref="Dispose" />,
-    ///         unlike <c>TexturePlanEvaluator</c>'s and <c>ShaderGraphPreviewRenderer</c>'s.</b>
+    ///         ⚠
+    ///         <b>
+    ///             Deliberately not <see cref="EffectLoader.Release" />d by <see cref="Dispose" />,
+    ///             unlike <c>TexturePlanEvaluator</c>'s and <c>ShaderGraphPreviewRenderer</c>'s.
+    ///         </b>
     ///         Those two own every pipeline built from their own effects and idle the device before
     ///         they tear one down. These effects are handed to <see cref="System" />, and the
     ///         pipelines built from them live in the renderer's caches — so a release here would free
@@ -109,7 +128,11 @@ sealed class EditorEffects : IDisposable {
     ///     <c>AssetEditorsModule</c> — asked on every build, or <see langword="null" /> for none.
     /// </param>
     /// <exception cref="ArgumentNullException">An argument is null.</exception>
-    public EditorEffects(IGraphicsDevice device, EditorProject project, Func<IEffectSourceProvider?>? contributed = null) {
+    public EditorEffects(
+        IGraphicsDevice device,
+        EditorProject project,
+        Func<IEffectSourceProvider?>? contributed = null
+    ) {
         ArgumentNullException.ThrowIfNull(device);
         ArgumentNullException.ThrowIfNull(project);
 
@@ -124,8 +147,12 @@ sealed class EditorEffects : IDisposable {
 
     /// <summary>The system every material and every pass resolves through.</summary>
     /// <remarks>
-    ///     ⚠ <b>One object for the life of the editor, and <see cref="Rebuild" /> does not replace
-    ///     it.</b> Everything that resolves through it takes it once — a <c>WorldRenderer</c> passes it
+    ///     ⚠
+    ///     <b>
+    ///         One object for the life of the editor, and <see cref="Rebuild" /> does not replace
+    ///         it.
+    ///     </b>
+    ///     Everything that resolves through it takes it once — a <c>WorldRenderer</c> passes it
     ///     to its render host, its two material features and its compositor builder in a constructor —
     ///     so a system swapped underneath them is a system nobody asks any more.
     /// </remarks>
@@ -133,8 +160,12 @@ sealed class EditorEffects : IDisposable {
 
     /// <summary>Why there are no effects, or null when there are.</summary>
     /// <remarks>
-    ///     ⚠ <b>A reason rather than an exception, because a viewport that cannot shade should still
-    ///     open.</b> A missing library folder or a shader that does not parse leaves the editor with a
+    ///     ⚠
+    ///     <b>
+    ///         A reason rather than an exception, because a viewport that cannot shade should still
+    ///         open.
+    ///     </b>
+    ///     A missing library folder or a shader that does not parse leaves the editor with a
     ///     scene it cannot draw materials for — and an editor that refused to start would be one
     ///     nobody could use to fix the shader.
     /// </remarks>
@@ -145,8 +176,12 @@ sealed class EditorEffects : IDisposable {
 
     /// <summary>What each shader graph that would not compile had to say, one line per graph.</summary>
     /// <remarks>
-    ///     ⚠ <b>Separate from <see cref="Refusal" />, because a broken graph is not a broken
-    ///     editor.</b> One graph an author is halfway through must not read as "there are no effects":
+    ///     ⚠
+    ///     <b>
+    ///         Separate from <see cref="Refusal" />, because a broken graph is not a broken
+    ///         editor.
+    ///     </b>
+    ///     One graph an author is halfway through must not read as "there are no effects":
     ///     the rest of the project compiles, the scene draws, and the material naming that graph is
     ///     the only thing missing. Reported per graph so a panel can send an author to the file.
     /// </remarks>
@@ -162,8 +197,12 @@ sealed class EditorEffects : IDisposable {
     ///         which is a few megabytes per shader edit and is reclaimed on exit.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Managed memory, and no longer device memory — that is the correction
-    ///         <a href="https://github.com/Rikarin/Vixen/issues/1121">#1121</a> makes.</b> The
+    ///         ⚠
+    ///         <b>
+    ///             Managed memory, and no longer device memory — that is the correction
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/1121">#1121</a> makes.
+    ///         </b>
+    ///         The
     ///         handles an <see cref="Effect" /> names belong to <see cref="loader" />, which is one
     ///         object for the life of the device and hands the new generation back the layouts it
     ///         gave the old one. A rebuild therefore costs bytecode arrays the collector takes, and
@@ -245,8 +284,10 @@ sealed class EditorEffects : IDisposable {
             provider.Source = new EffectSourceProvider(cache, loader);
 
             Refusal = null;
-        } catch (Exception failure) when (failure is ShaderCompilationException or IOException
-                                              or UnauthorizedAccessException or ArgumentException) {
+        } catch (Exception failure) when (failure is ShaderCompilationException
+                                              or IOException
+                                              or UnauthorizedAccessException
+                                              or ArgumentException) {
             // ⚠ Parsing happens in the constructor, so a project shader with a syntax error is met
             // here rather than on the frame that first wanted a variant of something else. That is
             // the right place for it — one message about the file, instead of every material in the
@@ -285,7 +326,8 @@ sealed class EditorEffects : IDisposable {
             yield break;
         }
 
-        foreach (var file in Directory.EnumerateFiles(project.Paths.Assets, "*.rvn", SearchOption.AllDirectories).Order(StringComparer.Ordinal)) {
+        foreach (var file in Directory.EnumerateFiles(project.Paths.Assets, "*.rvn", SearchOption.AllDirectories)
+                     .Order(StringComparer.Ordinal)) {
             yield return file;
         }
     }

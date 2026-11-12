@@ -65,7 +65,7 @@ internal static class DeclarationFacts {
 
     /// <summary>Every attribute name Raven reads, in the order the message lists them.</summary>
     public static IReadOnlyList<string> KnownAttributeNames { get; } =
-        [.. StageAttributes.Keys, .. SetAttributes.Keys, .. MarkerAttributes];
+        [..StageAttributes.Keys, ..SetAttributes.Keys, ..MarkerAttributes];
 
     /// <summary>The recognised names as one comma-separated string, for a diagnostic.</summary>
     public static string KnownAttributeNamesText { get; } = string.Join(", ", KnownAttributeNames);
@@ -152,8 +152,12 @@ internal static class DeclarationFacts {
     ///         ⚠ <b>A dimension may be a folded constant and not only a literal</b>, which is what
     ///         <paramref name="fold" /> is for. The number a reduction is built around is usually
     ///         already spelled as a <c>const</c> — a lane count, a tile size — and refusing it here
-    ///         made the shader spell it twice, in two places that could disagree <em>in the
-    ///         safe-looking direction</em>: a workgroup narrower than the array it fills simply never
+    ///         made the shader spell it twice, in two places that could disagree
+    ///         <em>
+    ///             in the
+    ///             safe-looking direction
+    ///         </em>
+    ///         : a workgroup narrower than the array it fills simply never
     ///         loads the texels the missing lanes would have, so the answer is a fraction of the
     ///         truth with no diagnostic and no validation error. A literal still takes the fast path
     ///         and binds nothing, so a size written as a number costs exactly what it did.
@@ -284,8 +288,12 @@ internal static class DeclarationFacts {
     /// <summary>Whether the declaration is marked <c>[NoContraction]</c>.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The one attribute that changes no interface and no picture that is not already
-    ///         wrong.</b> A driver is permitted to fuse a multiply and an add into one instruction
+    ///         ⚠
+    ///         <b>
+    ///             The one attribute that changes no interface and no picture that is not already
+    ///             wrong.
+    ///         </b>
+    ///         A driver is permitted to fuse a multiply and an add into one instruction
     ///         that rounds once, and it is permitted not to; two compilers that agree on every
     ///         operand and every constant can therefore disagree in the last place, which is what a
     ///         1/255 difference on an antialiased edge is made of. This is the author saying that
@@ -354,8 +362,12 @@ internal static class DeclarationFacts {
     ///         descriptor set per object.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>This existed as an inference, and the inference was two claims wearing one
-    ///         number.</b> <c>EffectLoader.KindOf</c> read "a uniform block in set 3, used by a
+    ///         ⚠
+    ///         <b>
+    ///             This existed as an inference, and the inference was two claims wearing one
+    ///             number.
+    ///         </b>
+    ///         <c>EffectLoader.KindOf</c> read "a uniform block in set 3, used by a
     ///         graphics stage" as "dynamic", so the set index carried both <i>where a binding lives</i>
     ///         and <i>whether its contents change between draws</i> — and a shader wanting the first
     ///         without the second had no way to say so. It needed a carve-out for compute (a dispatch

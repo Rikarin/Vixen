@@ -10,8 +10,12 @@ namespace Vixen.Ui.Layout.Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Every fixture here is an AUTO-SIZED box whose children overflow it, and that is the
-///         instrument rather than a detail of it.</b> A contained box and an uncontained one draw the
+///         ⚠
+///         <b>
+///             Every fixture here is an AUTO-SIZED box whose children overflow it, and that is the
+///             instrument rather than a detail of it.
+///         </b>
+///         A contained box and an uncontained one draw the
 ///         same picture wherever the children happen to fit, so a fixture with an explicit
 ///         <c>width</c> and <c>height</c> would pass character for character against an engine that
 ///         had never heard of the property. Only a box the contents were deciding can be seen to stop
@@ -150,8 +154,12 @@ public class ContainmentTests {
 
     /// <summary>Layout containment makes the box the containing block of an absolute descendant.</summary>
     /// <remarks>
-    ///     ⚠ <b>Neither the contained box nor anything between it and the absolute child is
-    ///     positioned, which is the whole point of the fixture.</b> § 3.1's observable half here is
+    ///     ⚠
+    ///     <b>
+    ///         Neither the contained box nor anything between it and the absolute child is
+    ///         positioned, which is the whole point of the fixture.
+    ///     </b>
+    ///     § 3.1's observable half here is
     ///     the containing block — the thing <c>position: relative</c> otherwise provides — so a test
     ///     that let either box be relative would pass without the property existing. The root is 300
     ///     wide and the contained box is 100, and <c>right: 0</c> tells the two apart by 200 points.

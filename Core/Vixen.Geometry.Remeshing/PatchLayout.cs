@@ -9,8 +9,12 @@ namespace Vixen.Geometry.Remeshing;
 /// <param name="Arc">Which arc.</param>
 /// <param name="Reversed">Whether this patch walks it from its last vertex to its first.</param>
 /// <remarks>
-///     ⚠ <b>Two patches sharing a side hold the <i>same</i> arc index, and that is the whole of
-///     docs/plan/41 § D8's "the seam is an equality rather than a weld".</b> The arc owns one list of
+///     ⚠
+///     <b>
+///         Two patches sharing a side hold the <i>same</i> arc index, and that is the whole of
+///         docs/plan/41 § D8's "the seam is an equality rather than a weld".
+///     </b>
+///     The arc owns one list of
 ///     output vertices; a reversed use reads the same list backwards. There is no tolerance anywhere in
 ///     it, so there is no size of model at which the seam opens.
 /// </remarks>
@@ -50,8 +54,12 @@ sealed class LayoutArc {
 ///         the constraint is that the two opposite groups sum to the same thing.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Three sides is the one exception, and it is a <i>filled</i> patch rather than a
-///         weaker one.</b> A boundary of three arcs holds no rectangle however the arcs are grouped, so
+///         ⚠
+///         <b>
+///             Three sides is the one exception, and it is a <i>filled</i> patch rather than a
+///             weaker one.
+///         </b>
+///         A boundary of three arcs holds no rectangle however the arcs are grouped, so
 ///         a patch that reaches <see cref="PatchLayout" />'s last resort with three of them is carried
 ///         as a fan: three quad blocks round a centre point, which is the standard three-to-quads
 ///         subdivision and is what lets a patch bounded entirely by creases be extracted rather than
@@ -79,8 +87,12 @@ sealed class LayoutPatch {
 ///         singularities are cuts as well. What is left between them is the patches.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Every repair here is bounded and every failure is a warning rather than an
-///         exception.</b> docs/plan/41's robustness criterion is "a valid all-quad result or a report
+///         ⚠
+///         <b>
+///             Every repair here is bounded and every failure is a warning rather than an
+///             exception.
+///         </b>
+///         docs/plan/41's robustness criterion is "a valid all-quad result or a report
 ///         naming the stage that refused, and never an exception or a hang". A patch that cannot be
 ///         made usable in <see cref="RepairRounds" /> rounds is counted in <see cref="Warnings" /> and
 ///         left out; <see cref="IsUsable" /> goes false only when <i>none</i> of them came out, which is
@@ -132,8 +144,12 @@ sealed class PatchLayout {
 
     /// <summary>How many times the layout will try to walk a dangling cut out to existing structure.</summary>
     /// <remarks>
-    ///     ⚠ <b>Each round extends at least one loose end or stops, so the bound is a guard rather than
-    ///     a tuning number</b> — but a walk that stalls leaves a <i>new</i> loose end behind it, so the
+    ///     ⚠
+    ///     <b>
+    ///         Each round extends at least one loose end or stops, so the bound is a guard rather than
+    ///         a tuning number
+    ///     </b>
+    ///     — but a walk that stalls leaves a <i>new</i> loose end behind it, so the
     ///     rounds are not trivially monotone and docs/plan/41's robustness criterion says never a hang.
     /// </remarks>
     public const int ExtendRounds = 4;
@@ -141,8 +157,12 @@ sealed class PatchLayout {
     /// <summary>How much longer round than wide a patch may be before the layout cuts it in two.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A ratio of two lengths and never a length, which is the failure this repository
-    ///         found five instances of in one day.</b> The measure is a patch's own perimeter against
+    ///         ⚠
+    ///         <b>
+    ///             A ratio of two lengths and never a length, which is the failure this repository
+    ///             found five instances of in one day.
+    ///         </b>
+    ///         The measure is a patch's own perimeter against
     ///         its own area — <c>P² / 16A</c>, which is one for a square and grows without bound as a
     ///         region gets snaky — so a model in millimetres and the same model in kilometres cut in
     ///         exactly the same places. <see cref="ScaleSafe" /> is the established fix for the same
@@ -356,7 +376,9 @@ sealed class PatchLayout {
                     // the patch got them is not.
                     if (repairing && Divide(mesh, arcs, uses, forced)) {
                         redo = true;
-                    } else if (repairing && triangles.Length <= MergeTriangles && Merge(mesh, features, cut, arcs, uses)) {
+                    } else if (repairing
+                               && triangles.Length <= MergeTriangles
+                               && Merge(mesh, features, cut, arcs, uses)) {
                         redo = true;
                     } else if (uses.Count == 3) {
                         fanned++;
@@ -417,7 +439,7 @@ sealed class PatchLayout {
                     );
                 }
 
-                return new([.. arcs], [.. built], cut, split, [.. warnings], exhausted, built.Count > 0);
+                return new([..arcs], [..built], cut, split, [..warnings], exhausted, built.Count > 0);
             }
         }
 
@@ -434,12 +456,16 @@ sealed class PatchLayout {
         bool[] cut,
         bool[] split
     ) =>
-        new([.. arcs], [], cut, split, [.. warnings], exhausted, false);
+        new([..arcs], [], cut, split, [..warnings], exhausted, false);
 
     /// <summary>Traces two artificial loops on any component the partition never touched.</summary>
     /// <remarks>
-    ///     ⚠ <b>A torus with a perfect field has no singularities and a torus with no creases has no
-    ///     features, so it has no cuts — and one patch with no boundary is not a patch.</b> That is
+    ///     ⚠
+    ///     <b>
+    ///         A torus with a perfect field has no singularities and a torus with no creases has no
+    ///         features, so it has no cuts — and one patch with no boundary is not a patch.
+    ///     </b>
+    ///     That is
     ///     docs/plan/41's "a zero that means off" trap in its layout form, and the answer is to cut it
     ///     somewhere rather than to refuse it: two field-aligned walks out of the component's
     ///     lowest-index vertex, which is a choice derived from the input and so is the same on every
@@ -499,8 +525,12 @@ sealed class PatchLayout {
     /// <summary>Removes traced cuts that dead-end, leaf by leaf, until none is left.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A cut that dead-ends is a slit rather than a cut, and a slit is what makes a patch
-    ///         walk the same arc twice.</b> A separatrix that stalls — or one whose seed had only one of
+    ///         ⚠
+    ///         <b>
+    ///             A cut that dead-ends is a slit rather than a cut, and a slit is what makes a patch
+    ///             walk the same arc twice.
+    ///         </b>
+    ///         A separatrix that stalls — or one whose seed had only one of
     ///         its four directions succeed — leaves a chain with a loose end, and the flood fill happily
     ///         crosses round it: the same patch is on both sides. The boundary walk then traverses that
     ///         arc once in each direction, which puts one quantization variable into three or four
@@ -661,16 +691,24 @@ sealed class PatchLayout {
     /// <summary>Drops every traced curve that separates nothing.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A cut that leaves the same patch on both sides is a slit, and a slit is what makes
-    ///         an extracted mesh non-manifold.</b> A patch whose boundary walk goes up one side of a
+    ///         ⚠
+    ///         <b>
+    ///             A cut that leaves the same patch on both sides is a slit, and a slit is what makes
+    ///             an extracted mesh non-manifold.
+    ///         </b>
+    ///         A patch whose boundary walk goes up one side of a
     ///         slit and back down the other puts the same run of vertices into one grid row twice: the
     ///         row folds on itself, the quads on the fold have no area, and their edges come back from
     ///         <c>Validate</c> as non-manifold <i>and</i> inconsistently wound. Measured on a box, five
     ///         of each.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Tested by re-flooding rather than by asking whether the two sides are the same
-    ///         patch, and the difference is the torus.</b> Two transverse loops on a torus cut it to a
+    ///         ⚠
+    ///         <b>
+    ///             Tested by re-flooding rather than by asking whether the two sides are the same
+    ///             patch, and the difference is the torus.
+    ///         </b>
+    ///         Two transverse loops on a torus cut it to a
     ///         disc, and at that point <i>every</i> cut edge has the same patch on both sides — so the
     ///         local test would remove both loops and leave a surface with no boundary at all. Removing
     ///         a curve and counting the patches answers the question that is actually being asked: did
@@ -701,9 +739,9 @@ sealed class PatchLayout {
 
             for (var at = 0; at + 1 < curve.Vertices.Length; at++) {
                 foreach (var half in (int[]) [
-                    SeparatrixTracer.Half(mesh, curve.Vertices[at], curve.Vertices[at + 1]),
-                    SeparatrixTracer.Half(mesh, curve.Vertices[at + 1], curve.Vertices[at])
-                ]) {
+                             SeparatrixTracer.Half(mesh, curve.Vertices[at], curve.Vertices[at + 1]),
+                             SeparatrixTracer.Half(mesh, curve.Vertices[at + 1], curve.Vertices[at])
+                         ]) {
                     if (half >= 0 && cut[half] && !features.IsFeatureEdge(half) && mesh.Twin(half) >= 0) {
                         halves.Add(half);
                     }
@@ -791,7 +829,7 @@ sealed class PatchLayout {
         var turn = MathF.Cos(MathUtil.DegreesToRadians(CornerAngle));
 
         foreach (var vertex in forced) {
-            if ((uint) vertex < (uint) split.Length) {
+            if ((uint)vertex < (uint)split.Length) {
                 split[vertex] = true;
             }
         }
@@ -852,7 +890,7 @@ sealed class PatchLayout {
             foreach (var key in polyline.Keys) {
                 var vertex = polyline.Vertices[key];
 
-                if ((uint) vertex >= (uint) split.Length) {
+                if ((uint)vertex >= (uint)split.Length) {
                     continue;
                 }
 
@@ -869,8 +907,12 @@ sealed class PatchLayout {
 
     /// <summary>Forces four splits onto any cut loop that carries none.</summary>
     /// <remarks>
-    ///     ⚠ <b>A closed cut with no split on it is an arc that starts and ends at the same vertex,
-    ///     which is not a side of anything.</b> A cylinder's rim is the ordinary case: a feature loop
+    ///     ⚠
+    ///     <b>
+    ///         A closed cut with no split on it is an arc that starts and ends at the same vertex,
+    ///         which is not a side of anything.
+    ///     </b>
+    ///     A cylinder's rim is the ordinary case: a feature loop
     ///     with no corner anywhere on it. Four rather than one, so the disc it bounds has four sides
     ///     without a further repair, and at even arc-length steps from the lowest-index vertex on the
     ///     loop so the choice is a function of the mesh.
@@ -1007,7 +1049,7 @@ sealed class PatchLayout {
                 }
             }
 
-            arcs.Add(Arc(mesh, features, density, [.. chain]));
+            arcs.Add(Arc(mesh, features, density, [..chain]));
         }
 
         return (arcs, arcOfHalf, forward);
@@ -1078,7 +1120,7 @@ sealed class PatchLayout {
                 members.Add(current);
 
                 for (var side = 0; side < 3; side++) {
-                    var half = (current * 3) + side;
+                    var half = current * 3 + side;
 
                     if (cut[half]) {
                         continue;
@@ -1094,7 +1136,7 @@ sealed class PatchLayout {
             }
 
             members.Sort();
-            patches.Add([.. members]);
+            patches.Add([..members]);
         }
 
         return patches;
@@ -1108,7 +1150,7 @@ sealed class PatchLayout {
 
         foreach (var triangle in triangles) {
             for (var side = 0; side < 3; side++) {
-                var start = (triangle * 3) + side;
+                var start = triangle * 3 + side;
 
                 if (!cut[start] || !seen.Add(start)) {
                     continue;
@@ -1198,8 +1240,12 @@ sealed class PatchLayout {
 
     /// <summary>Cuts an annulus down to a disc by joining its two boundary loops.</summary>
     /// <remarks>
-    ///     ⚠ <b>A patch with two boundary loops holds no regular grid, and a cylinder's wall is the
-    ///     ordinary way to get one.</b> The shortest edge path between the loops is the cut, taken
+    ///     ⚠
+    ///     <b>
+    ///         A patch with two boundary loops holds no regular grid, and a cylinder's wall is the
+    ///         ordinary way to get one.
+    ///     </b>
+    ///     The shortest edge path between the loops is the cut, taken
     ///     inside the patch so it does not disturb anything else, and the partition is rebuilt round it.
     /// </remarks>
     static bool Bridge(ManifoldMesh mesh, bool[] cut, int[] triangles, List<List<int>> loops) {
@@ -1347,8 +1393,11 @@ sealed class PatchLayout {
     /// <returns>Whether a cut was added, so the caller knows to rebuild.</returns>
     /// <remarks>
     ///     <para>
-    ///         <b>The cut is a traced separatrix and not a shortest path, which is what keeps the two
-    ///         halves griddable.</b> A patch is cut so that a regular grid fits inside it, and a grid's
+    ///         <b>
+    ///             The cut is a traced separatrix and not a shortest path, which is what keeps the two
+    ///             halves griddable.
+    ///         </b>
+    ///         A patch is cut so that a regular grid fits inside it, and a grid's
     ///         rows follow the cross field — so a cut taken across the field leaves two patches whose
     ///         sides no longer line up with anything. <see cref="SeparatrixTracer" /> is the same walk
     ///         the partition was built out of, so the new boundary is made of the same kind of chain as
@@ -1403,7 +1452,7 @@ sealed class PatchLayout {
             }
         }
 
-        if (seed < 0 || (uint) seed >= (uint) mesh.VertexCount) {
+        if (seed < 0 || (uint)seed >= (uint)mesh.VertexCount) {
             return false;
         }
 
@@ -1496,9 +1545,9 @@ sealed class PatchLayout {
 
         for (var at = 0; at + 1 < chain.Length; at++) {
             foreach (var half in (int[]) [
-                SeparatrixTracer.Half(mesh, chain[at], chain[at + 1]),
-                SeparatrixTracer.Half(mesh, chain[at + 1], chain[at])
-            ]) {
+                         SeparatrixTracer.Half(mesh, chain[at], chain[at + 1]),
+                         SeparatrixTracer.Half(mesh, chain[at + 1], chain[at])
+                     ]) {
                 if (half < 0 || !cut[half] || features.IsFeatureEdge(half) || mesh.Twin(half) < 0) {
                     continue;
                 }
@@ -1543,8 +1592,12 @@ sealed class PatchLayout {
     /// <summary>Groups a loop's arcs into four sides, at the corners that make opposite sides agree.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Opposite sides are matched to each other, and the four are emphatically <i>not</i>
-    ///         made equal.</b> Splitting a loop into four equal quarters looks like the obvious rule and
+    ///         ⚠
+    ///         <b>
+    ///             Opposite sides are matched to each other, and the four are emphatically <i>not</i>
+    ///             made equal.
+    ///         </b>
+    ///         Splitting a loop into four equal quarters looks like the obvious rule and
     ///         it turns every long thin patch into a square: a strip whose real shape is 100 × 1 gets
     ///         four sides of 50 and quantizes to 2,500 quads instead of 100. Measured, that one mistake
     ///         took a box from a 400-quad budget to 5,966. What the quantization actually needs is
@@ -1617,7 +1670,7 @@ sealed class PatchLayout {
                         + turn[(first + candidates[two]) % count]
                         + turn[(first + candidates[three]) % count];
 
-                    var score = mismatch - (CornerBias * sharp);
+                    var score = mismatch - CornerBias * sharp;
 
                     if (score >= best) {
                         continue;
@@ -1648,7 +1701,7 @@ sealed class PatchLayout {
                 run.Add(uses[at]);
             }
 
-            sides[side] = [.. run];
+            sides[side] = [..run];
         }
 
         return sides;
@@ -1656,8 +1709,12 @@ sealed class PatchLayout {
 
     /// <summary>Which steps round the loop the corner search may pick, as offsets from the first corner.</summary>
     /// <remarks>
-    ///     ⚠ <b>Kept in loop order after being chosen by turn, because the search reads them as three
-    ///     ascending positions.</b> A candidate set sorted by score would have the triple loop
+    ///     ⚠
+    ///     <b>
+    ///         Kept in loop order after being chosen by turn, because the search reads them as three
+    ///         ascending positions.
+    ///     </b>
+    ///     A candidate set sorted by score would have the triple loop
     ///     enumerating corner orders that do not go round the loop.
     /// </remarks>
     static List<int> Candidates(int count, float[] turn, int[] vertex, int first) {
@@ -1668,8 +1725,7 @@ sealed class PatchLayout {
         }
 
         if (steps.Count > MaxCandidates) {
-            steps.Sort(
-                (one, two) => {
+            steps.Sort((one, two) => {
                     var byTurn = turn[(first + two) % count].CompareTo(turn[(first + one) % count]);
 
                     return byTurn != 0
@@ -1714,8 +1770,12 @@ sealed class PatchLayout {
 
     /// <summary>Whether the edge between two vertices is a feature edge, from either side.</summary>
     /// <remarks>
-    ///     ⚠ <b>Both half-edge lookups are checked for <c>-1</c> before they are used as an index, and
-    ///     the case is real rather than defensive.</b> A boundary vertex's ring has one more neighbour
+    ///     ⚠
+    ///     <b>
+    ///         Both half-edge lookups are checked for <c>-1</c> before they are used as an index, and
+    ///         the case is real rather than defensive.
+    ///     </b>
+    ///     A boundary vertex's ring has one more neighbour
     ///     than it has outgoing half-edges — the last edge of an open fan runs <i>into</i> it and never
     ///     out of it — so on an unclosed surface one of the two lookups legitimately finds nothing.
     ///     Measured: an <see cref="IndexOutOfRangeException" /> on the Möbius strip of the broken-mesh

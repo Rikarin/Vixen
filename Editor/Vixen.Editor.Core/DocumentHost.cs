@@ -43,8 +43,12 @@ public interface IDocumentHost {
     ///         document is one that answers twice.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And not from <c>EditorProject.Register</c>, which is where it looks like it
-    ///         belongs.</b> That runs from <see cref="EditorDocument" />'s base constructor, so a
+    ///         ⚠
+    ///         <b>
+    ///             And not from <c>EditorProject.Register</c>, which is where it looks like it
+    ///             belongs.
+    ///         </b>
+    ///         That runs from <see cref="EditorDocument" />'s base constructor, so a
     ///         subscriber would be handed a half-built document.
     ///     </para>
     /// </remarks>
@@ -105,8 +109,12 @@ public sealed class DocumentHost : IDocumentHost {
     /// <inheritdoc />
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Until this returned something, a plugin could not claim a file extension at
-    ///         all</b> (<a href="https://github.com/Rikarin/Vixen/issues/739">#739</a>). A
+    ///         ⚠
+    ///         <b>
+    ///             Until this returned something, a plugin could not claim a file extension at
+    ///             all
+    ///         </b>
+    ///         (<a href="https://github.com/Rikarin/Vixen/issues/739">#739</a>). A
     ///         registration with no matching <c>PluginContext.OnUnload</c> leaks the plugin's whole
     ///         assembly, because the kind and every document it opened are references from the editor
     ///         into the plugin.
@@ -181,8 +189,12 @@ public sealed class DocumentHost : IDocumentHost {
     ///         one file is two undo histories over one set of bytes, and whichever saved last wins.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A document of a type its kind did not declare is refused, closed, and thrown
-    ///         about.</b> The view is found by that type, so a kind that drifted from what it declares
+    ///         ⚠
+    ///         <b>
+    ///             A document of a type its kind did not declare is refused, closed, and thrown
+    ///             about.
+    ///         </b>
+    ///         The view is found by that type, so a kind that drifted from what it declares
     ///         would otherwise open a document with no view and the double-click would do nothing
     ///         anyone could explain.
     ///     </para>

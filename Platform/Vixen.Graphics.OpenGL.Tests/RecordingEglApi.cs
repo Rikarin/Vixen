@@ -11,7 +11,7 @@ namespace Vixen.Graphics.OpenGL.Tests;
 public readonly record struct EglCall(string Name, object?[] Arguments) {
     /// <inheritdoc />
     public override string ToString() =>
-        $"{Name}({string.Join(", ", Arguments.Select(argument => Convert.ToString(argument, CultureInfo.InvariantCulture)))})";
+        $"{Name}({string.Join(", ", Arguments.Select(static argument => Convert.ToString(argument, CultureInfo.InvariantCulture)))})";
 }
 
 /// <summary>An EGL that records what it was asked to do, and answers however a test wants.</summary>
@@ -39,7 +39,7 @@ public sealed class RecordingEglApi : IEglApi {
     public IReadOnlyList<EglCall> Calls => calls;
 
     /// <summary>The names of every call, for an ordering assertion.</summary>
-    public IReadOnlyList<string> Names => calls.Select(call => call.Name).ToList();
+    public IReadOnlyList<string> Names => calls.Select(static call => call.Name).ToList();
 
     /// <summary>What <c>eglGetDisplay</c> should return.</summary>
     public nint Display { get; set; } = 0x100;
@@ -74,9 +74,7 @@ public sealed class RecordingEglApi : IEglApi {
     ///     <c>WINDOW_FORMAT_RGBA_8888</c> on Android and matches the RGBA8 config
     ///     <c>EglAttributes.Config</c> asks for.
     /// </remarks>
-    public Dictionary<int, int> ConfigAttributes { get; } = new() {
-        [EglConstants.NativeVisualId] = 1
-    };
+    public Dictionary<int, int> ConfigAttributes { get; } = new() { [EglConstants.NativeVisualId] = 1 };
 
     /// <summary>Whether <c>eglGetConfigAttrib</c> should answer at all.</summary>
     /// <remarks>A driver with no native visual to report is a legitimate one, and false is it.</remarks>

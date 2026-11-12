@@ -149,7 +149,6 @@ sealed class PlayOverlayLayer : UiElement {
     public int Drawn { get; private set; }
 
 
-
     /// <summary>Every endpoint the last draw stroked, in document space.</summary>
     public IReadOnlyList<Vector2> Points => points;
 
@@ -160,7 +159,10 @@ sealed class PlayOverlayLayer : UiElement {
         Drawn = 0;
         points.Clear();
 
-        if (Owner is not { } owner || Source is not { } source || !ReferenceEquals(source.Pane, owner) || source.Segments.Count == 0) {
+        if (Owner is not { } owner
+            || Source is not { } source
+            || !ReferenceEquals(source.Pane, owner)
+            || source.Segments.Count == 0) {
             return;
         }
 
@@ -176,11 +178,11 @@ sealed class PlayOverlayLayer : UiElement {
 
         foreach (var segment in source.Segments) {
             if (!paths.TryGetValue(segment.Colour, out var path)) {
-                paths[segment.Colour] = path = new PathBuilder();
+                paths[segment.Colour] = path = new();
             }
 
-            var from = origin + (segment.From / scale);
-            var to = origin + (segment.To / scale);
+            var from = origin + segment.From / scale;
+            var to = origin + segment.To / scale;
 
             path.MoveTo(from).LineTo(to);
             points.Add(from);

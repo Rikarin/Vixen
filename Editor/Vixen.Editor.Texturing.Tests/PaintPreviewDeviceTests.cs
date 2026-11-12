@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Editor.Texturing.Layers;
-using Vixen.Editor.Texturing.Painting;
 using Vixen.Texturing.Layers;
 using Vixen.Texturing.Painting;
 using Xunit;
@@ -14,16 +13,23 @@ namespace Vixen.Editor.Texturing.Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>The other half of <a href="https://github.com/Rikarin/Vixen/issues/852">#852</a>, and
-///         the half a compilation test cannot settle.</b> <c>PaintWiringTests</c> asserts that the
+///         <b>
+///             The other half of <a href="https://github.com/Rikarin/Vixen/issues/852">#852</a>, and
+///             the half a compilation test cannot settle.
+///         </b>
+///         <c>PaintWiringTests</c> asserts that the
 ///         plan carries a <c>vxpaint:</c> reference; this asserts that something reads the file
 ///         behind it. The two failures it separates are a compiler that emits a reference nobody
 ///         resolves — which is the defect #852 is about, one level up — and a resolver that uploads
 ///         the wrong bytes.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The oracle is a boundary and not a colour, because a boundary cannot be produced by
-///         a mistake.</b> The canvas is opaque on its left half and transparent on its right, over a
+///         ⚠
+///         <b>
+///             The oracle is a boundary and not a colour, because a boundary cannot be produced by
+///             a mistake.
+///         </b>
+///         The canvas is opaque on its left half and transparent on its right, over a
 ///         fill of a different colour: the baked map must change at the middle column and nowhere
 ///         else. A resolver that uploaded a blank texture bakes the fill everywhere; one that
 ///         uploaded a constant bakes one colour everywhere; one that never ran at all cannot bake at
@@ -190,7 +196,7 @@ public class PaintPreviewDeviceTests {
         for (var y = 0; y < Side; y++) {
             for (var x = 0; x < Side / 2; x++) {
                 // 0xAABBGGRR — opaque red.
-                image[(y * Side) + x] = 0xFF0000FFu;
+                image[y * Side + x] = 0xFF0000FFu;
             }
         }
 
@@ -208,7 +214,7 @@ public class PaintPreviewDeviceTests {
         );
 
     static (byte R, byte G, byte B) Texel(RecordingGraphics.Uploaded picture, int x, int y) {
-        var at = ((y * picture.Width) + x) * 4;
+        var at = (y * picture.Width + x) * 4;
 
         return (picture.Pixels[at], picture.Pixels[at + 1], picture.Pixels[at + 2]);
     }

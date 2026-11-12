@@ -87,7 +87,7 @@ public class BindlessTextureTests {
               """
         );
 
-        Assert.Contains(errors, d => d.Id == "RVN2126");
+        Assert.Contains(errors, static d => d.Id == "RVN2126");
     }
 
     /// <summary>
@@ -120,7 +120,7 @@ public class BindlessTextureTests {
               """
         );
 
-        Assert.Contains(errors, d => d.Id == "RVN2126");
+        Assert.Contains(errors, static d => d.Id == "RVN2126");
     }
 
     /// <summary>Every texture type, since a table of cubes is what per-object probes want.</summary>
@@ -159,14 +159,14 @@ public class BindlessTextureTests {
     /// </remarks>
     [Fact]
     public void The_reflection_reports_a_count_of_zero() {
-        var bindings = Reflect(Source).Sets.SelectMany(set => set.Bindings).ToArray();
-        var textures = Assert.Single(bindings, b => b.Name == "textures");
+        var bindings = Reflect(Source).Sets.SelectMany(static set => set.Bindings).ToArray();
+        var textures = Assert.Single(bindings, static b => b.Name == "textures");
 
         Assert.Equal(0, textures.Count);
         Assert.Equal(DescriptorType.SampledTexture, textures.Type);
 
         // Beside a bounded one, so the zero is visibly the array's and not every texture's.
-        Assert.Equal(1, Assert.Single(bindings, b => b.Name == "linear").Count);
+        Assert.Equal(1, Assert.Single(bindings, static b => b.Name == "linear").Count);
     }
 
     // --- SPIR-V ------------------------------------------------------------
@@ -191,7 +191,7 @@ public class BindlessTextureTests {
 
         var array = Assert.Single(
             listing.Split('\n'),
-            line => line.Contains("OpTypeRuntimeArray", StringComparison.Ordinal)
+            static line => line.Contains("OpTypeRuntimeArray", StringComparison.Ordinal)
         );
 
         // The element is the image type, so this is the descriptor array and not a buffer's contents.
@@ -250,18 +250,18 @@ public class BindlessTextureTests {
     static HashSet<string> Results(string[] lines, string op) =>
         lines
             .Where(line => line.Contains(" = " + op, StringComparison.Ordinal))
-            .Select(line => line.Split('=')[0].Trim())
+            .Select(static line => line.Split('=')[0].Trim())
             .ToHashSet(StringComparer.Ordinal);
 
     /// <summary>The ids something decorated <c>NonUniform</c>, which is not the capability's name.</summary>
-    static string[] DecoratedNonUniform(string listing) =>
-        [
-            .. listing.Split('\n')
-                .Select(line => line.Trim())
-                .Where(line => line.StartsWith("OpDecorate ", StringComparison.Ordinal)
-                    && line.EndsWith(" NonUniform", StringComparison.Ordinal))
-                .Select(line => line.Split(' ')[1])
-        ];
+    static string[] DecoratedNonUniform(string listing) => [
+        ..listing.Split('\n')
+            .Select(static line => line.Trim())
+            .Where(static line => line.StartsWith("OpDecorate ", StringComparison.Ordinal)
+                && line.EndsWith(" NonUniform", StringComparison.Ordinal)
+            )
+            .Select(static line => line.Split(' ')[1])
+    ];
 
     /// <summary>A shader that declares a table and never indexes it decorates nothing.</summary>
     /// <remarks>
@@ -273,20 +273,21 @@ public class BindlessTextureTests {
     [Fact]
     public void A_table_nobody_indexes_decorates_nothing() {
         var listing = SpirvTestBase.One(
-            """
-            package A
+                """
+                package A
 
-            shader S {
-                var textures: Texture2D[]
+                shader S {
+                    var textures: Texture2D[]
 
-                [FragmentShader]
-                func Fragment(): float4 {
-                    return float4(1, 1, 1, 1)
+                    [FragmentShader]
+                    func Fragment(): float4 {
+                        return float4(1, 1, 1, 1)
+                    }
                 }
-            }
 
-            """
-        ).Code;
+                """
+            )
+            .Code;
 
         // The capability is still declared — the *type* is what needs it — so the assertion is about
         // the decoration and not about the word, which appears in `OpCapability ShaderNonUniform`.
@@ -304,22 +305,23 @@ public class BindlessTextureTests {
     [Fact]
     public void A_sized_array_is_indexed_uniformly() {
         var listing = SpirvTestBase.One(
-            """
-            package A
+                """
+                package A
 
-            shader S {
-                var probes: TextureCube[4]
-                var linear: Sampler
-                [PerDraw] var probeIndex: int
+                shader S {
+                    var probes: TextureCube[4]
+                    var linear: Sampler
+                    [PerDraw] var probeIndex: int
 
-                [FragmentShader]
-                func Fragment(direction: float3): float4 {
-                    return probes[probeIndex].Sample(linear, direction)
+                    [FragmentShader]
+                    func Fragment(direction: float3): float4 {
+                        return probes[probeIndex].Sample(linear, direction)
+                    }
                 }
-            }
 
-            """
-        ).Code;
+                """
+            )
+            .Code;
 
         Assert.DoesNotContain("NonUniform", listing, StringComparison.Ordinal);
         Assert.DoesNotContain("SPV_EXT_descriptor_indexing", listing, StringComparison.Ordinal);
@@ -349,20 +351,22 @@ public class BindlessTextureTests {
     [Fact]
     public void The_extension_is_only_declared_where_it_is_used() {
         var glsl = CodeGenTestBase.GenerateClean(
-            """
-            package A
+                """
+                package A
 
-            shader S {
-                var textures: Texture2D[]
+                shader S {
+                    var textures: Texture2D[]
 
-                [FragmentShader]
-                func Fragment(): float4 {
-                    return float4(1, 1, 1, 1)
+                    [FragmentShader]
+                    func Fragment(): float4 {
+                        return float4(1, 1, 1, 1)
+                    }
                 }
-            }
 
-            """
-        ).Single().Code;
+                """
+            )
+            .Single()
+            .Code;
 
         Assert.Contains("uniform texture2D textures[];", glsl, StringComparison.Ordinal);
         Assert.DoesNotContain("nonuniform_qualifier", glsl, StringComparison.Ordinal);
@@ -404,13 +408,15 @@ public class BindlessTextureTests {
     /// </remarks>
     [Fact]
     public void A_bindless_marker_puts_the_table_in_set_four() {
-        var bindings = Reflect(Set4).Sets.SelectMany(set => set.Bindings.Select(binding => (set.Set, binding))).ToArray();
+        var bindings = Reflect(Set4)
+            .Sets.SelectMany(static set => set.Bindings.Select(binding => (set.Set, binding)))
+            .ToArray();
 
-        var table = Assert.Single(bindings, pair => pair.binding.Name == "textures");
+        var table = Assert.Single(bindings, static pair => pair.binding.Name == "textures");
         Assert.Equal((int)ResourceSet.Bindless, table.Set);
         Assert.Equal(0, table.binding.Count);
 
-        var sampler = Assert.Single(bindings, pair => pair.binding.Name == "linear");
+        var sampler = Assert.Single(bindings, static pair => pair.binding.Name == "linear");
         Assert.Equal((int)ResourceSet.PerFrame, sampler.Set);
     }
 
@@ -453,8 +459,7 @@ public class BindlessTextureTests {
     // --- The fixture -------------------------------------------------------
 
     /// <summary>The errors a source reports, which for most of these should be none.</summary>
-    static IReadOnlyList<Diagnostic> Errors(string source) =>
-        [.. Diagnose(source).Where(d => d.IsError)];
+    static IReadOnlyList<Diagnostic> Errors(string source) => [..Diagnose(source).Where(static d => d.IsError)];
 
     /// <summary>What the reflection says about a shader that compiled.</summary>
     static RavenReflection Reflect(string source) {
@@ -467,7 +472,7 @@ public class BindlessTextureTests {
         var bag = new DiagnosticBag();
         var module = Lowerer.Lower(compilation, bag);
         IrVerifier.Verify(module, bag);
-        Assert.DoesNotContain(bag.ToArray(), d => d.IsError);
+        Assert.DoesNotContain(bag.ToArray(), static d => d.IsError);
 
         return ReflectionBuilder.Describe(FindShader(module, "S"), compilation.UsedPermutationKeys);
     }

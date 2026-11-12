@@ -4,7 +4,6 @@
 using Vixen.Core;
 using Vixen.Editor.Core;
 using Vixen.Editor.Texturing.Layers;
-using Vixen.Editor.Texturing.Painting;
 using Vixen.TextureGraph;
 using Vixen.Texturing;
 using Vixen.Texturing.Layers;
@@ -18,15 +17,22 @@ namespace Vixen.Editor.Texturing.Tests;
 /// <summary>The layers panel edits, and every edit is on the document's own undo stack.</summary>
 /// <remarks>
 ///     <para>
-///         <b><a href="https://github.com/Rikarin/Vixen/issues/819">#819</a>, and the reason it waited
-///         for a model.</b> Nothing in the layer stack was routed through
+///         <b>
+///             <a href="https://github.com/Rikarin/Vixen/issues/819">#819</a>, and the reason it waited
+///             for a model.
+///         </b>
+///         Nothing in the layer stack was routed through
 ///         <c>EditorDocument.Stack</c>, so a panel that offered a reorder would have offered a gesture
 ///         with no undo and no dirty flag. What is asserted here is both halves at once: the row
 ///         does the thing, and the stack remembers it.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Every test here walks the tree the panel built and presses the control an artist
-///         would press.</b> Batch 9 added a public <c>Messages</c> property with no readers and then
+///         ⚠
+///         <b>
+///             Every test here walks the tree the panel built and presses the control an artist
+///             would press.
+///         </b>
+///         Batch 9 added a public <c>Messages</c> property with no readers and then
 ///         wrote its own tests against the tree instead, which is the stronger assertion and the one
 ///         this file keeps to: a view method called only from xunit proves that the method works, not
 ///         that the panel does.
@@ -44,8 +50,12 @@ public class LayerStackEditingTests {
 
     /// <summary>Moving a layer up changes which colour the last composite reads.</summary>
     /// <remarks>
-    ///     ⚠ <b>The panel draws topmost first and the file stores bottom first, so the button labelled
-    ///     <em>up</em> is <c>+1</c> in the file's order.</b> A view that passed <c>-1</c> would leave
+    ///     ⚠
+    ///     <b>
+    ///         The panel draws topmost first and the file stores bottom first, so the button labelled
+    ///         <em>up</em> is <c>+1</c> in the file's order.
+    ///     </b>
+    ///     A view that passed <c>-1</c> would leave
     ///     the bottom row's button doing nothing at all — <c>MoveLayerCommand.CanMove</c> answers no
     ///     at index 0 — and a view that reversed the rows instead of the deltas would move the wrong
     ///     layer. Both are invisible in a list of names and both change which uniform feeds the last
@@ -224,7 +234,7 @@ public class LayerStackEditingTests {
         var ticks = Ticks(panel, "layer-stack-channel");
 
         Assert.Equal(2, ticks.Count);
-        Assert.All(ticks, tick => Assert.True(tick.IsChecked));
+        Assert.All(ticks, static tick => Assert.True(tick.IsChecked));
 
         // The claim: pressing one still reaches the document. A row whose ticks were read before the
         // region made them has boxes that look exactly like these and change nothing.
@@ -248,7 +258,7 @@ public class LayerStackEditingTests {
         var panel = Panel(fixture);
         var ticks = Ticks(panel, "layer-stack-channel");
 
-        Assert.All(ticks, tick => Assert.False(tick.Disabled));
+        Assert.All(ticks, static tick => Assert.False(tick.Disabled));
 
         ticks[1].Activate();
 
@@ -268,8 +278,8 @@ public class LayerStackEditingTests {
 
         var legend = Element(panel, "layer-stack-legend");
 
-        Assert.Contains("unrestricted", legend.Text ?? "", StringComparison.Ordinal);
-        Assert.Contains("switched off", legend.Text ?? "", StringComparison.Ordinal);
+        Assert.Contains("unrestricted", legend.Text ?? string.Empty, StringComparison.Ordinal);
+        Assert.Contains("switched off", legend.Text ?? string.Empty, StringComparison.Ordinal);
     }
 
     /// <summary>A drag of the opacity slider is one undo entry, and the next drag is another.</summary>
@@ -493,8 +503,11 @@ public class LayerStackEditingTests {
     /// <summary>⚠ An undo taken outside the panel puts the document's value back on the control.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/933">#933</a>, and it is the defect
-    ///         the whole undoable model was built for.</b> Every other test in this file presses a
+    ///         <b>
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/933">#933</a>, and it is the defect
+    ///             the whole undoable model was built for.
+    ///         </b>
+    ///         Every other test in this file presses a
     ///         control and then reads the <em>document</em> — so all of them are green against a
     ///         panel that never reads the document back. What a person does is press Ctrl+Z, which
     ///         reaches <c>CommandStack.Undo</c> through the editor's own verb and not through
@@ -531,8 +544,11 @@ public class LayerStackEditingTests {
 
     /// <summary>⚠ And an undone reorder puts the rows back in the order the file has them.</summary>
     /// <remarks>
-    ///     <b>The other half of <a href="https://github.com/Rikarin/Vixen/issues/933">#933</a>, and a
-    ///     different code path.</b> A value edit is re-read by the row's own binding; a reorder
+    ///     <b>
+    ///         The other half of <a href="https://github.com/Rikarin/Vixen/issues/933">#933</a>, and a
+    ///         different code path.
+    ///     </b>
+    ///     A value edit is re-read by the row's own binding; a reorder
     ///     changes the shape signature, so what has to run is the rebuild. A panel that re-read its
     ///     values and never rebuilt would pass the test above and leave the layers on screen in an
     ///     order the file no longer has.
@@ -627,8 +643,12 @@ public class LayerStackEditingTests {
     /// <summary>A bake mask's map is chosen from what the node accepts, and reaches the external.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A picker, and it took a plugin seam to draw one —
-    ///         <a href="https://github.com/Rikarin/Vixen/issues/964">#964</a>.</b> This was a
+    ///         ⚠
+    ///         <b>
+    ///             A picker, and it took a plugin seam to draw one —
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/964">#964</a>.
+    ///         </b>
+    ///         This was a
     ///         <c>TextBox</c>, because <c>TextureMeshMaps.Known</c> is <c>internal</c> to
     ///         <c>Vixen.TextureGraph</c>: neither the panel nor this test could ask what the
     ///         nine were, and writing them here would have been the second transcription of a known
@@ -642,8 +662,12 @@ public class LayerStackEditingTests {
     ///         the nine would stay green while the picker offered a tenth the compiler refuses.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And the offer is asserted non-empty, because an equality against an empty list is
-    ///         satisfied by an empty picker</b> — which is exactly what an <c>Accepted</c> that never
+    ///         ⚠
+    ///         <b>
+    ///             And the offer is asserted non-empty, because an equality against an empty list is
+    ///             satisfied by an empty picker
+    ///         </b>
+    ///         — which is exactly what an <c>Accepted</c> that never
     ///         reached the generated definition would produce.
     ///     </para>
     /// </remarks>
@@ -657,7 +681,10 @@ public class LayerStackEditingTests {
 
         Assert.Equal("curvature", picker.Value);
         Assert.NotEmpty(picker.Options);
-        Assert.Equal(TextureNodeLibrary.MeshMaps, picker.Options.Select(option => option.Value ?? "").ToList());
+        Assert.Equal(
+            TextureNodeLibrary.MeshMaps,
+            picker.Options.Select(static option => option.Value ?? string.Empty).ToList()
+        );
 
         picker.Value = "thickness";
 
@@ -665,7 +692,10 @@ public class LayerStackEditingTests {
 
         var compilation = LayerStackCompiler.Compile(document.Document, document.Document.Sets[0]);
 
-        Assert.Contains(compilation.Externals, external => external.Asset.EndsWith("thickness", StringComparison.Ordinal));
+        Assert.Contains(
+            compilation.Externals,
+            static external => external.Asset.EndsWith("thickness", StringComparison.Ordinal)
+        );
 
         Assert.True(document.Stack.Undo());
         Assert.Equal("curvature", Mask(document).Map);
@@ -688,7 +718,7 @@ public class LayerStackEditingTests {
         var picker = Controls<Select>(Panel(fixture), "layer-stack-mask-map")[^1];
 
         Assert.Equal("porosity", picker.Value);
-        Assert.Contains(picker.Options, option => option.Value == "porosity");
+        Assert.Contains(picker.Options, static option => option.Value == "porosity");
 
         // ⚠ And the nine are still all there: a stranger is appended, not substituted, so the author
         // can still pick a real one without retyping.
@@ -721,7 +751,7 @@ public class LayerStackEditingTests {
         // bottom's — and only the middle one's mask is an anchor, so only it is filled.
         var picker = Controls<Select>(panel, "layer-stack-mask-anchor")[1];
 
-        var offered = picker.Options.Select(option => option.Value ?? "").ToArray();
+        var offered = picker.Options.Select(static option => option.Value ?? string.Empty).ToArray();
 
         // Neither 'middle', which is itself, nor 'top', which is composited after it.
         Assert.Equal([LayerStackView.NoAnchor, "bottom"], offered);
@@ -731,7 +761,7 @@ public class LayerStackEditingTests {
 
         var document = fixture.Project.Documents.OfType<LayerStackDocument>().Single();
 
-        Assert.Equal("", document.Document.Sets[0].Layers[1].Mask.Anchor.Anchor);
+        Assert.Equal(string.Empty, document.Document.Sets[0].Layers[1].Mask.Anchor.Anchor);
     }
 
     /// <summary>⚠ And the bottom layer of a stack is offered nothing to anchor onto.</summary>
@@ -752,26 +782,38 @@ public class LayerStackEditingTests {
         // ⚠ The stored anchor is kept as an option even though nothing below can be named, so that
         // the picker does not read as unanchored and then unanchor it on the next click — the mesh
         // picker's three-state rule. What is not there is a layer this one could legally read.
-        var offered = picker.Options.Select(option => option.Value ?? "").ToArray();
+        var offered = picker.Options.Select(static option => option.Value ?? string.Empty).ToArray();
 
         Assert.Equal([LayerStackView.NoAnchor, "top"], offered);
-        Assert.Empty(LayerStackView.Anchorable(fixture.Project.Documents.OfType<LayerStackDocument>()
-            .Single()
-            .Document.Sets[0], "bottom"));
+        Assert.Empty(
+            LayerStackView.Anchorable(
+                fixture.Project.Documents.OfType<LayerStackDocument>()
+                .Single()
+                .Document.Sets[0],
+                "bottom"
+            )
+        );
     }
 
     /// <summary>⚠ A layer inside a group is not offered its own group, which is a cycle.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/980">#980</a>: the two tests above
-    ///         run on flat stacks, and their own remark says a group is where composite order and row
-    ///         order differ.</b> On a flat stack the two <em>are</em> the same list, so neither could
+    ///         <b>
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/980">#980</a>: the two tests above
+    ///             run on flat stacks, and their own remark says a group is where composite order and row
+    ///             order differ.
+    ///         </b>
+    ///         On a flat stack the two <em>are</em> the same list, so neither could
     ///         tell the post-order walk from any other ordering, and <c>Anchorable</c>'s group
     ///         handling — the only non-obvious part of it — was unasserted.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The distinguishing option is the group itself, and nothing else in this fixture
-    ///         is.</b> <c>LayerStackGraph.Stack</c> composites a group's children <em>inside</em> the
+    ///         ⚠
+    ///         <b>
+    ///             The distinguishing option is the group itself, and nothing else in this fixture
+    ///             is.
+    ///         </b>
+    ///         <c>LayerStackGraph.Stack</c> composites a group's children <em>inside</em> the
     ///         group's own composite, so the group's blend node exists only after every child's — a
     ///         child reading it is a loop. A walk that emitted a parent before recursing into it, which
     ///         is the obvious way to write this, offers <c>'g'</c> to <c>'child'</c>; the panel's own
@@ -779,8 +821,12 @@ public class LayerStackEditingTests {
     ///         the one option that separates right from wrong.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And the group <em>is</em> offered its own children, which reads backwards and is
-    ///         the same fact.</b> Its blend node is emitted last, so anchoring onto a child of its own
+    ///         ⚠
+    ///         <b>
+    ///             And the group <em>is</em> offered its own children, which reads backwards and is
+    ///             the same fact.
+    ///         </b>
+    ///         Its blend node is emitted last, so anchoring onto a child of its own
     ///         is no cycle at all.
     ///     </para>
     /// </remarks>
@@ -794,10 +840,10 @@ public class LayerStackEditingTests {
         // way rather than by index, because "which row is the child's" is what the walk decides.
         var picker = Assert.Single(
             Controls<Select>(Panel(fixture), "layer-stack-mask-anchor"),
-            one => one.Options.Any()
+            static one => one.Options.Any()
         );
 
-        var offered = picker.Options.Select(option => option.Value ?? "").ToArray();
+        var offered = picker.Options.Select(static option => option.Value ?? string.Empty).ToArray();
 
         // Not 'g', which contains it; not 'top', which is composited after the whole group.
         Assert.Equal([LayerStackView.NoAnchor, "bottom", "inner"], offered);
@@ -813,8 +859,11 @@ public class LayerStackEditingTests {
     /// <summary>⚠ And a group is where composite order and row order actually differ.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/980">#980</a>: the two tests above
-    ///         run on flat stacks, where the two orders are the same thing.</b> So neither could
+    ///         <b>
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/980">#980</a>: the two tests above
+    ///             run on flat stacks, where the two orders are the same thing.
+    ///         </b>
+    ///         So neither could
     ///         distinguish the post-order walk from any other ordering, and the group handling —
     ///         which is the only part of <c>Anchorable</c> that is not obvious — was unasserted while
     ///         its own remark named it as the case that mattered.
@@ -863,8 +912,12 @@ public class LayerStackEditingTests {
     ///         on every refresh, and a refresh is once per frame of an opacity drag.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Both halves, because a picker that stopped building options at all would leave the
-    ///         count at zero and read as a perfect result.</b> The options are asserted after the
+    ///         ⚠
+    ///         <b>
+    ///             Both halves, because a picker that stopped building options at all would leave the
+    ///             count at zero and read as a perfect result.
+    ///         </b>
+    ///         The options are asserted after the
     ///         refreshes, so "the work was not repeated" is a claim about work that happened.
     ///     </para>
     ///     <para>
@@ -890,12 +943,12 @@ public class LayerStackEditingTests {
 
         var picker = Assert.Single(
             Controls<Select>(view.Root, "layer-stack-mask-anchor"),
-            one => one.Options.Any()
+            static one => one.Options.Any()
         );
 
         Assert.Equal(
             [LayerStackView.NoAnchor, "bottom"],
-            picker.Options.Select(option => option.Value ?? "").ToArray()
+            picker.Options.Select(static option => option.Value ?? string.Empty).ToArray()
         );
 
         Assert.Equal("bottom", picker.Value);
@@ -904,9 +957,12 @@ public class LayerStackEditingTests {
     /// <summary>⚠ A refresh keeps the artist's zoom, and a different stack is framed afresh.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>The second half of <a href="https://github.com/Rikarin/Vixen/issues/979">#979</a>,
-    ///         and it is <a href="https://github.com/Rikarin/Vixen/issues/957">#957</a>'s defect in
-    ///         the panel #957 did not touch.</b> <c>Show</c> ended in a bare <c>Preview.Fit()</c>,
+    ///         <b>
+    ///             The second half of <a href="https://github.com/Rikarin/Vixen/issues/979">#979</a>,
+    ///             and it is <a href="https://github.com/Rikarin/Vixen/issues/957">#957</a>'s defect in
+    ///             the panel #957 did not touch.
+    ///         </b>
+    ///         <c>Show</c> ended in a bare <c>Preview.Fit()</c>,
     ///         which overwrites <c>Zoom</c> and <c>Pan</c> outright — and <c>Show</c> runs on every
     ///         edit, so an artist who had zoomed into a corner of the map to see what an opacity drag
     ///         did lost it on the first frame of the drag.
@@ -957,15 +1013,22 @@ public class LayerStackEditingTests {
     /// <summary>⚠ Choosing a texture set changes every control on the panel, not only the list.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/927">#927</a>: seven places took
-    ///         <c>Sets[0]</c> and it is one decision rather than seven edits.</b> Sets are
+    ///         <b>
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/927">#927</a>: seven places took
+    ///             <c>Sets[0]</c> and it is one decision rather than seven edits.
+    ///         </b>
+    ///         Sets are
     ///         independent — a set is a material slot with its own atlas, its own channels and its own
     ///         <c>.vxpaint</c> files — so the editor works on one at a time, chosen once and read by
     ///         everything. Four of the seven are this panel's and are what this reads.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The two sets differ in <em>everything</em> the panel reads, which is the issue's
-    ///         own warning.</b> A fixture whose sets carry the same channels and the same layer ids is
+    ///         ⚠
+    ///         <b>
+    ///             The two sets differ in <em>everything</em> the panel reads, which is the issue's
+    ///             own warning.
+    ///         </b>
+    ///         A fixture whose sets carry the same channels and the same layer ids is
     ///         passed by a panel still pinned to the first — the shape of a test that cannot see its
     ///         subject, which this workstream has shipped twice. So the second set has a different
     ///         channel list, a different layer id and a different <c>Mesh</c>, and all three are read.
@@ -986,7 +1049,10 @@ public class LayerStackEditingTests {
         var panel = Panel(fixture);
 
         // The state before, so that every assertion after it is about a change.
-        Assert.Contains(Texts(panel, "layer-stack-row-name"), row => row.Contains("Body", StringComparison.Ordinal));
+        Assert.Contains(
+            Texts(panel, "layer-stack-row-name"),
+            static row => row.Contains("Body", StringComparison.Ordinal)
+        );
         Assert.Single(Ticks(panel, "layer-stack-channel"));
         Assert.Equal(LayerStackView.EveryMesh, Find<Select>(panel, "layer-stack-set-mesh").Value);
         Assert.Empty(Texts(panel, "layer-stack-row-refusal"));
@@ -995,11 +1061,14 @@ public class LayerStackEditingTests {
 
         panel = Panel(fixture);
 
-        Assert.Contains(Texts(panel, "layer-stack-row-name"), row => row.Contains("Head", StringComparison.Ordinal));
+        Assert.Contains(
+            Texts(panel, "layer-stack-row-name"),
+            static row => row.Contains("Head", StringComparison.Ordinal)
+        );
 
         Assert.DoesNotContain(
             Texts(panel, "layer-stack-row-name"),
-            row => row.Contains("Body", StringComparison.Ordinal)
+            static row => row.Contains("Body", StringComparison.Ordinal)
         );
 
         Assert.Equal(2, Ticks(panel, "layer-stack-channel").Count);
@@ -1027,8 +1096,12 @@ public class LayerStackEditingTests {
     ///         navigated away from.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>What differs here is a layer's <em>name</em>, which is deliberately not in the
-    ///         shape.</b> The shape is identity and structure only; a name is a value, read by the
+    ///         ⚠
+    ///         <b>
+    ///             What differs here is a layer's <em>name</em>, which is deliberately not in the
+    ///             shape.
+    ///         </b>
+    ///         The shape is identity and structure only; a name is a value, read by the
     ///         row's binding. That is what makes this fixture indistinguishable to everything except
     ///         the term under test — the sabotage that removes the set name from the shape leaves
     ///         <c>Choosing_a_set_changes_the_rows_the_ticks_and_the_part_picker</c> green and this
@@ -1062,8 +1135,12 @@ public class LayerStackEditingTests {
     ///         delete, for layers or for mask rows.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Read off the plan and not off the list, because a list assertion is a restatement
-    ///         of the command's own arithmetic</b> — the rule the reorder tests in this file already
+    ///         ⚠
+    ///         <b>
+    ///             Read off the plan and not off the list, because a list assertion is a restatement
+    ///             of the command's own arithmetic
+    ///         </b>
+    ///         — the rule the reorder tests in this file already
     ///         keep to. It is also the only assertion that can see the second half of the fix: a fill
     ///         added with an empty <c>Values</c> is a layer that writes <em>nothing</em>
     ///         (<a href="https://github.com/Rikarin/Vixen/issues/807">#807</a> · 2), so the row would
@@ -1099,8 +1176,12 @@ public class LayerStackEditingTests {
     ///         inside and never add to.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The selected child is the <em>lower</em> one, so "over the selected layer" and
-    ///         "at the end of the list" are different places.</b> Selecting the upper child makes the
+    ///         ⚠
+    ///         <b>
+    ///             The selected child is the <em>lower</em> one, so "over the selected layer" and
+    ///             "at the end of the list" are different places.
+    ///         </b>
+    ///         Selecting the upper child makes the
     ///         two the same index and the fixture stops being able to tell them apart — which is the
     ///         shape of a test that cannot see its own subject.
     ///     </para>
@@ -1116,7 +1197,7 @@ public class LayerStackEditingTests {
         Find<Button>(panel, "layer-stack-add").Activate();
 
         var group = Assert.Single(document.Document.Sets[0].Layers);
-        var children = group.Children.Select(child => child.Id).ToArray();
+        var children = group.Children.Select(static child => child.Id).ToArray();
 
         Assert.Equal(3, children.Length);
         Assert.Equal("lower", children[0]);
@@ -1147,7 +1228,7 @@ public class LayerStackEditingTests {
         var group = Assert.Single(document.Document.Sets[0].Layers);
 
         Assert.Equal("g", group.Id);
-        Assert.Equal(["lower", "upper"], group.Children.Select(child => child.Id).ToArray());
+        Assert.Equal(["lower", "upper"], group.Children.Select(static child => child.Id).ToArray());
     }
 
     /// <summary>⚠ Two layers added in a row get two ids, and neither row is disarmed.</summary>
@@ -1167,7 +1248,7 @@ public class LayerStackEditingTests {
         Find<Button>(panel, "layer-stack-add").Activate();
         Find<Button>(panel, "layer-stack-add").Activate();
 
-        var ids = document.Document.Sets[0].Layers.Select(layer => layer.Id).ToArray();
+        var ids = document.Document.Sets[0].Layers.Select(static layer => layer.Id).ToArray();
 
         Assert.Equal(4, ids.Length);
         Assert.Equal(4, ids.Distinct(StringComparer.Ordinal).Count());
@@ -1177,8 +1258,12 @@ public class LayerStackEditingTests {
     /// <summary>⚠ An added mask entry multiplies, so the mask it joined does not change.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b><c>MaskLayerAsset.Blend</c> defaults to <c>Copy</c>, and <c>Copy</c> at a value of
-    ///         1 replaces the whole mask with white.</b> So an add that took the record's default
+    ///         ⚠
+    ///         <b>
+    ///             <c>MaskLayerAsset.Blend</c> defaults to <c>Copy</c>, and <c>Copy</c> at a value of
+    ///             1 replaces the whole mask with white.
+    ///         </b>
+    ///         So an add that took the record's default
     ///         would make an artist's bake mask vanish on a click that was meant to be additive. What
     ///         is asserted is the operator rather than the picture because the picture is the operator
     ///         — <c>Multiply</c> at 1 is the identity, which is what an unconfigured row should be.
@@ -1213,14 +1298,22 @@ public class LayerStackEditingTests {
     /// <summary>⚠ An added mask effect is switched off, so the map an artist was looking at survives.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>An effect that names no node type is a <em>refusal</em> in
-    ///         <c>LayerStackGraph</c></b> — an error, which stops the map — and an effect with no node
+    ///         ⚠
+    ///         <b>
+    ///             An effect that names no node type is a <em>refusal</em> in
+    ///             <c>LayerStackGraph</c>
+    ///         </b>
+    ///         — an error, which stops the map — and an effect with no node
     ///         is exactly what pressing the button makes. Added enabled, the click would blank the
     ///         preview. The compile is what says so: the plan is still there afterwards.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And the field is the other half, without which the button is a mechanism whose
-    ///         caller can only pass the default.</b> An effect row with no way to name a node is a row
+    ///         ⚠
+    ///         <b>
+    ///             And the field is the other half, without which the button is a mechanism whose
+    ///             caller can only pass the default.
+    ///         </b>
+    ///         An effect row with no way to name a node is a row
     ///         an artist can create and can never make mean anything, which is this workstream's
     ///         commonest defect wearing a hat.
     ///     </para>
@@ -1235,7 +1328,7 @@ public class LayerStackEditingTests {
         var added = Assert.Single(Mask(document).Effects);
 
         Assert.False(added.Enabled);
-        Assert.Equal("", added.Node);
+        Assert.Equal(string.Empty, added.Node);
 
         // The instrument: a stack whose effect was added enabled compiles to nothing at all.
         Assert.NotNull(LayerStackCompiler.Compile(document.Document, document.Document.Sets[0]).Plan);
@@ -1253,8 +1346,12 @@ public class LayerStackEditingTests {
     /// <remarks>
     ///     <para>
     ///         <b><a href="https://github.com/Rikarin/Vixen/issues/966">#966</a>.</b>
-    ///         <c>PaintTool.LayerId</c> being empty already means <em>the first paint layer in
-    ///         composite order</em> — <c>PaintSurface.Find</c> returns on <c>layerId.Length == 0</c>
+    ///         <c>PaintTool.LayerId</c> being empty already means
+    ///         <em>
+    ///             the first paint layer in
+    ///             composite order
+    ///         </em>
+    ///         — <c>PaintSurface.Find</c> returns on <c>layerId.Length == 0</c>
     ///         before comparing anything — so clicking an id-less row wrote a value indistinguishable
     ///         from having selected nothing, and on this stack the brush would then aim at
     ///         <c>'lower'</c> while the artist believed they had picked the row above it.
@@ -1295,7 +1392,7 @@ public class LayerStackEditingTests {
         selects[0].Activate();
 
         Assert.Null(view.Selected);
-        Assert.Equal("", tool.LayerId);
+        Assert.Equal(string.Empty, tool.LayerId);
 
         selects[1].Activate();
 
@@ -1354,8 +1451,12 @@ public class LayerStackEditingTests {
     ///         half that says the round trip does not round.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>It is no longer the test that refuses a gathering row, and the claim that it was
-    ///         is refuted</b> — <a href="https://github.com/Rikarin/Vixen/issues/1004">#1004</a> says
+    ///         ⚠
+    ///         <b>
+    ///             It is no longer the test that refuses a gathering row, and the claim that it was
+    ///             is refuted
+    ///         </b>
+    ///         — <a href="https://github.com/Rikarin/Vixen/issues/1004">#1004</a> says
     ///         "gathering the sliders turns the 4 into a 1 with nothing else in the suite noticing",
     ///         which was true of a <em>slider</em> and is false of a field.
     ///         <c>NumericInput.Number</c> holds what it was given at full precision —
@@ -1365,9 +1466,13 @@ public class LayerStackEditingTests {
     ///         four leaves all 46 tests in this suite green.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Which is why the per-component write is now held by
-    ///         <see cref="A_refused_component_is_not_written_by_an_edit_to_its_neighbour" />
-    ///         instead.</b> A gather is still wrong, for a reason the clamp used to hide: a field
+    ///         ⚠
+    ///         <b>
+    ///             Which is why the per-component write is now held by
+    ///             <see cref="A_refused_component_is_not_written_by_an_edit_to_its_neighbour" />
+    ///             instead.
+    ///         </b>
+    ///         A gather is still wrong, for a reason the clamp used to hide: a field
     ///         that is <em>refusing</em> what it holds has a number, and gathering it writes into the
     ///         document exactly the value the refusal exists to keep out.
     ///     </para>
@@ -1452,14 +1557,21 @@ public class LayerStackEditingTests {
     /// <summary>⚠ And a component above 1 can now be <em>authored</em>, which is #1004 itself.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>The renderer works in cd/m² and an emissive fill of 4 is an ordinary thing for a
-    ///         <c>.vxlayers</c> to hold</b> — so a panel whose only control was a 0…1 slider could
+    ///         <b>
+    ///             The renderer works in cd/m² and an emissive fill of 4 is an ordinary thing for a
+    ///             <c>.vxlayers</c> to hold
+    ///         </b>
+    ///         — so a panel whose only control was a 0…1 slider could
     ///         hold that value and could not produce it, and the file had to be opened in a text
     ///         editor. <a href="https://github.com/Rikarin/Vixen/issues/1004">#1004</a>.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The starting value is inside the range the old control could reach, which is
-    ///         what makes this red under it.</b> A fixture that already held a 4 would pass against
+    ///         ⚠
+    ///         <b>
+    ///             The starting value is inside the range the old control could reach, which is
+    ///             what makes this red under it.
+    ///         </b>
+    ///         A fixture that already held a 4 would pass against
     ///         a slider too, because the assertion would then be about the value surviving rather
     ///         than about the value being writable. Writing 4 into a control whose maximum is 1
     ///         leaves it at 1, and the document then holds 1.
@@ -1478,10 +1590,7 @@ public class LayerStackEditingTests {
             Stack(
                 [new() { Usage = "emissive", Default = [0f, 0f, 0f, 1f] }],
                 new LayerAsset {
-                    Id = "l",
-                    Name = "Lamp",
-                    Kind = LayerKind.Fill,
-                    Values = { ["emissive"] = [0.5f, 0.25f, 0.25f, 1f] }
+                    Id = "l", Name = "Lamp", Kind = LayerKind.Fill, Values = { ["emissive"] = [0.5f, 0.25f, 0.25f, 1f] }
                 }
             )
         );
@@ -1538,8 +1647,12 @@ public class LayerStackEditingTests {
     /// <summary>A channel a fill says nothing about can be given a colour, and told to stop.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Presence in <c>Values</c> is a second question from the channel tick, and both
-    ///         have to be true.</b> A layer restricting no channels writes all of them
+    ///         ⚠
+    ///         <b>
+    ///             Presence in <c>Values</c> is a second question from the channel tick, and both
+    ///             have to be true.
+    ///         </b>
+    ///         A layer restricting no channels writes all of them
     ///         (<a href="https://github.com/Rikarin/Vixen/issues/807">#807</a> · 2) and an absent
     ///         entry is then the only way a fill says "nothing about this channel" — so the panel has
     ///         to be able to add one and take it away, or half the states a <c>.vxlayers</c> can hold
@@ -1612,7 +1725,7 @@ public class LayerStackEditingTests {
         // ⚠ Emptied is removed rather than stored as "", because the compiler answers a texture fill
         // naming no image with a refusal either way — a key with an empty string behind it is a
         // state the file can hold and nothing can mean.
-        Controls<TextBox>(panel, "layer-stack-fill-texture")[0].Value = "";
+        Controls<TextBox>(panel, "layer-stack-fill-texture")[0].Value = string.Empty;
 
         Assert.Empty(Only(document).Textures);
     }
@@ -1627,8 +1740,12 @@ public class LayerStackEditingTests {
     ///         the default", one file along from where #1078 found it.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Read off the plan's own parameter, and the numbers are
-    ///         <c>TextureProjectionAxis</c>' rather than <c>LayerAxis</c>'</b> — 3 for Z against the
+    ///         ⚠
+    ///         <b>
+    ///             Read off the plan's own parameter, and the numbers are
+    ///             <c>TextureProjectionAxis</c>' rather than <c>LayerAxis</c>'
+    ///         </b>
+    ///         — 3 for Z against the
     ///         member's 2 — so a panel wired to the wrong enum, or to nothing, reads one short.
     ///     </para>
     /// </remarks>
@@ -1689,15 +1806,14 @@ public class LayerStackEditingTests {
         // ⚠ Verify the instrument: the compiler really does warn about the state this avoids, so the
         // emptiness above is a claim about the edit rather than about a compiler that says nothing.
         var stale = document.Document.Sets[0].Layers[0] with {
-            Projection = LayerProjection.Triplanar,
-            PlanarAxis = LayerAxis.X
+            Projection = LayerProjection.Triplanar, PlanarAxis = LayerAxis.X
         };
 
         var set = document.Document.Sets[0] with { Layers = [stale] };
 
         Assert.Contains(
             LayerStackCompiler.Compile(document.Document, set).Problems,
-            problem => problem.Message.Contains("Axis 'X'", StringComparison.Ordinal)
+            static problem => problem.Message.Contains("Axis 'X'", StringComparison.Ordinal)
         );
     }
 
@@ -1747,8 +1863,12 @@ public class LayerStackEditingTests {
     ///         them is in force rather than two controls whose precedence a person has to know.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Seeded with the type the enum already compiled to, and the plan is what says
-    ///         so.</b> Switching to a node with an <em>empty</em> path would leave a model that still
+    ///         ⚠
+    ///         <b>
+    ///             Seeded with the type the enum already compiled to, and the plan is what says
+    ///             so.
+    ///         </b>
+    ///         Switching to a node with an <em>empty</em> path would leave a model that still
     ///         reads as a preset, so the picker would snap back on the next bind and the click would
     ///         do nothing — and seeding it with anything other than the current filter's own type
     ///         would change the picture on a gesture that only changed how it is spelled. The plan
@@ -1780,7 +1900,7 @@ public class LayerStackEditingTests {
         // Back to the five, which is what clearing the path means.
         Find<Select>(panel, "layer-stack-filter-source").Value = LayerStackView.PresetFilter;
 
-        Assert.Equal("", Layer(document, "adjust").FilterNode);
+        Assert.Equal(string.Empty, Layer(document, "adjust").FilterNode);
         Assert.Equal(before, Plan(document));
     }
 
@@ -1822,7 +1942,7 @@ public class LayerStackEditingTests {
         // decides; the file may turn the field on and never off.
         var node = Find<TextBox>(panel, "layer-stack-filter-node");
 
-        node.Value = "";
+        node.Value = string.Empty;
 
         Laid(fixture);
 
@@ -1884,19 +2004,30 @@ public class LayerStackEditingTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/1086">#1086</a>, and this is the
-    ///         assertion the whole issue is about.</b> <c>Colour/Levels</c> uses an
+    ///         <b>
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/1086">#1086</a>, and this is the
+    ///             assertion the whole issue is about.
+    ///         </b>
+    ///         <c>Colour/Levels</c> uses an
     ///         <c>Input White</c> of <b>1</b>; a field that opened at 0 would be an interface the
     ///         picture contradicts, and an artist who read it would believe the level was at zero and
     ///         have no way to explain the render. So the number is the load-bearing half and the
     ///         field existing is not.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And it is <c>1</c> rather than "whatever the port says", checked against a second
-    ///         port that declares <c>0</c>.</b> A pair, because a row that read every default as one
+    ///         ⚠
+    ///         <b>
+    ///             And it is <c>1</c> rather than "whatever the port says", checked against a second
+    ///             port that declares <c>0</c>.
+    ///         </b>
+    ///         A pair, because a row that read every default as one
     ///         constant would satisfy either assertion alone — and <c>Input Black</c> at 0 is
-    ///         indistinguishable from the zeroed field this exists to refuse unless <c>Input
-    ///         White</c> is beside it.
+    ///         indistinguishable from the zeroed field this exists to refuse unless
+    ///         <c>
+    ///             Input
+    ///             White
+    ///         </c>
+    ///         is beside it.
     ///     </para>
     /// </remarks>
     [Fact]
@@ -1916,9 +2047,13 @@ public class LayerStackEditingTests {
 
     /// <summary>⚠ A filter layer's numbers are edited in the panel and reach the plan.</summary>
     /// <remarks>
-    ///     ⚠ <b>Compiled rather than compared, for
-    ///     <see cref="A_filter_layers_kind_is_chosen_in_the_panel_and_reaches_the_plan" />'s
-    ///     reason.</b> <c>LayerAsset.Settings</c> holding the number is satisfied by a field wired to
+    ///     ⚠
+    ///     <b>
+    ///         Compiled rather than compared, for
+    ///         <see cref="A_filter_layers_kind_is_chosen_in_the_panel_and_reaches_the_plan" />'s
+    ///         reason.
+    ///     </b>
+    ///     <c>LayerAsset.Settings</c> holding the number is satisfied by a field wired to
     ///     a member the compiler drops — which is exactly what <c>LayerStackGraph.Published</c> does
     ///     to a value whose port the type has not got, with a warning nobody reads.
     /// </remarks>
@@ -1982,8 +2117,12 @@ public class LayerStackEditingTests {
     ///         list is where <c>ture</c> becomes a value.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b><c>Space/Mirror</c>'s <c>Mode</c> is different arithmetic rather than a different
-    ///         label</b> — a reflect and a flip — so the plan differing is a statement about the
+    ///         ⚠
+    ///         <b>
+    ///             <c>Space/Mirror</c>'s <c>Mode</c> is different arithmetic rather than a different
+    ///             label
+    ///         </b>
+    ///         — a reflect and a flip — so the plan differing is a statement about the
     ///         kernel and not about the string. <c>LayerAsset.Texts</c> is the member
     ///         <a href="https://github.com/Rikarin/Vixen/issues/1079">#1079</a> added and nothing in
     ///         a view wrote until now.
@@ -2006,8 +2145,8 @@ public class LayerStackEditingTests {
         var opened = Plan(document);
 
         var mode = All(panel, "layer-stack-knob-choice")
-            .Select(element => Assert.IsType<Select>(element))
-            .Single(choice => choice.Options.Any(option => option.Value == "Flip"));
+            .Select(static element => Assert.IsType<Select>(element))
+            .Single(static choice => choice.Options.Any(static option => option.Value == "Flip"));
 
         Assert.Equal("Reflect", mode.Value);
 
@@ -2102,8 +2241,11 @@ public class LayerStackEditingTests {
 
     /// <summary>⚠ And the same panel over a stack with distinct ids is fully editable.</summary>
     /// <remarks>
-    ///     <b>The half that makes the assertion above a finding rather than a description of a panel
-    ///     that draws no controls at all.</b> Every <c>Assert.Empty</c> above is satisfied by a build
+    ///     <b>
+    ///         The half that makes the assertion above a finding rather than a description of a panel
+    ///         that draws no controls at all.
+    ///     </b>
+    ///     Every <c>Assert.Empty</c> above is satisfied by a build
     ///     in which the rows were never populated, which is what a refusal written one line too high
     ///     in <c>Build</c> would produce.
     /// </remarks>
@@ -2139,8 +2281,8 @@ public class LayerStackEditingTests {
         Assert.Null(compilation.Plan);
 
         var refused = compilation.Problems
-            .Where(problem => problem.Message.Contains("share the id", StringComparison.Ordinal))
-            .Select(problem => problem.Layer)
+            .Where(static problem => problem.Message.Contains("share the id", StringComparison.Ordinal))
+            .Select(static problem => problem.Layer)
             .ToArray();
 
         Assert.Equal(["dup"], refused);
@@ -2154,8 +2296,11 @@ public class LayerStackEditingTests {
 
     /// <summary>⚠ An edit made in the panel is in the file after a save.</summary>
     /// <remarks>
-    ///     <b>The sentence <a href="https://github.com/Rikarin/Vixen/issues/819">#819</a> was written
-    ///     to avoid</b> — "a panel that let an artist drag a row and quietly dropped it on save would
+    ///     <b>
+    ///         The sentence <a href="https://github.com/Rikarin/Vixen/issues/819">#819</a> was written
+    ///         to avoid
+    ///     </b>
+    ///     — "a panel that let an artist drag a row and quietly dropped it on save would
     ///     be worse than one that does not offer the drag". Every other test here reads the document
     ///     in memory, which is exactly the half a dropped save would still satisfy; this one reads
     ///     the bytes back off disk through the same YAML the next session will.
@@ -2230,7 +2375,7 @@ public class LayerStackEditingTests {
 
     /// <summary>The projection op's axis parameter, as <c>TextureProjectionAxis</c> numbers it.</summary>
     static float Axis(LayerStackDocument document) {
-        var op = Assert.Single(Compile(document).Ops, candidate => candidate.Kernel == "Triplanar");
+        var op = Assert.Single(Compile(document).Ops, static candidate => candidate.Kernel == "Triplanar");
         var axis = op.Find("axis");
 
         Assert.NotNull(axis);
@@ -2300,7 +2445,7 @@ public class LayerStackEditingTests {
             layers.Add(Fill(third, "Solo", 0.5f));
         }
 
-        return Stack([new() { Usage = "baseColor", Default = [0f, 0f, 0f, 1f] }], [.. layers]);
+        return Stack([new() { Usage = "baseColor", Default = [0f, 0f, 0f, 1f] }], [..layers]);
     }
 
     static LayerStackAsset Three() =>
@@ -2350,8 +2495,12 @@ public class LayerStackEditingTests {
 
     /// <summary>Three layers, the middle of which anchors its mask onto the bottom one.</summary>
     /// <remarks>
-    ///     ⚠ <b>The middle one, deliberately: for the topmost layer "everything below" and
-    ///     "everything but itself" are the same list</b>, so a picker that only excluded self would
+    ///     ⚠
+    ///     <b>
+    ///         The middle one, deliberately: for the topmost layer "everything below" and
+    ///         "everything but itself" are the same list
+    ///     </b>
+    ///     , so a picker that only excluded self would
     ///     pass a test built on the top row. Here they differ by the layer above.
     /// </remarks>
     static LayerStackAsset Anchored() =>
@@ -2363,7 +2512,9 @@ public class LayerStackEditingTests {
                 Name = "Middle",
                 Kind = LayerKind.Fill,
                 Values = { ["baseColor"] = [0.5f, 0.5f, 0.5f, 1f] },
-                Mask = new() { Source = LayerMaskSource.Anchor, Anchor = new() { Anchor = "bottom", Channel = "baseColor" } }
+                Mask = new() {
+                    Source = LayerMaskSource.Anchor, Anchor = new() { Anchor = "bottom", Channel = "baseColor" }
+                }
             },
             Fill("top", "Top", 0.75f)
         );
@@ -2382,7 +2533,9 @@ public class LayerStackEditingTests {
                 Name = "Bottom",
                 Kind = LayerKind.Fill,
                 Values = { ["baseColor"] = [0.25f, 0.25f, 0.25f, 1f] },
-                Mask = new() { Source = LayerMaskSource.Anchor, Anchor = new() { Anchor = "top", Channel = "baseColor" } }
+                Mask = new() {
+                    Source = LayerMaskSource.Anchor, Anchor = new() { Anchor = "top", Channel = "baseColor" }
+                }
             },
             Fill("top", "Top", 0.75f)
         );
@@ -2431,15 +2584,18 @@ public class LayerStackEditingTests {
 
         // The picker is aimed at the second stack's own answer, which is its first set.
         Assert.Equal("Body", Find<Select>(panel, "layer-stack-set").Value);
-        Assert.Equal("", second.PaintSet);
+        Assert.Equal(string.Empty, second.PaintSet);
 
         // ⚠ And the rows agree with it, which is what says the adoption reached the build rather
         // than only the field: under the defect these read "Head" while `PaintSet` stayed empty.
-        Assert.Contains(Texts(panel, "layer-stack-row-name"), row => row.Contains("Body", StringComparison.Ordinal));
+        Assert.Contains(
+            Texts(panel, "layer-stack-row-name"),
+            static row => row.Contains("Body", StringComparison.Ordinal)
+        );
 
         Assert.DoesNotContain(
             Texts(panel, "layer-stack-row-name"),
-            row => row.Contains("Head", StringComparison.Ordinal)
+            static row => row.Contains("Head", StringComparison.Ordinal)
         );
     }
 
@@ -2479,7 +2635,10 @@ public class LayerStackEditingTests {
         panel.Document.Effects.Flush();
 
         Assert.Equal("Head", Find<Select>(panel, "layer-stack-set").Value);
-        Assert.Contains(Texts(panel, "layer-stack-row-name"), row => row.Contains("Head twin", StringComparison.Ordinal));
+        Assert.Contains(
+            Texts(panel, "layer-stack-row-name"),
+            static row => row.Contains("Head twin", StringComparison.Ordinal)
+        );
         Assert.NotEqual(before, Texts(panel, "layer-stack-status"));
     }
 
@@ -2508,8 +2667,14 @@ public class LayerStackEditingTests {
         document.LayerSelection.Set(new LayerPath("S", "lower"));
         panel.Document.Effects.Flush();
 
-        Assert.Contains(Texts(panel, "layer-stack-row-name"), row => row.StartsWith("● Lower", StringComparison.Ordinal));
-        Assert.DoesNotContain(Texts(panel, "layer-stack-row-name"), row => row.StartsWith("● Upper", StringComparison.Ordinal));
+        Assert.Contains(
+            Texts(panel, "layer-stack-row-name"),
+            static row => row.StartsWith("● Lower", StringComparison.Ordinal)
+        );
+        Assert.DoesNotContain(
+            Texts(panel, "layer-stack-row-name"),
+            static row => row.StartsWith("● Upper", StringComparison.Ordinal)
+        );
 
         fixture.Services.Require<ITexturing>().TogglePaint();
 
@@ -2559,7 +2724,7 @@ public class LayerStackEditingTests {
 
         Assert.Equal("lower", document.LayerSelection.Primary.Id);
 
-        LayerStackView tab = new(ui.Root);
+        using LayerStackView tab = new(ui.Root);
 
         tab.Show(document);
 
@@ -2571,8 +2736,11 @@ public class LayerStackEditingTests {
     /// <remarks>
     ///     ⚠ <b>A different channel list, a different layer id and a different <c>Mesh</c>.</b> Two
     ///     sets alike in any of those make the corresponding assertion true of a panel that never
-    ///     changed set at all — which is what <a href="https://github.com/Rikarin/Vixen/issues/927">
-    ///     #927</a> asks a fixture for in so many words.
+    ///     changed set at all — which is what
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/927">
+    ///         #927
+    ///     </a>
+    ///     asks a fixture for in so many words.
     /// </remarks>
     static LayerStackAsset TwoSets() =>
         new() {
@@ -2659,7 +2827,9 @@ public class LayerStackEditingTests {
                         Name = "Child",
                         Kind = LayerKind.Fill,
                         Values = { ["baseColor"] = [0.6f, 0.6f, 0.6f, 1f] },
-                        Mask = new() { Source = LayerMaskSource.Anchor, Anchor = new() { Anchor = "inner", Channel = "baseColor" } }
+                        Mask = new() {
+                            Source = LayerMaskSource.Anchor, Anchor = new() { Anchor = "inner", Channel = "baseColor" }
+                        }
                     }
                 ]
             },
@@ -2668,8 +2838,12 @@ public class LayerStackEditingTests {
 
     /// <summary>A group with a layer under it and a layer over it, and two children inside.</summary>
     /// <remarks>
-    ///     ⚠ <b>A layer on each side of the group, because a stack that is only a group cannot show
-    ///     the difference.</b> With nothing below it, the first child's honest answer is the empty
+    ///     ⚠
+    ///     <b>
+    ///         A layer on each side of the group, because a stack that is only a group cannot show
+    ///         the difference.
+    ///     </b>
+    ///     With nothing below it, the first child's honest answer is the empty
     ///     list — which is also what a walk that had lost the recursion returns, and what the bottom
     ///     layer of any stack returns. The <c>bottom</c> fill is what makes "nothing of its own
     ///     group" a statement about the group rather than about the end of the list.
@@ -2746,7 +2920,7 @@ public class LayerStackEditingTests {
             BaseWidth = 32,
             BaseHeight = 32,
             Seed = 7u,
-            Sets = [new() { Name = "S", Channels = channels, Layers = [.. layers] }]
+            Sets = [new() { Name = "S", Channels = channels, Layers = [..layers] }]
         };
 
     /// <summary>Opens a stack through the verb, puts a made one in it, and shows the panel.</summary>
@@ -2774,8 +2948,12 @@ public class LayerStackEditingTests {
 
     /// <summary>Opens a second stack in the same panel, the way a person opens a second file.</summary>
     /// <remarks>
-    ///     ⚠ <b>The file is written with the stack already in it, and that is what makes the test
-    ///     about the identity rather than about the shape.</b> Opening an <em>empty</em>
+    ///     ⚠
+    ///     <b>
+    ///         The file is written with the stack already in it, and that is what makes the test
+    ///         about the identity rather than about the shape.
+    ///     </b>
+    ///     Opening an <em>empty</em>
     ///     <c>.vxlayers</c> gives a document holding <c>LayerStackDocument.Starter</c>'s one layer,
     ///     so assigning the real stack afterwards changes the row shape and forces a rebuild for a
     ///     reason that has nothing to do with which document is open. Reading the second file gives
@@ -2789,23 +2967,25 @@ public class LayerStackEditingTests {
 
         var report = fixture.Project.Assets.Scan();
 
-        Assert.DoesNotContain(report.Issues, issue => issue.Kind != AssetIssueKind.MetaCreated);
+        Assert.DoesNotContain(report.Issues, static issue => issue.Kind != AssetIssueKind.MetaCreated);
         Assert.True(fixture.Project.Assets.TryGetByPath(relative, out var entry));
 
         fixture.Project.Selection.Set(entry.Guid);
 
         Assert.True(fixture.Shell.Commands.Execute(TexturingModule.OpenStackCommand));
 
-        return Assert.IsType<LayerStackDocument>(
-            fixture.Project.Documents.Single(open => open.Asset == entry.Guid)
-        );
+        return Assert.IsType<LayerStackDocument>(fixture.Project.Documents.Single(open => open.Asset == entry.Guid));
     }
 
     /// <summary>Opens a stack and puts it in a view this test holds, laid out and framed.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Its own panel, because what these two tests read is the <em>view's</em> and the
-    ///         module keeps its own private.</b> Every other test here goes through
+    ///         ⚠
+    ///         <b>
+    ///             Its own panel, because what these two tests read is the <em>view's</em> and the
+    ///             module keeps its own private.
+    ///         </b>
+    ///         Every other test here goes through
     ///         <see cref="Panel" /> and reads the tree, which is the stronger assertion and the one
     ///         this file keeps to — but a zoom and a walk count are not elements, and a module that
     ///         handed its view out would be a seam that exists for xunit.
@@ -2825,8 +3005,8 @@ public class LayerStackEditingTests {
 
         fixture.Shell.RegisterPanel(
             ViewPanel,
-            new StringId("editor.panel." + ViewPanel, "Layers"),
-            panel => built = new LayerStackView(panel)
+            new("editor.panel." + ViewPanel, "Layers"),
+            panel => built = new(panel)
         );
 
         fixture.Shell.Workspace.Open(ViewPanel);
@@ -2876,8 +3056,12 @@ public class LayerStackEditingTests {
 
     /// <summary>The text of every element under that name — which may legitimately be none.</summary>
     /// <remarks>
-    ///     ⚠ <b>The one finder here that does not insist on a match, and the reason is that its
-    ///     subjects are untyped containers.</b> <c>layer-stack-row-refusal</c> and
+    ///     ⚠
+    ///     <b>
+    ///         The one finder here that does not insist on a match, and the reason is that its
+    ///         subjects are untyped containers.
+    ///     </b>
+    ///     <c>layer-stack-row-refusal</c> and
     ///     <c>layer-stack-message</c> are built only when there is something to say, so "no refusals"
     ///     is an answer several tests want; and being untyped they answer to no
     ///     <c>ControlTheme</c> rule, so they kept their tags through
@@ -2936,8 +3120,12 @@ public class LayerStackEditingTests {
     /// <param name="present">A tree it must be in.</param>
     /// <param name="name">The name.</param>
     /// <remarks>
-    ///     ⚠ <b>Two trees, because "no element is called that" and "the control is not there" are
-    ///     the same green.</b> An <c>Assert.Empty</c> over one panel passes just as well when the
+    ///     ⚠
+    ///     <b>
+    ///         Two trees, because "no element is called that" and "the control is not there" are
+    ///         the same green.
+    ///     </b>
+    ///     An <c>Assert.Empty</c> over one panel passes just as well when the
     ///     name has been misspelt, renamed in the view, or moved from a tag to a class — which is
     ///     exactly what <a href="https://github.com/Rikarin/Vixen/issues/1071">#1071</a> did to
     ///     twenty-eight of them. Naming a panel that must contain it makes the assertion a

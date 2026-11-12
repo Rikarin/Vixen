@@ -3,7 +3,6 @@
 
 using Vixen.Core.Syntax;
 using Vixen.Raven.Symbols;
-using Vixen.Raven.Syntax;
 
 namespace Vixen.Raven.Binding;
 
@@ -57,7 +56,7 @@ internal sealed class BoundPropertyExpression(
     public override TypeSymbol Type => Property.Type;
     public override Symbol Symbol => Property;
 
-    public override IEnumerable<BoundNode> Children => Receiver is null ? Arguments : [Receiver, .. Arguments];
+    public override IEnumerable<BoundNode> Children => Receiver is null ? Arguments : [Receiver, ..Arguments];
 }
 
 /// <summary><c>self</c>.</summary>
@@ -126,7 +125,7 @@ internal sealed class BoundInvocationExpression(
     public override TypeSymbol Type => Method.ReturnType;
     public override Symbol Symbol => Method;
 
-    public override IEnumerable<BoundNode> Children => Receiver is null ? Arguments : [Receiver, .. Arguments];
+    public override IEnumerable<BoundNode> Children => Receiver is null ? Arguments : [Receiver, ..Arguments];
 }
 
 /// <summary>
@@ -235,7 +234,7 @@ internal sealed class BoundArrayAccessExpression(
     public IReadOnlyList<BoundExpression> Indices { get; } = indices;
     public override BoundKind Kind => BoundKind.ArrayAccessExpression;
     public override TypeSymbol Type { get; } = type;
-    public override IEnumerable<BoundNode> Children => [Receiver, .. Indices];
+    public override IEnumerable<BoundNode> Children => [Receiver, ..Indices];
 }
 
 /// <summary><c>a..b</c>.</summary>
@@ -292,7 +291,7 @@ internal sealed class BoundCollectionExpression(
 
     public override BoundKind Kind => BoundKind.CollectionExpression;
     public override TypeSymbol Type { get; } = type;
-    public override IEnumerable<BoundNode> Children => Elements.Select(e => e.Expression);
+    public override IEnumerable<BoundNode> Children => Elements.Select(static e => e.Expression);
 }
 
 /// <summary>

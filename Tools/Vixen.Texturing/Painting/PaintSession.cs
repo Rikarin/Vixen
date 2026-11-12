@@ -21,8 +21,11 @@ public sealed record PaintTarget(PaintImage Layer, PaintCoverage Coverage, int G
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>⚠ This is the whole of what a surface has to call, and saying so precisely is half of
-///         what doc 48 § M9 owes.</b> Doc 48 § D13's two front ends are viewports and this slice is
+///         <b>
+///             ⚠ This is the whole of what a surface has to call, and saying so precisely is half of
+///             what doc 48 § M9 owes.
+///         </b>
+///         Doc 48 § D13's two front ends are viewports and this slice is
 ///         deliberately not one: <c>PaintUvView</c> is the 2D one, and <see cref="PaintProjector" />
 ///         is what a 3D one drives — though nothing shows a stack's model yet, which is
 ///         <a href="https://github.com/Rikarin/Vixen/issues/1063">#1063</a>. What each of them has to
@@ -39,16 +42,24 @@ public sealed record PaintTarget(PaintImage Layer, PaintCoverage Coverage, int G
 ///             <b>Turn a screen-space brush size into a radius in texels.</b> ⚠ The one conversion
 ///             that has no counterpart in the terrain tool, because a heightfield's samples per metre
 ///             is a constant and an atlas's texels per metre is not. A 2D view's is the zoom;
-///             <see cref="PaintFootprint" /> is the 3D one. ⚠ <b>This paragraph used to say the
-///             answer was <c>UvDensity</c>'s and it is not</b> — that type answers texels per square
+///             <see cref="PaintFootprint" /> is the 3D one. ⚠
+///             <b>
+///                 This paragraph used to say the
+///                 answer was <c>UvDensity</c>'s and it is not
+///             </b>
+///             — that type answers texels per square
 ///             unit <em>per chart</em>, so a chart stretched at one end has one number and two
 ///             answers, and it says nothing at all about the two conversions in front of it: the
 ///             camera's projection at the hit's depth, and the grazing angle. The density that is
 ///             wanted is the hit triangle's own Jacobian, <see cref="PaintProjection.Density" />.
 ///         </item>
 ///         <item>
-///             <b>Supply the mirrors.</b> ⚠ <b>Planar symmetry cannot be computed here and finding
-///             that out is a result rather than a gap.</b> A plane mirrors a point in <em>object</em>
+///             <b>Supply the mirrors.</b> ⚠
+///             <b>
+///                 Planar symmetry cannot be computed here and finding
+///                 that out is a result rather than a gap.
+///             </b>
+///             A plane mirrors a point in <em>object</em>
 ///             space; the mirrored point lands on a different triangle, which is in a different UV
 ///             island, at an unrelated place in the atlas. There is no transform of the atlas that
 ///             performs it. So the surface — which is the only thing holding the mesh — picks the
@@ -81,8 +92,12 @@ public sealed class PaintSession {
 
     /// <summary>What the drag found before any of its paths painted.</summary>
     /// <remarks>
-    ///     ⚠ <b>One snapshot for every path, because two paths that overlap in the atlas record each
-    ///     other's paint.</b> Undoing per-texel records in any order left some of it behind, and four
+    ///     ⚠
+    ///     <b>
+    ///         One snapshot for every path, because two paths that overlap in the atlas record each
+    ///         other's paint.
+    ///     </b>
+    ///     Undoing per-texel records in any order left some of it behind, and four
     ///     texels of a mirror used to survive their own undo; a table of tiles cannot.
     /// </remarks>
     PaintImageSnapshot? origin;
@@ -134,8 +149,11 @@ public sealed class PaintSession {
 
     /// <summary>How many texels the drag's two loops have looked at, mirrors included.</summary>
     /// <remarks>
-    ///     ⚠ <b>What exit criterion 8 should have been gated on, and
-    ///     <a href="https://github.com/Rikarin/Vixen/issues/871">#871</a> is why.</b>
+    ///     ⚠
+    ///     <b>
+    ///         What exit criterion 8 should have been gated on, and
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/871">#871</a> is why.
+    ///     </b>
     ///     <see cref="WeightsEvaluated" /> counts the weight function's calls, which happen only
     ///     inside a stamp's footprint and only where an island covers the texel; the dilation scan
     ///     beside it is the larger of the two and was in no counter at all.
@@ -204,16 +222,18 @@ public sealed class PaintSession {
                 // ⚠ A different seed per mirror. Sharing one would make a mirrored stroke's jitter
                 // identical to its sibling's, so a symmetric drag would paint a picture that is
                 // symmetric down to the noise — which is the one thing jitter exists to avoid.
-                strokes.Add(new(
-                    target.Layer,
-                    target.Coverage,
-                    brush,
-                    colour,
-                    target.Gutter,
-                    lazy,
-                    seed + ((uint)index * 0x85EBCA6Bu),
-                    origin
-                ));
+                strokes.Add(
+                    new(
+                        target.Layer,
+                        target.Coverage,
+                        brush,
+                        colour,
+                        target.Gutter,
+                        lazy,
+                        seed + (uint)index * 0x85EBCA6Bu,
+                        origin
+                    )
+                );
             }
         } else if (strokes.Count != positions.Length) {
             throw new ArgumentException(

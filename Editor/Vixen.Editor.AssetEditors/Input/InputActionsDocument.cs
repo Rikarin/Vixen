@@ -10,16 +10,23 @@ namespace Vixen.Editor.AssetEditors.Input;
 /// <summary>A <c>.vxinput</c>, open for editing.</summary>
 /// <remarks>
 ///     <para>
-///         <b>Doc 11 calls this "doc 11's own gap": the whole action model exists and no editor
-///         does.</b> The reader and the writer are <c>Vixen.Input</c>'s and are shared with the source
+///         <b>
+///             Doc 11 calls this "doc 11's own gap": the whole action model exists and no editor
+///             does.
+///         </b>
+///         The reader and the writer are <c>Vixen.Input</c>'s and are shared with the source
 ///         generator, so this document does not know the file format at all — it holds an
 ///         <see cref="InputActionAssetData" /> and asks <c>InputActionAssetWriter</c> to spell it.
 ///         That is what makes the file an editor writes and the file the compiler reads the same
 ///         file by construction.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Every edit replaces the whole document, and that is the natural shape here rather
-///         than a shortcut.</b> <see cref="InputActionAssetData" /> and everything under it are
+///         ⚠
+///         <b>
+///             Every edit replaces the whole document, and that is the natural shape here rather
+///             than a shortcut.
+///         </b>
+///         <see cref="InputActionAssetData" /> and everything under it are
 ///         immutable records: there is no "set this binding's path", only a new record with a new
 ///         path. So an edit <i>is</i> a replacement, one command holds the before and the after, and
 ///         undo is an assignment. The tree is small — an action map is tens of records — and the
@@ -69,7 +76,7 @@ public sealed class InputActionsDocument : EditorDocument {
             Actions = new(
                 name,
                 [new("Player", [new("Move", InputActionType.Value, InputControlType.Vector2)])],
-                [new("Keyboard", [new(InputDeviceKind.Keyboard), new(InputDeviceKind.Mouse, Optional: true)])]
+                [new("Keyboard", [new(InputDeviceKind.Keyboard), new(InputDeviceKind.Mouse, true)])]
             );
 
             LoadDiagnostics = [];
@@ -112,7 +119,10 @@ public sealed class InputActionsDocument : EditorDocument {
     public void AddMap(string map) {
         ArgumentException.ThrowIfNullOrEmpty(map);
 
-        Replace("Add Action Map", Actions with { Maps = [.. Actions.Maps, new(Unique(map, Actions.Maps.Select(entry => entry.Name)))] });
+        Replace(
+            "Add Action Map",
+            Actions with { Maps = [..Actions.Maps, new(Unique(map, Actions.Maps.Select(static entry => entry.Name)))] }
+        );
     }
 
     /// <summary>Removes an action map, undoably.</summary>
@@ -120,7 +130,9 @@ public sealed class InputActionsDocument : EditorDocument {
     public void RemoveMap(string map) =>
         Replace(
             "Remove Action Map",
-            Actions with { Maps = [.. Actions.Maps.Where(entry => !string.Equals(entry.Name, map, StringComparison.Ordinal))] }
+            Actions with {
+                Maps = [..Actions.Maps.Where(entry => !string.Equals(entry.Name, map, StringComparison.Ordinal))]
+            }
         );
 
     /// <summary>Adds an action to a map, undoably.</summary>
@@ -133,7 +145,7 @@ public sealed class InputActionsDocument : EditorDocument {
             "Add Action",
             map,
             found => found with {
-                Actions = [.. found.Actions, new(Unique(action, found.Actions.Select(entry => entry.Name)))]
+                Actions = [..found.Actions, new(Unique(action, found.Actions.Select(static entry => entry.Name)))]
             }
         );
     }
@@ -146,7 +158,7 @@ public sealed class InputActionsDocument : EditorDocument {
             "Remove Action",
             map,
             found => found with {
-                Actions = [.. found.Actions.Where(entry => !string.Equals(entry.Name, action, StringComparison.Ordinal))]
+                Actions = [..found.Actions.Where(entry => !string.Equals(entry.Name, action, StringComparison.Ordinal))]
             }
         );
 
@@ -162,8 +174,11 @@ public sealed class InputActionsDocument : EditorDocument {
             name,
             map,
             found => found with {
-                Actions = [.. found.Actions.Select(entry =>
-                    string.Equals(entry.Name, action, StringComparison.Ordinal) ? change(entry) : entry)]
+                Actions = [
+                    ..found.Actions.Select(entry =>
+                        string.Equals(entry.Name, action, StringComparison.Ordinal) ? change(entry) : entry
+                    )
+                ]
             }
         );
     }
@@ -175,7 +190,7 @@ public sealed class InputActionsDocument : EditorDocument {
     public void AddBinding(string map, string action, InputBindingData binding) {
         ArgumentNullException.ThrowIfNull(binding);
 
-        EditAction("Add Binding", map, action, found => found with { Bindings = [.. found.Bindings, binding] });
+        EditAction("Add Binding", map, action, found => found with { Bindings = [..found.Bindings, binding] });
     }
 
     /// <summary>Removes a binding by its position, undoably.</summary>
@@ -187,7 +202,7 @@ public sealed class InputActionsDocument : EditorDocument {
             "Remove Binding",
             map,
             action,
-            found => found with { Bindings = [.. found.Bindings.Where((_, position) => position != index)] }
+            found => found with { Bindings = [..found.Bindings.Where((_, position) => position != index)] }
         );
 
     /// <summary>Replaces one binding by its position, undoably.</summary>
@@ -204,7 +219,7 @@ public sealed class InputActionsDocument : EditorDocument {
             map,
             action,
             found => found with {
-                Bindings = [.. found.Bindings.Select((entry, position) => position == index ? binding : entry)]
+                Bindings = [..found.Bindings.Select((entry, position) => position == index ? binding : entry)]
             }
         );
     }
@@ -218,8 +233,8 @@ public sealed class InputActionsDocument : EditorDocument {
             "Add Control Scheme",
             Actions with {
                 ControlSchemes = [
-                    .. Actions.ControlSchemes,
-                    new(Unique(scheme, Actions.ControlSchemes.Select(entry => entry.Name)))
+                    ..Actions.ControlSchemes,
+                    new(Unique(scheme, Actions.ControlSchemes.Select(static entry => entry.Name)))
                 ]
             }
         );
@@ -232,7 +247,8 @@ public sealed class InputActionsDocument : EditorDocument {
             "Remove Control Scheme",
             Actions with {
                 ControlSchemes = [
-                    .. Actions.ControlSchemes.Where(entry => !string.Equals(entry.Name, scheme, StringComparison.Ordinal))
+                    ..Actions.ControlSchemes.Where(entry => !string.Equals(entry.Name, scheme, StringComparison.Ordinal)
+                    )
                 ]
             }
         );
@@ -246,8 +262,11 @@ public sealed class InputActionsDocument : EditorDocument {
         Replace(
             "Edit Control Scheme",
             Actions with {
-                ControlSchemes = [.. Actions.ControlSchemes.Select(entry =>
-                    string.Equals(entry.Name, scheme, StringComparison.Ordinal) ? change(entry) : entry)]
+                ControlSchemes = [
+                    ..Actions.ControlSchemes.Select(entry =>
+                        string.Equals(entry.Name, scheme, StringComparison.Ordinal) ? change(entry) : entry
+                    )
+                ]
             }
         );
     }
@@ -256,8 +275,11 @@ public sealed class InputActionsDocument : EditorDocument {
         Replace(
             name,
             Actions with {
-                Maps = [.. Actions.Maps.Select(entry =>
-                    string.Equals(entry.Name, map, StringComparison.Ordinal) ? change(entry) : entry)]
+                Maps = [
+                    ..Actions.Maps.Select(entry =>
+                        string.Equals(entry.Name, map, StringComparison.Ordinal) ? change(entry) : entry
+                    )
+                ]
             }
         );
 
@@ -275,7 +297,7 @@ public sealed class InputActionsDocument : EditorDocument {
             return wanted;
         }
 
-        for (var index = 2; ; index++) {
+        for (var index = 2;; index++) {
             var candidate = $"{wanted} {index}";
 
             if (!used.Contains(candidate)) {

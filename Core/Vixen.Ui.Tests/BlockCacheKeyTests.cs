@@ -23,8 +23,12 @@ namespace Vixen.Ui.Tests;
 ///         had no test at all. <c>Rikarin/Vixen#1344</c>.
 ///     </para>
 ///     <para>
-///         ⚠ <b><c>flex-direction: column</c> is load-bearing, and every test here is green under
-///         sabotage without it.</b> The width is an entry in the same key, and layout asks a
+///         ⚠
+///         <b>
+///             <c>flex-direction: column</c> is load-bearing, and every test here is green under
+///             sabotage without it.
+///         </b>
+///         The width is an entry in the same key, and layout asks a
 ///         paragraph for its block more than once per pass at <i>different</i> widths — a row item
 ///         at 0 and then its used width, an <c>align-items: flex-start</c> item at infinity and then
 ///         0. A second <c>Update</c> after a class toggle therefore rebuilds the block on the width
@@ -54,7 +58,7 @@ public class BlockCacheKeyTests {
 
     static FontFace LoadFont() {
         using var stream = Assembly.GetExecutingAssembly()
-            .GetManifestResourceStream("Vixen.Ui.Tests.Fonts.OpenSans-Regular.ttf")
+                .GetManifestResourceStream("Vixen.Ui.Tests.Fonts.OpenSans-Regular.ttf")
             ?? throw new InvalidOperationException("the test font is not embedded");
 
         using var memory = new MemoryStream();
@@ -70,7 +74,10 @@ public class BlockCacheKeyTests {
         var shape = new StringBuilder();
 
         foreach (var line in block.Lines) {
-            shape.Append(CultureInfo.InvariantCulture, $"[{line.Start}+{line.Length} w{line.Width:F2} o{line.Offset:F2}");
+            shape.Append(
+                CultureInfo.InvariantCulture,
+                $"[{line.Start}+{line.Length} w{line.Width:F2} o{line.Offset:F2}"
+            );
 
             foreach (var run in line.Runs) {
                 shape.Append(CultureInfo.InvariantCulture, $" L{run.Level}");
@@ -88,10 +95,10 @@ public class BlockCacheKeyTests {
 
         document.Load(
             $$"""
-            root          { width: 800px; height: 300px; flex-direction: column; }
-            label         { font-family: Test; font-size: 16px; {{before}} }
-            label.toggled { {{after}} }
-            """
+              root          { width: 800px; height: 300px; flex-direction: column; }
+              label         { font-family: Test; font-size: 16px; {{before}} }
+              label.toggled { {{after}} }
+              """
         );
 
         return document;
@@ -132,7 +139,12 @@ public class BlockCacheKeyTests {
     /// <summary><c>line-break: anywhere</c> breaks a word with no other opportunity in it.</summary>
     [Fact]
     public void Toggling_line_break_on_a_settled_element_rebuilds_the_block() =>
-        AssertToggleRebuilds("abcdefghijklmnopqrstuvwxyz", "width: 60px;", "line-break: auto;", "line-break: anywhere;");
+        AssertToggleRebuilds(
+            "abcdefghijklmnopqrstuvwxyz",
+            "width: 60px;",
+            "line-break: auto;",
+            "line-break: anywhere;"
+        );
 
     /// <summary><c>text-wrap: balance</c> takes different breaks with the same text, font and width.</summary>
     [Fact]

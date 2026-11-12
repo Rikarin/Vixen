@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Editor.Texturing.Painting;
-using Vixen.Texturing.Layers;
 using Vixen.Texturing.Painting;
 using Xunit;
 
@@ -109,7 +108,7 @@ public class PaintCanvasTests {
 
         // The instrument: an all-zero canvas would round-trip through a reader that returned an
         // empty image, so the picture has to be a picture.
-        Assert.Contains(colour.ToTexels(), texel => texel != 0);
+        Assert.Contains(colour.ToTexels(), static texel => texel != 0);
     }
 
     /// <summary>A file that is not a <c>.vxpaint</c> is refused rather than read as one.</summary>
@@ -119,7 +118,7 @@ public class PaintCanvasTests {
     /// </remarks>
     [Fact]
     public void Something_that_is_not_a_paint_file_is_refused() {
-        using MemoryStream stream = new([.. "NOTPAINT"u8.ToArray(), 1, 0, 0, 0]);
+        using MemoryStream stream = new([.."NOTPAINT"u8.ToArray(), 1, 0, 0, 0]);
 
         Assert.Throws<InvalidDataException>(() => PaintCanvas.Read(stream));
     }
@@ -157,22 +156,33 @@ public class PaintCanvasTests {
     /// <summary>⚠ And a file cut off inside a channel's compressed block is refused too.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>The path <a href="https://github.com/Rikarin/Vixen/issues/959">#959</a> found
-    ///         unreachable.</b> <c>PaintCanvas.Inflate</c> takes the block whole and refuses one
+    ///         <b>
+    ///             The path <a href="https://github.com/Rikarin/Vixen/issues/959">#959</a> found
+    ///             unreachable.
+    ///         </b>
+    ///         <c>PaintCanvas.Inflate</c> takes the block whole and refuses one
     ///         shorter than its own declared length — a guard whose message names two byte counts and
     ///         which nothing had ever produced, because the only truncation test cut a file so small
     ///         that the cut never reached a block.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A fraction rather than a constant, and a canvas that does not compress to
-    ///         nothing.</b> Those are the same defect twice: a constant cut is a cut whose meaning
+    ///         ⚠
+    ///         <b>
+    ///             A fraction rather than a constant, and a canvas that does not compress to
+    ///             nothing.
+    ///         </b>
+    ///         Those are the same defect twice: a constant cut is a cut whose meaning
     ///         changes when the format's density changes, and a flat canvas is one whose body is
     ///         smaller than any interesting constant. The stroke is what <c>PaintStroke</c> writes,
     ///         which is the least compressible content this format holds.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The two byte counts are on the <em>inner</em> exception and that is a finding
-    ///         rather than a detail of this test.</b> <c>Read</c> wraps every
+    ///         ⚠
+    ///         <b>
+    ///             The two byte counts are on the <em>inner</em> exception and that is a finding
+    ///             rather than a detail of this test.
+    ///         </b>
+    ///         <c>Read</c> wraps every
     ///         <see cref="EndOfStreamException" /> in one sentence about a truncated file — which is
     ///         the right thing for a caller, since both are the same fact — so the guard's own message
     ///         reaches a log and never a person. Asserting on the inner is what makes this test about
@@ -205,9 +215,12 @@ public class PaintCanvasTests {
         // The instrument, and it is the whole point of this test. 33 bytes of magic, version, extent,
         // channel count, the channel's name and its declared compressed length come before the block;
         // half the file has to be past that or the cut is the header case one test up.
-        Assert.True(bytes.Length / 2 > 64, $"a stroked {Side}² channel wrote {bytes.Length} bytes, which is "
+        Assert.True(
+            bytes.Length / 2 > 64,
+            $"a stroked {Side}² channel wrote {bytes.Length} bytes, which is "
             + "small enough that half of it is still the header — so this cut lands where the test above "
-            + "already cuts.");
+            + "already cuts."
+        );
 
         using MemoryStream cut = new(bytes[..(bytes.Length / 2)]);
 
@@ -229,7 +242,7 @@ public class PaintCanvasTests {
     public void A_channel_declaring_a_negative_compressed_length_is_refused() {
         using MemoryStream stream = new();
 
-        using (BinaryWriter writer = new(stream, System.Text.Encoding.UTF8, leaveOpen: true)) {
+        using (BinaryWriter writer = new(stream, System.Text.Encoding.UTF8, true)) {
             writer.Write(PaintCanvas.Magic);
             writer.Write(PaintCanvas.CurrentVersion);
             writer.Write(8);
@@ -252,8 +265,11 @@ public class PaintCanvasTests {
     /// <summary>⚠ A stream that hands back one byte at a time still reads a whole canvas.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>The canary for a compressed <c>.vxpaint</c>, written before there is one —
-    ///         <a href="https://github.com/Rikarin/Vixen/issues/850">#850</a>.</b> A
+    ///         <b>
+    ///             The canary for a compressed <c>.vxpaint</c>, written before there is one —
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/850">#850</a>.
+    ///         </b>
+    ///         A
     ///         <c>MemoryStream</c> answers every read in full, so every test above it is blind to
     ///         the difference between a loop and a single <c>Read</c>. The moment the format gains a
     ///         <c>DeflateStream</c> — or is read off a network — the first read is a chunk, and a
@@ -290,8 +306,11 @@ public class PaintCanvasTests {
     /// <summary>⚠ The file is a fraction of the texels it holds, which is the whole of version 2.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/850">#850</a>, and the round trip
-    ///         above cannot see it.</b> A writer that reverted to raw texels round-trips perfectly, so
+    ///         <b>
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/850">#850</a>, and the round trip
+    ///             above cannot see it.
+    ///         </b>
+    ///         A writer that reverted to raw texels round-trips perfectly, so
     ///         the only assertion that can tell the two apart is the size of what was written.
     ///     </para>
     ///     <para>
@@ -302,8 +321,12 @@ public class PaintCanvasTests {
     ///     </para>
     ///     <para>
     ///         ⚠ <b>A quarter, not the 6.4% that was measured.</b> The measurement is a fact about one
-    ///         stroke at 4K; the assertion is the property — a paint canvas is <em>compressible and is
-    ///         compressed</em> — and a bound tuned to the sample would go red on a brush change that
+    ///         stroke at 4K; the assertion is the property — a paint canvas is
+    ///         <em>
+    ///             compressible and is
+    ///             compressed
+    ///         </em>
+    ///         — and a bound tuned to the sample would go red on a brush change that
     ///         is nobody's defect.
     ///     </para>
     /// </remarks>
@@ -324,7 +347,7 @@ public class PaintCanvasTests {
         for (var step = 0; step <= 40; step++) {
             var t = step / 40f;
 
-            stroke.MoveTo(new((t * (Side - 32)) + 16f, (MathF.Sin(t * MathF.Tau) * (Side / 4f)) + (Side / 2f)));
+            stroke.MoveTo(new(t * (Side - 32) + 16f, MathF.Sin(t * MathF.Tau) * (Side / 4f) + Side / 2f));
         }
 
         Assert.True(stroke.StampCount > 20, $"only {stroke.StampCount} stamps, so the canvas is nearly empty");
@@ -333,7 +356,7 @@ public class PaintCanvasTests {
 
         canvas.Write(stream);
 
-        var raw = (long)colour.ToTexels().Length;
+        long raw = colour.ToTexels().Length;
 
         Assert.True(
             stream.Length < raw / 4,
@@ -352,15 +375,22 @@ public class PaintCanvasTests {
     /// <summary>⚠ A version-1 file — raw texels — still opens, one byte at a time.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>An artist's existing paintings are the reason version 1 is read rather than
-    ///         refused.</b> The bytes are laid out here by hand rather than by an old build, which is
+    ///         <b>
+    ///             An artist's existing paintings are the reason version 1 is read rather than
+    ///             refused.
+    ///         </b>
+    ///         The bytes are laid out here by hand rather than by an old build, which is
     ///         the only way this can be a test at all once the writer has moved on: a fixture written
     ///         by <see cref="PaintCanvas.Write" /> would be version 2 and would prove nothing about
     ///         the branch.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Through <see cref="Trickle" />, and that is not decoration — it is the raw path's
-    ///         short-read loop, which version 2 quietly took the last caller away from.</b> The
+    ///         ⚠
+    ///         <b>
+    ///             Through <see cref="Trickle" />, and that is not decoration — it is the raw path's
+    ///             short-read loop, which version 2 quietly took the last caller away from.
+    ///         </b>
+    ///         The
     ///         drip-feed test above used to be what proved that loop, and it now writes a compressed
     ///         file: with the loop replaced by a single <c>Read</c> every test in this file stayed
     ///         green, which was checked. This is the one that goes red.
@@ -372,7 +402,7 @@ public class PaintCanvasTests {
 
         using MemoryStream stream = new();
 
-        using (BinaryWriter writer = new(stream, System.Text.Encoding.UTF8, leaveOpen: true)) {
+        using (BinaryWriter writer = new(stream, System.Text.Encoding.UTF8, true)) {
             writer.Write(PaintCanvas.Magic);
             writer.Write(PaintCanvas.OldestVersion);
             writer.Write(8);
@@ -430,8 +460,7 @@ public class PaintCanvasTests {
         }
 
         /// <inheritdoc />
-        public override int Read(byte[] buffer, int offset, int count) =>
-            Read(buffer.AsSpan(offset, count));
+        public override int Read(byte[] buffer, int offset, int count) => Read(buffer.AsSpan(offset, count));
 
         /// <inheritdoc />
         public override int Read(Span<byte> buffer) {

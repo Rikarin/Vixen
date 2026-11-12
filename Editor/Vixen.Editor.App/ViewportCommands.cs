@@ -44,7 +44,8 @@ sealed partial class EditorApplication {
 
         /// <summary>The id of the command that sets the pane count.</summary>
         public static string Arrangement(ViewportArrangement value) =>
-            "scene.panes-" + value switch {
+            "scene.panes-"
+            + value switch {
                 ViewportArrangement.SideBySide => "side-by-side",
                 ViewportArrangement.Stacked => "stacked",
                 ViewportArrangement.Quad => "quad",
@@ -62,7 +63,8 @@ sealed partial class EditorApplication {
 
         /// <summary>The id of the command that toggles one snap element.</summary>
         public static string SnapElement(SnapElements element) =>
-            "scene.snap-" + element switch {
+            "scene.snap-"
+            + element switch {
                 SnapElements.Vertex => "vertex",
                 SnapElements.Edge => "edge",
                 SnapElements.EdgeCentre => "edge-centre",
@@ -74,7 +76,8 @@ sealed partial class EditorApplication {
 
         /// <summary>The id of the command that toggles one snap modifier.</summary>
         public static string SnapModifier(SnapModifiers modifier) =>
-            "scene.snap-" + modifier switch {
+            "scene.snap-"
+            + modifier switch {
                 SnapModifiers.AlignToTarget => "align",
                 SnapModifiers.ProjectFromView => "project",
                 _ => "ignore-self"
@@ -105,8 +108,7 @@ sealed partial class EditorApplication {
         ];
 
         /// <summary>The id of the command that puts a scale reference in the pane.</summary>
-        public static string Reference(ReferenceVolume volume) =>
-            "scene.reference-" + volume.Name.ToLowerInvariant();
+        public static string Reference(ReferenceVolume volume) => "scene.reference-" + volume.Name.ToLowerInvariant();
 
         /// <summary>Everything on the work-plane dropdown, in order.</summary>
         public static string?[] WorkPlaneIds { get; } = [
@@ -127,12 +129,12 @@ sealed partial class EditorApplication {
             "scene.measure",
             "scene.measure-clear",
             null,
-            .. ReferenceVolumes.All.Select(Reference),
+            ..ReferenceVolumes.All.Select(Reference),
             "scene.reference-clear"
         ];
 
         /// <summary>Every view-mode id, in menu order.</summary>
-        public static string[] ViewModes { get; } = [.. ViewShading.All.Select(ViewMode)];
+        public static string[] ViewModes { get; } = [..ViewShading.All.Select(ViewMode)];
 
         /// <summary>Every show-flag id except the grid's, in menu order.</summary>
         /// <remarks>
@@ -141,8 +143,10 @@ sealed partial class EditorApplication {
         ///     the same state — registered only so that this list could be uniform — is two menu lines
         ///     that can disagree about what is on.
         /// </remarks>
-        public static string[] ShowFlagIds { get; } = [.. ShowFlags.All.Where(static flag => flag != SceneShow.Grid)
-            .Select(Show)];
+        public static string[] ShowFlagIds { get; } = [
+            ..ShowFlags.All.Where(static flag => flag != SceneShow.Grid)
+                .Select(Show)
+        ];
 
         /// <summary>Every pane-count id, in menu order.</summary>
         public static string[] Arrangements { get; } = [
@@ -153,15 +157,15 @@ sealed partial class EditorApplication {
         ];
 
         /// <summary>Every camera-speed id, in menu order.</summary>
-        public static string[] SpeedIds { get; } = [.. Enumerable.Range(0, Speeds.Length).Select(Speed)];
+        public static string[] SpeedIds { get; } = [..Enumerable.Range(0, Speeds.Length).Select(Speed)];
 
         /// <summary>The nine recall ids.</summary>
         public static string[] GoBookmarks { get; } =
-            [.. Enumerable.Range(0, SceneViewport.BookmarkSlots).Select(GoBookmark)];
+            [..Enumerable.Range(0, SceneViewport.BookmarkSlots).Select(GoBookmark)];
 
         /// <summary>The nine save ids.</summary>
         public static string[] SetBookmarks { get; } =
-            [.. Enumerable.Range(0, SceneViewport.BookmarkSlots).Select(SetBookmark)];
+            [..Enumerable.Range(0, SceneViewport.BookmarkSlots).Select(SetBookmark)];
     }
 
     /// <summary>The fly speeds the Camera Speed menu offers, as multiples of the default.</summary>
@@ -220,7 +224,7 @@ sealed partial class EditorApplication {
         // hierarchy, the inspector and the console go away and the scene gets the whole frame. That
         // is an arrangement, so it is the workspace's to do and not a viewport's.
         Shell.Commands.Add(
-            new EditorCommand(
+            new(
                 "scene.maximise",
                 Label("scene.maximise"),
                 ToggleMaximised
@@ -235,7 +239,7 @@ sealed partial class EditorApplication {
             }
         );
 
-        Shell.Keys.SetDefault("scene.maximise", new KeyChord(InputKey.Space, ModifierKeys.Shift));
+        Shell.Keys.SetDefault("scene.maximise", new(InputKey.Space, ModifierKeys.Shift));
     }
 
     /// <summary>What the Scene panel is called in an arrangement.</summary>
@@ -267,7 +271,7 @@ sealed partial class EditorApplication {
         // applying a preset does not silently throw away an open document. Here that is exactly
         // wrong: it would give the Scene tab the window with the inspector and the console stacked
         // behind it, which is not a maximise, it is a rearrangement.
-        foreach (var id in Shell.Workspace.Host.Panels.Keys.Where(id => id != ScenePanel).ToList()) {
+        foreach (var id in Shell.Workspace.Host.Panels.Keys.Where(static id => id != ScenePanel).ToList()) {
             Shell.Workspace.Close(id);
         }
 
@@ -307,7 +311,7 @@ sealed partial class EditorApplication {
             Pane(
                 ViewportIds.ViewMode(mode),
                 pane => pane.Modes.Current = mode,
-                on: pane => pane.Modes.Current == mode,
+                pane => pane.Modes.Current == mode,
                 radioGroup: "scene.view-mode"
             );
         }
@@ -338,7 +342,7 @@ sealed partial class EditorApplication {
             Pane(
                 ViewportIds.Show(flag),
                 pane => pane.Show ^= flag,
-                on: pane => (pane.Show & flag) != 0
+                pane => (pane.Show & flag) != 0
             );
         }
     }
@@ -366,7 +370,7 @@ sealed partial class EditorApplication {
                 }
             );
 
-            Shell.Keys.SetDefault(id, new KeyChord(key, ModifierKeys.Alt));
+            Shell.Keys.SetDefault(id, new(key, ModifierKeys.Alt));
         }
     }
 
@@ -382,7 +386,7 @@ sealed partial class EditorApplication {
                 // ⚠ Compared with a tolerance rather than for equality. The speed is a float a
                 // multiplication produced, and a tick that only lit up when two of them were bit-wise
                 // identical is one that flickers off for reasons nobody can see.
-                on: pane => MathF.Abs(pane.Camera.FlySpeed - wanted) < 0.001f,
+                pane => MathF.Abs(pane.Camera.FlySpeed - wanted) < 0.001f,
                 radioGroup: "scene.speed"
             );
         }
@@ -391,8 +395,12 @@ sealed partial class EditorApplication {
     /// <summary>Doc 24's D4: the element, the base and the three modifiers, as commands.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Without these the geometry elements were declared and unreachable, which is doc
-    ///         24's B5 in the form it survived in.</b> <c>SnapToVertex</c> has been honoured by the
+    ///         ⚠
+    ///         <b>
+    ///             Without these the geometry elements were declared and unreachable, which is doc
+    ///             24's B5 in the form it survived in.
+    ///         </b>
+    ///         <c>SnapToVertex</c> has been honoured by the
     ///         viewport for a while; what there was no way to do was turn it on. <c>scene.toggle-snap</c>
     ///         moves the increment, the angle and the scale together and says nothing about the four
     ///         that need geometry.
@@ -423,7 +431,7 @@ sealed partial class EditorApplication {
             Pane(
                 ViewportIds.SnapElement(element),
                 pane => pane.Gizmo.Snap.Toggle(element, !pane.Gizmo.Snap.Has(element)),
-                on: pane => pane.Gizmo.Snap.Has(element)
+                pane => pane.Gizmo.Snap.Has(element)
             );
 
         // ⚠ A radio group, because the base is a choice of one and three ticks is not how a choice
@@ -432,7 +440,7 @@ sealed partial class EditorApplication {
             Pane(
                 ViewportIds.SnapBase(value),
                 pane => pane.Gizmo.Snap.Base = value,
-                on: pane => pane.Gizmo.Snap.Base == value,
+                pane => pane.Gizmo.Snap.Base == value,
                 radioGroup: "scene.snap-base"
             );
 
@@ -440,7 +448,7 @@ sealed partial class EditorApplication {
             Pane(
                 ViewportIds.SnapModifier(modifier),
                 pane => pane.Gizmo.Snap.Toggle(modifier, !pane.Gizmo.Snap.Is(modifier)),
-                on: pane => pane.Gizmo.Snap.Is(modifier)
+                pane => pane.Gizmo.Snap.Is(modifier)
             );
     }
 
@@ -463,12 +471,12 @@ sealed partial class EditorApplication {
     void WorkPlaneCommands() {
         Pane(
             "scene.work-plane-to-face",
-            pane => {
+            static pane => {
                 if (pane.Surfaces is { } probe && probe.Raycast(pane.PointerRay(), [], out var hit)) {
                     pane.Grid.Plane.SetTo(hit.Point, hit.Normal);
                 }
             },
-            enabled: pane => pane.Surfaces is not null,
+            enabled: static pane => pane.Surfaces is not null,
             key: InputKey.G,
             modifiers: ModifierKeys.Shift
         );
@@ -481,8 +489,8 @@ sealed partial class EditorApplication {
 
         Pane(
             "scene.work-plane-to-world",
-            pane => pane.Grid.Plane.Reset(),
-            enabled: pane => !pane.Grid.Plane.IsGround
+            static pane => pane.Grid.Plane.Reset(),
+            enabled: static pane => !pane.Grid.Plane.IsGround
         );
 
         // ⚠ Along the plane's own normal rather than along world Y, which is D5's third gesture:
@@ -516,11 +524,11 @@ sealed partial class EditorApplication {
 
         Pane(
             "scene.grid-step-auto",
-            pane => pane.Grid.Plane.Auto(),
-            on: pane => pane.Grid.Plane.Step is null
+            static pane => pane.Grid.Plane.Auto(),
+            static pane => pane.Grid.Plane.Step is null
         );
 
-        float Spacing(SceneViewport pane) => pane.Grid.Spacing(pane.Camera, pane.Control.RenderHeight);
+        static float Spacing(SceneViewport pane) => pane.Grid.Spacing(pane.Camera, pane.Control.RenderHeight);
 
         float Step(SceneViewport pane) => pane.Grid.Plane.Effective(Spacing(pane));
     }
@@ -549,22 +557,22 @@ sealed partial class EditorApplication {
     void PrecisionCommands() {
         Pane(
             "scene.measure",
-            pane => {
+            static pane => {
                 pane.Measure.IsActive = !pane.Measure.IsActive;
 
                 if (!pane.Measure.IsActive) {
                     pane.Measure.Clear();
                 }
             },
-            on: pane => pane.Measure.IsActive,
+            static pane => pane.Measure.IsActive,
             key: InputKey.M,
             modifiers: ModifierKeys.Shift
         );
 
         Pane(
             "scene.measure-clear",
-            pane => pane.Measure.Clear(),
-            enabled: pane => pane.Measure.Points.Count > 0
+            static pane => pane.Measure.Clear(),
+            enabled: static pane => pane.Measure.Points.Count > 0
         );
 
         foreach (var volume in ReferenceVolumes.All) {
@@ -582,8 +590,8 @@ sealed partial class EditorApplication {
 
         Pane(
             "scene.reference-clear",
-            pane => pane.References.Clear(),
-            enabled: pane => !pane.References.IsEmpty
+            static pane => pane.References.Clear(),
+            enabled: static pane => !pane.References.IsEmpty
         );
     }
 
@@ -605,7 +613,7 @@ sealed partial class EditorApplication {
             // ⚠ The number row, not the keypad, and counted from `Number1` because the nine are
             // consecutive there. `Keypad1..9` are the six axis views and the four orbit steps, which
             // is the whole reason the bookmarks are on the other set of digits.
-            var key = (InputKey) ((ushort) InputKey.Number1 + slot);
+            var key = (InputKey)((ushort)InputKey.Number1 + slot);
 
             Pane(ViewportIds.SetBookmark(slot), pane => pane.SaveBookmark(slot));
 
@@ -615,8 +623,8 @@ sealed partial class EditorApplication {
                 enabled: pane => pane.HasBookmark(slot)
             );
 
-            Shell.Keys.SetDefault(ViewportIds.SetBookmark(slot), new KeyChord(key, ModifierKeys.Control));
-            Shell.Keys.SetDefault(ViewportIds.GoBookmark(slot), new KeyChord(key, ModifierKeys.None));
+            Shell.Keys.SetDefault(ViewportIds.SetBookmark(slot), new(key, ModifierKeys.Control));
+            Shell.Keys.SetDefault(ViewportIds.GoBookmark(slot), new(key, ModifierKeys.None));
         }
     }
 
@@ -640,8 +648,12 @@ sealed partial class EditorApplication {
     /// <param name="key">A default binding.</param>
     /// <param name="modifiers">Its modifiers.</param>
     /// <remarks>
-    ///     ⚠ <b><c>Checked</c> is left null when there is no predicate rather than answering
-    ///     false.</b> <c>MenuPresenter</c> grows a tick column only for the commands that have one, so
+    ///     ⚠
+    ///     <b>
+    ///         <c>Checked</c> is left null when there is no predicate rather than answering
+    ///         false.
+    ///     </b>
+    ///     <c>MenuPresenter</c> grows a tick column only for the commands that have one, so
     ///     a lambda here would indent every line of every viewport submenu by an empty tick.
     /// </remarks>
     void Pane(
@@ -654,7 +666,10 @@ sealed partial class EditorApplication {
         ModifierKeys modifiers = ModifierKeys.None
     ) {
         Shell.Commands.Add(
-            new EditorCommand(id, Label(id), () => {
+            new EditorCommand(
+                id,
+                Label(id),
+                () => {
                     if (Viewport is { } pane) {
                         action(pane);
                     }
@@ -668,7 +683,7 @@ sealed partial class EditorApplication {
         );
 
         if (key != InputKey.Unknown) {
-            Shell.Keys.SetDefault(id, new KeyChord(key, modifiers));
+            Shell.Keys.SetDefault(id, new(key, modifiers));
         }
     }
 }

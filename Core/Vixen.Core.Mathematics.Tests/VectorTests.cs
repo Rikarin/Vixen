@@ -113,8 +113,8 @@ public class VectorTests {
 
         Assert.Equal(new(1f, 2f, 3f), v4.Xyz);
         Assert.Equal(new(1f, 2f), v4.Xy);
-        Assert.Equal(v4, new Vector4(v4.Xyz, 4f));
-        Assert.Equal(new(1f, 2f, 3f), new Vector3(new Vector2(1f, 2f), 3f));
+        Assert.Equal(v4, new(v4.Xyz, 4f));
+        Assert.Equal(new(1f, 2f, 3f), new Vector3(new(1f, 2f), 3f));
     }
 
     [Fact]
@@ -169,11 +169,11 @@ public class VectorTests {
 
     [Fact]
     public void Equality_and_hashing_agree_across_the_vector_types() {
-        Assert.Equal(new Vector2(1f, 2f), new Vector2(1f, 2f));
+        Assert.Equal(new(1f, 2f), new Vector2(1f, 2f));
         Assert.Equal(new Vector2(1f, 2f).GetHashCode(), new Vector2(1f, 2f).GetHashCode());
-        Assert.NotEqual(new Vector2(1f, 2f), new Vector2(2f, 1f));
+        Assert.NotEqual(new(1f, 2f), new Vector2(2f, 1f));
 
-        Assert.Equal(new Int4(1, 2, 3, 4), new Int4(1, 2, 3, 4));
+        Assert.Equal(new(1, 2, 3, 4), new Int4(1, 2, 3, 4));
         Assert.Equal(new Int4(1, 2, 3, 4).GetHashCode(), new Int4(1, 2, 3, 4).GetHashCode());
 
         Assert.True(new Vector4(1f, 2f, 3f, 4f).Equals((object)new Vector4(1f, 2f, 3f, 4f)));

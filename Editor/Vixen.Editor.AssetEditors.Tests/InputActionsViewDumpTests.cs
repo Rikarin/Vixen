@@ -55,7 +55,7 @@ public sealed class InputActionsViewDumpTests {
         var flags = harness.Ui.Flags(view);
 
         Assert.Equal("input-editor", view.Tag);
-        Assert.Equal(["input-bar", "input-body"], view.Children.Select(child => child.Tag));
+        Assert.Equal(["input-bar", "input-body"], view.Children.Select(static child => child.Tag));
 
         Assert.Contains("<input-bar>", tree, StringComparison.Ordinal);
         Assert.Contains("<input-body>", tree, StringComparison.Ordinal);
@@ -91,7 +91,7 @@ public sealed class InputActionsViewDumpTests {
         Assert.False(view.Tree.MultiSelect);
         Assert.All(
             new[] { view.AddMap, view.AddAction, view.AddBinding, view.AddScheme, view.Delete },
-            button => {
+            static button => {
                 Assert.Equal(ControlSize.Small, button.Size);
                 Assert.Equal(ControlVariant.Subtle, button.Variant);
             }
@@ -136,8 +136,12 @@ public sealed class InputActionsViewDumpTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>The assertion that tells <c>.handled</c> from its absence, and the only one that
-    ///     can.</b> Two of the five capture-leg pickers want <c>handledEventsToo</c> and three must
+    ///     ⚠
+    ///     <b>
+    ///         The assertion that tells <c>.handled</c> from its absence, and the only one that
+    ///         can.
+    ///     </b>
+    ///     Two of the five capture-leg pickers want <c>handledEventsToo</c> and three must
     ///     not have it, so a port that dropped the flag — or spread it to all five — would pass
     ///     every other test in this file. Here something above the panel marks the key handled on
     ///     the way down, which is exactly what <c>CommandDispatcher</c> does to a chord that is
@@ -198,8 +202,12 @@ public sealed class InputActionsViewDumpTests {
 
     /// <summary>And a key pressed while the mode is off reaches the panel and is ignored.</summary>
     /// <remarks>
-    ///     ⚠ <b>The negative half, because a handler that fired unconditionally would pass all
-    ///     three tests above.</b> <c>Keyed</c> opens with <c>if (!IsListening)</c>, so this is the
+    ///     ⚠
+    ///     <b>
+    ///         The negative half, because a handler that fired unconditionally would pass all
+    ///         three tests above.
+    ///     </b>
+    ///     <c>Keyed</c> opens with <c>if (!IsListening)</c>, so this is the
     ///     branch that says the panel is not quietly eating every keystroke in the editor.
     /// </remarks>
     [Fact]
@@ -228,8 +236,12 @@ public sealed class InputActionsViewDumpTests {
     // ── Chords, which the mode could not record at all ───────────────────────
 
     /// <summary>
-    ///     ⚠ <b>Ctrl+S is a <c>buttonWithModifiers</c> composite of two parts, and the mode used to
-    ///     be unable to record any chord whatever.</b> The issue's stated symptom — an author gets
+    ///     ⚠
+    ///     <b>
+    ///         Ctrl+S is a <c>buttonWithModifiers</c> composite of two parts, and the mode used to
+    ///         be unable to record any chord whatever.
+    ///     </b>
+    ///     The issue's stated symptom — an author gets
     ///     <c>&lt;Keyboard&gt;/s</c> and the modifier is discarded — is <b>refuted</b>: holding
     ///     Control produces a <c>KeyEvent</c> whose key <i>is</i> Control, which the old
     ///     <c>Keyed</c> recorded as <c>&lt;Keyboard&gt;/leftCtrl</c> before dropping out of the
@@ -310,17 +322,21 @@ public sealed class InputActionsViewDumpTests {
         Assert.Equal(InputCompositeKind.ButtonWithModifiers, read.Composite);
         Assert.Equal(
             ["<Keyboard>/leftControl", "<Keyboard>/rightShift", "<Keyboard>/s"],
-            read.Parts.Select(part => part.Path)
+            read.Parts.Select(static part => part.Path)
         );
 
         // The side actually held, not a left-hand guess: `ModifierKeys` says "either Shift" and a
         // part has to name one control.
-        Assert.Equal(["modifier", "modifier", "button"], read.Parts.Select(part => part.Part));
+        Assert.Equal(["modifier", "modifier", "button"], read.Parts.Select(static part => part.Part));
     }
 
     /// <summary>
-    ///     ⚠ <b>A modifier let go with nothing under it still binds the modifier, and refusing
-    ///     modifier keys outright would have taken that away.</b> Sprint on Shift is a binding
+    ///     ⚠
+    ///     <b>
+    ///         A modifier let go with nothing under it still binds the modifier, and refusing
+    ///         modifier keys outright would have taken that away.
+    ///     </b>
+    ///     Sprint on Shift is a binding
     ///     people write.
     /// </summary>
     [Fact]
@@ -389,8 +405,12 @@ public sealed class InputActionsViewDumpTests {
     // ── The one binding this port introduced ─────────────────────────────────
 
     /// <summary>
-    ///     ⚠ <b>The diagnostics list is the only markup binding in the file, and this is its signal
-    ///     audit.</b> Wave 7 shipped <c>@if (QualityRows == 0)</c> over a plain <c>int</c> — no
+    ///     ⚠
+    ///     <b>
+    ///         The diagnostics list is the only markup binding in the file, and this is its signal
+    ///         audit.
+    ///     </b>
+    ///     Wave 7 shipped <c>@if (QualityRows == 0)</c> over a plain <c>int</c> — no
     ///     dependency, evaluated once — and six dumped states matched byte-for-byte while the
     ///     binding could not fire. <c>reported</c> is a <c>Signal</c>, so this shows two documents
     ///     with different complaints through the same panel and asserts the rows follow. A plain
@@ -413,7 +433,7 @@ public sealed class InputActionsViewDumpTests {
         var complaints = Rows(view);
 
         Assert.NotEmpty(complaints);
-        Assert.All(complaints, row => Assert.True(row.HasClass("error")));
+        Assert.All(complaints, static row => Assert.True(row.HasClass("error")));
 
         // The part wave 6 hoisted, standing exactly where `Report`'s hand-built rows stood.
         Assert.All(complaints, row => Assert.Same(view.Diagnostics, row.Parent));
@@ -467,9 +487,8 @@ public sealed class InputActionsViewDumpTests {
         Assert.Equal(0, view.Selected.Binding);
     }
 
-    static InputBindingData Binding(InputActionsDocument document) =>
-        document.Actions.Maps[0].Actions[0].Bindings[0];
+    static InputBindingData Binding(InputActionsDocument document) => document.Actions.Maps[0].Actions[0].Bindings[0];
 
     static IReadOnlyList<UiElement> Rows(InputActionsView view) =>
-        [.. view.Diagnostics.Children.Where(child => child.Tag == "analysis-row")];
+        [..view.Diagnostics.Children.Where(static child => child.Tag == "analysis-row")];
 }

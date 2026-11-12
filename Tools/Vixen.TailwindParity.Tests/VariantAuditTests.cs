@@ -17,8 +17,12 @@ namespace Vixen.TailwindParity.Tests;
 ///         resolve, and now they are a file.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The answer comes from <c>Variants.TryResolve</c>, which is what the generator
-///         calls.</b> A list of names kept here would be a second opinion about the engine rather
+///         ⚠
+///         <b>
+///             The answer comes from <c>Variants.TryResolve</c>, which is what the generator
+///             calls.
+///         </b>
+///         A list of names kept here would be a second opinion about the engine rather
 ///         than a reading of it — doc 43 Part 5's "a parity test that checked a C# re-implementation
 ///         rather than the shader", which this repository shipped once.
 ///     </para>
@@ -32,11 +36,11 @@ public sealed class VariantAuditTests {
         Taken = "2026-09-23",
         StaticRoots = ["sr-only"],
         FunctionalRoots = ["top"],
-        Variants = [new TailwindVariant("hover", "hover"), new TailwindVariant("before", "before")],
+        Variants = [new TailwindVariant("hover", "hover"), new TailwindVariant("before", "before")]
     };
 
     static IReadOnlyList<string> Codes(Func<string, bool> resolves, params string[] unsupported) =>
-        [.. VariantAudit.Run(Miniature, resolves, unsupported).Select(finding => finding.Code)];
+        [..VariantAudit.Run(Miniature, resolves, unsupported).Select(static finding => finding.Code)];
 
     /// <summary>The check this file exists for, against the real engine.</summary>
     [Fact]
@@ -51,7 +55,7 @@ public sealed class VariantAuditTests {
             unsupported
         );
 
-        Assert.Equal([], findings.Select(finding => finding.ToString()));
+        Assert.Equal([], findings.Select(static finding => finding.ToString()));
     }
 
     /// <summary>⚠ The four pseudo-element variants #233 still owes are in the file, by name.</summary>
@@ -89,14 +93,14 @@ public sealed class VariantAuditTests {
     /// <summary>A variant v4 has that Vixen refuses and nobody wrote down.</summary>
     [Fact]
     public void An_unrecorded_refusal_is_TWP008() {
-        Assert.Contains("TWP008", Codes(probe => probe == "hover"));
-        Assert.DoesNotContain("TWP008", Codes(probe => probe == "hover", "before"));
+        Assert.Contains("TWP008", Codes(static probe => probe == "hover"));
+        Assert.DoesNotContain("TWP008", Codes(static probe => probe == "hover", "before"));
     }
 
     /// <summary>⚠ A recorded refusal the engine has since learned, so the file can only shrink.</summary>
     [Fact]
     public void A_refusal_the_engine_has_outgrown_is_TWP009() {
-        Assert.Contains("TWP009", Codes(_ => true, "before"));
+        Assert.Contains("TWP009", Codes(static _ => true, "before"));
     }
 
     /// <summary>A variant v4 compiles no class from, which is not the same as one Vixen lacks.</summary>
@@ -104,18 +108,21 @@ public sealed class VariantAuditTests {
     public void A_variant_with_no_probe_is_TWP010() {
         var registry = Miniature with { Variants = [new TailwindVariant("mystery", null)] };
 
-        Assert.Equal(["TWP010"], VariantAudit.Run(registry, _ => true, []).Select(finding => finding.Code));
+        Assert.Equal(
+            ["TWP010"],
+            VariantAudit.Run(registry, static _ => true, []).Select(static finding => finding.Code)
+        );
     }
 
     /// <summary>A line in the file naming a variant v4 does not have.</summary>
     [Fact]
     public void A_recorded_variant_tailwind_does_not_have_is_TWP011() {
-        Assert.Contains("TWP011", Codes(_ => true, "no-such-variant"));
+        Assert.Contains("TWP011", Codes(static _ => true, "no-such-variant"));
     }
 
     /// <summary>And a vocabulary that agrees reports nothing at all.</summary>
     [Fact]
     public void A_vocabulary_that_agrees_reports_nothing() {
-        Assert.Empty(Codes(probe => probe == "hover", "before"));
+        Assert.Empty(Codes(static probe => probe == "hover", "before"));
     }
 }

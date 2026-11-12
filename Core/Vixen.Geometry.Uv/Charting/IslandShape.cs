@@ -12,12 +12,20 @@ namespace Vixen.Geometry.Uv.Charting;
 ///         <i>shape</i> of an island rather than about its mapping: compactness as <c>4πA/P²</c>,
 ///         convexity as <c>A/A(hull)</c>, and boundary jaggedness as a discrete curvature over resampled
 ///         boundary loops. § Part 1 notes that nobody else in the field writes the last one down, and
-///         that it is exactly what separates <i>"low distortion"</i> from <i>"an artist would accept
-///         this"</i>.
+///         that it is exactly what separates <i>"low distortion"</i> from
+///         <i>
+///             "an artist would accept
+///             this"
+///         </i>
+///         .
 ///     </para>
 ///     <para>
-///         ⚠ <b>Measured from the mesh and the island together, because an island alone has no
-///         topology.</b> <see cref="UvIsland" /> is coordinates per corner and corners in triples, with
+///         ⚠
+///         <b>
+///             Measured from the mesh and the island together, because an island alone has no
+///             topology.
+///         </b>
+///         <see cref="UvIsland" /> is coordinates per corner and corners in triples, with
 ///         no statement about which corners are the same point — a seam is precisely two coordinates at
 ///         one position, so welding by coordinate would be wrong at exactly the vertices that matter.
 ///         The mesh's corner layer says which corners share a position, and inside one chart that is the
@@ -34,8 +42,12 @@ namespace Vixen.Geometry.Uv.Charting;
 static class IslandShape {
     /// <summary>How many points a boundary loop is resampled to before its curvature is summed.</summary>
     /// <remarks>
-    ///     ⚠ <b>Resampled at equal arc length rather than measured at the vertices, and that is the
-    ///     point of the metric.</b> Turning summed at the vertices reports how the boundary was
+    ///     ⚠
+    ///     <b>
+    ///         Resampled at equal arc length rather than measured at the vertices, and that is the
+    ///         point of the metric.
+    ///     </b>
+    ///     Turning summed at the vertices reports how the boundary was
     ///     <i>tessellated</i> — a finely divided smooth arc has many tiny turns and a coarse one has few
     ///     large ones, for the same shape. Equal arc length asks the question about the curve.
     /// </remarks>
@@ -72,17 +84,17 @@ static class IslandShape {
 
         for (var triangle = 0; triangle < island.TriangleCount; triangle++) {
             var a = vertices[triangle * 3];
-            var b = vertices[(triangle * 3) + 1];
-            var c = vertices[(triangle * 3) + 2];
+            var b = vertices[triangle * 3 + 1];
+            var c = vertices[triangle * 3 + 2];
 
             var pa = island.Coordinates[triangle * 3];
-            var pb = island.Coordinates[(triangle * 3) + 1];
-            var pc = island.Coordinates[(triangle * 3) + 2];
+            var pb = island.Coordinates[triangle * 3 + 1];
+            var pc = island.Coordinates[triangle * 3 + 2];
 
             area += 0.5d
                 * Math.Abs(
-                    ((pb.X - (double)pa.X) * (pc.Y - (double)pa.Y))
-                    - ((pb.Y - (double)pa.Y) * (pc.X - (double)pa.X))
+                    (pb.X - (double)pa.X) * (pc.Y - (double)pa.Y)
+                    - (pb.Y - (double)pa.Y) * (pc.X - (double)pa.X)
                 );
 
             Count(sides, a, b);
@@ -123,8 +135,12 @@ static class IslandShape {
 
     /// <summary>The boundary loops, as coordinate rings.</summary>
     /// <remarks>
-    ///     ⚠ <b>Started from the lowest position index and stepped to the lowest available neighbour, so
-    ///     that a walk over a dictionary's contents is still a function of the mesh.</b> The dictionary
+    ///     ⚠
+    ///     <b>
+    ///         Started from the lowest position index and stepped to the lowest available neighbour, so
+    ///         that a walk over a dictionary's contents is still a function of the mesh.
+    ///     </b>
+    ///     The dictionary
     ///     is only ever probed by key here; the ordering comes from the sorted adjacency below.
     /// </remarks>
     static List<List<Vector2>> Loops(Dictionary<(int, int), int> sides, Dictionary<int, Vector2> coordinate) {
@@ -201,7 +217,7 @@ static class IslandShape {
             var a = loop[index];
             var b = loop[(index + 1) % loop.Count];
 
-            total += Math.Sqrt(((b.X - (double)a.X) * (b.X - (double)a.X)) + ((b.Y - (double)a.Y) * (b.Y - (double)a.Y)));
+            total += Math.Sqrt((b.X - (double)a.X) * (b.X - (double)a.X) + (b.Y - (double)a.Y) * (b.Y - (double)a.Y));
         }
 
         return total;
@@ -226,9 +242,7 @@ static class IslandShape {
             return 0d;
         }
 
-        points.Sort(
-            static (left, right) => left.X != right.X ? left.X.CompareTo(right.X) : left.Y.CompareTo(right.Y)
-        );
+        points.Sort(static (left, right) => left.X != right.X ? left.X.CompareTo(right.X) : left.Y.CompareTo(right.Y));
 
         var chain = new Vector2[2 * points.Count];
         var size = 0;
@@ -255,7 +269,7 @@ static class IslandShape {
             var a = chain[index];
             var b = chain[(index + 1) % (size - 1)];
 
-            area += ((double)a.X * b.Y) - ((double)b.X * a.Y);
+            area += (double)a.X * b.Y - (double)b.X * a.Y;
         }
 
         return Math.Abs(area) * 0.5d;
@@ -280,7 +294,7 @@ static class IslandShape {
                 var a = loop[vertex];
                 var b = loop[(vertex + 1) % loop.Count];
                 var length = Math.Sqrt(
-                    ((b.X - (double)a.X) * (b.X - (double)a.X)) + ((b.Y - (double)a.Y) * (b.Y - (double)a.Y))
+                    (b.X - (double)a.X) * (b.X - (double)a.X) + (b.Y - (double)a.Y) * (b.Y - (double)a.Y)
                 );
 
                 if (walked + length >= target || vertex == loop.Count - 1) {
@@ -297,8 +311,8 @@ static class IslandShape {
             var to = loop[(Math.Min(vertex, loop.Count - 1) + 1) % loop.Count];
 
             samples[index] = new(
-                (float)(from.X + ((to.X - (double)from.X) * along)),
-                (float)(from.Y + ((to.Y - (double)from.Y) * along))
+                (float)(from.X + (to.X - (double)from.X) * along),
+                (float)(from.Y + (to.Y - (double)from.Y) * along)
             );
         }
 
@@ -312,14 +326,14 @@ static class IslandShape {
             double ax = here.X - (double)previous.X, ay = here.Y - (double)previous.Y;
             double bx = next.X - (double)here.X, by = next.Y - (double)here.Y;
 
-            var cross = (ax * by) - (ay * bx);
-            var dot = (ax * bx) + (ay * by);
+            var cross = ax * by - ay * bx;
+            var dot = ax * bx + ay * by;
 
             if (cross != 0d || dot != 0d) {
                 turning += Math.Abs(Math.Atan2(cross, dot));
             }
         }
 
-        return Math.Max(0d, (turning - (2d * Math.PI)) / (2d * Math.PI));
+        return Math.Max(0d, (turning - 2d * Math.PI) / (2d * Math.PI));
     }
 }

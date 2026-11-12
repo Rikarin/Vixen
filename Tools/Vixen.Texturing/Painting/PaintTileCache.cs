@@ -148,7 +148,7 @@ public sealed class PaintTileCache {
             }
         }
 
-        return [.. joined];
+        return [..joined];
     }
 
     sealed class Watched(int image, Func<PaintImage?> source) {

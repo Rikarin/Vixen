@@ -21,8 +21,11 @@ namespace Vixen.Samples.ThirdPersonShooter;
 ///         (<c>No baked shaders: There is no shaders.effects at …</c>) and nothing else complains.
 ///     </para>
 ///     <para>
-///         <b>So a development build brings its own provider, which is what the samples do and what
-///         <c>ContentMount.Shaders</c> means by "whatever provider it adds itself".</b> The compiler
+///         <b>
+///             So a development build brings its own provider, which is what the samples do and what
+///             <c>ContentMount.Shaders</c> means by "whatever provider it adds itself".
+///         </b>
+///         The compiler
 ///         lives in <c>Tools/Vixen.ShaderCompiler</c> and is deliberately never linked into a shipped
 ///         game — a game that could compile a variant would never notice a manifest was missing,
 ///         which is the failure this class exists to make visible rather than to hide.
@@ -102,7 +105,9 @@ public sealed class DevelopmentEffects(EffectLoader loader) : IEffectProvider {
             : throw new DirectoryNotFoundException($"Raven/Library was not found above '{AppContext.BaseDirectory}'.");
 
     static bool TryFindLibrary(out string path) {
-        for (var directory = new DirectoryInfo(AppContext.BaseDirectory); directory is not null; directory = directory.Parent) {
+        for (var directory = new DirectoryInfo(AppContext.BaseDirectory);
+             directory is not null;
+             directory = directory.Parent) {
             var candidate = Path.Combine(directory.FullName, "Raven", "Library");
 
             if (Directory.Exists(candidate)) {

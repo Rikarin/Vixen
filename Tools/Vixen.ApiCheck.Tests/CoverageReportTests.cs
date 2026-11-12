@@ -41,51 +41,51 @@ public sealed class CoverageReportTests : IDisposable {
     ///     counting both lists gives 6 of 10.
     /// </summary>
     const string Document = """
-        <?xml version="1.0" encoding="utf-8" standalone="yes"?>
-        <coverage line-rate="0.6" branch-rate="0" complexity="4" version="1.9" timestamp="1788658482"
-                  lines-covered="3" lines-valid="5" branches-covered="0" branches-valid="0">
-          <packages>
-            <package line-rate="0.6666666666666666" branch-rate="0" complexity="2" name="renamed-subject">
-              <classes>
-                <class line-rate="0.6666666666666666" branch-rate="0" complexity="2" name="Held" filename="Held.cs">
-                  <methods>
-                    <method line-rate="0.6666666666666666" branch-rate="0" complexity="2" name="Run" signature="()">
-                      <lines>
-                        <line number="10" hits="4" branch="False" />
-                        <line number="11" hits="4" branch="False" />
-                        <line number="12" hits="0" branch="False" />
-                      </lines>
-                    </method>
-                  </methods>
-                  <lines>
-                    <line number="10" hits="4" branch="False" />
-                    <line number="11" hits="4" branch="False" />
-                    <line number="12" hits="0" branch="False" />
-                  </lines>
-                </class>
-              </classes>
-            </package>
-            <package line-rate="0.5" branch-rate="0" complexity="2" name="Some.Dependency">
-              <classes>
-                <class line-rate="0.5" branch-rate="0" complexity="2" name="Loaded" filename="Loaded.cs">
-                  <methods>
-                    <method line-rate="0.5" branch-rate="0" complexity="2" name="Also" signature="()">
-                      <lines>
-                        <line number="7" hits="1" branch="False" />
-                        <line number="8" hits="0" branch="False" />
-                      </lines>
-                    </method>
-                  </methods>
-                  <lines>
-                    <line number="7" hits="1" branch="False" />
-                    <line number="8" hits="0" branch="False" />
-                  </lines>
-                </class>
-              </classes>
-            </package>
-          </packages>
-        </coverage>
-        """;
+                            <?xml version="1.0" encoding="utf-8" standalone="yes"?>
+                            <coverage line-rate="0.6" branch-rate="0" complexity="4" version="1.9" timestamp="1788658482"
+                                      lines-covered="3" lines-valid="5" branches-covered="0" branches-valid="0">
+                              <packages>
+                                <package line-rate="0.6666666666666666" branch-rate="0" complexity="2" name="renamed-subject">
+                                  <classes>
+                                    <class line-rate="0.6666666666666666" branch-rate="0" complexity="2" name="Held" filename="Held.cs">
+                                      <methods>
+                                        <method line-rate="0.6666666666666666" branch-rate="0" complexity="2" name="Run" signature="()">
+                                          <lines>
+                                            <line number="10" hits="4" branch="False" />
+                                            <line number="11" hits="4" branch="False" />
+                                            <line number="12" hits="0" branch="False" />
+                                          </lines>
+                                        </method>
+                                      </methods>
+                                      <lines>
+                                        <line number="10" hits="4" branch="False" />
+                                        <line number="11" hits="4" branch="False" />
+                                        <line number="12" hits="0" branch="False" />
+                                      </lines>
+                                    </class>
+                                  </classes>
+                                </package>
+                                <package line-rate="0.5" branch-rate="0" complexity="2" name="Some.Dependency">
+                                  <classes>
+                                    <class line-rate="0.5" branch-rate="0" complexity="2" name="Loaded" filename="Loaded.cs">
+                                      <methods>
+                                        <method line-rate="0.5" branch-rate="0" complexity="2" name="Also" signature="()">
+                                          <lines>
+                                            <line number="7" hits="1" branch="False" />
+                                            <line number="8" hits="0" branch="False" />
+                                          </lines>
+                                        </method>
+                                      </methods>
+                                      <lines>
+                                        <line number="7" hits="1" branch="False" />
+                                        <line number="8" hits="0" branch="False" />
+                                      </lines>
+                                    </class>
+                                  </classes>
+                                </package>
+                              </packages>
+                            </coverage>
+                            """;
 
     readonly string path = Path.Combine(
         Path.GetTempPath(),
@@ -93,7 +93,9 @@ public sealed class CoverageReportTests : IDisposable {
     );
 
     /// <summary>Writes the fixture where the reader can load it.</summary>
-    public CoverageReportTests() => File.WriteAllText(path, Document);
+    public CoverageReportTests() {
+        File.WriteAllText(path, Document);
+    }
 
     /// <summary>Removes it again.</summary>
     public void Dispose() => File.Delete(path);
@@ -206,7 +208,10 @@ public sealed class CoverageReportTests : IDisposable {
         // percent pattern, not this table, decides whether a space precedes the sign.
         Assert.StartsWith(
             "| `Vixen.Graphics.Null` | 740 | 916 | 80.8",
-            Assert.Single(CoverageReport.Summary([row]), line => line.StartsWith("| `", StringComparison.Ordinal)),
+            Assert.Single(
+                CoverageReport.Summary([row]),
+                static line => line.StartsWith("| `", StringComparison.Ordinal)
+            ),
             StringComparison.Ordinal
         );
     }
@@ -241,15 +246,17 @@ public sealed class CoverageReportTests : IDisposable {
     /// </remarks>
     [Fact]
     public void TheTableIsWorstFirstAndTiesBreakByName() {
-        var lines = CoverageReport.Summary([
-            new CoverageReport.Row("Zebra.Tests", "Zebra", 4, 4),
-            new CoverageReport.Row("Middle.Tests", "Middle", 1, 2),
-            new CoverageReport.Row("Alpha.Tests", "Alpha", 3, 3)
-        ]);
+        var lines = CoverageReport.Summary(
+            [
+                new CoverageReport.Row("Zebra.Tests", "Zebra", 4, 4),
+                new CoverageReport.Row("Middle.Tests", "Middle", 1, 2),
+                new CoverageReport.Row("Alpha.Tests", "Alpha", 3, 3)
+            ]
+        );
 
         var subjects = lines
-            .Where(line => line.StartsWith("| `", StringComparison.Ordinal))
-            .Select(line => line.Split('`')[1])
+            .Where(static line => line.StartsWith("| `", StringComparison.Ordinal))
+            .Select(static line => line.Split('`')[1])
             .ToArray();
 
         Assert.Equal(["Middle", "Alpha", "Zebra"], subjects);
@@ -264,8 +271,11 @@ public sealed class CoverageReportTests : IDisposable {
         var lines = CoverageReport.Summary([new CoverageReport.Row("A.Tests", "A", 1, 2)]);
 
         Assert.Equal("# Coverage", lines[0]);
-        Assert.Contains(lines, line => line.Contains("gates anything", StringComparison.Ordinal));
-        Assert.Contains(lines, line => line.Contains("| Subject | Lines covered | Lines | Rate |", StringComparison.Ordinal));
+        Assert.Contains(lines, static line => line.Contains("gates anything", StringComparison.Ordinal));
+        Assert.Contains(
+            lines,
+            static line => line.Contains("| Subject | Lines covered | Lines | Rate |", StringComparison.Ordinal)
+        );
     }
 
     static string RepositoryRoot() {

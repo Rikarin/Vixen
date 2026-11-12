@@ -14,8 +14,11 @@ namespace Vixen.Editor.Assets.Scenes;
 /// <summary>Turns an authored scene into the one a player loads.</summary>
 /// <remarks>
 ///     <para>
-///         <b>The step [08](../../../docs/plan/08-asset-pipeline-and-addressables.md) calls the
-///         compile, and the seam it exists to keep.</b> Import produces editor-domain objects and
+///         <b>
+///             The step [08](../../../docs/plan/08-asset-pipeline-and-addressables.md) calls the
+///             compile, and the seam it exists to keep.
+///         </b>
+///         Import produces editor-domain objects and
 ///         compile produces runtime-domain chunks: a <see cref="SceneFile" /> is a nested tree of
 ///         named entities with tagged components, and a <see cref="SceneContent" /> is flat tables
 ///         and archetype-ordered blobs. Everything the runtime does not need — the nesting, the
@@ -119,7 +122,7 @@ public static class SceneCompiler {
         var failures = 0;
         var content = new SceneContent {
             Count = order.Count,
-            Parents = [.. parents],
+            Parents = [..parents],
             Positions = new Vector3[order.Count],
             Rotations = new Quaternion[order.Count],
             Scales = new Vector3[order.Count],
@@ -170,7 +173,7 @@ public static class SceneCompiler {
         }
 
         for (var index = 0; index < order.Count; index++) {
-            var key = string.Join(' ', carried[index].Select(component => component.Binder.Name));
+            var key = string.Join(' ', carried[index].Select(static component => component.Binder.Name));
 
             if (!blocks.TryGetValue(key, out var entries)) {
                 blocks[key] = entries = [];
@@ -197,13 +200,13 @@ public static class SceneCompiler {
                 }
 
                 writer.Flush();
-                columns.Add(new() { Component = binder.Name, Data = buffer.WrittenSpan.ToArray() });
+                columns.Add(new() { Component = binder.Name, Data = [..buffer.WrittenSpan] });
             }
 
-            built.Add(new() { Entities = [.. entries], Columns = [.. columns] });
+            built.Add(new() { Entities = [..entries], Columns = [..columns] });
         }
 
-        content.Blocks = [.. built];
+        content.Blocks = [..built];
 
         try {
             // ⚠ The compiler checks its own output, because the alternative is a build that succeeds
@@ -214,7 +217,7 @@ public static class SceneCompiler {
         } catch (ArgumentException failure) {
             report(
                 ImportSeverity.Error,
-                $"The compiled scene did not check out, which is a bug in the compiler rather than in the file: "
+                "The compiled scene did not check out, which is a bug in the compiler rather than in the file: "
                 + failure.Message
             );
 
@@ -291,7 +294,7 @@ public static class SceneCompiler {
             binders.Add(new(binder, component));
         }
 
-        binders.Sort((left, right) => string.CompareOrdinal(left.Binder.Name, right.Binder.Name));
+        binders.Sort(static (left, right) => string.CompareOrdinal(left.Binder.Name, right.Binder.Name));
         return binders;
     }
 

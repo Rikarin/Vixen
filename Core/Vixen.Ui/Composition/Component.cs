@@ -40,8 +40,12 @@ public abstract class Component : IComposable {
     /// <summary>What built this component.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>For <c>OnComposed</c>, which is the one hook a <c>.vxml</c> has and the one the
-    ///         emitter gives no argument.</b> <see cref="Build" /> is handed the context and an
+    ///         ⚠
+    ///         <b>
+    ///             For <c>OnComposed</c>, which is the one hook a <c>.vxml</c> has and the one the
+    ///             emitter gives no argument.
+    ///         </b>
+    ///         <see cref="Build" /> is handed the context and an
     ///         <c>@code</c> block cannot override <c>Build</c> — the generated class owns it — so a
     ///         panel that wanted to reach the runtime from its arrival hook had nothing to reach it
     ///         with. <c>BuildContext.Load</c> is the call that made that a gap rather than a
@@ -49,8 +53,12 @@ public abstract class Component : IComposable {
     ///         and only the context knows which that is.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Valid from <c>Attach</c> onwards, which is before <see cref="Build" /> and
-    ///         therefore before <c>OnComposed</c>.</b> Held afterwards as well, because a context is
+    ///         ⚠
+    ///         <b>
+    ///             Valid from <c>Attach</c> onwards, which is before <see cref="Build" /> and
+    ///             therefore before <c>OnComposed</c>.
+    ///         </b>
+    ///         Held afterwards as well, because a context is
     ///         a component's for as long as the component is mounted — but the calls on it that
     ///         register anything write into <i>whatever is being built now</i>, which after the
     ///         build is not this component. Use it from the hooks.
@@ -89,8 +97,11 @@ public abstract class Component : IComposable {
     /// <summary>Declares the ambient values this component makes available to everything inside it.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>The one hook that runs after this component's parameters have been assigned and
-    ///         before any child of it exists.</b> That window is exactly where an ambient value has
+    ///         <b>
+    ///             The one hook that runs after this component's parameters have been assigned and
+    ///             before any child of it exists.
+    ///         </b>
+    ///         That window is exactly where an ambient value has
     ///         to be provided: earlier and it would be computed from a parameter still at its
     ///         default, later and the children that were supposed to inject it have already been
     ///         built and have already read nothing.
@@ -119,8 +130,12 @@ public abstract class Component : IComposable {
     /// <typeparam name="T">The key it was provided under.</typeparam>
     /// <returns>The value, or <see langword="null" /> if nothing above provides one.</returns>
     /// <remarks>
-    ///     ⚠ <b>Answerable from inside <see cref="Build" /> because <c>Root</c> is already in the
-    ///     tree by then.</b> <c>BuildContext.Create</c> makes the host element and parents it before
+    ///     ⚠
+    ///     <b>
+    ///         Answerable from inside <see cref="Build" /> because <c>Root</c> is already in the
+    ///         tree by then.
+    ///     </b>
+    ///     <c>BuildContext.Create</c> makes the host element and parents it before
     ///     <c>Compose</c> runs the build, so the walk this makes reaches every ancestor a finished
     ///     component would have. That ordering is the reason this works at all and is the thing a
     ///     rearrangement of the mount would silently break.

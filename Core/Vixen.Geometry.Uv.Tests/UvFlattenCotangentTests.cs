@@ -32,8 +32,8 @@ public class UvFlattenCotangentTests {
         for (var triangle = 0; triangle < chart.TriangleCount; triangle++) {
             frames[triangle] = TriangleFrame.Build(
                 chart.Positions[chart.Triangles[triangle * 3]],
-                chart.Positions[chart.Triangles[(triangle * 3) + 1]],
-                chart.Positions[chart.Triangles[(triangle * 3) + 2]]
+                chart.Positions[chart.Triangles[triangle * 3 + 1]],
+                chart.Positions[chart.Triangles[triangle * 3 + 2]]
             );
         }
 
@@ -49,7 +49,7 @@ public class UvFlattenCotangentTests {
 
         // And after the clamp there is nothing left below the floor, which is what makes the matrix
         // positive definite once one vertex is anchored.
-        Assert.All(weights.Edge, weight => Assert.True(weight > 0d, $"a weight of {weight} survived the floor"));
+        Assert.All(weights.Edge, static weight => Assert.True(weight > 0d, $"a weight of {weight} survived the floor"));
     }
 
     /// <summary>The second rung runs on that matrix and comes back injective.</summary>
@@ -89,7 +89,7 @@ public class UvFlattenCotangentTests {
 
         Assert.Contains(
             report.Warnings,
-            warning => warning.Contains("obtuse triangle corners", StringComparison.Ordinal)
+            static warning => warning.Contains("obtuse triangle corners", StringComparison.Ordinal)
                 && warning.Contains("intrinsic Delaunay", StringComparison.Ordinal)
         );
     }
@@ -103,14 +103,18 @@ public class UvFlattenCotangentTests {
 
         Assert.DoesNotContain(
             report.Warnings,
-            warning => warning.Contains("obtuse triangle corners", StringComparison.Ordinal)
+            static warning => warning.Contains("obtuse triangle corners", StringComparison.Ordinal)
         );
     }
 
     /// <summary>The count is not the number to read, and an ordinary curved grid is why.</summary>
     /// <remarks>
-    ///     ⚠ <b>An ordinary quad grid over a hemisphere produces one negative cotangent per quad, and so does
-    ///     the sheared grid of 170° slivers.</b> Four points on a curved surface are not coplanar, so
+    ///     ⚠
+    ///     <b>
+    ///         An ordinary quad grid over a hemisphere produces one negative cotangent per quad, and so does
+    ///         the sheared grid of 170° slivers.
+    ///     </b>
+    ///     Four points on a curved surface are not coplanar, so
     ///     the triangle the ear clipper cuts out of them has a corner a little past a right angle; that
     ///     is ordinary and harmless. A warning carrying only the count would fire on almost every mesh in the engine
     ///     and be ignored within a week, which is why <see cref="CotangentWeights.Worst" /> is the
@@ -141,8 +145,11 @@ public class UvFlattenCotangentTests {
 
     /// <summary>The weights carry no units, so a model in millimetres gives the same matrix as one in metres.</summary>
     /// <remarks>
-    ///     ⚠ <b>A cotangent is a ratio of two lengths, so the whole second rung's matrix is
-    ///     <i>identical</i> at any model scale — and at a power of two it is identical bit for bit.</b>
+    ///     ⚠
+    ///     <b>
+    ///         A cotangent is a ratio of two lengths, so the whole second rung's matrix is
+    ///         <i>identical</i> at any model scale — and at a power of two it is identical bit for bit.
+    ///     </b>
     ///     That is worth asserting rather than assuming: it is the property that makes
     ///     <c>DistortionThreshold</c> a statement about shape and not about size, and one expression
     ///     that mixed a length with a constant would quietly take it away.
@@ -189,8 +196,8 @@ public class UvFlattenCotangentTests {
         for (var triangle = 0; triangle < chart.TriangleCount; triangle++) {
             frames[triangle] = TriangleFrame.Build(
                 chart.Positions[chart.Triangles[triangle * 3]],
-                chart.Positions[chart.Triangles[(triangle * 3) + 1]],
-                chart.Positions[chart.Triangles[(triangle * 3) + 2]]
+                chart.Positions[chart.Triangles[triangle * 3 + 1]],
+                chart.Positions[chart.Triangles[triangle * 3 + 2]]
             );
         }
 

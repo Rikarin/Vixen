@@ -14,8 +14,12 @@ namespace Vixen.Platform.Ui;
 ///         what a text control needs and this turns it into the platform's.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Gated on <see cref="PlatformCapabilities.Clipboard" />, unlike
-///         <see cref="PlatformCursor" />.</b> The difference is what absence looks like: a platform
+///         ⚠
+///         <b>
+///             Gated on <see cref="PlatformCapabilities.Clipboard" />, unlike
+///             <see cref="PlatformCursor" />.
+///         </b>
+///         The difference is what absence looks like: a platform
 ///         with no cursor implements <c>CursorShape</c> as a setter that does nothing, so wiring it
 ///         unconditionally costs a no-op. A platform with no clipboard has no honest answer to
 ///         "is there text on it" — and a document whose <see cref="UiDocument.Clipboard" /> is left

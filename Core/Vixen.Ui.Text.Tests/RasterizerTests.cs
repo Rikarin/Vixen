@@ -44,9 +44,9 @@ public class RasterizerTests {
         var bitmap = GlyphRasterizer.Rasterize(outline, 16, 8, 1f, Vector2.Zero);
 
         Assert.Equal(32f, bitmap.Area, 3);
-        Assert.Equal(1f, bitmap[5, 8 - 1 - 3], 3);   // inside
-        Assert.Equal(0f, bitmap[0, 8 - 1 - 3], 3);   // left of it
-        Assert.Equal(0f, bitmap[5, 8 - 1 - 7], 3);   // below it
+        Assert.Equal(1f, bitmap[5, 8 - 1 - 3], 3); // inside
+        Assert.Equal(0f, bitmap[0, 8 - 1 - 3], 3); // left of it
+        Assert.Equal(0f, bitmap[5, 8 - 1 - 7], 3); // below it
     }
 
     /// <summary>
@@ -123,8 +123,12 @@ public class RasterizerTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>An edge covers its y range half-open, or a vertex on a sample line is counted
-    ///     twice.</b> Two edges meeting at a point both claim that row, the winding never returns to
+    ///     ⚠
+    ///     <b>
+    ///         An edge covers its y range half-open, or a vertex on a sample line is counted
+    ///         twice.
+    ///     </b>
+    ///     Two edges meeting at a point both claim that row, the winding never returns to
     ///     zero, and the span runs off the end of the scanline. Contrived only in where the vertex
     ///     sits: fonts carry collinear points all the time, and this one is placed on a sample line
     ///     because that is the only place the rule can be observed at all — a sabotage closing the
@@ -151,15 +155,22 @@ public class RasterizerTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <b>The same outline as <see cref="Two_contours_wound_the_same_way_fill_their_overlap" />
-    ///         and the opposite expectation, which is the whole content of a fill rule.</b> Two 8×8
+    ///         <b>
+    ///             The same outline as <see cref="Two_contours_wound_the_same_way_fill_their_overlap" />
+    ///             and the opposite expectation, which is the whole content of a fill rule.
+    ///         </b>
+    ///         Two 8×8
     ///         squares sharing a 4×4 corner: non-zero fills their union at 112, even-odd fills the
     ///         symmetric difference at 96, and the shared corner that was solid is now empty. There
     ///         is a closed form for both and neither is a number read off a picture.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>This is the case a rule has to be able to express, and the reason it is the
-    ///         <em>overlap</em> rather than a hole.</b> A counter in an <c>o</c> is a contour wound
+    ///         ⚠
+    ///         <b>
+    ///             This is the case a rule has to be able to express, and the reason it is the
+    ///             <em>overlap</em> rather than a hole.
+    ///         </b>
+    ///         A counter in an <c>o</c> is a contour wound
     ///         the other way, and the two rules agree about it exactly — a test built on a letter
     ///         would pass under both and prove nothing.
     ///         <see cref="A_counter_is_a_hole_under_either_rule" /> is that agreement, asserted so
@@ -203,9 +214,13 @@ public class RasterizerTests {
     ///         accumulate.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>This was written as <c>Even_odd_counts_crossings_rather_than_summing_windings</c>,
-    ///         claiming to separate the crossing count from <c>winding &amp; 1</c>, and the sabotage
-    ///         refuted the claim rather than the code.</b> Substituting the winding's parity for the
+    ///         ⚠
+    ///         <b>
+    ///             This was written as <c>Even_odd_counts_crossings_rather_than_summing_windings</c>,
+    ///             claiming to separate the crossing count from <c>winding &amp; 1</c>, and the sabotage
+    ///             refuted the claim rather than the code.
+    ///         </b>
+    ///         Substituting the winding's parity for the
     ///         count left every test here green, and it must: <c>GlyphRasterizer.Cross</c> adds ±1
     ///         and nothing else, so the parity of the sum <em>is</em> the parity of the count. There
     ///         is no outline that tells the two spellings apart, which makes "counting instead of
@@ -283,8 +298,12 @@ public class RasterizerTests {
     /// <param name="font">Which font.</param>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Per contour, not per glyph, and that is the oracle's limit rather than a
-    ///         convenience.</b> Green's theorem measures the <i>algebraic</i> area, so a region two
+    ///         ⚠
+    ///         <b>
+    ///             Per contour, not per glyph, and that is the oracle's limit rather than a
+    ///             convenience.
+    ///         </b>
+    ///         Green's theorem measures the <i>algebraic</i> area, so a region two
     ///         contours both cover counts twice; a non-zero fill measures the <i>covered</i> area, so
     ///         it counts once. The two therefore part company exactly where a glyph's contours
     ///         overlap — which is not exotic: <c>TestShapeLana</c> glyph 340 is nine contours all
@@ -327,14 +346,14 @@ public class RasterizerTests {
 
                 checkedContours++;
 
-                var origin = new Vector2(bounds.MinX - (1 / scale), bounds.MinY - (1 / scale));
+                var origin = new Vector2(bounds.MinX - 1 / scale, bounds.MinY - 1 / scale);
                 var covered = GlyphRasterizer.Rasterize(piece, width, height, scale, origin).Area / (scale * scale);
 
                 // Antialiasing error lives on the boundary, so the allowance follows the perimeter a
                 // cell of this size implies rather than the area. What it has to catch — a lost
                 // contour, an inverted winding, a flattening that cuts corners — is wrong by far
                 // more than a percent.
-                var allowance = (0.02f * exact) + (2f * (bounds.Width + bounds.Height) / scale);
+                var allowance = 0.02f * exact + 2f * (bounds.Width + bounds.Height) / scale;
                 if (Math.Abs(covered - exact) > allowance) {
                     failures.Add($"glyph {glyph} contour {contour}: exact {exact:F0}, covered {covered:F0}");
                 }
@@ -370,15 +389,15 @@ public class RasterizerTests {
                 continue;
             }
 
-            var separately = Contours(outline).Sum(piece => Math.Abs(SignedArea(piece)));
+            var separately = Contours(outline).Sum(static piece => Math.Abs(SignedArea(piece)));
             if (separately <= 0) {
                 continue;
             }
 
-            var origin = new Vector2(bounds.MinX - (1 / scale), bounds.MinY - (1 / scale));
+            var origin = new Vector2(bounds.MinX - 1 / scale, bounds.MinY - 1 / scale);
             var covered = GlyphRasterizer.Rasterize(outline, width, height, scale, origin).Area / (scale * scale);
 
-            var allowance = (0.02f * separately) + (2f * (bounds.Width + bounds.Height) / scale);
+            var allowance = 0.02f * separately + 2f * (bounds.Width + bounds.Height) / scale;
             if (covered > separately + allowance) {
                 failures.Add($"glyph {glyph}: covered {covered:F0} over {separately:F0}");
             }
@@ -394,7 +413,7 @@ public class RasterizerTests {
 
         foreach (var segment in outline.Segments) {
             if (segment.Verb == OutlineVerb.Move && current.Count > 0) {
-                contours.Add(new GlyphOutline(current.ToImmutable()));
+                contours.Add(new(current.ToImmutable()));
                 current.Clear();
             }
 
@@ -402,7 +421,7 @@ public class RasterizerTests {
         }
 
         if (current.Count > 0) {
-            contours.Add(new GlyphOutline(current.ToImmutable()));
+            contours.Add(new(current.ToImmutable()));
         }
 
         return contours;
@@ -426,7 +445,7 @@ public class RasterizerTests {
             switch (segment.Verb) {
                 case OutlineVerb.Move:
                     total += Line(cursor, start);
-                    cursor = start = new Vector2(segment.X0, segment.Y0);
+                    cursor = start = new(segment.X0, segment.Y0);
                     break;
 
                 case OutlineVerb.Line: {
@@ -461,16 +480,13 @@ public class RasterizerTests {
                     total += Line(cursor, start);
                     cursor = start;
                     break;
-
-                default:
-                    break;
             }
         }
 
         return (float)(total + Line(cursor, start));
     }
 
-    static double Line(Vector2 from, Vector2 to) => ((from.X * to.Y) - (to.X * from.Y)) / 2.0;
+    static double Line(Vector2 from, Vector2 to) => (from.X * to.Y - to.X * from.Y) / 2.0;
 
     // Four-point Gauss–Legendre on [0, 1].
     static readonly double[] Nodes = [
@@ -492,7 +508,7 @@ public class RasterizerTests {
         for (var i = 0; i < Nodes.Length; i++) {
             var p = point(Nodes[i]);
             var d = slope(Nodes[i]);
-            total += Weights[i] * ((p.X * d.Y) - (p.Y * d.X));
+            total += Weights[i] * (p.X * d.Y - p.Y * d.X);
         }
 
         return total / 2.0;
@@ -509,9 +525,9 @@ public class RasterizerTests {
     static Vector2 Cubic(Vector2 a, Vector2 b, Vector2 c, Vector2 d, double t) {
         var u = 1 - t;
         return (float)(u * u * u) * a
-               + (float)(3 * u * u * t) * b
-               + (float)(3 * u * t * t) * c
-               + (float)(t * t * t) * d;
+            + (float)(3 * u * u * t) * b
+            + (float)(3 * u * t * t) * c
+            + (float)(t * t * t) * d;
     }
 
     static Vector2 CubicSlope(Vector2 a, Vector2 b, Vector2 c, Vector2 d, double t) {
@@ -519,6 +535,5 @@ public class RasterizerTests {
         return (float)(3 * u * u) * (b - a) + (float)(6 * u * t) * (c - b) + (float)(3 * t * t) * (d - c);
     }
 
-    static GlyphOutline Path(params OutlineSegment[] segments) =>
-        new(ImmutableArray.Create(segments));
+    static GlyphOutline Path(params OutlineSegment[] segments) => new(ImmutableArray.Create(segments));
 }

@@ -10,7 +10,7 @@ namespace Vixen.Animation.Moves;
 /// <param name="Amount">What it added. Negative for a penalty.</param>
 public readonly record struct ScoreTerm(string Reason, float Amount) {
     /// <inheritdoc />
-    public override string ToString() => $"{(Amount >= 0f ? "+" : "")}{Amount:0.###}  {Reason}";
+    public override string ToString() => $"{(Amount >= 0f ? "+" : string.Empty)}{Amount:0.###}  {Reason}";
 }
 
 /// <summary>Why one move scored what it did, and whether it was eligible at all.</summary>
@@ -22,8 +22,12 @@ public readonly record struct ScoreTerm(string Reason, float Amount) {
 /// <param name="Terms">Every term that made up that score.</param>
 /// <param name="PlaybackRate">What it would have been retimed to.</param>
 /// <remarks>
-///     ⚠ <b>"Why did it pick that clip" is otherwise unanswerable, and that is the single most
-///     valuable thing in the move set editor.</b> A scored query is a good design and an opaque one:
+///     ⚠
+///     <b>
+///         "Why did it pick that clip" is otherwise unanswerable, and that is the single most
+///         valuable thing in the move set editor.
+///     </b>
+///     A scored query is a good design and an opaque one:
 ///     an author looking at the wrong animation has no way back from the result to the reason without
 ///     this, and the alternative they reach for is a pairwise table they can read.
 /// </remarks>
@@ -81,8 +85,7 @@ public static class MoveExplanations {
         }
 
         // The selector's own order: score descending, ties on the key so two machines agree.
-        found.Sort(
-            static (left, right) => left.Score.Equals(right.Score)
+        found.Sort(static (left, right) => left.Score.Equals(right.Score)
                 ? left.Key.CompareTo(right.Key)
                 : right.Score.CompareTo(left.Score)
         );
@@ -124,7 +127,10 @@ public static class MoveExplanations {
 
         if (turnError > 0f) {
             terms.Add(
-                new($"wants {targets.TurnRate:0.##} rad/s and turns at {traits.TurnRate:0.##}", -turnError * targets.TurnWeight)
+                new(
+                    $"wants {targets.TurnRate:0.##} rad/s and turns at {traits.TurnRate:0.##}",
+                    -turnError * targets.TurnWeight
+                )
             );
         }
 
@@ -224,7 +230,12 @@ public sealed record MoveCoverage(IReadOnlyList<CoverageCell> Cells) {
     /// <param name="fastest">The fastest speed to ask about, in metres a second.</param>
     /// <param name="steps">How many speeds to try between zero and that.</param>
     /// <returns>The sweep.</returns>
-    public static MoveCoverage Sweep(MoveSet moves, IReadOnlyList<FacetSet> required, float fastest = 8f, int steps = 17) {
+    public static MoveCoverage Sweep(
+        MoveSet moves,
+        IReadOnlyList<FacetSet> required,
+        float fastest = 8f,
+        int steps = 17
+    ) {
         ArgumentNullException.ThrowIfNull(moves);
         ArgumentNullException.ThrowIfNull(required);
 

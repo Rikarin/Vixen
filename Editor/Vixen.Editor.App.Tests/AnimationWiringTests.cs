@@ -6,13 +6,11 @@ using Vixen.Animation.Constraints;
 using Vixen.Animation.Ecs;
 using Vixen.Core;
 using Vixen.Core.Mathematics;
-using Vixen.Core.Yaml;
 using Vixen.Editor.AssetEditors;
 using Vixen.Editor.AssetEditors.Animation;
 using Vixen.Editor.Core;
 using Vixen.Editor.Testing;
 using Vixen.Geometry;
-using Vixen.Rendering;
 using Xunit;
 using ShapeKind = Vixen.Animation.Constraints.ShapeKind;
 
@@ -35,7 +33,11 @@ public class AnimationWiringTests {
     public void An_overlay_resolves_the_set_underneath_it() {
         using var session = EditorSession.Start();
 
-        Write(session, "Assets/walks.vxmoveset", "name: walks\nentries:\n  - name: walk\n    clip: Assets/walk.vxanim\n");
+        Write(
+            session,
+            "Assets/walks.vxmoveset",
+            "name: walks\nentries:\n  - name: walk\n    clip: Assets/walk.vxanim\n"
+        );
 
         Write(
             session,
@@ -59,7 +61,11 @@ public class AnimationWiringTests {
     public void A_shape_set_gets_its_vocabulary_and_is_told_which_rig_it_is_missing() {
         using var session = EditorSession.Start();
 
-        Write(session, "Assets/humanoid.vxshapevocab", "name: humanoid\nshapes:\n  - name: belly\n    meaning: The front of the torso.\n");
+        Write(
+            session,
+            "Assets/humanoid.vxshapevocab",
+            "name: humanoid\nshapes:\n  - name: belly\n    meaning: The front of the torso.\n"
+        );
 
         Write(
             session,
@@ -94,7 +100,12 @@ public class AnimationWiringTests {
         var seen = 0;
 
         document.Changed += _ => seen++;
-        document.SetField("Rig", static content => content.Rig, static (content, text) => content.Rig = text, "Assets/Hero.gltf");
+        document.SetField(
+            "Rig",
+            static content => content.Rig,
+            static (content, text) => content.Rig = text,
+            "Assets/Hero.gltf"
+        );
 
         Assert.Equal("Assets/Hero.gltf", document.Set.Rig);
         Assert.Equal(1, seen);
@@ -187,7 +198,10 @@ public class AnimationWiringTests {
         // Two joints up from the hand is the root here, because this rig has three joints — which is
         // the fallback working rather than the chain being wrong.
         Assert.Equal(0, palm.Chain);
-        Assert.Equal(rig.IndexOf("Spine"), Assert.Single(effectors, effector => effector.Joint == rig.IndexOf("Spine")).Joint);
+        Assert.Equal(
+            rig.IndexOf("Spine"),
+            Assert.Single(effectors, effector => effector.Joint == rig.IndexOf("Spine")).Joint
+        );
     }
 
     /// <summary>Two shapes at one place on one joint are one effector, not two identical passes.</summary>
@@ -199,7 +213,10 @@ public class AnimationWiringTests {
         var shapes = ProxyShapeSet.Of(
             "hero",
             null,
-            [Shape("palm_r", hand, Vector3.Zero), Shape("grip_r", hand, Vector3.Zero), Shape("tip_r", hand, new(0.05f, 0f, 0f))]
+            [
+                Shape("palm_r", hand, Vector3.Zero), Shape("grip_r", hand, Vector3.Zero),
+                Shape("tip_r", hand, new(0.05f, 0f, 0f))
+            ]
         );
 
         Assert.Equal(2, AnimationBinder.Effectors(rig, shapes).Count);
@@ -208,8 +225,12 @@ public class AnimationWiringTests {
     /// <summary>Pressing Play puts the three animation passes in the frame and runs them.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b><c>AnimationSystems.AddAnimation</c> had exactly one caller in the whole tree and
-    ///         it was a test</b> (<a href="https://github.com/Rikarin/Vixen/issues/1221">#1221</a>).
+    ///         ⚠
+    ///         <b>
+    ///             <c>AnimationSystems.AddAnimation</c> had exactly one caller in the whole tree and
+    ///             it was a test
+    ///         </b>
+    ///         (<a href="https://github.com/Rikarin/Vixen/issues/1221">#1221</a>).
     ///         None of the three passes carries <c>[GameSystem]</c> — correctly, since they take no
     ///         service and belong to whoever runs the frame — and <c>[UpdateInGroup]</c> only orders
     ///         a system something has already added, so an <c>AnimatorComponent</c> was evaluated by
@@ -237,7 +258,7 @@ public class AnimationWiringTests {
         Assert.Empty(session.Editor.PlayMode.Refused);
         Assert.Contains("animation", play.Running);
 
-        var systems = play.Loop.Systems.Graph.All.Select(node => node.System.GetType()).ToArray();
+        var systems = play.Loop.Systems.Graph.All.Select(static node => node.System.GetType()).ToArray();
 
         Assert.Contains(typeof(AnimationSystem), systems);
         Assert.Contains(typeof(SkinningSystem), systems);
@@ -305,7 +326,9 @@ public class AnimationWiringTests {
 
             Matrix4x4.Invert(model[index], out var inverse);
 
-            built[index] = new() { Name = joints[index].Name, Parent = joints[index].Parent, InverseBindPose = inverse };
+            built[index] = new() {
+                Name = joints[index].Name, Parent = joints[index].Parent, InverseBindPose = inverse
+            };
         }
 
         return Skeleton.Create(new() { Name = "hero", Joints = built });

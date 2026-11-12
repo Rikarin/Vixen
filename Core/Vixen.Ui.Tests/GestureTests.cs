@@ -230,10 +230,12 @@ public class GestureTests {
     public void A_gesture_goes_to_where_it_started_however_far_the_pointer_travels() {
         using var document = new UiDocument(100f, 100f);
 
-        document.Load("""
-            root { width: 100px; height: 100px; flex-direction: row; }
-            half { width: 50px; height: 100px; }
-        """);
+        document.Load(
+            """
+                root { width: 100px; height: 100px; flex-direction: row; }
+                half { width: 50px; height: 100px; }
+            """
+        );
 
         var left = document.Root.Add("half");
         var right = document.Root.Add("half");
@@ -266,10 +268,10 @@ public class GestureTests {
 
         var taps = Record<TapEvent>(target);
 
-        document.Dispatch(At(PointerAction.Pressed, 10f, 10f, 0, pointerId: 1));
-        document.Dispatch(At(PointerAction.Pressed, 80f, 80f, 5, pointerId: 2));
-        document.Dispatch(At(PointerAction.Released, 10f, 10f, 20, pointerId: 1));
-        document.Dispatch(At(PointerAction.Released, 80f, 80f, 25, pointerId: 2));
+        document.Dispatch(At(PointerAction.Pressed, 10f, 10f, 0, 1));
+        document.Dispatch(At(PointerAction.Pressed, 80f, 80f, 5, 2));
+        document.Dispatch(At(PointerAction.Released, 10f, 10f, 20, 1));
+        document.Dispatch(At(PointerAction.Released, 80f, 80f, 25, 2));
 
         // ⚠ Two taps rather than one two-finger gesture. State is per pointer id, which is right for
         // everything one finger can do on its own and is not a pinch — combining pointers is owed
@@ -316,7 +318,7 @@ public class GestureTests {
         var (document, target) = Surface();
         using var owner = document;
 
-        target.AddHandler<PointerEvent>((_, args) => args.Handled = true);
+        target.AddHandler<PointerEvent>(static (_, args) => args.Handled = true);
         var taps = Record<TapEvent>(target);
 
         document.Dispatch(At(PointerAction.Pressed, 10f, 10f, 0));

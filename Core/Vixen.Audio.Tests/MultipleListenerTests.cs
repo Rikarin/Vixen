@@ -3,9 +3,7 @@
 
 using Vixen.Audio.Devices;
 using Vixen.Audio.Ecs;
-using Vixen.Audio.Mixing;
 using Vixen.Audio.Spatial;
-using Vixen.Core;
 using Vixen.Core.Mathematics;
 using Vixen.Ecs;
 using Vixen.Engine.Transforms;
@@ -18,20 +16,16 @@ public sealed class MultipleListenerTests : IDisposable {
     readonly AudioEngine engine;
     readonly NullAudioDevice device;
 
-    public MultipleListenerTests() => (engine, device) = AudioTestData.Engine(channels: 2, voices: 8);
+    public MultipleListenerTests() {
+        (engine, device) = AudioTestData.Engine(2, voices: 8);
+    }
 
     public void Dispose() => engine.Dispose();
 
-    static SpatialSettings At(float x, float z) => new() {
-        Position = new Vector3(x, 0f, z),
-        MinDistance = 1f,
-        MaxDistance = 1_000f,
-        DopplerFactor = 0f
-    };
+    static SpatialSettings At(float x, float z) =>
+        new() { Position = new(x, 0f, z), MinDistance = 1f, MaxDistance = 1_000f, DopplerFactor = 0f };
 
-    static AudioListener Ears(float x, float z) => AudioListener.Default with {
-        Position = new Vector3(x, 0f, z)
-    };
+    static AudioListener Ears(float x, float z) => AudioListener.Default with { Position = new(x, 0f, z) };
 
     static float[] Gains(in AudioListenerSet listeners, in SpatialSettings source) {
         var gains = new float[2];
@@ -59,7 +53,7 @@ public sealed class MultipleListenerTests : IDisposable {
 
         Assert.False(set.TryAdd(Ears(99f, 0f)));
         Assert.Equal(AudioListenerSet.MaxListeners, set.Count);
-        Assert.Equal(new Vector3(2f, 0f, 0f), set.Get(2).Position);
+        Assert.Equal(new(2f, 0f, 0f), set.Get(2).Position);
     }
 
     /// <summary>
@@ -94,8 +88,8 @@ public sealed class MultipleListenerTests : IDisposable {
         var alone = Gains(near, source);
         var pair = Gains(both, source);
 
-        var aloneLevel = MathF.Sqrt((alone[0] * alone[0]) + (alone[1] * alone[1]));
-        var pairLevel = MathF.Sqrt((pair[0] * pair[0]) + (pair[1] * pair[1]));
+        var aloneLevel = MathF.Sqrt(alone[0] * alone[0] + alone[1] * alone[1]);
+        var pairLevel = MathF.Sqrt(pair[0] * pair[0] + pair[1] * pair[1]);
 
         Assert.Equal(aloneLevel, pairLevel, aloneLevel * 0.05f);
     }
@@ -125,9 +119,11 @@ public sealed class MultipleListenerTests : IDisposable {
         var jump = MathF.Abs(Balance(nearest)) * 2f;
 
         Assert.Equal(0f, middle, 1e-3f);
-        Assert.True(MathF.Abs(right - left) < jump * 0.25f,
+        Assert.True(
+            MathF.Abs(right - left) < jump * 0.25f,
             $"a metre across the midpoint moved the pan by {MathF.Abs(right - left):F3}, "
-            + $"where nearest-wins would have moved it by about {jump:F3}");
+            + $"where nearest-wins would have moved it by about {jump:F3}"
+        );
     }
 
     [Fact]
@@ -158,8 +154,8 @@ public sealed class MultipleListenerTests : IDisposable {
         engine.SetListener(Ears(5f, 0f));
 
         Assert.Equal(1, engine.ListenerCount);
-        Assert.Equal(new Vector3(5f, 0f, 0f), engine.Listener.Position);
-        Assert.Equal(new Vector3(5f, 0f, 0f), engine.Listeners.Get(0).Position);
+        Assert.Equal(new(5f, 0f, 0f), engine.Listener.Position);
+        Assert.Equal(new(5f, 0f, 0f), engine.Listeners.Get(0).Position);
     }
 
     /// <summary>All the way through the mixer, which is where it has to be right.</summary>
@@ -170,10 +166,7 @@ public sealed class MultipleListenerTests : IDisposable {
         set.TryAdd(Ears(0f, 800f));
         engine.SetListeners(set);
 
-        engine.Play(AudioTestData.Constant(48_000, 1f), new PlaybackSettings {
-            IsSpatial = true,
-            Spatial = At(0f, 802f)
-        });
+        engine.Play(AudioTestData.Constant(48_000, 1f), new() { IsSpatial = true, Spatial = At(0f, 802f) });
 
         var peak = 0f;
 
@@ -192,7 +185,7 @@ public sealed class MultipleListenerTests : IDisposable {
         for (var i = 0; i < 6; i++) {
             var entity = world.Create();
             world.Add(entity, AudioListenerComponent.Default);
-            world.Add(entity, new WorldTransform { Value = Matrix4x4.FromTranslation(new Vector3(i * 10f, 0f, 0f)) });
+            world.Add(entity, new WorldTransform { Value = Matrix4x4.FromTranslation(new(i * 10f, 0f, 0f)) });
         }
 
         system.Synchronize(world, 1f / 60f);
@@ -214,7 +207,7 @@ public sealed class MultipleListenerTests : IDisposable {
 
         var second = world.Create();
         world.Add(second, AudioListenerComponent.Default with { Weight = 0.25f });
-        world.Add(second, new WorldTransform { Value = Matrix4x4.FromTranslation(new Vector3(50f, 0f, 0f)) });
+        world.Add(second, new WorldTransform { Value = Matrix4x4.FromTranslation(new(50f, 0f, 0f)) });
 
         system.Synchronize(world, 1f / 60f);
 

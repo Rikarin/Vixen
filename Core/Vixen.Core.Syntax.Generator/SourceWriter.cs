@@ -71,7 +71,7 @@ sealed class SourceWriter(TextWriter writer, Tree tree, CancellationToken cancel
     }
 
     void WriteTypes() {
-        var nodes = Tree.Types.Where(n => n is not PredefinedNode).ToList();
+        var nodes = Tree.Types.Where(static n => n is not PredefinedNode).ToList();
         foreach (var node in nodes) {
             WriteLine();
             WriteType(node);
@@ -99,7 +99,7 @@ sealed class SourceWriter(TextWriter writer, Tree tree, CancellationToken cancel
 
     bool IsAutoCreatableNode(Field field) {
         var referencedNode = GetNode(field.Type);
-        return referencedNode != null && RequiredFactoryArgumentCount(referencedNode) == 0;
+        return referencedNode is not null && RequiredFactoryArgumentCount(referencedNode) == 0;
     }
 
     int RequiredFactoryArgumentCount(Node nd) {
@@ -116,7 +116,7 @@ sealed class SourceWriter(TextWriter writer, Tree tree, CancellationToken cancel
 
     Node? TryGetNodeForNestedList(Field field) {
         var referencedNode = GetNode(field.Type);
-        if (referencedNode != null && (!field.IsOptional || RequiredFactoryArgumentCount(referencedNode) == 0)) {
+        if (referencedNode is not null && (!field.IsOptional || RequiredFactoryArgumentCount(referencedNode) == 0)) {
             return referencedNode;
         }
 
@@ -132,7 +132,7 @@ sealed class SourceWriter(TextWriter writer, Tree tree, CancellationToken cancel
     }
 
     void WriteType(TreeType node) {
-        WriteComment(node.TypeComment, "");
+        WriteComment(node.TypeComment, string.Empty);
 
         if (node is AbstractNode abstractNode) {
             Write($"public abstract partial class {abstractNode.Name} : {abstractNode.Base}");
@@ -152,13 +152,15 @@ sealed class SourceWriter(TextWriter writer, Tree tree, CancellationToken cancel
             foreach (var field in nodeFields) {
                 if (IsNodeOrNodeList(field.Type)) {
                     WriteLine();
-                    WriteComment(field.PropertyComment, "");
+                    WriteComment(field.PropertyComment, string.Empty);
 
                     if (IsNodeList(field.Type)) {
-                        WriteLine($"public abstract {(field.IsNew ? "new " : "")}{field.Type} {field.Name} {{ get; }}");
+                        WriteLine(
+                            $"public abstract {(field.IsNew ? "new " : string.Empty)}{field.Type} {field.Name} {{ get; }}"
+                        );
                     } else {
                         WriteLine(
-                            $"public abstract {(field.IsNew ? "new " : "")}{GetFieldType(field)} {field.Name} {{ get; }}"
+                            $"public abstract {(field.IsNew ? "new " : string.Empty)}{GetFieldType(field)} {field.Name} {{ get; }}"
                         );
                     }
 
@@ -180,15 +182,17 @@ sealed class SourceWriter(TextWriter writer, Tree tree, CancellationToken cancel
 
             foreach (var field in valueFields) {
                 WriteLine();
-                WriteComment(field.PropertyComment, "");
-                WriteLine($"public abstract {(field.IsNew ? "new " : "")}{field.Type} {field.Name} {{ get; }}");
+                WriteComment(field.PropertyComment, string.Empty);
+                WriteLine(
+                    $"public abstract {(field.IsNew ? "new " : string.Empty)}{field.Type} {field.Name} {{ get; }}"
+                );
             }
 
             CloseBlock();
         } else if (node is Node nNode) {
             WriteComment("<remarks>");
             WriteComment("<para>This node is associated with the following syntax kinds:</para>");
-            WriteComment("<list type=\"bullet\">");
+            WriteComment("""<list type="bullet">""");
 
             foreach (var kind in nNode.Kinds) {
                 WriteComment($"<item><description><see cref=\"SyntaxKind.{kind.Name}\"/></description></item>");
@@ -200,7 +204,7 @@ sealed class SourceWriter(TextWriter writer, Tree tree, CancellationToken cancel
             Write($"public sealed partial class {nNode.Name} : {nNode.Base}");
             OpenBlock();
 
-            var valueFields = nNode.Fields.Where(n => !IsNodeOrNodeList(n.Type)).ToList();
+            _ = nNode.Fields.Where(n => !IsNodeOrNodeList(n.Type)).ToList();
             var nodeFields = nNode.Fields.Where(n => IsNodeOrNodeList(n.Type)).ToList();
 
             // Red concrete nodes hold no children of their own; they wrap a green
@@ -214,7 +218,7 @@ sealed class SourceWriter(TextWriter writer, Tree tree, CancellationToken cancel
             // property accessors — project the child at the matching green slot
             for (var i = 0; i < nodeFields.Count; i++) {
                 var field = nodeFields[i];
-                WriteComment(field.PropertyComment, "");
+                WriteComment(field.PropertyComment, string.Empty);
                 if (IsNodeList(field.Type)) {
                     WriteLine($"public {field.OverrideOrNewModifier}{field.Type} {field.Name} => new(GetRed({i}));");
                 } else if (field.IsOptional) {
@@ -249,18 +253,14 @@ sealed class SourceWriter(TextWriter writer, Tree tree, CancellationToken cancel
                     WriteLine();
                     wroteNewLine = true;
                 }
-
             } else {
                 var referencedNode = TryGetNodeForNestedList(field);
-                if (referencedNode != null) {
+                if (referencedNode is not null) {
                     // look for list members...
                     foreach (var referencedNodeField in referencedNode.Fields) {
-                        if (IsNodeList(referencedNodeField.Type)) {
-                            if (!wroteNewLine) {
-                                WriteLine();
-                                wroteNewLine = true;
-                            }
-
+                        if (IsNodeList(referencedNodeField.Type) && !wroteNewLine) {
+                            WriteLine();
+                            wroteNewLine = true;
                         }
                     }
                 }
@@ -274,7 +274,7 @@ sealed class SourceWriter(TextWriter writer, Tree tree, CancellationToken cancel
         var isNew = false;
         if (field.IsOverride) {
             var (baseType, baseField) = GetHighestBaseTypeWithField(node, field.Name);
-            if (baseType != null) {
+            if (baseType is not null) {
                 var baseArgType = GetElementType(baseField!.Type);
                 WriteLine(
                     $"internal override {baseType.Name} Add{field.Name}Core(params {baseArgType}[] items) => Add{field.Name}(items);"
@@ -294,7 +294,7 @@ sealed class SourceWriter(TextWriter writer, Tree tree, CancellationToken cancel
         var isNew = false;
         if (field.IsOverride) {
             var (baseType, _) = GetHighestBaseTypeWithField(node, field.Name);
-            if (baseType != null) {
+            if (baseType is not null) {
                 WriteLine(
                     $"internal override {baseType.Name} Add{StripPost(field.Name, "Opt")}{referencedNodeField.Name}Core(params {argType}[] items) => Add{StripPost(field.Name, "Opt")}{referencedNodeField.Name}(items);"
                 );
@@ -335,7 +335,7 @@ sealed class SourceWriter(TextWriter writer, Tree tree, CancellationToken cancel
             var isNew = false;
             if (field.IsOverride) {
                 var (baseType, baseField) = GetHighestBaseTypeWithField(node, field.Name);
-                if (baseType != null) {
+                if (baseType is not null) {
                     Write(
                         $"internal override {baseType.Name} With{field.Name}Core({GetPropertyType(baseField!)} {CamelCase(field.Name)}) => With{field.Name}({CamelCase(field.Name)}"
                     );
@@ -364,11 +364,11 @@ sealed class SourceWriter(TextWriter writer, Tree tree, CancellationToken cancel
         TreeType? bestType = null;
         Field? bestField = null;
 
-        for (var current = node; current != null; current = TryGetBaseType(current)) {
+        for (var current = node; current is not null; current = TryGetBaseType(current)) {
             var fields = GetNodeOrNodeListFields(current);
             var field = fields.FirstOrDefault(f => f.Name == name);
 
-            if (field != null) {
+            if (field is not null) {
                 bestType = current;
                 bestField = field;
             }
@@ -392,7 +392,9 @@ sealed class SourceWriter(TextWriter writer, Tree tree, CancellationToken cancel
         // SyntaxList<T> type. Using raw f.Type dropped the `?` on optionals and
         // made callers pass nullable values into non-nullable params (CS8604).
         Write(
-            CommaJoin(node.Fields.Select(f => $"{(IsNodeList(f.Type) ? f.Type : GetFieldType(f))} {CamelCase(f.Name)}"))
+            CommaJoin(
+                node.Fields.Select(static f => $"{(IsNodeList(f.Type) ? f.Type : GetFieldType(f))} {CamelCase(f.Name)}")
+            )
         );
         Write(")");
         OpenBlock();
@@ -421,8 +423,8 @@ sealed class SourceWriter(TextWriter writer, Tree tree, CancellationToken cancel
                 Write($"var newNode = SyntaxFactory.{StripPost(node.Name, "Syntax")}(");
                 Write(
                     CommaJoin(
-                        node.Kinds.Count > 1 ? "this.Kind" : "",
-                        node.Fields.Select(f => CamelCase(f.Name))
+                        node.Kinds.Count > 1 ? "this.Kind" : string.Empty,
+                        node.Fields.Select(static f => CamelCase(f.Name))
                     )
                 );
                 WriteLine(");");
@@ -478,10 +480,10 @@ sealed class SourceWriter(TextWriter writer, Tree tree, CancellationToken cancel
     }
 
     void WriteVisitor(bool genericResult) {
-        var nodes = Tree.Types.Where(n => n is not PredefinedNode).ToList();
+        var nodes = Tree.Types.Where(static n => n is not PredefinedNode).ToList();
 
         WriteLine();
-        Write("public abstract partial class SyntaxVisitor" + (genericResult ? "<TResult>" : ""));
+        Write("public abstract partial class SyntaxVisitor" + (genericResult ? "<TResult>" : string.Empty));
         OpenBlock();
 
         foreach (var node in nodes.OfType<Node>()) {
@@ -494,7 +496,7 @@ sealed class SourceWriter(TextWriter writer, Tree tree, CancellationToken cancel
     }
 
     void WriteRewriter() {
-        var nodes = Tree.Types.Where(n => n is not PredefinedNode).ToList();
+        var nodes = Tree.Types.Where(static n => n is not PredefinedNode).ToList();
 
         WriteLine();
         Write("public partial class SyntaxRewriter : SyntaxVisitor<SyntaxNode>");
@@ -548,19 +550,19 @@ sealed class SourceWriter(TextWriter writer, Tree tree, CancellationToken cancel
     }
 
     void WriteComment(string? comment) {
-        if (comment != null) {
+        if (comment is not null) {
             var lines = comment.Split(["\r", "\n", "\r\n"], StringSplitOptions.RemoveEmptyEntries);
-            foreach (var line in lines.Where(l => !string.IsNullOrWhiteSpace(l))) {
+            foreach (var line in lines.Where(static l => !string.IsNullOrWhiteSpace(l))) {
                 WriteLine($"/// {line.TrimStart()}");
             }
         }
     }
 
     void WriteComment(Comment? comment, string indent) {
-        if (comment != null) {
+        if (comment is not null) {
             foreach (var element in comment.Body) {
                 var lines = element.OuterXml.Split(["\r", "\n", "\r\n"], StringSplitOptions.RemoveEmptyEntries);
-                foreach (var line in lines.Where(l => !string.IsNullOrWhiteSpace(l))) {
+                foreach (var line in lines.Where(static l => !string.IsNullOrWhiteSpace(l))) {
                     WriteLine($"{indent}/// {line.TrimStart()}");
                 }
             }
@@ -568,7 +570,7 @@ sealed class SourceWriter(TextWriter writer, Tree tree, CancellationToken cancel
     }
 
     void WriteStaticFactories() {
-        var nodes = Tree.Types.Where(n => n is not PredefinedNode and not AbstractNode).ToList();
+        var nodes = Tree.Types.Where(static n => n is not PredefinedNode and not AbstractNode).ToList();
         WriteLine();
         Write("public static partial class SyntaxFactory");
         OpenBlock();
@@ -589,10 +591,12 @@ sealed class SourceWriter(TextWriter writer, Tree tree, CancellationToken cancel
     }
 
     void WriteFactory(Node nd, bool withSyntaxFactoryContext = false) {
-        var valueFields = nd.Fields.Where(n => !IsNodeOrNodeList(n.Type)).ToList();
+        _ = nd.Fields.Where(n => !IsNodeOrNodeList(n.Type)).ToList();
         var nodeFields = nd.Fields.Where(n => IsNodeOrNodeList(n.Type)).ToList();
 
-        Write($"public {(withSyntaxFactoryContext ? "" : "static ")}{nd.Name} {StripPost(nd.Name, "Syntax")}(");
+        Write(
+            $"public {(withSyntaxFactoryContext ? string.Empty : "static ")}{nd.Name} {StripPost(nd.Name, "Syntax")}("
+        );
         WriteFactoryParameters(nd);
         Write(")");
         OpenBlock();
@@ -603,7 +607,7 @@ sealed class SourceWriter(TextWriter writer, Tree tree, CancellationToken cancel
             OpenBlock();
             var kinds = nd.Kinds.Distinct().ToList();
             foreach (var kind in kinds) {
-                WriteLine($"case SyntaxKind.{kind.Name}:{(kind == kinds.Last() ? " break;" : "")}");
+                WriteLine($"case SyntaxKind.{kind.Name}:{(kind == kinds.Last() ? " break;" : string.Empty)}");
             }
 
             WriteLine("default: throw new ArgumentException(nameof(kind));");
@@ -673,7 +677,7 @@ sealed class SourceWriter(TextWriter writer, Tree tree, CancellationToken cancel
         Write(
             CommaJoin(
                 nd.Kinds.Count == 1 ? $"SyntaxKind.{nd.Kinds[0].Name}" : "kind",
-                nodeFields.Select(f =>
+                nodeFields.Select(static f =>
                     IsNodeList(f.Type) ? $"{CamelCase(f.Name)}.Node?.Green" : $"{CamelCase(f.Name)}?.Green"
                 )
             )
@@ -687,8 +691,8 @@ sealed class SourceWriter(TextWriter writer, Tree tree, CancellationToken cancel
     void WriteFactoryParameters(Node nd) {
         Write(
             CommaJoin(
-                nd.Kinds.Count > 1 ? "SyntaxKind kind" : "",
-                nd.Fields.Select(f => {
+                nd.Kinds.Count > 1 ? "SyntaxKind kind" : string.Empty,
+                nd.Fields.Select(static f => {
                         var type = f.Type switch {
                             _ when IsNodeList(f.Type) => f.Type,
                             _ => GetFieldType(f)
@@ -705,19 +709,19 @@ sealed class SourceWriter(TextWriter writer, Tree tree, CancellationToken cancel
         Write(
             CommaJoin(
                 nd.Kinds.Count == 1 ? $"SyntaxKind.{nd.Kinds[0].Name}" : "kind",
-                nodeFields.Select(f => IsNodeList(f.Type) ? $"{CamelCase(f.Name)}.Node!" : CamelCase(f.Name)),
+                nodeFields.Select(static f => IsNodeList(f.Type) ? $"{CamelCase(f.Name)}.Node!" : CamelCase(f.Name)),
                 // values are at the end
-                valueFields.Select(f => CamelCase(f.Name)),
-                withSyntaxFactoryContext ? "this.context" : ""
+                valueFields.Select(static f => CamelCase(f.Name)),
+                withSyntaxFactoryContext ? "this.context" : string.Empty
             )
         );
     }
 
     void WriteInternalImpl() {
-        WriteFileHeader(green: true);
+        WriteFileHeader(true);
         WriteLine($"namespace {Tree.Namespace}.InternalSyntax;");
 
-        foreach (var node in Tree.Types.Where(n => n is not PredefinedNode)) {
+        foreach (var node in Tree.Types.Where(static n => n is not PredefinedNode)) {
             WriteLine();
             WriteInternalType(node);
         }

@@ -30,8 +30,12 @@ public partial class TextBox : TextField {
 ///         standing behind the user.
 ///     </para>
 ///     <para>
-///         ⚠ <b>What makes it secure here is smaller than it would be on the web, and the reason is
-///         an absence: there is no clipboard in <c>Vixen.Ui</c> at all.</b> Nothing copies, nothing
+///         ⚠
+///         <b>
+///             What makes it secure here is smaller than it would be on the web, and the reason is
+///             an absence: there is no clipboard in <c>Vixen.Ui</c> at all.
+///         </b>
+///         Nothing copies, nothing
 ///         cuts and nothing pastes, so the selection a field allows cannot carry anything out of it
 ///         — which is why <see cref="TextField.SelectedText" /> is left alone here rather than
 ///         blanked. When a clipboard arrives, this is the type it has to ask before it reads.
@@ -145,7 +149,7 @@ public sealed partial class SearchBox : TextField {
         // in the application lands on a button instead of on the next field.
         ClearButton.TabIndex = -1;
 
-        AddHandler<ClickEvent>(static (element, args) => ((SearchBox) element).Cleared(args));
+        AddHandler<ClickEvent>(static (element, args) => ((SearchBox)element).Cleared(args));
     }
 
     void Cleared(ClickEvent args) {
@@ -185,8 +189,12 @@ public sealed partial class SearchBox : TextField {
 ///         arithmetic rather than in a number chosen per member. See <see cref="RelativeStep" />.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The spinners this summary used to claim are <see cref="Stepper" />'s, and until it
-///         existed they were nobody's.</b> The line above said "arrows, spinners and a drag" and the
+///         ⚠
+///         <b>
+///             The spinners this summary used to claim are <see cref="Stepper" />'s, and until it
+///             existed they were nobody's.
+///         </b>
+///         The line above said "arrows, spinners and a drag" and the
 ///         control had two of the three; the theme's read-only rule named "<c>numeric-input</c>'s
 ///         spinners" as well. What was true is that <see cref="Nudge" /> — the mechanism a pair of
 ///         buttons needs — was finished and had nothing pressing it.
@@ -242,8 +250,11 @@ public partial class NumericInput : TextField {
     /// <summary>How much one step is worth as a fraction of the number's own magnitude.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>A percentage per pixel, which is the only rate that works across the range a
-    ///         number can hold.</b> One hundredth is a hundred pixels to double a value or to take it
+    ///         <b>
+    ///             A percentage per pixel, which is the only rate that works across the range a
+    ///             number can hold.
+    ///         </b>
+    ///         One hundredth is a hundred pixels to double a value or to take it
     ///         to nothing, whatever the value is: a hundred thousand lux and a roughness of one
     ///         scrub at the same <i>felt</i> speed, because the thing a person is adjusting is the
     ///         proportion rather than the absolute amount.
@@ -277,8 +288,12 @@ public partial class NumericInput : TextField {
     /// <summary>Which locale the number is written and read in. <c>null</c> is invariant.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>One property for both directions, because printing and parsing are one
-    ///         decision.</b> A field that wrote <c>1 234,50</c> and then read it back under the
+    ///         ⚠
+    ///         <b>
+    ///             One property for both directions, because printing and parsing are one
+    ///             decision.
+    ///         </b>
+    ///         A field that wrote <c>1 234,50</c> and then read it back under the
     ///         invariant rules would eat the user's own text on the next commit — the parse fails,
     ///         <see cref="Reread" /> is silent by design, and the number silently stops following the
     ///         field. Two properties would have made that arrangement expressible.
@@ -312,8 +327,12 @@ public partial class NumericInput : TextField {
     ///         never been able to parse one.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A custom format containing a bare <c>%</c> scales by a hundred exactly as
-    ///         <c>"P"</c> does, and this control cannot tell.</b> The percent handling keys on the
+    ///         ⚠
+    ///         <b>
+    ///             A custom format containing a bare <c>%</c> scales by a hundred exactly as
+    ///             <c>"P"</c> does, and this control cannot tell.
+    ///         </b>
+    ///         The percent handling keys on the
     ///         standard specifier, so <c>"#0.0 %"</c> prints a hundredfold value that reads back as
     ///         itself: the field then multiplies by a hundred again on every commit. Write
     ///         <c>"P1"</c>, or put the sign in a label beside a plain format.
@@ -352,12 +371,12 @@ public partial class NumericInput : TextField {
         // the base class's caret placement. Registering on the bubble leg and marking it handled
         // afterwards would be too late — the caret would already have moved.
         AddHandler<PointerEvent>(
-            static (element, args) => ((NumericInput) element).Scrub(args),
+            static (element, args) => ((NumericInput)element).Scrub(args),
             RoutingStrategy.Capture
         );
 
-        AddHandler<KeyEvent>(static (element, args) => ((NumericInput) element).Stepped(args));
-        AddHandler<FocusEvent>(static (element, args) => ((NumericInput) element).Blurred(args));
+        AddHandler<KeyEvent>(static (element, args) => ((NumericInput)element).Stepped(args));
+        AddHandler<FocusEvent>(static (element, args) => ((NumericInput)element).Blurred(args));
 
         // ⚠ The text is otherwise written only when `Number` or `Decimals` *changes*, and both are
         // born at nought — so a whole-number field handed a zero was two no-op assignments and an
@@ -375,14 +394,14 @@ public partial class NumericInput : TextField {
     ///     they are pressing over and over, and the opposite of what a drag wants. A drag freezes its
     ///     rate instead; <see cref="Scrub" /> says why.
     ///     <para>
-    ///     ⚠ <b>And this is one of the three mutations that still clamps</b> — see
-    ///     <see cref="CoerceNumber" /> for the split. A spinner's whole affordance is that it stops
-    ///     at the ends, so an arrow held down at the ceiling has to sit there rather than climb into
-    ///     a number the field will then call invalid. It also means an arrow is the way <i>back</i>
-    ///     from a value typed outside the bounds: one press lands on the nearest end.
+    ///         ⚠ <b>And this is one of the three mutations that still clamps</b> — see
+    ///         <see cref="CoerceNumber" /> for the split. A spinner's whole affordance is that it stops
+    ///         at the ends, so an arrow held down at the ceiling has to sit there rather than climb into
+    ///         a number the field will then call invalid. It also means an arrow is the way <i>back</i>
+    ///         from a value typed outside the bounds: one press lands on the nearest end.
     ///     </para>
     /// </remarks>
-    public void Nudge(double steps) => Number = Math.Clamp(Number + (steps * StepAt(Number)), Minimum, Maximum);
+    public void Nudge(double steps) => Number = Math.Clamp(Number + steps * StepAt(Number), Minimum, Maximum);
 
     /// <summary>What one step is worth at a given value.</summary>
     /// <remarks>
@@ -430,16 +449,24 @@ public partial class NumericInput : TextField {
     /// <summary>Whether a character may appear in this field's text at all.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The alphabet follows <see cref="Format" /> and <see cref="Culture" />, and until
-    ///         it did, the formatting seam above did nothing at all.</b> This filter is what
+    ///         ⚠
+    ///         <b>
+    ///             The alphabet follows <see cref="Format" /> and <see cref="Culture" />, and until
+    ///             it did, the formatting seam above did nothing at all.
+    ///         </b>
+    ///         This filter is what
     ///         <c>Value</c> is coerced through, so a field that formatted <c>€12,50</c> and then
     ///         refused the <c>€</c> discarded its own output and showed the previous text — the
     ///         formatter looked implemented and the field printed <c>0</c>. A format seam that does
     ///         not widen the input filter is not a format seam.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The ASCII set is unconditional, so an unformatted field's alphabet has not
-    ///         changed.</b> The invariant separators and signs are all inside it, and the currency
+    ///         ⚠
+    ///         <b>
+    ///             The ASCII set is unconditional, so an unformatted field's alphabet has not
+    ///             changed.
+    ///         </b>
+    ///         The invariant separators and signs are all inside it, and the currency
     ///         and percent symbols are reached only when a format asks for them — so a plain field
     ///         still refuses a <c>¤</c> exactly as it did.
     ///     </para>
@@ -486,8 +513,12 @@ public partial class NumericInput : TextField {
 
     /// <inheritdoc />
     /// <remarks>
-    ///     ⚠ <b>A range violation is a constraint violation, which is CSS's own reading and not a
-    ///     convenience.</b> Selectors 4 § 10.7 puts a number outside its bounds in
+    ///     ⚠
+    ///     <b>
+    ///         A range violation is a constraint violation, which is CSS's own reading and not a
+    ///         convenience.
+    ///     </b>
+    ///     Selectors 4 § 10.7 puts a number outside its bounds in
     ///     <c>:out-of-range</c> <i>and</i> in <c>:invalid</c>, so a stylesheet that only knows how to
     ///     colour an invalid field still colours this one. Read off <see cref="Number" /> rather than
     ///     off the text it is handed: the text is half-typed for as long as somebody is typing, and
@@ -538,8 +569,12 @@ public partial class NumericInput : TextField {
     /// <summary>Rounds what a drag has added to something the field can actually hold.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A field showing no decimals is a count, and four point one three cascades is a
-    ///         worse bug than the one the proportional step is here to fix.</b> The floor in
+    ///         ⚠
+    ///         <b>
+    ///             A field showing no decimals is a count, and four point one three cascades is a
+    ///             worse bug than the one the proportional step is here to fix.
+    ///         </b>
+    ///         The floor in
     ///         <see cref="StepAt" /> already keeps a small count moving by whole units — a percent of
     ///         four is less than one, so <see cref="Step" /> wins — but nothing stops a fractional
     ///         pixel delta on a scaled display, or a rate of a thousand landing on a half. Rounding
@@ -562,17 +597,25 @@ public partial class NumericInput : TextField {
     /// <summary>Keeps out what the field cannot hold, which is not the same as what it may not be.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>This used to clamp to <see cref="Minimum" /> and <see cref="Maximum" />, and it
-    ///         is the same mistake <see cref="TextField.Coerce" />'s own remarks warn about one seam
-    ///         over: a field that silently rewrites what was typed is a field that will not take what
-    ///         you type.</b> Somebody entering <c>500</c> into a field bounded at a hundred saw
+    ///         ⚠
+    ///         <b>
+    ///             This used to clamp to <see cref="Minimum" /> and <see cref="Maximum" />, and it
+    ///             is the same mistake <see cref="TextField.Coerce" />'s own remarks warn about one seam
+    ///             over: a field that silently rewrites what was typed is a field that will not take what
+    ///             you type.
+    ///         </b>
+    ///         Somebody entering <c>500</c> into a field bounded at a hundred saw
     ///         <c>100</c> appear under their cursor with nothing said, and no state anywhere recorded
     ///         that anything had been refused — <c>:out-of-range</c> could not be true of this
     ///         control, for any length of time, by any route.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>So the bounds moved from the coerce to the verdict, and the split is by
-    ///         gesture rather than by value.</b> A typed or assigned number is <i>held</i> and
+    ///         ⚠
+    ///         <b>
+    ///             So the bounds moved from the coerce to the verdict, and the split is by
+    ///             gesture rather than by value.
+    ///         </b>
+    ///         A typed or assigned number is <i>held</i> and
     ///         reported — <see cref="Validate" /> makes it <c>:invalid</c> as well as
     ///         <c>:out-of-range</c>, which is what CSS says, a range violation being a constraint
     ///         violation. <see cref="Nudge" /> and the scrub still clamp, because a spinner and a
@@ -600,8 +643,12 @@ public partial class NumericInput : TextField {
 
     /// <summary>Re-decides the verdict when the bounds move rather than the number.</summary>
     /// <remarks>
-    ///     ⚠ <b>It used to pull the number back inside, and that is the behaviour this issue
-    ///     changed.</b> A ceiling lowered under a value that is already there does not un-say the
+    ///     ⚠
+    ///     <b>
+    ///         It used to pull the number back inside, and that is the behaviour this issue
+    ///         changed.
+    ///     </b>
+    ///     A ceiling lowered under a value that is already there does not un-say the
     ///     value; it makes it unacceptable, which is a thing the field can now express. Nothing is
     ///     lost that the arrows do not give back: one press lands on the nearest end.
     /// </remarks>
@@ -612,15 +659,18 @@ public partial class NumericInput : TextField {
 
     /// <summary>Writes the one range bit.</summary>
     /// <remarks>
-    ///     ⚠ <b>One bit and no birth call, which is where this differs from the verdict beside
-    ///     it.</b> <c>:valid</c> needed a positive write at <c>OnCreated</c> because its absence is
+    ///     ⚠
+    ///     <b>
+    ///         One bit and no birth call, which is where this differs from the verdict beside
+    ///         it.
+    ///     </b>
+    ///     <c>:valid</c> needed a positive write at <c>OnCreated</c> because its absence is
     ///     indistinguishable from an element that does not validate; <c>:in-range</c> is compiled as
     ///     this bit's negation, so a field that has never left its bounds is in range by carrying
     ///     nothing — which is also what a field with no bounds at all should be, and
     ///     <see cref="Minimum" /> and <see cref="Maximum" /> default to the infinities.
     /// </remarks>
-    void Rerange() =>
-        State = IsInRange ? State & ~ElementState.OutOfRange : State | ElementState.OutOfRange;
+    void Rerange() => State = IsInRange ? State & ~ElementState.OutOfRange : State | ElementState.OutOfRange;
 
     void OnDecimalsChanged(int previous, int current) => Reformat();
 
@@ -629,16 +679,19 @@ public partial class NumericInput : TextField {
 
     /// <summary>Whether the format is the standard percent specifier, which scales by a hundred.</summary>
     /// <remarks>
-    ///     ⚠ <b>The standard specifier only, and a custom format with a <c>%</c> in it is invisible
-    ///     here.</b> Both scale, so both would need the same treatment, and telling them apart means
+    ///     ⚠
+    ///     <b>
+    ///         The standard specifier only, and a custom format with a <c>%</c> in it is invisible
+    ///         here.
+    ///     </b>
+    ///     Both scale, so both would need the same treatment, and telling them apart means
     ///     reading a custom format for an unescaped, unquoted <c>%</c> — a small parser for one
     ///     character, which is a worse trade than saying plainly in <see cref="Format" /> that the
     ///     custom spelling does not round-trip.
     /// </remarks>
     bool IsPercent => format is ['P' or 'p', ..];
 
-    void Reformat() =>
-        Value = Number.ToString(format ?? "F" + Decimals.ToString(CultureInfo.InvariantCulture), Locale);
+    void Reformat() => Value = Number.ToString(format ?? "F" + Decimals.ToString(CultureInfo.InvariantCulture), Locale);
 
     /// <summary>Reads the number back out of the text after a keystroke.</summary>
     /// <remarks>
@@ -648,8 +701,12 @@ public partial class NumericInput : TextField {
     ///         every one of those would fight every negative number ever entered.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The styles are widened to match what was printed, and that is the whole of what
-    ///         makes a format usable.</b> <c>NumberStyles.Float</c> alone rejects the group separators
+    ///         ⚠
+    ///         <b>
+    ///             The styles are widened to match what was printed, and that is the whole of what
+    ///             makes a format usable.
+    ///         </b>
+    ///         <c>NumberStyles.Float</c> alone rejects the group separators
     ///         and the currency symbol this field may have written itself, so the silence above would
     ///         turn into a field that discards every commit — the failure mode of a format seam that
     ///         only formats.
@@ -680,8 +737,12 @@ public partial class NumericInput : TextField {
     /// <summary>Turns Up, Down, PageUp and PageDown into a step.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b><see cref="TextField.ReadOnly" /> was the one route into the value that did not
-    ///         ask.</b> Typing is refused, the scrub's press case is guarded, and <c>Stepper</c>'s
+    ///         ⚠
+    ///         <b>
+    ///             <see cref="TextField.ReadOnly" /> was the one route into the value that did not
+    ///             ask.
+    ///         </b>
+    ///         Typing is refused, the scrub's press case is guarded, and <c>Stepper</c>'s
     ///         arrows disable themselves — so a field offered as "look, do not touch" was one
     ///         keystroke from being edited, and <c>ReadOnly</c> is precisely the state in which a
     ///         person's finger is on the arrow keys: it still takes the focus, and its text can still
@@ -718,8 +779,12 @@ public partial class NumericInput : TextField {
     /// <summary>Turns a press, a drag and a release into a change of value or into a focus.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The rate is frozen at the press, like the origin, and that is what makes the
-    ///         gesture reversible.</b> Reading the magnitude again on every move would compound —
+    ///         ⚠
+    ///         <b>
+    ///             The rate is frozen at the press, like the origin, and that is what makes the
+    ///             gesture reversible.
+    ///         </b>
+    ///         Reading the magnitude again on every move would compound —
     ///         each move worth a percent of a number a percent bigger than the last — so the value
     ///         would run away exponentially, and dragging back the same distance would not return
     ///         to where it started. It would also make the result depend on how many move events the
@@ -795,8 +860,12 @@ public partial class NumericInput : TextField {
 
     /// <summary>Whether a press belongs to the field itself rather than to a control inside it.</summary>
     /// <remarks>
-    ///     ⚠ <b>A scrub starts on the capture leg and marks the press handled, so without this the
-    ///     field takes a gesture that was aimed at a button inside it.</b> The button is still
+    ///     ⚠
+    ///     <b>
+    ///         A scrub starts on the capture leg and marks the press handled, so without this the
+    ///         field takes a gesture that was aimed at a button inside it.
+    ///     </b>
+    ///     The button is still
     ///     <i>clicked</i> — activation comes off the tap the gesture recogniser makes, which does not
     ///     care that the press was marked handled — so the symptom is not a dead button: it is a
     ///     press that captures the pointer for the field, selects the field's text on release, and
@@ -807,8 +876,12 @@ public partial class NumericInput : TextField {
     ///     between the source and this field rather than of a list of known parts, because the next
     ///     control put inside a field would otherwise arrive at the same dead press.
     ///     <para>
-    ///         ⚠ <b>The walk is the whole of it, and a source test alone is a guard that never
-    ///         fires.</b> What a pointer hits is the deepest element under it, which for a button is
+    ///         ⚠
+    ///         <b>
+    ///             The walk is the whole of it, and a source test alone is a guard that never
+    ///             fires.
+    ///         </b>
+    ///         What a pointer hits is the deepest element under it, which for a button is
     ///         the <see cref="Icon" /> inside it — a bare element. Written as
     ///         <c>args.Source is not Control</c> this read <c>true</c> for every press on an arrow,
     ///         and the arrows behaved because the tap that activates a button comes out of the
@@ -852,8 +925,12 @@ public partial class NumericInput : TextField {
 ///         exist.
 ///     </para>
 ///     <para>
-///         ⚠ <b>A field with arrows in it rather than arrows beside a field, which is the opposite
-///         of AppKit's split.</b> <c>NSStepper</c> is the pair on its own, and the binding between it
+///         ⚠
+///         <b>
+///             A field with arrows in it rather than arrows beside a field, which is the opposite
+///             of AppKit's split.
+///         </b>
+///         <c>NSStepper</c> is the pair on its own, and the binding between it
 ///         and whatever text field it sits next to is the application's to keep — a seam that exists
 ///         because the two are separate views. Here the number, the range, the step, the keys and the
 ///         scrub are one control already, so the arrows join it and <c>bind:Number</c> goes on
@@ -867,8 +944,12 @@ public partial class NumericInput : TextField {
 ///         <c>TabIndex</c>, as <see cref="SearchBox" />'s clear button.
 ///     </para>
 ///     <para>
-///         ⚠ <b>They disable at the ends of the range, which is a picture of something a click cannot
-///         show.</b> <c>Number</c> is clamped to <c>[Minimum, Maximum]</c>, so an arrow at the end has
+///         ⚠
+///         <b>
+///             They disable at the ends of the range, which is a picture of something a click cannot
+///             show.
+///         </b>
+///         <c>Number</c> is clamped to <c>[Minimum, Maximum]</c>, so an arrow at the end has
 ///         always done nothing; what is being fixed is that it did nothing <i>silently</i>. A greyed
 ///         arrow is what tells a person — and, through <c>AccessibleStates.Disabled</c>, an assistive
 ///         technology — which way there is left to go.
@@ -895,15 +976,19 @@ public sealed partial class Stepper : NumericInput {
         DecrementButton = Arrow(ControlIcons.ChevronDown, ControlStrings.StepperDecrease.Text, "step-down");
         IncrementButton = Arrow(ControlIcons.ChevronUp, ControlStrings.StepperIncrease.Text, "step-up");
 
-        AddHandler<ClickEvent>(static (element, args) => ((Stepper) element).Arrowed(args));
+        AddHandler<ClickEvent>(static (element, args) => ((Stepper)element).Arrowed(args));
 
         Ends();
     }
 
     /// <inheritdoc />
     /// <remarks>
-    ///     ⚠ <b>Every property rather than the four that matter, and the cost of that is two
-    ///     comparisons.</b> What decides an arrow's state is <c>Number</c>, <c>Minimum</c>,
+    ///     ⚠
+    ///     <b>
+    ///         Every property rather than the four that matter, and the cost of that is two
+    ///         comparisons.
+    ///     </b>
+    ///     What decides an arrow's state is <c>Number</c>, <c>Minimum</c>,
     ///     <c>Maximum</c> and <c>ReadOnly</c> today; a filter naming those four is a list somebody
     ///     has to remember to edit when a fifth arrives, and a stale one fails as an arrow that
     ///     stays grey after the range it was measured against has moved. This is the seam the base

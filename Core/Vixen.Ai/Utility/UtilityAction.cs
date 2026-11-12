@@ -128,8 +128,12 @@ public sealed class UtilityAction {
 
     /// <summary>This action's considerations, as the shared scorer reads them.</summary>
     /// <remarks>
-    ///     ⚠ <b>A <c>ref struct</c> holding the context by reference, so scoring an action copies
-    ///     nothing.</b> It exists so that an action and an environment-query point go through
+    ///     ⚠
+    ///     <b>
+    ///         A <c>ref struct</c> holding the context by reference, so scoring an action copies
+    ///         nothing.
+    ///     </b>
+    ///     It exists so that an action and an environment-query point go through
     ///     <see cref="CandidateScoring.Score" /> — one implementation of the mean and the veto — rather
     ///     than through two loops that agree today; doc 37 § D14 is only true if it is checkable.
     /// </remarks>

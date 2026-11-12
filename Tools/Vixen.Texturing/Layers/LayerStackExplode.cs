@@ -85,11 +85,11 @@ public static class LayerStackExplode {
                 continue;
             }
 
-            graph.Comments.Add(new() {
-                Text = note.Text,
-                Position = new(node.Position.X, node.Position.Y - 84f),
-                Size = new(300f, 72f)
-            });
+            graph.Comments.Add(
+                new() {
+                    Text = note.Text, Position = new(node.Position.X, node.Position.Y - 84f), Size = new(300f, 72f)
+                }
+            );
         }
     }
 
@@ -136,7 +136,7 @@ public static class LayerStackExplode {
         var temporary = path + ".tmp";
 
         File.WriteAllText(temporary, ToYaml(build));
-        File.Move(temporary, path, overwrite: true);
+        File.Move(temporary, path, true);
 
         return build;
     }

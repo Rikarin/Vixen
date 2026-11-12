@@ -22,8 +22,12 @@ namespace Vixen.Editor.Terrain.Tests;
 ///         own comment records as VX4003.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The attributes were the lie and they are gone, so this is a guard rather than a
-///         report.</b> The eight are the terrain panel's form model: every row is an
+///         ⚠
+///         <b>
+///             The attributes were the lie and they are gone, so this is a guard rather than a
+///             report.
+///         </b>
+///         The eight are the terrain panel's form model: every row is an
 ///         <c>[Inspector]</c> member, <c>InspectorDescriptorGenerator</c> keys on <c>[Inspector]</c>
 ///         and not on <c>[DataContract]</c>, and nothing anywhere writes one of these to a file or
 ///         reads one back. What the attribute promised — polymorphic serialisation and a lookup by
@@ -45,15 +49,22 @@ public class TerrainContractTests {
     /// <summary>⚠ A <c>[DataContract]</c> here would have to be registered, and today there are none.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>Both instruments first, because the interesting direction of this assertion is the
-    ///         one a vacuous pass looks exactly like.</b> The walk is required to have found the
+    ///         <b>
+    ///             Both instruments first, because the interesting direction of this assertion is the
+    ///             one a vacuous pass looks exactly like.
+    ///         </b>
+    ///         The walk is required to have found the
     ///         assembly's types — an empty <c>GetTypes</c> would satisfy the loop having checked
     ///         nothing — and the registry is required to be able to answer <em>false</em>, since a
     ///         lookup that said yes to everything would satisfy the loop having proved nothing.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Both registries, because <c>[DataContract]</c> feeds two generators and the csproj
-    ///         names neither.</b> <c>TypeRegistry</c> is what a YAML tag resolves through and
+    ///         ⚠
+    ///         <b>
+    ///             Both registries, because <c>[DataContract]</c> feeds two generators and the csproj
+    ///             names neither.
+    ///         </b>
+    ///         <c>TypeRegistry</c> is what a YAML tag resolves through and
     ///         <c>SerializerRegistry</c> is what the binary writer looks the alias up in; an assembly
     ///         with one and not the other would read back in one format and not the other, which is a
     ///         worse state than having neither.
@@ -76,13 +87,15 @@ public class TerrainContractTests {
         Assert.False(SerializerRegistry.TryGetByAlias("VixenEditorTerrainNoSuchContract", out _));
 
         var unregistered = declared
-            .Select(type => (Type: type,
-                Contract: (DataContractAttribute?)Attribute.GetCustomAttribute(type, typeof(DataContractAttribute))))
-            .Where(entry => entry.Contract is not null)
-            .Select(entry => (entry.Type, Alias: entry.Contract!.Alias ?? entry.Type.Name))
-            .Where(entry => !TypeRegistry.TryGetByAlias(entry.Alias, out _)
-                || !SerializerRegistry.TryGetByAlias(entry.Alias, out _))
-            .Select(entry => $"{entry.Type.Name} as '{entry.Alias}'")
+            .Select(static type => (Type: type,
+                    Contract: (DataContractAttribute?)Attribute.GetCustomAttribute(type, typeof(DataContractAttribute)))
+            )
+            .Where(static entry => entry.Contract is not null)
+            .Select(static entry => (entry.Type, Alias: entry.Contract!.Alias ?? entry.Type.Name))
+            .Where(static entry => !TypeRegistry.TryGetByAlias(entry.Alias, out _)
+                || !SerializerRegistry.TryGetByAlias(entry.Alias, out _)
+            )
+            .Select(static entry => $"{entry.Type.Name} as '{entry.Alias}'")
             .Order(StringComparer.Ordinal)
             .ToArray();
 

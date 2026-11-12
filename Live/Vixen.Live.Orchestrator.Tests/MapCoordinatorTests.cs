@@ -76,8 +76,8 @@ public sealed class MapCoordinatorTests {
     [Fact]
     public void ThePartyCountIsComputedFromTheRoster() {
         var map = Map();
-        var quiet = Ready(new(Guid.Parse("00000000-0000-0000-0000-000000000001")), population: 50);
-        var busy = Ready(new(Guid.Parse("00000000-0000-0000-0000-000000000002")), population: 60);
+        var quiet = Ready(new(Guid.Parse("00000000-0000-0000-0000-000000000001")), 50);
+        var busy = Ready(new(Guid.Parse("00000000-0000-0000-0000-000000000002")), 60);
 
         map.ShardChanged(quiet);
         map.ShardChanged(busy);

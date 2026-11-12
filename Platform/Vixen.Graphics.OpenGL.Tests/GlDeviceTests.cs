@@ -55,14 +55,14 @@ public sealed class GlDeviceTests {
 
         Assert.Equal(
             expected,
-            gl.Named("Enable").Count(call => call.Arguments[0] is GlConstants.FramebufferSrgb)
+            gl.Named("Enable").Count(static call => call.Arguments[0] is GlConstants.FramebufferSrgb)
         );
 
         // The one that is enabled on every profile, so the theory above is a gate rather than a
         // device that stopped setting state.
         Assert.Contains(
             gl.Named("Enable"),
-            call => call.Arguments[0] is GlConstants.PrimitiveRestartFixedIndex
+            static call => call.Arguments[0] is GlConstants.PrimitiveRestartFixedIndex
         );
     }
 
@@ -145,7 +145,7 @@ public sealed class GlDeviceTests {
         Assert.Equal(3, gl.Single("TexStorage2D").Arguments[1]);
 
         var levels = gl.Named("TexParameter")
-            .Where(call => Equals(call.Arguments[1], GlConstants.TextureMaxLevel))
+            .Where(static call => Equals(call.Arguments[1], GlConstants.TextureMaxLevel))
             .ToList();
 
         Assert.Equal(2, Assert.Single(levels).Arguments[2]);
@@ -157,8 +157,8 @@ public sealed class GlDeviceTests {
         var gl = new RecordingGlApi(GlProfile.Es30);
         using var device = new GlDevice(new(gl));
 
-        var error = Assert.Throws<NotSupportedException>(
-            () => device.CreateBuffer(new(64, BufferUsage.Storage, MemoryAccess.DeviceLocal, "particles"))
+        var error = Assert.Throws<NotSupportedException>(() =>
+            device.CreateBuffer(new(64, BufferUsage.Storage, MemoryAccess.DeviceLocal, "particles"))
         );
 
         Assert.Contains("HasCompute", error.Message, StringComparison.Ordinal);
@@ -172,8 +172,8 @@ public sealed class GlDeviceTests {
         var compute = device.CreateShader(ShaderStage.Compute, Encoding.UTF8.GetBytes(Pipelines.ComputeSource), "c");
         var layout = device.CreatePipelineLayout(new([], null, "empty"));
 
-        var error = Assert.Throws<NotSupportedException>(
-            () => device.CreateComputePipeline(new(compute, layout, "simulate"))
+        var error = Assert.Throws<NotSupportedException>(() =>
+            device.CreateComputePipeline(new(compute, layout, "simulate"))
         );
 
         Assert.Contains("fullscreen-fragment", error.Message, StringComparison.Ordinal);
@@ -190,9 +190,7 @@ public sealed class GlDeviceTests {
         using var device = new GlDevice(new(gl));
         var spirv = BitConverter.GetBytes(0x07230203u).Concat(new byte[16]).ToArray();
 
-        var error = Assert.Throws<ArgumentException>(
-            () => device.CreateShader(ShaderStage.Vertex, spirv, "mesh.vert")
-        );
+        var error = Assert.Throws<ArgumentException>(() => device.CreateShader(ShaderStage.Vertex, spirv, "mesh.vert"));
 
         Assert.Contains("SPIR-V", error.Message, StringComparison.Ordinal);
     }
@@ -203,12 +201,13 @@ public sealed class GlDeviceTests {
         var gl = new RecordingGlApi();
         using var device = new GlDevice(new(gl));
 
-        var error = Assert.Throws<NotSupportedException>(
-            () => device.CreateDescriptorSetLayout(new(
-                DescriptorSetSlot.PerMaterial,
-                [new(0, DescriptorKind.SampledTexture, ShaderStage.Fragment, 0)],
-                "bindless"
-            ))
+        var error = Assert.Throws<NotSupportedException>(() => device.CreateDescriptorSetLayout(
+                new(
+                    DescriptorSetSlot.PerMaterial,
+                    [new(0, DescriptorKind.SampledTexture, ShaderStage.Fragment, 0)],
+                    "bindless"
+                )
+            )
         );
 
         Assert.Contains("HasBindless", error.Message, StringComparison.Ordinal);
@@ -226,9 +225,7 @@ public sealed class GlDeviceTests {
         using var device = new GlDevice(new(gl));
         var texture = device.CreateTexture(new(PixelFormat.Rgba8UNorm, 8, 8, TextureUsage.Sampled, Name: "t"));
 
-        Assert.Throws<NotSupportedException>(
-            () => device.CreateTextureView(texture, PixelFormat.Rgba8UNormSrgb)
-        );
+        Assert.Throws<NotSupportedException>(() => device.CreateTextureView(texture, PixelFormat.Rgba8UNormSrgb));
     }
 
     /// <summary>A set with two standalone samplers is refused, and the message says what to do.</summary>
@@ -242,21 +239,22 @@ public sealed class GlDeviceTests {
         var gl = new RecordingGlApi();
         using var device = new GlDevice(new(gl));
 
-        var layout = device.CreateDescriptorSetLayout(new(
-            DescriptorSetSlot.PerMaterial,
-            [
-                new(0, DescriptorKind.Sampler, ShaderStage.Fragment),
-                new(1, DescriptorKind.Sampler, ShaderStage.Fragment)
-            ],
-            "samplers"
-        ));
+        var layout = device.CreateDescriptorSetLayout(
+            new(
+                DescriptorSetSlot.PerMaterial,
+                [
+                    new(0, DescriptorKind.Sampler, ShaderStage.Fragment),
+                    new(1, DescriptorKind.Sampler, ShaderStage.Fragment)
+                ],
+                "samplers"
+            )
+        );
 
         var set = device.CreateDescriptorSet(layout, "samplers");
         var point = device.CreateSampler(SamplerDescription.PointClamp);
         var linear = device.CreateSampler(SamplerDescription.LinearRepeat);
 
-        var error = Assert.Throws<NotSupportedException>(
-            () => device.UpdateDescriptorSet(
+        var error = Assert.Throws<NotSupportedException>(() => device.UpdateDescriptorSet(
                 set,
                 [DescriptorWrite.SamplerAt(0, point), DescriptorWrite.SamplerAt(1, linear)]
             )
@@ -273,15 +271,18 @@ public sealed class GlDeviceTests {
 
         var vertex = device.CreateShader(ShaderStage.Vertex, Encoding.UTF8.GetBytes(Pipelines.VertexSource), "v");
 
-        var error = Assert.Throws<NotSupportedException>(() => device.CreateGraphicsPipeline(new(
-            vertex,
-            ShaderHandle.Null,
-            Pipelines.Layout(device),
-            [new(PixelFormat.Rgba8UNorm, BlendState.Opaque)],
-            Pipelines.VertexLayout,
-            Rasterizer: RasterizerState.Default with { Fill = FillMode.Wireframe },
-            Name: "wire"
-        )));
+        var error = Assert.Throws<NotSupportedException>(() => device.CreateGraphicsPipeline(
+                new(
+                    vertex,
+                    ShaderHandle.Null,
+                    Pipelines.Layout(device),
+                    [new(PixelFormat.Rgba8UNorm, BlendState.Opaque)],
+                    Pipelines.VertexLayout,
+                    Rasterizer: RasterizerState.Default with { Fill = FillMode.Wireframe },
+                    Name: "wire"
+                )
+            )
+        );
 
         Assert.Contains("HasWireframe", error.Message, StringComparison.Ordinal);
     }
@@ -335,8 +336,11 @@ public sealed class GlDeviceTests {
         var gl = new RecordingGlApi { CompileLog = "0:12(3): error: no matching function" };
         using var device = new GlDevice(new(gl));
 
-        var error = Assert.Throws<InvalidOperationException>(
-            () => Pipelines.Handle(device, BlendState.Opaque, DepthStencilState.Disabled)
+        var error = Assert.Throws<InvalidOperationException>(() => Pipelines.Handle(
+                device,
+                BlendState.Opaque,
+                DepthStencilState.Disabled
+            )
         );
 
         Assert.Contains("no matching function", error.Message, StringComparison.Ordinal);
@@ -350,8 +354,11 @@ public sealed class GlDeviceTests {
         var gl = new RecordingGlApi { LinkLog = "vertex output not consumed" };
         using var device = new GlDevice(new(gl));
 
-        Assert.Throws<InvalidOperationException>(
-            () => Pipelines.Handle(device, BlendState.Opaque, DepthStencilState.Disabled)
+        Assert.Throws<InvalidOperationException>(() => Pipelines.Handle(
+                device,
+                BlendState.Opaque,
+                DepthStencilState.Disabled
+            )
         );
 
         Assert.Equal(gl.Count("CreateShader"), gl.Count("DeleteShader"));

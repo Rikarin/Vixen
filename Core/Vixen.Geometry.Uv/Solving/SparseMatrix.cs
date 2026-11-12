@@ -13,16 +13,23 @@ namespace Vixen.Geometry.Uv.Solving;
 ///         cotangent Laplacian. This is the storage they all sit on.
 ///     </para>
 ///     <para>
-///         <b>Symmetric positive-definite is the case that matters and it is not the case that is
-///         stored.</b> Both halves of a symmetric matrix are kept, and the shape is allowed to be
+///         <b>
+///             Symmetric positive-definite is the case that matters and it is not the case that is
+///             stored.
+///         </b>
+///         Both halves of a symmetric matrix are kept, and the shape is allowed to be
 ///         rectangular, because LSCM's own matrix is <c>2f × 2v</c> and only <i>its</i> normal
 ///         equations are square. A storage format that assumed symmetry would have to be replaced by
 ///         the first least-squares problem rather than reused by it, and
 ///         <see cref="LeastSquaresSolver" /> is exactly that problem.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Nonzeros are <c>double</c> where the rest of this assembly is <c>float</c>, and the
-///         conversion happens at the edges.</b> A cotangent Laplacian over a mesh with a sliver in it
+///         ⚠
+///         <b>
+///             Nonzeros are <c>double</c> where the rest of this assembly is <c>float</c>, and the
+///             conversion happens at the edges.
+///         </b>
+///         A cotangent Laplacian over a mesh with a sliver in it
 ///         has a condition number that eats most of a <c>float</c>'s mantissa before the first
 ///         iteration; the coordinates that come out are still <c>float</c>. This costs bandwidth on a
 ///         matrix that is a few nonzeros per row and buys the difference between a flattener that
@@ -147,8 +154,12 @@ sealed class SparseMatrix {
     ///         not an oversight.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b><paramref name="batchSize" /> is a second determinism axis and it is easy to test
-    ///         only the first.</b> A run at sixteen workers and a run at one differ in <i>two</i>
+    ///         ⚠
+    ///         <b>
+    ///             <paramref name="batchSize" /> is a second determinism axis and it is easy to test
+    ///             only the first.
+    ///         </b>
+    ///         A run at sixteen workers and a run at one differ in <i>two</i>
     ///         things if the batch size was derived from the worker count, so a test that varies only
     ///         the worker count has not separated them.
     ///     </para>
@@ -158,7 +169,10 @@ sealed class SparseMatrix {
         ArgumentNullException.ThrowIfNull(destination);
 
         if (source.Length != ColumnCount) {
-            throw new ArgumentException($"The source is {source.Length} long for {ColumnCount} columns.", nameof(source));
+            throw new ArgumentException(
+                $"The source is {source.Length} long for {ColumnCount} columns.",
+                nameof(source)
+            );
         }
 
         if (destination.Length != RowCount) {
@@ -175,7 +189,7 @@ sealed class SparseMatrix {
 
         var batch = batchSize > 0
             ? batchSize
-            : Math.Max(256, (RowCount / Math.Max(1, (scheduler.WorkerCount + 1) * 4)) + 1);
+            : Math.Max(256, RowCount / Math.Max(1, (scheduler.WorkerCount + 1) * 4) + 1);
 
         var batches = (RowCount + batch - 1) / batch;
 
@@ -190,8 +204,12 @@ sealed class SparseMatrix {
     /// <summary>Builds the transpose, with the same ascending-column invariant.</summary>
     /// <returns>A new matrix, <see cref="ColumnCount" /> by <see cref="RowCount" />.</returns>
     /// <remarks>
-    ///     ⚠ <b><see cref="LeastSquaresSolver" /> materializes this rather than scattering into a
-    ///     shared accumulator, and the reason is determinism rather than speed.</b> Computing
+    ///     ⚠
+    ///     <b>
+    ///         <see cref="LeastSquaresSolver" /> materializes this rather than scattering into a
+    ///         shared accumulator, and the reason is determinism rather than speed.
+    ///     </b>
+    ///     Computing
     ///     <c>Aᵀr</c> by walking <c>A</c>'s rows and adding into <c>result[column]</c> visits one
     ///     output element from many rows in an order that is a property of the sparsity pattern; doing
     ///     it as a multiply by a stored transpose sums each output in ascending index order, and can

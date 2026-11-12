@@ -43,7 +43,7 @@ public sealed class InputBufferTarget : IFuzzTarget {
     ///     all: every case either files into a slot that exists or is refused. The constant covers the
     ///     one growth to that size.
     /// </remarks>
-    public long AllowanceFor(int inputLength) => 4096 + (8L * inputLength);
+    public long AllowanceFor(int inputLength) => 4096 + 8L * inputLength;
 
     /// <summary>What the buffer is holding, which must stay inside its capacity.</summary>
     public long Held => buffer.Depth;
@@ -57,17 +57,17 @@ public sealed class InputBufferTarget : IFuzzTarget {
 
         // Well-formed runs of every length the count byte can honestly describe.
         foreach (var count in (uint[])[0, 1, 2, 4, 8, 32, 64, 255]) {
-            corpus.Add(Run(first: 1, count, real: count));
+            corpus.Add(Run(1, count, count));
         }
 
         // A count that promises more than the payload carries, which is the classic.
-        corpus.Add(Run(first: 1, count: 255, real: 1));
-        corpus.Add(Run(first: 1, count: 8, real: 0));
+        corpus.Add(Run(1, 255, 1));
+        corpus.Add(Run(1, 8, 0));
 
         // Ticks at both ends of the space, and either side of the wrap — where "is this after that"
         // is a subtraction that means something different from a comparison.
         foreach (var first in (uint[])[0, 1, uint.MaxValue, uint.MaxValue - 3, 0x8000_0000]) {
-            corpus.Add(Run(first, count: 4, real: 4));
+            corpus.Add(Run(first, 4, 4));
         }
     }
 
@@ -89,10 +89,10 @@ public sealed class InputBufferTarget : IFuzzTarget {
         // and a corpus that keeps everything guides nothing. See IFuzzTarget.Run.
         var after = Read();
         var signature = (accepted ? 1_000_003L : 0)
-            + ((after.Filed - before.Filed) * 7919L)
-            + ((after.Late - before.Late) * 131L)
-            + ((after.Duplicate - before.Duplicate) * 127L)
-            + ((after.Refused - before.Refused) * 113L)
+            + (after.Filed - before.Filed) * 7919L
+            + (after.Late - before.Late) * 131L
+            + (after.Duplicate - before.Duplicate) * 127L
+            + (after.Refused - before.Refused) * 113L
             + (after.Malformed - before.Malformed);
 
         before = after;
@@ -104,7 +104,7 @@ public sealed class InputBufferTarget : IFuzzTarget {
         new(buffer.Depth, buffer.LateCount, buffer.DuplicateCount, buffer.RefusedCount, buffer.MalformedCount);
 
     static byte[] Run(uint first, uint count, uint real) {
-        var bytes = new byte[8 + (real * 3)];
+        var bytes = new byte[8 + real * 3];
         var writer = new BitWriter(bytes);
 
         writer.WriteUInt32(first);
@@ -116,7 +116,7 @@ public sealed class InputBufferTarget : IFuzzTarget {
 
         writer.TryFinish(out var payload);
 
-        return payload.ToArray();
+        return [..payload];
     }
 
     readonly record struct Counters(long Filed, long Late, long Duplicate, long Refused, long Malformed);

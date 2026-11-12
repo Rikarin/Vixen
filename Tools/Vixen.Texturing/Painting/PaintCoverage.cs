@@ -71,8 +71,7 @@ public sealed class PaintCoverage {
     /// <param name="x">Its column.</param>
     /// <param name="y">Its row.</param>
     /// <returns>Whether it does, and <see langword="false" /> outside the atlas.</returns>
-    public bool IsCovered(int x, int y) =>
-        x >= 0 && y >= 0 && x < Width && y < Height && covered[(y * Width) + x];
+    public bool IsCovered(int x, int y) => x >= 0 && y >= 0 && x < Width && y < Height && covered[y * Width + x];
 
     /// <summary>Which blocks of the atlas can hold a gutter texel, as one flag per block.</summary>
     /// <remarks>
@@ -93,9 +92,9 @@ public sealed class PaintCoverage {
 
             for (var y = 0; y < Height; y++) {
                 for (var x = 0; x < Width; x++) {
-                    var block = ((y >> BlockBits) * across) + (x >> BlockBits);
+                    var block = (y >> BlockBits) * across + (x >> BlockBits);
 
-                    if (covered[(y * Width) + x]) {
+                    if (covered[y * Width + x]) {
                         some[block] = true;
                     } else {
                         gaps[block] = true;
@@ -107,13 +106,13 @@ public sealed class PaintCoverage {
 
             for (var y = 0; y < down; y++) {
                 for (var x = 0; x < across; x++) {
-                    if (!gaps[(y * across) + x]) {
+                    if (!gaps[y * across + x]) {
                         continue;
                     }
 
                     for (var row = Math.Max(y - 1, 0); row <= Math.Min(y + 1, down - 1); row++) {
                         for (var column = Math.Max(x - 1, 0); column <= Math.Min(x + 1, across - 1); column++) {
-                            found[(y * across) + x] |= some[(row * across) + column];
+                            found[y * across + x] |= some[row * across + column];
                         }
                     }
                 }
@@ -132,7 +131,7 @@ public sealed class PaintCoverage {
     /// <param name="column">The block's column, in blocks.</param>
     /// <param name="row">Its row.</param>
     /// <returns>Whether it can.</returns>
-    public bool MayBorder(int column, int row) => Borders[(row * BlocksAcross) + column];
+    public bool MayBorder(int column, int row) => Borders[row * BlocksAcross + column];
 
     /// <summary>A coverage map where every texel is surface. The 2D view's flat case.</summary>
     /// <param name="width">The atlas width.</param>
@@ -246,7 +245,7 @@ public sealed class PaintCoverage {
                     continue;
                 }
 
-                covered[(y * width) + x] = true;
+                covered[y * width + x] = true;
             }
         }
     }
@@ -257,16 +256,16 @@ public sealed class PaintCoverage {
         var steps = (int)MathF.Ceiling(Math.Max(MathF.Abs(delta.X), MathF.Abs(delta.Y))) + 1;
 
         for (var step = 0; step <= steps; step++) {
-            var point = from + (delta * (step / (float)steps));
+            var point = from + delta * (step / (float)steps);
             var x = (int)MathF.Floor(point.X);
             var y = (int)MathF.Floor(point.Y);
 
             if (x >= 0 && y >= 0 && x < width && y < height) {
-                covered[(y * width) + x] = true;
+                covered[y * width + x] = true;
             }
         }
     }
 
     static float Edge(Vector2 a, Vector2 b, Vector2 point) =>
-        ((b.X - a.X) * (point.Y - a.Y)) - ((b.Y - a.Y) * (point.X - a.X));
+        (b.X - a.X) * (point.Y - a.Y) - (b.Y - a.Y) * (point.X - a.X);
 }

@@ -3,6 +3,7 @@
 
 using System.Text;
 using Vixen.Net.Messaging;
+
 namespace Vixen.Samples.Mmo.Contracts;
 
 /// <summary>A line of chat, on whichever channel the sender named.</summary>
@@ -62,9 +63,7 @@ public struct ChatLine : IBroadcast<ChatLine> {
         }
 
         value = new() {
-            Channel = channel,
-            Speaker = speaker,
-            Text = bytes.IsEmpty ? string.Empty : Encoding.UTF8.GetString(bytes)
+            Channel = channel, Speaker = speaker, Text = bytes.IsEmpty ? string.Empty : Encoding.UTF8.GetString(bytes)
         };
 
         return true;

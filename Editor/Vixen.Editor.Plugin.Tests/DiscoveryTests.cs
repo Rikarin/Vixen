@@ -54,7 +54,7 @@ public class DiscoveryTests {
         var catalog = PluginDiscovery.Scan(folder.Root);
 
         Assert.Empty(catalog.Plugins);
-        Assert.All(catalog.Diagnostics, diagnostic => Assert.Equal("com.example.nameless", diagnostic.PluginId));
+        Assert.All(catalog.Diagnostics, static diagnostic => Assert.Equal("com.example.nameless", diagnostic.PluginId));
     }
 
     [Fact]
@@ -121,6 +121,6 @@ public class DiscoveryTests {
 
         // Alphabetical within a root, so the same set of plugins loads in the same order twice and
         // a bug that depends on the order is reproducible rather than a Tuesday thing.
-        Assert.Equal(["a", "b", "c"], PluginDiscovery.Scan(folder.Root).Plugins.Select(plugin => plugin.Id));
+        Assert.Equal(["a", "b", "c"], PluginDiscovery.Scan(folder.Root).Plugins.Select(static plugin => plugin.Id));
     }
 }

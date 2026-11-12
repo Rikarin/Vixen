@@ -6,7 +6,6 @@ using Vixen.Core.Syntax.Diagnostics;
 using Vixen.Raven;
 using Vixen.Raven.Artefacts;
 using Vixen.Raven.CodeGen;
-using Vixen.Raven.Diagnostics;
 using Vixen.Raven.IR;
 using Vixen.Raven.Lowering;
 using Vixen.Raven.Reflection;
@@ -63,10 +62,10 @@ public class CompiledEffectTests {
         var bag = new DiagnosticBag();
         var module = Lowerer.Lower(compilation, bag);
         IrVerifier.Verify(module, bag);
-        Assert.DoesNotContain(bag.ToArray(), d => d.IsError);
+        Assert.DoesNotContain(bag.ToArray(), static d => d.IsError);
 
         var generated = TargetBackends.Create(target)!.Generate(module, bag);
-        Assert.DoesNotContain(bag.ToArray(), d => d.IsError);
+        Assert.DoesNotContain(bag.ToArray(), static d => d.IsError);
 
         var shader = FindShader(module, "Lit");
         return CompiledEffect.Create(
@@ -149,8 +148,8 @@ public class CompiledEffectTests {
 
         Assert.Equal("LitPerMaterialUniforms", block.Name);
         Assert.Equal(DescriptorType.UniformBuffer, block.Type);
-        Assert.Equal(0, Assert.Single(block.Members, m => m.Name == "tint").Offset);
-        Assert.Equal(["position"], effect.Reflection.VertexInputs.Select(i => i.Name));
+        Assert.Equal(0, Assert.Single(block.Members, static m => m.Name == "tint").Offset);
+        Assert.Equal(["position"], effect.Reflection.VertexInputs.Select(static i => i.Name));
     }
 
     /// <summary>
@@ -167,7 +166,7 @@ public class CompiledEffectTests {
         Assert.Equal(original.Reflection.Permutations, restored.Reflection.Permutations);
         Assert.Equal(
             [("UseDetail", "false"), ("Unread", "true")],
-            restored.Reflection.Permutations.Select(p => (p.Name, p.DefaultValue))
+            restored.Reflection.Permutations.Select(static p => (p.Name, p.DefaultValue))
         );
 
         // Declared and read are different sets, and both make the trip.
@@ -229,11 +228,11 @@ public class CompiledEffectTests {
 
     [Fact]
     public void Something_that_is_not_an_effect_is_rejected() =>
-        Assert.Throws<InvalidDataException>(() => CompiledEffectReader.Read(Encoding.UTF8.GetBytes("not an effect")));
+        Assert.Throws<InvalidDataException>(static () => CompiledEffectReader.Read("not an effect"u8));
 
     [Fact]
     public void An_empty_file_is_rejected() =>
-        Assert.Throws<InvalidDataException>(() => CompiledEffectReader.Read([]));
+        Assert.Throws<InvalidDataException>(static () => CompiledEffectReader.Read([]));
 
     [Fact]
     public void A_future_version_is_rejected_rather_than_guessed_at() {

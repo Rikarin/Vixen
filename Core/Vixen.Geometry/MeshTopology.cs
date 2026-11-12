@@ -20,8 +20,12 @@ namespace Vixen.Geometry;
 ///         loop-then-grow are both things a designer does.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The edge table is what makes all of this cheap, and it is why doc 24's D2 keeps
-///         one.</b> A loop is a walk of one step per edge in it, and a step is two spans and a
+///         ⚠
+///         <b>
+///             The edge table is what makes all of this cheap, and it is why doc 24's D2 keeps
+///             one.
+///         </b>
+///         A loop is a walk of one step per edge in it, and a step is two spans and a
 ///         comparison. Without an explicit table each step is a search over every face in the mesh.
 ///     </para>
 /// </remarks>
@@ -48,8 +52,12 @@ public static class MeshTopology {
     ///         continuation is the one edge that shares no face with the one arrived on.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>It stops where the valence is not four, which is why a loop round a cylinder's
-    ///         side closes and one that reaches a pole ends there.</b> Any other rule has to guess,
+    ///         ⚠
+    ///         <b>
+    ///             It stops where the valence is not four, which is why a loop round a cylinder's
+    ///             side closes and one that reaches a pole ends there.
+    ///         </b>
+    ///         Any other rule has to guess,
     ///         and a loop that guesses is one that occasionally selects a path through a mesh that
     ///         nobody can describe — which is worse than one that stops short, because stopping short
     ///         is visible.
@@ -66,7 +74,7 @@ public static class MeshTopology {
 
         into.Clear();
 
-        if ((uint) edge >= (uint) mesh.Edges.Count) {
+        if ((uint)edge >= (uint)mesh.Edges.Count) {
             return;
         }
 
@@ -113,7 +121,7 @@ public static class MeshTopology {
 
         into.Clear();
 
-        if ((uint) edge >= (uint) mesh.Edges.Count) {
+        if ((uint)edge >= (uint)mesh.Edges.Count) {
             return;
         }
 
@@ -171,7 +179,7 @@ public static class MeshTopology {
 
         into.Clear();
 
-        if ((uint) face >= (uint) mesh.FaceCount) {
+        if ((uint)face >= (uint)mesh.FaceCount) {
             return;
         }
 
@@ -199,8 +207,10 @@ public static class MeshTopology {
     /// <param name="mesh">The mesh.</param>
     /// <param name="group">The group id.</param>
     /// <param name="into">The face indices. Cleared first.</param>
-    /// <remarks>Unreal's "select PolyGroup", and it is a filter rather than a walk: a group is
-    ///     connected when <see cref="EditMesh.Regroup" /> made it and need not stay so after an edit.</remarks>
+    /// <remarks>
+    ///     Unreal's "select PolyGroup", and it is a filter rather than a walk: a group is
+    ///     connected when <see cref="EditMesh.Regroup" /> made it and need not stay so after an edit.
+    /// </remarks>
     public static void Group(EditMesh mesh, int group, List<int> into) {
         ArgumentNullException.ThrowIfNull(mesh);
         ArgumentNullException.ThrowIfNull(into);
@@ -218,15 +228,17 @@ public static class MeshTopology {
     /// <param name="mesh">The mesh.</param>
     /// <param name="face">Which face to start from.</param>
     /// <param name="into">The face indices. Cleared first.</param>
-    /// <remarks>The connected shell — what "select linked" means, and what tells a designer that the
-    ///     wall they are about to delete is joined to the floor.</remarks>
+    /// <remarks>
+    ///     The connected shell — what "select linked" means, and what tells a designer that the
+    ///     wall they are about to delete is joined to the floor.
+    /// </remarks>
     public static void Shell(EditMesh mesh, int face, List<int> into) {
         ArgumentNullException.ThrowIfNull(mesh);
         ArgumentNullException.ThrowIfNull(into);
 
         into.Clear();
 
-        if ((uint) face >= (uint) mesh.FaceCount) {
+        if ((uint)face >= (uint)mesh.FaceCount) {
             return;
         }
 
@@ -265,7 +277,7 @@ public static class MeshTopology {
 
         into.Clear();
 
-        if ((uint) edge >= (uint) mesh.Edges.Count || mesh.FacesOf(edge).Length != 1) {
+        if ((uint)edge >= (uint)mesh.Edges.Count || mesh.FacesOf(edge).Length != 1) {
             return false;
         }
 
@@ -401,7 +413,7 @@ public static class MeshTopology {
 
     /// <summary>The edge opposite one, across a four-sided face.</summary>
     static int? Across(EditMesh mesh, int edge, int face) {
-        if ((uint) face >= (uint) mesh.FaceCount || mesh.Faces[face].Count != 4) {
+        if ((uint)face >= (uint)mesh.FaceCount || mesh.Faces[face].Count != 4) {
             return null;
         }
 

@@ -10,17 +10,24 @@ namespace Vixen.Geometry.Testing;
 /// <summary>What a property test needs that no assertion after the call can give it.</summary>
 /// <remarks>
 ///     <para>
-///         <b>docs/plan/41's robustness criterion and docs/plan/42's exit criterion 2 both end in the
-///         same three words — "no exceptions, no hangs" — and only the first half of that is testable
-///         by asserting things about a returned value.</b> <c>Vixen.Fuzz</c>'s <c>CaseGuard</c> makes
+///         <b>
+///             docs/plan/41's robustness criterion and docs/plan/42's exit criterion 2 both end in the
+///             same three words — "no exceptions, no hangs" — and only the first half of that is testable
+///             by asserting things about a returned value.
+///         </b>
+///         <c>Vixen.Fuzz</c>'s <c>CaseGuard</c> makes
 ///         the argument in full: every other oracle is post-hoc, so "an input that makes a decoder
 ///         loop or grow without bound never reaches them: the call does not return, the second reading
 ///         is never taken." A property test that hangs is not a failing property test. It is a suite
 ///         that never finishes, with nothing on the console naming the case that did it.
 ///     </para>
 ///     <para>
-///         ⚠ <b>This is a deliberate second copy of that shape rather than a reference to it, and the
-///         reason is not layering.</b> <c>build/Build.ArchitectureRules.cs</c> exempts test projects
+///         ⚠
+///         <b>
+///             This is a deliberate second copy of that shape rather than a reference to it, and the
+///             reason is not layering.
+///         </b>
+///         <c>build/Build.ArchitectureRules.cs</c> exempts test projects
 ///         outright — "a test project may reference anything: it is not shipped" — so a
 ///         <c>ProjectReference</c> to <c>Vixen.Fuzz</c> from here would pass the gate. Two other things
 ///         stop it. <c>CaseGuard</c> is <c>internal</c> to an assembly that declares no
@@ -31,8 +38,12 @@ namespace Vixen.Geometry.Testing;
 ///         modules do not belong in <c>Vixen.Fuzz</c>'s target table in the first place.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The watchdog and the worker swap roles compared with <c>CaseGuard</c>, and that is
-///         the one simplification a test suite is allowed.</b> There, the worker runs eleven million
+///         ⚠
+///         <b>
+///             The watchdog and the worker swap roles compared with <c>CaseGuard</c>, and that is
+///             the one simplification a test suite is allowed.
+///         </b>
+///         There, the worker runs eleven million
 ///         cases a build and must not pay for the measurement, so a separate thread does the reading.
 ///         Here the case is the expensive thing and there are a few hundred of them, so the case runs
 ///         on its own thread and the <i>calling</i> thread — which has nothing else to do — takes the
@@ -72,62 +83,101 @@ static class RunawayGuard {
     ///         the job does, on a case that was never going to return.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>It used to be sixty seconds, chosen as roughly six times the slowest healthy case,
-    ///         and that is a wall-clock assertion wearing a watchdog's clothes.</b> It fired as one:
+    ///         ⚠
+    ///         <b>
+    ///             It used to be sixty seconds, chosen as roughly six times the slowest healthy case,
+    ///             and that is a wall-clock assertion wearing a watchdog's clothes.
+    ///         </b>
+    ///         It fired as one:
     ///         <c>RemeshPipelinePropertyTests.TimedCases</c> records <c>ConditioningPropertyTests</c>
     ///         breaching at <b>60.2 s against 60.0</b> — three parts in a thousand — on a seed whose
     ///         whole class finishes in 1 m 36 s when run alone. Its own words: "the case was never
     ///         slow; ten cores were."
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And the measurement the sixty was derived from had already rotted, which is what
-    ///         makes this urgent rather than tidy.</b> This paragraph used to read "the slowest
+    ///         ⚠
+    ///         <b>
+    ///             And the measurement the sixty was derived from had already rotted, which is what
+    ///             makes this urgent rather than tidy.
+    ///         </b>
+    ///         This paragraph used to read "the slowest
     ///         conditioning case is under four [seconds]", written 2026-08-06. Four runs of the
     ///         remeshing property suite on 2026-08-18 — one ten-core machine, one build, the
     ///         <i>build's</i> counts, and the three timed classes already serialised into one
     ///         collection:
     ///     </para>
     ///     <para>
-    ///         <c>suite 309 s → slowest case 54.4 s · 187 s → 23.0 s · 138 s → 38.1 s · 93 s →
-    ///         12.7 s</c>
+    ///         <c>
+    ///             suite 309 s → slowest case 54.4 s · 187 s → 23.0 s · 138 s → 38.1 s · 93 s →
+    ///             12.7 s
+    ///         </c>
     ///     </para>
     ///     <para>
     ///         The slowest single case swung by <b>4.3×</b> across one afternoon on one machine, and
-    ///         its worst reading was <b>54.4 s against a cap of 60</b> — <c>new(ShapeKind.Box, 7, 1,
-    ///         [], 3, 0f, 0.001f)</c>. Not the six-fold headroom this comment claimed: <b>1.10×</b>.
+    ///         its worst reading was <b>54.4 s against a cap of 60</b> —
+    ///         <c>
+    ///             new(ShapeKind.Box, 7, 1,
+    ///             [], 3, 0f, 0.001f)
+    ///         </c>
+    ///         . Not the six-fold headroom this comment claimed: <b>1.10×</b>.
     ///         It had not fired in six nights because it had been lucky six times.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>What the four seconds was, measured afterwards: a coin flip, and never a property
-    ///         of the code.</b> The paragraph above guessed that the swing was the machine rather than
+    ///         ⚠
+    ///         <b>
+    ///             What the four seconds was, measured afterwards: a coin flip, and never a property
+    ///             of the code.
+    ///         </b>
+    ///         The paragraph above guessed that the swing was the machine rather than
     ///         the input, and that guess is half right in a way worth being exact about. Twelve
     ///         replicates of exactly what the property does — 200 draws of its own generator,
     ///         single-threaded, off the runner's parallelism, on the same ten-core machine — give a
-    ///         slowest case of <c>1.0 · 2.5 · 3.2 · 3.7 · 3.8 · 3.9 · 4.9 · 4.9 · 5.1 · 5.3 · 5.3 ·
-    ///         5.4 s</c>. <b>Median 4.9 s, and six of the twelve are under four.</b> So "the slowest
+    ///         slowest case of
+    ///         <c>
+    ///             1.0 · 2.5 · 3.2 · 3.7 · 3.8 · 3.9 · 4.9 · 4.9 · 5.1 · 5.3 · 5.3 ·
+    ///             5.4 s
+    ///         </c>
+    ///         . <b>Median 4.9 s, and six of the twelve are under four.</b> So "the slowest
     ///         conditioning case is under four seconds" was a true sentence about one run and a false
     ///         one about the suite, on the day it was written; nothing regressed. <c>VoxelShrinkwrap</c>
     ///         and <c>WindingNumberField</c> have not been edited since 2026-08-06 13:48, four hours
     ///         before that claim, and the sweep's iteration counts and generator are unchanged.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And the ceiling on the <i>work</i> is 5.4 s, which is what makes the rest of any
-    ///         larger reading attributable.</b> The four dearest draws found, replayed three times
+    ///         ⚠
+    ///         <b>
+    ///             And the ceiling on the <i>work</i> is 5.4 s, which is what makes the rest of any
+    ///             larger reading attributable.
+    ///         </b>
+    ///         The four dearest draws found, replayed three times
     ///         each, read <b>3.9–5.6 s of wall against 3.8–5.4 s of processor time</b> — a ratio of
-    ///         0.96, so they are work and not waiting. The same recipes read <b>11.0 s, 12.4 s and
-    ///         36.7 s</b> inside a survey sharing the machine. <b>12.7 s and 54.4 s above are
-    ///         therefore about 5 s of conditioning multiplied by 2.4 and by 11.</b> The input's own
+    ///         0.96, so they are work and not waiting. The same recipes read
+    ///         <b>
+    ///             11.0 s, 12.4 s and
+    ///             36.7 s
+    ///         </b>
+    ///         inside a survey sharing the machine.
+    ///         <b>
+    ///             12.7 s and 54.4 s above are
+    ///             therefore about 5 s of conditioning multiplied by 2.4 and by 11.
+    ///         </b>
+    ///         The input's own
     ///         spread is real and it is bounded: 1.0 s to 5.4 s, five-fold, where the readings the cap
     ///         was sized against spread four-fold on top of that.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And the multiplier is not an inference. The sweep run alone, twice, one after the
-    ///         other, on the same build and the same machine — the second leg with twenty-four
-    ///         spinners on ten cores:</b>
+    ///         ⚠
+    ///         <b>
+    ///             And the multiplier is not an inference. The sweep run alone, twice, one after the
+    ///             other, on the same build and the same machine — the second leg with twenty-four
+    ///             spinners on ten cores:
+    ///         </b>
     ///     </para>
     ///     <para>
-    ///         <c>as found: slowest case 3.6 s, cpu 3.6 s, 200 cases in 22.1 s · oversubscribed:
-    ///         slowest case 56.2 s, cpu 6.5 s, 200 cases in 191.9 s</c>
+    ///         <c>
+    ///             as found: slowest case 3.6 s, cpu 3.6 s, 200 cases in 22.1 s · oversubscribed:
+    ///             slowest case 56.2 s, cpu 6.5 s, 200 cases in 191.9 s
+    ///         </c>
     ///     </para>
     ///     <para>
     ///         <b>56.2 s reproduces the 54.4 s above, and its processor time is 6.5.</b> The work is
@@ -136,16 +186,28 @@ static class RunawayGuard {
     ///         total. Nothing about that reading is a statement about conditioning.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The whole of it is step seven, and the generator reaches it through a corner the
-    ///         pipeline cannot.</b> Split by setting over four traced suite runs: <b>393 cases with
-    ///         the shrinkwrap on cost 108 s, and 407 with it off cost 1.0 s</b> — a mean of 275 ms
+    ///         ⚠
+    ///         <b>
+    ///             The whole of it is step seven, and the generator reaches it through a corner the
+    ///             pipeline cannot.
+    ///         </b>
+    ///         Split by setting over four traced suite runs:
+    ///         <b>
+    ///             393 cases with
+    ///             the shrinkwrap on cost 108 s, and 407 with it off cost 1.0 s
+    ///         </b>
+    ///         — a mean of 275 ms
     ///         against 2.3 ms. Every one of the fifty dearest draws at each of three pinned seeds has
     ///         it on, and all twelve slowest-of-a-run above are <c>rounds 0, shrinkwrap true</c>,
     ///         eleven of them a box. The mechanism: <c>IsotropicRemesh.Run</c> returns the caller's
     ///         target unchanged when its iteration count is zero, and the sweep's caller passes zero
     ///         to mean "the mesh's own mean" — so a draw with no pre-remesh hands
-    ///         <c>VoxelShrinkwrap</c> a zero, which it reads as its documented fallback of <b>64 steps
-    ///         along the longest axis</b> rather than sizing itself from the mesh. The same recipe
+    ///         <c>VoxelShrinkwrap</c> a zero, which it reads as its documented fallback of
+    ///         <b>
+    ///             64 steps
+    ///             along the longest axis
+    ///         </b>
+    ///         rather than sizing itself from the mesh. The same recipe
     ///         costs <b>5.9 s at zero rounds and 4.5 ms at one</b>, because one round supplies a mean
     ///         edge length that clamps the grid to its eight-step floor: 69³ samples against 13³, and
     ///         ~51 000 extracted triangles against 720 for the second conditioning pass to chew.
@@ -163,8 +225,12 @@ static class RunawayGuard {
     ///         naming a file — writes the per-case distribution on any run without one.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The obvious repair — measure the interference the way the heap half does — was
-    ///         built, measured and refuted.</b> <see cref="RetentionSamples" /> works because heap
+    ///         ⚠
+    ///         <b>
+    ///             The obvious repair — measure the interference the way the heap half does — was
+    ///             built, measured and refuted.
+    ///         </b>
+    ///         <see cref="RetentionSamples" /> works because heap
     ///         contamination is <i>transient</i> relative to a case: sixteen consecutive samples
     ///         cannot all be somebody else's allocation. Scheduling interference is not transient. It
     ///         lasts the whole run, so no number of consecutive samples separates a starved case from
@@ -174,12 +240,18 @@ static class RunawayGuard {
     ///         dominated by the timer's own coalescing, and <b>2.9×</b> at fourfold oversubscription.
     ///         It does not even move the right way. Process CPU time cannot do it either: it saturates
     ///         at <see cref="Environment.ProcessorCount" /> and is blind to a thread that is runnable
-    ///         and not running. <b>So the clock cannot be made to mean what a tight cap needs it to
-    ///         mean, and the answer is to stop asking it to.</b>
+    ///         and not running.
+    ///         <b>
+    ///             So the clock cannot be made to mean what a tight cap needs it to
+    ///             mean, and the answer is to stop asking it to.
+    ///         </b>
     ///     </para>
     ///     <para>
-    ///         <b>Twenty minutes, and the arithmetic is against the runner rather than against a
-    ///         stopwatch on one machine.</b> Upper: the nightly's <c>properties</c> leg has
+    ///         <b>
+    ///             Twenty minutes, and the arithmetic is against the runner rather than against a
+    ///             stopwatch on one machine.
+    ///         </b>
+    ///         Upper: the nightly's <c>properties</c> leg has
     ///         <c>timeout-minutes: 90</c>, and its own comments measure the work at ~18 min
     ///         (remeshing, 15×) and ~17 min (uv, 20×) on a laptop; allow a hosted runner twice that
     ///         and six minutes for checkout, restore and build, and <b>~48 min</b> is left for a guard
@@ -194,8 +266,12 @@ static class RunawayGuard {
     ///         <c>RemeshPipelinePropertyTests</c>' own remarks).
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Raise it only against the leg's budget, never against a case that nearly touched
-    ///         it.</b> A case that took nineteen minutes is a defect worth a morning; widening the
+    ///         ⚠
+    ///         <b>
+    ///             Raise it only against the leg's budget, never against a case that nearly touched
+    ///             it.
+    ///         </b>
+    ///         A case that took nineteen minutes is a defect worth a morning; widening the
     ///         ceiling to accommodate it puts this comment back where it started. The cost of this
     ///         number being too large is bounded and boring — a genuine hang is reported twenty
     ///         minutes later than it could have been — and the cost of it being too small is a red
@@ -206,9 +282,12 @@ static class RunawayGuard {
 
     /// <summary>How far the heap may grow during one case before that is the finding.</summary>
     /// <remarks>
-    ///     ⚠ <b>Retention rather than churn, and <c>CaseGuard</c> records why: "a loop allocating and
-    ///     dropping a kilobyte a thousand times a second never grows the heap, because the collector
-    ///     keeps up; a loop that <i>keeps</i> what it allocates grows it until there is no more."</b>
+    ///     ⚠
+    ///     <b>
+    ///         Retention rather than churn, and <c>CaseGuard</c> records why: "a loop allocating and
+    ///         dropping a kilobyte a thousand times a second never grows the heap, because the collector
+    ///         keeps up; a loop that <i>keeps</i> what it allocates grows it until there is no more."
+    ///     </b>
     ///     Measured against the failure this exists for — an isotropic pre-remesh handed a target edge
     ///     length far below the mesh's own mean quadruples its triangle count every round, and the
     ///     tenth round alone allocates 763 MB — a ceiling of one gigabyte is crossed by round eleven
@@ -234,9 +313,13 @@ static class RunawayGuard {
     ///         dressed up differently.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b><paramref name="ceiling" /> exists for the same reason
-    ///         <paramref name="cap" /> does, and its absence is why the half these remarks call "the
-    ///         one that matters" had never once been shown to fire.</b> The clock could be sabotaged
+    ///         ⚠
+    ///         <b>
+    ///             <paramref name="ceiling" /> exists for the same reason
+    ///             <paramref name="cap" /> does, and its absence is why the half these remarks call "the
+    ///             one that matters" had never once been shown to fire.
+    ///         </b>
+    ///         The clock could be sabotaged
     ///         with a fifth of a second; the heap could only be sabotaged by really retaining a
     ///         gigabyte, which is not a thing to do on a shared runner — so nobody did, and the
     ///         sixteen-sample logic, the message and the arithmetic were all untested. A few megabytes
@@ -251,8 +334,7 @@ static class RunawayGuard {
         var failure = default(ExceptionDispatchInfo);
         var finished = new ManualResetEventSlim(false);
 
-        var worker = new Thread(
-            () => {
+        var worker = new Thread(() => {
                 try {
                     result = body();
                 }
@@ -269,8 +351,7 @@ static class RunawayGuard {
             // ⚠ Background, so a case that never returns cannot hold the test host open after the
             // run has already reported it. That is the whole of what is done about the wedged
             // thread, because it is the whole of what can be done.
-            IsBackground = true,
-            Name = "geometry-property-case"
+            IsBackground = true, Name = "geometry-property-case"
         };
 
         // ⚠ The baseline is read HERE, before the case can have allocated a byte, and not inside
@@ -381,17 +462,25 @@ static class RunawayGuard {
 /// <summary>Every case's wall clock, its overlap and its share of the process, written to a file.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Off unless <c>VIXEN_CASE_TRACE</c> names a file, and it exists because
-///         <see cref="RunawayGuard.Cap" />'s remarks are a claim about a distribution that nothing was
-///         in a position to measure.</b> The cap fired once on a case that "was never slow; ten cores
+///         ⚠
+///         <b>
+///             Off unless <c>VIXEN_CASE_TRACE</c> names a file, and it exists because
+///             <see cref="RunawayGuard.Cap" />'s remarks are a claim about a distribution that nothing was
+///             in a position to measure.
+///         </b>
+///         The cap fired once on a case that "was never slow; ten cores
 ///         were", and the repair for that comment was to widen the ceiling — which is right, and which
 ///         leaves the distribution itself unknown. <c>RunawayGuard.Run</c> already brackets every
 ///         expensive call in both suites and already has the case's own name in its hand, so the
 ///         cheapest honest instrument is the one that writes down what it already knows.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Wall is not enough on its own, and the other columns are what make a row decide
-///         anything.</b> Wall alone cannot tell a slow case from a starved one — the comment on
+///         ⚠
+///         <b>
+///             Wall is not enough on its own, and the other columns are what make a row decide
+///             anything.
+///         </b>
+///         Wall alone cannot tell a slow case from a starved one — the comment on
 ///         <see cref="RunawayGuard.Cap" /> records an in-band lateness meter being built and refuted
 ///         for exactly that reason. <c>cpu</c> is the whole process's processor time across the case,
 ///         in milliseconds: a case whose wall is 50 s and whose <c>cpu</c> is 400 s did not do fifty
@@ -418,7 +507,7 @@ static class CaseTrace {
             return;
         }
 
-        AppDomain.CurrentDomain.ProcessExit += (_, _) => Flush();
+        AppDomain.CurrentDomain.ProcessExit += static (_, _) => Flush();
     }
 
     /// <summary>Marks a case as started, and returns what <see cref="Leave" /> needs to close it.</summary>

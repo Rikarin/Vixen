@@ -51,7 +51,7 @@ public class TaffyUnsupportedCensusTests {
         // The stated total is a third statement about the same run, and it is not derived from the
         // lines above it — a file whose lines were all deleted would otherwise still agree with a
         // census that measured nothing.
-        Assert.Equal(measured.Sum(bucket => bucket.Count), recordedTotal);
+        Assert.Equal(measured.Sum(static bucket => bucket.Count), recordedTotal);
     }
 
     /// <summary>
@@ -66,8 +66,12 @@ public class TaffyUnsupportedCensusTests {
     ///         because both sides agree on nothing.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>THIS TEST HAS NOW BEEN REWRITTEN TWICE BY ITS OWN SUCCESS, AND THE SECOND REWRITE
-    ///         IS THE ONE THAT MATTERS.</b> It began as "more than one distinct reason", which the
+    ///         ⚠
+    ///         <b>
+    ///             THIS TEST HAS NOW BEEN REWRITTEN TWICE BY ITS OWN SUCCESS, AND THE SECOND REWRITE
+    ///             IS THE ONE THAT MATTERS.
+    ///         </b>
+    ///         It began as "more than one distinct reason", which the
     ///         corpus consumed on 2026-08-22 by converging on <c>float</c> alone. It became "the
     ///         reason set is exactly <c>float</c>", which the corpus consumed the next day by
     ///         implementing floats. Both were proxies for "the census is rich", and a proxy that
@@ -80,8 +84,12 @@ public class TaffyUnsupportedCensusTests {
     ///         It is three positive claims about a run that really happened:
     ///         <b>every one of the 5 524 fixtures reached a real outcome</b> — passed or failed, so
     ///         the count of things that asserted something is the whole corpus and not zero;
-    ///         <b>every corpus contributed</b>, so no single file can be missing; and <b>the refusal
-    ///         machinery is still live</b>, proved by feeding it a value it does not know and
+    ///         <b>every corpus contributed</b>, so no single file can be missing; and
+    ///         <b>
+    ///             the refusal
+    ///             machinery is still live
+    ///         </b>
+    ///         , proved by feeding it a value it does not know and
     ///         requiring it to refuse. That last one is the answer to the question in the first
     ///         paragraph: a <c>TaffyStyleMap</c> that had stopped throwing would pass every other
     ///         assertion in this file and fail this one.
@@ -108,7 +116,7 @@ public class TaffyUnsupportedCensusTests {
         }
 
         Assert.Equal(5524, asserted);
-        Assert.Equal(5524, TaffyCorpus.Categories.Sum(category => TaffyCorpus.Load(category).Count));
+        Assert.Equal(5524, TaffyCorpus.Categories.Sum(static category => TaffyCorpus.Load(category).Count));
 
         // ⚠ And the map can still say no. `TaffyStyleMap` keeps refusal arms for values no fixture
         // writes today — the flow-relative `float` and `clear` keywords, `min-content` as a length,
@@ -128,8 +136,14 @@ public class TaffyUnsupportedCensusTests {
         Assert.Contains("float", refused.Detail, StringComparison.Ordinal);
 
         Assert.Equal(TaffyOutcome.Unsupported, TaffyFixtureRunner.Run(Probe("clear", "inline-end")).Outcome);
-        Assert.Equal(TaffyOutcome.Unsupported, TaffyFixtureRunner.Run(Probe("grid-template-areas", "\"a b\" \"b a\"")).Outcome);
-        Assert.NotEqual(TaffyOutcome.Unsupported, TaffyFixtureRunner.Run(Probe("grid-template-areas", "\"a b\"")).Outcome);
+        Assert.Equal(
+            TaffyOutcome.Unsupported,
+            TaffyFixtureRunner.Run(Probe("grid-template-areas", "\"a b\" \"b a\"")).Outcome
+        );
+        Assert.NotEqual(
+            TaffyOutcome.Unsupported,
+            TaffyFixtureRunner.Run(Probe("grid-template-areas", "\"a b\"")).Outcome
+        );
 
         // ⚠ …and it says no for the RIGHT reason. A map that threw `TaffyUnsupportedException` at
         // everything would satisfy the three lines above, so one declaration the map really does
@@ -147,13 +161,15 @@ public class TaffyUnsupportedCensusTests {
         new(
             "probe",
             $"probe_{attribute}",
-            UseRounding: true,
+            true,
             float.NaN,
             float.NaN,
             new TaffyInput(
-                IsText: false,
-                Text: null,
-                new Dictionary<string, string> { ["display"] = "block", [attribute] = value }.ToFrozenDictionary(StringComparer.Ordinal),
+                false,
+                null,
+                new Dictionary<string, string> { ["display"] = "block", [attribute] = value }.ToFrozenDictionary(
+                    StringComparer.Ordinal
+                ),
                 []
             ),
             new TaffyExpected(-1f, -1f, -1f, -1f, [])
@@ -162,8 +178,7 @@ public class TaffyUnsupportedCensusTests {
     static IReadOnlyList<Bucket> Measure() =>
         TaffyCorpus
             .Categories
-            .SelectMany(
-                category => TaffyCensus
+            .SelectMany(static category => TaffyCensus
                     .Run(category, 0)
                     .Refusals
                     .Select(refusal => new Bucket(refusal.Value, category, refusal.Key))
@@ -174,8 +189,8 @@ public class TaffyUnsupportedCensusTests {
     static string Render(IEnumerable<Bucket> buckets) {
         var text = new StringBuilder();
 
-        foreach (var bucket in buckets.OrderBy(bucket => bucket.Category, StringComparer.Ordinal)
-                     .ThenBy(bucket => bucket.Reason, StringComparer.Ordinal)) {
+        foreach (var bucket in buckets.OrderBy(static bucket => bucket.Category, StringComparer.Ordinal)
+                     .ThenBy(static bucket => bucket.Reason, StringComparer.Ordinal)) {
             text.AppendLine(CultureInfo.InvariantCulture, $"{bucket.Count,6}  {bucket.Category}  {bucket.Reason}");
         }
 
@@ -203,7 +218,7 @@ public class TaffyUnsupportedCensusTests {
                 continue;
             }
 
-            var fields = line.Split((char[]?) null, 3, StringSplitOptions.RemoveEmptyEntries);
+            var fields = line.Split((char[]?)null, 3, StringSplitOptions.RemoveEmptyEntries);
 
             if (fields is ["total", var sum]) {
                 stated = int.Parse(sum, CultureInfo.InvariantCulture);
@@ -211,7 +226,7 @@ public class TaffyUnsupportedCensusTests {
             }
 
             Assert.True(fields.Length == 3, $"'{line}' is not `count  corpus  reason` and not a `total` line");
-            buckets.Add(new Bucket(int.Parse(fields[0], CultureInfo.InvariantCulture), fields[1], fields[2].Trim()));
+            buckets.Add(new(int.Parse(fields[0], CultureInfo.InvariantCulture), fields[1], fields[2].Trim()));
         }
 
         Assert.True(stated >= 0, "UnsupportedFixtures.txt states no total; add a `total <n>` line");

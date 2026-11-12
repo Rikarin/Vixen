@@ -9,8 +9,12 @@ namespace Vixen.Ui.Controls.Tests;
 /// <summary>What the field draws over the text, in a block the alignment has moved — issue #326.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>A <c>TextLayout</c> places every line from zero, and the alignment is applied by
-///         whoever draws it.</b> The block does not know how wide the box around it is, so
+///         ⚠
+///         <b>
+///             A <c>TextLayout</c> places every line from zero, and the alignment is applied by
+///             whoever draws it.
+///         </b>
+///         The block does not know how wide the box around it is, so
 ///         <c>CaretOffset</c>, <c>VisualRanges</c> and <c>CaretPositionAt</c> are all line-local
 ///         while <c>DrawListBuilder</c> puts the glyphs at <c>left + TextAlignShift(…)</c>. Anything
 ///         drawn <i>over</i> the text has to add the same number back, and the caret, the selection
@@ -44,9 +48,9 @@ public class RtlFieldMirroringTests {
     const string Wrapped = "aaaa bbbb cccc dddd ee";
 
     const string Css = """
-        root     { direction: rtl; font-family: Test; font-size: 16px; }
-        textarea { width: 120px; height: 100px; }
-        """;
+                       root     { direction: rtl; font-family: Test; font-size: 16px; }
+                       textarea { width: 120px; height: 100px; }
+                       """;
 
     static (UiTest Ui, TextArea Field) Opened() {
         var ui = ControlHarness.Open(300f, 160f, Css);
@@ -136,9 +140,9 @@ public class RtlFieldMirroringTests {
 
             // A quarter of the way into the row's glyphs, which is inside its only word and is
             // nowhere near either end of the block.
-            var target = left + ((right - left) * 0.25f);
+            var target = left + (right - left) * 0.25f;
 
-            ui.MovePointer(target, before.Y + (before.Height * 0.5f));
+            ui.MovePointer(target, before.Y + before.Height * 0.5f);
             ui.PressPointer();
             ui.ReleasePointer();
             ui.Frame();
@@ -161,7 +165,7 @@ public class RtlFieldMirroringTests {
 
         using (ui) {
             field.MoveCaret(Wrapped.Length - 2);
-            field.MoveCaret(Wrapped.Length, extend: true);
+            field.MoveCaret(Wrapped.Length, true);
             ui.Frame();
 
             var caret = Caret(ui);

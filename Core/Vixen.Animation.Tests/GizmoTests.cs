@@ -24,14 +24,14 @@ public class GizmoTests {
     [Fact]
     public void TheMissIsDrawnFromTheEffectorToWhereTheGoalWanted() {
         var draw = new DebugDraw();
-        var (stack, pose) = Solved(new Vector3(0f, 5f, 0f));
+        var (stack, pose) = Solved(new(0f, 5f, 0f));
 
         ConstraintGizmos.Draw(draw, stack, Model(pose));
 
         var tip = TestRigs.ModelPositions(pose)[2];
         var line = Assert.Single(
             draw.Lines.ToArray(),
-            entry => Close(entry.From, tip) && Close(entry.To, new Vector3(0f, 5f, 0f))
+            entry => Close(entry.From, tip) && Close(entry.To, new(0f, 5f, 0f))
         );
 
         // A two-metre chain asked for five metres: three metres out, so the colour is fully saturated
@@ -47,12 +47,12 @@ public class GizmoTests {
         var quiet = new ConstraintGizmoStyle { Chains = false, Readout = false };
 
         var reachable = new DebugDraw();
-        var (near, nearPose) = Solved(new Vector3(0.8f, 1.6f, 0f));
+        var (near, nearPose) = Solved(new(0.8f, 1.6f, 0f));
 
         ConstraintGizmos.Draw(reachable, near, Model(nearPose), quiet);
 
         var missed = new DebugDraw();
-        var (far, farPose) = Solved(new Vector3(0f, 5f, 0f));
+        var (far, farPose) = Solved(new(0f, 5f, 0f));
 
         ConstraintGizmos.Draw(missed, far, Model(farPose), quiet);
 
@@ -73,13 +73,7 @@ public class GizmoTests {
 
         // An entity frame with nothing bound to the slot: the ordinary case for a goal whose other
         // party has not spawned yet.
-        stack.Add(
-            new PositionGoal {
-                Effector = 2,
-                Chain = new(0, 2),
-                Goal = new EntityFrame("prop")
-            }
-        );
+        stack.Add(new PositionGoal { Effector = 2, Chain = new(0, 2), Goal = new EntityFrame("prop") });
 
         stack.Solve(pose.Bones, 1f / 60f);
         ConstraintGizmos.Draw(draw, stack, Model(pose));
@@ -94,15 +88,15 @@ public class GizmoTests {
     [Fact]
     public void TheChainIsDrawnAlongTheJointsTheGoalMayMove() {
         var draw = new DebugDraw();
-        var (stack, pose) = Solved(new Vector3(0.8f, 1.6f, 0f));
+        var (stack, pose) = Solved(new(0.8f, 1.6f, 0f));
 
         ConstraintGizmos.Draw(draw, stack, Model(pose));
 
         var model = TestRigs.ModelPositions(pose);
-        var links = draw.Lines.ToArray().Count(
-            entry => (Close(entry.From, model[2]) && Close(entry.To, model[1]))
+        var links = draw.Lines.ToArray()
+            .Count(entry => (Close(entry.From, model[2]) && Close(entry.To, model[1]))
                 || (Close(entry.From, model[1]) && Close(entry.To, model[0]))
-        );
+            );
 
         Assert.Equal(2, links);
     }
@@ -130,7 +124,7 @@ public class GizmoTests {
     /// <summary>Switching a part off switches it off, so a busy viewport can be quietened.</summary>
     [Fact]
     public void TheStyleTurnsPartsOff() {
-        var (stack, pose) = Solved(new Vector3(0.8f, 1.6f, 0f));
+        var (stack, pose) = Solved(new(0.8f, 1.6f, 0f));
 
         var everything = new DebugDraw();
         ConstraintGizmos.Draw(everything, stack, Model(pose));
@@ -153,7 +147,7 @@ public class GizmoTests {
     [Fact]
     public void TheReadoutNamesTheGoalAndSaysHowFarOff() {
         var draw = new DebugDraw();
-        var (stack, pose) = Solved(new Vector3(0f, 5f, 0f), label: "right hand");
+        var (stack, pose) = Solved(new(0f, 5f, 0f), "right hand");
 
         ConstraintGizmos.Draw(draw, stack, Model(pose));
 
@@ -171,14 +165,17 @@ public class GizmoTests {
     [Fact]
     public void TheGizmosFollowTheCharacterRatherThanSittingAtTheOrigin() {
         var draw = new DebugDraw();
-        var (stack, pose) = Solved(new Vector3(0f, 1.9f, 0f));
+        var (stack, pose) = Solved(new(0f, 1.9f, 0f));
 
-        stack.WorldTransform = new BoneTransform(new Vector3(10f, 0f, -4f), Quaternion.Identity, Vector3.One);
+        stack.WorldTransform = new(new(10f, 0f, -4f), Quaternion.Identity, Vector3.One);
         ConstraintGizmos.Draw(draw, stack, Model(pose));
 
         Assert.All(
             draw.Lines.ToArray(),
-            static entry => Assert.True(entry.From.X > 8f, $"drawn at {entry.From}, which is not where the character is")
+            static entry => Assert.True(
+                entry.From.X > 8f,
+                $"drawn at {entry.From}, which is not where the character is"
+            )
         );
     }
 
@@ -222,10 +219,10 @@ public class GizmoTests {
         using var world = new World(nameof(TheSystemDrawsNothingUntilItIsAskedAndThenOnlyWhoItIsAskedAbout));
 
         var draw = new DebugDraw();
-        var system = new ConstraintGizmoSystem(draw);
+        using var system = new ConstraintGizmoSystem(draw);
 
-        var first = Animated(new Vector3(0f, 5f, 0f));
-        var second = Animated(new Vector3(0f, 5f, 0f));
+        var first = Animated(new(0f, 5f, 0f));
+        var second = Animated(new(0f, 5f, 0f));
 
         var one = world.Create(new AnimatorComponent { Value = first });
         world.Create(new AnimatorComponent { Value = second });
@@ -266,7 +263,7 @@ public class GizmoTests {
 
         loop.AddAnimation();
 
-        var gizmos = loop.AddConstraintGizmos(new DebugDraw());
+        var gizmos = loop.AddConstraintGizmos(new());
 
         // ⚠ Handed back rather than chained, because registering it is not the interesting half:
         // a scene of thirty constrained characters drawn at once is a thousand lines and nothing
@@ -274,7 +271,7 @@ public class GizmoTests {
         Assert.False(gizmos.Enabled);
         Assert.Null(gizmos.Only);
 
-        var animator = Animated(new Vector3(0f, 1.9f, 0f));
+        var animator = Animated(new(0f, 1.9f, 0f));
         var entity = loop.World.Create(new AnimatorComponent { Value = animator });
 
         gizmos.Enabled = true;

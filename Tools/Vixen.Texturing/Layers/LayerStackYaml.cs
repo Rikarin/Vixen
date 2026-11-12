@@ -9,8 +9,11 @@ namespace Vixen.Texturing.Layers;
 /// <summary>A <c>.vxlayers</c>, read and written key by key.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Hand-mapped rather than <c>[DataContract]</c>, and the reason is a landmine this
-///         slice stepped on: <b>a plugin's own entry assembly cannot declare a data contract.</b></b>
+///         ⚠
+///         <b>
+///             Hand-mapped rather than <c>[DataContract]</c>, and the reason is a landmine this
+///             slice stepped on: <b>a plugin's own entry assembly cannot declare a data contract.</b>
+///         </b>
 ///         <c>PluginLoadContext</c> sends every <c>Vixen.*</c> dependency to the default context and
 ///         loads the entry assembly itself into the collectible one — that is what makes
 ///         <c>PluginHost.WaitForCollection</c> mean anything — so the plugin's assembly is loaded
@@ -80,7 +83,7 @@ public static class LayerStackYaml {
     /// <exception cref="YamlBindingException">A key holds something this build cannot read.</exception>
     /// <exception cref="YamlParseException">It is not YAML.</exception>
     public static LayerStackAsset Read(string text) {
-        var root = Mapping(YamlReader.Read(text), "");
+        var root = Mapping(YamlReader.Read(text), string.Empty);
 
         List<TextureSetAsset> sets = [];
 
@@ -93,12 +96,12 @@ public static class LayerStackYaml {
         }
 
         return new() {
-            Version = Integer(root, "version", LayerStackAsset.CurrentVersion, ""),
-            Name = String(root, "name", ""),
-            Model = String(root, "model", ""),
-            BaseWidth = Integer(root, "baseWidth", 1024, ""),
-            BaseHeight = Integer(root, "baseHeight", 1024, ""),
-            Seed = (uint)Integer(root, "seed", 0, "", unsigned: true),
+            Version = Integer(root, "version", LayerStackAsset.CurrentVersion, string.Empty),
+            Name = String(root, "name", string.Empty),
+            Model = String(root, "model", string.Empty),
+            BaseWidth = Integer(root, "baseWidth", 1024, string.Empty),
+            BaseHeight = Integer(root, "baseHeight", 1024, string.Empty),
+            Seed = (uint)Integer(root, "seed", 0, string.Empty, true),
             Sets = sets
         };
     }
@@ -326,12 +329,10 @@ public static class LayerStackYaml {
         YamlMapping mapping = [];
 
         foreach (var (key, value, fallback) in new[] {
-            ("scale", placement.Scale, bare.Scale),
-            ("rotation", placement.Rotation, bare.Rotation),
-            ("offsetX", placement.OffsetX, bare.OffsetX),
-            ("offsetY", placement.OffsetY, bare.OffsetY),
-            ("sharpness", placement.Sharpness, bare.Sharpness)
-        }) {
+                     ("scale", placement.Scale, bare.Scale), ("rotation", placement.Rotation, bare.Rotation),
+                     ("offsetX", placement.OffsetX, bare.OffsetX), ("offsetY", placement.OffsetY, bare.OffsetY),
+                     ("sharpness", placement.Sharpness, bare.Sharpness)
+                 }) {
             if (value != fallback) {
                 mapping.Set(key, Number(value));
             }
@@ -416,9 +417,7 @@ public static class LayerStackYaml {
 
         foreach (var point in curve.Points) {
             points.Add(
-                Numbers(
-                    [point.X, point.Y, point.Z, point.NormalX, point.NormalY, point.NormalZ, point.Pressure]
-                )
+                Numbers([point.X, point.Y, point.Z, point.NormalX, point.NormalY, point.NormalZ, point.Pressure])
             );
         }
 
@@ -457,7 +456,7 @@ public static class LayerStackYaml {
                 if (numbers.Length is not (6 or 7)) {
                     throw new YamlBindingException(
                         at,
-                        $"a point is a place and a normal, six numbers, and a pressure if it has one; this has "
+                        "a point is a place and a normal, six numbers, and a pressure if it has one; this has "
                         + $"{numbers.Length.ToString(CultureInfo.InvariantCulture)}."
                     );
                 }
@@ -822,10 +821,12 @@ public static class LayerStackYaml {
             foreach (var item in Sequence(declared, $"{path}.channels")) {
                 var channel = Mapping(item, $"{path}.channels[{index}]");
 
-                channels.Add(new() {
-                    Usage = String(channel, "usage", $"{path}.channels[{index}]"),
-                    Default = Colour(channel, "default", $"{path}.channels[{index}]")
-                });
+                channels.Add(
+                    new() {
+                        Usage = String(channel, "usage", $"{path}.channels[{index}]"),
+                        Default = Colour(channel, "default", $"{path}.channels[{index}]")
+                    }
+                );
 
                 index++;
             }
@@ -844,7 +845,7 @@ public static class LayerStackYaml {
         return new() {
             Name = String(mapping, "name", path),
             Mesh = String(mapping, "mesh", path),
-            UvSet = Integer(mapping, "uvSet", 0, path, unsigned: true),
+            UvSet = Integer(mapping, "uvSet", 0, path, true),
             Channels = channels,
             HeightNormal = Choice(mapping, "heightNormal", LayerHeightNormal.Smooth, path),
             BakedNormal = Choice(mapping, "bakedNormal", LayerBakeMix.Combine, path),
@@ -1029,8 +1030,7 @@ public static class LayerStackYaml {
     static YamlScalar Number(float value) =>
         new(value.ToString("R", CultureInfo.InvariantCulture), YamlScalarStyle.Plain);
 
-    static YamlScalar Whole(int value) =>
-        new(value.ToString(CultureInfo.InvariantCulture), YamlScalarStyle.Plain);
+    static YamlScalar Whole(int value) => new(value.ToString(CultureInfo.InvariantCulture), YamlScalarStyle.Plain);
 
     static YamlSequence Numbers(float[] values) {
         YamlSequence sequence = new() { Style = YamlCollectionStyle.Flow };
@@ -1055,7 +1055,7 @@ public static class LayerStackYaml {
         ?? throw new YamlBindingException(path, $"expected a scalar and found {node.GetType().Name}.");
 
     static string String(YamlMapping mapping, string key, string path) =>
-        mapping.TryGet(key, out var node) ? Scalar(node, $"{path}.{key}") : "";
+        mapping.TryGet(key, out var node) ? Scalar(node, $"{path}.{key}") : string.Empty;
 
     static int Integer(YamlMapping mapping, string key, int fallback, string path, bool unsigned = false) {
         if (!mapping.TryGet(key, out var node)) {
@@ -1167,6 +1167,6 @@ public static class LayerStackYaml {
             );
         }
 
-        return [.. values];
+        return [..values];
     }
 }

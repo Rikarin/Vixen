@@ -31,8 +31,12 @@ public sealed class ObjectDatabase {
     ///     collection somebody is mutating.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>An array and not a list, because every read enumerates it and only <see cref="Mount" />
-    ///     writes it.</b> <see cref="Mount" /> took a lock and the readers did not, which is a
+    ///     ⚠
+    ///     <b>
+    ///         An array and not a list, because every read enumerates it and only <see cref="Mount" />
+    ///         writes it.
+    ///     </b>
+    ///     <see cref="Mount" /> took a lock and the readers did not, which is a
     ///     "collection was modified" thrown out of an unrelated <see cref="Exists" /> the moment a
     ///     bundle arrives while anything is loading — and with a parallel import there is always
     ///     something loading. Copy-on-write under the lock makes the readers correct with no lock at
@@ -63,7 +67,7 @@ public sealed class ObjectDatabase {
     /// </remarks>
     public ObjectDatabase(params IOdbBackend[] backends) {
         ArgumentNullException.ThrowIfNull(backends);
-        this.backends = [.. backends];
+        this.backends = [..backends];
     }
 
     /// <summary>Adds a backend that was not known when the database was created.</summary>
@@ -89,7 +93,7 @@ public sealed class ObjectDatabase {
                 return false;
             }
 
-            backends = [.. backends, backend];
+            backends = [..backends, backend];
             return true;
         }
     }
@@ -210,8 +214,12 @@ public sealed class ObjectDatabase {
     /// <exception cref="SerializationException">The chunk is missing.</exception>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>"Nothing claims this type" is a question and not a failure, and separating the two
-    ///         is the whole point of this overload.</b> A chunk this cannot read is either a bug — an
+    ///         ⚠
+    ///         <b>
+    ///             "Nothing claims this type" is a question and not a failure, and separating the two
+    ///             is the whole point of this overload.
+    ///         </b>
+    ///         A chunk this cannot read is either a bug — an
     ///         assembly that should have been loaded and was not — or perfectly ordinary content that
     ///         was never meant to go through a serializer at all: a compressed texture, an audio
     ///         bitstream, a mesh's cluster and page blobs. <see cref="WriteRaw" /> exists to put those
@@ -246,15 +254,22 @@ public sealed class ObjectDatabase {
     /// <exception cref="SerializationException">It is not here.</exception>
     /// <remarks>
     ///     <para>
-    ///         <b>The counterpart to <see cref="WriteRaw" />, and it exists for the same content the
-    ///         content build put in with that.</b> A payload produced by a tool that is not this
+    ///         <b>
+    ///             The counterpart to <see cref="WriteRaw" />, and it exists for the same content the
+    ///             content build put in with that.
+    ///         </b>
+    ///         A payload produced by a tool that is not this
     ///         serializer — a compressed texture, an audio bitstream, a video container — has no
     ///         serializer to read it back with, so <see cref="Read{T}" /> cannot and
     ///         <see cref="ReadObject" /> cannot. This is how it comes out.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The type is reported rather than checked, which is the opposite of
-    ///         <see cref="Read{T}" />.</b> There is no type to check against: the caller asked for
+    ///         ⚠
+    ///         <b>
+    ///             The type is reported rather than checked, which is the opposite of
+    ///             <see cref="Read{T}" />.
+    ///         </b>
+    ///         There is no type to check against: the caller asked for
     ///         bytes, and what would make the check meaningful — a serializer registered for that id —
     ///         is precisely what this path is for the absence of. A caller that cares compares the
     ///         number it is handed.
@@ -264,7 +279,7 @@ public sealed class ObjectDatabase {
         var chunk = ReadChunk(id);
         var payload = ChunkFormat.ReadHeader(chunk, out typeId, out _);
 
-        return chunk.AsSpan(payload).ToArray();
+        return [..chunk.AsSpan(payload)];
     }
 
     /// <summary>Reads a chunk's header without deserialising it.</summary>
@@ -377,7 +392,9 @@ public sealed class ObjectDatabase {
 
     byte[] ReadChunk(ObjectId id) {
         if (!TryReadBlob(id, out var blob)) {
-            throw new SerializationException($"There is no chunk {id} in any of this database's {backends.Length} backends.");
+            throw new SerializationException(
+                $"There is no chunk {id} in any of this database's {backends.Length} backends."
+            );
         }
 
         using (blob) {

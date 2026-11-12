@@ -28,20 +28,14 @@ public struct LocalTransform {
     ///     zero scale and a zero quaternion — an entity that collapses to a point and whose matrix is
     ///     all zeroes. Anything creating one by hand starts here.
     /// </remarks>
-    public static LocalTransform Identity => new() {
-        Position = Vector3.Zero,
-        Rotation = Quaternion.Identity,
-        Scale = Vector3.One
-    };
+    public static LocalTransform Identity =>
+        new() { Position = Vector3.Zero, Rotation = Quaternion.Identity, Scale = Vector3.One };
 
     /// <summary>A transform at a position, unrotated and unscaled.</summary>
     /// <param name="position">Where.</param>
     /// <returns>The transform.</returns>
-    public static LocalTransform At(Vector3 position) => new() {
-        Position = position,
-        Rotation = Quaternion.Identity,
-        Scale = Vector3.One
-    };
+    public static LocalTransform At(Vector3 position) =>
+        new() { Position = position, Rotation = Quaternion.Identity, Scale = Vector3.One };
 
     /// <summary>This transform as a matrix, without reference to any parent.</summary>
     /// <returns>The local matrix.</returns>

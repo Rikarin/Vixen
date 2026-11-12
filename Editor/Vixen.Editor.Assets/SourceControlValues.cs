@@ -45,15 +45,24 @@ public enum SourceControlStatus : byte {
 ///     it as the repository does — so a panel that truncated the full one itself would print an id
 ///     that resolves to two commits in exactly the repositories where that matters.
 /// </remarks>
-public sealed record SourceControlRevision(string Id, string ShortId, string Author, DateTimeOffset When, string Summary);
+public sealed record SourceControlRevision(
+    string Id,
+    string ShortId,
+    string Author,
+    DateTimeOffset When,
+    string Summary);
 
 /// <summary>What changed in one file, at one revision or since the last commit.</summary>
 /// <param name="IsText">Whether <see cref="Text" /> is a patch or a sentence about one.</param>
 /// <param name="Text">The unified diff, or what there is to say when there cannot be one.</param>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>The flag is the whole design decision, and it is the one the issue said had to be
-///         made first.</b> Most of a game project is not text: a diff line for a <c>.png</c>, a mesh
+///         ⚠
+///         <b>
+///             The flag is the whole design decision, and it is the one the issue said had to be
+///             made first.
+///         </b>
+///         Most of a game project is not text: a diff line for a <c>.png</c>, a mesh
 ///         or a compiled <c>.vxscene</c> is a promise the viewer breaks the first time somebody uses
 ///         it. So a binary asset's diff is <em>not</em> a patch with the bytes elided — it is one
 ///         honest sentence saying it is binary and how its size moved, which is what git's own
@@ -61,8 +70,12 @@ public sealed record SourceControlRevision(string Id, string ShortId, string Aut
 ///         comparer.
 ///     </para>
 ///     <para>
-///         ⚠ <b>And that is why <see cref="IsText" /> is a field rather than something a reader
-///         infers.</b> A panel that decided by looking for a leading <c>@@</c> would call an empty
+///         ⚠
+///         <b>
+///             And that is why <see cref="IsText" /> is a field rather than something a reader
+///             infers.
+///         </b>
+///         A panel that decided by looking for a leading <c>@@</c> would call an empty
 ///         diff binary, and a text file whose only change is a trailing newline produces exactly
 ///         that.
 ///     </para>

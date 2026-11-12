@@ -81,7 +81,7 @@ public class VfxSubEmitterTests {
         Assert.Equal(5, sparks.Count);
         Assert.All(
             sparks.Particles.Position[..5].ToArray(),
-            position => Assert.Equal(new Vector3(3f, 4f, 5f), position)
+            static position => Assert.Equal(new(3f, 4f, 5f), position)
         );
     }
 
@@ -120,7 +120,7 @@ public class VfxSubEmitterTests {
         Assert.Equal(3, burst.LastEmitted);
         Assert.All(
             sparks.Particles.Position[..3].ToArray(),
-            position => Assert.Equal(new Vector3(1f, 0f, 0f), position)
+            static position => Assert.Equal(new(1f, 0f, 0f), position)
         );
 
         // And only once: the second step spawns nothing, so there is nothing born to emit from.
@@ -204,7 +204,7 @@ public class VfxSubEmitterTests {
         sparks.Step(Dt);
         burst.Step(Dt);
 
-        Assert.Equal(new Vector3(10f, 2f, 0f), sparks.Particles.Position[0]);
+        Assert.Equal(new(10f, 2f, 0f), sparks.Particles.Position[0]);
     }
 
     [Fact]
@@ -218,7 +218,7 @@ public class VfxSubEmitterTests {
         sparks.Step(Dt);
         burst.Step(Dt);
 
-        Assert.Equal(new Vector3(0f, 10f, 0f), sparks.Particles.Velocity[0]);
+        Assert.Equal(new(0f, 10f, 0f), sparks.Particles.Velocity[0]);
     }
 
     /// <summary>A full target refuses and reports, exactly as a full system does.</summary>

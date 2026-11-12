@@ -47,8 +47,10 @@ public readonly record struct RenderCamera(
     float NearPlane,
     float FarPlane
 ) {
-    /// <summary>The camera component this view was described by, or a zeroed one for a view that is
-    ///     not a scene camera.</summary>
+    /// <summary>
+    ///     The camera component this view was described by, or a zeroed one for a view that is
+    ///     not a scene camera.
+    /// </summary>
     /// <remarks>
     ///     <para>
     ///         ⚠ <b>Beside the field of view rather than instead of it.</b> Everything that consumes a
@@ -65,15 +67,16 @@ public readonly record struct RenderCamera(
     public Engine.Cameras.Camera Lens { get; init; }
 
     /// <summary>Looking down −Z from the origin, which is the engine's forward.</summary>
-    public static RenderCamera Default => new(
-        Vector3.Zero,
-        new(0f, 0f, -1f),
-        new(0f, 1f, 0f),
-        MathF.PI / 3f,
-        16f / 9f,
-        0.1f,
-        1000f
-    );
+    public static RenderCamera Default =>
+        new(
+            Vector3.Zero,
+            new(0f, 0f, -1f),
+            new(0f, 1f, 0f),
+            MathF.PI / 3f,
+            16f / 9f,
+            0.1f,
+            1000f
+        );
 
     /// <summary>The view matrix this camera describes.</summary>
     public Matrix4x4 View => Matrix4x4.LookAt(Position, Position + Vector3.Normalize(Forward), Up);
@@ -90,8 +93,12 @@ public readonly record struct RenderCamera(
     ///         one place it is applied to a matrix.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Here rather than only in <see cref="RenderView.ViewProjection" />, because those
-    ///         two are built from different things and have to agree.</b> The view's matrix comes from
+    ///         ⚠
+    ///         <b>
+    ///             Here rather than only in <see cref="RenderView.ViewProjection" />, because those
+    ///             two are built from different things and have to agree.
+    ///         </b>
+    ///         The view's matrix comes from
     ///         the transform's inverse and this one from the field of view; the ambient-occlusion pass
     ///         inverts <em>this</em> to turn a depth texel into a view-space position, and the depth
     ///         texel it is inverting was rasterised through the other. An offset in one and not the

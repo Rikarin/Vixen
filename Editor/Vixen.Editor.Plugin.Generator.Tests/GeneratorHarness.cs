@@ -17,11 +17,11 @@ namespace Vixen.Editor.Plugin.Generator.Tests;
 /// </remarks>
 public static class GeneratorHarness {
     static readonly ImmutableArray<MetadataReference> References = [
-        .. ((string) AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")!)
+        ..((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")!)
             .Split(Path.PathSeparator)
-            .Where(path => path.EndsWith(".dll", StringComparison.OrdinalIgnoreCase))
+            .Where(static path => path.EndsWith(".dll", StringComparison.OrdinalIgnoreCase))
             .Distinct(StringComparer.Ordinal)
-            .Select(path => (MetadataReference) MetadataReference.CreateFromFile(path))
+            .Select(static path => (MetadataReference)MetadataReference.CreateFromFile(path))
     ];
 
     /// <summary>Compiles source, runs the generator, and hands back what it produced and said.</summary>
@@ -39,8 +39,10 @@ public static class GeneratorHarness {
 
         return new(
             run.Diagnostics,
-            [.. run.GeneratedSources.Select(static produced => produced.SourceText.ToString())],
-            updated.GetDiagnostics().Where(static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error).ToImmutableArray(),
+            [..run.GeneratedSources.Select(static produced => produced.SourceText.ToString())],
+            updated.GetDiagnostics()
+                .Where(static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error)
+                .ToImmutableArray(),
             updated
         );
     }
@@ -60,7 +62,9 @@ public static class GeneratorHarness {
             new(OutputKind.DynamicallyLinkedLibrary, nullableContextOptions: NullableContextOptions.Enable)
         );
 
-        Assert.Empty(compilation.GetDiagnostics().Where(static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error));
+        Assert.Empty(
+            compilation.GetDiagnostics().Where(static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error)
+        );
 
         return compilation;
     }

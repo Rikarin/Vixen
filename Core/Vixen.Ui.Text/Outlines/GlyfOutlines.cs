@@ -110,7 +110,7 @@ internal sealed class GlyfOutlines {
 
         var reader = new SfntReader(glyf) { Position = start };
         var contours = reader.S16();
-        reader.Position += 8;                              // the stored bounding box
+        reader.Position += 8; // the stored bounding box
 
         if (contours >= 0) {
             Simple(builder, ref reader, glyph, variation, contours, a, b, c, d, e, f);
@@ -144,7 +144,7 @@ internal sealed class GlyfOutlines {
 
             float dx;
             float dy;
-            if ((flags & 0x0001) != 0) {                   // ARG_1_AND_2_ARE_WORDS
+            if ((flags & 0x0001) != 0) { // ARG_1_AND_2_ARE_WORDS
                 dx = reader.S16();
                 dy = reader.S16();
             } else {
@@ -152,26 +152,26 @@ internal sealed class GlyfOutlines {
                 dy = reader.S8();
             }
 
-            if ((flags & 0x0002) == 0) {                   // ARGS_ARE_XY_VALUES unset: point matching
+            if ((flags & 0x0002) == 0) { // ARGS_ARE_XY_VALUES unset: point matching
                 dx = dy = 0;
             }
 
             float ca = 1, cb = 0, cc = 0, cd = 1;
-            if ((flags & 0x0008) != 0) {                   // WE_HAVE_A_SCALE
+            if ((flags & 0x0008) != 0) { // WE_HAVE_A_SCALE
                 ca = cd = reader.F2Dot14();
-            } else if ((flags & 0x0040) != 0) {            // WE_HAVE_AN_X_AND_Y_SCALE
+            } else if ((flags & 0x0040) != 0) { // WE_HAVE_AN_X_AND_Y_SCALE
                 ca = reader.F2Dot14();
                 cd = reader.F2Dot14();
-            } else if ((flags & 0x0080) != 0) {            // WE_HAVE_A_TWO_BY_TWO
+            } else if ((flags & 0x0080) != 0) { // WE_HAVE_A_TWO_BY_TWO
                 ca = reader.F2Dot14();
                 cb = reader.F2Dot14();
                 cc = reader.F2Dot14();
                 cd = reader.F2Dot14();
             }
 
-            components.Add(new Component(component, dx, dy, ca, cb, cc, cd));
+            components.Add(new(component, dx, dy, ca, cb, cc, cd));
 
-            if ((flags & 0x0020) == 0) {                   // MORE_COMPONENTS
+            if ((flags & 0x0020) == 0) { // MORE_COMPONENTS
                 break;
             }
         }
@@ -187,12 +187,12 @@ internal sealed class GlyfOutlines {
                 builder,
                 component.Glyph,
                 variation,
-                (component.A * a) + (component.B * c),
-                (component.A * b) + (component.B * d),
-                (component.C * a) + (component.D * c),
-                (component.C * b) + (component.D * d),
-                (component.Dx * a) + (component.Dy * c) + e,
-                (component.Dx * b) + (component.Dy * d) + f,
+                component.A * a + component.B * c,
+                component.A * b + component.B * d,
+                component.C * a + component.D * c,
+                component.C * b + component.D * d,
+                component.Dx * a + component.Dy * c + e,
+                component.Dx * b + component.Dy * d + f,
                 depth + 1
             );
         }
@@ -264,7 +264,7 @@ internal sealed class GlyfOutlines {
             var flag = reader.U8();
             flags[i++] = flag;
 
-            if ((flag & 0x08) == 0) {                      // REPEAT_FLAG
+            if ((flag & 0x08) == 0) { // REPEAT_FLAG
                 continue;
             }
 
@@ -340,19 +340,18 @@ internal sealed class GlyfOutlines {
             return;
         }
 
-        int Wrap(int i) => first + (((i % n) + n) % n);
+        int Wrap(int i) => first + (i % n + n) % n;
 
         (float X, float Y) At(int i) {
             var k = Wrap(i);
             var px = xs[k];
             var py = ys[k];
-            return ((a * px) + (c * py) + e, (b * px) + (d * py) + f);
+            return (a * px + c * py + e, b * px + d * py + f);
         }
 
         bool On(int i) => (flags[Wrap(i)] & 0x01) != 0;
 
-        static (float X, float Y) Mid((float X, float Y) p, (float X, float Y) q) =>
-            ((p.X + q.X) / 2, (p.Y + q.Y) / 2);
+        static (float X, float Y) Mid((float X, float Y) p, (float X, float Y) q) => ((p.X + q.X) / 2, (p.Y + q.Y) / 2);
 
         int index;
         (float X, float Y) start;

@@ -50,8 +50,7 @@ public sealed class ExperienceCurve {
     /// <summary>What it costs to go from one level to the next.</summary>
     /// <param name="level">The level being left, counting from one.</param>
     /// <returns>The experience, or zero at the maximum.</returns>
-    public int CostOf(int level) =>
-        level >= 1 && level <= thresholds.Length ? thresholds[level - 1] : 0;
+    public int CostOf(int level) => level >= 1 && level <= thresholds.Length ? thresholds[level - 1] : 0;
 
     /// <summary>What it costs to get from level one to a level.</summary>
     /// <param name="level">The level.</param>
@@ -198,15 +197,15 @@ public sealed class ProgressionLibrary {
 
     /// <summary>Every talent tree, in address order.</summary>
     public IEnumerable<TalentTree> Trees =>
-        trees.Values.OrderBy(tree => tree.Definition.Address, StringComparer.Ordinal);
+        trees.Values.OrderBy(static tree => tree.Definition.Address, StringComparer.Ordinal);
 
     /// <summary>Every profession, in address order.</summary>
     public IEnumerable<RankedTrack<ProfessionDefinition>> Professions =>
-        professions.Values.OrderBy(track => track.Definition.Address, StringComparer.Ordinal);
+        professions.Values.OrderBy(static track => track.Definition.Address, StringComparer.Ordinal);
 
     /// <summary>Every faction, in address order.</summary>
     public IEnumerable<RankedTrack<ReputationDefinition>> Reputations =>
-        reputations.Values.OrderBy(track => track.Definition.Address, StringComparer.Ordinal);
+        reputations.Values.OrderBy(static track => track.Definition.Address, StringComparer.Ordinal);
 
     /// <summary>What did not resolve, and what a definition said that cannot be true at once.</summary>
     public IReadOnlyList<string> Problems => problems;
@@ -287,8 +286,7 @@ public sealed class ProgressionLibrary {
                     DefId.From(definition.TalentTree),
                     RequirementSet.Compile(definition.Requirements, tags),
                     [
-                        .. definition.Modifiers.Select(
-                            modifier => new Modifier(
+                        ..definition.Modifiers.Select(static modifier => new Modifier(
                                 AttributeId.From(modifier.Attribute),
                                 modifier.Op,
                                 modifier.Value,
@@ -300,7 +298,7 @@ public sealed class ProgressionLibrary {
             );
         }
 
-        return new(curve, trees, professions, reputations, specialisations, [.. problems]);
+        return new(curve, trees, professions, reputations, specialisations, [..problems]);
     }
 
     /// <summary>Finds a talent tree.</summary>
@@ -325,7 +323,7 @@ public sealed class ProgressionLibrary {
 
     /// <summary>Every specialisation, in address order.</summary>
     public IEnumerable<Specialisation> Specialisations =>
-        specialisations.Values.OrderBy(entry => entry.Definition.Address, StringComparer.Ordinal);
+        specialisations.Values.OrderBy(static entry => entry.Definition.Address, StringComparer.Ordinal);
 
     static (int, GameplayTag, string)[] Sorted(IEnumerable<(int Threshold, GameplayTag Tag, string Name)> ranks) {
         var sorted = ranks.ToArray();
@@ -360,7 +358,9 @@ public sealed class ProgressionLibrary {
 
             foreach (var prerequisite in node.Requires) {
                 if (!byId.TryGetValue(prerequisite.Node, out var required)) {
-                    problems.Add($"'{definition.Address}' node '{node.Id}' needs '{prerequisite.Node}', which is not in it.");
+                    problems.Add(
+                        $"'{definition.Address}' node '{node.Id}' needs '{prerequisite.Node}', which is not in it."
+                    );
 
                     continue;
                 }
@@ -371,10 +371,9 @@ public sealed class ProgressionLibrary {
             nodes[index] = new(
                 node,
                 index,
-                [.. node.GrantsTags.Select(tags.Resolve)],
+                [..node.GrantsTags.Select(tags.Resolve)],
                 [
-                    .. node.Modifiers.Select(
-                        modifier => new Modifier(
+                    ..node.Modifiers.Select(static modifier => new Modifier(
                             AttributeId.From(modifier.Attribute),
                             modifier.Op,
                             modifier.Value,
@@ -382,7 +381,7 @@ public sealed class ProgressionLibrary {
                         )
                     )
                 ],
-                [.. requires]
+                [..requires]
             );
         }
 

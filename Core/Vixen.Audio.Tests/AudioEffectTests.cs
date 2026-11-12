@@ -12,14 +12,14 @@ public sealed class AudioEffectTests {
 
     /// <summary>Runs a sine through an effect and returns the amplitude that came out.</summary>
     static float Response(BiquadFilterEffect effect, float frequency, int channels = 1, int frames = 8_192) {
-        effect.Prepare(new AudioFormat(Rate, channels), frames);
+        effect.Prepare(new(Rate, channels), frames);
         var buffer = new float[frames * channels];
 
         for (var frame = 0; frame < frames; frame++) {
             var value = MathF.Sin(2f * MathF.PI * frequency * frame / Rate);
 
             for (var channel = 0; channel < channels; channel++) {
-                buffer[(frame * channels) + channel] = value;
+                buffer[frame * channels + channel] = value;
             }
         }
 
@@ -83,10 +83,7 @@ public sealed class AudioEffectTests {
     [Fact]
     public void APeakingFilterBoostsOnlyItsOwnBand() {
         var filter = new BiquadFilterEffect {
-            Kind = BiquadFilterKind.Peaking,
-            Frequency = 1_000f,
-            Q = 2f,
-            GainDb = 12f
+            Kind = BiquadFilterKind.Peaking, Frequency = 1_000f, Q = 2f, GainDb = 12f
         };
 
         var boosted = Response(filter, 1_000f);
@@ -115,11 +112,7 @@ public sealed class AudioEffectTests {
 
     [Fact]
     public void ADisabledEffectChangesNothing() {
-        var filter = new BiquadFilterEffect {
-            Kind = BiquadFilterKind.LowPass,
-            Frequency = 100f,
-            Enabled = false
-        };
+        var filter = new BiquadFilterEffect { Kind = BiquadFilterKind.LowPass, Frequency = 100f, Enabled = false };
 
         Assert.Equal(1f, Response(filter, 10_000f), 0.001f);
     }
@@ -127,7 +120,7 @@ public sealed class AudioEffectTests {
     [Fact]
     public void AReverbTurnsAnImpulseIntoATail() {
         var reverb = new ReverbEffect { Wet = 1f, Dry = 0f, RoomSize = 0.9f };
-        reverb.Prepare(new AudioFormat(Rate, 2), 4_096);
+        reverb.Prepare(new(Rate, 2), 4_096);
 
         var buffer = new float[4_096 * 2];
         buffer[0] = 1f;
@@ -143,7 +136,7 @@ public sealed class AudioEffectTests {
     [Fact]
     public void AReverbLeavesTheDrySignalWhereItWas() {
         var reverb = new ReverbEffect { Wet = 0f, Dry = 1f };
-        reverb.Prepare(new AudioFormat(Rate, 2), 64);
+        reverb.Prepare(new(Rate, 2), 64);
 
         var buffer = new float[64 * 2];
         Array.Fill(buffer, 0.5f);
@@ -157,7 +150,7 @@ public sealed class AudioEffectTests {
     [Fact]
     public void ResettingAReverbThrowsAwayItsTail() {
         var reverb = new ReverbEffect { Wet = 1f, Dry = 0f, RoomSize = 1f };
-        reverb.Prepare(new AudioFormat(Rate, 2), 4_096);
+        reverb.Prepare(new(Rate, 2), 4_096);
 
         var buffer = new float[4_096 * 2];
         buffer[0] = 1f;
@@ -188,7 +181,7 @@ public sealed class AudioEffectTests {
         static float DecaySeconds(int rate) {
             var reverb = new ReverbEffect { Wet = 1f, Dry = 0f, RoomSize = 0.5f, Damping = 0.5f };
             var frames = rate * 2;
-            reverb.Prepare(new AudioFormat(rate, 1), frames);
+            reverb.Prepare(new(rate, 1), frames);
 
             var buffer = new float[frames];
             buffer[0] = 1f;
@@ -216,17 +209,13 @@ public sealed class AudioEffectTests {
 
     [Fact]
     public void AnEffectOnABusProcessesEverythingRoutedIntoIt() {
-        var (engine, device) = AudioTestData.Engine(channels: 1);
+        var (engine, device) = AudioTestData.Engine(1);
         using var _ = engine;
 
         var music = engine.CreateBus("Music");
         music.AddEffect(new BiquadFilterEffect { Kind = BiquadFilterKind.LowPass, Frequency = 20f });
 
-        engine.Play(AudioTestData.Constant(4_800, 1f), new PlaybackSettings {
-            Gain = 1f,
-            Pitch = 1f,
-            Bus = music.Index
-        });
+        engine.Play(AudioTestData.Constant(4_800, 1f), new() { Gain = 1f, Pitch = 1f, Bus = music.Index });
 
         // A step through a 20 Hz low-pass has barely started to rise after a millisecond.
         var rendered = AudioTestData.Render(device, 48);
@@ -239,9 +228,7 @@ public sealed class AudioEffectTests {
     public void AnEffectCannotBeAddedBeforeTheBusKnowsItsFormat() {
         var mixer = new AudioMixer();
 
-        Assert.Throws<InvalidOperationException>(
-            () => { mixer.Master.AddEffect(new BiquadFilterEffect()); }
-        );
+        Assert.Throws<InvalidOperationException>(() => { mixer.Master.AddEffect(new BiquadFilterEffect()); });
     }
 
     [Fact]
@@ -263,7 +250,7 @@ public sealed class AudioEffectTests {
         equalizer.AddBand(BiquadFilterKind.HighPass, 200f);
         equalizer.AddBand(BiquadFilterKind.Peaking, 1_000f, 2f, 12f);
 
-        equalizer.Prepare(new AudioFormat(Rate, 1), 8_192);
+        equalizer.Prepare(new(Rate, 1), 8_192);
 
         Assert.Equal(2, equalizer.Bands.Count);
         Assert.True(Through(equalizer, 50f) < 0.1f, "the high-pass did not take the rumble out");
@@ -276,7 +263,7 @@ public sealed class AudioEffectTests {
     public void AnEqualiserBandCanBeChangedAndRemoved() {
         var equalizer = new EqualizerEffect();
         var band = equalizer.AddBand(BiquadFilterKind.LowPass, 100f);
-        equalizer.Prepare(new AudioFormat(Rate, 1), 8_192);
+        equalizer.Prepare(new(Rate, 1), 8_192);
 
         Assert.True(Through(equalizer, 10_000f) < 0.05f);
 
@@ -292,7 +279,7 @@ public sealed class AudioEffectTests {
     [Fact]
     public void AnEqualiserWithNoBandsChangesNothing() {
         var equalizer = new EqualizerEffect();
-        equalizer.Prepare(new AudioFormat(Rate, 1), 512);
+        equalizer.Prepare(new(Rate, 1), 512);
 
         var buffer = new float[512];
         Array.Fill(buffer, 0.5f);
@@ -311,7 +298,7 @@ public sealed class AudioEffectTests {
             DampingHz = 30_000f
         };
 
-        delay.Prepare(new AudioFormat(Rate, 1), 4_096);
+        delay.Prepare(new(Rate, 1), 4_096);
 
         var buffer = new float[4_096];
         buffer[0] = 1f;
@@ -334,7 +321,7 @@ public sealed class AudioEffectTests {
             DampingHz = 30_000f
         };
 
-        delay.Prepare(new AudioFormat(Rate, 1), 4_096);
+        delay.Prepare(new(Rate, 1), 4_096);
 
         var buffer = new float[4_096];
         buffer[0] = 1f;
@@ -357,18 +344,30 @@ public sealed class AudioEffectTests {
             bright[i] = i < 480 ? 0.5f * MathF.Sin(2f * MathF.PI * 8_000f * i / Rate) : 0f;
         }
 
-        var damped = Tail(new DelayEffect {
-            DelaySeconds = 0.01f, Feedback = 0.8f, Wet = 1f, Dry = 0f, DampingHz = 500f
-        });
+        var damped = Tail(
+            new() {
+                DelaySeconds = 0.01f,
+                Feedback = 0.8f,
+                Wet = 1f,
+                Dry = 0f,
+                DampingHz = 500f
+            }
+        );
 
-        var open = Tail(new DelayEffect {
-            DelaySeconds = 0.01f, Feedback = 0.8f, Wet = 1f, Dry = 0f, DampingHz = 30_000f
-        });
+        var open = Tail(
+            new() {
+                DelaySeconds = 0.01f,
+                Feedback = 0.8f,
+                Wet = 1f,
+                Dry = 0f,
+                DampingHz = 30_000f
+            }
+        );
 
         Assert.True(damped < open * 0.5f, $"damped {damped:F4} against open {open:F4}");
 
         float Tail(DelayEffect delay) {
-            delay.Prepare(new AudioFormat(Rate, 1), bright.Length);
+            delay.Prepare(new(Rate, 1), bright.Length);
             var buffer = (float[])bright.Clone();
             delay.Process(buffer, bright.Length, 1);
             return AudioTestData.Peak(buffer.AsSpan(4_096));
@@ -390,7 +389,7 @@ public sealed class AudioEffectTests {
             PingPong = true
         };
 
-        delay.Prepare(new AudioFormat(Rate, 2), 4_096);
+        delay.Prepare(new(Rate, 2), 4_096);
 
         var buffer = new float[4_096 * 2];
         buffer[0] = 1f;
@@ -399,9 +398,9 @@ public sealed class AudioEffectTests {
         // Struck on the left: the first repeat comes back on the left, and its feedback lands on the
         // right one delay later.
         Assert.Equal(1f, buffer[480 * 2], 1e-4f);
-        Assert.Equal(0f, buffer[(480 * 2) + 1], 1e-4f);
+        Assert.Equal(0f, buffer[480 * 2 + 1], 1e-4f);
         Assert.Equal(0f, buffer[960 * 2], 1e-4f);
-        Assert.Equal(0.7f, buffer[(960 * 2) + 1], 1e-3f);
+        Assert.Equal(0.7f, buffer[960 * 2 + 1], 1e-3f);
     }
 
     /// <summary>
@@ -418,7 +417,7 @@ public sealed class AudioEffectTests {
             DampingHz = 30_000f
         };
 
-        delay.Prepare(new AudioFormat(Rate, 1), 48_000);
+        delay.Prepare(new(Rate, 1), 48_000);
 
         var buffer = new float[48_000];
         buffer[0] = 1f;

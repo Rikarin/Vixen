@@ -30,12 +30,19 @@ public class TextureShapeFamilyDeviceTests(ITestOutputHelper output) {
     const float Unit = Scale * Scale / 4f;
 
     static Lanes Shape(Vixen.Graphics.Vulkan.VulkanDevice device, string kind, Action<GraphNode>? numbers = null) =>
-        Bake(device, "Source/Shape", Side, Side, [], node => {
-            node.SetText("Kind", kind);
-            node.SetValue("Scale", Scale);
-            node.SetValue("Falloff", 0.0001f);
-            numbers?.Invoke(node);
-        });
+        Bake(
+            device,
+            "Source/Shape",
+            Side,
+            Side,
+            [],
+            node => {
+                node.SetText("Kind", kind);
+                node.SetValue("Scale", Scale);
+                node.SetValue("Falloff", 0.0001f);
+                numbers?.Invoke(node);
+            }
+        );
 
     static float Covered(Lanes picture) {
         var inside = 0;
@@ -51,10 +58,10 @@ public class TextureShapeFamilyDeviceTests(ITestOutputHelper output) {
 
     /// <summary>Where a texel centre is in the shape's own frame: the radius is one, y is down.</summary>
     static (float X, float Y) Local(int x, int y) =>
-        ((((x + 0.5f) / Side) - 0.5f) * 2f / Scale, (((y + 0.5f) / Side) - 0.5f) * 2f / Scale);
+        (((x + 0.5f) / Side - 0.5f) * 2f / Scale, ((y + 0.5f) / Side - 0.5f) * 2f / Scale);
 
     /// <summary>The area of a lens between two unit circles whose centres are <paramref name="d" /> apart.</summary>
-    static float Lens(float d) => (2f * MathF.Acos(d / 2f)) - ((d / 2f) * MathF.Sqrt(4f - (d * d)));
+    static float Lens(float d) => 2f * MathF.Acos(d / 2f) - d / 2f * MathF.Sqrt(4f - d * d);
 
     [Fact]
     public void A_polygon_of_three_sides_is_the_triangle() {
@@ -97,8 +104,8 @@ public class TextureShapeFamilyDeviceTests(ITestOutputHelper output) {
 
         // One vertex points up: the texel just inside the top vertex is in, and the one just outside the
         // circumcircle above it is not.
-        Assert.True(polygon.At(Side / 2, (int)(Side * (0.5f - (Scale / 2f))) + 2, 0) > 0.5f);
-        Assert.True(polygon.At(Side / 2, (int)(Side * (0.5f - (Scale / 2f))) - 2, 0) < 0.5f);
+        Assert.True(polygon.At(Side / 2, (int)(Side * (0.5f - Scale / 2f)) + 2, 0) > 0.5f);
+        Assert.True(polygon.At(Side / 2, (int)(Side * (0.5f - Scale / 2f)) - 2, 0) < 0.5f);
     }
 
     [Fact]
@@ -106,10 +113,14 @@ public class TextureShapeFamilyDeviceTests(ITestOutputHelper output) {
         using var device = TextureKernelHarness.Open();
 
         foreach (var (points, inner) in (ReadOnlySpan<(int, float)>)[(5, 0.4f), (7, 0.6f), (4, 0.25f)]) {
-            var star = Shape(device, "Star", node => {
-                node.SetValue("Sides", points);
-                node.SetValue("Inner", inner);
-            });
+            var star = Shape(
+                device,
+                "Star",
+                node => {
+                    node.SetValue("Sides", points);
+                    node.SetValue("Inner", inner);
+                }
+            );
 
             var expected = points * inner * MathF.Sin(MathF.PI / points) * Unit;
 
@@ -125,11 +136,11 @@ public class TextureShapeFamilyDeviceTests(ITestOutputHelper output) {
         foreach (var hole in (ReadOnlySpan<float>)[0.3f, 0.7f]) {
             var ring = Shape(device, "Ring", node => node.SetValue("Inner", hole));
 
-            Assert.Equal(MathF.PI * (1f - (hole * hole)) * Unit, Covered(ring), 0.004f);
+            Assert.Equal(MathF.PI * (1f - hole * hole) * Unit, Covered(ring), 0.004f);
             Assert.Equal(0f, ring.At(Side / 2, Side / 2, 0), 0.001f);
 
             // The middle of the band, straight right of the centre.
-            var middle = (int)((Side / 2f) + ((1f + hole) / 2f * Scale / 2f * Side));
+            var middle = (int)(Side / 2f + (1f + hole) / 2f * Scale / 2f * Side);
 
             Assert.Equal(1f, ring.At(middle, Side / 2, 0), 0.001f);
         }
@@ -141,16 +152,17 @@ public class TextureShapeFamilyDeviceTests(ITestOutputHelper output) {
 
         foreach (var half in (ReadOnlySpan<float>)[0.25f, 0.5f]) {
             var capsule = Shape(device, "Capsule", node => node.SetValue("Inner", half));
-            var expected = ((MathF.PI * half * half) + (2f * (1f - half) * 2f * half)) * Unit;
+            var expected = (MathF.PI * half * half + 2f * (1f - half) * 2f * half) * Unit;
 
             Assert.Equal(expected, Covered(capsule), 0.004f);
 
             // Along x it reaches the rim; along y it stops at its half thickness.
             Each((x, y, local) => {
-                if (MathF.Abs(local.Y) > half + 0.03f || MathF.Abs(local.X) > 1.03f) {
-                    Assert.Equal(0f, capsule.At(x, y, 0), 0.001f);
+                    if (MathF.Abs(local.Y) > half + 0.03f || MathF.Abs(local.X) > 1.03f) {
+                        Assert.Equal(0f, capsule.At(x, y, 0), 0.001f);
+                    }
                 }
-            });
+            );
         }
     }
 
@@ -165,8 +177,8 @@ public class TextureShapeFamilyDeviceTests(ITestOutputHelper output) {
             Assert.Equal(expected, Covered(crescent), 0.004f);
 
             // Open to the right: the left rim is in, and the right of the centre is cut away.
-            Assert.True(crescent.At((int)(Side * (0.5f - (Scale * 0.45f))), Side / 2, 0) > 0.5f);
-            Assert.True(crescent.At((int)(Side * (0.5f + (Scale * 0.3f))), Side / 2, 0) < 0.5f);
+            Assert.True(crescent.At((int)(Side * (0.5f - Scale * 0.45f)), Side / 2, 0) > 0.5f);
+            Assert.True(crescent.At((int)(Side * (0.5f + Scale * 0.3f)), Side / 2, 0) < 0.5f);
         }
     }
 
@@ -174,16 +186,17 @@ public class TextureShapeFamilyDeviceTests(ITestOutputHelper output) {
     public void A_pyramid_and_a_hemisphere_are_their_profiles_at_every_texel() {
         using var device = TextureKernelHarness.Open();
 
-        var pyramid = Shape(device, "Pyramid", node => node.SetValue("Falloff", 0.3f));
-        var hemisphere = Shape(device, "Hemisphere", node => node.SetValue("Falloff", 0.3f));
+        var pyramid = Shape(device, "Pyramid", static node => node.SetValue("Falloff", 0.3f));
+        var hemisphere = Shape(device, "Hemisphere", static node => node.SetValue("Falloff", 0.3f));
 
         Each((x, y, local) => {
-            var square = MathF.Max(MathF.Abs(local.X), MathF.Abs(local.Y));
-            var radius = MathF.Sqrt((local.X * local.X) + (local.Y * local.Y));
+                var square = MathF.Max(MathF.Abs(local.X), MathF.Abs(local.Y));
+                var radius = MathF.Sqrt(local.X * local.X + local.Y * local.Y);
 
-            Assert.Equal(Math.Clamp(1f - square, 0f, 1f), pyramid.At(x, y, 0), 0.001f);
-            Assert.Equal(MathF.Sqrt(Math.Clamp(1f - (radius * radius), 0f, 1f)), hemisphere.At(x, y, 0), 0.002f);
-        });
+                Assert.Equal(Math.Clamp(1f - square, 0f, 1f), pyramid.At(x, y, 0), 0.001f);
+                Assert.Equal(MathF.Sqrt(Math.Clamp(1f - radius * radius, 0f, 1f)), hemisphere.At(x, y, 0), 0.002f);
+            }
+        );
     }
 
     /// <summary>
@@ -202,25 +215,30 @@ public class TextureShapeFamilyDeviceTests(ITestOutputHelper output) {
         using var device = TextureKernelHarness.Open();
 
         Lanes At(float x, float y) =>
-            Shape(device, kind, node => {
-                node.SetValue("Centre X", x);
-                node.SetValue("Centre Y", y);
-                node.SetValue("Falloff", 0.1f);
-                node.SetValue("Rotation", 0.4f);
-                node.SetValue("Sides", 5f);
-                node.SetValue("Inner", 0.45f);
-            });
+            Shape(
+                device,
+                kind,
+                node => {
+                    node.SetValue("Centre X", x);
+                    node.SetValue("Centre Y", y);
+                    node.SetValue("Falloff", 0.1f);
+                    node.SetValue("Rotation", 0.4f);
+                    node.SetValue("Sides", 5f);
+                    node.SetValue("Inner", 0.45f);
+                }
+            );
 
         var middle = At(0.4f, 0.45f);
         var corner = At(0.9f, 0.95f);
         var crossing = 0;
 
         Each((x, y, _) => {
-            var expected = middle.At((x + (Side / 2)) % Side, (y + (Side / 2)) % Side, 0);
+                var expected = middle.At((x + Side / 2) % Side, (y + Side / 2) % Side, 0);
 
-            Assert.Equal(expected, corner.At(x, y, 0), 0.002f);
-            crossing += (x == 0 || y == 0) && expected > 0.5f ? 1 : 0;
-        });
+                Assert.Equal(expected, corner.At(x, y, 0), 0.002f);
+                crossing += (x == 0 || y == 0) && expected > 0.5f ? 1 : 0;
+            }
+        );
 
         // ⚠ The instrument: the shape really did cross the edge, or a clamped one would pass as well.
         Assert.True(crossing > 4, $"{kind} never reached the left or top edge, so its wrap was not looked at.");

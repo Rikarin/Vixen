@@ -90,8 +90,11 @@ sealed class LeastSquaresSolver {
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="iterations" /> is negative.</exception>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The exhaustion floor is anchored to <c>‖b‖</c> and not to <c>‖Aᵀb‖</c>, and
-    ///         anchoring it to the gradient was a bug that survived a property suite for a while.</b>
+    ///         ⚠
+    ///         <b>
+    ///             The exhaustion floor is anchored to <c>‖b‖</c> and not to <c>‖Aᵀb‖</c>, and
+    ///             anchoring it to the gradient was a bug that survived a property suite for a while.
+    ///         </b>
     ///         <see cref="ConjugateGradient" /> iterates on the residual and measures its floor against
     ///         the residual a cold start would have carried, which is the same quantity in the same
     ///         units. CGLS iterates on the <i>gradient</i> <c>Aᵀr</c>, and the two are not
@@ -102,8 +105,12 @@ sealed class LeastSquaresSolver {
     ///         <c>ε²‖r‖²·Σⱼ mⱼ‖aⱼ‖²</c> in <c>rho</c>.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>So a floor of <c>1e-30·‖Aᵀb‖²</c> is unreachable exactly when <c>b</c> is nearly
-    ///         orthogonal to the columns</b> — which is not an exotic system, it is the ordinary
+    ///         ⚠
+    ///         <b>
+    ///             So a floor of <c>1e-30·‖Aᵀb‖²</c> is unreachable exactly when <c>b</c> is nearly
+    ///             orthogonal to the columns
+    ///         </b>
+    ///         — which is not an exotic system, it is the ordinary
     ///         inconsistent least-squares one, and the worse the fit the further out of reach the floor
     ///         goes. Measured on a well-conditioned 10×2 draw with <c>‖b‖ = 6.7</c> and
     ///         <c>‖Aᵀb‖ = 0.023</c>: the cancellation in <c>Aᵀb</c> put the floor at <c>5.5e-34</c>,
@@ -208,7 +215,7 @@ sealed class LeastSquaresSolver {
             rho = next;
 
             for (var column = 0; column < columns; column++) {
-                direction[column] = applied[column] + (beta * direction[column]);
+                direction[column] = applied[column] + beta * direction[column];
             }
         }
 

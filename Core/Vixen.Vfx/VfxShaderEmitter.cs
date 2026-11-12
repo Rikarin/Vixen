@@ -9,8 +9,12 @@ namespace Vixen.Vfx;
 
 /// <summary>What a bound buffer is for.</summary>
 /// <remarks>
-///     ⚠ <b>The reap kernel reads one set of buffers and writes another, which is why this exists at
-///     all.</b> Compacting in place is not something a dispatch can do: a survivor claims its
+///     ⚠
+///     <b>
+///         The reap kernel reads one set of buffers and writes another, which is why this exists at
+///         all.
+///     </b>
+///     Compacting in place is not something a dispatch can do: a survivor claims its
 ///     destination slot with an atomic, so two invocations can be handed slots in either order and
 ///     one of them would overwrite a particle the other has not read yet. Every other kernel here
 ///     reads and writes one particle's own slot and needs no second buffer.
@@ -187,13 +191,16 @@ public static class VfxShaderEmitter {
         ArgumentException.ThrowIfNullOrEmpty(name);
 
         if (!IsIdentifier(name)) {
-            throw new ArgumentException($"`{name}` is not a Raven identifier, so it cannot name a shader.", nameof(name));
+            throw new ArgumentException(
+                $"`{name}` is not a Raven identifier, so it cannot name a shader.",
+                nameof(name)
+            );
         }
 
         // The updater list may hold initializer opcodes, which the CPU's update sweep skips — see
         // VfxSimulation.Apply's default case. Dropping them here rather than at every use keeps the
         // two backends agreeing about what an update step is.
-        var updaters = graph.Updaters.Where(operation => VfxOpcodes.IsUpdater(operation.Opcode)).ToArray();
+        var updaters = graph.Updaters.Where(static operation => VfxOpcodes.IsUpdater(operation.Opcode)).ToArray();
 
         var hasInitialize = graph.Initializers.Length > 0 || Has(graph, VfxAttribute.Age);
         var hasUpdate = updaters.Length > 0 || Has(graph, VfxAttribute.Age);
@@ -204,10 +211,10 @@ public static class VfxShaderEmitter {
         // there is no question to ask about whether a particle is finished. Asked of the bindings
         // rather than of the graph, because a lifetime the graph declares and no kernel touches has
         // no buffer for the reap to read.
-        var hasReap = particles.Any(binding => binding.Attribute == VfxAttribute.Age)
-            && particles.Any(binding => binding.Attribute == VfxAttribute.Lifetime);
+        var hasReap = particles.Any(static binding => binding.Attribute == VfxAttribute.Age)
+            && particles.Any(static binding => binding.Attribute == VfxAttribute.Lifetime);
 
-        var bindings = hasReap ? [.. particles, .. Compacted(particles), Survivors] : particles;
+        var bindings = hasReap ? [..particles, ..Compacted(particles), Survivors] : particles;
         var text = new StringBuilder();
 
         text.AppendLine("// Generated from a VfxCompiledGraph by Vixen.Vfx. The graph is the source; this is not.")
@@ -253,11 +260,10 @@ public static class VfxShaderEmitter {
     ///     one particle ahead of it died.
     /// </remarks>
     static VfxShaderBinding[] Compacted(VfxShaderBinding[] particles) => [
-        .. particles.Select(binding => binding with {
-            Name = binding.Name + "Out",
-            IsWritten = true,
-            Role = VfxBindingRole.Compacted
-        })
+        ..particles.Select(binding => binding with {
+                Name = binding.Name + "Out", IsWritten = true, Role = VfxBindingRole.Compacted
+            }
+        )
     ];
 
     /// <summary>The reap kernel: every survivor copies itself to a slot it claims with an atomic.</summary>
@@ -282,7 +288,7 @@ public static class VfxShaderEmitter {
     static void Reaper(StringBuilder text, string name, VfxShaderBinding[] particles) {
         text.AppendLine($"shader {name}Reap : {name}Common {{")
             .AppendLine($"    [ComputeShader({VfxShader.WorkgroupSize})]")
-            .AppendLine("    func Main([Semantic(\"SV_DispatchThreadID\")] id: uint3) {")
+            .AppendLine("""    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {""")
             .AppendLine("        val slot = int(id.x)")
             .AppendLine()
             .AppendLine("        if (slot >= particleCount) {")
@@ -367,10 +373,12 @@ public static class VfxShaderEmitter {
                 : Element(graph.Customs[binding.Slot].Type);
 
             text.AppendLine()
-                .AppendLine($"    [PerFrame] var {binding.Name}: {(binding.IsWritten ? "RW" : "")}Buffer<{element}>");
+                .AppendLine(
+                    $"    [PerFrame] var {binding.Name}: {(binding.IsWritten ? "RW" : string.Empty)}Buffer<{element}>"
+                );
         }
 
-        var random = graph.Initializers.Any(operation => VfxOpcodes.IsRandom(operation.Opcode));
+        var random = graph.Initializers.Any(static operation => VfxOpcodes.IsRandom(operation.Opcode));
         var noise = Touches(graph, VfxOpcode.Turbulence);
 
         // The hash is what the two of them share, and either alone is a reason to emit it: a random
@@ -385,11 +393,13 @@ public static class VfxShaderEmitter {
             Draws(text);
         }
 
-        if (graph.Initializers.Any(operation => operation.Opcode is VfxOpcode.PositionInSphere or VfxOpcode.VelocityRandomDirection)) {
+        if (graph.Initializers.Any(static operation =>
+                operation.Opcode is VfxOpcode.PositionInSphere or VfxOpcode.VelocityRandomDirection
+            )) {
             Direction(text);
         }
 
-        if (graph.Initializers.Any(operation => operation.Opcode is VfxOpcode.VelocityInCone)) {
+        if (graph.Initializers.Any(static operation => operation.Opcode is VfxOpcode.VelocityInCone)) {
             Cone(text);
         }
 
@@ -481,10 +491,18 @@ public static class VfxShaderEmitter {
             .AppendLine("        val fy = Smooth(point.y - float(cell.y))")
             .AppendLine("        val fz = Smooth(point.z - float(cell.z))")
             .AppendLine()
-            .AppendLine("        val x0y0 = Mix(Corner(cell.x, cell.y, cell.z, field), Corner(cell.x, cell.y, cell.z + 1, field), fz)")
-            .AppendLine("        val x0y1 = Mix(Corner(cell.x, cell.y + 1, cell.z, field), Corner(cell.x, cell.y + 1, cell.z + 1, field), fz)")
-            .AppendLine("        val x1y0 = Mix(Corner(cell.x + 1, cell.y, cell.z, field), Corner(cell.x + 1, cell.y, cell.z + 1, field), fz)")
-            .AppendLine("        val x1y1 = Mix(Corner(cell.x + 1, cell.y + 1, cell.z, field), Corner(cell.x + 1, cell.y + 1, cell.z + 1, field), fz)")
+            .AppendLine(
+                "        val x0y0 = Mix(Corner(cell.x, cell.y, cell.z, field), Corner(cell.x, cell.y, cell.z + 1, field), fz)"
+            )
+            .AppendLine(
+                "        val x0y1 = Mix(Corner(cell.x, cell.y + 1, cell.z, field), Corner(cell.x, cell.y + 1, cell.z + 1, field), fz)"
+            )
+            .AppendLine(
+                "        val x1y0 = Mix(Corner(cell.x + 1, cell.y, cell.z, field), Corner(cell.x + 1, cell.y, cell.z + 1, field), fz)"
+            )
+            .AppendLine(
+                "        val x1y1 = Mix(Corner(cell.x + 1, cell.y + 1, cell.z, field), Corner(cell.x + 1, cell.y + 1, cell.z + 1, field), fz)"
+            )
             .AppendLine()
             .AppendLine("        return Mix(Mix(x0y0, x0y1, fy), Mix(x1y0, x1y1, fy), fx)")
             .AppendLine("    }")
@@ -492,7 +510,9 @@ public static class VfxShaderEmitter {
             .AppendLine("    /// a + (b - a) t, and not lerp: this is the arithmetic the CPU backend does.")
             .AppendLine("    func Mix(a: float, b: float, t: float): float => a + (b - a) * t")
             .AppendLine()
-            .AppendLine($"    func Slope(point: float3, field: uint, step: float3): float => (Noise(point + step, field) - Noise(point - step, field)) / {Float(2f * VfxNoise.Epsilon)}")
+            .AppendLine(
+                $"    func Slope(point: float3, field: uint, step: float3): float => (Noise(point + step, field) - Noise(point - step, field)) / {Float(2f * VfxNoise.Epsilon)}"
+            )
             .AppendLine()
             .AppendLine("    /// The curl of three noise fields, which has zero divergence identically — the")
             .AppendLine("    /// property that makes it swirl rather than pile particles into its sinks.")
@@ -561,11 +581,15 @@ public static class VfxShaderEmitter {
             .AppendLine("    func Draw(particle: uint, salt: uint): uint => Hash(Hash(Hash(particle) ^ seed) ^ salt)")
             .AppendLine()
             .AppendLine("    /// Twenty-four bits over 2^24: every float in [0, 1) that has an exact representation.")
-            .AppendLine("    func Value(particle: uint, salt: uint): float => float(Draw(particle, salt) >> 8u) * (1f / 16777216f)")
+            .AppendLine(
+                "    func Value(particle: uint, salt: uint): float => float(Draw(particle, salt) >> 8u) * (1f / 16777216f)"
+            )
             .AppendLine()
             // On one line, because a Raven statement ends where its line does: an expression body
             // wrapped onto the next line is a body followed by an orphan expression.
-            .AppendLine("    func Range(particle: uint, salt: uint, minimum: float, maximum: float): float => minimum + (maximum - minimum) * Value(particle, salt)");
+            .AppendLine(
+                "    func Range(particle: uint, salt: uint, minimum: float, maximum: float): float => minimum + (maximum - minimum) * Value(particle, salt)"
+            );
     }
 
     /// <summary>A direction uniform over the sphere, sampling z rather than the polar angle.</summary>
@@ -628,7 +652,7 @@ public static class VfxShaderEmitter {
     static void Kernel(StringBuilder text, string shader, string name, Action body) {
         text.AppendLine($"shader {shader} : {name}Common {{")
             .AppendLine($"    [ComputeShader({VfxShader.WorkgroupSize})]")
-            .AppendLine("    func Main([Semantic(\"SV_DispatchThreadID\")] id: uint3) {")
+            .AppendLine("""    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {""")
             .AppendLine("        val lane = int(id.x)")
             .AppendLine()
             .AppendLine("        if (lane >= particleCount) {")
@@ -645,7 +669,7 @@ public static class VfxShaderEmitter {
 
     /// <summary>The initializer kernel's body: one run of newly spawned particles.</summary>
     static void Initializer(StringBuilder text, VfxCompiledGraph graph) {
-        if (graph.Initializers.Any(operation => VfxOpcodes.IsRandom(operation.Opcode))) {
+        if (graph.Initializers.Any(static operation => VfxOpcodes.IsRandom(operation.Opcode))) {
             text.AppendLine()
                 .AppendLine("        // The identifier, never the slot: a slot is reused the moment its occupant dies,")
                 .AppendLine("        // and hashing one would re-roll a particle's values partway through its life.")
@@ -793,7 +817,9 @@ public static class VfxShaderEmitter {
             case VfxOpcode.SetCustom: {
                 var custom = graph.Customs[operation.Slot];
 
-                text.AppendLine($"        {custom.Name}[slot] = {Lanes(custom.Type, lane => Float(Lane(operation.A, lane)))}");
+                text.AppendLine(
+                    $"        {custom.Name}[slot] = {Lanes(custom.Type, lane => Float(Lane(operation.A, lane)))}"
+                );
 
                 break;
             }
@@ -815,7 +841,10 @@ public static class VfxShaderEmitter {
             }
 
             default: {
-                throw new ArgumentException($"`{operation.Opcode}` is neither an initializer nor an updater.", nameof(operation));
+                throw new ArgumentException(
+                    $"`{operation.Opcode}` is neither an initializer nor an updater.",
+                    nameof(operation)
+                );
             }
         }
     }
@@ -843,7 +872,9 @@ public static class VfxShaderEmitter {
             }
 
             case VfxOpcode.Gravity: {
-                text.AppendLine($"        velocity[slot] = velocity[slot] + float4({Vector(operation.A)} * {step}, 0f)");
+                text.AppendLine(
+                    $"        velocity[slot] = velocity[slot] + float4({Vector(operation.A)} * {step}, 0f)"
+                );
 
                 break;
             }
@@ -901,14 +932,19 @@ public static class VfxShaderEmitter {
                 var axis = new Vector3(operation.B.X, operation.B.Y, operation.B.Z);
 
                 if (axis.LengthSquared() <= 0f) {
-                    throw new ArgumentException("A vortex about a zero axis has nothing to turn about.", nameof(operation));
+                    throw new ArgumentException(
+                        "A vortex about a zero axis has nothing to turn about.",
+                        nameof(operation)
+                    );
                 }
 
                 // The component along the axis is taken out before the cross product, or the swirl
                 // weakens with height above the centre for no reason anybody chose.
                 text.AppendLine($"        val spin{index} = position[slot].xyz - {Vector(operation.A)}")
                     .AppendLine($"        val axis{index} = {Vector(Vector3.Normalize(axis))}")
-                    .AppendLine($"        val radial{index} = spin{index} - axis{index} * dot(spin{index}, axis{index})")
+                    .AppendLine(
+                        $"        val radial{index} = spin{index} - axis{index} * dot(spin{index}, axis{index})"
+                    )
                     .AppendLine($"        val around{index} = length(radial{index})")
                     .AppendLine()
                     .AppendLine($"        if (around{index} > 0f) {{")
@@ -938,10 +974,14 @@ public static class VfxShaderEmitter {
                 // where its line does — the alternative is one expression nobody could read and the
                 // emitter could not wrap.
                 text.AppendLine($"        val normal{index} = {Vector(operation.A)}")
-                    .AppendLine($"        val depth{index} = dot(normal{index}, position[slot].xyz) - {Float(operation.A.W)}")
+                    .AppendLine(
+                        $"        val depth{index} = dot(normal{index}, position[slot].xyz) - {Float(operation.A.W)}"
+                    )
                     .AppendLine()
                     .AppendLine($"        if (depth{index} < 0f) {{")
-                    .AppendLine($"            position[slot] = float4(position[slot].xyz - normal{index} * depth{index}, 0f)")
+                    .AppendLine(
+                        $"            position[slot] = float4(position[slot].xyz - normal{index} * depth{index}, 0f)"
+                    )
                     .AppendLine(
                         $"            velocity[slot] = float4(Bounce(velocity[slot].xyz, normal{index}, "
                         + $"{Float(operation.B.X)}, {Float(operation.B.Y)}), 0f)"
@@ -1012,12 +1052,13 @@ public static class VfxShaderEmitter {
         };
 
     /// <summary>One lane of a parameter block, by index rather than by name.</summary>
-    static float Lane(Vector4 value, int lane) => lane switch {
-        0 => value.X,
-        1 => value.Y,
-        2 => value.Z,
-        _ => value.W
-    };
+    static float Lane(Vector4 value, int lane) =>
+        lane switch {
+            0 => value.X,
+            1 => value.Y,
+            2 => value.Z,
+            _ => value.W
+        };
 
     // --- Bindings ----------------------------------------------------------
 
@@ -1069,7 +1110,7 @@ public static class VfxShaderEmitter {
             bindings.Add(new(custom.Name, VfxAttribute.None, Stride(custom.Type), true, slot));
         }
 
-        return [.. bindings];
+        return [..bindings];
     }
 
     /// <summary>What one particle of an attribute occupies in a storage buffer, under std430.</summary>
@@ -1084,20 +1125,22 @@ public static class VfxShaderEmitter {
     static int Stride(VfxAttribute attribute) => Stride(VfxAttributes.TypeOf(attribute));
 
     /// <summary>The same question for a custom attribute, whose type is the graph's to say.</summary>
-    static int Stride(VfxAttributeType type) => type switch {
-        VfxAttributeType.Float3 or VfxAttributeType.Float4 => 16,
-        _ => 4
-    };
+    static int Stride(VfxAttributeType type) =>
+        type switch {
+            VfxAttributeType.Float3 or VfxAttributeType.Float4 => 16,
+            _ => 4
+        };
 
     /// <summary>What an attribute is declared as in the shader.</summary>
     static string Element(VfxAttribute attribute) => Element(VfxAttributes.TypeOf(attribute));
 
     /// <summary>The same question for a custom attribute.</summary>
-    static string Element(VfxAttributeType type) => type switch {
-        VfxAttributeType.Float3 or VfxAttributeType.Float4 => "float4",
-        VfxAttributeType.UInt => "uint",
-        _ => "float"
-    };
+    static string Element(VfxAttributeType type) =>
+        type switch {
+            VfxAttributeType.Float3 or VfxAttributeType.Float4 => "float4",
+            VfxAttributeType.UInt => "uint",
+            _ => "float"
+        };
 
     /// <summary>Every name the emitted shader already declares in the scope a custom attribute lands in.</summary>
     /// <remarks>
@@ -1115,16 +1158,55 @@ public static class VfxShaderEmitter {
     /// </remarks>
     static readonly HashSet<string> ReservedNames = new(StringComparer.Ordinal) {
         // The push constants.
-        "deltaTime", "seed", "first", "particleCount", "time", "originX", "originY", "originZ",
+        "deltaTime",
+        "seed",
+        "first",
+        "particleCount",
+        "time",
+        "originX",
+        "originY",
+        "originZ",
 
         // The built-in buffers, their compaction twins, and the survivor counter.
-        "position", "velocity", "size", "colour", "lifetime", "age", "rotation", "angularVelocity", "identifier",
-        "positionOut", "velocityOut", "sizeOut", "colourOut", "lifetimeOut", "ageOut", "rotationOut",
-        "angularVelocityOut", "identifierOut", "survivors",
+        "position",
+        "velocity",
+        "size",
+        "colour",
+        "lifetime",
+        "age",
+        "rotation",
+        "angularVelocity",
+        "identifier",
+        "positionOut",
+        "velocityOut",
+        "sizeOut",
+        "colourOut",
+        "lifetimeOut",
+        "ageOut",
+        "rotationOut",
+        "angularVelocityOut",
+        "identifierOut",
+        "survivors",
 
         // The helpers, and the entry point.
-        "Origin", "Falloff", "Bounce", "Corner", "Smooth", "Noise", "Mix", "Slope", "Curl", "Turbulence",
-        "Hash", "Draw", "Value", "Range", "Direction", "Cone", "Fraction", "Main"
+        "Origin",
+        "Falloff",
+        "Bounce",
+        "Corner",
+        "Smooth",
+        "Noise",
+        "Mix",
+        "Slope",
+        "Curl",
+        "Turbulence",
+        "Hash",
+        "Draw",
+        "Value",
+        "Range",
+        "Direction",
+        "Cone",
+        "Fraction",
+        "Main"
     };
 
     /// <summary>Whether a name is one the emitted shader already uses for something of its own.</summary>
@@ -1133,18 +1215,19 @@ public static class VfxShaderEmitter {
     public static bool IsReserved(string name) => ReservedNames.Contains(name);
 
     /// <summary>What an attribute's buffer is called.</summary>
-    static string Name(VfxAttribute attribute) => attribute switch {
-        VfxAttribute.Position => "position",
-        VfxAttribute.Velocity => "velocity",
-        VfxAttribute.Size => "size",
-        VfxAttribute.Colour => "colour",
-        VfxAttribute.Lifetime => "lifetime",
-        VfxAttribute.Age => "age",
-        VfxAttribute.Rotation => "rotation",
-        VfxAttribute.AngularVelocity => "angularVelocity",
-        VfxAttribute.Identifier => "identifier",
-        _ => throw new ArgumentOutOfRangeException(nameof(attribute), attribute, "Not a single known attribute.")
-    };
+    static string Name(VfxAttribute attribute) =>
+        attribute switch {
+            VfxAttribute.Position => "position",
+            VfxAttribute.Velocity => "velocity",
+            VfxAttribute.Size => "size",
+            VfxAttribute.Colour => "colour",
+            VfxAttribute.Lifetime => "lifetime",
+            VfxAttribute.Age => "age",
+            VfxAttribute.Rotation => "rotation",
+            VfxAttribute.AngularVelocity => "angularVelocity",
+            VfxAttribute.Identifier => "identifier",
+            _ => throw new ArgumentOutOfRangeException(nameof(attribute), attribute, "Not a single known attribute.")
+        };
 
     // --- Spelling ----------------------------------------------------------
 
@@ -1207,5 +1290,5 @@ public static class VfxShaderEmitter {
     /// <summary>Whether a name can be a Raven identifier.</summary>
     static bool IsIdentifier(string name) =>
         (char.IsLetter(name[0]) || name[0] == '_')
-        && name.All(character => char.IsLetterOrDigit(character) || character == '_');
+        && name.All(static character => char.IsLetterOrDigit(character) || character == '_');
 }

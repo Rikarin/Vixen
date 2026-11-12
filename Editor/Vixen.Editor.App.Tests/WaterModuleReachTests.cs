@@ -12,7 +12,6 @@ using Vixen.Editor.Ui;
 using Vixen.Editor.Water;
 using Vixen.Graphics;
 using Vixen.Graphics.Null;
-using Vixen.Rendering;
 using Vixen.Rendering.Water;
 using Vixen.Water;
 using Xunit;
@@ -194,14 +193,14 @@ public sealed class WaterModuleReachTests {
             // Somebody else's editor — or a game console — has the process's set on.
             WaterDebug.ShowFlow = true;
 
-            presenter.Water.Upload(world, new EditorCamera(), 1f);
+            presenter.Water.Upload(world, new(), 1f);
 
             Assert.Empty(presenter.Water.DebugLines);
 
             WaterDebug.Reset();
             flags.ShowFlow = true;
 
-            presenter.Water.Upload(world, new EditorCamera(), 1f);
+            presenter.Water.Upload(world, new(), 1f);
 
             Assert.NotEmpty(presenter.Water.DebugLines);
         } finally {
@@ -236,7 +235,7 @@ public sealed class WaterModuleReachTests {
         var debug = DebugMenu(session);
 
         Assert.NotNull(debug);
-        Assert.Equal(Switches, debug.Entries.OfType<MenuCommand>().Select(line => line.CommandId).ToArray());
+        Assert.Equal(Switches, debug.Entries.OfType<MenuCommand>().Select(static line => line.CommandId).ToArray());
 
         var flags = Assert.Single(session.Extensions.All<WaterDebugFlags>());
 
@@ -249,7 +248,16 @@ public sealed class WaterModuleReachTests {
                 Assert.True(Checked(session, id), $"'{id}' did not tick.");
             }
 
-            Assert.True(flags is { ShowTiles: true, ShowLod: true, ShowInfo: true, ShowFlow: true, ShowBuoyancy: true, ShowRipples: true });
+            Assert.True(
+                flags is {
+                    ShowTiles: true,
+                    ShowLod: true,
+                    ShowInfo: true,
+                    ShowFlow: true,
+                    ShowBuoyancy: true,
+                    ShowRipples: true
+                }
+            );
 
             session.Run(WaterModule.ShowFlowCommand);
 
@@ -260,8 +268,8 @@ public sealed class WaterModuleReachTests {
         }
 
         // Beside Blockout's submenus, which is the Scene menu's mode-tool run, and not before them.
-        var scene = Assert.Single(session.Shell.Menus.Menus, menu => menu.Title.Id == "editor.menu.scene");
-        var submenus = scene.Entries.OfType<MenuSubmenu>().Select(entry => entry.Group.Title.Id).ToList();
+        var scene = Assert.Single(session.Shell.Menus.Menus, static menu => menu.Title.Id == "editor.menu.scene");
+        var submenus = scene.Entries.OfType<MenuSubmenu>().Select(static entry => entry.Group.Title.Id).ToList();
 
         Assert.Equal(submenus.IndexOf("editor.menu.blockout-handoff") + 1, submenus.IndexOf(WaterStrings.MenuWater.Id));
     }
@@ -274,9 +282,12 @@ public sealed class WaterModuleReachTests {
         Assert.True(session.Plugins.Unload(WaterModule.ModuleId));
         session.Settle();
 
-        var scene = Assert.Single(session.Shell.Menus.Menus, menu => menu.Title.Id == "editor.menu.scene");
+        var scene = Assert.Single(session.Shell.Menus.Menus, static menu => menu.Title.Id == "editor.menu.scene");
 
-        Assert.DoesNotContain(scene.Entries.OfType<MenuSubmenu>(), entry => entry.Group.Title.Id == WaterStrings.MenuWater.Id);
+        Assert.DoesNotContain(
+            scene.Entries.OfType<MenuSubmenu>(),
+            static entry => entry.Group.Title.Id == WaterStrings.MenuWater.Id
+        );
         Assert.Null(DebugMenu(session));
 
         Assert.Equal(
@@ -285,23 +296,36 @@ public sealed class WaterModuleReachTests {
         );
         session.Settle();
 
-        Assert.Single(scene.Entries.OfType<MenuSubmenu>(), entry => entry.Group.Title.Id == WaterStrings.MenuWater.Id);
-        Assert.Equal(Switches, DebugMenu(session)!.Entries.OfType<MenuCommand>().Select(line => line.CommandId).ToArray());
+        Assert.Single(
+            scene.Entries.OfType<MenuSubmenu>(),
+            static entry => entry.Group.Title.Id == WaterStrings.MenuWater.Id
+        );
+        Assert.Equal(
+            Switches,
+            DebugMenu(session)!.Entries.OfType<MenuCommand>().Select(static line => line.CommandId).ToArray()
+        );
 
         Assert.Empty(session.Plugins.Reload(WaterModule.ModuleId).Diagnostics);
         session.Settle();
 
-        Assert.Single(scene.Entries.OfType<MenuSubmenu>(), entry => entry.Group.Title.Id == WaterStrings.MenuWater.Id);
-        Assert.Equal(Switches, DebugMenu(session)!.Entries.OfType<MenuCommand>().Select(line => line.CommandId).ToArray());
+        Assert.Single(
+            scene.Entries.OfType<MenuSubmenu>(),
+            static entry => entry.Group.Title.Id == WaterStrings.MenuWater.Id
+        );
+        Assert.Equal(
+            Switches,
+            DebugMenu(session)!.Entries.OfType<MenuCommand>().Select(static line => line.CommandId).ToArray()
+        );
     }
 
     /// <summary>Scene ▸ Water ▸ Debug, or <see langword="null" /> when the bar has none.</summary>
     static MenuGroup? DebugMenu(EditorSession session) {
-        var scene = session.Shell.Menus.Menus.SingleOrDefault(menu => menu.Title.Id == "editor.menu.scene");
-        var water = scene?.Entries.OfType<MenuSubmenu>().SingleOrDefault(entry => entry.Group.Title.Id == WaterStrings.MenuWater.Id);
+        var scene = session.Shell.Menus.Menus.SingleOrDefault(static menu => menu.Title.Id == "editor.menu.scene");
+        var water = scene?.Entries.OfType<MenuSubmenu>()
+            .SingleOrDefault(static entry => entry.Group.Title.Id == WaterStrings.MenuWater.Id);
 
         return water?.Group.Entries.OfType<MenuSubmenu>()
-            .SingleOrDefault(entry => entry.Group.Title.Id == WaterStrings.MenuWaterDebug.Id)
+            .SingleOrDefault(static entry => entry.Group.Title.Id == WaterStrings.MenuWaterDebug.Id)
             ?.Group;
     }
 
@@ -315,7 +339,7 @@ public sealed class WaterModuleReachTests {
             Assert.Single(session.Shell.Commands.Commands, command => command.Id == verb);
         }
 
-        Assert.Single(session.Shell.Modes.Modes, mode => mode.Id == WaterMode.ModeId);
+        Assert.Single(session.Shell.Modes.Modes, static mode => mode.Id == WaterMode.ModeId);
         Assert.Single(session.Extensions.All<WaterDebugFlags>());
         Assert.Single(session.Extensions.All<IWaterScene>());
     }
@@ -332,19 +356,18 @@ public sealed class WaterModuleReachTests {
             session.Plugins.Activate(WaterModule.ModuleId, WaterModule.ModuleName, module).State
         );
 
-        return new WeakReference(module);
+        return new(module);
     }
 
     static ScenePresenter Presenter(NullDevice device) {
-        ShaderHandle Stage(ShaderStage stage, string name) => device.CreateShader(stage, [1, 2, 3, 4], name);
-
-        return new ScenePresenter(
+        return new(
             device,
-            new LineShaders(Stage(ShaderStage.Vertex, "line.vs"), Stage(ShaderStage.Fragment, "line.fs")),
-            new MeshShaders(Stage(ShaderStage.Vertex, "mesh.vs"), Stage(ShaderStage.Fragment, "mesh.fs")),
-            new MeshInstanceShaders(Stage(ShaderStage.Vertex, "inst.vs"), Stage(ShaderStage.Fragment, "inst.fs")),
+            new(Stage(ShaderStage.Vertex, "line.vs"), Stage(ShaderStage.Fragment, "line.fs")),
+            new(Stage(ShaderStage.Vertex, "mesh.vs"), Stage(ShaderStage.Fragment, "mesh.fs")),
+            new(Stage(ShaderStage.Vertex, "inst.vs"), Stage(ShaderStage.Fragment, "inst.fs")),
             PixelFormat.Rgba8UNorm
         );
+        ShaderHandle Stage(ShaderStage stage, string name) => device.CreateShader(stage, [1, 2, 3, 4], name);
     }
 
     /// <summary>A zone at the origin with one flowing river through it, which is what Show Flow draws.</summary>
@@ -353,7 +376,10 @@ public sealed class WaterModuleReachTests {
         var world = new World();
         var zone = world.Create();
 
-        world.Add(zone, WaterZoneComponent.Default with { Extent = 128f, Resolution = 65, Waves = WaterWaveSpectrum.Calm });
+        world.Add(
+            zone,
+            WaterZoneComponent.Default with { Extent = 128f, Resolution = 65, Waves = WaterWaveSpectrum.Calm }
+        );
         world.Add(zone, new Vixen.Engine.Transforms.WorldTransform { Value = Matrix4x4.Identity });
 
         var body = world.Create();
@@ -380,11 +406,8 @@ public sealed class WaterModuleReachTests {
             name.Length == 0
                 ? null
                 : new(
-                    Spline.SmoothTangents(
-                        [new(-50f, 2f, 0f), new(0f, 2f, 0f), new(50f, 2f, 0f)],
-                        closed: false
-                    ),
-                    closed: false
+                    Spline.SmoothTangents([new(-50f, 2f, 0f), new(0f, 2f, 0f), new(50f, 2f, 0f)]),
+                    false
                 );
 
         public WaterWaveSpectrum? SpectrumFor(string name) => null;

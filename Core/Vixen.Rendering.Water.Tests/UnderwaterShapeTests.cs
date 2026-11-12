@@ -26,9 +26,7 @@ namespace Tests;
 /// </remarks>
 public sealed class UnderwaterShapeTests {
     static WaterZoneState Lake(float surface = 10f, float depth = 8f, float falloff = 2f) {
-        var state = new WaterZoneState(
-            WaterZone.Default with { Extent = 256f, Resolution = 129, CoarsestTexel = 0f }
-        );
+        var state = new WaterZoneState(WaterZone.Default with { Extent = 256f, Resolution = 129, CoarsestTexel = 0f });
 
         var spline = new Spline(
             Spline.SmoothTangents(
@@ -38,16 +36,14 @@ public sealed class UnderwaterShapeTests {
                     new(40f, surface, 40f),
                     new(-40f, surface, 40f)
                 ],
-                closed: true,
-                tension: 1f
+                true,
+                1f
             ),
-            closed: true
+            true
         );
 
         var lake = new WaterBody(WaterBodyKind.Lake, spline, defaults: new() { Depth = depth }) {
-            SurfaceHeight = surface,
-            ShoreFalloff = falloff,
-            BedRamp = 4f
+            SurfaceHeight = surface, ShoreFalloff = falloff, BedRamp = 4f
         };
 
         state.SetBodies([lake]);
@@ -94,8 +90,12 @@ public sealed class UnderwaterShapeTests {
 
     /// <summary>The fade is a fade, so the grade comes on across the shoreline rather than at it.</summary>
     /// <remarks>
-    ///     ⚠ <b>The falloff here is eight metres and the fixture's texels are two, which is the
-    ///     constraint rather than a convenience.</b> A shoreline band narrower than a few texels cannot
+    ///     ⚠
+    ///     <b>
+    ///         The falloff here is eight metres and the fixture's texels are two, which is the
+    ///         constraint rather than a convenience.
+    ///     </b>
+    ///     A shoreline band narrower than a few texels cannot
     ///     be resolved however smooth the arithmetic is — the field is what carries the ramp — so the
     ///     same lake with a two-metre falloff really would read as a cut, and the panel's
     ///     metres-per-texel readout is what an author has to check it against.
@@ -158,7 +158,7 @@ public sealed class UnderwaterShapeTests {
     /// </remarks>
     [Fact]
     public void A_zone_that_has_not_rasterised_contains_nothing() {
-        var shape = new UnderwaterShape(new WaterZoneState(WaterZone.Default), Still, 0f);
+        var shape = new UnderwaterShape(new(WaterZone.Default), Still, 0f);
 
         Assert.False(shape.Contains(Vector3.Zero, out var outside));
         Assert.True(outside > 0f);

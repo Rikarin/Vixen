@@ -8,7 +8,6 @@ using Vixen.Editor.Inspector;
 using Vixen.Editor.Ui;
 using Vixen.Platform;
 using Vixen.Ui;
-using Vixen.Ui.Composition;
 using Vixen.Ui.Controls;
 using Vixen.Ui.Controls.Advanced;
 using Vixen.Ui.Reactive;
@@ -24,8 +23,12 @@ namespace Vixen.Editor.App;
 ///         what Apply writes, and what Reset means.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Two pages are drawn from commands rather than from a settings object, and doc 20
-///         insists on it.</b> The three scene-navigation preferences and the theme are already
+///         ⚠
+///         <b>
+///             Two pages are drawn from commands rather than from a settings object, and doc 20
+///             insists on it.
+///         </b>
+///         The three scene-navigation preferences and the theme are already
 ///         ticked commands — palette-searchable, rebindable, on a menu — and a preferences window
 ///         showing a second copy of their state would be two writers to one setting, which is exactly
 ///         how a window and a menu tick come to disagree. The page shows the same commands.
@@ -48,8 +51,12 @@ sealed partial class EditorApplication {
 
     /// <summary>The curve presets, for the harness and for whatever else asks.</summary>
     /// <remarks>
-    ///     ⚠ <b>The library rather than a copy of it, because the menu reads it every time it
-    ///     opens.</b> A test that saved into a copy would be asserting about an object no menu is
+    ///     ⚠
+    ///     <b>
+    ///         The library rather than a copy of it, because the menu reads it every time it
+    ///         opens.
+    ///     </b>
+    ///     A test that saved into a copy would be asserting about an object no menu is
     ///     built from — which is the shape of test that passes while the feature does nothing.
     /// </remarks>
     public CurvePresetLibrary Curves => presets;
@@ -89,15 +96,18 @@ sealed partial class EditorApplication {
 
     /// <summary>The contributed page ids in each window, so a withdrawal can find them again.</summary>
     /// <remarks>
-    ///     ⚠ <b>Tracked rather than derived from the registry, because a withdrawal is exactly the
-    ///     moment the registry no longer mentions the page.</b> <c>IEditorRegistry.Changed</c> says
+    ///     ⚠
+    ///     <b>
+    ///         Tracked rather than derived from the registry, because a withdrawal is exactly the
+    ///         moment the registry no longer mentions the page.
+    ///     </b>
+    ///     <c>IEditorRegistry.Changed</c> says
     ///     which <i>kind</i> moved and not which contribution, so the difference between what a window
     ///     is showing and what the registry now holds is the only thing that can name the page to
     ///     remove.
     /// </remarks>
     readonly Dictionary<SettingsScope, HashSet<string>> contributedPages = new() {
-        [SettingsScope.Preferences] = new(StringComparer.Ordinal),
-        [SettingsScope.Project] = new(StringComparer.Ordinal)
+        [SettingsScope.Preferences] = new(StringComparer.Ordinal), [SettingsScope.Project] = new(StringComparer.Ordinal)
     };
 
     /// <summary>What the preferences panel is called in an arrangement.</summary>
@@ -144,7 +154,7 @@ sealed partial class EditorApplication {
 
                     // ⚠ Before the pages, because adding one rebuilds the rail and selects the first —
                     // which builds a pane this would otherwise not have been told about.
-                    view.PageShown += (shown, pane) => Narrow(pane, shown.Query);
+                    view.PageShown += static (shown, pane) => Narrow(pane, shown.Query);
 
                     PreferencePages(view);
 
@@ -155,55 +165,55 @@ sealed partial class EditorApplication {
                     preferencesView = view;
                     ContributedPages(view, SettingsScope.Preferences);
                 }
-            ) {
-                Closed = () => Forget(SettingsScope.Preferences)
-            }
+            ) { Closed = () => Forget(SettingsScope.Preferences) }
         );
 
         Shell.RegisterPanel(
             new PanelDescriptor(
-            ProjectSettingsPanel,
-            EditorStrings.PanelProjectSettings,
-            panel => {
-                var view = panel.Add<SettingsView>();
-                var document = settingsDocument ??= new SettingsDocument(project, EditorStrings.PanelProjectSettings.Text);
+                ProjectSettingsPanel,
+                EditorStrings.PanelProjectSettings,
+                panel => {
+                    var view = panel.Add<SettingsView>();
+                    var document = settingsDocument ??=
+                        new SettingsDocument(project, EditorStrings.PanelProjectSettings.Text);
 
-                // ⚠ The window hosts the document's history (#1310, decision (a)): Ctrl+Z with the
-                // focus anywhere in it undoes a setting, because `FindUndoManager` walks from the focus
-                // and finds this before the document's `ActiveDocumentUndo`. Nowhere else does —
-                // `SettingsDocument` never becomes the active document, so the viewport's Ctrl+Z
-                // reaches the scene it always did.
-                panel.UndoManager = document.Stack;
+                    // ⚠ The window hosts the document's history (#1310, decision (a)): Ctrl+Z with the
+                    // focus anywhere in it undoes a setting, because `FindUndoManager` walks from the focus
+                    // and finds this before the document's `ActiveDocumentUndo`. Nowhere else does —
+                    // `SettingsDocument` never becomes the active document, so the viewport's Ctrl+Z
+                    // reaches the scene it always did.
+                    panel.UndoManager = document.Stack;
 
-                // ⚠ One vocabulary for "unsaved": the window's Apply is the document's answer, read
-                // live, rather than a flag the rows set and the store kept a second copy of.
-                settingsDirty?.Dispose();
-                settingsDirty = new Effect(() => view.IsDirty = document.HasUnsavedChanges.Value, Shell.Document.Effects);
+                    // ⚠ One vocabulary for "unsaved": the window's Apply is the document's answer, read
+                    // live, rather than a flag the rows set and the store kept a second copy of.
+                    settingsDirty?.Dispose();
+                    settingsDirty = new Effect(
+                        () => view.IsDirty = document.HasUnsavedChanges.Value,
+                        Shell.Document.Effects
+                    );
 
-                view.Applied += _ => {
-                    document.Save();
-                    Shell.Notifications.Success(EditorStrings.PanelProjectSettings.Text);
+                    view.Applied += _ => {
+                        document.Save();
+                        Shell.Notifications.Success(EditorStrings.PanelProjectSettings.Text);
 
-                    // The content target is read from the settings every time a build runs, so this
-                    // is where a changed one takes effect rather than on the next launch.
-                    ApplyProjectSettings();
-                };
+                        // The content target is read from the settings every time a build runs, so this
+                        // is where a changed one takes effect rather than on the next launch.
+                        ApplyProjectSettings();
+                    };
 
-                view.Reverted += _ => {
-                    document.Reload();
-                    ApplyProjectSettings();
-                };
+                    view.Reverted += _ => {
+                        document.Reload();
+                        ApplyProjectSettings();
+                    };
 
-                view.PageShown += (shown, pane) => Narrow(pane, shown.Query);
+                    view.PageShown += static (shown, pane) => Narrow(pane, shown.Query);
 
-                ProjectPages(view);
+                    ProjectPages(view);
 
-                projectSettingsView = view;
-                ContributedPages(view, SettingsScope.Project);
-            }
-            ) {
-                Closed = () => Forget(SettingsScope.Project)
-            }
+                    projectSettingsView = view;
+                    ContributedPages(view, SettingsScope.Project);
+                }
+            ) { Closed = () => Forget(SettingsScope.Project) }
         );
 
         // ⚠ The Addressables panel is the asset editors module's since #1297 — it is
@@ -276,8 +286,12 @@ sealed partial class EditorApplication {
 
     /// <summary>Follows a contributed or withdrawn settings page into an open window.</summary>
     /// <remarks>
-    ///     ⚠ <b>Beside <c>RefreshAssetKinds</c> and <c>RefreshOverlays</c> because it is the same
-    ///     failure.</b> A window built when the panel opened reads the registry once, so a
+    ///     ⚠
+    ///     <b>
+    ///         Beside <c>RefreshAssetKinds</c> and <c>RefreshOverlays</c> because it is the same
+    ///         failure.
+    ///     </b>
+    ///     A window built when the panel opened reads the registry once, so a
     ///     contribution arriving later — a project script's first build, a plugin enabled from the
     ///     manager, a reload — registers and never appears. A withdrawal is the half that matters
     ///     more: a page left behind closes over an unloaded assembly.
@@ -294,7 +308,7 @@ sealed partial class EditorApplication {
 
             var wanted = Extensions.All<SettingsPage>()
                 .Where(page => page.Scope == scope)
-                .Select(page => page.Category.Id)
+                .Select(static page => page.Category.Id)
                 .ToHashSet(StringComparer.Ordinal);
 
             foreach (var gone in contributedPages[scope].Where(id => !wanted.Contains(id)).ToList()) {
@@ -309,7 +323,8 @@ sealed partial class EditorApplication {
     /// <summary>Adds whatever the registry holds and this window does not.</summary>
     void ContributedPagesAdded(SettingsView view, SettingsScope scope) {
         foreach (var page in Extensions.All<SettingsPage>().Where(page => page.Scope == scope)) {
-            if (view.Categories.Any(category => string.Equals(category.Id, page.Category.Id, StringComparison.Ordinal))) {
+            if (view.Categories.Any(category => string.Equals(category.Id, page.Category.Id, StringComparison.Ordinal)
+                )) {
                 continue;
             }
 
@@ -360,7 +375,9 @@ sealed partial class EditorApplication {
 
         view.ExportRequested += _ =>
             Picked(
-                dialogs => dialogs.SaveFileAsync(Keymap("Export Keymap") with { SuggestedFileName = EditorUserStore.KeyMapFile }),
+                dialogs => dialogs.SaveFileAsync(
+                    Keymap("Export Keymap") with { SuggestedFileName = EditorUserStore.KeyMapFile }
+                ),
                 path => OnFile(
                     () => File.WriteAllText(path, KeyMapYaml.Write(Shell.Keys)),
                     path,
@@ -396,10 +413,7 @@ sealed partial class EditorApplication {
                 "general",
                 EditorStrings.SettingsGeneral,
                 pane => Draw(pane, view, preferences)
-            ) {
-                Reset = () => preferences = new EditorPreferences(),
-                Keywords = () => Members<EditorPreferences>()
-            }
+            ) { Reset = () => preferences = new(), Keywords = static () => Members<EditorPreferences>() }
         );
 
         view.Add(
@@ -410,9 +424,7 @@ sealed partial class EditorApplication {
                     Toggles(pane, "view.toggle-theme");
                     Tokens(pane, view);
                 }
-            ) {
-                Keywords = () => ["theme", "dark", "light", "colour", "color", "tokens"]
-            }
+            ) { Keywords = static () => ["theme", "dark", "light", "colour", "color", "tokens"] }
         );
 
         view.Add(
@@ -427,9 +439,7 @@ sealed partial class EditorApplication {
                     "scene.toggle-grid",
                     "scene.toggle-projection"
                 )
-            ) {
-                Keywords = () => ["orbit", "zoom", "invert", "grid", "projection", "navigation", "camera"]
-            }
+            ) { Keywords = static () => ["orbit", "zoom", "invert", "grid", "projection", "navigation", "camera"] }
         );
 
         view.Add(
@@ -443,9 +453,7 @@ sealed partial class EditorApplication {
                     + "it is a table of two hundred rows and belongs somewhere it can be left open.",
                     EditorShell.KeyBindingsPanel
                 )
-            ) {
-                Keywords = () => ["shortcut", "key", "binding", "preset", "unity", "unreal"]
-            }
+            ) { Keywords = static () => ["shortcut", "key", "binding", "preset", "unity", "unreal"] }
         );
 
         view.Add(
@@ -458,9 +466,7 @@ sealed partial class EditorApplication {
                     "What is installed, what is running, and what would not start.",
                     PluginsPanel
                 )
-            ) {
-                Keywords = () => ["plugin", "extension", "addon"]
-            }
+            ) { Keywords = static () => ["plugin", "extension", "addon"] }
         );
     }
 
@@ -473,7 +479,7 @@ sealed partial class EditorApplication {
                 // ⚠ Defaults rather than a refusal to start, for `KeyMap.Load`'s reason: a mistyped
                 // line in a preferences file must not be an editor that will not open. What the user
                 // loses is the setting they can see has gone back to its default.
-                preferences = new EditorPreferences();
+                preferences = new();
             }
         }
 
@@ -482,8 +488,12 @@ sealed partial class EditorApplication {
 
     /// <summary>Reads the saved curve presets.</summary>
     /// <remarks>
-    ///     ⚠ <b>Defaults rather than a refusal to start, on <see cref="LoadPreferences" />'s
-    ///     reasoning</b>: a mistyped line in a user file must not be an editor that will not open.
+    ///     ⚠
+    ///     <b>
+    ///         Defaults rather than a refusal to start, on <see cref="LoadPreferences" />'s
+    ///         reasoning
+    ///     </b>
+    ///     : a mistyped line in a user file must not be an editor that will not open.
     ///     What is lost is the saved shapes — and the shipped ones are still offered, because they
     ///     are not in the file. That is the whole argument for <c>CurvePresetLibrary.Shipped</c>
     ///     being a property rather than a seeded store.
@@ -496,7 +506,7 @@ sealed partial class EditorApplication {
         try {
             presets = YamlSerializer.Parse<CurvePresetLibrary>(yaml);
         } catch (YamlParseException) {
-            presets = new CurvePresetLibrary();
+            presets = new();
         }
     }
 
@@ -596,8 +606,12 @@ sealed partial class EditorApplication {
     ///         this repository had ever changed one.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A named language whose catalog is missing is said out loud rather than falling
-    ///         back quietly.</b> Falling back to the source text is the right behaviour — an editor
+    ///         ⚠
+    ///         <b>
+    ///             A named language whose catalog is missing is said out loud rather than falling
+    ///             back quietly.
+    ///         </b>
+    ///         Falling back to the source text is the right behaviour — an editor
     ///         that refused to open because a translation was not checked out would be useless — but
     ///         it is also exactly what a working translation looks like to somebody whose file is in
     ///         the wrong folder, so the notification is what separates the two.
@@ -637,7 +651,11 @@ sealed partial class EditorApplication {
             Strings.Use(StringCatalogYaml.Load(File.ReadAllText(path), language));
         } catch (Exception exception) when (exception is IOException or UnauthorizedAccessException) {
             Strings.Use(null);
-            Shell.Notifications.Show("Could not read the string catalog", NotificationSeverity.Error, exception.Message);
+            Shell.Notifications.Show(
+                "Could not read the string catalog",
+                NotificationSeverity.Error,
+                exception.Message
+            );
         }
     }
 
@@ -652,8 +670,12 @@ sealed partial class EditorApplication {
     ///         they are not on any surface either.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>It writes the language the preference names, and <c>source</c> when it names
-    ///         none.</b> Exporting over a translation somebody has already filled in is the one thing
+    ///         ⚠
+    ///         <b>
+    ///             It writes the language the preference names, and <c>source</c> when it names
+    ///             none.
+    ///         </b>
+    ///         Exporting over a translation somebody has already filled in is the one thing
     ///         this must not do, so an existing file is left alone and said so — a translator's file
     ///         is hours of work and the menu line beside it is one keystroke away.
     ///     </para>
@@ -691,10 +713,16 @@ sealed partial class EditorApplication {
             new SettingsCategory(
                 "project",
                 EditorStrings.SettingsProject,
-                pane => Draw(pane, view, project.Settings.Get<ProjectInfoSettings>(), Recorded<ProjectInfoSettings>, settingsDocument)
+                pane => Draw(
+                    pane,
+                    view,
+                    project.Settings.Get<ProjectInfoSettings>(),
+                    Recorded<ProjectInfoSettings>,
+                    settingsDocument
+                )
             ) {
                 Reset = project.Settings.Reset<ProjectInfoSettings>,
-                Keywords = () => Members<ProjectInfoSettings>()
+                Keywords = static () => Members<ProjectInfoSettings>()
             }
         );
 
@@ -703,14 +731,20 @@ sealed partial class EditorApplication {
                 "content",
                 EditorStrings.SettingsContent,
                 pane => {
-                    Draw(pane, view, project.Settings.Get<ContentBuildSettings>(), Recorded<ContentBuildSettings>, settingsDocument);
+                    Draw(
+                        pane,
+                        view,
+                        project.Settings.Get<ContentBuildSettings>(),
+                        Recorded<ContentBuildSettings>,
+                        settingsDocument
+                    );
 
                     pane.Add<TextBlock>().Text =
                         $"Empty builds for this machine, which is {ProjectWorkspaceTarget}.";
                 }
             ) {
                 Reset = project.Settings.Reset<ContentBuildSettings>,
-                Keywords = () => Members<ContentBuildSettings>()
+                Keywords = static () => Members<ContentBuildSettings>()
             }
         );
     }
@@ -767,7 +801,13 @@ sealed partial class EditorApplication {
     ///         the window hosts its stack instead, so the viewport's Ctrl+Z never reaches it.
     ///     </para>
     /// </remarks>
-    static void Draw(UiElement pane, SettingsView view, object settings, Action? edited = null, EditorDocument? document = null) {
+    static void Draw(
+        UiElement pane,
+        SettingsView view,
+        object settings,
+        Action? edited = null,
+        EditorDocument? document = null
+    ) {
         var inspector = pane.Add<InspectorView>();
 
         inspector.EditedDocument = document;
@@ -800,16 +840,24 @@ sealed partial class EditorApplication {
     /// <summary>Narrows whatever is on a settings page to what the window's search box says.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Doc 20's A4 asks for "a search box over every setting in every category", and the
-    ///         rail alone answers half of it.</b> Typing a member name selected the page that had it
+    ///         ⚠
+    ///         <b>
+    ///             Doc 20's A4 asks for "a search box over every setting in every category", and the
+    ///             rail alone answers half of it.
+    ///         </b>
+    ///         Typing a member name selected the page that had it
     ///         and then stopped — which, when that page was the one already showing, is a search box
     ///         that visibly does nothing. This is the other half, and it lives here rather than in
     ///         <see cref="SettingsView" /> because what a page is made of is this assembly's: the
     ///         shell does not know what an inspector row is and should not learn.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The inspector is driven through its own search box rather than reaching into its
-    ///         rows.</b> It already knows how to hide a row that does not match — by display name
+    ///         ⚠
+    ///         <b>
+    ///             The inspector is driven through its own search box rather than reaching into its
+    ///             rows.
+    ///         </b>
+    ///         It already knows how to hide a row that does not match — by display name
     ///         <i>and</i> by member name — and a second implementation here would be a second answer
     ///         to "does this row match", which is exactly the sort of pair that stops agreeing.
     ///     </para>
@@ -834,9 +882,6 @@ sealed partial class EditorApplication {
 
                 case Button button:
                     Reveal(button, query is null || Mentions(button.Label, query));
-                    break;
-
-                default:
                     break;
             }
         }
@@ -971,7 +1016,7 @@ sealed partial class EditorApplication {
 
         try {
             if (YamlReader.Read(yaml) is YamlMapping document && document["disabled"] is YamlSequence list) {
-                plugins.Suppress(list.OfType<YamlScalar>().Select(entry => entry.Value ?? string.Empty));
+                plugins.Suppress(list.OfType<YamlScalar>().Select(static entry => entry.Value ?? string.Empty));
             }
         } catch (YamlParseException) {
             // A broken file means no plugin is switched off, which is the state that lets the editor
@@ -996,6 +1041,6 @@ sealed partial class EditorApplication {
     /// <summary>The member names of a settings type, for the search over every setting.</summary>
     static IEnumerable<string> Members<T>() =>
         InspectorRegistry.Find(typeof(T)) is { } descriptor
-            ? descriptor.Members.Select(member => member.DisplayName)
+            ? descriptor.Members.Select(static member => member.DisplayName)
             : [];
 }

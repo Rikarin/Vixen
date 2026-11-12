@@ -31,8 +31,11 @@ public readonly record struct XrSwapchainDescription(
 /// <summary>The images an eye is rendered into.</summary>
 /// <remarks>
 ///     <para>
-///         <b>The runtime owns these, and that is the whole difference from
-///         <see cref="ISwapChain" />.</b> A window's swapchain is created by the engine on a surface
+///         <b>
+///             The runtime owns these, and that is the whole difference from
+///             <see cref="ISwapChain" />.
+///         </b>
+///         A window's swapchain is created by the engine on a surface
 ///         the window system provided; an XR swapchain's images are allocated by the OpenXR runtime,
 ///         possibly in memory the compositor can reproject without a copy, and handed back as native
 ///         handles the RHI has to be told to adopt rather than create. Everything else about the

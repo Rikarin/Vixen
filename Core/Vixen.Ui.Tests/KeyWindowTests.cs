@@ -9,8 +9,12 @@ namespace Vixen.Ui.Tests;
 /// <summary>Which window a keystroke belongs to, asked of the event rather than of a global.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b><c>Dispatch(KeyEvent)</c> took no surface while the pointer and the wheel overloads
-///         both did</b>, and the stated reason — a key goes to the focus and the focus is the
+///         ⚠
+///         <b>
+///             <c>Dispatch(KeyEvent)</c> took no surface while the pointer and the wheel overloads
+///             both did
+///         </b>
+///         , and the stated reason — a key goes to the focus and the focus is the
 ///         document's — stops being an answer the moment nothing is focused, which is the state
 ///         every application starts in. The fallback was <c>Primary</c>'s root, so a keystroke the
 ///         operating system delivered to a torn-off inspector ran against the main window.
@@ -99,7 +103,7 @@ public class KeyWindowTests {
         here.Focusable = true;
         there.Focusable = true;
 
-        var ran = "";
+        var ran = string.Empty;
         here.AddCommandHandler("edit.copy", () => ran = "main");
         there.AddCommandHandler("edit.copy", () => ran = "inspector");
 
@@ -165,7 +169,8 @@ public class KeyWindowTests {
         var second = document.CreateSurface(120f, 80f);
 
         List<(UiSurface Surface, bool IsKeyNow)> seen = [];
-        document.KeySurfaceChanged += (_, surface) => seen.Add((surface, ReferenceEquals(document.KeySurface, surface)));
+        document.KeySurfaceChanged +=
+            (_, surface) => seen.Add((surface, ReferenceEquals(document.KeySurface, surface)));
 
         document.KeySurface = first;
         document.KeySurface = second;
@@ -200,7 +205,7 @@ public class KeyWindowTests {
     public void A_window_reads_its_key_status_off_the_document_rather_than_keeping_one() {
         using var document = new UiDocument(200f, 100f);
 
-        IUiWindow main = new Window(document.Primary);
+        using IUiWindow main = new Window(document.Primary);
         IUiWindow inspector = new Window(document.CreateSurface(120f, 80f));
 
         Assert.False(main.IsKey);
@@ -225,11 +230,13 @@ public class KeyWindowTests {
     ///     unchanged and gets the right answer without opting in.
     /// </remarks>
     sealed class Window : IUiWindow {
-        public Window(UiSurface surface) => Surface = surface;
+        public Window(UiSurface surface) {
+            Surface = surface;
+        }
 
         public UiSurface Surface { get; }
 
-        public string Title { get; set; } = "";
+        public string Title { get; set; } = string.Empty;
 
         public (float X, float Y, float Width, float Height) Bounds { get; set; }
 
@@ -241,11 +248,20 @@ public class KeyWindowTests {
 
         // Accessors that do nothing rather than field-like events: this double raises none of
         // them, and a field-like event nobody raises is a compiler error in this repository.
-        public event Action<IUiWindow>? CloseRequested { add { } remove { } }
+        public event Action<IUiWindow>? CloseRequested {
+            add { }
+            remove { }
+        }
 
-        public event Action<IUiWindow>? Moved { add { } remove { } }
+        public event Action<IUiWindow>? Moved {
+            add { }
+            remove { }
+        }
 
-        public event Action<IUiWindow>? DidBecomeKey { add { } remove { } }
+        public event Action<IUiWindow>? DidBecomeKey {
+            add { }
+            remove { }
+        }
 
         public void Dispose() { }
     }

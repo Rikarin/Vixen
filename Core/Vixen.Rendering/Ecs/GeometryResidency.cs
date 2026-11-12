@@ -12,8 +12,12 @@ namespace Vixen.Rendering.Ecs;
 
 /// <summary>Which geometry an entity draws, as something a cache can be keyed by.</summary>
 /// <remarks>
-///     ⚠ <b>Two key spaces in one struct, because an entity draws an asset <i>or</i> a primitive and the
-///     cache should not care which.</b> A <see cref="MeshRenderable" /> names a mesh by
+///     ⚠
+///     <b>
+///         Two key spaces in one struct, because an entity draws an asset <i>or</i> a primitive and the
+///         cache should not care which.
+///     </b>
+///     A <see cref="MeshRenderable" /> names a mesh by
 ///     <see cref="AssetReference" />; a <see cref="PrimitiveShape" /> names one of eight shapes the
 ///     engine builds. Both resolve to a <see cref="MeshData" /> and both want one resident slice shared
 ///     by every entity drawing them, so both need to be one dictionary key. Encoding a primitive as a
@@ -34,8 +38,12 @@ public readonly record struct GeometryKey {
     ///     Whether this names a mesh's shadow-caster geometry rather than the mesh itself.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>A third key space, and it exists because one asset can be resident twice for two
-    ///     different index buffers.</b> A virtualized mesh draws through the cluster pages and casts
+    ///     ⚠
+    ///     <b>
+    ///         A third key space, and it exists because one asset can be resident twice for two
+    ///         different index buffers.
+    ///     </b>
+    ///     A virtualized mesh draws through the cluster pages and casts
     ///     through <c>MeshletMesh.Fallback</c> — the same vertices, a reduced set of triangles — so the
     ///     caster is a different slice of the geometry buffer under the same
     ///     <see cref="AssetReference" />. Without this the two would share an entry, and whichever was
@@ -60,11 +68,12 @@ public readonly record struct GeometryKey {
     public static GeometryKey Caster(AssetReference asset) => new() { Asset = asset, IsCaster = true };
 
     /// <inheritdoc />
-    public override string ToString() => (IsPrimitive, IsCaster) switch {
-        (true, _) => Primitive.ToString(),
-        (false, true) => $"{Asset} (caster)",
-        _ => Asset.ToString()
-    };
+    public override string ToString() =>
+        (IsPrimitive, IsCaster) switch {
+            (true, _) => Primitive.ToString(),
+            (false, true) => $"{Asset} (caster)",
+            _ => Asset.ToString()
+        };
 }
 
 /// <summary>What is resident in the shared geometry buffer, and how many entities want it.</summary>
@@ -89,8 +98,12 @@ public readonly record struct GeometryKey {
 ///         <c>DebugDrawRenderer.Upload</c> and <c>UiRenderer</c>'s atlas both have.
 ///     </para>
 ///     <para>
-///         ⚠ <b>A mesh too large for the remaining space is refused rather than growing the
-///         buffer.</b> Growing means recreating a buffer the GPU may still be reading from, and the
+///         ⚠
+///         <b>
+///             A mesh too large for the remaining space is refused rather than growing the
+///             buffer.
+///         </b>
+///         Growing means recreating a buffer the GPU may still be reading from, and the
 ///         alternative to a refusal here is a stall of unbounded length in the middle of a frame. What
 ///         the caller does about it — evict, or draw nothing — is above this.
 ///     </para>
@@ -161,8 +174,8 @@ public sealed class GeometryResidency(GeometryBuffer buffer) {
         // Found by a scene whose first frame registered a morphed head and a sphere: the head's 42 KB
         // fit the fresh 64 KB region, the sphere behind it did not, and the frame loop threw on a
         // mesh that was merely second.
-        var staging = ((long) vertices.Length * Buffer.VertexStride)
-            + ((long) mesh.Indices.Length * Buffer.IndexStride);
+        var staging = (long)vertices.Length * Buffer.VertexStride
+            + (long)mesh.Indices.Length * Buffer.IndexStride;
 
         if (vertices.Length == 0
             || !Buffer.CanStage(staging)
@@ -227,7 +240,8 @@ public sealed class GeometryResidency(GeometryBuffer buffer) {
     [SuppressMessage(
         "Performance",
         "CA1815",
-        Justification = "Never compared; it is a dictionary value, and GeometrySlice's own equality is what would be asked for."
+        Justification =
+            "Never compared; it is a dictionary value, and GeometrySlice's own equality is what would be asked for."
     )]
     readonly record struct Entry(GeometrySlice Slice, BoundingSphere Bounds, int Claims);
 }

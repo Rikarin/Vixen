@@ -28,7 +28,7 @@ internal static class NavGeometry {
     /// <param name="left">The first vector.</param>
     /// <param name="right">The second.</param>
     /// <returns>Positive when the second turns clockwise from the first, seen from +Y.</returns>
-    public static float Cross2D(Vector3 left, Vector3 right) => (left.X * right.Z) - (left.Z * right.X);
+    public static float Cross2D(Vector3 left, Vector3 right) => left.X * right.Z - left.Z * right.X;
 
     /// <summary>Which side of a directed line a point falls on.</summary>
     /// <param name="from">The line's start.</param>
@@ -45,7 +45,7 @@ internal static class NavGeometry {
         var x = left.X - right.X;
         var z = left.Z - right.Z;
 
-        return (x * x) + (z * z);
+        return x * x + z * z;
     }
 
     /// <summary>The distance between two points, ignoring height.</summary>
@@ -66,7 +66,7 @@ internal static class NavGeometry {
         var total = 0f;
 
         for (int index = 0, previous = poly.Length - 1; index < poly.Length; previous = index++) {
-            total += (poly[previous].X * poly[index].Z) - (poly[index].X * poly[previous].Z);
+            total += poly[previous].X * poly[index].Z - poly[index].X * poly[previous].Z;
         }
 
         return total;
@@ -102,8 +102,8 @@ internal static class NavGeometry {
             var current = poly[index];
             var last = poly[previous];
 
-            if (current.Z > point.Z != last.Z > point.Z &&
-                point.X < ((last.X - current.X) * (point.Z - current.Z) / (last.Z - current.Z)) + current.X) {
+            if (current.Z > point.Z != last.Z > point.Z
+                && point.X < (last.X - current.X) * (point.Z - current.Z) / (last.Z - current.Z) + current.X) {
                 inside = !inside;
             }
         }
@@ -119,13 +119,13 @@ internal static class NavGeometry {
     /// <returns>The closest point.</returns>
     public static Vector3 ClosestPointOnSegment2D(Vector3 point, Vector3 from, Vector3 to, out float t) {
         var direction = to - from;
-        var lengthSquared = (direction.X * direction.X) + (direction.Z * direction.Z);
+        var lengthSquared = direction.X * direction.X + direction.Z * direction.Z;
 
         t = lengthSquared > 1e-12f
-            ? Math.Clamp((((point.X - from.X) * direction.X) + ((point.Z - from.Z) * direction.Z)) / lengthSquared, 0f, 1f)
+            ? Math.Clamp(((point.X - from.X) * direction.X + (point.Z - from.Z) * direction.Z) / lengthSquared, 0f, 1f)
             : 0f;
 
-        return from + (direction * t);
+        return from + direction * t;
     }
 
     /// <summary>The closest point on a polygon's boundary, in XZ.</summary>
@@ -190,7 +190,7 @@ internal static class NavGeometry {
         var v2X = point.X - a.X;
         var v2Z = point.Z - a.Z;
 
-        var denominator = (v0X * v1Z) - (v0Z * v1X);
+        var denominator = v0X * v1Z - v0Z * v1X;
 
         if (MathF.Abs(denominator) < 1e-9f) {
             height = 0f;
@@ -198,8 +198,8 @@ internal static class NavGeometry {
             return false;
         }
 
-        var u = ((v1Z * v2X) - (v1X * v2Z)) / denominator;
-        var v = ((v0X * v2Z) - (v0Z * v2X)) / denominator;
+        var u = (v1Z * v2X - v1X * v2Z) / denominator;
+        var v = (v0X * v2Z - v0Z * v2X) / denominator;
 
         // A small tolerance, because a point that a containment test called inside the polygon has to
         // be found by one of the fan's triangles even when it sits exactly on a shared edge.
@@ -211,7 +211,7 @@ internal static class NavGeometry {
             return false;
         }
 
-        height = a.Y + ((c.Y - a.Y) * u) + ((b.Y - a.Y) * v);
+        height = a.Y + (c.Y - a.Y) * u + (b.Y - a.Y) * v;
 
         return true;
     }

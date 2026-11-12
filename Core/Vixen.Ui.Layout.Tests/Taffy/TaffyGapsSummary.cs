@@ -12,8 +12,11 @@ namespace Vixen.Ui.Layout.Tests.Taffy;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Each of these files opens by telling a reader how many fixtures pass, and until this
-///         existed that sentence was the only number in the whole arrangement that nothing checked.</b>
+///         ⚠
+///         <b>
+///             Each of these files opens by telling a reader how many fixtures pass, and until this
+///             existed that sentence was the only number in the whole arrangement that nothing checked.
+///         </b>
 ///         <c>GridKnownGaps.txt</c> said "2 080 of the 2 120 … pass, 40 fail" for two batches after
 ///         <c>TaffyGridConformanceTests</c> had pinned 2 104 and 16 — the body of the same file
 ///         already carried the new figures in the heading that moved them, and only the summary a
@@ -54,8 +57,7 @@ static class TaffyGapsSummary {
     const string Tag = "# COUNTS, generated";
 
     /// <summary>Set <c>VIXEN_REGENERATE=1</c> to write the counts back instead of asserting them.</summary>
-    static bool Regenerating =>
-        Environment.GetEnvironmentVariable("VIXEN_REGENERATE") is "1";
+    static bool Regenerating => Environment.GetEnvironmentVariable("VIXEN_REGENERATE") is "1";
 
     /// <summary>Asserts one gaps file's summary line states the counts its suite pins.</summary>
     /// <param name="fileName">The gaps file, by name, beside this source file.</param>
@@ -88,7 +90,7 @@ static class TaffyGapsSummary {
 
             // ⚠ Joined on "\n" rather than written with `WriteAllLines`, which uses the platform's
             // newline: regenerating on Windows would otherwise rewrite every line of the file to CRLF
-            // and hand `CheckWhitespace` a diff of the whole document to explain one number.
+            // and hand the formatting gate a diff of the whole document to explain one number.
             File.WriteAllText(path, string.Join('\n', lines) + '\n');
 
             return;
@@ -118,8 +120,12 @@ static class TaffyGapsSummary {
 
     /// <summary>Finds a gaps file in the tree rather than the copy in <c>bin</c>.</summary>
     /// <remarks>
-    ///     ⚠ <b>The walk is anchored on <c>Vixen.slnx</c> above <see cref="AppContext.BaseDirectory" />
-    ///     and not on a <c>[CallerFilePath]</c>.</b> CI sets <c>ContinuousIntegrationBuild</c>, which
+    ///     ⚠
+    ///     <b>
+    ///         The walk is anchored on <c>Vixen.slnx</c> above <see cref="AppContext.BaseDirectory" />
+    ///         and not on a <c>[CallerFilePath]</c>.
+    ///     </b>
+    ///     CI sets <c>ContinuousIntegrationBuild</c>, which
     ///     turns on <c>DeterministicSourcePaths</c>, which rewrites every compiled source path to
     ///     <c>/_/…</c> — so a test that anchors a repository walk on its own path passes here and
     ///     fails on all three runners at once.

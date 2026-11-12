@@ -102,7 +102,7 @@ public sealed class ComputedStyle : IEquatable<ComputedStyle> {
             values[i] = pairs[i].Value;
         }
 
-        return new ComputedStyle(properties, values, inheritedFrom);
+        return new(properties, values, inheritedFrom);
     }
 
     /// <inheritdoc />
@@ -220,8 +220,12 @@ public sealed class ComputedStyleCache {
 ///         attributes are — which is what <see cref="StyleRuleSet.SharingIsSound" /> is for.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The media scope is in the key even though the parent very nearly makes it
-///         redundant, and the exception is exactly the case per-surface media exists for.</b> Two
+///         ⚠
+///         <b>
+///             The media scope is in the key even though the parent very nearly makes it
+///             redundant, and the exception is exactly the case per-surface media exists for.
+///         </b>
+///         Two
 ///         elements with the same parent are in the same surface by construction, so for every
 ///         ordinary element the scope adds nothing. Surface <i>roots</i> are the elements that
 ///         break it: <c>UiDocument.CreateSurface</c> hangs them all off one owner, and two torn-off
@@ -234,8 +238,12 @@ public sealed class ComputedStyleCache {
 /// <param name="Container">
 ///     Which container chain's <c>@container</c> answers it reads.
 ///     <para>
-///         ⚠ <b>Not redundant with the parent, and the case is the ordinary one rather than an edge
-///         case.</b> Two siblings are in the same container by construction — but a scope is interned
+///         ⚠
+///         <b>
+///             Not redundant with the parent, and the case is the ordinary one rather than an edge
+///             case.
+///         </b>
+///         Two siblings are in the same container by construction — but a scope is interned
 ///         on the chain's <i>boxes</i> (see <see cref="ContainerScopes" />), so two rows of a list
 ///         that happen to be the same width get the same id and share, and the moment one of them
 ///         holds a container that has resized they do not. Leaving it out would let a row keep the

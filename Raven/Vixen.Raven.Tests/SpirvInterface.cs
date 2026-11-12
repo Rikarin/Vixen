@@ -102,8 +102,8 @@ public sealed record SpirvInterface(
         return new(
             descriptors.ToImmutable(),
             members.ToImmutableSortedDictionary(
-                block => block.Key,
-                block => block.Value.ToImmutableSortedDictionary(StringComparer.Ordinal),
+                static block => block.Key,
+                static block => block.Value.ToImmutableSortedDictionary(StringComparer.Ordinal),
                 StringComparer.Ordinal
             ),
             located.ToImmutable(),

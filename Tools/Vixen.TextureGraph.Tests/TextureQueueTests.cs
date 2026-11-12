@@ -103,7 +103,7 @@ public class TextureQueueTests {
 
         // The count first: `Assert.All` over an empty list asserts nothing at all.
         Assert.NotEmpty(submissions);
-        Assert.All(submissions, submission => Assert.Equal((long)QueueKind.Compute, submission.A));
+        Assert.All(submissions, static submission => Assert.Equal((long)QueueKind.Compute, submission.A));
 
         device.Destroy(source);
     }
@@ -121,7 +121,7 @@ public class TextureQueueTests {
                 new(TextureFormat.Rgba8, External: true),
                 new(TextureFormat.Rgba8),
                 new(TextureFormat.R16Float),
-                new(TextureFormat.Rgba16Float, LevelOffset: 1)
+                new(TextureFormat.Rgba16Float, 1)
             ],
             Ops = [
                 op,

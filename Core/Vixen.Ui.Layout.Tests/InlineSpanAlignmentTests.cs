@@ -11,16 +11,24 @@ namespace Vixen.Ui.Layout.Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>CSS 2.1 §10.8.1 aligns every box against its PARENT inline box's baseline, and a
-///         span is a box.</b> A <c>super</c> span is raised by its parent's superscript offset, and
+///         ⚠
+///         <b>
+///             CSS 2.1 §10.8.1 aligns every box against its PARENT inline box's baseline, and a
+///             span is a box.
+///         </b>
+///         A <c>super</c> span is raised by its parent's superscript offset, and
 ///         everything inside it hangs from the raised baseline — so a box in a <c>super</c> span
 ///         inside a <c>sub</c> span is moved by both. <c>top</c> and <c>bottom</c> make the span the
 ///         root of an <i>aligned subtree</i>: the span and what hangs from it are measured together
 ///         and the whole is pinned to the line box's edge.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The trap the issue named is real, and every test here was chosen to step around
-///         it</b>: when the shifted span is the only thing on the line, the line simply wraps it and
+///         ⚠
+///         <b>
+///             The trap the issue named is real, and every test here was chosen to step around
+///             it
+///         </b>
+///         : when the shifted span is the only thing on the line, the line simply wraps it and
 ///         the box inside often lands at the same top it had before. So each case either asserts the
 ///         line height, or puts a 50-tall baseline sibling beside the span to pin the line's
 ///         baseline where the shift is visible.
@@ -238,8 +246,12 @@ public class InlineSpanAlignmentTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>CSS 2.1 §9.4.2: a line holding nothing but an empty inline box with no margin, border
-    ///     or padding is a ZERO-height line box.</b> So a container whose only child is a bare empty
+    ///     ⚠
+    ///     <b>
+    ///         CSS 2.1 §9.4.2: a line holding nothing but an empty inline box with no margin, border
+    ///         or padding is a ZERO-height line box.
+    ///     </b>
+    ///     So a container whose only child is a bare empty
     ///     span is 0 tall — and the span is still laid out, at the content corner, zero wide. Old: an
     ///     atomic zero-size box counted as content and the line was the strut's 30.
     /// </summary>
@@ -278,7 +290,8 @@ public class InlineSpanAlignmentTests {
         Assert.Equal(5f, tree.GetWidth(span), Tolerance);
     }
 
-    static float AbsoluteTop(LayoutTree tree, LayoutNodeId span, LayoutNodeId box) => tree.GetTop(span) + tree.GetTop(box);
+    static float AbsoluteTop(LayoutTree tree, LayoutNodeId span, LayoutNodeId box) =>
+        tree.GetTop(span) + tree.GetTop(box);
 
     static LayoutNodeId Root(LayoutTree tree, float width, StrutMetrics strut) {
         var root = tree.CreateNode();

@@ -15,8 +15,12 @@ namespace Vixen.Editor.Water;
 ///         site — <c>new StringId("editor.command." + id, "Finish Water Body")</c>.
 ///     </para>
 ///     <para>
-///         ⚠ <b>That was not a style question: those nineteen words could not be translated at
-///         all.</b> <c>Strings.Template</c> exports <c>All</c> lists, and an id that exists only at
+///         ⚠
+///         <b>
+///             That was not a style question: those nineteen words could not be translated at
+///             all.
+///         </b>
+///         <c>Strings.Template</c> exports <c>All</c> lists, and an id that exists only at
 ///         run time is in no <c>All</c> list, so no translator's template ever contained one of
 ///         them. ⚠ And the gate written to find exactly that could not see them either — both of
 ///         <c>CheckStrings</c>' patterns need a string literal where the id goes, so a concatenation
@@ -39,15 +43,16 @@ public static class WaterStrings {
             // The digit row. `Tool 1` rather than the tool's name, because what the digit means is
             // "the first tool" and the named commands beside it keep the words the palette is
             // searched with.
-            .. Enumerable.Range(0, WaterMode.SlotCount)
-                .Select(
-                    slot => new KeyValuePair<string, string>(
+            ..Enumerable.Range(0, WaterMode.SlotCount)
+                .Select(static slot => new KeyValuePair<string, string>(
                         WaterMode.SlotCommand(slot),
                         "Tool " + (slot + 1).ToString(System.Globalization.CultureInfo.InvariantCulture)
                     )
                 ),
-            .. WaterMode.Tools.Select(
-                tool => new KeyValuePair<string, string>(WaterMode.ToolCommand(tool), tool + " Water")
+            ..WaterMode.Tools.Select(static tool => new KeyValuePair<string, string>(
+                    WaterMode.ToolCommand(tool),
+                    tool + " Water"
+                )
             ),
             new(WaterMode.FinishCommand, "Finish Water Body"),
             new(WaterMode.UndoPointCommand, "Undo Water Point"),
@@ -101,7 +106,7 @@ public static class WaterStrings {
     ///     <c>VXS0310</c> counts a <see cref="StringFamily" /> property as a declaration.
     /// </remarks>
     public static IReadOnlyList<StringId> All { get; } = [
-        .. Commands.All,
+        ..Commands.All,
         CategoryWater,
         ModeWater,
         PanelWater,

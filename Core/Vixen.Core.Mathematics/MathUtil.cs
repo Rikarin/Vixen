@@ -119,7 +119,7 @@ public static class MathUtil {
     ///     alternative form is exact at 1 and not at 0, and animation and easing care far more about
     ///     the start.
     /// </remarks>
-    public static float Lerp(float from, float to, float amount) => from + ((to - from) * amount);
+    public static float Lerp(float from, float to, float amount) => from + (to - from) * amount;
 
     /// <summary>Finds the interpolant that <see cref="Lerp(float,float,float)" /> would need.</summary>
     /// <param name="from">The value that maps to 0.</param>
@@ -136,7 +136,7 @@ public static class MathUtil {
     /// <returns>The eased interpolant.</returns>
     public static float SmoothStep(float amount) {
         var t = Saturate(amount);
-        return t * t * (3f - (2f * t));
+        return t * t * (3f - 2f * t);
     }
 
     /// <summary>
@@ -148,7 +148,7 @@ public static class MathUtil {
     /// <returns>The eased interpolant.</returns>
     public static float SmootherStep(float amount) {
         var t = Saturate(amount);
-        return t * t * t * ((t * ((t * 6f) - 15f)) + 10f);
+        return t * t * t * (t * (t * 6f - 15f) + 10f);
     }
 
     /// <summary>Wraps an angle into <c>(−π, π]</c>.</summary>
@@ -194,7 +194,7 @@ public static class MathUtil {
     public static int AlignUp(int value, int alignment) {
         ArgumentOutOfRangeException.ThrowIfNegative(value);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(alignment);
-        return ((value + alignment - 1) / alignment) * alignment;
+        return (value + alignment - 1) / alignment * alignment;
     }
 
     /// <summary>
@@ -209,7 +209,7 @@ public static class MathUtil {
             return 0f;
         }
 
-        var wrapped = value - (MathF.Floor(value / length) * length);
+        var wrapped = value - MathF.Floor(value / length) * length;
 
         // Rounding can land exactly on `length` for values just under a multiple of it, which would
         // break the half-open interval this promises.

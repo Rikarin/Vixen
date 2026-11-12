@@ -15,7 +15,7 @@ public sealed class ReverbZoneTests {
             Parameter = parameter,
             Position = at,
             Shape = AudioZoneShape.Sphere,
-            Extent = new Vector3(radius, radius, radius),
+            Extent = new(radius, radius, radius),
             Blend = blend,
             Priority = priority
         };
@@ -25,36 +25,34 @@ public sealed class ReverbZoneTests {
         var zone = Sphere("cave", Vector3.Zero, 10f);
 
         Assert.Equal(1f, zone.Evaluate(Vector3.Zero));
-        Assert.Equal(1f, zone.Evaluate(new Vector3(9.9f, 0f, 0f)));
-        Assert.Equal(0f, zone.Evaluate(new Vector3(10.1f, 0f, 0f)));
-        Assert.Equal(0f, zone.Evaluate(new Vector3(0f, 0f, 100f)));
+        Assert.Equal(1f, zone.Evaluate(new(9.9f, 0f, 0f)));
+        Assert.Equal(0f, zone.Evaluate(new(10.1f, 0f, 0f)));
+        Assert.Equal(0f, zone.Evaluate(new(0f, 0f, 100f)));
     }
 
     [Fact]
     public void ABoxIsABoxAndNotASphereWithCorners() {
         var zone = new AudioReverbZone {
-            Parameter = "corridor",
-            Shape = AudioZoneShape.Box,
-            Extent = new Vector3(10f, 2f, 3f)
+            Parameter = "corridor", Shape = AudioZoneShape.Box, Extent = new(10f, 2f, 3f)
         };
 
-        Assert.Equal(1f, zone.Evaluate(new Vector3(9f, 1f, 2f)));
+        Assert.Equal(1f, zone.Evaluate(new(9f, 1f, 2f)));
 
         // Inside on two axes and outside on the third is outside — which is the whole reason a
         // corridor is a box: a sphere that reached the far end would also reach through the ceiling.
-        Assert.Equal(0f, zone.Evaluate(new Vector3(9f, 3f, 2f)));
-        Assert.Equal(0f, zone.Evaluate(new Vector3(11f, 1f, 2f)));
+        Assert.Equal(0f, zone.Evaluate(new(9f, 3f, 2f)));
+        Assert.Equal(0f, zone.Evaluate(new(11f, 1f, 2f)));
     }
 
     /// <summary>A boundary without a blend is a switch, and nobody walks like that.</summary>
     [Fact]
     public void TheEdgeFadesRatherThanSwitching() {
-        var zone = Sphere("hall", Vector3.Zero, 10f, blend: 4f);
+        var zone = Sphere("hall", Vector3.Zero, 10f, 4f);
 
-        Assert.Equal(0f, zone.Evaluate(new Vector3(10f, 0f, 0f)));
-        Assert.Equal(0.25f, zone.Evaluate(new Vector3(9f, 0f, 0f)), 1e-4f);
-        Assert.Equal(0.5f, zone.Evaluate(new Vector3(8f, 0f, 0f)), 1e-4f);
-        Assert.Equal(1f, zone.Evaluate(new Vector3(6f, 0f, 0f)), 1e-4f);
+        Assert.Equal(0f, zone.Evaluate(new(10f, 0f, 0f)));
+        Assert.Equal(0.25f, zone.Evaluate(new(9f, 0f, 0f)), 1e-4f);
+        Assert.Equal(0.5f, zone.Evaluate(new(8f, 0f, 0f)), 1e-4f);
+        Assert.Equal(1f, zone.Evaluate(new(6f, 0f, 0f)), 1e-4f);
         Assert.Equal(1f, zone.Evaluate(Vector3.Zero));
     }
 
@@ -63,7 +61,7 @@ public sealed class ReverbZoneTests {
         var zone = Sphere("damp", Vector3.Zero, 10f) with { Strength = 0.3f };
 
         Assert.Equal(0.3f, zone.Evaluate(Vector3.Zero));
-        Assert.Equal(0f, zone.Evaluate(new Vector3(20f, 0f, 0f)));
+        Assert.Equal(0f, zone.Evaluate(new(20f, 0f, 0f)));
     }
 
     // ── The set ───────────────────────────────────────────────────────────────────────────────
@@ -83,7 +81,7 @@ public sealed class ReverbZoneTests {
         Assert.Equal(0.2f, zones.StrengthOf("reverb"), 1e-4f);
 
         // Inside only the cathedral.
-        zones.Apply(new Vector3(50f, 0f, 0f), null);
+        zones.Apply(new(50f, 0f, 0f), null);
         Assert.Equal(1f, zones.StrengthOf("reverb"), 1e-4f);
     }
 
@@ -96,7 +94,7 @@ public sealed class ReverbZoneTests {
         zones.Apply(Vector3.Zero, null);
         Assert.Equal(1f, zones.StrengthOf("cave"));
 
-        zones.Apply(new Vector3(1_000f, 0f, 0f), null);
+        zones.Apply(new(1_000f, 0f, 0f), null);
         Assert.Equal(0f, zones.StrengthOf("cave"));
     }
 
@@ -104,7 +102,7 @@ public sealed class ReverbZoneTests {
     public void ZonesDrivingDifferentParametersDoNotInterfere() {
         var zones = new AudioReverbZones();
         zones.Add(Sphere("cave", Vector3.Zero, 10f));
-        zones.Add(Sphere("underwater", new Vector3(100f, 0f, 0f), 10f));
+        zones.Add(Sphere("underwater", new(100f, 0f, 0f), 10f));
 
         zones.Apply(Vector3.Zero, null);
 
@@ -140,18 +138,18 @@ public sealed class ReverbZoneTests {
             engine.ReverbZones.Add(Sphere("cave", Vector3.Zero, 10f));
 
             // The listener inside the zone, the sound a long way outside it.
-            engine.SetListener(new AudioListener { Position = Vector3.Zero });
+            engine.SetListener(new() { Position = Vector3.Zero });
 
-            engine.Play(AudioTestData.Constant(48_000, 1f), new PlaybackSettings {
-                IsSpatial = true,
-                Spatial = new SpatialSettings { Position = new Vector3(500f, 0f, 0f), MaxDistance = 10_000f }
-            });
+            engine.Play(
+                AudioTestData.Constant(48_000, 1f),
+                new() { IsSpatial = true, Spatial = new() { Position = new(500f, 0f, 0f), MaxDistance = 10_000f } }
+            );
 
             engine.Update(1f / 60f);
             Assert.Equal(1f, engine.ReverbZones.StrengthOf("cave"));
 
             // And the other way round: listener out, source in.
-            engine.SetListener(new AudioListener { Position = new Vector3(500f, 0f, 0f) });
+            engine.SetListener(new() { Position = new(500f, 0f, 0f) });
             engine.Update(1f / 60f);
 
             Assert.Equal(0f, engine.ReverbZones.StrengthOf("cave"));

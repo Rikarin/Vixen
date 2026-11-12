@@ -65,8 +65,7 @@ public sealed record AudioClip {
     public int FrameCount => Channels <= 0 ? 0 : Samples.Length / (BytesPerSample * Channels);
 
     /// <summary>How long it plays for.</summary>
-    public TimeSpan Duration =>
-        SampleRate <= 0 ? TimeSpan.Zero : TimeSpan.FromSeconds((double)FrameCount / SampleRate);
+    public TimeSpan Duration => SampleRate <= 0 ? TimeSpan.Zero : TimeSpan.FromSeconds((double)FrameCount / SampleRate);
 
     /// <summary>The samples as signed 16-bit values.</summary>
     /// <returns>The span, or empty if the clip is not <see cref="AudioSampleFormat.Int16" />.</returns>

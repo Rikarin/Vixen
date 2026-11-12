@@ -106,8 +106,10 @@ public class PlayOverlayPaintingTests {
 
         foreach (var point in points) {
             Assert.True(
-                point.X >= bounds.X - 0.5f && point.X <= bounds.X + bounds.Width + 0.5f
-                && point.Y >= bounds.Y - 0.5f && point.Y <= bounds.Y + bounds.Height + 0.5f,
+                point.X >= bounds.X - 0.5f
+                && point.X <= bounds.X + bounds.Width + 0.5f
+                && point.Y >= bounds.Y - 0.5f
+                && point.Y <= bounds.Y + bounds.Height + 0.5f,
                 $"{point} is outside the pane at {bounds}"
             );
         }

@@ -10,8 +10,11 @@ namespace Vixen.Engine.Renderer;
 /// <summary>A terrain's layer textures, out of the asset system.</summary>
 /// <remarks>
 ///     <para>
-///         <b><see cref="ITerrainTextures" />'s implementation, which the interface has been waiting
-///         for.</b> A <c>.vxlayer</c> names its albedo and its surface map as <c>vx:</c> references;
+///         <b>
+///             <see cref="ITerrainTextures" />'s implementation, which the interface has been waiting
+///             for.
+///         </b>
+///         A <c>.vxlayer</c> names its albedo and its surface map as <c>vx:</c> references;
 ///         <see cref="AssetTextureSource" /> already knows how to turn one of those into a resident
 ///         view, decoding off the frame's thread and answering nothing until the bytes are there. All
 ///         this adds is the parse.
@@ -45,8 +48,12 @@ public sealed class AssetTerrainTextures : ITerrainTextures {
 
     /// <summary>How many references have been asked for that did not parse.</summary>
     /// <remarks>
-    ///     ⚠ <b>The counter that tells "the texture has not loaded yet" from "that is not a
-    ///     reference".</b> Both draw white, and only one of them ever stops.
+    ///     ⚠
+    ///     <b>
+    ///         The counter that tells "the texture has not loaded yet" from "that is not a
+    ///         reference".
+    ///     </b>
+    ///     Both draw white, and only one of them ever stops.
     /// </remarks>
     public int Unparsed { get; private set; }
 

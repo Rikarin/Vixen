@@ -12,8 +12,12 @@ namespace Vixen.Editor.AssetEditors.Ai;
 ///     <para>
 ///         doc 37 § Part 5's GOAP editor. Goals, actions and world keys are <b>tables</b>; conditions
 ///         and effects are rows on an action. The graph beside them is <b>derived and read-only</b>,
-///         and it has no command stack — which <c>NodeGraphView</c> already supports, since <i>"no
-///         stack means read-only"</i>.
+///         and it has no command stack — which <c>NodeGraphView</c> already supports, since
+///         <i>
+///             "no
+///             stack means read-only"
+///         </i>
+///         .
 ///     </para>
 ///     <para>
 ///         The panel is <c>GoapDomainView.vxml</c>; this file is the accessibility modifier, the

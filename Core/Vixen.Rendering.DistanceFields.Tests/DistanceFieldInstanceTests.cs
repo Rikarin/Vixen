@@ -42,7 +42,7 @@ public class DistanceFieldInstanceTests {
         // reconstruction error: the turned instance reads the same field at a different local point,
         // so the two disagree by however much a trilinear interpolation disagrees with itself
         // between grid points. The claim is about the distance, not about the sampling.
-        foreach (var probe in (Vector3[]) [new(1.3f, 0, 0), new(0, 0.5f, 0), new(-0.9f, 0.4f, 0.2f)]) {
+        foreach (var probe in (Vector3[])[new(1.3f, 0, 0), new(0, 0.5f, 0), new(-0.9f, 0.4f, 0.2f)]) {
             Assert.Equal(upright.Sample(probe), turned.Sample(probe), field.CellSize.Length());
         }
     }
@@ -59,7 +59,7 @@ public class DistanceFieldInstanceTests {
         // ...and so is everything else: a point three times as far out reads three times the
         // distance. Dropping the multiply on the way out is the classic error and it is invisible
         // at a scale of one.
-        foreach (var probe in (Vector3[]) [new(1.3f, 0, 0), new(0, 0.5f, 0), new(-0.9f, 0.4f, 0.2f)]) {
+        foreach (var probe in (Vector3[])[new(1.3f, 0, 0), new(0, 0.5f, 0), new(-0.9f, 0.4f, 0.2f)]) {
             Assert.Equal(unit.Sample(probe) * 3f, tripled.Sample(probe * 3f), 0.001f);
         }
     }

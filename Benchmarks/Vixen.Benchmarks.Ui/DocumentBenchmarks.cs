@@ -15,8 +15,12 @@ namespace Vixen.Benchmarks.Ui;
 ///     <para>
 ///         <see cref="LayoutBenchmarks" /> measures the flexbox engine and nothing else, which is
 ///         the right thing to measure when the question is about layout. It is the wrong thing to
-///         measure against <b>"UI frame under 2 ms with 5 000 elements and zero steady-state
-///         allocation"</b>, because three of the four passes in that sentence are above the layout
+///         measure against
+///         <b>
+///             "UI frame under 2 ms with 5 000 elements and zero steady-state
+///             allocation"
+///         </b>
+///         , because three of the four passes in that sentence are above the layout
 ///         tree: a selector match, a style resolve, a length conversion and a draw-list walk are
 ///         where a frame of a themed interface actually goes.
 ///     </para>
@@ -49,7 +53,7 @@ public class DocumentBenchmarks {
 
     [GlobalSetup]
     public void Setup() {
-        document = new UiDocument(1600f, 1000f);
+        document = new(1600f, 1000f);
         ControlTheme.Install(document);
 
         document.Load(
@@ -125,7 +129,7 @@ public class DocumentBenchmarks {
     /// </remarks>
     [Benchmark]
     public bool ColdFrame() {
-        document.Resize(1600f, 1000f + (frame++ % 2));
+        document.Resize(1600f, 1000f + frame++ % 2);
 
         document.Update();
         return document.Draw();

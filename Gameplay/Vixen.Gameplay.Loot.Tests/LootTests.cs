@@ -77,12 +77,7 @@ public static class Content {
     public static LootLibrary Loot() => LootLibrary.Compile(Catalog());
 
     static ItemDefinition Item(string name, int stack, string tag) =>
-        new() {
-            DisplayName = name,
-            Rarity = "rarities/common",
-            MaximumStack = stack,
-            Tags = [tag]
-        };
+        new() { DisplayName = name, Rarity = "rarities/common", MaximumStack = stack, Tags = [tag] };
 }
 
 public class LootLibraryTests {
@@ -103,7 +98,7 @@ public class LootLibraryTests {
 
         Assert.Contains(
             LootLibrary.Compile(catalog).Problems,
-            problem => problem.Contains("both a weight and a chance", StringComparison.Ordinal)
+            static problem => problem.Contains("both a weight and a chance", StringComparison.Ordinal)
         );
     }
 
@@ -115,19 +110,22 @@ public class LootLibraryTests {
 
         Assert.Contains(
             LootLibrary.Compile(catalog).Problems,
-            problem => problem.Contains("neither an item nor a table", StringComparison.Ordinal)
+            static problem => problem.Contains("neither an item nor a table", StringComparison.Ordinal)
         );
     }
 
     [Fact]
     public void ANestedTableThisBuildDoesNotHaveIsReported() {
         var catalog = new DefinitionCatalogBuilder()
-            .Add("loot/outer", new LootTableDefinition { Entries = [new() { Table = "loot/nonexistent", Weight = 1f }] })
+            .Add(
+                "loot/outer",
+                new LootTableDefinition { Entries = [new() { Table = "loot/nonexistent", Weight = 1f }] }
+            )
             .Build();
 
         Assert.Contains(
             LootLibrary.Compile(catalog).Problems,
-            problem => problem.Contains("loot/nonexistent", StringComparison.Ordinal)
+            static problem => problem.Contains("loot/nonexistent", StringComparison.Ordinal)
         );
     }
 
@@ -280,7 +278,7 @@ public class LootRollTests {
         var instances = result.Materialise(items);
 
         Assert.Equal(result.Drops.Count, instances.Count);
-        Assert.All(instances, instance => Assert.True(instance.IsSome));
+        Assert.All(instances, static instance => Assert.True(instance.IsSome));
     }
 }
 
@@ -321,7 +319,7 @@ public class PityTests {
         var result = LootEvaluator.Roll(loot, table, 1234, 7, null, pity);
 
         Assert.Contains(result.Drops, drop => drop.Item == mount);
-        Assert.Contains(result.Drops, drop => drop is { Pity: true });
+        Assert.Contains(result.Drops, static drop => drop is { Pity: true });
         Assert.Equal(0, pity.AttemptsOf(key));
     }
 
@@ -388,7 +386,7 @@ public class LootDistributionTests {
         var results = LootEvaluator.Roll(loot, table, 500, LootDistribution.Personal, [1, 2, 3]);
 
         Assert.Equal(3, results.Count);
-        Assert.Equal([1ul, 2ul, 3ul], results.Select(result => result.Player));
+        Assert.Equal([1ul, 2ul, 3ul], results.Select(static result => result.Player));
     }
 
     [Theory]
@@ -413,7 +411,7 @@ public class LootDistributionTests {
 public class LootModuleTests {
     [Fact]
     public void LootNeedsItemsAndTheKernel() {
-        Assert.Throws<InvalidOperationException>(() => new GameplayConfig().Use<LootModule>().Build());
+        Assert.Throws<InvalidOperationException>(static () => new GameplayConfig().Use<LootModule>().Build());
 
         var composition = new GameplayConfig()
             .Use<GameplayKernelModule>()
@@ -421,7 +419,7 @@ public class LootModuleTests {
             .Use<LootModule>()
             .Build();
 
-        Assert.Contains(composition.Definitions, entry => entry.Tag == "LootTableDefinition");
-        Assert.Contains(composition.Definitions, entry => entry.Tag == "SalvageDefinition");
+        Assert.Contains(composition.Definitions, static entry => entry.Tag == "LootTableDefinition");
+        Assert.Contains(composition.Definitions, static entry => entry.Tag == "SalvageDefinition");
     }
 }

@@ -224,8 +224,12 @@ public static class Variants {
     /// <summary>The variants that move a utility's declaration onto the property a control reads.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>One entry, and a table rather than a branch because it is the shape and not the
-    ///         entry that is new.</b> v4's <c>selection:</c> is <c>&amp; *::selection, &amp;::selection</c>
+    ///         ⚠
+    ///         <b>
+    ///             One entry, and a table rather than a branch because it is the shape and not the
+    ///             entry that is new.
+    ///         </b>
+    ///         v4's <c>selection:</c> is <c>&amp; *::selection, &amp;::selection</c>
     ///         — the element and everything in it. Here no box is selected text; <c>TextField</c> and
     ///         <c>CodeEditor</c> paint their bands from <c>--selection-color</c>, and a custom property
     ///         inherits, so writing it on the element reaches the element and every descendant the
@@ -252,9 +256,13 @@ public static class Variants {
     /// <summary>The variants that name a <i>part</i> of a control — a child box that already exists.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A table of its own and not one more row in <see cref="States" />, because four
-    ///         variants compose over that table and every one of them would mean something else over
-    ///         a child combinator.</b> <c>not-</c> wraps a state in <c>:not()</c>, <c>has-</c> in
+    ///         ⚠
+    ///         <b>
+    ///             A table of its own and not one more row in <see cref="States" />, because four
+    ///             variants compose over that table and every one of them would mean something else over
+    ///             a child combinator.
+    ///         </b>
+    ///         <c>not-</c> wraps a state in <c>:not()</c>, <c>has-</c> in
     ///         <c>:has()</c>, <c>group-</c> and <c>peer-</c> put it on an ancestor or a sibling. A
     ///         suffix that descends — <c>&gt; field-placeholder</c> — read through any of them is
     ///         either not a selector (<c>:not(&gt; field-placeholder)</c>) or a valid one selecting
@@ -265,8 +273,12 @@ public static class Variants {
     ///         with no placeholder.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>This is the half of A12 (<c>Rikarin/Vixen#233</c>) that needs no generated box,
-    ///         and it is three entries.</b> v4's <c>placeholder:</c> is <c>&amp;::placeholder</c>, and
+    ///         ⚠
+    ///         <b>
+    ///             This is the half of A12 (<c>Rikarin/Vixen#233</c>) that needs no generated box,
+    ///             and it is three entries.
+    ///         </b>
+    ///         v4's <c>placeholder:</c> is <c>&amp;::placeholder</c>, and
     ///         <c>TextField.OnCreated</c> already builds that box as <c>Part("field-placeholder")</c>,
     ///         a direct child with a tag of its own that <c>ControlTheme.vcss</c> styles at
     ///         <c>field-placeholder</c>. So the variant is a child combinator onto that tag and
@@ -275,8 +287,12 @@ public static class Variants {
     ///         control here is a file input, so <c>file</c> names nothing.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b><c>backdrop</c> was listed with <c>file</c> as naming "controls that do not
-    ///         exist", and that was false.</b> v4's <c>backdrop:</c> is <c>&amp;::backdrop</c>, the
+    ///         ⚠
+    ///         <b>
+    ///             <c>backdrop</c> was listed with <c>file</c> as naming "controls that do not
+    ///             exist", and that was false.
+    ///         </b>
+    ///         v4's <c>backdrop:</c> is <c>&amp;::backdrop</c>, the
     ///         box a modal <c>&lt;dialog&gt;</c> draws behind itself over the page. Both modal
     ///         overlays here build that box: <c>Dialog.OnCreated</c> makes
     ///         <c>Part("dialog-backdrop")</c> and <c>Drawer.OnCreated</c> makes
@@ -295,15 +311,17 @@ public static class Variants {
     ///     </para>
     /// </remarks>
     static readonly Dictionary<string, string> Parts = new(StringComparer.Ordinal) {
-        ["placeholder"] = PlaceholderPart,
-        ["backdrop"] = BackdropPart,
-        ["details-content"] = DetailsContentPart
+        ["placeholder"] = PlaceholderPart, ["backdrop"] = BackdropPart, ["details-content"] = DetailsContentPart
     };
 
     /// <summary>The child <c>Expander</c> builds its collapsible body as, as a scope onto the expander.</summary>
     /// <remarks>
-    ///     ⚠ <b>The third part variant, and the list that held it said it waited on the generated box
-    ///     (#233).</b> v4's <c>details-content:</c> is <c>&amp;::details-content</c>, the box a
+    ///     ⚠
+    ///     <b>
+    ///         The third part variant, and the list that held it said it waited on the generated box
+    ///         (#233).
+    ///     </b>
+    ///     v4's <c>details-content:</c> is <c>&amp;::details-content</c>, the box a
     ///     <c>&lt;details&gt;</c> puts everything except its <c>&lt;summary&gt;</c> in, hidden while
     ///     it is closed. <c>Expander</c> is that element here: <c>ExpanderHeader</c> is the summary,
     ///     and <c>Expander.OnCreated</c> builds the body as <c>Part("expander-content")</c>, a direct
@@ -315,8 +333,12 @@ public static class Variants {
 
     /// <summary>The children <c>Dialog</c> and <c>Drawer</c> build the sheet behind them as, as a scope onto the overlay.</summary>
     /// <remarks>
-    ///     ⚠ <b>Both tags, because an author writing <c>backdrop:</c> means the modal's backdrop
-    ///     whichever modal it is.</b> Naming only <c>dialog-backdrop</c> would leave a drawer's class
+    ///     ⚠
+    ///     <b>
+    ///         Both tags, because an author writing <c>backdrop:</c> means the modal's backdrop
+    ///         whichever modal it is.
+    ///     </b>
+    ///     Naming only <c>dialog-backdrop</c> would leave a drawer's class
     ///     styling nothing, which looks exactly like the variant working on dialogs only by accident.
     ///     <c>:is()</c> takes the more specific of its arguments, and both are one type selector, so
     ///     the rule has the same specificity it would have over either tag alone.
@@ -393,8 +415,12 @@ public static class Variants {
 
     /// <summary>The variants that are a pseudo-class on the element itself.</summary>
     /// <remarks>
-    ///     ⚠ <b>Exposed so that a test can fail on a variant nobody tested, which is the shape of
-    ///     failure this table has actually had.</b> Every entry below <c>hover</c> and <c>focus</c>
+    ///     ⚠
+    ///     <b>
+    ///         Exposed so that a test can fail on a variant nobody tested, which is the shape of
+    ///         failure this table has actually had.
+    ///     </b>
+    ///     Every entry below <c>hover</c> and <c>focus</c>
     ///     went untested end to end, and a whole variant family being inert while the suite stayed
     ///     green is not hypothetical here — every breakpoint was dead until the document started
     ///     handing the cascade a <see cref="MediaContext" />. A list the coverage test can enumerate
@@ -423,19 +449,19 @@ public static class Variants {
         effect = default;
 
         if (States.TryGetValue(variant, out var state)) {
-            effect = new VariantEffect(state, string.Empty, null);
+            effect = new(state, string.Empty, null);
             return true;
         }
 
         if (Parts.TryGetValue(variant, out var part)) {
-            effect = new VariantEffect(part, string.Empty, null);
+            effect = new(part, string.Empty, null);
             return true;
         }
 
         if (Rewrites.TryGetValue(variant, out var rewrite)) {
             // No suffix, so `not-` and `has-` — which wrap one — refuse it below, and `group-` and
             // `peer-` never see it: they read `States`.
-            effect = new VariantEffect(string.Empty, string.Empty, null) { Rewrite = rewrite };
+            effect = new(string.Empty, string.Empty, null) { Rewrite = rewrite };
             return true;
         }
 
@@ -448,7 +474,7 @@ public static class Variants {
         }
 
         if (MediaFeatures.TryGetValue(variant, out var feature)) {
-            effect = new VariantEffect(string.Empty, string.Empty, $"@media {feature}");
+            effect = new(string.Empty, string.Empty, $"@media {feature}");
             return true;
         }
 
@@ -474,7 +500,7 @@ public static class Variants {
             && contained is { SelectorPrefix.Length: 0, AtRule: null, SelectorSuffix.Length: > 0 }
             && !IsArbitrary(contained)
             && IsWrappable(contained.SelectorSuffix)) {
-            effect = new VariantEffect($":has({contained.SelectorSuffix})", string.Empty, null);
+            effect = new($":has({contained.SelectorSuffix})", string.Empty, null);
             return true;
         }
 
@@ -487,7 +513,7 @@ public static class Variants {
             && negated is { SelectorPrefix.Length: 0, AtRule: null, SelectorSuffix.Length: > 0 }
             && !IsArbitrary(negated)
             && IsWrappable(negated.SelectorSuffix)) {
-            effect = new VariantEffect($":not({negated.SelectorSuffix})", string.Empty, null);
+            effect = new($":not({negated.SelectorSuffix})", string.Empty, null);
             return true;
         }
 
@@ -504,13 +530,13 @@ public static class Variants {
             // utility applies below. An *attribute* rather than a class because `direction` is a CSS
             // property here, so there is nothing else in the tree for a selector to match on; the
             // consequence is that an element cannot select on its own direction, only an ancestor's.
-            effect = new VariantEffect(string.Empty, $"[dir={variant}] ", null);
+            effect = new(string.Empty, $"[dir={variant}] ", null);
             return true;
         }
 
         if (variant.StartsWith("group-", StringComparison.Ordinal)
             && States.TryGetValue(variant["group-".Length..], out var groupState)) {
-            effect = new VariantEffect(string.Empty, $".group{groupState} ", null);
+            effect = new(string.Empty, $".group{groupState} ", null);
             return true;
         }
 
@@ -518,12 +544,12 @@ public static class Variants {
             && States.TryGetValue(variant["peer-".Length..], out var peerState)) {
             // A sibling rather than an ancestor, which is what makes `peer-checked:` able to style a
             // label from the state of the input before it.
-            effect = new VariantEffect(string.Empty, $".peer{peerState} ~ ", null);
+            effect = new(string.Empty, $".peer{peerState} ~ ", null);
             return true;
         }
 
         if (variant.StartsWith("data-", StringComparison.Ordinal)) {
-            effect = new VariantEffect(AttributeSelector("data-", variant["data-".Length..]), string.Empty, null);
+            effect = new(AttributeSelector("data-", variant["data-".Length..]), string.Empty, null);
             return true;
         }
 
@@ -535,8 +561,8 @@ public static class Variants {
             // expanded one, and `aria-expanded:` styled both. WAI-ARIA 1.2 § 6.3 and Tailwind's own
             // eight built-ins agree on `="true"`; a non-boolean state such as `aria-sort` has no
             // shorthand in either and wants the arbitrary form.
-            effect = new VariantEffect(
-                AttributeSelector("aria-", variant["aria-".Length..], shorthand: "true"),
+            effect = new(
+                AttributeSelector("aria-", variant["aria-".Length..], "true"),
                 string.Empty,
                 null
             );
@@ -548,7 +574,7 @@ public static class Variants {
             // The escape hatch. `&` stands for the class selector, so `[&>*]:p-4` becomes
             // `.\[\&\>\*\]\:p-4 > *`.
             var inner = variant[1..^1].Replace('_', ' ');
-            effect = new VariantEffect(inner, string.Empty, null);
+            effect = new(inner, string.Empty, null);
             return true;
         }
 
@@ -561,8 +587,12 @@ public static class Variants {
     /// <returns>Whether it is an <c>nth-*</c> variant.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The shorthand argument is a positive integer and nothing else, which is narrower
-    ///         than <c>an+b</c> on purpose.</b> v4 spells <c>nth-3</c> for the third child and puts
+    ///         ⚠
+    ///         <b>
+    ///             The shorthand argument is a positive integer and nothing else, which is narrower
+    ///             than <c>an+b</c> on purpose.
+    ///         </b>
+    ///         v4 spells <c>nth-3</c> for the third child and puts
     ///         everything else in the arbitrary form, so accepting <c>nth-2n</c> here would invent a
     ///         spelling Tailwind does not have — and it would collide with nothing today and with
     ///         whatever v5 does with it later. Anything unrecognised falls through to "not a
@@ -591,7 +621,7 @@ public static class Variants {
                 return false;
             }
 
-            effect = new VariantEffect($":{function}({argument})", string.Empty, null);
+            effect = new($":{function}({argument})", string.Empty, null);
             return true;
         }
 
@@ -617,8 +647,12 @@ public static class Variants {
     /// <returns>Whether wrapping it produces a selector.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A length check and not a bare index, because <c>Length: &gt; 0</c> is not the
-    ///         question being asked.</b> Both call sites pattern-match a non-empty suffix and then
+    ///         ⚠
+    ///         <b>
+    ///             A length check and not a bare index, because <c>Length: &gt; 0</c> is not the
+    ///             question being asked.
+    ///         </b>
+    ///         Both call sites pattern-match a non-empty suffix and then
     ///         wanted its first non-space character; a suffix that is non-empty and <em>all</em>
     ///         space satisfies the first and has no second, so the index threw out of the middle of
     ///         sheet generation rather than at a boundary anybody could diagnose. Nothing in the
@@ -660,8 +694,12 @@ public static class Variants {
     ///         the generator's order and not anything here; see <see cref="AtRuleOrder" />.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b><c>max-*</c> emits <c>(width &lt; …)</c>, exclusive, for the reason
-    ///         <see cref="TryContainer" />'s <c>@max-*</c> does:</b> v4's <c>max-sm</c> is
+    ///         ⚠
+    ///         <b>
+    ///             <c>max-*</c> emits <c>(width &lt; …)</c>, exclusive, for the reason
+    ///             <see cref="TryContainer" />'s <c>@max-*</c> does:
+    ///         </b>
+    ///         v4's <c>max-sm</c> is
     ///         <c>(width &lt; 40rem)</c>, and the only width at which that and a <c>max-width</c>
     ///         disagree is the threshold itself. <see cref="MediaQuery" /> reads the range syntax
     ///         through the same <c>FeatureRange</c> the container evaluator does. This half of #609
@@ -675,7 +713,7 @@ public static class Variants {
         var rest = variant.AsSpan();
 
         if (tokens.Screens.TryGetValue(variant, out var named)) {
-            effect = new VariantEffect(string.Empty, string.Empty, $"@media (min-width: {Css(named)})");
+            effect = new(string.Empty, string.Empty, $"@media (min-width: {Css(named)})");
             return true;
         }
 
@@ -704,7 +742,7 @@ public static class Variants {
         }
 
         var condition = exclusive ? $"(width < {width})" : $"(min-width: {width})";
-        effect = new VariantEffect(string.Empty, string.Empty, $"@media {condition}");
+        effect = new(string.Empty, string.Empty, $"@media {condition}");
 
         return true;
     }
@@ -727,18 +765,26 @@ public static class Variants {
     /// <returns>Whether it is a container variant.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Driven off <see cref="ThemeTokens.Containers" /> and never off
-    ///         <see cref="ThemeTokens.Screens" />, which is the decision this whole variant family
-    ///         waited on.</b> The two namespaces spell the same names — <c>sm</c>, <c>lg</c>,
+    ///         ⚠
+    ///         <b>
+    ///             Driven off <see cref="ThemeTokens.Containers" /> and never off
+    ///             <see cref="ThemeTokens.Screens" />, which is the decision this whole variant family
+    ///             waited on.
+    ///         </b>
+    ///         The two namespaces spell the same names — <c>sm</c>, <c>lg</c>,
     ///         <c>2xl</c> — and mean numbers two-thirds apart: a 40 rem window against a 24 rem box.
     ///         A <c>@sm:</c> resolved against the breakpoints is a threshold no dockable panel in an
     ///         editor ever reaches, so every rule it wrote would be valid CSS that never matched,
     ///         and nothing in CSS warns about a query that is merely always false.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b><c>@max-*</c> emits <c>(width &lt; …)</c> and not <c>max-width</c>, because v4's
-    ///         <c>@max-sm</c> is <c>(width &lt; 24rem)</c> and the two spellings differ on exactly one
-    ///         width — the threshold itself.</b> A container measured at precisely <c>24rem</c> takes
+    ///         ⚠
+    ///         <b>
+    ///             <c>@max-*</c> emits <c>(width &lt; …)</c> and not <c>max-width</c>, because v4's
+    ///             <c>@max-sm</c> is <c>(width &lt; 24rem)</c> and the two spellings differ on exactly one
+    ///             width — the threshold itself.
+    ///         </b>
+    ///         A container measured at precisely <c>24rem</c> takes
     ///         the <c>@max-sm:</c> rule under <c>max-width</c> and does not under <c>&lt;</c>, and
     ///         nothing about a one-pixel disagreement reads as a bug: it reads as an author
     ///         mis-picking their breakpoint. <see cref="ContainerQuery" /> learned the range operators
@@ -797,7 +843,7 @@ public static class Variants {
         var subject = name.Length == 0 ? string.Empty : name + " ";
 
         var condition = exclusive ? $"(width < {width})" : $"(min-width: {width})";
-        effect = new VariantEffect(string.Empty, string.Empty, $"@container {subject}{condition}");
+        effect = new(string.Empty, string.Empty, $"@container {subject}{condition}");
 
         return true;
     }

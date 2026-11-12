@@ -4,7 +4,6 @@
 using Vixen.Core;
 using Vixen.Core.Yaml;
 using Vixen.Editor.Core;
-using Vixen.Editor.NodeGraph;
 using Vixen.NodeGraph;
 using Vixen.Rendering.Compositor;
 
@@ -94,7 +93,8 @@ public sealed class CompositorDocument : EditorDocument {
             Graph = NodeGraphDocument.Load(asset0, out var diagnostics);
             LoadDiagnostics = diagnostics;
         } catch (Exception exception) when (exception is YamlBindingException
-            or YamlParseException or NotSupportedException) {
+                                                or YamlParseException
+                                                or NotSupportedException) {
             Graph = new() { Name = Path.GetFileNameWithoutExtension(path) };
             LoadDiagnostics = [
                 new(AssetEditorDiagnostics.CompositorFileDoesNotParse, exception.Message, NodeId.None)

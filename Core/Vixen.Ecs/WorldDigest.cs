@@ -42,7 +42,7 @@ public static class WorldDigest {
         ArgumentNullException.ThrowIfNull(world);
 
         var ordered = world.Archetypes
-            .Where(archetype => archetype.EntityCount > 0)
+            .Where(static archetype => archetype.EntityCount > 0)
             .OrderBy(Name, StringComparer.Ordinal)
             .ToArray();
 
@@ -98,7 +98,9 @@ public static class WorldDigest {
     static string Name(Archetype archetype) =>
         string.Join(
             ',',
-            archetype.Signature.Ids.ToArray().Select(id => ComponentRegistry.Get(id).Type.FullName).Order(StringComparer.Ordinal)
+            archetype.Signature.Ids.ToArray()
+                .Select(static id => ComponentRegistry.Get(id).Type.FullName)
+                .Order(StringComparer.Ordinal)
         );
 
     static ulong Mix(ulong hash, ulong value) => (hash ^ value) * Prime;

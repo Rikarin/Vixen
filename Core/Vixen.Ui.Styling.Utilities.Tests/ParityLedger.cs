@@ -2,14 +2,17 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Text;
-using Vixen.Ui.Styling;
 
 namespace Vixen.Ui.Styling.Utilities.Tests;
 
 /// <summary>One row of <c>docs/plan/43-web-styling-parity.tsv</c>.</summary>
 /// <remarks>
-///     ⚠ <b>Three of the fourteen columns are computed and the rest are not, and which is which is the
-///     whole design.</b> <see cref="Emits" />, <see cref="Reads" /> and <see cref="State" /> are what
+///     ⚠
+///     <b>
+///         Three of the fourteen columns are computed and the rest are not, and which is which is the
+///         whole design.
+///     </b>
+///     <see cref="Emits" />, <see cref="Reads" /> and <see cref="State" /> are what
 ///     the engine does, so they are measured on every run and a hand edit to them is a test failure.
 ///     Everything else — what Tailwind is, which family answers a root, whether the emitted value is
 ///     faithful — is either a fact about a package that is not installed here or a judgement, and both
@@ -23,15 +26,32 @@ sealed class ParityRow {
     public string Example => Cells[3];
     public string Css => Cells[4];
     public string Families => Cells[5];
-    public string Emits { get => Cells[6]; set => Cells[6] = value; }
-    public string Reads { get => Cells[7]; set => Cells[7] = value; }
-    public string State { get => Cells[9]; set => Cells[9] = value; }
+
+    public string Emits {
+        get => Cells[6];
+        set => Cells[6] = value;
+    }
+
+    public string Reads {
+        get => Cells[7];
+        set => Cells[7] = value;
+    }
+
+    public string State {
+        get => Cells[9];
+        set => Cells[9] = value;
+    }
+
     public string ValueGap => Cells[11];
 
     /// <summary>The reason column, which is prose plus whatever expiry clauses it declares.</summary>
     /// <remarks>
-    ///     ⚠ <b>Read by <see cref="RefusalExpiry" /> and by nothing else, and until that landed it was
-    ///     read by nothing at all.</b> Four of the fourteen columns had no accessor here; this is the
+    ///     ⚠
+    ///     <b>
+    ///         Read by <see cref="RefusalExpiry" /> and by nothing else, and until that landed it was
+    ///         read by nothing at all.
+    ///     </b>
+    ///     Four of the fourteen columns had no accessor here; this is the
     ///     one that mattered, because a refusal's whole content is in it. A reason no test can see is
     ///     a reason that expires unobserved, which is the finding <c>#288</c> is.
     /// </remarks>
@@ -52,8 +72,12 @@ sealed class ParityRow {
 ///         <c>absent</c> while the feature was finished and shipped.
 ///     </para>
 ///     <para>
-///         ⚠ <b>A ledger wrong in the pessimistic direction is the expensive kind, and it is the kind
-///         nothing catches.</b> An optimistic error is found by the next person who tries the feature
+///         ⚠
+///         <b>
+///             A ledger wrong in the pessimistic direction is the expensive kind, and it is the kind
+///             nothing catches.
+///         </b>
+///         An optimistic error is found by the next person who tries the feature
 ///         and it does not work. A pessimistic one quietly sizes work that is already done, and the
 ///         only person who could notice is the one who would have to do it. Re-syncing the file by hand
 ///         fixes today and guarantees tomorrow; the same argument closed the three hand-copied
@@ -69,8 +93,12 @@ sealed class ParityRow {
 ///         what the family emits is measurable, is the part that rotted, and is what this computes.
 ///     </para>
 ///     <para>
-///         ⚠ <b>And a completeness guard, because the failure being prevented is an omission rather than
-///         a wrong value.</b> A family that lands and is written into no row would leave every column
+///         ⚠
+///         <b>
+///             And a completeness guard, because the failure being prevented is an omission rather than
+///             a wrong value.
+///         </b>
+///         A family that lands and is written into no row would leave every column
 ///         here agreeing with itself while the ledger went on calling the root absent — the exact drift
 ///         of the last week, reproduced under a green test. So every name in the registry has to appear
 ///         in some row's <c>vixen_family</c>, and a new family fails the run until somebody says which
@@ -83,8 +111,12 @@ static class ParityLedger {
 
     /// <summary>The states a row can be in.</summary>
     /// <remarks>
-    ///     ⚠ <b>There were six and there are five, because the sixth described a row rather than a
-    ///     state.</b> <c>unknown</c> existed for one row: an aggregate the original script left behind,
+    ///     ⚠
+    ///     <b>
+    ///         There were six and there are five, because the sixth described a row rather than a
+    ///         state.
+    ///     </b>
+    ///     <c>unknown</c> existed for one row: an aggregate the original script left behind,
     ///     eight static classes from unrelated Tailwind roots under one descriptive name, of which two
     ///     resolved and six did not. Recording that was better than picking the state that flattered —
     ///     and better still was giving the eight classes the roots that actually own them, which the
@@ -98,8 +130,12 @@ static class ParityLedger {
     ///     <c>Bucket</c>, the predicate that recognised the one row, went with it out of
     ///     <see cref="Derive" />.
     ///     <para>
-    ///         ⚠ <b>The row came back once, through a hand resolution of a merge conflict in the
-    ///         <c>.tsv</c>, and nothing here could tell</b> (#710) — it is a legal row holding a legal
+    ///         ⚠
+    ///         <b>
+    ///             The row came back once, through a hand resolution of a merge conflict in the
+    ///             <c>.tsv</c>, and nothing here could tell
+    ///         </b>
+    ///         (#710) — it is a legal row holding a legal
     ///         state, and the counts are computed from the rows as they are. What gave it away is that
     ///         six of its eight classes were then on two rows at once, which is what
     ///         <c>ParityLedgerTests.Every_class_is_listed_by_exactly_one_row</c> asks about.
@@ -144,7 +180,7 @@ static class ParityLedger {
                 );
             }
 
-            rows.Add(new ParityRow { Cells = cells });
+            rows.Add(new() { Cells = cells });
         }
 
         return (header, rows);
@@ -187,8 +223,12 @@ static class ParityLedger {
     /// <param name="utility">A class name, as <c>UtilityFamilies.Surface</c> spells it.</param>
     /// <returns>The registered family name.</returns>
     /// <remarks>
-    ///     ⚠ <b><c>SplitName</c> is not enough on its own, and was until the surface first spelled a
-    ///     modifier.</b> Its contract is the name half of a class whose variants and modifiers are
+    ///     ⚠
+    ///     <b>
+    ///         <c>SplitName</c> is not enough on its own, and was until the surface first spelled a
+    ///         modifier.
+    ///     </b>
+    ///     Its contract is the name half of a class whose variants and modifiers are
     ///     already off — <c>UtilityParser.TryParse</c> strips the slash before calling it — so
     ///     <c>@container/probe</c> comes back as its own name and reads as a family nobody
     ///     registered. Parsing is what the generator does with a real class name, so it is what this
@@ -227,7 +267,7 @@ static class ParityLedger {
             }
 
             if (!byFamily.TryGetValue(name, out var properties)) {
-                byFamily[name] = properties = new SortedSet<string>(StringComparer.Ordinal);
+                byFamily[name] = properties = new(StringComparer.Ordinal);
             }
 
             properties.Add(property);
@@ -251,9 +291,11 @@ static class ParityLedger {
         // one value is what hid #1328) and over the listed classes, which may be spelled outside it.
         var declined = new SortedDictionary<string, SortedSet<string>>(StringComparer.Ordinal);
         var refused = new HashSet<string>(StringComparer.Ordinal);
-        var listedNames = listed as IReadOnlyCollection<string> ?? [.. listed];
+        var listedNames = listed as IReadOnlyCollection<string> ?? [..listed];
 
-        foreach (var name in AssembledReaderProbe.Candidates(surface).Concat(listedNames).Distinct(StringComparer.Ordinal)) {
+        foreach (var name in AssembledReaderProbe.Candidates(surface)
+                     .Concat(listedNames)
+                     .Distinct(StringComparer.Ordinal)) {
             if (!AssembledReaderProbe.FillsASlot(name, tokens) || !AssembledReaderProbe.Declines(name)) {
                 continue;
             }
@@ -263,7 +305,7 @@ static class ParityLedger {
             var root = RootOf(name);
 
             if (!declined.TryGetValue(root, out var classes)) {
-                declined[root] = classes = new SortedSet<string>(StringComparer.Ordinal);
+                declined[root] = classes = new(StringComparer.Ordinal);
             }
 
             classes.Add(name);
@@ -282,12 +324,20 @@ static class ParityLedger {
             }
         }
 
-        return new Measurement(
-            byFamily.ToDictionary(p => p.Key, p => (IReadOnlyList<string>)[.. p.Value], StringComparer.Ordinal),
+        return new(
+            byFamily.ToDictionary(
+                static p => p.Key,
+                static p => (IReadOnlyList<string>)[..p.Value],
+                StringComparer.Ordinal
+            ),
             verdicts,
             registered,
             resolvable,
-            declined.ToDictionary(p => p.Key, p => (IReadOnlyList<string>)[.. p.Value], StringComparer.Ordinal)
+            declined.ToDictionary(
+                static p => p.Key,
+                static p => (IReadOnlyList<string>)[..p.Value],
+                StringComparer.Ordinal
+            )
         );
     }
 
@@ -334,5 +384,5 @@ static class ParityLedger {
         measured.Verdicts.TryGetValue(property, out var verdict) ? verdict : "inert";
 
     public static List<string> Split(string cell, char separator = ',') =>
-        cell.Length == 0 ? [] : [.. cell.Split(separator, StringSplitOptions.RemoveEmptyEntries)];
+        cell.Length == 0 ? [] : [..cell.Split(separator, StringSplitOptions.RemoveEmptyEntries)];
 }

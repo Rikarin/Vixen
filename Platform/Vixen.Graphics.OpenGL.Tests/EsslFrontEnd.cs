@@ -58,10 +58,7 @@ static class EsslFrontEnd {
 
         try {
             var process = Process.Start(
-                new ProcessStartInfo(Validator!, [path]) {
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true
-                }
+                new ProcessStartInfo(Validator!, [path]) { RedirectStandardOutput = true, RedirectStandardError = true }
             );
 
             Assert.NotNull(process);

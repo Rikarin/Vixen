@@ -5,7 +5,6 @@ using Vixen.Editor.Inspector;
 using Vixen.Editor.Testing;
 using Vixen.Editor.Ui;
 using Vixen.Ui;
-using Vixen.Ui.Controls;
 using Xunit;
 
 namespace Vixen.Editor.App.Tests;
@@ -58,7 +57,10 @@ public class StringCatalogChainTests {
 
         Assert.Equal("source", catalog.Language);
         Assert.Equal(EditorStrings.MenuFile.Source, catalog.Find(EditorStrings.MenuFile.Id));
-        Assert.Equal(EditorStrings.CommandToolsExportStrings.Source, catalog.Find(EditorStrings.CommandToolsExportStrings.Id));
+        Assert.Equal(
+            EditorStrings.CommandToolsExportStrings.Source,
+            catalog.Find(EditorStrings.CommandToolsExportStrings.Id)
+        );
 
         // Every id the editor declares, rather than a handful: `Template` is `All` plus whatever
         // toolsets have contributed, so a template short of `All` is one somebody would translate
@@ -200,7 +202,7 @@ public class StringCatalogChainTests {
 
             var said = Assert.Single(
                 fixture.Shell.Notifications.History,
-                notice => notice.Severity == NotificationSeverity.Warning
+                static notice => notice.Severity == NotificationSeverity.Warning
                     && notice.Message.Contains("language", StringComparison.OrdinalIgnoreCase)
             );
 
@@ -212,8 +214,12 @@ public class StringCatalogChainTests {
 
     /// <summary>An editor whose preference names a language opens in it.</summary>
     /// <remarks>
-    ///     ⚠ <b>The path the runtime test above cannot reach, and it is the one with a hazard in
-    ///     it.</b> <c>LoadPreferences</c> runs from the application's constructor, so the load side
+    ///     ⚠
+    ///     <b>
+    ///         The path the runtime test above cannot reach, and it is the one with a hazard in
+    ///         it.
+    ///     </b>
+    ///     <c>LoadPreferences</c> runs from the application's constructor, so the load side
     ///     of the chain touches the shell's notification centre before anything has drawn — and
     ///     "the editor will not start when a translation is missing" would be a far worse failure
     ///     than an untranslated menu.
@@ -221,7 +227,7 @@ public class StringCatalogChainTests {
     [Fact]
     public void An_editor_whose_preference_names_a_language_starts_in_it() {
         using var scope = new Scratch();
-        using var fixture = EditorSession.Start(new EditorSessionOptions { DataDirectory = scope.Directory });
+        using var fixture = EditorSession.Start(new() { DataDirectory = scope.Directory });
 
         var directory = Path.Combine(fixture.Project.Paths.Root, "Localization");
 
@@ -259,7 +265,7 @@ public class StringCatalogChainTests {
 
     /// <summary>What the menu bar says right now.</summary>
     static List<string> Labels(EditorSession fixture) =>
-        [.. fixture.Shell.MenuBar.Bar.Items.Select(item => item.Label ?? string.Empty)];
+        [..fixture.Shell.MenuBar.Bar.Items.Select(static item => item.Label ?? string.Empty)];
 
     /// <summary>Types into the inspector row for a member, the way a person does.</summary>
     static void Type(SettingsView view, string member, string value) {

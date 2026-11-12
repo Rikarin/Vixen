@@ -47,7 +47,9 @@ public class BlockoutReachTests {
             "editor.menu.geometry[blockout.extrude blockout.extrude-individual blockout.inset blockout.inset-individual "
             + "blockout.bevel blockout.loop-cut blockout.subdivide blockout.knife | blockout.bridge blockout.fill "
             + "blockout.weld blockout.dissolve blockout.delete | blockout.flip blockout.detach]",
-            "editor.menu.blockout-create[editor.menu.blockout-shape[" + kinds + "] blockout.shape-tool "
+            "editor.menu.blockout-create[editor.menu.blockout-shape["
+            + kinds
+            + "] blockout.shape-tool "
             + "blockout.create-shape | blockout.cube-grid blockout.push-out blockout.push-in | blockout.duplicate "
             + "blockout.mirror blockout.array blockout.radial]",
             "editor.menu.blockout-surfaces[blockout.project-world blockout.project-box blockout.fit-uv | "
@@ -63,7 +65,7 @@ public class BlockoutReachTests {
     public void The_scene_menu_carries_blockouts_six_submenus_after_measure() {
         using var session = EditorSession.Start();
 
-        var scene = Assert.Single(session.Shell.Menus.Menus, menu => menu.Title.Id == "editor.menu.scene");
+        var scene = Assert.Single(session.Shell.Menus.Menus, static menu => menu.Title.Id == "editor.menu.scene");
         var precision = scene.IndexOfSubmenu("editor.menu.precision");
 
         Assert.True(precision >= 0, "the Scene menu has no Measure submenu to put Blockout's after");
@@ -90,16 +92,16 @@ public class BlockoutReachTests {
             Collect(menu, lines);
         }
 
-        var blockout = lines.Where(id => id.StartsWith("blockout.", StringComparison.Ordinal)).ToList();
+        var blockout = lines.Where(static id => id.StartsWith("blockout.", StringComparison.Ordinal)).ToList();
 
         // Sixty-three: doc 24's five tables (ten, fifteen, nine, seven, six), the twelve shape kinds and
         // the four handoff verbs.
         Assert.Equal(63, blockout.Count);
         Assert.Equal(blockout.Count, blockout.Distinct(StringComparer.Ordinal).Count());
 
-        Assert.Single(shell.Workspace.Panels, panel => panel.Id == BlockoutMode.PanelId);
-        Assert.Single(shell.Workspace.Panels, panel => panel.Id == "blockout.uv");
-        Assert.Single(shell.Modes.Modes, mode => mode.Id == BlockoutMode.ModeId);
+        Assert.Single(shell.Workspace.Panels, static panel => panel.Id == BlockoutMode.PanelId);
+        Assert.Single(shell.Workspace.Panels, static panel => panel.Id == "blockout.uv");
+        Assert.Single(shell.Modes.Modes, static mode => mode.Id == BlockoutMode.ModeId);
 
         var module = session.Application.PluginHost.Find(BlockoutModule.ModuleId);
 
@@ -108,7 +110,9 @@ public class BlockoutReachTests {
         Assert.True(module.IsBuiltIn);
 
         // #1307: the verbs the commands run are the ones a plugin can Require — one instance.
-        var mode = Assert.IsType<BlockoutMode>(shell.Modes.Modes.Single(entry => entry.Id == BlockoutMode.ModeId));
+        var mode = Assert.IsType<BlockoutMode>(
+            shell.Modes.Modes.Single(static entry => entry.Id == BlockoutMode.ModeId)
+        );
 
         Assert.Same(mode.Verbs, session.Application.PluginHost.Services.Require<IBlockout>());
     }
@@ -123,8 +127,11 @@ public class BlockoutReachTests {
     ///         part that was taken back.
     ///     </para>
     ///     <para>
-    ///         <b>The loaded-sheet count returns to the count before the module across load, unload and
-    ///         load</b> — a reload and then a fresh instance — and the theme's text is in the cascade
+    ///         <b>
+    ///             The loaded-sheet count returns to the count before the module across load, unload and
+    ///             load
+    ///         </b>
+    ///         — a reload and then a fresh instance — and the theme's text is in the cascade
     ///         exactly once while it runs and not at all after. Before #1484 a sheet could be emptied
     ///         and not removed, so this was held to the count after the first load. ⚠ Red against the
     ///         emptying theme: the unloaded count was one too many. ⚠ <c>WaitForCollection</c> is not
@@ -152,10 +159,10 @@ public class BlockoutReachTests {
         Assert.Empty(report.Diagnostics);
         Assert.Equal(PluginState.Active, host.Find(BlockoutModule.ModuleId)!.State);
 
-        Assert.Equal(63, Lines(shell).Count(id => id.StartsWith("blockout.", StringComparison.Ordinal)));
-        Assert.Single(shell.Workspace.Panels, panel => panel.Id == BlockoutMode.PanelId);
-        Assert.Single(shell.Workspace.Panels, panel => panel.Id == "blockout.uv");
-        Assert.Single(shell.Modes.Modes, mode => mode.Id == BlockoutMode.ModeId);
+        Assert.Equal(63, Lines(shell).Count(static id => id.StartsWith("blockout.", StringComparison.Ordinal)));
+        Assert.Single(shell.Workspace.Panels, static panel => panel.Id == BlockoutMode.PanelId);
+        Assert.Single(shell.Workspace.Panels, static panel => panel.Id == "blockout.uv");
+        Assert.Single(shell.Modes.Modes, static mode => mode.Id == BlockoutMode.ModeId);
         Assert.Equal(1, Themes(styles));
         Assert.Equal(loaded, styles.LoadedSheetCount);
         Assert.True(host.Services.Contains<IBlockout>());
@@ -163,10 +170,13 @@ public class BlockoutReachTests {
         // And an unload leaves nothing of it registered, and nothing of its rules in the cascade.
         Assert.True(host.Unload(BlockoutModule.ModuleId));
 
-        Assert.DoesNotContain(Lines(shell), id => id.StartsWith("blockout.", StringComparison.Ordinal));
-        Assert.DoesNotContain(shell.Workspace.Panels, panel => panel.Id.StartsWith("blockout", StringComparison.Ordinal));
+        Assert.DoesNotContain(Lines(shell), static id => id.StartsWith("blockout.", StringComparison.Ordinal));
+        Assert.DoesNotContain(
+            shell.Workspace.Panels,
+            static panel => panel.Id.StartsWith("blockout", StringComparison.Ordinal)
+        );
         Assert.Null(shell.Commands[EditorShell.PanelCommand(BlockoutMode.PanelId)]);
-        Assert.DoesNotContain(shell.Modes.Modes, mode => mode.Id == BlockoutMode.ModeId);
+        Assert.DoesNotContain(shell.Modes.Modes, static mode => mode.Id == BlockoutMode.ModeId);
         Assert.Equal(0, Themes(styles));
         Assert.Equal(baseline, styles.LoadedSheetCount);
         Assert.False(host.Services.Contains<IBlockout>());
@@ -192,13 +202,14 @@ public class BlockoutReachTests {
         return lines;
     }
 
-    static string Render(MenuEntry entry) => entry switch {
-        MenuCommand(var id) => id,
-        MenuSeparator => "|",
-        MenuSubmenu(var group) => group.Title.Id + "[" + string.Join(" ", group.Entries.Select(Render)) + "]",
-        MenuDynamic(var ids) => string.Join(" ", ids()),
-        _ => entry.ToString() ?? "?"
-    };
+    static string Render(MenuEntry entry) =>
+        entry switch {
+            MenuCommand(var id) => id,
+            MenuSeparator => "|",
+            MenuSubmenu(var group) => group.Title.Id + "[" + string.Join(" ", group.Entries.Select(Render)) + "]",
+            MenuDynamic(var ids) => string.Join(" ", ids()),
+            _ => entry.ToString() ?? "?"
+        };
 
     static void Collect(MenuGroup group, List<string> into) {
         foreach (var entry in group.Entries) {
@@ -211,8 +222,6 @@ public class BlockoutReachTests {
                     break;
                 case MenuDynamic(var ids):
                     into.AddRange(ids());
-                    break;
-                default:
                     break;
             }
         }

@@ -97,8 +97,10 @@ public static class DistanceFieldTracer {
     /// <summary>Marches a ray until it reaches a surface or runs out of road.</summary>
     /// <param name="field">What to march through.</param>
     /// <param name="origin">Where the ray starts.</param>
-    /// <param name="direction">Which way it goes. Normalised for you, because a distance along a ray
-    ///     of any other length is not a distance.</param>
+    /// <param name="direction">
+    ///     Which way it goes. Normalised for you, because a distance along a ray
+    ///     of any other length is not a distance.
+    /// </param>
     /// <param name="options">How hard to march. Omitted takes the defaults.</param>
     /// <returns>What it found.</returns>
     /// <exception cref="ArgumentNullException">There is no field.</exception>
@@ -122,7 +124,7 @@ public static class DistanceFieldTracer {
         var travelled = settings.StartDistance;
 
         for (var step = 0; step < settings.MaxSteps; step++) {
-            var position = origin + (ray * travelled);
+            var position = origin + ray * travelled;
             var distance = field.Sample(position);
 
             if (distance < settings.SurfaceThreshold) {
@@ -132,22 +134,28 @@ public static class DistanceFieldTracer {
             travelled += MathF.Max(distance * settings.StepScale, settings.MinStep);
 
             if (travelled > settings.MaxDistance) {
-                return new(false, settings.MaxDistance, origin + (ray * settings.MaxDistance), Vector3.Zero, step + 1);
+                return new(false, settings.MaxDistance, origin + ray * settings.MaxDistance, Vector3.Zero, step + 1);
             }
         }
 
-        return new(false, travelled, origin + (ray * travelled), Vector3.Zero, settings.MaxSteps);
+        return new(false, travelled, origin + ray * travelled, Vector3.Zero, settings.MaxSteps);
     }
 
     /// <summary>How much of a light reaches a point, marching once for a whole penumbra.</summary>
     /// <param name="field">What to march through.</param>
-    /// <param name="origin">The point being lit. Bias it off the surface with
-    ///     <see cref="DistanceFieldTraceSettings.StartDistance" />.</param>
+    /// <param name="origin">
+    ///     The point being lit. Bias it off the surface with
+    ///     <see cref="DistanceFieldTraceSettings.StartDistance" />.
+    /// </param>
     /// <param name="toLight">Which way the light is. Normalised for you.</param>
-    /// <param name="lightDistance">How far the light is, or
-    ///     <see cref="DistanceFieldTraceSettings.MaxDistance" /> for a directional one.</param>
-    /// <param name="softness">How wide the penumbra is. Larger is sharper; it is the reciprocal of
-    ///     the light's angular radius.</param>
+    /// <param name="lightDistance">
+    ///     How far the light is, or
+    ///     <see cref="DistanceFieldTraceSettings.MaxDistance" /> for a directional one.
+    /// </param>
+    /// <param name="softness">
+    ///     How wide the penumbra is. Larger is sharper; it is the reciprocal of
+    ///     the light's angular radius.
+    /// </param>
     /// <param name="options">How hard to march. Omitted takes the defaults.</param>
     /// <returns>One for lit, zero for fully shadowed, and the penumbra in between.</returns>
     /// <exception cref="ArgumentNullException">There is no field.</exception>
@@ -186,7 +194,7 @@ public static class DistanceFieldTracer {
         var light = 1f;
 
         for (var step = 0; step < settings.MaxSteps && travelled < reach; step++) {
-            var distance = field.Sample(origin + (ray * travelled));
+            var distance = field.Sample(origin + ray * travelled);
 
             if (distance < settings.SurfaceThreshold) {
                 return 0f;
@@ -263,16 +271,16 @@ public static class DistanceFieldTracer {
         var total = 0f;
 
         for (var sample = 1; sample <= samples; sample++) {
-            var height = first + ((radius - first) * (sample - 1) / Math.Max(samples - 1, 1));
-            var clearance = field.Sample(position + (up * height));
+            var height = first + (radius - first) * (sample - 1) / Math.Max(samples - 1, 1);
+            var clearance = field.Sample(position + up * height);
 
             // The fraction of this shell's own distance that is blocked, which is zero over open
             // ground and one against a surface — comparable across shells, where metres were not.
-            occlusion += Math.Clamp(1f - (clearance / height), 0f, 1f) * weight;
+            occlusion += Math.Clamp(1f - clearance / height, 0f, 1f) * weight;
             total += weight;
             weight = 1f / (1f + height);
         }
 
-        return total > 0 ? Math.Clamp(1f - (strength * occlusion / total), 0f, 1f) : 1f;
+        return total > 0 ? Math.Clamp(1f - strength * occlusion / total, 0f, 1f) : 1f;
     }
 }

@@ -18,8 +18,12 @@ namespace Tests;
 ///         not a tolerance on a picture.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The normal maps here are built from the convention as <em>stated</em>, not from the
-///         operation's own arithmetic.</b> <c>Encode</c> below is
+///         ⚠
+///         <b>
+///             The normal maps here are built from the convention as <em>stated</em>, not from the
+///             operation's own arithmetic.
+///         </b>
+///         <c>Encode</c> below is
 ///         <c>normalize(−∂h/∂u · intensity, −∂h/∂v · intensity, 1) · ½ + ½</c> written out from the
 ///         comment at the top of <c>HeightToNormal.rvn</c>, in the forward direction, from an
 ///         analytic gradient. The operation goes the other way, through a linear solve. Two
@@ -62,8 +66,12 @@ public class TextureNormalToHeightTests {
 
     /// <summary>What a curved field's round trip is allowed to be out by, and why it is not the above.</summary>
     /// <remarks>
-    ///     ⚠ <b>This one is a discretisation error and not a solver's, which is why it has a name of
-    ///     its own rather than being folded into a wider <see cref="Precision" />.</b> A normal map
+    ///     ⚠
+    ///     <b>
+    ///         This one is a discretisation error and not a solver's, which is why it has a name of
+    ///         its own rather than being folded into a wider <see cref="Precision" />.
+    ///     </b>
+    ///     A normal map
     ///     records one slope per texel; the operation fits differences between neighbours, and the
     ///     two are the same number only where the slope is constant. On a curved field the map has
     ///     already averaged away a little of the curvature, and no budget puts it back — so the
@@ -97,7 +105,7 @@ public class TextureNormalToHeightTests {
     [MemberData(nameof(Planes))]
     public void A_planes_normal_map_integrates_back_to_the_plane(double slopeU, double slopeV) {
         var height = Plane(Side, Side, slopeU, slopeV);
-        var solved = RoundTrip(height, Side, Side, iterations: 1024);
+        var solved = RoundTrip(height, Side, Side, 1024);
 
         AssertMatches(Centred(height), solved, Precision);
     }
@@ -115,7 +123,7 @@ public class TextureNormalToHeightTests {
     /// </remarks>
     [Fact]
     public void A_curved_height_field_integrates_back_to_itself() {
-        var coarse = Error(Centred(Bumps(Side, Side)), RoundTrip(Bumps(Side, Side), Side, Side, 2048, discrete: true));
+        var coarse = Error(Centred(Bumps(Side, Side)), RoundTrip(Bumps(Side, Side), Side, Side, 2048, true));
 
         Assert.True(coarse < Curved, $"the round trip was out by {coarse}");
 
@@ -129,7 +137,7 @@ public class TextureNormalToHeightTests {
         // shrink with the grid at all.
         var fine = Error(
             Centred(Bumps(Side * 2, Side * 2)),
-            RoundTrip(Bumps(Side * 2, Side * 2), Side * 2, Side * 2, 2048, discrete: true)
+            RoundTrip(Bumps(Side * 2, Side * 2), Side * 2, Side * 2, 2048, true)
         );
 
         Assert.True(fine < coarse / 3d, $"refining the grid did not cut the error: {coarse} then {fine}");
@@ -149,15 +157,15 @@ public class TextureNormalToHeightTests {
     [Fact]
     public void A_flipped_axis_does_not_survive_the_round_trip() {
         var height = Plane(Side, Side, 0d, 0.7);
-        var normals = Encode(height, Side, Side, intensity: 1f, discrete: false);
+        var normals = Encode(height, Side, Side, 1f, false);
 
         for (var at = 0; at < Side * Side; at++) {
-            var green = (double)BitConverter.ToHalf(normals.AsSpan((at * 8) + 2, 2));
+            var green = (double)BitConverter.ToHalf(normals.AsSpan(at * 8 + 2, 2));
 
-            BitConverter.TryWriteBytes(normals.AsSpan((at * 8) + 2, 2), (Half)(1d - green));
+            BitConverter.TryWriteBytes(normals.AsSpan(at * 8 + 2, 2), (Half)(1d - green));
         }
 
-        var solved = Solve(normals, Side, Side, iterations: 1024);
+        var solved = Solve(normals, Side, Side, 1024);
         var expected = Centred(height);
 
         // Not merely "different": the flip negates the field, so every texel is out by twice its own
@@ -179,8 +187,8 @@ public class TextureNormalToHeightTests {
     public void A_budget_of_nothing_leaves_the_answer_flat() {
         var height = Plane(Side, Side, 0.7, 0d);
 
-        Assert.All(RoundTrip(height, Side, Side, iterations: 0), value => Assert.Equal(0d, value, 1e-6));
-        Assert.Contains(Centred(height), value => Math.Abs(value) > 0.1);
+        Assert.All(RoundTrip(height, Side, Side, 0), static value => Assert.Equal(0d, value, 1e-6));
+        Assert.Contains(Centred(height), static value => Math.Abs(value) > 0.1);
     }
 
     /// <summary>
@@ -210,7 +218,7 @@ public class TextureNormalToHeightTests {
         var expected = Centred(height);
 
         var errors = new[] { 8, 32, 128 }
-            .Select(budget => Error(expected, RoundTrip(height, 64, 64, budget, discrete: true)))
+            .Select(budget => Error(expected, RoundTrip(height, 64, 64, budget, true)))
             .ToArray();
 
         Assert.True(errors[0] > errors[1], $"8 iterations was not worse than 32: {errors[0]} against {errors[1]}");
@@ -230,8 +238,11 @@ public class TextureNormalToHeightTests {
     ///         no assertion about accuracy would notice.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Said plainly, because it is the kind of assertion this workstream is auditing:
-    ///         this cannot fail against the implementation that exists.</b>
+    ///         ⚠
+    ///         <b>
+    ///             Said plainly, because it is the kind of assertion this workstream is auditing:
+    ///             this cannot fail against the implementation that exists.
+    ///         </b>
     ///         <c>NormalToHeightOperation</c> is scalar and sequential — no <c>Parallel</c>, no
     ///         <c>Vector&lt;T&gt;</c>, no task — so a pure function called twice on one input agrees
     ///         by construction, and a predicate with no false case is worse than the flake it
@@ -245,7 +256,7 @@ public class TextureNormalToHeightTests {
     [Fact]
     public void The_same_plan_solved_twice_is_the_same_bytes() {
         var height = Bumps(32, 32);
-        var normals = Encode(height, 32, 32, intensity: 1f, discrete: true);
+        var normals = Encode(height, 32, 32, 1f, true);
 
         var first = Bytes(normals, 32, 32, 37);
         var second = Bytes(normals, 32, 32, 37);
@@ -269,7 +280,7 @@ public class TextureNormalToHeightTests {
     [InlineData(0.5f)]
     public void Intensity_is_undone(float intensity) {
         var height = Plane(Side, Side, 0.6, -0.2);
-        var normals = Encode(height, Side, Side, intensity, discrete: false);
+        var normals = Encode(height, Side, Side, intensity, false);
 
         AssertMatches(Centred(height), Solve(normals, Side, Side, 1024, intensity), Precision);
 
@@ -277,16 +288,16 @@ public class TextureNormalToHeightTests {
         // node that dropped the parameter would draw.
         var wrong = Solve(normals, Side, Side, 1024);
 
-        AssertMatches(Centred(height).Select(value => value * intensity).ToArray(), wrong, Precision * intensity);
+        AssertMatches([..Centred(height).Select(value => value * intensity)], wrong, Precision * intensity);
     }
 
     /// <summary>An intensity of zero has no inverse, and the answer says so by being flat.</summary>
     [Fact]
     public void An_intensity_of_zero_integrates_to_nothing() {
         var height = Plane(Side, Side, 0.6, -0.2);
-        var normals = Encode(height, Side, Side, intensity: 1f, discrete: false);
+        var normals = Encode(height, Side, Side, 1f, false);
 
-        Assert.All(Solve(normals, Side, Side, 1024, intensity: 0f), value => Assert.Equal(0d, value, 1e-6));
+        Assert.All(Solve(normals, Side, Side, 1024, 0f), static value => Assert.Equal(0d, value, 1e-6));
     }
 
     /// <summary>A picture larger than the ceiling is refused with the number in the message.</summary>
@@ -346,7 +357,7 @@ public class TextureNormalToHeightTests {
 
         for (var y = 0; y < height; y++) {
             for (var x = 0; x < width; x++) {
-                field[(y * width) + x] = (slopeU * x / width) + (slopeV * y / height);
+                field[y * width + x] = slopeU * x / width + slopeV * y / height;
             }
         }
 
@@ -367,9 +378,10 @@ public class TextureNormalToHeightTests {
                 var u = (double)x / width;
                 var v = (double)y / height;
 
-                field[(y * width) + x] =
-                    (0.25 * Math.Sin(2d * Math.PI * u)) + (0.15 * Math.Cos(4d * Math.PI * v)) +
-                    (0.1 * Math.Sin(2d * Math.PI * (u + v)));
+                field[y * width + x] =
+                    0.25 * Math.Sin(2d * Math.PI * u)
+                    + 0.15 * Math.Cos(4d * Math.PI * v)
+                    + 0.1 * Math.Sin(2d * Math.PI * (u + v));
             }
         }
 
@@ -380,7 +392,7 @@ public class TextureNormalToHeightTests {
     static double[] Centred(double[] field) {
         var mean = field.Sum() / field.Length;
 
-        return field.Select(value => value - mean).ToArray();
+        return [..field.Select(value => value - mean)];
     }
 
     /// <summary>
@@ -406,7 +418,7 @@ public class TextureNormalToHeightTests {
 
         for (var y = 0; y < height; y++) {
             for (var x = 0; x < width; x++) {
-                var at = (y * width) + x;
+                var at = y * width + x;
 
                 // A centred difference where the neighbours exist and a one-sided one at the border,
                 // then scaled by the extent to become a slope per unit of UV rather than per texel.
@@ -416,18 +428,18 @@ public class TextureNormalToHeightTests {
                 if (!discrete) {
                     // The analytic slope of the plane the caller built, recovered from two texels far
                     // enough apart that the difference is the derivative.
-                    slopeU = (field[(y * width) + width - 1] - field[y * width]) * width / (width - 1);
-                    slopeV = (field[((height - 1) * width) + x] - field[x]) * height / (height - 1);
+                    slopeU = (field[y * width + width - 1] - field[y * width]) * width / (width - 1);
+                    slopeV = (field[(height - 1) * width + x] - field[x]) * height / (height - 1);
                 }
 
                 var nx = -slopeU * intensity;
                 var ny = -slopeV * intensity;
-                var length = Math.Sqrt((nx * nx) + (ny * ny) + 1d);
+                var length = Math.Sqrt(nx * nx + ny * ny + 1d);
 
-                Write(texels, (at * 8) + 0, (nx / length * 0.5) + 0.5);
-                Write(texels, (at * 8) + 2, (ny / length * 0.5) + 0.5);
-                Write(texels, (at * 8) + 4, (1d / length * 0.5) + 0.5);
-                Write(texels, (at * 8) + 6, 1d);
+                Write(texels, at * 8, nx / length * 0.5 + 0.5);
+                Write(texels, at * 8 + 2, ny / length * 0.5 + 0.5);
+                Write(texels, at * 8 + 4, 1d / length * 0.5 + 0.5);
+                Write(texels, at * 8 + 6, 1d);
             }
         }
 
@@ -448,7 +460,7 @@ public class TextureNormalToHeightTests {
 
         return span == 0
             ? 0d
-            : (field[(forwardY * width) + forwardX] - field[(backY * width) + backX]) / span;
+            : (field[forwardY * width + forwardX] - field[backY * width + backX]) / span;
     }
 
     /// <summary>Encode a height field, integrate it back, and hand over the heights.</summary>

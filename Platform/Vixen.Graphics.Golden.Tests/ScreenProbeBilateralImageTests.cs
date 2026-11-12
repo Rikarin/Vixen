@@ -11,7 +11,6 @@ using Vixen.Rendering.Lighting;
 using Vixen.Rendering.PostFx;
 using Vixen.Rendering.ScreenProbes;
 using Vixen.Shaders;
-using Vixen.Ui.Testing.Visual;
 using Xunit;
 
 namespace Vixen.Graphics.Golden.Tests;
@@ -47,7 +46,7 @@ public sealed class ScreenProbeBilateralImageTests {
         }
 
         using var owned = fixture!;
-        var picture = Render(owned, planeTolerance: 0f);
+        var picture = Render(owned, 0f);
 
         // Pixel 60 sits a quarter of a tile past the bright side's last anchor at 56, so a quarter
         // of its answer comes from the dark side's probes — and mirrored at 68. The failure,
@@ -63,7 +62,7 @@ public sealed class ScreenProbeBilateralImageTests {
         }
 
         using var owned = fixture!;
-        var picture = Render(owned, planeTolerance: 0.5f);
+        var picture = Render(owned, 0.5f);
 
         // The same two pixels: the far-side one rejects the near plane's probes and keeps the whole
         // bright answer; the near-side one rejects the far plane's and stays black. Four world units
@@ -73,7 +72,10 @@ public sealed class ScreenProbeBilateralImageTests {
 
         // Away from the edge, both variants agree.
         Assert.Equal(1f, Pixel(picture, 20, 64).X, 0.02f);
-        Assert.True(Pixel(picture, 110, 64).X < 0.02f, $"the far half of the near plane lit up: {Pixel(picture, 110, 64)}");
+        Assert.True(
+            Pixel(picture, 110, 64).X < 0.02f,
+            $"the far half of the near plane lit up: {Pixel(picture, 110, 64)}"
+        );
     }
 
     static Bitmap Render(Fixture fixture, float planeTolerance) {
@@ -108,34 +110,38 @@ public sealed class ScreenProbeBilateralImageTests {
         effects.AddProvider(
             new Compiling(
                 loader,
-                _ => RavenEffects.Only(
-                    ["Core", "Geometry", "Shading", "DistanceFields", "IrradianceFields", "ScreenProbes", "SurfaceCache"],
+                static _ => RavenEffects.Only(
+                    [
+                        "Core", "Geometry", "Shading", "DistanceFields", "IrradianceFields", "ScreenProbes",
+                        "SurfaceCache"
+                    ],
                     Path.Combine("PostFx", "Fullscreen.rvn"),
                     Path.Combine("PostFx", "ScreenProbeUpsample.rvn")
                 )
             )
         );
 
-        using var resolve = new ScreenProbeResolve(device) {
-            Effects = effects,
-            Pipelines = new ComputePipelineCache(device),
-            Descriptors = allocator
-        };
+        using var resolve = new ScreenProbeResolve(device);
+        resolve.Effects = effects;
+        resolve.Pipelines = new(device);
+        resolve.Descriptors = allocator;
 
         // The frame's own buffers, synthesised: the depth step, flat +Z normals, and the probes'
         // surface and normal planes the bilateral taps test against.
         var usage = TextureUsage.Sampled | TextureUsage.CopyDestination;
         var depth = fixture.Owned("depth", usage, PixelFormat.Rgba32Float);
         var normals = fixture.Owned("normals", usage, PixelFormat.Rgba32Float);
-        var surfacePlane = fixture.Owned("probe surfaces", usage, PixelFormat.Rgba32Float, layout.GridSize.X, layout.GridSize.Y);
-        var normalPlane = fixture.Owned("probe normals", usage, PixelFormat.Rgba32Float, layout.GridSize.X, layout.GridSize.Y);
+        var surfacePlane =
+            fixture.Owned("probe surfaces", usage, PixelFormat.Rgba32Float, layout.GridSize.X, layout.GridSize.Y);
+        var normalPlane =
+            fixture.Owned("probe normals", usage, PixelFormat.Rgba32Float, layout.GridSize.X, layout.GridSize.Y);
 
         var depthTexels = new float[Fixture.Side * Fixture.Side * 4];
         var normalTexels = new float[Fixture.Side * Fixture.Side * 4];
 
         for (var y = 0; y < Fixture.Side; y++) {
             for (var x = 0; x < Fixture.Side; x++) {
-                var at = ((y * Fixture.Side) + x) * 4;
+                var at = (y * Fixture.Side + x) * 4;
 
                 depthTexels[at] = x < Fixture.Side / 2 ? FarDepth : NearDepth;
                 normalTexels[at] = 0.5f;
@@ -150,7 +156,7 @@ public sealed class ScreenProbeBilateralImageTests {
 
         for (var y = 0; y < layout.GridSize.Y; y++) {
             for (var x = 0; x < layout.GridSize.X; x++) {
-                var at = ((y * layout.GridSize.X) + x) * 4;
+                var at = (y * layout.GridSize.X + x) * 4;
 
                 // Only the plane matters to the test — position z per side, normal +Z.
                 surfaceTexels[at + 2] = x < half ? -7f : -3f;
@@ -160,10 +166,8 @@ public sealed class ScreenProbeBilateralImageTests {
         }
 
         var staging = new[] {
-            Staged(device, depthTexels, "depth staging"),
-            Staged(device, normalTexels, "normal staging"),
-            Staged(device, surfaceTexels, "surface staging"),
-            Staged(device, planeNormalTexels, "plane normal staging")
+            Staged(device, depthTexels, "depth staging"), Staged(device, normalTexels, "normal staging"),
+            Staged(device, surfaceTexels, "surface staging"), Staged(device, planeNormalTexels, "plane normal staging")
         };
 
         allocator.BeginFrame();
@@ -215,14 +219,37 @@ public sealed class ScreenProbeBilateralImageTests {
         upsample.InverseViewProjection = inverse;
 
         var compositor = new GraphicsCompositor(system) {
-            FrameSize = new(Fixture.Side, Fixture.Side),
-            Game = new SceneRendererSequence { Children = { upsample } }
+            FrameSize = new(Fixture.Side, Fixture.Side), Game = new SceneRendererSequence { Children = { upsample } }
         };
 
-        compositor.Imports["Depth"] = new(depth.Texture, depth.View, depth.Description, ResourceState.ShaderRead, ResourceState.ShaderRead);
-        compositor.Imports["Normals"] = new(normals.Texture, normals.View, normals.Description, ResourceState.ShaderRead, ResourceState.ShaderRead);
-        compositor.Imports["ProbeSurface"] = new(surfacePlane.Texture, surfacePlane.View, surfacePlane.Description, ResourceState.ShaderRead, ResourceState.ShaderRead);
-        compositor.Imports["ProbeNormal"] = new(normalPlane.Texture, normalPlane.View, normalPlane.Description, ResourceState.ShaderRead, ResourceState.ShaderRead);
+        compositor.Imports["Depth"] = new(
+            depth.Texture,
+            depth.View,
+            depth.Description,
+            ResourceState.ShaderRead,
+            ResourceState.ShaderRead
+        );
+        compositor.Imports["Normals"] = new(
+            normals.Texture,
+            normals.View,
+            normals.Description,
+            ResourceState.ShaderRead,
+            ResourceState.ShaderRead
+        );
+        compositor.Imports["ProbeSurface"] = new(
+            surfacePlane.Texture,
+            surfacePlane.View,
+            surfacePlane.Description,
+            ResourceState.ShaderRead,
+            ResourceState.ShaderRead
+        );
+        compositor.Imports["ProbeNormal"] = new(
+            normalPlane.Texture,
+            normalPlane.View,
+            normalPlane.Description,
+            ResourceState.ShaderRead,
+            ResourceState.ShaderRead
+        );
 
         for (var plane = 0; plane < 4; plane++) {
             compositor.Imports[upsample.Planes[plane]] = new(
@@ -272,8 +299,10 @@ public sealed class ScreenProbeBilateralImageTests {
 
     static void Upload(ICommandList commands, BufferHandle staging, TextureHandle target, int width, int height) {
         commands.Barrier(new([], [new TextureBarrier(target, ResourceState.Undefined, ResourceState.CopyDestination)]));
-        commands.CopyBufferToTexture(staging, 0, new TextureRegion(target), new(width, height, 1));
-        commands.Barrier(new([], [new TextureBarrier(target, ResourceState.CopyDestination, ResourceState.ShaderRead)]));
+        commands.CopyBufferToTexture(staging, 0, new(target), new(width, height, 1));
+        commands.Barrier(
+            new([], [new TextureBarrier(target, ResourceState.CopyDestination, ResourceState.ShaderRead)])
+        );
     }
 
     static Vector3 Pixel(in Bitmap image, int x, int y) {

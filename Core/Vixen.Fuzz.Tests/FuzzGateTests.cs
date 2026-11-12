@@ -13,8 +13,11 @@ namespace Vixen.Fuzz.Tests;
 /// <summary>The fuzzing exit criterion, run on every build.</summary>
 /// <remarks>
 ///     <para>
-///         <b>A fuzzer that runs nightly and nowhere else finds a regression the morning after
-///         somebody has already built on it.</b> So the same harness runs twice: a fixed budget here
+///         <b>
+///             A fuzzer that runs nightly and nowhere else finds a regression the morning after
+///             somebody has already built on it.
+///         </b>
+///         So the same harness runs twice: a fixed budget here
 ///         on every build, and an open-ended one under <c>VIXEN_FUZZ_SECONDS</c> for a nightly job
 ///         that has hours rather than seconds. A few hundred thousand cases a target is not a
 ///         thorough fuzz and is a very effective regression test.
@@ -36,8 +39,12 @@ public sealed class FuzzGateTests(ITestOutputHelper output) {
     /// <summary>How many cases each target gets, chosen from how fast it runs.</summary>
     /// <remarks>
     ///     A dictionary rather than a list of <c>[InlineData]</c>, and that is a fix rather than a
-    ///     preference. Three targets were written, registered and named, and were <b>not in the
-    ///     theory's rows</b> — so they existed, passed <see cref="EveryNameBuilds" />, and never ran.
+    ///     preference. Three targets were written, registered and named, and were
+    ///     <b>
+    ///         not in the
+    ///         theory's rows
+    ///     </b>
+    ///     — so they existed, passed <see cref="EveryNameBuilds" />, and never ran.
     ///     The rows are now generated from <see cref="FuzzTargets.Names" />, so a target that exists
     ///     is a target the gate runs; forgetting to give it a budget makes
     ///     <see cref="EveryTargetHasABudget" /> fail rather than making it disappear.
@@ -240,19 +247,23 @@ public sealed class FuzzGateTests(ITestOutputHelper output) {
         if (string.Equals(name, "raven", StringComparison.Ordinal)) {
             var raven = Vixen.Raven.Syntax.SyntaxTree.ParseText(source, path: "Seed.rvn");
 
-            return (raven.GetRoot().ToFullString(), [.. raven.Diagnostics.Select(d => d.ToString())]);
+            return (raven.GetRoot().ToFullString(), [..raven.Diagnostics.Select(static d => d.ToString())]);
         }
 
         var markup = SyntaxTree.ParseText(source, "Seed.vxml");
 
-        return (markup.GetRoot().ToFullString(), [.. markup.Diagnostics.Select(d => d.ToString())]);
+        return (markup.GetRoot().ToFullString(), [..markup.Diagnostics.Select(static d => d.ToString())]);
     }
 
     /// <summary>The SPIR-V validator is installed, so the <c>raven</c> target means something.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A silent skip would make the codegen half of that target vacuous while the run
-    ///         still printed "clean".</b> Every other oracle in this harness compares two things Vixen
+    ///         ⚠
+    ///         <b>
+    ///             A silent skip would make the codegen half of that target vacuous while the run
+    ///             still printed "clean".
+    ///         </b>
+    ///         Every other oracle in this harness compares two things Vixen
     ///         wrote; <c>spirv-val</c> is the only one that asks somebody else whether the answer is
     ///         right, and it is therefore the only one that can catch a backend emitting a module that
     ///         is <i>valid and wrong</i> — the class an implicit-LOD substitution belonged to for four
@@ -297,7 +308,7 @@ public sealed class FuzzGateTests(ITestOutputHelper output) {
 
         Assert.True(onDisk > 0, $"No committed corpus under {Regressions} — nothing is being replayed.");
 
-        var replayed = FuzzTargets.Names.Sum(name => Corpus.ReadRegressions(Regressions, name).Count);
+        var replayed = FuzzTargets.Names.Sum(static name => Corpus.ReadRegressions(Regressions, name).Count);
 
         Assert.Equal(onDisk, replayed);
     }
@@ -310,7 +321,7 @@ public sealed class FuzzGateTests(ITestOutputHelper output) {
     /// </remarks>
     [Fact]
     public void EveryTargetHasABudget() {
-        var missing = FuzzTargets.Names.Where(name => !Budgets.ContainsKey(name)).ToArray();
+        var missing = FuzzTargets.Names.Where(static name => !Budgets.ContainsKey(name)).ToArray();
 
         Assert.True(missing.Length == 0, $"No case budget for: {string.Join(", ", missing)}.");
     }
@@ -318,8 +329,12 @@ public sealed class FuzzGateTests(ITestOutputHelper output) {
     /// <summary>The nightly's matrix is this registry, in this order, with a budget each.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A target list written out in YAML is a second source of truth that goes stale in
-    ///         silence.</b> The nightly fans out one job per target and cannot ask a running assembly
+    ///         ⚠
+    ///         <b>
+    ///             A target list written out in YAML is a second source of truth that goes stale in
+    ///             silence.
+    ///         </b>
+    ///         The nightly fans out one job per target and cannot ask a running assembly
     ///         for the names, so it reads <c>nightly-budgets.json</c> — and this is what makes that
     ///         file the registry rather than a copy of it. Add a twenty-first target and the gate
     ///         fails here on the next build, in the same breath as
@@ -331,8 +346,11 @@ public sealed class FuzzGateTests(ITestOutputHelper output) {
     ///         the same order as <see cref="FuzzTargets.Names" /> and the two can be compared by eye.
     ///     </para>
     ///     <para>
-    ///         <b>And the seconds are a whole number of minutes because the workflow divides by
-    ///         sixty</b> to derive each job's <c>timeout-minutes</c>. That division is the arithmetic
+    ///         <b>
+    ///             And the seconds are a whole number of minutes because the workflow divides by
+    ///             sixty
+    ///         </b>
+    ///         to derive each job's <c>timeout-minutes</c>. That division is the arithmetic
     ///         that used to be done by hand against the target count and went stale twice; a budget
     ///         that is not a multiple of sixty would hand Actions a fractional cap.
     ///     </para>
@@ -346,7 +364,7 @@ public sealed class FuzzGateTests(ITestOutputHelper output) {
         using var document = JsonDocument.Parse(File.ReadAllBytes(path));
         var entries = document.RootElement.GetProperty("targets").EnumerateArray().ToArray();
 
-        var named = entries.Select(entry => entry.GetProperty("name").GetString() ?? string.Empty).ToArray();
+        var named = entries.Select(static entry => entry.GetProperty("name").GetString() ?? string.Empty).ToArray();
 
         Assert.Equal(FuzzTargets.Names, named);
 
@@ -364,9 +382,9 @@ public sealed class FuzzGateTests(ITestOutputHelper output) {
             var minutes = entry.GetProperty("minutes").GetInt32();
 
             Assert.True(
-                minutes == (seconds / 60) + 30,
+                minutes == seconds / 60 + 30,
                 $"{name} budgets {seconds}s and caps its job at {minutes} min, which must be "
-                + $"{(seconds / 60) + 30} — the budget plus the runner's overhead. nightly.yml reads "
+                + $"{seconds / 60 + 30} — the budget plus the runner's overhead. nightly.yml reads "
                 + "`minutes` verbatim and cannot compute it."
             );
 
@@ -393,7 +411,7 @@ public sealed class FuzzGateTests(ITestOutputHelper output) {
         var selected = Only.Length > 0 ? new[] { Only } : Array.Empty<string>();
 
         var unknown = selected.Concat(Excluded)
-            .Where(name => !FuzzTargets.Names.Contains(name, StringComparer.Ordinal))
+            .Where(static name => !FuzzTargets.Names.Contains(name, StringComparer.Ordinal))
             .ToArray();
 
         Assert.True(
@@ -512,7 +530,8 @@ public sealed class FuzzGateTests(ITestOutputHelper output) {
             Environment.GetEnvironmentVariable("VIXEN_FUZZ_SECONDS"),
             CultureInfo.InvariantCulture,
             out var seconds
-        ) && seconds > 0
+        )
+        && seconds > 0
             ? TimeSpan.FromSeconds(seconds)
             : null;
 }

@@ -62,10 +62,10 @@ public sealed class SkinnedClusterTests {
                 var decoded = influences[i];
 
                 Assert.Equal(input.BoneIndices[source * 4], decoded.Bones.X);
-                Assert.Equal(input.BoneIndices[(source * 4) + 1], decoded.Bones.Y);
+                Assert.Equal(input.BoneIndices[source * 4 + 1], decoded.Bones.Y);
 
-                Assert.Equal(input.BoneWeights[source * 4], decoded.Weights.X, (0.5f / 255f) + 1e-6f);
-                Assert.Equal(input.BoneWeights[(source * 4) + 1], decoded.Weights.Y, (0.5f / 255f) + 1e-6f);
+                Assert.Equal(input.BoneWeights[source * 4], decoded.Weights.X, 0.5f / 255f + 1e-6f);
+                Assert.Equal(input.BoneWeights[source * 4 + 1], decoded.Weights.Y, 0.5f / 255f + 1e-6f);
 
                 checked_++;
             }
@@ -127,7 +127,7 @@ public sealed class SkinnedClusterTests {
 
         // And the base is added, so an instance's palette is found where the record says it is rather
         // than at the start of every other instance's.
-        Matrix4x4[] shifted = [Matrix4x4.FromTranslation(new(-99f, 0f, 0f)), .. palette];
+        Matrix4x4[] shifted = [Matrix4x4.FromTranslation(new(-99f, 0f, 0f)), ..palette];
         var again = new VertexInfluence(new(1, 2, 0, 0), new(0.375f, 0.375f, 0f, 0f)).Blend(shifted, 1);
 
         Assert.Equal(moved, Matrix4x4.TransformPosition(Vector3.Zero, again));
@@ -153,7 +153,15 @@ public sealed class SkinnedClusterTests {
     public void The_motion_radius_covers_every_point_the_pose_moves() {
         var considered = 0;
 
-        Gen.Select(Gen.Float[-2f, 2f], Gen.Float[-2f, 2f], Gen.Float[-2f, 2f], Gen.Float[-3.2f, 3.2f], Gen.Float[-1f, 1f], Gen.Float[-1f, 1f], Gen.Float[-1f, 1f])
+        Gen.Select(
+                Gen.Float[-2f, 2f],
+                Gen.Float[-2f, 2f],
+                Gen.Float[-2f, 2f],
+                Gen.Float[-3.2f, 3.2f],
+                Gen.Float[-1f, 1f],
+                Gen.Float[-1f, 1f],
+                Gen.Float[-1f, 1f]
+            )
             .Sample(
                 pose => {
                     var (tx, ty, tz, angle, px, py, pz) = pose;
@@ -172,7 +180,7 @@ public sealed class SkinnedClusterTests {
                         offset = Vector3.Normalize(offset);
                     }
 
-                    var point = centre + (offset * radius);
+                    var point = centre + offset * radius;
                     var moved = (Matrix4x4.TransformPosition(point, bone) - point).Length();
 
                     considered++;
@@ -219,11 +227,15 @@ public sealed class SkinnedClusterTests {
 
         // Traverse rather than Cut: Cut is the brute-force oracle and deliberately tests no frustum,
         // because a cut is what the error says and rejection is what a view says.
-        Assert.Empty(GpuClusterCulling.Traverse(scene, instance with { MotionRadius = 0f }, view, _ => true).Visible);
+        Assert.Empty(
+            GpuClusterCulling.Traverse(scene, instance with { MotionRadius = 0f }, view, static _ => true).Visible
+        );
 
         // A pose that can swing the geometry thirty-eight units to the right reaches the plane, and the
         // traversal has to consider it rather than reject it by where the mesh is not.
-        Assert.NotEmpty(GpuClusterCulling.Traverse(scene, instance with { MotionRadius = 38f }, view, _ => true).Visible);
+        Assert.NotEmpty(
+            GpuClusterCulling.Traverse(scene, instance with { MotionRadius = 38f }, view, static _ => true).Visible
+        );
     }
 
     /// <summary>
@@ -252,8 +264,8 @@ public sealed class SkinnedClusterTests {
         var mesh = MeshletBuilder.Build(input);
         var registered = feature.Register(mesh, Pages(mesh, input), 0);
 
-        var skinned = system.Objects.Add(new RenderObject());
-        var rigid = system.Objects.Add(new RenderObject());
+        var skinned = system.Objects.Add(new());
+        var rigid = system.Objects.Add(new());
 
         var draws = system.Objects.Data.Data(feature.Draws);
         draws[skinned.Index] = new() { Mesh = registered, Scale = 1f };
@@ -332,7 +344,8 @@ public sealed class SkinnedClusterTests {
 
         // All three ask the mesh record, and all three treat an unskinned instance as unskinned — a
         // guard on one side only is a mesh drawn posed and shaded in its bind pose.
-        const string guard = "if (mesh.influenceOffset != RasterMesh.NoInfluences && instance.firstBone != Cull.NoBones) {";
+        const string guard =
+            "if (mesh.influenceOffset != RasterMesh.NoInfluences && instance.firstBone != Cull.NoBones) {";
 
         Assert.Contains(guard, raster, StringComparison.Ordinal);
         Assert.Contains(guard, resolve, StringComparison.Ordinal);
@@ -371,7 +384,11 @@ public sealed class SkinnedClusterTests {
         Assert.Contains("int(boneBase + instance.firstBone)", resolve, StringComparison.Ordinal);
         Assert.Contains("int(boneBase + instance.firstBone)", software, StringComparison.Ordinal);
         Assert.Contains("instances[int(instanceBase) + instanceIndex]", raster, StringComparison.Ordinal);
-        Assert.Contains("instances[int(instanceBase + Cull.VisibleInstance(packed))]", resolve, StringComparison.Ordinal);
+        Assert.Contains(
+            "instances[int(instanceBase + Cull.VisibleInstance(packed))]",
+            resolve,
+            StringComparison.Ordinal
+        );
     }
 
     /// <summary>The body of a shader's <c>Skin</c> function, whitespace and all.</summary>
@@ -387,12 +404,7 @@ public sealed class SkinnedClusterTests {
 
     /// <summary>A view whose left plane is the plane x = 0, everything else wide open.</summary>
     static CullView Frustum() {
-        var view = new CullView {
-            Position = new(0f, 0f, 0f),
-            ErrorScale = 0f,
-            ErrorThreshold = 1f,
-            StagesLow = 1u
-        };
+        var view = new CullView { Position = new(0f, 0f, 0f), ErrorScale = 0f, ErrorThreshold = 1f, StagesLow = 1u };
 
         view.Planes[0] = new(0f, 0f, 1f, 1000f);
         view.Planes[1] = new(0f, 0f, -1f, 1000f);
@@ -419,11 +431,11 @@ public sealed class SkinnedClusterTests {
         var attributes = new byte[input.Positions.Length * stride];
 
         for (var i = 0; i < input.Positions.Length; i++) {
-            var at = (i * stride) + 10;
+            var at = i * stride + 10;
 
             for (var influence = 0; influence < 4; influence++) {
-                attributes[at + influence] = (byte)input.BoneIndices[(i * 4) + influence];
-                attributes[at + 4 + influence] = (byte)MathF.Round(input.BoneWeights[(i * 4) + influence] * 255f);
+                attributes[at + influence] = (byte)input.BoneIndices[i * 4 + influence];
+                attributes[at + 4 + influence] = (byte)MathF.Round(input.BoneWeights[i * 4 + influence] * 255f);
             }
         }
 
@@ -431,7 +443,9 @@ public sealed class SkinnedClusterTests {
             mesh,
             input.Positions,
             attributes,
-            new() { PageSize = 8 * 1024, AttributeStride = stride, InfluenceOffset = MeshletPageBuilder.PositionSize + 10 }
+            new() {
+                PageSize = 8 * 1024, AttributeStride = stride, InfluenceOffset = MeshletPageBuilder.PositionSize + 10
+            }
         );
     }
 
@@ -464,15 +478,14 @@ public sealed class SkinnedClusterTests {
         }
 
         return new() {
-            Positions = [.. positions],
-            Indices = [.. indices],
-            BoneIndices = [.. bones],
-            BoneWeights = [.. weights]
+            Positions = [..positions], Indices = [..indices], BoneIndices = [..bones], BoneWeights = [..weights]
         };
     }
 
     static string Source(string folder, string file) {
-        for (var directory = new DirectoryInfo(AppContext.BaseDirectory); directory is not null; directory = directory.Parent) {
+        for (var directory = new DirectoryInfo(AppContext.BaseDirectory);
+             directory is not null;
+             directory = directory.Parent) {
             var candidate = Path.Combine(directory.FullName, "Raven", "Library", folder, file);
 
             if (File.Exists(candidate)) {
@@ -480,6 +493,8 @@ public sealed class SkinnedClusterTests {
             }
         }
 
-        throw new FileNotFoundException($"Raven/Library/{folder}/{file} was not found above '{AppContext.BaseDirectory}'.");
+        throw new FileNotFoundException(
+            $"Raven/Library/{folder}/{file} was not found above '{AppContext.BaseDirectory}'."
+        );
     }
 }

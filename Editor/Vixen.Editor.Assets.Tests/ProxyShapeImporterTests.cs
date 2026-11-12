@@ -20,46 +20,46 @@ namespace Tests;
 /// </summary>
 public sealed class ProxyShapeImporterTests {
     const string Vocabulary = """
-        name: humanoid
-        shapes:
-          - name: belly
-            meaning: The front of the torso, between the ribs and the hips.
-          - name: right-palm
-            meaning: The gripping face of the right hand.
-        tags:
-          - tag: affords=grip-surface
-            meaning: A hand may close on it.
-        classes:
-          - name: humanoid
-            members:
-              - name: belly
-                kind: Sphere
-                extents: 0.2 0.2 0.2
-                required: true
-              - name: right-palm
-                kind: Box
-                tags: [affords=grip-surface]
-                extents: 0.04 0.02 0.08
-                required: true
-        """;
+                              name: humanoid
+                              shapes:
+                                - name: belly
+                                  meaning: The front of the torso, between the ribs and the hips.
+                                - name: right-palm
+                                  meaning: The gripping face of the right hand.
+                              tags:
+                                - tag: affords=grip-surface
+                                  meaning: A hand may close on it.
+                              classes:
+                                - name: humanoid
+                                  members:
+                                    - name: belly
+                                      kind: Sphere
+                                      extents: 0.2 0.2 0.2
+                                      required: true
+                                    - name: right-palm
+                                      kind: Box
+                                      tags: [affords=grip-surface]
+                                      extents: 0.04 0.02 0.08
+                                      required: true
+                              """;
 
     const string Body = """
-        name: Body
-        vocabulary: /Assets/humanoid.vxshapevocab
-        class: humanoid
-        shapes:
-          - name: belly
-            kind: Sphere
-            joint: Spine
-            position: 0 0.1 0.05
-            extents: 0.22 0.22 0.22
-          - name: right-palm
-            kind: Box
-            joint: Wrist
-            extents: 0.04 0.02 0.08
-            tags: [affords=grip-surface]
-            coarse: true
-        """;
+                        name: Body
+                        vocabulary: /Assets/humanoid.vxshapevocab
+                        class: humanoid
+                        shapes:
+                          - name: belly
+                            kind: Sphere
+                            joint: Spine
+                            position: 0 0.1 0.05
+                            extents: 0.22 0.22 0.22
+                          - name: right-palm
+                            kind: Box
+                            joint: Wrist
+                            extents: 0.04 0.02 0.08
+                            tags: [affords=grip-surface]
+                            coarse: true
+                        """;
 
     [Fact]
     public void TheImportersClaimTheirOwnExtensions() {
@@ -81,7 +81,7 @@ public sealed class ProxyShapeImporterTests {
     public async Task AValidSetCompilesAndBakesAgainstARig() {
         var result = await ImportSet(Body, Vocabulary);
 
-        Assert.DoesNotContain(result.Diagnostics, entry => entry.Severity == ImportSeverity.Error);
+        Assert.DoesNotContain(result.Diagnostics, static entry => entry.Severity == ImportSeverity.Error);
 
         var artifact = Assert.Single(result.Artifacts);
         var content = Serializer.Read<ProxyShapeSetContent>(artifact.Content.ToArray());
@@ -89,7 +89,7 @@ public sealed class ProxyShapeImporterTests {
         Assert.Equal("Body", content.Name);
         Assert.Equal(2, content.Shapes.Length);
 
-        var set = content.Bake(Rig(), null);
+        var set = content.Bake(Rig());
 
         Assert.Equal(2, set.Count);
         Assert.Equal(ShapeKind.Sphere, set[set.IndexOf("belly")].Kind);
@@ -110,7 +110,7 @@ public sealed class ProxyShapeImporterTests {
 
         Assert.Contains(
             result.Diagnostics,
-            entry => entry.Severity == ImportSeverity.Error
+            static entry => entry.Severity == ImportSeverity.Error
                 && entry.Message.Contains("gizzard", StringComparison.Ordinal)
                 && entry.Message.Contains("Body", StringComparison.Ordinal)
         );
@@ -119,32 +119,32 @@ public sealed class ProxyShapeImporterTests {
     [Fact]
     public async Task AClassMemberMissingFromTheSetIsAnErrorAndTheClipsThatWouldBreakAreNamed() {
         const string Torso = """
-            name: TorsoOnly
-            vocabulary: /Assets/humanoid.vxshapevocab
-            class: humanoid
-            shapes:
-              - name: belly
-                kind: Sphere
-                joint: Spine
-                extents: 0.2 0.2 0.2
-            """;
+                             name: TorsoOnly
+                             vocabulary: /Assets/humanoid.vxshapevocab
+                             class: humanoid
+                             shapes:
+                               - name: belly
+                                 kind: Sphere
+                                 joint: Spine
+                                 extents: 0.2 0.2 0.2
+                             """;
 
         var result = await ImportSet(Torso, Vocabulary);
 
         Assert.Contains(
             result.Diagnostics,
-            entry => entry.Severity == ImportSeverity.Error
+            static entry => entry.Severity == ImportSeverity.Error
                 && entry.Message.Contains("right-palm", StringComparison.Ordinal)
         );
     }
 
     [Fact]
     public async Task AVocabularyThatIsNotThereIsAnErrorRatherThanAnUncheckedSet() {
-        var result = await ImportSet(Body, vocabulary: null);
+        var result = await ImportSet(Body, null);
 
         Assert.Contains(
             result.Diagnostics,
-            entry => entry.Severity == ImportSeverity.Error
+            static entry => entry.Severity == ImportSeverity.Error
                 && entry.Message.Contains("only right by luck", StringComparison.Ordinal)
         );
     }
@@ -152,24 +152,24 @@ public sealed class ProxyShapeImporterTests {
     [Fact]
     public async Task TwoShapesWithOneNameStopTheImport() {
         const string Doubled = """
-            name: Doubled
-            shapes:
-              - name: left-palm
-                kind: Box
-                joint: Wrist
-                extents: 0.04 0.02 0.08
-              - name: left-palm
-                kind: Box
-                joint: Spine
-                extents: 0.04 0.02 0.08
-            """;
+                               name: Doubled
+                               shapes:
+                                 - name: left-palm
+                                   kind: Box
+                                   joint: Wrist
+                                   extents: 0.04 0.02 0.08
+                                 - name: left-palm
+                                   kind: Box
+                                   joint: Spine
+                                   extents: 0.04 0.02 0.08
+                               """;
 
-        var result = await ImportSet(Doubled, vocabulary: null);
+        var result = await ImportSet(Doubled, null);
 
         Assert.Empty(result.Artifacts);
         Assert.Contains(
             result.Diagnostics,
-            entry => entry.Severity == ImportSeverity.Error
+            static entry => entry.Severity == ImportSeverity.Error
                 && entry.Message.Contains("left-palm", StringComparison.Ordinal)
         );
     }
@@ -178,24 +178,24 @@ public sealed class ProxyShapeImporterTests {
     [Fact]
     public async Task AClassMemberTheVocabularyDoesNotDeclareIsAnError() {
         const string Contradictory = """
-            name: humanoid
-            shapes:
-              - name: belly
-                meaning: The front of the torso.
-            classes:
-              - name: humanoid
-                members:
-                  - name: right-palm
-                    kind: Box
-                    extents: 0.04 0.02 0.08
-                    required: true
-            """;
+                                     name: humanoid
+                                     shapes:
+                                       - name: belly
+                                         meaning: The front of the torso.
+                                     classes:
+                                       - name: humanoid
+                                         members:
+                                           - name: right-palm
+                                             kind: Box
+                                             extents: 0.04 0.02 0.08
+                                             required: true
+                                     """;
 
         var result = await ImportVocabulary(Contradictory);
 
         Assert.Contains(
             result.Diagnostics,
-            entry => entry.Severity == ImportSeverity.Error
+            static entry => entry.Severity == ImportSeverity.Error
                 && entry.Message.Contains("right-palm", StringComparison.Ordinal)
         );
     }
@@ -235,8 +235,7 @@ public sealed class ProxyShapeImporterTests {
     static Skeleton RigWithoutAHand() =>
         Skeleton.Create(
             new() {
-                Name = "Rig",
-                Joints = [new() { Name = "Root", Parent = -1 }, new() { Name = "Spine", Parent = 0 }]
+                Name = "Rig", Joints = [new() { Name = "Root", Parent = -1 }, new() { Name = "Spine", Parent = 0 }]
             }
         );
 
@@ -247,11 +246,18 @@ public sealed class ProxyShapeImporterTests {
         files.Seed(path, text);
 
         if (vocabulary is not null) {
-            files.Seed(new VirtualPath("/Assets/humanoid.vxshapevocab"), vocabulary);
+            files.Seed(new("/Assets/humanoid.vxshapevocab"), vocabulary);
         }
 
         var importer = new ProxyShapeSetImporter();
-        var context = new ImportContext(AssetId.New(), path, importer.CreateSettings(), files, importer.Name, "Windows");
+        var context = new ImportContext(
+            AssetId.New(),
+            path,
+            importer.CreateSettings(),
+            files,
+            importer.Name,
+            "Windows"
+        );
 
         return await importer.ImportAsync(context, TestContext.Current.CancellationToken);
     }
@@ -263,7 +269,14 @@ public sealed class ProxyShapeImporterTests {
         files.Seed(path, text);
 
         var importer = new ShapeVocabularyImporter();
-        var context = new ImportContext(AssetId.New(), path, importer.CreateSettings(), files, importer.Name, "Windows");
+        var context = new ImportContext(
+            AssetId.New(),
+            path,
+            importer.CreateSettings(),
+            files,
+            importer.Name,
+            "Windows"
+        );
 
         return await importer.ImportAsync(context, TestContext.Current.CancellationToken);
     }

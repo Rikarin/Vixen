@@ -11,8 +11,11 @@ namespace Vixen.Editor.Blockout;
 /// <summary>Blockout, registering itself through the door a third-party plugin comes through.</summary>
 /// <remarks>
 ///     <para>
-///         <b>Doc 36 § F2 named this assembly twice: "Blockout is not a plugin; it is a project
-///         reference."</b> It still is one — the editor's executable has to name the module in order
+///         <b>
+///             Doc 36 § F2 named this assembly twice: "Blockout is not a plugin; it is a project
+///             reference."
+///         </b>
+///         It still is one — the editor's executable has to name the module in order
 ///         to activate it — but nothing about the <i>registration</i> is a shortcut any more. What is
 ///         below could be an assembly on somebody's disk without changing a line, and the assembly it
 ///         lives in cannot see the editor's application at all, which is the part a compiler enforces
@@ -57,9 +60,24 @@ namespace Vixen.Editor.Blockout;
 )]
 [EditorSubmenu(CreateMenu, Title = nameof(BlockoutStrings.MenuCreate), After = "editor.menu.geometry", Priority = 3)]
 [EditorSubmenu(ShapeMenu, Title = nameof(BlockoutStrings.MenuShape))]
-[EditorSubmenu(SurfacesMenu, Title = nameof(BlockoutStrings.MenuSurfaces), After = "editor.menu.blockout-create", Priority = 4)]
-[EditorSubmenu(BooleanMenu, Title = nameof(BlockoutStrings.MenuBoolean), After = "editor.menu.blockout-surfaces", Priority = 5)]
-[EditorSubmenu(HandoffMenu, Title = nameof(BlockoutStrings.MenuHandoff), After = "editor.menu.blockout-boolean", Priority = 6)]
+[EditorSubmenu(
+    SurfacesMenu,
+    Title = nameof(BlockoutStrings.MenuSurfaces),
+    After = "editor.menu.blockout-create",
+    Priority = 4
+)]
+[EditorSubmenu(
+    BooleanMenu,
+    Title = nameof(BlockoutStrings.MenuBoolean),
+    After = "editor.menu.blockout-surfaces",
+    Priority = 5
+)]
+[EditorSubmenu(
+    HandoffMenu,
+    Title = nameof(BlockoutStrings.MenuHandoff),
+    After = "editor.menu.blockout-boolean",
+    Priority = 6
+)]
 public sealed partial class BlockoutModule : IEditorPlugin {
     /// <summary>What the host activates it under, and what a plugin depending on it names.</summary>
     public const string ModuleId = "vixen.blockout";

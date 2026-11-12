@@ -73,7 +73,8 @@ Console.WriteLine($"Stopped after {server.Served} requests.");
 return 0;
 
 static void Usage() {
-    Console.WriteLine("""
+    Console.WriteLine(
+        """
         vixen-content-server — serves a content build directory over HTTP.
 
           --root, -r <dir>   what to serve (default: the working directory)
@@ -82,5 +83,6 @@ static void Usage() {
           --help, -h         this
 
         A development tool: no TLS, no authentication, no access control. Do not put it in front of players.
-        """);
+        """
+    );
 }

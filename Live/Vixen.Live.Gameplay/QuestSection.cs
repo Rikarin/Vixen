@@ -57,7 +57,7 @@ public sealed class QuestSection : IProfileSection {
     /// <inheritdoc />
     public ReadOnlyMemory<byte> Save() {
         var writer = new ProfileWriter(128);
-        var active = journal.Active.OrderBy(entry => entry.Id.Value).ToArray();
+        var active = journal.Active.OrderBy(static entry => entry.Id.Value).ToArray();
         var history = journal.History.ToArray();
 
         writer.Int32(Version);

@@ -63,37 +63,37 @@ public class CompositorLifetimeTests : IDisposable {
     ///     </para>
     /// </remarks>
     const string Document = """
-        version: 2
-        viewBlock:
-          set: 1
-          binding: 0
-          size: 256
-        resources:
-          - name: SceneColour
-            format: Rgba16Float
-            usage: ColourTarget, Sampled
-        stages:
-          - name: ShadowCaster
-          - name: StaticCaster
-          - name: LampCaster
-        game: !Sequence
-          name: Frame
-          children:
-            - !ShadowMap
-              name: Sun
-              stage: ShadowCaster
-              staticStage: StaticCaster
-              atlas: ShadowAtlas
-              cascadeCount: 2
-              resolution: 256
-            - !PunctualShadows
-              name: Lamps
-              stage: LampCaster
-              atlas: PunctualShadowAtlas
-              resolution: 64
-              tilesPerSide: 4
-              cached: true
-        """;
+                            version: 2
+                            viewBlock:
+                              set: 1
+                              binding: 0
+                              size: 256
+                            resources:
+                              - name: SceneColour
+                                format: Rgba16Float
+                                usage: ColourTarget, Sampled
+                            stages:
+                              - name: ShadowCaster
+                              - name: StaticCaster
+                              - name: LampCaster
+                            game: !Sequence
+                              name: Frame
+                              children:
+                                - !ShadowMap
+                                  name: Sun
+                                  stage: ShadowCaster
+                                  staticStage: StaticCaster
+                                  atlas: ShadowAtlas
+                                  cascadeCount: 2
+                                  resolution: 256
+                                - !PunctualShadows
+                                  name: Lamps
+                                  stage: LampCaster
+                                  atlas: PunctualShadowAtlas
+                                  resolution: 64
+                                  tilesPerSide: 4
+                                  cached: true
+                            """;
 
     /// <summary>
     ///     Reloading a document a dozen times leaves the device holding exactly what one build holds.
@@ -145,7 +145,7 @@ public class CompositorLifetimeTests : IDisposable {
         using var h = Harness();
 
         var before = device.LiveResourceCount;
-        var compositor = Compose(h, asset: YamlSerializer.Parse<GraphicsCompositorAsset>(Document));
+        var compositor = Compose(h, YamlSerializer.Parse<GraphicsCompositorAsset>(Document));
 
         Frame(h, compositor);
         Assert.True(device.LiveResourceCount > before, "the frame's nodes took nothing, so this proves nothing");
@@ -280,10 +280,7 @@ public class CompositorLifetimeTests : IDisposable {
     Rig Harness() {
         var system = new RenderSystem();
 
-        var meshes = new MeshRenderFeature {
-            Pipelines = new(device),
-            Describer = new EffectPipelineDescriber(device)
-        };
+        var meshes = new MeshRenderFeature { Pipelines = new(device), Describer = new EffectPipelineDescriber(device) };
 
         meshes.Add(new MaterialRenderFeature { Effects = effects });
         system.AddFeature(meshes);
@@ -296,12 +293,7 @@ public class CompositorLifetimeTests : IDisposable {
 
         builder.Views["Camera"] = new("camera") { Position = Vector3.Zero, Frustum = new(view * projection) };
 
-        return new() {
-            System = system,
-            Builder = builder,
-            Graph = new(device),
-            Descriptors = descriptors
-        };
+        return new() { System = system, Builder = builder, Graph = new(device), Descriptors = descriptors };
     }
 
     /// <summary>Builds the tree and lends it the three textures a host would own.</summary>
@@ -342,12 +334,13 @@ public class CompositorLifetimeTests : IDisposable {
     readonly (ImportedTexture ShadowAtlas, ImportedTexture LampAtlas, ImportedTexture Colour) imports;
 
     /// <summary>Makes the host's three textures once, before any document is built.</summary>
-    public CompositorLifetimeTests() =>
+    public CompositorLifetimeTests() {
         imports = (
             Imported(PixelFormat.Depth32Float, TextureUsage.DepthStencilTarget, "ShadowAtlas", 512, 256),
             Imported(PixelFormat.Depth32Float, TextureUsage.DepthStencilTarget, "PunctualShadowAtlas", 256, 256),
             Imported(PixelFormat.Rgba16Float, TextureUsage.ColourTarget, "SceneColour", 512, 512)
         );
+    }
 
     /// <inheritdoc />
     public void Dispose() {

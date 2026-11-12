@@ -62,8 +62,12 @@ public sealed record UdpTransportOptions {
     ///         connection's queue from growing without bound.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Reaching it means a reliable message was not delivered and will not be sent
-    ///         again</b>, and the one dropped is the <i>oldest</i> — precisely the one the peer's
+    ///         ⚠
+    ///         <b>
+    ///             Reaching it means a reliable message was not delivered and will not be sent
+    ///             again
+    ///         </b>
+    ///         , and the one dropped is the <i>oldest</i> — precisely the one the peer's
     ///         ordered receiver is waiting on. It is counted now (<c>UdpTransport.AbandonedCount</c>);
     ///         it used to happen silently, with every other counter reading healthy.
     ///     </para>

@@ -15,8 +15,12 @@ namespace Vixen.Editor.Core;
 ///         subsystems it ships and a module declares its own, through the same registry.
 ///     </para>
 ///     <para>
-///         ⚠ <b>A module initializer does not run until something touches the module, and that is the
-///         whole problem.</b> A component registers itself to <c>SceneComponentRegistry</c> from a
+///         ⚠
+///         <b>
+///             A module initializer does not run until something touches the module, and that is the
+///             whole problem.
+///         </b>
+///         A component registers itself to <c>SceneComponentRegistry</c> from a
 ///         <c>[ModuleInitializer]</c> the generator emits — but the runtime is entitled to defer it
 ///         indefinitely, so a registry read during the editor's construction sees whatever happened to
 ///         have been loaded by then. What that looked like was an Add Component menu offering
@@ -24,8 +28,12 @@ namespace Vixen.Editor.Core;
 ///         second later and never being offered.
 ///     </para>
 ///     <para>
-///         ⚠ <b>A declaration rather than a scan, which is <c>SceneComponentRegistry</c>'s own
-///         argument restated.</b> Walking the output directory reads metadata a trimmed publish has
+///         ⚠
+///         <b>
+///             A declaration rather than a scan, which is <c>SceneComponentRegistry</c>'s own
+///             argument restated.
+///         </b>
+///         Walking the output directory reads metadata a trimmed publish has
 ///         already deleted, and it would make "what can be added" a question with a different answer
 ///         in the editor, in a worker process and in a shipped game. What is declared is what somebody
 ///         wrote down.
@@ -38,8 +46,12 @@ namespace Vixen.Editor.Core;
 ///         components exist in the build and in no menu.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Measured: the <c>Type</c> in the parameter is what does the work, and <see cref="Touch" />
-///         is belt to its braces.</b> <c>OutOfTreePluginTests</c> compiles a library nothing else in the
+///         ⚠
+///         <b>
+///             Measured: the <c>Type</c> in the parameter is what does the work, and <see cref="Touch" />
+///             is belt to its braces.
+///         </b>
+///         <c>OutOfTreePluginTests</c> compiles a library nothing else in the
 ///         process has ever heard of, gives it a <c>[ModuleInitializer]</c> that declares a component,
 ///         and loads it beside an out-of-tree plugin. Naming <i>any</i> type in it from that plugin's
 ///         <c>Activate</c> — a bare <c>typeof</c>, on a type that is not the component and is not the
@@ -50,16 +62,24 @@ namespace Vixen.Editor.Core;
 ///         holding a <c>Type</c> out of it — and nobody can build one of these without holding one.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Which is why the declaration is still worth writing and the call is still worth
-///         making.</b> The declaration is the part that survives: it is the list of assemblies
+///         ⚠
+///         <b>
+///             Which is why the declaration is still worth writing and the call is still worth
+///             making.
+///         </b>
+///         The declaration is the part that survives: it is the list of assemblies
 ///         somebody named, and deleting a line from it deletes a component from Add ▸ whatever runs
 ///         the initializer. The call stays because what was measured is one runtime's behaviour and
 ///         not a guarantee of the language — <see cref="Touch" /> costs one call that the runtime
 ///         answers by doing nothing.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The contrast that makes it clear which of the two an explicit run is needed for:
-///         <c>ProjectAssemblies.Load</c> holds an <c>Assembly</c> and nothing else.</b> It calls
+///         ⚠
+///         <b>
+///             The contrast that makes it clear which of the two an explicit run is needed for:
+///             <c>ProjectAssemblies.Load</c> holds an <c>Assembly</c> and nothing else.
+///         </b>
+///         It calls
 ///         <c>RunModuleConstructor</c> on the manifest module because nothing in that path ever
 ///         names a type in it — "loading is not touching", as it says. Here the caller has named a
 ///         type by the time there is a record to add, so the touching has already happened.
@@ -80,8 +100,12 @@ public sealed record AuthoringAssembly(Type Marker) {
     ///         constructor once however many times it is asked.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>"Entitled to" is not "observed to", and what was observed is the initializer
-    ///         running anyway.</b> See the type's remarks: every attempt to catch this method doing
+    ///         ⚠
+    ///         <b>
+    ///             "Entitled to" is not "observed to", and what was observed is the initializer
+    ///             running anyway.
+    ///         </b>
+    ///         See the type's remarks: every attempt to catch this method doing
     ///         work found the work already done by the <c>typeof</c> in its own caller's argument.
     ///         Do not write a test that turns on this having been called — there is nothing to see.
     ///     </para>

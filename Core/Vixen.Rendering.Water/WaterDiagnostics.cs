@@ -12,21 +12,31 @@ namespace Vixen.Rendering.Water;
 /// <summary>Which of water's debug draws are switched on.</summary>
 /// <remarks>
 ///     <para>
-///         <b>[35 § Part 2 § Debugging](../../docs/plan/35-water.md#debugging), and it is copied on
-///         purpose.</b> Unreal's <c>stat water</c>, <c>stat watermesh</c> and its colour-coded tile
+///         <b>
+///             [35 § Part 2 § Debugging](../../docs/plan/35-water.md#debugging), and it is copied on
+///             purpose.
+///         </b>
+///         Unreal's <c>stat water</c>, <c>stat watermesh</c> and its colour-coded tile
 ///         bounds are better than most first-party debug tooling in any engine, and there is no
 ///         credit in inventing worse ones. Doc 35 puts them in the phase list as a deliverable
 ///         rather than as something added after the first bug.
 ///     </para>
 ///     <para>
-///         <b>What reads them is <see cref="WaterDebugDraw" />, and it turned out no new seam was
-///         needed.</b> These shipped as flags with the drawing owed, on the belief that a viewport
+///         <b>
+///             What reads them is <see cref="WaterDebugDraw" />, and it turned out no new seam was
+///             needed.
+///         </b>
+///         These shipped as flags with the drawing owed, on the belief that a viewport
 ///         line pass was missing — <c>DebugDraw</c> is exactly that pass, and it is an accumulator
 ///         rather than a renderer, so this assembly draws into it without knowing what a line is.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Five of the six are drawn by <see cref="WaterDebugDraw" /> and the sixth is
-///         elsewhere.</b> <see cref="ShowBuoyancy" />'s pontoons and forces belong to
+///         ⚠
+///         <b>
+///             Five of the six are drawn by <see cref="WaterDebugDraw" /> and the sixth is
+///             elsewhere.
+///         </b>
+///         <see cref="ShowBuoyancy" />'s pontoons and forces belong to
 ///         <c>Vixen.Water.Physics</c>, which this assembly must not reference — § D1 puts the physics
 ///         join in its own assembly precisely so that nothing linking Jolt is linked by a renderer.
 ///         The flag is here because the console verb is; <c>BuoyancyDebugDraw</c> is where the data
@@ -36,8 +46,12 @@ namespace Vixen.Rendering.Water;
 public static class WaterDebug {
     /// <summary>The process's one set of switches, which is what the console verbs flip.</summary>
     /// <remarks>
-    ///     ⚠ <b>A game has one console and one frame, so one set is right for it — and an editor has
-    ///     several sessions in one process, so one set is wrong for it.</b> The six properties below
+    ///     ⚠
+    ///     <b>
+    ///         A game has one console and one frame, so one set is right for it — and an editor has
+    ///         several sessions in one process, so one set is wrong for it.
+    ///     </b>
+    ///     The six properties below
     ///     are this object's, unchanged for every game and sample that reads them; an editor module
     ///     holds a <see cref="WaterDebugFlags" /> of its own and hands it to
     ///     <see cref="WaterDebugDraw.Flags" />, so two editors in one process stop sharing a toggle.
@@ -91,8 +105,7 @@ public static class WaterDebug {
     /// <summary>`water.showTiles [0|1]`.</summary>
     /// <param name="context">The command's arguments and where to answer.</param>
     [ConsoleCommand("water.showTiles", Help = "Patch bounds, coloured by body kind, with the LOD level")]
-    public static void Tiles(ConsoleContext context) =>
-        ShowTiles = Toggle(context, "water.showTiles", ShowTiles);
+    public static void Tiles(ConsoleContext context) => ShowTiles = Toggle(context, "water.showTiles", ShowTiles);
 
     /// <summary>`water.showLod [0|1]`.</summary>
     /// <param name="context">The command's arguments and where to answer.</param>
@@ -127,8 +140,12 @@ public static class WaterDebug {
     /// <exception cref="ArgumentNullException"><paramref name="into" /> is null.</exception>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Because <see cref="ConsoleCommands.RegisterFrom(Assembly)" /> has no callers, and
-    ///         cannot honestly acquire one.</b> That overload scans every type in an assembly for the
+    ///         ⚠
+    ///         <b>
+    ///             Because <see cref="ConsoleCommands.RegisterFrom(Assembly)" /> has no callers, and
+    ///             cannot honestly acquire one.
+    ///         </b>
+    ///         That overload scans every type in an assembly for the
     ///         attribute, which is annotated <see cref="RequiresUnreferencedCodeAttribute" /> and says
     ///         so — a shipping title calling it takes the warning, or trims the commands away and
     ///         finds out on device. Its own remarks name
@@ -210,7 +227,7 @@ static class WaterConsole {
             + "makes: the alternative is every host remembering to register a subsystem's console "
             + "verbs, which is exactly the omission that left six verbs unreachable for a phase."
     )]
-    internal static void Register() => ConsoleCommands.Contribute(commands => WaterDebug.Register(commands));
+    internal static void Register() => ConsoleCommands.Contribute(static commands => WaterDebug.Register(commands));
 }
 
 /// <summary>One set of water's six debug switches, owned by whoever reads it.</summary>
@@ -281,8 +298,12 @@ public readonly record struct WaterStatistics {
 
     /// <summary>How many <em>zones</em> named a <c>.vxwaves</c> that could not be used.</summary>
     /// <remarks>
-    ///     ⚠ <b>A third diagnostic and not a fourth column on the second, because this one is still
-    ///     drawing.</b> A zoneless or unresolved body is water that is not there; a zone whose sea
+    ///     ⚠
+    ///     <b>
+    ///         A third diagnostic and not a fourth column on the second, because this one is still
+    ///         drawing.
+    ///     </b>
+    ///     A zoneless or unresolved body is water that is not there; a zone whose sea
     ///     state did not load has water that looks entirely convincing and is the wrong sea — which on
     ///     a client is a boat that rides differently from the one on the server. It is the only
     ///     evidence of that.
@@ -413,12 +434,33 @@ public sealed class WaterOverlay : IDiagnosticOverlay {
         // ⚠ Warned rather than merely printed. "I placed a lake and there is no water" is the
         // question these two answer, and a plain zero beside a red one is what makes an author read
         // the right row.
-        WaterRows.Draw(in region, 2, "zoneless", statistics.Zoneless, theme.Text, statistics.Zoneless > 0 ? theme.Bad : theme.Muted);
-        WaterRows.Draw(in region, 3, "unresolved", statistics.Unresolved, theme.Text, statistics.Unresolved > 0 ? theme.Bad : theme.Muted);
+        WaterRows.Draw(
+            in region,
+            2,
+            "zoneless",
+            statistics.Zoneless,
+            theme.Text,
+            statistics.Zoneless > 0 ? theme.Bad : theme.Muted
+        );
+        WaterRows.Draw(
+            in region,
+            3,
+            "unresolved",
+            statistics.Unresolved,
+            theme.Text,
+            statistics.Unresolved > 0 ? theme.Bad : theme.Muted
+        );
 
         // ⚠ Warning rather than bad, and the shade is the diagnosis. The two rows above it are water
         // that is not on screen; this one is water that is, drawn from a sea state nobody authored.
-        WaterRows.Draw(in region, 4, "no waves", statistics.UnresolvedWaves, theme.Text, statistics.UnresolvedWaves > 0 ? theme.Warning : theme.Muted);
+        WaterRows.Draw(
+            in region,
+            4,
+            "no waves",
+            statistics.UnresolvedWaves,
+            theme.Text,
+            statistics.UnresolvedWaves > 0 ? theme.Warning : theme.Muted
+        );
 
         // ⚠ `>=` and not `>`, and the difference is the row working at all. A rebuild increments
         // both counters — `GatherBodies` counts the body it just built into `BodyCount` as well as
@@ -504,7 +546,14 @@ public sealed class WaterMeshOverlay : IDiagnosticOverlay {
 
         // ⚠ Bad rather than muted, because a dropped patch is a hole in the water and a hole
         // attributed to the wrong thing is a week.
-        WaterRows.Draw(in region, 2, "dropped", statistics.Dropped, theme.Text, statistics.Dropped > 0 ? theme.Bad : theme.Muted);
+        WaterRows.Draw(
+            in region,
+            2,
+            "dropped",
+            statistics.Dropped,
+            theme.Text,
+            statistics.Dropped > 0 ? theme.Bad : theme.Muted
+        );
 
         WaterRows.Draw(in region, 3, "vertices", statistics.Vertices, theme.Text, theme.Muted);
         WaterRows.Draw(in region, 4, "draws", statistics.Draws, theme.Text, theme.Muted);
@@ -514,8 +563,12 @@ public sealed class WaterMeshOverlay : IDiagnosticOverlay {
 
 /// <summary>One "label   value" row, right-aligned, allocating nothing.</summary>
 /// <remarks>
-///     ⚠ <b>A static rather than a local function, because a <c>stackalloc</c> cannot cross into
-///     one.</b> A local function capturing a <c>Span&lt;char&gt;</c> is CS8175, and the alternative —
+///     ⚠
+///     <b>
+///         A static rather than a local function, because a <c>stackalloc</c> cannot cross into
+///         one.
+///     </b>
+///     A local function capturing a <c>Span&lt;char&gt;</c> is CS8175, and the alternative —
 ///     a field — would make two overlays drawn in one frame share a buffer.
 /// </remarks>
 static class WaterRows {

@@ -8,8 +8,12 @@ namespace Vixen.Ui.Layout;
 /// <summary>Every node's grid track lists, in one array.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>This is the one thing grid needed from the store that neither flex nor block did, and
-///         it is on the <i>input</i> side.</b> Block's whole cost was three output fields — a
+///         ⚠
+///         <b>
+///             This is the one thing grid needed from the store that neither flex nor block did, and
+///             it is on the <i>input</i> side.
+///         </b>
+///         Block's whole cost was three output fields — a
 ///         collapsible margin at each end and a flag — because a block child has to report what
 ///         escaped past its edges. Grid reports nothing unusual upward. What it needs is a style field
 ///         that is not a fixed number of bytes: <c>grid-template-columns</c> is an arbitrary-length
@@ -75,7 +79,7 @@ sealed class TrackArena {
 
         Free(offset, capacity);
 
-        var wanted = int.Max(MinimumBlock, (int) BitOperations.RoundUpToPowerOf2((uint) tracks.Length));
+        var wanted = int.Max(MinimumBlock, (int)BitOperations.RoundUpToPowerOf2((uint)tracks.Length));
         var next = Allocate(wanted);
         tracks.CopyTo(storage.AsSpan(next, tracks.Length));
 
@@ -115,7 +119,7 @@ sealed class TrackArena {
         return allocated;
     }
 
-    static int BucketOf(int size) => BitOperations.TrailingZeroCount((uint) size) - MinimumBlockLog2;
+    static int BucketOf(int size) => BitOperations.TrailingZeroCount((uint)size) - MinimumBlockLog2;
 }
 
 /// <summary>A node's track list on one axis: where it is, and where its automatic repetition sits.</summary>

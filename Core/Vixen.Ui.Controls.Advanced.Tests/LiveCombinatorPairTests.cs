@@ -13,8 +13,11 @@ namespace Vixen.Ui.Controls.Advanced.Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>The verdict half of <c>Rikarin/Vixen#531</c>, for the part of the domain a runtime can
-///         decide.</b> <c>Vixen.Ui.Styling.Tests.CombinatorPairTests</c> commits the <i>domain</i>:
+///         <b>
+///             The verdict half of <c>Rikarin/Vixen#531</c>, for the part of the domain a runtime can
+///             decide.
+///         </b>
+///         <c>Vixen.Ui.Styling.Tests.CombinatorPairTests</c> commits the <i>domain</i>:
 ///         88 pairings that some sheet declares between two bare type selectors. It says on its face
 ///         that it decides nothing about whether a pairing is live, and the reason a pairing being
 ///         dead matters is <c>compositor-editor &gt; node-canvas</c> — a rule whose two tags were
@@ -22,8 +25,12 @@ namespace Vixen.Ui.Controls.Advanced.Tests;
 ///         width for as long as it stood.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Five audits tried to decide that by reading source and all five stopped, each one
-///         reporting that the residue it could not explain was larger than the last.</b> The reason
+///         ⚠
+///         <b>
+///             Five audits tried to decide that by reading source and all five stopped, each one
+///             reporting that the residue it could not explain was larger than the last.
+///         </b>
+///         The reason
 ///         is in the domain: markup nesting proves 3 of the 88, and the type→tag map everybody
 ///         recommends takes it to 14, because the other 74 have parents built in C# — most of them a
 ///         control assembling its own parts through <c>Part("…")</c>, which no scan of markup can
@@ -37,8 +44,12 @@ namespace Vixen.Ui.Controls.Advanced.Tests;
 ///         the parent tag is holding a child with the child tag, in this process, now.
 ///     </para>
 ///     <para>
-///         ⚠ <b>What this does NOT say is that anything else is dead, and no assertion here may ever
-///         be read that way.</b> A control that builds a part only once it has an item, a pairing
+///         ⚠
+///         <b>
+///             What this does NOT say is that anything else is dead, and no assertion here may ever
+///             be read that way.
+///         </b>
+///         A control that builds a part only once it has an item, a pairing
 ///         assembled by the editor rather than by a control, and every pairing whose parent tag
 ///         belongs to an assembly this one cannot see are all outside the sweep and unjudged. The
 ///         committed file is a set of proofs, not a verdict on the rest of the domain.
@@ -76,8 +87,7 @@ public partial class LiveCombinatorPairTests {
     const string Unexplained = "unexplained";
 
     /// <summary>Set <c>VIXEN_REGENERATE=1</c> to write the census back instead of asserting it.</summary>
-    static bool Regenerating =>
-        Environment.GetEnvironmentVariable("VIXEN_REGENERATE") is "1";
+    static bool Regenerating => Environment.GetEnvironmentVariable("VIXEN_REGENERATE") is "1";
 
     /// <summary>How many element types the sweep is expected to build, at least.</summary>
     /// <remarks>
@@ -99,8 +109,12 @@ public partial class LiveCombinatorPairTests {
 
     /// <summary>The premise every assertion below rests on: the sweep built controls and read trees.</summary>
     /// <remarks>
-    ///     ⚠ <b>Three claims rather than one floor, because a floor is what this repository has twice
-    ///     had eaten by success.</b> The types were built; enough pairings came out of them to be a
+    ///     ⚠
+    ///     <b>
+    ///         Three claims rather than one floor, because a floor is what this repository has twice
+    ///         had eaten by success.
+    ///     </b>
+    ///     The types were built; enough pairings came out of them to be a
     ///     real tree walk; and three pairings a person has traced to the <c>Part("…")</c> call that
     ///     makes them are present <i>by name and the right way round</i>. The last is what a count
     ///     cannot give: a walk that recorded the child as the parent keeps the count exactly right
@@ -110,7 +124,10 @@ public partial class LiveCombinatorPairTests {
     public void The_control_sweep_actually_ran() {
         _ = Observed;
 
-        Assert.True(Built >= Elements, $"the sweep built only {Built} element types, which is not these two assemblies");
+        Assert.True(
+            Built >= Elements,
+            $"the sweep built only {Built} element types, which is not these two assemblies"
+        );
 
         Assert.True(
             Observed.Count >= 140,
@@ -134,8 +151,12 @@ public partial class LiveCombinatorPairTests {
     /// <summary>The pairings proved live by construction are exactly the committed ones.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Exact and in both directions, and the direction that matters is the one that
-    ///         loses a row.</b> A pairing here has been proved live; if it stops being observed,
+    ///         ⚠
+    ///         <b>
+    ///             Exact and in both directions, and the direction that matters is the one that
+    ///             loses a row.
+    ///         </b>
+    ///         A pairing here has been proved live; if it stops being observed,
     ///         either the control stopped building that part — in which case the sheet's rule has
     ///         just gone dead and nothing else in this repository would say so — or the sweep
     ///         stopped seeing it. Both want a person, and both are silent under a floor.
@@ -146,8 +167,12 @@ public partial class LiveCombinatorPairTests {
     ///         so the next audit does not re-derive it.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The domain is read off disk too, and a pairing that leaves it leaves this file
-    ///         as well.</b> That is deliberate: a proof about a rule no sheet declares any more is a
+    ///         ⚠
+    ///         <b>
+    ///             The domain is read off disk too, and a pairing that leaves it leaves this file
+    ///             as well.
+    ///         </b>
+    ///         That is deliberate: a proof about a rule no sheet declares any more is a
     ///         proof about nothing, and keeping it would turn this census into a record of what the
     ///         controls build — which is a different question with several hundred answers.
     ///     </para>
@@ -157,7 +182,7 @@ public partial class LiveCombinatorPairTests {
         var root = Root();
         var path = Path.Combine(root, CensusFile);
         var domain = Domain(Path.Combine(root, DomainFile));
-        var proved = domain.Where(pair => Observed.Contains(pair)).Order(StringComparer.Ordinal).ToList();
+        var proved = domain.Where(static pair => Observed.Contains(pair)).Order(StringComparer.Ordinal).ToList();
 
         if (Regenerating) {
             Write(path, proved);
@@ -194,8 +219,12 @@ public partial class LiveCombinatorPairTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The verdict half of <c>Rikarin/Vixen#531</c>, and the only negative claim in the
-    ///         three files.</b> The domain census says what the sheets declare; the census beside
+    ///         ⚠
+    ///         <b>
+    ///             The verdict half of <c>Rikarin/Vixen#531</c>, and the only negative claim in the
+    ///             three files.
+    ///         </b>
+    ///         The domain census says what the sheets declare; the census beside
     ///         this one says which of those a control was seen to build. Neither can say a rule is
     ///         dead, which is what <c>compositor-editor &gt; node-canvas</c> needed somebody to say —
     ///         both tags real, the pairing never occurring, the compositor's graph drawn at zero
@@ -214,8 +243,12 @@ public partial class LiveCombinatorPairTests {
     ///         child that arrives from a template — and each is a sentence somebody checked.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>An arriving row is the loud direction, and it is the same event as a row leaving
-    ///         the proofs.</b> A control that stops building a part while the sheet still styles it
+    ///         ⚠
+    ///         <b>
+    ///             An arriving row is the loud direction, and it is the same event as a row leaving
+    ///             the proofs.
+    ///         </b>
+    ///         A control that stops building a part while the sheet still styles it
     ///         is the defect; here it shows up as a new suspicion with no reason on it, and an
     ///         <c>unexplained</c> row fails on its own so that regenerating cannot quietly accept
     ///         one.
@@ -229,7 +262,7 @@ public partial class LiveCombinatorPairTests {
         var parents = Observed.Select(static pair => pair.Split(" > ")[0]).ToHashSet(StringComparer.Ordinal);
 
         var reachable = domain.Where(pair => parents.Contains(pair.Split(" > ")[0])).ToList();
-        var suspect = reachable.Where(pair => !Observed.Contains(pair)).Order(StringComparer.Ordinal).ToList();
+        var suspect = reachable.Where(static pair => !Observed.Contains(pair)).Order(StringComparer.Ordinal).ToList();
 
         // The sweep's own guard is `The_control_sweep_actually_ran`; this is the guard for the JOIN,
         // which has a second way of coming out empty. If the domain's parent tags and the observed
@@ -268,7 +301,10 @@ public partial class LiveCombinatorPairTests {
              """
         );
 
-        var silent = reasons.Where(entry => entry.Value == Unexplained).Select(entry => entry.Key).Order(StringComparer.Ordinal).ToList();
+        var silent = reasons.Where(static entry => entry.Value == Unexplained)
+            .Select(static entry => entry.Key)
+            .Order(StringComparer.Ordinal)
+            .ToList();
 
         Assert.True(
             silent.Count == 0,
@@ -466,8 +502,12 @@ public partial class LiveCombinatorPairTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>That second half is the whole of what makes this a census rather than a record of
-    ///         what a test harness nested.</b> <c>A &gt; B</c> is "provable" for any pair by putting a
+    ///         ⚠
+    ///         <b>
+    ///             That second half is the whole of what makes this a census rather than a record of
+    ///             what a test harness nested.
+    ///         </b>
+    ///         <c>A &gt; B</c> is "provable" for any pair by putting a
     ///         <c>B</c> under an <c>A</c>, so a seed that is allowed to be the parent of the pairing
     ///         it proves proves nothing. Each seed therefore hands back what it put in, and
     ///         <see cref="WalkSeeded" /> refuses those as children. What survives is the control's
@@ -482,22 +522,23 @@ public partial class LiveCombinatorPairTests {
     ///     </para>
     /// </remarks>
     static (string Name, Func<UiElement, (UiElement Control, IReadOnlyList<UiElement> Introduced)> Seed)[] Seeds => [
-        ("tabs", parent => Poke<Tabs>(parent, static tabs => [tabs.AddTab("One")])),
-        ("segmented-control", parent => Poke<SegmentedControl>(parent, static bar => [bar.AddSegment("a", "A")])),
-        ("select", parent => Poke<Select>(parent, static select => [select.AddOption("a", "A")])),
-        ("multi-select", parent => Poke<MultiSelect>(parent, static select => [select.AddOption("a", "A")])),
-        ("combo-box", parent => Poke<ComboBox>(parent, static combo => [combo.AddOption("a", "A")])),
-        ("radio-group", parent => Poke<RadioGroup>(parent, static group => [group.AddOption("a", "A")])),
-        ("menu", parent => Poke<Menu>(parent, static menu => [menu.AddItem("Item")])),
-        ("context-menu", parent => Poke<ContextMenu>(parent, static menu => [menu.AddItem("Item")])),
-        ("radial-menu", parent => Poke<RadialMenu>(parent, static menu => [menu.AddItem("Item")])),
+        ("tabs", static parent => Poke<Tabs>(parent, static tabs => [tabs.AddTab("One")])),
+        ("segmented-control",
+            static parent => Poke<SegmentedControl>(parent, static bar => [bar.AddSegment("a", "A")])),
+        ("select", static parent => Poke<Select>(parent, static select => [select.AddOption("a", "A")])),
+        ("multi-select", static parent => Poke<MultiSelect>(parent, static select => [select.AddOption("a", "A")])),
+        ("combo-box", static parent => Poke<ComboBox>(parent, static combo => [combo.AddOption("a", "A")])),
+        ("radio-group", static parent => Poke<RadioGroup>(parent, static group => [group.AddOption("a", "A")])),
+        ("menu", static parent => Poke<Menu>(parent, static menu => [menu.AddItem("Item")])),
+        ("context-menu", static parent => Poke<ContextMenu>(parent, static menu => [menu.AddItem("Item")])),
+        ("radial-menu", static parent => Poke<RadialMenu>(parent, static menu => [menu.AddItem("Item")])),
 
         // ⚠ Nothing introduced by either of these: a `DataColumn` and a `TreeNode` are model objects
         // rather than elements, so the header cell and the row the control realises for them are its
         // own construction end to end.
         (
             "data-grid",
-            parent => Poke<DataGrid>(
+            static parent => Poke<DataGrid>(
                 parent,
                 static grid => {
                     grid.AddColumn("Name");
@@ -509,7 +550,7 @@ public partial class LiveCombinatorPairTests {
         ),
         (
             "tree-view",
-            parent => Poke<TreeView>(
+            static parent => Poke<TreeView>(
                 parent,
                 static tree => {
                     tree.Root.Add("node");
@@ -548,7 +589,7 @@ public partial class LiveCombinatorPairTests {
             + "so it applied the seeds and did not walk the trees"
         );
 
-        // `Tabs.cs:216`, and the bare sweep cannot see it: `tab-panels` is built with the control and
+        // `Tabs.cs:231`, and the bare sweep cannot see it: `tab-panels` is built with the control and
         // stays empty until a tab is adopted. It is the pairing this whole addition exists for.
         Assert.Contains("tab-panels > tab-panel", SeededObserved, StringComparer.Ordinal);
         Assert.DoesNotContain("tab-panel > tab-panels", SeededObserved, StringComparer.Ordinal);
@@ -568,8 +609,12 @@ public partial class LiveCombinatorPairTests {
     ///         part earlier.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A departed row has a second reading here that it does not have in the bare
-    ///         census</b>: either the control stopped building the part — the
+    ///         ⚠
+    ///         <b>
+    ///             A departed row has a second reading here that it does not have in the bare
+    ///             census
+    ///         </b>
+    ///         : either the control stopped building the part — the
     ///         <c>compositor-editor &gt; node-canvas</c> defect — or the seed stopped putting it in
     ///         the state that builds it. Both want a person; the seed is one line above.
     ///     </para>
@@ -581,7 +626,7 @@ public partial class LiveCombinatorPairTests {
         var domain = Domain(Path.Combine(root, DomainFile));
 
         var proved = domain
-            .Where(pair => SeededObserved.Contains(pair) && !Observed.Contains(pair))
+            .Where(static pair => SeededObserved.Contains(pair) && !Observed.Contains(pair))
             .Order(StringComparer.Ordinal)
             .ToList();
 
@@ -624,7 +669,7 @@ public partial class LiveCombinatorPairTests {
 
             ui.Update();
             count++;
-            WalkSeeded(control, pairs, [.. introduced]);
+            WalkSeeded(control, pairs, [..introduced]);
 
             // The whole-selector question, with the same refusal. See the partial beside this file.
             ScopeSeeded(ui.Document, introduced);
@@ -639,7 +684,10 @@ public partial class LiveCombinatorPairTests {
     /// <param name="parent">Where the control goes.</param>
     /// <param name="seed">The state change, returning the elements it introduced by name.</param>
     /// <returns>The control and the elements no recorded pairing may have as a child.</returns>
-    static (UiElement Control, IReadOnlyList<UiElement> Introduced) Poke<T>(UiElement parent, Func<T, IReadOnlyList<UiElement>> seed)
+    static (UiElement Control, IReadOnlyList<UiElement> Introduced) Poke<T>(
+        UiElement parent,
+        Func<T, IReadOnlyList<UiElement>> seed
+    )
         where T : UiElement, new() {
         var control = parent.Add<T>();
 

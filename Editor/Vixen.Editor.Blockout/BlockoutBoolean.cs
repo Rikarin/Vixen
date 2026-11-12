@@ -4,7 +4,6 @@
 using Vixen.Authoring;
 using Vixen.Core;
 using Vixen.Core.Mathematics;
-using Vixen.Ecs;
 using Vixen.Editor.Core;
 using Vixen.Editor.SceneView;
 using Vixen.Engine.Transforms;
@@ -21,8 +20,12 @@ namespace Vixen.Editor.Blockout;
 ///         that is still there rather than rebuilding a wall.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The cuts are destructive and the booleans are not, and that asymmetry is the honest
-///         one.</b> A plane cut's operand is a plane, which is not an entity and has nowhere to
+///         ⚠
+///         <b>
+///             The cuts are destructive and the booleans are not, and that asymmetry is the honest
+///             one.
+///         </b>
+///         A plane cut's operand is a plane, which is not an entity and has nowhere to
 ///         survive as one — so keeping it live would mean inventing a second kind of operand with its
 ///         own gizmo, its own row in the outliner and its own file format. A trim's operand <i>is</i> an
 ///         entity, and it is still destructive because the thing a trim is for is throwing the cutter
@@ -92,8 +95,7 @@ public static class BlockoutBoolean {
     /// <summary>The first selected solid, less the rest.</summary>
     /// <param name="document">The scene.</param>
     /// <returns>The result entity.</returns>
-    public static Entity Subtract(SceneDocument document) =>
-        Combine(document, BooleanOperation.Difference, "Subtract");
+    public static Entity Subtract(SceneDocument document) => Combine(document, BooleanOperation.Difference, "Subtract");
 
     /// <summary>Only what all the selected solids share.</summary>
     /// <param name="document">The scene.</param>
@@ -122,8 +124,10 @@ public static class BlockoutBoolean {
         ArgumentNullException.ThrowIfNull(document);
 
         List<Entity> targets = entity.IsNull
-            ? [.. document.Selection.Items.Where(document.IsDerived)]
-            : document.IsDerived(entity) ? [entity] : [];
+            ? [..document.Selection.Items.Where(document.IsDerived)]
+            : document.IsDerived(entity)
+                ? [entity]
+                : [];
 
         if (targets.Count == 0) {
             return false;
@@ -292,8 +296,8 @@ sealed class HideOperandsCommand : IEditorCommand {
 
     public HideOperandsCommand(SceneDocument document, IReadOnlyList<Entity> operands) {
         this.document = document;
-        this.operands = [.. operands];
-        before = [.. operands.Select(document.IsHiddenDirectly)];
+        this.operands = [..operands];
+        before = [..operands.Select(document.IsHiddenDirectly)];
     }
 
     /// <inheritdoc />

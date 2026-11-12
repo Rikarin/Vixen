@@ -11,8 +11,12 @@ namespace Vixen.Ui.Controls.Tests;
 /// <summary>What a bridge that only re-reads when it is told ends up showing.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Asserted through a consumer rather than on the tree, because the tree was never
-///         wrong.</b> Doc 46 § A2 recorded that a state a control <i>computes</i> — ticked, selected,
+///         ⚠
+///         <b>
+///             Asserted through a consumer rather than on the tree, because the tree was never
+///             wrong.
+///         </b>
+///         Doc 46 § A2 recorded that a state a control <i>computes</i> — ticked, selected,
 ///         open — raised no <c>AccessibilityInvalidated</c>, and a test that read
 ///         <c>AccessibleState</c> after ticking a box passed then and passes now: the computed view
 ///         is correct the instant the field changes. What was broken is the <i>notification</i>, and
@@ -70,7 +74,7 @@ public class AccessibilityNotificationTests {
         fixture.Advance(TimeSpan.FromMilliseconds(16));
 
         Assert.True(bridge.Republished > published, "ticking the box told nobody");
-        Assert.Equal("checkbox \"Shadows\" [checked]", bridge.Cached);
+        Assert.Equal("""checkbox "Shadows" [checked]""", bridge.Cached);
 
         // And back, because a notification that only fires one way leaves a screen reader announcing
         // a box as ticked for the rest of the session.
@@ -93,7 +97,7 @@ public class AccessibilityNotificationTests {
         button.Disabled = true;
         fixture.Advance(TimeSpan.FromMilliseconds(16));
 
-        Assert.Equal("button \"Save\" [disabled]", bridge.Cached);
+        Assert.Equal("""button "Save" [disabled]""", bridge.Cached);
 
         var quiet = bridge.Republished;
 
@@ -129,12 +133,12 @@ public class AccessibilityNotificationTests {
         var bridge = new Bridge(fixture.Document, box);
         fixture.Advance(TimeSpan.FromMilliseconds(16));
 
-        Assert.Equal("checkbox \"Shadows\" [checked]", bridge.Cached);
+        Assert.Equal("""checkbox "Shadows" [checked]""", bridge.Cached);
 
         box.IsIndeterminate = true;
         fixture.Advance(TimeSpan.FromMilliseconds(16));
 
-        Assert.Equal("checkbox \"Shadows\" [mixed]", bridge.Cached);
+        Assert.Equal("""checkbox "Shadows" [mixed]""", bridge.Cached);
 
         // ⚠ And back, which is the half a one-way notification leaves wrong forever: `Mixed`
         // *replaces* `Checked` rather than joining it, so a bridge that was never told the flag
@@ -142,7 +146,7 @@ public class AccessibilityNotificationTests {
         box.IsIndeterminate = false;
         fixture.Advance(TimeSpan.FromMilliseconds(16));
 
-        Assert.Equal("checkbox \"Shadows\" [checked]", bridge.Cached);
+        Assert.Equal("""checkbox "Shadows" [checked]""", bridge.Cached);
     }
 
     /// <summary>A menu item's <c>expanded</c>, which is read off the submenu and not off the item.</summary>
@@ -167,17 +171,17 @@ public class AccessibilityNotificationTests {
         var bridge = new Bridge(fixture.Document, item);
         fixture.Advance(TimeSpan.FromMilliseconds(16));
 
-        Assert.Equal("menuitem \"Open Recent\" [expandable]", bridge.Cached);
+        Assert.Equal("""menuitem "Open Recent" [expandable]""", bridge.Cached);
 
         submenu.Open(item);
         fixture.Advance(TimeSpan.FromMilliseconds(16));
 
-        Assert.Equal("menuitem \"Open Recent\" [expandable expanded]", bridge.Cached);
+        Assert.Equal("""menuitem "Open Recent" [expandable expanded]""", bridge.Cached);
 
         submenu.Close();
         fixture.Advance(TimeSpan.FromMilliseconds(16));
 
-        Assert.Equal("menuitem \"Open Recent\" [expandable]", bridge.Cached);
+        Assert.Equal("""menuitem "Open Recent" [expandable]""", bridge.Cached);
     }
 
     /// <summary>A slider's value, which changes on every arrow press and writes no style state at all.</summary>

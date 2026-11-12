@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Buffers.Binary;
-using System.Text;
 
 namespace Vixen.Live.Gameplay;
 
@@ -53,14 +52,22 @@ public sealed class ProfileFormatException(string message) : Exception(message);
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>Doc 27 keeps <c>Profile</c> opaque on purpose</b> — <em>"the game's own state. Opaque
-///         here, and never queried by this layer"</em> — because its schema is doc 28's and the
+///         <b>Doc 27 keeps <c>Profile</c> opaque on purpose</b> —
+///         <em>
+///             "the game's own state. Opaque
+///             here, and never queried by this layer"
+///         </em>
+///         — because its schema is doc 28's and the
 ///         game's. This is the thing that gives that blob a shape without giving the persistence
 ///         layer one.
 ///     </para>
 ///     <para>
-///         ⚠ <b>An unknown section is preserved, never dropped, and that is the whole reason the
-///         container knows nothing about types.</b> Doc 27 § Upgrades fragments a population by
+///         ⚠
+///         <b>
+///             An unknown section is preserved, never dropped, and that is the whole reason the
+///             container knows nothing about types.
+///         </b>
+///         Doc 27 § Upgrades fragments a population by
 ///         version on purpose: during a rollout, an old realm and a new realm both write the same
 ///         character. If the old one dropped the section the new one had added, a player who zoned
 ///         the wrong way would lose it — silently, and only some of the time. A map of id to bytes
@@ -89,7 +96,7 @@ public sealed class PlayerProfile {
     public uint Revision { get; private set; }
 
     /// <summary>Every section it holds, in id order.</summary>
-    public IEnumerable<ProfileSectionId> Sections => sections.Keys.Select(id => new ProfileSectionId(id));
+    public IEnumerable<ProfileSectionId> Sections => sections.Keys.Select(static id => new ProfileSectionId(id));
 
     /// <summary>Reads one back.</summary>
     /// <param name="bytes">What <see cref="Write" /> wrote, or nothing for a fresh character.</param>
@@ -144,7 +151,7 @@ public sealed class PlayerProfile {
     /// <summary>Writes it.</summary>
     /// <returns>The bytes, for <c>PlayerRecord.Profile</c>.</returns>
     public ReadOnlyMemory<byte> Write() {
-        var size = 12 + sections.Sum(section => 8 + section.Value.Length);
+        var size = 12 + sections.Sum(static section => 8 + section.Value.Length);
         var bytes = new byte[size];
         var span = bytes.AsSpan();
 

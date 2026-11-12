@@ -39,7 +39,9 @@ public class WorkerPinningWiringTests {
     public void TheFlagReachesTheSchedulerAndNotJustTheConfig() {
         using var platform = new PinningPlatform(4);
 
-        using var application = new AppBuilder(AppArguments.Parse(["--vixen-headless", "--vixen-workers", "3", "--vixen-pin-workers"]))
+        using var application = new AppBuilder(
+                AppArguments.Parse(["--vixen-headless", "--vixen-workers", "3", "--vixen-pin-workers"])
+            )
             .WithPlatform(platform)
             .Build(new Quiet());
 
@@ -105,7 +107,8 @@ public class WorkerPinningWiringTests {
 
         public IWindow CreateWindow(in WindowOptions options) => inner.CreateWindow(options);
 
-        public bool TryGetWindow(uint id, [NotNullWhen(true)] out IWindow? window) => inner.TryGetWindow(id, out window);
+        public bool TryGetWindow(uint id, [NotNullWhen(true)] out IWindow? window) =>
+            inner.TryGetWindow(id, out window);
 
         public ReadOnlySpan<PlatformEvent> PumpEvents() => inner.PumpEvents();
 

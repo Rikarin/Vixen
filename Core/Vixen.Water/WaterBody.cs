@@ -87,8 +87,7 @@ public readonly record struct WaterProfilePoint {
         new() { HalfWidth = 2f, Depth = 1f, Velocity = 1.4f, AudioIntensity = 0.5f };
 
     /// <summary>Still water: no width of its own, two metres deep, going nowhere.</summary>
-    public static WaterProfilePoint Still =>
-        new() { HalfWidth = 0f, Depth = 2f, Velocity = 0f, AudioIntensity = 0.1f };
+    public static WaterProfilePoint Still => new() { HalfWidth = 0f, Depth = 2f, Velocity = 0f, AudioIntensity = 0.1f };
 
     /// <summary>This profile blended toward another.</summary>
     /// <param name="other">The other.</param>
@@ -98,10 +97,10 @@ public readonly record struct WaterProfilePoint {
         var k = WaterMath.Saturate(t);
 
         return new() {
-            HalfWidth = HalfWidth + ((other.HalfWidth - HalfWidth) * k),
-            Depth = Depth + ((other.Depth - Depth) * k),
-            Velocity = Velocity + ((other.Velocity - Velocity) * k),
-            AudioIntensity = AudioIntensity + ((other.AudioIntensity - AudioIntensity) * k)
+            HalfWidth = HalfWidth + (other.HalfWidth - HalfWidth) * k,
+            Depth = Depth + (other.Depth - Depth) * k,
+            Velocity = Velocity + (other.Velocity - Velocity) * k,
+            AudioIntensity = AudioIntensity + (other.AudioIntensity - AudioIntensity) * k
         };
     }
 }
@@ -117,9 +116,13 @@ public readonly record struct WaterProfilePoint {
 /// </param>
 /// <param name="AudioIntensity">How loud it is here, 0…1.</param>
 /// <remarks>
-///     ⚠ <b>Depth is not in here, and that is
-///     [§ D3](../../docs/plan/35-water.md#d3-the-water-info-texture-is-the-interchange-and-it-is-a-zone-render)'s
-///     rule.</b> How deep the water is at a place is <see cref="SurfaceHeight" /> minus whatever the
+///     ⚠
+///     <b>
+///         Depth is not in here, and that is
+///         [§ D3](../../docs/plan/35-water.md#d3-the-water-info-texture-is-the-interchange-and-it-is-a-zone-render)'s
+///         rule.
+///     </b>
+///     How deep the water is at a place is <see cref="SurfaceHeight" /> minus whatever the
 ///     ground turns out to be, computed where it is used; storing it here would be a third number
 ///     that can disagree with the two it came from. <see cref="BedDepth" /> is a different quantity —
 ///     what the body would <em>like</em> the ground to be, which is what carving reads.
@@ -138,8 +141,10 @@ public readonly record struct WaterBodyContribution(
 /// <summary>A body of water: a spline, a profile, and a kind.</summary>
 /// <remarks>
 ///     <para>
-///         <b>The kernel half of
-///         [§ D6](../../docs/plan/35-water.md#d6-a-water-body-is-a-spline-and-a-profile-and-there-is-no-new-spline).</b>
+///         <b>
+///             The kernel half of
+///             [§ D6](../../docs/plan/35-water.md#d6-a-water-body-is-a-spline-and-a-profile-and-there-is-no-new-spline).
+///         </b>
 ///         What a scene carries is a component naming a <c>.vxspline</c> and eleven numbers; what the
 ///         arithmetic needs is a resolved curve and a profile, which is this. No new asset kind and
 ///         no new spline type — a water body is authored with the same tools a road is, because it is
@@ -226,7 +231,8 @@ public sealed class WaterBody {
     /// <summary>Which body wins where two overlap. Higher is on top.</summary>
     /// <remarks>
     ///     ⚠ <b>Resolved once, when the field is rasterised, and never per pixel.</b> That is the
-    ///     whole reason [§ D3](../../docs/plan/35-water.md#d3-the-water-info-texture-is-the-interchange-and-it-is-a-zone-render)
+    ///     whole reason [§
+    ///     D3](../../docs/plan/35-water.md#d3-the-water-info-texture-is-the-interchange-and-it-is-a-zone-render)
     ///     makes the zone the render unit: a river mouth is where two flow models meet, and a
     ///     material that had to blend them would need to know which two bodies it was between.
     /// </remarks>
@@ -377,7 +383,7 @@ public sealed class WaterBody {
             var b = boundary[j];
 
             if (a.Y > ground.Y != b.Y > ground.Y
-                && ground.X < ((b.X - a.X) * (ground.Y - a.Y) / (b.Y - a.Y)) + a.X) {
+                && ground.X < (b.X - a.X) * (ground.Y - a.Y) / (b.Y - a.Y) + a.X) {
                 inside = !inside;
             }
         }
@@ -473,8 +479,12 @@ public sealed class WaterBody {
     ///         pinch wherever the ground is steep.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Against the flattened polyline rather than the curve, and the difference is two
-    ///         orders of magnitude.</b> The obvious form scans the curve for a nearest sample and then
+    ///         ⚠
+    ///         <b>
+    ///             Against the flattened polyline rather than the curve, and the difference is two
+    ///             orders of magnitude.
+    ///         </b>
+    ///         The obvious form scans the curve for a nearest sample and then
     ///         ternary-searches between its neighbours — ninety spline evaluations per query, each a
     ///         cubic Hermite. Rasterising a 256² field against one body is sixty-five thousand of
     ///         those, and it took <em>four seconds</em>: not an amortised cost, a hitch. The polyline
@@ -504,14 +514,14 @@ public sealed class WaterBody {
             var lengthSquared = Vector2.Dot(edge, edge);
 
             var t = lengthSquared > 0f ? Math.Clamp(Vector2.Dot(target - a, edge) / lengthSquared, 0f, 1f) : 0f;
-            var nearest = a + (edge * t);
+            var nearest = a + edge * t;
             var distance = Vector2.DistanceSquared(target, nearest);
 
             if (distance < best) {
                 best = distance;
 
                 var from = boundaryParameters[index];
-                parameter = from + ((boundaryParameters[index + 1] - from) * t);
+                parameter = from + (boundaryParameters[index + 1] - from) * t;
             }
         }
 

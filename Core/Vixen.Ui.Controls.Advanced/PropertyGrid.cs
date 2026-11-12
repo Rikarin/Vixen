@@ -68,8 +68,12 @@ public sealed partial class PropertyRow : Control {
 /// <remarks>
 ///     <para>
 ///         <b>Built on <c>Vixen.Core.Reflection</c>, which is generated rather than reflective.</b>
-///         A <see cref="MemberDescriptor" />'s accessors are lambdas over a cast — <c>static
-///         instance =&gt; ((Foo) instance).X</c> — so this reads and writes arbitrary members after
+///         A <see cref="MemberDescriptor" />'s accessors are lambdas over a cast —
+///         <c>
+///             static
+///             instance =&gt; ((Foo) instance).X
+///         </c>
+///         — so this reads and writes arbitrary members after
 ///         trimming and on iOS, which an inspector built on <c>PropertyInfo.GetValue</c> cannot. It
 ///         is the same bet doc 11 makes for the editor's inspector, one layer down.
 ///     </para>
@@ -138,7 +142,7 @@ public sealed partial class PropertyGrid : Control {
 
         Body = Part("property-body");
 
-        AddHandler<ClickEvent>(static (element, args) => ((PropertyGrid) element).Chosen(args));
+        AddHandler<ClickEvent>(static (element, args) => ((PropertyGrid)element).Chosen(args));
     }
 
     /// <summary>Shows the members of some objects.</summary>
@@ -204,7 +208,7 @@ public sealed partial class PropertyGrid : Control {
             return;
         }
 
-        UiElement section = Body;
+        var section = Body;
         string? category = null;
 
         foreach (var member in descriptor.Members) {
@@ -318,9 +322,9 @@ public sealed partial class PropertyGrid : Control {
 
             if (presentation.Minimum is { } low && presentation.Maximum is { } high) {
                 var slider = Editor<Slider>(row);
-                slider.Minimum = (float) low;
-                slider.Maximum = (float) high;
-                slider.Step = (float) presentation.Step;
+                slider.Minimum = (float)low;
+                slider.Maximum = (float)high;
+                slider.Step = (float)presentation.Step;
                 slider.Disabled = !editable;
                 slider.ValueChanged += (_, value) => Write(row, Convert(value, type));
 
@@ -425,14 +429,17 @@ public sealed partial class PropertyGrid : Control {
                 break;
 
             case NumericInput numeric:
-                numeric.Value = mixed ? string.Empty : System.Convert.ToDouble(value ?? 0, CultureInfo.InvariantCulture)
-                    .ToString("0.###", CultureInfo.InvariantCulture);
+                numeric.Value = mixed
+                    ? string.Empty
+                    : System.Convert.ToDouble(value ?? 0, CultureInfo.InvariantCulture)
+                        .ToString("0.###", CultureInfo.InvariantCulture);
 
                 numeric.Placeholder = mixed ? "—" : null;
                 break;
 
             case Slider slider:
-                slider.Value = mixed ? slider.Minimum : System.Convert.ToSingle(value ?? 0f, CultureInfo.InvariantCulture);
+                slider.Value =
+                    mixed ? slider.Minimum : System.Convert.ToSingle(value ?? 0f, CultureInfo.InvariantCulture);
                 break;
 
             case Select select:
@@ -449,9 +456,6 @@ public sealed partial class PropertyGrid : Control {
 
             case TextBlock text:
                 text.Text = mixed ? "—" : value?.ToString();
-                break;
-
-            default:
                 break;
         }
 
@@ -476,7 +480,7 @@ public sealed partial class PropertyGrid : Control {
 
     /// <summary>Follows a path from a target to the value at its end.</summary>
     static object? Through(object target, IReadOnlyList<MemberDescriptor> path) {
-        object? current = target;
+        var current = target;
 
         foreach (var member in path) {
             if (current is null) {
@@ -504,7 +508,7 @@ public sealed partial class PropertyGrid : Control {
     /// </remarks>
     static bool Through(object target, IReadOnlyList<MemberDescriptor> path, object? value) {
         var owners = new object[path.Count];
-        object? current = target;
+        var current = target;
 
         for (var i = 0; i < path.Count; i++) {
             if (current is null || !path[i].CanWrite) {
@@ -631,12 +635,17 @@ public sealed partial class PropertyGrid : Control {
         }
     }
 
-    static bool IsNumeric(Type type) =>
-        type == typeof(float) || type == typeof(double) || IsIntegral(type);
+    static bool IsNumeric(Type type) => type == typeof(float) || type == typeof(double) || IsIntegral(type);
 
     static bool IsIntegral(Type type) =>
-        type == typeof(int) || type == typeof(uint) || type == typeof(long) || type == typeof(ulong)
-        || type == typeof(short) || type == typeof(ushort) || type == typeof(byte) || type == typeof(sbyte);
+        type == typeof(int)
+        || type == typeof(uint)
+        || type == typeof(long)
+        || type == typeof(ulong)
+        || type == typeof(short)
+        || type == typeof(ushort)
+        || type == typeof(byte)
+        || type == typeof(sbyte);
 
     /// <summary>Converts an edited number back to the member's own type.</summary>
     /// <remarks>

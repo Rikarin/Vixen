@@ -5,8 +5,12 @@ namespace Vixen.Platform;
 
 /// <summary>What kind of OpenGL context to ask the windowing layer for.</summary>
 /// <remarks>
-///     ⚠ <b>Version and profile are decided when the context is created; the pixel format is
-///     decided when the <i>window</i> is.</b> Depth and stencil bits belong to the framebuffer the
+///     ⚠
+///     <b>
+///         Version and profile are decided when the context is created; the pixel format is
+///         decided when the <i>window</i> is.
+///     </b>
+///     Depth and stencil bits belong to the framebuffer the
 ///     window was made with, so they are the platform's option rather than this record's — asking
 ///     for them here would be a request that arrives after the only moment it could be honoured.
 /// </remarks>
@@ -52,8 +56,12 @@ public readonly record struct GlContextRequest() {
 ///         already enforce.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Current on one thread at a time, and on the thread that called
-///         <see cref="MakeCurrent" />.</b> This is GL's oldest and least forgiving rule: every entry
+///         ⚠
+///         <b>
+///             Current on one thread at a time, and on the thread that called
+///             <see cref="MakeCurrent" />.
+///         </b>
+///         This is GL's oldest and least forgiving rule: every entry
 ///         point loaded from a context is only valid while that context is current, so a renderer
 ///         that records on a job thread has to make it current there and nowhere else. It is also
 ///         the reason <c>Vixen.Graphics.OpenGL</c> reports no async queues.
@@ -97,8 +105,11 @@ public interface IGlContext : IDisposable {
 /// <summary>A window that can produce an OpenGL context.</summary>
 /// <remarks>
 ///     <para>
-///         <b>A separate interface rather than a member on <see cref="IWindow" />, because it is a
-///         capability rather than a property of being a window.</b> A headless window has no
+///         <b>
+///             A separate interface rather than a member on <see cref="IWindow" />, because it is a
+///             capability rather than a property of being a window.
+///         </b>
+///         A headless window has no
 ///         context and never will; a browser canvas has one and no Vulkan surface. Putting it on
 ///         <see cref="IWindow" /> would make every implementation answer a question most of them
 ///         cannot, and would break each of them to add it.

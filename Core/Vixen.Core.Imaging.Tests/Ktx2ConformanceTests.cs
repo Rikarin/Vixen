@@ -79,7 +79,7 @@ public sealed class Ktx2ConformanceTests {
     [Theory]
     [MemberData(nameof(Formats))]
     public void KhronosAcceptsEveryFormatWeCanName(PixelFormat format) =>
-        Validate($"format-{format}", Filled(new(format, 64, 64, levelCount: 1)));
+        Validate($"format-{format}", Filled(new(format, 64, 64, 1)));
 
     [Theory]
     [MemberData(nameof(Shapes))]
@@ -89,19 +89,19 @@ public sealed class Ktx2ConformanceTests {
     static TextureData Shaped(string shape) =>
         shape switch {
             "mips" => new(PixelFormat.Rgba8UNorm, 64, 64),
-            "layers" => new(PixelFormat.Rgba8UNorm, 64, 64, levelCount: 1, layerCount: 4),
-            "cube" => new(PixelFormat.Rgba8UNorm, 64, 64, levelCount: 1, faceCount: 6),
-            "cube-array" => new(PixelFormat.Rgba8UNorm, 64, 64, levelCount: 1, layerCount: 3, faceCount: 6),
+            "layers" => new(PixelFormat.Rgba8UNorm, 64, 64, 1, layerCount: 4),
+            "cube" => new(PixelFormat.Rgba8UNorm, 64, 64, 1, faceCount: 6),
+            "cube-array" => new(PixelFormat.Rgba8UNorm, 64, 64, 1, layerCount: 3, faceCount: 6),
             "cube-mips" => new(PixelFormat.Rgba8UNorm, 64, 64, faceCount: 6),
             // The shape that found the padding defect: a 1-byte-per-texel chain whose smallest
             // levels are 1, 4 and 16 bytes long, so every level after the first needs padding.
             "block-mips" => new(PixelFormat.R8UNorm, 64, 64),
-            "single-texel" => new(PixelFormat.Rgba8UNorm, 1, 1, levelCount: 1),
-            "non-square" => new(PixelFormat.Bc7RgbaUNorm, 64, 16, levelCount: 3),
+            "single-texel" => new(PixelFormat.Rgba8UNorm, 1, 1, 1),
+            "non-square" => new(PixelFormat.Bc7RgbaUNorm, 64, 16, 3),
             // The one shape a real importer writes that the first version of this corpus missed:
             // CubeLut.Parse builds exactly this, and pixelDepth is the header field with the
             // awkward rule — zero for a texture that is not 3D, and the extent when it is.
-            "volume" => new(PixelFormat.Rgba16Float, 8, 8, levelCount: 1, depth: 8),
+            "volume" => new(PixelFormat.Rgba16Float, 8, 8, 1, 8),
             // What a sixteen-bit or float export produces, and every BC form's padding at the small
             // end: the levels that are one block whatever their extent.
             "r16-mips" => new(PixelFormat.R16UNorm, 37, 13),
@@ -159,7 +159,7 @@ public sealed class Ktx2ConformanceTests {
         var pixels = texture.PixelSpan();
 
         for (var i = 0; i < pixels.Length; i++) {
-            pixels[i] = (byte)(((i * 37) + 3) & 0xFF);
+            pixels[i] = (byte)((i * 37 + 3) & 0xFF);
         }
 
         return texture;

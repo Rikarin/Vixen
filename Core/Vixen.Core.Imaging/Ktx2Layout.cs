@@ -30,8 +30,11 @@ public readonly record struct Ktx2Level(int Level, int Width, int Height, int De
 ///         it.
 ///     </para>
 ///     <para>
-///         <b>The mip tail is one contiguous run at the front of the level data, and that is the
-///         whole point.</b> Level data is stored smallest first, so levels <c>firstLevel</c> through
+///         <b>
+///             The mip tail is one contiguous run at the front of the level data, and that is the
+///             whole point.
+///         </b>
+///         Level data is stored smallest first, so levels <c>firstLevel</c> through
 ///         <c>LevelCount - 1</c> occupy a single range starting at <see cref="DataOffset" /> — one
 ///         seek and one read, whatever the resolution asked for. Were the file stored largest first
 ///         the same request would be a read per level from scattered offsets, which is the difference

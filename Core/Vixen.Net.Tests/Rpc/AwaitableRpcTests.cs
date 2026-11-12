@@ -14,17 +14,17 @@ public sealed class AwaitableRpcTests {
         "Shop",
         "Buy(int)",
         RpcKind.Server,
-        requireOwnership: false,
+        false,
         Channel.Unreliable,
         RpcTarget.All,
-        expectsReply: true
+        true
     );
 
     static readonly RpcMethod Tell = new(
         "Shop",
         "Restock()",
         RpcKind.Server,
-        requireOwnership: false,
+        false,
         Channel.Reliable,
         RpcTarget.All
     );
@@ -33,10 +33,10 @@ public sealed class AwaitableRpcTests {
         "Shop",
         "Confirm()",
         RpcKind.Client,
-        requireOwnership: false,
+        false,
         Channel.Reliable,
         RpcTarget.Owner,
-        expectsReply: true
+        true
     );
 
     [Fact]
@@ -189,7 +189,7 @@ public sealed class AwaitableRpcTests {
 
         // Ordered by method id, which is what a manifest requires and what the generator emits.
         var methods = new[] { Ask, Tell, Confirm };
-        Array.Sort(methods, (left, right) => left.MethodId.CompareTo(right.MethodId));
+        Array.Sort(methods, static (left, right) => left.MethodId.CompareTo(right.MethodId));
         manifest.Register(methods);
 
         var router = new RpcRouter(manifest, wire, role);
@@ -231,12 +231,12 @@ public sealed class AwaitableRpcTests {
         /// <summary>Whether to deliver in reverse, so answers arrive out of order.</summary>
         public bool Reverse { get; set; }
 
-        public void SendToServer(ReadOnlySpan<byte> payload, Channel channel) => toServer.Add(payload.ToArray());
+        public void SendToServer(ReadOnlySpan<byte> payload, Channel channel) => toServer.Add([..payload]);
 
         public void SendToPlayer(PlayerId player, ReadOnlySpan<byte> payload, Channel channel) =>
-            toClient.Add(payload.ToArray());
+            toClient.Add([..payload]);
 
-        public void SendToAll(ReadOnlySpan<byte> payload, Channel channel) => toClient.Add(payload.ToArray());
+        public void SendToAll(ReadOnlySpan<byte> payload, Channel channel) => toClient.Add([..payload]);
 
         public void Pump() {
             for (var round = 0; round < 4; round++) {

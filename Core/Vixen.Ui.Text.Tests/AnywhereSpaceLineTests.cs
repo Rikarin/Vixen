@@ -28,14 +28,19 @@ public class AnywhereSpaceLineTests {
 
     static readonly float[] Advances = [10f, 10f, 4f, 10f, 10f];
 
-    static List<WrappedLine> Wrap(TextWrapMode mode, LineBreakStrictness strictness, float width, bool breakSpaces = false) {
+    static List<WrappedLine> Wrap(
+        TextWrapMode mode,
+        LineBreakStrictness strictness,
+        float width,
+        bool breakSpaces = false
+    ) {
         var lines = new List<WrappedLine>();
         LineWrapper.Wrap(Text, Advances, width, lines, mode, strictness: strictness, breakSpaces: breakSpaces);
         return lines;
     }
 
     static string Describe(List<WrappedLine> lines) =>
-        string.Join(" | ", lines.Select(line => $"'{Text.Substring(line.Start, line.Length)}'"));
+        string.Join(" | ", lines.Select(static line => $"'{Text.Substring(line.Start, line.Length)}'"));
 
     [Theory]
     [InlineData(TextWrapMode.Anywhere, LineBreakStrictness.Auto, 0f)]
@@ -51,11 +56,11 @@ public class AnywhereSpaceLineTests {
         var lines = Wrap(mode, strictness, width);
 
         Assert.True(lines.Count == 4, $"{lines.Count} lines: {Describe(lines)}");
-        Assert.All(lines, line => Assert.NotEqual(' ', Text[line.Start]));
+        Assert.All(lines, static line => Assert.NotEqual(' ', Text[line.Start]));
 
         // Every character on exactly one line, in order — the space on the end of `b`'s.
         Assert.Equal(0, lines[0].Start);
-        Assert.All(lines.Zip(lines.Skip(1)), pair => Assert.Equal(pair.First.End, pair.Second.Start));
+        Assert.All(lines.Zip(lines.Skip(1)), static pair => Assert.Equal(pair.First.End, pair.Second.Start));
         Assert.Equal(Text.Length, lines[^1].End);
         Assert.Equal("b ", Text.Substring(lines[1].Start, lines[1].Length));
 

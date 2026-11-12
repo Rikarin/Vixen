@@ -23,10 +23,10 @@ namespace Vixen.Ui.Tests;
 /// </remarks>
 public class EmptyElementTests {
     const string Theme = """
-        root { width: 200px; height: 100px; flex-direction: row; }
-        lane { width: 30px; height: 10px; }
-        lane:empty { display: none; }
-        """;
+                         root { width: 200px; height: 100px; flex-direction: row; }
+                         lane { width: 30px; height: 10px; }
+                         lane:empty { display: none; }
+                         """;
 
     static UiDocument Documented(string css = Theme) {
         var document = new UiDocument(200f, 100f);
@@ -64,7 +64,7 @@ public class EmptyElementTests {
         document.Update();
         Assert.Equal(30f, lane.Width);
 
-        lane.Text = "";
+        lane.Text = string.Empty;
         document.Update();
         Assert.Equal(0f, lane.Width);
 

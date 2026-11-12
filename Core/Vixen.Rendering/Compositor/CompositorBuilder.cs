@@ -421,8 +421,12 @@ public sealed class CompositorBuilder(RenderSystem system) {
     ///         the block.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The compositor this build returns owns it, and that sentence used to say "the
-    ///         caller does".</b> Which was true and never happened: no caller disposed one, so every
+    ///         ⚠
+    ///         <b>
+    ///             The compositor this build returns owns it, and that sentence used to say "the
+    ///             caller does".
+    ///         </b>
+    ///         Which was true and never happened: no caller disposed one, so every
     ///         reload left behind a uniform buffer and a set layout, beside the far larger leak of the
     ///         nodes themselves. It is per-build state on exactly the terms <see cref="Nodes" /> is,
     ///         so it is released on exactly the same event — see <see cref="GraphicsCompositor.Own" />.
@@ -724,8 +728,11 @@ public sealed class CompositorBuilder(RenderSystem system) {
     /// <summary>Every node the document named, by its name.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>What <see cref="Stages" /> and <see cref="Views" /> already are, for the third thing
-    ///         a host has to reach into a built frame for.</b> A document says where a node goes and
+    ///         <b>
+    ///             What <see cref="Stages" /> and <see cref="Views" /> already are, for the third thing
+    ///             a host has to reach into a built frame for.
+    ///         </b>
+    ///         A document says where a node goes and
     ///         with what settings; it cannot hand over a device resource, because a document has none
     ///         — so a sky node needs its environment cube, a field node needs its clipmap, and the
     ///         only way to give them one was to keep a reference from before the build, which the next
@@ -742,8 +749,11 @@ public sealed class CompositorBuilder(RenderSystem system) {
     /// <summary>Builds one node and claims it, which is the whole of the ownership rule.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>Every node a document produces passes through here — that is what makes the claim
-    ///         enforced rather than remembered.</b> The switch below is private and this is its only
+    ///         <b>
+    ///             Every node a document produces passes through here — that is what makes the claim
+    ///             enforced rather than remembered.
+    ///         </b>
+    ///         The switch below is private and this is its only
     ///         caller; a sequence's children and a pass's children come back through it; and a node
     ///         kind this assembly has never heard of arrives through <see cref="Extension" />, which
     ///         returns through here too. So the author of the next node type that owns a texture
@@ -922,9 +932,12 @@ public sealed class CompositorBuilder(RenderSystem system) {
     ///     from the block a shader reads without the build saying so. An empty list takes
     ///     <see cref="ViewConstants" />'s own default, which is the view-projection and the view
     ///     position — what it writes for every view whether or not anything asked.
-    ///
-    ///     ⚠ <b>Both halves are this build's, and both were leaking on the reload path the nodes
-    ///     were.</b> The block holds a uniform buffer per view and the layout is a device object of
+    ///     ⚠
+    ///     <b>
+    ///         Both halves are this build's, and both were leaking on the reload path the nodes
+    ///         were.
+    ///     </b>
+    ///     The block holds a uniform buffer per view and the layout is a device object of
     ///     its own that nothing else destroys — <see cref="ViewConstants.Dispose" /> frees the
     ///     buffers and not the layout it was handed — so the compositor takes the two together.
     /// </remarks>
@@ -1055,7 +1068,7 @@ public sealed class CompositorBuilder(RenderSystem system) {
 
     /// <summary>The node itself, with everything a document cannot carry bound onto it.</summary>
     ShadowMapRenderer New(ShadowMapAsset declared) =>
-        new ShadowMapRenderer {
+        new() {
             Name = declared.Name,
             Enabled = declared.Enabled,
             CasterStage = Stage(declared.Name, declared.Stage),
@@ -1209,8 +1222,12 @@ public sealed class CompositorBuilder(RenderSystem system) {
     /// <remarks>
     ///     <para>
     ///         <strong>The half of the ambient split a document could say and nothing acted on.</strong>
-    ///         A frame that declares <c>colourTargets: [SceneHdr, SceneAlbedo, SceneNormals,
-    ///         SceneSpecular]</c> has asked for the split in the only terms a document has;
+    ///         A frame that declares
+    ///         <c>
+    ///             colourTargets: [SceneHdr, SceneAlbedo, SceneNormals,
+    ///             SceneSpecular]
+    ///         </c>
+    ///         has asked for the split in the only terms a document has;
     ///         <c>ForwardPlus.SplitOutputs</c> is what makes the shading pass write them, and until
     ///         this ran it was set in two sample projects and nowhere else. The absence was silent
     ///         and total rather than degraded: the single-target variant writes location 0, the other
@@ -1327,8 +1344,12 @@ public sealed class CompositorBuilder(RenderSystem system) {
     /// <summary>Routes the lighting feature's own flag to each shading pass's clustered permutation.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b><c>MaterialRenderFeature.PermutationSources</c> is the join between the two naming
-    ///         schemes, and nothing in the repository outside tests had ever written it.</b> A
+    ///         ⚠
+    ///         <b>
+    ///             <c>MaterialRenderFeature.PermutationSources</c> is the join between the two naming
+    ///             schemes, and nothing in the repository outside tests had ever written it.
+    ///         </b>
+    ///         A
     ///         sub-feature contributes under the <em>renderer's</em> name —
     ///         <c>Vixen.Clustered</c> — because one feature drives the same flag across every pass
     ///         that has it; a shader's permutation is the shader's, <c>ForwardPlus.UseClusteredLights</c>.
@@ -1336,8 +1357,12 @@ public sealed class CompositorBuilder(RenderSystem system) {
     ///         name no compiler can match, and the variant takes the <c>.rvn</c>'s <c>= false</c>.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Routing alone would still have reached no compiler, which is the trap one layer
-    ///         up.</b> The effect key is built from <c>PermutationKeys[shader]</c>, and no production
+    ///         ⚠
+    ///         <b>
+    ///             Routing alone would still have reached no compiler, which is the trap one layer
+    ///             up.
+    ///         </b>
+    ///         The effect key is built from <c>PermutationKeys[shader]</c>, and no production
     ///         line registers <c>UseClusteredLights</c> for a shading pass — the two shipped samples
     ///         assign the generated <c>UsedPermutationKeys</c> for their own game and the editor
     ///         assigns nothing. So both halves are done here, exactly as
@@ -1411,12 +1436,7 @@ public sealed class CompositorBuilder(RenderSystem system) {
             pyramid.BuildsPerFrame = reductions;
         }
 
-        return new() {
-            Name = declared.Name,
-            Enabled = declared.Enabled,
-            Depth = declared.Depth,
-            Pyramid = Occluders
-        };
+        return new() { Name = declared.Name, Enabled = declared.Enabled, Depth = declared.Depth, Pyramid = Occluders };
     }
 
     /// <summary>
@@ -1443,9 +1463,7 @@ public sealed class CompositorBuilder(RenderSystem system) {
 
         // Asked for here and answered by the buffer, which checks the device: `Compact` is what a
         // document requested and `IsCompacted` is what it got, and a draw loop reads the second.
-        if (node.Arguments is not null) {
-            node.Arguments.Compact = declared.Compact;
-        }
+        node.Arguments?.Compact = declared.Compact;
 
         if (Visibility is { } group) {
             // A late node's own readBack is not read. Declaring a late phase *is* declaring the
@@ -1659,10 +1677,7 @@ public sealed class CompositorBuilder(RenderSystem system) {
 
     BufferUploadRenderer Upload(BufferUploadAsset declared) =>
         Uploads[declared.Name] = new() {
-            Name = declared.Name,
-            Enabled = declared.Enabled,
-            Buffer = declared.Buffer,
-            Offset = declared.Offset
+            Name = declared.Name, Enabled = declared.Enabled, Buffer = declared.Buffer, Offset = declared.Offset
         };
 
     BufferReadbackRenderer Readback(BufferReadbackAsset declared) =>

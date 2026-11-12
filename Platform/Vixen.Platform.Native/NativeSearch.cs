@@ -72,7 +72,7 @@ public static class NativeSearch {
         ArgumentNullException.ThrowIfNull(directories);
         ArgumentNullException.ThrowIfNull(fileNames);
 
-        var names = fileNames as IReadOnlyList<string> ?? [.. fileNames];
+        var names = fileNames as IReadOnlyList<string> ?? [..fileNames];
 
         foreach (var directory in directories) {
             foreach (var name in names) {

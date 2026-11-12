@@ -3,7 +3,6 @@
 
 using Vixen.Editor.NodeGraph;
 using Vixen.Editor.Texturing.Layers;
-using Vixen.Editor.Texturing.Painting;
 using Vixen.NodeGraph;
 using Vixen.Texturing;
 using Vixen.Texturing.Layers;
@@ -15,9 +14,12 @@ namespace Vixen.Editor.Texturing.Tests;
 /// <summary>A compound an author published in their own project reaches a layer stack's picture.</summary>
 /// <remarks>
 ///     <para>
-///         <b><a href="https://github.com/Rikarin/Vixen/issues/924">#924</a>, which is
-///         <a href="https://github.com/Rikarin/Vixen/issues/858">#858</a>'s fix reaching a
-///         person.</b> <c>LayerStackCompiler.Compile</c> grew an <c>assets</c> parameter and every
+///         <b>
+///             <a href="https://github.com/Rikarin/Vixen/issues/924">#924</a>, which is
+///             <a href="https://github.com/Rikarin/Vixen/issues/858">#858</a>'s fix reaching a
+///             person.
+///         </b>
+///         <c>LayerStackCompiler.Compile</c> grew an <c>assets</c> parameter and every
 ///         production caller went on passing nothing, so a <c>LayerFillSource.Graph</c> fill naming
 ///         a graph out of <c>Assets/Compounds</c> compiled in the texture-graph panel and refused in
 ///         the layers panel — the same node type meaning two things depending on which pane the
@@ -89,7 +91,7 @@ public class ProjectCompoundDeviceTests {
         Assert.True(
             red < green && green < blue && red > 0,
             $"{TexturingDevice.Adapter(device)}: the stack's one layer is a graph fill naming '{Published}', a "
-            + $"compound in this project's own Assets/Compounds, and the baked base colour's first texel is "
+            + "compound in this project's own Assets/Compounds, and the baked base colour's first texel is "
             + $"({red}, {green}, {blue}). The compound paints an ordered quarter/half/three-quarters; black is "
             + "the channel default under a fill that never reached the plan."
         );
@@ -105,8 +107,12 @@ public class ProjectCompoundDeviceTests {
     ///         at start-up.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The refusal is a <c>LayerStackProblem</c> and not the <c>TG0001</c> the issue
-    ///         predicted, and the difference is worth writing down.</b> A graph fill naming a type
+    ///         ⚠
+    ///         <b>
+    ///             The refusal is a <c>LayerStackProblem</c> and not the <c>TG0001</c> the issue
+    ///             predicted, and the difference is worth writing down.
+    ///         </b>
+    ///         A graph fill naming a type
     ///         the library does not have is caught by <c>LayerStackGraph</c> before a node is
     ///         emitted, so the stack produces no plan at all rather than a plan with an unresolved
     ///         node in it. <c>TG0001</c> is what a <em>mask effect</em> naming one would produce,
@@ -147,8 +153,11 @@ public class ProjectCompoundDeviceTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/946">#946</a>, which asked for the
-    ///         default to be <em>said</em> rather than changed.</b> A remark is a claim like any
+    ///         <b>
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/946">#946</a>, which asked for the
+    ///             default to be <em>said</em> rather than changed.
+    ///         </b>
+    ///         A remark is a claim like any
     ///         other, and this is the one that holds it: with no registry the same stack that works
     ///         through the panel is refused, and with the registry
     ///         <c>LayerStackCompiler.Library(out _, assets)</c> builds from the project's folder it is
@@ -156,8 +165,12 @@ public class ProjectCompoundDeviceTests {
     ///         produces.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And the refusal is a <c>LayerStackProblem</c> naming the path, not <c>TG0001</c>
-    ///         and not a dropped layer.</b> The issue predicted the compiler's diagnostic; what the
+    ///         ⚠
+    ///         <b>
+    ///             And the refusal is a <c>LayerStackProblem</c> naming the path, not <c>TG0001</c>
+    ///             and not a dropped layer.
+    ///         </b>
+    ///         The issue predicted the compiler's diagnostic; what the
     ///         builder actually does is refuse before it emits a node, which is a better answer and a
     ///         different one. The assertion reads the sentence, so a change that made the build fail
     ///         silently would be red here rather than quietly satisfying "there was a problem".

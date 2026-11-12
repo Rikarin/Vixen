@@ -47,8 +47,11 @@ sealed record ComponentModel(string QualifiedName, bool IsContract, bool HasDefa
 ///         register with nothing else asked of anybody.
 ///     </para>
 ///     <para>
-///         <b>A component implementing <c>IDefaultComponent&lt;itself&gt;</c> gets the other
-///         declaration, and that is the whole of how a default reaches the editor.</b> The value
+///         <b>
+///             A component implementing <c>IDefaultComponent&lt;itself&gt;</c> gets the other
+///             declaration, and that is the whole of how a default reaches the editor.
+///         </b>
+///         The value
 ///         lives behind a <c>static abstract</c> member, which can only be named where the type
 ///         argument carries the constraint — so the registry cannot fetch it from its own
 ///         unconstrained generic and this is the one place the call can be written. A component that
@@ -68,7 +71,7 @@ public sealed class ComponentRegistrationGenerator : IIncrementalGenerator {
         "'{0}' is generic, so a compiled scene cannot name it and it is not registered",
         "Vixen.Engine",
         DiagnosticSeverity.Warning,
-        isEnabledByDefault: true,
+        true,
         "A compiled scene carries a component's [DataContract] alias and nothing else, so one name "
         + "would have to stand for every instantiation. Declare the closed types the scene needs."
     );
@@ -79,15 +82,15 @@ public sealed class ComponentRegistrationGenerator : IIncrementalGenerator {
             .ForAttributeWithMetadataName(
                 ComponentAttribute,
                 static (node, _) => node is Microsoft.CodeAnalysis.CSharp.Syntax.TypeDeclarationSyntax,
-                static (syntaxContext, _) => Describe((INamedTypeSymbol) syntaxContext.TargetSymbol)
+                static (syntaxContext, _) => Describe((INamedTypeSymbol)syntaxContext.TargetSymbol)
             )
             .Collect();
 
         // Selected down to a bool on purpose. The compilation itself changes on every keystroke, so
         // combining it directly would rerun the emission for every edit; a bool compares equal to
         // the last one and the pipeline stops there.
-        var reachable = context.CompilationProvider.Select(
-            static (compilation, _) => compilation.GetTypeByMetadataName(RegistryType) is not null
+        var reachable = context.CompilationProvider.Select(static (compilation, _) =>
+            compilation.GetTypeByMetadataName(RegistryType) is not null
         );
 
         context.RegisterSourceOutput(
@@ -99,7 +102,7 @@ public sealed class ComponentRegistrationGenerator : IIncrementalGenerator {
     static ComponentModel Describe(INamedTypeSymbol type) {
         var qualified = type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
         var isContract = type.GetAttributes()
-            .Any(attribute => attribute.AttributeClass?.Name == "DataContractAttribute");
+            .Any(static attribute => attribute.AttributeClass?.Name == "DataContractAttribute");
 
         return new(qualified, isContract, HasDefault(type), type.IsGenericType ? qualified : null);
     }
@@ -115,11 +118,10 @@ public sealed class ComponentRegistrationGenerator : IIncrementalGenerator {
     ///     rejects, reporting a constraint violation against generated source the author never wrote.
     /// </remarks>
     static bool HasDefault(INamedTypeSymbol type) =>
-        type.AllInterfaces.Any(
-            candidate => candidate.Name == "IDefaultComponent"
-                && candidate.ContainingNamespace?.ToDisplayString() == "Vixen.Ecs"
-                && candidate.TypeArguments.Length == 1
-                && SymbolEqualityComparer.Default.Equals(candidate.TypeArguments[0], type)
+        type.AllInterfaces.Any(candidate => candidate.Name == "IDefaultComponent"
+            && candidate.ContainingNamespace?.ToDisplayString() == "Vixen.Ecs"
+            && candidate.TypeArguments.Length == 1
+            && SymbolEqualityComparer.Default.Equals(candidate.TypeArguments[0], type)
         );
 
     static void Emit(SourceProductionContext context, ImmutableArray<ComponentModel> models, bool reachable) {
@@ -155,7 +157,9 @@ public sealed class ComponentRegistrationGenerator : IIncrementalGenerator {
         source.AppendLine("#nullable disable");
         source.AppendLine();
         source.AppendLine($"namespace {GeneratedNamespace} {{");
-        source.AppendLine("    /// <summary>Declares this assembly's scene components before any of its code runs.</summary>");
+        source.AppendLine(
+            "    /// <summary>Declares this assembly's scene components before any of its code runs.</summary>"
+        );
         source.AppendLine("    internal static class ComponentRegistration {");
         source.AppendLine("        [global::System.Runtime.CompilerServices.ModuleInitializer]");
         source.AppendLine("        internal static void Initialize() {");

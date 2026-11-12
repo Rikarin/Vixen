@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Authoring;
-using Vixen.Core;
 using Vixen.Core.Mathematics;
 using Vixen.Editor.Core;
 using Vixen.Editor.SceneView;
@@ -17,15 +16,22 @@ namespace Vixen.Editor.Terrain;
 /// <summary>The viewport mode foliage is painted in.</summary>
 /// <remarks>
 ///     <para>
-///         <b>The fourth mode, and the first that requires nothing — [docs/plan/31 § Two modes, not
-///         three, and not one].</b> Sculpt and paint need a terrain and act on its texels; foliage
+///         <b>
+///             The fourth mode, and the first that requires nothing — [docs/plan/31 § Two modes, not
+///             three, and not one].
+///         </b>
+///         Sculpt and paint need a terrain and act on its texels; foliage
 ///         paints onto <em>any</em> surface — a terrain, a blockout mesh, an imported cliff, a roof —
 ///         and its filter set is the feature rather than an accident. One mode that did both would
 ///         have to answer "what is the target surface" twice with different answers.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The digits are slots here too, and for the same reason they are in
-///         <see cref="TerrainMode" />.</b> Six tools rather than eight, and a digit past the sixth
+///         ⚠
+///         <b>
+///             The digits are slots here too, and for the same reason they are in
+///             <see cref="TerrainMode" />.
+///         </b>
+///         Six tools rather than eight, and a digit past the sixth
 ///         does nothing — a slot command means "the third tool", which is what the design sentence
 ///         means, and the named commands keep the words the palette is searched with.
 ///     </para>
@@ -69,7 +75,7 @@ public sealed class FoliageMode : IEditorMode, IViewportInput {
 
     /// <inheritdoc />
     public IReadOnlyList<ToolbarEntry> Toolbar { get; } = [
-        new ToolbarGroup([.. Tools.Select(ToolCommand)])
+        new ToolbarGroup([..Tools.Select(ToolCommand)])
     ];
 
     /// <summary>The six tools, in the order the strip lists them.</summary>
@@ -196,7 +202,7 @@ public sealed class FoliageMode : IEditorMode, IViewportInput {
                 }
             );
 
-            shell.Keys.SetDefault(id, new KeyChord((InputKey)((int)InputKey.Number1 + slot), ModifierKeys.None));
+            shell.Keys.SetDefault(id, new((InputKey)((int)InputKey.Number1 + slot), ModifierKeys.None));
         }
 
         foreach (var tool in Tools) {
@@ -242,7 +248,7 @@ public sealed class FoliageMode : IEditorMode, IViewportInput {
             new EditorCommand(
                 RemoveTypeCommand,
                 TerrainStrings.FoliageCommands[RemoveTypeCommand],
-                () => { }
+                static () => { }
             ) {
                 Category = TerrainStrings.CategoryFoliage,
                 Context = FoliageContext,
@@ -251,7 +257,7 @@ public sealed class FoliageMode : IEditorMode, IViewportInput {
                 // entry renumbers every index above it — in the volume's chunks, in the selection and
                 // in every undo entry on the stack — which is [§ T5]'s owed item rather than a line.
                 Unavailable = TerrainStrings.FoliageTypeRemoveUnavailable,
-                Enablement = () => false
+                Enablement = static () => false
             }
         );
 
@@ -269,18 +275,16 @@ public sealed class FoliageMode : IEditorMode, IViewportInput {
             }
         );
 
-        shell.Keys.SetDefault(DeleteSelectionCommand, new KeyChord(InputKey.Delete, ModifierKeys.None));
+        shell.Keys.SetDefault(DeleteSelectionCommand, new(InputKey.Delete, ModifierKeys.None));
 
         void Verb(string id, Action run, InputKey key) {
             shell.Commands.Add(
-                new EditorCommand(id, TerrainStrings.FoliageCommands[id], run) {
-                    Category = TerrainStrings.CategoryFoliage,
-                    Context = FoliageContext,
-                    Enablement = IsActive
+                new(id, TerrainStrings.FoliageCommands[id], run) {
+                    Category = TerrainStrings.CategoryFoliage, Context = FoliageContext, Enablement = IsActive
                 }
             );
 
-            shell.Keys.SetDefault(id, new KeyChord(key, ModifierKeys.None));
+            shell.Keys.SetDefault(id, new(key, ModifierKeys.None));
         }
     }
 
@@ -304,8 +308,7 @@ public sealed class FoliageMode : IEditorMode, IViewportInput {
     }
 
     /// <inheritdoc />
-    public void Activated() {
-    }
+    public void Activated() { }
 
     /// <inheritdoc />
     /// <remarks>
@@ -451,7 +454,7 @@ public sealed class FoliageMode : IEditorMode, IViewportInput {
     string NextTypeName() {
         var volume = Editing.Volume!;
 
-        for (var index = volume.Palette.Count + 1; ; index++) {
+        for (var index = volume.Palette.Count + 1;; index++) {
             var name = "Type " + index;
 
             if (!volume.Palette.Any(type => string.Equals(type.Name, name, StringComparison.Ordinal))) {

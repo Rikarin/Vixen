@@ -117,6 +117,6 @@ public sealed class GameplayTagQuery {
             (resolved ??= []).Add(table.RangeOf(name));
         }
 
-        return resolved is null ? Nothing : [.. resolved];
+        return resolved is null ? Nothing : [..resolved];
     }
 }

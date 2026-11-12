@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System;
-using System.Linq;
 
 namespace Vixen.Build;
 
@@ -12,8 +11,12 @@ namespace Vixen.Build;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Without it on <c>PATH</c> the link fails as MSB3073, exit 123, with no ILC finding
-///         anywhere</b> (<a href="https://github.com/Rikarin/Vixen/issues/1354">#1354</a>). The
+///         ⚠
+///         <b>
+///             Without it on <c>PATH</c> the link fails as MSB3073, exit 123, with no ILC finding
+///             anywhere
+///         </b>
+///         (<a href="https://github.com/Rikarin/Vixen/issues/1354">#1354</a>). The
 ///         mechanism, read out of <c>Microsoft.DotNet.ILCompiler</c> 10.0.12 and reproduced:
 ///         <c>findvcvarsall.bat</c> finds <c>vswhere.exe</c> by its absolute path and is fine, but the
 ///         <c>vcvarsall.bat</c> it then calls runs <c>vswhere.exe</c> by name and prints
@@ -70,8 +73,10 @@ public static class VswhereLocation {
     ///     ⚠ It has to say the one thing a reader gets wrong: that this is not an ILC finding.
     /// </remarks>
     public const string Missing =
-        "vswhere.exe is neither on PATH nor at %ProgramFiles(x86)%\\" + InstallerDirectory + ", so the NativeAOT "
+        """vswhere.exe is neither on PATH nor at %ProgramFiles(x86)%\"""
+        + InstallerDirectory
+        + ", so the NativeAOT "
         + "link cannot find the C++ linker. This is this machine, not the code: without it the publish fails as "
         + "MSB3073 exit 123 before ILC reports anything, and a red CheckAot is not a trim or AOT finding. Install "
-        + "Visual Studio's \"Desktop development with C++\" workload, or put vswhere.exe on PATH.";
+        + """Visual Studio's "Desktop development with C++" workload, or put vswhere.exe on PATH.""";
 }

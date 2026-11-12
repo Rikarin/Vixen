@@ -5,7 +5,6 @@ using Vixen.Core.Syntax;
 using Vixen.Core.Syntax.Diagnostics;
 using Vixen.Core.Syntax.InternalSyntax;
 using Vixen.Raven;
-using Vixen.Raven.IR;
 using Vixen.Raven.Lowering;
 using Vixen.Raven.Syntax;
 using Xunit;
@@ -114,7 +113,7 @@ public class LibraryCompileWorkTests {
     public void ADenseShaderExceedsThatBound() {
         var body = string.Join(
             "\n        ",
-            Enumerable.Range(0, 200).Select(_ => "a = a * b * a * b * a * b * a * b * a * b")
+            Enumerable.Range(0, 200).Select(static _ => "a = a * b * a * b * a * b * a * b * a * b")
         );
 
         var source = $$"""
@@ -135,9 +134,9 @@ public class LibraryCompileWorkTests {
 
         var bag = new DiagnosticBag();
         var module = Lowerer.Lower(Compilation.Create("Dense", tree), bag);
-        Assert.DoesNotContain(bag.ToArray(), d => d.IsError);
+        Assert.DoesNotContain(bag.ToArray(), static d => d.IsError);
 
-        var values = module.AllFunctions.Sum(f => f.ValueCount);
+        var values = module.AllFunctions.Sum(static f => f.ValueCount);
         var nodes = Count(tree.GetRoot().Green);
 
         Assert.True(
@@ -164,10 +163,10 @@ public class LibraryCompileWorkTests {
         Assert.True(files.Length > 50, $"Only {files.Length} shaders under {LibraryRoot}.");
 
         var trees = files
-            .Select(file => SyntaxTree.ParseText(File.ReadAllText(file), path: Path.GetFileName(file)))
+            .Select(static file => SyntaxTree.ParseText(File.ReadAllText(file), path: Path.GetFileName(file)))
             .ToArray();
 
-        var nodes = trees.Sum(tree => Count(tree.GetRoot().Green));
+        var nodes = trees.Sum(static tree => Count(tree.GetRoot().Green));
 
         var compilation = Compilation.Create(
             "Library",
@@ -179,9 +178,9 @@ public class LibraryCompileWorkTests {
         var bag = new DiagnosticBag();
         var module = Lowerer.Lower(compilation, bag);
 
-        Assert.DoesNotContain(bag.ToArray(), d => d.IsError);
+        Assert.DoesNotContain(bag.ToArray(), static d => d.IsError);
 
-        return (module.AllFunctions.Sum(f => f.ValueCount), nodes);
+        return (module.AllFunctions.Sum(static f => f.ValueCount), nodes);
     }
 
     /// <summary>Green nodes in one tree, each counted once however many parents share it.</summary>

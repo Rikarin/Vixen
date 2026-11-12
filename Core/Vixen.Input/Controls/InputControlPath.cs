@@ -199,15 +199,16 @@ public static class InputControlPath {
         return builder.ToString();
     }
 
-    static string MouseSegment(MouseControl control) => control switch {
-        MouseControl.DeltaX => "delta/x",
-        MouseControl.DeltaY => "delta/y",
-        MouseControl.ScrollX => "scroll/x",
-        MouseControl.ScrollY => "scroll/y",
-        MouseControl.PositionX => "position/x",
-        MouseControl.PositionY => "position/y",
-        _ => CamelCase(control.ToString())
-    };
+    static string MouseSegment(MouseControl control) =>
+        control switch {
+            MouseControl.DeltaX => "delta/x",
+            MouseControl.DeltaY => "delta/y",
+            MouseControl.ScrollX => "scroll/x",
+            MouseControl.ScrollY => "scroll/y",
+            MouseControl.PositionX => "position/x",
+            MouseControl.PositionY => "position/y",
+            _ => CamelCase(control.ToString())
+        };
 
     /// <summary>
     ///     A gamepad control's segment, where three of them are not their member's name.
@@ -218,29 +219,31 @@ public static class InputControlPath {
     ///     produced a path parsing back to a different control would break every saved rebinding the
     ///     first time one was written out.
     /// </remarks>
-    static string GamepadSegment(GamepadControl control) => control switch {
-        GamepadControl.LeftStick => "leftStickPress",
-        GamepadControl.RightStick => "rightStickPress",
-        GamepadControl.LeftStickX => "leftStick/x",
-        GamepadControl.LeftStickY => "leftStick/y",
-        GamepadControl.RightStickX => "rightStick/x",
-        GamepadControl.RightStickY => "rightStick/y",
-        GamepadControl.DPadX => "dpad/x",
-        GamepadControl.DPadY => "dpad/y",
-        GamepadControl.DPadUp => "dpad/up",
-        GamepadControl.DPadDown => "dpad/down",
-        GamepadControl.DPadLeft => "dpad/left",
-        GamepadControl.DPadRight => "dpad/right",
-        _ => CamelCase(control.ToString())
-    };
+    static string GamepadSegment(GamepadControl control) =>
+        control switch {
+            GamepadControl.LeftStick => "leftStickPress",
+            GamepadControl.RightStick => "rightStickPress",
+            GamepadControl.LeftStickX => "leftStick/x",
+            GamepadControl.LeftStickY => "leftStick/y",
+            GamepadControl.RightStickX => "rightStick/x",
+            GamepadControl.RightStickY => "rightStick/y",
+            GamepadControl.DPadX => "dpad/x",
+            GamepadControl.DPadY => "dpad/y",
+            GamepadControl.DPadUp => "dpad/up",
+            GamepadControl.DPadDown => "dpad/down",
+            GamepadControl.DPadLeft => "dpad/left",
+            GamepadControl.DPadRight => "dpad/right",
+            _ => CamelCase(control.ToString())
+        };
 
-    static string TouchSegment(TouchControl control) => control switch {
-        TouchControl.DeltaX => "delta/x",
-        TouchControl.DeltaY => "delta/y",
-        TouchControl.PositionX => "position/x",
-        TouchControl.PositionY => "position/y",
-        _ => CamelCase(control.ToString())
-    };
+    static string TouchSegment(TouchControl control) =>
+        control switch {
+            TouchControl.DeltaX => "delta/x",
+            TouchControl.DeltaY => "delta/y",
+            TouchControl.PositionX => "position/x",
+            TouchControl.PositionY => "position/y",
+            _ => CamelCase(control.ToString())
+        };
 
     static bool Keyboard(string name, out InputControl control) {
         control = InputControl.None;
@@ -267,9 +270,12 @@ public static class InputControlPath {
             case "scroll": return Pair(InputDeviceKind.Mouse, (ushort)MouseControl.ScrollX, tail, index, out x, out y);
             case "position":
                 return Pair(InputDeviceKind.Mouse, (ushort)MouseControl.PositionX, tail, index, out x, out y);
-            case "left": x = InputControl.Mouse(MouseControl.Primary); return tail.Length == 0;
-            case "right": x = InputControl.Mouse(MouseControl.Secondary); return tail.Length == 0;
-            default: break;
+            case "left":
+                x = InputControl.Mouse(MouseControl.Primary);
+                return tail.Length == 0;
+            case "right":
+                x = InputControl.Mouse(MouseControl.Secondary);
+                return tail.Length == 0;
         }
 
         if (tail.Length > 0 || !TryReadEnum<MouseControl>(head, out var control) || control == MouseControl.None) {
@@ -293,17 +299,28 @@ public static class InputControlPath {
 
             case "dpad":
                 switch (tail.ToLowerInvariant()) {
-                    case "up": x = InputControl.Gamepad(GamepadControl.DPadUp, index); return true;
-                    case "down": x = InputControl.Gamepad(GamepadControl.DPadDown, index); return true;
-                    case "left": x = InputControl.Gamepad(GamepadControl.DPadLeft, index); return true;
-                    case "right": x = InputControl.Gamepad(GamepadControl.DPadRight, index); return true;
+                    case "up":
+                        x = InputControl.Gamepad(GamepadControl.DPadUp, index);
+                        return true;
+                    case "down":
+                        x = InputControl.Gamepad(GamepadControl.DPadDown, index);
+                        return true;
+                    case "left":
+                        x = InputControl.Gamepad(GamepadControl.DPadLeft, index);
+                        return true;
+                    case "right":
+                        x = InputControl.Gamepad(GamepadControl.DPadRight, index);
+                        return true;
                     default:
                         return Pair(InputDeviceKind.Gamepad, (ushort)GamepadControl.DPadX, tail, index, out x, out y);
                 }
 
-            case "leftstickpress": x = InputControl.Gamepad(GamepadControl.LeftStick, index); return tail.Length == 0;
-            case "rightstickpress": x = InputControl.Gamepad(GamepadControl.RightStick, index); return tail.Length == 0;
-            default: break;
+            case "leftstickpress":
+                x = InputControl.Gamepad(GamepadControl.LeftStick, index);
+                return tail.Length == 0;
+            case "rightstickpress":
+                x = InputControl.Gamepad(GamepadControl.RightStick, index);
+                return tail.Length == 0;
         }
 
         // `buttonSouth` is what Unity's paths call it and what an author migrating will type. The
@@ -329,7 +346,6 @@ public static class InputControlPath {
 
             case "position":
                 return Pair(InputDeviceKind.Touch, (ushort)TouchControl.PositionX, tail, finger, out x, out y);
-            default: break;
         }
 
         if (tail.Length > 0 || !TryReadEnum<TouchControl>(head, out var control) || control == TouchControl.None) {
@@ -347,7 +363,14 @@ public static class InputControlPath {
     ///     <see cref="Format(InputControl, InputControl)" /> relies on to recognise a pair going the
     ///     other way. <c>PairsAreConsecutiveTests</c> holds that property.
     /// </remarks>
-    static bool Pair(InputDeviceKind device, ushort horizontal, string tail, byte index, out InputControl x, out InputControl y) {
+    static bool Pair(
+        InputDeviceKind device,
+        ushort horizontal,
+        string tail,
+        byte index,
+        out InputControl x,
+        out InputControl y
+    ) {
         x = InputControl.None;
         y = InputControl.None;
 
@@ -394,24 +417,26 @@ public static class InputControlPath {
             return false;
         }
 
-        return Enum.TryParse(name, ignoreCase: true, out value);
+        return Enum.TryParse(name, true, out value);
     }
 
-    static InputDeviceKind Device(string name) => name.ToLowerInvariant() switch {
-        "keyboard" => InputDeviceKind.Keyboard,
-        "mouse" or "pointer" => InputDeviceKind.Mouse,
-        "gamepad" or "joystick" => InputDeviceKind.Gamepad,
-        "touch" or "touchscreen" => InputDeviceKind.Touch,
-        _ => InputDeviceKind.None
-    };
+    static InputDeviceKind Device(string name) =>
+        name.ToLowerInvariant() switch {
+            "keyboard" => InputDeviceKind.Keyboard,
+            "mouse" or "pointer" => InputDeviceKind.Mouse,
+            "gamepad" or "joystick" => InputDeviceKind.Gamepad,
+            "touch" or "touchscreen" => InputDeviceKind.Touch,
+            _ => InputDeviceKind.None
+        };
 
-    static string Name(InputDeviceKind device) => device switch {
-        InputDeviceKind.Keyboard => "Keyboard",
-        InputDeviceKind.Mouse => "Mouse",
-        InputDeviceKind.Gamepad => "Gamepad",
-        InputDeviceKind.Touch => "Touch",
-        _ => "None"
-    };
+    static string Name(InputDeviceKind device) =>
+        device switch {
+            InputDeviceKind.Keyboard => "Keyboard",
+            InputDeviceKind.Mouse => "Mouse",
+            InputDeviceKind.Gamepad => "Gamepad",
+            InputDeviceKind.Touch => "Touch",
+            _ => "None"
+        };
 
     static string CamelCase(string name) =>
         name.Length == 0 || char.IsLower(name[0])

@@ -98,8 +98,10 @@ public sealed record AddressableGroup {
     /// <summary>Whether a dedicated server's build ships it.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>The whole of the server content profile, and it is deliberately a group question
-    ///         rather than an asset-type one.</b>
+    ///         <b>
+    ///             The whole of the server content profile, and it is deliberately a group question
+    ///             rather than an asset-type one.
+    ///         </b>
     ///         <a href="../../../docs/plan/17-app-heads-and-shipping.md">Doc 17</a> asks for a server
     ///         build whose bundles carry no textures, audio or shaders, and
     ///         <a href="../../../docs/plan/27-mmo-framework.md">doc 27</a> answers it in one line:
@@ -138,10 +140,17 @@ public sealed record AddressableGroup {
     /// <summary>Labels every asset in the group carries, on top of its own.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>This is not the folder inheritance <see cref="BuildPlanner" /> refuses, and the
-    ///         difference is what makes it safe.</b> That note is about a folder's labels reaching its
-    ///         descendants, and its objection is that a label is a query — <em>"the thing you most
-    ///         want to be able to say 'all of these except that one' about"</em> — and inherited
+    ///         <b>
+    ///             This is not the folder inheritance <see cref="BuildPlanner" /> refuses, and the
+    ///             difference is what makes it safe.
+    ///         </b>
+    ///         That note is about a folder's labels reaching its
+    ///         descendants, and its objection is that a label is a query —
+    ///         <em>
+    ///             "the thing you most
+    ///             want to be able to say 'all of these except that one' about"
+    ///         </em>
+    ///         — and inherited
     ///         labels cannot be removed from one file. A group is joined explicitly, per asset, so
     ///         "except that one" is answered by putting that one in another group, which is already
     ///         how packing and load path are decided.

@@ -8,8 +8,12 @@ namespace Vixen.Water;
 
 /// <summary>How many bits a channel of the info texture carries.</summary>
 /// <remarks>
-///     ⚠ <b>A half float over a large zone is a <em>quantised</em> surface, and the panel says so
-///     rather than leaving somebody to discover a stepped horizon.</b> Sixteen bits give about three
+///     ⚠
+///     <b>
+///         A half float over a large zone is a <em>quantised</em> surface, and the panel says so
+///         rather than leaving somebody to discover a stepped horizon.
+///     </b>
+///     Sixteen bits give about three
 ///     decimal digits, so a surface height of 2000 m resolves to a metre — visible as terracing along
 ///     a shoreline, and invisible in a screenshot taken from the middle of a lake.
 ///     <see cref="WaterZone.HeightQuantum" /> is the number to look at, and it is in metres.
@@ -61,8 +65,12 @@ public readonly record struct WaterZone {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A threshold and not zero, because rasterising is not free and the window is much
-    ///         larger than the view.</b> Re-rasterising every frame spends the whole field's cost on a
+    ///         ⚠
+    ///         <b>
+    ///             A threshold and not zero, because rasterising is not free and the window is much
+    ///             larger than the view.
+    ///         </b>
+    ///         Re-rasterising every frame spends the whole field's cost on a
     ///         camera that has moved a centimetre; never re-rasterising leaves the far edge of the
     ///         window behind the view. An eighth of the extent is about a hundred frames of walking,
     ///         which is the right order.
@@ -97,8 +105,12 @@ public readonly record struct WaterZone {
     ///         for.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>257 and not 256, which is a "power of two <em>plus one</em>" for the terrain
-    ///         quadtree's reason.</b> The samples include both edges, so 257 of them over 512 m are two
+    ///         ⚠
+    ///         <b>
+    ///             257 and not 256, which is a "power of two <em>plus one</em>" for the terrain
+    ///             quadtree's reason.
+    ///         </b>
+    ///         The samples include both edges, so 257 of them over 512 m are two
     ///         metres apart exactly — where 256 would be 2.0078, and a snap grid stated in whole metres
     ///         would then land the window on a fraction of a texel.
     ///     </para>
@@ -132,9 +144,17 @@ public readonly record struct WaterZone {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>What the panel shows beside the half-precision switch, and the reason the switch
-    ///         is not free.</b> A float's resolution is relative, so this is the quantum <em>at the
-    ///         window's own extent</em> — the worst case a surface at the far corner of the zone
+    ///         ⚠
+    ///         <b>
+    ///             What the panel shows beside the half-precision switch, and the reason the switch
+    ///             is not free.
+    ///         </b>
+    ///         A float's resolution is relative, so this is the quantum
+    ///         <em>
+    ///             at the
+    ///             window's own extent
+    ///         </em>
+    ///         — the worst case a surface at the far corner of the zone
     ///         faces. At full precision it is fractions of a millimetre and nobody needs to think
     ///         about it; at half precision over a two-kilometre zone it is a metre, and the horizon
     ///         terraces.

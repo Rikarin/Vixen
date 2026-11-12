@@ -111,7 +111,7 @@ public class EventBusTests {
     [Fact]
     public void ACancelledSubscriptionIsCompactedAway() {
         var bus = new GameplayEventBus();
-        var subscription = bus.Subscribe(GameplayEventFilter.Everything, (in GameplayEvent _) => { });
+        var subscription = bus.Subscribe(GameplayEventFilter.Everything, static (in GameplayEvent _) => { });
 
         Assert.Equal(1, bus.Count);
         Assert.True(subscription.Cancel());
@@ -123,7 +123,7 @@ public class EventBusTests {
     public void ASubscriptionFromAnotherBusIsNotCancelledByThisOne() {
         var mine = new GameplayEventBus();
         var theirs = new GameplayEventBus();
-        var subscription = theirs.Subscribe(GameplayEventFilter.Everything, (in GameplayEvent _) => { });
+        var subscription = theirs.Subscribe(GameplayEventFilter.Everything, static (in GameplayEvent _) => { });
 
         Assert.False(mine.Unsubscribe(subscription));
         Assert.True(subscription.IsActive);

@@ -41,8 +41,12 @@ namespace Vixen.Graphics.Golden.Tests;
 ///     <para>
 ///         <b>And a module built any other way is red without a compiler.</b>
 ///         <see cref="EveryCommittedModuleCarriesTheRecipesHeader" /> holds what a module says about
-///         its own making to what this recipe produces: SPIR-V 1.0, generator <c>shaderc over
-///         glslang</c> at version 11, and none of the instructions <c>-g</c> adds. The NDK's
+///         its own making to what this recipe produces: SPIR-V 1.0, generator
+///         <c>
+///             shaderc over
+///             glslang
+///         </c>
+///         at version 11, and none of the instructions <c>-g</c> adds. The NDK's
 ///         <c>glslc</c>, a <c>--target-env=vulkan1.1</c>, a <c>-g</c> or another front end entirely each
 ///         move one of those. What it cannot see is a different shaderc at the <i>same</i> generator
 ///         version — only a compiler can, which is the test above.
@@ -56,11 +60,11 @@ public partial class SharedUiShaderTests {
     internal const uint RecipeGenerator = 0x000D000B;
 
     /// <summary>Where the recipe's compiler is, from <c>VIXEN_SHADERC</c>: a shaderc shared library.</summary>
-    static string? ShadercLibrary => Environment.GetEnvironmentVariable("VIXEN_SHADERC") is { Length: > 0 } path ? path : null;
+    static string? ShadercLibrary =>
+        Environment.GetEnvironmentVariable("VIXEN_SHADERC") is { Length: > 0 } path ? path : null;
 
     /// <summary>Writes the rebuilt modules rather than only comparing them.</summary>
-    static bool Rebuilding =>
-        Environment.GetEnvironmentVariable("VIXEN_REBUILD_UI_MODULES") is "1" or "true" or "TRUE";
+    static bool Rebuilding => Environment.GetEnvironmentVariable("VIXEN_REBUILD_UI_MODULES") is "1" or "true" or "TRUE";
 
     /// <summary>
     ///     The flavour to rebuild all eight in, from <c>VIXEN_REBUILD_UI_FLAVOUR</c> (<c>-O</c> or
@@ -70,7 +74,8 @@ public partial class SharedUiShaderTests {
     ///     Honoured only with <see cref="Reflavouring" /> set as well, so that normalising the eight is
     ///     the same two-key decision the ledger already makes it — see <see cref="Flavour" />.
     /// </remarks>
-    static string? RebuildFlavour => Environment.GetEnvironmentVariable("VIXEN_REBUILD_UI_FLAVOUR") is { Length: > 0 } flavour ? flavour : null;
+    static string? RebuildFlavour =>
+        Environment.GetEnvironmentVariable("VIXEN_REBUILD_UI_FLAVOUR") is { Length: > 0 } flavour ? flavour : null;
 
     /// <summary>The instruction every regeneration message gives, in one place so they cannot disagree.</summary>
     internal const string RecipeInstruction =
@@ -88,8 +93,12 @@ public partial class SharedUiShaderTests {
     ///         honest answer to "was this checked". The skip reason names the variable.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>When rebuilding, the compiler is proved on the modules whose source has not
-    ///         moved before it is allowed to write any.</b> A library that reproduces nothing the
+    ///         ⚠
+    ///         <b>
+    ///             When rebuilding, the compiler is proved on the modules whose source has not
+    ///             moved before it is allowed to write any.
+    ///         </b>
+    ///         A library that reproduces nothing the
     ///         ledger already agrees with is a different recipe, and writing its output would replace
     ///         eight committed artefacts with a stranger's — which is what the NDK's would do.
     ///     </para>
@@ -103,7 +112,11 @@ public partial class SharedUiShaderTests {
     [Fact]
     public void TheRecipeRebuildsEveryCommittedModuleByteForByte() {
         if (ShadercLibrary is not { } library) {
-            Assert.Skip("VIXEN_SHADERC is not set, so no compiler is available to rebuild the UI modules. " + RecipeInstruction + ".");
+            Assert.Skip(
+                "VIXEN_SHADERC is not set, so no compiler is available to rebuild the UI modules. "
+                + RecipeInstruction
+                + "."
+            );
             return;
         }
 
@@ -174,7 +187,9 @@ public partial class SharedUiShaderTests {
         Assert.True(
             differing.Count == 0,
             $"the recipe does not give back {string.Join(", ", differing)}: their sources changed and their "
-            + "modules were not rebuilt. " + RecipeInstruction + "."
+            + "modules were not rebuilt. "
+            + RecipeInstruction
+            + "."
         );
 
         Assert.Equal(Names.Length, reproduced.Count);
@@ -218,13 +233,17 @@ public partial class SharedUiShaderTests {
 
         if (version != RecipeVersion) {
             return $"{name}.spv is SPIR-V 0x{version:x8} where the recipe targets Vulkan 1.0's 0x{RecipeVersion:x8} -- "
-                + "it was built with another --target-env. " + RecipeInstruction + ".";
+                + "it was built with another --target-env. "
+                + RecipeInstruction
+                + ".";
         }
 
         if (generator != RecipeGenerator) {
             return $"{name}.spv carries generator 0x{generator:x8} where the recipe's is 0x{RecipeGenerator:x8} "
                 + "(shaderc over glslang, generator version 11) -- it was built by another compiler; the Android "
-                + "NDK r23c's glslc says 0x000d000a. " + RecipeInstruction + ".";
+                + "NDK r23c's glslc says 0x000d000a. "
+                + RecipeInstruction
+                + ".";
         }
 
         var words = MemoryMarshal.Cast<byte, uint>(bytes).ToArray();
@@ -240,7 +259,8 @@ public partial class SharedUiShaderTests {
             // OpString, OpLine and OpModuleProcessed: what `-g` adds and neither flavour carries.
             if (opcode is 7 or 8 or 330) {
                 return $"{name}.spv carries opcode {opcode}, which only `-g` emits -- the recipe never passes it. "
-                    + RecipeInstruction + ".";
+                    + RecipeInstruction
+                    + ".";
             }
 
             at += length;
@@ -292,7 +312,8 @@ public partial class SharedUiShaderTests {
 
         /// <summary>Compiles one shader; the stage is the extension's, as glslc infers it.</summary>
         public byte[] Compile(string source, string name, bool optimise) {
-            var kind = name.EndsWith(".vert", StringComparison.Ordinal) ? 0 : name.EndsWith(".frag", StringComparison.Ordinal) ? 1 : -1;
+            var kind = name.EndsWith(".vert", StringComparison.Ordinal) ? 0 :
+                name.EndsWith(".frag", StringComparison.Ordinal) ? 1 : -1;
 
             Assert.True(kind >= 0, $"{name} has an extension the recipe does not map to a stage.");
 
@@ -358,6 +379,5 @@ public partial class SharedUiShaderTests {
 
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         delegate int ResultStatus(IntPtr result);
-
     }
 }

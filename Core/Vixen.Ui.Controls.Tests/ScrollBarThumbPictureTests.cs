@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core.Imaging;
-using Vixen.Ui.Testing;
 using Xunit;
 
 namespace Vixen.Ui.Controls.Tests;
@@ -45,26 +44,29 @@ public class ScrollBarThumbPictureTests {
     const int Ends = 4;
 
     const string Css = """
-        #view  { width: 738px; height: 132px; }
-        .block { flex-shrink: 0; height: 858px; }
-        .short { height: 100px; }
-        .wide  { width: 1488px; }
-        .narrow { width: 600px; }
-        """;
+                       #view  { width: 738px; height: 132px; }
+                       .block { flex-shrink: 0; height: 858px; }
+                       .short { height: 100px; }
+                       .wide  { width: 1488px; }
+                       .narrow { width: 600px; }
+                       """;
 
     /// <summary>With only a vertical bar, the whole thumb is in the last thumb-length of the track.</summary>
     [Fact]
     public void Scrolled_to_the_end_the_whole_thumb_is_at_the_end_of_the_track() {
-        var (found, length, end) = ThumbAtTheEnd("narrow", vertical: true);
+        var (found, length, end) = ThumbAtTheEnd("narrow", true);
 
-        Assert.True(found.Count >= length - Ends, $"{found.Count} of a {length} px thumb found at the end of the track.");
+        Assert.True(
+            found.Count >= length - Ends,
+            $"{found.Count} of a {length} px thumb found at the end of the track."
+        );
         Assert.True(found[0] >= end - length - 1, $"the thumb starts at {found[0]}, above {end - length}.");
     }
 
     /// <summary>With both bars, the whole vertical thumb is at the end, above the horizontal bar.</summary>
     [Fact]
     public void Scrolled_to_the_end_with_both_bars_the_whole_thumb_is_above_the_horizontal_bar() {
-        var (found, length, end) = ThumbAtTheEnd("wide", vertical: true);
+        var (found, length, end) = ThumbAtTheEnd("wide", true);
 
         Assert.True(
             found.Count >= length - Ends,
@@ -78,7 +80,7 @@ public class ScrollBarThumbPictureTests {
     /// <summary>And across: the whole horizontal thumb is at the right end, left of the vertical bar.</summary>
     [Fact]
     public void Scrolled_to_the_right_with_both_bars_the_whole_thumb_is_left_of_the_vertical_bar() {
-        var (found, length, end) = ThumbAtTheEnd("wide", vertical: false);
+        var (found, length, end) = ThumbAtTheEnd("wide", false);
 
         Assert.True(
             found.Count >= length - Ends,
@@ -93,23 +95,33 @@ public class ScrollBarThumbPictureTests {
     /// <remarks>The corner is kept only for a bar that is shown; one kept for nothing is track the thumb never reaches.</remarks>
     [Fact]
     public void Scrolled_to_the_right_with_only_a_horizontal_bar_the_thumb_reaches_the_edge() {
-        var (found, length, end) = ThumbAtTheEnd("wide short", vertical: false);
+        var (found, length, end) = ThumbAtTheEnd("wide short", false);
 
-        Assert.True(found.Count >= length - Ends, $"{found.Count} of a {length} px thumb found at the end of the track.");
+        Assert.True(
+            found.Count >= length - Ends,
+            $"{found.Count} of a {length} px thumb found at the end of the track."
+        );
         Assert.True(found[^1] >= end - Ends, $"the thumb stops at {found[^1]}, short of the view's edge at {end}.");
     }
 
     /// <summary>On a port 34 px tall with both bars, the thumb still travels and is still whole at the end.</summary>
     /// <remarks>
-    ///     ⚠ <b>The console's detail pane in a 640 px editor, and the reason the thumb's floor is capped
-    ///     at half the track.</b> The corner leaves a 24 px track, and a 24 px floor filled it: the
+    ///     ⚠
+    ///     <b>
+    ///         The console's detail pane in a 640 px editor, and the reason the thumb's floor is capped
+    ///         at half the track.
+    ///     </b>
+    ///     The corner leaves a 24 px track, and a 24 px floor filled it: the
     ///     thumb could not move, so the start and the end of the scroll drew the same bar.
     /// </remarks>
     [Fact]
     public void On_a_short_port_with_both_bars_the_thumb_still_travels() {
-        var (found, length, end) = ThumbAtTheEnd("wide", vertical: true, height: 34);
+        var (found, length, end) = ThumbAtTheEnd("wide", true, 34);
 
-        Assert.True(found.Count >= length - Ends, $"{found.Count} of a {length} px thumb found at the end of the track.");
+        Assert.True(
+            found.Count >= length - Ends,
+            $"{found.Count} of a {length} px thumb found at the end of the track."
+        );
         Assert.True(found[0] >= end - length - 1, $"the thumb starts at {found[0]}, above {end - length}.");
         Assert.True(found[^1] < end, $"the thumb runs to {found[^1]}, into the horizontal bar at {end}.");
     }
@@ -128,7 +140,7 @@ public class ScrollBarThumbPictureTests {
         Assert.True(view.MaximumTop > 0f && view.MaximumLeft > 0f, "the content does not overflow both ways");
 
         var bar = view.HorizontalBar;
-        ui.MovePointer(bar.AbsoluteLeft + bar.Width - 3f, bar.AbsoluteTop + (bar.Height / 2f));
+        ui.MovePointer(bar.AbsoluteLeft + bar.Width - 3f, bar.AbsoluteTop + bar.Height / 2f);
         ui.PressPointer();
         ui.ReleasePointer();
         ui.Frame();
@@ -137,7 +149,7 @@ public class ScrollBarThumbPictureTests {
         Assert.Equal(0f, view.ScrollTop);
 
         // The instrument: the same press just left of the corner is on the track, and jumps.
-        ui.MovePointer(bar.AbsoluteLeft + bar.Width - view.VerticalBar.Width - 3f, bar.AbsoluteTop + (bar.Height / 2f));
+        ui.MovePointer(bar.AbsoluteLeft + bar.Width - view.VerticalBar.Width - 3f, bar.AbsoluteTop + bar.Height / 2f);
         ui.PressPointer();
         ui.ReleasePointer();
         ui.Frame();
@@ -151,7 +163,7 @@ public class ScrollBarThumbPictureTests {
         using var ui = ControlHarness.Open(760f, 150f, Css + $"#view {{ height: {height}px; }}");
 
         var view = ui.Add<ScrollView>("view");
-        view.Content.Add("div", null, ["block", .. classes.Split(' ')]);
+        view.Content.Add("div", null, ["block", ..classes.Split(' ')]);
 
         ui.Frame();
         ui.Frame();
@@ -187,7 +199,7 @@ public class ScrollBarThumbPictureTests {
 
         // Along the bar and across it, in the bar's own axis.
         var start = (int)MathF.Ceiling(vertical ? bar.AbsoluteTop : bar.AbsoluteLeft);
-        var across = (int)MathF.Floor(vertical ? bar.AbsoluteLeft + (bar.Width / 2f) : bar.AbsoluteTop + (bar.Height / 2f));
+        var across = (int)MathF.Floor(vertical ? bar.AbsoluteLeft + bar.Width / 2f : bar.AbsoluteTop + bar.Height / 2f);
         var limit = (int)MathF.Floor(vertical ? bar.AbsoluteTop + bar.Height : bar.AbsoluteLeft + bar.Width);
 
         // ⚠ Where the track ends is where the other bar's box begins when that bar is shown, and the
@@ -199,13 +211,14 @@ public class ScrollBarThumbPictureTests {
         var proportion = vertical ? view.Height / view.Content.Height : view.Width / view.Content.Width;
         var length = (int)MathF.Floor(MathF.Max(MathF.Min(track / 2f, 24f), track * proportion));
 
-        byte[] At(Bitmap picture, int along) => vertical ? Pixel(picture, across, along) : Pixel(picture, along, across);
+        byte[] At(Bitmap picture, int along) =>
+            vertical ? Pixel(picture, across, along) : Pixel(picture, along, across);
 
-        var thumb = At(top, start + (length / 2));
+        var thumb = At(top, start + length / 2);
 
         // The instrument: the sampled colour is the thumb's only if the thumb has left that place.
         Assert.False(
-            thumb.SequenceEqual(At(bottom, start + (length / 2))),
+            thumb.SequenceEqual(At(bottom, start + length / 2)),
             "the start of the track looks the same at both ends of the scroll, so the sampled colour is not the thumb's"
         );
 
@@ -222,5 +235,5 @@ public class ScrollBarThumbPictureTests {
         return (found, length, end);
     }
 
-    static byte[] Pixel(Bitmap picture, int x, int y) => picture.Pixels.AsSpan(((y * picture.Width) + x) * 4, 4).ToArray();
+    static byte[] Pixel(Bitmap picture, int x, int y) => [..picture.Pixels.AsSpan((y * picture.Width + x) * 4, 4)];
 }

@@ -13,8 +13,12 @@ namespace Tests;
 /// <summary>Doc 48 § 4.1's source kernels, on a real device, against closed forms.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Every test here names its adapter and skips loudly rather than passing without
-///         one.</b> Without a real device a headless run falls back to the Null device, exits 0 and
+///         ⚠
+///         <b>
+///             Every test here names its adapter and skips loudly rather than passing without
+///             one.
+///         </b>
+///         Without a real device a headless run falls back to the Null device, exits 0 and
 ///         prints identical healthy counters — and a source kernel asserted there would have proved
 ///         that a black image equals a black image. <c>VIXEN_REQUIRE_VULKAN=1</c> turns the skip into
 ///         a failure.
@@ -28,9 +32,13 @@ namespace Tests;
 ///         as a ratio and is immune to any constant factor.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Doc 48's scale-invariance criterion — a 1K bake and a downsampled 4K bake agreeing
-///         within 2/255 — is false as written for a hard-edged source, and that is a property of the
-///         picture rather than a defect in the kernel.</b> The 4K bake is anti-aliased by the downsample and
+///         ⚠
+///         <b>
+///             Doc 48's scale-invariance criterion — a 1K bake and a downsampled 4K bake agreeing
+///             within 2/255 — is false as written for a hard-edged source, and that is a property of the
+///             picture rather than a defect in the kernel.
+///         </b>
+///         The 4K bake is anti-aliased by the downsample and
 ///         the 1K one is not, so a falloff-zero disc and a checkerboard disagree by a full step all
 ///         the way round every boundary while agreeing exactly everywhere else. The comparison is
 ///         meaningful for a field that is band-limited at the *lower* resolution, and that is where
@@ -66,8 +74,12 @@ public class TextureSourceDeviceTests(ITestOutputHelper output) {
 
     /// <summary>A device, or a loud skip — or, when one was required, a failure.</summary>
     /// <remarks>
-    ///     ⚠ <b>Forwarded to the one shared instrument rather than copied, which is
-    ///     <a href="https://github.com/Rikarin/Vixen/issues/679">#679</a>'s lasting half.</b> This
+    ///     ⚠
+    ///     <b>
+    ///         Forwarded to the one shared instrument rather than copied, which is
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/679">#679</a>'s lasting half.
+    ///     </b>
+    ///     This
     ///     file and <c>TexturePlanDeviceTests</c> were written in parallel and neither could see the
     ///     other, so <c>Open</c>, <c>Adapter</c> and <c>Upload</c> were written twice — and the two
     ///     copies of <c>Upload</c> already disagreed about which queue an exclusive texture may be
@@ -83,7 +95,8 @@ public class TextureSourceDeviceTests(ITestOutputHelper output) {
         byte[] pixels,
         int width,
         int height
-    ) => TextureKernelHarness.Upload(device, pixels, width, height);
+    ) =>
+        TextureKernelHarness.Upload(device, pixels, width, height);
 
     /// <summary>The identity ramp: texel <c>i</c> of 256 holds <c>i/255</c> in every colour channel.</summary>
     /// <remarks>
@@ -97,9 +110,9 @@ public class TextureSourceDeviceTests(ITestOutputHelper output) {
 
         for (var i = 0; i < 256; i++) {
             pixels[i * 4] = (byte)i;
-            pixels[(i * 4) + 1] = (byte)i;
-            pixels[(i * 4) + 2] = (byte)i;
-            pixels[(i * 4) + 3] = 255;
+            pixels[i * 4 + 1] = (byte)i;
+            pixels[i * 4 + 2] = (byte)i;
+            pixels[i * 4 + 3] = 255;
         }
 
         return pixels;
@@ -111,7 +124,7 @@ public class TextureSourceDeviceTests(ITestOutputHelper output) {
 
         for (var y = 0; y < 2; y++) {
             for (var x = 0; x < 2; x++) {
-                var at = ((y * 2) + x) * 4;
+                var at = (y * 2 + x) * 4;
                 var value = (byte)(x == 0 ? 0 : 255);
 
                 pixels[at] = value;
@@ -127,11 +140,10 @@ public class TextureSourceDeviceTests(ITestOutputHelper output) {
     /// <summary>A horizontal ramp, the picture a resampler reproduces exactly.</summary>
     static byte[] Ramp(int side) => TextureKernelHarness.Ramp(side);
 
-    static byte At(Bitmap picture, int x, int y, int channel = 0) =>
-        TextureKernelHarness.At(picture, x, y, channel);
+    static byte At(Bitmap picture, int x, int y, int channel = 0) => TextureKernelHarness.At(picture, x, y, channel);
 
     /// <summary>The x coordinate of a texel centre in the shape frame at scale 1 — −1 to 1 across the image.</summary>
-    static float Axis(int index, int side) => (((index + 0.5f) / side) - 0.5f) * 2f;
+    static float Axis(int index, int side) => ((index + 0.5f) / side - 0.5f) * 2f;
 
     /// <summary>A box downsample, on the CPU, of a bake that has already been read back as bytes.</summary>
     /// <remarks>
@@ -151,11 +163,12 @@ public class TextureSourceDeviceTests(ITestOutputHelper output) {
 
                     for (var dy = 0; dy < factor; dy++) {
                         for (var dx = 0; dx < factor; dx++) {
-                            total += At(picture, (x * factor) + dx, (y * factor) + dy, channel);
+                            total += At(picture, x * factor + dx, y * factor + dy, channel);
                         }
                     }
 
-                    pixels[(((y * width) + x) * 4) + channel] = (byte)((total + (factor * factor / 2)) / (factor * factor));
+                    pixels[(y * width + x) * 4 + channel] = (byte)((total + factor * factor / 2)
+                        / (factor * factor));
                 }
             }
         }
@@ -229,7 +242,7 @@ public class TextureSourceDeviceTests(ITestOutputHelper output) {
         );
 
         foreach (var (x, y) in new[] { (0, 0), (Side - 1, 0), (0, Side - 1), (Side - 1, Side - 1), (31, 17) }) {
-            Assert.InRange(At(picture, x, y, 0), 62, 66);
+            Assert.InRange(At(picture, x, y), 62, 66);
             Assert.InRange(At(picture, x, y, 1), 126, 130);
             Assert.InRange(At(picture, x, y, 2), 189, 193);
             Assert.InRange(At(picture, x, y, 3), 253, 255);
@@ -271,9 +284,7 @@ public class TextureSourceDeviceTests(ITestOutputHelper output) {
         using var evaluator = new TexturePlanEvaluator(device);
 
         using var whole = evaluator.Evaluate(Procedural(TextureSources.Shape(0, falloff: 0.005f), Side));
-        using var half = evaluator.Evaluate(
-            Procedural(TextureSources.Shape(0, scale: 0.5f, falloff: 0.005f), Side)
-        );
+        using var half = evaluator.Evaluate(Procedural(TextureSources.Shape(0, scale: 0.5f, falloff: 0.005f), Side));
 
         var big = Covered(whole.Read(0));
         var small = Covered(half.Read(0));
@@ -293,8 +304,12 @@ public class TextureSourceDeviceTests(ITestOutputHelper output) {
 
     /// <summary>Each of the five profile kinds at a point, which is what tells them apart.</summary>
     /// <remarks>
-    ///     ⚠ <b>The five are what pin <see cref="TextureShapeKind" />'s numbers to the kernel's
-    ///     comparisons.</b> Nothing in the C# would notice a renumbering — a paraboloid drawn where a
+    ///     ⚠
+    ///     <b>
+    ///         The five are what pin <see cref="TextureShapeKind" />'s numbers to the kernel's
+    ///         comparisons.
+    ///     </b>
+    ///     Nothing in the C# would notice a renumbering — a paraboloid drawn where a
     ///     gaussian was asked for is a perfectly plausible picture — so each kind is identified here
     ///     by the value only it produces at one place.
     /// </remarks>
@@ -308,15 +323,15 @@ public class TextureSourceDeviceTests(ITestOutputHelper output) {
 
         var px = Axis(Column, Side);
         var py = Axis(Row, Side);
-        var r = MathF.Sqrt((px * px) + (py * py));
+        var r = MathF.Sqrt(px * px + py * py);
 
         output.WriteLine($"adapter: {Adapter(device)}; probing r = {r:F5} at ({Column}, {Row})");
 
-        Expect(TextureShapeKind.Paraboloid, 1f - (r * r));
+        Expect(TextureShapeKind.Paraboloid, 1f - r * r);
         Expect(TextureShapeKind.Gaussian, MathF.Exp(-r * r * 6.907755f));
         Expect(TextureShapeKind.Cone, 1f - r);
-        Expect(TextureShapeKind.HalfBell, 1f - (r * r * (3f - (2f * r))));
-        Expect(TextureShapeKind.Gradation, (px * 0.5f) + 0.5f);
+        Expect(TextureShapeKind.HalfBell, 1f - r * r * (3f - 2f * r));
+        Expect(TextureShapeKind.Gradation, px * 0.5f + 0.5f);
 
         void Expect(TextureShapeKind kind, float value) {
             using var bake = evaluator.Evaluate(Procedural(TextureSources.Shape(0, kind), Side));
@@ -462,7 +477,7 @@ public class TextureSourceDeviceTests(ITestOutputHelper output) {
 
         // Reflected is the linear sweep folded: 2·linear − 1 on the far side of the centre.
         for (var x = 34; x < Side; x++) {
-            var folded = (2 * At(straight, x, 32)) - 255;
+            var folded = 2 * At(straight, x, 32) - 255;
 
             Assert.True(
                 Math.Abs(At(mirrored, x, 32) - folded) <= 3,
@@ -493,7 +508,7 @@ public class TextureSourceDeviceTests(ITestOutputHelper output) {
         using var evaluator = new TexturePlanEvaluator(device);
 
         using var bake = evaluator.Evaluate(
-            OverExternal(TextureSources.Bitmap(1, 0, srgb: true), Side),
+            OverExternal(TextureSources.Bitmap(1, 0, true), Side),
             new Dictionary<int, TextureHandle> { [0] = source }
         );
 
@@ -520,7 +535,7 @@ public class TextureSourceDeviceTests(ITestOutputHelper output) {
         using var evaluator = new TexturePlanEvaluator(device);
 
         using var bake = evaluator.Evaluate(
-            OverExternal(TextureSources.Bitmap(1, 0, srgb: false), Side),
+            OverExternal(TextureSources.Bitmap(1, 0, false), Side),
             new Dictionary<int, TextureHandle> { [0] = source }
         );
 
@@ -557,9 +572,7 @@ public class TextureSourceDeviceTests(ITestOutputHelper output) {
         using var device = Open();
         using var evaluator = new TexturePlanEvaluator(device);
 
-        using var bake = evaluator.Evaluate(
-            Procedural(TextureSources.Noise(0, (TextureNoiseBasis)basis, 8f), Side)
-        );
+        using var bake = evaluator.Evaluate(Procedural(TextureSources.Noise(0, (TextureNoiseBasis)basis), Side));
 
         var picture = bake.Read(0);
         HashSet<byte> values = [];
@@ -590,9 +603,7 @@ public class TextureSourceDeviceTests(ITestOutputHelper output) {
         using var device = Open();
         using var evaluator = new TexturePlanEvaluator(device);
 
-        using var bake = evaluator.Evaluate(
-            Procedural(TextureSources.Noise(0, TextureNoiseBasis.Worley, 6f), Side)
-        );
+        using var bake = evaluator.Evaluate(Procedural(TextureSources.Noise(0, TextureNoiseBasis.Worley, 6f), Side));
 
         var picture = bake.Read(0);
         HashSet<byte> cells = [];
@@ -601,7 +612,7 @@ public class TextureSourceDeviceTests(ITestOutputHelper output) {
 
         for (var y = 0; y < Side; y++) {
             for (var x = 0; x < Side; x++) {
-                var f1 = At(picture, x, y, 0);
+                var f1 = At(picture, x, y);
                 var f2 = At(picture, x, y, 1);
 
                 Assert.True(f1 <= f2 + 1, $"F1 is {f1} and F2 is {f2} at ({x}, {y}) on {Adapter(device)}");
@@ -711,12 +722,10 @@ public class TextureSourceDeviceTests(ITestOutputHelper output) {
         using var evaluator = new TexturePlanEvaluator(device);
 
         using var seamless = evaluator.Evaluate(
-            Procedural(TextureSources.Noise(0, TextureNoiseBasis.Value, 4f), Side, wrap: true)
+            Procedural(TextureSources.Noise(0, TextureNoiseBasis.Value, 4f), Side, true)
         );
 
-        using var open = evaluator.Evaluate(
-            Procedural(TextureSources.Noise(0, TextureNoiseBasis.Value, 4f), Side)
-        );
+        using var open = evaluator.Evaluate(Procedural(TextureSources.Noise(0, TextureNoiseBasis.Value, 4f), Side));
 
         var joined = Seam(seamless.Read(0));
         var cut = Seam(open.Read(0));
@@ -742,8 +751,12 @@ public class TextureSourceDeviceTests(ITestOutputHelper output) {
     ///     same picture, for every source whose field is continuous.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>The hard-edged kinds are deliberately not in this list, and their absence is a finding
-    ///     rather than an omission.</b> A falloff-zero disc, a checkerboard and white noise are
+    ///     ⚠
+    ///     <b>
+    ///         The hard-edged kinds are deliberately not in this list, and their absence is a finding
+    ///         rather than an omission.
+    ///     </b>
+    ///     A falloff-zero disc, a checkerboard and white noise are
     ///     discontinuous, so the fine bake carries anti-aliasing the coarse one cannot and the two
     ///     disagree by up to a full step along every edge. That is a property of the picture. What
     ///     doc 48 § D8 is actually asking — does a length parameter reach the kernel in the units of
@@ -814,8 +827,12 @@ public class TextureSourceDeviceTests(ITestOutputHelper output) {
     ///     read one at a time.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>Six kernels compiled and six dispatches recorded is equally true of a run that
-    ///     produced nothing</b>, so what is asserted is that no two of the six images are the same
+    ///     ⚠
+    ///     <b>
+    ///         Six kernels compiled and six dispatches recorded is equally true of a run that
+    ///         produced nothing
+    ///     </b>
+    ///     , so what is asserted is that no two of the six images are the same
     ///     bytes — which a plan of six black images would fail.
     /// </remarks>
     [Fact]
@@ -834,11 +851,11 @@ public class TextureSourceDeviceTests(ITestOutputHelper output) {
             Images = [
                 new(TextureFormat.Rgba8, External: true),
                 new(TextureFormat.Rgba8, External: true),
-                .. Enumerable.Repeat(new TextureImage(TextureFormat.Rgba8), 6)
+                ..Enumerable.Repeat(new TextureImage(TextureFormat.Rgba8), 6)
             ],
             Ops = [
                 TextureSources.Uniform(2, 0.3f),
-                TextureSources.Bitmap(3, 0, srgb: false),
+                TextureSources.Bitmap(3, 0, false),
                 TextureSources.Gradient(4, 1),
                 TextureSources.Shape(5),
                 TextureSources.Noise(6),
@@ -856,7 +873,9 @@ public class TextureSourceDeviceTests(ITestOutputHelper output) {
             new Dictionary<int, TextureHandle> { [0] = source, [1] = ramp }
         );
 
-        output.WriteLine($"adapter: {Adapter(device)}; {evaluator.Compilations} variants, {bake.Dispatches} dispatches");
+        output.WriteLine(
+            $"adapter: {Adapter(device)}; {evaluator.Compilations} variants, {bake.Dispatches} dispatches"
+        );
 
         Assert.Equal(6, bake.Dispatches);
         Assert.Equal(6, evaluator.Compilations);
@@ -870,7 +889,7 @@ public class TextureSourceDeviceTests(ITestOutputHelper output) {
         var pictures = new List<ImmutableArray<byte>>();
 
         for (var image = 2; image < 8; image++) {
-            pictures.Add([.. bake.Read(image).Pixels]);
+            pictures.Add([..bake.Read(image).Pixels]);
         }
 
         for (var a = 0; a < pictures.Count; a++) {
@@ -970,9 +989,7 @@ public class TextureSourceDeviceTests(ITestOutputHelper output) {
         using var device = Open();
         using var evaluator = new TexturePlanEvaluator(device);
 
-        using var middle = evaluator.Evaluate(
-            Procedural(TextureSources.Shape(0, scale: 0.25f, falloff: 0.005f), Side)
-        );
+        using var middle = evaluator.Evaluate(Procedural(TextureSources.Shape(0, scale: 0.25f, falloff: 0.005f), Side));
 
         using var corner = evaluator.Evaluate(
             Procedural(
@@ -1015,9 +1032,7 @@ public class TextureSourceDeviceTests(ITestOutputHelper output) {
 
         using var plain = evaluator.Evaluate(Procedural(TextureSources.Checker(0, 2f, 2f), Side));
 
-        using var turned = evaluator.Evaluate(
-            Procedural(TextureSources.Checker(0, 2f, 2f, rotation: MathF.PI / 2f), Side)
-        );
+        using var turned = evaluator.Evaluate(Procedural(TextureSources.Checker(0, 2f, 2f, MathF.PI / 2f), Side));
 
         var flat = plain.Read(0);
         var round = turned.Read(0);
@@ -1152,8 +1167,12 @@ public class TextureSourceDeviceTests(ITestOutputHelper output) {
     ///         owes is <em>frequency</em>, and frequency is what the roughness measures.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>But not at the default lacunarity, and that is a finding rather than a choice of
-    ///         constants.</b> One octave and four at a lacunarity of 2 measure 2.17 and 2.25 — a
+    ///         ⚠
+    ///         <b>
+    ///             But not at the default lacunarity, and that is a finding rather than a choice of
+    ///             constants.
+    ///         </b>
+    ///         One octave and four at a lacunarity of 2 measure 2.17 and 2.25 — a
     ///         wash. <c>Fractal</c> normalises by the sum of the amplitudes, so adding octaves cuts
     ///         the base octave's share from all of the range to 53 % of it, and at a lacunarity of 2
     ///         the finest octave of four is still 16 cells across a 64² image: it gives back about
@@ -1174,20 +1193,18 @@ public class TextureSourceDeviceTests(ITestOutputHelper output) {
         using var device = Open();
         using var evaluator = new TexturePlanEvaluator(device);
 
-        using var one = evaluator.Evaluate(
-            Procedural(TextureSources.Noise(0, TextureNoiseBasis.Value, 2f), Side)
-        );
+        using var one = evaluator.Evaluate(Procedural(TextureSources.Noise(0, TextureNoiseBasis.Value, 2f), Side));
 
         using var four = evaluator.Evaluate(
-            Procedural(TextureSources.Noise(0, TextureNoiseBasis.Value, 2f, octaves: 4, lacunarity: 4f), Side)
+            Procedural(TextureSources.Noise(0, TextureNoiseBasis.Value, 2f, 4, 4f), Side)
         );
 
         using var packed = evaluator.Evaluate(
-            Procedural(TextureSources.Noise(0, TextureNoiseBasis.Value, 2f, octaves: 3), Side)
+            Procedural(TextureSources.Noise(0, TextureNoiseBasis.Value, 2f, 3), Side)
         );
 
         using var spread = evaluator.Evaluate(
-            Procedural(TextureSources.Noise(0, TextureNoiseBasis.Value, 2f, octaves: 3, lacunarity: 5f), Side)
+            Procedural(TextureSources.Noise(0, TextureNoiseBasis.Value, 2f, 3, 5f), Side)
         );
 
         var flat = Roughness(one.Read(0));

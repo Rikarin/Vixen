@@ -73,7 +73,7 @@ public class FocusTests {
 
         var natural = Stop(document.Root);
         var alsoNatural = Stop(document.Root);
-        var promoted = Stop(document.Root, tabIndex: 1);
+        var promoted = Stop(document.Root, 1);
 
         // ⚠ HTML's rule, and it is stranger than it looks: a positive index comes before *every*
         // zero, so one element written at the bottom of a form jumps to the front of it. Implemented
@@ -86,9 +86,9 @@ public class FocusTests {
     public void Two_elements_with_the_same_index_stay_in_document_order() {
         using var document = new UiDocument(100f, 100f);
 
-        var first = Stop(document.Root, tabIndex: 2);
-        var second = Stop(document.Root, tabIndex: 2);
-        var third = Stop(document.Root, tabIndex: 1);
+        var first = Stop(document.Root, 2);
+        var second = Stop(document.Root, 2);
+        var third = Stop(document.Root, 1);
 
         // The sort has to be stable. An unstable one gives a tab order that changes with how many
         // elements are on the page, which is the kind of bug nobody can reproduce.
@@ -99,7 +99,7 @@ public class FocusTests {
     public void A_negative_tab_index_can_be_focused_but_is_not_a_stop() {
         using var document = new UiDocument(100f, 100f);
 
-        var skipped = Stop(document.Root, tabIndex: -1);
+        var skipped = Stop(document.Root, -1);
         var stop = Stop(document.Root);
 
         Assert.DoesNotContain(skipped, UiDocument.TabOrder(document.Root));
@@ -139,10 +139,12 @@ public class FocusTests {
     public void A_press_on_something_that_cannot_hold_the_focus_takes_it_away() {
         using var document = new UiDocument(200f, 200f);
 
-        document.Load("""
-            root { width: 200px; height: 200px; flex-direction: row; }
-            div { width: 100px; height: 200px; }
-        """);
+        document.Load(
+            """
+                root { width: 200px; height: 200px; flex-direction: row; }
+                div { width: 100px; height: 200px; }
+            """
+        );
 
         var stop = Stop(document.Root);
         var background = document.Root.Add("div");
@@ -151,7 +153,9 @@ public class FocusTests {
         document.Focus(stop);
         Assert.Same(background, document.HitTest(150f, 100f));
 
-        document.Dispatch(new PointerEvent { X = 150f, Y = 100f, Action = PointerAction.Pressed, Button = PointerButton.Primary });
+        document.Dispatch(
+            new PointerEvent { X = 150f, Y = 100f, Action = PointerAction.Pressed, Button = PointerButton.Primary }
+        );
 
         Assert.Null(document.Focused);
         Assert.False(stop.IsFocused);
@@ -161,10 +165,12 @@ public class FocusTests {
     public void A_press_inside_the_focused_element_leaves_the_focus_where_it_is() {
         using var document = new UiDocument(200f, 200f);
 
-        document.Load("""
-            root { width: 200px; height: 200px; }
-            div { width: 100px; height: 100px; }
-        """);
+        document.Load(
+            """
+                root { width: 200px; height: 200px; }
+                div { width: 100px; height: 100px; }
+            """
+        );
 
         var stop = Stop(document.Root);
 
@@ -177,7 +183,9 @@ public class FocusTests {
         document.Focus(stop);
         Assert.Same(part, document.HitTest(50f, 50f));
 
-        document.Dispatch(new PointerEvent { X = 50f, Y = 50f, Action = PointerAction.Pressed, Button = PointerButton.Primary });
+        document.Dispatch(
+            new PointerEvent { X = 50f, Y = 50f, Action = PointerAction.Pressed, Button = PointerButton.Primary }
+        );
 
         Assert.Same(stop, document.Focused);
     }
@@ -186,12 +194,14 @@ public class FocusTests {
     public void Focus_and_focus_within_reach_the_cascade() {
         using var document = new UiDocument(200f, 200f);
 
-        document.Load("""
-            root { width: 200px; height: 200px; }
-            div { height: 10px; }
-            div:focus { height: 40px; }
-            div:focus-within { width: 90px; }
-        """);
+        document.Load(
+            """
+                root { width: 200px; height: 200px; }
+                div { height: 10px; }
+                div:focus { height: 40px; }
+                div:focus-within { width: 90px; }
+            """
+        );
 
         var panel = document.Root.Add("div");
         var field = Stop(panel);
@@ -338,10 +348,11 @@ public class FocusTests {
 
         UiElement? seenDuringLoss = null;
         field.AddHandler<FocusEvent>((_, args) => {
-            if (!args.Gained) {
-                seenDuringLoss = document.Focused;
+                if (!args.Gained) {
+                    seenDuringLoss = document.Focused;
+                }
             }
-        });
+        );
 
         document.Focus(field);
         document.Focus(other);
@@ -359,7 +370,7 @@ public class FocusTests {
         var panel = document.Root.Add("div");
         var field = Stop(panel);
 
-        field.AddHandler<FocusEvent>((_, args) => args.Cancel = !args.Gained);
+        field.AddHandler<FocusEvent>(static (_, args) => args.Cancel = !args.Gained);
         document.Focus(field);
 
         // ⚠ The failure mode of this feature in every framework that ships it: a refusal that
@@ -387,8 +398,7 @@ public class FocusTests {
         // "this UiElement has been removed from its document" out of the caller's `Focus` call.
         var ended = false;
 
-        field.AddHandler<FocusEvent>(
-            (_, args) => {
+        field.AddHandler<FocusEvent>((_, args) => {
                 // Once, the way a rename editor's own handler is: removing the field clears the
                 // focus, which asks it again.
                 if (args.Gained || ended) {
@@ -426,8 +436,7 @@ public class FocusTests {
         // see it because it is only consulted after the raise returns, which it never did.
         var lost = 0;
 
-        field.AddHandler<FocusEvent>(
-            (_, args) => {
+        field.AddHandler<FocusEvent>((_, args) => {
                 if (args.Gained || lost >= 4) {
                     return;
                 }
@@ -463,8 +472,7 @@ public class FocusTests {
         // that took the whole assembly down, not the duplicate the removal shape shows.
         var lost = 0;
 
-        field.AddHandler<FocusEvent>(
-            (_, args) => {
+        field.AddHandler<FocusEvent>((_, args) => {
                 if (args.Gained || lost >= 4) {
                     return;
                 }
@@ -494,8 +502,7 @@ public class FocusTests {
         // its flags and leaves them on the one the handler put them on.
         var handed = false;
 
-        field.AddHandler<FocusEvent>(
-            (_, args) => {
+        field.AddHandler<FocusEvent>((_, args) => {
                 // ⚠ Once, and every handler that moves the focus from inside a focus event has to
                 // be: the move asks the same element again, and an unguarded handler answers that
                 // by moving it again, for ever. That is true of this event whichever side of the
@@ -572,11 +579,11 @@ public class FocusTests {
         var field = Stop(document.Root);
         var other = Stop(document.Root);
 
-        field.AddHandler<FocusEvent>((_, args) => args.Cancel = !args.Gained);
+        field.AddHandler<FocusEvent>(static (_, args) => args.Cancel = !args.Gained);
         document.Focus(field);
 
         Assert.False(document.Focus(other));
-        Assert.True(document.Focus(other, force: true));
+        Assert.True(document.Focus(other, true));
         Assert.Same(other, document.Focused);
     }
 
@@ -584,11 +591,13 @@ public class FocusTests {
     public void A_display_none_subtree_contributes_no_tab_stops() {
         using var document = new UiDocument(100f, 100f);
 
-        document.Load("""
-            root { width: 100px; height: 100px; }
-            div { width: 20px; height: 20px; }
-            parked { display: none; }
-        """);
+        document.Load(
+            """
+                root { width: 100px; height: 100px; }
+                div { width: 20px; height: 20px; }
+                parked { display: none; }
+            """
+        );
 
         var shown = Stop(document.Root);
 
@@ -618,11 +627,13 @@ public class FocusTests {
     public void A_focusable_element_that_is_itself_display_none_is_not_a_stop() {
         using var document = new UiDocument(100f, 100f);
 
-        document.Load("""
-            root { width: 100px; height: 100px; }
-            div { width: 20px; height: 20px; }
-            div.parked { display: none; }
-        """);
+        document.Load(
+            """
+                root { width: 100px; height: 100px; }
+                div { width: 20px; height: 20px; }
+                div.parked { display: none; }
+            """
+        );
 
         var shown = Stop(document.Root);
         var parked = Stop(document.Root);
@@ -637,12 +648,14 @@ public class FocusTests {
     public void A_visibility_hidden_element_is_not_a_stop_and_a_visible_island_inside_one_is() {
         using var document = new UiDocument(100f, 100f);
 
-        document.Load("""
-            root { width: 100px; height: 100px; }
-            div { width: 20px; height: 20px; }
-            div.ghost { visibility: hidden; }
-            div.seen { visibility: visible; }
-        """);
+        document.Load(
+            """
+                root { width: 100px; height: 100px; }
+                div { width: 20px; height: 20px; }
+                div.ghost { visibility: hidden; }
+                div.seen { visibility: visible; }
+            """
+        );
 
         var shown = Stop(document.Root);
 

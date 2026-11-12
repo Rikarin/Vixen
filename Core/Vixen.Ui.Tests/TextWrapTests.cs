@@ -26,8 +26,12 @@ namespace Vixen.Ui.Tests;
 ///         and aligning the block rather than each line fails 1.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Four of those needed something changed before they could land, and each change was a
-///         real gap.</b> Three were missing tests — no label without an explicit width, no paragraph
+///         ⚠
+///         <b>
+///             Four of those needed something changed before they could land, and each change was a
+///             real gap.
+///         </b>
+///         Three were missing tests — no label without an explicit width, no paragraph
 ///         whose lines are in different faces and therefore different heights, no assertion about
 ///         where a centred line starts. The fourth was <i>duplicated logic</i>: <c>white-space</c> was
 ///         tested in two places, so sabotaging either one alone changed nothing, which is exactly how
@@ -40,7 +44,7 @@ public class TextWrapTests {
 
     static FontFace LoadFont() {
         using var stream = Assembly.GetExecutingAssembly()
-            .GetManifestResourceStream("Vixen.Ui.Tests.Fonts.TestShapeLana.ttf")
+                .GetManifestResourceStream("Vixen.Ui.Tests.Fonts.TestShapeLana.ttf")
             ?? throw new InvalidOperationException("the test font is not embedded");
 
         using var memory = new MemoryStream();
@@ -231,7 +235,7 @@ public class TextWrapTests {
         var block = label.Block()!;
         Assert.True(block.Lines.Length > 1, $"expected wrapping, got {block.Lines.Length} line(s)");
 
-        var widths = block.Lines.Select(line => line.Width).Distinct().Count();
+        var widths = block.Lines.Select(static line => line.Width).Distinct().Count();
         Assert.True(widths > 1, "the lines need different widths for centring to be visible");
 
         var xs = document.Drawing.Commands
@@ -411,8 +415,12 @@ public class TextWrapTests {
     ///         layout pixels is a fraction at 1× and a whole number at 2×.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Two instrument checks, because this assertion passes on a broken engine in two
-    ///         different ways.</b> Without a real font every glyph is zero-wide, nothing wraps and
+    ///         ⚠
+    ///         <b>
+    ///             Two instrument checks, because this assertion passes on a broken engine in two
+    ///             different ways.
+    ///         </b>
+    ///         Without a real font every glyph is zero-wide, nothing wraps and
     ///         both paths report nothing; without a fractional line height there is no rounding to
     ///         disagree about. So the sweep is required to have produced a genuinely fractional block
     ///         and a genuinely multi-line one before its agreement counts for anything.
@@ -426,8 +434,8 @@ public class TextWrapTests {
         var sawWrapping = false;
 
         for (var width = 80; width <= 400; width += 4) {
-            var own = Measured(scale, width, child: false, out _, out var block);
-            var viaChild = Measured(scale, width, child: true, out var inner, out _);
+            var own = Measured(scale, width, false, out _, out var block);
+            var viaChild = Measured(scale, width, true, out var inner, out _);
 
             sawFraction |= !Inexact(block.Height, MathF.Round(block.Height));
             sawWrapping |= block.Lines.Length > 1;

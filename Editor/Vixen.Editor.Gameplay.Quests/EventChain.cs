@@ -25,8 +25,12 @@ public readonly record struct EventChainEdge(DefId From, DefId To, EventBranch B
 /// <summary>A chain of dynamic events, walked into a shape a canvas can draw.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>An event chain is cyclic by design, and that is what decided this library's
-///         shape.</b> Doc 28 says the chain graph is authored "on the existing node-graph host", and
+///         ⚠
+///         <b>
+///             An event chain is cyclic by design, and that is what decided this library's
+///             shape.
+///         </b>
+///         Doc 28 says the chain graph is authored "on the existing node-graph host", and
 ///         building it found that the host is the <em>canvas</em> and not
 ///         <c>Vixen.Editor.NodeGraph</c>'s document model. That model enforces three rules, and a
 ///         chain breaks two of them: it refuses a cycle as the edge is made, and the camp being lost,
@@ -36,8 +40,11 @@ public readonly record struct EventChainEdge(DefId From, DefId To, EventBranch B
 ///         direction, for a tree.
 ///     </para>
 ///     <para>
-///         <b>So the chain is walked into a spanning tree, and everything the walk could not use is
-///         named rather than dropped.</b> A depth-first walk from the entries wires each event once;
+///         <b>
+///             So the chain is walked into a spanning tree, and everything the walk could not use is
+///             named rather than dropped.
+///         </b>
+///         A depth-first walk from the entries wires each event once;
 ///         every remaining edge is a <see cref="BackEdges" /> entry the projection draws as a labelled
 ///         badge. Nothing is hidden and the picture stays a picture the canvas can lay out.
 ///     </para>
@@ -99,7 +106,7 @@ public sealed class EventChain {
     public IReadOnlyList<DefId> Order { get; }
 
     /// <summary>Whether anything in it leads back to something it came from.</summary>
-    public bool IsCyclic => BackEdges.Any(edge => edge.To.IsSome);
+    public bool IsCyclic => BackEdges.Any(static edge => edge.To.IsSome);
 
     /// <summary>An event by id.</summary>
     /// <param name="id">Which one.</param>
@@ -113,21 +120,39 @@ public sealed class EventChain {
         ArgumentNullException.ThrowIfNull(library);
 
         var events = library.Events.ToArray();
-        var byId = events.ToDictionary(entry => entry.Id.Value);
+        var byId = events.ToDictionary(static entry => entry.Id.Value);
         var edges = new List<EventChainEdge>();
 
         foreach (var entry in events) {
             foreach (var link in entry.OnSuccess) {
-                edges.Add(new(entry.Id, byId.ContainsKey(link.Def.Value) ? link.Def : DefId.None, EventBranch.Success, link.Address));
+                edges.Add(
+                    new(
+                        entry.Id,
+                        byId.ContainsKey(link.Def.Value) ? link.Def : DefId.None,
+                        EventBranch.Success,
+                        link.Address
+                    )
+                );
             }
 
             foreach (var link in entry.OnFailure) {
-                edges.Add(new(entry.Id, byId.ContainsKey(link.Def.Value) ? link.Def : DefId.None, EventBranch.Failure, link.Address));
+                edges.Add(
+                    new(
+                        entry.Id,
+                        byId.ContainsKey(link.Def.Value) ? link.Def : DefId.None,
+                        EventBranch.Failure,
+                        link.Address
+                    )
+                );
             }
         }
 
-        var incoming = new HashSet<uint>(edges.Where(edge => edge.To.IsSome).Select(edge => edge.To.Value));
-        var roots = events.Where(entry => !incoming.Contains(entry.Id.Value)).Select(entry => entry.Id).ToArray();
+        var incoming = new HashSet<uint>(
+            edges.Where(static edge => edge.To.IsSome).Select(static edge => edge.To.Value)
+        );
+        var roots = events.Where(entry => !incoming.Contains(entry.Id.Value))
+            .Select(static entry => entry.Id)
+            .ToArray();
 
         var visited = new HashSet<uint>();
         var order = new List<DefId>();
@@ -151,7 +176,7 @@ public sealed class EventChain {
         foreach (var entry in events
                      .OrderByDescending(entry => Outgoing(entry.Id))
                      .ThenBy(entry => Incoming(entry.Id))
-                     .ThenBy(entry => entry.Definition.Address, StringComparer.Ordinal)) {
+                     .ThenBy(static entry => entry.Definition.Address, StringComparer.Ordinal)) {
             if (visited.Contains(entry.Id.Value)) {
                 continue;
             }
@@ -163,13 +188,13 @@ public sealed class EventChain {
         return new(
             byId,
             events,
-            [.. edges],
-            [.. tree],
-            [.. back],
-            [.. edges.Where(edge => !edge.To.IsSome)],
+            [..edges],
+            [..tree],
+            [..back],
+            [..edges.Where(static edge => !edge.To.IsSome)],
             roots,
-            [.. entries],
-            [.. order]
+            [..entries],
+            [..order]
         );
 
         int Outgoing(DefId id) => edges.Count(edge => edge.From == id && edge.To.IsSome);

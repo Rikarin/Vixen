@@ -35,14 +35,14 @@ public class BindingsEmitterTests {
 
         Assert.Contains(
             "public static readonly PermutationKey<bool> UseShadows = "
-            + "ParameterKeys.NewPermutation<bool>(false, \"Lighting.UseShadows\");",
+            + """ParameterKeys.NewPermutation<bool>(false, "Lighting.UseShadows");""",
             source,
             StringComparison.Ordinal
         );
 
         Assert.Contains(
             "public static readonly PermutationKey<int> MaxLights = "
-            + "ParameterKeys.NewPermutation<int>(4, \"Lighting.MaxLights\");",
+            + """ParameterKeys.NewPermutation<int>(4, "Lighting.MaxLights");""",
             source,
             StringComparison.Ordinal
         );
@@ -76,7 +76,11 @@ public class BindingsEmitterTests {
     public void A_resource_becomes_a_key_of_the_handle_type_the_RHI_binds() {
         var source = Emit();
 
-        Assert.Contains("ParameterKey<global::Vixen.Graphics.TextureViewHandle> Albedo", source, StringComparison.Ordinal);
+        Assert.Contains(
+            "ParameterKey<global::Vixen.Graphics.TextureViewHandle> Albedo",
+            source,
+            StringComparison.Ordinal
+        );
         Assert.Contains("ParameterKey<global::Vixen.Graphics.SamplerHandle> Linear", source, StringComparison.Ordinal);
         Assert.Contains("ParameterKey<global::Vixen.Graphics.BufferHandle> Overflow", source, StringComparison.Ordinal);
     }
@@ -193,7 +197,7 @@ public class BindingsEmitterTests {
 
     [Fact]
     public void A_document_that_is_not_reflection_is_refused_rather_than_emitted_as_nothing() {
-        var error = Assert.Throws<InvalidOperationException>(() => ReflectionReader.Read("""{"hello":1}"""));
+        var error = Assert.Throws<InvalidOperationException>(static () => ReflectionReader.Read("""{"hello":1}"""));
         Assert.Contains("Raven reflection", error.Message, StringComparison.Ordinal);
     }
 

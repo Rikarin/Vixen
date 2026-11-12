@@ -188,43 +188,50 @@ public static class VfxOpcodes {
     /// <summary>The attributes an opcode reads.</summary>
     /// <param name="opcode">The opcode.</param>
     /// <returns>The attributes.</returns>
-    public static VfxAttribute Reads(VfxOpcode opcode) => opcode switch {
-        VfxOpcode.Integrate => VfxAttribute.Velocity,
-        VfxOpcode.Drag => VfxAttribute.Velocity,
-        VfxOpcode.Rotate => VfxAttribute.AngularVelocity,
-        VfxOpcode.SizeOverLife or VfxOpcode.ColourOverLife or VfxOpcode.CustomOverLife =>
-            VfxAttribute.Age | VfxAttribute.Lifetime,
+    public static VfxAttribute Reads(VfxOpcode opcode) =>
+        opcode switch {
+            VfxOpcode.Integrate => VfxAttribute.Velocity,
+            VfxOpcode.Drag => VfxAttribute.Velocity,
+            VfxOpcode.Rotate => VfxAttribute.AngularVelocity,
+            VfxOpcode.SizeOverLife or VfxOpcode.ColourOverLife or VfxOpcode.CustomOverLife =>
+                VfxAttribute.Age | VfxAttribute.Lifetime,
 
-        // A force reads where the particle is, which is the whole difference between it and gravity:
-        // gravity is the same everywhere and a field is not. That also means `Compile` refuses a
-        // graph whose initializers never place its particles, which is the right refusal — a field
-        // acting on particles all at the origin accelerates every one of them identically.
-        VfxOpcode.Attract or VfxOpcode.Vortex or VfxOpcode.Turbulence => VfxAttribute.Position,
+            // A force reads where the particle is, which is the whole difference between it and gravity:
+            // gravity is the same everywhere and a field is not. That also means `Compile` refuses a
+            // graph whose initializers never place its particles, which is the right refusal — a field
+            // acting on particles all at the origin accelerates every one of them identically.
+            VfxOpcode.Attract or VfxOpcode.Vortex or VfxOpcode.Turbulence => VfxAttribute.Position,
 
-        // A collider reads both and writes both: where a particle is decides whether it hit
-        // anything, and a bounce that only changed the velocity would leave it inside the floor for
-        // a frame — which is exactly long enough to see.
-        VfxOpcode.CollidePlane or VfxOpcode.CollideSphere => VfxAttribute.Position | VfxAttribute.Velocity,
-        _ => VfxAttribute.None
-    };
+            // A collider reads both and writes both: where a particle is decides whether it hit
+            // anything, and a bounce that only changed the velocity would leave it inside the floor for
+            // a frame — which is exactly long enough to see.
+            VfxOpcode.CollidePlane or VfxOpcode.CollideSphere => VfxAttribute.Position | VfxAttribute.Velocity,
+            _ => VfxAttribute.None
+        };
 
     /// <summary>The attributes an opcode writes.</summary>
     /// <param name="opcode">The opcode.</param>
     /// <returns>The attributes.</returns>
-    public static VfxAttribute Writes(VfxOpcode opcode) => opcode switch {
-        VfxOpcode.SetPosition or VfxOpcode.PositionInSphere or VfxOpcode.PositionInBox or VfxOpcode.Integrate =>
-            VfxAttribute.Position,
-        VfxOpcode.SetVelocity or VfxOpcode.VelocityRandomDirection or VfxOpcode.VelocityInCone
-            or VfxOpcode.Gravity or VfxOpcode.Drag
-            or VfxOpcode.Attract or VfxOpcode.Vortex or VfxOpcode.Turbulence => VfxAttribute.Velocity,
-        VfxOpcode.SetLifetime => VfxAttribute.Lifetime,
-        VfxOpcode.SetSize or VfxOpcode.SizeOverLife => VfxAttribute.Size,
-        VfxOpcode.SetColour or VfxOpcode.ColourOverLife => VfxAttribute.Colour,
-        VfxOpcode.SetRotation or VfxOpcode.Rotate => VfxAttribute.Rotation,
-        VfxOpcode.SetAngularVelocity => VfxAttribute.AngularVelocity,
-        VfxOpcode.CollidePlane or VfxOpcode.CollideSphere => VfxAttribute.Position | VfxAttribute.Velocity,
-        _ => VfxAttribute.None
-    };
+    public static VfxAttribute Writes(VfxOpcode opcode) =>
+        opcode switch {
+            VfxOpcode.SetPosition or VfxOpcode.PositionInSphere or VfxOpcode.PositionInBox or VfxOpcode.Integrate =>
+                VfxAttribute.Position,
+            VfxOpcode.SetVelocity
+                or VfxOpcode.VelocityRandomDirection
+                or VfxOpcode.VelocityInCone
+                or VfxOpcode.Gravity
+                or VfxOpcode.Drag
+                or VfxOpcode.Attract
+                or VfxOpcode.Vortex
+                or VfxOpcode.Turbulence => VfxAttribute.Velocity,
+            VfxOpcode.SetLifetime => VfxAttribute.Lifetime,
+            VfxOpcode.SetSize or VfxOpcode.SizeOverLife => VfxAttribute.Size,
+            VfxOpcode.SetColour or VfxOpcode.ColourOverLife => VfxAttribute.Colour,
+            VfxOpcode.SetRotation or VfxOpcode.Rotate => VfxAttribute.Rotation,
+            VfxOpcode.SetAngularVelocity => VfxAttribute.AngularVelocity,
+            VfxOpcode.CollidePlane or VfxOpcode.CollideSphere => VfxAttribute.Position | VfxAttribute.Velocity,
+            _ => VfxAttribute.None
+        };
 
     /// <summary>Whether an opcode advances a particle by a step, rather than giving it a value.</summary>
     /// <param name="opcode">The opcode.</param>
@@ -237,18 +244,19 @@ public static class VfxOpcodes {
     ///     harmless in the initializer pass, whereas an initializer run every step would overwrite
     ///     whatever the updaters had computed. So the update pass skips them, on both backends.
     /// </remarks>
-    public static bool IsUpdater(VfxOpcode opcode) => opcode is VfxOpcode.Integrate
-        or VfxOpcode.Gravity
-        or VfxOpcode.Drag
-        or VfxOpcode.Rotate
-        or VfxOpcode.SizeOverLife
-        or VfxOpcode.ColourOverLife
-        or VfxOpcode.Attract
-        or VfxOpcode.Vortex
-        or VfxOpcode.Turbulence
-        or VfxOpcode.CollidePlane
-        or VfxOpcode.CollideSphere
-        or VfxOpcode.CustomOverLife;
+    public static bool IsUpdater(VfxOpcode opcode) =>
+        opcode is VfxOpcode.Integrate
+            or VfxOpcode.Gravity
+            or VfxOpcode.Drag
+            or VfxOpcode.Rotate
+            or VfxOpcode.SizeOverLife
+            or VfxOpcode.ColourOverLife
+            or VfxOpcode.Attract
+            or VfxOpcode.Vortex
+            or VfxOpcode.Turbulence
+            or VfxOpcode.CollidePlane
+            or VfxOpcode.CollideSphere
+            or VfxOpcode.CustomOverLife;
 
     /// <summary>Whether an opcode writes a custom attribute rather than a built-in one.</summary>
     /// <param name="opcode">The opcode.</param>
@@ -277,13 +285,14 @@ public static class VfxOpcodes {
     /// <summary>Whether an opcode draws a random value per particle, and so hashes its identifier.</summary>
     /// <param name="opcode">The opcode.</param>
     /// <returns><see langword="true" /> if it does.</returns>
-    public static bool IsRandom(VfxOpcode opcode) => opcode is VfxOpcode.PositionInSphere
-        or VfxOpcode.PositionInBox
-        or VfxOpcode.VelocityRandomDirection
-        or VfxOpcode.VelocityInCone
-        or VfxOpcode.SetLifetime
-        or VfxOpcode.SetSize
-        or VfxOpcode.SetRotation
-        or VfxOpcode.SetAngularVelocity
-        or VfxOpcode.RandomCustom;
+    public static bool IsRandom(VfxOpcode opcode) =>
+        opcode is VfxOpcode.PositionInSphere
+            or VfxOpcode.PositionInBox
+            or VfxOpcode.VelocityRandomDirection
+            or VfxOpcode.VelocityInCone
+            or VfxOpcode.SetLifetime
+            or VfxOpcode.SetSize
+            or VfxOpcode.SetRotation
+            or VfxOpcode.SetAngularVelocity
+            or VfxOpcode.RandomCustom;
 }

@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Diagnostics.CodeAnalysis;
-using Vixen.Authoring;
 using Vixen.Core;
 using Vixen.Editor.Assets.Textures;
 using Vixen.Editor.Core;
@@ -76,7 +75,7 @@ public sealed class TextureImportEdits {
 /// </remarks>
 public sealed class TextureImportDocument : ImportSettingsDocument {
     /// <summary>The settings, typed.</summary>
-    public TextureImportEdits Texture => (TextureImportEdits) Settings;
+    public TextureImportEdits Texture => (TextureImportEdits)Settings;
 
     /// <summary>The sprites cut out of this texture, in the order they were sliced.</summary>
     public IReadOnlyList<SpriteRect> Sprites => Texture.Sprites;
@@ -92,8 +91,10 @@ public sealed class TextureImportDocument : ImportSettingsDocument {
     /// <summary>Raised when the picture this document is open on changed on disk.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>The signal a preview had no way to hear —
-    ///         <a href="https://github.com/Rikarin/Vixen/issues/1207">#1207</a>.</b>
+    ///         <b>
+    ///             The signal a preview had no way to hear —
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/1207">#1207</a>.
+    ///         </b>
     ///         <see cref="TextureImportView" /> and <c>SpriteSheetView</c> decode
     ///         <see cref="ImportSettingsDocument.AssetPath" /> once, when the tab is created, and
     ///         hold the result in a field nothing else writes. Repainting the file in another program
@@ -122,8 +123,7 @@ public sealed class TextureImportDocument : ImportSettingsDocument {
     /// <param name="asset">Its identity.</param>
     /// <param name="path">Where the file is, absolute.</param>
     public TextureImportDocument(EditorProject project, AssetId asset, string path)
-        : base(project, asset, path) {
-    }
+        : base(project, asset, path) { }
 
     /// <inheritdoc />
     /// <remarks>
@@ -137,8 +137,12 @@ public sealed class TextureImportDocument : ImportSettingsDocument {
     ///         exactly one path.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The path is compared before anything else happens, which is what keeps this off
-    ///         the frame's budget.</b> This runs once per drained change per open document, so a
+    ///         ⚠
+    ///         <b>
+    ///             The path is compared before anything else happens, which is what keeps this off
+    ///             the frame's budget.
+    ///         </b>
+    ///         This runs once per drained change per open document, so a
     ///         handler that decoded first and asked afterwards would make an unrelated program's
     ///         Ctrl+S cost one PNG decode per open texture editor. What a match costs is one decode
     ///         of one file that a person has just repainted and is looking at.
@@ -179,14 +183,18 @@ public sealed class TextureImportDocument : ImportSettingsDocument {
     /// <param name="sprites">The new set, in order.</param>
     /// <exception cref="ArgumentNullException"><paramref name="sprites" /> is null.</exception>
     /// <remarks>
-    ///     ⚠ <b>One command for the whole set, and that is the point of slicing being a single
-    ///     action.</b> A slice that produced sixty rects as sixty commands would take sixty undos to
+    ///     ⚠
+    ///     <b>
+    ///         One command for the whole set, and that is the point of slicing being a single
+    ///         action.
+    ///     </b>
+    ///     A slice that produced sixty rects as sixty commands would take sixty undos to
     ///     take back — and the author's mental model is "I sliced it, that was wrong, undo".
     /// </remarks>
     public void SetSprites(IReadOnlyList<SpriteRect> sprites) {
         ArgumentNullException.ThrowIfNull(sprites);
 
-        Replace("Slice sprites", [.. sprites]);
+        Replace("Slice sprites", [..sprites]);
     }
 
     /// <summary>Adds one sprite, undoably.</summary>
@@ -196,7 +204,7 @@ public sealed class TextureImportDocument : ImportSettingsDocument {
     public int AddSprite(SpriteRect sprite) {
         ArgumentNullException.ThrowIfNull(sprite);
 
-        Replace("Add sprite", [.. Texture.Sprites, sprite]);
+        Replace("Add sprite", [..Texture.Sprites, sprite]);
 
         return Texture.Sprites.Length - 1;
     }
@@ -205,14 +213,14 @@ public sealed class TextureImportDocument : ImportSettingsDocument {
     /// <param name="index">Which one.</param>
     /// <returns>Whether there was one there.</returns>
     public bool RemoveSprite(int index) {
-        if ((uint) index >= (uint) Texture.Sprites.Length) {
+        if ((uint)index >= (uint)Texture.Sprites.Length) {
             return false;
         }
 
         var updated = new List<SpriteRect>(Texture.Sprites);
         updated.RemoveAt(index);
 
-        Replace("Remove sprite", [.. updated]);
+        Replace("Remove sprite", [..updated]);
 
         return true;
     }
@@ -223,8 +231,12 @@ public sealed class TextureImportDocument : ImportSettingsDocument {
     /// <returns>Whether there was one there.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="sprite" /> is null.</exception>
     /// <remarks>
-    ///     ⚠ <b>Left unsealed and merging on the index, so dragging a rect is one undo step rather
-    ///     than sixty.</b> That is the whole reason this is a command type of its own rather than a
+    ///     ⚠
+    ///     <b>
+    ///         Left unsealed and merging on the index, so dragging a rect is one undo step rather
+    ///         than sixty.
+    ///     </b>
+    ///     That is the whole reason this is a command type of its own rather than a
     ///     <c>DelegateCommand</c>: two closures cannot tell whether they are the same edit twice, and
     ///     a drag across a canvas is three hundred edits of one rect. Whoever ends the drag calls
     ///     <c>Stack.Seal</c>, exactly as the shell does for a slider.
@@ -232,7 +244,7 @@ public sealed class TextureImportDocument : ImportSettingsDocument {
     public bool UpdateSprite(int index, SpriteRect sprite) {
         ArgumentNullException.ThrowIfNull(sprite);
 
-        if ((uint) index >= (uint) Texture.Sprites.Length) {
+        if ((uint)index >= (uint)Texture.Sprites.Length) {
             return false;
         }
 
@@ -246,7 +258,7 @@ public sealed class TextureImportDocument : ImportSettingsDocument {
 
     /// <summary>Puts a whole new set of sprites in place, undoably and as one step.</summary>
     void Replace(string name, SpriteRect[] sprites) {
-        Stack.Execute(new SpriteEditCommand(this, name, sprites, merge: -1));
+        Stack.Execute(new SpriteEditCommand(this, name, sprites, -1));
         Stack.Seal();
     }
 
@@ -284,8 +296,12 @@ public sealed class TextureImportDocument : ImportSettingsDocument {
 
         /// <inheritdoc />
         /// <remarks>
-        ///     ⚠ <b>Same document and same rect, and the merged command undoes to what the <i>older</i>
-        ///     one would have.</b> That is the contract's own wording and it is the part that is easy
+        ///     ⚠
+        ///     <b>
+        ///         Same document and same rect, and the merged command undoes to what the <i>older</i>
+        ///         one would have.
+        ///     </b>
+        ///     That is the contract's own wording and it is the part that is easy
         ///     to get backwards: undoing a finished drag has to go back to where the rect was before
         ///     the drag started, not to where it was one mouse-move ago.
         /// </remarks>

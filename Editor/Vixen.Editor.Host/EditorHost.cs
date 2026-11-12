@@ -19,8 +19,6 @@ using Vixen.Ui;
 using Vixen.Ui.Desktop;
 using Vixen.Ui.Reactive;
 using Vixen.Ui.Renderer;
-using Vixen.Ui.Rendering;
-using Vixen.Ui.Text;
 using Vixen.Ui.Text.Rasterizing;
 
 namespace Vixen.Editor.App;
@@ -41,8 +39,12 @@ namespace Vixen.Editor.App;
 ///         <see cref="UiWindowSurface" /> is those three.
 ///     </para>
 ///     <para>
-///         ⚠ <b>That type is this file's own <c>EditorPane</c>, moved into
-///         <c>Platform/Vixen.Ui.Desktop</c> rather than copied out of it.</b> The repository carried
+///         ⚠
+///         <b>
+///             That type is this file's own <c>EditorPane</c>, moved into
+///             <c>Platform/Vixen.Ui.Desktop</c> rather than copied out of it.
+///         </b>
+///         The repository carried
 ///         three frame loops — this one, <c>Samples/02-HelloUi</c>'s and the <c>vixen-app</c>
 ///         template's — and this was the only one that could open a second window, republish its
 ///         granted colour gamut per surface, and skip tessellating a frame whose drawing had not
@@ -61,8 +63,12 @@ namespace Vixen.Editor.App;
 sealed class EditorHost : IDisposable {
     /// <summary>What a window is cleared to, and so what a <c>backdrop-filter</c> starts from.</summary>
     /// <remarks>
-    ///     ⚠ <b>One constant for two call sites that have to agree, and nothing else can check that
-    ///     they do.</b> The interface's pass clears the backbuffer to this, and <c>UiRenderer.Compose</c>
+    ///     ⚠
+    ///     <b>
+    ///         One constant for two call sites that have to agree, and nothing else can check that
+    ///         they do.
+    ///     </b>
+    ///     The interface's pass clears the backbuffer to this, and <c>UiRenderer.Compose</c>
     ///     is told the same colour so that a captured backdrop begins from the ground the frame will
     ///     actually be drawn on — see <see cref="UiBackdropSource" />. Two literals a few hundred lines
     ///     apart would drift into a rectangle of the wrong shade under every glass panel, which reads
@@ -114,8 +120,12 @@ sealed class EditorHost : IDisposable {
 
     /// <summary>The panes a compositor draws this frame, in reading order.</summary>
     /// <remarks>
-    ///     ⚠ <b>Gathered before any of them uploads, because the frame is built once for all of
-    ///     them.</b> Reused rather than allocated: this runs once per window per frame.
+    ///     ⚠
+    ///     <b>
+    ///         Gathered before any of them uploads, because the frame is built once for all of
+    ///         them.
+    ///     </b>
+    ///     Reused rather than allocated: this runs once per window per frame.
     /// </remarks>
     readonly List<(FramePresenter Presenter, SceneViewport Viewport)> composing = [];
 
@@ -128,12 +138,17 @@ sealed class EditorHost : IDisposable {
 
     /// <summary>What turns a decoded thumbnail into a texture, once there is a device and a renderer.</summary>
     ThumbnailSurface? thumbnails;
+
     UiShaders shaders;
 
     /// <summary>What writes the frame's timestamps, once there is a device that can be timed.</summary>
     /// <remarks>
-    ///     ⚠ <b>Owned here rather than by the application, because the object that records the
-    ///     timestamps has to be the one recording the frame.</b> A GPU profiler in
+    ///     ⚠
+    ///     <b>
+    ///         Owned here rather than by the application, because the object that records the
+    ///         timestamps has to be the one recording the frame.
+    ///     </b>
+    ///     A GPU profiler in
     ///     <c>EditorApplication</c> would have no command list to write into — the application is
     ///     deliberately the half of the editor that does not know what a GPU is.
     /// </remarks>
@@ -142,8 +157,12 @@ sealed class EditorHost : IDisposable {
     /// <summary>The editor process's one job scheduler.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The editor had none at all, which is
-    ///         <a href="https://github.com/Rikarin/Vixen/issues/1248">#1248</a>.</b> <c>JobScheduler</c>
+    ///         ⚠
+    ///         <b>
+    ///             The editor had none at all, which is
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/1248">#1248</a>.
+    ///         </b>
+    ///         <c>JobScheduler</c>
     ///         appeared in no file under <c>Editor/</c> — <c>.cs</c> or <c>.vxml</c> — so both seams
     ///         <c>AppGraphics</c> wires for a game were null in the scene view and every object was
     ///         tested against every pane's view on the frame thread. This is the object that was
@@ -189,22 +208,19 @@ sealed class EditorHost : IDisposable {
 
         // ⚠ Before the application, because the application reads it the moment a device arrives —
         // see `EditorApplication.Jobs`, whose one consumer is `AttachRenderer`.
-        jobs = new JobScheduler(Math.Max(1, platform.Processors.AvailableProcessors - 1));
+        jobs = new(Math.Max(1, platform.Processors.AvailableProcessors - 1));
 
         var modules = EditorModules.Standard();
 
-        editor = new EditorApplication(
+        editor = new(
             window.FramebufferSize.X / Scale,
             window.FramebufferSize.Y / Scale,
             platform.FileSystem.DataDirectory,
             projectRoot,
             EditorServices.Of(platform),
-            extensions: null,
-            modules: modules
-        ) {
-            RenderScale = Scale,
-            Jobs = jobs
-        };
+            null,
+            modules
+        ) { RenderScale = Scale, Jobs = jobs };
 
         // ⚠ Only the host asks the editor to greet, which is what keeps the startup Project Browser
         // out of every test that builds an application. See `EditorApplication.Greets`.
@@ -221,8 +237,8 @@ sealed class EditorHost : IDisposable {
         // rather than a rectangle drawn inside this one. Nothing in `Vixen.Ui.Controls.Advanced`
         // names this type — the docking host asks the document, the document asks `IUiWindowHost`,
         // and this is the only assembly in the chain allowed to know what a window is.
-        windows = new PlatformWindowHost(platform, editor.Shell.Document, window);
-        textInput = new PlatformTextInput(platform.TextInput);
+        windows = new(platform, editor.Shell.Document, window);
+        textInput = new(platform.TextInput);
 
         // ⚠ **And the same for the pasteboard, in both hosts.** `UiApplication` carries the other
         // copy of this line; a wire added to one host and not the other is silently absent from the
@@ -269,8 +285,12 @@ sealed class EditorHost : IDisposable {
 
     /// <summary>Which project the editor should be rebuilt over, or <see langword="null" /> to stop.</summary>
     /// <remarks>
-    ///     ⚠ <b>Read by <c>Program</c> after <see cref="Run" /> returns, which is what makes Open
-    ///     Project work without a restart.</b> Doc 20 filed swapping a project as "a world, a scene,
+    ///     ⚠
+    ///     <b>
+    ///         Read by <c>Program</c> after <see cref="Run" /> returns, which is what makes Open
+    ///         Project work without a restart.
+    ///     </b>
+    ///     Doc 20 filed swapping a project as "a world, a scene,
     ///     an asset database and every open document" — and it is, which is why nothing is swapped:
     ///     this host is disposed and another is built over the same window, so the new editor is
     ///     assembled by exactly the code that assembles it at launch. See
@@ -280,8 +300,12 @@ sealed class EditorHost : IDisposable {
 
     /// <summary>The shell's document, for the tests that ask what the loop put in it.</summary>
     /// <remarks>
-    ///     ⚠ <b>Internal, and it exists because the four <c>PlatformInput.Apply…</c> calls in this
-    ///     loop were reachable from no test.</b> A sweep for callers of <c>ApplyAccent</c> and
+    ///     ⚠
+    ///     <b>
+    ///         Internal, and it exists because the four <c>PlatformInput.Apply…</c> calls in this
+    ///         loop were reachable from no test.
+    ///     </b>
+    ///     A sweep for callers of <c>ApplyAccent</c> and
     ///     <c>ApplySemanticColors</c> over <c>.cs</c> and <c>.vxml</c> found one test file, and it
     ///     drives <c>PlatformInput</c> directly and builds no host — so deleting both lines from
     ///     <em>either</em> host left every suite green while the surviving host kept working, which
@@ -294,8 +318,12 @@ sealed class EditorHost : IDisposable {
     /// <param name="frames">How many, or zero for as many as it takes.</param>
     /// <returns>A process exit code.</returns>
     /// <remarks>
-    ///     ⚠ <b>The twin of the claim in <see cref="UiApplication" />'s loop, and it has to be here
-    ///     too because the editor never runs that loop.</b> <c>ReactiveGraph.OwningThread</c> is
+    ///     ⚠
+    ///     <b>
+    ///         The twin of the claim in <see cref="UiApplication" />'s loop, and it has to be here
+    ///         too because the editor never runs that loop.
+    ///     </b>
+    ///     <c>ReactiveGraph.OwningThread</c> is
     ///     process-wide and was assigned by nothing in the tree, so every
     ///     <c>AssertOwningThread</c> in the reactive layer was inert in the editor as well —
     ///     including on <c>Strings</c>' node, which every panel in the shell attaches an effect to.
@@ -569,7 +597,7 @@ sealed class EditorHost : IDisposable {
         // an `Image` number is resolved against the one that draws the surface it appears on, and
         // the main pane's is made lazily on its first frame. Once, on the frame it becomes possible.
         if (thumbnails is null && panes.Count > 0 && panes[0].Renderer is { } renderer && device is { } ready) {
-            thumbnails = new ThumbnailSurface(ready, renderer);
+            thumbnails = new(ready, renderer);
             editor.ThumbnailSurface = thumbnails;
 
             // ⚠ The shader graph's node previews used to be built here, at the same moment and for the
@@ -606,7 +634,7 @@ sealed class EditorHost : IDisposable {
                 continue;
             }
 
-            panes.Add(new UiWindowSurface(surface, opened));
+            panes.Add(new(surface, opened));
         }
     }
 
@@ -696,7 +724,7 @@ sealed class EditorHost : IDisposable {
 
             switch (pane.SwapChain!.Present()) {
                 case SwapChainStatus.OutOfDate:
-                    pane.Recreate(device, force: true);
+                    pane.Recreate(device, true);
                     break;
 
                 // ⚠ Suboptimal is a hint, and rebuilding on it unconditionally is the flicker. It
@@ -717,8 +745,12 @@ sealed class EditorHost : IDisposable {
 
     /// <summary>Records one window's frame into its own command list.</summary>
     /// <remarks>
-    ///     ⚠ <b>A command list and a graph execution per window, rather than one of each for the
-    ///     frame.</b> Each window has its own backbuffer, its own extent and its own imported
+    ///     ⚠
+    ///     <b>
+    ///         A command list and a graph execution per window, rather than one of each for the
+    ///         frame.
+    ///     </b>
+    ///     Each window has its own backbuffer, its own extent and its own imported
     ///     resource, and a graph carrying two windows' passes would have to be told they are
     ///     independent — which is a thing to get wrong in exchange for one fewer submission.
     /// </remarks>
@@ -798,9 +830,9 @@ sealed class EditorHost : IDisposable {
         renderer.Compose(
             commands,
             pane.Frame,
-            new Int2((int) MathF.Round(extent.Width), (int) MathF.Round(extent.Height)),
+            new((int)MathF.Round(extent.Width), (int)MathF.Round(extent.Height)),
             scale,
-            new UiBackdropSource(Ground)
+            new(Ground)
         );
 
         // ⚠ Declared before the interface's pass, so the graph orders the two from the read: the
@@ -924,11 +956,10 @@ sealed class EditorHost : IDisposable {
                 // passing the framebuffer for both draws the whole interface into the top-left
                 // quarter of the window. The scale is this window's, which on a second display is
                 // not the main window's.
-                pass.Execute(
-                    context => renderer.Record(
+                pass.Execute(context => renderer.Record(
                         context.CommandList,
                         pane.Frame,
-                        new Int2((int) MathF.Round(extent.Width), (int) MathF.Round(extent.Height)),
+                        new((int)MathF.Round(extent.Width), (int)MathF.Round(extent.Height)),
                         scale
                     )
                 );
@@ -1090,8 +1121,12 @@ sealed class EditorHost : IDisposable {
     ///         parse leaves it null, which is an ordinary state and not one this may throw on.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Two image numbers per pane, interleaved, because a pane has two presenters and
-    ///         both register.</b> <c>ScenePresenter.Resize</c> re-registers only when the size
+    ///         ⚠
+    ///         <b>
+    ///             Two image numbers per pane, interleaved, because a pane has two presenters and
+    ///             both register.
+    ///         </b>
+    ///         <c>ScenePresenter.Resize</c> re-registers only when the size
     ///         changed, so a pane whose two presenters shared a number would keep showing the one that
     ///         registered last however the mode was switched — the split-view failure one layer up.
     ///         Odd is the tool presenter's, even is the frame's, and zero stays "no target".
@@ -1119,18 +1154,14 @@ sealed class EditorHost : IDisposable {
         var presenter = new FramePresenter(
             device!,
             world,
-            new LineShaders(
+            new(
                 device!.CreateShader(ShaderStage.Vertex, Module("LineVertex.vert.spv"), "line vertex"),
                 device.CreateShader(ShaderStage.Fragment, Module("LineFragment.frag.spv"), "line fragment")
-            ) {
-                Locations = new(LineVertexKeys.PositionLocation, LineVertexKeys.VertexColourLocation)
-            },
-            new MeshShaders(
+            ) { Locations = new(LineVertexKeys.PositionLocation, LineVertexKeys.VertexColourLocation) },
+            new(
                 device.CreateShader(ShaderStage.Vertex, Module("Mesh.vert.spv"), "mesh vertex"),
                 device.CreateShader(ShaderStage.Fragment, Module("Mesh.frag.spv"), "mesh fragment")
-            ) {
-                Locations = new(MeshKeys.PositionLocation, MeshKeys.NormalLocation, MeshKeys.VertexColourLocation)
-            },
+            ) { Locations = new(MeshKeys.PositionLocation, MeshKeys.NormalLocation, MeshKeys.VertexColourLocation) },
             FramePresenter.ColourFormat,
             FrameImage(index),
             index
@@ -1142,10 +1173,10 @@ sealed class EditorHost : IDisposable {
     }
 
     /// <summary>What the interface calls a pane's tool target.</summary>
-    static ulong SceneImage(int index) => ((ulong) index * 2) + 1;
+    static ulong SceneImage(int index) => (ulong)index * 2 + 1;
 
     /// <summary>And its composed one.</summary>
-    static ulong FrameImage(int index) => ((ulong) index * 2) + 2;
+    static ulong FrameImage(int index) => (ulong)index * 2 + 2;
 
     /// <summary>Builds one pane's presenter.</summary>
     /// <param name="image">What the interface calls its target.</param>
@@ -1161,15 +1192,11 @@ sealed class EditorHost : IDisposable {
             new LineShaders(
                 device!.CreateShader(ShaderStage.Vertex, Module("LineVertex.vert.spv"), "line vertex"),
                 device.CreateShader(ShaderStage.Fragment, Module("LineFragment.frag.spv"), "line fragment")
-            ) {
-                Locations = new(LineVertexKeys.PositionLocation, LineVertexKeys.VertexColourLocation)
-            },
+            ) { Locations = new(LineVertexKeys.PositionLocation, LineVertexKeys.VertexColourLocation) },
             new MeshShaders(
                 device.CreateShader(ShaderStage.Vertex, Module("Mesh.vert.spv"), "mesh vertex"),
                 device.CreateShader(ShaderStage.Fragment, Module("Mesh.frag.spv"), "mesh fragment")
-            ) {
-                Locations = new(MeshKeys.PositionLocation, MeshKeys.NormalLocation, MeshKeys.VertexColourLocation)
-            },
+            ) { Locations = new(MeshKeys.PositionLocation, MeshKeys.NormalLocation, MeshKeys.VertexColourLocation) },
             new MeshInstanceShaders(
                 device.CreateShader(ShaderStage.Vertex, Module("MeshInstanced.vert.spv"), "mesh instance vertex"),
                 device.CreateShader(ShaderStage.Fragment, Module("MeshInstanced.frag.spv"), "mesh instance fragment")
@@ -1204,8 +1231,12 @@ sealed class EditorHost : IDisposable {
     /// <summary>Where this head keeps the driver's pipeline cache between runs.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Only a game got the warm start, and the editor is the head where a cold one is
-    ///         most visible</b> (<a href="https://github.com/Rikarin/Vixen/issues/1228">#1228</a>).
+    ///         ⚠
+    ///         <b>
+    ///             Only a game got the warm start, and the editor is the head where a cold one is
+    ///             most visible
+    ///         </b>
+    ///         (<a href="https://github.com/Rikarin/Vixen/issues/1228">#1228</a>).
     ///         Everything that boots through <c>Tools/Vixen.App</c>'s <c>GraphicsHost</c> is handed a
     ///         path by <c>AppBuilder</c>; this host and <c>UiApplication</c> open their device
     ///         directly and passed nothing but the surface, so both recompiled every pipeline they
@@ -1215,14 +1246,22 @@ sealed class EditorHost : IDisposable {
     ///         same shader twice <em>within</em> a run.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The cache directory, not the data one, and the same file name the other two
-    ///         write.</b> The blob is derivable and is discarded by the driver on any device or
+    ///         ⚠
+    ///         <b>
+    ///             The cache directory, not the data one, and the same file name the other two
+    ///             write.
+    ///         </b>
+    ///         The blob is derivable and is discarded by the driver on any device or
     ///         driver mismatch, so it must not be backed up or synced — on macOS the data directory
     ///         is copied off the machine for ever by Time Machine and iCloud.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The same four lines as <c>UiApplication.PipelineCacheFile</c>, and there is
-    ///         nowhere to share them from</b>: that assembly's internals reach its own tests and not
+    ///         ⚠
+    ///         <b>
+    ///             The same four lines as <c>UiApplication.PipelineCacheFile</c>, and there is
+    ///             nowhere to share them from
+    ///         </b>
+    ///         : that assembly's internals reach its own tests and not
     ///         this project, and <c>Vixen.Graphics.Vulkan</c> cannot see an <c>IPlatform</c>. Marked
     ///         on both sides, because a wire added to one host and not the other is silently absent
     ///         from the other — which is the failure this repository has met most often.
@@ -1244,12 +1283,10 @@ sealed class EditorHost : IDisposable {
             return false;
         }
 
-        device = VulkanDevice.Create(
-            new() { Surface = window.Surface.Handle, PipelineCachePath = PipelineCacheFile }
-        );
+        device = VulkanDevice.Create(new() { Surface = window.Surface.Handle, PipelineCachePath = PipelineCacheFile });
 
-        pool = new TransientResourcePool(device);
-        graph = new RenderGraph(device, pool);
+        pool = new(device);
+        graph = new(device, pool);
 
         // ⚠ Handed to the application so the panel can say *why* there is no timeline. A device that
         // reports no timestamp queries — MoltenVK on an older Metal, a driver with no valid bits on
@@ -1261,7 +1298,7 @@ sealed class EditorHost : IDisposable {
         // period of zero converts every duration to zero, and a timeline of empty bars is a worse
         // answer than no timeline at all — see #1168. The panel says which of the two it was.
         if (device.Features.CanTimeFrames) {
-            gpu = new GpuProfiler(device);
+            gpu = new(device);
         }
 
         // Compiled once and handed to every window's renderer — once per process rather than once
@@ -1366,7 +1403,7 @@ sealed class EditorHost : IDisposable {
             "GrassScatterArguments.comp.spv"
         ];
 
-        if (device is not { } graphics || wanted.Any(module => !HasModule(module))) {
+        if (device is not { } graphics || wanted.Any(static module => !HasModule(module))) {
             return default;
         }
 

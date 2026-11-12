@@ -62,10 +62,12 @@ public class VirtualShadowRendererTests : IDisposable {
     Harness Build(int drawsPerFrame = 4) {
         var system = new RenderSystem();
         var caster = system.AddStage(new("Shadow"));
-        var atlas = new VirtualShadowAtlas(device, pagesPerSide: 8);
+        var atlas = new VirtualShadowAtlas(device, 8);
 
         var sun = new Sunlight {
-            Sun = new RenderLight { Kind = LightKind.Directional, Direction = Vector3.Normalize(new(-0.4f, -1f, -0.3f)) }
+            Sun = new RenderLight {
+                Kind = LightKind.Directional, Direction = Vector3.Normalize(new(-0.4f, -1f, -0.3f))
+            }
         };
 
         var node = new VirtualShadowRenderer {
@@ -206,7 +208,7 @@ public class VirtualShadowRendererTests : IDisposable {
     /// </remarks>
     [Fact]
     public void A_burst_beyond_the_budget_lands_four_a_frame_and_no_earlier() {
-        using var h = Build(drawsPerFrame: 4);
+        using var h = Build();
 
         Allocate(h, 12);
 
@@ -295,7 +297,7 @@ public class VirtualShadowRendererTests : IDisposable {
     /// </remarks>
     [Fact]
     public void A_sun_drifting_under_the_snap_leaves_the_pages_standing() {
-        using var h = Build(drawsPerFrame: 8);
+        using var h = Build(8);
 
         // Anchored on the lattice, for VirtualShadowMapTests' reason: a sun an arbitrary hair from
         // a cell boundary would make this a test of where the boundary happens to be.
@@ -330,7 +332,7 @@ public class VirtualShadowRendererTests : IDisposable {
     /// </remarks>
     [Fact]
     public void A_sun_stepping_past_the_snap_invalidates_once_and_the_budget_recovers() {
-        using var h = Build(drawsPerFrame: 4);
+        using var h = Build();
 
         Allocate(h, 12);
         Frame(h);
@@ -388,7 +390,7 @@ public class VirtualShadowRendererTests : IDisposable {
     /// </remarks>
     [Fact]
     public void A_level_that_slid_one_page_keeps_every_column_but_the_one_that_arrived() {
-        using var h = Build(drawsPerFrame: 64);
+        using var h = Build(64);
 
         Anchor(h);
 
@@ -406,13 +408,14 @@ public class VirtualShadowRendererTests : IDisposable {
         // axes depending on which way the last bit of a dot product fell, and every level would refit
         // for reasons that have nothing to do with a slide. A third of a page up and half a depth step
         // along the light puts both comfortably inside one cell, for every level at once.
-        var off = (up * 0.3f * page) + (light * VirtualShadowMap.DepthStep(0, h.Node.FirstExtent, h.Node.Depthrange) * 0.5f);
+        var off = up * 0.3f * page
+            + light * VirtualShadowMap.DepthStep(0, h.Node.FirstExtent, h.Node.Depthrange) * 0.5f;
 
         // At the middle of a cell of level zero's own grid, and stepping to the middle of the next —
         // odd multiples of a half page, so no coarser level's boundary is crossed. Level one snaps
         // every two of these pages, so a step over an even multiple would slide two levels at once
         // and this would be measuring the pair.
-        h.Node.Camera!.Position = (right * 4.5f * page) + off;
+        h.Node.Camera!.Position = right * 4.5f * page + off;
 
         Allocate(h, Pages);
         Frame(h);
@@ -422,7 +425,7 @@ public class VirtualShadowRendererTests : IDisposable {
 
         // One page along `right`, which is perpendicular to the light — so the depth cell does not
         // move and this is a slide and nothing else.
-        h.Node.Camera!.Position = (right * 5.5f * page) + off;
+        h.Node.Camera!.Position = right * 5.5f * page + off;
         h.Node.DrawsPerFrame = 0;
 
         Frame(h);
@@ -455,8 +458,11 @@ public class VirtualShadowRendererTests : IDisposable {
     /// <summary>A page drawn after a slide is drawn from where the window puts it.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>⚠ The half of toroidal addressing that no counter can see, and the one that renders
-    ///         plausibly when it is wrong.</b> The marking pass and the lookup share one line, so an
+    ///         <b>
+    ///             ⚠ The half of toroidal addressing that no counter can see, and the one that renders
+    ///             plausibly when it is wrong.
+    ///         </b>
+    ///         The marking pass and the lookup share one line, so an
     ///         address they both got wrong the same way still answers: <c>absent</c> falls, every
     ///         counter in the trace improves, and the atlas fills with real geometry at plausible
     ///         depths taken from <em>somewhere else in the level</em>. What decides where a page is
@@ -476,7 +482,7 @@ public class VirtualShadowRendererTests : IDisposable {
     /// </remarks>
     [Fact]
     public void A_page_owed_a_draw_after_a_slide_is_drawn_where_the_window_puts_it() {
-        using var h = Build(drawsPerFrame: 1);
+        using var h = Build(1);
 
         Anchor(h);
 
@@ -487,10 +493,10 @@ public class VirtualShadowRendererTests : IDisposable {
         var page = VirtualShadowMap.ExtentOf(0, h.Node.FirstExtent) / VirtualShadowMap.PagesPerSide;
 
         // Off the other two axes' cell boundaries — see the slide test above for why that matters.
-        var off = (up * 0.3f * page)
-            + (light * VirtualShadowMap.DepthStep(0, h.Node.FirstExtent, h.Node.Depthrange) * 0.5f);
+        var off = up * 0.3f * page
+            + light * VirtualShadowMap.DepthStep(0, h.Node.FirstExtent, h.Node.Depthrange) * 0.5f;
 
-        h.Node.Camera!.Position = (right * 7.5f * page) + off;
+        h.Node.Camera!.Position = right * 7.5f * page + off;
 
         var projection = VirtualShadowMap.ClipmapProjection(
             0,
@@ -554,8 +560,11 @@ public class VirtualShadowRendererTests : IDisposable {
     /// <summary>An object that moved retires the pages it was under and the pages it is under.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>The correctness half of task #250, and the one that reads as a bug rather than as a
-    ///         cost.</b> A page is drawn once and kept until something says its depths are wrong, so a
+    ///         <b>
+    ///             The correctness half of task #250, and the one that reads as a bug rather than as a
+    ///             cost.
+    ///         </b>
+    ///         A page is drawn once and kept until something says its depths are wrong, so a
     ///         caster that moves out of a page and nothing to say so leaves that page holding the
     ///         shadow of a thing that is no longer there — a silhouette standing in the air with
     ///         nothing casting it — and the page it moved <em>into</em> holding a floor with no shadow
@@ -575,7 +584,7 @@ public class VirtualShadowRendererTests : IDisposable {
     /// </remarks>
     [Fact]
     public void A_caster_that_moved_retires_the_pages_it_left_and_the_pages_it_reached() {
-        using var h = Build(drawsPerFrame: 64);
+        using var h = Build(64);
 
         Anchor(h);
 
@@ -603,8 +612,8 @@ public class VirtualShadowRendererTests : IDisposable {
         // ⚠ **Held at the middle of a page on both axes.** A caster on a page boundary has a
         // footprint in two columns whichever way the last bit of a dot product falls, and the count
         // below would then be asserting where the boundary is rather than that both ends went.
-        var was = (right * -4.5f * page) + (up * -0.5f * page);
-        var now = (right * 3.5f * page) + (up * -0.5f * page);
+        var was = right * -4.5f * page + up * -0.5f * page;
+        var now = right * 3.5f * page + up * -0.5f * page;
 
         var id = h.System.Objects.Add(new() { Bounds = new(was, 0.1f * page), Stages = h.Node.CasterStage.Mask });
 
@@ -676,7 +685,7 @@ public class VirtualShadowRendererTests : IDisposable {
     /// </remarks>
     [Fact]
     public void A_caster_that_turned_and_a_caster_that_was_removed_both_retire_their_pages() {
-        using var h = Build(drawsPerFrame: 64);
+        using var h = Build(64);
 
         Anchor(h);
 
@@ -695,7 +704,7 @@ public class VirtualShadowRendererTests : IDisposable {
             row[column] = VirtualShadowMap.IndexOf(0u, VirtualShadowMap.ToroidalOf(new(column, 16), origin));
         }
 
-        var at = (right * -4.5f * page) + (up * -0.5f * page);
+        var at = right * -4.5f * page + up * -0.5f * page;
 
         var id = h.System.Objects.Add(new() { Bounds = new(at, 0.1f * page), Stages = h.Node.CasterStage.Mask });
 
@@ -823,17 +832,28 @@ public class VirtualShadowRendererTests : IDisposable {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <b><c>VirtualShadowMapTests.The_level_record_is_the_stride_the_device_reads</c>'s
-    ///         missing half.</b> That one pins the record at ninety-six bytes, which is the failure
+    ///         <b>
+    ///             <c>VirtualShadowMapTests.The_level_record_is_the_stride_the_device_reads</c>'s
+    ///             missing half.
+    ///         </b>
+    ///         That one pins the record at ninety-six bytes, which is the failure
     ///         that renames every page of every level — but it is blind to the layout <em>inside</em>
     ///         those ninety-six. Two fields transposed, or one grown while another shrank, keeps the
     ///         size and moves the meaning, and nothing on either side is a compile error.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b><see cref="VirtualShadowLevel.Origin" /> is the one that matters and it arrived
-    ///         late.</b> The record was eighty bytes until toroidal page addressing landed (task
-    ///         #317), and what grew it was an <c>Int2</c> inserted at offset 80 <em>ahead of the tail
-    ///         padding</em>. Transposing those two is a page address computed from
+    ///         ⚠
+    ///         <b>
+    ///             <see cref="VirtualShadowLevel.Origin" /> is the one that matters and it arrived
+    ///             late.
+    ///         </b>
+    ///         The record was eighty bytes until toroidal page addressing landed (task
+    ///         #317), and what grew it was an <c>Int2</c> inserted at offset 80
+    ///         <em>
+    ///             ahead of the tail
+    ///             padding
+    ///         </em>
+    ///         . Transposing those two is a page address computed from
     ///         <c>Vsm.Toroidal(0, cell)</c> — the identity — which is right for a level that has never
     ///         moved and wrong for every level that has, so it reads as a map that goes stale when the
     ///         camera walks rather than as a layout mistake.
@@ -867,7 +887,7 @@ public class VirtualShadowRendererTests : IDisposable {
         ];
 
         Assert.Equal(
-            host.Select(field => field.Name).Order(StringComparer.Ordinal),
+            host.Select(static field => field.Name).Order(StringComparer.Ordinal),
             declared.Keys.Order(StringComparer.Ordinal)
         );
 
@@ -883,7 +903,7 @@ public class VirtualShadowRendererTests : IDisposable {
 
         Assert.Equal(
             System.Runtime.InteropServices.Marshal.SizeOf<VirtualShadowLevel>(),
-            host.Max(field => field.Offset + field.Size)
+            host.Max(static field => field.Offset + field.Size)
         );
     }
 
@@ -957,7 +977,7 @@ public class VirtualShadowRendererTests : IDisposable {
             new() {
                 Key = VirtualShadowAtlas.Key,
                 Stages = [new(ShaderStage.Compute, [1, 2, 3, 4], "main")],
-                SetLayouts = [.. layouts]
+                SetLayouts = [..layouts]
             }
         );
 
@@ -981,7 +1001,7 @@ public class VirtualShadowRendererTests : IDisposable {
 
     /// <summary>A direction swung about the up axis by some degrees, elevation kept.</summary>
     static Vector3 Turned(Vector3 direction, float degrees) {
-        var azimuth = MathF.Atan2(direction.Z, direction.X) + (degrees * (MathF.PI / 180f));
+        var azimuth = MathF.Atan2(direction.Z, direction.X) + degrees * (MathF.PI / 180f);
         var elevation = MathF.Asin(Math.Clamp(direction.Y, -1f, 1f));
         var planar = MathF.Cos(elevation);
 

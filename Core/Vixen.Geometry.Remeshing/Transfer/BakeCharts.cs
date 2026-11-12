@@ -122,41 +122,46 @@ sealed class BakeCharts {
 
         Array.Fill(owners, Unclaimed);
 
-        Parallel.For(0, triangles.Length, options, (triangle, loop) => {
-            if (cancellationToken.IsCancellationRequested) {
-                loop.Stop();
+        Parallel.For(
+            0,
+            triangles.Length,
+            options,
+            (triangle, loop) => {
+                if (cancellationToken.IsCancellationRequested) {
+                    loop.Stop();
 
-                return;
-            }
-
-            var scaled = triangles[triangle].Scaled;
-
-            if (Box(scaled, resolution) is not { } box) {
-                return;
-            }
-
-            for (var y = box.Y0; y <= box.Y1; y++) {
-                var touched = false;
-
-                for (var x = box.X0; x <= box.X1; x++) {
-                    if (!AtlasRaster.Overlaps(scaled[0], scaled[1], scaled[2], new(x, y), new(x + 1, y + 1))) {
-                        continue;
-                    }
-
-                    Lowest(ref owners[(y * resolution) + x], triangle);
-
-                    if (others is not null) {
-                        Highest(ref others[(y * resolution) + x], triangle);
-                    }
-
-                    touched = true;
+                    return;
                 }
 
-                if (touched) {
-                    Volatile.Write(ref rows[y], true);
+                var scaled = triangles[triangle].Scaled;
+
+                if (Box(scaled, resolution) is not { } box) {
+                    return;
+                }
+
+                for (var y = box.Y0; y <= box.Y1; y++) {
+                    var touched = false;
+
+                    for (var x = box.X0; x <= box.X1; x++) {
+                        if (!AtlasRaster.Overlaps(scaled[0], scaled[1], scaled[2], new(x, y), new(x + 1, y + 1))) {
+                            continue;
+                        }
+
+                        Lowest(ref owners[y * resolution + x], triangle);
+
+                        if (others is not null) {
+                            Highest(ref others[y * resolution + x], triangle);
+                        }
+
+                        touched = true;
+                    }
+
+                    if (touched) {
+                        Volatile.Write(ref rows[y], true);
+                    }
                 }
             }
-        });
+        );
 
         return new(triangles, owners, others, rows);
     }
@@ -241,13 +246,13 @@ sealed class BakeCharts {
             }
         }
 
-        var solved = MikkTSpace.Generate([.. corners], [.. normals], [.. coordinates]);
+        var solved = MikkTSpace.Generate([..corners], [..normals], [..coordinates]);
 
         for (var triangle = 0; triangle < made.Count; triangle++) {
             solved.AsSpan(triangle * 3, 3).CopyTo(made[triangle].Tangents);
         }
 
-        return [.. made];
+        return [..made];
     }
 
     /// <summary>Per-corner normals for a target that arrived without a layer.</summary>

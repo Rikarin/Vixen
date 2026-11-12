@@ -10,24 +10,26 @@ namespace Vixen.DocGen.Tests;
 public class PageLinkTests {
     static GuidePage Page(string slug, string body = "", params string[] related) => Page(slug, body, related, []);
 
-    static GuidePage Page(string slug, string body, string[] related, IReadOnlyList<DocHeading> headings) => new() {
-        Front = new FrontMatter(
-            Title: slug,
-            Slug: slug,
-            Kind: "guide",
-            Area: "ECS",
-            Summary: "One sentence.",
-            Api: ["T:Vixen.Ecs.World"],
-            Tags: [],
-            Since: null,
-            Status: "stable",
-            Related: related,
-            Breaking: []),
-        Path = $"docs/guide/{slug}.md",
-        Body = body,
-        Headings = headings,
-        Examples = []
-    };
+    static GuidePage Page(string slug, string body, string[] related, IReadOnlyList<DocHeading> headings) =>
+        new() {
+            Front = new FrontMatter(
+                slug,
+                slug,
+                "guide",
+                "ECS",
+                "One sentence.",
+                ["T:Vixen.Ecs.World"],
+                [],
+                null,
+                "stable",
+                related,
+                []
+            ),
+            Path = $"docs/guide/{slug}.md",
+            Body = body,
+            Headings = headings,
+            Examples = []
+        };
 
     static IReadOnlyList<string> Check(IReadOnlyList<GuidePage> pages, params string[] slugs) =>
         PageLinks.Check(pages, slugs.ToHashSet(StringComparer.Ordinal));
@@ -36,17 +38,21 @@ public class PageLinkTests {
 
     [Fact]
     public void ASiteLinkToAPageResolves() {
-        Assert.Empty(Check([
-            Page("ecs/index", "See [queries](/docs/guide/ecs/queries)."),
-            Page("ecs/queries")
-        ]));
+        Assert.Empty(
+            Check(
+                [
+                    Page("ecs/index", "See [queries](/docs/guide/ecs/queries)."),
+                    Page("ecs/queries")
+                ]
+            )
+        );
     }
 
     [Fact]
     public void ASiteLinkToNoPageIsReported() {
         var problems = Check([Page("ecs/index", "See [chunks](/docs/guide/ecs/chunks).")]);
 
-        Assert.Contains(problems, problem => problem.Contains("names no guide page", StringComparison.Ordinal));
+        Assert.Contains(problems, static problem => problem.Contains("names no guide page", StringComparison.Ordinal));
     }
 
     /// <summary>
@@ -55,18 +61,22 @@ public class PageLinkTests {
     /// </summary>
     [Fact]
     public void ARelativeMarkdownLinkResolves() {
-        Assert.Empty(Check([
-            Page("ecs/index", "See [queries](queries.md) and [materials](../rendering/materials.md)."),
-            Page("ecs/queries"),
-            Page("rendering/materials")
-        ]));
+        Assert.Empty(
+            Check(
+                [
+                    Page("ecs/index", "See [queries](queries.md) and [materials](../rendering/materials.md)."),
+                    Page("ecs/queries"),
+                    Page("rendering/materials")
+                ]
+            )
+        );
     }
 
     [Fact]
     public void ARelativeMarkdownLinkToNothingIsReported() {
         var problems = Check([Page("ecs/index", "See [chunks](chunks.md).")]);
 
-        Assert.Contains(problems, problem => problem.Contains("chunks.md", StringComparison.Ordinal));
+        Assert.Contains(problems, static problem => problem.Contains("chunks.md", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -78,14 +88,17 @@ public class PageLinkTests {
     public void AnApiLinkToNoSymbolIsReported() {
         var problems = Check([Page("ecs/index", "See [Realm](/docs/api/vixen.ecs/realm).")], "vixen.ecs/world");
 
-        Assert.Contains(problems, problem => problem.Contains("nothing the graph has", StringComparison.Ordinal));
+        Assert.Contains(
+            problems,
+            static problem => problem.Contains("nothing the graph has", StringComparison.Ordinal)
+        );
     }
 
     [Fact]
     public void ARouteTheSiteDoesNotServeIsReported() {
         var problems = Check([Page("ecs/index", "See [the tour](/docs/tour).")]);
 
-        Assert.Contains(problems, problem => problem.Contains("not a route", StringComparison.Ordinal));
+        Assert.Contains(problems, static problem => problem.Contains("not a route", StringComparison.Ordinal));
     }
 
     /// <summary>External links rot on someone else's schedule; a gate that watched them would be flaky.</summary>
@@ -111,7 +124,7 @@ public class PageLinkTests {
     public void ASlugThatNamesNoPageIsReported() {
         var problems = Check([Page("ecs/index", "See [chunks](ecs/chunks).")]);
 
-        Assert.Contains(problems, problem => problem.Contains("names no guide page", StringComparison.Ordinal));
+        Assert.Contains(problems, static problem => problem.Contains("names no guide page", StringComparison.Ordinal));
     }
 
     /// <summary>
@@ -120,20 +133,26 @@ public class PageLinkTests {
     /// </summary>
     [Fact]
     public void AnAnchorThatNamesNoHeadingIsReported() {
-        var problems = Check([
-            Page("ecs/index", "See [that bit](queries#chunks)."),
-            Page("ecs/queries", "", [], [new DocHeading("what-it-is", "What it is", 2)])
-        ]);
+        var problems = Check(
+            [
+                Page("ecs/index", "See [that bit](queries#chunks)."),
+                Page("ecs/queries", string.Empty, [], [new DocHeading("what-it-is", "What it is", 2)])
+            ]
+        );
 
-        Assert.Contains(problems, problem => problem.Contains("names no heading", StringComparison.Ordinal));
+        Assert.Contains(problems, static problem => problem.Contains("names no heading", StringComparison.Ordinal));
     }
 
     [Fact]
     public void AnAnchorThatNamesAHeadingResolves() {
-        Assert.Empty(Check([
-            Page("ecs/index", "See [that bit](queries#what-it-is)."),
-            Page("ecs/queries", "", [], [new DocHeading("what-it-is", "What it is", 2)])
-        ]));
+        Assert.Empty(
+            Check(
+                [
+                    Page("ecs/index", "See [that bit](queries#what-it-is)."),
+                    Page("ecs/queries", string.Empty, [], [new DocHeading("what-it-is", "What it is", 2)])
+                ]
+            )
+        );
     }
 
     // ── Rewriting — the same resolution, written into the body ──────────────────────────────────
@@ -149,11 +168,13 @@ public class PageLinkTests {
     [InlineData("[queries](queries)", "[queries](/docs/guide/ecs/queries)")]
     [InlineData("[queries](queries.md#what-it-is)", "[queries](/docs/guide/ecs/queries#what-it-is)")]
     public void AnInTreeLinkIsRewrittenToTheRouteTheSiteServes(string written, string served) {
-        var pages = PageLinks.WithSiteLinks([
-            Page("ecs/index", $"See {written}."),
-            Page("ecs/queries", "", [], [new DocHeading("what-it-is", "What it is", 2)]),
-            Page("rendering/materials")
-        ]);
+        var pages = PageLinks.WithSiteLinks(
+            [
+                Page("ecs/index", $"See {written}."),
+                Page("ecs/queries", string.Empty, [], [new DocHeading("what-it-is", "What it is", 2)]),
+                Page("rendering/materials")
+            ]
+        );
 
         Assert.Equal($"See {served}.", pages[0].Body);
     }
@@ -164,9 +185,11 @@ public class PageLinkTests {
     /// </summary>
     [Fact]
     public void ABareAnchorIsRewrittenToHangOffThePageItIsOn() {
-        var pages = PageLinks.WithSiteLinks([
-            Page("ecs/queries", "See [below](#what-it-is).", [], [new DocHeading("what-it-is", "What it is", 2)])
-        ]);
+        var pages = PageLinks.WithSiteLinks(
+            [
+                Page("ecs/queries", "See [below](#what-it-is).", [], [new DocHeading("what-it-is", "What it is", 2)])
+            ]
+        );
 
         Assert.Equal("See [below](/docs/guide/ecs/queries#what-it-is).", pages[0].Body);
     }
@@ -191,20 +214,26 @@ public class PageLinkTests {
 
     [Fact]
     public void ALinkTitleSurvivesTheRewrite() {
-        var pages = PageLinks.WithSiteLinks([
-            Page("ecs/index", """See [queries](queries.md "Entity queries")."""),
-            Page("ecs/queries")
-        ]);
+        var pages = PageLinks.WithSiteLinks(
+            [
+                Page("ecs/index", """See [queries](queries.md "Entity queries")."""),
+                Page("ecs/queries")
+            ]
+        );
 
         Assert.Equal("""See [queries](/docs/guide/ecs/queries "Entity queries").""", pages[0].Body);
     }
 
     [Fact]
     public void ALinkTitleIsNotPartOfTheTarget() {
-        Assert.Empty(Check([
-            Page("ecs/index", """See [queries](/docs/guide/ecs/queries "Entity queries")."""),
-            Page("ecs/queries")
-        ]));
+        Assert.Empty(
+            Check(
+                [
+                    Page("ecs/index", """See [queries](/docs/guide/ecs/queries "Entity queries")."""),
+                    Page("ecs/queries")
+                ]
+            )
+        );
     }
 
     // ── Orphans ─────────────────────────────────────────────────────────────────────────────────
@@ -213,7 +242,10 @@ public class PageLinkTests {
     public void APageNothingLinksToIsReported() {
         var problems = Check([Page("ecs/index"), Page("ecs/queries")]);
 
-        Assert.Contains(problems, problem => problem.Contains("nothing links to `ecs/queries`", StringComparison.Ordinal));
+        Assert.Contains(
+            problems,
+            static problem => problem.Contains("nothing links to `ecs/queries`", StringComparison.Ordinal)
+        );
     }
 
     [Fact]
@@ -224,13 +256,20 @@ public class PageLinkTests {
     /// <summary>`related:` is rendered as navigation, so it is a link.</summary>
     [Fact]
     public void ARelatedEntryCountsAsALink() {
-        Assert.Empty(Check([Page("ecs/index"), Page("ecs/queries", related: "ecs/components"), Page("ecs/components", related: "ecs/queries")]));
+        Assert.Empty(
+            Check(
+                [
+                    Page("ecs/index"), Page("ecs/queries", related: "ecs/components"),
+                    Page("ecs/components", related: "ecs/queries")
+                ]
+            )
+        );
     }
 
     [Fact]
     public void APageThatOnlyLinksToItselfIsStillAnOrphan() {
         var problems = Check([Page("ecs/queries", "See [this page](/docs/guide/ecs/queries).")]);
 
-        Assert.Contains(problems, problem => problem.Contains("nothing links to", StringComparison.Ordinal));
+        Assert.Contains(problems, static problem => problem.Contains("nothing links to", StringComparison.Ordinal));
     }
 }

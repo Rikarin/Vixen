@@ -5,7 +5,6 @@ using Vixen.Core;
 using Vixen.Core.Mathematics;
 using Vixen.Ecs;
 using Vixen.Editor.AssetEditors.Scenes;
-using Vixen.Editor.Assets;
 using Vixen.Editor.SceneView;
 using Vixen.Engine.Scenes;
 using Vixen.Engine.Transforms;
@@ -177,7 +176,7 @@ public sealed class CompiledSceneTests {
         using var world = new World("Prefab");
 
         var prefab = new SceneDocument(harness.Project.Project, world, AssetId.Empty, "Turret") {
-            Writer = new PrefabFileWriter(System.IO.Path.Combine(harness.Project.Paths.Root, "Turret.vxprefab"))
+            Writer = new PrefabFileWriter(Path.Combine(harness.Project.Paths.Root, "Turret.vxprefab"))
         };
 
         Entity(prefab, world, "Base", new CompiledHealth { Value = 1 });
@@ -192,7 +191,7 @@ public sealed class CompiledSceneTests {
 
         Assert.False(view.Refresh());
         Assert.Null(view.Content);
-        Assert.Contains(view.Reported, entry => entry.Severity == ImportSeverity.Error);
+        Assert.Contains(view.Reported, static entry => entry.Severity == ImportSeverity.Error);
 
         harness.Ui.Frame();
 
@@ -226,7 +225,7 @@ public sealed class CompiledSceneTests {
 
     static SceneDocument Scene(ViewHarness harness, World world) =>
         new(harness.Project.Project, world, AssetId.Empty, "Level") {
-            Writer = new SceneFileWriter(System.IO.Path.Combine(harness.Project.Paths.Root, "Level.vxscene"))
+            Writer = new SceneFileWriter(Path.Combine(harness.Project.Paths.Root, "Level.vxscene"))
         };
 
     /// <summary>
@@ -237,8 +236,7 @@ public sealed class CompiledSceneTests {
     ///     entity exists — the compiled pane reads `SceneSerializer.ToFile`, and an entity the
     ///     document never adopted is not in the file it produces.
     /// </remarks>
-    static Entity Entity(SceneDocument scene, string name) =>
-        scene.Create(name, LocalTransform.At(Vector3.Zero));
+    static Entity Entity(SceneDocument scene, string name) => scene.Create(name, LocalTransform.At(Vector3.Zero));
 
     static Entity Entity<T>(SceneDocument scene, World world, string name, in T component) {
         var entity = Entity(scene, name);

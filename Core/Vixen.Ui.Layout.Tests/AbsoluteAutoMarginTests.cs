@@ -11,8 +11,12 @@ namespace Vixen.Ui.Layout.Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>This file exists because the rule has no oracle, which is a different situation from
-///         the one <see cref="MarginCollapsingTests" /> is in.</b> That file pins rules the corpus
+///         ⚠
+///         <b>
+///             This file exists because the rule has no oracle, which is a different situation from
+///             the one <see cref="MarginCollapsingTests" /> is in.
+///         </b>
+///         That file pins rules the corpus
 ///         <i>contains</i> and cannot run. These are rules no corpus contains at all: Yoga does not
 ///         implement out-of-flow auto margins, the flex corpus has no fixture for them, and the 22
 ///         that exist live only under <c>block/</c>. Those 22 are green — they are the reason the
@@ -21,8 +25,12 @@ namespace Vixen.Ui.Layout.Tests;
 ///         against a recorded number.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The two axes are deliberately not symmetric, and that is the single decision here
-///         most likely to look like a bug.</b> §10.3.7 splits the slack evenly between two auto
+///         ⚠
+///         <b>
+///             The two axes are deliberately not symmetric, and that is the single decision here
+///             most likely to look like a bug.
+///         </b>
+///         §10.3.7 splits the slack evenly between two auto
 ///         margins "unless this would make them negative, in which case, when the direction of the
 ///         containing block is <c>ltr</c> (<c>rtl</c>), set <c>margin-left</c>
 ///         (<c>margin-right</c>) to zero and solve for <c>margin-right</c> (<c>margin-left</c>)".
@@ -40,7 +48,7 @@ public class AbsoluteAutoMarginTests {
     public void Two_auto_inline_margins_with_negative_slack_pin_the_box_to_the_inline_start_edge() {
         using var tree = new LayoutTree();
         var root = Container(tree, Direction.Rtl);
-        var child = Absolute(tree, root, width: 72f, height: 20f);
+        var child = Absolute(tree, root, 72f, 20f);
 
         tree.SetPosition(child, Edge.Left, StyleLength.Points(10f));
         tree.SetPosition(child, Edge.Right, StyleLength.Points(20f));
@@ -59,7 +67,7 @@ public class AbsoluteAutoMarginTests {
     public void One_auto_inline_margin_takes_negative_slack_whole() {
         using var tree = new LayoutTree();
         var root = Container(tree, Direction.Rtl);
-        var child = Absolute(tree, root, width: 72f, height: 20f);
+        var child = Absolute(tree, root, 72f, 20f);
 
         tree.SetPosition(child, Edge.Left, StyleLength.Points(10f));
         tree.SetPosition(child, Edge.Right, StyleLength.Points(20f));
@@ -80,7 +88,7 @@ public class AbsoluteAutoMarginTests {
     public void Two_auto_block_margins_split_negative_slack_evenly() {
         using var tree = new LayoutTree();
         var root = Container(tree, Direction.Ltr);
-        var child = Absolute(tree, root, width: 20f, height: 72f);
+        var child = Absolute(tree, root, 20f, 72f);
 
         tree.SetPosition(child, Edge.Top, StyleLength.Points(10f));
         tree.SetPosition(child, Edge.Bottom, StyleLength.Points(20f));
@@ -101,7 +109,7 @@ public class AbsoluteAutoMarginTests {
     public void An_auto_width_between_two_insets_leaves_an_auto_margin_at_zero() {
         using var tree = new LayoutTree();
         var root = Container(tree, Direction.Ltr);
-        var child = Absolute(tree, root, width: float.NaN, height: 20f);
+        var child = Absolute(tree, root, float.NaN, 20f);
 
         tree.SetPosition(child, Edge.Left, StyleLength.Points(10f));
         tree.SetPosition(child, Edge.Right, StyleLength.Points(20f));
@@ -123,7 +131,7 @@ public class AbsoluteAutoMarginTests {
     public void An_auto_margin_without_both_insets_resolves_to_zero() {
         using var tree = new LayoutTree();
         var root = Container(tree, Direction.Ltr);
-        var child = Absolute(tree, root, width: 20f, height: 20f);
+        var child = Absolute(tree, root, 20f, 20f);
 
         tree.SetPosition(child, Edge.Left, StyleLength.Points(10f));
         tree.SetMargin(child, Edge.Right, StyleLength.Auto);

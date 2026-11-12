@@ -10,8 +10,12 @@ namespace Tests;
 /// <summary>Each octave of a noise is its own field, and not the one before it shrunk.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Every octave hashed cell and seed and nothing else, so at a lacunarity of two the
-///         second octave's top-left quarter <em>was</em> the first octave, at half the size.</b> The
+///         ⚠
+///         <b>
+///             Every octave hashed cell and seed and nothing else, so at a lacunarity of two the
+///             second octave's top-left quarter <em>was</em> the first octave, at half the size.
+///         </b>
+///         The
 ///         lattice coordinates are the same integers at a higher frequency. So the image held
 ///         shrunken copies of itself toward the corner, and the value at <c>uv = 0</c> was the same
 ///         at any octave count, because every octave read the corner of the same hash.
@@ -26,7 +30,13 @@ public class TextureNoiseOctaveDeviceTests(ITestOutputHelper output) {
     const int Side = 512;
 
     /// <summary>One noise field, read back as floats.</summary>
-    static float[] Field(TexturePlanEvaluator evaluator, TextureNoiseBasis basis, int octaves, uint seed, float gain = 1f) {
+    static float[] Field(
+        TexturePlanEvaluator evaluator,
+        TextureNoiseBasis basis,
+        int octaves,
+        uint seed,
+        float gain = 1f
+    ) {
         var plan = new TexturePlan {
             BaseWidth = Side,
             BaseHeight = Side,
@@ -67,8 +77,12 @@ public class TextureNoiseOctaveDeviceTests(ITestOutputHelper output) {
 
     /// <summary>The second octave's top-left quarter against the whole of the first.</summary>
     /// <remarks>
-    ///     ⚠ <b>The whole of the second octave against the first at the same place is the
-    ///     instrument:</b> it is unrelated before and after, so "uncorrelated" below means something
+    ///     ⚠
+    ///     <b>
+    ///         The whole of the second octave against the first at the same place is the
+    ///         instrument:
+    ///     </b>
+    ///     it is unrelated before and after, so "uncorrelated" below means something
     ///     and is not what any two arrays of this noise would answer.
     /// </remarks>
     [Theory]
@@ -90,9 +104,9 @@ public class TextureNoiseOctaveDeviceTests(ITestOutputHelper output) {
 
         for (var y = 0; y < Side / 2; y++) {
             for (var x = 0; x < Side / 2; x++) {
-                var here = ((y * Side) + x);
-                var twice = ((y * 2 * Side) + (x * 2));
-                var octave = (2d * both[here]) - first[here];
+                var here = y * Side + x;
+                var twice = y * 2 * Side + x * 2;
+                var octave = 2d * both[here] - first[here];
 
                 second.Add(octave);
                 shrunk.Add(first[twice]);
@@ -120,7 +134,8 @@ public class TextureNoiseOctaveDeviceTests(ITestOutputHelper output) {
 
         for (var seed = 1u; seed <= 8u; seed++) {
             moved += Math.Abs(
-                Field(evaluator, TextureNoiseBasis.Value, 1, seed)[0] - Field(evaluator, TextureNoiseBasis.Value, 2, seed)[0]
+                Field(evaluator, TextureNoiseBasis.Value, 1, seed)[0]
+                - Field(evaluator, TextureNoiseBasis.Value, 2, seed)[0]
             );
         }
 

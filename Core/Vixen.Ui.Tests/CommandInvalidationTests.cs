@@ -52,7 +52,7 @@ public class CommandInvalidationTests {
 
         for (var i = 0; i < 50; i++) {
             document.InvalidateCommands();
-            view.AddCommandHandler($"test.command-{i}", () => { });
+            view.AddCommandHandler($"test.command-{i}", static () => { });
         }
 
         // ⚠ A hundred mutations, not fifty: each turn of the loop is an explicit invalidation *and*
@@ -98,7 +98,7 @@ public class CommandInvalidationTests {
 
         // ⚠ Asserted one at a time with a frame between, because a test that made all three changes
         // and saw one raise cannot tell three working sources from one working source.
-        view.AddCommandHandler("edit.copy", () => { });
+        view.AddCommandHandler("edit.copy", static () => { });
         counter.Frame();
         Assert.Equal(++raises, counter.Count);
 

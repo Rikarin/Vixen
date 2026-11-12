@@ -49,8 +49,12 @@ public class ShaderBindingsGenerator : IIncrementalGenerator {
 
     /// <summary>The MSBuild property that makes the emitted classes internal.</summary>
     /// <remarks>
-    ///     ⚠ <b>Because two assemblies can reflect two different shaders with one name, and one of
-    ///     them can reference the other.</b> The class is named after the shader — <c>UiVertex</c>
+    ///     ⚠
+    ///     <b>
+    ///         Because two assemblies can reflect two different shaders with one name, and one of
+    ///         them can reference the other.
+    ///     </b>
+    ///     The class is named after the shader — <c>UiVertex</c>
     ///     becomes <c>UiVertexKeys</c> in <c>Vixen.Shaders.Generated</c> — so two assemblies that
     ///     each reflect a <c>UiVertex</c>, one referencing the other, emit two public classes with
     ///     one name: CS0436, which this repository builds as an error. That is the state
@@ -74,10 +78,9 @@ public class ShaderBindingsGenerator : IIncrementalGenerator {
         // ⚠ Combined rather than read inside `Generate`, because a generator may only reach the
         // options through the pipeline — reading them off a captured context is what makes an
         // incremental generator re-run when nothing it depends on changed.
-        var visibility = context.AnalyzerConfigOptionsProvider.Select(
-            static (options, _) =>
-                options.GlobalOptions.TryGetValue(InternalProperty, out var value)
-                && string.Equals(value, "true", StringComparison.OrdinalIgnoreCase)
+        var visibility = context.AnalyzerConfigOptionsProvider.Select(static (options, _) =>
+            options.GlobalOptions.TryGetValue(InternalProperty, out var value)
+            && string.Equals(value, "true", StringComparison.OrdinalIgnoreCase)
         );
 
         context.RegisterSourceOutput(

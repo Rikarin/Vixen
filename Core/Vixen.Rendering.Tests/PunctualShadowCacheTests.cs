@@ -20,8 +20,11 @@ namespace Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <strong>The invalidation rule is the whole subject, so every test here is one clause of
-///         it.</strong> A tile is kept when the slot has been drawn, holds this lamp's key and this
+///         <strong>
+///             The invalidation rule is the whole subject, so every test here is one clause of
+///             it.
+///         </strong>
+///         A tile is kept when the slot has been drawn, holds this lamp's key and this
 ///         face, was drawn from the same casters in the same places, and was drawn at the current
 ///         <see cref="PunctualShadowRenderer.CasterVersion" />. A cache that never invalidates is a
 ///         stale shadow; one that invalidates on everything is the uncached path with more code, and
@@ -89,8 +92,7 @@ public class PunctualShadowCacheTests : IDisposable {
             && id.Index >> 6 < words[viewIndex].Length
             && (words[viewIndex][id.Index >> 6] & (1UL << (id.Index & 63))) != 0;
 
-        public ReadOnlySpan<ulong> Words(int viewIndex) =>
-            (uint)viewIndex < (uint)words.Length ? words[viewIndex] : [];
+        public ReadOnlySpan<ulong> Words(int viewIndex) => (uint)viewIndex < (uint)words.Length ? words[viewIndex] : [];
 
         public void Hide(int viewIndex, RenderObjectId id) {
             if (!IsVisible(viewIndex, id)) {
@@ -111,7 +113,7 @@ public class PunctualShadowCacheTests : IDisposable {
             counts = new int[views.Count];
 
             for (var v = 0; v < views.Count; v++) {
-                words[v] = new ulong[((store.Count + 63) / 64) + 1];
+                words[v] = new ulong[(store.Count + 63) / 64 + 1];
 
                 for (var i = 0; i < store.Count; i++) {
                     ref var candidate = ref store[new(i)];
@@ -137,10 +139,7 @@ public class PunctualShadowCacheTests : IDisposable {
             system.Visibility = new SeesEverything();
         }
 
-        var meshes = new MeshRenderFeature {
-            Pipelines = new(device),
-            Describer = new EffectPipelineDescriber(device)
-        };
+        var meshes = new MeshRenderFeature { Pipelines = new(device), Describer = new EffectPipelineDescriber(device) };
 
         var materials = new MaterialRenderFeature { Effects = effects };
         meshes.Add(materials);
@@ -208,8 +207,7 @@ public class PunctualShadowCacheTests : IDisposable {
     }
 
     /// <summary>A spot light pointing down −Z from where it stands.</summary>
-    static RenderLight Spot(Vector3 at) =>
-        RenderLight.Spot(at, new(0f, 0f, -1f), 40f, 0.3f, 0.5f, new Color3(1f));
+    static RenderLight Spot(Vector3 at) => RenderLight.Spot(at, new(0f, 0f, -1f), 40f, 0.3f, 0.5f, new(1f));
 
     void Frame(Harness h) {
         var list = device.BeginCommandList();
@@ -230,7 +228,7 @@ public class PunctualShadowCacheTests : IDisposable {
     int TilePasses() =>
         device.Recorder!
             .OfKind(RecordedCommandKind.BeginRenderPass)
-            .Count(command => command.Text?.StartsWith("Punctual.Tile", StringComparison.Ordinal) == true);
+            .Count(static command => command.Text?.StartsWith("Punctual.Tile", StringComparison.Ordinal) == true);
 
     /// <inheritdoc />
     public void Dispose() {
@@ -518,8 +516,8 @@ public class PunctualShadowCacheTests : IDisposable {
 
         Frame(h);
 
-        var first = h.Shadows.Tiles.Single(tile => tile.Light == 0).Slot;
-        var second = h.Shadows.Tiles.Single(tile => tile.Light == 1).Slot;
+        var first = h.Shadows.Tiles.Single(static tile => tile.Light == 0).Slot;
+        var second = h.Shadows.Tiles.Single(static tile => tile.Light == 1).Slot;
 
         Assert.NotEqual(first, second);
 
@@ -528,8 +526,8 @@ public class PunctualShadowCacheTests : IDisposable {
 
         // The lamps swapped places in the list; neither moved in the world, so neither moved in the
         // atlas and neither was redrawn.
-        Assert.Equal(second, h.Shadows.Tiles.Single(tile => tile.Light == 0).Slot);
-        Assert.Equal(first, h.Shadows.Tiles.Single(tile => tile.Light == 1).Slot);
+        Assert.Equal(second, h.Shadows.Tiles.Single(static tile => tile.Light == 0).Slot);
+        Assert.Equal(first, h.Shadows.Tiles.Single(static tile => tile.Light == 1).Slot);
         Assert.Equal(0, h.Shadows.TilesDrawn);
     }
 
@@ -581,7 +579,7 @@ public class PunctualShadowCacheTests : IDisposable {
     /// <summary>With the cache off the frame is exactly what it always was.</summary>
     [Fact]
     public void The_uncached_path_draws_every_tile_every_frame() {
-        using var h = Build(cached: false);
+        using var h = Build(false);
         h.Shadows.Lights.Add(Spot(Vector3.Zero));
         AddCaster(h, new(0f, 0f, -10f));
 

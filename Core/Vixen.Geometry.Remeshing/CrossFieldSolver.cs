@@ -29,8 +29,12 @@ sealed class FieldLevel {
 
     /// <summary>One weight per entry in <see cref="Neighbours" />.</summary>
     /// <remarks>
-    ///     ⚠ <b>This is where docs/plan/41 § D6's second and third corrections live, and they are one
-    ///     mechanism rather than two.</b> The energy is <c>Σ w·deviation</c>, so a heavy edge is one
+    ///     ⚠
+    ///     <b>
+    ///         This is where docs/plan/41 § D6's second and third corrections live, and they are one
+    ///         mechanism rather than two.
+    ///     </b>
+    ///     The energy is <c>Σ w·deviation</c>, so a heavy edge is one
     ///     the field may not turn across and a light edge is one where turning is cheap — and a
     ///     singularity is nothing but concentrated turning. Stiffening the edges along a feature
     ///     pushes singularities off it; softening the edges round a vertex with a large angle defect
@@ -78,8 +82,12 @@ sealed class FieldLevel {
     /// <summary>One Gauss–Seidel update at one node. Writes <see cref="Directions" /> at that index and nowhere else.</summary>
     /// <param name="node">Which node.</param>
     /// <remarks>
-    ///     ⚠ <b>Each contribution is aligned to the running sum rather than to the node's current
-    ///     value, and the accumulation order is the neighbour list's own.</b> Aligning to the current
+    ///     ⚠
+    ///     <b>
+    ///         Each contribution is aligned to the running sum rather than to the node's current
+    ///         value, and the accumulation order is the neighbour list's own.
+    ///     </b>
+    ///     Aligning to the current
     ///     value converges slower and is worse near a singularity, where the current value is the
     ///     thing that is wrong. Aligning to the running sum is order-dependent by construction — which
     ///     is fine and is <i>why</i> the neighbour list is sorted and the reduction is in its order:
@@ -143,8 +151,12 @@ sealed class FieldLevel {
 ///         parallel Gauss–Seidel <i>verbatim</i>, and everything below is the replacement.
 ///     </para>
 ///     <para>
-///         ⚠ <b>It runs on <c>JobScheduler</c> and not on the GPU, and § D17 records that as a
-///         decision rather than an omission.</b> A local operator over a colouring on millions of
+///         ⚠
+///         <b>
+///             It runs on <c>JobScheduler</c> and not on the GPU, and § D17 records that as a
+///             decision rather than an omission.
+///         </b>
+///         A local operator over a colouring on millions of
 ///         vertices is textbook GPU work; bit-exact float reduction across drivers and vendors is not
 ///         achievable, and this is an import-time cost rather than a frame cost.
 ///     </para>
@@ -165,8 +177,10 @@ static class CrossFieldSolver {
     public const float CurvatureWeight = 3f;
 
     /// <summary>How hard a guide at full strength pulls.</summary>
-    /// <remarks>Heavier than the curvature, because a guide is the artist saying so and curvature is
-    ///     the surface being asked.</remarks>
+    /// <remarks>
+    ///     Heavier than the curvature, because a guide is the artist saying so and curvature is
+    ///     the surface being asked.
+    /// </remarks>
     public const float GuideWeight = 8f;
 
     /// <summary>The anisotropy at which the curvature pull is already at full weight.</summary>
@@ -311,7 +325,7 @@ static class CrossFieldSolver {
         var (order, colourStarts) = Colour(count, starts, neighbours);
 
         return new() {
-            Positions = [.. mesh.Positions],
+            Positions = [..mesh.Positions],
             Normals = Normals(mesh),
             Starts = starts,
             Neighbours = neighbours,
@@ -399,7 +413,7 @@ static class CrossFieldSolver {
 
         starts[count] = flat.Count;
 
-        return (starts, [.. flat]);
+        return (starts, [..flat]);
     }
 
     /// <summary>Greedy graph colouring by ascending index, so one colour's nodes are independent.</summary>
@@ -468,8 +482,12 @@ static class CrossFieldSolver {
 
     /// <summary>Greedy edge contraction into a coarser graph, or null when nothing contracted.</summary>
     /// <remarks>
-    ///     ⚠ <b>Ascending by node, and the partner is the shortest unmatched edge with the lowest
-    ///     index breaking a tie.</b> Every published matching heuristic worth using picks by degree or
+    ///     ⚠
+    ///     <b>
+    ///         Ascending by node, and the partner is the shortest unmatched edge with the lowest
+    ///         index breaking a tie.
+    ///     </b>
+    ///     Every published matching heuristic worth using picks by degree or
     ///     by a random order; both make the hierarchy — and therefore the answer — depend on something
     ///     that is not the input.
     /// </remarks>
@@ -586,7 +604,7 @@ static class CrossFieldSolver {
 
             var list = lists[cluster];
 
-            list.Sort((one, two) => one.Node.CompareTo(two.Node));
+            list.Sort(static (one, two) => one.Node.CompareTo(two.Node));
 
             for (var at = 0; at < list.Count; at++) {
                 if (at > 0 && list[at].Node == list[at - 1].Node) {
@@ -610,7 +628,7 @@ static class CrossFieldSolver {
             Normals = normals,
             Starts = starts,
             Neighbours = neighbours,
-            Weights = [.. weights],
+            Weights = [..weights],
             Hard = hard,
             HardDirection = hardDirection,
             SoftDirection = soft,
@@ -629,16 +647,24 @@ static class CrossFieldSolver {
     /// <summary>The geometric initialization § D5 puts in place of a random one.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Derived from the vertex's own position, tie-broken by index — and neither the
-    ///         clock nor a seed appears anywhere.</b> § D5 states it as a determinism requirement, and
+    ///         ⚠
+    ///         <b>
+    ///             Derived from the vertex's own position, tie-broken by index — and neither the
+    ///             clock nor a seed appears anywhere.
+    ///         </b>
+    ///         § D5 states it as a determinism requirement, and
     ///         it is also the reason the hierarchy is not optional: the axis a vertex picks changes
     ///         discontinuously across the octant boundaries of its own position, so the starting field
     ///         is piecewise and torn, and closing those tears is a global rearrangement rather than a
     ///         local one.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Comparing <i>magnitudes</i> of coordinates is scale-free; comparing a coordinate
-    ///         against a constant would not be.</b> Every coordinate scales by the same factor, so
+    ///         ⚠
+    ///         <b>
+    ///             Comparing <i>magnitudes</i> of coordinates is scale-free; comparing a coordinate
+    ///             against a constant would not be.
+    ///         </b>
+    ///         Every coordinate scales by the same factor, so
     ///         which of the three is largest does not move.
     ///     </para>
     /// </remarks>
@@ -672,7 +698,7 @@ static class CrossFieldSolver {
             // primitive is full of them — and the winner has to be the same on every machine without
             // being the same for every vertex, or a whole face of a box starts from one direction.
             if (magnitude[(first + 1) % 3] == magnitude[first] || magnitude[(first + 2) % 3] == magnitude[first]) {
-                var rotated = (first + (node % 3)) % 3;
+                var rotated = (first + node % 3) % 3;
 
                 if (magnitude[rotated] == magnitude[first]) {
                     first = rotated;
@@ -692,11 +718,12 @@ static class CrossFieldSolver {
         }
     }
 
-    static Vector3 Axis(int index) => index switch {
-        0 => Vector3.UnitX,
-        1 => Vector3.UnitY,
-        _ => Vector3.UnitZ
-    };
+    static Vector3 Axis(int index) =>
+        index switch {
+            0 => Vector3.UnitX,
+            1 => Vector3.UnitY,
+            _ => Vector3.UnitZ
+        };
 
     /// <summary>Copies a coarse solution down onto the level it was contracted from.</summary>
     static void Prolong(FieldLevel fine, FieldLevel coarse) {

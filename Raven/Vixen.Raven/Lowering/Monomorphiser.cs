@@ -128,7 +128,7 @@ sealed class Monomorphiser {
 
     /// <summary>Name and parameter types, so two overloads of one name stay two members.</summary>
     static string Signature(SubstitutedMethodSymbol method) =>
-        $"{method.OriginalDefinition.Name}({string.Join(",", method.OriginalDefinition.Parameters.Select(p => p.Type.ToDisplayString()))})";
+        $"{method.OriginalDefinition.Name}({string.Join(",", method.OriginalDefinition.Parameters.Select(static p => p.Type.ToDisplayString()))})";
 
     /// <summary>
     ///     Walks a declaration's signatures and bodies, adding whatever instantiations they reach.

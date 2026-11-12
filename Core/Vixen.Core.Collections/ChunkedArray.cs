@@ -6,8 +6,12 @@ using System.Diagnostics.CodeAnalysis;
 namespace Vixen.Core.Collections;
 
 /// <summary>
-///     A growable array built from fixed-size chunks, so that <b>a reference into it stays valid
-///     when it grows</b>.
+///     A growable array built from fixed-size chunks, so that
+///     <b>
+///         a reference into it stays valid
+///         when it grows
+///     </b>
+///     .
 /// </summary>
 /// <typeparam name="T">The element type.</typeparam>
 /// <remarks>

@@ -9,8 +9,12 @@ namespace Vixen.Geometry.Uv.Tests;
 /// <summary>What is refused before a solve runs, and what it is told.</summary>
 /// <remarks>
 ///     <para>
-///         docs/plan/42 § D5. ⚠ <b>A chart that is not a disk has no injective map to the plane at
-///         all</b>, so a flattener that produced coordinates for one produced a fold with extra steps.
+///         docs/plan/42 § D5. ⚠
+///         <b>
+///             A chart that is not a disk has no injective map to the plane at
+///             all
+///         </b>
+///         , so a flattener that produced coordinates for one produced a fold with extra steps.
 ///         The literature's usual answer is to run the solve anyway and let the flip count catch it,
 ///         which wastes the solve and reports the symptom rather than the cause: an annulus needs a
 ///         cut joining its two boundary loops, and "seventy triangles were flipped" does not say so.
@@ -93,14 +97,10 @@ public class UvFlattenTopologyTests {
         var reasons = new List<ChartRefusal>();
 
         foreach (var mesh in new[] {
-                     ShapeCorpus.CylinderClosed(),
-                     ShapeCorpus.TorusClosed(),
-                     ShapeCorpus.TwoIslands(),
+                     ShapeCorpus.CylinderClosed(), ShapeCorpus.TorusClosed(), ShapeCorpus.TwoIslands(),
                      ShapeCorpus.Bowtie()
                  }) {
-            reasons.Add(
-                UvUnwrap.Detail(mesh, ShapeCorpus.OneChart(mesh), new(), null, 0).Refused[0].Reason
-            );
+            reasons.Add(UvUnwrap.Detail(mesh, ShapeCorpus.OneChart(mesh), new(), null, 0).Refused[0].Reason);
         }
 
         Assert.Equal(reasons.Count, reasons.Distinct().Count());
@@ -115,8 +115,8 @@ public class UvFlattenTopologyTests {
         // ⚠ An *interior* patch, not a whole column. A column would cut the tube open and leave a
         // rectangle, so both charts would flatten and the test would assert nothing. Two quads in the
         // middle leave an annulus with a hole in it, which is refused for the same reason plus one.
-        charts[(5 * 12) + 5] = 1;
-        charts[(5 * 12) + 6] = 1;
+        charts[5 * 12 + 5] = 1;
+        charts[5 * 12 + 6] = 1;
 
         var detail = UvUnwrap.Detail(mesh, charts, new(), null, 0);
 

@@ -131,9 +131,9 @@ deliberately does not do.
 ./build.sh Test
 ```
 
-`./build.sh` is the one entry point, shared by CI and developers. There are forty targets:
+`./build.sh` is the one entry point, shared by CI and developers. There are thirty-nine targets:
 `Clean Restore RestoreNativeDeps Compile CompileRelease Test Coverage Pack CheckPackages CheckTemplates
-GoldenImages Benchmark CheckBenchmarks CheckArchitecture CheckApi CheckFormat CheckWhitespace
+GoldenImages Benchmark CheckBenchmarks CheckArchitecture CheckApi CheckFormat
 CheckAttribution CheckStrings CheckShaders CheckDocComments CheckDocs CheckDocsCoverage CheckPathCase Docs
 CheckAot CheckAotIos CompileMobile CompileWeb PublishWeb BrowserSmoke PublishEditor Release
 ContentBytes RemeshBytes SampleFrame AffectedProjects AffectedTests TestOrder PruneWorktrees`.

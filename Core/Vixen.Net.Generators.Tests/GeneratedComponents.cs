@@ -4,7 +4,6 @@
 using Vixen.Core;
 using Vixen.Core.Mathematics;
 using Vixen.Ecs;
-using Vixen.Net;
 using Vixen.Net.Messaging;
 using Vixen.Net.Replication;
 

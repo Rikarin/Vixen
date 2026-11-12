@@ -140,8 +140,11 @@ sealed partial class TileNode : TextureNode {
 /// <summary>A rectangle of the source, onto the whole of the target.</summary>
 /// <remarks>
 ///     <para>
-///         <b>The rect is in the source's own normalised space and the target's size is the
-///         plan's</b>, so cropping to a quarter and writing a same-sized image is a crop <em>and</em>
+///         <b>
+///             The rect is in the source's own normalised space and the target's size is the
+///             plan's
+///         </b>
+///         , so cropping to a quarter and writing a same-sized image is a crop <em>and</em>
 ///         a 2× magnification. That is a thing artists ask for and it is the only 1:1 crop this
 ///         resolution model can express — <c>TextureImage</c> sizes an image by a power-of-two level
 ///         offset, and a crop to 37% of the width has no image to write into.
@@ -153,7 +156,11 @@ sealed partial class TileNode : TextureNode {
 ///         arithmetic is actually prone to.
 ///     </para>
 /// </remarks>
-[Node("Space/Crop", Preview = true, Summary = "A rectangle of the source, stretched onto the image or cut out at its own scale.")]
+[Node(
+    "Space/Crop",
+    Preview = true,
+    Summary = "A rectangle of the source, stretched onto the image or cut out at its own scale."
+)]
 sealed partial class CropNode : TextureNode {
     /// <summary>Whether the rect fills the image or keeps its own scale.</summary>
     /// <remarks>
@@ -162,13 +169,21 @@ sealed partial class CropNode : TextureNode {
     ///     exactly, its middle on the image's middle, and leaves the rest transparent — the cut-out keeps its texel
     ///     density, which is what a stamp, an atlas cell or a patch of a photo needs.
     /// </remarks>
-    [Setting(AcceptedFrom = typeof(TextureCropFit), Summary = "Stretch fills the image with the rect; Unscaled cuts it out at the source's own scale, centred, with nothing around it.")]
+    [Setting(
+        AcceptedFrom = typeof(TextureCropFit),
+        Summary =
+            "Stretch fills the image with the rect; Unscaled cuts it out at the source's own scale, centred, with nothing around it."
+    )]
     public string Fit = "Stretch";
 
     /// <summary>How a sub-sample reads: <c>Point</c> or <c>Bilinear</c>. ⚠ Not <c>Box</c>.</summary>
     /// <remarks>
-    ///     ⚠ <b>Listed rather than <c>AcceptedFrom = typeof(TextureFilter)</c>, because this node
-    ///     refuses the enum's third member.</b> A picker generated off the whole enum would offer
+    ///     ⚠
+    ///     <b>
+    ///         Listed rather than <c>AcceptedFrom = typeof(TextureFilter)</c>, because this node
+    ///         refuses the enum's third member.
+    ///     </b>
+    ///     A picker generated off the whole enum would offer
     ///     <c>Box</c> and the compiler would then refuse it — which is the defect
     ///     <c>[Setting(Accepted = …)]</c> exists to remove, arriving from the other side.
     ///     <c>TextureSettingChoiceTests</c> holds the narrowing to a real refusal rather than to an
@@ -287,15 +302,23 @@ enum TextureResampleSize {
 /// <summary>What a <c>Resample</c>'s <c>Filter</c> setting takes.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>A separate enum from <see cref="TextureFilter" /> because of the member
-///         <see cref="Auto" />, which is not a filter and never reaches a kernel.</b> The three
+///         ⚠
+///         <b>
+///             A separate enum from <see cref="TextureFilter" /> because of the member
+///             <see cref="Auto" />, which is not a filter and never reaches a kernel.
+///         </b>
+///         The three
 ///         others are that enum's, spelled the same, and <c>ResampleNode.FilterFor</c> is the one
 ///         place they meet — the same bargain <c>TextureSettings</c> makes everywhere else, a name on
 ///         one side and a number on the other.
 ///     </para>
 ///     <para>
-///         ⚠ <b>And it has to be the <em>default</em> rather than a fallback
-///         <c>TextureSettings.Enum</c> returns.</b> A <c>[Setting]</c>'s declared default is written
+///         ⚠
+///         <b>
+///             And it has to be the <em>default</em> rather than a fallback
+///             <c>TextureSettings.Enum</c> returns.
+///         </b>
+///         A <c>[Setting]</c>'s declared default is written
 ///         into <c>NodeBinding</c>'s texts by <c>NodeGraphCompiler.Bind</c> before a node is asked
 ///         anything, so a field initialized to <c>"Box"</c> makes the fallback argument beside it
 ///         unreachable in every graph — which is why
@@ -332,8 +355,12 @@ enum TextureResampleFilter {
 ///         to be wrong.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Which is exactly why this node could not exist until
-///         <a href="https://github.com/Rikarin/Vixen/issues/733">#733</a>.</b> Every image a node
+///         ⚠
+///         <b>
+///             Which is exactly why this node could not exist until
+///             <a href="https://github.com/Rikarin/Vixen/issues/733">#733</a>.
+///         </b>
+///         Every image a node
 ///         allocated was at the plan's base level, so a Resample writing its output at its input's
 ///         size was an <em>identity copy</em> — a node that draws a perfectly plausible picture and
 ///         does nothing. <see cref="TextureEmitter.Write(string,TextureChannels,int?)" /> is the level
@@ -341,15 +368,22 @@ enum TextureResampleFilter {
 ///         that copy, so it says so.
 ///     </para>
 ///     <para>
-///         <b><c>Box</c> going down and <c>Bilinear</c> going up, which is what
-///         <see cref="TextureResampleFilter.Auto" /> is for.</b> Halving with <c>Point</c> keeps one
+///         <b>
+///             <c>Box</c> going down and <c>Bilinear</c> going up, which is what
+///             <see cref="TextureResampleFilter.Auto" /> is for.
+///         </b>
+///         Halving with <c>Point</c> keeps one
 ///         texel in four and drops the rest; the closed form is worth stating because it is as far
 ///         apart as two pictures get — a column checkerboard boxed down by any integer factor is 0.5
 ///         everywhere and point-sampled down is 0 or 1 everywhere.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Which is why the default cannot be a filter name —
-///         <a href="https://github.com/Rikarin/Vixen/issues/865">#865</a>.</b> A declared default of
+///         ⚠
+///         <b>
+///             Which is why the default cannot be a filter name —
+///             <a href="https://github.com/Rikarin/Vixen/issues/865">#865</a>.
+///         </b>
+///         A declared default of
 ///         <c>Box</c> was <c>Box</c> for <see cref="TextureResampleSize.Double" /> too, and
 ///         <c>Resample.rvn</c>'s box branch takes <c>ceil(extent / size)</c> sub-samples per axis
 ///         clamped to at least one — which is <em>exactly</em> one whenever the target is the larger
@@ -431,8 +465,12 @@ sealed partial class ResampleNode : TextureNode {
     /// <param name="size">How far the resample moves, whose sign is the direction.</param>
     /// <returns>The number the kernel compares against.</returns>
     /// <remarks>
-    ///     ⚠ <b>The comparison is against <see cref="TextureResampleSize.Same" /> rather than against
-    ///     zero</b>, because the member's value <em>is</em> the level offset and a positive level is a
+    ///     ⚠
+    ///     <b>
+    ///         The comparison is against <see cref="TextureResampleSize.Same" /> rather than against
+    ///         zero
+    ///     </b>
+    ///     , because the member's value <em>is</em> the level offset and a positive level is a
     ///     halving — so "greater than <c>Same</c>" is "smaller picture", which reads the wrong way
     ///     round and is exactly the sign this enum's own remarks say a second spelling would get
     ///     wrong. <c>Same</c> takes the magnifying branch and it does not matter which it takes: at

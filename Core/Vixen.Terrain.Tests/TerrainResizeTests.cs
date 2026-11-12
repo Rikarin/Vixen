@@ -9,8 +9,12 @@ namespace Vixen.Terrain.Tests;
 public sealed class TerrainResizeTests {
     static TerrainDescription Shape =>
         TerrainDescription.Default with {
-            TileSamples = 32, TilesX = 2, TilesZ = 2,
-            MetresPerQuad = 1f, MinHeight = -100f, MaxHeight = 100f
+            TileSamples = 32,
+            TilesX = 2,
+            TilesZ = 2,
+            MetresPerQuad = 1f,
+            MinHeight = -100f,
+            MaxHeight = 100f
         };
 
     static Terrain Built(out TerrainEditLayer layer) {
@@ -73,8 +77,12 @@ public sealed class TerrainResizeTests {
 
     /// <summary>Changing the height range keeps the metres and spends the precision.</summary>
     /// <remarks>
-    ///     ⚠ <b>[§ D2]: "the range is a property of the asset and changing it rescales, with the
-    ///     dialog saying so".</b> Carrying the stored numbers across instead would silently move every
+    ///     ⚠
+    ///     <b>
+    ///         [§ D2]: "the range is a property of the asset and changing it rescales, with the
+    ///         dialog saying so".
+    ///     </b>
+    ///     Carrying the stored numbers across instead would silently move every
     ///     hill — a mountain at 40 m in a ±100 m range becomes 400 m in a ±1000 m one, which looks
     ///     exactly like a bug in the importer.
     /// </remarks>
@@ -92,8 +100,12 @@ public sealed class TerrainResizeTests {
 
     /// <summary>A delta is a difference, so it scales by the ratio rather than through StoreHeight.</summary>
     /// <remarks>
-    ///     ⚠ <b>Putting a delta through the absolute conversion adds the old minimum and subtracts the
-    ///     new one</b>, which for a terrain whose floor moved turns every edit layer into a uniform
+    ///     ⚠
+    ///     <b>
+    ///         Putting a delta through the absolute conversion adds the old minimum and subtracts the
+    ///         new one
+    ///     </b>
+    ///     , which for a terrain whose floor moved turns every edit layer into a uniform
     ///     offset of the whole terrain — visible as the base showing through everywhere the layer was
     ///     empty.
     /// </remarks>
@@ -139,8 +151,7 @@ public sealed class TerrainResizeTests {
     public void A_shape_a_terrain_cannot_have_is_refused_rather_than_built() {
         var terrain = Built(out _);
 
-        Assert.Throws<ArgumentException>(
-            () => TerrainResize.To(terrain, terrain.Description with { TileSamples = 33 })
+        Assert.Throws<ArgumentException>(() => TerrainResize.To(terrain, terrain.Description with { TileSamples = 33 })
         );
     }
 

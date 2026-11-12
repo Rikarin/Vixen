@@ -29,8 +29,7 @@ public readonly record struct GateAnswer<T>(int Status, T? Value, GateProblem? P
     /// <param name="code">The stable token.</param>
     /// <param name="detail">The sentence.</param>
     /// <returns>The answer.</returns>
-    public static GateAnswer<T> No(int status, string code, string detail) =>
-        new(status, default, new(code, detail));
+    public static GateAnswer<T> No(int status, string code, string detail) => new(status, default, new(code, detail));
 }
 
 /// <summary>
@@ -38,8 +37,12 @@ public readonly record struct GateAnswer<T>(int Status, T? Value, GateProblem? P
 /// </summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>The same shape the grains took: a plain class a test constructs and drives, with a
-///         thin adapter over it.</b> <c>GateEndpoints</c> maps routes onto these methods and does
+///         ⚠
+///         <b>
+///             The same shape the grains took: a plain class a test constructs and drives, with a
+///             thin adapter over it.
+///         </b>
+///         <c>GateEndpoints</c> maps routes onto these methods and does
 ///         nothing else — it reads a header, calls one method, writes the answer. Everything worth
 ///         asserting about a gate is here, so asserting it needs neither a web host nor a cluster.
 ///     </para>
@@ -92,14 +95,14 @@ public sealed class GateService {
         this.log = log ?? NullLogger<GateService>.Instance;
 
         this.authorities = authorities.ToDictionary(
-            authority => authority.Scheme,
+            static authority => authority.Scheme,
             StringComparer.OrdinalIgnoreCase
         );
     }
 
     /// <summary>What this fleet is running. The call a client makes before any other.</summary>
     /// <returns>The version, where the catalog is, and which maps exist.</returns>
-    public CatalogResponse Catalog() => new(options.Version, options.Content, [.. options.Maps]);
+    public CatalogResponse Catalog() => new(options.Version, options.Content, [..options.Maps]);
 
     /// <summary>Turns a credential into a session.</summary>
     /// <param name="request">Which authority, and what it wants.</param>
@@ -111,7 +114,7 @@ public sealed class GateService {
     ) {
         ArgumentNullException.ThrowIfNull(request);
 
-        if (!authorities.TryGetValue(request.Scheme ?? "", out var authority)) {
+        if (!authorities.TryGetValue(request.Scheme ?? string.Empty, out var authority)) {
             // Naming the schemes that do exist, because the alternative is a developer guessing
             // whether the gate is misconfigured or their spelling is wrong.
             return GateAnswer<SignInResponse>.No(
@@ -123,7 +126,7 @@ public sealed class GateService {
             );
         }
 
-        var decision = await authority.AuthenticateAsync(request.Credential ?? "", cancellation)
+        var decision = await authority.AuthenticateAsync(request.Credential ?? string.Empty, cancellation)
             .ConfigureAwait(false);
 
         if (!decision.Ok) {
@@ -141,9 +144,7 @@ public sealed class GateService {
 
         log.GateSignedIn(account.Id, authority.Scheme);
 
-        return GateAnswer<SignInResponse>.Yes(
-            new(sessions.Encode(new(account.Id, expires)), account.Id, expires)
-        );
+        return GateAnswer<SignInResponse>.Yes(new(sessions.Encode(new(account.Id, expires)), account.Id, expires));
     }
 
     /// <summary>Reads a bearer token.</summary>
@@ -168,7 +169,7 @@ public sealed class GateService {
 
         var rows = await store.Players.ForAccountAsync(session.Account, cancellation).ConfigureAwait(false);
 
-        return GateAnswer<CharacterList>.Yes(new([.. rows.Select(Summarise)]));
+        return GateAnswer<CharacterList>.Yes(new([..rows.Select(Summarise)]));
     }
 
     /// <summary>Makes a character.</summary>
@@ -289,7 +290,7 @@ public sealed class GateService {
 
         var placement = await fleet
             .PlaceAsync(
-                new(key, shardKey, request.Party, request.Guild, request.Locale ?? "", ShardId.None),
+                new(key, shardKey, request.Party, request.Guild, request.Locale ?? string.Empty, ShardId.None),
                 cancellation
             )
             .ConfigureAwait(false);
@@ -329,13 +330,20 @@ public sealed class GateService {
     }
 
     PlayResponse Nowhere(PlayStatus status, string reason) =>
-        new(status, "", "", "", reason, status == PlayStatus.Starting ? options.StartingRetry : TimeSpan.Zero);
+        new(
+            status,
+            string.Empty,
+            string.Empty,
+            string.Empty,
+            reason,
+            status == PlayStatus.Starting ? options.StartingRetry : TimeSpan.Zero
+        );
 
     bool Allowed(string? map) =>
         !string.IsNullOrEmpty(map)
         && (options.Maps.Count == 0 || options.Maps.Contains(map, StringComparer.Ordinal));
 
-    string FirstMap() => options.Maps.Count > 0 ? options.Maps[0] : "";
+    string FirstMap() => options.Maps.Count > 0 ? options.Maps[0] : string.Empty;
 
     static CharacterSummary Summarise(PlayerRecord record) =>
         new(record.Key.Character, record.Name, record.Region, record.HomeMap, record.LastSeen);

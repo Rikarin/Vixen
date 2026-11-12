@@ -45,11 +45,11 @@ public readonly record struct Hsv(float H, float S, float V) {
 
         if (chroma > 0f) {
             if (max.Equals(color.R)) {
-                hue = ((color.G - color.B) / chroma % 6f) * 60f;
+                hue = (color.G - color.B) / chroma % 6f * 60f;
             } else if (max.Equals(color.G)) {
-                hue = (((color.B - color.R) / chroma) + 2f) * 60f;
+                hue = ((color.B - color.R) / chroma + 2f) * 60f;
             } else {
-                hue = (((color.R - color.G) / chroma) + 4f) * 60f;
+                hue = ((color.R - color.G) / chroma + 4f) * 60f;
             }
         }
 
@@ -57,19 +57,19 @@ public readonly record struct Hsv(float H, float S, float V) {
             hue += 360f;
         }
 
-        return new Hsv(hue, max <= 0f ? 0f : chroma / max, max);
+        return new(hue, max <= 0f ? 0f : chroma / max, max);
     }
 
     /// <summary>Converts back.</summary>
     /// <param name="alpha">The alpha to carry through.</param>
     /// <returns>The colour.</returns>
     public Color4 ToRgb(float alpha = 1f) {
-        var hue = ((H % 360f) + 360f) % 360f / 60f;
+        var hue = (H % 360f + 360f) % 360f / 60f;
         var chroma = V * S;
-        var second = chroma * (1f - MathF.Abs((hue % 2f) - 1f));
+        var second = chroma * (1f - MathF.Abs(hue % 2f - 1f));
         var match = V - chroma;
 
-        var (r, g, b) = (int) hue switch {
+        var (r, g, b) = (int)hue switch {
             0 => (chroma, second, 0f),
             1 => (second, chroma, 0f),
             2 => (0f, chroma, second),
@@ -78,7 +78,7 @@ public readonly record struct Hsv(float H, float S, float V) {
             _ => (chroma, 0f, second)
         };
 
-        return new Color4(r + match, g + match, b + match, alpha);
+        return new(r + match, g + match, b + match, alpha);
     }
 }
 
@@ -99,7 +99,7 @@ public readonly record struct OkLch(float L, float C, float H) {
     /// <returns>The same colour in OkLCh.</returns>
     public static OkLch FromSrgb(Color4 color) {
         var lab = Oklab.FromLinear(
-            new Vector3(
+            new(
                 ColorSpace.SrgbToLinear(color.R),
                 ColorSpace.SrgbToLinear(color.G),
                 ColorSpace.SrgbToLinear(color.B)
@@ -108,7 +108,7 @@ public readonly record struct OkLch(float L, float C, float H) {
 
         var hue = MathF.Atan2(lab.B, lab.A) * 180f / MathF.PI;
 
-        return new OkLch(lab.L, MathF.Sqrt((lab.A * lab.A) + (lab.B * lab.B)), hue < 0f ? hue + 360f : hue);
+        return new(lab.L, MathF.Sqrt(lab.A * lab.A + lab.B * lab.B), hue < 0f ? hue + 360f : hue);
     }
 
     /// <summary>Converts back, mapping into the sRGB gamut rather than clamping into it.</summary>
@@ -126,8 +126,12 @@ public readonly record struct OkLch(float L, float C, float H) {
     ///         what a picker's readout has to agree with.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b><see cref="GamutMap.Map(Vector3, ColorGamut)" /> is CSS Color 4's answer and it
-    ///         lives one assembly down</b>, in <c>Vixen.Core.Mathematics</c>, where
+    ///         ⚠
+    ///         <b>
+    ///             <see cref="GamutMap.Map(Vector3, ColorGamut)" /> is CSS Color 4's answer and it
+    ///             lives one assembly down
+    ///         </b>
+    ///         , in <c>Vixen.Core.Mathematics</c>, where
     ///         <c>UiGeometryBuilder</c> and the style parser already call it. This used to clamp
     ///         beside it with a comment saying a mapper was owed — the mapper was already written
     ///         and tested; nothing here called it.
@@ -149,7 +153,7 @@ public readonly record struct OkLch(float L, float C, float H) {
     public Color4 ToSrgb(float alpha = 1f) {
         var mapped = GamutMap.Map(Linear(), ColorGamut.Srgb);
 
-        return new Color4(
+        return new(
             ColorSpace.LinearToSrgb(Math.Clamp(mapped.X, 0f, 1f)),
             ColorSpace.LinearToSrgb(Math.Clamp(mapped.Y, 0f, 1f)),
             ColorSpace.LinearToSrgb(Math.Clamp(mapped.Z, 0f, 1f)),
@@ -194,7 +198,7 @@ static class Hex {
 
             for (var i = 0; i < 3; i++) {
                 expanded[i * 2] = span[i];
-                expanded[(i * 2) + 1] = span[i];
+                expanded[i * 2 + 1] = span[i];
             }
 
             return TryParse(expanded, out color);
@@ -206,13 +210,10 @@ static class Hex {
     /// <summary>Writes <c>#rrggbb</c>, or <c>#rrggbbaa</c> when the colour is not opaque.</summary>
     /// <param name="color">The colour.</param>
     /// <returns>The text.</returns>
-    public static string ToString(Color4 color) {
-        var value = color.A >= 1f
+    public static string ToString(Color4 color) =>
+        color.A >= 1f
             ? $"#{Byte(color.R):x2}{Byte(color.G):x2}{Byte(color.B):x2}"
             : $"#{Byte(color.R):x2}{Byte(color.G):x2}{Byte(color.B):x2}{Byte(color.A):x2}";
-
-        return value;
-    }
 
     static bool TryParse(ReadOnlySpan<char> span, out Color4 color) {
         color = default;
@@ -224,16 +225,21 @@ static class Hex {
         Span<float> parts = [0f, 0f, 0f, 1f];
 
         for (var i = 0; i * 2 < span.Length; i++) {
-            if (!byte.TryParse(span.Slice(i * 2, 2), NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var part)) {
+            if (!byte.TryParse(
+                    span.Slice(i * 2, 2),
+                    NumberStyles.HexNumber,
+                    CultureInfo.InvariantCulture,
+                    out var part
+                )) {
                 return false;
             }
 
             parts[i] = part / 255f;
         }
 
-        color = new Color4(parts[0], parts[1], parts[2], parts[3]);
+        color = new(parts[0], parts[1], parts[2], parts[3]);
         return true;
     }
 
-    static int Byte(float value) => (int) MathF.Round(Math.Clamp(value, 0f, 1f) * 255f);
+    static int Byte(float value) => (int)MathF.Round(Math.Clamp(value, 0f, 1f) * 255f);
 }

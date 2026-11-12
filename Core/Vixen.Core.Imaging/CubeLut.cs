@@ -15,14 +15,22 @@ namespace Vixen.Core.Imaging;
 ///     </para>
 ///     <para>
 ///         <b>Why 3D and not three curves.</b> A curve maps each channel from itself, so it cannot
-///         rotate a hue or desaturate only the greens. A table indexed by the colour <em>as a
-///         coordinate</em> expresses any mapping at all, and the hardware's trilinear filter is
+///         rotate a hue or desaturate only the greens. A table indexed by the colour
+///         <em>
+///             as a
+///             coordinate
+///         </em>
+///         expresses any mapping at all, and the hardware's trilinear filter is
 ///         exactly the interpolation between entries — so an arbitrarily complicated grade costs one
 ///         texture fetch. That is the whole reason the format won.
 ///     </para>
 ///     <para>
-///         ⚠ <b>It is display-referred, and the tonemapper samples it after the curve for that
-///         reason.</b> The input is a texture coordinate, so it has to be bounded — and a grade
+///         ⚠
+///         <b>
+///             It is display-referred, and the tonemapper samples it after the curve for that
+///             reason.
+///         </b>
+///         The input is a texture coordinate, so it has to be bounded — and a grade
 ///         authored on values that have already been through a curve behaves the way the colourist saw
 ///         it. What it therefore cannot do is anything to values above white, which is why the
 ///         scene-referred grade in <c>ColorGrading</c> exists beside it rather than instead
@@ -120,7 +128,7 @@ public static class CubeLut {
     static TextureData Build(int size, List<float> entries, float[] minimum, float[] maximum) {
         // Four channels rather than three: no graphics API samples a three-channel float texture
         // everywhere, and the alpha is what makes a texel a power of two so a row has no padding.
-        var texture = new TextureData(PixelFormat.Rgba16Float, size, size, levelCount: 1, depth: size);
+        var texture = new TextureData(PixelFormat.Rgba16Float, size, size, 1, size);
         var pixels = texture.PixelSpan();
         var at = 0;
 
@@ -129,7 +137,7 @@ public static class CubeLut {
                 // The domain is what the *input* was normalised over, so it is undone on the way in.
                 // Almost every file leaves it at 0..1 and this is a multiply by one.
                 var span = maximum[channel] - minimum[channel];
-                var value = entries[(i * 3) + channel];
+                var value = entries[i * 3 + channel];
 
                 if (MathF.Abs(span - 1f) > 1e-6f || minimum[channel] != 0f) {
                     value = span > 1e-6f ? (value - minimum[channel]) / span : value;

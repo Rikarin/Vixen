@@ -54,8 +54,10 @@ public sealed class TargetOverride {
     internal bool Unmark(string member) => overridden.Remove(member);
 }
 
-/// <summary>An asset's import settings, open for editing: the base, the per-target overrides, and
-/// where it appears in a build.</summary>
+/// <summary>
+///     An asset's import settings, open for editing: the base, the per-target overrides, and
+///     where it appears in a build.
+/// </summary>
 /// <remarks>
 ///     <para>
 ///         <b>It edits the sidecar's node tree, not a bound <see cref="AssetMeta" />.</b> Binding
@@ -235,7 +237,7 @@ public abstract class ImportSettingsDocument : EditorDocument {
         var importer = root["importer"] as YamlMapping;
 
         if (importer is null) {
-            importer = new YamlMapping { Tag = ImporterTag };
+            importer = new() { Tag = ImporterTag };
             root.Set("importer", importer);
         }
 
@@ -298,8 +300,7 @@ public abstract class ImportSettingsDocument : EditorDocument {
     /// </remarks>
     internal object NewSettings() => BindSettings(new());
 
-    object BindSettings(YamlMapping node) =>
-        YamlSerializer.Deserialize(node, SettingsType, Options())!;
+    object BindSettings(YamlMapping node) => YamlSerializer.Deserialize(node, SettingsType, Options())!;
 
     AddressableEdits BindAddressable(YamlMapping? node) {
         if (node is null) {
@@ -318,8 +319,7 @@ public abstract class ImportSettingsDocument : EditorDocument {
     YamlSerializerOptions Options() =>
         YamlSerializerOptions.Default with { OnUnknownKey = key => unknownKeys.Add(key) };
 
-    YamlMapping Emit(object settings) =>
-        (YamlMapping) YamlSerializer.Serialize(settings, SettingsType);
+    YamlMapping Emit(object settings) => (YamlMapping)YamlSerializer.Serialize(settings, SettingsType);
 
     void LoadOverrides(YamlMapping importer) {
         if (importer[TargetOverrides.OverridesKey] is not YamlSequence sequence) {

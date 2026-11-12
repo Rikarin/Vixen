@@ -43,7 +43,7 @@ public sealed class ReflectionTraceDeviceTests {
         var device = owned.Device;
 
         // The world: a floor and an emissive wall, composited into the clipmap both sides march.
-        var world = new GlobalDistanceField(resolution: 48, finestExtent: 4f);
+        var world = new GlobalDistanceField(48, 4f);
 
         world.Update(
             Vector3.Zero,
@@ -78,8 +78,8 @@ public sealed class ReflectionTraceDeviceTests {
 
         for (var y = 0; y < Side; y++) {
             for (var x = 0; x < Side; x++) {
-                var at = (y * Side) + x;
-                var z = x == 0 ? -3.5f : -0.7f + (0.2f * y);
+                var at = y * Side + x;
+                var z = x == 0 ? -3.5f : -0.7f + 0.2f * y;
 
                 positions[at] = new(0f, 0.5f, z, 1f);
                 normals[at] = new(0f, 1f, 0f, x / 7f);
@@ -99,38 +99,62 @@ public sealed class ReflectionTraceDeviceTests {
         effects.AddProvider(
             new Compiling(
                 loader,
-                _ => RavenEffects.Only(["Core", "Shading", "Geometry", "DistanceFields", "IrradianceFields", "SurfaceCache", "Reflections"])
+                static _ => RavenEffects.Only(
+                    ["Core", "Shading", "Geometry", "DistanceFields", "IrradianceFields", "SurfaceCache", "Reflections"]
+                )
             )
         );
 
         var pipelines = new ComputePipelineCache(device);
 
-        var positionPlane = owned.Owned("reflect-positions", TextureUsage.Sampled | TextureUsage.CopyDestination, PixelFormat.Rgba32Float, Side, Side);
-        var normalPlane = owned.Owned("reflect-normals", TextureUsage.Sampled | TextureUsage.CopyDestination, PixelFormat.Rgba32Float, Side, Side);
-        var target = owned.Owned("reflect-target", TextureUsage.Storage | TextureUsage.CopySource, PixelFormat.Rgba32Float, Side, Side);
-
-        var staging = owned.Buffer<Vector4>([.. positions, .. normals], BufferUsage.CopySource);
-        var readback = device.CreateBuffer(
-            new BufferDescription(Side * Side * 16, BufferUsage.CopyDestination, MemoryAccess.HostReadback, "reflect-readback")
+        var positionPlane = owned.Owned(
+            "reflect-positions",
+            TextureUsage.Sampled | TextureUsage.CopyDestination,
+            PixelFormat.Rgba32Float,
+            Side,
+            Side
+        );
+        var normalPlane = owned.Owned(
+            "reflect-normals",
+            TextureUsage.Sampled | TextureUsage.CopyDestination,
+            PixelFormat.Rgba32Float,
+            Side,
+            Side
+        );
+        var target = owned.Owned(
+            "reflect-target",
+            TextureUsage.Storage | TextureUsage.CopySource,
+            PixelFormat.Rgba32Float,
+            Side,
+            Side
         );
 
-        using var trace = new ReflectionTraceFill(device) {
-            Effects = effects,
-            Pipelines = pipelines,
-            Descriptors = allocator,
-            Source = "GlobalDistanceField",
-            CacheSource = MaterialCompiler.SurfaceCacheShader,
-            RoughSource = MaterialCompiler.IrradianceFieldShader,
-            MissSource = MaterialCompiler.SkyReflectionMissShader,
-            Positions = positionPlane.View,
-            Normals = normalPlane.View,
-            Target = target.View,
-            Viewport = new(Side, Side),
-            CameraPosition = camera,
-            MaxDistance = 8f,
-            RoughnessThreshold = 0.5f,
-            RoughnessBlend = 0.25f
-        };
+        var staging = owned.Buffer([..positions, ..normals], BufferUsage.CopySource);
+        var readback = device.CreateBuffer(
+            new(
+                Side * Side * 16,
+                BufferUsage.CopyDestination,
+                MemoryAccess.HostReadback,
+                "reflect-readback"
+            )
+        );
+
+        using var trace = new ReflectionTraceFill(device);
+        trace.Effects = effects;
+        trace.Pipelines = pipelines;
+        trace.Descriptors = allocator;
+        trace.Source = "GlobalDistanceField";
+        trace.CacheSource = MaterialCompiler.SurfaceCacheShader;
+        trace.RoughSource = MaterialCompiler.IrradianceFieldShader;
+        trace.MissSource = MaterialCompiler.SkyReflectionMissShader;
+        trace.Positions = positionPlane.View;
+        trace.Normals = normalPlane.View;
+        trace.Target = target.View;
+        trace.Viewport = new(Side, Side);
+        trace.CameraPosition = camera;
+        trace.MaxDistance = 8f;
+        trace.RoughnessThreshold = 0.5f;
+        trace.RoughnessBlend = 0.25f;
 
         allocator.BeginFrame();
         device.BeginFrame();
@@ -145,21 +169,38 @@ public sealed class ReflectionTraceDeviceTests {
                 new(
                     [],
                     [
-                        new TextureBarrier(positionPlane.Texture, ResourceState.Undefined, ResourceState.CopyDestination),
+                        new TextureBarrier(
+                            positionPlane.Texture,
+                            ResourceState.Undefined,
+                            ResourceState.CopyDestination
+                        ),
                         new TextureBarrier(normalPlane.Texture, ResourceState.Undefined, ResourceState.CopyDestination),
-                        new TextureBarrier(target.Texture, ResourceState.Undefined, SurfaceCacheTexture.PlaneIsBeingWritten)
+                        new TextureBarrier(
+                            target.Texture,
+                            ResourceState.Undefined,
+                            SurfaceCacheTexture.PlaneIsBeingWritten
+                        )
                     ]
                 )
             );
 
-            commands.CopyBufferToTexture(staging, 0, new TextureRegion(positionPlane.Texture), new(Side, Side, 1));
-            commands.CopyBufferToTexture(staging, Side * Side * 16, new TextureRegion(normalPlane.Texture), new(Side, Side, 1));
+            commands.CopyBufferToTexture(staging, 0, new(positionPlane.Texture), new(Side, Side, 1));
+            commands.CopyBufferToTexture(
+                staging,
+                Side * Side * 16,
+                new(normalPlane.Texture),
+                new(Side, Side, 1)
+            );
 
             commands.Barrier(
                 new(
                     [],
                     [
-                        new TextureBarrier(positionPlane.Texture, ResourceState.CopyDestination, ResourceState.ShaderRead),
+                        new TextureBarrier(
+                            positionPlane.Texture,
+                            ResourceState.CopyDestination,
+                            ResourceState.ShaderRead
+                        ),
                         new TextureBarrier(normalPlane.Texture, ResourceState.CopyDestination, ResourceState.ShaderRead)
                     ]
                 )
@@ -167,19 +208,33 @@ public sealed class ReflectionTraceDeviceTests {
 
             fieldTexture.Apply(trace.Parameters, $"{ReflectionTraceFill.ShaderName}.GlobalDistanceField");
             texture.Apply(trace.Parameters, $"{ReflectionTraceFill.ShaderName}.{MaterialCompiler.SurfaceCacheShader}");
-            probes.Apply(trace.Parameters, $"{ReflectionTraceFill.ShaderName}.{MaterialCompiler.IrradianceFieldShader}");
+            probes.Apply(
+                trace.Parameters,
+                $"{ReflectionTraceFill.ShaderName}.{MaterialCompiler.IrradianceFieldShader}"
+            );
             trace.Parameters.Set(
-                ParameterKeys.New<Vector3>($"{ReflectionTraceFill.ShaderName}.{MaterialCompiler.SkyReflectionMissShader}.missSkyColor"),
+                ParameterKeys.New<Vector3>(
+                    $"{ReflectionTraceFill.ShaderName}.{MaterialCompiler.SkyReflectionMissShader}.missSkyColor"
+                ),
                 SkyMiss
             );
 
             Assert.Equal(Side * Side, trace.Record(commands));
 
             commands.Barrier(
-                new([], [new TextureBarrier(target.Texture, SurfaceCacheTexture.PlaneIsBeingWritten, ResourceState.CopySource)])
+                new(
+                    [],
+                    [
+                        new TextureBarrier(
+                            target.Texture,
+                            SurfaceCacheTexture.PlaneIsBeingWritten,
+                            ResourceState.CopySource
+                        )
+                    ]
+                )
             );
 
-            commands.CopyTextureToBuffer(new TextureRegion(target.Texture), new(Side, Side, 1), readback, 0);
+            commands.CopyTextureToBuffer(new(target.Texture), new(Side, Side, 1), readback, 0);
             commands.Finish();
             device.GraphicsQueue.Submit([commands]);
         }
@@ -198,18 +253,22 @@ public sealed class ReflectionTraceDeviceTests {
         device.Destroy(readback);
 
         for (var index = 0; index < answers.Length; index++) {
-            answers[index] = new(bytes[index * 4], bytes[(index * 4) + 1], bytes[(index * 4) + 2], bytes[(index * 4) + 3]);
+            answers[index] = new(
+                bytes[index * 4],
+                bytes[index * 4 + 1],
+                bytes[index * 4 + 2],
+                bytes[index * 4 + 3]
+            );
         }
 
         // The reference: the same world, the same cache, the same field, the same fallback.
         var dark = new UniformSky(0f);
 
-        var reference = new TracedReflections(world, new SurfaceCacheRadiance(store, dark), new SkyFallback(new UniformSky(SkyMiss))) {
-            Field = field,
-            MaxDistance = 8f,
-            RoughnessThreshold = 0.5f,
-            RoughnessBlend = 0.25f
-        };
+        var reference = new TracedReflections(
+            world,
+            new SurfaceCacheRadiance(store, dark),
+            new SkyFallback(new UniformSky(SkyMiss))
+        ) { Field = field, MaxDistance = 8f, RoughnessThreshold = 0.5f, RoughnessBlend = 0.25f };
 
         var worst = 0f;
         var sharpHit = 0f;
@@ -218,7 +277,7 @@ public sealed class ReflectionTraceDeviceTests {
 
         for (var y = 0; y < Side; y++) {
             for (var x = 0; x < Side; x++) {
-                var at = (y * Side) + x;
+                var at = y * Side + x;
                 var answer = answers[at];
 
                 if (positions[at].W < 0.5f) {
@@ -244,7 +303,9 @@ public sealed class ReflectionTraceDeviceTests {
 
                     // The field's own answer for this very read, asked directly — the rough path is
                     // the field speaking, not a number this test guessed.
-                    var mirror = Vector3.Normalize(view - (2f * Vector3.Dot(view, new(0f, 1f, 0f)) * new Vector3(0f, 1f, 0f)));
+                    var mirror = Vector3.Normalize(
+                        view - 2f * Vector3.Dot(view, new(0f, 1f, 0f)) * new Vector3(0f, 1f, 0f)
+                    );
 
                     Assert.Equal(field.Irradiance(position, mirror).X, answer.X, 5e-3f);
                 }
@@ -296,7 +357,12 @@ public sealed class ReflectionTraceDeviceTests {
 
         var cube = device.CreateTexture(
             new() {
-                Width = 4, Height = 4, Depth = 1, MipLevels = 1, ArrayLayers = 6, SampleCount = 1,
+                Width = 4,
+                Height = 4,
+                Depth = 1,
+                MipLevels = 1,
+                ArrayLayers = 6,
+                SampleCount = 1,
                 Dimension = TextureDimension.TextureCube,
                 Format = PixelFormat.Rgba32Float,
                 Usage = TextureUsage.Sampled | TextureUsage.CopyDestination,
@@ -307,19 +373,20 @@ public sealed class ReflectionTraceDeviceTests {
         var cubeView = device.CreateTextureView(cube);
 
         owned.Owns(() => {
-            device.Destroy(cubeView);
-            device.Destroy(cube);
-        });
+                device.Destroy(cubeView);
+                device.Destroy(cube);
+            }
+        );
 
         var faceTexels = new Vector4[6 * 4 * 4];
 
         for (var face = 0; face < 6; face++) {
             for (var texel = 0; texel < 16; texel++) {
-                faceTexels[(face * 16) + texel] = new(palette[face], 1f);
+                faceTexels[face * 16 + texel] = new(palette[face], 1f);
             }
         }
 
-        var cubeStaging = owned.Buffer<Vector4>(faceTexels, BufferUsage.CopySource);
+        var cubeStaging = owned.Buffer(faceTexels, BufferUsage.CopySource);
 
         // A sphere, and a big one, deliberately: box parallax aims corrected directions at the
         // box's corners — cube-face diagonals, where the device's seamless filtering blends faces
@@ -349,9 +416,9 @@ public sealed class ReflectionTraceDeviceTests {
 
         for (var y = 0; y < Side; y++) {
             for (var x = 0; x < Side; x++) {
-                var at = (y * Side) + x;
+                var at = y * Side + x;
 
-                positions[at] = new(-1f + (0.25f * x), 0.5f, -1f + (0.25f * y), 1f);
+                positions[at] = new(-1f + 0.25f * x, 0.5f, -1f + 0.25f * y, 1f);
                 normals[at] = new(0f, 1f, 0f, 0f);
             }
         }
@@ -364,33 +431,57 @@ public sealed class ReflectionTraceDeviceTests {
         effects.AddProvider(
             new Compiling(
                 loader,
-                _ => RavenEffects.Only(["Core", "Shading", "Geometry", "DistanceFields", "IrradianceFields", "SurfaceCache", "Reflections"])
+                static _ => RavenEffects.Only(
+                    ["Core", "Shading", "Geometry", "DistanceFields", "IrradianceFields", "SurfaceCache", "Reflections"]
+                )
             )
         );
 
         var pipelines = new ComputePipelineCache(device);
 
-        var positionPlane = owned.Owned("probe-positions", TextureUsage.Sampled | TextureUsage.CopyDestination, PixelFormat.Rgba32Float, Side, Side);
-        var normalPlane = owned.Owned("probe-normals", TextureUsage.Sampled | TextureUsage.CopyDestination, PixelFormat.Rgba32Float, Side, Side);
-        var target = owned.Owned("probe-target", TextureUsage.Storage | TextureUsage.CopySource, PixelFormat.Rgba32Float, Side, Side);
-
-        var staging = owned.Buffer<Vector4>([.. positions, .. normals], BufferUsage.CopySource);
-        var readback = device.CreateBuffer(
-            new BufferDescription(Side * Side * 16, BufferUsage.CopyDestination, MemoryAccess.HostReadback, "probe-readback")
+        var positionPlane = owned.Owned(
+            "probe-positions",
+            TextureUsage.Sampled | TextureUsage.CopyDestination,
+            PixelFormat.Rgba32Float,
+            Side,
+            Side
+        );
+        var normalPlane = owned.Owned(
+            "probe-normals",
+            TextureUsage.Sampled | TextureUsage.CopyDestination,
+            PixelFormat.Rgba32Float,
+            Side,
+            Side
+        );
+        var target = owned.Owned(
+            "probe-target",
+            TextureUsage.Storage | TextureUsage.CopySource,
+            PixelFormat.Rgba32Float,
+            Side,
+            Side
         );
 
-        using var trace = new ReflectionTraceFill(device) {
-            Effects = effects,
-            Pipelines = pipelines,
-            Descriptors = allocator,
-            MissSource = "ReflectionProbeMissSource",
-            Positions = positionPlane.View,
-            Normals = normalPlane.View,
-            Target = target.View,
-            Viewport = new(Side, Side),
-            CameraPosition = camera,
-            MaxDistance = 8f
-        };
+        var staging = owned.Buffer([..positions, ..normals], BufferUsage.CopySource);
+        var readback = device.CreateBuffer(
+            new(
+                Side * Side * 16,
+                BufferUsage.CopyDestination,
+                MemoryAccess.HostReadback,
+                "probe-readback"
+            )
+        );
+
+        using var trace = new ReflectionTraceFill(device);
+        trace.Effects = effects;
+        trace.Pipelines = pipelines;
+        trace.Descriptors = allocator;
+        trace.MissSource = "ReflectionProbeMissSource";
+        trace.Positions = positionPlane.View;
+        trace.Normals = normalPlane.View;
+        trace.Target = target.View;
+        trace.Viewport = new(Side, Side);
+        trace.CameraPosition = camera;
+        trace.MaxDistance = 8f;
 
         allocator.BeginFrame();
         device.BeginFrame();
@@ -401,26 +492,48 @@ public sealed class ReflectionTraceDeviceTests {
                     [],
                     [
                         new TextureBarrier(cube, ResourceState.Undefined, ResourceState.CopyDestination),
-                        new TextureBarrier(positionPlane.Texture, ResourceState.Undefined, ResourceState.CopyDestination),
+                        new TextureBarrier(
+                            positionPlane.Texture,
+                            ResourceState.Undefined,
+                            ResourceState.CopyDestination
+                        ),
                         new TextureBarrier(normalPlane.Texture, ResourceState.Undefined, ResourceState.CopyDestination),
-                        new TextureBarrier(target.Texture, ResourceState.Undefined, SurfaceCacheTexture.PlaneIsBeingWritten)
+                        new TextureBarrier(
+                            target.Texture,
+                            ResourceState.Undefined,
+                            SurfaceCacheTexture.PlaneIsBeingWritten
+                        )
                     ]
                 )
             );
 
             for (var face = 0; face < 6; face++) {
-                commands.CopyBufferToTexture(cubeStaging, face * 16 * 16, new TextureRegion(cube, 0, face), new(4, 4, 1));
+                commands.CopyBufferToTexture(
+                    cubeStaging,
+                    face * 16 * 16,
+                    new(cube, 0, face),
+                    new(4, 4, 1)
+                );
             }
 
-            commands.CopyBufferToTexture(staging, 0, new TextureRegion(positionPlane.Texture), new(Side, Side, 1));
-            commands.CopyBufferToTexture(staging, Side * Side * 16, new TextureRegion(normalPlane.Texture), new(Side, Side, 1));
+            commands.CopyBufferToTexture(staging, 0, new(positionPlane.Texture), new(Side, Side, 1));
+            commands.CopyBufferToTexture(
+                staging,
+                Side * Side * 16,
+                new(normalPlane.Texture),
+                new(Side, Side, 1)
+            );
 
             commands.Barrier(
                 new(
                     [],
                     [
                         new TextureBarrier(cube, ResourceState.CopyDestination, ResourceState.ShaderRead),
-                        new TextureBarrier(positionPlane.Texture, ResourceState.CopyDestination, ResourceState.ShaderRead),
+                        new TextureBarrier(
+                            positionPlane.Texture,
+                            ResourceState.CopyDestination,
+                            ResourceState.ShaderRead
+                        ),
                         new TextureBarrier(normalPlane.Texture, ResourceState.CopyDestination, ResourceState.ShaderRead)
                     ]
                 )
@@ -435,10 +548,19 @@ public sealed class ReflectionTraceDeviceTests {
             Assert.Equal(Side * Side, trace.Record(commands));
 
             commands.Barrier(
-                new([], [new TextureBarrier(target.Texture, SurfaceCacheTexture.PlaneIsBeingWritten, ResourceState.CopySource)])
+                new(
+                    [],
+                    [
+                        new TextureBarrier(
+                            target.Texture,
+                            SurfaceCacheTexture.PlaneIsBeingWritten,
+                            ResourceState.CopySource
+                        )
+                    ]
+                )
             );
 
-            commands.CopyTextureToBuffer(new TextureRegion(target.Texture), new(Side, Side, 1), readback, 0);
+            commands.CopyTextureToBuffer(new(target.Texture), new(Side, Side, 1), readback, 0);
             commands.Finish();
             device.GraphicsQueue.Submit([commands]);
         }
@@ -458,12 +580,12 @@ public sealed class ReflectionTraceDeviceTests {
         var reference = new TracedReflections(new EmptyWorld(), new UniformSky(0f), miss) { MaxDistance = 8f };
         var worst = 0f;
         var answered = 0;
-        var report = "";
+        var report = string.Empty;
 
         for (var y = 0; y < Side; y++) {
             for (var x = 0; x < Side; x++) {
-                var at = (y * Side) + x;
-                var answer = new Vector3(bytes[at * 4], bytes[(at * 4) + 1], bytes[(at * 4) + 2]);
+                var at = y * Side + x;
+                var answer = new Vector3(bytes[at * 4], bytes[at * 4 + 1], bytes[at * 4 + 2]);
                 var position = new Vector3(positions[at].X, positions[at].Y, positions[at].Z);
                 var view = Vector3.Normalize(position - camera);
                 var expected = reference.Reflect(position, new(0f, 1f, 0f), view, 0f);
@@ -481,7 +603,10 @@ public sealed class ReflectionTraceDeviceTests {
         }
 
         Assert.True(worst < 5e-3f, $"the probe miss drifted {worst} from the reference — {report}");
-        Assert.True(answered > 32, $"only {answered} of 64 texels rose above the far colour — the probe barely answered");
+        Assert.True(
+            answered > 32,
+            $"only {answered} of 64 texels rose above the far colour — the probe barely answered"
+        );
     }
 
     /// <summary>The screen answers first, and its answer is the frame's own colour.</summary>
@@ -505,10 +630,10 @@ public sealed class ReflectionTraceDeviceTests {
         // A top-down orthographic camera as one hand-built row-vector matrix: ndc.x = world.x / 4,
         // ndc.y = world.z / 4, device depth = (world.y + 4) / 8 — reversed, high is near.
         var viewProjection = new Matrix4x4(
-            new Vector4(0.25f, 0f, 0f, 0f),
-            new Vector4(0f, 0f, 0.125f, 0f),
-            new Vector4(0f, 0.25f, 0f, 0f),
-            new Vector4(0f, 0f, 0.5f, 1f)
+            new(0.25f, 0f, 0f, 0f),
+            new(0f, 0f, 0.125f, 0f),
+            new(0f, 0.25f, 0f, 0f),
+            new(0f, 0f, 0.5f, 1f)
         );
 
         // The screen: a ceiling patch at y = 2 over x ∈ [0, 2], z ∈ [-2, 2], sky everywhere else,
@@ -519,7 +644,7 @@ public sealed class ReflectionTraceDeviceTests {
 
         for (var y = 0; y < Side; y++) {
             for (var x = 0; x < Side; x++) {
-                var at = (y * Side) + x;
+                var at = y * Side + x;
                 var ceiling = x is 4 or 5 && y is >= 2 and <= 5;
 
                 surface.Depth[at] = ceiling ? 0.75f : 0f;
@@ -534,8 +659,8 @@ public sealed class ReflectionTraceDeviceTests {
 
         for (var y = 0; y < Side; y++) {
             for (var x = 0; x < Side; x++) {
-                var at = (y * Side) + x;
-                var z = x == 0 ? -3.5f : -0.7f + (0.2f * y);
+                var at = y * Side + x;
+                var z = x == 0 ? -3.5f : -0.7f + 0.2f * y;
 
                 positions[at] = new(0f, 0.5f, z, 1f);
                 normals[at] = new(0f, 1f, 0f, 0f);
@@ -550,43 +675,81 @@ public sealed class ReflectionTraceDeviceTests {
         effects.AddProvider(
             new Compiling(
                 loader,
-                _ => RavenEffects.Only(["Core", "Shading", "Geometry", "DistanceFields", "IrradianceFields", "SurfaceCache", "Reflections"])
+                static _ => RavenEffects.Only(
+                    ["Core", "Shading", "Geometry", "DistanceFields", "IrradianceFields", "SurfaceCache", "Reflections"]
+                )
             )
         );
 
         var pipelines = new ComputePipelineCache(device);
 
-        var positionPlane = owned.Owned("ssr-positions", TextureUsage.Sampled | TextureUsage.CopyDestination, PixelFormat.Rgba32Float, Side, Side);
-        var normalPlane = owned.Owned("ssr-normals", TextureUsage.Sampled | TextureUsage.CopyDestination, PixelFormat.Rgba32Float, Side, Side);
-        var depthPlane = owned.Owned("ssr-depth", TextureUsage.Sampled | TextureUsage.CopyDestination, PixelFormat.Rgba32Float, Side, Side);
-        var colourPlane = owned.Owned("ssr-colour", TextureUsage.Sampled | TextureUsage.CopyDestination, PixelFormat.Rgba32Float, Side, Side);
-        var target = owned.Owned("ssr-target", TextureUsage.Storage | TextureUsage.CopySource, PixelFormat.Rgba32Float, Side, Side);
-
-        var staging = owned.Buffer<Vector4>([.. positions, .. normals, .. depths, .. colours], BufferUsage.CopySource);
-        var readback = device.CreateBuffer(
-            new BufferDescription(Side * Side * 16, BufferUsage.CopyDestination, MemoryAccess.HostReadback, "ssr-readback")
+        var positionPlane = owned.Owned(
+            "ssr-positions",
+            TextureUsage.Sampled | TextureUsage.CopyDestination,
+            PixelFormat.Rgba32Float,
+            Side,
+            Side
+        );
+        var normalPlane = owned.Owned(
+            "ssr-normals",
+            TextureUsage.Sampled | TextureUsage.CopyDestination,
+            PixelFormat.Rgba32Float,
+            Side,
+            Side
+        );
+        var depthPlane = owned.Owned(
+            "ssr-depth",
+            TextureUsage.Sampled | TextureUsage.CopyDestination,
+            PixelFormat.Rgba32Float,
+            Side,
+            Side
+        );
+        var colourPlane = owned.Owned(
+            "ssr-colour",
+            TextureUsage.Sampled | TextureUsage.CopyDestination,
+            PixelFormat.Rgba32Float,
+            Side,
+            Side
+        );
+        var target = owned.Owned(
+            "ssr-target",
+            TextureUsage.Storage | TextureUsage.CopySource,
+            PixelFormat.Rgba32Float,
+            Side,
+            Side
         );
 
-        using var trace = new ReflectionTraceFill(device) {
-            Effects = effects,
-            Pipelines = pipelines,
-            Descriptors = allocator,
-            Positions = positionPlane.View,
-            Normals = normalPlane.View,
-            Target = target.View,
-            ScreenDepth = depthPlane.View,
-            ScreenColour = colourPlane.View,
-            ViewProjection = viewProjection,
-            ScreenViewport = new(Side, Side),
-            ScreenSteps = 32,
-            ScreenThickness = 0.05f,
-            Viewport = new(Side, Side),
-            CameraPosition = camera,
-            MaxDistance = 8f
-        };
+        var staging = owned.Buffer([..positions, ..normals, ..depths, ..colours], BufferUsage.CopySource);
+        var readback = device.CreateBuffer(
+            new(
+                Side * Side * 16,
+                BufferUsage.CopyDestination,
+                MemoryAccess.HostReadback,
+                "ssr-readback"
+            )
+        );
+
+        using var trace = new ReflectionTraceFill(device);
+        trace.Effects = effects;
+        trace.Pipelines = pipelines;
+        trace.Descriptors = allocator;
+        trace.Positions = positionPlane.View;
+        trace.Normals = normalPlane.View;
+        trace.Target = target.View;
+        trace.ScreenDepth = depthPlane.View;
+        trace.ScreenColour = colourPlane.View;
+        trace.ViewProjection = viewProjection;
+        trace.ScreenViewport = new(Side, Side);
+        trace.ScreenSteps = 32;
+        trace.ScreenThickness = 0.05f;
+        trace.Viewport = new(Side, Side);
+        trace.CameraPosition = camera;
+        trace.MaxDistance = 8f;
 
         trace.Parameters.Set(
-            ParameterKeys.New<Vector3>($"{ReflectionTraceFill.ShaderName}.{MaterialCompiler.SkyReflectionMissShader}.missSkyColor"),
+            ParameterKeys.New<Vector3>(
+                $"{ReflectionTraceFill.ShaderName}.{MaterialCompiler.SkyReflectionMissShader}.missSkyColor"
+            ),
             SkyMiss
         );
 
@@ -598,28 +761,49 @@ public sealed class ReflectionTraceDeviceTests {
                 new(
                     [],
                     [
-                        new TextureBarrier(positionPlane.Texture, ResourceState.Undefined, ResourceState.CopyDestination),
+                        new TextureBarrier(
+                            positionPlane.Texture,
+                            ResourceState.Undefined,
+                            ResourceState.CopyDestination
+                        ),
                         new TextureBarrier(normalPlane.Texture, ResourceState.Undefined, ResourceState.CopyDestination),
                         new TextureBarrier(depthPlane.Texture, ResourceState.Undefined, ResourceState.CopyDestination),
                         new TextureBarrier(colourPlane.Texture, ResourceState.Undefined, ResourceState.CopyDestination),
-                        new TextureBarrier(target.Texture, ResourceState.Undefined, SurfaceCacheTexture.PlaneIsBeingWritten)
+                        new TextureBarrier(
+                            target.Texture,
+                            ResourceState.Undefined,
+                            SurfaceCacheTexture.PlaneIsBeingWritten
+                        )
                     ]
                 )
             );
 
             var plane = Side * Side * 16;
 
-            commands.CopyBufferToTexture(staging, 0, new TextureRegion(positionPlane.Texture), new(Side, Side, 1));
-            commands.CopyBufferToTexture(staging, plane, new TextureRegion(normalPlane.Texture), new(Side, Side, 1));
-            commands.CopyBufferToTexture(staging, plane * 2, new TextureRegion(depthPlane.Texture), new(Side, Side, 1));
-            commands.CopyBufferToTexture(staging, plane * 3, new TextureRegion(colourPlane.Texture), new(Side, Side, 1));
+            commands.CopyBufferToTexture(staging, 0, new(positionPlane.Texture), new(Side, Side, 1));
+            commands.CopyBufferToTexture(staging, plane, new(normalPlane.Texture), new(Side, Side, 1));
+            commands.CopyBufferToTexture(staging, plane * 2, new(depthPlane.Texture), new(Side, Side, 1));
+            commands.CopyBufferToTexture(
+                staging,
+                plane * 3,
+                new(colourPlane.Texture),
+                new(Side, Side, 1)
+            );
 
             commands.Barrier(
                 new(
                     [],
                     [
-                        new TextureBarrier(positionPlane.Texture, ResourceState.CopyDestination, ResourceState.ShaderRead),
-                        new TextureBarrier(normalPlane.Texture, ResourceState.CopyDestination, ResourceState.ShaderRead),
+                        new TextureBarrier(
+                            positionPlane.Texture,
+                            ResourceState.CopyDestination,
+                            ResourceState.ShaderRead
+                        ),
+                        new TextureBarrier(
+                            normalPlane.Texture,
+                            ResourceState.CopyDestination,
+                            ResourceState.ShaderRead
+                        ),
                         new TextureBarrier(depthPlane.Texture, ResourceState.CopyDestination, ResourceState.ShaderRead),
                         new TextureBarrier(colourPlane.Texture, ResourceState.CopyDestination, ResourceState.ShaderRead)
                     ]
@@ -629,10 +813,19 @@ public sealed class ReflectionTraceDeviceTests {
             Assert.Equal(Side * Side, trace.Record(commands));
 
             commands.Barrier(
-                new([], [new TextureBarrier(target.Texture, SurfaceCacheTexture.PlaneIsBeingWritten, ResourceState.CopySource)])
+                new(
+                    [],
+                    [
+                        new TextureBarrier(
+                            target.Texture,
+                            SurfaceCacheTexture.PlaneIsBeingWritten,
+                            ResourceState.CopySource
+                        )
+                    ]
+                )
             );
 
-            commands.CopyTextureToBuffer(new TextureRegion(target.Texture), new(Side, Side, 1), readback, 0);
+            commands.CopyTextureToBuffer(new(target.Texture), new(Side, Side, 1), readback, 0);
             commands.Finish();
             device.GraphicsQueue.Submit([commands]);
         }
@@ -653,8 +846,8 @@ public sealed class ReflectionTraceDeviceTests {
 
         var reference = new TracedReflections(new EmptyWorld(), new UniformSky(0f), new SkyFallback(sky)) {
             MaxDistance = 8f,
-            ScreenTrace = new ScreenSpaceTrace(surface) { ViewProjection = viewProjection, Steps = 32, Thickness = 0.05f },
-            ScreenColour = pixel => new(0.1f * pixel.X, 0.1f * pixel.Y, 0.3f)
+            ScreenTrace = new(surface) { ViewProjection = viewProjection, Steps = 32, Thickness = 0.05f },
+            ScreenColour = static pixel => new(0.1f * pixel.X, 0.1f * pixel.Y, 0.3f)
         };
 
         var worst = 0f;
@@ -662,8 +855,8 @@ public sealed class ReflectionTraceDeviceTests {
 
         for (var y = 0; y < Side; y++) {
             for (var x = 0; x < Side; x++) {
-                var at = (y * Side) + x;
-                var answer = new Vector3(bytes[at * 4], bytes[(at * 4) + 1], bytes[(at * 4) + 2]);
+                var at = y * Side + x;
+                var answer = new Vector3(bytes[at * 4], bytes[at * 4 + 1], bytes[at * 4 + 2]);
                 var position = new Vector3(positions[at].X, positions[at].Y, positions[at].Z);
                 var view = Vector3.Normalize(position - camera);
                 var expected = reference.Reflect(position, new(0f, 1f, 0f), view, 0f);
@@ -680,15 +873,20 @@ public sealed class ReflectionTraceDeviceTests {
         Assert.True(worst < 1e-4f, $"the screen trace drifted {worst} from the reference");
 
         // The aimed-past column misses the viewport and stays sky; the rest found the ceiling.
-        Assert.True(screened >= 40, $"only {screened} of 64 texels read the frame's colour — the screen barely answered");
+        Assert.True(
+            screened >= 40,
+            $"only {screened} of 64 texels read the frame's colour — the screen barely answered"
+        );
 
         var missColumn = new Vector3(bytes[0], bytes[1], bytes[2]);
 
         Assert.Equal(SkyMiss.X, missColumn.X, 1e-4f);
     }
 
-    /// <summary>The hierarchical march under a perspective camera, with the shell in view units —
-    ///     the kernel against the CPU DDA, sample for sample.</summary>
+    /// <summary>
+    ///     The hierarchical march under a perspective camera, with the shell in view units —
+    ///     the kernel against the CPU DDA, sample for sample.
+    /// </summary>
     /// <remarks>
     ///     <para>
     ///         A real perspective camera this time — looking down +Z from the origin, ndc.x = x/z,
@@ -715,10 +913,10 @@ public sealed class ReflectionTraceDeviceTests {
         var device = owned.Device;
 
         var viewProjection = new Matrix4x4(
-            new Vector4(1f, 0f, 0f, 0f),
-            new Vector4(0f, 1f, 0f, 0f),
-            new Vector4(0f, 0f, 0f, 1f),
-            new Vector4(0f, 0f, 1f, 0f)
+            new(1f, 0f, 0f, 0f),
+            new(0f, 1f, 0f, 0f),
+            new(0f, 0f, 0f, 1f),
+            new(0f, 0f, 1f, 0f)
         );
 
         // The screen: a wall at view depth four everywhere, and a colour that encodes its pixel.
@@ -744,9 +942,9 @@ public sealed class ReflectionTraceDeviceTests {
 
         for (var y = 0; y < Side; y++) {
             for (var x = 0; x < Side; x++) {
-                var at = (y * Side) + x;
+                var at = y * Side + x;
 
-                positions[at] = new((x - 3.5f) * 0.45f, -1f, 2f + (0.1f * y), 1f);
+                positions[at] = new((x - 3.5f) * 0.45f, -1f, 2f + 0.1f * y, 1f);
                 normals[at] = new(0f, 1f, 0f, 0f);
             }
         }
@@ -759,54 +957,93 @@ public sealed class ReflectionTraceDeviceTests {
         effects.AddProvider(
             new Compiling(
                 loader,
-                name => name == "NearestReduce"
+                static name => name == "NearestReduce"
                     ? RavenEffects.Only(["Core"], Path.Combine("Pipeline", "NearestReduce.rvn"))
-                    : RavenEffects.Only(["Core", "Shading", "Geometry", "DistanceFields", "IrradianceFields", "SurfaceCache", "Reflections"])
+                    : RavenEffects.Only(
+                        [
+                            "Core", "Shading", "Geometry", "DistanceFields", "IrradianceFields", "SurfaceCache",
+                            "Reflections"
+                        ]
+                    )
             )
         );
 
         var pipelines = new ComputePipelineCache(device);
 
         var chain = new HiZPyramid(device) {
-            Reduction = HiZReduction.Nearest,
-            Effects = effects,
-            Pipelines = pipelines
+            Reduction = HiZReduction.Nearest, Effects = effects, Pipelines = pipelines
         };
 
         owned.Owns(chain.Dispose);
 
-        var positionPlane = owned.Owned("hzb-positions", TextureUsage.Sampled | TextureUsage.CopyDestination, PixelFormat.Rgba32Float, Side, Side);
-        var normalPlane = owned.Owned("hzb-normals", TextureUsage.Sampled | TextureUsage.CopyDestination, PixelFormat.Rgba32Float, Side, Side);
-        var depthPlane = owned.Owned("hzb-depth", TextureUsage.Sampled | TextureUsage.CopyDestination, PixelFormat.Rgba32Float, Side, Side);
-        var colourPlane = owned.Owned("hzb-colour", TextureUsage.Sampled | TextureUsage.CopyDestination, PixelFormat.Rgba32Float, Side, Side);
-        var target = owned.Owned("hzb-target", TextureUsage.Storage | TextureUsage.CopySource, PixelFormat.Rgba32Float, Side, Side);
-
-        var staging = owned.Buffer<Vector4>([.. positions, .. normals, .. depths, .. colours], BufferUsage.CopySource);
-        var readback = device.CreateBuffer(
-            new BufferDescription(Side * Side * 16, BufferUsage.CopyDestination, MemoryAccess.HostReadback, "hzb-readback")
+        var positionPlane = owned.Owned(
+            "hzb-positions",
+            TextureUsage.Sampled | TextureUsage.CopyDestination,
+            PixelFormat.Rgba32Float,
+            Side,
+            Side
+        );
+        var normalPlane = owned.Owned(
+            "hzb-normals",
+            TextureUsage.Sampled | TextureUsage.CopyDestination,
+            PixelFormat.Rgba32Float,
+            Side,
+            Side
+        );
+        var depthPlane = owned.Owned(
+            "hzb-depth",
+            TextureUsage.Sampled | TextureUsage.CopyDestination,
+            PixelFormat.Rgba32Float,
+            Side,
+            Side
+        );
+        var colourPlane = owned.Owned(
+            "hzb-colour",
+            TextureUsage.Sampled | TextureUsage.CopyDestination,
+            PixelFormat.Rgba32Float,
+            Side,
+            Side
+        );
+        var target = owned.Owned(
+            "hzb-target",
+            TextureUsage.Storage | TextureUsage.CopySource,
+            PixelFormat.Rgba32Float,
+            Side,
+            Side
         );
 
-        using var trace = new ReflectionTraceFill(device) {
-            Effects = effects,
-            Pipelines = pipelines,
-            Descriptors = allocator,
-            Positions = positionPlane.View,
-            Normals = normalPlane.View,
-            Target = target.View,
-            ScreenDepth = depthPlane.View,
-            ScreenColour = colourPlane.View,
-            ViewProjection = viewProjection,
-            ScreenViewport = new(Side, Side),
-            ScreenSteps = 32,
-            ScreenThickness = 0.05f,
-            ScreenLinearThickness = 0.5f,
-            Viewport = new(Side, Side),
-            CameraPosition = camera,
-            MaxDistance = 8f
-        };
+        var staging = owned.Buffer([..positions, ..normals, ..depths, ..colours], BufferUsage.CopySource);
+        var readback = device.CreateBuffer(
+            new(
+                Side * Side * 16,
+                BufferUsage.CopyDestination,
+                MemoryAccess.HostReadback,
+                "hzb-readback"
+            )
+        );
+
+        using var trace = new ReflectionTraceFill(device);
+        trace.Effects = effects;
+        trace.Pipelines = pipelines;
+        trace.Descriptors = allocator;
+        trace.Positions = positionPlane.View;
+        trace.Normals = normalPlane.View;
+        trace.Target = target.View;
+        trace.ScreenDepth = depthPlane.View;
+        trace.ScreenColour = colourPlane.View;
+        trace.ViewProjection = viewProjection;
+        trace.ScreenViewport = new(Side, Side);
+        trace.ScreenSteps = 32;
+        trace.ScreenThickness = 0.05f;
+        trace.ScreenLinearThickness = 0.5f;
+        trace.Viewport = new(Side, Side);
+        trace.CameraPosition = camera;
+        trace.MaxDistance = 8f;
 
         trace.Parameters.Set(
-            ParameterKeys.New<Vector3>($"{ReflectionTraceFill.ShaderName}.{MaterialCompiler.SkyReflectionMissShader}.missSkyColor"),
+            ParameterKeys.New<Vector3>(
+                $"{ReflectionTraceFill.ShaderName}.{MaterialCompiler.SkyReflectionMissShader}.missSkyColor"
+            ),
             SkyMiss
         );
 
@@ -818,28 +1055,49 @@ public sealed class ReflectionTraceDeviceTests {
                 new(
                     [],
                     [
-                        new TextureBarrier(positionPlane.Texture, ResourceState.Undefined, ResourceState.CopyDestination),
+                        new TextureBarrier(
+                            positionPlane.Texture,
+                            ResourceState.Undefined,
+                            ResourceState.CopyDestination
+                        ),
                         new TextureBarrier(normalPlane.Texture, ResourceState.Undefined, ResourceState.CopyDestination),
                         new TextureBarrier(depthPlane.Texture, ResourceState.Undefined, ResourceState.CopyDestination),
                         new TextureBarrier(colourPlane.Texture, ResourceState.Undefined, ResourceState.CopyDestination),
-                        new TextureBarrier(target.Texture, ResourceState.Undefined, SurfaceCacheTexture.PlaneIsBeingWritten)
+                        new TextureBarrier(
+                            target.Texture,
+                            ResourceState.Undefined,
+                            SurfaceCacheTexture.PlaneIsBeingWritten
+                        )
                     ]
                 )
             );
 
             var plane = Side * Side * 16;
 
-            commands.CopyBufferToTexture(staging, 0, new TextureRegion(positionPlane.Texture), new(Side, Side, 1));
-            commands.CopyBufferToTexture(staging, plane, new TextureRegion(normalPlane.Texture), new(Side, Side, 1));
-            commands.CopyBufferToTexture(staging, plane * 2, new TextureRegion(depthPlane.Texture), new(Side, Side, 1));
-            commands.CopyBufferToTexture(staging, plane * 3, new TextureRegion(colourPlane.Texture), new(Side, Side, 1));
+            commands.CopyBufferToTexture(staging, 0, new(positionPlane.Texture), new(Side, Side, 1));
+            commands.CopyBufferToTexture(staging, plane, new(normalPlane.Texture), new(Side, Side, 1));
+            commands.CopyBufferToTexture(staging, plane * 2, new(depthPlane.Texture), new(Side, Side, 1));
+            commands.CopyBufferToTexture(
+                staging,
+                plane * 3,
+                new(colourPlane.Texture),
+                new(Side, Side, 1)
+            );
 
             commands.Barrier(
                 new(
                     [],
                     [
-                        new TextureBarrier(positionPlane.Texture, ResourceState.CopyDestination, ResourceState.ShaderRead),
-                        new TextureBarrier(normalPlane.Texture, ResourceState.CopyDestination, ResourceState.ShaderRead),
+                        new TextureBarrier(
+                            positionPlane.Texture,
+                            ResourceState.CopyDestination,
+                            ResourceState.ShaderRead
+                        ),
+                        new TextureBarrier(
+                            normalPlane.Texture,
+                            ResourceState.CopyDestination,
+                            ResourceState.ShaderRead
+                        ),
                         new TextureBarrier(depthPlane.Texture, ResourceState.CopyDestination, ResourceState.ShaderRead),
                         new TextureBarrier(colourPlane.Texture, ResourceState.CopyDestination, ResourceState.ShaderRead)
                     ]
@@ -856,10 +1114,19 @@ public sealed class ReflectionTraceDeviceTests {
             Assert.Equal(Side * Side, trace.Record(commands));
 
             commands.Barrier(
-                new([], [new TextureBarrier(target.Texture, SurfaceCacheTexture.PlaneIsBeingWritten, ResourceState.CopySource)])
+                new(
+                    [],
+                    [
+                        new TextureBarrier(
+                            target.Texture,
+                            SurfaceCacheTexture.PlaneIsBeingWritten,
+                            ResourceState.CopySource
+                        )
+                    ]
+                )
             );
 
-            commands.CopyTextureToBuffer(new TextureRegion(target.Texture), new(Side, Side, 1), readback, 0);
+            commands.CopyTextureToBuffer(new(target.Texture), new(Side, Side, 1), readback, 0);
             commands.Finish();
             device.GraphicsQueue.Submit([commands]);
         }
@@ -876,16 +1143,20 @@ public sealed class ReflectionTraceDeviceTests {
         device.Read(readback, 0, MemoryMarshal.AsBytes(bytes.AsSpan()));
         device.Destroy(readback);
 
-        var reference = new TracedReflections(new EmptyWorld(), new UniformSky(0f), new SkyFallback(new UniformSky(SkyMiss))) {
+        var reference = new TracedReflections(
+            new EmptyWorld(),
+            new UniformSky(0f),
+            new SkyFallback(new UniformSky(SkyMiss))
+        ) {
             MaxDistance = 8f,
-            ScreenTrace = new ScreenSpaceTrace(surface) {
+            ScreenTrace = new(surface) {
                 ViewProjection = viewProjection,
                 Steps = 32,
                 Thickness = 0.05f,
                 LinearThickness = 0.5f,
                 Pyramid = pyramid
             },
-            ScreenColour = pixel => new(0.1f * pixel.X, 0.1f * pixel.Y, 0.3f)
+            ScreenColour = static pixel => new(0.1f * pixel.X, 0.1f * pixel.Y, 0.3f)
         };
 
         var worst = 0f;
@@ -893,8 +1164,8 @@ public sealed class ReflectionTraceDeviceTests {
 
         for (var y = 0; y < Side; y++) {
             for (var x = 0; x < Side; x++) {
-                var at = (y * Side) + x;
-                var answer = new Vector3(bytes[at * 4], bytes[(at * 4) + 1], bytes[(at * 4) + 2]);
+                var at = y * Side + x;
+                var answer = new Vector3(bytes[at * 4], bytes[at * 4 + 1], bytes[at * 4 + 2]);
                 var position = new Vector3(positions[at].X, positions[at].Y, positions[at].Z);
                 var view = Vector3.Normalize(position - camera);
                 var expected = reference.Reflect(position, new(0f, 1f, 0f), view, 0f);
@@ -928,7 +1199,7 @@ public sealed class ReflectionTraceDeviceTests {
                     var outside = Vector3.Max(q, Vector3.Zero).Length();
                     var inside = MathF.Min(MathF.Max(q.X, MathF.Max(q.Y, q.Z)), 0f);
 
-                    distances[x + (resolution * (y + (resolution * z)))] = outside + inside;
+                    distances[x + resolution * (y + resolution * z)] = outside + inside;
                 }
             }
         }
@@ -940,11 +1211,14 @@ public sealed class ReflectionTraceDeviceTests {
     sealed class Paint : ISurfaceMaterial {
         public Vector3 Albedo(Vector3 position, Vector3 normal) => position.X > 1f ? new(0.3f) : new(0.7f);
 
-        public Vector3 Emissive(Vector3 position, Vector3 normal) => position.X > 1f ? new(1.5f, 1f, 0.5f) : Vector3.Zero;
+        public Vector3 Emissive(Vector3 position, Vector3 normal) =>
+            position.X > 1f ? new(1.5f, 1f, 0.5f) : Vector3.Zero;
     }
 
-    /// <summary>A mirror does not reflect itself — on the device, through both marches, over a depth
-    ///     buffer the reflectors are the geometry of.</summary>
+    /// <summary>
+    ///     A mirror does not reflect itself — on the device, through both marches, over a depth
+    ///     buffer the reflectors are the geometry of.
+    /// </summary>
     /// <remarks>
     ///     <para>
     ///         <b>The failure this shuts is the one <c>docs/overview.md</c> § L5 names.</b> A mirror
@@ -974,10 +1248,10 @@ public sealed class ReflectionTraceDeviceTests {
 
         // ndc.x = x/z, ndc.y = y/z, device depth = 1/z — the near plane at one, reversed.
         var viewProjection = new Matrix4x4(
-            new Vector4(1f, 0f, 0f, 0f),
-            new Vector4(0f, 1f, 0f, 0f),
-            new Vector4(0f, 0f, 0f, 1f),
-            new Vector4(0f, 0f, 1f, 0f)
+            new(1f, 0f, 0f, 0f),
+            new(0f, 1f, 0f, 0f),
+            new(0f, 0f, 0f, 1f),
+            new(0f, 0f, 1f, 0f)
         );
 
         var camera = Vector3.Zero;
@@ -990,12 +1264,12 @@ public sealed class ReflectionTraceDeviceTests {
 
         for (var y = 0; y < Side; y++) {
             for (var x = 0; x < Side; x++) {
-                var at = (y * Side) + x;
+                var at = y * Side + x;
 
                 colours[at] = new(0.1f * x, 0.1f * y, 0.3f, 1f);
 
-                var ndcX = (((x + 0.5f) / Side) * 2f) - 1f;
-                var ndcY = -((((y + 0.5f) / Side) * 2f) - 1f);
+                var ndcX = (x + 0.5f) / Side * 2f - 1f;
+                var ndcY = -((y + 0.5f) / Side * 2f - 1f);
 
                 // The rows looking above the horizon meet no floor: sky, and no reflector either.
                 if (ndcY >= -0.15f) {
@@ -1026,51 +1300,85 @@ public sealed class ReflectionTraceDeviceTests {
         effects.AddProvider(
             new Compiling(
                 loader,
-                name => name == "NearestReduce"
+                static name => name == "NearestReduce"
                     ? RavenEffects.Only(["Core"], Path.Combine("Pipeline", "NearestReduce.rvn"))
-                    : RavenEffects.Only(["Core", "Shading", "Geometry", "DistanceFields", "IrradianceFields", "SurfaceCache", "Reflections"])
+                    : RavenEffects.Only(
+                        [
+                            "Core", "Shading", "Geometry", "DistanceFields", "IrradianceFields", "SurfaceCache",
+                            "Reflections"
+                        ]
+                    )
             )
         );
 
         var pipelines = new ComputePipelineCache(device);
 
         var chain = new HiZPyramid(device) {
-            Reduction = HiZReduction.Nearest,
-            Effects = effects,
-            Pipelines = pipelines
+            Reduction = HiZReduction.Nearest, Effects = effects, Pipelines = pipelines
         };
 
         owned.Owns(chain.Dispose);
 
-        var positionPlane = owned.Owned("self-positions", TextureUsage.Sampled | TextureUsage.CopyDestination, PixelFormat.Rgba32Float, Side, Side);
-        var normalPlane = owned.Owned("self-normals", TextureUsage.Sampled | TextureUsage.CopyDestination, PixelFormat.Rgba32Float, Side, Side);
-        var depthPlane = owned.Owned("self-depth", TextureUsage.Sampled | TextureUsage.CopyDestination, PixelFormat.Rgba32Float, Side, Side);
-        var colourPlane = owned.Owned("self-colour", TextureUsage.Sampled | TextureUsage.CopyDestination, PixelFormat.Rgba32Float, Side, Side);
-        var target = owned.Owned("self-target", TextureUsage.Storage | TextureUsage.CopySource, PixelFormat.Rgba32Float, Side, Side);
+        var positionPlane = owned.Owned(
+            "self-positions",
+            TextureUsage.Sampled | TextureUsage.CopyDestination,
+            PixelFormat.Rgba32Float,
+            Side,
+            Side
+        );
+        var normalPlane = owned.Owned(
+            "self-normals",
+            TextureUsage.Sampled | TextureUsage.CopyDestination,
+            PixelFormat.Rgba32Float,
+            Side,
+            Side
+        );
+        var depthPlane = owned.Owned(
+            "self-depth",
+            TextureUsage.Sampled | TextureUsage.CopyDestination,
+            PixelFormat.Rgba32Float,
+            Side,
+            Side
+        );
+        var colourPlane = owned.Owned(
+            "self-colour",
+            TextureUsage.Sampled | TextureUsage.CopyDestination,
+            PixelFormat.Rgba32Float,
+            Side,
+            Side
+        );
+        var target = owned.Owned(
+            "self-target",
+            TextureUsage.Storage | TextureUsage.CopySource,
+            PixelFormat.Rgba32Float,
+            Side,
+            Side
+        );
 
-        var staging = owned.Buffer<Vector4>([.. positions, .. normals, .. depths, .. colours], BufferUsage.CopySource);
+        var staging = owned.Buffer([..positions, ..normals, ..depths, ..colours], BufferUsage.CopySource);
 
-        using var trace = new ReflectionTraceFill(device) {
-            Effects = effects,
-            Pipelines = pipelines,
-            Descriptors = allocator,
-            Positions = positionPlane.View,
-            Normals = normalPlane.View,
-            Target = target.View,
-            ScreenDepth = depthPlane.View,
-            ScreenColour = colourPlane.View,
-            ViewProjection = viewProjection,
-            ScreenViewport = new(Side, Side),
-            ScreenSteps = 32,
-            ScreenThickness = 0.05f,
-            ScreenLinearThickness = 0.5f,
-            Viewport = new(Side, Side),
-            CameraPosition = camera,
-            MaxDistance = 8f
-        };
+        using var trace = new ReflectionTraceFill(device);
+        trace.Effects = effects;
+        trace.Pipelines = pipelines;
+        trace.Descriptors = allocator;
+        trace.Positions = positionPlane.View;
+        trace.Normals = normalPlane.View;
+        trace.Target = target.View;
+        trace.ScreenDepth = depthPlane.View;
+        trace.ScreenColour = colourPlane.View;
+        trace.ViewProjection = viewProjection;
+        trace.ScreenViewport = new(Side, Side);
+        trace.ScreenSteps = 32;
+        trace.ScreenThickness = 0.05f;
+        trace.ScreenLinearThickness = 0.5f;
+        trace.Viewport = new(Side, Side);
+        trace.CameraPosition = camera;
+        trace.MaxDistance = 8f;
 
         trace.Parameters.Set(
-            ParameterKeys.New<Vector3>($"{ReflectionTraceFill.ShaderName}.{MaterialCompiler.SkyReflectionMissShader}.missSkyColor"),
+            ParameterKeys.New<Vector3>(
+                $"{ReflectionTraceFill.ShaderName}.{MaterialCompiler.SkyReflectionMissShader}.missSkyColor"
+            ),
             SkyMiss
         );
 
@@ -1080,7 +1388,12 @@ public sealed class ReflectionTraceDeviceTests {
         // chain deliberately unused. Both kernels carry the guard and both had the defect.
         foreach (var hierarchical in new[] { true, false }) {
             var readback = device.CreateBuffer(
-                new BufferDescription(Side * Side * 16, BufferUsage.CopyDestination, MemoryAccess.HostReadback, "self-readback")
+                new(
+                    Side * Side * 16,
+                    BufferUsage.CopyDestination,
+                    MemoryAccess.HostReadback,
+                    "self-readback"
+                )
             );
 
             allocator.BeginFrame();
@@ -1092,30 +1405,86 @@ public sealed class ReflectionTraceDeviceTests {
                         new(
                             [],
                             [
-                                new TextureBarrier(positionPlane.Texture, ResourceState.Undefined, ResourceState.CopyDestination),
-                                new TextureBarrier(normalPlane.Texture, ResourceState.Undefined, ResourceState.CopyDestination),
-                                new TextureBarrier(depthPlane.Texture, ResourceState.Undefined, ResourceState.CopyDestination),
-                                new TextureBarrier(colourPlane.Texture, ResourceState.Undefined, ResourceState.CopyDestination),
-                                new TextureBarrier(target.Texture, ResourceState.Undefined, SurfaceCacheTexture.PlaneIsBeingWritten)
+                                new TextureBarrier(
+                                    positionPlane.Texture,
+                                    ResourceState.Undefined,
+                                    ResourceState.CopyDestination
+                                ),
+                                new TextureBarrier(
+                                    normalPlane.Texture,
+                                    ResourceState.Undefined,
+                                    ResourceState.CopyDestination
+                                ),
+                                new TextureBarrier(
+                                    depthPlane.Texture,
+                                    ResourceState.Undefined,
+                                    ResourceState.CopyDestination
+                                ),
+                                new TextureBarrier(
+                                    colourPlane.Texture,
+                                    ResourceState.Undefined,
+                                    ResourceState.CopyDestination
+                                ),
+                                new TextureBarrier(
+                                    target.Texture,
+                                    ResourceState.Undefined,
+                                    SurfaceCacheTexture.PlaneIsBeingWritten
+                                )
                             ]
                         )
                     );
 
                     var plane = Side * Side * 16;
 
-                    commands.CopyBufferToTexture(staging, 0, new TextureRegion(positionPlane.Texture), new(Side, Side, 1));
-                    commands.CopyBufferToTexture(staging, plane, new TextureRegion(normalPlane.Texture), new(Side, Side, 1));
-                    commands.CopyBufferToTexture(staging, plane * 2, new TextureRegion(depthPlane.Texture), new(Side, Side, 1));
-                    commands.CopyBufferToTexture(staging, plane * 3, new TextureRegion(colourPlane.Texture), new(Side, Side, 1));
+                    commands.CopyBufferToTexture(
+                        staging,
+                        0,
+                        new(positionPlane.Texture),
+                        new(Side, Side, 1)
+                    );
+                    commands.CopyBufferToTexture(
+                        staging,
+                        plane,
+                        new(normalPlane.Texture),
+                        new(Side, Side, 1)
+                    );
+                    commands.CopyBufferToTexture(
+                        staging,
+                        plane * 2,
+                        new(depthPlane.Texture),
+                        new(Side, Side, 1)
+                    );
+                    commands.CopyBufferToTexture(
+                        staging,
+                        plane * 3,
+                        new(colourPlane.Texture),
+                        new(Side, Side, 1)
+                    );
 
                     commands.Barrier(
                         new(
                             [],
                             [
-                                new TextureBarrier(positionPlane.Texture, ResourceState.CopyDestination, ResourceState.ShaderRead),
-                                new TextureBarrier(normalPlane.Texture, ResourceState.CopyDestination, ResourceState.ShaderRead),
-                                new TextureBarrier(depthPlane.Texture, ResourceState.CopyDestination, ResourceState.ShaderRead),
-                                new TextureBarrier(colourPlane.Texture, ResourceState.CopyDestination, ResourceState.ShaderRead)
+                                new TextureBarrier(
+                                    positionPlane.Texture,
+                                    ResourceState.CopyDestination,
+                                    ResourceState.ShaderRead
+                                ),
+                                new TextureBarrier(
+                                    normalPlane.Texture,
+                                    ResourceState.CopyDestination,
+                                    ResourceState.ShaderRead
+                                ),
+                                new TextureBarrier(
+                                    depthPlane.Texture,
+                                    ResourceState.CopyDestination,
+                                    ResourceState.ShaderRead
+                                ),
+                                new TextureBarrier(
+                                    colourPlane.Texture,
+                                    ResourceState.CopyDestination,
+                                    ResourceState.ShaderRead
+                                )
                             ]
                         )
                     );
@@ -1123,7 +1492,16 @@ public sealed class ReflectionTraceDeviceTests {
                     uploaded = true;
                 } else {
                     commands.Barrier(
-                        new([], [new TextureBarrier(target.Texture, ResourceState.CopySource, SurfaceCacheTexture.PlaneIsBeingWritten)])
+                        new(
+                            [],
+                            [
+                                new TextureBarrier(
+                                    target.Texture,
+                                    ResourceState.CopySource,
+                                    SurfaceCacheTexture.PlaneIsBeingWritten
+                                )
+                            ]
+                        )
                     );
                 }
 
@@ -1136,10 +1514,19 @@ public sealed class ReflectionTraceDeviceTests {
                 Assert.Equal(Side * Side, trace.Record(commands));
 
                 commands.Barrier(
-                    new([], [new TextureBarrier(target.Texture, SurfaceCacheTexture.PlaneIsBeingWritten, ResourceState.CopySource)])
+                    new(
+                        [],
+                        [
+                            new TextureBarrier(
+                                target.Texture,
+                                SurfaceCacheTexture.PlaneIsBeingWritten,
+                                ResourceState.CopySource
+                            )
+                        ]
+                    )
                 );
 
-                commands.CopyTextureToBuffer(new TextureRegion(target.Texture), new(Side, Side, 1), readback, 0);
+                commands.CopyTextureToBuffer(new(target.Texture), new(Side, Side, 1), readback, 0);
                 commands.Finish();
                 device.GraphicsQueue.Submit([commands]);
             }
@@ -1156,16 +1543,20 @@ public sealed class ReflectionTraceDeviceTests {
             device.Read(readback, 0, MemoryMarshal.AsBytes(bytes.AsSpan()));
             device.Destroy(readback);
 
-            var reference = new TracedReflections(new EmptyWorld(), new UniformSky(0f), new SkyFallback(new UniformSky(SkyMiss))) {
+            var reference = new TracedReflections(
+                new EmptyWorld(),
+                new UniformSky(0f),
+                new SkyFallback(new UniformSky(SkyMiss))
+            ) {
                 MaxDistance = 8f,
-                ScreenTrace = new ScreenSpaceTrace(surface) {
+                ScreenTrace = new(surface) {
                     ViewProjection = viewProjection,
                     Steps = 32,
                     Thickness = 0.05f,
                     LinearThickness = 0.5f,
                     Pyramid = hierarchical ? pyramid : null
                 },
-                ScreenColour = pixel => new(0.1f * pixel.X, 0.1f * pixel.Y, 0.3f)
+                ScreenColour = static pixel => new(0.1f * pixel.X, 0.1f * pixel.Y, 0.3f)
             };
 
             var worst = 0f;
@@ -1173,7 +1564,7 @@ public sealed class ReflectionTraceDeviceTests {
 
             for (var y = 0; y < Side; y++) {
                 for (var x = 0; x < Side; x++) {
-                    var at = (y * Side) + x;
+                    var at = y * Side + x;
 
                     if (positions[at].W <= 0f) {
                         continue;
@@ -1181,10 +1572,13 @@ public sealed class ReflectionTraceDeviceTests {
 
                     reflectors++;
 
-                    var answer = new Vector3(bytes[at * 4], bytes[(at * 4) + 1], bytes[(at * 4) + 2]);
+                    var answer = new Vector3(bytes[at * 4], bytes[at * 4 + 1], bytes[at * 4 + 2]);
                     var view = Vector3.Normalize(floor[at] - camera);
 
-                    worst = MathF.Max(worst, (answer - reference.Reflect(floor[at], new(0f, 1f, 0f), view, 0f)).Length());
+                    worst = MathF.Max(
+                        worst,
+                        (answer - reference.Reflect(floor[at], new(0f, 1f, 0f), view, 0f)).Length()
+                    );
 
                     // The colour encodes the pixel, so this is the § L5 failure stated as an
                     // assertion: a mirror answering with the colour of the mirror.
@@ -1197,7 +1591,10 @@ public sealed class ReflectionTraceDeviceTests {
                 }
             }
 
-            Assert.True(reflectors >= 24, $"only {reflectors} texels held a reflector — the fixture referees too little");
+            Assert.True(
+                reflectors >= 24,
+                $"only {reflectors} texels held a reflector — the fixture referees too little"
+            );
             Assert.True(worst < 1e-4f, $"the march drifted {worst} from the reference, hierarchical {hierarchical}");
         }
     }

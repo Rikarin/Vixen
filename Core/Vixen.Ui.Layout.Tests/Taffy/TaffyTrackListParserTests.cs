@@ -39,8 +39,7 @@ public class TaffyTrackListParserTests {
     [InlineData("40px 40px 40px", "40px 40px 40px")]
     [InlineData("10% 20% 30%", "10% 20% 30%")]
     [InlineData("1fr max-content", "1fr max-content")]
-    public void A_bare_breadth_is_one_track(string value, string expected) =>
-        Assert.Equal(expected, Render(value));
+    public void A_bare_breadth_is_one_track(string value, string expected) => Assert.Equal(expected, Render(value));
 
     /// <summary>
     ///     ⚠ A bare <c>fr</c> is <c>minmax(auto, Nfr)</c>, which the round trip has to preserve.
@@ -74,8 +73,7 @@ public class TaffyTrackListParserTests {
     [InlineData("minmax(auto,10px)")]
     [InlineData("minmax(max-content,10px)")]
     [InlineData("minmax(min-content,10px)")]
-    public void A_minmax_keeps_both_halves(string value) =>
-        Assert.Equal(value, Render(value));
+    public void A_minmax_keeps_both_halves(string value) => Assert.Equal(value, Render(value));
 
     /// <summary>
     ///     ⚠ An inverted <c>minmax()</c> is stored as written, because repairing it is §12.4's job.
@@ -93,14 +91,14 @@ public class TaffyTrackListParserTests {
         var track = Single("fit-content(30px)");
 
         Assert.Equal(GridSizingFunction.Auto, track.Min);
-        Assert.Equal(new GridSizingFunction(GridSizingKind.FitContent, 30f), track.Max);
+        Assert.Equal(new(GridSizingKind.FitContent, 30f), track.Max);
     }
 
     [Fact]
     public void A_fit_content_percentage_remembers_that_it_was_one() {
         var track = Single("fit-content(50%)");
 
-        Assert.Equal(new GridSizingFunction(GridSizingKind.FitContent, 50f, IsFitContentPercent: true), track.Max);
+        Assert.Equal(new(GridSizingKind.FitContent, 50f, true), track.Max);
     }
 
     // ── repeat() ────────────────────────────────────────────────────────────────────────────────
@@ -155,8 +153,14 @@ public class TaffyTrackListParserTests {
 
     [Fact]
     public void An_automatic_repeat_reports_its_kind() {
-        Assert.Equal(GridAutoRepeat.AutoFit, TaffyTrackListParser.Parse("grid-template-columns", "repeat(auto-fit, 100px)").Kind);
-        Assert.Equal(GridAutoRepeat.AutoFill, TaffyTrackListParser.Parse("grid-template-columns", "repeat(auto-fill, 40px)").Kind);
+        Assert.Equal(
+            GridAutoRepeat.AutoFit,
+            TaffyTrackListParser.Parse("grid-template-columns", "repeat(auto-fit, 100px)").Kind
+        );
+        Assert.Equal(
+            GridAutoRepeat.AutoFill,
+            TaffyTrackListParser.Parse("grid-template-columns", "repeat(auto-fill, 40px)").Kind
+        );
     }
 
     /// <summary>
@@ -202,9 +206,17 @@ public class TaffyTrackListParserTests {
     ///     ⚠ Half a repetition is not a smaller grid, it is a different declaration — and an
     ///     <c>AutoRepeatCount</c> that runs past the end of the tracks it was handed is a buffer
     ///     overrun waiting for §7.2.3.2 to read it.
-    ///     ⚠ <b>No corpus list reaches this any more, and that is the point of the change that
-    ///     raised the ceiling.</b> The two that used to — <c>repeat(9990, 0px) repeat(auto-fill,
-    ///     …20 tracks)</c> and its <c>auto-fit</c> twin — need 10 010 tracks, which the store now
+    ///     ⚠
+    ///     <b>
+    ///         No corpus list reaches this any more, and that is the point of the change that
+    ///         raised the ceiling.
+    ///     </b>
+    ///     The two that used to —
+    ///     <c>
+    ///         repeat(9990, 0px) repeat(auto-fill,
+    ///         …20 tracks)
+    ///     </c>
+    ///     and its <c>auto-fit</c> twin — need 10 010 tracks, which the store now
     ///     allocates, and both of their fixtures went green when it did. The rule still has to hold
     ///     at whatever the ceiling is, so it is exercised against the ceiling rather than against a
     ///     number the corpus happens to write.
@@ -212,7 +224,9 @@ public class TaffyTrackListParserTests {
     [Fact]
     public void An_automatic_repetition_that_does_not_fit_is_dropped_rather_than_truncated() {
         var fixedTracks = LayoutLimits.MaximumGridTracks - 5;
-        var value = $"repeat({fixedTracks}, 0px) repeat(auto-fill, " + string.Join(' ', Enumerable.Repeat("0px", 10)) + ")";
+        var value = $"repeat({fixedTracks}, 0px) repeat(auto-fill, "
+            + string.Join(' ', Enumerable.Repeat("0px", 10))
+            + ")";
         var (tracks, kind, index, count) = TaffyTrackListParser.Parse("grid-template-columns", value);
 
         Assert.Equal(fixedTracks, tracks.Count);

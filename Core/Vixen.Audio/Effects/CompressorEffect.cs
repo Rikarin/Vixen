@@ -121,8 +121,8 @@ public sealed class CompressorEffect : ISidechainEffect {
             // detector rather than on the gain is what makes the attack and release times mean what
             // their names say.
             envelopeDb = levelDb > envelopeDb
-                ? levelDb + ((envelopeDb - levelDb) * attack)
-                : levelDb + ((envelopeDb - levelDb) * release);
+                ? levelDb + (envelopeDb - levelDb) * attack
+                : levelDb + (envelopeDb - levelDb) * release;
 
             var over = envelopeDb - threshold;
             float wanted;
@@ -130,10 +130,10 @@ public sealed class CompressorEffect : ISidechainEffect {
             if (knee > 0f && over > -knee * 0.5f && over < knee * 0.5f) {
                 // The knee: a quadratic that meets the flat part and the ratio line with matching
                 // slopes, so there is no corner anywhere for the ear to find.
-                var t = over + (knee * 0.5f);
-                wanted = -(1f - (1f / ratio)) * t * t / (2f * knee);
+                var t = over + knee * 0.5f;
+                wanted = -(1f - 1f / ratio) * t * t / (2f * knee);
             } else if (over > 0f) {
-                wanted = -over * (1f - (1f / ratio));
+                wanted = -over * (1f - 1f / ratio);
             } else {
                 wanted = 0f;
             }
@@ -231,8 +231,7 @@ public sealed class CompressorEffect : ISidechainEffect {
     ///     envelope has covered 63 % of the distance. Zero means instant, and is allowed: a ducking
     ///     compressor with a zero attack is a legitimate setting.
     /// </remarks>
-    float Coefficient(float seconds) =>
-        seconds <= 0f ? 0f : MathF.Exp(-1f / (MathF.Max(seconds, 1e-6f) * sampleRate));
+    float Coefficient(float seconds) => seconds <= 0f ? 0f : MathF.Exp(-1f / (MathF.Max(seconds, 1e-6f) * sampleRate));
 }
 
 /// <summary>Between a linear gain and its value in decibels.</summary>

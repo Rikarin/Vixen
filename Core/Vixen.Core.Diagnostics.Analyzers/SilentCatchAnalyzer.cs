@@ -13,8 +13,12 @@ namespace Vixen.Core.Diagnostics.Analyzers;
 /// <summary>Reports a <c>catch</c> that takes every exception and then never mentions it.</summary>
 /// <remarks>
 ///     <para>
-///         The rule is <c>docs/plan/13-diagnostics.md</c> § Discipline's: <i>every <c>catch</c> either
-///         handles or logs with the exception object</i>. That bullet claimed an analyzer enforced it
+///         The rule is <c>docs/plan/13-diagnostics.md</c> § Discipline's:
+///         <i>
+///             every <c>catch</c> either
+///             handles or logs with the exception object
+///         </i>
+///         . That bullet claimed an analyzer enforced it
 ///         for as long as it existed and no analyzer did (#344). This is the enforcement, and it is
 ///         narrower than the sentence — deliberately, and the boundary is in the table below.
 ///     </para>
@@ -52,13 +56,17 @@ namespace Vixen.Core.Diagnostics.Analyzers;
 ///         </item>
 ///         <item>
 ///             <term>The body throws</term>
-///             <description>A <c>throw;</c> or a wrapped rethrow propagates the failure, which is the
-///                 other half of "handles or logs".</description>
+///             <description>
+///                 A <c>throw;</c> or a wrapped rethrow propagates the failure, which is the
+///                 other half of "handles or logs".
+///             </description>
 ///         </item>
 ///         <item>
 ///             <term>A <c>when</c> filter</term>
-///             <description>A filter is a written predicate about which failures this clause is for,
-///                 which is the thing an untyped catch is missing.</description>
+///             <description>
+///                 A filter is a written predicate about which failures this clause is for,
+///                 which is the thing an untyped catch is missing.
+///             </description>
 ///         </item>
 ///         <item>
 ///             <term>A narrower type</term>
@@ -87,7 +95,7 @@ public sealed class SilentCatchAnalyzer : DiagnosticAnalyzer {
         + "failed. Log it with the exception object, rethrow, catch the type you meant, or say when (…).",
         "Vixen.Diagnostics",
         DiagnosticSeverity.Warning,
-        isEnabledByDefault: true,
+        true,
         "Doc 13 § Discipline: every catch either handles or logs with the exception object. A clause "
         + "that catches Exception without a filter and never mentions what it caught cannot have done "
         + "either — it turns every failure the try can produce into the same silent one, which is how a "
@@ -103,8 +111,7 @@ public sealed class SilentCatchAnalyzer : DiagnosticAnalyzer {
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
         context.EnableConcurrentExecution();
 
-        context.RegisterCompilationStartAction(
-            start => {
+        context.RegisterCompilationStartAction(static start => {
                 var exception = start.Compilation.GetTypeByMetadataName(ExceptionMetadataName);
 
                 // A compilation that cannot name System.Exception is not one this rule can read.
@@ -147,9 +154,7 @@ public sealed class SilentCatchAnalyzer : DiagnosticAnalyzer {
         var end = clause.Declaration?.Span.End ?? clause.CatchKeyword.Span.End;
         var span = TextSpan.FromBounds(clause.CatchKeyword.SpanStart, end);
 
-        context.ReportDiagnostic(
-            Diagnostic.Create(Rule, Location.Create(clause.SyntaxTree, span))
-        );
+        context.ReportDiagnostic(Diagnostic.Create(Rule, Location.Create(clause.SyntaxTree, span)));
     }
 
     /// <summary>Whether the body propagates the failure rather than ending it.</summary>
@@ -162,7 +167,7 @@ public sealed class SilentCatchAnalyzer : DiagnosticAnalyzer {
     ///     nested bodies run later, which is a second rule's worth of code for that shape alone.
     /// </remarks>
     static bool Throws(SyntaxNode body) =>
-        body.DescendantNodes().Any(node => node is ThrowStatementSyntax or ThrowExpressionSyntax);
+        body.DescendantNodes().Any(static node => node is ThrowStatementSyntax or ThrowExpressionSyntax);
 
     /// <summary>Whether the body mentions the exception the clause caught.</summary>
     /// <param name="context">The analysis context, for the semantic model.</param>

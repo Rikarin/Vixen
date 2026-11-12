@@ -106,13 +106,17 @@ public class TexturePixelProcessorDeviceTests(ITestOutputHelper output) {
 
         TextureGraphCompiler compiler = new(Registry()) { BaseWidth = Side, BaseHeight = Side };
 
-        Assert.Contains(compiler.Compile(graph).Diagnostics, diagnostic => diagnostic.Message.Contains("Bone"));
+        Assert.Contains(compiler.Compile(graph).Diagnostics, static diagnostic => diagnostic.Message.Contains("Bone"));
     }
 
     /// <summary>One expression over one grey image draws one picture, whatever else is wired.</summary>
     /// <remarks>
-    ///     ⚠ <b>Both are <c>a</c> and they differ only in that one has a colour at <c>b</c> it never
-    ///     reads.</b> The green lane is what told them apart: zero through the grey view, and red
+    ///     ⚠
+    ///     <b>
+    ///         Both are <c>a</c> and they differ only in that one has a colour at <c>b</c> it never
+    ///         reads.
+    ///     </b>
+    ///     The green lane is what told them apart: zero through the grey view, and red
     ///     through the splat.
     /// </remarks>
     [Fact]

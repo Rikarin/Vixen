@@ -2,8 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Text.RegularExpressions;
 using System.Xml.Linq;
 
@@ -115,25 +113,81 @@ public static class AffectedOwnership {
     ///     </para>
     /// </remarks>
     public static IReadOnlyList<DeclaredReader> DeclaredReaders { get; } = [
-        new("Raven/Library/", "Raven/Vixen.Raven.Tests/Vixen.Raven.Tests.csproj", "Raven/Vixen.Raven.Tests/LibraryReflectionTests.cs"),
-        new("Raven/README.md", "Raven/Vixen.Raven.Tests/Vixen.Raven.Tests.csproj", "Raven/Vixen.Raven.Tests/ReadmeExampleTests.cs"),
+        new(
+            "Raven/Library/",
+            "Raven/Vixen.Raven.Tests/Vixen.Raven.Tests.csproj",
+            "Raven/Vixen.Raven.Tests/LibraryReflectionTests.cs"
+        ),
+        new(
+            "Raven/README.md",
+            "Raven/Vixen.Raven.Tests/Vixen.Raven.Tests.csproj",
+            "Raven/Vixen.Raven.Tests/ReadmeExampleTests.cs"
+        ),
         new("Testing/ContentDeterminism/", "build/_build.csproj", "build/Build.ContentBytes.cs"),
-        new("Tools/Vixen.BcnOracle/", "Core/Vixen.Core.Imaging.Tests/Vixen.Core.Imaging.Tests.csproj", "Core/Vixen.Core.Imaging.Tests/BcnReferenceDecoderTests.cs"),
+        new(
+            "Tools/Vixen.BcnOracle/",
+            "Core/Vixen.Core.Imaging.Tests/Vixen.Core.Imaging.Tests.csproj",
+            "Core/Vixen.Core.Imaging.Tests/BcnReferenceDecoderTests.cs"
+        ),
 
         // #1506, one file each.
-        new("NOTICE", "Core/Vixen.Ui.Layout.Tests/Vixen.Ui.Layout.Tests.csproj", "Core/Vixen.Ui.Layout.Tests/ConformanceCorpusNoticeTests.cs"),
-        new("docs/plan/04-ecs-and-scripting.md", "Core/Vixen.Engine.Tests/Vixen.Engine.Tests.csproj", "Core/Vixen.Engine.Tests/BehaviorScaleTests.cs"),
-        new("docs/DocsExempt.txt", "Core/Vixen.Shaders.Tests/Vixen.Shaders.Tests.csproj", "Core/Vixen.Shaders.Tests/ExemptedGeneratedTypeTests.cs"),
-        new("docs/plan/49-responder-chain-and-appkit-parity.md", "Core/Vixen.Ui.Tests/Vixen.Ui.Tests.csproj", "Core/Vixen.Ui.Tests/ResponderReachTests.cs"),
-        new("docs/plan/08-asset-pipeline-and-addressables.md", "Editor/Vixen.Editor.Assets.Tests/Vixen.Editor.Assets.Tests.csproj", "Editor/Vixen.Editor.Assets.Tests/Doc08ImporterSetTests.cs"),
-        new("docs/MarkupPending.txt", "Editor/Vixen.Editor.Ui.Tests/Vixen.Editor.Ui.Tests.csproj", "Editor/Vixen.Editor.Ui.Tests/MarkupRatioTests.cs"),
-        new("docs/plan/43-web-styling-parity.tsv", "Editor/Vixen.Editor.Ui.Tests/Vixen.Editor.Ui.Tests.csproj", "Editor/Vixen.Editor.Ui.Tests/UtilityFamilySupportTests.cs"),
-        new("docs/DocCommentExempt.txt", "Editor/Vixen.Editor.Texturing.Tests/Vixen.Editor.Texturing.Tests.csproj", "build/DocCommentRule.cs"),
-        new("docs/RavenDocCommentExempt.txt", "Editor/Vixen.Editor.Texturing.Tests/Vixen.Editor.Texturing.Tests.csproj", "build/RavenDocCommentRule.cs"),
-        new("docs/overview.md", "Raven/Vixen.Raven.Tests/Vixen.Raven.Tests.csproj", "Raven/Vixen.Raven.Tests/DiagnosticCoverageTests.cs"),
+        new(
+            "NOTICE",
+            "Core/Vixen.Ui.Layout.Tests/Vixen.Ui.Layout.Tests.csproj",
+            "Core/Vixen.Ui.Layout.Tests/ConformanceCorpusNoticeTests.cs"
+        ),
+        new(
+            "docs/plan/04-ecs-and-scripting.md",
+            "Core/Vixen.Engine.Tests/Vixen.Engine.Tests.csproj",
+            "Core/Vixen.Engine.Tests/BehaviorScaleTests.cs"
+        ),
+        new(
+            "docs/DocsExempt.txt",
+            "Core/Vixen.Shaders.Tests/Vixen.Shaders.Tests.csproj",
+            "Core/Vixen.Shaders.Tests/ExemptedGeneratedTypeTests.cs"
+        ),
+        new(
+            "docs/plan/49-responder-chain-and-appkit-parity.md",
+            "Core/Vixen.Ui.Tests/Vixen.Ui.Tests.csproj",
+            "Core/Vixen.Ui.Tests/ResponderReachTests.cs"
+        ),
+        new(
+            "docs/plan/08-asset-pipeline-and-addressables.md",
+            "Editor/Vixen.Editor.Assets.Tests/Vixen.Editor.Assets.Tests.csproj",
+            "Editor/Vixen.Editor.Assets.Tests/Doc08ImporterSetTests.cs"
+        ),
+        new(
+            "docs/MarkupPending.txt",
+            "Editor/Vixen.Editor.Ui.Tests/Vixen.Editor.Ui.Tests.csproj",
+            "Editor/Vixen.Editor.Ui.Tests/MarkupRatioTests.cs"
+        ),
+        new(
+            "docs/plan/43-web-styling-parity.tsv",
+            "Editor/Vixen.Editor.Ui.Tests/Vixen.Editor.Ui.Tests.csproj",
+            "Editor/Vixen.Editor.Ui.Tests/UtilityFamilySupportTests.cs"
+        ),
+        new(
+            "docs/DocCommentExempt.txt",
+            "Editor/Vixen.Editor.Texturing.Tests/Vixen.Editor.Texturing.Tests.csproj",
+            "build/DocCommentRule.cs"
+        ),
+        new(
+            "docs/RavenDocCommentExempt.txt",
+            "Editor/Vixen.Editor.Texturing.Tests/Vixen.Editor.Texturing.Tests.csproj",
+            "build/RavenDocCommentRule.cs"
+        ),
+        new(
+            "docs/overview.md",
+            "Raven/Vixen.Raven.Tests/Vixen.Raven.Tests.csproj",
+            "Raven/Vixen.Raven.Tests/DiagnosticCoverageTests.cs"
+        ),
         new(".github/workflows/ci.yml", ApiCheckTests, "Tools/Vixen.ApiCheck.Tests/CiConcurrencyTests.cs"),
         new("README.md", ApiCheckTests, "Tools/Vixen.ApiCheck.Tests/WorkflowAndTargetInventoryTests.cs"),
-        new("docs/plan/12-build-ci-and-testing.md", ApiCheckTests, "Tools/Vixen.ApiCheck.Tests/WorkflowAndTargetInventoryTests.cs"),
+        new(
+            "docs/plan/12-build-ci-and-testing.md",
+            ApiCheckTests,
+            "Tools/Vixen.ApiCheck.Tests/WorkflowAndTargetInventoryTests.cs"
+        ),
         new("Vixen.slnx", ApiCheckTests, "Tools/Vixen.ApiCheck.Tests/ApiCoverageTests.cs"),
         new("Directory.Build.props", ApiCheckTests, "Tools/Vixen.ApiCheck.Tests/PackageValidationTests.cs"),
         new("Directory.Build.targets", ApiCheckTests, "Tools/Vixen.ApiCheck.Tests/UiGeneratorWiringTests.cs"),
@@ -148,7 +202,11 @@ public static class AffectedOwnership {
         new("docs/GeneratorPackagingExempt.txt", ApiCheckTests, "build/GeneratorPackagingRule.cs"),
         new("docs/ModuleRegistrationExempt.txt", ApiCheckTests, "build/ModuleRegistrationRule.cs"),
         new("docs/PathCaseExempt.txt", ApiCheckTests, "build/PathCaseRule.cs"),
-        new("Tools/Vixen.AotProbe.iOS/Vixen.AotProbe.iOS.csproj", ApiCheckTests, "Tools/Vixen.ApiCheck.Tests/AotProbeProjectFileTests.cs"),
+        new(
+            "Tools/Vixen.AotProbe.iOS/Vixen.AotProbe.iOS.csproj",
+            ApiCheckTests,
+            "Tools/Vixen.ApiCheck.Tests/AotProbeProjectFileTests.cs"
+        ),
         new("build/ApiUncovered.txt", ApiCheckTests, "Tools/Vixen.ApiCheck.Tests/ApiCoverageTests.cs"),
         new("build/ApplicationSizeCeilings.txt", ApiCheckTests, "build/ApplicationSizeRule.cs"),
         new("build/Build.Api.cs", ApiCheckTests, "Tools/Vixen.ApiCheck.Tests/ApiCoverageTests.cs"),
@@ -160,12 +218,36 @@ public static class AffectedOwnership {
         // #1514: suites that compile library shaders they find off disk. Each named the library in
         // no item, so an edit to a shader narrowed past it; the census could not see them while it
         // filtered on OwnedByNoProject, which Raven/Library is not.
-        new("Raven/Library/", "Core/Vixen.Rendering.Terrain.Tests/Vixen.Rendering.Terrain.Tests.csproj", "Core/Vixen.Rendering.Terrain.Tests/TerrainShaderParityTests.cs"),
-        new("Raven/Library/", "Editor/Vixen.Editor.ShaderGraph.Tests/Vixen.Editor.ShaderGraph.Tests.csproj", "Editor/Vixen.Editor.ShaderGraph.Tests/SurfaceGraphTests.cs"),
-        new("Raven/Library/", "Platform/Vixen.Graphics.Golden.Tests/Vixen.Graphics.Golden.Tests.csproj", "Platform/Vixen.Graphics.Golden.Tests/RavenEffects.cs"),
-        new("Raven/Library/", "Platform/Vixen.Raven.Gpu.Tests/Vixen.Raven.Gpu.Tests.csproj", "Platform/Vixen.Raven.Gpu.Tests/ShaderRun.cs"),
-        new("Raven/Library/", "Platform/Vixen.Vfx.Gpu.Tests/Vixen.Vfx.Gpu.Tests.csproj", "Platform/Vixen.Vfx.Gpu.Tests/VfxSortTests.cs"),
-        new("Raven/Library/", "Raven/Vixen.Raven.Transpile.Tests/Vixen.Raven.Transpile.Tests.csproj", "Raven/Vixen.Raven.Transpile.Tests/CrossCompilationTests.cs"),
+        new(
+            "Raven/Library/",
+            "Core/Vixen.Rendering.Terrain.Tests/Vixen.Rendering.Terrain.Tests.csproj",
+            "Core/Vixen.Rendering.Terrain.Tests/TerrainShaderParityTests.cs"
+        ),
+        new(
+            "Raven/Library/",
+            "Editor/Vixen.Editor.ShaderGraph.Tests/Vixen.Editor.ShaderGraph.Tests.csproj",
+            "Editor/Vixen.Editor.ShaderGraph.Tests/SurfaceGraphTests.cs"
+        ),
+        new(
+            "Raven/Library/",
+            "Platform/Vixen.Graphics.Golden.Tests/Vixen.Graphics.Golden.Tests.csproj",
+            "Platform/Vixen.Graphics.Golden.Tests/RavenEffects.cs"
+        ),
+        new(
+            "Raven/Library/",
+            "Platform/Vixen.Raven.Gpu.Tests/Vixen.Raven.Gpu.Tests.csproj",
+            "Platform/Vixen.Raven.Gpu.Tests/ShaderRun.cs"
+        ),
+        new(
+            "Raven/Library/",
+            "Platform/Vixen.Vfx.Gpu.Tests/Vixen.Vfx.Gpu.Tests.csproj",
+            "Platform/Vixen.Vfx.Gpu.Tests/VfxSortTests.cs"
+        ),
+        new(
+            "Raven/Library/",
+            "Raven/Vixen.Raven.Transpile.Tests/Vixen.Raven.Transpile.Tests.csproj",
+            "Raven/Vixen.Raven.Transpile.Tests/CrossCompilationTests.cs"
+        ),
 
         // #1514, found by the same widening: a workflow read by its file name, and every sample's
         // sources swept for one call.
@@ -174,7 +256,11 @@ public static class AffectedOwnership {
 
         // #1506, the sweeps that name no path.
         new("**/README.md", DocGenTests, "Tools/Vixen.DocGen.Tests/RealPlanCitationTests.cs"),
-        new("**/*.md", "Core/Vixen.Ui.Styling.Utilities.Tests/Vixen.Ui.Styling.Utilities.Tests.csproj", "Core/Vixen.Ui.Styling.Utilities.Tests/RefusalExpiry.cs")
+        new(
+            "**/*.md",
+            "Core/Vixen.Ui.Styling.Utilities.Tests/Vixen.Ui.Styling.Utilities.Tests.csproj",
+            "Core/Vixen.Ui.Styling.Utilities.Tests/RefusalExpiry.cs"
+        )
     ];
 
     const string ApiCheckTests = "Tools/Vixen.ApiCheck.Tests/Vixen.ApiCheck.Tests.csproj";
@@ -190,8 +276,16 @@ public static class AffectedOwnership {
     ///     references, which is the closure computed a second time and wrongly.
     /// </remarks>
     static readonly HashSet<string> NotFileItems = new(StringComparer.Ordinal) {
-        "ProjectReference", "PackageReference", "PackageVersion", "GlobalPackageReference", "Using",
-        "InternalsVisibleTo", "AssemblyAttribute", "Folder", "FrameworkReference", "TrimmerRootAssembly"
+        "ProjectReference",
+        "PackageReference",
+        "PackageVersion",
+        "GlobalPackageReference",
+        "Using",
+        "InternalsVisibleTo",
+        "AssemblyAttribute",
+        "Folder",
+        "FrameworkReference",
+        "TrimmerRootAssembly"
     };
 
     /// <summary>
@@ -240,7 +334,7 @@ public static class AffectedOwnership {
         // outranks it — but a new area README a test reads needs a reader there too, or an edit
         // to it narrows to no tests unless something happens to pack it.
         || (relative.EndsWith("/README.md", StringComparison.Ordinal)
-            && relative.Count(character => character == '/') == 1)
+            && relative.Count(static character => character == '/') == 1)
         // Claude Code's project skill: read by the agent harness, by no .NET target (#1446).
         || relative.StartsWith(".claude/", StringComparison.Ordinal)
         // ⚠ Named one by one rather than by a rule, because each was checked rather than assumed
@@ -312,13 +406,18 @@ public static class AffectedOwnership {
                 var isImport = element.Name.LocalName == "Import";
                 var value = isImport
                     ? element.Attribute("Project")?.Value
-                    : element.Parent?.Name.LocalName == "ItemGroup" ? element.Attribute("Include")?.Value : null;
+                    : element.Parent?.Name.LocalName == "ItemGroup"
+                        ? element.Attribute("Include")?.Value
+                        : null;
 
                 if (string.IsNullOrWhiteSpace(value)) {
                     continue;
                 }
 
-                foreach (var include in value.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)) {
+                foreach (var include in value.Split(
+                             ';',
+                             StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries
+                         )) {
                     var resolved = ResolveInclude(directory, Directory(file), include);
 
                     if (resolved is null) {
@@ -329,8 +428,11 @@ public static class AffectedOwnership {
                         patterns.Add(resolved);
                     }
 
-                    if (isImport && read is not null && !resolved.Contains('*', StringComparison.Ordinal)
-                        && followed.Add(resolved) && read(resolved) is { } imported) {
+                    if (isImport
+                        && read is not null
+                        && !resolved.Contains('*', StringComparison.Ordinal)
+                        && followed.Add(resolved)
+                        && read(resolved) is { } imported) {
                         Collect(resolved, imported);
                     }
                 }
@@ -355,12 +457,14 @@ public static class AffectedOwnership {
 
         var regex = Globs.GetOrAdd(
             pattern,
-            glob => new Regex(
-                "^" + Regex.Escape(glob)
+            static glob => new(
+                "^"
+                + Regex.Escape(glob)
                     .Replace(@"\*\*/", "(?:.*/)?", StringComparison.Ordinal)
                     .Replace(@"\*\*", ".*", StringComparison.Ordinal)
                     .Replace(@"\*", "[^/]*", StringComparison.Ordinal)
-                    .Replace(@"\?", "[^/]", StringComparison.Ordinal) + "$",
+                    .Replace(@"\?", "[^/]", StringComparison.Ordinal)
+                + "$",
                 RegexOptions.IgnoreCase | RegexOptions.CultureInvariant
             )
         );
@@ -368,7 +472,8 @@ public static class AffectedOwnership {
         return regex.IsMatch(relative);
     }
 
-    static readonly System.Collections.Concurrent.ConcurrentDictionary<string, Regex> Globs = new(StringComparer.Ordinal);
+    static readonly System.Collections.Concurrent.ConcurrentDictionary<string, Regex> Globs =
+        new(StringComparer.Ordinal);
 
     /// <summary>
     ///     Every project that reads <paramref name="relative" /> without containing it: through an
@@ -385,14 +490,18 @@ public static class AffectedOwnership {
     ///     repository-root pair stays with the projectless root files, as it always has, because
     ///     "every project" is the unnarrowed run.
     /// </remarks>
-    public static IReadOnlyList<string> ReadersOf(string relative, IReadOnlyDictionary<string, IReadOnlyList<string>> patternsByProject) {
+    public static IReadOnlyList<string> ReadersOf(
+        string relative,
+        IReadOnlyDictionary<string, IReadOnlyList<string>> patternsByProject
+    ) {
         var readers = new SortedSet<string>(StringComparer.Ordinal);
 
         foreach (var reader in DeclaredReaders.Where(reader => reader.Prefix.Contains('*', StringComparison.Ordinal)
-                     ? Matches(reader.Prefix, relative)
-                     : reader.Prefix.EndsWith('/')
-                         ? relative.StartsWith(reader.Prefix, StringComparison.Ordinal)
-                         : relative == reader.Prefix)) {
+                         ? Matches(reader.Prefix, relative)
+                         : reader.Prefix.EndsWith('/')
+                             ? relative.StartsWith(reader.Prefix, StringComparison.Ordinal)
+                             : relative == reader.Prefix
+                 )) {
             readers.Add(reader.Project);
         }
 
@@ -409,7 +518,7 @@ public static class AffectedOwnership {
             }
         }
 
-        return [.. readers];
+        return [..readers];
     }
 
 
@@ -456,7 +565,7 @@ public static class AffectedOwnership {
             }
         }
 
-        return new([.. projects], orphans);
+        return new([..projects], orphans);
     }
 
     /// <summary>The directory part of a repository-relative path, or empty at the root.</summary>

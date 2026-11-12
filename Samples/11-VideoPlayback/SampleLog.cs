@@ -75,7 +75,8 @@ static partial class SampleLog {
     [LoggerMessage(
         EventId = 14009,
         Level = LogLevel.Information,
-        Message = "Reached {Position:F2} s in {Wall:F2} s: {Shown} frame(s) shown, {Dropped} dropped, {Stalls} stall(s); sound {Delivered:F2} s, {StreamUnderruns} stream and {DeviceUnderruns} device underrun(s)."
+        Message =
+            "Reached {Position:F2} s in {Wall:F2} s: {Shown} frame(s) shown, {Dropped} dropped, {Stalls} stall(s); sound {Delivered:F2} s, {StreamUnderruns} stream and {DeviceUnderruns} device underrun(s)."
     )]
     public static partial void PlaybackSummary(
         ILogger logger,

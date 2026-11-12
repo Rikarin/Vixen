@@ -8,8 +8,11 @@ namespace Vixen.Net.Animation;
 /// <summary>Where a <see cref="NetworkBoneSelection" /> comes from.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b><see cref="NetworkBoneSelection.Joints" /> was written in exactly one place in the
-///         repository and it was a test</b>
+///         ⚠
+///         <b>
+///             <see cref="NetworkBoneSelection.Joints" /> was written in exactly one place in the
+///             repository and it was a test
+///         </b>
 ///         (<see href="https://github.com/Rikarin/Vixen/issues/481" />). Both pose systems bail out
 ///         when it is null, so in any real build the whole networked-pose path was a no-op by
 ///         construction — correct code, reachable by nothing, and the assembly's README costing out a
@@ -92,7 +95,7 @@ public static class NetworkBoneSelector {
             (frontier, next) = (next, frontier);
         }
 
-        return [.. chosen];
+        return [..chosen];
     }
 
     /// <summary>The joints a game named, in the order it named them.</summary>
@@ -127,6 +130,6 @@ public static class NetworkBoneSelector {
             }
         }
 
-        return [.. chosen];
+        return [..chosen];
     }
 }

@@ -149,7 +149,7 @@ public static class TerrainStore {
     ///     the format decides it.
     /// </remarks>
     public static long BaseByteCount(in TerrainDescription description) =>
-        Magic.Length + (7 * sizeof(int)) + ((long)description.SampleCount * sizeof(ushort));
+        Magic.Length + 7 * sizeof(int) + description.SampleCount * sizeof(ushort);
 
     static void WriteLayers(Stream file, Terrain terrain) {
         WriteInt(file, terrain.Layers.Count);
@@ -176,7 +176,10 @@ public static class TerrainStore {
                     for (var x = 0; x < TerrainEditLayer.ChunkSize; x++) {
                         WriteInt(
                             file,
-                            layer.DeltaAt((chunk.X * TerrainEditLayer.ChunkSize) + x, (chunk.Z * TerrainEditLayer.ChunkSize) + z)
+                            layer.DeltaAt(
+                                chunk.X * TerrainEditLayer.ChunkSize + x,
+                                chunk.Z * TerrainEditLayer.ChunkSize + z
+                            )
                         );
                     }
                 }
@@ -209,8 +212,8 @@ public static class TerrainStore {
                 for (var z = 0; z < TerrainEditLayer.ChunkSize; z++) {
                     for (var x = 0; x < TerrainEditLayer.ChunkSize; x++) {
                         layer.SetDelta(
-                            (chunkX * TerrainEditLayer.ChunkSize) + x,
-                            (chunkZ * TerrainEditLayer.ChunkSize) + z,
+                            chunkX * TerrainEditLayer.ChunkSize + x,
+                            chunkZ * TerrainEditLayer.ChunkSize + z,
                             (short)ReadInt(data, ref at)
                         );
                     }

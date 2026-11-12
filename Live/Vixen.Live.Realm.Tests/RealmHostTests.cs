@@ -35,7 +35,7 @@ public sealed class RealmHostTests {
         realm.MapIsUp();
         realm.Pump(10);
 
-        var ready = realm.Output.Where(line => line.StartsWith(RealmSignals.Ready, StringComparison.Ordinal));
+        var ready = realm.Output.Where(static line => line.StartsWith(RealmSignals.Ready, StringComparison.Ordinal));
 
         Assert.Single(ready);
         Assert.True(RealmSignals.TryReadReady(ready.First(), out var endpoint));
@@ -75,7 +75,7 @@ public sealed class RealmHostTests {
 
         realm.MapIsUp();
 
-        var client = realm.Connect(ticket: null);
+        var client = realm.Connect(null);
 
         realm.Pump();
 
@@ -134,7 +134,7 @@ public sealed class RealmHostTests {
 
     [Fact]
     public void AFullShardAdmitsNobody() {
-        using var realm = new RealmFixture(capacity: new(1, 1));
+        using var realm = new RealmFixture(new(1, 1));
 
         realm.MapIsUp();
         realm.Connect(realm.Ticket());
@@ -231,7 +231,7 @@ public sealed class RealmHostTests {
         realm.MapIsUp();
         realm.Pump(1);
 
-        realm.Host.Signal("");
+        realm.Host.Signal(string.Empty);
         realm.Host.Signal("quit");
         realm.Host.Signal("vixen-realm please stop");
         realm.Pump(1);
@@ -247,7 +247,7 @@ public sealed class RealmHostTests {
         realm.Connect(realm.Ticket());
         realm.Pump();
 
-        realm.Host.Readiness = _ => TransferReadiness.Blocked;
+        realm.Host.Readiness = static _ => TransferReadiness.Blocked;
         realm.Pump(1);
 
         var player = Assert.Single(realm.Host.Admission.Players);
@@ -263,7 +263,7 @@ public sealed class RealmHostTests {
         realm.Host.Sampled += samples.Add;
         realm.MapIsUp();
         realm.Connect(realm.Ticket());
-        realm.Host.Readiness = _ => TransferReadiness.Blocked;
+        realm.Host.Readiness = static _ => TransferReadiness.Blocked;
         realm.Pump(16);
 
         Assert.NotEmpty(samples);
@@ -298,8 +298,10 @@ public sealed class RealmHostTests {
 
     [Fact]
     public void ASpecThatIsNotRunnableIsRefusedAtConstruction() {
-        var failure = Assert.Throws<ArgumentException>(
-            () => new RealmHost(new RealmSpec(), _ => throw new InvalidOperationException("never reached"))
+        var failure = Assert.Throws<ArgumentException>(static () => new RealmHost(
+                new(),
+                static _ => throw new InvalidOperationException("never reached")
+            )
         );
 
         Assert.Contains("not a runnable spec", failure.Message, StringComparison.Ordinal);
@@ -354,7 +356,14 @@ public sealed class RealmHostTests {
 
         Assert.Equal(
             ReservationRefusal.None,
-            realm.Host.Transfers.Expect(ticket, epoch: 1, realm.Now, population: 0, realm.Spec.Capacity, draining: false)
+            realm.Host.Transfers.Expect(
+                ticket,
+                1,
+                realm.Now,
+                0,
+                realm.Spec.Capacity,
+                false
+            )
         );
 
         realm.Connect(ticket);

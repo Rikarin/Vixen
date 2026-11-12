@@ -50,8 +50,12 @@ public readonly record struct TextPosition(int Line, int Column) : IComparable<T
 ///         ⚠ <b>No undo stack.</b> Undo belongs to the application, because it has to be interleaved
 ///         with everything else the editor does — a rename that touched three files, a refactor, a
 ///         move — and an undo stack inside the text control can only ever undo typing. What is here
-///         is <see cref="Changed" />, which is what such a stack subscribes to. ⚠ <b>And one
-///         does</b>: the editor's <c>CodeDocument</c> is on this event and turns each run of typing
+///         is <see cref="Changed" />, which is what such a stack subscribes to. ⚠
+///         <b>
+///             And one
+///             does
+///         </b>
+///         : the editor's <c>CodeDocument</c> is on this event and turns each run of typing
 ///         into a <c>TextEditCommand</c> on the document's <c>CommandStack</c>, alongside the command
 ///         that renamed the asset — which is the arrangement this paragraph argues for, built.
 ///     </para>
@@ -64,12 +68,13 @@ public sealed class CodeBuffer {
     readonly List<int> breaks = [];
 
     /// <summary>Creates an empty buffer.</summary>
-    public CodeBuffer() {
-    }
+    public CodeBuffer() { }
 
     /// <summary>Creates a buffer holding some text.</summary>
     /// <param name="text">The text.</param>
-    public CodeBuffer(string text) => Text = text;
+    public CodeBuffer(string text) {
+        Text = text;
+    }
 
     /// <summary>The lines, without their terminators.</summary>
     public IReadOnlyList<string> Lines => lines;
@@ -114,7 +119,7 @@ public sealed class CodeBuffer {
     /// <returns>The nearest place that exists.</returns>
     public TextPosition Clamp(TextPosition position) {
         var line = Math.Clamp(position.Line, 0, lines.Count - 1);
-        return new TextPosition(line, Math.Clamp(position.Column, 0, lines[line].Length));
+        return new(line, Math.Clamp(position.Column, 0, lines[line].Length));
     }
 
     /// <summary>The text between two places.</summary>
@@ -157,7 +162,7 @@ public sealed class CodeBuffer {
             lines[at.Line] = before + parts[0] + after;
             Changed?.Invoke(this);
 
-            return new TextPosition(at.Line, at.Column + parts[0].Length);
+            return new(at.Line, at.Column + parts[0].Length);
         }
 
         lines[at.Line] = before + parts[0];
@@ -172,7 +177,7 @@ public sealed class CodeBuffer {
         lines[last] += after;
         Changed?.Invoke(this);
 
-        return new TextPosition(last, column);
+        return new(last, column);
     }
 
     /// <summary>Takes text out.</summary>
@@ -230,16 +235,24 @@ public sealed class CodeBuffer {
     /// <returns>Where Ctrl-Left goes.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Runs of one class at a time, and whitespace is skipped before the run rather than
-    ///         with it.</b> That is what makes Ctrl-Left from the end of <c>foo.bar(</c> stop at the
+    ///         ⚠
+    ///         <b>
+    ///             Runs of one class at a time, and whitespace is skipped before the run rather than
+    ///             with it.
+    ///         </b>
+    ///         That is what makes Ctrl-Left from the end of <c>foo.bar(</c> stop at the
     ///         bracket, then at <c>bar</c>, then at the dot — which is how every editor behaves and is
     ///         not what "characters up to the next space" gives. It is also not what UAX #29 gives,
     ///         which is why <c>TextField</c>'s rule cannot simply be used here: replacing this with
     ///         <c>WordBreaker</c> outright would regress the one case a code editor exists for.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>But a run of the <i>word</i> class is then subdivided by <c>WordBreaker</c>, and
-    ///         without that step this navigates Japanese as one word.</b> <see cref="IsWord" /> is
+    ///         ⚠
+    ///         <b>
+    ///             But a run of the <i>word</i> class is then subdivided by <c>WordBreaker</c>, and
+    ///             without that step this navigates Japanese as one word.
+    ///         </b>
+    ///         <see cref="IsWord" /> is
     ///         <c>char.IsLetterOrDigit</c>, which is true of every Han, Kana and Thai codepoint —
     ///         languages that put no space between words — so the whole of <c>編集するためのボタン</c>
     ///         was a single class run and Ctrl-Left jumped all of it. UAX #29 is what knows where
@@ -353,8 +366,12 @@ public sealed class CodeBuffer {
     /// <param name="end">Where the caret is, which is where the run ends for this move.</param>
     /// <returns>The boundary to stop at, which is <paramref name="start" /> when there is none.</returns>
     /// <remarks>
-    ///     ⚠ <b>The breaker is run over the run alone rather than over the line, and the two agree
-    ///     here because the run's own edges are boundaries.</b> A class run ends at whitespace or at
+    ///     ⚠
+    ///     <b>
+    ///         The breaker is run over the run alone rather than over the line, and the two agree
+    ///         here because the run's own edges are boundaries.
+    ///     </b>
+    ///     A class run ends at whitespace or at
     ///     a character of the other class, and UAX #29 breaks at both — so the context the substring
     ///     loses is context that could not have moved a boundary. Running it over the line instead
     ///     would mean mapping offsets back and re-deciding which of its boundaries fall inside the

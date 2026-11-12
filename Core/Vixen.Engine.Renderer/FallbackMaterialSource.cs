@@ -10,8 +10,12 @@ namespace Vixen.Engine.Renderer;
 /// <summary>A catalog's materials, with a fallback for the ones it has refused for good.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Without it a mesh whose material the catalog refused does not draw at all, and that is
-///         not obvious from either side.</b> <see cref="IMaterialSource.TryGet" /> is two-valued and
+///         ⚠
+///         <b>
+///             Without it a mesh whose material the catalog refused does not draw at all, and that is
+///             not obvious from either side.
+///         </b>
+///         <see cref="IMaterialSource.TryGet" /> is two-valued and
 ///         its false means "not yet" — <see cref="MeshExtractionSystem" /> reads it that way and
 ///         leaves the entity unsettled, to be asked again next frame. <see cref="AssetMaterialSource" />
 ///         also returns false for a reference it has given up on — one the build did not ship, a

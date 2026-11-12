@@ -78,13 +78,17 @@ public sealed class MeshMapEncodingTests {
     public void Only_the_maps_that_were_measured_become_files() {
         var made = MeshMapBake.Encode(Measured(2));
 
-        Assert.Equal(MeshMapBake.Always, made.Select(image => image.Usage).ToList());
+        Assert.Equal(MeshMapBake.Always, made.Select(static image => image.Usage).ToList());
     }
 
     /// <summary>Everything § D12 lists becomes one image, and one only.</summary>
     /// <remarks>
-    ///     ⚠ <b>The usages rather than the file names, because an encoded image no longer carries
-    ///     one.</b> A name minted here is a name minted before anything knows the folder it lands in
+    ///     ⚠
+    ///     <b>
+    ///         The usages rather than the file names, because an encoded image no longer carries
+    ///         one.
+    ///     </b>
+    ///     A name minted here is a name minted before anything knows the folder it lands in
     ///     or whether another model is already using it, which was two defects — see
     ///     <c>IMeshMapBaker.Write</c>. What has to be distinct for a set to survive being written is
     ///     the usage, and <see cref="Every_usage_names_a_file_that_parses_back" /> is what proves the
@@ -94,8 +98,8 @@ public sealed class MeshMapEncodingTests {
     public void Every_measured_map_becomes_one_file() {
         var made = MeshMapBake.Encode(Everything(2));
 
-        Assert.Equal(MeshMapNaming.Every, made.Select(image => image.Usage).ToList());
-        Assert.Equal(made.Count, made.Select(image => image.Usage).Distinct().Count());
+        Assert.Equal(MeshMapNaming.Every, made.Select(static image => image.Usage).ToList());
+        Assert.Equal(made.Count, made.Select(static image => image.Usage).Distinct().Count());
     }
 
     /// <summary>The first row of the file is the one at <c>v = 0</c>.</summary>
@@ -127,10 +131,7 @@ public sealed class MeshMapEncodingTests {
     [Fact]
     public void A_signed_map_carries_the_scale_that_decodes_it() {
         const float range = 0.25f;
-        var maps = Measured(2) with {
-            Displacement = [-range, 0f, range, range / 2f],
-            DisplacementRange = range
-        };
+        var maps = Measured(2) with { Displacement = [-range, 0f, range, range / 2f], DisplacementRange = range };
 
         var image = Single(MeshMapBake.Encode(maps), MeshMapUsage.Displacement);
         var decoded = PngCodec.Decode(image.Png);
@@ -143,7 +144,7 @@ public sealed class MeshMapEncodingTests {
         Assert.Equal(byte.MaxValue, decoded.Pixels[decoded.Offset(0, 1)]);
 
         // And it decodes back to what was measured, which is the only reason the scale is written.
-        var quarter = ((decoded.Pixels[decoded.Offset(1, 1)] / 255f * 2f) - 1f) * image.Scale;
+        var quarter = (decoded.Pixels[decoded.Offset(1, 1)] / 255f * 2f - 1f) * image.Scale;
 
         Assert.Equal(range / 2f, quarter, 0.002f);
     }
@@ -242,8 +243,7 @@ public sealed class MeshMapEncodingTests {
         return (image.Pixels[at], image.Pixels[at + 1], image.Pixels[at + 2]);
     }
 
-    static (byte R, byte G, byte B) Quantized(Vector3 colour) =>
-        (Level(colour.X), Level(colour.Y), Level(colour.Z));
+    static (byte R, byte G, byte B) Quantized(Vector3 colour) => (Level(colour.X), Level(colour.Y), Level(colour.Z));
 
     static byte Level(float value) => (byte)Math.Clamp(MathF.Round(value * 255f), 0f, 255f);
 

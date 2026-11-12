@@ -284,7 +284,8 @@ internal abstract partial class Binder {
         }
 
         if (element is not PrimitiveTypeSymbol {
-                TypeKind: TypeKind.Vector, ComponentCount: 4,
+                TypeKind: TypeKind.Vector,
+                ComponentCount: 4,
                 ComponentSpecialType: SpecialType.Float or SpecialType.Int or SpecialType.UInt
             } texel) {
             Report(
@@ -328,8 +329,7 @@ internal abstract partial class Binder {
         }
 
         if (element is not PrimitiveTypeSymbol {
-                TypeKind: TypeKind.Vector, ComponentCount: 4,
-                ComponentSpecialType: SpecialType.Int or SpecialType.UInt
+                TypeKind: TypeKind.Vector, ComponentCount: 4, ComponentSpecialType: SpecialType.Int or SpecialType.UInt
             } texel) {
             Report(
                 SemanticDiagnostics.SampledTextureElementNotIntegral,
@@ -361,9 +361,17 @@ internal abstract partial class Binder {
     /// <remarks>
     ///     <para>
     ///         ⚠ <b>The constraint is substituted first, and it was not.</b> A constraint may name
-    ///         another parameter of the same declaration — <c>struct Relay&lt;T, U&gt; where U :
-    ///         Shaded where T : U</c> — and comparing the argument against <c>U</c> <em>as
-    ///         declared</em> asks whether <c>Leaf</c> derives from a type parameter, which nothing
+    ///         another parameter of the same declaration —
+    ///         <c>
+    ///             struct Relay&lt;T, U&gt; where U :
+    ///             Shaded where T : U
+    ///         </c>
+    ///         — and comparing the argument against <c>U</c>
+    ///         <em>
+    ///             as
+    ///             declared
+    ///         </em>
+    ///         asks whether <c>Leaf</c> derives from a type parameter, which nothing
     ///         does. So every concrete instantiation of such a type was refused, the identity one
     ///         <c>Relay&lt;Leaf, Leaf&gt;</c> included: a constraint form the parser and the binder
     ///         both accept, that no program could use.

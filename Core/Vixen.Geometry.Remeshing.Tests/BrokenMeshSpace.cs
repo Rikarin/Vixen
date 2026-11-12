@@ -9,8 +9,12 @@ namespace Vixen.Geometry.Remeshing.Tests;
 
 /// <summary>One way an input can be broken. <see cref="BrokenMeshes" />' eighteen, as an axis.</summary>
 /// <remarks>
-///     ⚠ <b>Each of these is a defect the conditioner has a named step for, so a failure names a
-///     step.</b> docs/plan/41 § D3's seven steps are weld, orient, de-speck, repair, fill,
+///     ⚠
+///     <b>
+///         Each of these is a defect the conditioner has a named step for, so a failure names a
+///         step.
+///     </b>
+///     docs/plan/41 § D3's seven steps are weld, orient, de-speck, repair, fill,
 ///     pre-remesh, shrinkwrap; every entry below is something one of them exists to survive.
 /// </remarks>
 enum MeshDefect : byte {
@@ -69,8 +73,12 @@ enum MeshDefect : byte {
 /// <param name="Degeneracy">What share of positions are snapped onto their neighbour, in <c>[0, 1]</c>.</param>
 /// <param name="Scale">What every position is multiplied by, once the mesh has been triangulated.</param>
 /// <remarks>
-///     ⚠ <b>A description rather than the mesh, and that is the whole reason this is a record of six
-///     scalars.</b> CsCheck shrinks the values it generated, not what they were turned into. A failing
+///     ⚠
+///     <b>
+///         A description rather than the mesh, and that is the whole reason this is a record of six
+///         scalars.
+///     </b>
+///     CsCheck shrinks the values it generated, not what they were turned into. A failing
 ///     four-thousand-triangle mesh is not a finding anybody can act on; a failing
 ///     <c>(Box, 3, 1, [Mobius], 1, 0, 1)</c> is one line to paste into a test.
 /// </remarks>
@@ -152,7 +160,7 @@ static class BrokenMeshSpace {
         Gen.Enum<MeshDefect>().Array[0, 3],
         Gen.Int[1, 6],
         Gen.Single[0f, 0.35f],
-        (shape, sides, steps, defects, multiplicity, degeneracy) =>
+        static (shape, sides, steps, defects, multiplicity, degeneracy) =>
             new MeshRecipe(shape, sides, steps, defects, multiplicity, degeneracy, 1f)
     );
 
@@ -172,8 +180,12 @@ static class BrokenMeshSpace {
     /// <param name="recipe">The recipe.</param>
     /// <returns>The mesh, triangulated and then scaled.</returns>
     /// <remarks>
-    ///     ⚠ <b>Triangulated before it is scaled, and <see cref="BrokenMeshes.Triangulated" /> records
-    ///     why: ear clipping is itself scale-sensitive.</b> A quad from a generator is not exactly
+    ///     ⚠
+    ///     <b>
+    ///         Triangulated before it is scaled, and <see cref="BrokenMeshes.Triangulated" /> records
+    ///         why: ear clipping is itself scale-sensitive.
+    ///     </b>
+    ///     A quad from a generator is not exactly
     ///     planar, so which corner is an ear can land either way under a change of size — measured on
     ///     <see cref="BrokenMeshes.Specks" />, 1248 of 2016 indices differ between a thousandth and a
     ///     thousand times. Scaling a mesh that is already triangles takes that out of every comparison
@@ -194,8 +206,7 @@ static class BrokenMeshSpace {
     static EditMesh Body(MeshRecipe recipe) =>
         MeshShapes.Create(
             ShapeParameters.Default(recipe.Shape) with {
-                Sides = Math.Max(3, recipe.Sides),
-                Steps = Math.Max(1, recipe.Steps)
+                Sides = Math.Max(3, recipe.Sides), Steps = Math.Max(1, recipe.Steps)
             }
         );
 

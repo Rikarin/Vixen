@@ -20,7 +20,7 @@ public class IrradianceBrickPoolTests {
         var pool = new IrradianceBrickPool(new(2, 3, 4));
 
         Assert.Equal(24, pool.Capacity);
-        Assert.Equal(new Int3(10, 15, 20), pool.TexelResolution);
+        Assert.Equal(new(10, 15, 20), pool.TexelResolution);
         Assert.Equal(24 * 125, pool.Texels.Length);
     }
 
@@ -75,11 +75,11 @@ public class IrradianceBrickPoolTests {
     public void SlotOriginsTileTheVolume() {
         var pool = new IrradianceBrickPool(new(2, 2, 2));
 
-        Assert.Equal(new Int3(0, 0, 0), pool.OriginOf(0));
-        Assert.Equal(new Int3(5, 0, 0), pool.OriginOf(1));
-        Assert.Equal(new Int3(0, 5, 0), pool.OriginOf(2));
-        Assert.Equal(new Int3(0, 0, 5), pool.OriginOf(4));
-        Assert.Equal(new Int3(5, 5, 5), pool.OriginOf(7));
+        Assert.Equal(new(0, 0, 0), pool.OriginOf(0));
+        Assert.Equal(new(5, 0, 0), pool.OriginOf(1));
+        Assert.Equal(new(0, 5, 0), pool.OriginOf(2));
+        Assert.Equal(new(0, 0, 5), pool.OriginOf(4));
+        Assert.Equal(new(5, 5, 5), pool.OriginOf(7));
     }
 
     /// <summary>Two bricks in one pool do not read each other's texels.</summary>
@@ -152,10 +152,10 @@ public class IrradianceBrickPoolTests {
         var origin = pool.OriginOf(slot);
 
         foreach (var local in (Vector3[]) [
-            new(0f), new(1f), new(0.3f, 0.7f, 0.1f), new(0.5f), new(0.99f, 0.01f, 0.5f)
-        ]) {
+                     new(0f), new(1f), new(0.3f, 0.7f, 0.1f), new(0.5f), new(0.99f, 0.01f, 0.5f)
+                 ]) {
             var texel = new Vector3(origin.X, origin.Y, origin.Z)
-                + (local * IrradianceBrickPool.BrickResolution);
+                + local * IrradianceBrickPool.BrickResolution;
 
             Assert.Equal(Texel(texel), pool.Sample(slot, local).Value(), 3);
         }
@@ -176,14 +176,14 @@ public class IrradianceBrickPoolTests {
         var resolution = pool.TexelResolution;
 
         foreach (var local in (Vector3[]) [
-            new(0f), new(1f), new(0.3f, 0.7f, 0.1f), new(0.5f)
-        ]) {
+                     new(0f), new(1f), new(0.3f, 0.7f, 0.1f), new(0.5f)
+                 ]) {
             var coordinate = pool.TextureCoordinate(slot, local);
-            var address = (coordinate * new Vector3(resolution.X, resolution.Y, resolution.Z))
+            var address = coordinate * new Vector3(resolution.X, resolution.Y, resolution.Z)
                 - new Vector3(0.5f);
 
             var expected = new Vector3(origin.X, origin.Y, origin.Z)
-                + (local * IrradianceBrickPool.BrickResolution);
+                + local * IrradianceBrickPool.BrickResolution;
 
             Assert.Equal(expected.X, address.X, 4);
             Assert.Equal(expected.Y, address.Y, 4);
@@ -219,6 +219,5 @@ public class IrradianceBrickPoolTests {
     }
 
     /// <summary>What a texel at a coordinate holds — linear, so trilinear reproduces it exactly.</summary>
-    static float Texel(Vector3 coordinate) =>
-        coordinate.X + (10f * coordinate.Y) + (100f * coordinate.Z);
+    static float Texel(Vector3 coordinate) => coordinate.X + 10f * coordinate.Y + 100f * coordinate.Z;
 }

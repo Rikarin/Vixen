@@ -113,8 +113,11 @@ public class TextureKernelSurfaceTests {
             + "here reads that marker, and one that finds nothing reports a complete inventory of nothing."
         );
 
-        Assert.Contains(surfaces, type => string.Equals(type.Name, "TextureColourKernels", StringComparison.Ordinal));
-        Assert.Contains(surfaces, type => string.Equals(type.Name, "TextureSources", StringComparison.Ordinal));
+        Assert.Contains(
+            surfaces,
+            static type => string.Equals(type.Name, "TextureColourKernels", StringComparison.Ordinal)
+        );
+        Assert.Contains(surfaces, static type => string.Equals(type.Name, "TextureSources", StringComparison.Ordinal));
 
         // The two idioms are both present, so a marker that answered only one of them is a failure
         // here rather than a silently shorter inventory.

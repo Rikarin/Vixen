@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Editor.NodeGraph;
-using Vixen.Editor.Texturing.Layers;
 using Vixen.NodeGraph;
 using Vixen.Texturing.Layers;
 using Xunit;
@@ -12,16 +11,23 @@ namespace Vixen.Editor.Texturing.Tests;
 /// <summary>Doc 48 § D10's fourth filter kind: a graph with an <c>Input</c>, on a layer.</summary>
 /// <remarks>
 ///     <para>
-///         <b><a href="https://github.com/Rikarin/Vixen/issues/1068">#1068</a>, and the asymmetry was
-///         invisible from either file alone.</b> A mask's adjustments were never limited to a list —
+///         <b>
+///             <a href="https://github.com/Rikarin/Vixen/issues/1068">#1068</a>, and the asymmetry was
+///             invisible from either file alone.
+///         </b>
+///         A mask's adjustments were never limited to a list —
 ///         <c>MaskEffectAsset.Node</c> is a node-type path, and its own remarks specify an effect as
 ///         anything with one image in and one image out — while <c>LayerStackGraph.Adjustment</c>
 ///         took its node type from <c>LayerFilterKind</c> and from nothing else. So the same sentence
 ///         of the same section was true of a mask and false of a layer.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The compound used here is a shipped one and is resolved the way the editor resolves
-///         it.</b> <c>LayerStackCompiler.Compile</c>'s default library publishes
+///         ⚠
+///         <b>
+///             The compound used here is a shipped one and is resolved the way the editor resolves
+///             it.
+///         </b>
+///         <c>LayerStackCompiler.Compile</c>'s default library publishes
 ///         <c>Tools/Vixen.TextureGraph/Compounds</c>, so <c>Utility/Highpass</c> is a node
 ///         type this project really has rather than a fixture's invention — which matters, because a
 ///         test that built its own single-image node type would be asserting against a graph nobody
@@ -113,7 +119,7 @@ public class FilterCompoundTests {
             new() { Id = "f", Kind = LayerKind.Filter, FilterNode = "Generators/Not A Compound" }
         );
 
-        var refusal = Assert.Single(compilation.Problems, problem => problem.Severity == NodeSeverity.Error);
+        var refusal = Assert.Single(compilation.Problems, static problem => problem.Severity == NodeSeverity.Error);
 
         Assert.Contains("Not A Compound", refusal.Message, StringComparison.Ordinal);
         Assert.Equal("f", refusal.Layer);
@@ -128,7 +134,7 @@ public class FilterCompoundTests {
     [Fact]
     public void A_filter_layer_whose_second_image_reads_nothing_is_refused() {
         var compilation = Compile(new() { Id = "f", Kind = LayerKind.Filter, FilterNode = "Colour/Blend" });
-        var refusal = Assert.Single(compilation.Problems, problem => problem.Severity == NodeSeverity.Error);
+        var refusal = Assert.Single(compilation.Problems, static problem => problem.Severity == NodeSeverity.Error);
 
         Assert.Contains("reads 'Foreground' from nothing yet", refusal.Message, StringComparison.Ordinal);
         Assert.Equal("f", refusal.Layer);
@@ -137,8 +143,11 @@ public class FilterCompoundTests {
     /// <summary>⚠ A number reaches the node's port, and one named after the image input does not.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>The ports are derived from the type rather than listed, and what that protects is
-    ///         the image wire.</b> <c>LayerFilterKind</c>'s path carries a hand-written port list per
+    ///         <b>
+    ///             The ports are derived from the type rather than listed, and what that protects is
+    ///             the image wire.
+    ///         </b>
+    ///         <c>LayerFilterKind</c>'s path carries a hand-written port list per
     ///         filter precisely so that a setting called <c>Input</c> cannot be written to the port
     ///         the layers beneath arrive on; a compound's ports cannot be listed here, so the check is
     ///         the one <c>MaskEffectAsset</c>'s remarks already specify.
@@ -189,8 +198,11 @@ public class FilterCompoundTests {
     /// <summary>⚠ A <em>setting</em> reaches the named node, and one it does not declare is dropped.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/1079">#1079</a>, which is the
-    ///         member <c>MaskEffectAsset</c> had and <c>LayerAsset</c> did not.</b> A mask effect
+    ///         <b>
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/1079">#1079</a>, which is the
+    ///             member <c>MaskEffectAsset</c> had and <c>LayerAsset</c> did not.
+    ///         </b>
+    ///         A mask effect
     ///         carries numbers by port <em>and</em> settings by name, because an effect is any
     ///         published compound and a compound's behaviour is often chosen by a string.
     ///         <c>FilterNode</c> made a filter layer the same kind of thing while
@@ -245,8 +257,11 @@ public class FilterCompoundTests {
 
     /// <summary>⚠ A setting is read on the named-node path and on no other.</summary>
     /// <remarks>
-    ///     <b>The five <c>LayerFilterKind</c> members must go on compiling to exactly the ops they
-    ///     compile to now</b>, which is what <c>LayerStackExplodeTests</c>' byte-identical
+    ///     <b>
+    ///         The five <c>LayerFilterKind</c> members must go on compiling to exactly the ops they
+    ///         compile to now
+    ///     </b>
+    ///     , which is what <c>LayerStackExplodeTests</c>' byte-identical
     ///     differential asserts — so a filter layer that is a <c>Levels</c> and carries a settings
     ///     dictionary has to be the plan of one that carries none. ⚠ Nothing else in this suite would
     ///     notice a <c>foreach</c> written one branch too high: the five declare no settings at all,
@@ -285,7 +300,7 @@ public class FilterCompoundTests {
         var stack = Stack(flipped);
         var text = LayerStackYaml.Write(stack);
         var read = LayerStackYaml.Read(text);
-        var layer = read.Sets[0].Layers.Single(entry => entry.Id == "f");
+        var layer = read.Sets[0].Layers.Single(static entry => entry.Id == "f");
 
         Assert.Equal("Flip", layer.Texts["Mode"]);
 
@@ -321,11 +336,11 @@ public class FilterCompoundTests {
     /// </remarks>
     [Fact]
     public void A_compound_filter_survives_the_file() {
-        LayerStackAsset stack = Stack(new() { Id = "f", Kind = LayerKind.Filter, FilterNode = Highpass });
+        var stack = Stack(new() { Id = "f", Kind = LayerKind.Filter, FilterNode = Highpass });
 
         var text = LayerStackYaml.Write(stack);
         var read = LayerStackYaml.Read(text);
-        var layer = read.Sets[0].Layers.Single(entry => entry.Id == "f");
+        var layer = read.Sets[0].Layers.Single(static entry => entry.Id == "f");
 
         Assert.Equal(Highpass, layer.FilterNode);
         Assert.DoesNotContain("filter:", text, StringComparison.Ordinal);
@@ -342,11 +357,7 @@ public class FilterCompoundTests {
     /// <param name="filter">The filter layer, or <see langword="null" /> for a stack without one.</param>
     /// <returns>The stack.</returns>
     static LayerStackAsset Stack(LayerAsset? filter) {
-        LayerAsset fill = new() {
-            Id = "base",
-            Kind = LayerKind.Fill,
-            Fill = LayerFillSource.Constant
-        };
+        LayerAsset fill = new() { Id = "base", Kind = LayerKind.Fill, Fill = LayerFillSource.Constant };
 
         fill.Values["baseColor"] = [0.5f, 0.25f, 0.75f, 1f];
 

@@ -13,8 +13,11 @@ namespace Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b><a href="https://github.com/Rikarin/Vixen/issues/1123">#1123</a>, whose whole point is
-///         that the defect compiles.</b> <c>TexturedMetalRoughnessSurface</c> and
+///         <b>
+///             <a href="https://github.com/Rikarin/Vixen/issues/1123">#1123</a>, whose whole point is
+///             that the defect compiles.
+///         </b>
+///         <c>TexturedMetalRoughnessSurface</c> and
 ///         <c>TexturedMaterialLayersSurface</c> are both <see cref="MaterialFeatureStage.Surface" />,
 ///         both <em>assign</em> the same fields of <c>MaterialData</c>, and both compose into
 ///         <c>CompositeSurface</c> slots. Listed together the composition resolves, the material
@@ -78,7 +81,7 @@ public class MaterialBaseSurfaceTests {
 
         Assert.True(Directory.Exists(root), $"the shipped shaders were not copied to {root}");
 
-        return Directory.EnumerateFiles(root, "*.rvn", SearchOption.AllDirectories).ToArray();
+        return [..Directory.EnumerateFiles(root, "*.rvn", SearchOption.AllDirectories)];
     }
 
     /// <summary>Each shipped shader's body, by name, with comments dropped.</summary>
@@ -118,16 +121,24 @@ public class MaterialBaseSurfaceTests {
     /// <summary>Every shipped shader that decides what the surface is made of.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Assigning <c>d.diffuseColor</c> is not enough on its own and this is the case
-    ///         that proves it.</b> <c>TexturedOrmSurface</c> assigns it too — and it is emphatically
+    ///         ⚠
+    ///         <b>
+    ///             Assigning <c>d.diffuseColor</c> is not enough on its own and this is the case
+    ///             that proves it.
+    ///         </b>
+    ///         <c>TexturedOrmSurface</c> assigns it too — and it is emphatically
     ///         not a base workflow: it reads the albedo back out of the surface, re-splits it by the
     ///         map's metalness and writes the result. What separates the two is the <em>read</em>. A
     ///         base workflow says what the albedo is; everything else says what to do to the albedo
     ///         that is already there.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>So an inventory that matched the assignment alone would call the ORM feature a
-    ///         base surface and refuse every textured material in the tree</b> — a rule failing the
+    ///         ⚠
+    ///         <b>
+    ///             So an inventory that matched the assignment alone would call the ORM feature a
+    ///             base surface and refuse every textured material in the tree
+    ///         </b>
+    ///         — a rule failing the
     ///         other way, which is the shape this repository files as "verify the instrument first".
     ///     </para>
     /// </remarks>
@@ -164,10 +175,10 @@ public class MaterialBaseSurfaceTests {
     /// </remarks>
     static IMaterialFeature[] Features() {
         var features = typeof(MetalRoughnessFeature).Assembly.GetTypes()
-            .Where(type => type is { IsAbstract: false, IsInterface: false, IsGenericTypeDefinition: false })
-            .Where(type => typeof(IMaterialFeature).IsAssignableFrom(type))
-            .Where(type => type.GetConstructor(Type.EmptyTypes) is not null)
-            .Select(type => (IMaterialFeature)Activator.CreateInstance(type)!)
+            .Where(static type => type is { IsAbstract: false, IsInterface: false, IsGenericTypeDefinition: false })
+            .Where(static type => typeof(IMaterialFeature).IsAssignableFrom(type))
+            .Where(static type => type.GetConstructor(Type.EmptyTypes) is not null)
+            .Select(static type => (IMaterialFeature)Activator.CreateInstance(type)!)
             .ToArray();
 
         // The instrument: an empty roster satisfies every assertion below while checking nothing.
@@ -191,7 +202,7 @@ public class MaterialBaseSurfaceTests {
         var compilation = MaterialCompiler.Compile(Layered());
 
         var refusal = Assert.Single(
-            compilation.Diagnostics.Where(diagnostic => diagnostic.Id == MaterialDiagnosticId.TwoBaseSurfaces)
+            compilation.Diagnostics.Where(static diagnostic => diagnostic.Id == MaterialDiagnosticId.TwoBaseSurfaces)
         );
 
         Assert.True(refusal.IsError, "two base surfaces draw the wrong material, so it is not a caution");
@@ -202,8 +213,11 @@ public class MaterialBaseSurfaceTests {
 
     /// <summary>⚠ And that is the <em>only</em> thing wrong with it, which is what makes it a fixture.</summary>
     /// <remarks>
-    ///     <b>A rule no material can violate is satisfied by exactly the defect it was meant to
-    ///     catch.</b> If the pair above were refused for some other reason — a duplicate, a bad map
+    ///     <b>
+    ///         A rule no material can violate is satisfied by exactly the defect it was meant to
+    ///         catch.
+    ///     </b>
+    ///     If the pair above were refused for some other reason — a duplicate, a bad map
     ///     name, a slot ceiling — the new diagnostic would be decoration on a material that was
     ///     already being rejected, and removing it from the compiler would change nothing. It is not:
     ///     each feature compiles clean on its own, and together the only error is this one.
@@ -214,12 +228,12 @@ public class MaterialBaseSurfaceTests {
             var alone = MaterialCompiler.Compile(new() { Features = [feature!] });
 
             Assert.NotNull(alone.Material);
-            Assert.Empty(alone.Diagnostics.Where(diagnostic => diagnostic.IsError));
+            Assert.Empty(alone.Diagnostics.Where(static diagnostic => diagnostic.IsError));
         }
 
         Assert.All(
-            MaterialCompiler.Compile(Layered()).Diagnostics.Where(diagnostic => diagnostic.IsError),
-            diagnostic => Assert.Equal(MaterialDiagnosticId.TwoBaseSurfaces, diagnostic.Id)
+            MaterialCompiler.Compile(Layered()).Diagnostics.Where(static diagnostic => diagnostic.IsError),
+            static diagnostic => Assert.Equal(MaterialDiagnosticId.TwoBaseSurfaces, diagnostic.Id)
         );
     }
 
@@ -233,20 +247,20 @@ public class MaterialBaseSurfaceTests {
     [Fact]
     public void ABaseSurfaceBesideContributingFeaturesIsNotRefused() {
         var contributing = Features()
-            .Where(feature => !feature.IsBaseSurface)
-            .Where(feature => feature.Stage != MaterialFeatureStage.Coordinate)
+            .Where(static feature => !feature.IsBaseSurface)
+            .Where(static feature => feature.Stage != MaterialFeatureStage.Coordinate)
             .Take(3)
             .ToArray();
 
         Assert.Equal(3, contributing.Length);
 
         var compilation = MaterialCompiler.Compile(
-            new() { Features = [new TexturedMetalRoughnessFeature(), .. contributing] }
+            new() { Features = [new TexturedMetalRoughnessFeature(), ..contributing] }
         );
 
         Assert.DoesNotContain(
             compilation.Diagnostics,
-            diagnostic => diagnostic.Id == MaterialDiagnosticId.TwoBaseSurfaces
+            static diagnostic => diagnostic.Id == MaterialDiagnosticId.TwoBaseSurfaces
         );
     }
 
@@ -261,8 +275,8 @@ public class MaterialBaseSurfaceTests {
     [Fact]
     public void EveryShaderThatDecidesTheSurfaceHasABaseFeature() {
         var declared = Features()
-            .Where(feature => feature.IsBaseSurface)
-            .Select(feature => feature.ShaderName)
+            .Where(static feature => feature.IsBaseSurface)
+            .Select(static feature => feature.ShaderName)
             .ToHashSet(StringComparer.Ordinal);
 
         foreach (var shader in BaseShaders()) {
@@ -286,7 +300,7 @@ public class MaterialBaseSurfaceTests {
     public void EveryBaseFeatureNamesAShaderThatDecidesTheSurface() {
         var bases = BaseShaders();
 
-        foreach (var feature in Features().Where(feature => feature.IsBaseSurface)) {
+        foreach (var feature in Features().Where(static feature => feature.IsBaseSurface)) {
             Assert.True(
                 bases.Contains(feature.ShaderName),
                 $"'{feature.GetType().Name}' declares IsBaseSurface and '{feature.ShaderName}' does "
@@ -299,8 +313,11 @@ public class MaterialBaseSurfaceTests {
     /// <summary>⚠ The read is what separates a base workflow from a feature that re-splits the albedo.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>The apparatus rather than the rule, and it is the half that would have been
-    ///         wrong.</b> <c>TexturedOrmSurface</c> assigns <c>d.diffuseColor</c> — an inventory
+    ///         <b>
+    ///             The apparatus rather than the rule, and it is the half that would have been
+    ///             wrong.
+    ///         </b>
+    ///         <c>TexturedOrmSurface</c> assigns <c>d.diffuseColor</c> — an inventory
     ///         matching the assignment alone would call it a base workflow, and
     ///         <see cref="EveryShaderThatDecidesTheSurfaceHasABaseFeature" /> would then demand a
     ///         declaration that would refuse every baked material in the tree.
@@ -321,8 +338,8 @@ public class MaterialBaseSurfaceTests {
             "the shipped library no longer declares TexturedOrmSurface, so this discriminates nothing"
         );
 
-        Assert.Contains(orm!, line => Assigns.IsMatch(line));
-        Assert.DoesNotContain(BaseShaders(), shader => shader == "TexturedOrmSurface");
+        Assert.Contains(orm!, static line => Assigns.IsMatch(line));
+        Assert.DoesNotContain(BaseShaders(), static shader => shader == "TexturedOrmSurface");
 
         // The other side of the same classification: the five that do decide the surface are there,
         // so the exclusion above is a judgement rather than an empty set.

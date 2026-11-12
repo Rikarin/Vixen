@@ -129,11 +129,11 @@ public sealed class GameplayConfig {
         }
 
         return new(
-            [.. modules],
+            [..modules],
             attributes.Build(),
-            [.. tags],
-            [.. definitions],
-            [.. systems]
+            [..tags],
+            [..definitions],
+            [..systems]
         );
     }
 

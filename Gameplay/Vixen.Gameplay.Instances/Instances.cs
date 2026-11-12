@@ -175,7 +175,9 @@ public sealed record InstanceDefinition : Definition {
 
 /// <summary>A lockout policy, with the reset arithmetic that makes it fleet-wide.</summary>
 public sealed class LockoutPolicy {
-    internal LockoutPolicy(LockoutPolicyDefinition definition) => Definition = definition;
+    internal LockoutPolicy(LockoutPolicyDefinition definition) {
+        Definition = definition;
+    }
 
     /// <summary>The one a difficulty gets when nothing was authored: nobody is locked out.</summary>
     public static LockoutPolicy Open { get; } = new(new() { Reset = LockoutReset.None, Completions = int.MaxValue });
@@ -255,7 +257,12 @@ public sealed class Instance {
     readonly Difficulty[] difficulties;
     readonly EncounterDefinition[] encounters;
 
-    internal Instance(InstanceDefinition definition, DefId scene, Difficulty[] difficulties, EncounterDefinition[] encounters) {
+    internal Instance(
+        InstanceDefinition definition,
+        DefId scene,
+        Difficulty[] difficulties,
+        EncounterDefinition[] encounters
+    ) {
         Definition = definition;
         Scene = scene;
         this.difficulties = difficulties;
@@ -329,8 +336,12 @@ public readonly record struct Lockout(
 
 /// <summary>Where lockouts are kept.</summary>
 /// <remarks>
-///     ⚠ <b>An interface for the reason <c>IPityStore</c> is one, and doc 28 is specific about this
-///     case:</b> lockouts live in <c>Live.Instances.Cluster</c> <em>"because they are fleet-wide"</em>.
+///     ⚠
+///     <b>
+///         An interface for the reason <c>IPityStore</c> is one, and doc 28 is specific about this
+///         case:
+///     </b>
+///     lockouts live in <c>Live.Instances.Cluster</c> <em>"because they are fleet-wide"</em>.
 ///     A lockout one shard knew about is a lockout a player evades by zoning.
 /// </remarks>
 public interface ILockoutStore {
@@ -368,7 +379,7 @@ public sealed class MemoryLockoutStore : ILockoutStore {
 
     /// <inheritdoc />
     public int Purge(double now) {
-        var stale = lockouts.Where(entry => now >= entry.Value.Expires).Select(entry => entry.Key).ToArray();
+        var stale = lockouts.Where(entry => now >= entry.Value.Expires).Select(static entry => entry.Key).ToArray();
 
         foreach (var key in stale) {
             lockouts.Remove(key);

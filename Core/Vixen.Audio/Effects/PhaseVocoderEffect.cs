@@ -128,7 +128,7 @@ public sealed class PitchVocoderEffect : IAudioEffect {
         channelCount = format.Channels;
         size = requestedSize;
         hop = size / Overlap;
-        fft = new RealFft(size);
+        fft = new(size);
         bins = fft.Bins;
 
         real = new float[bins];
@@ -152,7 +152,7 @@ public sealed class PitchVocoderEffect : IAudioEffect {
         window = new float[size];
 
         for (var i = 0; i < size; i++) {
-            window[i] = 0.5f - (0.5f * MathF.Cos(2f * MathF.PI * i / size));
+            window[i] = 0.5f - 0.5f * MathF.Cos(2f * MathF.PI * i / size);
         }
 
         Reset();
@@ -177,13 +177,13 @@ public sealed class PitchVocoderEffect : IAudioEffect {
 
         for (var i = 0; i < frameCount; i++) {
             for (var channel = 0; channel < channels; channel++) {
-                var index = (i * channels) + channel;
+                var index = i * channels + channel;
                 var dry = buffer[index];
                 var offset = channel * size;
 
                 inFifo[offset + rover] = dry;
                 var wet = outFifo[offset + rover - latency];
-                buffer[index] = dry + ((wet - dry) * mix);
+                buffer[index] = dry + (wet - dry) * mix;
             }
 
             if (++rover < size) {
@@ -215,14 +215,14 @@ public sealed class PitchVocoderEffect : IAudioEffect {
 
         // ── Analysis: what frequency is each partial really at ────────────────────────────────
         for (var k = 0; k < bins; k++) {
-            var magnitudeAt = 2f * MathF.Sqrt((real[k] * real[k]) + (imaginary[k] * imaginary[k]));
+            var magnitudeAt = 2f * MathF.Sqrt(real[k] * real[k] + imaginary[k] * imaginary[k]);
             var phase = MathF.Atan2(imaginary[k], real[k]);
             energy += magnitudeAt;
 
             // How much further the phase moved than this bin's own centre frequency accounts for.
             // That difference is the partial's offset from the bin, and it is the only place the
             // true frequency is written down.
-            var delta = phase - lastPhase[binOffset + k] - (k * expected);
+            var delta = phase - lastPhase[binOffset + k] - k * expected;
             lastPhase[binOffset + k] = phase;
 
             // Wrapped to ±π, because a phase that advanced by 3π is indistinguishable from one that
@@ -230,7 +230,7 @@ public sealed class PitchVocoderEffect : IAudioEffect {
             delta = Wrap(delta);
 
             magnitude[k] = magnitudeAt;
-            frequency[k] = k + (rate * delta / (2f * MathF.PI));
+            frequency[k] = k + rate * delta / (2f * MathF.PI);
         }
 
         // A jump in energy is an onset. Phase coherence is what this effect is for and it is exactly
@@ -263,7 +263,7 @@ public sealed class PitchVocoderEffect : IAudioEffect {
             // The phase this partial should have, given where it now is — not the phase it arrived
             // with. This is the step that keeps a held note coherent instead of letting its partials
             // wander apart into the watery sound a naive shifter makes.
-            var advance = ((synthFrequency[k] - k) * 2f * MathF.PI / rate) + (k * expected);
+            var advance = (synthFrequency[k] - k) * 2f * MathF.PI / rate + k * expected;
 
             sumPhase[binOffset + k] = transient
                 ? lastPhase[binOffset + k]
@@ -300,7 +300,7 @@ public sealed class PitchVocoderEffect : IAudioEffect {
     static float Wrap(float phase) {
         var turns = (int)(phase / MathF.PI);
         turns += turns >= 0 ? turns & 1 : -(turns & 1);
-        return phase - (MathF.PI * turns);
+        return phase - MathF.PI * turns;
     }
 
     /// <inheritdoc />
@@ -317,9 +317,15 @@ public sealed class PitchVocoderEffect : IAudioEffect {
     /// <inheritdoc />
     public bool TrySetProperty(string name, float value) {
         switch (name) {
-            case "Semitones": Semitones = value; return true;
-            case "TransientSensitivity": TransientSensitivity = value; return true;
-            case "Mix": Mix = value; return true;
+            case "Semitones":
+                Semitones = value;
+                return true;
+            case "TransientSensitivity":
+                TransientSensitivity = value;
+                return true;
+            case "Mix":
+                Mix = value;
+                return true;
             default: return false;
         }
     }
@@ -327,10 +333,18 @@ public sealed class PitchVocoderEffect : IAudioEffect {
     /// <inheritdoc />
     public bool TryGetProperty(string name, out float value) {
         switch (name) {
-            case "Semitones": value = Semitones; return true;
-            case "TransientSensitivity": value = TransientSensitivity; return true;
-            case "Mix": value = Mix; return true;
-            default: value = 0f; return false;
+            case "Semitones":
+                value = Semitones;
+                return true;
+            case "TransientSensitivity":
+                value = TransientSensitivity;
+                return true;
+            case "Mix":
+                value = Mix;
+                return true;
+            default:
+                value = 0f;
+                return false;
         }
     }
 

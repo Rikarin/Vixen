@@ -25,11 +25,19 @@ namespace Vixen.Physics.Ecs;
 ///         cost at all to a system whose <see cref="Enabled" /> is <see langword="false" />.
 ///     </para>
 ///     <para>
-///         ⚠ <b>An <see cref="IDiagnosticOverlay" /> as well as a system, and that is what makes it
-///         reachable.</b> The geometry is world-space and so cannot come out of
+///         ⚠
+///         <b>
+///             An <see cref="IDiagnosticOverlay" /> as well as a system, and that is what makes it
+///             reachable.
+///         </b>
+///         The geometry is world-space and so cannot come out of
 ///         <see cref="IDiagnosticOverlay.Draw" /> — which is why this is a system in the first place —
-///         but a system has no name, and every other overlay is turned on by one: <c>overlay physics
-///         on</c> in the console, <c>--vixen-overlay physics</c> on the command line,
+///         but a system has no name, and every other overlay is turned on by one:
+///         <c>
+///             overlay physics
+///             on
+///         </c>
+///         in the console, <c>--vixen-overlay physics</c> on the command line,
 ///         <c>AppConfig.EnabledOverlays</c> in a head. Answering to both means the one
 ///         <see cref="Enabled" /> flag is what the console writes and what <see cref="Update" />
 ///         reads, rather than a second flag to keep in step.

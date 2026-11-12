@@ -37,7 +37,7 @@ static class ConformanceMeasure {
         };
 
         if (request.HeightMode == MeasureMode.Exactly) {
-            return new LayoutSize(measuredWidth, request.AvailableHeight);
+            return new(measuredWidth, request.AvailableHeight);
         }
 
         // A row cannot wrap below its longest word, so that is the floor the height is computed
@@ -46,7 +46,7 @@ static class ConformanceMeasure {
         var widthForHeight = isColumn ? measuredWidth : MathF.Max(LongestWordWidth(text), measuredWidth);
 
         var height = CalculateHeight(text, widthForHeight);
-        return new LayoutSize(
+        return new(
             measuredWidth,
             request.HeightMode == MeasureMode.AtMost ? MathF.Min(height, request.AvailableHeight) : height
         );

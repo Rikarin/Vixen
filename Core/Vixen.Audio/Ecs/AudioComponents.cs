@@ -94,14 +94,15 @@ public struct AudioSource : IDefaultComponent<AudioSource> {
     public float VoicePitchScale;
 
     /// <summary>Full volume, unaltered pitch, centred, on the master bus, stopped.</summary>
-    public static AudioSource Default => new() {
-        Playback = AudioPlayback.Stopped,
-        Gain = 1f,
-        Pitch = 1f,
-        VoiceGainScale = 1f,
-        VoicePitchScale = 1f,
-        Voice = VoiceHandle.None
-    };
+    public static AudioSource Default =>
+        new() {
+            Playback = AudioPlayback.Stopped,
+            Gain = 1f,
+            Pitch = 1f,
+            VoiceGainScale = 1f,
+            VoicePitchScale = 1f,
+            Voice = VoiceHandle.None
+        };
 
     /// <summary>The same, already playing.</summary>
     public static AudioSource Playing => Default with { Playback = AudioPlayback.Playing };
@@ -222,35 +223,37 @@ public struct AudioSpatial {
     public bool HasPreviousPosition;
 
     /// <summary>A point source with an inverse rolloff from one unit, no cone, and doppler on.</summary>
-    public static AudioSpatial Default => new() {
-        MinDistance = 1f,
-        MaxDistance = 500f,
-        Attenuation = AttenuationModel.Inverse,
-        RolloffFactor = 1f,
-        ConeInnerAngle = 360f,
-        ConeOuterAngle = 360f,
-        DopplerFactor = 1f,
-        AutoVelocity = true
-    };
+    public static AudioSpatial Default =>
+        new() {
+            MinDistance = 1f,
+            MaxDistance = 500f,
+            Attenuation = AttenuationModel.Inverse,
+            RolloffFactor = 1f,
+            ConeInnerAngle = 360f,
+            ConeOuterAngle = 360f,
+            DopplerFactor = 1f,
+            AutoVelocity = true
+        };
 
     /// <summary>These settings, at a position, as the mixer wants them.</summary>
     /// <param name="position">Where the entity is.</param>
     /// <param name="coneDirection">Which way it faces.</param>
     /// <returns>The settings.</returns>
-    public readonly SpatialSettings ToSettings(Vector3 position, Vector3 coneDirection) => new() {
-        Position = position,
-        Velocity = Velocity,
-        ConeDirection = coneDirection,
-        MinDistance = MinDistance,
-        MaxDistance = MaxDistance,
-        Attenuation = Attenuation,
-        RolloffFactor = RolloffFactor,
-        ConeInnerAngle = ConeInnerAngle,
-        ConeOuterAngle = ConeOuterAngle,
-        ConeOuterGain = ConeOuterGain,
-        DopplerFactor = DopplerFactor,
-        Spread = Spread
-    };
+    public readonly SpatialSettings ToSettings(Vector3 position, Vector3 coneDirection) =>
+        new() {
+            Position = position,
+            Velocity = Velocity,
+            ConeDirection = coneDirection,
+            MinDistance = MinDistance,
+            MaxDistance = MaxDistance,
+            Attenuation = Attenuation,
+            RolloffFactor = RolloffFactor,
+            ConeInnerAngle = ConeInnerAngle,
+            ConeOuterAngle = ConeOuterAngle,
+            ConeOuterGain = ConeOuterGain,
+            DopplerFactor = DopplerFactor,
+            Spread = Spread
+        };
 }
 
 /// <summary>Marks the entity whose transform the mixer listens from.</summary>

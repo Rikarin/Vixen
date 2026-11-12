@@ -24,8 +24,12 @@ namespace Vixen.Editor.Water.Tests;
 ///         never anything in the layer to hide.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The undo is a regeneration from the old list rather than a stored copy of the
-///         layer</b>, so what is asserted is that the ground comes back, not that some bytes were
+///         ⚠
+///         <b>
+///             The undo is a regeneration from the old list rather than a stored copy of the
+///             layer
+///         </b>
+///         , so what is asserted is that the ground comes back, not that some bytes were
 ///         restored. A layer's deltas are sparse chunks over a whole terrain and copying them per
 ///         entry would put a heightfield on the undo stack for every drag of a width handle.
 ///     </para>
@@ -51,16 +55,14 @@ public sealed class WaterCarveCommandTests {
                     new(low.X + side, surface, low.Y + side),
                     new(low.X, surface, low.Y + side)
                 ],
-                closed: true,
-                tension: 1f
+                true,
+                1f
             ),
-            closed: true
+            true
         );
 
         return new(WaterBodyKind.Lake, spline, defaults: new() { Depth = depth }) {
-            SurfaceHeight = surface,
-            ShoreFalloff = 2f,
-            BedRamp = 4f
+            SurfaceHeight = surface, ShoreFalloff = 2f, BedRamp = 4f
         };
     }
 
@@ -154,7 +156,7 @@ public sealed class WaterCarveCommandTests {
 
             try {
                 if (Directory.Exists(root)) {
-                    Directory.Delete(root, recursive: true);
+                    Directory.Delete(root, true);
                 }
             } catch (IOException) {
                 // A temporary directory something else still has open.

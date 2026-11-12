@@ -68,9 +68,9 @@ public sealed class GpuOverlayTests {
 
         // …and they come out in the order the graph declared them, which is what makes a row stay
         // where the eye left it. A panel sorted by cost would put them in an order that changes.
-        var order = overlay.VisiblePasses.Select(name => int.Parse(name["pass".Length..])).ToList();
+        var order = overlay.VisiblePasses.Select(static name => int.Parse(name["pass".Length..])).ToList();
 
-        Assert.Equal(order.OrderBy(value => value), order);
+        Assert.Equal(order.OrderBy(static value => value), order);
     }
 
     /// <summary>A row does not move when the pass under it becomes the expensive one.</summary>

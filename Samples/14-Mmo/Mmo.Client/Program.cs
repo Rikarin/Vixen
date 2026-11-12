@@ -40,7 +40,8 @@ public static class Program {
 
         var map = args.Length > 2 ? args[2] : MmoMaps.Greenmarch;
 
-        using var http = new HttpClient { BaseAddress = new(gateAddress) };
+        using var http = new HttpClient();
+        http.BaseAddress = new(gateAddress);
         var gate = new GateClient(http);
         var cancellation = CancellationToken.None;
 
@@ -71,12 +72,14 @@ public static class Program {
         // the map's own sentence about why).
         var play = await gate.EnterAsync(
             new PlayRequest(roster.Characters[0].Character, map, version.Version, "en-GB", default, default),
-            attempts: 5,
+            5,
             cancellation
         );
 
         if (play.Value is not { Status: PlayStatus.Placed } placed) {
-            await Console.Error.WriteLineAsync($"not placed: {play.Value?.Status.ToString() ?? play.Status.ToString()}");
+            await Console.Error.WriteLineAsync(
+                $"not placed: {play.Value?.Status.ToString() ?? play.Status.ToString()}"
+            );
 
             return 1;
         }

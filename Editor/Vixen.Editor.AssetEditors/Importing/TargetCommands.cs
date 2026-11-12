@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Diagnostics.CodeAnalysis;
-using Vixen.Authoring;
 using Vixen.Core;
 using Vixen.Editor.Core;
 using Vixen.Editor.Inspector;
@@ -43,8 +42,12 @@ public sealed class AddressableEdits {
 
 /// <summary>Adding a build target to the override matrix.</summary>
 /// <remarks>
-///     ⚠ <b>Sealed, and implementing <see cref="IEditorCommand" /> itself, as the other two here
-///     are.</b> An abstract base declaring <c>Do</c> would be the shorter arrangement and would put
+///     ⚠
+///     <b>
+///         Sealed, and implementing <see cref="IEditorCommand" /> itself, as the other two here
+///         are.
+///     </b>
+///     An abstract base declaring <c>Do</c> would be the shorter arrangement and would put
 ///     three commands' interface mapping on a type that is not the one the stack calls through —
 ///     the trap <c>NodeGraphCommand</c> documents. Three short classes cost less than that costs.
 /// </remarks>

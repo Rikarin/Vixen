@@ -32,7 +32,8 @@ namespace Tests;
 ///         ⚠ <b>And <c>R8</c> is the point of the format here.</b>
 ///         <see cref="TextureFormats.IsStorable" /> is false for it — no conformant device promises a
 ///         storage image of one <c>unorm</c> channel — and uploading one is fine, which is what
-///         <see cref="TextureUploads.Add(TexturePlan, int, int, int, ReadOnlySpan{byte})" />'s own remarks say and what a mask costs a quarter of RGBA
+///         <see cref="TextureUploads.Add(TexturePlan, int, int, int, ReadOnlySpan{byte})" />'s own remarks say and what a
+///         mask costs a quarter of RGBA
 ///         for. A plan that made this <c>Rgba8</c> would pass and would be paying four times over for
 ///         a glyph.
 ///     </para>
@@ -47,11 +48,11 @@ public class TextureTextDeviceTests(ITestOutputHelper output) {
 
         output.WriteLine($"adapter: {TextureKernelHarness.Adapter(device)}");
 
-        var coverage = TextureText.Rasterize(Font(), "Vixen", Side, Side, 28f, TextureTextAlignment.Centre);
+        var coverage = TextureText.Rasterize(Font(), "Vixen", Side, Side, 28f);
 
         // The instrument first: an all-zero field would make every comparison below a claim that
         // black equals black, on a path where black is exactly what a broken upload produces.
-        Assert.Contains(coverage, value => value > 0.5f);
+        Assert.Contains(coverage, static value => value > 0.5f);
 
         var plan = new TexturePlan {
             BaseWidth = Side,
@@ -84,7 +85,7 @@ public class TextureTextDeviceTests(ITestOutputHelper output) {
         for (var y = 0; y < Side; y++) {
             for (var x = 0; x < Side; x++) {
                 Assert.Equal(
-                    TextureUploads.Quantize(coverage[(y * Side) + x]),
+                    TextureUploads.Quantize(coverage[y * Side + x]),
                     TextureKernelHarness.At(picture, x, y, 0)
                 );
             }
@@ -126,9 +127,7 @@ public class TextureTextDeviceTests(ITestOutputHelper output) {
 
         using var uploads = new TextureUploads(device);
 
-        var failure = Assert.Throws<ArgumentException>(
-            () => uploads.AddCoverage(plan, 0, 8, 8, new float[64])
-        );
+        var failure = Assert.Throws<ArgumentException>(() => uploads.AddCoverage(plan, 0, 8, 8, new float[64]));
 
         Assert.Contains("R8", failure.Message, StringComparison.Ordinal);
     }

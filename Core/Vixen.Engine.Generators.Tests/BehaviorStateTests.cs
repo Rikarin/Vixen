@@ -141,7 +141,7 @@ public class BehaviorStateTests {
 
         Assert.Equal(BehaviorStateAnalyzer.ComponentDiagnosticId, diagnostic.Id);
         Assert.Equal("last", AnalyzerHarness.Underlined(diagnostic));
-        Assert.Contains("Health", diagnostic.GetMessage(null), StringComparison.Ordinal);
+        Assert.Contains("Health", diagnostic.GetMessage(), StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -219,7 +219,7 @@ public class BehaviorStateTests {
 
         Assert.Equal(BehaviorStateAnalyzer.ComponentDiagnosticId, diagnostic.Id);
         Assert.Equal(DiagnosticSeverity.Error, diagnostic.Severity);
-        Assert.Contains("Health", diagnostic.GetMessage(null), StringComparison.Ordinal);
+        Assert.Contains("Health", diagnostic.GetMessage(), StringComparison.Ordinal);
     }
 
     [Fact]

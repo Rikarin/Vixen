@@ -12,9 +12,12 @@ namespace Vixen.Net.Diagnostics;
 /// <summary>What a dedicated server is asked how it is doing, published where anything can read it.</summary>
 /// <remarks>
 ///     <para>
-///         <b>Instrumented with <c>System.Diagnostics.Metrics</c>, which is not a third choice
-///         alongside OpenTelemetry and Prometheus — it <i>is</i> OpenTelemetry's metrics API in
-///         .NET.</b> The BCL types are the specification's API surface; the SDK is only needed to
+///         <b>
+///             Instrumented with <c>System.Diagnostics.Metrics</c>, which is not a third choice
+///             alongside OpenTelemetry and Prometheus — it <i>is</i> OpenTelemetry's metrics API in
+///             .NET.
+///         </b>
+///         The BCL types are the specification's API surface; the SDK is only needed to
 ///         export. So this file takes no dependency at all, and a server that already has an
 ///         OpenTelemetry pipeline gets every number below by adding <c>"Vixen.Net"</c> to its meter
 ///         list. <c>Vixen.Net.Telemetry</c> is there for a server that does not, and is a separate
@@ -22,8 +25,11 @@ namespace Vixen.Net.Diagnostics;
 ///         game that never asked for one.
 ///     </para>
 ///     <para>
-///         <b>The game publishes and the meter reads, rather than the meter reaching into the
-///         game.</b> Observable instruments are called back on the SDK's collection thread, and the
+///         <b>
+///             The game publishes and the meter reads, rather than the meter reaching into the
+///             game.
+///         </b>
+///         Observable instruments are called back on the SDK's collection thread, and the
 ///         things worth reporting live in a session, a replication server and a router that are all
 ///         single-threaded frame code — so a callback that walked <c>Session.Players</c> would
 ///         eventually walk it while a player was joining, which is an exception on a background
@@ -33,8 +39,11 @@ namespace Vixen.Net.Diagnostics;
 ///         locking, and it costs a few dozen bytes of copying a tick.
 ///     </para>
 ///     <para>
-///         <b>Counters are cumulative and gauges are current, which is the contract the collector
-///         relies on.</b> Everything sourced from a running total is an <c>ObservableCounter</c>, so
+///         <b>
+///             Counters are cumulative and gauges are current, which is the contract the collector
+///             relies on.
+///         </b>
+///         Everything sourced from a running total is an <c>ObservableCounter</c>, so
 ///         a scrape that is missed loses resolution rather than data — the next one still carries
 ///         the whole. Rates are the collector's job and deliberately not computed here; a metric
 ///         that has already been differenced cannot be re-aggregated across three servers.
@@ -73,14 +82,14 @@ public sealed class NetworkMetrics : IDisposable {
 
         tickDuration = meter.CreateHistogram<double>(
             "vixen.net.tick.duration",
-            unit: "s",
-            description: "How long a server tick took, from the loop that ran it."
+            "s",
+            "How long a server tick took, from the loop that ran it."
         );
 
         snapshotBytes = meter.CreateHistogram<int>(
             "vixen.net.snapshot.size",
-            unit: "By",
-            description: "How large each snapshot written to a connection was."
+            "By",
+            "How large each snapshot written to a connection was."
         );
 
         meter.CreateObservableGauge(
@@ -111,29 +120,29 @@ public sealed class NetworkMetrics : IDisposable {
         meter.CreateObservableGauge(
             "vixen.net.rtt.mean",
             () => reading.MeanRoundTripSeconds,
-            unit: "s",
-            description: "Mean round trip across connected players, as the estimator smooths it."
+            "s",
+            "Mean round trip across connected players, as the estimator smooths it."
         );
 
         meter.CreateObservableGauge(
             "vixen.net.rtt.worst",
             () => reading.WorstRoundTripSeconds,
-            unit: "s",
-            description: "The worst round trip any connected player has — the one somebody is complaining about."
+            "s",
+            "The worst round trip any connected player has — the one somebody is complaining about."
         );
 
         meter.CreateObservableGauge(
             "vixen.net.jitter.worst",
             () => reading.WorstJitterSeconds,
-            unit: "s",
-            description: "The worst jitter any connected player has, which is what sizes their interpolation buffer."
+            "s",
+            "The worst jitter any connected player has, which is what sizes their interpolation buffer."
         );
 
         meter.CreateObservableCounter(
             "vixen.net.bandwidth",
             () => reading.Bytes,
-            unit: "By",
-            description: "Everything the ledger has accounted for, replication and remote calls together."
+            "By",
+            "Everything the ledger has accounted for, replication and remote calls together."
         );
 
         meter.CreateObservableCounter(
@@ -169,7 +178,8 @@ public sealed class NetworkMetrics : IDisposable {
         meter.CreateObservableCounter(
             "vixen.net.datagrams.retransmitted",
             () => reading.Retransmitted,
-            description: "Datagrams sent again because no acknowledgement came — a consequence of loss, not a count of it."
+            description:
+            "Datagrams sent again because no acknowledgement came — a consequence of loss, not a count of it."
         );
 
         meter.CreateObservableCounter(
@@ -198,13 +208,15 @@ public sealed class NetworkMetrics : IDisposable {
         meter.CreateObservableCounter(
             "vixen.net.datagrams.peer_expected",
             () => reading.PeerExpected,
-            description: "Datagrams this end's peers judged, across every link they have reported on — the denominator observed outbound loss needs."
+            description:
+            "Datagrams this end's peers judged, across every link they have reported on — the denominator observed outbound loss needs."
         );
 
         meter.CreateObservableCounter(
             "vixen.net.datagrams.peer_lost",
             () => reading.PeerMissing,
-            description: "How many of those the peers say never arrived. Over the expected count, this is observed outbound loss."
+            description:
+            "How many of those the peers say never arrived. Over the expected count, this is observed outbound loss."
         );
 
         // The client's three, and they are the numbers that say a *player* is having a bad time
@@ -225,7 +237,8 @@ public sealed class NetworkMetrics : IDisposable {
         meter.CreateObservableCounter(
             "vixen.net.client.snapshots.stale",
             () => reading.SnapshotsStale,
-            description: "Snapshots that arrived after a newer one and were dropped — reordering, which is normal in small amounts."
+            description:
+            "Snapshots that arrived after a newer one and were dropped — reordering, which is normal in small amounts."
         );
     }
 
@@ -245,9 +258,13 @@ public sealed class NetworkMetrics : IDisposable {
     ///         not decode it.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The route out is the same one, and <c>Vixen.Net.Telemetry</c>'s README saying a
-    ///         client "wants a different route out than this one" is half right in a way worth
-    ///         correcting.</b> Its argument was that a client is not scrapeable — which is true, and
+    ///         ⚠
+    ///         <b>
+    ///             The route out is the same one, and <c>Vixen.Net.Telemetry</c>'s README saying a
+    ///             client "wants a different route out than this one" is half right in a way worth
+    ///             correcting.
+    ///         </b>
+    ///         Its argument was that a client is not scrapeable — which is true, and
     ///         is why that package pushes rather than being scraped, so the route it already has is
     ///         precisely the one a client needs. What genuinely differs is volume: a hundred thousand
     ///         clients exporting every fifteen seconds is a decision about interval, sampling and
@@ -266,8 +283,12 @@ public sealed class NetworkMetrics : IDisposable {
     /// <summary>The transport to read loss counters from, when it counts any.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Absent leaves the instruments at zero, and that is a real limitation of a
-    ///         cumulative counter rather than a claim about the link.</b> There is no way for an
+    ///         ⚠
+    ///         <b>
+    ///             Absent leaves the instruments at zero, and that is a real limitation of a
+    ///             cumulative counter rather than a claim about the link.
+    ///         </b>
+    ///         There is no way for an
     ///         <c>ObservableCounter</c> to say "not measured" — the closest thing is not to register
     ///         it, and registering conditionally would mean a fleet whose scrape schema depended on
     ///         which transport each server happened to be running. So a dashboard built on these

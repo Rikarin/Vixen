@@ -33,45 +33,49 @@ namespace Vixen.Ui.Generators.Tests;
 /// </remarks>
 public class UiPropertyChainTests {
     const string Framework = """
-        namespace Vixen.Ui {
-            [System.AttributeUsage(System.AttributeTargets.Property)]
-            public sealed class UiPropertyAttribute : System.Attribute {
-                public bool Inherits { get; set; }
-                public string? Changed { get; set; }
-                public string? Coerce { get; set; }
-                public object? Default { get; set; }
-            }
+                             namespace Vixen.Ui {
+                                 [System.AttributeUsage(System.AttributeTargets.Property)]
+                                 public sealed class UiPropertyAttribute : System.Attribute {
+                                     public bool Inherits { get; set; }
+                                     public string? Changed { get; set; }
+                                     public string? Coerce { get; set; }
+                                     public object? Default { get; set; }
+                                 }
 
-            public sealed class UiPropertyKey { }
+                                 public sealed class UiPropertyKey { }
 
-            public static class UiPropertyRegistry {
-                public static UiPropertyKey Register(
-                    string name,
-                    System.Type ownerType,
-                    System.Type valueType,
-                    bool inherits,
-                    System.Func<UiElement, object?> get,
-                    System.Action<UiElement, object?> set
-                ) => new();
-            }
+                                 public static class UiPropertyRegistry {
+                                     public static UiPropertyKey Register(
+                                         string name,
+                                         System.Type ownerType,
+                                         System.Type valueType,
+                                         bool inherits,
+                                         System.Func<UiElement, object?> get,
+                                         System.Action<UiElement, object?> set
+                                     ) => new();
+                                 }
 
-            public partial class UiElement {
-                public UiElement? Parent => null;
+                                 public partial class UiElement {
+                                     public UiElement? Parent => null;
 
-                protected void RaisePropertyChanged(UiPropertyKey key) { }
+                                     protected void RaisePropertyChanged(UiPropertyKey key) { }
 
-                [UiProperty]
-                public partial bool AllowDrop { get; set; }
-            }
-        }
-        """;
+                                     [UiProperty]
+                                     public partial bool AllowDrop { get; set; }
+                                 }
+                             }
+                             """;
 
     /// <summary>The generated file for one type, by the type's name.</summary>
     static string Generated(string source, string typeName) {
         // ⚠ Preview, because a partial property is C# 13 and the driver parses with the options it
         // is given rather than the project's.
         var options = CSharpParseOptions.Default.WithLanguageVersion(LanguageVersion.Preview);
-        var tree = CSharpSyntaxTree.ParseText(source + Environment.NewLine + Framework, options, path: "Declarations.cs");
+        var tree = CSharpSyntaxTree.ParseText(
+            source + Environment.NewLine + Framework,
+            options,
+            "Declarations.cs"
+        );
 
         var compilation = CSharpCompilation.Create(
             "ApplicationUnderTest",
@@ -80,21 +84,33 @@ public class UiPropertyChainTests {
             new(OutputKind.DynamicallyLinkedLibrary, nullableContextOptions: NullableContextOptions.Enable)
         );
 
-        var driver = CSharpGeneratorDriver.Create([new UiPropertyGenerator().AsSourceGenerator()], parseOptions: options);
+        var driver = CSharpGeneratorDriver.Create(
+            [new UiPropertyGenerator().AsSourceGenerator()],
+            parseOptions: options
+        );
 
-        driver.RunGeneratorsAndUpdateCompilation(compilation, out var updated, out var diagnostics, TestContext.Current.CancellationToken);
+        driver.RunGeneratorsAndUpdateCompilation(
+            compilation,
+            out var updated,
+            out var diagnostics,
+            TestContext.Current.CancellationToken
+        );
 
-        Assert.Empty(diagnostics.Where(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error));
+        Assert.Empty(diagnostics.Where(static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error));
 
         // ⚠ The output has to compile, or an assertion about its text is an assertion about a file
         // the build would have thrown away.
         var broken = updated.GetDiagnostics(TestContext.Current.CancellationToken)
-            .Where(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error)
+            .Where(static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error)
             .ToImmutableArray();
 
         Assert.True(broken.Length == 0, $"The generated code does not compile: {string.Join("; ", broken)}");
 
-        var file = updated.SyntaxTrees.SingleOrDefault(candidate => candidate.FilePath.EndsWith($"{typeName}.UiProperties.g.cs", StringComparison.Ordinal));
+        var file = updated.SyntaxTrees.SingleOrDefault(candidate => candidate.FilePath.EndsWith(
+                $"{typeName}.UiProperties.g.cs",
+                StringComparison.Ordinal
+            )
+        );
 
         Assert.True(file is not null, $"nothing was generated for {typeName}");
 
@@ -105,15 +121,15 @@ public class UiPropertyChainTests {
     [Fact]
     public void A_type_deriving_from_a_declaring_base_names_that_base_in_its_static_constructor() {
         var source = """
-            using Vixen.Ui;
+                     using Vixen.Ui;
 
-            namespace App {
-                public partial class Panel : UiElement {
-                    [UiProperty(Default = 1f)]
-                    public partial float Radius { get; set; }
-                }
-            }
-            """;
+                     namespace App {
+                         public partial class Panel : UiElement {
+                             [UiProperty(Default = 1f)]
+                             public partial float Radius { get; set; }
+                         }
+                     }
+                     """;
 
         var generated = Generated(source, "App_Panel");
 
@@ -129,26 +145,30 @@ public class UiPropertyChainTests {
     [Fact]
     public void The_nearest_declaring_ancestor_is_named_and_a_silent_one_between_is_skipped() {
         var source = """
-            using Vixen.Ui;
+                     using Vixen.Ui;
 
-            namespace App {
-                public partial class Panel : UiElement {
-                    [UiProperty(Default = 1f)]
-                    public partial float Radius { get; set; }
-                }
+                     namespace App {
+                         public partial class Panel : UiElement {
+                             [UiProperty(Default = 1f)]
+                             public partial float Radius { get; set; }
+                         }
 
-                public class Frame : Panel { }
+                         public class Frame : Panel { }
 
-                public partial class Card : Frame {
-                    [UiProperty(Default = 2)]
-                    public partial int Elevation { get; set; }
-                }
-            }
-            """;
+                         public partial class Card : Frame {
+                             [UiProperty(Default = 2)]
+                             public partial int Elevation { get; set; }
+                         }
+                     }
+                     """;
 
         var generated = Generated(source, "App_Card");
 
-        Assert.Contains("RunClassConstructor(typeof(global::App.Panel).TypeHandle);", generated, StringComparison.Ordinal);
+        Assert.Contains(
+            "RunClassConstructor(typeof(global::App.Panel).TypeHandle);",
+            generated,
+            StringComparison.Ordinal
+        );
         Assert.DoesNotContain("typeof(global::App.Frame)", generated, StringComparison.Ordinal);
         Assert.DoesNotContain("typeof(global::Vixen.Ui.UiElement).TypeHandle", generated, StringComparison.Ordinal);
     }
@@ -168,8 +188,8 @@ public class UiPropertyChainTests {
     }
 
     static readonly ImmutableArray<MetadataReference> References = [
-        .. AppDomain.CurrentDomain.GetAssemblies()
-            .Where(assembly => !assembly.IsDynamic && assembly.Location.Length != 0)
-            .Select(assembly => MetadataReference.CreateFromFile(assembly.Location))
+        ..AppDomain.CurrentDomain.GetAssemblies()
+            .Where(static assembly => !assembly.IsDynamic && assembly.Location.Length != 0)
+            .Select(static assembly => MetadataReference.CreateFromFile(assembly.Location))
     ];
 }

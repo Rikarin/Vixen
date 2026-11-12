@@ -131,7 +131,7 @@ public sealed partial class Lowerer {
             }
         }
 
-        return Emit(result => new IrConstructInstruction(result, [.. elements]), type);
+        return Emit(result => new IrConstructInstruction(result, [..elements]), type);
     }
 
     /// <summary>Lowers an expression whose value is discarded.</summary>
@@ -596,8 +596,7 @@ public sealed partial class Lowerer {
     /// </remarks>
     static bool NeedsGuarding(BoundExpression expression) =>
         expression.DescendantsAndSelf()
-            .Any(
-                node => node switch {
+            .Any(static node => node switch {
                     BoundArrayAccessExpression => true,
                     BoundAssignmentExpression => true,
                     BoundPropertyExpression => true,
@@ -605,8 +604,10 @@ public sealed partial class Lowerer {
                     BoundInvocationExpression invocation => Definition(invocation.Method).MethodKind
                         != MethodKind.Intrinsic,
                     BoundUnaryExpression unary => unary.OperatorKind
-                        is UnaryOperatorKind.PreIncrement or UnaryOperatorKind.PreDecrement
-                        or UnaryOperatorKind.PostIncrement or UnaryOperatorKind.PostDecrement,
+                        is UnaryOperatorKind.PreIncrement
+                        or UnaryOperatorKind.PreDecrement
+                        or UnaryOperatorKind.PostIncrement
+                        or UnaryOperatorKind.PostDecrement,
                     _ => false
                 }
             );
@@ -659,8 +660,8 @@ public sealed partial class Lowerer {
             value = Emit(result => new IrBinaryInstruction(result, MapBinary(op), current, value), type);
         }
 
-        var arguments = BuildArguments(property.Receiver, property.Property, [.. property.Arguments]);
-        Emit(new IrCallInstruction(null, setter, [.. arguments.Arguments, IrArgument.Of(value)]));
+        var arguments = BuildArguments(property.Receiver, property.Property, [..property.Arguments]);
+        Emit(new IrCallInstruction(null, setter, [..arguments.Arguments, IrArgument.Of(value)]));
         return value;
     }
 
@@ -670,7 +671,7 @@ public sealed partial class Lowerer {
             return Constant(type, null);
         }
 
-        var arguments = BuildArguments(property.Receiver, property.Property, [.. property.Arguments]);
+        var arguments = BuildArguments(property.Receiver, property.Property, [..property.Arguments]);
         return Emit(result => new IrCallInstruction(result, getter, arguments.Arguments), getter.ReturnType);
     }
 
@@ -748,7 +749,7 @@ public sealed partial class Lowerer {
             : null;
 
         var lowered = invocation.Arguments.Select(LowerExpression);
-        var arguments = receiver is null ? lowered.ToArray() : [receiver, .. lowered];
+        var arguments = receiver is null ? lowered.ToArray() : [receiver, ..lowered];
 
         // `mul` is a matrix product, which the IR expresses as an operator.
         if (method.Name == "mul" && arguments.Length == 2) {
@@ -1043,7 +1044,7 @@ public sealed partial class Lowerer {
 
         return self is null
             ? new(lowered, copyOut)
-            : new([IrArgument.Of(self), .. lowered], copyOut);
+            : new([IrArgument.Of(self), ..lowered], copyOut);
     }
 
     /// <summary>Writes every <c>inout</c> temp back into the caller's storage.</summary>

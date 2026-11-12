@@ -8,14 +8,14 @@
 # Regenerate after a merge with `./build.sh CheckArchitecture --update-exemptions` — and read the diff:
 # a row that went UP is the application growing.
 
-EditorApplication.cs     3177
-EditorDiagnostics.cs     147
-EditorFrames.cs          483
-EditorParity.cs          668
+EditorApplication.cs     3264
+EditorDiagnostics.cs     149
+EditorFrames.cs          489
+EditorParity.cs          672
 EditorProjects.cs        63
-EditorSettingsPanels.cs  1001
-EditorWorlds.cs          737
-ProjectBrowser.cs        1438
-SceneMenus.cs            271
-ViewportCommands.cs      674
-(total)                  7221
+EditorSettingsPanels.cs  1046
+EditorWorlds.cs          763
+ProjectBrowser.cs        1504
+SceneMenus.cs            269
+ViewportCommands.cs      689
+(total)                  7404

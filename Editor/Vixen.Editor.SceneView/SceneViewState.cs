@@ -5,7 +5,10 @@ using System.Collections;
 
 namespace Vixen.Editor.SceneView;
 
-/// <summary>What the Scene panel is looking at, which must outlive the panel: how it is split, and each pane's camera and saved views.</summary>
+/// <summary>
+///     What the Scene panel is looking at, which must outlive the panel: how it is split, and each pane's camera and
+///     saved views.
+/// </summary>
 /// <remarks>
 ///     <para>
 ///         <b>The workspace's per-view model (doc 50 § D2, #1303).</b> A Scene panel is built afresh every

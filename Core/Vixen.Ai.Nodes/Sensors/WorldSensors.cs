@@ -18,8 +18,12 @@ namespace Vixen.Ai.Nodes;
 ///         otherwise write itself.
 ///     </para>
 ///     <para>
-///         ⚠ <b>A global sensor gets one <c>foreach</c> over the world and a local one gets a
-///         <c>foreach</c> per agent, and that is the whole of § D13.</b> "Where is the town square" is
+///         ⚠
+///         <b>
+///             A global sensor gets one <c>foreach</c> over the world and a local one gets a
+///             <c>foreach</c> per agent, and that is the whole of § D13.
+///         </b>
+///         "Where is the town square" is
 ///         one query for a thousand villagers; "which apple is nearest <i>me</i>" is a thousand. Both
 ///         are here so the difference is a thing an author picks rather than a thing they discover.
 ///     </para>
@@ -36,8 +40,12 @@ public static class WorldSensors {
     /// <param name="far">What to write when there is none. Defaults to a very long way.</param>
     /// <returns>The sensor.</returns>
     /// <remarks>
-    ///     ⚠ <b>A distance with nothing to measure to is written as <paramref name="far" /> rather
-    ///     than left alone or written as zero.</b> Zero means "right here", which for "how far is the
+    ///     ⚠
+    ///     <b>
+    ///         A distance with nothing to measure to is written as <paramref name="far" /> rather
+    ///         than left alone or written as zero.
+    ///     </b>
+    ///     Zero means "right here", which for "how far is the
     ///     nearest wolf" is the opposite of the truth, and leaving the key alone means acting on a
     ///     measurement that stopped being taken.
     /// </remarks>
@@ -74,7 +82,9 @@ sealed class NearestSensor<T> : ITargetSensor {
     readonly QueryDescription description = new QueryDescription().WithAll<T, LocalTransform>();
     readonly float range;
 
-    public NearestSensor(float range) => this.range = MathF.Max(0f, range);
+    public NearestSensor(float range) {
+        this.range = MathF.Max(0f, range);
+    }
 
     public SensorTarget Sense(in AgentContext context) {
         if (!context.World.Has<LocalTransform>(context.Entity)) {
@@ -117,7 +127,9 @@ sealed class DistanceSensor<T> : ILocalWorldSensor {
     readonly NearestSensor<T> nearest = new(0f);
     readonly float far;
 
-    public DistanceSensor(float far) => this.far = far;
+    public DistanceSensor(float far) {
+        this.far = far;
+    }
 
     public void Sense(in AgentContext context, Blackboard blackboard, BlackboardKey key) {
         var target = nearest.Sense(in context);

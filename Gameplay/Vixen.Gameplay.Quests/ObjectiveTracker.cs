@@ -16,8 +16,11 @@ public readonly record struct ObjectiveAdvance(int Objective, int Amount, Player
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>One tracker, two owners, and that is doc 28's "the same machine with the scope
-///         moved".</b> A quest stage tracks with an owner set, so only that player's kills count; a
+///         <b>
+///             One tracker, two owners, and that is doc 28's "the same machine with the scope
+///             moved".
+///         </b>
+///         A quest stage tracks with an owner set, so only that player's kills count; a
 ///         dynamic event tracks with no owner, so everybody's do. Nothing else about them differs, and
 ///         writing it twice would be two implementations of "no objective completes twice".
 ///     </para>
@@ -60,7 +63,7 @@ public sealed class ObjectiveTracker : IDisposable {
 
         this.bus = bus;
         this.owner = owner;
-        this.objectives = objectives.ToArray();
+        this.objectives = [..objectives];
         required = new int[objectives.Length];
         progress = new float[objectives.Length];
         completed = new bool[objectives.Length];
@@ -76,7 +79,7 @@ public sealed class ObjectiveTracker : IDisposable {
     public int Count => objectives.Length;
 
     /// <summary>How many of them have to be finished.</summary>
-    public int RequiredCount => objectives.Count(objective => !objective.IsOptional);
+    public int RequiredCount => objectives.Count(static objective => !objective.IsOptional);
 
     /// <summary>Whether every non-optional objective is finished.</summary>
     public bool IsComplete {

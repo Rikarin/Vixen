@@ -4,7 +4,6 @@
 using Vixen.Core.Syntax.Diagnostics;
 using Vixen.Raven;
 using Vixen.Raven.CodeGen;
-using Vixen.Raven.Diagnostics;
 using Vixen.Raven.IR;
 using Vixen.Raven.Lowering;
 using Vixen.Raven.Symbols;
@@ -39,18 +38,18 @@ public class ReadmeExampleTests {
 
         Assert.True(
             IrVerifier.Verify(module, bag),
-            "IR did not verify:\n" + string.Join("\n", bag.Select(d => d.ToString()))
+            "IR did not verify:\n" + string.Join("\n", bag.Select(static d => d.ToString()))
         );
 
         var generated = TargetBackends.Create("glsl")!.Generate(module, bag);
 
-        var errors = bag.ToArray().Where(d => d.IsError).ToArray();
-        Assert.True(errors.Length == 0, string.Join("\n", errors.Select(d => d.ToString())));
+        var errors = bag.ToArray().Where(static d => d.IsError).ToArray();
+        Assert.True(errors.Length == 0, string.Join("\n", errors.Select(static d => d.ToString())));
 
         // One unit per stage, each a complete GLSL translation unit.
-        Assert.Equal([ShaderStage.Vertex, ShaderStage.Fragment], generated.Select(g => g.Stage));
-        Assert.All(generated, unit => Assert.StartsWith("#version 450", unit.Code));
-        Assert.All(generated, unit => Assert.Contains("void main() {", unit.Code));
+        Assert.Equal([ShaderStage.Vertex, ShaderStage.Fragment], generated.Select(static g => g.Stage));
+        Assert.All(generated, static unit => Assert.StartsWith("#version 450", unit.Code));
+        Assert.All(generated, static unit => Assert.Contains("void main() {", unit.Code));
     }
 
     [Fact]
@@ -65,10 +64,10 @@ public class ReadmeExampleTests {
 
         var generated = TargetBackends.Create("spirv")!.Generate(module, bag);
 
-        var errors = bag.ToArray().Where(d => d.IsError).ToArray();
-        Assert.True(errors.Length == 0, string.Join("\n", errors.Select(d => d.ToString())));
+        var errors = bag.ToArray().Where(static d => d.IsError).ToArray();
+        Assert.True(errors.Length == 0, string.Join("\n", errors.Select(static d => d.ToString())));
 
-        Assert.Equal([ShaderStage.Vertex, ShaderStage.Fragment], generated.Select(g => g.Stage));
+        Assert.Equal([ShaderStage.Vertex, ShaderStage.Fragment], generated.Select(static g => g.Stage));
 
         // The verdict that matters is the reference validator's.
         Assert.All(generated, SpirvTestBase.Validate);
@@ -94,15 +93,15 @@ public class ReadmeExampleTests {
         var module = Lowerer.Lower(compilation, bag);
         Assert.True(
             IrVerifier.Verify(module, bag),
-            "IR did not verify:\n" + string.Join("\n", bag.Select(d => d.ToString()))
+            "IR did not verify:\n" + string.Join("\n", bag.Select(static d => d.ToString()))
         );
 
         var generated = TargetBackends.Create("glsl")!.Generate(module, bag);
-        var errors = bag.ToArray().Where(d => d.IsError).ToArray();
-        Assert.True(errors.Length == 0, string.Join("\n", errors.Select(d => d.ToString())));
+        var errors = bag.ToArray().Where(static d => d.IsError).ToArray();
+        Assert.True(errors.Length == 0, string.Join("\n", errors.Select(static d => d.ToString())));
 
-        var vertex = Assert.Single(generated, unit => unit.Stage == ShaderStage.Vertex).Code;
-        var fragment = Assert.Single(generated, unit => unit.Stage == ShaderStage.Fragment).Code;
+        var vertex = Assert.Single(generated, static unit => unit.Stage == ShaderStage.Vertex).Code;
+        var fragment = Assert.Single(generated, static unit => unit.Stage == ShaderStage.Fragment).Code;
 
         // Declaration order gives normalWS 0 and uv 1, in both directions, so the pipeline links.
         Assert.Contains("layout(location = 0) out vec3 out_normalWS", vertex, StringComparison.Ordinal);

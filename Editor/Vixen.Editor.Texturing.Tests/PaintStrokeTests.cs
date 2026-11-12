@@ -2,9 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core.Mathematics;
-using Vixen.Editor.Texturing.Painting;
 using Vixen.Terrain;
-using Vixen.Texturing.Layers;
 using Vixen.Texturing.Painting;
 using Xunit;
 
@@ -18,7 +16,7 @@ public class PaintStrokeTests {
     [Fact]
     public void The_first_move_always_stamps() {
         PaintImage image = new(64, 64);
-        PaintStroke stroke = new(image, PaintCoverage.Everywhere(64, 64), Hard(8f), Opaque, gutter: 0);
+        PaintStroke stroke = new(image, PaintCoverage.Everywhere(64, 64), Hard(8f), Opaque, 0);
 
         stroke.MoveTo(new(32f, 32f));
 
@@ -41,17 +39,17 @@ public class PaintStrokeTests {
         var coverage = PaintCoverage.Everywhere(128, 128);
         var brush = Hard(6f) with { Flow = 0.2f, Spacing = 0.25f };
 
-        PaintStroke one = new(sparse, coverage, brush, Opaque, gutter: 0);
+        PaintStroke one = new(sparse, coverage, brush, Opaque, 0);
 
         one.MoveTo(new(20f, 64f));
         one.MoveTo(new(100f, 64f));
 
-        PaintStroke many = new(dense, coverage, brush, Opaque, gutter: 0);
+        PaintStroke many = new(dense, coverage, brush, Opaque, 0);
 
         many.MoveTo(new(20f, 64f));
 
         for (var step = 1; step <= 40; step++) {
-            many.MoveTo(new(20f + (step * 2f), 64f));
+            many.MoveTo(new(20f + step * 2f, 64f));
         }
 
         Assert.Equal(one.StampCount, many.StampCount);
@@ -78,7 +76,7 @@ public class PaintStrokeTests {
     public void A_stroke_builds_up_to_its_opacity_and_stops_there(float opacity, int expected) {
         PaintImage image = new(64, 64);
         var brush = Hard(10f) with { Flow = 0.5f, Opacity = opacity, Spacing = 0.02f };
-        PaintStroke stroke = new(image, PaintCoverage.Everywhere(64, 64), brush, Opaque, gutter: 0);
+        PaintStroke stroke = new(image, PaintCoverage.Everywhere(64, 64), brush, Opaque, 0);
 
         stroke.MoveTo(new(22f, 32f));
         stroke.MoveTo(new(42f, 32f));
@@ -119,15 +117,15 @@ public class PaintStrokeTests {
         var coverage = PaintCoverage.Everywhere(160, 64);
         var brush = Hard(4f) with { Spacing = 0.5f };
 
-        PaintStroke straight = new(direct, coverage, brush, Opaque, gutter: 0);
-        PaintStroke lazy = new(lagged, coverage, brush, Opaque, gutter: 0, lazy: 20f);
-        PaintStroke still = new(near, coverage, brush, Opaque, gutter: 0, lazy: 20f);
+        PaintStroke straight = new(direct, coverage, brush, Opaque, 0);
+        PaintStroke lazy = new(lagged, coverage, brush, Opaque, 0, 20f);
+        PaintStroke still = new(near, coverage, brush, Opaque, 0, 20f);
 
         foreach (var stroke in new[] { straight, lazy }) {
             stroke.MoveTo(new(20f, 20f));
 
             for (var step = 1; step <= 30; step++) {
-                stroke.MoveTo(new(20f + (step * 3f), 20f));
+                stroke.MoveTo(new(20f + step * 3f, 20f));
             }
         }
 
@@ -152,14 +150,14 @@ public class PaintStrokeTests {
         var coverage = PaintCoverage.Everywhere(160, 64);
         var brush = Hard(4f) with { Spacing = 0.5f };
 
-        PaintStroke few = new(coarse, coverage, brush, Opaque, gutter: 0, lazy: 12f);
-        PaintStroke many = new(fine, coverage, brush, Opaque, gutter: 0, lazy: 12f);
+        PaintStroke few = new(coarse, coverage, brush, Opaque, 0, 12f);
+        PaintStroke many = new(fine, coverage, brush, Opaque, 0, 12f);
 
         few.MoveTo(new(20f, 20f));
         few.MoveTo(new(140f, 20f));
         many.MoveTo(new(20f, 20f));
         for (var step = 1; step <= 60; step++) {
-            many.MoveTo(new(20f + (step * 2f), 20f));
+            many.MoveTo(new(20f + step * 2f, 20f));
         }
 
         Assert.Equal(coarse.ToTexels(), fine.ToTexels());
@@ -176,15 +174,15 @@ public class PaintStrokeTests {
         PaintImage whole = new(128, 64);
         PaintImage lifted = new(128, 64);
 
-        PaintStroke unbroken = new(whole, coverage, brush, Opaque, gutter: 0);
+        PaintStroke unbroken = new(whole, coverage, brush, Opaque, 0);
         unbroken.MoveTo(new(20f, 20f));
         unbroken.MoveTo(new(60f, 20f));
         unbroken.MoveTo(new(100f, 20f));
 
-        PaintStroke before = new(lifted, coverage, brush, Opaque, gutter: 0);
+        PaintStroke before = new(lifted, coverage, brush, Opaque, 0);
         before.MoveTo(new(20f, 20f));
         before.MoveTo(new(60f, 20f));
-        PaintStroke after = new(lifted, coverage, brush, Opaque, gutter: 0, resume: new Vector2(60f, 20f));
+        PaintStroke after = new(lifted, coverage, brush, Opaque, 0, resume: new Vector2(60f, 20f));
         after.MoveTo(new(60f, 20f));
         after.MoveTo(new(100f, 20f));
 
@@ -198,14 +196,14 @@ public class PaintStrokeTests {
         var coverage = PaintCoverage.Everywhere(128, 64);
         var brush = Hard(4f) with { Spacing = 0.5f };
 
-        PaintStroke fresh = new(new(128, 64), coverage, brush, Opaque, gutter: 0, lazy: 20f);
+        PaintStroke fresh = new(new(128, 64), coverage, brush, Opaque, 0, 20f);
         PaintStroke resumed = new(
             new(128, 64),
             coverage,
             brush,
             Opaque,
-            gutter: 0,
-            lazy: 20f,
+            0,
+            20f,
             resume: new Vector2(60f, 20f)
         );
 
@@ -230,8 +228,12 @@ public class PaintStrokeTests {
 
     /// <summary>Undo restores exactly, and redo puts back exactly.</summary>
     /// <remarks>
-    ///     ⚠ <b>A low flow, deliberately, and the first version of this test was worthless without
-    ///     it.</b> At full flow a texel reaches the cap on the stamp that first covers it and every
+    ///     ⚠
+    ///     <b>
+    ///         A low flow, deliberately, and the first version of this test was worthless without
+    ///         it.
+    ///     </b>
+    ///     At full flow a texel reaches the cap on the stamp that first covers it and every
     ///     later stamp skips it, so the record is written once per texel <em>whatever</em> the
     ///     recording rule is — and re-recording on every crossing, which is the defect
     ///     <c>TerrainStroke</c>'s <c>TryAdd</c> exists to prevent, left this green. A flow of 0.3
@@ -272,7 +274,7 @@ public class PaintStrokeTests {
     [Fact]
     public void The_undo_record_is_sparse() {
         PaintImage image = new(1024, 1024);
-        PaintStroke stroke = new(image, PaintCoverage.Everywhere(1024, 1024), Hard(16f), Opaque, gutter: 0);
+        PaintStroke stroke = new(image, PaintCoverage.Everywhere(1024, 1024), Hard(16f), Opaque, 0);
 
         stroke.MoveTo(new(512f, 512f));
 
@@ -302,7 +304,7 @@ public class PaintStrokeTests {
     [Fact]
     public void A_stamp_paints_only_the_texels_an_island_covers() {
         PaintImage image = new(64, 64);
-        PaintStroke stroke = new(image, Islands(64, 64), Hard(24f), Opaque, gutter: 0);
+        PaintStroke stroke = new(image, Islands(64, 64), Hard(24f), Opaque, 0);
 
         stroke.MoveTo(new(32f, 32f));
 
@@ -336,7 +338,7 @@ public class PaintStrokeTests {
 
         for (var y = 0; y < height; y++) {
             for (var x = 0; x < width; x++) {
-                raster[(y * width) + x] = x < 30 || x >= 34;
+                raster[y * width + x] = x is < 30 or >= 34;
             }
         }
 

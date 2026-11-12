@@ -20,82 +20,89 @@ namespace Vixen.Graphics.OpenGL;
 /// </remarks>
 static class GlEnums {
     /// <summary>The depth or stencil comparison.</summary>
-    public static uint Compare(CompareFunction function) => function switch {
-        CompareFunction.Never => GlConstants.Never,
-        CompareFunction.Less => GlConstants.Less,
-        CompareFunction.Equal => GlConstants.Equal,
-        CompareFunction.LessEqual => GlConstants.LessEqual,
-        CompareFunction.Greater => GlConstants.Greater,
-        CompareFunction.NotEqual => GlConstants.NotEqual,
-        CompareFunction.GreaterEqual => GlConstants.GreaterEqual,
-        CompareFunction.Always => GlConstants.Always,
-        _ => throw Unmapped(function)
-    };
+    public static uint Compare(CompareFunction function) =>
+        function switch {
+            CompareFunction.Never => GlConstants.Never,
+            CompareFunction.Less => GlConstants.Less,
+            CompareFunction.Equal => GlConstants.Equal,
+            CompareFunction.LessEqual => GlConstants.LessEqual,
+            CompareFunction.Greater => GlConstants.Greater,
+            CompareFunction.NotEqual => GlConstants.NotEqual,
+            CompareFunction.GreaterEqual => GlConstants.GreaterEqual,
+            CompareFunction.Always => GlConstants.Always,
+            _ => throw Unmapped(function)
+        };
 
     /// <summary>What a stencil test does to the value.</summary>
-    public static uint Stencil(StencilOperation operation) => operation switch {
-        StencilOperation.Keep => GlConstants.Keep,
-        StencilOperation.Zero => GlConstants.Zero,
-        StencilOperation.Replace => GlConstants.Replace,
-        StencilOperation.IncrementClamp => GlConstants.Increment,
-        StencilOperation.DecrementClamp => GlConstants.Decrement,
-        StencilOperation.Invert => GlConstants.Invert,
-        StencilOperation.IncrementWrap => GlConstants.IncrementWrap,
-        StencilOperation.DecrementWrap => GlConstants.DecrementWrap,
-        _ => throw Unmapped(operation)
-    };
+    public static uint Stencil(StencilOperation operation) =>
+        operation switch {
+            StencilOperation.Keep => GlConstants.Keep,
+            StencilOperation.Zero => GlConstants.Zero,
+            StencilOperation.Replace => GlConstants.Replace,
+            StencilOperation.IncrementClamp => GlConstants.Increment,
+            StencilOperation.DecrementClamp => GlConstants.Decrement,
+            StencilOperation.Invert => GlConstants.Invert,
+            StencilOperation.IncrementWrap => GlConstants.IncrementWrap,
+            StencilOperation.DecrementWrap => GlConstants.DecrementWrap,
+            _ => throw Unmapped(operation)
+        };
 
     /// <summary>One side of a blend equation.</summary>
-    public static uint Blend(BlendFactor factor) => factor switch {
-        BlendFactor.Zero => GlConstants.Zero,
-        BlendFactor.One => GlConstants.One,
-        BlendFactor.SourceColour => GlConstants.SourceColour,
-        BlendFactor.OneMinusSourceColour => GlConstants.OneMinusSourceColour,
-        BlendFactor.SourceAlpha => GlConstants.SourceAlpha,
-        BlendFactor.OneMinusSourceAlpha => GlConstants.OneMinusSourceAlpha,
-        BlendFactor.DestinationColour => GlConstants.DestinationColour,
-        BlendFactor.OneMinusDestinationColour => GlConstants.OneMinusDestinationColour,
-        BlendFactor.DestinationAlpha => GlConstants.DestinationAlpha,
-        BlendFactor.OneMinusDestinationAlpha => GlConstants.OneMinusDestinationAlpha,
-        BlendFactor.Constant => GlConstants.ConstantColour,
-        BlendFactor.OneMinusConstant => GlConstants.OneMinusConstantColour,
-        BlendFactor.SourceAlphaSaturated => GlConstants.SourceAlphaSaturate,
-        _ => throw Unmapped(factor)
-    };
+    public static uint Blend(BlendFactor factor) =>
+        factor switch {
+            BlendFactor.Zero => GlConstants.Zero,
+            BlendFactor.One => GlConstants.One,
+            BlendFactor.SourceColour => GlConstants.SourceColour,
+            BlendFactor.OneMinusSourceColour => GlConstants.OneMinusSourceColour,
+            BlendFactor.SourceAlpha => GlConstants.SourceAlpha,
+            BlendFactor.OneMinusSourceAlpha => GlConstants.OneMinusSourceAlpha,
+            BlendFactor.DestinationColour => GlConstants.DestinationColour,
+            BlendFactor.OneMinusDestinationColour => GlConstants.OneMinusDestinationColour,
+            BlendFactor.DestinationAlpha => GlConstants.DestinationAlpha,
+            BlendFactor.OneMinusDestinationAlpha => GlConstants.OneMinusDestinationAlpha,
+            BlendFactor.Constant => GlConstants.ConstantColour,
+            BlendFactor.OneMinusConstant => GlConstants.OneMinusConstantColour,
+            BlendFactor.SourceAlphaSaturated => GlConstants.SourceAlphaSaturate,
+            _ => throw Unmapped(factor)
+        };
 
     /// <summary>How the two sides of a blend combine.</summary>
-    public static uint BlendOp(BlendOperation operation) => operation switch {
-        BlendOperation.Add => GlConstants.FuncAdd,
-        BlendOperation.Subtract => GlConstants.FuncSubtract,
-        BlendOperation.ReverseSubtract => GlConstants.FuncReverseSubtract,
-        BlendOperation.Min => GlConstants.Min,
-        BlendOperation.Max => GlConstants.Max,
-        _ => throw Unmapped(operation)
-    };
+    public static uint BlendOp(BlendOperation operation) =>
+        operation switch {
+            BlendOperation.Add => GlConstants.FuncAdd,
+            BlendOperation.Subtract => GlConstants.FuncSubtract,
+            BlendOperation.ReverseSubtract => GlConstants.FuncReverseSubtract,
+            BlendOperation.Min => GlConstants.Min,
+            BlendOperation.Max => GlConstants.Max,
+            _ => throw Unmapped(operation)
+        };
 
     /// <summary>What the vertices mean.</summary>
-    public static uint Topology(PrimitiveTopology topology) => topology switch {
-        PrimitiveTopology.PointList => GlConstants.Points,
-        PrimitiveTopology.LineList => GlConstants.Lines,
-        PrimitiveTopology.LineStrip => GlConstants.LineStrip,
-        PrimitiveTopology.TriangleList => GlConstants.Triangles,
-        PrimitiveTopology.TriangleStrip => GlConstants.TriangleStrip,
-        _ => throw Unmapped(topology)
-    };
+    public static uint Topology(PrimitiveTopology topology) =>
+        topology switch {
+            PrimitiveTopology.PointList => GlConstants.Points,
+            PrimitiveTopology.LineList => GlConstants.Lines,
+            PrimitiveTopology.LineStrip => GlConstants.LineStrip,
+            PrimitiveTopology.TriangleList => GlConstants.Triangles,
+            PrimitiveTopology.TriangleStrip => GlConstants.TriangleStrip,
+            _ => throw Unmapped(topology)
+        };
 
     /// <summary>The index component type.</summary>
-    public static uint Index(IndexFormat format) => format switch {
-        IndexFormat.UInt16 => GlConstants.UnsignedShort,
-        IndexFormat.UInt32 => GlConstants.UnsignedInt,
-        _ => throw Unmapped(format)
-    };
+    public static uint Index(IndexFormat format) =>
+        format switch {
+            IndexFormat.UInt16 => GlConstants.UnsignedShort,
+            IndexFormat.UInt32 => GlConstants.UnsignedInt,
+            _ => throw Unmapped(format)
+        };
 
     /// <summary>How many bytes one index occupies.</summary>
-    public static int IndexSize(IndexFormat format) => format switch {
-        IndexFormat.UInt16 => 2,
-        IndexFormat.UInt32 => 4,
-        _ => throw Unmapped(format)
-    };
+    public static int IndexSize(IndexFormat format) =>
+        format switch {
+            IndexFormat.UInt16 => 2,
+            IndexFormat.UInt32 => 4,
+            _ => throw Unmapped(format)
+        };
 
     /// <summary>Which faces to discard, or <c>0</c> for none.</summary>
     /// <remarks>
@@ -103,12 +110,13 @@ static class GlEnums {
     ///     disabling the capability rather than by naming a face — one of the small shape
     ///     differences that a state cache has to model rather than translate.
     /// </remarks>
-    public static uint Cull(CullMode mode) => mode switch {
-        CullMode.None => 0,
-        CullMode.Front => GlConstants.Front,
-        CullMode.Back => GlConstants.Back,
-        _ => throw Unmapped(mode)
-    };
+    public static uint Cull(CullMode mode) =>
+        mode switch {
+            CullMode.None => 0,
+            CullMode.Front => GlConstants.Front,
+            CullMode.Back => GlConstants.Back,
+            _ => throw Unmapped(mode)
+        };
 
     /// <summary>Which winding is front.</summary>
     /// <remarks>
@@ -122,36 +130,39 @@ static class GlEnums {
     ///     convention error, and is the reason <c>cull-front</c> and <c>cull-back</c> are separate
     ///     golden fixtures rather than one.
     /// </remarks>
-    public static uint Winding(FrontFace face) => face switch {
-        FrontFace.CounterClockwise => GlConstants.Clockwise,
-        FrontFace.Clockwise => GlConstants.CounterClockwise,
-        _ => throw Unmapped(face)
-    };
+    public static uint Winding(FrontFace face) =>
+        face switch {
+            FrontFace.CounterClockwise => GlConstants.Clockwise,
+            FrontFace.Clockwise => GlConstants.CounterClockwise,
+            _ => throw Unmapped(face)
+        };
 
     /// <summary>Filled or wireframe.</summary>
-    public static uint Fill(FillMode mode) => mode switch {
-        FillMode.Solid => GlConstants.Fill,
-        FillMode.Wireframe => GlConstants.Line,
-        _ => throw Unmapped(mode)
-    };
+    public static uint Fill(FillMode mode) =>
+        mode switch {
+            FillMode.Solid => GlConstants.Fill,
+            FillMode.Wireframe => GlConstants.Line,
+            _ => throw Unmapped(mode)
+        };
 
     /// <summary>What a sampler does outside <c>[0, 1]</c>.</summary>
-    public static uint Address(AddressMode mode, GlProfile profile) => mode switch {
-        AddressMode.Repeat => GlConstants.Repeat,
-        AddressMode.MirrorRepeat => GlConstants.MirroredRepeat,
-        AddressMode.ClampToEdge => GlConstants.ClampToEdge,
+    public static uint Address(AddressMode mode, GlProfile profile) =>
+        mode switch {
+            AddressMode.Repeat => GlConstants.Repeat,
+            AddressMode.MirrorRepeat => GlConstants.MirroredRepeat,
+            AddressMode.ClampToEdge => GlConstants.ClampToEdge,
 
-        // Silently degrading this one is how a shadow map ends up shadowing everything outside its
-        // bounds with whatever the edge texel held — a rendering bug with no error behind it. GLES
-        // gets clamp-to-edge and a caller who asked for a border gets told.
-        AddressMode.ClampToBorder => profile.HasBorderClamp()
-            ? GlConstants.ClampToBorder
-            : throw new NotSupportedException(
-                $"A sampler asked to clamp to a border, which {profile} has no core support for. "
-                + "Clamp to edge and pad the texture, or gate on GraphicsDeviceFeatures."
-            ),
-        _ => throw Unmapped(mode)
-    };
+            // Silently degrading this one is how a shadow map ends up shadowing everything outside its
+            // bounds with whatever the edge texel held — a rendering bug with no error behind it. GLES
+            // gets clamp-to-edge and a caller who asked for a border gets told.
+            AddressMode.ClampToBorder => profile.HasBorderClamp()
+                ? GlConstants.ClampToBorder
+                : throw new NotSupportedException(
+                    $"A sampler asked to clamp to a border, which {profile} has no core support for. "
+                    + "Clamp to edge and pad the texture, or gate on GraphicsDeviceFeatures."
+                ),
+            _ => throw Unmapped(mode)
+        };
 
     /// <summary>The minification filter, which in GL carries the mip filter as well.</summary>
     /// <remarks>
@@ -175,35 +186,38 @@ static class GlEnums {
     }
 
     /// <summary>The magnification filter, which has no mip component.</summary>
-    public static uint MagFilter(FilterMode magnification) => magnification switch {
-        FilterMode.Nearest => GlConstants.Nearest,
-        FilterMode.Linear => GlConstants.Linear,
-        _ => throw Unmapped(magnification)
-    };
+    public static uint MagFilter(FilterMode magnification) =>
+        magnification switch {
+            FilterMode.Nearest => GlConstants.Nearest,
+            FilterMode.Linear => GlConstants.Linear,
+            _ => throw Unmapped(magnification)
+        };
 
     /// <summary>The four components of a border colour.</summary>
-    public static float[] Border(BorderColour colour) => colour switch {
-        BorderColour.TransparentBlack => [0f, 0f, 0f, 0f],
-        BorderColour.OpaqueBlack => [0f, 0f, 0f, 1f],
-        BorderColour.OpaqueWhite => [1f, 1f, 1f, 1f],
-        _ => throw Unmapped(colour)
-    };
+    public static float[] Border(BorderColour colour) =>
+        colour switch {
+            BorderColour.TransparentBlack => [0f, 0f, 0f, 0f],
+            BorderColour.OpaqueBlack => [0f, 0f, 0f, 1f],
+            BorderColour.OpaqueWhite => [1f, 1f, 1f, 1f],
+            _ => throw Unmapped(colour)
+        };
 
     /// <summary>The GL shader type for a stage.</summary>
-    public static uint Stage(ShaderStage stage) => stage switch {
-        ShaderStage.Vertex => GlConstants.VertexShader,
-        ShaderStage.Fragment => GlConstants.FragmentShader,
-        ShaderStage.Compute => GlConstants.ComputeShader,
-        ShaderStage.Geometry => GlConstants.GeometryShader,
-        ShaderStage.TessellationControl => GlConstants.TessellationControlShader,
-        ShaderStage.TessellationEvaluation => GlConstants.TessellationEvaluationShader,
+    public static uint Stage(ShaderStage stage) =>
+        stage switch {
+            ShaderStage.Vertex => GlConstants.VertexShader,
+            ShaderStage.Fragment => GlConstants.FragmentShader,
+            ShaderStage.Compute => GlConstants.ComputeShader,
+            ShaderStage.Geometry => GlConstants.GeometryShader,
+            ShaderStage.TessellationControl => GlConstants.TessellationControlShader,
+            ShaderStage.TessellationEvaluation => GlConstants.TessellationEvaluationShader,
 
-        // Task and mesh shaders are a vendor extension on GL and are in no core profile. This is one
-        // of the two places the backend refuses rather than emulates.
-        _ => throw new NotSupportedException(
-            $"{stage} has no OpenGL shader type. Ask GraphicsDeviceFeatures.HasMeshShaders first."
-        )
-    };
+            // Task and mesh shaders are a vendor extension on GL and are in no core profile. This is one
+            // of the two places the backend refuses rather than emulates.
+            _ => throw new NotSupportedException(
+                $"{stage} has no OpenGL shader type. Ask GraphicsDeviceFeatures.HasMeshShaders first."
+            )
+        };
 
     /// <summary>A vertex attribute's component count, type, and whether it is normalised.</summary>
     /// <remarks>

@@ -36,10 +36,12 @@ public sealed class QueueState {
 
     /// <summary>Makes one.</summary>
     /// <param name="matcher">What decides who plays with whom.</param>
-    public QueueState(IQueueMatcher? matcher = null) => this.matcher = matcher ?? new PairMatcher();
+    public QueueState(IQueueMatcher? matcher = null) {
+        this.matcher = matcher ?? new PairMatcher();
+    }
 
     /// <summary>How many tickets are waiting.</summary>
-    public int Waiting => tickets.Values.Count(ticket => ticket.State == QueueTicketState.Waiting);
+    public int Waiting => tickets.Values.Count(static ticket => ticket.State == QueueTicketState.Waiting);
 
     /// <summary>How many matches are formed and not yet started.</summary>
     public int Open => open.Count;
@@ -67,14 +69,14 @@ public sealed class QueueState {
     ///     which is what <see cref="Abandon" /> is for, and it puts everybody back rather than one.
     /// </remarks>
     public bool Cancel(string ticket) =>
-        tickets.TryGetValue(ticket ?? "", out var found)
+        tickets.TryGetValue(ticket ?? string.Empty, out var found)
         && found.State == QueueTicketState.Waiting
         && tickets.Remove(ticket!);
 
     /// <summary>Where a ticket has got to.</summary>
     /// <param name="ticket">Which.</param>
     /// <returns>It, or null.</returns>
-    public QueueTicket? Ticket(string ticket) => tickets.GetValueOrDefault(ticket ?? "");
+    public QueueTicket? Ticket(string ticket) => tickets.GetValueOrDefault(ticket ?? string.Empty);
 
     /// <summary>Forms whatever can be formed.</summary>
     /// <param name="now">The clock.</param>
@@ -85,7 +87,7 @@ public sealed class QueueState {
         // Backfills first, and that ordering is the decision. A match already running with an empty
         // seat is a worse experience than a match that has not started, so a waiting ticket goes to
         // the running game before it goes to a new one.
-        foreach (var (match, seats) in backfills.OrderBy(pair => pair.Key)) {
+        foreach (var (match, seats) in backfills.OrderBy(static pair => pair.Key)) {
             var filling = Take(seats, now);
 
             if (filling.Length == 0) {
@@ -105,7 +107,7 @@ public sealed class QueueState {
             }
         }
 
-        foreach (var proposal in matcher.Form([.. Available()], now)) {
+        foreach (var proposal in matcher.Form([..Available()], now)) {
             var id = Guid.NewGuid();
             var teams = ImmutableArray.CreateBuilder<QueueTeam>(proposal.Length);
 
@@ -134,7 +136,7 @@ public sealed class QueueState {
             return false;
         }
 
-        foreach (var ticket in started.Teams.SelectMany(team => team.Tickets)) {
+        foreach (var ticket in started.Teams.SelectMany(static team => team.Tickets)) {
             tickets.Remove(ticket);
         }
 
@@ -157,7 +159,7 @@ public sealed class QueueState {
             return false;
         }
 
-        foreach (var ticket in abandoned.Teams.SelectMany(team => team.Tickets)) {
+        foreach (var ticket in abandoned.Teams.SelectMany(static team => team.Tickets)) {
             if (tickets.TryGetValue(ticket, out var found)) {
                 tickets[ticket] = found with { State = QueueTicketState.Waiting, Match = Guid.Empty };
             }
@@ -184,21 +186,21 @@ public sealed class QueueState {
     /// <param name="now">The clock.</param>
     /// <returns>The snapshot.</returns>
     public QueueSnapshot Read(DateTimeOffset now) {
-        var waiting = tickets.Values.Where(ticket => ticket.State == QueueTicketState.Waiting).ToArray();
+        var waiting = tickets.Values.Where(static ticket => ticket.State == QueueTicketState.Waiting).ToArray();
 
         return new(
             waiting.Length,
-            waiting.Sum(ticket => ticket.Entry.Players.Length),
+            waiting.Sum(static ticket => ticket.Entry.Players.Length),
             open.Count,
-            waiting.Length == 0 ? TimeSpan.Zero : now - waiting.Min(ticket => ticket.Entry.Enqueued)
+            waiting.Length == 0 ? TimeSpan.Zero : now - waiting.Min(static ticket => ticket.Entry.Enqueued)
         );
     }
 
     IEnumerable<QueueTicket> Available() =>
         tickets.Values
-            .Where(ticket => ticket.State == QueueTicketState.Waiting)
-            .OrderBy(ticket => ticket.Entry.Enqueued)
-            .ThenBy(ticket => ticket.Id, StringComparer.Ordinal);
+            .Where(static ticket => ticket.State == QueueTicketState.Waiting)
+            .OrderBy(static ticket => ticket.Entry.Enqueued)
+            .ThenBy(static ticket => ticket.Id, StringComparer.Ordinal);
 
     ImmutableArray<string> Take(int seats, DateTimeOffset now) {
         _ = now;
@@ -254,7 +256,7 @@ public sealed class PairMatcher : IQueueMatcher {
 
         // Solo tickets only: a party of three cannot be half of a 1v1, and quietly splitting it is
         // the one thing every matchmaker in doc 28 is forbidden to do.
-        var solo = waiting.Where(ticket => ticket.Entry.Players.Length == 1).ToArray();
+        var solo = waiting.Where(static ticket => ticket.Entry.Players.Length == 1).ToArray();
 
         for (var index = 0; index + 1 < solo.Length; index += 2) {
             yield return [[solo[index].Id], [solo[index + 1].Id]];

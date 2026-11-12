@@ -82,7 +82,7 @@ public class RenderSystemTests {
         system.SetViews([camera]);
         system.Draw();
 
-        Assert.Equal([near, middle, far], system.Nodes(camera, opaque).Select(node => node.Object));
+        Assert.Equal([near, middle, far], system.Nodes(camera, opaque).Select(static node => node.Object));
     }
 
     [Fact]
@@ -97,7 +97,7 @@ public class RenderSystemTests {
         system.SetViews([camera]);
         system.Draw();
 
-        Assert.Equal([far, near], system.Nodes(camera, blended).Select(node => node.Object));
+        Assert.Equal([far, near], system.Nodes(camera, blended).Select(static node => node.Object));
     }
 
     /// <summary>
@@ -113,9 +113,9 @@ public class RenderSystemTests {
         using var system = new RenderSystem();
         var opaque = system.AddStage(new("Opaque"));
 
-        var groupOneFar = system.Objects.Add(At(90f, opaque.Mask, group: 1));
-        var groupTwoNear = system.Objects.Add(At(5f, opaque.Mask, group: 2));
-        var groupOneNear = system.Objects.Add(At(10f, opaque.Mask, group: 1));
+        var groupOneFar = system.Objects.Add(At(90f, opaque.Mask, 1));
+        var groupTwoNear = system.Objects.Add(At(5f, opaque.Mask, 2));
+        var groupOneNear = system.Objects.Add(At(10f, opaque.Mask, 1));
 
         var camera = Camera(opaque.Mask);
         system.SetViews([camera]);
@@ -125,7 +125,7 @@ public class RenderSystemTests {
         // nearest object in the scene belongs to group 2.
         Assert.Equal(
             [groupOneNear, groupOneFar, groupTwoNear],
-            system.Nodes(camera, opaque).Select(node => node.Object)
+            system.Nodes(camera, opaque).Select(static node => node.Object)
         );
     }
 
@@ -137,14 +137,14 @@ public class RenderSystemTests {
         using var system = new RenderSystem();
         var blended = system.AddStage(new("Transparent", RenderSortMode.BackToFront));
 
-        var nearHighGroup = system.Objects.Add(At(5f, blended.Mask, group: 99));
-        var farLowGroup = system.Objects.Add(At(100f, blended.Mask, group: 0));
+        var nearHighGroup = system.Objects.Add(At(5f, blended.Mask, 99));
+        var farLowGroup = system.Objects.Add(At(100f, blended.Mask));
 
         var camera = Camera(blended.Mask);
         system.SetViews([camera]);
         system.Draw();
 
-        Assert.Equal([farLowGroup, nearHighGroup], system.Nodes(camera, blended).Select(node => node.Object));
+        Assert.Equal([farLowGroup, nearHighGroup], system.Nodes(camera, blended).Select(static node => node.Object));
     }
 
     /// <summary>Objects at the same distance keep a stable order, so a frame is reproducible.</summary>
@@ -165,7 +165,7 @@ public class RenderSystemTests {
         system.SetViews([camera]);
         system.Draw();
 
-        Assert.Equal([first, second, third], system.Nodes(camera, opaque).Select(node => node.Object));
+        Assert.Equal([first, second, third], system.Nodes(camera, opaque).Select(static node => node.Object));
     }
 
     [Fact]
@@ -324,6 +324,6 @@ public class RenderSystemTests {
         system.SetViews([camera]);
         system.Draw();
 
-        Assert.Equal([far, near], system.Nodes(camera, opaque).Select(node => node.Object));
+        Assert.Equal([far, near], system.Nodes(camera, opaque).Select(static node => node.Object));
     }
 }

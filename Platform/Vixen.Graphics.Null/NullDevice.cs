@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Diagnostics.CodeAnalysis;
-using Vixen.Core;
 using Vixen.Core.Collections;
 using Vixen.Core.Mathematics;
 
@@ -101,17 +100,19 @@ sealed class NullSubmitter(QueueKind kind, CommandRecorder? recorder) : ICommand
         // work the caller thinks it named.
         Issued++;
 
-        recorder?.Record(
-            new(RecordedCommandKind.Submit, 0, (long)kind, lists.Length, (long)Issued, waitFor.Length)
-        );
+        recorder?.Record(new(RecordedCommandKind.Submit, 0, (long)kind, lists.Length, (long)Issued, waitFor.Length));
 
         return new(kind, Issued);
     }
 
     /// <inheritdoc />
     /// <remarks>
-    ///     ⚠ <b>This overload records a <see cref="RecordedCommandKind.Submit" /> too, and until it
-    ///     did no test could see which queue a list went to.</b> It is the overload almost every
+    ///     ⚠
+    ///     <b>
+    ///         This overload records a <see cref="RecordedCommandKind.Submit" /> too, and until it
+    ///         did no test could see which queue a list went to.
+    ///     </b>
+    ///     It is the overload almost every
     ///     caller in the tree uses — <c>DrainingQueues</c> among them — so the stream showed
     ///     <em>what</em> was recorded and never <em>where</em> it ran, on the one backend where the
     ///     graphics and compute queues are distinguishable at all. A cross-queue mistake in a hoisted
@@ -204,8 +205,12 @@ sealed class NullSwapChain(SwapChainDescription description, NullDevice device) 
 
     /// <summary>This chain's own fault, or the device's if it has one set.</summary>
     /// <remarks>
-    ///     ⚠ <b>The device's wins, because a host builds its own swapchain and a test never holds
-    ///     one.</b> <c>AppGraphics.EnsureSwapChain</c> creates the chain on the first frame and keeps
+    ///     ⚠
+    ///     <b>
+    ///         The device's wins, because a host builds its own swapchain and a test never holds
+    ///         one.
+    ///     </b>
+    ///     <c>AppGraphics.EnsureSwapChain</c> creates the chain on the first frame and keeps
     ///     it private until then, so a caller wanting to lose the device at frame five has nothing to
     ///     set — which is why the two <c>SwapChainStatus.DeviceLost</c> branches in the host had
     ///     never executed despite the injection point existing here since it was written (#303).
@@ -309,8 +314,12 @@ public sealed class NullDevice : IGraphicsDevice {
     /// <summary>What every swapchain this device makes should report, for fault injection.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>On the device rather than on the chain, because the chain is not the caller's to
-    ///         hold.</b> <c>docs/plan/05 § Testing</c> asks for a fault-injection mode proving the
+    ///         ⚠
+    ///         <b>
+    ///             On the device rather than on the chain, because the chain is not the caller's to
+    ///             hold.
+    ///         </b>
+    ///         <c>docs/plan/05 § Testing</c> asks for a fault-injection mode proving the
     ///         engine survives a lost device, and <c>NullSwapChain.NextStatus</c> has been that
     ///         switch since it was written — but a host creates its own swapchain on the first frame,
     ///         so nothing that drives a host could reach it, and both
@@ -351,7 +360,7 @@ public sealed class NullDevice : IGraphicsDevice {
     }
 
     /// <summary>Creates the device.</summary>
-    public NullDevice() : this(new NullDeviceOptions()) { }
+    public NullDevice() : this(new()) { }
 
     /// <summary>Creates the device.</summary>
     /// <param name="options">What to build it out of.</param>
@@ -374,11 +383,12 @@ public sealed class NullDevice : IGraphicsDevice {
         // Three distinct submitters, unlike every real device the tree runs on — so a point names a
         // counter of its own and "waited for a value nothing will signal" is a question with an
         // answer here. Wired after construction because each has to be able to find the other two.
-        NullSubmitter Find(QueueKind wanted) => wanted switch {
-            QueueKind.Compute => compute,
-            QueueKind.Transfer => transfer,
-            _ => graphics
-        };
+        NullSubmitter Find(QueueKind wanted) =>
+            wanted switch {
+                QueueKind.Compute => compute,
+                QueueKind.Transfer => transfer,
+                _ => graphics
+            };
 
         graphics.Resolve = Find;
         compute.Resolve = Find;
@@ -448,62 +458,69 @@ public sealed class NullDevice : IGraphicsDevice {
     public int LiveResourceCount {
         get {
             lock (gate) {
-                return buffers.Count + textures.Count + views.Count + samplers.Count + shaders.Count
-                    + pipelines.Count + pipelineLayouts.Count + setLayouts.Count + descriptorSets.Count
-                    + queryPools.Count + accelerationStructures.Count;
+                return buffers.Count
+                    + textures.Count
+                    + views.Count
+                    + samplers.Count
+                    + shaders.Count
+                    + pipelines.Count
+                    + pipelineLayouts.Count
+                    + setLayouts.Count
+                    + descriptorSets.Count
+                    + queryPools.Count
+                    + accelerationStructures.Count;
             }
         }
     }
 
     /// <summary>Everything a device could claim — what this one claims unless told otherwise.</summary>
-    public static GraphicsDeviceFeatures Everything => GraphicsDeviceFeatures.Minimum with {
-        HasCompute = true,
-        HasGeometryShaders = true,
-        HasTessellation = true,
-        HasMeshShaders = true,
-        HasBindless = true,
-        HasMultiDrawIndirect = true,
-        HasDrawIndirectFirstInstance = true,
-        HasDrawIndirectCount = true,
-        HasTimelineSemaphores = true,
-        HasAsyncCompute = true,
-        HasAsyncTransfer = true,
-        HasSparseResources = true,
-        HasRayTracing = true,
-        HasFloat64 = true,
-        HasInt64Atomics = true,
-        HasSubgroupOperations = true,
-        HasDynamicRendering = true,
-        HasDepthClamp = true,
-        HasWireframe = true,
-        HasAnisotropicFiltering = true,
-        HasIndependentBlend = true,
-        HasPipelineStatistics = true,
-        HasTimestampQueries = true,
+    public static GraphicsDeviceFeatures Everything =>
+        GraphicsDeviceFeatures.Minimum with {
+            HasCompute = true,
+            HasGeometryShaders = true,
+            HasTessellation = true,
+            HasMeshShaders = true,
+            HasBindless = true,
+            HasMultiDrawIndirect = true,
+            HasDrawIndirectFirstInstance = true,
+            HasDrawIndirectCount = true,
+            HasTimelineSemaphores = true,
+            HasAsyncCompute = true,
+            HasAsyncTransfer = true,
+            HasSparseResources = true,
+            HasRayTracing = true,
+            HasFloat64 = true,
+            HasInt64Atomics = true,
+            HasSubgroupOperations = true,
+            HasDynamicRendering = true,
+            HasDepthClamp = true,
+            HasWireframe = true,
+            HasAnisotropicFiltering = true,
+            HasIndependentBlend = true,
+            HasPipelineStatistics = true,
+            HasTimestampQueries = true,
 
-        // One tick is one nanosecond, which is what a desktop NVIDIA part reports and is the value
-        // that makes a synthetic reading readable: `Vixen.Editor.Profiler`'s tests can write a
-        // duration in nanoseconds and read the same number back rather than through a scale factor
-        // whose only purpose would be to prove the multiplication happened.
-        TimestampPeriod = 1f,
+            // One tick is one nanosecond, which is what a desktop NVIDIA part reports and is the value
+            // that makes a synthetic reading readable: `Vixen.Editor.Profiler`'s tests can write a
+            // duration in nanoseconds and read the same number back rather than through a scale factor
+            // whose only purpose would be to prove the multiplication happened.
+            TimestampPeriod = 1f,
+            MaxTextureSize = 16384,
+            MaxColourAttachments = 8,
+            MaxVertexBuffers = 16,
+            MaxAnisotropy = 16f,
 
-        MaxTextureSize = 16384,
-        MaxColourAttachments = 8,
-        MaxVertexBuffers = 16,
-        MaxAnisotropy = 16f,
+            // A desktop driver's order of magnitude rather than a round number, because a table sized
+            // against this is the thing a test is checking and a suspiciously tidy ceiling is one nobody
+            // would notice being hit.
+            MaxBindlessDescriptors = 500_000,
 
-        // A desktop driver's order of magnitude rather than a round number, because a table sized
-        // against this is the thing a test is checking and a suspiciously tidy ceiling is one nobody
-        // would notice being hit.
-        MaxBindlessDescriptors = 500_000,
-
-        // Five, because a table is a set of its own and a shader that indexes one binds five. A
-        // device claiming bindless with four bindable sets is a combination no real device reports
-        // and one this file should not be the first to invent — see DescriptorSetSlot.Bindless.
-        MaxDescriptorSets = 8,
-
-        SupportedSampleCounts = 0b11111
-    };
+            // Five, because a table is a set of its own and a shader that indexes one binds five. A
+            // device claiming bindless with four bindable sets is a combination no real device reports
+            // and one this file should not be the first to invent — see DescriptorSetSlot.Bindless.
+            MaxDescriptorSets = 8,
+            SupportedSampleCounts = 0b11111
+        };
 
     /// <inheritdoc />
     public BufferHandle CreateBuffer(in BufferDescription description) {
@@ -553,7 +570,9 @@ public sealed class NullDevice : IGraphicsDevice {
                 );
             }
 
-            return new(views.Add(new NullTextureView(texture, format == PixelFormat.Undefined ? description.Format : format)));
+            return new(
+                views.Add(new NullTextureView(texture, format == PixelFormat.Undefined ? description.Format : format))
+            );
         }
     }
 
@@ -598,7 +617,7 @@ public sealed class NullDevice : IGraphicsDevice {
                 setLayouts.Add(
                     new NullDescriptorSetLayout(
                         description.Slot,
-                        [.. description.Bindings ?? []],
+                        [..description.Bindings ?? []],
                         description.CapacityFor(Features)
                     )
                 )
@@ -635,9 +654,12 @@ public sealed class NullDevice : IGraphicsDevice {
     ///         wrong.
     ///     </para>
     ///     <para>
-    ///         <strong>The kind check is here rather than left to the Vulkan backend, which also makes
-    ///         it, because that one only runs on a machine with a driver and the validation layers
-    ///         switched on.</strong> Without them the write lands, the shader reads whichever kind it
+    ///         <strong>
+    ///             The kind check is here rather than left to the Vulkan backend, which also makes
+    ///             it, because that one only runs on a machine with a driver and the validation layers
+    ///             switched on.
+    ///         </strong>
+    ///         Without them the write lands, the shader reads whichever kind it
     ///         was compiled for, and what comes back is a wrong frame rather than an error. The
     ///         dynamic kinds are compared exactly rather than folded into their static counterparts: a
     ///         <see cref="DescriptorKind.DynamicUniformBuffer" /> written as a
@@ -842,8 +864,10 @@ public sealed class NullDevice : IGraphicsDevice {
         }
     }
 
-    /// <summary>How many primitives one build input describes — triangles for a bottom level,
-    ///     instances for a top.</summary>
+    /// <summary>
+    ///     How many primitives one build input describes — triangles for a bottom level,
+    ///     instances for a top.
+    /// </summary>
     static int PrimitiveCount(in AccelerationStructureBuildInput input) =>
         input.Kind == AccelerationStructureKind.TopLevel
             ? input.Instances.Count
@@ -986,9 +1010,7 @@ public sealed class NullDevice : IGraphicsDevice {
             var description = ((NullBuffer)target).Description;
 
             if (description.Access != MemoryAccess.HostReadback) {
-                throw new InvalidOperationException(
-                    $"Buffer '{description.Name}' is not a readback buffer."
-                );
+                throw new InvalidOperationException($"Buffer '{description.Name}' is not a readback buffer.");
             }
         }
 
@@ -1013,8 +1035,12 @@ public sealed class NullDevice : IGraphicsDevice {
 
     /// <inheritdoc />
     /// <remarks>
-    ///     ⚠ <b>Tracked properly rather than answered <see langword="false" />, and this is the device
-    ///     where that matters most.</b> Nothing nests badly here — which is exactly why every test of
+    ///     ⚠
+    ///     <b>
+    ///         Tracked properly rather than answered <see langword="false" />, and this is the device
+    ///         where that matters most.
+    ///     </b>
+    ///     Nothing nests badly here — which is exactly why every test of
     ///     a caller's frame discipline runs on this device, and a stub that always said "no frame is
     ///     open" would make all of them pass whatever the caller did. See #775.
     /// </remarks>

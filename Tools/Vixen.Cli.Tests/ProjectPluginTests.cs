@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Collections.Immutable;
-using System.CommandLine;
 using System.Text;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -47,8 +46,12 @@ namespace Vixen.Cli.Tests;
 ///         depending on which ran first — and these run in one process.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The fixture's settings type carries no data-contract attribute, and does not need
-///         one.</b> What an importer's <c>Name</c> reads is the descriptor in <c>TypeRegistry</c>,
+///         ⚠
+///         <b>
+///             The fixture's settings type carries no data-contract attribute, and does not need
+///             one.
+///         </b>
+///         What an importer's <c>Name</c> reads is the descriptor in <c>TypeRegistry</c>,
 ///         which a real plugin's generator emits from the attribute and which the module
 ///         initializer below writes by hand — this compilation has no generator driver to run. The
 ///         attribute would be inert here, and a project applying one while naming neither
@@ -59,23 +62,25 @@ namespace Vixen.Cli.Tests;
 public sealed class ProjectPluginTests : IDisposable {
     /// <summary>Everything loaded beside the test, which is what the plugin compiles against.</summary>
     static readonly ImmutableArray<MetadataReference> References = [
-        .. ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")!)
+        ..((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")!)
             .Split(Path.PathSeparator)
-            .Where(path => path.EndsWith(".dll", StringComparison.OrdinalIgnoreCase))
+            .Where(static path => path.EndsWith(".dll", StringComparison.OrdinalIgnoreCase))
             .Distinct(StringComparer.Ordinal)
-            .Select(path => (MetadataReference)MetadataReference.CreateFromFile(path))
+            .Select(static path => (MetadataReference)MetadataReference.CreateFromFile(path))
     ];
 
     readonly string root = Path.Combine(Path.GetTempPath(), "vixen-cli-plugin-tests", Guid.NewGuid().ToString("N"));
 
-    public ProjectPluginTests() => Directory.CreateDirectory(Path.Combine(root, "Assets"));
+    public ProjectPluginTests() {
+        Directory.CreateDirectory(Path.Combine(root, "Assets"));
+    }
 
     public void Dispose() {
         if (!Directory.Exists(root)) {
             return;
         }
 
-        Discard(() => Directory.Delete(root, recursive: true));
+        Discard(() => Directory.Delete(root, true));
     }
 
     /// <summary>Removes the fixture's folder, forgiving the one failure that is not a defect.</summary>
@@ -132,10 +137,14 @@ public sealed class ProjectPluginTests : IDisposable {
     /// </remarks>
     [Fact]
     public void TheFixtureCleanupForgivesAMappedPluginAndNothingElse() {
-        Discard(() => throw new UnauthorizedAccessException("Access to the path 'gizmo.dll' is denied."));
-        Discard(() => throw new IOException("The process cannot access the file because it is being used."));
+        Discard(static () => throw new UnauthorizedAccessException("Access to the path 'gizmo.dll' is denied."));
+        Discard(static () => throw new IOException("The process cannot access the file because it is being used."));
 
-        Assert.Throws<InvalidOperationException>(() => Discard(() => throw new InvalidOperationException("real")));
+        Assert.Throws<InvalidOperationException>(static () => Discard(static () => throw new InvalidOperationException(
+                    "real"
+                )
+            )
+        );
     }
 
     /// <summary>The claim: <c>vixen import</c> uses the importer the editor would have used.</summary>
@@ -174,7 +183,7 @@ public sealed class ProjectPluginTests : IDisposable {
     [Fact]
     public async Task TheShippedChunkCarriesWhatThePluginsImporterWrote() {
         Plugin("widget", ".widget");
-        Asset("part.widget", "the quick brown fox", address: "ui/part", group: "UiCore");
+        Asset("part.widget", "the quick brown fox", "ui/part", "UiCore");
         Group("UiCore");
 
         var (code, _) = await Run("content", "build");
@@ -196,7 +205,7 @@ public sealed class ProjectPluginTests : IDisposable {
     /// </summary>
     [Fact]
     public async Task APluginTheManifestDisablesContributesNothing() {
-        Plugin("dormant", ".dormant", enabled: false);
+        Plugin("dormant", ".dormant", false);
         Asset("part.dormant", "the quick brown fox");
 
         var (_, output) = await Run("import", "--verbose");
@@ -270,7 +279,7 @@ public sealed class ProjectPluginTests : IDisposable {
 
         var result = CSharpCompilation.Create(
                 id,
-                [CSharpSyntaxTree.ParseText(Source(name, extension), new CSharpParseOptions(LanguageVersion.Latest))],
+                [CSharpSyntaxTree.ParseText(Source(name, extension), new(LanguageVersion.Latest))],
                 References,
                 new(OutputKind.DynamicallyLinkedLibrary, nullableContextOptions: NullableContextOptions.Enable)
             )
@@ -281,8 +290,12 @@ public sealed class ProjectPluginTests : IDisposable {
 
     /// <summary>A plugin with one importer, and the module initializer a real plugin's generator writes.</summary>
     /// <remarks>
-    ///     ⚠ <b>The descriptor is registered by hand because this compilation has no generator
-    ///     driver.</b> A plugin built by <c>dotnet build</c> gets
+    ///     ⚠
+    ///     <b>
+    ///         The descriptor is registered by hand because this compilation has no generator
+    ///         driver.
+    ///     </b>
+    ///     A plugin built by <c>dotnet build</c> gets
     ///     <c>Vixen.Core.Reflection.Generator</c> through its own <c>ProjectReference</c>, and this
     ///     initializer is what that generator emits. Without a descriptor the importer has no
     ///     <c>Name</c>, which is the one thing <c>PluginImporters</c> reads eagerly so that the
@@ -344,7 +357,10 @@ public sealed class ProjectPluginTests : IDisposable {
         Assert.True(
             result.Success,
             "The test's own plugin source did not compile:\n"
-            + string.Join("\n", result.Diagnostics.Where(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error))
+            + string.Join(
+                "\n",
+                result.Diagnostics.Where(static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error)
+            )
         );
 
     void Asset(string relativePath, string content, string? address = null, string? group = null) {
@@ -371,7 +387,7 @@ public sealed class ProjectPluginTests : IDisposable {
         var output = new StringWriter { NewLine = "\n" };
         var error = new StringWriter { NewLine = "\n" };
 
-        var parsed = VixenCommand.Create(output, error).Parse([.. args, "--project", root]);
+        var parsed = VixenCommand.Create(output, error).Parse([..args, "--project", root]);
 
         Assert.Empty(parsed.Errors);
 

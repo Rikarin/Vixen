@@ -8,8 +8,12 @@ namespace Vixen.Core.Imaging.BlockCompression;
 /// <summary>The colour half of a 4×4 block in eight bytes: two 565 endpoints and sixteen two-bit indices.</summary>
 /// <remarks>
 ///     <para>
-///         BC1 on its own, and the colour half of BC3. The two endpoints are compared <i>as sixteen-bit
-///         numbers</i> to choose the mode, exactly as <see cref="Bc4Block" /> compares its two bytes:
+///         BC1 on its own, and the colour half of BC3. The two endpoints are compared
+///         <i>
+///             as sixteen-bit
+///             numbers
+///         </i>
+///         to choose the mode, exactly as <see cref="Bc4Block" /> compares its two bytes:
 ///         <b>colour0 greater than colour1</b> gives four opaque colours, two of them interpolated in
 ///         thirds; <b>colour0 less than or equal to colour1</b> gives three opaque colours and one
 ///         index that means transparent black. That is BC1's entire alpha channel — one bit, and it
@@ -56,8 +60,8 @@ static class Bc1Block {
         if (opaque || colour0 > colour1) {
             for (var channel = 0; channel < 3; channel++) {
                 var largest = Largest(channel);
-                palette[8 + channel] = Scale((2 * first[channel]) + second[channel], 3, largest);
-                palette[12 + channel] = Scale(first[channel] + (2 * second[channel]), 3, largest);
+                palette[8 + channel] = Scale(2 * first[channel] + second[channel], 3, largest);
+                palette[12 + channel] = Scale(first[channel] + 2 * second[channel], 3, largest);
             }
 
             palette[3] = 255;
@@ -90,8 +94,12 @@ static class Bc1Block {
     /// <param name="largest">The largest value the field can hold.</param>
     /// <returns>The channel, rounded to nearest.</returns>
     /// <remarks>
-    ///     ⚠ <b>Expanding to eight bits first and interpolating there is a different answer, and it
-    ///     is the wrong one.</b> The specification unpacks a 565 endpoint to a colour <i>value</i> —
+    ///     ⚠
+    ///     <b>
+    ///         Expanding to eight bits first and interpolating there is a different answer, and it
+    ///         is the wrong one.
+    ///     </b>
+    ///     The specification unpacks a 565 endpoint to a colour <i>value</i> —
     ///     <c>v / 31</c>, a real number, not a byte — and forms the third and half points from
     ///     those, so the one and only rounding is when the result is written out. Expanding first
     ///     rounds twice; truncating instead of rounding, which is what an <c>int</c> division does,
@@ -111,7 +119,7 @@ static class Bc1Block {
 
         // (weighted * 255 / span) + 1/2, floored — the halves written out so the division stays
         // integral.
-        return (byte)(((weighted * 510) + span) / (2 * span));
+        return (byte)((weighted * 510 + span) / (2 * span));
     }
 
     /// <summary>Reads a block.</summary>
@@ -147,7 +155,7 @@ static class Bc1Block {
 
         if (allowAlpha) {
             for (var texel = 0; texel < Texels; texel++) {
-                cutOut |= rgba[(texel * 4) + 3] < AlphaCutoff;
+                cutOut |= rgba[texel * 4 + 3] < AlphaCutoff;
             }
         }
 
@@ -218,11 +226,11 @@ static class Bc1Block {
     }
 
     static int Quantise(int value, int levels) =>
-        Math.Clamp(((Math.Clamp(value, 0, 255) * levels) + 127) / 255, 0, levels);
+        Math.Clamp((Math.Clamp(value, 0, 255) * levels + 127) / 255, 0, levels);
 
     static bool AnyOpaque(ReadOnlySpan<byte> rgba) {
         for (var texel = 0; texel < Texels; texel++) {
-            if (rgba[(texel * 4) + 3] >= AlphaCutoff) {
+            if (rgba[texel * 4 + 3] >= AlphaCutoff) {
                 return true;
             }
         }
@@ -246,12 +254,12 @@ static class Bc1Block {
         var counted = 0;
 
         for (var texel = 0; texel < Texels; texel++) {
-            if (cutOut && rgba[(texel * 4) + 3] < AlphaCutoff) {
+            if (cutOut && rgba[texel * 4 + 3] < AlphaCutoff) {
                 continue;
             }
 
             for (var channel = 0; channel < 3; channel++) {
-                mean[channel] += rgba[(texel * 4) + channel];
+                mean[channel] += rgba[texel * 4 + channel];
             }
 
             counted++;
@@ -262,17 +270,17 @@ static class Bc1Block {
         }
 
         for (var texel = 0; texel < Texels; texel++) {
-            if (cutOut && rgba[(texel * 4) + 3] < AlphaCutoff) {
+            if (cutOut && rgba[texel * 4 + 3] < AlphaCutoff) {
                 continue;
             }
 
             for (var channel = 0; channel < 3; channel++) {
-                centred[channel] = rgba[(texel * 4) + channel] - mean[channel];
+                centred[channel] = rgba[texel * 4 + channel] - mean[channel];
             }
 
             for (var row = 0; row < 3; row++) {
                 for (var column = 0; column < 3; column++) {
-                    covariance[(row * 3) + column] += centred[row] * centred[column];
+                    covariance[row * 3 + column] += centred[row] * centred[column];
                 }
             }
         }
@@ -285,13 +293,13 @@ static class Bc1Block {
         var highestTexel = 0;
 
         for (var texel = 0; texel < Texels; texel++) {
-            if (cutOut && rgba[(texel * 4) + 3] < AlphaCutoff) {
+            if (cutOut && rgba[texel * 4 + 3] < AlphaCutoff) {
                 continue;
             }
 
-            var projection = (rgba[texel * 4] * axis[0])
-                + (rgba[(texel * 4) + 1] * axis[1])
-                + (rgba[(texel * 4) + 2] * axis[2]);
+            var projection = rgba[texel * 4] * axis[0]
+                + rgba[texel * 4 + 1] * axis[1]
+                + rgba[texel * 4 + 2] * axis[2];
 
             if (projection < lowest) {
                 lowest = projection;
@@ -308,7 +316,7 @@ static class Bc1Block {
     }
 
     static (int R, int G, int B) Texel(ReadOnlySpan<byte> rgba, int texel) =>
-        (rgba[texel * 4], rgba[(texel * 4) + 1], rgba[(texel * 4) + 2]);
+        (rgba[texel * 4], rgba[texel * 4 + 1], rgba[texel * 4 + 2]);
 
     /// <summary>
     ///     Re-solves the two endpoints from the indices already chosen, by least squares. Returns
@@ -349,12 +357,12 @@ static class Bc1Block {
             c += weight * weight;
 
             for (var channel = 0; channel < 3; channel++) {
-                right0[channel] += inverse * rgba[(texel * 4) + channel];
-                right1[channel] += weight * rgba[(texel * 4) + channel];
+                right0[channel] += inverse * rgba[texel * 4 + channel];
+                right1[channel] += weight * rgba[texel * 4 + channel];
             }
         }
 
-        var determinant = (a * c) - (b * b);
+        var determinant = a * c - b * b;
 
         if (MathF.Abs(determinant) < 1e-4f) {
             return false;
@@ -364,8 +372,8 @@ static class Bc1Block {
         Span<int> solved1 = stackalloc int[3];
 
         for (var channel = 0; channel < 3; channel++) {
-            solved0[channel] = (int)MathF.Round(((c * right0[channel]) - (b * right1[channel])) / determinant);
-            solved1[channel] = (int)MathF.Round(((a * right1[channel]) - (b * right0[channel])) / determinant);
+            solved0[channel] = (int)MathF.Round((c * right0[channel] - b * right1[channel]) / determinant);
+            solved1[channel] = (int)MathF.Round((a * right1[channel] - b * right0[channel]) / determinant);
         }
 
         first = (solved0[0], solved0[1], solved0[2]);
@@ -419,7 +427,7 @@ static class Bc1Block {
                 var distance = 0L;
 
                 for (var channel = 0; channel < 3; channel++) {
-                    var difference = (long)palette[(entry * 4) + channel] - texelRgba[channel];
+                    var difference = (long)palette[entry * 4 + channel] - texelRgba[channel];
                     distance += difference * difference;
                 }
 

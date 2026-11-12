@@ -3,7 +3,6 @@
 
 using Vixen.Core.Mathematics;
 using Vixen.Geometry;
-using Vixen.Rendering;
 
 namespace Vixen.Animation;
 
@@ -152,11 +151,7 @@ public static class AnimationCurveCompressor {
 
         report = new(before, after, data.Channels.Length, channels.Count);
 
-        return new() {
-            Name = data.Name,
-            Duration = data.Duration,
-            Channels = [.. channels]
-        };
+        return new() { Name = data.Name, Duration = data.Duration, Channels = [..channels] };
     }
 
     /// <summary>Compresses with the default tolerances.</summary>
@@ -213,7 +208,7 @@ public static class AnimationCurveCompressor {
         keptTimes.Add(times[count - 1]);
         keptValues.Add(values[count - 1]);
 
-        return ([.. keptTimes], [.. keptValues]);
+        return ([..keptTimes], [..keptValues]);
 
         bool Fits(int from, int to) {
             var span = times[to] - times[from];

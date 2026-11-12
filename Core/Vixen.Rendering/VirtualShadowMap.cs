@@ -75,8 +75,12 @@ public struct VirtualShadowLevel {
     ///         twenty-four.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b><c>Y</c> is negated against <see cref="VirtualShadowMap.ClipmapCell" />'s
-    ///         <c>Up</c>, and that is not a slip.</b> A page grid's rows run <em>down</em> the map —
+    ///         ⚠
+    ///         <b>
+    ///             <c>Y</c> is negated against <see cref="VirtualShadowMap.ClipmapCell" />'s
+    ///             <c>Up</c>, and that is not a slip.
+    ///         </b>
+    ///         A page grid's rows run <em>down</em> the map —
     ///         <see cref="VirtualShadowMap.PageOf" /> negates y for the engine's UV convention — so a
     ///         camera rising by one page moves a world row's grid coordinate <em>up</em> by one where
     ///         a camera moving right moves its column down by one. Only a negated origin makes the
@@ -177,8 +181,12 @@ public static class VirtualShadowMap {
     ///         quarter of a million read-modify-writes onto each of two dozen addresses.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Sampling one pixel per block instead loses most of the pages, and no block size
-    ///         makes that safe.</b> A page is <see cref="PageTexels" /> texels a side and
+    ///         ⚠
+    ///         <b>
+    ///             Sampling one pixel per block instead loses most of the pages, and no block size
+    ///             makes that safe.
+    ///         </b>
+    ///         A page is <see cref="PageTexels" /> texels a side and
     ///         <see cref="LevelFor" /> picks a level whose texels are no finer than the pixel's, so a
     ///         page is at least that many pixels across — but only on a surface facing the camera. The
     ///         bound scales with the cosine of the obliquity and goes to zero on a floor receding to
@@ -243,8 +251,11 @@ public static class VirtualShadowMap {
     /// <param name="depthRange">How deep the level's box is along the light, in world units.</param>
     /// <remarks>
     ///     <para>
-    ///         <b><c>ShadowCascade.depthScale</c>'s counterpart, and it exists for the identical
-    ///         reason.</b> A level's box is <paramref name="depthRange" /> metres deep — four hundred
+    ///         <b>
+    ///             <c>ShadowCascade.depthScale</c>'s counterpart, and it exists for the identical
+    ///             reason.
+    ///         </b>
+    ///         A level's box is <paramref name="depthRange" /> metres deep — four hundred
     ///         by default — so one unit of normalised depth is four hundred metres of world, and a
     ///         bias stated as a raw normalised number is not a distance at all. The cascade path
     ///         learned that the expensive way and records it at length on
@@ -260,14 +271,12 @@ public static class VirtualShadowMap {
     ///         quantity that cannot agree, and a page arriving is then a shadow going out.
     ///     </para>
     /// </remarks>
-    public static float DepthScale(float depthRange) =>
-        1f / MathF.Max(depthRange - ClipmapNear, 1e-3f);
+    public static float DepthScale(float depthRange) => 1f / MathF.Max(depthRange - ClipmapNear, 1e-3f);
 
     /// <summary>How wide one clipmap level is, in world units.</summary>
     /// <param name="level">Which level, zero being the finest.</param>
     /// <param name="firstExtent">How wide level zero is.</param>
-    public static float ExtentOf(int level, float firstExtent) =>
-        firstExtent * (1 << Math.Clamp(level, 0, 30));
+    public static float ExtentOf(int level, float firstExtent) => firstExtent * (1 << Math.Clamp(level, 0, 30));
 
     /// <summary>How many world units one of a level's texels covers.</summary>
     public static float TexelOf(int level, float firstExtent) =>
@@ -318,8 +327,12 @@ public static class VirtualShadowMap {
     /// <param name="depthRange">How deep the level's box is along the light.</param>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The third axis is not a page axis, and giving it the page's step was task #124's
-    ///         blink.</b> A level's page grid quantises the two axes it is <em>made</em> of; the third
+    ///         ⚠
+    ///         <b>
+    ///             The third axis is not a page axis, and giving it the page's step was task #124's
+    ///             blink.
+    ///         </b>
+    ///         A level's page grid quantises the two axes it is <em>made</em> of; the third
     ///         is the depth the level's box spans, which is <paramref name="depthRange" /> for every
     ///         level alike and has no page structure at all. Stepping it at the lateral page size made
     ///         level zero's near plane move every 0.3 m of walking and level seven's every 40 m — a
@@ -357,8 +370,11 @@ public static class VirtualShadowMap {
     /// <param name="lightDirection">The direction light travels, toward the scene.</param>
     /// <param name="depthRange">How deep the level's box is along the light.</param>
     /// <remarks>
-    ///     <b>What <see cref="ClipmapProjection" /> is a function of, exposed so a caller can ask what
-    ///     changed rather than only whether something did.</b> Two fits with the same cell have
+    ///     <b>
+    ///         What <see cref="ClipmapProjection" /> is a function of, exposed so a caller can ask what
+    ///         changed rather than only whether something did.
+    ///     </b>
+    ///     Two fits with the same cell have
     ///     bit-identical projections; two that differ only in <c>Right</c> or <c>Up</c> differ by a
     ///     whole number of pages laterally, which is a level that <em>slid</em>; one that differs in
     ///     <c>Light</c> has moved its near plane, which is the only kind of move that changes what a
@@ -415,8 +431,11 @@ public static class VirtualShadowMap {
     /// <param name="origin">The map's <see cref="VirtualShadowLevel.Origin" />.</param>
     /// <remarks>
     ///     <para>
-    ///         <b>The line the two shaders share, and the one thing that makes a page's identity a fact
-    ///         about the world rather than about the window.</b> A window cell is where a point lands
+    ///         <b>
+    ///             The line the two shaders share, and the one thing that makes a page's identity a fact
+    ///             about the world rather than about the window.
+    ///         </b>
+    ///         A window cell is where a point lands
     ///         <em>in the picture</em>, so it changes whenever the picture slides; the sum of it and
     ///         the origin does not, because the origin slides by exactly as much in the other
     ///         direction. Reducing the sum modulo the window is what keeps the address space finite,
@@ -516,11 +535,11 @@ public static class VirtualShadowMap {
         // nothing visible does, which stops "the projection is identical" being something a test can
         // state. ShadowCascades.Fit makes the same argument about the same third axis.
         var centre =
-            (right * (cell.Right * page))
-            + (up * (cell.Up * page))
-            + (light * (cell.Light * DepthStep(level, firstExtent, depth)));
+            right * (cell.Right * page)
+            + up * (cell.Up * page)
+            + light * (cell.Light * DepthStep(level, firstExtent, depth));
 
-        var origin = centre - (light * (depth * 0.5f));
+        var origin = centre - light * (depth * 0.5f);
         var view = Matrix4x4.LookAt(origin, centre, reference);
 
         var half = extent * 0.5f;
@@ -616,8 +635,8 @@ public static class VirtualShadowMap {
         // The engine's one convention about which way up a clip space is — see Transform.NdcToUv,
         // which the marking shader and the lookup both go through. A page grid that disagreed with it
         // would be flipped in y, which is a shadow map that is right along one axis.
-        var u = (ndc.X * 0.5f) + 0.5f;
-        var v = (-ndc.Y * 0.5f) + 0.5f;
+        var u = ndc.X * 0.5f + 0.5f;
+        var v = -ndc.Y * 0.5f + 0.5f;
 
         if (u < 0f || u >= 1f || v < 0f || v >= 1f) {
             return false;
@@ -637,8 +656,11 @@ public static class VirtualShadowMap {
     /// <returns>Whether the sphere reaches this map at all.</returns>
     /// <remarks>
     ///     <para>
-    ///         <b><see cref="PageOf" /> for a volume rather than a point, and the pages it names are
-    ///         where that volume's <em>shadow</em> lands — which is the same rectangle.</b> A shadow
+    ///         <b>
+    ///             <see cref="PageOf" /> for a volume rather than a point, and the pages it names are
+    ///             where that volume's <em>shadow</em> lands — which is the same rectangle.
+    ///         </b>
+    ///         A shadow
     ///         map's projection looks along the light, so a caster's footprint in the map's clip space
     ///         is exactly the set of texels whose stored depth it can change. That is what makes a
     ///         moved caster a bounded invalidation instead of a level: see
@@ -678,11 +700,12 @@ public static class VirtualShadowMap {
         var behind = false;
 
         for (var corner = 0; corner < 8; corner++) {
-            var world = center + new Vector3(
-                (corner & 1) == 0 ? -extent : extent,
-                (corner & 2) == 0 ? -extent : extent,
-                (corner & 4) == 0 ? -extent : extent
-            );
+            var world = center
+                + new Vector3(
+                    (corner & 1) == 0 ? -extent : extent,
+                    (corner & 2) == 0 ? -extent : extent,
+                    (corner & 4) == 0 ? -extent : extent
+                );
 
             var clip = Matrix4x4.TransformVector4(new(world, 1f), viewProjection);
 
@@ -720,10 +743,10 @@ public static class VirtualShadowMap {
         // The engine's UV convention, as PageOf applies it — and y is negated, so the box's top in
         // clip space is its low v. Getting that backwards mirrors the span about the map's centre,
         // which invalidates a page that was fine and leaves the one that moved.
-        var lowU = (minimum.X * 0.5f) + 0.5f;
-        var highU = (maximum.X * 0.5f) + 0.5f;
-        var lowV = (-maximum.Y * 0.5f) + 0.5f;
-        var highV = (-minimum.Y * 0.5f) + 0.5f;
+        var lowU = minimum.X * 0.5f + 0.5f;
+        var highU = maximum.X * 0.5f + 0.5f;
+        var lowV = -maximum.Y * 0.5f + 0.5f;
+        var highV = -minimum.Y * 0.5f + 0.5f;
 
         if (highU < 0f || lowU >= 1f || highV < 0f || lowV >= 1f) {
             return false;
@@ -747,8 +770,7 @@ public static class VirtualShadowMap {
     ///     that has never moved — so a caller that skips <see cref="ToroidalOf" /> is right until the
     ///     camera walks one page and then addresses somebody else's page for the rest of the session.
     /// </remarks>
-    public static int IndexOf(uint first, Int2 page) =>
-        (int)first + (page.Y * PagesPerSide) + page.X;
+    public static int IndexOf(uint first, Int2 page) => (int)first + page.Y * PagesPerSide + page.X;
 
     /// <summary>Where a physical page sits in the atlas, in texels.</summary>
     /// <param name="slot">Which physical page.</param>
@@ -782,10 +804,22 @@ public static class VirtualShadowMap {
         const float N = PagesPerSide;
 
         var window = new Matrix4x4(
-            N, 0f, 0f, 0f,
-            0f, N, 0f, 0f,
-            0f, 0f, 1f, 0f,
-            N - 1f - (2f * page.X), (2f * page.Y) + 1f - N, 0f, 1f
+            N,
+            0f,
+            0f,
+            0f,
+            0f,
+            N,
+            0f,
+            0f,
+            0f,
+            0f,
+            1f,
+            0f,
+            N - 1f - 2f * page.X,
+            2f * page.Y + 1f - N,
+            0f,
+            1f
         );
 
         return viewProjection * window;

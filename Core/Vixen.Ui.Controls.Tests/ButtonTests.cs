@@ -165,7 +165,7 @@ public class ButtonTests {
         fixture.Update();
 
         bool? seen = null;
-        toggle.AddHandler<ClickEvent>((element, _) => seen = ((ToggleButton) element).IsChecked);
+        toggle.AddHandler<ClickEvent>((element, _) => seen = ((ToggleButton)element).IsChecked);
 
         fixture.Click(toggle);
 
@@ -330,8 +330,12 @@ public class ButtonTests {
 
     /// <summary>A default button presses on a Return nothing else wanted, and a cancel one on Escape.</summary>
     /// <remarks>
-    ///     ⚠ <b>The gap #666 lists under "present with a named gap": <c>Button</c> had no default or
-    ///     cancel key equivalent</b>, so a form's Return did nothing at all unless a single-line
+    ///     ⚠
+    ///     <b>
+    ///         The gap #666 lists under "present with a named gap": <c>Button</c> had no default or
+    ///         cancel key equivalent
+    ///     </b>
+    ///     , so a form's Return did nothing at all unless a single-line
     ///     field happened to be focused and raised <c>Submitted</c>. `IsDefault` and `IsCancel` are
     ///     `UiElement.KeyEquivalent` plus a class the theme can draw, and the document raises the
     ///     event only on a press the route declined — see <c>KeyEquivalentTests</c> for that half.
@@ -379,8 +383,12 @@ public class ButtonTests {
 
     /// <summary>A text area keeps its Return, which is the whole reason this is a fallback.</summary>
     /// <remarks>
-    ///     ⚠ <b>The failure a default button has everywhere it is implemented as a claim on the
-    ///     key.</b> `TextField.Execute` settles the collision — a plain Return in a multi-line field
+    ///     ⚠
+    ///     <b>
+    ///         The failure a default button has everywhere it is implemented as a claim on the
+    ///         key.
+    ///     </b>
+    ///     `TextField.Execute` settles the collision — a plain Return in a multi-line field
     ///     breaks the line and marks the press handled — so the document's fallback never runs and
     ///     the button hears nothing. A single-line `TextBox` submits instead, which is a different
     ///     route to the same place and is what `DialogService.Prompt` has always bound.

@@ -19,8 +19,12 @@ namespace Tests;
 /// </summary>
 /// <remarks>
 ///     The look is a golden image's to check and the arithmetic is the seam test's. What is here is
-///     the third thing, and the one that is silent when it is wrong: whether the pass is <em>in the
-///     graph</em> reading what it says it reads, so that it is ordered behind the surface pass and the
+///     the third thing, and the one that is silent when it is wrong: whether the pass is
+///     <em>
+///         in the
+///         graph
+///     </em>
+///     reading what it says it reads, so that it is ordered behind the surface pass and the
 ///     copy rather than wherever the host happened to build it.
 /// </remarks>
 public sealed class WaterPassTests : IDisposable {
@@ -44,14 +48,16 @@ public sealed class WaterPassTests : IDisposable {
         samplers.Dispose();
         system.Dispose();
         device.Dispose();
-        GC.SuppressFinalize(this);
     }
 
     // --- The fixture --------------------------------------------------------
 
     const int Size = 16;
 
-    static RenderResourceAsset Declared(string name, TextureUsage usage = TextureUsage.ColourTarget | TextureUsage.Sampled) =>
+    static RenderResourceAsset Declared(
+        string name,
+        TextureUsage usage = TextureUsage.ColourTarget | TextureUsage.Sampled
+    ) =>
         new() { Name = name, Format = PixelFormat.Rgba16Float, Usage = usage };
 
     WaterRenderer Node(string behind = "SceneColourCopy", string reflections = "") =>
@@ -80,7 +86,8 @@ public sealed class WaterPassTests : IDisposable {
 
         var compositor = new GraphicsCompositor(system) { FrameSize = new(Size, Size), Game = sequence };
 
-        foreach (var name in (string[])["SceneColour", "SceneColourCopy", "SceneDepth", "WaterSurface", "WaterNormal", "Reflections"]) {
+        foreach (var name in (string[])
+                 ["SceneColour", "SceneColourCopy", "SceneDepth", "WaterSurface", "WaterNormal", "Reflections"]) {
             compositor.Resources.Add(Declared(name));
         }
 
@@ -98,7 +105,7 @@ public sealed class WaterPassTests : IDisposable {
                     "Writer " + target,
                     pass => {
                         pass.ColourAttachment(texture);
-                        pass.Execute(context => context.CommandList.Draw(3));
+                        pass.Execute(static context => context.CommandList.Draw(3));
                     }
                 );
             }
@@ -133,8 +140,8 @@ public sealed class WaterPassTests : IDisposable {
         Assert.Contains("SceneColour", water.Pass.ColourTargets);
 
         // Five sampled planes and two samplers, each on the binding the generated keys say.
-        Assert.Equal(5, water.Pass.Descriptors.Bindings.Count(b => b.Kind == DescriptorKind.SampledTexture));
-        Assert.Equal(2, water.Pass.Descriptors.Bindings.Count(b => b.Kind == DescriptorKind.Sampler));
+        Assert.Equal(5, water.Pass.Descriptors.Bindings.Count(static b => b.Kind == DescriptorKind.SampledTexture));
+        Assert.Equal(2, water.Pass.Descriptors.Bindings.Count(static b => b.Kind == DescriptorKind.Sampler));
     }
 
     /// <summary>
@@ -152,7 +159,7 @@ public sealed class WaterPassTests : IDisposable {
 
         Build(Compositor(water));
 
-        Assert.Equal(5, water.Pass.Descriptors.Bindings.Count(b => b.Kind == DescriptorKind.SampledTexture));
+        Assert.Equal(5, water.Pass.Descriptors.Bindings.Count(static b => b.Kind == DescriptorKind.SampledTexture));
         Assert.DoesNotContain("Reflections", water.Pass.Reads);
     }
 
@@ -166,7 +173,7 @@ public sealed class WaterPassTests : IDisposable {
     /// </remarks>
     [Fact]
     public void Reading_the_target_it_writes_is_refused() {
-        using var water = Node(behind: "SceneColour");
+        using var water = Node("SceneColour");
 
         var thrown = Assert.Throws<CompositorBindingException>(() => Build(Compositor(water)));
 
@@ -232,7 +239,7 @@ public sealed class WaterPassTests : IDisposable {
         // And the classification reads the coverage mask and writes the flags, which is what orders it
         // between the surface pass and the draw.
         Assert.Contains("WaterSurface", water.Classification.Reads);
-        Assert.Equal(new Int3(tiles.X, tiles.Y, 1), water.Classification.Groups);
+        Assert.Equal(new(tiles.X, tiles.Y, 1), water.Classification.Groups);
         Assert.Single(water.Classification.BufferWrites);
         Assert.Equal(water.Classification.BufferWrites[0], water.Pass.BufferReads.Single());
     }
@@ -255,7 +262,7 @@ public sealed class WaterPassTests : IDisposable {
         Assert.Equal(LoadAction.DontCare, water.Pass.Load);
         Assert.Equal(default, water.TileCount);
 
-        Assert.Single(water.Pass.Descriptors.Bindings, binding => binding.Kind == DescriptorKind.StorageBuffer);
+        Assert.Single(water.Pass.Descriptors.Bindings, static binding => binding.Kind == DescriptorKind.StorageBuffer);
         Assert.Single(water.Pass.BufferReads);
         Assert.Empty(water.Classification.BufferWrites);
     }
@@ -304,14 +311,14 @@ public sealed class WaterPassTests : IDisposable {
         Assert.Equal("Snapshot", node.Behind);
         Assert.Equal("Mirrors", node.Reflections);
         Assert.Equal(0.55f, node.PhaseG);
-        Assert.Equal(new Vector3(0.5f, 0.5f, 0.5f), node.BehindScale);
+        Assert.Equal(new(0.5f, 0.5f, 0.5f), node.BehindScale);
         Assert.False(node.Foam);
 
         // ⚠ The sun rides the document too. Without these two the phase function's forward peak sits
         // under a noon sun whatever the sky in the same document says — a lake lit from a different
         // day than its sky, and nothing an author types elsewhere can move it.
-        Assert.Equal(new Vector3(1.2f, 1f, 0.8f), node.SunColour);
-        Assert.Equal(new Vector3(0.5f, -0.7f, 0.5f), node.SunDirection);
+        Assert.Equal(new(1.2f, 1f, 0.8f), node.SunColour);
+        Assert.Equal(new(0.5f, -0.7f, 0.5f), node.SunDirection);
 
         // ⚠ And § D8's tiling rides it too — on by default for a document, because a document has the
         // !Copy that makes a tiled pass and an untiled one the same picture, and a node somebody wired
@@ -324,7 +331,7 @@ public sealed class WaterPassTests : IDisposable {
         // behind the water, which reads as "the water is opaque" rather than as a parameter nobody set.
         Assert.Equal(Vector3.One, new WaterAsset().BehindScale);
         Assert.Equal(0.02f, new WaterAsset().SurfaceF0);
-        Assert.Equal(new Vector3(0f, -1f, 0f), new WaterAsset().SunDirection);
+        Assert.Equal(new(0f, -1f, 0f), new WaterAsset().SunDirection);
     }
 
     /// <summary>A sun and a sky, as a frame holds them.</summary>
@@ -339,8 +346,12 @@ public sealed class WaterPassTests : IDisposable {
     ///     <para>
     ///         <b>Task #119, as a property.</b> <c>sunColour</c> and <c>skyColour</c> are radiances in
     ///         the frame's units and a document can only write a tint — this level's sun is twenty
-    ///         thousand and the number an author types is one. The volume then integrates <em>exactly
-    ///         correctly</em> to a value four decades under the exposure, which tonemaps to the same
+    ///         thousand and the number an author types is one. The volume then integrates
+    ///         <em>
+    ///             exactly
+    ///             correctly
+    ///         </em>
+    ///         to a value four decades under the exposure, which tonemaps to the same
     ///         black as unlit ground: a lake that is four decades too dim and a water pass that never
     ///         ran are pixel-for-pixel the same picture, and every counter in the stack says success.
     ///     </para>
@@ -403,11 +414,11 @@ public sealed class WaterPassTests : IDisposable {
         node.SunColour = new(1f, 0.72f, 0.42f);
         node.SkyColour = new(0.36f, 0.30f, 0.30f);
 
-        Assert.False(node.LightFrom(new SceneLighting { Sun = new Frame(null) }));
-        Assert.False(node.LightFrom(new SceneLighting()));
+        Assert.False(node.LightFrom(new() { Sun = new Frame(null) }));
+        Assert.False(node.LightFrom(new()));
 
-        Assert.Equal(new Vector3(1f, 0.72f, 0.42f), node.SunColour);
-        Assert.Equal(new Vector3(0.36f, 0.30f, 0.30f), node.SkyColour);
+        Assert.Equal(new(1f, 0.72f, 0.42f), node.SunColour);
+        Assert.Equal(new(0.36f, 0.30f, 0.30f), node.SkyColour);
     }
 
     /// <summary>A factory answers nothing for a node kind that is not its own.</summary>

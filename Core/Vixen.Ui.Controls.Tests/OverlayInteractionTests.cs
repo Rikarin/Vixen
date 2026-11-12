@@ -256,7 +256,7 @@ public class OverlayInteractionTests {
         // nothing to do with the menu it came from.
         var inside = cube.Bounds;
 
-        ui.MovePointer(inside.X + (inside.Width * 0.5f), inside.Y + (inside.Height * 0.5f));
+        ui.MovePointer(inside.X + inside.Width * 0.5f, inside.Y + inside.Height * 0.5f);
         ui.Frame();
 
         Assert.True(shapes.IsOpen);

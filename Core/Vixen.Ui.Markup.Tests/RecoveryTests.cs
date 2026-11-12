@@ -31,11 +31,11 @@ public class RecoveryTests {
         var mismatched = Vxml.Parse("@component A\n<div>x</span>").Diagnostics.Single();
 
         // `div` on line 1, not `<`, and not offset 1.
-        Assert.Equal(new LinePosition(1, 1), unclosed.Location.GetLineSpan().Start);
+        Assert.Equal(new(1, 1), unclosed.Location.GetLineSpan().Start);
         Assert.Equal(3, unclosed.Location.SourceSpan.Length);
 
         // ...and the *closing* name, which is the word that is wrong.
-        Assert.Equal(new LinePosition(1, 8), mismatched.Location.GetLineSpan().Start);
+        Assert.Equal(new(1, 8), mismatched.Location.GetLineSpan().Start);
         Assert.Equal(4, mismatched.Location.SourceSpan.Length);
     }
 
@@ -155,7 +155,7 @@ public class RecoveryTests {
 
         // One diagnostic for the missing `(` and one for the missing `{` — and crucially not a
         // third about the markup that follows, because a body that never opened is not searched for.
-        Assert.All(Vxml.Ids(tree), id => Assert.Equal("VXML1001", id));
+        Assert.All(Vxml.Ids(tree), static id => Assert.Equal("VXML1001", id));
 
         var @if = tree.GetDocument().DescendantNodes().OfType<IfSyntax>().Single();
         Assert.True(@if.OpenParenToken.IsMissing);
@@ -230,8 +230,12 @@ public class RecoveryTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The end of the file arriving in the middle of a construct, which every
-    ///         multi-character skip in a lexer is a chance to get wrong.</b> A backslash asks the
+    ///         ⚠
+    ///         <b>
+    ///             The end of the file arriving in the middle of a construct, which every
+    ///             multi-character skip in a lexer is a chance to get wrong.
+    ///         </b>
+    ///         A backslash asks the
     ///         scanner to take two characters and there is one, so the window ended at
     ///         <c>Length + 1</c> — which nothing noticed, because <c>AtEnd</c> is <c>&gt;=</c> and
     ///         every loop stopped exactly as it should. The token that scan produced was then cut
@@ -246,8 +250,8 @@ public class RecoveryTests {
     ///     </para>
     /// </remarks>
     [Theory]
-    [InlineData("@code {'\\")]
-    [InlineData("@code {\"\\")]
+    [InlineData("""@code {'\""")]
+    [InlineData("""@code {"\""")]
     [InlineData("@component C\n@code { var c = '\\")]
     [InlineData("@if (x) { }\n@code { var s = @\"a\\")]
     public void A_file_ending_inside_an_escape_still_parses(string source) =>

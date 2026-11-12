@@ -12,8 +12,11 @@ namespace Vixen.Platform.Android;
 /// <summary>The surface Vulkan presents to, and the one the fingers land on.</summary>
 /// <remarks>
 ///     <para>
-///         <b>The surface is created and destroyed under a running application, and that is the whole
-///         difficulty of this platform.</b> Doc 10 names Android lifecycle as the biggest source of
+///         <b>
+///             The surface is created and destroyed under a running application, and that is the whole
+///             difficulty of this platform.
+///         </b>
+///         Doc 10 names Android lifecycle as the biggest source of
 ///         bugs for exactly this reason: <c>surfaceDestroyed</c> arrives when the activity stops, the
 ///         <c>ANativeWindow</c> behind the swapchain becomes invalid at that moment, and the callback
 ///         must not return until the renderer has stopped using it. The frame loop is paused before
@@ -66,7 +69,12 @@ internal sealed partial class AndroidGameView : SurfaceView, ISurfaceHolderCallb
     ///     re-acquired rather than assumed stable: a configuration change can replace the underlying
     ///     window, and holding the old pointer is a use-after-free that presents to freed memory.
     /// </remarks>
-    public void SurfaceChanged(ISurfaceHolder holder, [GeneratedEnum] global::Android.Graphics.Format format, int width, int height) {
+    public void SurfaceChanged(
+        ISurfaceHolder holder,
+        [GeneratedEnum] global::Android.Graphics.Format format,
+        int width,
+        int height
+    ) {
         ArgumentNullException.ThrowIfNull(holder);
 
         Acquire(holder);
@@ -187,17 +195,13 @@ internal sealed partial class AndroidGameView : SurfaceView, ISurfaceHolderCallb
         var position = At(e, index);
 
         if (tracker.TryEnd(e.GetPointerId(index), out var finger)) {
-            events.Post(
-                PlatformEvent.Touch(PlatformEventKind.TouchUp, windowId, AndroidClock.Now, finger, position)
-            );
+            events.Post(PlatformEvent.Touch(PlatformEventKind.TouchUp, windowId, AndroidClock.Now, finger, position));
         }
     }
 
     void Cancel() {
         foreach (var finger in tracker.Clear()) {
-            events.Post(
-                PlatformEvent.Touch(PlatformEventKind.TouchUp, windowId, AndroidClock.Now, finger, default)
-            );
+            events.Post(PlatformEvent.Touch(PlatformEventKind.TouchUp, windowId, AndroidClock.Now, finger, default));
         }
     }
 

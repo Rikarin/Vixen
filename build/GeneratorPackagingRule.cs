@@ -11,8 +11,12 @@ namespace Vixen.Build;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>An analyzer does not flow through a <c>ProjectReference</c>, so in-tree evidence
-///         cannot answer this question at all.</b> Every consumer inside this repository names the
+///         ⚠
+///         <b>
+///             An analyzer does not flow through a <c>ProjectReference</c>, so in-tree evidence
+///             cannot answer this question at all.
+///         </b>
+///         Every consumer inside this repository names the
 ///         generator itself; a consumer outside it has only what the <c>.nupkg</c> carries. No
 ///         <c>*.Generator</c> here is packable in its own right — <c>Directory.Build.props</c>'s
 ///         COMPILER PLUGIN profile sets <c>IsPackable=false</c> for all thirteen — so the only way one
@@ -20,8 +24,12 @@ namespace Vixen.Build;
 ///         <c>analyzers/dotnet/cs</c>. That is what this reads.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Matched on "some packable library packs this generator", never on the sibling
-///         directory</b>, which is <a href="https://github.com/Rikarin/Vixen/issues/1165">#1165</a>'s
+///         ⚠
+///         <b>
+///             Matched on "some packable library packs this generator", never on the sibling
+///             directory
+///         </b>
+///         , which is <a href="https://github.com/Rikarin/Vixen/issues/1165">#1165</a>'s
 ///         own warning and not a hypothetical: <c>Vixen.Ui.Markup.Generators</c> is packed by
 ///         <c>Vixen.Ui</c> and there is no <c>Vixen.Ui.Markup</c> package to pack it, so a name-prefix
 ///         rule reports a false positive for the one generator that is already correct.
@@ -109,8 +117,12 @@ static class GeneratorPackagingRule {
     ///     <para>
     ///         The two halves have to agree or nothing is packed: a target name listed in
     ///         <c>TargetsForTfmSpecificContentInPackage</c>, and a <c>&lt;Target&gt;</c> of that name
-    ///         invoking the generator's project file. ⚠ <b>Reading either half alone is how this
-    ///         reports a package that does not ship what it names</b> — a <c>Target</c> nothing runs
+    ///         invoking the generator's project file. ⚠
+    ///         <b>
+    ///             Reading either half alone is how this
+    ///             reports a package that does not ship what it names
+    ///         </b>
+    ///         — a <c>Target</c> nothing runs
     ///         produces no error at pack time and no file in the archive, and a name in the property
     ///         with no target behind it is an MSBuild warning at most.
     ///     </para>
@@ -169,8 +181,12 @@ static class GeneratorPackagingRule {
     /// <param name="projects">Paths to the project files to check.</param>
     /// <returns>Generator project names, ordered.</returns>
     /// <remarks>
-    ///     ⚠ <b>Every one of them, not only the ones some library names as an <c>Analyzer</c>
-    ///     reference.</b> <c>Vixen.Core.IO.Analyzers</c> is referenced by nothing in any
+    ///     ⚠
+    ///     <b>
+    ///         Every one of them, not only the ones some library names as an <c>Analyzer</c>
+    ///         reference.
+    ///     </b>
+    ///     <c>Vixen.Core.IO.Analyzers</c> is referenced by nothing in any
     ///     <c>.csproj</c> — <c>./Directory.Build.props:605</c> adds it to every non-generator
     ///     <c>Core/</c> project at once — so a subject set built from the references would not
     ///     contain it, and the rule would be silent about the one generator whose packaging is
@@ -179,12 +195,13 @@ static class GeneratorPackagingRule {
     public static List<string> Subjects(IEnumerable<string> projects) {
         ArgumentNullException.ThrowIfNull(projects);
 
-        return projects
-            .Select(project => Path.GetFileNameWithoutExtension(project))
-            .Where(IsCompilerPlugin)
-            .Distinct(StringComparer.Ordinal)
-            .Order(StringComparer.Ordinal)
-            .ToList();
+        return [
+            ..projects
+                .Select(static project => Path.GetFileNameWithoutExtension(project))
+                .Where(IsCompilerPlugin)
+                .Distinct(StringComparer.Ordinal)
+                .Order(StringComparer.Ordinal)
+        ];
     }
 
     /// <summary>Every generator some packable library carries into a package.</summary>
@@ -193,12 +210,13 @@ static class GeneratorPackagingRule {
     public static List<string> Packaged(IEnumerable<string> projects) {
         ArgumentNullException.ThrowIfNull(projects);
 
-        return projects
-            .Where(IsPackableLibrary)
-            .SelectMany(Packs)
-            .Distinct(StringComparer.Ordinal)
-            .Order(StringComparer.Ordinal)
-            .ToList();
+        return [
+            ..projects
+                .Where(IsPackableLibrary)
+                .SelectMany(Packs)
+                .Distinct(StringComparer.Ordinal)
+                .Order(StringComparer.Ordinal)
+        ];
     }
 
     /// <summary>Every generator no packable library ships.</summary>
@@ -210,9 +228,10 @@ static class GeneratorPackagingRule {
         var files = projects.ToList();
         var packaged = Packaged(files);
 
-        return Subjects(files)
-            .Where(subject => !packaged.Contains(subject, StringComparer.Ordinal))
-            .ToList();
+        return [
+            ..Subjects(files)
+                .Where(subject => !packaged.Contains(subject, StringComparer.Ordinal))
+        ];
     }
 
     /// <summary>The generator names the exemption file allows to go unpacked.</summary>
@@ -254,8 +273,8 @@ static class GeneratorPackagingRule {
     /// <returns>One message per violation; empty when the tree agrees with the exemption file.</returns>
     /// <remarks>
     ///     ⚠ <b>An exempted generator that has become packed is a violation too</b>, which is what
-    ///     makes the list only ever shrink — the property <c>CheckWhitespace</c>'s and
-    ///     <c>CheckDocComments</c>' lists have, and the reason a stale line cannot sit there hiding a
+    ///     makes the list only ever shrink — the property <c>CheckDocComments</c>' and
+    ///     <c>CheckDocs</c>' lists have, and the reason a stale line cannot sit there hiding a
     ///     library that has since stopped packing its generator again.
     /// </remarks>
     public static List<string> Violations(string root, IEnumerable<string> projects) {

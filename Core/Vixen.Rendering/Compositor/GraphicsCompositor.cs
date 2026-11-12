@@ -51,8 +51,11 @@ public sealed class GraphicsCompositor(RenderSystem system) : IDisposable {
     /// <exception cref="ObjectDisposedException">This compositor has already been disposed.</exception>
     /// <remarks>
     ///     <para>
-    ///         <b>The answer to "who frees a node's device memory", and it is deliberately not the
-    ///         node's author's problem.</b> A compositor node may own device memory — a cached shadow
+    ///         <b>
+    ///             The answer to "who frees a node's device memory", and it is deliberately not the
+    ///             node's author's problem.
+    ///         </b>
+    ///         A compositor node may own device memory — a cached shadow
     ///         atlas has to, because every <c>!Resource</c> in a document is transient and the graph's
     ///         pool exists to recycle precisely the memory a cache must keep — and a document reload
     ///         builds a whole new tree and drops the old one. Every such node's <c>Dispose</c> existed
@@ -126,9 +129,13 @@ public sealed class GraphicsCompositor(RenderSystem system) : IDisposable {
     ///         replaced should not have to remember which.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>"A type holding a <see cref="GraphicsCompositor" /> must be
-    ///         <see cref="IDisposable" />" was costed as a checked rule and declined, and the reason
-    ///         it was declined is not the one it looks like.</b> It is not that the rule would fire
+    ///         ⚠
+    ///         <b>
+    ///             "A type holding a <see cref="GraphicsCompositor" /> must be
+    ///             <see cref="IDisposable" />" was costed as a checked rule and declined, and the reason
+    ///             it was declined is not the one it looks like.
+    ///         </b>
+    ///         It is not that the rule would fire
     ///         on correct code — every one of the twenty-one types that holds a compositor today is
     ///         already <c>IDisposable</c>, so it would ship green and stay green. It is that
     ///         <em>being</em> <c>IDisposable</c> is not <em>calling</em> this. Eighteen of them are
@@ -155,8 +162,12 @@ public sealed class GraphicsCompositor(RenderSystem system) : IDisposable {
     ///         <c>EditorWorldRendererTests</c>' reload test.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Measured since rather than argued, and the measurement is worse for the rule than
-    ///         the argument was.</b> The rule was written out as a reflection test over
+    ///         ⚠
+    ///         <b>
+    ///             Measured since rather than argued, and the measurement is worse for the rule than
+    ///             the argument was.
+    ///         </b>
+    ///         The rule was written out as a reflection test over
     ///         <c>Vixen.Rendering</c>, <c>Vixen.Engine.Renderer</c> and a test assembly, and run three
     ///         ways. <b>It is green under the exact defect:</b> with <c>SceneRenderHost</c>'s two
     ///         <c>Compositor?.Dispose()</c> calls deleted — #327's 95 MB reload leak, restored — the
@@ -246,8 +257,11 @@ public sealed class GraphicsCompositor(RenderSystem system) : IDisposable {
     /// <exception cref="ArgumentNullException"><paramref name="into" /> is null.</exception>
     /// <remarks>
     ///     <para>
-    ///         <b>The one place that answers "this frame drew — and here is what it drew differently
-    ///         than you asked".</b> Every renderer already had the answer and none of it was
+    ///         <b>
+    ///             The one place that answers "this frame drew — and here is what it drew differently
+    ///             than you asked".
+    ///         </b>
+    ///         Every renderer already had the answer and none of it was
     ///         collectable: the reasons sat on nine different property names, on types in four
     ///         assemblies, read by a sample's hand-written log line that named each node by hand and
     ///         went stale the moment one was added. <see cref="SceneRenderer.Degraded" /> is the one
@@ -364,8 +378,10 @@ public sealed class GraphicsCompositor(RenderSystem system) : IDisposable {
     /// </remarks>
     public Int2 FrameSize { get; set; } = new(1, 1);
 
-    /// <summary>Moves the frame to a new size and lets the nodes that had laid state out against the
-    ///     old one lay it again.</summary>
+    /// <summary>
+    ///     Moves the frame to a new size and lets the nodes that had laid state out against the
+    ///     old one lay it again.
+    /// </summary>
     /// <param name="size">The new size.</param>
     /// <param name="idle">
     ///     Waits for the device to finish everything in flight. Called at most once, immediately
@@ -454,12 +470,7 @@ public sealed class GraphicsCompositor(RenderSystem system) : IDisposable {
         ArgumentNullException.ThrowIfNull(graph);
         ArgumentNullException.ThrowIfNull(effects);
 
-        var frame = new CompositorFrame {
-            Graph = graph,
-            Effects = effects,
-            Device = device,
-            Size = FrameSize
-        };
+        var frame = new CompositorFrame { Graph = graph, Effects = effects, Device = device, Size = FrameSize };
 
         foreach (var (name, imported) in Imports) {
             frame.Add(

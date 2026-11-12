@@ -43,7 +43,7 @@ public sealed class VixenSdkTests : IDisposable {
     public void Dispose() {
         try {
             if (Directory.Exists(root)) {
-                Directory.Delete(root, recursive: true);
+                Directory.Delete(root, true);
             }
         } catch (IOException) {
             // A temporary directory that would not go is not a test failure.
@@ -79,7 +79,7 @@ public sealed class VixenSdkTests : IDisposable {
     /// </summary>
     [Fact]
     public void WhatTheContentBuildRejectsBecomesAnMSBuildError() {
-        Project(group: "Nonexistent");
+        Project("Nonexistent");
 
         var build = Run();
 
@@ -130,8 +130,12 @@ public sealed class VixenSdkTests : IDisposable {
     }
 
     /// <summary>
-    ///     ⚠ <b>A project that keeps runtime code in a folder it happens to have called
-    ///     <c>Editor</c> has to be able to say so.</b> That is a name collision rather than an
+    ///     ⚠
+    ///     <b>
+    ///         A project that keeps runtime code in a folder it happens to have called
+    ///         <c>Editor</c> has to be able to say so.
+    ///     </b>
+    ///     That is a name collision rather than an
     ///     opinion, and a convention with no way out is a trap.
     /// </summary>
     [Fact]
@@ -196,9 +200,9 @@ public sealed class VixenSdkTests : IDisposable {
         var lines = build.Output.Split('\n');
 
         var imports = lines
-            .Select((line, index) => (line, index))
-            .Where(entry => entry.line.Contains("Imported ", StringComparison.Ordinal))
-            .Select(entry => entry.index)
+            .Select(static (line, index) => (line, index))
+            .Where(static entry => entry.line.Contains("Imported ", StringComparison.Ordinal))
+            .Select(static entry => entry.index)
             .ToList();
 
         Assert.Equal(2, imports.Count);
@@ -206,7 +210,7 @@ public sealed class VixenSdkTests : IDisposable {
         // ⚠ And the second one is after the compiler, which is the whole reason it runs: that is the
         // first moment the assembly declaring the project's own components exists to be loaded. An
         // assertion on the count alone would still pass if both passes ran before CoreCompile.
-        var compiled = Array.FindIndex(lines, line => line.Contains("Game -> ", StringComparison.Ordinal));
+        var compiled = Array.FindIndex(lines, static line => line.Contains("Game -> ", StringComparison.Ordinal));
 
         Assert.True(compiled >= 0, build.Output);
         Assert.True(imports[0] < compiled, build.Output);
@@ -229,8 +233,11 @@ public sealed class VixenSdkTests : IDisposable {
     }
 
     /// <summary>
-    ///     <b>The only thing the <c>BeforeTargets="CoreCompile"</c> ordering exists for, proved by
-    ///     compiling against it.</b> The opt-in makes the import write <c>Addresses.g.cs</c> into
+    ///     <b>
+    ///         The only thing the <c>BeforeTargets="CoreCompile"</c> ordering exists for, proved by
+    ///         compiling against it.
+    ///     </b>
+    ///     The opt-in makes the import write <c>Addresses.g.cs</c> into
     ///     <c>obj/</c> and add it to <c>Compile</c> from inside the target, and this asserts the
     ///     whole chain the only way it can be asserted: a program that names the constant, built.
     /// </summary>
@@ -316,8 +323,7 @@ public sealed class VixenSdkTests : IDisposable {
         Assert.True(File.Exists(Path.Combine(root, "Build", HostTarget, "catalog.bin")));
     }
 
-    static string HostTarget =>
-        OperatingSystem.IsWindows() ? "Windows" : OperatingSystem.IsMacOS() ? "MacOS" : "Linux";
+    static string HostTarget => OperatingSystem.IsWindows() ? "Windows" : OperatingSystem.IsMacOS() ? "MacOS" : "Linux";
 
     /// <summary>
     ///     The variant reaches the binary that has to know it. Doc 17's five variants are orthogonal
@@ -349,8 +355,12 @@ public sealed class VixenSdkTests : IDisposable {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>This is the test the <c>vixen-mmo</c> Dockerfile's comment needed and did not
-    ///         have.</b> That comment said "the content build writes the server profile" while
+    ///         ⚠
+    ///         <b>
+    ///             This is the test the <c>vixen-mmo</c> Dockerfile's comment needed and did not
+    ///             have.
+    ///         </b>
+    ///         That comment said "the content build writes the server profile" while
     ///         <c>VixenVariant</c> reached the assembly attribute, reached <c>dotnet publish</c>, and
     ///         was dropped before <c>vixen content build</c> — so a shard image shipped full client
     ///         content and nothing said so. The claim and the behaviour are now the same thing, and
@@ -417,25 +427,25 @@ public sealed class VixenSdkTests : IDisposable {
     ///     it. The attribute is declared here because the SDK adds no engine references by design.
     /// </summary>
     const string VariantProbe = """
-        using System;
-        using System.Linq;
-        using System.Reflection;
+                                using System;
+                                using System.Linq;
+                                using System.Reflection;
 
-        var declared = Assembly.GetEntryAssembly()!
-            .GetCustomAttributes<Vixen.App.BuildVariantAttribute>()
-            .SingleOrDefault();
+                                var declared = Assembly.GetEntryAssembly()!
+                                    .GetCustomAttributes<Vixen.App.BuildVariantAttribute>()
+                                    .SingleOrDefault();
 
-        Console.WriteLine($"variant={(declared is null ? "none" : declared.Variant.ToString())}");
+                                Console.WriteLine($"variant={(declared is null ? "none" : declared.Variant.ToString())}");
 
-        namespace Vixen.App {
-            public enum BuildVariant { Editor, Debug, Development, Release, Server }
+                                namespace Vixen.App {
+                                    public enum BuildVariant { Editor, Debug, Development, Release, Server }
 
-            [AttributeUsage(AttributeTargets.Assembly)]
-            public sealed class BuildVariantAttribute(BuildVariant variant) : Attribute {
-                public BuildVariant Variant { get; } = variant;
-            }
-        }
-        """;
+                                    [AttributeUsage(AttributeTargets.Assembly)]
+                                    public sealed class BuildVariantAttribute(BuildVariant variant) : Attribute {
+                                        public BuildVariant Variant { get; } = variant;
+                                    }
+                                }
+                                """;
 
     /// <summary>
     ///     Prints the address the content build wrote a constant for. It names nothing the project
@@ -444,8 +454,8 @@ public sealed class VixenSdkTests : IDisposable {
     ///     <c>Compile</c>, which is the whole claim.
     /// </summary>
     const string AddressProbe = """
-        System.Console.WriteLine($"address={Probe.Addresses.Ui.Hero.Address}");
-        """;
+                                System.Console.WriteLine($"address={Probe.Addresses.Ui.Hero.Address}");
+                                """;
 
     /// <summary>Writes a game project that imports the SDK the way a consumer of the package would.</summary>
     void Project(

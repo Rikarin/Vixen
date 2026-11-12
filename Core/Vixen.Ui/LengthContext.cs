@@ -90,8 +90,12 @@ public readonly record struct LengthContext(
 
     /// <summary>Which axes an eligible query container was found on.</summary>
     /// <remarks>
-    ///     ⚠ <b>A flag and not a sentinel value, because a query container of zero width is a real
-    ///     thing and zero is this file's own documented trap.</b> Reading "no container" off a width
+    ///     ⚠
+    ///     <b>
+    ///         A flag and not a sentinel value, because a query container of zero width is a real
+    ///         thing and zero is this file's own documented trap.
+    ///     </b>
+    ///     Reading "no container" off a width
     ///     of zero would make <c>10cqw</c> inside a collapsed panel resolve against the
     ///     <i>viewport</i> — a number that is not small but large, which is the direction that shows
     ///     as a layout explosion rather than as nothing being drawn.
@@ -141,9 +145,12 @@ public readonly record struct LengthContext(
     /// <returns>The pixels, or zero for a unit that is not a length.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Prefer <see cref="ToLength" />. Reading a declared value through this method is a
-    ///         bug with a plausible-looking answer, and it was written six separate times in one
-    ///         assembly before anybody noticed one of them.</b>
+    ///         ⚠
+    ///         <b>
+    ///             Prefer <see cref="ToLength" />. Reading a declared value through this method is a
+    ///             bug with a plausible-looking answer, and it was written six separate times in one
+    ///             assembly before anybody noticed one of them.
+    ///         </b>
     ///         A unit that measures no distance — <c>200ms</c>, <c>90deg</c>, a percentage — comes
     ///         back as <i>zero</i>, and zero is a legal, visible answer for almost everything a
     ///         length is used for: a shadow at no offset, a blur that does not blur, a spread of
@@ -160,25 +167,26 @@ public readonly record struct LengthContext(
     ///     here. Resolving it against anything available at this point would be resolving it against
     ///     the wrong thing.
     /// </remarks>
-    public float PixelsPer(StyleUnit unit) => unit switch {
-        StyleUnit.Pixels => 1f,
-        StyleUnit.Em => FontSize,
-        StyleUnit.Rem => RootFontSize,
-        StyleUnit.ViewportWidth => ViewportWidth / 100f,
-        StyleUnit.ViewportHeight => ViewportHeight / 100f,
-        StyleUnit.ViewportMin => MathF.Min(ViewportWidth, ViewportHeight) / 100f,
-        StyleUnit.ViewportMax => MathF.Max(ViewportWidth, ViewportHeight) / 100f,
-        StyleUnit.LineHeight => LineHeight,
+    public float PixelsPer(StyleUnit unit) =>
+        unit switch {
+            StyleUnit.Pixels => 1f,
+            StyleUnit.Em => FontSize,
+            StyleUnit.Rem => RootFontSize,
+            StyleUnit.ViewportWidth => ViewportWidth / 100f,
+            StyleUnit.ViewportHeight => ViewportHeight / 100f,
+            StyleUnit.ViewportMin => MathF.Min(ViewportWidth, ViewportHeight) / 100f,
+            StyleUnit.ViewportMax => MathF.Max(ViewportWidth, ViewportHeight) / 100f,
+            StyleUnit.LineHeight => LineHeight,
 
-        // ⚠ <c>cqi</c> and <c>cqw</c> answer the same number, and <c>cqb</c> and <c>cqh</c> do, which
-        // is exact rather than approximate: the inline axis is the horizontal one in every writing
-        // mode `Vixen.Ui.Layout` has, and it has one. See <see cref="StyleUnit.ContainerInline" />.
-        StyleUnit.ContainerWidth or StyleUnit.ContainerInline => ContainerInlineSize / 100f,
-        StyleUnit.ContainerHeight or StyleUnit.ContainerBlock => ContainerBlockSize / 100f,
-        StyleUnit.ContainerMin => MathF.Min(ContainerInlineSize, ContainerBlockSize) / 100f,
-        StyleUnit.ContainerMax => MathF.Max(ContainerInlineSize, ContainerBlockSize) / 100f,
-        _ => 0f
-    };
+            // ⚠ <c>cqi</c> and <c>cqw</c> answer the same number, and <c>cqb</c> and <c>cqh</c> do, which
+            // is exact rather than approximate: the inline axis is the horizontal one in every writing
+            // mode `Vixen.Ui.Layout` has, and it has one. See <see cref="StyleUnit.ContainerInline" />.
+            StyleUnit.ContainerWidth or StyleUnit.ContainerInline => ContainerInlineSize / 100f,
+            StyleUnit.ContainerHeight or StyleUnit.ContainerBlock => ContainerBlockSize / 100f,
+            StyleUnit.ContainerMin => MathF.Min(ContainerInlineSize, ContainerBlockSize) / 100f,
+            StyleUnit.ContainerMax => MathF.Max(ContainerInlineSize, ContainerBlockSize) / 100f,
+            _ => 0f
+        };
 
     /// <summary>Turns a parsed value into a length layout can use.</summary>
     /// <param name="value">The value.</param>
@@ -196,12 +204,13 @@ public readonly record struct LengthContext(
     ///         a typo into a blank screen with nothing said about it.
     ///     </para>
     /// </remarks>
-    public StyleLength ToLength(StyleValue value) => value.Kind switch {
-        StyleValueKind.Number when value.Number == 0f => StyleLength.Zero,
-        StyleValueKind.Length when value.Unit == StyleUnit.Percent => StyleLength.Percent(value.Number),
-        StyleValueKind.Length when IsLength(value.Unit) => StyleLength.Points(value.Number * PixelsPer(value.Unit)),
-        _ => StyleLength.Undefined
-    };
+    public StyleLength ToLength(StyleValue value) =>
+        value.Kind switch {
+            StyleValueKind.Number when value.Number == 0f => StyleLength.Zero,
+            StyleValueKind.Length when value.Unit == StyleUnit.Percent => StyleLength.Percent(value.Number),
+            StyleValueKind.Length when IsLength(value.Unit) => StyleLength.Points(value.Number * PixelsPer(value.Unit)),
+            _ => StyleLength.Undefined
+        };
 
     /// <summary>Whether a unit measures distance at all.</summary>
     /// <remarks>

@@ -3,7 +3,6 @@
 
 using Vixen.Core.Yaml;
 using Vixen.Editor.Assets;
-using Vixen.Editor.NodeGraph;
 using Vixen.Editor.ShaderGraph;
 using Vixen.NodeGraph;
 using Xunit;
@@ -14,8 +13,12 @@ namespace Tests;
 ///     A project's shader graphs, as the Raven the two shader compilations are handed.
 /// </summary>
 /// <remarks>
-///     ⚠ <b>This is the "finished thing nothing calls" half of the graph story, and it is the half a
-///     test can actually pin.</b> The compiler emitted correct Raven for as long as it has existed
+///     ⚠
+///     <b>
+///         This is the "finished thing nothing calls" half of the graph story, and it is the half a
+///         test can actually pin.
+///     </b>
+///     The compiler emitted correct Raven for as long as it has existed
 ///     and neither <c>EditorEffects</c> nor <c>ShaderBuildRunner</c> had ever seen a line of it,
 ///     because both enumerated <c>*.rvn</c> on disk and a graph is not one. What follows asserts the
 ///     enumeration, which is the piece both callers share; that each caller uses it is a two-line
@@ -26,7 +29,7 @@ public class ShaderGraphSourceTests : IDisposable {
 
     public void Dispose() {
         try {
-            Directory.Delete(root, recursive: true);
+            Directory.Delete(root, true);
         } catch (IOException) {
             // A temp directory a virus scanner still has open is not a test failure.
         }
@@ -55,7 +58,7 @@ public class ShaderGraphSourceTests : IDisposable {
     /// </remarks>
     [Fact]
     public void A_surface_graph_becomes_a_shader_source() {
-        Write("Painted", graph => graph.Add("Master/Surface"));
+        Write("Painted", static graph => graph.Add("Master/Surface"));
 
         var compiled = Assert.Single(ShaderGraphSources.All(root));
 
@@ -78,20 +81,30 @@ public class ShaderGraphSourceTests : IDisposable {
     /// </remarks>
     [Fact]
     public void The_raven_a_surface_graph_compiles_to_is_pinned() {
-        Write("Painted", graph => {
-            var uv = graph.Add("Input/UV");
-            var tiling = graph.Add("Vector/Tiling and Offset");
-            var master = graph.Add("Master/Surface");
+        Write(
+            "Painted",
+            static graph => {
+                var uv = graph.Add("Input/UV");
+                var tiling = graph.Add("Vector/Tiling and Offset");
+                var master = graph.Add("Master/Surface");
 
-            graph.Connect(new(uv.Id, "UV"), new(tiling.Id, "UV"));
-            graph.Connect(new(tiling.Id, "Out"), new(master.Id, "Base Color"));
-        });
+                graph.Connect(new(uv.Id, "UV"), new(tiling.Id, "UV"));
+                graph.Connect(new(tiling.Id, "Out"), new(master.Id, "Base Color"));
+            }
+        );
 
         var compiled = Assert.Single(ShaderGraphSources.All(root));
-        var digest = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(compiled.Text.ReplaceLineEndings("\n"))));
+        var digest = Convert.ToHexString(
+            System.Security.Cryptography.SHA256.HashData(
+                System.Text.Encoding.UTF8.GetBytes(compiled.Text.ReplaceLineEndings("\n"))
+            )
+        );
 
         Assert.True(compiled.Compiled, string.Join("; ", compiled.Diagnostics));
-        Assert.True(digest == PaintedDigest, $"Painted compiled to {digest}, and to {PaintedDigest} before the move.\n{compiled.Text}");
+        Assert.True(
+            digest == PaintedDigest,
+            $"Painted compiled to {digest}, and to {PaintedDigest} before the move.\n{compiled.Text}"
+        );
     }
 
     const string PaintedDigest = "0F17BE7633A306DF38867614EA20E63BF675455A8129F2CD9F9868A02EEF2006";
@@ -103,7 +116,7 @@ public class ShaderGraphSourceTests : IDisposable {
     /// </remarks>
     [Fact]
     public void A_standalone_graph_contributes_no_source_and_no_complaint() {
-        Write("Preview", graph => graph.Add("Master/Unlit"));
+        Write("Preview", static graph => graph.Add("Master/Unlit"));
 
         var compiled = Assert.Single(ShaderGraphSources.All(root));
 
@@ -115,20 +128,24 @@ public class ShaderGraphSourceTests : IDisposable {
     ///     A graph that does not compile contributes nothing, and says why against its own file.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>Contributing the text anyway is what would break the project rather than the
-    ///     graph.</b> <c>RavenEffectCompiler</c>'s constructor throws on a source that will not
+    ///     ⚠
+    ///     <b>
+    ///         Contributing the text anyway is what would break the project rather than the
+    ///         graph.
+    ///     </b>
+    ///     <c>RavenEffectCompiler</c>'s constructor throws on a source that will not
     ///     parse, and a shared compilation that throws is every material in the project refused under
     ///     one message about the library — so a graph an author is halfway through would take the
     ///     whole editor's shading with it.
     /// </remarks>
     [Fact]
     public void A_graph_with_no_master_contributes_nothing_and_says_why() {
-        Write("Unfinished", graph => graph.Add("Input/UV"));
+        Write("Unfinished", static graph => graph.Add("Input/UV"));
 
         var compiled = Assert.Single(ShaderGraphSources.All(root));
 
         Assert.False(compiled.Compiled);
-        Assert.Contains(compiled.Diagnostics, note => note.StartsWith("SG0003", StringComparison.Ordinal));
+        Assert.Contains(compiled.Diagnostics, static note => note.StartsWith("SG0003", StringComparison.Ordinal));
     }
 
     /// <summary>An unopened graph is not a complaint.</summary>
@@ -138,7 +155,7 @@ public class ShaderGraphSourceTests : IDisposable {
     /// </remarks>
     [Fact]
     public void An_empty_file_is_not_a_complaint() {
-        File.WriteAllText(Path.Combine(root, "New" + ShaderGraphSources.Extension), "");
+        File.WriteAllText(Path.Combine(root, "New" + ShaderGraphSources.Extension), string.Empty);
 
         var compiled = Assert.Single(ShaderGraphSources.All(root));
 
@@ -165,13 +182,13 @@ public class ShaderGraphSourceTests : IDisposable {
     /// </remarks>
     [Fact]
     public void The_order_is_stable() {
-        Write("Zulu", graph => graph.Add("Master/Surface"));
-        Write("Alpha", graph => graph.Add("Master/Surface"));
-        Write("Mike", graph => graph.Add("Master/Surface"));
+        Write("Zulu", static graph => graph.Add("Master/Surface"));
+        Write("Alpha", static graph => graph.Add("Master/Surface"));
+        Write("Mike", static graph => graph.Add("Master/Surface"));
 
         Assert.Equal(
             ["Alpha", "Mike", "Zulu"],
-            ShaderGraphSources.All(root).Select(compiled => compiled.Name)
+            ShaderGraphSources.All(root).Select(static compiled => compiled.Name)
         );
     }
 
@@ -195,7 +212,7 @@ public class ShaderGraphSourceTests : IDisposable {
 
         ShaderGraphImporters.Link(linked);
 
-        var registry = BuiltInImporters.Create(linked, new ImporterContributions());
+        var registry = BuiltInImporters.Create(linked, new());
 
         Assert.True(registry.TryGetForFile("Painted" + ShaderGraphSources.Extension, out var importer));
         Assert.IsType<ShaderGraphImporter>(importer);

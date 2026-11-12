@@ -24,10 +24,12 @@ public class OverlayCostTests {
     /// </summary>
     static (long Measured, long Idle, bool IdleUntouched, int Running) Overlay(int others) {
         var fixture = new CascadeFixture();
-        fixture.Load("""
+        fixture.Load(
+            """
             .a { transition-property: margin-left; transition-duration: 1s; transition-timing-function: linear }
             .a.moved { margin-left: 40px }
-            """);
+            """
+        );
 
         var animator = Animator(fixture);
 
@@ -63,7 +65,8 @@ public class OverlayCostTests {
         var overlaid = animator.Apply(idle, idleStyle, 0.5f);
         var afterIdle = animator.WithdrawingVisits;
 
-        return (afterMeasured - start, afterIdle - afterMeasured, ReferenceEquals(overlaid, idleStyle), animator.RunningCount);
+        return (afterMeasured - start, afterIdle - afterMeasured, ReferenceEquals(overlaid, idleStyle),
+            animator.RunningCount);
     }
 
     /// <summary>
@@ -87,10 +90,12 @@ public class OverlayCostTests {
     [Fact]
     public void An_idle_element_is_not_asked_about_while_others_transition() {
         var fixture = new CascadeFixture();
-        fixture.Load("""
+        fixture.Load(
+            """
             .a { transition-property: margin-left; transition-duration: 1s; transition-timing-function: linear }
             .a.moved { margin-left: 40px }
-            """);
+            """
+        );
 
         var animator = Animator(fixture);
 
@@ -114,7 +119,10 @@ public class OverlayCostTests {
         animator.Observe(idle, null, idleStyle, 0f);
 
         Assert.Equal(65, animator.RunningCount);
-        Assert.True(idleStyle.Count > 0, "the idle style has no properties, so asking about none of them proves nothing");
+        Assert.True(
+            idleStyle.Count > 0,
+            "the idle style has no properties, so asking about none of them proves nothing"
+        );
 
         var start = animator.OverlayProbes;
         animator.Apply(moving, movingStyle, 0.5f);

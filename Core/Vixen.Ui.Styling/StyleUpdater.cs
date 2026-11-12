@@ -44,19 +44,23 @@ public sealed class StyleUpdater {
         ArgumentNullException.ThrowIfNull(engine);
         this.engine = engine;
         invalidatorTable = engine.Selectors;
-        invalidator = new StyleInvalidator(invalidatorTable);
+        invalidator = new(invalidatorTable);
 
         // A named `style()` query asks an ancestor that can be above the parent, and these are the
         // styles it has. Read through the field, because `Grow` replaces the array.
         engine.Resolver.ResolvedAncestor = (tree, index) =>
-            tree == engine.Tree && (uint) index < (uint) styles.Length ? styles[index] : null;
+            tree == engine.Tree && (uint)index < (uint)styles.Length ? styles[index] : null;
     }
 
     /// <summary>Rebuilds the invalidator if the engine has replaced the tables it reads.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A latent crash that predates this method and was reachable through
-    ///         <c>StyleEngine.Replace</c>.</b> The invalidator is built over
+    ///         ⚠
+    ///         <b>
+    ///             A latent crash that predates this method and was reachable through
+    ///             <c>StyleEngine.Replace</c>.
+    ///         </b>
+    ///         The invalidator is built over
     ///         <see cref="StyleEngine.Selectors" /> and keeps a cursor into
     ///         <see cref="StyleEngine.Rules" />, and <c>StyleEngine.Reload</c> replaces both — so an
     ///         updater that held on to one was reading new rules' selector indices against the
@@ -82,7 +86,7 @@ public sealed class StyleUpdater {
         }
 
         invalidatorTable = engine.Selectors;
-        invalidator = new StyleInvalidator(invalidatorTable);
+        invalidator = new(invalidatorTable);
     }
 
     /// <summary>How many elements were cascaded by the last pass.</summary>
@@ -98,8 +102,11 @@ public sealed class StyleUpdater {
     /// <summary>The time in seconds a started transition is stamped with.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A property rather than an argument on every entry point, because the clock is a
-    ///         property of the <i>frame</i> and a pass is not the only thing in one.</b>
+    ///         ⚠
+    ///         <b>
+    ///             A property rather than an argument on every entry point, because the clock is a
+    ///             property of the <i>frame</i> and a pass is not the only thing in one.
+    ///         </b>
     ///         <see cref="ClassChanged" />, <see cref="StateChanged" /> and <see cref="ResolveAll" />
     ///         all replace styles and all happen inside one tick, so threading the same number through
     ///         three signatures would be three chances for two of them to disagree about when "now"
@@ -107,8 +114,12 @@ public sealed class StyleUpdater {
     ///         past and is half over on its first frame.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Left at zero is a working state and not a broken one, and that is the case worth
-    ///         stating.</b> A host that never advances it resolves every style at <c>t = 0</c>, so
+    ///         ⚠
+    ///         <b>
+    ///             Left at zero is a working state and not a broken one, and that is the case worth
+    ///             stating.
+    ///         </b>
+    ///         A host that never advances it resolves every style at <c>t = 0</c>, so
     ///         every transition it starts has zero elapsed time for ever and every animated property
     ///         sticks at the value it was leaving — an interface frozen at the previous frame's
     ///         appearance rather than one that jumps. <c>UiDocument</c> writes it from
@@ -122,7 +133,7 @@ public sealed class StyleUpdater {
     /// <param name="element">The element.</param>
     /// <returns>Its style, or <see cref="ComputedStyle.Empty" /> if it has not been resolved.</returns>
     public ComputedStyle StyleOf(StyleNodeId element) =>
-        (uint) element.Index < (uint) styles.Length ? styles[element.Index] ?? ComputedStyle.Empty : ComputedStyle.Empty;
+        (uint)element.Index < (uint)styles.Length ? styles[element.Index] ?? ComputedStyle.Empty : ComputedStyle.Empty;
 
     /// <summary>Resolves every element from scratch.</summary>
     /// <remarks>
@@ -162,8 +173,12 @@ public sealed class StyleUpdater {
     /// <summary>Shows the animator what a resolve replaced, so it can start what the change owes.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Here rather than in the caller, because this is the only place both halves
-    ///         exist.</b> A transition is started by a comparison — CSS has no event for "a class was
+    ///         ⚠
+    ///         <b>
+    ///             Here rather than in the caller, because this is the only place both halves
+    ///             exist.
+    ///         </b>
+    ///         A transition is started by a comparison — CSS has no event for "a class was
     ///         added" and does not need one — and the previous computed style is overwritten by the
     ///         line above. Anything downstream sees only the result and could not tell a fade from an
     ///         instant change if it wanted to.
@@ -178,7 +193,7 @@ public sealed class StyleUpdater {
     ///     </para>
     /// </remarks>
     void Announce(int index, ComputedStyle? before, ComputedStyle after) =>
-        engine.Animations.Observe(new StyleNodeId(index), before, after, Now);
+        engine.Animations.Observe(new(index), before, after, Now);
 
     /// <summary>Restyles what a change to an element's classes could have reached.</summary>
     /// <param name="element">The element that changed.</param>
@@ -190,13 +205,13 @@ public sealed class StyleUpdater {
             names[i] = engine.Names.Lookup(changedClasses[i]);
         }
 
-        return Update(element, names, stateChanged: false);
+        return Update(element, names, false);
     }
 
     /// <summary>Restyles what a change to an element's pseudo state could have reached.</summary>
     /// <param name="element">The element that changed.</param>
     /// <returns>How many elements had to be cascaded.</returns>
-    public int StateChanged(StyleNodeId element) => Update(element, [], stateChanged: true);
+    public int StateChanged(StyleNodeId element) => Update(element, [], true);
 
     /// <summary>Restyles the elements a set of inline-declaration writes could have reached.</summary>
     /// <param name="elements">The elements written on.</param>
@@ -306,7 +321,7 @@ public sealed class StyleUpdater {
                 && !ReferenceEquals(before, after)
                 && engine.ContainerScopes.Conditions.HasAncestorStyleQueries
                 && (CanBeAsked(before) || CanBeAsked(after))) {
-                EnqueueDescendants(new StyleNodeId(index));
+                EnqueueDescendants(new(index));
                 continue;
             }
 
@@ -334,7 +349,8 @@ public sealed class StyleUpdater {
         var (properties, values) = (engine.Rules.Properties, engine.Rules.Values);
 
         return StyleQuery.Names(style, properties, values, null)
-            || (engine.ContainerScopes.Conditions.HasSizedStyleQueries && StyleQuery.IsSizeContainer(style, properties, values));
+            || (engine.ContainerScopes.Conditions.HasSizedStyleQueries
+                && StyleQuery.IsSizeContainer(style, properties, values));
     }
 
     /// <summary>Queues every descendant of an element, not only its children.</summary>
@@ -419,8 +435,8 @@ public sealed class StyleUpdater {
         var index = element.Index;
 
         return pseudo switch {
-            PseudoElement.Before when (uint) index < (uint) befores.Length => befores[index],
-            PseudoElement.After when (uint) index < (uint) afters.Length => afters[index],
+            PseudoElement.Before when (uint)index < (uint)befores.Length => befores[index],
+            PseudoElement.After when (uint)index < (uint)afters.Length => afters[index],
             _ => null
         };
     }
@@ -470,7 +486,7 @@ public sealed class StyleUpdater {
         var parent = engine.Tree.ParentOf(index);
         return engine.Resolver.Resolve(
             engine.Tree,
-            new StyleNodeId(index),
+            new(index),
             parent < 0 ? null : styles[parent] ?? ComputedStyle.Empty,
             engine.Tree.InlineAt(index)
         );

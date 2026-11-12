@@ -141,6 +141,7 @@ public sealed class NodeGraphView : Control {
 
     /// <summary>Brings the canvas into line when something other than this view selects.</summary>
     Effect? following;
+
     NodeTypeRegistry registry = new();
     EditorDocument? edited;
 
@@ -192,8 +193,12 @@ public sealed class NodeGraphView : Control {
 
     /// <summary>Which drawer edits a port's value, the panel's registry unless the view is handed another.</summary>
     /// <remarks>
-    ///     ⚠ <b>Asked per port and acted on only for a drawer the built-in set would not have chosen
-    ///     (#1305, decision (b)).</b> A <c>float</c>, a vector or a <c>bool</c> resolves to the
+    ///     ⚠
+    ///     <b>
+    ///         Asked per port and acted on only for a drawer the built-in set would not have chosen
+    ///         (#1305, decision (b)).
+    ///     </b>
+    ///     A <c>float</c>, a vector or a <c>bool</c> resolves to the
     ///     number, vector or tick drawer, whose shapes the canvas already draws pooled; those keep the
     ///     canvas's <see cref="PortEditor" />. A drawer a plugin registered for the port's type is hosted
     ///     on the node instead — <see cref="PortEditorKind.Hosted" /> — so it shows on the node as it
@@ -285,8 +290,12 @@ public sealed class NodeGraphView : Control {
     /// <summary>The connection that is selected, if one is rather than some nodes.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A model edge and not the canvas's wire, because the canvas's wire does not
-    ///         survive a reprojection.</b> <see cref="Project" /> assigns a whole new
+    ///         ⚠
+    ///         <b>
+    ///             A model edge and not the canvas's wire, because the canvas's wire does not
+    ///             survive a reprojection.
+    ///         </b>
+    ///         <see cref="Project" /> assigns a whole new
     ///         <c>CanvasGraph</c>, so every <c>GraphWire</c> in it is replaced by an equal one at a
     ///         different address; a view that remembered the object would lose the selection on every
     ///         structural edit, including the undo of the one that made it.
@@ -345,22 +354,25 @@ public sealed class NodeGraphView : Control {
         // Capture, so a key this view claims is taken before the canvas acts on it. Delete is the one
         // that matters: the canvas would remove nodes from its own copy of the graph, which is a
         // change nothing recorded and the next reprojection would silently undo.
-        AddHandler<KeyEvent>(static (element, args) => ((NodeGraphView) element).Keyed(args), RoutingStrategy.Capture);
-        AddHandler<PointerEvent>(static (element, args) => ((NodeGraphView) element).Pointed(args), RoutingStrategy.Capture);
+        AddHandler<KeyEvent>(static (element, args) => ((NodeGraphView)element).Keyed(args), RoutingStrategy.Capture);
+        AddHandler<PointerEvent>(
+            static (element, args) => ((NodeGraphView)element).Pointed(args),
+            RoutingStrategy.Capture
+        );
 
         // A double-click on a sticky note puts a caret in it. Bubbling, because the canvas's own tap
         // handler claims a double-click on a *node* and a note is neither a node nor the canvas's to
         // know about; and the blur is what commits, so an edit ends however the focus leaves.
-        AddHandler<TapEvent>(static (element, args) => ((NodeGraphView) element).Tapped(args));
-        AddHandler<FocusEvent>(static (element, args) => ((NodeGraphView) element).Refocused(args));
+        AddHandler<TapEvent>(static (element, args) => ((NodeGraphView)element).Tapped(args));
+        AddHandler<FocusEvent>(static (element, args) => ((NodeGraphView)element).Refocused(args));
 
         // ⚠ Bubbling, so these run *after* the canvas has written Pan or Zoom, and before the frame's
         // layout. Nothing announces a pan — the two properties realise the canvas's own elements and
         // raise no event — so a note drawn in graph coordinates would otherwise be repositioned by
         // OnDraw, which is a frame too late and visibly lags the nodes it is pinned between. The
         // draw-time check below is still there, for a pan somebody wrote in code.
-        AddHandler<PointerEvent>(static (element, _) => ((NodeGraphView) element).Panned(), handledEventsToo: true);
-        AddHandler<WheelEvent>(static (element, _) => ((NodeGraphView) element).Panned(), handledEventsToo: true);
+        AddHandler<PointerEvent>(static (element, _) => ((NodeGraphView)element).Panned(), handledEventsToo: true);
+        AddHandler<WheelEvent>(static (element, _) => ((NodeGraphView)element).Panned(), handledEventsToo: true);
     }
 
     void Panned() {
@@ -508,7 +520,7 @@ public sealed class NodeGraphView : Control {
             // ⚠ A node the model has in two groups lands in the last of them. The canvas's group
             // membership is a back-pointer on the node, so it holds one; the model does not, because
             // a document should not lose an author's grouping to a drawing limitation.
-            groups[built.AddGroup(group.Title, [.. members])] = group;
+            groups[built.AddGroup(group.Title, [..members])] = group;
         }
 
         // What a port no longer hosts — its node gone, or its drawer resolved away — is let go, so a
@@ -576,8 +588,12 @@ public sealed class NodeGraphView : Control {
     ///         member, the field and the write are the panel's, and what is left here is the shape.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The shape is the canvas's unless a drawer the built-in set would not choose is
-    ///         registered for the port (#1305, decision (b)).</b> A node's elements are pooled and
+    ///         ⚠
+    ///         <b>
+    ///             The shape is the canvas's unless a drawer the built-in set would not choose is
+    ///             registered for the port (#1305, decision (b)).
+    ///         </b>
+    ///         A node's elements are pooled and
     ///         rebound on every pan — see <c>NodeItem</c> — and removal is final in this framework, so
     ///         a drawer's <c>Build</c> per rebind would be a fresh set of elements per frame of a pan.
     ///         <see cref="PortEditor" /> is the row shape that fits a node that clips its own contents;
@@ -613,16 +629,19 @@ public sealed class NodeGraphView : Control {
 
             fields[key] = content.Field;
 
-            return new PortEditor(content) { ReadOnly = !content.Field.CanWrite };
+            return new(content) { ReadOnly = !content.Field.CanWrite };
         }
 
         var type = member.MemberType;
         var lanes = member.Encode(field.Read().Value);
 
-        var editor = new PortEditor(type == typeof(bool) ? PortEditorKind.Toggle : PortEditorKind.Number, lanes.Length) {
+        var editor = new PortEditor(
+            type == typeof(bool) ? PortEditorKind.Toggle : PortEditorKind.Number,
+            lanes.Length
+        ) {
             Decimals = type == typeof(int) ? 0 : Decimals,
             ReadOnly = !field.CanWrite,
-            LaneNames = lanes.Length > 1 ? "XYZW" : ""
+            LaneNames = lanes.Length > 1 ? "XYZW" : string.Empty
         };
 
         editor.Set(lanes);
@@ -649,7 +668,7 @@ public sealed class NodeGraphView : Control {
             return kept;
         }
 
-        return hosted[key] = new DrawerContent(drawer, field);
+        return hosted[key] = new(drawer, field);
     }
 
     /// <summary>A drawer's element on a node: built over the port's field, refreshed the way the panel refreshes a row.</summary>
@@ -660,7 +679,10 @@ public sealed class NodeGraphView : Control {
 
         public UiElement Build(UiElement parent) => Drawer.Build(Field, parent);
 
-        /// <remarks>Inside <see cref="EditProperty.Refreshing" />, as <c>InspectorRows.Show</c> is, so the value put in is not written back.</remarks>
+        /// <remarks>
+        ///     Inside <see cref="EditProperty.Refreshing" />, as <c>InspectorRows.Show</c> is, so the value put in is not
+        ///     written back.
+        /// </remarks>
         public void Show(UiElement built) {
             using (Field.Refreshing()) {
                 Drawer.Show(Field, built);
@@ -747,14 +769,17 @@ public sealed class NodeGraphView : Control {
 
     /// <summary>Deletes what is selected, and the wires that touched it.</summary>
     /// <returns>Whether anything went.</returns>
-    public bool DeleteSelection() =>
-        Selection.Count > 0 && Run(new RemoveNodesCommand(graph, [.. Selection], edited));
+    public bool DeleteSelection() => Selection.Count > 0 && Run(new RemoveNodesCommand(graph, [..Selection], edited));
 
     /// <summary>Deletes the selected connection.</summary>
     /// <returns>Whether one went.</returns>
     /// <remarks>
-    ///     ⚠ <b>Through the model and a reprojection, never by taking the wire out of the picture
-    ///     first.</b> <see cref="PulledOff" /> works out which connection the canvas has picked up by
+    ///     ⚠
+    ///     <b>
+    ///         Through the model and a reprojection, never by taking the wire out of the picture
+    ///         first.
+    ///     </b>
+    ///     <see cref="PulledOff" /> works out which connection the canvas has picked up by
     ///     finding the model edge that the picture is missing, so a second reason for the two to
     ///     disagree makes the *next* reroute blame the wrong edge — silently, with no diagnostic
     ///     anywhere. <c>DisconnectCommand</c> writes the model, the model raises <c>Changed</c>, and
@@ -772,7 +797,7 @@ public sealed class NodeGraphView : Control {
     /// <param name="title">What the box is called.</param>
     /// <returns>Whether one was made.</returns>
     public bool GroupSelection(string title = "Group") =>
-        Selection.Count > 0 && Run(new AddGroupCommand(graph, title, [.. Selection], edited));
+        Selection.Count > 0 && Run(new AddGroupCommand(graph, title, [..Selection], edited));
 
     /// <summary>Removes every group that holds a selected node, leaving the nodes where they are.</summary>
     /// <returns>Whether anything went.</returns>
@@ -991,7 +1016,7 @@ public sealed class NodeGraphView : Control {
             return null;
         }
 
-        var extraction = SubGraphs.Extract(graph, [.. Selection], name, registry);
+        var extraction = SubGraphs.Extract(graph, [..Selection], name, registry);
         var centre = Centre();
 
         library.Add(path, extraction.Graph, registry);
@@ -1123,7 +1148,7 @@ public sealed class NodeGraphView : Control {
             return;
         }
 
-        following = new Effect(Followed, Document.Effects);
+        following = new(Followed, Document.Effects);
     }
 
     void Followed() {
@@ -1204,7 +1229,7 @@ public sealed class NodeGraphView : Control {
         wire is not null
         && sockets.TryGetValue(wire.From, out var from)
         && sockets.TryGetValue(wire.To, out var to)
-            ? new GraphEdge(new PortRef(from.Node, from.Port), new PortRef(to.Node, to.Port))
+            ? new GraphEdge(new(from.Node, from.Port), new(to.Node, to.Port))
             : null;
 
     /// <summary>Puts the chosen edge back on the rebuilt picture, or forgets it if it has gone.</summary>
@@ -1308,16 +1333,23 @@ public sealed class NodeGraphView : Control {
     /// <summary>Records a number typed into a port on the canvas.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>It does not reproject, which is the second of the two exceptions this class
-    ///         makes — the first being a drag.</b> For the same reason: dragging across a number field
+    ///         ⚠
+    ///         <b>
+    ///             It does not reproject, which is the second of the two exceptions this class
+    ///             makes — the first being a drag.
+    ///         </b>
+    ///         For the same reason: dragging across a number field
     ///         raises this every frame, and rebuilding the whole projection per frame is a cost that
     ///         grows with the graph rather than with the screen. The canvas already holds exactly what
     ///         was written, because the field wrote it there before telling anybody, so there is
     ///         nothing for a reprojection to correct.
     ///     </para>
     ///     <para>
-    ///         <b>Written through the port's <see cref="InspectorField" />, which is the panel's
-    ///         path.</b> So the command is the member's — a <see cref="SetPortValueCommand" /> that
+    ///         <b>
+    ///             Written through the port's <see cref="InspectorField" />, which is the panel's
+    ///             path.
+    ///         </b>
+    ///         So the command is the member's — a <see cref="SetPortValueCommand" /> that
     ///         merges a scrub into one entry and keeps the first "before", including whether the port
     ///         had a value at all — an unchanged value records nothing, and a view with no stack has
     ///         read-only members and writes nothing, exactly as the panel beside it does.
@@ -1383,9 +1415,11 @@ public sealed class NodeGraphView : Control {
 
             var made = new PortRef(node.Id, result.Port);
 
-            Run(pendingSide == PortDirection.Output
-                ? new ConnectCommand(graph, pending, made, edited)
-                : new ConnectCommand(graph, made, pending, edited));
+            Run(
+                pendingSide == PortDirection.Output
+                    ? new ConnectCommand(graph, pending, made, edited)
+                    : new ConnectCommand(graph, made, pending, edited)
+            );
         }
     }
 

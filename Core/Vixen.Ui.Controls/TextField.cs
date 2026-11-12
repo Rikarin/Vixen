@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core.Mathematics;
-using Vixen.Input;
 using Vixen.Ui.Styling;
 using Vixen.Ui.Text;
 
@@ -125,8 +124,12 @@ public abstract partial class TextField : Control, ITextInputTarget, IValidated 
     ///         screen-reader user needs to know <i>before</i> they submit rather than after.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>An empty required field is <i>invalid</i>, from the moment it is marked, and that
-    ///         is deliberate.</b> Deferring the verdict until a submit is what makes a form tell you
+    ///         ⚠
+    ///         <b>
+    ///             An empty required field is <i>invalid</i>, from the moment it is marked, and that
+    ///             is deliberate.
+    ///         </b>
+    ///         Deferring the verdict until a submit is what makes a form tell you
     ///         about four mistakes at once at the end; the state is what the field is in, and when to
     ///         <i>show</i> it is the theme's business — see the <c>invalid</c> class.
     ///     </para>
@@ -162,8 +165,12 @@ public abstract partial class TextField : Control, ITextInputTarget, IValidated 
 
     /// <summary>Why the value is not acceptable, or <c>null</c> when it is.</summary>
     /// <remarks>
-    ///     ⚠ <b>Not written into the accessibility tree by this control, and that is not an
-    ///     oversight.</b> ARIA pairs <c>aria-invalid</c> — which
+    ///     ⚠
+    ///     <b>
+    ///         Not written into the accessibility tree by this control, and that is not an
+    ///         oversight.
+    ///     </b>
+    ///     ARIA pairs <c>aria-invalid</c> — which
     ///     <see cref="NativeAccessibleState" /> does produce — with a <i>separate</i> element holding
     ///     the words, reached by <c>aria-describedby</c>; the error text a form shows is a label
     ///     somewhere in the layout, and pointing at it is one
@@ -209,14 +216,22 @@ public abstract partial class TextField : Control, ITextInputTarget, IValidated 
     ///     <para>
     ///         <b>An index names a boundary, and a boundary is not always one place.</b> At a wrap it
     ///         is the end of one row and the start of the next; where the direction changes it is at
-    ///         opposite ends of a run. This is the bit that says which, and it is <i>state the field
-    ///         carries</i> rather than something re-derived — a caret walked to the end of a line and
+    ///         opposite ends of a run. This is the bit that says which, and it is
+    ///         <i>
+    ///             state the field
+    ///             carries
+    ///         </i>
+    ///         rather than something re-derived — a caret walked to the end of a line and
     ///         a caret pressed Down onto the next arrive at the same number, and only how they got
     ///         there tells them apart.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b><see cref="CaretAffinity.Upstream" /> is the resting value, not
-    ///         <c>Downstream</c>.</b> It is what the index-only overloads of
+    ///         ⚠
+    ///         <b>
+    ///             <see cref="CaretAffinity.Upstream" /> is the resting value, not
+    ///             <c>Downstream</c>.
+    ///         </b>
+    ///         It is what the index-only overloads of
     ///         <see cref="TextLayout.CaretAt(int)" /> and <see cref="TextLine.CaretOffset(int)" />
     ///         already answered, so a field that has never been clicked draws its caret exactly where
     ///         it drew it before this existed. Defaulting the other way would move every caret sitting
@@ -238,14 +253,17 @@ public abstract partial class TextField : Control, ITextInputTarget, IValidated 
     public bool HasSelection => CaretIndex != SelectionAnchor;
 
     /// <summary>The selected text.</summary>
-    public string SelectedText =>
-        Value is { } value ? value[SelectionStart..SelectionEnd] : string.Empty;
+    public string SelectedText => Value is { } value ? value[SelectionStart..SelectionEnd] : string.Empty;
 
     /// <summary>What an input method is composing at the caret, and has not committed.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>It is deliberately <i>not</i> in <see cref="Value" />, and that is the whole
-    ///         design.</b> A pre-edit is provisional: it is replaced in place on every keystroke and
+    ///         ⚠
+    ///         <b>
+    ///             It is deliberately <i>not</i> in <see cref="Value" />, and that is the whole
+    ///             design.
+    ///         </b>
+    ///         A pre-edit is provisional: it is replaced in place on every keystroke and
     ///         may be abandoned entirely, so a field that put it in the value would raise
     ///         <see cref="ValueChanged" /> for every intermediate reading of every word — and would
     ///         hand each one to <see cref="Coerce" />, which for a
@@ -295,8 +313,12 @@ public abstract partial class TextField : Control, ITextInputTarget, IValidated 
 
     /// <inheritdoc />
     /// <remarks>
-    ///     ⚠ <b><c>null</c>, deliberately, and it is the most important line in this file for
-    ///     accessibility.</b> A field has no words of its own. The obvious fallback —
+    ///     ⚠
+    ///     <b>
+    ///         <c>null</c>, deliberately, and it is the most important line in this file for
+    ///         accessibility.
+    ///     </b>
+    ///     A field has no words of its own. The obvious fallback —
     ///     <see cref="Placeholder" /> — is the one every toolkit reaches for and it is wrong twice:
     ///     a placeholder is a hint rather than a name, and it disappears the moment there is a
     ///     value, so a form announced from placeholders is a form whose fields lose their names as
@@ -326,16 +348,24 @@ public abstract partial class TextField : Control, ITextInputTarget, IValidated 
     ///         a screen reader, and it is the state that turns on a braille display's input mode.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b><see cref="AccessibleStates.ReadOnly" /> is added <i>alongside</i> it rather than
-    ///         instead of it</b>, for <see cref="ReadOnly" />'s own reason: a read-only field is
+    ///         ⚠
+    ///         <b>
+    ///             <see cref="AccessibleStates.ReadOnly" /> is added <i>alongside</i> it rather than
+    ///             instead of it
+    ///         </b>
+    ///         , for <see cref="ReadOnly" />'s own reason: a read-only field is
     ///         still a field, still takes the focus and can still have its text selected and copied.
     ///         Reporting it as not editable would be reporting it as
     ///         <see cref="Control.Disabled" />, which is the conflation the property's remarks
     ///         already warn about.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b><see cref="AccessibleStates.Required" /> and <see cref="AccessibleStates.Invalid" />
-    ///         are produced here and nowhere else in the tree.</b> Both flags predate any control
+    ///         ⚠
+    ///         <b>
+    ///             <see cref="AccessibleStates.Required" /> and <see cref="AccessibleStates.Invalid" />
+    ///             are produced here and nowhere else in the tree.
+    ///         </b>
+    ///         Both flags predate any control
     ///         that could set them, so until <see cref="Required" /> and <see cref="Validate" />
     ///         existed a form's mandatory fields and its rejected ones were indistinguishable from
     ///         its ordinary ones to anything reading the accessibility tree.
@@ -393,13 +423,13 @@ public abstract partial class TextField : Control, ITextInputTarget, IValidated 
         AddCommandHandler("edit.paste", () => Paste(), () => CanPaste);
         AddCommandHandler("edit.select-all", SelectAll, () => !Disabled && !string.IsNullOrEmpty(Value));
 
-        AddHandler<KeyEvent>(static (element, args) => ((TextField) element).Keyed(args));
-        AddHandler<TextInputEvent>(static (element, args) => ((TextField) element).Typed(args));
-        AddHandler<TextCompositionEvent>(static (element, args) => ((TextField) element).Composing(args));
-        AddHandler<PointerEvent>(static (element, args) => ((TextField) element).Pointed(args));
-        AddHandler<TapEvent>(static (element, args) => ((TextField) element).Tapped(args));
-        AddHandler<LongPressEvent>(static (element, args) => ((TextField) element).LongPressed(args));
-        AddHandler<FocusEvent>(static (element, args) => ((TextField) element).Refocused(args));
+        AddHandler<KeyEvent>(static (element, args) => ((TextField)element).Keyed(args));
+        AddHandler<TextInputEvent>(static (element, args) => ((TextField)element).Typed(args));
+        AddHandler<TextCompositionEvent>(static (element, args) => ((TextField)element).Composing(args));
+        AddHandler<PointerEvent>(static (element, args) => ((TextField)element).Pointed(args));
+        AddHandler<TapEvent>(static (element, args) => ((TextField)element).Tapped(args));
+        AddHandler<LongPressEvent>(static (element, args) => ((TextField)element).LongPressed(args));
+        AddHandler<FocusEvent>(static (element, args) => ((TextField)element).Refocused(args));
 
         // ⚠ <b>A field that is valid from birth has to say so, and nothing else would have made it.</b>
         // `Revalidate` is otherwise only reached by a change, so a field never touched carried
@@ -748,8 +778,10 @@ public abstract partial class TextField : Control, ITextInputTarget, IValidated 
     /// <returns><c>null</c> when the value is acceptable, otherwise the reason it is not.</returns>
     /// <remarks>
     ///     <para>
-    ///         <b>The third seam on a value, beside <see cref="Coerce" /> and <see cref="Shown" />,
-    ///         and it is the one that answers a question rather than substituting a string.</b>
+    ///         <b>
+    ///             The third seam on a value, beside <see cref="Coerce" /> and <see cref="Shown" />,
+    ///             and it is the one that answers a question rather than substituting a string.
+    ///         </b>
     ///         <see cref="Coerce" /> is what a field will <i>hold</i> — a numeric input refuses
     ///         letters outright — and that is deliberately not where a rule about acceptability
     ///         belongs: a field that silently dropped what was typed because it was too short could
@@ -828,14 +860,17 @@ public abstract partial class TextField : Control, ITextInputTarget, IValidated 
     void NoteUserInteraction() => State |= ElementState.UserInteracted;
 
     /// <summary>Called when Enter is pressed, before <see cref="Submitted" /> is raised.</summary>
-    protected virtual void OnSubmit() {
-    }
+    protected virtual void OnSubmit() { }
 
     /// <summary>Whether Enter puts a line break in the value rather than submitting it.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>False everywhere except <see cref="TextArea" />, and it is what makes a text area
-    ///         a text area.</b> Without it Enter submitted and the value stayed one line, so a field
+    ///         ⚠
+    ///         <b>
+    ///             False everywhere except <see cref="TextArea" />, and it is what makes a text area
+    ///             a text area.
+    ///         </b>
+    ///         Without it Enter submitted and the value stayed one line, so a field
     ///         offered for a YAML document — the editor's theme tokens are one — could not be given a
     ///         second line at all. That reads as a box that will not take what you type, which is a
     ///         worse bug than a missing feature because there is nothing on screen to explain it.
@@ -1022,7 +1057,7 @@ public abstract partial class TextField : Control, ITextInputTarget, IValidated 
                     // line in the middle of a selected paragraph would otherwise be, and it looks
                     // like a gap.
                     context.FillRectangle(
-                        new Rectangle(
+                        new(
                             origin + shift + range.X,
                             top + block.TopOf(index),
                             MathF.Max(range.Width, index < last ? 3f : 0f),
@@ -1109,7 +1144,7 @@ public abstract partial class TextField : Control, ITextInputTarget, IValidated 
 
             foreach (var range in ranges) {
                 context.FillRectangle(
-                    new Rectangle(
+                    new(
                         origin + shift + range.X,
                         top + block.TopOf(index) + line.Height - 1f,
                         range.Width,
@@ -1288,8 +1323,12 @@ public abstract partial class TextField : Control, ITextInputTarget, IValidated 
     /// <returns>Whether any element from the source up to — not including — this field computes <c>user-select: none</c>.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The walk stops short of the field, and that is CSS UI 4 § 6.1 rather than a
-    ///         shortcut.</b> On an editable element the used value of <c>user-select</c> is
+    ///         ⚠
+    ///         <b>
+    ///             The walk stops short of the field, and that is CSS UI 4 § 6.1 rather than a
+    ///             shortcut.
+    ///         </b>
+    ///         On an editable element the used value of <c>user-select</c> is
     ///         <c>contain</c> whatever was declared, so <c>select-none</c> written on a text box — or on
     ///         a panel around one — still leaves its text selectable. What the property can refuse is a
     ///         selection that would <i>start</i> on a non-editable part inside the field: an adornment,
@@ -1399,7 +1438,7 @@ public abstract partial class TextField : Control, ITextInputTarget, IValidated 
                 Document.Focus(this);
 
                 var tapped = PositionAt(args.X, args.Y);
-                MoveCaret(tapped.Index, tapped.Affinity, false);
+                MoveCaret(tapped.Index, tapped.Affinity);
 
                 args.Handled = true;
             }
@@ -1469,8 +1508,12 @@ public abstract partial class TextField : Control, ITextInputTarget, IValidated 
     /// <summary>How far <c>text-align</c> and <c>direction</c> push one line of the block sideways.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A <c>TextLayout</c> places every line from zero, and the alignment is applied by
-    ///         whoever draws it.</b> The block has no idea how wide the box around it is, so
+    ///         ⚠
+    ///         <b>
+    ///             A <c>TextLayout</c> places every line from zero, and the alignment is applied by
+    ///             whoever draws it.
+    ///         </b>
+    ///         The block has no idea how wide the box around it is, so
     ///         <c>CaretOffset</c>, <c>VisualRanges</c> and <c>CaretPositionAt</c> all speak in
     ///         line-local coordinates — while <c>DrawListBuilder</c> puts the glyphs at
     ///         <c>left + UiDocument.TextAlignShift(...)</c>. Everything this control draws over the
@@ -1494,8 +1537,7 @@ public abstract partial class TextField : Control, ITextInputTarget, IValidated 
     ///     from the number alone would send Home to the head of the row above the one the caret is
     ///     visibly sitting on.
     /// </remarks>
-    int LineStart(int index) =>
-        text.Block() is { } block ? block.Lines[block.LineOf(index, CaretAffinity)].Start : 0;
+    int LineStart(int index) => text.Block() is { } block ? block.Lines[block.LineOf(index, CaretAffinity)].Start : 0;
 
     /// <summary>And where it ends, before the break that ended it.</summary>
     int LineEnd(int index) {
@@ -1510,8 +1552,12 @@ public abstract partial class TextField : Control, ITextInputTarget, IValidated 
 
     /// <summary>The index a line up or down, keeping roughly the same column.</summary>
     /// <remarks>
-    ///     ⚠ <b>By pixel offset rather than by character count, which is what makes it land under the
-    ///     caret rather than <i>n</i> characters into the next line.</b> Proportional text has no
+    ///     ⚠
+    ///     <b>
+    ///         By pixel offset rather than by character count, which is what makes it land under the
+    ///         caret rather than <i>n</i> characters into the next line.
+    ///     </b>
+    ///     Proportional text has no
     ///     column, and a caret that counted characters would drift left across a line of capitals and
     ///     right across a line of commas. Off the top or the bottom, it goes to the ends — which is
     ///     what every editor does and what stops Up on the first line doing nothing at all.
@@ -1592,8 +1638,12 @@ public abstract partial class TextField : Control, ITextInputTarget, IValidated 
     ///         replaces what was selected, exactly as typing would.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The <c>!IsComposing</c> half of that guard is insurance and is labelled as
-    ///         such.</b> Deleting the selection makes <c>HasSelection</c> false, so a version without
+    ///         ⚠
+    ///         <b>
+    ///             The <c>!IsComposing</c> half of that guard is insurance and is labelled as
+    ///             such.
+    ///         </b>
+    ///         Deleting the selection makes <c>HasSelection</c> false, so a version without
     ///         the guard deletes nothing on the updates that follow and every test here stays green —
     ///         measured, not assumed. What it is there for is a selection made <i>during</i> a
     ///         composition, which a drag can still produce, and which the pre-edit has no business
@@ -1937,8 +1987,12 @@ public abstract partial class TextField : Control, ITextInputTarget, IValidated 
     ///         apart; where the direction changes they are a whole run apart.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A soft wrap is the one place the rule is overruled, and it is overruled on
-    ///         purpose.</b> A break that consumed nothing leaves one index ending the row above and
+    ///         ⚠
+    ///         <b>
+    ///             A soft wrap is the one place the rule is overruled, and it is overruled on
+    ///             purpose.
+    ///         </b>
+    ///         A break that consumed nothing leaves one index ending the row above and
     ///         beginning the row below, and the character a forward step crossed is the last one on
     ///         the row it is leaving — so the rule above would keep the caret up there, and the next
     ///         Right would appear to move it two characters at once from a row it was never seen on.

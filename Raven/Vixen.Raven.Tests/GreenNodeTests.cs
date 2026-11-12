@@ -17,7 +17,8 @@ public class GreenNodeTests {
     [Fact]
     public void Token_full_width_includes_trivia() {
         // "  foo " -> 2 leading + 3 text + 1 trailing
-        var token = new Green.SyntaxIdentifier((int)SyntaxKind.IdentifierToken, 
+        var token = new Green.SyntaxIdentifier(
+            (int)SyntaxKind.IdentifierToken,
             "foo",
             new Green.SyntaxTrivia((int)SyntaxKind.WhitespaceTrivia, "  "),
             Space
@@ -45,8 +46,16 @@ public class GreenNodeTests {
     public void Node_span_excludes_outer_trivia_but_full_width_keeps_it() {
         // Leading trivia on the first terminal and trailing on the last must be
         // excluded from Width but retained in FullWidth.
-        Green.GreenNode first = new Green.SyntaxIdentifier((int)SyntaxKind.IdentifierToken, "x", new Green.SyntaxTrivia((int)SyntaxKind.WhitespaceTrivia, "  "));
-        Green.GreenNode last = new Green.SyntaxIdentifier((int)SyntaxKind.IdentifierToken, "y", trailing: new Green.SyntaxTrivia((int)SyntaxKind.WhitespaceTrivia, "   "));
+        Green.GreenNode first = new Green.SyntaxIdentifier(
+            (int)SyntaxKind.IdentifierToken,
+            "x",
+            new Green.SyntaxTrivia((int)SyntaxKind.WhitespaceTrivia, "  ")
+        );
+        Green.GreenNode last = new Green.SyntaxIdentifier(
+            (int)SyntaxKind.IdentifierToken,
+            "y",
+            trailing: new Green.SyntaxTrivia((int)SyntaxKind.WhitespaceTrivia, "   ")
+        );
         var list = Green.SyntaxList.List(first, last);
 
         Assert.Equal(2, list.GetLeadingTriviaWidth());

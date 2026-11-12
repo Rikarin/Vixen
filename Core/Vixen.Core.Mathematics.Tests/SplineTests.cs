@@ -11,8 +11,7 @@ namespace Vixen.Core.Mathematics.Tests;
 /// </summary>
 public sealed class SplineTests {
     /// <summary>A straight run of four points a metre apart along X, with matched tangents.</summary>
-    static Spline Straight() =>
-        new(Spline.SmoothTangents([new(0, 0, 0), new(1, 0, 0), new(2, 0, 0), new(3, 0, 0)]));
+    static Spline Straight() => new(Spline.SmoothTangents([new(0, 0, 0), new(1, 0, 0), new(2, 0, 0), new(3, 0, 0)]));
 
     /// <summary>A square, closed, so the curve loops.</summary>
     static Spline Square(bool closed = true) =>
@@ -20,15 +19,15 @@ public sealed class SplineTests {
 
     [Fact]
     public void ASplineNeedsTwoPoints() {
-        Assert.Throws<ArgumentException>(() => new Spline([SplinePoint.At(Vector3.Zero)]));
-        Assert.Throws<ArgumentException>(() => Spline.SmoothTangents([Vector3.Zero]));
+        Assert.Throws<ArgumentException>(static () => new Spline([SplinePoint.At(Vector3.Zero)]));
+        Assert.Throws<ArgumentException>(static () => Spline.SmoothTangents([Vector3.Zero]));
     }
 
     [Fact]
     public void ItPassesThroughEveryControlPoint() {
         // The property that makes Hermite the right family for an editor: the control points are on
         // the curve, so dragging one drags the road.
-        var spline = Square(closed: false);
+        var spline = Square(false);
 
         for (var index = 0; index < spline.Points.Length; index++) {
             Assert.Equal(spline.Points[index].Position, spline.Evaluate(index));
@@ -37,7 +36,7 @@ public sealed class SplineTests {
 
     [Fact]
     public void SegmentCountAndParameterRangeFollowFromWhetherItIsClosed() {
-        Assert.Equal(3, Square(closed: false).SegmentCount);
+        Assert.Equal(3, Square(false).SegmentCount);
         Assert.Equal(4, Square().SegmentCount);
         Assert.Equal(4f, Square().MaxParameter);
     }
@@ -105,7 +104,7 @@ public sealed class SplineTests {
     /// </summary>
     [Fact]
     public void TheAnalyticTangentMatchesANumericalOne() {
-        var spline = Square(closed: false);
+        var spline = Square(false);
         const float h = 1e-3f;
 
         for (var step = 1; step < 30; step++) {
@@ -133,7 +132,7 @@ public sealed class SplineTests {
 
     [Fact]
     public void AFrameIsOrthonormalAndRightHanded() {
-        var spline = Square(closed: false);
+        var spline = Square(false);
 
         for (var step = 0; step <= 20; step++) {
             var frame = spline.FrameAt(step / 20f * spline.MaxParameter, Vector3.UnitY);
@@ -154,10 +153,12 @@ public sealed class SplineTests {
     public void AVerticalCurveStillGetsAFrameRatherThanANaN() {
         // Heading straight along the world up, where the usual cross product is zero and any side is
         // as good as any other. Picking one deterministically beats normalising nearly-zero.
-        var spline = new Spline([
-            SplinePoint.Smooth(Vector3.Zero, new(0, 1, 0)),
-            SplinePoint.Smooth(new(0, 10, 0), new(0, 1, 0))
-        ]);
+        var spline = new Spline(
+            [
+                SplinePoint.Smooth(Vector3.Zero, new(0, 1, 0)),
+                SplinePoint.Smooth(new(0, 10, 0), new(0, 1, 0))
+            ]
+        );
 
         var frame = spline.FrameAt(0.5f, Vector3.UnitY);
 
@@ -168,10 +169,12 @@ public sealed class SplineTests {
 
     [Fact]
     public void RollTwistsTheFrameAboutTheTangentAndInterpolatesBetweenPoints() {
-        var spline = new Spline([
-            SplinePoint.Smooth(Vector3.Zero, new(1, 0, 0)),
-            SplinePoint.Smooth(new(10, 0, 0), new(1, 0, 0), MathF.PI / 2f)
-        ]);
+        var spline = new Spline(
+            [
+                SplinePoint.Smooth(Vector3.Zero, new(1, 0, 0)),
+                SplinePoint.Smooth(new(10, 0, 0), new(1, 0, 0), MathF.PI / 2f)
+            ]
+        );
 
         var start = spline.FrameAt(0f, Vector3.UnitY);
         var end = spline.FrameAt(1f, Vector3.UnitY);
@@ -192,10 +195,12 @@ public sealed class SplineTests {
 
     [Fact]
     public void AStraightLinesLengthIsItsLength() {
-        var spline = new Spline([
-            SplinePoint.Smooth(Vector3.Zero, new(4, 0, 0)),
-            SplinePoint.Smooth(new(12, 0, 0), new(4, 0, 0))
-        ]);
+        var spline = new Spline(
+            [
+                SplinePoint.Smooth(Vector3.Zero, new(4, 0, 0)),
+                SplinePoint.Smooth(new(12, 0, 0), new(4, 0, 0))
+            ]
+        );
 
         Assert.Equal(12f, spline.Length, 3);
     }
@@ -204,7 +209,7 @@ public sealed class SplineTests {
     public void ADistanceParameterisationMovesAtConstantSpeed() {
         // The property Evaluate does not have, and the reason both exist. A camera stepping equal
         // distances must cover equal ground; stepping equal parameters it speeds up and slows down.
-        var spline = Square(closed: false);
+        var spline = Square(false);
         var step = spline.Length / 40f;
         var previous = spline.EvaluateAtDistance(0f);
 
@@ -219,7 +224,7 @@ public sealed class SplineTests {
 
     [Fact]
     public void ParameterAtDistanceIsMonotonicAndClamped() {
-        var spline = Square(closed: false);
+        var spline = Square(false);
 
         Assert.Equal(0f, spline.ParameterAtDistance(-5f));
         Assert.Equal(spline.MaxParameter, spline.ParameterAtDistance(spline.Length + 5f));
@@ -249,10 +254,12 @@ public sealed class SplineTests {
         // Dropping that factor gives a curve that is visibly inside the circle and measures 8 % short.
         const float k = 4f * 0.4142136f;
 
-        var spline = new Spline([
-            new(new(1, 0, 0), Vector3.Zero, new(0, 0, k)),
-            new(new(0, 0, 1), new(k, 0, 0), Vector3.Zero)
-        ]);
+        var spline = new Spline(
+            [
+                new(new(1, 0, 0), Vector3.Zero, new(0, 0, k)),
+                new(new(0, 0, 1), new(k, 0, 0), Vector3.Zero)
+            ]
+        );
 
         var exact = MathF.PI / 2f;
 
@@ -264,10 +271,12 @@ public sealed class SplineTests {
 
     [Fact]
     public void DistanceToFindsThePerpendicularFoot() {
-        var spline = new Spline([
-            SplinePoint.Smooth(Vector3.Zero, new(4, 0, 0)),
-            SplinePoint.Smooth(new(12, 0, 0), new(4, 0, 0))
-        ]);
+        var spline = new Spline(
+            [
+                SplinePoint.Smooth(Vector3.Zero, new(4, 0, 0)),
+                SplinePoint.Smooth(new(12, 0, 0), new(4, 0, 0))
+            ]
+        );
 
         var distance = spline.DistanceTo(new(6f, 0f, 5f), out var parameter);
 
@@ -286,7 +295,7 @@ public sealed class SplineTests {
 
     [Fact]
     public void APointOnTheCurveIsAtZeroDistanceFromIt() {
-        var spline = Square(closed: false);
+        var spline = Square(false);
 
         for (var step = 1; step < 12; step++) {
             var t = step / 12f * spline.MaxParameter;
@@ -334,7 +343,7 @@ public sealed class SplineTests {
     [Fact]
     public void AClosedPathsEndsSeeEachOther() {
         var open = Spline.SmoothTangents([new(0, 0, 0), new(4, 0, 0), new(4, 0, 4), new(0, 0, 4)]);
-        var closed = Spline.SmoothTangents([new(0, 0, 0), new(4, 0, 0), new(4, 0, 4), new(0, 0, 4)], closed: true);
+        var closed = Spline.SmoothTangents([new(0, 0, 0), new(4, 0, 0), new(4, 0, 4), new(0, 0, 4)], true);
 
         Assert.NotEqual(open[0].TangentOut, closed[0].TangentOut);
         Assert.NotEqual(open[^1].TangentOut, closed[^1].TangentOut);

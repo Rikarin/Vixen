@@ -80,7 +80,7 @@ public sealed class IosWindow : IWindow {
             var bounds = controller.MetalView.Bounds;
             return new((int)bounds.Width, (int)bounds.Height);
         }
-        set { ThrowIfClosed(); }
+        set => ThrowIfClosed();
     }
 
     /// <inheritdoc />
@@ -98,7 +98,7 @@ public sealed class IosWindow : IWindow {
             ThrowIfClosed();
             return Int2.Zero;
         }
-        set { ThrowIfClosed(); }
+        set => ThrowIfClosed();
     }
 
     /// <inheritdoc />
@@ -116,7 +116,7 @@ public sealed class IosWindow : IWindow {
             ThrowIfClosed();
             return WindowMode.BorderlessFullscreen;
         }
-        set { ThrowIfClosed(); }
+        set => ThrowIfClosed();
     }
 
     /// <inheritdoc />
@@ -129,7 +129,7 @@ public sealed class IosWindow : IWindow {
             ThrowIfClosed();
             return true;
         }
-        set { ThrowIfClosed(); }
+        set => ThrowIfClosed();
     }
 
     /// <inheritdoc />
@@ -184,7 +184,7 @@ public sealed class IosWindow : IWindow {
             ThrowIfClosed();
             return CursorMode.Normal;
         }
-        set { ThrowIfClosed(); }
+        set => ThrowIfClosed();
     }
 
     /// <inheritdoc />
@@ -194,7 +194,7 @@ public sealed class IosWindow : IWindow {
             ThrowIfClosed();
             return CursorShape.Arrow;
         }
-        set { ThrowIfClosed(); }
+        set => ThrowIfClosed();
     }
 
     /// <inheritdoc />

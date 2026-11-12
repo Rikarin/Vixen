@@ -75,7 +75,7 @@ public sealed class Fft {
     /// <summary>Transforms in place, time to frequency.</summary>
     /// <param name="real">The real parts. Exactly <see cref="Size" /> long.</param>
     /// <param name="imaginary">The imaginary parts. Zero for a real signal.</param>
-    public void Forward(Span<float> real, Span<float> imaginary) => Transform(real, imaginary, inverse: false);
+    public void Forward(Span<float> real, Span<float> imaginary) => Transform(real, imaginary, false);
 
     /// <summary>Transforms in place, frequency to time.</summary>
     /// <param name="real">The real parts.</param>
@@ -85,7 +85,7 @@ public sealed class Fft {
     ///     Which convention carries the scaling is arbitrary and every library picks a different one;
     ///     this is the one that makes round-tripping the obvious thing.
     /// </remarks>
-    public void Inverse(Span<float> real, Span<float> imaginary) => Transform(real, imaginary, inverse: true);
+    public void Inverse(Span<float> real, Span<float> imaginary) => Transform(real, imaginary, true);
 
     void Transform(Span<float> real, Span<float> imaginary, bool inverse) {
         if (real.Length < Size || imaginary.Length < Size) {
@@ -122,8 +122,8 @@ public sealed class Fft {
                     var top = start + k;
                     var bottom = top + half;
 
-                    var tr = (real[bottom] * wr) - (imaginary[bottom] * wi);
-                    var ti = (real[bottom] * wi) + (imaginary[bottom] * wr);
+                    var tr = real[bottom] * wr - imaginary[bottom] * wi;
+                    var ti = real[bottom] * wi + imaginary[bottom] * wr;
 
                     real[bottom] = real[top] - tr;
                     imaginary[bottom] = imaginary[top] - ti;

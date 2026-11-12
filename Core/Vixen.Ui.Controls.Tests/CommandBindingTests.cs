@@ -51,7 +51,7 @@ public class CommandBindingTests {
         using var fixture = new ControlFixture();
 
         var view = View(fixture.Document.Root);
-        view.AddCommandHandler("edit.copy", () => { });
+        view.AddCommandHandler("edit.copy", static () => { });
         fixture.Document.Focus(view);
 
         var menu = Menu(fixture);
@@ -78,7 +78,7 @@ public class CommandBindingTests {
         var selection = 0;
 
         var view = View(fixture.Document.Root);
-        view.AddCommandHandler("edit.copy", () => { }, () => selection > 0);
+        view.AddCommandHandler("edit.copy", static () => { }, () => selection > 0);
         fixture.Document.Focus(view);
 
         var menu = Menu(fixture);
@@ -107,7 +107,7 @@ public class CommandBindingTests {
     public void The_focused_view_decides_what_one_menu_item_runs() {
         using var fixture = new ControlFixture();
 
-        var ran = "";
+        var ran = string.Empty;
 
         var outliner = View(fixture.Document.Root);
         var browser = View(fixture.Document.Root);
@@ -140,7 +140,7 @@ public class CommandBindingTests {
         var runs = 0;
 
         var view = View(fixture.Document.Root);
-        view.AddCommandHandler("edit.copy", () => runs++, () => false);
+        view.AddCommandHandler("edit.copy", () => runs++, static () => false);
         fixture.Document.Focus(view);
 
         var menu = Menu(fixture);
@@ -163,8 +163,8 @@ public class CommandBindingTests {
         var what = "Move";
 
         var view = View(fixture.Document.Root);
-        view.AddCommandHandler("edit.undo", () => { }, title: () => $"Undo {what}");
-        view.AddCommandHandler("edit.copy", () => { });
+        view.AddCommandHandler("edit.undo", static () => { }, title: () => $"Undo {what}");
+        view.AddCommandHandler("edit.copy", static () => { });
         fixture.Document.Focus(view);
 
         var menu = Menu(fixture);
@@ -198,7 +198,7 @@ public class CommandBindingTests {
 
         var view = View(fixture.Document.Root);
         view.AddCommandHandler("view.grid", () => grid = !grid, isChecked: () => grid);
-        view.AddCommandHandler("edit.copy", () => { });
+        view.AddCommandHandler("edit.copy", static () => { });
         fixture.Document.Focus(view);
 
         var menu = Menu(fixture);
@@ -214,7 +214,7 @@ public class CommandBindingTests {
         // ⚠ The command that is not a toggle never grew a mark at all, which is what stops an
         // ordinary menu being indented by a column of empty ticks. Asserted over the children
         // rather than through `Mark`, because reading `Mark` is what creates it.
-        Assert.DoesNotContain(copy.Children, child => child is Icon);
+        Assert.DoesNotContain(copy.Children, static child => child is Icon);
         Assert.False(copy.State.HasFlag(ElementState.Checked));
 
         grid = false;
@@ -231,7 +231,7 @@ public class CommandBindingTests {
         using var fixture = new ControlFixture();
 
         var view = View(fixture.Document.Root);
-        view.AddCommandHandler("edit.copy", () => { });
+        view.AddCommandHandler("edit.copy", static () => { });
         fixture.Document.Focus(view);
 
         var menu = Menu(fixture);
@@ -256,7 +256,7 @@ public class CommandBindingTests {
         using var fixture = new ControlFixture();
 
         var view = View(fixture.Document.Root);
-        view.AddCommandHandler("file.save", () => { });
+        view.AddCommandHandler("file.save", static () => { });
         fixture.Document.Focus(view);
 
         var button = fixture.Add<Button>();
@@ -310,7 +310,7 @@ public class CommandBindingTests {
         var view = View(fixture.Document.Root);
         view.AddCommandHandler(
             "file.save",
-            () => { },
+            static () => { },
             () => {
                 asked++;
 
@@ -357,7 +357,7 @@ public class CommandBindingTests {
         var view = View(fixture.Document.Root);
         view.AddCommandHandler(
             "file.save",
-            () => { },
+            static () => { },
             () => {
                 asked++;
 
@@ -419,7 +419,7 @@ public class CommandBindingTests {
     public void A_focused_text_box_answers_select_all_and_outranks_the_shell() {
         using var fixture = new ControlFixture();
 
-        var shell = "";
+        var shell = string.Empty;
         fixture.Document.Root.AddCommandHandler("edit.select-all", () => shell = "shell");
 
         var field = fixture.Document.Root.Add<TextBox>();
@@ -440,13 +440,13 @@ public class CommandBindingTests {
         // zero callers outside test projects, so "the nearest responder wins" was a claim only its
         // own tests could make. The field is nearer than the root, so the same menu item means
         // something different because the caret is in a text box.
-        shell = "";
+        shell = string.Empty;
         fixture.Document.Focus(field);
         menu.Open();
         fixture.Update();
         selectAll.Activate();
 
-        Assert.Equal("", shell);
+        Assert.Equal(string.Empty, shell);
         Assert.Equal(0, field.SelectionAnchor);
         Assert.Equal(5, field.CaretIndex);
     }
@@ -479,7 +479,7 @@ public class CommandBindingTests {
 
         var field = fixture.Document.Root.Add<TextBox>();
         field.Value = "not a number";
-        field.AddHandler<FocusEvent>((_, args) => args.Cancel = !args.Gained);
+        field.AddHandler<FocusEvent>(static (_, args) => args.Cancel = !args.Gained);
 
         fixture.Update();
         fixture.Document.Focus(field);
@@ -536,7 +536,7 @@ public class CommandBindingTests {
         var runs = 0;
 
         var view = View(fixture.Document.Root);
-        view.AddCommandHandler("view.wireframe", () => runs++, isChecked: () => false);
+        view.AddCommandHandler("view.wireframe", () => runs++, isChecked: static () => false);
         fixture.Document.Focus(view);
 
         var toggle = fixture.Document.Root.Add<ToggleButton>();
@@ -597,7 +597,7 @@ public class CommandBindingTests {
         using var fixture = new ControlFixture();
 
         var view = View(fixture.Document.Root);
-        view.AddCommandHandler("edit.copy", () => { });
+        view.AddCommandHandler("edit.copy", static () => { });
         fixture.Document.Focus(view);
 
         var toggle = fixture.Document.Root.Add<ToggleButton>();

@@ -11,21 +11,29 @@ namespace Vixen.Texturing.Painting;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>The pane <a href="https://github.com/Rikarin/Vixen/issues/1063">#1063</a> recommends,
-///         in the half that makes a picture.</b> A plugin gets a device and an <c>Upload</c> that
+///         <b>
+///             The pane <a href="https://github.com/Rikarin/Vixen/issues/1063">#1063</a> recommends,
+///             in the half that makes a picture.
+///         </b>
+///         A plugin gets a device and an <c>Upload</c> that
 ///         takes <em>pixels</em> — doc 48 § D14's third bullet, deliberately — so a texturing pane
 ///         can present a CPU image and nothing else. That is the whole reason this exists rather
 ///         than a render feature: the alternative is a plugin that can register something drawing
 ///         geometry, which is a change to the editor's contract and not to this plugin.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Two passes and not one, and the split is the exit criterion rather than a
-///         structure.</b> Doc 48's criterion 8 asks that a stamp on a 4K set with twelve layers
+///         ⚠
+///         <b>
+///             Two passes and not one, and the split is the exit criterion rather than a
+///             structure.
+///         </b>
+///         Doc 48's criterion 8 asks that a stamp on a 4K set with twelve layers
 ///         under it stays local, and <c>LayerStackEvaluator</c> already earns that for the atlas: a
 ///         stroke repairs the plan's output over its dirty tiles. A rasteriser that
 ///         redrew the mesh on every pointer move would put the model's triangle count straight back
 ///         into the per-stamp path and lose it again — which is the obvious way to miss it, and is
-///         what <see cref="Renders" /> is for. <see cref="Draw(PaintProjection, PaintCamera, int, int)" /> is the geometry, run when the
+///         what <see cref="Renders" /> is for. <see cref="Draw(PaintProjection, PaintCamera, int, int)" /> is the
+///         geometry, run when the
 ///         camera or the pane moves; <see cref="Retexture" /> is the shading of one atlas rectangle,
 ///         run per stamp.
 ///     </para>
@@ -39,18 +47,27 @@ namespace Vixen.Texturing.Painting;
 ///         against the stamp's own footprint and not against the pane.
 ///     </para>
 ///     <para>
-///         ⚠ <b>And the bucketing itself is on the <em>stamp</em> path rather than the camera one,
-///         which is the largest single number
-///         <a href="https://github.com/Rikarin/Vixen/issues/1107">#1107</a> turned up and not the
-///         one it went looking for.</b> The counting sort is two scattered passes over the pane; at
+///         ⚠
+///         <b>
+///             And the bucketing itself is on the <em>stamp</em> path rather than the camera one,
+///             which is the largest single number
+///             <a href="https://github.com/Rikarin/Vixen/issues/1107">#1107</a> turned up and not the
+///             one it went looking for.
+///         </b>
+///         The counting sort is two scattered passes over the pane; at
 ///         1600×900 over an eighteen-thousand-triangle model it was about eight of a thirteen-
 ///         millisecond pass, more than the projection, the fill and the shade together. Its only
 ///         reader is <see cref="Retexture" />, so an orbit was rebuilding an index it never looked
-///         in. <see cref="Draw(PaintProjection, PaintCamera, int, int)" /> now marks it stale and the first stamp of a stroke pays for it.
+///         in. <see cref="Draw(PaintProjection, PaintCamera, int, int)" /> now marks it stale and the first stamp of a
+///         stroke pays for it.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Perspective-correct, because the alternative is invisible on a test fixture and
-///         wrong on a model.</b> Interpolating a coordinate linearly across a triangle in screen
+///         ⚠
+///         <b>
+///             Perspective-correct, because the alternative is invisible on a test fixture and
+///             wrong on a model.
+///         </b>
+///         Interpolating a coordinate linearly across a triangle in screen
 ///         space is exact only when the triangle faces the camera; on a cylinder seen from the side
 ///         it slides the texture towards the silhouette, and a brush aimed through this picture
 ///         would land somewhere the artist did not click. Every fixture small enough to reason about
@@ -111,12 +128,16 @@ public sealed class PaintMeshRaster {
     int[] ordered = [];
 
     /// <summary>Where each cell's run starts in <see cref="ordered" />, with a tail entry.</summary>
-    readonly int[] starts = new int[(Cells * Cells) + 1];
+    readonly int[] starts = new int[Cells * Cells + 1];
 
     /// <summary>Every projected, clipped triangle piece the pane can see, with its setup spent.</summary>
     /// <remarks>
-    ///     ⚠ <b>What makes a banded raster affordable, and the trap
-    ///     <a href="https://github.com/Rikarin/Vixen/issues/1107">#1107</a> names by name.</b> The
+    ///     ⚠
+    ///     <b>
+    ///         What makes a banded raster affordable, and the trap
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/1107">#1107</a> names by name.
+    ///     </b>
+    ///     The
     ///     obvious scanline-band raster re-runs each triangle's setup once <em>per band</em> — the
     ///     view transform, the near clip, the shade, the projection and the pane intersection — and
     ///     that setup is not negligible: #1107's own measurement found the camera basis dominating a
@@ -127,8 +148,12 @@ public sealed class PaintMeshRaster {
 
     /// <summary>Each fragment's first and last pane row, two entries per fragment.</summary>
     /// <remarks>
-    ///     ⚠ <b>Beside <see cref="fragments" /> rather than read out of it, and the reason is
-    ///     bandwidth.</b> Every band asks every fragment whether it reaches its rows; over forty
+    ///     ⚠
+    ///     <b>
+    ///         Beside <see cref="fragments" /> rather than read out of it, and the reason is
+    ///         bandwidth.
+    ///     </b>
+    ///     Every band asks every fragment whether it reaches its rows; over forty
     ///     bands that is forty passes, and a pass over the fragments themselves streams eighty-odd
     ///     bytes each where a pass over this streams eight. On an eighteen-thousand-triangle model
     ///     that is the difference between a rejection test that costs nothing and one that costs
@@ -147,13 +172,18 @@ public sealed class PaintMeshRaster {
 
     /// <summary>Whether the buckets describe geometry that has since moved.</summary>
     /// <remarks>
-    ///     ⚠ <b>What makes the index lazy, which is
-    ///     <a href="https://github.com/Rikarin/Vixen/issues/1107">#1107</a>'s largest single number
-    ///     and not where the issue expected to find it.</b> Measured at 1600×900 over an
+    ///     ⚠
+    ///     <b>
+    ///         What makes the index lazy, which is
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/1107">#1107</a>'s largest single number
+    ///         and not where the issue expected to find it.
+    ///     </b>
+    ///     Measured at 1600×900 over an
     ///     eighteen-thousand-triangle model: the whole pass is about 13 ms and the counting sort is
     ///     about 8 of them — more than the fill, the shade and the projection together. And the only
     ///     reader of the buckets is <see cref="Retexture" />, which runs per <em>stamp</em>: an orbit
-    ///     rebuilds an index it never looks in. So <see cref="Draw(PaintProjection, PaintCamera, int, int)" /> marks it stale and the first
+    ///     rebuilds an index it never looks in. So <see cref="Draw(PaintProjection, PaintCamera, int, int)" /> marks it stale
+    ///     and the first
     ///     stamp of a stroke pays for it once.
     /// </remarks>
     bool indexStale = true;
@@ -175,7 +205,8 @@ public sealed class PaintMeshRaster {
 
     /// <summary>How many geometry passes have run: doc 48's exit criterion, counted.</summary>
     /// <remarks>
-    ///     ⚠ <b>The counter a stroke is asserted against.</b> A pane that redraws the mesh per pointer move is the way this path misses the
+    ///     ⚠ <b>The counter a stroke is asserted against.</b> A pane that redraws the mesh per pointer move is the way this
+    ///     path misses the
     ///     criterion, and it is invisible in a picture — the frames look identical. Only a count
     ///     says it.
     /// </remarks>
@@ -193,8 +224,12 @@ public sealed class PaintMeshRaster {
 
     /// <summary>How many pane pixels the last geometry pass asked about.</summary>
     /// <remarks>
-    ///     ⚠ <b>Work rather than a clock, and the only instrument that can see
-    ///     <see cref="Bounds" /> stop bounding.</b> A box taken from the clamped extremes of three
+    ///     ⚠
+    ///     <b>
+    ///         Work rather than a clock, and the only instrument that can see
+    ///         <see cref="Bounds" /> stop bounding.
+    ///     </b>
+    ///     A box taken from the clamped extremes of three
     ///     corners is the whole pane whenever one corner sits on the near plane, and the picture it
     ///     produces is pixel-identical to a tight box — every extra pixel is rejected by the
     ///     barycentric test. So the cliff is invisible in a frame, invisible in a pass count, and a
@@ -205,8 +240,12 @@ public sealed class PaintMeshRaster {
 
     /// <summary>How many row bands the last geometry pass was split across. One is serial.</summary>
     /// <remarks>
-    ///     ⚠ <b>What the pass actually ran with, so that "it went parallel" is a reading rather than
-    ///     an assumption.</b> A comparison of a banded picture against a serial one is satisfied by a
+    ///     ⚠
+    ///     <b>
+    ///         What the pass actually ran with, so that "it went parallel" is a reading rather than
+    ///         an assumption.
+    ///     </b>
+    ///     A comparison of a banded picture against a serial one is satisfied by a
     ///     <see cref="BandCount" /> that has quietly started answering one everywhere — the two sides
     ///     are then the same code — and nothing in the picture would say so.
     /// </remarks>
@@ -214,8 +253,12 @@ public sealed class PaintMeshRaster {
 
     /// <summary>How many times the atlas index has been bucketed, over every pass.</summary>
     /// <remarks>
-    ///     ⚠ <b>The counter that says the counting sort is off the camera path, and it is not a
-    ///     restatement of <see cref="Renders" />.</b> An orbit is many draws and no stamps; a stroke
+    ///     ⚠
+    ///     <b>
+    ///         The counter that says the counting sort is off the camera path, and it is not a
+    ///         restatement of <see cref="Renders" />.
+    ///     </b>
+    ///     An orbit is many draws and no stamps; a stroke
     ///     is many stamps and no draws. Only a count of the <em>bucketings</em> can tell "the index
     ///     is built when a stamp needs it" from "the index is built when the geometry moves", and
     ///     the two are eight milliseconds a pointer move apart at a docked pane's size.
@@ -246,8 +289,12 @@ public sealed class PaintMeshRaster {
     /// <param name="height">How tall the pane is, in pixels.</param>
     /// <returns>Its first and last row, inclusive. The last is under the first for an empty band.</returns>
     /// <remarks>
-    ///     ⚠ <b>Every row belongs to exactly one band, and that is the property rather than a
-    ///     consequence.</b> A partition that dropped a row would leave a horizontal seam of the
+    ///     ⚠
+    ///     <b>
+    ///         Every row belongs to exactly one band, and that is the property rather than a
+    ///         consequence.
+    ///     </b>
+    ///     A partition that dropped a row would leave a horizontal seam of the
     ///     previous frame across the pane, and one that shared a row between two bands would be two
     ///     threads writing one depth slot — a race whose symptom is a few wrong pixels on some frames
     ///     and not others. Both are invisible in a picture and neither is a crash, so
@@ -288,17 +335,24 @@ public sealed class PaintMeshRaster {
     /// <exception cref="ArgumentOutOfRangeException">The pane has no area.</exception>
     /// <remarks>
     ///     <para>
-    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/1115">#1115</a>: a
-    ///         <c>Draw</c> followed by a <see cref="Texture" /> shaded the whole pane twice and threw
-    ///         the first away.</b> The clay pass writes a colour at every pane pixel and the texture
+    ///         <b>
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/1115">#1115</a>: a
+    ///             <c>Draw</c> followed by a <see cref="Texture" /> shaded the whole pane twice and threw
+    ///             the first away.
+    ///         </b>
+    ///         The clay pass writes a colour at every pane pixel and the texture
     ///         pass overwrites every one of them, so an orbit over a stack that has anything to
     ///         texture with — which is every state after the first paint layer, the ordinary one —
     ///         paid a full-pane shade for nothing. <see cref="Shaded" /> is the instrument: it was
     ///         twice the pane per camera move and is now once.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>An overload rather than a <c>Draw</c> that stopped writing the picture, because
-    ///         the clay pass is not dead code.</b> A stack with a model bound and no paint layer has
+    ///         ⚠
+    ///         <b>
+    ///             An overload rather than a <c>Draw</c> that stopped writing the picture, because
+    ///             the clay pass is not dead code.
+    ///         </b>
+    ///         A stack with a model bound and no paint layer has
     ///         no atlas at all, and the flat grey model is what says the binding worked —
     ///         <a href="https://github.com/Rikarin/Vixen/issues/1063">#1063</a>'s first milestone. It
     ///         is what a null <paramref name="atlas" /> still draws. ⚠ And <see cref="Texture" /> is
@@ -321,8 +375,12 @@ public sealed class PaintMeshRaster {
     /// <exception cref="ArgumentNullException">The mesh or the camera is null.</exception>
     /// <exception cref="ArgumentOutOfRangeException">The pane has no area, or the band count is under one.</exception>
     /// <remarks>
-    ///     ⚠ <b>The band count is a parameter so that the property can be <em>asserted</em> rather
-    ///     than argued.</b> A banded draw and a serial one are meant to be the same bytes — that is
+    ///     ⚠
+    ///     <b>
+    ///         The band count is a parameter so that the property can be <em>asserted</em> rather
+    ///         than argued.
+    ///     </b>
+    ///     A banded draw and a serial one are meant to be the same bytes — that is
     ///     the whole claim a parallel raster makes — and there is no way to check it if the count is
     ///     decided privately from <c>Environment.ProcessorCount</c> and the pane's area: a test could
     ///     only compare a draw against itself. ⚠ This is <em>not</em> a mechanism whose caller passes
@@ -403,8 +461,12 @@ public sealed class PaintMeshRaster {
     /// <returns>The whole pane, as a rectangle, or empty when nothing has been drawn.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="atlas" /> is null.</exception>
     /// <remarks>
-    ///     ⚠ <b>Also where a change of atlas size is <em>noticed</em>, though no longer where it is
-    ///     acted on.</b> A cell is decided by the <em>texel</em> a pixel reads rather than by its
+    ///     ⚠
+    ///     <b>
+    ///         Also where a change of atlas size is <em>noticed</em>, though no longer where it is
+    ///         acted on.
+    ///     </b>
+    ///     A cell is decided by the <em>texel</em> a pixel reads rather than by its
     ///     coordinate, so that the bucket a stamp looks in and the texel it compares against cannot
     ///     round differently — and that makes the index a function of the resolution. A stack edited
     ///     to a different base size therefore marks the buckets stale here, and the first
@@ -445,8 +507,12 @@ public sealed class PaintMeshRaster {
     ///         bounding box — which is what <c>IEditorGraphics.Update</c> takes.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>An atlas of a size the index was not built for falls back to the whole pane
-    ///         rather than answering from a stale bucketing.</b> That is a real state — a stack's
+    ///         ⚠
+    ///         <b>
+    ///             An atlas of a size the index was not built for falls back to the whole pane
+    ///             rather than answering from a stale bucketing.
+    ///         </b>
+    ///         That is a real state — a stack's
     ///         base resolution is an edit an artist makes with the pointer up — and the alternative
     ///         is a pane that goes on showing the old texels in the places the new size moved.
     ///     </para>
@@ -486,8 +552,8 @@ public sealed class PaintMeshRaster {
         var maximumY = int.MinValue;
 
         for (var row = lowRow; row <= highRow; row++) {
-            var first = starts[(row * Cells) + lowColumn];
-            var last = starts[(row * Cells) + highColumn + 1];
+            var first = starts[row * Cells + lowColumn];
+            var last = starts[row * Cells + highColumn + 1];
 
             // ⚠ One run per cell *row* rather than one per cell: the buckets of a row are contiguous
             // in `ordered` by construction, so the columns between the two ends are already covered
@@ -523,22 +589,20 @@ public sealed class PaintMeshRaster {
     /// <param name="x">Its column.</param>
     /// <param name="y">Its row.</param>
     /// <returns>The triangle, or -1 for background and for a pixel outside the pane.</returns>
-    public int Triangle(int x, int y) =>
-        x < 0 || y < 0 || x >= Width || y >= Height ? -1 : triangles[(y * Width) + x];
+    public int Triangle(int x, int y) => x < 0 || y < 0 || x >= Width || y >= Height ? -1 : triangles[y * Width + x];
 
     /// <summary>What coordinate a pane pixel reads, in the unit square.</summary>
     /// <param name="x">Its column.</param>
     /// <param name="y">Its row.</param>
     /// <returns>The coordinate, or the origin for a pixel showing nothing.</returns>
     public Vector2 Coordinate(int x, int y) =>
-        x < 0 || y < 0 || x >= Width || y >= Height ? Vector2.Zero : coordinates[(y * Width) + x];
+        x < 0 || y < 0 || x >= Width || y >= Height ? Vector2.Zero : coordinates[y * Width + x];
 
     /// <summary>Which cell of the index a texel falls in, along one axis.</summary>
     /// <param name="texel">The texel's column or row.</param>
     /// <param name="extent">How many there are along that axis.</param>
     /// <returns>The cell, always in range.</returns>
-    static int Cell(int texel, int extent) =>
-        Math.Clamp(texel * Cells / Math.Max(extent, 1), 0, Cells - 1);
+    static int Cell(int texel, int extent) => Math.Clamp(texel * Cells / Math.Max(extent, 1), 0, Cells - 1);
 
     /// <summary>Grows the buffers to a pane size, keeping them when it has not changed.</summary>
     /// <param name="width">How wide.</param>
@@ -580,8 +644,12 @@ public sealed class PaintMeshRaster {
     /// <returns>Whether the triangle reaches the pane at all.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Taking the extremes of the three corners and clamping them is not this, and the
-    ///         difference is a cost cliff rather than a wrong picture.</b> A corner the near clip
+    ///         ⚠
+    ///         <b>
+    ///             Taking the extremes of the three corners and clamping them is not this, and the
+    ///             difference is a cost cliff rather than a wrong picture.
+    ///         </b>
+    ///         A corner the near clip
     ///         wrote onto the plane projects to tens of thousands of pixels — the plane is a
     ///         ten-thousandth of the framed radius, so the divide is by a very small number — and
     ///         one such corner sends the clamped box to the whole pane whatever the triangle
@@ -654,7 +722,7 @@ public sealed class PaintMeshRaster {
                 var end = side < 2 ? to.X : to.Y;
 
                 // The two sides differ, so the denominator cannot be zero.
-                clipped[written] = from + ((to - from) * ((limit - start) / (end - start)));
+                clipped[written] = from + (to - from) * ((limit - start) / (end - start));
                 written++;
             }
 
@@ -689,12 +757,13 @@ public sealed class PaintMeshRaster {
     /// <param name="side">Which edge: left, right, top, then bottom.</param>
     /// <param name="limit">Where that edge is.</param>
     /// <returns>Whether the corner survives that edge.</returns>
-    static bool Keeps(Vector2 point, int side, float limit) => side switch {
-        0 => point.X >= limit,
-        1 => point.X <= limit,
-        2 => point.Y >= limit,
-        _ => point.Y <= limit,
-    };
+    static bool Keeps(Vector2 point, int side, float limit) =>
+        side switch {
+            0 => point.X >= limit,
+            1 => point.X <= limit,
+            2 => point.Y >= limit,
+            _ => point.Y <= limit,
+        };
 
     /// <summary>Cuts a triangle against the near plane, in the camera's own frame.</summary>
     /// <param name="corners">
@@ -706,9 +775,12 @@ public sealed class PaintMeshRaster {
     /// <returns>How many corners the polygon has: nought, three or four, and never one or two.</returns>
     /// <remarks>
     ///     <para>
-    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/1105">#1105</a>: what the
-    ///         rasteriser did before this was <em>drop</em> a triangle with any corner behind the
-    ///         eye.</b> ⚠ That could not paint anything wrong — a pane pixel with no triangle takes
+    ///         <b>
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/1105">#1105</a>: what the
+    ///             rasteriser did before this was <em>drop</em> a triangle with any corner behind the
+    ///             eye.
+    ///         </b>
+    ///         ⚠ That could not paint anything wrong — a pane pixel with no triangle takes
     ///         no stroke, and the brush's raycast never goes through the projection at all — so the
     ///         symptom was geometry vanishing rather than paint landing in the wrong place. It is
     ///         reachable wherever the eye can get inside the surface, which is every open shell, room
@@ -716,15 +788,23 @@ public sealed class PaintMeshRaster {
     ///         the framed <em>sphere</em> and only keeps the eye outside a convex model.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Sutherland–Hodgman against one plane, which is one case and not the four the
-    ///         old remark feared.</b> Walking the three edges and emitting a corner when it is in
+    ///         ⚠
+    ///         <b>
+    ///             Sutherland–Hodgman against one plane, which is one case and not the four the
+    ///             old remark feared.
+    ///         </b>
+    ///         Walking the three edges and emitting a corner when it is in
     ///         front plus a crossing whenever an edge changes side covers "one in", "two in" and
     ///         "all in" without naming any of them — and a triangle wholly behind emits nothing,
     ///         which is the only way to get fewer than three back.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A crossing's depth is written as <paramref name="near" /> and not as the lerp's
-    ///         answer.</b> The two differ by a float's worth, and the rasteriser divides by that
+    ///         ⚠
+    ///         <b>
+    ///             A crossing's depth is written as <paramref name="near" /> and not as the lerp's
+    ///             answer.
+    ///         </b>
+    ///         The two differ by a float's worth, and the rasteriser divides by that
     ///         depth: a corner that landed a rounding <em>short</em> of the plane would be a corner
     ///         the projection was told never to receive, at a reciprocal depth several times larger
     ///         than the one the clip was chosen to bound.
@@ -760,8 +840,8 @@ public sealed class PaintMeshRaster {
             // The two sides differ, so the denominator cannot be zero.
             var t = (near - from.Z) / (to.Z - from.Z);
 
-            corners[count] = new(from.X + ((to.X - from.X) * t), from.Y + ((to.Y - from.Y) * t), near);
-            layout[count] = coordinates[edge] + ((coordinates[next] - coordinates[edge]) * t);
+            corners[count] = new(from.X + (to.X - from.X) * t, from.Y + (to.Y - from.Y) * t, near);
+            layout[count] = coordinates[edge] + (coordinates[next] - coordinates[edge]) * t;
             count++;
         }
 
@@ -776,8 +856,12 @@ public sealed class PaintMeshRaster {
     /// <returns>The shade, 0…1.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The edges are normalised <em>before</em> the cross product, and that is the whole
-    ///         of why this works on a small model.</b> A cross product falls as the square of the
+    ///         ⚠
+    ///         <b>
+    ///             The edges are normalised <em>before</em> the cross product, and that is the whole
+    ///             of why this works on a small model.
+    ///         </b>
+    ///         A cross product falls as the square of the
     ///         model — two edges of a 0.001-unit triangle give a normal of length 1e-6, which is
     ///         exactly where <c>Vector3.Normalize</c> gives up and answers a zero vector. The cross
     ///         of two <em>unit</em> vectors is the sine of the angle between them, which is a
@@ -808,7 +892,7 @@ public sealed class PaintMeshRaster {
             return 1f;
         }
 
-        return Ambient + ((1f - Ambient) * MathF.Abs(Vector3.Dot(normal / length, forward)));
+        return Ambient + (1f - Ambient) * MathF.Abs(Vector3.Dot(normal / length, forward));
     }
 
     /// <summary>Projects, clips and shades every triangle into <see cref="fragments" />.</summary>
@@ -906,8 +990,12 @@ public sealed class PaintMeshRaster {
     /// <param name="ub">The second's.</param>
     /// <param name="uc">The third's.</param>
     /// <remarks>
-    ///     ⚠ <b><see cref="Examined" /> is added here and not in <see cref="Fill" />, which is what
-    ///     keeps it the number it was.</b> It counts the pixels the pass <em>asks about</em> — the
+    ///     ⚠
+    ///     <b>
+    ///         <see cref="Examined" /> is added here and not in <see cref="Fill" />, which is what
+    ///         keeps it the number it was.
+    ///     </b>
+    ///     It counts the pixels the pass <em>asks about</em> — the
     ///     instrument that can see <see cref="Bounds" /> stop bounding — and a band that clipped the
     ///     box to its own rows would count the same triangle once per band it reaches, so the same
     ///     picture would report a different figure at a different band count.
@@ -925,7 +1013,7 @@ public sealed class PaintMeshRaster {
         Vector2 ub,
         Vector2 uc
     ) {
-        var area = ((pb.X - pa.X) * (pc.Y - pa.Y)) - ((pb.Y - pa.Y) * (pc.X - pa.X));
+        var area = (pb.X - pa.X) * (pc.Y - pa.Y) - (pb.Y - pa.Y) * (pc.X - pa.X);
 
         if (!(MathF.Abs(area) > 1e-9f) || !float.IsFinite(area)) {
             return;
@@ -955,7 +1043,7 @@ public sealed class PaintMeshRaster {
         };
 
         spans[fragmentCount * 2] = lowY;
-        spans[(fragmentCount * 2) + 1] = highY;
+        spans[fragmentCount * 2 + 1] = highY;
         fragmentCount++;
     }
 
@@ -963,8 +1051,12 @@ public sealed class PaintMeshRaster {
     /// <param name="lowRow">The band's first row.</param>
     /// <param name="highRow">Its last, inclusive.</param>
     /// <remarks>
-    ///     ⚠ <b>What makes this safe to run on several threads is that a band owns its rows and every
-    ///     buffer here is addressed by <c>row × Width + column</c>.</b> No two bands can reach one
+    ///     ⚠
+    ///     <b>
+    ///         What makes this safe to run on several threads is that a band owns its rows and every
+    ///         buffer here is addressed by <c>row × Width + column</c>.
+    ///     </b>
+    ///     No two bands can reach one
     ///     slot of <c>depths</c>, <c>triangles</c>, <c>shades</c> or <c>coordinates</c>, so there is
     ///     nothing to interlock and nothing to tear — and the fragments are read-only by now. ⚠ It is
     ///     also <em>deterministic</em>: fragments are visited in projection order within a band, so a
@@ -978,7 +1070,7 @@ public sealed class PaintMeshRaster {
 
         for (var index = 0; index < fragmentCount; index++) {
             var top = spans[index * 2];
-            var bottom = spans[(index * 2) + 1];
+            var bottom = spans[index * 2 + 1];
 
             if (bottom < lowRow || top > highRow) {
                 continue;
@@ -1010,8 +1102,8 @@ public sealed class PaintMeshRaster {
 
         for (var y = fromRow; y <= toRow; y++) {
             for (var x = fragment.LowX; x <= fragment.HighX; x++) {
-                var weightA = (((pb.X - x) * (pc.Y - y)) - ((pb.Y - y) * (pc.X - x))) * inverse;
-                var weightB = (((pc.X - x) * (pa.Y - y)) - ((pc.Y - y) * (pa.X - x))) * inverse;
+                var weightA = ((pb.X - x) * (pc.Y - y) - (pb.Y - y) * (pc.X - x)) * inverse;
+                var weightB = ((pc.X - x) * (pa.Y - y) - (pc.Y - y) * (pa.X - x)) * inverse;
                 var weightC = 1f - weightA - weightB;
 
                 if (weightA < 0f || weightB < 0f || weightC < 0f) {
@@ -1020,8 +1112,8 @@ public sealed class PaintMeshRaster {
 
                 // The z-buffer holds *reciprocal* depth, which is the quantity that is linear in
                 // screen space — and the nearer surface is the larger one, so the test is a maximum.
-                var reciprocal = (weightA * invA) + (weightB * invB) + (weightC * invC);
-                var slot = (y * Width) + x;
+                var reciprocal = weightA * invA + weightB * invB + weightC * invC;
+                var slot = y * Width + x;
 
                 if (!(reciprocal > depths[slot])) {
                     continue;
@@ -1032,9 +1124,9 @@ public sealed class PaintMeshRaster {
                 shades[slot] = fragment.Shade;
 
                 coordinates[slot] =
-                    ((fragment.Ua * weightA * invA)
-                        + (fragment.Ub * weightB * invB)
-                        + (fragment.Uc * weightC * invC))
+                    (fragment.Ua * weightA * invA
+                        + fragment.Ub * weightB * invB
+                        + fragment.Uc * weightC * invC)
                     / reciprocal;
             }
         }
@@ -1058,7 +1150,7 @@ public sealed class PaintMeshRaster {
         }
 
         var covered = 0;
-        var last = ((highRow + 1) * Width) - 1;
+        var last = (highRow + 1) * Width - 1;
 
         for (var pixel = lowRow * Width; pixel <= last; pixel++) {
             if (triangles[pixel] < 0) {
@@ -1110,7 +1202,7 @@ public sealed class PaintMeshRaster {
 
             Texel(pixel, atlasWidth, atlasHeight, out var x, out var y);
 
-            starts[(Cell(y, atlasHeight) * Cells) + Cell(x, atlasWidth) + 1]++;
+            starts[Cell(y, atlasHeight) * Cells + Cell(x, atlasWidth) + 1]++;
         }
 
         for (var cell = 1; cell < starts.Length; cell++) {
@@ -1128,7 +1220,7 @@ public sealed class PaintMeshRaster {
 
             Texel(pixel, atlasWidth, atlasHeight, out var x, out var y);
 
-            ordered[cursor[(Cell(y, atlasHeight) * Cells) + Cell(x, atlasWidth)]++] = pixel;
+            ordered[cursor[Cell(y, atlasHeight) * Cells + Cell(x, atlasWidth)]++] = pixel;
         }
     }
 
@@ -1139,8 +1231,12 @@ public sealed class PaintMeshRaster {
     /// <param name="x">Its column, always inside the atlas.</param>
     /// <param name="y">Its row.</param>
     /// <remarks>
-    ///     ⚠ <b>Clamped, and the same clamped answer is what <see cref="Retexture" /> tests against
-    ///     the dirty rectangle.</b> A coordinate outside the unit square — an authored layout that
+    ///     ⚠
+    ///     <b>
+    ///         Clamped, and the same clamped answer is what <see cref="Retexture" /> tests against
+    ///         the dirty rectangle.
+    ///     </b>
+    ///     A coordinate outside the unit square — an authored layout that
     ///     tiles, a corner the packer put over the edge — reads the border texel; if membership were
     ///     decided on the raw coordinate instead, that pixel would sample a texel it is never told
     ///     has changed, and one column of the pane would stay stale for the whole stroke.
@@ -1157,8 +1253,12 @@ public sealed class PaintMeshRaster {
     /// <param name="pixel">The pane pixel, row-major.</param>
     /// <returns>The colour, opaque.</returns>
     /// <remarks>
-    ///     ⚠ <b>Composited over the background rather than shaded straight, because the atlas is a
-    ///     paint layer and most of it is transparent.</b> A stroke's coverage lives in alpha, and a
+    ///     ⚠
+    ///     <b>
+    ///         Composited over the background rather than shaded straight, because the atlas is a
+    ///         paint layer and most of it is transparent.
+    ///     </b>
+    ///     A stroke's coverage lives in alpha, and a
     ///     pane that multiplied colour by shade and threw the alpha away would show a black model
     ///     with a coloured stroke on it — where what an artist needs to see is the stroke's own edge
     ///     against the surface, which is exactly the thing the alpha carries.
@@ -1170,13 +1270,13 @@ public sealed class PaintMeshRaster {
         var alpha = PaintImage.Channel(texel, 3);
         var shade = shades[pixel];
 
-        var r = ((PaintImage.Channel(texel, 0) * alpha) + (PaintImage.Channel(Background, 0) * (1f - alpha)))
+        var r = (PaintImage.Channel(texel, 0) * alpha + PaintImage.Channel(Background, 0) * (1f - alpha))
             * shade;
 
-        var g = ((PaintImage.Channel(texel, 1) * alpha) + (PaintImage.Channel(Background, 1) * (1f - alpha)))
+        var g = (PaintImage.Channel(texel, 1) * alpha + PaintImage.Channel(Background, 1) * (1f - alpha))
             * shade;
 
-        var b = ((PaintImage.Channel(texel, 2) * alpha) + (PaintImage.Channel(Background, 2) * (1f - alpha)))
+        var b = (PaintImage.Channel(texel, 2) * alpha + PaintImage.Channel(Background, 2) * (1f - alpha))
             * shade;
 
         return PaintImage.Pack(r, g, b, 1f);
@@ -1184,8 +1284,12 @@ public sealed class PaintMeshRaster {
 
     /// <summary>One projected triangle piece, with everything the fill needs already computed.</summary>
     /// <remarks>
-    ///     ⚠ <b>A struct in a pre-sized array rather than a record in a list, and the reason is that
-    ///     an orbit is a frame loop.</b> A pane redraw happens per pointer move; a model-sized mesh
+    ///     ⚠
+    ///     <b>
+    ///         A struct in a pre-sized array rather than a record in a list, and the reason is that
+    ///         an orbit is a frame loop.
+    ///     </b>
+    ///     A pane redraw happens per pointer move; a model-sized mesh
     ///     produces tens of thousands of these, and an allocation each would be the defect
     ///     <c>Picture</c>'s own remark exists to avoid, one dimension smaller and one order more
     ///     often. The array is grown to the mesh's worst case once and reused.

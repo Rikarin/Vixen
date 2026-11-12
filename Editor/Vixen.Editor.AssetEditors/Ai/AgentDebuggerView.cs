@@ -40,8 +40,12 @@ public sealed partial class AgentDebuggerView;
 /// <param name="Name">The entity, as it prints itself.</param>
 /// <param name="Selected">Whether this is the one the detail pane is about.</param>
 /// <remarks>
-///     ⚠ <b><see cref="Selected" /> is in the key because it decides whether the row has a second
-///     child.</b> The bullet is an element that is there or is not, so a surviving key would keep the
+///     ⚠
+///     <b>
+///         <see cref="Selected" /> is in the key because it decides whether the row has a second
+///         child.
+///     </b>
+///     The bullet is an element that is there or is not, so a surviving key would keep the
 ///     bullet on whichever agent was selected when the row first appeared.
 /// </remarks>
 internal readonly record struct AgentListRow(int Slot, string Name, bool Selected);
@@ -75,8 +79,12 @@ internal readonly record struct AgentHeadRow(
 /// <param name="Name">What it is called.</param>
 /// <param name="Value">And what it reads.</param>
 /// <remarks>
-///     ⚠ <b><see cref="Active" /> is in the key and that is the whole of this panel's <c>@for</c>
-///     risk.</b> <c>agent-row-live</c> is a *tag*, not a class, so the choice is an <c>@if</c> inside
+///     ⚠
+///     <b>
+///         <see cref="Active" /> is in the key and that is the whole of this panel's <c>@for</c>
+///         risk.
+///     </b>
+///     <c>agent-row-live</c> is a *tag*, not a class, so the choice is an <c>@if</c> inside
 ///     the loop body and a surviving key would never re-run it. On a flapping agent — the case the
 ///     debugger exists for — the highlight would sit on whichever candidate was live on the frame the
 ///     panel opened, while every value beside it updated correctly.

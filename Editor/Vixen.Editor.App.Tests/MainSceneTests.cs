@@ -15,7 +15,7 @@ public sealed class MainSceneTests : IDisposable {
 
     public void Dispose() {
         try {
-            Directory.Delete(root, recursive: true);
+            Directory.Delete(root, true);
         } catch (IOException) {
             // A file the OS has not let go of. Not what is under test.
         }
@@ -23,7 +23,7 @@ public sealed class MainSceneTests : IDisposable {
 
     [Fact]
     public void A_first_run_seeds_and_writes_and_the_second_reads_what_it_wrote() {
-        var project = new EditorProject(new ProjectPaths(root));
+        var project = new EditorProject(new(root));
         var path = MainScene.PathIn(project.Paths);
 
         using var first = new World("First");
@@ -31,7 +31,10 @@ public sealed class MainSceneTests : IDisposable {
 
         Assert.True(MainScene.LoadOrSeed(seeded, path, project));
         Assert.True(File.Exists(path));
-        Assert.Contains(project.Assets.Entries, entry => entry.Path.EndsWith("Main" + SceneSerializer.Extension, StringComparison.Ordinal));
+        Assert.Contains(
+            project.Assets.Entries,
+            static entry => entry.Path.EndsWith("Main" + SceneSerializer.Extension, StringComparison.Ordinal)
+        );
         Assert.False(seeded.HasUnsavedChanges.Value);
 
         using var second = new World("Second");

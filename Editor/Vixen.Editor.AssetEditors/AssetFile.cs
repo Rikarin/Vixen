@@ -56,6 +56,6 @@ public static class AssetFile {
         var temporary = path + ".tmp";
 
         File.WriteAllText(temporary, normalised);
-        File.Move(temporary, path, overwrite: true);
+        File.Move(temporary, path, true);
     }
 }

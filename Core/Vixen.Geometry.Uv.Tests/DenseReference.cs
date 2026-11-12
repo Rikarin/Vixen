@@ -34,31 +34,31 @@ static class DenseReference {
             var best = pivot;
 
             for (var row = pivot + 1; row < size; row++) {
-                if (Math.Abs(work[(row * size) + pivot]) > Math.Abs(work[(best * size) + pivot])) {
+                if (Math.Abs(work[row * size + pivot]) > Math.Abs(work[best * size + pivot])) {
                     best = row;
                 }
             }
 
             if (best != pivot) {
                 for (var column = 0; column < size; column++) {
-                    (work[(pivot * size) + column], work[(best * size) + column]) =
-                        (work[(best * size) + column], work[(pivot * size) + column]);
+                    (work[pivot * size + column], work[best * size + column]) =
+                        (work[best * size + column], work[pivot * size + column]);
                 }
 
                 (answer[pivot], answer[best]) = (answer[best], answer[pivot]);
             }
 
-            var diagonal = work[(pivot * size) + pivot];
+            var diagonal = work[pivot * size + pivot];
 
             for (var row = pivot + 1; row < size; row++) {
-                var factor = work[(row * size) + pivot] / diagonal;
+                var factor = work[row * size + pivot] / diagonal;
 
                 if (factor == 0d) {
                     continue;
                 }
 
                 for (var column = pivot; column < size; column++) {
-                    work[(row * size) + column] -= factor * work[(pivot * size) + column];
+                    work[row * size + column] -= factor * work[pivot * size + column];
                 }
 
                 answer[row] -= factor * answer[pivot];
@@ -69,10 +69,10 @@ static class DenseReference {
             var sum = answer[row];
 
             for (var column = row + 1; column < size; column++) {
-                sum -= work[(row * size) + column] * answer[column];
+                sum -= work[row * size + column] * answer[column];
             }
 
-            answer[row] = sum / work[(row * size) + row];
+            answer[row] = sum / work[row * size + row];
         }
 
         return answer;
@@ -87,14 +87,14 @@ static class DenseReference {
 
         for (var row = 0; row < size; row++) {
             for (var column = 0; column <= row; column++) {
-                var sum = matrix[(row * size) + column];
+                var sum = matrix[row * size + column];
 
                 for (var index = 0; index < column; index++) {
-                    sum -= factor[(row * size) + index] * factor[(column * size) + index];
+                    sum -= factor[row * size + index] * factor[column * size + index];
                 }
 
                 if (column < row) {
-                    factor[(row * size) + column] = sum / factor[(column * size) + column];
+                    factor[row * size + column] = sum / factor[column * size + column];
                     continue;
                 }
 
@@ -102,7 +102,7 @@ static class DenseReference {
                     return false;
                 }
 
-                factor[(row * size) + row] = Math.Sqrt(sum);
+                factor[row * size + row] = Math.Sqrt(sum);
             }
         }
 
@@ -118,8 +118,8 @@ static class DenseReference {
 
         for (var row = 0; row < size; row++) {
             for (var column = 0; column < size; column++) {
-                if (matrix[(row * size) + column] != 0d) {
-                    builder.Add(row, column, matrix[(row * size) + column]);
+                if (matrix[row * size + column] != 0d) {
+                    builder.Add(row, column, matrix[row * size + column]);
                 }
             }
         }

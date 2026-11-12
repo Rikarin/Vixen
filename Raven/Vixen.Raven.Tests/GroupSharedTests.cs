@@ -90,13 +90,13 @@ public class GroupSharedTests {
         var compilation = Compilation.Create("Test", SyntaxTree.ParseText(source, path: "Test.rvn"));
         var semantic = compilation.GetDiagnostics();
 
-        if (semantic.Any(d => d.IsError)) {
+        if (semantic.Any(static d => d.IsError)) {
             return semantic;
         }
 
         var bag = new DiagnosticBag();
         Lowerer.Lower(compilation, bag);
-        return [.. semantic, .. bag];
+        return [..semantic, ..bag];
     }
 
     static IrModule Lower(string source) {
@@ -106,7 +106,7 @@ public class GroupSharedTests {
         var bag = new DiagnosticBag();
         var module = Lowerer.Lower(compilation, bag);
         IrVerifier.Verify(module, bag);
-        Assert.True(bag.IsEmpty, string.Join("\n", bag.Select(d => d.ToString())));
+        Assert.True(bag.IsEmpty, string.Join("\n", bag.Select(static d => d.ToString())));
 
         return module;
     }
@@ -156,8 +156,8 @@ public class GroupSharedTests {
     public void Group_shared_storage_is_not_a_binding() {
         var shader = Assert.Single(Lower(Reduce).Shaders);
 
-        Assert.DoesNotContain(shader.Bindings, binding => binding.Name == "tile");
-        Assert.Equal(["input", "output"], shader.Bindings.Select(b => b.Name).ToArray());
+        Assert.DoesNotContain(shader.Bindings, static binding => binding.Name == "tile");
+        Assert.Equal(["input", "output"], shader.Bindings.Select(static b => b.Name).ToArray());
 
         var shared = Assert.Single(shader.SharedVariables);
         Assert.Equal("tile", shared.Name);
@@ -177,15 +177,17 @@ public class GroupSharedTests {
         Assert.Empty(Compile(Allocate));
 
         var module = Lower(Allocate);
-        var atomic = Assert.Single(Flatten(LoweringTestBase.FindFunction(module, "Main").Body)
-            .OfType<IrAtomicInstruction>());
+        var atomic = Assert.Single(
+            Flatten(LoweringTestBase.FindFunction(module, "Main").Body)
+                .OfType<IrAtomicInstruction>()
+        );
 
         // A place, not a loaded value — the same invariant a resource atomic has, and for the same
         // reason: nothing done to a copy is indivisible.
         Assert.Equal("head", atomic.Place.Root.Name);
         Assert.DoesNotContain(
             Flatten(LoweringTestBase.FindFunction(module, "Main").Body).OfType<IrLoadInstruction>(),
-            load => load.Place.Root.Name == "head"
+            static load => load.Place.Root.Name == "head"
         );
     }
 
@@ -219,7 +221,7 @@ public class GroupSharedTests {
             """
         );
 
-        Assert.Contains(diagnostics, d => d.Id == "RVN2131" && d.IsError);
+        Assert.Contains(diagnostics, static d => d.Id == "RVN2131" && d.IsError);
     }
 
     // --- The stage rule ----------------------------------------------------
@@ -253,7 +255,7 @@ public class GroupSharedTests {
               """
         );
 
-        Assert.Contains(diagnostics, d => d.Id == "RVN3012" && d.IsError);
+        Assert.Contains(diagnostics, static d => d.Id == "RVN3012" && d.IsError);
     }
 
     /// <summary>
@@ -281,7 +283,7 @@ public class GroupSharedTests {
             """
         );
 
-        Assert.Contains(diagnostics, d => d.Id == "RVN3012" && d.IsError);
+        Assert.Contains(diagnostics, static d => d.Id == "RVN3012" && d.IsError);
     }
 
     /// <summary>
@@ -311,10 +313,10 @@ public class GroupSharedTests {
         );
 
         var shader = Assert.Single(module.Shaders);
-        Assert.Equal(["used", "unused"], shader.SharedVariables.Select(s => s.Name).ToArray());
+        Assert.Equal(["used", "unused"], shader.SharedVariables.Select(static s => s.Name).ToArray());
 
         var entryPoint = Assert.Single(shader.EntryPoints);
-        Assert.Equal(["used"], entryPoint.SharedVariables.Select(s => s.Name).ToArray());
+        Assert.Equal(["used"], entryPoint.SharedVariables.Select(static s => s.Name).ToArray());
     }
 
     // --- The backends ------------------------------------------------------
@@ -358,7 +360,7 @@ public class GroupSharedTests {
 
         var line = Assert.Single(
             listing.Split('\n'),
-            l => l.Contains("OpControlBarrier", StringComparison.Ordinal)
+            static l => l.Contains("OpControlBarrier", StringComparison.Ordinal)
         );
 
         // OpControlBarrier %execution %memory %semantics
@@ -388,12 +390,12 @@ public class GroupSharedTests {
 
         var entry = Assert.Single(
             listing.Split('\n'),
-            l => l.Contains("OpEntryPoint", StringComparison.Ordinal)
+            static l => l.Contains("OpEntryPoint", StringComparison.Ordinal)
         );
 
         var shared = Assert.Single(
-            listing.Split('\n').Select(l => l.Trim()),
-            l => l.Contains("OpVariable", StringComparison.Ordinal)
+            listing.Split('\n').Select(static l => l.Trim()),
+            static l => l.Contains("OpVariable", StringComparison.Ordinal)
                 && l.EndsWith(" Workgroup", StringComparison.Ordinal)
         );
 
@@ -474,7 +476,7 @@ public class GroupSharedTests {
     /// <summary>The value an <c>OpConstant</c> with this id was given.</summary>
     static int ConstantNamed(string listing, string id) {
         var line = Assert.Single(
-            listing.Split('\n').Select(l => l.Trim()),
+            listing.Split('\n').Select(static l => l.Trim()),
             l => l.StartsWith(id + " = OpConstant ", StringComparison.Ordinal)
         );
 
@@ -509,7 +511,8 @@ public class GroupSharedTests {
             case IrLoopStatement loop: {
                 IrBlock?[] parts = [loop.Condition, loop.Body, loop.Continue];
 
-                foreach (var nested in parts.Where(part => part is not null).SelectMany(part => Flatten(part!))) {
+                foreach (var nested in parts.Where(static part => part is not null)
+                             .SelectMany(static part => Flatten(part!))) {
                     yield return nested;
                 }
 

@@ -300,6 +300,5 @@ public sealed class SilentCatchAnalyzerTests {
         Assert.Equal(2, diagnostics.Length);
     }
 
-    static Task<ImmutableArray<Diagnostic>> RunAsync(string body) =>
-        AnalyzerHarness.RunAsync(Scaffold + body);
+    static Task<ImmutableArray<Diagnostic>> RunAsync(string body) => AnalyzerHarness.RunAsync(Scaffold + body);
 }

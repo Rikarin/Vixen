@@ -5,7 +5,6 @@ using Vixen.Core.Imaging;
 using Vixen.Core.Mathematics;
 using Vixen.Rendering;
 using Vixen.Rendering.Compositor;
-using Vixen.Rendering.PostFx;
 using Vixen.Ui;
 using Vixen.Ui.Desktop;
 using Vixen.Ui.Renderer;
@@ -36,19 +35,29 @@ namespace Vixen.Graphics.Golden.Tests;
 ///         frame with nothing mounted is the backdrop, and against it
 ///     </para>
 ///     <list type="bullet">
-///         <item><description>
-///             an opaque panel is its own colour and nothing of the scene — magenta, which the scene
-///             is not;
-///         </description></item>
-///         <item><description>
-///             a white panel at half opacity with a red box inside it is <c>0.5 · colour + 0.5 ·
-///             backdrop</c> in linear light, per pixel, where the colour is red over the box and white
-///             elsewhere — the red does not show the white through, which is what a group is, and the
-///             flat walk that skips <c>Compose</c> draws both at full strength;
-///         </description></item>
-///         <item><description>
-///             and every pixel away from both is the scene, unchanged.
-///         </description></item>
+///         <item>
+///             <description>
+///                 an opaque panel is its own colour and nothing of the scene — magenta, which the scene
+///                 is not;
+///             </description>
+///         </item>
+///         <item>
+///             <description>
+///                 a white panel at half opacity with a red box inside it is
+///                 <c>
+///                     0.5 · colour + 0.5 ·
+///                     backdrop
+///                 </c>
+///                 in linear light, per pixel, where the colour is red over the box and white
+///                 elsewhere — the red does not show the white through, which is what a group is, and the
+///                 flat walk that skips <c>Compose</c> draws both at full strength;
+///             </description>
+///         </item>
+///         <item>
+///             <description>
+///                 and every pixel away from both is the scene, unchanged.
+///             </description>
+///         </item>
 ///     </list>
 /// </remarks>
 [Collection("Vulkan")]
@@ -215,11 +224,18 @@ public sealed class InterfaceOverASceneDeviceTests {
         Assert.True(composited > 0, "the faded panel's group was never composed into a surface of its own");
     }
 
-    /// <summary>A multiplied panel at the top level of a HUD, over the 3-D scene: the picture #1378 describes, and its counter.</summary>
+    /// <summary>
+    ///     A multiplied panel at the top level of a HUD, over the 3-D scene: the picture #1378 describes, and its
+    ///     counter.
+    /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>This pins a defect, so that the day it is fixed is a red line and not a
-    ///         silence.</b> <c>WorldRenderer.Draw</c> composes the interface before the scene is
+    ///         ⚠
+    ///         <b>
+    ///             This pins a defect, so that the day it is fixed is a red line and not a
+    ///             silence.
+    ///         </b>
+    ///         <c>WorldRenderer.Draw</c> composes the interface before the scene is
     ///         drawn, so the panel's blend capture holds the interface over transparent black, a
     ///         backdrop of alpha zero weights § 5.1 to nothing, and the panel lands source-over on the
     ///         world: its own grey, where <c>multiply</c> would have darkened the scene by it. The
@@ -309,7 +325,8 @@ public sealed class InterfaceOverASceneDeviceTests {
                 B: Encode(Decode(Grey) * Decode(under.B))
             );
 
-            if (Math.Max(Math.Abs(right.R - Grey), Math.Max(Math.Abs(right.G - Grey), Math.Abs(right.B - Grey))) >= 10) {
+            if (Math.Max(Math.Abs(right.R - Grey), Math.Max(Math.Abs(right.G - Grey), Math.Abs(right.B - Grey)))
+                >= 10) {
                 distinguishable++;
             }
 
@@ -332,7 +349,10 @@ public sealed class InterfaceOverASceneDeviceTests {
 
         // And its visibility: the renderer's counters say a correct blend happened; the feature's says
         // the backdrop had no scene in it.
-        Assert.True(blended > 0, "the panel never went through UiBlend, so this is not the arrangement #1378 describes");
+        Assert.True(
+            blended > 0,
+            "the panel never went through UiBlend, so this is not the arrangement #1378 describes"
+        );
         Assert.Equal(0, unblended);
         Assert.Equal(1, sceneless);
     }
@@ -403,8 +423,12 @@ public sealed class InterfaceOverASceneDeviceTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The inversion <see cref="ATopLevelBlendedHudPanelLandsSourceOverTheSceneAndIsCountedAsSeeingNone" />
-    ///         was written to become, run beside it rather than in place of it.</b> The node is a
+    ///         ⚠
+    ///         <b>
+    ///             The inversion <see cref="ATopLevelBlendedHudPanelLandsSourceOverTheSceneAndIsCountedAsSeeingNone" />
+    ///             was written to become, run beside it rather than in place of it.
+    ///         </b>
+    ///         The node is a
     ///         document's choice — a frame whose output is the swapchain cannot sample it — so the
     ///         prologue's scene-blind compose is still what a frame without one gets, and that test
     ///         still pins it. This one is the fix: the capture holds the scene, § 5.1 weights the
@@ -453,7 +477,8 @@ public sealed class InterfaceOverASceneDeviceTests {
                 B: Encode(Decode(Grey) * Decode(under.B))
             );
 
-            if (Math.Max(Math.Abs(right.R - Grey), Math.Max(Math.Abs(right.G - Grey), Math.Abs(right.B - Grey))) >= 10) {
+            if (Math.Max(Math.Abs(right.R - Grey), Math.Max(Math.Abs(right.G - Grey), Math.Abs(right.B - Grey)))
+                >= 10) {
                 distinguishable++;
             }
 
@@ -487,8 +512,12 @@ public sealed class InterfaceOverASceneDeviceTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Both halves on the device, in one test, because the "before" is the defect's own
-    ///         picture.</b> Composed in the prologue, the panel's capture is the interface over
+    ///         ⚠
+    ///         <b>
+    ///             Both halves on the device, in one test, because the "before" is the defect's own
+    ///             picture.
+    ///         </b>
+    ///         Composed in the prologue, the panel's capture is the interface over
     ///         transparent black; inverting premultiplied transparent black is transparent black, so
     ///         the glass lays nothing on the world and every panel pixel is the scene's own — exact,
     ///         and a closed form of its own. Composed by the node, the capture is the scene, and the
@@ -537,7 +566,11 @@ public sealed class InterfaceOverASceneDeviceTests {
                 B: Encode(1f - Decode(under.B))
             );
 
-            if (Math.Max(Math.Abs(inverted.R - under.R), Math.Max(Math.Abs(inverted.G - under.G), Math.Abs(inverted.B - under.B))) >= 10) {
+            if (Math.Max(
+                    Math.Abs(inverted.R - under.R),
+                    Math.Max(Math.Abs(inverted.G - under.G), Math.Abs(inverted.B - under.B))
+                )
+                >= 10) {
                 distinguishable++;
             }
 
@@ -567,7 +600,10 @@ public sealed class InterfaceOverASceneDeviceTests {
         Assert.Equal(1, blind.Sceneless);
 
         // After: the scene, inverted.
-        Assert.True(worstComposed <= 3, $"composed after the scene, the glass panel is {worstComposed} codes from its inverse");
+        Assert.True(
+            worstComposed <= 3,
+            $"composed after the scene, the glass panel is {worstComposed} codes from its inverse"
+        );
         Assert.Equal(0, ChangedOutside(backdrop, composed.Picture, Blended));
         Assert.True(composed.Backdropped > 0, "the composed frame's panel never captured a backdrop");
         Assert.Equal(0, composed.Sceneless);
@@ -601,17 +637,17 @@ public sealed class InterfaceOverASceneDeviceTests {
 
         document.Load(
             $$"""
-            root { width: {{Side}}px; height: {{Side}}px; }
-            .glass {
-                position: absolute; left: {{Blended.X}}px; top: {{Blended.Y}}px;
-                width: {{Blended.Width}}px; height: {{Blended.Height}}px;
-                backdrop-filter: invert(1);
-            }
-            .inner {
-                position: absolute; left: {{BlendedInner.X - Blended.X}}px; top: {{BlendedInner.Y - Blended.Y}}px;
-                width: {{BlendedInner.Width}}px; height: {{BlendedInner.Height}}px; background-color: #ff0000;
-            }
-            """
+              root { width: {{Side}}px; height: {{Side}}px; }
+              .glass {
+                  position: absolute; left: {{Blended.X}}px; top: {{Blended.Y}}px;
+                  width: {{Blended.Width}}px; height: {{Blended.Height}}px;
+                  backdrop-filter: invert(1);
+              }
+              .inner {
+                  position: absolute; left: {{BlendedInner.X - Blended.X}}px; top: {{BlendedInner.Y - Blended.Y}}px;
+                  width: {{BlendedInner.Width}}px; height: {{BlendedInner.Height}}px; background-color: #ff0000;
+              }
+              """
         );
 
         document.Root.Add("div", classNames: "glass").Add("div", classNames: "inner");
@@ -622,8 +658,8 @@ public sealed class InterfaceOverASceneDeviceTests {
 
         var geometry = new UiGeometryBuilder().Build(
             document.Drawing,
-            new GlyphFieldCache(atlas),
-            new Rectangle(0, 0, Side, Side)
+            new(atlas),
+            new(0, 0, Side, Side)
         );
 
         return (geometry, atlas);
@@ -644,17 +680,17 @@ public sealed class InterfaceOverASceneDeviceTests {
 
         document.Load(
             $$"""
-            root { width: {{Side}}px; height: {{Side}}px; }
-            .blended {
-                position: absolute; left: {{Blended.X}}px; top: {{Blended.Y}}px;
-                width: {{Blended.Width}}px; height: {{Blended.Height}}px; background-color: #808080;
-                mix-blend-mode: multiply;
-            }
-            .inner {
-                position: absolute; left: {{BlendedInner.X - Blended.X}}px; top: {{BlendedInner.Y - Blended.Y}}px;
-                width: {{BlendedInner.Width}}px; height: {{BlendedInner.Height}}px; background-color: #ff0000;
-            }
-            """
+              root { width: {{Side}}px; height: {{Side}}px; }
+              .blended {
+                  position: absolute; left: {{Blended.X}}px; top: {{Blended.Y}}px;
+                  width: {{Blended.Width}}px; height: {{Blended.Height}}px; background-color: #808080;
+                  mix-blend-mode: multiply;
+              }
+              .inner {
+                  position: absolute; left: {{BlendedInner.X - Blended.X}}px; top: {{BlendedInner.Y - Blended.Y}}px;
+                  width: {{BlendedInner.Width}}px; height: {{BlendedInner.Height}}px; background-color: #ff0000;
+              }
+              """
         );
 
         document.Root.Add("div", classNames: "blended").Add("div", classNames: "inner");
@@ -665,8 +701,8 @@ public sealed class InterfaceOverASceneDeviceTests {
 
         var geometry = new UiGeometryBuilder().Build(
             document.Drawing,
-            new GlyphFieldCache(atlas),
-            new Rectangle(0, 0, Side, Side)
+            new(atlas),
+            new(0, 0, Side, Side)
         );
 
         return (geometry, atlas);
@@ -678,20 +714,20 @@ public sealed class InterfaceOverASceneDeviceTests {
 
         document.Load(
             $$"""
-            root { width: {{Side}}px; height: {{Side}}px; }
-            .solid {
-                position: absolute; left: {{Solid.X}}px; top: {{Solid.Y}}px;
-                width: {{Solid.Width}}px; height: {{Solid.Height}}px; background-color: #ff00ff;
-            }
-            .faded {
-                position: absolute; left: {{Faded.X}}px; top: {{Faded.Y}}px;
-                width: {{Faded.Width}}px; height: {{Faded.Height}}px; background-color: #ffffff; opacity: 0.5;
-            }
-            .inner {
-                position: absolute; left: {{Inner.X - Faded.X}}px; top: {{Inner.Y - Faded.Y}}px;
-                width: {{Inner.Width}}px; height: {{Inner.Height}}px; background-color: #ff0000;
-            }
-            """
+              root { width: {{Side}}px; height: {{Side}}px; }
+              .solid {
+                  position: absolute; left: {{Solid.X}}px; top: {{Solid.Y}}px;
+                  width: {{Solid.Width}}px; height: {{Solid.Height}}px; background-color: #ff00ff;
+              }
+              .faded {
+                  position: absolute; left: {{Faded.X}}px; top: {{Faded.Y}}px;
+                  width: {{Faded.Width}}px; height: {{Faded.Height}}px; background-color: #ffffff; opacity: 0.5;
+              }
+              .inner {
+                  position: absolute; left: {{Inner.X - Faded.X}}px; top: {{Inner.Y - Faded.Y}}px;
+                  width: {{Inner.Width}}px; height: {{Inner.Height}}px; background-color: #ff0000;
+              }
+              """
         );
 
         document.Root.Add("div", classNames: "solid");
@@ -705,15 +741,15 @@ public sealed class InterfaceOverASceneDeviceTests {
         // is 128 pixels a side and so is the document. See `UiRenderFeature.Soft`.
         var geometry = new UiGeometryBuilder().Build(
             document.Drawing,
-            new GlyphFieldCache(atlas),
-            new Rectangle(0, 0, Side, Side)
+            new(atlas),
+            new(0, 0, Side, Side)
         );
 
         return (geometry, atlas);
     }
 
     /// <summary>Half of a linear colour composited over a backdrop code, in linear light, as an sRGB code.</summary>
-    static int HalfOver(float colour, byte backdrop) => Encode((0.5f * colour) + (0.5f * Decode(backdrop)));
+    static int HalfOver(float colour, byte backdrop) => Encode(0.5f * colour + 0.5f * Decode(backdrop));
 
     static float Decode(byte code) {
         var c = code / 255f;
@@ -722,7 +758,7 @@ public sealed class InterfaceOverASceneDeviceTests {
     }
 
     static int Encode(float linear) {
-        var c = linear <= 0.0031308f ? linear * 12.92f : (1.055f * MathF.Pow(linear, 1f / 2.4f)) - 0.055f;
+        var c = linear <= 0.0031308f ? linear * 12.92f : 1.055f * MathF.Pow(linear, 1f / 2.4f) - 0.055f;
 
         return (int)MathF.Round(Math.Clamp(c, 0f, 1f) * 255f);
     }

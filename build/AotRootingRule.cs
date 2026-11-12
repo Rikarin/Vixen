@@ -2,9 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
 using System.Text.RegularExpressions;
 
 /// <summary>
@@ -13,16 +10,24 @@ using System.Text.RegularExpressions;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>The gate covers 29 of 95 runtime assemblies and its README said it covered them
-///         all</b> (<a href="https://github.com/Rikarin/Vixen/issues/506">#506</a>). The README is
+///         ⚠
+///         <b>
+///             The gate covers 29 of 95 runtime assemblies and its README said it covered them
+///             all
+///         </b>
+///         (<a href="https://github.com/Rikarin/Vixen/issues/506">#506</a>). The README is
 ///         corrected, and a corrected paragraph is a measurement somebody took once — the thing this
 ///         file adds is that the measurement now fails when it stops being true. A new assembly under
 ///         <c>Core/</c> or <c>Platform/</c> joins the uncovered set silently today; after this it
 ///         has to be rooted or written down.
 ///     </para>
 ///     <para>
-///         ⚠ <b>This is not the check <c>AssertProbeRootsEveryAssemblyItReferences</c> already
-///         makes, and the difference is the whole issue.</b> That one compares the probe against
+///         ⚠
+///         <b>
+///             This is not the check <c>AssertProbeRootsEveryAssemblyItReferences</c> already
+///             makes, and the difference is the whole issue.
+///         </b>
+///         That one compares the probe against
 ///         <em>itself</em> — every <c>ProjectReference</c> has a <c>TrimmerRootAssembly</c> — so a
 ///         probe referencing three assemblies and rooting the same three passes it. This compares
 ///         the probe against the <em>tree</em>, which is the only comparison that can notice an
@@ -37,8 +42,12 @@ using System.Text.RegularExpressions;
 ///         here.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Expansion is real work rather than a list edit, which is why the ledger is a list of
-///         admissions and not a list of exclusions.</b> <c>ILLinkTreatWarningsAsErrors</c> makes each
+///         ⚠
+///         <b>
+///             Expansion is real work rather than a list edit, which is why the ledger is a list of
+///             admissions and not a list of exclusions.
+///         </b>
+///         <c>ILLinkTreatWarningsAsErrors</c> makes each
 ///         newly rooted assembly a fresh set of IL2xxx/IL3xxx findings and a build break until every
 ///         one is fixed. The list can only shrink, so the expansion has a scoreboard; nothing here
 ///         requires it to shrink today.
@@ -76,7 +85,7 @@ static class AotRootingRule {
     public const string RuntimeFramework = "net11.0";
 
     static readonly Regex Framework = new(
-        @"<TargetFrameworks?>([^<]*)</TargetFrameworks?>",
+        "<TargetFrameworks?>([^<]*)</TargetFrameworks?>",
         RegexOptions.CultureInvariant
     );
 
@@ -136,7 +145,7 @@ static class AotRootingRule {
 
         var rooted = new HashSet<string>(AotProbeProjectFile.RootedAssemblies(probe), StringComparer.Ordinal);
 
-        return RuntimeAssemblies(root).Where(name => !rooted.Contains(name)).ToList();
+        return [..RuntimeAssemblies(root).Where(name => !rooted.Contains(name))];
     }
 
     /// <summary>The assembly names the ledger admits are not rooted.</summary>
@@ -178,7 +187,7 @@ static class AotRootingRule {
     /// <returns>One message per violation; empty when the tree agrees with the ledger.</returns>
     /// <remarks>
     ///     ⚠ <b>A ledger line for an assembly that is rooted now is a violation too</b>, which is
-    ///     what makes the list only ever shrink — the property <c>docs/WhitespaceExempt.txt</c> and
+    ///     what makes the list only ever shrink — the property <c>docs/DocCommentExempt.txt</c> and
     ///     <c>docs/ComponentGeneratorExempt.txt</c> have. Without it the scoreboard stops counting
     ///     the moment somebody does the work.
     /// </remarks>

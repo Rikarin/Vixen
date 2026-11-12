@@ -39,8 +39,12 @@ namespace Vixen.Editor.Ui;
 ///         drawn yet costs a wider button and never a blocked feature.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The bar grows sections, not entries.</b> Doc 20's toolbar is <i>mode buttons | save
-///         and build | transform mode, space, pivot, snap | play | layout</i>, and two of those need
+///         ⚠ <b>The bar grows sections, not entries.</b> Doc 20's toolbar is
+///         <i>
+///             mode buttons | save
+///             and build | transform mode, space, pivot, snap | play | layout
+///         </i>
+///         , and two of those need
 ///         something a flat list of ids cannot express: a segmented control, so that the three gizmo
 ///         modes read as one choice, and a dropdown, so that a snap value is a popover rather than
 ///         eight more buttons. <see cref="Show(ReadOnlySpan{ToolbarEntry})" /> takes those;
@@ -69,8 +73,12 @@ public sealed class ToolbarPresenter {
     /// <param name="commands">What its buttons run.</param>
     /// <param name="keys">What their tooltips say the shortcut is.</param>
     /// <remarks>
-    ///     ⚠ <b>Nothing is added until <see cref="Show(ReadOnlySpan{ToolbarEntry})" /> is called, and
-    ///     the place it will go is remembered now.</b> A shell builds its chrome top to bottom and
+    ///     ⚠
+    ///     <b>
+    ///         Nothing is added until <see cref="Show(ReadOnlySpan{ToolbarEntry})" /> is called, and
+    ///         the place it will go is remembered now.
+    ///     </b>
+    ///     A shell builds its chrome top to bottom and
     ///     puts the toolbar's commands on it last — so by the time there is a strip to add, appending
     ///     it to the host would put it after the docking workspace and the status bar rather than
     ///     under the menu bar. Remembering the position costs an integer; an empty strip built here
@@ -107,12 +115,16 @@ public sealed class ToolbarPresenter {
     ///     separator here, which is what it looks like to something that only knows about buttons.
     /// </remarks>
     public IReadOnlyList<string?> Items =>
-        [.. Entries.Select(entry => entry is ToolbarButton button ? button.CommandId : null)];
+        [..Entries.Select(static entry => entry is ToolbarButton button ? button.CommandId : null)];
 
     /// <summary>The strip element, which is replaced by every rebuild.</summary>
     /// <remarks>
-    ///     ⚠ <b>A <see cref="Toolbar" /> rather than an element with a class, and the difference is
-    ///     fifteen tab stops.</b> A strip of bare buttons puts one Tab press between the keyboard and
+    ///     ⚠
+    ///     <b>
+    ///         A <see cref="Toolbar" /> rather than an element with a class, and the difference is
+    ///         fifteen tab stops.
+    ///     </b>
+    ///     A strip of bare buttons puts one Tab press between the keyboard and
     ///     every verb on it; the control is one stop with the arrows moving inside it, which is
     ///     ARIA's toolbar pattern and what <see cref="AccessibleRole.Toolbar" /> announces.
     /// </remarks>
@@ -183,9 +195,6 @@ public sealed class ToolbarPresenter {
 
                 case ToolbarDropdown(var title, var icon, var ids):
                     Dropdown(title, icon, ids);
-                    break;
-
-                default:
                     break;
             }
         }
@@ -270,16 +279,23 @@ public sealed class ToolbarPresenter {
     /// <summary>Draws a set of alternatives as one segmented control.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A real <see cref="SegmentedControl" />, which is the difference between looking
-    ///         like a choice and being one.</b> What stood here built a bare element with a class on
+    ///         ⚠
+    ///         <b>
+    ///             A real <see cref="SegmentedControl" />, which is the difference between looking
+    ///             like a choice and being one.
+    ///         </b>
+    ///         What stood here built a bare element with a class on
     ///         it and filled it with independent buttons: three tab stops, no arrows, no exclusivity
     ///         anywhere but in the predicates, and a screen reader told about three unrelated
     ///         pressed-or-not buttons. The control is one stop, announces <c>radiogroup</c>, and
     ///         wraps with the arrows.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The segments are deliberately <i>not</i> bound to their command ids, and that is
-    ///         the decision this needed rather than a type substitution.</b>
+    ///         ⚠
+    ///         <b>
+    ///             The segments are deliberately <i>not</i> bound to their command ids, and that is
+    ///             the decision this needed rather than a type substitution.
+    ///         </b>
     ///         <c>ButtonBase.Command</c> writes the route's check state straight into
     ///         <c>ElementState.Checked</c>, while a segment's checked-ness is <c>IsChecked</c>
     ///         written by <c>SegmentedControl.Restate</c> from <see cref="SegmentedControl.Value" />
@@ -339,8 +355,12 @@ public sealed class ToolbarPresenter {
 
     /// <summary>Draws a set of commands as one boxed run of ordinary buttons.</summary>
     /// <remarks>
-    ///     ⚠ <b>What <see cref="Segmented" /> used to be, kept for the case that wanted the box and
-    ///     not the question.</b> See <see cref="ToolbarBox" />: the transport is one control and four
+    ///     ⚠
+    ///     <b>
+    ///         What <see cref="Segmented" /> used to be, kept for the case that wanted the box and
+    ///         not the question.
+    ///     </b>
+    ///     See <see cref="ToolbarBox" />: the transport is one control and four
     ///     verbs, and a segmented control would claim it was one verb with four spellings.
     /// </remarks>
     void Box(IReadOnlyList<string> commandIds) {
@@ -380,7 +400,7 @@ public sealed class ToolbarPresenter {
     ///     at the snap values and changed their mind.
     /// </remarks>
     void Dropdown(StringId title, string? icon, IReadOnlyList<string?> commandIds) {
-        var menu = MenuPresenter.Context(host.Document, commands, keys, [.. commandIds]);
+        var menu = MenuPresenter.Context(host.Document, commands, keys, [..commandIds]);
         popovers.Add(menu);
 
         var button = Chevron(Strip, title, icon);

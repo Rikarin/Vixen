@@ -144,13 +144,13 @@ sealed class Suballocator {
         // allocation: on a block whose resources have mixed alignments, silently absorbing it leaks
         // a little memory per allocation and never gives it back.
         if (head > 0 && tail > 0) {
-            free[index] = new(run.Offset, head);
+            free[index] = run with { Size = head };
             free.Insert(index + 1, new(allocated + size, tail));
             return;
         }
 
         if (head > 0) {
-            free[index] = new(run.Offset, head);
+            free[index] = run with { Size = head };
             return;
         }
 

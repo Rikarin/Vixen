@@ -7,7 +7,6 @@ using Vixen.Core.Mathematics;
 using Vixen.Core.Yaml;
 using Vixen.Editor.Assets.Materials;
 using Vixen.Editor.Assets.Textures;
-using Vixen.Editor.NodeGraph;
 using Vixen.NodeGraph;
 using Vixen.Rendering;
 using Vixen.Rendering.Compositor;
@@ -28,8 +27,12 @@ namespace Vixen.Graphics.Golden.Tests;
 ///         Every other assertion about a baked material is about bytes: the plan validates, the
 ///         kernels dispatch, the read-back matches a closed form, the packer puts roughness in green,
 ///         the <c>.vxmat</c> names three GUIDs. All true, all green, and every one of them equally
-///         true of a material that draws nothing — <b>no golden anywhere rendered a <i>textured</i>
-///         material at all</b> until this one, so the whole sampling half of the surface library had
+///         true of a material that draws nothing —
+///         <b>
+///             no golden anywhere rendered a <i>textured</i>
+///             material at all
+///         </b>
+///         until this one, so the whole sampling half of the surface library had
 ///         never been in a picture. What is asserted here is a picture.
 ///     </para>
 ///     <para>
@@ -62,8 +65,12 @@ namespace Vixen.Graphics.Golden.Tests;
 ///         <see cref="Linear(float)" />.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Nothing here is a 0–1 tint that a photometric frame would render identically to a
-///         pass that never ran.</b> A base colour <em>is</em> a reflectance, so 0–1 is the correct
+///         ⚠
+///         <b>
+///             Nothing here is a 0–1 tint that a photometric frame would render identically to a
+///             pass that never ran.
+///         </b>
+///         A base colour <em>is</em> a reflectance, so 0–1 is the correct
 ///         range for it; the radiance comes from <c>TierScene</c>'s sun, in lux. The control
 ///         assertion below — two colours that must <i>not</i> agree — is what says the frame is a
 ///         picture of the surface rather than a clipped white one in which every material looks the
@@ -104,22 +111,27 @@ public class BakedMaterialImageTests {
     static readonly byte[] Other = [28, 54, 210];
 
     /// <summary>The frame both renderings share. <see cref="GraphMaterialImageTests" />' own.</summary>
-    static StandardFrameAsset Frame => new() {
-        Name = "BakedMaterial",
-        Shadows = ShadowMode.Cascades,
-        Gi = GiMode.Off,
-        Reflections = ReflectionsMode.Off,
-        Antialiasing = AntialiasingMode.Fxaa,
-        Exposure = ExposureMode.Automatic,
-        Particles = false
-    };
+    static StandardFrameAsset Frame =>
+        new() {
+            Name = "BakedMaterial",
+            Shadows = ShadowMode.Cascades,
+            Gi = GiMode.Off,
+            Reflections = ReflectionsMode.Off,
+            Antialiasing = AntialiasingMode.Fxaa,
+            Exposure = ExposureMode.Automatic,
+            Particles = false
+        };
 
     /// <summary>
     ///     A material baked from the tool draws the surface its maps encode.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>The instrument is checked before the claim, and here that check is load bearing
-    ///     twice.</b> A frame in which the slab never drew is a frame of the floor and the sky, and
+    ///     ⚠
+    ///     <b>
+    ///         The instrument is checked before the claim, and here that check is load bearing
+    ///         twice.
+    ///     </b>
+    ///     A frame in which the slab never drew is a frame of the floor and the sky, and
     ///     it agrees with any other frame in which the slab never drew — which is what a missing
     ///     variant, an unbound set 4 and a culled pass all look like. And a textured material whose
     ///     index never reached the table samples slot zero, which is the frame's magenta checker: an
@@ -138,7 +150,7 @@ public class BakedMaterialImageTests {
 
             // First: the scene is a picture of its material at all.
             var constant = Render(fixture!, _ => handWritten);
-            var different = Render(fixture!, _ => Library(Linear(Other), Level(RoughnessLevel)));
+            var different = Render(fixture!, static _ => Library(Linear(Other), Level(RoughnessLevel)));
             var control = GoldenImage.Compare(constant, different, Tolerance.Shaded);
 
             Assert.False(
@@ -152,7 +164,7 @@ public class BakedMaterialImageTests {
 
             Assert.True(
                 comparison.Matches,
-                $"A material textured by the tool drew differently from the constant surface its maps encode "
+                "A material textured by the tool drew differently from the constant surface its maps encode "
                 + $"on {Adapter(fixture!)}: {comparison.DifferingPixels} of {comparison.TotalPixels} pixels differ, "
                 + $"worst channel {comparison.WorstChannel} at {comparison.WorstAt}, mean "
                 + $"{comparison.MeanChannel:F3}."
@@ -197,8 +209,12 @@ public class BakedMaterialImageTests {
     ///     The ORM map's green and blue are not interchangeable.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>The one property a flat picture would otherwise hide, and the one
-    ///     <see cref="MaterialMapNaming.Packed" /> exists to fix in exactly one place.</b> Occlusion,
+    ///     ⚠
+    ///     <b>
+    ///         The one property a flat picture would otherwise hide, and the one
+    ///         <see cref="MaterialMapNaming.Packed" /> exists to fix in exactly one place.
+    ///     </b>
+    ///     Occlusion,
     ///     roughness and metalness are three greys packed into one texel, and a packer that put them
     ///     in the wrong order still writes a valid file, still resolves, still samples and still
     ///     shades — it shades a dielectric as a conductor. So the same surface is baked twice with
@@ -212,8 +228,8 @@ public class BakedMaterialImageTests {
 
         using (fixture) {
             // Rough and dielectric, against smooth and fully metallic: the same two numbers, swapped.
-            var packed = Bake(fixture!, Colour, RoughnessLevel, metalness: 0);
-            var swapped = Bake(fixture!, Colour, 0, metalness: RoughnessLevel);
+            var packed = Bake(fixture!, Colour, RoughnessLevel);
+            var swapped = Bake(fixture!, Colour, 0, RoughnessLevel);
 
             var first = Render(fixture!, scene => Material(scene, packed));
             var second = Render(fixture!, scene => Material(scene, swapped));
@@ -222,7 +238,7 @@ public class BakedMaterialImageTests {
 
             Assert.False(
                 comparison.Matches,
-                $"An ORM map with roughness and metalness exchanged drew the same frame as the correctly packed "
+                "An ORM map with roughness and metalness exchanged drew the same frame as the correctly packed "
                 + $"one on {Adapter(fixture!)}, so the two channels are not reaching two different things."
             );
         }
@@ -232,8 +248,12 @@ public class BakedMaterialImageTests {
     ///     A normal map bends the light, and bending it the other way is another picture.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>A map tilted one way against the same map tilted the other, rather than against a
-    ///     flat one.</b> A tilt against flat can be produced by a feature that samples nothing and
+    ///     ⚠
+    ///     <b>
+    ///         A map tilted one way against the same map tilted the other, rather than against a
+    ///         flat one.
+    ///     </b>
+    ///     A tilt against flat can be produced by a feature that samples nothing and
     ///     merely renormalises; two opposite tilts cannot, because the only thing that separates them
     ///     is the sign of what was sampled. It is also the assertion that fails if the map is decoded
     ///     as unsigned — an unfold that dropped the <c>2s − 1</c> maps both tilts into the same
@@ -267,8 +287,12 @@ public class BakedMaterialImageTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Doc 48 § M5's exit criterion 12 says "textured entirely in the tool", and until
-    ///         this the tool in the picture was the evaluator.</b> Every other assertion in this file
+    ///         ⚠
+    ///         <b>
+    ///             Doc 48 § M5's exit criterion 12 says "textured entirely in the tool", and until
+    ///             this the tool in the picture was the evaluator.
+    ///         </b>
+    ///         Every other assertion in this file
     ///         starts from a <see cref="TexturePlan" /> the test wrote, so all of them stay green in
     ///         a world where <c>TextureGraphCompiler</c> emits nothing anybody can bake — the graph
     ///         front end had never been in a frame at all
@@ -308,7 +332,7 @@ public class BakedMaterialImageTests {
             // The same instrument check the hand-built run makes, and it is not redundant: it is what
             // separates "the graph's surface agrees" from "this scene is a picture of the room".
             var constant = Render(fixture!, _ => handWritten);
-            var different = Render(fixture!, _ => Library(Linear(Other), Level(RoughnessLevel)));
+            var different = Render(fixture!, static _ => Library(Linear(Other), Level(RoughnessLevel)));
 
             Assert.False(
                 GoldenImage.Compare(constant, different, Tolerance.Shaded).Matches,
@@ -333,8 +357,12 @@ public class BakedMaterialImageTests {
     ///     Two graphs that differ in one node's value bake two pictures.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>The half that can be false, and the reason the test above is not an instrument that
-    ///     cannot fail.</b> A compiler that never read the document — one that emitted a fixed plan,
+    ///     ⚠
+    ///     <b>
+    ///         The half that can be false, and the reason the test above is not an instrument that
+    ///         cannot fail.
+    ///     </b>
+    ///     A compiler that never read the document — one that emitted a fixed plan,
     ///     or that took the node's declared default rather than the value in the file — would satisfy
     ///     "the baked surface equals the constant one" for as long as the fixed thing happened to be
     ///     that constant. The two fixtures here are the same five nodes, the same five edges and the
@@ -386,8 +414,12 @@ public class BakedMaterialImageTests {
     ///         spelling — is the other half, and the two land on the same oracle.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>This paragraph used to give a reason that was false, in a file that disproves
-    ///         it</b> (<a href="https://github.com/Rikarin/Vixen/issues/1081">#1081</a>): it said
+    ///         ⚠
+    ///         <b>
+    ///             This paragraph used to give a reason that was false, in a file that disproves
+    ///             it
+    ///         </b>
+    ///         (<a href="https://github.com/Rikarin/Vixen/issues/1081">#1081</a>): it said
     ///         <c>TextureGraphOutput</c> is internal and that the graph half of § M4 therefore could
     ///         not be driven from here at all. <c>TextureGraphCompiler.cs</c> declares it
     ///         <c>public readonly record struct</c>, there is no <c>InternalsVisibleTo</c> in the
@@ -419,9 +451,9 @@ public class BakedMaterialImageTests {
         var plan = new TexturePlan {
             BaseWidth = Side,
             BaseHeight = Side,
-            Images = [.. wanted.Select(_ => new TextureImage(TextureFormat.Rgba8))],
-            Ops = [.. wanted.Select((entry, index) => Fill(index, entry.Fill))],
-            Outputs = [.. Enumerable.Range(0, wanted.Length)]
+            Images = [..wanted.Select(static _ => new TextureImage(TextureFormat.Rgba8))],
+            Ops = [..wanted.Select(static (entry, index) => Fill(index, entry.Fill))],
+            Outputs = [..Enumerable.Range(0, wanted.Length)]
         };
 
         var outputs = new Dictionary<MaterialMapUsage, Bitmap>();
@@ -460,8 +492,12 @@ public class BakedMaterialImageTests {
     ///         a picture.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The resolution is the host's, and the graph's own declaration would win over
-    ///         it.</b> These fixtures declare none, so <see cref="Side" /> is what
+    ///         ⚠
+    ///         <b>
+    ///             The resolution is the host's, and the graph's own declaration would win over
+    ///             it.
+    ///         </b>
+    ///         These fixtures declare none, so <see cref="Side" /> is what
     ///         <c>TextureGraphCompiler.BaseWidth</c> supplies — which is also what
     ///         <see cref="Material" /> asserts the decoded PNG is, so a graph that started declaring
     ///         its own size fails there loudly instead of resampling silently.
@@ -494,7 +530,7 @@ public class BakedMaterialImageTests {
         var compiler = new TextureGraphCompiler(registry) { BaseWidth = Side, BaseHeight = Side };
         var compilation = compiler.Compile(model);
 
-        Assert.Empty(compilation.Diagnostics.Where(diagnostic => diagnostic.Severity == NodeSeverity.Error));
+        Assert.Empty(compilation.Diagnostics.Where(static diagnostic => diagnostic.Severity == NodeSeverity.Error));
         Assert.NotNull(compilation.Value);
 
         var plan = compilation.Value!;
@@ -536,8 +572,12 @@ public class BakedMaterialImageTests {
 
     /// <summary>One op: a constant colour into one image.</summary>
     /// <remarks>
-    ///     ⚠ <b>The parameter names are the kernel's and are spelled here rather than taken from
-    ///     <c>TextureSources.Uniform</c>, which is internal.</b> That is safe rather than a second
+    ///     ⚠
+    ///     <b>
+    ///         The parameter names are the kernel's and are spelled here rather than taken from
+    ///         <c>TextureSources.Uniform</c>, which is internal.
+    ///     </b>
+    ///     That is safe rather than a second
     ///     list: <c>TexturePlanEvaluator</c> refuses an op that does not carry every uniform its
     ///     kernel declares, so a rename in <c>Uniform.rvn</c> fails this file loudly instead of
     ///     silently taking a default.
@@ -559,8 +599,12 @@ public class BakedMaterialImageTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Which features to compose is <see cref="MaterialBake.Material" />'s decision and
-    ///         not this file's</b>, and the parameter each map is named by is
+    ///         ⚠
+    ///         <b>
+    ///             Which features to compose is <see cref="MaterialBake.Material" />'s decision and
+    ///             not this file's
+    ///         </b>
+    ///         , and the parameter each map is named by is
     ///         <see cref="MaterialMapNaming.Parameter" />'s. A test that listed
     ///         <c>TexturedMetalRoughnessFeature</c>, <c>TexturedNormalMapFeature</c> and
     ///         <c>TexturedOrmFeature</c> itself would go on passing after a bake stopped emitting
@@ -629,7 +673,7 @@ public class BakedMaterialImageTests {
 
         Assert.False(
             compilation.Failed,
-            string.Join(Environment.NewLine, compilation.Diagnostics.Select(diagnostic => diagnostic.ToString()))
+            string.Join(Environment.NewLine, compilation.Diagnostics.Select(static diagnostic => diagnostic.ToString()))
         );
 
         return compilation.Material!;
@@ -672,8 +716,12 @@ public class BakedMaterialImageTests {
     ///     The linear colour an sRGB view produces from three stored levels.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>The IEC 61966-2-1 transfer function, spelled here because the number on the other
-    ///     side of the comparison is the hardware's.</b> A base-colour map is a colour, so the bake
+    ///     ⚠
+    ///     <b>
+    ///         The IEC 61966-2-1 transfer function, spelled here because the number on the other
+    ///         side of the comparison is the hardware's.
+    ///     </b>
+    ///     A base-colour map is a colour, so the bake
     ///     marks it <see cref="TextureContent.Colour" /> and the view is <c>Rgba8UNormSrgb</c> — the
     ///     sampler therefore hands the shader this, and the untextured spelling has to carry the same
     ///     number or the two frames differ for a reason that is neither of their faults. If this ever
@@ -688,8 +736,12 @@ public class BakedMaterialImageTests {
 
     /// <summary>What ran, said in every message here so that no number is anonymous.</summary>
     /// <remarks>
-    ///     ⚠ <b>Doc 48's exit criterion 11 — a device is confirmed by name in every GPU test in this
-    ///     area.</b> <c>TextureKernelHarness.Adapter</c> is the same line on the evaluator's side of
+    ///     ⚠
+    ///     <b>
+    ///         Doc 48's exit criterion 11 — a device is confirmed by name in every GPU test in this
+    ///         area.
+    ///     </b>
+    ///     <c>TextureKernelHarness.Adapter</c> is the same line on the evaluator's side of
     ///     the fence; this suite's <c>Fixture</c> had no equivalent, so a comparison that failed on
     ///     one driver and passed on another produced two messages nothing could tell apart.
     /// </remarks>

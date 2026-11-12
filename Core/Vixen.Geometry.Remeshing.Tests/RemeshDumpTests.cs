@@ -46,20 +46,30 @@ public class RemeshDumpTests {
         Assert.InRange(dump.Field.Count, 2, 2 * dump.Conditioned.PositionCount);
 
         // ③ And the singularities are the ones the field stage counted.
-        Assert.Equal(report.Stages.Single(stage => stage.Stage == RemeshStage.Field).Elements, dump.Singularities.Count);
+        Assert.Equal(
+            report.Stages.Single(static stage => stage.Stage == RemeshStage.Field).Elements,
+            dump.Singularities.Count
+        );
 
         // ④ One region per conditioned triangle, in triangle order, and at least one claimed.
         Assert.Equal(dump.Conditioned.FaceCount, dump.Layout.Count);
 
         for (var triangle = 0; triangle < dump.Layout.Count; triangle++) {
             Assert.Equal(triangle, dump.Layout[triangle].Triangle);
-            Assert.InRange(dump.Layout[triangle].Patch, -1, report.Stages.Single(stage => stage.Stage == RemeshStage.Layout).Elements - 1);
+            Assert.InRange(
+                dump.Layout[triangle].Patch,
+                -1,
+                report.Stages.Single(static stage => stage.Stage == RemeshStage.Layout).Elements - 1
+            );
         }
 
-        Assert.Contains(dump.Layout, region => region.Patch >= 0);
+        Assert.Contains(dump.Layout, static region => region.Patch >= 0);
 
         // ⑤ One label per arc, and the arcs are the ones the quantize stage counted.
-        Assert.Equal(report.Stages.Single(stage => stage.Stage == RemeshStage.Quantize).Elements, dump.Quantization.Count);
+        Assert.Equal(
+            report.Stages.Single(static stage => stage.Stage == RemeshStage.Quantize).Elements,
+            dump.Quantization.Count
+        );
 
         for (var arc = 0; arc < dump.Quantization.Count; arc++) {
             Assert.Equal(arc, dump.Quantization[arc].Arc);
@@ -74,9 +84,12 @@ public class RemeshDumpTests {
     ///     a fixed number would draw nothing on a millimetre-wide part and a hairball on a
     ///     kilometre-wide one — <see cref="RemeshDump.CrossArm" /> is a fraction of the bounding box's
     ///     diagonal for the same reason every number in <see cref="RemeshReport" /> is.
-    ///
-    ///     ⚠ <b>The claim is per capture and not between two, because the two are not comparable and
-    ///     R1 recorded why.</b> <c>ScaleInvarianceTests</c> measured that the pre-remesh does not agree
+    ///     ⚠
+    ///     <b>
+    ///         The claim is per capture and not between two, because the two are not comparable and
+    ///         R1 recorded why.
+    ///     </b>
+    ///     <c>ScaleInvarianceTests</c> measured that the pre-remesh does not agree
     ///     exactly at a thousandth and a thousand times — <c>0.001f</c> is not a binary fraction, so a
     ///     mesh of equal edge lengths breaks its ties differently — which reaches here as a different
     ///     vertex count and therefore a different number of crosses. What must hold is that each
@@ -159,7 +172,9 @@ public class RemeshDumpTests {
 
         using var scheduler = new JobScheduler(4);
 
-        foreach (var again in new[] { RemeshDump.Capture(source, settings), RemeshDump.Capture(source, settings, scheduler) }) {
+        foreach (var again in new[] {
+                     RemeshDump.Capture(source, settings), RemeshDump.Capture(source, settings, scheduler)
+                 }) {
             Assert.Equal(first.Field, again.Field);
             Assert.Equal(first.Features, again.Features);
             Assert.Equal(first.Singularities, again.Singularities);
@@ -172,7 +187,7 @@ public class RemeshDumpTests {
     /// <summary>A mesh nothing can be made of refuses with empty artefacts, and never throws.</summary>
     [Fact]
     public void A_refusal_is_empty_artefacts_and_a_reason() {
-        var dump = RemeshDump.Capture(new EditMesh(), new() { TargetQuads = 400 });
+        var dump = RemeshDump.Capture(new(), new() { TargetQuads = 400 });
 
         Assert.Equal(0, dump.Conditioned.FaceCount);
         Assert.Empty(dump.Field);

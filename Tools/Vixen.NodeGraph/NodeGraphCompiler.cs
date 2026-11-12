@@ -120,12 +120,14 @@ public abstract class NodeGraphCompiler<TArtefact> where TArtefact : class {
 
         foreach (var node in graph.Ordered()) {
             if (!Registry.TryGet(node.Type, out var definition)) {
-                Report(new(
-                    "NG0001",
-                    $"No node type is registered at '{node.Type}'. The graph was saved against a library "
-                    + "this process has not loaded.",
-                    node.Id
-                ));
+                Report(
+                    new(
+                        "NG0001",
+                        $"No node type is registered at '{node.Type}'. The graph was saved against a library "
+                        + "this process has not loaded.",
+                        node.Id
+                    )
+                );
 
                 continue;
             }
@@ -135,7 +137,7 @@ public abstract class NodeGraphCompiler<TArtefact> where TArtefact : class {
 
         var artefact = HasErrors ? null : Finish(graph);
 
-        return new(artefact, [.. diagnostics]);
+        return new(artefact, [..diagnostics]);
     }
 
     /// <summary>The graph a walk is over: the author's, with nothing switched off and every sub-graph inlined.</summary>
@@ -245,8 +247,12 @@ public abstract class NodeGraphCompiler<TArtefact> where TArtefact : class {
     /// <summary>Says something about a node.</summary>
     /// <param name="diagnostic">What to say.</param>
     /// <remarks>
-    ///     ⚠ <b>A complaint about an inlined node is re-addressed to the sub-graph node it came out
-    ///     of.</b> The walk is over the flattened graph, so a node it is unhappy with may have a
+    ///     ⚠
+    ///     <b>
+    ///         A complaint about an inlined node is re-addressed to the sub-graph node it came out
+    ///         of.
+    ///     </b>
+    ///     The walk is over the flattened graph, so a node it is unhappy with may have a
     ///     synthetic identity that is in no document and on no canvas — and a diagnostic naming one is
     ///     a diagnostic nothing can select, frame or badge. The sentence
     ///     <see cref="NodeGraphInlining.Describe" /> adds is what keeps the original readable: the
@@ -255,8 +261,7 @@ public abstract class NodeGraphCompiler<TArtefact> where TArtefact : class {
     protected void Report(NodeDiagnostic diagnostic) {
         if (Inlining.TryGet(diagnostic.Node, out var origin)) {
             diagnostic = diagnostic with {
-                Node = origin.Source,
-                Message = diagnostic.Message + Inlining.Describe(origin.Node)
+                Node = origin.Source, Message = diagnostic.Message + Inlining.Describe(origin.Node)
             };
         }
 
@@ -305,7 +310,7 @@ public abstract class NodeGraphCompiler<TArtefact> where TArtefact : class {
             }
         }
 
-        return PortKinds.Resolve([.. arriving]);
+        return PortKinds.Resolve([..arriving]);
     }
 
     /// <summary>What an output port carries, following its node's own resolution.</summary>
@@ -383,13 +388,13 @@ public abstract class NodeGraphCompiler<TArtefact> where TArtefact : class {
             // A flow port carries no value, so there is nothing to spell and nothing to default. An
             // ordering that had a literal would be a number nobody could act on.
             if (kind == PortKind.Flow) {
-                inputs[port.Name] = "";
+                inputs[port.Name] = string.Empty;
 
                 continue;
             }
 
             if (!wired) {
-                values[port.Name] = [.. Value(node, port, kind)];
+                values[port.Name] = [..Value(node, port, kind)];
             }
 
             inputs[port.Name] = Incoming(graph, node, port, kind);
@@ -415,24 +420,28 @@ public abstract class NodeGraphCompiler<TArtefact> where TArtefact : class {
             var from = KindOf(graph, source);
 
             if (from is null) {
-                Report(new(
-                    "NG0002",
-                    $"'{port.Name}' is connected to {source}, which is not an output this library has.",
-                    node.Id,
-                    port.Name
-                ));
+                Report(
+                    new(
+                        "NG0002",
+                        $"'{port.Name}' is connected to {source}, which is not an output this library has.",
+                        node.Id,
+                        port.Name
+                    )
+                );
 
                 return Constant(Value(node, port, kind), kind);
             }
 
             if (!PortKinds.Accepts(from.Value, kind)) {
-                Report(new(
-                    "NG0003",
-                    $"'{port.Name}' wants a {kind} and {source} carries a {from}. There is no conversion "
-                    + "between those two that would mean anything.",
-                    node.Id,
-                    port.Name
-                ));
+                Report(
+                    new(
+                        "NG0003",
+                        $"'{port.Name}' wants a {kind} and {source} carries a {from}. There is no conversion "
+                        + "between those two that would mean anything.",
+                        node.Id,
+                        port.Name
+                    )
+                );
 
                 return Constant(Value(node, port, kind), kind);
             }

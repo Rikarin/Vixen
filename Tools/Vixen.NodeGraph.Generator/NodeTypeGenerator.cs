@@ -99,31 +99,55 @@ public sealed class NodeTypeGenerator : IIncrementalGenerator {
 
         context.RegisterSourceOutput(nodes, static (production, model) => Emit(production, model));
 
-        var all = nodes.Collect().Combine(context.CompilationProvider.Select(static (c, _) => c.AssemblyName ?? "Nodes"));
+        var all = nodes.Collect()
+            .Combine(context.CompilationProvider.Select(static (c, _) => c.AssemblyName ?? "Nodes"));
 
         context.RegisterSourceOutput(all, static (production, pair) => Library(production, pair.Left, pair.Right));
     }
 
     /// <summary>Reads one node class into a model, or nothing when it is not one.</summary>
     static NodeModel? Read(GeneratorAttributeSyntaxContext syntax) {
-        if (syntax.TargetSymbol is not INamedTypeSymbol type || syntax.TargetNode is not ClassDeclarationSyntax declaration) {
+        if (syntax.TargetSymbol is not INamedTypeSymbol type
+            || syntax.TargetNode is not ClassDeclarationSyntax declaration) {
             return null;
         }
 
         var problems = ImmutableArray.CreateBuilder<DiagnosticModel>();
         var location = declaration.Identifier.GetLocation();
 
-        if (!declaration.Modifiers.Any(modifier => modifier.ValueText == "partial")) {
-            problems.Add(Problem(MustBePartial.Id, string.Format(CultureInfo.InvariantCulture, "'{0}' is a node type, so the generator writes its Bind method into it. Add 'partial'.", type.Name), location));
+        if (!declaration.Modifiers.Any(static modifier => modifier.ValueText == "partial")) {
+            problems.Add(
+                Problem(
+                    MustBePartial.Id,
+                    string.Format(
+                        CultureInfo.InvariantCulture,
+                        "'{0}' is a node type, so the generator writes its Bind method into it. Add 'partial'.",
+                        type.Name
+                    ),
+                    location
+                )
+            );
         }
 
         if (!DerivesFromNode(type)) {
-            problems.Add(Problem(MustDeriveFromNode.Id, string.Format(CultureInfo.InvariantCulture, "'{0}' is a node type but does not derive from Vixen.NodeGraph.Node, so there is no Bind for the generator to override.", type.Name), location));
+            problems.Add(
+                Problem(
+                    MustDeriveFromNode.Id,
+                    string.Format(
+                        CultureInfo.InvariantCulture,
+                        "'{0}' is a node type but does not derive from Vixen.NodeGraph.Node, so there is no Bind for the generator to override.",
+                        type.Name
+                    ),
+                    location
+                )
+            );
         }
 
         var attribute = syntax.Attributes[0];
-        var path = attribute.ConstructorArguments.Length > 0 ? attribute.ConstructorArguments[0].Value as string ?? "" : "";
-        var summary = Named(attribute, "Summary") as string ?? "";
+        var path = attribute.ConstructorArguments.Length > 0
+            ? attribute.ConstructorArguments[0].Value as string ?? string.Empty
+            : string.Empty;
+        var summary = Named(attribute, "Summary") as string ?? string.Empty;
         var preview = Named(attribute, "Preview") is bool flag && flag;
 
         // True unless the class says otherwise, as the attribute's own initializer has it.
@@ -139,32 +163,35 @@ public sealed class NodeTypeGenerator : IIncrementalGenerator {
 
             if (Attribute(field, SettingAttribute) is { } setting) {
                 if (field.Type.SpecialType != SpecialType.System_String) {
-                    problems.Add(Problem(
-                        SettingMustBeString.Id,
-                        string.Format(
-                            CultureInfo.InvariantCulture,
-                            "'{0}' is marked as a setting and is a {1}. A setting holds a name the author typed, so its field has to be a string. If it is a number, mark it [Input] instead and it becomes a port that can also be wired.",
-                            field.Name,
-                            field.Type.Name
-                        ),
-                        field.Locations.Length > 0 ? field.Locations[0] : location
-                    ));
+                    problems.Add(
+                        Problem(
+                            SettingMustBeString.Id,
+                            string.Format(
+                                CultureInfo.InvariantCulture,
+                                "'{0}' is marked as a setting and is a {1}. A setting holds a name the author typed, so its field has to be a string. If it is a number, mark it [Input] instead and it becomes a port that can also be wired.",
+                                field.Name,
+                                field.Type.Name
+                            ),
+                            field.Locations.Length > 0 ? field.Locations[0] : location
+                        )
+                    );
 
                     continue;
                 }
 
-                settings.Add(new(
-                    field.Name,
-                    Named(setting, "Name") as string is { Length: > 0 } called ? called : field.Name,
-                    Text(setting, field, syntax.SemanticModel),
-                    Named(setting, "Summary") as string ?? "",
-
-                    Kind(setting),
-                    Named(setting, "Minimum") is float low ? low : float.NegativeInfinity,
-                    Named(setting, "Maximum") is float high ? high : float.PositiveInfinity,
-                    Named(setting, "Group") as string ?? "",
-                    Accepted(setting, problems, field.Locations.Length > 0 ? field.Locations[0] : location)
-                ));
+                settings.Add(
+                    new(
+                        field.Name,
+                        Named(setting, "Name") as string is { Length: > 0 } called ? called : field.Name,
+                        Text(setting, field, syntax.SemanticModel),
+                        Named(setting, "Summary") as string ?? string.Empty,
+                        Kind(setting),
+                        Named(setting, "Minimum") is float low ? low : float.NegativeInfinity,
+                        Named(setting, "Maximum") is float high ? high : float.PositiveInfinity,
+                        Named(setting, "Group") as string ?? string.Empty,
+                        Accepted(setting, problems, field.Locations.Length > 0 ? field.Locations[0] : location)
+                    )
+                );
 
                 continue;
             }
@@ -180,41 +207,47 @@ public sealed class NodeTypeGenerator : IIncrementalGenerator {
             var kind = KindOf(field.Type);
 
             if (kind is null) {
-                problems.Add(Problem(
-                    NotAPortType.Id,
-                    string.Format(
-                        CultureInfo.InvariantCulture,
-                        "'{0}' is marked as a port and is a {1}. A port field's type says what the port carries, so it has to be one of the port value types — Scalar, Float2, Float3, Float4, DynamicVector, Bool, Int, Texture, Sampler or Image.",
-                        field.Name,
-                        field.Type.Name
-                    ),
-                    field.Locations.Length > 0 ? field.Locations[0] : location
-                ));
+                problems.Add(
+                    Problem(
+                        NotAPortType.Id,
+                        string.Format(
+                            CultureInfo.InvariantCulture,
+                            "'{0}' is marked as a port and is a {1}. A port field's type says what the port carries, so it has to be one of the port value types — Scalar, Float2, Float3, Float4, DynamicVector, Bool, Int, Texture, Sampler or Image.",
+                            field.Name,
+                            field.Type.Name
+                        ),
+                        field.Locations.Length > 0 ? field.Locations[0] : location
+                    )
+                );
 
                 continue;
             }
 
-            ports.Add(new(
-                field.Name,
-                Named(marker, "Name") as string is { Length: > 0 } named ? named : field.Name,
-                input is not null,
-                kind,
-                Default(marker, field, syntax.SemanticModel),
-                field.Type.Name,
-                Named(marker, "Summary") as string ?? "",
-                Named(marker, "Minimum") as float? ?? float.NegativeInfinity,
-                Named(marker, "Maximum") as float? ?? float.PositiveInfinity,
-                Named(marker, "SoftMinimum") as float? ?? float.NegativeInfinity,
-                Named(marker, "SoftMaximum") as float? ?? float.PositiveInfinity
-            ));
+            ports.Add(
+                new(
+                    field.Name,
+                    Named(marker, "Name") as string is { Length: > 0 } named ? named : field.Name,
+                    input is not null,
+                    kind,
+                    Default(marker, field, syntax.SemanticModel),
+                    field.Type.Name,
+                    Named(marker, "Summary") as string ?? string.Empty,
+                    Named(marker, "Minimum") as float? ?? float.NegativeInfinity,
+                    Named(marker, "Maximum") as float? ?? float.PositiveInfinity,
+                    Named(marker, "SoftMinimum") as float? ?? float.NegativeInfinity,
+                    Named(marker, "SoftMaximum") as float? ?? float.PositiveInfinity
+                )
+            );
         }
 
         // Inputs before outputs, and declaration order within each. What a create menu draws and what
         // a golden test reads, so it is decided here rather than left to member order.
-        var ordered = ports.Where(port => port.IsInput).Concat(ports.Where(port => !port.IsInput)).ToImmutableArray();
+        var ordered = ports.Where(static port => port.IsInput)
+            .Concat(ports.Where(static port => !port.IsInput))
+            .ToImmutableArray();
 
         return new(
-            type.ContainingNamespace.IsGlobalNamespace ? "" : type.ContainingNamespace.ToDisplayString(),
+            type.ContainingNamespace.IsGlobalNamespace ? string.Empty : type.ContainingNamespace.ToDisplayString(),
             type.Name,
             type.DeclaredAccessibility == Accessibility.Public ? "public" : "internal",
             path,
@@ -258,7 +291,7 @@ public sealed class NodeTypeGenerator : IIncrementalGenerator {
 
         for (var index = 0; index < model.Ports.Length; index++) {
             var port = model.Ports[index];
-            var comma = index == model.Ports.Length - 1 ? "" : ",";
+            var comma = index == model.Ports.Length - 1 ? string.Empty : ",";
             var direction = port.IsInput ? "Input" : "Output";
             var defaults = port.Default.IsEmpty
                 ? "[]"
@@ -267,7 +300,7 @@ public sealed class NodeTypeGenerator : IIncrementalGenerator {
             // Only a bounded port spells its bounds, so that the common line stays the short one.
             var bounds = port.IsBounded
                 ? $", {Number(port.Minimum)}, {Number(port.Maximum)}, {Number(port.SoftMinimum)}, {Number(port.SoftMaximum)}"
-                : "";
+                : string.Empty;
 
             text.AppendLine(
                 $"            new({Quote(port.Name)}, PortDirection.{direction}, PortKind.{port.Kind}, "
@@ -283,7 +316,7 @@ public sealed class NodeTypeGenerator : IIncrementalGenerator {
 
         for (var index = 0; index < model.Settings.Length; index++) {
             var setting = model.Settings[index];
-            var comma = index == model.Settings.Length - 1 ? "" : ",";
+            var comma = index == model.Settings.Length - 1 ? string.Empty : ",";
 
             var accepted = setting.Accepted.IsEmpty
                 ? "[]"
@@ -344,12 +377,13 @@ public sealed class NodeTypeGenerator : IIncrementalGenerator {
             .AppendLine("/// </remarks>")
             .AppendLine("public static class NodeTypes {")
             .AppendLine("    /// <summary>Adds them all to a registry.</summary>")
-            .AppendLine("    /// <param name=\"registry\">The registry.</param>")
+            .AppendLine("""    /// <param name="registry">The registry.</param>""")
             .AppendLine("    public static void Register(NodeTypeRegistry registry) {")
             .AppendLine("        System.ArgumentNullException.ThrowIfNull(registry);")
             .AppendLine();
 
-        foreach (var model in models.Where(model => model.Problems.IsEmpty).OrderBy(model => model.Path, StringComparer.Ordinal)) {
+        foreach (var model in models.Where(static model => model.Problems.IsEmpty)
+                     .OrderBy(static model => model.Path, StringComparer.Ordinal)) {
             // Fully qualified from the root, because the registration list is emitted into a
             // namespace derived from the assembly name and a node's own namespace may be a prefix of
             // it — `Tests.Thing` inside `Vixen.NodeGraph.Tests` resolves to the wrong thing,
@@ -367,14 +401,15 @@ public sealed class NodeTypeGenerator : IIncrementalGenerator {
     // VXN0103 was the last id left over — and silently wrong the moment VXN0105 arrived, so a
     // misdeclared `AcceptedFrom` was reported with "A [Node] class has to derive from Node". A
     // forgotten arm now stops the generator rather than borrowing another rule's sentence.
-    static DiagnosticDescriptor Descriptor(string id) => id switch {
-        "VXN0101" => MustBePartial,
-        "VXN0102" => NotAPortType,
-        "VXN0103" => MustDeriveFromNode,
-        "VXN0104" => SettingMustBeString,
-        "VXN0105" => AcceptedFromMustBeAnEnum,
-        _ => throw new ArgumentOutOfRangeException(nameof(id), id, "No descriptor is mapped for this id.")
-    };
+    static DiagnosticDescriptor Descriptor(string id) =>
+        id switch {
+            "VXN0101" => MustBePartial,
+            "VXN0102" => NotAPortType,
+            "VXN0103" => MustDeriveFromNode,
+            "VXN0104" => SettingMustBeString,
+            "VXN0105" => AcceptedFromMustBeAnEnum,
+            _ => throw new ArgumentOutOfRangeException(nameof(id), id, "No descriptor is mapped for this id.")
+        };
 
     static DiagnosticModel Problem(string id, string message, Location location) {
         var span = location.GetLineSpan();
@@ -444,8 +479,12 @@ public sealed class NodeTypeGenerator : IIncrementalGenerator {
 
     /// <summary>A <c>[Setting]</c>'s kind, as the enum member's own name.</summary>
     /// <remarks>
-    ///     ⚠ <b>Read off the enum <em>symbol</em> rather than off a copy of the member list kept
-    ///     here.</b> A generator cannot reference the assembly it generates into, so the obvious
+    ///     ⚠
+    ///     <b>
+    ///         Read off the enum <em>symbol</em> rather than off a copy of the member list kept
+    ///         here.
+    ///     </b>
+    ///     A generator cannot reference the assembly it generates into, so the obvious
     ///     spelling is a mirror of <c>SettingKind</c> in this project — which is a second list to keep
     ///     in step with the first, and the day they disagree every node's settings quietly acquire the
     ///     wrong kind. The member whose constant matches is the one the author wrote, whatever the
@@ -491,8 +530,12 @@ public sealed class NodeTypeGenerator : IIncrementalGenerator {
     ///         is read, instead of at the line that writes it.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b><c>AcceptedFrom</c> is read off the enum <em>symbol</em>, which is the whole
-    ///         point of it.</b> A generator cannot call <c>Enum.GetNames</c> on a type it is
+    ///         ⚠
+    ///         <b>
+    ///             <c>AcceptedFrom</c> is read off the enum <em>symbol</em>, which is the whole
+    ///             point of it.
+    ///         </b>
+    ///         A generator cannot call <c>Enum.GetNames</c> on a type it is
     ///         compiling, and it does not need to: an enum's members are constant fields, and their
     ///         names in constant order are exactly what that method answers at runtime. So the list
     ///         a picker offers is the enum, generated, rather than a transcription of it that agrees
@@ -508,30 +551,34 @@ public sealed class NodeTypeGenerator : IIncrementalGenerator {
         var from = Named(setting, "AcceptedFrom") as INamedTypeSymbol;
 
         if (from is not null && listed.Length > 0) {
-            problems.Add(Problem(
-                AcceptedFromMustBeAnEnum.Id,
-                string.Format(
-                    CultureInfo.InvariantCulture,
-                    "A setting states both an Accepted list and AcceptedFrom = typeof({0}). They are two answers to one question, and the day they disagree the picker offers what the compiler refuses. Keep the enum and delete the list.",
-                    from.Name
-                ),
-                location
-            ));
+            problems.Add(
+                Problem(
+                    AcceptedFromMustBeAnEnum.Id,
+                    string.Format(
+                        CultureInfo.InvariantCulture,
+                        "A setting states both an Accepted list and AcceptedFrom = typeof({0}). They are two answers to one question, and the day they disagree the picker offers what the compiler refuses. Keep the enum and delete the list.",
+                        from.Name
+                    ),
+                    location
+                )
+            );
 
             return [];
         }
 
         if (from is not null) {
             if (from.TypeKind != TypeKind.Enum) {
-                problems.Add(Problem(
-                    AcceptedFromMustBeAnEnum.Id,
-                    string.Format(
-                        CultureInfo.InvariantCulture,
-                        "'{0}' is not an enum, so it has no member names for a picker to offer. AcceptedFrom names the enum a setting holds one member of; for a set of legal names that is not a CLR type, write them out with Accepted.",
-                        from.Name
-                    ),
-                    location
-                ));
+                problems.Add(
+                    Problem(
+                        AcceptedFromMustBeAnEnum.Id,
+                        string.Format(
+                            CultureInfo.InvariantCulture,
+                            "'{0}' is not an enum, so it has no member names for a picker to offer. AcceptedFrom names the enum a setting holds one member of; for a set of legal names that is not a CLR type, write them out with Accepted.",
+                            from.Name
+                        ),
+                        location
+                    )
+                );
 
                 return [];
             }
@@ -592,7 +639,7 @@ public sealed class NodeTypeGenerator : IIncrementalGenerator {
             var lanes = ImmutableArray.CreateBuilder<float>(values.Length);
 
             foreach (var value in values) {
-                lanes.Add(System.Convert.ToSingle(value.Value ?? 0f, CultureInfo.InvariantCulture));
+                lanes.Add(Convert.ToSingle(value.Value ?? 0f, CultureInfo.InvariantCulture));
             }
 
             return lanes.ToImmutable();
@@ -618,7 +665,7 @@ public sealed class NodeTypeGenerator : IIncrementalGenerator {
             if (constant.HasValue && constant.Value is not null) {
                 return constant.Value switch {
                     bool flag => [flag ? 1f : 0f],
-                    _ => [System.Convert.ToSingle(constant.Value, CultureInfo.InvariantCulture)]
+                    _ => [Convert.ToSingle(constant.Value, CultureInfo.InvariantCulture)]
                 };
             }
         }
@@ -650,23 +697,24 @@ public sealed class NodeTypeGenerator : IIncrementalGenerator {
             }
         }
 
-        return "";
+        return string.Empty;
     }
 
-    static string? KindOf(ITypeSymbol type) => type.ToDisplayString() switch {
-        "Vixen.NodeGraph.Scalar" => "Float",
-        "Vixen.NodeGraph.Float2" => "Float2",
-        "Vixen.NodeGraph.Float3" => "Float3",
-        "Vixen.NodeGraph.Float4" => "Float4",
-        "Vixen.NodeGraph.DynamicVector" => "Dynamic",
-        "Vixen.NodeGraph.Bool" => "Bool",
-        "Vixen.NodeGraph.Int" => "Int",
-        "Vixen.NodeGraph.Texture" => "Texture",
-        "Vixen.NodeGraph.Sampler" => "Sampler",
-        "Vixen.NodeGraph.Image" => "Image",
-        "Vixen.NodeGraph.Flow" => "Flow",
-        _ => null
-    };
+    static string? KindOf(ITypeSymbol type) =>
+        type.ToDisplayString() switch {
+            "Vixen.NodeGraph.Scalar" => "Float",
+            "Vixen.NodeGraph.Float2" => "Float2",
+            "Vixen.NodeGraph.Float3" => "Float3",
+            "Vixen.NodeGraph.Float4" => "Float4",
+            "Vixen.NodeGraph.DynamicVector" => "Dynamic",
+            "Vixen.NodeGraph.Bool" => "Bool",
+            "Vixen.NodeGraph.Int" => "Int",
+            "Vixen.NodeGraph.Texture" => "Texture",
+            "Vixen.NodeGraph.Sampler" => "Sampler",
+            "Vixen.NodeGraph.Image" => "Image",
+            "Vixen.NodeGraph.Flow" => "Flow",
+            _ => null
+        };
 
     static string Quote(string value) => "\"" + value.Replace("\\", "\\\\").Replace("\"", "\\\"") + "\"";
 

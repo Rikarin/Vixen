@@ -125,9 +125,13 @@ public sealed class AppBuilder {
     /// </param>
     /// <returns>This builder.</returns>
     /// <remarks>
-    ///     ⚠ <b>This is not the same as
-    ///     <c>WithServices(services =&gt; services.LoggerFactory.AddProvider(…))</c>, and the
-    ///     difference is the whole boot.</b> <see cref="WithServices" /> callbacks are the last
+    ///     ⚠
+    ///     <b>
+    ///         This is not the same as
+    ///         <c>WithServices(services =&gt; services.LoggerFactory.AddProvider(…))</c>, and the
+    ///         difference is the whole boot.
+    ///     </b>
+    ///     <see cref="WithServices" /> callbacks are the last
     ///     thing <see cref="Build" /> runs — after the platform, the mounts, the log-config read,
     ///     the workers, the engine loop, the content mount, input and the whole graphics build,
     ///     every one of which has already logged. A provider installed here is in the factory
@@ -213,7 +217,7 @@ public sealed class AppBuilder {
         // the seam: a platform sink installed after the boot is a platform sink that missed it.
         sinks.AddRange(loggerProviders.Select(create => create(levels)));
 
-        var loggerFactory = new HostLoggerFactory([.. sinks]);
+        var loggerFactory = new HostLoggerFactory([..sinks]);
 
         // ⚠ Named rather than silently headless. Falling back to a platform that opens no window
         // would turn "this head forgot to install its backends" into a game that boots, runs, and
@@ -237,7 +241,7 @@ public sealed class AppBuilder {
         LogConfigFile.ApplyStandardLocations(
             fileSystem,
             levels,
-            honourMinimumLevel: arguments.LogLevel is null,
+            arguments.LogLevel is null,
             loggerFactory.CreateLogger("Vixen.App")
         );
 
@@ -421,14 +425,14 @@ public sealed class AppBuilder {
 
             // A device this built is this application's to close. One handed to WithGraphics belongs
             // to whoever handed it over — the editor, an XR runtime — and outlives the game.
-            ownsDevice: device is null,
+            device is null,
 
             // ⚠ The same scheduler the world is stepped on, deliberately. A tier is a choice between
             // two things a worker could pick up next, so a frame's work and the work that would
             // rather be late than make a frame late have to be queued on one scheduler for the
             // choice to exist at all. A second scheduler here would give both of them their own
             // workers and neither of them anything to yield to.
-            jobs: jobs
+            jobs
         );
     }
 
@@ -440,9 +444,12 @@ public sealed class AppBuilder {
     /// <returns>One per available processor beyond the calling thread, and none in a browser.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The browser is decided by the target and not by the count, and it has to be:
-    ///         <c>Math.Max(1, available - 1)</c> has a floor of one, so this could never return the
-    ///         one value the browser can accept</b>
+    ///         ⚠
+    ///         <b>
+    ///             The browser is decided by the target and not by the count, and it has to be:
+    ///             <c>Math.Max(1, available - 1)</c> has a floor of one, so this could never return the
+    ///             one value the browser can accept
+    ///         </b>
     ///         (<a href="https://github.com/Rikarin/Vixen/issues/486">#486</a>). Even the
     ///         non-isolated page — where <c>WebProcessors</c> already reported a single processor —
     ///         came out of that expression as <c>Math.Max(1, 0)</c>, so every browser head this
@@ -451,8 +458,12 @@ public sealed class AppBuilder {
     ///         <see cref="PlatformNotSupportedException" /> before the first frame.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>So <c>AppConfig.WorkerCount</c>'s "0 is a supported and tested value" was
-    ///         reachable only by passing it.</b> doc 10 § Cross-platform discipline requires every
+    ///         ⚠
+    ///         <b>
+    ///             So <c>AppConfig.WorkerCount</c>'s "0 is a supported and tested value" was
+    ///             reachable only by passing it.
+    ///         </b>
+    ///         doc 10 § Cross-platform discipline requires every
     ///         subsystem to work with <c>workerCount == 0</c> because the browser has none, and the
     ///         one code path that decides the default for a real head could not produce it.
     ///     </para>
@@ -473,11 +484,13 @@ public sealed class AppBuilder {
     ///     needed the log.
     /// </summary>
     static string FileNamePrefix(string name) {
-        var cleaned = new string([
-            .. name.Select(static character =>
-                char.IsLetterOrDigit(character) || character is '-' or '_' ? character : '-'
-            )
-        ]).Trim('-');
+        var cleaned = new string(
+            [
+                ..name.Select(static character =>
+                    char.IsLetterOrDigit(character) || character is '-' or '_' ? character : '-'
+                )
+            ]
+        ).Trim('-');
 
         return cleaned.Length == 0 ? "vixen" : cleaned;
     }
@@ -523,17 +536,25 @@ public sealed class AppBuilder {
 /// </remarks>
 sealed class HostLoggerFactory(params ILoggerProvider[] providers) : ILoggerFactory {
     readonly Lock gate = new();
-    readonly List<ILoggerProvider> providers = [.. providers];
+    readonly List<ILoggerProvider> providers = [..providers];
 
     /// <summary>
     ///     One logger per category, kept so that <see cref="AddProvider" /> can reach the loggers
     ///     that already exist.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>This used to be no cache and a snapshot, which made <see cref="AddProvider" /> a
-    ///     no-op for every logger already handed out.</b> The two mobile samples are exactly that
-    ///     shape — <c>WithServices(services =&gt; services.LoggerFactory.AddProvider(new
-    ///     PlatformSink()))</c>, and <c>WithServices</c> callbacks are the last thing
+    ///     ⚠
+    ///     <b>
+    ///         This used to be no cache and a snapshot, which made <see cref="AddProvider" /> a
+    ///         no-op for every logger already handed out.
+    ///     </b>
+    ///     The two mobile samples are exactly that
+    ///     shape —
+    ///     <c>
+    ///         WithServices(services =&gt; services.LoggerFactory.AddProvider(new
+    ///         PlatformSink()))
+    ///     </c>
+    ///     , and <c>WithServices</c> callbacks are the last thing
     ///     <see cref="AppBuilder.Build" /> runs — so on the two platforms where the system log is
     ///     the only log there is, the sink received nothing the platform, the graphics stack or the
     ///     engine had written (#1197). <c>Microsoft.Extensions.Logging</c>'s own
@@ -556,7 +577,7 @@ sealed class HostLoggerFactory(params ILoggerProvider[] providers) : ILoggerFact
         ObjectDisposedException.ThrowIf(disposed, this);
 
         lock (gate) {
-            this.providers.Add(provider);
+            providers.Add(provider);
 
             // The loggers that already exist, not just the ones made from here on. Everything the
             // host built before this point is holding one of these.
@@ -581,7 +602,7 @@ sealed class HostLoggerFactory(params ILoggerProvider[] providers) : ILoggerFact
             var created = new Fanout(
                 this,
                 categoryName,
-                [.. this.providers.Select(provider => provider.CreateLogger(categoryName))]
+                [..providers.Select(provider => provider.CreateLogger(categoryName))]
             );
 
             loggers[categoryName] = created;
@@ -598,11 +619,11 @@ sealed class HostLoggerFactory(params ILoggerProvider[] providers) : ILoggerFact
 
             disposed = true;
 
-            foreach (var provider in this.providers) {
+            foreach (var provider in providers) {
                 provider.Dispose();
             }
 
-            this.providers.Clear();
+            providers.Clear();
             loggers.Clear();
         }
     }
@@ -632,7 +653,7 @@ sealed class HostLoggerFactory(params ILoggerProvider[] providers) : ILoggerFact
 
         /// <summary>Adds a provider's logger to the set this one writes to.</summary>
         /// <remarks>Called under the factory's lock, which is what makes the read-copy-write safe.</remarks>
-        internal void Add(ILogger logger) => targets = [.. targets, logger];
+        internal void Add(ILogger logger) => targets = [..targets, logger];
 
         public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
 

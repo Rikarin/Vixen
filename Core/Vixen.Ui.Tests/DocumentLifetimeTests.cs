@@ -8,8 +8,11 @@ namespace Vixen.Ui.Tests;
 /// <summary>That a document which has been disposed says so instead of taking the process with it.</summary>
 /// <remarks>
 ///     <para>
-///         <b>The failure this was written against destroyed the evidence that would have identified
-///         it.</b> <c>UiDocument.Layout</c> is a <c>LayoutTree</c> and a <c>LayoutTree</c> is four
+///         <b>
+///             The failure this was written against destroyed the evidence that would have identified
+///             it.
+///         </b>
+///         <c>UiDocument.Layout</c> is a <c>LayoutTree</c> and a <c>LayoutTree</c> is four
 ///         <c>NativeArray</c>s. Disposing it freed them and zeroed its capacity but left the struct
 ///         fields holding the freed pointers — so the next <c>CreateNode</c> grew from a capacity of
 ///         nought, found the arrays non-empty, copied out of memory that was no longer ours and
@@ -34,7 +37,8 @@ namespace Vixen.Ui.Tests;
 ///         unreachable through any holder rather than only through a guarded document. The plain
 ///         form is therefore safe to write, and is written: a lost guard here is now a red
 ///         <c>Assert.Throws</c> naming the call that lost it. The store's own half of the contract
-///         is asserted by <c>LayoutTreeTests.A_disposed_tree_can_be_used_again_rather_than_freeing_the_same_memory_twice</c>.
+///         is asserted by
+///         <c>LayoutTreeTests.A_disposed_tree_can_be_used_again_rather_than_freeing_the_same_memory_twice</c>.
 ///     </para>
 /// </remarks>
 public class DocumentLifetimeTests {
@@ -65,7 +69,7 @@ public class DocumentLifetimeTests {
         Assert.Throws<ObjectDisposedException>(() => document.Tick(TimeSpan.FromSeconds(1)));
         Assert.Throws<ObjectDisposedException>(() => document.Draw());
         Assert.Throws<ObjectDisposedException>(() => document.Load("div { width: 1px; }"));
-        Assert.Throws<ObjectDisposedException>(() => document.LoadOnce(new object(), "div { width: 1px; }"));
+        Assert.Throws<ObjectDisposedException>(() => document.LoadOnce(new(), "div { width: 1px; }"));
         Assert.Throws<ObjectDisposedException>(() => document.ReloadStyles(0, "div { width: 1px; }"));
     }
 
@@ -132,7 +136,7 @@ public class DocumentLifetimeTests {
         var document = Disposed();
 
         Assert.Throws<ObjectDisposedException>(() => document.Root.Add("div"));
-        Assert.Throws<ObjectDisposedException>(() => document.Adopt(new UiElement(), "div", document.Root));
+        Assert.Throws<ObjectDisposedException>(() => document.Adopt(new(), "div", document.Root));
 
         // `elsewhere` is live, so nothing here depends on two disposed documents.
         using var elsewhere = new UiDocument(100f, 100f);

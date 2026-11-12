@@ -16,7 +16,9 @@ public class DocumentationCommentTests {
             """
             /// <summary>An entity's position in the world.</summary>
             public struct Position { public float X; }
-            """, "Position");
+            """,
+            "Position"
+        );
 
         Assert.Equal("An entity's position in the world.", docs.Summary);
     }
@@ -34,7 +36,9 @@ public class DocumentationCommentTests {
             ///     in the world.
             /// </summary>
             public struct Position { public float X; }
-            """, "Position");
+            """,
+            "Position"
+        );
 
         Assert.Equal("An entity's position in the world.", docs.Summary);
     }
@@ -49,7 +53,9 @@ public class DocumentationCommentTests {
             ///     <para>Second.</para>
             /// </remarks>
             public struct Position { public float X; }
-            """, "Position");
+            """,
+            "Position"
+        );
 
         Assert.Equal("First.\n\nSecond.", docs.Remarks);
     }
@@ -68,7 +74,9 @@ public class DocumentationCommentTests {
             /// <summary>Moves a <see cref="Velocity"/> along.</summary>
             /// <seealso cref="Velocity"/>
             public struct Position { public float X; }
-            """, "Position");
+            """,
+            "Position"
+        );
 
         Assert.Equal(["T:Velocity"], docs.SeeAlso);
     }
@@ -81,7 +89,9 @@ public class DocumentationCommentTests {
 
             /// <summary>Moves a <see cref="Velocity"/> along.</summary>
             public struct Position { public float X; }
-            """, "Position");
+            """,
+            "Position"
+        );
 
         Assert.Equal("Moves a Velocity along.", docs.Summary);
     }
@@ -100,13 +110,17 @@ public class DocumentationCommentTests {
 
             /// <inheritdoc/>
             public sealed class Clock : ITickable { }
-            """, "Clock");
+            """,
+            "Clock"
+        );
 
         Assert.Equal("A thing that ticks.", docs.Summary);
     }
 
-    /// <summary>A type with no comment has no comment: nothing is borrowed from its base type
-    ///     unless the author asked for it with `&lt;inheritdoc/&gt;`.</summary>
+    /// <summary>
+    ///     A type with no comment has no comment: nothing is borrowed from its base type
+    ///     unless the author asked for it with `&lt;inheritdoc/&gt;`.
+    /// </summary>
     [Fact]
     public void DocumentationIsNotInheritedWithoutTheTag() {
         var docs = Read(
@@ -115,7 +129,9 @@ public class DocumentationCommentTests {
             public interface ITickable { }
 
             public sealed class Clock : ITickable { }
-            """, "Clock");
+            """,
+            "Clock"
+        );
 
         Assert.Null(docs.Summary);
     }

@@ -75,15 +75,15 @@ public class ModeStripTests {
         // members are `Segment`s. What is being asserted — a picture and a caption on the same face —
         // is `ButtonBase`'s, and was never `Button`'s.
         var buttons = Find<ButtonBase>(shell.Document.Root)
-            .Where(button => button.LeadingIcon.Art is not null)
+            .Where(static button => button.LeadingIcon.Art is not null)
             .ToList();
 
         Assert.Equal(3, buttons.Count);
-        Assert.Contains(buttons, button => button.Label == "Blockout");
+        Assert.Contains(buttons, static button => button.Label == "Blockout");
 
         // Every one of them says its name as well as showing its picture, which is the difference
         // between this and the icon strip the toolbar draws for verbs.
-        Assert.All(buttons, button => Assert.False(string.IsNullOrEmpty(button.Label)));
+        Assert.All(buttons, static button => Assert.False(string.IsNullOrEmpty(button.Label)));
     }
 
     [Fact]

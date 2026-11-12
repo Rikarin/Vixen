@@ -15,7 +15,9 @@ public class MenuTests : IDisposable {
     readonly KeyMap keys = new();
     readonly List<MenuPresenter> presenters = [];
 
-    public MenuTests() => ControlTheme.Install(document);
+    public MenuTests() {
+        ControlTheme.Install(document);
+    }
 
     public void Dispose() {
         // ⚠ Every presenter, and this is not tidiness. A presenter is subscribed to the static
@@ -41,8 +43,8 @@ public class MenuTests : IDisposable {
 
     [Fact]
     public void A_menu_shows_what_the_registry_calls_a_command_and_what_the_keymap_binds_it_to() {
-        commands.Add("file.save", Title("Save"), () => { });
-        keys.SetDefault("file.save", new KeyChord(InputKey.S, ModifierKeys.Control));
+        commands.Add("file.save", Title("Save"), static () => { });
+        keys.SetDefault("file.save", new(InputKey.S, ModifierKeys.Control));
 
         var model = new MenuModel();
         model.AddMenu(Title("File")).Add("file.save");
@@ -67,7 +69,7 @@ public class MenuTests : IDisposable {
         var presenter = Present(model);
         Assert.Empty(presenter.Bar.Items[0].Menu.Items);
 
-        commands.Add("file.save", Title("Save"), () => { });
+        commands.Add("file.save", Title("Save"), static () => { });
 
         // This is the whole claim: an action added once appears everywhere it belongs.
         Assert.Single(presenter.Bar.Items[0].Menu.Items);
@@ -75,7 +77,7 @@ public class MenuTests : IDisposable {
 
     [Fact]
     public void An_id_nothing_registered_is_skipped_and_takes_its_separator_with_it() {
-        commands.Add("file.save", Title("Save"), () => { });
+        commands.Add("file.save", Title("Save"), static () => { });
 
         var model = new MenuModel();
         model.AddMenu(Title("File"))
@@ -92,13 +94,13 @@ public class MenuTests : IDisposable {
 
         // A rule at the top, two in a row in the middle and one hanging off the bottom is what a
         // menu built from a model that has lost entries otherwise looks like.
-        Assert.DoesNotContain(menu.Children, child => child is Separator);
+        Assert.DoesNotContain(menu.Children, static child => child is Separator);
     }
 
     [Fact]
     public void Opening_a_menu_asks_every_line_whether_it_can_run() {
         var enabled = false;
-        commands.Add(new EditorCommand("edit.undo", Title("Undo"), () => { }) { Enablement = () => enabled });
+        commands.Add(new EditorCommand("edit.undo", Title("Undo"), static () => { }) { Enablement = () => enabled });
 
         var model = new MenuModel();
         model.AddMenu(Title("Edit")).Add("edit.undo");
@@ -146,7 +148,7 @@ public class MenuTests : IDisposable {
         var presenter = Present(model);
         Assert.Empty(presenter.Bar.Items[0].Menu.Items);
 
-        commands.Add("view.panel.console", Title("Console"), () => { });
+        commands.Add("view.panel.console", Title("Console"), static () => { });
         panels.Add("view.panel.console");
         presenter.Rebuild();
 
@@ -155,7 +157,7 @@ public class MenuTests : IDisposable {
 
     [Fact]
     public void A_rebuild_leaves_no_orphaned_menu_behind() {
-        commands.Add("file.save", Title("Save"), () => { });
+        commands.Add("file.save", Title("Save"), static () => { });
 
         var model = new MenuModel();
         model.AddMenu(Title("File")).Add("file.save");
@@ -175,7 +177,7 @@ public class MenuTests : IDisposable {
     [Fact]
     public void A_toolbar_button_follows_its_commands_enablement() {
         var enabled = true;
-        commands.Add(new EditorCommand("file.save", Title("Save"), () => { }) { Enablement = () => enabled });
+        commands.Add(new EditorCommand("file.save", Title("Save"), static () => { }) { Enablement = () => enabled });
 
         var toolbar = new ToolbarPresenter(document.Root, commands, keys);
         toolbar.Show("file.save");
@@ -205,7 +207,7 @@ public class MenuTests : IDisposable {
     public void A_context_menu_is_built_from_ids_the_same_way() {
         var ran = 0;
         commands.Add("edit.copy", Title("Copy"), () => ran++);
-        commands.Add("edit.paste", Title("Paste"), () => { });
+        commands.Add("edit.paste", Title("Paste"), static () => { });
 
         var menu = MenuPresenter.Context(document, commands, keys, "edit.copy", null, "edit.paste", "plugin.gone");
 
@@ -219,10 +221,10 @@ public class MenuTests : IDisposable {
     public void A_context_menu_can_be_built_from_a_group_and_has_submenus() {
         var ran = 0;
 
-        commands.Add("scene.create-entity", Title("Create Empty"), () => { });
+        commands.Add("scene.create-entity", Title("Create Empty"), static () => { });
         commands.Add("scene.create-cube", Title("Cube"), () => ran++);
-        commands.Add("scene.create-sphere", Title("Sphere"), () => { });
-        commands.Add("scene.delete-entity", Title("Delete"), () => { });
+        commands.Add("scene.create-sphere", Title("Sphere"), static () => { });
+        commands.Add("scene.delete-entity", Title("Delete"), static () => { });
 
         var group = new MenuGroup(Title("Hierarchy"));
         group.Add("scene.create-entity");
@@ -240,7 +242,7 @@ public class MenuTests : IDisposable {
         Assert.Equal(3, menu.Items.Count);
         Assert.Equal("3D Object", menu.Items[1].Label);
 
-        var shapes = Assert.IsType<Menu>(menu.Items[1].Submenu, exactMatch: false);
+        var shapes = Assert.IsType<Menu>(menu.Items[1].Submenu, false);
         Assert.Equal(2, shapes.Items.Count);
 
         // ⚠ On the submenu's own item, which is the case the flat overload cannot express: a
@@ -255,7 +257,7 @@ public class MenuTests : IDisposable {
         var enabled = false;
 
         commands.Add(
-            new EditorCommand("scene.delete-entity", Title("Delete"), () => { }) { Enablement = () => enabled }
+            new EditorCommand("scene.delete-entity", Title("Delete"), static () => { }) { Enablement = () => enabled }
         );
 
         var group = new MenuGroup(Title("Hierarchy"));
@@ -266,7 +268,7 @@ public class MenuTests : IDisposable {
 
         Assert.True(menu.Items[0].Disabled);
 
-        menu.Close(CloseReason.Code);
+        menu.Close();
         enabled = true;
         menu.Open();
 
@@ -297,7 +299,7 @@ public class MenuTests : IDisposable {
             var id = "file.command-" + index;
 
             file.Add(id);
-            commands.Add(id, Title("Command " + index), () => { });
+            commands.Add(id, Title("Command " + index), static () => { });
         }
 
         // Nothing yet: a hundred registrations have marked the bar stale a hundred times and built
@@ -326,7 +328,7 @@ public class MenuTests : IDisposable {
 
         var presenter = Present(model);
 
-        commands.Add("file.save", Title("Save"), () => { });
+        commands.Add("file.save", Title("Save"), static () => { });
 
         var item = Assert.Single(presenter.Bar.Items[0].Menu.Items);
 

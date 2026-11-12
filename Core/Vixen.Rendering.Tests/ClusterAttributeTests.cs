@@ -137,7 +137,7 @@ public sealed class ClusterAttributeTests {
         var clip2 = Project(projection, far);
 
         // The world midpoint of the near edge and the far corner: barycentric (0.25, 0.25, 0.5).
-        var world = (near * 0.25f) + (alsoNear * 0.25f) + (far * 0.5f);
+        var world = near * 0.25f + alsoNear * 0.25f + far * 0.5f;
         var clip = Project(projection, world);
         var pixel = new Vector2(clip.X, clip.Y) / clip.W;
 
@@ -151,7 +151,7 @@ public sealed class ClusterAttributeTests {
         // closer to the far corner on screen than it is in the world, so the affine answer over-weights
         // it badly.
         var affine = Affine(pixel, clip0, clip1, clip2);
-        var wrong = (affine.X * near.Z) + (affine.Y * alsoNear.Z) + (affine.Z * far.Z);
+        var wrong = affine.X * near.Z + affine.Y * alsoNear.Z + affine.Z * far.Z;
 
         Assert.True(
             MathF.Abs(wrong - world.Z) > 5f,
@@ -201,7 +201,7 @@ public sealed class ClusterAttributeTests {
 
         for (var u = 0.15f; u < 0.7f; u += 0.13f) {
             for (var v = 0.1f; v + u < 0.85f; v += 0.11f) {
-                var world = (a * (1f - u - v)) + (b * u) + (c * v);
+                var world = a * (1f - u - v) + b * u + c * v;
                 var clip = Project(projection, world);
                 var pixel = new Vector2(clip.X, clip.Y) / clip.W;
 
@@ -214,7 +214,8 @@ public sealed class ClusterAttributeTests {
                 var left = ClusterAttributes.Of(pixel - step, clip0, clip1, clip2, pixelSize);
                 var right = ClusterAttributes.Of(pixel + step, clip0, clip1, clip2, pixelSize);
 
-                var difference = ClusterAttributes.Lerp(right, uv0, uv1, uv2) - ClusterAttributes.Lerp(left, uv0, uv1, uv2);
+                var difference = ClusterAttributes.Lerp(right, uv0, uv1, uv2)
+                    - ClusterAttributes.Lerp(left, uv0, uv1, uv2);
 
                 Close(difference.X, analytic.X);
                 Close(difference.Y, analytic.Y);
@@ -224,16 +225,17 @@ public sealed class ClusterAttributeTests {
                 var down = new Vector2(0f, pixelSize.Y * 0.5f);
 
                 var vertical = ClusterAttributes.Lerp(
-                    ClusterAttributes.Of(pixel + down, clip0, clip1, clip2, pixelSize),
-                    uv0,
-                    uv1,
-                    uv2
-                ) - ClusterAttributes.Lerp(
-                    ClusterAttributes.Of(pixel - down, clip0, clip1, clip2, pixelSize),
-                    uv0,
-                    uv1,
-                    uv2
-                );
+                        ClusterAttributes.Of(pixel + down, clip0, clip1, clip2, pixelSize),
+                        uv0,
+                        uv1,
+                        uv2
+                    )
+                    - ClusterAttributes.Lerp(
+                        ClusterAttributes.Of(pixel - down, clip0, clip1, clip2, pixelSize),
+                        uv0,
+                        uv1,
+                        uv2
+                    );
 
                 Close(vertical.X, analyticY.X);
                 Close(vertical.Y, analyticY.Y);
@@ -415,13 +417,13 @@ public sealed class ClusterAttributeTests {
         var edge1 = ndc1 - ndc0;
         var edge2 = ndc2 - ndc0;
 
-        if (MathF.Abs((edge1.X * edge2.Y) - (edge1.Y * edge2.X)) < 1e-3f) {
+        if (MathF.Abs(edge1.X * edge2.Y - edge1.Y * edge2.X) < 1e-3f) {
             return null;
         }
 
         // The world point first and its pixel second, so what the pixel sees is known exactly rather than
         // solved for — which is what makes the assertion the definition rather than a fixed point.
-        var world = (triangle.A * (1f - at.U - at.V)) + (triangle.B * at.U) + (triangle.C * at.V);
+        var world = triangle.A * (1f - at.U - at.V) + triangle.B * at.U + triangle.C * at.V;
         var clip = Project(projection, world);
 
         return new(clip0, clip1, clip2, new Vector2(clip.X, clip.Y) / clip.W, world);
@@ -435,11 +437,11 @@ public sealed class ClusterAttributeTests {
 
         var edge1 = ndc1 - ndc0;
         var edge2 = ndc2 - ndc0;
-        var area = (edge1.X * edge2.Y) - (edge1.Y * edge2.X);
+        var area = edge1.X * edge2.Y - edge1.Y * edge2.X;
         var to = pixel - ndc0;
 
-        var b1 = ((to.X * edge2.Y) - (to.Y * edge2.X)) / area;
-        var b2 = ((edge1.X * to.Y) - (edge1.Y * to.X)) / area;
+        var b1 = (to.X * edge2.Y - to.Y * edge2.X) / area;
+        var b2 = (edge1.X * to.Y - edge1.Y * to.X) / area;
 
         return new(1f - b1 - b2, b1, b2);
     }
@@ -474,18 +476,20 @@ public sealed class ClusterAttributeTests {
     /// </remarks>
     static Gen<Vector3> Corner =>
         Gen.Select(Gen.Float[-6f, 6f], Gen.Float[-6f, 6f], Gen.Float[-45f, -1.5f])
-            .Select(v => new Vector3(v.Item1, v.Item2, v.Item3));
+            .Select(static v => new Vector3(v.Item1, v.Item2, v.Item3));
 
     static Gen<Matrix4x4> Cameras =>
         Gen.Select(Gen.Float[0.5f, 1.9f], Gen.Float[0.6f, 2.4f])
-            .Select(v => Matrix4x4.PerspectiveFieldOfView(v.Item1, v.Item2, 0.05f, 2000f));
+            .Select(static v => Matrix4x4.PerspectiveFieldOfView(v.Item1, v.Item2, 0.05f, 2000f));
 
     /// <summary>Interior barycentric coordinates, away from the edges where the area test is weakest.</summary>
     static Gen<(float, float)> Interiors =>
-        Gen.Select(Gen.Float[0.05f, 0.9f], Gen.Float[0.05f, 0.9f]).Where(t => t.Item1 + t.Item2 < 0.95f);
+        Gen.Select(Gen.Float[0.05f, 0.9f], Gen.Float[0.05f, 0.9f]).Where(static t => t.Item1 + t.Item2 < 0.95f);
 
     static string Source(string folder, string file) {
-        for (var directory = new DirectoryInfo(AppContext.BaseDirectory); directory is not null; directory = directory.Parent) {
+        for (var directory = new DirectoryInfo(AppContext.BaseDirectory);
+             directory is not null;
+             directory = directory.Parent) {
             var candidate = Path.Combine(directory.FullName, "Raven", "Library", folder, file);
 
             if (File.Exists(candidate)) {
@@ -493,6 +497,8 @@ public sealed class ClusterAttributeTests {
             }
         }
 
-        throw new FileNotFoundException($"Raven/Library/{folder}/{file} was not found above '{AppContext.BaseDirectory}'.");
+        throw new FileNotFoundException(
+            $"Raven/Library/{folder}/{file} was not found above '{AppContext.BaseDirectory}'."
+        );
     }
 }

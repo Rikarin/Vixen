@@ -60,8 +60,8 @@ public sealed class MarqueeOverlay : UiElement {
         var origin = owner.Control.Bounds;
 
         var rectangle = new Rectangle(
-            origin.X + (band.Left / scale),
-            origin.Y + (band.Top / scale),
+            origin.X + band.Left / scale,
+            origin.Y + band.Top / scale,
             band.Width / scale,
             band.Height / scale
         );

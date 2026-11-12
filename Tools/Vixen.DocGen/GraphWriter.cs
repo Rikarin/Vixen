@@ -31,7 +31,6 @@ sealed class GraphWriter(int chunkBudgetBytes = 256 * 1024) {
     ///     Every signature in the graph is a list of these and there are 29 000 members, so the
     ///     property names are a real fraction of the file: measured, the object form costs
     ///     <b>4 MB of 30</b> to say <c>Text</c> and <c>Kind</c> a few hundred thousand times.
-    ///
     ///     A run that names a type the graph has gets a third element — its id, which is what the
     ///     site turns into a link. A pair when there is nothing to link to, so the common run stays
     ///     two strings.
@@ -49,10 +48,10 @@ sealed class GraphWriter(int chunkBudgetBytes = 256 * 1024) {
 
                 reader.Read();
 
-                return new DocSpan(text, kind, id);
+                return new(text, kind, id);
             }
 
-            return new DocSpan(text, kind);
+            return new(text, kind);
         }
 
         public override void Write(Utf8JsonWriter writer, DocSpan value, JsonSerializerOptions options) {
@@ -81,7 +80,7 @@ sealed class GraphWriter(int chunkBudgetBytes = 256 * 1024) {
         var pagesDirectory = Path.Combine(outputDirectory, "pages");
 
         if (Directory.Exists(pagesDirectory)) {
-            Directory.Delete(pagesDirectory, recursive: true);
+            Directory.Delete(pagesDirectory, true);
         }
 
         Directory.CreateDirectory(pagesDirectory);
@@ -90,53 +89,63 @@ sealed class GraphWriter(int chunkBudgetBytes = 256 * 1024) {
 
         var indexPath = Path.Combine(outputDirectory, "graph.json");
 
-        File.WriteAllText(indexPath, JsonSerializer.Serialize(new {
-            graph.Solution,
-            graph.Configuration,
-            graph.Commit,
-            graph.ProjectCount,
-            graph.GeneratedDocumentCount,
-            Namespaces = graph.Nodes
-                .GroupBy(ChunkOf, StringComparer.Ordinal)
-                .OrderBy(group => group.Key, StringComparer.Ordinal)
-                .Select(group => new {
-                    Name = NameOf(group),
-                    Slug = group.Key,
-                    Areas = group.Select(node => node.Area).Distinct().OrderBy(area => area, StringComparer.Ordinal),
-                    Count = group.Count()
-                }),
-            Nodes = graph.Nodes.Select(node => new {
-                node.Id,
-                Kind = Taxonomy.Slug(node.Kind),
-                node.Name,
-                node.QualifiedName,
-                node.Namespace,
-                node.Assembly,
-                node.Area,
-                node.Slug,
-                node.Summary,
-                node.Obsolete,
-                node.IsGenerated,
-                node.IsPackable,
-                node.UsedByCount,
-                node.Docs,
-                Members = node.Members.Count,
-                Source = node.Source?.Url
-            })
-        }, Options));
+        File.WriteAllText(
+            indexPath,
+            JsonSerializer.Serialize(
+                new {
+                    graph.Solution,
+                    graph.Configuration,
+                    graph.Commit,
+                    graph.ProjectCount,
+                    graph.GeneratedDocumentCount,
+                    Namespaces = graph.Nodes
+                        .GroupBy(ChunkOf, StringComparer.Ordinal)
+                        .OrderBy(static group => group.Key, StringComparer.Ordinal)
+                        .Select(static group => new {
+                                Name = NameOf(group),
+                                Slug = group.Key,
+                                Areas = group.Select(static node => node.Area)
+                                    .Distinct()
+                                    .OrderBy(static area => area, StringComparer.Ordinal),
+                                Count = group.Count()
+                            }
+                        ),
+                    Nodes = graph.Nodes.Select(static node => new {
+                            node.Id,
+                            Kind = Taxonomy.Slug(node.Kind),
+                            node.Name,
+                            node.QualifiedName,
+                            node.Namespace,
+                            node.Assembly,
+                            node.Area,
+                            node.Slug,
+                            node.Summary,
+                            node.Obsolete,
+                            node.IsGenerated,
+                            node.IsPackable,
+                            node.UsedByCount,
+                            node.Docs,
+                            Members = node.Members.Count,
+                            Source = node.Source?.Url
+                        }
+                    )
+                },
+                Options
+            )
+        );
 
         var chunks = 0;
         var split = 0;
         long pageBytes = 0;
 
         foreach (var group in graph.Nodes
-            .GroupBy(ChunkOf, StringComparer.Ordinal)
-            .OrderBy(group => group.Key, StringComparer.Ordinal)) {
+                     .GroupBy(ChunkOf, StringComparer.Ordinal)
+                     .OrderBy(static group => group.Key, StringComparer.Ordinal)) {
             // § 8.1, forced by the spike: per namespace, because per type the median chunk is 428
             // bytes and the chunking would cost more than the content — but the largest namespace is
             // already 92 kB in the index tier alone, so a group past the budget is split rather than
             // shipped whole.
-            var parts = Split(group.ToList(), out var wasSplit);
+            var parts = Split([..group], out var wasSplit);
 
             if (wasSplit) {
                 split++;
@@ -152,7 +161,7 @@ sealed class GraphWriter(int chunkBudgetBytes = 256 * 1024) {
             }
         }
 
-        return new Written(new FileInfo(indexPath).Length, pageBytes, chunks, split);
+        return new(new FileInfo(indexPath).Length, pageBytes, chunks, split);
     }
 
     /// <summary>
@@ -167,7 +176,7 @@ sealed class GraphWriter(int chunkBudgetBytes = 256 * 1024) {
         var directory = Path.Combine(outputDirectory, "guide");
 
         if (Directory.Exists(directory)) {
-            Directory.Delete(directory, recursive: true);
+            Directory.Delete(directory, true);
         }
 
         Directory.CreateDirectory(directory);
@@ -177,38 +186,51 @@ sealed class GraphWriter(int chunkBudgetBytes = 256 * 1024) {
         foreach (var page in pages) {
             var path = Path.Combine(directory, page.Front.Slug.Replace('/', '.') + ".json");
 
-            File.WriteAllText(path, JsonSerializer.Serialize(new {
-                page.Front.Title,
-                page.Front.Slug,
-                page.Front.Kind,
-                page.Front.Area,
-                page.Front.Summary,
-                page.Front.Api,
-                page.Front.Tags,
-                page.Front.Since,
-                page.Front.Status,
-                page.Front.Related,
-                page.Body,
-                page.Headings,
-                page.Tokens,
-                Edit = page.Source?.Url
-            }, Options));
+            File.WriteAllText(
+                path,
+                JsonSerializer.Serialize(
+                    new {
+                        page.Front.Title,
+                        page.Front.Slug,
+                        page.Front.Kind,
+                        page.Front.Area,
+                        page.Front.Summary,
+                        page.Front.Api,
+                        page.Front.Tags,
+                        page.Front.Since,
+                        page.Front.Status,
+                        page.Front.Related,
+                        page.Body,
+                        page.Headings,
+                        page.Tokens,
+                        Edit = page.Source?.Url
+                    },
+                    Options
+                )
+            );
 
             bytes += new FileInfo(path).Length;
         }
 
         var indexPath = Path.Combine(directory, "index.json");
 
-        File.WriteAllText(indexPath, JsonSerializer.Serialize(pages.Select(page => new {
-            page.Front.Title,
-            page.Front.Slug,
-            page.Front.Kind,
-            page.Front.Area,
-            page.Front.Summary,
-            page.Front.Tags,
-            page.Front.Status,
-            Symbols = page.Front.Api.Count
-        }), Options));
+        File.WriteAllText(
+            indexPath,
+            JsonSerializer.Serialize(
+                pages.Select(static page => new {
+                        page.Front.Title,
+                        page.Front.Slug,
+                        page.Front.Kind,
+                        page.Front.Area,
+                        page.Front.Summary,
+                        page.Front.Tags,
+                        page.Front.Status,
+                        Symbols = page.Front.Api.Count
+                    }
+                ),
+                Options
+            )
+        );
 
         return bytes + new FileInfo(indexPath).Length;
     }
@@ -236,14 +258,13 @@ sealed class GraphWriter(int chunkBudgetBytes = 256 * 1024) {
     ///     of them — <c>Raven.Library.Pipeline</c> and five siblings, plus <c>LogEvents</c> — were
     ///     reachable from the front door of the API saying <c>0 types</c>
     ///     (<a href="https://github.com/Rikarin/Vixen/issues/997">#997</a>).
-    ///
     ///     The display name survives that: a C# group has exactly one namespace and is still called
     ///     <c>Vixen.Ecs</c> rather than <c>vixen.ecs</c>. A group that pools several — the 30 shaders
     ///     come from six <c>Raven.Library.*</c> namespaces — has no one namespace to name it, so it
     ///     is called what it is addressed by.
     /// </remarks>
     static string NameOf(IEnumerable<DocNode> group) {
-        var namespaces = group.Select(node => node.Namespace).Distinct(StringComparer.Ordinal).Take(2).ToList();
+        var namespaces = group.Select(static node => node.Namespace).Distinct(StringComparer.Ordinal).Take(2).ToList();
 
         return namespaces is [{ Length: > 0 } single] ? single : ChunkOf(group.First());
     }
@@ -259,7 +280,7 @@ sealed class GraphWriter(int chunkBudgetBytes = 256 * 1024) {
         var current = new List<DocNode>();
         long currentBytes = 0;
 
-        foreach (var node in nodes.OrderBy(node => node.Name, StringComparer.Ordinal)) {
+        foreach (var node in nodes.OrderBy(static node => node.Name, StringComparer.Ordinal)) {
             var bytes = JsonSerializer.Serialize(node, Options).Length;
 
             if (current.Count > 0 && currentBytes + bytes > chunkBudgetBytes) {
@@ -292,16 +313,21 @@ sealed class GraphWriter(int chunkBudgetBytes = 256 * 1024) {
     /// </remarks>
     static void AssertSlugsAreUnique(IReadOnlyList<DocNode> nodes) {
         var collisions = nodes
-            .GroupBy(node => node.Slug, StringComparer.Ordinal)
-            .Where(group => group.Count() > 1)
+            .GroupBy(static node => node.Slug, StringComparer.Ordinal)
+            .Where(static group => group.Count() > 1)
             .ToList();
 
         if (collisions.Count == 0) {
             return;
         }
 
-        var detail = string.Join(Environment.NewLine, collisions.Take(10).Select(group =>
-            $"  {group.Key}: " + string.Join(", ", group.Select(node => $"{node.Id} in {node.Assembly}"))));
+        var detail = string.Join(
+            Environment.NewLine,
+            collisions.Take(10)
+                .Select(static group =>
+                    $"  {group.Key}: " + string.Join(", ", group.Select(static node => $"{node.Id} in {node.Assembly}"))
+                )
+        );
 
         throw new DocGenException(
             $"{collisions.Count} slug collisions:{Environment.NewLine}{detail}{Environment.NewLine}"

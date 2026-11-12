@@ -50,12 +50,14 @@ public sealed unsafe partial class VulkanDevice {
         // invented the number — the mistake the description's own docs call corruption.
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(description.Size, nameof(description));
 
-        var backing = CreateBuffer(new BufferDescription(
-            description.Size,
-            BufferUsage.AccelerationStructureStorage | BufferUsage.ShaderDeviceAddress,
-            MemoryAccess.DeviceLocal,
-            string.IsNullOrEmpty(description.Name) ? "" : $"{description.Name} storage"
-        ));
+        var backing = CreateBuffer(
+            new(
+                description.Size,
+                BufferUsage.AccelerationStructureStorage | BufferUsage.ShaderDeviceAddress,
+                MemoryAccess.DeviceLocal,
+                string.IsNullOrEmpty(description.Name) ? string.Empty : $"{description.Name} storage"
+            )
+        );
 
         var create = new AccelerationStructureCreateInfoKHR {
             SType = StructureType.AccelerationStructureCreateInfoKhr,
@@ -79,19 +81,19 @@ public sealed unsafe partial class VulkanDevice {
         Name(ObjectType.AccelerationStructureKhr, handle.Handle, description.Name);
 
         var addressInfo = new AccelerationStructureDeviceAddressInfoKHR {
-            SType = StructureType.AccelerationStructureDeviceAddressInfoKhr,
-            AccelerationStructure = handle
+            SType = StructureType.AccelerationStructureDeviceAddressInfoKhr, AccelerationStructure = handle
         };
 
         var address = extension.GetAccelerationStructureDeviceAddress(device, &addressInfo);
 
         lock (gate) {
-            return new(accelerationStructures.Add(new VulkanAccelerationStructure {
-                Handle = handle,
-                Buffer = backing,
-                Address = address,
-                Kind = description.Kind
-            }));
+            return new(
+                accelerationStructures.Add(
+                    new VulkanAccelerationStructure {
+                        Handle = handle, Buffer = backing, Address = address, Kind = description.Kind
+                    }
+                )
+            );
         }
     }
 
@@ -248,8 +250,7 @@ public sealed unsafe partial class VulkanDevice {
         }
 
         var info = new BufferDeviceAddressInfo {
-            SType = StructureType.BufferDeviceAddressInfo,
-            Buffer = buffer.Handle
+            SType = StructureType.BufferDeviceAddressInfo, Buffer = buffer.Handle
         };
 
         return Api.GetBufferDeviceAddress(device, &info);

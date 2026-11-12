@@ -67,16 +67,16 @@ public class IrradianceFieldTextureTests {
         Submit(device, list);
 
         var copies = device.Recorder!.Commands
-            .Where(command => command.Kind == RecordedCommandKind.CopyBufferToTexture)
+            .Where(static command => command.Kind == RecordedCommandKind.CopyBufferToTexture)
             .ToArray();
 
         Assert.Equal(5, copies.Length);
-        Assert.Single(copies.Select(copy => copy.A).Distinct());
-        Assert.Equal(5, copies.Select(copy => copy.B).Distinct().Count());
+        Assert.Single(copies.Select(static copy => copy.A).Distinct());
+        Assert.Equal(5, copies.Select(static copy => copy.B).Distinct().Count());
 
         var stride = (long)field.Pool.Texels.Length * 4 * sizeof(float);
 
-        Assert.Equal([0L, stride, stride * 2, stride * 3, stride * 4], copies.Select(copy => copy.B).Order());
+        Assert.Equal([0L, stride, stride * 2, stride * 3, stride * 4], copies.Select(static copy => copy.B).Order());
     }
 
     [Fact]
@@ -116,14 +116,14 @@ public class IrradianceFieldTextureTests {
         Submit(device, list);
 
         var barriers = device.Recorder!.Commands
-            .Where(command => command.Kind == RecordedCommandKind.Barrier)
+            .Where(static command => command.Kind == RecordedCommandKind.Barrier)
             .ToArray();
 
         // The pool and the index separately, before and after: four volumes and one, twice each. They
         // are apart because a GPU-filled pool is transitioned by whoever dispatches and the index
         // never is — see PoolIsWritten.
         Assert.Equal(4, barriers.Length);
-        Assert.Equal([1, 1, 4, 4], barriers.Select(barrier => barrier.B).Order());
+        Assert.Equal([1, 1, 4, 4], barriers.Select(static barrier => barrier.B).Order());
     }
 
     /// <summary>
@@ -195,7 +195,7 @@ public class IrradianceFieldTextureTests {
 
         // The resolution goes up as it is, because the shader clamps against it rather than dividing.
         Assert.Equal(
-            new Vector3(4f, 4f, 4f),
+            new(4f, 4f, 4f),
             parameters.Get(ParameterKeys.New<Vector3>($"{Slot}.irradianceField.resolution"))
         );
 
@@ -333,8 +333,8 @@ public class IrradianceFieldTextureTests {
         Submit(device, second);
 
         var offsets = device.Recorder!.Commands
-            .Where(command => command.Kind == RecordedCommandKind.CopyBufferToTexture)
-            .Select(command => command.B)
+            .Where(static command => command.Kind == RecordedCommandKind.CopyBufferToTexture)
+            .Select(static command => command.B)
             .ToArray();
 
         // The second volume of each upload starts at one volume's worth of bytes, and the narrow one

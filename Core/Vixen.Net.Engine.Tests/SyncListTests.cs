@@ -130,7 +130,7 @@ public sealed class SyncListTests {
 
     [Fact]
     public void ATypeTheWireDoesNotKnow_IsRefusedAtConstruction() =>
-        Assert.Throws<NotSupportedException>(() => new SyncList<DateTime>());
+        Assert.Throws<NotSupportedException>(static () => new SyncList<DateTime>());
 
     bool Send<T>(SyncList<T> from, SyncList<T> to) {
         var writer = new BitWriter(buffer);

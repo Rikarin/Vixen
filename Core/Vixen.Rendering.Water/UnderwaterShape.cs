@@ -13,8 +13,12 @@ namespace Vixen.Rendering.Water;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>[35 § D9](../../docs/plan/35-water.md#d9-underwater-is-a-post-process-volume-and-the-waterline-is-named-as-the-hard-part),
-///         and it costs the shape generalisation and nothing else.</b> [32](../../docs/plan/32-post-process-volumes.md)
+///         <b>
+///             [35 §
+///             D9](../../docs/plan/35-water.md#d9-underwater-is-a-post-process-volume-and-the-waterline-is-named-as-the-hard-part),
+///             and it costs the shape generalisation and nothing else.
+///         </b>
+///         [32](../../docs/plan/32-post-process-volumes.md)
 ///         built the optional-field settings, the priority, the blend radius and the per-frame fold;
 ///         underwater is a volume whose shape is <em>the water, below its surface</em>, and this is
 ///         that shape. Nothing about the volume path changes, which is what
@@ -80,8 +84,12 @@ public sealed class UnderwaterShape : IPostProcessShape {
     ///         outside the lake is two metres from being underwater, not one.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The lateral distance is derived from coverage rather than measured against the
-    ///         bodies, and the conversion is the feather the shape was built with.</b> The field carries how
+    ///         ⚠
+    ///         <b>
+    ///             The lateral distance is derived from coverage rather than measured against the
+    ///             bodies, and the conversion is the feather the shape was built with.
+    ///         </b>
+    ///         The field carries how
     ///         much water is at a place and not how far the nearest shoreline is; asking the bodies
     ///         would be a second distance query per volume per frame, and it would disagree with the
     ///         field at exactly the texel resolution the shoreline was resolved at. So a coverage of

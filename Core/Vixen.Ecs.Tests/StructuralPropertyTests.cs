@@ -30,7 +30,7 @@ public sealed class StructuralPropertyTests {
     [Fact]
     public void RandomStructuralChangesLeaveEveryComponentValueIntact() =>
         Gen.Select(Gen.Int[0, int.MaxValue], Gen.Int[8, 120])
-            .Sample(input => Replay(input.Item1, input.Item2), iter: 400);
+            .Sample(static input => Replay(input.Item1, input.Item2), iter: 400);
 
     /// <summary>
     ///     The same sequence against an archetype whose chunk holds only a handful of entities, so
@@ -40,7 +40,7 @@ public sealed class StructuralPropertyTests {
     [Fact]
     public void TheSameHoldsWhenEveryChunkHoldsOnlyAFewEntities() =>
         Gen.Select(Gen.Int[0, int.MaxValue], Gen.Int[8, 120])
-            .Sample(input => Replay(input.Item1, input.Item2, bulky: true), iter: 400);
+            .Sample(static input => Replay(input.Item1, input.Item2, true), iter: 400);
 
     static bool Replay(int seed, int operations, bool bulky = false) {
         var state = (uint)seed | 1u;
@@ -241,27 +241,29 @@ public sealed class StructuralPropertyTests {
         }
     }
 
-    static bool Has(World world, Entity entity, int kind) => kind switch {
-        0 => world.Has<Position>(entity),
-        1 => world.Has<Velocity>(entity),
-        2 => world.Has<Health>(entity),
-        3 => world.Has<Flags>(entity),
-        4 => world.Has<Frozen>(entity),
-        _ => world.Has<Named>(entity)
-    };
+    static bool Has(World world, Entity entity, int kind) =>
+        kind switch {
+            0 => world.Has<Position>(entity),
+            1 => world.Has<Velocity>(entity),
+            2 => world.Has<Health>(entity),
+            3 => world.Has<Flags>(entity),
+            4 => world.Has<Frozen>(entity),
+            _ => world.Has<Named>(entity)
+        };
 
-    static bool Reads(World world, Entity entity, int kind, int value) => kind switch {
-        0 => world.Read<Position>(entity) is { X: var x, Y: var y, Z: var z }
-            && x == value
-            && y == value + 1
-            && z == value + 2,
-        1 => world.Read<Velocity>(entity) is { X: var x, Y: var y, Z: var z }
-            && x == value + 3
-            && y == value + 4
-            && z == value + 5,
-        2 => world.Read<Health>(entity).Value == value,
-        3 => world.Read<Flags>(entity).Value == (byte)value,
-        4 => true,
-        _ => world.Read<Named>(entity).Name == $"n{value}"
-    };
+    static bool Reads(World world, Entity entity, int kind, int value) =>
+        kind switch {
+            0 => world.Read<Position>(entity) is { X: var x, Y: var y, Z: var z }
+                && x == value
+                && y == value + 1
+                && z == value + 2,
+            1 => world.Read<Velocity>(entity) is { X: var x, Y: var y, Z: var z }
+                && x == value + 3
+                && y == value + 4
+                && z == value + 5,
+            2 => world.Read<Health>(entity).Value == value,
+            3 => world.Read<Flags>(entity).Value == (byte)value,
+            4 => true,
+            _ => world.Read<Named>(entity).Name == $"n{value}"
+        };
 }

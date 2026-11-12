@@ -9,7 +9,6 @@ using Vixen.Rendering.Compositor;
 using Vixen.Rendering.Lighting;
 using Vixen.Rendering.PostFx;
 using Vixen.Shaders;
-using Vixen.Ui.Testing.Visual;
 using Xunit;
 
 namespace Vixen.Graphics.Golden.Tests;
@@ -42,7 +41,7 @@ public sealed class ScreenProbeGatherImageTests {
         }
 
         using var owned = fixture!;
-        var pictures = Render(owned, 0.5f, frames: 3, out var node);
+        var pictures = Render(owned, 0.5f, 3, out var node);
 
         // Frame zero traced nothing: its placement data was still on the device.
         Assert.True(Pixel(pictures[0], 16, 16).X < 0.02f, $"the first frame was lit: {Pixel(pictures[0], 16, 16)}");
@@ -65,8 +64,10 @@ public sealed class ScreenProbeGatherImageTests {
         Assert.Null(node.ResolveSkippedSeen);
     }
 
-    /// <summary>A frame holding one surface and sky is the sky, and the screen trace wired through
-    ///     the node does not change that.</summary>
+    /// <summary>
+    ///     A frame holding one surface and sky is the sky, and the screen trace wired through
+    ///     the node does not change that.
+    /// </summary>
     /// <remarks>
     ///     <para>
     ///         <b>This asserted the opposite, and the opposite was a defect.</b> It read the frame
@@ -94,7 +95,7 @@ public sealed class ScreenProbeGatherImageTests {
         }
 
         using var owned = fixture!;
-        var pictures = Render(owned, 0.5f, frames: 3, out var node, screenTraces: true);
+        var pictures = Render(owned, 0.5f, 3, out var node, true);
 
         var centre = Pixel(pictures[^1], 16, 16);
         var corner = Pixel(pictures[^1], 2, 2);
@@ -122,7 +123,7 @@ public sealed class ScreenProbeGatherImageTests {
         }
 
         using var owned = fixture!;
-        var pictures = Render(owned, 0.5f, frames: 4, out var node, accumulate: true);
+        var pictures = Render(owned, 0.5f, 4, out var node, accumulate: true);
 
         Assert.Null(node.AccumulateSkippedSeen);
         Assert.Null(node.FilterSkippedSeen);
@@ -151,7 +152,7 @@ public sealed class ScreenProbeGatherImageTests {
         }
 
         using var owned = fixture!;
-        var pictures = Render(owned, 0.5f, frames: 4, out var node, accumulate: true, planeTolerance: 0.5f);
+        var pictures = Render(owned, 0.5f, 4, out var node, accumulate: true, planeTolerance: 0.5f);
 
         Assert.Null(node.FilterSkippedSeen);
 
@@ -169,7 +170,7 @@ public sealed class ScreenProbeGatherImageTests {
         }
 
         using var owned = fixture!;
-        var pictures = Render(owned, 0f, frames: 3, out var node);
+        var pictures = Render(owned, 0f, 3, out var node);
 
         // Placement ran and found nothing to stand on — dark because every probe is invalid, not
         // because the schedule never happened.
@@ -213,11 +214,18 @@ public sealed class ScreenProbeGatherImageTests {
 
         Bitmapless(owned, system, node, Fixture.Side, gbufferUsage, effects, device);
 
-        Assert.Equal(new Int2(Fixture.Side, Fixture.Side), node.Texture!.Probes.Layout.Viewport);
+        Assert.Equal(new(Fixture.Side, Fixture.Side), node.Texture!.Probes.Layout.Viewport);
 
         // The window shrank: refused, loudly, until the host resets after an idle.
-        Assert.Throws<InvalidOperationException>(
-            () => Bitmapless(owned, system, node, 64, gbufferUsage, effects, device)
+        Assert.Throws<InvalidOperationException>(() => Bitmapless(
+                owned,
+                system,
+                node,
+                64,
+                gbufferUsage,
+                effects,
+                device
+            )
         );
 
         device.WaitIdle();
@@ -225,7 +233,7 @@ public sealed class ScreenProbeGatherImageTests {
 
         Bitmapless(owned, system, node, 64, gbufferUsage, effects, device);
 
-        Assert.Equal(new Int2(64, 64), node.Texture!.Probes.Layout.Viewport);
+        Assert.Equal(new(64, 64), node.Texture!.Probes.Layout.Viewport);
         Assert.Equal(0, node.Placements);
     }
 
@@ -237,15 +245,20 @@ public sealed class ScreenProbeGatherImageTests {
         int side,
         TextureUsage gbufferUsage,
         EffectSystem effects,
-        Vulkan.VulkanDevice device
+        VulkanDevice device
     ) {
         var depth = fixture.Owned($"depth {side}", gbufferUsage, PixelFormat.Rgba32Float, side, side);
         var normals = fixture.Owned($"normals {side}", gbufferUsage, PixelFormat.Rgba32Float, side, side);
-        var display = fixture.Owned($"display {side}", TextureUsage.ColourTarget | TextureUsage.CopySource, PixelFormat.Rgba8UNorm, side, side);
+        var display = fixture.Owned(
+            $"display {side}",
+            TextureUsage.ColourTarget | TextureUsage.CopySource,
+            PixelFormat.Rgba8UNorm,
+            side,
+            side
+        );
 
         var compositor = new GraphicsCompositor(system) {
-            FrameSize = new(side, side),
-            Game = new SceneRendererSequence { Children = { node } }
+            FrameSize = new(side, side), Game = new SceneRendererSequence { Children = { node } }
         };
 
         compositor.Imports["Depth"] = new(depth.Texture, depth.View, depth.Description);
@@ -289,8 +302,11 @@ public sealed class ScreenProbeGatherImageTests {
         effects.AddProvider(
             new Compiling(
                 loader,
-                _ => RavenEffects.Only(
-                    ["Core", "Geometry", "Shading", "DistanceFields", "IrradianceFields", "ScreenProbes", "SurfaceCache"],
+                static _ => RavenEffects.Only(
+                    [
+                        "Core", "Geometry", "Shading", "DistanceFields", "IrradianceFields", "ScreenProbes",
+                        "SurfaceCache"
+                    ],
                     Path.Combine("PostFx", "Fullscreen.rvn"),
                     Path.Combine("PostFx", "ScreenProbeUpsample.rvn")
                 )
@@ -299,31 +315,27 @@ public sealed class ScreenProbeGatherImageTests {
 
         // Eight units of ray, matching the screen-trace closed forms: at the default hundred, a
         // fixed-step march samples too coarsely to land in a surface's shell at all.
-        using var tracer = new ScreenProbeTraceFill(device) {
-            Effects = effects,
-            Pipelines = pipelines,
-            Descriptors = allocator,
-            SkyColour = new(Radiance),
-            MaxDistance = 8f
-        };
+        using var tracer = new ScreenProbeTraceFill(device);
+        tracer.Effects = effects;
+        tracer.Pipelines = pipelines;
+        tracer.Descriptors = allocator;
+        tracer.SkyColour = new(Radiance);
+        tracer.MaxDistance = 8f;
 
-        using var resolver = new ScreenProbeResolve(device) {
-            Effects = effects,
-            Pipelines = pipelines,
-            Descriptors = allocator
-        };
+        using var resolver = new ScreenProbeResolve(device);
+        resolver.Effects = effects;
+        resolver.Pipelines = pipelines;
+        resolver.Descriptors = allocator;
 
-        using var accumulator = new ScreenProbeAccumulateFill(device) {
-            Effects = effects,
-            Pipelines = pipelines,
-            Descriptors = allocator
-        };
+        using var accumulator = new ScreenProbeAccumulateFill(device);
+        accumulator.Effects = effects;
+        accumulator.Pipelines = pipelines;
+        accumulator.Descriptors = allocator;
 
-        using var spatial = new ScreenProbeFilterFill(device) {
-            Effects = effects,
-            Pipelines = pipelines,
-            Descriptors = allocator
-        };
+        using var spatial = new ScreenProbeFilterFill(device);
+        spatial.Effects = effects;
+        spatial.Pipelines = pipelines;
+        spatial.Descriptors = allocator;
 
         // The CPU placement tests' camera: reconstruction under it is pinned by hand over there,
         // and under a uniform sky nothing here depends on the positions it produces.

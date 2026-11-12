@@ -27,8 +27,11 @@ namespace Vixen.Ui.Tests;
 ///         shape its author thought they wrote.
 ///     </para>
 ///     <para>
-///         <b>Asserted against a real <see cref="RingBufferSink" />, on
-///         <c>StyleDiagnosticDrainTests</c>' rule</b>: that ring is what the editor's Console panel
+///         <b>
+///             Asserted against a real <see cref="RingBufferSink" />, on
+///             <c>StyleDiagnosticDrainTests</c>' rule
+///         </b>
+///         : that ring is what the editor's Console panel
 ///         reads, so "a developer will see it" is a claim about this object.
 ///     </para>
 /// </remarks>
@@ -40,7 +43,7 @@ public class InertBindingTests {
     }
 
     static IReadOnlyList<LogRecord> Warnings(RingBufferSink sink) =>
-        [.. sink.Snapshot().Where(record => record.Level >= LogLevel.Warning)];
+        [..sink.Snapshot().Where(static record => record.Level >= LogLevel.Warning)];
 
     /// <summary>A binding over a plain property reaches the log, naming what it is on.</summary>
     [Fact]

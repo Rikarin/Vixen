@@ -28,11 +28,16 @@ public static class HdrWriter {
         ArgumentNullException.ThrowIfNull(image);
 
         if (image.Channels is not (1 or 3 or 4)) {
-            throw new ArgumentException($"An HDR file is written from one, three or four channels, not {image.Channels}.", nameof(image));
+            throw new ArgumentException(
+                $"An HDR file is written from one, three or four channels, not {image.Channels}.",
+                nameof(image)
+            );
         }
 
         using var output = new MemoryStream();
-        output.Write(Encoding.ASCII.GetBytes($"#?RADIANCE\nFORMAT=32-bit_rle_rgbe\n\n-Y {image.Height} +X {image.Width}\n"));
+        output.Write(
+            Encoding.ASCII.GetBytes($"#?RADIANCE\nFORMAT=32-bit_rle_rgbe\n\n-Y {image.Height} +X {image.Width}\n")
+        );
 
         var width = image.Width;
         var line = new byte[width * 4];
@@ -40,7 +45,7 @@ public static class HdrWriter {
 
         for (var y = 0; y < image.Height; y++) {
             for (var x = 0; x < width; x++) {
-                var at = ((y * width) + x) * image.Channels;
+                var at = (y * width + x) * image.Channels;
                 var red = image.Samples[at];
                 var (green, blue) = image.Channels == 1 ? (red, red) : (image.Samples[at + 1], image.Samples[at + 2]);
                 Rgbe(red, green, blue, line.AsSpan(x * 4, 4));
@@ -56,7 +61,7 @@ public static class HdrWriter {
 
             for (var lane = 0; lane < 4; lane++) {
                 for (var x = 0; x < width; x++) {
-                    component[x] = line[(x * 4) + lane];
+                    component[x] = line[x * 4 + lane];
                 }
 
                 Runs(output, component);

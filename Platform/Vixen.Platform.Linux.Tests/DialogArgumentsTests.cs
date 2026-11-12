@@ -51,9 +51,7 @@ public class DialogArgumentsTests {
 
     [Fact]
     public void ZenityStatesEachFilterOnceInTheOrderItWasGiven() {
-        var options = new FileDialogOptions {
-            Filters = [new("Vixen scene", "vxscene"), new("Every file", "*")]
-        };
+        var options = new FileDialogOptions { Filters = [new("Vixen scene", "vxscene"), new("Every file", "*")] };
 
         var arguments = DialogArguments.For(DialogTool.Zenity, options, DialogKind.Open, false);
 
@@ -84,7 +82,7 @@ public class DialogArgumentsTests {
 
         Assert.DoesNotContain(
             DialogArguments.For(DialogTool.Zenity, options, DialogKind.Folder, false),
-            argument => argument.Contains("file-filter", StringComparison.Ordinal)
+            static argument => argument.Contains("file-filter", StringComparison.Ordinal)
         );
 
         Assert.Equal(
@@ -103,8 +101,14 @@ public class DialogArgumentsTests {
         var directory = new FileDialogOptions { InitialDirectory = "/home/jiu/Projects" };
         var named = directory with { SuggestedFileName = "level.vxscene" };
 
-        Assert.Contains("--filename=/home/jiu/Projects/", DialogArguments.For(DialogTool.Zenity, directory, DialogKind.Open, false));
-        Assert.Contains("--filename=/home/jiu/Projects/level.vxscene", DialogArguments.For(DialogTool.Zenity, named, DialogKind.Save, false));
+        Assert.Contains(
+            "--filename=/home/jiu/Projects/",
+            DialogArguments.For(DialogTool.Zenity, directory, DialogKind.Open, false)
+        );
+        Assert.Contains(
+            "--filename=/home/jiu/Projects/level.vxscene",
+            DialogArguments.For(DialogTool.Zenity, named, DialogKind.Save, false)
+        );
     }
 
     /// <summary>A suggested name is a save dialog's business and nothing else's.</summary>
@@ -119,7 +123,10 @@ public class DialogArgumentsTests {
     /// <summary>kdialog has no flag for the starting place and always takes one positionally.</summary>
     [Fact]
     public void KDialogAlwaysHasAStartingPath() {
-        Assert.Equal(["--getopenfilename", "."], DialogArguments.For(DialogTool.KDialog, new(), DialogKind.Open, false));
+        Assert.Equal(
+            ["--getopenfilename", "."],
+            DialogArguments.For(DialogTool.KDialog, new(), DialogKind.Open, false)
+        );
 
         Assert.Equal(
             ["--getsavefilename", "/tmp/"],
@@ -131,7 +138,10 @@ public class DialogArgumentsTests {
     public void ATitleIsPassedToBoth() {
         var options = new FileDialogOptions { Title = "Open project" };
 
-        Assert.Contains("--title=Open project", DialogArguments.For(DialogTool.Zenity, options, DialogKind.Open, false));
+        Assert.Contains(
+            "--title=Open project",
+            DialogArguments.For(DialogTool.Zenity, options, DialogKind.Open, false)
+        );
 
         var kdialog = DialogArguments.For(DialogTool.KDialog, options, DialogKind.Open, false);
         Assert.Contains("--title", kdialog);

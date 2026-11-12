@@ -48,7 +48,7 @@ public class UiApplicationTests {
 
         var options = new UiApplicationOptions {
             Title = "test",
-            Size = new Int2(1280, 800),
+            Size = new(1280, 800),
             Frames = frames,
 
             // ⚠ Off, and this is the one option a test has to change. `SystemFonts` walks the machine
@@ -56,14 +56,13 @@ public class UiApplicationTests {
             // agent has Arial — a label is either its text's width or zero, and no assertion can be
             // written that holds both ways.
             InstallSystemFont = false,
-
             Content = () => probe
         };
 
         configure?.Invoke(options);
 
         var platform = new HeadlessPlatform();
-        var window = platform.CreateWindow(new WindowOptions { Title = "test", Size = new Int2(1280, 800) });
+        var window = platform.CreateWindow(new() { Title = "test", Size = new(1280, 800) });
 
         var application = new UiApplication(options, platform, window);
         application.Run();
@@ -79,7 +78,7 @@ public class UiApplicationTests {
     /// </remarks>
     [Fact]
     public void ItRunsExactlyTheFramesItWasAskedFor() {
-        var (application, _) = Run(frames: 7);
+        var (application, _) = Run(7);
 
         Assert.Equal(7, application.FrameCount);
     }
@@ -126,15 +125,19 @@ public class UiApplicationTests {
 
     /// <summary>An application's own sheet beats the host's, because the host's is user-agent.</summary>
     /// <remarks>
-    ///     ⚠ <b>The whole reason those four declarations are a stylesheet rather than an inline style
-    ///     or a property write.</b> An inline style is <c>CascadeRanks.NormalInline</c> and outranks
+    ///     ⚠
+    ///     <b>
+    ///         The whole reason those four declarations are a stylesheet rather than an inline style
+    ///         or a property write.
+    ///     </b>
+    ///     An inline style is <c>CascadeRanks.NormalInline</c> and outranks
     ///     every author rule including an <c>!important</c> one, so an application that wanted its
     ///     content laid out some other way could not say so. This is what makes them a default.
     /// </remarks>
     [Fact]
     public void AnApplicationCanOverrideTheHostsWindowRules() {
         var (_, probe) = Run(
-            configure: options => options.Styles.Add($".{UiApplication.ContentClass} {{ flex-grow: 0; }}")
+            configure: static options => options.Styles.Add($".{UiApplication.ContentClass} {{ flex-grow: 0; }}")
         );
 
         // Content height rather than the window's: the override took, and the box proves it rather
@@ -146,7 +149,7 @@ public class UiApplicationTests {
     [Fact]
     public void TheControlThemeIsInstalledUnlessRefused() {
         var (with, _) = Run();
-        var (without, _) = Run(configure: options => options.InstallControlTheme = false);
+        var (without, _) = Run(configure: static options => options.InstallControlTheme = false);
 
         Assert.True(with.Document.Styles.SheetCount > without.Document.Styles.SheetCount);
     }
@@ -164,8 +167,8 @@ public class UiApplicationTests {
         var childrenAtStop = -1;
 
         Run(
-            frames: 4,
-            configure: options => {
+            4,
+            options => {
                 options.Started = _ => started++;
                 options.Frame = (_, _) => frames++;
                 options.Stopping = application => childrenAtStop = application.Document.Root.Children.Count;
@@ -179,8 +182,12 @@ public class UiApplicationTests {
 
     /// <summary>The window is told what the pointer is over, once a frame, by the loop.</summary>
     /// <remarks>
-    ///     ⚠ <b>Asserted on <see cref="IWindow.CursorShape" />, and the loop is what is on trial
-    ///     rather than the mapping.</b> <c>UiDocument.Cursor</c> resolved <c>cursor: pointer</c>
+    ///     ⚠
+    ///     <b>
+    ///         Asserted on <see cref="IWindow.CursorShape" />, and the loop is what is on trial
+    ///         rather than the mapping.
+    ///     </b>
+    ///     <c>UiDocument.Cursor</c> resolved <c>cursor: pointer</c>
     ///     correctly for as long as it has existed and no host ever read it, so every
     ///     <c>cursor-*</c> class in every theme changed nothing a user could see — and a test that
     ///     asked the document would have passed on every one of those days. The pointer is moved
@@ -194,7 +201,7 @@ public class UiApplicationTests {
 
         var options = new UiApplicationOptions {
             Title = "test",
-            Size = new Int2(1280, 800),
+            Size = new(1280, 800),
             Frames = 3,
             InstallSystemFont = false,
             Content = () => probe
@@ -203,7 +210,7 @@ public class UiApplicationTests {
         options.Styles.Add("probe-panel { width: 200px; height: 100px; cursor: pointer; }");
 
         var platform = new HeadlessPlatform();
-        var window = platform.CreateWindow(new WindowOptions { Title = "test", Size = new Int2(1280, 800) });
+        var window = platform.CreateWindow(new() { Title = "test", Size = new(1280, 800) });
         var application = new UiApplication(options, platform, window);
 
         // On the second frame, so the first has laid the panel out and there is something to be
@@ -222,8 +229,12 @@ public class UiApplicationTests {
 
     /// <summary>A close request stops the loop.</summary>
     /// <remarks>
-    ///     ⚠ <b>Subscribed through the <i>event</i> rather than through the options, and the difference
-    ///     is not stylistic.</b> The constructor copies <c>UiApplicationOptions.Frame</c> into the
+    ///     ⚠
+    ///     <b>
+    ///         Subscribed through the <i>event</i> rather than through the options, and the difference
+    ///         is not stylistic.
+    ///     </b>
+    ///     The constructor copies <c>UiApplicationOptions.Frame</c> into the
     ///     event once, on the way past — so a handler assigned to the options *after* the application
     ///     exists is never subscribed at all. The first draft of this test did exactly that and hung
     ///     the whole suite for ten minutes, which is the honest cost of `Frames = 0`.
@@ -242,14 +253,14 @@ public class UiApplicationTests {
         };
 
         var platform = new HeadlessPlatform();
-        var window = platform.CreateWindow(new WindowOptions { Title = "test", Size = new Int2(640, 480) });
+        var window = platform.CreateWindow(new() { Title = "test", Size = new(640, 480) });
 
         var application = new UiApplication(options, platform, window);
 
         // ⚠ Asked for on the third frame rather than before the first, so the loop has to notice it
         // rather than never having started — and with a hard ceiling, so that a `Stop` that stopped
         // nothing fails this test instead of taking the CI agent's timeout.
-        application.Frame += (running, _) => {
+        application.Frame += static (running, _) => {
             if (running.FrameCount >= 2) {
                 running.Stop();
             }
@@ -260,12 +271,18 @@ public class UiApplicationTests {
         Assert.Equal(3, application.FrameCount);
     }
 
-    /// <summary>The loop pumps <see cref="UiApplication.Tasks" />, so an application gets progress
-    ///     without writing a pump.</summary>
+    /// <summary>
+    ///     The loop pumps <see cref="UiApplication.Tasks" />, so an application gets progress
+    ///     without writing a pump.
+    /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>This is the test that stops <c>Tasks</c> being an extension point nothing
-    ///         drives.</b> <c>BackgroundTaskManager</c> queues everything the work reports and
+    ///         ⚠
+    ///         <b>
+    ///             This is the test that stops <c>Tasks</c> being an extension point nothing
+    ///             drives.
+    ///         </b>
+    ///         <c>BackgroundTaskManager</c> queues everything the work reports and
     ///         applies it only in <c>Pump</c>; a loop that never called it would leave the property
     ///         compiling, accepting work and silently showing nought per cent for ever — the failure
     ///         this repository grows most often. Asserting the *reported* number arrived is
@@ -281,14 +298,11 @@ public class UiApplicationTests {
     [Fact]
     public void TheLoopPumpsTheTaskManager() {
         var options = new UiApplicationOptions {
-            Title = "test",
-            Size = new Int2(640, 480),
-            Frames = 4,
-            InstallSystemFont = false
+            Title = "test", Size = new(640, 480), Frames = 4, InstallSystemFont = false
         };
 
         var platform = new HeadlessPlatform();
-        var window = platform.CreateWindow(new WindowOptions { Title = "test", Size = new Int2(640, 480) });
+        var window = platform.CreateWindow(new() { Title = "test", Size = new(640, 480) });
 
         using var application = new UiApplication(options, platform, window);
 
@@ -314,14 +328,11 @@ public class UiApplicationTests {
     [Fact]
     public void DisposingTheApplicationCancelsItsTasks() {
         var options = new UiApplicationOptions {
-            Title = "test",
-            Size = new Int2(640, 480),
-            Frames = 1,
-            InstallSystemFont = false
+            Title = "test", Size = new(640, 480), Frames = 1, InstallSystemFont = false
         };
 
         var platform = new HeadlessPlatform();
-        var window = platform.CreateWindow(new WindowOptions { Title = "test", Size = new Int2(640, 480) });
+        var window = platform.CreateWindow(new() { Title = "test", Size = new(640, 480) });
 
         var application = new UiApplication(options, platform, window);
         var task = application.Tasks.Begin("Baking");
@@ -341,8 +352,12 @@ public class UiApplicationTests {
     ///     <para>
     ///         ⚠ <b>The instrument, not the mechanism.</b> <c>ReactiveGraph.AssertOwningThread</c> has
     ///         been called from every signal write in the framework for as long as it has existed, and
-    ///         <c>ReactiveGraph.OwningThread</c> was assigned by <i>nothing outside this repository's
-    ///         own tests</i> — so on the day the guard did not run, which was every day, it reported
+    ///         <c>ReactiveGraph.OwningThread</c> was assigned by
+    ///         <i>
+    ///             nothing outside this repository's
+    ///             own tests
+    ///         </i>
+    ///         — so on the day the guard did not run, which was every day, it reported
     ///         success. Asserting the field from inside a frame is the only thing that can tell those
     ///         two states apart.
     ///     </para>
@@ -359,8 +374,8 @@ public class UiApplicationTests {
         Thread? duringStopping = null;
 
         var (application, _) = Run(
-            frames: 2,
-            configure: options => {
+            2,
+            options => {
                 options.Frame = (_, _) => duringFrame = ReactiveGraph.OwningThread;
                 options.Stopping = _ => duringStopping = ReactiveGraph.OwningThread;
             }
@@ -388,16 +403,15 @@ public class UiApplicationTests {
         var attempted = false;
 
         Run(
-            frames: 3,
-            configure: options => options.Frame = (_, _) => {
+            3,
+            options => options.Frame = (_, _) => {
                 if (attempted) {
                     return;
                 }
 
                 attempted = true;
 
-                var worker = new Thread(
-                    () => {
+                var worker = new Thread(() => {
                         try {
                             signal.Value = 1;
                         } catch (Exception exception) {

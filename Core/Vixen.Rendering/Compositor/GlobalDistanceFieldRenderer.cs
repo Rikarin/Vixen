@@ -150,8 +150,11 @@ public sealed class GlobalDistanceFieldRenderer : SceneRenderer, IDisposable {
     /// <summary>The job system the composite runs on, or null to run it inline.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>This is what makes the recomposite deferrable, and it is the only thing that
-    ///         does.</b> A composite is every cell of every level against every instance — the most
+    ///         <b>
+    ///             This is what makes the recomposite deferrable, and it is the only thing that
+    ///             does.
+    ///         </b>
+    ///         A composite is every cell of every level against every instance — the most
     ///         expensive thing in the frame — and the levels are snapped so that a camera crossing one
     ///         cell keeps about 97 per cent of what it already had. That means the answer this frame
     ///         and the answer next frame differ over a slab, and a frame that draws last refresh's
@@ -263,8 +266,12 @@ public sealed class GlobalDistanceFieldRenderer : SceneRenderer, IDisposable {
     ///         needs, and would be culled.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And <see cref="PassKind.Graphics" /> rather than <see cref="PassKind.Transfer" />,
-    ///         which it used to say.</b> Two reasons, either of which is enough. The body is not a
+    ///         ⚠
+    ///         <b>
+    ///             And <see cref="PassKind.Graphics" /> rather than <see cref="PassKind.Transfer" />,
+    ///             which it used to say.
+    ///         </b>
+    ///         Two reasons, either of which is enough. The body is not a
     ///         copy: <see cref="GlobalDistanceFieldTexture.Upload" /> brackets its copies with
     ///         barriers into <see cref="ResourceState.ShaderRead" />, and that state names the vertex,
     ///         fragment and compute stages — none of which a Vulkan transfer family supports, so the
@@ -288,8 +295,7 @@ public sealed class GlobalDistanceFieldRenderer : SceneRenderer, IDisposable {
                 pass.Kind = PassKind.Graphics;
                 pass.SideEffect();
 
-                pass.Execute(
-                    context => {
+                pass.Execute(context => {
                         var draw = frame.Context(context.CommandList);
 
                         draw.View = View;
@@ -378,7 +384,7 @@ public sealed class GlobalDistanceFieldRenderer : SceneRenderer, IDisposable {
                         refreshHandle = jobs.ScheduleParallel(
                             slices,
                             started.SliceCount,
-                            batchSize: 1,
+                            1,
                             priority: JobPriority.Background
                         );
                     } catch {
@@ -407,7 +413,7 @@ public sealed class GlobalDistanceFieldRenderer : SceneRenderer, IDisposable {
                     // the case the background tier must not be asked for. `Frame`, and completed at
                     // once. See the remarks on `Jobs`.
                     try {
-                        jobs.ParallelFor(slices, started.SliceCount, batchSize: 1);
+                        jobs.ParallelFor(slices, started.SliceCount, 1);
                     } catch {
                         started.Abandon();
 

@@ -15,8 +15,12 @@ namespace Vixen.Engine.Diagnostics.Overlays;
 ///         <c>DebugDrawSystem</c> ages the result afterwards, in <c>PostRender</c>.
 ///     </para>
 ///     <para>
-///         ⚠ <b><see cref="Viewport" /> is in render-target pixels and the host has to keep it
-///         current.</b> Nothing here can know how big the window is — that is a platform's answer,
+///         ⚠
+///         <b>
+///             <see cref="Viewport" /> is in render-target pixels and the host has to keep it
+///             current.
+///         </b>
+///         Nothing here can know how big the window is — that is a platform's answer,
 ///         and this assembly has no platform. A stale value draws the overlays for the size the
 ///         window used to be, which after a resize means panels that hang off the edge.
 ///     </para>

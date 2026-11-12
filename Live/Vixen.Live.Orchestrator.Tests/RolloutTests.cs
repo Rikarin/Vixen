@@ -7,8 +7,12 @@ using Xunit;
 namespace Vixen.Live.Orchestration.Tests;
 
 /// <summary>
-///     Doc 27 § Testing: <i>"a rollout from version A to B with players in flight, asserting nobody
-///     is disconnected and <c>VersionSpread</c> reaches zero"</i>.
+///     Doc 27 § Testing:
+///     <i>
+///         "a rollout from version A to B with players in flight, asserting nobody
+///         is disconnected and <c>VersionSpread</c> reaches zero"
+///     </i>
+///     .
 /// </summary>
 public class RolloutTests {
     static readonly DateTimeOffset Noon = new(2026, 8, 4, 12, 0, 0, TimeSpan.Zero);
@@ -148,7 +152,10 @@ public class RolloutTests {
     public void The_rollout_is_only_complete_at_zero_spread() {
         var rollout = new Rollout(New, Noon);
 
-        var almost = rollout.Observe([.. Enumerable.Range(0, 49).Select(_ => Shard(New, 1)).Append(Shard(Old, 1))], Noon);
+        var almost = rollout.Observe(
+            [..Enumerable.Range(0, 49).Select(static _ => Shard(New, 1)).Append(Shard(Old, 1))],
+            Noon
+        );
 
         Assert.False(almost.Complete);
         Assert.Equal(0.02, almost.Spread, 6);
@@ -202,7 +209,7 @@ public class RolloutTests {
     [Fact]
     public void A_rollout_converges_to_zero_spread_without_disconnecting_anybody() {
         var rollout = new Rollout(New, Noon, new() { DrainWidth = 2 });
-        var fleet = Enumerable.Range(0, 10).Select(_ => Shard(Old, 40)).ToList();
+        var fleet = Enumerable.Range(0, 10).Select(static _ => Shard(Old, 40)).ToList();
         var now = Noon;
 
         for (var round = 0; round < 40 && !rollout.Observe(fleet, now).Complete; round++) {
@@ -225,7 +232,7 @@ public class RolloutTests {
 
         Assert.True(final.Complete);
         Assert.Equal(0, final.Spread);
-        Assert.Equal(400, fleet.Where(shard => shard.Key.Version == New).Sum(shard => shard.Population));
+        Assert.Equal(400, fleet.Where(static shard => shard.Key.Version == New).Sum(static shard => shard.Population));
     }
 
     static ShardReport Shard(RealmVersion version, int population, ShardState state = ShardState.Ready) =>

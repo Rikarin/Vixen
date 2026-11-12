@@ -4,7 +4,6 @@
 using Vixen.Core;
 using Vixen.Graphics;
 using Vixen.Graphics.Null;
-using Vixen.Platform.Headless;
 using Xunit;
 
 namespace Vixen.App.Tests;
@@ -12,9 +11,13 @@ namespace Vixen.App.Tests;
 /// <summary>What the host does when the device goes, which until now nothing had ever asked it.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>doc 05 § Testing asks for a fault-injection mode "proving the engine recreates the
-///         device and reloads resources rather than crashing", and the engine does no such thing —
-///         deliberately.</b> <c>AppGraphics.IsLost</c> says so in its own remarks: "a latch rather
+///         ⚠
+///         <b>
+///             doc 05 § Testing asks for a fault-injection mode "proving the engine recreates the
+///             device and reloads resources rather than crashing", and the engine does no such thing —
+///             deliberately.
+///         </b>
+///         <c>AppGraphics.IsLost</c> says so in its own remarks: "a latch rather
 ///         than a recovery… rebuilding every device resource a game holds after a driver reset is a
 ///         whole feature — one this records honestly as absent rather than pretending at with a
 ///         half-measure that leaves handles dangling." So what is provable here is the latch, and
@@ -68,7 +71,7 @@ public sealed class DeviceLossTests : IDisposable {
         graphics.End();
 
         Assert.False(graphics.IsLost);
-        Assert.DoesNotContain(application.Services.Logs.Snapshot(), entry => entry.EventId == DeviceLostEvent);
+        Assert.DoesNotContain(application.Services.Logs.Snapshot(), static entry => entry.EventId == DeviceLostEvent);
     }
 
     /// <summary>A device lost between frames is caught on the acquire, and latches.</summary>
@@ -91,7 +94,7 @@ public sealed class DeviceLossTests : IDisposable {
         Assert.True(graphics.IsLost);
         Assert.Null(graphics.Commands);
 
-        Assert.Contains(application.Services.Logs.Snapshot(), entry => entry.EventId == DeviceLostEvent);
+        Assert.Contains(application.Services.Logs.Snapshot(), static entry => entry.EventId == DeviceLostEvent);
     }
 
     /// <summary>A device lost during the frame is caught on the present, and latches.</summary>
@@ -111,7 +114,7 @@ public sealed class DeviceLossTests : IDisposable {
         var graphics = application.Services.Graphics!;
 
         Assert.True(graphics.IsLost);
-        Assert.Contains(application.Services.Logs.Snapshot(), entry => entry.EventId == DeviceLostEvent);
+        Assert.Contains(application.Services.Logs.Snapshot(), static entry => entry.EventId == DeviceLostEvent);
     }
 
     /// <summary>The latch holds, and it says so once rather than once a frame.</summary>
@@ -155,13 +158,13 @@ public sealed class DeviceLossTests : IDisposable {
         Assert.False(graphics.Begin());
         Assert.True(graphics.IsLost);
 
-        Assert.Single(application.Services.Logs.Snapshot(), entry => entry.EventId == DeviceLostEvent);
+        Assert.Single(application.Services.Logs.Snapshot(), static entry => entry.EventId == DeviceLostEvent);
     }
 
     /// <summary>The same application on a platform whose window can actually be presented to.</summary>
     VixenApplication Presenting(IGraphicsDevice device, Game game) =>
         VixenApp.Create(["--vixen-workers", "1", "--vixen-frame-limit", "0"])
-            .WithPlatform(new PresentingPlatform(new HeadlessPlatform(new HeadlessPlatformOptions { FileSystem = files })))
+            .WithPlatform(new PresentingPlatform(new(new() { FileSystem = files })))
             .WithGraphics(device)
             .Build(game);
 

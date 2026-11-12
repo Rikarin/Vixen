@@ -43,7 +43,7 @@ public static class CallGraph {
             case IrLoopStatement loop: {
                 IrBlock?[] parts = [loop.Condition, loop.Body, loop.Continue];
 
-                foreach (var call in parts.Where(p => p is not null).SelectMany(p => Calls(p!))) {
+                foreach (var call in parts.Where(static p => p is not null).SelectMany(static p => Calls(p!))) {
                     yield return call;
                 }
 

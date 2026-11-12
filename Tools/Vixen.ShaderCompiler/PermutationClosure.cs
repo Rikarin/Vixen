@@ -148,9 +148,12 @@ public static class PermutationClosure {
                 // enumerate them and confirm nothing new appeared. A third means a key only became
                 // readable once another was set, which is what `Dependent` is reporting.
                 return new(
-                    [.. found.OrderBy(entry => entry.Key.ToString(), StringComparer.Ordinal).Select(entry => entry.Value)],
+                    [
+                        ..found.OrderBy(static entry => entry.Key.ToString(), StringComparer.Ordinal)
+                            .Select(static entry => entry.Value)
+                    ],
                     compilations,
-                    [.. used],
+                    [..used],
                     passes > 2
                 );
             }

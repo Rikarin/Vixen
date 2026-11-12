@@ -131,7 +131,7 @@ public sealed class RpcOverSessionTests : IDisposable {
                 return;
             }
 
-            Game.Add(inner.ToArray());
+            Game.Add([..inner]);
         }
     }
 
@@ -139,8 +139,22 @@ public sealed class RpcOverSessionTests : IDisposable {
     sealed class Counter(NetworkId id, RpcRouter router) : IRpcObject, IRpcInvoker {
         public static readonly RpcMethod[] RpcMethodTable = Order(
             [
-                new("Vixen.Net.Tests.Rpc.Counter", "Add(int)", RpcKind.Server, true, Channel.Reliable, RpcTarget.Observers),
-                new("Vixen.Net.Tests.Rpc.Counter", "Announce(int)", RpcKind.Client, false, Channel.Reliable, RpcTarget.All)
+                new(
+                    "Vixen.Net.Tests.Rpc.Counter",
+                    "Add(int)",
+                    RpcKind.Server,
+                    true,
+                    Channel.Reliable,
+                    RpcTarget.Observers
+                ),
+                new(
+                    "Vixen.Net.Tests.Rpc.Counter",
+                    "Announce(int)",
+                    RpcKind.Client,
+                    false,
+                    Channel.Reliable,
+                    RpcTarget.All
+                )
             ]
         );
 
@@ -171,7 +185,7 @@ public sealed class RpcOverSessionTests : IDisposable {
         }
 
         static RpcMethod[] Order(RpcMethod[] methods) {
-            Array.Sort(methods, (left, right) => left.MethodId.CompareTo(right.MethodId));
+            Array.Sort(methods, static (left, right) => left.MethodId.CompareTo(right.MethodId));
 
             return methods;
         }

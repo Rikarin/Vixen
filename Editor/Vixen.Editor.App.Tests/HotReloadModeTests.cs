@@ -17,8 +17,12 @@ namespace Vixen.Editor.App.Tests;
 ///         <c>UserAgent</c> sheets without out-specifying them.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Every editor sheet is a real <c>.vcss</c> now, which the tests below are mostly
-///         about.</b> They used to be C# string constants — there was nothing on disk to point at —
+///         ⚠
+///         <b>
+///             Every editor sheet is a real <c>.vcss</c> now, which the tests below are mostly
+///             about.
+///         </b>
+///         They used to be C# string constants — there was nothing on disk to point at —
 ///         and now the same file is both the source of the shipped sheet and the one a developer
 ///         edits. So the directory can be the editor's own <c>Theming/</c>, and the question stops
 ///         being "does a save arrive" and becomes "does it <i>replace</i>": an edit that adds a
@@ -78,8 +82,12 @@ public class HotReloadModeTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>The claim that matters for threading: the reload happens on the frame, not on the
-    ///     pool.</b> A <c>FileSystemWatcher</c> callback runs on a thread pool thread and the element
+    ///     ⚠
+    ///     <b>
+    ///         The claim that matters for threading: the reload happens on the frame, not on the
+    ///         pool.
+    ///     </b>
+    ///     A <c>FileSystemWatcher</c> callback runs on a thread pool thread and the element
     ///     tree has no lock — so the change is coalesced where it arrives and applied in
     ///     <c>EditorApplication.Update</c>, which is the frame loop. This test never calls
     ///     <c>Poll</c>: if the frame did not, the save below would never land.
@@ -120,8 +128,12 @@ public class HotReloadModeTests {
     ///     compiler's diagnostics report. See <c>HotReloadWatcherTests</c>.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>Waits for the reload, not for a second, and that is the difference between this
-    ///     asserting something and asserting nothing.</b> The claim is negative — the width did
+    ///     ⚠
+    ///     <b>
+    ///         Waits for the reload, not for a second, and that is the difference between this
+    ///         asserting something and asserting nothing.
+    ///     </b>
+    ///     The claim is negative — the width did
     ///     <i>not</i> move — so a version that framed for a fixed span and then looked would pass
     ///     just as green on a machine where the save was never delivered, which is coverage that
     ///     exists only on the days it was not needed. <c>StyleReloads</c> is the watcher's own count
@@ -157,7 +169,9 @@ public class HotReloadModeTests {
         // ⚠ Not `Single`: one save is one report per *poll* it is pending at, and a frame landing
         // between the platform's two events for one write is a second report about the same text.
         Assert.NotEmpty(fixture.Editor.StyleReloads);
-        Assert.All(fixture.Editor.StyleReloads, report => {
+        Assert.All(
+            fixture.Editor.StyleReloads,
+            static report => {
                 Assert.Equal(ReloadChannel.Styles, report.Channel);
                 Assert.False(
                     report.Succeeded,
@@ -173,8 +187,12 @@ public class HotReloadModeTests {
     // ---------------------------------------- The editor's own sheets, replaced
 
     /// <summary>
-    ///     ⚠ <b>The whole point, asserted on a resolved value after an edit rather than on an
-    ///     event.</b> <c>EditorTheme.vcss</c> is embedded from the same file the developer edits, so
+    ///     ⚠
+    ///     <b>
+    ///         The whole point, asserted on a resolved value after an edit rather than on an
+    ///         event.
+    ///     </b>
+    ///     <c>EditorTheme.vcss</c> is embedded from the same file the developer edits, so
     ///     a watcher that loads it again leaves two copies in the cascade — and every value the new
     ///     text states still wins, which is why a test that changed a number would pass against both
     ///     behaviours. What only a replacement can do is make a <b>deleted</b> rule stop applying,
@@ -214,8 +232,12 @@ public class HotReloadModeTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>One <c>.vcss</c> in that folder is not a stylesheet, and handing it to the cascade
-    ///     can only produce a diagnostic.</b> <c>vixen.ui.vcss</c> is the <c>@theme</c> token source
+    ///     ⚠
+    ///     <b>
+    ///         One <c>.vcss</c> in that folder is not a stylesheet, and handing it to the cascade
+    ///         can only produce a diagnostic.
+    ///     </b>
+    ///     <c>vixen.ui.vcss</c> is the <c>@theme</c> token source
     ///     the utility generator reads at build time — the name is the build's own glob. Loading it
     ///     used to be harmless because nothing read the diagnostics; they drain to the log now, so it
     ///     was a warning on start-up and on every save of every other sheet beside it.
@@ -236,9 +258,13 @@ public class HotReloadModeTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>And the generated sheet under <c>obj/</c> is not watched either, which is the same
-    ///     rule one level further out and was the one place in the tree that read a file nothing is
-    ///     supposed to read.</b> The utility build step writes
+    ///     ⚠
+    ///     <b>
+    ///         And the generated sheet under <c>obj/</c> is not watched either, which is the same
+    ///         rule one level further out and was the one place in the tree that read a file nothing is
+    ///         supposed to read.
+    ///     </b>
+    ///     The utility build step writes
     ///     <c>obj/&lt;config&gt;/&lt;tfm&gt;/Vixen/&lt;Assembly&gt;.g.vcss</c>; point
     ///     <c>--style-directory</c> at a source tree that has been built and it used to be picked up,
     ///     because the only filter was on the file <i>name</i> and this file's name is the assembly's.
@@ -259,8 +285,14 @@ public class HotReloadModeTests {
 
         var sheets = fixture.Document.Styles.SheetCount;
 
-        styles.Write(Path.Combine("obj", "Debug", "net11.0", "Vixen", "Probe.g.vcss"), "hot-reload-probe { width: 11px; }");
-        styles.Write(Path.Combine("obj", "Release", "net11.0", "Vixen", "Probe.g.vcss"), "hot-reload-probe { width: 22px; }");
+        styles.Write(
+            Path.Combine("obj", "Debug", "net11.0", "Vixen", "Probe.g.vcss"),
+            "hot-reload-probe { width: 11px; }"
+        );
+        styles.Write(
+            Path.Combine("obj", "Release", "net11.0", "Vixen", "Probe.g.vcss"),
+            "hot-reload-probe { width: 22px; }"
+        );
         styles.Write(Path.Combine("bin", "Debug", "net11.0", "Copied.vcss"), "hot-reload-probe { width: 44px; }");
         styles.Write("dev.vcss", "hot-reload-probe { width: 33px; }");
 
@@ -275,8 +307,12 @@ public class HotReloadModeTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>The shell's one markup panel is mounted through the reload host, which is an
-    ///     ordering fix rather than a markup one.</b> Only a component the host tracks is rebuilt
+    ///     ⚠
+    ///     <b>
+    ///         The shell's one markup panel is mounted through the reload host, which is an
+    ///         ordering fix rather than a markup one.
+    ///     </b>
+    ///     Only a component the host tracks is rebuilt
     ///     when the runtime replaces its <c>Build</c>, and <c>EditorShell</c> builds the task centre
     ///     inside the constructor that makes the document the host is built over — so it could not
     ///     have been tracked at the time, and nothing came back for it afterwards. The editor's only
@@ -289,7 +325,7 @@ public class HotReloadModeTests {
         Assert.True(fixture.Plugins.Services.TryGet<HotReloadHost>(out var host));
         Assert.Contains(
             host.Components,
-            component => component.GetType().Name == "TaskCenter"
+            static component => component.GetType().Name == "TaskCenter"
         );
     }
 
@@ -303,7 +339,7 @@ public class HotReloadModeTests {
 
         Assert.True(fixture.Plugins.Services.TryGet<HotReloadHost>(out var host));
 
-        var centres = host.Components.Where(component => component.GetType().Name == "TaskCenter").ToList();
+        var centres = host.Components.Where(static component => component.GetType().Name == "TaskCenter").ToList();
         var roots = Assert.Single(centres).Root.Parent;
 
         Assert.NotNull(roots);
@@ -345,6 +381,6 @@ public class HotReloadModeTests {
             return file;
         }
 
-        public void Dispose() => Directory.Delete(Path, recursive: true);
+        public void Dispose() => Directory.Delete(Path, true);
     }
 }

@@ -35,8 +35,12 @@ public readonly record struct BidiResult(int ParagraphLevel, int[] Levels, int[]
 ///         gibberish to the person reading it.
 ///     </para>
 ///     <para>
-///         The algorithm has four phases and each is a different shape of problem. <b>Explicit
-///         levels</b> (X1–X8) are a stack machine over embedding and isolate controls.
+///         The algorithm has four phases and each is a different shape of problem.
+///         <b>
+///             Explicit
+///             levels
+///         </b>
+///         (X1–X8) are a stack machine over embedding and isolate controls.
 ///         <b>Isolating run sequences</b> (BD13) chop the paragraph into the units everything after
 ///         works on, and getting them wrong makes every later rule look broken. <b>Resolution</b>
 ///         (W, N, I) is a series of passes that rewrite types in place. <b>Reordering</b> (L) turns
@@ -54,7 +58,10 @@ public static class BidiAlgorithm {
     /// <param name="codePoints">The paragraph's code points.</param>
     /// <param name="direction">Its base direction.</param>
     /// <returns>The levels and the visual order.</returns>
-    public static BidiResult Resolve(ReadOnlySpan<int> codePoints, ParagraphDirection direction = ParagraphDirection.Auto) {
+    public static BidiResult Resolve(
+        ReadOnlySpan<int> codePoints,
+        ParagraphDirection direction = ParagraphDirection.Auto
+    ) {
         var classes = new BidiClass[codePoints.Length];
         for (var i = 0; i < codePoints.Length; i++) {
             classes[i] = BidiClassTable.Of(codePoints[i]);
@@ -71,7 +78,7 @@ public static class BidiAlgorithm {
         state.ResolveSequences();
         state.ApplyL1();
 
-        return new BidiResult(paragraphLevel, state.Levels, state.VisualOrder());
+        return new(paragraphLevel, state.Levels, state.VisualOrder());
     }
 
     /// <summary>Runs the algorithm over a string.</summary>
@@ -118,9 +125,6 @@ public static class BidiAlgorithm {
 
                 case BidiClass.R or BidiClass.AL when isolates == 0:
                     return 1;
-
-                default:
-                    break;
             }
         }
 

@@ -62,8 +62,11 @@ public class LayerStackPanelTests {
 
     /// <summary>⚠ And the rows are topmost-first, which is the reverse of the file.</summary>
     /// <remarks>
-    ///     <b>The one arithmetic decision a layers panel makes, and getting it wrong is invisible on
-    ///     a one-layer stack.</b> <c>TextureSetAsset.Layers</c> is stored in composite order so that
+    ///     <b>
+    ///         The one arithmetic decision a layers panel makes, and getting it wrong is invisible on
+    ///         a one-layer stack.
+    ///     </b>
+    ///     <c>TextureSetAsset.Layers</c> is stored in composite order so that
     ///     reading the file is reading the arithmetic; every layers panel shows the top layer at the
     ///     top. A stack of three is the smallest input where the two orders differ and where a
     ///     reversal that dropped the middle row would show.
@@ -153,10 +156,17 @@ public class LayerStackPanelTests {
     /// <summary>A host with no device says which of the two reasons the pane is empty for.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The instrument, and until
-    ///         <a href="https://github.com/Rikarin/Vixen/issues/831">#831</a> it could not fail.</b>
-    ///         This test asserted <c>Assert.Contains("IEditorGraphics", TexturePreview.Describe(
-    ///         TexturePreviewBlocker.NoGraphics))</c> — a pure function over a switch expression. It
+    ///         ⚠
+    ///         <b>
+    ///             The instrument, and until
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/831">#831</a> it could not fail.
+    ///         </b>
+    ///         This test asserted
+    ///         <c>
+    ///             Assert.Contains("IEditorGraphics", TexturePreview.Describe(
+    ///             TexturePreviewBlocker.NoGraphics))
+    ///         </c>
+    ///         — a pure function over a switch expression. It
     ///         opened no panel, touched no view and read no status, so deleting
     ///         <c>TexturingModule.RefreshStack</c>'s fallback entirely left it green, which is the one
     ///         thing its own remark says it exists to prevent.
@@ -196,8 +206,12 @@ public class LayerStackPanelTests {
     ///         factory's own doc comment said it "lists the stack and says so".
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And it must not say <c>NoGraphics</c>, which is what the sibling graph factory
-    ///         passes.</b> A double-click happens in the editor and the editor publishes
+    ///         ⚠
+    ///         <b>
+    ///             And it must not say <c>NoGraphics</c>, which is what the sibling graph factory
+    ///             passes.
+    ///         </b>
+    ///         A double-click happens in the editor and the editor publishes
     ///         <c>IEditorGraphics</c>, so that sentence is false in the only place it is ever read —
     ///         <a href="https://github.com/Rikarin/Vixen/issues/841">#841</a>. Both halves are
     ///         asserted, because a picture carrying the wrong sentence passes the first alone.
@@ -211,9 +225,7 @@ public class LayerStackPanelTests {
 
         var asset = AddStack(fixture, "Hull");
 
-        Assert.True(
-            fixture.Editors.TryGetForFile("Assets/Hull" + LayerStackDocument.Extension, out var editor)
-        );
+        Assert.True(fixture.Editors.TryGetForFile("Assets/Hull" + LayerStackDocument.Extension, out _));
 
         Assert.True(fixture.Editors.TryOpen(asset, out var document));
 
@@ -238,8 +250,12 @@ public class LayerStackPanelTests {
     ///         the reader, with nothing saying why.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The warning is the instrument, because it is the one thing that names a set
-    ///         without a device.</b> Only the second set has the bad setting, so the message can only
+    ///         ⚠
+    ///         <b>
+    ///             The warning is the instrument, because it is the one thing that names a set
+    ///             without a device.
+    ///         </b>
+    ///         Only the second set has the bad setting, so the message can only
     ///         appear once the preview has compiled that set — a picture assertion would need a
     ///         device and a row assertion would pass against the defect.
     ///     </para>
@@ -394,14 +410,18 @@ public class LayerStackPanelTests {
 
     /// <summary>What the status line under the pane says, read off the tree the panel built.</summary>
     /// <remarks>
-    ///     ⚠ <b>Off the tree and not off <c>LayerStackView.Status</c>, because the view is the
-    ///     module's private field.</b> A test that constructed its own view would pass in an editor
+    ///     ⚠
+    ///     <b>
+    ///         Off the tree and not off <c>LayerStackView.Status</c>, because the view is the
+    ///         module's private field.
+    ///     </b>
+    ///     A test that constructed its own view would pass in an editor
     ///     where the panel was never registered — <c>TextureGraphPanelTests</c> states the same rule —
     ///     and a test that called a static helper would pass in an editor where the panel drew
     ///     nothing at all, which is what <a href="https://github.com/Rikarin/Vixen/issues/831">#831</a>
     ///     found here.
     /// </remarks>
-    static string Status(UiElement panel) => Find(panel, "layer-stack-status")?.Text ?? "";
+    static string Status(UiElement panel) => Find(panel, "layer-stack-status")?.Text ?? string.Empty;
 
     /// <summary>The stack panel the module registered, opened.</summary>
     static UiElement Panel(TexturingFixture fixture) {
@@ -428,7 +448,7 @@ public class LayerStackPanelTests {
 
         void Walk(UiElement element) {
             if (string.Equals(element.Tag, "layer-stack-row-name", StringComparison.Ordinal)) {
-                lines.Add(element.Text ?? "");
+                lines.Add(element.Text ?? string.Empty);
             }
 
             foreach (var child in element.Children) {
@@ -482,7 +502,7 @@ public class LayerStackPanelTests {
     /// <param name="element">The element.</param>
     /// <returns>Its text and its descendants', in order.</returns>
     internal static string Said(UiElement element) {
-        var text = new StringBuilder(element.Text ?? "");
+        var text = new StringBuilder(element.Text ?? string.Empty);
 
         Walk(element);
 
@@ -490,7 +510,7 @@ public class LayerStackPanelTests {
 
         void Walk(UiElement parent) {
             foreach (var child in parent.Children) {
-                text.Append(child.Text ?? "");
+                text.Append(child.Text ?? string.Empty);
                 Walk(child);
             }
         }
@@ -555,7 +575,7 @@ public class LayerStackPanelTests {
         var report = fixture.Project.Assets.Scan();
 
         // A `MetaCreated` is what a scan is for; anything else is a fixture that has gone wrong.
-        Assert.DoesNotContain(report.Issues, issue => issue.Kind != AssetIssueKind.MetaCreated);
+        Assert.DoesNotContain(report.Issues, static issue => issue.Kind != AssetIssueKind.MetaCreated);
         Assert.True(fixture.Project.Assets.TryGetByPath(relative, out var entry), "the scan did not pick the stack up");
 
         return entry.Guid;

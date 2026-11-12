@@ -38,7 +38,7 @@ sealed class RavenSyntaxErrorListener(DiagnosticBag diagnostics, SourceText text
         string msg,
         RecognitionException e
     ) {
-        var span = offendingSymbol != null
+        var span = offendingSymbol is not null
             ? SpanFromToken(offendingSymbol)
             : SpanFromLineColumn(line, charPositionInLine);
         diagnostics.Add(SyntaxDiagnostics.SyntaxError, Location.Create(filePath, span, text), msg);

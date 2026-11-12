@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Globalization;
-using System.IO;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -14,8 +13,11 @@ namespace Vixen.Graphics.Golden.Tests;
 /// <summary>The GLSL this suite renders with, and the committed modules beside it.</summary>
 /// <remarks>
 ///     <para>
-///         <b>This file used to compare three hand-maintained copies of the same eight shaders and
-///         it now checks one.</b> The invariant was real and it had already been broken: on
+///         <b>
+///             This file used to compare three hand-maintained copies of the same eight shaders and
+///             it now checks one.
+///         </b>
+///         The invariant was real and it had already been broken: on
 ///         2026-08-09 <c>ui-box.frag</c> here was sixteen lines longer than the copies under
 ///         <c>Samples/02-HelloUi</c> and the <c>vixen-app</c> template, and the missing lines were
 ///         the whole shadow path. The struct is shared and its own comment reserves <c>axis.z</c>
@@ -31,9 +33,13 @@ namespace Vixen.Graphics.Golden.Tests;
 ///         equal by hand: it recompiles the source and fails if the committed module differs.
 ///     </para>
 ///     <para>
-///         ⚠ <b>There was a second Raven copy and it is gone, which is what
-///         <see cref="EveryRavenCopyAgreesAboutTheShadersItShares" /> was written to make safe to
-///         delete.</b> <c>Editor/Vixen.Editor.Host/Shaders/Ui.rvn</c> carried five of the desktop
+///         ⚠
+///         <b>
+///             There was a second Raven copy and it is gone, which is what
+///             <see cref="EveryRavenCopyAgreesAboutTheShadersItShares" /> was written to make safe to
+///             delete.
+///         </b>
+///         <c>Editor/Vixen.Editor.Host/Shaders/Ui.rvn</c> carried five of the desktop
 ///         copy's eight shaders — every line of the five identical, so nothing had drifted the way
 ///         <c>ui-box.frag</c> did, and <c>UiBlur</c>, <c>UiColour</c> and <c>UiMask</c> simply
 ///         absent, so the editor composited and never blurred, filtered or masked. <c>CheckShaders</c>
@@ -51,8 +57,11 @@ namespace Vixen.Graphics.Golden.Tests;
 ///         on its own.
 ///     </para>
 ///     <para>
-///         ⚠ <b>"Nothing compares the two" stood here and is no longer true — one necessary
-///         condition of the comparison is checked, and the distinction is the point.</b>
+///         ⚠
+///         <b>
+///             "Nothing compares the two" stood here and is no longer true — one necessary
+///             condition of the comparison is checked, and the distinction is the point.
+///         </b>
 ///         <see cref="EveryConstantInTheGlslCopyIsOneTheRavenHoldsToo" /> holds the numbers: the
 ///         eighteen Oklab coefficients, sRGB's five, and every threshold the shape and shadow paths
 ///         branch on are the same in both files or one of them is wrong. Constants are the part of a
@@ -71,8 +80,12 @@ namespace Vixen.Graphics.Golden.Tests;
 ///         file.
 ///     </para>
 ///     <para>
-///         ⚠ <b>That check ran over one file of eight and now runs over all eight, and widening it
-///         turned up exactly the rearrangement its own remark predicted.</b> Nothing made
+///         ⚠
+///         <b>
+///             That check ran over one file of eight and now runs over all eight, and widening it
+///             turned up exactly the rearrangement its own remark predicted.
+///         </b>
+///         Nothing made
 ///         <c>ui-box.frag</c> special about <i>constants</i> — it is special about the <i>record</i>,
 ///         which is a different claim and <c>UiShapeLayoutTests</c>' — and the other seven transcribe
 ///         the same Raven out of the same specification, <c>ui-mask.frag</c> alone holding ten
@@ -82,16 +95,24 @@ namespace Vixen.Graphics.Golden.Tests;
 ///         by its reciprocal. Same rotation, and no comparison of numbers can see through it.
 ///     </para>
 ///     <para>
-///         ⚠ <b>That particular exception is gone because the GLSL was respelled rather than the
-///         check widened.</b> The alternative — keeping an allow-list entry against the day a second
+///         ⚠
+///         <b>
+///             That particular exception is gone because the GLSL was respelled rather than the
+///             check widened.
+///         </b>
+///         The alternative — keeping an allow-list entry against the day a second
 ///         reciprocal appears — is the shape this file's own remark warns about, since an allow-list
 ///         that survives its reason is a hole. So <c>ui-mask.frag</c> now multiplies by
 ///         <c>0.15915494309189535</c> exactly as <c>Ui.rvn</c> does, which cost a <c>glslc</c> run, a
 ///         recommitted module and a rewritten ledger.
 ///     </para>
 ///     <para>
-///         ⚠ <b>And that respelling is a no-op in real arithmetic and a last-place bit in float,
-///         which this remark called a no-op flatly until #1256 measured it.</b> The reciprocal is
+///         ⚠
+///         <b>
+///             And that respelling is a no-op in real arithmetic and a last-place bit in float,
+///             which this remark called a no-op flatly until #1256 measured it.
+///         </b>
+///         The reciprocal is
 ///         not exactly 1/&#964;, so dividing and multiplying are two roundings and land on two
 ///         different floats: over 3 600 evenly spaced angles they disagree on 162 of them, about one
 ///         in twenty. That belief is precisely what let the two C# ports keep dividing by
@@ -100,8 +121,12 @@ namespace Vixen.Graphics.Golden.Tests;
 ///         multiplication now.
 ///     </para>
 ///     <para>
-///         ⚠ <b>And it compared each copy with <c>Ui.rvn</c> whole, which is a weaker claim than it
-///         reads as.</b> Eight shaders' numbers in one pool means a threshold only the box path uses
+///         ⚠
+///         <b>
+///             And it compared each copy with <c>Ui.rvn</c> whole, which is a weaker claim than it
+///             reads as.
+///         </b>
+///         Eight shaders' numbers in one pool means a threshold only the box path uses
 ///         excuses the same number turning up in the text copy, and those two shaders have nothing to
 ///         do with each other. It is now per shader — <c>Transcribes</c> names the pairing, and the
 ///         file's declarations outside every shader block go in the pool because a copy is entitled
@@ -118,8 +143,12 @@ namespace Vixen.Graphics.Golden.Tests;
 ///         <c>Copies</c> restored in the language the shaders are written in now.
 ///     </para>
 ///     <para>
-///         ⚠ <b>And the record of the shared struct's five agreeing places lives here rather than in
-///         the shader, which is #588's answer.</b> <c>Shape</c> is 144 bytes and four things have to
+///         ⚠
+///         <b>
+///             And the record of the shared struct's five agreeing places lives here rather than in
+///             the shader, which is #588's answer.
+///         </b>
+///         <c>Shape</c> is 144 bytes and four things have to
 ///         agree about that: <c>Vixen.Ui.Rendering.UiShape</c>, <c>UiRenderer</c>'s buffer stride,
 ///         <c>SoftwareUiRasterizer</c>, and <c>Platform/Vixen.Ui.Desktop/Shaders/Ui.rvn</c> — plus
 ///         <c>ui-box.frag</c> here, which is the fifth. <c>UiShapeLayoutTests</c> pins the first
@@ -183,8 +212,12 @@ public partial class SharedUiShaderTests {
     /// <returns><see cref="Optimised" /> or <see cref="Unoptimised" />.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The eight modules were not all built the same way, and until #1257 nothing
-    ///         recorded how.</b> Measured against the committed bytes with <c>shaderc v2026.3</c>:
+    ///         ⚠
+    ///         <b>
+    ///             The eight modules were not all built the same way, and until #1257 nothing
+    ///             recorded how.
+    ///         </b>
+    ///         Measured against the committed bytes with <c>shaderc v2026.3</c>:
     ///         five reproduce under plain <c>glslc</c> and three — <c>ui-solid.frag</c>,
     ///         <c>ui-text.frag</c>, <c>ui.vert</c> — only under <c>glslc -O</c>. The tell is the
     ///         debug section: <c>-O</c> strips it, so the three carry no <c>OpName</c>,
@@ -210,8 +243,8 @@ public partial class SharedUiShaderTests {
     /// </remarks>
     internal static string Flavour(uint[] words) {
         for (var at = 5; at < words.Length;) {
-            var opcode = (int) (words[at] & 0xFFFF);
-            var length = (int) (words[at] >> 16);
+            var opcode = (int)(words[at] & 0xFFFF);
+            var length = (int)(words[at] >> 16);
 
             Assert.True(length > 0, $"a zero-length instruction at word {at}.");
 
@@ -230,15 +263,23 @@ public partial class SharedUiShaderTests {
     /// <summary>Every committed module is the one built from the GLSL beside it as that GLSL now reads.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The half a source comparison could never see, and the half that actually shipped
-    ///         broken.</b> This suite loads the <c>.spv</c>, so a correct <c>.frag</c> beside a stale
+    ///         ⚠
+    ///         <b>
+    ///             The half a source comparison could never see, and the half that actually shipped
+    ///             broken.
+    ///         </b>
+    ///         This suite loads the <c>.spv</c>, so a correct <c>.frag</c> beside a stale
     ///         module is a shader that is right in the repository and wrong in the binary — which is
     ///         exactly the state the tree was in for the hours between the source being fixed and
     ///         <c>glslc</c> being run.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>This was a timestamp comparison, and a timestamp is a property of a checkout
-    ///         rather than of the repository.</b> Git carries content and not mtimes, so the old check
+    ///         ⚠
+    ///         <b>
+    ///             This was a timestamp comparison, and a timestamp is a property of a checkout
+    ///             rather than of the repository.
+    ///         </b>
+    ///         Git carries content and not mtimes, so the old check
     ///         could only fire in the tree where the edit happened — and it fired there on
     ///         <i>any</i> edit, a comment included. That is not a theoretical cost: correcting three
     ///         false sentences in <c>ui-box.frag</c>'s header (#588) turned this suite red for
@@ -278,11 +319,17 @@ public partial class SharedUiShaderTests {
         foreach (var name in Names) {
             var source = Path.Combine(RepositoryRoot(), Shaders, name);
 
-            Assert.True(File.Exists(source), $"{Path.Combine(Shaders, name)} is missing, and the reference images were rendered with it.");
+            Assert.True(
+                File.Exists(source),
+                $"{Path.Combine(Shaders, name)} is missing, and the reference images were rendered with it."
+            );
 
             var module = source + ".spv";
 
-            Assert.True(File.Exists(module), $"{Path.Combine(Shaders, name)}.spv is missing, and it is the artefact this suite loads.");
+            Assert.True(
+                File.Exists(module),
+                $"{Path.Combine(Shaders, name)}.spv is missing, and it is the artefact this suite loads."
+            );
 
             var code = Digest(Encoding.UTF8.GetBytes(Code(File.ReadAllText(source))));
             var binary = Digest(File.ReadAllBytes(module));
@@ -331,7 +378,7 @@ public partial class SharedUiShaderTests {
             Assert.True(
                 string.Equals(pair.Code, code, StringComparison.Ordinal),
                 $"{Path.Combine(Shaders, name)} has changed since its module was built — its code, not its "
-                + $"comments, which are stripped before this digest. The module this suite renders with is "
+                + "comments, which are stripped before this digest. The module this suite renders with is "
                 + $"not this source. Regenerate it at `{pair.Flavour}` and the ledger. {RecipeInstruction}."
             );
 
@@ -398,8 +445,8 @@ public partial class SharedUiShaderTests {
         kept.AddRange(words.AsSpan(0, 5));
 
         for (var at = 5; at < words.Length;) {
-            var opcode = (int) (words[at] & 0xFFFF);
-            var length = (int) (words[at] >> 16);
+            var opcode = (int)(words[at] & 0xFFFF);
+            var length = (int)(words[at] >> 16);
 
             if (opcode is not (3 or 4 or 5 or 6 or 7 or 8)) {
                 kept.AddRange(words.AsSpan(at, length));
@@ -408,7 +455,7 @@ public partial class SharedUiShaderTests {
             at += length;
         }
 
-        return [.. kept];
+        return [..kept];
     }
 
     /// <summary>The ledger, by shader name. A line written before the flavour column has a null flavour.</summary>
@@ -444,8 +491,12 @@ public partial class SharedUiShaderTests {
 
     /// <summary>A GLSL source with its comments taken out, so a comment is free to edit.</summary>
     /// <remarks>
-    ///     ⚠ <b>Blank lines and trailing spaces go too, or removing a comment leaves the line it was
-    ///     on behind and the digest moves anyway.</b> GLSL has no string literals, so there is nothing
+    ///     ⚠
+    ///     <b>
+    ///         Blank lines and trailing spaces go too, or removing a comment leaves the line it was
+    ///         on behind and the digest moves anyway.
+    ///     </b>
+    ///     GLSL has no string literals, so there is nothing
     ///     a <c>//</c> can hide inside and the scan needs no third state.
     /// </remarks>
     internal static string Code(string source) {
@@ -494,8 +545,12 @@ public partial class SharedUiShaderTests {
     /// <summary>Every <c>Ui.rvn</c> in the tree agrees, shader for shader, with every other.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b><c>Copies</c>, restored — the invariant did not stop mattering when the shaders
-    ///         stopped being GLSL, it stopped being checked.</b> The original compared three
+    ///         ⚠
+    ///         <b>
+    ///             <c>Copies</c>, restored — the invariant did not stop mattering when the shaders
+    ///             stopped being GLSL, it stopped being checked.
+    ///         </b>
+    ///         The original compared three
     ///         hand-maintained <c>.frag</c> files and caught two of them missing the whole shadow
     ///         path. Two of those three are gone, and so is the second Raven copy this test was
     ///         written against — <c>Editor/Vixen.Editor.Host/Shaders/Ui.rvn</c>, which
@@ -504,14 +559,22 @@ public partial class SharedUiShaderTests {
     ///         independently and said nothing about the pair.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>It keeps running over a census of one, and that is the point rather than a
-    ///         leftover.</b> A walk that finds one file compares nothing, so what holds this up is the
+    ///         ⚠
+    ///         <b>
+    ///             It keeps running over a census of one, and that is the point rather than a
+    ///             leftover.
+    ///         </b>
+    ///         A walk that finds one file compares nothing, so what holds this up is the
     ///         count assertion and the three names below: the day somebody adds a second
     ///         <c>Ui.rvn</c>, this is what says the two agree, and it costs nothing until then.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Per shader rather than per file, because two copies can legitimately be different
-    ///         sizes.</b> The editor's carried five of the eight shaders, so a whole-file comparison
+    ///         ⚠
+    ///         <b>
+    ///             Per shader rather than per file, because two copies can legitimately be different
+    ///             sizes.
+    ///         </b>
+    ///         The editor's carried five of the eight shaders, so a whole-file comparison
     ///         would have been red for a reason nobody should silence by copying three shaders into a
     ///         host that does not wire them. What is wrong is not that one is shorter — it is a
     ///         shader whose *body* differs between two files that both claim to be the interface.
@@ -535,7 +598,7 @@ public partial class SharedUiShaderTests {
         // disagreement is between two other checkouts stops before it reaches this one. The
         // dot-directory and bin/obj filters that answered it are git's answer, asked directly.
         var sources = RepositoryFiles.Files(root, "Ui.rvn")
-            .OrderBy(path => path, StringComparer.Ordinal)
+            .OrderBy(static path => path, StringComparer.Ordinal)
             .ToList();
 
         Assert.True(
@@ -571,8 +634,12 @@ public partial class SharedUiShaderTests {
     /// <summary>The numbers a copy spells differently, and why none of them is drift.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>These are the cases this whole check's own remark predicted it could not see: one
-    ///         expression rearranged around numbers the other file never writes.</b> Admitting a class
+    ///         ⚠
+    ///         <b>
+    ///             These are the cases this whole check's own remark predicted it could not see: one
+    ///             expression rearranged around numbers the other file never writes.
+    ///         </b>
+    ///         Admitting a class
     ///         of rearrangement generally would be the wrong fix — it would weaken every file's
     ///         containment to catch a handful of legitimate differences, and this repository's own
     ///         history is of allow-lists that rot into holes. So each row is one file and one number,
@@ -598,9 +665,13 @@ public partial class SharedUiShaderTests {
     ///         slips through on a coincidence is worth knowing and is not worth an entry.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And both of those went the way the paragraph above says an entry goes — refuted
-    ///         by the tree rather than retired on purpose, which is worth naming because it is the
-    ///         weaker of the two ways.</b> <c>UiComposite</c> gained a <c>1f</c> on 2026-09-09 when a
+    ///         ⚠
+    ///         <b>
+    ///             And both of those went the way the paragraph above says an entry goes — refuted
+    ///             by the tree rather than retired on purpose, which is worth naming because it is the
+    ///             weaker of the two ways.
+    ///         </b>
+    ///         <c>UiComposite</c> gained a <c>1f</c> on 2026-09-09 when a
     ///         rounded backdrop's coverage landed there (<c>Rikarin/Vixen#229</c>), and declarations
     ///         outside every shader block are in every copy's pool — so <c>ui-solid.frag</c>'s and
     ///         <c>ui-text.frag</c>'s <c>clamp(x, 0.0, 1.0)</c> is now excused by a number in a struct
@@ -613,8 +684,12 @@ public partial class SharedUiShaderTests {
 
     /// <summary>Which Raven shader each GLSL copy transcribes.</summary>
     /// <remarks>
-    ///     ⚠ <b>This is the narrowing, and it is the whole of what it buys: a constant that belongs
-    ///     to <i>another</i> shader in the same file no longer excuses one here.</b> The comparison
+    ///     ⚠
+    ///     <b>
+    ///         This is the narrowing, and it is the whole of what it buys: a constant that belongs
+    ///         to <i>another</i> shader in the same file no longer excuses one here.
+    ///     </b>
+    ///     The comparison
     ///     used to be against <c>Ui.rvn</c> whole — eight shaders' worth of numbers, so
     ///     <c>ui-text.frag</c> could hold a threshold only the blur has and be contained. Every one
     ///     of these eight is a transcription of one named shader, and the pairing is stated rather
@@ -636,9 +711,13 @@ public partial class SharedUiShaderTests {
     /// <summary>Every number each GLSL copy holds is a number the shader it transcribes holds too.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>This is the first thing in the tree that compares the two languages at all, and it
-    ///         is a <i>necessary</i> condition rather than a sufficient one — which is the whole of
-    ///         what it claims.</b> The class remark above says the only real check is a golden
+    ///         ⚠
+    ///         <b>
+    ///             This is the first thing in the tree that compares the two languages at all, and it
+    ///             is a <i>necessary</i> condition rather than a sufficient one — which is the whole of
+    ///             what it claims.
+    ///         </b>
+    ///         The class remark above says the only real check is a golden
     ///         rendered through each, and that is still true and still owed. What is available
     ///         without a device is the half of the specification that survives translation unchanged:
     ///         the constants. Björn Ottosson's eighteen Oklab coefficients, sRGB's <c>0.0031308</c>,
@@ -647,8 +726,12 @@ public partial class SharedUiShaderTests {
     ///         wrong.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>What it cannot catch, stated so nobody reads more into a green run than is
-    ///         there.</b> An expression rearranged around the same constants passes. A term dropped
+    ///         ⚠
+    ///         <b>
+    ///             What it cannot catch, stated so nobody reads more into a green run than is
+    ///             there.
+    ///         </b>
+    ///         An expression rearranged around the same constants passes. A term dropped
     ///         from a sum whose coefficient appears elsewhere passes. The historical defect this
     ///         file exists for — <c>ui-box.frag</c> losing the whole shadow path on two copies —
     ///         <i>would</i> have been caught, because that path carries constants nothing else uses;
@@ -690,8 +773,12 @@ public partial class SharedUiShaderTests {
     ///         same check asked of the right set.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Narrowing it turned up one more spelling and it is the same kind as
-    ///         <c>ui-mask.frag</c>'s reciprocal.</b> <c>ui-solid.frag</c> and <c>ui-text.frag</c> both
+    ///         ⚠
+    ///         <b>
+    ///             Narrowing it turned up one more spelling and it is the same kind as
+    ///             <c>ui-mask.frag</c>'s reciprocal.
+    ///         </b>
+    ///         <c>ui-solid.frag</c> and <c>ui-text.frag</c> both
     ///         write <c>clamp(x, 0.0, 1.0)</c> where their shaders write <c>saturate(x)</c>, so the
     ///         copy spells a <c>1</c> the Raven folds into an operation's name. Not drift, and
     ///         recorded in <see cref="Spelled" /> as an exception that has to be needed before it is
@@ -714,7 +801,10 @@ public partial class SharedUiShaderTests {
         var raven = Path.Combine(root, "Platform", "Vixen.Ui.Desktop", "Shaders", "Ui.rvn");
 
         Assert.True(File.Exists(glsl), $"'{Relative(root, glsl)}' is missing, and it is the copy this compares.");
-        Assert.True(File.Exists(raven), $"'{Relative(root, raven)}' is missing, and it is what every application draws through.");
+        Assert.True(
+            File.Exists(raven),
+            $"'{Relative(root, raven)}' is missing, and it is what every application draws through."
+        );
 
         var text = File.ReadAllText(glsl);
         var ravenText = File.ReadAllText(raven);
@@ -786,7 +876,7 @@ public partial class SharedUiShaderTests {
             missing.Count == 0,
             $"'{Relative(root, glsl)}' holds {missing.Count} number(s) that `shader {shader}` in "
             + $"'{Relative(root, raven)}' does not: "
-            + string.Join(", ", missing.Select(value => value.ToString("R", CultureInfo.InvariantCulture)))
+            + string.Join(", ", missing.Select(static value => value.ToString("R", CultureInfo.InvariantCulture)))
             + ". They are two implementations of one specification, and a constant in one and not the "
             + "other is drift between them — which is what the reference images in this suite would "
             + "then be rendered against."
@@ -795,15 +885,22 @@ public partial class SharedUiShaderTests {
 
     /// <summary>Every numeric literal in a shader source, as the <c>float</c> the GPU would hold.</summary>
     /// <remarks>
-    ///     ⚠ <b>Compared as <c>float</c> values and not as text, because the two languages spell the
-    ///     same number differently and neither spelling is wrong.</b> Raven writes <c>0.5f</c> where
+    ///     ⚠
+    ///     <b>
+    ///         Compared as <c>float</c> values and not as text, because the two languages spell the
+    ///         same number differently and neither spelling is wrong.
+    ///     </b>
+    ///     Raven writes <c>0.5f</c> where
     ///     GLSL writes <c>0.5</c>, and a comparison of the characters would report drift on every
     ///     line. Rounding to single precision is also what the shaders themselves do, so two
     ///     spellings a GPU cannot tell apart are two spellings this cannot either — which is the
     ///     right resolution for a check about what the hardware computes.
-    ///
-    ///     ⚠ <b>Found by a sabotage that came back green, and it is the sharpest thing this test
-    ///     has to say about itself.</b> Changing <c>0.5363325363</c> to <c>0.5363325364</c> in the
+    ///     ⚠
+    ///     <b>
+    ///         Found by a sabotage that came back green, and it is the sharpest thing this test
+    ///         has to say about itself.
+    ///     </b>
+    ///     Changing <c>0.5363325363</c> to <c>0.5363325364</c> in the
     ///     GLSL does not fail this — the two are the same <c>float</c>, and Ottosson's coefficients
     ///     are written to ten digits where single precision holds about seven. That looked like a
     ///     hole and is not one: <c>glslc</c> rounds the literal the same way, so a difference this
@@ -827,7 +924,12 @@ public partial class SharedUiShaderTests {
             // `UiShapeLayoutTests` parses out of this same file. So the qualifier is dropped whole,
             // for `#version`'s reason: it is not the kind of number this is about.
             foreach (Match match in Literal().Matches(Qualifier().Replace(line, " "))) {
-                if (float.TryParse(match.Value.TrimEnd('f', 'F'), NumberStyles.Float, CultureInfo.InvariantCulture, out var value)) {
+                if (float.TryParse(
+                        match.Value.TrimEnd('f', 'F'),
+                        NumberStyles.Float,
+                        CultureInfo.InvariantCulture,
+                        out var value
+                    )) {
                     values.Add(value);
                 }
             }
@@ -871,19 +973,29 @@ public partial class SharedUiShaderTests {
             "01-HelloTriangle's triangle and this suite's fixture for the same picture. The sample "
             + "may not reference a test project and the direction cannot be reversed either, so this "
             + "one is a copy until somebody moves the pair somewhere both can read.",
-            ["Platform/Vixen.Graphics.Golden.Tests/Shaders/triangle.frag", "Samples/01-HelloTriangle/Shaders/triangle.frag"]
+            [
+                "Platform/Vixen.Graphics.Golden.Tests/Shaders/triangle.frag",
+                "Samples/01-HelloTriangle/Shaders/triangle.frag"
+            ]
         ),
         (
             "the same pair's vertex stage, and the same answer.",
-            ["Platform/Vixen.Graphics.Golden.Tests/Shaders/triangle.vert", "Samples/01-HelloTriangle/Shaders/triangle.vert"]
+            [
+                "Platform/Vixen.Graphics.Golden.Tests/Shaders/triangle.vert",
+                "Samples/01-HelloTriangle/Shaders/triangle.vert"
+            ]
         )
     ];
 
     /// <summary>Two GLSL sources that are the same file are still the same file.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The failure class this file exists for, in the one language where nothing was
-    ///         watching it.</b> <see cref="EveryRavenCopyAgreesAboutTheShadersItShares" /> holds the
+    ///         ⚠
+    ///         <b>
+    ///             The failure class this file exists for, in the one language where nothing was
+    ///             watching it.
+    ///         </b>
+    ///         <see cref="EveryRavenCopyAgreesAboutTheShadersItShares" /> holds the
     ///         Raven copies to each other and
     ///         <see cref="EveryCommittedModuleMatchesTheSourceItWasBuiltFrom" /> holds each source to
     ///         the module beside it — and neither can say anything about two <i>sources</i> that are
@@ -905,8 +1017,12 @@ public partial class SharedUiShaderTests {
     ///         through is #286's, and it needs a golden rendered through each.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Comments are <i>not</i> stripped, unlike
-    ///         <see cref="EveryCommittedModuleMatchesTheSourceItWasBuiltFrom" />'s digest.</b> There
+    ///         ⚠
+    ///         <b>
+    ///             Comments are <i>not</i> stripped, unlike
+    ///             <see cref="EveryCommittedModuleMatchesTheSourceItWasBuiltFrom" />'s digest.
+    ///         </b>
+    ///         There
     ///         the question is whether a module is stale, and a comment cannot make it stale. Here
     ///         the question is whether two files somebody maintains by hand are the same file, and
     ///         a warning added to one copy and not the other is precisely the divergence a reader
@@ -929,8 +1045,8 @@ public partial class SharedUiShaderTests {
         var root = RepositoryRoot();
 
         var sources = RepositoryFiles.Listed(root)
-            .Where(path => Extensions.Contains(Path.GetExtension(path), StringComparer.Ordinal))
-            .OrderBy(path => path, StringComparer.Ordinal)
+            .Where(static path => Extensions.Contains(Path.GetExtension(path), StringComparer.Ordinal))
+            .OrderBy(static path => path, StringComparer.Ordinal)
             .ToList();
 
         // ⚠ The instrument, before anything is compared. A walk that matched nothing finds no
@@ -945,7 +1061,7 @@ public partial class SharedUiShaderTests {
         Assert.Contains("Core/Vixen.Rendering/Shaders/line.frag", sources);
 
         var declared = Twins
-            .Select(twin => string.Join(", ", twin.Files.Order(StringComparer.Ordinal)))
+            .Select(static twin => string.Join(", ", twin.Files.Order(StringComparer.Ordinal)))
             .Order(StringComparer.Ordinal)
             .ToList();
 
@@ -967,8 +1083,8 @@ public partial class SharedUiShaderTests {
         var found = sources
             .Where(path => File.Exists(Path.Combine(root, path)))
             .GroupBy(path => Digest(File.ReadAllBytes(Path.Combine(root, path))), StringComparer.Ordinal)
-            .Where(group => group.Count() > 1)
-            .Select(group => string.Join(", ", group.Order(StringComparer.Ordinal)))
+            .Where(static group => group.Count() > 1)
+            .Select(static group => string.Join(", ", group.Order(StringComparer.Ordinal)))
             .Order(StringComparer.Ordinal)
             .ToList();
 
@@ -1008,7 +1124,9 @@ public partial class SharedUiShaderTests {
     static IEnumerable<(string Name, string Body)> Blocks(string source) {
         const string keyword = "\nshader ";
 
-        for (var at = source.IndexOf(keyword, StringComparison.Ordinal); at >= 0; at = source.IndexOf(keyword, at + 1, StringComparison.Ordinal)) {
+        for (var at = source.IndexOf(keyword, StringComparison.Ordinal);
+             at >= 0;
+             at = source.IndexOf(keyword, at + 1, StringComparison.Ordinal)) {
             var nameAt = at + keyword.Length;
             var brace = source.IndexOf('{', nameAt);
 
@@ -1047,7 +1165,9 @@ public partial class SharedUiShaderTests {
         var outside = new StringBuilder();
         var last = 0;
 
-        for (var at = source.IndexOf(keyword, StringComparison.Ordinal); at >= 0; at = source.IndexOf(keyword, last, StringComparison.Ordinal)) {
+        for (var at = source.IndexOf(keyword, StringComparison.Ordinal);
+             at >= 0;
+             at = source.IndexOf(keyword, last, StringComparison.Ordinal)) {
             var nameAt = at + keyword.Length;
             var brace = source.IndexOf('{', nameAt);
 
@@ -1077,14 +1197,17 @@ public partial class SharedUiShaderTests {
     }
 
     /// <summary>A body with every run of whitespace collapsed to one space.</summary>
-    static string Squeezed(string body) => string.Join(' ', body.Split((char[]?) null, StringSplitOptions.RemoveEmptyEntries));
+    static string Squeezed(string body) =>
+        string.Join(' ', body.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
 
     /// <summary>A path as it reads in a failure: relative to the repository root.</summary>
     static string Relative(string root, string path) => Path.GetRelativePath(root, path);
 
     /// <summary>The repository root, found by walking up rather than by counting directories.</summary>
     internal static string RepositoryRoot() {
-        for (var directory = new DirectoryInfo(AppContext.BaseDirectory); directory is not null; directory = directory.Parent) {
+        for (var directory = new DirectoryInfo(AppContext.BaseDirectory);
+             directory is not null;
+             directory = directory.Parent) {
             if (Directory.Exists(Path.Combine(directory.FullName, "Raven", "Library"))) {
                 return directory.FullName;
             }
@@ -1140,8 +1263,12 @@ public partial class SharedUiShaderTests {
     /// <param name="wanted">The opcode numbers to count, by the name each is reported under.</param>
     /// <returns>The count of each wanted instruction, by opcode name; absent where it occurs never.</returns>
     /// <remarks>
-    ///     ⚠ <b>It counts opcode <em>numbers</em>, and that is the point rather than an
-    ///     implementation detail.</b> Every count in this file that was wrong was wrong because it
+    ///     ⚠
+    ///     <b>
+    ///         It counts opcode <em>numbers</em>, and that is the point rather than an
+    ///         implementation detail.
+    ///     </b>
+    ///     Every count in this file that was wrong was wrong because it
     ///     was taken over a disassembly's text, where <c>OpSelect</c> is a prefix of
     ///     <c>OpSelectionMerge</c> &#8212; see
     ///     <see cref="TheBranchShapeOfTheBoxPairIsWhatTheCensusArgumentCounts" />, which is the
@@ -1153,8 +1280,8 @@ public partial class SharedUiShaderTests {
         var counts = new Dictionary<string, int>(StringComparer.Ordinal);
 
         for (var at = 5; at < words.Length;) {
-            var opcode = (int) (words[at] & 0xFFFF);
-            var length = (int) (words[at] >> 16);
+            var opcode = (int)(words[at] & 0xFFFF);
+            var length = (int)(words[at] >> 16);
 
             Assert.True(length > 0, $"{module} has a zero-length instruction at word {at}.");
 
@@ -1171,16 +1298,23 @@ public partial class SharedUiShaderTests {
     /// <summary>The GLSL copy and the Raven module ask for the same derivatives, instruction for instruction.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b><c>fwidth(p)</c> and <c>abs(dFdx(p)) + abs(dFdy(p))</c> are the same formula and not
-    ///         the same instruction.</b> The specification defines the first as the second &#8212; and
+    ///         <b>
+    ///             <c>fwidth(p)</c> and <c>abs(dFdx(p)) + abs(dFdy(p))</c> are the same formula and not
+    ///             the same instruction.
+    ///         </b>
+    ///         The specification defines the first as the second &#8212; and
     ///         then lets an implementation answer each of the three builtins with either a coarse or a
     ///         fine derivative, independently of the others. So a copy that reaches for <c>fwidth</c>
     ///         where <c>Ui.rvn</c> spells <c>Ui.PixelWidth</c> out compiles to <c>OpFwidth</c> against
     ///         the shipping module's <c>OpDPdx</c>/<c>OpDPdy</c>, and is permitted to draw differently.
     ///     </para>
     ///     <para>
-    ///         &#9888; <b>Permitted, and not observed: this paragraph used to say it cost #1024, and it
-    ///         did not</b> (#1190). The lavapipe failure it blamed &#8212; 24 of 16 384 texels of a
+    ///         &#9888;
+    ///         <b>
+    ///             Permitted, and not observed: this paragraph used to say it cost #1024, and it
+    ///             did not
+    ///         </b>
+    ///         (#1190). The lavapipe failure it blamed &#8212; 24 of 16 384 texels of a
     ///         bordered box, 1 of a gradient, worst 1/255 &#8212; is byte-identical in count, magnitude
     ///         and coordinates on a head before the copy stopped calling <c>fwidth</c> and on one after.
     ///         So lavapipe drew the two spellings the same, and so do an RTX 4060 Ti and MoltenVK. The
@@ -1188,8 +1322,11 @@ public partial class SharedUiShaderTests {
     ///         Raven costs nothing; it is not the check that would have explained that failure.
     ///     </para>
     ///     <para>
-    ///         &#9888; <b>"Nothing else in the two modules differed: same constants, same
-    ///         <c>GLSL.std.450</c> instructions, same counts" used to stand here and it was false</b>
+    ///         &#9888;
+    ///         <b>
+    ///             "Nothing else in the two modules differed: same constants, same
+    ///             <c>GLSL.std.450</c> instructions, same counts" used to stand here and it was false
+    ///         </b>
     ///         &#8212; #1210. It was true of the constants; it was not true of the extended set
     ///         (<c>FAbs</c> 10 against 11) and it was never true of core arithmetic. What is true is
     ///         what <see cref="TheGlslCopiesDoTheSameArithmeticAsTheRavenModules" /> now asserts,
@@ -1198,14 +1335,21 @@ public partial class SharedUiShaderTests {
     ///         <c>OpDPdx</c> are one operation each either way.
     ///     </para>
     ///     <para>
-    ///         <b>A walk over the bytes rather than a picture, because no driver at hand shows the
-    ///         difference.</b> <c>UiRavenAgreementTests</c> can only speak on a leg that draws, and
+    ///         <b>
+    ///             A walk over the bytes rather than a picture, because no driver at hand shows the
+    ///             difference.
+    ///         </b>
+    ///         <c>UiRavenAgreementTests</c> can only speak on a leg that draws, and
     ///         only through a driver whose two answers happen to differ &#8212; none measured so far does
     ///         &#8212; so a derivative-flavour drift would be invisible in every picture and plain in the bytes.
     ///     </para>
     ///     <para>
-    ///         &#9888; <b>And the empty case is asserted, because two modules that ask for no derivatives
-    ///         agree perfectly.</b> A walk that ran off the end, a path that moved, a module that
+    ///         &#9888;
+    ///         <b>
+    ///             And the empty case is asserted, because two modules that ask for no derivatives
+    ///             agree perfectly.
+    ///         </b>
+    ///         A walk that ran off the end, a path that moved, a module that
     ///         stopped being SPIR-V &#8212; each would leave every comparison trivially true.
     ///     </para>
     /// </remarks>
@@ -1240,7 +1384,10 @@ public partial class SharedUiShaderTests {
         }
 
         Assert.Equal(Names.Length, Pairs.Length);
-        Assert.True(found > 0, "no derivative instruction was found in any of the sixteen modules, so this compared nothing.");
+        Assert.True(
+            found > 0,
+            "no derivative instruction was found in any of the sixteen modules, so this compared nothing."
+        );
     }
 
     /// <summary>
@@ -1375,8 +1522,10 @@ public partial class SharedUiShaderTests {
     /// <returns>The component count of each arithmetic operation it performs, by name.</returns>
     /// <remarks>
     ///     <para>
-    ///         <b>Three normalisations, and each of them exists because a raw histogram is red on
-    ///         master this minute for a reason that is not a difference in the picture.</b>
+    ///         <b>
+    ///             Three normalisations, and each of them exists because a raw histogram is red on
+    ///             master this minute for a reason that is not a difference in the picture.
+    ///         </b>
     ///     </para>
     ///     <para>
     ///         <i>Components rather than instructions.</i> <c>abs(vec2)</c> and two scalar
@@ -1391,8 +1540,12 @@ public partial class SharedUiShaderTests {
     ///         the same result.
     ///     </para>
     ///     <para>
-    ///         ⚠ <i>An operation on nothing but constants is skipped, and that one was measured
-    ///         rather than assumed.</i> Raven emits <c>1f / 2.4f</c> as a live <c>OpFDiv</c> and
+    ///         ⚠
+    ///         <i>
+    ///             An operation on nothing but constants is skipped, and that one was measured
+    ///             rather than assumed.
+    ///         </i>
+    ///         Raven emits <c>1f / 2.4f</c> as a live <c>OpFDiv</c> and
     ///         <c>-1.2684380046f</c> as an <c>OpFNegate</c> of a positive constant, where
     ///         <c>glslc</c> folds both at compile time. Those are the whole of two of the six
     ///         "arithmetic" differences #1210 lists &#8212; and they are bit-exact, not near:
@@ -1420,8 +1573,8 @@ public partial class SharedUiShaderTests {
         var census = new Dictionary<string, int>(StringComparer.Ordinal);
 
         for (var at = 5; at < words.Length;) {
-            var opcode = (int) (words[at] & 0xFFFF);
-            var length = (int) (words[at] >> 16);
+            var opcode = (int)(words[at] & 0xFFFF);
+            var length = (int)(words[at] >> 16);
 
             Assert.True(length > 0, $"{module} has a zero-length instruction at word {at}.");
 
@@ -1433,12 +1586,12 @@ public partial class SharedUiShaderTests {
 
                 // OpTypeVector: as many lanes as it has components.
                 case 23:
-                    lanes[words[at + 1]] = (int) words[at + 3];
+                    lanes[words[at + 1]] = (int)words[at + 3];
                     break;
 
                 // OpTypeMatrix: its column's lanes, that many times.
                 case 24:
-                    lanes[words[at + 1]] = lanes.GetValueOrDefault(words[at + 2], 1) * (int) words[at + 3];
+                    lanes[words[at + 1]] = lanes.GetValueOrDefault(words[at + 2], 1) * (int)words[at + 3];
                     break;
 
                 // OpConstantTrue/False/OpConstant/OpConstantComposite/Sampler/Null: all name their
@@ -1465,7 +1618,7 @@ public partial class SharedUiShaderTests {
                     operands = start + 3;
                 } else if (op == 12) {
                     // OpExtInst: result type, result, the set, then the instruction's own number.
-                    var number = (int) words[start + 4];
+                    var number = (int)words[start + 4];
 
                     name = "GLSL.std.450 "
                         + (Extended.TryGetValue(number, out var known)
@@ -1477,7 +1630,7 @@ public partial class SharedUiShaderTests {
                     return;
                 }
 
-                var end = start + (int) (words[start] >> 16);
+                var end = start + (int)(words[start] >> 16);
                 var live = false;
 
                 for (var operand = operands; operand < end; operand++) {
@@ -1492,7 +1645,8 @@ public partial class SharedUiShaderTests {
                     return;
                 }
 
-                census[name] = census.GetValueOrDefault(name) + Math.Max(lanes.GetValueOrDefault(words[start + 1], 1), 1);
+                census[name] = census.GetValueOrDefault(name)
+                    + Math.Max(lanes.GetValueOrDefault(words[start + 1], 1), 1);
             }
         }
 
@@ -1521,8 +1675,12 @@ public partial class SharedUiShaderTests {
     ///         the same commit.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The list shrank from ten to six, and the four that went were the real
-    ///         divergences</b> — #1224 and #1225. <c>ui-mask.frag</c> spelled a wrap
+    ///         ⚠
+    ///         <b>
+    ///             The list shrank from ten to six, and the four that went were the real
+    ///             divergences
+    ///         </b>
+    ///         — #1224 and #1225. <c>ui-mask.frag</c> spelled a wrap
     ///         <c>turns - floor(turns)</c> where <c>UiMask.Progress</c> calls <c>frac</c>, a builtin
     ///         against its own definition; <c>ui-text.frag</c> premultiplied
     ///         <c>(rgb·a)·coverage</c> where <c>UiText</c> computes <c>rgb·(a·coverage)</c>, and
@@ -1531,8 +1689,12 @@ public partial class SharedUiShaderTests {
     ///         moved between stages, and none of it is a difference in the picture.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A count is not the whole of the question, which is why this list shrinking is not
-    ///         the end of #1225.</b> The same commit moved <c>ui-box.frag</c>'s tiling clip from
+    ///         ⚠
+    ///         <b>
+    ///             A count is not the whole of the question, which is why this list shrinking is not
+    ///             the end of #1225.
+    ///         </b>
+    ///         The same commit moved <c>ui-box.frag</c>'s tiling clip from
     ///         <c>coverage *= x * y</c> to <c>coverage = coverage * x * y</c>, because
     ///         <c>a *= b * c</c> groups as <c>a·(b·c)</c> and <c>UiBox</c> writes <c>(a·b)·c</c> —
     ///         two numbers out of three identical factors. <b>Nothing in this file could see that</b>:
@@ -1596,16 +1758,24 @@ public partial class SharedUiShaderTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The instrument
-    ///         <see cref="TheGlslCopiesAskForTheSameDerivativesAsTheRavenModules" /> should have
-    ///         been, and #1210 is what its narrowness cost.</b> That walk looks at nine opcodes out
+    ///         ⚠
+    ///         <b>
+    ///             The instrument
+    ///             <see cref="TheGlslCopiesAskForTheSameDerivativesAsTheRavenModules" /> should have
+    ///             been, and #1210 is what its narrowness cost.
+    ///         </b>
+    ///         That walk looks at nine opcodes out
     ///         of the whole instruction set, so it is satisfied by two programs that do a different
     ///         number of divisions. This one looks at every arithmetic and extended instruction in
     ///         the sixteen modules, which is the set whose count is a fact about the program.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And a raw histogram was the wrong answer, which is worth writing down because it
-    ///         is the obvious one.</b> #1210 lists eighteen opcode classes that differ between the
+    ///         ⚠
+    ///         <b>
+    ///             And a raw histogram was the wrong answer, which is worth writing down because it
+    ///             is the obvious one.
+    ///         </b>
+    ///         #1210 lists eighteen opcode classes that differ between the
     ///         two box modules and calls six of them &#8212; one more add, one more multiply, one more
     ///         divide, one more absolute value &#8212; real arithmetic. <b>Five of the six are not.</b>
     ///         <c>OpFMul</c> 54 v 55 is <c>OpVectorTimesScalar</c> 1 v 0 wearing a hat; <c>FAbs</c>
@@ -1629,24 +1799,36 @@ public partial class SharedUiShaderTests {
     ///         which is what GLSL's already was, so the two box modules now agree there too.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And it cannot compare <em>association</em>, which is why a green run here is not
-    ///         #1190 closed.</b> <c>a·(b·c)</c> and <c>(a·b)·c</c> are the same count and two
+    ///         ⚠
+    ///         <b>
+    ///             And it cannot compare <em>association</em>, which is why a green run here is not
+    ///             #1190 closed.
+    ///         </b>
+    ///         <c>a·(b·c)</c> and <c>(a·b)·c</c> are the same count and two
     ///         numbers &#8212; #1225's second half was exactly that, in <c>ui-box.frag</c>'s tiling clip,
     ///         and no histogram could see it.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>What the control-flow gap in the box pair actually is, measured rather than
-    ///         guessed &#8212; and it is <em>not</em> a candidate for #1190's 1/255.</b> The two modules
+    ///         ⚠
+    ///         <b>
+    ///             What the control-flow gap in the box pair actually is, measured rather than
+    ///             guessed &#8212; and it is <em>not</em> a candidate for #1190's 1/255.
+    ///         </b>
+    ///         The two modules
     ///         differ by <c>OpPhi</c> 4 against 0, <c>OpBranchConditional</c> 29 against 21 and
     ///         <c>OpSelect</c> 4 against 8 &#8212; 3 against 7 until #1457's coverage snap added one
     ///         select to each. ⚠ Not "32 against 28", which this remark said until it
     ///         was recounted by opcode: a <c>grep OpSelect</c> over a disassembly also matches every
     ///         <c>OpSelectionMerge</c>, of which there are 29 and 21 &#8212; one per conditional branch
     ///         &#8212; and 3 + 29 and 7 + 21 were exactly the two numbers that stood here. The argument
-    ///         below does not move, but the count it rests on is now the count of selects. ⚠ <b>And
-    ///         all six of these numbers are now read by
-    ///         <see cref="TheBranchShapeOfTheBoxPairIsWhatTheCensusArgumentCounts" /> rather than
-    ///         only written here</b>, because a premise nothing reads is how the wrong pair survived
+    ///         below does not move, but the count it rests on is now the count of selects. ⚠
+    ///         <b>
+    ///             And
+    ///             all six of these numbers are now read by
+    ///             <see cref="TheBranchShapeOfTheBoxPairIsWhatTheCensusArgumentCounts" /> rather than
+    ///             only written here
+    ///         </b>
+    ///         , because a premise nothing reads is how the wrong pair survived
     ///         a whole batch &#8212; a correction to prose is not an instrument.
     ///         <c>ui-box.frag</c> holds exactly four short-circuiting
     ///         operators &#8212; two <c>||</c> and two <c>&amp;&amp;</c> &#8212; and <c>glslc</c> gives each one a
@@ -1667,8 +1849,12 @@ public partial class SharedUiShaderTests {
     ///         leg with a driver whose two answers differ.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The instrument's own check is that the census is large and that every declared
-    ///         difference is observed.</b> A walk that ran off the end, a path that moved or a module
+    ///         ⚠
+    ///         <b>
+    ///             The instrument's own check is that the census is large and that every declared
+    ///             difference is observed.
+    ///         </b>
+    ///         A walk that ran off the end, a path that moved or a module
     ///         that stopped being SPIR-V would produce two empty censuses, which agree perfectly; and
     ///         a table of reconciliations nobody re-derives is how an allow-list outlives its reason,
     ///         so a line that has come true fails exactly as a missing one does.
@@ -1679,7 +1865,7 @@ public partial class SharedUiShaderTests {
         var root = RepositoryRoot();
         var raven = Path.Combine(root, "Platform", "Vixen.Ui.Desktop", "Shaders");
 
-        var declared = Reconciled.ToDictionary(known => (known.Glsl, known.Operation));
+        var declared = Reconciled.ToDictionary(static known => (known.Glsl, known.Operation));
         var met = new HashSet<(string, string)>();
         var counted = 0;
 
@@ -1701,7 +1887,8 @@ public partial class SharedUiShaderTests {
 
             counted += here.Values.Sum() + there.Values.Sum();
 
-            foreach (var operation in here.Keys.Union(there.Keys, StringComparer.Ordinal).Order(StringComparer.Ordinal)) {
+            foreach (var operation in here.Keys.Union(there.Keys, StringComparer.Ordinal)
+                         .Order(StringComparer.Ordinal)) {
                 var mine = here.GetValueOrDefault(operation);
                 var theirs = there.GetValueOrDefault(operation);
 
@@ -1745,7 +1932,7 @@ public partial class SharedUiShaderTests {
 
         var stale = Reconciled
             .Where(known => !met.Contains((known.Glsl, known.Operation)))
-            .Select(known => $"{known.Glsl} / {known.Operation}")
+            .Select(static known => $"{known.Glsl} / {known.Operation}")
             .ToArray();
 
         Assert.True(
@@ -1760,14 +1947,22 @@ public partial class SharedUiShaderTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The cost <a href="https://github.com/Rikarin/Vixen/issues/1257">#1257</a> puts on
-    ///         normalising the eight is not there, and this is the measurement that says so.</b> That
+    ///         ⚠
+    ///         <b>
+    ///             The cost <a href="https://github.com/Rikarin/Vixen/issues/1257">#1257</a> puts on
+    ///             normalising the eight is not there, and this is the measurement that says so.
+    ///         </b>
+    ///         That
     ///         issue declines to build all eight the same way because "normalising would refold
     ///         constants in five modules and move the census under my own feet" — the census skipping
     ///         constant-only expressions being calibrated, it argues, against a build flavour the
-    ///         ledger did not record. It is not: <b>every one of the eight committed GLSL modules
-    ///         holds zero constant-only arithmetic, the five <c>-O0</c> ones exactly like the three
-    ///         <c>-O</c> ones</b>. Folding a literal expression is glslang's front end and not
+    ///         ledger did not record. It is not:
+    ///         <b>
+    ///             every one of the eight committed GLSL modules
+    ///             holds zero constant-only arithmetic, the five <c>-O0</c> ones exactly like the three
+    ///             <c>-O</c> ones
+    ///         </b>
+    ///         . Folding a literal expression is glslang's front end and not
     ///         <c>-O</c>, so rebuilding the five at <c>-O</c> cannot change what this walk skips.
     ///     </para>
     ///     <para>
@@ -1855,8 +2050,8 @@ public partial class SharedUiShaderTests {
         var calls = 0;
 
         for (var at = 5; at < words.Length;) {
-            var opcode = (int) (words[at] & 0xFFFF);
-            var length = (int) (words[at] >> 16);
+            var opcode = (int)(words[at] & 0xFFFF);
+            var length = (int)(words[at] >> 16);
 
             Assert.True(length > 0, $"{module} has a zero-length instruction at word {at}.");
 
@@ -1877,9 +2072,13 @@ public partial class SharedUiShaderTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The other half of
-    ///         <see cref="TheFlavourColumnDoesNotDecideWhatIsFolded" />, and the reason its refutation
-    ///         does not make #1257 free.</b> Constant folding is the front end's and moves nothing;
+    ///         ⚠
+    ///         <b>
+    ///             The other half of
+    ///             <see cref="TheFlavourColumnDoesNotDecideWhatIsFolded" />, and the reason its refutation
+    ///             does not make #1257 free.
+    ///         </b>
+    ///         Constant folding is the front end's and moves nothing;
     ///         inlining is <c>-O</c>'s and moves a great deal, because
     ///         <see cref="ArithmeticIn(string, out int)" /> walks a module linearly with no
     ///         reachability filter — a body <c>spirv-opt</c> inlined at six call sites contributes its
@@ -1887,8 +2086,12 @@ public partial class SharedUiShaderTests {
     ///     </para>
     ///     <para>
     ///         So this fixture pins the measurement the narrowing rests on rather than leaving it in
-    ///         prose: <b>every <c>-O</c> module is already flat</b> — one function, no calls — and <b>at
-    ///         least one <c>-O0</c> module is not</b>, so rebuilding the five at <c>-O</c> is a change
+    ///         prose: <b>every <c>-O</c> module is already flat</b> — one function, no calls — and
+    ///         <b>
+    ///             at
+    ///             least one <c>-O0</c> module is not
+    ///         </b>
+    ///         , so rebuilding the five at <c>-O</c> is a change
     ///         to the census and rebuilding the three at <c>-O0</c> is not. Which direction #1257 takes
     ///         is still Jiu's call; what is settled is that the two directions do not cost the same.
     ///     </para>
@@ -1937,10 +2140,7 @@ public partial class SharedUiShaderTests {
     ///     computed; the other three are the branch form of the same choice.
     /// </remarks>
     static readonly Dictionary<int, string> ControlFlow = new() {
-        [169] = "OpSelect",
-        [245] = "OpPhi",
-        [247] = "OpSelectionMerge",
-        [250] = "OpBranchConditional"
+        [169] = "OpSelect", [245] = "OpPhi", [247] = "OpSelectionMerge", [250] = "OpBranchConditional"
     };
 
     /// <summary>
@@ -2002,7 +2202,7 @@ public partial class SharedUiShaderTests {
 
         var wanted = ControlFlow
             .Concat(Derivatives)
-            .ToDictionary(opcode => opcode.Key, opcode => opcode.Value);
+            .ToDictionary(static opcode => opcode.Key, static opcode => opcode.Value);
 
         var here = OccurrencesIn(copy, wanted);
         var there = OccurrencesIn(shipped, wanted);

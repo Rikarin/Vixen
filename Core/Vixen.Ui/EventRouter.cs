@@ -17,8 +17,12 @@ public static class EventRouter {
     ///         removed or skip one whose parent had changed underneath.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>That is insurance, and it is still untestable — though no longer for the reason
-    ///         first given here.</b> The original note said the tree was append-only, and it is not
+    ///         ⚠
+    ///         <b>
+    ///             That is insurance, and it is still untestable — though no longer for the reason
+    ///             first given here.
+    ///         </b>
+    ///         The original note said the tree was append-only, and it is not
     ///         any more: an element can be removed mid-event. What keeps the two indistinguishable is
     ///         narrower and worth stating exactly — <c>Parent</c> is fixed at creation and
     ///         <i>survives removal</i>, so even a handler that deletes the target's ancestor leaves

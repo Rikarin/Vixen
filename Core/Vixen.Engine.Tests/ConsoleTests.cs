@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core;
-using Vixen.Core.Mathematics;
 using Vixen.Engine.Diagnostics;
 using Vixen.Engine.Diagnostics.Overlays;
 using Xunit;
@@ -28,9 +27,9 @@ public sealed class ConsoleTests {
         var commands = new ConsoleCommands();
         var count = 0;
 
-        commands.Register("say", "", entry => count = entry.Count);
+        commands.Register("say", string.Empty, entry => count = entry.Count);
 
-        commands.Execute("say \"hello world\" again");
+        commands.Execute("""say "hello world" again""");
 
         Assert.Equal(2, count);
     }
@@ -40,7 +39,7 @@ public sealed class ConsoleTests {
         var commands = new ConsoleCommands();
 
         Assert.False(commands.Execute("nonsense"));
-        Assert.Contains(commands.Output, line => line.Contains("nonsense", StringComparison.Ordinal));
+        Assert.Contains(commands.Output, static line => line.Contains("nonsense", StringComparison.Ordinal));
     }
 
     /// <summary>
@@ -50,10 +49,10 @@ public sealed class ConsoleTests {
     [Fact]
     public void ACommandThatThrowsIsReportedRatherThanPropagated() {
         var commands = new ConsoleCommands();
-        commands.Register("boom", "", static _ => throw new InvalidOperationException("bang"));
+        commands.Register("boom", string.Empty, static _ => throw new InvalidOperationException("bang"));
 
         Assert.False(commands.Execute("boom"));
-        Assert.Contains(commands.Output, line => line.Contains("bang", StringComparison.Ordinal));
+        Assert.Contains(commands.Output, static line => line.Contains("bang", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -63,7 +62,7 @@ public sealed class ConsoleTests {
 
         commands.Register(
             "set",
-            "",
+            string.Empty,
             entry => {
                 if (entry.TryFlag(0, out var value)) {
                     results.Add(value);
@@ -71,7 +70,7 @@ public sealed class ConsoleTests {
             }
         );
 
-        foreach (var word in (string[]) ["on", "off", "1", "0", "true", "false", "yes", "no"]) {
+        foreach (var word in (string[])["on", "off", "1", "0", "true", "false", "yes", "no"]) {
             commands.Execute($"set {word}");
         }
 
@@ -97,24 +96,24 @@ public sealed class ConsoleTests {
 
         var console = new ConsoleOverlay(commands);
 
-        console.Recall(back: true);
+        console.Recall(true);
         Assert.Equal("clear", console.Input);
 
-        console.Recall(back: true);
+        console.Recall(true);
         Assert.Equal("help", console.Input);
 
-        console.Recall(back: false);
+        console.Recall(false);
         Assert.Equal("clear", console.Input);
 
         // Forward off the newest returns to an empty line rather than sticking, as every shell does.
-        console.Recall(back: false);
+        console.Recall(false);
         Assert.Equal(string.Empty, console.Input);
     }
 
     [Fact]
     public void CompletingOneMatchFinishesTheWordAndAddsASpace() {
         var commands = new ConsoleCommands();
-        commands.Register("teleport", "", static _ => { });
+        commands.Register("teleport", string.Empty, static _ => { });
 
         var console = new ConsoleOverlay(commands);
         console.Type("tele");
@@ -126,8 +125,8 @@ public sealed class ConsoleTests {
     [Fact]
     public void CompletingSeveralMatchesTakesTheCommonPrefixAndListsThem() {
         var commands = new ConsoleCommands();
-        commands.Register("quality", "", static _ => { });
-        commands.Register("quantise", "", static _ => { });
+        commands.Register("quality", string.Empty, static _ => { });
+        commands.Register("quantise", string.Empty, static _ => { });
 
         var console = new ConsoleOverlay(commands);
         console.Type("qu");
@@ -135,7 +134,7 @@ public sealed class ConsoleTests {
         console.Complete();
 
         Assert.Equal("qua", console.Input);
-        Assert.Contains(commands.Output, line => line.Contains("quality", StringComparison.Ordinal));
+        Assert.Contains(commands.Output, static line => line.Contains("quality", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -152,7 +151,7 @@ public sealed class ConsoleTests {
         var commands = new ConsoleCommands();
         var ran = false;
 
-        commands.Register("go", "", _ => ran = true);
+        commands.Register("go", string.Empty, _ => ran = true);
 
         var console = new ConsoleOverlay(commands);
         console.Type("go");
@@ -194,7 +193,7 @@ public sealed class ConsoleTests {
         Assert.False(stats.Enabled);
 
         commands.Execute("overlays");
-        Assert.Contains(commands.Output, line => line.Contains("stats", StringComparison.Ordinal));
+        Assert.Contains(commands.Output, static line => line.Contains("stats", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -206,7 +205,7 @@ public sealed class ConsoleTests {
         overlays.Add(new ConsoleOverlay(commands) { Enabled = true });
 
         var draw = new DebugDraw();
-        overlays.Draw(draw, new Vector2(1280f, 720f), GameTime.Zero);
+        overlays.Draw(draw, new(1280f, 720f), GameTime.Zero);
 
         Assert.True(draw.ScreenCount > 0);
     }
@@ -219,7 +218,7 @@ public sealed class ConsoleTests {
     [Fact]
     public void NothingIsDrawnPastThePanelsEdge() {
         var commands = new ConsoleCommands();
-        commands.Register("say", "", static entry => entry.Write(new string('x', 400)));
+        commands.Register("say", string.Empty, static entry => entry.Write(new('x', 400)));
         commands.Execute("say");
 
         var console = new ConsoleOverlay(commands) { Enabled = true, Width = 300f };
@@ -229,7 +228,7 @@ public sealed class ConsoleTests {
         overlays.Add(console);
 
         var draw = new DebugDraw();
-        overlays.Draw(draw, new Vector2(1280f, 720f), GameTime.Zero);
+        overlays.Draw(draw, new(1280f, 720f), GameTime.Zero);
 
         var right = 1280f - overlays.Theme.Margin;
 
@@ -251,7 +250,7 @@ public sealed class ConsoleTests {
         var draw = new DebugDraw();
         var overlays = new DiagnosticOverlays();
         overlays.Add(console);
-        overlays.Draw(draw, new Vector2(1280f, 720f), GameTime.Zero);
+        overlays.Draw(draw, new(1280f, 720f), GameTime.Zero);
 
         // Whole and unclipped in the buffer, whatever the panel shows — the overlay cuts the drawing
         // and not the line, so submitting still runs what was typed.

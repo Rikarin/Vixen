@@ -11,8 +11,12 @@ namespace Vixen.Editor.Inspector.Tests;
 
 /// <summary>Doc 36 § P4: a tree that names members, joined to what it is editing after it is built.</summary>
 /// <remarks>
-///     ⚠ <b>Built by hand here rather than from a <c>.vxml</c>, and that is the right seam to test
-///     at.</b> What the markup contributes is a <c>PropertyField</c> with a <c>Path</c> and an
+///     ⚠
+///     <b>
+///         Built by hand here rather than from a <c>.vxml</c>, and that is the right seam to test
+///         at.
+///     </b>
+///     What the markup contributes is a <c>PropertyField</c> with a <c>Path</c> and an
 ///     attribute called <c>binding-path</c>; whether the emitter writes those correctly is
 ///     <c>Vixen.Ui.Markup</c>'s own suite. What this asserts is the half that has to be right for
 ///     either of them to mean anything — that the join finds the member, draws the row the generated
@@ -119,8 +123,12 @@ public class MarkupBindingTests : IDisposable {
     }
 
     /// <summary>
-    ///     ⚠ <b>A slider is a <c>float</c> and a numeric input is a <c>double</c>, and the member is
-    ///     whichever it is.</b> Writing the control's own type straight through put a boxed
+    ///     ⚠
+    ///     <b>
+    ///         A slider is a <c>float</c> and a numeric input is a <c>double</c>, and the member is
+    ///         whichever it is.
+    ///     </b>
+    ///     Writing the control's own type straight through put a boxed
     ///     <c>double</c> on a <c>float</c> field — a row that appears to work and changes nothing.
     /// </summary>
     [Fact]

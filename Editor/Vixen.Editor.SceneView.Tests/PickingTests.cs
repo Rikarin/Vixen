@@ -5,7 +5,6 @@ using Vixen.Core;
 using Vixen.Core.Mathematics;
 using Vixen.Ecs;
 using Vixen.Editor.Core;
-using Vixen.Editor.Core.Scenes;
 using Vixen.Engine.Transforms;
 using Vixen.Rendering;
 using Xunit;
@@ -49,16 +48,15 @@ public class PickingTests : IDisposable {
     static Ray At(EditorCamera camera, Vector3 world) {
         var screen = camera.Project(world, Width, Height);
 
-        return camera.PickingRay(new Vector2(screen.X, screen.Y), Width, Height);
+        return camera.PickingRay(new(screen.X, screen.Y), Width, Height);
     }
 
     /// <summary>Brings the world transforms up to date, which the editor's own loop does per frame.</summary>
     Entity Shape(PrimitiveKind kind, Vector3 position, float scale = 1f) {
-        var entity = scene.CreateShape(kind, new LocalTransform {
-            Position = position,
-            Rotation = Quaternion.Identity,
-            Scale = new(scale)
-        });
+        var entity = scene.CreateShape(
+            kind,
+            new() { Position = position, Rotation = Quaternion.Identity, Scale = new(scale) }
+        );
 
         transforms.Resolve(world);
         world.AdvanceVersion();
@@ -91,15 +89,15 @@ public class PickingTests : IDisposable {
 
         // Well off to the side, where there is nothing but grid. Clicking there is how anybody
         // deselects, so "nothing" has to be an answer rather than the nearest thing to the pointer.
-        Assert.True(picker.Under(At(camera, new Vector3(40f, 0f, 0f)), camera, Width, Height).IsNull);
+        Assert.True(picker.Under(At(camera, new(40f, 0f, 0f)), camera, Width, Height).IsNull);
     }
 
     [Fact]
     public void The_nearest_of_two_along_one_ray_wins() {
         var camera = Camera();
 
-        var far = Shape(PrimitiveKind.Cube, new Vector3(0f, 0f, -4f));
-        var near = Shape(PrimitiveKind.Cube, new Vector3(0f, 0f, 4f));
+        var far = Shape(PrimitiveKind.Cube, new(0f, 0f, -4f));
+        var near = Shape(PrimitiveKind.Cube, new(0f, 0f, 4f));
 
         // Both are on the axis the camera looks down, so the ray goes through both. Picking the far
         // one is the failure that reads as "it selects things behind what I clicked".
@@ -110,18 +108,18 @@ public class PickingTests : IDisposable {
     [Fact]
     public void A_scaled_shape_is_hit_where_it_looks_like_it_is() {
         var camera = Camera();
-        var cube = Shape(PrimitiveKind.Cube, Vector3.Zero, scale: 4f);
+        var cube = Shape(PrimitiveKind.Cube, Vector3.Zero, 4f);
 
         // A unit cube reaches to 0.5 and this one to 2. ⚠ The ray goes into the shape's local space
         // rather than the shape coming out of it, so the scale has to survive the inverse — a picker
         // that tested the untransformed unit cube would miss everything but the middle.
-        Assert.Equal(cube, picker.Under(At(camera, new Vector3(1.6f, 1.6f, 0f)), camera, Width, Height));
+        Assert.Equal(cube, picker.Under(At(camera, new(1.6f, 1.6f, 0f)), camera, Width, Height));
 
         // ⚠ The miss is aimed past the *front face*, not past the middle. The camera is ten units out
         // and the cube's front is at two, so a ray through a point just outside the cube at z = 0 is
         // still inside it where it crosses z = 2 — which is perspective doing what it is for, and a
         // fixture that aimed at the middle would pass whether or not the scale was honoured.
-        Assert.True(picker.Under(At(camera, new Vector3(4f, 4f, 2f)), camera, Width, Height).IsNull);
+        Assert.True(picker.Under(At(camera, new(4f, 4f, 2f)), camera, Width, Height).IsNull);
     }
 
     [Fact]
@@ -132,17 +130,17 @@ public class PickingTests : IDisposable {
 
         // The corner of a sphere's bounding box is empty, and a picker that tested bounds would
         // answer for it — which is what makes clicking beside a ball select the ball.
-        Assert.True(picker.Under(At(camera, new Vector3(0.48f, 0.48f, 0f)), camera, Width, Height).IsNull);
+        Assert.True(picker.Under(At(camera, new(0.48f, 0.48f, 0f)), camera, Width, Height).IsNull);
     }
 
     [Fact]
     public void An_entity_with_no_shape_is_pickable_by_its_marker() {
         var camera = Camera();
-        var empty = Empty(new Vector3(2f, 1f, 0f));
+        var empty = Empty(new(2f, 1f, 0f));
 
         // A cross has no area to hit, so the marker is a sphere sized in *pixels* — a light two
         // hundred metres away is a handful of them and has to stay clickable.
-        Assert.Equal(empty, picker.Under(At(camera, new Vector3(2f, 1f, 0f)), camera, Width, Height));
+        Assert.Equal(empty, picker.Under(At(camera, new(2f, 1f, 0f)), camera, Width, Height));
     }
 
     [Fact]
@@ -154,8 +152,8 @@ public class PickingTests : IDisposable {
 
         foreach (var camera in new[] { near, far }) {
             var centre = camera.Project(Vector3.Zero, Width, Height);
-            var inside = new Vector2(centre.X + (picker.MarkerRadius * 0.6f), centre.Y);
-            var outside = new Vector2(centre.X + (picker.MarkerRadius * 2f), centre.Y);
+            var inside = new Vector2(centre.X + picker.MarkerRadius * 0.6f, centre.Y);
+            var outside = new Vector2(centre.X + picker.MarkerRadius * 2f, centre.Y);
 
             Assert.Equal(empty, picker.Under(camera.PickingRay(inside, Width, Height), camera, Width, Height));
             Assert.True(picker.Under(camera.PickingRay(outside, Width, Height), camera, Width, Height).IsNull);
@@ -166,7 +164,7 @@ public class PickingTests : IDisposable {
     public void A_shape_scaled_to_nothing_is_skipped_rather_than_thrown_over() {
         var camera = Camera();
 
-        Shape(PrimitiveKind.Cube, Vector3.Zero, scale: 0f);
+        Shape(PrimitiveKind.Cube, Vector3.Zero, 0f);
 
         // A zero scale has no surface and no invertible matrix. An entity can be scaled to nothing
         // and back, and a picker that threw would take the editor down with it.
@@ -189,7 +187,7 @@ public class PickingTests : IDisposable {
         Assert.True(pane.Viewport.Pick(pane.Screen(Vector3.Zero)));
         Assert.Equal([cube], pane.Selection);
 
-        Assert.True(pane.Viewport.Pick(pane.Screen(new Vector3(40f, 0f, 0f))));
+        Assert.True(pane.Viewport.Pick(pane.Screen(new(40f, 0f, 0f))));
         Assert.Empty(pane.Selection);
     }
 
@@ -197,21 +195,21 @@ public class PickingTests : IDisposable {
     public void An_additive_click_extends_the_selection_and_clicking_again_takes_it_back_out() {
         using var pane = new Pane();
 
-        var first = Shape(PrimitiveKind.Cube, new Vector3(-3f, 0f, 0f));
-        var second = Shape(PrimitiveKind.Cube, new Vector3(3f, 0f, 0f));
+        var first = Shape(PrimitiveKind.Cube, new(-3f, 0f, 0f));
+        var second = Shape(PrimitiveKind.Cube, new(3f, 0f, 0f));
 
         pane.Viewport.Picker = picker;
         pane.Frame();
 
-        pane.Viewport.Pick(pane.Screen(new Vector3(-3f, 0f, 0f)));
-        pane.Viewport.Pick(pane.Screen(new Vector3(3f, 0f, 0f)), additive: true);
+        pane.Viewport.Pick(pane.Screen(new(-3f, 0f, 0f)));
+        pane.Viewport.Pick(pane.Screen(new(3f, 0f, 0f)), true);
 
         Assert.Equal([first, second], pane.Selection);
 
         // Additive *toggles*, so the same modifier that extends a selection is the one that takes
         // something back out of it — two gestures for the two halves of one idea is what makes people
         // click an already-selected object and wonder why nothing happened.
-        pane.Viewport.Pick(pane.Screen(new Vector3(-3f, 0f, 0f)), additive: true);
+        pane.Viewport.Pick(pane.Screen(new(-3f, 0f, 0f)), true);
 
         Assert.Equal([second], pane.Selection);
     }
@@ -225,7 +223,7 @@ public class PickingTests : IDisposable {
         pane.Frame();
 
         pane.Viewport.Pick(pane.Screen(Vector3.Zero));
-        pane.Viewport.Pick(pane.Screen(new Vector3(40f, 0f, 0f)), additive: true);
+        pane.Viewport.Pick(pane.Screen(new(40f, 0f, 0f)), true);
 
         // Clicking empty space deselects and shift-clicking it must not: that is the miss at the end
         // of a rubber-band that grabbed nothing.
@@ -250,7 +248,7 @@ public class PickingTests : IDisposable {
     static Vector2 Screen(EditorCamera camera, Vector3 world) {
         var projected = camera.Project(world, Width, Height);
 
-        return new Vector2(projected.X, projected.Y);
+        return new(projected.X, projected.Y);
     }
 
     /// <summary>A camera near enough that the tolerance is a small fraction of a unit cube.</summary>
@@ -265,16 +263,16 @@ public class PickingTests : IDisposable {
         // questions rather than one with an extra parameter.
         Assert.Equal(cube, picker.Under(At(camera, Vector3.Zero), camera, Width, Height));
 
-        var hit = picker.Under(cube, Screen(camera, new Vector3(0.5f, 0.5f, 0.5f)), camera, Width, Height);
+        var hit = picker.Under(cube, Screen(camera, new(0.5f, 0.5f, 0.5f)), camera, Width, Height);
 
         Assert.Equal(SubObjectKind.Vertex, hit.Kind);
-        Assert.Equal(new Vector3(0.5f, 0.5f, 0.5f), picker.ElementsOf(cube)!.Positions[hit.Index]);
+        Assert.Equal(new(0.5f, 0.5f, 0.5f), picker.ElementsOf(cube)!.Positions[hit.Index]);
     }
 
     [Fact]
     public void An_entitys_own_transform_is_what_the_pointer_is_compared_against() {
         var camera = Close();
-        var cube = Shape(PrimitiveKind.Cube, new Vector3(0.4f, 0f, 0f));
+        var cube = Shape(PrimitiveKind.Cube, new(0.4f, 0f, 0f));
 
         var moved = new Vector3(0.9f, 0.5f, 0.5f);
 
@@ -284,13 +282,13 @@ public class PickingTests : IDisposable {
 
         // The element table is the shape's, in the shape's own space — which is what lets a hundred
         // cubes share one.
-        Assert.Equal(new Vector3(0.5f, 0.5f, 0.5f), picker.ElementsOf(cube)!.Positions[hit.Index]);
+        Assert.Equal(new(0.5f, 0.5f, 0.5f), picker.ElementsOf(cube)!.Positions[hit.Index]);
     }
 
     [Fact]
     public void Two_entities_of_a_kind_share_one_element_table() {
         var first = Shape(PrimitiveKind.Cube, Vector3.Zero);
-        var second = Shape(PrimitiveKind.Cube, new Vector3(4f, 0f, 0f));
+        var second = Shape(PrimitiveKind.Cube, new(4f, 0f, 0f));
 
         // ⚠ Not merely equal. Hover is a query per pointer move, and welding a torus' positions per
         // move is the difference between a highlight that follows the pointer and one that lags it.
@@ -321,6 +319,6 @@ public class PickingTests : IDisposable {
         // worse than either, and a rule that held for one gesture and not the other is one nobody
         // could describe.
         Assert.Null(picker.ElementsOf(cube));
-        Assert.False(picker.Under(cube, Screen(camera, new Vector3(0.5f, 0.5f, 0.5f)), camera, Width, Height).IsHit);
+        Assert.False(picker.Under(cube, Screen(camera, new(0.5f, 0.5f, 0.5f)), camera, Width, Height).IsHit);
     }
 }

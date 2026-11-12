@@ -27,7 +27,7 @@ public sealed class ProjectSessionTests : IDisposable {
     /// <inheritdoc />
     public void Dispose() {
         try {
-            Directory.Delete(root, recursive: true);
+            Directory.Delete(root, true);
         } catch (Exception exception) when (exception is IOException or UnauthorizedAccessException) {
             // A temp directory that would not go is not a failed test.
         }
@@ -38,8 +38,14 @@ public sealed class ProjectSessionTests : IDisposable {
     public void Rescan_indexes_saves_and_rebuilds_references_without_a_window() {
         Directory.CreateDirectory(Path.Combine(root, "Assets"));
 
-        var project = new EditorProject(new ProjectPaths(root));
-        var session = new ProjectSession(project, (_, _, _) => { }, () => { }, () => false, new ProjectHistory(Path.Combine(root, "Data")));
+        var project = new EditorProject(new(root));
+        var session = new ProjectSession(
+            project,
+            static (_, _, _) => { },
+            static () => { },
+            static () => false,
+            new(Path.Combine(root, "Data"))
+        );
         List<ScanReport> heard = [];
 
         session.Rescanned += heard.Add;
@@ -47,7 +53,7 @@ public sealed class ProjectSessionTests : IDisposable {
         File.WriteAllText(Path.Combine(project.Paths.Assets, "Leaf.yaml"), "name: leaf\n");
         session.Rescan();
 
-        var leaf = project.Assets.Entries.Single(entry => entry.Name == "Leaf.yaml").Guid;
+        var leaf = project.Assets.Entries.Single(static entry => entry.Name == "Leaf.yaml").Guid;
 
         File.WriteAllText(Path.Combine(project.Paths.Assets, "Root.yaml"), "uses: " + new AssetReference(leaf) + "\n");
         File.Delete(project.Paths.GuidIndexFile);
@@ -95,9 +101,12 @@ public sealed class ProjectSessionTests : IDisposable {
     public void Opened_records_the_project_and_warns_about_a_newer_engine_without_a_window() {
         var (session, reported, _) = Bare();
 
-        File.WriteAllText(Path.Combine(root, "Project", "Game" + ProjectMarker.Extension), ProjectMarker.Write("999.0.0"));
+        File.WriteAllText(
+            Path.Combine(root, "Project", "Game" + ProjectMarker.Extension),
+            ProjectMarker.Write("999.0.0")
+        );
 
-        session.Opened(new DateTime(2026, 10, 19, 12, 0, 0, DateTimeKind.Utc));
+        session.Opened(new(2026, 10, 19, 12, 0, 0, DateTimeKind.Utc));
 
         var first = Assert.Single(session.Recent);
         Assert.Equal(Path.GetFullPath(Path.Combine(root, "Project")), first.Path);
@@ -112,7 +121,10 @@ public sealed class ProjectSessionTests : IDisposable {
         var recent = editor.Plugins.Services.Require<IProjectSession>().Recent;
 
         Assert.Equal(Path.GetFullPath(editor.ProjectRoot), recent[0].Path);
-        Assert.Equal(editor.RecentProjects.Select(entry => entry.Path), recent.Select(entry => entry.Path));
+        Assert.Equal(
+            editor.RecentProjects.Select(static entry => entry.Path),
+            recent.Select(static entry => entry.Path)
+        );
     }
 
     /// <summary>The browser's rescan is the published service's, which is what the Refresh command reaches.</summary>
@@ -131,7 +143,7 @@ public sealed class ProjectSessionTests : IDisposable {
         editor.Run("assets.refresh");
 
         Assert.Equal(1, heard);
-        Assert.Contains(editor.Project.Assets.Entries, entry => entry.Name == "behind-its-back.txt");
+        Assert.Contains(editor.Project.Assets.Entries, static entry => entry.Name == "behind-its-back.txt");
         Assert.Same(editor.Project, service.Project);
     }
 
@@ -180,7 +192,7 @@ public sealed class ProjectSessionTests : IDisposable {
         Assert.True(editor.Editor.IsWatchingAssets);
 
         // Anything the harness wrote while starting is drained before the counting begins.
-        Pump(editor, () => false, TimeSpan.FromSeconds(1));
+        Pump(editor, static () => false, TimeSpan.FromSeconds(1));
 
         const string Written = "/from-outside.txt";
         var bursts = 0;
@@ -195,16 +207,19 @@ public sealed class ProjectSessionTests : IDisposable {
 
             if (changes.Any(change => change.Path.ToString() == Written)) {
                 heard++;
-                indexedWhenHeard = editor.Project.Assets.Entries.Any(entry => entry.Name == "from-outside.txt");
+                indexedWhenHeard = editor.Project.Assets.Entries.Any(static entry => entry.Name == "from-outside.txt");
             }
         };
 
         File.WriteAllText(Path.Combine(editor.Project.Paths.Assets, "from-outside.txt"), "hello");
 
-        Assert.True(Pump(editor, () => heard > 0, TimeSpan.FromSeconds(20)), "the change on disk never reached the session");
+        Assert.True(
+            Pump(editor, () => heard > 0, TimeSpan.FromSeconds(20)),
+            "the change on disk never reached the session"
+        );
 
         // A hang check would stop here; "once" needs the quiet period after it.
-        Pump(editor, () => false, TimeSpan.FromSeconds(1.5));
+        Pump(editor, static () => false, TimeSpan.FromSeconds(1.5));
 
         Assert.Equal(1, heard);
         Assert.True(indexedWhenHeard, "the session spoke before its rescan had indexed the file");
@@ -217,7 +232,10 @@ public sealed class ProjectSessionTests : IDisposable {
         Assert.Equal(1, scans);
     }
 
-    /// <summary>The project's watcher, its routing to open documents and its code have one owner, and it is not the application.</summary>
+    /// <summary>
+    ///     The project's watcher, its routing to open documents and its code have one owner, and it is not the
+    ///     application.
+    /// </summary>
     /// <remarks>
     ///     ⚠ <b>A move that left a copy behind is the failure this rules out.</b> The application held the
     ///     watcher and the <c>ProjectAssemblies</c> in fields of its own; a second watcher would drain
@@ -227,7 +245,7 @@ public sealed class ProjectSessionTests : IDisposable {
     public void The_watcher_and_the_projects_code_are_the_sessions_alone() {
         var application = Held(typeof(EditorApplication));
 
-        Assert.DoesNotContain(application, type => typeof(IFileWatcher).IsAssignableFrom(type));
+        Assert.DoesNotContain(application, static type => typeof(IFileWatcher).IsAssignableFrom(type));
         Assert.DoesNotContain(typeof(ProjectAssemblies), application);
 
         // ⚠ And what routes the watcher's changes to the open documents, which moved with it — a copy
@@ -243,12 +261,15 @@ public sealed class ProjectSessionTests : IDisposable {
         // ⚠ And a module reads the code through an interface, not the App's loader: the session is the
         // one door that takes the scene's behaviours off around a reload, so a module handed the
         // loader could unload an assembly a scene still holds instances of.
-        Assert.Equal(typeof(IProjectCode), typeof(IProjectSession).GetProperty(nameof(IProjectSession.Code))!.PropertyType);
-        Assert.DoesNotContain(typeof(IProjectCode).GetMethods(), method => !method.IsSpecialName);
+        Assert.Equal(
+            typeof(IProjectCode),
+            typeof(IProjectSession).GetProperty(nameof(IProjectSession.Code))!.PropertyType
+        );
+        Assert.DoesNotContain(typeof(IProjectCode).GetMethods(), static method => !method.IsSpecialName);
 
         static List<Type> Held(Type type) => [
-            .. type.GetFields(BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public)
-                .Select(field => field.FieldType)
+            ..type.GetFields(BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public)
+                .Select(static field => field.FieldType)
         ];
     }
 
@@ -379,7 +400,7 @@ public sealed class ProjectSessionTests : IDisposable {
     (ProjectSession Session, List<string> Reported, Func<int> Closes) Bare() {
         Directory.CreateDirectory(Path.Combine(root, "Project", "Assets"));
 
-        var project = new EditorProject(new ProjectPaths(Path.Combine(root, "Project")));
+        var project = new EditorProject(new(Path.Combine(root, "Project")));
         List<string> reported = [];
         var closes = 0;
 
@@ -387,8 +408,8 @@ public sealed class ProjectSessionTests : IDisposable {
             project,
             (message, _, _) => reported.Add(message),
             () => closes++,
-            () => true,
-            new ProjectHistory(Path.Combine(root, "Data"))
+            static () => true,
+            new(Path.Combine(root, "Data"))
         );
 
         return (session, reported, () => closes);

@@ -30,7 +30,6 @@ public sealed class WaterInfoTextureTests : IDisposable {
     /// <inheritdoc />
     public void Dispose() {
         device.Dispose();
-        GC.SuppressFinalize(this);
     }
 
     static WaterZone Zone => WaterZone.Default with { Extent = 64f, Resolution = 17 };

@@ -69,7 +69,7 @@ sealed class FakeProcess(string id, RealmProcessRequest request) : IRealmProcess
     /// <summary>The spec it was told to be, decoded off its own command line.</summary>
     public RealmSpec Spec {
         get {
-            Assert.True(RealmSpec.TryRead(Request.Arguments, _ => null, out var spec, out var error), error);
+            Assert.True(RealmSpec.TryRead(Request.Arguments, static _ => null, out var spec, out var error), error);
 
             return spec!;
         }
@@ -104,7 +104,7 @@ sealed class FakeProcess(string id, RealmProcessRequest request) : IRealmProcess
 
     public void Kill() {
         WasKilled = true;
-        Exit(code: 137);
+        Exit(137);
     }
 
     public Task WaitForExitAsync(CancellationToken cancellation) => exited.Task.WaitAsync(cancellation);

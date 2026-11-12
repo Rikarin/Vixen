@@ -25,18 +25,23 @@ public enum BudgetState : byte {
 public readonly record struct StatisticRow(string Label, long Value, long? Budget = null, string? Detail = null) {
     /// <summary>How the value compares with the budget.</summary>
     /// <remarks>
-    ///     ⚠ <b>A "near" band rather than a boolean, because a budget crossed is a budget crossed
-    ///     too late.</b> The value of a statistics panel is that somebody sees the count climbing
+    ///     ⚠
+    ///     <b>
+    ///         A "near" band rather than a boolean, because a budget crossed is a budget crossed
+    ///         too late.
+    ///     </b>
+    ///     The value of a statistics panel is that somebody sees the count climbing
     ///     towards the ceiling during the week they are adding content, not on the day the frame
     ///     rate drops.
     /// </remarks>
-    public BudgetState State => Budget is not { } ceiling || ceiling <= 0
-        ? BudgetState.Fine
-        : Value > ceiling
-            ? BudgetState.Over
-            : Value >= ceiling - (ceiling / 10)
-                ? BudgetState.Near
-                : BudgetState.Fine;
+    public BudgetState State =>
+        Budget is not { } ceiling || ceiling <= 0
+            ? BudgetState.Fine
+            : Value > ceiling
+                ? BudgetState.Over
+                : Value >= ceiling - ceiling / 10
+                    ? BudgetState.Near
+                    : BudgetState.Fine;
 
     /// <summary>How full the budget is, from zero to one, clamped. Zero without a budget.</summary>
     public float Fill => Budget is { } ceiling and > 0 ? (float)Math.Clamp(Value / (double)ceiling, 0d, 1d) : 0f;
@@ -190,9 +195,7 @@ public sealed class SceneStatistics {
         // archetype that emptied keeps its chunks and a scene that churns component sets ends up
         // walking hundreds of empty chunks per query with nothing in the counts to show why.
         if (emptyArchetypes > 0) {
-            warnings.Add(
-                $"{emptyArchetypes} archetype(s) hold chunks and no entities. Queries still walk them."
-            );
+            warnings.Add($"{emptyArchetypes} archetype(s) hold chunks and no entities. Queries still walk them.");
         }
 
         return new(rows, warnings);

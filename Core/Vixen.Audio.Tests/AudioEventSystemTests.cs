@@ -21,7 +21,7 @@ public sealed class AudioEventSystemTests : IDisposable {
     readonly AudioSystem system;
 
     public AudioEventSystemTests() {
-        (engine, device) = AudioTestData.Engine(channels: 2, voices: 16);
+        (engine, device) = AudioTestData.Engine(2, voices: 16);
         system = new(engine);
     }
 
@@ -33,9 +33,8 @@ public sealed class AudioEventSystemTests : IDisposable {
 
     AudioEvent Sound(AudioEventDescription description) => new(engine, description);
 
-    static AudioEventDescription OneClip(int frames = 48_000) => new() {
-        Variants = [new(AudioTestData.Constant(frames, 1f))]
-    };
+    static AudioEventDescription OneClip(int frames = 48_000) =>
+        new() { Variants = [new(AudioTestData.Constant(frames, 1f))] };
 
     Entity Emitter(AudioEvent sound, AudioSource source) {
         var entity = world.Create();
@@ -111,9 +110,7 @@ public sealed class AudioEventSystemTests : IDisposable {
 
     [Fact]
     public void ThePitchPushScalesTooSoAVariantKeepsItsTuning() {
-        var sound = Sound(new AudioEventDescription {
-            Variants = [new(AudioTestData.Constant(48_000, 1f)) { PitchSemitones = 12f }]
-        });
+        var sound = Sound(new() { Variants = [new(AudioTestData.Constant(48_000, 1f)) { PitchSemitones = 12f }] });
 
         var entity = Emitter(sound, AudioSource.Playing with { Pitch = 0.5f });
 
@@ -129,14 +126,16 @@ public sealed class AudioEventSystemTests : IDisposable {
     public void ASpatialEventTakesItsPositionFromTheEntityAndItsRolloffFromItself() {
         Listener(Vector3.Zero);
 
-        var sound = Sound(OneClip() with {
-            IsSpatial = true,
-            Spatial = new() { MinDistance = 1f, MaxDistance = 50f, Attenuation = AttenuationModel.Linear }
-        });
+        var sound = Sound(
+            OneClip() with {
+                IsSpatial = true,
+                Spatial = new() { MinDistance = 1f, MaxDistance = 50f, Attenuation = AttenuationModel.Linear }
+            }
+        );
 
         var entity = Emitter(sound, AudioSource.Playing);
         world.Add(entity, AudioSpatial.Default with { MaxDistance = 4f, Attenuation = AttenuationModel.Exponential });
-        world.Add(entity, new WorldTransform { Value = Matrix4x4.FromTranslation(new Vector3(0f, 0f, 25f)) });
+        world.Add(entity, new WorldTransform { Value = Matrix4x4.FromTranslation(new(0f, 0f, 25f)) });
 
         system.Synchronize(world, 1f / 60f);
         AudioTestData.Render(device, 64);

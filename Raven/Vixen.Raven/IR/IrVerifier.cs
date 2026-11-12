@@ -44,8 +44,12 @@ public static class IrVerifier {
     /// <summary>Checks that laying every struct in the module out terminates.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The IR half of <c>RVN2008</c>, and it needs one because <c>RVN2008</c> is a
-    ///         source rule.</b> It runs in the binder over
+    ///         ⚠
+    ///         <b>
+    ///             The IR half of <c>RVN2008</c>, and it needs one because <c>RVN2008</c> is a
+    ///             source rule.
+    ///         </b>
+    ///         It runs in the binder over
     ///         <c>SourceNamedTypeSymbol.ReportRecursiveLayoutIssues</c>, so it can only see a struct
     ///         somebody wrote. A struct that arrives through a <c>.rvnlib</c> never passes it: the
     ///         artefact's own remarks say the reader deliberately rebuilds a graph that may contain
@@ -165,8 +169,9 @@ public static class IrVerifier {
         // declarations of one name that disagree about kind or set are not one resource at all —
         // and collapsing them to whichever came first would compile a feature against something it
         // did not declare.
-        foreach (var group in shader.Bindings.Where(b => b.IsShared).GroupBy(b => b.Name, StringComparer.Ordinal)) {
-            var shapes = group.Select(b => (b.Kind, b.Set)).Distinct().ToArray();
+        foreach (var group in shader.Bindings.Where(static b => b.IsShared)
+                     .GroupBy(static b => b.Name, StringComparer.Ordinal)) {
+            var shapes = group.Select(static b => (b.Kind, b.Set)).Distinct().ToArray();
 
             if (shapes.Length > 1) {
                 diagnostics.Add(
@@ -174,7 +179,7 @@ public static class IrVerifier {
                     Location.None,
                     group.Key,
                     shader.Name,
-                    string.Join(", ", shapes.Select(shape => $"{shape.Kind} in {shape.Set}"))
+                    string.Join(", ", shapes.Select(static shape => $"{shape.Kind} in {shape.Set}"))
                 );
             }
         }
@@ -356,7 +361,9 @@ public static class IrVerifier {
                     // instruction. A 64-bit one does, and it needs a capability of its own, which
                     // `IrCapabilities` reports off exactly this instruction.
                     if (atomic.Place.Type is not IrScalarType { IsInteger: true }) {
-                        Report($"{atomic.Result} is an atomic on {atomic.Place.Type.Name}, which is not a scalar integer");
+                        Report(
+                            $"{atomic.Result} is an atomic on {atomic.Place.Type.Name}, which is not a scalar integer"
+                        );
                     }
 
                     RequireSame(atomic.Place.Type, atomic.Value.Type, $"atomic '{atomic.Op}' operand");
@@ -518,7 +525,7 @@ public static class IrVerifier {
         void VerifyConstruct(IrConstructInstruction construct) {
             switch (construct.Result.Type) {
                 case IrVectorType vector: {
-                    var lanes = construct.Arguments.Sum(a => a.Type switch {
+                    var lanes = construct.Arguments.Sum(static a => a.Type switch {
                             IrVectorType part => part.Size,
                             _ => 1
                         }

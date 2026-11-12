@@ -70,7 +70,7 @@ public class SeamTests {
         Assert.True(
             shipped.Count + tested.Count >= 2,
             $"{seam.Name} has {shipped.Count} shipped and {tested.Count} test implementation(s): "
-            + $"{string.Join(", ", shipped.Concat(tested).Select(type => type.Name))}. "
+            + $"{string.Join(", ", shipped.Concat(tested).Select(static type => type.Name))}. "
             + "Part 4 asks for at least two, and one of them somewhere other than the default."
         );
     }
@@ -98,10 +98,10 @@ public class SeamTests {
 
     /// <summary>Every non-abstract implementation of a seam across the three shipped assemblies.</summary>
     static List<Type> Shipped(Type seam) => [
-        .. Implementations(typeof(AiSystem).Assembly, seam),
-        .. Implementations(typeof(PerceptionSystem).Assembly, seam),
-        .. Implementations(typeof(WorldSensors).Assembly, seam),
-        .. Implementations(typeof(AiGameplayDebugger).Assembly, seam)
+        ..Implementations(typeof(AiSystem).Assembly, seam),
+        ..Implementations(typeof(PerceptionSystem).Assembly, seam),
+        ..Implementations(typeof(WorldSensors).Assembly, seam),
+        ..Implementations(typeof(AiGameplayDebugger).Assembly, seam)
     ];
 
     /// <summary>
@@ -110,10 +110,9 @@ public class SeamTests {
     ///     have made that row pass by finding nothing rather than by finding two.
     /// </summary>
     static List<Type> Implementations(Assembly assembly, Type seam) => [
-        .. assembly.GetTypes()
-            .Where(type => type is { IsAbstract: false, IsInterface: false })
-            .Where(
-                type => seam.IsGenericTypeDefinition
+        ..assembly.GetTypes()
+            .Where(static type => type is { IsAbstract: false, IsInterface: false })
+            .Where(type => seam.IsGenericTypeDefinition
                     ? type.GetInterfaces().Any(face => face.IsGenericType && face.GetGenericTypeDefinition() == seam)
                     : seam.IsAssignableFrom(type)
             )
@@ -166,8 +165,12 @@ public class SeamTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>A global sensor runs once a pass and a local one runs per agent, which is the whole of
-    ///     § D13.</b> Sixteen agents, one pass: one global query and sixteen local ones.
+    ///     ⚠
+    ///     <b>
+    ///         A global sensor runs once a pass and a local one runs per agent, which is the whole of
+    ///         § D13.
+    ///     </b>
+    ///     Sixteen agents, one pass: one global query and sixteen local ones.
     /// </summary>
     [Fact]
     public void AGlobalSensorIsOneQueryWhereALocalOneIsAThousand() {
@@ -183,8 +186,7 @@ public class SeamTests {
         var sensors = new SensorSet()
             .AddGlobal(
                 layout.Key("crowd"),
-                Sensors.GlobalWorld(
-                    (world, time) => {
+                Sensors.GlobalWorld((world, time) => {
                         globals++;
 
                         return 1f;
@@ -193,8 +195,7 @@ public class SeamTests {
             )
             .Add(
                 layout.Key("mine"),
-                Sensors.World(
-                    (in AgentContext context) => {
+                Sensors.World((in AgentContext context) => {
                         locals++;
 
                         return 2f;
@@ -206,7 +207,9 @@ public class SeamTests {
 
         registry.Register("idle", new Idling());
 
-        var system = new AiSystem(registry, layout) { Sensors = sensors, Governor = new UnboundedGovernor() };
+        using var system = new AiSystem(registry, layout);
+        system.Sensors = sensors;
+        system.Governor = new UnboundedGovernor();
 
         for (var index = 0; index < 16; index++) {
             level.World.Create(AiAgent.Running(0), LocalTransform.At(new(index, 0f, 0f)));

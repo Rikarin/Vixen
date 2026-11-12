@@ -41,8 +41,12 @@ namespace Vixen.Ui.Testing.Tests;
 ///         either of the two blanket answers.
 ///     </para>
 ///     <para>
-///         ⚠ <b>What this file asserts moved when the box quad grew, and the two paragraphs above are
-///         history rather than the current subject.</b> Since #590 a box's quad reaches a pixel past
+///         ⚠
+///         <b>
+///             What this file asserts moved when the box quad grew, and the two paragraphs above are
+///             history rather than the current subject.
+///         </b>
+///         Since #590 a box's quad reaches a pixel past
 ///         the box on every side, so <em>neither</em> of a box's own edges is a quad edge any more and
 ///         the tie rule cannot decide either of them: both come out at the half coverage the distance
 ///         field gives them, which is what the geometry says and what the device draws. So these
@@ -56,8 +60,12 @@ namespace Vixen.Ui.Testing.Tests;
 ///         assertion in this file and every other test in this assembly green.
 ///     </para>
 ///     <para>
-///         ⚠ <b>And the primitive that reads the rule is a hard-edged path, not an image, which is
-///         the one guess worth recording as wrong.</b> An image quad <i>is</i> its own boundary and
+///         ⚠
+///         <b>
+///             And the primitive that reads the rule is a hard-edged path, not an image, which is
+///             the one guess worth recording as wrong.
+///         </b>
+///         An image quad <i>is</i> its own boundary and
 ///         has no distance field, which makes it the obvious candidate — but this renderer draws
 ///         nothing for one. <c>UiGeometryBuilder.Image</c> emits the quad with a zero
 ///         <c>Shape</c>, and every image number but a composited group's names a texture the
@@ -157,15 +165,23 @@ public class FillRuleTests {
     /// <summary>Two boxes meeting on a sample centre each contribute their half of the seam.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>What this used to assert was that the seam is drawn exactly once — and it was, by
-    ///         throwing the left-hand box's half of it away.</b> The two boxes cover the shared column
+    ///         ⚠
+    ///         <b>
+    ///             What this used to assert was that the seam is drawn exactly once — and it was, by
+    ///             throwing the left-hand box's half of it away.
+    ///         </b>
+    ///         The two boxes cover the shared column
     ///         half each, so the honest statement is that both are in it: the seam is the right box's
     ///         half over the left box's half, and the background left showing through is a quarter
     ///         rather than the half it was.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A quarter and not nothing, and that is a cost this change accepts rather than
-    ///         removes.</b> Two independently antialiased primitives that abut cannot composite to
+    ///         ⚠
+    ///         <b>
+    ///             A quarter and not nothing, and that is a cost this change accepts rather than
+    ///             removes.
+    ///         </b>
+    ///         Two independently antialiased primitives that abut cannot composite to
     ///         full coverage — 0.5 over 0.5 is 0.75, whatever order they arrive in — so a seam on a
     ///         half-pixel boundary is a shade light. The alternative measured worse: before the quad
     ///         grew, the same seam was <em>half</em> background, and every isolated hairline in the
@@ -206,8 +222,12 @@ public class FillRuleTests {
     /// <summary>A hard-edged quad owns the top and left edges it lands on, and not the other two.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Both halves of the asymmetry on one primitive, which is the only shape of fixture
-    ///         that can tell the rule from either blanket answer.</b> "Every axis-aligned edge is
+    ///         ⚠
+    ///         <b>
+    ///             Both halves of the asymmetry on one primitive, which is the only shape of fixture
+    ///             that can tell the rule from either blanket answer.
+    ///         </b>
+    ///         "Every axis-aligned edge is
     ///         closed" satisfies the two inclusive assertions and "every one is open" satisfies the
     ///         two exclusive ones; only asking for the pair together says the top row is in and the
     ///         bottom row is out.
@@ -223,7 +243,7 @@ public class FillRuleTests {
     /// </remarks>
     [Fact]
     public void A_hard_edged_path_owns_the_top_and_left_edges_it_lands_on_and_not_the_other_two() {
-        var image = RenderPath(new Rectangle(8.5f, 8.5f, 24f, 24f), Red);
+        var image = RenderPath(new(8.5f, 8.5f, 24f, 24f), Red);
 
         // The top edge runs left to right, so it is the top one and its row is shaded; the bottom
         // edge runs back the other way and its row belongs to whatever is under the path.
@@ -278,7 +298,7 @@ public class FillRuleTests {
     [InlineData(20)]
     [InlineData(29)]
     public void The_diagonal_a_paths_two_triangles_share_is_shaded_once(int offset) {
-        var image = RenderPath(new Rectangle(8.5f, 8.5f, 24f, 24f), Translucent);
+        var image = RenderPath(new(8.5f, 8.5f, 24f, 24f), Translucent);
 
         var diagonal = Red8(image, offset, offset);
         var interior = Red8(image, offset - 4, offset);
@@ -307,8 +327,8 @@ public class FillRuleTests {
         // assertion about a colour that should not be present.
         list.EndFrame();
 
-        var cache = new GlyphFieldCache(new GlyphAtlas(64, 64));
-        var geometry = new UiGeometryBuilder().Build(list, cache, new Rectangle(0, 0, Side, Side));
+        var cache = new GlyphFieldCache(new(64, 64));
+        var geometry = new UiGeometryBuilder().Build(list, cache, new(0, 0, Side, Side));
 
         Assert.NotEmpty(geometry.Draws);
 
@@ -317,8 +337,12 @@ public class FillRuleTests {
 
     /// <summary>Renders one filled rectangular path with nothing softening its edges.</summary>
     /// <remarks>
-    ///     ⚠ <b><see cref="UiGeometryBuilder.Fringe" /> is zero, and that is what makes the picture
-    ///     an answer about the fill rule rather than about the tessellator's antialiasing.</b> The
+    ///     ⚠
+    ///     <b>
+    ///         <see cref="UiGeometryBuilder.Fringe" /> is zero, and that is what makes the picture
+    ///         an answer about the fill rule rather than about the tessellator's antialiasing.
+    ///     </b>
+    ///     The
     ///     fringe is a strip of ramp triangles laid along the outline; with it on, every edge below
     ///     would come out part-covered whichever way the tie fell, which is exactly the blur that
     ///     took a box's edges out of this file's reach when its quad grew. Zero is a supported value
@@ -333,17 +357,16 @@ public class FillRuleTests {
         path.AddRectangle(rectangle);
 
         list.Add(
-            new DrawCommand(DrawCommandKind.Path, 0f, 0f, 0f, 0f, colour, 0f, 0f) {
-                Offset = list.AddPath(path),
-                Length = path.Count
+            new(DrawCommandKind.Path, 0f, 0f, 0f, 0f, colour, 0f, 0f) {
+                Offset = list.AddPath(path), Length = path.Count
             }
         );
 
         list.EndFrame();
 
-        var cache = new GlyphFieldCache(new GlyphAtlas(64, 64));
+        var cache = new GlyphFieldCache(new(64, 64));
         var builder = new UiGeometryBuilder { Fringe = 0f };
-        var geometry = builder.Build(list, cache, new Rectangle(0, 0, Side, Side));
+        var geometry = builder.Build(list, cache, new(0, 0, Side, Side));
 
         Assert.NotEmpty(geometry.Draws);
 

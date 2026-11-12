@@ -10,8 +10,11 @@ namespace Vixen.Texturing.Painting;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>What the surface needed and no file held: the join between a row in a stack and the
-///         pixels behind it.</b> <c>LayerStackPreview</c> reads a <c>.vxpaint</c> on the way to the
+///         <b>
+///             What the surface needed and no file held: the join between a row in a stack and the
+///             pixels behind it.
+///         </b>
+///         <c>LayerStackPreview</c> reads a <c>.vxpaint</c> on the way to the
 ///         plan and never writes one; <c>PaintCanvas</c> reads and writes and knows nothing about a
 ///         stack. This is the piece in between, and it is what makes a stroke reach a file.
 ///     </para>
@@ -71,8 +74,12 @@ public sealed class PaintSurface {
 
     /// <summary>Whether the layer does not yet name the canvas this resolved to.</summary>
     /// <remarks>
-    ///     ⚠ <b>A new paint layer names no file, and the name is derived rather than stored — but
-    ///     only as a default.</b> <c>LayerPaint.NameFor</c>'s own remarks say why: a stack that
+    ///     ⚠
+    ///     <b>
+    ///         A new paint layer names no file, and the name is derived rather than stored — but
+    ///         only as a default.
+    ///     </b>
+    ///     <c>LayerPaint.NameFor</c>'s own remarks say why: a stack that
     ///     renames its set would orphan every painted layer if the name were recomputed on every
     ///     read. So the first stroke is what writes the name down, and it is a separate edit because
     ///     it changes the <c>.vxlayers</c> and the stroke does not.
@@ -102,8 +109,12 @@ public sealed class PaintSurface {
     ///         three, and its fallback is why a single-set stack cannot tell the difference.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The canvas comes from the store rather than from the disk, and the store is a
-    ///         required argument rather than an option</b> —
+    ///         ⚠
+    ///         <b>
+    ///             The canvas comes from the store rather than from the disk, and the store is a
+    ///             required argument rather than an option
+    ///         </b>
+    ///         —
     ///         <a href="https://github.com/Rikarin/Vixen/issues/948">#948</a>. This is called twice
     ///         per stroke — at pointer-down for the target and at pointer-up to put the layer's own
     ///         pixels back in the pane — and each call used to read the whole file, which at 4K is
@@ -136,7 +147,7 @@ public sealed class PaintSurface {
         ArgumentNullException.ThrowIfNull(layerId);
         ArgumentNullException.ThrowIfNull(canvases);
 
-        refusal = "";
+        refusal = string.Empty;
 
         var stack = document.Document;
 
@@ -179,7 +190,9 @@ public sealed class PaintSurface {
         try {
             canvas = canvases.Open(file);
         } catch (Exception failure) when (failure is IOException
-            or InvalidDataException or UnauthorizedAccessException or EndOfStreamException) {
+                                              or InvalidDataException
+                                              or UnauthorizedAccessException
+                                              or EndOfStreamException) {
             refusal = $"'{relative}' would not read: {failure.Message}";
 
             return null;
@@ -203,7 +216,7 @@ public sealed class PaintSurface {
             // first stroke has not happened. It goes into the store now, so the second `Open` of this
             // same drag — `RefreshPaint` at pointer-up — finds the canvas the stroke went into rather
             // than making a second empty one.
-            canvas = new PaintCanvas(stack.BaseWidth, stack.BaseHeight);
+            canvas = new(stack.BaseWidth, stack.BaseHeight);
 
             canvases.Adopt(file, canvas);
         } else if (canvas.Width != stack.BaseWidth || canvas.Height != stack.BaseHeight) {
@@ -229,8 +242,12 @@ public sealed class PaintSurface {
     /// <returns>The target.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The coverage is a parameter because the surface cannot compute one, and for a
-    ///         batch the caller replaced it afterwards</b> —
+    ///         ⚠
+    ///         <b>
+    ///             The coverage is a parameter because the surface cannot compute one, and for a
+    ///             batch the caller replaced it afterwards
+    ///         </b>
+    ///         —
     ///         <a href="https://github.com/Rikarin/Vixen/issues/942">#942</a>. A coverage map comes
     ///         from a mesh, and resolving one reads a model file whose answer is cached across
     ///         strokes, so it is the module's; this method holds a canvas and a layer and knows no
@@ -252,16 +269,24 @@ public sealed class PaintSurface {
     /// <summary>Writes the canvas beside the stack.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Through a temporary file and a move, because a half-written <c>.vxpaint</c> is
-    ///         indistinguishable from a truncated one.</b> <c>PaintCanvas.Read</c> refuses a channel
+    ///         ⚠
+    ///         <b>
+    ///             Through a temporary file and a move, because a half-written <c>.vxpaint</c> is
+    ///             indistinguishable from a truncated one.
+    ///         </b>
+    ///         <c>PaintCanvas.Read</c> refuses a channel
     ///         shorter than its header says — correctly — so a crash during the write of a 67 MB
     ///         channel would leave a stack that refuses to open its own paint layer.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>And the store is told, or the save invalidates the thing it saved.</b> The write
     ///         moves the file's <c>LastWriteTimeUtc</c> and <c>Length</c>, which is exactly what
-    ///         <c>PaintCanvasStore</c> keys its staleness on — so an open canvas that was <em>the
-    ///         source of those bytes</em> would fail its own stamp and be read back off the disk on
+    ///         <c>PaintCanvasStore</c> keys its staleness on — so an open canvas that was
+    ///         <em>
+    ///             the
+    ///             source of those bytes
+    ///         </em>
+    ///         would fail its own stamp and be read back off the disk on
     ///         the next evaluation. That is <a href="https://github.com/Rikarin/Vixen/issues/948">#948</a>'s
     ///         third read reintroduced by the fix for its first two.
     ///     </para>
@@ -279,7 +304,7 @@ public sealed class PaintSurface {
             Canvas.Write(stream);
         }
 
-        File.Move(temporary, Absolute, overwrite: true);
+        File.Move(temporary, Absolute, true);
 
         canvases.Saved(Absolute);
     }

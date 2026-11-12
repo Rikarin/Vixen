@@ -2,9 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Editor.NodeGraph;
-using Vixen.NodeGraph;
-using Vixen.Texturing.Layers;
-using Vixen.Texturing.Painting;
 using Vixen.Ui;
 using Xunit;
 
@@ -13,8 +10,10 @@ namespace Vixen.Editor.Texturing.Tests;
 /// <summary>Doc 48 § M4's per-node previews, from the module that assigns them.</summary>
 /// <remarks>
 ///     <para>
-///         <b><a href="https://github.com/Rikarin/Vixen/issues/1015">#1015</a>, which is the oldest
-///         unwired thing on this board and was invisible for exactly one reason:</b>
+///         <b>
+///             <a href="https://github.com/Rikarin/Vixen/issues/1015">#1015</a>, which is the oldest
+///             unwired thing on this board and was invisible for exactly one reason:
+///         </b>
 ///         <c>TextureGraphPreviews</c> had five device tests of its own and no production caller, so
 ///         every picture it can make was made in a fixture and none of them was ever drawn. The
 ///         tests here are about the seam those tests cannot see — that something in the editor
@@ -57,8 +56,12 @@ public class NodePreviewWiringTests {
     ///         panel factory.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And the frame is driven, because a plugin that throws from its per-frame work is
-    ///         <em>unloaded</em>.</b> <c>PluginHost.Update</c> answers an exception by deactivating
+    ///         ⚠
+    ///         <b>
+    ///             And the frame is driven, because a plugin that throws from its per-frame work is
+    ///             <em>unloaded</em>.
+    ///         </b>
+    ///         <c>PluginHost.Update</c> answers an exception by deactivating
     ///         the plugin and recording a diagnostic, so a null-unsafe update would not fail loudly
     ///         here — it would make the whole texturing plugin disappear on the first frame of a
     ///         headless session, which is the quietest failure this module has available to it.
@@ -89,8 +92,12 @@ public class NodePreviewWiringTests {
     ///         <c>IEditorGraphics.Upload</c> answers null.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And that frame cost a full compile, a GPU bake and a <c>WaitIdle</c> to produce
-    ///         nothing</b>, after which <c>Update</c> had already taken the graph off the dirty list.
+    ///         ⚠
+    ///         <b>
+    ///             And that frame cost a full compile, a GPU bake and a <c>WaitIdle</c> to produce
+    ///             nothing
+    ///         </b>
+    ///         , after which <c>Update</c> had already taken the graph off the dirty list.
     ///         The panel then stayed blank until the author typed something — which is the shape of
     ///         the defect the missing-device branch was fixed for, surviving in the branch beside it.
     ///     </para>
@@ -111,7 +118,7 @@ public class NodePreviewWiringTests {
         Assert.NotNull(source);
 
         var document = Assert.Single(fixture.Project.Documents.OfType<TextureGraphDocument>());
-        var uniform = document.Graph.Nodes.Single(node => node.Type == "Source/Uniform");
+        var uniform = document.Graph.Nodes.Single(static node => node.Type == "Source/Uniform");
 
         Assert.True(canvas.Registry.TryGet(uniform.Type, out var definition));
         Assert.False(source.TryGet(document.Graph, uniform, definition!, out _));
@@ -152,8 +159,12 @@ public class NodePreviewWiringTests {
     ///         would pass an "is there a picture" assertion and be wrong in the way that matters.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The pixels are asserted rather than the handle, and that is the difference
-    ///         between this and a green test.</b> A source that registered a black square per node
+    ///         ⚠
+    ///         <b>
+    ///             The pixels are asserted rather than the handle, and that is the difference
+    ///             between this and a green test.
+    ///         </b>
+    ///         A source that registered a black square per node
     ///         satisfies every count; what says the swatch is <em>this node's</em> picture is that
     ///         the grey the author typed comes back out of the host's upload. 0.25 is ~64 and 0.75 is
     ///         ~191, which one byte tells apart.
@@ -176,7 +187,7 @@ public class NodePreviewWiringTests {
         Assert.NotNull(source);
 
         var document = Assert.Single(fixture.Project.Documents.OfType<TextureGraphDocument>());
-        var uniform = document.Graph.Nodes.Single(node => node.Type == "Source/Uniform");
+        var uniform = document.Graph.Nodes.Single(static node => node.Type == "Source/Uniform");
 
         uniform.SetValue("Colour", 0.25f, 0.25f, 0.25f, 1f);
         document.Graph.Touch();
@@ -269,7 +280,7 @@ public class NodePreviewWiringTests {
         Assert.NotNull(source);
 
         var document = Assert.Single(fixture.Project.Documents.OfType<TextureGraphDocument>());
-        var uniform = document.Graph.Nodes.Single(node => node.Type == "Source/Uniform");
+        var uniform = document.Graph.Nodes.Single(static node => node.Type == "Source/Uniform");
 
         Assert.True(canvas.Registry.TryGet(uniform.Type, out var definition));
 
@@ -343,7 +354,7 @@ public class NodePreviewWiringTests {
     /// <param name="width">How wide.</param>
     /// <param name="height">How tall.</param>
     /// <returns>The byte.</returns>
-    static byte Middle(byte[] pixels, int width, int height) => pixels[((((height / 2) * width) + (width / 2)) * 4)];
+    static byte Middle(byte[] pixels, int width, int height) => pixels[(height / 2 * width + width / 2) * 4];
 
     static T? Find<T>(UiElement element) where T : UiElement {
         if (element is T found) {

@@ -44,7 +44,7 @@ public class TerrainSessionTests {
 
         Assert.Contains(
             Text(fixture.Panel(TerrainMode.PanelId)),
-            line => line.Contains("Sculpt", StringComparison.Ordinal)
+            static line => line.Contains("Sculpt", StringComparison.Ordinal)
         );
     }
 
@@ -73,7 +73,7 @@ public class TerrainSessionTests {
         // The layer the file was written with, which only a read could know about.
         Assert.Contains(
             Text(fixture.Panel(TerrainMode.PanelId)),
-            line => line.Contains("Bedrock", StringComparison.Ordinal)
+            static line => line.Contains("Bedrock", StringComparison.Ordinal)
         );
 
         // And the tools are reachable, which is what HasTerrain gates.
@@ -101,12 +101,12 @@ public class TerrainSessionTests {
 
         fixture.Frames(4);
 
-        Assert.Equal(new Vector3(10f, 0f, 20f), Mode(fixture).Origin);
+        Assert.Equal(new(10f, 0f, 20f), Mode(fixture).Origin);
 
         fixture.Scene.World.Set(entity, LocalTransform.Identity with { Position = new(-5f, 0f, 7f) });
         fixture.Frames(2);
 
-        Assert.Equal(new Vector3(-5f, 0f, 7f), Mode(fixture).Origin);
+        Assert.Equal(new(-5f, 0f, 7f), Mode(fixture).Origin);
     }
 
     /// <summary>Two terrains and no selection is a refusal rather than a guess.</summary>
@@ -124,7 +124,7 @@ public class TerrainSessionTests {
 
         var first = default(Vixen.Core.Entity);
 
-        foreach (var name in (string[]) ["A", "B"]) {
+        foreach (var name in (string[])["A", "B"]) {
             var made = fixture.Scene.Create(
                 name,
                 LocalTransform.Identity,
@@ -169,7 +169,7 @@ public class TerrainSessionTests {
 
         Assert.Single(
             fixture.Shell.Notifications.History,
-            note => note.Message.Contains("could not be read", StringComparison.Ordinal)
+            static note => note.Message.Contains("could not be read", StringComparison.Ordinal)
         );
     }
 
@@ -208,7 +208,7 @@ public class TerrainSessionTests {
 
         Assert.Contains(
             fixture.Shell.Notifications.History,
-            note => note.Message.Contains("Nothing to add", StringComparison.Ordinal)
+            static note => note.Message.Contains("Nothing to add", StringComparison.Ordinal)
         );
     }
 
@@ -279,8 +279,12 @@ public class TerrainSessionTests {
     /// <summary>A stroke in a live editor reaches the collision rebuilder the editor publishes.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The defect this test exists for is an interface nothing implements <em>and</em>
-    ///         nothing assigns.</b> <c>TerrainEdit.Colliders</c> was set in five test files and
+    ///         ⚠
+    ///         <b>
+    ///             The defect this test exists for is an interface nothing implements <em>and</em>
+    ///             nothing assigns.
+    ///         </b>
+    ///         <c>TerrainEdit.Colliders</c> was set in five test files and
     ///         nowhere else in the tree, so every assertion about a stroke naming the right tiles was
     ///         an assertion about a double talking to another double. This is the same claim made of
     ///         the editor the product actually starts.
@@ -336,16 +340,23 @@ public class TerrainSessionTests {
     /// <summary>Pressing Play builds the ground's collision, and a stroke rebuilds the tile it moved.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>This is the end of <c>docs/plan/31</c> § D10's chain, and every earlier link was
-    ///         built and unreachable.</b> <c>TerrainColliderSystem</c> had tests that dropped a body
+    ///         ⚠
+    ///         <b>
+    ///             This is the end of <c>docs/plan/31</c> § D10's chain, and every earlier link was
+    ///             built and unreachable.
+    ///         </b>
+    ///         <c>TerrainColliderSystem</c> had tests that dropped a body
     ///         onto a height field; <c>TerrainColliders</c> had tests that sculpted one. Neither could
     ///         see the thing that was actually wrong, which is that the editor constructed no physics
     ///         world at all — so this asserts about the *editor*: press Play, and the ground it draws
     ///         has bodies under it.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b><see cref="Vixen.Terrain.Physics.TerrainColliderSystem.Rebuilds" /> and not
-    ///         <c>TileCount</c> alone.</b>
+    ///         ⚠
+    ///         <b>
+    ///             <see cref="Vixen.Terrain.Physics.TerrainColliderSystem.Rebuilds" /> and not
+    ///             <c>TileCount</c> alone.
+    ///         </b>
     ///         A tile count says the first build happened, which the poll would have done on the next
     ///         frame anyway. What the seam adds is *when* — the frame the artist let go of the mouse —
     ///         and a rebuild counted between two ticks is the only way to see that.
@@ -429,14 +440,18 @@ public class TerrainSessionTests {
     }
 
     static TerrainMode Mode(EditorSession fixture) =>
-        (TerrainMode)fixture.Shell.Modes.Modes.Single(mode => mode.Id == TerrainMode.ModeId);
+        (TerrainMode)fixture.Shell.Modes.Modes.Single(static mode => mode.Id == TerrainMode.ModeId);
 
     /// <summary>A terrain small enough to write in a test, with a layer whose name is recognisable.</summary>
     static byte[] Built() {
         var terrain = new TerrainMap(
             TerrainDescription.Default with {
-                TileSamples = 32, TilesX = 2, TilesZ = 2,
-                MetresPerQuad = 1f, MinHeight = -50f, MaxHeight = 50f
+                TileSamples = 32,
+                TilesX = 2,
+                TilesZ = 2,
+                MetresPerQuad = 1f,
+                MinHeight = -50f,
+                MaxHeight = 50f
             }
         );
 
@@ -464,8 +479,9 @@ public class TerrainSessionTests {
     static Button? Button(UiElement root, string label) =>
         Descendants(root).OfType<Button>().FirstOrDefault(button => button.Label == label);
 
-    static List<string> Text(UiElement root) =>
-        [.. Descendants(root).Select(element => element.Text ?? string.Empty).Where(text => text.Length > 0)];
+    static List<string> Text(UiElement root) => [
+        ..Descendants(root).Select(static element => element.Text ?? string.Empty).Where(static text => text.Length > 0)
+    ];
 
     static IEnumerable<UiElement> Descendants(UiElement element) {
         foreach (var child in element.Children) {

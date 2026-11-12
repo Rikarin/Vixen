@@ -43,7 +43,7 @@ public sealed class WaterTileTests {
     public void The_tiling_covers_the_target(int width, int height, int tilesX, int tilesY) {
         var count = WaterTiles.CountFor(new(width, height));
 
-        Assert.Equal(new Int2(tilesX, tilesY), count);
+        Assert.Equal(new(tilesX, tilesY), count);
         Assert.True(count.X * WaterTiles.Size >= width, "the tiling stops short of the target's right edge");
         Assert.True(count.Y * WaterTiles.Size >= height, "the tiling stops short of the target's bottom edge");
     }
@@ -69,12 +69,12 @@ public sealed class WaterTileTests {
             // tile square, clipped at the target's edge exactly as the rasterizer clips it.
             for (var y = tile.Y * WaterTiles.Size; y < Math.Min((tile.Y + 1) * WaterTiles.Size, target.Y); y++) {
                 for (var x = tile.X * WaterTiles.Size; x < Math.Min((tile.X + 1) * WaterTiles.Size, target.X); x++) {
-                    claims[(y * target.X) + x]++;
+                    claims[y * target.X + x]++;
                 }
             }
         }
 
-        Assert.All(claims, claimed => Assert.Equal(1, claimed));
+        Assert.All(claims, static claimed => Assert.Equal(1, claimed));
     }
 
     /// <summary>An index names the tile it came from, over a whole grid.</summary>
@@ -87,7 +87,7 @@ public sealed class WaterTileTests {
                 var index = WaterTiles.Index(new(x, y), count);
 
                 Assert.InRange(index, 0, WaterTiles.Total(count) - 1);
-                Assert.Equal(new Int2(x, y), WaterTiles.Unindex(index, count));
+                Assert.Equal(new(x, y), WaterTiles.Unindex(index, count));
             }
         }
     }

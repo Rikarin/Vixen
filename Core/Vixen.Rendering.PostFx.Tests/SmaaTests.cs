@@ -139,8 +139,10 @@ public class SmaaTests : IDisposable {
         var texels = SmaaAreaTexture.Generate();
         var (blockX, blockY) = SmaaAreaTexture.Block(pattern);
 
-        var at = 2 * ((((blockY * SmaaAreaTexture.MaxDistance) + y) * SmaaAreaTexture.Side)
-            + (blockX * SmaaAreaTexture.MaxDistance) + x);
+        var at = 2
+            * ((blockY * SmaaAreaTexture.MaxDistance + y) * SmaaAreaTexture.Side
+                + blockX * SmaaAreaTexture.MaxDistance
+                + x);
 
         Assert.Equal(red, texels[at]);
         Assert.Equal(green, texels[at + 1]);
@@ -169,8 +171,10 @@ public class SmaaTests : IDisposable {
 
         for (var y = 0; y < SmaaAreaTexture.MaxDistance; y++) {
             for (var x = 0; x < SmaaAreaTexture.MaxDistance; x++) {
-                var at = 2 * ((((blockY * SmaaAreaTexture.MaxDistance) + y) * SmaaAreaTexture.Side)
-                    + (blockX * SmaaAreaTexture.MaxDistance) + x);
+                var at = 2
+                    * ((blockY * SmaaAreaTexture.MaxDistance + y) * SmaaAreaTexture.Side
+                        + blockX * SmaaAreaTexture.MaxDistance
+                        + x);
 
                 Assert.Equal(0, texels[at]);
                 Assert.Equal(0, texels[at + 1]);
@@ -361,8 +365,12 @@ public class SmaaTests : IDisposable {
     ///     The coverage table is copied once, however many frames run.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>And <see cref="SmaaRenderer.Uploaded" /> is set by the copy, not by the build that
-    ///     declared it.</b> A node that marked itself uploaded while declaring would, in a frame that
+    ///     ⚠
+    ///     <b>
+    ///         And <see cref="SmaaRenderer.Uploaded" /> is set by the copy, not by the build that
+    ///         declared it.
+    ///     </b>
+    ///     A node that marked itself uploaded while declaring would, in a frame that
     ///     is built and never executed, import a table full of whatever that memory held — which
     ///     reads as a filter blending in the wrong direction rather than as a missing copy.
     /// </remarks>
@@ -432,7 +440,7 @@ public class SmaaTests : IDisposable {
 
         Frame(h);
 
-        Assert.Contains("no Modules", h.Smaa.Degraded ?? "");
+        Assert.Contains("no Modules", h.Smaa.Degraded ?? string.Empty);
     }
 
     // --- The document -------------------------------------------------------
@@ -462,10 +470,7 @@ public class SmaaTests : IDisposable {
         using var system = new RenderSystem();
 
         var builder = new CompositorBuilder(system) {
-            Device = device,
-            Modules = describer,
-            Samplers = samplers,
-            Descriptors = allocator
+            Device = device, Modules = describer, Samplers = samplers, Descriptors = allocator
         };
 
         var declared = new SmaaAsset {
@@ -502,7 +507,7 @@ public class SmaaTests : IDisposable {
     [Fact]
     public void The_standard_frame_emits_smaa_after_the_tonemap() {
         var nodes = Expanded(AntialiasingMode.Smaa);
-        var names = nodes.Select(node => node.GetType().Name).ToList();
+        var names = nodes.Select(static node => node.GetType().Name).ToList();
 
         Assert.Contains(nameof(SmaaAsset), names);
         Assert.DoesNotContain(nameof(FxaaAsset), names);
@@ -536,7 +541,7 @@ public class SmaaTests : IDisposable {
     /// </remarks>
     [Fact]
     public void Taa_and_smaa_together_keep_the_temporal_resolve() {
-        var names = Expanded(AntialiasingMode.TaaSmaa).Select(node => node.GetType().Name).ToList();
+        var names = Expanded(AntialiasingMode.TaaSmaa).Select(static node => node.GetType().Name).ToList();
 
         Assert.Contains(nameof(SmaaAsset), names);
         Assert.Contains(nameof(TemporalAntialiasingAsset), names);
@@ -549,7 +554,7 @@ public class SmaaTests : IDisposable {
     [InlineData(AntialiasingMode.Taa)]
     [InlineData(AntialiasingMode.TaaFxaa)]
     public void The_other_modes_emit_no_smaa(AntialiasingMode mode) =>
-        Assert.DoesNotContain(Expanded(mode), node => node is SmaaAsset);
+        Assert.DoesNotContain(Expanded(mode), static node => node is SmaaAsset);
 
     /// <summary>What the standard frame expands to, flattened to the nodes it emitted.</summary>
     static IReadOnlyList<ISceneRendererAsset> Expanded(AntialiasingMode mode) {
@@ -557,7 +562,7 @@ public class SmaaTests : IDisposable {
             new() { Game = new StandardFrameAsset { Antialiasing = mode, Output = "Display" } }
         );
 
-        return [.. Assert.IsType<SequenceAsset>(document.Game).Children];
+        return [..Assert.IsType<SequenceAsset>(document.Game).Children];
     }
 
     // --- The fixture --------------------------------------------------------
@@ -654,9 +659,7 @@ public class SmaaTests : IDisposable {
 
         present.Descriptors.Bindings.Add(
             new() {
-                Binding = TonemapKeys.SourceBinding,
-                Kind = DescriptorKind.SampledTexture,
-                Resource = "Antialiased"
+                Binding = TonemapKeys.SourceBinding, Kind = DescriptorKind.SampledTexture, Resource = "Antialiased"
             }
         );
 

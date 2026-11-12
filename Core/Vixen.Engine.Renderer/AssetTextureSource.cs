@@ -63,7 +63,7 @@ public sealed class AssetTextureSource : IDisposable {
     readonly BufferHandle[] streamStaging;
     readonly long[] streamStagingCapacity;
 
-    ILogger? logger;
+
     long streamAt;
     int streamSlot;
     int nextStreamId;
@@ -126,8 +126,11 @@ public sealed class AssetTextureSource : IDisposable {
     /// <summary>Where the streamer's refusals are reported, or null for nobody watching.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>The middle link of the chain that carries a host's logger to
-    ///         <c>PageResidency.Logger</c>.</b> A game builds this and never sees the streamer
+    ///         <b>
+    ///             The middle link of the chain that carries a host's logger to
+    ///             <c>PageResidency.Logger</c>.
+    ///         </b>
+    ///         A game builds this and never sees the streamer
     ///         or the residency under it, so a logger that stopped here would leave events 4001 and
     ///         4002 documented and unreachable.
     ///     </para>
@@ -139,9 +142,9 @@ public sealed class AssetTextureSource : IDisposable {
     ///     </para>
     /// </remarks>
     public ILogger? Logger {
-        get => logger;
+        get => field;
         set {
-            logger = value;
+            field = value;
 
             if (Streaming is { } streaming) {
                 streaming.Logger = value;
@@ -251,7 +254,7 @@ public sealed class AssetTextureSource : IDisposable {
 
         // Created here rather than on the task, because a device call belongs on a thread the caller
         // chose. The copy still has to be recorded, so this is not yet ready.
-        if (!entry.Failed && entry.Texture.IsValid == false && entry.Decoded is { IsCompletedSuccessfully: true }) {
+        if (!entry.Failed && !entry.Texture.IsValid && entry.Decoded is { IsCompletedSuccessfully: true }) {
             Create(entry);
         }
 
@@ -345,9 +348,7 @@ public sealed class AssetTextureSource : IDisposable {
         foreach (var entry in uploading) {
             var data = entry.Data!;
 
-            commands.Barrier(
-                new([], [new(entry.Texture, ResourceState.Undefined, ResourceState.CopyDestination)])
-            );
+            commands.Barrier(new([], [new(entry.Texture, ResourceState.Undefined, ResourceState.CopyDestination)]));
 
             for (var level = 0; level < data.LevelCount; level++) {
                 var mip = data.Levels[level];
@@ -360,9 +361,7 @@ public sealed class AssetTextureSource : IDisposable {
                 );
             }
 
-            commands.Barrier(
-                new([], [new(entry.Texture, ResourceState.CopyDestination, ResourceState.ShaderRead)])
-            );
+            commands.Barrier(new([], [new(entry.Texture, ResourceState.CopyDestination, ResourceState.ShaderRead)]));
 
             // The view last, because it is what TryGet answers with: a view that existed before the
             // copy was recorded would be a material sampling undefined memory for a frame, which is
@@ -399,8 +398,7 @@ public sealed class AssetTextureSource : IDisposable {
 
             // The header and the level index, which is 80 + 24n bytes off the front of the file. The
             // pixels are what streaming exists not to read.
-            entry.Layouted = Task.Run(
-                async () => {
+            entry.Layouted = Task.Run(async () => {
                     await using var stream = await assets.OpenAsync(address).ConfigureAwait(false);
 
                     // ⚠ Checked here rather than at the first page read, because this is the last
@@ -432,8 +430,7 @@ public sealed class AssetTextureSource : IDisposable {
     ///     worst work there is to do inside a frame.
     /// </remarks>
     Task<TextureData> Decode(string address) =>
-        Task.Run(
-            () => {
+        Task.Run(() => {
                 using var stream = assets.Open(address);
                 using var memory = new MemoryStream();
 
@@ -446,8 +443,12 @@ public sealed class AssetTextureSource : IDisposable {
     /// <summary>Registers a texture with the streamer once its layout has been read.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A texture whose whole chain fits in one page falls back to being loaded
-    ///         whole.</b> There is nothing to stream in it, and registering it anyway would cost a
+    ///         ⚠
+    ///         <b>
+    ///             A texture whose whole chain fits in one page falls back to being loaded
+    ///             whole.
+    ///         </b>
+    ///         There is nothing to stream in it, and registering it anyway would cost a
     ///         residency entry and a swap for a texture that was never going to change resolution.
     ///         The fallback re-reads a file that is by construction under one page, which is the
     ///         cheapest read there is.
@@ -522,8 +523,11 @@ public sealed class AssetTextureSource : IDisposable {
     /// <summary>Swaps every streamed texture whose resident tail is no longer the one on the device.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>A complete smaller image, swapped for a larger one, rather than a full-size image
-    ///         with its top levels missing.</b> The alternative — allocate at full size and hide the
+    ///         <b>
+    ///             A complete smaller image, swapped for a larger one, rather than a full-size image
+    ///             with its top levels missing.
+    ///         </b>
+    ///         The alternative — allocate at full size and hide the
     ///         absent levels behind a view's <c>baseMipLevel</c> or a sampler's <c>MinLod</c> —
     ///         fails on two counts. It saves no memory, because the allocation is the memory
     ///         streaming exists not to spend; and <c>baseMipLevel</c> is honoured for sampled

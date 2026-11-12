@@ -2,7 +2,7 @@
 # a decision. One project name per line; everything after the first space is why.
 #
 # ⚠ This list can only SHRINK. `CheckArchitecture` fails on a project that is here and has become
-# clean, exactly as `docs/WhitespaceExempt.txt` and `docs/DocCommentExempt.txt` do — so a line that
+# clean, exactly as `docs/DocsExempt.txt` and `docs/DocCommentExempt.txt` do — so a line that
 # has done its job cannot sit here hiding the next project to break the same way.
 #
 # ⚠ What being on this list means: the attribute in that project registers NOTHING. The type is

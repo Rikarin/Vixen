@@ -45,8 +45,11 @@ public sealed record NativeFormatImportSettings : IImportSettings {
 ///         carrying the document forward keeps the seam where the plan puts it.
 ///     </para>
 ///     <para>
-///         <b><c>.vxscene</c>, <c>.vxprefab</c>, <c>.vxmat</c>, <c>.vxvfx</c> and now <c>.vxanim</c>
-///         are no longer among them</b>, and each took the same shape:
+///         <b>
+///             <c>.vxscene</c>, <c>.vxprefab</c>, <c>.vxmat</c>, <c>.vxvfx</c> and now <c>.vxanim</c>
+///             are no longer among them
+///         </b>
+///         , and each took the same shape:
 ///         <see cref="Scenes.SceneImporter" />, <see cref="Materials.MaterialImporter" /> and
 ///         <see cref="Animation.AnimationClipImporter" /> read the same document, declare the same
 ///         references through the same scan, and write a compiled asset rather than the text. What is
@@ -54,8 +57,12 @@ public sealed record NativeFormatImportSettings : IImportSettings {
 ///         map — and nothing whose compiler is still owed.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Which is why the artefact's type is one of exactly two names, and never the
-///         document's own tag.</b> This used to claim a third extension, <c>.vxasset</c>, and to write
+///         ⚠
+///         <b>
+///             Which is why the artefact's type is one of exactly two names, and never the
+///             document's own tag.
+///         </b>
+///         This used to claim a third extension, <c>.vxasset</c>, and to write
 ///         the text under whatever type the document tagged itself: <c>!PhysicsMaterial</c> produced a
 ///         chunk labelled <c>PhysicsMaterial</c> whose bytes were YAML. That is the <c>.vxgrass</c>
 ///         bug with the file renamed — see <c>TerrainAssetImporter.WriteGrass</c>, where the fix was
@@ -142,15 +149,16 @@ public sealed class NativeFormatImporter : AssetImporter<NativeFormatImportSetti
     ///     arm is unreachable rather than a fallback — and it is deliberately not the document's tag,
     ///     for the reason the class remarks give at length.
     /// </remarks>
-    static string TypeOf(string path) => Path.GetExtension(path).ToLowerInvariant() switch {
-        ".vxgroup" => "AddressableGroup",
+    static string TypeOf(string path) =>
+        Path.GetExtension(path).ToLowerInvariant() switch {
+            ".vxgroup" => "AddressableGroup",
 
-        // A .vxinput is engine data in the same YAML dialect as the rest, so it needs no importer of
-        // its own — what it needs is to be *in* this list, so that the reference scan runs over it and
-        // an addressable label on an action asset resolves like any other.
-        ".vxinput" => "InputActions",
-        _ => "Asset"
-    };
+            // A .vxinput is engine data in the same YAML dialect as the rest, so it needs no importer of
+            // its own — what it needs is to be *in* this list, so that the reference scan runs over it and
+            // an addressable label on an action asset resolves like any other.
+            ".vxinput" => "InputActions",
+            _ => "Asset"
+        };
 
     static string Describe(YamlNode node) => node is YamlSequence ? "sequence" : "single value";
 }

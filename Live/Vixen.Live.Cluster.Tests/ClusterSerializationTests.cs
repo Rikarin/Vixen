@@ -11,8 +11,12 @@ namespace Vixen.Live.Cluster.Tests;
 /// <summary>Every value that crosses a grain call, through a real Orleans serializer.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>This is the gate on <c>Surrogates.cs</c>, and without it the failure is a runtime one
-///         on the first call that carries the type.</b> <c>Vixen.Live.Abstractions</c> cannot carry
+///         ⚠
+///         <b>
+///             This is the gate on <c>Surrogates.cs</c>, and without it the failure is a runtime one
+///             on the first call that carries the type.
+///         </b>
+///         <c>Vixen.Live.Abstractions</c> cannot carry
 ///         <c>[GenerateSerializer]</c> — it is the assembly an iOS NativeAOT client transitively
 ///         references — so every type in the vocabulary needs a surrogate here, and nothing about
 ///         adding one to the vocabulary makes the compiler ask for it.
@@ -25,7 +29,7 @@ namespace Vixen.Live.Cluster.Tests;
 /// </remarks>
 public sealed class ClusterSerializationTests {
     static readonly Serializer Serializer = new ServiceCollection()
-        .AddSerializer(builder => builder.AddAssembly(typeof(ShardIdConverter).Assembly))
+        .AddSerializer(static builder => builder.AddAssembly(typeof(ShardIdConverter).Assembly))
         .BuildServiceProvider()
         .GetRequiredService<Serializer>();
 
@@ -118,7 +122,7 @@ public sealed class ClusterSerializationTests {
     [Fact]
     public void AnAccountsHoldingsCrossAGrainCall() {
         var holdings = new AccountHoldings(
-            [new("collect/mount/gryphon", "Loot", "boss/skarr", 1), new("collect/pet/cat", "Quest", "", 2)],
+            [new("collect/mount/gryphon", "Loot", "boss/skarr", 1), new("collect/pet/cat", "Quest", string.Empty, 2)],
             ["achieve/stabled"],
             10,
             3

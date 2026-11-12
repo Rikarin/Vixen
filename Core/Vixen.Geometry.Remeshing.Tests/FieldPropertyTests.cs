@@ -11,8 +11,11 @@ namespace Vixen.Geometry.Remeshing.Tests;
 /// <summary>Poincaré–Hopf over a space of closed surfaces rather than over four hand-built ones.</summary>
 /// <remarks>
 ///     <para>
-///         <b>docs/plan/41 § D5's extraction is pinned by an identity that is true of every closed
-///         orientable surface</b> — the singularity indices sum to four times the Euler characteristic
+///         <b>
+///             docs/plan/41 § D5's extraction is pinned by an identity that is true of every closed
+///             orientable surface
+///         </b>
+///         — the singularity indices sum to four times the Euler characteristic
 ///         — and <see cref="SingularityTests.The_index_sum_is_four_times_the_euler_characteristic" />
 ///         asserts it on four fixtures: a sphere at <c>+8</c>, a torus at <c>0</c>, a one-holed plate
 ///         at <c>0</c> and a two-holed one at <c>−8</c>. Poincaré–Hopf makes it a property of the
@@ -21,8 +24,12 @@ namespace Vixen.Geometry.Remeshing.Tests;
 ///         points; this is a range of tessellations of three of them.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The precondition is that the mesh resolves the field, and it is a real restriction
-///         rather than a formality.</b> The index is read off period jumps — which of the four
+///         ⚠
+///         <b>
+///             The precondition is that the mesh resolves the field, and it is a real restriction
+///             rather than a formality.
+///         </b>
+///         The index is read off period jumps — which of the four
 ///         rotations of a neighbour was meant — and a quarter turn is ninety degrees, so an edge across
 ///         which the field genuinely turns by more than forty-five has no right answer. The field is
 ///         therefore solved with the features off, exactly as the fixed test does: a hard constraint
@@ -30,8 +37,12 @@ namespace Vixen.Geometry.Remeshing.Tests;
 ///         "hard" means.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Which surfaces satisfy the precondition was measured rather than guessed, and the
-///         answer is narrower than the fixed test suggests.</b> Over three hundred sampled
+///         ⚠
+///         <b>
+///             Which surfaces satisfy the precondition was measured rather than guessed, and the
+///             answer is narrower than the fixed test suggests.
+///         </b>
+///         Over three hundred sampled
 ///         tessellations: sphere 62 of 62, capsule 45 of 45, torus 55 of 55 — and cylinder 44 of 45,
 ///         pipe 46 of 49, a rounded slab 36 of 44. Every failure was off by exactly one quarter turn,
 ///         and every failing family has a hard rim or crease the smoothing did not remove. Smoothing
@@ -43,8 +54,12 @@ namespace Vixen.Geometry.Remeshing.Tests;
 ///         been made to satisfy the precondition.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Which is a real limit and worth stating plainly: this covers <c>χ = 2</c> and
-///         <c>χ = 0</c> over a range of tessellations, and no negative characteristic at all.</b> A
+///         ⚠
+///         <b>
+///             Which is a real limit and worth stating plainly: this covers <c>χ = 2</c> and
+///             <c>χ = 0</c> over a range of tessellations, and no negative characteristic at all.
+///         </b>
+///         A
 ///         surface of genus two that a routine can build, that is closed, and that is smooth enough to
 ///         resolve a cross field is not something <see cref="FieldFixtures" /> currently has — a
 ///         punched slab rounded by an umbrella pass was the answer for the fixed test and it does not
@@ -69,7 +84,7 @@ public class FieldPropertyTests {
         Gen.OneOf(ShapeKind.Sphere, ShapeKind.Capsule),
         Gen.Int[8, 24],
         Gen.Int[3, 14],
-        (kind, sides, steps) => new SurfaceRecipe(kind, sides, steps)
+        static (kind, sides, steps) => new SurfaceRecipe(kind, sides, steps)
     );
 
     /// <summary>A torus, whose tube needs eight segments before it is round rather than a prism.</summary>
@@ -86,15 +101,19 @@ public class FieldPropertyTests {
         Gen.Const(ShapeKind.Torus),
         Gen.Int[10, 24],
         Gen.Int[8, 16],
-        (kind, sides, steps) => new SurfaceRecipe(kind, sides, steps)
+        static (kind, sides, steps) => new SurfaceRecipe(kind, sides, steps)
     );
 
     static readonly Gen<SurfaceRecipe> Surface = Gen.OneOf(Round, Ring);
 
     /// <summary>∀ closed orientable mesh: Σ singularity index = 4χ.</summary>
     /// <remarks>
-    ///     ⚠ <b>The characteristic is measured off the mesh with <see cref="FieldFixtures.Euler" />
-    ///     rather than assumed from the family.</b> A tessellation that came out open, pinched or
+    ///     ⚠
+    ///     <b>
+    ///         The characteristic is measured off the mesh with <see cref="FieldFixtures.Euler" />
+    ///         rather than assumed from the family.
+    ///     </b>
+    ///     A tessellation that came out open, pinched or
     ///     welded shut is not the genus its recipe claims, and a test that assumed otherwise would fail
     ///     somewhere confusing later instead of here. The claim asserted is between two numbers taken
     ///     from the same mesh.
@@ -120,14 +139,14 @@ public class FieldPropertyTests {
                 var found = RunawayGuard.Run($"extracting on {recipe}", () => SingularityPass.Extract(mesh, field));
 
                 Assert.True(
-                    found.Sum(single => single.Index) == 4 * euler,
+                    found.Sum(static single => single.Index) == 4 * euler,
                     $"{recipe}: {mesh.VertexCount} vertices, χ = {euler}, and the indices sum to "
-                    + $"{found.Sum(single => single.Index)} against {4 * euler}."
+                    + $"{found.Sum(static single => single.Index)} against {4 * euler}."
                 );
 
                 // Every one of them is a whole quarter turn and every triangle appears once, which is
                 // what makes the sum above a sum of indices rather than of anything else.
-                Assert.Equal(found.Count, found.Select(single => single.Triangle).Distinct().Count());
+                Assert.Equal(found.Count, found.Select(static single => single.Triangle).Distinct().Count());
 
                 foreach (var single in found) {
                     Assert.InRange(single.Index, -1, 1);
@@ -180,8 +199,6 @@ public class FieldPropertyTests {
 
     static ManifoldMesh Build(SurfaceRecipe recipe) =>
         FieldFixtures.Condition(
-            MeshShapes.Create(
-                ShapeParameters.Default(recipe.Kind) with { Sides = recipe.Sides, Steps = recipe.Steps }
-            )
+            MeshShapes.Create(ShapeParameters.Default(recipe.Kind) with { Sides = recipe.Sides, Steps = recipe.Steps })
         );
 }

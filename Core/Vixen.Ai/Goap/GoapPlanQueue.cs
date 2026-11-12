@@ -69,7 +69,12 @@ public sealed class GoapPlanQueue {
     ///     an open list — a handful is plenty, because the budget is what limits throughput.
     /// </param>
     /// <exception cref="ArgumentNullException"><paramref name="domain" /> is null.</exception>
-    public GoapPlanQueue(GoapDomain domain, GoapSettings? settings = null, int capacity = 64, int parallelSearches = 4) {
+    public GoapPlanQueue(
+        GoapDomain domain,
+        GoapSettings? settings = null,
+        int capacity = 64,
+        int parallelSearches = 4
+    ) {
         ArgumentNullException.ThrowIfNull(domain);
         ArgumentOutOfRangeException.ThrowIfLessThan(capacity, 1);
         ArgumentOutOfRangeException.ThrowIfLessThan(parallelSearches, 1);
@@ -274,8 +279,12 @@ public sealed class GoapPlanQueue {
 
     /// <summary>Runs every search this lane owns, on the one planner the lane owns.</summary>
     /// <remarks>
-    ///     ⚠ <b>The lane index is the planner index, and that identity is the whole safety
-    ///     argument.</b> A lane strides the batch rather than taking a contiguous run of it so that
+    ///     ⚠
+    ///     <b>
+    ///         The lane index is the planner index, and that identity is the whole safety
+    ///         argument.
+    ///     </b>
+    ///     A lane strides the batch rather than taking a contiguous run of it so that
     ///     an odd batch splits evenly, but either partitioning would do: what matters is that there
     ///     are never more lanes than planners.
     /// </remarks>

@@ -31,7 +31,7 @@ public sealed class ArtifactKeyTests {
     public void EveryPartOfTheKeyChangesIt() {
         var baseline = Key();
 
-        Assert.NotEqual(baseline, Key(importer: "ModelImporter"));
+        Assert.NotEqual(baseline, Key("ModelImporter"));
         Assert.NotEqual(baseline, Key(version: 4));
         Assert.NotEqual(baseline, Key(source: ArtifactKey.HashOf("different bytes")));
         Assert.NotEqual(baseline, Key(settings: ArtifactKey.HashOf("maxSize: 1024\n")));
@@ -65,8 +65,7 @@ public sealed class ArtifactKeyTests {
     ///     inputs rather than the same concatenation.
     /// </summary>
     [Fact]
-    public void TwoPartsRunningTogetherAreNotOnePart() =>
-        Assert.NotEqual(Key(importer: "Model", version: 11), Key(importer: "Model1", version: 1));
+    public void TwoPartsRunningTogetherAreNotOnePart() => Assert.NotEqual(Key("Model", 11), Key("Model1", 1));
 
     [Fact]
     public void HashingBytesAndHashingAStreamAgree() {

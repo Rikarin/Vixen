@@ -57,7 +57,9 @@ public sealed class AssetTile(UiElement element, AssetTreeNode? node) {
 
     T Part<T>() where T : UiElement =>
         Element.Children.OfType<T>().FirstOrDefault()
-        ?? throw new InvalidOperationException($"the tile has no {typeof(T).Name}; the template in AssetGrid.vxml changed shape");
+        ?? throw new InvalidOperationException(
+            $"the tile has no {typeof(T).Name}; the template in AssetGrid.vxml changed shape"
+        );
 }
 
 /// <summary>A tile's caption, a type of its own so that markup can set its text as the C# tile did.</summary>
@@ -87,8 +89,12 @@ internal sealed class AssetStatus : UiElement {
 ///         the next, rather than showing a flattened project.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The thumbnails are type glyphs until a picture arrives, and
-///         <see cref="StandardIcons" /> says why.</b> The colour is doing most of the work either
+///         ⚠
+///         <b>
+///             The thumbnails are type glyphs until a picture arrives, and
+///             <see cref="StandardIcons" /> says why.
+///         </b>
+///         The colour is doing most of the work either
 ///         way — a grid of forty identical grey glyphs cannot be scanned, and scanning is what a grid
 ///         is for.
 ///     </para>

@@ -10,15 +10,23 @@ namespace Vixen.Ui.Tests;
 /// <summary>The CSS system colours, and the forced-colours mode that substitutes them.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b><c>forced-colors</c> was a media feature with no mode for as long as it has been
-///         evaluated.</b> A sheet could write <c>@media (forced-colors: active)</c> and have it
+///         ⚠
+///         <b>
+///             <c>forced-colors</c> was a media feature with no mode for as long as it has been
+///             evaluated.
+///         </b>
+///         A sheet could write <c>@media (forced-colors: active)</c> and have it
 ///         match, and nothing in the renderer ever read <see cref="MediaPreferences.ForcedColors" />
 ///         — so the half CSS actually specifies, the palette the user agent substitutes, did not
 ///         exist. Every assertion in this file was false before <see cref="SystemPalette" /> landed.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Asserted on the draw list rather than on a picture, and the colours are compared in
-///         linear space.</b> A <see cref="DrawCommand" />'s colour is linear — the palette converts
+///         ⚠
+///         <b>
+///             Asserted on the draw list rather than on a picture, and the colours are compared in
+///             linear space.
+///         </b>
+///         A <see cref="DrawCommand" />'s colour is linear — the palette converts
 ///         its sRGB bytes on the way in — so an expectation written as <c>0xFFFFFF</c> has to make
 ///         the same trip. Comparing sRGB bytes against a linear command would fail on white by
 ///         nothing and on mid grey by a third.
@@ -40,14 +48,13 @@ public class ForcedColorsTests {
         return document;
     }
 
-    static Color4 Srgb(uint packed) =>
-        new Color((byte)(packed >> 16), (byte)(packed >> 8), (byte)packed).ToLinear();
+    static Color4 Srgb(uint packed) => new Color((byte)(packed >> 16), (byte)(packed >> 8), (byte)packed).ToLinear();
 
     static IReadOnlyList<DrawCommand> Fills(UiDocument document) =>
-        [.. document.Drawing.Commands.Where(command => command.Kind == DrawCommandKind.Rectangle)];
+        [..document.Drawing.Commands.Where(static command => command.Kind == DrawCommandKind.Rectangle)];
 
     static IReadOnlyList<DrawCommand> Rings(UiDocument document) =>
-        [.. document.Drawing.Commands.Where(command => command.Kind == DrawCommandKind.Border)];
+        [..document.Drawing.Commands.Where(static command => command.Kind == DrawCommandKind.Border)];
 
     [Fact]
     public void A_system_colour_keyword_parses_as_a_colour_and_not_as_a_keyword() {
@@ -69,7 +76,7 @@ public class ForcedColorsTests {
     [Fact]
     public void An_authored_background_is_drawn_as_canvas_when_colours_are_forced() {
         using var plain = Drawn(".probe { background-color: #ff0000; }");
-        using var high = Drawn(".probe { background-color: #ff0000; }", forced: true);
+        using var high = Drawn(".probe { background-color: #ff0000; }", true);
 
         // The instrument first: without the mode the authored red survives, so a green result below
         // cannot come from the substitution being applied to everything unconditionally.
@@ -100,16 +107,16 @@ public class ForcedColorsTests {
         // value, so almost every element in a real tree has one; forcing those to `Canvas` would
         // paint an opaque rectangle behind every element in the document and the window would come
         // out blank rather than high-contrast.
-        using var document = Drawn(".probe { background-color: transparent; }", forced: true);
+        using var document = Drawn(".probe { background-color: transparent; }", true);
 
-        Assert.All(Fills(document), fill => Assert.Equal(0f, fill.Color.A));
+        Assert.All(Fills(document), static fill => Assert.Equal(0f, fill.Color.A));
     }
 
     [Fact]
     public void An_element_that_opts_out_keeps_the_colour_its_sheet_chose() {
         using var document = Drawn(
             ".probe { background-color: #ff0000; forced-color-adjust: none; }",
-            forced: true
+            true
         );
 
         Assert.Equal(Srgb(0xFF0000), Assert.Single(Fills(document)).Color);
@@ -137,8 +144,8 @@ public class ForcedColorsTests {
 
     [Fact]
     public void Outline_hidden_keeps_a_ring_under_forced_colours_and_outline_none_does_not() {
-        using var none = Drawn(".probe { outline-style: none; outline-width: 2px; }", forced: true);
-        using var hidden = Drawn(".probe { outline-style: hidden; outline-width: 2px; }", forced: true);
+        using var none = Drawn(".probe { outline-style: none; outline-width: 2px; }", true);
+        using var hidden = Drawn(".probe { outline-style: hidden; outline-width: 2px; }", true);
 
         // ⚠ CSS UI 4 makes the two words synonyms on an outline and this engine agrees everywhere
         // else — the difference exists only here, and only because Tailwind's `outline-hidden` needs
@@ -166,7 +173,7 @@ public class ForcedColorsTests {
     public void A_restored_ring_ignores_the_transparent_colour_the_class_wrote() {
         using var document = Drawn(
             ".probe { outline-style: hidden; outline-width: 2px; outline-color: transparent; }",
-            forced: true
+            true
         );
 
         // The whole point: v4 writes `outline: 2px solid transparent`, and a ring that honoured that
@@ -176,7 +183,7 @@ public class ForcedColorsTests {
 
     [Fact]
     public void A_restored_ring_keeps_a_width_the_author_gave_it() {
-        using var document = Drawn(".probe { outline-style: hidden; outline-width: 6px; }", forced: true);
+        using var document = Drawn(".probe { outline-style: hidden; outline-width: 6px; }", true);
 
         Assert.Equal(6f, Assert.Single(Rings(document)).Thickness, 0.001f);
     }
@@ -225,12 +232,18 @@ public class ForcedColorsTests {
         Assert.Equal(before + 1, palette.Revision);
     }
 
-    /// <summary>Every one of the fifteen keywords reaches the palette, not only the ten ExCSS has
-    /// never heard of.</summary>
+    /// <summary>
+    ///     Every one of the fifteen keywords reaches the palette, not only the ten ExCSS has
+    ///     never heard of.
+    /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The walk is the point, and a per-role test is exactly what would have been
-    ///         written on the ten that already worked.</b> ExCSS normalises the CSS2 system colours
+    ///         ⚠
+    ///         <b>
+    ///             The walk is the point, and a per-role test is exactly what would have been
+    ///             written on the ten that already worked.
+    ///         </b>
+    ///         ExCSS normalises the CSS2 system colours
     ///         it knows into fixed <c>rgb()</c> while it parses the sheet, so <c>ButtonFace</c>,
     ///         <c>ButtonText</c>, <c>Highlight</c>, <c>HighlightText</c> and <c>GrayText</c> reached
     ///         <c>StyleValueParser</c> as constants and never met <see cref="SystemPalette" /> at
@@ -239,8 +252,12 @@ public class ForcedColorsTests {
     ///         <c>CanvasText</c>, two of the ten CSS Color 4 additions ExCSS passes through.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The five it froze were the five a control theme actually names, so the failure
-    ///         was an accessibility one.</b> The pairs travel together because a forced palette
+    ///         ⚠
+    ///         <b>
+    ///             The five it froze were the five a control theme actually names, so the failure
+    ///             was an accessibility one.
+    ///         </b>
+    ///         The pairs travel together because a forced palette
     ///         guarantees contrast <em>within</em> a pair, and <c>ButtonFace</c>/<c>ButtonText</c>
     ///         and <c>Highlight</c>/<c>HighlightText</c> are two of the three — a high-contrast user
     ///         on High Contrast Black got a light grey button face on a black window, and no
@@ -281,8 +298,12 @@ public class ForcedColorsTests {
     ///     class selector spelt like a keyword and a custom property <em>named</em> after one, in the
     ///     rule that paints the element.
     ///     <para>
-    ///         ⚠ <b>This one was green before the carrier existed and is not evidence that it
-    ///         works</b> — the walk above is. What it guards is the direction the fix could go wrong
+    ///         ⚠
+    ///         <b>
+    ///             This one was green before the carrier existed and is not evidence that it
+    ///             works
+    ///         </b>
+    ///         — the walk above is. What it guards is the direction the fix could go wrong
     ///         in later: dropping the value-position condition turns it red, where every other test
     ///         in this file stays green.
     ///     </para>

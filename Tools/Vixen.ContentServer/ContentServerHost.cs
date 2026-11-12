@@ -92,8 +92,12 @@ public sealed class ContentServerHost : IDisposable {
             }
 
             await reply.WriteBodyToAsync(context.Response.OutputStream, cancellationToken).ConfigureAwait(false);
-            Log?.Invoke(string.Create(CultureInfo.InvariantCulture, $"{(int)reply.Status} {path} ({reply.Length} bytes)"));
-        } catch (Exception failure) when (failure is IOException or HttpListenerException or OperationCanceledException) {
+            Log?.Invoke(
+                string.Create(CultureInfo.InvariantCulture, $"{(int)reply.Status} {path} ({reply.Length} bytes)")
+            );
+        } catch (Exception failure) when (failure is IOException
+                                              or HttpListenerException
+                                              or OperationCanceledException) {
             // A client that hangs up mid-download is the normal way a cancelled install ends, not an
             // event worth taking the server down for.
             Log?.Invoke($"dropped: {failure.Message}");

@@ -30,7 +30,6 @@ namespace Tests;
 ///     </para>
 /// </remarks>
 public class TextureGraphCompilerTests {
-
     static NodeTypeRegistry Registry() {
         NodeTypeRegistry registry = new();
 
@@ -45,8 +44,12 @@ public class TextureGraphCompilerTests {
     /// <summary>Two baked tables that name no asset are two images, however alike their references.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The half of <a href="https://github.com/Rikarin/Vixen/issues/800">#800</a> that
-    ///         needs care, and it is a correctness claim rather than a cost one.</b> The pooling that
+    ///         ⚠
+    ///         <b>
+    ///             The half of <a href="https://github.com/Rikarin/Vixen/issues/800">#800</a> that
+    ///             needs care, and it is a correctness claim rather than a cost one.
+    ///         </b>
+    ///         The pooling that
     ///         issue asks for keys an external image by the asset it names — and an entry that names
     ///         <em>no</em> asset carries bytes the compiler baked from a control an artist dragged. A
     ///         key on the reference alone makes every one of those the empty string, so a graph with
@@ -76,10 +79,10 @@ public class TextureGraphCompilerTests {
 
         Assert.Empty(compilation.Diagnostics);
 
-        var baked = compiler.Externals.Where(external => external.Asset.Length == 0).ToList();
+        var baked = compiler.Externals.Where(static external => external.Asset.Length == 0).ToList();
 
         Assert.Equal(2, baked.Count);
-        Assert.Equal(2, baked.Select(external => external.Image).Distinct().Count());
+        Assert.Equal(2, baked.Select(static external => external.Image).Distinct().Count());
         Assert.NotEqual(baked[0].Texels, baked[1].Texels);
     }
 
@@ -104,14 +107,17 @@ public class TextureGraphCompilerTests {
     [Fact]
     public void Every_node_this_assembly_declares_is_registered() {
         var declared = typeof(TextureGraphCompiler).Assembly.GetTypes()
-            .Select(type => type.GetCustomAttribute<NodeAttribute>())
-            .Where(node => node is not null)
-            .Select(node => node!.Path)
+            .Select(static type => type.GetCustomAttribute<NodeAttribute>())
+            .Where(static node => node is not null)
+            .Select(static node => node!.Path)
             .Order(StringComparer.Ordinal)
             .ToArray();
 
         Assert.NotEmpty(declared);
-        Assert.Equal(declared, Registry().Types.Select(type => type.Path).Order(StringComparer.Ordinal).ToArray());
+        Assert.Equal(
+            declared,
+            Registry().Types.Select(static type => type.Path).Order(StringComparer.Ordinal).ToArray()
+        );
     }
 
     /// <summary>A graph compiles to a plan a test can read, with no device.</summary>
@@ -131,7 +137,7 @@ public class TextureGraphCompilerTests {
         var plan = compilation.Value;
 
         Assert.Empty(compilation.Diagnostics);
-        Assert.Equal(["Noise", "Levels"], plan.Ops.Select(op => op.Kernel).ToArray());
+        Assert.Equal(["Noise", "Levels"], plan.Ops.Select(static op => op.Kernel).ToArray());
         Assert.Equal(2, plan.Images.Length);
         Assert.Equal([1], plan.Outputs);
         Assert.Empty(plan.Validate());
@@ -164,7 +170,7 @@ public class TextureGraphCompilerTests {
 
         var plan = Compiler().Compile(graph).Value;
 
-        Assert.Equal(["Noise", "Levels", "Blur", "Blur"], plan.Ops.Select(op => op.Kernel).ToArray());
+        Assert.Equal(["Noise", "Levels", "Blur", "Blur"], plan.Ops.Select(static op => op.Kernel).ToArray());
     }
 
     /// <summary>A cycle is refused by the model, so the compiler never has to have an opinion.</summary>
@@ -186,8 +192,8 @@ public class TextureGraphCompilerTests {
     /// <summary>An unconnected input takes the number typed on the node.</summary>
     [Fact]
     public void An_unconnected_input_takes_its_inline_value() {
-        var authored = Radius(node => node.SetValue("Radius", 3.5f));
-        var declared = Radius(_ => { });
+        var authored = Radius(static node => node.SetValue("Radius", 3.5f));
+        var declared = Radius(static _ => { });
 
         Assert.Equal(3.5f, authored);
 
@@ -208,7 +214,7 @@ public class TextureGraphCompilerTests {
 
         var plan = Compiler().Compile(graph).Value;
 
-        return plan.Ops.First(op => op.Kernel == "Blur").Find("radius")!.Value.Value;
+        return plan.Ops.First(static op => op.Kernel == "Blur").Find("radius")!.Value.Value;
     }
 
     /// <summary>A blur's radius is a length at the base resolution, and the bake scales it.</summary>
@@ -247,8 +253,12 @@ public class TextureGraphCompilerTests {
 
     /// <summary>A diagnostic names the node and the port an author can see.</summary>
     /// <remarks>
-    ///     Doc 48 § Part 4's second half — colour into a grey port is a type error <em>naming the
-    ///     port</em> — and the whole reason a <c>NodeDiagnostic</c> carries both.
+    ///     Doc 48 § Part 4's second half — colour into a grey port is a type error
+    ///     <em>
+    ///         naming the
+    ///         port
+    ///     </em>
+    ///     — and the whole reason a <c>NodeDiagnostic</c> carries both.
     /// </remarks>
     [Fact]
     public void A_colour_arriving_at_a_measured_port_names_the_node_and_the_port() {
@@ -261,7 +271,7 @@ public class TextureGraphCompilerTests {
         graph.Connect(new(distance.Id, "Out"), new(output.Id, "Input"));
 
         var compilation = Compiler().Compile(graph);
-        var refusal = Assert.Single(compilation.Diagnostics, diagnostic => diagnostic.Id == "TG0004");
+        var refusal = Assert.Single(compilation.Diagnostics, static diagnostic => diagnostic.Id == "TG0004");
 
         Assert.Equal(distance.Id, refusal.Node);
         Assert.Equal("Mask", refusal.Port);
@@ -280,7 +290,7 @@ public class TextureGraphCompilerTests {
     [Fact]
     public void Grey_into_a_colour_port_splats() {
         var plan = Blended("Source/Noise", "Source/Uniform");
-        var splat = Assert.Single(plan.Ops, op => op.Kernel == "ChannelShuffle");
+        var splat = Assert.Single(plan.Ops, static op => op.Kernel == "ChannelShuffle");
 
         Assert.Equal(0f, splat.Find("sourceR")!.Value.Value);
         Assert.Equal(0f, splat.Find("sourceG")!.Value.Value);
@@ -288,9 +298,9 @@ public class TextureGraphCompilerTests {
         Assert.Equal(9f, splat.Find("sourceA")!.Value.Value);
 
         // Before the blend that wanted it, and reading the grey the noise wrote.
-        var blend = plan.Ops.Single(op => op.Kernel == "Blend");
+        var blend = plan.Ops.Single(static op => op.Kernel == "Blend");
 
-        Assert.True(Array.IndexOf([.. plan.Ops], splat) < Array.IndexOf([.. plan.Ops], blend));
+        Assert.True(Array.IndexOf([..plan.Ops], splat) < Array.IndexOf([..plan.Ops], blend));
         Assert.Contains(splat.Output, blend.Inputs);
         Assert.Equal(TextureFormat.Rgba16Float, plan.Images[splat.Output].Format);
     }
@@ -306,14 +316,18 @@ public class TextureGraphCompilerTests {
     public void Grey_into_grey_stays_grey() {
         var plan = Blended("Source/Noise", "Source/Noise");
 
-        Assert.DoesNotContain(plan.Ops, op => op.Kernel == "ChannelShuffle");
-        Assert.All(plan.Images, image => Assert.Equal(TextureFormat.R16Float, image.Format));
+        Assert.DoesNotContain(plan.Ops, static op => op.Kernel == "ChannelShuffle");
+        Assert.All(plan.Images, static image => Assert.Equal(TextureFormat.R16Float, image.Format));
     }
 
     /// <summary>One grey feeding two colour ports is splatted once.</summary>
     /// <remarks>
-    ///     ⚠ <b>The only claim in this file no sabotage of the compiler could make red without also
-    ///     making something else red</b>, and it is worth an assertion of its own: a promotion per port
+    ///     ⚠
+    ///     <b>
+    ///         The only claim in this file no sabotage of the compiler could make red without also
+    ///         making something else red
+    ///     </b>
+    ///     , and it is worth an assertion of its own: a promotion per port
     ///     is a *correct picture* drawn by twice the dispatches and twice the pool, which is the class
     ///     of defect that never gets reported. Both ports must still see the promoted image and not the
     ///     grey one.
@@ -338,8 +352,8 @@ public class TextureGraphCompilerTests {
         Assert.Empty(compilation.Diagnostics);
 
         var plan = compilation.Value;
-        var splat = Assert.Single(plan.Ops, op => op.Kernel == "ChannelShuffle");
-        var blends = plan.Ops.Where(op => op.Kernel == "Blend").ToArray();
+        var splat = Assert.Single(plan.Ops, static op => op.Kernel == "ChannelShuffle");
+        var blends = plan.Ops.Where(static op => op.Kernel == "Blend").ToArray();
 
         Assert.Equal(2, blends.Length);
         Assert.All(blends, blend => Assert.Contains(splat.Output, blend.Inputs));
@@ -351,8 +365,8 @@ public class TextureGraphCompilerTests {
     public void Colour_into_colour_inserts_nothing() {
         var plan = Blended("Source/Uniform", "Source/Uniform");
 
-        Assert.DoesNotContain(plan.Ops, op => op.Kernel == "ChannelShuffle");
-        Assert.All(plan.Images, image => Assert.Equal(TextureFormat.Rgba16Float, image.Format));
+        Assert.DoesNotContain(plan.Ops, static op => op.Kernel == "ChannelShuffle");
+        Assert.All(plan.Images, static image => Assert.Equal(TextureFormat.Rgba16Float, image.Format));
     }
 
     static TexturePlan Blended(string background, string foreground) {
@@ -413,7 +427,7 @@ public class TextureGraphCompilerTests {
         graph.Connect(new(blend.Id, "Out"), new(output.Id, "Input"));
 
         var compilation = Compiler().Compile(graph);
-        var refusal = Assert.Single(compilation.Diagnostics, diagnostic => diagnostic.Id == "TG0010");
+        var refusal = Assert.Single(compilation.Diagnostics, static diagnostic => diagnostic.Id == "TG0010");
 
         Assert.Equal(blend.Id, refusal.Node);
         Assert.Equal("Mode", refusal.Port);
@@ -431,8 +445,12 @@ public class TextureGraphCompilerTests {
     ///         the triple is invalid in a way anything could name.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Both halves in one case, because a warning that fired on the fix would be worse
-    ///         than the silence.</b> With <c>Normalise</c> off the same triple is exactly what an
+    ///         ⚠
+    ///         <b>
+    ///             Both halves in one case, because a warning that fired on the fix would be worse
+    ///             than the silence.
+    ///         </b>
+    ///         With <c>Normalise</c> off the same triple is exactly what an
     ///         author asking for a channel difference means, so the second half of this is a
     ///         <c>DoesNotContain</c> — and it is the assertion that would go red on a check written
     ///         against the weights alone rather than against the weights <em>and</em> the flag.
@@ -457,8 +475,8 @@ public class TextureGraphCompilerTests {
             return graph;
         }
 
-        var normalised = Compiler().Compile(Difference(normalise: true));
-        var warning = Assert.Single(normalised.Diagnostics, diagnostic => diagnostic.Id == "TG0007");
+        var normalised = Compiler().Compile(Difference(true));
+        var warning = Assert.Single(normalised.Diagnostics, static diagnostic => diagnostic.Id == "TG0007");
 
         Assert.Equal("Normalise", warning.Port);
         Assert.Equal(NodeSeverity.Warning, warning.Severity);
@@ -470,8 +488,8 @@ public class TextureGraphCompilerTests {
         Assert.NotNull(normalised.Value);
 
         Assert.DoesNotContain(
-            Compiler().Compile(Difference(normalise: false)).Diagnostics,
-            diagnostic => diagnostic.Id == "TG0007"
+            Compiler().Compile(Difference(false)).Diagnostics,
+            static diagnostic => diagnostic.Id == "TG0007"
         );
     }
 
@@ -480,8 +498,11 @@ public class TextureGraphCompilerTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <b>The half the first guard could not see, and the half the compound README calls
-    ///         worse.</b> That guard measured the kernel's own fallback threshold — an absolute
+    ///         <b>
+    ///             The half the first guard could not see, and the half the compound README calls
+    ///             worse.
+    ///         </b>
+    ///         That guard measured the kernel's own fallback threshold — an absolute
     ///         <c>1e-6</c> — so <c>(−1, 1, 0.001)</c>, three orders above it, warned about nothing:
     ///         the division happens, and the picture comes out multiplied by a thousand.
     ///     </para>
@@ -508,7 +529,7 @@ public class TextureGraphCompilerTests {
         graph.Connect(new(grey.Id, "Out"), new(output.Id, "Input"));
 
         var compiled = Compiler().Compile(graph);
-        var warning = Assert.Single(compiled.Diagnostics, diagnostic => diagnostic.Id == "TG0007");
+        var warning = Assert.Single(compiled.Diagnostics, static diagnostic => diagnostic.Id == "TG0007");
 
         Assert.Equal("Normalise", warning.Port);
         Assert.Equal(NodeSeverity.Warning, warning.Severity);
@@ -532,7 +553,7 @@ public class TextureGraphCompilerTests {
 
         var compilation = Compiler().Compile(graph);
 
-        Assert.Contains(compilation.Diagnostics, diagnostic => diagnostic.Id == "TG0005");
+        Assert.Contains(compilation.Diagnostics, static diagnostic => diagnostic.Id == "TG0005");
         Assert.Null(compilation.Artefact);
     }
 
@@ -549,7 +570,10 @@ public class TextureGraphCompilerTests {
         graph.Connect(new(noise.Id, "Out"), new(first.Id, "Input"));
         graph.Connect(new(noise.Id, "Out"), new(second.Id, "Input"));
 
-        var refusal = Assert.Single(Compiler().Compile(graph).Diagnostics, diagnostic => diagnostic.Id == "TG0006");
+        var refusal = Assert.Single(
+            Compiler().Compile(graph).Diagnostics,
+            static diagnostic => diagnostic.Id == "TG0006"
+        );
 
         Assert.Equal(second.Id, refusal.Node);
     }
@@ -563,7 +587,10 @@ public class TextureGraphCompilerTests {
 
         graph.Connect(new(blur.Id, "Out"), new(output.Id, "Input"));
 
-        var refusal = Assert.Single(Compiler().Compile(graph).Diagnostics, diagnostic => diagnostic.Id == "TG0002");
+        var refusal = Assert.Single(
+            Compiler().Compile(graph).Diagnostics,
+            static diagnostic => diagnostic.Id == "TG0002"
+        );
 
         Assert.Equal(blur.Id, refusal.Node);
         Assert.Equal("Input", refusal.Port);
@@ -571,8 +598,12 @@ public class TextureGraphCompilerTests {
 
     /// <summary>A distance node is one jump-flood dispatch per halving, plus the read.</summary>
     /// <remarks>
-    ///     ⚠ <b>The one node whose op count depends on the resolution the graph is <em>baked</em>
-    ///     at</b>, which is why the compiler has to know that number rather than only the plan.
+    ///     ⚠
+    ///     <b>
+    ///         The one node whose op count depends on the resolution the graph is <em>baked</em>
+    ///         at
+    ///     </b>
+    ///     , which is why the compiler has to know that number rather than only the plan.
     /// </remarks>
     [Theory]
     [InlineData(256, 0, 8)]
@@ -581,8 +612,8 @@ public class TextureGraphCompilerTests {
     public void A_distance_node_is_one_pass_per_halving(int authored, int bake, int passes) {
         var plan = Measured(authored, bake);
 
-        Assert.Equal(passes, plan.Ops.Count(op => op.Kernel == "JumpFlood"));
-        Assert.Single(plan.Ops, op => op.Kernel == "Distance");
+        Assert.Equal(passes, plan.Ops.Count(static op => op.Kernel == "JumpFlood"));
+        Assert.Single(plan.Ops, static op => op.Kernel == "Distance");
     }
 
     /// <summary>The size a node was told is the size the plan reports for a level-0 image.</summary>
@@ -602,7 +633,10 @@ public class TextureGraphCompilerTests {
         var plan = Measured(authored, bake);
         var size = plan.SizeOf(plan.Outputs[0]);
 
-        Assert.Equal(TextureAnalysis.FloodDispatches(size.X, size.Y), plan.Ops.Count(op => op.Kernel == "JumpFlood"));
+        Assert.Equal(
+            TextureAnalysis.FloodDispatches(size.X, size.Y),
+            plan.Ops.Count(static op => op.Kernel == "JumpFlood")
+        );
     }
 
     static TexturePlan Measured(int authored, int bake) {
@@ -738,19 +772,22 @@ public class TextureGraphCompilerTests {
 
         Assert.NotEmpty(plan.Ops);
 
-        foreach (var kernel in plan.Ops.Select(op => op.Kernel).Distinct(StringComparer.Ordinal)) {
+        foreach (var kernel in plan.Ops.Select(static op => op.Kernel).Distinct(StringComparer.Ordinal)) {
             var data = Compile(kernel);
 
             var declared = data.Parameters
-                .Where(member => member.Set == DescriptorSetSlot.PerMaterial)
+                .Where(static member => member.Set == DescriptorSetSlot.PerMaterial)
                 .Select(member => Unqualified(member.Name, data.ShaderName))
                 // `seed` is the one member the evaluator fills itself, from `TexturePlan.SeedFor`.
-                .Where(name => !TexturePlan.Supplies(name))
+                .Where(static name => !TexturePlan.Supplies(name))
                 .Order(StringComparer.Ordinal)
                 .ToArray();
 
             foreach (var op in plan.Ops.Where(candidate => candidate.Kernel == kernel)) {
-                Assert.Equal(declared, op.Parameters.Select(parameter => parameter.Name).Order(StringComparer.Ordinal).ToArray());
+                Assert.Equal(
+                    declared,
+                    op.Parameters.Select(static parameter => parameter.Name).Order(StringComparer.Ordinal).ToArray()
+                );
             }
         }
     }
@@ -766,9 +803,13 @@ public class TextureGraphCompilerTests {
     public void Every_op_a_node_emits_reads_as_many_images_as_its_kernel_binds() {
         var plan = Everything();
 
-        foreach (var kernel in plan.Ops.Select(op => op.Kernel).Distinct(StringComparer.Ordinal)) {
-            var textures = Compile(kernel).Bindings
-                .Count(binding => binding is { Set: DescriptorSetSlot.PerMaterial, Kind: DescriptorKind.SampledTexture });
+        foreach (var kernel in plan.Ops.Select(static op => op.Kernel).Distinct(StringComparer.Ordinal)) {
+            var textures = Compile(kernel)
+                .Bindings
+                .Count(static binding => binding is {
+                        Set: DescriptorSetSlot.PerMaterial, Kind: DescriptorKind.SampledTexture
+                    }
+                );
 
             foreach (var op in plan.Ops.Where(candidate => candidate.Kernel == kernel)) {
                 Assert.Equal(textures, op.Inputs.Length);
@@ -820,11 +861,12 @@ public class TextureGraphCompilerTests {
     static string Describe(TexturePlan plan) =>
         string.Join(
             "\n",
-            plan.Images.Select((image, index) => $"image {index}: {image.Format} {image.LevelOffset}")
+            plan.Images.Select(static (image, index) => $"image {index}: {image.Format} {image.LevelOffset}")
                 .Concat(
-                    plan.Ops.Select((op, index) =>
+                    plan.Ops.Select(static (op, index) =>
                         $"op {index}: {op.Kernel} -> {op.Output} <- [{string.Join(", ", op.Inputs)}] "
-                        + $"{{{string.Join(", ", op.Parameters.Select(parameter => $"{parameter.Name}={parameter.Value}:{parameter.Unit}"))}}}")
+                        + $"{{{string.Join(", ", op.Parameters.Select(static parameter => $"{parameter.Name}={parameter.Value}:{parameter.Unit}"))}}}"
+                    )
                 )
                 .Append($"outputs: {string.Join(", ", plan.Outputs)}")
         );

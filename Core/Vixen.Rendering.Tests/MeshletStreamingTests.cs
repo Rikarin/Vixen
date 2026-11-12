@@ -58,7 +58,9 @@ public class MeshletStreamingTests : IDisposable {
     ///     </para>
     /// </remarks>
     sealed class DelayedSource(MeshletPageSet pages, int frames) : IMeshletPageSource {
-        readonly List<(TaskCompletionSource<int> Completion, Memory<byte> Destination, int Index, int Due)> waiting = [];
+        readonly List<(TaskCompletionSource<int> Completion, Memory<byte> Destination, int Index, int Due)> waiting =
+            [];
+
         readonly Lock gate = new();
 
         int frame;
@@ -152,7 +154,7 @@ public class MeshletStreamingTests : IDisposable {
         var south = positions.Count - 1;
         var indices = new List<int>();
 
-        int At(int ring, int segment) => 1 + ((ring - 1) * segments) + (segment % segments);
+        int At(int ring, int segment) => 1 + (ring - 1) * segments + segment % segments;
 
         for (var segment = 0; segment < segments; segment++) {
             indices.AddRange([0, At(1, segment + 1), At(1, segment)]);
@@ -171,7 +173,7 @@ public class MeshletStreamingTests : IDisposable {
             }
         }
 
-        return new() { Positions = [.. positions], Indices = [.. indices] };
+        return new() { Positions = [..positions], Indices = [..indices] };
     }
 
     /// <summary>A sphere, its DAG, and its pages — small enough that a page holds a few clusters.</summary>
@@ -196,7 +198,7 @@ public class MeshletStreamingTests : IDisposable {
         var (_, mesh, pages) = Scene();
 
         var slots = Math.Max(2, pages.Pages.Length / 4);
-        var source = new DelayedSource(pages, frames: 2);
+        var source = new DelayedSource(pages, 2);
 
         using var pool = new MeshletPagePool(device, source, slots, pages.PageSize);
         using var residency = new PageResidency(pool, (long)slots * pages.PageSize);
@@ -204,7 +206,10 @@ public class MeshletStreamingTests : IDisposable {
         residency.Pin(new(0, 0));
 
         var budget = residency.Budget;
-        Assert.True(pages.TotalBytes >= budget * 4, $"The scene is {pages.TotalBytes} bytes against a budget of {budget}.");
+        Assert.True(
+            pages.TotalBytes >= budget * 4,
+            $"The scene is {pages.TotalBytes} bytes against a budget of {budget}."
+        );
 
         foreach (var distance in Path()) {
             Frame(residency, pool, source, mesh, pages, distance);
@@ -243,7 +248,7 @@ public class MeshletStreamingTests : IDisposable {
         var (_, mesh, pages) = Scene();
 
         var slots = Math.Max(2, pages.Pages.Length / 4);
-        var source = new DelayedSource(pages, frames: 2);
+        var source = new DelayedSource(pages, 2);
 
         using var pool = new MeshletPagePool(device, source, slots, pages.PageSize);
         using var residency = new PageResidency(pool, (long)slots * pages.PageSize);
@@ -282,7 +287,7 @@ public class MeshletStreamingTests : IDisposable {
         var (_, mesh, pages) = Scene();
 
         var slots = Math.Max(2, pages.Pages.Length / 4);
-        var source = new DelayedSource(pages, frames: 2);
+        var source = new DelayedSource(pages, 2);
 
         using var pool = new MeshletPagePool(device, source, slots, pages.PageSize);
         using var residency = new PageResidency(pool, (long)slots * pages.PageSize);
@@ -313,7 +318,7 @@ public class MeshletStreamingTests : IDisposable {
     public void A_stationary_camera_converges_on_the_cut_it_asked_for() {
         var (_, mesh, pages) = Scene();
 
-        var source = new DelayedSource(pages, frames: 1);
+        var source = new DelayedSource(pages, 1);
 
         using var pool = new MeshletPagePool(device, source, pages.Pages.Length, pages.PageSize);
         using var residency = new PageResidency(pool, pages.TotalBytes);
@@ -348,7 +353,7 @@ public class MeshletStreamingTests : IDisposable {
     public void The_root_page_is_enough_to_draw_the_object() {
         var (_, mesh, pages) = Scene();
 
-        var source = new DelayedSource(pages, frames: 0);
+        var source = new DelayedSource(pages, 0);
 
         using var pool = new MeshletPagePool(device, source, 1, pages.PageSize);
         using var residency = new PageResidency(pool, pages.PageSize);
@@ -417,17 +422,16 @@ public class MeshletStreamingTests : IDisposable {
     /// <summary>A camera path: in towards the sphere, round it, and out again.</summary>
     static IEnumerable<float> Path() {
         for (var step = 0; step < 60; step++) {
-            yield return 8f - (step * 0.12f);
+            yield return 8f - step * 0.12f;
         }
 
         for (var step = 0; step < 60; step++) {
-            yield return 0.8f + (step * 0.12f);
+            yield return 0.8f + step * 0.12f;
         }
     }
 
     /// <summary>The object-space threshold a distance implies, at one pixel of deviation.</summary>
-    static float Threshold(float distance) =>
-        MeshletCut.ErrorForPixels(1f, distance, MathF.PI / 3f, 1080f);
+    static float Threshold(float distance) => MeshletCut.ErrorForPixels(1f, distance, MathF.PI / 3f, 1080f);
 
     /// <summary>Whether every edge of the cut carries exactly two triangles.</summary>
     /// <remarks>
@@ -443,14 +447,14 @@ public class MeshletStreamingTests : IDisposable {
         for (var corner = 0; corner < corners.Length; corner += 3) {
             for (var side = 0; side < 3; side++) {
                 var a = welded[corners[corner + side]];
-                var b = welded[corners[corner + ((side + 1) % 3)]];
+                var b = welded[corners[corner + (side + 1) % 3]];
                 var key = a < b ? (a, b) : (b, a);
 
                 edges[key] = edges.GetValueOrDefault(key) + 1;
             }
         }
 
-        return edges.Values.All(count => count == 2);
+        return edges.Values.All(static count => count == 2);
     }
 
     /// <summary>Vertices welded by position, because a seam is two indices at one point.</summary>
@@ -536,8 +540,11 @@ public class MeshletStreamingTests : IDisposable {
 
         // Every page read exactly its own bytes and no more — the blob is far larger than the sum, since
         // a page's used size is at most a slot and the last one is short.
-        Assert.Equal(pages.Pages.Sum(page => (long)page.Size), counted.BytesRead);
-        Assert.True(counted.BytesRead < pages.Data.Length, "A source that read the whole blob would pass every other assertion here.");
+        Assert.Equal(pages.Pages.Sum(static page => (long)page.Size), counted.BytesRead);
+        Assert.True(
+            counted.BytesRead < pages.Data.Length,
+            "A source that read the whole blob would pass every other assertion here."
+        );
     }
 
     /// <summary>

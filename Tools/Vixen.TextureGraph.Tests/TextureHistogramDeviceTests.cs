@@ -39,14 +39,14 @@ public class TextureHistogramDeviceTests(ITestOutputHelper output) {
             }
         }
 
-        return [.. counts.Select(count => count / (side * side))];
+        return [..counts.Select(count => count / (side * side))];
     }
 
     /// <summary>
     ///     A picture whose every column differs from its neighbour: a counter that skipped columns would count
     ///     another histogram. The top half is a scramble of every byte, the bottom half the lower 128 only.
     /// </summary>
-    static int MixedByte(int x, int y, int side) => y < side / 2 ? ((x * 37) + (y * y)) % 256 : (x * 5) % 128;
+    static int MixedByte(int x, int y, int side) => y < side / 2 ? (x * 37 + y * y) % 256 : x * 5 % 128;
 
     [Theory]
     [InlineData(64)]
@@ -59,21 +59,21 @@ public class TextureHistogramDeviceTests(ITestOutputHelper output) {
 
         var picture = Grey(side, side, (x, y) => MixedByte(x, y, side) / 255f);
         var shares = Shares(side, (x, y) => MixedByte(x, y, side));
-        var density = Bake(device, "Analysis/Histogram", side, side, [new("Input", picture, Grey: true)]);
+        var density = Bake(device, "Analysis/Histogram", side, side, [new("Input", picture, true)]);
         var cumulative = Bake(
             device,
             "Analysis/Histogram",
             side,
             side,
-            [new("Input", picture, Grey: true)],
-            node => node.SetText("Mode", "Cumulative")
+            [new("Input", picture, true)],
+            static node => node.SetText("Mode", "Cumulative")
         );
 
         for (var x = 0; x < side; x++) {
             var u = (x + 0.5) / side;
             var bin = Math.Min((int)Math.Floor(u * 256), 255);
             var below = shares.Take(bin).Sum();
-            var expected = below + (shares[bin] * ((u * 256) - bin));
+            var expected = below + shares[bin] * (u * 256 - bin);
 
             foreach (var y in (int[])[0, side / 3, side - 1]) {
                 Assert.Equal((float)(shares[bin] * 256), density.At(x, y, 0), 0.002f);
@@ -95,10 +95,17 @@ public class TextureHistogramDeviceTests(ITestOutputHelper output) {
     public void A_sweep_has_a_flat_histogram_and_its_distribution_is_the_identity(int side) {
         using var device = TextureKernelHarness.Open();
 
-        Wire[] sweep = [new("Input", [], Grey: true, Source: "Source/Gradient")];
+        Wire[] sweep = [new("Input", [], true, "Source/Gradient")];
 
         var density = Bake(device, "Analysis/Histogram", side, side, sweep);
-        var cumulative = Bake(device, "Analysis/Histogram", side, side, sweep, node => node.SetText("Mode", "Cumulative"));
+        var cumulative = Bake(
+            device,
+            "Analysis/Histogram",
+            side,
+            side,
+            sweep,
+            static node => node.SetText("Mode", "Cumulative")
+        );
 
         for (var x = 0; x < side; x++) {
             Assert.Equal(1f, density.At(x, side / 2, 0), 0.0001f);
@@ -113,13 +120,13 @@ public class TextureHistogramDeviceTests(ITestOutputHelper output) {
         const int Side = 256;
 
         // Every byte below 128 is held by 384 texels and every byte above by 128: bars of one and a third.
-        var bars = Bake(device, "Analysis/Histogram Render", Side, Side, [new("Input", Halves(Side), Grey: true)]);
+        var bars = Bake(device, "Analysis/Histogram Render", Side, Side, [new("Input", Halves(Side), true)]);
 
         for (var x = 0; x < Side; x++) {
             var height = x < 128 ? 1f : 1f / 3f;
 
             for (var y = 0; y < Side; y++) {
-                var up = 1f - ((y + 0.5f) / Side);
+                var up = 1f - (y + 0.5f) / Side;
 
                 if (MathF.Abs(up - height) > 0.01f) {
                     Assert.Equal(up <= height ? 1f : 0f, bars.At(x, y, 0), 0.0001f);
@@ -132,8 +139,8 @@ public class TextureHistogramDeviceTests(ITestOutputHelper output) {
             "Analysis/Histogram Render",
             Side,
             Side,
-            [new("Input", Halves(Side), Grey: true)],
-            node => node.SetValue("Cumulative", 1f)
+            [new("Input", Halves(Side), true)],
+            static node => node.SetValue("Cumulative", 1f)
         );
 
         // The distribution function: three quarters of the image is below byte 128.
@@ -154,7 +161,7 @@ public class TextureHistogramDeviceTests(ITestOutputHelper output) {
             "Colour/Histogram Equalise",
             Side,
             Side,
-            [new("Input", Grey(Side, Side, (x, _) => x / 255f), Grey: true)]
+            [new("Input", Grey(Side, Side, static (x, _) => x / 255f), true)]
         );
 
         for (var x = 0; x < Side; x++) {
@@ -164,10 +171,10 @@ public class TextureHistogramDeviceTests(ITestOutputHelper output) {
         // A square of a ramp is bunched at the dark end: a quarter of it is below 1/16. Equalised, the rank
         // comes back to within a bin's share — and the bins are bytes, so the darkest holds every value
         // under 1/510, about one texel in twenty-two, all read at nought.
-        static float Ramp(int x, int y) => (((y * Side) + x) + 0.5f) / (Side * Side);
+        static float Ramp(int x, int y) => (y * Side + x + 0.5f) / (Side * Side);
 
         var bunched = Grey(Side, Side, (x, y) => Ramp(x, y) * Ramp(x, y));
-        var spread = Bake(device, "Colour/Histogram Equalise", Side, Side, [new("Input", bunched, Grey: true)]);
+        var spread = Bake(device, "Colour/Histogram Equalise", Side, Side, [new("Input", bunched, true)]);
         var worst = 0f;
 
         for (var y = 0; y < Side; y++) {
@@ -195,10 +202,10 @@ public class TextureHistogramDeviceTests(ITestOutputHelper output) {
     public void A_summed_area_table_is_the_sum_to_each_texel_over_the_texel_count(int width, int height) {
         using var device = TextureKernelHarness.Open();
 
-        static float Value(int x, int y) => ((x * 7) + (y * 13)) % 256 / 255f;
+        static float Value(int x, int y) => (x * 7 + y * 13) % 256 / 255f;
 
         var picture = Grey(width, height, Value);
-        var table = Bake(device, "Analysis/Summed Area Table", width, height, [new("Input", picture, Grey: true)]);
+        var table = Bake(device, "Analysis/Summed Area Table", width, height, [new("Input", picture, true)]);
 
         // The prefix sums, on the CPU, in double.
         var sums = new double[width * height];
@@ -208,18 +215,18 @@ public class TextureHistogramDeviceTests(ITestOutputHelper output) {
 
             for (var x = 0; x < width; x++) {
                 row += Unit(Value(x, y));
-                sums[(y * width) + x] = row + (y > 0 ? sums[((y - 1) * width) + x] : 0);
+                sums[y * width + x] = row + (y > 0 ? sums[(y - 1) * width + x] : 0);
             }
         }
 
-        var count = (double)(width * height);
+        double count = width * height;
 
         for (var y = 0; y < height; y++) {
             for (var x = 0; x < width; x++) {
-                var expected = (float)(sums[(y * width) + x] / count);
+                var expected = (float)(sums[y * width + x] / count);
 
                 Assert.True(
-                    MathF.Abs(expected - table.At(x, y, 0)) < 1e-5f + (expected * 1e-5f),
+                    MathF.Abs(expected - table.At(x, y, 0)) < 1e-5f + expected * 1e-5f,
                     $"({x}, {y}) is {table.At(x, y, 0)} where the sum to it is {expected}"
                 );
             }

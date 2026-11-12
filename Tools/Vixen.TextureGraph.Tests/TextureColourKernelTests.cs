@@ -17,8 +17,12 @@ namespace Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>This file carries the claims a device suite cannot be trusted with, because a device
-///         suite skips.</b> On a machine with no Vulkan loader every assertion in
+///         ⚠
+///         <b>
+///             This file carries the claims a device suite cannot be trusted with, because a device
+///             suite skips.
+///         </b>
+///         On a machine with no Vulkan loader every assertion in
 ///         <c>TextureColourDeviceTests</c> and <c>TextureSpaceDeviceTests</c> is skipped and the run
 ///         is green — so the two things that would silently rot, the kernel list and the binding
 ///         order the evaluator binds positionally over, are written down here where nothing skips.
@@ -32,7 +36,7 @@ namespace Tests;
 ///     </para>
 /// </remarks>
 public class TextureColourKernelTests {
-    public static TheoryData<string> Kernels => [.. TextureColourKernels.All];
+    public static TheoryData<string> Kernels => [..TextureColourKernels.All];
 
     /// <summary>Every kernel any surface registers is embedded, and every kernel embedded is registered.</summary>
     /// <remarks>
@@ -51,8 +55,12 @@ public class TextureColourKernelTests {
     ///         unclaimed.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>There is no escape hatch beside that union any more, and removing it was a
-    ///         strengthening rather than a tidy</b> —
+    ///         ⚠
+    ///         <b>
+    ///             There is no escape hatch beside that union any more, and removing it was a
+    ///             strengthening rather than a tidy
+    ///         </b>
+    ///         —
     ///         <a href="https://github.com/Rikarin/Vixen/issues/999">#999</a>. An <c>Existing</c>
     ///         array excused <c>Blend</c>, <c>Blur</c> and <c>Levels</c> from a time before any of
     ///         the three was held by a surface; all three are held now, so the <c>Concat</c> was a
@@ -62,8 +70,11 @@ public class TextureColourKernelTests {
     ///         to.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Deleted rather than guarded, which is the opposite of what
-    ///         <c>TextureNodeLibraryTests</c>' <c>Deliberate</c> table does, and deliberately.</b>
+    ///         ⚠
+    ///         <b>
+    ///             Deleted rather than guarded, which is the opposite of what
+    ///             <c>TextureNodeLibraryTests</c>' <c>Deliberate</c> table does, and deliberately.
+    ///         </b>
     ///         That table's entries are decisions somebody has to be able to defend and there is no
     ///         mechanism that could remove the need for them, so it is guarded and can only shrink.
     ///         An unclaimed kernel is not a decision: <see cref="TextureKernelSurfaces" /> enumerates
@@ -89,7 +100,7 @@ public class TextureColourKernelTests {
         // § D3 bans, and it would be excused by this line rather than caught by it.
         var cpu = CpuOperations();
 
-        Assert.All(cpu, name => Assert.DoesNotContain(name, TextureKernels.Names));
+        Assert.All(cpu, static name => Assert.DoesNotContain(name, TextureKernels.Names));
 
         var registered = Declared()
             .Except(cpu, StringComparer.Ordinal)
@@ -111,30 +122,41 @@ public class TextureColourKernelTests {
     /// </remarks>
     static IReadOnlyCollection<string> CpuOperations() =>
         TextureKernelSurfaces.Ops(TextureKernelSurfaces.Assembly)
-            .Where(op => op.Cpu is not null)
-            .Select(op => op.Kernel)
+            .Where(static op => op.Cpu is not null)
+            .Select(static op => op.Kernel)
             .ToHashSet(StringComparer.Ordinal);
 
     /// <summary>Every kernel name any slice of this assembly declares, found rather than listed.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>The convention this reads is one line long: a slice declares its kernels on a type
-    ///         marked <see cref="TextureKernelSurfaceAttribute" />.</b> <c>TextureColourKernels.All</c>
+    ///         <b>
+    ///             The convention this reads is one line long: a slice declares its kernels on a type
+    ///             marked <see cref="TextureKernelSurfaceAttribute" />.
+    ///         </b>
+    ///         <c>TextureColourKernels.All</c>
     ///         is a list of names, <c>TextureSources.All</c> is a list of ops that carry one — both are
     ///         answered by <see cref="TextureKernelSurfaces" />, and a slice that adds a third surface
     ///         needs no edit to this file.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The detector used to be the member name alone, and a member name is not a
-    ///         predicate</b> (<a href="https://github.com/Rikarin/Vixen/issues/814">#814</a>). Any
+    ///         ⚠
+    ///         <b>
+    ///             The detector used to be the member name alone, and a member name is not a
+    ///             predicate
+    ///         </b>
+    ///         (<a href="https://github.com/Rikarin/Vixen/issues/814">#814</a>). Any
     ///         static <c>All</c> of strings in the assembly joined the kernel inventory — measured,
     ///         when a diagnostics registry called its id list <c>All</c> and this roll call went red
     ///         naming <c>Tile</c>. The marker is read now, and
     ///         <c>TextureKernelSurfaceTests</c> is where a decoy proves it has a false case.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Written by hand first, and that version was wrong in a way only a merge could
-    ///         show.</b> Naming the surfaces in this method's own text made the roll call green on
+    ///         ⚠
+    ///         <b>
+    ///             Written by hand first, and that version was wrong in a way only a merge could
+    ///             show.
+    ///         </b>
+    ///         Naming the surfaces in this method's own text made the roll call green on
     ///         every branch and red the moment two of them landed together, because the folder is
     ///         shared and the declarations are not. Enumerating them is the same move this repository
     ///         already makes for shader slots and for the pairing inventory: read the thing, do not
@@ -147,8 +169,12 @@ public class TextureColourKernelTests {
     ///     Each kernel declares its inputs in the order the evaluator binds an op's images over them.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>Nothing in the C# would notice a kernel that declared its two textures the other way
-    ///     round.</b> <c>BindingPlan</c> puts the uniform block at binding 0 and the textures in
+    ///     ⚠
+    ///     <b>
+    ///         Nothing in the C# would notice a kernel that declared its two textures the other way
+    ///         round.
+    ///     </b>
+    ///     <c>BindingPlan</c> puts the uniform block at binding 0 and the textures in
     ///     declaration order, and <c>TexturePlanEvaluator.Bind</c> walks an op's inputs positionally
     ///     over them — so a <c>Curve</c> that declared its table before its image would read the
     ///     image as a table and the table as an image, and produce a picture. Which one is a picture
@@ -178,9 +204,12 @@ public class TextureColourKernelTests {
         var data = Compile(kernel);
 
         var textures = data.Bindings
-            .Where(binding => binding is { Set: DescriptorSetSlot.PerMaterial, Kind: DescriptorKind.SampledTexture })
-            .OrderBy(binding => binding.Binding)
-            .Select(binding => binding.Name)
+            .Where(static binding => binding is {
+                    Set: DescriptorSetSlot.PerMaterial, Kind: DescriptorKind.SampledTexture
+                }
+            )
+            .OrderBy(static binding => binding.Binding)
+            .Select(static binding => binding.Name)
             .ToArray();
 
         Assert.Equal(inputs, textures);
@@ -191,8 +220,12 @@ public class TextureColourKernelTests {
     ///     style.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b><c>TexturePlanEvaluator.Bind</c> handles a uniform block, sampled textures and one
-    ///     storage image, and throws on anything else.</b> A kernel that reached for
+    ///     ⚠
+    ///     <b>
+    ///         <c>TexturePlanEvaluator.Bind</c> handles a uniform block, sampled textures and one
+    ///         storage image, and throws on anything else.
+    ///     </b>
+    ///     A kernel that reached for
     ///     <c>SampleLevel</c> would need a <c>SamplerState</c>, which is a
     ///     <c>DescriptorKind.Sampler</c> binding, and the failure would arrive at evaluation as a
     ///     message about a descriptor kind rather than as "this kernel cannot be run here". It is
@@ -205,12 +238,12 @@ public class TextureColourKernelTests {
 
         Assert.DoesNotContain(
             data.Bindings,
-            binding => binding.Set == DescriptorSetSlot.PerMaterial && binding.Kind == DescriptorKind.Sampler
+            static binding => binding.Set == DescriptorSetSlot.PerMaterial && binding.Kind == DescriptorKind.Sampler
         );
 
         Assert.Single(
             data.Bindings,
-            binding => binding is { Set: DescriptorSetSlot.PerMaterial, Kind: DescriptorKind.StorageTexture }
+            static binding => binding is { Set: DescriptorSetSlot.PerMaterial, Kind: DescriptorKind.StorageTexture }
         );
     }
 
@@ -231,7 +264,7 @@ public class TextureColourKernelTests {
 
         Assert.DoesNotContain(
             data.Bindings,
-            binding => binding.Set == DescriptorSetSlot.PerMaterial
+            static binding => binding.Set == DescriptorSetSlot.PerMaterial
                 && binding.Kind is DescriptorKind.UniformBuffer or DescriptorKind.DynamicUniformBuffer
         );
     }
@@ -241,8 +274,12 @@ public class TextureColourKernelTests {
     ///     <see cref="TextureChannelSource" /> spells.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>The kernel cannot raise, so a selector it does not recognise falls through to the
-    ///     first input's red — a plausible picture.</b> Two tables, one of them in a shader, is
+    ///     ⚠
+    ///     <b>
+    ///         The kernel cannot raise, so a selector it does not recognise falls through to the
+    ///         first input's red — a plausible picture.
+    ///     </b>
+    ///     Two tables, one of them in a shader, is
     ///     exactly the arrangement that drifts; this reads the constants back out of the source.
     /// </remarks>
     [Fact]
@@ -297,8 +334,12 @@ public class TextureColourKernelTests {
 
     /// <summary>An identity spline bakes to a table whose entry <c>k</c> is <c>k</c>.</summary>
     /// <remarks>
-    ///     ⚠ <b>This is the assertion every <c>Curve</c> golden rests on, and it is about
-    ///     <c>CurveEvaluation</c> rather than about a kernel.</b> If <see cref="TextureRamp.Straight" />
+    ///     ⚠
+    ///     <b>
+    ///         This is the assertion every <c>Curve</c> golden rests on, and it is about
+    ///         <c>CurveEvaluation</c> rather than about a kernel.
+    ///     </b>
+    ///     If <see cref="TextureRamp.Straight" />
     ///     did not come back as a straight line through the editor's own evaluator — a wrong tangent
     ///     mode, a slope of zero — then "an identity curve is a copy" would be asserting that the
     ///     kernel reproduces whatever curve that happens to be, which is true of any kernel.
@@ -312,7 +353,7 @@ public class TextureColourKernelTests {
 
         for (var entry = 0; entry < TextureRamp.Entries; entry++) {
             for (var lane = 0; lane < 4; lane++) {
-                Assert.Equal((byte)entry, table[(entry * 4) + lane]);
+                Assert.Equal((byte)entry, table[entry * 4 + lane]);
             }
         }
     }
@@ -331,29 +372,28 @@ public class TextureColourKernelTests {
 
         for (var entry = 0; entry < TextureRamp.Entries; entry++) {
             Assert.Equal(64, table[entry * 4]);
-            Assert.Equal((byte)entry, table[(entry * 4) + 1]);
+            Assert.Equal((byte)entry, table[entry * 4 + 1]);
         }
     }
 
     /// <summary>A ramp bakes on the same grid, so a table's ends are the gradient's ends.</summary>
     [Fact]
     public void A_ramp_bakes_its_two_ends_onto_the_first_and_last_entry() {
-        var table = TextureRamp.FromRamp(
-            position => new(position, 1f - position, 0.5f, 1f)
-        );
+        var table = TextureRamp.FromRamp(static position => new(position, 1f - position, 0.5f, 1f));
 
         Assert.Equal(0, table[0]);
         Assert.Equal(255, table[1]);
-        Assert.Equal(255, table[((TextureRamp.Entries - 1) * 4)]);
-        Assert.Equal(0, table[((TextureRamp.Entries - 1) * 4) + 1]);
+        Assert.Equal(255, table[(TextureRamp.Entries - 1) * 4]);
+        Assert.Equal(0, table[(TextureRamp.Entries - 1) * 4 + 1]);
 
         // And the grid is linear in between, which is what the kernel's interpolation assumes.
-        Assert.Equal(128, table[(128 * 4)]);
+        Assert.Equal(128, table[128 * 4]);
     }
 
     /// <summary>A null ramp is refused where it is passed rather than as a null reference per entry.</summary>
     [Fact]
-    public void A_missing_ramp_is_refused() => Assert.Throws<ArgumentNullException>(() => TextureRamp.FromRamp(null!));
+    public void A_missing_ramp_is_refused() =>
+        Assert.Throws<ArgumentNullException>(static () => TextureRamp.FromRamp(null!));
 
     static EffectData Compile(string kernel) {
         var name = TextureKernels.VariantName(kernel, TextureFormat.Rgba8);

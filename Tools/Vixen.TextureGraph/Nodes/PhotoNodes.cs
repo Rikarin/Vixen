@@ -91,7 +91,8 @@ static class PhotoChains {
 [Node(
     "Photo/Flatten Light",
     Preview = true,
-    Summary = "Divides a photo's uneven lighting out so it can become a texture: delighting, and with Colour, colour equalisation."
+    Summary =
+        "Divides a photo's uneven lighting out so it can become a texture: delighting, and with Colour, colour equalisation."
 )]
 sealed partial class FlattenLightNode : TextureNode {
     /// <summary>The photo.</summary>
@@ -99,11 +100,20 @@ sealed partial class FlattenLightNode : TextureNode {
     public Image Input;
 
     /// <summary>Whether the light is divided out by brightness alone or per channel.</summary>
-    [Setting(AcceptedFrom = typeof(TextureLightFlatten), Summary = "Luminance evens the brightness and keeps every hue; Colour evens colour casts as well.")]
+    [Setting(
+        AcceptedFrom = typeof(TextureLightFlatten),
+        Summary = "Luminance evens the brightness and keeps every hue; Colour evens colour casts as well."
+    )]
     public string Mode = "Luminance";
 
     /// <summary>The size of the lighting changes to remove, as a fraction of the image's width.</summary>
-    [Input(Name = "Light Size", Minimum = 0.01f, Maximum = 1f, Summary = "How broad the lighting changes to remove are, as a fraction of the width. Detail smaller than this is kept.")]
+    [Input(
+        Name = "Light Size",
+        Minimum = 0.01f,
+        Maximum = 1f,
+        Summary =
+            "How broad the lighting changes to remove are, as a fraction of the width. Detail smaller than this is kept."
+    )]
     public Scalar LightSize = 0.15f;
 
     /// <summary>How much of the light is divided out.</summary>
@@ -158,7 +168,7 @@ sealed partial class FlattenLightNode : TextureNode {
         var blur = Math.Min(sigma / (1 << shrink), 64f / 3f) * (1 << shrink);
 
         emitter.Dispatch(TextureFilters.BlurHqOp(across, small, blur));
-        emitter.Dispatch(TextureFilters.BlurHqOp(light, across, blur, vertical: true));
+        emitter.Dispatch(TextureFilters.BlurHqOp(light, across, blur, true));
 
         var mean = PhotoChains.Mean(emitter, light);
 
@@ -208,7 +218,12 @@ sealed partial class TileFromPatchesNode : TextureNode {
     public Int Patches = 4;
 
     /// <summary>A patch's diameter, in grid cells.</summary>
-    [Input(Name = "Patch Size", Minimum = 0.5f, Maximum = 3f, Summary = "A patch's diameter, in grid cells. Above 1, patches overlap and blend.")]
+    [Input(
+        Name = "Patch Size",
+        Minimum = 0.5f,
+        Maximum = 3f,
+        Summary = "A patch's diameter, in grid cells. Above 1, patches overlap and blend."
+    )]
     public Scalar PatchSize = 2.4f;
 
     /// <summary>How far a patch wanders from its place in the grid.</summary>
@@ -216,7 +231,12 @@ sealed partial class TileFromPatchesNode : TextureNode {
     public Scalar Randomness = 0.6f;
 
     /// <summary>The largest random turn of a patch, in radians either way.</summary>
-    [Input(Minimum = 0f, Maximum = 3.14159f, Summary = "The largest random turn of a patch, in radians either way. Keep it at 0 for a photo with a direction to it.")]
+    [Input(
+        Minimum = 0f,
+        Maximum = 3.14159f,
+        Summary =
+            "The largest random turn of a patch, in radians either way. Keep it at 0 for a photo with a direction to it."
+    )]
     public Scalar Rotation = 0f;
 
     /// <summary>How soft a patch's edge is.</summary>
@@ -224,7 +244,12 @@ sealed partial class TileFromPatchesNode : TextureNode {
     public Scalar Softness = 0.6f;
 
     /// <summary>Whether overlapping patches keep their contrast.</summary>
-    [Input(Name = "Keep Contrast", Minimum = 0f, Maximum = 1f, Summary = "1 keeps the photo's contrast where patches overlap; 0 averages them, which softens the overlaps.")]
+    [Input(
+        Name = "Keep Contrast",
+        Minimum = 0f,
+        Maximum = 1f,
+        Summary = "1 keeps the photo's contrast where patches overlap; 0 averages them, which softens the overlaps."
+    )]
     public Scalar KeepContrast = 1f;
 
     /// <summary>Another draw of the same patches.</summary>
@@ -258,7 +283,8 @@ sealed partial class TileFromPatchesNode : TextureNode {
 [Node(
     "Space/Break Up Tiling",
     Preview = true,
-    Summary = "Hides the repetition of a tiling texture by rebuilding it from randomly placed and turned patches of itself."
+    Summary =
+        "Hides the repetition of a tiling texture by rebuilding it from randomly placed and turned patches of itself."
 )]
 sealed partial class BreakUpTilingNode : TextureNode {
     /// <summary>The tiling texture.</summary>
@@ -270,7 +296,12 @@ sealed partial class BreakUpTilingNode : TextureNode {
     public Int Patches = 4;
 
     /// <summary>A patch's diameter, in grid cells.</summary>
-    [Input(Name = "Patch Size", Minimum = 0.5f, Maximum = 3f, Summary = "A patch's diameter, in grid cells. Above 1, patches overlap and blend.")]
+    [Input(
+        Name = "Patch Size",
+        Minimum = 0.5f,
+        Maximum = 3f,
+        Summary = "A patch's diameter, in grid cells. Above 1, patches overlap and blend."
+    )]
     public Scalar PatchSize = 2.4f;
 
     /// <summary>How far a patch wanders from its place in the grid.</summary>
@@ -278,7 +309,11 @@ sealed partial class BreakUpTilingNode : TextureNode {
     public Scalar Randomness = 0.6f;
 
     /// <summary>The largest random turn of a patch, in radians either way.</summary>
-    [Input(Minimum = 0f, Maximum = 3.14159f, Summary = "The largest random turn of a patch, in radians either way. 0 for a texture with a direction to it.")]
+    [Input(
+        Minimum = 0f,
+        Maximum = 3.14159f,
+        Summary = "The largest random turn of a patch, in radians either way. 0 for a texture with a direction to it."
+    )]
     public Scalar Rotation = 3.14159f;
 
     /// <summary>How soft a patch's edge is.</summary>
@@ -286,7 +321,12 @@ sealed partial class BreakUpTilingNode : TextureNode {
     public Scalar Softness = 0.6f;
 
     /// <summary>Whether overlapping patches keep their contrast.</summary>
-    [Input(Name = "Keep Contrast", Minimum = 0f, Maximum = 1f, Summary = "1 keeps the texture's contrast where patches overlap; 0 averages them, which softens the overlaps.")]
+    [Input(
+        Name = "Keep Contrast",
+        Minimum = 0f,
+        Maximum = 1f,
+        Summary = "1 keeps the texture's contrast where patches overlap; 0 averages them, which softens the overlaps."
+    )]
     public Scalar KeepContrast = 1f;
 
     /// <summary>Another draw of the same patches.</summary>
@@ -321,7 +361,8 @@ sealed partial class BreakUpTilingNode : TextureNode {
 [Node(
     "Photo/Normal from Lighting",
     Preview = true,
-    Summary = "A normal map and a delighted albedo from four photos of a surface lit from the left, right, top and bottom."
+    Summary =
+        "A normal map and a delighted albedo from four photos of a surface lit from the left, right, top and bottom."
 )]
 sealed partial class NormalFromLightingNode : TextureNode {
     /// <summary>The photo lit from the left.</summary>
@@ -341,7 +382,12 @@ sealed partial class NormalFromLightingNode : TextureNode {
     public Image Bottom;
 
     /// <summary>How high the lights stood above the surface, in radians.</summary>
-    [Input(Name = "Light Height", Minimum = 0.05f, Maximum = 1.52f, Summary = "How high the lights stood above the surface, in radians: small is grazing, 1.57 overhead.")]
+    [Input(
+        Name = "Light Height",
+        Minimum = 0.05f,
+        Maximum = 1.52f,
+        Summary = "How high the lights stood above the surface, in radians: small is grazing, 1.57 overhead."
+    )]
     public Scalar LightHeight = 0.7853982f;
 
     /// <summary>The normal map.</summary>
@@ -374,7 +420,7 @@ sealed partial class NormalFromLightingNode : TextureNode {
                 new TextureOp {
                     Kernel = TexturePhotoKernels.PhotometricNormal,
                     Output = output,
-                    Inputs = [.. photos],
+                    Inputs = [..photos],
                     ReadsOtherExtents = true,
                     Parameters = [new("elevation", emitter.Number("Light Height")), new("albedo", which)]
                 }
@@ -400,7 +446,8 @@ sealed partial class NormalFromLightingNode : TextureNode {
 [Node(
     "Surface/Thermal Erosion",
     Preview = true,
-    Summary = "Lets the steep slopes of a height map crumble and settle, as scree does: terrain, rock faces and worn stone."
+    Summary =
+        "Lets the steep slopes of a height map crumble and settle, as scree does: terrain, rock faces and worn stone."
 )]
 sealed partial class ThermalErosionNode : TextureNode {
     /// <summary>The height map.</summary>
@@ -408,7 +455,12 @@ sealed partial class ThermalErosionNode : TextureNode {
     public Image Input;
 
     /// <summary>The steepest slope that stands, as a height change across the image's width.</summary>
-    [Input(Minimum = 0f, SoftMaximum = 16f, Summary = "The steepest slope that stands, as the height it would climb across the image's width. Lower settles flatter.")]
+    [Input(
+        Minimum = 0f,
+        SoftMaximum = 16f,
+        Summary =
+            "The steepest slope that stands, as the height it would climb across the image's width. Lower settles flatter."
+    )]
     public Scalar Talus = 2f;
 
     /// <summary>How fast steep slopes give way.</summary>
@@ -416,7 +468,11 @@ sealed partial class ThermalErosionNode : TextureNode {
     public Scalar Strength = 0.8f;
 
     /// <summary>How many steps run.</summary>
-    [Input(Minimum = 1f, Maximum = 256f, Summary = "How many steps run. Material moves at most a texel a step, so a larger image wants more.")]
+    [Input(
+        Minimum = 1f,
+        Maximum = 256f,
+        Summary = "How many steps run. Material moves at most a texel a step, so a larger image wants more."
+    )]
     public Int Iterations = 32;
 
     /// <summary>The eroded height.</summary>
@@ -457,11 +513,14 @@ sealed partial class ThermalErosionNode : TextureNode {
 }
 
 /// <summary>One cell of a grid of pictures, stretched to fill the image — Patina #178's atlas split.</summary>
-[DoesNotTile("A cell of an atlas tiles only if the picture in it was made to, and the atlas around it does not decide that.")]
+[DoesNotTile(
+    "A cell of an atlas tiles only if the picture in it was made to, and the atlas around it does not decide that."
+)]
 [Node(
     "Space/Atlas Cell",
     Preview = true,
-    Summary = "One cell of a grid of pictures, such as a sprite sheet or an atlas of scans, stretched to fill the image."
+    Summary =
+        "One cell of a grid of pictures, such as a sprite sheet or an atlas of scans, stretched to fill the image."
 )]
 sealed partial class AtlasCellNode : TextureNode {
     /// <summary>The atlas.</summary>
@@ -494,7 +553,7 @@ sealed partial class AtlasCellNode : TextureNode {
 
         Smoothing.Filter(
             emitter,
-            (target, source) => new TextureOp {
+            (target, source) => new() {
                 Kernel = TextureColourKernels.Crop,
                 Output = target,
                 Inputs = [source],

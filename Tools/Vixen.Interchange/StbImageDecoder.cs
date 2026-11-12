@@ -11,8 +11,11 @@ namespace Vixen.Interchange;
 /// <summary>Reads the authoring formats artists actually save.</summary>
 /// <remarks>
 ///     <para>
-///         <b>This is not the ImageSharp doc 01 specified, and the reason is in
-///         <c>Directory.Packages.props</c>:</b> ImageSharp 4.0.0 fails the build without a purchased
+///         <b>
+///             This is not the ImageSharp doc 01 specified, and the reason is in
+///             <c>Directory.Packages.props</c>:
+///         </b>
+///         ImageSharp 4.0.0 fails the build without a purchased
 ///         licence key, which an Apache-2.0 engine cannot ask of a contributor who wants to compile
 ///         the editor. Doc 01 already named StbImageSharp as the fallback and this is it — public
 ///         domain, and covering more of doc 08's importer table than ImageSharp did, because it
@@ -61,7 +64,7 @@ public sealed class StbImageDecoder : IImageDecoder {
         var image = ImageResult.FromStream(stream, ColorComponents.RedGreenBlueAlpha)
             ?? throw new InvalidDataException("The decoder read the file and produced nothing.");
 
-        var texture = new TextureData(PixelFormat.Rgba8UNorm, image.Width, image.Height, levelCount: 1);
+        var texture = new TextureData(PixelFormat.Rgba8UNorm, image.Width, image.Height, 1);
         image.Data.AsSpan(0, texture.ByteLength).CopyTo(texture.PixelSpan());
 
         return texture;
@@ -71,7 +74,7 @@ public sealed class StbImageDecoder : IImageDecoder {
         var image = ImageResultFloat.FromStream(stream, ColorComponents.RedGreenBlueAlpha)
             ?? throw new InvalidDataException("The decoder read the file and produced nothing.");
 
-        var texture = new TextureData(PixelFormat.Rgba32Float, image.Width, image.Height, levelCount: 1);
+        var texture = new TextureData(PixelFormat.Rgba32Float, image.Width, image.Height, 1);
         var pixels = texture.PixelSpan();
 
         for (var index = 0; index < image.Data.Length; index++) {

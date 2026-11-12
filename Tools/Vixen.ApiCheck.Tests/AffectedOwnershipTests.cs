@@ -122,7 +122,11 @@ public sealed class AffectedOwnershipTests {
         // A README is also read by the `.md` sweeps (#1506), so it is this reader and theirs.
         Assert.Equal(
             file.EndsWith(".md", StringComparison.Ordinal)
-                ? [.. AffectedOwnership.ReadersOf("x/README.md", NoPatterns).Append(reader).Order(StringComparer.Ordinal)]
+                ? [
+                    ..AffectedOwnership.ReadersOf("x/README.md", NoPatterns)
+                        .Append(reader)
+                        .Order(StringComparer.Ordinal)
+                ]
                 : [reader],
             ownership.Projects
         );
@@ -166,17 +170,17 @@ public sealed class AffectedOwnershipTests {
     public void AnItemIncludeOutsideTheProjectIsAPattern() {
         const string project = "Core/Vixen.Rendering.Tests/Vixen.Rendering.Tests.csproj";
         const string text = """
-            <Project Sdk="Microsoft.NET.Sdk">
-                <ItemGroup>
-                    <ProjectReference Include="..\Vixen.Rendering\Vixen.Rendering.csproj" />
-                    <Compile Include="Local\Inside.cs" />
-                    <None Include="..\..\Raven\Library\**\*.rvn" LinkBase="Shaders" />
-                    <AdditionalFiles Include="..\..\Raven\Library\Pipeline\*.reflect.json;..\..\Raven\Library\Vfx\One.reflect.json" />
-                    <None Include="$(SomeProperty)\x.rvn" />
-                </ItemGroup>
-                <Import Project="..\..\Testing\Vixen.Testing.GoldenFile.props" />
-            </Project>
-            """;
+                            <Project Sdk="Microsoft.NET.Sdk">
+                                <ItemGroup>
+                                    <ProjectReference Include="..\Vixen.Rendering\Vixen.Rendering.csproj" />
+                                    <Compile Include="Local\Inside.cs" />
+                                    <None Include="..\..\Raven\Library\**\*.rvn" LinkBase="Shaders" />
+                                    <AdditionalFiles Include="..\..\Raven\Library\Pipeline\*.reflect.json;..\..\Raven\Library\Vfx\One.reflect.json" />
+                                    <None Include="$(SomeProperty)\x.rvn" />
+                                </ItemGroup>
+                                <Import Project="..\..\Testing\Vixen.Testing.GoldenFile.props" />
+                            </Project>
+                            """;
 
         var patterns = AffectedOwnership.ItemPatterns(project, text);
 
@@ -192,9 +196,21 @@ public sealed class AffectedOwnershipTests {
 
         Assert.True(AffectedOwnership.Matches("Raven/Library/**/*.rvn", ForwardPlus));
         Assert.True(AffectedOwnership.Matches("Raven/Library/**/*.rvn", "Raven/Library/Example1.rvn"));
-        Assert.False(AffectedOwnership.Matches("Raven/Library/**/*.rvn", "Raven/Library/Pipeline/ForwardPlus.reflect.json"));
-        Assert.True(AffectedOwnership.Matches("Raven/Library/Pipeline/*.reflect.json", "Raven/Library/Pipeline/ForwardPlus.reflect.json"));
-        Assert.False(AffectedOwnership.Matches("Raven/Library/Pipeline/*.reflect.json", "Raven/Library/Pipeline/Deeper/X.reflect.json"));
+        Assert.False(
+            AffectedOwnership.Matches("Raven/Library/**/*.rvn", "Raven/Library/Pipeline/ForwardPlus.reflect.json")
+        );
+        Assert.True(
+            AffectedOwnership.Matches(
+                "Raven/Library/Pipeline/*.reflect.json",
+                "Raven/Library/Pipeline/ForwardPlus.reflect.json"
+            )
+        );
+        Assert.False(
+            AffectedOwnership.Matches(
+                "Raven/Library/Pipeline/*.reflect.json",
+                "Raven/Library/Pipeline/Deeper/X.reflect.json"
+            )
+        );
     }
 
     /// <summary>
@@ -212,7 +228,7 @@ public sealed class AffectedOwnershipTests {
 
         var ownership = AffectedOwnership.Classify(
             ["build/PathCaseRule.cs"],
-            _ => "build/_build.csproj",
+            static _ => "build/_build.csproj",
             patterns
         );
 
@@ -233,9 +249,14 @@ public sealed class AffectedOwnershipTests {
     public void EveryCommittedLibraryFileHasAnOwnerOnThisTree() {
         var root = RepositoryRoot();
         var patterns = RepositoryPatterns(root);
-        var library = CommittedPaths(root).Where(path => path.StartsWith("Raven/Library/", StringComparison.Ordinal)).ToList();
+        var library = CommittedPaths(root)
+            .Where(static path => path.StartsWith("Raven/Library/", StringComparison.Ordinal))
+            .ToList();
 
-        Assert.True(library.Count > 100, $"`git ls-files` found {library.Count} library files, which is not this tree.");
+        Assert.True(
+            library.Count > 100,
+            $"`git ls-files` found {library.Count} library files, which is not this tree."
+        );
 
         var ownership = AffectedOwnership.Classify(library, NoContainer, patterns);
 
@@ -269,7 +290,10 @@ public sealed class AffectedOwnershipTests {
         var readers = AffectedOwnership.ReadersOf("Testing/GoldenFile.cs", patterns);
 
         Assert.Contains(RavenTests, readers);
-        Assert.True(readers.Count >= 2, $"Testing/GoldenFile.cs is read by {readers.Count} project(s): {string.Join(", ", readers)}.");
+        Assert.True(
+            readers.Count >= 2,
+            $"Testing/GoldenFile.cs is read by {readers.Count} project(s): {string.Join(", ", readers)}."
+        );
     }
 
     /// <summary>
@@ -282,7 +306,7 @@ public sealed class AffectedOwnershipTests {
 
         Assert.Contains(RavenTests, readers);
         Assert.Contains("Raven/Vixen.Raven/Vixen.Raven.csproj", readers);
-        Assert.All(readers, reader => Assert.StartsWith("Raven/", reader, StringComparison.Ordinal));
+        Assert.All(readers, static reader => Assert.StartsWith("Raven/", reader, StringComparison.Ordinal));
     }
 
     /// <summary>
@@ -312,18 +336,33 @@ public sealed class AffectedOwnershipTests {
         var root = RepositoryRoot();
         var committed = CommittedPaths(root);
         var containers = new Dictionary<string, string?>(StringComparer.Ordinal);
-        var ownership = AffectedOwnership.Classify(committed, path => Containing(root, path, containers), RepositoryPatterns(root));
+        var ownership = AffectedOwnership.Classify(
+            committed,
+            path => Containing(root, path, containers),
+            RepositoryPatterns(root)
+        );
 
-        Assert.True(committed.Count > 3000, $"`git ls-files` returned {committed.Count} paths, which is not this tree.");
-
-        Assert.Equal(
-            string.Empty,
-            string.Join('\n', ownership.Orphans.Except(named).Select(path => $"{path} is owned by no project and read by none."))
+        Assert.True(
+            committed.Count > 3000,
+            $"`git ls-files` returned {committed.Count} paths, which is not this tree."
         );
 
         Assert.Equal(
             string.Empty,
-            string.Join('\n', named.Except(ownership.Orphans).Select(path => $"{path} is named as an orphan and is not one — delete its line."))
+            string.Join(
+                '\n',
+                ownership.Orphans.Except(named)
+                    .Select(static path => $"{path} is owned by no project and read by none.")
+            )
+        );
+
+        Assert.Equal(
+            string.Empty,
+            string.Join(
+                '\n',
+                named.Except(ownership.Orphans)
+                    .Select(static path => $"{path} is named as an orphan and is not one — delete its line.")
+            )
         );
     }
 
@@ -339,12 +378,16 @@ public sealed class AffectedOwnershipTests {
             }
 
             var absolute = Path.Combine(root, directory.Replace('/', Path.DirectorySeparatorChar));
-            var project = System.IO.Directory.Exists(absolute) ? System.IO.Directory.GetFiles(absolute, "*.csproj").FirstOrDefault() : null;
+            var project = Directory.Exists(absolute)
+                ? Directory.GetFiles(absolute, "*.csproj").FirstOrDefault()
+                : null;
             var parent = directory.LastIndexOf('/');
 
             var answer = project is not null
                 ? Path.GetRelativePath(root, project).Replace('\\', '/')
-                : parent < 0 ? null : Nearest(directory[..parent]);
+                : parent < 0
+                    ? null
+                    : Nearest(directory[..parent]);
 
             byDirectory[directory] = answer;
 
@@ -387,7 +430,8 @@ public sealed class AffectedOwnershipTests {
             // exemption list this suite runs the rule against.
             Assert.True(
                 reader.Evidence.StartsWith(projectDirectory + "/", StringComparison.Ordinal)
-                || (patterns.TryGetValue(reader.Project, out var linked) && linked.Any(pattern => AffectedOwnership.Matches(pattern, reader.Evidence))),
+                || (patterns.TryGetValue(reader.Project, out var linked)
+                    && linked.Any(pattern => AffectedOwnership.Matches(pattern, reader.Evidence))),
                 $"{reader.Evidence} is neither inside {projectDirectory}/ nor linked into {reader.Project}."
             );
 
@@ -395,7 +439,9 @@ public sealed class AffectedOwnershipTests {
 
             if (reader.Prefix.Contains('*', StringComparison.Ordinal)) {
                 // A glob names no path to walk to; its literal fragments are what the sweep filters on.
-                var missing = GlobFragments(reader.Prefix).Where(fragment => !text.Contains('"' + fragment + '"', StringComparison.Ordinal)).ToList();
+                var missing = GlobFragments(reader.Prefix)
+                    .Where(fragment => !text.Contains('"' + fragment + '"', StringComparison.Ordinal))
+                    .ToList();
 
                 Assert.True(
                     missing.Count == 0,
@@ -409,7 +455,8 @@ public sealed class AffectedOwnershipTests {
 
             Assert.True(
                 walks.Contains(reader.Prefix.TrimEnd('/'))
-                || (reader.Prefix.EndsWith('/') && walks.Any(walk => walk.StartsWith(reader.Prefix, StringComparison.Ordinal))),
+                || (reader.Prefix.EndsWith('/')
+                    && walks.Any(walk => walk.StartsWith(reader.Prefix, StringComparison.Ordinal))),
                 $"{reader.Evidence} walks to [{string.Join(", ", walks)}], not to {reader.Prefix} — "
                 + $"so {reader.Project} is declared to read a path it no longer reads."
             );
@@ -417,8 +464,7 @@ public sealed class AffectedOwnershipTests {
     }
 
     /// <summary>The literal parts of a glob: <c>**/*.md</c> is <c>.md</c>, <c>**/README.md</c> is <c>README.md</c>.</summary>
-    static string[] GlobFragments(string glob) =>
-        glob.Split(["**/", "*", "?"], StringSplitOptions.RemoveEmptyEntries);
+    static string[] GlobFragments(string glob) => glob.Split(["**/", "*", "?"], StringSplitOptions.RemoveEmptyEntries);
 
     /// <summary>
     ///     ⚠ A glob's evidence cannot pass on a different filter, and a directory's cannot pass on a
@@ -430,8 +476,14 @@ public sealed class AffectedOwnershipTests {
         Assert.Equal(["README.md"], GlobFragments("**/README.md"));
 
         // A walk to `docs2/x` is not under `docs/`, and `docs/guide` is.
-        Assert.DoesNotContain(Reaches("Tools/Vixen.DocGen.Tests", """Path.Combine(root, "docs2", "x")"""), walk => walk.StartsWith("docs/", StringComparison.Ordinal));
-        Assert.Contains(Reaches("Tools/Vixen.DocGen.Tests", """Path.Combine(root, "docs", "guide")"""), walk => walk.StartsWith("docs/", StringComparison.Ordinal));
+        Assert.DoesNotContain(
+            Reaches("Tools/Vixen.DocGen.Tests", """Path.Combine(root, "docs2", "x")"""),
+            static walk => walk.StartsWith("docs/", StringComparison.Ordinal)
+        );
+        Assert.Contains(
+            Reaches("Tools/Vixen.DocGen.Tests", """Path.Combine(root, "docs", "guide")"""),
+            static walk => walk.StartsWith("docs/", StringComparison.Ordinal)
+        );
     }
 
     /// <summary>
@@ -439,11 +491,19 @@ public sealed class AffectedOwnershipTests {
     ///     file.
     /// </summary>
     [Theory]
-    [InlineData("docs/plan/43-web-styling-parity.md", "Core/Vixen.Ui.Styling.Utilities.Tests/Vixen.Ui.Styling.Utilities.Tests.csproj", true)]
+    [InlineData(
+        "docs/plan/43-web-styling-parity.md",
+        "Core/Vixen.Ui.Styling.Utilities.Tests/Vixen.Ui.Styling.Utilities.Tests.csproj",
+        true
+    )]
     [InlineData("Editor/Vixen.Editor.Ui/README.md", "Tools/Vixen.DocGen.Tests/Vixen.DocGen.Tests.csproj", true)]
     [InlineData("README.md", "Tools/Vixen.DocGen.Tests/Vixen.DocGen.Tests.csproj", true)]
     [InlineData("docs/PlanCitationExempt.txt", "Tools/Vixen.DocGen.Tests/Vixen.DocGen.Tests.csproj", true)]
-    [InlineData("docs/PlanCitationExempt.txt", "Core/Vixen.Ui.Styling.Utilities.Tests/Vixen.Ui.Styling.Utilities.Tests.csproj", false)]
+    [InlineData(
+        "docs/PlanCitationExempt.txt",
+        "Core/Vixen.Ui.Styling.Utilities.Tests/Vixen.Ui.Styling.Utilities.Tests.csproj",
+        false
+    )]
     [InlineData("NOTICE.orig", "Core/Vixen.Ui.Layout.Tests/Vixen.Ui.Layout.Tests.csproj", false)]
     public void A_declared_glob_selects_what_it_says(string file, string reader, bool selected) {
         Assert.Equal(selected, AffectedOwnership.ReadersOf(file, NoPatterns).Contains(reader));
@@ -456,7 +516,10 @@ public sealed class AffectedOwnershipTests {
     [Theory]
     [InlineData("NOTICE", "Core/Vixen.Ui.Layout.Tests/Vixen.Ui.Layout.Tests.csproj")]
     [InlineData(".github/workflows/ci.yml", "Tools/Vixen.ApiCheck.Tests/Vixen.ApiCheck.Tests.csproj")]
-    [InlineData("docs/plan/08-asset-pipeline-and-addressables.md", "Editor/Vixen.Editor.Assets.Tests/Vixen.Editor.Assets.Tests.csproj")]
+    [InlineData(
+        "docs/plan/08-asset-pipeline-and-addressables.md",
+        "Editor/Vixen.Editor.Assets.Tests/Vixen.Editor.Assets.Tests.csproj"
+    )]
     [InlineData("docs/guide/ecs/queries.md", "Tools/Vixen.DocGen.Tests/Vixen.DocGen.Tests.csproj")]
     [InlineData("build/test-cost.txt", "Tools/Vixen.ApiCheck.Tests/Vixen.ApiCheck.Tests.csproj")]
     public void AProjectlessFileATestReadsSelectsThatTest(string file, string reader) {
@@ -491,9 +554,13 @@ public sealed class AffectedOwnershipTests {
     ///     </list>
     /// </remarks>
     static List<string> Reaches(string projectDirectory, string source) => [
-        .. BaseDirectoryWalk.Matches(source).Select(walk => Resolve(projectDirectory + "/bin/Debug/net11.0", walk.Groups["segments"].Value))
-            .Concat(RootDirectoryWalk.Matches(source).Select(walk => Resolve(string.Empty, walk.Groups["segments"].Value.Replace('/', ','))))
-            .Concat(ScriptInstruction.Matches(source).Select(match => match.Groups["directory"].Value))
+        ..BaseDirectoryWalk.Matches(source)
+            .Select(walk => Resolve(projectDirectory + "/bin/Debug/net11.0", walk.Groups["segments"].Value))
+            .Concat(
+                RootDirectoryWalk.Matches(source)
+                    .Select(static walk => Resolve(string.Empty, walk.Groups["segments"].Value.Replace('/', ',')))
+            )
+            .Concat(ScriptInstruction.Matches(source).Select(static match => match.Groups["directory"].Value))
 
             // #1506: the shapes the census reads — a root walk, and a path constant.
             .Concat(RepositoryReads(projectDirectory, source))
@@ -504,10 +571,22 @@ public sealed class AffectedOwnershipTests {
     ///     ⚠ The evidence check cannot pass for a reader in the wrong place, in any of its shapes.
     /// </summary>
     [Theory]
-    [InlineData("Raven/Vixen.Raven.Tests", """Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "README.md")""", "Raven/README.md")]
-    [InlineData("build", """AbsolutePath Fixture => RootDirectory / "Testing" / "ContentDeterminism";""", "Testing/ContentDeterminism")]
+    [InlineData(
+        "Raven/Vixen.Raven.Tests",
+        """Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "README.md")""",
+        "Raven/README.md"
+    )]
+    [InlineData(
+        "build",
+        """AbsolutePath Fixture => RootDirectory / "Testing" / "ContentDeterminism";""",
+        "Testing/ContentDeterminism"
+    )]
     [InlineData("build", """AbsolutePath Fixture => RootDirectory / "Testing";""", "Testing")]
-    [InlineData("Core/Vixen.Core.Imaging.Tests", """Missing("x", "Build it: sh Tools/Vixen.BcnOracle/build.sh.");""", "Tools/Vixen.BcnOracle")]
+    [InlineData(
+        "Core/Vixen.Core.Imaging.Tests",
+        """Missing("x", "Build it: sh Tools/Vixen.BcnOracle/build.sh.");""",
+        "Tools/Vixen.BcnOracle"
+    )]
     public void A_declared_readers_evidence_resolves_to_one_place(string project, string source, string expected) {
         Assert.Equal([expected], Reaches(project, source));
     }
@@ -518,7 +597,10 @@ public sealed class AffectedOwnershipTests {
         System.Text.RegularExpressions.RegexOptions.CultureInvariant
     );
 
-    /// <summary>A script under a repository directory, named as the command that builds what is read: <c>sh Dir/Sub/build.sh</c>.</summary>
+    /// <summary>
+    ///     A script under a repository directory, named as the command that builds what is read:
+    ///     <c>sh Dir/Sub/build.sh</c>.
+    /// </summary>
     static readonly System.Text.RegularExpressions.Regex ScriptInstruction = new(
         """\bsh (?<directory>[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)+)/[A-Za-z0-9_.-]+\.sh\b""",
         System.Text.RegularExpressions.RegexOptions.CultureInvariant
@@ -530,7 +612,10 @@ public sealed class AffectedOwnershipTests {
     /// </summary>
     [Theory]
     [InlineData("""Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "Library")""", "Raven/Library")]
-    [InlineData("""Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "Library")""", "Raven/Vixen.Raven.Tests/Library")]
+    [InlineData(
+        """Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "Library")""",
+        "Raven/Vixen.Raven.Tests/Library"
+    )]
     [InlineData("""Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "Library2")""", "Raven/Library2")]
     public void A_declared_readers_walk_resolves_from_its_binary(string source, string expected) {
         var walk = Assert.Single(BaseDirectoryWalk.Matches(source));
@@ -546,9 +631,11 @@ public sealed class AffectedOwnershipTests {
 
     /// <summary>Applies a walk's literal segments to a repository-relative start.</summary>
     static string Resolve(string start, string segments) {
-        List<string> path = start.Length == 0 ? [] : [.. start.Split('/')];
+        List<string> path = start.Length == 0 ? [] : [..start.Split('/')];
 
-        foreach (var segment in segments.Split(',').Select(part => part.Trim().Trim('"')).Where(part => part.Length > 0)) {
+        foreach (var segment in segments.Split(',')
+                     .Select(static part => part.Trim().Trim('"'))
+                     .Where(static part => part.Length > 0)) {
             if (segment == "..") {
                 path.RemoveAt(path.Count - 1);
             } else {
@@ -603,8 +690,12 @@ public sealed class AffectedOwnershipTests {
         var seen = new HashSet<(string Source, string Path)>();
         var reads = 0;
 
-        var sources = committed.Where(path => path.EndsWith(".cs", StringComparison.Ordinal) || path.EndsWith(".vxml", StringComparison.Ordinal)).ToList();
-        var testProjects = solution.Where(project => project.EndsWith(".Tests.csproj", StringComparison.Ordinal)).ToHashSet(StringComparer.Ordinal);
+        var sources = committed.Where(static path =>
+                path.EndsWith(".cs", StringComparison.Ordinal) || path.EndsWith(".vxml", StringComparison.Ordinal)
+            )
+            .ToList();
+        var testProjects = solution.Where(static project => project.EndsWith(".Tests.csproj", StringComparison.Ordinal))
+            .ToHashSet(StringComparer.Ordinal);
 
         // What each test project compiles: its own directory, and every source it links from outside
         // — `build/ComponentGeneratorRule.cs` names `docs/ComponentGeneratorExempt.txt` in a constant,
@@ -612,12 +703,15 @@ public sealed class AffectedOwnershipTests {
         var compiled = sources
             .Select(source => (Source: source, Project: Containing(root, source, containers)))
             .Where(pair => pair.Project is not null && testProjects.Contains(pair.Project))
-            .Select(pair => (pair.Source, Project: pair.Project!))
+            .Select(static pair => (pair.Source, Project: pair.Project!))
             .Concat(
                 testProjects.SelectMany(project => patterns[project]
-                    .Where(pattern => pattern.EndsWith(".cs", StringComparison.Ordinal) || pattern.EndsWith(".vxml", StringComparison.Ordinal))
+                    .Where(static pattern => pattern.EndsWith(".cs", StringComparison.Ordinal)
+                        || pattern.EndsWith(".vxml", StringComparison.Ordinal)
+                    )
                     .SelectMany(pattern => sources.Where(source => AffectedOwnership.Matches(pattern, source)))
-                    .Select(source => (Source: source, Project: project)))
+                    .Select(source => (Source: source, Project: project))
+                )
             )
             .Distinct()
             .ToList();
@@ -630,13 +724,15 @@ public sealed class AffectedOwnershipTests {
 
             var text = File.ReadAllText(Path.Combine(root, source.Replace('/', Path.DirectorySeparatorChar)));
 
-            foreach (var read in RepositoryReads(Path.GetDirectoryName(project)!.Replace('\\', '/'), text).Distinct(StringComparer.Ordinal)) {
+            foreach (var read in RepositoryReads(Path.GetDirectoryName(project)!.Replace('\\', '/'), text)
+                         .Distinct(StringComparer.Ordinal)) {
                 // A directory counts when no project contains it — `docs/guide`, `.github/workflows`,
                 // and `Raven/Library`, which #1514 found was being skipped as "a repository sweep".
                 List<string> targets = files.Contains(read)
                     ? [read]
-                    : AffectedOwnership.OwnedByNoProject(read + "/") || Containing(root, read + "/-", containers) is null
-                        ? [.. committed.Where(path => path.StartsWith(read + "/", StringComparison.Ordinal))]
+                    : AffectedOwnership.OwnedByNoProject(read + "/")
+                        || Containing(root, read + "/-", containers) is null
+                        ? [..committed.Where(path => path.StartsWith(read + "/", StringComparison.Ordinal))]
                         : [];
 
                 if (targets.Count == 0) {
@@ -656,7 +752,9 @@ public sealed class AffectedOwnershipTests {
                 // is not OwnedByNoProject either — it is owned only by its declared readers and by the
                 // item patterns of the projects that include it. Filtered on OwnedByNoProject, every
                 // suite reading a shader off disk by path was invisible here.
-                var outside = targets.Where(target => Containing(root, target, containers) is not { } container || !solution.Contains(container))
+                var outside = targets.Where(target => Containing(root, target, containers) is not { } container
+                        || !solution.Contains(container)
+                    )
                     .ToList();
 
                 if (outside.Count == 0) {
@@ -665,14 +763,18 @@ public sealed class AffectedOwnershipTests {
 
                 reads++;
 
-                if (outside.FirstOrDefault(target => !AffectedOwnership.ReadersOf(target, patterns).Contains(project)) is { } missed) {
+                if (outside.FirstOrDefault(target => !AffectedOwnership.ReadersOf(target, patterns).Contains(project)
+                    ) is { } missed) {
                     unselected.Add($"{source} reads {read}, and an edit to {missed} does not select {project}.");
                 }
             }
         }
 
         // The instrument, before the verdict: a sweep that recognised no read agrees with every rule.
-        Assert.True(reads >= 20, $"The sweep recognised only {reads} read(s) of a file outside every solution project, which is not this tree.");
+        Assert.True(
+            reads >= 20,
+            $"The sweep recognised only {reads} read(s) of a file outside every solution project, which is not this tree."
+        );
 
         // Assert.True and not Assert.Equal on a joined string: Equal truncates the difference to its
         // first few dozen characters, and the whole list is the finding.
@@ -680,7 +782,14 @@ public sealed class AffectedOwnershipTests {
 
         var stale = NotReads.Where(entry => !seen.Contains((entry.Source, entry.Path))).ToList();
 
-        Assert.True(stale.Count == 0, string.Join('\n', stale.Select(entry => $"{entry.Source} no longer spells {entry.Path} — delete its NotReads line.")));
+        Assert.True(
+            stale.Count == 0,
+            string.Join(
+                '\n',
+                stale.Select(static entry => $"{entry.Source} no longer spells {entry.Path} — delete its NotReads line."
+                )
+            )
+        );
     }
 
     /// <summary>
@@ -690,14 +799,20 @@ public sealed class AffectedOwnershipTests {
     [Theory]
     [InlineData("""File.ReadAllText(Path.Combine(RepositoryRoot(), "NOTICE"))""", "NOTICE")]
     [InlineData("""Path.Combine(root, ".github", "workflows", "ci.yml")""", ".github/workflows/ci.yml")]
-    [InlineData("Path.Combine(dir.FullName,\n    \"docs\",\n    \"plan\", \"43-web-styling-parity.tsv\")", "docs/plan/43-web-styling-parity.tsv")]
+    [InlineData(
+        "Path.Combine(dir.FullName,\n    \"docs\",\n    \"plan\", \"43-web-styling-parity.tsv\")",
+        "docs/plan/43-web-styling-parity.tsv"
+    )]
     [InlineData("""Path.Combine(RavenDirectory(), "..", "docs", "overview.md")""", "docs/overview.md")]
     [InlineData("""Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "README.md")""", "Raven/README.md")]
     [InlineData("""const string Ledger = "docs/MarkupPending.txt";""", "docs/MarkupPending.txt")]
     [InlineData("""Path.Combine(root, "docs/guide")""", "docs/guide")]
     // #1514: a walk that ends in an expression reads under its literal prefix.
     [InlineData("""Path.Combine(root, "Raven", "Library", package, file)""", "Raven/Library")]
-    [InlineData("""File.ReadAllText(Path.Combine(root, "Raven", "Library", "Terrain", file))""", "Raven/Library/Terrain")]
+    [InlineData(
+        """File.ReadAllText(Path.Combine(root, "Raven", "Library", "Terrain", file))""",
+        "Raven/Library/Terrain"
+    )]
     public void A_repository_read_resolves_to_the_path_it_spells(string source, string expected) {
         Assert.Equal([expected], RepositoryReads("Raven/Vixen.Raven.Tests", source));
     }
@@ -705,7 +820,7 @@ public sealed class AffectedOwnershipTests {
     /// <summary>The negative: prose with a slash, and a root-marker probe, are not reads.</summary>
     [Theory]
     [InlineData("""$"docs/plan/43 asks for {x}" """)]
-    [InlineData("x = \"docs/plan/41 § D14 asks for the same bits.\";")]
+    [InlineData("""x = "docs/plan/41 § D14 asks for the same bits.";""")]
     [InlineData("""File.Exists(Path.Combine(directory, "Vixen.slnx"))""")]
     [InlineData("""Path.Combine(AppContext.BaseDirectory, "InertProperties.txt")""")]
     // #1514: the root marker a dozen Ui suites climb to, reading nothing under it.
@@ -713,7 +828,8 @@ public sealed class AffectedOwnershipTests {
     public void A_non_read_is_not_recognised_as_one(string source) {
         Assert.DoesNotContain(
             RepositoryReads("Core/Vixen.Ui.Styling.Utilities.Tests", source),
-            path => path is "Vixen.slnx" or "InertProperties.txt" or "Raven/Library" || path.StartsWith("docs/", StringComparison.Ordinal)
+            static path => path is "Vixen.slnx" or "InertProperties.txt" or "Raven/Library"
+                || path.StartsWith("docs/", StringComparison.Ordinal)
         );
     }
 
@@ -738,9 +854,12 @@ public sealed class AffectedOwnershipTests {
         // #1514's widening counts a walk's literal prefix, and these prefixes are a top-level
         // directory whose next segment is an expression. Each was read before it was listed.
         // `library` is Raven/Library, which the golden suite is declared to read whole.
-        ("Platform/Vixen.Graphics.Golden.Tests/BufferTransferDeviceTests.cs", "Core", "Raven/Library/Core, walked from the library"),
-        ("Platform/Vixen.Graphics.Golden.Tests/ClusterCullingDeviceTests.cs", "Core", "Raven/Library/Core, walked from the library"),
-        ("Platform/Vixen.Graphics.Golden.Tests/ViewCullingDeviceTests.cs", "Core", "Raven/Library/Core, walked from the library"),
+        ("Platform/Vixen.Graphics.Golden.Tests/BufferTransferDeviceTests.cs", "Core",
+            "Raven/Library/Core, walked from the library"),
+        ("Platform/Vixen.Graphics.Golden.Tests/ClusterCullingDeviceTests.cs", "Core",
+            "Raven/Library/Core, walked from the library"),
+        ("Platform/Vixen.Graphics.Golden.Tests/ViewCullingDeviceTests.cs", "Core",
+            "Raven/Library/Core, walked from the library"),
         // Core/<project>/<project>.csproj: a solution project's own file, which the closure owns.
         ("Core/Vixen.Geometry.Remeshing.Tests/RemeshingLayeringTests.cs", "Core", "a solution project's own .csproj"),
         ("Core/Vixen.Geometry.Uv.Tests/UvLayeringTests.cs", "Core", "a solution project's own .csproj"),
@@ -748,8 +867,10 @@ public sealed class AffectedOwnershipTests {
         ("Editor/Vixen.Editor.App.Tests/ProjectAssemblyTests.cs", "Core", "a project's bin/, which is build output"),
         // ⚠ Real reads, of three out-of-solution web bindings, that this cannot declare at the
         // prefix it resolves — `Platform/` would select the web suite for every platform edit. #1523.
-        ("Platform/Vixen.Platform.Web.Tests/BrowserModuleUrlTests.cs", "Platform", "three web bindings' files — a real gap, #1523"),
-        ("Platform/Vixen.Platform.Web.Tests/InteropSurfaceTests.cs", "Platform", "three web bindings' files — a real gap, #1523")
+        ("Platform/Vixen.Platform.Web.Tests/BrowserModuleUrlTests.cs", "Platform",
+            "three web bindings' files — a real gap, #1523"),
+        ("Platform/Vixen.Platform.Web.Tests/InteropSurfaceTests.cs", "Platform",
+            "three web bindings' files — a real gap, #1523")
     ];
 
     /// <summary>
@@ -772,11 +893,16 @@ public sealed class AffectedOwnershipTests {
 
         foreach (System.Text.RegularExpressions.Match walk in CombineWalk.Matches(source)) {
             var fromBinary = walk.Groups["head"].Value.Trim() == "AppContext.BaseDirectory";
-            List<string> path = fromBinary ? [.. (projectDirectory + "/bin/Debug/net11.0").Split('/')] : [];
+            List<string> path = fromBinary ? [..(projectDirectory + "/bin/Debug/net11.0").Split('/')] : [];
             var escaped = false;
 
-            foreach (var segment in System.Text.RegularExpressions.Regex.Matches(walk.Groups["segments"].Value, "\"([^\"]*)\"")
-                         .SelectMany(literal => literal.Groups[1].Value.Split('/', StringSplitOptions.RemoveEmptyEntries))) {
+            foreach (var segment in System.Text.RegularExpressions.Regex.Matches(
+                             walk.Groups["segments"].Value,
+                             "\"([^\"]*)\""
+                         )
+                         .SelectMany(static literal =>
+                             literal.Groups[1].Value.Split('/', StringSplitOptions.RemoveEmptyEntries)
+                         )) {
                 if (segment == "..") {
                     if (path.Count > 0) {
                         path.RemoveAt(path.Count - 1);
@@ -804,9 +930,11 @@ public sealed class AffectedOwnershipTests {
             }
         }
 
-        reads.AddRange(PathConstant.Matches(source).Select(constant => constant.Groups["path"].Value.TrimEnd('/')));
+        reads.AddRange(
+            PathConstant.Matches(source).Select(static constant => constant.Groups["path"].Value.TrimEnd('/'))
+        );
 
-        return [.. reads.Distinct(StringComparer.Ordinal)];
+        return [..reads.Distinct(StringComparer.Ordinal)];
     }
 
     /// <summary>
@@ -853,7 +981,9 @@ public sealed class AffectedOwnershipTests {
             patterns[project] = AffectedOwnership.ItemPatterns(
                 project,
                 File.ReadAllText(Path.Combine(root, project)),
-                imported => File.Exists(Path.Combine(root, imported)) ? File.ReadAllText(Path.Combine(root, imported)) : null
+                imported => File.Exists(Path.Combine(root, imported))
+                    ? File.ReadAllText(Path.Combine(root, imported))
+                    : null
             );
         }
 
@@ -867,14 +997,19 @@ public sealed class AffectedOwnershipTests {
         var solution = System.Xml.Linq.XDocument.Load(Path.Combine(root, "Vixen.slnx"));
 
         List<string> projects = [
-            .. solution.Descendants("Project")
-                .Select(project => ((string?)project.Attribute("Path"))?.Replace('\\', '/'))
+            ..solution.Descendants("Project")
+                .Select(static project => ((string?)project.Attribute("Path"))?.Replace('\\', '/'))
                 .OfType<string>()
-                .Where(path => path.EndsWith(".csproj", StringComparison.Ordinal) && File.Exists(Path.Combine(root, path)))
+                .Where(path => path.EndsWith(".csproj", StringComparison.Ordinal)
+                    && File.Exists(Path.Combine(root, path))
+                )
                 .Distinct(StringComparer.Ordinal)
         ];
 
-        Assert.True(projects.Count > 150, $"Read {projects.Count} projects out of Vixen.slnx, which is not this solution.");
+        Assert.True(
+            projects.Count > 150,
+            $"Read {projects.Count} projects out of Vixen.slnx, which is not this solution."
+        );
 
         return projects;
     }
@@ -883,9 +1018,7 @@ public sealed class AffectedOwnershipTests {
     static List<string> CommittedPaths(string root) {
         using var git = Process.Start(
             new ProcessStartInfo("git", "ls-files") {
-                WorkingDirectory = root,
-                RedirectStandardOutput = true,
-                UseShellExecute = false
+                WorkingDirectory = root, RedirectStandardOutput = true, UseShellExecute = false
             }
         );
 
@@ -896,7 +1029,7 @@ public sealed class AffectedOwnershipTests {
 
         Assert.Equal(0, git.ExitCode);
 
-        return [.. output.Split('\n').Select(line => line.Trim()).Where(line => line.Length > 0)];
+        return [..output.Split('\n').Select(static line => line.Trim()).Where(static line => line.Length > 0)];
     }
 
     /// <summary>The repository root, found by walking up from the test binary.</summary>

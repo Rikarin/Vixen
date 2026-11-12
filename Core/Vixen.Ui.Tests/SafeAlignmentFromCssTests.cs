@@ -9,8 +9,12 @@ namespace Vixen.Ui.Tests;
 /// <summary>CSS Box Alignment §4.1's <c>[ safe | unsafe ]? &lt;position&gt;</c>, written in CSS.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>The layout could already do this and no stylesheet could ask for it, which is a state
-///         every measured column in the parity ledger reads as correct.</b> <c>OverflowAlignment</c>,
+///         ⚠
+///         <b>
+///             The layout could already do this and no stylesheet could ask for it, which is a state
+///             every measured column in the parity ledger reads as correct.
+///         </b>
+///         <c>OverflowAlignment</c>,
 ///         the six <c>*Overflow</c> fields and <c>LayoutTree.SafeFallback</c>'s six call sites landed
 ///         with 76 conformance fixtures behind them — and those fixtures reach the store through
 ///         <c>TaffyStyleMap</c>, which calls the setters directly and never parses a declaration. So
@@ -18,8 +22,12 @@ namespace Vixen.Ui.Tests;
 ///         here is the half the corpus is blind to.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Six properties and six tests, because a single-site sabotage proves nothing about the
-///         other five.</b> <c>LayoutStyleBuilder.TryAlignment</c> is one method and
+///         ⚠
+///         <b>
+///             Six properties and six tests, because a single-site sabotage proves nothing about the
+///             other five.
+///         </b>
+///         <c>LayoutStyleBuilder.TryAlignment</c> is one method and
 ///         <c>ApplyKeywords</c> calls it six times, each writing a different pair of fields —
 ///         forgetting one <c>result.XOverflow =</c> line is the whole defect, and it is invisible from
 ///         the other five.
@@ -65,7 +73,7 @@ public class SafeAlignmentFromCssTests {
               .tall { width: 20px; height: 150px; flex-shrink: 0; }
               .short { width: 20px; height: 40px; flex-shrink: 0; }
               """,
-            document => {
+            static document => {
                 document.Root.Add("div", null, "box").Add("div", null, "tall");
                 document.Root.Add("div", null, "box").Add("div", null, "short");
             }
@@ -105,7 +113,7 @@ public class SafeAlignmentFromCssTests {
             .tall { width: 20px; height: 150px; flex-shrink: 0; }
             .safe { align-self: safe end; }
             """,
-            document => {
+            static document => {
                 var host = document.Root.Add("div", null, "box");
                 host.Add("div", null, "tall");
                 host.Add("div", null, "tall", "safe");
@@ -131,7 +139,7 @@ public class SafeAlignmentFromCssTests {
             .unsafe { align-items: end; }
             .tall { width: 20px; height: 150px; flex-shrink: 0; }
             """,
-            document => {
+            static document => {
                 document.Root.Add("div", null, "box", "unsafe").Add("div", null, "tall");
                 document.Root.Add("div", null, "box", "safe").Add("div", null, "tall");
             }
@@ -151,7 +159,7 @@ public class SafeAlignmentFromCssTests {
             .unsafe { justify-content: end; }
             .wide { width: 150px; height: 20px; flex-shrink: 0; }
             """,
-            document => {
+            static document => {
                 var unsafeHost = document.Root.Add("div", null, "box", "unsafe");
                 unsafeHost.Add("div", null, "wide");
                 unsafeHost.Add("div", null, "wide");
@@ -177,7 +185,7 @@ public class SafeAlignmentFromCssTests {
             .unsafe { align-content: end; }
             .cell { width: 60px; height: 60px; flex-shrink: 0; }
             """,
-            document => {
+            static document => {
                 var unsafeHost = document.Root.Add("div", null, "box", "unsafe");
                 unsafeHost.Add("div", null, "cell");
                 unsafeHost.Add("div", null, "cell");
@@ -203,7 +211,7 @@ public class SafeAlignmentFromCssTests {
             .unsafe { justify-items: end; }
             .wide { width: 150px; height: 20px; }
             """,
-            document => {
+            static document => {
                 document.Root.Add("div", null, "grid", "unsafe").Add("div", null, "wide");
                 document.Root.Add("div", null, "grid", "safe").Add("div", null, "wide");
             }
@@ -223,7 +231,7 @@ public class SafeAlignmentFromCssTests {
             .wide { width: 150px; height: 20px; }
             .safe { justify-self: safe end; }
             """,
-            document => {
+            static document => {
                 document.Root.Add("div", null, "grid").Add("div", null, "wide");
                 document.Root.Add("div", null, "grid").Add("div", null, "wide", "safe");
             }
@@ -243,8 +251,12 @@ public class SafeAlignmentFromCssTests {
     ///     would disagree about a declaration both had read.
     /// </remarks>
     /// <remarks>
-    ///     ⚠ <b><c>align-items: safe</c> and <c>align-items: safe center extra</c> are absent from
-    ///     this list and it is not because they work.</b> Neither reaches the bridge at all: ExCSS's
+    ///     ⚠
+    ///     <b>
+    ///         <c>align-items: safe</c> and <c>align-items: safe center extra</c> are absent from
+    ///         this list and it is not because they work.
+    ///     </b>
+    ///     Neither reaches the bridge at all: ExCSS's
     ///     `ConditionalStartsWithValueConverter` matches the prefix, fails to match a position after
     ///     it, and dereferences a null — so `StyleEngine.Load` throws and the whole sheet is lost.
     ///     Four properties do it (`align-items`, `align-self`, `align-content`, `justify-content`)

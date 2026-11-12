@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Reflection;
-using Vixen.Core.Imaging;
 using Vixen.Ui.Testing;
 using Vixen.Ui.Text;
 using Xunit;
@@ -21,8 +20,12 @@ namespace Vixen.Ui.Controls.Tests;
 ///         for <c>font-weight</c> one axis over.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Two different fonts rather than an upright and its italic, because this repository has
-///         no italic font in it.</b> That is also why the property was reported dead: the whole
+///         ⚠
+///         <b>
+///             Two different fonts rather than an upright and its italic, because this repository has
+///             no italic font in it.
+///         </b>
+///         That is also why the property was reported dead: the whole
 ///         matcher is finished — <c>FontRegistry.Slanted</c> implements CSS Fonts 4 § 5.2's italic →
 ///         oblique → upright search — and its last resort correctly and invisibly resolves
 ///         <c>italic</c> to the upright of a family that has no italic. Vixen does not synthesise a
@@ -31,8 +34,12 @@ namespace Vixen.Ui.Controls.Tests;
 ///         and any two faces answer that.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The upright face does not cover the text and the italic one does, which is what makes
-///         the direction assertable rather than only the difference.</b> "The two pictures differ" is
+///         ⚠
+///         <b>
+///             The upright face does not cover the text and the italic one does, which is what makes
+///             the direction assertable rather than only the difference.
+///         </b>
+///         "The two pictures differ" is
 ///         satisfied by a slant that picked the wrong face, or no face, or drew nothing at all. So
 ///         <see cref="Italic_draws_with_the_face_registered_under_the_slant" /> compares the italic
 ///         frame against a reference rendered with the italic face as the family's <i>only</i>
@@ -48,7 +55,7 @@ public class FontSlantPixelTests {
 
     static FontFace LoadFont(string resource, string name) {
         using var stream = Assembly.GetExecutingAssembly()
-            .GetManifestResourceStream($"Vixen.Ui.Controls.Tests.Fonts.{resource}")
+                .GetManifestResourceStream($"Vixen.Ui.Controls.Tests.Fonts.{resource}")
             ?? throw new InvalidOperationException($"{resource} is not embedded");
 
         using var memory = new MemoryStream();
@@ -82,11 +89,11 @@ public class FontSlantPixelTests {
 
         ui.Load(
             $$"""
-            root   { width: 240px; height: 120px; background-color: #000000; }
-            .label { position: absolute; left: 20px; top: 20px;
-                     font-family: Test; font-size: 48px; color: #ffffff; {{declarations}} }
-            .text  { {{inner}} }
-            """
+              root   { width: 240px; height: 120px; background-color: #000000; }
+              .label { position: absolute; left: 20px; top: 20px;
+                       font-family: Test; font-size: 48px; color: #ffffff; {{declarations}} }
+              .text  { {{inner}} }
+              """
         );
 
         // Two elements, because half of what is under test is the inheritance: `font-style` is in
@@ -133,8 +140,8 @@ public class FontSlantPixelTests {
     /// </remarks>
     [Fact]
     public void Italic_draws_with_the_face_registered_under_the_slant() {
-        var slanted = Render("font-style: italic", slantedIsLana: true);
-        var reference = Render(string.Empty, slantedIsLana: true, upright: false);
+        var slanted = Render("font-style: italic", true);
+        var reference = Render(string.Empty, true, false);
 
         Assert.NotEmpty(slanted);
         Assert.Equal(reference, slanted);
@@ -149,8 +156,8 @@ public class FontSlantPixelTests {
     /// </remarks>
     [Fact]
     public void The_upright_face_draws_when_no_slant_is_asked_for() {
-        var upright = Render(string.Empty, slantedIsLana: true);
-        var slanted = Render("font-style: italic", slantedIsLana: true);
+        var upright = Render(string.Empty, true);
+        var slanted = Render("font-style: italic", true);
 
         Assert.NotEmpty(upright);
         Assert.NotEqual(slanted, upright);
@@ -165,9 +172,9 @@ public class FontSlantPixelTests {
     /// </remarks>
     [Fact]
     public void Normal_on_the_text_escapes_an_italic_container() {
-        var italic = Render("font-style: italic", slantedIsLana: true);
-        var escaped = Render("font-style: italic", slantedIsLana: true, inner: "font-style: normal");
-        var upright = Render(string.Empty, slantedIsLana: true);
+        var italic = Render("font-style: italic", true);
+        var escaped = Render("font-style: italic", true, inner: "font-style: normal");
+        var upright = Render(string.Empty, true);
 
         Assert.NotEqual(italic, escaped);
         Assert.Equal(upright, escaped);
@@ -183,7 +190,7 @@ public class FontSlantPixelTests {
     [Fact]
     public void Oblique_falls_back_to_the_italic_face() =>
         Assert.Equal(
-            Render("font-style: italic", slantedIsLana: true),
-            Render("font-style: oblique", slantedIsLana: true)
+            Render("font-style: italic", true),
+            Render("font-style: oblique", true)
         );
 }

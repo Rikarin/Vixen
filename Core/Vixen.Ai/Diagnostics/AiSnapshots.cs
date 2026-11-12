@@ -188,7 +188,12 @@ public static class AiSnapshots {
     }
 
     /// <summary>Every candidate's score, and the chosen one's considerations factor by factor.</summary>
-    static void Scored(AiSystem system, ref readonly AgentContext context, ref readonly AiAgent agent, AiAgentSnapshot into) {
+    static void Scored(
+        AiSystem system,
+        ref readonly AgentContext context,
+        ref readonly AiAgent agent,
+        AiAgentSnapshot into
+    ) {
         if (system.ScoringOf(in agent) is not { } memory || agent.Asset >= system.Sets.Count) {
             return;
         }
@@ -198,7 +203,7 @@ public static class AiSnapshots {
         into.Asset = set.Name;
         memory.Fit(set.Count);
 
-        Span<float> scores = set.Count <= 64 ? stackalloc float[64] : new float[set.Count];
+        var scores = set.Count <= 64 ? stackalloc float[64] : new float[set.Count];
 
         set.Score(in context, in memory.State, memory.Cooldowns, scores);
 
@@ -206,9 +211,7 @@ public static class AiSnapshots {
         var rows = Math.Min(set.Count, MaximumRowsPerSection);
 
         for (var index = 0; index < rows; index++) {
-            into.Add(
-                AiDebugRow.Of(AiDebugSection.Doing, set[index].Name.ToString(), scores[index], index == current)
-            );
+            into.Add(AiDebugRow.Of(AiDebugSection.Doing, set[index].Name.ToString(), scores[index], index == current));
         }
 
         if (current < 0 || current >= set.Count) {
@@ -224,7 +227,7 @@ public static class AiSnapshots {
             $"{chosen.Name} at {scores[current]:0.###} after {memory.Decisions} decision(s)"
         );
 
-        Span<float> detail = chosen.Considerations.Length <= 32
+        var detail = chosen.Considerations.Length <= 32
             ? stackalloc float[32]
             : new float[chosen.Considerations.Length];
 
@@ -253,7 +256,12 @@ public static class AiSnapshots {
     }
 
     /// <summary>The goal, the plan and where in it, and the conditions still unmet.</summary>
-    static void Planned(AiSystem system, ref readonly AgentContext context, ref readonly AiAgent agent, AiAgentSnapshot into) {
+    static void Planned(
+        AiSystem system,
+        ref readonly AgentContext context,
+        ref readonly AiAgent agent,
+        AiAgentSnapshot into
+    ) {
         if (system.PlanningOf(in agent) is not { } memory || agent.Asset >= system.Domains.Count) {
             return;
         }
@@ -285,14 +293,12 @@ public static class AiSnapshots {
         // The world as the planner would read it now, plus which of the head's conditions that world
         // does not satisfy — which is the difference between "the plan is stale" and "the plan is
         // fine and the action is slow".
-        Span<int> keys = domain.Keys.Count <= 64 ? stackalloc int[64] : new int[domain.Keys.Count];
+        var keys = domain.Keys.Count <= 64 ? stackalloc int[64] : new int[domain.Keys.Count];
 
         domain.Keys.Project(in context, keys);
 
         for (var index = 0; index < Math.Min(domain.Keys.Count, MaximumRowsPerSection); index++) {
-            into.Add(
-                AiDebugRow.Of(AiDebugSection.Data, domain.Keys[new((ushort)index)].Name.ToString(), keys[index])
-            );
+            into.Add(AiDebugRow.Of(AiDebugSection.Data, domain.Keys[new((ushort)index)].Name.ToString(), keys[index]));
         }
 
         var head = plan.Head;
@@ -344,21 +350,23 @@ public static class AiSnapshots {
         }
     }
 
-    static string Value(Blackboard blackboard, BlackboardKey key, BlackboardValueType type) => type switch {
-        BlackboardValueType.Bool => blackboard.GetBool(key) ? "true" : "false",
-        BlackboardValueType.Int => blackboard.GetInt(key).ToString(CultureInfo.InvariantCulture),
-        BlackboardValueType.Float => blackboard.GetFloat(key).ToString("0.###", CultureInfo.InvariantCulture),
-        BlackboardValueType.Vector3 => blackboard.GetVector3(key).ToString(),
-        BlackboardValueType.Entity => blackboard.GetEntity(key).ToString(),
-        _ => blackboard.GetSymbol(key).ToString()
-    };
+    static string Value(Blackboard blackboard, BlackboardKey key, BlackboardValueType type) =>
+        type switch {
+            BlackboardValueType.Bool => blackboard.GetBool(key) ? "true" : "false",
+            BlackboardValueType.Int => blackboard.GetInt(key).ToString(CultureInfo.InvariantCulture),
+            BlackboardValueType.Float => blackboard.GetFloat(key).ToString("0.###", CultureInfo.InvariantCulture),
+            BlackboardValueType.Vector3 => blackboard.GetVector3(key).ToString(),
+            BlackboardValueType.Entity => blackboard.GetEntity(key).ToString(),
+            _ => blackboard.GetSymbol(key).ToString()
+        };
 
-    static string Symbolic(GoapComparison comparison) => comparison switch {
-        GoapComparison.Less => "<",
-        GoapComparison.LessOrEqual => "≤",
-        GoapComparison.Greater => ">",
-        _ => "≥"
-    };
+    static string Symbolic(GoapComparison comparison) =>
+        comparison switch {
+            GoapComparison.Less => "<",
+            GoapComparison.LessOrEqual => "≤",
+            GoapComparison.Greater => ">",
+            _ => "≥"
+        };
 
     /// <summary>A decorator's name, which it does not carry, so its type answers for it.</summary>
     /// <remarks>

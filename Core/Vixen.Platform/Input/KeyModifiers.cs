@@ -54,16 +54,21 @@ public enum KeyModifiers : ushort {
     /// <summary>Either alt. See <see cref="KeyModifierExtensions.HasAny" />.</summary>
     Alt = LeftAlt | RightAlt,
 
-    /// <summary>Either <c>Windows</c>/<c>Command</c>/<c>Super</c>. See
-    /// <see cref="KeyModifierExtensions.HasAny" />.</summary>
+    /// <summary>
+    ///     Either <c>Windows</c>/<c>Command</c>/<c>Super</c>. See
+    ///     <see cref="KeyModifierExtensions.HasAny" />.
+    /// </summary>
     Meta = LeftMeta | RightMeta
 }
 
 /// <summary>Asking a <see cref="KeyModifiers" /> the question you meant to ask.</summary>
 /// <remarks>
 ///     <para>
-///         <b><see cref="Enum.HasFlag" /> is the wrong operator for the either-side masks, and
-///         quietly so.</b> <see cref="KeyModifiers.Shift" /> is two bits, so
+///         <b>
+///             <see cref="Enum.HasFlag" /> is the wrong operator for the either-side masks, and
+///             quietly so.
+///         </b>
+///         <see cref="KeyModifiers.Shift" /> is two bits, so
 ///         <c>modifiers.HasFlag(KeyModifiers.Shift)</c> asks whether <em>both</em> shift keys are
 ///         held — which is false in every situation anyone means by "shift is down". The mistake
 ///         compiles, reads correctly, and produces a shortcut that never fires.

@@ -138,9 +138,7 @@ public class DiagnosticCoverageTests {
     /// </remarks>
     [Fact]
     public void The_overview_row_carries_the_same_numbers() {
-        var overview = File.ReadAllText(
-            Path.Combine(RavenDirectory(), "..", "docs", "overview.md")
-        );
+        var overview = File.ReadAllText(Path.Combine(RavenDirectory(), "..", "docs", "overview.md"));
 
         var declared = DeclaredIds();
         var covered = CoveredIds();
@@ -239,12 +237,12 @@ public class DiagnosticCoverageTests {
     static IEnumerable<string> TestSources() =>
         Directory
             .EnumerateFiles(TestsDirectory(), "*.cs", SearchOption.AllDirectories)
-            .Where(path => !path.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}"))
-            .Where(path => !path.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}"))
+            .Where(static path => !path.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}"))
+            .Where(static path => !path.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}"))
 
             // This file names ids in its own Owed list, and counting those as coverage would make
             // the instrument agree with itself about everything.
-            .Where(path => Path.GetFileName(path) != $"{nameof(DiagnosticCoverageTests)}.cs")
+            .Where(static path => Path.GetFileName(path) != $"{nameof(DiagnosticCoverageTests)}.cs")
             .Select(File.ReadAllText);
 
     static string TestsDirectory() {
@@ -255,8 +253,7 @@ public class DiagnosticCoverageTests {
         return directory;
     }
 
-    static string RavenDirectory() =>
-        Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
+    static string RavenDirectory() => Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
 
     /// <param name="text">The document.</param>
     /// <param name="pattern">A regex whose first group is the figure.</param>

@@ -143,16 +143,19 @@ public class ScenesPanelTests {
     public void Switching_the_scene_module_off_takes_the_scene_menu_and_the_scenes_panel_with_it() {
         using var editor = EditorSession.Start();
 
-        var bar = editor.Shell.Menus.Menus.Select(menu => menu.Title.Id).ToList();
+        var bar = editor.Shell.Menus.Menus.Select(static menu => menu.Title.Id).ToList();
 
         // On: Scene sits after Entity, where doc 20's Part C puts it, and Blockout landed in it.
         Assert.Equal(bar.IndexOf(EditorStrings.MenuEntity.Id) + 1, bar.IndexOf(EditorStrings.MenuScene.Id));
-        Assert.Contains(SceneMenu(editor)!.Entries.OfType<MenuSubmenu>(), entry => entry.Group.Title.Id == "editor.menu.blockout-handoff");
+        Assert.Contains(
+            SceneMenu(editor)!.Entries.OfType<MenuSubmenu>(),
+            static entry => entry.Group.Title.Id == "editor.menu.blockout-handoff"
+        );
 
         editor.Plugins.Disable(SceneModule.ModuleId);
         editor.Settle();
 
-        Assert.DoesNotContain(editor.Shell.Workspace.Panels, panel => panel.Id == ScenesPanel.PanelId);
+        Assert.DoesNotContain(editor.Shell.Workspace.Panels, static panel => panel.Id == ScenesPanel.PanelId);
         Assert.Null(editor.Shell.Commands["scene.scenes"]);
         Assert.Null(editor.Shell.Commands["scene.open-additive"]);
         Assert.Null(editor.Shell.Commands[ScenesPanel.CloseCommand]);
@@ -160,15 +163,19 @@ public class ScenesPanelTests {
         // The menu went with the module; the application's viewport verbs it named did not.
         Assert.DoesNotContain(
             SceneMenu(editor)?.Entries.OfType<MenuCommand>() ?? [],
-            line => line.CommandId == "scene.focus"
+            static line => line.CommandId == "scene.focus"
         );
         Assert.NotNull(editor.Shell.Commands["scene.focus"]);
     }
 
     /// <summary>After the module is switched off, nothing the editor holds reaches its Scenes panel.</summary>
     /// <remarks>
-    ///     ⚠ <b>A <see cref="WeakReference" /> on the panel object, because the module lives in the
-    ///     application's assembly</b> and <c>WaitForCollection</c> answers true for a built-in (#740). The
+    ///     ⚠
+    ///     <b>
+    ///         A <see cref="WeakReference" /> on the panel object, because the module lives in the
+    ///         application's assembly
+    ///     </b>
+    ///     and <c>WaitForCollection</c> answers true for a built-in (#740). The
     ///     panel subscribes to the service, which outlives every module, so an unload that left one
     ///     handler behind would keep it — and every scene it ever marked — alive.
     /// </remarks>
@@ -195,19 +202,19 @@ public class ScenesPanelTests {
     /// <summary>The panel object, found through the descriptor its module registered.</summary>
     [MethodImpl(MethodImplOptions.NoInlining)]
     static WeakReference Probe(EditorSession editor) {
-        var descriptor = Assert.Single(editor.Shell.Workspace.Panels, panel => panel.Id == ScenesPanel.PanelId);
+        var descriptor = Assert.Single(editor.Shell.Workspace.Panels, static panel => panel.Id == ScenesPanel.PanelId);
 
-        return new WeakReference(Assert.IsType<ScenesPanel>(descriptor.Build.Target));
+        return new(Assert.IsType<ScenesPanel>(descriptor.Build.Target));
     }
 
     static MenuGroup? SceneMenu(EditorSession editor) =>
-        editor.Shell.Menus.Menus.SingleOrDefault(menu => menu.Title.Id == EditorStrings.MenuScene.Id);
+        editor.Shell.Menus.Menus.SingleOrDefault(static menu => menu.Title.Id == EditorStrings.MenuScene.Id);
 
     static List<UiElement> Rows(EditorSession fixture) =>
-        [.. Descendants(fixture.Panel(ScenesPanel.PanelId)).Where(element => element.Tag == "scene-row")];
+        [..Descendants(fixture.Panel(ScenesPanel.PanelId)).Where(static element => element.Tag == "scene-row")];
 
     static List<string?> Names(EditorSession fixture) =>
-        [.. Rows(fixture).Select(row => row.Children.Single(child => child.Tag == "scene-name").Text)];
+        [..Rows(fixture).Select(static row => row.Children.Single(static child => child.Tag == "scene-name").Text)];
 
     static IEnumerable<UiElement> Descendants(UiElement element) {
         foreach (var child in element.Children) {

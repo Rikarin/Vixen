@@ -12,21 +12,33 @@ namespace Vixen.Geometry.Uv.Tests;
 ///         <b>"Uniform mode holds texel density within 2 % across every chart."</b> The measurement
 ///         below does not read <see cref="UvReport.TexelDensity" />; it goes back through
 ///         <see cref="UvPlacement.Apply" />, the island's own parameter area and the mesh's world area,
-///         and works out how many texels land on a square unit of surface. ⚠ <b>Computing it two ways
-///         is the point.</b> The report's figure is assembled from the factors the packer applied, so
+///         and works out how many texels land on a square unit of surface. ⚠
+///         <b>
+///             Computing it two ways
+///             is the point.
+///         </b>
+///         The report's figure is assembled from the factors the packer applied, so
 ///         in uniform mode it is <i>exactly</i> uniform by construction and its variance is
 ///         structurally zero — a field like that is a statement about the arithmetic and not a
 ///         measurement, until something independent agrees with it.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Measured, and the criterion is met: <c>0.0000 %</c> across every chart of every
-///         fixture, against the 2 % it asks for.</b> The two computations agree to five decimal places
+///         ⚠
+///         <b>
+///             Measured, and the criterion is met: <c>0.0000 %</c> across every chart of every
+///             fixture, against the 2 % it asks for.
+///         </b>
+///         The two computations agree to five decimal places
 ///         on every island.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>And the shipped default is the mode § D9 forbids.</b> <see cref="PackSettings" /> leaves
-///         <see cref="PackSettings.TexelDensity" /> at zero, which means <i>keep each island at the
-///         scale the flattener gave it</i> — and a flattener's scales differ between charts by exactly
+///         <see cref="PackSettings.TexelDensity" /> at zero, which means
+///         <i>
+///             keep each island at the
+///             scale the flattener gave it
+///         </i>
+///         — and a flattener's scales differ between charts by exactly
 ///         the area distortion of their maps. Measured on the same fixtures with the same packer:
 ///         <b>22.9 % on a hemisphere, 12.9 % on a saddle, 1.2 % on a slit sphere</b>. That is D9's
 ///         failure — a character's face at half the resolution of their boots — reachable by leaving a
@@ -178,7 +190,10 @@ public class UvDensityTests {
 
         // Material 0 takes the reference; material 1 wants four times it.
         var overridden = UvDensity.Override(islands, materials, [0f, 512f], 128f);
-        var plain = UvDensity.Weight(islands, [.. Enumerable.Range(0, islands.Count).Select(index => index == 0 ? 4f : 1f)]);
+        var plain = UvDensity.Weight(
+            islands,
+            [..Enumerable.Range(0, islands.Count).Select(static index => index == 0 ? 4f : 1f)]
+        );
 
         for (var index = 0; index < islands.Count; index++) {
             Assert.Equal(plain[index].Scale, overridden[index].Scale, 5);
@@ -256,17 +271,25 @@ public class UvDensityTests {
     /// <summary>What <c>Pack</c> alone honestly knows, and the one field that reads as a measurement.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>docs/plan/42 § D1 makes the three stages independent, so the packer cannot know a
-    ///         chart's shape, its seam or its distortion</b> — and it leaves those fields at their
+    ///         <b>
+    ///             docs/plan/42 § D1 makes the three stages independent, so the packer cannot know a
+    ///             chart's shape, its seam or its distortion
+    ///         </b>
+    ///         — and it leaves those fields at their
     ///         defaults, which the <c>Pack</c> overload's own documentation says.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The trap is <see cref="UvReport.IsInjective" />, which comes back <c>true</c> from a
-    ///         stage that never measured injectivity.</b> It is <c>Distortion.Flipped == 0</c>, and
+    ///         ⚠
+    ///         <b>
+    ///             The trap is <see cref="UvReport.IsInjective" />, which comes back <c>true</c> from a
+    ///             stage that never measured injectivity.
+    ///         </b>
+    ///         It is <c>Distortion.Flipped == 0</c>, and
     ///         <c>Flipped</c> defaults to zero — so a caller who packs an artist's islands and asks "is
     ///         all of this usable" is told yes by arithmetic rather than by a check. Pinned here so the
     ///         behaviour cannot change silently, and named so that whoever needs the answer knows to run
-    ///         <see cref="UvUnwrap.All(EditMesh, UvSettings, PackSettings, out IReadOnlyList{Vector2})" /> or the flattener for it.
+    ///         <see cref="UvUnwrap.All(EditMesh, UvSettings, PackSettings, out IReadOnlyList{Vector2})" /> or the flattener
+    ///         for it.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>The same shape for <see cref="UvReport.Compactness" />.</b> Zero is a
@@ -352,18 +375,21 @@ public class UvDensityTests {
             var atlas = 0d;
 
             for (var triangle = 0; triangle < island.TriangleCount; triangle++) {
-                var a = mesh.Positions[mesh.Corners[island.Corners[(triangle * 3) + 0]]];
-                var b = mesh.Positions[mesh.Corners[island.Corners[(triangle * 3) + 1]]];
-                var c = mesh.Positions[mesh.Corners[island.Corners[(triangle * 3) + 2]]];
+                var a = mesh.Positions[mesh.Corners[island.Corners[triangle * 3]]];
+                var b = mesh.Positions[mesh.Corners[island.Corners[triangle * 3 + 1]]];
+                var c = mesh.Positions[mesh.Corners[island.Corners[triangle * 3 + 2]]];
 
                 surface += 0.5d * Vector3.Cross(b - a, c - a).Length();
 
-                var ua = placement.Apply(island, island.Coordinates[(triangle * 3) + 0]) * resolution;
-                var ub = placement.Apply(island, island.Coordinates[(triangle * 3) + 1]) * resolution;
-                var uc = placement.Apply(island, island.Coordinates[(triangle * 3) + 2]) * resolution;
+                var ua = placement.Apply(island, island.Coordinates[triangle * 3]) * resolution;
+                var ub = placement.Apply(island, island.Coordinates[triangle * 3 + 1]) * resolution;
+                var uc = placement.Apply(island, island.Coordinates[triangle * 3 + 2]) * resolution;
 
-                atlas += 0.5d * Math.Abs((((double)ub.X - ua.X) * ((double)uc.Y - ua.Y))
-                    - (((double)ub.Y - ua.Y) * ((double)uc.X - ua.X)));
+                atlas += 0.5d
+                    * Math.Abs(
+                        ((double)ub.X - ua.X) * ((double)uc.Y - ua.Y)
+                        - ((double)ub.Y - ua.Y) * ((double)uc.X - ua.X)
+                    );
             }
 
             densities[placement.Island] = surface > 0d ? (float)Math.Sqrt(atlas / surface) : 0f;

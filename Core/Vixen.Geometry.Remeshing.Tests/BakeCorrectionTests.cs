@@ -43,15 +43,15 @@ public sealed class BakeCorrectionTests {
     static int Texel(float x, float y) {
         var uv = HardEdgeBakeTests.Chart(0, 0, x, y) * Size;
 
-        return ((int)uv.Y * Size) + (int)uv.X;
+        return (int)uv.Y * Size + (int)uv.X;
     }
 
     /// <summary>How far a texel's centre on face 0 is from the edge face 0 shares with the −Y face.</summary>
     /// <remarks>Face 0's second parameter runs from <c>y = −1</c> to <c>y = 1</c> over two units, so the distance is twice it.</remarks>
     static float FromEdge(int texel) {
-        var v = ((texel / Size) + 0.5f) / Size;
+        var v = (texel / Size + 0.5f) / Size;
 
-        return 2f * (((v * 2f) - 0.05f) / 0.9f);
+        return 2f * ((v * 2f - 0.05f) / 0.9f);
     }
 
     /// <summary>
@@ -67,7 +67,7 @@ public sealed class BakeCorrectionTests {
         foreach (var y in (float[])[0.02f, 0.06f, 0.1f, 0.15f, 0.2f]) {
             var texel = Texel(0.5f, y);
             var distance = FromEdge(texel);
-            var turn = (MathF.PI / 4f) * MathF.Max(0f, 1f - (distance / width));
+            var turn = MathF.PI / 4f * MathF.Max(0f, 1f - distance / width);
             Vector3 expected = new(-MathF.Cos(turn), -MathF.Sin(turn), 0f);
             var baked = maps.Normals[texel];
 
@@ -97,13 +97,13 @@ public sealed class BakeCorrectionTests {
     [Fact]
     public void Rounding_by_hard_edge_reads_the_split_normals_and_by_angle_reads_the_faces() {
         var hard = RoundedBox(new(0.5f, RoundedEdges.Hard));
-        var smooth = RoundedBox(new(0.5f, RoundedEdges.Hard), smooth: true);
-        var steep = RoundedBox(new(0.5f, RoundedEdges.Angle, Angle: 100f));
+        var smooth = RoundedBox(new(0.5f, RoundedEdges.Hard), true);
+        var steep = RoundedBox(new(0.5f, RoundedEdges.Angle, 100f));
         var texel = Texel(0.5f, 0.06f);
 
         Assert.True(Vector3.Dot(hard.Normals[texel], -Vector3.UnitX) < 0.97f, $"Hard: {hard.Normals[texel]}.");
-        Assert.Contains(smooth.Warnings, warning => warning.Contains("round", StringComparison.Ordinal));
-        Assert.Contains(steep.Warnings, warning => warning.Contains("round", StringComparison.Ordinal));
+        Assert.Contains(smooth.Warnings, static warning => warning.Contains("round", StringComparison.Ordinal));
+        Assert.Contains(steep.Warnings, static warning => warning.Contains("round", StringComparison.Ordinal));
         Assert.True(Vector3.Dot(steep.Normals[texel], -Vector3.UnitX) > 0.9999f);
     }
 
@@ -129,7 +129,7 @@ public sealed class BakeCorrectionTests {
 
         for (var y = 0; y < side; y++) {
             for (var x = 0; x < side; x++) {
-                pixels[(y * side) + x] = new((x + 0.5f) / side, (y + 0.5f) / side, 0f, 1f);
+                pixels[y * side + x] = new((x + 0.5f) / side, (y + 0.5f) / side, 0f, 1f);
             }
         }
 
@@ -163,7 +163,7 @@ public sealed class BakeCorrectionTests {
             }
 
             // The target's own coordinate, and the surface point it stands for, which the source holds at x, y.
-            var (u, v) = (((index % 64) + 0.5f) / 64f, ((index / 64) + 0.5f) / 64f);
+            var (u, v) = ((index % 64 + 0.5f) / 64f, (index / 64 + 0.5f) / 64f);
             var x = (0.9f - u) / 0.8f;
             var y = (v - 0.1f) / 0.8f;
             var colour = maps.Colour![index];
@@ -190,13 +190,13 @@ public sealed class BakeCorrectionTests {
         var white = MapBaker.Bake(source, target, settings);
 
         // Red at x = 0 and blue at x = 1, evenly between: a texel's red is one less its own coordinate.
-        var middle = (16 * 32) + 8;
+        var middle = 16 * 32 + 8;
         var u = (8 + 0.5f) / 32f;
 
         Assert.InRange(blended.Colour![middle].X, 1f - u - 0.01f, 1f - u + 0.01f);
         Assert.InRange(blended.Colour[middle].Z, u - 0.01f, u + 0.01f);
         Assert.Equal(Vector4.One, white.Colour![middle]);
-        Assert.Contains(white.Warnings, warning => warning.Contains("colour", StringComparison.Ordinal));
+        Assert.Contains(white.Warnings, static warning => warning.Contains("colour", StringComparison.Ordinal));
     }
 
     /// <summary>
@@ -214,7 +214,7 @@ public sealed class BakeCorrectionTests {
             SearchRadius = 0.05f,
             Space = BakeSpace.Object
         };
-        BakeMask Even(float value) => new(4, [.. Enumerable.Repeat(value, 16)]);
+        static BakeMask Even(float value) => new(4, [..Enumerable.Repeat(value, 16)]);
 
         var asSet = MapBaker.Bake(source, target, settings with { DistanceMap = Even(0.5f) });
         var further = MapBaker.Bake(source, target, settings with { DistanceMap = Even(1f) });
@@ -225,7 +225,7 @@ public sealed class BakeCorrectionTests {
         Assert.Equal(plain.Missed, asSet.Missed);
         Assert.Equal(0, further.Missed);
         Assert.Equal(none.Covered, none.Missed);
-        Assert.InRange(further.Displacement[(8 * 16) + 8], 0.079f, 0.081f);
+        Assert.InRange(further.Displacement[8 * 16 + 8], 0.079f, 0.081f);
     }
 
     /// <summary>
@@ -237,22 +237,23 @@ public sealed class BakeCorrectionTests {
         var target = Quad(0f, new(0f, 0f), new(1f, 0f), new(1f, 1f), new(0f, 1f));
         var up = Vector3.Normalize(target.Normal(0));
         BakeSettings settings = new() {
-            Resolution = 16,
-            Units = BakeUnits.Absolute,
-            SearchRadius = 0.2f,
-            RearDistance = 0.1f
+            Resolution = 16, Units = BakeUnits.Absolute, SearchRadius = 0.2f, RearDistance = 0.1f
         };
 
         var plain = MapBaker.Reach(target, target, settings);
         var stretched = MapBaker.Reach(target, target, settings with { DistanceMap = new(1, [1f]) });
-        var caged = MapBaker.Reach(target, target, settings with { Cage = Quad(0.3f, new(0f, 0f), new(1f, 0f), new(1f, 1f), new(0f, 1f)) });
+        var caged = MapBaker.Reach(
+            target,
+            target,
+            settings with { Cage = Quad(0.3f, new(0f, 0f), new(1f, 0f), new(1f, 1f), new(0f, 1f)) }
+        );
 
         for (var corner = 0; corner < target.CornerCount; corner++) {
             var point = target.Positions[target.Corners[corner]];
 
-            Assert.True(Vector3.Distance(plain.Outer[corner], point + (up * 0.2f)) < 1e-5f);
-            Assert.True(Vector3.Distance(plain.Inner[corner], point - (up * 0.1f)) < 1e-5f);
-            Assert.True(Vector3.Distance(stretched.Outer[corner], point + (up * 0.4f)) < 1e-5f);
+            Assert.True(Vector3.Distance(plain.Outer[corner], point + up * 0.2f) < 1e-5f);
+            Assert.True(Vector3.Distance(plain.Inner[corner], point - up * 0.1f) < 1e-5f);
+            Assert.True(Vector3.Distance(stretched.Outer[corner], point + up * 0.4f) < 1e-5f);
             Assert.True(Vector3.Distance(caged.Outer[corner], point + new Vector3(0f, 0f, 0.3f)) < 1e-5f);
             Assert.True(Vector3.Distance(caged.Inner[corner], point - new Vector3(0f, 0f, 0.1f)) < 1e-5f);
         }

@@ -5,7 +5,6 @@ using Vixen.Gameplay;
 using Vixen.Gameplay.Economy;
 using Vixen.Gameplay.Social;
 using Xunit;
-using NetworkPlayerId = Vixen.Net.Sessions.PlayerId;
 
 namespace Vixen.Live.Gameplay.Tests;
 
@@ -13,8 +12,12 @@ namespace Vixen.Live.Gameplay.Tests;
 ///     What a realm has to take away again, and what happens to a horizon that is set too short.
 /// </summary>
 /// <remarks>
-///     ⚠ <b>Every one of these was found by a soak's memory line rather than by a failing
-///     assertion</b>, which is the general lesson: a leak in a realm is not a bug that throws, it is a
+///     ⚠
+///     <b>
+///         Every one of these was found by a soak's memory line rather than by a failing
+///         assertion
+///     </b>
+///     , which is the general lesson: a leak in a realm is not a bug that throws, it is a
 ///     number nobody was watching. <c>Samples/14-Mmo</c> went from 168 MB of growth over thirty
 ///     minutes to 13 MB on the strength of the three below.
 /// </remarks>
@@ -42,8 +45,8 @@ public class HousekeepingTests {
     public void AKeyForgottenWhileItsWriteIsStillInFlightIsCaughtByTheOutbox() {
         var horizon = KeyHorizon.Outliving(TimeSpan.FromSeconds(1));
         var projection = new MemoryEconomyLedger(horizon);
-        var bridge = new LedgerBridge(identity, projection, leaseEpoch: 1);
-        var player = identity.Admit(ana, new NetworkPlayerId(1));
+        var bridge = new LedgerBridge(identity, projection, 1);
+        var player = identity.Admit(ana, new(1));
 
         bridge.Restore(Purse(player), Gold, 100);
         projection.Forget(Noon);
@@ -73,8 +76,8 @@ public class HousekeepingTests {
     [Fact]
     public void AnUnsettledOperationIsRecognisedByTheOutboxEvenWhenTheProjectionRemembersIt() {
         var projection = new MemoryEconomyLedger();
-        var bridge = new LedgerBridge(identity, projection, leaseEpoch: 1);
-        var player = identity.Admit(ana, new NetworkPlayerId(1));
+        var bridge = new LedgerBridge(identity, projection, 1);
+        var player = identity.Admit(ana, new(1));
 
         bridge.Restore(Purse(player), Gold, 100);
 
@@ -89,8 +92,8 @@ public class HousekeepingTests {
     [Fact]
     public void TheOutboxStopsGuardingOnceTheWriteHasSettled() {
         var projection = new MemoryEconomyLedger();
-        var bridge = new LedgerBridge(identity, projection, leaseEpoch: 1);
-        var player = identity.Admit(ana, new NetworkPlayerId(1));
+        var bridge = new LedgerBridge(identity, projection, 1);
+        var player = identity.Admit(ana, new(1));
 
         bridge.Restore(Purse(player), Gold, 100);
         Spend(bridge, player);
@@ -114,8 +117,8 @@ public class HousekeepingTests {
     [Fact]
     public void ADepartedPlayerLeavesNoRowBehind() {
         var projection = new MemoryEconomyLedger();
-        var bridge = new LedgerBridge(identity, projection, leaseEpoch: 1);
-        var player = identity.Admit(ana, new NetworkPlayerId(1));
+        var bridge = new LedgerBridge(identity, projection, 1);
+        var player = identity.Admit(ana, new(1));
 
         bridge.Restore(Purse(player), Gold, 250);
 
@@ -138,7 +141,7 @@ public class HousekeepingTests {
     public void ADepartedPlayerLeavesNoGraphBehind() {
         var bridge = new SocialBridge(identity);
         var graphs = bridge.Graphs;
-        var player = identity.Admit(ana, new NetworkPlayerId(1));
+        var player = identity.Admit(ana, new(1));
 
         bridge.Warmed(ana, []);
 
@@ -159,8 +162,8 @@ public class HousekeepingTests {
     public void ADepartedPlayerIsUnseatedFromEverybodyElsesGraph() {
         var bridge = new SocialBridge(identity);
         var graphs = bridge.Graphs;
-        var left = identity.Admit(ana, new NetworkPlayerId(1));
-        var right = identity.Admit(ben, new NetworkPlayerId(2));
+        var left = identity.Admit(ana, new(1));
+        var right = identity.Admit(ben, new(2));
 
         bridge.Warmed(ana, [new(ben, SocialTie.Friend)]);
         bridge.Warmed(ben, [new(ana, SocialTie.Friend)]);
@@ -178,14 +181,14 @@ public class HousekeepingTests {
     public void ComingBackSeatsTheNewIdAndNotTheOld() {
         var bridge = new SocialBridge(identity);
         var graphs = bridge.Graphs;
-        var left = identity.Admit(ana, new NetworkPlayerId(1));
-        var right = identity.Admit(ben, new NetworkPlayerId(2));
+        var left = identity.Admit(ana, new(1));
+        var right = identity.Admit(ben, new(2));
 
         bridge.Warmed(ana, [new(ben, SocialTie.Friend)]);
         bridge.Forget(right);
         identity.Release(right);
 
-        var again = identity.Admit(ben, new NetworkPlayerId(3));
+        var again = identity.Admit(ben, new(3));
 
         bridge.Admitted(ben, again);
 
@@ -193,7 +196,5 @@ public class HousekeepingTests {
     }
 
     static EconomyResult Spend(LedgerBridge bridge, PlayerId player) =>
-        bridge.Post(
-            EconomyIntent.Transfer("purchase:1", Purse(player), World(EconomyAccount.Vendor), Gold, 10)
-        );
+        bridge.Post(EconomyIntent.Transfer("purchase:1", Purse(player), World(EconomyAccount.Vendor), Gold, 10));
 }

@@ -165,7 +165,7 @@ public class SolverDeterminismTests {
         var right = new double[size];
 
         for (var index = 0; index < size; index++) {
-            right[index] = Math.Sin(index * 0.618d) + (0.25d * Math.Cos(index * 0.137d));
+            right[index] = Math.Sin(index * 0.618d) + 0.25d * Math.Cos(index * 0.137d);
         }
 
         return right;

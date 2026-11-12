@@ -11,7 +11,7 @@ namespace Vixen.Platform.Ios;
 ///         <b>There is no file system to open a file from.</b> iOS has a document picker, which
 ///         browses iCloud and other applications' shared containers rather than a disk, returns a
 ///         security-scoped URL rather than a path, and needs an entitlement. Returning one of those
-///         as a <see cref="string"/> path would produce something that looks like a file and cannot
+///         as a <see cref="string" /> path would produce something that looks like a file and cannot
 ///         be opened, so all four refuse — the same choice the headless platform makes, and for the
 ///         same reason.
 ///     </para>
@@ -66,9 +66,7 @@ internal sealed class IosDialogs(IosPlatform platform) : INativeDialogs {
             return ValueTask.FromResult(MessageBoxResult.None);
         }
 
-        var completion = new TaskCompletionSource<MessageBoxResult>(
-            TaskCreationOptions.RunContinuationsAsynchronously
-        );
+        var completion = new TaskCompletionSource<MessageBoxResult>(TaskCreationOptions.RunContinuationsAsynchronously);
 
         var alert = UIAlertController.Create(options.Title, options.Message, UIAlertControllerStyle.Alert);
 

@@ -7,7 +7,6 @@ using Vixen.App;
 using Vixen.Audio;
 using Vixen.Audio.Backend.OpenAL;
 using Vixen.Audio.Devices;
-using Vixen.Audio.Mixing;
 using Vixen.Audio.Streaming;
 using Vixen.Core;
 using Vixen.Core.Mathematics;
@@ -84,11 +83,7 @@ public sealed class VideoGame : Game {
 
         // ⚠ `IsVisible` follows `Headless` — see 01 for why an unconditional `true` here is an
         // assignment over a flag the host has already read.
-        config.Window = new() {
-            Title = "Vixen — Video Playback",
-            Size = new(1280, 720),
-            IsVisible = !config.Headless
-        };
+        config.Window = new() { Title = "Vixen — Video Playback", Size = new(1280, 720), IsVisible = !config.Headless };
 
         // The sample owns its device and presents the decoded frame itself; the host's renderer would
         // be a second swapchain on the same surface.
@@ -107,9 +102,9 @@ public sealed class VideoGame : Game {
 
         container = GeneratedVideo.Build();
 
-        player = new VideoPlayer(
-            new WebMVideoStreamDecoder(new MemoryStream(container, writable: false)),
-            new VideoPlayerOptions { Loop = true }
+        player = new(
+            new WebMVideoStreamDecoder(new MemoryStream(container, false)),
+            new() { Loop = true }
         );
 
         if (log is not null) {
@@ -175,16 +170,25 @@ public sealed class VideoGame : Game {
             var backbuffer = graph!.ImportTexture(
                 swapChain.CurrentTexture,
                 view,
-                new(swapChain.Format, swapChain.Size.X, swapChain.Size.Y, TextureUsage.ColourTarget, Name: "backbuffer"),
+                new(
+                    swapChain.Format,
+                    swapChain.Size.X,
+                    swapChain.Size.Y,
+                    TextureUsage.ColourTarget,
+                    Name: "backbuffer"
+                ),
                 ResourceState.Undefined,
                 ResourceState.Present
             );
 
-            graph.AddPass("video", pass => {
-                pass.ColourAttachment(backbuffer, LoadAction.Clear, new(0f, 0f, 0f, 1f));
+            graph.AddPass(
+                "video",
+                pass => {
+                    pass.ColourAttachment(backbuffer, LoadAction.Clear, new(0f, 0f, 0f, 1f));
 
-                pass.Execute(context => Draw(context.CommandList));
-            });
+                    pass.Execute(context => Draw(context.CommandList));
+                }
+            );
 
             graph.Execute(commands);
             graph.Reset();
@@ -282,7 +286,7 @@ public sealed class VideoGame : Game {
         // start under whichever of them did not ask, over and over. Two readers cost one more
         // position and a few hundred kilobytes of buffering; sharing one costs correctness. See
         // MatroskaDemuxer's remarks.
-        var demuxer = new MatroskaDemuxer(new MemoryStream(container, writable: false));
+        var demuxer = new MatroskaDemuxer(new MemoryStream(container, false));
 
         if (!MatroskaAudioStreamDecoder.TryOpen(demuxer, out var track) || track is null) {
             demuxer.Dispose();
@@ -290,7 +294,7 @@ public sealed class VideoGame : Game {
             return;
         }
 
-        audioBackend = new OpenALBackend();
+        audioBackend = new();
 
         if (!audioBackend.IsAvailable) {
             if (log is not null) {
@@ -304,7 +308,7 @@ public sealed class VideoGame : Game {
         }
 
         try {
-            audioDevice = audioBackend.OpenDevice(new AudioDeviceOptions { Format = new AudioFormat(48_000, 2) });
+            audioDevice = audioBackend.OpenDevice(new() { Format = new(48_000, 2) });
         } catch (AudioDeviceException failure) {
             if (log is not null) {
                 SampleLog.NoAudio(log, failure.Message);
@@ -316,13 +320,13 @@ public sealed class VideoGame : Game {
             return;
         }
 
-        audio = new AudioEngine(audioDevice, new AudioEngineOptions(), Services.LoggerFactory.CreateLogger("Audio"));
+        audio = new(audioDevice, new(), Services.LoggerFactory.CreateLogger("Audio"));
 
         // The provider is built here rather than through PlayStream, because the clock needs the
         // provider itself — PlayStream keeps it, and what it hands back is a voice.
-        sound = new StreamingSampleProvider(track, loop: true);
+        sound = new(track, true);
         audio.Streams.Register(sound);
-        audio.Play(sound, new PlaybackSettings());
+        audio.Play(sound, new());
 
         player.FollowAudio(sound);
 
@@ -382,9 +386,9 @@ public sealed class VideoGame : Game {
                 VideoFit.Place(
                     VideoScaling.Cover,
                     player,
-                    new Rectangle(
-                        surface.X - inset - (surface.X / 20f),
-                        surface.Y - (inset * 0.75f) - (surface.Y / 20f),
+                    new(
+                        surface.X - inset - surface.X / 20f,
+                        surface.Y - inset * 0.75f - surface.Y / 20f,
                         inset,
                         inset * 0.75f
                     )
@@ -410,23 +414,24 @@ public sealed class VideoGame : Game {
 
         waiting = false;
 
-        device = VulkanDevice.Create(new() {
-            Surface = window.Surface.Handle,
-            Logger = Services.LoggerFactory.CreateLogger("Vulkan")
-        });
+        device = VulkanDevice.Create(
+            new() { Surface = window.Surface.Handle, Logger = Services.LoggerFactory.CreateLogger("Vulkan") }
+        );
 
         pool = new(device);
         graph = new(device, pool);
 
-        swapChain = device.CreateSwapChain(new(
-            window.Surface.Handle,
-            new(window.FramebufferSize.X, window.FramebufferSize.Y),
+        swapChain = device.CreateSwapChain(
+            new(
+                window.Surface.Handle,
+                new(window.FramebufferSize.X, window.FramebufferSize.Y),
 
-            // Not sRGB. See the remarks on this class: a decoded video is already gamma-encoded.
-            PixelFormat.Bgra8UNorm
-        ));
+                // Not sRGB. See the remarks on this class: a decoded video is already gamma-encoded.
+                PixelFormat.Bgra8UNorm
+            )
+        );
 
-        texture = new VideoTexture(device, "video");
+        texture = new(device, "video");
 
         vertexShader = device.CreateShader(ShaderStage.Vertex, Load("video.vert.spv"), "video vertex");
         fragmentShader = device.CreateShader(ShaderStage.Fragment, Load("video.frag.spv"), "video fragment");
@@ -435,9 +440,9 @@ public sealed class VideoGame : Game {
         // in `VideoRenderer` now. What is left here is the two things only an application knows: the
         // shader modules — which nothing compiles yet, so a caller supplies them — and the formats of
         // the pass they will be drawn in.
-        renderer = new VideoRenderer(
+        renderer = new(
             device,
-            new VideoShaders(vertexShader, fragmentShader),
+            new(vertexShader, fragmentShader),
             new Rendering.RenderOutput([swapChain.Format]),
             "video"
         );

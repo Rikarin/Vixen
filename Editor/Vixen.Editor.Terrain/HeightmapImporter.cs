@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core;
-using Vixen.Core.Serialization;
 using Vixen.Core.Yaml.Meta;
 using Vixen.Editor.Assets;
 using Vixen.Interchange;
@@ -36,8 +35,12 @@ public sealed record HeightmapImportSettings : IImportSettings {
 
     /// <summary>Whether the samples are big-endian.</summary>
     /// <remarks>
-    ///     ⚠ <b>The setting an author gets wrong, and the symptom does not look like an endianness
-    ///     problem.</b> Sixteen-bit samples read the wrong way round produce a terrain of dense
+    ///     ⚠
+    ///     <b>
+    ///         The setting an author gets wrong, and the symptom does not look like an endianness
+    ///         problem.
+    ///     </b>
+    ///     Sixteen-bit samples read the wrong way round produce a terrain of dense
     ///     vertical noise rather than garbage — it looks like a broken generator, not a broken read.
     ///     World Machine writes little-endian and Terragen writes big-endian.
     /// </remarks>
@@ -54,8 +57,12 @@ public sealed record HeightmapImportSettings : IImportSettings {
 ///         knows how to resample.
 ///     </para>
 ///     <para>
-///         ⚠ <b>PNG is refused rather than imported at eight bits, and that is the whole point of the
-///         refusal.</b> The decoder this build has — <c>StbImageDecoder</c>, which doc 01 chose over
+///         ⚠
+///         <b>
+///             PNG is refused rather than imported at eight bits, and that is the whole point of the
+///             refusal.
+///         </b>
+///         The decoder this build has — <c>StbImageDecoder</c>, which doc 01 chose over
 ///         ImageSharp for licensing — reads every PNG as eight bits a channel. A 16-bit heightmap
 ///         through it is a terrain quantised to 256 heights, which does not look like a broken import:
 ///         it looks like a terrain with a faint terrace on every slope, and it would be attributed to
@@ -76,8 +83,12 @@ public sealed class HeightmapImporter : AssetImporter<HeightmapImportSettings> {
 
     /// <summary>And what a 16-bit PNG one is.</summary>
     /// <remarks>
-    ///     ⚠ <b>Read by <see cref="TerrainHeightmapPng" /> rather than by the generic image decoder,
-    ///     and the split is the bit depth.</b> That decoder reads eight bits a channel, which is right
+    ///     ⚠
+    ///     <b>
+    ///         Read by <see cref="TerrainHeightmapPng" /> rather than by the generic image decoder,
+    ///         and the split is the bit depth.
+    ///     </b>
+    ///     That decoder reads eight bits a channel, which is right
     ///     for a texture and wrong for a heightfield: a terrain quantised to 256 heights is a faint
     ///     terrace on every slope, and it gets attributed to whatever generated it.
     /// </remarks>

@@ -59,16 +59,16 @@ public class PathQueueBenchmarks {
         mesh.AddTile(NavMeshBaker.Bake(vertices, indices, Settings)!);
 
         scheduler = UseJobs ? new JobScheduler() : null;
-        queue = new(mesh, capacity: 64, parallelSearches: ParallelSearches) { Scheduler = scheduler };
+        queue = new(mesh, 64, parallelSearches: ParallelSearches) { Scheduler = scheduler };
 
         var query = new NavMeshQuery(mesh);
 
         for (var index = 0; index < 32; index++) {
-            var from = new Vector3(3f + (index % 8 * 3f), 0, 3f + (index / 8 * 3f));
-            var to = new Vector3(Size - 4f - (index % 7 * 4f), 0, Size - 4f - (index / 7 * 4f));
+            var from = new Vector3(3f + index % 8 * 3f, 0, 3f + index / 8 * 3f);
+            var to = new Vector3(Size - 4f - index % 7 * 4f, 0, Size - 4f - index / 7 * 4f);
 
-            if (query.FindNearestPoly(from, Extents, NavQueryFilter.Default, out var start, out var startPoint) &&
-                query.FindNearestPoly(to, Extents, NavQueryFilter.Default, out var end, out var endPoint)) {
+            if (query.FindNearestPoly(from, Extents, NavQueryFilter.Default, out var start, out var startPoint)
+                && query.FindNearestPoly(to, Extents, NavQueryFilter.Default, out var end, out var endPoint)) {
                 starts.Add((start, startPoint));
                 ends.Add((end, endPoint));
             }
@@ -93,7 +93,15 @@ public class PathQueueBenchmarks {
         requests.Clear();
 
         for (var index = 0; index < starts.Count; index++) {
-            requests.Add(queue.Submit(starts[index].Poly, ends[index].Poly, starts[index].Point, ends[index].Point, NavQueryFilter.Default));
+            requests.Add(
+                queue.Submit(
+                    starts[index].Poly,
+                    ends[index].Poly,
+                    starts[index].Point,
+                    ends[index].Point,
+                    NavQueryFilter.Default
+                )
+            );
         }
 
         while (queue.PendingCount > 0) {

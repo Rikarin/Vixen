@@ -30,8 +30,12 @@ public static class DebuggerTheme {
 
     /// <summary>The stylesheet's text, for a caller that wants to read or amend it.</summary>
     /// <remarks>
-    ///     ⚠ <b>Read out of the assembly rather than held in a <c>const string</c>, and the change
-    ///     is bigger than where the bytes live.</b> This sheet was 70 lines of CSS edited inside a
+    ///     ⚠
+    ///     <b>
+    ///         Read out of the assembly rather than held in a <c>const string</c>, and the change
+    ///         is bigger than where the bytes live.
+    ///     </b>
+    ///     This sheet was 70 lines of CSS edited inside a
     ///     raw string literal, which is what a tree with no <c>.vcss</c> item type forced — no syntax
     ///     highlighting, no formatter, no way for a hot-reload watcher to see an edit, and a rebuild
     ///     of the whole assembly for a colour. It is a real file now, embedded by the glob in
@@ -55,8 +59,12 @@ public static class DebuggerTheme {
     ///         where document order decides nothing.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Loaded at the same origin as the sheet above, which is what keeps the ladder
-    ///         inside one origin.</b> Origin is the cascade's first question and the layer only its
+    ///         ⚠
+    ///         <b>
+    ///             Loaded at the same origin as the sheet above, which is what keeps the ladder
+    ///             inside one origin.
+    ///         </b>
+    ///         Origin is the cascade's first question and the layer only its
     ///         second, so <c>components</c> → <c>utilities</c> orders nothing across an origin
     ///         boundary: as <c>Author</c> these would stop being ordered against <c>Sheet</c> at all
     ///         and would start beating a player's <c>User</c> overrides, which are supposed to win.
@@ -73,7 +81,8 @@ public static class DebuggerTheme {
             ?? throw new InvalidOperationException(
                 $"the stylesheet '{name}' is not embedded in {assembly.GetName().Name}. It is added "
                 + "by the .vcss glob in Vixen.Ui.targets, which this project imports at the bottom "
-                + "of its .csproj.");
+                + "of its .csproj."
+            );
 
         using var reader = new StreamReader(stream);
 

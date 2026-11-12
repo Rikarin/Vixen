@@ -8,8 +8,11 @@ namespace Vixen.Texturing.Painting;
 /// <summary>The camera, reduced to the one thing a brush asks of it: how big a pixel is out there.</summary>
 /// <remarks>
 ///     <para>
-///         <b>⚠ Not an <c>EditorCamera</c> and not a <c>RenderView</c>, and the narrowness is the
-///         point.</b> Either of those would put a <c>Vixen.Editor.SceneView</c> or a
+///         <b>
+///             ⚠ Not an <c>EditorCamera</c> and not a <c>RenderView</c>, and the narrowness is the
+///             point.
+///         </b>
+///         Either of those would put a <c>Vixen.Editor.SceneView</c> or a
 ///         <c>Vixen.Rendering</c> view type into the signature of every conversion here, and the
 ///         thing being asked is one scalar function of depth. A viewport fills this in two lines
 ///         from whatever it holds, a test fills it from three numbers, and the arithmetic below
@@ -94,7 +97,7 @@ public readonly record struct PaintEye {
     ///     keeps a radius a radius when a ray is cast from inside the mesh.
     /// </remarks>
     public float WorldPerPixel(Vector3 point) =>
-        Constant + (PerUnit * MathF.Max(Vector3.Dot(point - Position, Forward), 0f));
+        Constant + PerUnit * MathF.Max(Vector3.Dot(point - Position, Forward), 0f);
 }
 
 /// <summary>What a screen-space brush covers in the atlas: an ellipse, in texels.</summary>
@@ -105,8 +108,12 @@ public readonly record struct PaintEye {
 /// </param>
 /// <param name="Angle">Which way the long axis points in the atlas, in radians.</param>
 /// <remarks>
-///     ⚠ <b>Three numbers and not one, which is
-///     <a href="https://github.com/Rikarin/Vixen/issues/1064">#1064</a>.</b> A circular brush on the
+///     ⚠
+///     <b>
+///         Three numbers and not one, which is
+///         <a href="https://github.com/Rikarin/Vixen/issues/1064">#1064</a>.
+///     </b>
+///     A circular brush on the
 ///     screen covers an ellipse in the atlas wherever the layout is not isometric, and collapsing it
 ///     to its equal-area radius paints a chart stretched four to one with a brush twice too wide in
 ///     one direction and twice too narrow in the other. ⚠ On a cube that defect is <em>invisible</em>
@@ -123,9 +130,12 @@ public readonly record struct PaintFootprintShape(float Radius, float Aspect, fl
 /// <summary>The other half of a stroke on a model: how wide the brush is, in texels, where it landed.</summary>
 /// <remarks>
 ///     <para>
-///         <b>⚠ Two multiplies and not one, and issue
-///         <a href="https://github.com/Rikarin/Vixen/issues/574">#574</a> says so in as many
-///         words.</b> A brush radius on a model is in <em>screen</em> pixels; a
+///         <b>
+///             ⚠ Two multiplies and not one, and issue
+///             <a href="https://github.com/Rikarin/Vixen/issues/574">#574</a> says so in as many
+///             words.
+///         </b>
+///         A brush radius on a model is in <em>screen</em> pixels; a
 ///         <c>PaintBrush.Radius</c> is in texels of the atlas. Between them are two conversions that
 ///         nothing in this repository had:
 ///     </para>
@@ -141,8 +151,12 @@ public readonly record struct PaintFootprintShape(float Radius, float Aspect, fl
 ///         </item>
 ///     </list>
 ///     <para>
-///         ⚠ <b>And they are one map rather than two multiplies, which is
-///         <a href="https://github.com/Rikarin/Vixen/issues/1075">#1075</a>.</b> The grazing stretch
+///         ⚠
+///         <b>
+///             And they are one map rather than two multiplies, which is
+///             <a href="https://github.com/Rikarin/Vixen/issues/1075">#1075</a>.
+///         </b>
+///         The grazing stretch
 ///         is a 2×2 in the triangle's tangent plane and the Jacobian is a 2×2 out of it, so
 ///         <see cref="PaintDensity.Tilted" /> multiplies them there and this file takes the singular
 ///         values of the product. Multiplying the two <em>scalars</em> is right only when the tilt
@@ -208,17 +222,29 @@ public static class PaintFootprint {
     ///         plane basis, so the atlas ellipse is one SVD of the product.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>It was <c>surface /= √cos θ</c> here, which kept the tilt ellipse's area and
-    ///         threw its shape away.</b> At 60° off the normal that ellipse is 2:1 — the same order
+    ///         ⚠
+    ///         <b>
+    ///             It was <c>surface /= √cos θ</c> here, which kept the tilt ellipse's area and
+    ///             threw its shape away.
+    ///         </b>
+    ///         At 60° off the normal that ellipse is 2:1 — the same order
     ///         a 4:1 chart contributes — and it is worst at the silhouette, which is where every
-    ///         stroke an artist makes to reach round the far side of a shape is. ⚠ <b>The area is
-    ///         unchanged by the fix</b>: the tilt matrix's determinant is <c>1 / cos θ</c>, so the
+    ///         stroke an artist makes to reach round the far side of a shape is. ⚠
+    ///         <b>
+    ///             The area is
+    ///             unchanged by the fix
+    ///         </b>
+    ///         : the tilt matrix's determinant is <c>1 / cos θ</c>, so the
     ///         composed <c>Area</c> is exactly the old <c>Area / √cos θ</c> and every number this
     ///         file asserts about a brush's <em>size</em> is the same number it was.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The angle is to the ray that struck, and the ray is a parameter rather than the
-    ///         line from the eye to the hit.</b> They are the same under a perspective camera and
+    ///         ⚠
+    ///         <b>
+    ///             The angle is to the ray that struck, and the ray is a parameter rather than the
+    ///             line from the eye to the hit.
+    ///         </b>
+    ///         They are the same under a perspective camera and
     ///         they are <em>not</em> under an orthographic one, where every ray is parallel to the
     ///         forward axis however far from the centre of the pane the pointer is — so deriving
     ///         the direction here would have made an orthographic brush grow towards the corners of

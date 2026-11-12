@@ -70,8 +70,11 @@ public struct IrradianceRepairJob {
 ///         All three facts are <see cref="IrradianceField.SyncBorders" />'s, restated as a dispatch order.
 ///     </para>
 ///     <para>
-///         <b>What replaces the CPU's deferred write list is a sign for the dilation, and an order for the
-///         borders.</b> <see cref="IrradianceField.Dilate" /> applies its repairs after the whole sweep so
+///         <b>
+///             What replaces the CPU's deferred write list is a sign for the dilation, and an order for the
+///             borders.
+///         </b>
+///         <see cref="IrradianceField.Dilate" /> applies its repairs after the whole sweep so
 ///         that a repair cannot feed the probe beside it in the same pass. A device has nowhere to put a
 ///         list every invocation can also read past, so a repair is written with its validity negated — a
 ///         value no filler produces and every reader already rejects, because <c>validity &lt;= 0</c> was
@@ -365,7 +368,7 @@ public sealed class IrradianceFieldRepair : IDisposable {
             DescriptorWrite.Storage(
                 job.Binding,
                 jobs.Buffer,
-                jobs.Offset + ((long)start * IrradianceRepairJob.Stride),
+                jobs.Offset + (long)start * IrradianceRepairJob.Stride,
                 (long)count * IrradianceRepairJob.Stride
             )
         );
@@ -388,7 +391,7 @@ public sealed class IrradianceFieldRepair : IDisposable {
             }
 
             writes.Add(
-                new DescriptorWrite(
+                new(
                     volume.Binding,
                     DescriptorKind.StorageTexture,
                     TextureView: texture.PoolView(channel)

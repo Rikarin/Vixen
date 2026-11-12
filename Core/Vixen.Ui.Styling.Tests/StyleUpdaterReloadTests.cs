@@ -11,8 +11,12 @@ namespace Vixen.Ui.Styling.Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>The updater's <c>Refresh</c> is here already; what was missing is anything that
-///         could tell you so.</b> The invalidator is built over <see cref="StyleEngine.Selectors" />
+///         ⚠
+///         <b>
+///             The updater's <c>Refresh</c> is here already; what was missing is anything that
+///             could tell you so.
+///         </b>
+///         The invalidator is built over <see cref="StyleEngine.Selectors" />
 ///         and holds a cursor into <see cref="StyleEngine.Rules" />, and a reload replaces both. The
 ///         two failures that leaves are not one failure: a reload with <i>more</i> rules walks the
 ///         new selectors' compound indices against the previous table and reads off the end, and a
@@ -37,19 +41,19 @@ namespace Vixen.Ui.Styling.Tests;
 public class StyleUpdaterReloadTests {
     /// <summary>Six rules, none of which lets <c>.selected</c> reach anything below it.</summary>
     const string Before = """
-        .cell { background: plain }
-        .row { padding-left: 1px }
-        .gutter { padding-left: 2px }
-        .header { padding-left: 3px }
-        .footer { padding-left: 4px }
-        .grid { padding-left: 5px }
-        """;
+                          .cell { background: plain }
+                          .row { padding-left: 1px }
+                          .gutter { padding-left: 2px }
+                          .header { padding-left: 3px }
+                          .footer { padding-left: 4px }
+                          .grid { padding-left: 5px }
+                          """;
 
     /// <summary>Two rules, and the second is the one the change has to be able to follow.</summary>
     const string FewerAfter = """
-        .cell { background: plain }
-        .selected .cell { background: highlighted }
-        """;
+                              .cell { background: plain }
+                              .selected .cell { background: highlighted }
+                              """;
 
     [Fact]
     public void A_reload_that_adds_rules_does_not_read_the_new_selectors_against_the_old_table() {

@@ -15,14 +15,22 @@ namespace Vixen.Editor.SceneView;
 ///         public sealed class SculptTool : IViewportInput { … }
 ///     </code>
 ///     <para>
-///         ⚠ <b><see cref="Target" /> is what the tool is <i>for</i>, not what it is allowed to
-///         touch.</b> A tool with one appears when something of that type is selected and is put away
+///         ⚠
+///         <b>
+///             <see cref="Target" /> is what the tool is <i>for</i>, not what it is allowed to
+///             touch.
+///         </b>
+///         A tool with one appears when something of that type is selected and is put away
 ///         when it is not, which is the whole reason a pane can offer twenty tools without being a
 ///         wall of twenty buttons. A tool with none is always offered.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Read by a scan of the assembly that declared it, and only for a plugin or a project
-///         script</b> — see <c>CustomInspectorAttribute</c> for why that is bounded rather than the
+///         ⚠
+///         <b>
+///             Read by a scan of the assembly that declared it, and only for a plugin or a project
+///             script
+///         </b>
+///         — see <c>CustomInspectorAttribute</c> for why that is bounded rather than the
 ///         assembly scanning ADR-002 refuses. In-tree code registers a <see cref="SceneTool" />
 ///         directly.
 ///     </para>
@@ -55,5 +63,7 @@ public sealed class EditorToolAttribute(string title) : Attribute {
     ///     constructor rather than a property somebody has to know to set. The two forms are the same
     ///     thing.
     /// </remarks>
-    public EditorToolAttribute(string title, Type target) : this(title) => Target = target;
+    public EditorToolAttribute(string title, Type target) : this(title) {
+        Target = target;
+    }
 }

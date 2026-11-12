@@ -15,8 +15,12 @@ using Vixen.Build;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Two comments landed above the wrong member in one batch and every instrument was
-///         green</b> (<a href="https://github.com/Rikarin/Vixen/issues/866">#866</a>): a green build,
+///         ⚠
+///         <b>
+///             Two comments landed above the wrong member in one batch and every instrument was
+///             green
+///         </b>
+///         (<a href="https://github.com/Rikarin/Vixen/issues/866">#866</a>): a green build,
 ///         a green 1 333-test suite, a clean <c>dotnet format whitespace</c> and a clean
 ///         <c>dotnet format style --severity warn</c>. Ask what those gates print on the day this
 ///         defect is in the tree and the answer is "success" four times, which is the shape this
@@ -33,15 +37,18 @@ using Vixen.Build;
 ///         <c>&lt;summary&gt;</c> still has no diagnostic to turn on.
 ///     </para>
 ///     <para>
-///         <b>So this is <see cref="CheckWhitespace" />'s shape</b>: a folder walk with no MSBuild
+///         <b>So this is <see cref="CheckPathCase" />'s shape</b>: a folder walk with no MSBuild
 ///         workspace, over the whole tree, in about as long. Both questions are syntactic — a block
 ///         with two <c>&lt;summary&gt;</c> describes two members, and a <c>&lt;param&gt;</c> naming a
 ///         parameter the following member does not have belongs to a different one — so nothing here
 ///         needs a compilation, a restore or a project graph.
 ///     </para>
 ///     <para>
-///         <b>The rule itself is <c>build/DocCommentRule.cs</c> and this target is one caller of
-///         it.</b> <c>DocCommentRuleTests</c> is the other, and it is what gives the rule an answer
+///         <b>
+///             The rule itself is <c>build/DocCommentRule.cs</c> and this target is one caller of
+///             it.
+///         </b>
+///         <c>DocCommentRuleTests</c> is the other, and it is what gives the rule an answer
 ///         somebody has read: the two batch-9 stapleings re-introduced verbatim and required to be
 ///         red, and a fixture of the shapes a textual draft got wrong required to be green. A gate
 ///         written to catch a defect and never run against one is how a rule ships as decoration.
@@ -52,9 +59,12 @@ partial class Build {
 
     AbsolutePath RavenDocCommentExemptFile => RootDirectory / RavenDocCommentRule.ExemptionsPath;
 
-    Target CheckDocComments => definition => definition
-        .Description("Fails if a doc comment block outside docs/DocCommentExempt.txt describes a member other than the one it is attached to")
-        .Executes(CheckEveryDocCommentPlacement);
+    Target CheckDocComments =>
+        definition => definition
+            .Description(
+                "Fails if a doc comment block outside docs/DocCommentExempt.txt describes a member other than the one it is attached to"
+            )
+            .Executes(CheckEveryDocCommentPlacement);
 
     /// <summary>Both halves of this repository's source, in the order they were written.</summary>
     /// <remarks>
@@ -146,7 +156,8 @@ partial class Build {
         Assert.True(
             stale.Count == 0,
             $"{stale.Count} file(s) in {DocCommentExemptFile.Name} no longer hold one. Delete their lines — the "
-            + "list may only shrink: " + string.Join(", ", stale.Take(20))
+            + "list may only shrink: "
+            + string.Join(", ", stale.Take(20))
         );
 
         Log.Information(
@@ -159,65 +170,76 @@ partial class Build {
 
     /// <summary>A block that trips all three of the rule's checks, so that a run can prove it fires.</summary>
     /// <remarks>
-    ///     ⚠ <b>The instrument, and it is here rather than in the exemption list because the list is
-    ///     empty now.</b> Two <c>&lt;summary&gt;</c>, two <c>&lt;returns&gt;</c>, and a
+    ///     ⚠
+    ///     <b>
+    ///         The instrument, and it is here rather than in the exemption list because the list is
+    ///         empty now.
+    ///     </b>
+    ///     Two <c>&lt;summary&gt;</c>, two <c>&lt;returns&gt;</c>, and a
     ///     <c>&lt;param&gt;</c> naming a parameter the method does not have — the shape of the
     ///     <a href="https://github.com/Rikarin/Vixen/issues/866">#866</a> staple, reduced. A rule that
     ///     reported nothing over this has stopped reading, and a sweep by a rule that has stopped
     ///     reading is indistinguishable from a clean tree.
     /// </remarks>
     const string StapledFixture = """
-        namespace Fixture;
+                                  namespace Fixture;
 
-        static class Staple {
-            /// <summary>What to say when the compilation refused.</summary>
-            /// <param name="compilation">It.</param>
-            /// <returns>The sentence.</returns>
-            /// <summary>The picture for one external image.</summary>
-            /// <param name="entry">The external the compilation could not fill.</param>
-            /// <returns>Null when it was uploaded.</returns>
-            static string? Resolve(int entry) => null;
-        }
-        """;
+                                  static class Staple {
+                                      /// <summary>What to say when the compilation refused.</summary>
+                                      /// <param name="compilation">It.</param>
+                                      /// <returns>The sentence.</returns>
+                                      /// <summary>The picture for one external image.</summary>
+                                      /// <param name="entry">The external the compilation could not fill.</param>
+                                      /// <returns>Null when it was uploaded.</returns>
+                                      static string? Resolve(int entry) => null;
+                                  }
+                                  """;
 
     /// <summary>A <c>///</c> block the compiler discards, so that a run can prove that check fires.</summary>
     /// <remarks>
-    ///     ⚠ <b>Reduced from <c>SubGraphs.Held</c>, whose block said what the local function
-    ///     answers and reached no XML file, no tooltip and no doc generator</b>
+    ///     ⚠
+    ///     <b>
+    ///         Reduced from <c>SubGraphs.Held</c>, whose block said what the local function
+    ///         answers and reached no XML file, no tooltip and no doc generator
+    ///     </b>
     ///     (<a href="https://github.com/Rikarin/Vixen/issues/1219">#1219</a>). It is separate from
     ///     <see cref="StapledFixture" /> because that one trips three checks at once and a count
     ///     over it is satisfied by any one of them.
     /// </remarks>
     const string DiscardedFixture = """
-        namespace Fixture;
+                                    namespace Fixture;
 
-        static class Flattener {
-            static void Flatten() {
-                /// <summary>The constant behind a wire that runs back to an entry port nobody fed.</summary>
-                static int Held(int upstream) => upstream;
+                                    static class Flattener {
+                                        static void Flatten() {
+                                            /// <summary>The constant behind a wire that runs back to an entry port nobody fed.</summary>
+                                            static int Held(int upstream) => upstream;
 
-                Held(0);
-            }
-        }
-        """;
+                                            Held(0);
+                                        }
+                                    }
+                                    """;
 
     /// <summary>A block whose prose spells a character as a literal's escape, so a run can prove that check fires.</summary>
     /// <remarks>
-    ///     ⚠ <b>Reduced from <c>TransformedText.IsCased</c>'s remarks as they stood before
-    ///     <a href="https://github.com/Rikarin/Vixen/issues/1347">#1347</a>, and written with its
-    ///     backslash doubled</b> — halved where it is used. A single one does not survive every tool
+    ///     ⚠
+    ///     <b>
+    ///         Reduced from <c>TransformedText.IsCased</c>'s remarks as they stood before
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/1347">#1347</a>, and written with its
+    ///         backslash doubled
+    ///     </b>
+    ///     — halved where it is used. A single one does not survive every tool
     ///     that edits this file: an editor or an agent that decodes JSON-style escapes resolves it
     ///     into the character, and the fixture silently becomes the fixed text.
     /// </remarks>
     const string EscapedFixture = """
-        namespace Fixture;
+                                  namespace Fixture;
 
-        static class Casing {
-            /// <summary>The <c>Cased</c> derived property.</summary>
-            /// <remarks>Uppercase, lowercase or titlecase. \\u26a0 Titlecase is a real category.</remarks>
-            static bool IsCased(int rune) => false;
-        }
-        """;
+                                  static class Casing {
+                                      /// <summary>The <c>Cased</c> derived property.</summary>
+                                      /// <remarks>Uppercase, lowercase or titlecase. \\u26a0 Titlecase is a real category.</remarks>
+                                      static bool IsCased(int rune) => false;
+                                  }
+                                  """;
 
     /// <summary>Runs the Raven doc comment rule over every committed shader and fails on any that is not exempt.</summary>
     /// <remarks>
@@ -277,10 +299,15 @@ partial class Build {
         );
 
         if (UpdateExemptions) {
-            RavenDocCommentExemptFile.WriteAllLines([
-                .. RavenDocCommentExemptFile.ReadAllLines().TakeWhile(line => line.StartsWith('#') || line.Trim().Length == 0),
-                .. findings.Select(finding => finding.File).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal)
-            ]);
+            RavenDocCommentExemptFile.WriteAllLines(
+                [
+                    ..RavenDocCommentExemptFile.ReadAllLines()
+                        .TakeWhile(line => line.StartsWith('#') || line.Trim().Length == 0),
+                    ..findings.Select(finding => finding.File)
+                        .Distinct(StringComparer.Ordinal)
+                        .Order(StringComparer.Ordinal)
+                ]
+            );
 
             Log.Warning(
                 "{File} has been rewritten. Read the diff: this list is supposed to shrink.",
@@ -302,7 +329,8 @@ partial class Build {
         Assert.True(
             stale.Count == 0,
             $"{stale.Count} file(s) in {RavenDocCommentExemptFile.Name} no longer hold one. Delete their lines — the "
-            + "list may only shrink: " + string.Join(", ", stale.Take(20))
+            + "list may only shrink: "
+            + string.Join(", ", stale.Take(20))
         );
 
         Log.Information(
@@ -322,35 +350,37 @@ partial class Build {
     ///     which is the mark two spliced blocks leave and the only one available in prose.
     /// </remarks>
     const string SplicedShaderFixture = """
-        shader Blend {
-            /// The mode applied to two colours, alpha left alone.
-            ///
-            /// **Every mode has a neutral foreground, and that is what the suite reads them off.** Copy has
-            /// none by construction; multiply and divide are neutral at white, screen, add, subtract,
-            /// difference, exclusion and colour dodge at black, darken at white, lighten at black, colour
-            /// burn at white, overlay, hard light, soft light and signed add at mid-grey. ⚠ A mode
-            /// implemented with an operand swapped, a factor dropped or a `1 −` missing generally *keeps*
-            /// its distinguishing value at some point and loses its neutral, or the reverse — which is why
-            /// `TextureBlendDeviceTests` asserts both and not either.
-            /// A three-channel result back in the four lanes `Combine` answers in.
-            ///
-            /// ⚠ **The fourth lane of `Combine` is dead and this is where that is written down.** Both
-            /// `target.Store` calls in `Main` build their alpha out of `a.w`, `b.w` and `opacity` — never
-            /// out of `Combine`'s — and read the colour as `blended.xyz`.
-            func Lift(colour: float3, over: float4): float4 => float4(colour.x, colour.y, colour.z, over.w)
-        }
-        """;
+                                        shader Blend {
+                                            /// The mode applied to two colours, alpha left alone.
+                                            ///
+                                            /// **Every mode has a neutral foreground, and that is what the suite reads them off.** Copy has
+                                            /// none by construction; multiply and divide are neutral at white, screen, add, subtract,
+                                            /// difference, exclusion and colour dodge at black, darken at white, lighten at black, colour
+                                            /// burn at white, overlay, hard light, soft light and signed add at mid-grey. ⚠ A mode
+                                            /// implemented with an operand swapped, a factor dropped or a `1 −` missing generally *keeps*
+                                            /// its distinguishing value at some point and loses its neutral, or the reverse — which is why
+                                            /// `TextureBlendDeviceTests` asserts both and not either.
+                                            /// A three-channel result back in the four lanes `Combine` answers in.
+                                            ///
+                                            /// ⚠ **The fourth lane of `Combine` is dead and this is where that is written down.** Both
+                                            /// `target.Store` calls in `Main` build their alpha out of `a.w`, `b.w` and `opacity` — never
+                                            /// out of `Combine`'s — and read the colour as `blended.xyz`.
+                                            func Lift(colour: float3, over: float4): float4 => float4(colour.x, colour.y, colour.z, over.w)
+                                        }
+                                        """;
 
     /// <summary>Rewrites the exemption list from what this run found.</summary>
     /// <param name="findings">Everything the rule reported.</param>
     void WriteDocCommentExemptions(IEnumerable<DocCommentRule.Finding> findings) =>
-        DocCommentExemptFile.WriteAllLines([
-            .. DocCommentExemptFile
-                .ReadAllLines()
-                .TakeWhile(line => line.StartsWith('#') || line.Trim().Length == 0),
-            .. findings
-                .Select(finding => finding.File)
-                .Distinct(StringComparer.Ordinal)
-                .Order(StringComparer.Ordinal)
-        ]);
+        DocCommentExemptFile.WriteAllLines(
+            [
+                ..DocCommentExemptFile
+                    .ReadAllLines()
+                    .TakeWhile(line => line.StartsWith('#') || line.Trim().Length == 0),
+                ..findings
+                    .Select(finding => finding.File)
+                    .Distinct(StringComparer.Ordinal)
+                    .Order(StringComparer.Ordinal)
+            ]
+        );
 }

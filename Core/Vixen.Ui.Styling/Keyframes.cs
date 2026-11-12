@@ -53,7 +53,7 @@ public sealed class KeyframesTable {
             declarations.Add(declaration);
         }
 
-        stops.Add(new Keyframe(Math.Clamp(offset, 0f, 1f), new DeclarationRange(start, block.Length)));
+        stops.Add(new(Math.Clamp(offset, 0f, 1f), new(start, block.Length)));
         stops.Sort(static (left, right) => left.Offset.CompareTo(right.Offset));
     }
 
@@ -213,7 +213,7 @@ public readonly record struct AnimationSpec(
         }
 
         var iteration = MathF.Floor(active / Duration);
-        var within = (active / Duration) - iteration;
+        var within = active / Duration - iteration;
 
         if (finished && within == 0f && iteration > 0f) {
             // Landing exactly on the boundary belongs to the iteration that just ended, not to the

@@ -66,7 +66,7 @@ public static class OutlineFlattener {
                     // by winding, and an open contour lets the fill leak along whatever line the
                     // scanline happens to cross next.
                     Close(edges, ref cursor, start, source);
-                    cursor = start = new Vector2(segment.X0, segment.Y0);
+                    cursor = start = new(segment.X0, segment.Y0);
                     break;
 
                 case OutlineVerb.Line: {
@@ -96,9 +96,6 @@ public static class OutlineFlattener {
                 case OutlineVerb.Close:
                     Close(edges, ref cursor, start, source);
                     break;
-
-                default:
-                    break;
             }
         }
 
@@ -115,7 +112,7 @@ public static class OutlineFlattener {
 
     static void Add(List<Edge> edges, Vector2 from, Vector2 to, int source) {
         if (from != to) {
-            edges.Add(new Edge(from, to, source));
+            edges.Add(new(from, to, source));
         }
     }
 
@@ -127,13 +124,21 @@ public static class OutlineFlattener {
         for (var i = 1; i <= steps; i++) {
             var t = (float)i / steps;
             var u = 1 - t;
-            var point = (u * u * from) + (2 * u * t * control) + (t * t * to);
+            var point = u * u * from + 2 * u * t * control + t * t * to;
             Add(edges, previous, point, source);
             previous = point;
         }
     }
 
-    static void Cubic(List<Edge> edges, Vector2 from, Vector2 first, Vector2 second, Vector2 to, float tolerance, int source) {
+    static void Cubic(
+        List<Edge> edges,
+        Vector2 from,
+        Vector2 first,
+        Vector2 second,
+        Vector2 to,
+        float tolerance,
+        int source
+    ) {
         var polygon = Vector2.Distance(from, first) + Vector2.Distance(first, second) + Vector2.Distance(second, to);
         var steps = Steps(polygon, tolerance);
         var previous = from;
@@ -141,10 +146,10 @@ public static class OutlineFlattener {
         for (var i = 1; i <= steps; i++) {
             var t = (float)i / steps;
             var u = 1 - t;
-            var point = (u * u * u * from)
-                        + (3 * u * u * t * first)
-                        + (3 * u * t * t * second)
-                        + (t * t * t * to);
+            var point = u * u * u * from
+                + 3 * u * u * t * first
+                + 3 * u * t * t * second
+                + t * t * t * to;
             Add(edges, previous, point, source);
             previous = point;
         }

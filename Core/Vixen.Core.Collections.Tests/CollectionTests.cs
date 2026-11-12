@@ -63,8 +63,8 @@ public class CollectionTests {
         // The oracle. Random operations against a Dictionary, checking the two agree throughout.
         var operations = Gen.Select(Gen.Int[0, 3], Gen.Int[0, 40], Gen.Int[0, 100]).Array[0, 200];
 
-        operations.Sample(script => {
-                var set = new SparseSet<int>(keyCapacity: 8, capacity: 2);
+        operations.Sample(static script => {
+                var set = new SparseSet<int>(8, 2);
                 var reference = new Dictionary<int, int>();
 
                 foreach (var (operation, key, value) in script) {
@@ -114,7 +114,7 @@ public class CollectionTests {
 
     [Fact]
     public void A_sparse_set_grows_its_key_range_on_demand() {
-        var set = new SparseSet<int>(keyCapacity: 4);
+        var set = new SparseSet<int>(4);
         set.Set(1000, 7);
 
         Assert.True(set.KeyCapacity > 1000);
@@ -137,26 +137,28 @@ public class CollectionTests {
 
     [Fact]
     public void A_bit_set_behaves_like_a_hash_set_of_integers() =>
-        Gen.Int[0, 500].Array[0, 100].Sample(indices => {
-                var bits = new BitSet(8);
-                var reference = new HashSet<int>();
+        Gen.Int[0, 500]
+            .Array[0, 100]
+            .Sample(static indices => {
+                    var bits = new BitSet(8);
+                    var reference = new HashSet<int>();
 
-                foreach (var index in indices) {
-                    bits.Set(index);
-                    reference.Add(index);
+                    foreach (var index in indices) {
+                        bits.Set(index);
+                        reference.Add(index);
+                    }
+
+                    Assert.Equal(reference.Count, bits.PopCount());
+
+                    var enumerated = new List<int>();
+                    foreach (var index in bits) {
+                        enumerated.Add(index);
+                    }
+
+                    // Ascending, and exactly the set that went in.
+                    Assert.Equal(reference.OrderBy(static i => i), enumerated);
                 }
-
-                Assert.Equal(reference.Count, bits.PopCount());
-
-                var enumerated = new List<int>();
-                foreach (var index in bits) {
-                    enumerated.Add(index);
-                }
-
-                // Ascending, and exactly the set that went in.
-                Assert.Equal(reference.OrderBy(static i => i), enumerated);
-            }
-        );
+            );
 
     [Fact]
     public void A_bit_set_reads_false_past_its_end_without_growing() {
@@ -272,7 +274,7 @@ public class CollectionTests {
     [Fact]
     public void A_chunked_array_keeps_references_valid_while_it_grows() {
         // The property a List<T> cannot offer, and the entire reason this type exists.
-        var array = new ChunkedArray<int>(chunkSize: 4);
+        var array = new ChunkedArray<int>(4);
         array.Add(42);
 
         ref var first = ref array[0];
@@ -289,7 +291,7 @@ public class CollectionTests {
 
     [Fact]
     public void A_chunked_array_rounds_its_chunk_size_to_a_power_of_two() {
-        var array = new ChunkedArray<int>(chunkSize: 100);
+        var array = new ChunkedArray<int>(100);
 
         Assert.Equal(128, array.ChunkSize);
 
@@ -346,28 +348,30 @@ public class CollectionTests {
 
     [Fact]
     public void An_indexed_priority_queue_comes_out_in_priority_order() =>
-        Gen.Select(Gen.Int[0, 60], Gen.Int[-100, 100]).Array[1, 60].Sample(entries => {
-                var queue = new IndexedPriorityQueue<int>(idCapacity: 4);
-                var reference = new Dictionary<int, int>();
+        Gen.Select(Gen.Int[0, 60], Gen.Int[-100, 100])
+            .Array[1, 60]
+            .Sample(static entries => {
+                    var queue = new IndexedPriorityQueue<int>(4);
+                    var reference = new Dictionary<int, int>();
 
-                foreach (var (id, priority) in entries) {
-                    queue.SetPriority(id, priority);
-                    reference[id] = priority;
+                    foreach (var (id, priority) in entries) {
+                        queue.SetPriority(id, priority);
+                        reference[id] = priority;
+                    }
+
+                    Assert.Equal(reference.Count, queue.Count);
+
+                    var previous = int.MinValue;
+                    while (queue.TryDequeue(out var id, out var priority)) {
+                        Assert.True(priority >= previous);
+                        Assert.Equal(reference[id], priority);
+                        Assert.True(reference.Remove(id));
+                        previous = priority;
+                    }
+
+                    Assert.Empty(reference);
                 }
-
-                Assert.Equal(reference.Count, queue.Count);
-
-                var previous = int.MinValue;
-                while (queue.TryDequeue(out var id, out var priority)) {
-                    Assert.True(priority >= previous);
-                    Assert.Equal(reference[id], priority);
-                    Assert.True(reference.Remove(id));
-                    previous = priority;
-                }
-
-                Assert.Empty(reference);
-            }
-        );
+            );
 
     [Fact]
     public void Decreasing_a_priority_moves_an_entry_forward_and_never_backward() {

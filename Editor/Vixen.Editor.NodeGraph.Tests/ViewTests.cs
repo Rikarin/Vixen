@@ -31,8 +31,12 @@ public class ViewTests : IDisposable {
 
     /// <summary>Every rule in the three sheets this editor loads compiles.</summary>
     /// <remarks>
-    ///     ⚠ <b>A selector Vixen cannot compile is dropped, and dropping is silent to everything but
-    ///     this list.</b> <c>node-search-port:empty</c> sat in the node graph's theme for as long as
+    ///     ⚠
+    ///     <b>
+    ///         A selector Vixen cannot compile is dropped, and dropping is silent to everything but
+    ///         this list.
+    ///     </b>
+    ///     <c>node-search-port:empty</c> sat in the node graph's theme for as long as
     ///     the theme existed, matching nothing, hiding nothing, and telling no one — and the way it
     ///     eventually surfaced was not the port it failed to hide but hot reload, which used to roll
     ///     a sheet back on any diagnostic and so let one dead rule veto every reload in the editor.
@@ -50,8 +54,8 @@ public class ViewTests : IDisposable {
         var item = fixture.Item(node.Id);
 
         Assert.Equal("Combine", item.Node!.Title);
-        Assert.Equal(["A", "B"], item.Node.Inputs.Select(port => port.Name));
-        Assert.Equal(["Out"], item.Node.Outputs.Select(port => port.Name));
+        Assert.Equal(["A", "B"], item.Node.Inputs.Select(static port => port.Name));
+        Assert.Equal(["Out"], item.Node.Outputs.Select(static port => port.Name));
     }
 
     [Fact]
@@ -68,7 +72,7 @@ public class ViewTests : IDisposable {
         // node is missing" and "this file has been quietly destroyed". The title is the whole path so
         // it says which plugin is missing.
         Assert.Equal("Plugin/Gone", item.Node!.Title);
-        Assert.Equal(["Tint"], item.Node.Inputs.Select(port => port.Name));
+        Assert.Equal(["Tint"], item.Node.Inputs.Select(static port => port.Name));
         Assert.Single(View.Canvas.Graph.Wires);
     }
 
@@ -82,7 +86,7 @@ public class ViewTests : IDisposable {
         var item = fixture.Item(entry.Id);
 
         // Turned round: what the container feeds in is something to read from inside.
-        Assert.Equal(["Colour"], item.Node!.Outputs.Select(port => port.Name));
+        Assert.Equal(["Colour"], item.Node!.Outputs.Select(static port => port.Name));
         Assert.Empty(item.Node.Inputs);
     }
 
@@ -97,7 +101,7 @@ public class ViewTests : IDisposable {
         var to = fixture.Port(sink.Id, "A", PortDirection.Input);
         var target = to.Bounds;
 
-        fixture.DragFrom(from, target.X + (target.Width * 0.5f), target.Y + (target.Height * 0.5f));
+        fixture.DragFrom(from, target.X + target.Width * 0.5f, target.Y + target.Height * 0.5f);
 
         Assert.Equal(new PortRef(source.Id, "Out"), graph.Source(new(sink.Id, "A")));
         Assert.Equal(1, fixture.Stack.Depth.Value);
@@ -120,7 +124,7 @@ public class ViewTests : IDisposable {
         var to = fixture.Port(named.Id, "Base Colour", PortDirection.Input);
         var target = to.Bounds;
 
-        fixture.DragFrom(from, target.X + (target.Width * 0.5f), target.Y + (target.Height * 0.5f));
+        fixture.DragFrom(from, target.X + target.Width * 0.5f, target.Y + target.Height * 0.5f);
 
         Assert.Empty(graph.Edges);
         Assert.Equal(0, fixture.Stack.Depth.Value);
@@ -149,7 +153,7 @@ public class ViewTests : IDisposable {
         // site has to remember to invert it.
         Assert.Equal(PortDirection.Input, filter.Direction);
         Assert.Equal(PortKind.Float4, filter.Kind);
-        Assert.All(View.Search.Results, result => Assert.NotEmpty(result.Port));
+        Assert.All(View.Search.Results, static result => Assert.NotEmpty(result.Port));
     }
 
     [Fact]
@@ -208,8 +212,8 @@ public class ViewTests : IDisposable {
 
         fixture.DragFrom(
             fixture.Port(sink.Id, "A", PortDirection.Input),
-            to.X + (to.Width * 0.5f),
-            to.Y + (to.Height * 0.5f)
+            to.X + to.Width * 0.5f,
+            to.Y + to.Height * 0.5f
         );
 
         // ⚠ Moved, not copied. The canvas picks the wire up at the press and says nothing about it,
@@ -236,11 +240,11 @@ public class ViewTests : IDisposable {
         fixture.Move(bounds.X + 140f, bounds.Y + 96f);
         fixture.Release(bounds.X + 140f, bounds.Y + 96f);
 
-        Assert.NotEqual(new Vector2(64f, 64f), node.Position);
+        Assert.NotEqual(new(64f, 64f), node.Position);
         Assert.Equal(1, fixture.Stack.Depth.Value);
 
         fixture.Stack.Undo();
-        Assert.Equal(new Vector2(64f, 64f), node.Position);
+        Assert.Equal(new(64f, 64f), node.Position);
     }
 
     [Fact]
@@ -336,7 +340,7 @@ public class ViewTests : IDisposable {
         Assert.Equal(1, fixture.Stack.Depth.Value);
 
         fixture.Stack.Undo();
-        Assert.Equal(new Vector2(500f, 500f), first.Position);
+        Assert.Equal(new(500f, 500f), first.Position);
     }
 
     [Fact]
@@ -358,7 +362,7 @@ public class ViewTests : IDisposable {
         Assert.Equal(3, graph.Nodes.Count);
         Assert.False(graph.TryGet(middle.Id, out _));
 
-        var standIn = Assert.Single(graph.Nodes, node => node.Type == "Sub-graphs/Middle");
+        var standIn = Assert.Single(graph.Nodes, static node => node.Type == "Sub-graphs/Middle");
 
         // The stand-in is drawn with the extracted graph's interface, which is only true because the
         // library registered the derived node type before the edit was recorded.
@@ -448,19 +452,19 @@ public class ViewTests : IDisposable {
         graph.Add("Test/Combine", new(64f, 64f));
         fixture.Update();
 
-        View.PreviewSource = new Fixed(new NodePreview(Color4.White, Image: 77UL, FlipVertically: true));
+        View.PreviewSource = new Fixed(new(Color4.White, 77UL, true));
         fixture.Update();
 
-        var image = Assert.Single(Commands(DrawCommandKind.Image), command => command.Image == 77UL);
+        var image = Assert.Single(Commands(DrawCommandKind.Image), static command => command.Image == 77UL);
 
         // Flipped, because a scene renders with the engine's Y up and an interface draws with Y down.
         // The same question Viewport answers, and the same answer.
         Assert.True(image.Source.Height < 0f);
 
-        View.PreviewSource = new Fixed(new NodePreview(new Color4(1f, 0f, 0f, 1f)));
+        View.PreviewSource = new Fixed(new(new(1f, 0f, 0f, 1f)));
         fixture.Update();
 
-        Assert.DoesNotContain(Commands(DrawCommandKind.Image), command => command.Image == 77UL);
+        Assert.DoesNotContain(Commands(DrawCommandKind.Image), static command => command.Image == 77UL);
     }
 
     /// <summary>How many bars <c>NodePreviewLayer</c>'s hatch draws.</summary>
@@ -476,8 +480,11 @@ public class ViewTests : IDisposable {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/1092">#1092</a>, and the reader
-    ///         this asserts is the one that field never had.</b> <c>NodePreview</c> used to carry a
+    ///         <b>
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/1092">#1092</a>, and the reader
+    ///             this asserts is the one that field never had.
+    ///         </b>
+    ///         <c>NodePreview</c> used to carry a
     ///         <c>Label</c> that nothing in the tree read and no producer ever set, and the reason it
     ///         could not be read is structural: <c>NodePreviewLayer</c> draws rather than building
     ///         elements, and <c>DrawContext</c> has no text primitive. So the channel became a flag
@@ -495,7 +502,7 @@ public class ViewTests : IDisposable {
         graph.Add("Test/Combine", new(64f, 64f));
         fixture.Update();
 
-        View.PreviewSource = new Fixed(new NodePreview(Color4.White));
+        View.PreviewSource = new Fixed(new(Color4.White));
         fixture.Update();
 
         // ⚠ Counted as a difference across the two frames rather than absolutely: this canvas strokes
@@ -504,15 +511,15 @@ public class ViewTests : IDisposable {
         // either frame with that many points.
         var plain = Commands(DrawCommandKind.PathStroke).ToArray();
 
-        View.PreviewSource = new Fixed(new NodePreview(Color4.White, Unavailable: true));
+        View.PreviewSource = new Fixed(new(Color4.White, Unavailable: true));
         fixture.Update();
 
         var hatched = Commands(DrawCommandKind.PathStroke).ToArray();
 
         Assert.Equal(plain.Length + 1, hatched.Length);
-        Assert.DoesNotContain(plain, command => command.Length == Bars * 2);
+        Assert.DoesNotContain(plain, static command => command.Length == Bars * 2);
 
-        var stroke = Assert.Single(hatched, command => command.Length == Bars * 2);
+        var stroke = Assert.Single(hatched, static command => command.Length == Bars * 2);
 
         // ⚠ The closed-form oracle for "a hatch", which a count of bars is not. The bars are drawn
         // over a square, so a segment's midpoint tells you which side of the swatch's anti-diagonal
@@ -645,8 +652,12 @@ public class ViewTests : IDisposable {
     }
 
     /// <summary>
-    ///     ⚠ <b>What keeps a press inside a note from stealing the note's focus is the field, not
-    ///     the canvas.</b> <c>NodeCanvas.Pointed</c> carried a second arm declining a primary press
+    ///     ⚠
+    ///     <b>
+    ///         What keeps a press inside a note from stealing the note's focus is the field, not
+    ///         the canvas.
+    ///     </b>
+    ///     <c>NodeCanvas.Pointed</c> carried a second arm declining a primary press
     ///     under any <c>TextField</c>, with a written rationale about <c>Begin</c> focusing the
     ///     canvas — and narrowing that guard back to ports alone left both suites green, which is
     ///     the shape this repository treats as a defect.
@@ -685,7 +696,7 @@ public class ViewTests : IDisposable {
                 }
             },
             RoutingStrategy.Bubble,
-            handledEventsToo: true
+            true
         );
 
         fixture.Click(note.Editor);
@@ -753,8 +764,8 @@ public class ViewTests : IDisposable {
 
         var edge = Assert.NotNull(View.SelectedEdge);
 
-        Assert.Equal(new PortRef(source, "Out"), edge.From);
-        Assert.Equal(new PortRef(sink, "A"), edge.To);
+        Assert.Equal(new(source, "Out"), edge.From);
+        Assert.Equal(new(sink, "A"), edge.To);
 
         // Nothing was pulled off and nothing was recorded: choosing is not an edit.
         Assert.Single(graph.Edges);
@@ -823,7 +834,7 @@ public class ViewTests : IDisposable {
         fixture.Stack.Undo();
 
         var edge = Assert.Single(graph.Edges);
-        Assert.Equal(new PortRef(sink, "A"), edge.To);
+        Assert.Equal(new(sink, "A"), edge.To);
     }
 
     /// <summary>
@@ -861,14 +872,14 @@ public class ViewTests : IDisposable {
 
         fixture.DragFrom(
             fixture.Port(sink.Id, "B", PortDirection.Input),
-            target.X + (target.Width * 0.5f),
-            target.Y + (target.Height * 0.5f)
+            target.X + target.Width * 0.5f,
+            target.Y + target.Height * 0.5f
         );
 
         var moved = Assert.Single(graph.Edges);
 
-        Assert.Equal(new PortRef(second.Id, "Out"), moved.From);
-        Assert.Equal(new PortRef(sink.Id, "A"), moved.To);
+        Assert.Equal(new(second.Id, "Out"), moved.From);
+        Assert.Equal(new(sink.Id, "A"), moved.To);
     }
 
     /// <summary>
@@ -888,7 +899,7 @@ public class ViewTests : IDisposable {
 
         var edge = Assert.NotNull(View.SelectedEdge);
 
-        Assert.Equal(new PortRef(sink, "A"), edge.To);
+        Assert.Equal(new(sink, "A"), edge.To);
         Assert.NotNull(fixture.Canvas.SelectedWire);
     }
 
@@ -901,7 +912,12 @@ public class ViewTests : IDisposable {
     }
 
     sealed class Recorder(List<NodeId> asked) : INodePreviewSource {
-        public bool TryGet(NodeGraphModel graph, GraphNode node, NodeTypeDefinition definition, out NodePreview preview) {
+        public bool TryGet(
+            NodeGraphModel graph,
+            GraphNode node,
+            NodeTypeDefinition definition,
+            out NodePreview preview
+        ) {
             asked.Add(node.Id);
             preview = new(new Color4(1f, 0f, 0f, 1f));
 
@@ -910,7 +926,12 @@ public class ViewTests : IDisposable {
     }
 
     sealed class Fixed(NodePreview answer) : INodePreviewSource {
-        public bool TryGet(NodeGraphModel graph, GraphNode node, NodeTypeDefinition definition, out NodePreview preview) {
+        public bool TryGet(
+            NodeGraphModel graph,
+            GraphNode node,
+            NodeTypeDefinition definition,
+            out NodePreview preview
+        ) {
             preview = answer;
 
             return true;

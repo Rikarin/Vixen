@@ -12,15 +12,19 @@ namespace Vixen.Editor.Inspector.Drawers;
 /// <summary>A colour swatch that opens a picker.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>A <see cref="ColorInput" /> and not a <see cref="ColorPicker" />, which is what this
-///         row used to embed.</b> The picker is the whole apparatus — a 150-pixel field, two bands, a
+///         ⚠
+///         <b>
+///             A <see cref="ColorInput" /> and not a <see cref="ColorPicker" />, which is what this
+///             row used to embed.
+///         </b>
+///         The picker is the whole apparatus — a 150-pixel field, two bands, a
 ///         hex box, an intensity slider and a palette — and a material with four tints was four of
 ///         those stacked down the inspector with the next property somewhere past the bottom of the
 ///         panel. What belongs in a row is the box; the picker belongs in what the box opens.
 ///     </para>
 ///     <para>
 ///         <see cref="ColorUsageAttribute" /> is what decides whether the picker offers an intensity
-///     slider and an alpha band, because a colour's type does not say which of those are meaningful
+///         slider and an alpha band, because a colour's type does not say which of those are meaningful
 ///         — an albedo tint and an emissive tint are both a <c>Color4</c> and want different editors.
 ///     </para>
 /// </remarks>
@@ -62,8 +66,12 @@ public sealed class ColorDrawer : PropertyDrawer<Color4, ColorInput> {
 /// <summary>The same swatch and picker, over a colour with no alpha.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>A separate drawer rather than a coercion in <see cref="ColorDrawer" />, because a
-///         drawer is chosen by the member's exact type.</b> <c>Color3</c> had none at all, so every
+///         ⚠
+///         <b>
+///             A separate drawer rather than a coercion in <see cref="ColorDrawer" />, because a
+///             drawer is chosen by the member's exact type.
+///         </b>
+///         <c>Color3</c> had none at all, so every
 ///         member of that type fell through to the read-only last resort — which for a light's colour
 ///         meant the one property people open a light to change was a line of grey text. It is the
 ///         type the renderer uses for anything with no meaningful alpha, so <c>Light.Colour</c> is
@@ -124,16 +132,23 @@ public sealed class Color3Drawer : PropertyDrawer<Color3, ColorInput> {
 ///         something to put back.
 ///     </para>
 ///     <para>
-///         <b>What "mixed" means for a curve, which had to be decided before any of this could be
-///         written.</b> Two curves agree when their keys agree — the same number of them, each at
+///         <b>
+///             What "mixed" means for a curve, which had to be decided before any of this could be
+///             written.
+///         </b>
+///         Two curves agree when their keys agree — the same number of them, each at
 ///         the same time and value with the same tangents and mode. Disagreement is <i>not</i>
 ///         per-key: two curves with different key counts have no third key to call mixed, so there
 ///         is nothing between "these are the same curve" and "they are not". The row is mixed or it
 ///         is not, and a mixed one shows an <b>empty</b> graph rather than one of the curves.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Compared key by key, and that comparison is no longer this drawer's private
-///         opinion.</b> <c>EditProperty.Read</c> used to compare with <c>Equals(object, object)</c>,
+///         ⚠
+///         <b>
+///             Compared key by key, and that comparison is no longer this drawer's private
+///             opinion.
+///         </b>
+///         <c>EditProperty.Read</c> used to compare with <c>Equals(object, object)</c>,
 ///         which for a type with no equality is reference identity — and <c>AnimationCurve</c> has
 ///         none — so two objects holding structurally identical curves read as mixed the moment they
 ///         were selected together, which is every multi-selection there has ever been: a member
@@ -146,19 +161,27 @@ public sealed class Color3Drawer : PropertyDrawer<Color3, ColorInput> {
 ///         and a hash code is how a selection stops containing the key that is being dragged.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Every write is a separate copy per object, through
-///         <see cref="Vixen.Editor.Core.EditProperty.WriteEach(IReadOnlyList{object})" />, and one
-///         <see cref="Vixen.Editor.Core.EditProperty.Write(object)" /> would
-///         have been wrong for a reason that has nothing to do with mixing.</b> A single write puts
+///         ⚠
+///         <b>
+///             Every write is a separate copy per object, through
+///             <see cref="Vixen.Editor.Core.EditProperty.WriteEach(IReadOnlyList{object})" />, and one
+///             <see cref="Vixen.Editor.Core.EditProperty.Write(object)" /> would
+///             have been wrong for a reason that has nothing to do with mixing.
+///         </b>
+///         A single write puts
 ///         the <i>same instance</i> on every selected object, and twenty objects sharing one curve
 ///         is not "they all have the same curve" — it is "editing any of them edits all of them",
 ///         silently, for the rest of the session. Twenty distinct copies is the only reading of
 ///         "set them all to this" that survives the next edit.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The member this draws is <i>application</i> code's, and nothing in this repository
-///         declares one — which is a decision rather than a gap, and the same one
-///         <c>GradientEditor</c> already carries.</b> A sweep of <c>*.cs</c> and <c>*.vxml</c> finds
+///         ⚠
+///         <b>
+///             The member this draws is <i>application</i> code's, and nothing in this repository
+///             declares one — which is a decision rather than a gap, and the same one
+///             <c>GradientEditor</c> already carries.
+///         </b>
+///         A sweep of <c>*.cs</c> and <c>*.vxml</c> finds
 ///         the type, this drawer, its two registrations, the clip conversions and test fixtures, and
 ///         no <c>[Inspector]</c> or <c>[DataContract]</c> member of that type anywhere. The
 ///         <c>WaterMaterial</c> at the top of this assembly's <c>README.md</c> is what the row is
@@ -166,9 +189,13 @@ public sealed class Color3Drawer : PropertyDrawer<Color3, ColorInput> {
 ///         <c>[Inspector, Curve] public AnimationCurve Amplitude</c>.
 ///     </para>
 ///     <para>
-///         ⚠ <b>And "make <c>AnimationCurve</c> serialisable so a component can carry one" —
-///         <a href="https://github.com/Rikarin/Vixen/issues/1148">#1148</a>'s own proposal — is
-///         refuted: serialisation is not what stops it, visibility is.</b> A behaviour is read into
+///         ⚠
+///         <b>
+///             And "make <c>AnimationCurve</c> serialisable so a component can carry one" —
+///             <a href="https://github.com/Rikarin/Vixen/issues/1148">#1148</a>'s own proposal — is
+///             refuted: serialisation is not what stops it, visibility is.
+///         </b>
+///         A behaviour is read into
 ///         the component panel through <c>ISceneBehaviorBinder.Copy</c>, which is
 ///         <c>Restore(Save(…))</c>, so a member the serialiser cannot see draws a foldout with zero
 ///         rows and no error. But <c>Vixen.Engine</c> does not reference
@@ -213,8 +240,12 @@ public sealed class CurveDrawer : PropertyDrawer<AnimationCurve, CurveEditor> {
 
     /// <inheritdoc />
     /// <remarks>
-    ///     ⚠ <b><paramref name="value" /> and <paramref name="isMixed" /> are recomputed rather than
-    ///     used, and they now agree with what is recomputed.</b> They come from
+    ///     ⚠
+    ///     <b>
+    ///         <paramref name="value" /> and <paramref name="isMixed" /> are recomputed rather than
+    ///         used, and they now agree with what is recomputed.
+    ///     </b>
+    ///     They come from
     ///     <c>EditProperty.Read</c>, which asks the member — and therefore <c>OwnedValues</c> — the
     ///     same question <see cref="Agreement" /> asks. The recomputation stays because this drawer
     ///     needs the shared <i>curve</i> and not the boxed value <c>Read</c> suppresses when the row
@@ -241,7 +272,7 @@ public sealed class CurveDrawer : PropertyDrawer<AnimationCurve, CurveEditor> {
             // editable, because the only thing it can produce is a curve authored in front of them,
             // which every selected object then gets a copy of.
             editor.AddClass("mixed");
-            Park(editor, new AnimationCurve());
+            Park(editor, new());
 
             return;
         }
@@ -309,8 +340,12 @@ public sealed class CurveDrawer : PropertyDrawer<AnimationCurve, CurveEditor> {
 ///         name that a rename would make wrong.
 ///     </para>
 ///     <para>
-///         ⚠ <b>An <see cref="AssetReference" /> is the same row, and leaving it out was not a
-///         missing nicety.</b> A bare id can only ever name an asset's main object, so what a scene
+///         ⚠
+///         <b>
+///             An <see cref="AssetReference" /> is the same row, and leaving it out was not a
+///             missing nicety.
+///         </b>
+///         A bare id can only ever name an asset's main object, so what a scene
 ///         actually stores is a reference — <c>MeshRenderable.Mesh</c> and every material member on
 ///         every component are that type, not <see cref="AssetId" />. The drawer answered for
 ///         <see cref="AssetId" /> alone, so all of them fell through to the read-only last resort:
@@ -436,9 +471,10 @@ public sealed class AssetDrawer : IPropertyDrawer {
         pick.Disabled = !field.CanWrite;
 
         pick.AddHandler<ClickEvent>((_, args) => {
-            PickRequested?.Invoke(field);
-            args.Handled = true;
-        });
+                PickRequested?.Invoke(field);
+                args.Handled = true;
+            }
+        );
 
         if (field.Member.AllowNull) {
             var clear = row.Add<IconButton>();
@@ -449,12 +485,13 @@ public sealed class AssetDrawer : IPropertyDrawer {
             clear.Disabled = !field.CanWrite;
 
             clear.AddHandler<ClickEvent>((_, args) => {
-                if (Assign(field, AssetId.Empty)) {
-                    field.Seal();
-                }
+                    if (Assign(field, AssetId.Empty)) {
+                        field.Seal();
+                    }
 
-                args.Handled = true;
-            });
+                    args.Handled = true;
+                }
+            );
         }
 
         return row;

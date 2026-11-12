@@ -40,7 +40,7 @@ static class PrincipalAxis {
             var norm = 0f;
 
             for (var column = 0; column < dimensions; column++) {
-                var value = covariance[(row * dimensions) + column];
+                var value = covariance[row * dimensions + column];
                 norm += value * value;
             }
 
@@ -65,7 +65,7 @@ static class PrincipalAxis {
 
             for (var row = 0; row < dimensions; row++) {
                 for (var column = 0; column < dimensions; column++) {
-                    next[row] += covariance[(row * dimensions) + column] * axis[column];
+                    next[row] += covariance[row * dimensions + column] * axis[column];
                 }
             }
 

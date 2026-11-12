@@ -10,8 +10,11 @@ namespace Vixen.Engine.Scenes;
 /// <summary>A level, compiled. What a content build writes and a player loads.</summary>
 /// <remarks>
 ///     <para>
-///         <b>The runtime end of the scene pipeline, and the reason the authoring format can afford
-///         to be unhurried.</b> A <c>.vxscene</c> is YAML because a person merges it; this is a chunk
+///         <b>
+///             The runtime end of the scene pipeline, and the reason the authoring format can afford
+///             to be unhurried.
+///         </b>
+///         A <c>.vxscene</c> is YAML because a person merges it; this is a chunk
 ///         in the object database because a player loads it on a frame budget. Nothing reads the
 ///         authored form at run time and nothing edits this one — <c>SceneCompiler</c> is the only
 ///         thing that has ever seen both.

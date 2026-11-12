@@ -38,7 +38,7 @@ public static class Program {
 
         return mode switch {
             "local" => LocalMatch.Run(
-                new MatchSettings {
+                new() {
                     Clients = Math.Clamp(Number(arguments, "--clients", 8), 1, 8),
                     Ticks = Number(arguments, "--ticks", 1800),
                     SettleTicks = Number(arguments, "--settle", 120),

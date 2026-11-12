@@ -3,7 +3,6 @@
 
 using System.Runtime.InteropServices;
 using Vixen.Graphics;
-using Vixen.Shaders;
 using Vixen.Vfx;
 
 namespace Vixen.Rendering.Features;
@@ -69,8 +68,12 @@ public struct ParticleDraw {
 ///         limitation rather than working around it, which is why it is not worked around here.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Once per <em>frame</em>, and it has been described as "once per view" — including in
-///         the issue tracking the fix.</b> The difference is the whole symptom: a second view does not
+///         ⚠
+///         <b>
+///             Once per <em>frame</em>, and it has been described as "once per view" — including in
+///             the issue tracking the fix.
+///         </b>
+///         The difference is the whole symptom: a second view does not
 ///         pay for a second expansion, it draws the first view's geometry. Every draw involved is
 ///         valid, so no command, counter or validation message distinguished the two cases until
 ///         <see cref="ViewsFacingElsewhere" />, which is what says the limitation is biting this
@@ -150,8 +153,11 @@ public sealed class ParticleRenderFeature : RootRenderFeature, IDisposable {
     ///         <see href="https://github.com/Rikarin/Vixen/issues/86" />.
     ///     </para>
     ///     <para>
-    ///         <b>Computed in <see cref="Prepare" /> from the masks rather than counted in
-    ///         <see cref="Draw" />.</b> A view draws a stage its own mask names, and this frame's
+    ///         <b>
+    ///             Computed in <see cref="Prepare" /> from the masks rather than counted in
+    ///             <see cref="Draw" />.
+    ///         </b>
+    ///         A view draws a stage its own mask names, and this frame's
     ///         camera-facing objects name theirs, so the intersection answers the question before a
     ///         command list exists — which is what lets it be reported beside the light budget rather
     ///         than after the frame that had the problem.
@@ -191,8 +197,12 @@ public sealed class ParticleRenderFeature : RootRenderFeature, IDisposable {
     ///         state and every phase after extraction reads flat data.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Null is what an author's light effect fails against, so it is reported rather
-    ///         than assumed.</b> A graph whose output node is <c>Vfx/Output/Light</c> draws no
+    ///         ⚠
+    ///         <b>
+    ///             Null is what an author's light effect fails against, so it is reported rather
+    ///             than assumed.
+    ///         </b>
+    ///         A graph whose output node is <c>Vfx/Output/Light</c> draws no
     ///         geometry at all — that is the whole of what the renderer is — so a frame with no sink
     ///         is one where the effect simulates, costs its particles, and neither draws nor lights.
     ///         <see cref="RootRenderFeature.Degraded" /> carries that; see <see cref="Prepare" />.
@@ -252,8 +262,12 @@ public sealed class ParticleRenderFeature : RootRenderFeature, IDisposable {
     /// <returns>How many the budget refused.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Called from extraction, not from <see cref="Prepare" />, and the ordering is the
-    ///         reason.</b> A feature's <c>Prepare</c> runs in registration order, and the lighting
+    ///         ⚠
+    ///         <b>
+    ///             Called from extraction, not from <see cref="Prepare" />, and the ordering is the
+    ///             reason.
+    ///         </b>
+    ///         A feature's <c>Prepare</c> runs in registration order, and the lighting
     ///         feature is a sub-feature of the mesh path that is registered first — so a collection
     ///         made here would be uploaded a frame late, for ever, which looks like latency rather
     ///         than like a bug. <c>VfxExtractionSystem</c> calls it in <c>PreRender</c> after
@@ -308,7 +322,9 @@ public sealed class ParticleRenderFeature : RootRenderFeature, IDisposable {
     /// <exception cref="InvalidOperationException">The feature has not been added to a system yet.</exception>
     public void SetSystem(RenderObjectId id, VfxSystem? system) {
         if (System is null) {
-            throw new InvalidOperationException("The feature has to be added to a RenderSystem before it can be given effects.");
+            throw new InvalidOperationException(
+                "The feature has to be added to a RenderSystem before it can be given effects."
+            );
         }
 
         var indicesData = System.Objects.Data.Data(SystemIndices);
@@ -335,7 +351,9 @@ public sealed class ParticleRenderFeature : RootRenderFeature, IDisposable {
     /// <exception cref="InvalidOperationException">The feature has not been added to a system yet.</exception>
     public void SetMesh(RenderObjectId id, MeshDraw mesh) {
         if (System is null) {
-            throw new InvalidOperationException("The feature has to be added to a RenderSystem before it can be given meshes.");
+            throw new InvalidOperationException(
+                "The feature has to be added to a RenderSystem before it can be given meshes."
+            );
         }
 
         System.Objects.Data.Data(Meshes)[id.Index] = mesh;
@@ -464,8 +482,12 @@ public sealed class ParticleRenderFeature : RootRenderFeature, IDisposable {
     /// <param name="system">The render system.</param>
     /// <param name="facingStages">Which stages hold camera-facing geometry this frame.</param>
     /// <remarks>
-    ///     ⚠ <b>A view is counted for what it is <em>going</em> to draw, which is the only moment the
-    ///     answer is useful.</b> By the time a command list has the quads in it every draw is valid
+    ///     ⚠
+    ///     <b>
+    ///         A view is counted for what it is <em>going</em> to draw, which is the only moment the
+    ///         answer is useful.
+    ///     </b>
+    ///     By the time a command list has the quads in it every draw is valid
     ///     and nothing about it says the geometry faces somebody else's camera — see
     ///     <see cref="ViewsFacingElsewhere" />.
     /// </remarks>
@@ -603,14 +625,16 @@ public sealed class ParticleRenderFeature : RootRenderFeature, IDisposable {
         // FirstVertex is the first *instance* here, and it is what the draw call's firstInstance
         // takes — the same field doing the same job for a different kind of run.
         return new() {
-            FirstVertex = instances.Add(transforms.AsSpan(0, count)),
-            ParticleCount = count,
-            Kind = VfxRendererKind.Mesh
+            FirstVertex = instances.Add(transforms.AsSpan(0, count)), ParticleCount = count, Kind = VfxRendererKind.Mesh
         };
     }
 
     /// <inheritdoc />
-    protected internal override void Draw(RenderSystem system, RenderDrawContext context, ReadOnlySpan<RenderNode> nodes) {
+    protected internal override void Draw(
+        RenderSystem system,
+        RenderDrawContext context,
+        ReadOnlySpan<RenderNode> nodes
+    ) {
         // Not `!vertices.Buffer.IsValid` here. That buffer holds quads and strips, and a frame of
         // nothing but instanced meshes never puts a byte in it — so testing it up front was a whole
         // renderer that silently drew nothing.
@@ -688,7 +712,8 @@ public sealed class ParticleRenderFeature : RootRenderFeature, IDisposable {
                 boundView = view.Bind(context.CommandList, from, effect);
             }
 
-            if (materials.DescriptorsOf(system, node.Object) is { IsValid: true } descriptors && descriptors != boundDescriptors) {
+            if (materials.DescriptorsOf(system, node.Object) is { IsValid: true } descriptors
+                && descriptors != boundDescriptors) {
                 context.CommandList.BindDescriptorSet(DescriptorSetSlot.PerMaterial, descriptors);
                 boundDescriptors = descriptors;
             }
@@ -698,7 +723,7 @@ public sealed class ParticleRenderFeature : RootRenderFeature, IDisposable {
                     // The mesh's buffers change per effect and the instance stream does not, so the
                     // mesh handle is what the rebinding is keyed on.
                     if (bound != VfxRendererKind.Mesh || boundMesh != mesh.VertexBuffer) {
-                        context.CommandList.BindVertexBuffer(0, mesh.VertexBuffer, 0);
+                        context.CommandList.BindVertexBuffer(0, mesh.VertexBuffer);
                         context.CommandList.BindVertexBuffer(1, instances.Buffer, instances.Offset);
                         context.CommandList.BindIndexBuffer(mesh.IndexBuffer, mesh.IndexFormat);
                         boundMesh = mesh.VertexBuffer;
@@ -728,7 +753,7 @@ public sealed class ParticleRenderFeature : RootRenderFeature, IDisposable {
                     // The indices are the effect's own, written from zero, so the run is reached the
                     // same way a quad run is — through the vertex offset — and the index range picks
                     // out which effect's triangles these are.
-                    context.CommandList.DrawIndexed(draw.IndexCount, 1, draw.FirstIndex, draw.FirstVertex, 0);
+                    context.CommandList.DrawIndexed(draw.IndexCount, 1, draw.FirstIndex, draw.FirstVertex);
 
                     break;
                 }
@@ -748,8 +773,7 @@ public sealed class ParticleRenderFeature : RootRenderFeature, IDisposable {
                         draw.ParticleCount * VfxGeometryBuilder.IndicesPerParticle,
                         1,
                         0,
-                        draw.FirstVertex,
-                        0
+                        draw.FirstVertex
                     );
 
                     break;

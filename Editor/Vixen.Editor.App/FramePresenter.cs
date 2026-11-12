@@ -16,8 +16,11 @@ namespace Vixen.Editor.App;
 /// <summary>Renders the scene through a <see cref="GraphicsCompositor" /> and hands the interface the result.</summary>
 /// <remarks>
 ///     <para>
-///         <b><see cref="ScenePresenter" />'s three calls, over the standard renderer instead of the
-///         tool one.</b> <c>EditorHost.Record</c> talks to a presenter through exactly
+///         <b>
+///             <see cref="ScenePresenter" />'s three calls, over the standard renderer instead of the
+///             tool one.
+///         </b>
+///         <c>EditorHost.Record</c> talks to a presenter through exactly
 ///         <c>Resize</c>, <c>Upload</c> and <c>Declare</c>, so what changes a pane from "the editor's
 ///         own shapes, lit by one key direction" to "the frame a game would draw" is a second type
 ///         implementing those three — not a mode flag on the first, which would be one object holding
@@ -40,8 +43,11 @@ namespace Vixen.Editor.App;
 ///         test against.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The tools are a node appended to the built tree, and it is the depth link that makes
-///         them a viewport rather than a decal.</b>
+///         ⚠
+///         <b>
+///             The tools are a node appended to the built tree, and it is the depth link that makes
+///             them a viewport rather than a decal.
+///         </b>
 ///         <c>Platform/Vixen.Graphics.Golden.Tests/ViewportOverlayImageTests</c> renders the
 ///         arrangement and renders the sabotage beside it: a <see cref="RenderPassRenderer" /> that
 ///         <em>loads</em> the frame's colour and <em>loads</em> its depth rather than clearing either,
@@ -96,8 +102,12 @@ sealed class FramePresenter : IDisposable {
 
     /// <summary>Which pane this is, which is what every name in the frame is keyed by.</summary>
     /// <remarks>
-    ///     ⚠ <b>The view, the colour, the depth and the linear target in between are all this pane's,
-    ///     and the number is how the document names them.</b> Two presenters sharing an index would
+    ///     ⚠
+    ///     <b>
+    ///         The view, the colour, the depth and the linear target in between are all this pane's,
+    ///         and the number is how the document names them.
+    ///     </b>
+    ///     Two presenters sharing an index would
     ///     be two panes lending the frame one pair of textures and aiming one view — the arrangement
     ///     where four panes in one mode look different from each other because only the last one
     ///     wrote.
@@ -106,6 +116,7 @@ sealed class FramePresenter : IDisposable {
 
     /// <summary>The document's names for this pane's two targets, made once.</summary>
     readonly string colourTarget;
+
     readonly string depthTarget;
 
     /// <summary>The depth-tested lines: the grid, the markers, the parent lines.</summary>
@@ -136,6 +147,7 @@ sealed class FramePresenter : IDisposable {
 
     /// <summary>The mesh feature's running totals as of the last frame, so the pane can report deltas.</summary>
     int lastDraws;
+
     long lastIndices;
 
     bool disposed;
@@ -243,11 +255,7 @@ sealed class FramePresenter : IDisposable {
 
         pass.ColourTargets.Add(colourTarget);
 
-        pass.Children.Add(
-            new DelegateSceneRenderer {
-                OnRecord = (_, context) => Record(context.CommandList)
-            }
-        );
+        pass.Children.Add(new DelegateSceneRenderer { OnRecord = (_, context) => Record(context.CommandList) });
 
         // ⚠ Wrapped rather than appended into the mode's own sequence, and memoised per tree. The
         // trees are the builder's — subtrees of the one built document — so appending would edit the
@@ -449,8 +457,12 @@ sealed class FramePresenter : IDisposable {
     /// <exception cref="ArgumentNullException"><paramref name="viewport" /> is null.</exception>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The half of <see cref="Declare" /> that a quad layout runs four times, before the
-    ///         one build.</b> Every pane has to have lent its imports before <c>Build</c> reads them,
+    ///         ⚠
+    ///         <b>
+    ///             The half of <see cref="Declare" /> that a quad layout runs four times, before the
+    ///             one build.
+    ///         </b>
+    ///         Every pane has to have lent its imports before <c>Build</c> reads them,
     ///         because a build is a snapshot: an import written afterwards reaches the next frame.
     ///     </para>
     ///     <para>
@@ -538,8 +550,12 @@ sealed class FramePresenter : IDisposable {
     /// <summary>What the last frame drew differently than it was asked to, in tree order.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Surfaced rather than logged once, because it is the difference between a preview
-    ///         that is wrong and one that says it is wrong.</b> A node that declined to run — a
+    ///         ⚠
+    ///         <b>
+    ///             Surfaced rather than logged once, because it is the difference between a preview
+    ///             that is wrong and one that says it is wrong.
+    ///         </b>
+    ///         A node that declined to run — a
     ///         reflection pass with no effect system, a clipmap with no field — draws a picture that
     ///         is plausible and not the one the document describes, and nothing else in the frame
     ///         reports it.
@@ -561,8 +577,8 @@ sealed class FramePresenter : IDisposable {
     /// </remarks>
     void Record(ICommandList commands) {
         lines.Record(commands, viewProjection);
-        overlay.Record(commands, viewProjection, depthTested: false);
-        handles.Record(commands, viewProjection, depthTested: false);
+        overlay.Record(commands, viewProjection, false);
+        handles.Record(commands, viewProjection, false);
     }
 
     /// <summary>Copies a collected list into a renderer's buffer.</summary>

@@ -7,7 +7,7 @@ namespace Vixen.Core.Imaging.Tests;
 
 public sealed class ImageResizeTests {
     static FloatImage Ramp(int width, int height) =>
-        new(width, height, 1, [.. Enumerable.Range(0, width * height).Select(static at => (float)at)]);
+        new(width, height, 1, [..Enumerable.Range(0, width * height).Select(static at => (float)at)]);
 
     /// <summary>Halving with a box is the mean of each two-by-two: the closed form a mip level has.</summary>
     [Fact]
@@ -16,7 +16,10 @@ public sealed class ImageResizeTests {
 
         var half = ImageResize.Resize(image, 2, 2);
 
-        Assert.Equal([(0f + 1 + 4 + 5) / 4, (2f + 3 + 6 + 7) / 4, (8f + 9 + 12 + 13) / 4, (10f + 11 + 14 + 15) / 4], half.Samples);
+        Assert.Equal(
+            [(0f + 1 + 4 + 5) / 4, (2f + 3 + 6 + 7) / 4, (8f + 9 + 12 + 13) / 4, (10f + 11 + 14 + 15) / 4],
+            half.Samples
+        );
     }
 
     /// <summary>

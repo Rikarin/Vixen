@@ -4,7 +4,6 @@
 using System.Runtime.InteropServices;
 using Vixen.Core.Imaging;
 using Vixen.Core.Mathematics;
-using Vixen.Graphics.RenderGraph;
 using Vixen.Rendering;
 using Vixen.Rendering.Compositor;
 using Vixen.Rendering.PostFx;
@@ -33,16 +32,24 @@ namespace Vixen.Graphics.Golden.Tests;
 ///         be about where they fell.
 ///     </para>
 ///     <para>
-///         ⚠ <b>"The image changed" is satisfied by any noise, including one added in the wrong
-///         space.</b> So the two halves are asserted separately: the density has to track the ramp —
+///         ⚠
+///         <b>
+///             "The image changed" is satisfied by any noise, including one added in the wrong
+///             space.
+///         </b>
+///         So the two halves are asserted separately: the density has to track the ramp —
 ///         the left quarter brightens by about an eighth of a code and the right quarter dims by
 ///         about an eighth — and the whole frame's mean has to be <em>unmoved</em>, because a dither
 ///         that shifts the mean is a bias. Grain, added in the same pass one line earlier, moves the
 ///         first and would also move the second at any amplitude that showed up in the first.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The mean assertion is what makes the triangular PDF load-bearing rather than
-///         decorative.</b> A single uniform sample would satisfy it too — a uniform dither is
+///         ⚠
+///         <b>
+///             The mean assertion is what makes the triangular PDF load-bearing rather than
+///             decorative.
+///         </b>
+///         A single uniform sample would satisfy it too — a uniform dither is
 ///         unbiased in the mean — and what a triangular one additionally buys is that the error's
 ///         <em>variance</em> stops depending on the signal, which is noise that visibly swells and
 ///         fades across a gradient rather than a constant texture. That second moment is not asserted
@@ -90,7 +97,7 @@ public sealed class DitherImageTests {
         }
 
         using var owned = fixture!;
-        var plain = Render(owned, dither: false);
+        var plain = Render(owned, false);
 
         Assert.Equal(1, Distinct(plain, 0, Side / 4));
         Assert.Equal(1, Distinct(plain, Side * 3 / 4, Side));
@@ -112,8 +119,8 @@ public sealed class DitherImageTests {
 
         using var owned = fixture!;
 
-        var plain = Render(owned, dither: false);
-        var dithered = Render(owned, dither: true);
+        var plain = Render(owned, false);
+        var dithered = Render(owned, true);
 
         Assert.True(
             Distinct(dithered, 0, Side / 4) >= 2,
@@ -138,8 +145,8 @@ public sealed class DitherImageTests {
 
         using var owned = fixture!;
 
-        var plain = Mean(Render(owned, dither: false), 0, Side);
-        var dithered = Mean(Render(owned, dither: true), 0, Side);
+        var plain = Mean(Render(owned, false), 0, Side);
+        var dithered = Mean(Render(owned, true), 0, Side);
 
         Assert.True(
             Math.Abs(plain - dithered) < 0.05,
@@ -190,13 +197,13 @@ public sealed class DitherImageTests {
                 // ⚠ Or a flat field, for the sRGB fixture, whose question is the noise's *amplitude*
                 // rather than what the noise does to a gradient. A ramp would put a second source of
                 // spread in the same numbers.
-                var value = flat ?? (Base + ((x + 0.5f) / Side)) / 255f;
+                var value = flat ?? (Base + (x + 0.5f) / Side) / 255f;
 
-                texels[(y * Side) + x] = new(value, value, value, 1f);
+                texels[y * Side + x] = new(value, value, value, 1f);
             }
         }
 
-        var ramp = fixture.Sampled("ramp", Side, MemoryMarshal.AsBytes<Vector4>(texels), PixelFormat.Rgba32Float);
+        var ramp = fixture.Sampled("ramp", Side, MemoryMarshal.AsBytes(texels), PixelFormat.Rgba32Float);
         var display = fixture.Owned(
             "display",
             TextureUsage.ColourTarget | TextureUsage.CopySource,
@@ -214,7 +221,7 @@ public sealed class DitherImageTests {
         effects.AddProvider(
             new Compiling(
                 loader,
-                _ => RavenEffects.Only(
+                static _ => RavenEffects.Only(
                     ["Core", "Geometry"],
                     Path.Combine("PostFx", "Fullscreen.rvn"),
                     Path.Combine("PostFx", "Vignette.rvn")
@@ -274,9 +281,7 @@ public sealed class DitherImageTests {
                 commands.Barrier(new([], [new(ramp.Texture, ResourceState.Undefined, ResourceState.CopyDestination)]));
                 commands.CopyBufferToTexture(ramp.Staging, 0, new(ramp.Texture), new(Side, Side, 1));
 
-                commands.Barrier(
-                    new([], [new(ramp.Texture, ResourceState.CopyDestination, ResourceState.ShaderRead)])
-                );
+                commands.Barrier(new([], [new(ramp.Texture, ResourceState.CopyDestination, ResourceState.ShaderRead)]));
             }
         );
     }
@@ -298,8 +303,12 @@ public sealed class DitherImageTests {
     /// <summary>On an sRGB target the noise is one stored code at both ends of the range.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The half <c>DitherImageTests</c> deliberately said nothing about until #1181,
-    ///         and the half every shipped frame is in.</b> Every fixture above stages
+    ///         ⚠
+    ///         <b>
+    ///             The half <c>DitherImageTests</c> deliberately said nothing about until #1181,
+    ///             and the half every shipped frame is in.
+    ///         </b>
+    ///         Every fixture above stages
     ///         <c>Rgba8UNorm</c> so that "one code" is one number; <c>VignetteAsset.Format</c>
     ///         defaults to <c>Rgba8UNormSrgb</c> and <c>StandardFrame</c>'s lens node takes that
     ///         default, so the target a frame actually dithers into has a transfer curve on it. A
@@ -316,8 +325,12 @@ public sealed class DitherImageTests {
     ///         wrong.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Two ends, because one of them alone is satisfiable by a dither that is simply
-    ///         off.</b> A shader that added nothing passes the shadow ceiling perfectly. The
+    ///         ⚠
+    ///         <b>
+    ///             Two ends, because one of them alone is satisfiable by a dither that is simply
+    ///             off.
+    ///         </b>
+    ///         A shader that added nothing passes the shadow ceiling perfectly. The
     ///         highlight floor is what refuses that, and it is also the end an over-correction would
     ///         fail: the linear-sized noise is about half a code up there, so the frame that is too
     ///         noisy in the shadows is too quiet in the highlights in the same picture.
@@ -340,10 +353,10 @@ public sealed class DitherImageTests {
 
         // The instrument: an undithered flat field is one code, so anything the dithered frames
         // spread over is the noise and not the fixture.
-        Assert.Equal(1, Distinct(Render(owned, dither: false, PixelFormat.Rgba8UNormSrgb, Shadow), 0, Side));
+        Assert.Equal(1, Distinct(Render(owned, false, PixelFormat.Rgba8UNormSrgb, Shadow), 0, Side));
 
-        var shadow = Range(Render(owned, dither: true, PixelFormat.Rgba8UNormSrgb, Shadow), 0, Side);
-        var highlight = Range(Render(owned, dither: true, PixelFormat.Rgba8UNormSrgb, Highlight), 0, Side);
+        var shadow = Range(Render(owned, true, PixelFormat.Rgba8UNormSrgb, Shadow), 0, Side);
+        var highlight = Range(Render(owned, true, PixelFormat.Rgba8UNormSrgb, Highlight), 0, Side);
 
         Assert.True(
             shadow <= 5,

@@ -40,7 +40,9 @@ public abstract class TransportConformance : IDisposable {
     protected EventRecorder ServerEvents { get; } = new();
 
     /// <summary>Creates the server transport.</summary>
-    protected TransportConformance() => Server = CreateServer();
+    protected TransportConformance() {
+        Server = CreateServer();
+    }
 
     /// <summary>Makes a transport that can listen for the clients <see cref="CreateClient" /> makes.</summary>
     /// <returns>A transport that has not been started.</returns>
@@ -198,9 +200,7 @@ public abstract class TransportConformance : IDisposable {
         var client = ConnectClient();
         var payload = new byte[Server.Capabilities.MaxPayloadBytes + 1];
 
-        Assert.Throws<ArgumentOutOfRangeException>(
-            () => client.Transport.SendToServer(payload, Channel.Reliable)
-        );
+        Assert.Throws<ArgumentOutOfRangeException>(() => client.Transport.SendToServer(payload, Channel.Reliable));
     }
 
     [Fact]
@@ -273,7 +273,7 @@ public abstract class TransportConformance : IDisposable {
         var onServer = ServerEvents.Disconnects(TransportRole.Server);
 
         Assert.Equal(2, onServer.Count);
-        Assert.All(onServer, entry => Assert.Equal(DisconnectReason.ServerStopped, entry.Reason));
+        Assert.All(onServer, static entry => Assert.Equal(DisconnectReason.ServerStopped, entry.Reason));
         Assert.Equal(TransportState.Stopped, Server.ServerState);
     }
 

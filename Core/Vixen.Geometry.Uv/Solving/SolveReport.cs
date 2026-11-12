@@ -11,8 +11,12 @@ namespace Vixen.Geometry.Uv.Solving;
 /// <param name="Residual">The Euclidean norm of <c>b − Ax</c> when the loop ended.</param>
 /// <remarks>
 ///     <para>
-///         ⚠ <b><see cref="Residual" /> is an observation and never a decision, and the difference is
-///         the reason docs/plan/42 § D5 and § B6 exist.</b> Nothing in this namespace reads it. A
+///         ⚠
+///         <b>
+///             <see cref="Residual" /> is an observation and never a decision, and the difference is
+///             the reason docs/plan/42 § D5 and § B6 exist.
+///         </b>
+///         Nothing in this namespace reads it. A
 ///         solver that stopped when the residual came in under a threshold would be making a
 ///         floating-point comparison whose outcome can differ between two platforms that agree on
 ///         every bit of arithmetic leading up to it — one runs seventeen iterations, the other

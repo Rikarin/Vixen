@@ -13,8 +13,11 @@ namespace Vixen.Rendering.Lighting;
 /// <summary>Resolves each screen probe's radiance map into spherical harmonics — doc 19 § L3's "resolve to SH".</summary>
 /// <remarks>
 ///     <para>
-///         <b>The device half of <see cref="ScreenProbeAtlas.Resolve" />, and checked against it probe
-///         by probe.</b> One workgroup per probe, walking the map in the exact order the CPU walks it,
+///         <b>
+///             The device half of <see cref="ScreenProbeAtlas.Resolve" />, and checked against it probe
+///             by probe.
+///         </b>
+///         One workgroup per probe, walking the map in the exact order the CPU walks it,
 ///         with the solid angles uploaded from <see cref="OctahedralMap.SolidAngles" /> — the same
 ///         exact table, not a second derivation, because a texel's weight is a property of the map and
 ///         computing it twice is how two sides drift by a percent nobody can attribute.
@@ -124,7 +127,7 @@ public sealed class ScreenProbeResolve : IDisposable {
         texture.TransitionProbes(commands, ResourceState.ShaderRead, ScreenProbeTexture.AtlasIsBeingWritten);
 
         // One group per probe: the shader takes its probe from the group id, in a grid-shaped dispatch.
-        commands.Dispatch(layout.GridSize.X, layout.GridSize.Y, 1);
+        commands.Dispatch(layout.GridSize.X, layout.GridSize.Y);
 
         texture.TransitionProbes(commands, ScreenProbeTexture.AtlasIsBeingWritten, ResourceState.ShaderRead);
 
@@ -164,7 +167,11 @@ public sealed class ScreenProbeResolve : IDisposable {
             }
 
             writes.Add(
-                new DescriptorWrite(target.Binding, DescriptorKind.StorageTexture, TextureView: texture.ProbeView(plane))
+                new(
+                    target.Binding,
+                    DescriptorKind.StorageTexture,
+                    TextureView: texture.ProbeView(plane)
+                )
             );
         }
 

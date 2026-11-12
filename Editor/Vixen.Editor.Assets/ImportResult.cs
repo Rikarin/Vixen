@@ -20,8 +20,12 @@ namespace Vixen.Editor.Assets;
 ///         three consumers that a call to a logger inside the importer would have served none of.
 ///     </para>
 ///     <para>
-///         ⚠ <b><see cref="Path" /> is what turns a build-plan message into an entry an IDE can
-///         open</b>, and it is last and defaulted because an importer never has to supply one: an
+///         ⚠
+///         <b>
+///             <see cref="Path" /> is what turns a build-plan message into an entry an IDE can
+///             open
+///         </b>
+///         , and it is last and defaulted because an importer never has to supply one: an
 ///         importer is already running <i>on</i> an asset, and <c>ImportExecutor</c> knows which.
 ///         What did not know was <see cref="Content.BuildPlanner" />, which walks every asset in the
 ///         project and used to name the one it was talking about only inside the sentence — so
@@ -56,11 +60,10 @@ public sealed record ImportResult(
     IReadOnlyList<ImportDiagnostic> Diagnostics
 ) {
     /// <summary>Whether anything said it was an error.</summary>
-    public bool Succeeded => !Diagnostics.Any(diagnostic => diagnostic.Severity == ImportSeverity.Error);
+    public bool Succeeded => !Diagnostics.Any(static diagnostic => diagnostic.Severity == ImportSeverity.Error);
 
     /// <summary>An import that produced nothing and failed.</summary>
     /// <param name="message">Why.</param>
     /// <returns>The result.</returns>
-    public static ImportResult Failed(string message) =>
-        new([], [], [new(ImportSeverity.Error, message)]);
+    public static ImportResult Failed(string message) => new([], [], [new(ImportSeverity.Error, message)]);
 }

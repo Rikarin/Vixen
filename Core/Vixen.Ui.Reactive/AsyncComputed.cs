@@ -75,7 +75,7 @@ public sealed class AsyncComputed<TRequest, T> : IReadOnlySignal<AsyncValue<T>>,
         ArgumentNullException.ThrowIfNull(load);
 
         var owner = scheduler ?? EffectScheduler.Default;
-        state = new Signal<AsyncValue<T>>(new AsyncValue<T>(AsyncStatus.Loading));
+        state = new(new(AsyncStatus.Loading));
         trigger = new Effect(() => Start(request(), load, owner), owner);
     }
 
@@ -119,13 +119,13 @@ public sealed class AsyncComputed<TRequest, T> : IReadOnlySignal<AsyncValue<T>>,
         // Keeping whatever value is already there is what stops a panel blanking on every keystroke
         // of a search box.
         var previous = state.Peek();
-        state.Value = new AsyncValue<T>(AsyncStatus.Loading, previous.Value);
+        state.Value = new(AsyncStatus.Loading, previous.Value);
 
         Task<T> work;
         try {
             work = load(request, cancellation.Token);
         } catch (Exception exception) {
-            Publish(owner, stamp, new AsyncValue<T>(AsyncStatus.Failure, previous.Value, exception));
+            Publish(owner, stamp, previous with { Status = AsyncStatus.Failure, Error = exception });
             return;
         }
 
@@ -133,7 +133,7 @@ public sealed class AsyncComputed<TRequest, T> : IReadOnlySignal<AsyncValue<T>>,
             completed => {
                 var next = completed.Status switch {
                     TaskStatus.RanToCompletion => new AsyncValue<T>(AsyncStatus.Success, completed.Result),
-                    TaskStatus.Canceled => (AsyncValue<T>?) null,
+                    TaskStatus.Canceled => (AsyncValue<T>?)null,
                     _ => new AsyncValue<T>(
                         AsyncStatus.Failure,
                         previous.Value,
@@ -151,12 +151,13 @@ public sealed class AsyncComputed<TRequest, T> : IReadOnlySignal<AsyncValue<T>>,
         );
     }
 
-    void Publish(EffectScheduler owner, long stamp, AsyncValue<T> next) => owner.Post(() => {
-            if (IsDisposed || stamp != generation) {
-                return;
-            }
+    void Publish(EffectScheduler owner, long stamp, AsyncValue<T> next) =>
+        owner.Post(() => {
+                if (IsDisposed || stamp != generation) {
+                    return;
+                }
 
-            state.Value = next;
-        }
-    );
+                state.Value = next;
+            }
+        );
 }

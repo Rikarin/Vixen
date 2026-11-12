@@ -8,8 +8,12 @@ namespace Vixen.Live.Realms;
 /// <summary>One sample of what a shard is costing. Doc 27 § Health.</summary>
 /// <remarks>
 ///     ⚠ <b>None of these numbers is a second measurement system.</b> Every one of them is already an
-///     instrument in <c>Vixen.Net.Telemetry</c> and doc 13; the heartbeat is a <em>sample of the
-///     meter</em>, so a shard's health and its traces cannot disagree about what its tick cost.
+///     instrument in <c>Vixen.Net.Telemetry</c> and doc 13; the heartbeat is a
+///     <em>
+///         sample of the
+///         meter
+///     </em>
+///     , so a shard's health and its traces cannot disagree about what its tick cost.
 /// </remarks>
 /// <param name="Shard">Which shard.</param>
 /// <param name="State">Where it is in its life.</param>

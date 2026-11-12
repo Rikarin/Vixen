@@ -69,7 +69,7 @@ public class SampleGradTests {
     [InlineData("TextureCube", "float3")]
     public void Every_texture_type_carries_SampleGrad(string type, string gradient) {
         var texture = Assert.IsType<BuiltInNamedTypeSymbol>(BuiltInTypes.Lookup(type));
-        var method = Assert.Single(texture.GetMembers().OfType<MethodSymbol>(), m => m.Name == "SampleGrad");
+        var method = Assert.Single(texture.GetMembers().OfType<MethodSymbol>(), static m => m.Name == "SampleGrad");
 
         // Sampler, coordinate, and one gradient per direction.
         Assert.Equal(4, method.Parameters.Count);

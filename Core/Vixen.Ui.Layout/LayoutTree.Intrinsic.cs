@@ -27,8 +27,12 @@ namespace Vixen.Ui.Layout;
 ///         pass, so a caller that reads <see cref="GetStyle" /> afterwards still sees what it set.
 ///     </para>
 ///     <para>
-///         ⚠ <b>A whole-tree pre-pass and not a hook on the node's own layout, because the parent
-///         reads the child's size first.</b> That was tried and it fails on the commonest case there
+///         ⚠
+///         <b>
+///             A whole-tree pre-pass and not a hook on the node's own layout, because the parent
+///             reads the child's size first.
+///         </b>
+///         That was tried and it fails on the commonest case there
 ///         is: <c>WalkBlockChildren</c> asks <c>HasDefiniteLength(child, …)</c> and settles the
 ///         child's width <i>before</i> handing it down, so a substitution performed on the way into
 ///         the child's own layout arrives after the only reader that mattered. The same is true of
@@ -143,7 +147,13 @@ public sealed partial class LayoutTree {
         var stated = StyleResolution.ProcessedDimension(in styles[index], dimension);
 
         if (stated.IsResolvable) {
-            var value = StyleResolution.WithBoxSizing(in styles[index], stated.Resolve(reference), dimension, ownerWidth, direction);
+            var value = StyleResolution.WithBoxSizing(
+                in styles[index],
+                stated.Resolve(reference),
+                dimension,
+                ownerWidth,
+                direction
+            );
 
             return float.IsNaN(value) ? float.NaN : MathF.Max(0f, value - inset);
         }
@@ -222,7 +232,8 @@ public sealed partial class LayoutTree {
             );
 
             if (!float.IsNaN(resolved)) {
-                crossAvailable = resolved + StyleResolution.MarginForAxis(in styles[index], FlexDirection.Row, availableWidth);
+                crossAvailable = resolved
+                    + StyleResolution.MarginForAxis(in styles[index], FlexDirection.Row, availableWidth);
                 crossMode = SizingMode.StretchFit;
             }
         }
@@ -254,7 +265,7 @@ public sealed partial class LayoutTree {
         float ownerWidth,
         float ownerHeight
     ) {
-        var axis = (int) dimension;
+        var axis = (int)dimension;
         var preferred = written.Dimensions[axis];
         var minimum = written.MinDimensions[axis];
         var maximum = written.MaxDimensions[axis];
@@ -309,9 +320,39 @@ public sealed partial class LayoutTree {
         // fits into. The margin comes off because a box does not get to stretch over its own.
         var room = float.IsNaN(available) ? float.NaN : MathF.Max(0f, available - margin);
 
-        Substitute(index, dimension, preferred, minContent, maxContent, room, direction, ownerWidth, ref styles[index].Dimensions[axis]);
-        Substitute(index, dimension, minimum, minContent, maxContent, room, direction, ownerWidth, ref styles[index].MinDimensions[axis]);
-        Substitute(index, dimension, maximum, minContent, maxContent, room, direction, ownerWidth, ref styles[index].MaxDimensions[axis]);
+        Substitute(
+            index,
+            dimension,
+            preferred,
+            minContent,
+            maxContent,
+            room,
+            direction,
+            ownerWidth,
+            ref styles[index].Dimensions[axis]
+        );
+        Substitute(
+            index,
+            dimension,
+            minimum,
+            minContent,
+            maxContent,
+            room,
+            direction,
+            ownerWidth,
+            ref styles[index].MinDimensions[axis]
+        );
+        Substitute(
+            index,
+            dimension,
+            maximum,
+            minContent,
+            maxContent,
+            room,
+            direction,
+            ownerWidth,
+            ref styles[index].MaxDimensions[axis]
+        );
     }
 
     /// <summary>Writes one slot's keyword back as the number it stands for.</summary>
@@ -389,7 +430,7 @@ public sealed partial class LayoutTree {
                 crossMode,
                 ownerWidth,
                 ownerHeight,
-                performLayout: false,
+                false,
                 0
             );
         } else {
@@ -402,12 +443,12 @@ public sealed partial class LayoutTree {
                 mode,
                 ownerWidth,
                 ownerHeight,
-                performLayout: false,
+                false,
                 0
             );
         }
 
-        return results[index].MeasuredDimensions[(int) dimension];
+        return results[index].MeasuredDimensions[(int)dimension];
     }
 
     /// <summary>Puts every substituted style back the way the caller wrote it.</summary>

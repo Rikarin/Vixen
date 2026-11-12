@@ -108,7 +108,10 @@ public class SightTests {
             }
         );
 
-        var listener = fleet.World.Create(AiPerception.Sensing(fleet.Config), default(Engine.Transforms.LocalTransform));
+        var listener = fleet.World.Create(
+            AiPerception.Sensing(fleet.Config),
+            default(Engine.Transforms.LocalTransform)
+        );
 
         fleet.Source(new(0f, 0f, -5f));
         fleet.Step();
@@ -167,11 +170,11 @@ public class FilterTests {
     [Fact]
     public void TheTeamFilterStopsAnAllyBeingNoticed() {
         var fleet = new Fleet(Fleet.Everything() with { Filter = PerceptionFilters.Hostiles });
-        var listener = fleet.Listener(Vector3.Zero, team: 1);
+        var listener = fleet.Listener(Vector3.Zero, 1);
 
-        fleet.Source(new(0f, 0f, -5f), team: 1);
+        fleet.Source(new(0f, 0f, -5f));
 
-        var enemy = fleet.Source(new(0f, 0f, -6f), team: 2);
+        var enemy = fleet.Source(new(0f, 0f, -6f), 2);
 
         fleet.Step();
 
@@ -188,8 +191,8 @@ public class FilterTests {
     [Fact]
     public void DamageReachesItsVictimEvenFromItsOwnSide() {
         var fleet = new Fleet(Fleet.Everything() with { Filter = PerceptionFilters.Hostiles });
-        var listener = fleet.Listener(Vector3.Zero, team: 1);
-        var ally = fleet.Source(new(0f, 0f, -5f), team: 1);
+        var listener = fleet.Listener(Vector3.Zero, 1);
+        var ally = fleet.Source(new(0f, 0f, -5f));
 
         fleet.System.ReportDamage(ally, listener, new(0f, 0f, -5f), 10f);
         fleet.Step();
@@ -203,8 +206,11 @@ public class FilterTests {
         var asked = 0;
         var fleet = new Fleet(
             Fleet.Everything() with {
-                Filter = PerceptionFilters.Where(
-                    (in PerceptionParticipant listener, in PerceptionParticipant source, AiSense sense) => {
+                Filter = PerceptionFilters.Where((
+                        in PerceptionParticipant listener,
+                        in PerceptionParticipant source,
+                        AiSense sense
+                    ) => {
                         asked++;
 
                         return false;
@@ -258,7 +264,7 @@ public class EventSenseTests {
         Assert.True(fleet.Perceived(near).IsPerceiving(SenseMask.Hearing));
         Assert.False(fleet.Perceived(far).IsPerceiving(SenseMask.Hearing));
 
-        fleet.System.ReportNoise(shooter, new(0f, 0f, -25f), loudness: 3f);
+        fleet.System.ReportNoise(shooter, new(0f, 0f, -25f), 3f);
         fleet.Step();
 
         Assert.True(fleet.Perceived(far).IsPerceiving(SenseMask.Hearing));
@@ -301,10 +307,10 @@ public class TeamRelayTests {
     [Fact]
     public void AnAllyRelaysWhatItSeesAndTheRelayIsNotRelayedOnwards() {
         var fleet = new Fleet();
-        var scout = fleet.Both(Vector3.Zero, team: 0);
-        var rear = fleet.Both(new(0f, 0f, 22f), team: 0);
-        var deep = fleet.Both(new(0f, 0f, 44f), team: 0);
-        var enemy = fleet.Source(new(0f, 0f, -5f), team: 1);
+        var scout = fleet.Both(Vector3.Zero, 0);
+        var rear = fleet.Both(new(0f, 0f, 22f), 0);
+        var deep = fleet.Both(new(0f, 0f, 44f), 0);
+        var enemy = fleet.Source(new(0f, 0f, -5f));
 
         fleet.Step(3);
 
@@ -355,7 +361,9 @@ public class BindingTests {
 
     [Fact]
     public void TheCountBindingWritesAFlagAndANumberAndNamesNoTarget() {
-        var (fleet, agents, listener, _) = Build(new PerceivedCountBinding(SenseMask.Sight, Key("alert"), Key("count")));
+        var (fleet, agents, listener, _) = Build(
+            new PerceivedCountBinding(SenseMask.Sight, Key("alert"), Key("count"))
+        );
 
         fleet.Source(new(0f, 0f, -6f));
         Step(fleet, agents);

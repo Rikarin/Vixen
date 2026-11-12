@@ -85,7 +85,7 @@ public sealed class MatroskaDemuxer : IDisposable {
     /// <exception cref="ArgumentNullException"><paramref name="path" /> is null.</exception>
     /// <exception cref="InvalidDataException">It is not a Matroska segment.</exception>
     public MatroskaDemuxer(string path)
-        : this(OpenFile(path), leaveOpen: false) { }
+        : this(OpenFile(path), false) { }
 
     /// <summary>Opens a stream.</summary>
     /// <param name="stream">The bytes. Must be seekable for <see cref="SeekTo" /> to work.</param>
@@ -95,7 +95,7 @@ public sealed class MatroskaDemuxer : IDisposable {
     public MatroskaDemuxer(Stream stream, bool leaveOpen = false) {
         ArgumentNullException.ThrowIfNull(stream);
 
-        reader = new EbmlReader(stream);
+        reader = new(stream);
         owned = leaveOpen ? null : stream;
 
         try {
@@ -165,7 +165,7 @@ public sealed class MatroskaDemuxer : IDisposable {
     public void Follow(int trackNumber) {
         lock (gate) {
             if (!pending.ContainsKey(trackNumber)) {
-                pending[trackNumber] = new Queue<MatroskaPacket>();
+                pending[trackNumber] = new();
             }
         }
     }
@@ -181,7 +181,7 @@ public sealed class MatroskaDemuxer : IDisposable {
     public MatroskaPacket? ReadPacket(int trackNumber) {
         lock (gate) {
             if (!pending.TryGetValue(trackNumber, out var queue)) {
-                queue = new Queue<MatroskaPacket>();
+                queue = new();
                 pending[trackNumber] = queue;
             }
 
@@ -273,12 +273,17 @@ public sealed class MatroskaDemuxer : IDisposable {
     static FileStream OpenFile(string path) {
         ArgumentNullException.ThrowIfNull(path);
 
-        return new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 64 * 1024, FileOptions.SequentialScan);
+        return new(path, FileMode.Open, FileAccess.Read, FileShare.Read, 64 * 1024, FileOptions.SequentialScan);
     }
 
     static bool IsSegmentLevel(uint id) =>
-        id is MatroskaIds.Cluster or MatroskaIds.Cues or MatroskaIds.Tracks or MatroskaIds.Info
-            or MatroskaIds.SeekHead or MatroskaIds.Segment or MatroskaIds.EbmlHeader;
+        id is MatroskaIds.Cluster
+            or MatroskaIds.Cues
+            or MatroskaIds.Tracks
+            or MatroskaIds.Info
+            or MatroskaIds.SeekHead
+            or MatroskaIds.Segment
+            or MatroskaIds.EbmlHeader;
 
     // ── Header ──────────────────────────────────────────────────────────────────────────────
 
@@ -395,7 +400,9 @@ public sealed class MatroskaDemuxer : IDisposable {
                     timestampScale = (long)reader.ReadUnsigned(element.Size);
 
                     if (timestampScale <= 0) {
-                        throw new InvalidDataException("The segment's timestamp scale is zero, so no block has a time.");
+                        throw new InvalidDataException(
+                            "The segment's timestamp scale is zero, so no block has a time."
+                        );
                     }
 
                     break;
@@ -709,7 +716,7 @@ public sealed class MatroskaDemuxer : IDisposable {
                         break;
 
                     case MatroskaIds.SimpleBlock:
-                        if (ReadBlock(element.Size, simple: true)) {
+                        if (ReadBlock(element.Size, true)) {
                             return true;
                         }
 
@@ -995,7 +1002,7 @@ public sealed class MatroskaDemuxer : IDisposable {
         var step = track?.DefaultDuration ?? TimeSpan.Zero;
 
         for (var index = 0; index < count; index++) {
-            var packet = Take(trackNumber, timestamp + (step * index), keyFrame, track);
+            var packet = Take(trackNumber, timestamp + step * index, keyFrame, track);
 
             reader.ReadBytes(packet.Allocate(sizes[index]));
             destination.Add(packet);
@@ -1007,7 +1014,7 @@ public sealed class MatroskaDemuxer : IDisposable {
 
         // The difference is stored biased so that it can be negative without a sign bit: subtract
         // half of what the width can hold. A one-byte difference of 0x3F is zero, not 63.
-        return value - ((1L << ((7 * length) - 1)) - 1);
+        return value - ((1L << (7 * length - 1)) - 1);
     }
 
     MatroskaTrack? TrackOf(int number) {
@@ -1022,7 +1029,7 @@ public sealed class MatroskaDemuxer : IDisposable {
 
     MatroskaPacket Take(int trackNumber, TimeSpan timestamp, bool keyFrame, MatroskaTrack? track) {
         if (!free.TryPop(out var packet)) {
-            packet = new MatroskaPacket();
+            packet = new();
         }
 
         packet.TrackNumber = trackNumber;

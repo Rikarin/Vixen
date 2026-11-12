@@ -69,7 +69,9 @@ public sealed class VixenTool1Tool : Game {
             unreadable++;
         }
 
-        Console.WriteLine($"{assets.Catalog.Count} addresses in {assets.Catalog.Target} content, {unreadable} unreadable.");
+        Console.WriteLine(
+            $"{assets.Catalog.Count} addresses in {assets.Catalog.Target} content, {unreadable} unreadable."
+        );
 
         ExitCode = unreadable == 0 ? 0 : 1;
     }

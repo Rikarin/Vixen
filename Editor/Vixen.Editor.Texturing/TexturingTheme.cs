@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Texturing.Layers;
-using Vixen.Texturing.Painting;
 using Vixen.Ui.Styling;
 
 namespace Vixen.Editor.Texturing;
@@ -10,14 +9,21 @@ namespace Vixen.Editor.Texturing;
 /// <summary>The stylesheet this plugin's own panels come with.</summary>
 /// <remarks>
 ///     <para>
-///         <b>The first half of <a href="https://github.com/Rikarin/Vixen/issues/881">#881</a>, which
-///         is doc 36 § P4's markup debt.</b> <c>LayerStackView</c> wrote its layout through
+///         <b>
+///             The first half of <a href="https://github.com/Rikarin/Vixen/issues/881">#881</a>, which
+///             is doc 36 § P4's markup debt.
+///         </b>
+///         <c>LayerStackView</c> wrote its layout through
 ///         <c>SetStyle</c> at nine call sites, three lines each; the flex boxes are a file now, and
 ///         the file has room for the reason each one is the way it is.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Loaded by the module rather than by the editor, and that is the difference between
-///         a plugin's sheet and the editor's four.</b> <c>EditorApplication</c> names
+///         ⚠
+///         <b>
+///             Loaded by the module rather than by the editor, and that is the difference between
+///             a plugin's sheet and the editor's four.
+///         </b>
+///         <c>EditorApplication</c> names
 ///         <c>InspectorTheme</c>, <c>AssetEditorTheme</c>, <c>BrowserTheme</c> and
 ///         <c>WorldTheme</c> one by one — a plugin is not in that list and must not be, since doc 48
 ///         § D14's claim is that a third party could have written this assembly.
@@ -27,8 +33,12 @@ namespace Vixen.Editor.Texturing;
 ///         relayout, and nothing ever removed it.
 ///     </para>
 ///     <para>
-///         ⚠ <b><see cref="StyleOrigin.UserAgent" />, which is where every other editor sheet is
-///         loaded</b> and <c>AddStyleSheet</c>'s default. Origin is the cascade's first question and
+///         ⚠
+///         <b>
+///             <see cref="StyleOrigin.UserAgent" />, which is where every other editor sheet is
+///             loaded
+///         </b>
+///         and <c>AddStyleSheet</c>'s default. Origin is the cascade's first question and
 ///         a layer only its second, so loading this as <c>Author</c> would take it out of the order
 ///         it shares with <c>ControlTheme</c> and start it beating a user's accessibility overrides.
 ///     </para>
@@ -51,7 +61,8 @@ static class TexturingTheme {
             ?? throw new InvalidOperationException(
                 $"the stylesheet '{name}' is not embedded in {assembly.GetName().Name}. It is added "
                 + "by the .vcss glob in Vixen.Ui.targets, which this project imports at the bottom "
-                + "of its .csproj.");
+                + "of its .csproj."
+            );
 
         using var reader = new StreamReader(stream);
 

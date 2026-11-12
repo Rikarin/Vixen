@@ -192,7 +192,8 @@ public sealed class TextureStreamingTests {
         var files = new Files();
         files.Add(0, PixelFormat.R8UNorm, 64, 64);
 
-        using var streamer = new TextureStreamer(files, 64 * PageSize, PageSize) { MipBias = 2f };
+        using var streamer = new TextureStreamer(files, 64 * PageSize, PageSize);
+        streamer.MipBias = 2f;
         streamer.Register(0, files.Layout(0));
 
         streamer.Want(0, 64);
@@ -210,7 +211,7 @@ public sealed class TextureStreamingTests {
         var tall = TextureStreamer.WantedWidth(1f, 2f, 2160f, MathF.PI / 3f);
 
         Assert.True(near > far);
-        Assert.Equal(2 * near, tall, tolerance: 1);
+        Assert.Equal(2 * near, tall, 1f);
 
         // Nothing behind the eye divides by zero, and nothing with no size asks for anything.
         Assert.True(TextureStreamer.WantedWidth(1f, 0f, 1080f, MathF.PI / 3f) > 0);
@@ -232,8 +233,7 @@ public sealed class TextureStreamingTests {
         const float Fov = MathF.PI / 3f;
 
         var view = new RenderView("camera") {
-            Position = new(0f, 0f, 0f),
-            ScreenHeightScale = 1f / MathF.Tan(Fov * 0.5f)
+            Position = new(0f, 0f, 0f), ScreenHeightScale = 1f / MathF.Tan(Fov * 0.5f)
         };
 
         var bounds = new BoundingSphere(new(0f, 0f, 12f), 1.5f);
@@ -241,7 +241,7 @@ public sealed class TextureStreamingTests {
         Assert.Equal(
             TextureStreamer.WantedWidth(1.5f, 12f, 1080f, Fov),
             TextureStreamer.WantedWidth(bounds, view, 1080f),
-            tolerance: 1
+            1f
         );
 
         // A shadow cascade and a probe face leave the scale at zero, and a texture wanted at a
@@ -374,7 +374,7 @@ public sealed class TextureStreamingTests {
         public Ktx2Layout Layout(int texture) => layouts[texture];
 
         public byte[] Data(int texture, long offset, long length) =>
-            files[texture].AsSpan((int)offset, (int)length).ToArray();
+            [..files[texture].AsSpan((int)offset, (int)length)];
 
         public ValueTask<int> ReadAsync(
             int texture,

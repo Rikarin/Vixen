@@ -82,7 +82,7 @@ internal static class SystemsRunner {
     ///     supposed to catch, so the same event has to mean something different here.
     /// </remarks>
     internal static List<Assembly> Load(IReadOnlyList<string> paths, List<Finding> findings, string subject) {
-        var missing = paths.Where(path => !File.Exists(Path.GetFullPath(path))).ToArray();
+        var missing = paths.Where(static path => !File.Exists(Path.GetFullPath(path))).ToArray();
 
         foreach (var path in missing) {
             findings.Add(
@@ -115,8 +115,8 @@ internal static class SystemsRunner {
                 // module constructors; this only needs the handle, to filter the registry by.
                 loaded.Add(Assembly.LoadFrom(full));
             } catch (Exception failure) when (failure is BadImageFormatException
-                                                 or FileLoadException
-                                                 or FileNotFoundException) {
+                                                  or FileLoadException
+                                                  or FileNotFoundException) {
                 findings.Add(new(Health.Broken, "assembly", $"'{path}' could not be read: {failure.Message}"));
             }
         }
@@ -144,7 +144,7 @@ internal static class SystemsRunner {
             return;
         }
 
-        var types = declared.Select(declaration => declaration.SystemType).ToArray();
+        var types = declared.Select(static declaration => declaration.SystemType).ToArray();
         SystemPlan plan;
 
         try {
@@ -200,18 +200,18 @@ internal static class SystemsRunner {
             return;
         }
 
-        foreach (var declaration in declared.OrderBy(one => one.Name, StringComparer.Ordinal)) {
+        foreach (var declaration in declared.OrderBy(static one => one.Name, StringComparer.Ordinal)) {
             findings.Add(
                 new(
                     Health.Fine,
                     declaration.Name,
                     declaration.Requires.Count == 0
                         ? "needs no services."
-                        : "needs " + string.Join(", ", declaration.Requires.Select(type => type.Name)) + "."
+                        : "needs " + string.Join(", ", declaration.Requires.Select(static type => type.Name)) + "."
                 )
             );
 
-            foreach (var required in declaration.Requires.Where(type => type.IsValueType)) {
+            foreach (var required in declaration.Requires.Where(static type => type.IsValueType)) {
                 findings.Add(
                     new(
                         Health.Broken,
@@ -248,7 +248,7 @@ internal static class SystemsRunner {
         IReadOnlyList<GameSystemDeclaration> declared,
         List<Finding> findings
     ) {
-        var known = declared.Select(declaration => declaration.SystemType).ToHashSet();
+        var known = declared.Select(static declaration => declaration.SystemType).ToHashSet();
         var strays = new List<Type>();
 
         foreach (var assembly in assemblies) {
@@ -274,9 +274,9 @@ internal static class SystemsRunner {
 
             strays.AddRange(
                 types.Where(type => type is { IsAbstract: false, IsGenericTypeDefinition: false }
-                        && typeof(ISystem).IsAssignableFrom(type)
-                        && !known.Contains(type)
-                    )!
+                    && typeof(ISystem).IsAssignableFrom(type)
+                    && !known.Contains(type)
+                )!
             );
         }
 
@@ -284,7 +284,7 @@ internal static class SystemsRunner {
             return;
         }
 
-        foreach (var stray in strays.OrderBy(type => type.Name, StringComparer.Ordinal)) {
+        foreach (var stray in strays.OrderBy(static type => type.Name, StringComparer.Ordinal)) {
             findings.Add(
                 new(
                     Health.Concerning,

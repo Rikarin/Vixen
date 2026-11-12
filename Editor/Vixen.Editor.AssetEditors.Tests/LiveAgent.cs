@@ -33,10 +33,10 @@ sealed class LiveAgent : IDisposable {
             var flee = registry.Register("flee", new WaitTask(2f), WaitTask.StateSize);
 
             System.Sets.Add(
-                new UtilitySet(
+                new(
                     Symbol.Intern("Mood"),
-                    Candidate("Wander", wander, "danger", falling: true),
-                    Candidate("Flee", flee, "danger", falling: false)
+                    Candidate("Wander", wander, "danger", true),
+                    Candidate("Flee", flee, "danger", false)
                 )
             );
 
@@ -46,7 +46,7 @@ sealed class LiveAgent : IDisposable {
             return;
         }
 
-        var resolver = new BehaviorTreeResolver { Schema = new BehaviorNodeSchema() };
+        var resolver = new BehaviorTreeResolver { Schema = new() };
 
         if (!BehaviorTreeContentCompiler.TryCompile(Content(), resolver, out _, out var template)) {
             throw new InvalidOperationException("the fixture's own tree does not compile.");
@@ -163,34 +163,33 @@ sealed class LiveAgent : IDisposable {
         };
     }
 
-    static UtilitySetContent SetContent() => new() {
-        Name = "Mood",
-        Keys = {
-            new() { Name = "alarmed", Type = BlackboardValueType.Bool },
-            new() { Name = "danger", Type = BlackboardValueType.Float }
-        },
-        Actions = {
-            Authored("Wander", falling: true),
-            Authored("Flee", falling: false)
-        }
-    };
+    static UtilitySetContent SetContent() =>
+        new() {
+            Name = "Mood",
+            Keys = {
+                new() { Name = "alarmed", Type = BlackboardValueType.Bool },
+                new() { Name = "danger", Type = BlackboardValueType.Float }
+            },
+            Actions = { Authored("Wander", true), Authored("Flee", false) }
+        };
 
-    static UtilityActionContent Authored(string name, bool falling) => new() {
-        Name = name,
-        Task = "Wait",
-        Fields = { ["Seconds"] = "2" },
-        Considerations = {
-            new() {
-                Name = "danger",
-                Input = UtilityInputKind.Blackboard,
-                Key = "danger",
-                Maximum = 1f,
-                Curve = ResponseCurveKind.Linear,
-                Slope = falling ? -1f : 1f,
-                Shift = falling ? 1f : 0f
+    static UtilityActionContent Authored(string name, bool falling) =>
+        new() {
+            Name = name,
+            Task = "Wait",
+            Fields = { ["Seconds"] = "2" },
+            Considerations = {
+                new() {
+                    Name = "danger",
+                    Input = UtilityInputKind.Blackboard,
+                    Key = "danger",
+                    Maximum = 1f,
+                    Curve = ResponseCurveKind.Linear,
+                    Slope = falling ? -1f : 1f,
+                    Shift = falling ? 1f : 0f
+                }
             }
-        }
-    };
+        };
 
     UtilityAction Candidate(string name, ushort action, string key, bool falling) =>
         new(

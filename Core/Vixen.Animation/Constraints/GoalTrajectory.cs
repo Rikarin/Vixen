@@ -56,7 +56,9 @@ public sealed class TrajectoryCurve {
 
     /// <summary>Builds a curve from keys already in phase order.</summary>
     /// <param name="keys">The keys.</param>
-    public TrajectoryCurve(params ReadOnlySpan<TrajectoryKey> keys) => this.keys = keys.ToArray();
+    public TrajectoryCurve(params ReadOnlySpan<TrajectoryKey> keys) {
+        this.keys = [..keys];
+    }
 
     /// <summary>A curve that is one value everywhere.</summary>
     /// <param name="value">The value.</param>
@@ -129,7 +131,7 @@ public sealed class TrajectoryCurve {
         }
 
         report = new(source.Length, kept.Count, 1, kept.Count > 0 ? 1 : 0);
-        return new([.. kept]);
+        return new([..kept]);
     }
 
     static void Simplify(ReadOnlySpan<TrajectoryKey> source, int from, int to, float tolerance, bool[] keep) {
@@ -199,7 +201,9 @@ public sealed class TrajectoryRotationCurve {
 
     /// <summary>Builds a curve from keys already in phase order.</summary>
     /// <param name="keys">The keys.</param>
-    public TrajectoryRotationCurve(params ReadOnlySpan<TrajectoryRotationKey> keys) => this.keys = keys.ToArray();
+    public TrajectoryRotationCurve(params ReadOnlySpan<TrajectoryRotationKey> keys) {
+        this.keys = [..keys];
+    }
 
     /// <summary>How many keys survived.</summary>
     public int Count => keys.Length;
@@ -211,8 +215,10 @@ public sealed class TrajectoryRotationCurve {
     /// <summary>What the curve is at a phase.</summary>
     /// <param name="phase">Where in the clip.</param>
     /// <returns>The rotation.</returns>
-    /// <remarks>Slerped, not nlerped: a goal that turns through ninety degrees between two keys is
-    ///     the ordinary case for a throw, and nlerp would make it hurry through the middle.</remarks>
+    /// <remarks>
+    ///     Slerped, not nlerped: a goal that turns through ninety degrees between two keys is
+    ///     the ordinary case for a throw, and nlerp would make it hurry through the middle.
+    /// </remarks>
     public Quaternion Sample(float phase) {
         if (keys.Length == 0) {
             return Quaternion.Identity;
@@ -283,7 +289,7 @@ public sealed class TrajectoryRotationCurve {
         }
 
         report = new(source.Length, kept.Count, 1, kept.Count > 0 ? 1 : 0);
-        return new([.. kept]);
+        return new([..kept]);
     }
 
     static void Simplify(ReadOnlySpan<TrajectoryRotationKey> source, int from, int to, float tolerance, bool[] keep) {
@@ -344,7 +350,9 @@ public sealed class SurfacePath {
 
     /// <summary>Builds a path from keys already in phase order.</summary>
     /// <param name="keys">The keys.</param>
-    public SurfacePath(params ReadOnlySpan<SurfacePathKey> keys) => this.keys = keys.ToArray();
+    public SurfacePath(params ReadOnlySpan<SurfacePathKey> keys) {
+        this.keys = [..keys];
+    }
 
     /// <summary>How many keys survived.</summary>
     public int Count => keys.Length;
@@ -374,7 +382,9 @@ public sealed class SurfacePath {
 
         var end = keys[after].Value;
 
-        return new(start.Face, Wrap(start.U + (Delta(start.U, end.U) * amount)), MathUtil.Lerp(start.V, end.V, amount));
+        return start with {
+            U = Wrap(start.U + Delta(start.U, end.U) * amount), V = MathUtil.Lerp(start.V, end.V, amount)
+        };
     }
 
     /// <summary>Removes the keys a lerping sampler would have produced anyway.</summary>
@@ -663,9 +673,7 @@ public sealed record TrajectoryFrame(IConstraintFrame Base, GoalTrajectory Path)
         // The offset is in the frame's axes and in metres — not multiplied by the frame's scale,
         // which for a surface frame is the shape's size. A contact eased two centimetres along a rail
         // is two centimetres on a rail of any radius.
-        frame = new(
-            new BoneTransform(frame.Origin + frame.DirectionToModel(offset), rotation, frame.Scale)
-        );
+        frame = new(new BoneTransform(frame.Origin + frame.DirectionToModel(offset), rotation, frame.Scale));
 
         return true;
     }

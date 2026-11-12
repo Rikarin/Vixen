@@ -41,8 +41,10 @@ public interface ITextInput {
     Rectangle OnScreenKeyboardArea { get; }
 
     /// <summary>Starts text input for a window.</summary>
-    /// <param name="window">The window that will receive
-    /// <see cref="PlatformEventKind.TextInput" />.</param>
+    /// <param name="window">
+    ///     The window that will receive
+    ///     <see cref="PlatformEventKind.TextInput" />.
+    /// </param>
     void Activate(IWindow window);
 
     /// <summary>Stops text input, abandoning any composition in progress.</summary>
@@ -50,7 +52,9 @@ public interface ITextInput {
 
     /// <summary>Tells the IME where the caret is, so the candidate window can be put near it.</summary>
     /// <param name="window">The window the caret is in.</param>
-    /// <param name="area">The caret's rectangle in logical points, relative to the window's client
-    /// area.</param>
+    /// <param name="area">
+    ///     The caret's rectangle in logical points, relative to the window's client
+    ///     area.
+    /// </param>
     void SetCandidateArea(IWindow window, Rectangle area);
 }

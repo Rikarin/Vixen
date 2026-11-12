@@ -3,7 +3,6 @@
 
 using Vixen.Core;
 using Vixen.Core.Mathematics;
-using Vixen.Core.Yaml;
 using Vixen.Ecs;
 using Vixen.Editor.Core;
 using Vixen.Editor.Core.Scenes;
@@ -56,12 +55,12 @@ public class SceneSerializerTests : IDisposable {
     }
 
     void Populate() {
-        var parent = scene.Add("Scene Root", LocalTransform.At(new Vector3(1f, 2f, 3f)));
+        var parent = scene.Add("Scene Root", LocalTransform.At(new(1f, 2f, 3f)));
 
-        scene.Add("Light", LocalTransform.At(new Vector3(0f, 4f, 0f)), parent);
+        scene.Add("Light", LocalTransform.At(new(0f, 4f, 0f)), parent);
 
         var ground = scene.Add("Ground", LocalTransform.Identity, parent);
-        scene.Add("Crate", LocalTransform.At(new Vector3(-1f, 0.5f, 2f)), ground);
+        scene.Add("Crate", LocalTransform.At(new(-1f, 0.5f, 2f)), ground);
         scene.Add("Barrel", LocalTransform.Identity);
     }
 
@@ -115,7 +114,7 @@ public class SceneSerializerTests : IDisposable {
     public void The_transforms_survive_a_round_trip() {
         var entity = scene.Add(
             "Crate",
-            new LocalTransform {
+            new() {
                 Position = new(1.5f, -2f, 0.25f),
                 Rotation = Quaternion.FromAxisAngle(Vector3.UnitY, 0.7f),
                 Scale = new(2f, 3f, 4f)
@@ -201,13 +200,13 @@ public class SceneSerializerTests : IDisposable {
             // present, selectable and invisible. Neither is what a missing field means.
             Assert.Equal(Quaternion.Identity, local.Rotation);
             Assert.Equal(Vector3.One, local.Scale);
-            Assert.Equal(new Vector3(1f, 2f, 3f), local.Position);
+            Assert.Equal(new(1f, 2f, 3f), local.Position);
         }
     }
 
     [Fact]
     public void Text_that_is_not_a_scene_says_so_rather_than_binding_an_empty_scene() =>
-        Assert.ThrowsAny<Exception>(() => SceneSerializer.FromYaml("\tnot: [valid"));
+        Assert.ThrowsAny<Exception>(static () => SceneSerializer.FromYaml("\tnot: [valid"));
 
     [Fact]
     public void A_loaded_scene_opens_clean_with_an_empty_history() {
@@ -258,7 +257,7 @@ public class SceneSerializerTests : IDisposable {
 
     [Fact]
     public void A_component_survives_a_round_trip_through_the_file() {
-        var entity = scene.Add("Main Camera", LocalTransform.At(new Vector3(0f, 2f, -10f)));
+        var entity = scene.Add("Main Camera", LocalTransform.At(new(0f, 2f, -10f)));
         world.Add(entity, Camera.Perspective with { FarPlane = 250f, Order = 3 });
 
         var yaml = SceneSerializer.ToYaml(scene);

@@ -111,9 +111,7 @@ static class BrokenMeshes {
     ///     voxel grid rather than to the sphere.
     /// </remarks>
     public static EditMesh StaircaseSphere(float voxel = 0.12f) {
-        var source = MeshShapes.Create(
-            ShapeParameters.Default(ShapeKind.Sphere) with { Sides = 40, Steps = 20 }
-        );
+        var source = MeshShapes.Create(ShapeParameters.Default(ShapeKind.Sphere) with { Sides = 40, Steps = 20 });
 
         var positions = new Vector3[source.PositionCount];
 
@@ -211,8 +209,8 @@ static class BrokenMeshes {
         }
 
         for (var index = 0; index < count; index++) {
-            mesh.AddFace([index * 2, (index * 2) + 2, (index * 2) + 1]);
-            mesh.AddFace([(index * 2) + 1, (index * 2) + 2, (index * 2) + 3]);
+            mesh.AddFace([index * 2, index * 2 + 2, index * 2 + 1]);
+            mesh.AddFace([index * 2 + 1, index * 2 + 2, index * 2 + 3]);
         }
 
         return mesh;
@@ -268,10 +266,10 @@ static class BrokenMeshes {
             var half = angle * 0.5f;
             var centre = new Vector3(MathF.Cos(angle) * 2f, 0f, MathF.Sin(angle) * 2f);
             var radial = new Vector3(MathF.Cos(angle), 0f, MathF.Sin(angle));
-            var across = (radial * MathF.Sin(half)) + (Vector3.UnitY * MathF.Cos(half));
+            var across = radial * MathF.Sin(half) + Vector3.UnitY * MathF.Cos(half);
 
-            mesh.AddPosition(centre - (across * 0.5f));
-            mesh.AddPosition(centre + (across * 0.5f));
+            mesh.AddPosition(centre - across * 0.5f);
+            mesh.AddPosition(centre + across * 0.5f);
         }
 
         for (var index = 0; index < segments; index++) {
@@ -281,8 +279,8 @@ static class BrokenMeshes {
             // ⚠ The last ring joins the first with its two sides swapped, and that is the half
             // twist. Every other ring joins the next one straight.
             var next = (index + 1) % segments;
-            var c = index + 1 == segments ? next * 2 : (next * 2) + 1;
-            var d = index + 1 == segments ? (next * 2) + 1 : next * 2;
+            var c = index + 1 == segments ? next * 2 : next * 2 + 1;
+            var d = index + 1 == segments ? next * 2 + 1 : next * 2;
 
             mesh.AddFace([a, b, c]);
             mesh.AddFace([a, c, d]);
@@ -332,7 +330,7 @@ static class BrokenMeshes {
 
         for (var triangle = 0; triangle * 3 < indices.Length; triangle++) {
             for (var corner = 0; corner < 3; corner++) {
-                loop[corner] = mesh.AddPosition(source.Positions[indices[(triangle * 3) + corner]]);
+                loop[corner] = mesh.AddPosition(source.Positions[indices[triangle * 3 + corner]]);
             }
 
             mesh.AddFace(loop);
@@ -367,8 +365,11 @@ static class BrokenMeshes {
     /// <param name="source">What to flatten.</param>
     /// <returns>A mesh of triangles only, over the same positions.</returns>
     /// <remarks>
-    ///     ⚠ <b>What a scale-invariance fixture has to be built from, and the reason is a
-    ///     scale-sensitivity in <see cref="EditMesh.Triangulate" /> rather than in anything here.</b>
+    ///     ⚠
+    ///     <b>
+    ///         What a scale-invariance fixture has to be built from, and the reason is a
+    ///         scale-sensitivity in <see cref="EditMesh.Triangulate" /> rather than in anything here.
+    ///     </b>
     ///     Ear clipping projects a face into its own plane and tests <c>Cross(a, b, c) &lt;= 0f</c>
     ///     against exact zero. A generated quad is not exactly planar, so which corner is an ear can
     ///     land either way under a change of scale: measured on <see cref="Specks" />, 1248 of 2016

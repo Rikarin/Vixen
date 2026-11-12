@@ -4,7 +4,6 @@
 using Vixen.Core.Mathematics;
 using Vixen.Graphics;
 using Vixen.Graphics.RenderGraph;
-using Vixen.Rendering;
 using Vixen.Rendering.Compositor;
 using Vixen.Rendering.Lighting;
 using Vixen.Shaders;
@@ -52,9 +51,11 @@ public sealed class ReflectionRenderer : SceneRenderer, IDisposable {
     public string Target { get; set; } = "Reflections";
 
     /// <summary>The frame resource a screen hit reflects, or null for no screen march at all.</summary>
-    /// <remarks>SSR wants the frame's own colour, and which colour that is — last frame's lit
+    /// <remarks>
+    ///     SSR wants the frame's own colour, and which colour that is — last frame's lit
     ///     buffer, this frame's opaque pass — is a scheduling decision the host makes by naming it.
-    ///     Null hands every sharp ray straight to the field march.</remarks>
+    ///     Null hands every sharp ray straight to the field march.
+    /// </remarks>
     public string? Colour { get; set; }
 
     /// <summary>Where the kernel's variant is resolved from. Null dispatches nothing.</summary>
@@ -72,8 +73,10 @@ public sealed class ReflectionRenderer : SceneRenderer, IDisposable {
     /// <summary>The camera that drew the frame — the forward matrix, for the screen march.</summary>
     public Matrix4x4 ViewProjection { get; set; } = Matrix4x4.Identity;
 
-    /// <summary>Its inverse, for the reconstruction. The host has both; inverting here would
-    ///     manufacture error.</summary>
+    /// <summary>
+    ///     Its inverse, for the reconstruction. The host has both; inverting here would
+    ///     manufacture error.
+    /// </summary>
     public Matrix4x4 InverseViewProjection { get; set; } = Matrix4x4.Identity;
 
     /// <summary>Where the camera stands.</summary>
@@ -136,15 +139,19 @@ public sealed class ReflectionRenderer : SceneRenderer, IDisposable {
     /// </remarks>
     public HiZPyramid? Pyramid { get; set; }
 
-    /// <summary>How deep the march's shell is in view units, where a perspective ray can say. Zero
-    ///     keeps the device-depth shell — forwarded to <see cref="ReflectionTraceFill.ScreenLinearThickness" />.</summary>
+    /// <summary>
+    ///     How deep the march's shell is in view units, where a perspective ray can say. Zero
+    ///     keeps the device-depth shell — forwarded to <see cref="ReflectionTraceFill.ScreenLinearThickness" />.
+    /// </summary>
     public float ScreenLinearThickness { get; set; }
 
     /// <summary>The kernel's driver — the composed sources are set here.</summary>
-    /// <remarks>Created on the first build, because it needs the device. The node overwrites the
+    /// <remarks>
+    ///     Created on the first build, because it needs the device. The node overwrites the
     ///     frame-shaped properties every build — planes, viewports, matrices, reconstruction — and
     ///     the six knobs it mirrors (see <see cref="MaxDistance" />); what is left to whoever
-    ///     configures this is the sources, which are the judgement calls about the scene.</remarks>
+    ///     configures this is the sources, which are the judgement calls about the scene.
+    /// </remarks>
     public ReflectionTraceFill? Trace => trace;
 
     /// <summary>Why the last frame recorded nothing, or null.</summary>
@@ -245,8 +252,7 @@ public sealed class ReflectionRenderer : SceneRenderer, IDisposable {
                     pass.Reads(colour);
                 }
 
-                pass.Execute(
-                    context => {
+                pass.Execute(context => {
                         var commands = context.CommandList;
 
                         if (!transitioned) {
@@ -281,7 +287,13 @@ public sealed class ReflectionRenderer : SceneRenderer, IDisposable {
                         commands.Barrier(
                             new(
                                 [],
-                                [new TextureBarrier(output, ResourceState.ShaderRead, SurfaceCacheTexture.PlaneIsBeingWritten)]
+                                [
+                                    new TextureBarrier(
+                                        output,
+                                        ResourceState.ShaderRead,
+                                        SurfaceCacheTexture.PlaneIsBeingWritten
+                                    )
+                                ]
                             )
                         );
 
@@ -291,7 +303,13 @@ public sealed class ReflectionRenderer : SceneRenderer, IDisposable {
                         commands.Barrier(
                             new(
                                 [],
-                                [new TextureBarrier(output, SurfaceCacheTexture.PlaneIsBeingWritten, ResourceState.ShaderRead)]
+                                [
+                                    new TextureBarrier(
+                                        output,
+                                        SurfaceCacheTexture.PlaneIsBeingWritten,
+                                        ResourceState.ShaderRead
+                                    )
+                                ]
                             )
                         );
                     }

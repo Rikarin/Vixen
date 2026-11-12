@@ -8,8 +8,12 @@ namespace Vixen.Editor.Debugger;
 
 /// <summary>Which kind of RHI call a captured command was.</summary>
 /// <remarks>
-///     ⚠ <b>A vocabulary of its own rather than the Null backend's
-///     <c>RecordedCommandKind</c>, and the difference is one file's worth of mapping.</b> What it
+///     ⚠
+///     <b>
+///         A vocabulary of its own rather than the Null backend's
+///         <c>RecordedCommandKind</c>, and the difference is one file's worth of mapping.
+///     </b>
+///     What it
 ///     buys is that the panel does not know which backend produced the capture — doc 13 wants a
 ///     capture from a <i>running</i> frame eventually, which is a Vulkan command-stream hook, and a
 ///     panel written against the test backend's enum would have to be rewritten to accept one.
@@ -112,7 +116,7 @@ public readonly record struct CapturedCommand(
     public string Describe() =>
         Kind switch {
             CaptureCommandKind.BeginPass => $"Begin pass '{Label}' — {A} colour attachment(s)"
-                + (B != 0 ? ", depth" : ""),
+                + (B != 0 ? ", depth" : string.Empty),
             CaptureCommandKind.EndPass => "End pass",
             CaptureCommandKind.PushGroup => $"Group '{Label}'",
             CaptureCommandKind.PopGroup => "End group",
@@ -232,7 +236,7 @@ public sealed class CaptureNode {
 /// </remarks>
 public sealed class FrameCapture {
     /// <summary>The capture with nothing in it.</summary>
-    public static FrameCapture Empty { get; } = new("", []);
+    public static FrameCapture Empty { get; } = new(string.Empty, []);
 
     readonly CapturedCommand[] commands;
     readonly CaptureNode[] roots;
@@ -262,7 +266,7 @@ public sealed class FrameCapture {
             }
         }
 
-        work = [.. drawn];
+        work = [..drawn];
         roots = BuildTree(commands);
     }
 
@@ -276,8 +280,10 @@ public sealed class FrameCapture {
     public IReadOnlyList<CaptureNode> Roots => roots;
 
     /// <summary>The stream positions of the draws and dispatches, in order.</summary>
-    /// <remarks>What "next draw call" steps through, and what makes stepping O(1) rather than a
-    ///     scan of the stream per press.</remarks>
+    /// <remarks>
+    ///     What "next draw call" steps through, and what makes stepping O(1) rather than a
+    ///     scan of the stream per press.
+    /// </remarks>
     public IReadOnlyList<int> Work => work;
 
     /// <summary>How many draws and dispatches the frame issued.</summary>
@@ -362,9 +368,6 @@ public sealed class FrameCapture {
                     // not, and a tree with an "End pass" line under every pass is twice as tall for
                     // no information.
                     continue;
-
-                default:
-                    break;
             }
 
             var node = new CaptureNode(command, open.Count) { EndSequence = command.Sequence };
@@ -386,6 +389,6 @@ public sealed class FrameCapture {
             node.EndSequence = stream.Length - 1;
         }
 
-        return [.. roots];
+        return [..roots];
     }
 }

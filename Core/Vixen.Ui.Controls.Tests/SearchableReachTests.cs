@@ -9,8 +9,12 @@ namespace Vixen.Ui.Controls.Tests;
 /// <summary>How much of `.searchable` markup already has, measured on a list rather than a widget.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>#767 calls `.searchable` a feature rather than a spelling, and that is two thirds
-///         right.</b> Its three named parts are where the field goes, what it filters, and the empty
+///         ⚠
+///         <b>
+///             #767 calls `.searchable` a feature rather than a spelling, and that is two thirds
+///             right.
+///         </b>
+///         Its three named parts are where the field goes, what it filters, and the empty
 ///         state when nothing matches. The middle one — the part two audits called the sharpest
 ///         open question, because "a framework cannot know what matching means for an arbitrary
 ///         `@for` sequence" — needs nothing built: a `SearchBox` bound to a signal and an `@for`
@@ -25,8 +29,12 @@ namespace Vixen.Ui.Controls.Tests;
 ///         nothing else could improve on.
 ///     </para>
 ///     <para>
-///         ⚠ <b>And the third part has since closed too: <c>@empty</c> (#908) is the loop's own
-///         fallback arm</b>, so the empty state is a spelling this file uses rather than a gap it
+///         ⚠
+///         <b>
+///             And the third part has since closed too: <c>@empty</c> (#908) is the loop's own
+///             fallback arm
+///         </b>
+///         , so the empty state is a spelling this file uses rather than a gap it
 ///         records. What is left of `.searchable` is placement — a decision about where the field
 ///         goes, which is the one part a modifier would take away from the author.
 ///     </para>
@@ -89,7 +97,7 @@ public class SearchableReachTests {
 
         // The instrument: while rows match, the arm is not up.
         Assert.Equal(["Albedo", "Normal"], Rows(sheet));
-        Assert.DoesNotContain(sheet.Root.Children[0].Children, child => child.Tag == "no-matches");
+        Assert.DoesNotContain(sheet.Root.Children[0].Children, static child => child.Tag == "no-matches");
 
         sheet.Field.Value = "zz";
         fixture.Update();
@@ -99,14 +107,14 @@ public class SearchableReachTests {
         // The rows' place is taken, and by the loop's own arm rather than by a second walk.
         var host = sheet.Root.Children[0];
 
-        Assert.Equal(["search-box", "no-matches"], host.Children.Select(child => child.Tag));
+        Assert.Equal(["search-box", "no-matches"], host.Children.Select(static child => child.Tag));
 
         // And it goes again when the filter matches something.
         sheet.Field.Value = "al";
         fixture.Update();
 
         Assert.Equal(["Albedo", "Normal"], Rows(sheet));
-        Assert.DoesNotContain(host.Children, child => child.Tag == "no-matches");
+        Assert.DoesNotContain(host.Children, static child => child.Tag == "no-matches");
     }
 
     /// <summary>What each <c>search-row</c> is showing.</summary>
@@ -116,8 +124,11 @@ public class SearchableReachTests {
     ///     of its own and every assertion here would have compared "" with "".
     /// </remarks>
     static string[] Rows(SearchableSheet sheet) => [
-        .. sheet.Root.Children[0]
-            .Children.Where(child => child.Tag == "search-row")
-            .Select(row => row.Children.Count == 0 ? row.Text ?? "" : row.Children[0].Text ?? "")
+        ..sheet.Root.Children[0]
+            .Children.Where(static child => child.Tag == "search-row")
+            .Select(static row => row.Children.Count == 0
+                    ? row.Text ?? string.Empty
+                    : row.Children[0].Text ?? string.Empty
+            )
     ];
 }

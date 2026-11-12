@@ -74,19 +74,20 @@ public sealed record AudioEventSpatialAsset {
 
     /// <summary>These settings, as the mixer wants them. The position is filled in per play.</summary>
     /// <returns>The settings.</returns>
-    public SpatialSettings ToSettings() => new() {
-        MinDistance = MinDistance,
-        MaxDistance = MaxDistance,
-        Attenuation = Attenuation,
-        RolloffFactor = RolloffFactor,
-        ConeInnerAngle = ConeInnerAngle,
-        ConeOuterAngle = ConeOuterAngle,
-        ConeOuterGain = ConeOuterGain,
-        DopplerFactor = DopplerFactor,
-        Spread = Spread,
-        AirAbsorption = AirAbsorption,
-        AirAbsorptionCutoff = AirAbsorptionCutoff
-    };
+    public SpatialSettings ToSettings() =>
+        new() {
+            MinDistance = MinDistance,
+            MaxDistance = MaxDistance,
+            Attenuation = Attenuation,
+            RolloffFactor = RolloffFactor,
+            ConeInnerAngle = ConeInnerAngle,
+            ConeOuterAngle = ConeOuterAngle,
+            ConeOuterGain = ConeOuterGain,
+            DopplerFactor = DopplerFactor,
+            Spread = Spread,
+            AirAbsorption = AirAbsorption,
+            AirAbsorptionCutoff = AirAbsorptionCutoff
+        };
 }
 
 /// <summary>Another event played alongside this one, as a file declares it.</summary>
@@ -239,13 +240,14 @@ public sealed record AudioScattererAsset {
 
     /// <summary>The settings this describes.</summary>
     /// <returns>The settings.</returns>
-    public AudioScattererSettings ToSettings() => new() {
-        MinimumInterval = MinimumInterval,
-        MaximumInterval = MaximumInterval,
-        MinimumDistance = MinimumDistance,
-        MaximumDistance = MaximumDistance,
-        VerticalSpread = VerticalSpread,
-        FollowListener = FollowListener,
-        Seed = Seed
-    };
+    public AudioScattererSettings ToSettings() =>
+        new() {
+            MinimumInterval = MinimumInterval,
+            MaximumInterval = MaximumInterval,
+            MinimumDistance = MinimumDistance,
+            MaximumDistance = MaximumDistance,
+            VerticalSpread = VerticalSpread,
+            FollowListener = FollowListener,
+            Seed = Seed
+        };
 }

@@ -52,7 +52,7 @@ public readonly record struct Tick(uint Value) {
     /// <summary>Moves forward, or backward for a negative count.</summary>
     /// <param name="ticks">How many ticks to move.</param>
     /// <returns>The tick that many later.</returns>
-    public Tick Add(int ticks) => new((uint)(Value + (uint)ticks));
+    public Tick Add(int ticks) => new(Value + (uint)ticks);
 
     /// <summary>Moves backward, or forward for a negative count.</summary>
     /// <param name="ticks">How many ticks to move back.</param>

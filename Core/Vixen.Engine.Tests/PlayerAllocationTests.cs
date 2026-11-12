@@ -45,9 +45,9 @@ public sealed class PlayerAllocationTests {
         var system = new PlayerInputSystem();
 
         system.Bind(Player.Create(world), new Constant());
-        system.Bind(Player.Create(world, slot: 1), new Constant());
+        system.Bind(Player.Create(world, 1), new Constant());
 
-        Measured.NothingAllocated(() => system.Sample(world, 1f / 60f), warmUp: 16, passes: 500);
+        Measured.NothingAllocated(() => system.Sample(world, 1f / 60f), 16, 500);
     }
 
     /// <summary>
@@ -75,7 +75,7 @@ public sealed class PlayerAllocationTests {
         // is not the steady state this is about.
         system.Apply(world);
 
-        Measured.NothingAllocated(() => system.Apply(world), warmUp: 16, passes: 500);
+        Measured.NothingAllocated(() => system.Apply(world), 16, 500);
     }
 
     /// <summary>
@@ -91,7 +91,7 @@ public sealed class PlayerAllocationTests {
         Player.Possess(world, controller, Hierarchy.CreateTransform(world, LocalTransform.Identity));
         system.Apply(world);
 
-        Measured.NothingAllocated(() => system.Apply(world), warmUp: 16, passes: 500);
+        Measured.NothingAllocated(() => system.Apply(world), 16, 500);
         Assert.Equal(0, system.ReleasedCount);
     }
 
@@ -109,8 +109,7 @@ public sealed class PlayerAllocationTests {
                 _ = rotation.Forward();
                 _ = rotation.YawRotation();
             },
-            warmUp: 16,
-            passes: 1_000
+            16
         );
     }
 
@@ -123,8 +122,7 @@ public sealed class PlayerAllocationTests {
                 _ = intent.WorldDirection();
                 _ = intent.IsHeld(MoveButtons.Sprint);
             },
-            warmUp: 16,
-            passes: 1_000
+            16
         );
     }
 }

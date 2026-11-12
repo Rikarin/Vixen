@@ -8,8 +8,11 @@ namespace Vixen.Rendering.Terrain;
 /// <summary>What a scene says about its painted foliage: which instances, of which types.</summary>
 /// <remarks>
 ///     <para>
-///         <b>[docs/plan/31]'s owed fifth seam — "a <c>FoliageVolumeComponent</c> naming a volume
-///         asset".</b> The instances live beside the scene as a <c>.vxfol</c>, because fifty
+///         <b>
+///             [docs/plan/31]'s owed fifth seam — "a <c>FoliageVolumeComponent</c> naming a volume
+///             asset".
+///         </b>
+///         The instances live beside the scene as a <c>.vxfol</c>, because fifty
 ///         thousand transforms in a <c>.vxscene</c> is a file nobody can merge; the palette is
 ///         names and numbers a review has to be able to read, and this component is the text that
 ///         declares it — each entry a <c>.vxfoliage</c> reference, in the order the volume's chunks
@@ -21,8 +24,12 @@ namespace Vixen.Rendering.Terrain;
 ///         become pines with no error anywhere. Append; do not sort.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Placement is the entity's translation, and world-painted volumes sit at the
-///         origin.</b> The editor paints instances in world space, so a volume authored there rides
+///         ⚠
+///         <b>
+///             Placement is the entity's translation, and world-painted volumes sit at the
+///             origin.
+///         </b>
+///         The editor paints instances in world space, so a volume authored there rides
 ///         an entity with no transform; the translation exists for a prefab-shaped volume placed
 ///         more than once. Rotation and scale are not consumed, on
 ///         <see cref="TerrainComponent" />'s no-rotation terms.

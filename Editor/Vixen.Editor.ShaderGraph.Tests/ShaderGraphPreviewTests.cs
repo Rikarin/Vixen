@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core.Syntax.Diagnostics;
-using Vixen.Editor.NodeGraph;
 using Vixen.Editor.ShaderGraph;
 using Vixen.Graphics;
 using Vixen.NodeGraph;
@@ -113,7 +112,7 @@ public class ShaderGraphPreviewTests {
 
         var result = ShaderGraphPreview.Compile(graph, tiling.Id, Library());
 
-        Assert.True(result.Succeeded, string.Join("; ", result.Diagnostics.Select(one => one.Message)));
+        Assert.True(result.Succeeded, string.Join("; ", result.Diagnostics.Select(static one => one.Message)));
         Compiles(result.Artefact!.Source);
     }
 
@@ -144,7 +143,7 @@ public class ShaderGraphPreviewTests {
 
         var result = ShaderGraphPreview.Compile(graph, uv.Id, Library());
 
-        Assert.True(result.Succeeded, string.Join("; ", result.Diagnostics.Select(one => one.Message)));
+        Assert.True(result.Succeeded, string.Join("; ", result.Diagnostics.Select(static one => one.Message)));
         Assert.DoesNotContain($"n{tiling.Id.Value}_", result.Artefact!.Source, StringComparison.Ordinal);
         Compiles(result.Artefact.Source);
     }
@@ -156,7 +155,7 @@ public class ShaderGraphPreviewTests {
 
         var result = ShaderGraphPreview.Compile(graph, master.Id, Library());
 
-        Assert.True(result.Succeeded, string.Join("; ", result.Diagnostics.Select(one => one.Message)));
+        Assert.True(result.Succeeded, string.Join("; ", result.Diagnostics.Select(static one => one.Message)));
         Compiles(result.Artefact!.Source);
     }
 
@@ -172,7 +171,7 @@ public class ShaderGraphPreviewTests {
 
         var result = ShaderGraphPreview.Compile(graph, master.Id, Library());
 
-        Assert.True(result.Succeeded, string.Join("; ", result.Diagnostics.Select(one => one.Message)));
+        Assert.True(result.Succeeded, string.Join("; ", result.Diagnostics.Select(static one => one.Message)));
         Assert.Contains("lightDirection", result.Artefact!.Source, StringComparison.Ordinal);
         Compiles(result.Artefact.Source);
     }
@@ -202,7 +201,7 @@ public class ShaderGraphPreviewTests {
             Assert.True(
                 result.Succeeded,
                 $"'{definition.Path}' asks for a preview and does not compile to one: "
-                + string.Join("; ", result.Diagnostics.Select(one => one.Message))
+                + string.Join("; ", result.Diagnostics.Select(static one => one.Message))
             );
 
             Compiles(result.Artefact!.Source);
@@ -216,10 +215,10 @@ public class ShaderGraphPreviewTests {
     public void A_node_that_is_not_there_is_reported() {
         var (graph, _, _, _) = Tinted();
 
-        var result = ShaderGraphPreview.Compile(graph, new NodeId(999), Library());
+        var result = ShaderGraphPreview.Compile(graph, new(999), Library());
 
         Assert.Null(result.Artefact);
-        Assert.Contains(result.Diagnostics, one => one.Id == "SGP0001");
+        Assert.Contains(result.Diagnostics, static one => one.Id == "SGP0001");
     }
 
     /// <summary>An inline value an author typed reaches the preview.</summary>
@@ -296,7 +295,7 @@ public class ShaderGraphPreviewTests {
 
         var result = ShaderGraphPreview.Compile(graph, noise.Id, Library());
 
-        Assert.True(result.Succeeded, string.Join("; ", result.Diagnostics.Select(one => one.Message)));
+        Assert.True(result.Succeeded, string.Join("; ", result.Diagnostics.Select(static one => one.Message)));
         Assert.Contains("ComputeColor.ValueNoise", result.Artefact!.Source, StringComparison.Ordinal);
 
         var data = ShaderGraphPreviewPrelude
@@ -308,7 +307,7 @@ public class ShaderGraphPreviewTests {
         // Exactly what ShaderGraphPreviewRenderer will accept: uniform blocks and nothing else.
         Assert.All(
             data.Bindings,
-            binding => Assert.True(
+            static binding => Assert.True(
                 binding.Kind is DescriptorKind.UniformBuffer or DescriptorKind.DynamicUniformBuffer,
                 $"'{binding.Name}' is a {binding.Kind}, which the preview renderer refuses — the "
                 + "prelude has pulled a resource into the preview's reflection."

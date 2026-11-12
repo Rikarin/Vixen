@@ -47,10 +47,10 @@ public class ComposeSlotInventoryTests {
         var declared = Directory
             .EnumerateFiles(Path.Combine(AppContext.BaseDirectory, "Shaders"), "*.rvn", SearchOption.AllDirectories)
             .SelectMany(File.ReadAllLines)
-            .Select(line => line.Trim())
-            .Where(line => line.StartsWith("compose val ", StringComparison.Ordinal))
-            .Where(line => !line.Contains('=', StringComparison.Ordinal))
-            .Select(line => line["compose val ".Length..].Split(':')[0].Trim())
+            .Select(static line => line.Trim())
+            .Where(static line => line.StartsWith("compose val ", StringComparison.Ordinal))
+            .Where(static line => !line.Contains('=', StringComparison.Ordinal))
+            .Select(static line => line["compose val ".Length..].Split(':')[0].Trim())
             .Distinct(StringComparer.Ordinal)
             .ToArray();
 
@@ -79,7 +79,7 @@ public class ComposeSlotInventoryTests {
         var declarations = Directory
             .EnumerateFiles(Path.Combine(AppContext.BaseDirectory, "Shaders"), "*.rvn", SearchOption.AllDirectories)
             .SelectMany(File.ReadAllLines)
-            .Select(line => line.Trim())
+            .Select(static line => line.Trim())
             .Where(line => line.StartsWith($"compose val {slot}:", StringComparison.Ordinal))
             .ToArray();
 
@@ -94,10 +94,7 @@ public class ComposeSlotInventoryTests {
     public void TheEngineBindsEverySlotTheLibraryDeclares() {
         var declared = Declared();
 
-        var bound = new HashSet<string>(MaterialCompiler.ChainSlots, StringComparer.Ordinal) {
-            "surface",
-            "shading"
-        };
+        var bound = new HashSet<string>(MaterialCompiler.ChainSlots, StringComparer.Ordinal) { "surface", "shading" };
 
         foreach (var (_, slot, _) in MaterialCompiler.OptionalSlots) {
             bound.Add(slot);
@@ -158,8 +155,9 @@ public class ComposeSlotInventoryTests {
     /// </remarks>
     [Fact]
     public void APassCompositionBindsEverySlotTheLibraryDeclares() {
-        var bound = MaterialCompiler.PassComposition().Slots
-            .Select(pair => pair.Key)
+        var bound = MaterialCompiler.PassComposition()
+            .Slots
+            .Select(static pair => pair.Key)
             .ToHashSet(StringComparer.Ordinal);
 
         foreach (var slot in Declared()) {
@@ -179,7 +177,11 @@ public class ComposeSlotInventoryTests {
     [Fact]
     public void APassComposesEveryTypedSlotAndNotOnlyItsOwn() {
         var composition = MaterialCompiler.PassComposition("irradiance", "IrradianceFieldProbes");
-        var slots = composition.Slots.ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal);
+        var slots = composition.Slots.ToDictionary(
+            static pair => pair.Key,
+            static pair => pair.Value,
+            StringComparer.Ordinal
+        );
 
         Assert.Equal("IrradianceFieldProbes", slots["irradiance"]);
         Assert.Equal(MaterialCompiler.EmptyFieldShader, slots["distanceField"]);

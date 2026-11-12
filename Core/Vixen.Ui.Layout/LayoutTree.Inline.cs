@@ -9,8 +9,12 @@ namespace Vixen.Ui.Layout;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>This is the store's fourth algorithm, and the first one that asks for something the
-///         store cannot give it.</b> The two before it each cost exactly one thing and the price was
+///         ⚠
+///         <b>
+///             This is the store's fourth algorithm, and the first one that asks for something the
+///             store cannot give it.
+///         </b>
+///         The two before it each cost exactly one thing and the price was
 ///         recorded: block cost three <i>outputs</i>, because a child's margin may belong to its
 ///         parent; grid cost variable-length <i>input</i>, hence <see cref="TrackArena" /> and a
 ///         watermarked bump allocator. Inline costs one more output — see
@@ -18,8 +22,12 @@ namespace Vixen.Ui.Layout;
 ///         of adding a field.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The wall was that a <see cref="LayoutResult" /> holds exactly one rectangle, and a
-///         non-atomic inline box needs several.</b> Every algorithm here preserved one invariant
+///         ⚠
+///         <b>
+///             The wall was that a <see cref="LayoutResult" /> holds exactly one rectangle, and a
+///             non-atomic inline box needs several.
+///         </b>
+///         Every algorithm here preserved one invariant
 ///         without ever having to say so: <b>one node produces one box</b>. A flex item is one
 ///         rectangle, a block-level child is one rectangle, a grid item is one rectangle — so a
 ///         node's geometry is four floats at a known offset, which is what makes the store five
@@ -40,8 +48,12 @@ namespace Vixen.Ui.Layout;
 ///         <c>LayoutTree.Fragments.cs</c>, and <c>InlineKnownGaps.txt</c> for what is still scope.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The claim that a line box allocates nothing survived, and it was the thing most at
-///         risk.</b> A line used to be a <i>contiguous range of the existing child span</i>, exactly
+///         ⚠
+///         <b>
+///             The claim that a line box allocates nothing survived, and it was the thing most at
+///             risk.
+///         </b>
+///         A line used to be a <i>contiguous range of the existing child span</i>, exactly
 ///         as a flex line is. It is now a contiguous range of a flattened stream, because a span is
 ///         not <i>on</i> a line — its children are, and it contributes only its two edges. The
 ///         stream and the fragment scratch are watermarked buffers reused across passes, so the
@@ -145,13 +157,17 @@ public sealed partial class LayoutTree {
         float marginAxisRow,
         float marginAxisColumn
     ) {
-        var insetLeft = results[index].Padding[(int) Edge.Left] + results[index].Border[(int) Edge.Left]
+        var insetLeft = results[index].Padding[(int)Edge.Left]
+            + results[index].Border[(int)Edge.Left]
             + ScrollbarGutterAt(index, Edge.Left, direction);
-        var insetRight = results[index].Padding[(int) Edge.Right] + results[index].Border[(int) Edge.Right]
+        var insetRight = results[index].Padding[(int)Edge.Right]
+            + results[index].Border[(int)Edge.Right]
             + ScrollbarGutterAt(index, Edge.Right, direction);
-        var insetTop = results[index].Padding[(int) Edge.Top] + results[index].Border[(int) Edge.Top]
+        var insetTop = results[index].Padding[(int)Edge.Top]
+            + results[index].Border[(int)Edge.Top]
             + ScrollbarGutterAt(index, Edge.Top, direction);
-        var insetBottom = results[index].Padding[(int) Edge.Bottom] + results[index].Border[(int) Edge.Bottom]
+        var insetBottom = results[index].Padding[(int)Edge.Bottom]
+            + results[index].Border[(int)Edge.Bottom]
             + ScrollbarGutterAt(index, Edge.Bottom, direction);
         var insetRow = insetLeft + insetRight;
         var insetColumn = insetTop + insetBottom;
@@ -162,8 +178,10 @@ public sealed partial class LayoutTree {
         // than its own scrollbar — the bar simply covers everything — but never smaller than its own
         // edges. Flooring at `insetRow`/`insetColumn` would let the gutter win an argument the
         // author's `max-*` is supposed to.
-        var paddingBorderRow = StyleResolution.PaddingAndBorderForAxis(in styles[index], FlexDirection.Row, direction, ownerWidth);
-        var paddingBorderColumn = StyleResolution.PaddingAndBorderForAxis(in styles[index], FlexDirection.Column, direction, ownerWidth);
+        var paddingBorderRow =
+            StyleResolution.PaddingAndBorderForAxis(in styles[index], FlexDirection.Row, direction, ownerWidth);
+        var paddingBorderColumn =
+            StyleResolution.PaddingAndBorderForAxis(in styles[index], FlexDirection.Column, direction, ownerWidth);
 
         // ── The inline axis ─────────────────────────────────────────────────────────────────────
         // Identical in shape to block's, and different in one word: where a block container's
@@ -212,7 +230,8 @@ public sealed partial class LayoutTree {
             ? availableHeight - marginAxisColumn
             : ResolvedDimension(index, Dimension.Height, ownerHeight, ownerWidth, direction);
 
-        var innerHeightForPercentages = float.IsNaN(definiteHeight) ? float.NaN : MathF.Max(0f, definiteHeight - insetColumn);
+        var innerHeightForPercentages =
+            float.IsNaN(definiteHeight) ? float.NaN : MathF.Max(0f, definiteHeight - insetColumn);
 
         // ── The block axis: one pass, breaking into lines ───────────────────────────────────────
         // ⚠ <b>A container that establishes a formatting context opens an exclusion scope here for
@@ -247,7 +266,9 @@ public sealed partial class LayoutTree {
 
         var intrinsicHeight = walk.ContentHeight + insetBottom;
 
-        var rawHeight = heightSizingMode == SizingMode.StretchFit ? availableHeight - marginAxisColumn : intrinsicHeight;
+        var rawHeight = heightSizingMode == SizingMode.StretchFit
+            ? availableHeight - marginAxisColumn
+            : intrinsicHeight;
         var outerHeight = BoundAxis(index, FlexDirection.Column, direction, rawHeight, ownerHeight, ownerWidth);
 
         SetMeasuredDimension(index, Dimension.Width, outerWidth, MathF.Max(rawWidth, paddingBorderRow));
@@ -282,7 +303,9 @@ public sealed partial class LayoutTree {
                 0f,
                 0f,
                 innerWidth,
-                float.IsNaN(innerHeightForPercentages) ? MathF.Max(0f, outerHeight - insetColumn) : innerHeightForPercentages
+                float.IsNaN(innerHeightForPercentages)
+                    ? MathF.Max(0f, outerHeight - insetColumn)
+                    : innerHeightForPercentages
             );
         }
     }
@@ -293,8 +316,12 @@ public sealed partial class LayoutTree {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A flattened box is a containing block whose own layout never ran, and that pair is
-    ///         what made an out-of-flow child of a span vanish.</b> The absolute walk is started by
+    ///         ⚠
+    ///         <b>
+    ///             A flattened box is a containing block whose own layout never ran, and that pair is
+    ///             what made an out-of-flow child of a span vanish.
+    ///         </b>
+    ///         The absolute walk is started by
     ///         <c>CalculateLayoutImpl</c> and descends only through children that are <i>not</i>
     ///         containing blocks; this store's default <see cref="PositionType" /> is
     ///         <see cref="PositionType.Relative" />, Yoga's rather than CSS's <c>static</c>, so a span
@@ -322,7 +349,12 @@ public sealed partial class LayoutTree {
     /// <param name="widthSizingMode">The container's width sizing mode, threaded to the child walk.</param>
     /// <param name="direction">The container's resolved inline direction.</param>
     /// <param name="currentDepth">The recursion guard's depth.</param>
-    void LayoutFlattenedInlineAbsolutes(int container, SizingMode widthSizingMode, Direction direction, int currentDepth) {
+    void LayoutFlattenedInlineAbsolutes(
+        int container,
+        SizingMode widthSizingMode,
+        Direction direction,
+        int currentDepth
+    ) {
         foreach (var child in ChildIds(container)) {
             // The cheap half of this test is the first thing it does — a child that is not
             // `display: inline` leaves without the child scan the rest of the predicate runs.
@@ -379,8 +411,12 @@ public sealed partial class LayoutTree {
     ///         guard rather than a clamp.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The range is over the container's <i>children</i>, and that is what an anonymous
-    ///         block box is.</b> A container whose every in-flow child is inline-level passes its
+    ///         ⚠
+    ///         <b>
+    ///             The range is over the container's <i>children</i>, and that is what an anonymous
+    ///             block box is.
+    ///         </b>
+    ///         A container whose every in-flow child is inline-level passes its
     ///         whole child list; a <i>mixed</i> container passes one run at a time from
     ///         <c>WalkBlockChildren</c>, and each such call is CSS 2.1 §9.2.1.1's anonymous block box
     ///         in its entirety. Nothing is stored for it because there is nothing to store: it takes
@@ -439,7 +475,17 @@ public sealed partial class LayoutTree {
             // resolves against the containing block, not against the remaining space — and it is also
             // what makes the result independent of the order lines happen to break in, so the measure
             // cache can serve the second and third readings below.
-            HideAndPositionOutOfFlow(index, childStart, childEnd, direction, outerWidth, insetLeft, insetRight, contentTop, performLayout);
+            HideAndPositionOutOfFlow(
+                index,
+                childStart,
+                childEnd,
+                direction,
+                outerWidth,
+                insetLeft,
+                insetRight,
+                contentTop,
+                performLayout
+            );
 
             for (var i = streamBase; i < streamEnd; i++) {
                 // ⚠ Read fresh every iteration. Sizing an item runs a whole nested layout, which may
@@ -448,12 +494,27 @@ public sealed partial class LayoutTree {
 
                 switch (item.Kind) {
                     case InlineItemKind.Atomic:
-                        LayoutInlineItem(item.Node, direction, innerWidth, innerHeightForPercentages, performLayout, currentDepth);
+                        LayoutInlineItem(
+                            item.Node,
+                            direction,
+                            innerWidth,
+                            innerHeightForPercentages,
+                            performLayout,
+                            currentDepth
+                        );
                         break;
 
                     case InlineItemKind.Open:
                         ResolveInlineBoxMetrics(item.Node, direction, innerWidth);
-                        HideAndPositionOutOfFlow(item.Node, direction, outerWidth, insetLeft, insetRight, contentTop, performLayout);
+                        HideAndPositionOutOfFlow(
+                            item.Node,
+                            direction,
+                            outerWidth,
+                            insetLeft,
+                            insetRight,
+                            contentTop,
+                            performLayout
+                        );
                         break;
                 }
             }
@@ -501,7 +562,9 @@ public sealed partial class LayoutTree {
                     }
 
                     zeroHeight = placed == 0 && !HasNonZeroInlineBoxEdge(lineStart, lineEnd);
-                    metrics = zeroHeight ? default : MeasureLine(index, lineStart, lineEnd, direction, innerWidth, in strut);
+                    metrics = zeroHeight
+                        ? default
+                        : MeasureLine(index, lineStart, lineEnd, direction, innerWidth, in strut);
                 } else {
                     // ── §9.5's main clause ──────────────────────────────────────────────────────
                     // ⚠ <b>The band a line gets depends on how tall the line is, and how tall the
@@ -531,7 +594,13 @@ public sealed partial class LayoutTree {
                     for (var attempt = 0; attempt < 5; attempt++) {
                         lineTop = ShiftLinePastFloats(lineTop, probeHeight, needed, innerWidth, insetLeft);
 
-                        var (start, available) = InlineBandForLine(lineTop, probeHeight, innerWidth, insetLeft, direction);
+                        var (start, available) = InlineBandForLine(
+                            lineTop,
+                            probeHeight,
+                            innerWidth,
+                            insetLeft,
+                            direction
+                        );
 
                         lineStartInset = start;
                         lineAvailable = available;
@@ -582,7 +651,9 @@ public sealed partial class LayoutTree {
                         }
 
                         zeroHeight = !HasNonZeroInlineBoxEdge(lineStart, lineEnd);
-                        metrics = zeroHeight ? default : MeasureLine(index, lineStart, lineEnd, direction, innerWidth, in strut);
+                        metrics = zeroHeight
+                            ? default
+                            : MeasureLine(index, lineStart, lineEnd, direction, innerWidth, in strut);
                     }
                 }
 
@@ -618,7 +689,7 @@ public sealed partial class LayoutTree {
                 y = lineTop + metrics.Height;
             }
 
-            return new InlineWalk(y, lastBaseline);
+            return new(y, lastBaseline);
         } finally {
             // ⚠ All three watermarks, and the fragment one is no longer belt and braces: a commit
             // used to rewind the scratch to the box it was committing, which nesting had to give up —
@@ -666,8 +737,12 @@ public sealed partial class LayoutTree {
 
     /// <summary>The same, over one anonymous block box's run of the child list.</summary>
     /// <remarks>
-    ///     ⚠ <b>A <c>display: none</c> or out-of-flow child inside a run stays inside it rather than
-    ///     ending it</b>, so this is where both are dealt with for a mixed container's inline runs —
+    ///     ⚠
+    ///     <b>
+    ///         A <c>display: none</c> or out-of-flow child inside a run stays inside it rather than
+    ///         ending it
+    ///     </b>
+    ///     , so this is where both are dealt with for a mixed container's inline runs —
     ///     and an out-of-flow child's static position becomes the anonymous box's own top edge, which
     ///     is where the box it replaced would have gone. Leaving it to the block walk instead would
     ///     record the cursor from <i>before</i> the run, because the run's height is not known until
@@ -709,17 +784,25 @@ public sealed partial class LayoutTree {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>CSS 2.1 §9.5.1 rules 5 and 6, and the only thing this adds to
-    ///         <see cref="PlaceFloatChild" /> is <i>which</i> vertical position it starts the search
-    ///         from.</b> The block walk hands it the flow cursor; this hands it the top of the line the
+    ///         ⚠
+    ///         <b>
+    ///             CSS 2.1 §9.5.1 rules 5 and 6, and the only thing this adds to
+    ///             <see cref="PlaceFloatChild" /> is <i>which</i> vertical position it starts the search
+    ///             from.
+    ///         </b>
+    ///         The block walk hands it the flow cursor; this hands it the top of the line the
     ///         float was written on. Everything after that — clearance, rule 3's "no higher than an
     ///         earlier float", the band search of rules 1, 2 and 7 — is the same code, which is why
     ///         two floats written on one line stack sideways and a third drops below them without a
     ///         word of new arithmetic.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>What is deliberately <i>not</i> here: the float is not pushed below the line when
-    ///         the items already on that line leave it no room.</b> The search consults the exclusion
+    ///         ⚠
+    ///         <b>
+    ///             What is deliberately <i>not</i> here: the float is not pushed below the line when
+    ///             the items already on that line leave it no room.
+    ///         </b>
+    ///         The search consults the exclusion
     ///         list only, so a float wider than the band left by earlier floats drops, and a float
     ///         wider than the space left by earlier <i>text</i> does not — it takes the space and the
     ///         line re-breaks around it. Chrome keeps the earlier items and pushes the float down. No
@@ -830,8 +913,12 @@ public sealed partial class LayoutTree {
 
     /// <summary>Sizes one atomic inline, by whichever algorithm its inner display type names.</summary>
     /// <remarks>
-    ///     ⚠ <b><see cref="SizingMode.FitContent" /> is the entire mechanism, and it was already
-    ///     here.</b> This is the one call that makes an <c>inline-block</c> not take the whole line,
+    ///     ⚠
+    ///     <b>
+    ///         <see cref="SizingMode.FitContent" /> is the entire mechanism, and it was already
+    ///         here.
+    ///     </b>
+    ///     This is the one call that makes an <c>inline-block</c> not take the whole line,
     ///     and it adds no arithmetic whatsoever: the block path's <c>width: auto</c> branch already
     ///     splits on <see cref="SizingMode.StretchFit" /> versus everything else, and the flex path
     ///     has understood <c>FitContent</c> since Yoga's 534. What was missing for two plan items was
@@ -889,8 +976,12 @@ public sealed partial class LayoutTree {
     /// <summary>Fills one line box from the stream, and reports where it ended.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b><paramref name="innerWidth" /> and <paramref name="availableWidth" /> are two
-    ///         different questions and only the second one floats change.</b> The first is the
+    ///         ⚠
+    ///         <b>
+    ///             <paramref name="innerWidth" /> and <paramref name="availableWidth" /> are two
+    ///             different questions and only the second one floats change.
+    ///         </b>
+    ///         The first is the
     ///         containing block's inline size, which every percentage on the line resolves against —
     ///         CSS 2.1 §8.3 makes even a percentage <c>margin-top</c> a fraction of it. The second is
     ///         how much room this particular line box has, which §9.5 lets a float take away. Passing
@@ -907,13 +998,23 @@ public sealed partial class LayoutTree {
     ///         get out from under.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The fit test is run against what the line will have spent by the time it ends,
-    ///         not against what it has spent so far</b> — see <see cref="ClosingEdgesAfter" />. The
+    ///         ⚠
+    ///         <b>
+    ///             The fit test is run against what the line will have spent by the time it ends,
+    ///             not against what it has spent so far
+    ///         </b>
+    ///         — see <see cref="ClosingEdgesAfter" />. The
     ///         two differ by the end edges of the boxes that close after this item, which the walk
     ///         does not reach until the item is already on the line.
     ///     </para>
     /// </remarks>
-    (int End, int Placed) BreakLine(int lineStart, int streamEnd, Direction direction, float innerWidth, float availableWidth) {
+    (int End, int Placed) BreakLine(
+        int lineStart,
+        int streamEnd,
+        Direction direction,
+        float innerWidth,
+        float availableWidth
+    ) {
         var cursor = lineStart;
         var lineWidth = 0f;
         var placed = 0;
@@ -1002,7 +1103,9 @@ public sealed partial class LayoutTree {
                 continue;
             }
 
-            return width + InlineOuterWidth(item.Node, direction, innerWidth) + ClosingEdgesAfter(i + 1, streamEnd, direction, innerWidth);
+            return width
+                + InlineOuterWidth(item.Node, direction, innerWidth)
+                + ClosingEdgesAfter(i + 1, streamEnd, direction, innerWidth);
         }
 
         return width;
@@ -1013,16 +1116,24 @@ public sealed partial class LayoutTree {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>An inline box's end edge is charged to the line when the walk <i>reaches</i> its
-    ///         <see cref="InlineItemKind.Close" />, which is after the item before it has already been
-    ///         fitted — so without this the fit test is run against a width that omits padding the
-    ///         line is about to spend, and the line overflows by exactly that sum, silently.</b> A
+    ///         ⚠
+    ///         <b>
+    ///             An inline box's end edge is charged to the line when the walk <i>reaches</i> its
+    ///             <see cref="InlineItemKind.Close" />, which is after the item before it has already been
+    ///             fitted — so without this the fit test is run against a width that omits padding the
+    ///             line is about to spend, and the line overflows by exactly that sum, silently.
+    ///         </b>
+    ///         A
     ///         200-wide box, a span padded 10 on each side and three 60-wide items: 10 + 60 + 60 + 60
     ///         fits, and then the closing 10 takes the line to 210.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Only the boxes that would close before the next item, which is not the same as
-    ///         "the boxes that are open".</b> A box whose content continues onto the next line does
+    ///         ⚠
+    ///         <b>
+    ///             Only the boxes that would close before the next item, which is not the same as
+    ///             "the boxes that are open".
+    ///         </b>
+    ///         A box whose content continues onto the next line does
     ///         not draw an end edge at the break (§9.2.1.1), so charging every open box would wrap
     ///         items a browser keeps. Chrome, measured: an outer span padded 30 at its end holding
     ///         four 60-wide items in a 200-wide box puts <i>three</i> on the first line — the 30 is
@@ -1068,8 +1179,12 @@ public sealed partial class LayoutTree {
     /// <summary>How much of a line box the floats crossing it leave, and where it starts.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Three coordinate systems meet on these four lines, and getting the wrong one is
-    ///         silent.</b> The exclusion list is in the formatting context ROOT's content coordinates;
+    ///         ⚠
+    ///         <b>
+    ///             Three coordinate systems meet on these four lines, and getting the wrong one is
+    ///             silent.
+    ///         </b>
+    ///         The exclusion list is in the formatting context ROOT's content coordinates;
     ///         <see cref="floatOriginX" /> holds where the container being walked has its BORDER box
     ///         in them, so this container's own content box starts at <c>floatOriginX + insetLeft</c>.
     ///         A line box is addressed in the container's coordinates, like every other output here.
@@ -1081,8 +1196,12 @@ public sealed partial class LayoutTree {
     ///         one would otherwise be handed a line box wider than itself the moment no float crossed.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The returned inset is inline-relative and the band is physical, which is the whole
-    ///         of what RTL costs here.</b> In LTR a line starts at the band's left edge; in RTL it
+    ///         ⚠
+    ///         <b>
+    ///             The returned inset is inline-relative and the band is physical, which is the whole
+    ///             of what RTL costs here.
+    ///         </b>
+    ///         In LTR a line starts at the band's left edge; in RTL it
     ///         starts at the band's right edge, so the distance from the container's own start edge is
     ///         what is left over on the other side. A left float narrows an RTL line without moving
     ///         where it begins, and a right float moves where it begins without narrowing it any
@@ -1110,8 +1229,12 @@ public sealed partial class LayoutTree {
     ///     some, or until there are no floats left to move past.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>"Or until there are no more floats present" is the half that keeps this from being a
-    ///     clamp.</b> An item wider than the container itself never fits any band, and the loop must
+    ///     ⚠
+    ///     <b>
+    ///         "Or until there are no more floats present" is the half that keeps this from being a
+    ///         clamp.
+    ///     </b>
+    ///     An item wider than the container itself never fits any band, and the loop must
     ///     still stop — below the last float, where §9.4.2's overflow takes over. Chrome answers
     ///     exactly that: a 150-wide item in a 100-wide box with a 60×40 left float comes out at
     ///     <c>x = 0, y = 40</c>, below the float and hanging 50 points off the right.
@@ -1147,7 +1270,7 @@ public sealed partial class LayoutTree {
 
     /// <summary>An item's width on the line, margins included.</summary>
     float InlineOuterWidth(int child, Direction direction, float innerWidth) =>
-        results[child].MeasuredDimensions[(int) Dimension.Width]
+        results[child].MeasuredDimensions[(int)Dimension.Width]
         + StyleResolution.MarginForAxis(in styles[child], FlexDirection.Row, innerWidth.OrZero());
 
     /// <summary>Where one line box's baseline sits, and how tall the line is.</summary>
@@ -1160,8 +1283,12 @@ public sealed partial class LayoutTree {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Two rounds, because the two families of <c>vertical-align</c> value are defined
-    ///         against different things and the second depends on the first.</b> A baseline-aligned
+    ///         ⚠
+    ///         <b>
+    ///             Two rounds, because the two families of <c>vertical-align</c> value are defined
+    ///             against different things and the second depends on the first.
+    ///         </b>
+    ///         A baseline-aligned
     ///         box is positioned relative to the line's baseline, which is not known until every
     ///         baseline-aligned box has been seen — that is round one, and it fixes the baseline. A
     ///         <c>top</c>- or <c>bottom</c>-aligned box is positioned relative to the line's *edges*,
@@ -1171,8 +1298,12 @@ public sealed partial class LayoutTree {
     ///         instead of below it.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The <i>strut</i> is where the line starts, and it is the one input to this method
-    ///         that does not come from a box.</b> §10.8 begins every line box with an imaginary
+    ///         ⚠
+    ///         <b>
+    ///             The <i>strut</i> is where the line starts, and it is the one input to this method
+    ///             that does not come from a box.
+    ///         </b>
+    ///         §10.8 begins every line box with an imaginary
     ///         zero-width inline box carrying the block container's own font and line height, so an
     ///         empty line is still a line tall and a short image never makes the line shorter than the
     ///         text around it would be. This store still has no font; what it has is the five numbers
@@ -1181,7 +1312,14 @@ public sealed partial class LayoutTree {
     ///         method measured before the field existed. See <see cref="StrutMetrics" />.
     ///     </para>
     /// </remarks>
-    LineMetrics MeasureLine(int container, int lineStart, int lineEnd, Direction direction, float innerWidth, in StrutMetrics strut) {
+    LineMetrics MeasureLine(
+        int container,
+        int lineStart,
+        int lineEnd,
+        Direction direction,
+        float innerWidth,
+        in StrutMetrics strut
+    ) {
         // ⚠ The strut is an ordinary baseline-aligned participant and not a floor applied afterwards,
         // which matters for exactly one case and it is the common one: a box TALLER than the strut but
         // hanging LOWER than it — an image with a big descender's worth of margin — must grow the line
@@ -1192,7 +1330,15 @@ public sealed partial class LayoutTree {
         // this line, and every atomic box, each at its baseline's offset from the line's — see
         // `AlignedSubtreeExtent`. A box or span inside a `top`/`bottom` span belongs to THAT span's
         // subtree instead, and reaches the line in round two with it.
-        var (ascent, descent) = AlignedSubtreeExtent(container, container, lineStart, lineEnd, direction, innerWidth, in strut);
+        var (ascent, descent) = AlignedSubtreeExtent(
+            container,
+            container,
+            lineStart,
+            lineEnd,
+            direction,
+            innerWidth,
+            in strut
+        );
 
         // Round two: an edge-aligned box can only grow the side it is anchored to. An atomic box is
         // its own margin box; a `top`/`bottom` span is the whole subtree hanging from it (#1478).
@@ -1204,7 +1350,7 @@ public sealed partial class LayoutTree {
                 var alignment = EffectiveVerticalAlign(child, ParentStrut(child, container, in strut));
                 if (alignment is VerticalAlign.Top or VerticalAlign.Bottom) {
                     var (top, bottom) = InlineVerticalMargins(child, direction, innerWidth);
-                    var outer = results[child].MeasuredDimensions[(int) Dimension.Height] + top + bottom;
+                    var outer = results[child].MeasuredDimensions[(int)Dimension.Height] + top + bottom;
                     GrowForEdgeAligned(ref ascent, ref descent, alignment, outer);
                 }
             }
@@ -1224,12 +1370,20 @@ public sealed partial class LayoutTree {
                     continue;
                 }
 
-                var (subtreeAscent, subtreeDescent) = AlignedSubtreeExtent(span, container, lineStart, lineEnd, direction, innerWidth, in strut);
+                var (subtreeAscent, subtreeDescent) = AlignedSubtreeExtent(
+                    span,
+                    container,
+                    lineStart,
+                    lineEnd,
+                    direction,
+                    innerWidth,
+                    in strut
+                );
                 GrowForEdgeAligned(ref ascent, ref descent, alignment, subtreeAscent + subtreeDescent);
             }
         }
 
-        return new LineMetrics(ascent, ascent + descent);
+        return new(ascent, ascent + descent);
     }
 
     /// <summary>Grows a line for one <c>top</c>- or <c>bottom</c>-aligned box, on the side it is not pinned to.</summary>
@@ -1260,8 +1414,12 @@ public sealed partial class LayoutTree {
     /// <param name="strut">The container's strut.</param>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The root's own inline box seeds it, then every span and every atomic box anchored
-    ///         to it contributes its two halves at its baseline's offset from the root's</b> — which
+    ///         ⚠
+    ///         <b>
+    ///             The root's own inline box seeds it, then every span and every atomic box anchored
+    ///             to it contributes its two halves at its baseline's offset from the root's
+    ///         </b>
+    ///         — which
     ///         is the sum of every span shift between it and the root, because §10.8.1 aligns each box
     ///         against its PARENT inline box's baseline and a shifted parent carries its children with
     ///         it (#1478). For the container the root's box is the strut, and the result is round one
@@ -1341,7 +1499,7 @@ public sealed partial class LayoutTree {
             }
 
             var (top, bottom) = InlineVerticalMargins(child, direction, innerWidth);
-            var height = results[child].MeasuredDimensions[(int) Dimension.Height];
+            var height = results[child].MeasuredDimensions[(int)Dimension.Height];
             var baseline = InlineItemBaseline(child);
 
             // ⚠ Every one of the seven remaining values is this loop with a different shift, which is
@@ -1350,7 +1508,14 @@ public sealed partial class LayoutTree {
             // which side of the baseline the box's two halves are on. So the box still contributes an
             // ascent and a descent — moved by the shift, in opposite directions — and the shift of
             // every span around it is added on top.
-            var itemShift = childChain + BaselineShift(alignment, in parentStrut, in styles[child], top + baseline, height - baseline + bottom);
+            var itemShift = childChain
+                + BaselineShift(
+                    alignment,
+                    in parentStrut,
+                    in styles[child],
+                    top + baseline,
+                    height - baseline + bottom
+                );
 
             ascent = MathF.Max(ascent, top + baseline - itemShift);
             descent = MathF.Max(descent, height - baseline + bottom + itemShift);
@@ -1392,8 +1557,12 @@ public sealed partial class LayoutTree {
     ///     §10.8.1 — positive down, and zero for <c>top</c>/<c>bottom</c>, which are not shifts.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>The span's two halves are its own inline box's — its line height about its
-    ///     baseline</b> — which is what <c>middle</c> centres. The strut it measures <c>sub</c>,
+    ///     ⚠
+    ///     <b>
+    ///         The span's two halves are its own inline box's — its line height about its
+    ///         baseline
+    ///     </b>
+    ///     — which is what <c>middle</c> centres. The strut it measures <c>sub</c>,
     ///     <c>super</c>, <c>middle</c> and the text edges against is its PARENT's, exactly as for an
     ///     atomic box.
     /// </remarks>
@@ -1429,9 +1598,19 @@ public sealed partial class LayoutTree {
             return metrics.Ascent;
         }
 
-        var (ascent, descent) = AlignedSubtreeExtent(anchor, container, lineStart, lineEnd, direction, innerWidth, in strut);
+        var (ascent, descent) = AlignedSubtreeExtent(
+            anchor,
+            container,
+            lineStart,
+            lineEnd,
+            direction,
+            innerWidth,
+            in strut
+        );
 
-        return SpanVerticalAlign(anchor, container, in strut) == VerticalAlign.Bottom ? metrics.Height - descent : ascent;
+        return SpanVerticalAlign(anchor, container, in strut) == VerticalAlign.Bottom
+            ? metrics.Height - descent
+            : ascent;
     }
 
     /// <summary>Where an atomic box's parent inline box's baseline sits on a placed line, from the line's top.</summary>
@@ -1447,7 +1626,8 @@ public sealed partial class LayoutTree {
     ) {
         var (chain, anchor) = InlineAnchor(child, container, in strut);
 
-        return AnchorBaseline(anchor, container, lineStart, lineEnd, in metrics, direction, innerWidth, in strut) + chain;
+        return AnchorBaseline(anchor, container, lineStart, lineEnd, in metrics, direction, innerWidth, in strut)
+            + chain;
     }
 
     /// <summary>
@@ -1455,9 +1635,13 @@ public sealed partial class LayoutTree {
     ///     for a span displaced from the line's baseline — its own inline box (#1478).
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>Decision (#1478): a baseline-aligned span keeps the line box as its fragment, and only a
-    ///     span that is itself shifted, or sits inside one that is, gets its own line height about its
-    ///     own baseline.</b> The first is what every span background and selection highlight in the
+    ///     ⚠
+    ///     <b>
+    ///         Decision (#1478): a baseline-aligned span keeps the line box as its fragment, and only a
+    ///         span that is itself shifted, or sits inside one that is, gets its own line height about its
+    ///         own baseline.
+    ///     </b>
+    ///     The first is what every span background and selection highlight in the
     ///     tree was drawn against, and a line box is a fair approximation of a box that sits on the
     ///     line's baseline; it is no approximation at all of a <c>super</c> span, whose box is
     ///     somewhere else. A span with no font anywhere above it has no height to give, and keeps the
@@ -1496,7 +1680,16 @@ public sealed partial class LayoutTree {
             baseline = AnchorBaseline(span, container, lineStart, lineEnd, in metrics, direction, innerWidth, in strut);
         } else {
             var (chain, anchor) = InlineAnchor(span, container, in strut);
-            baseline = AnchorBaseline(anchor, container, lineStart, lineEnd, in metrics, direction, innerWidth, in strut)
+            baseline = AnchorBaseline(
+                    anchor,
+                    container,
+                    lineStart,
+                    lineEnd,
+                    in metrics,
+                    direction,
+                    innerWidth,
+                    in strut
+                )
                 + chain
                 + SpanOwnShift(span, container, in strut);
         }
@@ -1584,8 +1777,12 @@ public sealed partial class LayoutTree {
 
     /// <summary>How much of the inline axis one line's items take up, edges and margins included.</summary>
     /// <remarks>
-    ///     ⚠ <b>The same sum <see cref="PlaceLine" />'s <c>x</c> accumulates, and it has to stay that
-    ///     way.</b> A line that measured wider here than it places would be pushed off its own end
+    ///     ⚠
+    ///     <b>
+    ///         The same sum <see cref="PlaceLine" />'s <c>x</c> accumulates, and it has to stay that
+    ///         way.
+    ///     </b>
+    ///     A line that measured wider here than it places would be pushed off its own end
     ///     edge by the difference. In particular an inline box that was already open when the line
     ///     began contributes no start edge to either sum — its <c>Open</c> entry is on an earlier
     ///     line — and a box still open when the line ends contributes no end edge to either.
@@ -1609,8 +1806,12 @@ public sealed partial class LayoutTree {
 
     /// <summary>Positions every item on one line box, and closes off any fragment it ends.</summary>
     /// <remarks>
-    ///     ⚠ <b><c>lineStartInset</c> is how far this line box's own start edge sits inside the
-    ///     container's content start edge</b>, which is zero unless a float took some of it away. It
+    ///     ⚠
+    ///     <b>
+    ///         <c>lineStartInset</c> is how far this line box's own start edge sits inside the
+    ///         container's content start edge
+    ///     </b>
+    ///     , which is zero unless a float took some of it away. It
     ///     is inline-relative, so seeding <c>x</c> with it adds it on the left in LTR and subtracts it
     ///     from the right in RTL without a second branch — see <see cref="InlineBandForLine" />.
     /// </remarks>
@@ -1678,8 +1879,12 @@ public sealed partial class LayoutTree {
                     Array.Resize(ref openBoxes, openBoxes.Length * 2);
                 }
 
-                openBoxes[openBoxTop++] = new OpenInlineBox {
-                    Node = item.Node, Start = x, First = -1, Last = -1, IsFirstFragment = true
+                openBoxes[openBoxTop++] = new() {
+                    Node = item.Node,
+                    Start = x,
+                    First = -1,
+                    Last = -1,
+                    IsFirstFragment = true
                 };
 
                 x += InlineBoxStartEdge(item.Node, direction, innerWidth);
@@ -1724,10 +1929,11 @@ public sealed partial class LayoutTree {
 
             var child = item.Node;
             var (marginTop, marginBottom) = InlineVerticalMargins(child, direction, innerWidth);
-            var marginStart = StyleResolution.InlineStartMargin(in styles[child], FlexDirection.Row, direction, innerWidth);
+            var marginStart =
+                StyleResolution.InlineStartMargin(in styles[child], FlexDirection.Row, direction, innerWidth);
             var marginEnd = StyleResolution.InlineEndMargin(in styles[child], FlexDirection.Row, direction, innerWidth);
-            var width = results[child].MeasuredDimensions[(int) Dimension.Width];
-            var height = results[child].MeasuredDimensions[(int) Dimension.Height];
+            var width = results[child].MeasuredDimensions[(int)Dimension.Width];
+            var height = results[child].MeasuredDimensions[(int)Dimension.Height];
 
             var parentStrut = ParentStrut(child, container, in strut);
             var alignment = EffectiveVerticalAlign(child, in parentStrut);
@@ -1747,7 +1953,16 @@ public sealed partial class LayoutTree {
                 // root of the aligned subtree it is in, moved by every span shift on the way down.
                 // For a box directly in the container both are zero and this is the line's ascent.
                 _ => lineTop
-                    + ItemAnchorBaseline(child, container, lineStart, lineEnd, in metrics, direction, innerWidth, in strut)
+                    + ItemAnchorBaseline(
+                        child,
+                        container,
+                        lineStart,
+                        lineEnd,
+                        in metrics,
+                        direction,
+                        innerWidth,
+                        in strut
+                    )
                     - itemBaseline
                     + BaselineShift(
                         alignment,
@@ -1769,10 +1984,10 @@ public sealed partial class LayoutTree {
                 : -RelativePosition(child, FlexDirection.Row, direction, innerWidth);
             var relativeY = RelativePosition(child, FlexDirection.Column, direction, metrics.Height);
 
-            results[child].Position[(int) Edge.Left] = direction == Direction.Ltr
+            results[child].Position[(int)Edge.Left] = direction == Direction.Ltr
                 ? insetLeft + x + marginStart + relativeX
                 : outerWidth - insetRight - x - marginStart - width + relativeX;
-            results[child].Position[(int) Edge.Top] = top + relativeY;
+            results[child].Position[(int)Edge.Top] = top + relativeY;
 
             x += width + marginStart + marginEnd;
         }
@@ -1816,8 +2031,12 @@ public sealed partial class LayoutTree {
 
     /// <summary>Records one fragment of the box currently open, in the container's coordinates.</summary>
     /// <remarks>
-    ///     ⚠ <b>Physical, and mirrored rather than negated, for the same reason the item placement
-    ///     above is.</b> The logical span the fragment covers is <c>[open.Start, xEnd)</c> measured
+    ///     ⚠
+    ///     <b>
+    ///         Physical, and mirrored rather than negated, for the same reason the item placement
+    ///         above is.
+    ///     </b>
+    ///     The logical span the fragment covers is <c>[open.Start, xEnd)</c> measured
     ///     from the line's start edge; in RTL the start edge is the right one, so the physical left is
     ///     the container's right inset minus the far end of the span. Getting this by negating an
     ///     offset instead puts a right-to-left span's background off the left of the container, which
@@ -1837,7 +2056,7 @@ public sealed partial class LayoutTree {
         var ends = closing | (open.IsFirstFragment ? LayoutFragmentEnds.Start : LayoutFragmentEnds.None);
 
         var at = AppendFragmentScratch(
-            new LayoutFragment {
+            new() {
                 Left = direction == Direction.Ltr ? insetLeft + open.Start : outerWidth - insetRight - xEnd,
                 Top = lineTop,
                 Width = xEnd - open.Start,
@@ -1863,7 +2082,8 @@ public sealed partial class LayoutTree {
     ///     edges (CSS 2.1 §8.3), which is the same rule block layout applies and the same one that
     ///     surprises: a percentage <c>margin-top</c> is a fraction of the container's width.
     /// </remarks>
-    (float Top, float Bottom) InlineVerticalMargins(int child, Direction direction, float innerWidth) => (
+    (float Top, float Bottom) InlineVerticalMargins(int child, Direction direction, float innerWidth) =>
+    (
         StyleResolution.InlineStartMargin(in styles[child], FlexDirection.Column, direction, innerWidth),
         StyleResolution.InlineEndMargin(in styles[child], FlexDirection.Column, direction, innerWidth)
     );
@@ -1907,9 +2127,13 @@ public sealed partial class LayoutTree {
     ///     Which <c>vertical-align</c> this box is actually laid out with.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>The five font-relative values fall back to <see cref="VerticalAlign.Baseline" /> only
-    ///     where the container carries no strut, and that is now a statement about the document rather
-    ///     than about this store.</b> <c>middle</c>, <c>text-top</c>, <c>text-bottom</c>, <c>sub</c>
+    ///     ⚠
+    ///     <b>
+    ///         The five font-relative values fall back to <see cref="VerticalAlign.Baseline" /> only
+    ///         where the container carries no strut, and that is now a statement about the document rather
+    ///         than about this store.
+    ///     </b>
+    ///     <c>middle</c>, <c>text-top</c>, <c>text-bottom</c>, <c>sub</c>
     ///     and <c>super</c> are each defined against the parent's strut — its font's x-height, ascent
     ///     or descent — and a strut is five numbers somebody with a font wrote down. Where they were
     ///     written the value is honoured; where they were not, falling back is what a layout engine
@@ -1924,7 +2148,10 @@ public sealed partial class LayoutTree {
         var requested = styles[child].VerticalAlign;
 
         return requested switch {
-            VerticalAlign.Middle or VerticalAlign.TextTop or VerticalAlign.TextBottom or VerticalAlign.Sub
+            VerticalAlign.Middle
+                or VerticalAlign.TextTop
+                or VerticalAlign.TextBottom
+                or VerticalAlign.Sub
                 or VerticalAlign.Super when !strut.HasFont => VerticalAlign.Baseline,
             _ => requested
         };
@@ -1933,8 +2160,10 @@ public sealed partial class LayoutTree {
     /// <summary>
     ///     How far below the line's baseline a box's own baseline sits, per CSS 2.1 §10.8.1.
     /// </summary>
-    /// <param name="alignment">The resolved alignment. Never <c>top</c> or <c>bottom</c>, which are
-    ///     defined against the line box's edges rather than against its baseline.</param>
+    /// <param name="alignment">
+    ///     The resolved alignment. Never <c>top</c> or <c>bottom</c>, which are
+    ///     defined against the line box's edges rather than against its baseline.
+    /// </param>
     /// <param name="strut">The parent inline box's strut, from <see cref="ParentStrut" />.</param>
     /// <param name="style">The item's own style, for <see cref="VerticalAlign.Offset" />.</param>
     /// <param name="itemAscent">The item's margin-box top to its own baseline.</param>
@@ -1948,8 +2177,12 @@ public sealed partial class LayoutTree {
     ///         cheaper than an axis that changes direction halfway through a method.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The strut passed is the <i>parent inline box</i>'s, which is not always the
-    ///         container's</b> — see <see cref="ParentStrut" />. This remark used to say a flattened
+    ///         ⚠
+    ///         <b>
+    ///             The strut passed is the <i>parent inline box</i>'s, which is not always the
+    ///             container's
+    ///         </b>
+    ///         — see <see cref="ParentStrut" />. This remark used to say a flattened
     ///         span "carries no metrics of its own" and so inherited the container's answer; the span
     ///         had carried them all along, because <c>UiDocument</c> writes a strut onto every element,
     ///         and nothing here read it (#249).
@@ -1982,8 +2215,12 @@ public sealed partial class LayoutTree {
 
     /// <summary>How far below an atomic inline's top edge its baseline sits, per CSS 2.1 §10.8.1.</summary>
     /// <remarks>
-    ///     ⚠ <b>The clause everybody drops is the <c>overflow</c> one, and it is not an edge case —
-    ///     it is the idiom.</b> §10.8.1: an <c>inline-block</c>'s baseline is the baseline of its last
+    ///     ⚠
+    ///     <b>
+    ///         The clause everybody drops is the <c>overflow</c> one, and it is not an edge case —
+    ///         it is the idiom.
+    ///     </b>
+    ///     §10.8.1: an <c>inline-block</c>'s baseline is the baseline of its last
     ///     in-flow line box, <i>unless</i> it has no in-flow line boxes or its <c>overflow</c> is
     ///     something other than <c>visible</c>, in which case the baseline is its bottom margin edge.
     ///     A scrolling or clipping box has no business hanging its neighbours off a line that might
@@ -1992,7 +2229,7 @@ public sealed partial class LayoutTree {
     ///     Align §9.3 gives: the bottom margin edge.
     /// </remarks>
     float InlineItemBaseline(int child) {
-        var height = results[child].MeasuredDimensions[(int) Dimension.Height];
+        var height = results[child].MeasuredDimensions[(int)Dimension.Height];
 
         if (styles[child].OverflowX != Overflow.Visible || styles[child].OverflowY != Overflow.Visible) {
             return height;
@@ -2008,15 +2245,27 @@ public sealed partial class LayoutTree {
     ///     asked for rather than imposed.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>Shrink-to-fit is three numbers, and CSS 2.1 §10.3.9 writes it as
-    ///     <c>min(max(preferred minimum, available), preferred)</c>.</b> The <i>preferred</i> width of
-    ///     a run of atomic inlines is their sum — every one on a single line. The <i>preferred
-    ///     minimum</i> is the widest single one, because an atomic inline is by definition the thing
+    ///     ⚠
+    ///     <b>
+    ///         Shrink-to-fit is three numbers, and CSS 2.1 §10.3.9 writes it as
+    ///         <c>min(max(preferred minimum, available), preferred)</c>.
+    ///     </b>
+    ///     The <i>preferred</i> width of
+    ///     a run of atomic inlines is their sum — every one on a single line. The
+    ///     <i>
+    ///         preferred
+    ///         minimum
+    ///     </i>
+    ///     is the widest single one, because an atomic inline is by definition the thing
     ///     that cannot be broken up. Getting the minimum wrong as the sum makes every inline container
     ///     refuse to wrap; getting it wrong as zero makes one narrow enough to overflow on every line.
     ///     <para>
-    ///         ⚠ <b>An anonymous block box needs this too, and taking the container's block-level
-    ///         answer instead is the mistake that is easy to miss.</b> A mixed container asked for its
+    ///         ⚠
+    ///         <b>
+    ///             An anonymous block box needs this too, and taking the container's block-level
+    ///             answer instead is the mistake that is easy to miss.
+    ///         </b>
+    ///         A mixed container asked for its
     ///         own width would otherwise report the widest <i>single</i> inline-level child — which is
     ///         the run's <i>minimum</i> — because the block probe takes a maximum over children and
     ///         has no way to know that a run of them shares a line. That is not a rounding error: a
@@ -2117,13 +2366,14 @@ public sealed partial class LayoutTree {
         // answers zero, because a box with no contents needs no room for them.
         if (HasDefiniteLength(child, Dimension.Width, availableInnerWidth)) {
             return BoundAxis(
-                child,
-                FlexDirection.Row,
-                direction,
-                ResolvedDimension(child, Dimension.Width, availableInnerWidth, availableInnerWidth, direction),
-                availableInnerWidth,
-                availableInnerWidth
-            ) + margin;
+                    child,
+                    FlexDirection.Row,
+                    direction,
+                    ResolvedDimension(child, Dimension.Width, availableInnerWidth, availableInnerWidth, direction),
+                    availableInnerWidth,
+                    availableInnerWidth
+                )
+                + margin;
         }
 
         CalculateLayoutInternal(
@@ -2135,10 +2385,10 @@ public sealed partial class LayoutTree {
             SizingMode.MaxContent,
             ownerWidth,
             ownerHeight,
-            performLayout: false,
+            false,
             currentDepth
         );
 
-        return results[child].MeasuredDimensions[(int) Dimension.Width] + margin;
+        return results[child].MeasuredDimensions[(int)Dimension.Width] + margin;
     }
 }

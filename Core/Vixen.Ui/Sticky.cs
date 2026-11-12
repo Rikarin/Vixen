@@ -8,8 +8,12 @@ namespace Vixen.Ui;
 
 /// <summary>The rectangle a sticky box is held inside: CSS Position §3.3's <i>scrollport</i>.</summary>
 /// <remarks>
-///     ⚠ <b>The border box rather than the padding box, which is a deliberate approximation and the
-///     same one the clip already makes.</b> <c>UiDocument.Cut</c> clips a scrolling ancestor's
+///     ⚠
+///     <b>
+///         The border box rather than the padding box, which is a deliberate approximation and the
+///         same one the clip already makes.
+///     </b>
+///     <c>UiDocument.Cut</c> clips a scrolling ancestor's
 ///     descendants against <c>AbsoluteLeft .. AbsoluteLeft + Width</c>, so a sticky header held to a
 ///     padding box would come unstuck one padding-width before it was clipped. Two rectangles that
 ///     disagree by the padding is a worse answer than one rectangle that is the clip.
@@ -26,17 +30,25 @@ readonly record struct Scrollport(float Left, float Top, float Right, float Bott
 /// </summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Sticky cannot live in <c>Vixen.Ui.Layout</c>, and that is a fact about the store
-///         rather than a preference.</b> Doc 43 sized this as "<c>sticky</c> in the layout's position
+///         ⚠
+///         <b>
+///             Sticky cannot live in <c>Vixen.Ui.Layout</c>, and that is a fact about the store
+///             rather than a preference.
+///         </b>
+///         Doc 43 sized this as "<c>sticky</c> in the layout's position
 ///         handling", which reads naturally and is not available: a sticky box's offset is a function
 ///         of a <i>scroll offset</i>, and <c>LayoutTree</c> has no scroll offsets at all.
 ///         <c>ScrollView</c> scrolls by writing <see cref="UiElement.OffsetY" /> on its content —
 ///         explicitly "an offset, not a layout" — and that value never reaches the layout tree.
 ///     </para>
 ///     <para>
-///         ⚠ <b>This paragraph used to end "a <c>PositionType.Sticky</c> would be a keyword the
-///         layout could store and could not act on", and that was true of the offset and false of
-///         the box.</b> CSS Position 3 § 2 lists <c>sticky</c> among the positioned values, so a
+///         ⚠
+///         <b>
+///             This paragraph used to end "a <c>PositionType.Sticky</c> would be a keyword the
+///             layout could store and could not act on", and that was true of the offset and false of
+///             the box.
+///         </b>
+///         CSS Position 3 § 2 lists <c>sticky</c> among the positioned values, so a
 ///         sticky box is the containing block of its absolutely positioned descendants — a fact that
 ///         needs no scroll offset to act on, and one the store was getting wrong until
 ///         <see cref="PositionType.Sticky" /> existed. The member is deliberately half a keyword: a
@@ -44,8 +56,12 @@ readonly record struct Scrollport(float Left, float Top, float Right, float Bott
 ///         everything below is the offset.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Where it does belong is the one walk that already assembles a position from more than
-///         one contribution.</b> <c>UiDocument.Accumulate</c> turns parent-relative layout results
+///         ⚠
+///         <b>
+///             Where it does belong is the one walk that already assembles a position from more than
+///             one contribution.
+///         </b>
+///         <c>UiDocument.Accumulate</c> turns parent-relative layout results
 ///         into document-space rectangles and folds in <see cref="UiElement.OffsetX" /> — the scroll
 ///         — and <c>translate</c>. Both consumers of a position, the draw list and the hit test, read
 ///         the result, so a stuck header cannot be drawn in one place and clicked in another: there
@@ -78,8 +94,10 @@ sealed class StickyReader {
         position = properties.Intern("position");
         sticky = values.Intern("sticky");
         auto = values.Intern("auto");
-        edges = [properties.Intern("top"), properties.Intern("right"), properties.Intern("bottom"), properties.Intern("left")];
-        parser = new StyleValueParser(values, keywords);
+        edges = [
+            properties.Intern("top"), properties.Intern("right"), properties.Intern("bottom"), properties.Intern("left")
+        ];
+        parser = new(values, keywords);
     }
 
     /// <summary>Whether this element is sticky at all.</summary>
@@ -99,8 +117,12 @@ sealed class StickyReader {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Two clamps per axis, and dropping the second one is the failure that looks
-    ///         right.</b> The first holds the box inside the scrollport: a header with <c>top: 0</c>
+    ///         ⚠
+    ///         <b>
+    ///             Two clamps per axis, and dropping the second one is the failure that looks
+    ///             right.
+    ///         </b>
+    ///         The first holds the box inside the scrollport: a header with <c>top: 0</c>
     ///         may not be drawn above the port's top edge. The second holds it inside its own
     ///         <i>containing block</i>, so a section heading stops at the bottom of its section
     ///         instead of following the reader down the whole document — which is the entire
@@ -108,8 +130,12 @@ sealed class StickyReader {
     ///         reads as one heading handing over to the next.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>An <c>auto</c> inset means that edge does not stick, rather than sticking at
-    ///         zero.</b> §3.3 is explicit and the difference is observable: <c>position: sticky</c>
+    ///         ⚠
+    ///         <b>
+    ///             An <c>auto</c> inset means that edge does not stick, rather than sticking at
+    ///             zero.
+    ///         </b>
+    ///         §3.3 is explicit and the difference is observable: <c>position: sticky</c>
     ///         with no inset at all is an ordinary in-flow box, and treating a missing <c>top</c> as
     ///         <c>top: 0</c> would pin every sticky box in the document to the top of its scroller.
     ///     </para>

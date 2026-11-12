@@ -76,23 +76,23 @@ public sealed class ModelReaderTests {
             .Replace(
                 "\"asset\": { \"version\": \"2.0\" },",
                 $$"""
-                "asset": { "version": "2.0" },
-                "images": [
-                  { "uri": "data:image/png;base64,{{png}}" },
-                  { "uri": "maps/normal.png" },
-                  { "uri": "maps/orm.png" }
-                ],
-                "textures": [{ "source": 0 }, { "source": 1 }, { "source": 2 }],
-                "materials": [{
-                  "name": "Worn",
-                  "pbrMetallicRoughness": {
-                    "baseColorTexture": { "index": 0 },
-                    "metallicRoughnessTexture": { "index": 2 }
-                  },
-                  "normalTexture": { "index": 1, "scale": 0.5 },
-                  "occlusionTexture": { "index": 2 }
-                }],
-                """,
+                  "asset": { "version": "2.0" },
+                  "images": [
+                    { "uri": "data:image/png;base64,{{png}}" },
+                    { "uri": "maps/normal.png" },
+                    { "uri": "maps/orm.png" }
+                  ],
+                  "textures": [{ "source": 0 }, { "source": 1 }, { "source": 2 }],
+                  "materials": [{
+                    "name": "Worn",
+                    "pbrMetallicRoughness": {
+                      "baseColorTexture": { "index": 0 },
+                      "metallicRoughnessTexture": { "index": 2 }
+                    },
+                    "normalTexture": { "index": 1, "scale": 0.5 },
+                    "occlusionTexture": { "index": 2 }
+                  }],
+                  """,
                 StringComparison.Ordinal
             );
 
@@ -140,7 +140,7 @@ public sealed class ModelReaderTests {
         Assert.Equal(read.Model.Materials.Length, read.MaterialFactors.Length);
 
         var factors = read.MaterialFactors[material];
-        Assert.Equal(new Vector4(1f, 0.75f, 0.25f, 0.5f), factors.BaseColor);
+        Assert.Equal(new(1f, 0.75f, 0.25f, 0.5f), factors.BaseColor);
         Assert.Equal(0.8f, factors.Metallic, 3);
         Assert.Equal(0.3f, factors.Roughness, 3);
     }
@@ -172,7 +172,7 @@ public sealed class ModelReaderTests {
     public void ScaleMultipliesEveryLength() {
         var read = ModelReader.Read(Obj(Triangle), ".obj", "Shape", Default with { Scale = 100f });
 
-        Assert.Equal(100f, read.Meshes[0].Positions.Max(position => position.X), 3);
+        Assert.Equal(100f, read.Meshes[0].Positions.Max(static position => position.X), 3);
         Assert.Equal(100f, read.Model.Bounds.Maximum.X, 3);
     }
 
@@ -218,14 +218,18 @@ public sealed class ModelReaderTests {
         var read = ModelReader.Read(GltfTwins(), ".gltf", "Shape", Default);
 
         Assert.Equal(2, read.Meshes.Length);
-        Assert.Equal(2, read.Meshes.Select(mesh => mesh.Name).Distinct(StringComparer.Ordinal).Count());
-        Assert.Equal(2, read.Model.Parts.Select(part => part.Mesh).Distinct(StringComparer.Ordinal).Count());
+        Assert.Equal(2, read.Meshes.Select(static mesh => mesh.Name).Distinct(StringComparer.Ordinal).Count());
+        Assert.Equal(2, read.Model.Parts.Select(static part => part.Mesh).Distinct(StringComparer.Ordinal).Count());
     }
 
     [Fact]
     public void SomethingThatIsNotAModelSaysSoRatherThanReturningAnEmptyOne() {
-        var failure = Assert.Throws<ModelFormatException>(
-            () => ModelReader.Read("{ this is not glTF"u8, ".gltf", "Shape", Default)
+        var failure = Assert.Throws<ModelFormatException>(static () => ModelReader.Read(
+                "{ this is not glTF"u8,
+                ".gltf",
+                "Shape",
+                Default
+            )
         );
 
         Assert.NotEmpty(failure.Message);
@@ -246,7 +250,7 @@ public sealed class ModelReaderTests {
 
     [Fact]
     public void AnEmptyFileIsRefusedBeforeAssimpSeesIt() {
-        Assert.Throws<ModelFormatException>(() => ModelReader.Read([], ".obj", "Shape", Default));
+        Assert.Throws<ModelFormatException>(static () => ModelReader.Read([], ".obj", "Shape", Default));
     }
 
     [Fact]
@@ -321,7 +325,7 @@ public sealed class ModelReaderTests {
         var mesh = read.Meshes[0];
 
         Assert.Equal(3, mesh.VertexCount);
-        Assert.All(mesh.MorphTargets, target => Assert.Equal(1, target.Count));
+        Assert.All(mesh.MorphTargets, static target => Assert.Equal(1, target.Count));
     }
 
     [Fact]
@@ -351,16 +355,16 @@ public sealed class ModelReaderTests {
         var read = ModelReader.Read(GltfMorphAnimated(), ".gltf", "Face", Default);
 
         var clip = Assert.Single(read.Animations);
-        var weighted = clip.Channels.Where(channel => channel.WeightTimes.Length > 0).ToArray();
+        var weighted = clip.Channels.Where(static channel => channel.WeightTimes.Length > 0).ToArray();
 
         Assert.Equal(2, weighted.Length);
-        Assert.Equal(["jawOpen", "browRaise"], weighted.Select(channel => channel.Shape));
+        Assert.Equal(["jawOpen", "browRaise"], weighted.Select(static channel => channel.Shape));
 
         // Key-major in the file — two keys of two targets — and one curve per shape out of it.
-        Assert.Equal<float>([0f, 1f], weighted[0].WeightTimes);
-        Assert.Equal<float>([0f, 1f], weighted[0].Weights);
-        Assert.Equal<float>([0f, 1f], weighted[1].WeightTimes);
-        Assert.Equal<float>([0f, 0.5f], weighted[1].Weights);
+        Assert.Equal([0f, 1f], weighted[0].WeightTimes);
+        Assert.Equal([0f, 1f], weighted[0].Weights);
+        Assert.Equal([0f, 1f], weighted[1].WeightTimes);
+        Assert.Equal([0f, 0.5f], weighted[1].Weights);
     }
 
     /// <summary>
@@ -370,10 +374,11 @@ public sealed class ModelReaderTests {
     public void AWeightChannelNamesTheShapeTheMeshStored() {
         var read = ModelReader.Read(GltfMorphAnimated(), ".gltf", "Face", Default);
 
-        var shapes = read.Meshes[0].MorphTargets.Select(target => target.Name).ToArray();
-        var driven = read.Animations[0].Channels
-            .Where(channel => channel.WeightTimes.Length > 0)
-            .Select(channel => channel.Shape);
+        var shapes = read.Meshes[0].MorphTargets.Select(static target => target.Name).ToArray();
+        var driven = read.Animations[0]
+            .Channels
+            .Where(static channel => channel.WeightTimes.Length > 0)
+            .Select(static channel => channel.Shape);
 
         Assert.Equal(shapes, driven);
     }
@@ -387,7 +392,7 @@ public sealed class ModelReaderTests {
     public void AWeightChannelAndATransformChannelAreNeverTheSameChannel() {
         var read = ModelReader.Read(GltfMorphAnimated(), ".gltf", "Face", Default);
 
-        Assert.Contains(read.Animations[0].Channels, channel => channel.WeightTimes.Length > 0);
+        Assert.Contains(read.Animations[0].Channels, static channel => channel.WeightTimes.Length > 0);
 
         foreach (var channel in read.Animations[0].Channels) {
             var transform =
@@ -409,15 +414,15 @@ public sealed class ModelReaderTests {
     }
 
     const string Triangle = """
-        o Tri
-        v 0 0 0
-        v 1 0 0
-        v 0 1 0
-        vt 0 0
-        vt 1 0
-        vt 0 1
-        f 1/1 2/2 3/3
-        """;
+                            o Tri
+                            v 0 0 0
+                            v 1 0 0
+                            v 0 1 0
+                            vt 0 0
+                            vt 1 0
+                            vt 0 1
+                            f 1/1 2/2 3/3
+                            """;
 
     static byte[] Obj(string text) => Encoding.UTF8.GetBytes(text);
 
@@ -432,37 +437,37 @@ public sealed class ModelReaderTests {
         float[] positions = [0, 0, 0, 1, 0, 0, 0, 1, 0];
         ushort[] indices = [0, 1, 2];
 
-        var buffer = new byte[(positions.Length * 4) + (indices.Length * 2)];
+        var buffer = new byte[positions.Length * 4 + indices.Length * 2];
         Buffer.BlockCopy(positions, 0, buffer, 0, positions.Length * 4);
         Buffer.BlockCopy(indices, 0, buffer, positions.Length * 4, indices.Length * 2);
 
         var json = $$"""
-            {
-              "asset": { "version": "2.0" },
-              "scene": 0,
-              "scenes": [{ "nodes": [0] }],
-              "nodes": [{ "name": "Offset", "translation": [{{F(x)}}, {{F(y)}}, {{F(z)}}], "mesh": 0 }],
-              "meshes": [{
-                "name": "Tri",
-                "primitives": [{ "attributes": { "POSITION": 0 }, "indices": 1 }]
-              }],
-              "buffers": [{
-                "byteLength": {{buffer.Length}},
-                "uri": "data:application/octet-stream;base64,{{Convert.ToBase64String(buffer)}}"
-              }],
-              "bufferViews": [
-                { "buffer": 0, "byteOffset": 0, "byteLength": {{positions.Length * 4}}, "target": 34962 },
-                { "buffer": 0, "byteOffset": {{positions.Length * 4}}, "byteLength": {{indices.Length * 2}}, "target": 34963 }
-              ],
-              "accessors": [
-                {
-                  "bufferView": 0, "componentType": 5126, "count": 3, "type": "VEC3",
-                  "min": [0, 0, 0], "max": [1, 1, 0]
-                },
-                { "bufferView": 1, "componentType": 5123, "count": 3, "type": "SCALAR" }
-              ]
-            }
-            """;
+                     {
+                       "asset": { "version": "2.0" },
+                       "scene": 0,
+                       "scenes": [{ "nodes": [0] }],
+                       "nodes": [{ "name": "Offset", "translation": [{{F(x)}}, {{F(y)}}, {{F(z)}}], "mesh": 0 }],
+                       "meshes": [{
+                         "name": "Tri",
+                         "primitives": [{ "attributes": { "POSITION": 0 }, "indices": 1 }]
+                       }],
+                       "buffers": [{
+                         "byteLength": {{buffer.Length}},
+                         "uri": "data:application/octet-stream;base64,{{Convert.ToBase64String(buffer)}}"
+                       }],
+                       "bufferViews": [
+                         { "buffer": 0, "byteOffset": 0, "byteLength": {{positions.Length * 4}}, "target": 34962 },
+                         { "buffer": 0, "byteOffset": {{positions.Length * 4}}, "byteLength": {{indices.Length * 2}}, "target": 34963 }
+                       ],
+                       "accessors": [
+                         {
+                           "bufferView": 0, "componentType": 5126, "count": 3, "type": "VEC3",
+                           "min": [0, 0, 0], "max": [1, 1, 0]
+                         },
+                         { "bufferView": 1, "componentType": 5123, "count": 3, "type": "SCALAR" }
+                       ]
+                     }
+                     """;
 
         return Encoding.UTF8.GetBytes(json);
     }
@@ -484,7 +489,7 @@ public sealed class ModelReaderTests {
         float[] jaw = [0, 0, 0, 0, 0, 2, 0, 0, 0];
         float[] brow = [0, 0, 0, 0, 0, 0, 0.5f, 0, 0];
 
-        var buffer = new byte[(positions.Length * 4) + (indices.Length * 2) + (jaw.Length * 4) + (brow.Length * 4)];
+        var buffer = new byte[positions.Length * 4 + indices.Length * 2 + jaw.Length * 4 + brow.Length * 4];
         var at = 0;
 
         Buffer.BlockCopy(positions, 0, buffer, at, positions.Length * 4);
@@ -499,48 +504,48 @@ public sealed class ModelReaderTests {
         Buffer.BlockCopy(brow, 0, buffer, at, brow.Length * 4);
 
         var json = $$"""
-            {
-              "asset": { "version": "2.0" },
-              "scene": 0,
-              "scenes": [{ "nodes": [0] }],
-              "nodes": [{ "name": "Face", "mesh": 0 }],
-              "meshes": [{
-                "name": "Head",
-                "weights": [0, 0],
-                "extras": { "targetNames": ["jawOpen", "browRaise"] },
-                "primitives": [{
-                  "attributes": { "POSITION": 0 },
-                  "indices": 1,
-                  "targets": [{ "POSITION": 2 }, { "POSITION": 3 }]
-                }]
-              }],
-              "buffers": [{
-                "byteLength": {{buffer.Length}},
-                "uri": "data:application/octet-stream;base64,{{Convert.ToBase64String(buffer)}}"
-              }],
-              "bufferViews": [
-                { "buffer": 0, "byteOffset": 0, "byteLength": {{positions.Length * 4}}, "target": 34962 },
-                { "buffer": 0, "byteOffset": {{indicesAt}}, "byteLength": {{indices.Length * 2}}, "target": 34963 },
-                { "buffer": 0, "byteOffset": {{jawAt}}, "byteLength": {{jaw.Length * 4}}, "target": 34962 },
-                { "buffer": 0, "byteOffset": {{browAt}}, "byteLength": {{brow.Length * 4}}, "target": 34962 }
-              ],
-              "accessors": [
-                {
-                  "bufferView": 0, "componentType": 5126, "count": 3, "type": "VEC3",
-                  "min": [0, 0, 0], "max": [1, 1, 0]
-                },
-                { "bufferView": 1, "componentType": 5123, "count": 3, "type": "SCALAR" },
-                {
-                  "bufferView": 2, "componentType": 5126, "count": 3, "type": "VEC3",
-                  "min": [0, 0, 0], "max": [0, 0, 2]
-                },
-                {
-                  "bufferView": 3, "componentType": 5126, "count": 3, "type": "VEC3",
-                  "min": [0, 0, 0], "max": [0.5, 0, 0]
-                }
-              ]
-            }
-            """;
+                     {
+                       "asset": { "version": "2.0" },
+                       "scene": 0,
+                       "scenes": [{ "nodes": [0] }],
+                       "nodes": [{ "name": "Face", "mesh": 0 }],
+                       "meshes": [{
+                         "name": "Head",
+                         "weights": [0, 0],
+                         "extras": { "targetNames": ["jawOpen", "browRaise"] },
+                         "primitives": [{
+                           "attributes": { "POSITION": 0 },
+                           "indices": 1,
+                           "targets": [{ "POSITION": 2 }, { "POSITION": 3 }]
+                         }]
+                       }],
+                       "buffers": [{
+                         "byteLength": {{buffer.Length}},
+                         "uri": "data:application/octet-stream;base64,{{Convert.ToBase64String(buffer)}}"
+                       }],
+                       "bufferViews": [
+                         { "buffer": 0, "byteOffset": 0, "byteLength": {{positions.Length * 4}}, "target": 34962 },
+                         { "buffer": 0, "byteOffset": {{indicesAt}}, "byteLength": {{indices.Length * 2}}, "target": 34963 },
+                         { "buffer": 0, "byteOffset": {{jawAt}}, "byteLength": {{jaw.Length * 4}}, "target": 34962 },
+                         { "buffer": 0, "byteOffset": {{browAt}}, "byteLength": {{brow.Length * 4}}, "target": 34962 }
+                       ],
+                       "accessors": [
+                         {
+                           "bufferView": 0, "componentType": 5126, "count": 3, "type": "VEC3",
+                           "min": [0, 0, 0], "max": [1, 1, 0]
+                         },
+                         { "bufferView": 1, "componentType": 5123, "count": 3, "type": "SCALAR" },
+                         {
+                           "bufferView": 2, "componentType": 5126, "count": 3, "type": "VEC3",
+                           "min": [0, 0, 0], "max": [0, 0, 2]
+                         },
+                         {
+                           "bufferView": 3, "componentType": 5126, "count": 3, "type": "VEC3",
+                           "min": [0, 0, 0], "max": [0.5, 0, 0]
+                         }
+                       ]
+                     }
+                     """;
 
         return Encoding.UTF8.GetBytes(json);
     }
@@ -568,8 +573,12 @@ public sealed class ModelReaderTests {
         float[] outputs = [0, 0, 1, 0.5f];
 
         var buffer = new byte[
-            (positions.Length * 4) + (indices.Length * 2) + (jaw.Length * 4) + (brow.Length * 4)
-            + (times.Length * 4) + (outputs.Length * 4)
+            positions.Length * 4
+            + indices.Length * 2
+            + jaw.Length * 4
+            + brow.Length * 4
+            + times.Length * 4
+            + outputs.Length * 4
         ];
 
         var at = 0;
@@ -592,60 +601,60 @@ public sealed class ModelReaderTests {
         Buffer.BlockCopy(outputs, 0, buffer, at, outputs.Length * 4);
 
         var json = $$"""
-            {
-              "asset": { "version": "2.0" },
-              "scene": 0,
-              "scenes": [{ "nodes": [0] }],
-              "nodes": [{ "name": "Face", "mesh": 0 }],
-              "meshes": [{
-                "name": "Head",
-                "weights": [0, 0],
-                "extras": { "targetNames": ["jawOpen", "browRaise"] },
-                "primitives": [{
-                  "attributes": { "POSITION": 0 },
-                  "indices": 1,
-                  "targets": [{ "POSITION": 2 }, { "POSITION": 3 }]
-                }]
-              }],
-              "animations": [{
-                "name": "Talk",
-                "samplers": [{ "input": 4, "output": 5, "interpolation": "LINEAR" }],
-                "channels": [{ "sampler": 0, "target": { "node": 0, "path": "weights" } }]
-              }],
-              "buffers": [{
-                "byteLength": {{buffer.Length}},
-                "uri": "data:application/octet-stream;base64,{{Convert.ToBase64String(buffer)}}"
-              }],
-              "bufferViews": [
-                { "buffer": 0, "byteOffset": 0, "byteLength": {{positions.Length * 4}}, "target": 34962 },
-                { "buffer": 0, "byteOffset": {{indicesAt}}, "byteLength": {{indices.Length * 2}}, "target": 34963 },
-                { "buffer": 0, "byteOffset": {{jawAt}}, "byteLength": {{jaw.Length * 4}}, "target": 34962 },
-                { "buffer": 0, "byteOffset": {{browAt}}, "byteLength": {{brow.Length * 4}}, "target": 34962 },
-                { "buffer": 0, "byteOffset": {{timesAt}}, "byteLength": {{times.Length * 4}} },
-                { "buffer": 0, "byteOffset": {{outputsAt}}, "byteLength": {{outputs.Length * 4}} }
-              ],
-              "accessors": [
-                {
-                  "bufferView": 0, "componentType": 5126, "count": 3, "type": "VEC3",
-                  "min": [0, 0, 0], "max": [1, 1, 0]
-                },
-                { "bufferView": 1, "componentType": 5123, "count": 3, "type": "SCALAR" },
-                {
-                  "bufferView": 2, "componentType": 5126, "count": 3, "type": "VEC3",
-                  "min": [0, 0, 0], "max": [0, 0, 2]
-                },
-                {
-                  "bufferView": 3, "componentType": 5126, "count": 3, "type": "VEC3",
-                  "min": [0, 0, 0], "max": [0.5, 0, 0]
-                },
-                {
-                  "bufferView": 4, "componentType": 5126, "count": 2, "type": "SCALAR",
-                  "min": [0], "max": [1]
-                },
-                { "bufferView": 5, "componentType": 5126, "count": 4, "type": "SCALAR" }
-              ]
-            }
-            """;
+                     {
+                       "asset": { "version": "2.0" },
+                       "scene": 0,
+                       "scenes": [{ "nodes": [0] }],
+                       "nodes": [{ "name": "Face", "mesh": 0 }],
+                       "meshes": [{
+                         "name": "Head",
+                         "weights": [0, 0],
+                         "extras": { "targetNames": ["jawOpen", "browRaise"] },
+                         "primitives": [{
+                           "attributes": { "POSITION": 0 },
+                           "indices": 1,
+                           "targets": [{ "POSITION": 2 }, { "POSITION": 3 }]
+                         }]
+                       }],
+                       "animations": [{
+                         "name": "Talk",
+                         "samplers": [{ "input": 4, "output": 5, "interpolation": "LINEAR" }],
+                         "channels": [{ "sampler": 0, "target": { "node": 0, "path": "weights" } }]
+                       }],
+                       "buffers": [{
+                         "byteLength": {{buffer.Length}},
+                         "uri": "data:application/octet-stream;base64,{{Convert.ToBase64String(buffer)}}"
+                       }],
+                       "bufferViews": [
+                         { "buffer": 0, "byteOffset": 0, "byteLength": {{positions.Length * 4}}, "target": 34962 },
+                         { "buffer": 0, "byteOffset": {{indicesAt}}, "byteLength": {{indices.Length * 2}}, "target": 34963 },
+                         { "buffer": 0, "byteOffset": {{jawAt}}, "byteLength": {{jaw.Length * 4}}, "target": 34962 },
+                         { "buffer": 0, "byteOffset": {{browAt}}, "byteLength": {{brow.Length * 4}}, "target": 34962 },
+                         { "buffer": 0, "byteOffset": {{timesAt}}, "byteLength": {{times.Length * 4}} },
+                         { "buffer": 0, "byteOffset": {{outputsAt}}, "byteLength": {{outputs.Length * 4}} }
+                       ],
+                       "accessors": [
+                         {
+                           "bufferView": 0, "componentType": 5126, "count": 3, "type": "VEC3",
+                           "min": [0, 0, 0], "max": [1, 1, 0]
+                         },
+                         { "bufferView": 1, "componentType": 5123, "count": 3, "type": "SCALAR" },
+                         {
+                           "bufferView": 2, "componentType": 5126, "count": 3, "type": "VEC3",
+                           "min": [0, 0, 0], "max": [0, 0, 2]
+                         },
+                         {
+                           "bufferView": 3, "componentType": 5126, "count": 3, "type": "VEC3",
+                           "min": [0, 0, 0], "max": [0.5, 0, 0]
+                         },
+                         {
+                           "bufferView": 4, "componentType": 5126, "count": 2, "type": "SCALAR",
+                           "min": [0], "max": [1]
+                         },
+                         { "bufferView": 5, "componentType": 5126, "count": 4, "type": "SCALAR" }
+                       ]
+                     }
+                     """;
 
         return Encoding.UTF8.GetBytes(json);
     }
@@ -662,7 +671,7 @@ public sealed class ModelReaderTests {
             .Replace(
                 "\"meshes\": [{\n    \"name\": \"Tri\",\n    \"primitives\": [{ \"attributes\": { \"POSITION\": 0 }, \"indices\": 1 }]\n  }]",
                 "\"meshes\": [{ \"name\": \"Tri\", \"primitives\": [{ \"attributes\": { \"POSITION\": 0 }, \"indices\": 1 }] },"
-                + " { \"name\": \"Tri\", \"primitives\": [{ \"attributes\": { \"POSITION\": 0 }, \"indices\": 1 }] }]",
+                + """ { "name": "Tri", "primitives": [{ "attributes": { "POSITION": 0 }, "indices": 1 }] }]""",
                 StringComparison.Ordinal
             );
 
@@ -673,38 +682,43 @@ public sealed class ModelReaderTests {
 
     /// <summary>A triangle in red, as a file with a colour attribute has it.</summary>
     const string ColouredTriangle = """
-        {
-          "asset": { "version": "2.0" },
-          "scenes": [{ "nodes": [0] }],
-          "nodes": [{ "mesh": 0 }],
-          "meshes": [{ "primitives": [{ "attributes": { "POSITION": 0, "COLOR_0": 1 } }] }],
-          "accessors": [
-            { "bufferView": 0, "componentType": 5126, "count": 3, "type": "VEC3", "min": [0, 0, 0], "max": [1, 1, 0] },
-            { "bufferView": 1, "componentType": 5126, "count": 3, "type": "VEC4" }
-          ],
-          "bufferViews": [
-            { "buffer": 0, "byteLength": 36 },
-            { "buffer": 0, "byteOffset": 36, "byteLength": 48 }
-          ],
-          "buffers": [{ "byteLength": 84, "uri": "data:application/octet-stream;base64,AAAAAAAAAAAAAAAAAACAPwAAAAAAAAAAAAAAAAAAgD8AAAAAAACAPwAAAAAAAAAAAACAPwAAgD8AAAAAAAAAAAAAgD8AAIA/AAAAAAAAAAAAAIA/" }]
-        }
-        """;
+                                    {
+                                      "asset": { "version": "2.0" },
+                                      "scenes": [{ "nodes": [0] }],
+                                      "nodes": [{ "mesh": 0 }],
+                                      "meshes": [{ "primitives": [{ "attributes": { "POSITION": 0, "COLOR_0": 1 } }] }],
+                                      "accessors": [
+                                        { "bufferView": 0, "componentType": 5126, "count": 3, "type": "VEC3", "min": [0, 0, 0], "max": [1, 1, 0] },
+                                        { "bufferView": 1, "componentType": 5126, "count": 3, "type": "VEC4" }
+                                      ],
+                                      "bufferViews": [
+                                        { "buffer": 0, "byteLength": 36 },
+                                        { "buffer": 0, "byteOffset": 36, "byteLength": 48 }
+                                      ],
+                                      "buffers": [{ "byteLength": 84, "uri": "data:application/octet-stream;base64,AAAAAAAAAAAAAAAAAACAPwAAAAAAAAAAAAAAAAAAgD8AAAAAAACAPwAAAAAAAAAAAACAPwAAgD8AAAAAAAAAAAAAgD8AAIA/AAAAAAAAAAAAAIA/" }]
+                                    }
+                                    """;
 
     [Fact]
     public void VertexColoursAreReadWhenAskedFor() {
         var read = ModelReader.Read(
-            Encoding.UTF8.GetBytes(ColouredTriangle),
+            "{\n  \"asset\": { \"version\": \"2.0\" },\n  \"scenes\": [{ \"nodes\": [0] }],\n  \"nodes\": [{ \"mesh\": 0 }],\n  \"meshes\": [{ \"primitives\": [{ \"attributes\": { \"POSITION\": 0, \"COLOR_0\": 1 } }] }],\n  \"accessors\": [\n    { \"bufferView\": 0, \"componentType\": 5126, \"count\": 3, \"type\": \"VEC3\", \"min\": [0, 0, 0], \"max\": [1, 1, 0] },\n    { \"bufferView\": 1, \"componentType\": 5126, \"count\": 3, \"type\": \"VEC4\" }\n  ],\n  \"bufferViews\": [\n    { \"buffer\": 0, \"byteLength\": 36 },\n    { \"buffer\": 0, \"byteOffset\": 36, \"byteLength\": 48 }\n  ],\n  \"buffers\": [{ \"byteLength\": 84, \"uri\": \"data:application/octet-stream;base64,AAAAAAAAAAAAAAAAAACAPwAAAAAAAAAAAAAAAAAAgD8AAAAAAACAPwAAAAAAAAAAAACAPwAAgD8AAAAAAAAAAAAAgD8AAIA/AAAAAAAAAAAAAIA/\" }]\n}"u8,
             ".gltf",
             "coloured",
             new ModelReadOptions { ImportVertexColours = true }
         );
 
-        Assert.Equal(new Vector4(1f, 0f, 0f, 1f), read.Meshes[0].Colours[0]);
+        Assert.Equal(new(1f, 0f, 0f, 1f), read.Meshes[0].Colours[0]);
     }
 
     [Fact]
     public void VertexColoursCostNothingUnlessAskedFor() {
-        var read = ModelReader.Read(Encoding.UTF8.GetBytes(ColouredTriangle), ".gltf", "coloured", new ModelReadOptions());
+        var read = ModelReader.Read(
+            "{\n  \"asset\": { \"version\": \"2.0\" },\n  \"scenes\": [{ \"nodes\": [0] }],\n  \"nodes\": [{ \"mesh\": 0 }],\n  \"meshes\": [{ \"primitives\": [{ \"attributes\": { \"POSITION\": 0, \"COLOR_0\": 1 } }] }],\n  \"accessors\": [\n    { \"bufferView\": 0, \"componentType\": 5126, \"count\": 3, \"type\": \"VEC3\", \"min\": [0, 0, 0], \"max\": [1, 1, 0] },\n    { \"bufferView\": 1, \"componentType\": 5126, \"count\": 3, \"type\": \"VEC4\" }\n  ],\n  \"bufferViews\": [\n    { \"buffer\": 0, \"byteLength\": 36 },\n    { \"buffer\": 0, \"byteOffset\": 36, \"byteLength\": 48 }\n  ],\n  \"buffers\": [{ \"byteLength\": 84, \"uri\": \"data:application/octet-stream;base64,AAAAAAAAAAAAAAAAAACAPwAAAAAAAAAAAAAAAAAAgD8AAAAAAACAPwAAAAAAAAAAAACAPwAAgD8AAAAAAAAAAAAAgD8AAIA/AAAAAAAAAAAAAIA/\" }]\n}"u8,
+            ".gltf",
+            "coloured",
+            new ModelReadOptions()
+        );
 
         Assert.Empty(read.Meshes[0].Colours);
     }

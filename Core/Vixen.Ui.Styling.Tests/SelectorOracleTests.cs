@@ -29,20 +29,23 @@ namespace Vixen.Ui.Styling.Tests;
 public class SelectorOracleTests {
     [Fact]
     public void The_bucketed_matcher_finds_exactly_what_brute_force_finds() {
-        Gen.Select(Gen.Int[0, 100_000], Gen.Int[2, 5], Gen.Int[1, 3]).Sample(shape => {
-                var (seed, depth, breadth) = shape;
-                var fixture = new StyleFixture();
-                var elements = BuildTree(fixture, seed, depth, breadth);
-                fixture.Load(BuildStylesheet(seed));
+        Gen.Select(Gen.Int[0, 100_000], Gen.Int[2, 5], Gen.Int[1, 3])
+            .Sample(
+                static shape => {
+                    var (seed, depth, breadth) = shape;
+                    var fixture = new StyleFixture();
+                    var elements = BuildTree(fixture, seed, depth, breadth);
+                    fixture.Load(BuildStylesheet(seed));
 
-                foreach (var element in elements) {
-                    var indexed = fixture.MatchIndexed(element);
-                    var brute = fixture.MatchBruteForce(element);
+                    foreach (var element in elements) {
+                        var indexed = fixture.MatchIndexed(element);
+                        var brute = fixture.MatchBruteForce(element);
 
-                    Assert.Equal(brute, indexed);
-                }
-            }, iter: 400
-        );
+                        Assert.Equal(brute, indexed);
+                    }
+                },
+                iter: 400
+            );
     }
 
     [Fact]
@@ -50,33 +53,36 @@ public class SelectorOracleTests {
         // The same property stated where it bites hardest: deep trees, and selectors written so that
         // the ancestor part is usually present. A bloom with a bad hash passes the test above by
         // rejecting nothing; this one makes it work.
-        Gen.Int[0, 100_000].Sample(seed => {
-                var fixture = new StyleFixture();
-                var chain = new List<StyleNodeId>();
-                var parent = StyleNodeId.Invalid;
+        Gen.Int[0, 100_000]
+            .Sample(
+                static seed => {
+                    var fixture = new StyleFixture();
+                    var chain = new List<StyleNodeId>();
+                    var parent = StyleNodeId.Invalid;
 
-                for (var i = 0; i < 24; i++) {
-                    parent = fixture.Tree.CreateElement("div", parent, classNames: [$"level{i}"]);
-                    chain.Add(parent);
-                }
+                    for (var i = 0; i < 24; i++) {
+                        parent = fixture.Tree.CreateElement("div", parent, classNames: [$"level{i}"]);
+                        chain.Add(parent);
+                    }
 
-                var builder = new StringBuilder();
-                for (var i = 0; i < 24; i++) {
-                    builder.Append(CultureInfo.InvariantCulture, $".level{i} .level23 {{ color: red }}\n");
-                }
+                    var builder = new StringBuilder();
+                    for (var i = 0; i < 24; i++) {
+                        builder.Append(CultureInfo.InvariantCulture, $".level{i} .level23 {{ color: red }}\n");
+                    }
 
-                fixture.Load(builder.ToString());
+                    fixture.Load(builder.ToString());
 
-                var leaf = chain[^1];
+                    var leaf = chain[^1];
 
-                Assert.Equal(fixture.MatchBruteForce(leaf), fixture.MatchIndexed(leaf));
+                    Assert.Equal(fixture.MatchBruteForce(leaf), fixture.MatchIndexed(leaf));
 
-                // Twenty-three of the twenty-four rules match — every ancestor level is above the
-                // leaf except its own. A bloom that lost one would show up here.
-                Assert.Equal(23, fixture.MatchIndexed(leaf).Count);
-                Assert.True(seed >= 0);
-            }, iter: 20
-        );
+                    // Twenty-three of the twenty-four rules match — every ancestor level is above the
+                    // leaf except its own. A bloom that lost one would show up here.
+                    Assert.Equal(23, fixture.MatchIndexed(leaf).Count);
+                    Assert.True(seed >= 0);
+                },
+                iter: 20
+            );
     }
 
     [Fact]
@@ -108,12 +114,14 @@ public class SelectorOracleTests {
         // The cascade's last tie-break is which rule came later in the source. Merging the buckets
         // rather than concatenating them is what preserves it, and nothing downstream re-sorts.
         var fixture = new StyleFixture();
-        fixture.Load("""
+        fixture.Load(
+            """
             .a { color: red }
             div { color: green }
             #x { color: blue }
             .a { color: black }
-            """);
+            """
+        );
 
         var element = fixture.Tree.CreateElement("div", id: "x", classNames: ["a"]);
         var candidates = new List<int>();
@@ -147,9 +155,9 @@ public class SelectorOracleTests {
                     }
                 }
 
-                var element = fixture.Tree.CreateElement(tag, parent, id, [.. chosen]);
+                var element = fixture.Tree.CreateElement(tag, parent, id, [..chosen]);
                 if (random.Next(3) == 0) {
-                    fixture.Tree.SetState(element, (ElementState) (1u << random.Next(6)));
+                    fixture.Tree.SetState(element, (ElementState)(1u << random.Next(6)));
                 }
 
                 if (random.Next(3) == 0) {
@@ -173,12 +181,10 @@ public class SelectorOracleTests {
     static string BuildStylesheet(int seed) {
         var random = new Random(seed ^ 0x5F5F);
         var pieces = new[] {
-            "div", "span", "ul", "li", "Button", "Panel", "*",
-            ".row", ".cell", ".selected", ".dark", ".sidebar", ".item",
-            "#id0", "#id1", "#id2",
-            "[data-kind]", "[data-kind=k1]", "[data-kind^=k]",
-            ":hover", ":focus", ":disabled", ":first-child", ":last-child", ":nth-child(2n+1)",
-            ":empty", ":not(.selected)", ":is(.row, .cell)"
+            "div", "span", "ul", "li", "Button", "Panel", "*", ".row", ".cell", ".selected", ".dark", ".sidebar",
+            ".item", "#id0", "#id1", "#id2", "[data-kind]", "[data-kind=k1]", "[data-kind^=k]", ":hover", ":focus",
+            ":disabled", ":first-child", ":last-child", ":nth-child(2n+1)", ":empty", ":not(.selected)",
+            ":is(.row, .cell)"
         };
 
         var combinators = new[] { " ", " > ", " + ", " ~ " };

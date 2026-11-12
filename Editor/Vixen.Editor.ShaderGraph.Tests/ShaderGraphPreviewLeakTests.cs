@@ -42,8 +42,12 @@ public sealed class ShaderGraphPreviewLeakTests {
 
     /// <summary>Everything a preview took goes back when the renderer is disposed.</summary>
     /// <remarks>
-    ///     ⚠ <b>The growth is asserted before the return is, and that is the half that makes this a
-    ///     leak test.</b> A renderer that compiled nothing — a refused variant, a graph that did not
+    ///     ⚠
+    ///     <b>
+    ///         The growth is asserted before the return is, and that is the half that makes this a
+    ///         leak test.
+    ///     </b>
+    ///     A renderer that compiled nothing — a refused variant, a graph that did not
     ///     bind, an <c>Update</c> that never ran — returns to the same number it started at and
     ///     satisfies the last line perfectly. So the middle reading has to be higher, and the
     ///     compilation count has to say a variant was actually built.
@@ -67,7 +71,10 @@ public sealed class ShaderGraphPreviewLeakTests {
             device.EndFrame();
 
             Assert.Equal(0, previews.Refusals);
-            Assert.True(previews.Created > 0, "no preview target was made, so nothing was taken and nothing is being tested");
+            Assert.True(
+                previews.Created > 0,
+                "no preview target was made, so nothing was taken and nothing is being tested"
+            );
 
             held = device.LiveResourceCount;
 

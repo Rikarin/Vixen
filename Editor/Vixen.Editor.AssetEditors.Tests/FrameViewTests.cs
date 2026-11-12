@@ -12,8 +12,12 @@ namespace Vixen.Editor.AssetEditors.Tests;
 /// <summary>The frame panel's quality table, and the sentence that stands in for an empty one.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>The branch none of wave 7's six dumped states crossed, and the bug that hid in
-///         it.</b> The port first wrote the empty-table arm as <c>@if (QualityRows == 0)</c>.
+///         ⚠
+///         <b>
+///             The branch none of wave 7's six dumped states crossed, and the bug that hid in
+///             it.
+///         </b>
+///         The port first wrote the empty-table arm as <c>@if (QualityRows == 0)</c>.
 ///         <c>QualityRows</c> is a plain <c>int</c> — a public counter the panel promises — so the
 ///         arm registered <b>no signal dependency at all</b>: <c>BuildContext.Switch</c> wraps its
 ///         condition in a <c>Bind</c>, and a condition that reads no signal is evaluated once and
@@ -36,18 +40,18 @@ namespace Vixen.Editor.AssetEditors.Tests;
 public class FrameViewTests {
     /// <summary>A frame whose knobs are all engine defaults, so "only what is overridden" is empty.</summary>
     const string Plain = """
-        version: 2
-        game: !StandardFrame
-          name: TheFrame
-        """;
+                         version: 2
+                         game: !StandardFrame
+                           name: TheFrame
+                         """;
 
     const string Knobs = """
-        version: 2
-        game: !StandardFrame
-          name: TheFrame
-          tier: High
-          shadows: Cascades
-        """;
+                         version: 2
+                         game: !StandardFrame
+                           name: TheFrame
+                           tier: High
+                           shadows: Cascades
+                         """;
 
     static StandardFrameView Open(ViewHarness harness, string text, string name) {
         var path = harness.Project.Write("Assets/" + name, text);
@@ -86,7 +90,7 @@ public class FrameViewTests {
         var view = Open(harness, Knobs, "Frame.vxcompositor");
 
         Assert.True(view.QualityRows > 0);
-        Assert.DoesNotContain(view.Quality.Children, child => child.Tag == "text");
+        Assert.DoesNotContain(view.Quality.Children, static child => child.Tag == "text");
     }
 
     /// <summary>
@@ -106,7 +110,7 @@ public class FrameViewTests {
 
         Assert.Equal(0, view.QualityRows);
 
-        var sentence = Assert.Single(view.Quality.Children, child => child.Tag == "text");
+        var sentence = Assert.Single(view.Quality.Children, static child => child.Tag == "text");
         Assert.Equal("Nothing above the engine table states a value for this tier.", sentence.Text);
     }
 
@@ -120,12 +124,12 @@ public class FrameViewTests {
         filter.IsChecked = true;
         harness.Ui.Frames(3);
 
-        Assert.Contains(view.Quality.Children, child => child.Tag == "text");
+        Assert.Contains(view.Quality.Children, static child => child.Tag == "text");
 
         filter.IsChecked = false;
         harness.Ui.Frames(3);
 
         Assert.True(view.QualityRows > 0);
-        Assert.DoesNotContain(view.Quality.Children, child => child.Tag == "text");
+        Assert.DoesNotContain(view.Quality.Children, static child => child.Tag == "text");
     }
 }

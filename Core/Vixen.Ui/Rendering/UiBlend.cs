@@ -71,16 +71,24 @@ public enum UiBlendMode {
 /// <summary>CSS Compositing 1 § 5's blend functions, over premultiplied colour.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>A blend is the one group-wide effect that is a function of <i>both</i> operands, and
-///         that is what separates it from every other field on <see cref="UiLayer" />.</b> Fading a
+///         ⚠
+///         <b>
+///             A blend is the one group-wide effect that is a function of <i>both</i> operands, and
+///             that is what separates it from every other field on <see cref="UiLayer" />.
+///         </b>
+///         Fading a
 ///         surface in, blurring it, tinting it by a matrix or multiplying its coverage by a mask are
 ///         all functions of the surface alone, so an executor can produce the composite's colour
 ///         without ever looking at what it is landing on. A blend cannot: it needs the backdrop.
 ///         <c>SoftwareUiRasterizer</c> gets that for free, because it owns the destination buffer.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The whole feature is nevertheless expressible as a change of <i>source</i> colour
-///         followed by an ordinary source-over</b> — which is the arrangement CSS itself specifies in
+///         ⚠
+///         <b>
+///             The whole feature is nevertheless expressible as a change of <i>source</i> colour
+///             followed by an ordinary source-over
+///         </b>
+///         — which is the arrangement CSS itself specifies in
 ///         § 5.1, and the reason no executor needs a second blend state. <see cref="Apply" /> returns
 ///         the premultiplied colour to composite normally, so the one line in a rasteriser that reads
 ///         the destination is the only line that changes. On a device the same identity says the
@@ -89,9 +97,13 @@ public enum UiBlendMode {
 ///         picture this function's <c>backdrop</c> argument wants.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The arithmetic is done on the values the surface holds, which in this engine are
-///         linear, and CSS blends in the device's colour space, which in a browser is sRGB. That is a
-///         stated divergence rather than an oversight.</b> <c>multiply</c> of two mid-greys is
+///         ⚠
+///         <b>
+///             The arithmetic is done on the values the surface holds, which in this engine are
+///             linear, and CSS blends in the device's colour space, which in a browser is sRGB. That is a
+///             stated divergence rather than an oversight.
+///         </b>
+///         <c>multiply</c> of two mid-greys is
 ///         perceptibly darker in linear than in sRGB. Converting here would mean encoding and
 ///         decoding a transfer function per pixel in the composite, on both executors, and writing
 ///         back into an attachment that is linear — which is a colour-management decision for the
@@ -126,54 +138,84 @@ public static class UiBlend {
     /// </returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A transparent backdrop returns the source unchanged, and that is the specification
-    ///         rather than a guard against dividing by zero.</b> § 5.1 weights the blend by the
+    ///         ⚠
+    ///         <b>
+    ///             A transparent backdrop returns the source unchanged, and that is the specification
+    ///             rather than a guard against dividing by zero.
+    ///         </b>
+    ///         § 5.1 weights the blend by the
     ///         backdrop's alpha — <c>(1 − αb)·Cs + αb·B(Cb, Cs)</c> — so where nothing is behind the
     ///         group there is nothing to mix with and every mode degenerates to <c>normal</c>. The
     ///         early return is that identity, and it happens to make the un-premultiply safe.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Both operands are un-premultiplied and clamped to [0, 1] <i>of
-    ///         <paramref name="white" /></i> before the function runs, and the result is re-lit by it
-    ///         afterwards.</b> Every formula in § 5.1 is written for straight alpha on the unit
+    ///         ⚠
+    ///         <b>
+    ///             Both operands are un-premultiplied and clamped to [0, 1]
+    ///             <i>
+    ///                 of
+    ///                 <paramref name="white" />
+    ///             </i>
+    ///             before the function runs, and the result is re-lit by it
+    ///             afterwards.
+    ///         </b>
+    ///         Every formula in § 5.1 is written for straight alpha on the unit
     ///         interval, and several of them — <c>color-dodge</c>, <c>color-burn</c>,
     ///         <c>soft-light</c> — have no definition outside it. The divisor is what makes that
     ///         clamp a statement about the frame's white rather than about the number one.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Without the divisor this function is the standing photometric trap in a third
-    ///         place (#1209, #670).</b> <c>UiGeometryBuilder.WhiteLevel</c> scales every interface
+    ///         ⚠
+    ///         <b>
+    ///             Without the divisor this function is the standing photometric trap in a third
+    ///             place (#1209, #670).
+    ///         </b>
+    ///         <c>UiGeometryBuilder.WhiteLevel</c> scales every interface
     ///         colour into the pass's units, so on a float pass an authored white arrives here as 203
     ///         — and a clamp at one returned it at <b>one candela</b>, whatever it was authored at. A
     ///         <c>mix-blend-mode: multiply</c> element in an HDR HUD was therefore two orders of
     ///         magnitude darker than the same element with no declaration at all, which is the exact
-    ///         shape of <i>a pass lit by an authored 0–1 tint is pixel-identical to a pass that never
-    ///         ran</i>. ⚠ It was never the un-premultiply that lost it: dividing by alpha is exact.
+    ///         shape of
+    ///         <i>
+    ///             a pass lit by an authored 0–1 tint is pixel-identical to a pass that never
+    ///             ran
+    ///         </i>
+    ///         . ⚠ It was never the un-premultiply that lost it: dividing by alpha is exact.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>One divisor rather than a mode-by-mode rule, and the three groups § 5 falls into
-    ///         are why that is enough</b> — the choice #783 transcribes into GLSL and Raven, so it is
+    ///         ⚠
+    ///         <b>
+    ///             One divisor rather than a mode-by-mode rule, and the three groups § 5 falls into
+    ///             are why that is enough
+    ///         </b>
+    ///         — the choice #783 transcribes into GLSL and Raven, so it is
     ///         stated here once:
     ///     </para>
     ///     <list type="bullet">
-    ///         <item><description>
-    ///             The four <b>non-separable</b> modes (<c>hue</c>, <c>saturation</c>, <c>color</c>,
-    ///             <c>luminosity</c>) are homogeneous of degree one — § 5.3's <c>SetLum</c>,
-    ///             <c>SetSat</c> and <c>ClipColor</c> are written in terms of the operands' own luma —
-    ///             so normalising and re-lighting reproduces the unbounded answer <i>exactly</i>.
-    ///             So do <c>darken</c>, <c>lighten</c> and <c>difference</c>.
-    ///         </description></item>
-    ///         <item><description>
-    ///             <c>multiply</c>, <c>screen</c> and <c>exclusion</c> are <b>quadratic</b> in the
-    ///             units and are meaningless without a stated one: <c>Cb·Cs</c> of two 203s is 41 209
-    ///             rather than 203. The divisor is that statement, and it is the one that makes
-    ///             <c>multiply</c> against white the identity again — the defect's own test.
-    ///         </description></item>
-    ///         <item><description>
-    ///             <c>color-dodge</c>, <c>color-burn</c>, <c>soft-light</c>, <c>hard-light</c> and
-    ///             <c>overlay</c> genuinely <b>have no definition above one</b>, so the clamp is the
-    ///             right answer there and what was missing was only what it clamps against.
-    ///         </description></item>
+    ///         <item>
+    ///             <description>
+    ///                 The four <b>non-separable</b> modes (<c>hue</c>, <c>saturation</c>, <c>color</c>,
+    ///                 <c>luminosity</c>) are homogeneous of degree one — § 5.3's <c>SetLum</c>,
+    ///                 <c>SetSat</c> and <c>ClipColor</c> are written in terms of the operands' own luma —
+    ///                 so normalising and re-lighting reproduces the unbounded answer <i>exactly</i>.
+    ///                 So do <c>darken</c>, <c>lighten</c> and <c>difference</c>.
+    ///             </description>
+    ///         </item>
+    ///         <item>
+    ///             <description>
+    ///                 <c>multiply</c>, <c>screen</c> and <c>exclusion</c> are <b>quadratic</b> in the
+    ///                 units and are meaningless without a stated one: <c>Cb·Cs</c> of two 203s is 41 209
+    ///                 rather than 203. The divisor is that statement, and it is the one that makes
+    ///                 <c>multiply</c> against white the identity again — the defect's own test.
+    ///             </description>
+    ///         </item>
+    ///         <item>
+    ///             <description>
+    ///                 <c>color-dodge</c>, <c>color-burn</c>, <c>soft-light</c>, <c>hard-light</c> and
+    ///                 <c>overlay</c> genuinely <b>have no definition above one</b>, so the clamp is the
+    ///                 right answer there and what was missing was only what it clamps against.
+    ///             </description>
+    ///         </item>
     ///     </list>
     ///     <para>
     ///         A white of one leaves every arithmetic path bit-identical to what it was, which is why
@@ -196,10 +238,10 @@ public static class UiBlend {
 
         // § 5.1's weighting, then back to premultiplied and back into the frame's units. The alpha is
         // untouched: a blend mode changes what colour the group lands in, never how much of it lands.
-        var mixed = ((1f - backdrop.A) * cs) + (backdrop.A * blended);
+        var mixed = (1f - backdrop.A) * cs + backdrop.A * blended;
         var lit = source.A * scale;
 
-        return new Color4(mixed.X * lit, mixed.Y * lit, mixed.Z * lit, source.A);
+        return new(mixed.X * lit, mixed.Y * lit, mixed.Z * lit, source.A);
     }
 
     /// <summary>One mode's <c>B(Cb, Cs)</c>, over straight-alpha colour in [0, 1].</summary>
@@ -208,9 +250,13 @@ public static class UiBlend {
     /// <param name="cs">The source colour.</param>
     /// <returns>The blended colour, before § 5.1's weighting by the backdrop's alpha.</returns>
     /// <remarks>
-    ///     ⚠ <b>The function <a href="https://github.com/Rikarin/Vixen/issues/783">#783</a>
-    ///     transcribes into GLSL and into Raven, and <c>UiBlendTests</c> is what all three answer
-    ///     to.</b> Those numbers are § 5.1's and § 5.3's formulae evaluated independently rather
+    ///     ⚠
+    ///     <b>
+    ///         The function <a href="https://github.com/Rikarin/Vixen/issues/783">#783</a>
+    ///         transcribes into GLSL and into Raven, and <c>UiBlendTests</c> is what all three answer
+    ///         to.
+    ///     </b>
+    ///     Those numbers are § 5.1's and § 5.3's formulae evaluated independently rather
     ///     than read off this switch, because a transcription checked against its own source is
     ///     the parity trap this repository names. ⚠ Nine of the sixteen had no test at all until
     ///     that file: with <see cref="Soft" />'s knee replaced by the square root everywhere, every
@@ -240,7 +286,7 @@ public static class UiBlend {
                 MathF.Abs(cb.Y - cs.Y),
                 MathF.Abs(cb.Z - cs.Z)
             ),
-            UiBlendMode.Exclusion => cb + cs - (2f * cb * cs),
+            UiBlendMode.Exclusion => cb + cs - 2f * cb * cs,
             UiBlendMode.Hue => SetLum(SetSat(cs, Sat(cb)), Lum(cb)),
             UiBlendMode.Saturation => SetLum(SetSat(cb, Sat(cs)), Lum(cb)),
             UiBlendMode.Color => SetLum(cs, Lum(cb)),
@@ -258,23 +304,22 @@ public static class UiBlend {
     static Vector3 Unpremultiply(Color4 colour, float white) {
         var inverse = 1f / (colour.A * white);
 
-        return new Vector3(
+        return new(
             Math.Clamp(colour.R * inverse, 0f, 1f),
             Math.Clamp(colour.G * inverse, 0f, 1f),
             Math.Clamp(colour.B * inverse, 0f, 1f)
         );
     }
 
-    static Vector3 Screen(Vector3 cb, Vector3 cs) => cb + cs - (cb * cs);
+    static Vector3 Screen(Vector3 cb, Vector3 cs) => cb + cs - cb * cs;
 
     /// <summary>§ 5.1's <c>HardLight</c>, which every one of its neighbours is written in terms of.</summary>
-    static Vector3 HardLight(Vector3 cb, Vector3 cs) =>
-        new(Hard(cb.X, cs.X), Hard(cb.Y, cs.Y), Hard(cb.Z, cs.Z));
+    static Vector3 HardLight(Vector3 cb, Vector3 cs) => new(Hard(cb.X, cs.X), Hard(cb.Y, cs.Y), Hard(cb.Z, cs.Z));
 
     static float Hard(float cb, float cs) =>
         cs <= 0.5f
             ? cb * (2f * cs)
-            : (cb + ((2f * cs) - 1f)) - (cb * ((2f * cs) - 1f));
+            : cb + (2f * cs - 1f) - cb * (2f * cs - 1f);
 
     static float Dodge(float cb, float cs) {
         // ⚠ The order of the three cases is the specification's and is not a chain of equivalent
@@ -300,22 +345,26 @@ public static class UiBlend {
         // meet at 0.25 with matching value and slope, which is the whole reason the piecewise
         // definition is written that way rather than clamped.
         var d = cb <= 0.25f
-            ? (((((16f * cb) - 12f) * cb) + 4f) * cb)
+            ? ((16f * cb - 12f) * cb + 4f) * cb
             : MathF.Sqrt(cb);
 
         return cs <= 0.5f
-            ? cb - ((1f - (2f * cs)) * cb * (1f - cb))
-            : cb + (((2f * cs) - 1f) * (d - cb));
+            ? cb - (1f - 2f * cs) * cb * (1f - cb)
+            : cb + (2f * cs - 1f) * (d - cb);
     }
 
-    static float Lum(Vector3 c) => (LumR * c.X) + (LumG * c.Y) + (LumB * c.Z);
+    static float Lum(Vector3 c) => LumR * c.X + LumG * c.Y + LumB * c.Z;
 
     static Vector3 SetLum(Vector3 c, float lum) => ClipColor(c + new Vector3(lum - Lum(c)));
 
     /// <summary>§ 5.3's <c>ClipColor</c>: pulls an out-of-gamut colour back towards its own luma.</summary>
     /// <remarks>
-    ///     ⚠ <b>Towards the luma and not towards the unit cube's faces, which is what a per-channel
-    ///     clamp would do.</b> The four non-separable modes are defined to preserve luminosity
+    ///     ⚠
+    ///     <b>
+    ///         Towards the luma and not towards the unit cube's faces, which is what a per-channel
+    ///         clamp would do.
+    ///     </b>
+    ///     The four non-separable modes are defined to preserve luminosity
     ///     exactly, and a clamp changes it — so `mix-blend-color` on a saturated backdrop would shift
     ///     brightness as well as hue, which is the one thing the mode promises not to do.
     /// </remarks>
@@ -325,18 +374,17 @@ public static class UiBlend {
         var max = MathF.Max(c.X, MathF.Max(c.Y, c.Z));
 
         if (min < 0f && lum - min > 1e-6f) {
-            c = new Vector3(lum) + ((c - new Vector3(lum)) * (lum / (lum - min)));
+            c = new Vector3(lum) + (c - new Vector3(lum)) * (lum / (lum - min));
         }
 
         if (max > 1f && max - lum > 1e-6f) {
-            c = new Vector3(lum) + ((c - new Vector3(lum)) * ((1f - lum) / (max - lum)));
+            c = new Vector3(lum) + (c - new Vector3(lum)) * ((1f - lum) / (max - lum));
         }
 
         return c;
     }
 
-    static float Sat(Vector3 c) =>
-        MathF.Max(c.X, MathF.Max(c.Y, c.Z)) - MathF.Min(c.X, MathF.Min(c.Y, c.Z));
+    static float Sat(Vector3 c) => MathF.Max(c.X, MathF.Max(c.Y, c.Z)) - MathF.Min(c.X, MathF.Min(c.Y, c.Z));
 
     /// <summary>§ 5.3's <c>SetSat</c>, stretching the mid channel between the min and the max.</summary>
     static Vector3 SetSat(Vector3 c, float sat) {
@@ -376,6 +424,6 @@ public static class UiBlend {
 
         channels[min] = 0f;
 
-        return new Vector3(channels[0], channels[1], channels[2]);
+        return new(channels[0], channels[1], channels[2]);
     }
 }

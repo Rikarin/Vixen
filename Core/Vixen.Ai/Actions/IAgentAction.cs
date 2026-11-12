@@ -23,8 +23,10 @@ public enum ActionStatus : byte {
 /// <param name="Entity">The agent.</param>
 /// <param name="Blackboard">Its own data. One agent owns one board.</param>
 /// <param name="Shared">The board its group shares, if it is in one.</param>
-/// <param name="Time">The frame's clock. <see cref="GameTime.DeltaSeconds" /> is the frame's step,
-/// which is <i>not</i> the action's — see <c>IAgentAction.Tick</c>.</param>
+/// <param name="Time">
+///     The frame's clock. <see cref="GameTime.DeltaSeconds" /> is the frame's step,
+///     which is <i>not</i> the action's — see <c>IAgentAction.Tick</c>.
+/// </param>
 /// <param name="Seed">
 ///     The agent's own random stream. Keyed on the agent rather than on its slot, so that a replay
 ///     of the same tick makes the same choice — see <see cref="AgentRandom" />.
@@ -66,8 +68,12 @@ public readonly record struct AgentContext(
 /// </summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>The action does not own its state, and the interface is shaped to make that
-///         impossible to get wrong.</b> One action object is shared by every agent running the asset
+///         ⚠
+///         <b>
+///             The action does not own its state, and the interface is shaped to make that
+///             impossible to get wrong.
+///         </b>
+///         One action object is shared by every agent running the asset
 ///         it belongs to, so a field on the action is a field a thousand agents write to. That is
 ///         the mistake every hand-rolled behaviour tree makes; it is invisible until the second
 ///         agent exists, and it produces the bug where two guards share one patrol index. Taking the

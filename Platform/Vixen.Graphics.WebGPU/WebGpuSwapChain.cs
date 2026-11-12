@@ -153,8 +153,9 @@ sealed class WebGpuSwapChain : ISwapChain {
         var sampled = (allowed & WgpuTextureUsage.TextureBinding) != 0;
 
         return (
-            WgpuTextureUsage.RenderAttachment | WgpuTextureUsage.CopySrc
-                | (sampled ? WgpuTextureUsage.TextureBinding : WgpuTextureUsage.None),
+            WgpuTextureUsage.RenderAttachment
+            | WgpuTextureUsage.CopySrc
+            | (sampled ? WgpuTextureUsage.TextureBinding : WgpuTextureUsage.None),
             TextureUsage.ColourTarget | TextureUsage.CopySource | (sampled ? TextureUsage.Sampled : 0)
         );
     }

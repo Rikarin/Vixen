@@ -35,8 +35,12 @@ public readonly record struct TextureCompoundProblem(string Path, string Source,
 ///         surface".
 ///     </para>
 ///     <para>
-///         ⚠ <b>A project compound whose path collides with a shipped one is refused rather than
-///         allowed to shadow it.</b> Overriding is what a library grows into wanting, and it is also
+///         ⚠
+///         <b>
+///             A project compound whose path collides with a shipped one is refused rather than
+///             allowed to shadow it.
+///         </b>
+///         Overriding is what a library grows into wanting, and it is also
 ///         how a graph that worked yesterday quietly starts computing something else — an author's
 ///         half-finished copy of <c>Generators/Dirt</c>, saved under its own name, silently
 ///         rebinding every material that reads it. So the collision is a
@@ -45,9 +49,12 @@ public readonly record struct TextureCompoundProblem(string Path, string Source,
 ///         arrives by accident.
 ///     </para>
 ///     <para>
-///         ⚠ <b>This used to say nothing in the tree called <see cref="Publish" /> outside its own
-///         tests, and all three of its claims are now false —
-///         <a href="https://github.com/Rikarin/Vixen/issues/799">#799</a> closed and this did not.</b>
+///         ⚠
+///         <b>
+///             This used to say nothing in the tree called <see cref="Publish" /> outside its own
+///             tests, and all three of its claims are now false —
+///             <a href="https://github.com/Rikarin/Vixen/issues/799">#799</a> closed and this did not.
+///         </b>
 ///         <c>TextureNodeLibrary.Publish</c> in <c>Vixen.Editor.Texturing</c> calls this and is the
 ///         production caller; <c>TextureNodeLibrary.Create</c> is no longer the only thing there —
 ///         it is the cheap half, for a caller that needs the node <em>types</em> and no sub-graph
@@ -62,8 +69,12 @@ public static class TextureCompoundLibrary {
 
     /// <summary>Where a project keeps the graphs it publishes as node types, under <c>Assets/</c>.</summary>
     /// <remarks>
-    ///     ⚠ <b>Here rather than in the plugin, because two hosts spelling it are two answers to
-    ///     "is this project's compound a node type"</b> —
+    ///     ⚠
+    ///     <b>
+    ///         Here rather than in the plugin, because two hosts spelling it are two answers to
+    ///         "is this project's compound a node type"
+    ///     </b>
+    ///     —
     ///     <a href="https://github.com/Rikarin/Vixen/issues/1088">#1088</a>. The convention was
     ///     <c>TextureNodeLibrary.CompoundFolder</c> in <c>Vixen.Editor.Texturing</c>, which
     ///     <c>Tools/Vixen.Cli</c> cannot reference without dragging the editor shell into a
@@ -86,13 +97,16 @@ public static class TextureCompoundLibrary {
     /// <param name="assets">A project's <c>Assets/</c> folder, or <see langword="null" /> for none.</param>
     /// <returns>The folder to pass <see cref="Publish" />, or <see langword="null" /> when there is no project.</returns>
     /// <remarks>
-    ///     ⚠ <b>Here rather than at each caller, because a second spelling of the join is a second
-    ///     answer to "did that file change".</b> <c>TextureGraphDocument.Republish</c> asks whether
+    ///     ⚠
+    ///     <b>
+    ///         Here rather than at each caller, because a second spelling of the join is a second
+    ///         answer to "did that file change".
+    ///     </b>
+    ///     <c>TextureGraphDocument.Republish</c> asks whether
     ///     a saved graph is one of these, and a copy of the <c>Path.Combine</c> would be a copy that
     ///     stops agreeing the day the convention moves.
     /// </remarks>
-    public static string? FolderOf(string? assets) =>
-        assets is { Length: > 0 } ? Path.Combine(assets, Folder) : null;
+    public static string? FolderOf(string? assets) => assets is { Length: > 0 } ? Path.Combine(assets, Folder) : null;
 
     /// <summary>The folder inside this assembly the shipped compounds are embedded from.</summary>
     const string Root = "Vixen.TextureGraph.Compounds.";
@@ -111,7 +125,7 @@ public static class TextureCompoundLibrary {
     ///     ships, exactly as a kernel does — so a list would be a second opinion about the folder,
     ///     and the roll call that counts them would be counting the list.
     /// </remarks>
-    public static ImmutableArray<string> Shipped => [.. index.Keys.Order(StringComparer.Ordinal)];
+    public static ImmutableArray<string> Shipped => [..index.Keys.Order(StringComparer.Ordinal)];
 
     /// <summary>Ships a host's own compounds beside these, as if this assembly embedded them.</summary>
     /// <param name="assembly">The assembly that embeds them.</param>
@@ -141,7 +155,10 @@ public static class TextureCompoundLibrary {
         ArgumentException.ThrowIfNullOrEmpty(root);
 
         if (!root.EndsWith('.')) {
-            throw new ArgumentException($"A bundle's root is a resource-name prefix ending in a dot, and '{root}' does not.", nameof(root));
+            throw new ArgumentException(
+                $"A bundle's root is a resource-name prefix ending in a dot, and '{root}' does not.",
+                nameof(root)
+            );
         }
 
         lock (Gate) {
@@ -151,7 +168,7 @@ public static class TextureCompoundLibrary {
                 roots = roots.Add((assembly, root));
                 index = Index(roots);
 
-                return [.. index.Keys.Where(path => !before.ContainsKey(path)).Order(StringComparer.Ordinal)];
+                return [..index.Keys.Where(path => !before.ContainsKey(path)).Order(StringComparer.Ordinal)];
             }
 
             return [];
@@ -166,9 +183,10 @@ public static class TextureCompoundLibrary {
 
         foreach (var (assembly, prefix) in from) {
             foreach (var resource in assembly.GetManifestResourceNames()
-                .Where(name => name.StartsWith(prefix, StringComparison.Ordinal)
-                    && name.EndsWith(Extension, StringComparison.Ordinal))
-                .Order(StringComparer.Ordinal)) {
+                         .Where(name => name.StartsWith(prefix, StringComparison.Ordinal)
+                             && name.EndsWith(Extension, StringComparison.Ordinal)
+                         )
+                         .Order(StringComparer.Ordinal)) {
                 found.TryAdd(PathOfResource(resource, prefix), (assembly, resource));
             }
         }
@@ -237,8 +255,8 @@ public static class TextureCompoundLibrary {
 
         if (folder is { Length: > 0 } && Directory.Exists(folder)) {
             foreach (var file in Directory
-                .EnumerateFiles(folder, "*" + Extension, SearchOption.AllDirectories)
-                .Order(StringComparer.Ordinal)) {
+                         .EnumerateFiles(folder, "*" + Extension, SearchOption.AllDirectories)
+                         .Order(StringComparer.Ordinal)) {
                 string text;
 
                 try {
@@ -280,10 +298,10 @@ public static class TextureCompoundLibrary {
             stored = YamlSerializer.Parse<NodeGraphAsset>(text);
         } catch (Exception failure)
             when (failure is YamlParseException or YamlBindingException or NotSupportedException) {
-            problems.Add(new(path, source, failure.Message));
+                problems.Add(new(path, source, failure.Message));
 
-            return;
-        }
+                return;
+            }
 
         var graph = NodeGraphDocument.Load(stored, out var diagnostics);
 
@@ -306,8 +324,12 @@ public static class TextureCompoundLibrary {
 
     /// <summary>The node-type path an embedded compound is published under.</summary>
     /// <remarks>
-    ///     ⚠ <b>The dots of a manifest resource name are the folder separators, and there is no way
-    ///     to tell them from a dot somebody put in a file name.</b> So a shipped compound's file name
+    ///     ⚠
+    ///     <b>
+    ///         The dots of a manifest resource name are the folder separators, and there is no way
+    ///         to tell them from a dot somebody put in a file name.
+    ///     </b>
+    ///     So a shipped compound's file name
     ///     may not contain one — <c>TextureCompoundLibraryTests</c> holds that, because the failure
     ///     is a node published under a path with a phantom folder in it rather than an error.
     /// </remarks>

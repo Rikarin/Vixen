@@ -124,7 +124,7 @@ public static class IrPrinter {
     }
 
     static void PrintFunction(Writer writer, IrFunction function) {
-        var parameters = string.Join(", ", function.Parameters.Select(p => $"{p} : {p.Type.Name}"));
+        var parameters = string.Join(", ", function.Parameters.Select(static p => $"{p} : {p.Type.Name}"));
         writer.Line($"func {function.Name}({parameters}) : {function.ReturnType.Name}");
         writer.Indent();
 
@@ -230,7 +230,7 @@ public static class IrPrinter {
             IrCallInstruction call => $"call {call.Function.Name}({string.Join(", ", call.Arguments)})",
             IrConstructInstruction construct => $"construct {Join(construct.Arguments)}".TrimEnd(),
             IrExtractInstruction extract =>
-                $"extract {extract.Source}{string.Concat(extract.Chain.Select(a => a.ToString()))}",
+                $"extract {extract.Source}{string.Concat(extract.Chain.Select(static a => a.ToString()))}",
             IrSelectInstruction select => $"select {select.Condition}, {select.WhenTrue}, {select.WhenFalse}",
             _ => instruction.GetType().Name
         };

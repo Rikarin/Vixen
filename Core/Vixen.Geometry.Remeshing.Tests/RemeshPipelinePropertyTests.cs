@@ -12,9 +12,13 @@ namespace Vixen.Geometry.Remeshing.Tests;
 /// <summary>The classes that measure a case, which therefore may not run while another one measures.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>This was bought to protect <see cref="RunawayGuard" />'s clock, and it now earns its
-///         keep on the <i>heap</i> instead — the reason is worth keeping because deleting the
-///         collection is the obvious next move and it would be wrong.</b> The clock no longer needs
+///         ⚠
+///         <b>
+///             This was bought to protect <see cref="RunawayGuard" />'s clock, and it now earns its
+///             keep on the <i>heap</i> instead — the reason is worth keeping because deleting the
+///             collection is the obvious next move and it would be wrong.
+///         </b>
+///         The clock no longer needs
 ///         defending: <see cref="RunawayGuard.Cap" /> stopped being a threshold sized against a
 ///         healthy case and became a liveness backstop sized against the nightly leg's own timeout,
 ///         and nothing scheduling can do reaches twenty minutes. What is still exposed is
@@ -26,8 +30,11 @@ namespace Vixen.Geometry.Remeshing.Tests;
 ///         code are 763 MB and 8.7 GB against a one-gigabyte ceiling.
 ///     </para>
 ///     <para>
-///         <b>The measurement that forced it, kept because it is the worked example of the defect
-///         class.</b> Adding <see cref="RemeshPipelinePropertyTests" /> to this assembly failed
+///         <b>
+///             The measurement that forced it, kept because it is the worked example of the defect
+///             class.
+///         </b>
+///         Adding <see cref="RemeshPipelinePropertyTests" /> to this assembly failed
 ///         <see cref="ConditioningPropertyTests" /> on the first full run — seed
 ///         <c>3cgNRbukkll2</c>, <c>new(ShapeKind.Sphere, 6, 5, [], 4, 0.27586207f, 0.01f)</c>, "still
 ///         running after 60.2 s, against a cap of 60.0 s". Re-run with that same seed and that class
@@ -35,8 +42,12 @@ namespace Vixen.Geometry.Remeshing.Tests;
 ///         never slow; ten cores were.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Serialising the timers was the right <i>half</i> of the fix and it was mistaken for
-///         the whole of it.</b> It removes the interference inside this assembly and does nothing
+///         ⚠
+///         <b>
+///             Serialising the timers was the right <i>half</i> of the fix and it was mistaken for
+///             the whole of it.
+///         </b>
+///         It removes the interference inside this assembly and does nothing
 ///         about the machine — a hosted runner with another job on it, or a laptop with three agents
 ///         on it, contends just the same. Four runs on 2026-08-18, one ten-core machine, one build,
 ///         the build's counts, with this collection already in force: the suite totalled 93 s, 138 s,
@@ -46,8 +57,12 @@ namespace Vixen.Geometry.Remeshing.Tests;
 ///         threshold did.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The uv assembly is still deliberately parallel, and now that is a claim about its
-///         heap rather than about its clock.</b> Nothing there conditions or remeshes, so nothing
+///         ⚠
+///         <b>
+///             The uv assembly is still deliberately parallel, and now that is a claim about its
+///             heap rather than about its clock.
+///         </b>
+///         Nothing there conditions or remeshes, so nothing
 ///         there approaches a gigabyte of retention; if something does, this collection is the shape
 ///         to copy.
 ///     </para>
@@ -61,10 +76,12 @@ public class TimedCases {
 /// <summary>docs/plan/41's robustness criterion over the <i>pipeline</i>, which is what it is a sentence about.</summary>
 /// <remarks>
 ///     <para>
-///         <b>Exit criterion 7 says "a corpus of 200 deliberately broken meshes … produces a valid
-///         all-quad result <i>or</i> a <c>RemeshReport</c> naming the stage that refused, and
-///         <b>never</b> an exception or a hang", and until this file existed nothing generative called
-///         <see cref="Remesher.Remesh(EditMesh, RemeshSettings, out RemeshReport, Vixen.Core.Threading.JobScheduler)" />.</b>
+///         <b>
+///             Exit criterion 7 says "a corpus of 200 deliberately broken meshes … produces a valid
+///             all-quad result <i>or</i> a <c>RemeshReport</c> naming the stage that refused, and
+///             <b>never</b> an exception or a hang", and until this file existed nothing generative called
+///             <see cref="Remesher.Remesh(EditMesh, RemeshSettings, out RemeshReport, Vixen.Core.Threading.JobScheduler)" />.
+///         </b>
 ///         <see cref="ConditioningPropertyTests" /> states the
 ///         criterion over <see cref="MeshConditioner.Condition" />, which is stage <i>one</i> of seven,
 ///         and <see cref="FieldPropertyTests" /> reaches stages two and three. Every property that
@@ -73,8 +90,12 @@ public class TimedCases {
 ///         produces.
 ///     </para>
 ///     <para>
-///         ⚠ <b><see cref="RunawayGuard" /> is not decoration and the allocation half is the one that
-///         matters.</b> Criterion 7's own note says so: five loops were suspected of non-termination
+///         ⚠
+///         <b>
+///             <see cref="RunawayGuard" /> is not decoration and the allocation half is the one that
+///             matters.
+///         </b>
+///         Criterion 7's own note says so: five loops were suspected of non-termination
 ///         and every one was refuted, and what is actually unbounded is <i>growth</i> — an isotropic
 ///         pre-remesh handed a target far below the mesh's own mean quadruples its triangle count
 ///         every round and allocates 763 MB on the tenth. No timeout catches that before the runner
@@ -91,13 +112,21 @@ public class TimedCases {
 ///         <c>properties</c> matrix.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The budget is deliberately small — 96 quads rather than the fixtures' 400 — and
-///         criterion 7 does not care.</b> It is about whether a stage refuses or throws, not about how
+///         ⚠
+///         <b>
+///             The budget is deliberately small — 96 quads rather than the fixtures' 400 — and
+///             criterion 7 does not care.
+///         </b>
+///         It is about whether a stage refuses or throws, not about how
 ///         many quads came out; the quantizer's flow and the extractor's grids run either way.
 ///     </para>
 ///     <para>
-///         ⚠ <b>What a small budget does <i>not</i> buy is a cheap case, and that is a finding rather
-///         than a mis-estimate.</b> A patch's quad count is a <i>product</i> of two side lengths, so
+///         ⚠
+///         <b>
+///             What a small budget does <i>not</i> buy is a cheap case, and that is a finding rather
+///             than a mis-estimate.
+///         </b>
+///         A patch's quad count is a <i>product</i> of two side lengths, so
 ///         the overshoot § D9 already records is quadratic in how snaky the partition is and is not
 ///         reduced by asking for less. Found by this property and re-measured against the current
 ///         base: <c>new(ShapeKind.Capsule, 9, 3, [MeshDefect.TinyComponent], 5, 0.1f, 1f)</c>,
@@ -111,8 +140,12 @@ public class TimedCases {
 ///         asserts that such a result says so in the report.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The overshoot is a <i>ratio</i> and not a floor, which means no budget is a safe
-///         one.</b> The same mesh without the mirror, at two budgets: 96 asked for gives 57,100 quads
+///         ⚠
+///         <b>
+///             The overshoot is a <i>ratio</i> and not a floor, which means no budget is a safe
+///             one.
+///         </b>
+///         The same mesh without the mirror, at two budgets: 96 asked for gives 57,100 quads
 ///         and 400 gives 233,490 — <b>595×</b> and <b>584×</b>, against the mirror's 3,534×. Asking
 ///         for fewer quads buys a proportionally cheaper case and does not bring the factor down at
 ///         all, which is what makes 96 the right number here and what makes the factor a defect
@@ -120,22 +153,34 @@ public class TimedCases {
 ///         neither the counts nor, measurably, the time.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The counts above are the finding; the seconds are not, and the two must not be quoted
-///         with the same confidence.</b> Every quad count here reproduces exactly — the same integers
+///         ⚠
+///         <b>
+///             The counts above are the finding; the seconds are not, and the two must not be quoted
+///             with the same confidence.
+///         </b>
+///         Every quad count here reproduces exactly — the same integers
 ///         to the digit on a different machine and several commits later — because they are what the
 ///         algorithm computes. The wall clock is not: the worst of those four cases runs in
 ///         <b>11 s</b> on the machine that paragraph was written on and was recorded at <b>93 s</b>
 ///         when the case was first found, and a whole-pipeline remesh takes every core it is given.
-///         ⚠ <b>This class used to carry its own four-minute cap on the strength of that spread, and
-///         it was the tighter of the two wall-clock thresholds in the tree</b> — 240 s against a
+///         ⚠
+///         <b>
+///             This class used to carry its own four-minute cap on the strength of that spread, and
+///             it was the tighter of the two wall-clock thresholds in the tree
+///         </b>
+///         — 240 s against a
 ///         worst healthy recording of 93 s is 2.6× of headroom, where the sixty seconds that actually
 ///         fired had six. It is gone: <see cref="RunawayGuard.Cap" /> is now a liveness backstop
 ///         sized against the nightly leg's own timeout rather than against any case's duration, so
 ///         there is nothing left for a per-suite measurement to tune. See its remarks.
 ///     </para>
 ///     <para>
-///         ⚠ <b>That assertion currently fails at the nightly's counts, and it is left failing on
-///         purpose.</b> The report's budget warning is decided from the quantization's <i>prediction</i>
+///         ⚠
+///         <b>
+///             That assertion currently fails at the nightly's counts, and it is left failing on
+///             purpose.
+///         </b>
+///         The report's budget warning is decided from the quantization's <i>prediction</i>
 ///         and its <see cref="RemeshReport.QuadCount" /> is counted off the mesh, so a run that drops
 ///         patches between the two can come out over the tolerance saying nothing —
 ///         <see cref="Divergence" /> has the one-line reproducer, the counts and the mechanism. A
@@ -172,7 +217,7 @@ public class RemeshPipelinePropertyTests {
         Gen.Bool,
         Gen.Bool,
         Gen.Int[0, 2],
-        (recipe, transfer, uvs, rounds) => (recipe, transfer, uvs, rounds)
+        static (recipe, transfer, uvs, rounds) => (recipe, transfer, uvs, rounds)
     );
 
     /// <summary>docs/plan/41's exit criterion 7, over the whole of what it is a sentence about.</summary>
@@ -185,8 +230,12 @@ public class RemeshPipelinePropertyTests {
     ///         And the case comes back at all, which is <see cref="RunawayGuard" />'s half.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The stage ledger is asserted as a <i>prefix</i> rather than as all seven, and that
-    ///         is what <see cref="Remesher" /> actually promises.</b> A refusal at the layout stage
+    ///         ⚠
+    ///         <b>
+    ///             The stage ledger is asserted as a <i>prefix</i> rather than as all seven, and that
+    ///             is what <see cref="Remesher" /> actually promises.
+    ///         </b>
+    ///         A refusal at the layout stage
     ///         adds four timings and stops; the criterion's "naming the stage that refused" is served
     ///         by the last entry being the stage that did it. What must hold everywhere is that the
     ///         entries are in <see cref="RemeshStage" />'s own order with nothing repeated and nothing
@@ -194,8 +243,12 @@ public class RemeshPipelinePropertyTests {
     ///         is a report that cannot be read — and that a result with faces in it carries all seven.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b><see cref="RemeshReport.QuadCount" /> plus <see cref="RemeshReport.NonQuadCount" />
-    ///         is asserted against the mesh's own face count rather than against itself.</b> A report
+    ///         ⚠
+    ///         <b>
+    ///             <see cref="RemeshReport.QuadCount" /> plus <see cref="RemeshReport.NonQuadCount" />
+    ///             is asserted against the mesh's own face count rather than against itself.
+    ///         </b>
+    ///         A report
     ///         that disagrees with the mesh it describes is worse than no report, and the two are
     ///         computed in different places — <see cref="RemeshMetrics.Faces" /> on the whole-mesh path
     ///         and again in <see cref="SymmetryPass" />, which recounts rather than doubling.
@@ -240,7 +293,11 @@ public class RemeshPipelinePropertyTests {
                 // this property measured, and Divergence for the case where it does not say so.
                 if (outcome.report.QuadCount > Budget * Remesher.BudgetTolerance) {
                     Assert.True(
-                        outcome.report.Warnings.Any(warning => warning.Contains("budget", StringComparison.Ordinal)),
+                        outcome.report.Warnings.Any(static warning => warning.Contains(
+                                "budget",
+                                StringComparison.Ordinal
+                            )
+                        ),
                         Divergence(recipe, transfer, uvs, rounds, outcome.report)
                     );
                 }
@@ -262,15 +319,22 @@ public class RemeshPipelinePropertyTests {
     /// <summary>Two inputs that refuse every time, because the refusal half cannot be sampled for.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>This is what the nightly's <c>refused &gt; 0</c> was trying to buy, bought
-    ///         deterministically.</b> That assertion said "at least one of the sampled meshes reached a
+    ///         <b>
+    ///             This is what the nightly's <c>refused &gt; 0</c> was trying to buy, bought
+    ///             deterministically.
+    ///         </b>
+    ///         That assertion said "at least one of the sampled meshes reached a
     ///         refusal", and the refusal half is where the criterion's "naming the stage that refused"
     ///         lives — so leaving it unexercised would leave half of exit criterion 7 untested. The
     ///         claim is right; sampling was the wrong way to make it.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The arithmetic, because a sampled coverage check is only honest with the arithmetic
-    ///         beside it.</b> Measured over <b>1,200 cases</b> of this property's own generator:
+    ///         ⚠
+    ///         <b>
+    ///             The arithmetic, because a sampled coverage check is only honest with the arithmetic
+    ///             beside it.
+    ///         </b>
+    ///         Measured over <b>1,200 cases</b> of this property's own generator:
     ///         <b>9 refusals, a rate of 0.75%</b>. The nightly runs 120 cases, so the chance of seeing
     ///         no refusal at all is <c>(1 − 0.0075)¹²⁰ = 0.41</c> — the assertion lost a coin toss two
     ///         nights in five. It duly did, on <b>2026-08-13, 08-16 and 08-18</b>, three red legs in
@@ -288,8 +352,12 @@ public class RemeshPipelinePropertyTests {
     ///         corrected. Whatever is red here should be the code.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Two recipes rather than one, because they refuse at opposite ends of the
-    ///         pipeline.</b> Eight of the nine refusals measured were the same shallow one — conditioning
+    ///         ⚠
+    ///         <b>
+    ///             Two recipes rather than one, because they refuse at opposite ends of the
+    ///             pipeline.
+    ///         </b>
+    ///         Eight of the nine refusals measured were the same shallow one — conditioning
     ///         eats a staircase mesh and stops with "Conditioning left no triangles at all", one stage
     ///         in. The ninth ran the whole way down and refused at the extract stage with a four-part
     ///         report about arcs collapsing and patches quantizing away, which is the only sampled case
@@ -365,8 +433,11 @@ public class RemeshPipelinePropertyTests {
     /// <summary>The allocation runaway's own line, held under the brake rather than under a clock.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>The one recipe out of the property space above, pinned so the fix has something that
-    ///         fails without it.</b> Before <see cref="Remesher.RunawayMultiple" /> existed this planned
+    ///         <b>
+    ///             The one recipe out of the property space above, pinned so the fix has something that
+    ///             fails without it.
+    ///         </b>
+    ///         Before <see cref="Remesher.RunawayMultiple" /> existed this planned
     ///         <b>696,592 quads per half against a budget of 96</b> — 7,256× — and spent 1.3 s and
     ///         gigabytes inside the extract stage building them. It now plans 1,526 and ships 3,052,
     ///         and the extract stage takes 48 ms.
@@ -411,12 +482,12 @@ public class RemeshPipelinePropertyTests {
         Assert.Equal(0, report.NonQuadCount);
 
         // Twice the multiple, because the mirror ships both halves and the brake reads one.
-        var ceiling = (int) (Budget * Remesher.RunawayMultiple * 2f);
+        var ceiling = (int)(Budget * Remesher.RunawayMultiple * 2f);
 
         Assert.True(
             quads.FaceCount <= ceiling,
             $"the mirrored result has {quads.FaceCount} faces against a budget of {Budget} — "
-            + $"{(float) quads.FaceCount / Budget:F0}×, over a ceiling of {ceiling}. This recipe is the "
+            + $"{(float)quads.FaceCount / Budget:F0}×, over a ceiling of {ceiling}. This recipe is the "
             + "one that allocated 8.7 GB over 42 s before the quantization was braked, and it returns "
             + "and comes back all-quad either way, so nothing but the count catches it."
         );
@@ -425,50 +496,79 @@ public class RemeshPipelinePropertyTests {
     /// <summary>The same criterion through § D11's mirror, which is a second entry point into all seven.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b><see cref="SymmetryPass" /> is a wrapper around
-    ///         <see cref="Remesher.Remesh(EditMesh, RemeshSettings, out RemeshReport, Vixen.Core.Threading.JobScheduler)" />
-    ///         rather than a stage inside it, so nothing above reaches it.</b> It cuts the source with
+    ///         ⚠
+    ///         <b>
+    ///             <see cref="SymmetryPass" /> is a wrapper around
+    ///             <see cref="Remesher.Remesh(EditMesh, RemeshSettings, out RemeshReport, Vixen.Core.Threading.JobScheduler)" />
+    ///             rather than a stage inside it, so nothing above reaches it.
+    ///         </b>
+    ///         It cuts the source with
     ///         <see cref="MeshBoolean.PlaneCut" />, calls back in with the setting cleared, reflects
     ///         what comes out and recounts the faces — which is four opportunities to produce a mesh
     ///         the criterion forbids, on top of the seven stages, and one of them is a boolean handed a
     ///         deliberately non-manifold input.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The plane is swept over three axes and an off-axis one, because the pass branches
-    ///         on exactly that.</b> An axis plane through the origin makes the mirror a sign flip and
+    ///         ⚠
+    ///         <b>
+    ///             The plane is swept over three axes and an off-axis one, because the pass branches
+    ///             on exactly that.
+    ///         </b>
+    ///         An axis plane through the origin makes the mirror a sign flip and
     ///         § D11's fourth exit criterion holds bit-for-bit; anything else is a rounded reflection,
     ///         which the pass warns about and which is the branch where a mirrored vertex can land off
     ///         the seam.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>This property found an allocation runaway on its first run at the build's own
-    ///         counts. It is closed, by <see cref="Remesher.RunawayMultiple" />, and
-    ///         <see cref="The_runaway_recipe_stays_within_a_bounded_multiple_of_its_budget" /> holds the
-    ///         line so it cannot come back unnoticed.</b> The numbers below are what it did before that
+    ///         ⚠
+    ///         <b>
+    ///             This property found an allocation runaway on its first run at the build's own
+    ///             counts. It is closed, by <see cref="Remesher.RunawayMultiple" />, and
+    ///             <see cref="The_runaway_recipe_stays_within_a_bounded_multiple_of_its_budget" /> holds the
+    ///             line so it cannot come back unnoticed.
+    ///         </b>
+    ///         The numbers below are what it did before that
     ///         brake existed; the same recipe now plans 1,526 quads per half and ships 3,052, with the
     ///         extract stage down from 1.3 s to 48 ms. Seed <c>9hqwA86TjVk1</c>,
     ///         and it reproduces from one line:
-    ///         <c>new(ShapeKind.Sphere, 4, 4, [MeshDefect.LargeComponent, MeshDefect.TinyComponent,
-    ///         MeshDefect.ZeroLengthEdge], 4, 0.12195122f, 1f)</c> about <c>(1, 0, 0)</c> at
-    ///         <see cref="Budget" /> quads. <b>602 faces in; 3,999,656 quads out — 41,663× the budget,
-    ///         6,644× the input — allocating 8.7 GB on the calling thread over 42 s.</b>
+    ///         <c>
+    ///             new(ShapeKind.Sphere, 4, 4, [MeshDefect.LargeComponent, MeshDefect.TinyComponent,
+    ///             MeshDefect.ZeroLengthEdge], 4, 0.12195122f, 1f)
+    ///         </c>
+    ///         about <c>(1, 0, 0)</c> at
+    ///         <see cref="Budget" /> quads.
+    ///         <b>
+    ///             602 faces in; 3,999,656 quads out — 41,663× the budget,
+    ///             6,644× the input — allocating 8.7 GB on the calling thread over 42 s.
+    ///         </b>
     ///         <see cref="RunawayGuard" /> stops it at 1.40 GB <i>retained</i>, sixteen samples in a
     ///         row, eight seconds in.
     ///     </para>
     ///     <para>
-    ///         <b>It is neither a hang nor an all-quad failure, which is exactly why nothing caught it
-    ///         before.</b> The call returns, every face has four sides and the ledger is well formed —
+    ///         <b>
+    ///             It is neither a hang nor an all-quad failure, which is exactly why nothing caught it
+    ///             before.
+    ///         </b>
+    ///         The call returns, every face has four sides and the ledger is well formed —
     ///         the criterion's stated half is satisfied. What is unbounded is <i>growth</i>, and the
-    ///         allocation ceiling is the only reading that sees it. ⚠ <b>It is also a different runaway
-    ///         from the one <see cref="RunawayGuard.RetentionCeiling" /> was measured against</b>: that
+    ///         allocation ceiling is the only reading that sees it. ⚠
+    ///         <b>
+    ///             It is also a different runaway
+    ///             from the one <see cref="RunawayGuard.RetentionCeiling" /> was measured against
+    ///         </b>
+    ///         : that
     ///         one is an isotropic pre-remesh handed a <see cref="RemeshSettings.TargetEdgeLength" />
     ///         far below the mesh's mean, and nothing here passes that setting at all. This one comes
     ///         off <see cref="RemeshSettings.TargetQuads" />, which is the path the class remarks call
     ///         "what keeps the ordinary path safe".
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The three defects in the recipe are not separable and the shrinker is right not to
-    ///         drop them.</b> Measured on the same plane and budget: the full recipe gives 3,999,656
+    ///         ⚠
+    ///         <b>
+    ///             The three defects in the recipe are not separable and the shrinker is right not to
+    ///             drop them.
+    ///         </b>
+    ///         Measured on the same plane and budget: the full recipe gives 3,999,656
     ///         quads, but <c>[LargeComponent]</c> alone at the same multiplicity and degeneracy gives
     ///         706, at multiplicity 1 gives 1,680, and the bare sphere gives 1,680. The amplification
     ///         needs the whole combination, so the one line above is the smallest thing to paste.
@@ -484,16 +584,14 @@ public class RemeshPipelinePropertyTests {
                     new Plane(Vector3.UnitZ, 0f),
                     new Plane(Vector3.Normalize(new(1f, 1f, 0f)), 0.25f)
                 ),
-                (recipe, plane) => (recipe, plane)
+                static (recipe, plane) => (recipe, plane)
             )
             .Sample(
                 entry => {
                     var (recipe, plane) = entry;
 
                     var settings = new RemeshSettings {
-                        TargetQuads = Budget,
-                        Symmetry = plane,
-                        Conditioning = new() { PreRemeshIterations = 1 }
+                        TargetQuads = Budget, Symmetry = plane, Conditioning = new() { PreRemeshIterations = 1 }
                     };
 
                     var what = string.Create(
@@ -522,8 +620,12 @@ public class RemeshPipelinePropertyTests {
     /// <param name="report">What the pipeline said about it.</param>
     /// <returns>Whether the result had faces in it, rather than being a refusal.</returns>
     /// <remarks>
-    ///     ⚠ <b>Every message here ends in the recipe rather than in the mesh, because a shrunk case is
-    ///     only a finding if it can be pasted into a test.</b> <see cref="MeshRecipe.ToString" /> prints
+    ///     ⚠
+    ///     <b>
+    ///         Every message here ends in the recipe rather than in the mesh, because a shrunk case is
+    ///         only a finding if it can be pasted into a test.
+    ///     </b>
+    ///     <see cref="MeshRecipe.ToString" /> prints
     ///     a constructor call with round-trippable floats; a four-thousand-triangle failing mesh is not
     ///     something anybody can act on.
     /// </remarks>
@@ -540,7 +642,7 @@ public class RemeshPipelinePropertyTests {
             // The refusal half. An empty result is an answer, and the criterion asks that it name the
             // stage that gave it — which is the only thing an unattended content build can act on.
             Assert.True(
-                report.Warnings.Any(warning => Named(warning) is not null),
+                report.Warnings.Any(static warning => Named(warning) is not null),
                 $"{what}: refused with nothing naming a stage — [{string.Join(" · ", report.Warnings)}]."
             );
 
@@ -578,7 +680,7 @@ public class RemeshPipelinePropertyTests {
         foreach (var timing in report.Stages) {
             Assert.True(
                 (int)timing.Stage > seen,
-                $"{what}: the stage ledger runs [{string.Join(", ", report.Stages.Select(entry => entry.Stage))}]."
+                $"{what}: the stage ledger runs [{string.Join(", ", report.Stages.Select(static entry => entry.Stage))}]."
             );
 
             seen = (int)timing.Stage;
@@ -588,14 +690,17 @@ public class RemeshPipelinePropertyTests {
         }
 
         if (report.QuadCount > 0) {
-            Assert.Equal(Enum.GetValues<RemeshStage>(), report.Stages.Select(timing => timing.Stage));
+            Assert.Equal(Enum.GetValues<RemeshStage>(), report.Stages.Select(static timing => timing.Stage));
         }
     }
 
     /// <summary>Which stage a warning names, or null for one that names none.</summary>
     /// <remarks>
-    ///     ⚠ <b>Matched on the stage's own name rather than on the sentence, so a reworded warning
-    ///     still satisfies the criterion and a warning that stopped naming a stage does not.</b>
+    ///     ⚠
+    ///     <b>
+    ///         Matched on the stage's own name rather than on the sentence, so a reworded warning
+    ///         still satisfies the criterion and a warning that stopped naming a stage does not.
+    ///     </b>
     ///     <c>Condition</c> is a prefix of "Conditioning", which is what the first refusal says.
     /// </remarks>
     static RemeshStage? Named(string warning) {
@@ -617,19 +722,31 @@ public class RemeshPipelinePropertyTests {
     /// <returns>The finding, with the reproducer and the mechanism.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>This is a measured defect in <see cref="Remesher" /> and it is deliberately not
-    ///         worked around, so this property fails at the nightly's counts until it is fixed.</b>
+    ///         ⚠
+    ///         <b>
+    ///             This is a measured defect in <see cref="Remesher" /> and it is deliberately not
+    ///             worked around, so this property fails at the nightly's counts until it is fixed.
+    ///         </b>
     ///         Found by this property at fifteen times its build count, seed <c>8dLG7n4AvGV1</c>, and
     ///         it reproduces from one line:
-    ///         <c>new(ShapeKind.Sphere, 3, 5, [MeshDefect.SelfIntersection, MeshDefect.LargeComponent],
-    ///         1, 0f, 0.01f)</c> at <see cref="Budget" /> quads with both halves of stage seven on and
-    ///         one pre-remesh round. 96 faces in; <b>138 quads out against 96 asked for — 1.44×,
-    ///         over <see cref="Remesher.BudgetTolerance" />'s 1.35 — and not one of the three warnings
-    ///         mentions the budget.</b>
+    ///         <c>
+    ///             new(ShapeKind.Sphere, 3, 5, [MeshDefect.SelfIntersection, MeshDefect.LargeComponent],
+    ///             1, 0f, 0.01f)
+    ///         </c>
+    ///         at <see cref="Budget" /> quads with both halves of stage seven on and
+    ///         one pre-remesh round. 96 faces in;
+    ///         <b>
+    ///             138 quads out against 96 asked for — 1.44×,
+    ///             over <see cref="Remesher.BudgetTolerance" />'s 1.35 — and not one of the three warnings
+    ///             mentions the budget.
+    ///         </b>
     ///     </para>
     ///     <para>
-    ///         <b>The mechanism is that the two numbers are counted in different places and one of them
-    ///         is a prediction.</b> <c>Remesher.Budget</c> decides whether to warn from
+    ///         <b>
+    ///             The mechanism is that the two numbers are counted in different places and one of them
+    ///             is a prediction.
+    ///         </b>
+    ///         <c>Remesher.Budget</c> decides whether to warn from
     ///         <c>Quantizer.QuadCount(layout, quantization.Counts)</c> — what the quantization implies,
     ///         computed before anything is extracted — while <see cref="RemeshReport.QuadCount" /> is
     ///         counted off the mesh that came out. They agree until a patch is dropped between them,
@@ -639,8 +756,11 @@ public class RemeshPipelinePropertyTests {
     ///         landed under the line and the mesh came out over it.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The same divergence is visible on the symmetry path at a size nobody could miss,
-    ///         which is what says it is one defect rather than a rounding argument.</b>
+    ///         ⚠
+    ///         <b>
+    ///             The same divergence is visible on the symmetry path at a size nobody could miss,
+    ///             which is what says it is one defect rather than a rounding argument.
+    ///         </b>
     ///         The class remarks' 339,330-quad case reports "the budget was not met: 169665 quads
     ///         against 96 asked for" — exactly half, because the prediction is the half-mesh's and
     ///         <see cref="SymmetryPass" /> recounts after reflecting. A caller reading the sentence

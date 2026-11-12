@@ -35,7 +35,19 @@ public class LoadPathTests {
     public void ASetThatNamesNoJointOfThisRigBakesEmptyAndSaysWhichNamesWentMissing() {
         var content = new ProxyShapeSetContent {
             Name = "wrong body",
-            Shapes = [new("fin", ShapeKind.Sphere, "Dorsal", Vector3.Zero, Quaternion.Identity, new(0.1f), new(0.1f), [], false)]
+            Shapes = [
+                new(
+                    "fin",
+                    ShapeKind.Sphere,
+                    "Dorsal",
+                    Vector3.Zero,
+                    Quaternion.Identity,
+                    new(0.1f),
+                    new(0.1f),
+                    [],
+                    false
+                )
+            ]
         };
 
         List<string> first = [];
@@ -57,7 +69,7 @@ public class LoadPathTests {
         Assert.True(ProxyShapeCache.Forget(content));
 
         Assert.NotSame(first, ProxyShapeCache.Get(content, skeleton));
-        Assert.False(ProxyShapeCache.Forget(new ProxyShapeSetContent()));
+        Assert.False(ProxyShapeCache.Forget(new()));
     }
 
     // ── Move sets ────────────────────────────────────────────────────────────
@@ -110,7 +122,7 @@ public class LoadPathTests {
         Assert.Equal(2, set.Count);
 
         Assert.True(set.TryGet(MoveKey.Of("walk"), out var replaced));
-        Assert.Equal("Limp", ((Motions.ClipMotion) replaced!.Motion).Clip.Name);
+        Assert.Equal("Limp", ((Motions.ClipMotion)replaced!.Motion).Clip.Name);
 
         Assert.True(set.TryGet(MoveKey.Of("idle"), out _));
     }
@@ -153,8 +165,12 @@ public class LoadPathTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>An authored rule's mask names joints and resolves against whichever rig plays the
-    ///     set.</b> A mask is an array of weights per joint — a fact about one skeleton — so a file
+    ///     ⚠
+    ///     <b>
+    ///         An authored rule's mask names joints and resolves against whichever rig plays the
+    ///         set.
+    ///     </b>
+    ///     A mask is an array of weights per joint — a fact about one skeleton — so a file
     ///     that stored one could only be used by the rig it was written against.
     /// </summary>
     [Fact]
@@ -186,16 +202,25 @@ public class LoadPathTests {
         new() {
             Name = "body",
             Shapes = [
-                new("belly", ShapeKind.Sphere, "Spine", Vector3.Zero, Quaternion.Identity, new(0.2f), new(0.2f), [], false)
+                new(
+                    "belly",
+                    ShapeKind.Sphere,
+                    "Spine",
+                    Vector3.Zero,
+                    Quaternion.Identity,
+                    new(0.2f),
+                    new(0.2f),
+                    [],
+                    false
+                )
             ]
         };
 
     static MoveSetContent Set(params (string Name, string Clip)[] rows) =>
         new() {
             Name = "locomotion",
-            Entries = [.. rows.Select(static row => new MoveEntryRecord { Name = row.Name, Clip = row.Clip })]
+            Entries = [..rows.Select(static row => new MoveEntryRecord { Name = row.Name, Clip = row.Clip })]
         };
 
-    static AnimationClipContent Clip(string name) =>
-        new() { Name = name, Data = new() { Name = name, Duration = 1f } };
+    static AnimationClipContent Clip(string name) => new() { Name = name, Data = new() { Name = name, Duration = 1f } };
 }

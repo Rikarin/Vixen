@@ -34,7 +34,11 @@ public sealed class RealmTests {
         // Rather than a NullReferenceException three frames later, in a stack that names nothing.
         var realm = new MmoRealm();
 
-        Assert.Contains("Compose", Assert.Throws<InvalidOperationException>(() => realm.Lockouts).Message, StringComparison.Ordinal);
+        Assert.Contains(
+            "Compose",
+            Assert.Throws<InvalidOperationException>(() => realm.Lockouts).Message,
+            StringComparison.Ordinal
+        );
     }
 
     [Fact]

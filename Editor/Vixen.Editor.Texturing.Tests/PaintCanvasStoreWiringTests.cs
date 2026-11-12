@@ -3,7 +3,6 @@
 
 using Vixen.Core.Mathematics;
 using Vixen.Editor.Texturing.Layers;
-using Vixen.Editor.Ui;
 using Vixen.Texturing.Layers;
 using Vixen.Ui;
 using Vixen.Ui.Controls.Advanced;
@@ -14,24 +13,35 @@ namespace Vixen.Editor.Texturing.Tests;
 /// <summary>How many times a stroke reads a <c>.vxpaint</c>, and what the map shows while it lasts.</summary>
 /// <remarks>
 ///     <para>
-///         <b><a href="https://github.com/Rikarin/Vixen/issues/948">#948</a> and
-///         <a href="https://github.com/Rikarin/Vixen/issues/885">#885</a>, end to end through a real
-///         drag.</b> Three things read a paint layer's canvas —
+///         <b>
+///             <a href="https://github.com/Rikarin/Vixen/issues/948">#948</a> and
+///             <a href="https://github.com/Rikarin/Vixen/issues/885">#885</a>, end to end through a real
+///             drag.
+///         </b>
+///         Three things read a paint layer's canvas —
 ///         <c>TexturingModule.BeginStroke</c> at pointer-down, <c>RefreshPaint</c> at pointer-up, and
 ///         the layers pane on the way to the map — and each of them opened the file. At 4K that is
 ///         three times 67 MB of read and of allocation per channel per stroke.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The two halves are one fix and are asserted as one, because either alone is
-///         wrong.</b> A cache the pane owned would serve the picture from before the stroke, which is
+///         ⚠
+///         <b>
+///             The two halves are one fix and are asserted as one, because either alone is
+///             wrong.
+///         </b>
+///         A cache the pane owned would serve the picture from before the stroke, which is
 ///         why #885 refused to write one; a store wired only to the surface would leave the pane
 ///         reading the disk. So this suite asserts the count <em>and</em> that the map shows a stroke
 ///         which is in no file anywhere — and no arrangement of caches can satisfy both except a
 ///         store of open canvases.
 ///     </para>
 ///     <para>
-///         ⚠ <b>A real adapter or a loud skip, because the third read is the pane's and the pane
-///         needs a device.</b> Counting on a host with none would count two of the three and call it
+///         ⚠
+///         <b>
+///             A real adapter or a loud skip, because the third read is the pane's and the pane
+///             needs a device.
+///         </b>
+///         Counting on a host with none would count two of the three and call it
 ///         the answer.
 ///     </para>
 /// </remarks>
@@ -47,8 +57,12 @@ public class PaintCanvasStoreWiringTests {
     ///         the two saves — used to be a full read of the file the save had just written.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Zero is also what a session that opened nothing reports, and worse than that it
-    ///         is what a session that <em>stopped</em> asking reports</b> —
+    ///         ⚠
+    ///         <b>
+    ///             Zero is also what a session that opened nothing reports, and worse than that it
+    ///             is what a session that <em>stopped</em> asking reports
+    ///         </b>
+    ///         —
     ///         <a href="https://github.com/Rikarin/Vixen/issues/978">#978</a>. Every read this
     ///         counter sees is a read through the store, so un-wiring a call site back to
     ///         <c>File.OpenRead</c> lowers it and an assertion wanting zero passes: it could only
@@ -95,11 +109,11 @@ public class PaintCanvasStoreWiringTests {
         // still green.
         Assert.Equal(2, module.CanvasOpens);
 
-        Drag(fixture, image, new Vector2(16f, 16f), new Vector2(40f, 40f));
+        Drag(fixture, image, new(16f, 16f), new(40f, 40f));
 
         Assert.Equal(67, module.CanvasOpens);
 
-        Drag(fixture, image, new Vector2(20f, 44f), new Vector2(44f, 20f));
+        Drag(fixture, image, new(20f, 44f), new(44f, 20f));
 
         Assert.Equal(125, module.CanvasOpens);
 
@@ -110,19 +124,22 @@ public class PaintCanvasStoreWiringTests {
 
         // And the stroke really reached the disk, so "no reads" is not "no painting". The file is
         // opened here rather than through the store, which is the only reading of it in this test.
-        var layer = Assert.Single(document.Document.Sets[0].Layers, one => one.Kind == LayerKind.Paint);
+        var layer = Assert.Single(document.Document.Sets[0].Layers, static one => one.Kind == LayerKind.Paint);
         var file = Path.Combine(Path.GetDirectoryName(document.AssetPath)!, layer.Paint);
 
         using var stream = File.OpenRead(file);
 
-        Assert.NotEqual(0u, global::Vixen.Texturing.Painting.PaintCanvas.Read(stream).Channel("baseColor").At(16, 16));
+        Assert.NotEqual(0u, Vixen.Texturing.Painting.PaintCanvas.Read(stream).Channel("baseColor").At(16, 16));
     }
 
     /// <summary>⚠ And the map redraws with a stroke that is in no file, while the pointer is down.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>The half <a href="https://github.com/Rikarin/Vixen/issues/885">#885</a> is really
-    ///         about, and the one a cache cannot have.</b> A paint session writes
+    ///         <b>
+    ///             The half <a href="https://github.com/Rikarin/Vixen/issues/885">#885</a> is really
+    ///             about, and the one a cache cannot have.
+    ///         </b>
+    ///         A paint session writes
     ///         <c>PaintImage.Texels</c> in memory and does not touch the file until pointer-up, so
     ///         anything that resolves a <c>vxpaint:</c> by reading the file shows the picture from
     ///         before the stroke. Here the file does not exist at all — the first stroke of a fresh
@@ -146,15 +163,12 @@ public class PaintCanvasStoreWiringTests {
         var image = ImageIn(OpenPaintPane(fixture));
 
         // Pointer down and a few moves — and no release, so nothing is saved and nothing is named.
-        var start = image.ToScreen(new Vector2(16f, 16f));
-        var end = image.ToScreen(new Vector2(40f, 40f));
+        var start = image.ToScreen(new(16f, 16f));
+        var end = image.ToScreen(new(40f, 40f));
 
         fixture.Shell.Document.Dispatch(
             new PointerEvent {
-                X = start.X,
-                Y = start.Y,
-                Action = PointerAction.Pressed,
-                Button = PointerButton.Primary
+                X = start.X, Y = start.Y, Action = PointerAction.Pressed, Button = PointerButton.Primary
             }
         );
 
@@ -166,14 +180,14 @@ public class PaintCanvasStoreWiringTests {
 
         // The instrument, and it is the whole premise: there is no file, so nothing that reads one
         // could produce the texel below.
-        var named = Assert.Single(document.Document.Sets[0].Layers, one => one.Kind == LayerKind.Paint);
+        var named = Assert.Single(document.Document.Sets[0].Layers, static one => one.Kind == LayerKind.Paint);
         var derived = LayerPaint.NameFor(
             Path.GetFileNameWithoutExtension(document.AssetPath),
             document.Document.Sets[0].Name,
             named.Id
         );
 
-        Assert.Equal("", named.Paint);
+        Assert.Equal(string.Empty, named.Paint);
         Assert.False(
             File.Exists(Path.Combine(Path.GetDirectoryName(document.AssetPath)!, derived)),
             "the drag wrote its canvas before pointer-up, so this test is no longer about an unsaved stroke"
@@ -220,10 +234,10 @@ public class PaintCanvasStoreWiringTests {
     }
 
     static byte Alpha(RecordingGraphics.Uploaded picture, int x, int y) =>
-        picture.Pixels[((((y * picture.Width) + x) * 4) + 3)];
+        picture.Pixels[(y * picture.Width + x) * 4 + 3];
 
     static uint Texel(RecordingGraphics.Uploaded picture, int x, int y) {
-        var at = (((y * picture.Width) + x) * 4);
+        var at = (y * picture.Width + x) * 4;
 
         return picture.Pixels[at]
             | ((uint)picture.Pixels[at + 1] << 8)
@@ -233,8 +247,12 @@ public class PaintCanvasStoreWiringTests {
 
     /// <summary>Activates the module over a stack with one paint layer, and puts the brush down.</summary>
     /// <remarks>
-    ///     ⚠ <b>Its own rather than <c>PaintUvViewTests</c>' equivalent, because this suite needs the
-    ///     <em>module</em>.</b> That one builds its module inside the helper and returns the document;
+    ///     ⚠
+    ///     <b>
+    ///         Its own rather than <c>PaintUvViewTests</c>' equivalent, because this suite needs the
+    ///         <em>module</em>.
+    ///     </b>
+    ///     That one builds its module inside the helper and returns the document;
     ///     the counters this suite reads are the module's, and widening a neighbour's private helper
     ///     for one caller is how a test harness grows a parameter nothing else passes.
     /// </remarks>
@@ -299,10 +317,7 @@ public class PaintCanvasStoreWiringTests {
 
         fixture.Shell.Document.Dispatch(
             new PointerEvent {
-                X = start.X,
-                Y = start.Y,
-                Action = PointerAction.Pressed,
-                Button = PointerButton.Primary
+                X = start.X, Y = start.Y, Action = PointerAction.Pressed, Button = PointerButton.Primary
             }
         );
 

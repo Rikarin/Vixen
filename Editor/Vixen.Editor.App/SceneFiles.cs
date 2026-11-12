@@ -5,7 +5,6 @@ using Vixen.Editor.Core;
 using Vixen.Editor.SceneView;
 using Vixen.Editor.Ui;
 using Vixen.Engine.Transforms;
-using Vixen.Ui.Controls;
 
 namespace Vixen.Editor.App;
 
@@ -13,15 +12,23 @@ namespace Vixen.Editor.App;
 /// <param name="Document">The document.</param>
 /// <param name="Path">Where it was opened from, absolute.</param>
 /// <remarks>
-///     ⚠ <b>The path is here rather than on the document, because a document does not know where
-///     it is written</b> — it has an <c>ISceneWriter</c>, which is deliberately an interface so
+///     ⚠
+///     <b>
+///         The path is here rather than on the document, because a document does not know where
+///         it is written
+///     </b>
+///     — it has an <c>ISceneWriter</c>, which is deliberately an interface so
 ///     that a test can write into memory. The editor is what knows about files.
 /// </remarks>
 sealed record EditorScene(SceneDocument Document, string Path) {
     /// <summary>The file the scene writes now, which is not always <see cref="Path" />.</summary>
     /// <remarks>
-    ///     ⚠ <b>Save As and Open Scene move the writer and leave <see cref="Path" /> where it
-    ///     was</b>, so anything asking "is this file open" asks this and not that (#1416).
+    ///     ⚠
+    ///     <b>
+    ///         Save As and Open Scene move the writer and leave <see cref="Path" /> where it
+    ///         was
+    ///     </b>
+    ///     , so anything asking "is this file open" asks this and not that (#1416).
     /// </remarks>
     public string Writes => Document.Writer is SceneFileWriter writer ? writer.Path : Path;
 
@@ -46,8 +53,12 @@ sealed record EditorScene(SceneDocument Document, string Path) {
 ///         <see cref="EditorScene.Writes" />, and it is asked.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Which scenes are open, in what order, and which is active are <see cref="ISceneEditing" />'s
-///         (#1290)</b> — this is only the file beside each entry. Every verb acts on
+///         ⚠
+///         <b>
+///             Which scenes are open, in what order, and which is active are <see cref="ISceneEditing" />'s
+///             (#1290)
+///         </b>
+///         — this is only the file beside each entry. Every verb acts on
 ///         <see cref="ISceneEditing.Active" />, which is the scene the application follows.
 ///     </para>
 /// </remarks>
@@ -71,7 +82,7 @@ sealed class SceneFiles {
     }
 
     /// <summary>Every open scene's file, in the service's order.</summary>
-    public IReadOnlyList<EditorScene> Scenes => [.. editing.Scenes.Select(document => files[document])];
+    public IReadOnlyList<EditorScene> Scenes => [..editing.Scenes.Select(document => files[document])];
 
     /// <summary>The active scene's file.</summary>
     public EditorScene Active => Of(editing.Active);
@@ -103,7 +114,7 @@ sealed class SceneFiles {
     public void New() {
         var scene = editing.Active;
 
-        scene.Delete([.. scene.Roots]);
+        scene.Delete([..scene.Roots]);
         scene.Stack.Clear();
         scene.Stack.MarkClean();
 
@@ -136,25 +147,25 @@ sealed class SceneFiles {
 
         try {
             scene.Selection.Clear();
-            scene.Delete([.. scene.Roots]);
+            scene.Delete([..scene.Roots]);
 
             if (SceneSerializer.Load(scene, path) == 0) {
                 shell.Notifications.Show(
                     "Nothing was loaded",
                     NotificationSeverity.Warning,
-                    System.IO.Path.GetFileName(path) + " has no entities in it."
+                    Path.GetFileName(path) + " has no entities in it."
                 );
             }
 
             scene.Writer = new SceneFileWriter(path);
-            scene.SetTitle(System.IO.Path.GetFileNameWithoutExtension(path));
+            scene.SetTitle(Path.GetFileNameWithoutExtension(path));
 
             scene.Stack.Clear();
             scene.Stack.MarkClean();
 
             editing.Restructured();
             tabs.CloseTabsTheSceneLeft();
-            shell.Notifications.Success(System.IO.Path.GetFileName(path));
+            shell.Notifications.Success(Path.GetFileName(path));
 
             return true;
         } catch (Exception exception) when (exception is IOException or UnauthorizedAccessException) {
@@ -182,7 +193,7 @@ sealed class SceneFiles {
         }
 
         scene.Writer = new SceneFileWriter(path);
-        scene.SetTitle(System.IO.Path.GetFileNameWithoutExtension(path));
+        scene.SetTitle(Path.GetFileNameWithoutExtension(path));
 
         Save();
         project.Assets.Scan();
@@ -203,7 +214,7 @@ sealed class SceneFiles {
     public bool Save() {
         try {
             editing.Active.Save();
-            shell.Notifications.Success(System.IO.Path.GetFileName(Active.Writes));
+            shell.Notifications.Success(Path.GetFileName(Active.Writes));
 
             return true;
         } catch (Exception exception) when (exception is IOException or UnauthorizedAccessException) {

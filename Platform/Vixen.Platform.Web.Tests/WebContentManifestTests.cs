@@ -2,8 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Text;
-using Vixen.Core.IO;
-using Vixen.Platform.Web;
 using Xunit;
 
 namespace Vixen.Platform.Web.Tests;
@@ -14,8 +12,7 @@ namespace Vixen.Platform.Web.Tests;
 ///     rather than by delegation.
 /// </summary>
 public class WebContentManifestTests {
-    static WebContentManifest Parse(string json) =>
-        WebContentManifest.Parse(Encoding.UTF8.GetBytes(json));
+    static WebContentManifest Parse(string json) => WebContentManifest.Parse(Encoding.UTF8.GetBytes(json));
 
     [Fact]
     public void AnEmptyArrayIsAnEmptyManifest() {
@@ -108,7 +105,7 @@ public class WebContentManifestTests {
     public void EscapesInAPathAreDecoded() {
         var manifest = Parse("""[{ "path": "/a\\b\"c\/d.bin", "length": 1 }]""");
 
-        Assert.True(manifest.TryGet("/a\\b\"c/d.bin", out _));
+        Assert.True(manifest.TryGet("""/a\b"c/d.bin""", out _));
     }
 
     [Fact]
@@ -123,8 +120,8 @@ public class WebContentManifestTests {
         // A \uXXXX escape, which the reader deliberately does not implement — see ManifestReader
         // for what it does and why. The failure has to name itself, or the symptom is a path that
         // silently does not match anything.
-        var exception = Assert.Throws<InvalidDataException>(
-            () => Parse("[{ \"path\": \"/a\\u0041b\", \"length\": 1 }]")
+        var exception = Assert.Throws<InvalidDataException>(static () =>
+            Parse("""[{ "path": "/a\u0041b", "length": 1 }]""")
         );
 
         Assert.Contains("ManifestReader", exception.Message, StringComparison.Ordinal);
@@ -132,9 +129,9 @@ public class WebContentManifestTests {
 
     [Theory]
     [InlineData("{}")]
-    [InlineData("[{ \"path\" \"/a\" }]")]
-    [InlineData("[{ \"path\": \"/a")]
-    [InlineData("[\"not-an-object\"]")]
+    [InlineData("""[{ "path" "/a" }]""")]
+    [InlineData("""[{ "path": "/a""")]
+    [InlineData("""["not-an-object"]""")]
     public void MalformedInputIsRejectedRatherThanGuessedAt(string json) =>
         Assert.Throws<InvalidDataException>(() => Parse(json));
 
@@ -172,7 +169,10 @@ public class WebContentManifestTests {
     [Fact]
     public void WhitespaceAndFormattingAreIgnored() {
         var compact = Parse("""[{"path":"/a","length":1},{"path":"/b","length":2}]""");
-        var spread = Parse("[\n\t[]".Replace("[]", "") + "  {\r\n \"path\" : \"/a\" ,\n \"length\" : 1 } ,\n{\"path\":\"/b\",\"length\":2}\n]\n");
+        var spread = Parse(
+            "[\n\t[]".Replace("[]", string.Empty)
+            + "  {\r\n \"path\" : \"/a\" ,\n \"length\" : 1 } ,\n{\"path\":\"/b\",\"length\":2}\n]\n"
+        );
 
         Assert.Equal(compact.Count, spread.Count);
         Assert.True(spread.TryGet("/a", out var a));
@@ -199,24 +199,14 @@ public class WebContentManifestTests {
 /// </summary>
 public class WebContentManifestEnumerationTests {
     static WebContentManifest Manifest { get; } = WebContentManifest.Parse(
-        Encoding.UTF8.GetBytes(
-            """
-            [
-              { "path": "/a.bin", "length": 10 },
-              { "path": "/textures/one.png", "length": 20, "modified": 1730000000000 },
-              { "path": "/textures/two.png", "length": 30 },
-              { "path": "/textures/ui/button.png", "length": 40 },
-              { "path": "/textures/ui/deep/inner/leaf.png", "length": 50 }
-            ]
-            """
-        )
+        "[\n  { \"path\": \"/a.bin\", \"length\": 10 },\n  { \"path\": \"/textures/one.png\", \"length\": 20, \"modified\": 1730000000000 },\n  { \"path\": \"/textures/two.png\", \"length\": 30 },\n  { \"path\": \"/textures/ui/button.png\", \"length\": 40 },\n  { \"path\": \"/textures/ui/deep/inner/leaf.png\", \"length\": 50 }\n]"u8
     );
 
     [Fact]
     public void ShallowEnumerationListsDirectoriesThenFiles() {
         var entries = Manifest.Enumerate(new("/")).ToArray();
 
-        Assert.Equal(["/textures", "/a.bin"], entries.Select(entry => entry.Path.Value));
+        Assert.Equal(["/textures", "/a.bin"], entries.Select(static entry => entry.Path.Value));
         Assert.True(entries[0].IsDirectory);
         Assert.False(entries[1].IsDirectory);
     }
@@ -227,15 +217,15 @@ public class WebContentManifestEnumerationTests {
 
         Assert.Equal(
             ["/textures/ui", "/textures/one.png", "/textures/two.png"],
-            entries.Select(entry => entry.Path.Value)
+            entries.Select(static entry => entry.Path.Value)
         );
     }
 
     [Fact]
     public void RecursiveEnumerationReachesEveryFile() {
-        var files = Manifest.Enumerate(new("/"), recursive: true)
-            .Where(entry => !entry.IsDirectory)
-            .Select(entry => entry.Path.Value)
+        var files = Manifest.Enumerate(new("/"), true)
+            .Where(static entry => !entry.IsDirectory)
+            .Select(static entry => entry.Path.Value)
             .ToArray();
 
         Assert.Equal(
@@ -254,9 +244,9 @@ public class WebContentManifestEnumerationTests {
     public void RecursiveEnumerationListsEveryIntermediateDirectory() {
         // The one this is easy to get wrong on: /textures/ui/deep and /textures/ui/deep/inner are
         // named by no entry's parent directly, only by a path passing through them.
-        var directories = Manifest.Enumerate(new("/"), recursive: true)
-            .Where(entry => entry.IsDirectory)
-            .Select(entry => entry.Path.Value)
+        var directories = Manifest.Enumerate(new("/"), true)
+            .Where(static entry => entry.IsDirectory)
+            .Select(static entry => entry.Path.Value)
             .ToArray();
 
         Assert.Equal(
@@ -267,7 +257,7 @@ public class WebContentManifestEnumerationTests {
 
     [Fact]
     public void LengthAndTimeComeFromTheManifest() {
-        var entry = Manifest.Enumerate(new("/textures")).Single(item => item.Path.Value == "/textures/one.png");
+        var entry = Manifest.Enumerate(new("/textures")).Single(static item => item.Path.Value == "/textures/one.png");
 
         Assert.Equal(20, entry.Length);
         Assert.Equal(DateTimeOffset.FromUnixTimeMilliseconds(1_730_000_000_000), entry.LastWriteUtc);
@@ -275,12 +265,11 @@ public class WebContentManifestEnumerationTests {
 
     [Fact]
     public void AnEntryWithNoRecordedTimeHasTheDefault() {
-        var entry = Manifest.Enumerate(new("/textures")).Single(item => item.Path.Value == "/textures/two.png");
+        var entry = Manifest.Enumerate(new("/textures")).Single(static item => item.Path.Value == "/textures/two.png");
 
         Assert.Equal(default, entry.LastWriteUtc);
     }
 
     [Fact]
-    public void EnumeratingSomethingThatIsNotThereIsEmpty() =>
-        Assert.Empty(Manifest.Enumerate(new("/audio"), recursive: true));
+    public void EnumeratingSomethingThatIsNotThereIsEmpty() => Assert.Empty(Manifest.Enumerate(new("/audio"), true));
 }

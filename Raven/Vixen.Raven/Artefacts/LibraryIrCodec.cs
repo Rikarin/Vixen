@@ -75,8 +75,7 @@ internal sealed class LibraryIrEncoder {
         var encoder = new LibraryIrEncoder(structKey, structName, functionKey);
 
         return new() {
-            Structs = [.. structs.Select(encoder.EncodeStruct)],
-            Functions = [.. functions.Select(encoder.EncodeFunction)]
+            Structs = [..structs.Select(encoder.EncodeStruct)], Functions = [..functions.Select(encoder.EncodeFunction)]
         };
     }
 
@@ -84,7 +83,7 @@ internal sealed class LibraryIrEncoder {
         new() {
             Key = structKey(structType),
             Name = structName(structType),
-            Fields = [.. structType.Fields.Select(f => new LibraryIrField(f.Name, EncodeType(f.Type)))]
+            Fields = [..structType.Fields.Select(f => new LibraryIrField(f.Name, EncodeType(f.Type)))]
         };
 
     /// <summary>Encodes a type. A struct travels as its key, which is its identity.</summary>
@@ -104,9 +103,7 @@ internal sealed class LibraryIrEncoder {
             },
             IrStructType aggregate => new() { Kind = IrTypeKind.Struct, Struct = structKey(aggregate) },
             IrTextureType texture => new() {
-                Kind = IrTypeKind.Texture,
-                Dimension = texture.Dimension,
-                Sampled = EncodeType(texture.SampledType)
+                Kind = IrTypeKind.Texture, Dimension = texture.Dimension, Sampled = EncodeType(texture.SampledType)
             },
             IrStorageImageType image => new() {
                 Kind = IrTypeKind.StorageImage,
@@ -134,9 +131,9 @@ internal sealed class LibraryIrEncoder {
             Key = functionKey(function),
             Name = function.Name,
             ReturnType = EncodeType(function.ReturnType),
-            Parameters = [.. function.Parameters.Select(EncodeVariable)],
-            Locals = [.. function.Locals.Select(EncodeVariable)],
-            Values = [.. values.Select(entry => new LibraryIrValue(entry.Key, entry.Value))],
+            Parameters = [..function.Parameters.Select(EncodeVariable)],
+            Locals = [..function.Locals.Select(EncodeVariable)],
+            Values = [..values.Select(static entry => new LibraryIrValue(entry.Key, entry.Value))],
             ValueCount = function.ValueCount,
             NoContraction = function.NoContraction,
             Body = EncodeBlock(function.Body, roots)
@@ -205,7 +202,7 @@ internal sealed class LibraryIrEncoder {
     }
 
     LibraryIrBlock EncodeBlock(IrBlock block, Dictionary<IrVariable, int> roots) =>
-        new() { Statements = [.. block.Statements.Select(s => EncodeStatement(s, roots))] };
+        new() { Statements = [..block.Statements.Select(s => EncodeStatement(s, roots))] };
 
     LibraryIrStatement EncodeStatement(IrStatement statement, Dictionary<IrVariable, int> roots) =>
         statement switch {
@@ -231,21 +228,21 @@ internal sealed class LibraryIrEncoder {
             IrIntrinsicInstruction intrinsic => new LibraryIrIntrinsic(
                 intrinsic.Result?.Id,
                 intrinsic.Intrinsic,
-                [.. intrinsic.Arguments.Select(a => a.Id)]
+                [..intrinsic.Arguments.Select(static a => a.Id)]
             ),
             IrCallInstruction call => new LibraryIrCall(
                 call.Result?.Id,
                 functionKey(call.Function),
-                [.. call.Arguments.Select(a => EncodeArgument(a, roots))]
+                [..call.Arguments.Select(a => EncodeArgument(a, roots))]
             ),
             IrConstructInstruction construct => new LibraryIrConstruct(
                 construct.Result.Id,
-                [.. construct.Arguments.Select(a => a.Id)]
+                [..construct.Arguments.Select(static a => a.Id)]
             ),
             IrExtractInstruction extract => new LibraryIrExtract(
                 extract.Result.Id,
                 extract.Source.Id,
-                [.. extract.Chain.Select(EncodeAccess)]
+                [..extract.Chain.Select(EncodeAccess)]
             ),
             IrSelectInstruction select => new LibraryIrSelect(
                 select.Result.Id,
@@ -303,14 +300,14 @@ internal sealed class LibraryIrEncoder {
             );
         }
 
-        return new(root, [.. place.Chain.Select(EncodeAccess)]);
+        return new(root, [..place.Chain.Select(EncodeAccess)]);
     }
 
     static LibraryIrAccess EncodeAccess(IrAccess access) =>
         access switch {
             IrFieldAccess field => new LibraryIrFieldAccess(field.Index),
             IrIndexAccess index => new LibraryIrIndexAccess(index.Index.Id),
-            IrSwizzleAccess swizzle => new LibraryIrSwizzleAccess([.. swizzle.Components]),
+            IrSwizzleAccess swizzle => new LibraryIrSwizzleAccess([..swizzle.Components]),
             _ => throw new InvalidOperationException(
                 $"Cannot export access '{access.GetType().Name}': the library encoder has no case for it."
             )
@@ -408,7 +405,7 @@ internal sealed class LibraryIrDecoder {
             // Only fill a shell once: a re-declaration of the same key is the loser above, and for
             // a structural key that re-declaration is the same shape by construction.
             if (target.Fields.Count == 0) {
-                target.SetFields([.. structType.Fields.Select(f => new IrField(f.Name, DecodeType(f.Type)))]);
+                target.SetFields([..structType.Fields.Select(f => new IrField(f.Name, DecodeType(f.Type)))]);
             }
         }
     }
@@ -571,17 +568,17 @@ internal sealed class LibraryIrDecoder {
                 LibraryIrIntrinsic intrinsic => new IrIntrinsicInstruction(
                     intrinsic.Result is { } result ? Value(result) : null,
                     intrinsic.Intrinsic,
-                    [.. intrinsic.Arguments.Select(Value)]
+                    [..intrinsic.Arguments.Select(Value)]
                 ),
                 LibraryIrCall call => Call(call),
                 LibraryIrConstruct construct => new IrConstructInstruction(
                     Value(construct.Result),
-                    [.. construct.Arguments.Select(Value)]
+                    [..construct.Arguments.Select(Value)]
                 ),
                 LibraryIrExtract extract => new IrExtractInstruction(
                     Value(extract.Result),
                     Value(extract.Source),
-                    [.. extract.Chain.Select(Access)]
+                    [..extract.Chain.Select(Access)]
                 ),
                 LibraryIrSelect select => new IrSelectInstruction(
                     Value(select.Result),
@@ -622,7 +619,7 @@ internal sealed class LibraryIrDecoder {
                 ? new IrCallInstruction(
                     call.Result is { } result ? Value(result) : null,
                     callee,
-                    [.. call.Arguments.Select(Argument)]
+                    [..call.Arguments.Select(Argument)]
                 )
                 : null;
 
@@ -631,13 +628,13 @@ internal sealed class LibraryIrDecoder {
                 ? IrArgument.ByReference(roots[root])
                 : IrArgument.Of(Value(argument.Value!.Value));
 
-        IrPlace Place(LibraryIrPlace place) => new(roots[place.Root], [.. place.Chain.Select(Access)]);
+        IrPlace Place(LibraryIrPlace place) => new(roots[place.Root], [..place.Chain.Select(Access)]);
 
         IrAccess Access(LibraryIrAccess access) =>
             access switch {
                 LibraryIrFieldAccess field => new IrFieldAccess(field.Index),
                 LibraryIrIndexAccess index => new IrIndexAccess(Value(index.Index)),
-                LibraryIrSwizzleAccess swizzle => new IrSwizzleAccess([.. swizzle.Components]),
+                LibraryIrSwizzleAccess swizzle => new IrSwizzleAccess([..swizzle.Components]),
                 _ => new IrFieldAccess(0)
             };
 

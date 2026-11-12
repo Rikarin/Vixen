@@ -75,7 +75,7 @@ static class BindingsEmitter {
             1 => "PerView",
             2 => "PerMaterial",
             3 => "PerDraw",
-            _ => $"Set{set.ToString(System.Globalization.CultureInfo.InvariantCulture)}"
+            _ => $"Set{set.ToString(CultureInfo.InvariantCulture)}"
         };
 
     /// <summary>Every uniform block the shader has — one per set it puts loose uniforms in.</summary>
@@ -94,9 +94,9 @@ static class BindingsEmitter {
     /// </remarks>
     static UniformBlockInfo[] UniformBlocks(ShaderReflection reflection) =>
         reflection.Sets
-            .SelectMany(set => set.Bindings.Select(binding => new UniformBlockInfo(set.Set, binding)))
-            .Where(entry => entry.Binding.Type == "UniformBuffer" && entry.Binding.Members.Count > 0)
-            .OrderBy(entry => entry.Set)
+            .SelectMany(static set => set.Bindings.Select(binding => new UniformBlockInfo(set.Set, binding)))
+            .Where(static entry => entry.Binding.Type == "UniformBuffer" && entry.Binding.Members.Count > 0)
+            .OrderBy(static entry => entry.Set)
             .ToArray();
 
     /// <summary>A uniform block and the set it sits in, which together identify its parameters.</summary>
@@ -109,12 +109,18 @@ static class BindingsEmitter {
         public Binding Binding { get; } = binding;
     }
 
-    static void EmitKeys(StringBuilder writer, string shaderName, ShaderReflection reflection, UniformBlockInfo[] blocks, string visibility) {
+    static void EmitKeys(
+        StringBuilder writer,
+        string shaderName,
+        ShaderReflection reflection,
+        UniformBlockInfo[] blocks,
+        string visibility
+    ) {
         writer.AppendLine("/// <summary>");
         writer.AppendLine($"///     Typed keys for shader <c>{Escape(shaderName)}</c>.");
         writer.AppendLine("/// </summary>");
         writer.AppendLine($"{visibility} static class {shaderName}Keys {{");
-        writer.AppendLine($"    /// <summary>The shader's name, as the effect system asks for it.</summary>");
+        writer.AppendLine("    /// <summary>The shader's name, as the effect system asks for it.</summary>");
         writer.AppendLine($"    public const string ShaderName = \"{Escape(shaderName)}\";");
 
         if (reflection.Permutations.Count > 0) {
@@ -149,7 +155,9 @@ static class BindingsEmitter {
             }
 
             writer.AppendLine();
-            writer.AppendLine("    /// <summary>The permutation keys that actually change the generated code.</summary>");
+            writer.AppendLine(
+                "    /// <summary>The permutation keys that actually change the generated code.</summary>"
+            );
             writer.AppendLine("    public static readonly ParameterKey[] UsedPermutationKeys = [");
 
             foreach (var permutation in reflection.Permutations) {
@@ -163,13 +171,15 @@ static class BindingsEmitter {
         }
 
         var resources = reflection.Sets
-            .SelectMany(set => set.Bindings.Select(binding => (set.Set, Binding: binding)))
-            .Where(entry => entry.Binding.Type is not "UniformBuffer")
+            .SelectMany(static set => set.Bindings.Select(binding => (set.Set, Binding: binding)))
+            .Where(static entry => entry.Binding.Type is not "UniformBuffer")
             .ToArray();
 
         if (resources.Length > 0) {
             writer.AppendLine();
-            writer.AppendLine("    // --- Resource keys: what the descriptor set is filled from, and where each one goes.");
+            writer.AppendLine(
+                "    // --- Resource keys: what the descriptor set is filled from, and where each one goes."
+            );
 
             foreach (var (set, binding) in resources) {
                 if (ResourceType(binding.Type) is not { } type) {
@@ -179,7 +189,9 @@ static class BindingsEmitter {
                 var name = ShaderTypes.Identifier(binding.Name);
 
                 writer.AppendLine();
-                writer.AppendLine($"    /// <summary>set {set}, binding {binding.Index}{(binding.IsWritable ? ", writable" : string.Empty)}.</summary>");
+                writer.AppendLine(
+                    $"    /// <summary>set {set}, binding {binding.Index}{(binding.IsWritable ? ", writable" : string.Empty)}.</summary>"
+                );
                 writer.AppendLine(
                     $"    public static readonly ParameterKey<{type}> {name} = "
                     + $"ParameterKeys.New<{type}>(\"{Escape(Qualified(shaderName, binding.Name))}\");"
@@ -203,7 +215,7 @@ static class BindingsEmitter {
             var first = blocks[0];
 
             writer.AppendLine();
-            writer.AppendLine($"    /// <summary>The uniform block's size in bytes — what to allocate.</summary>");
+            writer.AppendLine("    /// <summary>The uniform block's size in bytes — what to allocate.</summary>");
             writer.AppendLine($"    public const int ConstantBufferSize = {first.Binding.Size};");
 
             EmitBindingConstants(writer, "ConstantBuffer", first.Set, first.Binding.Index, "the uniform block");
@@ -256,7 +268,9 @@ static class BindingsEmitter {
         }
 
         writer.AppendLine();
-        writer.AppendLine("    // --- Vertex attributes: where the vertex stage expects each one. See the remarks above.");
+        writer.AppendLine(
+            "    // --- Vertex attributes: where the vertex stage expects each one. See the remarks above."
+        );
         writer.AppendLine();
         writer.AppendLine("    /// <summary>How many attributes the vertex stage takes from a buffer.</summary>");
         writer.AppendLine($"    public const int VertexAttributeCount = {reflection.VertexInputs.Count};");
@@ -297,7 +311,9 @@ static class BindingsEmitter {
         writer.AppendLine($"    /// <summary>Which descriptor set holds <c>{Escape(described)}</c>.</summary>");
         writer.AppendLine($"    public const int {name}Set = {set};");
         writer.AppendLine();
-        writer.AppendLine($"    /// <summary>Which binding within set {set} <c>{Escape(described)}</c> occupies.</summary>");
+        writer.AppendLine(
+            $"    /// <summary>Which binding within set {set} <c>{Escape(described)}</c> occupies.</summary>"
+        );
         writer.AppendLine($"    public const uint {name}Binding = {binding};");
     }
 
@@ -337,8 +353,8 @@ static class BindingsEmitter {
             // A leaf of a struct array is skipped for the reason the constants struct skips it: its
             // offset is element zero's, so a key for it would write one element of a table and look
             // like it had written the table.
-            .Where(p => !p.Name.Contains("[]"))
-            .Where(p => !p.Type.IsArray && !p.Type.IsStruct && ShaderTypes.Name(p.Type) is not null)
+            .Where(static p => !p.Name.Contains("[]"))
+            .Where(static p => !p.Type.IsArray && !p.Type.IsStruct && ShaderTypes.Name(p.Type) is not null)
             .ToArray();
 
         if (values.Length == 0) {
@@ -388,10 +404,10 @@ static class BindingsEmitter {
 
         // A leaf of a struct array — `lights[].color` — belongs to that array's element type rather
         // than to the block, and gets a struct of its own below.
-        var scalars = owned.Where(p => !p.Name.Contains("[]") && ShaderTypes.Name(p.Type) is not null).ToArray();
+        var scalars = owned.Where(static p => !p.Name.Contains("[]") && ShaderTypes.Name(p.Type) is not null).ToArray();
 
         var arrays = uniforms.Binding.Members
-            .Where(m => m.Type is { IsStruct: true, IsArray: true })
+            .Where(static m => m.Type is { IsStruct: true, IsArray: true })
             .ToArray();
 
         foreach (var array in arrays) {
@@ -403,7 +419,9 @@ static class BindingsEmitter {
         writer.AppendLine($"///     The values of <c>{Escape(shaderName)}</c>'s uniform block, in C# types.");
         writer.AppendLine("/// </summary>");
         writer.AppendLine("/// <remarks>");
-        writer.AppendLine("///     Field order follows the shader's declaration order, not the block's byte order — the");
+        writer.AppendLine(
+            "///     Field order follows the shader's declaration order, not the block's byte order — the"
+        );
         writer.AppendLine("///     two differ wherever std140 inserted padding, and the writer knows the difference.");
         writer.AppendLine("/// </remarks>");
         writer.AppendLine($"{visibility} struct {structName} {{");
@@ -413,7 +431,9 @@ static class BindingsEmitter {
             var name = ShaderTypes.Identifier(parameter.Name);
 
             writer.AppendLine();
-            writer.AppendLine($"    /// <summary><c>{Escape(parameter.Name)}</c> at byte {parameter.Offset}.</summary>");
+            writer.AppendLine(
+                $"    /// <summary><c>{Escape(parameter.Name)}</c> at byte {parameter.Offset}.</summary>"
+            );
 
             // An array field is nullable rather than sized: the shader's length is a ceiling the
             // host fills to a different depth each frame, and a null one is "leave it alone", which
@@ -429,12 +449,18 @@ static class BindingsEmitter {
         writer.AppendLine("    /// <summary>The block's size in bytes.</summary>");
         writer.AppendLine($"    public const int Size = {uniforms.Binding.Size};");
         writer.AppendLine();
-        writer.AppendLine("    /// <summary>Writes every value into <paramref name=\"buffer\"/> at its baked offset.</summary>");
-        writer.AppendLine("    /// <exception cref=\"System.ArgumentException\">The buffer is shorter than <see cref=\"Size\"/>.</exception>");
+        writer.AppendLine(
+            """    /// <summary>Writes every value into <paramref name="buffer"/> at its baked offset.</summary>"""
+        );
+        writer.AppendLine(
+            """    /// <exception cref="System.ArgumentException">The buffer is shorter than <see cref="Size"/>.</exception>"""
+        );
         writer.AppendLine("    public readonly void Write(System.Span<byte> buffer) {");
         writer.AppendLine("        if (buffer.Length < Size) {");
         writer.AppendLine("            throw new System.ArgumentException(");
-        writer.AppendLine($"                $\"A {structName} block needs {{Size}} bytes; this one has {{buffer.Length}}.\",");
+        writer.AppendLine(
+            $"                $\"A {structName} block needs {{Size}} bytes; this one has {{buffer.Length}}.\","
+        );
         writer.AppendLine("                nameof(buffer)");
         writer.AppendLine("            );");
         writer.AppendLine("        }");
@@ -464,7 +490,13 @@ static class BindingsEmitter {
     ///         what stops the shader looking at them.
     ///     </para>
     /// </remarks>
-    static void EmitElement(StringBuilder writer, string shaderName, Member array, Parameter[] owned, string visibility) {
+    static void EmitElement(
+        StringBuilder writer,
+        string shaderName,
+        Member array,
+        Parameter[] owned,
+        string visibility
+    ) {
         var prefix = array.Name + "[].";
         var fields = owned
             .Where(p => p.Name.StartsWith(prefix, StringComparison.Ordinal) && ShaderTypes.Name(p.Type) is not null)
@@ -488,7 +520,9 @@ static class BindingsEmitter {
                 $"    /// <summary><c>{Escape(field.Name)}</c> — {field.Size} bytes at "
                 + $"{field.Offset - array.Offset} into the element.</summary>"
             );
-            writer.AppendLine($"    public {ShaderTypes.Name(field.Type)!} {ShaderTypes.Identifier(field.Name.Substring(prefix.Length))};");
+            writer.AppendLine(
+                $"    public {ShaderTypes.Name(field.Type)!} {ShaderTypes.Identifier(field.Name.Substring(prefix.Length))};"
+            );
         }
 
         writer.AppendLine();
@@ -501,8 +535,10 @@ static class BindingsEmitter {
         writer.AppendLine("    /// <summary>Byte offset of element zero within the block.</summary>");
         writer.AppendLine($"    public const int BaseOffset = {array.Offset};");
         writer.AppendLine();
-        writer.AppendLine("    /// <summary>Writes this element into slot <paramref name=\"index\"/>.</summary>");
-        writer.AppendLine("    /// <exception cref=\"System.ArgumentOutOfRangeException\">The slot is outside the declared array.</exception>");
+        writer.AppendLine("""    /// <summary>Writes this element into slot <paramref name="index"/>.</summary>""");
+        writer.AppendLine(
+            """    /// <exception cref="System.ArgumentOutOfRangeException">The slot is outside the declared array.</exception>"""
+        );
         writer.AppendLine("    public readonly void Write(System.Span<byte> buffer, int index) {");
         writer.AppendLine("        System.ArgumentOutOfRangeException.ThrowIfNegative(index);");
         writer.AppendLine("        System.ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(index, Count);");
@@ -569,7 +605,8 @@ static class BindingsEmitter {
         type.Scalar switch {
             "Bool" => string.Equals(value, "true", StringComparison.OrdinalIgnoreCase) ? "true" : "false",
             "UInt" => (uint.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var u) ? u : 0u)
-                .ToString(CultureInfo.InvariantCulture) + "u",
+                .ToString(CultureInfo.InvariantCulture)
+                + "u",
             _ => (int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var i) ? i : 0)
                 .ToString(CultureInfo.InvariantCulture)
         };

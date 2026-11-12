@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core.Mathematics;
-using Vixen.Platform;
 using Vixen.Platform.Headless;
 using Vixen.Ui.Composition;
 using Xunit;
@@ -11,8 +10,12 @@ namespace Vixen.Ui.Desktop.Tests;
 
 /// <summary>⌘Q, and whether anything gets a chance to say no.</summary>
 /// <remarks>
-///     ⚠ <b>What these asserted before the veto existed: nothing, because there was no hook to
-///     assert on.</b> <c>Pump</c> set <c>running = false</c> outright on a platform Quit, so Save /
+///     ⚠
+///     <b>
+///         What these asserted before the veto existed: nothing, because there was no hook to
+///         assert on.
+///     </b>
+///     <c>Pump</c> set <c>running = false</c> outright on a platform Quit, so Save /
 ///     Don't Save / Cancel was not unimplemented — it was unreachable, in every <c>Vixen.Ui</c>
 ///     application. <c>EditorHost</c> has had the four correct lines since save-on-close was built;
 ///     this host was the copy one assembly over that still had the bug.
@@ -26,14 +29,14 @@ public class QuitRequestTests {
     static (UiApplication Application, HeadlessPlatform Platform) Application(int frames) {
         var options = new UiApplicationOptions {
             Title = "test",
-            Size = new Int2(320, 240),
+            Size = new(320, 240),
             Frames = frames,
             InstallSystemFont = false,
-            Content = () => new Probe()
+            Content = static () => new Probe()
         };
 
         var platform = new HeadlessPlatform();
-        var window = platform.CreateWindow(new WindowOptions { Title = "test", Size = new Int2(320, 240) });
+        var window = platform.CreateWindow(new() { Title = "test", Size = new(320, 240) });
 
         return (new UiApplication(options, platform, window), platform);
     }
@@ -45,7 +48,7 @@ public class QuitRequestTests {
     /// </remarks>
     [Fact]
     public void A_quit_nobody_refuses_stops_the_loop() {
-        var (application, platform) = Application(frames: 16);
+        var (application, platform) = Application(16);
         using var _ = application;
 
         platform.Lifecycle.RequestQuit();
@@ -63,7 +66,7 @@ public class QuitRequestTests {
     /// </remarks>
     [Fact]
     public void A_refused_quit_leaves_the_loop_running_and_clears_the_platforms_latch() {
-        var (application, platform) = Application(frames: 6);
+        var (application, platform) = Application(6);
         using var _ = application;
 
         var asked = 0;
@@ -88,15 +91,16 @@ public class QuitRequestTests {
     /// </remarks>
     [Fact]
     public void The_request_is_routed_through_the_element_tree() {
-        var (application, platform) = Application(frames: 6);
+        var (application, platform) = Application(6);
         using var _ = application;
 
         var seen = 0;
 
         application.Document.Root.AddHandler<CloseRequestEvent>((_, args) => {
-            seen++;
-            args.Cancel();
-        });
+                seen++;
+                args.Cancel();
+            }
+        );
 
         platform.Lifecycle.RequestQuit();
         application.Run();
@@ -112,10 +116,10 @@ public class QuitRequestTests {
     /// </remarks>
     [Fact]
     public void Marking_the_request_handled_does_not_refuse_it() {
-        var (application, platform) = Application(frames: 16);
+        var (application, platform) = Application(16);
         using var _ = application;
 
-        application.Document.Root.AddHandler<CloseRequestEvent>((_, args) => args.Handled = true);
+        application.Document.Root.AddHandler<CloseRequestEvent>(static (_, args) => args.Handled = true);
 
         platform.Lifecycle.RequestQuit();
         application.Run();
@@ -132,7 +136,7 @@ public class QuitRequestTests {
     /// </remarks>
     [Fact]
     public void A_handler_that_refuses_can_quit_later() {
-        var (application, platform) = Application(frames: 32);
+        var (application, platform) = Application(32);
         using var _ = application;
 
         var asked = 0;
@@ -162,7 +166,7 @@ public class QuitRequestTests {
     /// <summary>The platform is reachable, which is what an application needs to write any of this itself.</summary>
     [Fact]
     public void The_platform_is_reachable_from_the_application() {
-        var (application, platform) = Application(frames: 1);
+        var (application, platform) = Application(1);
         using var _ = application;
 
         Assert.Same(platform, application.Platform);

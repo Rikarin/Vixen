@@ -102,7 +102,7 @@ public sealed partial class DockLayout {
         ArgumentNullException.ThrowIfNull(id);
 
         RemovePanel(id);
-        AddFloating(new DockFloat(new DockGroupNode(id), x, y, width, height));
+        AddFloating(new(new(id), x, y, width, height));
     }
 
     /// <summary>Swaps one node of the tree for another.</summary>
@@ -174,8 +174,12 @@ public sealed partial class DockLayout {
     /// <returns>That group; a floating one if nothing is docked; <c>null</c> if there are no groups.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The answer to <c>Rikarin/Vixen#969</c>, and the reason it is a fact about the
-    ///         arrangement rather than about the screen.</b> A panel the arrangement has no entry for
+    ///         ⚠
+    ///         <b>
+    ///             The answer to <c>Rikarin/Vixen#969</c>, and the reason it is a fact about the
+    ///             arrangement rather than about the screen.
+    ///         </b>
+    ///         A panel the arrangement has no entry for
     ///         used to go into <see cref="Groups" />' first, which is the tree's leftmost leaf — and
     ///         every <c>LayoutPresets.Standard</c> preset builds its root as
     ///         <c>Split(browser, middle, 0.2)</c>, so "first" was the 20 % browser column for every
@@ -224,9 +228,6 @@ public sealed partial class DockLayout {
                 case DockSplitNode split:
                     Measure(split.First, area * split.Ratio, ref largest, ref most);
                     Measure(split.Second, area * (1f - split.Ratio), ref largest, ref most);
-                    break;
-
-                default:
                     break;
             }
         }

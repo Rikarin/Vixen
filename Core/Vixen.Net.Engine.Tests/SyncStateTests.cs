@@ -4,7 +4,6 @@
 using Vixen.Core.Mathematics;
 using Vixen.Ecs;
 using Vixen.Engine.Behaviors;
-using Vixen.Net.Engine;
 using Vixen.Net.Messaging;
 using Vixen.Net.Replication;
 using Vixen.Net.Sessions;
@@ -90,7 +89,7 @@ public sealed class SyncStateTests : IDisposable {
         var state = new PlayerState();
         state.Seal(nameof(PlayerState));
 
-        var names = state.Fields.Select(field => field.Name).ToArray();
+        var names = state.Fields.Select(static field => field.Name).ToArray();
 
         // Own fields in declaration order, then nested modules' — not source order, because fields
         // and modules are declared through different calls. Deterministic is what matters: both ends
@@ -190,7 +189,7 @@ public sealed class SyncStateTests : IDisposable {
 
     [Fact]
     public void ATypeTheWireDoesNotKnow_IsRefusedAtConstruction() =>
-        Assert.Throws<NotSupportedException>(() => new SyncVar<DateTime>());
+        Assert.Throws<NotSupportedException>(static () => new SyncVar<DateTime>());
 
     PlayerBehaviour Spawn() {
         spawned = ids.Next();

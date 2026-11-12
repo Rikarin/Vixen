@@ -11,8 +11,12 @@ namespace Vixen.Ui.Layout.Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>This is the invariant four algorithms preserved without ever stating it, and the
-///         file that breaks it on purpose.</b> A <see cref="LayoutResult" /> holds one rectangle, and
+///         ⚠
+///         <b>
+///             This is the invariant four algorithms preserved without ever stating it, and the
+///             file that breaks it on purpose.
+///         </b>
+///         A <see cref="LayoutResult" /> holds one rectangle, and
 ///         a <c>span</c> crossing a line break is one rectangle per line — with the horizontal border
 ///         and padding drawn at the two real ends and not at the breaks. Everything here is either an
 ///         assertion that the several boxes exist and are in the right places, or an assertion that
@@ -58,7 +62,7 @@ public class InlineFragmentationTests {
     [Fact]
     public void A_span_crossing_a_line_break_becomes_one_box_per_line() {
         using var tree = new LayoutTree();
-        var root = PaddedRoot(tree, width: 100f, padding: 10f);
+        var root = PaddedRoot(tree, 100f, 10f);
         var span = Span(tree, root);
 
         Item(tree, span, 40f, 20f);
@@ -101,7 +105,7 @@ public class InlineFragmentationTests {
     [Fact]
     public void The_spans_own_box_is_the_union_and_its_children_are_relative_to_it() {
         using var tree = new LayoutTree();
-        var root = PaddedRoot(tree, width: 100f, padding: 10f);
+        var root = PaddedRoot(tree, 100f, 10f);
         var span = Span(tree, root);
 
         var first = Item(tree, span, 40f, 20f);
@@ -134,8 +138,12 @@ public class InlineFragmentationTests {
     ///     A span's horizontal padding is drawn at its two real ends and not at the break.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>This is the entry <c>InlineKnownGaps.txt</c> filed one level below fragmentation, and
-    ///     it is the same fact.</b> The line is 100 wide. The span's <c>padding-left</c> of 12 pushes
+    ///     ⚠
+    ///     <b>
+    ///         This is the entry <c>InlineKnownGaps.txt</c> filed one level below fragmentation, and
+    ///         it is the same fact.
+    ///     </b>
+    ///     The line is 100 wide. The span's <c>padding-left</c> of 12 pushes
     ///     its first child to x = 12 and is part of the first fragment; the 8 of
     ///     <c>padding-right</c> hangs off the far end of the last fragment and nothing is added at the
     ///     break. So the first line is 12 + 40 + 40 = 92 and the second is 40 + 8 = 48.
@@ -143,7 +151,7 @@ public class InlineFragmentationTests {
     [Fact]
     public void Horizontal_padding_lands_on_the_real_ends_and_not_on_the_break() {
         using var tree = new LayoutTree();
-        var root = PaddedRoot(tree, width: 100f, padding: 0f);
+        var root = PaddedRoot(tree, 100f, 0f);
         var span = Span(tree, root);
         tree.SetPadding(span, Edge.Left, StyleLength.Points(12f));
         tree.SetPadding(span, Edge.Right, StyleLength.Points(8f));
@@ -179,7 +187,7 @@ public class InlineFragmentationTests {
     [Fact]
     public void A_span_that_fits_on_one_line_is_a_single_box_carrying_both_ends() {
         using var tree = new LayoutTree();
-        var root = PaddedRoot(tree, width: 200f, padding: 0f);
+        var root = PaddedRoot(tree, 200f, 0f);
         var span = Span(tree, root);
 
         Item(tree, span, 40f, 20f);
@@ -202,8 +210,12 @@ public class InlineFragmentationTests {
     ///     exactly one box, and it is the box it always had.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>This is the compatibility assertion, and it is the reason the change was additive
-    ///     rather than a migration.</b> A node with no fragment block answers "one", and that one is
+    ///     ⚠
+    ///     <b>
+    ///         This is the compatibility assertion, and it is the reason the change was additive
+    ///         rather than a migration.
+    ///     </b>
+    ///     A node with no fragment block answers "one", and that one is
     ///     <c>GetWidth</c> and <c>GetHeight</c> at offset (0, 0) — so a consumer written against the
     ///     fragment API and a consumer written against <c>GetLeft</c> agree everywhere except on the
     ///     boxes that really did split.
@@ -211,7 +223,7 @@ public class InlineFragmentationTests {
     [Fact]
     public void A_node_that_did_not_fragment_reports_exactly_one_box() {
         using var tree = new LayoutTree();
-        var root = PaddedRoot(tree, width: 200f, padding: 0f);
+        var root = PaddedRoot(tree, 200f, 0f);
         var plain = Item(tree, root, 60f, 30f);
 
         tree.CalculateLayout(root, 200f, float.NaN, Direction.Ltr);
@@ -239,7 +251,7 @@ public class InlineFragmentationTests {
     [Fact]
     public void A_span_that_stops_fragmenting_stops_reporting_a_second_box() {
         using var tree = new LayoutTree();
-        var root = PaddedRoot(tree, width: 100f, padding: 0f);
+        var root = PaddedRoot(tree, 100f, 0f);
         var span = Span(tree, root);
 
         Item(tree, span, 40f, 20f);
@@ -267,7 +279,7 @@ public class InlineFragmentationTests {
     [Fact]
     public void A_right_to_left_span_fragments_from_the_right_edge() {
         using var tree = new LayoutTree();
-        var root = PaddedRoot(tree, width: 100f, padding: 0f);
+        var root = PaddedRoot(tree, 100f, 0f);
         var span = Span(tree, root);
 
         Item(tree, span, 40f, 20f);
@@ -295,8 +307,12 @@ public class InlineFragmentationTests {
 
     /// <summary>A span inside an anonymous block box still fragments across its lines.</summary>
     /// <remarks>
-    ///     ⚠ <b>The two features meet here, and the assertion is about <i>boxes</i> rather than about
-    ///     either mechanism firing.</b> An anonymous block box (§9.2.1.1) is a line walk over a
+    ///     ⚠
+    ///     <b>
+    ///         The two features meet here, and the assertion is about <i>boxes</i> rather than about
+    ///         either mechanism firing.
+    ///     </b>
+    ///     An anonymous block box (§9.2.1.1) is a line walk over a
     ///     sub-range of a mixed container's children; a fragmenting span (Display §2.2) is one node
     ///     producing several boxes on that walk. Nothing had to be taught about the combination — the
     ///     run is flowed by the same <c>WalkInlineLines</c>, so the span's fragments come out in the
@@ -307,9 +323,9 @@ public class InlineFragmentationTests {
     [Fact]
     public void A_span_inside_an_anonymous_block_box_still_fragments() {
         using var tree = new LayoutTree();
-        var root = PaddedRoot(tree, width: 100f, padding: 0f);
+        var root = PaddedRoot(tree, 100f, 0f);
 
-        var head = BlockBox(tree, root, width: 100f, height: 10f);
+        var head = BlockBox(tree, root, 100f, 10f);
         var span = Span(tree, root);
 
         Item(tree, span, 40f, 20f);
@@ -341,8 +357,12 @@ public class InlineFragmentationTests {
     ///     Re-laying a mixed container every frame allocates nothing either.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>An anonymous block box is one more caller of the watermarked stream, and a second
-    ///     caller is exactly how a watermark gets broken.</b> A mixed container calls
+    ///     ⚠
+    ///     <b>
+    ///         An anonymous block box is one more caller of the watermarked stream, and a second
+    ///         caller is exactly how a watermark gets broken.
+    ///     </b>
+    ///     A mixed container calls
     ///     <c>WalkInlineLines</c> once per run rather than once per container, so a restore that
     ///     rewound to the wrong base — or a run that abandoned an open box without committing its
     ///     fragments — would show up as an arena growing a little on every frame rather than as a
@@ -352,10 +372,10 @@ public class InlineFragmentationTests {
     [Fact]
     public void A_mixed_container_re_laid_every_frame_allocates_nothing() {
         using var tree = new LayoutTree();
-        var root = PaddedRoot(tree, width: 100f, padding: 0f);
+        var root = PaddedRoot(tree, 100f, 0f);
 
         var leading = Span(tree, root);
-        BlockBox(tree, root, width: 100f, height: 10f);
+        BlockBox(tree, root, 100f, 10f);
         var trailing = Span(tree, root);
 
         for (var i = 0; i < 5; i++) {
@@ -366,12 +386,12 @@ public class InlineFragmentationTests {
         var toggle = tree.GetChild(leading, 0);
         var frame = 0;
 
-        Measured.NothingAllocated(Layout, warmUp: 20, passes: 200);
+        Measured.NothingAllocated(Layout, 20, 200);
 
         return;
 
         void Layout() {
-            tree.SetDimension(toggle, Dimension.Height, StyleLength.Points(20f + (frame++ % 3)));
+            tree.SetDimension(toggle, Dimension.Height, StyleLength.Points(20f + frame++ % 3));
             tree.CalculateLayout(root, 100f, float.NaN, Direction.Ltr);
         }
     }
@@ -380,8 +400,12 @@ public class InlineFragmentationTests {
     ///     Re-laying a tree with a fragmenting span in it every frame allocates nothing.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>The gate <c>LayoutPassTests</c> holds for flex, held for the thing that made a line
-    ///     stop being a range of children.</b> A fragmented span rewrites its fragments on every
+    ///     ⚠
+    ///     <b>
+    ///         The gate <c>LayoutPassTests</c> holds for flex, held for the thing that made a line
+    ///         stop being a range of children.
+    ///     </b>
+    ///     A fragmented span rewrites its fragments on every
     ///     single pass, so an arena that grew on each write would fail this within twenty frames — and
     ///     the two scratch buffers behind the flattened stream would too if they were not watermarked
     ///     and reused. This is the test that says the representation is affordable, which was the
@@ -390,7 +414,7 @@ public class InlineFragmentationTests {
     [Fact]
     public void A_fragmenting_span_re_laid_every_frame_allocates_nothing() {
         using var tree = new LayoutTree();
-        var root = PaddedRoot(tree, width: 100f, padding: 0f);
+        var root = PaddedRoot(tree, 100f, 0f);
         var span = Span(tree, root);
 
         for (var i = 0; i < 9; i++) {
@@ -400,24 +424,30 @@ public class InlineFragmentationTests {
         var toggle = tree.GetChild(span, 0);
         var frame = 0;
 
-        Measured.NothingAllocated(Layout, warmUp: 20, passes: 200);
+        Measured.NothingAllocated(Layout, 20, 200);
 
         return;
 
         void Layout() {
-            tree.SetDimension(toggle, Dimension.Height, StyleLength.Points(20f + (frame++ % 3)));
+            tree.SetDimension(toggle, Dimension.Height, StyleLength.Points(20f + frame++ % 3));
             tree.CalculateLayout(root, 100f, float.NaN, Direction.Ltr);
         }
     }
 
     /// <summary>
-    ///     ⚠ <b>A span inside a span fragments too, and this test is the inverted form of the one
-    ///     that used to pin the opposite.</b>
+    ///     ⚠
+    ///     <b>
+    ///         A span inside a span fragments too, and this test is the inverted form of the one
+    ///         that used to pin the opposite.
+    ///     </b>
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <b>The premise moved rather than the assertion being weakened, and it is worth saying
-    ///         which premise.</b> This was <c>A_span_inside_a_span_is_still_atomic</c>, whose own
+    ///         <b>
+    ///             The premise moved rather than the assertion being weakened, and it is worth saying
+    ///             which premise.
+    ///         </b>
+    ///         This was <c>A_span_inside_a_span_is_still_atomic</c>, whose own
     ///         remark said it would go red and be inverted the day nesting landed — the same
     ///         arrangement <c>Mixed_content_stacks_because_there_are_no_anonymous_boxes</c> had before
     ///         anonymous boxes. What it blamed was wrong: it said the missing piece was "the rebasing
@@ -437,7 +467,7 @@ public class InlineFragmentationTests {
     [Fact]
     public void A_span_inside_a_span_fragments_with_it() {
         using var tree = new LayoutTree();
-        var root = PaddedRoot(tree, width: 100f, padding: 0f);
+        var root = PaddedRoot(tree, 100f, 0f);
         var outer = Span(tree, root);
         var inner = Span(tree, outer);
 
@@ -502,7 +532,7 @@ public class InlineFragmentationTests {
     [Fact]
     public void A_nested_span_carries_its_own_edges_and_the_outer_carries_the_outer_ones() {
         using var tree = new LayoutTree();
-        var root = PaddedRoot(tree, width: 200f, padding: 0f);
+        var root = PaddedRoot(tree, 200f, 0f);
         var outer = Span(tree, root);
         tree.SetPadding(outer, Edge.Left, StyleLength.Points(10f));
         tree.SetPadding(outer, Edge.Right, StyleLength.Points(10f));
@@ -555,7 +585,7 @@ public class InlineFragmentationTests {
     [Fact]
     public void Flattening_recurses_rather_than_going_one_level_deeper() {
         using var tree = new LayoutTree();
-        var root = PaddedRoot(tree, width: 100f, padding: 0f);
+        var root = PaddedRoot(tree, 100f, 0f);
         var first = Span(tree, root);
         var second = Span(tree, first);
         var third = Span(tree, second);
@@ -581,8 +611,12 @@ public class InlineFragmentationTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>This test was the refusal and is now its inversion, and what it asserted was
-    ///         true of the code rather than of CSS.</b> The absolute walk descends only through
+    ///         ⚠
+    ///         <b>
+    ///             This test was the refusal and is now its inversion, and what it asserted was
+    ///             true of the code rather than of CSS.
+    ///         </b>
+    ///         The absolute walk descends only through
     ///         children that are not containing blocks — and this store's default
     ///         <see cref="PositionType" /> is <see cref="PositionType.Relative" />, Yoga's rather
     ///         than CSS's <c>static</c> — so a span is one and the container's walk stopped at it,
@@ -601,7 +635,7 @@ public class InlineFragmentationTests {
     [Fact]
     public void A_span_with_an_out_of_flow_child_fragments_and_the_child_is_still_placed() {
         using var tree = new LayoutTree();
-        var root = PaddedRoot(tree, width: 100f, padding: 10f);
+        var root = PaddedRoot(tree, 100f, 10f);
         var span = Span(tree, root);
 
         Item(tree, span, 40f, 20f);
@@ -635,8 +669,12 @@ public class InlineFragmentationTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>This test was the defect written down and is now its inversion, and the premise
-    ///         that moved is the READER rather than the recording.</b> It used to assert 0 with a
+    ///         ⚠
+    ///         <b>
+    ///             This test was the defect written down and is now its inversion, and the premise
+    ///             that moved is the READER rather than the recording.
+    ///         </b>
+    ///         It used to assert 0 with a
     ///         remark saying so was wrong: <c>HideAndPositionOutOfFlow</c> wrote a
     ///         <c>BlockStaticLeft</c> for this child all along, and <c>LayoutAbsoluteChild</c> read
     ///         that pair only for a <c>block</c> or <c>flow-root</c> parent — an inline box is
@@ -647,8 +685,12 @@ public class InlineFragmentationTests {
     ///         when it was first written: nothing read it.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Both axes are un-inset now, which the old remark said could not distinguish a
-    ///         placed child from a vanished one — and that is exactly what has changed.</b> A child
+    ///         ⚠
+    ///         <b>
+    ///             Both axes are un-inset now, which the old remark said could not distinguish a
+    ///             placed child from a vanished one — and that is exactly what has changed.
+    ///         </b>
+    ///         A child
     ///         nobody positions reads (0, 0); §10.6.4's answer here is (40, 20), so the two are no
     ///         longer the same number and the fixture needs no inset to prove the walk ran.
     ///     </para>
@@ -664,7 +706,7 @@ public class InlineFragmentationTests {
     [Fact]
     public void An_out_of_flow_child_with_no_inset_lands_where_its_hypothetical_box_would_have_gone() {
         using var tree = new LayoutTree();
-        var root = PaddedRoot(tree, width: 100f, padding: 10f);
+        var root = PaddedRoot(tree, 100f, 10f);
         var span = Span(tree, root);
 
         Item(tree, span, 40f, 20f);
@@ -698,7 +740,7 @@ public class InlineFragmentationTests {
     [Fact]
     public void The_static_position_is_the_pen_at_the_child_and_not_at_the_end_of_the_flow() {
         using var tree = new LayoutTree();
-        var root = PaddedRoot(tree, width: 100f, padding: 10f);
+        var root = PaddedRoot(tree, 100f, 10f);
         var span = Span(tree, root);
 
         Item(tree, span, 40f, 20f);
@@ -726,8 +768,12 @@ public class InlineFragmentationTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The half of the fix with a behaviour change in it, and it is a behaviour change
-    ///         for an ATOMIC span too.</b> Reaching the static-position branch at all required adding
+    ///         ⚠
+    ///         <b>
+    ///             The half of the fix with a behaviour change in it, and it is a behaviour change
+    ///             for an ATOMIC span too.
+    ///         </b>
+    ///         Reaching the static-position branch at all required adding
     ///         <see cref="Display.Inline" /> to <c>isPhysicalParent</c>, because the branch above it
     ///         resolved an inline box's axes through <c>FlexAxis.Resolve(styles[node].FlexDirection)</c>
     ///         — and a `row` left in the style by the initial value resolves to `row-reverse` under
@@ -743,7 +789,7 @@ public class InlineFragmentationTests {
     [Fact]
     public void An_rtl_spans_out_of_flow_child_is_placed_from_the_lines_right_edge() {
         using var tree = new LayoutTree();
-        var root = PaddedRoot(tree, width: 100f, padding: 10f);
+        var root = PaddedRoot(tree, 100f, 10f);
         var span = Span(tree, root);
 
         Item(tree, span, 40f, 20f);
@@ -768,8 +814,12 @@ public class InlineFragmentationTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>This is the half of the fix that changes an answer no span is involved in, and it
-    ///         is worth its own case because the two recordings were never the same thing.</b> A
+    ///         ⚠
+    ///         <b>
+    ///             This is the half of the fix that changes an answer no span is involved in, and it
+    ///             is worth its own case because the two recordings were never the same thing.
+    ///         </b>
+    ///         A
     ///         block container reading its children as a block flow has recorded a real §10.6.4
     ///         cursor all along — <c>WalkBlockChildren</c> advances it per child. A block container
     ///         whose children are all inline-level runs the line walk instead, and there the
@@ -787,7 +837,7 @@ public class InlineFragmentationTests {
     [Fact]
     public void A_block_containers_own_out_of_flow_child_is_placed_on_the_line_it_was_written_on() {
         using var tree = new LayoutTree();
-        var root = PaddedRoot(tree, width: 100f, padding: 10f);
+        var root = PaddedRoot(tree, 100f, 10f);
 
         Item(tree, root, 40f, 20f);
         Item(tree, root, 40f, 20f);
@@ -818,8 +868,11 @@ public class InlineFragmentationTests {
     ///         other half of the machinery switched off.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>There is a FOURTH way to hold such a box atomic, and it is the only one that is
-    ///         not degenerate: give it a parent that runs no inline formatting context at all.</b>
+    ///         ⚠
+    ///         <b>
+    ///             There is a FOURTH way to hold such a box atomic, and it is the only one that is
+    ///             not degenerate: give it a parent that runs no inline formatting context at all.
+    ///         </b>
     ///         <c>IsNonAtomicInline</c> is consulted only from <c>BuildInlineItems</c> and
     ///         <c>LayoutFlattenedInlineAbsolutes</c> — that is, only from a parent already walking
     ///         lines — so a span that is a FLEX ITEM is never offered for flattening. It is laid out
@@ -849,8 +902,12 @@ public class InlineFragmentationTests {
     ///         makes one assertion enough here.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>No Chrome reading is possible for this fixture, and that is a fact about CSS
-    ///         rather than about the harness.</b> CSS Display §2.7 blockifies a flex item, so
+    ///         ⚠
+    ///         <b>
+    ///             No Chrome reading is possible for this fixture, and that is a fact about CSS
+    ///             rather than about the harness.
+    ///         </b>
+    ///         CSS Display §2.7 blockifies a flex item, so
     ///         <c>display: inline</c> on one computes to <c>block</c> in every browser — as it does on
     ///         a grid item, a float, an absolutely positioned box and the root element, which between
     ///         them are every way to hold such a box out of an inline formatting context. This store
@@ -860,8 +917,11 @@ public class InlineFragmentationTests {
     ///         rather than from a union's.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And the numbers below turn out to be Chrome's after all, which is a correction to
-    ///         the paragraph above rather than a reason to delete it.</b>
+    ///         ⚠
+    ///         <b>
+    ///             And the numbers below turn out to be Chrome's after all, which is a correction to
+    ///             the paragraph above rather than a reason to delete it.
+    ///         </b>
     ///         <see cref="BlockificationTests" /> measured §2.7's rewrite over 156 shapes covering all
     ///         five of those contexts and it moves nothing here — a blockified <c>block</c> holding
     ///         only inline-level children runs the same line walk this span runs, so 90 wide and two
@@ -912,8 +972,12 @@ public class InlineFragmentationTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The two rectangles are the same size in every other fixture in this file, which
-    ///         is why this one has a block-level sibling.</b> A span holding three 40-wide items in a
+    ///         ⚠
+    ///         <b>
+    ///             The two rectangles are the same size in every other fixture in this file, which
+    ///             is why this one has a block-level sibling.
+    ///         </b>
+    ///         A span holding three 40-wide items in a
     ///         100-wide container has a union exactly as wide and as tall as the container's content
     ///         box, so a trailing inset resolved against the wrong one of the two answers correctly.
     ///         The 30-tall sibling below takes the container's content height to 70 and leaves the
@@ -930,7 +994,7 @@ public class InlineFragmentationTests {
     [Fact]
     public void The_containing_block_of_such_a_child_is_the_union_and_the_block_path_walks_it_too() {
         using var tree = new LayoutTree();
-        var root = PaddedRoot(tree, width: 100f, padding: 10f);
+        var root = PaddedRoot(tree, 100f, 10f);
         var span = Span(tree, root);
 
         Item(tree, span, 40f, 20f);
@@ -968,7 +1032,7 @@ public class InlineFragmentationTests {
     [Fact]
     public void An_out_of_flow_child_of_a_nested_span_is_placed_by_the_nested_spans_own_walk() {
         using var tree = new LayoutTree();
-        var root = PaddedRoot(tree, width: 100f, padding: 0f);
+        var root = PaddedRoot(tree, 100f, 0f);
         var outer = Span(tree, root);
         var inner = Span(tree, outer);
 
@@ -1000,7 +1064,7 @@ public class InlineFragmentationTests {
     [Fact]
     public void A_relative_offset_on_a_fragmented_span_moves_the_union_and_not_the_fragments() {
         using var tree = new LayoutTree();
-        var root = PaddedRoot(tree, width: 100f, padding: 0f);
+        var root = PaddedRoot(tree, 100f, 0f);
         var span = Span(tree, root);
         tree.SetPositionType(span, PositionType.Relative);
         tree.SetPosition(span, Edge.Left, StyleLength.Points(5f));
@@ -1038,7 +1102,7 @@ public class InlineFragmentationTests {
     [Fact]
     public void Fragments_are_snapped_to_the_pixel_grid() {
         using var tree = new LayoutTree();
-        var root = PaddedRoot(tree, width: 100f, padding: 0f);
+        var root = PaddedRoot(tree, 100f, 0f);
         tree.PointScaleFactor = 2f;
 
         var span = Span(tree, root);
@@ -1069,8 +1133,12 @@ public class InlineFragmentationTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Read out of Chrome 148.0.7778.280, and it is the first number in this file that
-    ///         was.</b> The rest of the file is closed-form arithmetic because no browser reading was
+    ///         ⚠
+    ///         <b>
+    ///             Read out of Chrome 148.0.7778.280, and it is the first number in this file that
+    ///             was.
+    ///         </b>
+    ///         The rest of the file is closed-form arithmetic because no browser reading was
     ///         taken; this one had to be, because the arithmetic alone cannot say <i>which</i> of two
     ///         defensible rules a browser implements — and the two differ, see
     ///         <see cref="A_box_that_carries_on_past_the_break_spends_no_end_edge_on_the_line" />.
@@ -1087,7 +1155,7 @@ public class InlineFragmentationTests {
     [Fact]
     public void A_closing_edge_that_will_not_fit_wraps_the_item_before_it() {
         using var tree = new LayoutTree();
-        var root = PaddedRoot(tree, width: 200f, padding: 0f);
+        var root = PaddedRoot(tree, 200f, 0f);
         var span = Span(tree, root);
         tree.SetPadding(span, Edge.Left, StyleLength.Points(12f));
         tree.SetPadding(span, Edge.Right, StyleLength.Points(12f));
@@ -1136,7 +1204,7 @@ public class InlineFragmentationTests {
     [Fact]
     public void A_box_that_carries_on_past_the_break_spends_no_end_edge_on_the_line() {
         using var tree = new LayoutTree();
-        var root = PaddedRoot(tree, width: 200f, padding: 0f);
+        var root = PaddedRoot(tree, 200f, 0f);
         var span = Span(tree, root);
         tree.SetPadding(span, Edge.Right, StyleLength.Points(30f));
 
@@ -1179,7 +1247,7 @@ public class InlineFragmentationTests {
     [Fact]
     public void Only_the_boxes_that_close_before_the_next_item_are_charged_to_the_line() {
         using var tree = new LayoutTree();
-        var root = PaddedRoot(tree, width: 200f, padding: 0f);
+        var root = PaddedRoot(tree, 200f, 0f);
 
         var outer = Span(tree, root);
         tree.SetPadding(outer, Edge.Right, StyleLength.Points(40f));
@@ -1222,7 +1290,7 @@ public class InlineFragmentationTests {
     [Fact]
     public void The_end_edge_is_charged_at_the_boundary_and_an_exact_fit_is_not_a_break() {
         using var exact = new LayoutTree();
-        var exactRoot = PaddedRoot(exact, width: 200f, padding: 0f);
+        var exactRoot = PaddedRoot(exact, 200f, 0f);
         var exactSpan = Span(exact, exactRoot);
         exact.SetPadding(exactSpan, Edge.Right, StyleLength.Points(20f));
 
@@ -1238,7 +1306,7 @@ public class InlineFragmentationTests {
         Assert.Equal(0f, exact.GetTop(exactThird), Tolerance);
 
         using var over = new LayoutTree();
-        var overRoot = PaddedRoot(over, width: 200f, padding: 0f);
+        var overRoot = PaddedRoot(over, 200f, 0f);
         var overSpan = Span(over, overRoot);
         over.SetPadding(overSpan, Edge.Right, StyleLength.Points(21f));
 
@@ -1260,17 +1328,25 @@ public class InlineFragmentationTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The mirror image of
-    ///         <see cref="A_box_that_carries_on_past_the_break_spends_no_end_edge_on_the_line" />, and
-    ///         it is a different rule rather than the same one read backwards.</b> An end edge is not
+    ///         ⚠
+    ///         <b>
+    ///             The mirror image of
+    ///             <see cref="A_box_that_carries_on_past_the_break_spends_no_end_edge_on_the_line" />, and
+    ///             it is a different rule rather than the same one read backwards.
+    ///         </b>
+    ///         An end edge is not
     ///         charged at a break because the box carries on; a <i>start</i> edge cannot be charged to
     ///         a line the box has no content on at all, because there is no such thing as a fragment
     ///         with neither an end of the box nor any of its children in it. So the line ends
     ///         <i>before</i> the opening tag and the box begins on the next one.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Every other fragmentation case in this file opens the span on a line that also
-    ///         holds one of its children</b>, which is exactly why none of them could see this: it
+    ///         ⚠
+    ///         <b>
+    ///             Every other fragmentation case in this file opens the span on a line that also
+    ///             holds one of its children
+    ///         </b>
+    ///         , which is exactly why none of them could see this: it
     ///         takes an opening tag that is the last stream entry on a line.
     ///     </para>
     ///     <para>
@@ -1285,7 +1361,7 @@ public class InlineFragmentationTests {
     [Fact]
     public void An_opening_tag_that_ends_a_line_moves_to_the_next_line_with_its_content() {
         using var tree = new LayoutTree();
-        var root = PaddedRoot(tree, width: 200f, padding: 0f);
+        var root = PaddedRoot(tree, 200f, 0f);
 
         Item(tree, root, 60f, 20f);
         Item(tree, root, 60f, 20f);

@@ -4,7 +4,6 @@
 using System.Collections.Frozen;
 using Vixen.Core.Mathematics;
 using Vixen.Geometry;
-using Vixen.Rendering;
 
 namespace Vixen.Animation;
 

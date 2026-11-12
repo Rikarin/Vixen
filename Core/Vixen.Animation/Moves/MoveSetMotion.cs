@@ -21,8 +21,11 @@ namespace Vixen.Animation.Moves;
 ///         The query is a value; comparing this frame's to last frame's is comparing a few words.
 ///     </para>
 ///     <para>
-///         <b>Two moves are evaluated during a transition and blended, and the phase runs through
-///         both.</b> Which phase the incoming move starts at is the <see cref="SyncMode" />'s
+///         <b>
+///             Two moves are evaluated during a transition and blended, and the phase runs through
+///             both.
+///         </b>
+///         Which phase the incoming move starts at is the <see cref="SyncMode" />'s
 ///         business, and the answer that matters is <see cref="SyncMode.ClosestFoot" /> — matching
 ///         contacts rather than fractions, because contacts are what an eye reads.
 ///     </para>
@@ -176,8 +179,12 @@ public sealed class MoveSetMotion : Motion, IPhaseSource {
     /// <inheritdoc />
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The context's normalised time is passed through to each move plus that move's own
-    ///         offset, and is not rescaled by the playback rate.</b> The retime is already in
+    ///         ⚠
+    ///         <b>
+    ///             The context's normalised time is passed through to each move plus that move's own
+    ///             offset, and is not rescaled by the playback rate.
+    ///         </b>
+    ///         The retime is already in
     ///         <see cref="Length" /> and the layer advances against that, so applying it here as well
     ///         would square it and leave a character's feet moving at the wrong speed in a way that
     ///         looks like a content bug.

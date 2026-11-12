@@ -14,8 +14,12 @@ namespace Vixen.Ui.Controls.Advanced;
 ///         be a second thing to keep in step with a format whose whole point is that there is one.
 ///     </para>
 ///     <para>
-///         ⚠ <b>In this assembly and not in <c>Vixen.Ui.Controls</c> beside <see cref="KeyMap" />,
-///         and the layering is the whole reason (#650).</b> The keymap's mechanism — three layers,
+///         ⚠
+///         <b>
+///             In this assembly and not in <c>Vixen.Ui.Controls</c> beside <see cref="KeyMap" />,
+///             and the layering is the whole reason (#650).
+///         </b>
+///         The keymap's mechanism — three layers,
 ///         conflicts, contexts, reservation — is what any application with an accelerator has.
 ///         Where the bindings are kept between runs reaches <c>Vixen.Core.Yaml</c>, which reaches
 ///         YamlDotNet, and <c>Vixen.Ui.Controls</c> doing the same would put a YAML parser in the

@@ -96,11 +96,14 @@ public sealed class RuleIndex(SelectorTable table) {
             candidates.AddRange(identified);
         }
 
-        tree.ForEachIdentifier(index, name => {
-            if (byClass.TryGetValue(name, out var classed)) {
-                candidates.AddRange(classed);
+        tree.ForEachIdentifier(
+            index,
+            name => {
+                if (byClass.TryGetValue(name, out var classed)) {
+                    candidates.AddRange(classed);
+                }
             }
-        });
+        );
 
         candidates.Sort();
     }
@@ -118,8 +121,6 @@ public sealed class RuleIndex(SelectorTable table) {
                     break;
                 case SimpleSelectorKind.Type when best.Kind == SimpleSelectorKind.Universal:
                     best = (SimpleSelectorKind.Type, simple.NameId);
-                    break;
-                default:
                     break;
             }
         }

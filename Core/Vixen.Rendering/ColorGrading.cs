@@ -45,13 +45,14 @@ public readonly record struct ColorGradingRange {
     ///     A property and not <c>default</c>, for the reason every other one in the engine is: a zeroed
     ///     struct here is a saturation of zero and a gain of zero, which is a black greyscale image.
     /// </remarks>
-    public static ColorGradingRange Neutral => new() {
-        Saturation = 1f,
-        Contrast = 1f,
-        Gamma = Vector3.One,
-        Gain = Vector3.One,
-        Offset = Vector3.Zero
-    };
+    public static ColorGradingRange Neutral =>
+        new() {
+            Saturation = 1f,
+            Contrast = 1f,
+            Gamma = Vector3.One,
+            Gain = Vector3.One,
+            Offset = Vector3.Zero
+        };
 
     /// <summary>The range part-way between two, component by component.</summary>
     /// <param name="from">Where the blend starts.</param>
@@ -63,13 +64,14 @@ public readonly record struct ColorGradingRange {
     ///     it feeds is <see cref="BlendedGrading" />: a volume or a look profile fading in wants part
     ///     of its grade, and "part of a grade" is this.
     /// </remarks>
-    public static ColorGradingRange Lerp(in ColorGradingRange from, in ColorGradingRange to, float amount) => new() {
-        Saturation = MathUtil.Lerp(from.Saturation, to.Saturation, amount),
-        Contrast = MathUtil.Lerp(from.Contrast, to.Contrast, amount),
-        Gamma = Vector3.Lerp(from.Gamma, to.Gamma, amount),
-        Gain = Vector3.Lerp(from.Gain, to.Gain, amount),
-        Offset = Vector3.Lerp(from.Offset, to.Offset, amount)
-    };
+    public static ColorGradingRange Lerp(in ColorGradingRange from, in ColorGradingRange to, float amount) =>
+        new() {
+            Saturation = MathUtil.Lerp(from.Saturation, to.Saturation, amount),
+            Contrast = MathUtil.Lerp(from.Contrast, to.Contrast, amount),
+            Gamma = Vector3.Lerp(from.Gamma, to.Gamma, amount),
+            Gain = Vector3.Lerp(from.Gain, to.Gain, amount),
+            Offset = Vector3.Lerp(from.Offset, to.Offset, amount)
+        };
 }
 
 /// <summary>A whole grade: one global range and three weighted by luminance.</summary>
@@ -120,14 +122,15 @@ public readonly record struct ColorGrading {
     public float HighlightsMin { get; init; }
 
     /// <summary>A grade that changes nothing, and the base to write one from.</summary>
-    public static ColorGrading Neutral => new() {
-        Global = ColorGradingRange.Neutral,
-        Shadows = ColorGradingRange.Neutral,
-        Midtones = ColorGradingRange.Neutral,
-        Highlights = ColorGradingRange.Neutral,
-        ShadowsMax = 0.09f,
-        HighlightsMin = 0.5f
-    };
+    public static ColorGrading Neutral =>
+        new() {
+            Global = ColorGradingRange.Neutral,
+            Shadows = ColorGradingRange.Neutral,
+            Midtones = ColorGradingRange.Neutral,
+            Highlights = ColorGradingRange.Neutral,
+            ShadowsMax = 0.09f,
+            HighlightsMin = 0.5f
+        };
 
     /// <summary>The grade part-way between two, range by range.</summary>
     /// <param name="from">Where the blend starts.</param>
@@ -138,12 +141,13 @@ public readonly record struct ColorGrading {
     ///     zero is a threshold, not sentinels, so the blend passes through numbers that mean what
     ///     they say at every weight.
     /// </remarks>
-    public static ColorGrading Lerp(in ColorGrading from, in ColorGrading to, float amount) => new() {
-        Global = ColorGradingRange.Lerp(from.Global, to.Global, amount),
-        Shadows = ColorGradingRange.Lerp(from.Shadows, to.Shadows, amount),
-        Midtones = ColorGradingRange.Lerp(from.Midtones, to.Midtones, amount),
-        Highlights = ColorGradingRange.Lerp(from.Highlights, to.Highlights, amount),
-        ShadowsMax = MathUtil.Lerp(from.ShadowsMax, to.ShadowsMax, amount),
-        HighlightsMin = MathUtil.Lerp(from.HighlightsMin, to.HighlightsMin, amount)
-    };
+    public static ColorGrading Lerp(in ColorGrading from, in ColorGrading to, float amount) =>
+        new() {
+            Global = ColorGradingRange.Lerp(from.Global, to.Global, amount),
+            Shadows = ColorGradingRange.Lerp(from.Shadows, to.Shadows, amount),
+            Midtones = ColorGradingRange.Lerp(from.Midtones, to.Midtones, amount),
+            Highlights = ColorGradingRange.Lerp(from.Highlights, to.Highlights, amount),
+            ShadowsMax = MathUtil.Lerp(from.ShadowsMax, to.ShadowsMax, amount),
+            HighlightsMin = MathUtil.Lerp(from.HighlightsMin, to.HighlightsMin, amount)
+        };
 }

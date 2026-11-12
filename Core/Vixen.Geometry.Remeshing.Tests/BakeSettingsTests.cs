@@ -8,8 +8,12 @@ namespace Vixen.Geometry.Remeshing.Tests;
 
 /// <summary>The bake's per-map settings, each against an answer worked out before the bake ran.</summary>
 /// <remarks>
-///     ⚠ <b>Every setting here is a number that changes a picture, and a picture that looks plausible
-///     is what a setting nothing reads produces.</b> So each test sets up a scene where the setting's
+///     ⚠
+///     <b>
+///         Every setting here is a number that changes a picture, and a picture that looks plausible
+///         is what a setting nothing reads produces.
+///     </b>
+///     So each test sets up a scene where the setting's
 ///     effect has a closed form or a sign, and asserts that rather than "it is different".
 /// </remarks>
 public class BakeSettingsTests {
@@ -22,7 +26,7 @@ public class BakeSettingsTests {
     [Fact]
     public void Ignoring_backfaces_passes_a_source_face_turned_away_and_finds_the_one_behind() {
         var source = Sheets((-0.02f, false), (0.05f, true));
-        var target = MeshMapTests.Unwrapped(TransferFixtures.Grid(4, 2f, _ => 0), 0f);
+        var target = MeshMapTests.Unwrapped(TransferFixtures.Grid(4, 2f, static _ => 0), 0f);
 
         BakeSettings settings = new() { Resolution = 16, Gutter = 1, Space = BakeSpace.Object, SearchRadius = 0.1f };
 
@@ -55,7 +59,7 @@ public class BakeSettingsTests {
     public void Front_and_rear_distances_reach_apart_and_the_nearer_surface_wins_by_length() {
         var below = Sheets((-0.2f, true));
         var both = Sheets((-0.2f, true), (0.3f, true));
-        var target = MeshMapTests.Unwrapped(TransferFixtures.Grid(4, 2f, _ => 0), 0f);
+        var target = MeshMapTests.Unwrapped(TransferFixtures.Grid(4, 2f, static _ => 0), 0f);
 
         BakeSettings settings = new() {
             Resolution = 16,
@@ -91,11 +95,11 @@ public class BakeSettingsTests {
             SearchRadius = 0.3f
         };
 
-        var target = MeshMapTests.Unwrapped(TransferFixtures.Grid(4, 2f, _ => 0), 0f);
+        var target = MeshMapTests.Unwrapped(TransferFixtures.Grid(4, 2f, static _ => 0), 0f);
         var near = MapBaker.Bake(Sheets((0.2f, true)), target, settings);
         var far = MapBaker.Bake(
             TransferFixtures.Scaled(Sheets((0.2f, true)), 10f),
-            TransferFixtures.Scaled(MeshMapTests.Unwrapped(TransferFixtures.Grid(4, 2f, _ => 0), 0f), 10f),
+            TransferFixtures.Scaled(MeshMapTests.Unwrapped(TransferFixtures.Grid(4, 2f, static _ => 0), 0f), 10f),
             settings
         );
 
@@ -109,10 +113,14 @@ public class BakeSettingsTests {
         Assert.Equal(
             0,
             MapBaker.Bake(
-                TransferFixtures.Scaled(Sheets((0.2f, true)), 10f),
-                TransferFixtures.Scaled(MeshMapTests.Unwrapped(TransferFixtures.Grid(4, 2f, _ => 0), 0f), 10f),
-                relative
-            ).Missed
+                    TransferFixtures.Scaled(Sheets((0.2f, true)), 10f),
+                    TransferFixtures.Scaled(
+                        MeshMapTests.Unwrapped(TransferFixtures.Grid(4, 2f, static _ => 0), 0f),
+                        10f
+                    ),
+                    relative
+                )
+                .Missed
         );
     }
 
@@ -147,8 +155,12 @@ public class BakeSettingsTests {
     [Fact]
     public void A_linear_falloff_lets_a_distant_occluder_count_for_less() {
         var hard = Sealed(new() { Resolution = 24, Maps = MeshMaps.AmbientOcclusion });
-        var linear = Sealed(new() { Resolution = 24, Maps = MeshMaps.AmbientOcclusion, OcclusionFalloff = OcclusionFalloff.Linear });
-        var smooth = Sealed(new() { Resolution = 24, Maps = MeshMaps.AmbientOcclusion, OcclusionFalloff = OcclusionFalloff.Smooth });
+        var linear = Sealed(
+            new() { Resolution = 24, Maps = MeshMaps.AmbientOcclusion, OcclusionFalloff = OcclusionFalloff.Linear }
+        );
+        var smooth = Sealed(
+            new() { Resolution = 24, Maps = MeshMaps.AmbientOcclusion, OcclusionFalloff = OcclusionFalloff.Smooth }
+        );
 
         var reach = 0.5f * Vector3.Distance(new(-20f, -20f, 0f), new(20f, 20f, 0.1f));
         var wanted = 2f * 0.1f / reach;
@@ -175,7 +187,9 @@ public class BakeSettingsTests {
     [Fact]
     public void A_minimum_occluder_distance_skips_what_is_nearer() {
         var reach = Vector3.Distance(new(-20f, -20f, 0f), new(20f, 20f, 0.1f));
-        var skipped = Sealed(new() { Resolution = 24, Maps = MeshMaps.AmbientOcclusion, OcclusionMinimum = 1f / reach });
+        var skipped = Sealed(
+            new() { Resolution = 24, Maps = MeshMaps.AmbientOcclusion, OcclusionMinimum = 1f / reach }
+        );
         var seen = 0;
 
         foreach (var index in Covered(skipped)) {
@@ -197,7 +211,8 @@ public class BakeSettingsTests {
     [InlineData(MeshMaps.AmbientOcclusion, 2f)]
     [InlineData(MeshMaps.BentNormal, 0.5f)]
     public void A_minimum_occluder_distance_at_or_past_the_radius_is_refused(MeshMaps maps, float minimum) {
-        BakeSettings settings = new() { Resolution = 24, Maps = maps, OcclusionRadius = 0.5f, OcclusionMinimum = minimum };
+        BakeSettings settings =
+            new() { Resolution = 24, Maps = maps, OcclusionRadius = 0.5f, OcclusionMinimum = minimum };
 
         var refused = Assert.Throws<ArgumentOutOfRangeException>(() => Sealed(settings));
         Assert.Equal("settings", refused.ParamName);
@@ -209,7 +224,9 @@ public class BakeSettingsTests {
     /// <remarks>The ceiling faces up, so the floor's rays meet the back of it.</remarks>
     [Fact]
     public void An_occlusion_ray_ignoring_backfaces_sees_through_a_ceiling_from_behind() {
-        var culled = Sealed(new() { Resolution = 24, Maps = MeshMaps.AmbientOcclusion, OcclusionIgnoresBackfaces = true });
+        var culled = Sealed(
+            new() { Resolution = 24, Maps = MeshMaps.AmbientOcclusion, OcclusionIgnoresBackfaces = true }
+        );
 
         Assert.NotEmpty(Covered(culled));
         Assert.All(Covered(culled), index => Assert.Equal(1f, culled.AmbientOcclusion![index]));
@@ -219,10 +236,12 @@ public class BakeSettingsTests {
     [Fact]
     public void Occlusion_within_a_part_leaves_out_every_other_part() {
         // The floor's sixteen faces come first in the source, then the ceiling's sixteen.
-        BakeParts parts = new([.. Enumerable.Repeat(0, 16), .. Enumerable.Repeat(1, 16)], [.. Enumerable.Repeat(0, 16)]);
+        BakeParts parts = new([..Enumerable.Repeat(0, 16), ..Enumerable.Repeat(1, 16)], [..Enumerable.Repeat(0, 16)]);
 
         var whole = Sealed(new() { Resolution = 24, Maps = MeshMaps.AmbientOcclusion, Parts = parts });
-        var within = Sealed(new() { Resolution = 24, Maps = MeshMaps.AmbientOcclusion, Parts = parts, OcclusionWithinPart = true });
+        var within = Sealed(
+            new() { Resolution = 24, Maps = MeshMaps.AmbientOcclusion, Parts = parts, OcclusionWithinPart = true }
+        );
 
         Assert.NotEmpty(Covered(whole));
         Assert.All(Covered(whole), index => Assert.Equal(0f, whole.AmbientOcclusion![index]));
@@ -234,7 +253,9 @@ public class BakeSettingsTests {
     public void A_ground_plane_occludes_and_one_out_of_reach_does_not() {
         var open = SphereOcclusion(new() { Resolution = 24, Maps = MeshMaps.AmbientOcclusion });
         var grounded = SphereOcclusion(new() { Resolution = 24, Maps = MeshMaps.AmbientOcclusion, GroundPlane = true });
-        var far = SphereOcclusion(new() { Resolution = 24, Maps = MeshMaps.AmbientOcclusion, GroundPlane = true, GroundOffset = -10f });
+        var far = SphereOcclusion(
+            new() { Resolution = 24, Maps = MeshMaps.AmbientOcclusion, GroundPlane = true, GroundOffset = -10f }
+        );
 
         Assert.All(Covered(open), index => Assert.Equal(1f, open.AmbientOcclusion![index]));
         Assert.Contains(Covered(grounded), index => grounded.AmbientOcclusion![index] < 0.9f);
@@ -245,7 +266,9 @@ public class BakeSettingsTests {
     [Fact]
     public void Normalised_thickness_is_one_at_its_thickest() {
         var plain = SphereOcclusion(new() { Resolution = 24, Maps = MeshMaps.Thickness, OcclusionRadius = 1f });
-        var normalised = SphereOcclusion(new() { Resolution = 24, Maps = MeshMaps.Thickness, OcclusionRadius = 1f, ThicknessNormalised = true });
+        var normalised = SphereOcclusion(
+            new() { Resolution = 24, Maps = MeshMaps.Thickness, OcclusionRadius = 1f, ThicknessNormalised = true }
+        );
 
         var largest = Covered(plain).Max(index => plain.Thickness![index]);
 
@@ -260,7 +283,7 @@ public class BakeSettingsTests {
     /// <summary>A height map's range is what the setting says: the measured largest, the rays' reach, or a number.</summary>
     [Fact]
     public void The_height_range_is_measured_the_ray_distance_or_custom() {
-        var target = MeshMapTests.Unwrapped(TransferFixtures.Grid(4, 2f, _ => 0), 0f);
+        var target = MeshMapTests.Unwrapped(TransferFixtures.Grid(4, 2f, static _ => 0), 0f);
         BakeSettings settings = new() {
             Resolution = 16,
             Gutter = 1,
@@ -296,7 +319,7 @@ public class BakeSettingsTests {
             source.SetGroup(face, 0);
         }
 
-        var target = MeshMapTests.Unwrapped(MeshMapTests.Strips(), 0.02f, apart: true);
+        var target = MeshMapTests.Unwrapped(MeshMapTests.Strips(), 0.02f, true);
         BakeSettings settings = new() { Resolution = 64, Gutter = 2, Maps = MeshMaps.Id, Space = BakeSpace.Object };
 
         var automatic = MapBaker.Bake(source, target, settings);
@@ -310,7 +333,7 @@ public class BakeSettingsTests {
     [Fact]
     public void Shells_asked_for_are_shells_and_never_packed_colours() {
         var source = MeshMapTests.Strips();
-        var target = MeshMapTests.Unwrapped(MeshMapTests.Strips(), 0.02f, apart: true);
+        var target = MeshMapTests.Unwrapped(MeshMapTests.Strips(), 0.02f, true);
         BakeSettings settings = new() {
             Resolution = 64,
             Gutter = 2,
@@ -333,14 +356,14 @@ public class BakeSettingsTests {
     public void The_hue_shift_and_grey_palettes_spread_the_ids_present_evenly() {
         int[] ids = [40, 5, 9, -1, 9];
 
-        var grey = MapBaker.IdColours(ids, colours: false, IdPalette.Grey);
+        var grey = MapBaker.IdColours(ids, false, IdPalette.Grey);
 
-        Assert.Equal(new Vector3(1f), grey[0]);
-        Assert.Equal(new Vector3(1f / 3f), grey[1]);
-        Assert.Equal(new Vector3(2f / 3f), grey[2]);
+        Assert.Equal(new(1f), grey[0]);
+        Assert.Equal(new(1f / 3f), grey[1]);
+        Assert.Equal(new(2f / 3f), grey[2]);
         Assert.Equal(Vector3.Zero, grey[3]);
 
-        var hues = MapBaker.IdColours(ids, colours: false, IdPalette.HueShift);
+        var hues = MapBaker.IdColours(ids, false, IdPalette.HueShift);
 
         // Three ids, a third of the wheel apart: red, then green, then blue lead.
         Assert.True(hues[1].X > hues[1].Y && hues[1].X > hues[1].Z, $"{hues[1]}");
@@ -349,7 +372,7 @@ public class BakeSettingsTests {
         Assert.Equal(hues[2], hues[4]);
         Assert.Equal(Vector3.Zero, hues[3]);
 
-        Assert.Equal(MapBaker.IdColour(9), MapBaker.IdColours(ids, colours: false, IdPalette.Random)[2]);
+        Assert.Equal(MapBaker.IdColour(9), MapBaker.IdColours(ids, false, IdPalette.Random)[2]);
     }
 
     /// <summary>A studio's own endings match its parts, each side by its own.</summary>
@@ -358,7 +381,12 @@ public class BakeSettingsTests {
         Assert.Equal("bolt", BakeParts.Key("Bolt_HP", ["_hp"]));
         Assert.Equal("bolt_hp", BakeParts.Key("Bolt_HP", ["_high"]));
 
-        var parts = BakeParts.ByName([("bolt_hipoly", 2), ("nut_low", 1)], [("bolt_lopoly", 3), ("nut_low", 1)], ["_hipoly"], ["_lopoly", "_low"]);
+        var parts = BakeParts.ByName(
+            [("bolt_hipoly", 2), ("nut_low", 1)],
+            [("bolt_lopoly", 3), ("nut_low", 1)],
+            ["_hipoly"],
+            ["_lopoly", "_low"]
+        );
 
         Assert.Equal([0, 0, 1], parts.Source);
 
@@ -374,26 +402,39 @@ public class BakeSettingsTests {
     [Fact]
     public void The_cone_and_uniform_samplers_draw_from_their_densities() {
         const int count = 4096;
-        var cosine = Enumerable.Range(0, count).Select(i => HemisphereSampler.Local(i, count, 0f, 1f, uniform: false)).ToArray();
-        var uniform = Enumerable.Range(0, count).Select(i => HemisphereSampler.Local(i, count, 0f, 1f, uniform: true)).ToArray();
+        var cosine = Enumerable.Range(0, count)
+            .Select(i => HemisphereSampler.Local(i, count, 0f, 1f, false))
+            .ToArray();
+        var uniform = Enumerable.Range(0, count)
+            .Select(i => HemisphereSampler.Local(i, count, 0f, 1f, true))
+            .ToArray();
         var spread = MathF.Pow(MathF.Sin(MathF.PI / 6f), 2f);
-        var cone = Enumerable.Range(0, count).Select(i => HemisphereSampler.Local(i, count, 0.3f, spread, uniform: false)).ToArray();
+        var cone = Enumerable.Range(0, count)
+            .Select(i => HemisphereSampler.Local(i, count, 0.3f, spread, false))
+            .ToArray();
 
-        Assert.Equal(2f / 3f, cosine.Average(direction => direction.Z), 3);
-        Assert.Equal(0.5f, uniform.Average(direction => direction.Z), 3);
-        Assert.All(cone, direction => Assert.True(direction.Z >= MathF.Cos(MathF.PI / 6f) - 1e-5f, $"{direction}"));
-        Assert.All(uniform, direction => Assert.Equal(1f, direction.Length(), 4));
+        Assert.Equal(2f / 3f, cosine.Average(static direction => direction.Z), 3);
+        Assert.Equal(0.5f, uniform.Average(static direction => direction.Z), 3);
+        Assert.All(
+            cone,
+            static direction => Assert.True(direction.Z >= MathF.Cos(MathF.PI / 6f) - 1e-5f, $"{direction}")
+        );
+        Assert.All(uniform, static direction => Assert.Equal(1f, direction.Length(), 4));
 
         for (var index = 0; index < 64; index++) {
-            Assert.Equal(HemisphereSampler.Local(index, 64, 0.25f), HemisphereSampler.Local(index, 64, 0.25f, 1f, uniform: false));
+            Assert.Equal(
+                HemisphereSampler.Local(index, 64, 0.25f),
+                HemisphereSampler.Local(index, 64, 0.25f, 1f, false)
+            );
         }
     }
 
-    static IEnumerable<int> Covered(BakedMaps maps) => Enumerable.Range(0, maps.Coverage.Count).Where(index => maps.Coverage[index]);
+    static IEnumerable<int> Covered(BakedMaps maps) =>
+        Enumerable.Range(0, maps.Coverage.Count).Where(index => maps.Coverage[index]);
 
     static int Column(BakedMaps maps, int index) => index % maps.Resolution;
 
-    static int[] Ids(BakedMaps maps) => [.. maps.Ids!.Where(id => id >= 0).Distinct().Order()];
+    static int[] Ids(BakedMaps maps) => [..maps.Ids!.Where(static id => id >= 0).Distinct().Order()];
 
     /// <summary>Flat four-unit sheets at heights, each facing up or down: wider than every target, so no ray falls off one.</summary>
     static EditMesh Sheets(params (float Z, bool Up)[] sheets) {
@@ -426,7 +467,7 @@ public class BakeSettingsTests {
     static BakedMaps Sealed(BakeSettings settings) =>
         MapBaker.Bake(
             MeshMapTests.Roofed(-20f, 20f, 0.1f),
-            MeshMapTests.Unwrapped(TransferFixtures.Grid(4, 4f, _ => 0), 0.01f),
+            MeshMapTests.Unwrapped(TransferFixtures.Grid(4, 4f, static _ => 0), 0.01f),
             settings with { Resolution = 24, Gutter = 2, Space = BakeSpace.Object, SearchRadius = 0.001f }
         );
 
@@ -434,7 +475,7 @@ public class BakeSettingsTests {
     static BakedMaps Overhung(BakeSettings settings) =>
         MapBaker.Bake(
             MeshMapTests.Roofed(0f, 20f, 2f),
-            MeshMapTests.Unwrapped(TransferFixtures.Grid(4, 4f, _ => 0), 0.01f),
+            MeshMapTests.Unwrapped(TransferFixtures.Grid(4, 4f, static _ => 0), 0.01f),
             settings with { Resolution = 24, Gutter = 2, Space = BakeSpace.Object, SearchRadius = 0.001f }
         );
 

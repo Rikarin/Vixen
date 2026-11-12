@@ -26,8 +26,12 @@ namespace Vixen.Platform.Ui;
 ///         ever find out had stopped working.
 ///     </para>
 ///     <para>
-///         ⚠ <b><see cref="CursorMode" /> is touched only to hide and unhide, and only from
-///         <see cref="CursorMode.Normal" />.</b> <c>cursor: none</c> has to be able to do something
+///         ⚠
+///         <b>
+///             <see cref="CursorMode" /> is touched only to hide and unhide, and only from
+///             <see cref="CursorMode.Normal" />.
+///         </b>
+///         <c>cursor: none</c> has to be able to do something
 ///         or it is another silent no-op, and hiding is the only way to say it. But a game that put
 ///         the window into <see cref="CursorMode.Relative" /> for mouse-look has an interface drawn
 ///         over the top of it, and a stylesheet that dragged the pointer back out of relative mode

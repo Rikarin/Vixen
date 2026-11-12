@@ -172,7 +172,7 @@ public static class TypeRegistry {
 
         throw new InvalidOperationException(
             $"Both '{existing.Type}' and '{descriptor.Type}' claim the name '{alias}'. Give one of them "
-            + "an explicit [DataContract(\"…\")] alias; the name is what data and tools refer to it by."
+            + """an explicit [DataContract("…")] alias; the name is what data and tools refer to it by."""
         );
     }
 

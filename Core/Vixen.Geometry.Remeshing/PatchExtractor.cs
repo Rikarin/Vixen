@@ -16,8 +16,12 @@ namespace Vixen.Geometry.Remeshing;
 ///         inferring what was known for certain.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The faces of one patch are contiguous and <see cref="FirstFace" /> is where they
-///         start</b>, because <see cref="PatchExtractor" /> adds them in one nested loop and nothing
+///         ⚠
+///         <b>
+///             The faces of one patch are contiguous and <see cref="FirstFace" /> is where they
+///             start
+///         </b>
+///         , because <see cref="PatchExtractor" /> adds them in one nested loop and nothing
 ///         reorders them afterwards. A patch that was skipped contributes no grid at all, so the
 ///         index is not the patch's own.
 ///     </para>
@@ -47,8 +51,12 @@ sealed class PatchGrid {
 
     /// <summary>Why the interior fell back to the blend, or <see langword="null" /> when it did not.</summary>
     /// <remarks>
-    ///     ⚠ <b>Carried because the blend is where the folds are, and nothing was recording which
-    ///     patches took it.</b> <see cref="PatchParameterization" /> is a provable embedding and the
+    ///     ⚠
+    ///     <b>
+    ///         Carried because the blend is where the folds are, and nothing was recording which
+    ///         patches took it.
+    ///     </b>
+    ///     <see cref="PatchParameterization" /> is a provable embedding and the
     ///     transfinite blend beside it is not; a patch that fell back is the one place an inverted quad
     ///     can still be built, so the reason belongs in the grid rather than in a counter that only the
     ///     warning text sees.
@@ -139,8 +147,12 @@ static class PatchExtractor {
     ///         floating-point comparison that can land differently on two machines.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Thirty-two because the guarded sweep has stopped moving by then, measured rather
-    ///         than chosen.</b> Eight was too few once <see cref="Relax" /> began refusing a move that
+    ///         ⚠
+    ///         <b>
+    ///             Thirty-two because the guarded sweep has stopped moving by then, measured rather
+    ///             than chosen.
+    ///         </b>
+    ///         Eight was too few once <see cref="Relax" /> began refusing a move that
     ///         folds — the fixtures came back at 122 inverted faces at 32 rounds and at exactly 122
     ///         again at 96, with every worst corner identical to three decimals, so the extra rounds buy
     ///         nothing. What is left at that point is a fold no single-vertex move can improve, which is
@@ -184,7 +196,17 @@ static class PatchExtractor {
         var corners = Corners(mesh, layout, quantization, output, arcOf, sourceOf, pinned);
 
         for (var arc = 0; arc < layout.Arcs.Count; arc++) {
-            samples[arc] = Sample(mesh, output, layout.Arcs[arc], quantization.Counts[arc], corners, arc, arcOf, sourceOf, pinned);
+            samples[arc] = Sample(
+                mesh,
+                output,
+                layout.Arcs[arc],
+                quantization.Counts[arc],
+                corners,
+                arc,
+                arcOf,
+                sourceOf,
+                pinned
+            );
         }
 
         var skipped = new Dictionary<string, int>();
@@ -233,18 +255,18 @@ static class PatchExtractor {
             }
         }
 
-        foreach (var (reason, count) in skipped.OrderBy(entry => entry.Key, StringComparer.Ordinal)) {
+        foreach (var (reason, count) in skipped.OrderBy(static entry => entry.Key, StringComparer.Ordinal)) {
             warnings.Add($"{count} patches were skipped: {reason}.");
         }
 
         var extraction = new Extraction(
             output,
-            [.. arcOf],
-            [.. sourceOf],
-            [.. pinned],
+            [..arcOf],
+            [..sourceOf],
+            [..pinned],
             samples,
-            [.. grids],
-            [.. warnings]
+            [..grids],
+            [..warnings]
         );
 
         Relax(mesh, features, layout, extraction, projector);
@@ -255,9 +277,13 @@ static class PatchExtractor {
     /// <summary>One output position per arc end, with the ends of a collapsed arc sharing one.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>An arc that quantized to zero has no length in the output, so its two ends are one
-    ///         vertex — and merging them is what "a five-sided patch becomes four-sided" actually
-    ///         means.</b> docs/plan/41 § D7 permits the zero and this is the half of it that makes the
+    ///         ⚠
+    ///         <b>
+    ///             An arc that quantized to zero has no length in the output, so its two ends are one
+    ///             vertex — and merging them is what "a five-sided patch becomes four-sided" actually
+    ///             means.
+    ///         </b>
+    ///         docs/plan/41 § D7 permits the zero and this is the half of it that makes the
     ///         permission usable: leaving the two ends as separate positions produces a grid row with a
     ///         repeated index, a quad with no area, and a scaled Jacobian of exactly zero. Measured
     ///         before this existed: every fixture reported <c>MinScaledJacobian</c> of 0.000.
@@ -267,8 +293,12 @@ static class PatchExtractor {
     ///         chain of three collapsed arcs is one vertex, not two.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A class containing an end of a feature arc is placed <i>there</i>, and picking the
-    ///         lower index instead is a crease moved.</b> The merged position is one point standing for
+    ///         ⚠
+    ///         <b>
+    ///             A class containing an end of a feature arc is placed <i>there</i>, and picking the
+    ///             lower index instead is a crease moved.
+    ///         </b>
+    ///         The merged position is one point standing for
     ///         several source vertices, so where it goes is a decision rather than a detail: put it on the
     ///         vertex that has no crease through it and the arc that <i>does</i> starts somewhere its
     ///         chain never went. Measured on a union, the worst feature arc was a single straight edge —
@@ -358,8 +388,12 @@ static class PatchExtractor {
 
     /// <summary>Places one arc's output positions along its chain, by arc length.</summary>
     /// <remarks>
-    ///     ⚠ <b>On the chain rather than on the chord between its ends, and that is the exit
-    ///     criterion.</b> docs/plan/41's second criterion is "every feature polyline is a chain of output
+    ///     ⚠
+    ///     <b>
+    ///         On the chain rather than on the chord between its ends, and that is the exit
+    ///         criterion.
+    ///     </b>
+    ///     docs/plan/41's second criterion is "every feature polyline is a chain of output
     ///     edges, to 1e-5". A sample interpolated along the chain lies exactly on the source polyline,
     ///     and — because <see cref="PatchLayout" /> splits arcs at every key of a feature chain, so the
     ///     run between two samples is straight — the output <i>edge</i> between two samples lies on it
@@ -423,8 +457,12 @@ static class PatchExtractor {
 
     /// <summary>Fills one patch with its grid, or names why it could not be.</summary>
     /// <remarks>
-    ///     ⚠ <b>Four checks before a single face is added, and each of them is a defect that reaches
-    ///     <c>Validate</c> as something unattributable.</b> A side that collapsed entirely, two opposite
+    ///     ⚠
+    ///     <b>
+    ///         Four checks before a single face is added, and each of them is a defect that reaches
+    ///         <c>Validate</c> as something unattributable.
+    ///     </b>
+    ///     A side that collapsed entirely, two opposite
     ///     sides that disagree, four corners that do not join up, and a side that walks the same output
     ///     vertex twice all produce a grid whose rows fold on themselves — and a folded row comes back
     ///     as a non-manifold edge, an inconsistently wound edge and a zero-area face at once, which
@@ -585,8 +623,12 @@ static class PatchExtractor {
     /// <summary>Fills a three-sided patch as three quads round a centre, or names why it could not.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The one construction in this file that adds a vertex the layout never asked for,
-    ///         and it is what turns a dropped patch into a filled one.</b> A boundary of three arcs
+    ///         ⚠
+    ///         <b>
+    ///             The one construction in this file that adds a vertex the layout never asked for,
+    ///             and it is what turns a dropped patch into a filled one.
+    ///         </b>
+    ///         A boundary of three arcs
     ///         holds no rectangle, so <see cref="Fill" /> has nothing to lay; what it does hold is the
     ///         standard three-to-quads subdivision — a centre point, a spoke out to the middle of each
     ///         of the three sides, and three quad blocks between consecutive spokes. § D7's answer for a
@@ -594,8 +636,12 @@ static class PatchExtractor {
     ///         dissolve a crease; this is the third answer, and it costs no crease and leaves no hole.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Every size here comes off <see cref="Quantization.Spokes" /> rather than being
-    ///         chosen.</b> The blocks are <c>a × b</c>, <c>b × c</c> and <c>c × a</c> and the sides are
+    ///         ⚠
+    ///         <b>
+    ///             Every size here comes off <see cref="Quantization.Spokes" /> rather than being
+    ///             chosen.
+    ///         </b>
+    ///         The blocks are <c>a × b</c>, <c>b × c</c> and <c>c × a</c> and the sides are
     ///         <c>a + c</c>, <c>a + b</c> and <c>b + c</c> — the router solved for those three numbers
     ///         under the same conservation constraints every other patch is under, so the halves meet
     ///         the neighbours' seams by index exactly as § D8 requires. A fan whose sides do not add up
@@ -603,8 +649,12 @@ static class PatchExtractor {
     ///         mean the fan was left out of the system.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The interior comes through the same Tutte embedding, onto a triangle instead of a
-    ///         square.</b> <see cref="PatchParameterization.Fan" /> maps the patch's own triangles onto
+    ///         ⚠
+    ///         <b>
+    ///             The interior comes through the same Tutte embedding, onto a triangle instead of a
+    ///             square.
+    ///         </b>
+    ///         <see cref="PatchParameterization.Fan" /> maps the patch's own triangles onto
     ///         the reference triangle; the centre is its centroid, the spokes are straight runs in the
     ///         parameter domain, and every block is a bilinear patch of a convex quadrilateral there —
     ///         all of which lift back onto the surface by barycentric coordinates. The transfinite blend
@@ -687,9 +737,7 @@ static class PatchExtractor {
             for (var step = 1; step < spokes[at]; step++) {
                 var position = lifted is not null
                     ? lifted[cursor + step - 1]
-                    : projector.Project(
-                        Vector3.Lerp(output.Positions[chain[0]], middle, (float) step / spokes[at])
-                    );
+                    : projector.Project(Vector3.Lerp(output.Positions[chain[0]], middle, (float)step / spokes[at]));
 
                 chain[step] = Placed(output, arcOf, sourceOf, pinned, position);
             }
@@ -708,7 +756,7 @@ static class PatchExtractor {
             int[][] chains = [
                 side[block][..(wide + 1)],
                 spoke[block],
-                [.. spoke[back].Reverse()],
+                [..spoke[back].Reverse()],
                 side[back][split[back]..]
             ];
 
@@ -811,7 +859,7 @@ static class PatchExtractor {
             middle[at] = Vector2.Lerp(
                 corner[at],
                 PatchParameterization.Corner(3, at + 1),
-                (float) split[at] / along[at]
+                (float)split[at] / along[at]
             );
         }
 
@@ -820,7 +868,7 @@ static class PatchExtractor {
 
         for (var at = 0; at < 3; at++) {
             for (var step = 1; step < spokes[at]; step++) {
-                wanted.Add(Vector2.Lerp(middle[at], centroid, (float) step / spokes[at]));
+                wanted.Add(Vector2.Lerp(middle[at], centroid, (float)step / spokes[at]));
             }
         }
 
@@ -837,8 +885,8 @@ static class PatchExtractor {
                             middle[block],
                             centroid,
                             middle[back],
-                            (float) i / wide,
-                            (float) j / tall
+                            (float)i / wide,
+                            (float)j / tall
                         )
                     );
                 }
@@ -853,14 +901,14 @@ static class PatchExtractor {
             output,
             side,
             along,
-            [.. wanted],
+            [..wanted],
             out _
         );
     }
 
     /// <summary>The bilinear point of a parameter-domain quadrilateral, corners anticlockwise.</summary>
     static Vector2 Bilinear(Vector2 c00, Vector2 c10, Vector2 c11, Vector2 c01, float s, float t) =>
-        (c00 * (1f - s) * (1f - t)) + (c10 * s * (1f - t)) + (c11 * s * t) + (c01 * (1f - s) * t);
+        c00 * (1f - s) * (1f - t) + c10 * s * (1f - t) + c11 * s * t + c01 * (1f - s) * t;
 
     /// <summary>The average of a fan's rim, which is where its centre goes when the embedding refuses.</summary>
     static Vector3 Middle(EditMesh output, int[][] side) {
@@ -897,8 +945,11 @@ static class PatchExtractor {
     /// <summary>The interior that folds least, out of the embedding and the blend.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠⚠ <b>Both are built and the grid itself decides, because neither construction wins
-    ///         everywhere and arguing about which should was costing quads on every fixture.</b>
+    ///         ⚠⚠
+    ///         <b>
+    ///             Both are built and the grid itself decides, because neither construction wins
+    ///             everywhere and arguing about which should was costing quads on every fixture.
+    ///         </b>
     ///         <see cref="PatchParameterization" /> is a provable embedding of the patch onto a square,
     ///         which is exactly the guarantee the transfinite blend lacks — but the guarantee is about
     ///         the <i>map</i> and not about a <i>uniform grid laid on the square</i>. A harmonic map
@@ -910,8 +961,12 @@ static class PatchExtractor {
     ///         the quad's two halves crossed.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Measured against counted folds and not against a quality score, because a fold is
-    ///         the defect and a score is a proxy for it.</b> The count is over the whole grid including
+    ///         ⚠
+    ///         <b>
+    ///             Measured against counted folds and not against a quality score, because a fold is
+    ///             the defect and a score is a proxy for it.
+    ///         </b>
+    ///         The count is over the whole grid including
     ///         its rim, so a cell that folds against a boundary the interior never touches is still seen.
     ///     </para>
     ///     <para>
@@ -936,7 +991,7 @@ static class PatchExtractor {
         for (var i = 1; i < wide; i++) {
             for (var j = 1; j < tall; j++) {
                 coons[i - 1, j - 1] = projector.Project(
-                    Coons(output, grid, i, j, wide, tall, (float) i / wide, (float) j / tall)
+                    Coons(output, grid, i, j, wide, tall, (float)i / wide, (float)j / tall)
                 );
             }
         }
@@ -958,8 +1013,12 @@ static class PatchExtractor {
 
     /// <summary>How many of a candidate grid's cells have a corner wound against the cell's own normal.</summary>
     /// <remarks>
-    ///     ⚠ <b>The same test <c>RemeshMetrics.ScaledJacobian</c> reports and <c>QuadQualityTests</c>
-    ///     reads, applied before the face exists rather than after.</b> A degenerate corner contributes
+    ///     ⚠
+    ///     <b>
+    ///         The same test <c>RemeshMetrics.ScaledJacobian</c> reports and <c>QuadQualityTests</c>
+    ///         reads, applied before the face exists rather than after.
+    ///     </b>
+    ///     A degenerate corner contributes
     ///     nothing and the scan carries on — the sentinel that made four fixtures read <c>0.000</c> while
     ///     holding folded quads was exactly an early return here.
     /// </remarks>
@@ -1036,13 +1095,13 @@ static class PatchExtractor {
         var c01 = output.Positions[grid[0][tall]];
         var c11 = output.Positions[grid[wide][tall]];
 
-        var along = (left * (1f - u)) + (right * u);
-        var across = (bottom * (1f - v)) + (top * v);
+        var along = left * (1f - u) + right * u;
+        var across = bottom * (1f - v) + top * v;
 
-        var blend = (c00 * (1f - u) * (1f - v))
-            + (c10 * u * (1f - v))
-            + (c01 * (1f - u) * v)
-            + (c11 * u * v);
+        var blend = c00 * (1f - u) * (1f - v)
+            + c10 * u * (1f - v)
+            + c01 * (1f - u) * v
+            + c11 * u * v;
 
         return along + across - blend;
     }
@@ -1063,7 +1122,7 @@ static class PatchExtractor {
             }
         }
 
-        return [.. chain];
+        return [..chain];
     }
 
     /// <summary>§ D8's relaxation: tangential smoothing with reprojection, feature vertices sliding.</summary>
@@ -1077,8 +1136,12 @@ static class PatchExtractor {
     ///         rule R1's isotropic pre-remesh is under.
     ///     </para>
     ///     <para>
-    ///         ⚠⚠ <b>Applied as the sweep goes rather than gathered and applied at the end, and that is
-    ///         what makes the fold guard below mean anything.</b> Each candidate is judged against the
+    ///         ⚠⚠
+    ///         <b>
+    ///             Applied as the sweep goes rather than gathered and applied at the end, and that is
+    ///             what makes the fold guard below mean anything.
+    ///         </b>
+    ///         Each candidate is judged against the
     ///         faces around it; if the whole round is judged against the round's <i>starting</i>
     ///         positions and then applied at once, two adjacent vertices can each be told their own move
     ///         is harmless and land on a fold together. Writing each accepted move immediately makes the
@@ -1187,7 +1250,7 @@ static class PatchExtractor {
         var incident = new int[sets.Length][];
 
         for (var vertex = 0; vertex < sets.Length; vertex++) {
-            incident[vertex] = [.. sets[vertex]];
+            incident[vertex] = [..sets[vertex]];
         }
 
         return incident;
@@ -1273,16 +1336,24 @@ static class PatchExtractor {
     /// <summary>Every output position that ends a feature arc, which the relaxation may not move.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Read off the <i>arc</i> rather than off the source vertex, and the difference is
-    ///         docs/plan/41's second exit criterion.</b> An end that <see cref="Corners" /> merged with
+    ///         ⚠
+    ///         <b>
+    ///             Read off the <i>arc</i> rather than off the source vertex, and the difference is
+    ///             docs/plan/41's second exit criterion.
+    ///         </b>
+    ///         An end that <see cref="Corners" /> merged with
     ///         another — which is what a collapsed arc does — carries the <i>root</i>'s source index, and
     ///         the root need not be a feature vertex even when the arc it terminates is a crease. The
     ///         relaxation then moved it freely and dragged the first output edge of a hard edge off the
     ///         hard edge.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Measured, and it is why the error survived on arcs that are a single straight
-    ///         edge.</b> On a union, the worst feature arc was a two-vertex chain with a chord sagitta of
+    ///         ⚠
+    ///         <b>
+    ///             Measured, and it is why the error survived on arcs that are a single straight
+    ///             edge.
+    ///         </b>
+    ///         On a union, the worst feature arc was a two-vertex chain with a chord sagitta of
     ///         exactly zero — nothing about its samples could be wrong — reporting <c>1.66e-2</c> of the
     ///         diagonal, because one of its two ends had drifted. Interior samples were never the
     ///         problem: <see cref="Slide" /> already keeps those on the chain.
@@ -1296,8 +1367,8 @@ static class PatchExtractor {
                 continue;
             }
 
-            foreach (var end in (int[]) [extraction.Samples[arc][0], extraction.Samples[arc][^1]]) {
-                if ((uint) end < (uint) count) {
+            foreach (var end in (int[])[extraction.Samples[arc][0], extraction.Samples[arc][^1]]) {
+                if ((uint)end < (uint)count) {
                     held[end] = true;
                 }
             }
@@ -1319,7 +1390,7 @@ static class PatchExtractor {
             var span = along.LengthSquared();
             var fraction = span > 0f ? Math.Clamp(Vector3.Dot(wanted - a, along) / span, 0f, 1f) : 0f;
 
-            var point = a + (along * fraction);
+            var point = a + along * fraction;
             var away = Vector3.DistanceSquared(point, wanted);
 
             if (away < distance) {

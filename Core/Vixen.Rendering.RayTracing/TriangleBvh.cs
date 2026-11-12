@@ -81,11 +81,14 @@ public sealed class TriangleBvh {
         ArgumentOutOfRangeException.ThrowIfLessThan(leafSize, 1);
 
         if (indices.Length == 0 || indices.Length % 3 != 0) {
-            throw new ArgumentException("triangles are triples, and a hierarchy over none referees nothing", nameof(indices));
+            throw new ArgumentException(
+                "triangles are triples, and a hierarchy over none referees nothing",
+                nameof(indices)
+            );
         }
 
-        this.vertices = vertices.ToArray();
-        this.indices = indices.ToArray();
+        this.vertices = [..vertices];
+        this.indices = [..indices];
 
         TriangleCount = indices.Length / 3;
         order = new int[TriangleCount];
@@ -100,7 +103,7 @@ public sealed class TriangleBvh {
             centroids[triangle] = (Vertex(triangle, 0) + Vertex(triangle, 1) + Vertex(triangle, 2)) / 3f;
         }
 
-        nodes = new Node[(2 * TriangleCount) - 1];
+        nodes = new Node[2 * TriangleCount - 1];
         nodeCount = 0;
         Build(0, TriangleCount, leafSize, centroids, ref nodeCount);
     }
@@ -113,8 +116,10 @@ public sealed class TriangleBvh {
 
     /// <summary>The nearest hit along a ray, or a miss.</summary>
     /// <param name="origin">Where the ray starts.</param>
-    /// <param name="direction">Which way it goes. Normalised for you, because a distance along a
-    ///     ray of any other length is not a distance.</param>
+    /// <param name="direction">
+    ///     Which way it goes. Normalised for you, because a distance along a
+    ///     ray of any other length is not a distance.
+    /// </param>
     /// <param name="maxDistance">How far it looks.</param>
     public RayHit Trace(Vector3 origin, Vector3 direction, float maxDistance = float.PositiveInfinity) {
         var ray = Vector3.Normalize(direction);
@@ -167,7 +172,7 @@ public sealed class TriangleBvh {
         }
 
         if (best < 0) {
-            return new(false, maxDistance, origin + (ray * MathF.Min(maxDistance, 1e6f)), Vector3.Zero, -1, visited);
+            return new(false, maxDistance, origin + ray * MathF.Min(maxDistance, 1e6f), Vector3.Zero, -1, visited);
         }
 
         var normal = Vector3.Normalize(
@@ -180,7 +185,7 @@ public sealed class TriangleBvh {
             normal = -normal;
         }
 
-        return new(true, nearest, origin + (ray * nearest), normal, best, visited);
+        return new(true, nearest, origin + ray * nearest, normal, best, visited);
     }
 
     /// <summary>Every triangle, no hierarchy — the referee the traversal is held against.</summary>
@@ -197,7 +202,14 @@ public sealed class TriangleBvh {
         }
 
         if (best < 0) {
-            return new(false, maxDistance, origin + (ray * MathF.Min(maxDistance, 1e6f)), Vector3.Zero, -1, TriangleCount);
+            return new(
+                false,
+                maxDistance,
+                origin + ray * MathF.Min(maxDistance, 1e6f),
+                Vector3.Zero,
+                -1,
+                TriangleCount
+            );
         }
 
         var normal = Vector3.Normalize(
@@ -208,10 +220,10 @@ public sealed class TriangleBvh {
             normal = -normal;
         }
 
-        return new(true, nearest, origin + (ray * nearest), normal, best, TriangleCount);
+        return new(true, nearest, origin + ray * nearest, normal, best, TriangleCount);
     }
 
-    Vector3 Vertex(int triangle, int corner) => vertices[indices[(triangle * 3) + corner]];
+    Vector3 Vertex(int triangle, int corner) => vertices[indices[triangle * 3 + corner]];
 
     /// <summary>Möller–Trumbore, the published formulation — re-derived and credited, not copied.</summary>
     float? Moller(int triangle, Vector3 origin, Vector3 ray, float nearest) {
@@ -304,9 +316,7 @@ public sealed class TriangleBvh {
 
         var slice = order.AsSpan(start, count);
 
-        slice.Sort(
-            (first, second) => Component(centroids[first], axis).CompareTo(Component(centroids[second], axis))
-        );
+        slice.Sort((first, second) => Component(centroids[first], axis).CompareTo(Component(centroids[second], axis)));
 
         var left = Build(start, half, leafSize, centroids, ref next);
         var right = Build(start + half, count - half, leafSize, centroids, ref next);

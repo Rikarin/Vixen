@@ -43,9 +43,13 @@ public enum TypeTraits {
 /// <param name="AssetType">What kind of asset it names, if it names one.</param>
 /// <param name="AllowsNull">Whether it may name nothing at all.</param>
 /// <remarks>
-///     ⚠ <b><c>default(MemberPresentation)</c> is not the same thing as
-///     <c>new MemberPresentation()</c> would be in a class, and the difference bites exactly once
-///     per person.</b> This is a struct, so both spellings give the all-zero value — which means
+///     ⚠
+///     <b>
+///         <c>default(MemberPresentation)</c> is not the same thing as
+///         <c>new MemberPresentation()</c> would be in a class, and the difference bites exactly once
+///         per person.
+///     </b>
+///     This is a struct, so both spellings give the all-zero value — which means
 ///     <see cref="IsEditorVisible" /> comes out <c>false</c> despite the parameter above defaulting
 ///     to <c>true</c>. A member handed a defaulted presentation is therefore hidden from the
 ///     inspector, silently.

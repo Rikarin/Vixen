@@ -30,7 +30,7 @@ public sealed class MeshExtractionTests : IDisposable {
     readonly RenderStage opaque;
 
     public MeshExtractionTests() {
-        buffer = new(device, SurfaceVertex.SizeInBytes, vertexCapacity: 4096, indexCapacity: 8192);
+        buffer = new(device, SurfaceVertex.SizeInBytes, 4096, 8192);
         residency = new(buffer);
 
         opaque = system.AddStage(new("Opaque"));
@@ -78,8 +78,8 @@ public sealed class MeshExtractionTests : IDisposable {
     public void AMeshIsFreedOnlyWhenTheLastEntityGivesItUp() {
         var key = GeometryKey.Of(PrimitiveKind.Sphere);
 
-        residency.Acquire(key, () => MeshPrimitives.Create(PrimitiveKind.Sphere), out _, out _);
-        residency.Acquire(key, () => MeshPrimitives.Create(PrimitiveKind.Sphere), out _, out _);
+        residency.Acquire(key, static () => MeshPrimitives.Create(PrimitiveKind.Sphere), out _, out _);
+        residency.Acquire(key, static () => MeshPrimitives.Create(PrimitiveKind.Sphere), out _, out _);
 
         Assert.False(residency.Release(key));
         Assert.Equal(1, residency.Count);
@@ -113,7 +113,7 @@ public sealed class MeshExtractionTests : IDisposable {
         Assert.False(
             tiny.Acquire(
                 GeometryKey.Of(PrimitiveKind.Sphere),
-                () => MeshPrimitives.Create(PrimitiveKind.Sphere),
+                static () => MeshPrimitives.Create(PrimitiveKind.Sphere),
                 out _,
                 out _
             )
@@ -153,13 +153,13 @@ public sealed class MeshExtractionTests : IDisposable {
         // ⚠ Larger than the 64 KB floor `EnsureStaging` grows to, which is what makes the region
         // exactly full afterwards rather than merely used. A first mesh that left room would make
         // the second one fit, and the test would pass whatever `Acquire` did.
-        Assert.True(residency.Acquire(GeometryKey.Of(PrimitiveKind.Cube), () => Slab(4000), out _, out _));
+        Assert.True(residency.Acquire(GeometryKey.Of(PrimitiveKind.Cube), static () => Slab(4000), out _, out _));
 
         Assert.True(cramped.PendingBytes > 65536);
         Assert.False(cramped.CanStage(1));
 
         // The second mesh, asked for before anything has flushed. This is the call that threw.
-        Assert.False(residency.Acquire(GeometryKey.Of(PrimitiveKind.Sphere), () => Slab(8), out _, out _));
+        Assert.False(residency.Acquire(GeometryKey.Of(PrimitiveKind.Sphere), static () => Slab(8), out _, out _));
 
         // Deferred and not lost: nothing is resident under the second key and nothing was allocated
         // for it, so the frame after the flush offers it again and it lands.
@@ -170,7 +170,7 @@ public sealed class MeshExtractionTests : IDisposable {
         cramped.Flush(list);
         list.Finish();
 
-        Assert.True(residency.Acquire(GeometryKey.Of(PrimitiveKind.Sphere), () => Slab(8), out _, out _));
+        Assert.True(residency.Acquire(GeometryKey.Of(PrimitiveKind.Sphere), static () => Slab(8), out _, out _));
         Assert.Equal(2, residency.Count);
     }
 
@@ -247,14 +247,14 @@ public sealed class MeshExtractionTests : IDisposable {
     [Fact]
     public void TheWorldMatrixReachesTheTransformFeature() {
         using var world = new World();
-        var entity = Shaped(world, PrimitiveKind.Cube, new Vector3(3f, 0f, 0f));
+        var entity = Shaped(world, PrimitiveKind.Cube, new(3f, 0f, 0f));
 
         extraction.Extract(world);
 
         var id = world.Read<RenderHandle>(entity).Object;
         Assert.Equal(3f, system.Objects.Data.Data(transforms.World)[id.Index].Translation.X, 5);
 
-        world.Get<WorldTransform>(entity).Value = Matrix4x4.FromTranslation(new Vector3(-7f, 0f, 0f));
+        world.Get<WorldTransform>(entity).Value = Matrix4x4.FromTranslation(new(-7f, 0f, 0f));
         extraction.Extract(world);
 
         Assert.Equal(-7f, system.Objects.Data.Data(transforms.World)[id.Index].Translation.X, 5);
@@ -268,7 +268,7 @@ public sealed class MeshExtractionTests : IDisposable {
         extraction.Extract(world);
         var before = system.Objects[world.Read<RenderHandle>(entity).Object].Bounds.Center;
 
-        world.Get<WorldTransform>(entity).Value = Matrix4x4.FromTranslation(new Vector3(0f, 20f, 0f));
+        world.Get<WorldTransform>(entity).Value = Matrix4x4.FromTranslation(new(0f, 20f, 0f));
         extraction.Extract(world);
 
         var after = system.Objects[world.Read<RenderHandle>(entity).Object].Bounds.Center;
@@ -304,7 +304,7 @@ public sealed class MeshExtractionTests : IDisposable {
     [Fact]
     public void ANonUniformScaleTakesTheLargestAxis() {
         var local = new BoundingSphere(Vector3.Zero, 1f);
-        var matrix = Matrix4x4.FromScale(new Vector3(1f, 5f, 2f));
+        var matrix = Matrix4x4.FromScale(new(1f, 5f, 2f));
 
         Assert.Equal(5f, MeshExtractionSystem.Transformed(local, matrix).Radius, 4);
     }
@@ -395,7 +395,7 @@ public sealed class MeshExtractionTests : IDisposable {
         MeshRenderables.Attach(
             world,
             entity,
-            MeshRenderables.Default(new AssetReference(new AssetId(new("22222222-2222-2222-2222-222222222222"))))
+            MeshRenderables.Default(new(new AssetId(new("22222222-2222-2222-2222-222222222222"))))
         );
 
         world.Add(entity, new WorldTransform { Value = Matrix4x4.Identity });
@@ -449,8 +449,11 @@ public sealed class MeshExtractionTests : IDisposable {
 
     /// <summary>An entity is drawn with the material it names, not with the host's.</summary>
     /// <remarks>
-    ///     <b>What "per-entity materials" means, and the assertion that would have been vacuous a day
-    ///     ago.</b> Every drawable in a scene was assigned <see cref="MeshExtractionSystem.Material" />
+    ///     <b>
+    ///         What "per-entity materials" means, and the assertion that would have been vacuous a day
+    ///         ago.
+    ///     </b>
+    ///     Every drawable in a scene was assigned <see cref="MeshExtractionSystem.Material" />
     ///     — one material for everything — because a reference could not be turned into a material. The
     ///     two materials here are distinguished by their index in the feature, which is where a frame
     ///     reads "which material" from.
@@ -462,7 +465,7 @@ public sealed class MeshExtractionTests : IDisposable {
         var painted = new Material("ForwardPlus");
         var reference = new AssetReference(new AssetId(new("44444444-4444-4444-4444-444444444444")));
 
-        extraction.Material = new Material("ForwardPlus");
+        extraction.Material = new("ForwardPlus");
         extraction.Materials = new OneMaterial(reference, painted);
 
         var entity = Shaped(world, PrimitiveKind.Cube, Vector3.Zero);
@@ -488,8 +491,8 @@ public sealed class MeshExtractionTests : IDisposable {
     public void AnEntityThatNamesNoMaterialTakesTheDefault() {
         using var world = new World();
 
-        extraction.Material = new Material("ForwardPlus");
-        extraction.Materials = new OneMaterial(default, new Material("Unused"));
+        extraction.Material = new("ForwardPlus");
+        extraction.Materials = new OneMaterial(default, new("Unused"));
 
         var entity = Shaped(world, PrimitiveKind.Cube, Vector3.Zero);
 
@@ -527,7 +530,7 @@ public sealed class MeshExtractionTests : IDisposable {
         var reference = new AssetReference(new AssetId(new("55555555-5555-5555-5555-555555555555")));
         var source = new DeferredMaterial(painted);
 
-        extraction.Material = new Material("ForwardPlus");
+        extraction.Material = new("ForwardPlus");
         extraction.Materials = source;
 
         var entity = Shaped(world, PrimitiveKind.Cube, Vector3.Zero);
@@ -555,7 +558,7 @@ public sealed class MeshExtractionTests : IDisposable {
     public void AnEntityWithNoMaterialSourceIsStillDrawn() {
         using var world = new World();
 
-        extraction.Material = new Material("ForwardPlus");
+        extraction.Material = new("ForwardPlus");
 
         var entity = Shaped(world, PrimitiveKind.Cube, Vector3.Zero);
 
@@ -664,7 +667,7 @@ public sealed class MeshExtractionTests : IDisposable {
     /// <summary>Puts a mesh entity in the world, casting or not.</summary>
     static Entity Meshed(World world, bool casts, Vector3 position) {
         var entity = world.Create();
-        var reference = new AssetReference(new AssetId(Guid.NewGuid()));
+        var reference = new AssetReference(new(Guid.NewGuid()));
 
         world.Add(entity, MeshRenderables.Default(reference) with { CastsShadows = casts });
         world.Add(entity, new WorldTransform { Value = Matrix4x4.FromTranslation(position) });
@@ -689,8 +692,8 @@ public sealed class MeshExtractionTests : IDisposable {
         extraction.CasterStages = shadow.Mask;
 
         using var world = new World();
-        var casting = Meshed(world, casts: true, Vector3.Zero);
-        var quiet = Meshed(world, casts: false, Vector3.UnitX);
+        var casting = Meshed(world, true, Vector3.Zero);
+        var quiet = Meshed(world, false, Vector3.UnitX);
 
         extraction.Extract(world);
 
@@ -700,8 +703,12 @@ public sealed class MeshExtractionTests : IDisposable {
 
     /// <summary>A static caster that casts no shadow is in neither caster stage.</summary>
     /// <remarks>
-    ///     ⚠ <b>The interaction, and the one that is easy to get wrong in the direction that hides
-    ///     itself.</b> The two questions are independent — the tag chooses <em>which</em> caster stages,
+    ///     ⚠
+    ///     <b>
+    ///         The interaction, and the one that is easy to get wrong in the direction that hides
+    ///         itself.
+    ///     </b>
+    ///     The two questions are independent — the tag chooses <em>which</em> caster stages,
     ///     the flag chooses whether any — so the flag has to be applied to whichever set the tag picked.
     ///     Testing it against the movers' mask alone would leave this wall in the *cached* atlas, where
     ///     its shadow then survives every frame that does not bump <c>StaticVersion</c>: a shadow with
@@ -718,8 +725,8 @@ public sealed class MeshExtractionTests : IDisposable {
         extraction.CasterStages = shadow.Mask | still.Mask;
 
         using var world = new World();
-        var wall = Meshed(world, casts: false, Vector3.Zero);
-        var pillar = Meshed(world, casts: true, Vector3.UnitX);
+        var wall = Meshed(world, false, Vector3.Zero);
+        var pillar = Meshed(world, true, Vector3.UnitX);
 
         world.Add<StaticShadowCaster>(wall);
         world.Add<StaticShadowCaster>(pillar);
@@ -744,7 +751,7 @@ public sealed class MeshExtractionTests : IDisposable {
         extraction.Stages = opaque.Mask | shadow.Mask;
 
         using var world = new World();
-        var quiet = Meshed(world, casts: false, Vector3.Zero);
+        var quiet = Meshed(world, false, Vector3.Zero);
 
         extraction.Extract(world);
 
@@ -777,8 +784,11 @@ public sealed class MeshExtractionTests : IDisposable {
 
     /// <summary>A flag toggled after extraction takes effect once the entity is unsettled.</summary>
     /// <remarks>
-    ///     <b>Both halves of the contract, in one test, because each is meaningless without the
-    ///     other.</b> The mask is stamped when the object is created and a settled entity is never
+    ///     <b>
+    ///         Both halves of the contract, in one test, because each is meaningless without the
+    ///         other.
+    ///     </b>
+    ///     The mask is stamped when the object is created and a settled entity is never
     ///     re-extracted, so the first assertion is the documented limitation rather than a bug; the
     ///     second is the verb that answers it. Asserting only the second would let the flag quietly
     ///     become live and nobody would notice — and live is the wrong answer here, because a static
@@ -793,7 +803,7 @@ public sealed class MeshExtractionTests : IDisposable {
         extraction.CasterStages = shadow.Mask;
 
         using var world = new World();
-        var entity = Meshed(world, casts: true, Vector3.Zero);
+        var entity = Meshed(world, true, Vector3.Zero);
 
         extraction.Extract(world);
         Assert.Equal(opaque.Mask | shadow.Mask, system.Objects[world.Read<RenderHandle>(entity).Object].Stages);
@@ -816,8 +826,12 @@ public sealed class MeshExtractionTests : IDisposable {
 
     /// <summary>Resettling releases the claim it held rather than leaking one per entity.</summary>
     /// <remarks>
-    ///     ⚠ <b>The reason this is a verb on the system and not <c>world.Remove&lt;RenderHandle&gt;</c>
-    ///     at the call site.</b> Removing the component alone unsettles the entity and strands both the
+    ///     ⚠
+    ///     <b>
+    ///         The reason this is a verb on the system and not <c>world.Remove&lt;RenderHandle&gt;</c>
+    ///         at the call site.
+    ///     </b>
+    ///     Removing the component alone unsettles the entity and strands both the
     ///     render object and the residency claim — a leak per entity per call, and a stale handle into a
     ///     slot something else takes next.
     /// </remarks>

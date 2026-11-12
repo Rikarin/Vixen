@@ -21,8 +21,12 @@ namespace Vixen.ApiCheck.Tests;
 ///         the whole solution.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The obvious repair — one <c>$(property)</c> read by both files — was tried and
-///         reverted, because it defeats a gate.</b> <c>CheckAttributionManifest</c> reads the pinned
+///         ⚠
+///         <b>
+///             The obvious repair — one <c>$(property)</c> read by both files — was tried and
+///             reverted, because it defeats a gate.
+///         </b>
+///         <c>CheckAttributionManifest</c> reads the pinned
 ///         version out of <c>Directory.Packages.props</c> as <i>text</i> to compare it with the
 ///         licence row in <c>docs/manual/third-party.md</c>. Behind an indirection it reads
 ///         <c>$(VixenTrxReportVersion)</c>, cannot match any version, and reports the manifest as
@@ -56,7 +60,7 @@ public class TrxReporterPinTests {
     [Fact]
     public void The_licence_manifest_documents_the_version_that_is_pinned() {
         var manifest = File.ReadAllText(Path.Combine(RepositoryRoot(), "docs", "manual", "third-party.md"));
-        var row = manifest.Split('\n').FirstOrDefault(line => line.Contains(Package, StringComparison.Ordinal));
+        var row = manifest.Split('\n').FirstOrDefault(static line => line.Contains(Package, StringComparison.Ordinal));
 
         Assert.True(row is not null, $"docs/manual/third-party.md has no row for {Package}.");
         Assert.Contains(Pin("Directory.Packages.props", "PackageVersion"), row!, StringComparison.Ordinal);

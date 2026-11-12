@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Globalization;
-using Vixen.Editor.NodeGraph;
 using Vixen.NodeGraph;
 using Vixen.Vfx;
 
@@ -56,12 +55,14 @@ public sealed class VfxGraphCompiler : NodeGraphCompiler<VfxGraphArtefact> {
     /// <inheritdoc />
     protected override void Visit(GraphNode node, NodeTypeDefinition definition, Node instance, NodeBinding binding) {
         if (instance is not VfxNode vfx) {
-            Report(new(
-                "VG0001",
-                $"'{definition.Path}' is in this graph's library but is not a VFX node, so there is nothing "
-                + "it could contribute.",
-                node.Id
-            ));
+            Report(
+                new(
+                    "VG0001",
+                    $"'{definition.Path}' is in this graph's library but is not a VFX node, so there is nothing "
+                    + "it could contribute.",
+                    node.Id
+                )
+            );
 
             return;
         }
@@ -72,12 +73,14 @@ public sealed class VfxGraphCompiler : NodeGraphCompiler<VfxGraphArtefact> {
     /// <inheritdoc />
     protected override VfxGraphArtefact? Finish(NodeGraphModel graph) {
         if (builder.Spawners.Count == 0) {
-            Report(new(
-                "VG0002",
-                "This graph has no spawner, so it would produce no particles at all. Add one from the "
-                + "Spawn category.",
-                NodeId.None
-            ));
+            Report(
+                new(
+                    "VG0002",
+                    "This graph has no spawner, so it would produce no particles at all. Add one from the "
+                    + "Spawn category.",
+                    NodeId.None
+                )
+            );
 
             return null;
         }
@@ -107,15 +110,18 @@ public sealed class VfxGraphCompiler : NodeGraphCompiler<VfxGraphArtefact> {
         // exception out of a compiler whose whole job is to report problems.
         try {
             var compiled = VfxCompiledGraph.Compile(
-                [.. builder.Spawners],
-                [.. builder.Initializers],
-                [.. builder.Updaters],
+                [..builder.Spawners],
+                [..builder.Initializers],
+                [..builder.Updaters],
                 builder.Capacity,
                 builder.Renderer,
-                [.. builder.Customs]
+                [..builder.Customs]
             );
 
-            return new(compiled, VfxShaderEmitter.Emit(compiled, Identifier(graph.Name.Length > 0 ? graph.Name : DefaultName)));
+            return new(
+                compiled,
+                VfxShaderEmitter.Emit(compiled, Identifier(graph.Name.Length > 0 ? graph.Name : DefaultName))
+            );
         } catch (ArgumentException exception) {
             Report(new("VG0003", exception.Message, NodeId.None));
 

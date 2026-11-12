@@ -15,11 +15,11 @@ public sealed class GateOptions {
     public RealmVersion Version { get; set; }
 
     /// <summary>Where the catalog is published, for the addressable update.</summary>
-    public string Content { get; set; } = "";
+    public string Content { get; set; } = string.Empty;
 
     /// <summary>The latency zone this gate places into.</summary>
     /// <remarks>Doc 27 M-Q5's opaque string. Every game has regions and none of them mean the same.</remarks>
-    public string Region { get; set; } = "";
+    public string Region { get; set; } = string.Empty;
 
     /// <summary>Which maps a client may ask for. Empty means any.</summary>
     /// <remarks>

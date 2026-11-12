@@ -13,15 +13,23 @@ namespace Vixen.Build;
 ///     <para>
 ///         <b>doc 10 § Cross-platform discipline, the Case sensitivity row</b>, promises exactly
 ///         this and had nothing behind it
-///         (<a href="https://github.com/Rikarin/Vixen/issues/329">#329</a>): <i>"Virtual paths are
-///         case-sensitive everywhere, including Windows. A CI check on Linux catches
-///         <c>Texture.PNG</c> vs <c>texture.png</c> before a user does."</i> Every neighbouring row
+///         (<a href="https://github.com/Rikarin/Vixen/issues/329">#329</a>):
+///         <i>
+///             "Virtual paths are
+///             case-sensitive everywhere, including Windows. A CI check on Linux catches
+///             <c>Texture.PNG</c> vs <c>texture.png</c> before a user does."
+///         </i>
+///         Every neighbouring row
 ///         in that table is enforced — <c>System.IO.Path</c> by <c>VXIO0001</c>, native binaries by
 ///         checksum, endianness by an assertion — and this one was described and absent.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The direction is what makes the defect nasty: the machine that gets it wrong is the
-///         one that cannot see it.</b> This repository is developed on macOS and Windows, where the
+///         ⚠
+///         <b>
+///             The direction is what makes the defect nasty: the machine that gets it wrong is the
+///             one that cannot see it.
+///         </b>
+///         This repository is developed on macOS and Windows, where the
 ///         filesystem folds case, so <c>Assets/Textures/Crate.PNG</c> opens a file called
 ///         <c>Crate.png</c> and every local run is green. On Linux, on Android, and on the web —
 ///         where the same content is fetched over HTTP and a mis-cased path is a plain 404 — it is
@@ -45,8 +53,12 @@ namespace Vixen.Build;
 ///         <c>.claude/worktrees/</c> — the trap <c>CheckStrings</c> and the golden walk each hit.
 ///     </para>
 ///     <para>
-///         ⚠ <b>And the consequence of that choice, found by sabotage rather than by reasoning: a
-///         reference to a file that is not yet <c>git add</c>ed is not judged.</b> The first attempt
+///         ⚠
+///         <b>
+///             And the consequence of that choice, found by sabotage rather than by reasoning: a
+///             reference to a file that is not yet <c>git add</c>ed is not judged.
+///         </b>
+///         The first attempt
 ///         to break this rule pointed a mis-cased reference at a file added in the same working tree
 ///         and the check stayed green, because the target was not in the index and a literal that
 ///         folds onto nothing is not a violation. That is correct for a gate about what deploys —
@@ -157,8 +169,8 @@ static partial class PathCaseRule {
         }
 
         return spellings
-            .Where(pair => pair.Value.Count == 1)
-            .ToDictionary(pair => pair.Key, pair => pair.Value.First(), StringComparer.Ordinal);
+            .Where(static pair => pair.Value.Count == 1)
+            .ToDictionary(static pair => pair.Key, static pair => pair.Value.First(), StringComparer.Ordinal);
     }
 
     /// <summary>Committed paths that differ from another committed path only in case.</summary>
@@ -172,13 +184,13 @@ static partial class PathCaseRule {
     /// </remarks>
     public static IReadOnlyList<string[]> Collisions(IEnumerable<string> committed) =>
         committed
-            .Select(path => path.Replace('\\', '/').Trim())
-            .Where(path => path.Length > 0)
+            .Select(static path => path.Replace('\\', '/').Trim())
+            .Where(static path => path.Length > 0)
             .Distinct(StringComparer.Ordinal)
-            .GroupBy(path => path.ToLowerInvariant(), StringComparer.Ordinal)
-            .Where(group => group.Count() > 1)
-            .Select(group => group.Order(StringComparer.Ordinal).ToArray())
-            .OrderBy(group => group[0], StringComparer.Ordinal)
+            .GroupBy(static path => path.ToLowerInvariant(), StringComparer.Ordinal)
+            .Where(static group => group.Count() > 1)
+            .Select(static group => group.Order(StringComparer.Ordinal).ToArray())
+            .OrderBy(static group => group[0], StringComparer.Ordinal)
             .ToList();
 
     /// <summary>Where the exemptions live, relative to the repository root.</summary>
@@ -191,8 +203,12 @@ static partial class PathCaseRule {
     ///     <see cref="ExemptionsFile" />.
     /// </returns>
     /// <remarks>
-    ///     ⚠ <b>The exemption file excludes itself, and finding out why is the second thing this rule
-    ///     ever caught.</b> Every line in it quotes the literal it exempts, so scanning it reports
+    ///     ⚠
+    ///     <b>
+    ///         The exemption file excludes itself, and finding out why is the second thing this rule
+    ///         ever caught.
+    ///     </b>
+    ///     Every line in it quotes the literal it exempts, so scanning it reports
     ///     each of those literals a second time — at a line number inside the exemption file, which no
     ///     exemption covers, and which cannot be exempted without quoting the literal a third time.
     ///     A list of strings that are not paths is by construction full of strings that are not paths.
@@ -263,8 +279,8 @@ static partial class PathCaseRule {
         new(
             text
                 .Split('\n')
-                .Select(line => line.Trim())
-                .Where(line => line.Length > 0 && !line.StartsWith('#')),
+                .Select(static line => line.Trim())
+                .Where(static line => line.Length > 0 && !line.StartsWith('#')),
             StringComparer.Ordinal
         );
 

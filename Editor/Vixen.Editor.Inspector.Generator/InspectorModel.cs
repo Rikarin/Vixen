@@ -65,9 +65,9 @@ sealed record MemberModel(
     public override int GetHashCode() {
         var hash = Name.GetHashCode();
 
-        hash = (hash * 31) + TypeName.GetHashCode();
-        hash = (hash * 31) + Order;
-        hash = (hash * 31) + Attributes.Length;
+        hash = hash * 31 + TypeName.GetHashCode();
+        hash = hash * 31 + Order;
+        hash = hash * 31 + Attributes.Length;
 
         return hash;
     }
@@ -93,7 +93,7 @@ sealed record InspectedTypeModel(
     public override int GetHashCode() {
         var hash = QualifiedName.GetHashCode();
 
-        hash = (hash * 31) + Members.Length;
+        hash = hash * 31 + Members.Length;
 
         return hash;
     }
@@ -122,7 +122,7 @@ sealed record DiagnosticModel(
             ? Microsoft.CodeAnalysis.Location.None
             : Microsoft.CodeAnalysis.Location.Create(
                 FilePath,
-                new Microsoft.CodeAnalysis.Text.TextSpan(Start, Length),
+                new(Start, Length),
                 new Microsoft.CodeAnalysis.Text.LinePositionSpan(
                     new(StartLine, StartCharacter),
                     new(EndLine, EndCharacter)

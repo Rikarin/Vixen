@@ -3,7 +3,6 @@
 
 using System.Collections.Concurrent;
 using System.Collections.Immutable;
-using System.Threading;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -31,8 +30,12 @@ namespace Vixen.Ui.Generators;
 ///         also what makes an independently written generator's output verifiable here.
 ///     </para>
 ///     <para>
-///         ⚠ <b>It is an analyzer rather than a generator, and that is the finding rather than a
-///         shortcut.</b> A generator would need catalogue *source* — a file the ids come from — and
+///         ⚠
+///         <b>
+///             It is an analyzer rather than a generator, and that is the finding rather than a
+///             shortcut.
+///         </b>
+///         A generator would need catalogue *source* — a file the ids come from — and
 ///         where that file lives is undecided for Vixen and is Trinix's by its own scope rule. Every
 ///         property doc 11 asks a generator for that does not need that decision is decidable by
 ///         reading the declarations, and this is that half. The other half — an id declared and used
@@ -58,8 +61,12 @@ public sealed class StringDeclarationAnalyzer : DiagnosticAnalyzer {
     ///     The other shape a declaration may take — a whole family under one prefix.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>A family is a declaration for every rule here, and the reason it has to be is
-    ///     <see cref="MissingFromAll" />.</b> A <c>StringFamily</c> property left out of <c>All</c>
+    ///     ⚠
+    ///     <b>
+    ///         A family is a declaration for every rule here, and the reason it has to be is
+    ///         <see cref="MissingFromAll" />.
+    ///     </b>
+    ///     A <c>StringFamily</c> property left out of <c>All</c>
     ///     hides not one string but the entire family, and a class whose only declarations are
     ///     families would otherwise not be recognised as a declaration class at all — so
     ///     <see cref="Undeclared" /> would stop reporting in the assembly that had just declared its
@@ -75,7 +82,7 @@ public sealed class StringDeclarationAnalyzer : DiagnosticAnalyzer {
         "'{0}.{1}' is declared but is not in '{0}.All', so no translator's template contains it",
         "Vixen.Ui",
         DiagnosticSeverity.Error,
-        isEnabledByDefault: true,
+        true,
         "All is what Strings.Template exports and therefore the whole of what a translator ever sees. "
         + "It is spelled out rather than reflected over — a list gathered at run time is one a trimmer "
         + "is entitled to shorten — so the name is written twice and this is what compares the two."
@@ -87,10 +94,10 @@ public sealed class StringDeclarationAnalyzer : DiagnosticAnalyzer {
         "'{0}' is declared here and at {1}; a catalogue is a map, so the second translation wins and the first string is unreachable",
         "Vixen.Ui",
         DiagnosticSeverity.Error,
-        isEnabledByDefault: true,
+        true,
         "An id is what a catalogue calls a string. Two declarations under one id are two places a "
         + "translator cannot tell apart and one of which can never be translated separately — which is "
-        + "the exact thing the two ids for the two \"Close\"s exist to avoid.",
+        + """the exact thing the two ids for the two "Close"s exist to avoid.""",
         customTags: [WellKnownDiagnosticTags.CompilationEnd]
     );
 
@@ -100,7 +107,7 @@ public sealed class StringDeclarationAnalyzer : DiagnosticAnalyzer {
         "This string id is built here rather than declared in '{0}', so it is in no All list and no translator's template contains it",
         "Vixen.Ui",
         DiagnosticSeverity.Error,
-        isEnabledByDefault: true,
+        true,
         "Reported only in an assembly that already has a declaration class, because that assembly has "
         + "answered the question of where its ids live and a second answer at a call site is a string "
         + "that silently cannot be translated.",
@@ -119,8 +126,7 @@ public sealed class StringDeclarationAnalyzer : DiagnosticAnalyzer {
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
         context.EnableConcurrentExecution();
 
-        context.RegisterCompilationStartAction(
-            start => {
+        context.RegisterCompilationStartAction(static start => {
                 var stringId = start.Compilation.GetTypeByMetadataName(StringIdMetadataName);
 
                 if (stringId is null) {
@@ -168,12 +174,17 @@ public sealed class StringDeclarationAnalyzer : DiagnosticAnalyzer {
         }
 
         var members = syntax.Members.OfType<PropertyDeclarationSyntax>().ToArray();
-        var all = members.FirstOrDefault(member => member.Identifier.ValueText == AllPropertyName);
+        var all = members.FirstOrDefault(static member => member.Identifier.ValueText == AllPropertyName);
 
         var declared = members
-            .Where(member => member.Initializer is not null)
-            .Where(
-                member => IsDeclaration(context.SemanticModel, member, stringId, stringFamily, context.CancellationToken)
+            .Where(static member => member.Initializer is not null)
+            .Where(member => IsDeclaration(
+                    context.SemanticModel,
+                    member,
+                    stringId,
+                    stringFamily,
+                    context.CancellationToken
+                )
             )
             .ToArray();
 
@@ -191,7 +202,7 @@ public sealed class StringDeclarationAnalyzer : DiagnosticAnalyzer {
             : new HashSet<string>(
                 all.Initializer.DescendantNodes()
                     .OfType<IdentifierNameSyntax>()
-                    .Select(identifier => identifier.Identifier.ValueText)
+                    .Select(static identifier => identifier.Identifier.ValueText)
             );
 
         foreach (var member in declared) {
@@ -204,7 +215,7 @@ public sealed class StringDeclarationAnalyzer : DiagnosticAnalyzer {
                 : null;
 
             declarations.Add(
-                new Declaration(
+                new(
                     type.Name,
                     member.Identifier.ValueText,
                     id,
@@ -253,7 +264,7 @@ public sealed class StringDeclarationAnalyzer : DiagnosticAnalyzer {
         // else in an assembly that has one is a second, invisible place.
         if (context.Node.FirstAncestorOrSelf<ClassDeclarationSyntax>() is { } within
             && within.Members.OfType<PropertyDeclarationSyntax>()
-                .Any(member => member.Identifier.ValueText == AllPropertyName)) {
+                .Any(static member => member.Identifier.ValueText == AllPropertyName)) {
             return;
         }
 
@@ -270,10 +281,10 @@ public sealed class StringDeclarationAnalyzer : DiagnosticAnalyzer {
         // compiler happened to walk the files in — a diagnostic that moves between builds is one
         // nobody can baseline.
         foreach (var group in declarations
-                     .Where(declaration => declaration.Id is not null)
-                     .GroupBy(declaration => declaration.Id!, StringComparer.Ordinal)
-                     .Where(group => group.Count() > 1)) {
-            var ordered = group.OrderBy(declaration => declaration.Member, StringComparer.Ordinal).ToArray();
+                     .Where(static declaration => declaration.Id is not null)
+                     .GroupBy(static declaration => declaration.Id!, StringComparer.Ordinal)
+                     .Where(static group => group.Count() > 1)) {
+            var ordered = group.OrderBy(static declaration => declaration.Member, StringComparer.Ordinal).ToArray();
 
             for (var index = 1; index < ordered.Length; index++) {
                 context.ReportDiagnostic(
@@ -291,15 +302,14 @@ public sealed class StringDeclarationAnalyzer : DiagnosticAnalyzer {
             return;
         }
 
-        var named = classes.Keys.OrderBy(name => name, StringComparer.Ordinal).First();
+        var named = classes.Keys.OrderBy(static name => name, StringComparer.Ordinal).First();
 
         foreach (var location in loose) {
             context.ReportDiagnostic(Diagnostic.Create(Undeclared, location, named));
         }
     }
 
-    static string Describe(Declaration declaration) =>
-        declaration.TypeName + "." + declaration.Member;
+    static string Describe(Declaration declaration) => declaration.TypeName + "." + declaration.Member;
 
     /// <summary>Whether a property declares strings — one, or a family of them.</summary>
     /// <param name="model">The semantic model.</param>

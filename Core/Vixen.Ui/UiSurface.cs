@@ -19,8 +19,12 @@ namespace Vixen.Ui;
 ///         into the reparent the docking host already performs.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Every surface after the first is an ordinary element under
-///         <see cref="UiDocument.Root" />, and that is deliberate.</b> It keeps one style tree, so a
+///         ⚠
+///         <b>
+///             Every surface after the first is an ordinary element under
+///             <see cref="UiDocument.Root" />, and that is deliberate.
+///         </b>
+///         It keeps one style tree, so a
 ///         torn-off panel inherits the theme, matches the same stylesheets and resolves <c>rem</c>
 ///         against the same root — and it keeps one focus, one pointer capture and one gesture
 ///         recogniser, which is what lets a drag that starts in one window finish in another. What
@@ -28,15 +32,23 @@ namespace Vixen.Ui;
 ///         removed from the layout tree's child list and laid out on its own, against its own size.
 ///     </para>
 ///     <para>
-///         ⚠ <b><see cref="DpiScale" /> is per surface, because two windows are routinely on two
-///         displays.</b> It is not a scale the document applies to anything — lengths stay in
+///         ⚠
+///         <b>
+///             <see cref="DpiScale" /> is per surface, because two windows are routinely on two
+///             displays.
+///         </b>
+///         It is not a scale the document applies to anything — lengths stay in
 ///         logical points everywhere above the renderer — it is the grid the finished layout is
 ///         snapped to, so that a one-pixel border on a 2× display is one physical pixel rather than
 ///         one and a half.
 ///     </para>
 ///     <para>
-///         ⚠ <b>And <see cref="Media" /> is per surface for the same reason, which took longer to
-///         arrive.</b> <c>50vw</c> in a torn-off inspector has always meant half of <i>that</i>
+///         ⚠
+///         <b>
+///             And <see cref="Media" /> is per surface for the same reason, which took longer to
+///             arrive.
+///         </b>
+///         <c>50vw</c> in a torn-off inspector has always meant half of <i>that</i>
 ///         window, while <c>@media (min-width: 640px)</c> meant the main one — the size was read off
 ///         the surface and the breakpoint was read off the document. The inconsistency was not an
 ///         oversight but a consequence: <c>@media</c> was decided at load, so its verdict lived in
@@ -47,7 +59,7 @@ namespace Vixen.Ui;
 /// </remarks>
 public sealed class UiSurface {
     ColorGamut gamut = ColorGamut.Srgb;
-    ColorSchemePreference colorScheme = ColorSchemePreference.NoPreference;
+    ColorSchemePreference colorScheme;
     MediaPreferences preferences;
 
     internal UiSurface(
@@ -113,8 +125,11 @@ public sealed class UiSurface {
     /// <summary>The element the keyboard is talking to in <i>this</i> window.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>AppKit's per-window first responder, and until this existed the focus was one
-    ///         element for the whole document.</b> Two windows of one application each have a
+    ///         <b>
+    ///             AppKit's per-window first responder, and until this existed the focus was one
+    ///             element for the whole document.
+    ///         </b>
+    ///         Two windows of one application each have a
     ///         caret, and only one of them is the caret the user is typing into: with a single
     ///         document-global focus a keystroke delivered to a torn-off inspector reached whatever
     ///         the main window had focused, because the delivering surface only ever decided the
@@ -128,8 +143,12 @@ public sealed class UiSurface {
     ///         changes without anything having been focused or blurred.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>So more than one element in a document can carry
-    ///         <c>ElementState.Focus</c> at once</b>, one per surface, and <c>:focus</c> in a
+    ///         ⚠
+    ///         <b>
+    ///             So more than one element in a document can carry
+    ///             <c>ElementState.Focus</c> at once
+    ///         </b>
+    ///         , one per surface, and <c>:focus</c> in a
     ///         background window still matches. That is the honest picture — the window remembers
     ///         where the caret is — and a theme that wants the two to look different reads
     ///         <see cref="IUiWindow.IsKey" /> rather than asking the focus to lie.
@@ -156,8 +175,12 @@ public sealed class UiSurface {
 
     /// <summary>What this surface can actually show, which decides <c>@media (color-gamut: …)</c> here.</summary>
     /// <remarks>
-    ///     ⚠ <b>The swapchain's <i>granted</i> gamut for <i>this</i> window, read back from
-    ///     <c>ISwapChain.Gamut</c>.</b> A surface that offered no wide colour space with enough
+    ///     ⚠
+    ///     <b>
+    ///         The swapchain's <i>granted</i> gamut for <i>this</i> window, read back from
+    ///         <c>ISwapChain.Gamut</c>.
+    ///     </b>
+    ///     A surface that offered no wide colour space with enough
     ///     precision behind it stays in sRGB whatever was requested, and a stylesheet told otherwise
     ///     picks colours that the presentation maps away again — so this is the same field
     ///     <c>UiGeometryBuilder.Gamut</c> is set from, on the same pane, at the same two moments:
@@ -208,8 +231,12 @@ public sealed class UiSurface {
     ///         all six come out of the same platform read — see <see cref="MediaPreferences" />.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Two of the six axes now have an operating system behind them and four still do
-    ///         not.</b> <c>PlatformInput.ApplyAccessibility</c> writes <see cref="MediaPreferences.Motion" />
+    ///         ⚠
+    ///         <b>
+    ///             Two of the six axes now have an operating system behind them and four still do
+    ///             not.
+    ///         </b>
+    ///         <c>PlatformInput.ApplyAccessibility</c> writes <see cref="MediaPreferences.Motion" />
     ///         and the forced-colours pair from <c>IPlatform.Accessibility</c>, on the same terms as
     ///         the appearance beside it; the two pointer axes and <see cref="MediaPreferences.InvertedColors" />
     ///         have no reader on any platform, so a query about those is still answered truthfully
@@ -238,7 +265,8 @@ public sealed class UiSurface {
     ///     declaration, so <c>min-[40rem]:</c> and <c>w-[40rem]</c> cannot disagree about what a
     ///     <c>rem</c> is (#1373).
     /// </remarks>
-    public MediaContext Media => new(Width, Height, DpiScale, ColorScheme, Gamut, Preferences) { FontSize = Metrics.RootFontSize };
+    public MediaContext Media =>
+        new(Width, Height, DpiScale, ColorScheme, Gamut, Preferences) { FontSize = Metrics.RootFontSize };
 
     /// <summary>Its entry in the document's <see cref="MediaScopes" />.</summary>
     /// <remarks>

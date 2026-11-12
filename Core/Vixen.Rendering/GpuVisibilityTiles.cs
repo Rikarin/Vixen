@@ -361,8 +361,11 @@ public sealed class GpuVisibilityTiles : IDisposable {
     ///         drop. A frame at that capacity cannot overflow at all.
     ///     </para>
     ///     <para>
-    ///         <b>Destroyed here rather than at the next <see cref="Record" />, because here is where
-    ///         nothing is reading it.</b> <see cref="ReadCounts" /> is called between frames, after the
+    ///         <b>
+    ///             Destroyed here rather than at the next <see cref="Record" />, because here is where
+    ///             nothing is reading it.
+    ///         </b>
+    ///         <see cref="ReadCounts" /> is called between frames, after the
     ///         readback the previous frame's copy filled — see <see cref="Compositor.ClusterCullingRenderer" />
     ///         for where the same argument places the page flush. Destroying it inside a frame would free
     ///         a buffer the resolve's own dispatch is still bound to.
@@ -461,8 +464,8 @@ public sealed class GpuVisibilityTiles : IDisposable {
         var template = new uint[MaxMaterials * ArgumentWords];
 
         for (var material = 0; material < MaxMaterials; material++) {
-            template[(material * ArgumentWords) + 1] = 1u;
-            template[(material * ArgumentWords) + 2] = 1u;
+            template[material * ArgumentWords + 1] = 1u;
+            template[material * ArgumentWords + 2] = 1u;
         }
 
         // Host-upload, because the host writes it once and nothing but a copy ever reads it. Device-local
@@ -478,7 +481,7 @@ public sealed class GpuVisibilityTiles : IDisposable {
         );
 
         if (seed.IsValid) {
-            device.Write(seed, 0, MemoryMarshal.AsBytes<uint>(template));
+            device.Write(seed, 0, MemoryMarshal.AsBytes(template));
         }
 
         readback = device.CreateBuffer(

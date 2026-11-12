@@ -25,10 +25,10 @@ public static class AnalyzerHarness {
     ///     of it in a test is the same statement about the shape that a second generator makes.
     /// </remarks>
     public const string StringId = """
-        namespace Vixen.Ui {
-            public readonly record struct StringId(string Id, string Source);
-        }
-        """;
+                                   namespace Vixen.Ui {
+                                       public readonly record struct StringId(string Id, string Source);
+                                   }
+                                   """;
 
     /// <summary>A <c>StringFamily</c> good enough to bind against, for the same reason.</summary>
     /// <remarks>
@@ -37,26 +37,28 @@ public static class AnalyzerHarness {
     ///     set of keys is <c>Vixen.Ui</c>'s business and is asserted in that assembly's own tests.
     /// </remarks>
     public const string StringFamily = """
-        namespace Vixen.Ui {
-            public sealed class StringFamily {
-                public StringFamily(
-                    string prefix,
-                    System.Collections.Generic.IEnumerable<System.Collections.Generic.KeyValuePair<string, string>> members
-                ) { }
+                                       namespace Vixen.Ui {
+                                           public sealed class StringFamily {
+                                               public StringFamily(
+                                                   string prefix,
+                                                   System.Collections.Generic.IEnumerable<System.Collections.Generic.KeyValuePair<string, string>> members
+                                               ) { }
 
-                public System.Collections.Generic.IReadOnlyList<StringId> All => [];
+                                               public System.Collections.Generic.IReadOnlyList<StringId> All => [];
 
-                public StringId this[string key] => default;
-            }
-        }
-        """;
+                                               public StringId this[string key] => default;
+                                           }
+                                       }
+                                       """;
 
     static readonly ImmutableArray<MetadataReference> References = CollectReferences();
 
     /// <summary>Compiles source and runs the analyzer over it.</summary>
-    /// <param name="source">The C# to compile, without the <see cref="StringId" /> declaration —
+    /// <param name="source">
+    ///     The C# to compile, without the <see cref="StringId" /> declaration —
     ///     which is appended. It has to compile: a snippet with an error in it binds to nothing, and
-    ///     an analyzer that reported nothing about nothing would pass.</param>
+    ///     an analyzer that reported nothing about nothing would pass.
+    /// </param>
     /// <returns>What the analyzer reported, in file order.</returns>
     /// <remarks>
     ///     Appended rather than prepended, because a <c>using</c> has to be the first thing in a file
@@ -84,7 +86,8 @@ public static class AnalyzerHarness {
         string source,
         DiagnosticAnalyzer analyzer,
         string preamble
-    ) => RunAsync(source, analyzer, preamble, null);
+    ) =>
+        RunAsync(source, analyzer, preamble, null);
 
     /// <summary>The same, with a second file that a source generator is pretending to have written.</summary>
     /// <param name="source">The hand-written C#, in <c>Declarations.cs</c>.</param>
@@ -97,8 +100,12 @@ public static class AnalyzerHarness {
     /// </param>
     /// <returns>What the analyzer reported, in file order.</returns>
     /// <remarks>
-    ///     ⚠ <b>Two files and not one string, because "is this generated code" is a question about a
-    ///     file.</b> A rule that behaves differently in generated code cannot be tested by any
+    ///     ⚠
+    ///     <b>
+    ///         Two files and not one string, because "is this generated code" is a question about a
+    ///         file.
+    ///     </b>
+    ///     A rule that behaves differently in generated code cannot be tested by any
     ///     arrangement of one tree: the partial-class case — half hand-written, half emitted — is a
     ///     third answer again, and it is the shape every <c>.vxml</c> with a code-behind has.
     /// </remarks>
@@ -124,20 +131,18 @@ public static class AnalyzerHarness {
         );
 
         var broken = compilation.GetDiagnostics()
-            .Where(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error)
+            .Where(static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error)
             .ToImmutableArray();
 
         if (broken.Length != 0) {
-            throw new InvalidOperationException(
-                $"The source under test does not compile: {string.Join("; ", broken)}"
-            );
+            throw new InvalidOperationException($"The source under test does not compile: {string.Join("; ", broken)}");
         }
 
         var reported = await compilation
             .WithAnalyzers(ImmutableArray.Create(analyzer))
             .GetAnalyzerDiagnosticsAsync(TestContext.Current.CancellationToken);
 
-        return [.. reported.OrderBy(diagnostic => diagnostic.Location.SourceSpan.Start)];
+        return [..reported.OrderBy(static diagnostic => diagnostic.Location.SourceSpan.Start)];
     }
 
     /// <summary>The source a diagnostic underlined.</summary>

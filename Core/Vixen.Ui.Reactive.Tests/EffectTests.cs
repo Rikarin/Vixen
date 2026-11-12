@@ -49,7 +49,8 @@ public class EffectTests {
         var source = new Signal<int>(0);
         var runs = 0;
 
-        using var effect = new Effect(() => {
+        using var effect = new Effect(
+            () => {
                 runs++;
                 _ = source.Value;
             },
@@ -95,7 +96,8 @@ public class EffectTests {
         var parity = new Computed<int>(() => source.Value % 2);
         var runs = 0;
 
-        using var effect = new Effect(() => {
+        using var effect = new Effect(
+            () => {
                 runs++;
                 _ = parity.Value;
             },
@@ -125,7 +127,8 @@ public class EffectTests {
         var source = new Signal<int>(1);
         var runs = 0;
 
-        var effect = new Effect(() => {
+        var effect = new Effect(
+            () => {
                 runs++;
                 _ = source.Value;
             },
@@ -165,7 +168,8 @@ public class EffectTests {
         var source = new Signal<int>(0);
         var runs = 0;
 
-        using var effect = new Effect(() => {
+        using var effect = new Effect(
+            () => {
                 runs++;
                 source.Value++;
             },
@@ -193,7 +197,8 @@ public class EffectTests {
         var loop = true;
         var runs = 0;
 
-        using var effect = new Effect(() => {
+        using var effect = new Effect(
+            () => {
                 runs++;
                 if (loop) {
                     source.Value++;
@@ -222,7 +227,8 @@ public class EffectTests {
         var frame = new Signal<int>(0);
         var runs = 0;
 
-        using var effect = new Effect(() => {
+        using var effect = new Effect(
+            () => {
                 runs++;
                 _ = frame.Value;
             },
@@ -243,7 +249,7 @@ public class EffectTests {
         var scheduler = new EffectScheduler();
         var otherRuns = 0;
 
-        using var thrower = new Effect(() => throw new InvalidOperationException("boom"), scheduler);
+        using var thrower = new Effect(static () => throw new InvalidOperationException("boom"), scheduler);
         using var other = new Effect(() => otherRuns++, scheduler);
 
         scheduler.Flush();
@@ -281,7 +287,8 @@ public class EffectTests {
         var scheduler = new EffectScheduler();
         var runs = 0;
 
-        using var effect = new Effect(() => {
+        using var effect = new Effect(
+            () => {
                 runs++;
                 Assert.Equal(0, scheduler.Flush());
             },

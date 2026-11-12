@@ -9,7 +9,6 @@ using Vixen.Editor.Core.Scenes;
 using Vixen.Editor.SceneView;
 using Vixen.Engine.Transforms;
 using Vixen.Geometry;
-using Vixen.Rendering;
 using Vixen.Rendering.Ecs;
 using Xunit;
 
@@ -92,7 +91,7 @@ public class BlockoutBooleanTests : IDisposable {
         Assert.All(operands, entity => Assert.True(scene.IsHidden(entity)));
         Assert.All(operands, entity => Assert.NotNull(scene.MeshOf(entity)));
 
-        Assert.Equal((4f * 3f * 0.5f) - (1f * 2f * 0.5f), Volume(scene.MeshOf(result)!), 2);
+        Assert.Equal(4f * 3f * 0.5f - 1f * 2f * 0.5f, Volume(scene.MeshOf(result)!), 2);
     }
 
     [Fact]
@@ -145,7 +144,7 @@ public class BlockoutBooleanTests : IDisposable {
         Settle();
         SceneCsg.Refresh(scene);
 
-        Assert.Equal(before - (1f * 2f * 0.5f), Volume(scene.MeshOf(result)!), 2);
+        Assert.Equal(before - 1f * 2f * 0.5f, Volume(scene.MeshOf(result)!), 2);
     }
 
     [Fact]
@@ -244,7 +243,7 @@ public class BlockoutBooleanTests : IDisposable {
 
         var steps = scene.Stack.History.Count;
 
-        Assert.Equal(1, BlockoutBoolean.PlaneCut(scene, new Plane(Vector3.UnitY, -2f)));
+        Assert.Equal(1, BlockoutBoolean.PlaneCut(scene, new(Vector3.UnitY, -2f)));
 
         Assert.Equal(4f * 2f * 4f, Volume(scene.MeshOf(box)!), 2);
         Assert.Equal(steps + 1, scene.Stack.History.Count);
@@ -270,7 +269,7 @@ public class BlockoutBooleanTests : IDisposable {
         // ⚠ The plane arrives in world space and is taken into the mesh's own. A caller that skipped
         // that conversion would cut this wall on a diagonal and every unrotated one correctly, which
         // is the shape of a bug nobody attributes to the rotation.
-        Assert.Equal(1, BlockoutBoolean.PlaneCut(scene, new Plane(Vector3.UnitY, -2f)));
+        Assert.Equal(1, BlockoutBoolean.PlaneCut(scene, new(Vector3.UnitY, -2f)));
         Assert.Equal(4f * 2f * 4f, Volume(scene.MeshOf(wall)!), 2);
         Assert.Equal(2f, scene.MeshOf(wall)!.Bounds.Maximum.Y, 3);
     }
@@ -505,7 +504,7 @@ public class BlockoutBooleanTests : IDisposable {
         // Two boxes that do not touch are two shells, so two colliders — both of which can be given
         // to a body that moves, where one mesh collider could not.
         Assert.Equal(2, BlockoutHandoff.Collision(scene, joined, boxes));
-        Assert.All(boxes, box => Assert.Equal(new Vector3(2f, 2f, 2f), box.Maximum - box.Minimum));
+        Assert.All(boxes, static box => Assert.Equal(new(2f, 2f, 2f), box.Maximum - box.Minimum));
 
         var (positions, indices) = BlockoutHandoff.CollisionMesh(scene, joined);
 

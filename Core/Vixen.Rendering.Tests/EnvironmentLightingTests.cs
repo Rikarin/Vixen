@@ -96,12 +96,9 @@ public class EnvironmentLightingTests {
     [Fact]
     public void Locating_a_direction_and_unprojecting_it_agree() {
         Gen.Select(Gen.Float[-1f, 1f], Gen.Float[-1f, 1f], Gen.Float[-1f, 1f])
-            .Where(components => Length(components) > 0.1f)
-            .Sample(
-                components => {
-                    var direction = Vector3.Normalize(
-                        new(components.Item1, components.Item2, components.Item3)
-                    );
+            .Where(static components => Length(components) > 0.1f)
+            .Sample(static components => {
+                    var direction = Vector3.Normalize(new(components.Item1, components.Item2, components.Item3));
 
                     var (face, u, v) = CubeMapping.Locate(direction);
                     var round = CubeMapping.Direction(face, u, v);
@@ -135,12 +132,9 @@ public class EnvironmentLightingTests {
     [Fact]
     public void Locating_a_direction_agrees_with_the_hardware() {
         Gen.Select(Gen.Float[-1f, 1f], Gen.Float[-1f, 1f], Gen.Float[-1f, 1f])
-            .Where(components => Length(components) > 0.1f)
-            .Sample(
-                components => {
-                    var direction = Vector3.Normalize(
-                        new(components.Item1, components.Item2, components.Item3)
-                    );
+            .Where(static components => Length(components) > 0.1f)
+            .Sample(static components => {
+                    var direction = Vector3.Normalize(new(components.Item1, components.Item2, components.Item3));
 
                     var (face, u, v) = CubeMapping.Locate(direction);
                     var (hardwareFace, hardwareU, hardwareV) = Hardware(direction);
@@ -276,7 +270,7 @@ public class EnvironmentLightingTests {
         var second = SphericalHarmonics.Project(CubeImage.Uniform(16, new(0f, 1f, 0f)));
         var both = SphericalHarmonics.Project(CubeImage.Uniform(16, new(0.25f, 0.75f, 0f)));
 
-        var blended = (first * 0.25f) + (second * 0.75f);
+        var blended = first * 0.25f + second * 0.75f;
 
         var direct = SphericalHarmonics.Evaluate(both, Vector3.UnitZ);
         var mixed = SphericalHarmonics.Evaluate(blended, Vector3.UnitZ);
@@ -345,7 +339,7 @@ public class EnvironmentLightingTests {
         var source = new CubeImage(32);
         source.Face(CubeFace.PositiveX).Fill(Vector3.One);
 
-        var chain = EnvironmentBaker.Prefilter(source, 4, samples: 128);
+        var chain = EnvironmentBaker.Prefilter(source, 4, 128);
 
         Assert.Equal(Vector3.One, chain[0].At(CubeFace.PositiveX, 16, 16));
         Assert.Equal(Vector3.Zero, chain[0].At(CubeFace.NegativeX, 16, 16));
@@ -374,9 +368,7 @@ public class EnvironmentLightingTests {
     [Fact]
     public void A_probe_fades_out_at_its_boundary() {
         var probe = new ReflectionProbe {
-            Bounds = new(new(-10f, -10f, -10f), new(10f, 10f, 10f)),
-            CapturePosition = Vector3.Zero,
-            BlendDistance = 2f
+            Bounds = new(new(-10f, -10f, -10f), new(10f, 10f, 10f)), CapturePosition = Vector3.Zero, BlendDistance = 2f
         };
 
         Assert.Equal(1f, probe.WeightAt(Vector3.Zero));
@@ -406,15 +398,9 @@ public class EnvironmentLightingTests {
     /// </remarks>
     [Fact]
     public void The_innermost_probe_wins_where_probes_overlap() {
-        var room = new ReflectionProbe {
-            Bounds = new(new(-20f, -20f, -20f), new(20f, 20f, 20f)),
-            BlendDistance = 0f
-        };
+        var room = new ReflectionProbe { Bounds = new(new(-20f, -20f, -20f), new(20f, 20f, 20f)), BlendDistance = 0f };
 
-        var cupboard = new ReflectionProbe {
-            Bounds = new(new(-2f, -2f, -2f), new(2f, 2f, 2f)),
-            BlendDistance = 0f
-        };
+        var cupboard = new ReflectionProbe { Bounds = new(new(-2f, -2f, -2f), new(2f, 2f, 2f)), BlendDistance = 0f };
 
         var selector = new ReflectionProbeSelector();
         selector.Probes.Add(room);
@@ -429,15 +415,10 @@ public class EnvironmentLightingTests {
     [Fact]
     public void Priority_beats_size() {
         var big = new ReflectionProbe {
-            Bounds = new(new(-20f, -20f, -20f), new(20f, 20f, 20f)),
-            BlendDistance = 0f,
-            Priority = 1
+            Bounds = new(new(-20f, -20f, -20f), new(20f, 20f, 20f)), BlendDistance = 0f, Priority = 1
         };
 
-        var small = new ReflectionProbe {
-            Bounds = new(new(-2f, -2f, -2f), new(2f, 2f, 2f)),
-            BlendDistance = 0f
-        };
+        var small = new ReflectionProbe { Bounds = new(new(-2f, -2f, -2f), new(2f, 2f, 2f)), BlendDistance = 0f };
 
         var selector = new ReflectionProbeSelector();
         selector.Probes.Add(small);
@@ -471,9 +452,7 @@ public class EnvironmentLightingTests {
         var parameters = new ParameterCollection();
 
         var environment = new EnvironmentLight {
-            Irradiance = SphericalHarmonics.Project(CubeImage.Uniform(8, Vector3.One)),
-            MipCount = 6,
-            Intensity = 2f
+            Irradiance = SphericalHarmonics.Project(CubeImage.Uniform(8, Vector3.One)), MipCount = 6, Intensity = 2f
         };
 
         environment.Apply(parameters);
@@ -489,7 +468,7 @@ public class EnvironmentLightingTests {
     }
 
     static float Length((float X, float Y, float Z) components) =>
-        (components.X * components.X) + (components.Y * components.Y) + (components.Z * components.Z);
+        components.X * components.X + components.Y * components.Y + components.Z * components.Z;
 
     /// <summary>A spread of directions, for the claims that must hold in all of them.</summary>
     static IEnumerable<Vector3> Directions() {

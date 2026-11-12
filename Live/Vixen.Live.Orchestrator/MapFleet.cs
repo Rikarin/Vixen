@@ -35,8 +35,12 @@ public sealed record FleetPolicy {
 
     /// <summary>The window arrivals are counted over to get a rate.</summary>
     /// <remarks>
-    ///     ⚠ <b>The same as <see cref="SpawnLeadTime" />, on purpose: measure over the horizon you
-    ///     project over.</b> A window twice the lead time keeps predicting growth for a minute after
+    ///     ⚠
+    ///     <b>
+    ///         The same as <see cref="SpawnLeadTime" />, on purpose: measure over the horizon you
+    ///         project over.
+    ///     </b>
+    ///     A window twice the lead time keeps predicting growth for a minute after
     ///     a burst has ended — the crowd is still in the window, so the rate stays high, and the
     ///     fleet spawns shards for people who already arrived. <c>FleetSimulation</c>'s flash crowd
     ///     over-provisioned by a whole shard on a sixty-second window and does not on this one.
@@ -46,8 +50,12 @@ public sealed record FleetPolicy {
     /// <summary>The shortest span a rate is inferred from.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The rate is arrivals over the span they actually landed in, not over
-    ///         <see cref="ArrivalWindow" />.</b> Dividing by the nominal window makes a flash crowd
+    ///         ⚠
+    ///         <b>
+    ///             The rate is arrivals over the span they actually landed in, not over
+    ///             <see cref="ArrivalWindow" />.
+    ///         </b>
+    ///         Dividing by the nominal window makes a flash crowd
     ///         read as a trickle for its first minute — ten people a second reads as 0.17/s until the
     ///         window fills — so the fleet spawns after saturation instead of before it, and the
     ///         difference is players being refused while capacity they were promised is still
@@ -96,7 +104,7 @@ public enum FleetActionKind : byte {
 /// <param name="Reason">Why, in a sentence, for the log and the fleet view.</param>
 public readonly record struct FleetAction(FleetActionKind Kind, ShardId Shard, string Reason) {
     /// <summary>Do nothing.</summary>
-    public static FleetAction None => new(FleetActionKind.None, ShardId.None, "");
+    public static FleetAction None => new(FleetActionKind.None, ShardId.None, string.Empty);
 
     /// <inheritdoc />
     public override string ToString() =>
@@ -200,8 +208,8 @@ public sealed class MapFleet {
 
         // Starting shards count against the ceiling and toward the headroom, which is the whole of
         // the debounce's job: a shard that has been asked for is capacity that is coming.
-        var pending = shards.Count(shard => shard.State is ShardState.Requested or ShardState.Starting);
-        var ready = shards.Where(shard => shard.State == ShardState.Ready).ToList();
+        var pending = shards.Count(static shard => shard.State is ShardState.Requested or ShardState.Starting);
+        var ready = shards.Where(static shard => shard.State == ShardState.Ready).ToList();
 
         if (Spawns(now, ready, pending) is { Length: > 0 } why) {
             lastSpawn = now;
@@ -214,16 +222,16 @@ public sealed class MapFleet {
             return new(FleetActionKind.Spawn, ShardId.None, why);
         }
 
-        return Merges(now, ready, shards.Any(shard => shard.State == ShardState.Draining));
+        return Merges(now, ready, shards.Any(static shard => shard.State == ShardState.Draining));
     }
 
     string Spawns(DateTimeOffset now, List<ShardCandidate> ready, int pending) {
         if (ready.Count + pending >= policy.MaxShards) {
-            return "";
+            return string.Empty;
         }
 
         if (now - lastSpawn < policy.SpawnCooldown) {
-            return "";
+            return string.Empty;
         }
 
         if (ready.Count == 0 && pending == 0) {
@@ -233,7 +241,7 @@ public sealed class MapFleet {
         // Headroom counts to the SOFT cap, not the hard one. The gap above it is what doc 27 reserves
         // for parties arriving together, and a fleet that spent it on ordinary arrivals would have
         // no room left for the one thing placement scores at ten thousand.
-        var headroom = ready.Sum(shard => Math.Max(0, shard.Capacity.SoftCap - shard.Population));
+        var headroom = ready.Sum(static shard => Math.Max(0, shard.Capacity.SoftCap - shard.Population));
 
         if (headroom == 0 && pending == 0) {
             return "every shard is at its soft cap";
@@ -246,12 +254,12 @@ public sealed class MapFleet {
         // finishes loading, which is the twenty-shards failure doc 27 names.
         var soft = ready.Count > 0 ? ready[0].Capacity.SoftCap : 0;
 
-        return projected > headroom + (pending * soft)
+        return projected > headroom + pending * soft
             ? string.Create(
                 CultureInfo.InvariantCulture,
                 $"{ArrivalRate(now):0.##}/s over {policy.SpawnLeadTime.TotalSeconds:0}s exceeds {headroom} free"
             )
-            : "";
+            : string.Empty;
     }
 
     FleetAction Merges(DateTimeOffset now, List<ShardCandidate> ready, bool alreadyDraining) {
@@ -287,8 +295,8 @@ public sealed class MapFleet {
         // The lowest population, and the lowest shard id when two are equal — for determinism, so
         // that the same fleet always retires the same shard and a test can say which.
         var going = quiet
-            .OrderBy(shard => shard.Population)
-            .ThenBy(shard => shard.Shard.Value)
+            .OrderBy(static shard => shard.Population)
+            .ThenBy(static shard => shard.Shard.Value)
             .First();
 
         return new(

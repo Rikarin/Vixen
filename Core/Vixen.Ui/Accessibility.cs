@@ -8,8 +8,11 @@ namespace Vixen.Ui;
 /// <summary>What kind of thing an element is, in the vocabulary assistive technology already knows.</summary>
 /// <remarks>
 ///     <para>
-///         <b>The tokens are WAI-ARIA 1.2's role names, PascalCased, and not one of them was invented
-///         here.</b> The list a reader can check this against is
+///         <b>
+///             The tokens are WAI-ARIA 1.2's role names, PascalCased, and not one of them was invented
+///             here.
+///         </b>
+///         The list a reader can check this against is
 ///         <see href="https://www.w3.org/TR/wai-aria-1.2/#role_definitions">WAI-ARIA 1.2 § 5.4</see>;
 ///         the member name is the role token with its words capitalised — <c>menuitemcheckbox</c> is
 ///         <see cref="MenuItemCheckBox" />, <c>tablist</c> is <see cref="TabList" />. A role this
@@ -27,8 +30,12 @@ namespace Vixen.Ui;
 ///         "ARIA-role snapshot", so the name was already chosen.
 ///     </para>
 ///     <para>
-///         ⚠ <b><see cref="None" /> is ARIA's <c>none</c>, and it is the default for every element on
-///         purpose.</b> A layout <c>&lt;div&gt;</c>, a <c>Panel</c>, the box a control draws its
+///         ⚠
+///         <b>
+///             <see cref="None" /> is ARIA's <c>none</c>, and it is the default for every element on
+///             purpose.
+///         </b>
+///         A layout <c>&lt;div&gt;</c>, a <c>Panel</c>, the box a control draws its
 ///         focus ring on — these are not things a screen reader should announce, and a tree that
 ///         reported them would read a form as forty nested groups. An element with
 ///         <see cref="None" /> is skipped and its children are read in its place, which is what
@@ -148,8 +155,12 @@ public enum AccessibleRole : ushort {
 
     /// <summary>ARIA <c>meter</c>.</summary>
     /// <remarks>
-    ///     ⚠ <b>Not <see cref="ProgressBar" />, and the difference is what the reading <i>means</i>
-    ///     rather than how it is drawn.</b> A progress bar says how far through a job something is
+    ///     ⚠
+    ///     <b>
+    ///         Not <see cref="ProgressBar" />, and the difference is what the reading <i>means</i>
+    ///         rather than how it is drawn.
+    ///     </b>
+    ///     A progress bar says how far through a job something is
     ///     and its value only ever goes up; a meter says how much of a fixed capacity is in use, and
     ///     it goes both ways and never finishes. A screen reader told "progress bar, ninety per
     ///     cent" about a disk that is nearly full has been told a job is nearly done.
@@ -247,8 +258,11 @@ public enum AccessibleRole : ushort {
 /// <summary>The conditions a screen reader announces alongside a role and a name.</summary>
 /// <remarks>
 ///     <para>
-///         <b>Named after .NET's own <c>System.Windows.Forms.AccessibleStates</c> and populated from
-///         ARIA's state attributes</b> — <c>aria-checked</c>, <c>aria-expanded</c>,
+///         <b>
+///             Named after .NET's own <c>System.Windows.Forms.AccessibleStates</c> and populated from
+///             ARIA's state attributes
+///         </b>
+///         — <c>aria-checked</c>, <c>aria-expanded</c>,
 ///         <c>aria-selected</c>, <c>aria-readonly</c>, <c>aria-required</c>, <c>aria-invalid</c>,
 ///         <c>aria-busy</c>, <c>aria-modal</c>, <c>aria-multiselectable</c>, <c>aria-multiline</c>,
 ///         <c>aria-pressed</c>. The four with no ARIA attribute behind them — <see cref="Focused" />,
@@ -257,14 +271,22 @@ public enum AccessibleRole : ushort {
 ///         and an in-process tree has to be able to say them.
 ///     </para>
 ///     <para>
-///         ⚠ <b><see cref="Expandable" /> is separate from <see cref="Expanded" /> because
-///         <c>aria-expanded</c> has three values and a flag has two.</b> Absent means "this does not
+///         ⚠
+///         <b>
+///             <see cref="Expandable" /> is separate from <see cref="Expanded" /> because
+///             <c>aria-expanded</c> has three values and a flag has two.
+///         </b>
+///         Absent means "this does not
 ///         expand"; <c>false</c> means "it does and it is closed". Folding them would make every
 ///         button in the document report itself as a collapsed disclosure.
 ///     </para>
 ///     <para>
-///         ⚠ <b><see cref="Checked" /> and <see cref="Pressed" /> are not the same state and the
-///         difference is not cosmetic.</b> A checkbox is <c>aria-checked</c>; a toggle button in a
+///         ⚠
+///         <b>
+///             <see cref="Checked" /> and <see cref="Pressed" /> are not the same state and the
+///             difference is not cosmetic.
+///         </b>
+///         A checkbox is <c>aria-checked</c>; a toggle button in a
 ///         toolbar is <c>aria-pressed</c>, and a screen reader says "pressed"/"not pressed" for one
 ///         and "ticked"/"unticked" for the other. Both are <see cref="ElementState.Checked" /> in the
 ///         cascade, which is why the accessible state is <i>computed</i> by the control rather than
@@ -360,7 +382,10 @@ public enum AccessibleRelation : byte {
     /// <summary>Operating this element changes the target. ARIA <c>aria-controls</c>.</summary>
     Controls,
 
-    /// <summary>The target is a child of this element in the accessibility tree but not in the element tree. ARIA <c>aria-owns</c>.</summary>
+    /// <summary>
+    ///     The target is a child of this element in the accessibility tree but not in the element tree. ARIA
+    ///     <c>aria-owns</c>.
+    /// </summary>
     Owns,
 
     /// <summary>Where the reading order goes next, when it is not the next sibling. ARIA <c>aria-flowto</c>.</summary>
@@ -377,8 +402,12 @@ public readonly record struct AccessibleRelationship(AccessibleRelation Relation
 
 /// <summary>Everything an element carries for the accessibility tree, allocated only if it carries any.</summary>
 /// <remarks>
-///     ⚠ <b>One object behind one nullable reference, on <c>CommandBindings</c>' terms and for its
-///     reasons.</b> A real interface is 10⁴ elements and the overwhelming majority of them declare
+///     ⚠
+///     <b>
+///         One object behind one nullable reference, on <c>CommandBindings</c>' terms and for its
+///         reasons.
+///     </b>
+///     A real interface is 10⁴ elements and the overwhelming majority of them declare
 ///     nothing here at all — a control's role, name, value and state come from
 ///     <see cref="UiElement.NativeRole" /> and its three companions, which are virtual members and
 ///     cost no storage whatever. So the price of the feature on an element that never uses it is the
@@ -402,15 +431,22 @@ public partial class UiElement {
     /// <summary>What kind of thing this element is, for assistive technology.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>Defaults to <see cref="NativeRole" />, which is what makes the control set work
-    ///         without an application writing anything.</b> A <c>Button</c> is
+    ///         <b>
+    ///             Defaults to <see cref="NativeRole" />, which is what makes the control set work
+    ///             without an application writing anything.
+    ///         </b>
+    ///         A <c>Button</c> is
     ///         <see cref="AccessibleRole.Button" /> because it is a <c>Button</c>, not because
     ///         somebody remembered. Setting this overrides the native role exactly as the web's
     ///         <c>role</c> attribute overrides an element's implicit one.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Setting it to <see cref="AccessibleRole.None" /> is a real answer, not a
-    ///         clear.</b> "This <c>Card</c> is decoration, read straight through it" has to be
+    ///         ⚠
+    ///         <b>
+    ///             Setting it to <see cref="AccessibleRole.None" /> is a real answer, not a
+    ///             clear.
+    ///         </b>
+    ///         "This <c>Card</c> is decoration, read straight through it" has to be
     ///         sayable, and it is different from "take the native role back" — which is what
     ///         <see cref="ClearRole" /> is for.
     ///     </para>
@@ -446,8 +482,11 @@ public partial class UiElement {
 
     /// <summary>Whether this element is a node a screen reader sees.</summary>
     /// <remarks>
-    ///     <b>Everything a layout is made of answers <c>false</c>, and that is the design rather than
-    ///     an oversight.</b> A row, a column, a <c>Panel</c>, the part a control draws its focus ring
+    ///     <b>
+    ///         Everything a layout is made of answers <c>false</c>, and that is the design rather than
+    ///         an oversight.
+    ///     </b>
+    ///     A row, a column, a <c>Panel</c>, the part a control draws its focus ring
     ///     on — a tree that reported all of those would read a four-field form as thirty nested
     ///     groups, which is the commonest way an accessibility tree is technically complete and
     ///     useless. A bridge walks the element tree and emits only these, hoisting the children of
@@ -467,8 +506,12 @@ public partial class UiElement {
     ///         these and they are the three that decide the answer for a control set.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A field's name is somebody else's element, which is why the relation is in the
-    ///         middle of this and not an afterthought.</b> A <c>TextBox</c> has no words of its own —
+    ///         ⚠
+    ///         <b>
+    ///             A field's name is somebody else's element, which is why the relation is in the
+    ///             middle of this and not an afterthought.
+    ///         </b>
+    ///         A <c>TextBox</c> has no words of its own —
     ///         its placeholder is not a name, and treating it as one is how a form ends up announcing
     ///         four fields all called "0.00". So a labelled field is one
     ///         <c>AddAccessibleRelation(AccessibleRelation.LabelledBy, label)</c>, and an unlabelled
@@ -613,8 +656,12 @@ public partial class UiElement {
     /// <summary>The conditions to announce with this element: what it is doing, plus whatever was declared on it.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Computed on every read, and never stored — which is the single most important
-    ///         decision on this type.</b> Three of these bits are facts the framework already knows
+    ///         ⚠
+    ///         <b>
+    ///             Computed on every read, and never stored — which is the single most important
+    ///             decision on this type.
+    ///         </b>
+    ///         Three of these bits are facts the framework already knows
     ///         and the control does not: <see cref="AccessibleStates.Disabled" /> is
     ///         <see cref="ElementState.Disabled" />, <see cref="AccessibleStates.Focused" /> is
     ///         <see cref="ElementState.Focus" />, and <see cref="AccessibleStates.Focusable" /> is
@@ -677,7 +724,7 @@ public partial class UiElement {
     /// <summary>Every relation declared on this element, in the order they were added.</summary>
     /// <remarks>An element with none answers an empty list without allocating one.</remarks>
     public IReadOnlyList<AccessibleRelationship> AccessibleRelationships =>
-        accessible?.Relations ?? (IReadOnlyList<AccessibleRelationship>) [];
+        accessible?.Relations ?? (IReadOnlyList<AccessibleRelationship>)[];
 
     /// <summary>The first element this one is related to in a given way, if there is one.</summary>
     /// <param name="relation">The kind of link.</param>
@@ -745,7 +792,7 @@ public partial class UiElement {
             return false;
         }
 
-        if (!relations.Remove(new AccessibleRelationship(relation, target))) {
+        if (!relations.Remove(new(relation, target))) {
             return false;
         }
 
@@ -779,8 +826,12 @@ public partial class UiElement {
     /// <summary>The role this <i>kind</i> of element has when nobody says otherwise.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A virtual rather than a field assigned in <c>OnCreated</c>, and that is what makes
-    ///         the role of every control in the set free.</b> A field would be four bytes on every
+    ///         ⚠
+    ///         <b>
+    ///             A virtual rather than a field assigned in <c>OnCreated</c>, and that is what makes
+    ///             the role of every control in the set free.
+    ///         </b>
+    ///         A field would be four bytes on every
     ///         element in the document and a line in fifty constructors, one of which would be
     ///         forgotten. A virtual is a slot in a vtable that already exists, is answered by the
     ///         type rather than by the instance, and cannot be omitted by a control that forgot —
@@ -823,9 +874,13 @@ public partial class UiElement {
     ///         itself.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Do not return <see cref="AccessibleStates.Disabled" />,
-    ///         <see cref="AccessibleStates.Focused" /> or <see cref="AccessibleStates.Focusable" />
-    ///         from an override.</b> <see cref="AccessibleState" /> adds all three from the element's
+    ///         ⚠
+    ///         <b>
+    ///             Do not return <see cref="AccessibleStates.Disabled" />,
+    ///             <see cref="AccessibleStates.Focused" /> or <see cref="AccessibleStates.Focusable" />
+    ///             from an override.
+    ///         </b>
+    ///         <see cref="AccessibleState" /> adds all three from the element's
     ///         own state and focus flags, for every element, whether or not its type overrode
     ///         anything.
     ///     </para>
@@ -851,8 +906,12 @@ public partial class UiElement {
     ///         There is nothing to invalidate on a detached element and no document to tell.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Protected, because the states the framework <i>cannot</i> see are exactly the
-    ///         ones a control computes for itself.</b> <see cref="State" /> raises for the two style
+    ///         ⚠
+    ///         <b>
+    ///             Protected, because the states the framework <i>cannot</i> see are exactly the
+    ///             ones a control computes for itself.
+    ///         </b>
+    ///         <see cref="State" /> raises for the two style
     ///         bits a screen reader announces, which is every ticked, selected, open and greyed
     ///         control in the set; what it cannot see is an override of
     ///         <see cref="NativeAccessibleState" /> or <see cref="NativeAccessibleValue" /> reading a
@@ -875,16 +934,23 @@ public sealed partial class UiDocument {
     /// <summary>Raised at most once a frame when anything in the accessibility tree may have changed.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>Deliberately the same object as <see cref="CommandsInvalidated" />, one field over,
-    ///         and it is a second instance of that pattern rather than a second mechanism.</b> A flag
+    ///         <b>
+    ///             Deliberately the same object as <see cref="CommandsInvalidated" />, one field over,
+    ///             and it is a second instance of that pattern rather than a second mechanism.
+    ///         </b>
+    ///         A flag
     ///         set as often as anybody likes, read once from <see cref="Tick" />, cleared before the
     ///         handlers run. If the coalescing of one is ever wrong the coalescing of the other is
     ///         wrong in the same way, which is worth more than two designs that are each right for
     ///         now.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Coalescing is the entire point, and for this consumer more than for the
-    ///         other.</b> AT-SPI is a chatty protocol over a bus: an event per mutation is a round
+    ///         ⚠
+    ///         <b>
+    ///             Coalescing is the entire point, and for this consumer more than for the
+    ///             other.
+    ///         </b>
+    ///         AT-SPI is a chatty protocol over a bus: an event per mutation is a round
     ///         trip per node, and a panel that builds four hundred elements would post four hundred
     ///         of them before the first frame was drawn. One raise per frame is what lets a bridge
     ///         diff its cached tree once and send what actually differs.
@@ -927,8 +993,12 @@ public sealed partial class UiDocument {
     ///         <see cref="UiElement.NativeAccessibleState" /> is still read on demand.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>What it cannot see is a state a control computes from a field of its own with no
-    ///         style write beside it</b> — a half-ticked <c>CheckBox</c>, a <c>MenuItem</c> whose
+    ///         ⚠
+    ///         <b>
+    ///             What it cannot see is a state a control computes from a field of its own with no
+    ///             style write beside it
+    ///         </b>
+    ///         — a half-ticked <c>CheckBox</c>, a <c>MenuItem</c> whose
     ///         submenu opened, a <c>TreeRow</c> whose node expanded, a <c>Slider</c> arrowed one
     ///         step. It was previously claimed here that such changes "reach a bridge through the
     ///         restyle they already cause"; they do not, and did not — a restyle invalidates the

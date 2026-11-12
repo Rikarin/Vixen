@@ -11,8 +11,10 @@ namespace Vixen.Editor.Blockout.Tests;
 /// <summary>Nothing in this assembly claims a serialisation alias that nothing registers.</summary>
 /// <remarks>
 ///     <para>
-///         <b><a href="https://github.com/Rikarin/Vixen/issues/1025">#1025</a>, which is
-///         <a href="https://github.com/Rikarin/Vixen/issues/989">#989</a> two assemblies along.</b>
+///         <b>
+///             <a href="https://github.com/Rikarin/Vixen/issues/1025">#1025</a>, which is
+///             <a href="https://github.com/Rikarin/Vixen/issues/989">#989</a> two assemblies along.
+///         </b>
 ///         <c>BlockoutRetopologySettings</c>, <c>BlockoutChartSettings</c> and
 ///         <c>BlockoutPackSettings</c> carried <c>[DataContract("…")]</c> and registered nothing:
 ///         <c>Vixen.Editor.Blockout.csproj</c> names <c>Vixen.Editor.Inspector.Generator</c> — with a
@@ -22,8 +24,12 @@ namespace Vixen.Editor.Blockout.Tests;
 ///         and arrives transitively while the generator that gives it meaning does not.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The attributes were the lie and they are gone, so this is a guard rather than a
-///         report.</b> All three are the blockout settings panel's form model,
+///         ⚠
+///         <b>
+///             The attributes were the lie and they are gone, so this is a guard rather than a
+///             report.
+///         </b>
+///         All three are the blockout settings panel's form model,
 ///         <c>InspectorDescriptorGenerator</c> keys on <c>[Inspector]</c>, and nothing in the tree
 ///         writes one of them to a file or reads one back.
 ///     </para>
@@ -39,8 +45,11 @@ public class BlockoutContractTests {
 
     /// <summary>⚠ A <c>[DataContract]</c> here would have to be registered, and today there are none.</summary>
     /// <remarks>
-    ///     <b>Both instruments first, because the interesting direction of this assertion is the one
-    ///     a vacuous pass looks exactly like.</b> The walk is required to have found the assembly's
+    ///     <b>
+    ///         Both instruments first, because the interesting direction of this assertion is the one
+    ///         a vacuous pass looks exactly like.
+    ///     </b>
+    ///     The walk is required to have found the assembly's
     ///     types — an empty <c>GetTypes</c> would satisfy the loop having checked nothing — and the
     ///     registries are required to be able to answer <em>false</em>, since a lookup that said yes
     ///     to everything would satisfy it having proved nothing. Both registries, because
@@ -63,13 +72,15 @@ public class BlockoutContractTests {
         Assert.False(SerializerRegistry.TryGetByAlias("VixenEditorBlockoutNoSuchContract", out _));
 
         var unregistered = declared
-            .Select(type => (Type: type,
-                Contract: (DataContractAttribute?)Attribute.GetCustomAttribute(type, typeof(DataContractAttribute))))
-            .Where(entry => entry.Contract is not null)
-            .Select(entry => (entry.Type, Alias: entry.Contract!.Alias ?? entry.Type.Name))
-            .Where(entry => !TypeRegistry.TryGetByAlias(entry.Alias, out _)
-                || !SerializerRegistry.TryGetByAlias(entry.Alias, out _))
-            .Select(entry => $"{entry.Type.Name} as '{entry.Alias}'")
+            .Select(static type => (Type: type,
+                    Contract: (DataContractAttribute?)Attribute.GetCustomAttribute(type, typeof(DataContractAttribute)))
+            )
+            .Where(static entry => entry.Contract is not null)
+            .Select(static entry => (entry.Type, Alias: entry.Contract!.Alias ?? entry.Type.Name))
+            .Where(static entry => !TypeRegistry.TryGetByAlias(entry.Alias, out _)
+                || !SerializerRegistry.TryGetByAlias(entry.Alias, out _)
+            )
+            .Select(static entry => $"{entry.Type.Name} as '{entry.Alias}'")
             .Order(StringComparer.Ordinal)
             .ToArray();
 

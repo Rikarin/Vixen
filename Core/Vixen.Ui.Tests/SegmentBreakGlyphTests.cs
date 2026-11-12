@@ -10,8 +10,12 @@ namespace Vixen.Ui.Tests;
 /// <summary>A line that ends at a forced break draws its letters and nothing after them.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>The face gets a say in what a newline looks like, and the whole defect is that it
-///         does.</b> A line the wrapper ended at a forced break is the substring <i>including</i> its
+///         ⚠
+///         <b>
+///             The face gets a say in what a newline looks like, and the whole defect is that it
+///             does.
+///         </b>
+///         A line the wrapper ended at a forced break is the substring <i>including</i> its
 ///         terminator, so the run is re-shaped from <c>"ab\n"</c> and HarfBuzz maps U+000A through
 ///         the cmap like any other character. A face without a glyph for it — OpenSans has none —
 ///         shapes it to <c>.notdef</c>, and until <c>TextRun.Place</c> learned to skip a segment
@@ -38,7 +42,7 @@ public class SegmentBreakGlyphTests {
 
     static FontFace LoadFont() {
         using var stream = Assembly.GetExecutingAssembly()
-            .GetManifestResourceStream("Vixen.Ui.Tests.Fonts.OpenSans-Regular.ttf")
+                .GetManifestResourceStream("Vixen.Ui.Tests.Fonts.OpenSans-Regular.ttf")
             ?? throw new InvalidOperationException("the test font is not embedded");
 
         using var memory = new MemoryStream();
@@ -85,7 +89,7 @@ public class SegmentBreakGlyphTests {
         return glyphs;
     }
 
-    static ushort[] Ids(TextLine line) => Glyphs(line).Select(glyph => glyph.GlyphId).ToArray();
+    static ushort[] Ids(TextLine line) => [..Glyphs(line).Select(static glyph => glyph.GlyphId)];
 
     /// <summary>The instrument: the face has no glyph for six of the breaks and a blank one for CR.</summary>
     /// <remarks>

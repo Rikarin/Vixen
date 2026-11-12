@@ -18,8 +18,12 @@ namespace Vixen.Terrain.Tests;
 public sealed class TerrainLayerTests {
     static TerrainDescription Shape(int tiles = 2) =>
         TerrainDescription.Default with {
-            TileSamples = 8, TilesX = tiles, TilesZ = tiles,
-            MetresPerQuad = 1f, MinHeight = -100f, MaxHeight = 100f
+            TileSamples = 8,
+            TilesX = tiles,
+            TilesZ = tiles,
+            MetresPerQuad = 1f,
+            MinHeight = -100f,
+            MaxHeight = 100f
         };
 
     static Terrain Flat(int tiles = 2) => new(Shape(tiles));
@@ -37,7 +41,7 @@ public sealed class TerrainLayerTests {
 
     [Fact]
     public void ANewTerrainIsFlatAtTheHeightItWasAskedFor() {
-        var terrain = new Terrain(Shape(), height: 12.5f);
+        var terrain = new Terrain(Shape(), 12.5f);
 
         Assert.Equal(12.5f, terrain.Composite.MetresAt(3, 4), 2);
         Assert.Equal(0, terrain.DirtyTileCount);
@@ -158,7 +162,7 @@ public sealed class TerrainLayerTests {
     /// </summary>
     [Fact]
     public void TheCachedCompositeAlwaysMatchesTheDefinition() {
-        var terrain = Flat(tiles: 3);
+        var terrain = Flat(3);
         var first = terrain.AddLayer("A");
         var second = terrain.AddLayer("B");
 
@@ -182,7 +186,7 @@ public sealed class TerrainLayerTests {
 
     [Fact]
     public void OnlyTheTilesAStrokeTouchedAreMadeDirty() {
-        var terrain = Flat(tiles: 4);
+        var terrain = Flat(4);
         var layer = terrain.AddLayer("A");
 
         Assert.Equal(0, terrain.DirtyTileCount);
@@ -208,7 +212,7 @@ public sealed class TerrainLayerTests {
     /// </remarks>
     [Fact]
     public void AStrokeOnABoundaryDirtiesBothTilesThatShareIt() {
-        var terrain = Flat(tiles: 3);
+        var terrain = Flat(3);
         var layer = terrain.AddLayer("A");
 
         // Sample 7 is the boundary between tile 0 and tile 1 at a metre per quad.

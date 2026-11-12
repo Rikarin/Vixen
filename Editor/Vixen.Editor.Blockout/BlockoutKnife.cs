@@ -15,15 +15,22 @@ public readonly record struct KnifePoint(int Face, Vector3 Point);
 /// <summary>doc 24 § P3's knife gesture: a path the pointer draws, previewed before it commits.</summary>
 /// <remarks>
 ///     <para>
-///         <b>§ P3 called the knife "the one row of the table left undone" and said what it needed:
-///         a kernel primitive — <see cref="MeshOperations.Knife" /> — and a gesture round it.</b> This
+///         <b>
+///             § P3 called the knife "the one row of the table left undone" and said what it needed:
+///             a kernel primitive — <see cref="MeshOperations.Knife" /> — and a gesture round it.
+///         </b>
+///         This
 ///         is the gesture. It holds the points, snaps each one, previews the path, and turns the
 ///         stroke into cuts; the arithmetic is all in the kernel, where a cube and an assertion can
 ///         reach it.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Every point lands on a face's boundary, which is what makes the primitive usable at
-///         all.</b> "Split this face between these two points" is only defined for points on its rim,
+///         ⚠
+///         <b>
+///             Every point lands on a face's boundary, which is what makes the primitive usable at
+///             all.
+///         </b>
+///         "Split this face between these two points" is only defined for points on its rim,
 ///         so a click in the middle of a face has to become a click on its nearest edge. Corners and
 ///         midpoints win inside a fraction of the edge's own length — § P3's "snapping to edges and
 ///         midpoints" — and the fraction is relative because an absolute radius is a claim about how
@@ -35,8 +42,12 @@ public readonly record struct KnifePoint(int Face, Vector3 Point);
 ///         segment becomes a <see cref="KnifeCut" /> and they all go into one call.
 ///     </para>
 ///     <para>
-///         ⚠ <b>A segment across a face boundary produces a cut for <i>both</i> faces, and the kernel
-///         is the arbiter.</b> A click on a shared edge belongs to the face on either side of it, and
+///         ⚠
+///         <b>
+///             A segment across a face boundary produces a cut for <i>both</i> faces, and the kernel
+///             is the arbiter.
+///         </b>
+///         A click on a shared edge belongs to the face on either side of it, and
 ///         which one the picker happened to answer with is not something a designer chose;
 ///         <see cref="MeshOperations.Knife" /> refuses whichever of the two the segment does not
 ///         actually cross, which is one rule about what is on a boundary rather than two.
@@ -220,7 +231,7 @@ public sealed class BlockoutKnife {
             }
 
             var t = Math.Clamp(Vector3.Dot(point - a, along) / length, 0f, 1f);
-            var on = a + (along * t);
+            var on = a + along * t;
             var distance = Vector3.DistanceSquared(on, point);
 
             if (distance >= best) {
@@ -237,7 +248,7 @@ public sealed class BlockoutKnife {
                 : t >= 1f - fraction
                     ? b
                     : MathF.Abs(t - 0.5f) <= fraction * 0.5f
-                        ? a + (along * 0.5f)
+                        ? a + along * 0.5f
                         : on;
         }
 

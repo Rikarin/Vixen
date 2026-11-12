@@ -2,10 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core.Imaging;
-using Vixen.Editor.Texturing.Painting;
 using Vixen.Graphics;
 using Vixen.Interchange;
-using Vixen.Texturing.Layers;
 using Vixen.Texturing.Painting;
 using Xunit;
 
@@ -14,23 +12,34 @@ namespace Vixen.Editor.Texturing.Tests;
 /// <summary>One evaluation sees one version of each file it reads, however many channels read it.</summary>
 /// <remarks>
 ///     <para>
-///         <b><a href="https://github.com/Rikarin/Vixen/issues/981">#981</a>, and the syscalls it
-///         saves are not what is asserted here.</b> The count is in
+///         <b>
+///             <a href="https://github.com/Rikarin/Vixen/issues/981">#981</a>, and the syscalls it
+///             saves are not what is asserted here.
+///         </b>
+///         The count is in
 ///         <see cref="PaintCanvasStoreWiringTests" />, exactly, over a scripted drag — a pointer-up
 ///         asks the store three times where it asked fifteen. What is here is the property that
 ///         count is a consequence of, and the one a smaller number cannot demonstrate.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Every case rewrites the file <em>between</em> two asks of the same pass, which is
-///         the only arrangement that can tell a memo from a fast store.</b> A <c>.vxpaint</c> is a
+///         ⚠
+///         <b>
+///             Every case rewrites the file <em>between</em> two asks of the same pass, which is
+///             the only arrangement that can tell a memo from a fast store.
+///         </b>
+///         A <c>.vxpaint</c> is a
 ///         file other tools touch, and <see cref="PaintCanvasStore" /> is deliberately honest about
 ///         that: asked twice across a write it answers with two different canvases, correctly. So a
 ///         pass that forwarded every ask would build one map out of both — and would look identical
 ///         to this one on any fixture where the file holds still.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Each case also asks the bare store afterwards, and that assertion is the
-///         instrument.</b> Without it a fixture whose rewrite failed to move the stamp — the file
+///         ⚠
+///         <b>
+///             Each case also asks the bare store afterwards, and that assertion is the
+///             instrument.
+///         </b>
+///         Without it a fixture whose rewrite failed to move the stamp — the file
 ///         system's timestamp resolution is the usual way — would pass by answering the same canvas
 ///         for the reason the test is not about.
 ///     </para>
@@ -47,14 +56,16 @@ public class TextureExternalPassTests : IDisposable {
     readonly string folder = Path.Combine(Path.GetTempPath(), "vixen-tests", Guid.NewGuid().ToString("N"));
 
     /// <summary>Makes the throwaway folder the canvases are written into.</summary>
-    public TextureExternalPassTests() => Directory.CreateDirectory(folder);
+    public TextureExternalPassTests() {
+        Directory.CreateDirectory(folder);
+    }
 
     /// <inheritdoc />
     public void Dispose() {
         GC.SuppressFinalize(this);
 
         try {
-            Directory.Delete(folder, recursive: true);
+            Directory.Delete(folder, true);
         } catch (Exception failure) when (failure is IOException or UnauthorizedAccessException) {
             // A test that cannot tidy its own temporary folder has still said what it had to say.
         }
@@ -120,7 +131,7 @@ public class TextureExternalPassTests : IDisposable {
 
             using var stream = File.OpenRead(path);
 
-            return new(PixelFormat.Rgba8UNorm, 2, 2, levelCount: 1);
+            return new(PixelFormat.Rgba8UNorm, 2, 2, 1);
         }
 
         var first = pass.Picture(file, Decode).Picture;
@@ -140,8 +151,11 @@ public class TextureExternalPassTests : IDisposable {
 
     /// <summary>⚠ And a file that would not read is refused once, with the same sentence both times.</summary>
     /// <remarks>
-    ///     <b>An unmemoised failure is a question re-asked, which splits an evaluation exactly as a
-    ///     rewrite does.</b> A file that appears between two channels of the same fill would give
+    ///     <b>
+    ///         An unmemoised failure is a question re-asked, which splits an evaluation exactly as a
+    ///         rewrite does.
+    ///     </b>
+    ///     A file that appears between two channels of the same fill would give
     ///     one of them a refusal and the other a picture — so what is held is the answer whichever
     ///     way it came out, and the caller composes its own sentence from the message.
     /// </remarks>
@@ -183,8 +197,11 @@ public class TextureExternalPassTests : IDisposable {
 
     /// <summary>⚠ A truncated picture read through the fill's own decode is a refusal, not a throw.</summary>
     /// <remarks>
-    ///     <b><a href="https://github.com/Rikarin/Vixen/issues/1432">#1432</a>, through the decode
-    ///     callback production hands the pass</b> rather than one written here: the pass filtered on
+    ///     <b>
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/1432">#1432</a>, through the decode
+    ///         callback production hands the pass
+    ///     </b>
+    ///     rather than one written here: the pass filtered on
     ///     five exception types, StbImageSharp throws <c>InvalidOperationException</c> for a PNG
     ///     whose header is cut short, and the throw left <c>TextureExternalPass.Picture</c> — out of
     ///     a preview's fill.
@@ -217,7 +234,7 @@ public class TextureExternalPassTests : IDisposable {
 
         File.WriteAllBytes(file, [1, 2, 3, 4]);
 
-        var picture = Vixen.Interchange.ImageDecoders.DecodeFile(new SavingDecoder(file), file, ".png");
+        var picture = ImageDecoders.DecodeFile(new SavingDecoder(file), file, ".png");
 
         Assert.Equal(2, picture.Width);
         Assert.Equal([5, 6, 7, 8], File.ReadAllBytes(file));
@@ -225,7 +242,7 @@ public class TextureExternalPassTests : IDisposable {
 
     /// <summary>A decoder that saves over its own file mid-decode, as an artist's paint program would.</summary>
     /// <param name="path">The file to write over.</param>
-    sealed class SavingDecoder(string path) : Vixen.Interchange.IImageDecoder {
+    sealed class SavingDecoder(string path) : IImageDecoder {
         /// <inheritdoc />
         public IReadOnlyList<string> Extensions { get; } = [".png"];
 
@@ -233,7 +250,7 @@ public class TextureExternalPassTests : IDisposable {
         public TextureData Decode(Stream stream, string extension) {
             File.WriteAllBytes(path, [5, 6, 7, 8]);
 
-            return new(PixelFormat.Rgba8UNorm, 2, 2, levelCount: 1);
+            return new(PixelFormat.Rgba8UNorm, 2, 2, 1);
         }
     }
 
@@ -241,7 +258,7 @@ public class TextureExternalPassTests : IDisposable {
     static TextureData Decoded(string path) {
         using var stream = File.OpenRead(path);
 
-        return new(PixelFormat.Rgba8UNorm, 2, 2, levelCount: 1);
+        return new(PixelFormat.Rgba8UNorm, 2, 2, 1);
     }
 
     /// <summary>Writes a one-channel canvas into the throwaway folder and returns its absolute path.</summary>

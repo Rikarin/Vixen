@@ -19,14 +19,22 @@ using Serilog;
 ///         Overview § 1.15 and [#114](https://github.com/Rikarin/Vixen/issues/114): the templates are
 ///         verified through the real <c>dotnet new</c> engine by
 ///         <c>Tools/Vixen.Templates.Tests</c> — packed, installed into a private hive, instantiated
-///         outside the repository and compared byte for byte — and <b>none of the six is ever
-///         restored or built</b>, because a restore needs a feed and no feed existed. This target is
+///         outside the repository and compared byte for byte — and
+///         <b>
+///             none of the six is ever
+///             restored or built
+///         </b>
+///         , because a restore needs a feed and no feed existed. This target is
 ///         that feed: <see cref="Pack" />'s own output directory, and a package cache with nothing in
 ///         it.
 ///     </para>
 ///     <para>
-///         ⚠️ <b>The obvious version of this test passes for a reason that has nothing to do with the
-///         templates.</b> Measured, twice, a month apart: a scaffolded project restored from a
+///         ⚠️
+///         <b>
+///             The obvious version of this test passes for a reason that has nothing to do with the
+///             templates.
+///         </b>
+///         Measured, twice, a month apart: a scaffolded project restored from a
 ///         directory outside this repository <i>succeeds</i> on a developer's machine, because the
 ///         global NuGet cache is holding ~57 <c>Vixen.*</c> packages at 0.1.0 from an earlier
 ///         <c>Pack</c>. The same restore against nuget.org with an empty cache is
@@ -71,66 +79,69 @@ partial class Build {
     const int FeedFloor = 20;
 
     /// <summary>Where the scaffolding happens: outside the repository, on purpose.</summary>
-    AbsolutePath TemplateScaffoldDirectory =>
-        (AbsolutePath)Path.GetTempPath() / "vixen-template-check";
+    AbsolutePath TemplateScaffoldDirectory => (AbsolutePath)Path.GetTempPath() / "vixen-template-check";
 
-    Target CheckTemplates => definition => definition
-        .Description("Scaffolds every dotnet new template from the packed feed with an empty package cache and builds it")
-        .DependsOn(Pack)
-        .Executes(() => {
-            var feed = PackagesDirectory;
+    Target CheckTemplates =>
+        definition => definition
+            .Description(
+                "Scaffolds every dotnet new template from the packed feed with an empty package cache and builds it"
+            )
+            .DependsOn(Pack)
+            .Executes(() => {
+                    var feed = PackagesDirectory;
 
-            var packages = feed.GlobFiles("*.nupkg")
-                .Where(file => !file.Name.EndsWith(".symbols.nupkg", StringComparison.Ordinal))
-                .ToList();
+                    var packages = feed.GlobFiles("*.nupkg")
+                        .Where(file => !file.Name.EndsWith(".symbols.nupkg", StringComparison.Ordinal))
+                        .ToList();
 
-            Assert.True(
-                packages.Count >= FeedFloor,
-                $"{feed} holds {packages.Count} package(s), fewer than the {FeedFloor} a whole Pack "
-                + "produces. A feed this thin cannot restore a scaffolded project, and the failure "
-                + "would arrive later wearing a cache's clothes."
+                    Assert.True(
+                        packages.Count >= FeedFloor,
+                        $"{feed} holds {packages.Count} package(s), fewer than the {FeedFloor} a whole Pack "
+                        + "produces. A feed this thin cannot restore a scaffolded project, and the failure "
+                        + "would arrive later wearing a cache's clothes."
+                    );
+
+                    var templatePackage = packages.FirstOrDefault(file =>
+                        file.Name.StartsWith("Vixen.Templates.", StringComparison.Ordinal)
+                    );
+
+                    Assert.True(
+                        templatePackage is not null,
+                        $"there is no Vixen.Templates package in {feed}, so there is nothing to install and "
+                        + "nothing to scaffold from."
+                    );
+
+                    var root = TemplateScaffoldDirectory;
+                    root.CreateOrCleanDirectory();
+
+                    var cache = root / "packages";
+                    var hive = root / "hive";
+                    cache.CreateDirectory();
+
+                    var templates = TemplateIds();
+
+                    Assert.True(
+                        templates.Count > 0,
+                        "no template ids were found under Tools/Vixen.Templates/templates, so this target "
+                        + "would install a package and instantiate nothing while reporting success."
+                    );
+
+                    AssertTheCacheIsCold(root, cache, templates[0]);
+
+                    WriteTemplateFeedConfiguration(root, feed);
+                    InstallTemplatePackage(templatePackage!, hive);
+
+                    foreach (var id in templates) {
+                        BuildScaffolded(root, cache, hive, id);
+                    }
+
+                    Log.Information(
+                        "{Count} template(s) scaffolded from {Feed} and built with an empty package cache",
+                        templates.Count,
+                        feed
+                    );
+                }
             );
-
-            var templatePackage = packages.FirstOrDefault(file =>
-                file.Name.StartsWith("Vixen.Templates.", StringComparison.Ordinal)
-            );
-
-            Assert.True(
-                templatePackage is not null,
-                $"there is no Vixen.Templates package in {feed}, so there is nothing to install and "
-                + "nothing to scaffold from."
-            );
-
-            var root = TemplateScaffoldDirectory;
-            root.CreateOrCleanDirectory();
-
-            var cache = root / "packages";
-            var hive = root / "hive";
-            cache.CreateDirectory();
-
-            var templates = TemplateIds();
-
-            Assert.True(
-                templates.Count > 0,
-                "no template ids were found under Tools/Vixen.Templates/templates, so this target "
-                + "would install a package and instantiate nothing while reporting success."
-            );
-
-            AssertTheCacheIsCold(root, cache, templates[0]);
-
-            WriteTemplateFeedConfiguration(root, feed);
-            InstallTemplatePackage(templatePackage!, hive);
-
-            foreach (var id in templates) {
-                BuildScaffolded(root, cache, hive, id);
-            }
-
-            Log.Information(
-                "{Count} template(s) scaffolded from {Feed} and built with an empty package cache",
-                templates.Count,
-                feed
-            );
-        });
 
     /// <summary>The template ids, read off the tree rather than listed here.</summary>
     /// <returns>Each template's directory name, which is its short name.</returns>
@@ -153,10 +164,18 @@ partial class Build {
     /// <remarks>
     ///     ⚠️ This is the instrument, and it is the whole point of the target. The project written
     ///     here does not come from the template engine — it is two lines naming <c>Vixen.App</c> at
-    ///     the version this repository produces — because the question is about the <i>cache and the
-    ///     sources</i> and not about the template. Measured on 2026-09-05 with an empty
-    ///     <c>--packages</c> directory against nuget.org: <c>error NU1101: Unable to find package
-    ///     Vixen.App</c>. A success here means the packages are reachable from somewhere this target
+    ///     the version this repository produces — because the question is about the
+    ///     <i>
+    ///         cache and the
+    ///         sources
+    ///     </i>
+    ///     and not about the template. Measured on 2026-09-05 with an empty
+    ///     <c>--packages</c> directory against nuget.org:
+    ///     <c>
+    ///         error NU1101: Unable to find package
+    ///         Vixen.App
+    ///     </c>
+    ///     . A success here means the packages are reachable from somewhere this target
     ///     did not arrange, and every later green is that instead of a template.
     /// </remarks>
     void AssertTheCacheIsCold(AbsolutePath root, AbsolutePath cache, string id) {
@@ -281,7 +300,8 @@ partial class Build {
         Assert.True(
             solutions.Count == 0,
             $"`dotnet new {id}` scaffolded {solutions.Count} solution files, so there is no one "
-            + "thing to build: " + string.Join(", ", solutions.Select(file => file.Name))
+            + "thing to build: "
+            + string.Join(", ", solutions.Select(file => file.Name))
         );
 
         var projects = where.GlobFiles("*.csproj").ToList();
@@ -289,7 +309,8 @@ partial class Build {
         Assert.True(
             projects.Count == 1,
             $"`dotnet new {id}` scaffolded {projects.Count} .csproj files and no solution, so there "
-            + "is no one thing to build: " + string.Join(", ", projects.Select(file => file.Name))
+            + "is no one thing to build: "
+            + string.Join(", ", projects.Select(file => file.Name))
         );
 
         return projects[0];

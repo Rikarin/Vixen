@@ -29,9 +29,13 @@ namespace Vixen.Editor.Ui;
 ///         and not a tidy-up — a <c>text</c> child is a box and a parent's <c>Text</c> is not.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Both of those two are markup now (wave 5) and both still set the cell's own
-///         <c>Text</c>, through <c>Vixen.Editor.AssetEditors</c>'s own <c>FactName</c>/<c>FactValue</c>
-///         in <c>Captions.cs</c>.</b> The disagreement above therefore survives the ports on purpose,
+///         ⚠
+///         <b>
+///             Both of those two are markup now (wave 5) and both still set the cell's own
+///             <c>Text</c>, through <c>Vixen.Editor.AssetEditors</c>'s own <c>FactName</c>/<c>FactValue</c>
+///             in <c>Captions.cs</c>.
+///         </b>
+///         The disagreement above therefore survives the ports on purpose,
 ///         and is now written down in two places rather than six. Whoever reconciles it moves pixels
 ///         in four panels and should say so in the commit.
 ///     </para>

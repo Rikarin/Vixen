@@ -6,7 +6,8 @@ using Xunit;
 namespace Vixen.Ui.Text.Tests;
 
 /// <summary>
-///     <see cref="LineWrapper.Wrap(ShapedText,float,System.Collections.Generic.List{WrappedLine},TextWrapMode,WordBreakMode,float,float,HyphenMode,TextWrapStyle,LineBreakStrictness,string,bool)" />'s
+///     <see
+///         cref="LineWrapper.Wrap(ShapedText,float,System.Collections.Generic.List{WrappedLine},TextWrapMode,WordBreakMode,float,float,HyphenMode,TextWrapStyle,LineBreakStrictness,string,bool)" />'s
 ///     <c>breakSpaces</c>: CSS Text § 3.1's two rules, each measured against the <c>pre-wrap</c>
 ///     answer the same paragraph gives without the flag.
 /// </summary>
@@ -49,10 +50,10 @@ public class BreakSpacesWrapTests {
 
         var width = (trimmed + untrimmed) / 2f;
 
-        var hung = Lines(text, width, breakSpaces: false);
+        var hung = Lines(text, width, false);
         Assert.Equal(7, hung[0].Length);
 
-        var kept = Lines(text, width, breakSpaces: true);
+        var kept = Lines(text, width, true);
         Assert.True(kept[0].Length < 7, $"the first line still took {kept[0].Length} characters");
     }
 
@@ -65,11 +66,11 @@ public class BreakSpacesWrapTests {
         var without = Shape("ab").Advance;
         var width = (withSpace + Shape("ab cd").Advance) / 2f;
 
-        var hung = Lines(text, width, breakSpaces: false);
+        var hung = Lines(text, width, false);
         Assert.Equal(2, hung.Count);
         Assert.Equal(without, hung[0].Advance, 0.01f);
 
-        var kept = Lines(text, width, breakSpaces: true);
+        var kept = Lines(text, width, true);
         Assert.Equal(2, kept.Count);
         Assert.Equal(withSpace, kept[0].Advance, 0.01f);
     }
@@ -89,12 +90,12 @@ public class BreakSpacesWrapTests {
         var two = Shape("a  ").Advance;
         var width = (one + two) / 2f;
 
-        var hung = Lines(text, width, breakSpaces: false);
+        var hung = Lines(text, width, false);
         Assert.Equal(2, hung.Count);
         Assert.Equal(3, hung[0].Length);
         Assert.Equal("b", text.Substring(hung[1].Start, hung[1].Length));
 
-        var kept = Lines(text, width, breakSpaces: true);
+        var kept = Lines(text, width, true);
         Assert.Equal(2, kept.Count);
         Assert.Equal(2, kept[0].Length);
         Assert.Equal(" b", text.Substring(kept[1].Start, kept[1].Length));
@@ -107,7 +108,7 @@ public class BreakSpacesWrapTests {
     /// </remarks>
     [Fact]
     public void A_newline_is_still_not_a_width() {
-        var lines = Lines("ab \ncd", 10_000f, breakSpaces: true);
+        var lines = Lines("ab \ncd", 10_000f, true);
 
         Assert.Equal(2, lines.Count);
         Assert.True(lines[0].Mandatory);
@@ -136,11 +137,11 @@ public class BreakSpacesWrapTests {
 
         var width = Shape("a").Advance;
 
-        var hung = Lines(text, width, breakSpaces: false);
-        var kept = Lines(text, width, breakSpaces: true);
+        var hung = Lines(text, width, false);
+        var kept = Lines(text, width, true);
 
         Assert.Equal(hung.Count, kept.Count);
-        Assert.DoesNotContain(kept, line => line.Length == 0);
+        Assert.DoesNotContain(kept, static line => line.Length == 0);
         Assert.True(kept[0].Mandatory, "the first line no longer ends on the newline");
         Assert.Equal("a \n", text.Substring(kept[0].Start, kept[0].Length));
     }
@@ -148,8 +149,8 @@ public class BreakSpacesWrapTests {
     /// <summary>The paragraph's last line keeps its spaces too, and the flag changes nothing there.</summary>
     [Fact]
     public void The_last_lines_advance_is_unchanged_by_the_flag_when_nothing_trails() {
-        var kept = Assert.Single(Lines("ab cd", 10_000f, breakSpaces: true));
-        var hung = Assert.Single(Lines("ab cd", 10_000f, breakSpaces: false));
+        var kept = Assert.Single(Lines("ab cd", 10_000f, true));
+        var hung = Assert.Single(Lines("ab cd", 10_000f, false));
 
         Assert.Equal(hung.Advance, kept.Advance, 0.01f);
     }

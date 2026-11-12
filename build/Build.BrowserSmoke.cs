@@ -36,8 +36,12 @@ using Serilog;
 ///         about frames — and calls a zero there an INSTRUMENT FAILURE in those words.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Playwright is what doc 10 and the overview row name, and it is deliberately not what
-///         this uses.</b> What is needed is one page, one navigation, a console transcript, two
+///         ⚠
+///         <b>
+///             Playwright is what doc 10 and the overview row name, and it is deliberately not what
+///             this uses.
+///         </b>
+///         What is needed is one page, one navigation, a console transcript, two
 ///         <c>Runtime.evaluate</c> calls and five synthesised input events — about 200 lines of CDP
 ///         over a WebSocket, which Node has had built in since 22. Against that,
 ///         <c>playwright-core</c> is a third-party dependency in a repository whose dependencies are
@@ -80,8 +84,7 @@ using Serilog;
 partial class Build {
     AbsolutePath BrowserSmokeDirectory => ArtifactsDirectory / "browser-smoke";
 
-    AbsolutePath BrowserSmokeScript =>
-        RootDirectory / "Tools" / "Vixen.WebProbe" / "browser-smoke.mjs";
+    AbsolutePath BrowserSmokeScript => RootDirectory / "Tools" / "Vixen.WebProbe" / "browser-smoke.mjs";
 
     /// <summary>
     ///     How many checks the leg must have executed before its result is believed.
@@ -114,75 +117,76 @@ partial class Build {
     [Parameter("How long, in milliseconds, the page is given to finish its checks")]
     readonly int BrowserSmokeTimeout = 90_000;
 
-    Target BrowserSmoke => definition => definition
-        .Description("Drives the published browser head in a real browser and fails if the interop did not run")
-        .DependsOn(PublishWeb)
-        .Produces(BrowserSmokeDirectory / "**")
-        .Executes(() => {
-                Assert.FileExists(
-                    BrowserSmokeScript,
-                    $"the browser smoke driver is not at '{BrowserSmokeScript}'. If it moved, point "
-                    + "this target at wherever it went; if it was deleted, this gate went with it "
-                    + "and every [JSImport] in the three browser projects is uncovered again."
-                );
+    Target BrowserSmoke =>
+        definition => definition
+            .Description("Drives the published browser head in a real browser and fails if the interop did not run")
+            .DependsOn(PublishWeb)
+            .Produces(BrowserSmokeDirectory / "**")
+            .Executes(() => {
+                    Assert.FileExists(
+                        BrowserSmokeScript,
+                        $"the browser smoke driver is not at '{BrowserSmokeScript}'. If it moved, point "
+                        + "this target at wherever it went; if it was deleted, this gate went with it "
+                        + "and every [JSImport] in the three browser projects is uncovered again."
+                    );
 
-                var siteRoot = WebPublishDirectory / "wwwroot";
+                    var siteRoot = WebPublishDirectory / "wwwroot";
 
-                Assert.FileExists(
-                    siteRoot / "index.html",
-                    $"there is no published head at '{siteRoot}'. PublishWeb runs before this and "
-                    + "asserts that file exists, so reaching here without it means the publish was "
-                    + "skipped rather than run."
-                );
+                    Assert.FileExists(
+                        siteRoot / "index.html",
+                        $"there is no published head at '{siteRoot}'. PublishWeb runs before this and "
+                        + "asserts that file exists, so reaching here without it means the publish was "
+                        + "skipped rather than run."
+                    );
 
-                // ⚠ Fatal rather than a warning, and that is the difference between this and the
-                // TestBrowserHalf step in Vixen.Platform.Web.Tests. That one hangs off an ordinary
-                // build and must not break `dotnet build` for somebody with no Node over a file
-                // they did not touch. This is a gate that is asked for by name, and a gate that
-                // silently does nothing on the machine that runs it is the thing this repository
-                // keeps writing rows about.
-                var probe = ProcessTasks.StartProcess("node", "--version", RootDirectory);
-                probe.WaitForExit();
+                    // ⚠ Fatal rather than a warning, and that is the difference between this and the
+                    // TestBrowserHalf step in Vixen.Platform.Web.Tests. That one hangs off an ordinary
+                    // build and must not break `dotnet build` for somebody with no Node over a file
+                    // they did not touch. This is a gate that is asked for by name, and a gate that
+                    // silently does nothing on the machine that runs it is the thing this repository
+                    // keeps writing rows about.
+                    var probe = ProcessTasks.StartProcess("node", "--version", RootDirectory);
+                    probe.WaitForExit();
 
-                Assert.True(
-                    probe.ExitCode == 0,
-                    "`node --version` failed, so there is no Node to run the browser smoke driver "
-                    + "with. This target fails rather than skipping: a browser gate that reports "
-                    + "success on a machine that never started a browser is worse than no gate. "
-                    + "Node ships on every GitHub runner image."
-                );
+                    Assert.True(
+                        probe.ExitCode == 0,
+                        "`node --version` failed, so there is no Node to run the browser smoke driver "
+                        + "with. This target fails rather than skipping: a browser gate that reports "
+                        + "success on a machine that never started a browser is worse than no gate. "
+                        + "Node ships on every GitHub runner image."
+                    );
 
-                Log.Information("Node {Version}", probe.Output.Select(line => line.Text).FirstOrDefault());
+                    Log.Information("Node {Version}", probe.Output.Select(line => line.Text).FirstOrDefault());
 
-                BrowserSmokeDirectory.CreateOrCleanDirectory();
+                    BrowserSmokeDirectory.CreateOrCleanDirectory();
 
-                var arguments = string.Join(
-                    ' ',
-                    $"\"{BrowserSmokeScript}\"",
-                    $"\"{siteRoot}\"",
-                    $"--minimum-checks={BrowserSmokeChecks}",
-                    $"--timeout={BrowserSmokeTimeout}"
-                );
+                    var arguments = string.Join(
+                        ' ',
+                        $"\"{BrowserSmokeScript}\"",
+                        $"\"{siteRoot}\"",
+                        $"--minimum-checks={BrowserSmokeChecks}",
+                        $"--timeout={BrowserSmokeTimeout}"
+                    );
 
-                var smoke = ProcessTasks.StartProcess("node", arguments, RootDirectory);
-                smoke.WaitForExit();
+                    var smoke = ProcessTasks.StartProcess("node", arguments, RootDirectory);
+                    smoke.WaitForExit();
 
-                var console = BrowserSmokeDirectory / "console.txt";
-                console.WriteAllLines(smoke.Output.Select(line => line.Text));
+                    var console = BrowserSmokeDirectory / "console.txt";
+                    console.WriteAllLines(smoke.Output.Select(line => line.Text));
 
-                Assert.True(
-                    smoke.ExitCode == 0,
-                    $"the browser smoke leg exited {smoke.ExitCode}. Every failure it can report "
-                    + "names itself; the whole transcript, including everything the page printed, "
-                    + $"is at '{console}'. ⚠ If the message says INSTRUMENT FAILURE, the browser "
-                    + "was not animating and nothing about the engine has been shown — see this "
-                    + "target's remarks and docs/plan/spikes/web-head/RESULT.md."
-                );
+                    Assert.True(
+                        smoke.ExitCode == 0,
+                        $"the browser smoke leg exited {smoke.ExitCode}. Every failure it can report "
+                        + "names itself; the whole transcript, including everything the page printed, "
+                        + $"is at '{console}'. ⚠ If the message says INSTRUMENT FAILURE, the browser "
+                        + "was not animating and nothing about the engine has been shown — see this "
+                        + "target's remarks and docs/plan/spikes/web-head/RESULT.md."
+                    );
 
-                Log.Information(
-                    "The [JSImport] boundary was executed in a real browser. Transcript at {Console}",
-                    console
-                );
-            }
-        );
+                    Log.Information(
+                        "The [JSImport] boundary was executed in a real browser. Transcript at {Console}",
+                        console
+                    );
+                }
+            );
 }

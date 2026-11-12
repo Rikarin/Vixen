@@ -30,15 +30,23 @@ public enum PackOverflow : byte {
 /// <summary>Everything the packer needs, and the resolution is not optional.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b><see cref="Resolution" /> is required because <see cref="Margin" /> is counted in
-///         texels.</b> docs/plan/42 § D8. A margin expressed as a fraction of UV space is a bug with
+///         ⚠
+///         <b>
+///             <see cref="Resolution" /> is required because <see cref="Margin" /> is counted in
+///             texels.
+///         </b>
+///         docs/plan/42 § D8. A margin expressed as a fraction of UV space is a bug with
 ///         a two-year fuse: it looks right at the resolution it was tuned at, and the same asset at
 ///         half resolution bleeds across islands at mip 3, in a build nobody associates with the
 ///         packing change. Bleeding is then misdiagnosed as a sampler problem roughly always.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Spacing is distributed evenly across every chart rather than applied per island as
-///         it is placed.</b> That is the visibly better behaviour even when nothing bleeds — uneven
+///         ⚠
+///         <b>
+///             Spacing is distributed evenly across every chart rather than applied per island as
+///             it is placed.
+///         </b>
+///         That is the visibly better behaviour even when nothing bleeds — uneven
 ///         gaps read as carelessness in an atlas — and it is the one thing a standalone packer is
 ///         bought for.
 ///     </para>

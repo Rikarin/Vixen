@@ -37,7 +37,7 @@ static class TestFonts {
             }
 
             using var stream = Assembly.GetExecutingAssembly()
-                .GetManifestResourceStream($"Vixen.Ui.Text.Tests.Fonts.{name}")
+                    .GetManifestResourceStream($"Vixen.Ui.Text.Tests.Fonts.{name}")
                 ?? throw new InvalidOperationException($"the font '{name}' is not embedded");
 
             using var memory = new MemoryStream();

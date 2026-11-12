@@ -28,7 +28,11 @@ namespace Vixen.Editor.AssetEditors.Tests;
 ///         <c>UiTest.Flags</c> looks.
 ///     </para>
 /// </remarks>
-[SuppressMessage("Trimming", "IL2026", Justification = "UiTest.Flags reads nine properties by name; tests are not trimmed.")]
+[SuppressMessage(
+    "Trimming",
+    "IL2026",
+    Justification = "UiTest.Flags reads nine properties by name; tests are not trimmed."
+)]
 public sealed class BehaviorSearchPopupDumpTests {
     /// <summary>Where a run writes its dumps and pictures, when somebody asks it to.</summary>
     static readonly string? Record = Environment.GetEnvironmentVariable("VIXEN_BEHAVIOR_SEARCH_RECORD");
@@ -145,8 +149,8 @@ public sealed class BehaviorSearchPopupDumpTests {
         }
 
         public void Click(UiElement element) {
-            var x = element.AbsoluteLeft + (element.Width / 2f);
-            var y = element.AbsoluteTop + (element.Height / 2f);
+            var x = element.AbsoluteLeft + element.Width / 2f;
+            var y = element.AbsoluteTop + element.Height / 2f;
 
             harness.Ui.MovePointer(x, y);
             harness.Ui.PressPointer();
@@ -159,7 +163,9 @@ public sealed class BehaviorSearchPopupDumpTests {
         static string TypefacePath() {
             const string Relative = "Editor/Vixen.Editor.App/Fonts/OpenSans-Regular.ttf";
 
-            for (var directory = new DirectoryInfo(AppContext.BaseDirectory); directory is not null; directory = directory.Parent) {
+            for (var directory = new DirectoryInfo(AppContext.BaseDirectory);
+                 directory is not null;
+                 directory = directory.Parent) {
                 var candidate = Path.Combine(directory.FullName, Relative.Replace('/', Path.DirectorySeparatorChar));
 
                 if (File.Exists(candidate)) {
@@ -174,226 +180,226 @@ public sealed class BehaviorSearchPopupDumpTests {
     // ── The reference dumps, taken from the hand-written control ─────────────
 
     const string NodesTree = """
-        <behavior-search .size-md .variant-default> 0,0 280×320
-          <textbox .behavior-search-query .empty .size-md .variant-default> 5,5 270×31
-            <field-placeholder> 9,4 114×22 "Search nodes…"
-            <field-text> 9,6 0×19
-          <scroll-view .behavior-search-list .size-md .variant-default> 5,38 270×277
-            <scroll-content> 0,0 270×321
-              <behavior-search-row> 0,0 260×22
-                <search-label> 4,0 156×22 "Selector"
-                <search-category> 168,0 88×22 "Composites"
-              <behavior-search-row> 0,23 260×22
-                <search-label> 4,0 156×22 "Sequence"
-                <search-category> 168,0 88×22 "Composites"
-              <behavior-search-row> 0,46 260×22
-                <search-label> 4,0 156×22 "Priority"
-                <search-category> 168,0 88×22 "Composites"
-              <behavior-search-row> 0,69 260×22
-                <search-label> 4,0 156×22 "Random selector"
-                <search-category> 168,0 88×22 "Composites"
-              <behavior-search-row> 0,92 260×22
-                <search-label> 4,0 156×22 "Parallel"
-                <search-category> 168,0 88×22 "Composites"
-              <behavior-search-row> 0,115 260×22
-                <search-label> 4,0 202×22 "Wait"
-                <search-category> 214,0 42×22 "Tasks"
-              <behavior-search-row> 0,138 260×22
-                <search-label> 4,0 202×22 "Wait (from a key)"
-                <search-category> 214,0 42×22 "Tasks"
-              <behavior-search-row> 0,161 260×22
-                <search-label> 4,0 202×22 "Finish with"
-                <search-category> 214,0 42×22 "Tasks"
-              <behavior-search-row> 0,184 260×22
-                <search-label> 4,0 202×22 "Set blackboard value"
-                <search-category> 214,0 42×22 "Tasks"
-              <behavior-search-row> 0,207 260×22
-                <search-label> 4,0 202×22 "Clear blackboard value"
-                <search-category> 214,0 42×22 "Tasks"
-              <behavior-search-row> 0,230 260×22
-                <search-label> 4,0 202×22 "Log"
-                <search-category> 214,0 42×22 "Tasks"
-              <behavior-search-row> 0,253 260×22
-                <search-label> 4,0 202×22 "Run subtree"
-                <search-category> 214,0 42×22 "Tasks"
-              <behavior-search-row> 0,276 260×22
-                <search-label> 4,0 202×22 "Run subtree (from a key)"
-                <search-category> 214,0 42×22 "Tasks"
-              <behavior-search-row> 0,299 260×22
-                <search-label> 4,0 202×22 "Run utility set"
-                <search-category> 214,0 42×22 "Tasks"
-            <scrollbar .size-md .variant-default .vertical> 260,0 10×277
-            <scrollbar .horizontal .size-md .variant-default> 0,267 270×10
-        """;
+                             <behavior-search .size-md .variant-default> 0,0 280×320
+                               <textbox .behavior-search-query .empty .size-md .variant-default> 5,5 270×31
+                                 <field-placeholder> 9,4 114×22 "Search nodes…"
+                                 <field-text> 9,6 0×19
+                               <scroll-view .behavior-search-list .size-md .variant-default> 5,38 270×277
+                                 <scroll-content> 0,0 270×321
+                                   <behavior-search-row> 0,0 260×22
+                                     <search-label> 4,0 156×22 "Selector"
+                                     <search-category> 168,0 88×22 "Composites"
+                                   <behavior-search-row> 0,23 260×22
+                                     <search-label> 4,0 156×22 "Sequence"
+                                     <search-category> 168,0 88×22 "Composites"
+                                   <behavior-search-row> 0,46 260×22
+                                     <search-label> 4,0 156×22 "Priority"
+                                     <search-category> 168,0 88×22 "Composites"
+                                   <behavior-search-row> 0,69 260×22
+                                     <search-label> 4,0 156×22 "Random selector"
+                                     <search-category> 168,0 88×22 "Composites"
+                                   <behavior-search-row> 0,92 260×22
+                                     <search-label> 4,0 156×22 "Parallel"
+                                     <search-category> 168,0 88×22 "Composites"
+                                   <behavior-search-row> 0,115 260×22
+                                     <search-label> 4,0 202×22 "Wait"
+                                     <search-category> 214,0 42×22 "Tasks"
+                                   <behavior-search-row> 0,138 260×22
+                                     <search-label> 4,0 202×22 "Wait (from a key)"
+                                     <search-category> 214,0 42×22 "Tasks"
+                                   <behavior-search-row> 0,161 260×22
+                                     <search-label> 4,0 202×22 "Finish with"
+                                     <search-category> 214,0 42×22 "Tasks"
+                                   <behavior-search-row> 0,184 260×22
+                                     <search-label> 4,0 202×22 "Set blackboard value"
+                                     <search-category> 214,0 42×22 "Tasks"
+                                   <behavior-search-row> 0,207 260×22
+                                     <search-label> 4,0 202×22 "Clear blackboard value"
+                                     <search-category> 214,0 42×22 "Tasks"
+                                   <behavior-search-row> 0,230 260×22
+                                     <search-label> 4,0 202×22 "Log"
+                                     <search-category> 214,0 42×22 "Tasks"
+                                   <behavior-search-row> 0,253 260×22
+                                     <search-label> 4,0 202×22 "Run subtree"
+                                     <search-category> 214,0 42×22 "Tasks"
+                                   <behavior-search-row> 0,276 260×22
+                                     <search-label> 4,0 202×22 "Run subtree (from a key)"
+                                     <search-category> 214,0 42×22 "Tasks"
+                                   <behavior-search-row> 0,299 260×22
+                                     <search-label> 4,0 202×22 "Run utility set"
+                                     <search-category> 214,0 42×22 "Tasks"
+                                 <scrollbar .size-md .variant-default .vertical> 260,0 10×277
+                                 <scrollbar .horizontal .size-md .variant-default> 0,267 270×10
+                             """;
 
     const string NodesFlags = """
-        <behavior-search .size-md .variant-default> State=FocusWithin
-        <textbox .behavior-search-query .empty .size-md .variant-default> State=Focus, FocusVisible, FocusWithin, PlaceholderShown, Valid Placeholder="Search nodes…"
-        <scrollbar .size-md .variant-default .vertical> Value=0
-        <scrollbar .horizontal .size-md .variant-default> Value=0
-        """;
+                              <behavior-search .size-md .variant-default> State=FocusWithin
+                              <textbox .behavior-search-query .empty .size-md .variant-default> State=Focus, FocusVisible, FocusWithin, PlaceholderShown, Valid Placeholder="Search nodes…"
+                              <scrollbar .size-md .variant-default .vertical> Value=0
+                              <scrollbar .horizontal .size-md .variant-default> Value=0
+                              """;
 
     const string TypedTree = """
-        <behavior-search .size-md .variant-default> 0,0 280×91
-          <textbox .behavior-search-query .size-md .variant-default> 5,5 270×34
-            <field-placeholder> 0,0 0×0 "Search nodes…"
-            <field-text> 9,6 21×22 "sel"
-          <scroll-view .behavior-search-list .size-md .variant-default> 5,41 270×45
-            <scroll-content> 0,0 270×45
-              <behavior-search-row> 0,0 260×22
-                <search-label> 4,0 156×22 "Selector"
-                <search-category> 168,0 88×22 "Composites"
-              <behavior-search-row> 0,23 260×22
-                <search-label> 4,0 156×22 "Random selector"
-                <search-category> 168,0 88×22 "Composites"
-            <scrollbar .size-md .variant-default .vertical> 260,0 10×45
-            <scrollbar .horizontal .size-md .variant-default> 0,35 270×10
-        """;
+                             <behavior-search .size-md .variant-default> 0,0 280×91
+                               <textbox .behavior-search-query .size-md .variant-default> 5,5 270×34
+                                 <field-placeholder> 0,0 0×0 "Search nodes…"
+                                 <field-text> 9,6 21×22 "sel"
+                               <scroll-view .behavior-search-list .size-md .variant-default> 5,41 270×45
+                                 <scroll-content> 0,0 270×45
+                                   <behavior-search-row> 0,0 260×22
+                                     <search-label> 4,0 156×22 "Selector"
+                                     <search-category> 168,0 88×22 "Composites"
+                                   <behavior-search-row> 0,23 260×22
+                                     <search-label> 4,0 156×22 "Random selector"
+                                     <search-category> 168,0 88×22 "Composites"
+                                 <scrollbar .size-md .variant-default .vertical> 260,0 10×45
+                                 <scrollbar .horizontal .size-md .variant-default> 0,35 270×10
+                             """;
 
     const string TypedFlags = """
-        <behavior-search .size-md .variant-default> State=FocusWithin
-        <textbox .behavior-search-query .size-md .variant-default> State=Focus, FocusVisible, FocusWithin, Valid Value="sel" Placeholder="Search nodes…"
-        <scrollbar .size-md .variant-default .vertical> Value=0
-        <scrollbar .horizontal .size-md .variant-default> Value=0
-        """;
+                              <behavior-search .size-md .variant-default> State=FocusWithin
+                              <textbox .behavior-search-query .size-md .variant-default> State=Focus, FocusVisible, FocusWithin, Valid Value="sel" Placeholder="Search nodes…"
+                              <scrollbar .size-md .variant-default .vertical> Value=0
+                              <scrollbar .horizontal .size-md .variant-default> Value=0
+                              """;
 
     const string DecoratorsTree = """
-        <behavior-search .size-md .variant-default> 0,0 280×320
-          <textbox .behavior-search-query .empty .size-md .variant-default> 5,5 270×31
-            <field-placeholder> 9,4 114×22 "Search nodes…"
-            <field-text> 9,6 0×19
-          <scroll-view .behavior-search-list .size-md .variant-default> 5,38 270×277
-            <scroll-content> 0,0 270×344
-              <behavior-search-row> 0,0 260×22
-                <search-label> 4,0 163×22 "Blackboard"
-                <search-category> 175,0 81×22 "Conditions"
-              <behavior-search-row> 0,23 260×22
-                <search-label> 4,0 163×22 "Compare entries"
-                <search-category> 175,0 81×22 "Conditions"
-              <behavior-search-row> 0,46 260×22
-                <search-label> 4,0 163×22 "Is at location"
-                <search-category> 175,0 81×22 "Conditions"
-              <behavior-search-row> 0,69 260×22
-                <search-label> 4,0 163×22 "Cone"
-                <search-category> 175,0 81×22 "Conditions"
-              <behavior-search-row> 0,92 260×22
-                <search-label> 4,0 209×22 "Inverter"
-                <search-category> 221,0 35×22 "Flow"
-              <behavior-search-row> 0,115 260×22
-                <search-label> 4,0 209×22 "Force success"
-                <search-category> 221,0 35×22 "Flow"
-              <behavior-search-row> 0,138 260×22
-                <search-label> 4,0 209×22 "Force failure"
-                <search-category> 221,0 35×22 "Flow"
-              <behavior-search-row> 0,161 260×22
-                <search-label> 4,0 209×22 "Random chance"
-                <search-category> 221,0 35×22 "Flow"
-              <behavior-search-row> 0,184 260×22
-                <search-label> 4,0 193×22 "Cooldown"
-                <search-category> 205,0 51×22 "Timing"
-              <behavior-search-row> 0,207 260×22
-                <search-label> 4,0 193×22 "Time limit"
-                <search-category> 205,0 51×22 "Timing"
-              <behavior-search-row> 0,230 260×22
-                <search-label> 4,0 193×22 "Tag cooldown"
-                <search-category> 205,0 51×22 "Timing"
-              <behavior-search-row> 0,253 260×22
-                <search-label> 4,0 193×22 "Set tag cooldown"
-                <search-category> 205,0 51×22 "Timing"
-              <behavior-search-row> 0,276 260×22
-                <search-label> 4,0 209×22 "Loop"
-                <search-category> 221,0 35×22 "Flow"
-              <behavior-search-row> 0,299 260×22
-                <search-label> 4,0 161×22 "Composite condition"
-                <search-category> 173,0 83×22 "Decorators"
-              <behavior-search-row> 0,322 260×22
-                <search-label> 4,0 161×22 "Conditional loop"
-                <search-category> 173,0 83×22 "Decorators"
-            <scrollbar .size-md .variant-default .vertical> 260,0 10×277
-            <scrollbar .horizontal .size-md .variant-default> 0,267 270×10
-        """;
+                                  <behavior-search .size-md .variant-default> 0,0 280×320
+                                    <textbox .behavior-search-query .empty .size-md .variant-default> 5,5 270×31
+                                      <field-placeholder> 9,4 114×22 "Search nodes…"
+                                      <field-text> 9,6 0×19
+                                    <scroll-view .behavior-search-list .size-md .variant-default> 5,38 270×277
+                                      <scroll-content> 0,0 270×344
+                                        <behavior-search-row> 0,0 260×22
+                                          <search-label> 4,0 163×22 "Blackboard"
+                                          <search-category> 175,0 81×22 "Conditions"
+                                        <behavior-search-row> 0,23 260×22
+                                          <search-label> 4,0 163×22 "Compare entries"
+                                          <search-category> 175,0 81×22 "Conditions"
+                                        <behavior-search-row> 0,46 260×22
+                                          <search-label> 4,0 163×22 "Is at location"
+                                          <search-category> 175,0 81×22 "Conditions"
+                                        <behavior-search-row> 0,69 260×22
+                                          <search-label> 4,0 163×22 "Cone"
+                                          <search-category> 175,0 81×22 "Conditions"
+                                        <behavior-search-row> 0,92 260×22
+                                          <search-label> 4,0 209×22 "Inverter"
+                                          <search-category> 221,0 35×22 "Flow"
+                                        <behavior-search-row> 0,115 260×22
+                                          <search-label> 4,0 209×22 "Force success"
+                                          <search-category> 221,0 35×22 "Flow"
+                                        <behavior-search-row> 0,138 260×22
+                                          <search-label> 4,0 209×22 "Force failure"
+                                          <search-category> 221,0 35×22 "Flow"
+                                        <behavior-search-row> 0,161 260×22
+                                          <search-label> 4,0 209×22 "Random chance"
+                                          <search-category> 221,0 35×22 "Flow"
+                                        <behavior-search-row> 0,184 260×22
+                                          <search-label> 4,0 193×22 "Cooldown"
+                                          <search-category> 205,0 51×22 "Timing"
+                                        <behavior-search-row> 0,207 260×22
+                                          <search-label> 4,0 193×22 "Time limit"
+                                          <search-category> 205,0 51×22 "Timing"
+                                        <behavior-search-row> 0,230 260×22
+                                          <search-label> 4,0 193×22 "Tag cooldown"
+                                          <search-category> 205,0 51×22 "Timing"
+                                        <behavior-search-row> 0,253 260×22
+                                          <search-label> 4,0 193×22 "Set tag cooldown"
+                                          <search-category> 205,0 51×22 "Timing"
+                                        <behavior-search-row> 0,276 260×22
+                                          <search-label> 4,0 209×22 "Loop"
+                                          <search-category> 221,0 35×22 "Flow"
+                                        <behavior-search-row> 0,299 260×22
+                                          <search-label> 4,0 161×22 "Composite condition"
+                                          <search-category> 173,0 83×22 "Decorators"
+                                        <behavior-search-row> 0,322 260×22
+                                          <search-label> 4,0 161×22 "Conditional loop"
+                                          <search-category> 173,0 83×22 "Decorators"
+                                      <scrollbar .size-md .variant-default .vertical> 260,0 10×277
+                                      <scrollbar .horizontal .size-md .variant-default> 0,267 270×10
+                                  """;
 
     const string DecoratorsFlags = """
-        <behavior-search .size-md .variant-default> State=FocusWithin
-        <textbox .behavior-search-query .empty .size-md .variant-default> State=Focus, FocusWithin, PlaceholderShown, Valid Placeholder="Search nodes…"
-        <scrollbar .size-md .variant-default .vertical> Value=0
-        <scrollbar .horizontal .size-md .variant-default> Value=0
-        """;
+                                   <behavior-search .size-md .variant-default> State=FocusWithin
+                                   <textbox .behavior-search-query .empty .size-md .variant-default> State=Focus, FocusWithin, PlaceholderShown, Valid Placeholder="Search nodes…"
+                                   <scrollbar .size-md .variant-default .vertical> Value=0
+                                   <scrollbar .horizontal .size-md .variant-default> Value=0
+                                   """;
 
     const string NothingTree = """
-        <behavior-search .size-md .variant-default> 0,0 280×46
-          <textbox .behavior-search-query .size-md .variant-default> 5,5 270×34
-            <field-placeholder> 0,0 0×0 "Search nodes…"
-            <field-text> 9,6 23×22 "zzz"
-          <scroll-view .behavior-search-list .size-md .variant-default> 5,41 270×0
-            <scroll-content> 0,0 270×0
-            <scrollbar .size-md .variant-default .vertical> 260,0 10×0
-            <scrollbar .horizontal .size-md .variant-default> 0,-10 270×10
-        """;
+                               <behavior-search .size-md .variant-default> 0,0 280×46
+                                 <textbox .behavior-search-query .size-md .variant-default> 5,5 270×34
+                                   <field-placeholder> 0,0 0×0 "Search nodes…"
+                                   <field-text> 9,6 23×22 "zzz"
+                                 <scroll-view .behavior-search-list .size-md .variant-default> 5,41 270×0
+                                   <scroll-content> 0,0 270×0
+                                   <scrollbar .size-md .variant-default .vertical> 260,0 10×0
+                                   <scrollbar .horizontal .size-md .variant-default> 0,-10 270×10
+                               """;
 
     const string NothingFlags = """
-        <behavior-search .size-md .variant-default> State=FocusWithin
-        <textbox .behavior-search-query .size-md .variant-default> State=Focus, FocusVisible, FocusWithin, Valid Value="zzz" Placeholder="Search nodes…"
-        <scrollbar .size-md .variant-default .vertical> Value=0
-        <scrollbar .horizontal .size-md .variant-default> Value=0
-        """;
+                                <behavior-search .size-md .variant-default> State=FocusWithin
+                                <textbox .behavior-search-query .size-md .variant-default> State=Focus, FocusVisible, FocusWithin, Valid Value="zzz" Placeholder="Search nodes…"
+                                <scrollbar .size-md .variant-default .vertical> Value=0
+                                <scrollbar .horizontal .size-md .variant-default> Value=0
+                                """;
 
     const string ClosedTree = """
-        <behavior-search .closed .size-md .variant-default> 0,0 0×0
-          <textbox .behavior-search-query .empty .size-md .variant-default> 0,0 0×0
-            <field-placeholder> 0,0 0×0 "Search nodes…"
-            <field-text> 0,0 0×0
-          <scroll-view .behavior-search-list .size-md .variant-default> 0,0 0×0
-            <scroll-content> 0,0 0×0
-              <behavior-search-row> 0,0 0×0
-                <search-label> 0,0 0×0 "Selector"
-                <search-category> 0,0 0×0 "Composites"
-              <behavior-search-row> 0,0 0×0
-                <search-label> 0,0 0×0 "Sequence"
-                <search-category> 0,0 0×0 "Composites"
-              <behavior-search-row> 0,0 0×0
-                <search-label> 0,0 0×0 "Priority"
-                <search-category> 0,0 0×0 "Composites"
-              <behavior-search-row> 0,0 0×0
-                <search-label> 0,0 0×0 "Random selector"
-                <search-category> 0,0 0×0 "Composites"
-              <behavior-search-row> 0,0 0×0
-                <search-label> 0,0 0×0 "Parallel"
-                <search-category> 0,0 0×0 "Composites"
-              <behavior-search-row> 0,0 0×0
-                <search-label> 0,0 0×0 "Wait"
-                <search-category> 0,0 0×0 "Tasks"
-              <behavior-search-row> 0,0 0×0
-                <search-label> 0,0 0×0 "Wait (from a key)"
-                <search-category> 0,0 0×0 "Tasks"
-              <behavior-search-row> 0,0 0×0
-                <search-label> 0,0 0×0 "Finish with"
-                <search-category> 0,0 0×0 "Tasks"
-              <behavior-search-row> 0,0 0×0
-                <search-label> 0,0 0×0 "Set blackboard value"
-                <search-category> 0,0 0×0 "Tasks"
-              <behavior-search-row> 0,0 0×0
-                <search-label> 0,0 0×0 "Clear blackboard value"
-                <search-category> 0,0 0×0 "Tasks"
-              <behavior-search-row> 0,0 0×0
-                <search-label> 0,0 0×0 "Log"
-                <search-category> 0,0 0×0 "Tasks"
-              <behavior-search-row> 0,0 0×0
-                <search-label> 0,0 0×0 "Run subtree"
-                <search-category> 0,0 0×0 "Tasks"
-              <behavior-search-row> 0,0 0×0
-                <search-label> 0,0 0×0 "Run subtree (from a key)"
-                <search-category> 0,0 0×0 "Tasks"
-              <behavior-search-row> 0,0 0×0
-                <search-label> 0,0 0×0 "Run utility set"
-                <search-category> 0,0 0×0 "Tasks"
-            <scrollbar .size-md .variant-default .vertical> 0,0 0×0
-            <scrollbar .horizontal .size-md .variant-default> 0,0 0×0
-        """;
+                              <behavior-search .closed .size-md .variant-default> 0,0 0×0
+                                <textbox .behavior-search-query .empty .size-md .variant-default> 0,0 0×0
+                                  <field-placeholder> 0,0 0×0 "Search nodes…"
+                                  <field-text> 0,0 0×0
+                                <scroll-view .behavior-search-list .size-md .variant-default> 0,0 0×0
+                                  <scroll-content> 0,0 0×0
+                                    <behavior-search-row> 0,0 0×0
+                                      <search-label> 0,0 0×0 "Selector"
+                                      <search-category> 0,0 0×0 "Composites"
+                                    <behavior-search-row> 0,0 0×0
+                                      <search-label> 0,0 0×0 "Sequence"
+                                      <search-category> 0,0 0×0 "Composites"
+                                    <behavior-search-row> 0,0 0×0
+                                      <search-label> 0,0 0×0 "Priority"
+                                      <search-category> 0,0 0×0 "Composites"
+                                    <behavior-search-row> 0,0 0×0
+                                      <search-label> 0,0 0×0 "Random selector"
+                                      <search-category> 0,0 0×0 "Composites"
+                                    <behavior-search-row> 0,0 0×0
+                                      <search-label> 0,0 0×0 "Parallel"
+                                      <search-category> 0,0 0×0 "Composites"
+                                    <behavior-search-row> 0,0 0×0
+                                      <search-label> 0,0 0×0 "Wait"
+                                      <search-category> 0,0 0×0 "Tasks"
+                                    <behavior-search-row> 0,0 0×0
+                                      <search-label> 0,0 0×0 "Wait (from a key)"
+                                      <search-category> 0,0 0×0 "Tasks"
+                                    <behavior-search-row> 0,0 0×0
+                                      <search-label> 0,0 0×0 "Finish with"
+                                      <search-category> 0,0 0×0 "Tasks"
+                                    <behavior-search-row> 0,0 0×0
+                                      <search-label> 0,0 0×0 "Set blackboard value"
+                                      <search-category> 0,0 0×0 "Tasks"
+                                    <behavior-search-row> 0,0 0×0
+                                      <search-label> 0,0 0×0 "Clear blackboard value"
+                                      <search-category> 0,0 0×0 "Tasks"
+                                    <behavior-search-row> 0,0 0×0
+                                      <search-label> 0,0 0×0 "Log"
+                                      <search-category> 0,0 0×0 "Tasks"
+                                    <behavior-search-row> 0,0 0×0
+                                      <search-label> 0,0 0×0 "Run subtree"
+                                      <search-category> 0,0 0×0 "Tasks"
+                                    <behavior-search-row> 0,0 0×0
+                                      <search-label> 0,0 0×0 "Run subtree (from a key)"
+                                      <search-category> 0,0 0×0 "Tasks"
+                                    <behavior-search-row> 0,0 0×0
+                                      <search-label> 0,0 0×0 "Run utility set"
+                                      <search-category> 0,0 0×0 "Tasks"
+                                  <scrollbar .size-md .variant-default .vertical> 0,0 0×0
+                                  <scrollbar .horizontal .size-md .variant-default> 0,0 0×0
+                              """;
 
     const string ClosedFlags = """
-        <textbox .behavior-search-query .empty .size-md .variant-default> State=PlaceholderShown, Valid Placeholder="Search nodes…"
-        <scrollbar .size-md .variant-default .vertical> Value=0
-        <scrollbar .horizontal .size-md .variant-default> Value=0
-        """;
+                               <textbox .behavior-search-query .empty .size-md .variant-default> State=PlaceholderShown, Valid Placeholder="Search nodes…"
+                               <scrollbar .size-md .variant-default .vertical> Value=0
+                               <scrollbar .horizontal .size-md .variant-default> Value=0
+                               """;
 }

@@ -3,7 +3,6 @@
 
 using Vixen.Core;
 using Vixen.Core.Mathematics;
-using Vixen.Ecs;
 using Vixen.Engine.Transforms;
 using Xunit;
 
@@ -35,7 +34,7 @@ public class WorldQueryTests {
 
         // ⚠ The entity travels with the position, which is what makes "shoot at the best target" the
         // same machine as "stand in the best spot".
-        Assert.All(points, point => Assert.False(point.Entity.IsNull));
+        Assert.All(points, static point => Assert.False(point.Entity.IsNull));
     }
 
     [Fact]
@@ -52,7 +51,7 @@ public class WorldQueryTests {
             .Generate(in context, new(Vector3.Zero, Vector3.Zero), points);
 
         Assert.Single(points);
-        Assert.Equal(new Vector3(2f, 0f, 0f), points[0].Position);
+        Assert.Equal(new(2f, 0f, 0f), points[0].Position);
     }
 
     /// <summary>
@@ -69,8 +68,7 @@ public class WorldQueryTests {
             Symbol.Intern("on-the-floor"),
             [QueryGenerators.Grid(30f, 5f)],
             new QueryTest(Vixen.Ai.Nodes.WorldQueryTests.OnNavMesh(level.Query)) {
-                Purpose = QueryTestPurpose.Filter,
-                Ceiling = 0.5f
+                Purpose = QueryTestPurpose.Filter, Ceiling = 0.5f
             },
             new QueryTest(QueryTests.Distance()) { Maximum = 40f }
         );
@@ -111,9 +109,7 @@ public class RunQueryNodeTests {
 
         board.SetVector3(layout.Key("target"), new(0f, 0f, 20f));
 
-        var task = new RunQueryTask(
-            new(Nearest(), layout.Key("target"), layout.Key("spot"))
-        );
+        var task = new RunQueryTask(new(Nearest(), layout.Key("target"), layout.Key("spot")));
 
         var state = new byte[RunQueryTask.StateSize];
 
@@ -184,7 +180,7 @@ public class RunQueryNodeTests {
             layout
         );
 
-        var instance = new BehaviorTreeInstance(template, new AgentMemoryPool());
+        var instance = new BehaviorTreeInstance(template, new());
         var context = new BehaviorContext(agent, instance, 0);
 
         service.Tick(in context, [], 0f);
@@ -207,7 +203,7 @@ public class RunQueryNodeTests {
     static EnvironmentQuery Nearest() =>
         new(
             Symbol.Intern("toward"),
-            [QueryGenerators.Circle(5f, 8, aroundQuerier: true)],
+            [QueryGenerators.Circle(5f, 8, true)],
             new QueryTest(
                 QueryTests.Distance(QueryDistanceFrom.Context),
                 new ResponseCurve { Slope = -1f, Shift = 1f }

@@ -69,8 +69,8 @@ public class MeshDistanceFieldTests {
         var field = MeshDistanceFieldBaker.Bake(vertices, indices, new() { Resolution = 24 });
 
         foreach (var direction in (Vector3[]) [
-            new(1, 0, 0), new(0, 1, 0), new(0, 0, 1), Vector3.Normalize(new(1, 1, 1))
-        ]) {
+                     new(1, 0, 0), new(0, 1, 0), new(0, 0, 1), Vector3.Normalize(new(1, 1, 1))
+                 ]) {
             var gradient = field.SampleGradient(direction * 1.1f);
 
             // A distance field's gradient is the outward normal wherever it is not flat, and on a
@@ -84,12 +84,18 @@ public class MeshDistanceFieldTests {
 
     [Fact]
     public void AFieldThatIsNotOneIsRejected() {
-        Assert.Throws<InvalidOperationException>(
-            () => new MeshDistanceField(new(new(-1), new(1)), new(1, 4, 4), new float[16]).Validate()
+        Assert.Throws<InvalidOperationException>(static () => new MeshDistanceField(
+                new(new(-1), new(1)),
+                new(1, 4, 4),
+                new float[16]
+            ).Validate()
         );
 
-        Assert.Throws<InvalidOperationException>(
-            () => new MeshDistanceField(new(new(-1), new(1)), new(4, 4, 4), new float[16]).Validate()
+        Assert.Throws<InvalidOperationException>(static () => new MeshDistanceField(
+                new(new(-1), new(1)),
+                new(4, 4, 4),
+                new float[16]
+            ).Validate()
         );
     }
 

@@ -6,8 +6,7 @@ using Xunit;
 namespace Vixen.Gameplay.Ai.Tests;
 
 public class LeashTests {
-    static Leash Tethered(float patience = 5f) =>
-        new(new() { Tether = 40f, Break = 60f, Patience = patience });
+    static Leash Tethered(float patience = 5f) => new(new() { Tether = 40f, Break = 60f, Patience = patience });
 
     [Fact]
     public void InsideTheTetherNothingHappens() {
@@ -53,7 +52,7 @@ public class LeashTests {
     [Fact]
     public void BeingStretchedForTooLongBreaksItAnyway() {
         // ⚠ What stops a mob being kited round a pillar for ever at exactly tether plus one.
-        var leash = Tethered(patience: 5f);
+        var leash = Tethered();
 
         leash.Check(50f, 0f);
 
@@ -68,7 +67,7 @@ public class LeashTests {
 
     [Fact]
     public void NoPatienceMeansItWaitsForEver() {
-        var leash = Tethered(patience: 0f);
+        var leash = Tethered(0f);
 
         leash.Check(50f, 0f);
 
@@ -77,7 +76,7 @@ public class LeashTests {
 
     [Fact]
     public void ComingBackResetsTheClock() {
-        var leash = Tethered(patience: 5f);
+        var leash = Tethered();
 
         leash.Check(50f, 0f);
         leash.Check(10f, 3f);
@@ -209,8 +208,8 @@ public class SpawnTests {
 
     [Fact]
     public void JitterMovesTheTimerAndIsDeterministic() {
-        var first = Spawner(Content.Camp, seed: 42ul);
-        var second = Spawner(Content.Camp, seed: 42ul);
+        var first = Spawner(Content.Camp, 42ul);
+        var second = Spawner(Content.Camp, 42ul);
 
         Orders(first, 0f);
         Orders(second, 0f);
@@ -223,8 +222,8 @@ public class SpawnTests {
 
     [Fact]
     public void TwoSeedsGiveTwoCampsThatDoNotMarchInStep() {
-        var first = Spawner(Content.Camp, seed: 1ul);
-        var second = Spawner(Content.Camp, seed: 2ul);
+        var first = Spawner(Content.Camp);
+        var second = Spawner(Content.Camp, 2ul);
 
         Orders(first, 0f);
         Orders(second, 0f);
@@ -288,7 +287,10 @@ public class SpawnTests {
             new DefinitionCatalogBuilder().Add("spawns/bare", new SpawnTableDefinition()).Build()
         );
 
-        Assert.Contains(bare.Problems, problem => problem.Contains("nothing ever spawns", StringComparison.Ordinal));
+        Assert.Contains(
+            bare.Problems,
+            static problem => problem.Contains("nothing ever spawns", StringComparison.Ordinal)
+        );
         Assert.Empty(Orders(new(bare.Find(DefId.From("spawns/bare"))!, 1ul), 0f));
     }
 
@@ -305,7 +307,7 @@ public class SpawnTests {
                 .Build()
         );
 
-        Assert.Contains(odd.Problems, problem => problem.Contains("never be picked", StringComparison.Ordinal));
+        Assert.Contains(odd.Problems, static problem => problem.Contains("never be picked", StringComparison.Ordinal));
         Assert.Single(odd.Find(DefId.From("spawns/odd"))!.Entries.ToArray());
     }
 
@@ -316,16 +318,14 @@ public class SpawnTests {
                     .Add(
                         "spawns/odd",
                         new SpawnTableDefinition {
-                            RespawnSeconds = 5f,
-                            RespawnJitter = 30f,
-                            Entries = [new() { Creature = "creatures/a" }]
+                            RespawnSeconds = 5f, RespawnJitter = 30f, Entries = [new() { Creature = "creatures/a" }]
                         }
                     )
                     .Build()
             )
             .Problems;
 
-        Assert.Contains(problems, problem => problem.Contains("before it died", StringComparison.Ordinal));
+        Assert.Contains(problems, static problem => problem.Contains("before it died", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -342,6 +342,6 @@ public class SpawnTests {
             )
             .Problems;
 
-        Assert.Contains(problems, problem => problem.Contains("no number at all", StringComparison.Ordinal));
+        Assert.Contains(problems, static problem => problem.Contains("no number at all", StringComparison.Ordinal));
     }
 }

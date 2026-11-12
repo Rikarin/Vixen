@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core;
-using Vixen.Core.Mathematics;
 using Vixen.Ecs;
 using Vixen.Engine.Transforms;
 using Vixen.Navigation.Agents;
@@ -62,7 +61,10 @@ public sealed class NavigationSystemTests {
         var state = world.Read<NavigationState>(entity);
 
         Assert.Equal(CrowdTargetState.Arrived, state.Target);
-        Assert.True(NavGeometry.Distance2D(transform.Position, new(15, 0, 15)) < 1f, $"It stopped at {transform.Position}.");
+        Assert.True(
+            NavGeometry.Distance2D(transform.Position, new(15, 0, 15)) < 1f,
+            $"It stopped at {transform.Position}."
+        );
         Assert.Equal(state.Position, transform.Position);
     }
 
@@ -146,7 +148,7 @@ public sealed class NavigationSystemTests {
         for (var index = 0; index < 5; index++) {
             entities.Add(
                 world.Create(
-                    LocalTransform.At(new(3 + (index * 1.4f), 0, 3)),
+                    LocalTransform.At(new(3 + index * 1.4f, 0, 3)),
                     NavigationAgent.Default(),
                     new NavigationDestination { Value = new(15, 0, 15) },
                     new NavigationState()

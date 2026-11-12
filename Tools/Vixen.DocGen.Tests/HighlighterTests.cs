@@ -21,13 +21,23 @@ public class HighlighterTests {
                         public struct Position { public float X; }
                         public sealed class Mover { public void Step(int frames) { } }
                     }
-                    """)
+                    """
+                )
             ],
             [MetadataReference.CreateFromFile(typeof(object).Assembly.Location)],
-            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+            new(OutputKind.DynamicallyLinkedLibrary)
+        );
 
     static IReadOnlyList<IReadOnlyList<DocSpan>> Highlight(string code, bool fragment = false, bool withHost = true) {
-        var example = new Example("docs/guide/x.md", 1, "csharp", code, Compile: true, Fragment: fragment, Reason: null);
+        var example = new Example(
+            "docs/guide/x.md",
+            1,
+            "csharp",
+            code,
+            true,
+            fragment,
+            null
+        );
         var lines = Highlighter.Highlight(example, withHost ? Host() : null, null, CancellationToken.None);
 
         Assert.NotNull(lines);
@@ -36,11 +46,12 @@ public class HighlighterTests {
     }
 
     static string Text(IReadOnlyList<IReadOnlyList<DocSpan>> lines) =>
-        string.Join('\n', lines.Select(line => string.Concat(line.Select(span => span.Text))));
+        string.Join('\n', lines.Select(static line => string.Concat(line.Select(static span => span.Text))));
 
     static IEnumerable<string> KindsOf(IReadOnlyList<IReadOnlyList<DocSpan>> lines, string text) =>
-        lines.SelectMany(line => line).Where(span => span.Text.Contains(text, StringComparison.Ordinal))
-            .Select(span => span.Kind);
+        lines.SelectMany(static line => line)
+            .Where(span => span.Text.Contains(text, StringComparison.Ordinal))
+            .Select(static span => span.Kind);
 
     /// <summary>
     ///     The runs have to reproduce the fence exactly, or the reader is shown code that is not the
@@ -55,7 +66,7 @@ public class HighlighterTests {
             mover.Step(3);
             """;
 
-        Assert.Equal(Code, Text(Highlight(Code, fragment: true)));
+        Assert.Equal(Code, Text(Highlight(Code, true)));
     }
 
     [Fact]
@@ -65,7 +76,7 @@ public class HighlighterTests {
 
     [Fact]
     public void StringsAndNumbersAreThemselves() {
-        var lines = Highlight("""var text = "hello"; var count = 42;""", fragment: true);
+        var lines = Highlight("""var text = "hello"; var count = 42;""", true);
 
         Assert.Contains("string", KindsOf(lines, "hello"));
         Assert.Contains("number", KindsOf(lines, "42"));
@@ -84,7 +95,7 @@ public class HighlighterTests {
     /// </summary>
     [Fact]
     public void ATypeIsWhatTheCompilerSaysItIs() {
-        var lines = Highlight("Fixtures.Position at = default;\nFixtures.Mover mover = null!;", fragment: true);
+        var lines = Highlight("Fixtures.Position at = default;\nFixtures.Mover mover = null!;", true);
 
         Assert.Contains("struct", KindsOf(lines, "Position"));
         Assert.Contains("class", KindsOf(lines, "Mover"));
@@ -92,7 +103,7 @@ public class HighlighterTests {
 
     [Fact]
     public void AMethodIsAFunctionAndAParameterIsAVariable() {
-        var lines = Highlight("public void Step(int frames) { }", fragment: false);
+        var lines = Highlight("public void Step(int frames) { }");
 
         Assert.Contains("method", KindsOf(lines, "Step"));
         Assert.Contains("parameter", KindsOf(lines, "frames"));
@@ -117,7 +128,15 @@ public class HighlighterTests {
 
     [Fact]
     public void NothingButCSharpIsClassified() {
-        var example = new Example("docs/guide/x.md", 1, "rvn", "shader Lit { }", Compile: false, Fragment: false, Reason: "not C#");
+        var example = new Example(
+            "docs/guide/x.md",
+            1,
+            "rvn",
+            "shader Lit { }",
+            false,
+            false,
+            "not C#"
+        );
 
         Assert.Null(Highlighter.Highlight(example, Host(), null, CancellationToken.None));
     }

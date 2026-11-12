@@ -3,7 +3,6 @@
 
 using System.Diagnostics;
 using Vixen.Core.Mathematics;
-using Vixen.Rendering;
 using Xunit;
 
 namespace Vixen.Rendering.Tests;
@@ -77,14 +76,14 @@ public sealed class StreamingGridTests {
 
     [Fact]
     public void AGridWithNoExtentIsRefused() {
-        Assert.Throws<ArgumentOutOfRangeException>(() => new StreamingGrid(0, Vector2.Zero, 0f, 4, 4));
-        Assert.Throws<ArgumentOutOfRangeException>(() => new StreamingGrid(0, Vector2.Zero, 100f, 0, 4));
-        Assert.Throws<ArgumentOutOfRangeException>(() => new StreamingGrid(0, Vector2.Zero, 100f, 4, -1));
+        Assert.Throws<ArgumentOutOfRangeException>(static () => new StreamingGrid(0, Vector2.Zero, 0f, 4, 4));
+        Assert.Throws<ArgumentOutOfRangeException>(static () => new StreamingGrid(0, Vector2.Zero, 100f, 0, 4));
+        Assert.Throws<ArgumentOutOfRangeException>(static () => new StreamingGrid(0, Vector2.Zero, 100f, 4, -1));
     }
 
     [Fact]
     public void KeysCarryTheGridsOwnSourceAndRoundTripToTheirCell() {
-        var grid = Grid(source: 7);
+        var grid = Grid();
 
         Assert.Equal(100, grid.CellCount);
 
@@ -231,10 +230,13 @@ public sealed class StreamingGridTests {
 
         var (residency, _) = Service();
 
-        grid.Update([
-            new(new(550f, 0f, 550f), 10f),   // in cell (5, 5)
-            new(new(250f, 0f, 550f), 10f)    // in cell (2, 5), whose lead covers (5, 5)
-        ], residency);
+        grid.Update(
+            [
+                new(new(550f, 0f, 550f), 10f), // in cell (5, 5)
+                new(new(250f, 0f, 550f), 10f) // in cell (2, 5), whose lead covers (5, 5)
+            ],
+            residency
+        );
 
         Assert.Equal(2, grid.TouchedCells);
 
@@ -284,7 +286,7 @@ public sealed class StreamingGridTests {
         grid.Lead = 0f;
 
         // Room for four pages only, so the pool has to make choices.
-        var (residency, store) = Service(slots: 4);
+        var (residency, store) = Service(4);
 
         grid.Update([new(new(50f, 0f, 50f), 10f)], residency);
         Settle(residency);
@@ -310,10 +312,10 @@ public sealed class StreamingGridTests {
         var grid = Grid();
         grid.Lead = 0f;
 
-        var (residency, store) = Service(slots: 3);
+        var (residency, store) = Service(3);
 
         for (var cell = 0; cell < 8; cell++) {
-            grid.Update([new(new((cell * 100f) + 50f, 0f, 50f), 10f)], residency);
+            grid.Update([new(new(cell * 100f + 50f, 0f, 50f), 10f)], residency);
             Settle(residency);
 
             Assert.True(
@@ -360,8 +362,8 @@ public sealed class StreamingGridTests {
         Settle(residency);
 
         Assert.Equal(2, residency.ResidentPages);
-        Assert.Contains(new PageKey(1, 0), store.Loaded);
-        Assert.Contains(new PageKey(2, 0), store.Loaded);
+        Assert.Contains(new(1, 0), store.Loaded);
+        Assert.Contains(new(2, 0), store.Loaded);
 
         residency.Dispose();
     }

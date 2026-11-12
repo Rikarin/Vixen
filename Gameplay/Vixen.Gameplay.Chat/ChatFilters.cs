@@ -45,8 +45,12 @@ public sealed class MuteList {
 
 /// <summary>How much somebody has said on each channel lately.</summary>
 /// <remarks>
-///     ⚠ <b>Not a duplicate of <c>RpcRouter</c>'s limiter, and doc 28's "reuse rather than invent" is
-///     still honoured.</b> That one is per <em>connection</em> and cannot tell a whisper from guild
+///     ⚠
+///     <b>
+///         Not a duplicate of <c>RpcRouter</c>'s limiter, and doc 28's "reuse rather than invent" is
+///         still honoured.
+///     </b>
+///     That one is per <em>connection</em> and cannot tell a whisper from guild
 ///     chat; this one is per <c>(player, channel)</c>, which is the cap a designer actually writes —
 ///     "three trade posts a minute, and say what you like locally". They bound different things, and a
 ///     realm hands the connection-wide number to <c>RpcRouter</c> as before.
@@ -235,7 +239,9 @@ public static class ChatFilters {
 
         /// <summary>Makes one.</summary>
         /// <param name="seconds">How long the same words are refused for.</param>
-        public Repeat(float seconds = 30f) => Seconds = MathF.Max(0f, seconds);
+        public Repeat(float seconds = 30f) {
+            Seconds = MathF.Max(0f, seconds);
+        }
 
         /// <summary>How long the same words are refused for.</summary>
         public float Seconds { get; }
@@ -275,7 +281,7 @@ public static class ChatFilters {
         public Words(IEnumerable<string> words, char replacement = '*') {
             ArgumentNullException.ThrowIfNull(words);
 
-            this.words = [.. words.Where(word => word.Length > 0)];
+            this.words = [..words.Where(static word => word.Length > 0)];
             Replacement = replacement;
         }
 

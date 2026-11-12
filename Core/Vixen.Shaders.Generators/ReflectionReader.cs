@@ -37,7 +37,7 @@ static class ReflectionReader {
 
                 foreach (var member in binding["Members"].Items) {
                     described.Members.Add(
-                        new Member {
+                        new() {
                             Name = member["Name"].AsString(string.Empty),
                             Type = ReadType(member["Type"]),
                             Offset = member["Offset"].AsInt(),
@@ -56,16 +56,13 @@ static class ReflectionReader {
 
         foreach (var input in root["VertexInputs"].Items) {
             reflection.VertexInputs.Add(
-                new VertexInput {
-                    Location = input["Location"].AsInt(),
-                    Name = input["Name"].AsString(string.Empty)
-                }
+                new() { Location = input["Location"].AsInt(), Name = input["Name"].AsString(string.Empty) }
             );
         }
 
         foreach (var parameter in root["Parameters"].Items) {
             reflection.Parameters.Add(
-                new Parameter {
+                new() {
                     Name = parameter["Name"].AsString(string.Empty),
                     Type = ReadType(parameter["Type"]),
                     Set = parameter["Set"].AsInt(),
@@ -81,7 +78,7 @@ static class ReflectionReader {
 
         foreach (var permutation in root["Permutations"].Items) {
             reflection.Permutations.Add(
-                new Permutation {
+                new() {
                     Name = permutation["Name"].AsString(string.Empty),
                     Type = ReadType(permutation["Type"]),
                     DefaultValue = permutation["DefaultValue"].AsString(string.Empty)

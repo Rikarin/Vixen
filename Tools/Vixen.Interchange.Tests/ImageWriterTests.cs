@@ -3,7 +3,6 @@
 
 using System.Diagnostics;
 using StbImageSharp;
-using Vixen.Core.Imaging;
 using Xunit;
 
 namespace Vixen.Interchange.Tests;
@@ -27,11 +26,11 @@ public sealed class ImageWriterTests {
         for (var y = 0; y < height; y++) {
             for (var x = 0; x < width; x++) {
                 for (var lane = 0; lane < channels; lane++) {
-                    var at = ((y * width) + x) * channels + lane;
+                    var at = (y * width + x) * channels + lane;
                     samples[at] = (y / 8) switch {
                         0 => 200,
                         1 => (byte)(x * 255 / (width - 1)),
-                        2 => (byte)(((x / 4) + lane) % 2 == 0 ? 30 : 220),
+                        2 => (byte)((x / 4 + lane) % 2 == 0 ? 30 : 220),
                         _ => (byte)random.Next(256)
                     };
                 }
@@ -84,7 +83,10 @@ public sealed class ImageWriterTests {
         var high = JpegWriter.Encode(64, 64, 3, samples, 95);
 
         Assert.True(low.Length < high.Length);
-        Assert.True(Mean(samples, Stb(low, ColorComponents.RedGreenBlue).Data) > Mean(samples, Stb(high, ColorComponents.RedGreenBlue).Data));
+        Assert.True(
+            Mean(samples, Stb(low, ColorComponents.RedGreenBlue).Data)
+            > Mean(samples, Stb(high, ColorComponents.RedGreenBlue).Data)
+        );
     }
 
     /// <summary>RGBE keeps about eight bits relative to the brightest channel, over any range.</summary>
@@ -95,7 +97,7 @@ public sealed class ImageWriterTests {
         var samples = new float[width * height * 3];
 
         for (var at = 0; at < samples.Length; at++) {
-            samples[at] = MathF.Pow(2f, (at % 37) - 18) * (1 + (at % 5 * 0.1f));
+            samples[at] = MathF.Pow(2f, at % 37 - 18) * (1 + at % 5 * 0.1f);
         }
 
         var file = HdrWriter.Encode(new(width, height, 3, samples));
@@ -104,10 +106,10 @@ public sealed class ImageWriterTests {
         Assert.Equal((width, height), (read.Width, read.Height));
 
         for (var texel = 0; texel < width * height; texel++) {
-            var top = Enumerable.Range(0, 3).Max(lane => samples[(texel * 3) + lane]);
+            var top = Enumerable.Range(0, 3).Max(lane => samples[texel * 3 + lane]);
 
             for (var lane = 0; lane < 3; lane++) {
-                Assert.InRange(Math.Abs(read.Data[(texel * 3) + lane] - samples[(texel * 3) + lane]), 0f, top / 100f);
+                Assert.InRange(Math.Abs(read.Data[texel * 3 + lane] - samples[texel * 3 + lane]), 0f, top / 100f);
             }
         }
     }
@@ -118,7 +120,7 @@ public sealed class ImageWriterTests {
         var samples = new float[64 * 2 * 3];
 
         for (var at = 64 * 3; at < samples.Length; at++) {
-            samples[at] = (at * 7919 % 101) / 101f;
+            samples[at] = at * 7919 % 101 / 101f;
         }
 
         Array.Fill(samples, 0.5f, 0, 64 * 3);
@@ -158,9 +160,9 @@ public sealed class ImageWriterTests {
 
             for (var texel = 0; texel < width * height; texel++) {
                 for (var lane = 0; lane < 4; lane++) {
-                    var expected = lane == 3 ? channels == 4 ? samples[(texel * 4) + 3] : (byte)255
-                        : channels == 1 ? samples[texel] : samples[(texel * channels) + lane];
-                    Assert.Equal(expected, pixels[(texel * 4) + lane]);
+                    var expected = lane == 3 ? channels == 4 ? samples[texel * 4 + 3] : (byte)255
+                        : channels == 1 ? samples[texel] : samples[texel * channels + lane];
+                    Assert.Equal(expected, pixels[texel * 4 + lane]);
                 }
             }
         } finally {
@@ -200,12 +202,12 @@ public sealed class ImageWriterTests {
                 expected.AddRange(samples);
                 break;
             case 16:
-                ushort[] wide = [.. samples.Select(static (s, at) => (ushort)((s * 257) ^ (at & 0xF)))];
+                ushort[] wide = [..samples.Select(static (s, at) => (ushort)((s * 257) ^ (at & 0xF)))];
                 file = TiffWriter.Encode16(33, 40, channels, wide);
                 expected.AddRange(wide.SelectMany(BitConverter.GetBytes));
                 break;
             default:
-                float[] floats = [.. samples.Select(static s => (s / 255f) - 0.25f)];
+                float[] floats = [..samples.Select(static s => s / 255f - 0.25f)];
                 file = TiffWriter.EncodeFloat(new(33, 40, channels, floats));
                 expected.AddRange(floats.SelectMany(BitConverter.GetBytes));
                 break;
@@ -265,11 +267,11 @@ public sealed class ImageWriterTests {
 
     [Fact]
     public void ShapesTheFormatsCannotHoldAreRefused() {
-        Assert.Throws<ArgumentException>(() => JpegWriter.Encode(2, 2, 4, new byte[16]));
-        Assert.Throws<ArgumentException>(() => TgaWriter.Encode(2, 2, 2, new byte[8]));
-        Assert.Throws<ArgumentException>(() => WebPWriter.Encode(20000, 1, 3, new byte[60000]));
-        Assert.Throws<ArgumentException>(() => TiffWriter.Encode8(2, 2, 3, new byte[5]));
-        Assert.Throws<ArgumentException>(() => HdrWriter.Encode(new(1, 1, 2, new float[2])));
+        Assert.Throws<ArgumentException>(static () => JpegWriter.Encode(2, 2, 4, new byte[16]));
+        Assert.Throws<ArgumentException>(static () => TgaWriter.Encode(2, 2, 2, new byte[8]));
+        Assert.Throws<ArgumentException>(static () => WebPWriter.Encode(20000, 1, 3, new byte[60000]));
+        Assert.Throws<ArgumentException>(static () => TiffWriter.Encode8(2, 2, 3, new byte[5]));
+        Assert.Throws<ArgumentException>(static () => HdrWriter.Encode(new(1, 1, 2, new float[2])));
     }
 
     static ColorComponents Components(int channels) =>
@@ -285,7 +287,8 @@ public sealed class ImageWriterTests {
     static (int Width, int Height, byte[] Pixels) Pam(byte[] file) {
         var header = System.Text.Encoding.ASCII.GetString(file, 0, Math.Min(file.Length, 200));
         var end = header.IndexOf("ENDHDR\n", StringComparison.Ordinal) + "ENDHDR\n".Length;
-        var fields = header[..end].Split('\n')
+        var fields = header[..end]
+            .Split('\n')
             .Select(static line => line.Split(' '))
             .Where(static parts => parts.Length == 2)
             .ToDictionary(static parts => parts[0], static parts => parts[1]);

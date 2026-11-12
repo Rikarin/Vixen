@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Input.Tests.Assets;
-
 using Xunit;
 
 namespace Vixen.Input.Tests;

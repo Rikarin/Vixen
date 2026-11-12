@@ -2,13 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core;
-using Vixen.Ecs;
 using Vixen.Editor.Core;
 using Vixen.Editor.SceneView;
 using Vixen.Editor.Ui;
 using Vixen.Engine.Scenes;
 using Vixen.Engine.Transforms;
-using Vixen.Input;
 using Vixen.Ui;
 using Vixen.Ui.Controls;
 using Vixen.Ui.Controls.Advanced;
@@ -82,7 +80,13 @@ sealed class SceneOutliner : IDisposable {
     /// <param name="registry">Where the row icons are contributed.</param>
     /// <param name="state">The filter and the order, which outlive the panel.</param>
     /// <param name="context">The shell context a press in the panel selects.</param>
-    public SceneOutliner(EditorShell shell, ISceneEditing editing, IEditorRegistry registry, OutlinerState state, string context) {
+    public SceneOutliner(
+        EditorShell shell,
+        ISceneEditing editing,
+        IEditorRegistry registry,
+        OutlinerState state,
+        string context
+    ) {
         this.shell = shell;
         this.editing = editing;
         this.registry = registry;
@@ -294,8 +298,12 @@ sealed class SceneOutliner : IDisposable {
     /// <summary>What a drag in the outliner meant, as an undoable move of the document.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The tree has already moved the node by the time this runs, and the document has
-    ///         not.</b> <c>TreeView</c> owns the gesture and its own rows; the scene owns what is
+    ///         ⚠
+    ///         <b>
+    ///             The tree has already moved the node by the time this runs, and the document has
+    ///             not.
+    ///         </b>
+    ///         <c>TreeView</c> owns the gesture and its own rows; the scene owns what is
     ///         true. So this reads where the node landed, tells the document, and marks the tree
     ///         stale either way — a move the document refuses (a cycle, an entity already there)
     ///         would otherwise leave the outliner showing a hierarchy the scene does not have.
@@ -306,8 +314,12 @@ sealed class SceneOutliner : IDisposable {
     ///         and having four of them stay behind is the behaviour nobody means.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Where it landed among its new siblings is read off the tree and passed on, and
-    ///         until it was, half of this gesture did nothing.</b> <c>TreeView</c> has always
+    ///         ⚠
+    ///         <b>
+    ///             Where it landed among its new siblings is read off the tree and passed on, and
+    ///             until it was, half of this gesture did nothing.
+    ///         </b>
+    ///         <c>TreeView</c> has always
     ///         distinguished a drop <i>on</i> a row from one <i>between</i> two — that is what the
     ///         drop indicator draws — and this method read only <c>node.Parent</c>, so every drop
     ///         landed the entity at the head of its new parent's children. Doc 20 § Part D lists
@@ -407,7 +419,7 @@ sealed class SceneOutliner : IDisposable {
     List<(ISceneComponentBinder Binder, IconArt Art)> GlyphSources() {
         List<(ISceneComponentBinder, IconArt)> found = [];
 
-        foreach (var icon in registry.All<TypeIcon>().OrderByDescending(entry => entry.Order)) {
+        foreach (var icon in registry.All<TypeIcon>().OrderByDescending(static entry => entry.Order)) {
             if (SceneComponentRegistry.TryGet(icon.Target, out var binder)) {
                 found.Add((binder, icon.Art));
             }
@@ -453,6 +465,7 @@ sealed class SceneOutliner : IDisposable {
 
         return EntityArt;
     }
+
     /// <summary>What a row with nothing else to say draws.</summary>
     /// <remarks>
     ///     Not a registration, because nothing keys it: it is the absence of every other answer rather
@@ -540,8 +553,12 @@ sealed class SceneOutliner : IDisposable {
 
     /// <summary>The toggle for one column, made on the row's first bind and reused after that.</summary>
     /// <remarks>
-    ///     ⚠ <b>Two glyphs and no word, which is <c>InspectorView</c>'s padlock argument applied to
-    ///     the column beside it.</b> These used to be a cross and a tick with "Hide" and "Lock"
+    ///     ⚠
+    ///     <b>
+    ///         Two glyphs and no word, which is <c>InspectorView</c>'s padlock argument applied to
+    ///         the column beside it.
+    ///     </b>
+    ///     These used to be a cross and a tick with "Hide" and "Lock"
     ///     written next to them — a label four times the button's width on every row of the outliner,
     ///     saying what pressing it <i>does</i> rather than what state it is in, which is the one thing
     ///     a toggle must not do. The shape carries the state now and the label stays for the tooltip
@@ -590,8 +607,12 @@ sealed class SceneOutliner : IDisposable {
 
     /// <summary>Which pair of glyphs a column's toggle draws, off and on.</summary>
     /// <remarks>
-    ///     ⚠ <b>Beside the button rather than on it, because a <c>ToggleButton</c> has one icon slot
-    ///     and no tag.</b> Bounded by the row pool — about thirty rows, two toggles each — for the
+    ///     ⚠
+    ///     <b>
+    ///         Beside the button rather than on it, because a <c>ToggleButton</c> has one icon slot
+    ///         and no tag.
+    ///     </b>
+    ///     Bounded by the row pool — about thirty rows, two toggles each — for the
     ///     same reason the console's row map is.
     /// </remarks>
     readonly Dictionary<ToggleButton, (PathBuilder Clear, PathBuilder Marked)> marks = [];

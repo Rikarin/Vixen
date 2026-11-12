@@ -93,8 +93,7 @@ public class EditTarget {
     }
 
     /// <summary>The members every object has, in the order they should be shown.</summary>
-    public IReadOnlyList<IEditMember> Members =>
-        CommonType is { } type ? Provider.MembersOf(type) : [];
+    public IReadOnlyList<IEditMember> Members => CommonType is { } type ? Provider.MembersOf(type) : [];
 
     /// <summary>Binds one member by name.</summary>
     /// <param name="path">What the member is called.</param>
@@ -135,8 +134,12 @@ public class EditTarget {
     /// <param name="member">The member, already resolved by the provider.</param>
     /// <returns>The binding.</returns>
     /// <remarks>
-    ///     ⚠ <b>Virtual so that a surface with a richer property can hand one back and still be an
-    ///     <see cref="EditTarget" />.</b> The inspector's is an <c>InspectorField</c> — the same
+    ///     ⚠
+    ///     <b>
+    ///         Virtual so that a surface with a richer property can hand one back and still be an
+    ///         <see cref="EditTarget" />.
+    ///     </b>
+    ///     The inspector's is an <c>InspectorField</c> — the same
     ///     binding plus a reset, a prefab override and a visibility — and without this a panel that
     ///     wanted those had to build its own instance beside the cached one, which is an instance
     ///     nothing ever raises <see cref="EditProperty.Changed" /> on.

@@ -8,8 +8,11 @@ namespace Vixen.Gameplay;
 /// <summary>The tags something has right now, counted by how many sources granted each.</summary>
 /// <remarks>
 ///     <para>
-///         <b>Counted, and that is the entire reason this is a type rather than a
-///         <c>HashSet&lt;GameplayTag&gt;</c>.</b> Two effects grant <c>State.Stunned</c>; one expires;
+///         <b>
+///             Counted, and that is the entire reason this is a type rather than a
+///             <c>HashSet&lt;GameplayTag&gt;</c>.
+///         </b>
+///         Two effects grant <c>State.Stunned</c>; one expires;
 ///         the target must still be stunned. A plain set loses that, and the bug it produces — a
 ///         crowd-control break that depends on which of two stuns landed first — is the kind that
 ///         reproduces once a week in a raid and never on a developer's machine. Every grant is

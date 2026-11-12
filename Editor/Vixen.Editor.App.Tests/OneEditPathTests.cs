@@ -74,8 +74,12 @@ public class OneEditPathTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>The inspector follows the drag because both wrote the same object, not because the
-    ///     viewport told it to.</b> A gizmo that had to notify every panel is a gizmo that grows a
+    ///     ⚠
+    ///     <b>
+    ///         The inspector follows the drag because both wrote the same object, not because the
+    ///         viewport told it to.
+    ///     </b>
+    ///     A gizmo that had to notify every panel is a gizmo that grows a
     ///     notification per panel.
     /// </summary>
     [Fact]

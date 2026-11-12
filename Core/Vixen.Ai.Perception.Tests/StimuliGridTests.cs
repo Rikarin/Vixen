@@ -12,9 +12,7 @@ public class StimuliGridTests {
     public void AQueryFindsWhatIsInsideTheSphereAndNothingOnTheCorners() {
         var grid = new StimuliGrid();
         var points = new[] {
-            new Vector3(0f, 0f, 0f),
-            new Vector3(9f, 0f, 0f),
-            new Vector3(0f, 0f, 9f),
+            new Vector3(0f, 0f, 0f), new Vector3(9f, 0f, 0f), new Vector3(0f, 0f, 9f),
 
             // Inside the box the cells make, outside the sphere: 12.7 metres away against a radius
             // of 10. A query that returned its cells rather than testing would hand this back.
@@ -44,9 +42,9 @@ public class StimuliGridTests {
             grid.Query(centre, 25f, found, out _);
 
             var scanned = points
-                .Select((point, index) => (point, index))
+                .Select(static (point, index) => (point, index))
                 .Where(pair => (pair.point - centre).Length() <= 25f)
-                .Select(pair => pair.index)
+                .Select(static pair => pair.index)
                 .Order()
                 .ToArray();
 
@@ -91,8 +89,8 @@ public class StimuliGridTests {
                 grid.Build(points, 20f);
                 grid.Query(Vector3.Zero, 25f, found, out _);
             },
-            warmUp: 20,
-            passes: 50
+            20,
+            50
         );
     }
 
@@ -125,13 +123,13 @@ public class StimuliGridTests {
         return points;
 
         static float Coordinate(int index, uint salt) {
-            var value = (uint)index * 2_654_435_761u ^ (salt * 0x9E3779B9u);
+            var value = ((uint)index * 2_654_435_761u) ^ (salt * 0x9E3779B9u);
 
             value ^= value >> 16;
             value *= 0x7feb352du;
             value ^= value >> 15;
 
-            return ((value >> 8) * (1f / 16777216f)) - 0.5f;
+            return (value >> 8) * (1f / 16777216f) - 0.5f;
         }
     }
 }

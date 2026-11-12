@@ -54,7 +54,9 @@ public sealed class MetaMigrationChain {
 
     /// <summary>Creates a chain.</summary>
     /// <param name="targetVersion">What it upgrades to. Defaults to <see cref="CurrentVersion" />.</param>
-    public MetaMigrationChain(int targetVersion = CurrentVersion) => TargetVersion = targetVersion;
+    public MetaMigrationChain(int targetVersion = CurrentVersion) {
+        TargetVersion = targetVersion;
+    }
 
     /// <summary>Adds a step.</summary>
     /// <param name="fromVersion">The version it upgrades from. It produces <c>fromVersion + 1</c>.</param>
@@ -122,8 +124,11 @@ public sealed class MetaMigrationChain {
     ///         current when hand-writing it was plausible.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The key is found case-insensitively, and the indexer that used to find it is not —
-    ///         which turned "a newer file is refused" into "a newer file is silently misread".</b>
+    ///         ⚠
+    ///         <b>
+    ///             The key is found case-insensitively, and the indexer that used to find it is not —
+    ///             which turned "a newer file is refused" into "a newer file is silently misread".
+    ///         </b>
     ///         <see cref="YamlMapping" />'s lookup is ordinal and correctly so, because a YAML mapping's
     ///         keys are case-sensitive; but <c>YamlSerializer</c> binds <i>members</i>
     ///         case-insensitively, so a sidecar saying <c>MetaVersion: 5</c> bound to the record as five

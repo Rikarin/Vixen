@@ -4,7 +4,6 @@
 using Vixen.Assets;
 using Vixen.Core;
 using Vixen.Core.IO;
-using Vixen.Core.Mathematics;
 using Vixen.Core.Serialization;
 using Vixen.Core.Yaml.Meta;
 using Vixen.Ecs;
@@ -57,7 +56,7 @@ public sealed class SceneManifestTests : IDisposable {
 
     public void Dispose() {
         if (Directory.Exists(root)) {
-            Directory.Delete(root, recursive: true);
+            Directory.Delete(root, true);
         }
     }
 
@@ -91,12 +90,16 @@ public sealed class SceneManifestTests : IDisposable {
     }
 
     /// <summary>
-    ///     ⚠ <b>A scene nobody addressed ships under its path, so the ordinary case needs no field
-    ///     filled in.</b> This used to be the build error that sent somebody to the inspector.
+    ///     ⚠
+    ///     <b>
+    ///         A scene nobody addressed ships under its path, so the ordinary case needs no field
+    ///         filled in.
+    ///     </b>
+    ///     This used to be the build error that sent somebody to the inspector.
     /// </summary>
     [Fact]
     public async Task A_scene_in_the_build_with_no_address_ships_under_its_path() {
-        Scene("Scenes/Level1.vxscene", address: null);
+        Scene("Scenes/Level1.vxscene");
 
         var manifest = await BuildAndRead(Listing("Assets/Scenes/Level1.vxscene"));
 
@@ -110,7 +113,7 @@ public sealed class SceneManifestTests : IDisposable {
     /// </summary>
     [Fact]
     public async Task A_scene_in_the_build_that_was_excluded_refuses_the_build() {
-        Scene("Scenes/Level1.vxscene", address: null, excluded: true);
+        Scene("Scenes/Level1.vxscene", null, true);
 
         var workspace = Listing("Assets/Scenes/Level1.vxscene");
         var (built, said) = await Build(workspace);
@@ -119,7 +122,7 @@ public sealed class SceneManifestTests : IDisposable {
 
         var refusal = Assert.Single(
             said,
-            diagnostic => diagnostic.Severity == ImportSeverity.Error
+            static diagnostic => diagnostic.Severity == ImportSeverity.Error
                 && diagnostic.Path == "Assets/Scenes/Level1.vxscene"
         );
 
@@ -147,7 +150,7 @@ public sealed class SceneManifestTests : IDisposable {
 
         Assert.Contains(
             said,
-            diagnostic => diagnostic.Severity == ImportSeverity.Error
+            static diagnostic => diagnostic.Severity == ImportSeverity.Error
                 && diagnostic.Path == "Assets/Scenes/Gone.vxscene"
                 && diagnostic.Message.Contains("not in this project", StringComparison.Ordinal)
         );
@@ -162,12 +165,16 @@ public sealed class SceneManifestTests : IDisposable {
         var (_, said) = await Build(Listing("Assets/Scenes/Gone.vxscene", "Assets/Scenes/AlsoGone.vxscene"));
 
 
-        Assert.Equal(2, said.Count(diagnostic => diagnostic.Severity == ImportSeverity.Error));
+        Assert.Equal(2, said.Count(static diagnostic => diagnostic.Severity == ImportSeverity.Error));
     }
 
     /// <summary>
-    ///     ⚠ <b>The whole chain in one test, because every link of it was built separately and none
-    ///     of them had ever been asked to agree.</b> An authored <c>.vxscene</c> is compiled, packed
+    ///     ⚠
+    ///     <b>
+    ///         The whole chain in one test, because every link of it was built separately and none
+    ///         of them had ever been asked to agree.
+    ///     </b>
+    ///     An authored <c>.vxscene</c> is compiled, packed
     ///     into a bundle, named by the catalog, listed in the manifest — and then the address the
     ///     manifest holds is loaded back out of that build and turned into the world the file
     ///     described. A suite that stopped at "the manifest holds the right string" would pass with a
@@ -180,7 +187,10 @@ public sealed class SceneManifestTests : IDisposable {
         var workspace = Listing("Assets/Scenes/Level1.vxscene");
         var (built, said) = await Build(workspace);
 
-        Assert.True(built.Succeeded, string.Join(Environment.NewLine, said.Select(diagnostic => diagnostic.Message)));
+        Assert.True(
+            built.Succeeded,
+            string.Join(Environment.NewLine, said.Select(static diagnostic => diagnostic.Message))
+        );
 
         var output = built.OutputDirectory;
 
@@ -191,7 +201,7 @@ public sealed class SceneManifestTests : IDisposable {
         // Read the way a player reads it: the catalog beside the manifest, over the bundles beside
         // both, with nothing of the project's Library/ in reach.
         var files = new VirtualFileSystem();
-        files.Mount(new("/content"), new PhysicalFileProvider(output, isReadOnly: true));
+        files.Mount(new("/content"), new PhysicalFileProvider(output, true));
 
         var catalog = CatalogFormat.Read(File.ReadAllBytes(Path.Combine(output, ContentPipeline.CatalogFileName)));
 
@@ -202,7 +212,8 @@ public sealed class SceneManifestTests : IDisposable {
         using var bundles = new LocalBundleSource(files, new("/content"));
         var assets = new AssetManager(catalog, bundles);
 
-        var asset = assets.Load<SceneAsset>(Assert.Single(manifest.Scenes), TestContext.Current.CancellationToken).Result;
+        var asset = assets.Load<SceneAsset>(Assert.Single(manifest.Scenes), TestContext.Current.CancellationToken)
+            .Result;
 
         using var world = new World();
         var scenes = new SceneManager(world);
@@ -215,8 +226,8 @@ public sealed class SceneManifestTests : IDisposable {
 
         // The transform and the component both came through, which is what makes it a scene rather
         // than a count of entities: a level that loads with no camera draws nothing.
-        Assert.Equal(new Vector3(1, 2, 3), world.Read<LocalTransform>(created[0]).Position);
-        Assert.Equal(new Vector3(0, 5, -10), world.Read<LocalTransform>(created[1]).Position);
+        Assert.Equal(new(1, 2, 3), world.Read<LocalTransform>(created[0]).Position);
+        Assert.Equal(new(0, 5, -10), world.Read<LocalTransform>(created[1]).Position);
         Assert.Equal(24f, world.Read<Camera>(created[1]).FocalLength, 4);
     }
 
@@ -261,7 +272,7 @@ public sealed class SceneManifestTests : IDisposable {
         await ContentPipeline.ImportAsync(
             workspace,
             "Windows",
-            _ => { },
+            static _ => { },
             cancellationToken: TestContext.Current.CancellationToken
         );
 
@@ -273,7 +284,10 @@ public sealed class SceneManifestTests : IDisposable {
     static async Task<SceneManifest> BuildAndRead(ProjectWorkspace workspace) {
         var (built, said) = await Build(workspace);
 
-        Assert.True(built.Succeeded, string.Join(Environment.NewLine, said.Select(diagnostic => diagnostic.Message)));
+        Assert.True(
+            built.Succeeded,
+            string.Join(Environment.NewLine, said.Select(static diagnostic => diagnostic.Message))
+        );
 
         return Serializer.Read<SceneManifest>(
             File.ReadAllBytes(Path.Combine(built.OutputDirectory, ContentPipeline.SceneManifestFileName))

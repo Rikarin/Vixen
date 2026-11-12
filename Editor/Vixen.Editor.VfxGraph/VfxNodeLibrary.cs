@@ -9,8 +9,11 @@ namespace Vixen.Editor.VfxGraph;
 /// <summary>The node types a VFX graph is edited against, as one call.</summary>
 /// <remarks>
 ///     <para>
-///         <b>The generator emits <c>NodeTypes.Register</c>; this is the name a caller outside this
-///         assembly can find.</b> Every test and every host was writing the same two lines — a fresh
+///         <b>
+///             The generator emits <c>NodeTypes.Register</c>; this is the name a caller outside this
+///             assembly can find.
+///         </b>
+///         Every test and every host was writing the same two lines — a fresh
 ///         registry, then the generated registration — and a second caller getting that pair wrong
 ///         is a graph whose node library is silently empty, which shows up as every node in a saved
 ///         file being reported as unknown rather than as an error at the point of the mistake.

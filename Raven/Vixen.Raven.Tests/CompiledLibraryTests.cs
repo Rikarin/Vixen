@@ -6,7 +6,6 @@ using Vixen.Raven;
 using Vixen.Raven.Artefacts;
 using Vixen.Raven.CodeGen;
 using Vixen.Raven.CodeGen.Glsl;
-using Vixen.Raven.Diagnostics;
 using Vixen.Raven.IR;
 using Vixen.Raven.Lowering;
 using Vixen.Raven.Symbols;
@@ -53,7 +52,7 @@ public class CompiledLibraryTests {
     static CompiledLibrary BuildLibrary(string name, string source, params RavenReference[] references) {
         var library = BuildLibraryWithDiagnostics(name, source, out var diagnostics, references);
 
-        Assert.DoesNotContain(diagnostics, d => d.IsError);
+        Assert.DoesNotContain(diagnostics, static d => d.IsError);
         return library;
     }
 
@@ -67,7 +66,7 @@ public class CompiledLibraryTests {
         Assert.Empty(tree.Diagnostics);
 
         var compilation = Compilation.Create(name, references, [tree]);
-        Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.IsError);
+        Assert.DoesNotContain(compilation.GetDiagnostics(), static d => d.IsError);
 
         var bag = new DiagnosticBag();
         var lowered = Lowerer.LowerWithLinks(compilation, bag);
@@ -83,7 +82,10 @@ public class CompiledLibraryTests {
         params CompiledLibrary[] libraries
     ) {
         var references = libraries
-            .Select(library => RavenReference.FromLibrary(CompiledLibraryReader.Read(CompiledLibraryWriter.Write(library))))
+            .Select(static library => RavenReference.FromLibrary(
+                    CompiledLibraryReader.Read(CompiledLibraryWriter.Write(library))
+                )
+            )
             .ToArray();
 
         var tree = SyntaxTree.ParseText(source, path: "Consumer.rvn");
@@ -93,15 +95,15 @@ public class CompiledLibraryTests {
         var semantic = compilation.GetDiagnostics();
 
         Assert.True(
-            !semantic.Any(d => d.IsError),
-            "Expected no semantic errors, got:\n" + string.Join("\n", semantic.Select(d => d.ToString()))
+            !semantic.Any(static d => d.IsError),
+            "Expected no semantic errors, got:\n" + string.Join("\n", semantic.Select(static d => d.ToString()))
         );
 
         var bag = new DiagnosticBag();
         var module = Lowerer.Lower(compilation, bag);
         IrVerifier.Verify(module, bag);
 
-        return (compilation, module, [.. semantic, .. bag.ToArray()]);
+        return (compilation, module, [..semantic, ..bag.ToArray()]);
     }
 
     /// <summary>
@@ -119,7 +121,10 @@ public class CompiledLibraryTests {
         params CompiledLibrary[] libraries
     ) {
         var references = libraries
-            .Select(library => RavenReference.FromLibrary(CompiledLibraryReader.Read(CompiledLibraryWriter.Write(library))))
+            .Select(static library => RavenReference.FromLibrary(
+                    CompiledLibraryReader.Read(CompiledLibraryWriter.Write(library))
+                )
+            )
             .ToArray();
 
         var tree = SyntaxTree.ParseText(source, path: "Consumer.rvn");
@@ -129,15 +134,15 @@ public class CompiledLibraryTests {
         var semantic = compilation.GetDiagnostics();
 
         Assert.True(
-            !semantic.Any(d => d.IsError),
-            "Expected no semantic errors, got:\n" + string.Join("\n", semantic.Select(d => d.ToString()))
+            !semantic.Any(static d => d.IsError),
+            "Expected no semantic errors, got:\n" + string.Join("\n", semantic.Select(static d => d.ToString()))
         );
 
         var bag = new DiagnosticBag();
         var module = Lowerer.Lower(compilation, bag);
         IrVerifier.Verify(module, bag);
 
-        return (compilation, module, [.. semantic, .. bag.ToArray()]);
+        return (compilation, module, [..semantic, ..bag.ToArray()]);
     }
 
     // --- The container ----------------------------------------------------
@@ -155,16 +160,16 @@ public class CompiledLibraryTests {
         Assert.Equal(written.Types.Length, read.Types.Length);
         Assert.Equal(written.Ir.Functions.Length, read.Ir.Functions.Length);
 
-        var ray = Assert.Single(read.Types, t => t.Name == "Ray");
+        var ray = Assert.Single(read.Types, static t => t.Name == "Ray");
         Assert.Equal("Core", ray.Namespace);
         Assert.Equal("Core.Ray", ray.QualifiedName);
         Assert.Equal(TypeKind.Struct, ray.Kind);
-        Assert.Equal(["origin", "direction"], ray.Fields.Select(f => f.Name));
+        Assert.Equal(["origin", "direction"], ray.Fields.Select(static f => f.Name));
 
         // The link that makes the artefact more than a type-check.
-        var saturate = Assert.Single(read.Types, t => t.Name == "MathHelpers")
+        var saturate = Assert.Single(read.Types, static t => t.Name == "MathHelpers")
             .Methods
-            .Single(m => m.Name == "Saturate");
+            .Single(static m => m.Name == "Saturate");
 
         Assert.NotNull(saturate.IrFunction);
 
@@ -185,7 +190,8 @@ public class CompiledLibraryTests {
     public void PreservesConstantValues() {
         var read = CompiledLibraryReader.Read(CompiledLibraryWriter.Write(BuildLibrary("Math", MathSource)));
 
-        var pi = Assert.Single(read.Types, t => t.Name == "MathHelpers").Fields.Single(f => f.Name == "Pi");
+        var pi = Assert.Single(read.Types, static t => t.Name == "MathHelpers")
+            .Fields.Single(static f => f.Name == "Pi");
 
         Assert.True(pi.IsConst);
         Assert.Equal(3.14159f, Assert.IsType<float>(pi.DeclaredValue?.ToObject()));
@@ -263,7 +269,7 @@ public class CompiledLibraryTests {
     public void RejectsRatherThanHalfReads() {
         var bytes = CompiledLibraryWriter.Write(BuildLibrary("Math", MathSource));
 
-        Assert.Throws<InvalidDataException>(() => CompiledLibraryReader.Read("not a library at all"u8));
+        Assert.Throws<InvalidDataException>(static () => CompiledLibraryReader.Read("not a library at all"u8));
 
         var wrongVersion = bytes.ToArray();
         wrongVersion[CompiledLibraryFormat.Magic.Length] = 99;
@@ -272,7 +278,7 @@ public class CompiledLibraryTests {
         Assert.Throws<InvalidDataException>(() => CompiledLibraryReader.Read(bytes.AsSpan(0, bytes.Length - 32)));
 
         // A .rvnfx is not a .rvnlib, which is what distinct magic numbers are for.
-        Assert.Throws<InvalidDataException>(() => CompiledLibraryReader.Read(CompiledEffectFormat.Magic));
+        Assert.Throws<InvalidDataException>(static () => CompiledLibraryReader.Read(CompiledEffectFormat.Magic));
     }
 
     // --- Binding against a reference --------------------------------------
@@ -303,7 +309,7 @@ public class CompiledLibraryTests {
             BuildLibrary("Math", MathSource)
         );
 
-        var helpers = Assert.Single(compilation.GetReferencedTypes(), t => t.Name == "MathHelpers");
+        var helpers = Assert.Single(compilation.GetReferencedTypes(), static t => t.Name == "MathHelpers");
         Assert.IsType<MetadataNamedTypeSymbol>(helpers);
 
         var saturate = Assert.Single(helpers.GetMembers("Saturate").OfType<MethodSymbol>());
@@ -312,7 +318,7 @@ public class CompiledLibraryTests {
 
         // A library type is not one of this compilation's own, which is what keeps lowering from
         // lowering it a second time.
-        Assert.DoesNotContain(compilation.GetAllTypes(), t => t.Name == "MathHelpers");
+        Assert.DoesNotContain(compilation.GetAllTypes(), static t => t.Name == "MathHelpers");
     }
 
     /// <summary>
@@ -341,19 +347,19 @@ public class CompiledLibraryTests {
             BuildLibrary("Math", MathSource)
         );
 
-        Assert.DoesNotContain(diagnostics, d => d.IsError);
+        Assert.DoesNotContain(diagnostics, static d => d.IsError);
 
-        var saturate = Assert.Single(module.AllFunctions, f => f.Name == "Saturate");
+        var saturate = Assert.Single(module.AllFunctions, static f => f.Name == "Saturate");
         Assert.NotEmpty(saturate.Body.Statements);
 
-        var shade = Assert.Single(module.AllFunctions, f => f.Name == "Shade");
+        var shade = Assert.Single(module.AllFunctions, static f => f.Name == "Shade");
         Assert.Contains(saturate, CallGraph.Calls(shade.Body));
 
         // And it reaches the target: the backend sees ordinary IR and never learns where the callee
         // came from.
         var bag = new DiagnosticBag();
         var generated = new GlslBackend().Generate(module, bag);
-        Assert.DoesNotContain(bag.ToArray(), d => d.IsError);
+        Assert.DoesNotContain(bag.ToArray(), static d => d.IsError);
         Assert.Contains("Saturate", Assert.Single(generated).Code, StringComparison.Ordinal);
     }
 
@@ -407,8 +413,8 @@ public class CompiledLibraryTests {
         );
 
         // The claim, at the artefact: the same name, and not the same key.
-        var keyOf = (CompiledLibrary library) =>
-            Assert.Single(library.Ir.Functions, f => f.Name == "Of").Key;
+        var keyOf = static (CompiledLibrary library) =>
+            Assert.Single(library.Ir.Functions, static f => f.Name == "Of").Key;
 
         Assert.NotEqual(keyOf(geometry), keyOf(shading));
 
@@ -435,9 +441,9 @@ public class CompiledLibraryTests {
             shading
         );
 
-        Assert.DoesNotContain(diagnostics, d => d.IsError);
+        Assert.DoesNotContain(diagnostics, static d => d.IsError);
 
-        var shade = Assert.Single(module.AllFunctions, f => f.Name == "Shade");
+        var shade = Assert.Single(module.AllFunctions, static f => f.Name == "Shade");
         var called = CallGraph.Calls(shade.Body).ToArray();
 
         // Two callees rather than one reached twice, and each holds the body its own package wrote.
@@ -461,8 +467,11 @@ public class CompiledLibraryTests {
     ///         cost, in prose, for as long as it was true.
     ///     </para>
     ///     <para>
-    ///         <b>Two fixtures, because the failure had two severities and only one was
-    ///         survivable.</b> Different field counts reached the IR verifier as <c>RVN3010</c>,
+    ///         <b>
+    ///             Two fixtures, because the failure had two severities and only one was
+    ///             survivable.
+    ///         </b>
+    ///         Different field counts reached the IR verifier as <c>RVN3010</c>,
     ///         which is a refusal an author can read. Equal counts did not — see
     ///         <see cref="SameNamedStructsOfEqualWidthKeepTheirOwnFields" />, which is the fixture
     ///         that made this worth fixing.
@@ -548,18 +557,18 @@ public class CompiledLibraryTests {
             physics
         );
 
-        Assert.DoesNotContain(diagnostics, d => d.IsError);
+        Assert.DoesNotContain(diagnostics, static d => d.IsError);
 
         // Two struct objects, each carrying its own library's fields.
-        var shade = Assert.Single(module.AllFunctions, f => f.Name == "Shade");
+        var shade = Assert.Single(module.AllFunctions, static f => f.Name == "Shade");
         var made = CallGraph.Calls(shade.Body).ToArray();
 
         Assert.Equal(2, made.Length);
         Assert.NotSame(made[0].ReturnType, made[1].ReturnType);
-        Assert.Equal(["radius"], Assert.IsType<IrStructType>(made[0].ReturnType).Fields.Select(f => f.Name));
+        Assert.Equal(["radius"], Assert.IsType<IrStructType>(made[0].ReturnType).Fields.Select(static f => f.Name));
         Assert.Equal(
             ["mass", "drag"],
-            Assert.IsType<IrStructType>(made[1].ReturnType).Fields.Select(f => f.Name)
+            Assert.IsType<IrStructType>(made[1].ReturnType).Fields.Select(static f => f.Name)
         );
     }
 
@@ -644,9 +653,9 @@ public class CompiledLibraryTests {
         );
 
         // Clean either way — this is the half that had no diagnostic to give.
-        Assert.DoesNotContain(diagnostics, d => d.IsError);
+        Assert.DoesNotContain(diagnostics, static d => d.IsError);
 
-        var shade = Assert.Single(module.AllFunctions, f => f.Name == "Shade");
+        var shade = Assert.Single(module.AllFunctions, static f => f.Name == "Shade");
         var made = CallGraph.Calls(shade.Body).ToArray();
 
         Assert.Equal(2, made.Length);
@@ -656,12 +665,12 @@ public class CompiledLibraryTests {
         // `drag`. Each keeps its own now, which is the only observable difference there is.
         Assert.Equal(
             ["mass", "drag"],
-            Assert.IsType<IrStructType>(made[0].ReturnType).Fields.Select(f => f.Name)
+            Assert.IsType<IrStructType>(made[0].ReturnType).Fields.Select(static f => f.Name)
         );
 
         Assert.Equal(
             ["width", "height"],
-            Assert.IsType<IrStructType>(made[1].ReturnType).Fields.Select(f => f.Name)
+            Assert.IsType<IrStructType>(made[1].ReturnType).Fields.Select(static f => f.Name)
         );
     }
 
@@ -731,9 +740,9 @@ public class CompiledLibraryTests {
             right
         );
 
-        Assert.DoesNotContain(diagnostics, d => d.IsError);
+        Assert.DoesNotContain(diagnostics, static d => d.IsError);
 
-        var shade = Assert.Single(module.AllFunctions, f => f.Name == "Shade");
+        var shade = Assert.Single(module.AllFunctions, static f => f.Name == "Shade");
         var made = CallGraph.Calls(shade.Body).ToArray();
 
         Assert.Equal(2, made.Length);
@@ -743,11 +752,14 @@ public class CompiledLibraryTests {
         Assert.Same(made[0].ReturnType, made[1].ReturnType);
         Assert.Equal(
             ["Item1", "Item2"],
-            Assert.IsType<IrStructType>(made[0].ReturnType).Fields.Select(f => f.Name)
+            Assert.IsType<IrStructType>(made[0].ReturnType).Fields.Select(static f => f.Name)
         );
 
         // One struct of that shape in the linked module, not two named the same.
-        Assert.Single(module.Structs, structType => structType.Name.StartsWith("Tuple_", StringComparison.Ordinal));
+        Assert.Single(
+            module.Structs,
+            static structType => structType.Name.StartsWith("Tuple_", StringComparison.Ordinal)
+        );
     }
 
     static IrIntrinsic OnlyIntrinsic(IrFunction function) =>
@@ -782,13 +794,13 @@ public class CompiledLibraryTests {
 
         // An identity mismatch would be a verifier type error rather than a missing symbol, which
         // is exactly what a per-library struct table would have produced.
-        Assert.DoesNotContain(diagnostics, d => d.IsError);
+        Assert.DoesNotContain(diagnostics, static d => d.IsError);
 
-        var ray = Assert.Single(module.Structs, s => s.Name == "Ray");
-        Assert.Equal(["origin", "direction"], ray.Fields.Select(f => f.Name));
+        var ray = Assert.Single(module.Structs, static s => s.Name == "Ray");
+        Assert.Equal(["origin", "direction"], ray.Fields.Select(static f => f.Name));
 
-        var at = Assert.Single(module.AllFunctions, f => f.Name == "At");
-        Assert.Same(ray, Assert.Single(at.Parameters, p => p.Type is IrStructType).Type);
+        var at = Assert.Single(module.AllFunctions, static f => f.Name == "At");
+        Assert.Same(ray, Assert.Single(at.Parameters, static p => p.Type is IrStructType).Type);
     }
 
     /// <summary>
@@ -822,9 +834,9 @@ public class CompiledLibraryTests {
             BuildLibrary("Math", MathSource)
         );
 
-        Assert.Contains(module.AllFunctions, f => f.Name == "Saturate");
-        Assert.DoesNotContain(module.AllFunctions, f => f.Name == "At");
-        Assert.DoesNotContain(module.Structs, s => s.Name == "Ray");
+        Assert.Contains(module.AllFunctions, static f => f.Name == "Saturate");
+        Assert.DoesNotContain(module.AllFunctions, static f => f.Name == "At");
+        Assert.DoesNotContain(module.Structs, static s => s.Name == "Ray");
     }
 
     /// <summary>
@@ -865,12 +877,12 @@ public class CompiledLibraryTests {
             SyntaxTree.ParseText(consumer, path: "Consumer.rvn")
         );
 
-        Assert.DoesNotContain(together.GetDiagnostics(), d => d.IsError);
+        Assert.DoesNotContain(together.GetDiagnostics(), static d => d.IsError);
 
         var bag = new DiagnosticBag();
         var direct = Lowerer.Lower(together, bag);
         IrVerifier.Verify(direct, bag);
-        Assert.DoesNotContain(bag.ToArray(), d => d.IsError);
+        Assert.DoesNotContain(bag.ToArray(), static d => d.IsError);
 
         // The library's function, and the consumer's own that calls it.
         Assert.Equal(PrintFunction(direct, "At"), PrintFunction(referenced, "At"));
@@ -878,8 +890,8 @@ public class CompiledLibraryTests {
 
         // And the shape a value crosses the boundary as.
         Assert.Equal(
-            Assert.Single(direct.Structs, s => s.Name == "Ray").Fields.Select(f => f.Type.Name),
-            Assert.Single(referenced.Structs, s => s.Name == "Ray").Fields.Select(f => f.Type.Name)
+            Assert.Single(direct.Structs, static s => s.Name == "Ray").Fields.Select(static f => f.Type.Name),
+            Assert.Single(referenced.Structs, static s => s.Name == "Ray").Fields.Select(static f => f.Type.Name)
         );
     }
 
@@ -889,8 +901,8 @@ public class CompiledLibraryTests {
     static string Generate(IrModule module) {
         var bag = new DiagnosticBag();
         var generated = new GlslBackend().Generate(module, bag);
-        Assert.DoesNotContain(bag.ToArray(), d => d.IsError);
-        return string.Join("\n", generated.Select(unit => unit.Code));
+        Assert.DoesNotContain(bag.ToArray(), static d => d.IsError);
+        return string.Join("\n", generated.Select(static unit => unit.Code));
     }
 
     /// <summary>
@@ -973,7 +985,7 @@ public class CompiledLibraryTests {
                                 """;
 
         var (_, referenced, referencedDiagnostics) = Consume(consumer, BuildLibrary("Shapes", source));
-        Assert.DoesNotContain(referencedDiagnostics, d => d.IsError);
+        Assert.DoesNotContain(referencedDiagnostics, static d => d.IsError);
 
         var together = Compilation.Create(
             "Consumer",
@@ -981,12 +993,12 @@ public class CompiledLibraryTests {
             SyntaxTree.ParseText(consumer, path: "Consumer.rvn")
         );
 
-        Assert.DoesNotContain(together.GetDiagnostics(), d => d.IsError);
+        Assert.DoesNotContain(together.GetDiagnostics(), static d => d.IsError);
 
         var bag = new DiagnosticBag();
         var direct = Lowerer.Lower(together, bag);
         IrVerifier.Verify(direct, bag);
-        Assert.DoesNotContain(bag.ToArray(), d => d.IsError);
+        Assert.DoesNotContain(bag.ToArray(), static d => d.IsError);
 
         foreach (var name in (string[])["Loops", "Vectors", "Pair", "Shade"]) {
             Assert.Equal(PrintFunction(direct, name), PrintFunction(referenced, name));
@@ -1019,9 +1031,7 @@ public class CompiledLibraryTests {
             """
         );
 
-        var reference = RavenReference.FromLibrary(
-            CompiledLibraryReader.Read(CompiledLibraryWriter.Write(features))
-        );
+        var reference = RavenReference.FromLibrary(CompiledLibraryReader.Read(CompiledLibraryWriter.Write(features)));
 
         var tree = SyntaxTree.ParseText(
             """
@@ -1052,12 +1062,12 @@ public class CompiledLibraryTests {
             [tree]
         );
 
-        Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.IsError);
+        Assert.DoesNotContain(compilation.GetDiagnostics(), static d => d.IsError);
 
         var bag = new DiagnosticBag();
         var module = Lowerer.Lower(compilation, bag);
         IrVerifier.Verify(module, bag);
-        Assert.DoesNotContain(bag.ToArray(), d => d.IsError);
+        Assert.DoesNotContain(bag.ToArray(), static d => d.IsError);
 
         // Static resolution, so the emitted unit holds a direct call and no dispatch.
         Assert.Contains("Diffuse", Generate(module), StringComparison.Ordinal);
@@ -1070,9 +1080,7 @@ public class CompiledLibraryTests {
     [Fact]
     public void LibrariesCanBuildOnLibraries() {
         var math = BuildLibrary("Math", MathSource);
-        var mathReference = RavenReference.FromLibrary(
-            CompiledLibraryReader.Read(CompiledLibraryWriter.Write(math))
-        );
+        var mathReference = RavenReference.FromLibrary(CompiledLibraryReader.Read(CompiledLibraryWriter.Write(math)));
 
         var shading = BuildLibrary(
             "Shading",
@@ -1112,12 +1120,12 @@ public class CompiledLibraryTests {
             shading
         );
 
-        Assert.DoesNotContain(diagnostics, d => d.IsError);
+        Assert.DoesNotContain(diagnostics, static d => d.IsError);
 
         // Shading's own body, and Math's, both linked in — the call across the two artefacts
         // resolved to one function rather than to a private copy.
-        var diffuse = Assert.Single(module.AllFunctions, f => f.Name == "Diffuse");
-        var saturate = Assert.Single(module.AllFunctions, f => f.Name == "Saturate");
+        var diffuse = Assert.Single(module.AllFunctions, static f => f.Name == "Diffuse");
+        var saturate = Assert.Single(module.AllFunctions, static f => f.Name == "Saturate");
         Assert.Contains(saturate, CallGraph.Calls(diffuse.Body));
     }
 
@@ -1173,7 +1181,7 @@ public class CompiledLibraryTests {
         // Shading alone: its Origin takes a Core.Ray, which nothing here supplies.
         var compilation = Compilation.Create("Consumer", [RavenReference.FromLibrary(shading)], [tree]);
 
-        Assert.Contains(compilation.GetDiagnostics(), d => d.Id == "RVN5004");
+        Assert.Contains(compilation.GetDiagnostics(), static d => d.Id == "RVN5004");
     }
 
     // --- The export checks ------------------------------------------------
@@ -1210,13 +1218,13 @@ public class CompiledLibraryTests {
             out var diagnostics
         );
 
-        var refused = diagnostics.Where(d => d.Id == "RVN5001").ToArray();
+        var refused = diagnostics.Where(static d => d.Id == "RVN5001").ToArray();
         Assert.Equal(2, refused.Length);
-        Assert.All(refused, d => Assert.Contains("density", d.GetMessage(), StringComparison.Ordinal));
+        Assert.All(refused, static d => Assert.Contains("density", d.GetMessage(), StringComparison.Ordinal));
 
         // Refused means not exported: the artefact records the declaration, with no body to link.
-        var fog = Assert.Single(library.Types, t => t.Name == "Fog");
-        Assert.All(fog.Methods, method => Assert.Null(method.IrFunction));
+        var fog = Assert.Single(library.Types, static t => t.Name == "Fog");
+        Assert.All(fog.Methods, static method => Assert.Null(method.IrFunction));
         Assert.Empty(library.Ir.Functions);
     }
 
@@ -1249,7 +1257,7 @@ public class CompiledLibraryTests {
             out var diagnostics
         );
 
-        var warning = Assert.Single(diagnostics, d => d.Id == "RVN5006");
+        var warning = Assert.Single(diagnostics, static d => d.Id == "RVN5006");
         Assert.Equal(DiagnosticSeverity.Warning, warning.Severity);
         Assert.Contains("UseDetail", warning.GetMessage(), StringComparison.Ordinal);
     }
@@ -1285,7 +1293,7 @@ public class CompiledLibraryTests {
 
         var bag = new DiagnosticBag();
         var generated = new Vixen.Raven.CodeGen.Spirv.SpirvBackend().Generate(module, bag);
-        Assert.DoesNotContain(bag.ToArray(), d => d.IsError);
+        Assert.DoesNotContain(bag.ToArray(), static d => d.IsError);
 
         SpirvTestBase.Validate(Assert.Single(generated));
     }
@@ -1312,7 +1320,7 @@ public class CompiledLibraryTests {
             out var diagnostics
         );
 
-        var reported = Assert.Single(diagnostics, d => d.Id == "RVN5002");
+        var reported = Assert.Single(diagnostics, static d => d.Id == "RVN5002");
         Assert.Equal(DiagnosticSeverity.Info, reported.Severity);
         Assert.Contains("Blit.Shade", reported.GetMessage(), StringComparison.Ordinal);
     }
@@ -1349,14 +1357,14 @@ public class CompiledLibraryTests {
         var compilation = Compilation.Create("Consumer", [reference], [tree]);
         var diagnostics = compilation.GetDiagnostics();
 
-        var shadowed = Assert.Single(diagnostics, d => d.Id == "RVN5003");
+        var shadowed = Assert.Single(diagnostics, static d => d.Id == "RVN5003");
         Assert.Contains("Core.Ray", shadowed.GetMessage(), StringComparison.Ordinal);
 
         // Shadowing, not ambiguity: exactly one Ray is in scope, and it is the source one, which
         // takes a single field.
-        Assert.DoesNotContain(diagnostics, d => d.IsError);
+        Assert.DoesNotContain(diagnostics, static d => d.IsError);
         Assert.IsType<Vixen.Raven.Symbols.Source.SourceNamedTypeSymbol>(
-            Assert.Single(compilation.GetAllTypes(), t => t.Name == "Ray")
+            Assert.Single(compilation.GetAllTypes(), static t => t.Name == "Ray")
         );
     }
 
@@ -1371,7 +1379,7 @@ public class CompiledLibraryTests {
             [SyntaxTree.ParseText("package App\n", path: "Consumer.rvn")]
         );
 
-        Assert.Single(compilation.GetDiagnostics(), d => d.Id == "RVN5005");
-        Assert.Single(compilation.GetReferencedTypes(), t => t.Name == "Ray");
+        Assert.Single(compilation.GetDiagnostics(), static d => d.Id == "RVN5005");
+        Assert.Single(compilation.GetReferencedTypes(), static t => t.Name == "Ray");
     }
 }

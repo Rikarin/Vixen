@@ -8,9 +8,13 @@ namespace Vixen.TextureGraph.Nodes;
 /// <summary>An input a kernel requires and a node does not.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>The evaluator binds an op's images positionally over the textures its kernel declares
-///         and refuses a count mismatch, so at the <em>plan's</em> level there is no such thing as an
-///         optional input.</b> A splatter declares five and reads five. What
+///         ⚠
+///         <b>
+///             The evaluator binds an op's images positionally over the textures its kernel declares
+///             and refuses a count mismatch, so at the <em>plan's</em> level there is no such thing as an
+///             optional input.
+///         </b>
+///         A splatter declares five and reads five. What
 ///         <c>TexturePlacement</c>'s short overloads already do about that is bind the pattern into
 ///         every slot the graph does not fill, with the matching <c>…Amount</c> at zero so the slot
 ///         drops out of the arithmetic — a coverage is never below a threshold of zero, and a map

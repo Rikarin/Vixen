@@ -28,7 +28,9 @@ public static class Content {
                             Tag = "Discovered.Queensdale.Camp",
                             Requires = [new() { Kind = RequirementKind.HasTag, Subject = "Level.Ten" }]
                         },
-                        new() { Id = "cache", Kind = PointKind.Cache, Tag = "Discovered.Queensdale.Cache", Counts = false }
+                        new() {
+                            Id = "cache", Kind = PointKind.Cache, Tag = "Discovered.Queensdale.Cache", Counts = false
+                        }
                     ]
                 }
             )
@@ -175,7 +177,7 @@ public class ExplorationTests {
 
     [Fact]
     public void FogSurvivesASaveAndALoad() {
-        record.Reveal(Map, 4, 4, radius: 2);
+        record.Reveal(Map, 4, 4, 2);
 
         var saved = record.FogOf(Map).ToArray();
         var restored = new ExplorationRecord(library);
@@ -205,7 +207,10 @@ public class ExplorationTests {
             )
             .Problems;
 
-        Assert.Contains(problems, problem => problem.Contains("nothing can be unlocked", StringComparison.Ordinal));
+        Assert.Contains(
+            problems,
+            static problem => problem.Contains("nothing can be unlocked", StringComparison.Ordinal)
+        );
     }
 
     [Fact]
@@ -217,7 +222,10 @@ public class ExplorationTests {
             )
             .Problems;
 
-        Assert.Contains(problems, problem => problem.Contains("will not fit in a save", StringComparison.Ordinal));
+        Assert.Contains(
+            problems,
+            static problem => problem.Contains("will not fit in a save", StringComparison.Ordinal)
+        );
     }
 
     [Fact]
@@ -229,6 +237,9 @@ public class ExplorationTests {
             )
             .Problems;
 
-        Assert.Contains(problems, problem => problem.Contains("two points called 'a'", StringComparison.Ordinal));
+        Assert.Contains(
+            problems,
+            static problem => problem.Contains("two points called 'a'", StringComparison.Ordinal)
+        );
     }
 }

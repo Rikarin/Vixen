@@ -170,7 +170,11 @@ public class ShapingConformanceTests {
     static string Describe(IReadOnlyList<(string Name, double X, double Y)> glyphs) =>
         string.Join(
             " ",
-            glyphs.Select(glyph => string.Create(CultureInfo.InvariantCulture, $"{glyph.Name}@{glyph.X:0.#},{glyph.Y:0.#}"))
+            glyphs.Select(static glyph => string.Create(
+                    CultureInfo.InvariantCulture,
+                    $"{glyph.Name}@{glyph.X:0.#},{glyph.Y:0.#}"
+                )
+            )
         );
 
     static string? QuarantineReason(string id) {
@@ -185,7 +189,7 @@ public class ShapingConformanceTests {
 
     static byte[] FontBytes(string name) {
         using var stream = Assembly.GetExecutingAssembly()
-            .GetManifestResourceStream($"Vixen.Ui.Text.Tests.Fonts.{name}")
+                .GetManifestResourceStream($"Vixen.Ui.Text.Tests.Fonts.{name}")
             ?? throw new InvalidOperationException($"the font '{name}' is not embedded");
 
         using var memory = new MemoryStream();
@@ -193,9 +197,10 @@ public class ShapingConformanceTests {
         return memory.ToArray();
     }
 
-    static IEnumerable<(string Id, string Font, string Text, List<(string Name, double X, double Y)> Expected)> Cases() {
+    static IEnumerable<
+        (string Id, string Font, string Text, List<(string Name, double X, double Y)> Expected)> Cases() {
         using var stream = Assembly.GetExecutingAssembly()
-            .GetManifestResourceStream("Vixen.Ui.Text.Tests.Generated.ShapingConformance.data")
+                .GetManifestResourceStream("Vixen.Ui.Text.Tests.Generated.ShapingConformance.data")
             ?? throw new InvalidOperationException("the conformance data is not embedded");
 
         using var reader = new StreamReader(stream);
@@ -212,7 +217,9 @@ public class ShapingConformanceTests {
 
             var text = new StringBuilder();
             foreach (var codePoint in fields[2].Split(' ', StringSplitOptions.RemoveEmptyEntries)) {
-                text.Append(char.ConvertFromUtf32(int.Parse(codePoint, NumberStyles.HexNumber, CultureInfo.InvariantCulture)));
+                text.Append(
+                    char.ConvertFromUtf32(int.Parse(codePoint, NumberStyles.HexNumber, CultureInfo.InvariantCulture))
+                );
             }
 
             var expected = new List<(string, double, double)>();
@@ -222,11 +229,13 @@ public class ShapingConformanceTests {
                 var y = glyph.LastIndexOf(':');
                 var x = glyph.LastIndexOf(':', y - 1);
 
-                expected.Add((
-                    glyph[..x],
-                    double.Parse(glyph[(x + 1)..y], CultureInfo.InvariantCulture),
-                    double.Parse(glyph[(y + 1)..], CultureInfo.InvariantCulture)
-                ));
+                expected.Add(
+                    (
+                        glyph[..x],
+                        double.Parse(glyph[(x + 1)..y], CultureInfo.InvariantCulture),
+                        double.Parse(glyph[(y + 1)..], CultureInfo.InvariantCulture)
+                    )
+                );
             }
 
             yield return (fields[0], fields[1], text.ToString(), expected);

@@ -27,8 +27,12 @@ namespace Vixen.Ui.Tests;
 ///         an untranslated box: it fails, on the assertion it is supposed to fail on.
 ///     </para>
 ///     <para>
-///         ⚠ <b><c>rotate</c> and <c>scale</c> were refused here, and the refusal has been retired
-///         because the thing it was waiting for arrived.</b> What it said was true of the renderer it
+///         ⚠
+///         <b>
+///             <c>rotate</c> and <c>scale</c> were refused here, and the refusal has been retired
+///             because the thing it was waiting for arrived.
+///         </b>
+///         What it said was true of the renderer it
 ///         was written against: a <c>DrawCommand</c> is an axis-aligned rectangle, the clip stack
 ///         intersects rectangles, and glyph advances are shaped at <c>run.Size</c> during layout, so
 ///         there was no per-command form of a rotation and no honest way to scale a picture. Its last
@@ -37,8 +41,12 @@ namespace Vixen.Ui.Tests;
 ///         groups through it.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Every clause of the refusal survives; none of them blocks any more, because the group
-///         moved where they apply.</b> The subtree still rasterises into its surface axis-aligned,
+///         ⚠
+///         <b>
+///             Every clause of the refusal survives; none of them blocks any more, because the group
+///             moved where they apply.
+///         </b>
+///         The subtree still rasterises into its surface axis-aligned,
 ///         every command in it still a rectangle and every clip in it still a rectangle — a
 ///         transformed element's own <c>overflow: hidden</c> cuts in its local space, which is
 ///         precisely what CSS Transforms 1 §3 asks for. Glyphs are still shaped once at their layout
@@ -70,7 +78,7 @@ public class TransformTests {
     }
 
     static DrawCommand Rectangle(UiDocument document) =>
-        Assert.Single(document.Drawing.Commands, command => command.Kind == DrawCommandKind.Rectangle);
+        Assert.Single(document.Drawing.Commands, static command => command.Kind == DrawCommandKind.Rectangle);
 
     /// <summary>
     ///     ⚠ <b>Both halves in one test, deliberately.</b> Split in two they are two tests that can
@@ -90,7 +98,7 @@ public class TransformTests {
             root { width: 400px; height: 300px; }
             .moved { width: 80px; height: 80px; background-color: #111; translate: 100px 40px; }
             """,
-            document => document.Root.Add("div", classNames: "moved")
+            static document => document.Root.Add("div", classNames: "moved")
         );
 
         var moved = document.Root.Children[0];
@@ -123,7 +131,7 @@ public class TransformTests {
             .a { width: 40px; height: 40px; translate: 100px 0px; }
             .b { width: 40px; height: 40px; }
             """,
-            document => {
+            static document => {
                 document.Root.Add("div", classNames: "a");
                 document.Root.Add("div", classNames: "b");
             }
@@ -153,7 +161,7 @@ public class TransformTests {
             .outer { width: 80px; height: 80px; translate: 50px 30px; }
             .inner { width: 20px; height: 20px; }
             """,
-            document => document.Root.Add("div", classNames: "outer").Add("div", classNames: "inner")
+            static document => document.Root.Add("div", classNames: "outer").Add("div", classNames: "inner")
         );
 
         var inner = document.Root.Children[0].Children[0];
@@ -177,7 +185,7 @@ public class TransformTests {
             root { width: 400px; height: 300px; }
             .half { width: 60px; height: 20px; translate: 50% 100%; }
             """,
-            document => document.Root.Add("div", classNames: "half")
+            static document => document.Root.Add("div", classNames: "half")
         );
 
         var half = document.Root.Children[0];
@@ -201,12 +209,12 @@ public class TransformTests {
             root { width: 400px; height: 300px; }
             .clip { width: 80px; height: 60px; overflow: hidden; translate: 25px 15px; }
             """,
-            document => document.Root.Add("div", classNames: "clip")
+            static document => document.Root.Add("div", classNames: "clip")
         );
 
         var push = Assert.Single(
             document.Drawing.Commands,
-            command => command.Kind == DrawCommandKind.ClipPush
+            static command => command.Kind == DrawCommandKind.ClipPush
         );
 
         Assert.Equal(25f, push.X, Tolerance);
@@ -223,7 +231,7 @@ public class TransformTests {
             root { width: 400px; height: 300px; }
             .one { width: 40px; height: 40px; translate: 30px; }
             """,
-            document => document.Root.Add("div", classNames: "one")
+            static document => document.Root.Add("div", classNames: "one")
         );
 
         var one = document.Root.Children[0];
@@ -251,7 +259,7 @@ public class TransformTests {
               root { width: 400px; height: 300px; }
               .still { width: 40px; height: 40px; translate: {{value}}; }
               """,
-            document => document.Root.Add("div", classNames: "still")
+            static document => document.Root.Add("div", classNames: "still")
         );
 
         var still = document.Root.Children[0];
@@ -261,8 +269,12 @@ public class TransformTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>A translation and an <see cref="UiElement.OffsetX" /> add rather than one replacing the
-    ///     other.</b> They have different owners — the offset is what <c>ScrollView</c> and
+    ///     ⚠
+    ///     <b>
+    ///         A translation and an <see cref="UiElement.OffsetX" /> add rather than one replacing the
+    ///         other.
+    ///     </b>
+    ///     They have different owners — the offset is what <c>ScrollView</c> and
     ///     <c>DockingHost</c> slide content with, the translation is whatever the cascade last computed
     ///     — so folding either into the other would make a stylesheet silently erase a scroll position.
     ///     That reads as the panel jumping home on an unrelated theme change, which is a bug nobody
@@ -275,7 +287,7 @@ public class TransformTests {
             root { width: 400px; height: 300px; }
             .both { width: 40px; height: 40px; translate: 10px 5px; }
             """,
-            document => {
+            static document => {
                 var element = document.Root.Add("div", classNames: "both");
                 element.OffsetX = 7f;
                 element.OffsetY = 3f;
@@ -289,8 +301,11 @@ public class TransformTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>A translation transitions rather than jumps, and it cost nothing to get — which is
-    ///     the half of doc 43 § A7 that asked for "animatable".</b>
+    ///     ⚠
+    ///     <b>
+    ///         A translation transitions rather than jumps, and it cost nothing to get — which is
+    ///         the half of doc 43 § A7 that asked for "animatable".
+    ///     </b>
     /// </summary>
     /// <remarks>
     ///     <para>
@@ -350,8 +365,12 @@ public class TransformTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>A rotation is clicked where it is painted, and this is the test the whole feature is
-    ///     judged by.</b> The translation's own version of this is at the top of the file and its
+    ///     ⚠
+    ///     <b>
+    ///         A rotation is clicked where it is painted, and this is the test the whole feature is
+    ///         judged by.
+    ///     </b>
+    ///     The translation's own version of this is at the top of the file and its
     ///     remark applies word for word: painted in the new place and clickable in the old one moves
     ///     every observable a draw list has, so it passes a consumption gate and it is a broken
     ///     interface. A rotation cannot borrow the trick that makes it unstateable for
@@ -373,7 +392,7 @@ public class TransformTests {
             .bar { position: absolute; left: 100px; top: 140px; width: 80px; height: 20px;
                    background-color: #111; rotate: 90deg; }
             """,
-            document => document.Root.Add("div", classNames: "bar")
+            static document => document.Root.Add("div", classNames: "bar")
         );
 
         var bar = document.Root.Children[0];
@@ -408,7 +427,7 @@ public class TransformTests {
             .big { position: absolute; left: 100px; top: 100px; width: 40px; height: 40px;
                    background-color: #111; scale: 200%; }
             """,
-            document => document.Root.Add("div", classNames: "big")
+            static document => document.Root.Add("div", classNames: "big")
         );
 
         var big = grown.Root.Children[0];
@@ -424,7 +443,7 @@ public class TransformTests {
             .small { position: absolute; left: 100px; top: 100px; width: 40px; height: 40px;
                      background-color: #111; scale: 50%; }
             """,
-            document => document.Root.Add("div", classNames: "small")
+            static document => document.Root.Add("div", classNames: "small")
         );
 
         var small = shrunk.Root.Children[0];
@@ -436,8 +455,12 @@ public class TransformTests {
 
     /// <summary>A transformed parent's children are clicked where the parent put them.</summary>
     /// <remarks>
-    ///     ⚠ <b>The child carries no transform of its own, which is what makes this a test of the walk
-    ///     rather than of the reader.</b> <c>Accumulate</c> deliberately does not push the matrix down
+    ///     ⚠
+    ///     <b>
+    ///         The child carries no transform of its own, which is what makes this a test of the walk
+    ///         rather than of the reader.
+    ///     </b>
+    ///     <c>Accumulate</c> deliberately does not push the matrix down
     ///     — the child's <c>AbsoluteLeft</c> is untransformed — so the only thing that can put the
     ///     pointer in the right place is the recursion having mapped it on the way through the parent.
     ///     An implementation that applied the inverse inside <c>Contains</c> instead of at the top of
@@ -453,7 +476,7 @@ public class TransformTests {
             .inner { position: absolute; left: 0px; top: 0px; width: 10px; height: 10px;
                      background-color: #222; }
             """,
-            document => document.Root.Add("div", classNames: "outer").Add("div", classNames: "inner")
+            static document => document.Root.Add("div", classNames: "outer").Add("div", classNames: "inner")
         );
 
         var outer = document.Root.Children[0];
@@ -486,7 +509,7 @@ public class TransformTests {
             .inner { position: absolute; left: 100px; top: 100px; width: 20px; height: 4px;
                      background-color: #222; rotate: 90deg; }
             """,
-            document => document.Root.Add("div", classNames: "outer").Add("div", classNames: "inner")
+            static document => document.Root.Add("div", classNames: "outer").Add("div", classNames: "inner")
         );
 
         var outer = document.Root.Children[0];
@@ -526,16 +549,20 @@ public class TransformTests {
             .gone { position: absolute; left: 100px; top: 100px; width: 40px; height: 40px;
                     background-color: #111; scale: 0; }
             """,
-            document => document.Root.Add("div", classNames: "gone")
+            static document => document.Root.Add("div", classNames: "gone")
         );
 
-        Assert.DoesNotContain(document.Drawing.Commands, command => command.Kind == DrawCommandKind.Rectangle);
+        Assert.DoesNotContain(document.Drawing.Commands, static command => command.Kind == DrawCommandKind.Rectangle);
         Assert.Same(document.Root, document.HitTest(120f, 120f));
     }
 
     /// <summary>
-    ///     ⚠ <b>An unreadable <c>rotate</c> or <c>scale</c> leaves the element alone, and an axis
-    ///     with no direction is refused whole rather than half-read.</b> Picking the angle out of
+    ///     ⚠
+    ///     <b>
+    ///         An unreadable <c>rotate</c> or <c>scale</c> leaves the element alone, and an axis
+    ///         with no direction is refused whole rather than half-read.
+    ///     </b>
+    ///     Picking the angle out of
     ///     <c>rotate: 0 0 0 45deg</c> and applying it about z would be a forty-five degree spin nobody
     ///     wrote. ⚠ <c>rotate: x 45deg</c> used to be a row here, refused as "out of the plane this
     ///     engine has no depth for"; it is <c>rotateX(45deg)</c> now (#1473) — see
@@ -555,7 +582,7 @@ public class TransformTests {
               .still { position: absolute; left: 100px; top: 100px; width: 40px; height: 40px;
                        background-color: #111; {{declaration}}; }
               """,
-            document => document.Root.Add("div", classNames: "still")
+            static document => document.Root.Add("div", classNames: "still")
         );
 
         var still = document.Root.Children[0];
@@ -567,8 +594,12 @@ public class TransformTests {
 
     /// <summary>The three angle units CSS has besides degrees all arrive as degrees.</summary>
     /// <remarks>
-    ///     ⚠ <b>Asserted through the same quarter turn rather than against a matrix, because what
-    ///     matters is that the four spellings are one value.</b> Values 1 § 6.1 fixes the ratios
+    ///     ⚠
+    ///     <b>
+    ///         Asserted through the same quarter turn rather than against a matrix, because what
+    ///         matters is that the four spellings are one value.
+    ///     </b>
+    ///     Values 1 § 6.1 fixes the ratios
     ///     between them, so there is nothing to resolve later and no context to resolve it in — which
     ///     is why the conversion is in the parser rather than here. Before it was, <c>0.25turn</c>
     ///     parsed as <c>Unknown</c> and the element simply did not turn.
@@ -585,7 +616,7 @@ public class TransformTests {
               .bar { position: absolute; left: 100px; top: 140px; width: 80px; height: 20px;
                      background-color: #111; rotate: {{angle}}; }
               """,
-            document => document.Root.Add("div", classNames: "bar")
+            static document => document.Root.Add("div", classNames: "bar")
         );
 
         var bar = document.Root.Children[0];
@@ -601,10 +632,14 @@ public class TransformTests {
     ///     asserted with the same two probes.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>Deliberately the same fixture as
-    ///     <see cref="A_rotation_moves_the_box_it_draws_and_the_box_it_is_clicked_on" />, because the
-    ///     one thing worth knowing first about a new property is whether it lands where the old one
-    ///     does.</b> Transforms 2 §3 says the two spellings are the same rotation about the same
+    ///     ⚠
+    ///     <b>
+    ///         Deliberately the same fixture as
+    ///         <see cref="A_rotation_moves_the_box_it_draws_and_the_box_it_is_clicked_on" />, because the
+    ///         one thing worth knowing first about a new property is whether it lands where the old one
+    ///         does.
+    ///     </b>
+    ///     Transforms 2 §3 says the two spellings are the same rotation about the same
     ///     origin, and a list that composed about the box's corner instead — the natural mistake,
     ///     since a function list has no origin written in it — passes an assertion about the turned
     ///     bar's own extent and fails these.
@@ -617,7 +652,7 @@ public class TransformTests {
             .bar { position: absolute; left: 100px; top: 140px; width: 80px; height: 20px;
                    background-color: #111; transform: rotate(90deg); }
             """,
-            document => document.Root.Add("div", classNames: "bar")
+            static document => document.Root.Add("div", classNames: "bar")
         );
 
         var bar = document.Root.Children[0];
@@ -654,7 +689,7 @@ public class TransformTests {
             .turned-then-moved { transform: rotate(90deg) translate(40px); }
             .moved-then-turned { transform: translate(40px) rotate(90deg); }
             """,
-            document => {
+            static document => {
                 document.Root.Add("div", classNames: "turned-then-moved");
                 document.Root.Add("div", classNames: "moved-then-turned");
             }
@@ -669,8 +704,12 @@ public class TransformTests {
 
     /// <summary><c>matrix()</c>'s six numbers are the six cells, in CSS's order.</summary>
     /// <remarks>
-    ///     ⚠ <b>A non-uniform, non-symmetric matrix, because half the orderings agree on anything
-    ///     else.</b> <c>matrix(2, 0, 0, 1, 10, 0)</c> doubles x, leaves y, and shifts by ten — so a
+    ///     ⚠
+    ///     <b>
+    ///         A non-uniform, non-symmetric matrix, because half the orderings agree on anything
+    ///         else.
+    ///     </b>
+    ///     <c>matrix(2, 0, 0, 1, 10, 0)</c> doubles x, leaves y, and shifts by ten — so a
     ///     40×40 box about (120, 120) paints x ∈ [90, 170] and keeps y ∈ [100, 140]. A reading that
     ///     transposed the two middle cells, or that took <c>e</c>/<c>f</c> as a scale, moves the box
     ///     somewhere else entirely and one of these three probes says so.
@@ -683,7 +722,7 @@ public class TransformTests {
             .cell { position: absolute; left: 100px; top: 100px; width: 40px; height: 40px;
                     background-color: #111; transform: matrix(2, 0, 0, 1, 10, 0); }
             """,
-            document => document.Root.Add("div", classNames: "cell")
+            static document => document.Root.Add("div", classNames: "cell")
         );
 
         var cell = document.Root.Children[0];
@@ -709,7 +748,7 @@ public class TransformTests {
             .slanted { position: absolute; left: 100px; top: 100px; width: 40px; height: 40px;
                        background-color: #111; transform: skewX(45deg); }
             """,
-            document => document.Root.Add("div", classNames: "slanted")
+            static document => document.Root.Add("div", classNames: "slanted")
         );
 
         var slanted = document.Root.Children[0];
@@ -727,8 +766,12 @@ public class TransformTests {
     ///     The list is the innermost factor, so <c>scale</c> the property applies <i>after</i> it.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>Transforms 2 §3 orders the four as translate, rotate, scale, then <c>transform</c> —
-    ///     as matrix multiplications, which reverses them for a point.</b> A 40×40 box at (100, 100)
+    ///     ⚠
+    ///     <b>
+    ///         Transforms 2 §3 orders the four as translate, rotate, scale, then <c>transform</c> —
+    ///         as matrix multiplications, which reverses them for a point.
+    ///     </b>
+    ///     A 40×40 box at (100, 100)
     ///     with <c>transform: translate(40px)</c> and <c>scale: 2</c> is translated first and then
     ///     doubled about its own centre, landing at x ∈ [160, 240]. Scaled first and translated
     ///     after, it lands at x ∈ [120, 200] — overlapping, which is why both probes are needed and
@@ -742,7 +785,7 @@ public class TransformTests {
             .both { position: absolute; left: 100px; top: 100px; width: 40px; height: 40px;
                     background-color: #111; transform: translate(40px); scale: 2; }
             """,
-            document => document.Root.Add("div", classNames: "both")
+            static document => document.Root.Add("div", classNames: "both")
         );
 
         var both = document.Root.Children[0];
@@ -766,7 +809,7 @@ public class TransformTests {
             .moved { position: absolute; left: 0px; top: 100px; width: 80px; height: 80px;
                      background-color: #111; transform: translate(50%); }
             """,
-            document => document.Root.Add("div", classNames: "moved")
+            static document => document.Root.Add("div", classNames: "moved")
         );
 
         var moved = document.Root.Children[0];
@@ -780,8 +823,12 @@ public class TransformTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The three-dimensional functions were why "dropped whole" is the rule, and they
-    ///         are read now (#550)</b> — so what is pinned here is the rest of it. <c>rotateX</c>,
+    ///         ⚠
+    ///         <b>
+    ///             The three-dimensional functions were why "dropped whole" is the rule, and they
+    ///             are read now (#550)
+    ///         </b>
+    ///         — so what is pinned here is the rest of it. <c>rotateX</c>,
     ///         <c>translate3d</c> and <c>perspective</c> used to be legal CSS with no third axis to
     ///         express them, and reading the functions that happened to be flat and skipping the rest
     ///         turned a card flip into a card that never moves. The rule outlives that reason,
@@ -841,7 +888,7 @@ public class TransformTests {
               .still { position: absolute; left: 100px; top: 100px; width: 40px; height: 40px;
                        background-color: #111; transform: {{value}}; scale: 2; }
               """,
-            document => document.Root.Add("div", classNames: "still")
+            static document => document.Root.Add("div", classNames: "still")
         );
 
         var still = document.Root.Children[0];
@@ -884,7 +931,7 @@ public class TransformTests {
             .turned { position: absolute; left: 100px; top: 100px; width: 40px; height: 40px;
                       background-color: #111; transform: rotateZ(90deg) translateX(calc(10px * 4)); }
             """,
-            document => document.Root.Add("div", classNames: "turned")
+            static document => document.Root.Add("div", classNames: "turned")
         );
 
         var turned = document.Root.Children[0];
@@ -898,8 +945,12 @@ public class TransformTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The mirror is the point of this test and the reason it is not one determinant
-    ///         sign.</b> <c>rotateY(180deg)</c> and <c>scale3d(-1, 1, 1)</c> reduce to the <i>same</i>
+    ///         ⚠
+    ///         <b>
+    ///             The mirror is the point of this test and the reason it is not one determinant
+    ///             sign.
+    ///         </b>
+    ///         <c>rotateY(180deg)</c> and <c>scale3d(-1, 1, 1)</c> reduce to the <i>same</i>
     ///         <c>UiTransform</c> — an x mirror about the element's centre — because
     ///         <c>TransformReader.Reduce</c> keeps rows x, y, w against columns x, y, 1 and throws the
     ///         z row and column away. Only one of them has turned the plane over. So a consumer
@@ -937,7 +988,7 @@ public class TransformTests {
             .shown { position: absolute; left: 200px; top: 0px; width: 40px; height: 40px;
                      background-color: #333; transform: rotateY(180deg); }
             """,
-            document => {
+            static document => {
                 document.Root.Add("div", classNames: "turned");
                 document.Root.Add("div", classNames: "mirrored");
                 document.Root.Add("div", classNames: "shown");
@@ -950,11 +1001,19 @@ public class TransformTests {
 
         // The instrument first: the two cards really do reduce to the same matrix, so what separates
         // them below cannot be anything a consumer could have read off it.
-        Assert.Equal(Assert.IsType<UiTransform>(turned.Transform).M11, Assert.IsType<UiTransform>(mirrored.Transform).M11, Tolerance);
-        Assert.Equal(Assert.IsType<UiTransform>(turned.Transform).M22, Assert.IsType<UiTransform>(mirrored.Transform).M22, Tolerance);
+        Assert.Equal(
+            Assert.IsType<UiTransform>(turned.Transform).M11,
+            Assert.IsType<UiTransform>(mirrored.Transform).M11,
+            Tolerance
+        );
+        Assert.Equal(
+            Assert.IsType<UiTransform>(turned.Transform).M22,
+            Assert.IsType<UiTransform>(mirrored.Transform).M22,
+            Tolerance
+        );
 
         // The picture: two rectangles where three elements have a background.
-        Assert.Equal(2, document.Drawing.Commands.Count(command => command.Kind == DrawCommandKind.Rectangle));
+        Assert.Equal(2, document.Drawing.Commands.Count(static command => command.Kind == DrawCommandKind.Rectangle));
 
         // And the pointer agrees with it, card for card.
         Assert.Same(document.Root, document.HitTest(20f, 20f));
@@ -1001,7 +1060,7 @@ public class TransformTests {
             .shifted { position: absolute; left: 0px; top: 200px; width: 20px; height: 20px;
                        font-size: 32px; background-color: #333; translate: 2em; }
             """,
-            document => {
+            static document => {
                 document.Root.Add("div", classNames: "small");
                 document.Root.Add("div", classNames: "large");
                 document.Root.Add("div", classNames: "shifted");
@@ -1029,8 +1088,12 @@ public class TransformTests {
     /// <summary>An <c>lh</c> in a transform is a line box, and the function beside it survives.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The second half of #1339's finding, and the same shape: two readers of one
-    ///         grammar, one correct.</b> <c>LengthContext.PixelsPer</c> and
+    ///         ⚠
+    ///         <b>
+    ///             The second half of #1339's finding, and the same shape: two readers of one
+    ///             grammar, one correct.
+    ///         </b>
+    ///         <c>LengthContext.PixelsPer</c> and
     ///         <c>StyleValueParser.ParseNumeric</c> have both read <c>lh</c> since
     ///         <c>max-block-lh</c> arrived, so <c>width: 1lh</c> resolved — while this reader
     ///         enumerated px/em/rem/vw/vh/vmin/vmax by hand, in <b>two</b> hand-written copies, and
@@ -1062,7 +1125,7 @@ public class TransformTests {
                    font-size: 20px; line-height: 60px; background-color: #222;
                    transform: translateX(1lh); }
             """,
-            document => {
+            static document => {
                 document.Root.Add("div", classNames: "near");
                 document.Root.Add("div", classNames: "far");
             }
@@ -1117,7 +1180,7 @@ public class TransformTests {
             .card { position: absolute; left: 150px; top: 100px; width: 100px; height: 100px;
                     background-color: #111; transform: translateZ(calc(3.125rem * 2)); }
             """,
-            document => document.Root.Add("div", classNames: "stage").Add("div", classNames: "card")
+            static document => document.Root.Add("div", classNames: "stage").Add("div", classNames: "card")
         );
 
         var card = document.Root.Children[0].Children[0];
@@ -1137,8 +1200,12 @@ public class TransformTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>This is the whole of why #550 is a shape change and not nine more names in a
-    ///         switch.</b> Reducing a 4×4 to a <c>UiTransform</c> keeps rows x, y, w against columns
+    ///         ⚠
+    ///         <b>
+    ///             This is the whole of why #550 is a shape change and not nine more names in a
+    ///             switch.
+    ///         </b>
+    ///         Reducing a 4×4 to a <c>UiTransform</c> keeps rows x, y, w against columns
     ///         x, y, 1 and throws the z row and the z column away, so <c>R(A·B) = R(A)·R(B)</c> holds
     ///         only where <c>A</c> has no z column or <c>B</c> no z row — and a <c>perspective()</c>
     ///         is nothing <i>but</i> a z column while a <c>rotateX()</c> is nothing but a z row,
@@ -1169,7 +1236,7 @@ public class TransformTests {
             .card { position: absolute; left: 100px; top: 50px; width: 200px; height: 200px;
                     background-color: #111; transform: perspective(200px) rotateX(60deg); }
             """,
-            document => document.Root.Add("div", classNames: "card")
+            static document => document.Root.Add("div", classNames: "card")
         );
 
         var card = document.Root.Children[0];
@@ -1192,8 +1259,12 @@ public class TransformTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Getting these the same way round is the classic mistake and it produces a
-    ///         plausible picture</b> — a weaker projection rather than an obviously wrong one — so
+    ///         ⚠
+    ///         <b>
+    ///             Getting these the same way round is the classic mistake and it produces a
+    ///             plausible picture
+    ///         </b>
+    ///         — a weaker projection rather than an obviously wrong one — so
     ///         the two halves are asserted against each other rather than separately. Transforms 2
     ///         § 6: an element's <c>perspective</c> applies to its children.
     ///     </para>
@@ -1218,7 +1289,7 @@ public class TransformTests {
             .alone { position: absolute; left: 250px; top: 100px; width: 100px; height: 100px;
                      background-color: #222; perspective: 200px; transform: rotateX(60deg); }
             """,
-            document => {
+            static document => {
                 var stage = document.Root.Add("div", classNames: "stage");
                 stage.Add("div", classNames: "card");
                 document.Root.Add("div", classNames: "alone");
@@ -1249,8 +1320,12 @@ public class TransformTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Two of the element's three transform properties at once, and an origin that is
-    ///         not the vanishing point, because neither alone can see this.</b> Transforms 2 § 3
+    ///         ⚠
+    ///         <b>
+    ///             Two of the element's three transform properties at once, and an origin that is
+    ///             not the vanishing point, because neither alone can see this.
+    ///         </b>
+    ///         Transforms 2 § 3
     ///         composes <c>transform</c>, then <c>scale</c>, then <c>rotate</c> into the element's own
     ///         matrix, and § 6 projects <i>that</i> through the parent's vanishing point. Folding the
     ///         perspective in beside the list instead scales and rotates a picture that has already
@@ -1290,7 +1365,7 @@ public class TransformTests {
             .turned { position: absolute; left: 200px; top: 60px; width: 100px; height: 100px;
                       background-color: #222; transform: rotateX(60deg); rotate: 180deg; }
             """,
-            document => {
+            static document => {
                 var stage = document.Root.Add("div", classNames: "stage");
                 stage.Add("div", classNames: "scaled");
                 stage.Add("div", classNames: "turned");
@@ -1330,8 +1405,12 @@ public class TransformTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The only two properties this reader takes off another element are the only two
-    ///         whose <c>em</c> belongs to another element.</b> A stage at <c>font-size: 32px</c>
+    ///         ⚠
+    ///         <b>
+    ///             The only two properties this reader takes off another element are the only two
+    ///             whose <c>em</c> belongs to another element.
+    ///         </b>
+    ///         A stage at <c>font-size: 32px</c>
     ///         declaring <c>perspective: 10em</c> means 320 points; measuring it in the caller's
     ///         context makes it 160, which is a projection twice as strong as authored and nothing
     ///         says so.
@@ -1353,13 +1432,13 @@ public class TransformTests {
             .card { position: absolute; left: 0px; top: 0px; width: 100px; height: 100px;
                     font-size: 16px; background-color: #111; transform: rotateX(60deg); }
             """,
-            document => document.Root.Add("div", classNames: "stage").Add("div", classNames: "card")
+            static document => document.Root.Add("div", classNames: "stage").Add("div", classNames: "card")
         );
 
         var card = Assert.IsType<UiTransform>(document.Root.Children[0].Children[0].Transform);
         Assert.False(card.IsAffine);
 
-        var at = card.Apply(new Vector2(70f, 120f));
+        var at = card.Apply(new(70f, 120f));
 
         Assert.Equal(62.1756f, at.X, 0.01f);
         Assert.Equal(91.0878f, at.Y, 0.01f);
@@ -1375,8 +1454,12 @@ public class TransformTests {
     ///     the named functions are.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>A differential rather than two numbers, because the failure worth catching is a
-    ///     transposed matrix and a transpose is invisible on a symmetric case.</b> Each row here is
+    ///     ⚠
+    ///     <b>
+    ///         A differential rather than two numbers, because the failure worth catching is a
+    ///         transposed matrix and a transpose is invisible on a symmetric case.
+    ///     </b>
+    ///     Each row here is
     ///     written two ways — the named function and its general form — and the assertion is that
     ///     the two produce the same matrix to the last few bits. <c>matrix3d</c> takes CSS's
     ///     column-major listing, which IS this engine's row-major order, so a reader who transposes
@@ -1402,7 +1485,7 @@ public class TransformTests {
               .two { position: absolute; left: 100px; top: 50px; width: 200px; height: 200px;
                      background-color: #222; transform: {{general}}; }
               """,
-            document => {
+            static document => {
                 document.Root.Add("div", classNames: "one");
                 document.Root.Add("div", classNames: "two");
             }
@@ -1474,7 +1557,7 @@ public class TransformTests {
                        background-color: #444;
                        transform: rotateX(0deg) rotateY(0deg) rotateZ(30deg) skewX(0deg) skewY(0deg); }
             """,
-            document => {
+            static document => {
                 document.Root.Add("div", classNames: "flat");
                 document.Root.Add("div", classNames: "deep");
                 document.Root.Add("div", classNames: "spelled");
@@ -1493,7 +1576,7 @@ public class TransformTests {
         // expectation is the transpose of the right answer — which is right for a uniform scale and
         // wrong for this one, and is the mistake the non-uniform 1.4/0.8 is here to catch.
         var expected = new UiTransform(1.4f, 0f, 0f, 0.8f, 0f, 0f)
-            .Then(new UiTransform(1f, 0f, 0f, 1f, 12f, -7f))
+            .Then(new(1f, 0f, 0f, 1f, 12f, -7f))
             .Then(UiTransform.Rotation(30f, Vector2.Zero))
             .About(about);
 
@@ -1533,7 +1616,7 @@ public class TransformTests {
             .plain { position: absolute; left: 100px; top: 100px; width: 40px; height: 40px;
                      background-color: #111; transform: none; }
             """,
-            document => document.Root.Add("div", classNames: "plain")
+            static document => document.Root.Add("div", classNames: "plain")
         );
 
         Assert.Null(document.Root.Children[0].Transform);
@@ -1590,7 +1673,7 @@ public class TransformTests {
         document.Draw();
 
         var card = document.Root.Children[0];
-        var centre = new Vector2(card.AbsoluteLeft + (card.Width / 2f), card.AbsoluteTop + (card.Height / 2f));
+        var centre = new Vector2(card.AbsoluteLeft + card.Width / 2f, card.AbsoluteTop + card.Height / 2f);
 
         Assert.Equal(400f, centre.X, Tolerance);
         Assert.Equal(200f, centre.Y, Tolerance);
@@ -1601,9 +1684,7 @@ public class TransformTests {
         var radians = 120f * (MathF.PI / 180f);
 
         var flip = new UiTransform(1f, 0f, 0f, MathF.Cos(radians), 0f, 0f) {
-            M13 = 0f,
-            M23 = -MathF.Sin(radians) / 100f,
-            M33 = 1f
+            M13 = 0f, M23 = -MathF.Sin(radians) / 100f, M33 = 1f
         }.About(centre);
 
         card.Transform = flip;

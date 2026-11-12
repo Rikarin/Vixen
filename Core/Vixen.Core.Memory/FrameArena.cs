@@ -9,12 +9,18 @@ namespace Vixen.Core.Memory;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b><see cref="Frame" /></b> holds anything whose lifetime is the frame — render command
+///         <b>
+///             <see cref="Frame" />
+///         </b>
+///         holds anything whose lifetime is the frame — render command
 ///         payloads, culling results, layout scratch — and is reset once per frame by the engine
 ///         loop, not by whoever allocated from it.
 ///     </para>
 ///     <para>
-///         <b><see cref="Temp" /></b> is for scratch inside a single call, taken and given back with
+///         <b>
+///             <see cref="Temp" />
+///         </b>
+///         is for scratch inside a single call, taken and given back with
 ///         <c>using var scope = FrameArena.PushTemp();</c>. It exists separately so that a function
 ///         wanting a scratch buffer does not have to know whether it is inside a frame at all, which
 ///         matters for the asset pipeline and the editor.

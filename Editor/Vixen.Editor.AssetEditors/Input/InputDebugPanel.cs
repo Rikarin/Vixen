@@ -5,7 +5,6 @@ using Vixen.Editor.AssetEditors.Input;
 using Vixen.Editor.Plugin;
 using Vixen.Editor.Ui;
 using Vixen.Input;
-using Vixen.Ui;
 
 namespace Vixen.Editor.AssetEditors;
 
@@ -60,9 +59,7 @@ public sealed partial class AssetEditorsModule {
 
                     Reading();
                 }
-            ) {
-                Closed = () => inputDebug = null
-            }
+            ) { Closed = () => inputDebug = null }
         );
 
         // Only while the panel is open. Polling a device set is cheap, but `Actuated` walks every

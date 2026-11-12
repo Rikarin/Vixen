@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core.Mathematics;
-using Vixen.Water;
 using Xunit;
 
 namespace Vixen.Water.Tests;
@@ -167,8 +166,12 @@ public sealed class WaterRippleTests {
 
     /// <summary>A wake survives the window scrolling under it.</summary>
     /// <remarks>
-    ///     ⚠ <b>The one place this differs from <see cref="WaterField" />, which forgets its contents
-    ///     when it moves.</b> A field is a function of bodies and ground that can be recomputed; a
+    ///     ⚠
+    ///     <b>
+    ///         The one place this differs from <see cref="WaterField" />, which forgets its contents
+    ///         when it moves.
+    ///     </b>
+    ///     A field is a function of bodies and ground that can be recomputed; a
     ///     simulation's state <em>is</em> its history, and throwing it away when the camera walks would
     ///     delete every wake in the scene.
     /// </remarks>

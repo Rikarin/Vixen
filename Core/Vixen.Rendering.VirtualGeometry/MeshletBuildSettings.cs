@@ -3,8 +3,10 @@
 
 namespace Vixen.Rendering.VirtualGeometry;
 
-/// <summary>What a cluster-DAG build is being asked for: how big a cluster is, and how many of them
-///     are simplified together.</summary>
+/// <summary>
+///     What a cluster-DAG build is being asked for: how big a cluster is, and how many of them
+///     are simplified together.
+/// </summary>
 /// <remarks>
 ///     <para>
 ///         <b>Two sizes, and they do different jobs.</b> <see cref="MaxTriangles" /> is the unit of

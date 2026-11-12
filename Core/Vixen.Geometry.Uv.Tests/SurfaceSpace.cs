@@ -9,8 +9,12 @@ namespace Vixen.Geometry.Uv.Tests;
 
 /// <summary>One way a surface can be hard to unwrap. <see cref="ShapeCorpus" />' twelve, as an axis.</summary>
 /// <remarks>
-///     ⚠ <b>Each of these is something the charter or the flattener has a named answer for, so a
-///     failure names the answer that did not fire.</b> docs/plan/42 § D5 refuses an annulus, a handle,
+///     ⚠
+///     <b>
+///         Each of these is something the charter or the flattener has a named answer for, so a
+///         failure names the answer that did not fire.
+///     </b>
+///     docs/plan/42 § D5 refuses an annulus, a handle,
 ///     a chart in two pieces and a pinch <i>before</i> a solve runs, and § D3's recursion splits
 ///     whatever fails its distortion bound; every entry below is one of those doors.
 /// </remarks>
@@ -50,8 +54,12 @@ enum SurfaceDefect : byte {
 /// <param name="Defects">What is wrong with it, applied in the order given. Repeats are multiplicity.</param>
 /// <param name="Scale">What every position is multiplied by, once the defects have been applied.</param>
 /// <remarks>
-///     ⚠ <b>A description rather than the mesh, and that is the whole reason this is a record of five
-///     scalars.</b> The same argument <c>BrokenMeshSpace</c>'s <c>MeshRecipe</c> makes: CsCheck shrinks
+///     ⚠
+///     <b>
+///         A description rather than the mesh, and that is the whole reason this is a record of five
+///         scalars.
+///     </b>
+///     The same argument <c>BrokenMeshSpace</c>'s <c>MeshRecipe</c> makes: CsCheck shrinks
 ///     the values it generated, not what they were turned into, so a failing four-thousand-triangle
 ///     mesh is not a finding anybody can act on and a failing
 ///     <c>(Torus, 3, 1, [Pinched], 1)</c> is one line to paste into a test.
@@ -90,8 +98,12 @@ readonly record struct SurfaceRecipe(ShapeKind Shape, int Sides, int Steps, Surf
 ///         only the set of claims that are true of every surface.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Built from <see cref="MeshShapes" /> rather than by hand, which is the opposite of
-///         <see cref="ShapeCorpus" />' decision and for a compatible reason.</b> That corpus exists to
+///         ⚠
+///         <b>
+///             Built from <see cref="MeshShapes" /> rather than by hand, which is the opposite of
+///             <see cref="ShapeCorpus" />' decision and for a compatible reason.
+///         </b>
+///         That corpus exists to
 ///         quote distortion figures, so every one of its shapes is deliberately cut open — a closed
 ///         surface has no parameterization at all and would measure nothing. This one exists to state
 ///         robustness, where a closed solid is the <i>interesting</i> input: it is what an importer
@@ -134,7 +146,7 @@ static class SurfaceSpace {
         Gen.Int[3, 8],
         Gen.Int[1, 3],
         Gen.Enum<SurfaceDefect>().Array[0, 3],
-        (shape, sides, steps, defects) => new SurfaceRecipe(shape, sides, steps, defects, 1f)
+        static (shape, sides, steps, defects) => new SurfaceRecipe(shape, sides, steps, defects, 1f)
     );
 
     /// <summary>The same, at a size drawn from six orders of magnitude.</summary>
@@ -156,8 +168,7 @@ static class SurfaceSpace {
     public static EditMesh Build(SurfaceRecipe recipe) {
         var mesh = MeshShapes.Create(
             ShapeParameters.Default(recipe.Shape) with {
-                Sides = Math.Max(3, recipe.Sides),
-                Steps = Math.Max(1, recipe.Steps)
+                Sides = Math.Max(3, recipe.Sides), Steps = Math.Max(1, recipe.Steps)
             }
         );
 
@@ -184,15 +195,19 @@ static class SurfaceSpace {
 
     /// <summary>Half the solid, uncapped — a closed surface with a rim cut into it.</summary>
     /// <remarks>
-    ///     ⚠ <b>The cut is refused rather than forced, and the recipe still means something when it
-    ///     is.</b> <see cref="MeshBoolean.PlaneCut" /> returns null on input it cannot cut, and a
+    ///     ⚠
+    ///     <b>
+    ///         The cut is refused rather than forced, and the recipe still means something when it
+    ///         is.
+    ///     </b>
+    ///     <see cref="MeshBoolean.PlaneCut" /> returns null on input it cannot cut, and a
     ///     generator that threw there would be testing the boolean rather than the unwrapper — so the
     ///     uncut body goes through, which is a mesh the space already contains.
     /// </remarks>
     static EditMesh Cut(EditMesh source) {
         var box = source.Bounds;
         var plane = new Plane(Vector3.UnitY, -0.5f * (box.Minimum.Y + box.Maximum.Y));
-        var half = MeshBoolean.PlaneCut(source, plane, keepFront: false, cap: false);
+        var half = MeshBoolean.PlaneCut(source, plane, false, false);
 
         return half is null || half.IsEmpty ? source : half;
     }
@@ -277,12 +292,12 @@ static class SurfaceSpace {
 
     /// <summary>The same surface pressed onto a slab a fiftieth as tall.</summary>
     static EditMesh Squashed(EditMesh source) =>
-        Transformed(source, position => new(position.X, position.Y * 0.02f, position.Z));
+        Transformed(source, static position => new(position.X, position.Y * 0.02f, position.Z));
 
     static EditMesh Scaled(EditMesh source, float scale) =>
         scale == 1f ? source : Transformed(source, position => position * scale);
 
-    static EditMesh Copy(EditMesh source) => Transformed(source, position => position);
+    static EditMesh Copy(EditMesh source) => Transformed(source, static position => position);
 
     static EditMesh Transformed(EditMesh source, Func<Vector3, Vector3> move) {
         var mesh = new EditMesh();

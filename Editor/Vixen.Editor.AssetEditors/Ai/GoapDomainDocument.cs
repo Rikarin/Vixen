@@ -3,7 +3,6 @@
 
 using System.Diagnostics.CodeAnalysis;
 using Vixen.Ai;
-using Vixen.Authoring;
 using Vixen.Core;
 using Vixen.Core.Yaml;
 using Vixen.Editor.Core;
@@ -68,7 +67,8 @@ public sealed class GoapDomainDocument : EditorDocument {
                 );
             }
         } catch (Exception exception) when (exception is YamlBindingException
-            or YamlParseException or NotSupportedException) {
+                                                or YamlParseException
+                                                or NotSupportedException) {
             Content = New(name);
             LoadError = exception.Message;
         }
@@ -131,49 +131,44 @@ public sealed class GoapDomainDocument : EditorDocument {
             Name = content.Name,
             NodeBudget = content.NodeBudget,
             DepthLimit = content.DepthLimit,
-            Blackboard = [.. content.Blackboard.Select(key => new BehaviorKeyContent { Name = key.Name, Type = key.Type })],
+            Blackboard =
+                [..content.Blackboard.Select(key => new BehaviorKeyContent { Name = key.Name, Type = key.Type })],
             Keys = [
-                .. content.Keys.Select(
-                    key => new GoapKeyContent {
-                        Name = key.Name,
-                        Source = key.Source,
-                        From = key.From,
-                        Value = key.Value
+                ..content.Keys.Select(key => new GoapKeyContent {
+                        Name = key.Name, Source = key.Source, From = key.From, Value = key.Value
                     }
                 )
             ],
-            Actions = [.. content.Actions.Select(Copy)],
+            Actions = [..content.Actions.Select(Copy)],
             Goals = [
-                .. content.Goals.Select(
-                    goal => new GoapGoalContent {
-                        Name = goal.Name,
-                        Priority = goal.Priority,
-                        Conditions = [.. goal.Conditions.Select(Copy)]
+                ..content.Goals.Select(goal => new GoapGoalContent {
+                        Name = goal.Name, Priority = goal.Priority, Conditions = [..goal.Conditions.Select(Copy)]
                     }
                 )
             ]
         };
     }
 
-    static GoapActionContent Copy(GoapActionContent action) => new() {
-        Name = action.Name,
-        Task = action.Task,
-        Fields = new(action.Fields, StringComparer.Ordinal),
-        Cost = action.Cost,
-        Target = action.Target,
-        StoppingDistance = action.StoppingDistance,
-        Move = action.Move,
-        Conditions = [.. action.Conditions.Select(Copy)],
-        Effects = [
-            .. action.Effects.Select(effect => new GoapEffectContent { Key = effect.Key, Increases = effect.Increases })
-        ]
-    };
+    static GoapActionContent Copy(GoapActionContent action) =>
+        new() {
+            Name = action.Name,
+            Task = action.Task,
+            Fields = new(action.Fields, StringComparer.Ordinal),
+            Cost = action.Cost,
+            Target = action.Target,
+            StoppingDistance = action.StoppingDistance,
+            Move = action.Move,
+            Conditions = [..action.Conditions.Select(Copy)],
+            Effects = [
+                ..action.Effects.Select(effect => new GoapEffectContent {
+                        Key = effect.Key, Increases = effect.Increases
+                    }
+                )
+            ]
+        };
 
-    static GoapConditionContent Copy(GoapConditionContent condition) => new() {
-        Key = condition.Key,
-        Comparison = condition.Comparison,
-        Value = condition.Value
-    };
+    static GoapConditionContent Copy(GoapConditionContent condition) =>
+        new() { Key = condition.Key, Comparison = condition.Comparison, Value = condition.Value };
 
     /// <summary>
     ///     A new domain: one world key, one action and one goal it serves. ⚠ A file whose first

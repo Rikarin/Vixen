@@ -53,7 +53,7 @@ readonly record struct QueueFamilyPlan(uint Graphics, uint Compute, uint Transfe
         var seen = new HashSet<uint> { Graphics };
         yield return Graphics;
 
-        foreach (var family in (uint[]) [Compute, Transfer, Present]) {
+        foreach (var family in (uint[])[Compute, Transfer, Present]) {
             if (seen.Add(family)) {
                 yield return family;
             }
@@ -94,8 +94,8 @@ static class QueueFamilySelection {
 
         // Graphics, preferring one that can also present so that the swapchain never needs an
         // ownership transfer. Falling back to any graphics family is correct and slower, not wrong.
-        var graphics = FirstIndex(families, f => Has(f, QueueFlags.GraphicsBit) && f.CanPresent);
-        graphics ??= FirstIndex(families, f => Has(f, QueueFlags.GraphicsBit));
+        var graphics = FirstIndex(families, static f => Has(f, QueueFlags.GraphicsBit) && f.CanPresent);
+        graphics ??= FirstIndex(families, static f => Has(f, QueueFlags.GraphicsBit));
 
         if (graphics is null) {
             reason = families.IsEmpty
@@ -108,7 +108,7 @@ static class QueueFamilySelection {
         var present = graphics;
 
         if (presentRequired && !families[(int)graphics.Value].CanPresent) {
-            present = FirstIndex(families, f => f.CanPresent);
+            present = FirstIndex(families, static f => f.CanPresent);
 
             if (present is null) {
                 reason = "No queue family on this device can present to the surface.";
@@ -117,7 +117,7 @@ static class QueueFamilySelection {
         }
 
         // Dedicated compute: advertises compute, does not advertise graphics.
-        var compute = FirstIndex(families, f => Has(f, QueueFlags.ComputeBit) && !Has(f, QueueFlags.GraphicsBit))
+        var compute = FirstIndex(families, static f => Has(f, QueueFlags.ComputeBit) && !Has(f, QueueFlags.GraphicsBit))
             ?? graphics;
 
         // Dedicated transfer: the DMA engine. Vulkan lets a driver leave TransferBit off a family
@@ -125,11 +125,12 @@ static class QueueFamilySelection {
         // transfer and nothing else is exactly the copy engine, and asking for TransferBit alone
         // would miss drivers that set it everywhere.
         var transfer = FirstIndex(
-            families,
-            f => Has(f, QueueFlags.TransferBit)
-                && !Has(f, QueueFlags.GraphicsBit)
-                && !Has(f, QueueFlags.ComputeBit)
-        ) ?? graphics;
+                families,
+                static f => Has(f, QueueFlags.TransferBit)
+                    && !Has(f, QueueFlags.GraphicsBit)
+                    && !Has(f, QueueFlags.ComputeBit)
+            )
+            ?? graphics;
 
         plan = new(graphics.Value, compute.Value, transfer.Value, present.Value);
         reason = null;

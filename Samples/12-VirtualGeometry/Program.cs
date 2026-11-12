@@ -13,8 +13,12 @@ namespace Vixen.Samples.VirtualGeometry;
 ///         and the multi-platform proof lives in <c>Samples/01</c>.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The platform is <see cref="PlatformHost" />'s to choose, and this file used to take
-///         that choice away.</b> It built a <c>DesktopPlatform</c> by hand and handed it to
+///         ⚠
+///         <b>
+///             The platform is <see cref="PlatformHost" />'s to choose, and this file used to take
+///             that choice away.
+///         </b>
+///         It built a <c>DesktopPlatform</c> by hand and handed it to
 ///         <c>WithPlatform</c>, which <see cref="AppBuilder.Build" /> honours ahead of the factory —
 ///         so <c>--vixen-headless</c> was read, stored in <c>AppConfig.Headless</c>, and then never
 ///         consulted, and a run that asked for no display server opened an SDL window anyway. The
@@ -30,8 +34,12 @@ namespace Vixen.Samples.VirtualGeometry;
 ///         error or a hang.
 ///     </para>
 ///     <para>
-///         ⚠ <b><c>--vixen-capture</c> writes nothing here, and that is this sample's shape rather
-///         than a bug in the flag.</b> <see cref="VirtualGeometryGame.OnConfigure" /> sets
+///         ⚠
+///         <b>
+///             <c>--vixen-capture</c> writes nothing here, and that is this sample's shape rather
+///             than a bug in the flag.
+///         </b>
+///         <see cref="VirtualGeometryGame.OnConfigure" /> sets
 ///         <c>Graphics.Enabled = false</c> and owns its own device, swapchain and present, so there
 ///         is no <c>AppGraphics</c> to read a frame back out of. Under <c>--vixen-headless</c> the
 ///         window cannot present and the sample says so and draws nothing — see

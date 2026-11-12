@@ -12,7 +12,7 @@ public sealed class RealmDirectoryTests {
         using var directory = new RealmDirectory();
         var applied = 0;
 
-        directory.Ask(_ => Task.FromResult(7), answer => applied = answer);
+        directory.Ask(static _ => Task.FromResult(7), answer => applied = answer);
 
         // The realm keeps simulating. Nothing has touched anything it owns, whatever the task did.
         Assert.Equal(0, applied);
@@ -32,7 +32,7 @@ public sealed class RealmDirectoryTests {
         var actual = 0;
 
         directory.Ask(
-            async cancellation => {
+            static async cancellation => {
                 await Task.Yield();
                 await Task.Delay(5, cancellation);
 
@@ -51,7 +51,7 @@ public sealed class RealmDirectoryTests {
         using var directory = new RealmDirectory();
         var release = new TaskCompletionSource();
 
-        directory.Ask(_ => release.Task.ContinueWith(_ => 1, TaskScheduler.Default), _ => { });
+        directory.Ask(_ => release.Task.ContinueWith(static _ => 1, TaskScheduler.Default), static _ => { });
 
         Assert.Equal(1, directory.Pending);
 
@@ -68,8 +68,8 @@ public sealed class RealmDirectoryTests {
         Exception? seen = null;
 
         directory.Ask<int>(
-            _ => throw new InvalidOperationException("the orchestrator is not answering"),
-            _ => Assert.Fail("A faulted call must not be applied."),
+            static _ => throw new InvalidOperationException("the orchestrator is not answering"),
+            static _ => Assert.Fail("A faulted call must not be applied."),
             failure => seen = failure
         );
 
@@ -83,7 +83,7 @@ public sealed class RealmDirectoryTests {
     public void AFaultWithNoHandlerIsSurvived() {
         using var directory = new RealmDirectory();
 
-        directory.Ask<int>(_ => throw new InvalidOperationException("nobody is listening"), _ => { });
+        directory.Ask<int>(static _ => throw new InvalidOperationException("nobody is listening"), static _ => { });
 
         Eventually(directory, () => directory.FaultedCount == 1);
     }
@@ -94,8 +94,8 @@ public sealed class RealmDirectoryTests {
         using var directory = new RealmDirectory();
         var second = 0;
 
-        directory.Ask(_ => Task.FromResult(1), _ => throw new InvalidOperationException("oops"));
-        directory.Ask(_ => Task.FromResult(2), answer => second = answer);
+        directory.Ask(static _ => Task.FromResult(1), static _ => throw new InvalidOperationException("oops"));
+        directory.Ask(static _ => Task.FromResult(2), answer => second = answer);
 
         Eventually(directory, () => second == 2);
 
@@ -110,7 +110,7 @@ public sealed class RealmDirectoryTests {
         directory.Dispose();
         directory.Dispose();
 
-        directory.Ask(_ => Task.FromResult(1), _ => Assert.Fail("A disposed directory must not ask."));
+        directory.Ask(static _ => Task.FromResult(1), static _ => Assert.Fail("A disposed directory must not ask."));
 
         Assert.Equal(0, directory.Pending);
         Assert.Equal(0, directory.Drain());

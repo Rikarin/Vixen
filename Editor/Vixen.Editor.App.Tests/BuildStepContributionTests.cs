@@ -45,10 +45,14 @@ public class BuildStepContributionTests {
         var ran = 0;
 
         using var scope = registry.Add(
-            new BuildStep("sample.gate", BuildStage.BeforeBuild, (_, _) => {
-                Interlocked.Increment(ref ran);
-                return ValueTask.FromResult<string?>("the licence file is missing");
-            })
+            new BuildStep(
+                "sample.gate",
+                BuildStage.BeforeBuild,
+                (_, _) => {
+                    Interlocked.Increment(ref ran);
+                    return ValueTask.FromResult<string?>("the licence file is missing");
+                }
+            )
         );
 
         session.Frames(2);
@@ -65,11 +69,11 @@ public class BuildStepContributionTests {
         Assert.Equal(0, published());
 
         var said = session.Shell.Notifications.History
-            .Select(message => message.Message + " " + (message.Detail ?? string.Empty))
+            .Select(static message => message.Message + " " + (message.Detail ?? string.Empty))
             .ToList();
 
-        Assert.Contains(said, text => text.Contains("sample.gate", StringComparison.Ordinal));
-        Assert.Contains(said, text => text.Contains("the licence file is missing", StringComparison.Ordinal));
+        Assert.Contains(said, static text => text.Contains("sample.gate", StringComparison.Ordinal));
+        Assert.Contains(said, static text => text.Contains("the licence file is missing", StringComparison.Ordinal));
     }
 
     /// <summary>
@@ -90,10 +94,14 @@ public class BuildStepContributionTests {
         var ran = 0;
 
         var scope = registry.Add(
-            new BuildStep("sample.gate", BuildStage.BeforeBuild, (_, _) => {
-                Interlocked.Increment(ref ran);
-                return ValueTask.FromResult<string?>("not yet");
-            })
+            new BuildStep(
+                "sample.gate",
+                BuildStage.BeforeBuild,
+                (_, _) => {
+                    Interlocked.Increment(ref ran);
+                    return ValueTask.FromResult<string?>("not yet");
+                }
+            )
         );
 
         session.Frames(2);
@@ -139,14 +147,18 @@ public class BuildStepContributionTests {
         };
 
         using var scope = registry.Add(
-            new BuildStep("sample.package", BuildStage.AfterBuild, (context, _) => {
-                lock (order) {
-                    order.Add("sample.package");
-                }
+            new BuildStep(
+                "sample.package",
+                BuildStage.AfterBuild,
+                (context, _) => {
+                    lock (order) {
+                        order.Add("sample.package");
+                    }
 
-                seen = context;
-                return ValueTask.FromResult<string?>(null);
-            })
+                    seen = context;
+                    return ValueTask.FromResult<string?>(null);
+                }
+            )
         );
 
         session.Frames(2);

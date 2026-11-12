@@ -37,7 +37,7 @@ public sealed class SessionLinkReportTests {
         var server = harness.StartServer(Fast);
 
         var counting = new CountingTransport(harness.RawTransport());
-        counting.Report(ConnectionId.None, new(Sent: 40, Retransmitted: 3, Expected: 100, Missing: 7));
+        counting.Report(ConnectionId.None, new(40, 3, 100, 7));
 
         var client = harness.Add(counting, "client", Fast);
         client.StartClient();
@@ -71,8 +71,8 @@ public sealed class SessionLinkReportTests {
         // Scripted only now that the connections exist, and deliberately different: a session that
         // asked its transport for `Loss` rather than `LossFor` would hand both clients one number,
         // and one number cannot be both of these.
-        counting.Report(server.Players[0].Connection, new(0, 0, Expected: 200, Missing: 11));
-        counting.Report(server.Players[1].Connection, new(0, 0, Expected: 300, Missing: 29));
+        counting.Report(server.Players[0].Connection, new(0, 0, 200, 11));
+        counting.Report(server.Players[1].Connection, new(0, 0, 300, 29));
 
         harness.Pump(24);
 
@@ -117,7 +117,7 @@ public sealed class SessionLinkReportTests {
 
         // Not a link — a claim. A peer is entitled to be wrong and a fuzzer is entitled to be
         // hostile, and a ratio above one is a number somebody would act on.
-        counting.Report(ConnectionId.None, new(0, 0, Expected: 10, Missing: 99));
+        counting.Report(ConnectionId.None, new(0, 0, 10, 99));
 
         var client = harness.Add(counting, "client", Fast);
         client.StartClient();
@@ -136,7 +136,7 @@ public sealed class SessionLinkReportTests {
         var server = harness.StartServer(Fast);
 
         var counting = new CountingTransport(harness.RawTransport());
-        counting.Report(ConnectionId.None, new(0, 0, Expected: 100, Missing: 7));
+        counting.Report(ConnectionId.None, new(0, 0, 100, 7));
 
         var client = harness.Add(counting, "client", Fast);
         client.StartClient();
@@ -147,7 +147,7 @@ public sealed class SessionLinkReportTests {
         Assert.NotNull(player.ObservedOutbound);
 
         client.Stop();
-        harness.Pump(8);
+        harness.Pump();
 
         // The player is still in the session — a reconnect window is running — and the reading is
         // gone, because it described a connection that has ended.
@@ -169,11 +169,11 @@ public sealed class SessionLinkReportTests {
 
         var connection = Assert.Single(server.Players).Connection;
 
-        counting.Report(connection, new(0, 0, Expected: 50, Missing: 5));
+        counting.Report(connection, new(0, 0, 50, 5));
 
         // What the whole process missed, which on a server with one busy player and one silent one is
         // not what either of them missed. Nothing may read this.
-        counting.Whole = new(0, 0, Expected: 9_999, Missing: 4_321);
+        counting.Whole = new(0, 0, 9_999, 4_321);
 
         harness.Pump(24);
 

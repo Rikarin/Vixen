@@ -56,8 +56,10 @@ public readonly record struct MeshReport(
     public bool IsSolid => IsClosed && IsConsistent && Degenerate.Count == 0 && Orphans == 0;
 
     /// <summary>What is wrong, in a sentence, or <see langword="null" /> when the answer is nothing.</summary>
-    /// <remarks>What a test's failure message says, so that a broken invariant names itself rather
-    ///     than being a false somebody has to go and look up.</remarks>
+    /// <remarks>
+    ///     What a test's failure message says, so that a broken invariant names itself rather
+    ///     than being a false somebody has to go and look up.
+    /// </remarks>
     public string? Describe() {
         List<string> problems = [];
 

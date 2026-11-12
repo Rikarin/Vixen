@@ -62,7 +62,7 @@ internal readonly struct EquatableArray<T>(ImmutableArray<T> values)
 
         var hash = 17;
         foreach (var value in values) {
-            hash = (hash * 31) + (value?.GetHashCode() ?? 0);
+            hash = hash * 31 + (value?.GetHashCode() ?? 0);
         }
 
         return hash;

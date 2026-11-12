@@ -4,8 +4,6 @@
 using System.Diagnostics;
 using Vixen.Core.Mathematics;
 using Vixen.Editor.Core;
-using Vixen.Editor.Texturing.Painting;
-using Vixen.Texturing.Layers;
 using Vixen.Texturing.Painting;
 using Xunit;
 
@@ -16,14 +14,21 @@ namespace Vixen.Editor.Texturing.Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>The criterion is "a stroke on a 4K texture set with twelve layers under it stays under
-///         16 ms per stamp".</b> That is a wall-clock budget, and a wall-clock budget calibrated on
+///         <b>
+///             The criterion is "a stroke on a 4K texture set with twelve layers under it stays under
+///             16 ms per stamp".
+///         </b>
+///         That is a wall-clock budget, and a wall-clock budget calibrated on
 ///         an idle machine is this repository's single largest flake source: the number that fails
 ///         here on a loaded laptop is not a number about the brush.
 ///     </para>
 ///     <para>
-///         ⚠ <b>So the gate is the property the budget was a proxy for, and the milliseconds are
-///         reported beside it.</b> What makes a stamp cheap at 4K is that its work is its own
+///         ⚠
+///         <b>
+///             So the gate is the property the budget was a proxy for, and the milliseconds are
+///             reported beside it.
+///         </b>
+///         What makes a stamp cheap at 4K is that its work is its own
 ///         footprint and nothing else: a session writes the layer and touches no stack at all, so the
 ///         layer count is not on this path, and what repairs the plan afterwards is measured by
 ///         <c>LayerStackEvaluatorDeviceTests</c> in tiles.
@@ -36,8 +41,12 @@ namespace Vixen.Editor.Texturing.Tests;
 ///         goes red because somebody was compiling in another window.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The closed form used to exclude the dominant loop, which is the instrument failing
-///         rather than the code</b> — <a href="https://github.com/Rikarin/Vixen/issues/871">#871</a>.
+///         ⚠
+///         <b>
+///             The closed form used to exclude the dominant loop, which is the instrument failing
+///             rather than the code
+///         </b>
+///         — <a href="https://github.com/Rikarin/Vixen/issues/871">#871</a>.
 ///         <c>WeightsEvaluated</c> is incremented only for a covered texel inside a stamp's
 ///         footprint; the seam dilation scans <c>gutter</c> rounds of that footprint grown by the
 ///         gutter on every side, which at radius 48 is roughly 45 000 texels against 9 600 weights.
@@ -60,7 +69,7 @@ public class PaintCostTests(ITestOutputHelper output) {
         const int Stamps = 64;
 
         PaintImage layer = new(Size, Size);
-        PaintTarget target = new(layer, PaintCoverage.Everywhere(Size, Size), Gutter: 4);
+        PaintTarget target = new(layer, PaintCoverage.Everywhere(Size, Size), 4);
 
         var started = Stopwatch.GetTimestamp();
         var session = PaintSession.Begin(target, PaintStrokeTests.Hard(Radius) with { Spacing = 1f }, Opaque);
@@ -71,7 +80,7 @@ public class PaintCostTests(ITestOutputHelper output) {
         session.Move(new(1024f, 2048f));
 
         for (var step = 1; step < Stamps; step++) {
-            session.Move(new(1024f + (step * Radius), 2048f));
+            session.Move(new(1024f + step * Radius, 2048f));
         }
 
         var elapsed = Stopwatch.GetElapsedTime(stamping);
@@ -82,8 +91,8 @@ public class PaintCostTests(ITestOutputHelper output) {
         // grown by the gutter on every side. Neither number mentions the atlas or the stack.
         const int Gutter = 4;
 
-        var square = (long)((2 * Radius) + 2) * ((2 * Radius) + 2);
-        var dilated = (long)((2 * Radius) + 2 + (2 * Gutter)) * ((2 * Radius) + 2 + (2 * Gutter));
+        var square = (long)(2 * Radius + 2) * (2 * Radius + 2);
+        var dilated = (long)(2 * Radius + 2 + 2 * Gutter) * (2 * Radius + 2 + 2 * Gutter);
 
         Assert.True(
             session.WeightsEvaluated <= Stamps * square,
@@ -94,7 +103,7 @@ public class PaintCostTests(ITestOutputHelper output) {
         // ⚠ The bound the criterion is actually about — #871. The weight count above omits the
         // dilation scan, which is the larger of a stamp's two loops; this names both terms, and
         // neither mentions the atlas or the stack either.
-        var scanned = Stamps * (square + (Gutter * dilated));
+        var scanned = Stamps * (square + Gutter * dilated);
 
         Assert.True(
             session.TexelsScanned <= scanned,
@@ -131,8 +140,11 @@ public class PaintCostTests(ITestOutputHelper output) {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <b>A closed-form oracle rather than a bound, because the swept parameter must not
-    ///         appear in the answer at all.</b> The separation between the two mirrors is the only
+    ///         <b>
+    ///             A closed-form oracle rather than a bound, because the swept parameter must not
+    ///             appear in the answer at all.
+    ///         </b>
+    ///         The separation between the two mirrors is the only
     ///         thing that differs between the two runs; a view handed the union of the two dirty
     ///         rectangles pays for the bounding box between them, so the number would grow as the
     ///         square of the separation. A view handed the regions pays for two stamps, whatever the
@@ -140,8 +152,12 @@ public class PaintCostTests(ITestOutputHelper output) {
     ///         re-bless when the brush changes.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Symmetry is the worst case and not an edge case, which is why this is worth a
-    ///         test of its own.</b> A mirror plane through the middle of a model puts its two hits
+    ///         ⚠
+    ///         <b>
+    ///             Symmetry is the worst case and not an edge case, which is why this is worth a
+    ///             test of its own.
+    ///         </b>
+    ///         A mirror plane through the middle of a model puts its two hits
     ///         in different UV islands, and an atlas packer has no reason to put those islands near
     ///         each other. Painting down the seam of a symmetric model is the ordinary use of the
     ///         feature.
@@ -149,8 +165,8 @@ public class PaintCostTests(ITestOutputHelper output) {
     /// </remarks>
     [Fact]
     public void Two_mirrored_paths_cost_the_same_however_far_apart_the_atlas_puts_them() {
-        var near = Mirrored(separation: 64f);
-        var far = Mirrored(separation: 900f);
+        var near = Mirrored(64f);
+        var far = Mirrored(900f);
 
         Assert.Equal(near.Resolved, far.Resolved);
         Assert.Equal(near.Weights, far.Weights);
@@ -172,9 +188,11 @@ public class PaintCostTests(ITestOutputHelper output) {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <b>The same oracle as the test above, driven through the undo entry instead of
-    ///         through the pointer —
-    ///         <a href="https://github.com/Rikarin/Vixen/issues/891">#891</a>.</b>
+    ///         <b>
+    ///             The same oracle as the test above, driven through the undo entry instead of
+    ///             through the pointer —
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/891">#891</a>.
+    ///         </b>
     ///         <c>PaintStrokeCommand</c> rebuilt exactly the bounding-box union that #871 removed
     ///         from <c>PaintSession.MoveAll</c>: <c>rect.Union(stroke.Undo())</c> over every stroke
     ///         and one redraw of the result. So an artist who painted a symmetric model and pressed
@@ -193,8 +211,8 @@ public class PaintCostTests(ITestOutputHelper output) {
     /// </remarks>
     [Fact]
     public void Undoing_two_mirrored_paths_costs_the_same_however_far_apart_the_atlas_puts_them() {
-        var near = MirroredUndo(separation: 64f);
-        var far = MirroredUndo(separation: 900f);
+        var near = MirroredUndo(64f);
+        var far = MirroredUndo(900f);
 
         Assert.Equal(near.Undone, far.Undone);
         Assert.Equal(near.Redone, far.Redone);
@@ -213,13 +231,17 @@ public class PaintCostTests(ITestOutputHelper output) {
     /// <summary>⚠ The criterion's own size, driven by rays rather than by texel positions.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>Doc 48's exit criterion 8 asks for a stamp under 16 ms on a 4K set with twelve
-    ///         layers under it, and every measurement of it until now was of the 2D path.</b> That is
+    ///         <b>
+    ///             Doc 48's exit criterion 8 asks for a stamp under 16 ms on a 4K set with twelve
+    ///             layers under it, and every measurement of it until now was of the 2D path.
+    ///         </b>
+    ///         That is
     ///         not the same claim: the 3D path adds a raycast per path per pointer move and converts
     ///         a screen radius through the hit triangle's Jacobian.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The atlas is the criterion's, and it may not appear in the bound.</b> The closed form below is the sibling of the one at the top of this file,
+    ///         ⚠ <b>The atlas is the criterion's, and it may not appear in the bound.</b> The closed form below is the sibling
+    ///         of the one at the top of this file,
     ///         with the footprint measured off the radius the <em>projection</em> chose rather than
     ///         off a number the test picked — which is the whole difference between measuring this
     ///         path and measuring the other one with a 3D-sounding name.
@@ -239,7 +261,7 @@ public class PaintCostTests(ITestOutputHelper output) {
         var eye = PaintEye.Orthographic(new(0.5f, 0.5f, 10f), new(0f, 0f, -1f), 1f, Size);
 
         PaintImage layer = new(Size, Size);
-        PaintTarget target = new(layer, PaintCoverage.Everywhere(Size, Size), Gutter: 4);
+        PaintTarget target = new(layer, PaintCoverage.Everywhere(Size, Size), 4);
 
         Assert.True(projector.Begin(eye, PaintProjectionTests.Down(0.25f, 0.5f), 48f, out var footprint));
         Assert.Equal(48f, footprint.Radius, 2);
@@ -247,7 +269,9 @@ public class PaintCostTests(ITestOutputHelper output) {
         var started = Stopwatch.GetTimestamp();
         var session = PaintSession.Begin(
             target,
-            PaintStrokeTests.Hard(footprint.Radius) with { Spacing = 1f, Aspect = footprint.Aspect, AspectAngle = footprint.Angle },
+            PaintStrokeTests.Hard(footprint.Radius) with {
+                Spacing = 1f, Aspect = footprint.Aspect, AspectAngle = footprint.Angle
+            },
             Opaque
         );
 
@@ -255,7 +279,7 @@ public class PaintCostTests(ITestOutputHelper output) {
         var stamping = Stopwatch.GetTimestamp();
 
         for (var step = 0; step < Moves; step++) {
-            session.MoveAll(projector.Resolve(PaintProjectionTests.Down(0.25f + (step * 48f / Size), 0.5f)));
+            session.MoveAll(projector.Resolve(PaintProjectionTests.Down(0.25f + step * 48f / Size, 0.5f)));
         }
 
         var elapsed = Stopwatch.GetElapsedTime(stamping);
@@ -270,13 +294,13 @@ public class PaintCostTests(ITestOutputHelper output) {
         const int Radius = 48;
         const int Gutter = 4;
 
-        var square = (long)((2 * Radius) + 2) * ((2 * Radius) + 2);
-        var dilated = (long)((2 * Radius) + 2 + (2 * Gutter)) * ((2 * Radius) + 2 + (2 * Gutter));
+        var square = (long)(2 * Radius + 2) * (2 * Radius + 2);
+        var dilated = (long)(2 * Radius + 2 + 2 * Gutter) * (2 * Radius + 2 + 2 * Gutter);
 
         Assert.True(
-            session.TexelsScanned <= session.StampCount * (square + (Gutter * dilated)),
+            session.TexelsScanned <= session.StampCount * (square + Gutter * dilated),
             $"{session.TexelsScanned} texels scanned for {session.StampCount} projected stamps; "
-            + $"{session.StampCount * (square + (Gutter * dilated))} is the footprint-plus-dilation bound."
+            + $"{session.StampCount * (square + Gutter * dilated)} is the footprint-plus-dilation bound."
         );
 
         var perStamp = elapsed.TotalMilliseconds / session.StampCount;
@@ -299,7 +323,7 @@ public class PaintCostTests(ITestOutputHelper output) {
         const int Size = 1024;
 
         PaintImage layer = new(Size, Size);
-        PaintTarget target = new(layer, PaintCoverage.Everywhere(Size, Size), Gutter: 2);
+        PaintTarget target = new(layer, PaintCoverage.Everywhere(Size, Size), 2);
         var session = PaintSession.Begin(target, PaintStrokeTests.Hard(12f), Opaque);
 
         Span<Vector2> both = [new(60f, 512f), new(60f + separation, 512f)];
@@ -324,7 +348,7 @@ public class PaintCostTests(ITestOutputHelper output) {
         const int Size = 1024;
 
         PaintImage layer = new(Size, Size);
-        PaintTarget target = new(layer, PaintCoverage.Everywhere(Size, Size), Gutter: 2);
+        PaintTarget target = new(layer, PaintCoverage.Everywhere(Size, Size), 2);
         var session = PaintSession.Begin(target, PaintStrokeTests.Hard(12f), Opaque);
 
         Span<Vector2> both = [new(60f, 512f), new(60f + separation, 512f)];

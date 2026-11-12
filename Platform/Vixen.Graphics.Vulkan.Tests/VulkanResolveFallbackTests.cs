@@ -113,22 +113,26 @@ public sealed class VulkanResolveFallbackTests {
         VulkanRequirement.Available(TryOpen(true, out var device, out var reason), reason ?? "no Vulkan");
         using var owned = device!;
 
-        var multisampled = owned.CreateTexture(new(
-            PixelFormat.Depth32Float,
-            Side,
-            Side,
-            TextureUsage.DepthStencilTarget,
-            SampleCount: 4,
-            Name: "depth samples"
-        ));
+        var multisampled = owned.CreateTexture(
+            new(
+                PixelFormat.Depth32Float,
+                Side,
+                Side,
+                TextureUsage.DepthStencilTarget,
+                SampleCount: 4,
+                Name: "depth samples"
+            )
+        );
 
-        var resolved = owned.CreateTexture(new(
-            PixelFormat.Depth32Float,
-            Side,
-            Side,
-            TextureUsage.DepthStencilTarget | TextureUsage.CopySource,
-            Name: "depth resolved"
-        ));
+        var resolved = owned.CreateTexture(
+            new(
+                PixelFormat.Depth32Float,
+                Side,
+                Side,
+                TextureUsage.DepthStencilTarget | TextureUsage.CopySource,
+                Name: "depth resolved"
+            )
+        );
 
         var samplesView = owned.CreateTextureView(multisampled);
         var resolvedView = owned.CreateTextureView(resolved);
@@ -138,17 +142,18 @@ public sealed class VulkanResolveFallbackTests {
         try {
             using var list = owned.BeginCommandList(QueueKind.Graphics, "depth resolve");
 
-            var refusal = Assert.Throws<NotSupportedException>(
-                () => list.BeginRenderPass(new(
-                    [],
-                    new DepthStencilAttachment(
-                        samplesView,
-                        LoadAction.Clear,
-                        StoreAction.Resolve,
-                        ResolveView: resolvedView
-                    ),
-                    name: "depth only"
-                ))
+            var refusal = Assert.Throws<NotSupportedException>(() => list.BeginRenderPass(
+                    new(
+                        [],
+                        new DepthStencilAttachment(
+                            samplesView,
+                            LoadAction.Clear,
+                            StoreAction.Resolve,
+                            ResolveView: resolvedView
+                        ),
+                        "depth only"
+                    )
+                )
             );
 
             Assert.Contains("depth attachment", refusal.Message, StringComparison.Ordinal);
@@ -164,22 +169,26 @@ public sealed class VulkanResolveFallbackTests {
 
     /// <summary>Clears a 4× attachment to red, resolves it, and reads the resolve target back.</summary>
     static byte[] Resolve(VulkanDevice device) {
-        var multisampled = device.CreateTexture(new(
-            PixelFormat.Rgba8UNorm,
-            Side,
-            Side,
-            TextureUsage.ColourTarget,
-            SampleCount: 4,
-            Name: "samples"
-        ));
+        var multisampled = device.CreateTexture(
+            new(
+                PixelFormat.Rgba8UNorm,
+                Side,
+                Side,
+                TextureUsage.ColourTarget,
+                SampleCount: 4,
+                Name: "samples"
+            )
+        );
 
-        var resolved = device.CreateTexture(new(
-            PixelFormat.Rgba8UNorm,
-            Side,
-            Side,
-            TextureUsage.ColourTarget | TextureUsage.CopySource,
-            Name: "resolved"
-        ));
+        var resolved = device.CreateTexture(
+            new(
+                PixelFormat.Rgba8UNorm,
+                Side,
+                Side,
+                TextureUsage.ColourTarget | TextureUsage.CopySource,
+                Name: "resolved"
+            )
+        );
 
         var samplesView = device.CreateTextureView(multisampled);
         var resolvedView = device.CreateTextureView(resolved);
@@ -193,29 +202,41 @@ public sealed class VulkanResolveFallbackTests {
         try {
             using var list = device.BeginCommandList(QueueKind.Graphics, "resolve");
 
-            list.Barrier(new([], [
-                new(multisampled, ResourceState.Undefined, ResourceState.ColourTarget),
-                new(resolved, ResourceState.Undefined, ResourceState.ColourTarget)
-            ]));
+            list.Barrier(
+                new(
+                    [],
+                    [
+                        new(multisampled, ResourceState.Undefined, ResourceState.ColourTarget),
+                        new(resolved, ResourceState.Undefined, ResourceState.ColourTarget)
+                    ]
+                )
+            );
 
-            list.BeginRenderPass(new(
-                [
-                    new(
-                        samplesView,
-                        LoadAction.Clear,
-                        StoreAction.Resolve,
-                        new(1f, 0f, 0f, 1f),
-                        resolvedView
-                    )
-                ],
-                name: "msaa clear"
-            ));
+            list.BeginRenderPass(
+                new(
+                    [
+                        new(
+                            samplesView,
+                            LoadAction.Clear,
+                            StoreAction.Resolve,
+                            new(1f, 0f, 0f, 1f),
+                            resolvedView
+                        )
+                    ],
+                    name: "msaa clear"
+                )
+            );
 
             list.EndRenderPass();
 
-            list.Barrier(new([], [
-                new(resolved, ResourceState.ColourTarget, ResourceState.CopySource)
-            ]));
+            list.Barrier(
+                new(
+                    [],
+                    [
+                        new(resolved, ResourceState.ColourTarget, ResourceState.CopySource)
+                    ]
+                )
+            );
 
             list.CopyTextureToBuffer(new(resolved), new(Side, Side, 1), readback, 0);
             list.Finish();

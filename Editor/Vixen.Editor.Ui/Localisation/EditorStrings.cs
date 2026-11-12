@@ -93,8 +93,12 @@ public static class EditorStrings {
 
     /// <summary>Saves the open document.</summary>
     /// <remarks>
-    ///     ⚠ <b>The text is the scene's and not the word "Save", because the running editor's
-    ///     <c>file.save</c> said <c>Save Scene</c> and this said <c>Save</c>.</b> Registered with a
+    ///     ⚠
+    ///     <b>
+    ///         The text is the scene's and not the word "Save", because the running editor's
+    ///         <c>file.save</c> said <c>Save Scene</c> and this said <c>Save</c>.
+    ///     </b>
+    ///     Registered with a
     ///     hand-built <c>new StringId("editor.command.save", "Save Scene")</c>, so a translator's
     ///     template carried <c>editor.command.file.save</c> and the editor looked up
     ///     <c>editor.command.save</c> — the <c>CommandUndo</c>/<c>CommandRedo</c> defect
@@ -168,7 +172,8 @@ public static class EditorStrings {
     public static StringId CommandDocumentation { get; } = new("editor.command.help.documentation", "Documentation");
 
     /// <summary>What the palette's field says when it is empty.</summary>
-    public static StringId PalettePlaceholder { get; } = new("editor.palette.placeholder", "Type a command, asset or setting…");
+    public static StringId PalettePlaceholder { get; } =
+        new("editor.palette.placeholder", "Type a command, asset or setting…");
 
     /// <summary>What the palette says when nothing matches.</summary>
     public static StringId PaletteEmpty { get; } = new("editor.palette.empty", "No matches");
@@ -264,8 +269,12 @@ public static class EditorStrings {
 
     /// <summary>The source-control history's, which is a different history entirely.</summary>
     /// <remarks>
-    ///     ⚠ <b>"Revisions" rather than "History", because the editor already has a History panel
-    ///     and it is the undo stack.</b> Two panels called History in one Window menu is a menu
+    ///     ⚠
+    ///     <b>
+    ///         "Revisions" rather than "History", because the editor already has a History panel
+    ///         and it is the undo stack.
+    ///     </b>
+    ///     Two panels called History in one Window menu is a menu
     ///     where the one you want is a coin toss.
     /// </remarks>
     public static StringId PanelRevisions { get; } = new("editor.panel.revisions", "Revisions");
@@ -356,7 +365,10 @@ public static class EditorStrings {
 
     /// <summary>And for one its own manifest switches off.</summary>
     public static StringId PluginsManifestOff { get; } =
-        new("editor.plugins.manifest-off", "Its plugin.yaml says enabled: false, which is the author's switch rather than yours.");
+        new(
+            "editor.plugins.manifest-off",
+            "Its plugin.yaml says enabled: false, which is the author's switch rather than yours."
+        );
 
     /// <summary>What the undo history's strip says.</summary>
     public static StringId HistoryHint { get; } =
@@ -1099,8 +1111,11 @@ public static class EditorStrings {
     /// <summary>Why each declared-but-unbuilt command is unavailable, by the command's own id.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>One family for the seventeen sentences <c>EditorParity.Planned</c> used to take as a
-    ///         literal</b> and turn into <c>new StringId("editor.planned." + id, reason)</c>. The
+    ///         <b>
+    ///             One family for the seventeen sentences <c>EditorParity.Planned</c> used to take as a
+    ///             literal
+    ///         </b>
+    ///         and turn into <c>new StringId("editor.planned." + id, reason)</c>. The
     ///         census saw one construction and the tree had seventeen undeclared sentences, which is
     ///         the shape a helper hides best (#1178) — and these are the words a professional reads
     ///         when a menu line is greyed, so they are the last ones that should be untranslatable.
@@ -1195,7 +1210,7 @@ public static class EditorStrings {
                 + "no culling dispatch in it — the cluster buffer it binds is a zeroed stand-in, so the "
                 + "count would be zero for every pixel."
             ),
-            .. ClipboardCommands.Select(id =>
+            ..ClipboardCommands.Select(static id =>
                 new KeyValuePair<string, string>(
                     id,
                     "A clipboard is a buffer that outlives the selection it was filled from; the editor "
@@ -1207,8 +1222,12 @@ public static class EditorStrings {
 
     /// <summary>What each built-in shape's create command is called, by the shape's lowercased name.</summary>
     /// <remarks>
-    ///     ⚠ <b>Spelled out rather than built from <c>PrimitiveShapes.All</c>, because this assembly
-    ///     cannot see <c>Vixen.Rendering</c> and must not start to</b> — the same trade the two refused
+    ///     ⚠
+    ///     <b>
+    ///         Spelled out rather than built from <c>PrimitiveShapes.All</c>, because this assembly
+    ///         cannot see <c>Vixen.Rendering</c> and must not start to
+    ///     </b>
+    ///     — the same trade the two refused
     ///     view modes in <see cref="PlannedReasons" /> make. The coupling is checked rather than
     ///     hoped for: a shape that joins the list without a line here throws while the editor
     ///     registers its commands, which every editor test does. #1178.
@@ -1715,13 +1734,13 @@ public static class EditorStrings {
         // ⚠ Spread, which is what puts every member of a family in a translator's template. A family
         // left out of this list hides seventeen sentences rather than one, which is why VXS0310
         // counts a StringFamily property as a declaration.
-        .. PlannedReasons.All,
-        .. PlayOverlays.All,
-        .. CreateShapes.All,
-        .. CreateLights.All,
-        .. BuildConfigurations.All,
-        .. CreateAssetKinds.All,
-        .. ViewportCommandLabels.All
+        ..PlannedReasons.All,
+        ..PlayOverlays.All,
+        ..CreateShapes.All,
+        ..CreateLights.All,
+        ..BuildConfigurations.All,
+        ..CreateAssetKinds.All,
+        ..ViewportCommandLabels.All
     ];
 
     /// <summary>A catalog holding every string the editor declares, for a translator to start from.</summary>
@@ -1736,8 +1755,12 @@ public static class EditorStrings {
     ///         of declaration lists, so a shell that wants one file passes both.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And <see cref="StringContributions.Declared" />, which is the half that was
-    ///         missing</b> (<a href="https://github.com/Rikarin/Vixen/issues/1202">#1202</a>). A
+    ///         ⚠
+    ///         <b>
+    ///             And <see cref="StringContributions.Declared" />, which is the half that was
+    ///             missing
+    ///         </b>
+    ///         (<a href="https://github.com/Rikarin/Vixen/issues/1202">#1202</a>). A
     ///         toolset's words are the toolset's to declare — five of them have an <c>All</c> list
     ///         and this editor cannot name any of those classes without depending on the assembly
     ///         they are in — so a module contributes its list as it activates and this reads
@@ -1746,5 +1769,5 @@ public static class EditorStrings {
     ///     </para>
     /// </remarks>
     public static StringCatalog Template(string language) =>
-        Strings.Template(language, [.. All, .. StringContributions.Declared]);
+        Strings.Template(language, [..All, ..StringContributions.Declared]);
 }

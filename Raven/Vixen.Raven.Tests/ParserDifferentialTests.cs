@@ -4,7 +4,6 @@
 using Vixen.Core.Syntax.Diagnostics;
 using Vixen.Core.Syntax.Text;
 using Vixen.Raven.Parsing;
-using Vixen.Raven.Syntax;
 using Xunit;
 
 namespace Tests;
@@ -97,7 +96,8 @@ public class ParserDifferentialTests {
     [InlineData("val x = f(\n    g(\n        1\n    ),\n    2\n)\n")]
     [InlineData("val x = a.b(\n    1\n).c\n")]
     public void Trees_are_identical_for_the_ambiguity_probes(string body) {
-        var text = $"package A\n\nshader S {{\n    func M() {{\n        {body.Replace("\n", "\n        ").TrimEnd(' ')}    }}\n}}\n";
+        var text =
+            $"package A\n\nshader S {{\n    func M() {{\n        {body.Replace("\n", "\n        ").TrimEnd(' ')}    }}\n}}\n";
         AssertSameTree(text);
     }
 
@@ -111,7 +111,9 @@ public class ParserDifferentialTests {
     [InlineData("    func M(\n        a: float,\n        b: float = 1f\n    ): float3 {\n    }\n")]
     [InlineData("    func M(a: float,\n           b: float) {\n    }\n")]
     [InlineData("    func M(\n\n        a: float,\n\n        b: float\n\n    ) {\n    }\n")]
-    [InlineData("    func M(\n        [Semantic(\"SV_GroupIndex\")] lane: uint,\n        inout d: float3\n    ) {\n    }\n")]
+    [InlineData(
+        "    func M(\n        [Semantic(\"SV_GroupIndex\")] lane: uint,\n        inout d: float3\n    ) {\n    }\n"
+    )]
     [InlineData("    func M(\n        a: float\n    ): float => a\n")]
     public void Trees_are_identical_for_broken_signatures(string member) {
         AssertSameTree($"package A\n\nshader S {{\n{member}}}\n");
@@ -128,7 +130,10 @@ public class ParserDifferentialTests {
         var tokens = RavenLexer.Lex(text, bag, source, "diff.rvn");
         var root = RavenParser.Parse(tokens, bag, source, "diff.rvn");
 
-        Assert.True(bag.IsEmpty, "Hand-written parser diagnostics:\n" + string.Join("\n", bag.Select(d => d.ToString())));
+        Assert.True(
+            bag.IsEmpty,
+            "Hand-written parser diagnostics:\n" + string.Join("\n", bag.Select(static d => d.ToString()))
+        );
         Assert.Equal(text, root.ToFullString());
         Assert.Equal(SyntaxDumper.Dump(oracleRoot), SyntaxDumper.Dump(root));
     }

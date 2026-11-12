@@ -31,7 +31,7 @@ public class FileChangeCoalescerTests {
         Assert.Empty(changes);
 
         Assert.Equal(1, coalescer.Drain(60 * Millisecond, changes));
-        Assert.Equal(new VirtualPath("/a.txt"), changes[0].Path);
+        Assert.Equal(new("/a.txt"), changes[0].Path);
     }
 
     [Fact]
@@ -146,7 +146,7 @@ public class FileChangeCoalescerTests {
         coalescer.Record(new(new("/a.txt"), FileChangeKind.Renamed, new("/a.txt.tmp")), 10 * Millisecond);
 
         Assert.Equal(1, coalescer.Drain(70 * Millisecond, changes));
-        Assert.Equal(new VirtualPath("/a.txt"), changes[0].Path);
+        Assert.Equal(new("/a.txt"), changes[0].Path);
         Assert.Equal(FileChangeKind.Changed, changes[0].Kind);
     }
 
@@ -162,7 +162,7 @@ public class FileChangeCoalescerTests {
         coalescer.Drain(70 * Millisecond, changes);
         var change = Assert.Single(changes);
         Assert.Equal(FileChangeKind.Renamed, change.Kind);
-        Assert.Equal(new VirtualPath("/old.txt"), change.OldPath);
+        Assert.Equal(new("/old.txt"), change.OldPath);
     }
 
     [Fact]
@@ -216,13 +216,13 @@ public class FileChangeCoalescerTests {
 
         Assert.Equal(
             [new VirtualPath("/z.txt"), new VirtualPath("/a.txt"), new VirtualPath("/m.txt")],
-            changes.Select(change => change.Path)
+            changes.Select(static change => change.Path)
         );
     }
 
     [Fact]
     public void OverflowingTheBufferIsCountedRatherThanHidden() {
-        var coalescer = new FileChangeCoalescer(capacity: 4);
+        var coalescer = new FileChangeCoalescer(4);
         var changes = new List<FileChange>();
 
         for (var index = 0; index < 10; index++) {
@@ -298,7 +298,7 @@ public class FileChangeCoalescerTests {
         coalescer.Suppress(new("/a.txt"), 10 * Millisecond);
 
         Assert.Equal(1, coalescer.Drain(200 * Millisecond, changes));
-        Assert.Equal(new VirtualPath("/b.txt"), changes[0].Path);
+        Assert.Equal(new("/b.txt"), changes[0].Path);
     }
 
     /// <summary>A path suppressed with nothing pending is the ordinary case and is not disturbed.</summary>

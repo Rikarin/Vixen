@@ -42,8 +42,10 @@ internal sealed class AndroidWindow : IWindow {
     internal AndroidGameView View => view;
 
     /// <inheritdoc />
-    /// <remarks>Kept and returned; Android shows it nowhere, the activity's label being a manifest
-    /// entry rather than a runtime one.</remarks>
+    /// <remarks>
+    ///     Kept and returned; Android shows it nowhere, the activity's label being a manifest
+    ///     entry rather than a runtime one.
+    /// </remarks>
     public string Title {
         get {
             ThrowIfClosed();
@@ -63,7 +65,7 @@ internal sealed class AndroidWindow : IWindow {
             var pixels = view.PixelSize;
             return new((int)(pixels.X / density), (int)(pixels.Y / density));
         }
-        set { ThrowIfClosed(); }
+        set => ThrowIfClosed();
     }
 
     /// <inheritdoc />
@@ -80,7 +82,7 @@ internal sealed class AndroidWindow : IWindow {
             ThrowIfClosed();
             return Int2.Zero;
         }
-        set { ThrowIfClosed(); }
+        set => ThrowIfClosed();
     }
 
     /// <inheritdoc />
@@ -97,7 +99,7 @@ internal sealed class AndroidWindow : IWindow {
             ThrowIfClosed();
             return WindowMode.BorderlessFullscreen;
         }
-        set { ThrowIfClosed(); }
+        set => ThrowIfClosed();
     }
 
     /// <inheritdoc />
@@ -106,7 +108,7 @@ internal sealed class AndroidWindow : IWindow {
             ThrowIfClosed();
             return true;
         }
-        set { ThrowIfClosed(); }
+        set => ThrowIfClosed();
     }
 
     /// <inheritdoc />
@@ -155,7 +157,7 @@ internal sealed class AndroidWindow : IWindow {
             ThrowIfClosed();
             return CursorMode.Normal;
         }
-        set { ThrowIfClosed(); }
+        set => ThrowIfClosed();
     }
 
     /// <inheritdoc />
@@ -164,7 +166,7 @@ internal sealed class AndroidWindow : IWindow {
             ThrowIfClosed();
             return CursorShape.Arrow;
         }
-        set { ThrowIfClosed(); }
+        set => ThrowIfClosed();
     }
 
     /// <inheritdoc />

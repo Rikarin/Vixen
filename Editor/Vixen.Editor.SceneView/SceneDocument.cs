@@ -4,7 +4,6 @@
 using System.Diagnostics.CodeAnalysis;
 using Vixen.Authoring;
 using Vixen.Core;
-using Vixen.Core.Mathematics;
 using Vixen.Ecs;
 using Vixen.Editor.Core;
 using Vixen.Editor.Core.Scenes;
@@ -119,7 +118,7 @@ public sealed class RenameEntityCommand : IEditorCommand {
 /// </remarks>
 public sealed class SceneDocument : EditorDocument {
     readonly Dictionary<Entity, string> names = [];
-    ISceneWriter? writer;
+
     readonly Dictionary<Entity, EntityId> ids = [];
 
     /// <summary>The entities the editor is not drawing, and the ones it will not let be picked.</summary>
@@ -145,8 +144,12 @@ public sealed class SceneDocument : EditorDocument {
     /// <summary>The editable geometry each entity carries, for the ones that carry any.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A table on the document rather than a component in the world, and doc 24's B3 is
-    ///         the bargain.</b> A component no build declares is what a content compile refuses, and an
+    ///         ⚠
+    ///         <b>
+    ///             A table on the document rather than a component in the world, and doc 24's B3 is
+    ///             the bargain.
+    ///         </b>
+    ///         A component no build declares is what a content compile refuses, and an
     ///         <c>EditMesh</c> is not a component — it is a mutable object of a few thousand numbers
     ///         belonging to one entity in one scene. Blockout geometry is level data rather than a
     ///         shared asset, which is where it belongs: a designer who had to save six meshes to disk
@@ -159,6 +162,7 @@ public sealed class SceneDocument : EditorDocument {
     ///     </para>
     /// </remarks>
     readonly Dictionary<Entity, EditMesh> meshes = [];
+
     readonly Dictionary<Entity, int> versions = [];
 
     /// <summary>The live parameters each shaped entity still has, for the ones that have any.</summary>
@@ -172,8 +176,12 @@ public sealed class SceneDocument : EditorDocument {
     ///         one-way door with nothing to clean up.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Beside the mesh rather than instead of it, and the alternative is worse in three
-    ///         places at once.</b> Deriving the geometry on demand would mean the picker, the drawing
+    ///         ⚠
+    ///         <b>
+    ///             Beside the mesh rather than instead of it, and the alternative is worse in three
+    ///             places at once.
+    ///         </b>
+    ///         Deriving the geometry on demand would mean the picker, the drawing
     ///         and every selection walk each asking a generator for a mesh they then have to cache;
     ///         and the moment a shape is demoted, every one of them would have to switch source. One
     ///         table answers "what is this made of" and the other answers "what was it made from".
@@ -187,12 +195,17 @@ public sealed class SceneDocument : EditorDocument {
 
     /// <summary>The entities whose geometry is a boolean of their children's.</summary>
     /// <remarks>
-    ///     ⚠ <b>A table beside the mesh rather than a component, for <see cref="meshes" />' reason and
-    ///     one of its own.</b> A boolean is a <i>derivation</i> — what this entity's geometry is a
+    ///     ⚠
+    ///     <b>
+    ///         A table beside the mesh rather than a component, for <see cref="meshes" />' reason and
+    ///         one of its own.
+    ///     </b>
+    ///     A boolean is a <i>derivation</i> — what this entity's geometry is a
     ///     function of — and the thing it is a function of is the hierarchy, which is already the
     ///     world's. Two enum values and a hash per entity, and nothing about it belongs in a chunk.
     /// </remarks>
     readonly Dictionary<Entity, CsgNode> booleans = [];
+
     readonly Dictionary<EntityId, Entity> byId = [];
     readonly QueryDescription tagged = new QueryDescription().RequireAll([ComponentType<SceneTag>.Id]);
 
@@ -221,8 +234,12 @@ public sealed class SceneDocument : EditorDocument {
     ///         thirty bytes an entity to serve a panel that does not exist at run time.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>This is what <see cref="SceneSerializer" /> writes the <c>prefab</c>,
-    ///         <c>source</c> and <c>overrides</c> keys from, and fills on a read.</b> Doc 47 § 7 owed
+    ///         ⚠
+    ///         <b>
+    ///             This is what <see cref="SceneSerializer" /> writes the <c>prefab</c>,
+    ///             <c>source</c> and <c>overrides</c> keys from, and fills on a read.
+    ///         </b>
+    ///         Doc 47 § 7 owed
     ///         exactly that: until the writer could see a link, an instance placed today was an
     ///         ordinary subtree tomorrow.
     ///     </para>
@@ -260,9 +277,9 @@ public sealed class SceneDocument : EditorDocument {
     ///     the writer and not the asset.
     /// </remarks>
     public ISceneWriter? Writer {
-        get => writer;
+        get => field;
         set {
-            writer = value;
+            field = value;
             WritesTo((value as SceneFileWriter)?.Path);
         }
     }
@@ -347,16 +364,24 @@ public sealed class SceneDocument : EditorDocument {
     /// <summary>The behaviours the entities in this document carry.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A container, not a driver — nothing here ever calls
-    ///         <see cref="BehaviorStore.RunLifecycle" />.</b> An editor showing a scene is showing
+    ///         ⚠
+    ///         <b>
+    ///             A container, not a driver — nothing here ever calls
+    ///             <see cref="BehaviorStore.RunLifecycle" />.
+    ///         </b>
+    ///         An editor showing a scene is showing
     ///         <i>authored</i> behaviours: they hold the values somebody typed and they have not run.
     ///         Driving the lifecycle would call <c>Awake</c> and <c>Start</c> on a designer's
     ///         behalf — a script spawning enemies the moment you selected its entity — which is why
     ///         Unity's edit mode does not run them either.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Which is also why the store's authoring path is
-    ///         <see cref="BehaviorStore.Remove" /> and not <c>Destroy</c>.</b> A queued destroy waits
+    ///         ⚠
+    ///         <b>
+    ///             Which is also why the store's authoring path is
+    ///             <see cref="BehaviorStore.Remove" /> and not <c>Destroy</c>.
+    ///         </b>
+    ///         A queued destroy waits
     ///         for a drain that, here, never comes.
     ///     </para>
     ///     <para>
@@ -406,8 +431,12 @@ public sealed class SceneDocument : EditorDocument {
     /// <returns>Whether anything changed.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>For a caller that is <i>already</i> being recorded, and there is exactly one:
-    ///         a property setter the inspector is writing through.</b> The inspector wraps every
+    ///         ⚠
+    ///         <b>
+    ///             For a caller that is <i>already</i> being recorded, and there is exactly one:
+    ///             a property setter the inspector is writing through.
+    ///         </b>
+    ///         The inspector wraps every
     ///         write in a <c>SetMembersCommand</c>, so a setter that also called
     ///         <see cref="Rename" /> put two entries on the stack for one edit — and the second was
     ///         pushed from inside the first, which is where it stopped being merely untidy. Undoing
@@ -513,8 +542,12 @@ public sealed class SceneDocument : EditorDocument {
     /// <param name="root">The topmost entity of the contiguous run that shares its prefab.</param>
     /// <returns>Whether it is part of an instance at all.</returns>
     /// <remarks>
-    ///     ⚠ <b>The topmost <i>contiguous</i> ancestor sharing the same prefab, which is what "the
-    ///     instance root" has to mean here.</b> <c>PrefabInstances.Forget</c> unpacks one entity
+    ///     ⚠
+    ///     <b>
+    ///         The topmost <i>contiguous</i> ancestor sharing the same prefab, which is what "the
+    ///         instance root" has to mean here.
+    ///     </b>
+    ///     <c>PrefabInstances.Forget</c> unpacks one entity
     ///     deliberately, and an instance may be nested inside another one — so the run stops at the
     ///     first ancestor that is not linked, or is linked to a different prefab. Walking to the
     ///     scene's root instead would put a removal on whatever happened to be above.
@@ -551,8 +584,12 @@ public sealed class SceneDocument : EditorDocument {
     ///         list to exist first, and this is where it gets written.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>When the run's own root is inside the subtree, the instance that lost a child is the
-    ///         one <i>above</i>.</b> A nested prefab instance is a run of its own, so deleting the whole
+    ///         ⚠
+    ///         <b>
+    ///             When the run's own root is inside the subtree, the instance that lost a child is the
+    ///             one <i>above</i>.
+    ///         </b>
+    ///         A nested prefab instance is a run of its own, so deleting the whole
     ///         of it makes its root the subtree's — and the entity that went is still one of the outer
     ///         template's children. Walking out to the nearest linked ancestor is what records it. Only
     ///         when there is nothing above is there nowhere left to say anything, which is what deleting
@@ -630,7 +667,9 @@ public sealed class SceneDocument : EditorDocument {
     }
 
     bool InSubtree(Entity subtree, Entity entity) {
-        for (var current = entity; !current.IsNull && World.IsAlive(current); current = Hierarchy.ParentOf(World, current)) {
+        for (var current = entity;
+             !current.IsNull && World.IsAlive(current);
+             current = Hierarchy.ParentOf(World, current)) {
             if (current == subtree) {
                 return true;
             }
@@ -641,8 +680,10 @@ public sealed class SceneDocument : EditorDocument {
 
     /// <summary>Puts a whole subtree into the scene, undoably.</summary>
     /// <param name="name">What the undo history calls it.</param>
-    /// <param name="make">What makes the subtree and hands back its root. Run once — see
-    ///     <see cref="InstantiateSubtreeCommand" />.</param>
+    /// <param name="make">
+    ///     What makes the subtree and hands back its root. Run once — see
+    ///     <see cref="InstantiateSubtreeCommand" />.
+    /// </param>
     /// <returns>The subtree's root, or <see cref="Entity.Null" /> if nothing was made.</returns>
     /// <remarks>
     ///     <see cref="Create" /> for one entity, this for however many a file turns out to hold. It is
@@ -767,8 +808,12 @@ public sealed class SceneDocument : EditorDocument {
     /// </param>
     /// <returns>Whether anything moved.</returns>
     /// <remarks>
-    ///     ⚠ <b>This is what makes sibling order reachable, and doc 20 § Part D had it as the second
-    ///     half of one ⛔.</b> <c>Hierarchy.SetParentAfter</c> has always existed and
+    ///     ⚠
+    ///     <b>
+    ///         This is what makes sibling order reachable, and doc 20 § Part D had it as the second
+    ///         half of one ⛔.
+    ///     </b>
+    ///     <c>Hierarchy.SetParentAfter</c> has always existed and
     ///     <see cref="ReparentCommand" /> has always used it to <i>undo</i> a move; what nothing could
     ///     say was where a move should land. A drop <i>on</i> a row means "make a child" and reaches
     ///     the overload above; a drop <i>between</i> two rows means "put it here among these
@@ -830,8 +875,12 @@ public sealed class SceneDocument : EditorDocument {
 
     /// <summary>Raised when a component was added to or taken off an entity.</summary>
     /// <remarks>
-    ///     ⚠ <b>Its own event, and the panel that issued the change is not the only listener that
-    ///     matters.</b> An <i>undo</i> of "remove component" puts the column back without anything
+    ///     ⚠
+    ///     <b>
+    ///         Its own event, and the panel that issued the change is not the only listener that
+    ///         matters.
+    ///     </b>
+    ///     An <i>undo</i> of "remove component" puts the column back without anything
     ///     having been clicked, so a panel that only rebuilt after its own commands would show a
     ///     component that is gone and hide one that is back.
     /// </remarks>
@@ -950,15 +999,19 @@ public sealed class SceneDocument : EditorDocument {
     /// <summary>How many times an entity's mesh has changed.</summary>
     /// <param name="entity">Whose.</param>
     /// <returns>A number that moves whenever the mesh does, and never goes back.</returns>
-    /// <remarks>Zero for an entity that has never had one, which is the same answer as "unchanged
-    ///     since you last asked" for a caller that has never asked — and both mean "nothing to do".</remarks>
+    /// <remarks>
+    ///     Zero for an entity that has never had one, which is the same answer as "unchanged
+    ///     since you last asked" for a caller that has never asked — and both mean "nothing to do".
+    /// </remarks>
     public int MeshVersion(Entity entity) => versions.GetValueOrDefault(entity);
 
     /// <summary>The live parameters an entity's shape still has, or <see langword="null" />.</summary>
     /// <param name="entity">The entity.</param>
     /// <returns>Its parameters.</returns>
-    /// <remarks>Null for an entity that never had any and for one that has been demoted — the two are
-    ///     the same thing from here, which is what makes the door one-way.</remarks>
+    /// <remarks>
+    ///     Null for an entity that never had any and for one that has been demoted — the two are
+    ///     the same thing from here, which is what makes the door one-way.
+    /// </remarks>
     public ShapeParameters? ShapeOf(Entity entity) => shapes.TryGetValue(entity, out var shape) ? shape : null;
 
     /// <summary>Whether an entity's geometry is still generated from parameters.</summary>
@@ -1017,8 +1070,11 @@ public sealed class SceneDocument : EditorDocument {
     /// <returns>The assignments, which is empty for an entity whose mesh is all one material.</returns>
     /// <remarks>
     ///     <para>
-    ///         <b>Doc 24's P5 per-face material, and the assignment is to a <i>group</i> rather than to
-    ///         a face.</b> That is D2's whole reason for having groups: a wall's twelve faces after two
+    ///         <b>
+    ///             Doc 24's P5 per-face material, and the assignment is to a <i>group</i> rather than to
+    ///             a face.
+    ///         </b>
+    ///         That is D2's whole reason for having groups: a wall's twelve faces after two
     ///         bevels are still one wall, and a material remembered per face index would be one that a
     ///         loop cut renumbered out from under.
     ///     </para>
@@ -1036,8 +1092,10 @@ public sealed class SceneDocument : EditorDocument {
     /// <param name="entity">The entity.</param>
     /// <param name="group">Which group.</param>
     /// <param name="material">The material, or <see cref="AssetReference.Null" /> to clear it.</param>
-    /// <remarks>Not undoable by itself, for the reason <see cref="SetMesh" /> is not — see
-    ///     <c>BlockoutSurfaces</c>, which is what a person's assignment goes through.</remarks>
+    /// <remarks>
+    ///     Not undoable by itself, for the reason <see cref="SetMesh" /> is not — see
+    ///     <c>BlockoutSurfaces</c>, which is what a person's assignment goes through.
+    /// </remarks>
     public void SetMaterial(Entity entity, int group, AssetReference material) {
         if (material.IsNull) {
             if (materials.TryGetValue(entity, out var assigned) && assigned.Remove(group)) {
@@ -1071,17 +1129,21 @@ public sealed class SceneDocument : EditorDocument {
     /// <summary>Whether an entity's geometry is derived from its children rather than authored.</summary>
     /// <param name="entity">The entity.</param>
     /// <returns>Whether it is.</returns>
-    /// <remarks>What an outliner badges and what an element mode refuses: editing a face of a derived
+    /// <remarks>
+    ///     What an outliner badges and what an element mode refuses: editing a face of a derived
     ///     mesh is editing something the next re-evaluation will overwrite — see
     ///     <see cref="MeshEdit.Demote" />, which collapses the boolean rather than letting that
-    ///     happen.</remarks>
+    ///     happen.
+    /// </remarks>
     public bool IsDerived(Entity entity) => booleans.ContainsKey(entity);
 
     /// <summary>Gives an entity a boolean, or takes one away.</summary>
     /// <param name="entity">The entity.</param>
     /// <param name="node">The node, or <see langword="null" /> to collapse it to a plain mesh.</param>
-    /// <remarks>Not undoable by itself, for <see cref="SetMesh" />'s reason —
-    ///     <see cref="BooleanCommand" /> is what a person's edit goes through.</remarks>
+    /// <remarks>
+    ///     Not undoable by itself, for <see cref="SetMesh" />'s reason —
+    ///     <see cref="BooleanCommand" /> is what a person's edit goes through.
+    /// </remarks>
     public void SetBoolean(Entity entity, CsgNode? node) {
         if (node is not { } value) {
             if (booleans.Remove(entity)) {
@@ -1118,7 +1180,9 @@ public sealed class SceneDocument : EditorDocument {
             return false;
         }
 
-        for (var current = entity; current != Entity.Null && World.IsAlive(current); current = Hierarchy.ParentOf(World, current)) {
+        for (var current = entity;
+             current != Entity.Null && World.IsAlive(current);
+             current = Hierarchy.ParentOf(World, current)) {
             if (set.Contains(current)) {
                 return true;
             }
@@ -1136,8 +1200,12 @@ public sealed class SceneDocument : EditorDocument {
     /// <param name="Materials">A copy of its per-group materials.</param>
     /// <param name="Boolean">The boolean its geometry was derived by.</param>
     /// <remarks>
-    ///     ⚠ <b>Every table <see cref="PruneNames" /> drops apart from the three a snapshot already
-    ///     carries, and the two lists have to be kept in step.</b> A delete's undo restores the handle
+    ///     ⚠
+    ///     <b>
+    ///         Every table <see cref="PruneNames" /> drops apart from the three a snapshot already
+    ///         carries, and the two lists have to be kept in step.
+    ///     </b>
+    ///     A delete's undo restores the handle
     ///     and the components; everything here is keyed by handle on the document instead, and was lost
     ///     on the way — a hidden entity came back drawn, a locked one pickable (#1482) and a blockout
     ///     box with a transform and no geometry.

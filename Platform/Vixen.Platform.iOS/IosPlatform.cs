@@ -10,8 +10,11 @@ namespace Vixen.Platform.Ios;
 /// <summary>iOS, behind <see cref="IPlatform" />.</summary>
 /// <remarks>
 ///     <para>
-///         <b>The frame loop is not this platform's to own, and that is the one structural
-///         difference from the desktop.</b> UIKit owns the main thread from <c>UIApplicationMain</c>
+///         <b>
+///             The frame loop is not this platform's to own, and that is the one structural
+///             difference from the desktop.
+///         </b>
+///         UIKit owns the main thread from <c>UIApplicationMain</c>
 ///         onwards; there is no place to put a <c>while</c> loop. So a frame is driven by
 ///         <see cref="IosApplicationHost" />'s <c>CADisplayLink</c> calling
 ///         <c>VixenApplication.RunFrame</c> — which is public for exactly this, and is the reason
@@ -107,8 +110,12 @@ public sealed class IosPlatform : IPlatform {
 
     /// <inheritdoc />
     /// <remarks>
-    ///     ⚠ <b><see cref="SystemAccessibility.Unknown" />: iOS has these settings and this platform
-    ///     does not read them.</b> <c>UIAccessibility.isReduceMotionEnabled</c> and
+    ///     ⚠
+    ///     <b>
+    ///         <see cref="SystemAccessibility.Unknown" />: iOS has these settings and this platform
+    ///         does not read them.
+    ///     </b>
+    ///     <c>UIAccessibility.isReduceMotionEnabled</c> and
     ///     <c>isDarkerSystemColorsEnabled</c> are the answers, both UIKit and both needing the main
     ///     thread this does not run on. Reporting "off" instead would be inventing a preference on
     ///     behalf of the user.
@@ -198,7 +205,8 @@ public sealed class IosPlatform : IPlatform {
         var scene = UIApplication.SharedApplication.ConnectedScenes
             .OfType<UIWindowScene>()
             .FirstOrDefault(candidate => candidate.ActivationState is UISceneActivationState.ForegroundActive
-                or UISceneActivationState.ForegroundInactive);
+                or UISceneActivationState.ForegroundInactive
+            );
 
         if (scene is not null) {
             return new(scene);

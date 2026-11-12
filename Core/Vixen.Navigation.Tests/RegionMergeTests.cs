@@ -74,7 +74,10 @@ public sealed class RegionMergeTests {
                 var b = shape[(corner + 1) % count];
                 var c = shape[(corner + 2) % count];
 
-                Assert.True(NavGeometry.Side2D(a, b, c) >= -1e-3f, $"Polygon {poly} turns back on itself at corner {corner}.");
+                Assert.True(
+                    NavGeometry.Side2D(a, b, c) >= -1e-3f,
+                    $"Polygon {poly} turns back on itself at corner {corner}."
+                );
             }
         }
     }
@@ -96,23 +99,26 @@ public sealed class RegionMergeTests {
                 }
 
                 var start = tile.PolyVertices[first + edge];
-                var end = tile.PolyVertices[first + ((edge + 1) % count)];
+                var end = tile.PolyVertices[first + (edge + 1) % count];
                 var matched = false;
 
                 var otherFirst = tile.Polys[neighbour].FirstVertex;
                 var otherCount = tile.Polys[neighbour].VertexCount;
 
                 for (var other = 0; other < otherCount; other++) {
-                    if (tile.PolyVertices[otherFirst + other] == end &&
-                        tile.PolyVertices[otherFirst + ((other + 1) % otherCount)] == start &&
-                        tile.PolyNeighbours[otherFirst + other] == poly) {
+                    if (tile.PolyVertices[otherFirst + other] == end
+                        && tile.PolyVertices[otherFirst + (other + 1) % otherCount] == start
+                        && tile.PolyNeighbours[otherFirst + other] == poly) {
                         matched = true;
 
                         break;
                     }
                 }
 
-                Assert.True(matched, $"Polygon {poly} claims {neighbour} across edge {edge}, which does not claim it back.");
+                Assert.True(
+                    matched,
+                    $"Polygon {poly} claims {neighbour} across edge {edge}, which does not claim it back."
+                );
             }
         }
     }

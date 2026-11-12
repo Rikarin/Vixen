@@ -51,7 +51,7 @@ public sealed class VideoFrameTests {
     public void PlanesAreLaidOutEndToEndInOneBuffer() {
         var frame = new VideoFrame();
 
-        frame.Reset(new VideoFormat(16, 16, VideoPixelLayout.Yuv420Planar));
+        frame.Reset(new(16, 16, VideoPixelLayout.Yuv420Planar));
 
         Assert.Equal(0, frame.Offset(0));
         Assert.Equal(256, frame.Offset(1));
@@ -64,7 +64,7 @@ public sealed class VideoFrameTests {
     public void ARowIsWritableAndLandsWhereTheOffsetSaysItDoes() {
         var frame = new VideoFrame();
 
-        frame.Reset(new VideoFormat(4, 4, VideoPixelLayout.Yuv420Planar));
+        frame.Reset(new(4, 4, VideoPixelLayout.Yuv420Planar));
         frame.Row(0, 2).Fill(200);
 
         Assert.Equal(200, frame.Pixels[8]);
@@ -77,7 +77,7 @@ public sealed class VideoFrameTests {
         // seen once and attributed to the decoder.
         var frame = new VideoFrame();
 
-        frame.Reset(new VideoFormat(4, 4, VideoPixelLayout.Yuv420Planar));
+        frame.Reset(new(4, 4, VideoPixelLayout.Yuv420Planar));
         frame.Clear();
 
         Assert.Equal(16, frame.Plane(0)[0]);
@@ -89,9 +89,7 @@ public sealed class VideoFrameTests {
     public void AFullRangeFrameClearsToZeroLuma() {
         var frame = new VideoFrame();
 
-        frame.Reset(
-            new VideoFormat(4, 4, VideoPixelLayout.Yuv420Planar, Range: VideoColourRange.Full)
-        );
+        frame.Reset(new(4, 4, VideoPixelLayout.Yuv420Planar, Range: VideoColourRange.Full));
 
         frame.Clear();
 
@@ -102,16 +100,14 @@ public sealed class VideoFrameTests {
     public void AnInvalidFormatIsRefusedRatherThanAllocated() {
         var frame = new VideoFrame();
 
-        Assert.Throws<ArgumentException>(
-            () => frame.Reset(new VideoFormat(0, 16, VideoPixelLayout.Yuv420Planar))
-        );
+        Assert.Throws<ArgumentException>(() => frame.Reset(new(0, 16, VideoPixelLayout.Yuv420Planar)));
     }
 
     [Fact]
     public void CopyingAFrameCopiesItsTimingToo() {
         var source = new VideoFrame();
 
-        source.Reset(new VideoFormat(4, 4, VideoPixelLayout.Grey8));
+        source.Reset(new(4, 4, VideoPixelLayout.Grey8));
         source.Plane(0).Fill(77);
         source.Timestamp = TimeSpan.FromSeconds(3);
         source.IsKeyFrame = true;

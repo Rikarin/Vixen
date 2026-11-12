@@ -107,8 +107,12 @@ public sealed class PhysicsWritebackSystem(PhysicsScene scene) : SystemBase, IDe
 ///         which is why interpolating into the same component is safe rather than cumulative.
 ///     </para>
 ///     <para>
-///         ⚠ <b>In <see cref="SystemPhase.LateUpdate" /> and not <see cref="SystemPhase.PreRender" />,
-///         because a camera that follows a body is what everybody actually looks at.</b> That phase's
+///         ⚠
+///         <b>
+///             In <see cref="SystemPhase.LateUpdate" /> and not <see cref="SystemPhase.PreRender" />,
+///             because a camera that follows a body is what everybody actually looks at.
+///         </b>
+///         That phase's
 ///         own summary is "after everything has moved — cameras that follow, constraints that
 ///         correct", and a camera solving there against a pose this system had not smoothed yet is a
 ///         camera that steps at the fixed rate however smooth the body is. The symptom is the
@@ -141,8 +145,12 @@ public sealed class PhysicsWritebackSystem(PhysicsScene scene) : SystemBase, IDe
 ///         entity is being created at.
 ///     </para>
 ///     <para>
-///         ⚠ <b>It writes what it drew back into <see cref="PhysicsInterpolation.DrawnPosition" />,
-///         and that is not bookkeeping.</b> On a character, <c>LocalTransform</c> is an input as well
+///         ⚠
+///         <b>
+///             It writes what it drew back into <see cref="PhysicsInterpolation.DrawnPosition" />,
+///             and that is not bookkeeping.
+///         </b>
+///         On a character, <c>LocalTransform</c> is an input as well
 ///         as an output — <c>PhysicsScene.Adopt</c> takes a transform that disagrees with the
 ///         controller as a teleport — so a smoothed pose left here was undone on the next step, and a
 ///         character carrying this component walked at exactly half its <c>WalkSpeed</c>. The bridge
@@ -254,8 +262,12 @@ public static class PhysicsSystems {
     /// <exception cref="ArgumentNullException">Any of the first three arguments is null.</exception>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Separate from <see cref="AddPhysics(EngineLoop, PhysicsScene)" /> because it needs
-    ///         two things physics does not.</b> A <see cref="DebugDraw" /> belongs to the frame and a
+    ///         ⚠
+    ///         <b>
+    ///             Separate from <see cref="AddPhysics(EngineLoop, PhysicsScene)" /> because it needs
+    ///             two things physics does not.
+    ///         </b>
+    ///         A <see cref="DebugDraw" /> belongs to the frame and a
     ///         <see cref="DiagnosticOverlays" /> to the host, and a simulation running headlessly — a
     ///         dedicated server, a determinism harness — has neither. Folding this into the four-pass
     ///         call would make every such host construct an accumulator to throw away.

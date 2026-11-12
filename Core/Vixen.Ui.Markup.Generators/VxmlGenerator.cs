@@ -60,8 +60,7 @@ public sealed class VxmlGenerator : IIncrementalGenerator {
     public void Initialize(IncrementalGeneratorInitializationContext context) {
         // Only the two MSBuild properties this needs, pulled out as strings. The options provider
         // itself is not equatable, so anything downstream of it whole would never cache.
-        var options = context.AnalyzerConfigOptionsProvider.Select(
-            static (provider, _) => {
+        var options = context.AnalyzerConfigOptionsProvider.Select(static (provider, _) => {
                 provider.GlobalOptions.TryGetValue("build_property.projectdir", out var directory);
                 provider.GlobalOptions.TryGetValue("build_property.rootnamespace", out var @namespace);
                 return new ProjectOptions(directory ?? string.Empty, @namespace ?? string.Empty);
@@ -93,7 +92,7 @@ public sealed class VxmlGenerator : IIncrementalGenerator {
 
         var relative = Relative(text.Path, options.ProjectDirectory);
 
-        return new VxmlSource(
+        return new(
             text.Path,
             HintName(relative),
             Namespace(options.RootNamespace, relative),
@@ -220,7 +219,7 @@ public sealed class VxmlGenerator : IIncrementalGenerator {
             ? ComponentEmitter.Emit(component!, source.FullPath, NullIfEmpty(source.Namespace))
             : null;
 
-        return new VxmlOutput(source.HintName, text, new EquatableArray<ReportedDiagnostic>(reported.ToImmutable()));
+        return new(source.HintName, text, new(reported.ToImmutable()));
     }
 
     static string? NullIfEmpty(string value) => value.Length == 0 ? null : value;
@@ -228,7 +227,7 @@ public sealed class VxmlGenerator : IIncrementalGenerator {
     static ReportedDiagnostic Flatten(VxmlDiagnostic diagnostic, string path) {
         var lines = diagnostic.Location.GetLineSpan();
 
-        return new ReportedDiagnostic(
+        return new(
             diagnostic.Descriptor.Id,
             diagnostic.Descriptor.Title,
             diagnostic.Descriptor.Category,
@@ -274,8 +273,12 @@ public sealed class VxmlGenerator : IIncrementalGenerator {
     ///         formatting.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>This is insurance, and it is labelled as insurance because the sabotage that
-    ///         was meant to prove it necessary failed.</b> Handing the formatted message in as the
+    ///         ⚠
+    ///         <b>
+    ///             This is insurance, and it is labelled as insurance because the sabotage that
+    ///             was meant to prove it necessary failed.
+    ///         </b>
+    ///         Handing the formatted message in as the
     ///         template produces exactly the same output: Roslyn catches the
     ///         <see cref="FormatException" /> and falls back to the unformatted template, which
     ///         here is the finished message, so the brace arrives intact and nothing crashes.
@@ -292,15 +295,15 @@ public sealed class VxmlGenerator : IIncrementalGenerator {
             "{0}",
             diagnostic.Category,
             diagnostic.Severity,
-            isEnabledByDefault: true
+            true
         );
 
         var location = Location.Create(
             diagnostic.FilePath,
-            new TextSpan(diagnostic.Start, diagnostic.Length),
-            new LinePositionSpan(
-                new LinePosition(diagnostic.StartLine, diagnostic.StartCharacter),
-                new LinePosition(diagnostic.EndLine, diagnostic.EndCharacter)
+            new(diagnostic.Start, diagnostic.Length),
+            new(
+                new(diagnostic.StartLine, diagnostic.StartCharacter),
+                new(diagnostic.EndLine, diagnostic.EndCharacter)
             )
         );
 

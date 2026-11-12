@@ -3,7 +3,6 @@
 
 using Vixen.Core;
 using Vixen.Core.Mathematics;
-using Vixen.Ecs;
 using Vixen.Engine.Transforms;
 using Vixen.Geometry;
 using Vixen.Rendering;
@@ -44,8 +43,11 @@ public interface IScenePicker {
 /// <summary>Something that can say which face, edge or vertex of an entity is under the pointer.</summary>
 /// <remarks>
 ///     <para>
-///         <b>Deliberately not on <see cref="IScenePicker" />, and doc 24's B4 is why the two are
-///         different questions.</b> "Which entity is under this ray" is asked of a scene and answers
+///         <b>
+///             Deliberately not on <see cref="IScenePicker" />, and doc 24's B4 is why the two are
+///             different questions.
+///         </b>
+///         "Which entity is under this ray" is asked of a scene and answers
 ///         with something the whole editor understands; "which face of <i>this</i> mesh" is asked of
 ///         one entity, answers with an index into a table only the caller and the mesh agree about,
 ///         and needs a tolerance in pixels because a vertex has no area. A stub that answered the
@@ -86,8 +88,11 @@ public interface ISubObjectPicker {
     /// <param name="kind">Which kind of element to answer with.</param>
     /// <param name="into">The indices. Cleared first.</param>
     /// <remarks>
-    ///     <b>The other half of doc 24's P2 selection table, and it is the same band
-    ///     <see cref="IScenePicker.Within" /> resolves against entities.</b> Doc 20's E2 asks for the
+    ///     <b>
+    ///         The other half of doc 24's P2 selection table, and it is the same band
+    ///         <see cref="IScenePicker.Within" /> resolves against entities.
+    ///     </b>
+    ///     Doc 20's E2 asks for the
     ///     region resolve to be built once; one <see cref="Marquee" />, two questions, and the mode is
     ///     what decides which of them is asked.
     /// </remarks>
@@ -112,8 +117,12 @@ public interface ISubObjectPicker {
 /// <summary>Which entity is under a click, worked out on the processor.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>This is not what <see cref="PickingBuffer" /> is, and it is not meant to replace
-///         it.</b> Drawing object ids with the same vertex path as the picture is the only way to be
+///         ⚠
+///         <b>
+///             This is not what <see cref="PickingBuffer" /> is, and it is not meant to replace
+///             it.
+///         </b>
+///         Drawing object ids with the same vertex path as the picture is the only way to be
 ///         right for a skinned mesh, an instanced forest or anything whose shader moved its vertices.
 ///         ⚠ That stage is <em>written</em> and, contrary to what this paragraph used to say, it is
 ///         not tested: nothing constructs a <see cref="PickingRenderer" /> anywhere in the tree. What
@@ -127,8 +136,12 @@ public interface ISubObjectPicker {
 ///         arithmetic whether or not a GPU is involved.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The ray goes into each shape's local space rather than the vertices coming out of
-///         it.</b> A cube is twenty-four vertices and a torus six hundred; transforming them per
+///         ⚠
+///         <b>
+///             The ray goes into each shape's local space rather than the vertices coming out of
+///             it.
+///         </b>
+///         A cube is twenty-four vertices and a torus six hundred; transforming them per
 ///         entity per click is the whole cost of the test, and inverting one matrix is not. The
 ///         parameter along the ray survives the transform unchanged so long as the direction is
 ///         <i>not</i> renormalised on the way in — which is what makes distances from differently
@@ -158,8 +171,12 @@ public sealed class ScenePicker : IScenePicker, ISubObjectPicker {
 
     /// <summary>The element tables of edited meshes, one per entity and with the version they are of.</summary>
     /// <remarks>
-    ///     ⚠ <b>Per entity, unlike <see cref="elements" />, because an edited mesh is one entity's
-    ///     own.</b> That is doc 24's B1 follow-up said about picking rather than about drawing: a
+    ///     ⚠
+    ///     <b>
+    ///         Per entity, unlike <see cref="elements" />, because an edited mesh is one entity's
+    ///         own.
+    ///     </b>
+    ///     That is doc 24's B1 follow-up said about picking rather than about drawing: a
     ///     block-out mesh is one shape per <i>entity</i> rather than one per kind. The version is what
     ///     makes a drag re-derive them, and what makes every frame of a drag that changed nothing free.
     /// </remarks>
@@ -238,8 +255,11 @@ public sealed class ScenePicker : IScenePicker, ISubObjectPicker {
     /// <inheritdoc />
     /// <remarks>
     ///     <para>
-    ///         <b>The shape's own oriented box, projected, and then the screen rectangle round
-    ///         that.</b> Testing every triangle against the band would be exact and would cost a
+    ///         <b>
+    ///             The shape's own oriented box, projected, and then the screen rectangle round
+    ///             that.
+    ///         </b>
+    ///         Testing every triangle against the band would be exact and would cost a
     ///         scene's worth of projections per drag; testing the world-aligned bounds would be a box
     ///         bigger than a rotated crate on every axis. Eight corners through the entity's matrix is
     ///         the middle answer, and it is the one both reference editors give.
@@ -253,8 +273,12 @@ public sealed class ScenePicker : IScenePicker, ISubObjectPicker {
     ///         camera and is skipped.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Hidden and locked entities are skipped, exactly as <see cref="Under(Ray, EditorCamera, int, int)" /> skips
-    ///         them.</b> A band is the gesture that most easily takes something the user cannot see,
+    ///         ⚠
+    ///         <b>
+    ///             Hidden and locked entities are skipped, exactly as <see cref="Under(Ray, EditorCamera, int, int)" /> skips
+    ///             them.
+    ///         </b>
+    ///         A band is the gesture that most easily takes something the user cannot see,
     ///         and a marquee and a click disagreeing about what is selectable is worse than either
     ///         rule on its own.
     ///     </para>
@@ -311,11 +335,12 @@ public sealed class ScenePicker : IScenePicker, ISubObjectPicker {
         var any = false;
 
         for (var index = 0; index < 8; index++) {
-            var local = centre + new Vector3(
-                (index & 1) == 0 ? -extent.X : extent.X,
-                (index & 2) == 0 ? -extent.Y : extent.Y,
-                (index & 4) == 0 ? -extent.Z : extent.Z
-            );
+            var local = centre
+                + new Vector3(
+                    (index & 1) == 0 ? -extent.X : extent.X,
+                    (index & 2) == 0 ? -extent.Y : extent.Y,
+                    (index & 4) == 0 ? -extent.Z : extent.Z
+                );
 
             if (!camera.TryProject(Matrix4x4.TransformPosition(local, transform), width, height, out var point)) {
                 continue;
@@ -384,8 +409,12 @@ public sealed class ScenePicker : IScenePicker, ISubObjectPicker {
 
     /// <inheritdoc />
     /// <remarks>
-    ///     ⚠ <b>An edited mesh wins over the entity's primitive kind, and the numbers are the reason
-    ///     rather than the geometry.</b> Once an entity carries an <c>EditMesh</c>, that is what a
+    ///     ⚠
+    ///     <b>
+    ///         An edited mesh wins over the entity's primitive kind, and the numbers are the reason
+    ///         rather than the geometry.
+    ///     </b>
+    ///     Once an entity carries an <c>EditMesh</c>, that is what a
     ///     selection, an undo entry and an extrude all index into — so elements derived from the
     ///     primitive would answer a click with a position number that names a different corner. The
     ///     shapes stay cached by kind, because a hundred untouched cubes are still one table.
@@ -473,7 +502,9 @@ public sealed class ScenePicker : IScenePicker, ISubObjectPicker {
             var b = mesh.Positions[mesh.Triangles[index + 1]];
             var c = mesh.Positions[mesh.Triangles[index + 2]];
 
-            if (local.Intersects(a, b, c, out var distance) && distance >= 0f && distance < (nearest ?? float.MaxValue)) {
+            if (local.Intersects(a, b, c, out var distance)
+                && distance >= 0f
+                && distance < (nearest ?? float.MaxValue)) {
                 nearest = distance;
             }
         }
@@ -485,11 +516,16 @@ public sealed class ScenePicker : IScenePicker, ISubObjectPicker {
 
     /// <summary>How far along a ray it first meets a shape, in world units, or null.</summary>
     /// <remarks>
-    ///     ⚠ <b>The nearest hit is brought back out of local space rather than measured along the
-    ///     world ray.</b> <c>Ray</c>'s constructor normalises, so the local ray's direction is a unit
+    ///     ⚠
+    ///     <b>
+    ///         The nearest hit is brought back out of local space rather than measured along the
+    ///         world ray.
+    ///     </b>
+    ///     <c>Ray</c>'s constructor normalises, so the local ray's direction is a unit
     ///     vector in <i>local</i> units and the parameter it hands back is in local units too — a
     ///     shape scaled fourfold answers with a quarter of the distance, and a shape scaled to a
-    ///     tenth answers with ten times it. That made <see cref="Under(Ray, EditorCamera, int, int)" />'s comparison meaningless
+    ///     tenth answers with ten times it. That made <see cref="Under(Ray, EditorCamera, int, int)" />'s comparison
+    ///     meaningless
     ///     between two entities of different scale, and meaningless between a shape and a marker,
     ///     whose distance is already the world one. Taking the point through the matrix costs one
     ///     transform per entity and is exact.
@@ -513,7 +549,9 @@ public sealed class ScenePicker : IScenePicker, ISubObjectPicker {
             var b = mesh.Positions[mesh.Indices[index + 1]];
             var c = mesh.Positions[mesh.Indices[index + 2]];
 
-            if (local.Intersects(a, b, c, out var distance) && distance >= 0f && distance < (nearest ?? float.MaxValue)) {
+            if (local.Intersects(a, b, c, out var distance)
+                && distance >= 0f
+                && distance < (nearest ?? float.MaxValue)) {
                 nearest = distance;
             }
         }

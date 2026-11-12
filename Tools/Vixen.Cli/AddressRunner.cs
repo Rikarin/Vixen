@@ -11,8 +11,11 @@ namespace Vixen.Cli;
 /// <summary>Writes the project's addresses out as C# constants.</summary>
 /// <remarks>
 ///     <para>
-///         <b>Part of <c>import</c> rather than of <c>content build</c>, and the ordering is the
-///         reason.</b> <c>Vixen.Sdk</c> runs the import <c>BeforeTargets="CoreCompile"</c> precisely
+///         <b>
+///             Part of <c>import</c> rather than of <c>content build</c>, and the ordering is the
+///             reason.
+///         </b>
+///         <c>Vixen.Sdk</c> runs the import <c>BeforeTargets="CoreCompile"</c> precisely
 ///         so that generated C# exists before the compiler reads its inputs, and runs the content
 ///         build <c>AfterTargets="Build"</c>. A constant emitted by the second is a constant that is
 ///         one build out of date, every build.
@@ -43,9 +46,11 @@ public static class AddressRunner {
         ArgumentException.ThrowIfNullOrWhiteSpace(@namespace);
 
         var failed = false;
-        var plan = ContentPipeline.Analyse(project.Workspace, diagnostic => {
+        var plan = ContentPipeline.Analyse(
+            project.Workspace,
+            diagnostic => {
                 ContentBuildRunner.Write(output, diagnostic);
-                failed |= diagnostic.Severity == global::Vixen.Interchange.ImportSeverity.Error;
+                failed |= diagnostic.Severity == ImportSeverity.Error;
             }
         );
 
@@ -53,7 +58,7 @@ public static class AddressRunner {
             return false;
         }
 
-        var emitted = AddressConstants.Emit(plan.Assets.Select(asset => asset.Address), @namespace, ids: ids);
+        var emitted = AddressConstants.Emit(plan.Assets.Select(static asset => asset.Address), @namespace, ids: ids);
 
         foreach (var problem in emitted.Problems) {
             // A warning rather than an error. The constant is missing, so anything that names it

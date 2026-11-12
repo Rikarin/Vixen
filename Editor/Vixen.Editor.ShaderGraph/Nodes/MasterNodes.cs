@@ -22,7 +22,7 @@ public sealed partial class UnlitMasterNode : ShaderMasterNode {
     [Input(Name = "Alpha")]
     public Scalar Alpha = 1f;
 
-    string result = "";
+    string result = string.Empty;
 
     /// <inheritdoc />
     protected internal override string Result => result;
@@ -50,7 +50,7 @@ public sealed partial class SpriteMasterNode : ShaderMasterNode {
     [Input(Name = "Alpha")]
     public Scalar Alpha = 1f;
 
-    string result = "";
+    string result = string.Empty;
 
     /// <inheritdoc />
     protected internal override string Result => result;
@@ -189,7 +189,7 @@ public sealed partial class PbrMasterNode : ShaderMasterNode {
     [Input(Name = "Alpha")]
     public Scalar Alpha = 1f;
 
-    string result = "";
+    string result = string.Empty;
 
     /// <inheritdoc />
     protected internal override string Result => result;
@@ -219,9 +219,15 @@ public sealed partial class PbrMasterNode : ShaderMasterNode {
         // GGX, Smith and Schlick, each in one line. Written out rather than factored into functions
         // because every one of them is an expression and a function per term would be six more names
         // in a generated file nobody reads for pleasure.
-        emitter.Assign("shadeD", "shadeA2 / max(3.14159265f * pow(shadeNH * shadeNH * (shadeA2 - 1f) + 1f, 2f), 0.0001f)");
+        emitter.Assign(
+            "shadeD",
+            "shadeA2 / max(3.14159265f * pow(shadeNH * shadeNH * (shadeA2 - 1f) + 1f, 2f), 0.0001f)"
+        );
         emitter.Assign("shadeK", "shadeA * 0.5f");
-        emitter.Assign("shadeG", "(shadeNL / (shadeNL * (1f - shadeK) + shadeK)) * (shadeNV / (shadeNV * (1f - shadeK) + shadeK))");
+        emitter.Assign(
+            "shadeG",
+            "(shadeNL / (shadeNL * (1f - shadeK) + shadeK)) * (shadeNV / (shadeNV * (1f - shadeK) + shadeK))"
+        );
         emitter.Assign("shadeF0", $"lerp(float3(0.04f, 0.04f, 0.04f), {BaseColour}, {Metallic})");
         emitter.Assign("shadeF", "shadeF0 + (float3(1f, 1f, 1f) - shadeF0) * pow(1f - shadeVH, 5f)");
 

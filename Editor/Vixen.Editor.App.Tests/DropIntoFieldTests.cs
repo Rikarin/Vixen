@@ -6,7 +6,6 @@ using Vixen.Editor.Inspector;
 using Vixen.Editor.Inspector.Drawers;
 using Vixen.Editor.SceneView;
 using Vixen.Editor.Testing;
-using Vixen.Geometry;
 using Vixen.Rendering.Ecs;
 using Vixen.Ui;
 using Xunit;
@@ -16,8 +15,12 @@ namespace Vixen.Editor.App.Tests;
 /// <summary>Dragging an asset out of the browser and onto the field that should name it.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Doc 20's Content row: "drag into an inspector field ⛔", and three separate things
-///         had to be true before it could be anything else.</b> The member had to be drawable —
+///         ⚠
+///         <b>
+///             Doc 20's Content row: "drag into an inspector field ⛔", and three separate things
+///             had to be true before it could be anything else.
+///         </b>
+///         The member had to be drawable —
 ///         <c>AssetDrawer</c> answered for <c>AssetId</c> and every reference a scene actually stores
 ///         is an <c>AssetReference</c>, so <c>MeshRenderable.Mesh</c> was grey text. The member had to
 ///         know what it takes — no runtime component can carry the editor's <c>[AssetPicker]</c>, so
@@ -70,7 +73,9 @@ public class DropIntoFieldTests {
             $"the inspector has no '{member}' row. Showing: "
             + string.Join(
                 ", ",
-                Descendants(editor.Panel("inspector")).OfType<InspectorRow>().Select(row => row.Field.Member.Name)
+                Descendants(editor.Panel("inspector"))
+                    .OfType<InspectorRow>()
+                    .Select(static row => row.Field.Member.Name)
             )
             + "."
         );
@@ -100,7 +105,7 @@ public class DropIntoFieldTests {
     }
 
     static (float X, float Y) Centre(UiElement element) =>
-        (element.Bounds.X + (element.Bounds.Width * 0.5f), element.Bounds.Y + (element.Bounds.Height * 0.5f));
+        (element.Bounds.X + element.Bounds.Width * 0.5f, element.Bounds.Y + element.Bounds.Height * 0.5f);
 
     /// <summary>
     ///     ⚠ Without an entry for <c>AssetReference</c> in the registry, every mesh and every material
@@ -132,8 +137,8 @@ public class DropIntoFieldTests {
         var descriptor = ReflectedDescriptor.For(typeof(MeshRenderable))
             ?? throw new InvalidOperationException("MeshRenderable has no reflected descriptor");
 
-        var mesh = descriptor.Members.Single(member => member.Name == "Mesh");
-        var material = descriptor.Members.Single(member => member.Name == "Material");
+        var mesh = descriptor.Members.Single(static member => member.Name == "Mesh");
+        var material = descriptor.Members.Single(static member => member.Name == "Material");
 
         Assert.Equal("MeshData", mesh.AssetType?.Name);
         Assert.Equal("Material", material.AssetType?.Name);
@@ -305,8 +310,12 @@ public class DropIntoFieldTests {
     ///     user is looking at — and the wrong one of four is worse than none.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>Driven through <c>AssetFieldDrop</c> rather than through the pointer, and the reason
-    ///     is worth writing down.</b> Selecting a second asset needs a Ctrl+click, a click hands the
+    ///     ⚠
+    ///     <b>
+    ///         Driven through <c>AssetFieldDrop</c> rather than through the pointer, and the reason
+    ///         is worth writing down.
+    ///     </b>
+    ///     Selecting a second asset needs a Ctrl+click, a click hands the
     ///     inspector to the assets, and the field is then gone — so the only way to aim a multiple
     ///     drop at a field is with the inspector locked. That is a real path and this is the decision
     ///     it depends on; driving the lock as well would be a test of the lock.
@@ -320,7 +329,7 @@ public class DropIntoFieldTests {
         var entity = WithRenderable(editor);
 
         var over = Centre(Field(editor, "Mesh").Editor);
-        var drop = new AssetFieldDrop(new AssetPicker(editor.Project, editor.Shell.Dialogs));
+        var drop = new AssetFieldDrop(new(editor.Project, editor.Shell.Dialogs));
 
         var landed = drop.Drop(editor.Document.Root, [rock, tree], over.X, over.Y);
 

@@ -11,8 +11,12 @@ namespace Vixen.Editor.App.Tests;
 /// <summary>A headless platform whose semantic palette moves while the loop is running.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>The seam <see cref="EditorHost" /> does not have, and without it half of this host's
-///         palette wiring cannot be told from the other half.</b> Both hosts read the platform in two
+///         ⚠
+///         <b>
+///             The seam <see cref="EditorHost" /> does not have, and without it half of this host's
+///             palette wiring cannot be told from the other half.
+///         </b>
+///         Both hosts read the platform in two
 ///         places — a seed before the first frame, because no desktop posts an event for the
 ///         appearance the machine already had, and a handler on
 ///         <see cref="PlatformEventKind.SystemColorSchemeChanged" />. <c>UiApplication</c> has a

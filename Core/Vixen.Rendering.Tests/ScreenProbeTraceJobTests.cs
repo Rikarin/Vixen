@@ -42,7 +42,10 @@ public class ScreenProbeTraceJobTests {
             )
             .FirstOrDefault();
 
-        Assert.True(path is not null, "ScreenProbeTrace.reflect.json is not beside the tests, so there is nothing to check against");
+        Assert.True(
+            path is not null,
+            "ScreenProbeTrace.reflect.json is not beside the tests, so there is nothing to check against"
+        );
 
         using var document = JsonDocument.Parse(File.ReadAllText(path!));
 

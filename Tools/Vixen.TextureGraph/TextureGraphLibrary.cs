@@ -37,9 +37,12 @@ interface ITextureGraphLibrary : ISubGraphSource {
 ///         what <c>TextureGraphCompiler</c> binds an inlined node's expressions against.
 ///     </para>
 ///     <para>
-///         ⚠ <b>This used to say that what an author types into those settings does not reach the
-///         inlined nodes, and it no longer does —
-///         <a href="https://github.com/Rikarin/Vixen/issues/742">#742</a>.</b>
+///         ⚠
+///         <b>
+///             This used to say that what an author types into those settings does not reach the
+///             inlined nodes, and it no longer does —
+///             <a href="https://github.com/Rikarin/Vixen/issues/742">#742</a>.
+///         </b>
 ///         <see cref="SubGraphs.Flatten(NodeGraphModel,ISubGraphSource,out IReadOnlyList{NodeDiagnostic})" />
 ///         still replaces the sub-graph node with the graph's contents and the node — which is where
 ///         the overrides are stored — is still gone afterwards; what changed is that
@@ -78,8 +81,12 @@ sealed class TextureGraphLibrary : ITextureGraphLibrary {
     ///     hold together.
     /// </exception>
     /// <remarks>
-    ///     ⚠ <b>The parameters are checked here and refused as an argument, rather than reported when
-    ///     something compiles against them.</b> A published graph is a library entry many graphs
+    ///     ⚠
+    ///     <b>
+    ///         The parameters are checked here and refused as an argument, rather than reported when
+    ///         something compiles against them.
+    ///     </b>
+    ///     A published graph is a library entry many graphs
     ///     will contain; a duplicate name or a default outside its own range in one of those is a
     ///     fault of the thing being published, and reporting it once per containing graph would name
     ///     the wrong author every time.
@@ -112,20 +119,26 @@ sealed class TextureGraphLibrary : ITextureGraphLibrary {
         }
 
         graphs.Add(path, graph);
-        parameters[path] = [.. knobs];
+        parameters[path] = [..knobs];
 
         if (registry is not null) {
             var definition = TextureGraphParameters.Definition(graph, knobs, path);
 
-            registry.Add(definition with { Ports = [.. definition.Ports.Select(port => Ranged(port, graph, registry))] });
+            registry.Add(
+                definition with { Ports = [..definition.Ports.Select(port => Ranged(port, graph, registry))] }
+            );
         }
     }
 
     /// <summary>A published input, with the range of the port it feeds.</summary>
     /// <remarks>
     ///     An interface has no range of its own, and the wire says what its number becomes: the value
-    ///     on a sub-graph node's port arrives at the inner port unchanged. ⚠ <b>Only where every wire
-    ///     agrees.</b> A port feeding two ports with two ranges has no one meaning to state, so it
+    ///     on a sub-graph node's port arrives at the inner port unchanged. ⚠
+    ///     <b>
+    ///         Only where every wire
+    ///         agrees.
+    ///     </b>
+    ///     A port feeding two ports with two ranges has no one meaning to state, so it
     ///     stays open.
     /// </remarks>
     static PortDefinition Ranged(PortDefinition port, NodeGraphModel graph, NodeTypeRegistry registry) {
@@ -133,8 +146,11 @@ sealed class TextureGraphLibrary : ITextureGraphLibrary {
             return port;
         }
 
-        var entry = graph.Nodes.FirstOrDefault(
-            static node => string.Equals(node.Type, SubGraphs.InputType, StringComparison.Ordinal)
+        var entry = graph.Nodes.FirstOrDefault(static node => string.Equals(
+                node.Type,
+                SubGraphs.InputType,
+                StringComparison.Ordinal
+            )
         );
 
         if (entry is null) {
@@ -142,10 +158,13 @@ sealed class TextureGraphLibrary : ITextureGraphLibrary {
         }
 
         var ranges = graph.Edges
-            .Where(edge => edge.From.Node == entry.Id && string.Equals(edge.From.Port, port.Name, StringComparison.Ordinal))
+            .Where(edge => edge.From.Node == entry.Id
+                && string.Equals(edge.From.Port, port.Name, StringComparison.Ordinal)
+            )
             .Select(edge => graph.TryGet(edge.To.Node, out var node) && registry.TryGet(node.Type, out var type)
-                ? type.Port(edge.To.Port, PortDirection.Input)
-                : null)
+                    ? type.Port(edge.To.Port, PortDirection.Input)
+                    : null
+            )
             .Select(static fed => fed is null ? default : (fed.Minimum, fed.Maximum, fed.SoftMinimum, fed.SoftMaximum))
             .Distinct()
             .ToArray();

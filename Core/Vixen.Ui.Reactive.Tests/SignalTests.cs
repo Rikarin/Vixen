@@ -120,7 +120,8 @@ public class SignalTests {
         // a signal it only writes must not. Update's read is untracked, which is what makes the
         // second case expressible at all.
         var trigger = new Signal<int>(0);
-        using var effect = new Effect(() => {
+        using var effect = new Effect(
+            () => {
                 runs++;
                 _ = trigger.Value;
                 count.Update(static value => value + 1);

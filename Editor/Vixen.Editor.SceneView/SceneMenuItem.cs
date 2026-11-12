@@ -37,8 +37,12 @@ public enum SceneMenuSurface : byte {
 ///         then four directions.
 ///     </para>
 ///     <para>
-///         ⚠ <b>A command id rather than a delegate, and that is the same decision the toolbar and
-///         the menu bar already made.</b> An entry that carried an action would be a second place a
+///         ⚠
+///         <b>
+///             A command id rather than a delegate, and that is the same decision the toolbar and
+///             the menu bar already made.
+///         </b>
+///         An entry that carried an action would be a second place a
 ///         verb can live, with its own enablement and no keybinding — and the point of a command
 ///         registry is that "Extrude" is one thing whether it is reached from a menu, a pie, a
 ///         shortcut or the palette. What this adds is <i>where</i>, not <i>what</i>.

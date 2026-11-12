@@ -27,21 +27,22 @@ public class RedTreeTests {
         var left = root.GetSlot(0)!;
         var right = root.GetSlot(1)!;
 
-        Assert.Equal(new TextSpan(0, 10), root.FullSpan);
-        Assert.Equal(new TextSpan(0, 5), left.FullSpan);
+        Assert.Equal(new(0, 10), root.FullSpan);
+        Assert.Equal(new(0, 5), left.FullSpan);
 
         // "left" plus its trailing space, so the second token starts at 5.
-        Assert.Equal(new TextSpan(5, 5), right.FullSpan);
+        Assert.Equal(new(5, 5), right.FullSpan);
     }
 
     [Fact]
     public void Span_excludes_trivia_while_FullSpan_includes_it() {
         var root = (ToyPhrase)Toy.Phrase(
-            new ToyToken(ToyKind.Word, "a", Toy.Space("  ")),
-            new ToyToken(ToyKind.Word, "b", trailing: Toy.Space(" "))
-        ).CreateRed(null, 0);
+                new ToyToken(ToyKind.Word, "a", Toy.Space("  ")),
+                new ToyToken(ToyKind.Word, "b", trailing: Toy.Space())
+            )
+            .CreateRed(null, 0);
 
-        Assert.Equal(new TextSpan(0, 5), root.FullSpan);
+        Assert.Equal(new(0, 5), root.FullSpan);
         Assert.Equal(TextSpan.FromBounds(2, 4), root.Span);
     }
 
@@ -75,9 +76,10 @@ public class RedTreeTests {
     [Fact]
     public void ToFullString_round_trips_and_ToString_trims_outer_trivia() {
         var root = (ToyPhrase)Toy.Phrase(
-            new ToyToken(ToyKind.Word, "a", Toy.Space("  ")),
-            new ToyToken(ToyKind.Word, "b", trailing: Toy.Space(" "))
-        ).CreateRed(null, 0);
+                new ToyToken(ToyKind.Word, "a", Toy.Space("  ")),
+                new ToyToken(ToyKind.Word, "b", trailing: Toy.Space())
+            )
+            .CreateRed(null, 0);
 
         Assert.Equal("  ab ", root.ToFullString());
         Assert.Equal("ab", root.ToString());
@@ -102,7 +104,7 @@ public class RedTreeTests {
         var location = root.GetLocation();
         Assert.False(location.IsNone);
         Assert.Equal("toy.txt", location.FilePath);
-        Assert.Equal(new LinePosition(0, 0), location.GetLineSpan().Start);
+        Assert.Equal(new(0, 0), location.GetLineSpan().Start);
     }
 
     [Fact]

@@ -20,7 +20,7 @@ public ref struct BitReader {
     public readonly int BitsRead => bits;
 
     /// <summary>How many bits are left.</summary>
-    public readonly int BitsRemaining => (buffer.Length * 8) - bits;
+    public readonly int BitsRemaining => buffer.Length * 8 - bits;
 
     /// <summary>Creates a reader over a packet.</summary>
     /// <param name="buffer">The bytes, which the reader does not take ownership of.</param>

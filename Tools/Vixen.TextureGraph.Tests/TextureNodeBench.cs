@@ -98,20 +98,17 @@ static class TextureNodeBench {
 
         NodeTypes.Register(registry);
 
-        var library = TextureCompoundLibrary.Publish(registry, folder: null, out var problems);
+        var library = TextureCompoundLibrary.Publish(registry, null, out var problems);
 
         Assert.Empty(problems);
 
         TextureGraphCompiler compiler = new(registry) {
-            BaseWidth = width,
-            BaseHeight = height,
-            Seed = (uint)seed,
-            SubGraphSource = library
+            BaseWidth = width, BaseHeight = height, Seed = (uint)seed, SubGraphSource = library
         };
 
         var compilation = compiler.Compile(graph);
 
-        Assert.Empty(compilation.Diagnostics.Where(diagnostic => diagnostic.Severity == NodeSeverity.Error));
+        Assert.Empty(compilation.Diagnostics.Where(static diagnostic => diagnostic.Severity == NodeSeverity.Error));
 
         var plan = compilation.Value;
 
@@ -128,7 +125,7 @@ static class TextureNodeBench {
         using var evaluator = new TexturePlanEvaluator(device);
         using var bake = evaluator.Evaluate(plan, uploads.Externals);
 
-        return new(bake.ReadRaw(compiler.Outputs.Single(kept => kept.Usage == "baseColor").Image));
+        return new(bake.ReadRaw(compiler.Outputs.Single(static kept => kept.Usage == "baseColor").Image));
     }
 
     /// <summary>An RGBA8 picture from a function of the texel.</summary>
@@ -138,7 +135,7 @@ static class TextureNodeBench {
         for (var y = 0; y < height; y++) {
             for (var x = 0; x < width; x++) {
                 var (r, g, b, a) = texel(x, y);
-                var at = ((y * width) + x) * 4;
+                var at = (y * width + x) * 4;
 
                 bytes[at] = Byte(r);
                 bytes[at + 1] = Byte(g);
@@ -193,10 +190,11 @@ static class TextureNodeBench {
         /// <summary>One lane of one texel. A grey image answers its one lane for each colour lane and one for alpha.</summary>
         public float At(int x, int y, int lane) =>
             Channels == 1
-                ? lane == 3 ? 1f : lanes[(y * Width) + x]
-                : lanes[(((y * Width) + x) * 4) + lane];
+                ? lane == 3 ? 1f : lanes[y * Width + x]
+                : lanes[(y * Width + x) * 4 + lane];
 
         /// <summary>One texel's four lanes.</summary>
-        public (float R, float G, float B, float A) Texel(int x, int y) => (At(x, y, 0), At(x, y, 1), At(x, y, 2), At(x, y, 3));
+        public (float R, float G, float B, float A) Texel(int x, int y) =>
+            (At(x, y, 0), At(x, y, 1), At(x, y, 2), At(x, y, 3));
     }
 }

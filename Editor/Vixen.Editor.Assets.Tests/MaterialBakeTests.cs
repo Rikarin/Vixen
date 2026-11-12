@@ -44,7 +44,7 @@ public sealed class MaterialBakeTests {
             }
         );
 
-        var named = material.Textures.Select(texture => texture.Parameter).ToArray();
+        var named = material.Textures.Select(static texture => texture.Parameter).ToArray();
 
         Assert.Contains(new TexturedMetalRoughnessFeature().BaseColorMap, named);
         Assert.Contains(new TexturedNormalMapFeature().NormalMap, named);
@@ -78,7 +78,7 @@ public sealed class MaterialBakeTests {
 
         var compilation = MaterialCompiler.Compile(material.ToDescriptor(shading));
 
-        Assert.False(compilation.Failed, string.Join("; ", compilation.Diagnostics.Select(one => one.Message)));
+        Assert.False(compilation.Failed, string.Join("; ", compilation.Diagnostics.Select(static one => one.Message)));
     }
 
     /// <summary>A set with no base colour still has a surface for the ORM map to read out of.</summary>
@@ -94,8 +94,8 @@ public sealed class MaterialBakeTests {
             new Dictionary<MaterialMapTarget, AssetReference> { [MaterialMapTarget.Orm] = Reference(3) }
         );
 
-        Assert.Contains(material.Features, feature => feature is MetalRoughnessFeature);
-        Assert.DoesNotContain(material.Features, feature => feature is TexturedMetalRoughnessFeature);
+        Assert.Contains(material.Features, static feature => feature is MetalRoughnessFeature);
+        Assert.DoesNotContain(material.Features, static feature => feature is TexturedMetalRoughnessFeature);
         Assert.Single(material.Textures);
 
         // ⚠ And its metalness is zero, which TexturedOrmFeature requires rather than prefers: at any
@@ -122,15 +122,18 @@ public sealed class MaterialBakeTests {
 
         // The graph stopped producing an emissive output, so the feature that reads one goes with it.
         // Leaving it behind would be a material sampling a map nothing writes any more.
-        Assert.DoesNotContain(material.Features, feature => feature is TexturedEmissiveFeature);
+        Assert.DoesNotContain(material.Features, static feature => feature is TexturedEmissiveFeature);
         Assert.Single(material.Textures);
     }
 
     /// <summary>An author's parallax feature survives a re-bake, at the head of the chain.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>The authoring half of
-    ///         <a href="https://github.com/Rikarin/Vixen/issues/1103">#1103</a>.</b> A bake writes a
+    ///         <b>
+    ///             The authoring half of
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/1103">#1103</a>.
+    ///         </b>
+    ///         A bake writes a
     ///         height file for any graph with a height output; whether anything marches it is the
     ///         material's answer, because the alternative is a per-pixel cost on every material a
     ///         height output ever came out of.
@@ -170,7 +173,7 @@ public sealed class MaterialBakeTests {
 
         var compilation = MaterialCompiler.Compile(material.ToDescriptor(shading));
 
-        Assert.False(compilation.Failed, string.Join("; ", compilation.Diagnostics.Select(one => one.Message)));
+        Assert.False(compilation.Failed, string.Join("; ", compilation.Diagnostics.Select(static one => one.Message)));
 
         var parallax = Assert.IsType<ParallaxOcclusionFeature>(material.Features[0]);
 
@@ -182,7 +185,7 @@ public sealed class MaterialBakeTests {
         // cannot key on, since it pairs on the default alone.
         var bound = Assert.Single(
             material.Textures,
-            texture => texture.Parameter == new ParallaxOcclusionFeature().HeightMap
+            static texture => texture.Parameter == new ParallaxOcclusionFeature().HeightMap
         );
 
         Assert.Equal(Reference(4), bound.Texture);
@@ -216,8 +219,7 @@ public sealed class MaterialBakeTests {
 
         var material = MaterialBake.Material(
             new Dictionary<MaterialMapTarget, AssetReference> {
-                [MaterialMapTarget.BaseColor] = Reference(1),
-                [MaterialMapTarget.Height] = Reference(4)
+                [MaterialMapTarget.BaseColor] = Reference(1), [MaterialMapTarget.Height] = Reference(4)
             },
             existing
         );
@@ -230,14 +232,14 @@ public sealed class MaterialBakeTests {
 
         var bound = Assert.Single(
             material.Textures,
-            texture => texture.Parameter == new ParallaxOcclusionFeature().HeightMap
+            static texture => texture.Parameter == new ParallaxOcclusionFeature().HeightMap
         );
 
         Assert.Equal(Reference(4), bound.Texture);
 
         // And nothing was bound under the author's name, which is what would have been resident and
         // unread.
-        Assert.DoesNotContain(material.Textures, texture => texture.Parameter == "heightMap");
+        Assert.DoesNotContain(material.Textures, static texture => texture.Parameter == "heightMap");
     }
 
     /// <summary>A material that never asked for parallax does not get it, and keeps its file.</summary>
@@ -251,12 +253,11 @@ public sealed class MaterialBakeTests {
     public void A_bake_composes_no_parallax_for_a_material_that_did_not_ask() {
         var material = MaterialBake.Material(
             new Dictionary<MaterialMapTarget, AssetReference> {
-                [MaterialMapTarget.BaseColor] = Reference(1),
-                [MaterialMapTarget.Height] = Reference(4)
+                [MaterialMapTarget.BaseColor] = Reference(1), [MaterialMapTarget.Height] = Reference(4)
             }
         );
 
-        Assert.DoesNotContain(material.Features, feature => feature is ParallaxOcclusionFeature);
+        Assert.DoesNotContain(material.Features, static feature => feature is ParallaxOcclusionFeature);
         Assert.Single(material.Textures);
         Assert.Equal(new TexturedMetalRoughnessFeature().BaseColorMap, material.Textures[0].Parameter);
     }
@@ -280,10 +281,10 @@ public sealed class MaterialBakeTests {
             existing
         );
 
-        Assert.DoesNotContain(material.Features, feature => feature is ParallaxOcclusionFeature);
+        Assert.DoesNotContain(material.Features, static feature => feature is ParallaxOcclusionFeature);
         Assert.DoesNotContain(
             material.Textures,
-            texture => texture.Parameter == new ParallaxOcclusionFeature().HeightMap
+            static texture => texture.Parameter == new ParallaxOcclusionFeature().HeightMap
         );
     }
 
@@ -292,8 +293,11 @@ public sealed class MaterialBakeTests {
     ///     A mask is § 4.10's input to another graph rather than anything a material samples, and a
     ///     bake that dropped it because nothing binds it would lose the file an artist asked for.
     ///     <para>
-    ///         ⚠ <b>"Height has no textured runtime feature" is what this remark used to say, and it
-    ///         stopped being true without the conclusion changing.</b>
+    ///         ⚠
+    ///         <b>
+    ///             "Height has no textured runtime feature" is what this remark used to say, and it
+    ///             stopped being true without the conclusion changing.
+    ///         </b>
     ///         <a href="https://github.com/Rikarin/Vixen/issues/615">#615</a> closed on height-blended
     ///         layering, so <c>TexturedMaterialLayersFeature.HeightMap</c> is a textured runtime
     ///         feature that reads a height map — a <em>four-channel per-layer</em> one, channel
@@ -304,9 +308,13 @@ public sealed class MaterialBakeTests {
     ///         <see cref="MaterialMapTarget.Height" /> is still right.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And it stayed right after
-    ///         <a href="https://github.com/Rikarin/Vixen/issues/1065">#1065</a> landed a feature that
-    ///         reads exactly this map.</b> A height map binds when the material carries a
+    ///         ⚠
+    ///         <b>
+    ///             And it stayed right after
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/1065">#1065</a> landed a feature that
+    ///             reads exactly this map.
+    ///         </b>
+    ///         A height map binds when the material carries a
     ///         <see cref="ParallaxOcclusionFeature" /> and not when the bake wrote the file, so the
     ///         binding lives in <see cref="MaterialBake.Material" /> rather than in the naming table —
     ///         see <see cref="A_bake_composes_no_parallax_for_a_material_that_did_not_ask" />, which
@@ -320,8 +328,7 @@ public sealed class MaterialBakeTests {
     public void The_two_maps_no_feature_samples_are_still_written() {
         var images = MaterialBake.Encode(
             new Dictionary<MaterialMapUsage, Bitmap> {
-                [MaterialMapUsage.Height] = Flat(4, 200),
-                [MaterialMapUsage.Mask] = Flat(4, 30)
+                [MaterialMapUsage.Height] = Flat(4, 200), [MaterialMapUsage.Mask] = Flat(4, 30)
             }
         );
 
@@ -331,8 +338,7 @@ public sealed class MaterialBakeTests {
 
         var material = MaterialBake.Material(
             new Dictionary<MaterialMapTarget, AssetReference> {
-                [MaterialMapTarget.Height] = Reference(1),
-                [MaterialMapTarget.Mask] = Reference(2)
+                [MaterialMapTarget.Height] = Reference(1), [MaterialMapTarget.Mask] = Reference(2)
             }
         );
 
@@ -463,8 +469,12 @@ public sealed class MaterialBakeTests {
     /// <summary>A container carries its whole chain, block-compressed, and the importer copies it through.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The instrument first: an uncompressed container would be decoded and re-encoded by
-    ///         the importer</b>, which is the path this exists to avoid, and it would still be a KTX2 —
+    ///         ⚠
+    ///         <b>
+    ///             The instrument first: an uncompressed container would be decoded and re-encoded by
+    ///             the importer
+    ///         </b>
+    ///         , which is the path this exists to avoid, and it would still be a KTX2 —
     ///         so the assertion is on the format and the level count rather than on the extension.
     ///     </para>
     ///     <para>
@@ -503,11 +513,9 @@ public sealed class MaterialBakeTests {
     /// <summary>Two outputs at two sizes are refused rather than resampled.</summary>
     [Fact]
     public void A_set_whose_outputs_disagree_about_size_is_refused() {
-        var failure = Assert.Throws<ArgumentException>(
-            () => MaterialBake.Encode(
+        var failure = Assert.Throws<ArgumentException>(static () => MaterialBake.Encode(
                 new Dictionary<MaterialMapUsage, Bitmap> {
-                    [MaterialMapUsage.BaseColor] = Flat(8, 1),
-                    [MaterialMapUsage.Roughness] = Flat(4, 1)
+                    [MaterialMapUsage.BaseColor] = Flat(8, 1), [MaterialMapUsage.Roughness] = Flat(4, 1)
                 }
             )
         );
@@ -518,7 +526,7 @@ public sealed class MaterialBakeTests {
     /// <summary>A bake with nothing in it is refused, rather than writing an empty material.</summary>
     [Fact]
     public void A_set_with_no_outputs_is_refused() =>
-        Assert.Throws<ArgumentException>(() => MaterialBake.Encode(new Dictionary<MaterialMapUsage, Bitmap>()));
+        Assert.Throws<ArgumentException>(static () => MaterialBake.Encode(new Dictionary<MaterialMapUsage, Bitmap>()));
 
     /// <summary>Every usage names a file, and every file names its channels back.</summary>
     /// <remarks>
@@ -543,16 +551,23 @@ public sealed class MaterialBakeTests {
     /// <summary>An author's layered surface survives a re-bake, and so does the map it paints from.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>The whole of <a href="https://github.com/Rikarin/Vixen/issues/1118">#1118</a>'s
-    ///         answer, from the direction that fails.</b> A splat map is not a bake output — its
+    ///         <b>
+    ///             The whole of <a href="https://github.com/Rikarin/Vixen/issues/1118">#1118</a>'s
+    ///             answer, from the direction that fails.
+    ///         </b>
+    ///         A splat map is not a bake output — its
     ///         channels are the material's layer indices and no graph has a layer list — so the one
     ///         thing a bake owes a layered material is not to take it away. Before the rule this
     ///         asserts, re-baking a hand-authored layered material replaced <c>Features</c> and
     ///         <c>Textures</c> whole and handed back a plain textured metal-roughness material.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The composition is the assertion, and asserting over
-    ///         <c>material.Features</c> alone would not be one.</b> Both features are
+    ///         ⚠
+    ///         <b>
+    ///             The composition is the assertion, and asserting over
+    ///             <c>material.Features</c> alone would not be one.
+    ///         </b>
+    ///         Both features are
     ///         <see cref="MaterialFeatureStage.Surface" />, so a chain carrying the layered feature
     ///         <em>beside</em> a <see cref="TexturedMetalRoughnessFeature" /> compiles without a
     ///         diagnostic and draws the later slot's albedo, roughness and metalness over the
@@ -595,7 +610,7 @@ public sealed class MaterialBakeTests {
 
         var bound = Assert.Single(
             material.Textures,
-            texture => texture.Parameter == new TexturedMaterialLayersFeature().SplatMap
+            static texture => texture.Parameter == new TexturedMaterialLayersFeature().SplatMap
         );
 
         Assert.Equal(Reference(7), bound.Texture);
@@ -604,7 +619,7 @@ public sealed class MaterialBakeTests {
 
         var compilation = MaterialCompiler.Compile(material.ToDescriptor(shading));
 
-        Assert.False(compilation.Failed, string.Join("; ", compilation.Diagnostics.Select(one => one.Message)));
+        Assert.False(compilation.Failed, string.Join("; ", compilation.Diagnostics.Select(static one => one.Message)));
 
         var composed = Slots(compilation.Material!);
 
@@ -628,12 +643,12 @@ public sealed class MaterialBakeTests {
         // features gone nothing in the chain samples them.
         Assert.DoesNotContain(
             material.Textures,
-            texture => texture.Parameter == new TexturedMetalRoughnessFeature().BaseColorMap
+            static texture => texture.Parameter == new TexturedMetalRoughnessFeature().BaseColorMap
         );
 
         Assert.DoesNotContain(
             material.Textures,
-            texture => texture.Parameter == new TexturedOrmFeature().OrmMap
+            static texture => texture.Parameter == new TexturedOrmFeature().OrmMap
         );
 
         // The instrument: the normal map is composed and bound, so "nothing is composed and nothing
@@ -642,7 +657,7 @@ public sealed class MaterialBakeTests {
 
         Assert.Contains(
             material.Textures,
-            texture => texture.Parameter == new TexturedNormalMapFeature().NormalMap
+            static texture => texture.Parameter == new TexturedNormalMapFeature().NormalMap
         );
     }
 
@@ -661,8 +676,12 @@ public sealed class MaterialBakeTests {
     ///         unoccluded.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The same file, bound twice under two names, and that is the point rather than an
-    ///         accident.</b> A second baked output would be a second import, a second bundle entry and
+    ///         ⚠
+    ///         <b>
+    ///             The same file, bound twice under two names, and that is the point rather than an
+    ///             accident.
+    ///         </b>
+    ///         A second baked output would be a second import, a second bundle entry and
     ///         a second resident page for bytes that are already there.
     ///         <see cref="TexturedOcclusionFeature" /> reads red and nothing else, so the ORM file is
     ///         an occlusion map with two channels nobody looks at.
@@ -676,8 +695,7 @@ public sealed class MaterialBakeTests {
         };
 
         var maps = new Dictionary<MaterialMapTarget, AssetReference> {
-            [MaterialMapTarget.BaseColor] = Reference(1),
-            [MaterialMapTarget.Orm] = Reference(3)
+            [MaterialMapTarget.BaseColor] = Reference(1), [MaterialMapTarget.Orm] = Reference(3)
         };
 
         var material = MaterialBake.Material(maps, existing);
@@ -686,7 +704,7 @@ public sealed class MaterialBakeTests {
 
         var compilation = MaterialCompiler.Compile(material.ToDescriptor(shading));
 
-        Assert.False(compilation.Failed, string.Join("; ", compilation.Diagnostics.Select(one => one.Message)));
+        Assert.False(compilation.Failed, string.Join("; ", compilation.Diagnostics.Select(static one => one.Message)));
 
         var composed = Slots(compilation.Material!);
 
@@ -698,23 +716,26 @@ public sealed class MaterialBakeTests {
         // own name — not a second file, and not the packed name, which nothing samples any more.
         var bound = Assert.Single(
             material.Textures,
-            texture => texture.Parameter == new TexturedOcclusionFeature().OcclusionMap
+            static texture => texture.Parameter == new TexturedOcclusionFeature().OcclusionMap
         );
 
         Assert.Equal(maps[MaterialMapTarget.Orm], bound.Texture);
-        Assert.DoesNotContain(material.Textures, texture => texture.Parameter == new TexturedOrmFeature().OrmMap);
+        Assert.DoesNotContain(
+            material.Textures,
+            static texture => texture.Parameter == new TexturedOrmFeature().OrmMap
+        );
 
         // ⚠ The instrument, and it is the half that makes the two assertions above about the *layered*
         // branch rather than about the bake having stopped composing the packed feature at all. The
         // same maps with no layered surface underneath still produce it, under its own name.
         var flat = MaterialBake.Material(maps);
 
-        Assert.Contains(flat.Features, feature => feature is TexturedOrmFeature);
-        Assert.DoesNotContain(flat.Features, feature => feature is TexturedOcclusionFeature);
+        Assert.Contains(flat.Features, static feature => feature is TexturedOrmFeature);
+        Assert.DoesNotContain(flat.Features, static feature => feature is TexturedOcclusionFeature);
 
         Assert.Contains(
             flat.Textures,
-            texture => texture.Parameter == new TexturedOrmFeature().OrmMap
+            static texture => texture.Parameter == new TexturedOrmFeature().OrmMap
         );
     }
 
@@ -744,11 +765,11 @@ public sealed class MaterialBakeTests {
 
         var bound = Assert.Single(
             material.Textures,
-            texture => texture.Parameter == new TexturedMaterialLayersFeature().SplatMap
+            static texture => texture.Parameter == new TexturedMaterialLayersFeature().SplatMap
         );
 
         Assert.Equal(Reference(7), bound.Texture);
-        Assert.DoesNotContain(material.Textures, texture => texture.Parameter == "weights");
+        Assert.DoesNotContain(material.Textures, static texture => texture.Parameter == "weights");
     }
 
     /// <summary>A layered feature the material never bound a splat map for is dropped.</summary>
@@ -778,20 +799,24 @@ public sealed class MaterialBakeTests {
             existing
         );
 
-        Assert.DoesNotContain(material.Features, feature => feature is TexturedMaterialLayersFeature);
+        Assert.DoesNotContain(material.Features, static feature => feature is TexturedMaterialLayersFeature);
         Assert.IsType<TexturedMetalRoughnessFeature>(material.Features[0]);
 
         // The base surface came back, so the base-colour map is bound again.
         Assert.Single(
             material.Textures,
-            texture => texture.Parameter == new TexturedMetalRoughnessFeature().BaseColorMap
+            static texture => texture.Parameter == new TexturedMetalRoughnessFeature().BaseColorMap
         );
     }
 
     /// <summary>A height-blended stack with no height map keeps its layers and loses the blend.</summary>
     /// <remarks>
-    ///     ⚠ <b>The permutation and not the feature, which is the opposite call to the one above and
-    ///     for the same reason.</b> <c>HeightBlended</c>'s false variant emits no second sample at
+    ///     ⚠
+    ///     <b>
+    ///         The permutation and not the feature, which is the opposite call to the one above and
+    ///         for the same reason.
+    ///     </b>
+    ///     <c>HeightBlended</c>'s false variant emits no second sample at
     ///     all — that is the guard the feature's own remarks describe — so turning it off costs a
     ///     seam, where dropping the feature would cost every layer.
     /// </remarks>
@@ -821,7 +846,7 @@ public sealed class MaterialBakeTests {
 
         Assert.DoesNotContain(
             material.Textures,
-            texture => texture.Parameter == new TexturedMaterialLayersFeature().HeightMap
+            static texture => texture.Parameter == new TexturedMaterialLayersFeature().HeightMap
         );
     }
 
@@ -838,8 +863,7 @@ public sealed class MaterialBakeTests {
 
         var material = MaterialBake.Material(
             new Dictionary<MaterialMapTarget, AssetReference> {
-                [MaterialMapTarget.BaseColor] = Reference(1),
-                [MaterialMapTarget.Height] = Reference(4)
+                [MaterialMapTarget.BaseColor] = Reference(1), [MaterialMapTarget.Height] = Reference(4)
             },
             existing
         );
@@ -853,11 +877,11 @@ public sealed class MaterialBakeTests {
         // `parallaxHeightMap` to keep apart.
         var bound = Assert.Single(
             material.Textures,
-            texture => texture.Parameter == new TexturedMaterialLayersFeature().HeightMap
+            static texture => texture.Parameter == new TexturedMaterialLayersFeature().HeightMap
         );
 
         Assert.Equal(Reference(8), bound.Texture);
-        Assert.DoesNotContain(material.Textures, texture => texture.Texture == Reference(4));
+        Assert.DoesNotContain(material.Textures, static texture => texture.Texture == Reference(4));
     }
 
     /// <summary>A material that never asked for layering does not get it.</summary>
@@ -867,7 +891,7 @@ public sealed class MaterialBakeTests {
             new Dictionary<MaterialMapTarget, AssetReference> { [MaterialMapTarget.BaseColor] = Reference(1) }
         );
 
-        Assert.DoesNotContain(material.Features, feature => feature is TexturedMaterialLayersFeature);
+        Assert.DoesNotContain(material.Features, static feature => feature is TexturedMaterialLayersFeature);
         Assert.IsType<TexturedMetalRoughnessFeature>(material.Features[0]);
     }
 
@@ -880,7 +904,7 @@ public sealed class MaterialBakeTests {
     ///     against — two base surfaces in one chain — is one that leaves the input looking fine.
     /// </remarks>
     static string[] Slots(Material material) => [
-        .. Ordinals.Select(slot => material.Composition.Resolve("CompositeSurface." + slot) ?? "")
+        ..Ordinals.Select(slot => material.Composition.Resolve("CompositeSurface." + slot) ?? string.Empty)
     ];
 
     static readonly string[] Ordinals = [

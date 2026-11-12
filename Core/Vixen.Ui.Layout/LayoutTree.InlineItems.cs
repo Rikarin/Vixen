@@ -6,8 +6,12 @@ namespace Vixen.Ui.Layout;
 /// <summary>What a line box is actually made of, once a box on it may be an inline box's edge.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>This is the one structural thing fragmentation cost, and it is smaller than the
-///         invariant it broke.</b> Before it, a line box was a contiguous range of
+///         ⚠
+///         <b>
+///             This is the one structural thing fragmentation cost, and it is smaller than the
+///             invariant it broke.
+///         </b>
+///         Before it, a line box was a contiguous range of
 ///         <c>ChildIds</c> — which is what let the whole inline algorithm allocate nothing, exactly as
 ///         a flex line does. A non-atomic inline box ends that: a <c>span</c> is not <i>on</i> a line,
 ///         its <i>children</i> are, and the span contributes only its two horizontal edges wherever
@@ -15,15 +19,23 @@ namespace Vixen.Ui.Layout;
 ///         entries rather than over the child span directly.
 ///     </para>
 ///     <para>
-///         ⚠ <b>A line is still a contiguous range — of this stream instead of of the child list —
-///         which is why <c>MeasureLine</c> and <c>PlaceLine</c> kept their shape.</b> The stream lives
+///         ⚠
+///         <b>
+///             A line is still a contiguous range — of this stream instead of of the child list —
+///             which is why <c>MeasureLine</c> and <c>PlaceLine</c> kept their shape.
+///         </b>
+///         The stream lives
 ///         in a watermarked scratch buffer reused across passes, so the steady state allocates
 ///         nothing and <c>LayoutPassTests</c>'s zero-byte gate still holds. Nested inline formatting
 ///         contexts push and pop their own range, which is the same discipline the grid scratch uses.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The buffer moves when it grows, so this file indexes it and never holds a
-///         <c>Span</c> across anything that can append.</b> Sizing an item runs a whole nested layout,
+///         ⚠
+///         <b>
+///             The buffer moves when it grows, so this file indexes it and never holds a
+///             <c>Span</c> across anything that can append.
+///         </b>
+///         Sizing an item runs a whole nested layout,
 ///         which can build a stream of its own; a span captured before that call would be pointing at
 ///         the old array afterwards. That is the kind of bug that reproduces only on the tree that
 ///         happens to cross a power of two.
@@ -46,8 +58,12 @@ public sealed partial class LayoutTree {
         ///     at the line's own top instead.
         /// </summary>
         /// <remarks>
-        ///     ⚠ <b>CSS 2.1 §9.5.1's rules 5 and 6, and the reason a float has to be <i>in</i> this
-        ///     stream rather than beside it.</b> §9.7 makes a floated box block-level whatever its
+        ///     ⚠
+        ///     <b>
+        ///         CSS 2.1 §9.5.1's rules 5 and 6, and the reason a float has to be <i>in</i> this
+        ///         stream rather than beside it.
+        ///     </b>
+        ///     §9.7 makes a floated box block-level whatever its
         ///     <c>display</c> says, so the obvious reading is that it ends the run and is placed by the
         ///     block walk after it — which is where it was, one line lower than Chrome puts it. What
         ///     rules 5 and 6 actually say is narrower: a float may not start <i>above</i> the top of
@@ -62,8 +78,12 @@ public sealed partial class LayoutTree {
         ///     in the stream only so that the walk can say <i>where it was</i>.
         /// </summary>
         /// <remarks>
-        ///     ⚠ <b>CSS 2.1 §10.6.4's static position is a place on a line box, and a place on a line
-        ///     box is knowable only while the line is being placed.</b> An out-of-flow child is not
+        ///     ⚠
+        ///     <b>
+        ///         CSS 2.1 §10.6.4's static position is a place on a line box, and a place on a line
+        ///         box is knowable only while the line is being placed.
+        ///     </b>
+        ///     An out-of-flow child is not
         ///     on the line — it advances no pen, it contributes no height, it is not a break
         ///     opportunity and it does not count towards the <c>placed</c> that decides whether a
         ///     line exists at all. What it needs is an <i>ordinal</i>: the pen position and line top
@@ -119,16 +139,24 @@ public sealed partial class LayoutTree {
     ///         wrapper in <c>Vixen.Ui</c> the only thing that breaks a string.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Two restrictions, each one a place where the honest answer today is "still
-    ///         atomic" rather than a guess.</b> An <i>out-of-flow</i> box is not on a line at all. A
+    ///         ⚠
+    ///         <b>
+    ///             Two restrictions, each one a place where the honest answer today is "still
+    ///             atomic" rather than a guess.
+    ///         </b>
+    ///         An <i>out-of-flow</i> box is not on a line at all. A
     ///         box with a <i>measure function</i> stays atomic, because a measure function is what
     ///         makes a node a leaf. ⚠ An EMPTY box used to be a third — "a child that participates in
     ///         the line" was required — and that made its strut inert (#1479): an empty span is an
     ///         inline box on its line in CSS, and it is flattened now.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A third one is gone: a non-atomic inline box inside another one is flattened
-    ///         too, to any depth.</b> This paragraph used to say the missing piece was "the rebasing
+    ///         ⚠
+    ///         <b>
+    ///             A third one is gone: a non-atomic inline box inside another one is flattened
+    ///             too, to any depth.
+    ///         </b>
+    ///         This paragraph used to say the missing piece was "the rebasing
     ///         of a nested union", and that was already free — an inner box commits first, writing
     ///         its position in the container's coordinates, and the outer's commit then rebases it
     ///         like any other child. What actually held was the fragment scratch: one box's
@@ -137,8 +165,12 @@ public sealed partial class LayoutTree {
     ///         first's slice. Chaining each owner's fragments instead makes append order irrelevant.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And a fourth is gone: a box with an absolutely positioned <i>direct</i> child is
-    ///         flattened now too, and what it took was the call the refusal already named.</b> The
+    ///         ⚠
+    ///         <b>
+    ///             And a fourth is gone: a box with an absolutely positioned <i>direct</i> child is
+    ///             flattened now too, and what it took was the call the refusal already named.
+    ///         </b>
+    ///         The
     ///         absolute walk descends from the node it was called on and recurses only through
     ///         children that are <i>not</i> containing blocks — and this store's default
     ///         <see cref="PositionType" /> is <see cref="PositionType.Relative" />, Yoga's, not CSS's
@@ -151,8 +183,12 @@ public sealed partial class LayoutTree {
     ///         box of the box's first and last fragments, which is exactly what the union holds.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And the fifth: the static position of such a child is §10.6.4's now, and what had
-    ///         been missing was the READER rather than the recording.</b> The rebase of
+    ///         ⚠
+    ///         <b>
+    ///             And the fifth: the static position of such a child is §10.6.4's now, and what had
+    ///             been missing was the READER rather than the recording.
+    ///         </b>
+    ///         The rebase of
     ///         <see cref="LayoutResult.BlockStaticLeft" /> onto the union looked obligatory when this
     ///         paragraph was first written, was written, and measured as DEAD CODE — deleting it
     ///         reddened nothing. The reason was one keyword: <c>LayoutAbsoluteChild</c> read those two
@@ -231,7 +267,7 @@ public sealed partial class LayoutTree {
             // reader below is written so that this entry costs nothing: no advance, no height, no
             // break opportunity, no intrinsic width, and no contribution to `placed`.
             if (styles[child].PositionType == PositionType.Absolute) {
-                AppendInlineItem(new InlineItem(child, InlineItemKind.OutOfFlow));
+                AppendInlineItem(new(child, InlineItemKind.OutOfFlow));
 
                 continue;
             }
@@ -241,7 +277,7 @@ public sealed partial class LayoutTree {
             // §9.5 never consulted — which is what it was, and is worse than the block-level float
             // being one line low: the exclusion list never heard of it at all.
             if (styles[child].Float != FloatSide.None) {
-                AppendInlineItem(new InlineItem(child, InlineItemKind.Float));
+                AppendInlineItem(new(child, InlineItemKind.Float));
 
                 continue;
             }
@@ -251,14 +287,14 @@ public sealed partial class LayoutTree {
             // not the arena: two boxes open at one line's end both want a continuation fragment and
             // only one of them could own the contiguous slice. `fragmentScratchNext` retires that.
             if (IsNonAtomicInline(child)) {
-                AppendInlineItem(new InlineItem(child, InlineItemKind.Open));
+                AppendInlineItem(new(child, InlineItemKind.Open));
                 BuildInlineItems(child);
-                AppendInlineItem(new InlineItem(child, InlineItemKind.Close));
+                AppendInlineItem(new(child, InlineItemKind.Close));
 
                 continue;
             }
 
-            AppendInlineItem(new InlineItem(child, InlineItemKind.Atomic));
+            AppendInlineItem(new(child, InlineItemKind.Atomic));
         }
 
         return start;
@@ -301,8 +337,12 @@ public sealed partial class LayoutTree {
     ///     Writes the box metrics of a non-atomic inline box, which nothing else will.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>A flattened box never reaches <c>CalculateLayoutImpl</c>, and that is where every
-    ///     other node's resolved margin, border and padding get written.</b> A consumer reading
+    ///     ⚠
+    ///     <b>
+    ///         A flattened box never reaches <c>CalculateLayoutImpl</c>, and that is where every
+    ///         other node's resolved margin, border and padding get written.
+    ///     </b>
+    ///     A consumer reading
     ///     <c>GetComputedPadding</c> on a span would otherwise get whatever the last pass that did lay
     ///     it out left there, or zeroes — and the draw list reads exactly that to inset a background.
     ///     So the one thing the dispatch would have done for it is done here.
@@ -313,20 +353,28 @@ public sealed partial class LayoutTree {
         var startEdge = direction == Direction.Rtl ? Edge.Right : Edge.Left;
         var endEdge = direction == Direction.Rtl ? Edge.Left : Edge.Right;
 
-        results[index].Margin[(int) startEdge] = StyleResolution.InlineStartMargin(in styles[index], row, direction, ownerWidth);
-        results[index].Margin[(int) endEdge] = StyleResolution.InlineEndMargin(in styles[index], row, direction, ownerWidth);
-        results[index].Margin[(int) Edge.Top] = StyleResolution.InlineStartMargin(in styles[index], column, direction, ownerWidth);
-        results[index].Margin[(int) Edge.Bottom] = StyleResolution.InlineEndMargin(in styles[index], column, direction, ownerWidth);
+        results[index].Margin[(int)startEdge] =
+            StyleResolution.InlineStartMargin(in styles[index], row, direction, ownerWidth);
+        results[index].Margin[(int)endEdge] =
+            StyleResolution.InlineEndMargin(in styles[index], row, direction, ownerWidth);
+        results[index].Margin[(int)Edge.Top] =
+            StyleResolution.InlineStartMargin(in styles[index], column, direction, ownerWidth);
+        results[index].Margin[(int)Edge.Bottom] =
+            StyleResolution.InlineEndMargin(in styles[index], column, direction, ownerWidth);
 
-        results[index].Border[(int) startEdge] = StyleResolution.InlineStartBorder(in styles[index], row, direction);
-        results[index].Border[(int) endEdge] = StyleResolution.InlineEndBorder(in styles[index], row, direction);
-        results[index].Border[(int) Edge.Top] = StyleResolution.InlineStartBorder(in styles[index], column, direction);
-        results[index].Border[(int) Edge.Bottom] = StyleResolution.InlineEndBorder(in styles[index], column, direction);
+        results[index].Border[(int)startEdge] = StyleResolution.InlineStartBorder(in styles[index], row, direction);
+        results[index].Border[(int)endEdge] = StyleResolution.InlineEndBorder(in styles[index], row, direction);
+        results[index].Border[(int)Edge.Top] = StyleResolution.InlineStartBorder(in styles[index], column, direction);
+        results[index].Border[(int)Edge.Bottom] = StyleResolution.InlineEndBorder(in styles[index], column, direction);
 
-        results[index].Padding[(int) startEdge] = StyleResolution.InlineStartPadding(in styles[index], row, direction, ownerWidth);
-        results[index].Padding[(int) endEdge] = StyleResolution.InlineEndPadding(in styles[index], row, direction, ownerWidth);
-        results[index].Padding[(int) Edge.Top] = StyleResolution.InlineStartPadding(in styles[index], column, direction, ownerWidth);
-        results[index].Padding[(int) Edge.Bottom] = StyleResolution.InlineEndPadding(in styles[index], column, direction, ownerWidth);
+        results[index].Padding[(int)startEdge] =
+            StyleResolution.InlineStartPadding(in styles[index], row, direction, ownerWidth);
+        results[index].Padding[(int)endEdge] =
+            StyleResolution.InlineEndPadding(in styles[index], row, direction, ownerWidth);
+        results[index].Padding[(int)Edge.Top] =
+            StyleResolution.InlineStartPadding(in styles[index], column, direction, ownerWidth);
+        results[index].Padding[(int)Edge.Bottom] =
+            StyleResolution.InlineEndPadding(in styles[index], column, direction, ownerWidth);
 
         results[index].Direction = direction;
         results[index].InlineBaseline = float.NaN;
@@ -338,15 +386,23 @@ public sealed partial class LayoutTree {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The union is the node's own rectangle, and it is the right answer rather than a
-    ///         compromise.</b> CSS 2.1 §10.1 makes the containing block of an absolutely positioned
+    ///         ⚠
+    ///         <b>
+    ///             The union is the node's own rectangle, and it is the right answer rather than a
+    ///             compromise.
+    ///         </b>
+    ///         CSS 2.1 §10.1 makes the containing block of an absolutely positioned
     ///         descendant of an inline box the bounding box of its first and last fragments — so the
     ///         union is what the absolute walk wants — and it is also the rectangle a scroll extent and
     ///         a coarse hit test want. The individual boxes are still there for whoever needs them.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Rebasing the children is not bookkeeping, it is the thing that keeps every existing
-    ///         consumer correct.</b> A position in this store is an offset from the <i>parent's</i>
+    ///         ⚠
+    ///         <b>
+    ///             Rebasing the children is not bookkeeping, it is the thing that keeps every existing
+    ///             consumer correct.
+    ///         </b>
+    ///         A position in this store is an offset from the <i>parent's</i>
     ///         border box, and the parent of a span's child is the span. The line walk placed those
     ///         children in the container's coordinates because that is where lines live, so each one is
     ///         moved back by the union's origin. Skip it and the absolute walk adds the span's offset a
@@ -417,8 +473,8 @@ public sealed partial class LayoutTree {
                 continue;
             }
 
-            results[child].Position[(int) Edge.Left] -= left;
-            results[child].Position[(int) Edge.Top] -= top;
+            results[child].Position[(int)Edge.Left] -= left;
+            results[child].Position[(int)Edge.Top] -= top;
         }
 
         // ⚠ §9.4.3's offset is applied to the union and not to the fragments, which is both cheaper
@@ -431,10 +487,11 @@ public sealed partial class LayoutTree {
             ? RelativePosition(index, FlexDirection.Row, direction, innerWidth)
             : -RelativePosition(index, FlexDirection.Row, direction, innerWidth);
 
-        results[index].Position[(int) Edge.Left] = left + relativeX;
-        results[index].Position[(int) Edge.Top] = top + RelativePosition(index, FlexDirection.Column, direction, bottom - top);
-        results[index].Dimensions[(int) Dimension.Width] = right - left;
-        results[index].Dimensions[(int) Dimension.Height] = bottom - top;
+        results[index].Position[(int)Edge.Left] = left + relativeX;
+        results[index].Position[(int)Edge.Top] =
+            top + RelativePosition(index, FlexDirection.Column, direction, bottom - top);
+        results[index].Dimensions[(int)Dimension.Width] = right - left;
+        results[index].Dimensions[(int)Dimension.Height] = bottom - top;
         // Nothing clamped this union, so the two measurements are the same number.
         SetMeasuredDimension(index, Dimension.Width, right - left, right - left);
         SetMeasuredDimension(index, Dimension.Height, bottom - top, bottom - top);

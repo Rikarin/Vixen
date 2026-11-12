@@ -38,7 +38,7 @@ public class UnshrinkableFlexBaseTests {
 
     /// <summary>Two 45-point words that wrap one to a line when offered less than both.</summary>
     static MeasureFunction TwoWords() =>
-        (in MeasureRequest request) => {
+        static (in MeasureRequest request) => {
             var width = request.WidthMode switch {
                 MeasureMode.Exactly => request.AvailableWidth,
                 MeasureMode.AtMost => MathF.Max(WordWidth, MathF.Min(request.AvailableWidth, 2f * WordWidth)),
@@ -47,7 +47,10 @@ public class UnshrinkableFlexBaseTests {
 
             var lines = width >= 2f * WordWidth ? 1f : 2f;
 
-            return new LayoutSize(width, request.HeightMode == MeasureMode.Exactly ? request.AvailableHeight : lines * LineHeight);
+            return new(
+                width,
+                request.HeightMode == MeasureMode.Exactly ? request.AvailableHeight : lines * LineHeight
+            );
         };
 
     /// <summary>
@@ -125,7 +128,7 @@ public class UnshrinkableFlexBaseTests {
     /// </summary>
     [Fact]
     public void An_unshrinkable_list_of_shrinkable_tabs_keeps_every_title_on_one_line() {
-        var (tree, list, tabs, labels) = Strip(listShrink: 0f);
+        var (tree, list, tabs, labels) = Strip(0f);
 
         Assert.Equal(258f, tree.GetWidth(list));
         foreach (var tab in tabs) {
@@ -146,7 +149,7 @@ public class UnshrinkableFlexBaseTests {
     /// </summary>
     [Fact]
     public void A_shrinkable_list_of_the_same_tabs_is_squeezed_to_its_floor() {
-        var (tree, list, _, labels) = Strip(listShrink: 1f);
+        var (tree, list, _, labels) = Strip(1f);
 
         Assert.Equal(168f, tree.GetWidth(list));
         foreach (var label in labels) {

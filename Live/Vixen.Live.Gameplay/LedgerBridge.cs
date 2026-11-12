@@ -42,22 +42,37 @@ public enum BridgeRefusal {
 ///         implementation that is definitely wrong, and it is also the obvious one.
 ///     </para>
 ///     <para>
-///         <b>So the in-memory projection is authoritative for the frame and the database is the
-///         audit trail.</b> That is not optimism: ADR-021's lease says exactly one realm may write a
-///         player, so the projection cannot disagree with the database <em>while the lease is
-///         held</em>. Every accepted intent goes into an outbox, the realm drains it and posts it
+///         <b>
+///             So the in-memory projection is authoritative for the frame and the database is the
+///             audit trail.
+///         </b>
+///         That is not optimism: ADR-021's lease says exactly one realm may write a
+///         player, so the projection cannot disagree with the database
+///         <em>
+///             while the lease is
+///             held
+///         </em>
+///         . Every accepted intent goes into an outbox, the realm drains it and posts it
 ///         through <c>RealmDirectory</c>, and the answer arrives at a later <c>PreUpdate</c>.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>A <see cref="LedgerVerdict.Superseded" /> is not an undo.</b> ADR-021 says a realm
-///         that loses its lease mid-combat <em>"keeps simulating, buffers durable mutations as ledger
-///         intents, and either flushes them when the lease returns or hands them to the new
-///         holder"</em>. So a superseded write stays in the outbox and is re-drained; rolling the
+///         that loses its lease mid-combat
+///         <em>
+///             "keeps simulating, buffers durable mutations as ledger
+///             intents, and either flushes them when the lease returns or hands them to the new
+///             holder"
+///         </em>
+///         . So a superseded write stays in the outbox and is re-drained; rolling the
 ///         projection back would take an item off somebody who is still holding it.
 ///     </para>
 ///     <para>
-///         ⚠ <b>An <see cref="LedgerVerdict.Insufficient" /> or
-///         <see cref="LedgerVerdict.Unbalanced" /> answer is a defect, not a refusal.</b> The
+///         ⚠
+///         <b>
+///             An <see cref="LedgerVerdict.Insufficient" /> or
+///             <see cref="LedgerVerdict.Unbalanced" /> answer is a defect, not a refusal.
+///         </b>
+///         The
 ///         projection checked both before the intent was ever queued, so the database disagreeing
 ///         means the two have diverged — which is the one thing the lease exists to prevent. It is
 ///         counted and surfaced rather than swallowed, because a bridge that quietly dropped those
@@ -115,8 +130,11 @@ public sealed class LedgerBridge : IEconomyLedger {
     /// <summary>How many posts were recognised from the outbox rather than from the projection.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>A realm has two records of what it has already done, and this counts the ones the
-    ///         exact record answered.</b> The outbox holds every operation started here and not yet
+    ///         <b>
+    ///             A realm has two records of what it has already done, and this counts the ones the
+    ///             exact record answered.
+    ///         </b>
+    ///         The outbox holds every operation started here and not yet
     ///         confirmed; the projection's key set holds every operation applied here inside its
     ///         <c>KeyHorizon</c>. Both give the right answer, and the outbox is asked first because it
     ///         cannot be wrong.
@@ -192,7 +210,13 @@ public sealed class LedgerBridge : IEconomyLedger {
             return result;
         }
 
-        outbox.Add(new(key, new() { Key = key, LeaseEpoch = LeaseEpoch, Movements = movements, Detail = intent.Detail }, intent.Detail));
+        outbox.Add(
+            new(
+                key,
+                new() { Key = key, LeaseEpoch = LeaseEpoch, Movements = movements, Detail = intent.Detail },
+                intent.Detail
+            )
+        );
         inFlight.Add(key);
 
         return result;
@@ -207,8 +231,12 @@ public sealed class LedgerBridge : IEconomyLedger {
     /// <param name="amount">How much. Zero and below do nothing.</param>
     /// <returns>Whether it took.</returns>
     /// <remarks>
-    ///     ⚠ <b>There is no <c>Restore(…, 0)</c> that undoes this, and a realm that thinks there is
-    ///     keeps every departed player's purse.</b> The mirror is <c>MemoryEconomyLedger.Release</c>,
+    ///     ⚠
+    ///     <b>
+    ///         There is no <c>Restore(…, 0)</c> that undoes this, and a realm that thinks there is
+    ///         keeps every departed player's purse.
+    ///     </b>
+    ///     The mirror is <c>MemoryEconomyLedger.Release</c>,
     ///     which hands the rows back to <see cref="RestoreAccount" /> and drops them — because letting
     ///     a player go is not a movement of value and must not be written to the journal as one.
     /// </remarks>
@@ -248,7 +276,7 @@ public sealed class LedgerBridge : IEconomyLedger {
     ///     would lose it when the grain call fails, and losing a ledger intent is losing an item.
     ///     <see cref="Settle" /> is what removes one.
     /// </remarks>
-    public ImmutableArray<PendingWrite> Drain() => [.. outbox];
+    public ImmutableArray<PendingWrite> Drain() => [..outbox];
 
     /// <summary>Applies what the database said about a write.</summary>
     /// <param name="key">Which write.</param>
@@ -314,7 +342,13 @@ public sealed class LedgerBridge : IEconomyLedger {
                 return null;
             }
 
-            movements.Add(new(account, new(move.Asset.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)), move.Delta));
+            movements.Add(
+                new(
+                    account,
+                    new(move.Asset.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)),
+                    move.Delta
+                )
+            );
         }
 
         return movements.DrainToImmutable();

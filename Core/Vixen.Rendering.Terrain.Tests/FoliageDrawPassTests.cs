@@ -11,8 +11,12 @@ namespace Vixen.Rendering.Terrain.Tests;
 
 /// <summary>The foliage draw — [docs/plan/31 § T5]'s missing half.</summary>
 /// <remarks>
-///     ⚠ <b><see cref="FoliageCullPass" /> patches indirect commands, and for a long time nothing
-///     consumed them.</b> The cull's own tests pass over dispatches whose survivors no draw ever
+///     ⚠
+///     <b>
+///         <see cref="FoliageCullPass" /> patches indirect commands, and for a long time nothing
+///         consumed them.
+///     </b>
+///     The cull's own tests pass over dispatches whose survivors no draw ever
 ///     read — a complete two-phase compaction feeding nothing. What is asserted here is the other
 ///     half: a pipeline, a set and a mesh beside every draw, one draw per level per batch, and the
 ///     honest counters for a mesh that has not arrived.
@@ -24,10 +28,7 @@ public sealed class FoliageDrawPassTests : IDisposable {
 
     static FoliageType Tree =>
         FoliageType.Of("Tree") with {
-            Mesh = "vx:9e8a44c9930c64e388ca034c5fe4c426",
-            Radius = 2f,
-            StartCullDistance = 180f,
-            EndCullDistance = 200f
+            Mesh = "vx:9e8a44c9930c64e388ca034c5fe4c426", Radius = 2f, StartCullDistance = 180f, EndCullDistance = 200f
         };
 
     static RenderOutput Output => new([PixelFormat.Rgba8UNorm], PixelFormat.Depth32Float);
@@ -43,7 +44,7 @@ public sealed class FoliageDrawPassTests : IDisposable {
         var type = volume.AddType(Tree);
 
         for (var index = 0; index < count; index++) {
-            volume.Add(type, new(new(((index % 16) - 8) * 2f, 0f, z), Quaternion.Identity, 1f));
+            volume.Add(type, new(new((index % 16 - 8) * 2f, 0f, z), Quaternion.Identity, 1f));
         }
 
         return (volume, type);
@@ -81,8 +82,10 @@ public sealed class FoliageDrawPassTests : IDisposable {
     static FoliageDraw Draws(int type, FoliageMesh mesh, params float[] distances) =>
         new(
             type,
-            [.. Enumerable.Range(0, distances.Length + 1)
-                .Select(level => new DrawCommand { IndexCount = (uint)mesh.IndexCount })],
+            [
+                ..Enumerable.Range(0, distances.Length + 1)
+                    .Select(level => new DrawCommand { IndexCount = (uint)mesh.IndexCount })
+            ],
             distances
         );
 
@@ -224,7 +227,7 @@ public sealed class FoliageDrawPassTests : IDisposable {
             Frame(cull, pass, meshes);
 
             sets[frame] = device.Recorder.Commands
-                .Last(entry => entry.Kind == RecordedCommandKind.BindDescriptorSet)
+                .Last(static entry => entry.Kind == RecordedCommandKind.BindDescriptorSet)
                 .B;
         }
 
@@ -243,7 +246,7 @@ public sealed class FoliageDrawPassTests : IDisposable {
     [Fact]
     public void AnOriginMovesTheVolumeForTheCull() {
         using var cull = Cull();
-        var (volume, type) = Filled(32, z: -100f);
+        var (volume, type) = Filled(32);
         var pine = Pine();
 
         // In front of the camera where painted: visible.
@@ -298,13 +301,9 @@ public sealed class FoliageDrawPassTests : IDisposable {
     /// <summary>An empty mesh is refused at upload, loudly.</summary>
     [Fact]
     public void AnEmptyMeshIsRefused() {
-        Assert.Throws<ArgumentException>(
-            () => FoliageDrawPass.UploadMesh(device, [], [], [], [0, 1, 2])
-        );
+        Assert.Throws<ArgumentException>(() => FoliageDrawPass.UploadMesh(device, [], [], [], [0, 1, 2]));
 
-        Assert.Throws<ArgumentException>(
-            () => FoliageDrawPass.UploadMesh(device, [Vector3.Zero], [], [], [])
-        );
+        Assert.Throws<ArgumentException>(() => FoliageDrawPass.UploadMesh(device, [Vector3.Zero], [], [], []));
     }
 
     [Fact]
@@ -321,12 +320,13 @@ public sealed class FoliageDrawPassTests : IDisposable {
 
         pass.Dispose();
 
-        Assert.Throws<ObjectDisposedException>(
-            () => pass.Prepare(device.BeginCommandList(), cull, View())
-        );
+        Assert.Throws<ObjectDisposedException>(() => pass.Prepare(device.BeginCommandList(), cull, View()));
 
-        Assert.Throws<ObjectDisposedException>(
-            () => pass.Record(device.BeginCommandList(), cull, new Dictionary<int, FoliageMesh>())
+        Assert.Throws<ObjectDisposedException>(() => pass.Record(
+                device.BeginCommandList(),
+                cull,
+                new Dictionary<int, FoliageMesh>()
+            )
         );
     }
 }

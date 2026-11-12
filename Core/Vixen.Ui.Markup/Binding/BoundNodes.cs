@@ -35,8 +35,12 @@ public enum BoundAttributeKind {
 
     /// <summary>A member of the generated class to assign this element to, from <c>ref</c>.</summary>
     /// <remarks>
-    ///     ⚠ <b>A kind of its own rather than a universal, though it means the same on both sorts of
-    ///     tag.</b> <c>class</c> and <c>binding-path</c> are universal <i>and</i> land as style-tree
+    ///     ⚠
+    ///     <b>
+    ///         A kind of its own rather than a universal, though it means the same on both sorts of
+    ///         tag.
+    ///     </b>
+    ///     <c>class</c> and <c>binding-path</c> are universal <i>and</i> land as style-tree
     ///     attributes; this one lands nowhere in the document at all — it is an assignment in the
     ///     <c>Build</c> body and nothing else — so it needs its own arm in the emitter rather than a
     ///     name on a list.
@@ -45,8 +49,12 @@ public enum BoundAttributeKind {
 
     /// <summary>A value-change handler, from <c>change:Value</c>.</summary>
     /// <remarks>
-    ///     ⚠ <b>Not an <see cref="Event" /> with a different name, and the distinction is the reason
-    ///     <c>on:change</c> does not exist.</b> An event is a routed gesture: the runtime's table maps
+    ///     ⚠
+    ///     <b>
+    ///         Not an <see cref="Event" /> with a different name, and the distinction is the reason
+    ///         <c>on:change</c> does not exist.
+    ///     </b>
+    ///     An event is a routed gesture: the runtime's table maps
     ///     a name to <c>Action&lt;UiElement, Action&lt;UiEvent&gt;, RoutingStrategy&gt;</c>, and no
     ///     entry in it can hand a handler a value. A change names a <c>[UiProperty]</c> instead — the
     ///     same thing <see cref="Bind" /> names, resolved the same way — and is delivered by
@@ -56,8 +64,12 @@ public enum BoundAttributeKind {
 
     /// <summary>An <c>@for</c> row's element, registered into a keyed handle, from <c>refs</c>.</summary>
     /// <remarks>
-    ///     ⚠ <b><see cref="Ref" />'s answer to the question <see cref="Ref" /> cannot answer, rather
-    ///     than a relaxation of it.</b> A <c>ref</c> is an assignment and a loop has many rows;
+    ///     ⚠
+    ///     <b>
+    ///         <see cref="Ref" />'s answer to the question <see cref="Ref" /> cannot answer, rather
+    ///         than a relaxation of it.
+    ///     </b>
+    ///     A <c>ref</c> is an assignment and a loop has many rows;
     ///     this is a registration under the key the loop reconciles on, which is the only identity a
     ///     row has that survives a reorder. The two are exclusive by position: <c>VXML2010</c> refuses
     ///     <c>ref</c> inside a loop and <c>VXML2013</c> refuses <c>refs</c> outside one.
@@ -67,8 +79,12 @@ public enum BoundAttributeKind {
     /// <summary>The element name to create a capitalised tag under, from <c>tag</c>.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Consumed at creation like <see cref="Key" />, not applied afterwards like every
-    ///         other attribute.</b> A tag is interned into the style node when the element is made
+    ///         ⚠
+    ///         <b>
+    ///             Consumed at creation like <see cref="Key" />, not applied afterwards like every
+    ///             other attribute.
+    ///         </b>
+    ///         A tag is interned into the style node when the element is made
     ///         and there is no setter for it, which is deliberate — a rule that matched
     ///         <c>scroll-view</c> for one frame and <c>add-component-list</c> for the next would be
     ///         a cascade that depends on when you looked.
@@ -85,8 +101,12 @@ public enum BoundAttributeKind {
 
     /// <summary>An expression to run against what the tag made, from <c>use</c>.</summary>
     /// <remarks>
-    ///     ⚠ <b>The escape for a control fed by a <i>method</i>, which is the half of shape 1 that
-    ///     no amount of property binding reaches.</b> <c>Inspect(descriptor, provider, targets)</c>
+    ///     ⚠
+    ///     <b>
+    ///         The escape for a control fed by a <i>method</i>, which is the half of shape 1 that
+    ///         no amount of property binding reaches.
+    ///     </b>
+    ///     <c>Inspect(descriptor, provider, targets)</c>
     ///     is three arguments and <c>SetItems(rows)</c> is a collection; neither is a
     ///     <c>[UiProperty]</c>, so neither <see cref="Parameter" /> nor <see cref="Bind" /> can carry
     ///     it. Emitted as <c>BuildContext.Use</c>, which is an effect — so it re-runs when what it
@@ -97,8 +117,12 @@ public enum BoundAttributeKind {
     /// <summary>Which of a component's slots this child goes into, from <c>slot="footer"</c>.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Consumed at placement, like <see cref="Key" /> and <see cref="Tag" /> and unlike
-    ///         every attribute that survives into the document.</b> It decides which parent the
+    ///         ⚠
+    ///         <b>
+    ///             Consumed at placement, like <see cref="Key" /> and <see cref="Tag" /> and unlike
+    ///             every attribute that survives into the document.
+    ///         </b>
+    ///         It decides which parent the
     ///         emitter writes the child under and then it is gone — it is not a style-tree attribute,
     ///         and a rule written against <c>[slot]</c> matches nothing.
     ///     </para>
@@ -123,8 +147,12 @@ public enum BoundAttributeKind {
     ///         behaviour is a sentence written for one kind of user and withheld from another.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Universal in <see cref="Tag" />'s sense and emitted through a seam rather than
-    ///         by naming a type.</b> A <c>Tooltip</c> is <c>Vixen.Ui.Controls</c>' and the generated
+    ///         ⚠
+    ///         <b>
+    ///             Universal in <see cref="Tag" />'s sense and emitted through a seam rather than
+    ///             by naming a type.
+    ///         </b>
+    ///         A <c>Tooltip</c> is <c>Vixen.Ui.Controls</c>' and the generated
     ///         file cannot name it: a project referencing only <c>Vixen.Ui</c> would get generated
     ///         code that does not compile, which is worse than a refusal and cannot be refused here,
     ///         since the binder never sees the compilation. So the emitter writes
@@ -142,8 +170,12 @@ public enum BoundAttributeKind {
     ///         rides the same seam and decides nothing new about where the call lands.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>An expression naming a menu, and not a nested <c>&lt;ContextMenu&gt;</c> the tag
-    ///         adopts.</b> The nested spelling is unavailable to <i>this</i> design rather than
+    ///         ⚠
+    ///         <b>
+    ///             An expression naming a menu, and not a nested <c>&lt;ContextMenu&gt;</c> the tag
+    ///             adopts.
+    ///         </b>
+    ///         The nested spelling is unavailable to <i>this</i> design rather than
     ///         merely unattractive: an overlay has to be a child of the document root, and knowing
     ///         that a tag needs re-parenting means knowing that the tag names an overlay — the type
     ///         resolution the binder deliberately does not do. Written in place it would compile,
@@ -155,8 +187,12 @@ public enum BoundAttributeKind {
     /// <summary>How long a leaving row is kept, from <c>exit="200ms"</c>.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b><see cref="Key" />'s position exactly, and that is what settled the syntax
-    ///         question.</b> An exit is a property of the <i>loop</i> and not of the element it is
+    ///         ⚠
+    ///         <b>
+    ///             <see cref="Key" />'s position exactly, and that is what settled the syntax
+    ///             question.
+    ///         </b>
+    ///         An exit is a property of the <i>loop</i> and not of the element it is
     ///         written on — so the obvious spelling was a clause on the <c>@for</c> header — but
     ///         <c>key</c> is already a property of the loop written on the row's own element, read
     ///         by <c>BindFor</c> walking the bound body for it. A second convention for the second
@@ -327,16 +363,24 @@ public sealed record BoundSlot(string Name) : BoundNode;
 /// <param name="Value">What is provided.</param>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>The key is written out and cannot be inferred, and that is not a limitation of this
-///         tag.</b> <c>Provide&lt;T&gt;</c> keys on the type argument rather than on the value's
+///         ⚠
+///         <b>
+///             The key is written out and cannot be inferred, and that is not a limitation of this
+///             tag.
+///         </b>
+///         <c>Provide&lt;T&gt;</c> keys on the type argument rather than on the value's
 ///         runtime type — deliberately, so an interface is the useful key and a subclass cannot
 ///         shadow its base — so an inferred key would be the concrete class every time and
 ///         <c>Inject&lt;ITheme&gt;</c> would find nothing. The binder could not infer it in any case:
 ///         it never touches the compilation.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Provided in document order, which is what makes the ordering readable rather than
-///         magic.</b> The emitter writes nodes in the order they are written, so a
+///         ⚠
+///         <b>
+///             Provided in document order, which is what makes the ordering readable rather than
+///             magic.
+///         </b>
+///         The emitter writes nodes in the order they are written, so a
 ///         <c>&lt;provide&gt;</c> above its siblings is in place before any of them is built and one
 ///         written below them is not. That is the same rule an author already reads the file by.
 ///     </para>
@@ -412,8 +456,12 @@ public sealed record BoundRows(
 /// <param name="Body">What each item builds.</param>
 /// <param name="Index">
 ///     The name bound to the row's position, or null when the loop declares none.
-///     ⚠ <b>It arrives in the body as a <c>Signal&lt;int&gt;</c> and not as an <c>int</c>, which is
-///     the whole of the feature rather than an implementation note.</b> <c>BuildContext.For</c>
+///     ⚠
+///     <b>
+///         It arrives in the body as a <c>Signal&lt;int&gt;</c> and not as an <c>int</c>, which is
+///         the whole of the feature rather than an implementation note.
+///     </b>
+///     <c>BuildContext.For</c>
 ///     reuses a surviving key's region and never re-runs its body, so a position captured by a
 ///     lambda is the position that row had when its key first appeared — right until anything moves,
 ///     and silently wrong afterwards. A signal the reconciler writes on each pass is re-read by
@@ -461,8 +509,12 @@ public sealed record BoundFor(
 
     /// <summary>The <c>@empty</c> arm's content; empty when the loop declares none.</summary>
     /// <remarks>
-    ///     ⚠ <b>An empty array is "no arm", and that is sound because an arm that draws nothing and
-    ///     no arm at all are the same picture.</b> <c>BoundIf.Else</c> already makes this bargain
+    ///     ⚠
+    ///     <b>
+    ///         An empty array is "no arm", and that is sound because an arm that draws nothing and
+    ///         no arm at all are the same picture.
+    ///     </b>
+    ///     <c>BoundIf.Else</c> already makes this bargain
     ///     for the same reason, and it is what lets this be an <c>ImmutableArray</c> rather than a
     ///     nullable one every consumer would have to unwrap.
     /// </remarks>

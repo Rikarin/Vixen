@@ -43,7 +43,7 @@ static class FieldFixtures {
             var b = mesh.Triangles[ManifoldMesh.Next(half)];
 
             vertices.Add(a);
-            edges.Add(((long) Math.Min(a, b) << 32) | (uint) Math.Max(a, b));
+            edges.Add(((long)Math.Min(a, b) << 32) | (uint)Math.Max(a, b));
         }
 
         return vertices.Count - edges.Count + mesh.TriangleCount;
@@ -151,7 +151,7 @@ static class FieldFixtures {
             (positions, next) = (next, positions);
         }
 
-        return ManifoldMesh.Build(positions, mesh.Triangles.ToArray(), []);
+        return ManifoldMesh.Build(positions, [..mesh.Triangles], []);
     }
 
     /// <summary>An open tube: rings of quads round a cylinder, with no caps.</summary>
@@ -167,7 +167,7 @@ static class FieldFixtures {
             for (var side = 0; side < sides; side++) {
                 var angle = MathF.Tau * side / sides;
 
-                points[(ring * sides) + side] = new(
+                points[ring * sides + side] = new(
                     MathF.Cos(angle) * radius,
                     length * ring / rings,
                     MathF.Sin(angle) * radius
@@ -179,15 +179,15 @@ static class FieldFixtures {
 
         for (var ring = 0; ring < rings; ring++) {
             for (var side = 0; side < sides; side++) {
-                var a = (ring * sides) + side;
-                var b = (ring * sides) + ((side + 1) % sides);
+                var a = ring * sides + side;
+                var b = ring * sides + (side + 1) % sides;
 
                 indices.AddRange([a, b, a + sides]);
                 indices.AddRange([b, b + sides, a + sides]);
             }
         }
 
-        return ManifoldMesh.Build(points, [.. indices], []);
+        return ManifoldMesh.Build(points, [..indices], []);
     }
 
     /// <summary>The same surface at a different size, with exactly the same topology.</summary>
@@ -217,7 +217,7 @@ static class FieldFixtures {
             groups[triangle] = mesh.Group(triangle);
         }
 
-        return ManifoldMesh.Build(positions, mesh.Triangles.ToArray(), groups);
+        return ManifoldMesh.Build(positions, [..mesh.Triangles], groups);
     }
 
     /// <summary>How near two fields are, as the largest 4-RoSy angle between them.</summary>

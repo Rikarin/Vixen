@@ -118,7 +118,7 @@ public sealed partial class UiDocument {
 
             // In the beam beats out of it outright, and only then does distance decide. Ranking the
             // two against one number is exactly the weighted score this is here to avoid.
-            var score = inBeam ? along : MathF.Sqrt((along * along) + (across * across));
+            var score = inBeam ? along : MathF.Sqrt(along * along + across * across);
 
             var better = best is null
                 || (inBeam && !bestInBeam)

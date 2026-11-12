@@ -4,7 +4,6 @@
 using Vixen.Core;
 using Vixen.Rendering;
 using Vixen.Rendering.Features;
-using Vixen.Rendering.Materials;
 
 namespace Vixen.Engine.Renderer;
 
@@ -13,8 +12,11 @@ namespace Vixen.Engine.Renderer;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>The join <see cref="AssetTextureSource.Want" /> was written for and that nothing
-///         made.</b> Extraction knows a drawable's bounds and which material it is painted in;
+///         <b>
+///             The join <see cref="AssetTextureSource.Want" /> was written for and that nothing
+///             made.
+///         </b>
+///         Extraction knows a drawable's bounds and which material it is painted in;
 ///         <see cref="AssetMaterialSource" /> knows which textures a material samples; neither knows
 ///         the other, so a streamed texture had no size on it and every texture in a scene wanted to
 ///         be complete. That is a correct default — see <see cref="AssetTextureSource.Update" /> —
@@ -41,7 +43,8 @@ namespace Vixen.Engine.Renderer;
 ///     </para>
 ///     <para>
 ///         ⚠ <b>One frame stale, and deliberately.</b> This reads <c>RenderSystem.Visibility</c>,
-///         which the compositor fills during <see cref="SceneRenderHost.Draw(Vixen.Graphics.ICommandList)" /> — so what it sees at
+///         which the compositor fills during <see cref="SceneRenderHost.Draw(Vixen.Graphics.ICommandList)" /> — so what it
+///         sees at
 ///         the top of <see cref="WorldRenderer.Draw" /> is the previous frame's cull. A page takes
 ///         many frames to arrive, so a signal one frame behind the camera is exact enough; the
 ///         alternative is running this after the frame is recorded, where the wants it produced could
@@ -74,6 +77,7 @@ public sealed class TextureDemand {
     ///     is at now, which is right: the rung is a memory of a camera that is no longer there.
     /// </remarks>
     Dictionary<AssetReference, int> rungs = [];
+
     Dictionary<AssetReference, int> settling = [];
 
     int[] widths = [];
@@ -134,8 +138,12 @@ public sealed class TextureDemand {
     ///     </para>
     ///     <para>
     ///         ⚠ <b>Zero surveys nothing, and that is the safe direction rather than an oversight.</b>
-    ///         With no height there is no texel count, and a want of zero texels means <em>the
-    ///         smallest level</em> — so a survey that ran anyway would quietly drop every texture in
+    ///         With no height there is no texel count, and a want of zero texels means
+    ///         <em>
+    ///             the
+    ///             smallest level
+    ///         </em>
+    ///         — so a survey that ran anyway would quietly drop every texture in
     ///         the scene to its floor. Wanting nothing leaves each texture in the branch it was in
     ///         before this existed, which is the picture a project already had.
     ///     </para>

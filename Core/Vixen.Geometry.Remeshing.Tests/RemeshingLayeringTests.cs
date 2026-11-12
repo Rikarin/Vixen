@@ -31,7 +31,7 @@ public class RemeshingLayeringTests {
     [Fact]
     public void TheRemesherReferencesNothingAboveIt() {
         var violations = References()
-            .Where(name => Forbidden.Any(prefix => name.StartsWith(prefix, StringComparison.Ordinal)))
+            .Where(static name => Forbidden.Any(prefix => name.StartsWith(prefix, StringComparison.Ordinal)))
             .ToList();
 
         Assert.True(
@@ -64,7 +64,7 @@ public class RemeshingLayeringTests {
         };
 
         var unexpected = References()
-            .Where(name => name.StartsWith("Vixen.", StringComparison.Ordinal))
+            .Where(static name => name.StartsWith("Vixen.", StringComparison.Ordinal))
             .Where(name => !allowed.Contains(name))
             .ToList();
 
@@ -82,14 +82,13 @@ public class RemeshingLayeringTests {
     [Fact]
     public void NothingLoadedAlongsideTheRemesherDependsOnIt() {
         var dependents = AppDomain.CurrentDomain.GetAssemblies()
-            .Where(assembly => assembly.GetName().Name?.StartsWith("Vixen.", StringComparison.Ordinal) == true)
-            .Where(assembly => assembly.GetName().Name != "Vixen.Geometry.Remeshing")
-            .Where(assembly => assembly.GetName().Name != "Vixen.Geometry.Remeshing.Tests")
-            .Where(
-                assembly => assembly.GetReferencedAssemblies()
-                    .Any(reference => reference.Name == "Vixen.Geometry.Remeshing")
+            .Where(static assembly => assembly.GetName().Name?.StartsWith("Vixen.", StringComparison.Ordinal) == true)
+            .Where(static assembly => assembly.GetName().Name != "Vixen.Geometry.Remeshing")
+            .Where(static assembly => assembly.GetName().Name != "Vixen.Geometry.Remeshing.Tests")
+            .Where(static assembly => assembly.GetReferencedAssemblies()
+                    .Any(static reference => reference.Name == "Vixen.Geometry.Remeshing")
             )
-            .Select(assembly => assembly.GetName().Name)
+            .Select(static assembly => assembly.GetName().Name)
             .ToList();
 
         Assert.True(dependents.Count == 0, $"{string.Join(", ", dependents)} depends on Vixen.Geometry.Remeshing.");
@@ -134,16 +133,17 @@ public class RemeshingLayeringTests {
 
         return XDocument.Load(file)
             .Descendants("ProjectReference")
-            .Select(element => (string?)element.Attribute("Include") ?? string.Empty)
+            .Select(static element => (string?)element.Attribute("Include") ?? string.Empty)
 
             // ⚠ MSBuild writes its separators as backslashes on every platform, and `Path` on a
             // Unix host does not treat one as a separator — so `GetFileNameWithoutExtension` hands
             // back the entire relative path and every comparison below silently misses.
-            .Select(include => include.Replace('\\', '/'))
-            .Select(include => Path.GetFileNameWithoutExtension(include.AsSpan()).ToString())
-            .Where(name => name.Length > 0);
+            .Select(static include => include.Replace('\\', '/'))
+            .Select(static include => Path.GetFileNameWithoutExtension(include.AsSpan()).ToString())
+            .Where(static name => name.Length > 0);
     }
 
     static IEnumerable<string> References() =>
-        typeof(RemeshSettings).Assembly.GetReferencedAssemblies().Select(assembly => assembly.Name ?? string.Empty);
+        typeof(RemeshSettings).Assembly.GetReferencedAssemblies()
+            .Select(static assembly => assembly.Name ?? string.Empty);
 }

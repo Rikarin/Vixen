@@ -63,8 +63,12 @@ public interface IPlatform : IDisposable {
     ///         <c>@media (prefers-reduced-motion)</c> and <c>@media (forced-colors)</c>.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A platform with no source answers <see cref="SystemAccessibility.Unknown" /> and
-    ///         that is not the same as answering "off".</b> See <see cref="SystemAccessibility" />: a
+    ///         ⚠
+    ///         <b>
+    ///             A platform with no source answers <see cref="SystemAccessibility.Unknown" /> and
+    ///             that is not the same as answering "off".
+    ///         </b>
+    ///         See <see cref="SystemAccessibility" />: a
     ///         host that flattened the two would animate at a user who had asked it not to.
     ///     </para>
     /// </remarks>
@@ -80,8 +84,12 @@ public interface IPlatform : IDisposable {
     ///         would mean a host that wired one and not the other.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b><see cref="SystemAccent.Unknown" /> is a real answer and is not "there is no
-    ///         accent".</b> Every desktop has one; a platform can only be missing a way to read it,
+    ///         ⚠
+    ///         <b>
+    ///             <see cref="SystemAccent.Unknown" /> is a real answer and is not "there is no
+    ///             accent".
+    ///         </b>
+    ///         Every desktop has one; a platform can only be missing a way to read it,
     ///         and a host that flattened the two would paint a default blue over a palette the
     ///         machine could have answered for. See <see cref="SystemAccent" />.
     ///     </para>
@@ -98,9 +106,13 @@ public interface IPlatform : IDisposable {
     ///         that event re-applies this beside it.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A default member answering <see cref="SystemSemanticColors.Unknown" />, so a
-    ///         platform with no reader implements nothing and a sheet naming <c>CanvasText</c> keeps
-    ///         following <c>SystemPalette</c>'s own tables there.</b> A partial answer is the normal
+    ///         ⚠
+    ///         <b>
+    ///             A default member answering <see cref="SystemSemanticColors.Unknown" />, so a
+    ///             platform with no reader implements nothing and a sheet naming <c>CanvasText</c> keeps
+    ///             following <c>SystemPalette</c>'s own tables there.
+    ///         </b>
+    ///         A partial answer is the normal
     ///         one: each role is nullable on its own, and a role the platform did not supply is left
     ///         to the table rather than invented. See <see cref="SystemSemanticColors" />.
     ///     </para>
@@ -133,8 +145,10 @@ public interface IPlatform : IDisposable {
 
     /// <summary>Creates a window.</summary>
     /// <param name="options">What to create.</param>
-    /// <returns>The window, hidden unless <see cref="WindowOptions.IsVisible" /> said
-    /// otherwise.</returns>
+    /// <returns>
+    ///     The window, hidden unless <see cref="WindowOptions.IsVisible" /> said
+    ///     otherwise.
+    /// </returns>
     /// <exception cref="PlatformNotSupportedException">
     ///     A second window was asked for and <see cref="PlatformCapabilities.MultiWindow" /> is
     ///     absent.
@@ -149,8 +163,10 @@ public interface IPlatform : IDisposable {
     /// <summary>Finds a window by the id its events carry.</summary>
     /// <param name="id">The id from <see cref="PlatformEvent.WindowId" />.</param>
     /// <param name="window">The window.</param>
-    /// <returns><see langword="false" /> if no such window exists, which includes one that has
-    /// been disposed since the event was queued.</returns>
+    /// <returns>
+    ///     <see langword="false" /> if no such window exists, which includes one that has
+    ///     been disposed since the event was queued.
+    /// </returns>
     bool TryGetWindow(uint id, [NotNullWhen(true)] out IWindow? window);
 
     /// <summary>
@@ -168,8 +184,10 @@ public interface IPlatform : IDisposable {
     ReadOnlySpan<PlatformEvent> PumpEvents();
 
     /// <summary>Opens a URL in whatever the user has set as their handler for it.</summary>
-    /// <param name="url">An absolute URL. <c>http</c>, <c>https</c> and <c>mailto</c> work
-    /// everywhere; anything else is the platform's business.</param>
+    /// <param name="url">
+    ///     An absolute URL. <c>http</c>, <c>https</c> and <c>mailto</c> work
+    ///     everywhere; anything else is the platform's business.
+    /// </param>
     /// <returns><see langword="false" /> if the platform would not, or could not, open it.</returns>
     /// <remarks>
     ///     Hands a string to the shell, so it is only ever called with a URL the application

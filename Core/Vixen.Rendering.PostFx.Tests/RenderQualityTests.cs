@@ -19,14 +19,15 @@ namespace Tests;
 ///     carries it and a resource's extent is its arithmetic.
 /// </remarks>
 public class RenderQualityTests {
-    static StandardFrameAsset Bare => new() {
-        Shadows = ShadowMode.Off,
-        Gi = GiMode.Off,
-        Reflections = ReflectionsMode.Off,
-        Antialiasing = AntialiasingMode.Off,
-        Exposure = ExposureMode.Fixed,
-        Particles = false
-    };
+    static StandardFrameAsset Bare =>
+        new() {
+            Shadows = ShadowMode.Off,
+            Gi = GiMode.Off,
+            Reflections = ReflectionsMode.Off,
+            Antialiasing = AntialiasingMode.Off,
+            Exposure = ExposureMode.Fixed,
+            Particles = false
+        };
 
     static SequenceAsset Root(GraphicsCompositorAsset document) => Assert.IsType<SequenceAsset>(document.Game);
 
@@ -63,13 +64,9 @@ public class RenderQualityTests {
 
     [Fact]
     public void Each_layer_out_votes_the_one_below_it() {
-        var project = new RenderQualityAsset {
-            High = new() { Shadows = new() { CascadeResolution = 4096 } }
-        };
+        var project = new RenderQualityAsset { High = new() { Shadows = new() { CascadeResolution = 4096 } } };
 
-        var overlay = new RenderQualityAsset {
-            High = new() { Shadows = new() { CascadeResolution = 8192 } }
-        };
+        var overlay = new RenderQualityAsset { High = new() { Shadows = new() { CascadeResolution = 8192 } } };
 
         Assert.Equal(2048, RenderQuality.Resolve(QualityTier.High).CascadeResolution);
         Assert.Equal(4096, RenderQuality.Resolve(QualityTier.High, project).CascadeResolution);
@@ -81,9 +78,7 @@ public class RenderQualityTests {
         // One field in one group: the group's siblings, the other groups, and the layer's other
         // tiers all fall through — per parameter, never per group, which is the whole point of
         // the opinion model.
-        var project = new RenderQualityAsset {
-            High = new() { Shadows = new() { CascadeResolution = 4096 } }
-        };
+        var project = new RenderQualityAsset { High = new() { Shadows = new() { CascadeResolution = 4096 } } };
 
         var resolved = RenderQuality.Resolve(QualityTier.High, project);
         var engine = RenderQuality.Resolve(QualityTier.High);
@@ -133,13 +128,9 @@ public class RenderQualityTests {
 
     [Fact]
     public void The_documents_inline_preset_is_the_top_vote() {
-        var project = new RenderQualityAsset {
-            High = new() { PostFidelity = new() { BloomLevels = 7 } }
-        };
+        var project = new RenderQualityAsset { High = new() { PostFidelity = new() { BloomLevels = 7 } } };
 
-        var inline = new RenderQualityAsset {
-            High = new() { PostFidelity = new() { BloomLevels = 2 } }
-        };
+        var inline = new RenderQualityAsset { High = new() { PostFidelity = new() { BloomLevels = 2 } } };
 
         var document = StandardFrame.Expand(
             new() { Game = Bare with { Quality = QualityTier.High, Preset = inline } },
@@ -154,7 +145,7 @@ public class RenderQualityTests {
         // Unset quality: the fallback decides — Low drops the whole bloom/fog block.
         var hosted = StandardFrame.Expand(new() { Game = Bare }, QualityTier.Low);
 
-        Assert.DoesNotContain(Root(hosted).Children, child => child.Name is "Glow" or "Air");
+        Assert.DoesNotContain(Root(hosted).Children, static child => child.Name is "Glow" or "Air");
 
         // A named tier is the document's own decision, whatever the host picked.
         var authored = StandardFrame.Expand(
@@ -162,7 +153,7 @@ public class RenderQualityTests {
             QualityTier.Low
         );
 
-        Assert.Contains(Root(authored).Children, child => child.Name == "Glow");
+        Assert.Contains(Root(authored).Children, static child => child.Name == "Glow");
     }
 
     [Fact]
@@ -176,21 +167,19 @@ public class RenderQualityTests {
 
         // Low's column: no culling node, no fog, no bloom — the platform's pick decided, because
         // the document declined to.
-        Assert.DoesNotContain(Root(document).Children, child => child.Name is "Cull" or "Air" or "Glow");
+        Assert.DoesNotContain(Root(document).Children, static child => child.Name is "Cull" or "Air" or "Glow");
     }
 
     [Fact]
     public void A_late_phase_preset_emits_the_second_cull_after_the_reduce() {
-        var project = new RenderQualityAsset {
-            High = new() { Geometry = new() { Culling = CullingMode.LatePhase } }
-        };
+        var project = new RenderQualityAsset { High = new() { Geometry = new() { Culling = CullingMode.LatePhase } } };
 
         var document = StandardFrame.Expand(
             new() { Game = Bare with { Quality = QualityTier.High } },
             project: project
         );
 
-        var names = Root(document).Children.Select(child => child.Name).ToArray();
+        var names = Root(document).Children.Select(static child => child.Name).ToArray();
 
         // Main cull at the head; the late dispatch strictly after the pyramid it re-asks against.
         Assert.Equal(0, Array.IndexOf(names, "Cull"));
@@ -206,8 +195,7 @@ public class RenderQualityTests {
     public void Resolution_and_expansion_are_deterministic() {
         var project = new RenderQualityAsset {
             Epic = new() {
-                Shadows = new() { CascadeResolution = 4096 },
-                PostFidelity = new() { MotionBlurSamples = 16 }
+                Shadows = new() { CascadeResolution = 4096 }, PostFidelity = new() { MotionBlurSamples = 16 }
             }
         };
 
@@ -222,8 +210,8 @@ public class RenderQualityTests {
         var second = StandardFrame.Expand(new() { Game = frame }, project: project);
 
         Assert.Equal(
-            Root(first).Children.Select(child => (child.Name, child.GetType())),
-            Root(second).Children.Select(child => (child.Name, child.GetType()))
+            Root(first).Children.Select(static child => (child.Name, child.GetType())),
+            Root(second).Children.Select(static child => (child.Name, child.GetType()))
         );
 
         Assert.Equal(first.Stages, second.Stages);
@@ -232,21 +220,19 @@ public class RenderQualityTests {
 
     [Fact]
     public void The_render_scale_lands_on_the_scene_planes_and_never_the_output() {
-        var project = new RenderQualityAsset {
-            High = new() { Resolution = new() { RenderScale = 0.75f } }
-        };
+        var project = new RenderQualityAsset { High = new() { Resolution = new() { RenderScale = 0.75f } } };
 
         var document = StandardFrame.Expand(
             new() { Game = Bare with { Quality = QualityTier.High } },
             project: project
         );
 
-        Assert.Equal(0.75f, document.Resources.Single(resource => resource.Name == "SceneHdr").Scale);
-        Assert.Equal(0.75f, document.Resources.Single(resource => resource.Name == "SceneDepth").Scale);
+        Assert.Equal(0.75f, document.Resources.Single(static resource => resource.Name == "SceneHdr").Scale);
+        Assert.Equal(0.75f, document.Resources.Single(static resource => resource.Name == "SceneDepth").Scale);
 
         // The output is the window's image: scaling it would not upscale the frame, it would
         // shrink the picture the player is shown.
-        Assert.Equal(1f, document.Resources.Single(resource => resource.Name == "SceneColour").Scale);
+        Assert.Equal(1f, document.Resources.Single(static resource => resource.Name == "SceneColour").Scale);
     }
 
     /// <summary>
@@ -264,7 +250,7 @@ public class RenderQualityTests {
 
         Assert.Equal(
             RenderQuality.Resolve(QualityTier.Epic),
-            PostEffectFactory.QualityOf(document, QualityTier.Low, project: null)
+            PostEffectFactory.QualityOf(document, QualityTier.Low)
         );
     }
 
@@ -275,12 +261,12 @@ public class RenderQualityTests {
         // document with no frame node at all.
         Assert.Equal(
             RenderQuality.Resolve(QualityTier.Medium),
-            PostEffectFactory.QualityOf(new() { Game = Bare }, QualityTier.Medium, project: null)
+            PostEffectFactory.QualityOf(new() { Game = Bare }, QualityTier.Medium)
         );
 
         Assert.Equal(
             RenderQuality.Resolve(QualityTier.Medium),
-            PostEffectFactory.QualityOf(new(), QualityTier.Medium, project: null)
+            PostEffectFactory.QualityOf(new(), QualityTier.Medium)
         );
     }
 

@@ -37,7 +37,7 @@ public sealed class VoiceTests {
             imaginary += mono[i] * Math.Sin(angle);
         }
 
-        return (float)(Math.Sqrt((real * real) + (imaginary * imaginary)) / mono.Length);
+        return (float)(Math.Sqrt(real * real + imaginary * imaginary) / mono.Length);
     }
 
     static float Peak(ReadOnlySpan<float> pcm) {
@@ -72,7 +72,7 @@ public sealed class VoiceTests {
             collected.AddRange(block.AsSpan(0, frames * channels).ToArray());
         }
 
-        return [.. collected];
+        return [..collected];
     }
 
     // ── The codec itself ──────────────────────────────────────────────────────────────────────
@@ -109,7 +109,10 @@ public sealed class VoiceTests {
 
         // The last few frames, by which point the encoder has settled.
         var settled = collected.ToArray().AsSpan(Frame * 5);
-        Assert.True(Correlation(settled) > 0.2f, $"the tone correlated at {Correlation(settled):F4}, wanted about 0.25");
+        Assert.True(
+            Correlation(settled) > 0.2f,
+            $"the tone correlated at {Correlation(settled):F4}, wanted about 0.25"
+        );
     }
 
     /// <summary>
@@ -183,7 +186,8 @@ public sealed class VoiceTests {
     [Fact]
     public void AskingForRedundancySpendsBitrateOnIt() {
         static int Bytes(int expectedLoss) {
-            using var encoder = new OpusPacketEncoder(1, 20, 24_000) { ExpectedPacketLoss = expectedLoss };
+            using var encoder = new OpusPacketEncoder(1, 20, 24_000);
+            encoder.ExpectedPacketLoss = expectedLoss;
             var packet = new byte[OpusPacketEncoder.MaxPacketBytes];
             var total = 0;
 
@@ -220,7 +224,8 @@ public sealed class VoiceTests {
     /// </summary>
     [Fact]
     public void ConcealingWithTheSuccessorInHandStillProducesAFrame() {
-        using var encoder = new OpusPacketEncoder { ExpectedPacketLoss = 20 };
+        using var encoder = new OpusPacketEncoder();
+        encoder.ExpectedPacketLoss = 20;
         using var decoder = new OpusPacketDecoder();
         var packets = new List<byte[]>();
         var pcm = new float[Frame];
@@ -228,7 +233,7 @@ public sealed class VoiceTests {
         for (var i = 0; i < 12; i++) {
             var buffer = new byte[OpusPacketEncoder.MaxPacketBytes];
             var written = encoder.Encode(Tone(Frame, 0.5f, i * Frame), buffer);
-            packets.Add(buffer.AsSpan(0, written).ToArray());
+            packets.Add([..buffer.AsSpan(0, written)]);
         }
 
         // Play the first ten so the decoder has real state, then lose the eleventh and hand it the
@@ -310,7 +315,8 @@ public sealed class VoiceTests {
     /// </summary>
     [Fact]
     public void SendingWhileSilentIsAvailableForPushToTalk() {
-        using var sender = new VoiceSender { SendWhileSilent = true };
+        using var sender = new VoiceSender();
+        sender.SendWhileSilent = true;
         var silence = new float[Frame];
 
         for (var i = 0; i < 5; i++) {
@@ -344,9 +350,9 @@ public sealed class VoiceTests {
             return headers.Count - before;
         }
 
-        Speak(6, aloud: true);
-        var silent = Speak(40, aloud: false);
-        Speak(6, aloud: true);
+        Speak(6, true);
+        var silent = Speak(40, false);
+        Speak(6, true);
 
         var first = headers[0];
         var last = headers[^1];
@@ -425,11 +431,11 @@ public sealed class VoiceTests {
         // Two packets whose sequence is contiguous but whose timestamps are a second apart: exactly
         // what a sender's gate produces when somebody stops talking and starts again.
         var first = encoder.Encode(Tone(Frame, 0.6f), packet);
-        receiver.Receive(new VoicePacketHeader(0, 0), packet.AsSpan(0, first));
+        receiver.Receive(new(0, 0), packet.AsSpan(0, first));
         receiver.Pump();
 
         var second = encoder.Encode(Tone(Frame, 0.6f, Frame), packet);
-        receiver.Receive(new VoicePacketHeader(1, Rate), packet.AsSpan(0, second));
+        receiver.Receive(new(1, Rate), packet.AsSpan(0, second));
         receiver.Pump();
 
         Assert.Equal(0, receiver.Concealed);
@@ -444,13 +450,13 @@ public sealed class VoiceTests {
         var packet = new byte[OpusPacketEncoder.MaxPacketBytes];
 
         var first = encoder.Encode(Tone(Frame, 0.6f), packet);
-        receiver.Receive(new VoicePacketHeader(0, 0), packet.AsSpan(0, first));
+        receiver.Receive(new(0, 0), packet.AsSpan(0, first));
         receiver.Pump();
 
         // Sequence 1 never arrives. Sequence 2 does, one frame further along the clock.
         encoder.Encode(Tone(Frame, 0.6f, Frame), packet);
         var third = encoder.Encode(Tone(Frame, 0.6f, 2 * Frame), packet);
-        receiver.Receive(new VoicePacketHeader(2, 2 * Frame), packet.AsSpan(0, third));
+        receiver.Receive(new(2, 2 * Frame), packet.AsSpan(0, third));
         receiver.Pump();
 
         Assert.True(receiver.Concealed > 0, "the gap was played through as though nothing were missing");
@@ -467,12 +473,12 @@ public sealed class VoiceTests {
         for (var i = 0; i < 6; i++) {
             var buffer = new byte[OpusPacketEncoder.MaxPacketBytes];
             var written = encoder.Encode(Tone(Frame, 0.6f, i * Frame), buffer);
-            encoded.Add(buffer.AsSpan(0, written).ToArray());
+            encoded.Add([..buffer.AsSpan(0, written)]);
         }
 
         // 0, then 2 before 1, then 3, 5 before 4.
         foreach (var i in new[] { 0, 2, 1, 3, 5, 4 }) {
-            receiver.Receive(new VoicePacketHeader((ushort)i, (uint)(i * Frame)), encoded[i]);
+            receiver.Receive(new((ushort)i, (uint)(i * Frame)), encoded[i]);
         }
 
         receiver.Flush();
@@ -489,15 +495,15 @@ public sealed class VoiceTests {
         var packet = new byte[OpusPacketEncoder.MaxPacketBytes];
 
         var first = encoder.Encode(Tone(Frame, 0.6f), packet);
-        receiver.Receive(new VoicePacketHeader(0, 0), packet.AsSpan(0, first));
+        receiver.Receive(new(0, 0), packet.AsSpan(0, first));
         receiver.Pump();
 
         var second = encoder.Encode(Tone(Frame, 0.6f, Frame), packet);
-        receiver.Receive(new VoicePacketHeader(1, Frame), packet.AsSpan(0, second));
+        receiver.Receive(new(1, Frame), packet.AsSpan(0, second));
         receiver.Pump();
 
         // Now the one from the beginning turns up, long after it was played past.
-        Assert.False(receiver.Receive(new VoicePacketHeader(0, 0), packet.AsSpan(0, first)));
+        Assert.False(receiver.Receive(new(0, 0), packet.AsSpan(0, first)));
         Assert.Equal(1, receiver.Late);
     }
 
@@ -510,12 +516,12 @@ public sealed class VoiceTests {
 
         for (ushort i = 0; i < 3; i++) {
             var written = encoder.Encode(Tone(Frame, 0.6f, i * Frame), packet);
-            receiver.Receive(new VoicePacketHeader(i, (uint)(i * Frame)), packet.AsSpan(0, written));
+            receiver.Receive(new(i, (uint)(i * Frame)), packet.AsSpan(0, written));
             Assert.Equal(0, receiver.Pump());
         }
 
         var fourth = encoder.Encode(Tone(Frame, 0.6f, 3 * Frame), packet);
-        receiver.Receive(new VoicePacketHeader(3, 3 * Frame), packet.AsSpan(0, fourth));
+        receiver.Receive(new(3, 3 * Frame), packet.AsSpan(0, fourth));
 
         Assert.True(receiver.Pump() > 0, "a fourth packet with a depth of three still played nothing");
     }

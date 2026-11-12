@@ -42,7 +42,7 @@ public class MeshEditTests : IDisposable {
     Entity Cube(Vector3 position = default) {
         var entity = scene.CreateShape(
             PrimitiveKind.Cube,
-            new LocalTransform { Position = position, Rotation = Quaternion.Identity, Scale = Vector3.One }
+            new() { Position = position, Rotation = Quaternion.Identity, Scale = Vector3.One }
         );
 
         transforms.Resolve(world);
@@ -140,13 +140,13 @@ public class MeshEditTests : IDisposable {
         Cube();
         editing.Enter(MeshElementKind.Face);
 
-        editing.Clicked(new SubObject(SubObjectKind.Face, 2), additive: false);
+        editing.Clicked(new(SubObjectKind.Face, 2), false);
         Assert.Equal([2], editing.Selection.Indices);
 
-        editing.Clicked(new SubObject(SubObjectKind.Face, 5), additive: true);
+        editing.Clicked(new(SubObjectKind.Face, 5), true);
         Assert.Equal([2, 5], editing.Selection.Indices);
 
-        editing.Clicked(new SubObject(SubObjectKind.Face, 2), additive: true);
+        editing.Clicked(new(SubObjectKind.Face, 2), true);
         Assert.Equal([5], editing.Selection.Indices);
     }
 
@@ -156,10 +156,10 @@ public class MeshEditTests : IDisposable {
         editing.Enter(MeshElementKind.Face);
         editing.Selection.Set([1, 2]);
 
-        editing.Clicked(SubObject.None, additive: true);
+        editing.Clicked(SubObject.None, true);
         Assert.Equal(2, editing.Selection.Count);
 
-        editing.Clicked(SubObject.None, additive: false);
+        editing.Clicked(SubObject.None, false);
         Assert.True(editing.Selection.IsEmpty);
     }
 
@@ -187,7 +187,7 @@ public class MeshEditTests : IDisposable {
 
         var mesh = scene.MeshOf(entity)!;
 
-        mesh.MovePosition(0, new Vector3(3f, 3f, 3f));
+        mesh.MovePosition(0, new(3f, 3f, 3f));
         scene.TouchMesh(entity);
 
         // ⚠ P2's exit criterion. A drag and its undo change where things are and not what is joined
@@ -205,7 +205,7 @@ public class MeshEditTests : IDisposable {
 
         var mesh = new EditMesh(scene.MeshOf(entity)!);
 
-        mesh.AddPosition(new Vector3(2f, 2f, 2f));
+        mesh.AddPosition(new(2f, 2f, 2f));
         mesh.AddFace([0, 1, mesh.PositionCount - 1]);
 
         scene.SetMesh(entity, mesh);
@@ -232,7 +232,7 @@ public class MeshEditTests : IDisposable {
 
     [Fact]
     public void The_gizmo_sits_on_the_selection_rather_than_on_the_entity() {
-        var entity = Cube(new Vector3(5f, 0f, 0f));
+        var entity = Cube(new(5f, 0f, 0f));
 
         editing.Enter(MeshElementKind.Vertex);
         editing.Selection.Set(0);
@@ -241,7 +241,7 @@ public class MeshEditTests : IDisposable {
         var mesh = scene.MeshOf(entity)!;
 
         Assert.Equal(
-            Matrix4x4.TransformPosition(mesh.Positions[0], Matrix4x4.FromTranslation(new Vector3(5f, 0f, 0f))),
+            Matrix4x4.TransformPosition(mesh.Positions[0], Matrix4x4.FromTranslation(new(5f, 0f, 0f))),
             target.Position
         );
     }
@@ -299,7 +299,7 @@ public class MeshEditTests : IDisposable {
         var target = new MeshGizmoTarget(scene, editing);
         var centre = target.Position;
 
-        target.Scale = new Vector3(2f);
+        target.Scale = new(2f);
 
         List<int> covered = [];
 

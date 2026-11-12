@@ -71,7 +71,7 @@ public sealed class SuballocatorTests {
 
     [Fact]
     public void CoalescingWorksInEveryFreeOrder() {
-        foreach (var order in (int[][]) [[0, 1, 2], [2, 1, 0], [1, 0, 2], [1, 2, 0], [0, 2, 1], [2, 0, 1]]) {
+        foreach (var order in (int[][])[[0, 1, 2], [2, 1, 0], [1, 0, 2], [1, 2, 0], [0, 2, 1], [2, 0, 1]]) {
             var space = new Suballocator(768);
             var offsets = new long[3];
 
@@ -159,7 +159,7 @@ public sealed class SuballocatorTests {
         for (var step = 0; step < 200; step++) {
             var size = 16 + step % 97;
 
-            if (!space.TryAllocate(size, 1 << step % 5, out var offset)) {
+            if (!space.TryAllocate(size, 1 << (step % 5), out var offset)) {
                 space.Free(live[0].Offset, live[0].Size);
                 live.RemoveAt(0);
                 continue;

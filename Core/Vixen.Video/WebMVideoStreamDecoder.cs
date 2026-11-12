@@ -42,7 +42,7 @@ public sealed class WebMVideoStreamDecoder : IVideoStreamDecoder {
     /// <exception cref="InvalidDataException">It is not a WebM segment, or it has no video track.</exception>
     /// <exception cref="NotSupportedException">Its video codec is not registered.</exception>
     public WebMVideoStreamDecoder(string path)
-        : this(new MatroskaDemuxer(path), ownsDemuxer: true) { }
+        : this(new MatroskaDemuxer(path), true) { }
 
     /// <summary>Opens a stream.</summary>
     /// <param name="stream">The bytes. Must be seekable for <see cref="Seek" /> to work.</param>
@@ -51,7 +51,7 @@ public sealed class WebMVideoStreamDecoder : IVideoStreamDecoder {
     /// <exception cref="InvalidDataException">It is not a WebM segment, or it has no video track.</exception>
     /// <exception cref="NotSupportedException">Its video codec is not registered.</exception>
     public WebMVideoStreamDecoder(Stream stream, bool leaveOpen = false)
-        : this(new MatroskaDemuxer(stream, leaveOpen), ownsDemuxer: true) { }
+        : this(new MatroskaDemuxer(stream, leaveOpen), true) { }
 
     /// <summary>Decodes the video track of a demuxer somebody else owns.</summary>
     /// <param name="demuxer">The container.</param>
@@ -160,7 +160,7 @@ public sealed class WebMVideoStreamDecoder : IVideoStreamDecoder {
 
             try {
                 decoded = codec.Decode(
-                    new VideoPacket(packet.Data, packet.Timestamp, packet.Duration, packet.IsKeyFrame),
+                    new(packet.Data, packet.Timestamp, packet.Duration, packet.IsKeyFrame),
                     destination
                 );
             } finally {
@@ -210,7 +210,7 @@ public sealed class WebMVideoStreamDecoder : IVideoStreamDecoder {
         // The track states nanoseconds per frame; a rational rate is that inverted. A second is
         // 1e9 ns, so the ratio is exact for every rate a muxer can write — including 30000/1001,
         // whose default duration is 33 366 667 ns and whose float is 29.970029970029970…
-        return new VideoRational(1_000_000_000, (int)Math.Min(int.MaxValue, track.DefaultDuration.Ticks * 100));
+        return new(1_000_000_000, (int)Math.Min(int.MaxValue, track.DefaultDuration.Ticks * 100));
     }
 
     /// <summary>Says whether the frame just decoded is a different shape from the last one.</summary>

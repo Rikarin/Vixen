@@ -16,8 +16,12 @@ namespace Vixen.Ui.Controls;
 ///         legible, and "which element is this" is a question a picture answers first.
 ///     </para>
 ///     <para>
-///         ⚠ <b>It lives in the document it describes, and that is the only arrangement in which
-///         its coordinates mean anything.</b> The boxes are in the subject's space, so an overlay in
+///         ⚠
+///         <b>
+///             It lives in the document it describes, and that is the only arrangement in which
+///             its coordinates mean anything.
+///         </b>
+///         The boxes are in the subject's space, so an overlay in
 ///         another document would draw them somewhere else. That is the opposite of the panel's
 ///         advice — the panel is exact when it is <i>not</i> in the document it counts — and the
 ///         two are separate controls for exactly this reason: the numbers go in a tools window and
@@ -118,7 +122,9 @@ public sealed class DiagnosticsOverlay : Control {
                 // document — which says nothing about *where* and hides everything about *what*.
                 // The panel's row still counts it; the picture draws only the records that name a
                 // place. A region with no area is one recorded before its element was laid out.
-                if (region.Kind == UiInvalidationKind.Document || region.Bounds.Width <= 0f || region.Bounds.Height <= 0f) {
+                if (region.Kind == UiInvalidationKind.Document
+                    || region.Bounds.Width <= 0f
+                    || region.Bounds.Height <= 0f) {
                     continue;
                 }
 

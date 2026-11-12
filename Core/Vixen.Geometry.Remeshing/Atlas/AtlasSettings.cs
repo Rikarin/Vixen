@@ -14,8 +14,12 @@ namespace Vixen.Geometry.Remeshing;
 ///         the engine rather than two.
 ///     </para>
 ///     <para>
-///         ⚠ <b><see cref="Resolution" /> exists because <see cref="Margin" /> is counted in
-///         texels</b>, which is doc 42 § D8's rule and is not this document's to relax. A margin
+///         ⚠
+///         <b>
+///             <see cref="Resolution" /> exists because <see cref="Margin" /> is counted in
+///             texels
+///         </b>
+///         , which is doc 42 § D8's rule and is not this document's to relax. A margin
 ///         expressed as a fraction of UV space looks right at the resolution it was tuned at and
 ///         bleeds at half of it, in a build nobody connects to the packing.
 ///     </para>
@@ -36,8 +40,12 @@ public sealed record AtlasSettings {
     ///         This is that budget, and lower asks for more merging.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Zero is a legitimate setting and means "merge everything that can be
-    ///         merged".</b> It is not reachable as a result — an open boundary is a seam nothing can
+    ///         ⚠
+    ///         <b>
+    ///             Zero is a legitimate setting and means "merge everything that can be
+    ///             merged".
+    ///         </b>
+    ///         It is not reachable as a result — an open boundary is a seam nothing can
     ///         remove, and a closed surface of genus zero cannot be one chart at all — so the merge
     ///         simply runs out of legal moves and says how much seam was left.
     ///     </para>
@@ -53,8 +61,12 @@ public sealed record AtlasSettings {
 
     /// <summary>Whether the seams that remain are pushed onto feature lines.</summary>
     /// <remarks>
-    ///     ⚠ <b>§ D13: a seam on a hard edge is where an artist would cut anyway and where a
-    ///     normal-map discontinuity is invisible.</b> It is implemented as a preference in the merge
+    ///     ⚠
+    ///     <b>
+    ///         § D13: a seam on a hard edge is where an artist would cut anyway and where a
+    ///         normal-map discontinuity is invisible.
+    ///     </b>
+    ///     It is implemented as a preference in the merge
     ///     order rather than as a constraint — merging across a <i>non</i>-feature side first leaves
     ///     the feature sides to be the ones still standing when the budget is met.
     /// </remarks>

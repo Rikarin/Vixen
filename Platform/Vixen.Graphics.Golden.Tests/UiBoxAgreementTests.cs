@@ -29,15 +29,22 @@ namespace Vixen.Graphics.Golden.Tests;
 ///         <i>missing outright</i>.
 ///     </para>
 ///     <para>
-///         ⚠ <b>A comparison and not a committed picture, for <see cref="UiCompositingTests" />'
-///         reason.</b> A reference image is made by one of the two renderers, so it cannot say they
+///         ⚠
+///         <b>
+///             A comparison and not a committed picture, for <see cref="UiCompositingTests" />'
+///             reason.
+///         </b>
+///         A reference image is made by one of the two renderers, so it cannot say they
 ///         agree. There is no baseline here to regenerate and so no way for a divergence to be
 ///         accepted by accident.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Integer coordinates in six of the seven fixtures, and that is history rather than a
-///         constraint — <c>halfpixel</c> is the seventh and exists because leaving the gap was
-///         expensive.</b>
+///         ⚠
+///         <b>
+///             Integer coordinates in six of the seven fixtures, and that is history rather than a
+///             constraint — <c>halfpixel</c> is the seventh and exists because leaving the gap was
+///             expensive.
+///         </b>
 ///         <c>SoftwareUiRasterizer.TopLeft</c> used to keep a <i>closed</i> test on axis-aligned edges
 ///         where the device opens the right and bottom ones, so a box whose edge landed exactly on a
 ///         sample centre differed by a whole half-covered column — 54 pixels of 16384 by up to 107
@@ -69,8 +76,12 @@ public sealed class UiBoxAgreementTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Far tighter than <c>UiCompositingTests.Agreement</c>, because there is nothing
-    ///         here for that allowance to absorb.</b> That one is sized for a composited pixel, which
+    ///         ⚠
+    ///         <b>
+    ///             Far tighter than <c>UiCompositingTests.Agreement</c>, because there is nothing
+    ///             here for that allowance to absorb.
+    ///         </b>
+    ///         That one is sized for a composited pixel, which
     ///         is blended into an <c>Rgba8UNorm</c> surface, quantised, and blended again into an
     ///         <c>Rgba8UNorm</c> frame — three roundings against the software path's one. Nothing in
     ///         this file opens a group, so every pixel is stored once on both sides.
@@ -105,7 +116,7 @@ public sealed class UiBoxAgreementTests {
         using var owned = opened!;
         var colour = owned.ColourTarget($"ui-box-{fixture}");
 
-        var cache = new GlyphFieldCache(new GlyphAtlas(64, 64));
+        var cache = new GlyphFieldCache(new(64, 64));
         var geometry = new UiGeometryBuilder().Build(Frame(fixture), cache, Viewport);
 
         // ⚠ The instrument, and both halves of it matter. No layer, so this is the plain box path and
@@ -128,11 +139,14 @@ public sealed class UiBoxAgreementTests {
 
         owned.Owns(renderer.Dispose);
 
-        owned.Graph.AddPass($"ui-box-{fixture}", pass => {
-            pass.ColourAttachment(colour, LoadAction.Clear, Background);
-            pass.SideEffect();
-            pass.Execute(context => renderer.Record(context.CommandList, geometry, new(Side, Side)));
-        });
+        owned.Graph.AddPass(
+            $"ui-box-{fixture}",
+            pass => {
+                pass.ColourAttachment(colour, LoadAction.Clear, Background);
+                pass.SideEffect();
+                pass.Execute(context => renderer.Record(context.CommandList, geometry, new(Side, Side)));
+            }
+        );
 
         var rendered = owned.Render(colour, commands => renderer.Upload(commands, geometry, cache.Atlas));
         var software = SoftwareUiRasterizer.Render(geometry, cache.Atlas, Side, Side, Background);
@@ -155,8 +169,11 @@ public sealed class UiBoxAgreementTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <b>Without this, "the two agree" is compatible with the software renderer ignoring the
-    ///         blur</b> — and that is exactly the state it was in. <c>SoftwareUiRasterizer.Box</c> read
+    ///         <b>
+    ///             Without this, "the two agree" is compatible with the software renderer ignoring the
+    ///             blur
+    ///         </b>
+    ///         — and that is exactly the state it was in. <c>SoftwareUiRasterizer.Box</c> read
     ///         the record's size, radii, border thickness, gradient axis, stops and interpolation
     ///         space, and not its <c>axis.z</c>; every <c>box-shadow</c> in the engine came out as a
     ///         hard-edged box at full opacity, sitting exactly where the soft shadow belonged, with
@@ -173,11 +190,11 @@ public sealed class UiBoxAgreementTests {
     /// </remarks>
     [Fact]
     public void ABlurredBoxIsNotTheSamePictureAsAHardOne() {
-        var soft = new GlyphFieldCache(new GlyphAtlas(64, 64));
-        var hard = new GlyphFieldCache(new GlyphAtlas(64, 64));
+        var soft = new GlyphFieldCache(new(64, 64));
+        var hard = new GlyphFieldCache(new(64, 64));
 
         var blurred = new UiGeometryBuilder().Build(Frame("blurred"), soft, Viewport);
-        var sharp = new UiGeometryBuilder().Build(Frame("blurred", blur: false), hard, Viewport);
+        var sharp = new UiGeometryBuilder().Build(Frame("blurred", false), hard, Viewport);
 
         var a = SoftwareUiRasterizer.Render(blurred, soft.Atlas, Side, Side, Background);
         var b = SoftwareUiRasterizer.Render(sharp, hard.Atlas, Side, Side, Background);
@@ -243,23 +260,27 @@ public sealed class UiBoxAgreementTests {
                 Styled(
                     list,
                     new(DrawCommandKind.Rectangle, 66, 6, 52, 44, new Color4(0.95f, 0.3f, 0.4f, 1f), 0, 0),
-                    BoxStyle.Rounded(new CornerRadii(
-                        new Vector2(20f, 6f),
-                        new Vector2(6f, 20f),
-                        new Vector2(18f, 18f),
-                        new Vector2(3f, 14f)
-                    ))
+                    BoxStyle.Rounded(
+                        new(
+                            new(20f, 6f),
+                            new(6f, 20f),
+                            new(18f, 18f),
+                            new(3f, 14f)
+                        )
+                    )
                 );
 
                 Styled(
                     list,
                     new(DrawCommandKind.Rectangle, 6, 62, 112, 56, new Color4(0.4f, 0.9f, 0.3f, 1f), 0, 0),
-                    BoxStyle.Rounded(new CornerRadii(
-                        new Vector2(40f, 12f),
-                        new Vector2(12f, 40f),
-                        new Vector2(30f, 30f),
-                        new Vector2(60f, 5f)
-                    ))
+                    BoxStyle.Rounded(
+                        new(
+                            new(40f, 12f),
+                            new(12f, 40f),
+                            new(30f, 30f),
+                            new(60f, 5f)
+                        )
+                    )
                 );
 
                 break;
@@ -299,7 +320,9 @@ public sealed class UiBoxAgreementTests {
                 // the box shader like any other box. `UiCompositingTests` has the first and not the
                 // second, which is how the missing branch survived.
                 list.Add(new(DrawCommandKind.Shadow, 20, 20, 40, 30, new Color4(0f, 0f, 0f, 0.6f), 8, blur ? 4 : 0));
-                list.Add(new(DrawCommandKind.Shadow, 66, 60, 40, 40, new Color4(0.1f, 0.1f, 0.4f, 0.8f), 18, blur ? 9 : 0));
+                list.Add(
+                    new(DrawCommandKind.Shadow, 66, 60, 40, 40, new Color4(0.1f, 0.1f, 0.4f, 0.8f), 18, blur ? 9 : 0)
+                );
                 break;
 
             case "gradient":
@@ -309,27 +332,24 @@ public sealed class UiBoxAgreementTests {
                 Styled(
                     list,
                     new(DrawCommandKind.Rectangle, 6, 6, 52, 40, new Color4(0.2f, 0.6f, 0.95f, 1f), 0, 0),
-                    new BoxStyle(CornerRadii.Uniform(12f), new Color4(0.95f, 0.3f, 0.4f, 1f), new Vector2(0.6f, 0.8f)) {
-                        Shape = GradientShape.Linear,
-                        Space = GradientSpace.Srgb
+                    new(CornerRadii.Uniform(12f), new(0.95f, 0.3f, 0.4f, 1f), new(0.6f, 0.8f)) {
+                        Shape = GradientShape.Linear, Space = GradientSpace.Srgb
                     }
                 );
 
                 Styled(
                     list,
                     new(DrawCommandKind.Rectangle, 66, 6, 52, 40, new Color4(0.9f, 0.8f, 0.2f, 1f), 0, 0),
-                    new BoxStyle(CornerRadii.Uniform(12f), new Color4(0.1f, 0.2f, 0.8f, 1f), new Vector2(0f, 1f)) {
-                        Shape = GradientShape.Radial,
-                        Space = GradientSpace.Oklab
+                    new(CornerRadii.Uniform(12f), new(0.1f, 0.2f, 0.8f, 1f), new(0f, 1f)) {
+                        Shape = GradientShape.Radial, Space = GradientSpace.Oklab
                     }
                 );
 
                 Styled(
                     list,
                     new(DrawCommandKind.Rectangle, 6, 60, 112, 56, new Color4(0.4f, 0.9f, 0.3f, 1f), 0, 0),
-                    new BoxStyle(CornerRadii.Uniform(24f), new Color4(0.9f, 0.2f, 0.7f, 1f), new Vector2(1f, 0f)) {
-                        Shape = GradientShape.Conic,
-                        Space = GradientSpace.Linear
+                    new(CornerRadii.Uniform(24f), new(0.9f, 0.2f, 0.7f, 1f), new(1f, 0f)) {
+                        Shape = GradientShape.Conic, Space = GradientSpace.Linear
                     }
                 );
 
@@ -347,12 +367,12 @@ public sealed class UiBoxAgreementTests {
                 Styled(
                     list,
                     new(DrawCommandKind.Rectangle, 6, 6, 52, 40, new Color4(0.2f, 0.6f, 0.95f, 1f), 0, 0),
-                    new BoxStyle(CornerRadii.Uniform(8f), new Color4(0.95f, 0.3f, 0.4f, 1f), new Vector2(1f, 0f)) {
+                    new(CornerRadii.Uniform(8f), new(0.95f, 0.3f, 0.4f, 1f), new(1f, 0f)) {
                         Shape = GradientShape.Linear,
                         Space = GradientSpace.Srgb,
-                        AreaCentre = new Vector2(-13f, -10f),
-                        AreaHalf = new Vector2(13f, 10f),
-                        PaintExtent = new Vector2(13f, 10f)
+                        AreaCentre = new(-13f, -10f),
+                        AreaHalf = new(13f, 10f),
+                        PaintExtent = new(13f, 10f)
                     }
                 );
 
@@ -363,12 +383,12 @@ public sealed class UiBoxAgreementTests {
                 Styled(
                     list,
                     new(DrawCommandKind.Rectangle, 66, 6, 52, 40, new Color4(0.9f, 0.8f, 0.2f, 1f), 0, 0),
-                    new BoxStyle(CornerRadii.Uniform(8f), new Color4(0.1f, 0.2f, 0.8f, 1f), Vector2.Zero) {
+                    new(CornerRadii.Uniform(8f), new(0.1f, 0.2f, 0.8f, 1f), Vector2.Zero) {
                         Shape = GradientShape.Radial,
                         Space = GradientSpace.Oklab,
-                        AreaCentre = new Vector2(-13f, 0f),
-                        AreaHalf = new Vector2(-13f, 10f),
-                        PaintExtent = new Vector2(13f, 10f)
+                        AreaCentre = new(-13f, 0f),
+                        AreaHalf = new(-13f, 10f),
+                        PaintExtent = new(13f, 10f)
                     }
                 );
 
@@ -379,13 +399,13 @@ public sealed class UiBoxAgreementTests {
                 Styled(
                     list,
                     new(DrawCommandKind.Rectangle, 6, 60, 112, 56, new Color4(0.4f, 0.9f, 0.3f, 1f), 0, 0),
-                    new BoxStyle(CornerRadii.Uniform(16f), new Color4(0.9f, 0.2f, 0.7f, 1f), Vector2.Zero) {
+                    new(CornerRadii.Uniform(16f), new(0.9f, 0.2f, 0.7f, 1f), Vector2.Zero) {
                         Shape = GradientShape.Radial,
                         Space = GradientSpace.Linear,
-                        AreaCentre = new Vector2(-28f, 0f),
-                        AreaHalf = new Vector2(-28f, -28f),
-                        PaintCentre = new Vector2(-14f, 12f),
-                        PaintExtent = new Vector2(42f, 40f)
+                        AreaCentre = new(-28f, 0f),
+                        AreaHalf = new(-28f, -28f),
+                        PaintCentre = new(-14f, 12f),
+                        PaintExtent = new(42f, 40f)
                     }
                 );
 

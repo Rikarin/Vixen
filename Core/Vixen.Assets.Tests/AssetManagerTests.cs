@@ -180,8 +180,8 @@ public sealed class AssetManagerTests {
     public async Task ADependencyIsClaimedByEverythingThatNeedsIt() {
         var world = new World()
             .With("shared/texture", new TestAsset { Name = "texture" })
-            .With("mat/a", new TestAsset { Name = "a" }, dependencies: ["shared/texture"])
-            .With("mat/b", new TestAsset { Name = "b" }, dependencies: ["shared/texture"])
+            .With("mat/a", new TestAsset { Name = "a" }, ["shared/texture"])
+            .With("mat/b", new TestAsset { Name = "b" }, ["shared/texture"])
             .Build();
 
         var a = world.Assets.LoadAsync<TestAsset>("mat/a", TestContext.Current.CancellationToken);
@@ -202,7 +202,7 @@ public sealed class AssetManagerTests {
         var world = new World()
             .With("shader", new TestAsset())
             .With("texture", new TestAsset())
-            .With("material", new TestAsset(), dependencies: ["texture", "shader"])
+            .With("material", new TestAsset(), ["texture", "shader"])
             .Build();
 
         var handle = world.Assets.LoadAsync<TestAsset>("material", TestContext.Current.CancellationToken);
@@ -255,7 +255,11 @@ public sealed class AssetManagerTests {
     public void AnAddressTheCatalogDoesNotHaveFailsBeforeAnythingIsClaimed() {
         var world = new World().With("ui/hero", new TestAsset()).Build();
 
-        Assert.Throws<AddressNotFoundException>(() => world.Assets.LoadAsync<TestAsset>("ui/missing", TestContext.Current.CancellationToken));
+        Assert.Throws<AddressNotFoundException>(() => world.Assets.LoadAsync<TestAsset>(
+                "ui/missing",
+                TestContext.Current.CancellationToken
+            )
+        );
         Assert.Equal(0, world.Assets.LoadedCount);
     }
 
@@ -267,7 +271,7 @@ public sealed class AssetManagerTests {
     public async Task AFailedLoadGivesBackEverythingItClaimed() {
         var world = new World()
             .With("texture", new TestAsset())
-            .WithMissingChunk("material", dependencies: ["texture"])
+            .WithMissingChunk("material", ["texture"])
             .Build();
 
         var handle = world.Assets.LoadAsync<TestAsset>("material", TestContext.Current.CancellationToken);
@@ -286,10 +290,11 @@ public sealed class AssetManagerTests {
     public async Task ABundleThatIsNotThereNamesItself() {
         // The catalog names a bundle the build never wrote, which is what a mismatched
         // catalog-and-bundles pair looks like from the runtime's side.
-        var world = new World().With("ui/hero", new TestAsset()).Build(bundleName: "NotWritten", writtenAs: "Main");
+        var world = new World().With("ui/hero", new TestAsset()).Build("NotWritten", "Main");
 
-        var failure = await Assert.ThrowsAsync<BundleUnavailableException>(
-            async () => await Settled(world.Assets.LoadAsync<TestAsset>("ui/hero", TestContext.Current.CancellationToken))
+        var failure = await Assert.ThrowsAsync<BundleUnavailableException>(async () => await Settled(
+                world.Assets.LoadAsync<TestAsset>("ui/hero", TestContext.Current.CancellationToken)
+            )
         );
 
         Assert.Equal("NotWritten", failure.Bundle);
@@ -304,8 +309,9 @@ public sealed class AssetManagerTests {
     public async Task TheRightAddressAsTheWrongTypeSaysBoth() {
         var world = new World().With("ui/hero", new TestAsset()).Build();
 
-        var failure = await Assert.ThrowsAnyAsync<Exception>(
-            async () => await Settled(world.Assets.LoadAsync<OtherAsset>("ui/hero", TestContext.Current.CancellationToken))
+        var failure = await Assert.ThrowsAnyAsync<Exception>(async () => await Settled(
+                world.Assets.LoadAsync<OtherAsset>("ui/hero", TestContext.Current.CancellationToken)
+            )
         );
 
         Assert.Contains("ui/hero", failure.Message, StringComparison.Ordinal);
@@ -347,7 +353,7 @@ public sealed class AssetManagerTests {
         }
 
         names.Sort(StringComparer.Ordinal);
-        return [.. names];
+        return [..names];
     }
 
     /// <summary>The handle's load, with the test's cancellation token attached.</summary>
@@ -355,10 +361,10 @@ public sealed class AssetManagerTests {
         handle.Completion.WaitAsync(TestContext.Current.CancellationToken);
 
 
-
     /// <summary>A catalog, a bundle and a manager over both — put together the way a build does.</summary>
     sealed class World {
-        readonly List<(string Address, object? Asset, string[] Dependencies, string[] Labels, AssetReference Reference)> planned = [];
+        readonly List<(string Address, object? Asset, string[] Dependencies, string[] Labels, AssetReference Reference)>
+            planned = [];
 
         public AssetManager Assets { get; private set; } = null!;
 
@@ -396,7 +402,7 @@ public sealed class AssetManagerTests {
                     : ContentHash.Compute(System.Text.Encoding.UTF8.GetBytes(address));
 
                 entries.Add(
-                    new(address, id, bundleName, ContentProvider.Local, [.. dependencies], [.. labels], 0, reference)
+                    new(address, id, bundleName, ContentProvider.Local, [..dependencies], [..labels], 0, reference)
                 );
             }
 
@@ -411,7 +417,7 @@ public sealed class AssetManagerTests {
                 default,
                 "Windows",
                 entries,
-                [new(bundleName, "", default, 0, 0, CompressionMethod.Lz4, [])]
+                [new(bundleName, string.Empty, default, 0, 0, CompressionMethod.Lz4, [])]
             );
 
             Assets = new(catalog, new LocalBundleSource(files, new("/bundles")));

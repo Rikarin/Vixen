@@ -51,7 +51,7 @@ public readonly record struct VideoColourCoefficients(
         var lumaScale = full ? 1f : 255f / 219f;
         var chromaScale = full ? 1f : 255f / 224f;
 
-        return new VideoColourCoefficients(
+        return new(
             full ? 0f : 16f,
             lumaScale,
             2f * (1f - kr) * chromaScale,
@@ -142,12 +142,12 @@ public static class VideoColourConversion {
             var row = destination[(y * format.Width * 4)..];
 
             for (var x = 0; x < format.Width; x++) {
-                var luma = Clamp(((source[x] - offset) * scale) + Half);
+                var luma = Clamp((source[x] - offset) * scale + Half);
 
                 row[x * 4] = luma;
-                row[(x * 4) + 1] = luma;
-                row[(x * 4) + 2] = luma;
-                row[(x * 4) + 3] = 255;
+                row[x * 4 + 1] = luma;
+                row[x * 4 + 2] = luma;
+                row[x * 4 + 3] = 255;
             }
         }
     }
@@ -181,10 +181,10 @@ public static class VideoColourConversion {
                 var u = blue[chromaColumn] - 128;
                 var v = red[chromaColumn] - 128;
 
-                row[x * 4] = Clamp(common + (u * blueU) + Half);
-                row[(x * 4) + 1] = Clamp(common + (u * greenU) + (v * greenV) + Half);
-                row[(x * 4) + 2] = Clamp(common + (v * redV) + Half);
-                row[(x * 4) + 3] = 255;
+                row[x * 4] = Clamp(common + u * blueU + Half);
+                row[x * 4 + 1] = Clamp(common + u * greenU + v * greenV + Half);
+                row[x * 4 + 2] = Clamp(common + v * redV + Half);
+                row[x * 4 + 3] = 255;
             }
         }
     }

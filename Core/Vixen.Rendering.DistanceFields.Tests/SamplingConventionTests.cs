@@ -39,7 +39,7 @@ public class SamplingConventionTests {
                 for (var x = 0; x <= 8; x++) {
                     // Deliberately off the grid points: on them any convention agrees.
                     var t = new Vector3(x / 8f, y / 8f, z / 8f);
-                    var point = field.Bounds.Minimum + (field.Bounds.Size * t);
+                    var point = field.Bounds.Minimum + field.Bounds.Size * t;
 
                     var direct = field.Sample(point);
                     var sampled = SampleAsHardwareWould(field, field.TextureCoordinate(point));
@@ -71,11 +71,13 @@ public class SamplingConventionTests {
     /// </summary>
     [Fact]
     public void TheShaderComputesTheSameCoordinate() {
-        var source = File.ReadAllText(
-            Path.Combine(AppContext.BaseDirectory, "Shaders", "DistanceField.rvn")
-        );
+        var source = File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Shaders", "DistanceField.rvn"));
 
-        Assert.Contains("val grid = (world - volume.minimum) * volume.inverseCellSize", source, StringComparison.Ordinal);
+        Assert.Contains(
+            "val grid = (world - volume.minimum) * volume.inverseCellSize",
+            source,
+            StringComparison.Ordinal
+        );
         Assert.Contains("return (grid + 0.5f) / Resolution(volume)", source, StringComparison.Ordinal);
 
         // And its resolution is the count, derived from the same two numbers the volume carries.
@@ -85,7 +87,7 @@ public class SamplingConventionTests {
     /// <summary>Trilinear over texel centres, clamped at the edges — what the sampler is configured as.</summary>
     static float SampleAsHardwareWould(MeshDistanceField field, Vector3 uvw) {
         var size = new Vector3(field.Resolution.X, field.Resolution.Y, field.Resolution.Z);
-        var texel = (uvw * size) - new Vector3(0.5f);
+        var texel = uvw * size - new Vector3(0.5f);
 
         var x0 = (int)MathF.Floor(texel.X);
         var y0 = (int)MathF.Floor(texel.Y);
@@ -102,7 +104,7 @@ public class SamplingConventionTests {
                 Math.Clamp(z, 0, field.Resolution.Z - 1)
             ];
 
-        static float Lerp(float a, float b, float t) => a + ((b - a) * t);
+        static float Lerp(float a, float b, float t) => a + (b - a) * t;
 
         var c00 = Lerp(At(x0, y0, z0), At(x0 + 1, y0, z0), tx);
         var c10 = Lerp(At(x0, y0 + 1, z0), At(x0 + 1, y0 + 1, z0), tx);

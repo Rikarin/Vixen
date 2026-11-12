@@ -11,8 +11,12 @@ namespace Vixen.Ui.Layout.Tests.Taffy;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>This file exists because the corpus stopped being pending, and that is the third time
-///         the same thing has happened.</b> <c>TaffyPendingCorporaTests</c> ran all 84 of these
+///         ⚠
+///         <b>
+///             This file exists because the corpus stopped being pending, and that is the third time
+///             the same thing has happened.
+///         </b>
+///         <c>TaffyPendingCorporaTests</c> ran all 84 of these
 ///         fixtures and pinned the tally at <c>(0, 0, 84)</c> for as long as there was no
 ///         <c>float</c> field to refuse them on anything else; block and grid each left it the same
 ///         way, for a conformance suite that judges every fixture individually. Nothing about the
@@ -20,8 +24,11 @@ namespace Vixen.Ui.Layout.Tests.Taffy;
 ///         <c>TaffyPendingCorporaTests</c> was written to make and has now finished making.
 ///     </para>
 ///     <para>
-///         <b>All 84 pass, none is refused, and <c>FloatKnownGaps.txt</c> is empty — which is a
-///         weaker result than it sounds and that file says why.</b> Every one of the 84 was an ENGINE
+///         <b>
+///             All 84 pass, none is refused, and <c>FloatKnownGaps.txt</c> is empty — which is a
+///             weaker result than it sounds and that file says why.
+///         </b>
+///         Every one of the 84 was an ENGINE
 ///         gap: the store had no field for <c>float</c>, so none of them had ever run, and the
 ///         algorithm was written against these exact numbers. A corpus that had never run and then
 ///         went green is evidence that somebody read the expectations. The 8
@@ -99,8 +106,12 @@ public class TaffyFloatConformanceTests {
     ///     Clearance specifically, counted apart from placement.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>A total of 84 says nothing about which half of §9.5 is implemented, and the two
-    ///     halves have almost nothing in common.</b> Placing a float is a search over an exclusion
+    ///     ⚠
+    ///     <b>
+    ///         A total of 84 says nothing about which half of §9.5 is implemented, and the two
+    ///         halves have almost nothing in common.
+    ///     </b>
+    ///     Placing a float is a search over an exclusion
     ///     list; clearance is margin collapsing with a floor under it, and it is where every one of
     ///     the four bugs this branch hit actually lived — a probe that left its origin behind, a
     ///     margin that both escaped and positioned, a set that was discarded when it should have been
@@ -113,23 +124,28 @@ public class TaffyFloatConformanceTests {
     public void Every_clearance_fixture_passes() {
         var clearance = TaffyCorpus
             .Load("float")
-            .Where(fixture => fixture.Name.Contains("clear", StringComparison.Ordinal))
+            .Where(static fixture => fixture.Name.Contains("clear", StringComparison.Ordinal))
             .ToList();
 
-        var outcomes = clearance.Select(fixture => (fixture.Name, Result: TaffyFixtureRunner.Run(fixture))).ToList();
+        var outcomes = clearance.Select(static fixture => (fixture.Name, Result: TaffyFixtureRunner.Run(fixture)))
+            .ToList();
 
         Assert.Equal(24, clearance.Count);
         Assert.Empty(
             outcomes
-                .Where(entry => entry.Result.Outcome != TaffyOutcome.Pass)
-                .Select(entry => $"{entry.Name}\n{entry.Result.Detail}")
+                .Where(static entry => entry.Result.Outcome != TaffyOutcome.Pass)
+                .Select(static entry => $"{entry.Name}\n{entry.Result.Detail}")
         );
     }
 
     /// <summary>The gaps file's own summary line states those same counts.</summary>
     /// <remarks>
-    ///     ⚠ <b>The sentence a reader meets first was the only number in this arrangement nothing
-    ///     checked</b>, and <c>GridKnownGaps.txt</c>'s was two batches stale before anybody noticed.
+    ///     ⚠
+    ///     <b>
+    ///         The sentence a reader meets first was the only number in this arrangement nothing
+    ///         checked
+    ///     </b>
+    ///     , and <c>GridKnownGaps.txt</c>'s was two batches stale before anybody noticed.
     ///     See <see cref="TaffyGapsSummary" /> for why the line count is asserted before the digits
     ///     on it are: a sweep that finds no line agrees with a file the line was deleted out of.
     /// </remarks>
@@ -150,8 +166,8 @@ public class TaffyFloatConformanceTests {
 
         return File
             .ReadLines(path)
-            .Select(line => line.Trim())
-            .Where(line => line.Length > 0 && !line.StartsWith('#'))
+            .Select(static line => line.Trim())
+            .Where(static line => line.Length > 0 && !line.StartsWith('#'))
             .ToFrozenSet(StringComparer.Ordinal);
     }
 }

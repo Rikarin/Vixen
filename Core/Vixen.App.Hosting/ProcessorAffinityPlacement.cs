@@ -24,15 +24,23 @@ namespace Vixen.App;
 ///         if there are more workers than processors.
 ///     </para>
 ///     <para>
-///         ⚠ <b>No processor is reserved for the main thread, because the arithmetic already does
-///         it.</b> <c>AppBuilder</c> asks for <c>AvailableProcessors - 1</c> workers, so the last
+///         ⚠
+///         <b>
+///             No processor is reserved for the main thread, because the arithmetic already does
+///             it.
+///         </b>
+///         <c>AppBuilder</c> asks for <c>AvailableProcessors - 1</c> workers, so the last
 ///         processor in the order has no worker pinned to it and is where an unpinned main thread
 ///         naturally ends up. A reservation on top of that would be the same subtraction applied
 ///         twice, and would idle a core on any host that chose its own worker count.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Opt in, because pinning is a pessimisation on a machine that is running anything
-///         else.</b> A pinned worker cannot be moved off a core the OS has given to a browser, a
+///         ⚠
+///         <b>
+///             Opt in, because pinning is a pessimisation on a machine that is running anything
+///             else.
+///         </b>
+///         A pinned worker cannot be moved off a core the OS has given to a browser, a
 ///         compiler or another game, so it waits behind them instead of being migrated. It is worth
 ///         asking for on a console or a dedicated server and rarely on a desktop, which is why
 ///         <c>AppConfig.PinWorkers</c> is false unless somebody says otherwise.
@@ -51,10 +59,12 @@ sealed class ProcessorAffinityPlacement : IWorkerPlacement {
         // Computed once, on whichever thread builds this — it reads the topology and touches no
         // thread state, so it is the part that does not have to happen on the worker.
         order = topology.SupportsAffinity
-            ? [.. Enumerable
-                .Range(0, Math.Max(0, topology.AvailableProcessors))
-                .OrderBy(processor => Rank(topology.ClassOf(processor)))
-                .ThenBy(processor => processor)]
+            ? [
+                ..Enumerable
+                    .Range(0, Math.Max(0, topology.AvailableProcessors))
+                    .OrderBy(processor => Rank(topology.ClassOf(processor)))
+                    .ThenBy(static processor => processor)
+            ]
             : [];
     }
 
@@ -77,9 +87,10 @@ sealed class ProcessorAffinityPlacement : IWorkerPlacement {
     // sits in the middle rather than last because it is what a homogeneous machine reports for
     // every core it has, and sorting those behind the efficiency cores of a machine that has none
     // would be ranking them against a class that is not there.
-    static int Rank(ProcessorClass processorClass) => processorClass switch {
-        ProcessorClass.Performance => 0,
-        ProcessorClass.Unknown => 1,
-        _ => 2
-    };
+    static int Rank(ProcessorClass processorClass) =>
+        processorClass switch {
+            ProcessorClass.Performance => 0,
+            ProcessorClass.Unknown => 1,
+            _ => 2
+        };
 }

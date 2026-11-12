@@ -27,7 +27,7 @@ public sealed class VideoConstantsTests {
 
     [Fact]
     public void AFullSurfaceRectangleCoversClipSpace() {
-        var constants = VideoConstants.For(Draw(new Rectangle(0, 0, 200, 100)), new Int2(200, 100));
+        var constants = VideoConstants.For(Draw(new(0, 0, 200, 100)), new(200, 100));
 
         // uv 0,0 → (-1, +1) and uv 1,1 → (+1, -1): the whole of clip space, with y running up.
         Assert.Equal(2f, constants.Placement.X, 5);
@@ -42,7 +42,7 @@ public sealed class VideoConstantsTests {
         // ever sees it — the Vulkan backend submits a negative-height viewport so +y is up
         // everywhere. A block that agreed with the API rather than with the engine draws the video
         // upside down, and every other test passes while it does.
-        var top = VideoConstants.For(Draw(new Rectangle(0, 0, 100, 10)), new Int2(100, 100));
+        var top = VideoConstants.For(Draw(new(0, 0, 100, 10)), new(100, 100));
 
         // A rectangle at the top of the surface must be at the top of clip space, which is +1.
         Assert.Equal(1f, top.Placement.W, 5);
@@ -51,7 +51,7 @@ public sealed class VideoConstantsTests {
 
     [Fact]
     public void ARectangleInACornerLandsInThatCorner() {
-        var constants = VideoConstants.For(Draw(new Rectangle(150, 150, 50, 50)), new Int2(200, 200));
+        var constants = VideoConstants.For(Draw(new(150, 150, 50, 50)), new(200, 200));
 
         // Bottom-right quarter-ish: x starts at +0.5, y starts at -0.5, and each spans half a unit.
         Assert.Equal(0.5f, constants.Placement.X, 5);
@@ -62,10 +62,10 @@ public sealed class VideoConstantsTests {
 
     [Fact]
     public void TheCoefficientsAreTheTexturesOwn() {
-        using var device = new NullDevice(new NullDeviceOptions());
+        using var device = new NullDevice(new());
         using var texture = VideoRendererTests.Uploaded(device, 32, 16);
 
-        var constants = VideoConstants.For(VideoDraw.Filling(texture, new Rectangle(0, 0, 10, 10)), new Int2(10, 10));
+        var constants = VideoConstants.For(VideoDraw.Filling(texture, new(0, 0, 10, 10)), new(10, 10));
         var expected = texture.Coefficients;
 
         // The six numbers, in the order the shader reads them. A transposition here is a picture with
@@ -84,11 +84,11 @@ public sealed class VideoConstantsTests {
     [InlineData(VideoPixelLayout.Grey8, VideoSampleMode.Grey)]
     [InlineData(VideoPixelLayout.Bgra8, VideoSampleMode.Packed)]
     public void TheModeDistinguishesTheTwoOnePlaneLayouts(VideoPixelLayout layout, VideoSampleMode expected) {
-        using var device = new NullDevice(new NullDeviceOptions());
+        using var device = new NullDevice(new());
         using var texture = new VideoTexture(device, "test");
 
         var frame = new VideoFrame();
-        frame.Reset(new VideoFormat(32, 16, layout));
+        frame.Reset(new(32, 16, layout));
 
         VideoRendererTests.Upload(device, texture, frame);
 
@@ -97,6 +97,5 @@ public sealed class VideoConstantsTests {
         Assert.Equal(expected, VideoConstants.ModeOf(texture));
     }
 
-    static VideoDraw Draw(Rectangle target) =>
-        new(null!, target, Vector2.One, Vector2.Zero, Color4.White);
+    static VideoDraw Draw(Rectangle target) => new(null!, target, Vector2.One, Vector2.Zero, Color4.White);
 }

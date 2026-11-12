@@ -36,9 +36,9 @@ public readonly record struct Oklab(float L, float A, float B) {
     /// <param name="linear">The linear colour.</param>
     /// <returns>The same colour in Oklab.</returns>
     public static Oklab FromLinear(Vector3 linear) {
-        var l = (0.4122214708f * linear.X) + (0.5363325363f * linear.Y) + (0.0514459929f * linear.Z);
-        var m = (0.2119034982f * linear.X) + (0.6806995451f * linear.Y) + (0.1073969566f * linear.Z);
-        var s = (0.0883024619f * linear.X) + (0.2817188376f * linear.Y) + (0.6299787005f * linear.Z);
+        var l = 0.4122214708f * linear.X + 0.5363325363f * linear.Y + 0.0514459929f * linear.Z;
+        var m = 0.2119034982f * linear.X + 0.6806995451f * linear.Y + 0.1073969566f * linear.Z;
+        var s = 0.0883024619f * linear.X + 0.2817188376f * linear.Y + 0.6299787005f * linear.Z;
 
         // Signed cube root, because a linear colour may legitimately be negative: an HDR value
         // outside the sRGB gamut, or a colour that has been through a matrix. `MathF.Cbrt` handles
@@ -47,10 +47,10 @@ public readonly record struct Oklab(float L, float A, float B) {
         var mc = MathF.Cbrt(m);
         var sc = MathF.Cbrt(s);
 
-        return new Oklab(
-            (0.2104542553f * lc) + (0.7936177850f * mc) - (0.0040720468f * sc),
-            (1.9779984951f * lc) - (2.4285922050f * mc) + (0.4505937099f * sc),
-            (0.0259040371f * lc) + (0.7827717662f * mc) - (0.8086757660f * sc)
+        return new(
+            0.2104542553f * lc + 0.7936177850f * mc - 0.0040720468f * sc,
+            1.9779984951f * lc - 2.4285922050f * mc + 0.4505937099f * sc,
+            0.0259040371f * lc + 0.7827717662f * mc - 0.8086757660f * sc
         );
     }
 
@@ -63,18 +63,18 @@ public readonly record struct Oklab(float L, float A, float B) {
     ///     where what to do about it is a decision someone can make.
     /// </remarks>
     public Vector3 ToLinear() {
-        var lc = L + (0.3963377774f * A) + (0.2158037573f * B);
-        var mc = L - (0.1055613458f * A) - (0.0638541728f * B);
-        var sc = L - (0.0894841775f * A) - (1.2914855480f * B);
+        var lc = L + 0.3963377774f * A + 0.2158037573f * B;
+        var mc = L - 0.1055613458f * A - 0.0638541728f * B;
+        var sc = L - 0.0894841775f * A - 1.2914855480f * B;
 
         var l = lc * lc * lc;
         var m = mc * mc * mc;
         var s = sc * sc * sc;
 
-        return new Vector3(
-            (4.0767416621f * l) - (3.3077115913f * m) + (0.2309699292f * s),
-            (-1.2684380046f * l) + (2.6097574011f * m) - (0.3413193965f * s),
-            (-0.0041960863f * l) - (0.7034186147f * m) + (1.7076147010f * s)
+        return new(
+            4.0767416621f * l - 3.3077115913f * m + 0.2309699292f * s,
+            -1.2684380046f * l + 2.6097574011f * m - 0.3413193965f * s,
+            -0.0041960863f * l - 0.7034186147f * m + 1.7076147010f * s
         );
     }
 
@@ -83,11 +83,12 @@ public readonly record struct Oklab(float L, float A, float B) {
     /// <param name="to">The colour at 1.</param>
     /// <param name="amount">Where between them.</param>
     /// <returns>The interpolated colour.</returns>
-    public static Oklab Lerp(Oklab from, Oklab to, float amount) => new(
-        MathUtil.Lerp(from.L, to.L, amount),
-        MathUtil.Lerp(from.A, to.A, amount),
-        MathUtil.Lerp(from.B, to.B, amount)
-    );
+    public static Oklab Lerp(Oklab from, Oklab to, float amount) =>
+        new(
+            MathUtil.Lerp(from.L, to.L, amount),
+            MathUtil.Lerp(from.A, to.A, amount),
+            MathUtil.Lerp(from.B, to.B, amount)
+        );
 
     /// <summary>Interpolates two linear colours perceptually, alpha included.</summary>
     /// <param name="from">The colour at 0.</param>
@@ -108,11 +109,12 @@ public readonly record struct Oklab(float L, float A, float B) {
     /// </remarks>
     public static Color4 Lerp(Color4 from, Color4 to, float amount) {
         var mixed = Lerp(
-            FromLinear(new Vector3(from.R, from.G, from.B)),
-            FromLinear(new Vector3(to.R, to.G, to.B)),
-            amount
-        ).ToLinear();
+                FromLinear(new(from.R, from.G, from.B)),
+                FromLinear(new(to.R, to.G, to.B)),
+                amount
+            )
+            .ToLinear();
 
-        return new Color4(mixed.X, mixed.Y, mixed.Z, MathUtil.Lerp(from.A, to.A, amount));
+        return new(mixed.X, mixed.Y, mixed.Z, MathUtil.Lerp(from.A, to.A, amount));
     }
 }

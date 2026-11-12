@@ -76,7 +76,7 @@ public sealed class PickingBuffer : IDisposable {
 
         for (var index = 0; index < latency; index++) {
             slots[index] = device.CreateBuffer(
-                new BufferDescription(
+                new(
                     sizeof(uint),
                     BufferUsage.CopyDestination,
                     MemoryAccess.HostReadback,

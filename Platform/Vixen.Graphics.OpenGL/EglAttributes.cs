@@ -74,7 +74,7 @@ static class EglAttributes {
         }
 
         attributes.Add(EglConstants.None);
-        return [.. attributes];
+        return [..attributes];
     }
 
     /// <summary>What client version a context is being asked for.</summary>
@@ -115,7 +115,7 @@ static class EglAttributes {
         }
 
         attributes.Add(EglConstants.None);
-        return [.. attributes];
+        return [..attributes];
     }
 
     /// <summary>The size of an offscreen surface.</summary>

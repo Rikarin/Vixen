@@ -220,7 +220,7 @@ public sealed class IndexedPriorityQueue<TPriority> where TPriority : IComparabl
         var entry = heap[position];
 
         while (true) {
-            var child = (position * 2) + 1;
+            var child = position * 2 + 1;
             if (child >= Count) {
                 break;
             }

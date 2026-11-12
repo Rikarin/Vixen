@@ -24,7 +24,7 @@ public struct Health {
 
 /// <summary>A tag a game might declare, which has a bit in the archetype and no bytes anywhere.</summary>
 [DataContract("SceneTestHostile")]
-public struct Hostile : ITagComponent;
+public readonly struct Hostile : ITagComponent;
 
 public sealed class SceneAssetTests {
     public SceneAssetTests() {
@@ -101,12 +101,14 @@ public sealed class SceneAssetTests {
 
         new SceneAsset { Content = Three() }.Instantiate(world, created);
 
-        Assert.Equal(new Vector3(1, 2, 3), world.Read<LocalTransform>(created[1]).Position);
-        Assert.Equal(new Vector3(2, 2, 2), world.Read<LocalTransform>(created[2]).Scale);
+        Assert.Equal(new(1, 2, 3), world.Read<LocalTransform>(created[1]).Position);
+        Assert.Equal(new(2, 2, 2), world.Read<LocalTransform>(created[2]).Scale);
     }
 
-    /// <summary>A zeroed rotation and scale are what an entity written by hand looks like, and both
-    /// collapse the entity if they are taken literally.</summary>
+    /// <summary>
+    ///     A zeroed rotation and scale are what an entity written by hand looks like, and both
+    ///     collapse the entity if they are taken literally.
+    /// </summary>
     [Fact]
     public void AZeroRotationAndScaleAreReadAsTheIdentity() {
         using var world = new World();
@@ -144,15 +146,15 @@ public sealed class SceneAssetTests {
         // Three entities, three shapes: a camera, a health, and a health with a tag. The block count
         // is the number of bulk creates a load costs, and every entity is in exactly one of them.
         Assert.Equal(3, content.Blocks.Length);
-        Assert.Equal(3, content.Blocks.Sum(block => block.Entities.Length));
+        Assert.Equal(3, content.Blocks.Sum(static block => block.Entities.Length));
     }
 
     [Fact]
     public void ATagCostsNoBytesAndStillArrives() {
         var content = Three();
         var column = content.Blocks
-            .SelectMany(block => block.Columns)
-            .Single(column => column.Component == "SceneTestHostile");
+            .SelectMany(static block => block.Columns)
+            .Single(static column => column.Component == "SceneTestHostile");
 
         Assert.Empty(column.Data);
     }
@@ -200,7 +202,7 @@ public sealed class SceneAssetTests {
         prefab.Instantiate(world);
 
         Assert.Equal(6, world.EntityCount);
-        Assert.Equal(new Vector3(5, 0, 0), world.Read<LocalTransform>(first).Position);
+        Assert.Equal(new(5, 0, 0), world.Read<LocalTransform>(first).Position);
         Assert.Equal(2, Children(world, first).Count);
     }
 
@@ -220,8 +222,9 @@ public sealed class SceneAssetTests {
         var content = Three();
         content.Parents[1] = -1;
 
-        var failure = Assert.Throws<InvalidOperationException>(
-            () => new PrefabAsset { Name = "turret", Content = content }.ToPrefab()
+        var failure = Assert.Throws<InvalidOperationException>(() => new PrefabAsset {
+                Name = "turret", Content = content
+            }.ToPrefab()
         );
 
         Assert.Contains("2 roots", failure.Message, StringComparison.Ordinal);
@@ -245,7 +248,7 @@ public sealed class SceneAssetTests {
         content.Instantiate(target, created);
 
         Assert.Equal(2, content.Count);
-        Assert.Equal(new Vector3(1, 0, 0), target.Read<LocalTransform>(created[0]).Position);
+        Assert.Equal(new(1, 0, 0), target.Read<LocalTransform>(created[0]).Position);
         Assert.Equal(5, target.Read<Health>(created[1]).Value);
         Assert.Equal(created[0], Hierarchy.ParentOf(target, created[1]));
     }
@@ -285,8 +288,8 @@ public sealed class SceneAssetTests {
         var content = Three();
         content.Blocks[0].Columns = [new() { Component = "SomethingFromAPlugin", Data = [] }];
 
-        var failure = Assert.Throws<SceneComponentException>(
-            () => new SceneAsset { Content = content }.Instantiate(world)
+        var failure = Assert.Throws<SceneComponentException>(() =>
+            new SceneAsset { Content = content }.Instantiate(world)
         );
 
         Assert.Contains("SomethingFromAPlugin", failure.Message, StringComparison.Ordinal);
@@ -324,9 +327,7 @@ public sealed class SceneAssetTests {
     public void AskingWhichEntityEachNodeBecameNeedsTheRightLength() {
         using var world = new World();
 
-        Assert.Throws<ArgumentException>(
-            () => new SceneAsset { Content = Three() }.Instantiate(world, new Entity[2])
-        );
+        Assert.Throws<ArgumentException>(() => new SceneAsset { Content = Three() }.Instantiate(world, new Entity[2]));
     }
 
     static List<Entity> Children(World world, Entity entity) {

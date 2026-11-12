@@ -13,8 +13,11 @@ namespace Vixen.Geometry.Remeshing;
 ///         between the two endpoints' representatives after the best of the four rotations.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The representative is a direction in <i>world</i> space and never an angle in the
-///         vertex's frame, and that is what makes the frame-seeding trap a non-event.</b>
+///         ⚠
+///         <b>
+///             The representative is a direction in <i>world</i> space and never an angle in the
+///             vertex's frame, and that is what makes the frame-seeding trap a non-event.
+///         </b>
 ///         <see cref="TangentFrame" /> is seeded from the first neighbour of the ordered one-ring, so
 ///         two adjacent vertices whose rings start in different places have frames that differ by an
 ///         arbitrary rotation. A field stored as an angle in that frame is compared across the edge in
@@ -90,8 +93,12 @@ sealed class CrossField {
     /// <param name="mesh">The surface it was solved on.</param>
     /// <returns>The largest deviation, in radians. Never more than <c>π/4</c> for a resolved field.</returns>
     /// <remarks>
-    ///     ⚠ <b>This is the precondition on the Euler-characteristic invariant, and it is worth
-    ///     measuring rather than assuming.</b> A cross field's singularity index is read off period
+    ///     ⚠
+    ///     <b>
+    ///         This is the precondition on the Euler-characteristic invariant, and it is worth
+    ///         measuring rather than assuming.
+    ///     </b>
+    ///     A cross field's singularity index is read off period
     ///     jumps — which of the four rotations of a neighbour is meant — and a quarter turn is
     ///     <c>π/2</c>, so an edge across which the field genuinely turns by more than <c>π/4</c> is one
     ///     where "which rotation" has no right answer. The index sum is <c>4χ</c> exactly while every
@@ -135,8 +142,12 @@ sealed class CrossField {
     /// <param name="to">The normal it should belong to.</param>
     /// <returns>The rotated direction, in <paramref name="to" />'s plane.</returns>
     /// <remarks>
-    ///     ⚠ <b>A rotation and not a projection, and the Euler-characteristic test is what tells them
-    ///     apart.</b> Projecting onto the target plane and renormalising is one line shorter, is very
+    ///     ⚠
+    ///     <b>
+    ///         A rotation and not a projection, and the Euler-characteristic test is what tells them
+    ///         apart.
+    ///     </b>
+    ///     Projecting onto the target plane and renormalising is one line shorter, is very
     ///     nearly the same for two nearly-parallel normals, and is not an isometry — so the holonomy
     ///     it accumulates round a vertex is not the angle defect, and the singularity indices it
     ///     produces do not sum to the Euler characteristic. The shortest-arc rotation does, exactly,
@@ -159,9 +170,9 @@ sealed class CrossField {
 
         axis /= sine;
 
-        return (direction * cosine)
-            + (Vector3.Cross(axis, direction) * sine)
-            + (axis * Vector3.Dot(axis, direction) * (1f - cosine));
+        return direction * cosine
+            + Vector3.Cross(axis, direction) * sine
+            + axis * Vector3.Dot(axis, direction) * (1f - cosine);
     }
 
     /// <summary>Of the four directions a cross stands for, the one nearest a reference.</summary>

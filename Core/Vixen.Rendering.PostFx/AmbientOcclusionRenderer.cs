@@ -175,7 +175,7 @@ public sealed class AmbientOcclusionRenderer() : PostEffectRenderer(
             // diagonal, without which the search radius is a UV circle rather than a world one.
             parameters.Set(
                 SsaoKeys.ProjectionScale,
-                new Vector2(camera.Projection.M11, camera.Projection.M22)
+                new(camera.Projection.M11, camera.Projection.M22)
             );
         }
 

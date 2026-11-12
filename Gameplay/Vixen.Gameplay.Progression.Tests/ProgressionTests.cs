@@ -19,10 +19,7 @@ public static class Content {
             .Add(
                 Curve,
                 new ExperienceCurveDefinition {
-                    MaximumLevel = 10,
-                    Thresholds = [100, 200, 300],
-                    Base = 1000f,
-                    Growth = 2f
+                    MaximumLevel = 10, Thresholds = [100, 200, 300], Base = 1000f, Growth = 2f
                 }
             )
             .Add(
@@ -168,7 +165,7 @@ public class ExperienceCurveTests {
 
         Assert.Contains(
             ProgressionLibrary.Compile(catalog).Problems,
-            problem => problem.Contains("2 experience curves", StringComparison.Ordinal)
+            static problem => problem.Contains("2 experience curves", StringComparison.Ordinal)
         );
     }
 }
@@ -357,7 +354,7 @@ public class TalentTreeTests {
 
         Assert.Contains(
             ProgressionLibrary.Compile(catalog).Problems,
-            problem => problem.Contains("cycle", StringComparison.Ordinal)
+            static problem => problem.Contains("cycle", StringComparison.Ordinal)
         );
     }
 
@@ -379,9 +376,9 @@ public class TalentTreeTests {
 
         var problems = ProgressionLibrary.Compile(catalog).Problems;
 
-        Assert.Contains(problems, problem => problem.Contains("two nodes called 'a'", StringComparison.Ordinal));
-        Assert.Contains(problems, problem => problem.Contains("'nonexistent'", StringComparison.Ordinal));
-        Assert.Contains(problems, problem => problem.Contains("no id", StringComparison.Ordinal));
+        Assert.Contains(problems, static problem => problem.Contains("two nodes called 'a'", StringComparison.Ordinal));
+        Assert.Contains(problems, static problem => problem.Contains("'nonexistent'", StringComparison.Ordinal));
+        Assert.Contains(problems, static problem => problem.Contains("no id", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -406,7 +403,7 @@ public class RankedTrackTests {
         // The profession's tiers are authored 1, 300, 100 — out of order on purpose.
         var track = Content.Library().FindProfession(DefId.From(Content.Smithing))!;
 
-        Assert.Equal([1, 100, 300], track.Ranks.ToArray().Select(rank => rank.Threshold));
+        Assert.Equal([1, 100, 300], track.Ranks.ToArray().Select(static rank => rank.Threshold));
         Assert.Equal(-1, track.RankAt(0));
         Assert.Equal(0, track.RankAt(1));
         Assert.Equal(1, track.RankAt(150));
@@ -433,7 +430,12 @@ public class ProgressionStateTests {
 
         var requirements = RequirementSet.Compile(
             [
-                new() { Kind = RequirementKind.Value, Subject = "Level", Comparison = RequirementComparison.AtLeast, Value = 5f },
+                new() {
+                    Kind = RequirementKind.Value,
+                    Subject = "Level",
+                    Comparison = RequirementComparison.AtLeast,
+                    Value = 5f
+                },
                 new() { Kind = RequirementKind.HasTag, Subject = "Profession.Smithing" },
                 new() {
                     Kind = RequirementKind.Value,

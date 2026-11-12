@@ -35,15 +35,28 @@ public sealed record ProxyShapeRecord(
     bool Coarse
 ) {
     /// <summary>A record with nothing filled in, for a deserialiser to write into.</summary>
-    public ProxyShapeRecord() : this("", ShapeKind.Box, "", Vector3.Zero, Quaternion.Identity, Vector3.Zero, Vector3.Zero, [], false) {
-    }
+    public ProxyShapeRecord() : this(
+        string.Empty,
+        ShapeKind.Box,
+        string.Empty,
+        Vector3.Zero,
+        Quaternion.Identity,
+        Vector3.Zero,
+        Vector3.Zero,
+        [],
+        false
+    ) { }
 }
 
 /// <summary>A proxy shape set, as an artefact holds it.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>There is no separate authored type, unlike <c>AnimationClipContent</c>, and the
-///         difference is real rather than an inconsistency.</b> A clip is authored as curves and
+///         ⚠
+///         <b>
+///             There is no separate authored type, unlike <c>AnimationClipContent</c>, and the
+///             difference is real rather than an inconsistency.
+///         </b>
+///         A clip is authored as curves and
 ///         shipped as samples, so the two forms hold different things and a compile step turns one
 ///         into the other. A shape set is authored as exactly what it ships as: names, primitives and
 ///         numbers. The only work the pipeline does is <em>checking</em> it — against the vocabulary,
@@ -123,7 +136,10 @@ public sealed class ProxyShapeSetContent {
                     Kind = record.Kind,
                     Joint = joint,
                     Offset = new(record.Position, record.Rotation, Vector3.One),
-                    Dimensions = new(record.Extents, record.TopExtents == Vector3.Zero ? record.Extents : record.TopExtents),
+                    Dimensions = new(
+                        record.Extents,
+                        record.TopExtents == Vector3.Zero ? record.Extents : record.TopExtents
+                    ),
                     Tags = ShapeTags.Parse(record.Tags),
                     Coarse = record.Coarse
                 }
@@ -134,7 +150,7 @@ public sealed class ProxyShapeSetContent {
         // so a bake that dropped it made two differently-populated sets out of one file — harmless
         // today because nothing at runtime reads it, and exactly the divergence that is found by the
         // first thing that does.
-        return ProxyShapeSet.Of(Name, Vocabulary.Length > 0 ? Vocabulary : null, [.. built]);
+        return ProxyShapeSet.Of(Name, Vocabulary.Length > 0 ? Vocabulary : null, [..built]);
     }
 }
 
@@ -144,8 +160,7 @@ public sealed class ProxyShapeSetContent {
 [DataContract("ShapeTermRecord")]
 public sealed record ShapeTermRecord(string Name, string Meaning) {
     /// <summary>A record with nothing filled in.</summary>
-    public ShapeTermRecord() : this("", "") {
-    }
+    public ShapeTermRecord() : this(string.Empty, string.Empty) { }
 }
 
 /// <summary>One declared tag, as a file holds it.</summary>
@@ -154,8 +169,7 @@ public sealed record ShapeTermRecord(string Name, string Meaning) {
 [DataContract("ShapeTagRecord")]
 public sealed record ShapeTagRecord(string Tag, string Meaning) {
     /// <summary>A record with nothing filled in.</summary>
-    public ShapeTagRecord() : this("", "") {
-    }
+    public ShapeTagRecord() : this(string.Empty, string.Empty) { }
 }
 
 /// <summary>One member of a declared class, as a file holds it.</summary>
@@ -175,8 +189,7 @@ public sealed record ShapeClassMemberRecord(
     bool Required
 ) {
     /// <summary>A record with nothing filled in.</summary>
-    public ShapeClassMemberRecord() : this("", ShapeKind.Box, [], Vector3.Zero, Vector3.Zero, true) {
-    }
+    public ShapeClassMemberRecord() : this(string.Empty, ShapeKind.Box, [], Vector3.Zero, Vector3.Zero, true) { }
 }
 
 /// <summary>One declared class, as a file holds it.</summary>
@@ -185,8 +198,7 @@ public sealed record ShapeClassMemberRecord(
 [DataContract("ShapeClassRecord")]
 public sealed record ShapeClassRecord(string Name, ShapeClassMemberRecord[] Members) {
     /// <summary>A record with nothing filled in.</summary>
-    public ShapeClassRecord() : this("", []) {
-    }
+    public ShapeClassRecord() : this(string.Empty, []) { }
 }
 
 /// <summary>Something wrong with a vocabulary, and whether it stops the file compiling.</summary>
@@ -200,8 +212,12 @@ public readonly record struct VocabularyProblem(string Name, string Message, boo
 
 /// <summary>A shape vocabulary, as a file holds it.</summary>
 /// <remarks>
-///     ⚠ <b>This is the file [33 § D15](../../../docs/plan/33-character-creator.md) generates
-///     against.</b> That document derives a shape set from a character archetype rather than authoring
+///     ⚠
+///     <b>
+///         This is the file [33 § D15](../../../docs/plan/33-character-creator.md) generates
+///         against.
+///     </b>
+///     That document derives a shape set from a character archetype rather than authoring
 ///     it, and a generator needs a specification of what to generate — the same one this validates
 ///     against. Two documents needing the same declaration is the argument for it being one file
 ///     rather than a convention in each.
@@ -285,18 +301,19 @@ public sealed class ShapeVocabularyContent {
     public ShapeVocabulary Bake() =>
         new(
             Name,
-            Shapes.Select(term => new ShapeTerm(Symbol.Intern(term.Name), term.Meaning)),
-            Tags.Select(term => new TagTerm(ShapeTags.Parse(term.Tag), term.Meaning)),
-            Classes.Select(
-                declared => new ShapeClass(
+            Shapes.Select(static term => new ShapeTerm(Symbol.Intern(term.Name), term.Meaning)),
+            Tags.Select(static term => new TagTerm(ShapeTags.Parse(term.Tag), term.Meaning)),
+            Classes.Select(static declared => new ShapeClass(
                     Symbol.Intern(declared.Name),
                     [
-                        .. declared.Members.Select(
-                            member => new ShapeClassMember(
+                        ..declared.Members.Select(static member => new ShapeClassMember(
                                 Symbol.Intern(member.Name),
                                 member.Kind,
                                 ShapeTags.Parse(member.Tags),
-                                new(member.Extents, member.TopExtents == Vector3.Zero ? member.Extents : member.TopExtents),
+                                new(
+                                    member.Extents,
+                                    member.TopExtents == Vector3.Zero ? member.Extents : member.TopExtents
+                                ),
                                 member.Required
                             )
                         )

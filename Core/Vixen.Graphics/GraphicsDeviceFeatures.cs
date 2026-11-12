@@ -13,8 +13,11 @@ namespace Vixen.Graphics;
 ///         loop. Copied by value, compared by value, and cheap enough to keep in a hot struct.
 ///     </para>
 ///     <para>
-///         <b>Everything here is capability-gated with a documented fallback, never a hard
-///         requirement</b> — except the floor below, which is stated once and enforced at device
+///         <b>
+///             Everything here is capability-gated with a documented fallback, never a hard
+///             requirement
+///         </b>
+///         — except the floor below, which is stated once and enforced at device
 ///         selection with a readable error rather than discovered as a crash.
 ///     </para>
 ///     <para>
@@ -193,8 +196,10 @@ public readonly record struct GraphicsDeviceFeatures {
     public bool HasIndependentBlend { get; init; }
 
     /// <summary>Pipeline-statistics queries.</summary>
-    /// <remarks>Unsupported by MoltenVK, so a profiler that requires them shows nothing on macOS
-    /// and iOS (ADR-011).</remarks>
+    /// <remarks>
+    ///     Unsupported by MoltenVK, so a profiler that requires them shows nothing on macOS
+    ///     and iOS (ADR-011).
+    /// </remarks>
     public bool HasPipelineStatistics { get; init; }
 
     /// <summary>Timestamp queries, which is what a GPU timeline is made of.</summary>
@@ -214,10 +219,14 @@ public readonly record struct GraphicsDeviceFeatures {
     /// </remarks>
     public bool HasTimestampQueries { get; init; }
 
-    /// <summary>Nanoseconds per <see cref="QueryKind.Timestamp" /> tick. Zero without
-    /// <see cref="HasTimestampQueries" />.</summary>
-    /// <remarks>A float rather than an integer because on several vendors it is not one — see
-    /// <see cref="GpuTimestamps" />, which is the only thing that should be doing the arithmetic.</remarks>
+    /// <summary>
+    ///     Nanoseconds per <see cref="QueryKind.Timestamp" /> tick. Zero without
+    ///     <see cref="HasTimestampQueries" />.
+    /// </summary>
+    /// <remarks>
+    ///     A float rather than an integer because on several vendors it is not one — see
+    ///     <see cref="GpuTimestamps" />, which is the only thing that should be doing the arithmetic.
+    /// </remarks>
     public float TimestampPeriod { get; init; }
 
     /// <summary>Whether this device's frames can actually be timed.</summary>
@@ -260,15 +269,19 @@ public readonly record struct GraphicsDeviceFeatures {
     public int MaxVertexBuffers { get; init; }
 
     /// <summary>The largest bound descriptor set count.</summary>
-    /// <remarks>Four is the engine's convention — per-frame, per-view, per-material, per-draw — and
-    /// is the floor every target meets.</remarks>
+    /// <remarks>
+    ///     Four is the engine's convention — per-frame, per-view, per-material, per-draw — and
+    ///     is the floor every target meets.
+    /// </remarks>
     public int MaxDescriptorSets { get; init; }
 
     /// <summary>The largest push-constant block, in bytes.</summary>
     public int MaxPushConstantSize { get; init; }
 
-    /// <summary>How many descriptors one unbounded binding may hold. Zero without
-    /// <see cref="HasBindless" />.</summary>
+    /// <summary>
+    ///     How many descriptors one unbounded binding may hold. Zero without
+    ///     <see cref="HasBindless" />.
+    /// </summary>
     /// <remarks>
     ///     <para>
     ///         "Unbounded" is the shader's word and not the driver's. A shader indexes the array with
@@ -310,8 +323,12 @@ public readonly record struct GraphicsDeviceFeatures {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A separate question from <see cref="SupportedSampleCounts" />, and a device that
-    ///         answers yes to one may answer no to the other.</b> Vulkan requires only
+    ///         ⚠
+    ///         <b>
+    ///             A separate question from <see cref="SupportedSampleCounts" />, and a device that
+    ///             answers yes to one may answer no to the other.
+    ///         </b>
+    ///         Vulkan requires only
     ///         <see cref="DepthResolveMode.SampleZero" /> of every implementation
     ///         (<c>VkPhysicalDeviceDepthStencilResolveProperties::supportedDepthResolveModes</c>), and
     ///         lavapipe — the driver the golden images run on — offers exactly that and nothing else
@@ -352,20 +369,21 @@ public readonly record struct GraphicsDeviceFeatures {
     ///     of a forgotten line "the fallback path runs" rather than "the device claims something it
     ///     cannot do".
     /// </remarks>
-    public static GraphicsDeviceFeatures Minimum => new() {
-        MaxTextureSize = 4096,
-        MaxTextureArrayLayers = 256,
-        MaxColourAttachments = 4,
-        MaxVertexBuffers = 4,
-        MaxDescriptorSets = 4,
-        MaxPushConstantSize = 128,
-        MaxAnisotropy = 1f,
-        MaxComputeWorkgroupSize = (128, 128, 64),
-        SupportedSampleCounts = 0b1,
+    public static GraphicsDeviceFeatures Minimum =>
+        new() {
+            MaxTextureSize = 4096,
+            MaxTextureArrayLayers = 256,
+            MaxColourAttachments = 4,
+            MaxVertexBuffers = 4,
+            MaxDescriptorSets = 4,
+            MaxPushConstantSize = 128,
+            MaxAnisotropy = 1f,
+            MaxComputeWorkgroupSize = (128, 128, 64),
+            SupportedSampleCounts = 0b1,
 
-        // SampleZero and nothing else, which is both the floor Vulkan guarantees and the honest
-        // answer for a backend that has not been asked: a device that turns out to support Min is
-        // one that reports it, and a device that does not is one nothing tried to use it on.
-        SupportedDepthResolveModes = 1 << (byte)DepthResolveMode.SampleZero
-    };
+            // SampleZero and nothing else, which is both the floor Vulkan guarantees and the honest
+            // answer for a backend that has not been asked: a device that turns out to support Min is
+            // one that reports it, and a device that does not is one nothing tried to use it on.
+            SupportedDepthResolveModes = 1 << (byte)DepthResolveMode.SampleZero
+        };
 }

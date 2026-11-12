@@ -29,9 +29,7 @@ public sealed class VixenGame1Game : Game {
         config.Graphics.Factories.Add(new PostEffectFactory());
     }
 
-    protected override void OnUpdate(GameTime time) {
-    }
+    protected override void OnUpdate(GameTime time) { }
 
-    protected override void OnRender(GameTime time) {
-    }
+    protected override void OnRender(GameTime time) { }
 }

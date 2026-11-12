@@ -11,7 +11,6 @@ using Vixen.Rendering.Features;
 using Vixen.Rendering.IrradianceFields;
 using Vixen.Rendering.Lighting;
 using Vixen.Rendering.Materials;
-using Vixen.ShaderCompiler;
 using Vixen.Shaders;
 using Vixen.Shaders.Generated;
 using Xunit;
@@ -38,8 +37,12 @@ namespace Vixen.Graphics.Golden.Tests;
 ///         therefore measures the bounce and nothing else.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Two things had to be right about the geometry before any of this showed a bounce,
-///         and getting either wrong reads as the feedback being broken.</b> A single flat floor
+///         ⚠
+///         <b>
+///             Two things had to be right about the geometry before any of this showed a bounce,
+///             and getting either wrong reads as the feedback being broken.
+///         </b>
+///         A single flat floor
 ///         cannot light itself — every ray leaving it goes up and never returns — so the first scene
 ///         here produced one pass and then nothing. And a field covers a box and answers nothing
 ///         outside it, so a wall standing beyond the field receives no indirect light however many
@@ -114,8 +117,8 @@ public sealed class IrradianceBounceDeviceTests {
 
         using var owned = fixture!;
 
-        var lit = Bake(owned, bounces: 3, indirect: true);
-        var direct = Bake(owned, bounces: 3, indirect: false);
+        var lit = Bake(owned, 3, true);
+        var direct = Bake(owned, 3, false);
 
         // The first pass reads an empty field whether or not one is composed, so the two runs have to
         // start in the same place. A difference here would mean the composition changed the direct
@@ -159,7 +162,7 @@ public sealed class IrradianceBounceDeviceTests {
         }
 
         using var owned = fixture!;
-        var readings = Bake(owned, bounces: 1, indirect: true, out var field);
+        var readings = Bake(owned, 1, true, out var field);
 
         Assert.True(readings[0] > 0.05f, $"the floor was not lit: {readings[0]}");
 
@@ -189,7 +192,7 @@ public sealed class IrradianceBounceDeviceTests {
         var loader = new EffectLoader(device);
         var effects = new EffectSystem();
 
-        effects.AddProvider(new Compiling(loader, _ => RavenEffects.Everything()));
+        effects.AddProvider(new Compiling(loader, static _ => RavenEffects.Everything()));
 
         var effect = effects.Resolve(Key(material.Composition, indirect));
 
@@ -198,12 +201,12 @@ public sealed class IrradianceBounceDeviceTests {
         using var allocator = new DescriptorAllocator(device);
         using var samplers = new SamplerCache(device);
         using var system = new RenderSystem();
-        using var scene = new SceneConstants(device) { Descriptors = allocator };
+        using var scene = new SceneConstants(device);
+        scene.Descriptors = allocator;
 
-        using var view = new ViewConstants(device) {
-            Descriptors = allocator,
-            Layout = effect!.SetLayouts[(int)DescriptorSetSlot.PerView]
-        };
+        using var view = new ViewConstants(device);
+        view.Descriptors = allocator;
+        view.Layout = effect!.SetLayouts[(int)DescriptorSetSlot.PerView];
 
         // ⚠ Two-sided, which a capture stage always wants — see IrradianceCubeCapture's remarks. A
         // probe sees whichever side of a surface faces it, and which side that is depends on where
@@ -222,16 +225,21 @@ public sealed class IrradianceBounceDeviceTests {
 
         var offsets = new[] { 0, 12, 24, 40 };
 
-        describer.VertexLayouts.Add([
-            new VertexBufferLayout(
-                Vertex.Stride,
-                [
-                    .. effect!.VertexInputs.Select(
-                        (input, index) => new VertexElement((uint)input.Location, formats[index], offsets[index])
-                    )
-                ]
-            )
-        ]);
+        describer.VertexLayouts.Add(
+            [
+                new VertexBufferLayout(
+                    Vertex.Stride,
+                    [
+                        ..effect!.VertexInputs.Select((input, index) => new VertexElement(
+                                (uint)input.Location,
+                                formats[index],
+                                offsets[index]
+                            )
+                        )
+                    ]
+                )
+            ]
+        );
 
         var meshes = new MeshRenderFeature { Pipelines = new(device), Describer = describer };
         var materials = new MaterialRenderFeature { Effects = effects, Device = device, Descriptors = allocator };
@@ -264,7 +272,7 @@ public sealed class IrradianceBounceDeviceTests {
 
         var floor = system.Objects.Add(
             new() {
-                Bounds = new(new Vector3(0f, FloorY + (WallHeight / 2f), 0f), FloorHalf * 3f),
+                Bounds = new(new Vector3(0f, FloorY + WallHeight / 2f, 0f), FloorHalf * 3f),
                 Stages = opaque.Mask,
                 FeatureIndex = meshes.Index
             }
@@ -273,8 +281,11 @@ public sealed class IrradianceBounceDeviceTests {
         var room = Vertex.Room;
 
         system.Objects.Data.Data(meshes.Draws)[floor.Index] = new() {
-            VertexBuffer = fixture.Buffer<Vertex>(room, BufferUsage.Vertex),
-            IndexBuffer = fixture.Buffer<ushort>([.. Enumerable.Range(0, room.Length).Select(index => (ushort)index)], BufferUsage.Index),
+            VertexBuffer = fixture.Buffer(room, BufferUsage.Vertex),
+            IndexBuffer = fixture.Buffer(
+                [..Enumerable.Range(0, room.Length).Select(static index => (ushort)index)],
+                BufferUsage.Index
+            ),
             IndexFormat = IndexFormat.UInt16,
             Count = room.Length,
             InstanceCount = 1
@@ -325,7 +336,7 @@ public sealed class IrradianceBounceDeviceTests {
             },
 
             // ⚠ Before the submit, not after. See RenderedIrradianceCaptures.Recorded.
-            Recorded = () => {
+            Recorded = static () => {
                 if (VulkanDiagnostics.ErrorCount > 0) {
                     Assert.Fail(
                         "The capture recorded invalid work, and submitting it would fault the GPU: "
@@ -367,10 +378,7 @@ public sealed class IrradianceBounceDeviceTests {
             // a pipeline built for no attachments, used in a pass that has two, is undefined
             // behaviour on every driver here. See IrradianceCubeCapture.Output.
             var context = new RenderDrawContext(commands, effects) {
-                Device = device,
-                ViewConstants = view,
-                SceneConstants = scene,
-                Output = IrradianceCubeCapture.Output
+                Device = device, ViewConstants = view, SceneConstants = scene, Output = IrradianceCubeCapture.Output
             };
 
             system.Record(views[(int)face], opaque, context);
@@ -399,7 +407,14 @@ public sealed class IrradianceBounceDeviceTests {
                 commands.Barrier(
                     new(
                         [],
-                        [.. unused.Select(handle => new TextureBarrier(handle, ResourceState.Undefined, ResourceState.ShaderRead))]
+                        [
+                            ..unused.Select(static handle => new TextureBarrier(
+                                    handle,
+                                    ResourceState.Undefined,
+                                    ResourceState.ShaderRead
+                                )
+                            )
+                        ]
                     )
                 );
             }
@@ -424,8 +439,8 @@ public sealed class IrradianceBounceDeviceTests {
     ) {
         // Straight down, because Lighting.Directional takes the direction the light TRAVELS and
         // negates it — so this is a sun overhead and a floor facing up receives all of it.
-        scene.Parameters.Set(ForwardPlusKeys.LightDirection, new Vector3(0f, -1f, 0f));
-        scene.Parameters.Set(ForwardPlusKeys.LightColor, new Vector3(Sun));
+        scene.Parameters.Set(ForwardPlusKeys.LightDirection, new(0f, -1f, 0f));
+        scene.Parameters.Set(ForwardPlusKeys.LightColor, new(Sun));
         ClusterGrid.Apply(scene.Parameters, RenderCamera.Default with { AspectRatio = 1f }, "ForwardPlus");
 
         var flat = Unused(device, fixture, TextureDimension.Texture2D, 1);
@@ -445,7 +460,7 @@ public sealed class IrradianceBounceDeviceTests {
 
         scene.Parameters.Set(
             ForwardPlusKeys.Clusters,
-            fixture.Buffer<byte>(new byte[ClusterGrid.BufferSize], BufferUsage.Storage)
+            fixture.Buffer(new byte[ClusterGrid.BufferSize], BufferUsage.Storage)
         );
 
         scene.Parameters.Set(ForwardPlusKeys.ShadowSampler, samplers.PointClamp);
@@ -463,9 +478,16 @@ public sealed class IrradianceBounceDeviceTests {
     ) {
         var texture = device.CreateTexture(
             new() {
-                Width = 4, Height = 4, Depth = 1, MipLevels = 1, ArrayLayers = layers, SampleCount = 1,
+                Width = 4,
+                Height = 4,
+                Depth = 1,
+                MipLevels = 1,
+                ArrayLayers = layers,
+                SampleCount = 1,
                 Dimension = dimension,
-                Format = PixelFormat.Rgba8UNorm, Usage = TextureUsage.Sampled, Name = "unused"
+                Format = PixelFormat.Rgba8UNorm,
+                Usage = TextureUsage.Sampled,
+                Name = "unused"
             }
         );
 
@@ -504,7 +526,7 @@ public sealed class IrradianceBounceDeviceTests {
 
         Assert.False(
             compilation.Failed,
-            string.Join(Environment.NewLine, compilation.Diagnostics.Select(diagnostic => diagnostic.ToString()))
+            string.Join(Environment.NewLine, compilation.Diagnostics.Select(static diagnostic => diagnostic.ToString()))
         );
 
         return compilation.Material!;
@@ -525,8 +547,12 @@ public sealed class IrradianceBounceDeviceTests {
         /// </summary>
         /// <remarks>
         ///     <para>
-        ///         ⚠ <b>A floor on its own has no bounce, and finding that out is what this shape is
-        ///         for.</b> A flat plane cannot light itself — every ray leaving it goes up and never
+        ///         ⚠
+        ///         <b>
+        ///             A floor on its own has no bounce, and finding that out is what this shape is
+        ///             for.
+        ///         </b>
+        ///         A flat plane cannot light itself — every ray leaving it goes up and never
         ///         comes back — so a scene of one quad produces a first pass and then nothing, however
         ///         correctly the field is fed back. The first attempt here was exactly that, and it
         ///         read as the feedback being broken.
@@ -539,12 +565,12 @@ public sealed class IrradianceBounceDeviceTests {
         ///     </para>
         /// </remarks>
         public static Vertex[] Room => [
-            .. Quad(new(0f, FloorY, 0f), Vector3.UnitY, new(FloorHalf, 0f, 0f), new(0f, 0f, FloorHalf)),
+            ..Quad(new(0f, FloorY, 0f), Vector3.UnitY, new(FloorHalf, 0f, 0f), new(0f, 0f, FloorHalf)),
 
             // One wall, facing the probe across the floor. Its normal is perpendicular to the sun, so
             // NdotL is zero and it receives NO direct light at all — everything it holds came off the
             // floor, which is what makes the growth below unambiguous.
-            .. Quad(
+            ..Quad(
                 new(WallX, FloorY + WallHeight, 0f),
                 Vector3.UnitX,
                 new(0f, 0f, FloorHalf),
@@ -563,12 +589,7 @@ public sealed class IrradianceBounceDeviceTests {
         ];
 
         static Vertex At(Vector3 position, Vector3 normal, float u, float v) =>
-            new() {
-                Position = position,
-                Normal = normal,
-                Tangent = new(1f, 0f, 0f, 1f),
-                Texcoord = new(u, v)
-            };
+            new() { Position = position, Normal = normal, Tangent = new(1f, 0f, 0f, 1f), Texcoord = new(u, v) };
     }
 
     static bool TryOpen(out Fixture? fixture) {

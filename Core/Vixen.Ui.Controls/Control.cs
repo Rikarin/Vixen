@@ -53,8 +53,12 @@ public enum ControlSize : byte {
 ///         which is the whole reason the styling engine exists.
 ///     </para>
 ///     <para>
-///         ⚠ <b><see cref="ControlVariant" /> and <see cref="ControlSize" /> are written through to
-///         classes</b> — <c>variant-primary</c>, <c>size-sm</c> — rather than read by anything here.
+///         ⚠
+///         <b>
+///             <see cref="ControlVariant" /> and <see cref="ControlSize" /> are written through to
+///             classes
+///         </b>
+///         — <c>variant-primary</c>, <c>size-sm</c> — rather than read by anything here.
 ///         That is what puts them in reach of the cascade: a game can restyle
 ///         <c>button.variant-danger</c>, add a variant of its own with a plain class, and override
 ///         one control's size with a selector, none of which is possible for a property this
@@ -97,8 +101,12 @@ public abstract partial class Control : UiElement {
     /// <summary>Whether a tap on this control is reported as a <see cref="ClickEvent" /> of its own.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>What <c>on:click</c> asks before it counts a tap, and the one thing a control
-    ///         author has to say when they call <see cref="RaiseClick" />.</b> A markup
+    ///         ⚠
+    ///         <b>
+    ///             What <c>on:click</c> asks before it counts a tap, and the one thing a control
+    ///             author has to say when they call <see cref="RaiseClick" />.
+    ///         </b>
+    ///         A markup
     ///         <c>on:click</c> listens for both the activation and the tap, because most controls
     ///         are not <see cref="ButtonBase" /> and raise no activation at all —
     ///         <c>&lt;Card on:click&gt;</c> has to work. A control that <i>does</i> raise one would
@@ -135,9 +143,9 @@ public abstract partial class Control : UiElement {
         // A composite control — a numeric input's spinner buttons, a combo box's field — is made of
         // controls that have no idea their host has been disabled, and a check at the bubble leg
         // would run after all of them had already acted.
-        AddHandler<PointerEvent>(static (element, args) => Refuse((Control) element, args), RoutingStrategy.Capture);
-        AddHandler<KeyEvent>(static (element, args) => Refuse((Control) element, args), RoutingStrategy.Capture);
-        AddHandler<TextInputEvent>(static (element, args) => Refuse((Control) element, args), RoutingStrategy.Capture);
+        AddHandler<PointerEvent>(static (element, args) => Refuse((Control)element, args), RoutingStrategy.Capture);
+        AddHandler<KeyEvent>(static (element, args) => Refuse((Control)element, args), RoutingStrategy.Capture);
+        AddHandler<TextInputEvent>(static (element, args) => Refuse((Control)element, args), RoutingStrategy.Capture);
     }
 
     Action<UiDocument>? resized;
@@ -235,7 +243,7 @@ public abstract partial class Control : UiElement {
             // disabled, and the sentence above says what that costs: the keyboard is left talking to
             // something that will not answer, with no way out, because Tab starts from the focus.
             if (IsFocused) {
-                Document.Focus(null, force: true);
+                Document.Focus(null, true);
             }
         } else {
             State &= ~ElementState.Disabled;

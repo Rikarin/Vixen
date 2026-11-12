@@ -45,7 +45,7 @@ public sealed class BindlessFrameTests : IDisposable {
     readonly DescriptorSetLayoutHandle material;
     readonly List<EffectKey> resolved = [];
 
-    public BindlessFrameTests() : this(bindless: true) { }
+    public BindlessFrameTests() : this(true) { }
 
     BindlessFrameTests(bool bindless) {
         device = new(new() { Record = true, Features = Features(bindless) });
@@ -90,7 +90,7 @@ public sealed class BindlessFrameTests : IDisposable {
     /// </remarks>
     [Fact]
     public void Without_the_capability_neither_half_comes_on() {
-        using var plain = new BindlessFrameTests(bindless: false);
+        using var plain = new BindlessFrameTests(false);
         using var harness = plain.Build();
 
         Assert.False(harness.Materials.EnableRecords(UseRecords));
@@ -115,7 +115,7 @@ public sealed class BindlessFrameTests : IDisposable {
         AddMesh(harness, Material());
         Frame(harness);
 
-        var key = Assert.Single(resolved, candidate => candidate.ShaderName == "Lit");
+        var key = Assert.Single(resolved, static candidate => candidate.ShaderName == "Lit");
         Assert.Contains("UseMaterialRecords=true", key.ToString(), StringComparison.Ordinal);
     }
 
@@ -130,7 +130,7 @@ public sealed class BindlessFrameTests : IDisposable {
     /// </remarks>
     [Fact]
     public void A_material_cannot_overrule_the_device() {
-        using var plain = new BindlessFrameTests(bindless: false);
+        using var plain = new BindlessFrameTests(false);
         using var harness = plain.Build();
 
         harness.Materials.EnableRecords(UseRecords);
@@ -141,7 +141,7 @@ public sealed class BindlessFrameTests : IDisposable {
         AddMesh(harness, claiming);
         plain.Frame(harness);
 
-        var key = Assert.Single(plain.resolved, candidate => candidate.ShaderName == "Lit");
+        var key = Assert.Single(plain.resolved, static candidate => candidate.ShaderName == "Lit");
         Assert.Contains("UseMaterialRecords=false", key.ToString(), StringComparison.Ordinal);
     }
 
@@ -155,7 +155,7 @@ public sealed class BindlessFrameTests : IDisposable {
     /// </remarks>
     [Fact]
     public void The_tables_set_is_bound_once_for_the_frame() {
-        using var harness = Build(table: true);
+        using var harness = Build(true);
         harness.Materials.EnableRecords(UseRecords);
 
         AddMesh(harness, Material(new(1f, 0f, 0f)));
@@ -210,8 +210,11 @@ public sealed class BindlessFrameTests : IDisposable {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <strong>doc 23 § The one thing left, and the case it says is "only reachable by
-    ///         hand".</strong> It is not: <c>WorldRenderer</c> creates the table inside
+    ///         <strong>
+    ///             doc 23 § The one thing left, and the case it says is "only reachable by
+    ///             hand".
+    ///         </strong>
+    ///         It is not: <c>WorldRenderer</c> creates the table inside
     ///         <c>if (device.Features.HasBindless)</c>, and nothing refuses to compose or compile a
     ///         material with a bindless sampling feature on a device that reports it absent — GL,
     ///         GLES, WebGL2, MoltenVK below argument-buffer tier 2. The variant declares the set
@@ -241,7 +244,7 @@ public sealed class BindlessFrameTests : IDisposable {
 
         // The instrument first: the effect really does declare set 4, so the refusal below is about
         // the missing table and not about a variant that never asked for one.
-        var key = Assert.Single(resolved, candidate => candidate.ShaderName == "Lit");
+        var key = Assert.Single(resolved, static candidate => candidate.ShaderName == "Lit");
         Assert.True(effects.TryResolve(key, out var effect));
         Assert.True(effect.SetLayouts.Length > (int)DescriptorSetSlot.Bindless);
         Assert.True(effect.SetLayouts[(int)DescriptorSetSlot.Bindless].IsValid);
@@ -264,7 +267,7 @@ public sealed class BindlessFrameTests : IDisposable {
     /// </remarks>
     [Fact]
     public void The_same_mesh_draws_once_a_table_is_there() {
-        using var harness = Build(table: true);
+        using var harness = Build(true);
         harness.Materials.EnableRecords(UseRecords);
 
         AddMesh(harness, Material());
@@ -295,7 +298,7 @@ public sealed class BindlessFrameTests : IDisposable {
     /// </remarks>
     [Fact]
     public void A_materials_texture_becomes_an_index_in_its_own_block() {
-        using var harness = Build(table: true);
+        using var harness = Build(true);
         var table = harness.Materials.Textures!;
 
         var first = Material();
@@ -336,7 +339,7 @@ public sealed class BindlessFrameTests : IDisposable {
     /// </remarks>
     [Fact]
     public void A_settled_material_does_not_register_again() {
-        using var harness = Build(table: true);
+        using var harness = Build(true);
         var table = harness.Materials.Textures!;
 
         var textured = Material();
@@ -373,7 +376,7 @@ public sealed class BindlessFrameTests : IDisposable {
     /// </remarks>
     [Fact]
     public void A_declared_index_with_no_texture_is_counted_unresolved() {
-        using var harness = Build(table: true);
+        using var harness = Build(true);
 
         var wanting = Material();
         wanting.Parameters.Set(BaseColorIndex, 0u);
@@ -395,7 +398,7 @@ public sealed class BindlessFrameTests : IDisposable {
     /// </remarks>
     [Fact]
     public void A_material_that_asked_for_no_map_is_not_counted() {
-        using var harness = Build(table: true);
+        using var harness = Build(true);
 
         AddMesh(harness, Material());
         Frame(harness);
@@ -411,7 +414,7 @@ public sealed class BindlessFrameTests : IDisposable {
     /// </remarks>
     [Fact]
     public void A_texture_that_arrives_clears_the_count() {
-        using var harness = Build(table: true);
+        using var harness = Build(true);
 
         var waiting = Material();
         waiting.Parameters.Set(BaseColorIndex, 0u);
@@ -452,10 +455,10 @@ public sealed class BindlessFrameTests : IDisposable {
         // five-set layout drawn with four sets bound is refused rather than recorded. This fixture
         // asked for the bindless variant and gave the host no table for years, which drew — and is
         // the defect the refusal above exists for.
-        using var harness = Build(table: true);
+        using var harness = Build(true);
         harness.Materials.EnableRecords(UseRecords);
 
-        using var geometry = new GeometryBuffer(device, vertexStride: 32, vertexCapacity: 256, indexCapacity: 256);
+        using var geometry = new GeometryBuffer(device, 32, 256, 256);
 
         for (var index = 0; index < 3; index++) {
             Assert.True(geometry.TryAllocate(8, 12, out var slice));
@@ -483,7 +486,7 @@ public sealed class BindlessFrameTests : IDisposable {
     [Fact]
     public void Meshes_with_their_own_buffers_still_bind_per_object() {
         // With a table, for the reason its pair above states.
-        using var harness = Build(table: true);
+        using var harness = Build(true);
         harness.Materials.EnableRecords(UseRecords);
 
         for (var index = 0; index < 3; index++) {

@@ -14,13 +14,18 @@ namespace Tests;
 /// <remarks>
 ///     <para>
 ///         <b>No device, and that is why it can reach the whole library.</b> The compiler is its own
-///         oracle: the plan <see cref="TextureGraphCompiler.Refresh(Vixen.NodeGraph.NodeGraphModel)" /> patches together has to equal,
+///         oracle: the plan <see cref="TextureGraphCompiler.Refresh(Vixen.NodeGraph.NodeGraphModel)" /> patches together
+///         has to equal,
 ///         op for op, the plan a fresh compiler builds from the same graph. There is no second idea of
 ///         what a node emits, because the node's own <c>Compile</c> is what ran both times.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Null is a correct answer, so the property alone would pass for a method that always
-///         returned it.</b> <see cref="Every_node_refreshes_to_what_a_compile_would_emit" /> counts how
+///         ⚠
+///         <b>
+///             Null is a correct answer, so the property alone would pass for a method that always
+///             returned it.
+///         </b>
+///         <see cref="Every_node_refreshes_to_what_a_compile_would_emit" /> counts how
 ///         often it did not.
 ///     </para>
 /// </remarks>
@@ -42,12 +47,12 @@ public class TextureGraphRefreshTests(ITestOutputHelper output) {
     static string Describe(TexturePlan plan) =>
         string.Join(
             "\n",
-            plan.Ops.Select(
-                op => $"{op.Kernel} {op.Cpu?.GetType().Name} {op.Identity} {op.Output} "
-                    + $"[{string.Join(",", op.Inputs)}] {op.EmittedForExtent} "
-                    + $"[{string.Join(",", op.Parameters.Select(parameter => $"{parameter.Name}={parameter.Value:R}/{parameter.Unit}"))}]"
+            plan.Ops.Select(static op => $"{op.Kernel} {op.Cpu?.GetType().Name} {op.Identity} {op.Output} "
+                + $"[{string.Join(",", op.Inputs)}] {op.EmittedForExtent} "
+                + $"[{string.Join(",", op.Parameters.Select(static parameter => $"{parameter.Name}={parameter.Value:R}/{parameter.Unit}"))}]"
             )
-        ) + $"\nseed {plan.Seed}, kernels {string.Join(",", plan.Kernels.Keys.Order(StringComparer.Ordinal))}";
+        )
+        + $"\nseed {plan.Seed}, kernels {string.Join(",", plan.Kernels.Keys.Order(StringComparer.Ordinal))}";
 
     /// <summary>A graph holding one node of a type, with every image port fed.</summary>
     static (NodeGraphModel Graph, GraphNode Node) Around(NodeTypeDefinition type) {
@@ -68,8 +73,12 @@ public class TextureGraphRefreshTests(ITestOutputHelper output) {
     }
 
     /// <summary>The ports an author has a number on.</summary>
-    static PortDefinition[] Numbers(NodeTypeDefinition type) =>
-        [.. type.Ports.Where(port => port is { Direction: PortDirection.Input, Kind: PortKind.Float or PortKind.Int or PortKind.Bool })];
+    static PortDefinition[] Numbers(NodeTypeDefinition type) => [
+        ..type.Ports.Where(static port => port is {
+                Direction: PortDirection.Input, Kind: PortKind.Float or PortKind.Int or PortKind.Bool
+            }
+        )
+    ];
 
     static float Jiggle(PortDefinition port, float current, Random random) =>
         port.Kind switch {
@@ -77,7 +86,7 @@ public class TextureGraphRefreshTests(ITestOutputHelper output) {
             PortKind.Int => Math.Max(1f, MathF.Round(current) + random.Next(-1, 3)),
             _ => current == 0f
                 ? (float)random.NextDouble()
-                : current * (0.25f + (1.5f * (float)random.NextDouble()))
+                : current * (0.25f + 1.5f * (float)random.NextDouble())
         };
 
     [Fact]
@@ -107,7 +116,9 @@ public class TextureGraphRefreshTests(ITestOutputHelper output) {
                 var port = numbers[random.Next(numbers.Length)];
                 var current = node.Values.TryGetValue(port.Name, out var lanes) && lanes.Length > 0
                     ? lanes[0]
-                    : port.Default.IsDefaultOrEmpty ? 0f : port.Default[0];
+                    : port.Default.IsDefaultOrEmpty
+                        ? 0f
+                        : port.Default[0];
 
                 node.SetValue(port.Name, Jiggle(port, current, random));
 
@@ -141,7 +152,10 @@ public class TextureGraphRefreshTests(ITestOutputHelper output) {
 
         output.WriteLine(
             $"{answered} edits answered without a compile; refused: "
-            + string.Join(", ", refused.OrderBy(entry => entry.Key).Select(entry => $"{entry.Key} ×{entry.Value}"))
+            + string.Join(
+                ", ",
+                refused.OrderBy(static entry => entry.Key).Select(static entry => $"{entry.Key} ×{entry.Value}")
+            )
         );
 
         // ⚠ The false half of a property whose null is always legal: a refresh that gave up on
@@ -466,7 +480,10 @@ public class TextureGraphRefreshTests(ITestOutputHelper output) {
 
         var compilation = compound.Compiler.Compile(compound.Graph);
 
-        Assert.Contains(compilation.Diagnostics, static diagnostic => diagnostic.Message.Contains("outside its range", StringComparison.Ordinal));
+        Assert.Contains(
+            compilation.Diagnostics,
+            static diagnostic => diagnostic.Message.Contains("outside its range", StringComparison.Ordinal)
+        );
     }
 
     /// <summary>⚠ A name is only read during a replay, so a refused one is said there, and still has to compile.</summary>
@@ -567,7 +584,9 @@ public class TextureGraphRefreshTests(ITestOutputHelper output) {
             var numbers = Numbers(type);
 
             for (var step = 0; step < 4; step++) {
-                var settings = type.Settings.Where(static setting => setting.Kind is SettingKind.Float or SettingKind.Int).ToArray();
+                var settings = type.Settings
+                    .Where(static setting => setting.Kind is SettingKind.Float or SettingKind.Int)
+                    .ToArray();
                 var turnKnob = settings.Length > 0 && (numbers.Length == 0 || random.Next(2) == 0);
 
                 if (turnKnob) {
@@ -575,13 +594,21 @@ public class TextureGraphRefreshTests(ITestOutputHelper output) {
                     var low = float.IsFinite(setting.Minimum) ? setting.Minimum : 0f;
                     var high = float.IsFinite(setting.Maximum) ? setting.Maximum : 1f;
 
-                    node.SetText(setting.Name, ((float)((random.NextDouble() * (high - low)) + low)).ToString("R", CultureInfo.InvariantCulture));
+                    node.SetText(
+                        setting.Name,
+                        ((float)(random.NextDouble() * (high - low) + low)).ToString(
+                            "R",
+                            CultureInfo.InvariantCulture
+                        )
+                    );
                     knobs++;
                 } else if (numbers.Length > 0) {
                     var port = numbers[random.Next(numbers.Length)];
                     var current = node.Values.TryGetValue(port.Name, out var lanes) && lanes.Length > 0
                         ? lanes[0]
-                        : port.Default.IsDefaultOrEmpty ? 0f : port.Default[0];
+                        : port.Default.IsDefaultOrEmpty
+                            ? 0f
+                            : port.Default[0];
 
                     node.SetValue(port.Name, Jiggle(port, current, random));
                 } else {

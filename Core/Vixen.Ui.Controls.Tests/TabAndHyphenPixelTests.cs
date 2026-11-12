@@ -12,8 +12,12 @@ namespace Vixen.Ui.Controls.Tests;
 /// <summary><c>tab-size</c> and <c>hyphens</c>, counted as ink rather than as draw commands.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Both features were closed against draw-list assertions, and a draw-list assertion is
-///         not a picture.</b> `TabSizeTests` asks where `Place` put the glyphs and `HyphensTests`
+///         ⚠
+///         <b>
+///             Both features were closed against draw-list assertions, and a draw-list assertion is
+///             not a picture.
+///         </b>
+///         `TabSizeTests` asks where `Place` put the glyphs and `HyphensTests`
 ///         asks which glyph id came out; neither runs the rasteriser, and this repository has
 ///         already shipped an overline drawn across the capitals past exactly that kind of check.
 ///         The oracles here know nothing about the layout: columns of inked *pixels*, and ink in a
@@ -42,7 +46,7 @@ public class TabAndHyphenPixelTests {
 
     static FontFace LoadFont(string file) {
         using var stream = Assembly.GetExecutingAssembly()
-            .GetManifestResourceStream($"Vixen.Ui.Controls.Tests.Fonts.{file}")
+                .GetManifestResourceStream($"Vixen.Ui.Controls.Tests.Fonts.{file}")
             ?? throw new InvalidOperationException($"{file} is not embedded");
 
         using var memory = new MemoryStream();
@@ -124,8 +128,12 @@ public class TabAndHyphenPixelTests {
     /// <summary>A tab inks nothing, so the letters on either side of it are two separate marks.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The claim `TabSizeTests` can only make about the draw list, made about pixels —
-    ///         and it has to be made on <see cref="Boxy" />.</b> A tab shaped to `.notdef` puts a box
+    ///         ⚠
+    ///         <b>
+    ///             The claim `TabSizeTests` can only make about the draw list, made about pixels —
+    ///             and it has to be made on <see cref="Boxy" />.
+    ///         </b>
+    ///         A tab shaped to `.notdef` puts a box
     ///         in the gap, which is a third inked column between the two letters. In Open Sans there
     ///         is no such box: `.notdef` there is an <i>empty</i> glyph, so a drawn tab inks nothing
     ///         and this assertion is satisfied by an engine that suppressed nothing at all.
@@ -151,8 +159,12 @@ public class TabAndHyphenPixelTests {
     ///         of the wrong size looks like and a count cannot see it.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The tab has to be at the start of the line for the spaces to be a valid oracle,
-    ///         and getting that wrong is the mistake this branch made twice.</b> Eight spaces equal a
+    ///         ⚠
+    ///         <b>
+    ///             The tab has to be at the start of the line for the spaces to be a valid oracle,
+    ///             and getting that wrong is the mistake this branch made twice.
+    ///         </b>
+    ///         Eight spaces equal a
     ///         stop only when the pen is already on one. A first draft compared <c>"x\ty"</c> against
     ///         <c>"x        y"</c> and reported a real difference as a defect: the tab snaps to
     ///         column one at 33.25px while the spaces *add* 33.25px to the <c>x</c>'s own 8.375px, so
@@ -176,8 +188,12 @@ public class TabAndHyphenPixelTests {
 
     /// <summary>A mid-line tab snaps to the column rather than adding a fixed gap.</summary>
     /// <remarks>
-    ///     ⚠ <b>The distinction the spaces oracle above cannot express, and the whole difference
-    ///     between a tab and a wide space.</b> Two prefixes of different widths, both inside column
+    ///     ⚠
+    ///     <b>
+    ///         The distinction the spaces oracle above cannot express, and the whole difference
+    ///         between a tab and a wide space.
+    ///     </b>
+    ///     Two prefixes of different widths, both inside column
     ///     one, put the letter after the tab in the *same* place — which is what a column is. A
     ///     tab that added eight spaces to the pen would put it in two different places, and both
     ///     would look reasonable in isolation.
@@ -222,7 +238,7 @@ public class TabAndHyphenPixelTests {
     /// </remarks>
     [Fact]
     public void A_hyphenated_break_inks_a_hyphen() {
-        var soft = Render("sup­ply", width: 44f);
+        var soft = Render("sup\u00ADply", width: 44f);
         var hard = Render("sup-ply", width: 44f);
         var none = Render("supply", width: 44f);
 
@@ -233,8 +249,12 @@ public class TabAndHyphenPixelTests {
     /// <summary>The mark it adds is the size of a hyphen.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>What U+2010 does depends on the face, and "it would have drawn a tofu box" was
-    ///         only half right.</b> U+2010 resolves to glyph 0 in both faces committed here. In
+    ///         ⚠
+    ///         <b>
+    ///             What U+2010 does depends on the face, and "it would have drawn a tofu box" was
+    ///             only half right.
+    ///         </b>
+    ///         U+2010 resolves to glyph 0 in both faces committed here. In
     ///         `TestShapeLana` glyph 0 has two contours and is the familiar hollow box; in Open Sans
     ///         it has <b>zero</b> and draws nothing at all. So the substitution the sizing prescribed
     ///         either shows a box or <i>silently reproduces the defect it was meant to fix</i> — and
@@ -253,7 +273,7 @@ public class TabAndHyphenPixelTests {
     /// </remarks>
     [Fact]
     public void The_mark_it_adds_is_the_size_of_a_hyphen() {
-        var soft = Render("sup­ply", width: 44f);
+        var soft = Render("sup\u00ADply", width: 44f);
         var plain = Render("supply", width: 44f);
 
         // The ink the hyphenated picture has and the unhyphenated one does not is the mark.

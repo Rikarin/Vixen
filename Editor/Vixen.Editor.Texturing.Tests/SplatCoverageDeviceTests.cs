@@ -12,8 +12,10 @@ namespace Vixen.Editor.Texturing.Tests;
 /// <summary>What one layer's coverage comes out as, read off the device rather than off the graph.</summary>
 /// <remarks>
 ///     <para>
-///         <b>The weights half of the <em>Bake Splat Map</em> verb, at the one input value where the
-///         two readings of a fill's alpha disagree.</b>
+///         <b>
+///             The weights half of the <em>Bake Splat Map</em> verb, at the one input value where the
+///             two readings of a fill's alpha disagree.
+///         </b>
 ///         <c>SplatBakeDeviceTests.The_written_weights_are_the_stacks_own_resolution</c> pins the whole
 ///         verb through a fixture whose every fill is opaque, and ⚠ an opaque fill is exactly the case
 ///         both readings agree on — so it could not see
@@ -93,8 +95,12 @@ public class SplatCoverageDeviceTests(ITestOutputHelper output) {
     ///         an artist reads against a stack where it plainly is.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The assertion is on what the message must <em>not</em> say as well as on what it
-    ///         must.</b> A message that merely mentions the anchor is satisfied by the old sentence
+    ///         ⚠
+    ///         <b>
+    ///             The assertion is on what the message must <em>not</em> say as well as on what it
+    ///             must.
+    ///         </b>
+    ///         A message that merely mentions the anchor is satisfied by the old sentence
     ///         too, so the phrase that misdirects is named. No device: the refusal is decided while the
     ///         graph is built and there is nothing to evaluate.
     ///     </para>
@@ -103,12 +109,19 @@ public class SplatCoverageDeviceTests(ITestOutputHelper output) {
     public void An_anchor_that_a_coverage_cannot_resolve_says_which_verb_cannot_resolve_it() {
         var stack = Stack(
             Fill("rock", 1f) with { AnchorPoint = "rock" },
-            Fill("moss", 1f) with { Mask = new() { Source = LayerMaskSource.Anchor, Anchor = new() { Anchor = "rock", Channel = "baseColor" } } }
+            Fill("moss", 1f) with {
+                Mask = new() {
+                    Source = LayerMaskSource.Anchor, Anchor = new() { Anchor = "rock", Channel = "baseColor" }
+                }
+            }
         );
 
         var build = LayerStackGraph.Weights(stack, LayerStackSplat.Coverage(stack.Sets[0], stack.Sets[0].Layers[1]));
 
-        var refusal = Assert.Single(build.Problems, problem => problem.Message.Contains("anchor", StringComparison.OrdinalIgnoreCase));
+        var refusal = Assert.Single(
+            build.Problems,
+            static problem => problem.Message.Contains("anchor", StringComparison.OrdinalIgnoreCase)
+        );
 
         output.WriteLine(refusal.Message);
 
@@ -175,12 +188,7 @@ public class SplatCoverageDeviceTests(ITestOutputHelper output) {
 
     /// <summary>One constant fill authoring one colour at the given alpha.</summary>
     static LayerAsset Fill(string id, float alpha) =>
-        new() {
-            Id = id,
-            Name = id,
-            Kind = LayerKind.Fill,
-            Values = { ["baseColor"] = [0.2f, 0.6f, 0.2f, alpha] }
-        };
+        new() { Id = id, Name = id, Kind = LayerKind.Fill, Values = { ["baseColor"] = [0.2f, 0.6f, 0.2f, alpha] } };
 
     /// <summary>A stack of one set over black, which is what a coverage build starts from.</summary>
     static LayerStackAsset Stack(params LayerAsset[] layers) =>
@@ -193,7 +201,7 @@ public class SplatCoverageDeviceTests(ITestOutputHelper output) {
                 new() {
                     Name = "S",
                     Channels = [new() { Usage = "baseColor", Default = [0f, 0f, 0f, 1f] }],
-                    Layers = [.. layers]
+                    Layers = [..layers]
                 }
             ]
         };

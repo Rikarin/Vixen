@@ -26,8 +26,7 @@ public abstract class MarketFixture {
 
     protected MemoryEconomyLedger Ledger { get; } = new();
 
-    protected long Held(ulong who, DefId asset) =>
-        Ledger.Balance(EconomyAccount.Of(Content.Player(who)), asset);
+    protected long Held(ulong who, DefId asset) => Ledger.Balance(EconomyAccount.Of(Content.Player(who)), asset);
 
     protected long InEscrow(DefId asset) => Ledger.Balance(EconomyAccount.Of(EconomyAccount.Escrow), asset);
 
@@ -39,7 +38,9 @@ public abstract class MarketFixture {
 public class MailTests : MarketFixture {
     readonly PostOffice post;
 
-    public MailTests() => post = new(Ledger, capacity: 3);
+    public MailTests() {
+        post = new(Ledger, 3);
+    }
 
     MailMessage Send(ulong from, ulong to, string operation, long cod = 0, params MailAttachment[] attachments) {
         var refusal = post.Send(
@@ -88,7 +89,7 @@ public class MailTests : MarketFixture {
     [Fact]
     public void ClaimingIsAllOrNothingAndIncludesTheCashOnDelivery() {
         // ⚠ Taking the goods in one operation and paying in another is a scam with two halves.
-        var mail = Send(1, 2, "a", cod: 250, attachments: new MailAttachment(Sword, 1));
+        var mail = Send(1, 2, "a", 250, new MailAttachment(Sword, 1));
         var sender = Held(1, Gold);
         var recipient = Held(2, Gold);
 
@@ -99,7 +100,7 @@ public class MailTests : MarketFixture {
 
     [Fact]
     public void ARecipientWhoCannotPayGetsNeitherTheGoodsNorTheBill() {
-        var mail = Send(1, 3, "a", cod: 100_000, attachments: new MailAttachment(Sword, 1));
+        var mail = Send(1, 3, "a", 100_000, new MailAttachment(Sword, 1));
 
         Assert.Equal(MailRefusal.Insufficient, post.Claim(Content.Player(3), mail.Id, "c"));
         Assert.Equal(10_000, Held(3, Sword));
@@ -171,7 +172,7 @@ public class MailTests : MarketFixture {
     [Fact]
     public void AnExpiredLetterGoesBackToItsSenderWithNoChargeOnIt() {
         // ⚠ Nobody took the goods, so nobody owes anything.
-        var mail = Send(1, 2, "a", cod: 250, attachments: new MailAttachment(Sword, 2));
+        var mail = Send(1, 2, "a", 250, new MailAttachment(Sword, 2));
 
         Assert.Equal(1, post.Expire(mail.Expires + 1f));
 
@@ -216,12 +217,12 @@ public class MailTests : MarketFixture {
 
 public class AuctionTests : MarketFixture {
     readonly PostOffice post;
-    readonly MovingAverageMarket market = new(window: 4);
+    readonly MovingAverageMarket market = new(4);
     readonly AuctionHouse house;
 
     public AuctionTests() {
-        post = new(Ledger, capacity: 100);
-        house = new(Ledger, post, feeRate: 0.1f, market);
+        post = new(Ledger, 100);
+        house = new(Ledger, post, 0.1f, market);
     }
 
     AuctionListing List(ulong seller = 1, long buyout = 0, long deposit = 10, float hours = 1f) {
@@ -230,7 +231,7 @@ public class AuctionTests : MarketFixture {
             Sword,
             2,
             Gold,
-            startingBid: 100,
+            100,
             buyout,
             deposit,
             hours,
@@ -487,7 +488,7 @@ public class PriceModelTests {
 
     [Fact]
     public void OnlyTheLastFewSalesCount() {
-        var market = new MovingAverageMarket(window: 3);
+        var market = new MovingAverageMarket(3);
 
         for (var sale = 0; sale < 10; sale++) {
             market.Record(new(Sword, 100, 1, sale));

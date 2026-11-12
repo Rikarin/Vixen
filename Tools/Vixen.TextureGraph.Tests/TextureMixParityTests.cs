@@ -11,8 +11,11 @@ namespace Tests;
 /// <summary><c>Mix.rvn</c> is <c>Blend.rvn</c> plus one line, and this is what holds it to that.</summary>
 /// <remarks>
 ///     <para>
-///         <b>The two files carry the same sixteen operators because a texture-graph kernel cannot
-///         import one.</b> <c>TexturePlanEvaluator.VariantFor</c> compiles a kernel with no
+///         <b>
+///             The two files carry the same sixteen operators because a texture-graph kernel cannot
+///             import one.
+///         </b>
+///         <c>TexturePlanEvaluator.VariantFor</c> compiles a kernel with no
 ///         <c>referencePaths</c> — <a href="https://github.com/Rikarin/Vixen/issues/635">#635</a> —
 ///         so a shared <c>Combine</c> has nowhere to live, which is the same bargain the thirteen
 ///         functions transcribed out of the shader library already make and which
@@ -20,8 +23,12 @@ namespace Tests;
 ///         for the pair <a href="https://github.com/Rikarin/Vixen/issues/1059">#1059</a> added.
 ///     </para>
 ///     <para>
-///         ⚠ <b>A text equality and not a shape comparison, because these two are not spelled
-///         differently on purpose.</b> The seam tests compare numbers, operators and calls because a
+///         ⚠
+///         <b>
+///             A text equality and not a shape comparison, because these two are not spelled
+///             differently on purpose.
+///         </b>
+///         The seam tests compare numbers, operators and calls because a
 ///         kernel's transcription of a library function renames parameters and drops
 ///         <c>static</c>; <c>Mix.Combine</c> is a copy of <c>Blend.Combine</c> made by a script, so
 ///         the strongest available assertion is that it still is one. A comparison of extracted
@@ -50,10 +57,10 @@ public class TextureMixParityTests {
     ///     last case would still answer for a copy. The count below is what says the body is the
     ///     whole body; the equality is what says the two are the same one.
     /// </remarks>
-    static ImmutableArray<int> Selectors { get; } = [.. Enumerable.Range(1, 29)];
+    static ImmutableArray<int> Selectors { get; } = [..Enumerable.Range(1, 29)];
 
     /// <summary>Comment markers, which are prose about the arithmetic rather than the arithmetic.</summary>
-    static readonly Regex Comment = new(@"//.*$", RegexOptions.Multiline);
+    static readonly Regex Comment = new("//.*$", RegexOptions.Multiline);
 
     /// <summary>Neither extraction is empty, and both hold all fifteen written selectors.</summary>
     /// <remarks>
@@ -204,5 +211,5 @@ public class TextureMixParityTests {
     ///     would otherwise read as a difference in the composite.
     /// </remarks>
     static string[] Lines(string body) =>
-        [.. body.Split('\n').Select(line => line.Trim()).Where(line => line.Length > 0)];
+        [..body.Split('\n').Select(static line => line.Trim()).Where(static line => line.Length > 0)];
 }

@@ -27,7 +27,7 @@ namespace Vixen.Core.Mathematics;
 /// </remarks>
 [DataContract]
 [StructLayout(LayoutKind.Sequential)]
-public readonly struct Matrix4x4 : IEquatable<Matrix4x4>, IFormattable, ISpanFormattable {
+public readonly struct Matrix4x4 : IEquatable<Matrix4x4>, ISpanFormattable {
     /// <summary>Number of components.</summary>
     public const int ComponentCount = 16;
 
@@ -82,10 +82,22 @@ public readonly struct Matrix4x4 : IEquatable<Matrix4x4>, IFormattable, ISpanFor
     /// <summary>The transform that does nothing.</summary>
     public static Matrix4x4 Identity =>
         new(
-            1f, 0f, 0f, 0f,
-            0f, 1f, 0f, 0f,
-            0f, 0f, 1f, 0f,
-            0f, 0f, 0f, 1f
+            1f,
+            0f,
+            0f,
+            0f,
+            0f,
+            1f,
+            0f,
+            0f,
+            0f,
+            0f,
+            1f,
+            0f,
+            0f,
+            0f,
+            0f,
+            1f
         );
 
     /// <summary>Builds a matrix from its sixteen elements, in row-major order.</summary>
@@ -106,10 +118,22 @@ public readonly struct Matrix4x4 : IEquatable<Matrix4x4>, IFormattable, ISpanFor
     /// <param name="m43">Row 4, column 3.</param>
     /// <param name="m44">Row 4, column 4.</param>
     public Matrix4x4(
-        float m11, float m12, float m13, float m14,
-        float m21, float m22, float m23, float m24,
-        float m31, float m32, float m33, float m34,
-        float m41, float m42, float m43, float m44
+        float m11,
+        float m12,
+        float m13,
+        float m14,
+        float m21,
+        float m22,
+        float m23,
+        float m24,
+        float m31,
+        float m32,
+        float m33,
+        float m34,
+        float m41,
+        float m42,
+        float m43,
+        float m44
     ) {
         M11 = m11;
         M12 = m12;
@@ -136,10 +160,22 @@ public readonly struct Matrix4x4 : IEquatable<Matrix4x4>, IFormattable, ISpanFor
     /// <param name="row4">The fourth row, whose XYZ is the translation.</param>
     public Matrix4x4(Vector4 row1, Vector4 row2, Vector4 row3, Vector4 row4)
         : this(
-            row1.X, row1.Y, row1.Z, row1.W,
-            row2.X, row2.Y, row2.Z, row2.W,
-            row3.X, row3.Y, row3.Z, row3.W,
-            row4.X, row4.Y, row4.Z, row4.W
+            row1.X,
+            row1.Y,
+            row1.Z,
+            row1.W,
+            row2.X,
+            row2.Y,
+            row2.Z,
+            row2.W,
+            row3.X,
+            row3.Y,
+            row3.Z,
+            row3.W,
+            row4.X,
+            row4.Y,
+            row4.Z,
+            row4.W
         ) { }
 
     /// <summary>The first row.</summary>
@@ -180,7 +216,7 @@ public readonly struct Matrix4x4 : IEquatable<Matrix4x4>, IFormattable, ISpanFor
             ArgumentOutOfRangeException.ThrowIfGreaterThan(row, 4);
             ArgumentOutOfRangeException.ThrowIfLessThan(column, 1);
             ArgumentOutOfRangeException.ThrowIfGreaterThan(column, 4);
-            return AsSpan()[((row - 1) * 4) + (column - 1)];
+            return AsSpan()[(row - 1) * 4 + (column - 1)];
         }
     }
 
@@ -197,10 +233,22 @@ public readonly struct Matrix4x4 : IEquatable<Matrix4x4>, IFormattable, ISpanFor
     /// <returns>The transform.</returns>
     public static Matrix4x4 FromTranslation(Vector3 translation) =>
         new(
-            1f, 0f, 0f, 0f,
-            0f, 1f, 0f, 0f,
-            0f, 0f, 1f, 0f,
-            translation.X, translation.Y, translation.Z, 1f
+            1f,
+            0f,
+            0f,
+            0f,
+            0f,
+            1f,
+            0f,
+            0f,
+            0f,
+            0f,
+            1f,
+            0f,
+            translation.X,
+            translation.Y,
+            translation.Z,
+            1f
         );
 
     /// <summary>Scales each axis independently.</summary>
@@ -208,10 +256,22 @@ public readonly struct Matrix4x4 : IEquatable<Matrix4x4>, IFormattable, ISpanFor
     /// <returns>The transform.</returns>
     public static Matrix4x4 FromScale(Vector3 scale) =>
         new(
-            scale.X, 0f, 0f, 0f,
-            0f, scale.Y, 0f, 0f,
-            0f, 0f, scale.Z, 0f,
-            0f, 0f, 0f, 1f
+            scale.X,
+            0f,
+            0f,
+            0f,
+            0f,
+            scale.Y,
+            0f,
+            0f,
+            0f,
+            0f,
+            scale.Z,
+            0f,
+            0f,
+            0f,
+            0f,
+            1f
         );
 
     /// <summary>Scales every axis equally.</summary>
@@ -222,7 +282,7 @@ public readonly struct Matrix4x4 : IEquatable<Matrix4x4>, IFormattable, ISpanFor
     ///     <c>new(…)</c> carries no type for overload resolution to work with: with both overloads
     ///     present, <c>FromScale(new(1f, 2f, 3f))</c> is a compile error at every call site.
     /// </remarks>
-    public static Matrix4x4 FromUniformScale(float scale) => FromScale(new Vector3(scale));
+    public static Matrix4x4 FromUniformScale(float scale) => FromScale(new(scale));
 
     /// <summary>Rotates about the X axis, counter-clockwise looking down +X toward the origin.</summary>
     /// <param name="radians">The angle in radians.</param>
@@ -230,10 +290,22 @@ public readonly struct Matrix4x4 : IEquatable<Matrix4x4>, IFormattable, ISpanFor
     public static Matrix4x4 FromRotationX(float radians) {
         var (sin, cos) = MathF.SinCos(radians);
         return new(
-            1f, 0f, 0f, 0f,
-            0f, cos, sin, 0f,
-            0f, -sin, cos, 0f,
-            0f, 0f, 0f, 1f
+            1f,
+            0f,
+            0f,
+            0f,
+            0f,
+            cos,
+            sin,
+            0f,
+            0f,
+            -sin,
+            cos,
+            0f,
+            0f,
+            0f,
+            0f,
+            1f
         );
     }
 
@@ -243,10 +315,22 @@ public readonly struct Matrix4x4 : IEquatable<Matrix4x4>, IFormattable, ISpanFor
     public static Matrix4x4 FromRotationY(float radians) {
         var (sin, cos) = MathF.SinCos(radians);
         return new(
-            cos, 0f, -sin, 0f,
-            0f, 1f, 0f, 0f,
-            sin, 0f, cos, 0f,
-            0f, 0f, 0f, 1f
+            cos,
+            0f,
+            -sin,
+            0f,
+            0f,
+            1f,
+            0f,
+            0f,
+            sin,
+            0f,
+            cos,
+            0f,
+            0f,
+            0f,
+            0f,
+            1f
         );
     }
 
@@ -256,10 +340,22 @@ public readonly struct Matrix4x4 : IEquatable<Matrix4x4>, IFormattable, ISpanFor
     public static Matrix4x4 FromRotationZ(float radians) {
         var (sin, cos) = MathF.SinCos(radians);
         return new(
-            cos, sin, 0f, 0f,
-            -sin, cos, 0f, 0f,
-            0f, 0f, 1f, 0f,
-            0f, 0f, 0f, 1f
+            cos,
+            sin,
+            0f,
+            0f,
+            -sin,
+            cos,
+            0f,
+            0f,
+            0f,
+            0f,
+            1f,
+            0f,
+            0f,
+            0f,
+            0f,
+            1f
         );
     }
 
@@ -273,10 +369,22 @@ public readonly struct Matrix4x4 : IEquatable<Matrix4x4>, IFormattable, ISpanFor
         var (wx, wy, wz) = (w * x, w * y, w * z);
 
         return new(
-            1f - (2f * (yy + zz)), 2f * (xy + wz), 2f * (xz - wy), 0f,
-            2f * (xy - wz), 1f - (2f * (xx + zz)), 2f * (yz + wx), 0f,
-            2f * (xz + wy), 2f * (yz - wx), 1f - (2f * (xx + yy)), 0f,
-            0f, 0f, 0f, 1f
+            1f - 2f * (yy + zz),
+            2f * (xy + wz),
+            2f * (xz - wy),
+            0f,
+            2f * (xy - wz),
+            1f - 2f * (xx + zz),
+            2f * (yz + wx),
+            0f,
+            2f * (xz + wy),
+            2f * (yz - wx),
+            1f - 2f * (xx + yy),
+            0f,
+            0f,
+            0f,
+            0f,
+            1f
         );
     }
 
@@ -291,10 +399,22 @@ public readonly struct Matrix4x4 : IEquatable<Matrix4x4>, IFormattable, ISpanFor
     public static Matrix4x4 Compose(Vector3 scale, Quaternion rotation, Vector3 translation) {
         var matrix = FromQuaternion(rotation);
         return new(
-            matrix.M11 * scale.X, matrix.M12 * scale.X, matrix.M13 * scale.X, 0f,
-            matrix.M21 * scale.Y, matrix.M22 * scale.Y, matrix.M23 * scale.Y, 0f,
-            matrix.M31 * scale.Z, matrix.M32 * scale.Z, matrix.M33 * scale.Z, 0f,
-            translation.X, translation.Y, translation.Z, 1f
+            matrix.M11 * scale.X,
+            matrix.M12 * scale.X,
+            matrix.M13 * scale.X,
+            0f,
+            matrix.M21 * scale.Y,
+            matrix.M22 * scale.Y,
+            matrix.M23 * scale.Y,
+            0f,
+            matrix.M31 * scale.Z,
+            matrix.M32 * scale.Z,
+            matrix.M33 * scale.Z,
+            0f,
+            translation.X,
+            translation.Y,
+            translation.Z,
+            1f
         );
     }
 
@@ -418,10 +538,22 @@ public readonly struct Matrix4x4 : IEquatable<Matrix4x4>, IFormattable, ISpanFor
         var trueUp = Vector3.Cross(back, right);
 
         return new(
-            right.X, trueUp.X, back.X, 0f,
-            right.Y, trueUp.Y, back.Y, 0f,
-            right.Z, trueUp.Z, back.Z, 0f,
-            -Vector3.Dot(right, eye), -Vector3.Dot(trueUp, eye), -Vector3.Dot(back, eye), 1f
+            right.X,
+            trueUp.X,
+            back.X,
+            0f,
+            right.Y,
+            trueUp.Y,
+            back.Y,
+            0f,
+            right.Z,
+            trueUp.Z,
+            back.Z,
+            0f,
+            -Vector3.Dot(right, eye),
+            -Vector3.Dot(trueUp, eye),
+            -Vector3.Dot(back, eye),
+            1f
         );
     }
 
@@ -457,10 +589,22 @@ public readonly struct Matrix4x4 : IEquatable<Matrix4x4>, IFormattable, ISpanFor
         var range = nearPlane / (farPlane - nearPlane);
 
         return new(
-            width, 0f, 0f, 0f,
-            0f, height, 0f, 0f,
-            0f, 0f, range, -1f,
-            0f, 0f, farPlane * range, 0f
+            width,
+            0f,
+            0f,
+            0f,
+            0f,
+            height,
+            0f,
+            0f,
+            0f,
+            0f,
+            range,
+            -1f,
+            0f,
+            0f,
+            farPlane * range,
+            0f
         );
     }
 
@@ -488,10 +632,22 @@ public readonly struct Matrix4x4 : IEquatable<Matrix4x4>, IFormattable, ISpanFor
         var width = height / aspectRatio;
 
         return new(
-            width, 0f, 0f, 0f,
-            0f, height, 0f, 0f,
-            0f, 0f, 0f, -1f,
-            0f, 0f, nearPlane, 0f
+            width,
+            0f,
+            0f,
+            0f,
+            0f,
+            height,
+            0f,
+            0f,
+            0f,
+            0f,
+            0f,
+            -1f,
+            0f,
+            0f,
+            nearPlane,
+            0f
         );
     }
 
@@ -512,10 +668,22 @@ public readonly struct Matrix4x4 : IEquatable<Matrix4x4>, IFormattable, ISpanFor
         var range = 1f / (farPlane - nearPlane);
 
         return new(
-            2f / width, 0f, 0f, 0f,
-            0f, 2f / height, 0f, 0f,
-            0f, 0f, range, 0f,
-            0f, 0f, farPlane * range, 1f
+            2f / width,
+            0f,
+            0f,
+            0f,
+            0f,
+            2f / height,
+            0f,
+            0f,
+            0f,
+            0f,
+            range,
+            0f,
+            0f,
+            0f,
+            farPlane * range,
+            1f
         );
     }
 
@@ -546,10 +714,22 @@ public readonly struct Matrix4x4 : IEquatable<Matrix4x4>, IFormattable, ISpanFor
         var range = 1f / (farPlane - nearPlane);
 
         return new(
-            2f * width, 0f, 0f, 0f,
-            0f, 2f * height, 0f, 0f,
-            0f, 0f, range, 0f,
-            -(left + right) * width, -(top + bottom) * height, farPlane * range, 1f
+            2f * width,
+            0f,
+            0f,
+            0f,
+            0f,
+            2f * height,
+            0f,
+            0f,
+            0f,
+            0f,
+            range,
+            0f,
+            -(left + right) * width,
+            -(top + bottom) * height,
+            farPlane * range,
+            1f
         );
     }
 
@@ -602,10 +782,10 @@ public readonly struct Matrix4x4 : IEquatable<Matrix4x4>, IFormattable, ISpanFor
             Vector128<float> r3,
             Vector128<float> r4
         ) =>
-            (Vector128.Shuffle(row, Vector128.Create(0, 0, 0, 0)) * r1)
-            + (Vector128.Shuffle(row, Vector128.Create(1, 1, 1, 1)) * r2)
-            + (Vector128.Shuffle(row, Vector128.Create(2, 2, 2, 2)) * r3)
-            + (Vector128.Shuffle(row, Vector128.Create(3, 3, 3, 3)) * r4);
+            Vector128.Shuffle(row, Vector128.Create(0, 0, 0, 0)) * r1
+            + Vector128.Shuffle(row, Vector128.Create(1, 1, 1, 1)) * r2
+            + Vector128.Shuffle(row, Vector128.Create(2, 2, 2, 2)) * r3
+            + Vector128.Shuffle(row, Vector128.Create(3, 3, 3, 3)) * r4;
     }
 
     /// <summary>The scalar product — the reference the vectorised path is checked against.</summary>
@@ -614,22 +794,22 @@ public readonly struct Matrix4x4 : IEquatable<Matrix4x4>, IFormattable, ISpanFor
     /// <returns>The combined transform.</returns>
     internal static Matrix4x4 MultiplyScalar(in Matrix4x4 left, in Matrix4x4 right) =>
         new(
-            (left.M11 * right.M11) + (left.M12 * right.M21) + (left.M13 * right.M31) + (left.M14 * right.M41),
-            (left.M11 * right.M12) + (left.M12 * right.M22) + (left.M13 * right.M32) + (left.M14 * right.M42),
-            (left.M11 * right.M13) + (left.M12 * right.M23) + (left.M13 * right.M33) + (left.M14 * right.M43),
-            (left.M11 * right.M14) + (left.M12 * right.M24) + (left.M13 * right.M34) + (left.M14 * right.M44),
-            (left.M21 * right.M11) + (left.M22 * right.M21) + (left.M23 * right.M31) + (left.M24 * right.M41),
-            (left.M21 * right.M12) + (left.M22 * right.M22) + (left.M23 * right.M32) + (left.M24 * right.M42),
-            (left.M21 * right.M13) + (left.M22 * right.M23) + (left.M23 * right.M33) + (left.M24 * right.M43),
-            (left.M21 * right.M14) + (left.M22 * right.M24) + (left.M23 * right.M34) + (left.M24 * right.M44),
-            (left.M31 * right.M11) + (left.M32 * right.M21) + (left.M33 * right.M31) + (left.M34 * right.M41),
-            (left.M31 * right.M12) + (left.M32 * right.M22) + (left.M33 * right.M32) + (left.M34 * right.M42),
-            (left.M31 * right.M13) + (left.M32 * right.M23) + (left.M33 * right.M33) + (left.M34 * right.M43),
-            (left.M31 * right.M14) + (left.M32 * right.M24) + (left.M33 * right.M34) + (left.M34 * right.M44),
-            (left.M41 * right.M11) + (left.M42 * right.M21) + (left.M43 * right.M31) + (left.M44 * right.M41),
-            (left.M41 * right.M12) + (left.M42 * right.M22) + (left.M43 * right.M32) + (left.M44 * right.M42),
-            (left.M41 * right.M13) + (left.M42 * right.M23) + (left.M43 * right.M33) + (left.M44 * right.M43),
-            (left.M41 * right.M14) + (left.M42 * right.M24) + (left.M43 * right.M34) + (left.M44 * right.M44)
+            left.M11 * right.M11 + left.M12 * right.M21 + left.M13 * right.M31 + left.M14 * right.M41,
+            left.M11 * right.M12 + left.M12 * right.M22 + left.M13 * right.M32 + left.M14 * right.M42,
+            left.M11 * right.M13 + left.M12 * right.M23 + left.M13 * right.M33 + left.M14 * right.M43,
+            left.M11 * right.M14 + left.M12 * right.M24 + left.M13 * right.M34 + left.M14 * right.M44,
+            left.M21 * right.M11 + left.M22 * right.M21 + left.M23 * right.M31 + left.M24 * right.M41,
+            left.M21 * right.M12 + left.M22 * right.M22 + left.M23 * right.M32 + left.M24 * right.M42,
+            left.M21 * right.M13 + left.M22 * right.M23 + left.M23 * right.M33 + left.M24 * right.M43,
+            left.M21 * right.M14 + left.M22 * right.M24 + left.M23 * right.M34 + left.M24 * right.M44,
+            left.M31 * right.M11 + left.M32 * right.M21 + left.M33 * right.M31 + left.M34 * right.M41,
+            left.M31 * right.M12 + left.M32 * right.M22 + left.M33 * right.M32 + left.M34 * right.M42,
+            left.M31 * right.M13 + left.M32 * right.M23 + left.M33 * right.M33 + left.M34 * right.M43,
+            left.M31 * right.M14 + left.M32 * right.M24 + left.M33 * right.M34 + left.M34 * right.M44,
+            left.M41 * right.M11 + left.M42 * right.M21 + left.M43 * right.M31 + left.M44 * right.M41,
+            left.M41 * right.M12 + left.M42 * right.M22 + left.M43 * right.M32 + left.M44 * right.M42,
+            left.M41 * right.M13 + left.M42 * right.M23 + left.M43 * right.M33 + left.M44 * right.M43,
+            left.M41 * right.M14 + left.M42 * right.M24 + left.M43 * right.M34 + left.M44 * right.M44
         );
 
     /// <summary>Transposes the matrix.</summary>
@@ -637,27 +817,39 @@ public readonly struct Matrix4x4 : IEquatable<Matrix4x4>, IFormattable, ISpanFor
     /// <returns>The transpose.</returns>
     public static Matrix4x4 Transpose(in Matrix4x4 matrix) =>
         new(
-            matrix.M11, matrix.M21, matrix.M31, matrix.M41,
-            matrix.M12, matrix.M22, matrix.M32, matrix.M42,
-            matrix.M13, matrix.M23, matrix.M33, matrix.M43,
-            matrix.M14, matrix.M24, matrix.M34, matrix.M44
+            matrix.M11,
+            matrix.M21,
+            matrix.M31,
+            matrix.M41,
+            matrix.M12,
+            matrix.M22,
+            matrix.M32,
+            matrix.M42,
+            matrix.M13,
+            matrix.M23,
+            matrix.M33,
+            matrix.M43,
+            matrix.M14,
+            matrix.M24,
+            matrix.M34,
+            matrix.M44
         );
 
     /// <summary>The determinant — the signed volume scale the transform applies.</summary>
     /// <param name="matrix">The matrix.</param>
     /// <returns>The determinant.</returns>
     public static float Determinant(in Matrix4x4 matrix) {
-        var a = (matrix.M31 * matrix.M42) - (matrix.M32 * matrix.M41);
-        var b = (matrix.M31 * matrix.M43) - (matrix.M33 * matrix.M41);
-        var c = (matrix.M31 * matrix.M44) - (matrix.M34 * matrix.M41);
-        var d = (matrix.M32 * matrix.M43) - (matrix.M33 * matrix.M42);
-        var e = (matrix.M32 * matrix.M44) - (matrix.M34 * matrix.M42);
-        var f = (matrix.M33 * matrix.M44) - (matrix.M34 * matrix.M43);
+        var a = matrix.M31 * matrix.M42 - matrix.M32 * matrix.M41;
+        var b = matrix.M31 * matrix.M43 - matrix.M33 * matrix.M41;
+        var c = matrix.M31 * matrix.M44 - matrix.M34 * matrix.M41;
+        var d = matrix.M32 * matrix.M43 - matrix.M33 * matrix.M42;
+        var e = matrix.M32 * matrix.M44 - matrix.M34 * matrix.M42;
+        var f = matrix.M33 * matrix.M44 - matrix.M34 * matrix.M43;
 
-        return (matrix.M11 * ((matrix.M22 * f) - (matrix.M23 * e) + (matrix.M24 * d)))
-            - (matrix.M12 * ((matrix.M21 * f) - (matrix.M23 * c) + (matrix.M24 * b)))
-            + (matrix.M13 * ((matrix.M21 * e) - (matrix.M22 * c) + (matrix.M24 * a)))
-            - (matrix.M14 * ((matrix.M21 * d) - (matrix.M22 * b) + (matrix.M23 * a)));
+        return matrix.M11 * (matrix.M22 * f - matrix.M23 * e + matrix.M24 * d)
+            - matrix.M12 * (matrix.M21 * f - matrix.M23 * c + matrix.M24 * b)
+            + matrix.M13 * (matrix.M21 * e - matrix.M22 * c + matrix.M24 * a)
+            - matrix.M14 * (matrix.M21 * d - matrix.M22 * b + matrix.M23 * a);
     }
 
     /// <summary>Inverts the matrix.</summary>
@@ -665,20 +857,20 @@ public readonly struct Matrix4x4 : IEquatable<Matrix4x4>, IFormattable, ISpanFor
     /// <param name="result">The inverse, or <see cref="Identity" /> if there is none.</param>
     /// <returns><see langword="false" /> if the matrix is singular.</returns>
     public static bool Invert(in Matrix4x4 matrix, out Matrix4x4 result) {
-        var a = (matrix.M11 * matrix.M22) - (matrix.M12 * matrix.M21);
-        var b = (matrix.M11 * matrix.M23) - (matrix.M13 * matrix.M21);
-        var c = (matrix.M11 * matrix.M24) - (matrix.M14 * matrix.M21);
-        var d = (matrix.M12 * matrix.M23) - (matrix.M13 * matrix.M22);
-        var e = (matrix.M12 * matrix.M24) - (matrix.M14 * matrix.M22);
-        var f = (matrix.M13 * matrix.M24) - (matrix.M14 * matrix.M23);
-        var g = (matrix.M31 * matrix.M42) - (matrix.M32 * matrix.M41);
-        var h = (matrix.M31 * matrix.M43) - (matrix.M33 * matrix.M41);
-        var i = (matrix.M31 * matrix.M44) - (matrix.M34 * matrix.M41);
-        var j = (matrix.M32 * matrix.M43) - (matrix.M33 * matrix.M42);
-        var k = (matrix.M32 * matrix.M44) - (matrix.M34 * matrix.M42);
-        var l = (matrix.M33 * matrix.M44) - (matrix.M34 * matrix.M43);
+        var a = matrix.M11 * matrix.M22 - matrix.M12 * matrix.M21;
+        var b = matrix.M11 * matrix.M23 - matrix.M13 * matrix.M21;
+        var c = matrix.M11 * matrix.M24 - matrix.M14 * matrix.M21;
+        var d = matrix.M12 * matrix.M23 - matrix.M13 * matrix.M22;
+        var e = matrix.M12 * matrix.M24 - matrix.M14 * matrix.M22;
+        var f = matrix.M13 * matrix.M24 - matrix.M14 * matrix.M23;
+        var g = matrix.M31 * matrix.M42 - matrix.M32 * matrix.M41;
+        var h = matrix.M31 * matrix.M43 - matrix.M33 * matrix.M41;
+        var i = matrix.M31 * matrix.M44 - matrix.M34 * matrix.M41;
+        var j = matrix.M32 * matrix.M43 - matrix.M33 * matrix.M42;
+        var k = matrix.M32 * matrix.M44 - matrix.M34 * matrix.M42;
+        var l = matrix.M33 * matrix.M44 - matrix.M34 * matrix.M43;
 
-        var determinant = (a * l) - (b * k) + (c * j) + (d * i) - (e * h) + (f * g);
+        var determinant = a * l - b * k + c * j + d * i - e * h + f * g;
         if (MathF.Abs(determinant) < float.Epsilon) {
             result = Identity;
             return false;
@@ -687,22 +879,22 @@ public readonly struct Matrix4x4 : IEquatable<Matrix4x4>, IFormattable, ISpanFor
         var inverse = 1f / determinant;
 
         result = new(
-            ((matrix.M22 * l) - (matrix.M23 * k) + (matrix.M24 * j)) * inverse,
-            ((-matrix.M12 * l) + (matrix.M13 * k) - (matrix.M14 * j)) * inverse,
-            ((matrix.M42 * f) - (matrix.M43 * e) + (matrix.M44 * d)) * inverse,
-            ((-matrix.M32 * f) + (matrix.M33 * e) - (matrix.M34 * d)) * inverse,
-            ((-matrix.M21 * l) + (matrix.M23 * i) - (matrix.M24 * h)) * inverse,
-            ((matrix.M11 * l) - (matrix.M13 * i) + (matrix.M14 * h)) * inverse,
-            ((-matrix.M41 * f) + (matrix.M43 * c) - (matrix.M44 * b)) * inverse,
-            ((matrix.M31 * f) - (matrix.M33 * c) + (matrix.M34 * b)) * inverse,
-            ((matrix.M21 * k) - (matrix.M22 * i) + (matrix.M24 * g)) * inverse,
-            ((-matrix.M11 * k) + (matrix.M12 * i) - (matrix.M14 * g)) * inverse,
-            ((matrix.M41 * e) - (matrix.M42 * c) + (matrix.M44 * a)) * inverse,
-            ((-matrix.M31 * e) + (matrix.M32 * c) - (matrix.M34 * a)) * inverse,
-            ((-matrix.M21 * j) + (matrix.M22 * h) - (matrix.M23 * g)) * inverse,
-            ((matrix.M11 * j) - (matrix.M12 * h) + (matrix.M13 * g)) * inverse,
-            ((-matrix.M41 * d) + (matrix.M42 * b) - (matrix.M43 * a)) * inverse,
-            ((matrix.M31 * d) - (matrix.M32 * b) + (matrix.M33 * a)) * inverse
+            (matrix.M22 * l - matrix.M23 * k + matrix.M24 * j) * inverse,
+            (-matrix.M12 * l + matrix.M13 * k - matrix.M14 * j) * inverse,
+            (matrix.M42 * f - matrix.M43 * e + matrix.M44 * d) * inverse,
+            (-matrix.M32 * f + matrix.M33 * e - matrix.M34 * d) * inverse,
+            (-matrix.M21 * l + matrix.M23 * i - matrix.M24 * h) * inverse,
+            (matrix.M11 * l - matrix.M13 * i + matrix.M14 * h) * inverse,
+            (-matrix.M41 * f + matrix.M43 * c - matrix.M44 * b) * inverse,
+            (matrix.M31 * f - matrix.M33 * c + matrix.M34 * b) * inverse,
+            (matrix.M21 * k - matrix.M22 * i + matrix.M24 * g) * inverse,
+            (-matrix.M11 * k + matrix.M12 * i - matrix.M14 * g) * inverse,
+            (matrix.M41 * e - matrix.M42 * c + matrix.M44 * a) * inverse,
+            (-matrix.M31 * e + matrix.M32 * c - matrix.M34 * a) * inverse,
+            (-matrix.M21 * j + matrix.M22 * h - matrix.M23 * g) * inverse,
+            (matrix.M11 * j - matrix.M12 * h + matrix.M13 * g) * inverse,
+            (-matrix.M41 * d + matrix.M42 * b - matrix.M43 * a) * inverse,
+            (matrix.M31 * d - matrix.M32 * b + matrix.M33 * a) * inverse
         );
 
         return true;
@@ -728,9 +920,9 @@ public readonly struct Matrix4x4 : IEquatable<Matrix4x4>, IFormattable, ISpanFor
     /// <returns>The transformed direction.</returns>
     public static Vector3 TransformDirection(Vector3 direction, in Matrix4x4 matrix) =>
         new(
-            (direction.X * matrix.M11) + (direction.Y * matrix.M21) + (direction.Z * matrix.M31),
-            (direction.X * matrix.M12) + (direction.Y * matrix.M22) + (direction.Z * matrix.M32),
-            (direction.X * matrix.M13) + (direction.Y * matrix.M23) + (direction.Z * matrix.M33)
+            direction.X * matrix.M11 + direction.Y * matrix.M21 + direction.Z * matrix.M31,
+            direction.X * matrix.M12 + direction.Y * matrix.M22 + direction.Z * matrix.M32,
+            direction.X * matrix.M13 + direction.Y * matrix.M23 + direction.Z * matrix.M33
         );
 
     /// <summary>Transforms a homogeneous vector, without the perspective divide.</summary>
@@ -742,8 +934,10 @@ public readonly struct Matrix4x4 : IEquatable<Matrix4x4>, IFormattable, ISpanFor
             ? TransformVector4Vectorized(value, matrix)
             : TransformVector4Scalar(value, matrix);
 
-    /// <summary>The vectorised transform. Split out for the same reason as
-    ///     <see cref="MultiplyVectorized" />.</summary>
+    /// <summary>
+    ///     The vectorised transform. Split out for the same reason as
+    ///     <see cref="MultiplyVectorized" />.
+    /// </summary>
     /// <param name="value">The vector.</param>
     /// <param name="matrix">The transform.</param>
     /// <returns>The transformed vector.</returns>
@@ -752,10 +946,10 @@ public readonly struct Matrix4x4 : IEquatable<Matrix4x4>, IFormattable, ISpanFor
         var lanes = value.AsVector128();
 
         return Vector4.FromVector128(
-            (Vector128.Shuffle(lanes, Vector128.Create(0, 0, 0, 0)) * Vector128.LoadUnsafe(ref elements, 0))
-            + (Vector128.Shuffle(lanes, Vector128.Create(1, 1, 1, 1)) * Vector128.LoadUnsafe(ref elements, 4))
-            + (Vector128.Shuffle(lanes, Vector128.Create(2, 2, 2, 2)) * Vector128.LoadUnsafe(ref elements, 8))
-            + (Vector128.Shuffle(lanes, Vector128.Create(3, 3, 3, 3)) * Vector128.LoadUnsafe(ref elements, 12))
+            Vector128.Shuffle(lanes, Vector128.Create(0, 0, 0, 0)) * Vector128.LoadUnsafe(ref elements, 0)
+            + Vector128.Shuffle(lanes, Vector128.Create(1, 1, 1, 1)) * Vector128.LoadUnsafe(ref elements, 4)
+            + Vector128.Shuffle(lanes, Vector128.Create(2, 2, 2, 2)) * Vector128.LoadUnsafe(ref elements, 8)
+            + Vector128.Shuffle(lanes, Vector128.Create(3, 3, 3, 3)) * Vector128.LoadUnsafe(ref elements, 12)
         );
     }
 
@@ -765,10 +959,10 @@ public readonly struct Matrix4x4 : IEquatable<Matrix4x4>, IFormattable, ISpanFor
     /// <returns>The transformed vector.</returns>
     internal static Vector4 TransformVector4Scalar(Vector4 value, in Matrix4x4 matrix) =>
         new(
-            (value.X * matrix.M11) + (value.Y * matrix.M21) + (value.Z * matrix.M31) + (value.W * matrix.M41),
-            (value.X * matrix.M12) + (value.Y * matrix.M22) + (value.Z * matrix.M32) + (value.W * matrix.M42),
-            (value.X * matrix.M13) + (value.Y * matrix.M23) + (value.Z * matrix.M33) + (value.W * matrix.M43),
-            (value.X * matrix.M14) + (value.Y * matrix.M24) + (value.Z * matrix.M34) + (value.W * matrix.M44)
+            value.X * matrix.M11 + value.Y * matrix.M21 + value.Z * matrix.M31 + value.W * matrix.M41,
+            value.X * matrix.M12 + value.Y * matrix.M22 + value.Z * matrix.M32 + value.W * matrix.M42,
+            value.X * matrix.M13 + value.Y * matrix.M23 + value.Z * matrix.M33 + value.W * matrix.M43,
+            value.X * matrix.M14 + value.Y * matrix.M24 + value.Z * matrix.M34 + value.W * matrix.M44
         );
 
     /// <summary>
@@ -795,9 +989,9 @@ public readonly struct Matrix4x4 : IEquatable<Matrix4x4>, IFormattable, ISpanFor
 
         for (var i = 0; i < source.Length; i++) {
             var point = source[i];
-            var transformed = (Vector128.Create(point.X) * row1)
-                + (Vector128.Create(point.Y) * row2)
-                + (Vector128.Create(point.Z) * row3)
+            var transformed = Vector128.Create(point.X) * row1
+                + Vector128.Create(point.Y) * row2
+                + Vector128.Create(point.Z) * row3
                 + row4;
 
             destination[i] = new(transformed[0], transformed[1], transformed[2]);
@@ -873,10 +1067,22 @@ public readonly struct Matrix4x4 : IEquatable<Matrix4x4>, IFormattable, ISpanFor
     /// <returns>The equivalent <see cref="System.Numerics.Matrix4x4" />.</returns>
     public static implicit operator System.Numerics.Matrix4x4(Matrix4x4 value) =>
         new(
-            value.M11, value.M12, value.M13, value.M14,
-            value.M21, value.M22, value.M23, value.M24,
-            value.M31, value.M32, value.M33, value.M34,
-            value.M41, value.M42, value.M43, value.M44
+            value.M11,
+            value.M12,
+            value.M13,
+            value.M14,
+            value.M21,
+            value.M22,
+            value.M23,
+            value.M24,
+            value.M31,
+            value.M32,
+            value.M33,
+            value.M34,
+            value.M41,
+            value.M42,
+            value.M43,
+            value.M44
         );
 
     /// <summary>Converts from the BCL matrix, which has the same layout.</summary>
@@ -884,18 +1090,42 @@ public readonly struct Matrix4x4 : IEquatable<Matrix4x4>, IFormattable, ISpanFor
     /// <returns>The equivalent <see cref="Matrix4x4" />.</returns>
     public static implicit operator Matrix4x4(System.Numerics.Matrix4x4 value) =>
         new(
-            value.M11, value.M12, value.M13, value.M14,
-            value.M21, value.M22, value.M23, value.M24,
-            value.M31, value.M32, value.M33, value.M34,
-            value.M41, value.M42, value.M43, value.M44
+            value.M11,
+            value.M12,
+            value.M13,
+            value.M14,
+            value.M21,
+            value.M22,
+            value.M23,
+            value.M24,
+            value.M31,
+            value.M32,
+            value.M33,
+            value.M34,
+            value.M41,
+            value.M42,
+            value.M43,
+            value.M44
         );
 
     /// <inheritdoc />
     public bool Equals(Matrix4x4 other) =>
-        M11 == other.M11 && M12 == other.M12 && M13 == other.M13 && M14 == other.M14
-        && M21 == other.M21 && M22 == other.M22 && M23 == other.M23 && M24 == other.M24
-        && M31 == other.M31 && M32 == other.M32 && M33 == other.M33 && M34 == other.M34
-        && M41 == other.M41 && M42 == other.M42 && M43 == other.M43 && M44 == other.M44;
+        M11 == other.M11
+        && M12 == other.M12
+        && M13 == other.M13
+        && M14 == other.M14
+        && M21 == other.M21
+        && M22 == other.M22
+        && M23 == other.M23
+        && M24 == other.M24
+        && M31 == other.M31
+        && M32 == other.M32
+        && M33 == other.M33
+        && M34 == other.M34
+        && M41 == other.M41
+        && M42 == other.M42
+        && M43 == other.M43
+        && M44 == other.M44;
 
     /// <inheritdoc />
     public override bool Equals(object? obj) => obj is Matrix4x4 other && Equals(other);

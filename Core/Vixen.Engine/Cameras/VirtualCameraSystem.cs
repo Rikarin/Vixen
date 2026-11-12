@@ -358,9 +358,9 @@ public sealed class VirtualCameraSystem : SystemBase, IDeclaredAccess {
                 var frame = spline.FrameAt(spline.ParameterAtDistance(along), WorldUp);
 
                 var ideal = frame.Position
-                    + (frame.Binormal * body.Offset.X)
-                    + (frame.Normal * body.Offset.Y)
-                    + (frame.Tangent * body.Offset.Z);
+                    + frame.Binormal * body.Offset.X
+                    + frame.Normal * body.Offset.Y
+                    + frame.Tangent * body.Offset.Z;
 
                 ref var shot = ref shots[index];
                 var basis = Transform.LookRotation(frame.Tangent, frame.Normal);
@@ -467,7 +467,7 @@ public sealed class VirtualCameraSystem : SystemBase, IDeclaredAccess {
         }
     }
 
-    Vector3 Flatten(Vector3 direction) => direction - (WorldUp * Vector3.Dot(direction, WorldUp));
+    Vector3 Flatten(Vector3 direction) => direction - WorldUp * Vector3.Dot(direction, WorldUp);
 
     /// <summary>Damps a position towards an ideal, in the axes of a given frame.</summary>
     static Vector3 DampTowards(
@@ -578,7 +578,7 @@ public sealed class VirtualCameraSystem : SystemBase, IDeclaredAccess {
                     cosPitch * MathF.Cos(body.Heading)
                 );
 
-                var ideal = pivot + (direction * body.Radius);
+                var ideal = pivot + direction * body.Radius;
 
                 // The orbit's own frame: +Z outward along the radius, +X tangential, +Y vertical.
                 var basis = Transform.LookRotation(-direction, WorldUp);
@@ -672,7 +672,7 @@ public sealed class VirtualCameraSystem : SystemBase, IDeclaredAccess {
                     ? CameraDamping.Approach(occluder.Applied, wanted, damping, deltaTime)
                     : wanted;
 
-                shot.Position = subject + (direction * MathF.Min(occluder.Applied, distance));
+                shot.Position = subject + direction * MathF.Min(occluder.Applied, distance);
             }
         }
     }

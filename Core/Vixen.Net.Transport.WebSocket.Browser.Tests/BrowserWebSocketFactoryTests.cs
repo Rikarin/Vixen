@@ -17,8 +17,12 @@ namespace Vixen.Net.Transport.WebSocket.Browser.Tests;
 ///         carry a payload both ways against a server that is not pretending.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The conformance suite cannot be used, and that is a statement about the transport
-///         rather than a gap in the testing.</b> <c>TransportConformance</c> requires
+///         ⚠
+///         <b>
+///             The conformance suite cannot be used, and that is a statement about the transport
+///             rather than a gap in the testing.
+///         </b>
+///         <c>TransportConformance</c> requires
 ///         <c>CreateServer</c> and <c>CreateClient</c>, and a browser has no server half at all —
 ///         so the suite would be asserting behaviour this factory is defined not to have. The
 ///         server here is <c>SystemWebSocketFactory</c>, which is what a browser client would
@@ -57,8 +61,7 @@ public sealed class BrowserWebSocketFactoryTests {
         var clientEvents = new EventRecorder();
 
         Assert.True(
-            Until(
-                () => {
+            Until(() => {
                     client.Poll(Step, clientEvents);
                     server.Poll(Step, serverEvents);
 
@@ -72,11 +75,10 @@ public sealed class BrowserWebSocketFactoryTests {
         // this also says the first inbound message was decoded and not merely counted.
         Assert.Equal(serverEvents.Connects(TransportRole.Server)[0], clientEvents.Connects(TransportRole.Client)[0]);
 
-        client.SendToServer(Encoding.UTF8.GetBytes("from a browser client"), Channel.Reliable);
+        client.SendToServer("from a browser client"u8, Channel.Reliable);
 
         Assert.True(
-            Until(
-                () => {
+            Until(() => {
                     client.Poll(Step, clientEvents);
                     server.Poll(Step, serverEvents);
 
@@ -93,11 +95,10 @@ public sealed class BrowserWebSocketFactoryTests {
         // outbound direction only.
         var connection = serverEvents.Connects(TransportRole.Server)[0];
 
-        server.SendToClient(connection, Encoding.UTF8.GetBytes("and back again"), Channel.Reliable);
+        server.SendToClient(connection, "and back again"u8, Channel.Reliable);
 
         Assert.True(
-            Until(
-                () => {
+            Until(() => {
                     server.Poll(Step, serverEvents);
                     client.Poll(Step, clientEvents);
 
@@ -128,8 +129,7 @@ public sealed class BrowserWebSocketFactoryTests {
         var events = new EventRecorder();
 
         Assert.True(
-            Until(
-                () => {
+            Until(() => {
                     client.Poll(Step, events);
 
                     return events.Disconnects(TransportRole.Client).Count == 1;

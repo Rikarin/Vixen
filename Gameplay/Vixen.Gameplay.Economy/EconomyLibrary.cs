@@ -20,11 +20,11 @@ public sealed class EconomyLibrary {
 
     /// <summary>Every currency, in address order.</summary>
     public IEnumerable<Currency> Currencies =>
-        currencies.Values.OrderBy(currency => currency.Definition.Address, StringComparer.Ordinal);
+        currencies.Values.OrderBy(static currency => currency.Definition.Address, StringComparer.Ordinal);
 
     /// <summary>Every vendor, in address order.</summary>
     public IEnumerable<Vendor> Vendors =>
-        vendors.Values.OrderBy(vendor => vendor.Definition.Address, StringComparer.Ordinal);
+        vendors.Values.OrderBy(static vendor => vendor.Definition.Address, StringComparer.Ordinal);
 
     /// <summary>What did not resolve, and what a definition said that cannot be true at once.</summary>
     public IReadOnlyList<string> Problems => problems;
@@ -46,8 +46,7 @@ public sealed class EconomyLibrary {
                     definition,
                     tags.Resolve(definition.Tag),
                     [
-                        .. definition.Conversions.Select(
-                            conversion => new CurrencyConversion(
+                        ..definition.Conversions.Select(static conversion => new CurrencyConversion(
                                 DefId.From(conversion.To),
                                 conversion.To,
                                 Math.Max(1, conversion.Rate),
@@ -83,9 +82,7 @@ public sealed class EconomyLibrary {
                 if (entry.Item.Length == 0) {
                     problems.Add($"'{definition.Address}' row {row} sells nothing.");
                 } else if (!catalog.Contains(DefId.From(entry.Item))) {
-                    problems.Add(
-                        $"'{definition.Address}' row {row} sells '{entry.Item}', which is not in this build."
-                    );
+                    problems.Add($"'{definition.Address}' row {row} sells '{entry.Item}', which is not in this build.");
                 }
 
                 if (!currencies.ContainsKey(DefId.From(entry.Currency).Value)) {
@@ -108,7 +105,7 @@ public sealed class EconomyLibrary {
             vendors.Add(definition.Id.Value, new(definition, tags.Resolve(definition.Tag), stock));
         }
 
-        return new(currencies, vendors, [.. problems]);
+        return new(currencies, vendors, [..problems]);
     }
 
     /// <summary>Finds a currency.</summary>

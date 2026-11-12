@@ -31,16 +31,18 @@ public sealed class GuildState {
 
     /// <summary>Makes one that has not been founded.</summary>
     /// <param name="now">The clock. A parameter so a test does not have to wait.</param>
-    public GuildState(Func<DateTimeOffset>? now = null) => Now = now ?? (() => DateTimeOffset.UtcNow);
+    public GuildState(Func<DateTimeOffset>? now = null) {
+        Now = now ?? (static () => DateTimeOffset.UtcNow);
+    }
 
     /// <summary>The clock.</summary>
     public Func<DateTimeOffset> Now { get; }
 
     /// <summary>Which charter, by address. Empty until founded.</summary>
-    public string Charter { get; private set; } = "";
+    public string Charter { get; private set; } = string.Empty;
 
     /// <summary>What it is called.</summary>
-    public string Name { get; private set; } = "";
+    public string Name { get; private set; } = string.Empty;
 
     /// <summary>How many its charter allows.</summary>
     public int Capacity { get; private set; }
@@ -64,7 +66,10 @@ public sealed class GuildState {
             ? new(
                 Charter,
                 Name,
-                [.. members.Values.OrderBy(member => member.Joined).ThenBy(member => member.Player.Character)],
+                [
+                    ..members.Values.OrderBy(static member => member.Joined)
+                        .ThenBy(static member => member.Player.Character)
+                ],
                 rankNames.ToImmutableDictionary(),
                 Founded,
                 Revision
@@ -92,7 +97,7 @@ public sealed class GuildState {
         }
 
         Charter = charter;
-        Name = name ?? "";
+        Name = name ?? string.Empty;
         Capacity = Math.Max(1, capacity);
         Founded = Now();
         members[founder] = new(founder, 0, Founded);

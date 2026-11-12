@@ -35,8 +35,12 @@ public enum TextTransform : byte {
 /// <summary>What happens to white space before it is shaped. CSS Text 4 § 3's <c>white-space-collapse</c>.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Two members where CSS has five, and the three that are missing are missing because
-///         nothing here can produce them.</b> <c>collapse</c> and <c>preserve-spaces</c> both turn a
+///         ⚠
+///         <b>
+///             Two members where CSS has five, and the three that are missing are missing because
+///             nothing here can produce them.
+///         </b>
+///         <c>collapse</c> and <c>preserve-spaces</c> both turn a
 ///         segment break into a space — which is a decision about <i>line breaking</i> and not about
 ///         the string, since this engine takes every mandatory break — and <c>break-spaces</c> is a
 ///         preserving value that differs from <c>preserve</c> in two line-breaking rules that
@@ -47,9 +51,13 @@ public enum TextTransform : byte {
 ///         <b>Phase I, and the part of phase II that is a question about the string.</b> § 4.1.1 is a
 ///         transformation of the string. § 4.1.3's phase II — a collapsible space at the start or the
 ///         end of a <i>line</i> is removed — reads like a question about lines, which do not exist
-///         yet when a string is transformed. ⚠ <b>But after phase I there are only two places a line
-///         can begin or end on a collapsible space the wrapper does not already handle, and both are
-///         string positions.</b> Every run in the middle has become one space with a break
+///         yet when a string is transformed. ⚠
+///         <b>
+///             But after phase I there are only two places a line
+///             can begin or end on a collapsible space the wrapper does not already handle, and both are
+///             string positions.
+///         </b>
+///         Every run in the middle has become one space with a break
 ///         opportunity <i>after</i> it (UAX #14 breaks after spaces and never before them), so a soft
 ///         wrap leaves the space at the end of the earlier line, where <c>LineWrapper</c>'s trailing
 ///         trim already takes it out of the measure; every run touching a segment break is gone.
@@ -95,8 +103,12 @@ public enum WhiteSpaceCollapse : byte {
 /// <summary>An element's text after <c>text-transform</c> and white-space collapsing, and the map back.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Two transformations share this type because they share the map, not because they are
-///         one idea.</b> CSS Text 4 § 3's collapsing runs first and § 2.1's casing second, in one
+///         ⚠
+///         <b>
+///             Two transformations share this type because they share the map, not because they are
+///             one idea.
+///         </b>
+///         CSS Text 4 § 3's collapsing runs first and § 2.1's casing second, in one
 ///         walk. What made it worth one type rather than two is that a second stage would need the
 ///         first stage's map composed with its own at every index — and there is exactly one
 ///         consumer shape here, <c>UiElement</c> handing out an index into the drawn string, which
@@ -199,14 +211,22 @@ public sealed class TransformedText {
     /// <returns>The drawn text and the map between the two.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The identity test is "did any character change length", not "did the string
-    ///         change".</b> <c>hello</c> uppercased is a different string of the same shape, and every
+    ///         ⚠
+    ///         <b>
+    ///             The identity test is "did any character change length", not "did the string
+    ///             change".
+    ///         </b>
+    ///         <c>hello</c> uppercased is a different string of the same shape, and every
     ///         index in it still means what it meant — so it needs no arrays, and paying for them would
     ///         put an allocation and two indirections on every uppercased label in an interface.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Casing is language-dependent for one alphabet and the difference is a word, not a
-    ///         glyph.</b> In Turkish and Azerbaijani <c>i</c> uppercases to <c>İ</c> and <c>I</c>
+    ///         ⚠
+    ///         <b>
+    ///             Casing is language-dependent for one alphabet and the difference is a word, not a
+    ///             glyph.
+    ///         </b>
+    ///         In Turkish and Azerbaijani <c>i</c> uppercases to <c>İ</c> and <c>I</c>
     ///         lowercases to <c>ı</c>, because the dotted and dotless letters are two different
     ///         letters rather than two cases of one. <c>ISPARTA</c> lowercased with the
     ///         language-independent table is <c>isparta</c>, which is a different word in Turkish and
@@ -232,8 +252,12 @@ public sealed class TransformedText {
     ///         whose "no intervening character of class 0 or 230" is the same missing data.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Of those, <c>Not_Before_Dot</c> is the one producing wrong output rather than
-    ///         none.</b> The two-character row below asks whether the <i>next</i> character is
+    ///         ⚠
+    ///         <b>
+    ///             Of those, <c>Not_Before_Dot</c> is the one producing wrong output rather than
+    ///             none.
+    ///         </b>
+    ///         The two-character row below asks whether the <i>next</i> character is
     ///         U+0307, where the condition asks whether the next one that is not an intervening mark
     ///         is — so <c>I</c> + a class-220 mark + U+0307 under <c>tr</c> comes out as a dotless
     ///         <c>ı</c> carrying both marks, where it is a plain <c>i</c> whose dot <c>After_I</c>
@@ -262,7 +286,7 @@ public sealed class TransformedText {
         source ??= string.Empty;
 
         if ((transform == TextTransform.None && collapse == WhiteSpaceCollapse.Preserve) || source.Length == 0) {
-            return new TransformedText(source, source, null, null);
+            return new(source, source, null, null);
         }
 
         var turkic = IsTurkic(language);
@@ -376,8 +400,9 @@ public sealed class TransformedText {
             // draws `οδος`. Here rather than in `Lower` because the condition is a lookaround over
             // the *source* string, which a per-rune mapping cannot see — the same reason the Turkic
             // two-character row is here.
-            if (transform == TextTransform.Lowercase && rune.Value == GreekCapitalSigma
-                                                     && IsFinalSigma(source, at, length)) {
+            if (transform == TextTransform.Lowercase
+                && rune.Value == GreekCapitalSigma
+                && IsFinalSigma(source, at, length)) {
                 Record(sourceOf, drawnOf, at, length, text.Length, 1);
                 text.Append(GreekFinalSigma);
                 at += length;
@@ -402,7 +427,7 @@ public sealed class TransformedText {
         var drawn = text.ToString();
 
         return moved
-            ? new TransformedText(source, drawn, sourceOf.ToArray(), drawnOf)
+            ? new TransformedText(source, drawn, [..sourceOf], drawnOf)
             : new TransformedText(source, drawn, null, null);
     }
 
@@ -428,8 +453,12 @@ public sealed class TransformedText {
 
     /// <summary>Writes one character's worth of both directions of the map.</summary>
     /// <remarks>
-    ///     ⚠ <b>Every code unit of the source gets the same drawn index, and every code unit of the
-    ///     drawn text gets the same source index.</b> Both are collapses and both are wanted: an
+    ///     ⚠
+    ///     <b>
+    ///         Every code unit of the source gets the same drawn index, and every code unit of the
+    ///         drawn text gets the same source index.
+    ///     </b>
+    ///     Both are collapses and both are wanted: an
     ///     index between the halves of a surrogate pair, and an index between the two <c>S</c>s of
     ///     an expanded <c>ß</c>, are positions no caret can occupy.
     /// </remarks>
@@ -537,8 +566,12 @@ public sealed class TransformedText {
 
     /// <summary>The <c>Cased</c> derived property.</summary>
     /// <remarks>
-    ///     Uppercase, lowercase or titlecase. ⚠ <b>Titlecase is the third one and is a real
-    ///     category</b> — <c>ǅ</c> is neither <c>Lu</c> nor <c>Ll</c>, so a test written as
+    ///     Uppercase, lowercase or titlecase. ⚠
+    ///     <b>
+    ///         Titlecase is the third one and is a real
+    ///         category
+    ///     </b>
+    ///     — <c>ǅ</c> is neither <c>Lu</c> nor <c>Ll</c>, so a test written as
     ///     "upper or lower" would read a Latin digraph as uncased and break a sigma's word at it.
     /// </remarks>
     static bool IsCased(Rune rune) =>
@@ -589,8 +622,7 @@ public sealed class TransformedText {
     /// </remarks>
     /// <param name="language">The BCP-47 tag.</param>
     /// <returns>Whether Turkic casing applies.</returns>
-    static bool IsTurkic(string? language) =>
-        HasPrimarySubtag(language, "tr") || HasPrimarySubtag(language, "az");
+    static bool IsTurkic(string? language) => HasPrimarySubtag(language, "tr") || HasPrimarySubtag(language, "az");
 
     /// <summary>Whether a BCP-47 tag's primary subtag is a given two-letter code.</summary>
     /// <remarks>
@@ -639,8 +671,12 @@ public sealed class TransformedText {
     ///         still reach it through normalisation in the shaper, and one without stacks the marks.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>These three needed neither of the two data tables the rest of the Lithuanian set
-    ///         is blocked on, which is why they are here alone.</b> The <c>lt</c> rows split into two
+    ///         ⚠
+    ///         <b>
+    ///             These three needed neither of the two data tables the rest of the Lithuanian set
+    ///             is blocked on, which is why they are here alone.
+    ///         </b>
+    ///         The <c>lt</c> rows split into two
     ///         groups that look alike in the file and are not: <c>More_Above</c> (<c>I</c>, <c>J</c>,
     ///         <c>Į</c>) and <c>After_Soft_Dotted</c> (U+0307) are language-tagged <i>and</i>
     ///         context-conditional, and their conditions are questions about combining class 230 and
@@ -648,8 +684,12 @@ public sealed class TransformedText {
     ///         assembly carries. These three carry a language and nothing else, so they are a lookup.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And landing them alone is not "half a feature", which is the objection that kept
-    ///         them out.</b> They are disjoint from the conditional rows: implementing them makes
+    ///         ⚠
+    ///         <b>
+    ///             And landing them alone is not "half a feature", which is the objection that kept
+    ///             them out.
+    ///         </b>
+    ///         They are disjoint from the conditional rows: implementing them makes
     ///         these three code points right and leaves <c>I</c>-with-a-mark-above exactly as
     ///         unimproved as it was, rather than newly wrong. What would have been worse than nothing
     ///         is <c>More_Above</c> guessed without the combining classes it is defined on.
@@ -657,13 +697,13 @@ public sealed class TransformedText {
     /// </remarks>
     static readonly Dictionary<int, string> LithuanianRetainedDot = new() {
         // Ì → i + dot above + grave.
-        [0x00CC] = "\u0069\u0307\u0300",
+        [0x00CC] = "i\u0307\u0300",
 
         // Í → i + dot above + acute.
-        [0x00CD] = "\u0069\u0307\u0301",
+        [0x00CD] = "i\u0307\u0301",
 
         // Ĩ → i + dot above + tilde.
-        [0x0128] = "\u0069\u0307\u0303"
+        [0x0128] = "i\u0307\u0303"
     };
 
     /// <summary>Whether a language tag selects the Lithuanian case mappings.</summary>
@@ -703,11 +743,12 @@ public sealed class TransformedText {
     ///     <c>Ǆ ǅ ǆ</c>, <c>Ǉ ǈ ǉ</c>, <c>Ǌ ǋ ǌ</c> and <c>Ǳ ǲ ǳ</c>. Each triple is upper, title,
     ///     lower in code point order, so the titlecase of any member is the middle of its own three.
     /// </remarks>
-    static string? Digraph(int value) => value switch {
-        >= 0x01C4 and <= 0x01CC => char.ToString((char) (value - ((value - 0x01C4) % 3) + 1)),
-        >= 0x01F1 and <= 0x01F3 => "ǲ",
-        _ => null
-    };
+    static string? Digraph(int value) =>
+        value switch {
+            >= 0x01C4 and <= 0x01CC => char.ToString((char)(value - (value - 0x01C4) % 3 + 1)),
+            >= 0x01F1 and <= 0x01F3 => "ǲ",
+            _ => null
+        };
 
     /// <summary>Where each word's first letter is, as indices into the text.</summary>
     /// <remarks>

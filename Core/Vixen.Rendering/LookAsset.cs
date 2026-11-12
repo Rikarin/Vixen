@@ -16,8 +16,11 @@ namespace Vixen.Rendering;
 ///         never through the expansion — same document, relightable.
 ///     </para>
 ///     <para>
-///         <b>The payload is <see cref="PostProcessSettings" /> itself, and that is the design
-///         rather than a shortcut.</b> The volume stack already has a vocabulary for "a layer of
+///         <b>
+///             The payload is <see cref="PostProcessSettings" /> itself, and that is the design
+///             rather than a shortcut.
+///         </b>
+///         The volume stack already has a vocabulary for "a layer of
 ///         per-parameter opinions", an inspector that draws it, a fold that blends it and nodes that
 ///         consume it — so the look is exactly a settings layer, folded under everything a scene
 ///         says, and needs no translation on its way in. A second field set here would drift from

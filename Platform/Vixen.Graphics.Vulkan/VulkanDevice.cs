@@ -73,14 +73,22 @@ public readonly record struct VulkanDeviceOptions() {
     /// <summary>Where the driver's own pipeline cache is kept between runs, or null for none.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A <c>VkPipelineCache</c> is created either way, and this decides only whether it
-    ///         survives the process.</b> Unset, the driver still stops compiling the same shader
+    ///         ⚠
+    ///         <b>
+    ///             A <c>VkPipelineCache</c> is created either way, and this decides only whether it
+    ///             survives the process.
+    ///         </b>
+    ///         Unset, the driver still stops compiling the same shader
     ///         twice within one run — two pipelines that differ in blend state alone are one
     ///         compilation rather than two — which is why there is no switch for the cache itself.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The blob is driver- and device-specific and is discarded rather than trusted
-    ///         when it does not match.</b> A file written on another GPU, or by the same GPU before
+    ///         ⚠
+    ///         <b>
+    ///             The blob is driver- and device-specific and is discarded rather than trusted
+    ///             when it does not match.
+    ///         </b>
+    ///         A file written on another GPU, or by the same GPU before
     ///         a driver update, has a header that says so, and handing it back would be undefined
     ///         behaviour rather than an error code. See <c>VulkanPipelineCacheBlob</c>.
     ///     </para>
@@ -193,7 +201,9 @@ public sealed unsafe partial class VulkanDevice : IGraphicsDevice {
     readonly HandlePool<GpuAccelerationStructure> accelerationStructures = new(8);
 
     readonly Lock gate = new();
+
     readonly List<Action>[] retiring;
+
     // ⚠ Keyed by *family* as well as thread and frame. A VkCommandPool is created against one queue
     // family and a buffer allocated from it may only be submitted to that family — so keying on the
     // thread alone handed the first list of the frame its family and every later list on that thread
@@ -279,7 +289,15 @@ public sealed unsafe partial class VulkanDevice : IGraphicsDevice {
         foreach (var family in plan.DistinctFamilies()) {
             Queue handle;
             api.GetDeviceQueue(device, family, 0, &handle);
-            byFamily[family] = new(this, api, device, handle, family, FramesInFlight, adapter.Features.HasTimelineSemaphores);
+            byFamily[family] = new(
+                this,
+                api,
+                device,
+                handle,
+                family,
+                FramesInFlight,
+                adapter.Features.HasTimelineSemaphores
+            );
         }
 
         graphics = byFamily[plan.Graphics];
@@ -288,14 +306,14 @@ public sealed unsafe partial class VulkanDevice : IGraphicsDevice {
         graphics.Kind = QueueKind.Graphics;
         compute.Kind = compute == graphics ? QueueKind.Graphics : QueueKind.Compute;
         transfer.Kind = transfer == graphics ? QueueKind.Graphics : QueueKind.Transfer;
-        queues = [.. byFamily.Values];
+        queues = [..byFamily.Values];
 
         // ⚠ Every family the device was created with, and only used when a description asks for
         // ResourceSharing.Concurrent. A concurrent resource has to name *at least two* families —
         // one is invalid usage — so on a device whose three kinds share a family this stays a single
         // entry and the create call falls back to Exclusive, which is the same resource the engine
         // has always made there.
-        sharedFamilies = [.. byFamily.Keys];
+        sharedFamilies = [..byFamily.Keys];
 
         retiring = new List<Action>[FramesInFlight];
 
@@ -370,15 +388,16 @@ public sealed unsafe partial class VulkanDevice : IGraphicsDevice {
     ///         way.
     ///     </para>
     /// </remarks>
-    public VulkanNativeHandles NativeHandles => new(
-        instance.Handle.Handle,
-        adapter.Handle.Handle,
-        device.Handle,
-        graphics.Family,
+    public VulkanNativeHandles NativeHandles =>
+        new(
+            instance.Handle.Handle,
+            adapter.Handle.Handle,
+            device.Handle,
+            graphics.Family,
 
-        // The backend takes queue 0 of each family it uses; see QueueFamilySelection.
-        0
-    );
+            // The backend takes queue 0 of each family it uses; see QueueFamilySelection.
+            0
+        );
 
     /// <summary>Adopts an image this device did not create, as a texture handle.</summary>
     /// <param name="image">The raw <c>VkImage</c>.</param>
@@ -399,7 +418,7 @@ public sealed unsafe partial class VulkanDevice : IGraphicsDevice {
     ///     </para>
     /// </remarks>
     public TextureHandle ImportImage(nint image, in TextureDescription description) =>
-        AdoptSwapChainImage(new Image((ulong)image), in description);
+        AdoptSwapChainImage(new((ulong)image), in description);
 
     /// <summary>Whether rendering goes through <c>VK_KHR_dynamic_rendering</c> rather than a pass object.</summary>
     public bool UsesDynamicRendering =>
@@ -423,7 +442,7 @@ public sealed unsafe partial class VulkanDevice : IGraphicsDevice {
 
     /// <summary>Creates a device with the documented defaults, or explains why it could not.</summary>
     /// <exception cref="PlatformNotSupportedException">Vulkan or a suitable GPU is unavailable.</exception>
-    public static VulkanDevice Create() => Create(new VulkanDeviceOptions());
+    public static VulkanDevice Create() => Create(new());
 
     /// <summary>Creates a device, or explains why it could not.</summary>
     /// <param name="options">What to create.</param>
@@ -461,8 +480,8 @@ public sealed unsafe partial class VulkanDevice : IGraphicsDevice {
             ApplicationName = "Vixen",
             Logger = options.Logger,
             RequiredExtensions = presenting
-                ? [.. VulkanSurface.RequiredExtensions(options.Surface.Kind), .. options.RequiredInstanceExtensions]
-                : [.. options.RequiredInstanceExtensions]
+                ? [..VulkanSurface.RequiredExtensions(options.Surface.Kind), ..options.RequiredInstanceExtensions]
+                : [..options.RequiredInstanceExtensions]
         };
 
         if (!VulkanInstance.TryCreate(instanceOptions, out var instance, out reason)) {
@@ -489,7 +508,7 @@ public sealed unsafe partial class VulkanDevice : IGraphicsDevice {
             // A named physical device wins over scoring, because whatever named it knows something
             // scoring cannot: which GPU the display is actually wired to.
             var adapter = options.PreferredPhysicalDevice != 0
-                ? adapters.Find(candidate => (nint)candidate.Handle.Handle == options.PreferredPhysicalDevice)
+                ? adapters.Find(candidate => candidate.Handle.Handle == options.PreferredPhysicalDevice)
                 : null;
 
             if (adapter is null && options.PreferredPhysicalDevice != 0) {
@@ -508,7 +527,14 @@ public sealed unsafe partial class VulkanDevice : IGraphicsDevice {
                 return false;
             }
 
-            if (!TryCreateLogicalDevice(instance, adapter, presenting, options.RequiredDeviceExtensions, out var handle, out reason)) {
+            if (!TryCreateLogicalDevice(
+                    instance,
+                    adapter,
+                    presenting,
+                    options.RequiredDeviceExtensions,
+                    out var handle,
+                    out reason
+                )) {
                 DestroySurface(khrSurface, instance, surface);
                 instance.Dispose();
                 return false;
@@ -537,8 +563,12 @@ public sealed unsafe partial class VulkanDevice : IGraphicsDevice {
 
     /// <inheritdoc />
     /// <remarks>
-    ///     ⚠ <b>The field this reads was already trusted for a related decision before it was
-    ///     published</b> — <see cref="Retire" /> picks the slot a destroy is filed against by asking
+    ///     ⚠
+    ///     <b>
+    ///         The field this reads was already trusted for a related decision before it was
+    ///         published
+    ///     </b>
+    ///     — <see cref="Retire" /> picks the slot a destroy is filed against by asking
     ///     it. So the answer #775 wanted has been correct here all along and simply had no way out.
     /// </remarks>
     public bool IsFrameOpen {
@@ -641,8 +671,7 @@ public sealed unsafe partial class VulkanDevice : IGraphicsDevice {
         Check(Api.AllocateCommandBuffers(device, &allocate, &buffer), "vkAllocateCommandBuffers");
 
         var begin = new CommandBufferBeginInfo {
-            SType = StructureType.CommandBufferBeginInfo,
-            Flags = CommandBufferUsageFlags.OneTimeSubmitBit
+            SType = StructureType.CommandBufferBeginInfo, Flags = CommandBufferUsageFlags.OneTimeSubmitBit
         };
 
         Check(Api.BeginCommandBuffer(buffer, &begin), "vkBeginCommandBuffer");
@@ -748,8 +777,12 @@ public sealed unsafe partial class VulkanDevice : IGraphicsDevice {
     ///         as its first act, having waited only on the fence of frame <em>n</em> −
     ///         <see cref="FramesInFlight" />. Filing under it therefore gave a caller outside a frame
     ///         a deferral of <i>zero</i> frames while the frame it had just submitted was still
-    ///         running: <c>vkDestroyBuffer(): can't be called on VkBuffer … that is currently in use
-    ///         by VkCommandBuffer …</c>, which is what
+    ///         running:
+    ///         <c>
+    ///             vkDestroyBuffer(): can't be called on VkBuffer … that is currently in use
+    ///             by VkCommandBuffer …
+    ///         </c>
+    ///         , which is what
     ///         <c>ValidationCleanTests.DestroyingBetweenFramesProducesNoValidationMessages</c>
     ///         witnesses.
     ///     </para>
@@ -769,7 +802,7 @@ public sealed unsafe partial class VulkanDevice : IGraphicsDevice {
                 return;
             }
 
-            var slot = recording ? FrameSlot : ((FrameSlot + FramesInFlight) - 1) % FramesInFlight;
+            var slot = recording ? FrameSlot : (FrameSlot + FramesInFlight - 1) % FramesInFlight;
 
             retiring[slot].Add(action);
         }
@@ -784,8 +817,12 @@ public sealed unsafe partial class VulkanDevice : IGraphicsDevice {
     ///     every submission the engine made before cross-queue scheduling existed.
     /// </param>
     /// <param name="produce">
-    ///     Whether to signal this queue's counter and hand the value back. ⚠ <b>Not inferred from
-    ///     <paramref name="waitFor" /> being non-empty.</b> The first segment of a frame waits for
+    ///     Whether to signal this queue's counter and hand the value back. ⚠
+    ///     <b>
+    ///         Not inferred from
+    ///         <paramref name="waitFor" /> being non-empty.
+    ///     </b>
+    ///     The first segment of a frame waits for
     ///     nothing and is the one every later segment waits on, so a submission with no waits is
     ///     exactly the one whose point matters most.
     /// </param>
@@ -996,11 +1033,12 @@ public sealed unsafe partial class VulkanDevice : IGraphicsDevice {
     internal ReadOnlySpan<uint> FamiliesToShareBetween(ResourceSharing sharing) =>
         sharing == ResourceSharing.Concurrent && sharedFamilies.Length > 1 ? sharedFamilies : [];
 
-    internal VulkanQueue QueueFor(QueueKind kind) => kind switch {
-        QueueKind.Compute => compute,
-        QueueKind.Transfer => transfer,
-        _ => graphics
-    };
+    internal VulkanQueue QueueFor(QueueKind kind) =>
+        kind switch {
+            QueueKind.Compute => compute,
+            QueueKind.Transfer => transfer,
+            _ => graphics
+        };
 
     /// <summary>The queue-family indices a barrier's two <see cref="QueueKind" />s resolve to.</summary>
     /// <param name="source">Which queue owns the resource now.</param>
@@ -1032,8 +1070,12 @@ public sealed unsafe partial class VulkanDevice : IGraphicsDevice {
 
     /// <summary>The window handle this device's own surface was made from.</summary>
     /// <remarks>
-    ///     ⚠ <b>What tells "present to the window the device was created for" from "present to a
-    ///     second one".</b> A device has exactly one <c>VkSurfaceKHR</c> of its own, made at creation
+    ///     ⚠
+    ///     <b>
+    ///         What tells "present to the window the device was created for" from "present to a
+    ///         second one".
+    ///     </b>
+    ///     A device has exactly one <c>VkSurfaceKHR</c> of its own, made at creation
     ///     because the queue families are chosen against it; a swapchain for any <i>other</i> window
     ///     has to make and own one, which is what an editor with a torn-off panel needs and what a
     ///     swapchain that always used the device's surface answered with
@@ -1083,8 +1125,7 @@ public sealed unsafe partial class VulkanDevice : IGraphicsDevice {
         return pool;
     }
 
-    void ThrowIfDisposed() =>
-        ObjectDisposedException.ThrowIf(disposed, typeof(VulkanDevice));
+    void ThrowIfDisposed() => ObjectDisposedException.ThrowIf(disposed, typeof(VulkanDevice));
 
     static void DestroySurface(KhrSurface? khrSurface, VulkanInstance instance, SurfaceKHR surface) {
         if (surface.Handle != 0) {
@@ -1277,8 +1318,7 @@ public sealed unsafe partial class VulkanDevice : IGraphicsDevice {
         };
 
         var dynamicRendering = new PhysicalDeviceDynamicRenderingFeaturesKHR {
-            SType = StructureType.PhysicalDeviceDynamicRenderingFeaturesKhr,
-            DynamicRendering = true
+            SType = StructureType.PhysicalDeviceDynamicRenderingFeaturesKhr, DynamicRendering = true
         };
 
         // What the adapter recorded, narrowed to the three bits the engine uses — the indexing
@@ -1291,8 +1331,7 @@ public sealed unsafe partial class VulkanDevice : IGraphicsDevice {
         };
 
         var rayQueryFeatures = new PhysicalDeviceRayQueryFeaturesKHR {
-            SType = StructureType.PhysicalDeviceRayQueryFeaturesKhr,
-            RayQuery = adapter.RayQuery.RayQuery
+            SType = StructureType.PhysicalDeviceRayQueryFeaturesKhr, RayQuery = adapter.RayQuery.RayQuery
         };
 
         var addressingFeatures = new PhysicalDeviceBufferDeviceAddressFeatures {
@@ -1304,8 +1343,7 @@ public sealed unsafe partial class VulkanDevice : IGraphicsDevice {
         // raster uses and enabling a feature the engine does not use is what the comment above the
         // indexing bits argues against.
         var atomicInt64 = new PhysicalDeviceShaderAtomicInt64Features {
-            SType = StructureType.PhysicalDeviceShaderAtomicInt64Features,
-            ShaderBufferInt64Atomics = true
+            SType = StructureType.PhysicalDeviceShaderAtomicInt64Features, ShaderBufferInt64Atomics = true
         };
 
         // Read back from what the adapter recorded rather than written as `true` — the

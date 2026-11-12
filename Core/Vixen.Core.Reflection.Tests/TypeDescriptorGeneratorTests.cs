@@ -25,26 +25,26 @@ namespace Vixen.Core.Reflection.Tests;
 /// </remarks>
 public sealed class TypeDescriptorGeneratorTests {
     const string Preamble = """
-        using System.Collections.Generic;
-        using Vixen.Core;
+                            using System.Collections.Generic;
+                            using Vixen.Core;
 
-        namespace Subject;
-        """;
+                            namespace Subject;
+                            """;
 
     [Fact]
     public void AGenericAnnotatedTypeIsVXS0201_AndGetsNoDescriptor() {
         var (diagnostics, sources) = Run(
             $$"""
-            {{Preamble}}
+              {{Preamble}}
 
-            [DataContract]
-            public class Box<T> {
-                public T Value { get; set; } = default!;
-            }
-            """
+              [DataContract]
+              public class Box<T> {
+                  public T Value { get; set; } = default!;
+              }
+              """
         );
 
-        var warning = Assert.Single(diagnostics, diagnostic => diagnostic.Id == "VXS0201");
+        var warning = Assert.Single(diagnostics, static diagnostic => diagnostic.Id == "VXS0201");
 
         Assert.Equal(DiagnosticSeverity.Warning, warning.Severity);
         Assert.Contains("Box<T>", warning.GetMessage());
@@ -67,21 +67,21 @@ public sealed class TypeDescriptorGeneratorTests {
     public void ANonGenericTypeInTheSameCompilationStillGetsADescriptor() {
         var (diagnostics, sources) = Run(
             $$"""
-            {{Preamble}}
+              {{Preamble}}
 
-            [DataContract]
-            public class Box<T> {
-                public T Value { get; set; } = default!;
-            }
+              [DataContract]
+              public class Box<T> {
+                  public T Value { get; set; } = default!;
+              }
 
-            [DataContract]
-            public class Settings {
-                public int Width { get; set; }
-            }
-            """
+              [DataContract]
+              public class Settings {
+                  public int Width { get; set; }
+              }
+              """
         );
 
-        Assert.Single(diagnostics, diagnostic => diagnostic.Id == "VXS0201");
+        Assert.Single(diagnostics, static diagnostic => diagnostic.Id == "VXS0201");
 
         var emitted = Assert.Single(sources);
 
@@ -101,16 +101,16 @@ public sealed class TypeDescriptorGeneratorTests {
     public void TheRefusalPointsAtTheTypesOwnName() {
         var (diagnostics, _) = Run(
             $$"""
-            {{Preamble}}
+              {{Preamble}}
 
-            [DataContract]
-            public class Box<T> {
-                public T Value { get; set; } = default!;
-            }
-            """
+              [DataContract]
+              public class Box<T> {
+                  public T Value { get; set; } = default!;
+              }
+              """
         );
 
-        var warning = Assert.Single(diagnostics, diagnostic => diagnostic.Id == "VXS0201");
+        var warning = Assert.Single(diagnostics, static diagnostic => diagnostic.Id == "VXS0201");
         var span = warning.Location.GetLineSpan();
 
         Assert.NotEqual(Location.None, warning.Location);
@@ -131,18 +131,18 @@ public sealed class TypeDescriptorGeneratorTests {
         // `Describe_Subject_Outer<T>_Inner`, which does not compile.
         var (diagnostics, _) = Run(
             $$"""
-            {{Preamble}}
+              {{Preamble}}
 
-            public static class Outer<T> {
-                [DataContract]
-                public class Inner {
-                    public int Value { get; set; }
-                }
-            }
-            """
+              public static class Outer<T> {
+                  [DataContract]
+                  public class Inner {
+                      public int Value { get; set; }
+                  }
+              }
+              """
         );
 
-        Assert.Single(diagnostics, diagnostic => diagnostic.Id == "VXS0201");
+        Assert.Single(diagnostics, static diagnostic => diagnostic.Id == "VXS0201");
     }
 
     /// <summary>The other half of generics, which the refusal is not about and nothing checked.</summary>
@@ -157,13 +157,13 @@ public sealed class TypeDescriptorGeneratorTests {
     public void ADescribedListMemberReachesCollectionFactory() {
         var (diagnostics, sources) = Run(
             $$"""
-            {{Preamble}}
+              {{Preamble}}
 
-            [DataContract]
-            public class Level {
-                public List<int> Scores { get; set; } = new();
-            }
-            """
+              [DataContract]
+              public class Level {
+                  public List<int> Scores { get; set; } = new();
+              }
+              """
         );
 
         Assert.Empty(diagnostics);
@@ -181,13 +181,13 @@ public sealed class TypeDescriptorGeneratorTests {
     public void ADescribedDictionaryMemberIsRegisteredBackedByADictionary() {
         var (_, sources) = Run(
             $$"""
-            {{Preamble}}
+              {{Preamble}}
 
-            [DataContract]
-            public class Level {
-                public Dictionary<string, int> Scores { get; set; } = new();
-            }
-            """
+              [DataContract]
+              public class Level {
+                  public Dictionary<string, int> Scores { get; set; } = new();
+              }
+              """
         );
 
         Assert.Contains(
@@ -203,13 +203,13 @@ public sealed class TypeDescriptorGeneratorTests {
         // cases emit different factories.
         var (_, sources) = Run(
             $$"""
-            {{Preamble}}
+              {{Preamble}}
 
-            [DataContract]
-            public class Level {
-                public IList<int> Scores { get; set; } = new List<int>();
-            }
-            """
+              [DataContract]
+              public class Level {
+                  public IList<int> Scores { get; set; } = new List<int>();
+              }
+              """
         );
 
         Assert.Contains(
@@ -225,20 +225,20 @@ public sealed class TypeDescriptorGeneratorTests {
         // binds is not something reading the emitted string can say.
         var compilation = Compile(
             $$"""
-            {{Preamble}}
+              {{Preamble}}
 
-            [DataContract]
-            public class Box<T> {
-                public T Value { get; set; } = default!;
-            }
+              [DataContract]
+              public class Box<T> {
+                  public T Value { get; set; } = default!;
+              }
 
-            [DataContract]
-            public class Level {
-                public List<int> Scores { get; set; } = new();
+              [DataContract]
+              public class Level {
+                  public List<int> Scores { get; set; } = new();
 
-                public Dictionary<string, int> Best { get; set; } = new();
-            }
-            """
+                  public Dictionary<string, int> Best { get; set; } = new();
+              }
+              """
         );
 
         var token = TestContext.Current.CancellationToken;
@@ -248,7 +248,7 @@ public sealed class TypeDescriptorGeneratorTests {
             .RunGeneratorsAndUpdateCompilation(compilation, out var updated, out _, token);
 
         Assert.Empty(
-            updated.GetDiagnostics(token).Where(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error)
+            updated.GetDiagnostics(token).Where(static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error)
         );
     }
 
@@ -282,7 +282,8 @@ public sealed class TypeDescriptorGeneratorTests {
         );
 
         Assert.Empty(
-            compilation.GetDiagnostics(token).Where(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error)
+            compilation.GetDiagnostics(token)
+                .Where(static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error)
         );
 
         return compilation;

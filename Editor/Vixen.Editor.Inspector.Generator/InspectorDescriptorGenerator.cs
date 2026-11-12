@@ -26,8 +26,12 @@ namespace Vixen.Editor.Inspector.Generator;
 ///         <b>Why a field gets a <c>ref</c> accessor and a property does not.</b>
 ///         <c>Vixen.Core.Reflection</c>'s accessors pass values as <c>object</c>, and doc 11's
 ///         inspector asks for "get/set accessors as delegates over <c>ref</c> access … it works for
-///         <c>struct</c> members without boxing". A field can have one — <c>static (Foo o) =&gt; ref
-///         o.Tint</c> — and a property cannot, because there is nothing to take a reference to. So
+///         <c>struct</c> members without boxing". A field can have one —
+///         <c>
+///             static (Foo o) =&gt; ref
+///             o.Tint
+///         </c>
+///         — and a property cannot, because there is nothing to take a reference to. So
 ///         the generator emits the strongest accessor each member admits rather than the weakest one
 ///         both admit.
 ///     </para>
@@ -103,17 +107,19 @@ public sealed class InspectorDescriptorGenerator : IIncrementalGenerator {
         var members = ImmutableArray.CreateBuilder<MemberModel>();
 
         if (type.IsValueType) {
-            problems.Add(Problem(
-                ValueTypeOwner.Id,
-                string.Format(
-                    CultureInfo.InvariantCulture,
-                    "'{0}' is a value type, and an inspector edits objects it holds references to. A "
-                    + "struct handed to a drawer would be a copy, and every edit would be written to "
-                    + "the copy. Make it a class, or expose it as a member of one.",
-                    type.Name
-                ),
-                Where(type)
-            ));
+            problems.Add(
+                Problem(
+                    ValueTypeOwner.Id,
+                    string.Format(
+                        CultureInfo.InvariantCulture,
+                        "'{0}' is a value type, and an inspector edits objects it holds references to. A "
+                        + "struct handed to a drawer would be a copy, and every edit would be written to "
+                        + "the copy. Make it a class, or expose it as a member of one.",
+                        type.Name
+                    ),
+                    Where(type)
+                )
+            );
         }
 
         foreach (var member in annotated) {
@@ -137,7 +143,7 @@ public sealed class InspectorDescriptorGenerator : IIncrementalGenerator {
         var qualified = type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
 
         return new(
-            type.ContainingNamespace.IsGlobalNamespace ? "" : type.ContainingNamespace.ToDisplayString(),
+            type.ContainingNamespace.IsGlobalNamespace ? string.Empty : type.ContainingNamespace.ToDisplayString(),
             type.Name,
             qualified,
             Safe(qualified),
@@ -172,16 +178,18 @@ public sealed class InspectorDescriptorGenerator : IIncrementalGenerator {
                 break;
 
             case IPropertySymbol property:
-                problems.Add(Problem(
-                    Unreadable.Id,
-                    string.Format(
-                        CultureInfo.InvariantCulture,
-                        "'{0}' is marked [Inspector] and has no getter. An inspector has to read a "
-                        + "member before it can show a value to change.",
-                        property.Name
-                    ),
-                    Where(property)
-                ));
+                problems.Add(
+                    Problem(
+                        Unreadable.Id,
+                        string.Format(
+                            CultureInfo.InvariantCulture,
+                            "'{0}' is marked [Inspector] and has no getter. An inspector has to read a "
+                            + "member before it can show a value to change.",
+                            property.Name
+                        ),
+                        Where(property)
+                    )
+                );
 
                 return null;
 
@@ -293,31 +301,30 @@ public sealed class InspectorDescriptorGenerator : IIncrementalGenerator {
                 case "InspectorReadOnlyAttribute":
                     readOnly = true;
                     break;
-
-                default:
-                    break;
             }
         }
 
         if (condition is not null && !HasBoolean(type, condition)) {
-            problems.Add(Problem(
-                BadCondition.Id,
-                string.Format(
-                    CultureInfo.InvariantCulture,
-                    "'{0}' is shown conditionally on '{1}', and '{1}' is not a bool field or property "
-                    + "of '{2}'. A condition is resolved by name at run time, so a typo here is a row "
-                    + "that is always shown and never explains why.",
-                    member.Name,
-                    condition,
-                    type.Name
-                ),
-                Where(member)
-            ));
+            problems.Add(
+                Problem(
+                    BadCondition.Id,
+                    string.Format(
+                        CultureInfo.InvariantCulture,
+                        "'{0}' is shown conditionally on '{1}', and '{1}' is not a bool field or property "
+                        + "of '{2}'. A condition is resolved by name at run time, so a typo here is a row "
+                        + "that is always shown and never explains why.",
+                        member.Name,
+                        condition,
+                        type.Name
+                    ),
+                    Where(member)
+                )
+            );
         }
 
         return new(
             member.Name,
-            Named(marker, "Name") as string ?? "",
+            Named(marker, "Name") as string ?? string.Empty,
 
             // ⚠ With the nullable annotation, and the generated file is `#nullable enable`. A member
             // declared `Foo? Inner` produces `ref o.Inner` of type `Foo?`, which does not match a
@@ -371,7 +378,9 @@ public sealed class InspectorDescriptorGenerator : IIncrementalGenerator {
             .AppendLine()
             .AppendLine($"/// <summary>What the inspector knows about <c>{model.TypeName}</c>. Generated.</summary>")
             .AppendLine($"internal static class Describes_{model.SafeName} {{")
-            .AppendLine("    /// <summary>The descriptor, registered before any of this assembly's code runs.</summary>")
+            .AppendLine(
+                "    /// <summary>The descriptor, registered before any of this assembly's code runs.</summary>"
+            )
             .AppendLine($"    internal static global::{Namespace}.InspectorDescriptor Descriptor {{ get; }} = new(")
             .AppendLine($"        typeof({model.QualifiedName}),")
             .AppendLine("        [");
@@ -455,7 +464,9 @@ public sealed class InspectorDescriptorGenerator : IIncrementalGenerator {
         text.AppendLine(
             member.Attributes.Length == 0
                 ? "                Attributes = []"
-                : "                Attributes = [" + string.Join(", ", member.Attributes.Select(static name => $"typeof({name})")) + "]"
+                : "                Attributes = ["
+                + string.Join(", ", member.Attributes.Select(static name => $"typeof({name})"))
+                + "]"
         );
 
         text.AppendLine(last ? "            }" : "            },");
@@ -507,11 +518,12 @@ public sealed class InspectorDescriptorGenerator : IIncrementalGenerator {
         return false;
     }
 
-    static DiagnosticDescriptor Descriptor(string id) => id switch {
-        "VXI0101" => Unreadable,
-        "VXI0102" => BadCondition,
-        _ => ValueTypeOwner
-    };
+    static DiagnosticDescriptor Descriptor(string id) =>
+        id switch {
+            "VXI0101" => Unreadable,
+            "VXI0102" => BadCondition,
+            _ => ValueTypeOwner
+        };
 
     static Location Where(ISymbol symbol) => symbol.Locations.Length > 0 ? symbol.Locations[0] : Location.None;
 

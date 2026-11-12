@@ -65,7 +65,7 @@ sealed class PushConstantRing {
                         0,
                         WgpuShaderStage.Vertex | WgpuShaderStage.Fragment | WgpuShaderStage.Compute,
                         WgpuBufferBindingType.Uniform,
-                        HasDynamicOffset: true
+                        true
                     )
                 ],
                 "PushConstants"

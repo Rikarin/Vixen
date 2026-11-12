@@ -236,7 +236,7 @@ public readonly struct EffectKey : IEquatable<EffectKey> {
     public override string ToString() {
         var permutations = Values.IsEmpty
             ? ShaderName
-            : $"{ShaderName}[{string.Join(",", Values.Select(pair => $"{pair.Key}={pair.Value}"))}]";
+            : $"{ShaderName}[{string.Join(",", Values.Select(static pair => $"{pair.Key}={pair.Value}"))}]";
 
         return Composition.Count == 0 ? permutations : $"{permutations}{{{Composition}}}";
     }

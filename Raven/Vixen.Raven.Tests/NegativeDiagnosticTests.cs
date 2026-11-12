@@ -60,7 +60,7 @@ public class NegativeDiagnosticTests {
         var bag = new DiagnosticBag();
         Lowerer.Lower(compilation, bag);
 
-        return [.. compilation.GetDiagnostics(), .. bag];
+        return [..compilation.GetDiagnostics(), ..bag];
     }
 
     /// <summary>
@@ -81,7 +81,7 @@ public class NegativeDiagnosticTests {
         var bag = new DiagnosticBag();
         IrVerifier.Verify(Lowerer.Lower(compilation, bag), bag);
 
-        return [.. compilation.GetDiagnostics(), .. bag];
+        return [..compilation.GetDiagnostics(), ..bag];
     }
 
     /// <summary>One compose binding, for the fixtures whose subject is what a binding may name.</summary>
@@ -96,7 +96,7 @@ public class NegativeDiagnosticTests {
         var lowered = Lowerer.LowerWithLinks(compilation, bag);
         LibraryBuilder.Build(compilation, lowered, bag);
 
-        return [.. compilation.GetDiagnostics(), .. bag];
+        return [..compilation.GetDiagnostics(), ..bag];
     }
 
     /// <summary>
@@ -107,9 +107,9 @@ public class NegativeDiagnosticTests {
         Assert.DoesNotContain(diagnostics, d => d.Id == id);
 
         Assert.True(
-            diagnostics.All(d => !d.IsError),
+            diagnostics.All(static d => !d.IsError),
             $"The fixture guarding {id} did not compile, so its silence proves nothing:\n"
-            + string.Join("\n", diagnostics.Select(d => d.ToString()))
+            + string.Join("\n", diagnostics.Select(static d => d.ToString()))
         );
     }
 
@@ -1322,8 +1322,12 @@ public class NegativeDiagnosticTests {
     /// <remarks>
     ///     The mirror of <c>InOutTests</c>'s <c>RVN2112</c> case, which is the <c>inout</c> on the
     ///     entry point itself. The rule turns on the method's stage, and it must: <c>inout</c> is
-    ///     how every composed feature in the library is written — <c>func Compute(inout value:
-    ///     float4)</c> is the shape of <c>ISurface</c> — so a rule that refused <c>inout</c>
+    ///     how every composed feature in the library is written —
+    ///     <c>
+    ///         func Compute(inout value:
+    ///         float4)
+    ///     </c>
+    ///     is the shape of <c>ISurface</c> — so a rule that refused <c>inout</c>
     ///     anywhere a stage could reach it would refuse the protocol the material system is built
     ///     out of.
     /// </remarks>
@@ -2880,8 +2884,12 @@ public class NegativeDiagnosticTests {
     ///     positions below is refused, including the two where a generic forwards its own type
     ///     parameter to another generic, which is what a container of containers is.
     ///     <para>
-    ///         ⚠ <b>The first widening left this green, which said something about this fixture and
-    ///         not about the arm.</b> Deleting <c>SatisfiesConstraint</c>'s third arm — the one whose
+    ///         ⚠
+    ///         <b>
+    ///             The first widening left this green, which said something about this fixture and
+    ///             not about the arm.
+    ///         </b>
+    ///         Deleting <c>SatisfiesConstraint</c>'s third arm — the one whose
     ///         comment says "a type parameter passed through satisfies what its own constraints
     ///         imply" — changes no answer <em>here</em>, because
     ///         <c>TypeParameterSymbol.Interfaces</c> returns its <c>ConstraintTypes</c> filtered to
@@ -2956,8 +2964,11 @@ public class NegativeDiagnosticTests {
     ///     <para>
     ///         Proved by deletion, which is the widening for a rule that only ever says yes:
     ///         replacing the arm with <c>return false</c> reports
-    ///         <c>RVN2096: Type argument 'T' does not satisfy the constraint 'A.Shaded' on type
-    ///         parameter 'T' of 'Box'</c> here, while
+    ///         <c>
+    ///             RVN2096: Type argument 'T' does not satisfy the constraint 'A.Shaded' on type
+    ///             parameter 'T' of 'Box'
+    ///         </c>
+    ///         here, while
     ///         <see cref="A_type_argument_satisfying_a_constraint_indirectly_is_allowed" /> stays
     ///         green. So the arm is load-bearing rather than redundant, and deleting it as dead code
     ///         would have started refusing a program the language accepts.
@@ -3287,8 +3298,12 @@ public class NegativeDiagnosticTests {
     ///         already.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Two facts and not one <c>[Theory]</c>, and the reason is the counter rather
-    ///         than the fixtures.</b> <c>DiagnosticCoverageTests.SilentIds</c> reads coverage off
+    ///         ⚠
+    ///         <b>
+    ///             Two facts and not one <c>[Theory]</c>, and the reason is the counter rather
+    ///             than the fixtures.
+    ///         </b>
+    ///         <c>DiagnosticCoverageTests.SilentIds</c> reads coverage off
     ///         this file with the regex <c>\bSilent\(\s*"(RVN\d{4})"</c>, so an id that arrives as
     ///         a test parameter is invisible to it: written as a theory, both of these ran, both
     ///         passed, and both ids stayed on the owed list. Which is the failure mode the whole
@@ -3344,15 +3359,23 @@ public class NegativeDiagnosticTests {
     ///     <para>
     ///         The mirror of
     ///         <c>SemanticDiagnosticsTests.A_global_named_after_a_glsl_built_in_is_reported</c>, and
-    ///         it is the fixture that decides whether the rule is usable at all. ⚠ <b>The scope
-    ///         boundary is not a judgement call, it was measured:</b> at <c>#version 320 es</c>
+    ///         it is the fixture that decides whether the rule is usable at all. ⚠
+    ///         <b>
+    ///             The scope
+    ///             boundary is not a judgement call, it was measured:
+    ///         </b>
+    ///         at <c>#version 320 es</c>
     ///         glslangValidator accepts <c>float distance = 1.0;</c> inside a function and
     ///         <c>struct S { float distance; }</c>, and refuses the same names at file scope with
     ///         <c>'distance' : redefinition</c>.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A shader-level <c>var</c> of a plain type is on the legal side too, and finding
-    ///         out why is what narrowed this rule.</b> It is not a global: it is a member of the
+    ///         ⚠
+    ///         <b>
+    ///             A shader-level <c>var</c> of a plain type is on the legal side too, and finding
+    ///             out why is what narrowed this rule.
+    ///         </b>
+    ///         It is not a global: it is a member of the
     ///         per-material uniform block, which SPIRV-Cross emits <em>instanced</em> for GLSL ES,
     ///         so the identifier is <c>litPerMaterialUniforms.length</c> and is scoped. Two shipped
     ///         shaders depend on that — <c>JumpFlood.rvn</c>'s <c>var step: float</c> and
@@ -3944,8 +3967,12 @@ public class NegativeDiagnosticTests {
     /// <summary>A slot declared against a protocol, which is the only thing a slot may be.</summary>
     /// <remarks>
     ///     The mirror of <c>ComposeTests.A_slot_that_is_not_protocol_typed_is_rejected</c>, whose
-    ///     slot is a <c>float4</c>. ⚠ The near miss is the <em>protocol beside a struct of the same
-    ///     shape</em>: a rule that asked "is this a declared type" rather than "is this a protocol"
+    ///     slot is a <c>float4</c>. ⚠ The near miss is the
+    ///     <em>
+    ///         protocol beside a struct of the same
+    ///         shape
+    ///     </em>
+    ///     : a rule that asked "is this a declared type" rather than "is this a protocol"
     ///     would pass both, and a rule that asked "is this not a builtin" would refuse a slot typed
     ///     by a struct while still admitting one typed by a protocol, which is the wrong half.
     /// </remarks>
@@ -4061,8 +4088,12 @@ public class NegativeDiagnosticTests {
     /// <summary>A value parameter on the one declaration that may carry one, beside a generic struct.</summary>
     /// <remarks>
     ///     The mirror of <c>ValueParameterTests.A_value_parameter_outside_a_shader_is_rejected</c>,
-    ///     which puts <c>&lt;val N: int&gt;</c> on a struct. ⚠ The near miss is the <em>ordinary
-    ///     type parameter on a struct</em> in the same file: a rule keyed on "this declaration has
+    ///     which puts <c>&lt;val N: int&gt;</c> on a struct. ⚠ The near miss is the
+    ///     <em>
+    ///         ordinary
+    ///         type parameter on a struct
+    ///     </em>
+    ///     in the same file: a rule keyed on "this declaration has
     ///     a parameter list and is not a shader" rather than on the <c>val</c> would refuse every
     ///     generic struct in the library.
     /// </remarks>
@@ -4109,8 +4140,12 @@ public class NegativeDiagnosticTests {
     ///     with. Proved by dropping <c>SpecialType.Bool</c> from the rule's allowed set, which reds
     ///     this with <c>RVN2081: Value parameter 'Shadows' has type 'bool'</c>.
     ///     <para>
-    ///         ⚠ <b>That widening has a decoy, and it cost two runs of believing this fixture was
-    ///         inert.</b> <c>SourceNamedTypeSymbol</c> carries the identical predicate twice —
+    ///         ⚠
+    ///         <b>
+    ///             That widening has a decoy, and it cost two runs of believing this fixture was
+    ///             inert.
+    ///         </b>
+    ///         <c>SourceNamedTypeSymbol</c> carries the identical predicate twice —
     ///         <c>special is not (SpecialType.Bool or SpecialType.Int or SpecialType.UInt)</c> at
     ///         the permutation-key rule and again at this one — so a widening applied to the first
     ///         match leaves this rule untouched and the fixture green, which reads exactly like a

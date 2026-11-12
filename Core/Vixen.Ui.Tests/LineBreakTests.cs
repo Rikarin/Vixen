@@ -10,8 +10,11 @@ namespace Vixen.Ui.Tests;
 /// <summary>CSS Text §5.2's <c>line-break</c>, from a declaration to a line.</summary>
 /// <remarks>
 ///     <para>
-///         <b>The half <c>Vixen.Ui.Text.Tests.CssLineBreakTailoringTests</c> cannot reach, and the
-///         one this repository keeps finding missing.</b> That file judges <see cref="LineBreaker" />
+///         <b>
+///             The half <c>Vixen.Ui.Text.Tests.CssLineBreakTailoringTests</c> cannot reach, and the
+///             one this repository keeps finding missing.
+///         </b>
+///         That file judges <see cref="LineBreaker" />
 ///         against a transcribed oracle and would go on passing if no CSS declaration ever reached
 ///         it — the commonest defect here is a finished thing nothing calls, and a property that is
 ///         interned, inherited and read by a method with no caller is exactly that shape. These four
@@ -20,8 +23,12 @@ namespace Vixen.Ui.Tests;
 ///         paragraph that breaks somewhere it otherwise would not.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Latin text and <c>anywhere</c> rather than kana and <c>strict</c>, which is a fixture
-///         decision and not a shortcut.</b> The tailorings that matter most are about small kana, and
+///         ⚠
+///         <b>
+///             Latin text and <c>anywhere</c> rather than kana and <c>strict</c>, which is a fixture
+///             decision and not a shortcut.
+///         </b>
+///         The tailorings that matter most are about small kana, and
 ///         the test font has no kana in it — a paragraph of <c>.notdef</c> has whatever width the
 ///         face gives glyph zero, so a line-count assertion over it would be measuring the fallback
 ///         rather than the property. <c>anywhere</c> is the one value whose effect is visible in a
@@ -34,7 +41,7 @@ public class LineBreakTests {
 
     static FontFace LoadFont() {
         using var stream = Assembly.GetExecutingAssembly()
-            .GetManifestResourceStream("Vixen.Ui.Tests.Fonts.TestShapeLana.ttf")
+                .GetManifestResourceStream("Vixen.Ui.Tests.Fonts.TestShapeLana.ttf")
             ?? throw new InvalidOperationException("the test font is not embedded");
 
         using var memory = new MemoryStream();
@@ -70,8 +77,7 @@ public class LineBreakTests {
     ///     lines, every assertion below would be about <c>overflow-wrap</c>'s last resort instead.
     /// </remarks>
     [Fact]
-    public void A_word_with_no_opportunity_in_it_is_one_line() =>
-        Assert.Equal(1, Lines(string.Empty, string.Empty));
+    public void A_word_with_no_opportunity_in_it_is_one_line() => Assert.Equal(1, Lines(string.Empty, string.Empty));
 
     /// <summary><c>line-break: anywhere</c> puts an opportunity between every two characters.</summary>
     [Fact]
@@ -86,8 +92,7 @@ public class LineBreakTests {
     ///     Vixen has no line box shared between elements.
     /// </remarks>
     [Fact]
-    public void It_inherits_from_the_container() =>
-        Assert.True(Lines("line-break: anywhere;", string.Empty) > 1);
+    public void It_inherits_from_the_container() => Assert.True(Lines("line-break: anywhere;", string.Empty) > 1);
 
     /// <summary>And the three values that are not <c>anywhere</c> leave a Latin word alone.</summary>
     /// <remarks>

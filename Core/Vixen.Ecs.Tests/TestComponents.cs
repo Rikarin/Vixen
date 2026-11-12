@@ -40,13 +40,17 @@ public struct Velocity {
 public struct Health {
     public int Value;
 
-    public Health(int value) => Value = value;
+    public Health(int value) {
+        Value = value;
+    }
 }
 
 public struct Flags {
     public byte Value;
 
-    public Flags(byte value) => Value = value;
+    public Flags(byte value) {
+        Value = value;
+    }
 }
 
 /// <summary>Big enough that a chunk holds few of them, which is what exercises multi-chunk paths.</summary>
@@ -61,22 +65,24 @@ public struct Bulky {
     public long H;
 }
 
-public struct Frozen : ITagComponent;
+public readonly struct Frozen : ITagComponent;
 
-public struct Player : ITagComponent;
+public readonly struct Player : ITagComponent;
 
-public struct Npc : ITagComponent;
+public readonly struct Npc : ITagComponent;
 
 /// <summary>A managed component that is a class.</summary>
 public sealed class Label {
-    public string Text { get; init; } = "";
+    public string Text { get; init; } = string.Empty;
 }
 
 /// <summary>A managed component that is a struct containing a reference — the easy one to miss.</summary>
 public struct Named {
     public string Name;
 
-    public Named(string name) => Name = name;
+    public Named(string name) {
+        Name = name;
+    }
 }
 
 /// <summary>A component whose zero is useless, declaring what a fresh one should be instead.</summary>

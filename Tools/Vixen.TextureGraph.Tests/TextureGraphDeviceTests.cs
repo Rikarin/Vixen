@@ -111,8 +111,12 @@ public class TextureGraphDeviceTests(ITestOutputHelper output) {
     /// <returns>The plan.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The op <em>names</em> are taken from the compiled plan, and that is a real
-    ///         narrowing of what this test proves</b> —
+    ///         ⚠
+    ///         <b>
+    ///             The op <em>names</em> are taken from the compiled plan, and that is a real
+    ///             narrowing of what this test proves
+    ///         </b>
+    ///         —
     ///         <a href="https://github.com/Rikarin/Vixen/issues/875">#875</a>.
     ///         <c>TexturePlan.SeedFor</c> used to mix the op's <em>index</em>, which a hand-written
     ///         plan reproduces by putting its ops in the same order; it now mixes
@@ -236,12 +240,15 @@ public class TextureGraphDeviceTests(ITestOutputHelper output) {
     static string Describe(TexturePlan plan) =>
         string.Join(
             "\n",
-            plan.Images.Select((image, index) => $"image {index}: {image.Format} {image.LevelOffset} {image.External}")
+            plan.Images.Select(static (image, index) =>
+                    $"image {index}: {image.Format} {image.LevelOffset} {image.External}"
+                )
                 .Concat(
-                    plan.Ops.Select((op, index) =>
+                    plan.Ops.Select(static (op, index) =>
                         $"op {index}: {op.Kernel} -> {op.Output} <- [{string.Join(", ", op.Inputs)}] "
-                        + $"{{{string.Join(", ", op.Parameters.Select(parameter => $"{parameter.Name}={parameter.Value}:{parameter.Unit}"))}}} "
-                        + $"named {op.Identity?.ToString(CultureInfo.InvariantCulture) ?? "nothing"}")
+                        + $"{{{string.Join(", ", op.Parameters.Select(static parameter => $"{parameter.Name}={parameter.Value}:{parameter.Unit}"))}}} "
+                        + $"named {op.Identity?.ToString(CultureInfo.InvariantCulture) ?? "nothing"}"
+                    )
                 )
                 .Append($"outputs: {string.Join(", ", plan.Outputs)}")
         );

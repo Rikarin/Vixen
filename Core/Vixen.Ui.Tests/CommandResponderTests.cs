@@ -9,8 +9,12 @@ namespace Vixen.Ui.Tests;
 /// <summary>The half of the chain that is not the element tree: the document, then the application.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Every rule asserted here is a rule <c>CommandRouteTests</c> already asserts inside
-///         the element walk.</b> That is the point of the file: extending the chain must not have
+///         ⚠
+///         <b>
+///             Every rule asserted here is a rule <c>CommandRouteTests</c> already asserts inside
+///             the element walk.
+///         </b>
+///         That is the point of the file: extending the chain must not have
 ///         bought a second set of rules for the new levels. First to answer wins, only that one is
 ///         asked whether it can, silence means disabled — across the join, in both directions.
 ///     </para>
@@ -101,7 +105,7 @@ public class CommandResponderTests {
         using var document = new UiDocument(100f, 100f);
 
         var responder = new CommandResponder();
-        responder.Add("edit.copy", () => { });
+        responder.Add("edit.copy", static () => { });
 
         document.CommandResponder = responder;
 
@@ -119,7 +123,7 @@ public class CommandResponderTests {
     public void The_document_is_asked_after_the_root_and_the_root_wins() {
         using var document = new UiDocument(100f, 100f);
 
-        var ran = "";
+        var ran = string.Empty;
         var responder = new CountingResponder("file.save", () => ran = "document");
 
         document.Root.AddCommandHandler("file.save", () => ran = "root");
@@ -137,7 +141,7 @@ public class CommandResponderTests {
     public void The_document_wins_over_the_application_and_the_application_is_never_asked() {
         using var document = new UiDocument(100f, 100f);
 
-        var ran = "";
+        var ran = string.Empty;
         var owner = new CountingResponder("edit.copy", () => ran = "document");
         var application = new CountingResponder("edit.copy", () => ran = "application");
 
@@ -166,7 +170,7 @@ public class CommandResponderTests {
     public void The_application_answers_when_the_document_does_not() {
         using var document = new UiDocument(100f, 100f);
 
-        var ran = "";
+        var ran = string.Empty;
         var owner = new CountingResponder("file.save", () => ran = "document");
         var application = new CountingResponder("edit.copy", () => ran = "application");
 
@@ -186,8 +190,8 @@ public class CommandResponderTests {
     public void A_document_responder_that_refuses_does_not_fall_through_to_the_application() {
         using var document = new UiDocument(100f, 100f);
 
-        var ran = "";
-        var owner = new CountingResponder("edit.copy", () => ran = "document", can: false);
+        var ran = string.Empty;
+        var owner = new CountingResponder("edit.copy", () => ran = "document", false);
         var application = new CountingResponder("edit.copy", () => ran = "application");
 
         document.CommandResponder = owner;
@@ -198,7 +202,7 @@ public class CommandResponderTests {
         // would make "which handler runs" depend on how many things happen to be listening.
         Assert.False(CommandRoute.CanExecute(document, "edit.copy"));
         Assert.False(CommandRoute.Execute(document, "edit.copy"));
-        Assert.Equal("", ran);
+        Assert.Equal(string.Empty, ran);
 
         // Two asks, two lookups — and neither of them reached past the level that said no.
         Assert.Equal(2, owner.Lookups);
@@ -209,7 +213,7 @@ public class CommandResponderTests {
     public void The_focused_element_still_beats_both_of_them() {
         using var document = new UiDocument(100f, 100f);
 
-        var ran = "";
+        var ran = string.Empty;
         var owner = new CountingResponder("edit.copy", () => ran = "document");
         var application = new CountingResponder("edit.copy", () => ran = "application");
 
@@ -236,10 +240,10 @@ public class CommandResponderTests {
         using var document = new UiDocument(100f, 100f);
 
         var owner = new CommandResponder();
-        owner.Add("file.save", () => { });
+        owner.Add("file.save", static () => { });
 
         var application = new CommandResponder();
-        application.Add("app.about", () => { });
+        application.Add("app.about", static () => { });
 
         document.CommandResponder = owner;
         document.ApplicationCommandResponder = application;
@@ -290,9 +294,9 @@ public class CommandResponderTests {
     [Fact]
     public void A_responder_declaring_one_id_twice_throws_as_an_element_does() {
         var responder = new CommandResponder();
-        responder.Add("edit.copy", () => { });
+        responder.Add("edit.copy", static () => { });
 
-        Assert.Throws<ArgumentException>(() => responder.Add("edit.copy", () => { }));
+        Assert.Throws<ArgumentException>(() => responder.Add("edit.copy", static () => { }));
 
         Assert.True(responder.Remove("edit.copy"));
         Assert.False(responder.Remove("edit.copy"));
@@ -327,7 +331,7 @@ public class CommandResponderTests {
         // that rather than trusting it — the editor keeps one registry across a shell being rebuilt,
         // and a shell that stayed reachable is a whole element tree per reload.
         var application = new CommandResponder();
-        application.Add("app.about", () => { });
+        application.Add("app.about", static () => { });
 
         var weak = Closed(application);
 
@@ -356,6 +360,6 @@ public class CommandResponderTests {
 
         document.Dispose();
 
-        return new WeakReference(document);
+        return new(document);
     }
 }

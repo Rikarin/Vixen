@@ -11,16 +11,24 @@ namespace Vixen.Editor.App.Tests;
 /// <summary>Doc 20 § Part D — Content: dragging a file in from the OS, which was this row's last ⛔.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>The framework half has been finished for four batches and nothing in the editor was
-///         listening.</b> <c>DropEvent</c> is routed, hit-tested and bubbled, <c>UiElement.AllowDrop</c>
+///         ⚠
+///         <b>
+///             The framework half has been finished for four batches and nothing in the editor was
+///             listening.
+///         </b>
+///         <c>DropEvent</c> is routed, hit-tested and bubbled, <c>UiElement.AllowDrop</c>
 ///         exists and <c>on:drop</c> is a name the binder knows — all of it landed under
 ///         <see href="https://github.com/Rikarin/Vixen/issues/654">#654</see> — and the only consumer
 ///         anywhere was a sample. So a folder of textures dragged onto the content browser reached the
 ///         panel, found no handler, and was indistinguishable from a platform that cannot do it.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Driven through <c>UiDocument.Dispatch(DropEvent)</c>, which is the method the
-///         platform layer calls</b> — <c>PlatformInput</c>'s <c>DropFile</c> arm builds exactly this
+///         ⚠
+///         <b>
+///             Driven through <c>UiDocument.Dispatch(DropEvent)</c>, which is the method the
+///             platform layer calls
+///         </b>
+///         — <c>PlatformInput</c>'s <c>DropFile</c> arm builds exactly this
 ///         event and hands it over. A test that called the browser's own event instead would prove
 ///         the import and nothing about whether a drop can reach it.
 ///     </para>
@@ -111,7 +119,7 @@ public class BrowserFileDropTests {
         using var editor = Started();
 
         var already = Directory.EnumerateFiles(editor.Project.Paths.Assets, "*", SearchOption.AllDirectories)
-            .First(path => !path.EndsWith(".meta", StringComparison.Ordinal));
+            .First(static path => !path.EndsWith(".meta", StringComparison.Ordinal));
 
         var before = Directory.EnumerateFiles(editor.Project.Paths.Assets, "*", SearchOption.AllDirectories).Count();
 
@@ -126,7 +134,7 @@ public class BrowserFileDropTests {
 
         Assert.Contains(
             editor.Shell.Notifications.History,
-            entry => entry.Message.Contains("already in this project", StringComparison.Ordinal)
+            static entry => entry.Message.Contains("already in this project", StringComparison.Ordinal)
         );
     }
 
@@ -172,7 +180,7 @@ public class BrowserFileDropTests {
         using var editor = Started();
 
         var bounds = editor.Panel("project").Bounds;
-        var at = new System.Numerics.Vector2(bounds.X + (bounds.Width / 2), bounds.Y + (bounds.Height / 2));
+        var at = new System.Numerics.Vector2(bounds.X + bounds.Width / 2, bounds.Y + bounds.Height / 2);
 
         var first = Outside(editor, "moss.png");
         var second = Outside(editor, "rock.png");
@@ -208,7 +216,7 @@ public class BrowserFileDropTests {
         // One gesture, one report — not one per file.
         Assert.Single(
             editor.Shell.Notifications.History,
-            entry => entry.Message.Contains("imported into", StringComparison.Ordinal)
+            static entry => entry.Message.Contains("imported into", StringComparison.Ordinal)
         );
     }
 
@@ -239,7 +247,7 @@ public class BrowserFileDropTests {
         Assert.Equal(original, File.ReadAllText(landed));
         Assert.Contains(
             editor.Shell.Notifications.History,
-            entry => entry.Message.Contains("already in the project", StringComparison.Ordinal)
+            static entry => entry.Message.Contains("already in the project", StringComparison.Ordinal)
         );
     }
 
@@ -262,7 +270,7 @@ public class BrowserFileDropTests {
         Assert.Contains("notes.xyzzy", Names(editor));
         Assert.DoesNotContain(
             editor.Shell.Notifications.History,
-            entry => entry.Message.Contains("Could not copy", StringComparison.Ordinal)
+            static entry => entry.Message.Contains("Could not copy", StringComparison.Ordinal)
         );
     }
 
@@ -277,7 +285,7 @@ public class BrowserFileDropTests {
     static void Stand(EditorSession editor, string folder) {
         var view = Descendants(editor.Panel("project"))
                 .OfType<TreeView>()
-                .FirstOrDefault(candidate => candidate.HasClass("browser-folders"))
+                .FirstOrDefault(static candidate => candidate.HasClass("browser-folders"))
             ?? throw editor.Fail("the browser has no folder tree");
 
         var node = Walk(view.Root).FirstOrDefault(candidate => candidate.Text == folder)
@@ -311,11 +319,7 @@ public class BrowserFileDropTests {
     static bool Drop(EditorSession editor, IReadOnlyList<string> files) {
         var bounds = editor.Panel("project").Bounds;
 
-        var args = new DropEvent {
-            X = bounds.X + (bounds.Width / 2),
-            Y = bounds.Y + (bounds.Height / 2),
-            Files = files
-        };
+        var args = new DropEvent { X = bounds.X + bounds.Width / 2, Y = bounds.Y + bounds.Height / 2, Files = files };
 
         return editor.Document.Dispatch(args) is not null;
     }
@@ -336,5 +340,5 @@ public class BrowserFileDropTests {
     }
 
     static IReadOnlyList<string> Names(EditorSession editor) =>
-        [.. editor.Project.Assets.Entries.Select(entry => entry.Name)];
+        [..editor.Project.Assets.Entries.Select(static entry => entry.Name)];
 }

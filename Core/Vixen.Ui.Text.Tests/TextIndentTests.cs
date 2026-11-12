@@ -22,7 +22,7 @@ public class TextIndentTests {
         var lines = new List<WrappedLine>();
         LineWrapper.Wrap(text, advances, width, lines, TextWrapMode.Word, WordBreakMode.Normal, indent);
 
-        return lines.Select(line => text[line.Start..line.End]).ToList();
+        return [..lines.Select(line => text[line.Start..line.End])];
     }
 
     [Fact]
@@ -43,8 +43,12 @@ public class TextIndentTests {
         Assert.Equal(["aa bb ", "cc dd"], Wrap("aa bb cc dd", 5f, -1f));
 
     /// <summary>
-    ///     ⚠ <b>The indent belongs to the first line of the <i>block</i> and not to the first line
-    ///     after every break.</b> CSS Text 3 § 8.1 puts it on "the first formatted line", and a
+    ///     ⚠
+    ///     <b>
+    ///         The indent belongs to the first line of the <i>block</i> and not to the first line
+    ///         after every break.
+    ///     </b>
+    ///     CSS Text 3 § 8.1 puts it on "the first formatted line", and a
     ///     newline does not start a new block — so the paragraph after a hard break wraps to the full
     ///     width, exactly as the second visual line does.
     /// </summary>
@@ -63,7 +67,7 @@ public class TextIndentTests {
         var lines = Wrap("aa bb cc", 4f, 6f);
 
         Assert.Equal("aa bb cc", string.Concat(lines));
-        Assert.All(lines, line => Assert.NotEqual(string.Empty, line));
+        Assert.All(lines, static line => Assert.NotEqual(string.Empty, line));
     }
 
     /// <summary>The lines still partition the text at every width and either sign of indent.</summary>
@@ -76,7 +80,7 @@ public class TextIndentTests {
                 var pieces = Wrap(Text, width, indent);
 
                 Assert.Equal(Text, string.Concat(pieces));
-                Assert.All(pieces, piece => Assert.NotEqual(string.Empty, piece));
+                Assert.All(pieces, static piece => Assert.NotEqual(string.Empty, piece));
             }
         }
     }

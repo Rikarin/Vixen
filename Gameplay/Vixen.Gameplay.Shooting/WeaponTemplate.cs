@@ -19,7 +19,12 @@ public sealed class WeaponTemplate {
     readonly GameplayTag[] tags;
     readonly ShotDirection[] recoil;
 
-    internal WeaponTemplate(WeaponDefinition definition, GameplayTag[] tags, GameplayTag school, ShotDirection[] recoil) {
+    internal WeaponTemplate(
+        WeaponDefinition definition,
+        GameplayTag[] tags,
+        GameplayTag school,
+        ShotDirection[] recoil
+    ) {
         Definition = definition;
         this.tags = tags;
         School = school;
@@ -84,7 +89,7 @@ public sealed class WeaponTemplate {
 
         var travelled = (distance - falloff.Start) / (falloff.End - falloff.Start);
 
-        return amount * (1f - (travelled * (1f - floor)));
+        return amount * (1f - travelled * (1f - floor));
     }
 
     /// <summary>What a pellet is worth after passing through things.</summary>
@@ -150,7 +155,7 @@ public sealed class WeaponLibrary {
 
     /// <summary>Every weapon, in address order.</summary>
     public IEnumerable<WeaponTemplate> All =>
-        weapons.Values.OrderBy(weapon => weapon.Definition.Address, StringComparer.Ordinal);
+        weapons.Values.OrderBy(static weapon => weapon.Definition.Address, StringComparer.Ordinal);
 
     /// <summary>What a definition said that cannot be true at once.</summary>
     public IReadOnlyList<string> Problems => problems;
@@ -192,16 +197,20 @@ public sealed class WeaponLibrary {
                 definition.Id.Value,
                 new(
                     definition,
-                    [.. definition.Tags.Select(tags.Resolve)],
+                    [..definition.Tags.Select(tags.Resolve)],
                     definition.Damage is { School.Length: > 0 } damage ? tags.Resolve(damage.School) : GameplayTag.None,
                     [
-                        .. (definition.Recoil?.Pattern ?? []).Select(step => new ShotDirection(step.Pitch, step.Yaw))
+                        ..(definition.Recoil?.Pattern ?? []).Select(static step => new ShotDirection(
+                                step.Pitch,
+                                step.Yaw
+                            )
+                        )
                     ]
                 )
             );
         }
 
-        return new(compiled, [.. problems]);
+        return new(compiled, [..problems]);
     }
 
     /// <summary>Finds a weapon.</summary>

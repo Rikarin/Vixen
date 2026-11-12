@@ -34,7 +34,9 @@ namespace Vixen.Editor.Assets.Tests;
 ///     </para>
 /// </remarks>
 public sealed class SceneRenderComponentTests {
-    public SceneRenderComponentTests() => _ = Lights.All.Count;
+    public SceneRenderComponentTests() {
+        _ = Lights.All.Count;
+    }
 
     const string Lit = """
                        version: 1
@@ -94,7 +96,7 @@ public sealed class SceneRenderComponentTests {
         var renderable = world.Read<MeshRenderable>(created[1]);
 
         Assert.Equal(new AssetId(new("9e8a44c9-930c-64e3-88ca-034c5fe4c426")), renderable.Mesh.Asset);
-        Assert.Equal(new SubAssetId(0x2b9e5f13), renderable.Mesh.SubAsset);
+        Assert.Equal(new(0x2b9e5f13), renderable.Mesh.SubAsset);
         Assert.Equal(new AssetId(new("1a2b3c4d-5e6f-7081-9a2b-3c4d5e6f7081")), renderable.Material.Asset);
         Assert.True(renderable.CastsShadows);
     }
@@ -121,7 +123,7 @@ public sealed class SceneRenderComponentTests {
 
         Assert.Equal(3, content.Count);
         Assert.Equal(3, content.Blocks.Length);
-        Assert.All(content.Blocks, block => Assert.Single(block.Columns));
+        Assert.All(content.Blocks, static block => Assert.Single(block.Columns));
     }
 
     static SceneContent Compile() {

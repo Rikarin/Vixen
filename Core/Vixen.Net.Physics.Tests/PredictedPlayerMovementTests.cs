@@ -3,15 +3,12 @@
 
 using Vixen.Core;
 using Vixen.Core.Mathematics;
-using Vixen.Ecs;
 using Vixen.Engine.Players;
 using Vixen.Engine.Transforms;
 using Vixen.Net.Engine.Players;
 using Vixen.Net.Motion;
 using Vixen.Net.Prediction;
 using Vixen.Net.Replication;
-using Vixen.Physics;
-using Vixen.Physics.Bodies;
 using Vixen.Physics.Characters;
 using Vixen.Physics.Ecs;
 using Vixen.Testing;
@@ -47,8 +44,7 @@ public sealed class PredictedPlayerMovementTests : IDisposable {
             Entities.Add(
                 Pawn,
                 CharacterMovement.Default with {
-                    Shape = Scene.Shapes.Capsule(0.6f, 0.3f),
-                    CrouchShape = Scene.Shapes.Capsule(0.3f, 0.3f)
+                    Shape = Scene.Shapes.Capsule(0.6f, 0.3f), CrouchShape = Scene.Shapes.Capsule(0.3f, 0.3f)
                 }
             );
 
@@ -103,12 +99,13 @@ public sealed class PredictedPlayerMovementTests : IDisposable {
         }
 
         return PlayerMoveInput.From(
-            new MoveIntent {
-                Move = new(MathF.Sin(tick * 0.11f), MathF.Cos(tick * 0.07f)),
-                Yaw = MathUtil.WrapAngle(tick * 0.019f),
-                Buttons = buttons
-            }
-        ).Roundtrip();
+                new() {
+                    Move = new(MathF.Sin(tick * 0.11f), MathF.Cos(tick * 0.07f)),
+                    Yaw = MathUtil.WrapAngle(tick * 0.019f),
+                    Buttons = buttons
+                }
+            )
+            .Roundtrip();
     }
 
     /// <summary>Copies the server's answer into the client, which is what a snapshot does.</summary>
@@ -195,7 +192,7 @@ public sealed class PredictedPlayerMovementTests : IDisposable {
     /// </summary>
     [Fact]
     public void ADisagreementReplaysOntoTheServersState() {
-        var walking = PlayerMoveInput.From(new MoveIntent { Move = new(0f, 1f) }).Roundtrip();
+        var walking = PlayerMoveInput.From(new() { Move = new(0f, 1f) }).Roundtrip();
         var atSeventeen = default(NetworkTransform);
 
         for (var tick = 1; tick <= 20; tick++) {
@@ -251,7 +248,7 @@ public sealed class PredictedPlayerMovementTests : IDisposable {
     /// </summary>
     [Fact]
     public void AReplayUsesTheInputsThatWereUsedTheFirstTime() {
-        var held = PlayerMoveInput.From(new MoveIntent { Move = new(0f, 1f), Buttons = MoveButtons.Sprint })
+        var held = PlayerMoveInput.From(new() { Move = new(0f, 1f), Buttons = MoveButtons.Sprint })
             .Roundtrip();
 
         for (var tick = 1; tick <= 12; tick++) {
@@ -313,7 +310,7 @@ public sealed class PredictedPlayerMovementTests : IDisposable {
     /// </remarks>
     [Fact]
     public void APredictedTickAllocatesNothing() {
-        var walking = PlayerMoveInput.From(new MoveIntent { Move = new(0f, 1f) }).Roundtrip();
+        var walking = PlayerMoveInput.From(new() { Move = new(0f, 1f) }).Roundtrip();
         var tick = 0u;
 
         for (var warm = 0; warm < 10; warm++) {
@@ -322,8 +319,8 @@ public sealed class PredictedPlayerMovementTests : IDisposable {
 
         Measured.NothingAllocated(
             () => client.Movement.Step(client.Entities, new(++tick), walking),
-            warmUp: 16,
-            passes: 300
+            16,
+            300
         );
     }
 

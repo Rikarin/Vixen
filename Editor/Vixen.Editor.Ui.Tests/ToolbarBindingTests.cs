@@ -31,7 +31,9 @@ public class ToolbarBindingTests : IDisposable {
 
     TimeSpan clock;
 
-    public ToolbarBindingTests() => ControlTheme.Install(document);
+    public ToolbarBindingTests() {
+        ControlTheme.Install(document);
+    }
 
     public void Dispose() {
         document.Dispose();
@@ -56,7 +58,7 @@ public class ToolbarBindingTests : IDisposable {
         var enabled = true;
 
         commands.Add(
-            new EditorCommand("file.save", Title("Save"), () => { }) {
+            new EditorCommand("file.save", Title("Save"), static () => { }) {
                 Enablement = () => {
                     asked++;
 
@@ -106,7 +108,7 @@ public class ToolbarBindingTests : IDisposable {
         var active = "select";
 
         commands.Add(
-            new EditorCommand("mode.blockout", Title("Blockout"), () => { }) {
+            new EditorCommand("mode.blockout", Title("Blockout"), static () => { }) {
                 Checked = () => active == "blockout"
             }
         );
@@ -139,7 +141,7 @@ public class ToolbarBindingTests : IDisposable {
         var world = false;
 
         commands.Add(
-            new EditorCommand("scene.toggle-space", Title("Local Space"), () => { }) {
+            new EditorCommand("scene.toggle-space", Title("Local Space"), static () => { }) {
                 Caption = () => world
                     ? new StringId("test.space", "World Space")
                     : new StringId("test.space", "Local Space")
@@ -167,7 +169,7 @@ public class ToolbarBindingTests : IDisposable {
 
     [Fact]
     public void A_command_that_is_not_captioned_keeps_the_label_the_strip_gave_it() {
-        commands.Add("file.save", Title("Save"), () => { });
+        commands.Add("file.save", Title("Save"), static () => { });
 
         var toolbar = Toolbar();
         toolbar.Show("file.save");
@@ -187,7 +189,7 @@ public class ToolbarBindingTests : IDisposable {
 
     [Fact]
     public void An_id_the_registry_does_not_know_greys_a_button_bound_to_it() {
-        commands.Add("file.save", Title("Save"), () => { });
+        commands.Add("file.save", Title("Save"), static () => { });
 
         var toolbar = Toolbar();
         toolbar.Show("file.save");

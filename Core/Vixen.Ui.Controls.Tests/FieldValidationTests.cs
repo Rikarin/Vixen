@@ -8,11 +8,18 @@ namespace Vixen.Ui.Controls.Tests;
 
 /// <summary>A field that knows whether what it holds is acceptable.</summary>
 /// <remarks>
-///     ⚠ <b>Half of these assertions are about the accessibility tree rather than about the
-///     control's own properties, and that is the half that matters.</b>
+///     ⚠
+///     <b>
+///         Half of these assertions are about the accessibility tree rather than about the
+///         control's own properties, and that is the half that matters.
+///     </b>
 ///     <see cref="AccessibleStates.Required" /> and <see cref="AccessibleStates.Invalid" /> had been
-///     declared for as long as the tree had existed and <i>nothing in the repository produced
-///     either</i> — so a form's mandatory fields were announced exactly like its optional ones and a
+///     declared for as long as the tree had existed and
+///     <i>
+///         nothing in the repository produced
+///         either
+///     </i>
+///     — so a form's mandatory fields were announced exactly like its optional ones and a
 ///     rejected value exactly like an accepted one. A suite that only checked <c>IsValid</c> would
 ///     pass against a control that kept the verdict entirely to itself, which is what a screen reader
 ///     would then see.
@@ -63,7 +70,7 @@ public class FieldValidationTests {
         using var fixture = new ControlFixture();
         var field = fixture.Add<TextBox>();
 
-        field.Validator = value => value?.Contains('@') == true ? null : "Needs an at-sign";
+        field.Validator = static value => value?.Contains('@') == true ? null : "Needs an at-sign";
         field.Value = "ada";
 
         Assert.False(field.IsValid);
@@ -92,7 +99,7 @@ public class FieldValidationTests {
 
         Assert.True(field.IsValid);
 
-        field.Validator = _ => "No";
+        field.Validator = static _ => "No";
 
         Assert.False(field.IsValid);
         Assert.Equal("No", field.ValidationMessage);
@@ -164,8 +171,12 @@ public class FieldValidationTests {
 
     /// <summary>A required multi-select wants one, and one is what "required" means on a set.</summary>
     /// <remarks>
-    ///     ⚠ <b>The verdict is over the <i>set</i>, which is why this could not be a flag on
-    ///     <c>SelectBase</c>.</b> A <see cref="Select" /> asks whether <c>Value</c> is null; this
+    ///     ⚠
+    ///     <b>
+    ///         The verdict is over the <i>set</i>, which is why this could not be a flag on
+    ///         <c>SelectBase</c>.
+    ///     </b>
+    ///     A <see cref="Select" /> asks whether <c>Value</c> is null; this
     ///     asks whether anything is in the chosen set, and the two questions have no shared shape to
     ///     put on a base class beyond the word. Unchoosing the last one has to take the verdict back,
     ///     which is the half a writer hooked only to "something was added" gets wrong.
@@ -251,8 +262,12 @@ public class FieldValidationTests {
 
     /// <summary>A rule that is not the value moves the box as well as the editor.</summary>
     /// <remarks>
-    ///     ⚠ <b>The trap this method exists for: <c>Editor.Revalidate()</c> alone leaves the box
-    ///     stale.</b> The editor is where the rules live, so it is the object an application reaches
+    ///     ⚠
+    ///     <b>
+    ///         The trap this method exists for: <c>Editor.Revalidate()</c> alone leaves the box
+    ///         stale.
+    ///     </b>
+    ///     The editor is where the rules live, so it is the object an application reaches
     ///     for — and a mirror that is only refreshed by a value change is a mirror that is right
     ///     until the first time the answer moves for any other reason.
     /// </remarks>

@@ -4,7 +4,6 @@
 using Vixen.Core.Mathematics;
 using Vixen.Graphics;
 using Vixen.Rendering.Compositor;
-using Vixen.Shaders;
 using Vixen.Shaders.Generated;
 
 namespace Vixen.Rendering.PostFx;
@@ -77,8 +76,12 @@ public sealed class LightStreakRenderer : SceneRenderer, IDisposable, IPostProce
 
     /// <summary>Luminance above which a pixel streaks, in the source's units.</summary>
     /// <remarks>
-    ///     ⚠ <b>Photometric, and the first of the three bright-pass thresholds in this assembly to
-    ///     be — <c>!Bloom</c>'s and <c>!LensFlare</c>'s followed on 2026-09-10 (#1212).</b> The
+    ///     ⚠
+    ///     <b>
+    ///         Photometric, and the first of the three bright-pass thresholds in this assembly to
+    ///         be — <c>!Bloom</c>'s and <c>!LensFlare</c>'s followed on 2026-09-10 (#1212).
+    ///     </b>
+    ///     The
     ///     renderer works in cd/m² and nothing there is near one, so a threshold
     ///     of one streaks the floor — the smear stops being a shape put where a highlight is and
     ///     becomes a second copy of the whole picture. Measured on the Epic tier fixture: at one it
@@ -185,7 +188,7 @@ public sealed class LightStreakRenderer : SceneRenderer, IDisposable, IPostProce
             Configure(index + 1, 1, taps, Source, read, write, texel, stride);
 
             (read, write) = (write, read);
-            stride *= (taps * 2) + 1;
+            stride *= taps * 2 + 1;
         }
 
         Configure(blurs + 1, 2, taps, Source, read, Output, texel, stride);
@@ -258,34 +261,38 @@ public sealed class LightStreakRenderer : SceneRenderer, IDisposable, IPostProce
 
         pass.Descriptors.Bindings.Clear();
 
-        pass.Descriptors.Bindings.Add(new() {
-            Binding = LightStreakKeys.SourceBinding,
-            Kind = DescriptorKind.SampledTexture,
-            Resource = source
-        });
+        pass.Descriptors.Bindings.Add(
+            new() { Binding = LightStreakKeys.SourceBinding, Kind = DescriptorKind.SampledTexture, Resource = source }
+        );
 
-        pass.Descriptors.Bindings.Add(new() {
-            Binding = LightStreakKeys.SourceSamplerBinding,
-            Kind = DescriptorKind.Sampler,
-            Sampler = Samplers!.LinearClamp
-        });
+        pass.Descriptors.Bindings.Add(
+            new() {
+                Binding = LightStreakKeys.SourceSamplerBinding,
+                Kind = DescriptorKind.Sampler,
+                Sampler = Samplers!.LinearClamp
+            }
+        );
 
         // ⚠ The threshold pass binds a streak plane it never samples, and it must. A binding is in a
         // shader's plan because it was declared and not because a variant reads it, and a set short
         // one entry is not bound at all — so leaving it out refuses the pass rather than skipping a
         // texture. It is pointed at the scene rather than at the plane this pass writes, because a
         // pass declaring a read of its own target is what the graph refuses by name.
-        pass.Descriptors.Bindings.Add(new() {
-            Binding = LightStreakKeys.StreakBinding,
-            Kind = DescriptorKind.SampledTexture,
-            Resource = mode == 0 ? source : streak
-        });
+        pass.Descriptors.Bindings.Add(
+            new() {
+                Binding = LightStreakKeys.StreakBinding,
+                Kind = DescriptorKind.SampledTexture,
+                Resource = mode == 0 ? source : streak
+            }
+        );
 
-        pass.Descriptors.Bindings.Add(new() {
-            Binding = LightStreakKeys.StreakSamplerBinding,
-            Kind = DescriptorKind.Sampler,
-            Sampler = Samplers!.LinearClamp
-        });
+        pass.Descriptors.Bindings.Add(
+            new() {
+                Binding = LightStreakKeys.StreakSamplerBinding,
+                Kind = DescriptorKind.Sampler,
+                Sampler = Samplers!.LinearClamp
+            }
+        );
     }
 
     /// <summary>The axis, normalised, or the horizontal one when it was authored as zero.</summary>
@@ -295,8 +302,7 @@ public sealed class LightStreakRenderer : SceneRenderer, IDisposable, IPostProce
     ///     the input and reads as "the streak is subtle". Horizontal is what an anamorphic lens does,
     ///     so it is also the right answer to fall back to.
     /// </remarks>
-    Vector2 Axis =>
-        Direction.LengthSquared() > 1e-8f ? Vector2.Normalize(Direction) : new Vector2(1f, 0f);
+    Vector2 Axis => Direction.LengthSquared() > 1e-8f ? Vector2.Normalize(Direction) : new Vector2(1f, 0f);
 
     FullScreenRenderer Create(int index) =>
         new() {

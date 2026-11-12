@@ -48,8 +48,7 @@ internal sealed class IosViewController : UIViewController {
     ///     decision belonging to the application, not to the engine, so this defers rather than
     ///     narrowing it — a game that wants landscape only says so where the App Store also reads it.
     /// </summary>
-    public override UIInterfaceOrientationMask GetSupportedInterfaceOrientations() =>
-        UIInterfaceOrientationMask.All;
+    public override UIInterfaceOrientationMask GetSupportedInterfaceOrientations() => UIInterfaceOrientationMask.All;
 
     /// <inheritdoc />
     public override void LoadView() => View = MetalView;

@@ -7,7 +7,6 @@ using Vixen.Core.Yaml;
 using Vixen.Engine.Renderer;
 using Vixen.Rendering;
 using Vixen.Rendering.Compositor;
-using Vixen.Rendering.Features;
 using Vixen.Rendering.VirtualGeometry;
 using Vixen.Shaders;
 using Xunit;
@@ -65,11 +64,11 @@ public sealed class VirtualGeometryDeviceTests {
         effects.AddProvider(new Compiling(loader));
 
         var pipelines = new ComputePipelineCache(device);
-        using var geometry = new VirtualGeometrySystem(device, slots: 64, pageSize: PageSize);
+        using var geometry = new VirtualGeometrySystem(device, 64, PageSize);
 
         geometry.Effects = effects;
         geometry.Pipelines = pipelines;
-        geometry.Modules = new EffectPipelineDescriber(device);
+        geometry.Modules = new(device);
 
         using var host = new SceneRenderHost(device, effects);
 
@@ -83,9 +82,7 @@ public sealed class VirtualGeometryDeviceTests {
         var projection = Matrix4x4.PerspectiveFieldOfView(MathF.PI / 3f, 1f, 0.1f, 1000f);
 
         host.Builder.Views["Camera"] = new("camera") {
-            Position = Vector3.Zero,
-            Frustum = new(look * projection),
-            ScreenHeightScale = 1f
+            Position = Vector3.Zero, Frustum = new(look * projection), ScreenHeightScale = 1f
         };
 
         host.Load(YamlSerializer.Parse<GraphicsCompositorAsset>(Document));
@@ -119,15 +116,13 @@ public sealed class VirtualGeometryDeviceTests {
         // does, so an empty one is a mesh that never reaches the frustum test.
         var stages = host.Builder.Stages.Values.Aggregate(
             RenderStageMask.None,
-            (mask, stage) => mask | stage.Mask
+            static (mask, stage) => mask | stage.Mask
         );
 
         var id = host.System.Objects.Add(new() { Bounds = new(new(0f, 0f, -4f), 2f), Stages = stages });
 
         host.System.Objects.Data.Data(geometry.Feature.Draws)[id.Index] = new() {
-            Mesh = registered,
-            Position = new(0f, 0f, -4f),
-            Scale = 1f
+            Mesh = registered, Position = new(0f, 0f, -4f), Scale = 1f
         };
 
         geometry.Feature.ScreenHeight = Fixture.Side;
@@ -193,30 +188,30 @@ public sealed class VirtualGeometryDeviceTests {
     ///     and leave the document format — the thing an author edits — untested against a device.
     /// </remarks>
     const string Document = """
-        version: 2
-        resources:
-          - name: SceneColour
-            format: Rgba16Float
-            usage: ColourTarget, Sampled, Storage
-          - name: SceneDepth
-            format: Depth32Float
-            usage: DepthStencilTarget, Sampled
-        stages:
-          - name: Opaque
-        game: !Sequence
-          name: Frame
-          children:
-            - !RenderPass
-              name: ClearDepth
-              depthTarget: SceneDepth
-            - !ClusterCulling
-              name: Traversal
-            - !VisibilityBuffer
-              name: Visibility
-              view: Camera
-              depth: SceneDepth
-              colour: SceneColour
-        """;
+                            version: 2
+                            resources:
+                              - name: SceneColour
+                                format: Rgba16Float
+                                usage: ColourTarget, Sampled, Storage
+                              - name: SceneDepth
+                                format: Depth32Float
+                                usage: DepthStencilTarget, Sampled
+                            stages:
+                              - name: Opaque
+                            game: !Sequence
+                              name: Frame
+                              children:
+                                - !RenderPass
+                                  name: ClearDepth
+                                  depthTarget: SceneDepth
+                                - !ClusterCulling
+                                  name: Traversal
+                                - !VisibilityBuffer
+                                  name: Visibility
+                                  view: Camera
+                                  depth: SceneDepth
+                                  colour: SceneColour
+                            """;
 
     static bool TryOpen(out Fixture? fixture) {
         if (Fixture.TryOpen(out fixture, out var reason)) {
@@ -238,13 +233,13 @@ public sealed class VirtualGeometryDeviceTests {
 
         for (var y = 0; y <= segments; y++) {
             for (var x = 0; x <= segments; x++) {
-                positions.Add(new(((float)x / segments) - 0.5f, ((float)y / segments) - 0.5f, 0f));
+                positions.Add(new((float)x / segments - 0.5f, (float)y / segments - 0.5f, 0f));
             }
         }
 
         for (var y = 0; y < segments; y++) {
             for (var x = 0; x < segments; x++) {
-                var a = (y * (segments + 1)) + x;
+                var a = y * (segments + 1) + x;
                 var b = a + 1;
                 var c = a + segments + 1;
                 var d = c + 1;
@@ -259,7 +254,7 @@ public sealed class VirtualGeometryDeviceTests {
             }
         }
 
-        var input = new MeshletBuildInput { Positions = [.. positions], Indices = [.. indices] };
+        var input = new MeshletBuildInput { Positions = [..positions], Indices = [..indices] };
         var mesh = MeshletBuilder.Build(input);
 
         return (mesh, MeshletPageBuilder.Build(mesh, input.Positions, [], new() { PageSize = PageSize }));

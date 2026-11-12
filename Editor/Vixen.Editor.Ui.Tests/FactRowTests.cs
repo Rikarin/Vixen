@@ -10,8 +10,12 @@ namespace Vixen.Editor.Ui.Tests;
 
 /// <summary>The shared fact row, held to the four lines it replaces.</summary>
 /// <remarks>
-///     ⚠ <b>The assertion is the whole element tree with every rectangle in it, not a property
-///     read.</b> A shared part that draws the same shape a pixel to the left is a defect and a
+///     ⚠
+///     <b>
+///         The assertion is the whole element tree with every rectangle in it, not a property
+///         read.
+///     </b>
+///     A shared part that draws the same shape a pixel to the left is a defect and a
 ///     property assertion cannot see it, so this builds the hand-written form, writes down what the
 ///     document looks like, throws it away, builds the part in exactly the same place, and compares
 ///     the two dumps as strings. Same place, because <c>UiTest.Tree</c> prints absolute positions.
@@ -48,22 +52,24 @@ public sealed class FactRowTests : IDisposable {
 
     [Fact]
     public void The_part_builds_the_tree_the_hand_written_helper_did() {
-        var handWritten = Dump(host => {
-            HandWritten(host, "Texels", "1024 × 1024");
-            HandWritten(host, "Snap grid", "0.5 m (derived)");
-            HandWritten(host, "Memory", "4 MB");
-        });
-
-        var part = Dump(host => {
-            foreach (var (label, value) in new[] {
-                ("Texels", "1024 × 1024"), ("Snap grid", "0.5 m (derived)"), ("Memory", "4 MB")
-            }) {
-                var row = host.Add<FactRow>();
-
-                row.Name = label;
-                row.Value = value;
+        var handWritten = Dump(static host => {
+                HandWritten(host, "Texels", "1024 × 1024");
+                HandWritten(host, "Snap grid", "0.5 m (derived)");
+                HandWritten(host, "Memory", "4 MB");
             }
-        });
+        );
+
+        var part = Dump(static host => {
+                foreach (var (label, value) in new[] {
+                             ("Texels", "1024 × 1024"), ("Snap grid", "0.5 m (derived)"), ("Memory", "4 MB")
+                         }) {
+                    var row = host.Add<FactRow>();
+
+                    row.Name = label;
+                    row.Value = value;
+                }
+            }
+        );
 
         Assert.Equal(handWritten, part);
     }

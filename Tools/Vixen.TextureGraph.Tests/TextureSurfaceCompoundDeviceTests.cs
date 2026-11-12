@@ -17,17 +17,17 @@ public class TextureSurfaceCompoundDeviceTests(ITestOutputHelper output) {
 
         output.WriteLine($"adapter: {TextureKernelHarness.Adapter(device)}");
 
-        Wire[] noise = [new("Input", [], Grey: true, Source: "Noise/Clouds")];
+        Wire[] noise = [new("Input", [], true, "Noise/Clouds")];
 
         var low = Bake(device, "Utility/Frequency Split", Side, Side, noise, output: "Low");
         var high = Bake(device, "Utility/Frequency Split", Side, Side, noise, output: "High");
-        var input = Bake(device, "Colour/Levels", Side, Side, [new("Input", [], Grey: true, Source: "Noise/Clouds")]);
+        var input = Bake(device, "Colour/Levels", Side, Side, [new("Input", [], true, "Noise/Clouds")]);
 
         var detail = 0.0;
 
         for (var y = 0; y < Side; y++) {
             for (var x = 0; x < Side; x++) {
-                Assert.Equal(input.At(x, y, 0), low.At(x, y, 0) + (2f * high.At(x, y, 0)) - 1f, 0.0005f);
+                Assert.Equal(input.At(x, y, 0), low.At(x, y, 0) + 2f * high.At(x, y, 0) - 1f, 0.0005f);
 
                 detail += Math.Abs(high.At(x, y, 0) - 0.5f);
             }
@@ -46,16 +46,16 @@ public class TextureSurfaceCompoundDeviceTests(ITestOutputHelper output) {
         using var device = TextureKernelHarness.Open();
 
         // A square from 8 to 55. The default width reaches 0.004 + 0.15 · 0.2 of 64: a little over two texels.
-        var square = Grey(Side, Side, (x, y) => x is >= 8 and < 56 && y is >= 8 and < 56 ? 1f : 0f);
+        var square = Grey(Side, Side, static (x, y) => x is >= 8 and < 56 && y is >= 8 and < 56 ? 1f : 0f);
 
-        var height = Bake(device, "Surface/Bevel Height", Side, Side, [new("Mask", square, Grey: true)], tiling: false);
+        var height = Bake(device, "Surface/Bevel Height", Side, Side, [new("Mask", square, true)], tiling: false);
         var wide = Bake(
             device,
             "Surface/Bevel Height",
             Side,
             Side,
-            [new("Mask", square, Grey: true)],
-            node => node.SetText("width", "1"),
+            [new("Mask", square, true)],
+            static node => node.SetText("width", "1"),
             tiling: false
         );
 

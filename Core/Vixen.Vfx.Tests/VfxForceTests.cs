@@ -137,9 +137,7 @@ public class VfxForceTests {
     /// </summary>
     [Fact]
     public void A_vortex_adds_no_motion_along_its_axis() {
-        using var system = Scattered(
-            new(VfxOpcode.Vortex, new Vector4(0f, 0f, 0f, 5f)) { B = new(0f, 1f, 0f, 0f) }
-        );
+        using var system = Scattered(new(VfxOpcode.Vortex, new Vector4(0f, 0f, 0f, 5f)) { B = new(0f, 1f, 0f, 0f) });
 
         var positions = system.Particles.Position;
         var velocities = system.Particles.Velocity;
@@ -209,7 +207,7 @@ public class VfxForceTests {
     ///         The tolerance is loose on purpose: the differences are taken at one epsilon and the
     ///         divergence is measured at another, so what is being asserted is "small compared to the
     ///         field" rather than "zero".
-    /// </para>
+    ///     </para>
     /// </remarks>
     [Fact]
     public void Curl_noise_has_almost_no_divergence() {
@@ -222,9 +220,12 @@ public class VfxForceTests {
             var point = new Vector3(i * 0.37f, i * -0.19f, i * 0.61f);
 
             var divergence =
-                (VfxNoise.Curl(point + new Vector3(Step, 0f, 0f), 3).X - VfxNoise.Curl(point - new Vector3(Step, 0f, 0f), 3).X)
-                + (VfxNoise.Curl(point + new Vector3(0f, Step, 0f), 3).Y - VfxNoise.Curl(point - new Vector3(0f, Step, 0f), 3).Y)
-                + (VfxNoise.Curl(point + new Vector3(0f, 0f, Step), 3).Z - VfxNoise.Curl(point - new Vector3(0f, 0f, Step), 3).Z);
+                VfxNoise.Curl(point + new Vector3(Step, 0f, 0f), 3).X
+                - VfxNoise.Curl(point - new Vector3(Step, 0f, 0f), 3).X
+                + (VfxNoise.Curl(point + new Vector3(0f, Step, 0f), 3).Y
+                    - VfxNoise.Curl(point - new Vector3(0f, Step, 0f), 3).Y)
+                + (VfxNoise.Curl(point + new Vector3(0f, 0f, Step), 3).Z
+                    - VfxNoise.Curl(point - new Vector3(0f, 0f, Step), 3).Z);
 
             worst = MathF.Max(worst, MathF.Abs(divergence / (2f * Step)));
             magnitude = MathF.Max(magnitude, VfxNoise.Curl(point, 3).Length());
@@ -246,7 +247,7 @@ public class VfxForceTests {
 
         // Straddling an integer coordinate, which is exactly where a linear interpolant creases.
         for (var i = -20; i <= 20; i++) {
-            var x = 3f + (i * 0.005f);
+            var x = 3f + i * 0.005f;
             var here = VfxNoise.Value(new(x, 0.5f, 0.5f), 1);
             var next = VfxNoise.Value(new(x + 0.005f, 0.5f, 0.5f), 1);
 
@@ -259,7 +260,9 @@ public class VfxForceTests {
     /// <summary>Turbulence pushes particles about, and identically for the same seed.</summary>
     [Fact]
     public void Turbulence_moves_particles_and_stays_reproducible() {
-        var force = new VfxOperation(VfxOpcode.Turbulence, new Vector4(0.5f, 0.5f, 0.5f, 20f)) { B = new(1f, 3f, 0f, 0f) };
+        var force = new VfxOperation(VfxOpcode.Turbulence, new Vector4(0.5f, 0.5f, 0.5f, 20f)) {
+            B = new(1f, 3f, 0f, 0f)
+        };
 
         using var one = Scattered(force);
         using var other = Scattered(force);
@@ -336,8 +339,7 @@ public class VfxForceTests {
     /// </summary>
     [Fact]
     public void A_field_with_nothing_to_act_on_is_refused() {
-        var error = Assert.Throws<ArgumentException>(
-            () => VfxCompiledGraph.Compile(
+        var error = Assert.Throws<ArgumentException>(() => VfxCompiledGraph.Compile(
                 [VfxSpawner.Burst(1)],
                 [new(VfxOpcode.SetVelocity, Vector4.Zero)],
                 [new(VfxOpcode.Vortex, new Vector4(0f, 0f, 0f, 1f)) { B = new(0f, 1f, 0f, 0f) }],

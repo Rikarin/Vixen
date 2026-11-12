@@ -29,10 +29,10 @@ public class TextureDrawingDeviceTests(ITestOutputHelper output) {
 
     /// <summary>A half-red, half-empty frame.</summary>
     const string HalfRed =
-        "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\"><rect width=\"50\" height=\"100\" fill=\"#ff0000\"/></svg>";
+        """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="50" height="100" fill="#ff0000"/></svg>""";
 
     sealed record Baked(float[] Lanes, int Width, int Height, int Channels) {
-        public float At(int x, int y, int lane) => Lanes[(((y * Width) + x) * Channels) + lane];
+        public float At(int x, int y, int lane) => Lanes[(y * Width + x) * Channels + lane];
 
         public float Ink => Enumerable.Range(0, Width * Height).Sum(at => Lanes[at * Channels]);
     }
@@ -68,7 +68,8 @@ public class TextureDrawingDeviceTests(ITestOutputHelper output) {
 
         NodeTypes.Register(registry);
 
-        TextureGraphCompiler compiler = new(registry) { BaseWidth = Side, BaseHeight = Side, BakeLevelOffset = bakeLevel };
+        TextureGraphCompiler compiler =
+            new(registry) { BaseWidth = Side, BaseHeight = Side, BakeLevelOffset = bakeLevel };
         var compilation = compiler.Compile(graph);
 
         Assert.Empty(compilation.Diagnostics.Where(static diagnostic => diagnostic.Severity == NodeSeverity.Error));
@@ -98,7 +99,8 @@ public class TextureDrawingDeviceTests(ITestOutputHelper output) {
     static byte[] NoFile(string name) => throw new FileNotFoundException($"no file '{name}' in this test");
 
     static byte[] OpenSans() {
-        using var stream = typeof(TextureDrawingDeviceTests).Assembly.GetManifestResourceStream("Fonts.OpenSans-Regular.ttf");
+        using var stream =
+            typeof(TextureDrawingDeviceTests).Assembly.GetManifestResourceStream("Fonts.OpenSans-Regular.ttf");
 
         Assert.NotNull(stream);
 
@@ -111,15 +113,21 @@ public class TextureDrawingDeviceTests(ITestOutputHelper output) {
 
     [Fact]
     public void Letters_twice_the_size_cover_four_times_the_texels() {
-        var small = Bake("Source/Text", node => {
-            node.SetText("Text", "HEH");
-            node.SetValue("Size", 0.2f);
-        }, NoFile
+        var small = Bake(
+            "Source/Text",
+            static node => {
+                node.SetText("Text", "HEH");
+                node.SetValue("Size", 0.2f);
+            },
+            NoFile
         );
-        var large = Bake("Source/Text", node => {
-            node.SetText("Text", "HEH");
-            node.SetValue("Size", 0.4f);
-        }, NoFile
+        var large = Bake(
+            "Source/Text",
+            static node => {
+                node.SetText("Text", "HEH");
+                node.SetValue("Size", 0.4f);
+            },
+            NoFile
         );
 
         output.WriteLine($"ink: {small.Ink} at 0.2, {large.Ink} at 0.4");
@@ -131,10 +139,10 @@ public class TextureDrawingDeviceTests(ITestOutputHelper output) {
 
     [Fact]
     public void A_bake_at_twice_the_resolution_sets_the_same_words_at_twice_the_texels() {
-        void Words(GraphNode node) => node.SetText("Text", "Patina");
+        static void Words(GraphNode node) => node.SetText("Text", "Patina");
 
         var authored = Bake("Source/Text", Words, NoFile);
-        var doubled = Bake("Source/Text", Words, NoFile, bakeLevel: -1);
+        var doubled = Bake("Source/Text", Words, NoFile, -1);
 
         Assert.Equal(Side * 2, doubled.Width);
         Assert.Equal(4f, doubled.Ink / authored.Ink, 0.12f);
@@ -150,11 +158,14 @@ public class TextureDrawingDeviceTests(ITestOutputHelper output) {
             return OpenSans();
         }
 
-        var two = Bake("Source/Text", node => {
-            node.SetText("Text", "I\nI");
-            node.SetText("Font", "fonts/OpenSans.ttf");
-            node.SetValue("Line Spacing", 1.5f);
-        }, Read
+        var two = Bake(
+            "Source/Text",
+            static node => {
+                node.SetText("Text", "I\nI");
+                node.SetText("Font", "fonts/OpenSans.ttf");
+                node.SetValue("Line Spacing", 1.5f);
+            },
+            Read
         );
 
         Assert.Equal(["fonts/OpenSans.ttf"], asked);
@@ -163,14 +174,17 @@ public class TextureDrawingDeviceTests(ITestOutputHelper output) {
         static float Band(Baked picture, int from, int to) =>
             Enumerable.Range(from, to - from).Sum(y => Enumerable.Range(0, Side).Sum(x => picture.At(x, y, 0)));
 
-        Assert.True(Band(two, 0, Side / 2) > 20f && Band(two, Side / 2, Side) > 20f, $"the halves hold {Band(two, 0, Side / 2)} and {Band(two, Side / 2, Side)}");
+        Assert.True(
+            Band(two, 0, Side / 2) > 20f && Band(two, Side / 2, Side) > 20f,
+            $"the halves hold {Band(two, 0, Side / 2)} and {Band(two, Side / 2, Side)}"
+        );
         Assert.Equal(Band(two, 0, Side / 2), Band(two, Side / 2, Side), Band(two, 0, Side) * 0.05f);
         Assert.Equal(0f, Enumerable.Range(0, Side).Sum(x => two.At(x, Side / 2, 0)), 0.5f);
     }
 
     [Fact]
     public void A_word_across_the_seam_comes_back_in_at_the_far_edge_only_when_the_graph_tiles() {
-        void Edge(GraphNode node) {
+        static void Edge(GraphNode node) {
             node.SetText("Text", "MMMM");
             node.SetValue("Position X", 1f);
         }
@@ -188,11 +202,18 @@ public class TextureDrawingDeviceTests(ITestOutputHelper output) {
 
     [Fact]
     public void A_vector_draws_its_colours_decoded_to_linear_and_its_coverage_as_a_mask() {
-        var colour = Bake("Source/Vector", node => node.SetText("File", "logo.svg"), static _ => Encoding.UTF8.GetBytes(HalfRed));
-        var mask = Bake("Source/Vector", node => {
-            node.SetText("File", "logo.svg");
-            node.SetText("Draw", "Coverage");
-        }, static _ => Encoding.UTF8.GetBytes(HalfRed)
+        var colour = Bake(
+            "Source/Vector",
+            static node => node.SetText("File", "logo.svg"),
+            static _ => Encoding.UTF8.GetBytes(HalfRed)
+        );
+        var mask = Bake(
+            "Source/Vector",
+            static node => {
+                node.SetText("File", "logo.svg");
+                node.SetText("Draw", "Coverage");
+            },
+            static _ => Encoding.UTF8.GetBytes(HalfRed)
         );
 
         Assert.Equal(4, colour.Channels);
@@ -220,12 +241,20 @@ public class TextureDrawingDeviceTests(ITestOutputHelper output) {
 
         var compilation = new TextureGraphCompiler(registry) { BaseWidth = Side, BaseHeight = Side }.Compile(graph);
 
-        Assert.Contains(compilation.Diagnostics, diagnostic => diagnostic.Id == "TG0002" && diagnostic.Node == vector.Id);
+        Assert.Contains(
+            compilation.Diagnostics,
+            diagnostic => diagnostic.Id == "TG0002" && diagnostic.Node == vector.Id
+        );
     }
 
     [Fact]
     public void A_file_that_is_no_font_is_refused_with_a_sentence() {
-        var failure = Assert.ThrowsAny<Exception>(() => Bake("Source/Text", node => node.SetText("Font", "notes.txt"), static _ => Encoding.UTF8.GetBytes("not a font")));
+        var failure = Assert.ThrowsAny<Exception>(static () => Bake(
+                "Source/Text",
+                static node => node.SetText("Font", "notes.txt"),
+                static _ => Encoding.UTF8.GetBytes("not a font")
+            )
+        );
 
         Assert.IsType<InvalidDataException>(failure);
         Assert.Contains("notes.txt", failure.Message, StringComparison.Ordinal);

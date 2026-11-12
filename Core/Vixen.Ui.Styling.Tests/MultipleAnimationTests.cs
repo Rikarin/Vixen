@@ -37,11 +37,13 @@ public class MultipleAnimationTests {
 
     [Fact]
     public void Both_animations_run() {
-        var (animator, element, fixture) = Running("""
+        var (animator, element, fixture) = Running(
+            """
             @keyframes fade { from { opacity: 0 } to { opacity: 1 } }
             @keyframes grow { from { width: 0px } to { width: 100px } }
             .a { animation: fade 2s linear, grow 2s linear }
-            """);
+            """
+        );
 
         Assert.Equal(2, animator.AnimationCount);
         Assert.Equal(1, animator.AnimatedElementCount);
@@ -58,16 +60,20 @@ public class MultipleAnimationTests {
 
     [Fact]
     public void Each_animation_gets_its_own_duration() {
-        var (animator, element, fixture) = Running("""
+        var (animator, element, fixture) = Running(
+            """
             @keyframes fade { from { opacity: 0 } to { opacity: 1 } }
             @keyframes grow { from { width: 0px } to { width: 100px } }
             .a { animation: fade 1s linear, grow 4s linear }
-            """);
+            """
+        );
 
         // ⚠ At half a second the fast one is half done and the slow one is an eighth. Reading the
         // first duration for both — the obvious mistake — puts the second at half as well, and every
         // assertion that used the same duration twice would agree with it.
-        Assert.True(animator.TryGetAnimated(element, fixture.Engine.Properties.Lookup("opacity"), 0.5f, out var opacity));
+        Assert.True(
+            animator.TryGetAnimated(element, fixture.Engine.Properties.Lookup("opacity"), 0.5f, out var opacity)
+        );
         Assert.Equal(0.5f, opacity.Number, Tolerance);
 
         Assert.True(animator.TryGetAnimated(element, fixture.Engine.Properties.Lookup("width"), 0.5f, out var width));
@@ -76,11 +82,13 @@ public class MultipleAnimationTests {
 
     [Fact]
     public void A_shorter_longhand_list_cycles_over_the_names() {
-        var (animator, element, fixture) = Running("""
+        var (animator, element, fixture) = Running(
+            """
             @keyframes fade { from { opacity: 0 } to { opacity: 1 } }
             @keyframes grow { from { width: 0px } to { width: 100px } }
             .a { animation-name: fade, grow; animation-duration: 2s; animation-timing-function: linear }
-            """);
+            """
+        );
 
         // ⚠ CSS Animations 1 §4.4: the shorter list repeats rather than running out. One duration for
         // two names gives both two seconds — an implementation that indexed straight into the list
@@ -97,11 +105,13 @@ public class MultipleAnimationTests {
 
     [Fact]
     public void The_later_animation_wins_a_property_they_both_set() {
-        var (animator, element, fixture) = Running("""
+        var (animator, element, fixture) = Running(
+            """
             @keyframes dim { from { opacity: 0 } to { opacity: 0.2 } }
             @keyframes bright { from { opacity: 0 } to { opacity: 1 } }
             .a { animation: dim 2s linear, bright 2s linear }
-            """);
+            """
+        );
 
         // CSS Animations 1 §3: where two of an element's animations set the same property, the one
         // closer to the end of `animation-name` decides it.
@@ -111,11 +121,13 @@ public class MultipleAnimationTests {
 
     [Fact]
     public void An_animation_with_no_opinion_does_not_silence_the_one_before_it() {
-        var (animator, element, fixture) = Running("""
+        var (animator, element, fixture) = Running(
+            """
             @keyframes fade { from { opacity: 0 } to { opacity: 1 } }
             @keyframes grow { from { width: 0px } to { width: 100px } }
             .a { animation: fade 2s linear, grow 2s linear }
-            """);
+            """
+        );
 
         // ⚠ **The last animation that has an opinion, not the last animation.** `grow` says nothing
         // about opacity, and a loop that stopped at the last entry — or that returned as soon as it
@@ -128,13 +140,15 @@ public class MultipleAnimationTests {
     [Fact]
     public void Changing_one_name_leaves_the_other_where_it_was() {
         var fixture = new CascadeFixture();
-        fixture.Load("""
+        fixture.Load(
+            """
             @keyframes fade { from { opacity: 0 } to { opacity: 1 } }
             @keyframes grow { from { width: 0px } to { width: 100px } }
             @keyframes shrink { from { width: 100px } to { width: 0px } }
             .a { animation: fade 4s linear, grow 4s linear }
             .a.swapped { animation: fade 4s linear, shrink 4s linear }
-            """);
+            """
+        );
 
         var element = fixture.Tree.CreateElement("div", classNames: ["a"]);
         var animator = Animator(fixture);
@@ -162,11 +176,13 @@ public class MultipleAnimationTests {
 
     [Fact]
     public void Re_resolving_an_unchanged_style_restarts_nothing() {
-        var (animator, element, fixture) = Running("""
+        var (animator, element, fixture) = Running(
+            """
             @keyframes fade { from { opacity: 0 } to { opacity: 1 } }
             @keyframes grow { from { width: 0px } to { width: 100px } }
             .a { animation: fade 2s linear, grow 2s linear }
-            """);
+            """
+        );
 
         var style = fixture.Engine.Resolver.Resolve(fixture.Tree, element);
         animator.Observe(element, style, style, 1f);
@@ -180,10 +196,12 @@ public class MultipleAnimationTests {
 
     [Fact]
     public void A_name_of_none_takes_its_place_in_the_list_without_running() {
-        var (animator, element, fixture) = Running("""
+        var (animator, element, fixture) = Running(
+            """
             @keyframes grow { from { width: 0px } to { width: 100px } }
             .a { animation-name: none, grow; animation-duration: 1s, 4s; animation-timing-function: linear }
-            """);
+            """
+        );
 
         // ⚠ `none` is skipped but its *position* is not: the durations are matched by index, so the
         // grow must get the 4s and not the 1s. Collapsing the list before matching is the tidy
@@ -196,10 +214,12 @@ public class MultipleAnimationTests {
 
     [Fact]
     public void The_names_decide_how_many_there_are() {
-        var (animator, _, _) = Running("""
+        var (animator, _, _) = Running(
+            """
             @keyframes fade { from { opacity: 0 } to { opacity: 1 } }
             .a { animation-name: fade; animation-duration: 1s, 2s, 3s; animation-timing-function: linear }
-            """);
+            """
+        );
 
         // One name, one animation. Taking the longest list instead would invent two more with no
         // keyframes behind them.

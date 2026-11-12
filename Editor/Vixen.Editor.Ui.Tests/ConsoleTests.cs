@@ -12,8 +12,12 @@ namespace Vixen.Editor.Ui.Tests;
 
 /// <summary>What the console shows, and what it costs to show it.</summary>
 /// <remarks>
-///     ⚠ <b>Doc 20's warning about the console is a performance claim, so one of these is a
-///     performance test.</b> "A game logging per frame into a panel that keeps strings is a leak with
+///     ⚠
+///     <b>
+///         Doc 20's warning about the console is a performance claim, so one of these is a
+///         performance test.
+///     </b>
+///     "A game logging per frame into a panel that keeps strings is a leak with
 ///     a UI" — the assertion that makes that not happen is that a hundred thousand lines produce a
 ///     bounded buffer and about thirty elements, and nothing else in the suite would notice if that
 ///     stopped being true.
@@ -240,12 +244,12 @@ public class ConsoleTests : IDisposable {
         // notices, which is why the model surfaces it.
         Assert.Equal(sink.Capacity, model.Count);
         Assert.True(model.Dropped > 0);
-        Assert.Equal("line " + ((sink.Capacity * 2) - 1), model[model.Count - 1].Record.Message);
+        Assert.Equal("line " + (sink.Capacity * 2 - 1), model[model.Count - 1].Record.Message);
     }
 
     [Fact]
     public void The_buffer_is_bounded_however_much_is_logged() {
-        var model = Model(capacity: 128);
+        var model = Model(128);
 
         for (var index = 0; index < 5_000; index++) {
             Log(LogLevel.Information, "Editor", "line " + index);
@@ -273,7 +277,7 @@ public class ConsoleViewTests : IDisposable {
         EditorTheme.Install(document);
 
         view = document.Root.Add<ConsoleView>();
-        view.Show(new ConsoleModel(sink));
+        view.Show(new(sink));
     }
 
     public void Dispose() {
@@ -306,13 +310,21 @@ public class ConsoleViewTests : IDisposable {
             document.Dispatch(new PointerEvent { X = x, Y = y, Action = PointerAction.Moved, Timestamp = clock });
             document.Dispatch(
                 new PointerEvent {
-                    X = x, Y = y, Action = PointerAction.Pressed, Button = PointerButton.Primary, Timestamp = clock
+                    X = x,
+                    Y = y,
+                    Action = PointerAction.Pressed,
+                    Button = PointerButton.Primary,
+                    Timestamp = clock
                 }
             );
 
             document.Dispatch(
                 new PointerEvent {
-                    X = x, Y = y, Action = PointerAction.Released, Button = PointerButton.Primary, Timestamp = clock
+                    X = x,
+                    Y = y,
+                    Action = PointerAction.Released,
+                    Button = PointerButton.Primary,
+                    Timestamp = clock
                 }
             );
 
@@ -375,8 +387,12 @@ public class ConsoleViewTests : IDisposable {
     /// <summary>A stack deeper than the detail pane can be scrolled to its last line.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The pane is 132 px tall and was <c>overflow: auto</c>, which in this UI clips
-    ///         and does not scroll.</b> The comment above <c>ShowDetail</c> says the stack is the
+    ///         ⚠
+    ///         <b>
+    ///             The pane is 132 px tall and was <c>overflow: auto</c>, which in this UI clips
+    ///             and does not scroll.
+    ///         </b>
+    ///         The comment above <c>ShowDetail</c> says the stack is the
     ///         reason somebody clicked the row, and for as long as the pane was a plain element every
     ///         frame of it past the first handful was cut off with no way to reach it — the same
     ///         defect as the New Asset… picker's, in the place a user sees first (#1275). The pane is
@@ -400,7 +416,7 @@ public class ConsoleViewTests : IDisposable {
         Click(row);
         Frame();
 
-        var stack = view.Detail.Children.Last(child => child.Tag == "console-detail-stack");
+        var stack = view.Detail.Children.Last(static child => child.Tag == "console-detail-stack");
 
         // ⚠ This document has no font, so forty lines of text measure nothing tall. The stack's box
         // is given the height those lines would have, because the property under test is the pane's
@@ -464,7 +480,10 @@ public class ConsoleViewTests : IDisposable {
 
         Assert.Null(Scroller(view.Search, view));
         Assert.True(scroller.MaximumTop > 0f, "two hundred rows must overflow the list");
-        Assert.True(view.Search.AbsoluteTop + view.Search.Height <= scroller.AbsoluteTop, "the field is above the list");
+        Assert.True(
+            view.Search.AbsoluteTop + view.Search.Height <= scroller.AbsoluteTop,
+            "the field is above the list"
+        );
 
         var resting = view.Search.AbsoluteTop;
 
@@ -558,8 +577,10 @@ public class ConsoleViewTests : IDisposable {
         Log(LogLevel.Warning, "three");
         Frame();
 
-        var buttons = view.Toolbar.Children.OfType<ToggleButton>().Where(button => button.HasClass("console-level")).ToList();
-        var warnings = Assert.Single(buttons, button => button.HasClass("level-warning"));
+        var buttons = view.Toolbar.Children.OfType<ToggleButton>()
+            .Where(static button => button.HasClass("console-level"))
+            .ToList();
+        var warnings = Assert.Single(buttons, static button => button.HasClass("level-warning"));
 
         Assert.Equal("2", warnings.Label);
         Assert.True(warnings.IsChecked);
@@ -625,7 +646,7 @@ public class ConsoleViewTests : IDisposable {
         sink.CreateLogger("Vixen.Other").Log(LogLevel.Information, default, "two", null, static (state, _) => state);
         Frame();
 
-        var values = view.Categories.Options.Select(option => option.Value).ToList();
+        var values = view.Categories.Options.Select(static option => option.Value).ToList();
 
         Assert.Contains("Vixen.Editor.Tests", values);
         Assert.Contains("Vixen.Other", values);
@@ -652,7 +673,7 @@ public class ConsoleViewTests : IDisposable {
 
         var errors = Assert.Single(
             view.Toolbar.Children.OfType<ToggleButton>(),
-            button => button.HasClass("console-level") && button.HasClass("level-error")
+            static button => button.HasClass("console-level") && button.HasClass("level-error")
         );
 
         Assert.Null(view.List.RowOf(0));
@@ -696,8 +717,8 @@ public class ConsoleViewTests : IDisposable {
         document.Update();
 
         var labels = reopened.Categories.Options
-            .Where(option => !string.IsNullOrEmpty(option.Value))
-            .Select(option => $"{option.Value}={option.Label}")
+            .Where(static option => !string.IsNullOrEmpty(option.Value))
+            .Select(static option => $"{option.Value}={option.Label}")
             .ToList();
 
         Assert.Equal(["Vixen.Editor.Tests=Tests", "Vixen.Other=Other"], labels);

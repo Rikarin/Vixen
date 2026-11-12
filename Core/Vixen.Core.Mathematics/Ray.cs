@@ -33,7 +33,7 @@ public readonly struct Ray : IEquatable<Ray>, IFormattable {
     /// <summary>The point <paramref name="distance" /> along the ray.</summary>
     /// <param name="distance">How far along.</param>
     /// <returns>The point.</returns>
-    public Vector3 GetPoint(float distance) => Origin + (Direction * distance);
+    public Vector3 GetPoint(float distance) => Origin + Direction * distance;
 
     /// <summary>Where the ray meets a plane.</summary>
     /// <param name="plane">The plane.</param>
@@ -72,7 +72,7 @@ public readonly struct Ray : IEquatable<Ray>, IFormattable {
             return false;
         }
 
-        var perpendicularSquared = distanceSquared - (projection * projection);
+        var perpendicularSquared = distanceSquared - projection * projection;
         if (perpendicularSquared > radiusSquared) {
             return false;
         }

@@ -144,7 +144,7 @@ public sealed class MemorySnapshot {
             rows.Add(new(MemoryArena.Managed, "Fragmented", info.FragmentedBytes, "free space inside used segments"));
         }
 
-        rows.Add(new(MemoryArena.Managed, "Allocated since start", GC.GetTotalAllocatedBytes(false)));
+        rows.Add(new(MemoryArena.Managed, "Allocated since start", GC.GetTotalAllocatedBytes()));
 
         for (var generation = 0; generation <= GC.MaxGeneration; generation++) {
             rows.Add(
@@ -168,7 +168,7 @@ public sealed class MemorySnapshot {
                     "Not tracked in this build",
                     0,
                     "LeakTracker compiles out without DEBUG or VIXEN_MEMORY_DEBUG",
-                    IsCount: true
+                    true
                 )
             );
 
@@ -190,7 +190,7 @@ public sealed class MemorySnapshot {
 
         // Biggest category first, because the one holding ten thousand handles is the answer and the
         // one holding three is noise underneath it.
-        foreach (var (category, count) in byCategory.OrderByDescending(entry => entry.Value)) {
+        foreach (var (category, count) in byCategory.OrderByDescending(static entry => entry.Value)) {
             rows.Add(new(MemoryArena.Native, category, count, IsCount: true));
         }
 

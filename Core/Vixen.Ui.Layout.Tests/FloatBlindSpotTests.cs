@@ -20,9 +20,13 @@ namespace Vixen.Ui.Layout.Tests;
 ///         count suggests.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Two of the four rows this file was written to pin were already right, one was wrong
-///         for a different reason than the row said, and the fourth turned out to be a special case of
-///         a defect nobody had named.</b> Recorded per test below, because a refuted row is worth as
+///         ⚠
+///         <b>
+///             Two of the four rows this file was written to pin were already right, one was wrong
+///             for a different reason than the row said, and the fourth turned out to be a special case of
+///             a defect nobody had named.
+///         </b>
+///         Recorded per test below, because a refuted row is worth as
 ///         much as a fix and this file is the only place either lands.
 ///     </para>
 ///     <para>
@@ -142,8 +146,11 @@ public sealed class FloatBlindSpotTests {
     ///     A float's own top margin is part of its margin box, and collapses with nothing.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>Confirmed rather than refuted, and the row's own framing was the honest one: the
-    ///     arithmetic was reasoned and is now measured.</b>
+    ///     ⚠
+    ///     <b>
+    ///         Confirmed rather than refuted, and the row's own framing was the honest one: the
+    ///         arithmetic was reasoned and is now measured.
+    ///     </b>
     ///     <c>grep 'float=' Corpus/float.xml</c> finds no floated box with a <c>margin-top</c>, so
     ///     nothing pinned either half. Both are asserted here at once, because they fail differently:
     ///     the float's border box at 20 says the margin was spent, and the cleared box at 70 says the
@@ -174,8 +181,12 @@ public sealed class FloatBlindSpotTests {
 
     /// <summary>A float's percentage height resolves against its containing block, like any block.</summary>
     /// <remarks>
-    ///     ⚠ <b>Confirmed, and worth an assertion precisely because the correct answer is the boring
-    ///     one.</b> A float is out of flow and a formatting context root, which are both places this
+    ///     ⚠
+    ///     <b>
+    ///         Confirmed, and worth an assertion precisely because the correct answer is the boring
+    ///         one.
+    ///     </b>
+    ///     A float is out of flow and a formatting context root, which are both places this
     ///     engine has had a definite-size rule quietly diverge; the honest statement is that a float's
     ///     percentage height is not special-cased, and this is what stops that from becoming true by
     ///     accident. The exclusion's bottom edge is asserted through a cleared sibling rather than
@@ -209,8 +220,12 @@ public sealed class FloatBlindSpotTests {
 
     /// <summary>An automatic-width formatting context root narrows beside a RIGHT float.</summary>
     /// <remarks>
-    ///     ⚠ <b>Confirmed: <c>AvoidFloats</c> really is symmetric, and the row was right that nothing
-    ///     proved it.</b> All ten <c>float_bfc_*</c> families float LEFT, in their RTL variant as much
+    ///     ⚠
+    ///     <b>
+    ///         Confirmed: <c>AvoidFloats</c> really is symmetric, and the row was right that nothing
+    ///         proved it.
+    ///     </b>
+    ///     All ten <c>float_bfc_*</c> families float LEFT, in their RTL variant as much
     ///     as their LTR one — <c>float="right"</c> appears twice in the whole corpus and neither
     ///     fixture puts a formatting context root beside one. So the left half of that branch is
     ///     measured forty times and the right half was measured zero times. This is the mirror of
@@ -432,7 +447,7 @@ public sealed class FloatBlindSpotTests {
     [Fact]
     public void A_float_avoiding_box_ignores_a_float_its_own_container_never_reaches() {
         using var tree = new LayoutTree();
-        var (root, avoiding) = InsetAvoidingFixture(tree, floatWidth: 50f, statedWidth: float.NaN, Direction.Ltr);
+        var (root, avoiding) = InsetAvoidingFixture(tree, 50f, float.NaN, Direction.Ltr);
 
         tree.CalculateLayout(root, 400f, float.NaN, Direction.Ltr);
 
@@ -442,8 +457,12 @@ public sealed class FloatBlindSpotTests {
 
     /// <summary>Where the float does reach in, the box narrows to what is left of its own container.</summary>
     /// <remarks>
-    ///     ⚠ <b>The other half, and without it the test above is satisfied by an engine that stopped
-    ///     avoiding floats altogether.</b> A 150-point float ends 50 points inside a container whose
+    ///     ⚠
+    ///     <b>
+    ///         The other half, and without it the test above is satisfied by an engine that stopped
+    ///         avoiding floats altogether.
+    ///     </b>
+    ///     A 150-point float ends 50 points inside a container whose
     ///     content starts at 100, so §9.5 really does apply — and the answer is the container's own
     ///     remainder. The closed form is that the box still ends where its container does:
     ///     <c>left + width</c> is the container's content width whichever side of the clamp the band
@@ -452,7 +471,7 @@ public sealed class FloatBlindSpotTests {
     [Fact]
     public void A_float_avoiding_box_narrows_to_what_is_left_of_its_own_container() {
         using var tree = new LayoutTree();
-        var (root, avoiding) = InsetAvoidingFixture(tree, floatWidth: 150f, statedWidth: float.NaN, Direction.Ltr);
+        var (root, avoiding) = InsetAvoidingFixture(tree, 150f, float.NaN, Direction.Ltr);
 
         tree.CalculateLayout(root, 400f, float.NaN, Direction.Ltr);
 
@@ -472,7 +491,7 @@ public sealed class FloatBlindSpotTests {
     [Fact]
     public void A_stated_width_float_avoiding_box_is_asked_to_fit_its_own_container() {
         using var tree = new LayoutTree();
-        var (root, avoiding) = InsetAvoidingFixture(tree, floatWidth: 150f, statedWidth: 180f, Direction.Ltr);
+        var (root, avoiding) = InsetAvoidingFixture(tree, 150f, 180f, Direction.Ltr);
 
         tree.CalculateLayout(root, 400f, float.NaN, Direction.Ltr);
 
@@ -482,15 +501,19 @@ public sealed class FloatBlindSpotTests {
 
     /// <summary>In RTL the anchor is the container's own inline start, not the context root's.</summary>
     /// <remarks>
-    ///     ⚠ <b>The RTL branch anchors a stated width against the far edge, and that edge was the
-    ///     ROOT's.</b> With the float outside the container's band the box is an ordinary §10.3.3 one
+    ///     ⚠
+    ///     <b>
+    ///         The RTL branch anchors a stated width against the far edge, and that edge was the
+    ///         ROOT's.
+    ///     </b>
+    ///     With the float outside the container's band the box is an ordinary §10.3.3 one
     ///     again and RTL puts the leftover space on its left: 200 − 80 = 120 inside the container.
     ///     Anchored against the root instead it came out past the container's right edge entirely.
     /// </remarks>
     [Fact]
     public void In_rtl_a_stated_width_avoiding_box_is_anchored_to_its_own_container() {
         using var tree = new LayoutTree();
-        var (root, avoiding) = InsetAvoidingFixture(tree, floatWidth: 50f, statedWidth: 80f, Direction.Rtl);
+        var (root, avoiding) = InsetAvoidingFixture(tree, 50f, 80f, Direction.Rtl);
 
         tree.CalculateLayout(root, 400f, float.NaN, Direction.Rtl);
 

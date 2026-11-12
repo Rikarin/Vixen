@@ -46,10 +46,10 @@ public sealed class ProfilerModelTests {
         source.Offer(new(1, "Main", [Sample(100, 50)]));
         model.Tick();
 
-        source.Offer(new(1, "Main", [Sample(200, 50, frame: 1)]));
+        source.Offer(new(1, "Main", [Sample(200, 50, 1)]));
         model.Tick();
 
-        source.Offer(new(1, "Main", [Sample(300, 50, frame: 2)]));
+        source.Offer(new(1, "Main", [Sample(300, 50, 2)]));
         model.Stop();
 
         Assert.Equal(ProfilerState.Idle, model.State);
@@ -87,10 +87,10 @@ public sealed class ProfilerModelTests {
         BufferedProfileSource source = new("Editor");
 
         model.Add(source);
-        source.Offer(new(1, "Main", [Sample(1, 10)]), dropped: 500);
+        source.Offer(new(1, "Main", [Sample(1, 10)]), 500);
 
         model.Start();
-        source.Offer(new(1, "Main", [Sample(100, 50)]), dropped: 7);
+        source.Offer(new(1, "Main", [Sample(100, 50)]), 7);
         model.Stop();
 
         Assert.Equal(7, model.Capture.Dropped);
@@ -162,7 +162,7 @@ public sealed class ProfilerModelTests {
 
         model.Add(source);
         model.Start();
-        source.Offer(new(1, "Main", [Sample(100, 50), Sample(200, 50, frame: 4)]));
+        source.Offer(new(1, "Main", [Sample(100, 50), Sample(200, 50, 4)]));
         model.Stop();
 
         Assert.Null(model.Frame);

@@ -17,16 +17,23 @@ public class HoverTests {
         return document;
     }
 
-    static PointerEvent At(float x, float y, PointerAction action = PointerAction.Moved, PointerButton button = PointerButton.None) =>
+    static PointerEvent At(
+        float x,
+        float y,
+        PointerAction action = PointerAction.Moved,
+        PointerButton button = PointerButton.None
+    ) =>
         new() { X = x, Y = y, Action = action, Button = button };
 
     [Fact]
     public void Hovering_a_child_hovers_its_ancestors_too() {
-        using var document = Documented("""
-            root { width: 400px; height: 300px; }
-            .outer { width: 200px; height: 200px; }
-            .inner { width: 50px; height: 50px; }
-        """);
+        using var document = Documented(
+            """
+                root { width: 400px; height: 300px; }
+                .outer { width: 200px; height: 200px; }
+                .inner { width: 50px; height: 50px; }
+            """
+        );
 
         var outer = document.Root.Add("div", classNames: "outer");
         var inner = outer.Add("div", classNames: "inner");
@@ -43,10 +50,12 @@ public class HoverTests {
 
     [Fact]
     public void Leaving_clears_it_and_the_common_ancestors_never_lose_it() {
-        using var document = Documented("""
-            root { width: 400px; height: 300px; flex-direction: row; }
-            .box { width: 100px; height: 100px; }
-        """);
+        using var document = Documented(
+            """
+                root { width: 400px; height: 300px; flex-direction: row; }
+                .box { width: 100px; height: 100px; }
+            """
+        );
 
         var first = document.Root.Add("div", classNames: "box");
         var second = document.Root.Add("div", classNames: "box");
@@ -77,10 +86,12 @@ public class HoverTests {
 
     [Fact]
     public void Crossing_an_edge_is_told_to_the_element_that_was_crossed() {
-        using var document = Documented("""
-            root { width: 400px; height: 300px; }
-            .box { width: 100px; height: 100px; }
-        """);
+        using var document = Documented(
+            """
+                root { width: 400px; height: 300px; }
+                .box { width: 100px; height: 100px; }
+            """
+        );
 
         var box = document.Root.Add("div", classNames: "box");
         document.Update();
@@ -105,10 +116,12 @@ public class HoverTests {
 
     [Fact]
     public void A_press_marks_the_chain_active_and_a_release_clears_it() {
-        using var document = Documented("""
-            root { width: 400px; height: 300px; }
-            .box { width: 100px; height: 100px; }
-        """);
+        using var document = Documented(
+            """
+                root { width: 400px; height: 300px; }
+                .box { width: 100px; height: 100px; }
+            """
+        );
 
         var box = document.Root.Add("div", classNames: "box");
         document.Update();
@@ -127,10 +140,12 @@ public class HoverTests {
 
     [Fact]
     public void A_capture_does_not_move_the_hover() {
-        using var document = Documented("""
-            root { width: 400px; height: 300px; flex-direction: row; }
-            .box { width: 100px; height: 100px; }
-        """);
+        using var document = Documented(
+            """
+                root { width: 400px; height: 300px; flex-direction: row; }
+                .box { width: 100px; height: 100px; }
+            """
+        );
 
         var first = document.Root.Add("div", classNames: "box");
         var second = document.Root.Add("div", classNames: "box");
@@ -146,10 +161,12 @@ public class HoverTests {
 
     [Fact]
     public void Removing_a_hovered_element_forgets_it() {
-        using var document = Documented("""
-            root { width: 400px; height: 300px; }
-            .box { width: 100px; height: 100px; }
-        """);
+        using var document = Documented(
+            """
+                root { width: 400px; height: 300px; }
+                .box { width: 100px; height: 100px; }
+            """
+        );
 
         var box = document.Root.Add("div", classNames: "box");
         document.Update();
@@ -167,11 +184,13 @@ public class HoverTests {
 
     [Fact]
     public void An_offset_moves_an_element_and_everything_in_it() {
-        using var document = Documented("""
-            root { width: 400px; height: 300px; }
-            .outer { width: 100px; height: 100px; }
-            .inner { width: 20px; height: 20px; }
-        """);
+        using var document = Documented(
+            """
+                root { width: 400px; height: 300px; }
+                .outer { width: 100px; height: 100px; }
+                .inner { width: 20px; height: 20px; }
+            """
+        );
 
         var outer = document.Root.Add("div", classNames: "outer");
         var inner = outer.Add("div", classNames: "inner");
@@ -193,10 +212,12 @@ public class HoverTests {
 
     [Fact]
     public void A_shifted_element_is_clicked_where_it_is_drawn() {
-        using var document = Documented("""
-            root { width: 400px; height: 300px; }
-            .box { width: 50px; height: 50px; }
-        """);
+        using var document = Documented(
+            """
+                root { width: 400px; height: 300px; }
+                .box { width: 50px; height: 50px; }
+            """
+        );
 
         var box = document.Root.Add("div", classNames: "box");
         box.OffsetX = 100f;
@@ -209,12 +230,14 @@ public class HoverTests {
 
     [Fact]
     public void An_ancestors_state_restyles_its_descendants() {
-        using var document = Documented("""
-            root { width: 400px; height: 300px; }
-            .outer { width: 100px; height: 100px; }
-            .inner { width: 20px; height: 20px; }
-            .outer:hover .inner { width: 60px; }
-        """);
+        using var document = Documented(
+            """
+                root { width: 400px; height: 300px; }
+                .outer { width: 100px; height: 100px; }
+                .inner { width: 20px; height: 20px; }
+                .outer:hover .inner { width: 60px; }
+            """
+        );
 
         var outer = document.Root.Add("div", classNames: "outer");
         var inner = outer.Add("div", classNames: "inner");
@@ -239,10 +262,12 @@ public class HoverTests {
 
     [Fact]
     public void The_cursor_is_whatever_the_pointer_is_over() {
-        using var document = Documented("""
-            root { width: 400px; height: 300px; }
-            .grip { width: 50px; height: 50px; cursor: col-resize; }
-        """);
+        using var document = Documented(
+            """
+                root { width: 400px; height: 300px; }
+                .grip { width: 50px; height: 50px; cursor: col-resize; }
+            """
+        );
 
         document.Root.Add("div", classNames: "grip");
         document.Update();
@@ -261,12 +286,14 @@ public class HoverTests {
         // `cursor` inherits, so the deepest hovered element's computed style already carries the
         // panel's answer — which is why this needs no walk up the tree, and why a button inside a
         // draggable panel can say `pointer` and be believed.
-        using var document = Documented("""
-            root { width: 400px; height: 300px; }
-            .panel { width: 200px; height: 200px; cursor: move; }
-            .button { width: 50px; height: 50px; cursor: pointer; }
-            .plain { width: 50px; height: 50px; }
-        """);
+        using var document = Documented(
+            """
+                root { width: 400px; height: 300px; }
+                .panel { width: 200px; height: 200px; cursor: move; }
+                .button { width: 50px; height: 50px; cursor: pointer; }
+                .plain { width: 50px; height: 50px; }
+            """
+        );
 
         var panel = document.Root.Add("div", classNames: "panel");
         panel.Add("div", classNames: "button");
@@ -288,11 +315,13 @@ public class HoverTests {
         // must agree, or a lifted element is drawn over its siblings and clicks fall through to the
         // one underneath — a UI where things are not where they look. This is the test that fails if
         // either walk grows its own opinion.
-        using var document = Documented("""
-            root { width: 400px; height: 300px; }
-            div { width: 100px; height: 100px; position: absolute; top: 0px; left: 0px; }
-            .lifted { z-index: 10; }
-        """);
+        using var document = Documented(
+            """
+                root { width: 400px; height: 300px; }
+                div { width: 100px; height: 100px; position: absolute; top: 0px; left: 0px; }
+                .lifted { z-index: 10; }
+            """
+        );
 
         var lifted = document.Root.Add("div", classNames: "lifted");
         var later = document.Root.Add("div");
@@ -317,10 +346,12 @@ public class HoverTests {
     public void A_cursor_this_engine_has_no_reading_of_is_the_hosts_to_decide() {
         // `cursor: url(hand.png)` is valid CSS with no mapping onto a stock cursor, and the host's
         // default is a better answer to it than the ancestor's cursor would be.
-        using var document = Documented("""
-            root { width: 400px; height: 300px; cursor: move; }
-            .odd { width: 50px; height: 50px; cursor: url(hand.png); }
-        """);
+        using var document = Documented(
+            """
+                root { width: 400px; height: 300px; cursor: move; }
+                .odd { width: 50px; height: 50px; cursor: url(hand.png); }
+            """
+        );
 
         document.Root.Add("div", classNames: "odd");
         document.Update();

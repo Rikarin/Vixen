@@ -56,10 +56,11 @@ public class TextureDiagnosticIdTests {
     static readonly Regex Literal = new("\"(TG[0-9]{4})\"", RegexOptions.CultureInvariant);
 
     /// <summary>The production project's directory, beside this test project's.</summary>
-    static string Sources() => Path.Combine(
-        Path.GetDirectoryName(Path.GetDirectoryName(Here())!)!,
-        "Vixen.TextureGraph"
-    );
+    static string Sources() =>
+        Path.Combine(
+            Path.GetDirectoryName(Path.GetDirectoryName(Here())!)!,
+            "Vixen.TextureGraph"
+        );
 
     /// <summary>Every source file the production project owns, without what the build wrote.</summary>
     /// <remarks>
@@ -72,16 +73,23 @@ public class TextureDiagnosticIdTests {
     ///     <a href="https://github.com/Rikarin/Vixen/issues/1002">#1002</a> was.
     ///     <c>AssetEditorDiagnosticIdTests</c> is where the same walk is not hypothetical.
     /// </remarks>
-    static (string Name, string Text)[] Production() =>
-        Directory.GetFiles(Sources(), "*.*", SearchOption.AllDirectories)
-            .Where(path => path.EndsWith(".cs", StringComparison.Ordinal)
-                || path.EndsWith(".vxml", StringComparison.Ordinal))
-            .Where(path => !path.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}",
-                StringComparison.Ordinal))
-            .Where(path => !path.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}",
-                StringComparison.Ordinal))
-            .Select(path => (Name: Path.GetFileName(path), Text: File.ReadAllText(path)))
-            .ToArray();
+    static (string Name, string Text)[] Production() => [
+        ..Directory.GetFiles(Sources(), "*.*", SearchOption.AllDirectories)
+            .Where(static path => path.EndsWith(".cs", StringComparison.Ordinal)
+                || path.EndsWith(".vxml", StringComparison.Ordinal)
+            )
+            .Where(static path => !path.Contains(
+                    $"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}",
+                    StringComparison.Ordinal
+                )
+            )
+            .Where(static path => !path.Contains(
+                    $"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}",
+                    StringComparison.Ordinal
+                )
+            )
+            .Select(static path => (Name: Path.GetFileName(path), Text: File.ReadAllText(path)))
+    ];
 
     /// <summary>⚠ No id is declared twice, which a compiler cannot tell you.</summary>
     /// <remarks>
@@ -110,11 +118,11 @@ public class TextureDiagnosticIdTests {
             + "check that the members are still `const string`."
         );
 
-        Assert.All(ids, id => Assert.Matches("^TG[0-9]{4}$", id));
+        Assert.All(ids, static id => Assert.Matches("^TG[0-9]{4}$", id));
 
-        var repeated = ids.GroupBy(id => id, StringComparer.Ordinal)
-            .Where(group => group.Count() > 1)
-            .Select(group => group.Key)
+        var repeated = ids.GroupBy(static id => id, StringComparer.Ordinal)
+            .Where(static group => group.Count() > 1)
+            .Select(static group => group.Key)
             .Order(StringComparer.Ordinal)
             .ToArray();
 
@@ -159,7 +167,7 @@ public class TextureDiagnosticIdTests {
 
         var sources = Production();
 
-        Assert.Contains(sources, source => source.Name == "TextureGraphCompiler.cs");
+        Assert.Contains(sources, static source => source.Name == "TextureGraphCompiler.cs");
 
         Assert.True(
             sources.Length >= 30,
@@ -170,10 +178,10 @@ public class TextureDiagnosticIdTests {
 
         // The detector, proved against the declarations: every id declared is one the regex finds in
         // the declaring file, and the regex finds nothing there that is not declared.
-        var declaring = Assert.Single(sources, source => source.Name == "TextureDiagnostics.cs");
+        var declaring = Assert.Single(sources, static source => source.Name == "TextureDiagnostics.cs");
 
         var found = Literal.Matches(declaring.Text)
-            .Select(match => match.Groups[1].Value)
+            .Select(static match => match.Groups[1].Value)
             .Distinct(StringComparer.Ordinal)
             .Order(StringComparer.Ordinal)
             .ToArray();
@@ -181,9 +189,10 @@ public class TextureDiagnosticIdTests {
         Assert.Equal(TextureDiagnostics.Ids, found);
 
         var strays = sources
-            .Where(source => source.Name != "TextureDiagnostics.cs")
-            .SelectMany(source => Literal.Matches(source.Text)
-                .Select(match => $"{source.Name}: {match.Groups[1].Value}"))
+            .Where(static source => source.Name != "TextureDiagnostics.cs")
+            .SelectMany(static source => Literal.Matches(source.Text)
+                    .Select(match => $"{source.Name}: {match.Groups[1].Value}")
+            )
             .Order(StringComparer.Ordinal)
             .ToArray();
 
@@ -250,11 +259,11 @@ public class TextureDiagnosticIdTests {
 
         var setting = Assert.Single(
             diagnostics,
-            one => string.Equals(one.Port, "Iterations", StringComparison.Ordinal)
+            static one => string.Equals(one.Port, "Iterations", StringComparison.Ordinal)
         );
         var expression = Assert.Single(
             diagnostics,
-            one => string.Equals(one.Port, "Radius", StringComparison.Ordinal)
+            static one => string.Equals(one.Port, "Radius", StringComparison.Ordinal)
         );
 
         Assert.NotEqual(setting.Id, expression.Id);

@@ -84,7 +84,7 @@ public readonly record struct AssetReference(AssetId Asset, SubAssetId SubAsset)
     public static bool TryParse(ReadOnlySpan<char> s, IFormatProvider? provider, out AssetReference result) {
         result = default;
 
-        if (s.IsEmpty || s.SequenceEqual("null") || s.SequenceEqual("~")) {
+        if (s.IsEmpty || s is "null" || s is "~") {
             return true;
         }
 

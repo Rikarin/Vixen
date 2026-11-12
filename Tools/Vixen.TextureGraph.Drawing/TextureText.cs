@@ -166,8 +166,8 @@ internal static class TextureText {
         var scale = layout.Size / font.UnitsPerEm;
         var band = (font.Metrics.Ascender - font.Metrics.Descender) * scale;
         var pitch = font.Metrics.LineHeight * scale * Math.Max(layout.Leading, 0f);
-        var block = band + (pitch * (lines.Length - 1));
-        var baseline = layout.CentreY - (block * 0.5f) + (font.Metrics.Ascender * scale);
+        var block = band + pitch * (lines.Length - 1);
+        var baseline = layout.CentreY - block * 0.5f + font.Metrics.Ascender * scale;
 
         // Tracking is authored in texels and the pen is in design units, so it converts once.
         var step = layout.Tracking / scale;
@@ -176,11 +176,11 @@ internal static class TextureText {
             if (line.Length > 0) {
                 var shaped = TextShaper.Shape(font, line);
                 var glyphs = shaped.Placements().ToArray();
-                var advance = (shaped.Advance + (step * Math.Max(glyphs.Length - 1, 0))) * scale;
+                var advance = (shaped.Advance + step * Math.Max(glyphs.Length - 1, 0)) * scale;
 
                 var left = layout.Alignment switch {
                     TextureTextAlignment.Left => layout.AnchorX,
-                    TextureTextAlignment.Centre => layout.AnchorX - (advance * 0.5f),
+                    TextureTextAlignment.Centre => layout.AnchorX - advance * 0.5f,
                     TextureTextAlignment.Right => layout.AnchorX - advance,
                     _ => throw new ArgumentOutOfRangeException(nameof(layout), layout.Alignment, "No such alignment.")
                 };
@@ -198,8 +198,8 @@ internal static class TextureText {
                         new(width, height, wrapX, wrapY),
                         outline,
                         scale,
-                        left + ((placement.X + (step * index)) * scale),
-                        baseline - (placement.Y * scale)
+                        left + (placement.X + step * index) * scale,
+                        baseline - placement.Y * scale
                     );
                 }
             }
@@ -225,15 +225,21 @@ internal static class TextureText {
     ///         flips every glyph about its own baseline — which for a symmetric letter is invisible.
     ///     </para>
     /// </remarks>
-    static void Draw(float[] coverage, TextureCanvas canvas, GlyphOutline outline, float scale, float penX, float penY) {
+    static void Draw(
+        float[] coverage,
+        TextureCanvas canvas,
+        GlyphOutline outline,
+        float scale,
+        float penX,
+        float penY
+    ) {
         var bounds = outline.Bounds();
 
         if (canvas.Box(
-                penX + (bounds.MinX * scale),
-                penY - (bounds.MaxY * scale),
-                penX + (bounds.MaxX * scale),
-                penY - (bounds.MinY * scale),
-                Skirt
+                penX + bounds.MinX * scale,
+                penY - bounds.MaxY * scale,
+                penX + bounds.MaxX * scale,
+                penY - bounds.MinY * scale
             ) is not { } box) {
             return;
         }

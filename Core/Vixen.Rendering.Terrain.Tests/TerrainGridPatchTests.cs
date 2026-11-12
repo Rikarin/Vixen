@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core.Mathematics;
-using Vixen.Rendering.Terrain;
 using Vixen.Shaders.Generated;
 using Vixen.Terrain;
 using Xunit;
@@ -46,7 +45,7 @@ public sealed class TerrainGridPatchTests {
             var b = TerrainGridPatch.VertexOf((int)indices[at + 1], quads);
             var c = TerrainGridPatch.VertexOf((int)indices[at + 2], quads);
 
-            area += MathF.Abs((((b.X - a.X) * (c.Z - a.Z)) - ((c.X - a.X) * (b.Z - a.Z))) * 0.5f);
+            area += MathF.Abs(((b.X - a.X) * (c.Z - a.Z) - (c.X - a.X) * (b.Z - a.Z)) * 0.5f);
         }
 
         Assert.Equal(quads * quads, area, 3);
@@ -72,7 +71,7 @@ public sealed class TerrainGridPatchTests {
             var b = TerrainGridPatch.VertexOf((int)indices[at + 1], quads);
             var c = TerrainGridPatch.VertexOf((int)indices[at + 2], quads);
 
-            var cross = ((b.X - a.X) * (c.Z - a.Z)) - ((c.X - a.X) * (b.Z - a.Z));
+            var cross = (b.X - a.X) * (c.Z - a.Z) - (c.X - a.X) * (b.Z - a.Z);
 
             Assert.True(cross < 0f, $"triangle at {at} wound the other way ({cross}).");
         }
@@ -97,13 +96,13 @@ public sealed class TerrainGridPatchTests {
 
         for (var z = 0; z < quads; z++) {
             for (var x = 0; x < quads; x++) {
-                var quad = (z * quads) + x;
+                var quad = z * quads + x;
                 var first = indices.AsSpan(quad * 6, 6);
 
                 // Which of the two diagonals this quad used: the one joining top-left to
                 // bottom-right, or the one joining top-right to bottom-left.
-                var topLeft = (uint)((z * side) + x);
-                var bottomRight = (uint)(((z + 1) * side) + x + 1);
+                var topLeft = (uint)(z * side + x);
+                var bottomRight = (uint)((z + 1) * side + x + 1);
                 var joined = first.ToArray().Count(i => i == topLeft) == 2
                     && first.ToArray().Count(i => i == bottomRight) == 2;
 
@@ -112,7 +111,7 @@ public sealed class TerrainGridPatchTests {
         }
 
         // Both diagonals appear, and neighbours differ.
-        Assert.Equal(2, diagonals.Select(pair => pair.Item2).Distinct().Count());
+        Assert.Equal(2, diagonals.Select(static pair => pair.Item2).Distinct().Count());
     }
 
     [Theory]
@@ -126,7 +125,7 @@ public sealed class TerrainGridPatchTests {
 
     [Fact]
     public void TooLittleRoomIsRefused() {
-        Assert.Throws<ArgumentException>(() => TerrainGridPatch.FillIndices(8, new uint[10]));
+        Assert.Throws<ArgumentException>(static () => TerrainGridPatch.FillIndices(8, new uint[10]));
     }
 
     [Fact]
@@ -138,7 +137,7 @@ public sealed class TerrainGridPatchTests {
 
             Assert.InRange(x, 0, quads);
             Assert.InRange(z, 0, quads);
-            Assert.Equal(vertex, (z * (quads + 1)) + x);
+            Assert.Equal(vertex, z * (quads + 1) + x);
         }
     }
 
@@ -153,16 +152,20 @@ public sealed class TerrainGridPatchTests {
 
     /// <summary>A patch's level is log2 of its step, which is exact because the step is a power of two.</summary>
     /// <remarks>
-    ///     ⚠ <b>Reading level 0 on a coarse patch gives it a height nothing between its own vertices
-    ///     ever had</b>, so the surface swims as the camera moves — and the swim is at its worst on
+    ///     ⚠
+    ///     <b>
+    ///         Reading level 0 on a coarse patch gives it a height nothing between its own vertices
+    ///         ever had
+    ///     </b>
+    ///     , so the surface swims as the camera moves — and the swim is at its worst on
     ///     the patches furthest away, where it is hardest to attribute to the near-field tool that
     ///     caused it.
     /// </remarks>
     [Fact]
     public void ARecordsLevelIsTheStepItSamplesAt() {
-        Assert.Equal(0f, TerrainNodeRecord.Of(new(0, 0, 8, 0, 0f), gridQuads: 8, maxLevel: 7).Level, 5);
-        Assert.Equal(1f, TerrainNodeRecord.Of(new(0, 0, 16, 1, 0f), gridQuads: 8, maxLevel: 7).Level, 5);
-        Assert.Equal(3f, TerrainNodeRecord.Of(new(0, 0, 64, 3, 0f), gridQuads: 8, maxLevel: 7).Level, 5);
+        Assert.Equal(0f, TerrainNodeRecord.Of(new(0, 0, 8, 0, 0f), 8, 7).Level, 5);
+        Assert.Equal(1f, TerrainNodeRecord.Of(new(0, 0, 16, 1, 0f), 8, 7).Level, 5);
+        Assert.Equal(3f, TerrainNodeRecord.Of(new(0, 0, 64, 3, 0f), 8, 7).Level, 5);
     }
 
     /// <summary>And it is clamped to the chain a tile actually has.</summary>
@@ -173,16 +176,16 @@ public sealed class TerrainGridPatchTests {
     /// </remarks>
     [Fact]
     public void ALevelNeverLeavesTheChain() {
-        Assert.Equal(2f, TerrainNodeRecord.Of(new(0, 0, 1024, 7, 0f), gridQuads: 8, maxLevel: 2).Level, 5);
-        Assert.Equal(0f, TerrainNodeRecord.Of(new(0, 0, 1024, 7, 0f), gridQuads: 8, maxLevel: 0).Level, 5);
+        Assert.Equal(2f, TerrainNodeRecord.Of(new(0, 0, 1024, 7, 0f), 8, 2).Level, 5);
+        Assert.Equal(0f, TerrainNodeRecord.Of(new(0, 0, 1024, 7, 0f), 8).Level, 5);
     }
 
     [Fact]
     public void ARecordCarriesTheNodesOriginStepAndMorph() {
         var node = new TerrainLodNode(64, 128, 32, 2, 0.25f);
-        var record = TerrainNodeRecord.Of(node, gridQuads: 8);
+        var record = TerrainNodeRecord.Of(node, 8);
 
-        Assert.Equal(new Vector2(64f, 128f), record.Origin);
+        Assert.Equal(new(64f, 128f), record.Origin);
         Assert.Equal(4f, record.Step, 5);
         Assert.Equal(0.25f, record.Morph, 5);
     }
@@ -195,8 +198,8 @@ public sealed class TerrainGridPatchTests {
         var node = new TerrainLodNode(16, 16, 64, 3, 0f);
         var record = TerrainNodeRecord.Of(node, gridQuads);
 
-        Assert.Equal(node.X, record.Origin.X + (0 * record.Step), 4);
-        Assert.Equal(node.X + node.Quads, record.Origin.X + (gridQuads * record.Step), 4);
+        Assert.Equal(node.X, record.Origin.X + 0 * record.Step, 4);
+        Assert.Equal(node.X + node.Quads, record.Origin.X + gridQuads * record.Step, 4);
     }
 
     // --- The shader's own reflection ----------------------------------------

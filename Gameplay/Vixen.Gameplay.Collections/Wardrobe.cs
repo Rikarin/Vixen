@@ -11,8 +11,12 @@ namespace Vixen.Gameplay.Collections;
 ///         two alts have different transmog and different titles out of the same wardrobe.
 ///     </para>
 ///     <para>
-///         ⚠ <b>An override to something no longer unlocked resolves to the real item, never to
-///         nothing.</b> An appearance can be taken back — a refund, a season ending, a patch — and the
+///         ⚠
+///         <b>
+///             An override to something no longer unlocked resolves to the real item, never to
+///             nothing.
+///         </b>
+///         An appearance can be taken back — a refund, a season ending, a patch — and the
 ///         character wearing it must not turn invisible. That is why <see cref="Resolve" /> checks the
 ///         unlock every single time instead of being told when one goes away: there is no
 ///         notification to miss.
@@ -189,7 +193,7 @@ public sealed class Wardrobe {
 
     /// <summary>Every slot that is overridden, in tag order.</summary>
     /// <returns>The slot and what it is shown as.</returns>
-    public IEnumerable<KeyValuePair<GameplayTag, DefId>> Overrides => overrides.OrderBy(pair => pair.Key);
+    public IEnumerable<KeyValuePair<GameplayTag, DefId>> Overrides => overrides.OrderBy(static pair => pair.Key);
 
     /// <summary>Every hidden slot, in tag order.</summary>
     public IEnumerable<GameplayTag> Hidden => hidden.Order();

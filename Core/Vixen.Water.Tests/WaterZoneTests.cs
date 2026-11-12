@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core.Mathematics;
-using Vixen.Water;
 using Xunit;
 
 namespace Vixen.Water.Tests;
@@ -12,9 +11,17 @@ namespace Vixen.Water.Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         W3's two exit criteria are here. <b>Two bodies overlapping produce one continuous depth
-///         field with no seam at the boundary</b>, and <b>the window scrolls across two kilometres
-///         with the shoreline stable to the pixel</b> — the second measured over a swept path rather
+///         W3's two exit criteria are here.
+///         <b>
+///             Two bodies overlapping produce one continuous depth
+///             field with no seam at the boundary
+///         </b>
+///         , and
+///         <b>
+///             the window scrolls across two kilometres
+///             with the shoreline stable to the pixel
+///         </b>
+///         — the second measured over a swept path rather
 ///         than looked at, because a shoreline crawl appears only while the camera moves and is
 ///         therefore invisible in every screenshot anybody takes of it.
 ///     </para>
@@ -30,15 +37,19 @@ public sealed class WaterZoneTests {
     /// <param name="Base">How high it is at the origin.</param>
     /// <param name="Ripple">How tall a sandbar ripple sits on the slope, in metres.</param>
     /// <remarks>
-    ///     ⚠ <b>The ripple is not decoration, and leaving it out made a test pass for the wrong
-    ///     reason.</b> Bilinear interpolation of a <em>linear</em> field is exact whatever grid it is
+    ///     ⚠
+    ///     <b>
+    ///         The ripple is not decoration, and leaving it out made a test pass for the wrong
+    ///         reason.
+    ///     </b>
+    ///     Bilinear interpolation of a <em>linear</em> field is exact whatever grid it is
     ///     sampled on — so a perfectly planar beach cannot show a sampling-grid crawl even when the
     ///     grid is crawling, and a stability test over one is a test that could not have failed. What
     ///     § D3 warns about needs curvature to be visible at all.
     /// </remarks>
     sealed record Beach(float Slope, float Base, float Ripple = 0f) : IWaterGround {
         public float HeightAt(Vector2 ground) =>
-            Base + (ground.X * Slope) + (Ripple * MathF.Sin(ground.X * 0.7f) * MathF.Cos(ground.Y * 0.5f));
+            Base + ground.X * Slope + Ripple * MathF.Sin(ground.X * 0.7f) * MathF.Cos(ground.Y * 0.5f);
     }
 
     static WaterBody Lake(Vector2 centre, float half, float surface, int priority = 0, float falloff = 2f) {
@@ -50,17 +61,14 @@ public sealed class WaterZoneTests {
                     new(centre.X + half, surface, centre.Y + half),
                     new(centre.X - half, surface, centre.Y + half)
                 ],
-                closed: true,
-                tension: 1f
+                true,
+                1f
             ),
-            closed: true
+            true
         );
 
         return new(WaterBodyKind.Lake, spline, defaults: new() { Depth = 3f }) {
-            SurfaceHeight = surface,
-            Priority = priority,
-            ShoreFalloff = falloff,
-            BedRamp = 4f
+            SurfaceHeight = surface, Priority = priority, ShoreFalloff = falloff, BedRamp = 4f
         };
     }
 
@@ -270,17 +278,13 @@ public sealed class WaterZoneTests {
         // A beach with a sandbar ripple on it: the ground rises across +X so there is a shoreline at a
         // definite place, and the ripple is what makes the depth at a fixed point a number a crawling
         // grid can move. A planar bed would be reconstructed exactly on any grid — see Beach.
-        var ground = new Beach(0.02f, -6f, Ripple: 0.6f);
+        var ground = new Beach(0.02f, -6f, 0.6f);
 
         // One enormous lake, so the window is inside it for the whole walk and the shoreline it is
         // being asked about is the ground's rather than the body's edge.
         state.SetBodies([Lake(new(1_000f, 0f), 2_000f, 0f)]);
 
-        var probes = new[] {
-            new Vector2(120f, 40f),
-            new Vector2(121.3f, -70f),
-            new Vector2(119.05f, 12.5f)
-        };
+        var probes = new[] { new Vector2(120f, 40f), new Vector2(121.3f, -70f), new Vector2(119.05f, 12.5f) };
 
         var first = new float?[probes.Length];
         var worst = 0f;
@@ -329,7 +333,7 @@ public sealed class WaterZoneTests {
 
         // ⚠ Rippled. See Beach: a planar bed is exactly reconstructed by bilinear interpolation on
         // any grid, so the control could not wobble however badly the window was placed.
-        var ground = new Beach(0.02f, -6f, Ripple: 0.6f);
+        var ground = new Beach(0.02f, -6f, 0.6f);
         var body = Lake(new(1_000f, 0f), 2_000f, 0f);
         var probe = new Vector2(120f, 40f);
 
@@ -370,7 +374,7 @@ public sealed class WaterZoneTests {
         Assert.True(
             looseWorst > snappedWorst * 100f,
             $"an unsnapped window wobbled by {looseWorst} m against the snapped one's {snappedWorst} m, "
-                + "which is not enough of a difference for the stability test above to be testing anything"
+            + "which is not enough of a difference for the stability test above to be testing anything"
         );
     }
 
@@ -401,10 +405,12 @@ public sealed class WaterZoneTests {
 
         // Two lakes at the *same* height and different priorities, overlapping across a band. This is
         // the claim: resolving two bodies into one field introduces no discontinuity of its own.
-        state.SetBodies([
-            Lake(new(-30f, 0f), 50f, 4f),
-            Lake(new(30f, 0f), 50f, 4f, priority: 1)
-        ]);
+        state.SetBodies(
+            [
+                Lake(new(-30f, 0f), 50f, 4f),
+                Lake(new(30f, 0f), 50f, 4f, 1)
+            ]
+        );
 
         state.Update(Vector2.Zero, new Beach(0f, -6f));
 
@@ -451,10 +457,12 @@ public sealed class WaterZoneTests {
         // texel: the first version of this test used the default two-metre band and measured a
         // transition two texels wide, which is neither a cut nor a ramp, it is a band the field cannot
         // see.
-        state.SetBodies([
-            Lake(new(-30f, 0f), 50f, 4f, falloff: 8f),
-            Lake(new(30f, 0f), 50f, 4.5f, priority: 1, falloff: 8f)
-        ]);
+        state.SetBodies(
+            [
+                Lake(new(-30f, 0f), 50f, 4f, falloff: 8f),
+                Lake(new(30f, 0f), 50f, 4.5f, 1, 8f)
+            ]
+        );
 
         state.Update(Vector2.Zero, new Beach(0f, -6f));
 

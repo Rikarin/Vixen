@@ -48,15 +48,17 @@ public class TouchActionCensusTests {
 
     [Fact]
     public void Every_pointer_capture_in_the_tree_is_in_the_census_and_nothing_else_is() {
-        var found = Captures(productionOnly: true);
+        var found = Captures(true);
         var census = Census();
 
         var missing = found
             .Where(pair => !census.TryGetValue(pair.Key, out var row) || row.Sites != pair.Value)
-            .Select(pair => $"  {pair.Key} | {pair.Value} (census says {(census.TryGetValue(pair.Key, out var row) ? row.Sites.ToString() : "nothing")})")
+            .Select(pair =>
+                $"  {pair.Key} | {pair.Value} (census says {(census.TryGetValue(pair.Key, out var row) ? row.Sites.ToString() : "nothing")})"
+            )
             .ToList();
 
-        var stale = census.Keys.Where(path => !found.ContainsKey(path)).Select(path => $"  {path}").ToList();
+        var stale = census.Keys.Where(path => !found.ContainsKey(path)).Select(static path => $"  {path}").ToList();
 
         Assert.True(
             missing.Count == 0 && stale.Count == 0,
@@ -84,10 +86,13 @@ public class TouchActionCensusTests {
     /// </remarks>
     [Fact]
     public void The_sweep_finds_the_repository_and_leaves_the_tests_out() {
-        var all = Captures(productionOnly: false);
-        var production = Captures(productionOnly: true);
+        var all = Captures(false);
+        var production = Captures(true);
 
-        Assert.True(production.Values.Sum() >= 30, $"the sweep found only {production.Values.Sum()} production captures");
+        Assert.True(
+            production.Values.Sum() >= 30,
+            $"the sweep found only {production.Values.Sum()} production captures"
+        );
         Assert.True(production.Count >= 15, $"the sweep found only {production.Count} files that capture");
 
         Assert.Contains(all.Keys, IsTest);
@@ -95,8 +100,11 @@ public class TouchActionCensusTests {
 
         // Both halves of the tree the rows are about: the editor's paint views are the reason the
         // sweep is not confined to `Core`.
-        Assert.Contains(production.Keys, path => path.StartsWith("Editor/", StringComparison.Ordinal));
-        Assert.Contains(production.Keys, path => path.StartsWith("Core/Vixen.Ui.Controls.Advanced/", StringComparison.Ordinal));
+        Assert.Contains(production.Keys, static path => path.StartsWith("Editor/", StringComparison.Ordinal));
+        Assert.Contains(
+            production.Keys,
+            static path => path.StartsWith("Core/Vixen.Ui.Controls.Advanced/", StringComparison.Ordinal)
+        );
     }
 
     /// <summary>A capture in a view's <c>@code</c> block is production C#, so the sweep has to read <c>.vxml</c> too.</summary>
@@ -115,14 +123,14 @@ public class TouchActionCensusTests {
             "}"
         ];
 
-        Assert.Equal(1, CountIn(view, markup: true));
+        Assert.Equal(1, CountIn(view, true));
     }
 
     [Fact]
     public void Every_answer_in_the_census_is_what_the_themes_resolve() {
         using var fixture = new AdvancedFixture();
 
-        var answers = Census().Values.SelectMany(row => row.Answers).Distinct().ToList();
+        var answers = Census().Values.SelectMany(static row => row.Answers).Distinct().ToList();
         Assert.True(answers.Count >= 15, $"the census names only {answers.Count} tag(s)");
 
         List<string> wrong = [];
@@ -160,7 +168,10 @@ public class TouchActionCensusTests {
             var cells = line.Split('|', StringSplitOptions.TrimEntries);
             Assert.True(cells.Length == 3, $"a census row is `path | sites | answer`: {line}");
 
-            rows.Add(cells[0], new Row(int.Parse(cells[1], System.Globalization.CultureInfo.InvariantCulture), Answers(cells[2])));
+            rows.Add(
+                cells[0],
+                new(int.Parse(cells[1], System.Globalization.CultureInfo.InvariantCulture), Answers(cells[2]))
+            );
         }
 
         return rows;
@@ -179,18 +190,19 @@ public class TouchActionCensusTests {
         if (cell.StartsWith(MouseOnly, StringComparison.Ordinal)) {
             return cell[MouseOnly.Length..]
                 .Split(';', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
-                .Select(tag => (tag, TouchAction.Auto))
+                .Select(static tag => (tag, TouchAction.Auto))
                 .ToList();
         }
 
         return cell.Split(';', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
-            .Select(pair => pair.Split(':', StringSplitOptions.TrimEntries))
+            .Select(static pair => pair.Split(':', StringSplitOptions.TrimEntries))
             .Select(pair => (pair[0], pair[1] switch {
-                "none" => TouchAction.None,
-                "pan-y" => TouchAction.PanY,
-                "pan-x" => TouchAction.PanX,
-                var other => throw new InvalidDataException($"the census cannot read `{other}` in `{cell}`")
-            }))
+                    "none" => TouchAction.None,
+                    "pan-y" => TouchAction.PanY,
+                    "pan-x" => TouchAction.PanX,
+                    var other => throw new InvalidDataException($"the census cannot read `{other}` in `{cell}`")
+                })
+            )
             .ToList();
     }
 
@@ -222,8 +234,10 @@ public class TouchActionCensusTests {
 
     /// <summary>Live capture calls in one file, past comments, prose and the method's own declaration.</summary>
     static int CountIn(IEnumerable<string> lines, bool markup) {
-        IEnumerable<string> code = markup
-            ? VxmlLines.Read(lines).Where(line => line.Region == VxmlRegion.Code).Select(line => line.Text)
+        var code = markup
+            ? VxmlLines.Read(lines)
+                .Where(static line => line.Region == VxmlRegion.Code)
+                .Select(static line => line.Text)
             : lines;
 
         var count = 0;
@@ -238,7 +252,7 @@ public class TouchActionCensusTests {
                 continue;
             }
 
-            var squeezed = string.Concat(text.Where(character => !char.IsWhiteSpace(character)));
+            var squeezed = string.Concat(text.Where(static character => !char.IsWhiteSpace(character)));
 
             for (var at = squeezed.IndexOf(Needle, StringComparison.Ordinal);
                  at >= 0;

@@ -11,8 +11,11 @@ namespace Vixen.Engine.Renderer;
 /// <summary>`stat gpu`: where the frame's GPU time went, pass by pass, while you watch.</summary>
 /// <remarks>
 ///     <para>
-///         <b>The panel exists so that a cost distribution is <em>noticed</em> rather than
-///         measured.</b> Every number here has been available from <c>AppGraphics.GpuFrame</c> since
+///         <b>
+///             The panel exists so that a cost distribution is <em>noticed</em> rather than
+///             measured.
+///         </b>
+///         Every number here has been available from <c>AppGraphics.GpuFrame</c> since
 ///         the render graph started emitting a scope per pass, and <c>Samples/13</c> already prints
 ///         the same breakdown to its log — but a log line is read by somebody who already suspects
 ///         something. Three fixes this repository shipped in one week (a 17× screen march, a
@@ -29,8 +32,12 @@ namespace Vixen.Engine.Renderer;
 ///         sits. <see cref="FrameGraphOverlay" /> makes the identical argument about its colours.
 ///     </para>
 ///     <para>
-///         ⚠ <b>And why each bar carries a peak that decays rather than a bare instantaneous
-///         value.</b> A GPU reading moves by more than ten percent between two frames of a still
+///         ⚠
+///         <b>
+///             And why each bar carries a peak that decays rather than a bare instantaneous
+///             value.
+///         </b>
+///         A GPU reading moves by more than ten percent between two frames of a still
 ///         camera, so an unsmoothed number is unreadable and a smoothed one hides exactly the spike
 ///         worth seeing. The bar is the smoothed cost and the tick is the worst this pass has been
 ///         in the last <see cref="PeakSeconds" /> seconds — so a pass that costs three milliseconds
@@ -88,8 +95,12 @@ public sealed class GpuOverlay : IDiagnosticOverlay {
 
     /// <summary>Whether a profiler is attached at all.</summary>
     /// <remarks>
-    ///     ⚠ <b>Said out loud, because an empty panel because the profiler is off looks exactly like
-    ///     an empty panel because the frame did no work</b> — which is
+    ///     ⚠
+    ///     <b>
+    ///         Said out loud, because an empty panel because the profiler is off looks exactly like
+    ///         an empty panel because the frame did no work
+    ///     </b>
+    ///     — which is
     ///     <see cref="FrameGraphOverlay" />'s "profiler is off" line, one layer down. A build run
     ///     without <c>--vixen-gpu-profile</c> is the ordinary case and the panel says so rather than
     ///     showing zeroes.
@@ -117,8 +128,7 @@ public sealed class GpuOverlay : IDiagnosticOverlay {
     /// <summary>The decaying peak cost of one pass, in milliseconds, or zero if it has no history.</summary>
     /// <param name="pass">The render-graph pass's name.</param>
     /// <returns>The peak.</returns>
-    public double PeakOf(string? pass) =>
-        pass is not null && tracks.TryGetValue(pass, out var track) ? track.Peak : 0d;
+    public double PeakOf(string? pass) => pass is not null && tracks.TryGetValue(pass, out var track) ? track.Peak : 0d;
 
     /// <summary>Forgets every smoothed cost and every peak.</summary>
     public void Reset() {
@@ -160,9 +170,9 @@ public sealed class GpuOverlay : IDiagnosticOverlay {
         // reading happened to survive rather than onto the frame's own history.
         if (frame.FrameIndex != lastFrameIndex) {
             lastFrameIndex = frame.FrameIndex;
-            Integrate(frame, (float) time.UnscaledElapsed.TotalSeconds);
+            Integrate(frame, (float)time.UnscaledElapsed.TotalSeconds);
         } else {
-            Decay((float) time.UnscaledElapsed.TotalSeconds);
+            Decay((float)time.UnscaledElapsed.TotalSeconds);
         }
 
         var attributed = Select();
@@ -194,7 +204,7 @@ public sealed class GpuOverlay : IDiagnosticOverlay {
         for (var index = 0; index < rows.Count; index++) {
             var row = rows[index];
             var track = row.Track;
-            var share = total > 0d ? (float) (track.Smoothed / total) : 0f;
+            var share = total > 0d ? (float)(track.Smoothed / total) : 0f;
 
             if (buffer.TryWrite($"{track.Smoothed,6:F2} {share * 100f,3:F0}%", out length)) {
                 Bar(
@@ -203,7 +213,7 @@ public sealed class GpuOverlay : IDiagnosticOverlay {
                     row.Label,
                     buffer[..length],
                     share,
-                    total > 0d ? (float) (track.Peak / total) : 0f,
+                    total > 0d ? (float)(track.Peak / total) : 0f,
                     Share(share, theme),
                     theme
                 );
@@ -213,7 +223,7 @@ public sealed class GpuOverlay : IDiagnosticOverlay {
         }
 
         var unattributed = Math.Max(0d, total - attributed);
-        UnattributedFraction = total > 0d ? (float) (unattributed / total) : 0f;
+        UnattributedFraction = total > 0d ? (float)(unattributed / total) : 0f;
 
         // ⚠ Against the level-zero scopes alone. A nested scope's span lies inside its parent's — the
         // screen-probe gather times five dispatches one level down — so summing everything reports
@@ -256,7 +266,7 @@ public sealed class GpuOverlay : IDiagnosticOverlay {
         region.Text(row, label, theme.Text);
         region.TextRight(row, value, colour);
 
-        var top = ((row + 1) * region.RowHeight) - (region.RowHeight * 0.28f);
+        var top = (row + 1) * region.RowHeight - region.RowHeight * 0.28f;
         var height = region.RowHeight * 0.16f;
         var full = region.ContentWidth;
 
@@ -288,7 +298,7 @@ public sealed class GpuOverlay : IDiagnosticOverlay {
             var cost = frame.MillisecondsOf(scope);
 
             if (!tracks.TryGetValue(scope.Name, out var track)) {
-                track = new Track();
+                track = new();
                 tracks[scope.Name] = track;
             }
 
@@ -296,7 +306,7 @@ public sealed class GpuOverlay : IDiagnosticOverlay {
             // that a stall is visible while it is still happening.
             track.Smoothed = track.Seen || track.Smoothed <= 0d
                 ? cost
-                : track.Smoothed + ((cost - track.Smoothed) * 0.25d);
+                : track.Smoothed + (cost - track.Smoothed) * 0.25d;
 
             track.Order = index;
             track.Seen = true;
@@ -360,7 +370,7 @@ public sealed class GpuOverlay : IDiagnosticOverlay {
         var attributed = 0d;
 
         foreach (var (_, track) in tracks) {
-            ranking[count++] = (float) track.Smoothed;
+            ranking[count++] = (float)track.Smoothed;
 
             if (track.Level == 0) {
                 attributed += track.Smoothed;

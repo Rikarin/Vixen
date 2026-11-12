@@ -205,7 +205,10 @@ struct GraphemeState {
 
         // GB6, GB7, GB8 — Hangul syllables hold together in the shapes the script allows.
         if (before == GraphemeBreakClass.L
-            && after is GraphemeBreakClass.L or GraphemeBreakClass.V or GraphemeBreakClass.LV or GraphemeBreakClass.LVT) {
+            && after is GraphemeBreakClass.L
+                or GraphemeBreakClass.V
+                or GraphemeBreakClass.LV
+                or GraphemeBreakClass.LVT) {
             return false;
         }
 

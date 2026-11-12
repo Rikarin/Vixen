@@ -36,8 +36,12 @@ public readonly record struct ImpostorBakeCell(ImpostorCell Cell, ImpostorView V
 ///         whose job is a render pass.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The draw rectangle is inset by the padding, and the gutter is left for the dilation
-///         to fill.</b> A bake that used the whole cell would put the silhouette's edge texels against
+///         ⚠
+///         <b>
+///             The draw rectangle is inset by the padding, and the gutter is left for the dilation
+///             to fill.
+///         </b>
+///         A bake that used the whole cell would put the silhouette's edge texels against
 ///         the neighbouring cell's, and a bilinear tap at four hundred metres reaches across — which
 ///         is a tree wearing a stripe of the tree next to it.
 ///     </para>
@@ -157,8 +161,12 @@ public sealed class ImpostorBake : IDisposable {
     /// <param name="cell">Which cell.</param>
     /// <returns>The viewport.</returns>
     /// <remarks>
-    ///     ⚠ <b><see cref="ImpostorAtlas.RectOf" /> already excludes the gutter, and adding the
-    ///     padding again here is the mistake this line exists to not make.</b> A double inset draws
+    ///     ⚠
+    ///     <b>
+    ///         <see cref="ImpostorAtlas.RectOf" /> already excludes the gutter, and adding the
+    ///         padding again here is the mistake this line exists to not make.
+    ///     </b>
+    ///     A double inset draws
     ///     the tree into the middle four-fifths of its cell, which is not wrong enough to look wrong —
     ///     it is a silhouette a few per cent small, uniformly, which reads as the impostor being at a
     ///     slightly different distance than the mesh it replaces.
@@ -198,7 +206,12 @@ public sealed class ImpostorBake : IDisposable {
     ///     between cells, because the same vertex would be a different number of texels from the
     ///     centre in each.
     /// </remarks>
-    public int Record(ICommandList commands, Vector3 centre, float radius, Action<ICommandList, ImpostorBakeCell> draw) {
+    public int Record(
+        ICommandList commands,
+        Vector3 centre,
+        float radius,
+        Action<ICommandList, ImpostorBakeCell> draw
+    ) {
         ArgumentNullException.ThrowIfNull(commands);
         ArgumentNullException.ThrowIfNull(draw);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(radius);
@@ -363,8 +376,7 @@ public sealed class ImpostorBake : IDisposable {
             var block = new byte[ImpostorFinishKeys.ConstantBufferSize];
 
             new ImpostorFinishConstants {
-                CellSize = cell,
-                Padding = Math.Max((Atlas.Padding + (1 << level) - 1) >> level, 1)
+                CellSize = cell, Padding = Math.Max((Atlas.Padding + (1 << level) - 1) >> level, 1)
             }.Write(block);
 
             device.Write(constants, 0, block);

@@ -15,8 +15,12 @@ namespace Vixen.TextureGraph;
 ///     in it when <see cref="ITextureCpuOperation.Run" /> returns is what is uploaded.
 /// </param>
 /// <remarks>
-///     ⚠ <b>Raw texels rather than a decoded picture, because the one operation this exists for
-///     cannot use a picture.</b> Doc 48 § 4.6's <c>Normal → Height</c> integrates a gradient field:
+///     ⚠
+///     <b>
+///         Raw texels rather than a decoded picture, because the one operation this exists for
+///         cannot use a picture.
+///     </b>
+///     Doc 48 § 4.6's <c>Normal → Height</c> integrates a gradient field:
 ///     it needs the half-floats it was handed, and <c>TexturePixels</c> — which is an encoder on the
 ///     way to a PNG — would have already rounded them to bytes.
 /// </remarks>
@@ -53,14 +57,22 @@ public readonly record struct TextureCpuInvocation(
 ///         a plan could not express it at all.
 ///     </para>
 ///     <para>
-///         ⚠ <b>What stops this becoming the norm is that it is not an escape hatch from writing a
-///         kernel — it is a much worse way to compute a picture, and the cost is structural.</b> A
+///         ⚠
+///         <b>
+///             What stops this becoming the norm is that it is not an escape hatch from writing a
+///             kernel — it is a much worse way to compute a picture, and the cost is structural.
+///         </b>
+///         A
 ///         dispatch is recorded into the list already in flight; a CPU op ends that list, waits for
 ///         the device, copies every input into host memory, runs single-threaded, copies the answer
 ///         back and starts a new list. That is two full pipeline drains in the middle of a bake, plus
-///         the bandwidth, and a chain of them serialises the entire evaluation. <b>The test of
-///         whether a node belongs here is not "would this be easier in C#" — it is "is there a GPU
-///         formulation at all".</b> For a Poisson solve there is not one worth having: low
+///         the bandwidth, and a chain of them serialises the entire evaluation.
+///         <b>
+///             The test of
+///             whether a node belongs here is not "would this be easier in C#" — it is "is there a GPU
+///             formulation at all".
+///         </b>
+///         For a Poisson solve there is not one worth having: low
 ///         frequencies converge in O(n²) Jacobi sweeps on a grid this size, so the GPU version is
 ///         thousands of dispatches and a different convergence story from the one § 4.6 specified.
 ///         Anything that <em>can</em> be a kernel is a kernel, and § D5's "anything that has to be
@@ -96,8 +108,12 @@ public interface ITextureCpuOperation {
     /// <summary>Fills the output image from the inputs.</summary>
     /// <param name="invocation">The plan, the op, its inputs and the buffer to fill.</param>
     /// <remarks>
-    ///     ⚠ <b>The output buffer arrives zeroed, and zero is a valid-looking number for almost
-    ///     everything a plan computes</b> — so an implementation that returns early leaves a black
+    ///     ⚠
+    ///     <b>
+    ///         The output buffer arrives zeroed, and zero is a valid-looking number for almost
+    ///         everything a plan computes
+    ///     </b>
+    ///     — so an implementation that returns early leaves a black
     ///     image rather than an error. Write every texel.
     /// </remarks>
     void Run(in TextureCpuInvocation invocation);

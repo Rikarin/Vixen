@@ -26,8 +26,12 @@ namespace Vixen.Animation.Ecs;
 ///         a project's animators.
 ///     </para>
 ///     <para>
-///         ⚠ <b>And <c>[GameSystem]</c> is deliberately not the alternative, which is the other half
-///         of what #1221 asked to be decided.</b> <c>GameSystemAttribute</c>'s own remarks make it
+///         ⚠
+///         <b>
+///             And <c>[GameSystem]</c> is deliberately not the alternative, which is the other half
+///             of what #1221 asked to be decided.
+///         </b>
+///         <c>GameSystemAttribute</c>'s own remarks make it
 ///         opt-in and say the engine's own systems do not carry it: a declared system is one a
 ///         <em>project</em> owns and is built out of a service registry, and these three take no
 ///         service. Annotating them would put three engine passes into the declared set of every
@@ -41,8 +45,11 @@ namespace Vixen.Animation.Ecs;
 ///         matches nothing.
 ///     </para>
 ///     <para>
-///         <b>The same shape <c>PhysicsSystems.AddPhysics</c> takes, and it was missing for as long as
-///         animation had systems.</b> <see cref="EngineLoop" /> registers a default set and cannot
+///         <b>
+///             The same shape <c>PhysicsSystems.AddPhysics</c> takes, and it was missing for as long as
+///             animation had systems.
+///         </b>
+///         <see cref="EngineLoop" /> registers a default set and cannot
 ///         include these: <c>Vixen.Animation</c> references <c>Vixen.Engine</c>, so the dependency
 ///         only runs one way and the engine has no name for an animator. The result was that every
 ///         game had to know the passes exist and what order they go in.
@@ -82,8 +89,12 @@ public static class AnimationSystems {
     /// <param name="draw">Where the lines go.</param>
     /// <returns>The system, so the caller can switch it on and narrow it.</returns>
     /// <remarks>
-    ///     ⚠ <b>Separate from <see cref="AddAnimation(EngineLoop)" /> and returning the system rather
-    ///     than the loop</b>, because a gizmo pass is only ever useful once somebody has said which
+    ///     ⚠
+    ///     <b>
+    ///         Separate from <see cref="AddAnimation(EngineLoop)" /> and returning the system rather
+    ///         than the loop
+    ///     </b>
+    ///     , because a gizmo pass is only ever useful once somebody has said which
     ///     character they are looking at — a scene of thirty constrained characters drawn at once is a
     ///     thousand lines and nothing legible. Registering it is not the interesting half; getting
     ///     hold of it to set <see cref="ConstraintGizmoSystem.Only" /> is.

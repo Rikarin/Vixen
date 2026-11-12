@@ -3,7 +3,6 @@
 
 using System.Reflection;
 using Vixen.Core.Mathematics;
-using Vixen.Editor.SceneView;
 using Vixen.Graphics;
 using Vixen.Graphics.Null;
 using Vixen.Rendering.Terrain;
@@ -55,7 +54,7 @@ public sealed class TerrainViewportTests : IDisposable {
 
         // SPIR-V's magic number, little-endian. A module that is not one is a build step that wrote
         // something else into the resource — which the loader would hand to the driver.
-        Assert.Equal<byte[]>([0x03, 0x02, 0x23, 0x07], bytes);
+        Assert.Equal([0x03, 0x02, 0x23, 0x07], bytes);
     }
 
     /// <summary>A terrain the scene supplies is uploaded and drawn.</summary>
@@ -71,7 +70,7 @@ public sealed class TerrainViewportTests : IDisposable {
 
         presenter.TerrainScene = scene;
 
-        presenter.UploadTerrain(device.BeginCommandList(), new EditorCamera(), 1f);
+        presenter.UploadTerrain(device.BeginCommandList(), new(), 1f);
 
         Assert.Equal(1, presenter.TerrainsDrawn);
 
@@ -84,11 +83,11 @@ public sealed class TerrainViewportTests : IDisposable {
     /// <summary>A presenter with no modules draws no terrain and does not fail.</summary>
     [Fact]
     public void Without_the_modules_the_pane_still_draws() {
-        using var presenter = Presenter(withTerrain: false);
+        using var presenter = Presenter(false);
 
         presenter.TerrainScene = new OneTerrain(Built(), Vector3.Zero);
 
-        presenter.UploadTerrain(device.BeginCommandList(), new EditorCamera(), 1f);
+        presenter.UploadTerrain(device.BeginCommandList(), new(), 1f);
 
         Assert.Equal(0, presenter.TerrainsDrawn);
     }
@@ -107,7 +106,7 @@ public sealed class TerrainViewportTests : IDisposable {
 
         presenter.TerrainScene = new TwoPlacements(map);
 
-        presenter.UploadTerrain(device.BeginCommandList(), new EditorCamera(), 1f);
+        presenter.UploadTerrain(device.BeginCommandList(), new(), 1f);
 
         // Two draws, because there are two placements — and one renderer behind them, which is what
         // the second upload not creating a second atlas means.
@@ -115,7 +114,7 @@ public sealed class TerrainViewportTests : IDisposable {
 
         var renderers = (System.Collections.IDictionary)typeof(ScenePresenter)
             .GetField("terrains", BindingFlags.Instance | BindingFlags.NonPublic)!
-            .GetValue(presenter)!;
+                .GetValue(presenter)!;
 
         Assert.True(renderers.Count == 1, $"{renderers.Count} renderers for one heightfield.");
     }
@@ -123,14 +122,24 @@ public sealed class TerrainViewportTests : IDisposable {
     ScenePresenter Presenter(bool withTerrain = true) {
         var presenter = new ScenePresenter(
             device,
-            new Vixen.Rendering.LineShaders(Stage(ShaderStage.Vertex, "line.vs"), Stage(ShaderStage.Fragment, "line.fs")),
-            new Vixen.Rendering.MeshShaders(Stage(ShaderStage.Vertex, "mesh.vs"), Stage(ShaderStage.Fragment, "mesh.fs")),
-            new Vixen.Rendering.MeshInstanceShaders(Stage(ShaderStage.Vertex, "inst.vs"), Stage(ShaderStage.Fragment, "inst.fs")),
+            new(
+                Stage(ShaderStage.Vertex, "line.vs"),
+                Stage(ShaderStage.Fragment, "line.fs")
+            ),
+            new(
+                Stage(ShaderStage.Vertex, "mesh.vs"),
+                Stage(ShaderStage.Fragment, "mesh.fs")
+            ),
+            new(
+                Stage(ShaderStage.Vertex, "inst.vs"),
+                Stage(ShaderStage.Fragment, "inst.fs")
+            ),
             PixelFormat.Rgba8UNorm
         );
 
         if (withTerrain) {
-            presenter.TerrainStages = new(Stage(ShaderStage.Vertex, "terrain.vs"), Stage(ShaderStage.Fragment, "terrain.fs"));
+            presenter.TerrainStages =
+                new(Stage(ShaderStage.Vertex, "terrain.vs"), Stage(ShaderStage.Fragment, "terrain.fs"));
         }
 
         return presenter;
@@ -156,8 +165,12 @@ public sealed class TerrainViewportTests : IDisposable {
     static TerrainMap Built() =>
         new(
             TerrainDescription.Default with {
-                TileSamples = 32, TilesX = 2, TilesZ = 2,
-                MetresPerQuad = 1f, MinHeight = -50f, MaxHeight = 50f
+                TileSamples = 32,
+                TilesX = 2,
+                TilesZ = 2,
+                MetresPerQuad = 1f,
+                MinHeight = -50f,
+                MaxHeight = 50f
             }
         );
 

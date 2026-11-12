@@ -3,7 +3,6 @@
 
 using Vixen.Editor.Core;
 using Vixen.Editor.Ui;
-using Vixen.Ui.Controls;
 
 namespace Vixen.Editor.App;
 

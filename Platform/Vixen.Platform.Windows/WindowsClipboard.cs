@@ -39,7 +39,8 @@ public sealed unsafe class WindowsClipboard(IClipboard fallback) : IClipboard {
     public bool HasText => fallback.HasText;
 
     /// <inheritdoc />
-    public bool HasImage => Win32.IsClipboardFormatAvailable(Win32.CfDibV5)
+    public bool HasImage =>
+        Win32.IsClipboardFormatAvailable(Win32.CfDibV5)
         || Win32.IsClipboardFormatAvailable(Win32.CfDib);
 
     /// <inheritdoc />

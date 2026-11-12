@@ -15,7 +15,7 @@ namespace Vixen.Core.Syntax;
 /// </summary>
 public abstract class SyntaxNode {
     SyntaxNode?[]? cachedSlots;
-    ISyntaxTree? syntaxTree;
+
     /// <summary>The enclosing node, or null at the root.</summary>
     public SyntaxNode? Parent { get; }
 
@@ -36,8 +36,8 @@ public abstract class SyntaxNode {
     ///     every other node walks up to it.
     /// </summary>
     public ISyntaxTree? SyntaxTree {
-        get => syntaxTree ?? Parent?.SyntaxTree;
-        internal set => syntaxTree = value;
+        get => field ?? Parent?.SyntaxTree;
+        internal set => field = value;
     }
 
     /// <summary>Absolute span including leading/trailing trivia.</summary>
@@ -72,7 +72,7 @@ public abstract class SyntaxNode {
     public IEnumerable<SyntaxNode> ChildNodesAndTokens() {
         for (var i = 0; i < SlotCount; i++) {
             var child = GetSlot(i);
-            if (child != null) {
+            if (child is not null) {
                 yield return child;
             }
         }
@@ -101,7 +101,7 @@ public abstract class SyntaxNode {
 
     /// <summary>The child nodes, without tokens and with list nodes flattened away.</summary>
     public IEnumerable<SyntaxNode> ChildNodes() =>
-        ChildNodesAndTokensFlattened().Where(child => child is not SyntaxToken);
+        ChildNodesAndTokensFlattened().Where(static child => child is not SyntaxToken);
 
     /// <summary>The child tokens, with list nodes flattened away.</summary>
     public IEnumerable<SyntaxToken> ChildTokens() => ChildNodesAndTokensFlattened().OfType<SyntaxToken>();
@@ -119,10 +119,10 @@ public abstract class SyntaxNode {
 
     /// <summary>Every node beneath this one, in source order. Tokens are not nodes here.</summary>
     public IEnumerable<SyntaxNode> DescendantNodes() =>
-        DescendantNodesAndTokens().Where(node => node is not SyntaxToken);
+        DescendantNodesAndTokens().Where(static node => node is not SyntaxToken);
 
     /// <summary>This node and every node beneath it.</summary>
-    public IEnumerable<SyntaxNode> DescendantNodesAndSelf() => [this, .. DescendantNodes()];
+    public IEnumerable<SyntaxNode> DescendantNodesAndSelf() => [this, ..DescendantNodes()];
 
     /// <summary>Every token beneath this node, in source order — the node's text, tokenized.</summary>
     public IEnumerable<SyntaxToken> DescendantTokens() => DescendantNodesAndTokens().OfType<SyntaxToken>();
@@ -135,7 +135,7 @@ public abstract class SyntaxNode {
     }
 
     /// <summary>This node and its enclosing nodes, innermost first.</summary>
-    public IEnumerable<SyntaxNode> AncestorsAndSelf() => [this, .. Ancestors()];
+    public IEnumerable<SyntaxNode> AncestorsAndSelf() => [this, ..Ancestors()];
 
     /// <summary>
     ///     The innermost <typeparamref name="TNode" /> at or above this node, or null.
@@ -146,7 +146,7 @@ public abstract class SyntaxNode {
     ///     expression belong to.
     /// </remarks>
     public TNode? FirstAncestorOrSelf<TNode>() where TNode : SyntaxNode {
-        for (SyntaxNode? node = this; node is not null; node = node.Parent) {
+        for (var node = this; node is not null; node = node.Parent) {
             if (node is TNode found) {
                 return found;
             }
@@ -295,7 +295,7 @@ public abstract class SyntaxNode {
     /// <summary>Realize (and cache) the red child at the given green slot, or null if empty.</summary>
     protected SyntaxNode? GetRed(int index) {
         var green = Green.GetSlot(index);
-        if (green == null) {
+        if (green is null) {
             return null;
         }
 

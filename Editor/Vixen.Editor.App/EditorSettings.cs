@@ -11,8 +11,11 @@ namespace Vixen.Editor.App;
 /// <summary>What a project is called, by whom, and at what version.</summary>
 /// <remarks>
 ///     <para>
-///         <b>The first settings asset the editor ships, and the reason it is one rather than a
-///         dialog is doc 11's claim that "adding a project setting is declaring a type".</b> It
+///         <b>
+///             The first settings asset the editor ships, and the reason it is one rather than a
+///             dialog is doc 11's claim that "adding a project setting is declaring a type".
+///         </b>
+///         It
 ///         carries <c>[DataContract]</c> so <c>ProjectSettingsStore</c> can read and write it with
 ///         the same YAML binder that reads a <c>.meta</c> file, and <c>[Inspector]</c> so the
 ///         settings window draws it with the same rows that draw a material. Neither attribute knows
@@ -85,8 +88,12 @@ public sealed class ContentBuildSettings {
 public sealed class EditorPreferences {
     /// <summary>The command line that opens a source file, or empty for the file manager.</summary>
     /// <remarks>
-    ///     ⚠ <b>Doc 20's A7 asks the console for "double-click-to-open-source through the
-    ///     external-tool setting", and this is that setting.</b> <c>{file}</c> and <c>{line}</c> are
+    ///     ⚠
+    ///     <b>
+    ///         Doc 20's A7 asks the console for "double-click-to-open-source through the
+    ///         external-tool setting", and this is that setting.
+    ///     </b>
+    ///     <c>{file}</c> and <c>{line}</c> are
     ///     substituted; anything else is passed through. Left empty, a double-click reveals the
     ///     project folder, which is what it did before there was anywhere to say otherwise.
     /// </remarks>
@@ -120,8 +127,12 @@ public sealed class EditorPreferences {
     /// <summary>Which language the editor shows its own words in, or empty for the source text.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The first thing anywhere that names a language, and the whole localisation chain
-    ///         was unreachable without one.</b> <c>Strings.Use</c>, <c>StringCatalogYaml.Save</c>,
+    ///         ⚠
+    ///         <b>
+    ///             The first thing anywhere that names a language, and the whole localisation chain
+    ///             was unreachable without one.
+    ///         </b>
+    ///         <c>Strings.Use</c>, <c>StringCatalogYaml.Save</c>,
     ///         <c>StringCatalogYaml.Load</c> and <c>EditorStrings.Template</c> were finished, tested
     ///         end to end inside one test method, and called by nothing —
     ///         <see href="https://github.com/Rikarin/Vixen/issues/1229" />.
@@ -142,14 +153,20 @@ public sealed class EditorPreferences {
     ///     </para>
     /// </remarks>
     [Inspector]
-    [Tooltip("Which language the editor's own words are in: the name of a catalog under the project's Localization folder. Empty shows the source text.")]
+    [Tooltip(
+        "Which language the editor's own words are in: the name of a catalog under the project's Localization folder. Empty shows the source text."
+    )]
     public string Language { get; set; } = string.Empty;
 
     /// <summary>Whether the Project panel opens as a grid of tiles rather than as a tree.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Deliberately not <c>[Inspector]</c>, and it is the only member here that is
-    ///         not.</b> The button in the browser's own filter bar is the way this is changed, and a
+    ///         ⚠
+    ///         <b>
+    ///             Deliberately not <c>[Inspector]</c>, and it is the only member here that is
+    ///             not.
+    ///         </b>
+    ///         The button in the browser's own filter bar is the way this is changed, and a
     ///         settings row over the same state would be the two-writers mistake doc 20 names — with
     ///         the added indignity that the row and the button are in two different panels, so they
     ///         can be looked at disagreeing.
@@ -173,8 +190,12 @@ public sealed class EditorPreferences {
 
     /// <summary>How big the Project panel's tiles are, by the name <c>AssetGrid.TileSizes</c> gives.</summary>
     /// <remarks>
-    ///     ⚠ <b>A name and not a number, which is what makes it survive a version that changes the
-    ///     steps.</b> A tile is a width, a height and a glyph size that have to agree; storing the
+    ///     ⚠
+    ///     <b>
+    ///         A name and not a number, which is what makes it survive a version that changes the
+    ///         steps.
+    ///     </b>
+    ///     A tile is a width, a height and a glyph size that have to agree; storing the
     ///     width alone would restore a 152-pixel tile with a 40-pixel glyph in it the day the sizes
     ///     are re-tuned. A name nothing answers to falls back to the default rather than failing.
     ///     <para>
@@ -182,8 +203,12 @@ public sealed class EditorPreferences {
     ///         the browser's own filter bar is how it is changed.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Large rather than <c>AssetGrid.DefaultTileSize</c>, and the two are allowed to
-    ///         differ.</b> The grid's own constant is what a tile falls back to when a name is not one
+    ///         ⚠
+    ///         <b>
+    ///             Large rather than <c>AssetGrid.DefaultTileSize</c>, and the two are allowed to
+    ///             differ.
+    ///         </b>
+    ///         The grid's own constant is what a tile falls back to when a name is not one
     ///         it knows — a floor, and a conservative one. What the Project panel should <i>open</i>
     ///         at is a different question, and the answer is the size at which a thumbnail is a
     ///         picture rather than a stamp.
@@ -211,8 +236,12 @@ public sealed class EditorPreferences {
     /// <summary>Whether the inspector's component panel is in debug (raw) mode.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Doc 20 § B1's "debug (raw) mode", and it is remembered for the reason
-    ///         <see cref="ProjectGridView" /> is</b>: a panel's factory runs again when it is
+    ///         ⚠
+    ///         <b>
+    ///             Doc 20 § B1's "debug (raw) mode", and it is remembered for the reason
+    ///             <see cref="ProjectGridView" /> is
+    ///         </b>
+    ///         : a panel's factory runs again when it is
     ///         reopened, so a mode the panel kept to itself would be turned off by closing the tab as
     ///         well as by restarting — and somebody diagnosing a component that draws nothing does
     ///         not need the diagnostic to switch itself off.
@@ -234,8 +263,12 @@ public sealed class EditorPreferences {
     /// <summary>Which inspector members are kept at the top of their foldout, as <c>Component.Member</c>.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Per member of a type rather than per object, which is why it is a preference and
-    ///         not a fact about a scene.</b> Pinning a light's <c>Intensity</c> says something about
+    ///         ⚠
+    ///         <b>
+    ///             Per member of a type rather than per object, which is why it is a preference and
+    ///             not a fact about a scene.
+    ///         </b>
+    ///         Pinning a light's <c>Intensity</c> says something about
     ///         how somebody works, and it applies to the next light they click for exactly the reason
     ///         <see cref="ComponentOrder" /> applies to the next entity. The two are the same shape
     ///         and use the same spelling of a component's name, so a file where they disagreed would
@@ -252,8 +285,12 @@ public sealed class EditorPreferences {
     /// <summary>What each viewport pane was drawing, in reading order.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>One entry per pane rather than one setting per toggle, which is the general half
-    ///         of this.</b> The Show menu is generated from <c>ShowFlags.All</c> — a flag added to the
+    ///         ⚠
+    ///         <b>
+    ///             One entry per pane rather than one setting per toggle, which is the general half
+    ///             of this.
+    ///         </b>
+    ///         The Show menu is generated from <c>ShowFlags.All</c> — a flag added to the
     ///         enum appears in the menu, in the viewport's overlay and in the palette with nothing
     ///         edited — and a preference per flag would have been the one place that stopped being
     ///         true. What is stored is the <i>set</i>, so a flag a plugin contributes is remembered by
@@ -293,14 +330,15 @@ public sealed class EditorPreferences {
     /// </remarks>
     internal bool RememberView(int index, SceneViewport pane) {
         while (Viewports.Count <= index) {
-            Viewports.Add(new ViewportPreferences());
+            Viewports.Add(new());
         }
 
         var stored = Viewports[index];
         var show = ShowFlags.Slugs(pane.Show);
         var mode = pane.Modes.Current.ToString();
 
-        if (string.Equals(stored.Mode, mode, StringComparison.Ordinal) && stored.Show.SequenceEqual(show, StringComparer.Ordinal)) {
+        if (string.Equals(stored.Mode, mode, StringComparison.Ordinal)
+            && stored.Show.SequenceEqual(show, StringComparer.Ordinal)) {
             return false;
         }
 
@@ -335,9 +373,13 @@ public sealed class EditorPreferences {
     /// <summary>The project browser's named searches, in the order they were saved.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Doc 20 § B1's "saved filters", and the storage question it shares with
-    ///         collections is answered differently for each: a saved filter holds the <i>query</i>,
-    ///         a collection holds the <i>result</i>.</b> That is why this one is a preference and a
+    ///         ⚠
+    ///         <b>
+    ///             Doc 20 § B1's "saved filters", and the storage question it shares with
+    ///             collections is answered differently for each: a saved filter holds the <i>query</i>,
+    ///             a collection holds the <i>result</i>.
+    ///         </b>
+    ///         That is why this one is a preference and a
     ///         collection is not — a query re-runs against whatever the project holds today, so a
     ///         filter naming an importer nobody uses any more narrows to nothing and says so, while a
     ///         set of assets stored by path breaks the first time somebody moves one.

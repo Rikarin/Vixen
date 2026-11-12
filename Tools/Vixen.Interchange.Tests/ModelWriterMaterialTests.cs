@@ -66,7 +66,9 @@ public sealed class ModelWriterMaterialTests {
         Assert.Equal(4, root.GetProperty("images").GetArrayLength());
         Assert.Equal(4, root.GetProperty("textures").GetArrayLength());
         var material = root.GetProperty("materials")[0];
-        var orm = material.GetProperty("pbrMetallicRoughness").GetProperty("metallicRoughnessTexture").GetProperty("index");
+        var orm = material.GetProperty("pbrMetallicRoughness")
+            .GetProperty("metallicRoughnessTexture")
+            .GetProperty("index");
         Assert.Equal(orm.GetInt32(), material.GetProperty("occlusionTexture").GetProperty("index").GetInt32());
         Assert.Equal("BLEND", material.GetProperty("alphaMode").GetString());
         Assert.Equal(3, material.GetProperty("emissiveFactor").GetArrayLength());
@@ -87,12 +89,26 @@ public sealed class ModelWriterMaterialTests {
             ["EXT_texture_webp", "KHR_materials_emissive_strength"],
             root.GetProperty("extensionsUsed").EnumerateArray().Select(static e => e.GetString()!)
         );
-        Assert.Equal("EXT_texture_webp", Assert.Single(root.GetProperty("extensionsRequired").EnumerateArray()).GetString());
+        Assert.Equal(
+            "EXT_texture_webp",
+            Assert.Single(root.GetProperty("extensionsRequired").EnumerateArray()).GetString()
+        );
         Assert.Equal("maps/worn%20albedo.webp", root.GetProperty("images")[0].GetProperty("uri").GetString());
-        Assert.Equal(0, root.GetProperty("textures")[0].GetProperty("extensions").GetProperty("EXT_texture_webp").GetProperty("source").GetInt32());
+        Assert.Equal(
+            0,
+            root.GetProperty("textures")[0]
+                .GetProperty("extensions")
+                .GetProperty("EXT_texture_webp")
+                .GetProperty("source")
+                .GetInt32()
+        );
         Assert.Equal(
             4f,
-            root.GetProperty("materials")[0].GetProperty("extensions").GetProperty("KHR_materials_emissive_strength").GetProperty("emissiveStrength").GetSingle()
+            root.GetProperty("materials")[0]
+                .GetProperty("extensions")
+                .GetProperty("KHR_materials_emissive_strength")
+                .GetProperty("emissiveStrength")
+                .GetSingle()
         );
     }
 }

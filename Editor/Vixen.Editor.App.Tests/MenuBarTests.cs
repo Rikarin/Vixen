@@ -10,8 +10,12 @@ namespace Vixen.Editor.App.Tests;
 
 /// <summary>The bar doc 20's Part C describes, held to being all there and all live.</summary>
 /// <remarks>
-///     ⚠ <b>Doc 20's Part F asks for exactly the first test here and says why: five menu lines named
-///     commands nobody registered, and no test noticed.</b> A dangling id is invisible — the menu
+///     ⚠
+///     <b>
+///         Doc 20's Part F asks for exactly the first test here and says why: five menu lines named
+///         commands nobody registered, and no test noticed.
+///     </b>
+///     A dangling id is invisible — the menu
 ///     builder skips it — so the File menu quietly had two entries in it for as long as that was
 ///     true. Fifteen lines of walk over the model is the whole cost of never having that again.
 /// </remarks>
@@ -34,7 +38,7 @@ public class MenuBarTests {
     public void The_bar_is_the_ten_menus_Part_C_names_in_Part_Cs_order() {
         using var fixture = EditorSession.Start();
 
-        var titles = fixture.Shell.Menus.Menus.Select(menu => menu.Title.Text).ToList();
+        var titles = fixture.Shell.Menus.Menus.Select(static menu => menu.Title.Text).ToList();
 
         Assert.Equal(
             ["File", "Edit", "Assets", "Entity", "Scene", "Play", "Window", "Build", "Tools", "Help"],
@@ -65,7 +69,7 @@ public class MenuBarTests {
     public void A_declared_but_unbuilt_verb_is_disabled_and_says_why() {
         using var fixture = EditorSession.Start();
 
-        var planned = fixture.Shell.Commands.Commands.Where(command => command.IsUnavailable).ToList();
+        var planned = fixture.Shell.Commands.Commands.Where(static command => command.IsUnavailable).ToList();
 
         // If this ever reaches zero the mechanism has been retired, which is a good day and should
         // be a deliberate edit rather than a test that silently stops asserting anything.
@@ -132,9 +136,6 @@ public class MenuBarTests {
 
                 case MenuDynamic(var ids):
                     dangling.AddRange(ids().Where(id => !commands.TryGet(id, out _)));
-                    break;
-
-                default:
                     break;
             }
         }

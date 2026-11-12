@@ -32,22 +32,24 @@ public class LayoutBoxTests {
     ///     wide. The first child takes a third of the 360 and the second the rest, by ratio: 120 and
     ///     240 appear nowhere in the sheet, and neither does either child's position.
     ///     <para>
-    ///     ⚠ <b>And <c>flex-shrink: 0</c> is what keeps that arithmetic true.</b> 360 of content,
-    ///     40 of padding and 30 of margin is 430 in a 400-wide root, so since #628 gave the bridge
-    ///     CSS's initial shrink of 1 the row would take the 30-point deficit itself and split 330
-    ///     rather than 360 — every number in this file would be a measurement of the overflow. The
-    ///     row is meant to be 360 wide; it now says so.
+    ///         ⚠ <b>And <c>flex-shrink: 0</c> is what keeps that arithmetic true.</b> 360 of content,
+    ///         40 of padding and 30 of margin is 430 in a 400-wide root, so since #628 gave the bridge
+    ///         CSS's initial shrink of 1 the row would take the 30-point deficit itself and split 330
+    ///         rather than 360 — every number in this file would be a measurement of the overflow. The
+    ///         row is meant to be 360 wide; it now says so.
     ///     </para>
     /// </remarks>
     static UiTest Fixture() {
         var ui = UiTest.Create(400f, 300f);
 
-        ui.Load("""
-            root  { width: 400px; height: 300px; }
-            .row  { width: 360px; height: 80px; padding: 10px 20px; margin-left: 30px; flex-shrink: 0; }
-            .a    { flex-grow: 1; }
-            .b    { flex-grow: 2; }
-        """);
+        ui.Load(
+            """
+                root  { width: 400px; height: 300px; }
+                .row  { width: 360px; height: 80px; padding: 10px 20px; margin-left: 30px; flex-shrink: 0; }
+                .a    { flex-grow: 1; }
+                .b    { flex-grow: 2; }
+            """
+        );
 
         var row = ui.Create("div", ui.Document.Root, "row", "row");
         ui.Create("div", row, "a", "a");
@@ -132,12 +134,14 @@ public class LayoutBoxTests {
     public void A_box_that_moves_later_is_waited_for() {
         using var ui = UiTest.Create(400f, 300f);
 
-        ui.Load("""
-            root      { width: 400px; height: 300px; }
-            .spacer   { width: 0; height: 10px; }
-            .spacer.w { width: 60px; }
-            .box      { width: 40px; height: 10px; }
-        """);
+        ui.Load(
+            """
+                root      { width: 400px; height: 300px; }
+                .spacer   { width: 0; height: 10px; }
+                .spacer.w { width: 60px; }
+                .box      { width: 40px; height: 10px; }
+            """
+        );
 
         var spacer = ui.Create("div", ui.Document.Root, "spacer", "spacer");
         ui.Create("div", ui.Document.Root, "box", "box");

@@ -32,7 +32,7 @@ public sealed class UncollectedVoiceTests {
 
         using var owned = engine;
 
-        var clip = AudioTestData.Impulse(frames: 16);
+        var clip = AudioTestData.Impulse(16);
 
         // Four short sounds, each rendered to its end. Every one of them is Finished by the time the
         // next starts, and every one of them is still holding a slot.
@@ -63,7 +63,7 @@ public sealed class UncollectedVoiceTests {
 
         using var owned = engine;
 
-        var clip = AudioTestData.Impulse(frames: 16);
+        var clip = AudioTestData.Impulse(16);
 
         for (var index = 0; index < 32; index++) {
             var handle = engine.Play(clip);

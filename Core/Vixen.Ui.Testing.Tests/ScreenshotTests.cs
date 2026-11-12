@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core.Imaging;
-using Vixen.Core.Mathematics;
 using Vixen.Ui.Testing.Visual;
 using Xunit;
 
@@ -26,8 +25,8 @@ public sealed class ScreenshotTests : IDisposable {
         var ui = UiTest.Create(
             32,
             32,
-            new UiTestOptions {
-                Background = new Color4(0f, 0f, 0f, 1f),
+            new() {
+                Background = new(0f, 0f, 0f, 1f),
                 BaselineDirectory = Path.Combine(root, "baselines"),
                 SourceBaselineDirectory = Path.Combine(root, "baselines"),
                 ArtifactDirectory = Path.Combine(root, "artifacts"),
@@ -57,7 +56,7 @@ public sealed class ScreenshotTests : IDisposable {
 
     [Fact]
     public void Accepting_writes_a_reference_that_then_verifies() {
-        using (var recording = Opened(updating: true)) {
+        using (var recording = Opened(true)) {
             recording.Create("div", recording.Document.Root, null, "box");
             recording.Frame();
             recording.Screenshot("box");
@@ -76,7 +75,7 @@ public sealed class ScreenshotTests : IDisposable {
 
     [Fact]
     public void A_changed_interface_fails_and_writes_the_three_files_a_reviewer_opens() {
-        using (var recording = Opened(updating: true)) {
+        using (var recording = Opened(true)) {
             recording.Create("div", recording.Document.Root, null, "box");
             recording.Frame();
             recording.Screenshot("moved");
@@ -99,16 +98,15 @@ public sealed class ScreenshotTests : IDisposable {
 
     [Fact]
     public void A_size_change_is_reported_as_one_rather_than_compared_around() {
-        using (var recording = Opened(updating: true)) {
+        using (var recording = Opened(true)) {
             recording.Screenshot("resized");
         }
 
         using var ui = UiTest.Create(
             48,
             48,
-            new UiTestOptions {
-                BaselineDirectory = Path.Combine(root, "baselines"),
-                ArtifactDirectory = Path.Combine(root, "artifacts")
+            new() {
+                BaselineDirectory = Path.Combine(root, "baselines"), ArtifactDirectory = Path.Combine(root, "artifacts")
             }
         );
 
@@ -120,21 +118,21 @@ public sealed class ScreenshotTests : IDisposable {
 
     [Fact]
     public void A_screenshot_appears_in_the_command_log_either_way() {
-        using (var recording = Opened(updating: true)) {
+        using (var recording = Opened(true)) {
             recording.Screenshot("logged");
         }
 
         using var ui = Opened();
         ui.Screenshot("logged");
 
-        var line = ui.Log.Commands.Single(command => command.Text.Contains("logged", StringComparison.Ordinal));
+        var line = ui.Log.Commands.Single(static command => command.Text.Contains("logged", StringComparison.Ordinal));
         Assert.Equal("identical", line.Outcome);
     }
 
     /// <inheritdoc />
     public void Dispose() {
         if (Directory.Exists(root)) {
-            Directory.Delete(root, recursive: true);
+            Directory.Delete(root, true);
         }
     }
 }

@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Diagnostics.CodeAnalysis;
-using Vixen.Ui;
 
 namespace Vixen.Ui.Controls;
 
@@ -80,14 +79,20 @@ public sealed class CommandRegistry : IResponder {
     }
 
     /// <summary>Raised when a command is added or removed.</summary>
-    /// <remarks>What a palette listens to in order to forget a cached list, and what a menu built
-    ///     from a model listens to in order to rebuild.</remarks>
+    /// <remarks>
+    ///     What a palette listens to in order to forget a cached list, and what a menu built
+    ///     from a model listens to in order to rebuild.
+    /// </remarks>
     public event Action<CommandRegistry>? Changed;
 
     /// <summary>How many things are listening to <see cref="Changed" />.</summary>
     /// <remarks>
-    ///     ⚠ <b>Internal, and it exists so that "the shell unsubscribed" is an assertion rather than
-    ///     a comment.</b> An unsubscription is invisible from outside — the symptom of a missing one
+    ///     ⚠
+    ///     <b>
+    ///         Internal, and it exists so that "the shell unsubscribed" is an assertion rather than
+    ///         a comment.
+    ///     </b>
+    ///     An unsubscription is invisible from outside — the symptom of a missing one
     ///     is a subscriber that keeps working for a while and then acts on a disposed object — so
     ///     there is nothing else a test can look at. Not public: a count of listeners is not a fact
     ///     any caller should branch on.
@@ -150,13 +155,15 @@ public sealed class CommandRegistry : IResponder {
     /// <param name="title">What it is called.</param>
     /// <param name="run">What it does.</param>
     /// <returns>The command.</returns>
-    public EditorCommand Add(string id, StringId title, Action run) => Add(new EditorCommand(id, title, run));
+    public EditorCommand Add(string id, StringId title, Action run) => Add(new(id, title, run));
 
     /// <summary>Takes a command out.</summary>
     /// <param name="id">Its id.</param>
     /// <returns>Whether it was there.</returns>
-    /// <remarks>What unloading a plugin does. The keymap keeps the binding — see
-    ///     the keymap — so reloading the plugin restores it.</remarks>
+    /// <remarks>
+    ///     What unloading a plugin does. The keymap keeps the binding — see
+    ///     the keymap — so reloading the plugin restores it.
+    /// </remarks>
     public bool Remove(string id) {
         ArgumentNullException.ThrowIfNull(id);
 
@@ -183,12 +190,17 @@ public sealed class CommandRegistry : IResponder {
     ///         nothing after this to catch it.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A title only for a command that renames itself, and this used to say there could
-    ///         be none at all.</b> The stated reason was that
+    ///         ⚠
+    ///         <b>
+    ///             A title only for a command that renames itself, and this used to say there could
+    ///             be none at all.
+    ///         </b>
+    ///         The stated reason was that
     ///         <see cref="EditorCommand.CurrentTitle" /> is a <c>StringId</c> and the route's title
     ///         is a string, "so resolving one here would need a catalogue this table does not have".
     ///         That is wrong: <c>StringId.Text</c> resolves through <c>Strings</c>, which is static
-    ///         and whose language is process-wide, so every table has it. Without the title a bound toolbar button showed <i>Local Space</i> in both
+    ///         and whose language is process-wide, so every table has it. Without the title a bound toolbar button showed
+    ///         <i>Local Space</i> in both
     ///         states, which is the exact defect <see cref="EditorCommand.Caption" /> exists to fix.
     ///     </para>
     ///     <para>
@@ -218,8 +230,10 @@ public sealed class CommandRegistry : IResponder {
     /// <summary>Whether a command exists and can run right now.</summary>
     /// <param name="id">The id.</param>
     /// <returns>Whether it can.</returns>
-    /// <remarks>An id nothing registered is <c>false</c> rather than a throw: a menu model outlives
-    ///     the plugin whose commands it names, exactly as a saved layout outlives its panels.</remarks>
+    /// <remarks>
+    ///     An id nothing registered is <c>false</c> rather than a throw: a menu model outlives
+    ///     the plugin whose commands it names, exactly as a saved layout outlives its panels.
+    /// </remarks>
     public bool CanExecute(string id) => TryGet(id, out var command) && CanExecute(command);
 
     /// <summary>Whether a command is in scope and enabled.</summary>

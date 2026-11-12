@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Assets;
-using Vixen.Core;
 using Vixen.Core.IO;
 using Vixen.Core.Mathematics;
 using Vixen.Core.Serialization;
@@ -101,7 +100,11 @@ public sealed class StartupSceneTests : IDisposable {
         Assert.Null(application.Services.Config.StartupScene);
         Assert.False(application.StartupScene.IsValid);
         Assert.Empty(application.Services.Content.Scenes);
-        Assert.Contains(ContentMount.SceneManifestFileName, application.Services.Content.SceneReason, StringComparison.Ordinal);
+        Assert.Contains(
+            ContentMount.SceneManifestFileName,
+            application.Services.Content.SceneReason,
+            StringComparison.Ordinal
+        );
     }
 
     /// <summary>
@@ -122,7 +125,7 @@ public sealed class StartupSceneTests : IDisposable {
 
         Assert.Contains(
             application.Services.Logs.Snapshot(),
-            entry => entry.EventId == 13019 && entry.Message.Contains("scenes/nowhere", StringComparison.Ordinal)
+            static entry => entry.EventId == 13019 && entry.Message.Contains("scenes/nowhere", StringComparison.Ordinal)
         );
     }
 
@@ -147,8 +150,10 @@ public sealed class StartupSceneTests : IDisposable {
         Assert.NotNull(application.Services.Content.SceneReason);
     }
 
-    /// <summary>A head with no engine has no world to open a scene into, and says so rather than
-    /// pretending it did.</summary>
+    /// <summary>
+    ///     A head with no engine has no world to open a scene into, and says so rather than
+    ///     pretending it did.
+    /// </summary>
     [Fact]
     public void AHeadWithNoEngineHasNoSceneManagerAndSaysWhy() {
         Publish(["scenes/level-1"]);
@@ -162,7 +167,7 @@ public sealed class StartupSceneTests : IDisposable {
 
         Assert.Contains(
             application.Services.Logs.Snapshot(),
-            entry => entry.EventId == 13019 && entry.Message.Contains("no world", StringComparison.Ordinal)
+            static entry => entry.EventId == 13019 && entry.Message.Contains("no world", StringComparison.Ordinal)
         );
     }
 
@@ -187,7 +192,7 @@ public sealed class StartupSceneTests : IDisposable {
             CatalogFormat.Version,
             default,
             "Windows",
-            [new("Assets/Scenes/Level1.vxscene", id, "", ContentProvider.Local, [], [], 0)],
+            [new("Assets/Scenes/Level1.vxscene", id, string.Empty, ContentProvider.Local, [], [], 0)],
             []
         );
 
@@ -208,7 +213,7 @@ public sealed class StartupSceneTests : IDisposable {
     }
 
     VixenApplication Build(Game game, params string[] arguments) =>
-        VixenApp.Create(["--vixen-workers", "1", "--vixen-frame-limit", "0", .. arguments])
+        VixenApp.Create(["--vixen-workers", "1", "--vixen-frame-limit", "0", ..arguments])
             .WithPlatform(new HeadlessPlatform(new() { FileSystem = files }))
             .Build(game);
 
@@ -242,15 +247,15 @@ public sealed class StartupSceneTests : IDisposable {
             CatalogFormat.Version,
             default,
             "Windows",
-            [.. entries],
-            [new("Main", "", default, 0, 0, CompressionMethod.Lz4, [])]
+            [..entries],
+            [new("Main", string.Empty, default, 0, 0, CompressionMethod.Lz4, [])]
         );
 
         File.WriteAllBytes(Path.Combine(directory, ContentMount.CatalogFileName), CatalogFormat.Write(catalog));
 
         File.WriteAllBytes(
             Path.Combine(directory, ContentMount.SceneManifestFileName),
-            Serializer.ToBytes(new SceneManifest { Scenes = [.. addresses] })
+            Serializer.ToBytes(new SceneManifest { Scenes = [..addresses] })
         );
     }
 

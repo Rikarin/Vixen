@@ -96,6 +96,6 @@ public sealed class WeaponFire : Behavior {
 
         LastImpact = Physics.World.Raycast(origin, direction, Range, out var hit)
             ? hit.Position
-            : origin + (direction * Range);
+            : origin + direction * Range;
     }
 }

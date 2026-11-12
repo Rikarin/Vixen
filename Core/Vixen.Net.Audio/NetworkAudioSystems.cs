@@ -101,7 +101,7 @@ public sealed class NetworkAudioCaptureSystem : SystemBase, IDeclaredAccess {
     public bool IsAuthority(NetworkId id) =>
         Rules is { } rules
             ? rules.MayWrite(id, Local)
-            : NetworkRules.Allows(RuleAudience.ServerOnly, Local, isOwner: false);
+            : NetworkRules.Allows(RuleAudience.ServerOnly, Local, false);
 }
 
 /// <summary>Makes a local sound do what the wire says.</summary>
@@ -211,5 +211,5 @@ public sealed class NetworkAudioApplySystem : SystemBase, IDeclaredAccess {
     public bool IsAuthority(NetworkId id) =>
         Rules is { } rules
             ? rules.MayWrite(id, Local)
-            : NetworkRules.Allows(RuleAudience.ServerOnly, Local, isOwner: false);
+            : NetworkRules.Allows(RuleAudience.ServerOnly, Local, false);
 }

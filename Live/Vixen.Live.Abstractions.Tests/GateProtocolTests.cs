@@ -73,7 +73,7 @@ public class GateProtocolTests {
     [Fact]
     public void A_version_that_is_nothing_reads_back_as_nothing() {
         var json = JsonSerializer.Serialize(
-            new CatalogResponse(RealmVersion.None, "", []),
+            new CatalogResponse(RealmVersion.None, string.Empty, []),
             GateJson.Default.CatalogResponse
         );
 

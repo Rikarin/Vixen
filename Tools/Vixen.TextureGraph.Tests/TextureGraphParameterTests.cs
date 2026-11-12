@@ -51,7 +51,7 @@ public class TextureGraphParameterTests {
     }
 
     static float RadiusOf(TexturePlan plan) {
-        var blur = plan.Ops.First(op => string.Equals(op.Kernel, "Blur", StringComparison.Ordinal));
+        var blur = plan.Ops.First(static op => string.Equals(op.Kernel, "Blur", StringComparison.Ordinal));
 
         return blur.Find("radius")!.Value.Value;
     }
@@ -73,8 +73,8 @@ public class TextureGraphParameterTests {
 
         // The interface is still the ports — doc 48 § D9's "its parameters are its ports and
         // settings" is both halves, and the settings half is the one this batch adds.
-        Assert.Equal(["Mask", "Out"], definition.Ports.Select(port => port.Name).ToArray());
-        Assert.Equal(["amount", "octaves"], definition.Settings.Select(setting => setting.Name).ToArray());
+        Assert.Equal(["Mask", "Out"], definition.Ports.Select(static port => port.Name).ToArray());
+        Assert.Equal(["amount", "octaves"], definition.Settings.Select(static setting => setting.Name).ToArray());
 
         // The default reaches a saved graph as text, in the parameter's own spelling: an integer
         // parameter is `3` rather than `3` formatted as a float.
@@ -162,7 +162,7 @@ public class TextureGraphParameterTests {
     /// </summary>
     [Fact]
     public void An_expression_is_folded_by_the_real_raven_compiler() {
-        var (compiler, graph) = Blurred("amount * 8f + 1f", 0.5f);
+        var (compiler, graph) = Blurred("amount * 8f + 1f");
         var compilation = compiler.Compile(graph);
 
         Assert.Empty(compilation.Diagnostics);
@@ -182,8 +182,8 @@ public class TextureGraphParameterTests {
     /// </remarks>
     [Fact]
     public void An_override_changes_what_the_expression_folds_to() {
-        var (first, graph) = Blurred("amount * 8f + 1f", 0.5f);
-        var (second, _) = Blurred("amount * 8f + 1f", 0.5f);
+        var (first, graph) = Blurred("amount * 8f + 1f");
+        var (second, _) = Blurred("amount * 8f + 1f");
 
         second.Arguments = new Dictionary<string, string> { ["amount"] = "0.25" };
 
@@ -197,7 +197,7 @@ public class TextureGraphParameterTests {
         var (compiler, graph) = Blurred("amount * mystery");
         var compilation = compiler.Compile(graph);
 
-        var diagnostic = Assert.Single(compilation.Diagnostics, one => one.Id == "TG0013");
+        var diagnostic = Assert.Single(compilation.Diagnostics, static one => one.Id == "TG0013");
 
         Assert.Equal("Radius", diagnostic.Port);
         Assert.NotEqual(NodeId.None, diagnostic.Node);
@@ -206,8 +206,12 @@ public class TextureGraphParameterTests {
 
     /// <summary>A complaint's node is the node whose expression is on that line, not the first one.</summary>
     /// <remarks>
-    ///     ⚠ <b>Two expressions, one good and one bad, because one alone proves nothing about the
-    ///     mapping.</b> A mapping that always answered "the first expression" would pass a test with
+    ///     ⚠
+    ///     <b>
+    ///         Two expressions, one good and one bad, because one alone proves nothing about the
+    ///         mapping.
+    ///     </b>
+    ///     A mapping that always answered "the first expression" would pass a test with
     ///     one expression in it, and this repository has shipped that test before.
     /// </remarks>
     [Fact]
@@ -229,7 +233,7 @@ public class TextureGraphParameterTests {
 
         compiler.Parameters.Add(new("amount", Default: 1f));
 
-        var diagnostic = Assert.Single(compiler.Compile(graph).Diagnostics, one => one.Id == "TG0013");
+        var diagnostic = Assert.Single(compiler.Compile(graph).Diagnostics, static one => one.Id == "TG0013");
 
         Assert.Equal(bad.Id, diagnostic.Node);
         Assert.Equal("Gamma", diagnostic.Port);
@@ -241,15 +245,19 @@ public class TextureGraphParameterTests {
         var (compiler, graph) = Blurred("sin(amount)");
         var compilation = compiler.Compile(graph);
 
-        var diagnostic = Assert.Single(compilation.Diagnostics, one => one.Id is "TG0013" or "TG0014");
+        var diagnostic = Assert.Single(compilation.Diagnostics, static one => one.Id is "TG0013" or "TG0014");
 
         Assert.Equal("Radius", diagnostic.Port);
     }
 
     /// <summary>A newline in an expression is refused where it is typed.</summary>
     /// <remarks>
-    ///     ⚠ <b>The trap doc 48 and <c>CLAUDE.md</c> both name: a newline ends a statement in
-    ///     Raven.</b> Emitted as written, the second line would be a statement of its own in the
+    ///     ⚠
+    ///     <b>
+    ///         The trap doc 48 and <c>CLAUDE.md</c> both name: a newline ends a statement in
+    ///         Raven.
+    ///     </b>
+    ///     Emitted as written, the second line would be a statement of its own in the
     ///     middle of a declaration list — and every expression after it would be attributed to the
     ///     wrong node, because the line numbers would have shifted by one.
     /// </remarks>
@@ -258,7 +266,7 @@ public class TextureGraphParameterTests {
         var (compiler, graph) = Blurred("amount\n * 2f");
         var compilation = compiler.Compile(graph);
 
-        var diagnostic = Assert.Single(compilation.Diagnostics, one => one.Id == "TG0012");
+        var diagnostic = Assert.Single(compilation.Diagnostics, static one => one.Id == "TG0012");
 
         Assert.Contains("newline ends a statement", diagnostic.Message, StringComparison.Ordinal);
     }
@@ -267,11 +275,11 @@ public class TextureGraphParameterTests {
     [Fact]
     public void An_expression_for_a_port_that_is_gone_is_refused() {
         var (compiler, graph) = Blurred("amount");
-        var blur = graph.Nodes.First(node => string.Equals(node.Type, "Filters/Blur", StringComparison.Ordinal));
+        var blur = graph.Nodes.First(static node => string.Equals(node.Type, "Filters/Blur", StringComparison.Ordinal));
 
         blur.SetText(TextureGraphExpressions.KeyOf("Sharpness"), "amount");
 
-        var diagnostic = Assert.Single(compiler.Compile(graph).Diagnostics, one => one.Id == "TG0016");
+        var diagnostic = Assert.Single(compiler.Compile(graph).Diagnostics, static one => one.Id == "TG0016");
 
         Assert.Equal("Sharpness", diagnostic.Port);
     }
@@ -280,11 +288,11 @@ public class TextureGraphParameterTests {
     [Fact]
     public void An_expression_on_an_image_port_is_refused() {
         var (compiler, graph) = Blurred("amount");
-        var blur = graph.Nodes.First(node => string.Equals(node.Type, "Filters/Blur", StringComparison.Ordinal));
+        var blur = graph.Nodes.First(static node => string.Equals(node.Type, "Filters/Blur", StringComparison.Ordinal));
 
         blur.SetText(TextureGraphExpressions.KeyOf("Input"), "amount");
 
-        var diagnostic = Assert.Single(compiler.Compile(graph).Diagnostics, one => one.Id == "TG0016");
+        var diagnostic = Assert.Single(compiler.Compile(graph).Diagnostics, static one => one.Id == "TG0016");
 
         Assert.Equal("Input", diagnostic.Port);
         Assert.Contains("wired, not computed", diagnostic.Message, StringComparison.Ordinal);
@@ -297,7 +305,7 @@ public class TextureGraphParameterTests {
 
         compiler.Parameters.Add(new("amount", Default: 2f));
 
-        var diagnostic = Assert.Single(compiler.Compile(graph).Diagnostics, one => one.Id == "TG0011");
+        var diagnostic = Assert.Single(compiler.Compile(graph).Diagnostics, static one => one.Id == "TG0011");
 
         Assert.Equal(NodeId.None, diagnostic.Node);
     }

@@ -57,13 +57,13 @@ public class ConstraintStageBenchmarks {
         var walk = AnimationClip.Create(Rigs.Clip(skeleton, "Walk", 1.2f, 30), skeleton);
         var run = AnimationClip.Create(Rigs.Clip(skeleton, "Run", 0.8f, 30), skeleton);
 
-        bare = Crowd(nameof(bare), skeleton, walk, run, goals: 0);
-        empty = Crowd(nameof(empty), skeleton, walk, run, goals: 0);
-        solving = Crowd(nameof(solving), skeleton, walk, run, goals: 2);
-        few = Crowd(nameof(few), skeleton, walk, run, goals: 2, shapes: 8);
-        crowded = Crowd(nameof(crowded), skeleton, walk, run, goals: 2, shapes: 120);
-        ungoverned = Crowd(nameof(ungoverned), skeleton, walk, run, goals: 4);
-        governed = Crowd(nameof(governed), skeleton, walk, run, goals: 4);
+        bare = Crowd(nameof(bare), skeleton, walk, run, 0);
+        empty = Crowd(nameof(empty), skeleton, walk, run, 0);
+        solving = Crowd(nameof(solving), skeleton, walk, run, 2);
+        few = Crowd(nameof(few), skeleton, walk, run, 2, 8);
+        crowded = Crowd(nameof(crowded), skeleton, walk, run, 2, 120);
+        ungoverned = Crowd(nameof(ungoverned), skeleton, walk, run, 4);
+        governed = Crowd(nameof(governed), skeleton, walk, run, 4);
 
         bareSystem = new();
         emptySystem = new() { Scheduler = DefaultConstraintScheduler.Shared };
@@ -173,7 +173,7 @@ public class ConstraintStageBenchmarks {
         // expressed against a surface rather than against a world point — which is the only reason a
         // shape gets posed at all.
         for (var index = shapes > 0 ? 1 : 0; index < goals; index++) {
-            var joint = tip - (index * 4);
+            var joint = tip - index * 4;
 
             stack.Add(
                 new PositionGoal {
@@ -215,7 +215,7 @@ public class ConstraintStageBenchmarks {
             }
         }
 
-        return [.. found];
+        return [..found];
     }
 
     static ProxyShapeSet Shapes(Skeleton skeleton, int count) {

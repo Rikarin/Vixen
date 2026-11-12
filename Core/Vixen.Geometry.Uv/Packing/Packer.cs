@@ -171,7 +171,7 @@ static class Packer {
 
         if (uniform && scaled < 1f) {
             warnings.Add(
-                $"The islands did not fit at the requested texel density, so every one of them was "
+                "The islands did not fit at the requested texel density, so every one of them was "
                 + $"scaled to {scaled:0.###}× of it. docs/plan/42 § D9 — the achieved density is in the report."
             );
         }
@@ -205,8 +205,12 @@ static class Packer {
     /// <summary>A key per island, taken from its coordinates and from nothing else.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The tie-break below <see cref="PackUnit.Signature" />, and the reason it has to
-    ///         exist is that a signature is a hash of the <i>mask</i>.</b> A mask is the island rounded
+    ///         ⚠
+    ///         <b>
+    ///             The tie-break below <see cref="PackUnit.Signature" />, and the reason it has to
+    ///             exist is that a signature is a hash of the <i>mask</i>.
+    ///         </b>
+    ///         A mask is the island rounded
     ///         to whole texels, and two islands that round the same way are not the same island — but
     ///         the atlas is baked from the coordinates rather than from the mask, so exchanging them
     ///         moves texels. docs/plan/42 § D7 asks for the same islands in a different order to pack
@@ -215,8 +219,12 @@ static class Packer {
     ///         the long tail. See <see cref="PackUnit.Content" /> for the measurement.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Bit patterns rather than values, so that <c>-0f</c> and <c>NaN</c> hash to
-    ///         something rather than to a comparison that is false against itself.</b> The key is only
+    ///         ⚠
+    ///         <b>
+    ///             Bit patterns rather than values, so that <c>-0f</c> and <c>NaN</c> hash to
+    ///             something rather than to a comparison that is false against itself.
+    ///         </b>
+    ///         The key is only
     ///         ever compared for order, never for meaning, so an exotic float needs to be
     ///         <i>stable</i> and does not need to be sensible.
     ///     </para>
@@ -292,7 +300,7 @@ static class Packer {
 
     /// <summary>A first guess at the global scale, from area with the margin's share counted in.</summary>
     static float Estimate(IReadOnlyList<UvIsland> islands, float[] factors, int resolution, int margin) {
-        var usable = (double)Math.Max(1, resolution - (2 * margin));
+        double usable = Math.Max(1, resolution - 2 * margin);
         var target = Aim * usable * usable;
         var quadratic = 0d;
         var linear = 0d;
@@ -312,7 +320,7 @@ static class Packer {
         }
 
         var room = Math.Max(0d, target - constant);
-        var scale = (-linear + Math.Sqrt((linear * linear) + (4d * quadratic * room))) / (2d * quadratic);
+        var scale = (-linear + Math.Sqrt(linear * linear + 4d * quadratic * room)) / (2d * quadratic);
 
         return (float)Math.Clamp(scale, 1e-9d, 1e9d);
     }
@@ -349,7 +357,7 @@ static class Packer {
             var islandScale = islands[index].Scale;
 
             if (islandScale > 0f && float.IsFinite(islandScale)) {
-                var difference = (factors[index] * scale * islandScale) - mean;
+                var difference = factors[index] * scale * islandScale - mean;
 
                 variance += difference * difference;
             }
@@ -457,7 +465,7 @@ static class Packer {
         // caller is allowed to change. See Contents.
         Array.Sort(
             units,
-            (left, right) => {
+            static (left, right) => {
                 if (left.Area != right.Area) {
                     return right.Area.CompareTo(left.Area);
                 }
@@ -490,8 +498,8 @@ static class Packer {
             // about coordinates while the packer works in whole texels.
             frame[index] = new(
                 texels / resolution,
-                masks[index][0].Width - (size.X * texels),
-                masks[index][0].Height - (size.Y * texels)
+                masks[index][0].Width - size.X * texels,
+                masks[index][0].Height - size.Y * texels
             );
         }
 
@@ -501,7 +509,19 @@ static class Packer {
             var placed = false;
 
             for (var tile = 0; tile < grids.Count && !placed; tile++) {
-                placed = Place(scan, grids[tile], unit, turns, sweep, tile, resolution, placements, frame, scheduler, batch);
+                placed = Place(
+                    scan,
+                    grids[tile],
+                    unit,
+                    turns,
+                    sweep,
+                    tile,
+                    resolution,
+                    placements,
+                    frame,
+                    scheduler,
+                    batch
+                );
             }
 
             if (!placed && grids.Count < tileLimit) {
@@ -637,8 +657,7 @@ static class Packer {
         // one island — it builds different composites, and every placement in the atlas moves with
         // them. Measured before the content key existed: 214 of 300 permutations produced a different
         // atlas on this rung, by hundreds of texels, against none on the other two.
-        candidates.Sort(
-            (left, right) => {
+        candidates.Sort((left, right) => {
                 var byHeight = masks[right][0].Height.CompareTo(masks[left][0].Height);
 
                 if (byHeight != 0) {
@@ -659,7 +678,7 @@ static class Packer {
 
         var grouped = new bool[masks.Length];
         var units = new List<PackUnit>();
-        var ceiling = resolution - (2 * margin);
+        var ceiling = resolution - 2 * margin;
 
         for (var seat = 0; seat < candidates.Count; seat++) {
             var seed = candidates[seat];
@@ -718,7 +737,7 @@ static class Packer {
             );
         }
 
-        return [.. units];
+        return [..units];
     }
 
     static PackUnit Composite(
@@ -744,8 +763,8 @@ static class Packer {
 
             for (var y = 0; y < mask.Height; y++) {
                 for (var x = 0; x < mask.Width; x++) {
-                    if (pixels[(y * mask.Width) + x] != 0) {
-                        coverage[(y * width) + cursor + x] = 1;
+                    if (pixels[y * mask.Width + x] != 0) {
+                        coverage[y * width + cursor + x] = 1;
                     }
                 }
             }

@@ -7,8 +7,12 @@ namespace Vixen.Ui.Tests;
 
 /// <summary>Undo as a command rather than as a chord: who answers <c>edit.undo</c>, and from where.</summary>
 /// <remarks>
-///     ⚠ <b>Every test here resolves through <see cref="CommandRoute" /> with a focus somewhere
-///     deliberate.</b> Calling <c>manager.Undo()</c> and reading the value back would pass with
+///     ⚠
+///     <b>
+///         Every test here resolves through <see cref="CommandRoute" /> with a focus somewhere
+///         deliberate.
+///     </b>
+///     Calling <c>manager.Undo()</c> and reading the value back would pass with
 ///     <see cref="UndoCommands.Install" /> deleted — the thing under test is that a menu item spelling
 ///     <c>edit.undo</c> <i>reaches</i> a manager from wherever the caret happens to be, which is the
 ///     half that did not exist while undo was a keystroke the text field consumed.

@@ -26,7 +26,9 @@ namespace Vixen.Ui.Controls.Tests;
 public class GradientPaintTests {
     static UiTest Painted(string css, float width = 40f, float height = 40f) {
         var ui = UiTest.Create(width, height);
-        ui.Load($"root {{ width: {width}px; height: {height}px; }} .probe {{ width: {width}px; height: {height}px; }} {css}");
+        ui.Load(
+            $"root {{ width: {width}px; height: {height}px; }} .probe {{ width: {width}px; height: {height}px; }} {css}"
+        );
         ui.Create("div", null, "probe", "probe");
         ui.Frame();
 
@@ -36,8 +38,12 @@ public class GradientPaintTests {
     /// <summary>A tiled layer paints the same ramp twice across the box, and one that is not tiled does not.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The repeating and the non-repeating case are one test, because either alone is
-    ///         satisfied by the wrong implementation.</b> A shader that ignored <c>background-size</c>
+    ///         ⚠
+    ///         <b>
+    ///             The repeating and the non-repeating case are one test, because either alone is
+    ///             satisfied by the wrong implementation.
+    ///         </b>
+    ///         A shader that ignored <c>background-size</c>
     ///         entirely draws one ramp across the box, which passes any assertion phrased as "the left
     ///         half ramps" — and a shader that clipped every layer passes the <c>no-repeat</c> half
     ///         while breaking every gradient in the interface. What separates them is a comparison
@@ -106,8 +112,12 @@ public class GradientPaintTests {
 
     /// <summary>An explicit centre moves the round gradient's bright spot off the middle of the box.</summary>
     /// <remarks>
-    ///     ⚠ <b>Asserted as a comparison between two points rather than as an absolute, because the
-    ///     failure this is aimed at is the centre being <i>ignored</i>.</b> A radial gradient that
+    ///     ⚠
+    ///     <b>
+    ///         Asserted as a comparison between two points rather than as an absolute, because the
+    ///         failure this is aimed at is the centre being <i>ignored</i>.
+    ///     </b>
+    ///     A radial gradient that
     ///     dropped its <c>at</c> is still a perfectly good radial gradient — red in the middle, blue at
     ///     the corners — and every endpoint assertion about it passes. What cannot survive is the
     ///     near corner being redder than the far one.
@@ -208,7 +218,7 @@ public class GradientPaintTests {
 
         var bitmap = ui.Capture();
 
-        foreach (var y in (int[]) [4, 20, 36]) {
+        foreach (var y in (int[])[4, 20, 36]) {
             var offset = bitmap.Offset(20, y);
 
             Assert.True(bitmap.Pixels[offset + 1] > 200, $"y={y} is not green");
@@ -226,9 +236,7 @@ public class GradientPaintTests {
     /// </remarks>
     [Fact]
     public void A_middle_stop_is_painted_in_the_middle() {
-        using var ui = Painted(
-            ".probe { background-image: linear-gradient(to bottom, #ff0000, #00ff00, #0000ff); }"
-        );
+        using var ui = Painted(".probe { background-image: linear-gradient(to bottom, #ff0000, #00ff00, #0000ff); }");
 
         var bitmap = ui.Capture();
         var middle = bitmap.Offset(20, 20);
@@ -256,18 +264,16 @@ public class GradientPaintTests {
     /// </remarks>
     [Fact]
     public void Stop_positions_flatten_the_ends_and_compress_the_ramp() {
-        using var ui = Painted(
-            ".probe { background-image: linear-gradient(to bottom, #ff0000 40%, #0000ff 60%); }"
-        );
+        using var ui = Painted(".probe { background-image: linear-gradient(to bottom, #ff0000 40%, #0000ff 60%); }");
 
         var bitmap = ui.Capture();
 
-        foreach (var y in (int[]) [4, 14]) {
+        foreach (var y in (int[])[4, 14]) {
             Assert.Equal(255, bitmap.Pixels[bitmap.Offset(20, y)]);
             Assert.Equal(0, bitmap.Pixels[bitmap.Offset(20, y) + 2]);
         }
 
-        foreach (var y in (int[]) [26, 36]) {
+        foreach (var y in (int[])[26, 36]) {
             Assert.Equal(0, bitmap.Pixels[bitmap.Offset(20, y)]);
             Assert.Equal(255, bitmap.Pixels[bitmap.Offset(20, y) + 2]);
         }
@@ -319,8 +325,12 @@ public class GradientPaintTests {
     ///         ones must not.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And the pair is asserted against the default as well, because "it is round" is
-    ///         true of the ending that was already there.</b> A <c>closest-side</c> that quietly
+    ///         ⚠
+    ///         <b>
+    ///             And the pair is asserted against the default as well, because "it is round" is
+    ///             true of the ending that was already there.
+    ///         </b>
+    ///         A <c>closest-side</c> that quietly
     ///         painted <c>farthest-corner</c> — which is what a refused layer used to become one
     ///         family up — is round too, and reaches the same colour at both points. What separates
     ///         it is that its ramp is a factor of root two shorter everywhere inside the box.
@@ -330,17 +340,15 @@ public class GradientPaintTests {
     public void A_circle_ending_is_round_on_a_box_that_is_not() {
         using var round = Painted(
             ".probe { background-image: radial-gradient(circle closest-side, #ff0000, #0000ff); }",
-            80f,
-            40f
+            80f
         );
 
         using var oval = Painted(
             ".probe { background-image: radial-gradient(ellipse closest-side, #ff0000, #0000ff); }",
-            80f,
-            40f
+            80f
         );
 
-        using var wide = Painted(".probe { background-image: radial-gradient(#ff0000, #0000ff); }", 80f, 40f);
+        using var wide = Painted(".probe { background-image: radial-gradient(#ff0000, #0000ff); }", 80f);
 
         static int Blue(UiTest ui, int x, int y) {
             var bitmap = ui.Capture();
@@ -412,9 +420,7 @@ public class GradientPaintTests {
     [InlineData("to bottom in srgb-linear", 110, 145)]
     [InlineData("to bottom in oklab", 22, 45)]
     public void The_interpolation_space_moves_the_midpoint(string prelude, int least, int most) {
-        using var ui = Painted(
-            $".probe {{ background-image: linear-gradient({prelude}, #000000, #ffffff); }}"
-        );
+        using var ui = Painted($".probe {{ background-image: linear-gradient({prelude}, #000000, #ffffff); }}");
 
         var bitmap = ui.Capture();
         int middle = bitmap.Pixels[bitmap.Offset(20, 20)];

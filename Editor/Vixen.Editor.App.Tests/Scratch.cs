@@ -23,7 +23,7 @@ sealed class Scratch : IDisposable {
     /// <inheritdoc />
     public void Dispose() {
         try {
-            System.IO.Directory.Delete(Directory, recursive: true);
+            System.IO.Directory.Delete(Directory, true);
         } catch (Exception exception) when (exception is IOException or UnauthorizedAccessException) {
             // A temp directory that would not go is not a failed test.
         }

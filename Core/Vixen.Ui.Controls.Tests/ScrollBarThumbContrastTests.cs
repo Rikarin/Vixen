@@ -38,17 +38,20 @@ public class ScrollBarThumbContrastTests {
     const double Required = 3d;
 
     const string Css = """
-        root   { background-color: var(--surface); }
-        #view  { width: 300px; height: 277px; background-color: var(--surface); }
-        .block { flex-shrink: 0; height: 321px; width: 200px; }
-        """;
+                       root   { background-color: var(--surface); }
+                       #view  { width: 300px; height: 277px; background-color: var(--surface); }
+                       .block { flex-shrink: 0; height: 321px; width: 200px; }
+                       """;
 
     /// <summary>The light palette, which was the broken one.</summary>
     [Fact]
     public void In_the_light_palette_the_end_of_the_thumb_stands_out_from_the_surface() {
-        var (peak, beside) = EndOfTheThumb(dark: false, "light");
+        var (peak, beside) = EndOfTheThumb(false, "light");
 
-        Assert.True(beside < Required, $"bare surface beside the bar peaks at {beside:0.00}:1, so this is not measuring a thumb");
+        Assert.True(
+            beside < Required,
+            $"bare surface beside the bar peaks at {beside:0.00}:1, so this is not measuring a thumb"
+        );
         Assert.True(
             peak >= Required,
             $"from the middle of the thumb to the end of the track the bar peaks at {peak:0.00}:1 against the surface: "
@@ -59,16 +62,19 @@ public class ScrollBarThumbContrastTests {
     /// <summary>The dark palette, which was never broken, and must not become it.</summary>
     [Fact]
     public void In_the_dark_palette_the_thumb_still_stands_out_from_the_surface() {
-        var (peak, beside) = EndOfTheThumb(dark: true, "dark");
+        var (peak, beside) = EndOfTheThumb(true, "dark");
 
-        Assert.True(beside < Required, $"bare surface beside the bar peaks at {beside:0.00}:1, so this is not measuring a thumb");
+        Assert.True(
+            beside < Required,
+            $"bare surface beside the bar peaks at {beside:0.00}:1, so this is not measuring a thumb"
+        );
         Assert.True(peak >= Required, $"the bar peaks at {peak:0.00}:1 against the surface.");
     }
 
     /// <summary>A fill and then a ring, both the thumb's size, and nothing when the token is transparent.</summary>
     [Fact]
     public void The_thumb_is_a_fill_and_a_ring_and_a_transparent_token_draws_no_ring() {
-        var (ui, view) = Open(dark: false);
+        var (ui, view) = Open(false);
         using var _ = ui;
         var bar = view.VerticalBar;
 
@@ -103,17 +109,19 @@ public class ScrollBarThumbContrastTests {
     }
 
     /// <summary>The draw commands whose box is the thumb's: the bar's width, and longer than the track is left.</summary>
-    static List<DrawCommand> ThumbCommands(UiTest ui, ScrollBar bar) =>
-        [
-            .. ui.Document.Drawing.Commands.Where(command =>
-                MathF.Abs(command.X - bar.AbsoluteLeft) < 0.01f
-                && MathF.Abs(command.Width - bar.Width) < 0.01f
-                && command.Height < bar.Height - 1f
-                && command.Height > bar.Height / 2f
-            )
-        ];
+    static List<DrawCommand> ThumbCommands(UiTest ui, ScrollBar bar) => [
+        ..ui.Document.Drawing.Commands.Where(command =>
+            MathF.Abs(command.X - bar.AbsoluteLeft) < 0.01f
+            && MathF.Abs(command.Width - bar.Width) < 0.01f
+            && command.Height < bar.Height - 1f
+            && command.Height > bar.Height / 2f
+        )
+    ];
 
-    /// <summary>The best contrast against the surface down the bar's centre, from the thumb's middle to the track's end, and beside the bar.</summary>
+    /// <summary>
+    ///     The best contrast against the surface down the bar's centre, from the thumb's middle to the track's end, and
+    ///     beside the bar.
+    /// </summary>
     static (double Peak, double Beside) EndOfTheThumb(bool dark, string name) {
         var (ui, view) = Open(dark);
         using var _ = ui;
@@ -133,9 +141,9 @@ public class ScrollBarThumbContrastTests {
 
         // The thumb is 277/321 of the bar at the top of the scroll, so its middle is well inside it
         // and the walk down from there crosses its end and the uncovered track below.
-        var from = (int)MathF.Ceiling(bar.AbsoluteTop + (bar.Height * 0.25f));
+        var from = (int)MathF.Ceiling(bar.AbsoluteTop + bar.Height * 0.25f);
         var to = (int)MathF.Floor(bar.AbsoluteTop + bar.Height);
-        var centre = (int)MathF.Floor(bar.AbsoluteLeft + (bar.Width / 2f));
+        var centre = (int)MathF.Floor(bar.AbsoluteLeft + bar.Width / 2f);
         var outside = (int)MathF.Floor(bar.AbsoluteLeft) - 20;
 
         return (Peak(picture, centre, from, to, surface), Peak(picture, outside, from, to, surface));
@@ -160,7 +168,7 @@ public class ScrollBarThumbContrastTests {
     }
 
     /// <summary>Relative luminance of a colour that is already linear.</summary>
-    static double Luminance(Color4 color) => (0.2126d * color.R) + (0.7152d * color.G) + (0.0722d * color.B);
+    static double Luminance(Color4 color) => 0.2126d * color.R + 0.7152d * color.G + 0.0722d * color.B;
 
     static double Contrast(Color4 left, Color4 right) {
         var a = Luminance(left);

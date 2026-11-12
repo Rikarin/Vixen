@@ -26,9 +26,9 @@ namespace Vixen.DocGen;
 /// </remarks>
 static partial class NonCSharpNodes {
     public static IReadOnlyList<DocNode> Read(string repositoryRoot, SourceLinks links) => [
-        .. Shaders(repositoryRoot, links),
-        .. Diagnostics(repositoryRoot, links),
-        .. LogEvents(repositoryRoot, links)
+        ..Shaders(repositoryRoot, links),
+        ..Diagnostics(repositoryRoot, links),
+        ..LogEvents(repositoryRoot, links)
     ];
 
     // ── Shaders ─────────────────────────────────────────────────────────────────────────────────
@@ -50,8 +50,8 @@ static partial class NonCSharpNodes {
         }
 
         foreach (var path in Directory
-            .EnumerateFiles(library, "*.reflect.json", SearchOption.AllDirectories)
-            .OrderBy(path => path, StringComparer.Ordinal)) {
+                     .EnumerateFiles(library, "*.reflect.json", SearchOption.AllDirectories)
+                     .OrderBy(static path => path, StringComparer.Ordinal)) {
             var name = Path.GetFileName(path)[..^".reflect.json".Length];
             var group = Path.GetFileName(Path.GetDirectoryName(path)) ?? "Library";
             var source = Path.ChangeExtension(path[..^".reflect.json".Length], ".rvn");
@@ -87,30 +87,35 @@ static partial class NonCSharpNodes {
         using var document = JsonDocument.Parse(json);
         var root = document.RootElement;
 
-        List<string> Names(string property, string child) => root.TryGetProperty(property, out var array)
+        List<string> Names(string property, string child) =>
+            root.TryGetProperty(property, out var array)
             && array.ValueKind == JsonValueKind.Array
-            ? [
-                .. array.EnumerateArray()
-                    .Select(entry => entry.TryGetProperty(child, out var value)
-                        ? value.GetString() ?? string.Empty
-                        : string.Empty)
-                    .Where(value => value.Length > 0)
-            ]
-            : [];
+                ? [
+                    ..array.EnumerateArray()
+                        .Select(entry => entry.TryGetProperty(child, out var value)
+                                ? value.GetString() ?? string.Empty
+                                : string.Empty
+                        )
+                        .Where(static value => value.Length > 0)
+                ]
+                : [];
 
-        int Count(string property) => root.TryGetProperty(property, out var array)
+        int Count(string property) =>
+            root.TryGetProperty(property, out var array)
             && array.ValueKind == JsonValueKind.Array
-            ? array.GetArrayLength()
-            : 0;
+                ? array.GetArrayLength()
+                : 0;
 
         var stages = root.TryGetProperty("PushConstants", out var push) && push.ValueKind == JsonValueKind.Array
             ? push.EnumerateArray()
-                .Select(entry => entry.TryGetProperty("Stages", out var value) ? value.GetString() : null)
-                .FirstOrDefault(value => !string.IsNullOrEmpty(value))
+                .Select(static entry => entry.TryGetProperty("Stages", out var value) ? value.GetString() : null)
+                .FirstOrDefault(static value => !string.IsNullOrEmpty(value))
             : null;
 
-        return new DocFacets {
-            Stages = string.IsNullOrEmpty(stages) ? null : [.. stages.Split(", ", StringSplitOptions.RemoveEmptyEntries)],
+        return new() {
+            Stages = string.IsNullOrEmpty(stages)
+                ? null
+                : [..stages.Split(", ", StringSplitOptions.RemoveEmptyEntries)],
             Permutations = Names("Permutations", "Name") is { Count: > 0 } permutations ? permutations : null,
             DescriptorSets = Count("Sets") is var sets and > 0 ? sets : null,
             ShaderParameters = Count("Parameters") is var parameters and > 0 ? parameters : null,
@@ -184,7 +189,7 @@ static partial class NonCSharpNodes {
                 Slug = $"diagnostics/{code.ToLowerInvariant()}",
                 Signature = [new DocSpan(code, "class")],
                 Summary = Cell(row.Groups[2].Value),
-                Facets = new DocFacets { EmittedBy = [.. Codes(row.Groups[3].Value)] },
+                Facets = new() { EmittedBy = [..Codes(row.Groups[3].Value)] },
                 Source = links.For(path)
             };
         }
@@ -210,8 +215,9 @@ static partial class NonCSharpNodes {
 
         // The register groups its ids under `### Vixen.Graphics`-style headings, and the heading is
         // the subsystem — the one fact about an id that the row itself does not carry.
-        var headings = Heading().Matches(text)
-            .Select(match => (match.Index, Subsystem: Cell(match.Groups[1].Value)))
+        var headings = Heading()
+            .Matches(text)
+            .Select(static match => (match.Index, Subsystem: Cell(match.Groups[1].Value)))
             .ToList();
 
         foreach (Match row in LogEventRow().Matches(text)) {
@@ -219,7 +225,12 @@ static partial class NonCSharpNodes {
 
             // The ranges table at the top has rows shaped like an id row; a range is two numbers and
             // an en dash, so its "id" never parses as one on its own.
-            if (row.Groups[2].Value is not ("Trace" or "Debug" or "Information" or "Warning" or "Error" or "Critical")) {
+            if (row.Groups[2].Value is not ("Trace"
+                or "Debug"
+                or "Information"
+                or "Warning"
+                or "Error"
+                or "Critical")) {
                 continue;
             }
 
@@ -236,7 +247,7 @@ static partial class NonCSharpNodes {
                 Slug = $"log-events/{id}",
                 Signature = [new DocSpan(id, "number")],
                 Summary = Cell(row.Groups[3].Value),
-                Facets = new DocFacets {
+                Facets = new() {
                     Level = row.Groups[2].Value,
                     Since = Cell(row.Groups[4].Value) is { Length: > 0 } since ? since : null
                 },
@@ -249,9 +260,10 @@ static partial class NonCSharpNodes {
     static string Cell(string value) => value.Replace("`", string.Empty, StringComparison.Ordinal).Trim();
 
     /// <summary>The `code`-quoted names in a cell — what emits a diagnostic.</summary>
-    static IEnumerable<string> Codes(string value) => Regex
-        .Matches(value, "`([^`]+)`")
-        .Select(match => match.Groups[1].Value.Trim())
-        .DefaultIfEmpty(Cell(value))
-        .Where(text => text.Length > 0);
+    static IEnumerable<string> Codes(string value) =>
+        Regex
+            .Matches(value, "`([^`]+)`")
+            .Select(static match => match.Groups[1].Value.Trim())
+            .DefaultIfEmpty(Cell(value))
+            .Where(static text => text.Length > 0);
 }

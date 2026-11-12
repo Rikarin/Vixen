@@ -293,18 +293,24 @@ internal static partial class WebInterop {
 
     // ── fetch ────────────────────────────────────────────────────────────────────────────────
 
-    /// <summary>Fetches a byte range, or the whole resource when <paramref name="length" /> is
-    /// zero.</summary>
-    /// <returns>A buffer handle. The task faults with a <see cref="JSException" /> carrying the HTTP
-    /// status if the server refused.</returns>
+    /// <summary>
+    ///     Fetches a byte range, or the whole resource when <paramref name="length" /> is
+    ///     zero.
+    /// </summary>
+    /// <returns>
+    ///     A buffer handle. The task faults with a <see cref="JSException" /> carrying the HTTP
+    ///     status if the server refused.
+    /// </returns>
     [JSImport("fetchRange", ModuleName)]
     public static partial Task<int> FetchRange(string url, double offset, double length);
 
     [JSImport("fetchAll", ModuleName)]
     public static partial Task<int> FetchAll(string url);
 
-    /// <summary>A HEAD request. The buffer holds two doubles: length, then last-modified in
-    /// milliseconds since the Unix epoch.</summary>
+    /// <summary>
+    ///     A HEAD request. The buffer holds two doubles: length, then last-modified in
+    ///     milliseconds since the Unix epoch.
+    /// </summary>
     [JSImport("fetchHead", ModuleName)]
     public static partial Task<int> FetchHead(string url);
 

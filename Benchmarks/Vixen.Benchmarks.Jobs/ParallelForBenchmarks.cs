@@ -51,7 +51,7 @@ public class ParallelForBenchmarks {
     public void ParallelFor() {
         var local = input;
         var target = output;
-        System.Threading.Tasks.Parallel.For(0, local.Length, index => target[index] = Transform(local[index]));
+        Parallel.For(0, local.Length, index => target[index] = Transform(local[index]));
     }
 
     [Benchmark]
@@ -60,7 +60,7 @@ public class ParallelForBenchmarks {
     /// <summary>Enough arithmetic per element to be worth a thread, and not so much as to hide the dispatch.</summary>
     internal static float Transform(float value) => MathF.Sqrt(value * value + 1f) * MathF.Sin(value);
 
-    struct TransformJob(float[] input, float[] output) : IJobParallelFor {
+    readonly struct TransformJob(float[] input, float[] output) : IJobParallelFor {
         public void Execute(int index) => output[index] = Transform(input[index]);
     }
 }

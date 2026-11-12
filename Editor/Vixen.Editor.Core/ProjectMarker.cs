@@ -30,8 +30,12 @@ public readonly record struct ProjectMarkerFile(int Format, string Engine, strin
 ///         somebody most needs it to.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Two fields, and each has a reader, which is the bar a shipped setting has to
-///         clear.</b> <see cref="ProjectMarkerFile.Format" /> is read by <see cref="TryRead" />,
+///         ⚠
+///         <b>
+///             Two fields, and each has a reader, which is the bar a shipped setting has to
+///             clear.
+///         </b>
+///         <see cref="ProjectMarkerFile.Format" /> is read by <see cref="TryRead" />,
 ///         which refuses a file from a future it does not understand rather than binding half of it;
 ///         <see cref="ProjectMarkerFile.Engine" /> is read by <see cref="IsFromTheFuture" />, which
 ///         is what lets the editor say "this project was made with a newer Vixen" instead of failing
@@ -102,7 +106,9 @@ public static class ProjectMarker {
             marker = new(format, Scalar(document, "engine") ?? string.Empty, path);
 
             return true;
-        } catch (Exception exception) when (exception is YamlParseException or IOException or UnauthorizedAccessException) {
+        } catch (Exception exception) when (exception is YamlParseException
+                                                or IOException
+                                                or UnauthorizedAccessException) {
             return false;
         }
     }
@@ -140,6 +146,5 @@ public static class ProjectMarker {
 
          """;
 
-    static string? Scalar(YamlMapping? mapping, string key) =>
-        mapping?[key] is YamlScalar scalar ? scalar.Value : null;
+    static string? Scalar(YamlMapping? mapping, string key) => mapping?[key] is YamlScalar scalar ? scalar.Value : null;
 }

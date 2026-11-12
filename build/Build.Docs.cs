@@ -69,17 +69,22 @@ partial class Build {
     ///         page contracts and examples, which is what the description now says.
     ///     </para>
     /// </remarks>
-    Target Docs => definition => definition
-        .Description("Emits the documentation graph the site is rendered from — CheckDocs is the coverage gate")
-        .DependsOn(CompileRelease)
-        .Produces(DocsDirectory / "graph.json")
-        .Executes(() => Emit(false));
+    Target Docs =>
+        definition => definition
+            .Description("Emits the documentation graph the site is rendered from — CheckDocs is the coverage gate")
+            .DependsOn(CompileRelease)
+            .Produces(DocsDirectory / "graph.json")
+            .Executes(() => Emit(false));
 
     /// <summary>Builds the graph, and gates on it when the caller asked to be gated.</summary>
     /// <param name="gate">Whether a page that breaks its contract, or a type with neither, fails.</param>
     /// <remarks>
-    ///     ⚠ <b>A method rather than a field one target sets for another, and that is the whole
-    ///     point of it.</b> <see cref="CheckDocs" /> used to be an empty target that set a flag and
+    ///     ⚠
+    ///     <b>
+    ///         A method rather than a field one target sets for another, and that is the whole
+    ///         point of it.
+    ///     </b>
+    ///     <see cref="CheckDocs" /> used to be an empty target that set a flag and
     ///     triggered <see cref="Docs" />, so the run's status table read
     ///     <c>CheckDocs Succeeded &lt; 1sec</c> above <c>Docs Failed</c> — a green row bearing the
     ///     name of the gate somebody invoked, on a run that failed. CLAUDE.md tells every agent to
@@ -96,15 +101,18 @@ partial class Build {
         // is 166 s of finding nothing to do, and this used to pay for its own (#555).
         var arguments = new List<string> {
             RootDirectory / "Vixen.slnx",
-            "--output", DocsDirectory,
-            "--configuration", Configuration.Release,
+            "--output",
+            DocsDirectory,
+            "--configuration",
+            Configuration.Release,
 
             // The one project a design-time build cannot compile, and the reason is worth
             // the line: its parser visitors come from ANTLR's MSBuild task rather than from
             // a Roslyn generator, and a workspace runs generators but not tasks. It is a
             // test project holding the differential oracle of docs/plan/18, so nothing it
             // declares is documented surface either way. The tool prints the excuse.
-            "--excuse", "Vixen.Raven.Tests"
+            "--excuse",
+            "Vixen.Raven.Tests"
         };
 
         if (UpdateExemptions) {
@@ -171,8 +179,12 @@ partial class Build {
     ///         What it fails on: a guide page that breaks the five-heading contract, one whose `api:`
     ///         names a symbol the graph does not have, a link or a snippet region that resolves to
     ///         nothing, a page nothing links to, a public type with neither a page nor a line in
-    ///         <c>docs/DocsExempt.txt</c>, and — the one worth the most — <b>an example that does not
-    ///         compile</b>. Documentation examples rot silently and are the first thing a new user
+    ///         <c>docs/DocsExempt.txt</c>, and — the one worth the most —
+    ///         <b>
+    ///             an example that does not
+    ///             compile
+    ///         </b>
+    ///         . Documentation examples rot silently and are the first thing a new user
     ///         copies.
     ///     </para>
     ///     <para>
@@ -191,9 +203,12 @@ partial class Build {
     ///         fail. The gate whose row is green is the one nobody re-runs.
     ///     </para>
     /// </remarks>
-    Target CheckDocs => definition => definition
-        .Description("Fails on a type with no page, a page that breaks its contract, or an example that does not compile")
-        .DependsOn(CompileRelease)
-        .Produces(DocsDirectory / "graph.json")
-        .Executes(() => Emit(true));
+    Target CheckDocs =>
+        definition => definition
+            .Description(
+                "Fails on a type with no page, a page that breaks its contract, or an example that does not compile"
+            )
+            .DependsOn(CompileRelease)
+            .Produces(DocsDirectory / "graph.json")
+            .Executes(() => Emit(true));
 }

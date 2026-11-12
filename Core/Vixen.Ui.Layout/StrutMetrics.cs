@@ -8,8 +8,12 @@ namespace Vixen.Ui.Layout;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>This store still has no font, and that is the point of this type rather than an
-///         exception to it.</b> §10.8 begins every line box with an imaginary zero-width inline box
+///         ⚠
+///         <b>
+///             This store still has no font, and that is the point of this type rather than an
+///             exception to it.
+///         </b>
+///         §10.8 begins every line box with an imaginary zero-width inline box
 ///         carrying the block container's own font and line height — which is why an empty line is
 ///         still a line tall, why a short image never makes a line shorter than the text beside it
 ///         would be, and why <c>line-height</c> on a container does anything at all. Every one of
@@ -29,9 +33,13 @@ namespace Vixen.Ui.Layout;
 ///         quirk rather than as a missing feature.
 ///     </para>
 ///     <para>
-///         ⚠ <b><see cref="Ascent" />/<see cref="Descent" /> and
-///         <see cref="TextAscent" />/<see cref="TextDescent" /> are two different boxes and
-///         collapsing them is wrong the moment <c>line-height</c> is not <c>normal</c>.</b> The
+///         ⚠
+///         <b>
+///             <see cref="Ascent" />/<see cref="Descent" /> and
+///             <see cref="TextAscent" />/<see cref="TextDescent" /> are two different boxes and
+///             collapsing them is wrong the moment <c>line-height</c> is not <c>normal</c>.
+///         </b>
+///         The
 ///         first pair is the strut's <i>line box</i> — the font's metrics grown (or shrunk) by half
 ///         the leading — and it is what a line box is at least as tall as. The second is the font's
 ///         <i>content area</i>, which is what <c>text-top</c> and <c>text-bottom</c> are defined
@@ -56,8 +64,12 @@ public readonly record struct StrutMetrics(
 ) {
     /// <summary>Whether a font ever wrote these numbers down.</summary>
     /// <remarks>
-    ///     ⚠ <b>The two <c>vertical-align</c> families ask this question differently, which is why it
-    ///     is a property rather than a branch at one call site.</b> A line box asks it to decide
+    ///     ⚠
+    ///     <b>
+    ///         The two <c>vertical-align</c> families ask this question differently, which is why it
+    ///         is a property rather than a branch at one call site.
+    ///     </b>
+    ///     A line box asks it to decide
     ///     whether to start at the strut's height or at zero; the five font-relative alignments ask
     ///     it to decide whether they are honoured at all. A tree whose container declares a
     ///     <c>line-height</c> and nothing else still answers <c>true</c> here, because a line height

@@ -4,7 +4,6 @@
 using Vixen.Editor.Core;
 using Vixen.Editor.Texturing.Painting;
 using Vixen.Input;
-using Vixen.Texturing.Layers;
 using Vixen.Texturing.Painting;
 using Vixen.Ui;
 using Vixen.Ui.Controls;
@@ -15,8 +14,11 @@ namespace Vixen.Editor.Texturing.Tests;
 /// <summary>An artist's own picture becomes a brush alpha, and says which channel it read.</summary>
 /// <remarks>
 ///     <para>
-///         <b><a href="https://github.com/Rikarin/Vixen/issues/1090">#1090</a>, through the decoder
-///         production uses rather than around it.</b> Every case here writes a real file into a real
+///         <b>
+///             <a href="https://github.com/Rikarin/Vixen/issues/1090">#1090</a>, through the decoder
+///             production uses rather than around it.
+///         </b>
+///         Every case here writes a real file into a real
 ///         <c>EditorProject</c> and lets <c>ImageDecoders.BuiltIn</c> read it, because the claim
 ///         being made is about what a decoded picture's channels contain — and a fixture that
 ///         handed <c>PaintAlphaSource</c> a <c>TextureData</c> it had built itself would be asserting
@@ -24,8 +26,12 @@ namespace Vixen.Editor.Texturing.Tests;
 ///         the decoder actually produces.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Uncompressed 32-bit TGA, because it is the one format in
-///         <c>StbImageDecoder.Extensions</c> a test can write in eighteen bytes of header.</b> The
+///         ⚠
+///         <b>
+///             Uncompressed 32-bit TGA, because it is the one format in
+///             <c>StbImageDecoder.Extensions</c> a test can write in eighteen bytes of header.
+///         </b>
+///         The
 ///         file goes through the same <c>ImageDecoders.For</c> lookup and the same <c>Decode</c> as
 ///         a PNG an artist imports; what a hand-written encoder would risk — a channel order this
 ///         suite and the decoder disagree about — is exactly what the assertions below would catch,
@@ -40,7 +46,7 @@ public class PaintAlphaSourceTests {
 
         // Opaque mid-grey throughout, with the shape in alpha alone: a left half that paints and a
         // right half that does not. Read as luminance this would be flat.
-        Add(fixture, "wedge", (x, _) => (128, 128, 128, x < 8 ? (byte)255 : (byte)0));
+        Add(fixture, "wedge", static (x, _) => (128, 128, 128, x < 8 ? (byte)255 : (byte)0));
 
         var (mask, message) = PaintAlphaSource.Resolve(fixture.Project, "Assets/wedge.tga");
 
@@ -64,7 +70,7 @@ public class PaintAlphaSourceTests {
     public void A_constant_alpha_channel_means_the_weight_is_the_brightness() {
         using var fixture = new TexturingFixture();
 
-        Add(fixture, "grey", (x, _) => (Ramp(x), Ramp(x), Ramp(x), 255));
+        Add(fixture, "grey", static (x, _) => (Ramp(x), Ramp(x), Ramp(x), 255));
 
         var (mask, message) = PaintAlphaSource.Resolve(fixture.Project, "Assets/grey.tga");
 
@@ -88,7 +94,7 @@ public class PaintAlphaSourceTests {
     public void An_alpha_channel_of_nought_everywhere_is_read_as_brightness_too() {
         using var fixture = new TexturingFixture();
 
-        Add(fixture, "hollow", (x, _) => (Ramp(x), Ramp(x), Ramp(x), 0));
+        Add(fixture, "hollow", static (x, _) => (Ramp(x), Ramp(x), Ramp(x), 0));
 
         var (mask, message) = PaintAlphaSource.Resolve(fixture.Project, "Assets/hollow.tga");
 
@@ -102,7 +108,7 @@ public class PaintAlphaSourceTests {
     public void A_picture_that_is_black_everywhere_is_refused_rather_than_loaded() {
         using var fixture = new TexturingFixture();
 
-        Add(fixture, "void", (_, _) => (0, 0, 0, 255));
+        Add(fixture, "void", static (_, _) => (0, 0, 0, 255));
 
         var (mask, message) = PaintAlphaSource.Resolve(fixture.Project, "Assets/void.tga");
 
@@ -123,7 +129,7 @@ public class PaintAlphaSourceTests {
         var (empty, nothing) = PaintAlphaSource.Resolve(fixture.Project, "   ");
 
         Assert.Null(empty);
-        Assert.Equal("", nothing);
+        Assert.Equal(string.Empty, nothing);
 
         var (absent, missing) = PaintAlphaSource.Resolve(fixture.Project, "Assets/nowhere.png");
 
@@ -187,7 +193,7 @@ public class PaintAlphaSourceTests {
 
         fixture.Host.Activate(TexturingModule.ModuleId, TexturingModule.ModuleName, module);
 
-        Add(fixture, "scratches", (x, y) => (0, 0, 0, (byte)((x * 16) + (y * 2))));
+        Add(fixture, "scratches", static (x, y) => (0, 0, 0, (byte)(x * 16 + y * 2)));
 
         fixture.Project.Selection.Set(fixture.AddStack("Hull"));
 
@@ -240,7 +246,7 @@ public class PaintAlphaSourceTests {
 
         fixture.Host.Activate(TexturingModule.ModuleId, TexturingModule.ModuleName, module);
 
-        Add(fixture, "scratches", (x, y) => (0, 0, 0, (byte)((x * 16) + (y * 2))));
+        Add(fixture, "scratches", static (x, y) => (0, 0, 0, (byte)(x * 16 + y * 2)));
 
         fixture.Project.Selection.Set(fixture.AddStack("Hull"));
 
@@ -258,7 +264,8 @@ public class PaintAlphaSourceTests {
         Assert.Contains("Enter", brush.AlphaStatus, StringComparison.Ordinal);
         Assert.False(brush.Tool.IsMasked);
 
-        var box = Boxes(panel!).FirstOrDefault(one => one.Placeholder?.Contains(".png", StringComparison.Ordinal) == true);
+        var box = Boxes(panel!)
+            .FirstOrDefault(static one => one.Placeholder?.Contains(".png", StringComparison.Ordinal) == true);
 
         Assert.NotNull(box);
 
@@ -308,7 +315,7 @@ public class PaintAlphaSourceTests {
     public void The_shelf_and_an_imported_alpha_take_turns_rather_than_stacking() {
         using var fixture = new TexturingFixture();
 
-        Add(fixture, "grain", (x, _) => (0, 0, 0, Ramp(x)));
+        Add(fixture, "grain", static (x, _) => (0, 0, 0, Ramp(x)));
 
         var (mask, _) = PaintAlphaSource.Resolve(fixture.Project, "Assets/grain.tga");
 
@@ -323,9 +330,9 @@ public class PaintAlphaSourceTests {
         Assert.Same(mask, tool.Brush.Alpha);
 
         // Cleared: back to the shelf shape and not to a round brush.
-        tool.SetAlphaAsset("", null);
+        tool.SetAlphaAsset(string.Empty, null);
 
-        Assert.Equal("", tool.AlphaAsset);
+        Assert.Equal(string.Empty, tool.AlphaAsset);
         Assert.Equal(PaintAlphas.Chisel, tool.AlphaName);
         Assert.Same(PaintAlphas.Find(PaintAlphas.Chisel), tool.Brush.Alpha);
 
@@ -333,7 +340,7 @@ public class PaintAlphaSourceTests {
         tool.SetAlphaAsset("Assets/grain.tga", mask);
         tool.SetAlpha(PaintAlphas.Square);
 
-        Assert.Equal("", tool.AlphaAsset);
+        Assert.Equal(string.Empty, tool.AlphaAsset);
         Assert.Same(PaintAlphas.Find(PaintAlphas.Square), tool.Brush.Alpha);
     }
 
@@ -347,15 +354,19 @@ public class PaintAlphaSourceTests {
     /// <param name="name">What to call it, without the extension.</param>
     /// <param name="texel">What each column and row is, as red, green, blue and alpha.</param>
     /// <remarks>
-    ///     ⚠ <b>Top-left origin and BGRA order, which is what the format says and not what a reader
-    ///     of the bytes below would guess.</b> Bit 5 of the descriptor is what puts row zero at the
+    ///     ⚠
+    ///     <b>
+    ///         Top-left origin and BGRA order, which is what the format says and not what a reader
+    ///         of the bytes below would guess.
+    ///     </b>
+    ///     Bit 5 of the descriptor is what puts row zero at the
     ///     top; without it the picture is written upside down, which every assertion here that reads
     ///     a column would survive and one reading a row would not.
     /// </remarks>
     static void Add(TexturingFixture fixture, string name, Func<int, int, (byte R, byte G, byte B, byte A)> texel) {
         const int Side = 16;
 
-        var bytes = new byte[18 + (Side * Side * 4)];
+        var bytes = new byte[18 + Side * Side * 4];
 
         bytes[2] = 2;
         bytes[12] = Side;
@@ -366,7 +377,7 @@ public class PaintAlphaSourceTests {
         for (var y = 0; y < Side; y++) {
             for (var x = 0; x < Side; x++) {
                 var (r, g, b, a) = texel(x, y);
-                var at = 18 + (((y * Side) + x) * 4);
+                var at = 18 + (y * Side + x) * 4;
 
                 bytes[at] = b;
                 bytes[at + 1] = g;
@@ -381,7 +392,7 @@ public class PaintAlphaSourceTests {
 
         var report = fixture.Project.Assets.Scan();
 
-        Assert.DoesNotContain(report.Issues, issue => issue.Kind != AssetIssueKind.MetaCreated);
+        Assert.DoesNotContain(report.Issues, static issue => issue.Kind != AssetIssueKind.MetaCreated);
         Assert.True(fixture.Project.Assets.TryGetByPath(relative, out _), "the scan did not pick " + relative + " up");
     }
 }

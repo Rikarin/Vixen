@@ -30,8 +30,7 @@ public class ServiceTests : IDisposable {
         var toasts = document.Root.Add<ToastHost>();
 
         var centre = new NotificationCenter(toasts) {
-            Duration = TimeSpan.FromSeconds(2),
-            ErrorDuration = TimeSpan.FromSeconds(20)
+            Duration = TimeSpan.FromSeconds(2), ErrorDuration = TimeSpan.FromSeconds(20)
         };
 
         centre.Show("Saved", NotificationSeverity.Success);
@@ -163,7 +162,7 @@ public class ServiceTests : IDisposable {
 
     [Fact]
     public void A_string_with_no_translation_falls_back_to_the_source_text() {
-        Strings.Use(new StringCatalog("cs"));
+        Strings.Use(new("cs"));
 
         Assert.Equal("Save Scene", EditorStrings.CommandSave.Text);
 
@@ -187,7 +186,9 @@ public class ServiceTests : IDisposable {
             .Set("a.first", "první");
 
         var text = catalog.Save();
-        Assert.True(text.IndexOf("a.first", StringComparison.Ordinal) < text.IndexOf("z.last", StringComparison.Ordinal));
+        Assert.True(
+            text.IndexOf("a.first", StringComparison.Ordinal) < text.IndexOf("z.last", StringComparison.Ordinal)
+        );
 
         var reloaded = StringCatalogYaml.Load(text);
 
@@ -220,7 +221,7 @@ public class ServiceTests : IDisposable {
     public void Declared_ids_are_unique() {
         // Two strings answering to one id is a translation that changes both, and it is the sort of
         // thing a generator would catch and a hand-written table would not.
-        var ids = EditorStrings.All.Select(id => id.Id).ToList();
+        var ids = EditorStrings.All.Select(static id => id.Id).ToList();
         Assert.Equal(ids.Count, ids.Distinct(StringComparer.Ordinal).Count());
     }
 
@@ -244,7 +245,7 @@ public class ServiceTests : IDisposable {
             Assert.True(store.DeleteLayout("Shading"));
             Assert.Equal(["Animation"], store.Layouts());
         } finally {
-            Directory.Delete(directory, recursive: true);
+            Directory.Delete(directory, true);
         }
     }
 
@@ -252,5 +253,5 @@ public class ServiceTests : IDisposable {
     public void A_layout_name_that_would_escape_the_directory_is_refused() =>
         // The name comes from a text box, and `../../keybindings.yaml` is a layout that overwrites
         // the keymap.
-        Assert.Throws<ArgumentException>(() => EditorUserStore.FileFor("../../keybindings.yaml"));
+        Assert.Throws<ArgumentException>(static () => EditorUserStore.FileFor("../../keybindings.yaml"));
 }

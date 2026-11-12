@@ -3,7 +3,6 @@
 
 using System.Text;
 using Vixen.Core;
-using Vixen.Core.Mathematics;
 using Vixen.Editor.Assets.Content;
 using Vixen.Editor.Core;
 using Vixen.Editor.Testing;
@@ -45,7 +44,7 @@ public sealed class EditorMountTests : IDisposable {
 
         try {
             if (Directory.Exists(root)) {
-                Directory.Delete(root, recursive: true);
+                Directory.Delete(root, true);
             }
         } catch (IOException) {
             // A store the test wrote and the OS has not let go of. Not what is under test.
@@ -55,8 +54,11 @@ public sealed class EditorMountTests : IDisposable {
     /// <summary>An editor opened on an imported project has a material source, and keeps its geometry.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>Both halves, because doing one without the other is the failure this arrangement was
-    ///         designed around.</b> <c>WorldRenderer.Mount</c> replaces <c>Source</c> with an
+    ///         <b>
+    ///             Both halves, because doing one without the other is the failure this arrangement was
+    ///             designed around.
+    ///         </b>
+    ///         <c>WorldRenderer.Mount</c> replaces <c>Source</c> with an
     ///         <c>AssetMeshSource</c> over the catalog, and a catalog resolves <em>less</em> than the
     ///         import cache does — an excluded asset gets no address at all. So a mount that forgot to
     ///         put <c>ProjectMeshSource</c> back would take a subset of the project's geometry off
@@ -140,7 +142,7 @@ public sealed class EditorMountTests : IDisposable {
 
         using var painter = new AssetMaterialSource(content.Assets!);
 
-        var missing = new AssetReference(new AssetId(Guid.NewGuid()), SubAssetId.Main);
+        var missing = new AssetReference(new(Guid.NewGuid()), SubAssetId.Main);
         var grey = Grey();
         var source = new FallbackMaterialSource(painter, () => grey);
 
@@ -170,7 +172,7 @@ public sealed class EditorMountTests : IDisposable {
         var content = await Cataloged();
 
         using var painter = new AssetMaterialSource(content.Assets!);
-        var source = new FallbackMaterialSource(painter, () => null);
+        var source = new FallbackMaterialSource(painter, static () => null);
 
         Assert.False(source.TryGet(new(new AssetId(Guid.NewGuid()), SubAssetId.Main), out _));
         Assert.Equal(0, source.FellBack);
@@ -178,7 +180,7 @@ public sealed class EditorMountTests : IDisposable {
 
     /// <summary>An editor over this test's project, one frame in, with a device.</summary>
     EditorSession Running() {
-        var session = EditorSession.Start(new EditorSessionOptions { ProjectRoot = root });
+        var session = EditorSession.Start(new() { ProjectRoot = root });
 
         owned.Add(session);
 
@@ -190,8 +192,12 @@ public sealed class EditorMountTests : IDisposable {
 
     /// <summary>Imports one asset into this test's project and writes the catalog over it.</summary>
     /// <remarks>
-    ///     ⚠ <b>The catalog is written here rather than by the editor, and that is the honest shape of
-    ///     what ships.</b> <c>EditorContent</c> opens whatever the last write left; the editor rewrites
+    ///     ⚠
+    ///     <b>
+    ///         The catalog is written here rather than by the editor, and that is the honest shape of
+    ///         what ships.
+    ///     </b>
+    ///     <c>EditorContent</c> opens whatever the last write left; the editor rewrites
     ///     it whenever a content task succeeds — <c>ContentTasks.Cataloged</c>, on the pool — and does
     ///     not plan the whole project on the frame thread every time somebody opens it. So a project
     ///     imported through the editor is mounted from the next start onwards, which is the sequence
@@ -200,7 +206,7 @@ public sealed class EditorMountTests : IDisposable {
     async Task<EditorContent> Cataloged() {
         Directory.CreateDirectory(Path.Combine(root, "Assets"));
 
-        var project = new EditorProject(new ProjectPaths(root));
+        var project = new EditorProject(new(root));
         var file = Path.Combine(project.Paths.Assets, "Textures", "crate.txt");
 
         Directory.CreateDirectory(Path.GetDirectoryName(file)!);
@@ -211,7 +217,7 @@ public sealed class EditorMountTests : IDisposable {
         await ContentPipeline.ImportAsync(
             workspace,
             ProjectWorkspace.HostTarget,
-            _ => { },
+            static _ => { },
             cancellationToken: TestContext.Current.CancellationToken
         );
 
@@ -231,16 +237,12 @@ public sealed class EditorMountTests : IDisposable {
             new() {
                 ShaderName = "ForwardPlus",
                 Features = [
-                    new MetalRoughnessFeature {
-                        BaseColor = new Vector3(0.62f, 0.63f, 0.66f),
-                        Metalness = 0f,
-                        Roughness = 0.7f
-                    }
+                    new MetalRoughnessFeature { BaseColor = new(0.62f, 0.63f, 0.66f), Metalness = 0f, Roughness = 0.7f }
                 ]
             }
         );
 
-        Assert.False(compilation.Failed, string.Join("; ", compilation.Diagnostics.Select(one => one.Message)));
+        Assert.False(compilation.Failed, string.Join("; ", compilation.Diagnostics.Select(static one => one.Message)));
 
         return compilation.Material!;
     }

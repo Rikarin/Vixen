@@ -21,8 +21,12 @@ namespace Vixen.Editor.Assets.Content;
 ///         a catalog is what ships, and it silently omits what a project excludes from shipping.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Unlike the mesh source, this one is not the whole story and should not be read as
-///         it.</b> <see cref="ISurfaceSource" /> is the <em>tool</em> renderer's seam and reduces a
+///         ⚠
+///         <b>
+///             Unlike the mesh source, this one is not the whole story and should not be read as
+///             it.
+///         </b>
+///         <see cref="ISurfaceSource" /> is the <em>tool</em> renderer's seam and reduces a
 ///         material to four numbers; it is not <c>IMaterialSource</c>, which is what the composed
 ///         pane's <c>WorldRenderer</c> wants and what only <c>WorldRenderer.Mount</c> builds. So the
 ///         argument above settles where geometry comes from and settles nothing about textured
@@ -36,8 +40,12 @@ namespace Vixen.Editor.Assets.Content;
 ///         part worth watching. One reader, and it is the one the build uses.
 ///     </para>
 ///     <para>
-///         ⚠ <b>A material that has not been imported yet is a miss, and a miss is grey rather than
-///         invisible.</b> That is the asymmetry with the mesh source and it is deliberate — see
+///         ⚠
+///         <b>
+///             A material that has not been imported yet is a miss, and a miss is grey rather than
+///             invisible.
+///         </b>
+///         That is the asymmetry with the mesh source and it is deliberate — see
 ///         <see cref="ISurfaceSource" />. An entity whose geometry has not arrived draws nothing,
 ///         because the alternative is a scene whose shape depends on disk speed; an entity whose
 ///         material has not arrived draws in the neutral surface, because the alternative is a level

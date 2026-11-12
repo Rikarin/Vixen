@@ -9,8 +9,11 @@ namespace Vixen.Fuzz.Tests;
 /// <summary>The oracle that has to work while the case is still running.</summary>
 /// <remarks>
 ///     <para>
-///         <b>Every target below misbehaves deliberately, and each one has to misbehave in a way a
-///         test can survive.</b> The failure being tested is a case that never returns, and a test that
+///         <b>
+///             Every target below misbehaves deliberately, and each one has to misbehave in a way a
+///             test can survive.
+///         </b>
+///         The failure being tested is a case that never returns, and a test that
 ///         reproduced that faithfully would hang the build — so each of these runs away and then stops,
 ///         and the assertion is that the guard had already reported it by the time it did. The
 ///         stalling target goes further and only stops <i>because</i> the finding appeared on disk,
@@ -148,7 +151,7 @@ public sealed class CaseGuardTests {
         var directory = Path.Combine(Path.GetTempPath(), "vixen-fuzz-guard", name);
 
         if (Directory.Exists(directory)) {
-            Directory.Delete(directory, recursive: true);
+            Directory.Delete(directory, true);
         }
 
         Directory.CreateDirectory(directory);
@@ -306,7 +309,7 @@ public sealed class CaseGuardTests {
             long folded = 17;
 
             foreach (var value in input) {
-                folded = (folded * 31) + value;
+                folded = folded * 31 + value;
             }
 
             // Bounded, so the corpus is a selection rather than a list — the rule IFuzzTarget.Run's

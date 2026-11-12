@@ -9,19 +9,25 @@ namespace Vixen.Editor.App.Tests;
 
 /// <summary>The window's own size and place, which the editor forgot on every launch.</summary>
 /// <remarks>
-///     ⚠ <b>Everything else about the editor's shape persists — the arrangement, the keymap, the
-///     theme.</b> Doc 20's third bar is "the window is theirs", and a window that opens at a fixed
+///     ⚠
+///     <b>
+///         Everything else about the editor's shape persists — the arrangement, the keymap, the
+///         theme.
+///     </b>
+///     Doc 20's third bar is "the window is theirs", and a window that opens at a fixed
 ///     1600×1000 however it was closed is the one thing on screen the user has to fix every time.
 /// </remarks>
 public class WindowPlacementTests : IDisposable {
     readonly string directory =
         Path.Combine(Path.GetTempPath(), "vixen-placement-tests", Guid.NewGuid().ToString("N"));
 
-    public WindowPlacementTests() => Directory.CreateDirectory(directory);
+    public WindowPlacementTests() {
+        Directory.CreateDirectory(directory);
+    }
 
     public void Dispose() {
         try {
-            Directory.Delete(directory, recursive: true);
+            Directory.Delete(directory, true);
         } catch (Exception exception) when (exception is IOException or UnauthorizedAccessException) {
             // A temp directory that would not go is not a failed test.
         }
@@ -45,7 +51,7 @@ public class WindowPlacementTests : IDisposable {
 
         var (size, position) = WindowPlacement.Load(directory);
 
-        Assert.Equal(new Int2(1280, 720), size);
+        Assert.Equal(new(1280, 720), size);
         Assert.Equal(new Int2(40, 90), position);
     }
 
@@ -57,7 +63,7 @@ public class WindowPlacementTests : IDisposable {
 
         var (size, position) = WindowPlacement.Load(directory);
 
-        Assert.Equal(new Int2(1280, 720), size);
+        Assert.Equal(new(1280, 720), size);
         Assert.Null(position);
     }
 

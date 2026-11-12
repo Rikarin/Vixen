@@ -18,7 +18,7 @@ namespace Vixen.Platform.Ui.Tests;
 public class PlatformWindowHostTests {
     static (HeadlessPlatform Platform, UiDocument Document, PlatformWindowHost Host) Open() {
         var platform = new HeadlessPlatform();
-        var main = platform.CreateWindow(new WindowOptions { Size = new Int2(1280, 720) });
+        var main = platform.CreateWindow(new() { Size = new(1280, 720) });
         var document = new UiDocument(100f, 100f);
 
         return (platform, document, new PlatformWindowHost(platform, document, main));
@@ -40,8 +40,12 @@ public class PlatformWindowHostTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>The half of the key-window work that was a window's own to answer, and a host had to
-    ///     write <c>document.KeySurface == surface</c> for itself.</b> That is a second copy of a
+    ///     ⚠
+    ///     <b>
+    ///         The half of the key-window work that was a window's own to answer, and a host had to
+    ///         write <c>document.KeySurface == surface</c> for itself.
+    ///     </b>
+    ///     That is a second copy of a
     ///     fact the document already holds, and the failure mode of a second copy is two windows
     ///     drawing an active title bar with nothing anywhere reporting a problem.
     /// </summary>
@@ -51,7 +55,7 @@ public class PlatformWindowHostTests {
 
         using (platform) {
             using (host) {
-                var window = host.Open(document, new UiWindowRequest("Inspector", 40f, 60f, 320f, 240f));
+                var window = host.Open(document, new("Inspector", 40f, 60f, 320f, 240f));
 
                 Assert.NotNull(window);
                 Assert.False(window!.IsKey);
@@ -82,7 +86,7 @@ public class PlatformWindowHostTests {
         var (platform, document, host) = Open();
 
         using (platform) {
-            var window = host.Open(document, new UiWindowRequest("Inspector", 40f, 60f, 320f, 240f));
+            var window = host.Open(document, new("Inspector", 40f, 60f, 320f, 240f));
             Assert.NotNull(window);
 
             host.Dispose();
@@ -105,7 +109,7 @@ public class PlatformWindowHostTests {
                 Assert.True(host.CanOpen);
                 Assert.Single(document.Surfaces);
 
-                var window = host.Open(document, new UiWindowRequest("Inspector", 40f, 60f, 320f, 240f));
+                var window = host.Open(document, new("Inspector", 40f, 60f, 320f, 240f));
 
                 Assert.NotNull(window);
                 Assert.Equal(2, document.Surfaces.Count);
@@ -131,7 +135,7 @@ public class PlatformWindowHostTests {
 
         using (platform) {
             using (host) {
-                var window = host.Open(document, new UiWindowRequest("Inspector", 0f, 0f, 320f, 240f))!;
+                var window = host.Open(document, new("Inspector", 0f, 0f, 320f, 240f))!;
                 var opened = Assert.IsType<PlatformUiWindow>(window);
 
                 Assert.True(host.TryResolve(host.Main.Id, out var primary));
@@ -151,19 +155,19 @@ public class PlatformWindowHostTests {
 
         using (platform) {
             using (host) {
-                var window = host.Open(document, new UiWindowRequest("Inspector", 0f, 0f, 320f, 240f))!;
-                var opened = (PlatformUiWindow) window;
+                var window = host.Open(document, new("Inspector", 0f, 0f, 320f, 240f))!;
+                var opened = (PlatformUiWindow)window;
 
                 var moved = 0;
                 window.Moved += _ => moved++;
 
-                opened.Window.ClientSize = new Int2(500, 400);
+                opened.Window.ClientSize = new(500, 400);
 
                 // ⚠ False rather than true: the head still has a swapchain to rebuild for this
                 // window, and a resize eaten here is a window that lays out at its new size and
                 // presents at its old one.
                 Assert.False(
-                    host.Handle(PlatformEvent.WindowResized(opened.Window.Id, 0L, new Int2(500, 400), new Int2(500, 400)))
+                    host.Handle(PlatformEvent.WindowResized(opened.Window.Id, 0L, new(500, 400), new(500, 400)))
                 );
 
                 Assert.Equal(500f, window.Surface.Width, 0.001f);
@@ -182,13 +186,15 @@ public class PlatformWindowHostTests {
 
         using (platform) {
             using (host) {
-                var window = host.Open(document, new UiWindowRequest("Inspector", 0f, 0f, 320f, 240f))!;
-                var opened = (PlatformUiWindow) window;
+                var window = host.Open(document, new("Inspector", 0f, 0f, 320f, 240f))!;
+                var opened = (PlatformUiWindow)window;
 
                 var asked = 0;
                 window.CloseRequested += _ => asked++;
 
-                Assert.True(host.Handle(PlatformEvent.Window(PlatformEventKind.WindowCloseRequested, opened.Window.Id, 0L)));
+                Assert.True(
+                    host.Handle(PlatformEvent.Window(PlatformEventKind.WindowCloseRequested, opened.Window.Id, 0L))
+                );
                 Assert.Equal(1, asked);
 
                 // ⚠ Still open. The whole point of the request is that somebody else decides — the
@@ -198,7 +204,9 @@ public class PlatformWindowHostTests {
                 Assert.Equal(2, document.Surfaces.Count);
 
                 // Closing the last window is the application quitting, which is the head's business.
-                Assert.False(host.Handle(PlatformEvent.Window(PlatformEventKind.WindowCloseRequested, host.Main.Id, 0L)));
+                Assert.False(
+                    host.Handle(PlatformEvent.Window(PlatformEventKind.WindowCloseRequested, host.Main.Id, 0L))
+                );
             }
         }
     }
@@ -208,8 +216,8 @@ public class PlatformWindowHostTests {
         var (platform, document, host) = Open();
 
         using (platform) {
-            host.Open(document, new UiWindowRequest("One", 0f, 0f, 320f, 240f));
-            host.Open(document, new UiWindowRequest("Two", 0f, 0f, 320f, 240f));
+            host.Open(document, new("One", 0f, 0f, 320f, 240f));
+            host.Open(document, new("Two", 0f, 0f, 320f, 240f));
 
             Assert.Equal(3, document.Surfaces.Count);
 
@@ -223,8 +231,12 @@ public class PlatformWindowHostTests {
 
     /// <summary>Every surface names its window, including the one this host did not open.</summary>
     /// <remarks>
-    ///     ⚠ <b>The main window is the case, and it is the one that had no <c>IUiWindow</c> at
-    ///     all.</b> <c>Open</c> makes a wrapper and hands it back; the primary surface was registered
+    ///     ⚠
+    ///     <b>
+    ///         The main window is the case, and it is the one that had no <c>IUiWindow</c> at
+    ///         all.
+    ///     </b>
+    ///     <c>Open</c> makes a wrapper and hands it back; the primary surface was registered
     ///     rather than opened, so an application that has never torn a panel off — which is all of
     ///     them until somebody does — had exactly one window and no way to name it. Disposing that
     ///     wrapper has to do nothing, because the ordinary meaning of disposing one of these is
@@ -242,7 +254,7 @@ public class PlatformWindowHostTests {
                 Assert.Same(host.MainWindow, main);
                 Assert.Equal(host.Main.Title, main!.Title);
 
-                var torn = host.Open(document, new UiWindowRequest("Inspector", 0f, 0f, 320f, 240f));
+                var torn = host.Open(document, new("Inspector", 0f, 0f, 320f, 240f));
 
                 Assert.NotNull(torn);
                 Assert.Same(torn, host.WindowOf(torn!.Surface));
@@ -263,8 +275,12 @@ public class PlatformWindowHostTests {
 
     /// <summary>The main window hears that it became the key one, which it could not before.</summary>
     /// <remarks>
-    ///     ⚠ <b>A wrapper that silently never raised <see cref="IUiWindow.DidBecomeKey" /> would be
-    ///     the half-wired kind of object that gets built against and then found not to work.</b> The
+    ///     ⚠
+    ///     <b>
+    ///         A wrapper that silently never raised <see cref="IUiWindow.DidBecomeKey" /> would be
+    ///         the half-wired kind of object that gets built against and then found not to work.
+    ///     </b>
+    ///     The
     ///     host was already subscribed to <c>UiDocument.KeySurfaceChanged</c>, which is the ground
     ///     truth; what was missing was something to raise the event on.
     /// </remarks>
@@ -275,7 +291,7 @@ public class PlatformWindowHostTests {
         using (platform) {
             using (host) {
                 var main = host.MainWindow;
-                var torn = host.Open(document, new UiWindowRequest("Inspector", 0f, 0f, 320f, 240f));
+                var torn = host.Open(document, new("Inspector", 0f, 0f, 320f, 240f));
 
                 var announced = 0;
                 main.DidBecomeKey += _ => announced++;

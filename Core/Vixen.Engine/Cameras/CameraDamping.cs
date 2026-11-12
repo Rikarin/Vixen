@@ -65,7 +65,7 @@ public static class CameraDamping {
     /// <param name="deltaTime">The step, in seconds.</param>
     /// <returns>The new value.</returns>
     public static float Approach(float current, float target, float dampTime, float deltaTime) =>
-        current + ((target - current) * Fraction(dampTime, deltaTime));
+        current + (target - current) * Fraction(dampTime, deltaTime);
 
     /// <summary>Moves a vector towards a target, one damping time per axis.</summary>
     /// <param name="current">Where it is.</param>

@@ -52,8 +52,12 @@ public class UvStackingTests {
 
     /// <summary>A mirror image is offered as a mirror, and nothing else is.</summary>
     /// <remarks>
-    ///     ⚠ <b>The mirror is in <c>u</c> and the residual is taken after both islands are put in their
-    ///     own lower corner</b> — which is the same normalization <see cref="UvPlacement.Apply" />
+    ///     ⚠
+    ///     <b>
+    ///         The mirror is in <c>u</c> and the residual is taken after both islands are put in their
+    ///         own lower corner
+    ///     </b>
+    ///     — which is the same normalization <see cref="UvPlacement.Apply" />
     ///     makes. Comparing raw coordinates would measure where the flattener left the gauge, and a
     ///     conformal map's gauge is arbitrary.
     /// </remarks>
@@ -124,10 +128,10 @@ public class UvStackingTests {
         var islands = new List<UvIsland>();
 
         for (var pair = 0; pair < 12; pair++) {
-            var wedge = Wedge(false, 0.1f + (0.02f * pair));
+            var wedge = Wedge(false, 0.1f + 0.02f * pair);
 
             islands.Add(wedge);
-            islands.Add(Wedge(true, 0.1f + (0.02f * pair)));
+            islands.Add(Wedge(true, 0.1f + 0.02f * pair));
         }
 
         // ⚠ A pinned density, and that is what makes the comparison mean anything. Left at zero the
@@ -164,9 +168,9 @@ public class UvStackingTests {
         var islands = new List<UvIsland>();
 
         for (var pair = 0; pair < 8; pair++) {
-            islands.Add(Wedge(false, 0.12f + (0.03f * pair)));
-            islands.Add(IslandCorpus.Square(0.05f + (0.01f * pair), 8f));
-            islands.Add(Wedge(true, 0.12f + (0.03f * pair)));
+            islands.Add(Wedge(false, 0.12f + 0.03f * pair));
+            islands.Add(IslandCorpus.Square(0.05f + 0.01f * pair, 8f));
+            islands.Add(Wedge(true, 0.12f + 0.03f * pair));
         }
 
         var first = UvStacking.Detect(islands);
@@ -175,7 +179,7 @@ public class UvStackingTests {
             Assert.Equal(first, UvStacking.Detect(islands));
         }
 
-        Assert.Equal(8, first.Count(offer => offer.Mirrored));
+        Assert.Equal(8, first.Count(static offer => offer.Mirrored));
 
         // Ascending by representative, so the list itself is the artefact rather than its contents.
         for (var index = 1; index < first.Count; index++) {
@@ -189,29 +193,36 @@ public class UvStackingTests {
         var island = IslandCorpus.Square(0.25f, 8f);
         var islands = new[] { island, island, island };
 
-        Assert.Throws<ArgumentException>(
-            () => UvStacking.Fold(islands, [new(0, 1, false, 0f), new(2, 1, false, 0f)], out _)
+        Assert.Throws<ArgumentException>(() => UvStacking.Fold(
+                islands,
+                [new(0, 1, false, 0f), new(2, 1, false, 0f)],
+                out _
+            )
         );
 
-        Assert.Throws<ArgumentException>(
-            () => UvStacking.Fold(islands, [new(0, 1, false, 0f), new(1, 2, false, 0f)], out _)
+        Assert.Throws<ArgumentException>(() => UvStacking.Fold(
+                islands,
+                [new(0, 1, false, 0f), new(1, 2, false, 0f)],
+                out _
+            )
         );
     }
 
     /// <summary>A right-angled wedge, optionally reflected in <c>u</c> with its corners in the same order.</summary>
     /// <remarks>
-    ///     ⚠ <b>The same order is what makes this docs/plan/41 § D11's case rather than a shape-matching
-    ///     problem.</b> A symmetry-preserving remesh emits vertex <i>k</i> and its mirror as exact
+    ///     ⚠
+    ///     <b>
+    ///         The same order is what makes this docs/plan/41 § D11's case rather than a shape-matching
+    ///         problem.
+    ///     </b>
+    ///     A symmetry-preserving remesh emits vertex <i>k</i> and its mirror as exact
     ///     negations, so the two charts come out with corresponding corners at corresponding indices —
     ///     which is exactly the correspondence a detector cannot recover on an arbitrary mesh, and the
     ///     limitation <see cref="UvStacking" /> names rather than papers over.
     /// </remarks>
     static UvIsland Wedge(bool mirrored, float side = 0.25f) {
         var points = new[] {
-            new Vector2(0f, 0f),
-            new Vector2(side, 0f),
-            new Vector2(side, side * 0.5f),
-            new Vector2(side * 0.25f, side)
+            new Vector2(0f, 0f), new Vector2(side, 0f), new Vector2(side, side * 0.5f), new Vector2(side * 0.25f, side)
         };
 
         if (mirrored) {

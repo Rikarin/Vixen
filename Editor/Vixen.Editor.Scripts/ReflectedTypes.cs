@@ -19,8 +19,12 @@ namespace Vixen.Editor.Scripts;
 ///         registration, and the rest of the pipeline never knows the difference.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Here rather than in <c>Vixen.Core.Reflection</c>, and that is the whole point of the
-///         file.</b> The engine is published NativeAOT and ADR-002 is why the generator exists at
+///         ⚠
+///         <b>
+///             Here rather than in <c>Vixen.Core.Reflection</c>, and that is the whole point of the
+///             file.
+///         </b>
+///         The engine is published NativeAOT and ADR-002 is why the generator exists at
 ///         all; the editor is not, which is what makes this permissible — but only in the editor. A
 ///         reflection describer sitting in Core would be one a runtime could reach, and the first
 ///         person to reach it would get a trimmed publish that works on their machine and not in a
@@ -33,8 +37,12 @@ namespace Vixen.Editor.Scripts;
 ///         below are the generator's, and a test builds both for one type and compares them.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Narrow on purpose: it describes what an importer's settings need and nothing
-///         else.</b> Describing every <c>[DataContract]</c> a script declares would put components
+///         ⚠
+///         <b>
+///             Narrow on purpose: it describes what an importer's settings need and nothing
+///             else.
+///         </b>
+///         Describing every <c>[DataContract]</c> a script declares would put components
 ///         one short step away, and a component that exists only when the editor compiled a script is
 ///         a scene a game build cannot load.
 ///     </para>
@@ -45,8 +53,12 @@ public static class ReflectedTypes {
     /// <returns>How many descriptors were registered.</returns>
     /// <exception cref="InvalidOperationException">It has no <c>[DataContract]</c>, or cannot be made.</exception>
     /// <remarks>
-    ///     ⚠ <b>Transitive, because a settings type with a nested one is a settings type whose YAML
-    ///     cannot be written.</b> <c>YamlSerializer</c> resolves each member's runtime type through
+    ///     ⚠
+    ///     <b>
+    ///         Transitive, because a settings type with a nested one is a settings type whose YAML
+    ///         cannot be written.
+    ///     </b>
+    ///     <c>YamlSerializer</c> resolves each member's runtime type through
     ///     <c>TypeRegistry</c> in turn, so describing only the outer type produces a file missing
     ///     everything below the first level — silently, because an unknown type writes nothing rather
     ///     than failing.
@@ -65,8 +77,12 @@ public static class ReflectedTypes {
     /// <returns>The descriptor.</returns>
     /// <exception cref="InvalidOperationException">It has no <c>[DataContract]</c>, or cannot be made.</exception>
     /// <remarks>
-    ///     ⚠ <b>Public so that a test can hold a reflected descriptor and a generated one for the same
-    ///     type at once and compare them.</b> That comparison is the only thing standing between this
+    ///     ⚠
+    ///     <b>
+    ///         Public so that a test can hold a reflected descriptor and a generated one for the same
+    ///         type at once and compare them.
+    ///     </b>
+    ///     That comparison is the only thing standing between this
     ///     and a settings type whose <c>.meta</c> means something different depending on which tier
     ///     compiled it — and it cannot be written against <see cref="Register" />, which skips a type
     ///     the generator has already described.
@@ -127,7 +143,7 @@ public static class ReflectedTypes {
             type,
             string.IsNullOrEmpty(contract.Alias) ? type.Name : contract.Alias,
             TypeTraits.DataContract | (type.IsAbstract ? TypeTraits.Abstract : TypeTraits.None),
-            [.. members],
+            [..members],
             () => Activator.CreateInstance(type)!,
             type.GetCustomAttribute<CategoryAttribute>()?.Name
         );
@@ -135,8 +151,12 @@ public static class ReflectedTypes {
 
     /// <summary>The members a file carries, in declared order.</summary>
     /// <remarks>
-    ///     ⚠ <b>The generator's rule, restated: public fields and read/write properties, unless they
-    ///     carry <c>[DataMemberIgnore]</c>.</b> <c>[DataMember]</c> only ever overrides a default —
+    ///     ⚠
+    ///     <b>
+    ///         The generator's rule, restated: public fields and read/write properties, unless they
+    ///         carry <c>[DataMemberIgnore]</c>.
+    ///     </b>
+    ///     <c>[DataMember]</c> only ever overrides a default —
     ///     an order or a name — so a member without one is still in, and a private member with one is
     ///     still out. Getting this wrong in either direction is a <c>.meta</c> that means something
     ///     different depending on which tier compiled the type.
@@ -152,9 +172,6 @@ public static class ReflectedTypes {
                 case PropertyInfo { CanRead: true, CanWrite: true, GetMethod.IsPublic: true }:
                     yield return member;
                     break;
-
-                default:
-                    break;
             }
         }
     }
@@ -166,7 +183,7 @@ public static class ReflectedTypes {
         var range = member.GetCustomAttribute<RangeAttribute>();
         var asset = member.GetCustomAttribute<AssetTypeAttribute>();
 
-        return new MemberDescriptor(
+        return new(
             declared?.Name ?? member.Name,
             type,
             declared is { Order: not 0 } ? declared.Order : order,
@@ -177,21 +194,21 @@ public static class ReflectedTypes {
             // `IsEditorVisible: false` whatever the parameter default says — its own remarks warn
             // that a hand-written descriptor trips over this exactly once, and this is the
             // hand-written descriptor.
-            new MemberPresentation(
-                Category: member.GetCustomAttribute<CategoryAttribute>()?.Name,
-                DisplayName: visible?.DisplayName,
-                Tooltip: member.GetCustomAttribute<TooltipAttribute>()?.Text,
-                Minimum: range?.Minimum,
-                Maximum: range?.Maximum,
-                Step: range?.Step ?? 0,
-                Logarithmic: range?.Logarithmic ?? false,
-                IsEditorVisible: visible?.Visible ?? true,
-                IsEditorReadOnly: visible?.ReadOnly ?? false,
-                AssetType: asset?.AssetType,
-                AllowsNull: asset?.AllowNull ?? true
+            new(
+                member.GetCustomAttribute<CategoryAttribute>()?.Name,
+                visible?.DisplayName,
+                member.GetCustomAttribute<TooltipAttribute>()?.Text,
+                range?.Minimum,
+                range?.Maximum,
+                range?.Step ?? 0,
+                range?.Logarithmic ?? false,
+                visible?.Visible ?? true,
+                visible?.ReadOnly ?? false,
+                asset?.AssetType,
+                asset?.AllowNull ?? true
             ),
             initOnly,
-            isSerialized: true
+            true
         );
     }
 
@@ -204,18 +221,20 @@ public static class ReflectedTypes {
     ///     <c>{ get; init; }</c>, and a setter that silently did nothing would be a file that reads
     ///     back as every default.
     /// </remarks>
-    static (Type Type, Func<object, object?> Get, Action<object, object?> Set, bool InitOnly) Access(MemberInfo member) {
+    static (Type Type, Func<object, object?> Get, Action<object, object?> Set, bool InitOnly) Access(
+        MemberInfo member
+    ) {
         if (member is FieldInfo field) {
             return (field.FieldType, field.GetValue, field.SetValue, false);
         }
 
-        var property = (PropertyInfo) member;
+        var property = (PropertyInfo)member;
         var setter = property.SetMethod;
 
         var initOnly = setter is not null
             && setter.ReturnParameter
                 .GetRequiredCustomModifiers()
-                .Any(modifier => modifier.FullName == "System.Runtime.CompilerServices.IsExternalInit");
+                .Any(static modifier => modifier.FullName == "System.Runtime.CompilerServices.IsExternalInit");
 
         return (property.PropertyType, property.GetValue, property.SetValue, initOnly);
     }
@@ -227,7 +246,7 @@ public static class ReflectedTypes {
     ///     the serializer's own business.
     /// </remarks>
     static Type? Nested(MemberInfo member) {
-        var type = member is FieldInfo field ? field.FieldType : ((PropertyInfo) member).PropertyType;
+        var type = member is FieldInfo field ? field.FieldType : ((PropertyInfo)member).PropertyType;
 
         if (type.IsGenericType && type.GetGenericArguments() is [var element]) {
             type = element;

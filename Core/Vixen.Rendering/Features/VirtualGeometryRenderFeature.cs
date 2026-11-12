@@ -4,7 +4,6 @@
 using Vixen.Core.Mathematics;
 using Vixen.Graphics;
 using Vixen.Rendering.VirtualGeometry;
-using Vixen.Shaders;
 
 namespace Vixen.Rendering.Features;
 
@@ -350,8 +349,11 @@ public sealed class VirtualGeometryRenderFeature : RootRenderFeature {
     ///         better can overwrite <see cref="VirtualGeometryDraw.MotionRadius" /> afterwards.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>It answers whether the object was this feature's, which is what makes it the second
-    ///         half of a fall-through rather than a scatter.</b>
+    ///         ⚠
+    ///         <b>
+    ///             It answers whether the object was this feature's, which is what makes it the second
+    ///             half of a fall-through rather than a scatter.
+    ///         </b>
     ///         <see cref="SkinningRenderFeature.SetBones" /> writes into a parallel array and has no way
     ///         to know whether the object it was handed is on the vertex-buffer path at all, so the
     ///         system that pushes a palette has to ask this one first and use the answer — exactly the
@@ -359,8 +361,11 @@ public sealed class VirtualGeometryRenderFeature : RootRenderFeature {
     ///         one order that works here.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And the ownership test is the <see cref="RenderObject.FeatureIndex" /> rather than
-    ///         <see cref="VirtualGeometryDraw.IsDrawable" />, because a zeroed record passes that one.</b>
+    ///         ⚠
+    ///         <b>
+    ///             And the ownership test is the <see cref="RenderObject.FeatureIndex" /> rather than
+    ///             <see cref="VirtualGeometryDraw.IsDrawable" />, because a zeroed record passes that one.
+    ///         </b>
     ///         <c>Mesh</c>'s documented "none" is <c>-1</c> and nothing writes it: an object extracted
     ///         down the ordinary path never has its entry in this array touched, so it reads
     ///         <c>Mesh = 0</c> — registration zero — and claims to be drawable. The feature index is
@@ -411,7 +416,11 @@ public sealed class VirtualGeometryRenderFeature : RootRenderFeature {
         draw.FirstBone = Visibility.AddBones(palette);
 
         draw.MotionRadius = draw.Mesh < Visibility.MeshCount
-            ? GpuClusterCulling.MotionRadiusFor(palette, Visibility.MeshAt(draw.Mesh).Center, Visibility.MeshAt(draw.Mesh).Radius)
+            ? GpuClusterCulling.MotionRadiusFor(
+                palette,
+                Visibility.MeshAt(draw.Mesh).Center,
+                Visibility.MeshAt(draw.Mesh).Radius
+            )
             : 0f;
 
         return true;
@@ -602,8 +611,11 @@ public sealed class VirtualGeometryRenderFeature : RootRenderFeature {
     ///         for the object cull — the traversal tests the same two things first and in the same order.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Ownership is the <see cref="RenderObject.FeatureIndex" /> and cannot be
-    ///         <see cref="VirtualGeometryDraw.IsDrawable" />, because a zeroed record passes that one.</b>
+    ///         ⚠
+    ///         <b>
+    ///             Ownership is the <see cref="RenderObject.FeatureIndex" /> and cannot be
+    ///             <see cref="VirtualGeometryDraw.IsDrawable" />, because a zeroed record passes that one.
+    ///         </b>
     ///         <see cref="VirtualGeometryDraw.Mesh" />'s documented "none" is <c>-1</c> and nothing
     ///         writes it — the array is a zero-filled <c>TypedArray</c> and only
     ///         <c>MeshExtractionSystem.Clustered</c> ever fills an entry — so every object extracted down

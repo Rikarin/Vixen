@@ -111,7 +111,10 @@ public sealed class BehaviorTreeEditorFactory : DocumentKind {
     }
 }
 
-/// <summary>What <see cref="BehaviorTreeEditorFactory" />'s documents are shown in: the Workspace half of the pair (#1294).</summary>
+/// <summary>
+///     What <see cref="BehaviorTreeEditorFactory" />'s documents are shown in: the Workspace half of the pair
+///     (#1294).
+/// </summary>
 public sealed class BehaviorTreeEditorView : DocumentView<BehaviorTreeDocument> {
     /// <inheritdoc />
     protected override UiElement Build(BehaviorTreeDocument document, UiElement panel) {

@@ -143,7 +143,7 @@ public sealed class GuildStateTests {
         var saved = guild.Read();
         var loaded = new GuildState();
 
-        loaded.Restore(saved, capacity: 1);
+        loaded.Restore(saved, 1);
 
         Assert.Equal(3, loaded.Count);
         Assert.Equal(GuildWrite.Full, loaded.Add(Leader, Stranger, 2).Write);
@@ -175,13 +175,13 @@ public sealed class GuildStateTests {
         Assert.Equal(GuildWrite.Applied, guild.RenameRank(Leader, 1, "Champion").Write);
         Assert.Equal("Champion", guild.Read().RankNames[1]);
 
-        Assert.Equal(GuildWrite.Applied, guild.RenameRank(Leader, 1, "").Write);
+        Assert.Equal(GuildWrite.Applied, guild.RenameRank(Leader, 1, string.Empty).Write);
         Assert.Empty(guild.Read().RankNames);
     }
 
     [Fact]
     public void MembersComeBackInJoinOrder() =>
-        Assert.Equal([Leader, Officer, Member], guild.Read().Members.Select(member => member.Player));
+        Assert.Equal([Leader, Officer, Member], guild.Read().Members.Select(static member => member.Player));
 
     [Fact]
     public void ASavedGuildComesBackAsItWas() {
@@ -190,7 +190,7 @@ public sealed class GuildStateTests {
         var saved = guild.Read();
         var loaded = new GuildState();
 
-        loaded.Restore(saved, capacity: 5);
+        loaded.Restore(saved, 5);
 
         Assert.Equal(saved, loaded.Read());
     }

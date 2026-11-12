@@ -42,15 +42,18 @@ static async Task<int> Run(string repoRoot, string outDir) {
     // through ProjectReference/OutputItemType=Analyzer, so the analyzer paths point at
     // bin/<Configuration>/…; with the default Debug against a Release tree the files do not exist,
     // the generators never run, and every consumer of generated API fails to compile.
-    using var workspace = MSBuildWorkspace.Create(new Dictionary<string, string> {
-        ["Configuration"] = Environment.GetEnvironmentVariable("DOCGEN_CONFIGURATION") ?? "Release"
-    });
+    using var workspace = MSBuildWorkspace.Create(
+        new Dictionary<string, string> {
+            ["Configuration"] = Environment.GetEnvironmentVariable("DOCGEN_CONFIGURATION") ?? "Release"
+        }
+    );
     workspace.SkipUnrecognizedProjects = true;
     using var _ = workspace.RegisterWorkspaceFailedHandler(e => {
-        lock (failures) {
-            failures.Add(e.Diagnostic.Message);
+            lock (failures) {
+                failures.Add(e.Diagnostic.Message);
+            }
         }
-    });
+    );
 
     // ── (a) Load ────────────────────────────────────────────────────────────────────────────────
     var openWatch = Stopwatch.StartNew();
@@ -107,12 +110,18 @@ static async Task<int> Run(string repoRoot, string outDir) {
         var errors = diagnostics.Count;
 
         if (errors > 0) {
-            compileErrors.Add($"{project.Name}: {errors} errors  " +
-                string.Join(" ", diagnostics.GroupBy(d => d.Id)
-                    .OrderByDescending(g => g.Count())
-                    .Take(4)
-                    .Select(g => $"{g.Key}×{g.Count()}")) +
-                "   e.g. " + Truncate(diagnostics[0].GetMessage(), 90));
+            compileErrors.Add(
+                $"{project.Name}: {errors} errors  "
+                + string.Join(
+                    " ",
+                    diagnostics.GroupBy(d => d.Id)
+                        .OrderByDescending(g => g.Count())
+                        .Take(4)
+                        .Select(g => $"{g.Key}×{g.Count()}")
+                )
+                + "   e.g. "
+                + Truncate(diagnostics[0].GetMessage(), 90)
+            );
         }
 
         analyzerReferences += project.AnalyzerReferences.Count;
@@ -121,17 +130,21 @@ static async Task<int> Run(string repoRoot, string outDir) {
         Walk(compilation.Assembly.GlobalNamespace, compilation.Assembly.Name, nodes);
         compiled++;
 
-        Console.WriteLine($"  {project.Name,-52} {nodes.Count - before,5} types  " +
-            $"{project.AnalyzerReferences.Count,2} analyzers" +
-            (errors > 0 ? $"   ⚠ {errors} compile errors" : ""));
+        Console.WriteLine(
+            $"  {project.Name,-52} {nodes.Count - before,5} types  "
+            + $"{project.AnalyzerReferences.Count,2} analyzers"
+            + (errors > 0 ? $"   ⚠ {errors} compile errors" : "")
+        );
     }
 
     compileWatch.Stop();
 
     Console.WriteLine();
-    Console.WriteLine($"Compiled     {compiled} projects in {compileWatch.Elapsed.TotalSeconds:F1} s " +
-        $"({generatedDocuments} source-generated documents, {missingGenerated} of them not already " +
-        "in the compilation)");
+    Console.WriteLine(
+        $"Compiled     {compiled} projects in {compileWatch.Elapsed.TotalSeconds:F1} s "
+        + $"({generatedDocuments} source-generated documents, {missingGenerated} of them not already "
+        + "in the compilation)"
+    );
     Console.WriteLine($"Analyzers    {analyzerReferences} analyzer references across the solution");
     Console.WriteLine($"Errors in    {compileErrors.Count} projects");
 
@@ -147,10 +160,12 @@ static async Task<int> Run(string repoRoot, string outDir) {
         Console.WriteLine($"  {group.Count(),6}  {group.Key}");
     }
 
-    Console.WriteLine($"  {nodes.Count,6}  TOTAL   " +
-        $"({nodes.Sum(n => n.Members)} public members, " +
-        $"{nodes.Count(n => n.Summary is not null)} with a doc comment, " +
-        $"{nodes.Count(n => n.SourcePath is not null)} with a source location)");
+    Console.WriteLine(
+        $"  {nodes.Count,6}  TOTAL   "
+        + $"({nodes.Sum(n => n.Members)} public members, "
+        + $"{nodes.Count(n => n.Summary is not null)} with a doc comment, "
+        + $"{nodes.Count(n => n.SourcePath is not null)} with a source location)"
+    );
 
     // ── (b) Size ────────────────────────────────────────────────────────────────────────────────
     var options = new JsonSerializerOptions {
@@ -166,13 +181,13 @@ static async Task<int> Run(string repoRoot, string outDir) {
 
     // ── (c) Chunking ────────────────────────────────────────────────────────────────────────────
     var perType = nodes
-        .Select(n => (long) JsonSerializer.Serialize(n, options).Length)
+        .Select(n => (long)JsonSerializer.Serialize(n, options).Length)
         .OrderBy(n => n)
         .ToList();
 
     var perNamespace = nodes
         .GroupBy(n => n.Namespace)
-        .Select(g => (long) JsonSerializer.Serialize(g.ToList(), options).Length)
+        .Select(g => (long)JsonSerializer.Serialize(g.ToList(), options).Length)
         .OrderBy(n => n)
         .ToList();
 
@@ -203,7 +218,8 @@ static void Walk(INamespaceSymbol ns, string assembly, List<Node> nodes) {
 
 static bool IsPublic(INamedTypeSymbol type) {
     for (var t = type; t is not null; t = t.ContainingType) {
-        if (t.DeclaredAccessibility is not (Accessibility.Public or Accessibility.Protected
+        if (t.DeclaredAccessibility is not (Accessibility.Public
+            or Accessibility.Protected
             or Accessibility.ProtectedOrInternal)) {
             return false;
         }
@@ -224,11 +240,16 @@ static Node Describe(INamedTypeSymbol type, string assembly) {
         Namespace = type.ContainingNamespace.ToDisplayString(),
         Assembly = assembly,
         Summary = Summary(xml),
-        Attributes = [.. type.GetAttributes()
-            .Select(a => a.AttributeClass?.Name)
-            .Where(n => n is not null)!],
-        Members = type.GetMembers().Count(m => m.DeclaredAccessibility is Accessibility.Public
-            or Accessibility.Protected && !m.IsImplicitlyDeclared),
+        Attributes = [
+            ..type.GetAttributes()
+                .Select(a => a.AttributeClass?.Name)
+                .Where(n => n is not null)!
+        ],
+        Members = type.GetMembers()
+            .Count(m => m.DeclaredAccessibility is Accessibility.Public
+                    or Accessibility.Protected
+                && !m.IsImplicitlyDeclared
+            ),
         SourcePath = span?.Path,
         StartLine = span?.StartLinePosition.Line + 1,
         EndLine = span?.EndLinePosition.Line + 1
@@ -306,17 +327,18 @@ static string? Summary(string? xml) {
 
     return start < 0 || end < start
         ? null
-        : string.Join(' ', xml[(start + 9)..end].Split((char[]?) null, StringSplitOptions.RemoveEmptyEntries));
+        : string.Join(' ', xml[(start + 9)..end].Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
 }
 
 // ── Reporting helpers ───────────────────────────────────────────────────────────────────────────
-static string Classify(string message) => message switch {
-    _ when message.Contains("not supported", StringComparison.OrdinalIgnoreCase) => "unsupported project type",
-    _ when message.Contains("NETSDK", StringComparison.Ordinal) => "SDK error",
-    _ when message.Contains("workload", StringComparison.OrdinalIgnoreCase) => "missing workload",
-    _ when message.Contains("could not be found", StringComparison.OrdinalIgnoreCase) => "missing file/reference",
-    _ => "other"
-};
+static string Classify(string message) =>
+    message switch {
+        _ when message.Contains("not supported", StringComparison.OrdinalIgnoreCase) => "unsupported project type",
+        _ when message.Contains("NETSDK", StringComparison.Ordinal) => "SDK error",
+        _ when message.Contains("workload", StringComparison.OrdinalIgnoreCase) => "missing workload",
+        _ when message.Contains("could not be found", StringComparison.OrdinalIgnoreCase) => "missing file/reference",
+        _ => "other"
+    };
 
 static string Truncate(string s, int max) =>
     s.Length <= max ? s.ReplaceLineEndings(" ") : s.ReplaceLineEndings(" ")[..max] + "…";
@@ -325,10 +347,12 @@ static string Mb(long bytes) => $"{bytes / 1024.0 / 1024.0:F2} MB";
 
 static long Brotli(string path) {
     var target = path + ".br";
-    using (var input = File.OpenRead(path))
-    using (var output = File.Create(target))
-    using (var brotli = new BrotliStream(output, CompressionLevel.SmallestSize)) {
-        input.CopyTo(brotli);
+    using (var input = File.OpenRead(path)) {
+        using (var output = File.Create(target)) {
+            using (var brotli = new BrotliStream(output, CompressionLevel.SmallestSize)) {
+                input.CopyTo(brotli);
+            }
+        }
     }
 
     return new FileInfo(target).Length;
@@ -339,7 +363,7 @@ static string Distribution(List<long> sorted) {
         return "empty";
     }
 
-    long At(double q) => sorted[Math.Min(sorted.Count - 1, (int) (sorted.Count * q))];
+    long At(double q) => sorted[Math.Min(sorted.Count - 1, (int)(sorted.Count * q))];
 
     return $"median {At(0.5),7:N0}  p95 {At(0.95),8:N0}  max {sorted[^1],9:N0}  total {sorted.Sum() / 1024.0 / 1024.0,6:F2} MB";
 }

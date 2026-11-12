@@ -408,9 +408,7 @@ sealed unsafe class VulkanCommandList : ICommandList {
         var geometry = device.DescribeGeometry(input, true, out var primitiveCount);
         var build = VulkanDevice.DescribeBuild(input.Kind, &geometry);
         build.DstAccelerationStructure = structure.Handle;
-        build.ScratchData = new() {
-            DeviceAddress = device.AddressOf(scratch, "scratch") + (ulong)scratchOffset
-        };
+        build.ScratchData = new() { DeviceAddress = device.AddressOf(scratch, "scratch") + (ulong)scratchOffset };
 
         var range = new AccelerationStructureBuildRangeInfoKHR { PrimitiveCount = primitiveCount };
         var ranges = &range;
@@ -583,8 +581,12 @@ sealed unsafe class VulkanCommandList : ICommandList {
     /// <param name="from">The queue the barrier says currently owns the resource.</param>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The two halves are not symmetric, and recording them as if they were is invalid
-    ///         usage on any queue that can do less than the graphics queue.</b> A release is recorded
+    ///         ⚠
+    ///         <b>
+    ///             The two halves are not symmetric, and recording them as if they were is invalid
+    ///             usage on any queue that can do less than the graphics queue.
+    ///         </b>
+    ///         A release is recorded
     ///         on the queue giving the resource up, so its <em>destination</em> stages describe work
     ///         on the other queue; an acquire is recorded on the queue taking it, so its
     ///         <em>source</em> stages do. Vulkan ignores the far half of each — but a stage mask is
@@ -647,9 +649,7 @@ sealed unsafe class VulkanCommandList : ICommandList {
         ThrowIfRecorded();
 
         var region = new BufferCopy {
-            SrcOffset = (ulong)sourceOffset,
-            DstOffset = (ulong)destinationOffset,
-            Size = (ulong)size
+            SrcOffset = (ulong)sourceOffset, DstOffset = (ulong)destinationOffset, Size = (ulong)size
         };
 
         api.CmdCopyBuffer(
@@ -794,10 +794,7 @@ sealed unsafe class VulkanCommandList : ICommandList {
         var text = (byte*)SilkMarshal.StringToPtr(string.IsNullOrEmpty(name) ? UnnamedGroup : name);
 
         try {
-            var label = new DebugUtilsLabelEXT {
-                SType = StructureType.DebugUtilsLabelExt,
-                PLabelName = text
-            };
+            var label = new DebugUtilsLabelEXT { SType = StructureType.DebugUtilsLabelExt, PLabelName = text };
 
             utils.CmdBeginDebugUtilsLabel(Buffer, &label);
             debugGroupDepth++;
@@ -832,10 +829,7 @@ sealed unsafe class VulkanCommandList : ICommandList {
         var text = (byte*)SilkMarshal.StringToPtr(name);
 
         try {
-            var label = new DebugUtilsLabelEXT {
-                SType = StructureType.DebugUtilsLabelExt,
-                PLabelName = text
-            };
+            var label = new DebugUtilsLabelEXT { SType = StructureType.DebugUtilsLabelExt, PLabelName = text };
 
             utils.CmdInsertDebugUtilsLabel(Buffer, &label);
         } finally {
@@ -919,9 +913,7 @@ sealed unsafe class VulkanCommandList : ICommandList {
                 // — which offers SampleZero alone while rendering 4× depth quite happily — is the
                 // device that showed it: the frame drew, the layers complained, and what the
                 // resolve wrote afterwards was whatever the driver felt like.
-                depth.ResolveMode = VulkanEnums.ToVulkan(
-                    device.Features.ClampDepthResolveMode(target.ResolveMode)
-                );
+                depth.ResolveMode = VulkanEnums.ToVulkan(device.Features.ClampDepthResolveMode(target.ResolveMode));
 
                 depth.ResolveImageView = device.Resolve(target.ResolveView).Handle;
                 depth.ResolveImageLayout = ImageLayout.DepthStencilAttachmentOptimal;
@@ -1035,9 +1027,7 @@ sealed unsafe class VulkanCommandList : ICommandList {
 
             views[colour.Length] = view.Handle;
 
-            clears[colour.Length] = new() {
-                DepthStencil = new(target.ClearDepth, target.ClearStencil)
-            };
+            clears[colour.Length] = new() { DepthStencil = new(target.ClearDepth, target.ClearStencil) };
         }
 
         var pass = device.RenderPasses.Get(new(keys, depthKey));
@@ -1109,15 +1099,17 @@ sealed unsafe class VulkanCommandList : ICommandList {
             ImageExtent = new((uint)size.X, (uint)size.Y, (uint)size.Z)
         };
 
-    static ImageSubresourceLayers Layers(VulkanTexture texture, in TextureRegion region) => new() {
-        AspectMask = VulkanFormats.AspectOf(texture.Description.Format),
-        MipLevel = (uint)region.MipLevel,
-        BaseArrayLayer = (uint)region.ArrayLayer,
-        LayerCount = 1
-    };
+    static ImageSubresourceLayers Layers(VulkanTexture texture, in TextureRegion region) =>
+        new() {
+            AspectMask = VulkanFormats.AspectOf(texture.Description.Format),
+            MipLevel = (uint)region.MipLevel,
+            BaseArrayLayer = (uint)region.ArrayLayer,
+            LayerCount = 1
+        };
 
     VulkanPipeline RequirePipeline(string call) =>
-        bound ?? throw new InvalidOperationException(
+        bound
+        ?? throw new InvalidOperationException(
             $"{call} on '{Name}' with no pipeline bound. Vulkan does not check this and the result is "
             + "undefined rather than an error."
         );

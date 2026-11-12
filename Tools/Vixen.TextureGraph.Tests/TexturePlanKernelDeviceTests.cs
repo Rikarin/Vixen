@@ -76,7 +76,10 @@ public class TexturePlanKernelDeviceTests(ITestOutputHelper output) {
         Assert.True(TextureKernelHarness.At(picture, Side - 1, 0, 0) > 247);
 
         for (var y = 1; y < Side; y++) {
-            Assert.Equal(TextureKernelHarness.At(picture, Side / 2, 0, 0), TextureKernelHarness.At(picture, Side / 2, y, 0));
+            Assert.Equal(
+                TextureKernelHarness.At(picture, Side / 2, 0, 0),
+                TextureKernelHarness.At(picture, Side / 2, y, 0)
+            );
         }
 
         for (var x = 1; x < Side; x++) {
@@ -90,16 +93,23 @@ public class TexturePlanKernelDeviceTests(ITestOutputHelper output) {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <b>The hole in <c>(kernel, output)</c>, and it is on the device because a cache of
-    ///         compiled modules only exists there</b> —
+    ///         <b>
+    ///             The hole in <c>(kernel, output)</c>, and it is on the device because a cache of
+    ///             compiled modules only exists there
+    ///         </b>
+    ///         —
     ///         <a href="https://github.com/Rikarin/Vixen/issues/1080">#1080</a>. An embedded kernel's
     ///         source is a function of its name and <c>TexturePixelProcessor</c> hashes its own, so
     ///         both of those identify a module; <see cref="TexturePlan.Kernels" /> is a public
     ///         property and nothing enforces the convention on whatever fills it next.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The second plan is the first one's ops with a different body under the same
-    ///         name</b>, which is the only arrangement that can reach the cache — a second plan whose
+    ///         ⚠
+    ///         <b>
+    ///             The second plan is the first one's ops with a different body under the same
+    ///             name
+    ///         </b>
+    ///         , which is the only arrangement that can reach the cache — a second plan whose
     ///         kernel had a different name would compile a second module and prove nothing. Before the
     ///         guard this baked <c>uv.x</c> from a plan whose source says <c>uv.y</c>, on a device,
     ///         with no complaint anywhere.
@@ -156,8 +166,12 @@ public class TexturePlanKernelDeviceTests(ITestOutputHelper output) {
 
     /// <summary>The same plan twice is not that, so the guard is about the source and not the name.</summary>
     /// <remarks>
-    ///     ⚠ <b>Without this the guard could be "an evaluator runs one plan", which would break every
-    ///     preview pane in the editor.</b> Re-evaluating one plan is the normal case — a pane keeps an
+    ///     ⚠
+    ///     <b>
+    ///         Without this the guard could be "an evaluator runs one plan", which would break every
+    ///         preview pane in the editor.
+    ///     </b>
+    ///     Re-evaluating one plan is the normal case — a pane keeps an
     ///     evaluator and hands it the same graph on every edit — and it has to reach the cache rather
     ///     than a refusal, which is what the second <c>Compilations</c> of 1 says.
     /// </remarks>
@@ -192,11 +206,9 @@ public class TexturePlanKernelDeviceTests(ITestOutputHelper output) {
 
         NodeTypes.Register(registry);
 
-        var compilation = new TextureGraphCompiler(registry) {
-            BaseWidth = Side,
-            BaseHeight = Side,
-            Seed = 7
-        }.Compile(graph);
+        var compilation = new TextureGraphCompiler(registry) { BaseWidth = Side, BaseHeight = Side, Seed = 7 }.Compile(
+            graph
+        );
 
         Assert.Empty(compilation.Diagnostics);
 

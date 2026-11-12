@@ -18,7 +18,7 @@ public class GameplayRandomTests {
 
     [Fact]
     public void TwoRollsWithinOneEventAreDifferentStreams() {
-        var item = GameplayRandom.For(7, 0);
+        var item = GameplayRandom.For(7);
         var quality = GameplayRandom.For(7, 1);
 
         var same = 0;
@@ -155,7 +155,7 @@ public class GameplayRandomTests {
     public void TheStreamIsTheSameOnEveryRunOfEveryBuild() {
         // Pinned. The whole value of a reproducible roll is that it is reproducible next year, so a
         // change to the generator has to fail here and be a decision rather than a surprise.
-        var random = GameplayRandom.For(1, 0);
+        var random = GameplayRandom.For(1);
 
         Assert.Equal(350055199u, random.NextUInt());
         Assert.Equal(3718350913u, random.NextUInt());

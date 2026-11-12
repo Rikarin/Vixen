@@ -35,13 +35,13 @@ public sealed class TerrainColliderSystemTests {
 
     /// <summary>A fixed list of placements, which is what a renderer's frame list is.</summary>
     sealed class Placed(params TerrainPlacement[] placements) : ITerrainPlacements {
-        readonly List<TerrainPlacement> placements = [.. placements];
+        readonly List<TerrainPlacement> placements = [..placements];
 
-        public int PlacementCount => this.placements.Count;
+        public int PlacementCount => placements.Count;
 
-        public TerrainPlacement PlacementAt(int index) => this.placements[index];
+        public TerrainPlacement PlacementAt(int index) => placements[index];
 
-        public void Remove(TerrainMap terrain) => this.placements.RemoveAll(entry => entry.Terrain == terrain);
+        public void Remove(TerrainMap terrain) => placements.RemoveAll(entry => entry.Terrain == terrain);
     }
 
     /// <summary>A terrain of one 8-sample tile, 2 m a quad, at a constant height.</summary>
@@ -112,7 +112,10 @@ public sealed class TerrainColliderSystemTests {
         using var scene = new PhysicsScene(entities);
 
         var terrain = Flat(1f);
-        var colliders = new TerrainColliderSystem(scene, new Placed(new TerrainPlacement(terrain, new(-100f, 3f, -100f))));
+        var colliders = new TerrainColliderSystem(
+            scene,
+            new Placed(new TerrainPlacement(terrain, new(-100f, 3f, -100f)))
+        );
 
         colliders.Sync();
         scene.Synchronize(Step);
@@ -135,7 +138,7 @@ public sealed class TerrainColliderSystemTests {
 
         // Two tiles a side of seven quads at 2 m is 28 m across, and the tiles share their boundary
         // samples — so the far tile's corner is at 14 m, not at 16.
-        var terrain = Flat(2f, tiles: 2);
+        var terrain = Flat(2f, 2);
         var colliders = new TerrainColliderSystem(scene, new Placed(new TerrainPlacement(terrain, Vector3.Zero)));
 
         colliders.Sync();

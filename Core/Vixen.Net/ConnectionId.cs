@@ -30,6 +30,5 @@ public readonly record struct ConnectionId(uint Value) {
     public bool IsValid => Value != 0;
 
     /// <inheritdoc />
-    public override string ToString() =>
-        Value == 0 ? "none" : string.Create(CultureInfo.InvariantCulture, $"#{Value}");
+    public override string ToString() => Value == 0 ? "none" : string.Create(CultureInfo.InvariantCulture, $"#{Value}");
 }

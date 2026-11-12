@@ -49,8 +49,12 @@ namespace Vixen.Ui.Controls.Advanced.Tests;
 ///         as loud as one arriving.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Two shapes fell through both the sweep and the census, and a gap the census cannot
-///         see is the one kind of gap this design is not allowed to have.</b> A public element type
+///         ⚠
+///         <b>
+///             Two shapes fell through both the sweep and the census, and a gap the census cannot
+///             see is the one kind of gap this design is not allowed to have.
+///         </b>
+///         A public element type
 ///         <i>nested</i> in a class answers <c>false</c> to <see cref="Type.IsPublic" /> —
 ///         <see cref="Type.IsNestedPublic" /> is the property for those — and a self-naming abstract
 ///         base whose subclasses all declare no override of their own was judged by nothing, because
@@ -104,8 +108,11 @@ public class AccessibleNameDomainTests {
 
     /// <summary>Every public element type in the two control assemblies, abstract ones included.</summary>
     /// <remarks>
-    ///     ⚠ <b>The abstract ones are here because <see cref="Naming" /> needs them, and it needs
-    ///     them because a base class is where a self-naming control usually declares itself.</b>
+    ///     ⚠
+    ///     <b>
+    ///         The abstract ones are here because <see cref="Naming" /> needs them, and it needs
+    ///         them because a base class is where a self-naming control usually declares itself.
+    ///     </b>
     ///     <c>ButtonBase</c> answers <c>Label</c> for twelve concrete controls and declares the
     ///     override once; the sweep judges those twelve, so nothing is blind today. The hole is the
     ///     shape where none of a self-naming base's subclasses can be built — then the base is
@@ -126,8 +133,12 @@ public class AccessibleNameDomainTests {
     /// <param name="type">The candidate.</param>
     /// <returns><c>true</c> when it is a publicly visible <see cref="UiElement" />.</returns>
     /// <remarks>
-    ///     ⚠ <b><see cref="Type.IsPublic" /> is <c>false</c> for a public type nested in another
-    ///     class</b> — <see cref="Type.IsNestedPublic" /> is the property for those, and the two do
+    ///     ⚠
+    ///     <b>
+    ///         <see cref="Type.IsPublic" /> is <c>false</c> for a public type nested in another
+    ///         class
+    ///     </b>
+    ///     — <see cref="Type.IsNestedPublic" /> is the property for those, and the two do
     ///     not overlap. A domain filtered on <c>IsPublic</c> alone drops a nested public control out
     ///     of the sweep <i>and</i> out of the census, which is the one combination this file exists
     ///     to make impossible. No such type exists in either assembly today; it is one declaration
@@ -140,8 +151,12 @@ public class AccessibleNameDomainTests {
     ///     The derived domain: every element type that declares words of its own.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>A declared override rather than a source scan, because the declaration is the thing
-    ///     that means it.</b> <c>UiElement.NativeAccessibleName</c> is <c>Text</c>, so a control that
+    ///     ⚠
+    ///     <b>
+    ///         A declared override rather than a source scan, because the declaration is the thing
+    ///         that means it.
+    ///     </b>
+    ///     <c>UiElement.NativeAccessibleName</c> is <c>Text</c>, so a control that
     ///     announces what it already displays is localised by the same catalogue read that put the
     ///     word on screen and is not interesting. A type that <i>overrides</i> it has taken the
     ///     answer into its own hands — <c>ButtonBase</c> to its <c>Label</c>, <c>ColorPicker</c>'s
@@ -164,18 +179,22 @@ public class AccessibleNameDomainTests {
     /// <param name="buildable">Every type the sweep constructs.</param>
     /// <returns>The names of those the sweep's trees cannot exercise, in order.</returns>
     /// <remarks>
-    ///     ⚠ <b>Covered by a subclass and not only by itself, which is the difference between this
-    ///     and a filter on the constructor.</b> An abstract base declaring the override is exercised
+    ///     ⚠
+    ///     <b>
+    ///         Covered by a subclass and not only by itself, which is the difference between this
+    ///         and a filter on the constructor.
+    ///     </b>
+    ///     An abstract base declaring the override is exercised
     ///     whenever any concrete subclass is built — <c>ButtonBase</c> through <c>Button</c> — and
     ///     reporting it as unreachable would be a row nobody could ever delete. A base <i>none</i> of
     ///     whose subclasses can be built is genuinely covered by nothing, and is what this reports.
     /// </remarks>
-    static List<string> Unswept(IEnumerable<Type> naming, IReadOnlyCollection<Type> buildable) =>
-        naming
+    static List<string> Unswept(IEnumerable<Type> naming, IReadOnlyCollection<Type> buildable) => [
+        ..naming
             .Where(type => !buildable.Any(type.IsAssignableFrom))
             .Select(static type => type.Name)
             .Order(StringComparer.Ordinal)
-            .ToList();
+    ];
 
     /// <summary>What the sweep found: the offenders, and how much it heard while finding none.</summary>
     /// <param name="Offenders">Each stale announcement, prefixed with the type that grew it.</param>
@@ -221,7 +240,7 @@ public class AccessibleNameDomainTests {
             Strings.Use(null);
         }
 
-        return new Result(offenders, spoken, count);
+        return new(offenders, spoken, count);
     }
 
     static UiElement Make<T>(UiElement parent) where T : UiElement, new() => parent.Add<T>();
@@ -266,7 +285,7 @@ public class AccessibleNameDomainTests {
             + "controls — so it built the elements and did not read their names"
         );
 
-        // `ScrollView.cs:52-53` names its two bars, and `ColorPicker.cs:271` names its field. Each is a
+        // `ScrollView.cs:56-57` names its two bars, and `ColorPicker.cs:275` names its field. Each is a
         // `ControlStrings` id read at construction, so the pseudo-locale's guillemets are proof the
         // catalogue was installed before the control was made rather than after.
         // ⚠ Spelled out rather than read off `StringId.Text`: the sweep puts the catalogue back the
@@ -284,8 +303,12 @@ public class AccessibleNameDomainTests {
     ///     with somewhere else to go.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>This is the two windows' third assertion, over a domain nobody has to remember to
-    ///     widen.</b> Measured on the day it was written: swapping <c>GradientRail</c>'s name to the
+    ///     ⚠
+    ///     <b>
+    ///         This is the two windows' third assertion, over a domain nobody has to remember to
+    ///         widen.
+    ///     </b>
+    ///     Measured on the day it was written: swapping <c>GradientRail</c>'s name to the
     ///     literal <c>"Colour stops"</c> — the exact drift #1321 reports, and the one the old windows
     ///     were green on — fails here naming the type.
     /// </remarks>
@@ -381,8 +404,12 @@ public class AccessibleNameDomainTests {
     /// <summary>The two shapes the derived domain fell straight through, asked of the filters.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Local types rather than the assemblies, because neither shape exists in them —
-    ///         and that is the reason a test reading the assemblies could not show either.</b> Both
+    ///         ⚠
+    ///         <b>
+    ///             Local types rather than the assemblies, because neither shape exists in them —
+    ///             and that is the reason a test reading the assemblies could not show either.
+    ///         </b>
+    ///         Both
     ///         holes were empty on the day they were found: no nested public element type is declared
     ///         in either control assembly, and every concrete <c>ButtonBase</c> subclass is
     ///         constructible, so the sweep covers the base through them. No verdict moves. What moves

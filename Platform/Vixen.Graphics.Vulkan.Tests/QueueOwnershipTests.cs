@@ -71,9 +71,7 @@ public sealed class QueueOwnershipTests {
             new(buffer, ResourceState.ShaderWrite, ResourceState.ShaderRead, QueueKind.Graphics, QueueKind.Compute)
         ];
 
-        var failure = Assert.Throws<InvalidOperationException>(() => {
-            list.Barrier(new(barriers, []));
-        });
+        var failure = Assert.Throws<InvalidOperationException>(() => { list.Barrier(new(barriers, [])); });
 
         Assert.Contains("neither end", failure.Message, StringComparison.Ordinal);
         owned.Destroy(buffer);

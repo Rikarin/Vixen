@@ -76,7 +76,7 @@ public class AllocationTests {
 
     [Fact]
     public void A_disabled_line_allocates_nothing_at_all() {
-        var sink = new RingBufferSink(capacity: 1024) { MinimumLevel = LogLevel.Warning };
+        var sink = new RingBufferSink(1024) { MinimumLevel = LogLevel.Warning };
         var logger = sink.CreateLogger("Vixen.Probe");
 
         // Exactly zero, not "small": the generated method returns before touching its arguments, and
@@ -88,7 +88,7 @@ public class AllocationTests {
 
     [Fact]
     public void An_enabled_line_allocates_a_bounded_amount() {
-        var sink = new RingBufferSink(capacity: 1024);
+        var sink = new RingBufferSink(1024);
         var logger = sink.CreateLogger("Vixen.Probe");
 
         var bytes = BytesPerCall(index => TestLog.Line(logger, index));
@@ -102,7 +102,7 @@ public class AllocationTests {
 
     [Fact]
     public void A_record_the_wrap_overwrites_is_lost_whole_and_never_in_half() {
-        var sink = new RingBufferSink(capacity: 4);
+        var sink = new RingBufferSink(4);
         var logger = sink.CreateLogger("Vixen.Probe");
 
         for (var index = 0; index < 100; index++) {

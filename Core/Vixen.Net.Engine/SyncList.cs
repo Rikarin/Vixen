@@ -84,7 +84,9 @@ public sealed class SyncList<T> : IReadOnlyList<T>, ISyncList {
 
     /// <summary>Creates one.</summary>
     /// <exception cref="NotSupportedException">The wire does not know this type.</exception>
-    public SyncList() => codec = SyncCodecs.For<T>();
+    public SyncList() {
+        codec = SyncCodecs.For<T>();
+    }
 
     /// <summary>Appends.</summary>
     /// <param name="item">What.</param>

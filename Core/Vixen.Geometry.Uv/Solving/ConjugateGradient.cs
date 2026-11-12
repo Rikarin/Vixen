@@ -46,8 +46,12 @@ sealed class ConjugateGradient {
     /// <summary>How far the residual energy may fall below a cold start's before the iteration is noise.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>This is not the tolerance § D5 forbids, and the difference is worth being exact
-    ///         about because the two look identical.</b> A convergence tolerance is a quality target: a
+    ///         ⚠
+    ///         <b>
+    ///             This is not the tolerance § D5 forbids, and the difference is worth being exact
+    ///             about because the two look identical.
+    ///         </b>
+    ///         A convergence tolerance is a quality target: a
     ///         caller sets it, it sits somewhere the iteration is still making real progress, and
     ///         stopping one step either side of it gives measurably different coordinates — which is
     ///         why a platform that rounds one comparison the other way produces a different asset.
@@ -73,8 +77,12 @@ sealed class ConjugateGradient {
     ///         its whole budget on noise — which is the case the anchor exists for.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The constant is shared with <see cref="LeastSquaresSolver" /> and the anchor it
-    ///         multiplies is not.</b> Here <c>rho</c> is the residual energy and the anchor is a cold
+    ///         ⚠
+    ///         <b>
+    ///             The constant is shared with <see cref="LeastSquaresSolver" /> and the anchor it
+    ///             multiplies is not.
+    ///         </b>
+    ///         Here <c>rho</c> is the residual energy and the anchor is a cold
     ///         start's residual energy — the same quantity, so the ratio is a relative residual and the
     ///         paragraph above is the whole argument. CGLS iterates on <c>Aᵀr</c> instead, and its
     ///         residual does <i>not</i> go to zero, so the corresponding anchor is a different
@@ -130,14 +138,18 @@ sealed class ConjugateGradient {
             }
         }
 
-        unconstrained = [.. empty];
+        unconstrained = [..empty];
     }
 
     /// <summary>Runs the budget, starting from whatever <paramref name="solution" /> already holds.</summary>
     /// <param name="right">The right-hand side, <c>RowCount</c> long. Read only.</param>
     /// <param name="solution">
-    ///     The starting iterate on the way in and the answer on the way out. ⚠ <b>Hand back the
-    ///     previous solve's array</b> — see the remarks on the type.
+    ///     The starting iterate on the way in and the answer on the way out. ⚠
+    ///     <b>
+    ///         Hand back the
+    ///         previous solve's array
+    ///     </b>
+    ///     — see the remarks on the type.
     /// </param>
     /// <param name="iterations">The budget. Zero is legal and leaves the warm start alone.</param>
     /// <param name="scheduler">Threads for the multiply, or <see langword="null" /> for none.</param>
@@ -151,8 +163,12 @@ sealed class ConjugateGradient {
     ///         <paramref name="batchSize" />, by a bit. Both are timing.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A right-hand side of all zeros with a zero start returns immediately and leaves
-    ///         zeros</b>, rather than dividing <c>0/0</c> on the first step. That is the defined
+    ///         ⚠
+    ///         <b>
+    ///             A right-hand side of all zeros with a zero start returns immediately and leaves
+    ///             zeros
+    ///         </b>
+    ///         , rather than dividing <c>0/0</c> on the first step. That is the defined
     ///         answer, and it is the answer an empty chart produces.
     ///     </para>
     /// </remarks>
@@ -240,7 +256,7 @@ sealed class ConjugateGradient {
             rho = next;
 
             for (var row = 0; row < size; row++) {
-                direction[row] = applied[row] + (beta * direction[row]);
+                direction[row] = applied[row] + beta * direction[row];
             }
         }
 

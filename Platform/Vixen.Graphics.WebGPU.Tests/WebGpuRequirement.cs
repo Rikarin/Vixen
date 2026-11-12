@@ -64,7 +64,11 @@ static class WebGpuRequirement {
 
             attempted = true;
 
-            if (NativeWebGpuBinding.TryCreate(new() { Surface = SurfaceHandle.None }, out var binding, out var reason)) {
+            if (NativeWebGpuBinding.TryCreate(
+                    new() { Surface = SurfaceHandle.None },
+                    out var binding,
+                    out var reason
+                )) {
                 return binding;
             }
 

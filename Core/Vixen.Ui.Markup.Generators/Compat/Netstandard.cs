@@ -25,7 +25,6 @@
 // ======================================================================================
 
 global using ArgumentOutOfRangeException = Vixen.Ui.Markup.Generators.Compat.ArgumentOutOfRangeException;
-
 using System.Runtime.CompilerServices;
 
 namespace Vixen.Ui.Markup.Generators.Compat;

@@ -72,8 +72,12 @@ public enum SimpleSelectorKind : byte {
 
     /// <summary><c>:is()</c> — one of the nested selectors must match.</summary>
     /// <remarks>
-    ///     ⚠ <b><c>:where()</c> compiles to this kind too, and the two differ only in what they
-    ///     cost.</b> ExCSS 4.3.2 does not parse <c>:where()</c> — the whole selector arrives as one
+    ///     ⚠
+    ///     <b>
+    ///         <c>:where()</c> compiles to this kind too, and the two differ only in what they
+    ///         cost.
+    ///     </b>
+    ///     ExCSS 4.3.2 does not parse <c>:where()</c> — the whole selector arrives as one
     ///     unknown — so <c>SelectorCompiler</c> repairs the text before re-reading it, rewriting
     ///     each <c>:where(</c> to <c>:is(</c> and then taking the class it was charged back off.
     ///     There is therefore no <c>Where</c> kind to look for and nothing in the matcher tells them
@@ -88,8 +92,12 @@ public enum SimpleSelectorKind : byte {
     /// <summary><c>:lang()</c> — the element's content language matches a BCP-47 range.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Not a spelling of <c>[lang|="de"]</c>, which is what it looks like and what
-    ///         everyone repeats.</b> The two agree on the <i>comparison</i> — Selectors 4 defines
+    ///         ⚠
+    ///         <b>
+    ///             Not a spelling of <c>[lang|="de"]</c>, which is what it looks like and what
+    ///             everyone repeats.
+    ///         </b>
+    ///         The two agree on the <i>comparison</i> — Selectors 4 defines
     ///         both as a BCP-47 range match, so <c>de-AT</c> matches and <c>den</c> does not — and
     ///         disagree on the <i>subject</i>. An attribute selector asks what this element declares;
     ///         <c>:lang()</c> asks what language this element's content is <i>in</i>, which inherits
@@ -106,8 +114,12 @@ public enum SimpleSelectorKind : byte {
 
     /// <summary><c>:has()</c> — one of the nested selectors must match some descendant.</summary>
     /// <remarks>
-    ///     ⚠ <b>The only kind that looks <i>downward</i>, which is what made it a subsystem change
-    ///     rather than a case in a switch.</b> Every other simple selector is a question about the
+    ///     ⚠
+    ///     <b>
+    ///         The only kind that looks <i>downward</i>, which is what made it a subsystem change
+    ///         rather than a case in a switch.
+    ///     </b>
+    ///     Every other simple selector is a question about the
     ///     element or about what is above and before it, and <c>StyleInvalidator</c>'s whole design
     ///     rested on that — its own remarks used to say "nothing needs to look upward". A
     ///     <c>:has()</c> makes an element's style depend on its subtree, so a class added deep in a
@@ -159,8 +171,12 @@ public enum PositionTest : byte {
 
     /// <summary><c>:first-of-type</c>.</summary>
     /// <remarks>
-    ///     ⚠ <b>The five of-type tests count a different sequence from the five above them, and that
-    ///     is the whole reason they are separate members rather than a flag.</b> A child index is a
+    ///     ⚠
+    ///     <b>
+    ///         The five of-type tests count a different sequence from the five above them, and that
+    ///         is the whole reason they are separate members rather than a flag.
+    ///     </b>
+    ///     A child index is a
     ///     position in the parent's child list, which <see cref="StyleTree" /> already stores; an
     ///     of-type index is a position in the subsequence of siblings sharing this element's tag,
     ///     which nothing stores and which has to be counted. Folding them together would have made

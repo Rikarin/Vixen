@@ -32,7 +32,9 @@ public sealed class TraceExportTests : IDisposable {
     readonly TemporaryFileSystemHost files = new();
     readonly string directory = Path.Combine(Path.GetTempPath(), $"vixen-trace-{Guid.NewGuid():N}");
 
-    public TraceExportTests() => Directory.CreateDirectory(directory);
+    public TraceExportTests() {
+        Directory.CreateDirectory(directory);
+    }
 
     public void Dispose() {
         // ⚠ Put back, always. It is a static on the profiler, so a test that left it on would change
@@ -41,7 +43,7 @@ public sealed class TraceExportTests : IDisposable {
         files.Dispose();
 
         if (Directory.Exists(directory)) {
-            Directory.Delete(directory, recursive: true);
+            Directory.Delete(directory, true);
         }
     }
 
@@ -66,9 +68,11 @@ public sealed class TraceExportTests : IDisposable {
 
     VixenApplication Build(Game game, params string[] extra) =>
         VixenApp
-            .Create([
-                "--vixen-variant", "Debug", "--vixen-workers", "1", "--vixen-frame-limit", "0", .. extra
-            ])
+            .Create(
+                [
+                    "--vixen-variant", "Debug", "--vixen-workers", "1", "--vixen-frame-limit", "0", ..extra
+                ]
+            )
             .WithPlatform(new HeadlessPlatform(new() { FileSystem = files }))
             .Build(game);
 
@@ -120,7 +124,8 @@ public sealed class TraceExportTests : IDisposable {
             .GetProperty("traceEvents")
             .EnumerateArray()
             .Where(entry => entry.TryGetProperty("name", out var eventName)
-                            && string.Equals(eventName.GetString(), name, StringComparison.Ordinal))
+                && string.Equals(eventName.GetString(), name, StringComparison.Ordinal)
+            )
             .ToList();
 
         // Four updates, four scopes. The count is part of the assertion: an empty filter would make
@@ -134,7 +139,7 @@ public sealed class TraceExportTests : IDisposable {
 
         // ⚠ The assertion that catches the missing `BeginFrame`. Without it every sample carries
         // frame zero — a trace that opens, looks complete, and attributes a whole run to one frame.
-        var frames = mine.Select(entry => entry.GetProperty("args").GetProperty("frame").GetInt32())
+        var frames = mine.Select(static entry => entry.GetProperty("args").GetProperty("frame").GetInt32())
             .Distinct()
             .ToList();
 

@@ -27,8 +27,12 @@ namespace Vixen.Geometry.Remeshing.Tests;
 ///     </para>
 ///     <para>
 ///         ⚠ <b>The round trip is asserted on bits.</b> A mirrored vertex's weights are the kept
-///         half's weights with their bones relabelled and nothing dropped, so they are <i>the same
-///         floats</i> and not merely close ones. Asserting that with a tolerance would pass on an
+///         half's weights with their bones relabelled and nothing dropped, so they are
+///         <i>
+///             the same
+///             floats
+///         </i>
+///         and not merely close ones. Asserting that with a tolerance would pass on an
 ///         implementation that renormalised every vertex in the model for no reason, which is exactly
 ///         the change somebody makes while tidying and nobody notices.
 ///     </para>
@@ -48,7 +52,7 @@ public class SymmetryTransferTests {
         var quads = Remesher.Remesh(
             source,
             new() { Colors = Painted(source) },
-            new RemeshSettings { TargetQuads = 200, Symmetry = Mirror },
+            new() { TargetQuads = 200, Symmetry = Mirror },
             out var report,
             out var transferred
         );
@@ -81,7 +85,7 @@ public class SymmetryTransferTests {
         Remesher.Remesh(
             source,
             new() { Colors = Painted(source) },
-            new RemeshSettings { TargetQuads = 200 },
+            new() { TargetQuads = 200 },
             out var report,
             out var transferred
         );
@@ -164,8 +168,11 @@ public class SymmetryTransferTests {
         Assert.Empty(transferred.Colors);
 
         // In both places: a caller holding only the result must be able to tell a refusal from a bug.
-        Assert.Contains(report.Warnings, warning => warning.Contains("BoneMirror", StringComparison.Ordinal));
-        Assert.Contains(transferred.Warnings, warning => warning.Contains("BoneMirror", StringComparison.Ordinal));
+        Assert.Contains(report.Warnings, static warning => warning.Contains("BoneMirror", StringComparison.Ordinal));
+        Assert.Contains(
+            transferred.Warnings,
+            static warning => warning.Contains("BoneMirror", StringComparison.Ordinal)
+        );
     }
 
     /// <summary>Every way a map can be wrong is named, and none of them is repaired.</summary>
@@ -188,8 +195,12 @@ public class SymmetryTransferTests {
 
     /// <summary>Normals survive the reflection, and the mirrored half's point the mirrored way.</summary>
     /// <remarks>
-    ///     ⚠ <b>The reflection builds a fresh mesh, so a layer that is not carried is a layer that is
-    ///     gone.</b> Before the two features composed, a symmetric remesh came back with no normals at
+    ///     ⚠
+    ///     <b>
+    ///         The reflection builds a fresh mesh, so a layer that is not carried is a layer that is
+    ///         gone.
+    ///     </b>
+    ///     Before the two features composed, a symmetric remesh came back with no normals at
     ///     all — which reads as a shading bug and is a bookkeeping one.
     /// </remarks>
     [Fact]
@@ -199,7 +210,7 @@ public class SymmetryTransferTests {
         var quads = Remesher.Remesh(
             source,
             SourceAttributes.None,
-            new RemeshSettings { TargetQuads = 300, Symmetry = Mirror },
+            new() { TargetQuads = 300, Symmetry = Mirror },
             out var report,
             out _
         );
@@ -230,8 +241,12 @@ public class SymmetryTransferTests {
 
     /// <summary>A vertex on the plane is weighted symmetrically, because it stands in both halves.</summary>
     /// <remarks>
-    ///     ⚠ <b>The seam is one vertex, not two, so its weights have to be invariant under the bone
-    ///     mirror.</b> Left as they arrived they would move the seam differently from the surface
+    ///     ⚠
+    ///     <b>
+    ///         The seam is one vertex, not two, so its weights have to be invariant under the bone
+    ///         mirror.
+    ///     </b>
+    ///     Left as they arrived they would move the seam differently from the surface
     ///     either side of it — a vertex that belongs to both halves being driven by only one of their
     ///     rigs, which pinches the mesh open along the plane the moment the character moves.
     /// </remarks>
@@ -345,7 +360,7 @@ public class SymmetryTransferTests {
         var quads = Remesher.Remesh(
             source,
             new() { Weights = TransferFixtures.Ramp(source, source.Bounds.Size.X), BoneMirror = bones },
-            new RemeshSettings { TargetQuads = 300, Symmetry = Mirror },
+            new() { TargetQuads = 300, Symmetry = Mirror },
             out var report,
             out var transferred,
             scheduler
@@ -386,11 +401,11 @@ public class SymmetryTransferTests {
     }
 
     static (int X, int Y, int Z) Bits(Vector3 position) =>
-        (
-            BitConverter.SingleToInt32Bits(position.X),
-            BitConverter.SingleToInt32Bits(position.Y),
-            BitConverter.SingleToInt32Bits(position.Z)
-        );
+    (
+        BitConverter.SingleToInt32Bits(position.X),
+        BitConverter.SingleToInt32Bits(position.Y),
+        BitConverter.SingleToInt32Bits(position.Z)
+    );
 
     static void SameBits(float one, float two, string where) =>
         Assert.True(

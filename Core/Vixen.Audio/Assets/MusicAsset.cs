@@ -79,10 +79,10 @@ public sealed record MusicSegmentAsset {
         for (var i = 0; i < TempoChanges.Length; i++) {
             var change = TempoChanges[i];
 
-            changes[i] = new(change.Beat, new MusicTempo {
-                BeatsPerMinute = change.BeatsPerMinute,
-                BeatsPerBar = change.BeatsPerBar
-            });
+            changes[i] = new(
+                change.Beat,
+                new MusicTempo { BeatsPerMinute = change.BeatsPerMinute, BeatsPerBar = change.BeatsPerBar }
+            );
         }
 
         return new() {
@@ -121,14 +121,15 @@ public sealed record MusicTransitionAsset {
 
     /// <summary>The transition this describes.</summary>
     /// <returns>The transition.</returns>
-    public MusicTransition ToTransition() => new() {
-        From = From,
-        To = To,
-        Quantize = Quantize,
-        Parameter = Parameter,
-        Minimum = Minimum,
-        Maximum = Maximum
-    };
+    public MusicTransition ToTransition() =>
+        new() {
+            From = From,
+            To = To,
+            Quantize = Quantize,
+            Parameter = Parameter,
+            Minimum = Minimum,
+            Maximum = Maximum
+        };
 }
 
 /// <summary>A whole piece of interactive music, as a file declares it.</summary>
@@ -190,7 +191,9 @@ public static class MusicBuilder {
             if (engine.FindBus(asset.Bus) is { } target) {
                 bus = target.Index;
             } else {
-                found.Add($"Music '{name}' routes to bus '{asset.Bus}', which does not exist. It will play on the master.");
+                found.Add(
+                    $"Music '{name}' routes to bus '{asset.Bus}', which does not exist. It will play on the master."
+                );
             }
         }
 

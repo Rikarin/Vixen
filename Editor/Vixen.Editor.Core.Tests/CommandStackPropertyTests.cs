@@ -39,12 +39,12 @@ public sealed class CommandStackPropertyTests {
     [Fact]
     public void RandomEditUndoRedoSequencesAgreeWithASnapshotModel() =>
         Gen.Select(Gen.Int[0, int.MaxValue], Gen.Int[10, 200])
-            .Sample(input => Replay(input.Item1, input.Item2), iter: 400, threads: 1);
+            .Sample(static input => Replay(input.Item1, input.Item2), iter: 400, threads: 1);
 
     [Fact]
     public void UndoingEverythingRestoresTheInitialStateExactly() =>
         Gen.Select(Gen.Int[0, int.MaxValue], Gen.Int[10, 200])
-            .Sample(input => ReplayThenUnwind(input.Item1, input.Item2), iter: 400, threads: 1);
+            .Sample(static input => ReplayThenUnwind(input.Item1, input.Item2), iter: 400, threads: 1);
 
     static bool Replay(int seed, int steps) {
         var run = new Run(seed);
@@ -71,7 +71,7 @@ public sealed class CommandStackPropertyTests {
             // All the way down.
         }
 
-        return run.Knobs.All(knob => knob.Amount.Peek() == 0f && knob.Label.Peek() == "none")
+        return run.Knobs.All(static knob => knob.Amount.Peek() == 0f && knob.Label.Peek() == "none")
             && !run.Document.Stack.CanUndo.Value;
     }
 
@@ -120,8 +120,8 @@ public sealed class CommandStackPropertyTests {
         public bool Agrees() =>
             Current() == snapshots[position]
             && Document.Stack.Depth.Value == position
-            && Document.Stack.CanUndo.Value == (position > 0)
-            && Document.Stack.CanRedo.Value == (position < snapshots.Count - 1);
+            && Document.Stack.CanUndo.Value == position > 0
+            && Document.Stack.CanRedo.Value == position < snapshots.Count - 1;
 
         void Edit() {
             var knob = Knobs[(int)(Next() % (uint)Knobs.Length)];

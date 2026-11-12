@@ -3,7 +3,6 @@
 
 using System.Collections.Immutable;
 using System.Runtime.InteropServices;
-using Vixen.Core.Mathematics;
 using Vixen.Graphics;
 using Vixen.Graphics.Null;
 using Vixen.Graphics.RenderGraph;
@@ -283,7 +282,7 @@ public class PostProcessTests : IDisposable {
     /// </remarks>
     [Fact]
     public void A_full_screen_pass_writing_to_nothing_anyone_reads_is_culled() {
-        using var h = Build(importTarget: false);
+        using var h = Build(false);
         Frame(h);
 
         Assert.Empty(device.Recorder!.OfKind(RecordedCommandKind.Draw));

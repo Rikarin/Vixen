@@ -7,7 +7,6 @@ using Vixen.Ai.Perception;
 using Vixen.Ai.Perception.Ecs;
 using Vixen.Core;
 using Vixen.Core.Mathematics;
-using Vixen.Ecs;
 using Vixen.Engine.Transforms;
 using Vixen.Navigation.Ecs;
 using Xunit;
@@ -45,9 +44,9 @@ public class PatrolChaseGiveUpTests {
     public void AGuardPatrolsNoticesThePlayerChasesAndGivesUp() {
         var level = new Level();
         var content = Tree();
-        var layout = content.BuildLayout(null);
+        var layout = content.BuildLayout();
         var perception = Sight(layout);
-        var resolver = new BehaviorTreeResolver { Schema = new BehaviorNodeSchema() };
+        var resolver = new BehaviorTreeResolver { Schema = new() };
 
         WorldNodes.Register(resolver, level.Query);
 
@@ -63,7 +62,7 @@ public class PatrolChaseGiveUpTests {
         var guard = Guard(level, tree, perception);
         var player = level.World.Create(
             LocalTransform.At(new(39f, 0f, 39f)),
-            AiStimuliSource.Perceivable(team: 2, senses: SenseMask.Sight)
+            AiStimuliSource.Perceivable(2, SenseMask.Sight)
         );
 
         // ── Patrolling ────────────────────────────────────────────────────────────────────────
@@ -128,7 +127,7 @@ public class PatrolChaseGiveUpTests {
         var guard = level.Walker(Route[0]);
 
         level.World.Add(guard, AiAgent.Thinking(tree));
-        level.World.Add(guard, AiPerception.Sensing(perception.Configs.Count - 1, team: 1));
+        level.World.Add(guard, AiPerception.Sensing(perception.Configs.Count - 1, 1));
         level.World.Add(guard, PatrolRoute.Of(PatrolMode.Loop, Route));
 
         return guard;
@@ -139,7 +138,7 @@ public class PatrolChaseGiveUpTests {
         var system = new PerceptionSystem();
 
         system.Configs.Add(
-            new PerceptionConfig {
+            new() {
                 Senses = SenseMask.Sight,
                 Sight = new() { Radius = 8f, LoseSightRadius = 10f, ConeDegrees = 360f, Occlusion = false },
                 RandomDeviation = 0f,
@@ -177,7 +176,7 @@ public class PatrolChaseGiveUpTests {
         root.Children.Add(chase);
         root.Children.Add(new() { Name = "Walk", Type = "Patrol", Fields = { ["Acceptance"] = "1.5" } });
 
-        return new BehaviorTreeContent {
+        return new() {
             Name = "guard",
             Root = root,
             Keys = {

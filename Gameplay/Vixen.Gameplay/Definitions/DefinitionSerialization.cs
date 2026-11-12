@@ -56,13 +56,16 @@ public static class DefinitionSerialization {
         serializer.SerializeObject(ref writer, definition);
         writer.Flush();
 
-        return buffer.WrittenSpan.ToArray();
+        return [..buffer.WrittenSpan];
     }
 
     /// <summary>Reads a definition back.</summary>
     /// <param name="bytes">What <see cref="ToBytes" /> wrote.</param>
     /// <returns>The definition, with no address on it — the catalog stamps that.</returns>
-    /// <exception cref="SerializationException">The alias names nothing this build has, or names something that is not a definition.</exception>
+    /// <exception cref="SerializationException">
+    ///     The alias names nothing this build has, or names something that is not a
+    ///     definition.
+    /// </exception>
     public static Definition FromBytes(ReadOnlySpan<byte> bytes) {
         var reader = new SerializationReader(bytes);
         var alias = reader.ReadString();

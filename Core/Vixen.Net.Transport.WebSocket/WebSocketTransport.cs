@@ -61,7 +61,7 @@ public sealed class WebSocketTransport : ITransport {
     const byte KindHello = 3;
     const int HeaderBytes = 2;
 
-    static readonly TransportCapabilities Capability = new(MaxPayloadBytes, IsInProcess: false, IsLossy: false);
+    static readonly TransportCapabilities Capability = new(MaxPayloadBytes, false, false);
 
     readonly IWebSocketFactory factory;
     readonly WebSocketTransportOptions options;
@@ -256,7 +256,9 @@ public sealed class WebSocketTransport : ITransport {
             // The number is the server's to give, and the client is told it rather than inventing
             // one — every layer above names a connection by it, so two ends disagreeing about it
             // would be two ends talking about different connections in the same words.
-            channel.Send([KindHello, (byte)id.Value, (byte)(id.Value >> 8), (byte)(id.Value >> 16), (byte)(id.Value >> 24)]);
+            channel.Send(
+                [KindHello, (byte)id.Value, (byte)(id.Value >> 8), (byte)(id.Value >> 16), (byte)(id.Value >> 24)]
+            );
             events.OnConnected(TransportRole.Server, id);
         }
     }
@@ -323,7 +325,10 @@ public sealed class WebSocketTransport : ITransport {
         while (peer.Channel.TryReceive(receiveBuffer, out var length)) {
             if (length >= 5 && receiveBuffer[0] == KindHello) {
                 peer.Id = new(
-                    (uint)(receiveBuffer[1] | (receiveBuffer[2] << 8) | (receiveBuffer[3] << 16) | (receiveBuffer[4] << 24))
+                    (uint)(receiveBuffer[1]
+                        | (receiveBuffer[2] << 8)
+                        | (receiveBuffer[3] << 16)
+                        | (receiveBuffer[4] << 24))
                 );
 
                 return true;
@@ -360,9 +365,6 @@ public sealed class WebSocketTransport : ITransport {
                     peer.Channel.Close();
 
                     return false;
-
-                default:
-                    break;
             }
         }
 

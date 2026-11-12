@@ -70,7 +70,7 @@ public sealed class ListElementMember : InspectorMember {
     public override object? GetBoxed(object owner) {
         ArgumentNullException.ThrowIfNull(owner);
 
-        var list = (IList) owner;
+        var list = (IList)owner;
 
         return index < list.Count ? list[index] : null;
     }
@@ -79,7 +79,7 @@ public sealed class ListElementMember : InspectorMember {
     public override void SetBoxed(object owner, object? value) {
         ArgumentNullException.ThrowIfNull(owner);
 
-        var list = (IList) owner;
+        var list = (IList)owner;
 
         if (index < list.Count) {
             list[index] = value;
@@ -88,13 +88,17 @@ public sealed class ListElementMember : InspectorMember {
 
     /// <inheritdoc />
     /// <remarks>
-    ///     ⚠ <b>Reachable only if somebody binds an element field to a document, which
-    ///     <see cref="ListDrawer" /> deliberately does not.</b> The drawer edits a copy and records
+    ///     ⚠
+    ///     <b>
+    ///         Reachable only if somebody binds an element field to a document, which
+    ///         <see cref="ListDrawer" /> deliberately does not.
+    ///     </b>
+    ///     The drawer edits a copy and records
     ///     the whole list as one step, because a per-element command would make "clear the list" four
     ///     undos. This is here so that a caller who does bind one gets a working command rather than
     ///     an exception out of a code path nothing exercises.
     /// </remarks>
-    public override Vixen.Authoring.IAuthoringCommand CreateSetCommand(
+    public override IAuthoringCommand CreateSetCommand(
         IReadOnlyList<object> targets,
         object? value,
         EditorDocument? document
@@ -296,7 +300,7 @@ public sealed class ListDrawer : IPropertyDrawer {
         add.Variant = ControlVariant.Subtle;
         add.Size = ControlSize.Small;
         add.AddClass("list-add");
-        add.Clicked += _ => Resize(field, editor, list.Count + 1, remove: -1);
+        add.Clicked += _ => Resize(field, editor, list.Count + 1, -1);
     }
 
     /// <summary>Puts a fresh copy of the object's list in front of the element rows.</summary>
@@ -306,7 +310,7 @@ public sealed class ListDrawer : IPropertyDrawer {
     ///     as its "after".
     /// </remarks>
     static void Working(CompositeEditor editor, InspectorField field, IList list) {
-        if (Copy(field.Member.MemberType, list, list.Count, remove: -1) is not { } copy) {
+        if (Copy(field.Member.MemberType, list, list.Count, -1) is not { } copy) {
             return;
         }
 
@@ -328,7 +332,7 @@ public sealed class ListDrawer : IPropertyDrawer {
         var copies = new object?[field.Objects.Count];
 
         for (var index = 0; index < copies.Length; index++) {
-            copies[index] = Copy(field.Member.MemberType, edited, edited.Count, remove: -1);
+            copies[index] = Copy(field.Member.MemberType, edited, edited.Count, -1);
         }
 
         field.WriteEach(copies);
@@ -403,7 +407,9 @@ public sealed class ListDrawer : IPropertyDrawer {
 
         var made = type.IsArray
             ? Array.CreateInstance(element, count)
-            : Activator.CreateInstance(type.IsInterface || type.IsAbstract ? typeof(List<>).MakeGenericType(element) : type);
+            : Activator.CreateInstance(
+                type.IsInterface || type.IsAbstract ? typeof(List<>).MakeGenericType(element) : type
+            );
 
         if (made is not IList target) {
             return null;

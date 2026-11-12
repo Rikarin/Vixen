@@ -35,7 +35,7 @@ public readonly record struct VirtualPath : IComparable<VirtualPath>, ISpanForma
     readonly string? value;
 
     /// <summary>The root, <c>/</c>.</summary>
-    public static VirtualPath Root { get; } = new("/", validated: true);
+    public static VirtualPath Root { get; } = new("/", true);
 
     /// <summary>The normalised text. Empty for the default value.</summary>
     public string Value => value ?? string.Empty;
@@ -70,7 +70,7 @@ public readonly record struct VirtualPath : IComparable<VirtualPath>, ISpanForma
     /// <returns><see langword="false" /> if <paramref name="path" /> is not a valid virtual path.</returns>
     public static bool TryCreate([NotNullWhen(true)] string? path, out VirtualPath result) {
         if (path is not null && TryNormalise(path, out var normalised, out _)) {
-            result = new(normalised, validated: true);
+            result = new(normalised, true);
             return true;
         }
 
@@ -87,7 +87,7 @@ public readonly record struct VirtualPath : IComparable<VirtualPath>, ISpanForma
             }
 
             var next = value.IndexOf(Separator, 1);
-            return next < 0 ? this : new(value[..next], validated: true);
+            return next < 0 ? this : new(value[..next], true);
         }
     }
 
@@ -100,7 +100,7 @@ public readonly record struct VirtualPath : IComparable<VirtualPath>, ISpanForma
             }
 
             var last = value.LastIndexOf(Separator);
-            return last == 0 ? Root : new(value[..last], validated: true);
+            return last == 0 ? Root : new(value[..last], true);
         }
     }
 
@@ -208,7 +208,7 @@ public readonly record struct VirtualPath : IComparable<VirtualPath>, ISpanForma
             return this;
         }
 
-        return value!.Length == prefix.value!.Length ? Root : new(value[prefix.value.Length..], validated: true);
+        return value!.Length == prefix.value!.Length ? Root : new(value[prefix.value.Length..], true);
     }
 
     /// <summary>Walks the segments, without allocating a string for any of them.</summary>

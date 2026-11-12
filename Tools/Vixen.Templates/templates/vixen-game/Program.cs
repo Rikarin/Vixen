@@ -1,5 +1,5 @@
-using VixenGame1;
 using Vixen.App;
+using VixenGame1;
 
 // Everything VixenApp.Run does is a public call you can inline and edit. See
 // docs/plan/17: nothing in the boot path is inaccessible.

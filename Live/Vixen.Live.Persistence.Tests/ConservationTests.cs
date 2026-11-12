@@ -7,8 +7,12 @@ using Xunit;
 namespace Vixen.Live.Persistence.Tests;
 
 /// <summary>
-///     The duplication oracle. Doc 27 § Testing calls this <i>"the test the whole design exists to
-///     pass"</i>, and M2 calls what it catches unrecoverable reputationally.
+///     The duplication oracle. Doc 27 § Testing calls this
+///     <i>
+///         "the test the whole design exists to
+///         pass"
+///     </i>
+///     , and M2 calls what it catches unrecoverable reputationally.
 /// </summary>
 /// <remarks>
 ///     <para>
@@ -43,7 +47,9 @@ public class ConservationTests {
     [InlineData(1)]
     [InlineData(0xC0FFEE)]
     public async Task Value_is_conserved_under_concurrency_duplicates_and_lost_leases(int seed) {
-        await using var store = new MemoryPersistence { Clock = () => Noon };
+        await using var store = new MemoryPersistence();
+        store.Clock = static () => Noon;
+        store.Clock = static () => Noon;
 
         var cast = await Cast(store);
         var random = new Random(seed);
@@ -53,10 +59,13 @@ public class ConservationTests {
         // precisely the situation ADR-021's lease exists inside of.
         var lanes = Enumerable.Range(0, 8)
             .Select(lane => Task.Run(async () => {
-                for (var index = lane; index < work.Length; index += 8) {
-                    await store.Ledger.AppendAsync(work[index], TestContext.Current.CancellationToken).ConfigureAwait(false);
-                }
-            }));
+                        for (var index = lane; index < work.Length; index += 8) {
+                            await store.Ledger.AppendAsync(work[index], TestContext.Current.CancellationToken)
+                                .ConfigureAwait(false);
+                        }
+                    }
+                )
+            );
 
         await Task.WhenAll(lanes);
 
@@ -64,7 +73,10 @@ public class ConservationTests {
         foreach (var asset in Assets) {
             var total = 0L;
 
-            foreach (var row in await store.Ledger.HistoryAsync(new() { Asset = asset, Limit = int.MaxValue }, TestContext.Current.CancellationToken)) {
+            foreach (var row in await store.Ledger.HistoryAsync(
+                         new() { Asset = asset, Limit = int.MaxValue },
+                         TestContext.Current.CancellationToken
+                     )) {
                 total += row.Delta;
             }
 
@@ -75,7 +87,10 @@ public class ConservationTests {
 
         // Nobody is overdrawn, which is the same statement as "nothing was taken twice".
         foreach (var who in cast) {
-            foreach (var (asset, quantity) in await store.Ledger.HoldingsAsync(LedgerAccount.Of(who), TestContext.Current.CancellationToken)) {
+            foreach (var (asset, quantity) in await store.Ledger.HoldingsAsync(
+                         LedgerAccount.Of(who),
+                         TestContext.Current.CancellationToken
+                     )) {
                 Assert.True(quantity >= 0, $"{who} holds {quantity} {asset}");
             }
         }
@@ -88,7 +103,9 @@ public class ConservationTests {
     /// </summary>
     [Fact]
     public async Task An_operation_appears_in_the_journal_exactly_once() {
-        await using var store = new MemoryPersistence { Clock = () => Noon };
+        await using var store = new MemoryPersistence();
+        store.Clock = static () => Noon;
+        store.Clock = static () => Noon;
 
         var cast = await Cast(store);
         var work = Plan(new(20260804), cast);
@@ -96,13 +113,19 @@ public class ConservationTests {
         await Task.WhenAll(
             Enumerable.Range(0, 8)
                 .Select(lane => Task.Run(async () => {
-                    for (var index = lane; index < work.Length; index += 8) {
-                        await store.Ledger.AppendAsync(work[index], TestContext.Current.CancellationToken).ConfigureAwait(false);
-                    }
-                }))
+                            for (var index = lane; index < work.Length; index += 8) {
+                                await store.Ledger.AppendAsync(work[index], TestContext.Current.CancellationToken)
+                                    .ConfigureAwait(false);
+                            }
+                        }
+                    )
+                )
         );
 
-        var rows = await store.Ledger.HistoryAsync(new() { Limit = int.MaxValue }, TestContext.Current.CancellationToken);
+        var rows = await store.Ledger.HistoryAsync(
+            new() { Limit = int.MaxValue },
+            TestContext.Current.CancellationToken
+        );
         var perOperation = new Dictionary<IdempotencyKey, int>();
         var movementsOf = new Dictionary<IdempotencyKey, int>();
 
@@ -136,7 +159,9 @@ public class ConservationTests {
     /// </summary>
     [Fact]
     public async Task A_realm_that_loses_its_lease_stops_being_able_to_write() {
-        await using var store = new MemoryPersistence { Clock = () => Noon };
+        await using var store = new MemoryPersistence();
+        store.Clock = static () => Noon;
+        store.Clock = static () => Noon;
 
         var cast = await Cast(store);
         var who = cast[0];
@@ -147,12 +172,18 @@ public class ConservationTests {
         var record = await store.Players.ReadAsync(who, TestContext.Current.CancellationToken);
 
         Assert.NotNull(record);
-        Assert.Equal(WriteOutcome.Written, await store.Players.WriteAsync(record with { LeaseEpoch = 4 }, TestContext.Current.CancellationToken));
+        Assert.Equal(
+            WriteOutcome.Written,
+            await store.Players.WriteAsync(record with { LeaseEpoch = 4 }, TestContext.Current.CancellationToken)
+        );
 
         // The old realm is still simulating and still flushing. Everything it says now is declined,
         // and it never has to find out in time.
         var after = await store.Ledger.AppendAsync(Spend(who, 3, "after"), TestContext.Current.CancellationToken);
-        var stale = await store.Players.WriteAsync(record with { LeaseEpoch = 3, Name = record.Name }, TestContext.Current.CancellationToken);
+        var stale = await store.Players.WriteAsync(
+            record with { LeaseEpoch = 3, Name = record.Name },
+            TestContext.Current.CancellationToken
+        );
 
         Assert.Equal(LedgerVerdict.Applied, before.Verdict);
         Assert.Equal(LedgerVerdict.Superseded, after.Verdict);
@@ -226,7 +257,7 @@ public class ConservationTests {
             // took its lease. Every one of these must be declined without moving anything.
             var epoch = random.Next(20) == 0 ? 0 : 1;
 
-            LedgerIntent intent = random.Next(4) switch {
+            var intent = random.Next(4) switch {
                 0 => LedgerIntent.Transfer(
                     new(actor, "loot", index.ToString(System.Globalization.CultureInfo.InvariantCulture)),
                     epoch,

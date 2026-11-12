@@ -21,12 +21,13 @@ public readonly record struct NavMeshDrawStyle(
     float Lift = 0.05f
 ) {
     /// <summary>Readable over most level geometry: dim interior, bright walls, blue portals.</summary>
-    public static NavMeshDrawStyle Default => new(
-        new(0.2f, 0.5f, 0.7f, 0.5f),
-        new(0.1f, 0.8f, 1f, 1f),
-        new(1f, 0.9f, 0.2f, 1f),
-        new(0.8f, 0.2f, 0.2f, 1f)
-    );
+    public static NavMeshDrawStyle Default =>
+        new(
+            new(0.2f, 0.5f, 0.7f, 0.5f),
+            new(0.1f, 0.8f, 1f, 1f),
+            new(1f, 0.9f, 0.2f, 1f),
+            new(0.8f, 0.2f, 0.2f, 1f)
+        );
 }
 
 /// <summary>
@@ -189,7 +190,13 @@ public static class NavMeshDebugDraw {
         }
     }
 
-    static Vector3 Vertex(NavMeshTileData data, ReadOnlySpan<Vector3> corners, NavMeshDetailData detail, int count, int index) =>
+    static Vector3 Vertex(
+        NavMeshTileData data,
+        ReadOnlySpan<Vector3> corners,
+        NavMeshDetailData detail,
+        int count,
+        int index
+    ) =>
         index < count ? corners[index] : data.DetailVertices[detail.FirstVertex + index - count];
 
     /// <summary>Draws the polygons of a corridor, as their outlines.</summary>
@@ -234,7 +241,13 @@ public static class NavMeshDebugDraw {
     /// <param name="lift">How far above the surface to draw.</param>
     /// <param name="seconds">How long the lines last.</param>
     /// <exception cref="ArgumentNullException"><paramref name="draw" /> is null.</exception>
-    public static void DrawPath(DebugDraw draw, ReadOnlySpan<NavPathPoint> path, Color4 colour, float lift = 0.1f, float seconds = 0f) {
+    public static void DrawPath(
+        DebugDraw draw,
+        ReadOnlySpan<NavPathPoint> path,
+        Color4 colour,
+        float lift = 0.1f,
+        float seconds = 0f
+    ) {
         ArgumentNullException.ThrowIfNull(draw);
 
         if (!draw.Enabled || path.IsEmpty) {

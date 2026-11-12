@@ -9,8 +9,12 @@ namespace Vixen.Geometry.Uv.Tests;
 /// <summary>The same surface gets the same seams, whatever units it arrived in and however it is numbered.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>An absolute tolerance is a claim about how big the model is, and this repository has
-///         been bitten by one three times in a day.</b> <c>EditMesh.Normal</c> and
+///         ⚠
+///         <b>
+///             An absolute tolerance is a claim about how big the model is, and this repository has
+///             been bitten by one three times in a day.
+///         </b>
+///         <c>EditMesh.Normal</c> and
 ///         <c>ManifoldMesh.TriangleNormal</c> both delegated to <c>Vector3.Normalize</c>, which gives up
 ///         below an absolute <c>MathUtil.ZeroTolerance</c> of <c>1e-6</c> — and a cross product scales
 ///         as the <b>square</b> of the model, so the threshold is met at a completely different physical
@@ -29,18 +33,17 @@ namespace Vixen.Geometry.Uv.Tests;
 ///     </para>
 /// </remarks>
 public class UvChartInvarianceTests {
-    public static TheoryData<string> Shapes =>
-        [
-            "sphere-cut-open",
-            "hemisphere",
-            "saddle",
-            "torus-slit",
-            "torus-closed",
-            "cylinder-closed",
-            "dumbbell",
-            "sphere-nearly-closed",
-            "strip"
-        ];
+    public static TheoryData<string> Shapes => [
+        "sphere-cut-open",
+        "hemisphere",
+        "saddle",
+        "torus-slit",
+        "torus-closed",
+        "cylinder-closed",
+        "dumbbell",
+        "sphere-nearly-closed",
+        "strip"
+    ];
 
     /// <summary>Occlusion itself survives a unit conversion, before chart thresholds can hide a change.</summary>
     /// <remarks>
@@ -84,8 +87,12 @@ public class UvChartInvarianceTests {
     /// <summary>A power of two scales the model exactly, so it must not move a single chart.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>This is the test that catches an absolute epsilon, and it is exact because it can
-    ///         be.</b> Scaling a <see langword="float" /> by a power of two changes only its exponent, and
+    ///         ⚠
+    ///         <b>
+    ///             This is the test that catches an absolute epsilon, and it is exact because it can
+    ///             be.
+    ///         </b>
+    ///         Scaling a <see langword="float" /> by a power of two changes only its exponent, and
     ///         every expression in the seam cost is homogeneous in the mesh's units — the six quality
     ///         terms are dimensionless and the seventh is a length — so every comparison the charter
     ///         makes is between two quantities that picked up the same exact factor. Nothing but a
@@ -103,7 +110,7 @@ public class UvChartInvarianceTests {
     [Theory]
     [MemberData(nameof(Shapes))]
     public void APowerOfTwoDoesNotMoveASingleChart(string shape) {
-        var reference = UvUnwrap.Charts(ChartFixtures.Build(shape, 1f), new(), out var unit);
+        var reference = UvUnwrap.Charts(ChartFixtures.Build(shape), new(), out var unit);
 
         foreach (var scale in new[] { 1f / 1024f, 1024f }) {
             var scaled = UvUnwrap.Charts(ChartFixtures.Build(shape, scale), new(), out var moved);
@@ -124,8 +131,12 @@ public class UvChartInvarianceTests {
     /// <summary>A thousandth and a thousand times charts to within one chart of the same answer.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Within one chart rather than identically, and the reason is a threshold rather than
-    ///         an epsilon.</b> A thousand is not a power of two, so <c>position × 1e-3f</c> is the unit
+    ///         ⚠
+    ///         <b>
+    ///             Within one chart rather than identically, and the reason is a threshold rather than
+    ///             an epsilon.
+    ///         </b>
+    ///         A thousand is not a power of two, so <c>position × 1e-3f</c> is the unit
     ///         mesh's position <i>rounded</i> — the two meshes are not exactly proportional, and every
     ///         measurement taken of them differs in the last bits. § D3's recursion then asks
     ///         <c>StretchL2 ≤ τ</c>, which is a single floating-point comparison: a chart whose measured
@@ -144,7 +155,7 @@ public class UvChartInvarianceTests {
     [Theory]
     [MemberData(nameof(Shapes))]
     public void AThousandthAndAThousandTimesChartsToWithinOneChart(string shape) {
-        var reference = ChartFixtures.Build(shape, 1f);
+        var reference = ChartFixtures.Build(shape);
         var smaller = ChartFixtures.Build(shape, 1e-3f);
         var larger = ChartFixtures.Build(shape, 1e+3f);
 
@@ -168,8 +179,12 @@ public class UvChartInvarianceTests {
     /// <summary>Renumbering the mesh's positions does not move a single seam.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A vertex numbering is not a property of the surface, and a thread sweep does not
-    ///         catch this.</b> An importer, a weld and a boolean all renumber a mesh routinely, so a
+    ///         ⚠
+    ///         <b>
+    ///             A vertex numbering is not a property of the surface, and a thread sweep does not
+    ///             catch this.
+    ///         </b>
+    ///         An importer, a weld and a boolean all renumber a mesh routinely, so a
     ///         charter whose seeds or tie-breaks read an index produces a different atlas for the same
     ///         asset on the next import — and every determinism test that varies only the worker count
     ///         passes throughout.
@@ -187,8 +202,8 @@ public class UvChartInvarianceTests {
         var moved = ShapeCorpus.Renumber(mesh, 0x51F3u);
 
         Assert.NotEqual(
-            Enumerable.Range(0, mesh.PositionCount).Select(index => mesh.Positions[index]).ToArray(),
-            Enumerable.Range(0, moved.PositionCount).Select(index => moved.Positions[index]).ToArray()
+            [..Enumerable.Range(0, mesh.PositionCount).Select(index => mesh.Positions[index])],
+            [..Enumerable.Range(0, moved.PositionCount).Select(index => moved.Positions[index])]
         );
 
         var reference = UvUnwrap.Charts(mesh, new(), out var before);

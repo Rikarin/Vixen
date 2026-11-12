@@ -15,8 +15,11 @@ namespace Vixen.Engine.Players;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>It runs in <see cref="SystemPhase.Input" />, after <see cref="PlayerInputSystem" />,
-///         and that is not a shortcut.</b> The thing that reacts to a player's intent is
+///         <b>
+///             It runs in <see cref="SystemPhase.Input" />, after <see cref="PlayerInputSystem" />,
+///             and that is not a shortcut.
+///         </b>
+///         The thing that reacts to a player's intent is
 ///         <c>CharacterMovementSystem</c> in <see cref="SystemPhase.FixedUpdate" /> — the next phase.
 ///         A phase boundary is a hard sync where command buffers play back, so a pawn that gains its
 ///         <see cref="MoveIntent" /> here has it before the first fixed step of the same frame.

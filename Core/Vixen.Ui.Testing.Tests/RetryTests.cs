@@ -13,8 +13,7 @@ namespace Vixen.Ui.Testing.Tests;
 ///     it.
 /// </remarks>
 public class RetryTests {
-    static UiTest Opened(int retryFrames = 60) =>
-        UiTest.Create(400f, 300f, new UiTestOptions { RetryFrames = retryFrames });
+    static UiTest Opened(int retryFrames = 60) => UiTest.Create(400f, 300f, new() { RetryFrames = retryFrames });
 
     [Fact]
     public void An_element_that_appears_later_is_waited_for() {
@@ -58,7 +57,7 @@ public class RetryTests {
 
     [Fact]
     public void Running_out_of_budget_fails_after_exactly_that_many_frames() {
-        using var ui = Opened(retryFrames: 7);
+        using var ui = Opened(7);
         ui.Load("root { width: 400px; height: 300px; }");
 
         var before = ui.FrameCount;
@@ -69,7 +68,7 @@ public class RetryTests {
 
     [Fact]
     public void A_failure_carries_the_command_log_and_the_tree() {
-        using var ui = Opened(retryFrames: 1);
+        using var ui = Opened(1);
         ui.Load("root { width: 400px; height: 300px; } .panel { width: 50px; height: 50px; }");
         ui.Create("div", ui.Document.Root, "shell", "panel");
         ui.Frame();
@@ -114,12 +113,16 @@ public class RetryTests {
 
     [Fact]
     public void The_log_records_how_long_a_command_waited() {
-        using var ui = Opened(retryFrames: 3);
+        using var ui = Opened(3);
         ui.Load("root { width: 400px; height: 300px; }");
 
         Assert.Throws<UiTestException>(() => ui.Get(".never").ShouldExist());
 
-        var line = ui.Log.Commands.Single(command => command.Text.Contains("should exist", StringComparison.Ordinal));
+        var line = ui.Log.Commands.Single(static command => command.Text.Contains(
+                "should exist",
+                StringComparison.Ordinal
+            )
+        );
         Assert.Equal(3, line.Frames);
     }
 }

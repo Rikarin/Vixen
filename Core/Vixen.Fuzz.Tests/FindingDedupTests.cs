@@ -18,8 +18,12 @@ namespace Vixen.Fuzz.Tests;
 ///         nightly budget were never spent.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Both directions are asserted, and the second is the one that keeps the first
-///         honest.</b> A key that collapsed everything would pass the first test and make the harness
+///         ⚠
+///         <b>
+///             Both directions are asserted, and the second is the one that keeps the first
+///             honest.
+///         </b>
+///         A key that collapsed everything would pass the first test and make the harness
 ///         useless, so a throwing site is a finding of its own and stays one.
 ///     </para>
 /// </remarks>
@@ -27,8 +31,7 @@ public sealed class FindingDedupTests {
     /// <summary>Two reports of one defect, differing only in the numbers they quote, are one finding.</summary>
     [Fact]
     public void FailuresThatDifferOnlyInAnEmbeddedNumberCollapse() {
-        var outcome = Run(
-            input => throw new InvalidOperationException(
+        var outcome = Run(static input => throw new InvalidOperationException(
                 string.Create(CultureInfo.InvariantCulture, $"the parse stopped at {input[0] * 37} of 4,096 bytes")
             )
         );
@@ -47,8 +50,9 @@ public sealed class FindingDedupTests {
     /// </remarks>
     [Fact]
     public void FailuresThatDifferOnlyInAQuotedValueCollapse() {
-        var outcome = Run(
-            input => throw new InvalidOperationException($"expected '{(char)('a' + (input[0] % 26))}' and printed ' '")
+        var outcome = Run(static input => throw new InvalidOperationException(
+                $"expected '{(char)('a' + input[0] % 26)}' and printed ' '"
+            )
         );
 
         Assert.Single(outcome.Findings);
@@ -58,8 +62,7 @@ public sealed class FindingDedupTests {
     /// <summary>Two different failures stay two findings.</summary>
     [Fact]
     public void GenuinelyDifferentFailuresDoNotCollapse() {
-        var outcome = Run(
-            input => throw (input[0] % 2 == 0
+        var outcome = Run(static input => throw (input[0] % 2 == 0
                 ? new InvalidOperationException("the tree does not reproduce its source")
                 : new InvalidOperationException("an incremental reparse built a different tree"))
         );
@@ -70,8 +73,7 @@ public sealed class FindingDedupTests {
     /// <summary>So does one exception type against another, from the same line.</summary>
     [Fact]
     public void DifferentExceptionTypesDoNotCollapse() {
-        var outcome = Run(
-            input => throw (input[0] % 2 == 0
+        var outcome = Run(static input => throw (input[0] % 2 == 0
                 ? new InvalidOperationException("it went wrong")
                 : new ArgumentException("it went wrong"))
         );
@@ -84,8 +86,7 @@ public sealed class FindingDedupTests {
     public void TheFirstExamplesBytesAreKept() {
         byte[]? first = null;
 
-        var outcome = Run(
-            input => {
+        var outcome = Run(input => {
                 first ??= input.ToArray();
 
                 throw new InvalidOperationException(
@@ -108,13 +109,16 @@ public sealed class FindingDedupTests {
     [Fact]
     public void TheSummarySaysWhyTheRunEnded() {
         // Distinct in prose rather than in a number, because a number is exactly what the key blanks.
-        var capped = Run(input => throw new InvalidOperationException(Defects[input[0] % Defects.Length]), distinct: true);
+        var capped = Run(
+            static input => throw new InvalidOperationException(Defects[input[0] % Defects.Length]),
+            true
+        );
 
         Assert.Equal(FuzzSession.MaxFindings, capped.Findings.Count);
         Assert.Equal("the finding cap", capped.Stopped);
         Assert.Contains("stopped on the finding cap", capped.ToString(), StringComparison.Ordinal);
 
-        var quiet = Run(_ => 1);
+        var quiet = Run(static _ => 1);
 
         Assert.True(quiet.Clean, quiet.ToString());
         Assert.Equal("the case bound", quiet.Stopped);
@@ -122,8 +126,10 @@ public sealed class FindingDedupTests {
     }
 
     /// <summary>Messages no normalisation can fold together, to fill the cap with real findings.</summary>
-    static readonly string[] Defects =
-        [.. Enumerable.Range(0, 48).Select(index => new string((char)('a' + (index % 26)), (index / 26) + 1) + " broke")];
+    static readonly string[] Defects = [
+        ..Enumerable.Range(0, 48)
+            .Select(static index => new string((char)('a' + index % 26), index / 26 + 1) + " broke")
+    ];
 
     /// <summary>Runs a misbehaving target over enough cases for the dedup to have something to do.</summary>
     /// <param name="body">What the target does with an input.</param>
@@ -146,6 +152,6 @@ public sealed class FindingDedupTests {
         public void Seed(ICollection<byte[]> corpus) => corpus?.Add([1, 2, 3, 4, 5, 6, 7, 8]);
 
         /// <inheritdoc />
-        public long Run(ReadOnlySpan<byte> input) => input.Length == 0 ? 0 : body(input.ToArray());
+        public long Run(ReadOnlySpan<byte> input) => input.Length == 0 ? 0 : body([..input]);
     }
 }

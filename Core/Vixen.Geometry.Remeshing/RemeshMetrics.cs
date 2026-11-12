@@ -38,8 +38,12 @@ static class RemeshMetrics {
     /// <summary>Every irregular interior vertex, and how many of them sit on a feature chain's interior.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>"Zero singularities on features" means zero on chain <i>interiors</i>, and R2
-    ///         established that a cube is why the distinction is not pedantry.</b> On a box every vertex
+    ///         ⚠
+    ///         <b>
+    ///             "Zero singularities on features" means zero on chain <i>interiors</i>, and R2
+    ///             established that a cube is why the distinction is not pedantry.
+    ///         </b>
+    ///         On a box every vertex
     ///         is a feature corner and every edge is a feature edge, and χ = 2 demands eight quarter
     ///         turns somewhere — so reading the criterion as "off every feature vertex" makes the
     ///         simplest hard-surface shape unsatisfiable. A corner is exempt; a bend in the middle of a
@@ -113,8 +117,12 @@ static class RemeshMetrics {
     /// <param name="diagonal">The bounding box's diagonal.</param>
     /// <returns>The worst and the mean, as fractions of the diagonal.</returns>
     /// <remarks>
-    ///     ⚠ <b>Face centres as well as vertices, because a quad can have all four corners on the
-    ///     surface and bulge between them.</b> Measuring vertices alone reports zero deviation on a
+    ///     ⚠
+    ///     <b>
+    ///         Face centres as well as vertices, because a quad can have all four corners on the
+    ///         surface and bulge between them.
+    ///     </b>
+    ///     Measuring vertices alone reports zero deviation on a
     ///     cage that cuts every corner off a sphere, which is the one shape the number exists to catch.
     /// </remarks>
     public static (float Max, float Mean) Deviation(EditMesh output, SurfaceProjector projector, float diagonal) {
@@ -157,7 +165,7 @@ static class RemeshMetrics {
             samples++;
         }
 
-        return (worst, samples == 0 ? 0f : (float) (total / samples));
+        return (worst, samples == 0 ? 0f : (float)(total / samples));
     }
 
     /// <summary>The worst quad corner's shape quality, where one is a square and a negative is inverted.</summary>
@@ -169,8 +177,12 @@ static class RemeshMetrics {
     ///         over on itself reports a negative and a quad that has collapsed to a line reports zero.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A degenerate corner contributes zero and the scan carries on; it used to return
-    ///         zero and stop, which made the field read as a sentinel rather than as a minimum.</b> The
+    ///         ⚠
+    ///         <b>
+    ///             A degenerate corner contributes zero and the scan carries on; it used to return
+    ///             zero and stop, which made the field read as a sentinel rather than as a minimum.
+    ///         </b>
+    ///         The
     ///         three degenerate cases — a face with fewer than three corners, a face whose Newell normal
     ///         cancels to nothing, and a corner with a zero-length edge — each returned <c>0f</c> from
     ///         the whole function, so the first one encountered ended the scan and every face after it
@@ -182,8 +194,12 @@ static class RemeshMetrics {
     ///         defect being an absence of area. It is not: it is inversion, on six fixtures of seven.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Zero is still the right contribution for a collapsed corner rather than skipping
-    ///         it.</b> A corner whose two edges have no direction has no angle to measure, and a
+    ///         ⚠
+    ///         <b>
+    ///             Zero is still the right contribution for a collapsed corner rather than skipping
+    ///             it.
+    ///         </b>
+    ///         A corner whose two edges have no direction has no angle to measure, and a
     ///         degenerate quad is not a good quad — dropping it from the minimum would let a result full
     ///         of collapsed faces report the quality of the ones that survived.
     ///     </para>
@@ -283,7 +299,10 @@ static class RemeshMetrics {
                 var best = float.PositiveInfinity;
 
                 for (var at = 0; at + 1 < samples.Length; at++) {
-                    best = MathF.Min(best, Segment(point, output.Positions[samples[at]], output.Positions[samples[at + 1]]));
+                    best = MathF.Min(
+                        best,
+                        Segment(point, output.Positions[samples[at]], output.Positions[samples[at + 1]])
+                    );
                 }
 
                 if (float.IsFinite(best)) {
@@ -301,6 +320,6 @@ static class RemeshMetrics {
         var span = along.LengthSquared();
         var fraction = span > 0f ? Math.Clamp(Vector3.Dot(point - from, along) / span, 0f, 1f) : 0f;
 
-        return Vector3.Distance(point, from + (along * fraction));
+        return Vector3.Distance(point, from + along * fraction);
     }
 }

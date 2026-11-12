@@ -2,15 +2,18 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Ai.Perception.Ecs;
-using Vixen.Core.Mathematics;
 
 namespace Vixen.Ai.Perception.Sensors;
 
 /// <summary>What an agent's senses say, as a utility consideration and as a sensor.</summary>
 /// <remarks>
 ///     <para>
-///         doc 37 § Part 4's ⚠ on <see cref="IUtilityInput" />: <b>a perceived count is
-///         <c>Vixen.Ai.Perception</c>'s, because <c>Vixen.Ai</c> may not see a sense.</b> It is the
+///         doc 37 § Part 4's ⚠ on <see cref="IUtilityInput" />:
+///         <b>
+///             a perceived count is
+///             <c>Vixen.Ai.Perception</c>'s, because <c>Vixen.Ai</c> may not see a sense.
+///         </b>
+///         It is the
 ///         second implementation of that seam that is not a delegate and not a blackboard key — which
 ///         is the point of the rule, since a seam whose only implementations read a key is a seam
 ///         shaped like a key.
@@ -34,7 +37,8 @@ public static class PerceptionInputs {
         PerceptionSystem perception,
         SenseMask senses = SenseMask.All,
         int most = 4
-    ) => new PerceivedCountInput(perception, senses, most);
+    ) =>
+        new PerceivedCountInput(perception, senses, most);
 
     /// <summary>How far the nearest currently-sensed thing is, as a fraction of a range.</summary>
     /// <param name="perception">The system that senses for it.</param>
@@ -51,7 +55,8 @@ public static class PerceptionInputs {
         PerceptionSystem perception,
         SenseMask senses = SenseMask.Sight,
         float range = 20f
-    ) => new NearestPerceivedInput(perception, senses, range);
+    ) =>
+        new NearestPerceivedInput(perception, senses, range);
 
     /// <summary>How many things an agent senses, as a count on a numeric key.</summary>
     /// <param name="perception">The system that senses for it.</param>
@@ -76,7 +81,8 @@ public static class PerceptionInputs {
         PerceptionSystem perception,
         SenseMask senses = SenseMask.Sight,
         bool currentOnly = true
-    ) => new NearestPerceivedSensor(perception, senses, currentOnly);
+    ) =>
+        new NearestPerceivedSensor(perception, senses, currentOnly);
 }
 
 /// <summary>How many things an agent senses, normalised.</summary>

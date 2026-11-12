@@ -11,7 +11,6 @@ using Vixen.Editor.Plugin;
 using Vixen.Editor.Ui;
 using Vixen.Geometry;
 using Vixen.Interchange;
-using Vixen.Rendering;
 using Vixen.Rendering.Ecs;
 using Vixen.Ui.Controls;
 
@@ -82,9 +81,11 @@ sealed class MeshMapBaking {
         // complaint. One settings object, one place to press it. `MeshMapBakeView` is the panel and
         // `Bake` is still the thing its button calls.
         context.AddCommand(
-            new EditorCommand("assets.bake-mesh-maps", EditorStrings.CommandAssetsBakeMeshMaps, () => shell.Workspace.Open(Panel)) {
-                Category = EditorStrings.CategoryAssets
-            }
+            new EditorCommand(
+                "assets.bake-mesh-maps",
+                EditorStrings.CommandAssetsBakeMeshMaps,
+                () => shell.Workspace.Open(Panel)
+            ) { Category = EditorStrings.CategoryAssets }
         );
 
         // ⚠ And the panel's result list, which is the one surface a finished bake changes that a
@@ -114,10 +115,18 @@ sealed class MeshMapBaking {
     ///         reachable by a person.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The source and the target are the same mesh, and that is the ordinary case
-    ///         rather than a simplification.</b> A separate high-poly belongs to the retopology
-    ///         flow; asking for the occlusion, curvature and thickness <i>of the mesh you are
-    ///         texturing</i> is what every generator in § 4.8 reads, and it is what Painter's bake
+    ///         ⚠
+    ///         <b>
+    ///             The source and the target are the same mesh, and that is the ordinary case
+    ///             rather than a simplification.
+    ///         </b>
+    ///         A separate high-poly belongs to the retopology
+    ///         flow; asking for the occlusion, curvature and thickness
+    ///         <i>
+    ///             of the mesh you are
+    ///             texturing
+    ///         </i>
+    ///         is what every generator in § 4.8 reads, and it is what Painter's bake
     ///         does when nobody supplies a high-poly. A high-poly picker is a bake panel's job.
     ///     </para>
     ///     <para>
@@ -155,10 +164,10 @@ sealed class MeshMapBaking {
                 Options.Overwrite
             );
         } catch (Exception failure) when (failure
-            is IOException
-            or UnauthorizedAccessException
-            or ModelFormatException
-            or ArgumentException) {
+                                              is IOException
+                                              or UnauthorizedAccessException
+                                              or ModelFormatException
+                                              or ArgumentException) {
             shell.Notifications.Show("Could not bake mesh maps", NotificationSeverity.Error, failure.Message);
         }
     }
@@ -171,8 +180,12 @@ sealed class MeshMapBaking {
     /// <returns>The mesh, or <see langword="null" />.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The imported chunks first, and the file only for a model this project has never
-    ///         imported</b> — the same seam <c>LayerStackMesh.Open</c> takes, and for the reason
+    ///         ⚠
+    ///         <b>
+    ///             The imported chunks first, and the file only for a model this project has never
+    ///             imported
+    ///         </b>
+    ///         — the same seam <c>LayerStackMesh.Open</c> takes, and for the reason
     ///         <a href="https://github.com/Rikarin/Vixen/issues/934">#934</a> gives about painting:
     ///         <c>ModelImportSettings.Unwrap</c> generates its coordinates inside
     ///         <c>ModelRetopology.Run</c>, which the <em>importer</em> calls and <c>ModelReader</c>
@@ -189,8 +202,8 @@ sealed class MeshMapBaking {
     ///     </para>
     /// </remarks>
     MeshData? BakeableMesh(AssetEntry entry, string absolute, out string name, out string refusal) {
-        name = "";
-        refusal = "";
+        name = string.Empty;
+        refusal = string.Empty;
 
         var declared = ProjectMeshSource.Declared(absolute);
 
@@ -241,8 +254,7 @@ sealed class MeshMapBaking {
     ///     one coordinate per vertex — so a bake over one would land on coordinates belonging to other
     ///     vertices rather than fail.
     /// </remarks>
-    static bool HasAtlas(MeshData mesh) =>
-        mesh.TexCoords.Length == mesh.Positions.Length && mesh.TexCoords.Length > 0;
+    static bool HasAtlas(MeshData mesh) => mesh.TexCoords.Length == mesh.Positions.Length && mesh.TexCoords.Length > 0;
 
     /// <summary>What the Bake Mesh Maps panel is called in an arrangement.</summary>
     public const string Panel = "mesh-map-bake";
@@ -320,9 +332,7 @@ sealed class MeshMapBaking {
 
                 this.view = view;
             }
-        ) {
-            Closed = () => this.view = null
-        };
+        ) { Closed = () => view = null };
 
     /// <summary>What the panel says would be baked.</summary>
     /// <remarks>
@@ -385,7 +395,7 @@ sealed class MeshMapBaking {
                 : new();
         } catch (Exception failure)
             when (failure is IOException or YamlParseException or YamlBindingException or MetaVersionException) {
-            return new();
-        }
+                return new();
+            }
     }
 }

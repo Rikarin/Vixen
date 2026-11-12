@@ -4,7 +4,6 @@
 using Vixen.Animation.Constraints;
 using Vixen.Core;
 using Vixen.Core.Mathematics;
-using Vixen.Rendering;
 using Xunit;
 
 namespace Vixen.Animation.Tests;
@@ -131,8 +130,8 @@ public class HarnessTests {
         // hand is asked to be somewhere else entirely, and both goals are satisfiable at their own
         // ends. A residual check alone calls this clip perfect.
         var content = Content(
-            Reach(new Vector3(0.25f, 1.1f, 0.2f), 0f, 0.49f),
-            Reach(new Vector3(0.25f, 1.1f, -0.35f), 0.5f, 1f, "second hand")
+            Reach(new(0.25f, 1.1f, 0.2f), 0f, 0.49f),
+            Reach(new(0.25f, 1.1f, -0.35f), 0.5f, 1f, "second hand")
         );
 
         var report = VariationHarness.Run(
@@ -153,8 +152,12 @@ public class HarnessTests {
 
     /// <summary>A chain with nothing left to give is named, because it is a different fix.</summary>
     /// <remarks>
-    ///     ⚠ <b>Not "joint limits hit", which is what the plan asks for and what no skeleton here
-    ///     carries.</b> A straight arm still missing its goal is the failure a limit would have caught
+    ///     ⚠
+    ///     <b>
+    ///         Not "joint limits hit", which is what the plan asks for and what no skeleton here
+    ///         carries.
+    ///     </b>
+    ///     A straight arm still missing its goal is the failure a limit would have caught
     ///     in the cases this measures, and reporting it under the name it actually has beats
     ///     reporting a check that does not exist.
     /// </remarks>
@@ -164,7 +167,7 @@ public class HarnessTests {
 
         var report = VariationHarness.Run(
             new() {
-                Clip = Content(Reach(new Vector3(4f, 1.1f, 0f), 0f, 1f)),
+                Clip = Content(Reach(new(4f, 1.1f, 0f), 0f, 1f)),
                 Skeleton = body.Skeleton,
                 Shapes = body.Shapes,
                 Samples = 4
@@ -266,7 +269,7 @@ public class HarnessTests {
     ///     and six centimetres out of reach on the small one — which is the failure the whole document
     ///     is about, and which no amount of looking at the authored body would reveal.
     /// </summary>
-    static ConstraintTagRecord Tight() => Reach(new Vector3(0.2f, 1.3f, 0.25f), 0f, 1f);
+    static ConstraintTagRecord Tight() => Reach(new(0.2f, 1.3f, 0.25f), 0f, 1f);
 
     /// <summary>The same contact expressed on the body's own belly, which is the fix.</summary>
     static ConstraintTagRecord OnTheBody() =>
@@ -277,7 +280,13 @@ public class HarnessTests {
             Chain = "Shoulder",
             Begin = 0f,
             End = 1f,
-            Goal = new() { Kind = ConstraintFrameKind.Surface, Shape = "belly", Face = -1, U = 0.5f, V = 0.5f }
+            Goal = new() {
+                Kind = ConstraintFrameKind.Surface,
+                Shape = "belly",
+                Face = -1,
+                U = 0.5f,
+                V = 0.5f
+            }
         };
 
     static ConstraintTagRecord Reach(Vector3 at, float begin, float end, string name = "right hand") =>
@@ -292,11 +301,7 @@ public class HarnessTests {
         };
 
     static AnimationClipContent Content(params ConstraintTagRecord[] tags) =>
-        new() {
-            Name = "Reach",
-            Data = new() { Name = "Reach", Duration = 1f, Channels = [] },
-            Constraints = [.. tags]
-        };
+        new() { Name = "Reach", Data = new() { Name = "Reach", Duration = 1f, Channels = [] }, Constraints = [..tags] };
 
     static TestBody Body(float scale) => new(scale);
 
@@ -322,7 +327,7 @@ public class HarnessTests {
                     Kind = ShapeKind.Sphere,
                     Joint = Skeleton.IndexOf("Spine"),
                     Offset = new(new Vector3(0f, 0.1f, 0.05f) * scale, Quaternion.Identity, Vector3.One),
-                    Dimensions = ShapeParams.Sphere(0.22f).Scaled(new Vector3(scale))
+                    Dimensions = ShapeParams.Sphere(0.22f).Scaled(new(scale))
                 }
             );
         }

@@ -12,8 +12,12 @@ namespace Vixen.Editor.App.Tests;
 /// <summary>The folders-only column beside the grid.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Doc 20 § B1's "a folder tree beside the grid", and it is not "turn the tree on as
-///         well".</b> The browser's <c>TreeView</c> <i>is</i> the browsing surface in list mode — it
+///         ⚠
+///         <b>
+///             Doc 20 § B1's "a folder tree beside the grid", and it is not "turn the tree on as
+///             well".
+///         </b>
+///         The browser's <c>TreeView</c> <i>is</i> the browsing surface in list mode — it
 ///         shows assets as well as folders and its selection is the project's selection. This is a
 ///         second, folders-only view whose selection <b>narrows</b> the grid rather than being the
 ///         selection. Building the second by widening the first is how the two come to disagree
@@ -26,8 +30,12 @@ namespace Vixen.Editor.App.Tests;
 /// </remarks>
 public class BrowserFolderTreeTests {
     /// <summary>
-    ///     ⚠ <b>The whole feature in one assertion: clicking a folder moves the grid and not the
-    ///     selection.</b> A folder tree that selected the folder would be the list view again, and
+    ///     ⚠
+    ///     <b>
+    ///         The whole feature in one assertion: clicking a folder moves the grid and not the
+    ///         selection.
+    ///     </b>
+    ///     A folder tree that selected the folder would be the list view again, and
     ///     the panel would have two views writing one selection.
     /// </summary>
     [Fact]
@@ -42,7 +50,7 @@ public class BrowserFolderTreeTests {
         Choose(editor, "Scenes");
 
         Assert.Equal("Scenes", grid.Folder?.Name);
-        Assert.Contains("Main.vxscene", grid.Items.Select(item => item.Name));
+        Assert.Contains("Main.vxscene", grid.Items.Select(static item => item.Name));
 
         // ⚠ Standing in a folder is not selecting it. The verbs — rename, delete, reveal — act on
         // the project's selection, and a folder tree that wrote to it would make walking around the
@@ -181,14 +189,14 @@ public class BrowserFolderTreeTests {
     static TreeView Folders(EditorSession editor) =>
         Descendants(editor.Panel("project"))
             .OfType<TreeView>()
-            .FirstOrDefault(view => view.HasClass("browser-folders"))
+            .FirstOrDefault(static view => view.HasClass("browser-folders"))
         ?? throw editor.Fail("the browser has no folder tree");
 
     static List<string> Rows(EditorSession editor) =>
-        [.. Walk(Folders(editor).Root).Select(node => node.Text ?? string.Empty)];
+        [..Walk(Folders(editor).Root).Select(static node => node.Text ?? string.Empty)];
 
     static string? Marked(EditorSession editor) =>
-        Folders(editor).Selection.Select(node => node.Text).FirstOrDefault();
+        Folders(editor).Selection.Select(static node => node.Text).FirstOrDefault();
 
     static void Choose(EditorSession editor, string folder) {
         var view = Folders(editor);
@@ -207,7 +215,7 @@ public class BrowserFolderTreeTests {
             ?? throw editor.Fail($"no tile for '{name}'");
 
         editor.Ui
-            .At(tile.Bounds.X + (tile.Bounds.Width * 0.5f), tile.Bounds.Y + (tile.Bounds.Height * 0.5f))
+            .At(tile.Bounds.X + tile.Bounds.Width * 0.5f, tile.Bounds.Y + tile.Bounds.Height * 0.5f)
             .DoubleClick();
 
         editor.Settle();

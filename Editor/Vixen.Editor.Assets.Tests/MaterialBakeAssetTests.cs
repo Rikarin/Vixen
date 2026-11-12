@@ -34,7 +34,7 @@ public sealed class MaterialBakeAssetTests : IDisposable {
     public void Dispose() {
         try {
             if (Directory.Exists(root)) {
-                Directory.Delete(root, recursive: true);
+                Directory.Delete(root, true);
             }
         } catch (IOException) {
             // A file the test wrote and the OS has not let go of. Not what is under test.
@@ -125,7 +125,7 @@ public sealed class MaterialBakeAssetTests : IDisposable {
 
         baker.Write("ShipHull", Images(), Record());
 
-        var before = baker.Written.ToDictionary(file => file, File.ReadAllBytes, StringComparer.Ordinal);
+        var before = baker.Written.ToDictionary(static file => file, File.ReadAllBytes, StringComparer.Ordinal);
 
         baker.Write("ShipHull", Images(), Record());
 
@@ -173,9 +173,9 @@ public sealed class MaterialBakeAssetTests : IDisposable {
         baker.Write("ShipHull", Images(), Record());
         File.WriteAllBytes(Map(project, "ShipHull", MaterialMapTarget.BaseColor), PngCodec.Encode(Flat(4, 99)));
 
-        var set = baker.Write("ShipHull", Images(20), Record(), force: true);
+        var set = baker.Write("ShipHull", Images(20), Record(), true);
 
-        Assert.Contains(set.Warnings, warning => warning.Contains("painted", StringComparison.Ordinal));
+        Assert.Contains(set.Warnings, static warning => warning.Contains("painted", StringComparison.Ordinal));
         Assert.Equal(
             20,
             PngCodec.Decode(File.ReadAllBytes(Map(project, "ShipHull", MaterialMapTarget.BaseColor))).Pixels[0]
@@ -243,14 +243,18 @@ public sealed class MaterialBakeAssetTests : IDisposable {
         Assert.Equal(
             "Apple M4 Max",
             AssetMetaFile.ReadFile(AssetMetaFile.PathFor(Vxmat(project, "ShipHull")))
-                .Extensions[MaterialProvenance.AdapterKey]
+            .Extensions[MaterialProvenance.AdapterKey]
         );
     }
 
     /// <summary>Two sources whose materials are both called the same thing get a set each.</summary>
     /// <remarks>
-    ///     ⚠ <b>The mesh-map baker's <a href="https://github.com/Rikarin/Vixen/issues/681">#681</a>,
-    ///     one asset type over.</b> Overwriting is right for a re-bake and catastrophic for a
+    ///     ⚠
+    ///     <b>
+    ///         The mesh-map baker's <a href="https://github.com/Rikarin/Vixen/issues/681">#681</a>,
+    ///         one asset type over.
+    ///     </b>
+    ///     Overwriting is right for a re-bake and catastrophic for a
     ///     collision, and only the source tells them apart — a name-keyed writer silently swapped one
     ///     model's pixels for another's <i>and</i> handed back its GUIDs.
     /// </remarks>
@@ -264,7 +268,7 @@ public sealed class MaterialBakeAssetTests : IDisposable {
         Assert.Equal("Material", first.Name);
         Assert.Equal("Material_2", second.Name);
         Assert.NotEqual(first.Material, second.Material);
-        Assert.Contains(second.Warnings, warning => warning.Contains("rename", StringComparison.Ordinal));
+        Assert.Contains(second.Warnings, static warning => warning.Contains("rename", StringComparison.Ordinal));
 
         foreach (var (target, reference) in first.Maps) {
             Assert.NotEqual(reference, second.Maps[target]);
@@ -279,8 +283,12 @@ public sealed class MaterialBakeAssetTests : IDisposable {
 
     /// <summary>A name that is a path is made safe on the path a caller actually takes.</summary>
     /// <remarks>
-    ///     ⚠ <b><a href="https://github.com/Rikarin/Vixen/issues/680">#680</a>'s lesson, which is
-    ///     about where a guard lives rather than whether one exists.</b> The mesh-map baker sanitised
+    ///     ⚠
+    ///     <b>
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/680">#680</a>'s lesson, which is
+    ///         about where a guard lives rather than whether one exists.
+    ///     </b>
+    ///     The mesh-map baker sanitised
     ///     in <c>Bake</c> and trusted in <c>Write</c>, and the editor only ever called <c>Write</c> —
     ///     so this baker has one entry point and it is the one that sanitises.
     /// </remarks>
@@ -334,16 +342,14 @@ public sealed class MaterialBakeAssetTests : IDisposable {
 
         var set = baker.Write(
             "Strip",
-            MaterialBake.Encode(
-                new Dictionary<MaterialMapUsage, Bitmap> { [MaterialMapUsage.BaseColor] = Wide(30) }
-            ),
+            MaterialBake.Encode(new Dictionary<MaterialMapUsage, Bitmap> { [MaterialMapUsage.BaseColor] = Wide(30) }),
             Record()
         );
 
         Assert.False(File.Exists(before), "the PNG this bake wrote last time is still there");
         Assert.False(File.Exists(AssetMetaFile.PathFor(before)), "its sidecar is still there");
-        Assert.Contains(set.Warnings, warning => warning.Contains(".ktx2", StringComparison.Ordinal));
-        Assert.Contains(set.Warnings, warning => warning.Contains("removed", StringComparison.Ordinal));
+        Assert.Contains(set.Warnings, static warning => warning.Contains(".ktx2", StringComparison.Ordinal));
+        Assert.Contains(set.Warnings, static warning => warning.Contains("removed", StringComparison.Ordinal));
     }
 
     /// <summary>
@@ -371,9 +377,7 @@ public sealed class MaterialBakeAssetTests : IDisposable {
 
         var set = new ProjectMaterialBaker(project).Write(
             "Rock",
-            MaterialBake.Encode(
-                new Dictionary<MaterialMapUsage, Bitmap> { [MaterialMapUsage.BaseColor] = Wide(30) }
-            ),
+            MaterialBake.Encode(new Dictionary<MaterialMapUsage, Bitmap> { [MaterialMapUsage.BaseColor] = Wide(30) }),
             Record()
         );
 
@@ -383,15 +387,19 @@ public sealed class MaterialBakeAssetTests : IDisposable {
         // ⚠ And the id every scene resolved that texture through is still on disk. Deleting the
         // sidecar is what turned an orphan into destroyed data.
         Assert.Equal(Asset(42), AssetMetaFile.ReadFile(AssetMetaFile.PathFor(authored)).Guid);
-        Assert.Contains(set.Warnings, warning => warning.Contains("LEFT IN PLACE", StringComparison.Ordinal));
+        Assert.Contains(set.Warnings, static warning => warning.Contains("LEFT IN PLACE", StringComparison.Ordinal));
     }
 
     /// <summary>
     ///     A re-bake that stops producing an output removes the file it left under this material's name.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b><see href="https://github.com/Rikarin/Vixen/issues/726" />, and the same ownership check
-    ///     answers it.</b> The dropped target's digest is in the material's sidecar and the file still
+    ///     ⚠
+    ///     <b>
+    ///         <see href="https://github.com/Rikarin/Vixen/issues/726" />, and the same ownership check
+    ///         answers it.
+    ///     </b>
+    ///     The dropped target's digest is in the material's sidecar and the file still
     ///     hashes to it, so this bake wrote it and may take it away. Left behind it is worse than an
     ///     orphan: <c>Provenance</c> drops the digest key with the output, so the next bake would not
     ///     even call it painted.
@@ -420,8 +428,8 @@ public sealed class MaterialBakeAssetTests : IDisposable {
         Assert.False(File.Exists(orm), "the orm map of a bake that no longer produces one is still there");
         Assert.False(File.Exists(AssetMetaFile.PathFor(orm)));
         Assert.False(File.Exists(opacity));
-        Assert.Contains(set.Warnings, warning => warning.Contains("orm", StringComparison.Ordinal));
-        Assert.Contains(set.Warnings, warning => warning.Contains("opacity", StringComparison.Ordinal));
+        Assert.Contains(set.Warnings, static warning => warning.Contains("orm", StringComparison.Ordinal));
+        Assert.Contains(set.Warnings, static warning => warning.Contains("opacity", StringComparison.Ordinal));
 
         // And the material no longer names them, which is the half that was already right.
         Assert.Single(YamlSerializer.Parse<MaterialContent>(File.ReadAllText(Vxmat(project, "Strip"))).Textures);
@@ -451,12 +459,12 @@ public sealed class MaterialBakeAssetTests : IDisposable {
                 new Dictionary<MaterialMapUsage, Bitmap> { [MaterialMapUsage.BaseColor] = Flat(4, 30) }
             ),
             Record(),
-            force: true
+            true
         );
 
         Assert.True(File.Exists(orm), "a map somebody painted was deleted because the bake was forced");
         Assert.Equal(99, PngCodec.Decode(File.ReadAllBytes(orm)).Pixels[0]);
-        Assert.Contains(set.Warnings, warning => warning.Contains("LEFT IN PLACE", StringComparison.Ordinal));
+        Assert.Contains(set.Warnings, static warning => warning.Contains("LEFT IN PLACE", StringComparison.Ordinal));
     }
 
     /// <summary>
@@ -486,7 +494,7 @@ public sealed class MaterialBakeAssetTests : IDisposable {
         var set = baker.Write("Strip", wide, Record());
 
         Assert.True(File.Exists(foreign), "a file nothing proves the bake wrote was deleted");
-        Assert.Contains(set.Warnings, warning => warning.Contains("LEFT IN PLACE", StringComparison.Ordinal));
+        Assert.Contains(set.Warnings, static warning => warning.Contains("LEFT IN PLACE", StringComparison.Ordinal));
     }
 
     /// <summary>
@@ -494,8 +502,12 @@ public sealed class MaterialBakeAssetTests : IDisposable {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b><see href="https://github.com/Rikarin/Vixen/issues/724" />, and the input is a
-    ///         sidecar a scan refuses to touch.</b> <c>AssetDatabase</c> will not re-create a
+    ///         ⚠
+    ///         <b>
+    ///             <see href="https://github.com/Rikarin/Vixen/issues/724" />, and the input is a
+    ///             sidecar a scan refuses to touch.
+    ///         </b>
+    ///         <c>AssetDatabase</c> will not re-create a
     ///         <c>.meta</c> whose GUID it cannot read — minting a new one would break every reference —
     ///         so the file is ignored, the read-back misses, and the bake used to record
     ///         <c>AssetReference.Null</c> and carry on.
@@ -639,7 +651,7 @@ public sealed class MaterialBakeAssetTests : IDisposable {
         var project = Project();
         var baked = new ProjectMaterialBaker(project).Write("ShipHull", WithHeight(), Record());
         var unrelated = "ShipHull_2 already carried - !ParallaxOcclusion and kept it.";
-        var set = baked with { Warnings = [.. baked.Warnings, unrelated] };
+        var set = baked with { Warnings = [..baked.Warnings, unrelated] };
 
         var still = MaterialBakeParallax.Requested(set, out var refused);
 
@@ -684,18 +696,16 @@ public sealed class MaterialBakeAssetTests : IDisposable {
         // add it — and through the file rather than through the object, because that is the route.
         File.WriteAllText(
             file,
-            YamlSerializer.ToYaml(
-                first with { Features = [new ParallaxOcclusionFeature(), .. first.Features] }
-            )
+            YamlSerializer.ToYaml(first with { Features = [new ParallaxOcclusionFeature(), ..first.Features] })
         );
 
-        var again = baker.Write("ShipHull", WithHeight(20), Record(), force: true);
+        var again = baker.Write("ShipHull", WithHeight(20), Record(), true);
         var written = YamlSerializer.Parse<MaterialContent>(File.ReadAllText(file));
 
-        Assert.Contains(written.Features, feature => feature is ParallaxOcclusionFeature);
+        Assert.Contains(written.Features, static feature => feature is ParallaxOcclusionFeature);
         Assert.DoesNotContain(
             again.Warnings,
-            warning => warning.Contains("ParallaxOcclusion", StringComparison.Ordinal)
+            static warning => warning.Contains("ParallaxOcclusion", StringComparison.Ordinal)
         );
     }
 

@@ -33,7 +33,7 @@ public sealed class InjectingTransport : ITransport {
     ///     buffer of exactly this size and frames outgoing payloads into it, so a cap below what the
     ///     fuzzer produces would make the harness the thing that refused the packet.
     /// </remarks>
-    public TransportCapabilities Capabilities { get; } = new(MaxPayloadBytes: 2048, IsInProcess: true, IsLossy: true);
+    public TransportCapabilities Capabilities { get; } = new(2048, true, true);
 
     /// <inheritdoc />
     public TransportState ServerState { get; private set; }
@@ -65,9 +65,7 @@ public sealed class InjectingTransport : ITransport {
     /// <inheritdoc />
     public void StopClient() {
         ClientState = TransportState.Stopped;
-        queue.Enqueue(
-            new(DeliveryKind.Disconnected, TransportRole.Client, ConnectionId.None, Channel.Reliable, [], 0)
-        );
+        queue.Enqueue(new(DeliveryKind.Disconnected, TransportRole.Client, ConnectionId.None, Channel.Reliable, [], 0));
     }
 
     /// <inheritdoc />
@@ -133,7 +131,12 @@ public sealed class InjectingTransport : ITransport {
                     break;
 
                 default:
-                    events.OnData(delivery.Role, delivery.Connection, delivery.Channel, delivery.Payload.AsSpan(0, delivery.Length));
+                    events.OnData(
+                        delivery.Role,
+                        delivery.Connection,
+                        delivery.Channel,
+                        delivery.Payload.AsSpan(0, delivery.Length)
+                    );
 
                     break;
             }

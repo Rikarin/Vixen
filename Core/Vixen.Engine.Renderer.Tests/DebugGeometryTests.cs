@@ -64,8 +64,8 @@ public sealed class DebugGeometryTests {
 
         // Pixels, unchanged and un-projected: the projection is a matrix the renderer pushes, so a
         // builder that pre-transformed here would be projecting twice.
-        Assert.Equal(new Vector3(10f, 20f, 0f), geometry.Screen[0].Position);
-        Assert.Equal(new Vector3(30f, 40f, 0f), geometry.Screen[1].Position);
+        Assert.Equal(new(10f, 20f, 0f), geometry.Screen[0].Position);
+        Assert.Equal(new(30f, 40f, 0f), geometry.Screen[1].Position);
     }
 
     /// <summary>A build is a rebuild: nothing survives from the frame before.</summary>
@@ -84,7 +84,7 @@ public sealed class DebugGeometryTests {
     [Fact]
     public void ALabelBecomesStrokesInTheWorldBuffer() {
         var draw = new DebugDraw();
-        draw.Text(Vector3.Zero, "A", Color4.White, size: 1f);
+        draw.Text(Vector3.Zero, "A", Color4.White, 1f);
 
         var geometry = new DebugGeometry();
         geometry.Build(draw, Facing);
@@ -101,7 +101,7 @@ public sealed class DebugGeometryTests {
     [Fact]
     public void ALabelIsNotUpsideDown() {
         var draw = new DebugDraw();
-        draw.Text(Vector3.Zero, "I", Color4.White, size: 1f);
+        draw.Text(Vector3.Zero, "I", Color4.White, 1f);
 
         var geometry = new DebugGeometry();
         geometry.Build(draw, Facing);
@@ -124,7 +124,7 @@ public sealed class DebugGeometryTests {
     [Fact]
     public void ALabelFacesTheCamera() {
         var draw = new DebugDraw();
-        draw.Text(Vector3.Zero, "H", Color4.White, size: 1f);
+        draw.Text(Vector3.Zero, "H", Color4.White, 1f);
 
         // Looking down +X instead of −Z: the label's plane has to turn with it, so no vertex may
         // have an X component.

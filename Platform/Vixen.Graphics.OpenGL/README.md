@@ -64,7 +64,7 @@ nothing in them but transcription, which a compiler checks. What they need inste
 >
 > ⚠ It cannot be developed here either, and for a reason below the missing `libEGL`: `GraphicsHost`
 > refuses any context under 4.5 core or GLES 3.0 because there is no `glClipControl` below it, and
-> **macOS caps OpenGL at 4.1** (`Tools/Vixen.App/GraphicsHost.cs:317`). A GL device cannot come up on
+> **macOS caps OpenGL at 4.1** (`Tools/Vixen.App/GraphicsHost.cs:319`). A GL device cannot come up on
 > this machine even with a driver installed, so the guard's *skip* is all that is checkable here.
 
 The same seam is repeated one layer out for EGL. What can be wrong about bringing a context up is the

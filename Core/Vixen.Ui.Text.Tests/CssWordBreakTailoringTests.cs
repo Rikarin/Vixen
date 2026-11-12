@@ -20,8 +20,12 @@ namespace Vixen.Ui.Text.Tests;
 ///         pieces it segments into.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Seventeen of ICU4X's twenty-two active assertions are here and five are not, and the
-///         five are one reason rather than five.</b> Thai, Lao and Khmer have no spaces and no
+///         ⚠
+///         <b>
+///             Seventeen of ICU4X's twenty-two active assertions are here and five are not, and the
+///             five are one reason rather than five.
+///         </b>
+///         Thai, Lao and Khmer have no spaces and no
 ///         algorithmic word boundaries, so ICU4X segments them with a <i>dictionary</i> — every one of
 ///         those cases is driven through <c>LineSegmenter::new_dictionary</c> and the two loaders
 ///         beside it. <c>LineBreaker</c> is UAX #14 and property tables; there is no dictionary in
@@ -33,8 +37,12 @@ namespace Vixen.Ui.Text.Tests;
 ///         rather than left to this paragraph.
 ///     </para>
 ///     <para>
-///         ⚠ <b>This paragraph used to end "and no amount of <c>word-break</c> changes that", and
-///         that clause is wrong.</b> <c>break-all</c> does not ask what script a character belongs
+///         ⚠
+///         <b>
+///             This paragraph used to end "and no amount of <c>word-break</c> changes that", and
+///             that clause is wrong.
+///         </b>
+///         <c>break-all</c> does not ask what script a character belongs
 ///         to, so Thai and Lao break at every unit here with no dictionary anywhere in it — see
 ///         <see cref="Break_all_reaches_inside_a_dictionary_script_without_one" />. What the three
 ///         <c>normal</c> cases really rest on is
@@ -131,8 +139,12 @@ public class CssWordBreakTailoringTests {
     ///     finding. Asserting the <i>difference</i> on the cases that have one is what makes the two
     ///     theories above evidence about the tailoring rather than about the algorithm under it.
     ///     <para>
-    ///         ⚠ <b>Seven of the seventeen are deliberately not in this list, and writing out why was
-    ///         worth more than the guard.</b> UAX #14 already breaks between two ideographs, two
+    ///         ⚠
+    ///         <b>
+    ///             Seven of the seventeen are deliberately not in this list, and writing out why was
+    ///             worth more than the guard.
+    ///         </b>
+    ///         UAX #14 already breaks between two ideographs, two
     ///         Hangul syllables and two emoji — so <c>break-all</c> on <c>日本語</c>, <c>한글읾</c> and
     ///         <c>💖💔</c> asserts that the mode does not <i>change</i> those, and <c>X.</c> that it
     ///         does not break LB13. In the other direction <c>keep-all</c> on <c>latin</c>,
@@ -161,8 +173,12 @@ public class CssWordBreakTailoringTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A sentence saying "Thai needs a dictionary" is a claim about this repository and
-    ///         nothing was checking it.</b> This is what the claim asserts: a run of a script that
+    ///         ⚠
+    ///         <b>
+    ///             A sentence saying "Thai needs a dictionary" is a claim about this repository and
+    ///             nothing was checking it.
+    ///         </b>
+    ///         This is what the claim asserts: a run of a script that
     ///         writes without spaces has <i>no interior break opportunity at all</i> under UAX #14 as
     ///         written, because LB1 resolves Complex Context (SA) to AL and a run of AL has no rule
     ///         that breaks it. Not "Vixen segments Thai badly" — Vixen does not segment it, which is
@@ -198,8 +214,12 @@ public class CssWordBreakTailoringTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The remark below said "no amount of <c>word-break</c> changes that" and it is
-    ///         wrong for two of the five.</b> CSS Text §5.2's <c>break-all</c> breaks between
+    ///         ⚠
+    ///         <b>
+    ///             The remark below said "no amount of <c>word-break</c> changes that" and it is
+    ///             wrong for two of the five.
+    ///         </b>
+    ///         CSS Text §5.2's <c>break-all</c> breaks between
     ///         typographic character units and does not ask what script they are, so Thai and Lao
     ///         break at every unit here and the algorithm needs no dictionary to say so. The two
     ///         <c>break-all</c> and <c>keep-all</c> entries among the five are therefore absent for a
@@ -207,8 +227,12 @@ public class CssWordBreakTailoringTests {
     ///         pieces that come from a dictionary, not Vixen's answer that is missing.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Khmer breaks at four places and not eight, and that is UAX #29 rather than a
-    ///         defect.</b> U+17D2 KHMER SIGN COENG is a nonspacing mark, so an extended grapheme
+    ///         ⚠
+    ///         <b>
+    ///             Khmer breaks at four places and not eight, and that is UAX #29 rather than a
+    ///             defect.
+    ///         </b>
+    ///         U+17D2 KHMER SIGN COENG is a nonspacing mark, so an extended grapheme
     ///         cluster binds it to the consonant <i>before</i> it — <c>ខ្</c> and then <c>មែ</c> —
     ///         which is not how the script is read. UAX #29 says in as many words that Khmer coeng
     ///         needs a tailoring; this is that gap showing through, and it is upstream of anything
@@ -229,9 +253,13 @@ public class CssWordBreakTailoringTests {
     ///     own remarks and was the one thing in it nothing checked.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b><see cref="TheDictionaryCases" /> was a <c>public static readonly</c> field with no
-    ///     reader — this repository's commonest defect, in a test file rather than in production
-    ///     code.</b> Its own remark said it was "a list in a test rather than a comment in one, so
+    ///     ⚠
+    ///     <b>
+    ///         <see cref="TheDictionaryCases" /> was a <c>public static readonly</c> field with no
+    ///         reader — this repository's commonest defect, in a test file rather than in production
+    ///         code.
+    ///     </b>
+    ///     Its own remark said it was "a list in a test rather than a comment in one, so
     ///     that it is read", and nothing read it: a case quietly dropped from it, or a transcribed
     ///     row quietly dropped from a theory above, would have left the class remark's "seventeen of
     ///     ICU4X's twenty-two" true of nothing. Counting the rows off the two theories is what makes
@@ -250,7 +278,8 @@ public class CssWordBreakTailoringTests {
     /// <param name="method">The theory's name.</param>
     /// <returns>Its row count.</returns>
     static int RowsOf(string method) =>
-        typeof(CssWordBreakTailoringTests).GetMethod(method)!.GetCustomAttributes(typeof(InlineDataAttribute), false).Length;
+        typeof(CssWordBreakTailoringTests).GetMethod(method)!.GetCustomAttributes(typeof(InlineDataAttribute), false)
+            .Length;
 
     /// <summary>
     ///     The five ICU4X cases that need a dictionary segmenter, recorded rather than transcribed.
@@ -276,8 +305,12 @@ public class CssWordBreakTailoringTests {
 
     /// <summary>Splits a string at its break opportunities, joined by <c>|</c>.</summary>
     /// <remarks>
-    ///     ⚠ <b>Pieces rather than offsets, because that is what ICU4X asserts and what a failure has
-    ///     to be readable as.</b> A list of integers that is wrong by one says nothing about which
+    ///     ⚠
+    ///     <b>
+    ///         Pieces rather than offsets, because that is what ICU4X asserts and what a failure has
+    ///         to be readable as.
+    ///     </b>
+    ///     A list of integers that is wrong by one says nothing about which
     ///     character moved.
     /// </remarks>
     static string Segment(string text, WordBreakMode mode) {

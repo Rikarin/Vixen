@@ -45,9 +45,11 @@ public sealed class ProjectMeshBaker(EditorProject project, string folder = "Blo
     public string Folder { get; } = folder;
 
     /// <summary>The last file this wrote, as a full path, or null if it has written none.</summary>
-    /// <remarks>What a status line reports and what a test asserts on: a bake that silently wrote
+    /// <remarks>
+    ///     What a status line reports and what a test asserts on: a bake that silently wrote
     ///     nothing and a bake that wrote something look identical from the return value alone when
-    ///     the database has not caught up.</remarks>
+    ///     the database has not caught up.
+    /// </remarks>
     public string? Written { get; private set; }
 
     /// <inheritdoc />

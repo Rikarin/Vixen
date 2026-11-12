@@ -126,8 +126,12 @@ enum GradientRefusal : byte {
 
 /// <summary>Which corner a <c>to bottom right</c> style direction names.</summary>
 /// <remarks>
-///     ⚠ <b>A corner is kept as a corner rather than turned into an angle at parse time, because the
-///     angle it means depends on the box.</b> CSS defines <c>to bottom right</c> as the direction whose
+///     ⚠
+///     <b>
+///         A corner is kept as a corner rather than turned into an angle at parse time, because the
+///         angle it means depends on the box.
+///     </b>
+///     CSS defines <c>to bottom right</c> as the direction whose
 ///     perpendicular passes through the two *other* corners, which is 45° only when the box is square;
 ///     on a wide button it is much shallower. The box's size is known where the draw command is built
 ///     and not where the value is parsed, so the resolution happens there — see
@@ -158,8 +162,12 @@ enum GradientCorner : byte {
 ///         independent keywords and <c>circle closest-side</c> is a real declaration.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The default is <see cref="FarthestCorner" />, which is CSS's initial value and also
-///         the one the shader's parameterisation lands on for free</b> — see
+///         ⚠
+///         <b>
+///             The default is <see cref="FarthestCorner" />, which is CSS's initial value and also
+///             the one the shader's parameterisation lands on for free
+///         </b>
+///         — see
 ///         <see cref="BackgroundGradient.Reach" />. That is why the other three arrived with no new
 ///         lane and no shader change, which is the half of <c>GradientRefusal.Extent</c>'s stated
 ///         blocker that turned out to be false.
@@ -193,7 +201,7 @@ readonly record struct GradientOffset(float Fraction, float Pixels) {
     /// <summary>Where this sits along an extent, in pixels from its near edge.</summary>
     /// <param name="extent">The extent, in pixels.</param>
     /// <returns>The position.</returns>
-    public float Resolve(float extent) => (Fraction * extent) + Pixels;
+    public float Resolve(float extent) => Fraction * extent + Pixels;
 }
 
 /// <summary>Where a round gradient's <c>at</c> puts its centre.</summary>
@@ -228,8 +236,12 @@ readonly record struct GradientPoint(GradientOffset X, GradientOffset Y) {
 /// <param name="Centre">
 ///     Where an <c>at &lt;position&gt;</c> puts a round gradient's centre, or null for CSS's default.
 ///     <para>
-///         ⚠ <b>Null rather than <see cref="GradientPoint.Middle" />, and the difference is a lane in
-///         <c>UiShape</c> rather than a nicety.</b> An unstated centre is the one case the record can
+///         ⚠
+///         <b>
+///             Null rather than <see cref="GradientPoint.Middle" />, and the difference is a lane in
+///             <c>UiShape</c> rather than a nicety.
+///         </b>
+///         An unstated centre is the one case the record can
 ///         say nothing about and let the shader keep the arrangement it had — see <c>UiShape.Paint</c>,
 ///         whose zero means "the ramp is the box". Defaulting to the middle here would make every
 ///         gradient in the interface write two more lanes to describe the arrangement they already
@@ -244,8 +256,12 @@ readonly record struct GradientPoint(GradientOffset X, GradientOffset Y) {
 /// <param name="Circle">
 ///     Whether the ending shape was written <c>circle</c> rather than <c>ellipse</c>.
 ///     <para>
-///         ⚠ <b>A bool beside an enum rather than eight enum members, because CSS's two keywords are
-///         independent and either may be written without the other.</b> <c>circle</c> alone is a
+///         ⚠
+///         <b>
+///             A bool beside an enum rather than eight enum members, because CSS's two keywords are
+///             independent and either may be written without the other.
+///         </b>
+///         <c>circle</c> alone is a
 ///         farthest-corner circle and <c>closest-side</c> alone is a closest-side ellipse; folding
 ///         them into one value would make a family that sets only the shape have to know the size,
 ///         which is exactly the cascade problem <c>--tw-*</c> fragments exist to avoid one layer up.
@@ -273,21 +289,22 @@ readonly record struct BackgroundGradient(
     /// <summary>A refusal, with no colours.</summary>
     /// <param name="reason">Why.</param>
     /// <returns>The refusal.</returns>
-    public static BackgroundGradient Refused(GradientRefusal reason) => new(
-        default,
-        default,
-        default,
-        false,
-        GradientStops.Default,
-        GradientShape.None,
-        GradientSpace.Srgb,
-        0f,
-        GradientCorner.None,
-        null,
-        GradientExtent.FarthestCorner,
-        false,
-        reason
-    );
+    public static BackgroundGradient Refused(GradientRefusal reason) =>
+        new(
+            default,
+            default,
+            default,
+            false,
+            GradientStops.Default,
+            GradientShape.None,
+            GradientSpace.Srgb,
+            0f,
+            GradientCorner.None,
+            null,
+            GradientExtent.FarthestCorner,
+            false,
+            reason
+        );
 
     /// <summary>How far the ramp reaches along each axis, from a centre inside a box.</summary>
     /// <param name="half">Half the box the ramp is drawn in.</param>
@@ -295,8 +312,12 @@ readonly record struct BackgroundGradient(
     /// <returns>The reach pair the shader's <c>paint.zw</c> carries.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The closed form for all eight endings, in one place because two callers compute
-    ///         it and must not disagree.</b> <c>DrawListBuilder.RampFrame</c> works in a background
+    ///         ⚠
+    ///         <b>
+    ///             The closed form for all eight endings, in one place because two callers compute
+    ///             it and must not disagree.
+    ///         </b>
+    ///         <c>DrawListBuilder.RampFrame</c> works in a background
     ///         tile and <c>MaskFrame</c> in the mask box, so they cannot share their surroundings —
     ///         but a <c>bg-radial-*</c> and a <c>mask-radial-*</c> written with the same ending have
     ///         to line up on the pixel, and before this they shared a derivation in prose and nothing
@@ -310,8 +331,11 @@ readonly record struct BackgroundGradient(
     ///         corresponding side ending's aspect ratio and passes through that corner, and a corner
     ///         maximises each axis independently — so it is that pair scaled by <c>√(1 + 1)</c>,
     ///         whatever the centre. The four ellipse radii are therefore <c>cs</c>, <c>fs</c>,
-    ///         <c>√2·cs</c> and <c>√2·fs</c>, and <b>the last of them is why the default reduces to
-    ///         <c>fs</c> and why no shader had to learn a second convention.</b>
+    ///         <c>√2·cs</c> and <c>√2·fs</c>, and
+    ///         <b>
+    ///             the last of them is why the default reduces to
+    ///             <c>fs</c> and why no shader had to learn a second convention.
+    ///         </b>
     ///     </para>
     ///     <para>
     ///         ⚠ <b>A circle is not the ellipse case with equal <c>half</c>.</b> Its radius is one
@@ -347,7 +371,7 @@ readonly record struct BackgroundGradient(
                 _ => far.Length()
             };
 
-            radii = new Vector2(radius, radius);
+            radii = new(radius, radius);
         }
 
         return radii / Root2;
@@ -368,8 +392,12 @@ readonly record struct BackgroundGradient(
     /// <returns>The axis, pointing at <see cref="End" />. Zero when there is nothing to draw.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The axis points at the <i>end</i> colour, and the shader's <c>t</c> runs from zero
-    ///         against it to one along it.</b> Backwards, this paints every gradient in the interface
+    ///         ⚠
+    ///         <b>
+    ///             The axis points at the <i>end</i> colour, and the shader's <c>t</c> runs from zero
+    ///             against it to one along it.
+    ///         </b>
+    ///         Backwards, this paints every gradient in the interface
     ///         upside down — which is a mistake that looks like a design choice and survives review.
     ///     </para>
     ///     <para>
@@ -400,7 +428,7 @@ readonly record struct BackgroundGradient(
             // and the same formula produces it. That is deliberate rather than reuse for its own
             // sake: the shader recovers the angle with `atan2(x, -y)`, which inverts exactly this,
             // so `from 45deg` survives the round trip through a lane that already existed.
-            return new Vector2(MathF.Sin(Angle), -MathF.Cos(Angle));
+            return new(MathF.Sin(Angle), -MathF.Cos(Angle));
         }
 
         // ⚠ <b>The swap is the whole corner rule.</b> The perpendicular to the axis has to pass
@@ -448,8 +476,12 @@ readonly record struct BackgroundGradient(
 ///         waiting for the first hand-written rule.
 ///     </para>
 ///     <para>
-///         ⚠ <b>And the same is true of the <i>positions</i>, which is the trap that catches the
-///         second person here.</b> Nothing normalises them either, so <c>from-10%</c> composes into a
+///         ⚠
+///         <b>
+///             And the same is true of the <i>positions</i>, which is the trap that catches the
+///             second person here.
+///         </b>
+///         Nothing normalises them either, so <c>from-10%</c> composes into a
 ///         stop reading <c>10%</c> while a value that went through ExCSS may have been rewritten —
 ///         and a <c>--tw-gradient-from-position</c> that nobody set arrives as the fragment's own
 ///         initial text. Every position is therefore read from text with the same code path whatever
@@ -472,8 +504,12 @@ sealed class GradientReader {
 
     /// <summary>The most layers a <c>mask-image</c> list may have.</summary>
     /// <remarks>
-    ///     ⚠ <b>Six is what the utility layer can generate and eight is what is allowed, and the gap
-    ///     is deliberate.</b> Tailwind's widest mask is four edge ramps under <c>--tw-mask-linear</c>
+    ///     ⚠
+    ///     <b>
+    ///         Six is what the utility layer can generate and eight is what is allowed, and the gap
+    ///         is deliberate.
+    ///     </b>
+    ///     Tailwind's widest mask is four edge ramps under <c>--tw-mask-linear</c>
     ///     plus a radial and a conic, which is six; a hand-written <c>.vcss</c> may reasonably want
     ///     one or two more. Past that the list is refused outright rather than truncated, because
     ///     truncation would silently drop the layers at one end and the picture would be a mask that
@@ -520,14 +556,22 @@ sealed class GradientReader {
     /// </returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The same <see cref="Parse" /> per layer, which is what keeps a one-layer list and
-    ///         a bare <c>mask-image</c> the same picture.</b> A second parser tuned for lists would be
+    ///         ⚠
+    ///         <b>
+    ///             The same <see cref="Parse" /> per layer, which is what keeps a one-layer list and
+    ///             a bare <c>mask-image</c> the same picture.
+    ///         </b>
+    ///         A second parser tuned for lists would be
     ///         a second set of refusals to keep in step with this one, and the layer syntax is not a
     ///         different production — it is this production, several times, separated by commas.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The split is at depth zero, so the commas <i>inside</i> a gradient's own argument
-    ///         list are not layer separators.</b> <c>linear-gradient(black, transparent)</c> is one
+    ///         ⚠
+    ///         <b>
+    ///             The split is at depth zero, so the commas <i>inside</i> a gradient's own argument
+    ///             list are not layer separators.
+    ///         </b>
+    ///         <c>linear-gradient(black, transparent)</c> is one
     ///         layer with two stops and not two layers of nonsense, and a naive
     ///         <c>text.Split(',')</c> here would turn every existing single-layer mask in the engine
     ///         into a list of unparseable fragments.
@@ -643,7 +687,16 @@ sealed class GradientReader {
         if (!LooksLikeStop(first)) {
             stopsFrom = 1;
 
-            var prelude = ReadPrelude(first, shape, ref angle, ref corner, ref space, ref centre, ref extent, ref circle);
+            var prelude = ReadPrelude(
+                first,
+                shape,
+                ref angle,
+                ref corner,
+                ref space,
+                ref centre,
+                ref extent,
+                ref circle
+            );
             if (prelude != GradientRefusal.None) {
                 return BackgroundGradient.Refused(prelude);
             }
@@ -664,7 +717,13 @@ sealed class GradientReader {
         Span<bool> stated = stackalloc bool[MostStops];
 
         for (var i = 0; i < stops; i++) {
-            if (!ReadStop(arguments[parts[stopsFrom + i]], out colours[i], out positions[i], out stated[i], out var why)) {
+            if (!ReadStop(
+                    arguments[parts[stopsFrom + i]],
+                    out colours[i],
+                    out positions[i],
+                    out stated[i],
+                    out var why
+                )) {
                 return BackgroundGradient.Refused(why);
             }
         }
@@ -673,12 +732,12 @@ sealed class GradientReader {
 
         var hasVia = stops == MostStops;
 
-        return new BackgroundGradient(
+        return new(
             colours[0],
             hasVia ? colours[1] : default,
             colours[stops - 1],
             hasVia,
-            new GradientStops(positions[0], hasVia ? positions[1] : 0.5f, positions[stops - 1]),
+            new(positions[0], hasVia ? positions[1] : 0.5f, positions[stops - 1]),
             shape,
             space,
             angle,
@@ -751,8 +810,8 @@ sealed class GradientReader {
         }
 
         foreach (var keyword in (ReadOnlySpan<string>) [
-            "to ", "in ", "from ", "at ", "circle", "ellipse", "closest-", "farthest-"
-        ]) {
+                     "to ", "in ", "from ", "at ", "circle", "ellipse", "closest-", "farthest-"
+                 ]) {
             if (text.StartsWith(keyword, StringComparison.OrdinalIgnoreCase)) {
                 return false;
             }
@@ -983,8 +1042,12 @@ sealed class GradientReader {
     /// <param name="text">The computed value.</param>
     /// <returns>The position, or null where it is not one this engine resolves.</returns>
     /// <remarks>
-    ///     ⚠ <b>The same parser as <c>at &lt;position&gt;</c>, deliberately and for the reason the mask
-    ///     reader shares this whole class.</b> <c>background-position: 25% 75%</c> and
+    ///     ⚠
+    ///     <b>
+    ///         The same parser as <c>at &lt;position&gt;</c>, deliberately and for the reason the mask
+    ///         reader shares this whole class.
+    ///     </b>
+    ///     <c>background-position: 25% 75%</c> and
     ///     <c>radial-gradient(at 25% 75%, …)</c> are the same grammar in CSS's own specification, and
     ///     two readers of it would be two sets of keyword handling to keep in step — where the failure
     ///     is a centre that lands in a different place depending on which of the two an author reached
@@ -1003,8 +1066,12 @@ sealed class GradientReader {
     /// <returns>The tile's size, or null where it is the whole positioning area.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b><c>auto</c>, <c>cover</c> and <c>contain</c> all return null, and that is CSS
-    ///         rather than a gap.</b> Backgrounds 3 § 3.9 resolves all three against the image's
+    ///         ⚠
+    ///         <b>
+    ///             <c>auto</c>, <c>cover</c> and <c>contain</c> all return null, and that is CSS
+    ///             rather than a gap.
+    ///         </b>
+    ///         Backgrounds 3 § 3.9 resolves all three against the image's
     ///         intrinsic dimensions and ratio; a gradient has neither, so <c>auto</c> is 100%,
     ///         <c>contain</c> is the area and <c>cover</c> is the area. For the only kind of
     ///         <c>background-image</c> this engine paints the three are one picture — which is also
@@ -1039,7 +1106,7 @@ sealed class GradientReader {
             if (word.Equals("auto", StringComparison.OrdinalIgnoreCase)
                 || word.Equals("cover", StringComparison.OrdinalIgnoreCase)
                 || word.Equals("contain", StringComparison.OrdinalIgnoreCase)) {
-                offset = new GradientOffset(1f, 0f);
+                offset = new(1f, 0f);
 
                 return true;
             }
@@ -1055,8 +1122,12 @@ sealed class GradientReader {
     /// <returns>Why it was refused, or <see cref="GradientRefusal.None" />.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>One and two components are the forms anybody writes and four is the edge-offset
-    ///         form; three is refused rather than guessed.</b> CSS Values 4 § 8.2 keeps a three-value
+    ///         ⚠
+    ///         <b>
+    ///             One and two components are the forms anybody writes and four is the edge-offset
+    ///             form; three is refused rather than guessed.
+    ///         </b>
+    ///         CSS Values 4 § 8.2 keeps a three-value
     ///         syntax only for <c>background-position</c>'s legacy grammar, where it means an edge, an
     ///         offset and a second edge — and the value it leaves out is the one whose absence changes
     ///         which axis the offset belongs to. Guessing that is how a centre lands on the wrong side.
@@ -1104,7 +1175,7 @@ sealed class GradientReader {
                 }
 
                 if (firstAxis == PositionAxis.Vertical && secondAxis == PositionAxis.Horizontal) {
-                    point = new GradientPoint(second, first);
+                    point = new(second, first);
 
                     return GradientRefusal.None;
                 }
@@ -1114,7 +1185,7 @@ sealed class GradientReader {
                     return GradientRefusal.Extent;
                 }
 
-                point = new GradientPoint(first, second);
+                point = new(first, second);
 
                 return GradientRefusal.None;
             }
@@ -1125,7 +1196,7 @@ sealed class GradientReader {
                     return GradientRefusal.Extent;
                 }
 
-                point = new GradientPoint(x, y);
+                point = new(x, y);
 
                 return GradientRefusal.None;
             }
@@ -1152,7 +1223,7 @@ sealed class GradientReader {
         axis = PositionAxis.Either;
 
         if (word.Equals("center", StringComparison.OrdinalIgnoreCase)) {
-            offset = new GradientOffset(0.5f, 0f);
+            offset = new(0.5f, 0f);
 
             return true;
         }
@@ -1220,7 +1291,7 @@ sealed class GradientReader {
                 return false;
             }
 
-            offset = new GradientOffset(percent / 100f, 0f);
+            offset = new(percent / 100f, 0f);
 
             return true;
         }
@@ -1232,13 +1303,13 @@ sealed class GradientReader {
                 return false;
             }
 
-            offset = new GradientOffset(0f, pixels);
+            offset = new(0f, pixels);
 
             return true;
         }
 
         if (word.Equals("0", StringComparison.Ordinal)) {
-            offset = new GradientOffset(0f, 0f);
+            offset = new(0f, 0f);
 
             return true;
         }
@@ -1304,7 +1375,7 @@ sealed class GradientReader {
 
             if (boundary) {
                 if (start >= 0) {
-                    ranges[count++] = new Range(start, i);
+                    ranges[count++] = new(start, i);
                     start = -1;
                 }
             } else if (start < 0) {
@@ -1373,7 +1444,9 @@ sealed class GradientReader {
 
         corner = top
             ? left ? GradientCorner.TopLeft : GradientCorner.TopRight
-            : left ? GradientCorner.BottomLeft : GradientCorner.BottomRight;
+            : left
+                ? GradientCorner.BottomLeft
+                : GradientCorner.BottomRight;
 
         return GradientRefusal.None;
     }
@@ -1418,16 +1491,24 @@ sealed class GradientReader {
     /// <returns>Whether it is a stop this engine can paint.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Whether a position was stated is carried out separately from what it is, because
-    ///         the two mean different things and zero is a legal answer to both.</b> An omitted first
+    ///         ⚠
+    ///         <b>
+    ///             Whether a position was stated is carried out separately from what it is, because
+    ///             the two mean different things and zero is a legal answer to both.
+    ///         </b>
+    ///         An omitted first
     ///         position and <c>from-0%</c> agree here and stop agreeing the moment a middle stop
     ///         exists: an unstated middle sits halfway between its neighbours, and a stated
     ///         <c>via-0%</c> is a hard edge at the start. Folding them together loses the only thing
     ///         <see cref="Resolve" /> needs to know.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A trailing token that looks numeric and does not parse is a refusal, not part of
-    ///         the colour.</b> <c>#fff 10px</c> and <c>#fff calc(10%)</c> are positions this file
+    ///         ⚠
+    ///         <b>
+    ///             A trailing token that looks numeric and does not parse is a refusal, not part of
+    ///             the colour.
+    ///         </b>
+    ///         <c>#fff 10px</c> and <c>#fff calc(10%)</c> are positions this file
     ///         cannot resolve; folding them back into the colour makes the whole stop fail as
     ///         <see cref="GradientRefusal.Colour" />, which sends the next reader looking at the
     ///         palette. Anything not starting with a digit really is part of a multi-word colour.
@@ -1582,14 +1663,14 @@ sealed class GradientReader {
                     break;
 
                 case ',' when depth == 0:
-                    ranges[count++] = new Range(start, i);
+                    ranges[count++] = new(start, i);
                     start = i + 1;
                     break;
             }
         }
 
         if (start < text.Length && count < ranges.Length) {
-            ranges[count++] = new Range(start, text.Length);
+            ranges[count++] = new(start, text.Length);
         }
 
         return count;

@@ -30,8 +30,11 @@ namespace Vixen.Rendering.Lighting;
 ///         one baked environment closes four of the set's thirteen bindings.
 ///     </para>
 ///     <para>
-///         <b>The same shape as <see cref="GlobalDistanceFieldTexture" /> and
-///         <see cref="IrradianceFieldTexture" />, deliberately.</b> Allocate on the first upload,
+///         <b>
+///             The same shape as <see cref="GlobalDistanceFieldTexture" /> and
+///             <see cref="IrradianceFieldTexture" />, deliberately.
+///         </b>
+///         Allocate on the first upload,
 ///         copy through one staging buffer, transition into <see cref="ResourceState.ShaderRead" />
 ///         and stay there. These are not graph resources — they are named into a descriptor set — so
 ///         nothing else in the frame transitions them and this has to.
@@ -65,8 +68,12 @@ public sealed class EnvironmentTexture : IDisposable {
     ///     The chain is empty, or a level is not half the one above it.
     /// </exception>
     /// <remarks>
-    ///     ⚠ <b>The cube, its view and its sampler are created here rather than on the first upload,
-    ///     and the difference is not tidiness.</b> <see cref="EnvironmentLight" /> holds a
+    ///     ⚠
+    ///     <b>
+    ///         The cube, its view and its sampler are created here rather than on the first upload,
+    ///         and the difference is not tidiness.
+    ///     </b>
+    ///     <see cref="EnvironmentLight" /> holds a
     ///     <see cref="TextureViewHandle" /> rather than a reference to this, so whatever
     ///     <see cref="Apply" /> hands it is what the frame's set is filled with for ever. Creating the
     ///     view lazily meant a light configured at load time held an invalid handle, the writer found
@@ -90,7 +97,7 @@ public sealed class EnvironmentTexture : IDisposable {
             );
         }
 
-        chain = [.. prefiltered];
+        chain = [..prefiltered];
 
         // ⚠ Checked rather than assumed, because the failure is silent: a mip chain whose levels are
         // not successive halves is one the hardware indexes with its own arithmetic, so a rough
@@ -199,7 +206,11 @@ public sealed class EnvironmentTexture : IDisposable {
 
         // ⚠ Undefined only on the first upload. A cube that was copied into and left in ShaderRead is
         // in ShaderRead, and telling the barrier otherwise discards its contents on a tiler.
-        Transition(commands, Uploads == 0 ? ResourceState.Undefined : ResourceState.ShaderRead, ResourceState.CopyDestination);
+        Transition(
+            commands,
+            Uploads == 0 ? ResourceState.Undefined : ResourceState.ShaderRead,
+            ResourceState.CopyDestination
+        );
 
         var offset = 0L;
 
@@ -213,8 +224,8 @@ public sealed class EnvironmentTexture : IDisposable {
                 commands.CopyBufferToTexture(
                     staging,
                     offset,
-                    new TextureRegion(texture, level, face),
-                    new Int3(image.Size, image.Size, 1)
+                    new(texture, level, face),
+                    new(image.Size, image.Size, 1)
                 );
 
                 offset += faceTexels * BytesPerTexel;
@@ -311,10 +322,10 @@ public sealed class EnvironmentTexture : IDisposable {
             var wide = new float[texels.Length * 4];
 
             for (var index = 0; index < texels.Length; index++) {
-                wide[(index * 4) + 0] = texels[index].X;
-                wide[(index * 4) + 1] = texels[index].Y;
-                wide[(index * 4) + 2] = texels[index].Z;
-                wide[(index * 4) + 3] = 1f;
+                wide[index * 4] = texels[index].X;
+                wide[index * 4 + 1] = texels[index].Y;
+                wide[index * 4 + 2] = texels[index].Z;
+                wide[index * 4 + 3] = 1f;
             }
 
             return MemoryMarshal.AsBytes(wide.AsSpan());
@@ -323,10 +334,10 @@ public sealed class EnvironmentTexture : IDisposable {
         var narrow = new Half[texels.Length * 4];
 
         for (var index = 0; index < texels.Length; index++) {
-            narrow[(index * 4) + 0] = (Half)texels[index].X;
-            narrow[(index * 4) + 1] = (Half)texels[index].Y;
-            narrow[(index * 4) + 2] = (Half)texels[index].Z;
-            narrow[(index * 4) + 3] = (Half)1f;
+            narrow[index * 4] = (Half)texels[index].X;
+            narrow[index * 4 + 1] = (Half)texels[index].Y;
+            narrow[index * 4 + 2] = (Half)texels[index].Z;
+            narrow[index * 4 + 3] = (Half)1f;
         }
 
         return MemoryMarshal.AsBytes(narrow.AsSpan());
@@ -335,7 +346,7 @@ public sealed class EnvironmentTexture : IDisposable {
     /// <summary>Allocates the cube, the staging buffer, the view and the sampler.</summary>
     void Create() {
         texture = device.CreateTexture(
-            new TextureDescription(
+            new(
                 Format,
                 Size,
                 Size,
@@ -353,7 +364,7 @@ public sealed class EnvironmentTexture : IDisposable {
         view = device.CreateTextureView(texture);
 
         staging = device.CreateBuffer(
-            new BufferDescription(StagingSize, BufferUsage.CopySource, MemoryAccess.HostUpload, "Environment.Staging")
+            new(StagingSize, BufferUsage.CopySource, MemoryAccess.HostUpload, "Environment.Staging")
         );
 
         // MaxLod is the chain's last level rather than the default thousand: a roughness that selects

@@ -228,7 +228,7 @@ public static class GraphInvariants {
     /// </remarks>
     public static string Describe<TPort>(GraphConnectionError error, TPort from, TPort to) =>
         error switch {
-            GraphConnectionError.None => "",
+            GraphConnectionError.None => string.Empty,
             GraphConnectionError.FromNotInGraph => $"{from} is not in this graph.",
             GraphConnectionError.ToNotInGraph => $"{to} is not in this graph.",
             GraphConnectionError.WrongDirection =>

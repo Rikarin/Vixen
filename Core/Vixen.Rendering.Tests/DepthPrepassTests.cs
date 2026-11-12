@@ -113,7 +113,7 @@ public class DepthPrepassTests : IDisposable {
         AddMesh(h);
         Frame(h);
 
-        var bound = device.Recorder!.OfKind(RecordedCommandKind.BindPipeline).Select(c => c.A).Distinct();
+        var bound = device.Recorder!.OfKind(RecordedCommandKind.BindPipeline).Select(static c => c.A).Distinct();
 
         Assert.Equal(2, bound.Count());
         Assert.Equal(2, device.Recorder.CountOf(RecordedCommandKind.Draw));
@@ -147,8 +147,11 @@ public class DepthPrepassTests : IDisposable {
     ///         The other side of the test above, and the one that had no headless cover: an override
     ///         binds <em>fewer</em> sets, never none. A depth-only vertex stage still reads the view's
     ///         matrix out of set 1, so a pass that skipped it draws with
-    ///         <c>[DepthOnly/ShadowCaster] statically uses descriptor set 1, but ... a descriptor was
-    ///         never bound</c> — which until now only a device fixture could say.
+    ///         <c>
+    ///             [DepthOnly/ShadowCaster] statically uses descriptor set 1, but ... a descriptor was
+    ///             never bound
+    ///         </c>
+    ///         — which until now only a device fixture could say.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>The variant carries no set layouts at all, and that is the case under test.</b> A
@@ -162,7 +165,9 @@ public class DepthPrepassTests : IDisposable {
     [Fact]
     public void The_override_still_binds_the_view_set_it_draws_under() {
         using var h = Build();
-        using var constants = new ViewConstants(device) { Descriptors = allocator, Layout = viewLayout };
+        using var constants = new ViewConstants(device);
+        constants.Descriptors = allocator;
+        constants.Layout = viewLayout;
 
         h.PrepassDraw.Constants = constants;
         AddMesh(h);
@@ -170,12 +175,11 @@ public class DepthPrepassTests : IDisposable {
 
         var stream = device.Recorder!.Commands.ToList();
 
-        var bind = stream.FindIndex(
-            command => command.Kind == RecordedCommandKind.BindDescriptorSet
-                && command.A == (long)DescriptorSetSlot.PerView
+        var bind = stream.FindIndex(static command => command.Kind == RecordedCommandKind.BindDescriptorSet
+            && command.A == (long)DescriptorSetSlot.PerView
         );
 
-        var draw = stream.FindIndex(command => command.Kind == RecordedCommandKind.Draw);
+        var draw = stream.FindIndex(static command => command.Kind == RecordedCommandKind.Draw);
 
         Assert.True(bind >= 0, "the prepass bound no per-view set");
         Assert.True(bind < draw, "the prepass drew before binding its per-view set");
@@ -230,7 +234,7 @@ public class DepthPrepassTests : IDisposable {
         Frame(h);
 
         var stream = device.Recorder!.Commands.ToList();
-        var passes = stream.Where(c => c.Kind == RecordedCommandKind.BeginRenderPass).ToList();
+        var passes = stream.Where(static c => c.Kind == RecordedCommandKind.BeginRenderPass).ToList();
 
         Assert.Equal(2, passes.Count);
 
@@ -344,10 +348,7 @@ public class DepthPrepassTests : IDisposable {
     }
 
     Material Composed(string surface) =>
-        new("Lit") {
-            Descriptors = materialSet,
-            Composition = ShaderComposition.Of([new("surface", surface)])
-        };
+        new("Lit") { Descriptors = materialSet, Composition = ShaderComposition.Of([new("surface", surface)]) };
 
     sealed class Harness : IDisposable {
         public required RenderSystem System { get; init; }
@@ -383,10 +384,7 @@ public class DepthPrepassTests : IDisposable {
         var prepass = system.AddStage(new("DepthPrepass") { ShaderName = "DepthOnly" });
         var opaque = system.AddStage(new("Opaque") { DepthStencil = DepthStencilState.TestOnly });
 
-        var meshes = new MeshRenderFeature {
-            Pipelines = new(device),
-            Describer = new EffectPipelineDescriber(device)
-        };
+        var meshes = new MeshRenderFeature { Pipelines = new(device), Describer = new EffectPipelineDescriber(device) };
 
         var materials = new MaterialRenderFeature { Effects = effects };
 
@@ -402,18 +400,14 @@ public class DepthPrepassTests : IDisposable {
         depthPass.Children.Add(prepassDraw);
 
         var colourPass = new RenderPassRenderer {
-            Name = "Forward",
-            DepthTarget = "SceneDepth",
-            DepthLoad = LoadAction.Load,
-            ReadOnlyDepth = true
+            Name = "Forward", DepthTarget = "SceneDepth", DepthLoad = LoadAction.Load, ReadOnlyDepth = true
         };
 
         colourPass.ColourTargets.Add("SceneColour");
         colourPass.Children.Add(new SingleStageRenderer { View = camera, Stage = opaque });
 
         var compositor = new GraphicsCompositor(system) {
-            FrameSize = new(320, 180),
-            Game = new SceneRendererSequence { Children = { depthPass, colourPass } }
+            FrameSize = new(320, 180), Game = new SceneRendererSequence { Children = { depthPass, colourPass } }
         };
 
         compositor.Imports["SceneColour"] =

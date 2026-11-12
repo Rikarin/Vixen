@@ -11,8 +11,11 @@ namespace Vixen.Editor.SceneView;
 /// <summary>The six lines that join the mesh kernel to the things that draw and save one.</summary>
 /// <remarks>
 ///     <para>
-///         <b>Doc 24's D1 puts these here rather than in the kernel, and the reason is one
-///         reference.</b> <c>Core/Vixen.Geometry</c> depends on <c>Vixen.Core.Mathematics</c> and
+///         <b>
+///             Doc 24's D1 puts these here rather than in the kernel, and the reason is one
+///             reference.
+///         </b>
+///         <c>Core/Vixen.Geometry</c> depends on <c>Vixen.Core.Mathematics</c> and
 ///         nothing else — a geometry kernel that needed the render assembly to describe a triangle
 ///         would be backwards, and one that needed the editor's file format to describe a face would
 ///         be worse. So the kernel hands back its own arrays and the copies live here, beside the code
@@ -20,8 +23,12 @@ namespace Vixen.Editor.SceneView;
 ///         cost it nothing.
 ///     </para>
 ///     <para>
-///         ⚠ <b>A drawn vertex is a corner and not a position, which is why the trip out is not the
-///         trip in reversed.</b> Going in, twenty-four entries weld to eight positions. Coming out,
+///         ⚠
+///         <b>
+///             A drawn vertex is a corner and not a position, which is why the trip out is not the
+///             trip in reversed.
+///         </b>
+///         Going in, twenty-four entries weld to eight positions. Coming out,
 ///         eight positions expand to one vertex per corner again — because a normal belongs to a
 ///         corner, and a cube drawn from eight shared vertices is a cube lit as a very lumpy sphere.
 ///     </para>
@@ -84,8 +91,12 @@ public static class EditMeshes {
     ///         transform over two pieces of geometry — and this is what cuts the pieces.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Every corner of the whole mesh is still written, and only the indices are
-    ///         filtered.</b> Compacting the vertices per group would mean a position table per piece
+    ///         ⚠
+    ///         <b>
+    ///             Every corner of the whole mesh is still written, and only the indices are
+    ///             filtered.
+    ///         </b>
+    ///         Compacting the vertices per group would mean a position table per piece
     ///         and a map from one numbering to another, for a saving that is a few hundred vertices on
     ///         a wall — and the numbering is the one thing every other consumer of this mesh assumes it
     ///         shares.
@@ -142,7 +153,7 @@ public static class EditMeshes {
 
         var bounds = mesh.Bounds;
 
-        return new MeshData {
+        return new() {
             Name = name,
             Positions = positions,
             Normals = normals,
@@ -215,8 +226,10 @@ public static class EditMeshes {
 
     /// <summary>Reads a shape's parameters back.</summary>
     /// <param name="data">The record, or null.</param>
-    /// <returns>The parameters, or <see langword="null" /> when the record names no shape this build
-    ///     knows.</returns>
+    /// <returns>
+    ///     The parameters, or <see langword="null" /> when the record names no shape this build
+    ///     knows.
+    /// </returns>
     /// <remarks>
     ///     ⚠ <b>An unrecognised kind is null and not an exception</b>, for <c>PrimitiveShapes.TryParse</c>'s
     ///     reason: a scene written by a newer editor with a shape this one has never heard of should
@@ -225,7 +238,7 @@ public static class EditMeshes {
     ///     it in the editor that wrote it.
     /// </remarks>
     public static ShapeParameters? FromSceneData(SceneShapeData? data) {
-        if (data is null || !Enum.TryParse<ShapeKind>(data.Kind?.Trim(), ignoreCase: true, out var kind)) {
+        if (data is null || !Enum.TryParse<ShapeKind>(data.Kind?.Trim(), true, out var kind)) {
             return null;
         }
 
@@ -274,7 +287,7 @@ public static class EditMeshes {
 
             for (var corner = 0; corner < count; corner++) {
                 loop[corner] = data.Corners[at + corner];
-                valid &= (uint) loop[corner] < (uint) data.Positions.Count;
+                valid &= (uint)loop[corner] < (uint)data.Positions.Count;
             }
 
             if (valid) {

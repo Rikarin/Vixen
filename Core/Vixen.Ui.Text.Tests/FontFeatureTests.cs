@@ -27,7 +27,7 @@ public class FontFeatureTests {
 
     const string Alternating = "a a";
 
-    static ushort[] Glyphs(ShapedText shaped) => shaped.Placements().Select(p => p.GlyphId).ToArray();
+    static ushort[] Glyphs(ShapedText shaped) => [..shaped.Placements().Select(static p => p.GlyphId)];
 
     static FontFeatureSet Off(string tag) => FontFeatureSet.Of([new FontFeature(FontFeature.Pack(tag), 0u)]);
 
@@ -35,8 +35,7 @@ public class FontFeatureTests {
     [InlineData("tnum")]
     [InlineData("ss01")]
     [InlineData("cv99")]
-    public void A_tag_survives_being_packed(string tag) =>
-        Assert.Equal(tag, FontFeature.Unpack(FontFeature.Pack(tag)));
+    public void A_tag_survives_being_packed(string tag) => Assert.Equal(tag, FontFeature.Unpack(FontFeature.Pack(tag)));
 
     [Theory]
     [InlineData("")]
@@ -51,7 +50,7 @@ public class FontFeatureTests {
     [InlineData("\"tnum\" 1", "tnum", 1u)]
     [InlineData("\"tnum\" 0", "tnum", 0u)]
     [InlineData("'liga' off", "liga", 0u)]
-    [InlineData("  \"liga\"  ON  ", "liga", 1u)]
+    [InlineData("""  "liga"  ON  """, "liga", 1u)]
     [InlineData("\"cv01\" 3", "cv01", 3u)]
     public void A_feature_tag_value_parses(string text, string tag, uint value) {
         Assert.True(FontFeature.TryParse(text, out var feature));
@@ -82,13 +81,17 @@ public class FontFeatureTests {
     /// </summary>
     [Fact]
     public void Two_sets_that_ask_for_the_same_thing_are_equal() {
-        var one = FontFeatureSet.Of([
-            new FontFeature(FontFeature.Pack("tnum"), 1u), new FontFeature(FontFeature.Pack("onum"), 1u)
-        ]);
+        var one = FontFeatureSet.Of(
+            [
+                new FontFeature(FontFeature.Pack("tnum"), 1u), new FontFeature(FontFeature.Pack("onum"), 1u)
+            ]
+        );
 
-        var other = FontFeatureSet.Of([
-            new FontFeature(FontFeature.Pack("onum"), 1u), new FontFeature(FontFeature.Pack("tnum"), 1u)
-        ]);
+        var other = FontFeatureSet.Of(
+            [
+                new FontFeature(FontFeature.Pack("onum"), 1u), new FontFeature(FontFeature.Pack("tnum"), 1u)
+            ]
+        );
 
         Assert.Equal(one, other);
         Assert.Equal(one.GetHashCode(), other.GetHashCode());
@@ -97,9 +100,11 @@ public class FontFeatureTests {
     /// <summary>A later entry for one tag wins, which is what lets the escape hatch override.</summary>
     [Fact]
     public void The_last_value_for_a_tag_is_the_one_kept() {
-        var set = FontFeatureSet.Of([
-            new FontFeature(FontFeature.Pack("tnum"), 1u), new FontFeature(FontFeature.Pack("tnum"), 0u)
-        ]);
+        var set = FontFeatureSet.Of(
+            [
+                new FontFeature(FontFeature.Pack("tnum"), 1u), new FontFeature(FontFeature.Pack("tnum"), 0u)
+            ]
+        );
 
         Assert.Equal(0u, Assert.Single(set.Features).Value);
     }

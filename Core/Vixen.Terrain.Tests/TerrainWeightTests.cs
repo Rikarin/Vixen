@@ -251,9 +251,9 @@ public sealed class TerrainWeightTests {
 
     [Fact]
     public void TheSculptPaintKernelWritesThroughTheBrush() {
-        var terrain = new Terrain(TerrainDescription.Default with {
-            TileSamples = 32, TilesX = 2, TilesZ = 2, MetresPerQuad = 1f
-        });
+        var terrain = new Terrain(
+            TerrainDescription.Default with { TileSamples = 32, TilesX = 2, TilesZ = 2, MetresPerQuad = 1f }
+        );
 
         terrain.Weights.AddLayer("Soil");
         var grass = terrain.Weights.AddLayer("Grass");

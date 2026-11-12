@@ -84,7 +84,9 @@ public class InteractionTests {
     readonly DefinitionCatalog catalog = Content.Catalog();
     readonly InteractionLibrary library;
 
-    public InteractionTests() => library = InteractionLibrary.Compile(catalog);
+    public InteractionTests() {
+        library = InteractionLibrary.Compile(catalog);
+    }
 
     InteractionNode Node(string address) => new(library.Find(DefId.From(address))!);
 
@@ -262,7 +264,7 @@ public class InteractionTests {
             )
             .Problems;
 
-        Assert.Contains(problems, problem => problem.Contains("respawn timer", StringComparison.Ordinal));
+        Assert.Contains(problems, static problem => problem.Contains("respawn timer", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -272,15 +274,16 @@ public class InteractionTests {
                     .Add(
                         "props/odd",
                         new InteractableDefinition {
-                            Uses = 0,
-                            RespawnSeconds = 0f,
-                            Instancing = InteractionInstancing.PerPlayer
+                            Uses = 0, RespawnSeconds = 0f, Instancing = InteractionInstancing.PerPlayer
                         }
                     )
                     .Build()
             )
             .Problems;
 
-        Assert.Contains(problems, problem => problem.Contains("instancing does nothing", StringComparison.Ordinal));
+        Assert.Contains(
+            problems,
+            static problem => problem.Contains("instancing does nothing", StringComparison.Ordinal)
+        );
     }
 }

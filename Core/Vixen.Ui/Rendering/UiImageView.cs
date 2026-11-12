@@ -61,8 +61,12 @@ public enum UiImageChannel : byte {
 ///         value and a caller that has never heard of it is already correct.
 ///     </para>
 ///     <para>
-///         ⚠ <b><see cref="ShowStoredValues" /> is named for what it does rather than for a colour
-///         space, and the rename is the point.</b> The control one assembly up calls the two choices
+///         ⚠
+///         <b>
+///             <see cref="ShowStoredValues" /> is named for what it does rather than for a colour
+///             space, and the rename is the point.
+///         </b>
+///         The control one assembly up calls the two choices
 ///         sRGB and linear, which describes what is *in* the texture; a draw command cannot know
 ///         that — the same texture is a colour to one viewer and a roughness field to the next.
 ///         What it can say is where the numbers should land: <c>UiWindowSurface</c> presents to a
@@ -71,8 +75,11 @@ public enum UiImageChannel : byte {
 ///         128/255 — the number the author typed.
 ///     </para>
 ///     <para>
-///         <b>Carried per vertex, on three components of <c>shape</c> that this pipeline never
-///         read.</b> That is what keeps two images asking for different channels in one batch: a
+///         <b>
+///             Carried per vertex, on three components of <c>shape</c> that this pipeline never
+///             read.
+///         </b>
+///         That is what keeps two images asking for different channels in one batch: a
 ///         per-draw uniform would have split the batch, and a new vertex attribute would have moved
 ///         the stride, <c>UiVertex.vert.spv</c>, the hand-written GLSL twin and every other pipeline
 ///         with it. See <see cref="Shape" />.

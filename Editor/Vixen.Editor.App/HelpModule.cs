@@ -19,8 +19,12 @@ namespace Vixen.Editor.App;
 ///         of the host — a link opener and the data directory — is what a third party would be handed.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Registered by hand, not by <c>[EditorMenu]</c>, for the reason <c>PlayModule</c>
-///         gives.</b> The shell's own Help menu names these ids (<c>EditorShell</c>'s default bar),
+///         ⚠
+///         <b>
+///             Registered by hand, not by <c>[EditorMenu]</c>, for the reason <c>PlayModule</c>
+///             gives.
+///         </b>
+///         The shell's own Help menu names these ids (<c>EditorShell</c>'s default bar),
 ///         and a menu line naming a command nobody registered is skipped — so switching this module
 ///         off in the plugin manager takes the six lines off the menu with it.
 ///     </para>
@@ -45,10 +49,34 @@ sealed class HelpModule : IEditorPlugin {
 
         // The fifth of doc 20's dangling ids, and the shell has named it since it was written.
         Link(context, links, "help.documentation", EditorStrings.CommandDocumentation, DocumentationUrl);
-        Link(context, links, "help.api-reference", EditorStrings.CommandHelpApiReference, DocumentationUrl + "/README.md");
-        Link(context, links, "help.release-notes", EditorStrings.CommandHelpReleaseNotes, DocumentationUrl + "/14-roadmap.md");
-        Link(context, links, "help.report-bug", EditorStrings.CommandHelpReportBug, "https://github.com/Rikarin/Vixen/issues/new");
-        Link(context, links, "help.show-log-folder", EditorStrings.CommandHelpShowLogFolder, new Uri(data.Path).AbsoluteUri);
+        Link(
+            context,
+            links,
+            "help.api-reference",
+            EditorStrings.CommandHelpApiReference,
+            DocumentationUrl + "/README.md"
+        );
+        Link(
+            context,
+            links,
+            "help.release-notes",
+            EditorStrings.CommandHelpReleaseNotes,
+            DocumentationUrl + "/14-roadmap.md"
+        );
+        Link(
+            context,
+            links,
+            "help.report-bug",
+            EditorStrings.CommandHelpReportBug,
+            "https://github.com/Rikarin/Vixen/issues/new"
+        );
+        Link(
+            context,
+            links,
+            "help.show-log-folder",
+            EditorStrings.CommandHelpShowLogFolder,
+            new Uri(data.Path).AbsoluteUri
+        );
 
         context.AddCommand(
             new EditorCommand(
@@ -59,17 +87,14 @@ sealed class HelpModule : IEditorPlugin {
                     NotificationSeverity.Info,
                     typeof(EditorApplication).Assembly.GetName().Version?.ToString() ?? "development build"
                 )
-            ) {
-                Category = EditorStrings.CategoryHelp
-            }
+            ) { Category = EditorStrings.CategoryHelp }
         );
     }
 
     static void Link(PluginContext context, IExternalLinks links, string id, StringId title, string url) =>
         context.AddCommand(
             new EditorCommand(id, title, () => links.Open(url)) {
-                Category = EditorStrings.CategoryHelp,
-                Enablement = () => links.CanOpen
+                Category = EditorStrings.CategoryHelp, Enablement = () => links.CanOpen
             }
         );
 }

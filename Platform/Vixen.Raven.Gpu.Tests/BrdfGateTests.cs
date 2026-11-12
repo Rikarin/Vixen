@@ -97,8 +97,12 @@ public sealed class BrdfGateTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The whole hemisphere — both angles — and the first version of this was wrong in
-    ///         a way worth keeping the note for.</b> It swept the polar angle in the plane containing
+    ///         ⚠
+    ///         <b>
+    ///             The whole hemisphere — both angles — and the first version of this was wrong in
+    ///             a way worth keeping the note for.
+    ///         </b>
+    ///         It swept the polar angle in the plane containing
     ///         the view and took the half vector's elevation to be the mean of the two cosines, which
     ///         is neither the half vector nor an integral: a specular lobe is concentrated in a small
     ///         solid angle about the mirror direction, and a one-dimensional slice through it
@@ -182,7 +186,7 @@ public sealed class BrdfGateTests {
     /// <summary>The device and the reference agree about all three primitives.</summary>
     [Fact]
     public void The_device_evaluates_the_shipped_brdf_as_the_formulae_say() {
-        var run = ShaderRun.Run(Sweep, Imports, Samples * 4, groups: 4);
+        var run = ShaderRun.Run(Sweep, Imports, Samples * 4, 4);
 
         Assert.NotNull(run);
 
@@ -194,21 +198,27 @@ public sealed class BrdfGateTests {
         const float Tolerance = 1e-4f;
 
         for (var index = 0; index < Samples; index++) {
-            var step = (index % 16) / 15f;
-            var band = (index / 16) / 15f;
+            var step = index % 16 / 15f;
+            var band = index / 16 / 15f;
 
-            var perceptual = 0.02f + (band * 0.96f);
+            var perceptual = 0.02f + band * 0.96f;
             var alpha = perceptual * perceptual;
 
-            var ndoth = 0.02f + (step * 0.97f);
-            var ndotl = 0.05f + (step * 0.9f);
-            var ndotv = 0.95f - (step * 0.9f);
-            var vdoth = 0.02f + (step * 0.97f);
+            var ndoth = 0.02f + step * 0.97f;
+            var ndotl = 0.05f + step * 0.9f;
+            var ndotv = 0.95f - step * 0.9f;
+            var vdoth = 0.02f + step * 0.97f;
 
-            Close(Reference.DistributionGgx(ndoth, alpha), run.Values[(index * 4) + 0], Tolerance, "D", index);
-            Close(Reference.VisibilitySmithGgx(ndotl, ndotv, alpha), run.Values[(index * 4) + 1], Tolerance, "Vis", index);
-            Close(Reference.FresnelSchlick(0.04f, vdoth), run.Values[(index * 4) + 2], Tolerance, "F", index);
-            Close(alpha, run.Values[(index * 4) + 3], Tolerance, "alpha", index);
+            Close(Reference.DistributionGgx(ndoth, alpha), run.Values[index * 4], Tolerance, "D", index);
+            Close(
+                Reference.VisibilitySmithGgx(ndotl, ndotv, alpha),
+                run.Values[index * 4 + 1],
+                Tolerance,
+                "Vis",
+                index
+            );
+            Close(Reference.FresnelSchlick(0.04f, vdoth), run.Values[index * 4 + 2], Tolerance, "F", index);
+            Close(alpha, run.Values[index * 4 + 3], Tolerance, "alpha", index);
         }
     }
 
@@ -219,11 +229,11 @@ public sealed class BrdfGateTests {
     /// </summary>
     [Fact]
     public void The_specular_lobe_does_not_reflect_more_light_than_it_receives() {
-        var run = ShaderRun.Run(Furnace, Imports, 8, groups: 1);
+        var run = ShaderRun.Run(Furnace, Imports, 8, 1);
 
         Assert.NotNull(run);
 
-        foreach (var (energy, index) in run.Values.Select((value, index) => (value, index))) {
+        foreach (var (energy, index) in run.Values.Select(static (value, index) => (value, index))) {
             Assert.True(
                 energy is > 0f and <= 1f,
                 $"Roughness band {index} reflects {energy} of the light arriving, which is not in (0, 1]. "
@@ -261,8 +271,12 @@ public sealed class BrdfGateTests {
     ///     The gate can see a wrong answer, asserted by giving it one.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>Sabotage, because a numeric gate is exactly the kind that passes for the wrong
-    ///     reason.</b> If the tolerance were wide enough, or the sweep degenerate enough, every
+    ///     ⚠
+    ///     <b>
+    ///         Sabotage, because a numeric gate is exactly the kind that passes for the wrong
+    ///         reason.
+    ///     </b>
+    ///     If the tolerance were wide enough, or the sweep degenerate enough, every
     ///     assertion above would hold against a shader computing something else. This one squares
     ///     the roughness a second time — the mistake <c>Brdf.rvn</c>'s own header calls the most
     ///     common in a hand-written PBR shader, and the one that looks like a smoother material
@@ -297,17 +311,18 @@ public sealed class BrdfGateTests {
                                  }
                                  """;
 
-        var run = ShaderRun.Run(Sabotaged, Imports, 16, groups: 1);
+        var run = ShaderRun.Run(Sabotaged, Imports, 16, 1);
 
         Assert.NotNull(run);
 
         var wrong = 0;
 
         for (var index = 0; index < 16; index++) {
-            var perceptual = 0.02f + (index / 15f * 0.96f);
+            var perceptual = 0.02f + index / 15f * 0.96f;
             var alpha = perceptual * perceptual;
 
-            if (Math.Abs(Reference.DistributionGgx(0.6f, alpha) - run.Values[index]) > 1e-4f * Math.Max(1f, Math.Abs(Reference.DistributionGgx(0.6f, alpha)))) {
+            if (Math.Abs(Reference.DistributionGgx(0.6f, alpha) - run.Values[index])
+                > 1e-4f * Math.Max(1f, Math.Abs(Reference.DistributionGgx(0.6f, alpha)))) {
                 wrong++;
             }
         }
@@ -339,8 +354,12 @@ public sealed class BrdfGateTests {
     static class Reference {
         /// <summary>The floor both terms put under alpha, and it is part of the definition.</summary>
         /// <remarks>
-        ///     ⚠ <b>The first thing this gate caught, on its first run, and it was the reference that
-        ///     was wrong.</b> A perfectly smooth surface makes the distribution a Dirac delta, which
+        ///     ⚠
+        ///     <b>
+        ///         The first thing this gate caught, on its first run, and it was the reference that
+        ///         was wrong.
+        ///     </b>
+        ///     A perfectly smooth surface makes the distribution a Dirac delta, which
         ///     in floating point is an infinity that becomes a NaN at the first multiply — so
         ///     <c>Brdf.rvn</c> clamps alpha rather than clamping D, bounding the highlight's
         ///     <i>size</i> instead of its height. That is a documented decision about what the
@@ -355,7 +374,7 @@ public sealed class BrdfGateTests {
         public static float DistributionGgx(float ndoth, float alpha) {
             var a = Clamp(alpha);
             var a2 = a * a;
-            var d = (ndoth * ndoth * (a2 - 1f)) + 1f;
+            var d = ndoth * ndoth * (a2 - 1f) + 1f;
 
             return a2 / (float)(Math.PI * d * d);
         }
@@ -369,8 +388,8 @@ public sealed class BrdfGateTests {
             var a = Clamp(alpha);
             var a2 = a * a;
 
-            var lambdaV = ndotl * (float)Math.Sqrt((ndotv * ndotv * (1f - a2)) + a2);
-            var lambdaL = ndotv * (float)Math.Sqrt((ndotl * ndotl * (1f - a2)) + a2);
+            var lambdaV = ndotl * (float)Math.Sqrt(ndotv * ndotv * (1f - a2) + a2);
+            var lambdaL = ndotv * (float)Math.Sqrt(ndotl * ndotl * (1f - a2) + a2);
 
             return 0.5f / (lambdaV + lambdaL);
         }
@@ -380,7 +399,7 @@ public sealed class BrdfGateTests {
             var f = 1f - vdoth;
             var f5 = f * f * f * f * f;
 
-            return f0 + ((1f - f0) * f5);
+            return f0 + (1f - f0) * f5;
         }
     }
 }

@@ -167,7 +167,12 @@ public static class ConstraintProposals {
                 here = model[effector.Joint].Translation
                     + Quaternion.Transform(effector.Offset, model[effector.Joint].Rotation);
 
-                where = ShapeGeometry.Project(placed.Shape.Kind, placed.Dimensions, placed.ToShape(here), out var residual);
+                where = ShapeGeometry.Project(
+                    placed.Shape.Kind,
+                    placed.Dimensions,
+                    placed.ToShape(here),
+                    out var residual
+                );
                 gap = (residual * placed.Transform.Scale).Length();
                 touching = gap <= settings.Distance;
             }
@@ -224,11 +229,7 @@ public static class ConstraintProposals {
 
         // The middle of the run, so a contact that drifted a little is proposed where it was most of
         // the time rather than where it happened to start.
-        var point = new SurfacePoint(
-            first.Face,
-            MathUtil.Lerp(first.U, last.U, 0.5f),
-            MathUtil.Lerp(first.V, last.V, 0.5f)
-        );
+        var point = first with { U = MathUtil.Lerp(first.U, last.U, 0.5f), V = MathUtil.Lerp(first.V, last.V, 0.5f) };
 
         found.Add(
             new(
@@ -272,6 +273,6 @@ public static class ConstraintProposals {
         var still = 1f - MathUtil.Saturate(drift / MathF.Max(settings.Slack, 1e-4f));
         var held = MathUtil.Saturate(span / MathF.Max(settings.MinimumSpan * 4f, 1e-4f));
 
-        return MathUtil.Saturate(((near * 0.5f) + 0.5f) * ((still * 0.5f) + 0.5f) * held);
+        return MathUtil.Saturate((near * 0.5f + 0.5f) * (still * 0.5f + 0.5f) * held);
     }
 }

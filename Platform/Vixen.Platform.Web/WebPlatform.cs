@@ -145,8 +145,12 @@ public sealed class WebPlatform : IPlatform {
 
     /// <inheritdoc />
     /// <remarks>
-    ///     ⚠ <b><see cref="SystemAccessibility.Unknown" />: the browser answers both of these and this
-    ///     platform does not ask.</b> They are two more <c>matchMedia</c> calls beside the one
+    ///     ⚠
+    ///     <b>
+    ///         <see cref="SystemAccessibility.Unknown" />: the browser answers both of these and this
+    ///         platform does not ask.
+    ///     </b>
+    ///     They are two more <c>matchMedia</c> calls beside the one
     ///     <see cref="ColorScheme" /> already makes — <c>(prefers-reduced-motion: reduce)</c> and
     ///     <c>(forced-colors: active)</c> — and wiring them is the cheapest of the four platforms
     ///     that owe this. Reporting "off" until then would be inventing a preference.
@@ -246,8 +250,10 @@ public sealed class WebPlatform : IPlatform {
         return window;
     }
 
-    /// <summary>Which canvas <see cref="CreateWindow" /> adopts, or <see langword="null" /> to make
-    /// one.</summary>
+    /// <summary>
+    ///     Which canvas <see cref="CreateWindow" /> adopts, or <see langword="null" /> to make
+    ///     one.
+    /// </summary>
     internal string? CanvasSelector { get; }
 
     /// <inheritdoc />

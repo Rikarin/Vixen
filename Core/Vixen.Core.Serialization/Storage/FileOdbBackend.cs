@@ -121,7 +121,7 @@ public sealed class FileOdbBackend : IOdbBackend {
 
     /// <inheritdoc />
     public IEnumerable<ObjectId> Enumerate() {
-        foreach (var entry in files.Enumerate(root, recursive: true)) {
+        foreach (var entry in files.Enumerate(root, true)) {
             if (!entry.IsDirectory && TryParseId(entry.Path, out var id)) {
                 yield return id;
             }

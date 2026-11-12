@@ -20,8 +20,12 @@ namespace Tests;
 ///         flatter, and never obviously wrong.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The assertions are closed forms and one of them is against the kernel's own
-///         source.</b> A ladder built for a block the kernel does not loop over is the same defect one
+///         ⚠
+///         <b>
+///             The assertions are closed forms and one of them is against the kernel's own
+///             source.
+///         </b>
+///         A ladder built for a block the kernel does not loop over is the same defect one
 ///         level down — the reduction would read the first 8×8 of each block and find a corner's
 ///         extremes — so the number is read out of <c>MinMaxReduce.rvn</c> rather than restated here.
 ///     </para>
@@ -53,8 +57,11 @@ public class TextureAdjustTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <b>The property a fixed three-level step does not have, and the reason this builder
-    ///         computes its step.</b> A level offset is a <em>floored</em> halving, so a rung's block
+    ///         <b>
+    ///             The property a fixed three-level step does not have, and the reason this builder
+    ///             computes its step.
+    ///         </b>
+    ///         A level offset is a <em>floored</em> halving, so a rung's block
     ///         is <c>ceil(parent / (parent >> 3))</c>, which is 9 for a 9-texel axis and 15 for a
     ///         15-texel one. <c>MinMaxReduce.rvn</c> clamps its loop at <c>MaxBlock</c> and reads the
     ///         first eight, so the columns past that are never looked at and the "extremes of the
@@ -169,7 +176,7 @@ public class TextureAdjustTests {
     /// <summary>A scratch list of the wrong length is refused, with both numbers in the message.</summary>
     [Fact]
     public void A_ladder_of_the_wrong_length_is_refused() {
-        var refusal = Assert.Throws<ArgumentException>(() => TextureAdjust.AutoLevels(2, 0, [1], 1024, 1024));
+        var refusal = Assert.Throws<ArgumentException>(static () => TextureAdjust.AutoLevels(2, 0, [1], 1024, 1024));
 
         Assert.Contains("4 reduction dispatch", refusal.Message, StringComparison.Ordinal);
         Assert.Contains("1 scratch image", refusal.Message, StringComparison.Ordinal);
@@ -201,7 +208,7 @@ public class TextureAdjustTests {
 
         Assert.Contains(
             refusals,
-            problem => problem.Severity == TextureProblemSeverity.Error
+            static problem => problem.Severity == TextureProblemSeverity.Error
                 && problem.Message.Contains("emitted for an image", StringComparison.Ordinal)
         );
     }

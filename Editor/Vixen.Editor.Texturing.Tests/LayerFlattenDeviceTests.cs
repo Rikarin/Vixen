@@ -19,7 +19,7 @@ namespace Vixen.Editor.Texturing.Tests;
 public sealed class LayerFlattenDeviceTests(ITestOutputHelper output) : IDisposable {
     const int Size = 64;
 
-    static readonly TextureLibrary Library = TextureNodeLibrary.Publish(null);
+    static readonly TextureLibrary Library = TextureNodeLibrary.Publish();
 
     readonly string folder = Path.Combine(Path.GetTempPath(), $"vixen-flatten-{Guid.NewGuid():N}");
 
@@ -49,7 +49,7 @@ public sealed class LayerFlattenDeviceTests(ITestOutputHelper output) : IDisposa
         var layered = Stack(Group(LayerBlendMode.Copy));
         var set = layered.Sets[0];
         var whole = layered with {
-            Sets = [set with { Layers = [new() { Id = "all", Kind = LayerKind.Group, Children = [.. set.Layers] }] }]
+            Sets = [set with { Layers = [new() { Id = "all", Kind = LayerKind.Group, Children = [..set.Layers] }] }]
         };
 
         Assert.True(LayerStackEdit.CanFlatten(whole.Sets[0], "all", out var backdrop, out var reason), reason);
@@ -61,7 +61,7 @@ public sealed class LayerFlattenDeviceTests(ITestOutputHelper output) : IDisposa
     /// <summary>A pass-through group holding a filter is refused, because no canvas could hold its picture alone.</summary>
     [Fact]
     public void A_pass_through_group_that_reads_beneath_it_is_refused_above_the_bottom() {
-        var stack = Stack(Group(LayerBlendMode.Copy, filter: true));
+        var stack = Stack(Group(LayerBlendMode.Copy, true));
 
         Assert.False(LayerStackEdit.CanFlatten(stack.Sets[0], "g", out _, out var reason));
         Assert.Contains("passes through", reason, StringComparison.Ordinal);
@@ -76,14 +76,13 @@ public sealed class LayerFlattenDeviceTests(ITestOutputHelper output) : IDisposa
         var read = set with {
             Layers = [
                 set.Layers[0],
-                group with { Children = [group.Children[0] with { AnchorPoint = "Rust" }, .. group.Children[1..]] },
-                .. set.Layers[2..],
+                group with { Children = [group.Children[0] with { AnchorPoint = "Rust" }, ..group.Children[1..]] },
+                ..set.Layers[2..],
                 new() {
                     Id = "outside",
                     Values = { ["baseColor"] = [1f, 1f, 1f, 1f] },
                     Mask = new() {
-                        Source = LayerMaskSource.Anchor,
-                        Anchor = new() { Anchor = "Rust", Channel = "roughness" }
+                        Source = LayerMaskSource.Anchor, Anchor = new() { Anchor = "Rust", Channel = "roughness" }
                     }
                 }
             ]
@@ -101,7 +100,7 @@ public sealed class LayerFlattenDeviceTests(ITestOutputHelper output) : IDisposa
         var path = Path.Combine(folder, "stack.vxlayers");
         var set = stack.Sets[0];
 
-        var before = Pictures(evaluator, store, path, stack, "", false);
+        var before = Pictures(evaluator, store, path, stack, string.Empty, false);
 
         // What flattening writes: each channel of the capture, into a canvas beside the stack.
         PaintCanvas canvas = new(Size, Size);
@@ -112,30 +111,34 @@ public sealed class LayerFlattenDeviceTests(ITestOutputHelper output) : IDisposa
 
         store.Adopt(Path.Combine(folder, "flat.vxpaint"), canvas);
 
-        var flattened = stack with {
-            Sets = [set with { Layers = Flattened(set.Layers, group) }]
-        };
-        var after = Pictures(evaluator, store, path, flattened, "", false);
+        var flattened = stack with { Sets = [set with { Layers = Flattened(set.Layers, group) }] };
+        var after = Pictures(evaluator, store, path, flattened, string.Empty, false);
 
         Same(before, after, name, device);
 
         // ⚠ A canvas that is not its backdrop's is a cache of the group alone: a layer put beneath it afterwards shows
         // through the flattened group exactly as through the group itself. One that kept its backdrop would cover it.
         if (!backdrop) {
-            var under = Pictures(evaluator, store, path, Under(stack, group), "", false);
+            var under = Pictures(evaluator, store, path, Under(stack, group), string.Empty, false);
 
-            Same(under, Pictures(evaluator, store, path, Under(flattened, group), "", false), $"{name}-under", device);
+            Same(
+                under,
+                Pictures(evaluator, store, path, Under(flattened, group), string.Empty, false),
+                $"{name}-under",
+                device
+            );
         }
 
         // ⚠ And the comparison could have failed: with the group switched off the picture is another one, so the group
         // is visibly in it and a canvas that held nothing would not have passed.
-        var without = stack with {
-            Sets = [set with { Layers = [.. Switched(set.Layers, group)] }]
-        };
-        var bare = Pictures(evaluator, store, path, without, "", false)["baseColor"].Pixels;
+        var without = stack with { Sets = [set with { Layers = [..Switched(set.Layers, group)] }] };
+        var bare = Pictures(evaluator, store, path, without, string.Empty, false)["baseColor"].Pixels;
         var moved = bare.Zip(before["baseColor"].Pixels, static (a, b) => Math.Abs(a - b)).Max();
 
-        Assert.True(moved > 20, $"{name}: the group changes the picture by only {moved}, so matching it proves nothing.");
+        Assert.True(
+            moved > 20,
+            $"{name}: the group changes the picture by only {moved}, so matching it proves nothing."
+        );
     }
 
     void Same(
@@ -167,7 +170,7 @@ public sealed class LayerFlattenDeviceTests(ITestOutputHelper output) : IDisposa
     static LayerStackAsset Under(LayerStackAsset stack, string group) {
         var set = stack.Sets[0];
         var at = set.Layers.FindIndex(layer => layer.Id == group);
-        List<LayerAsset> layers = [.. set.Layers];
+        List<LayerAsset> layers = [..set.Layers];
 
         layers.Insert(
             at,
@@ -183,13 +186,15 @@ public sealed class LayerFlattenDeviceTests(ITestOutputHelper output) : IDisposa
 
     static IEnumerable<LayerAsset> Switched(List<LayerAsset> layers, string group) =>
         layers.Select(layer => layer.Id == group
-            ? layer with { Enabled = false }
-            : layer with { Children = [.. Switched(layer.Children, group)] });
+                ? layer with { Enabled = false }
+                : layer with { Children = [..Switched(layer.Children, group)] }
+        );
 
     static List<LayerAsset> Flattened(List<LayerAsset> layers, string group) => [
-        .. layers.Select(layer => layer.Id == group
-            ? layer with { Paint = "flat.vxpaint" }
-            : layer with { Children = Flattened(layer.Children, group) })
+        ..layers.Select(layer => layer.Id == group
+                ? layer with { Paint = "flat.vxpaint" }
+                : layer with { Children = Flattened(layer.Children, group) }
+        )
     ];
 
     static Dictionary<string, Bitmap> Pictures(
@@ -232,8 +237,7 @@ public sealed class LayerFlattenDeviceTests(ITestOutputHelper output) : IDisposa
                     Values = { ["baseColor"] = [0.8f, 0.3f, 0.1f, 1f], ["roughness"] = [0.9f, 0.9f, 0.9f, 1f] },
                     Opacity = 0.7f,
                     Mask = new() {
-                        Source = LayerMaskSource.Anchor,
-                        Anchor = new() { Anchor = "Base", Channel = "roughness" }
+                        Source = LayerMaskSource.Anchor, Anchor = new() { Anchor = "Base", Channel = "roughness" }
                     }
                 },
                 new() {
@@ -243,8 +247,9 @@ public sealed class LayerFlattenDeviceTests(ITestOutputHelper output) : IDisposa
                     Channels = ["baseColor"],
                     Opacity = 0.4f
                 },
-                .. filter
-                    ? (LayerAsset[]) [new() { Id = "levels", Kind = LayerKind.Filter, Settings = { ["Gamma"] = [1.6f] } }]
+                ..filter
+                    ? (LayerAsset[])
+                    [new() { Id = "levels", Kind = LayerKind.Filter, Settings = { ["Gamma"] = [1.6f] } }]
                     : []
             ]
         };

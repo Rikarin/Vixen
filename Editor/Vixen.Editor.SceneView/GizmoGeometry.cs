@@ -16,8 +16,12 @@ namespace Vixen.Editor.SceneView;
 ///         is separate so that changing how a gizmo <i>looks</i> cannot change what it <i>does</i>.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The arms are built from the same <c>WorldPerPixel</c> and the same basis the hit test
-///         uses.</b> Not similar arithmetic — the same calls. A gizmo drawn a little larger than it is
+///         ⚠
+///         <b>
+///             The arms are built from the same <c>WorldPerPixel</c> and the same basis the hit test
+///             uses.
+///         </b>
+///         Not similar arithmetic — the same calls. A gizmo drawn a little larger than it is
 ///         hit-tested is one where the last few pixels of every arm do nothing, which reads as the
 ///         tool being unreliable rather than as an arithmetic difference.
 ///     </para>
@@ -158,8 +162,11 @@ public static class GizmoGeometry {
     /// <returns>A unit vector, in world space.</returns>
     /// <remarks>
     ///     <para>
-    ///         <b>Over the viewer's left shoulder, and therefore not a direction in the world at
-    ///         all.</b> A gizmo has no place in the scene's lighting — it is not an object, it is a
+    ///         <b>
+    ///             Over the viewer's left shoulder, and therefore not a direction in the world at
+    ///             all.
+    ///         </b>
+    ///         A gizmo has no place in the scene's lighting — it is not an object, it is a
     ///         control drawn on top of one — and the fixed downward key <c>MeshRenderer</c> defaults
     ///         to has one specific failure that matters here: a shape whose axis runs <i>along</i> the
     ///         key is lit dead flat, because every normal on it is at right angles to the light. That
@@ -185,13 +192,17 @@ public static class GizmoGeometry {
     public static Vector3 KeyLight(EditorCamera camera) {
         ArgumentNullException.ThrowIfNull(camera);
 
-        return Vector3.Normalize((camera.Forward * 0.55f) + (camera.Right * 0.45f) - (camera.Up * 0.7f));
+        return Vector3.Normalize(camera.Forward * 0.55f + camera.Right * 0.45f - camera.Up * 0.7f);
     }
 
     /// <summary>How much light a surface facing away from the key still receives.</summary>
     /// <remarks>
-    ///     ⚠ <b>Lower than <c>MeshRenderer.Ambient</c>'s own default, and <c>ScenePresenter</c> pushes
-    ///     this one instead.</b> That default is for a shape somebody is looking at, where the job is
+    ///     ⚠
+    ///     <b>
+    ///         Lower than <c>MeshRenderer.Ambient</c>'s own default, and <c>ScenePresenter</c> pushes
+    ///         this one instead.
+    ///     </b>
+    ///     That default is for a shape somebody is looking at, where the job is
     ///     to be legible; a handle is a shape somebody is aiming at, where the job is to be
     ///     unmistakably solid, and the difference is contrast. A quarter puts four times the range
     ///     between the lit and the shadowed side of a twenty-pixel cone. It goes no lower because the
@@ -221,9 +232,9 @@ public static class GizmoGeometry {
     ///     </para>
     /// </remarks>
     public static float Shade(Vector3 normal, Vector3 light) {
-        var wrapped = (Vector3.Dot(normal, -light) * 0.5f) + 0.5f;
+        var wrapped = Vector3.Dot(normal, -light) * 0.5f + 0.5f;
 
-        return Ambient + ((1f - Ambient) * wrapped * wrapped);
+        return Ambient + (1f - Ambient) * wrapped * wrapped;
     }
 
     /// <summary>Builds the handles for a gizmo as it currently stands.</summary>
@@ -255,7 +266,7 @@ public static class GizmoGeometry {
             camera.Forward,
             camera.Right,
             worldPerPixel,
-            Math.Max(1, (int) MathF.Round(gizmo.Thickness)),
+            Math.Max(1, (int)MathF.Round(gizmo.Thickness)),
             KeyLight(camera)
         );
 
@@ -363,7 +374,7 @@ public static class GizmoGeometry {
             // ⚠ Centred on its own middle, not on the tip. Both primitives straddle the origin in
             // their local Y, so placing one at the end of the arm would bury half of it in the shaft
             // and leave the arm looking short by half a head.
-            var centre = origin + (direction * (scale - (length * 0.5f)));
+            var centre = origin + direction * (scale - length * 0.5f);
 
             Append(
                 vertices,
@@ -406,8 +417,12 @@ public static class GizmoGeometry {
     ///         was never what the handle was about.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Drawn at exactly the radius the hit test answers within, which no shape before it
-    ///         could be.</b> <c>HitTest</c> takes the middle for a circle of <c>CentreRadius</c>
+    ///         ⚠
+    ///         <b>
+    ///             Drawn at exactly the radius the hit test answers within, which no shape before it
+    ///             could be.
+    ///         </b>
+    ///         <c>HitTest</c> takes the middle for a circle of <c>CentreRadius</c>
     ///         pixels. The old square's half-side <i>was</i> that radius, so its four corners stuck out
     ///         to <c>√2 ×</c> it and did not answer clicks, and the cube that followed had to be
     ///         divided by <c>√3</c> to pull its corners back inside — which left it drawn at a bit over
@@ -454,11 +469,23 @@ public static class GizmoGeometry {
             vertices,
             triangles,
             Ball,
-            new Matrix4x4(
-                half * 2f, 0f, 0f, 0f,
-                0f, half * 2f, 0f, 0f,
-                0f, 0f, half * 2f, 0f,
-                origin.X, origin.Y, origin.Z, 1f
+            new(
+                half * 2f,
+                0f,
+                0f,
+                0f,
+                0f,
+                half * 2f,
+                0f,
+                0f,
+                0f,
+                0f,
+                half * 2f,
+                0f,
+                origin.X,
+                origin.Y,
+                origin.Z,
+                1f
             ),
             NeutralColour(active == handle),
             camera
@@ -481,8 +508,12 @@ public static class GizmoGeometry {
     /// <summary>The three quads that drag in a plane, as filled squares.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The hit test has always treated these as filled and the picture said
-    ///         otherwise.</b> <c>TransformGizmo</c>'s plane test is <c>InQuad</c> — a point-in-polygon
+    ///         ⚠
+    ///         <b>
+    ///             The hit test has always treated these as filled and the picture said
+    ///             otherwise.
+    ///         </b>
+    ///         <c>TransformGizmo</c>'s plane test is <c>InQuad</c> — a point-in-polygon
     ///         test over the whole square — not a distance to its border, so the middle of an outlined
     ///         plane handle answered clicks and looked like empty space between three arms. An outline
     ///         understating what answers a click by the whole of its middle is the same class of fault
@@ -530,11 +561,11 @@ public static class GizmoGeometry {
                 highlighted ? PlaneHighlightAlpha : PlaneFillAlpha
             );
 
-            var corner = origin + ((first + second) * (scale * gizmo.PlaneOffset));
+            var corner = origin + (first + second) * (scale * gizmo.PlaneOffset);
             var side = first * (scale * gizmo.PlaneSize);
             var up = second * (scale * gizmo.PlaneSize);
 
-            var start = (uint) vertices.Count;
+            var start = (uint)vertices.Count;
 
             vertices.Add(new(corner, normal, colour));
             vertices.Add(new(corner + side, normal, colour));
@@ -582,8 +613,12 @@ public static class GizmoGeometry {
     ///         is what makes the near side of a ring look nearer than the far side.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Cut to the half facing the camera, exactly as the wire rings were and the hit test
-    ///         still is.</b> Three full circles about one point cross each other twelve times, and at
+    ///         ⚠
+    ///         <b>
+    ///             Cut to the half facing the camera, exactly as the wire rings were and the hit test
+    ///             still is.
+    ///         </b>
+    ///         Three full circles about one point cross each other twelve times, and at
     ///         every crossing the front of one ring is over the back of another. Solid geometry makes
     ///         that worse rather than better: the back half is no longer something you can see the
     ///         front through.
@@ -657,35 +692,35 @@ public static class GizmoGeometry {
         var previous = -1;
 
         for (var step = 0; step <= RingSegments; step++) {
-            var angle = step / (float) RingSegments * MathF.Tau;
-            var radial = (u * MathF.Cos(angle)) + (v * MathF.Sin(angle));
+            var angle = step / (float)RingSegments * MathF.Tau;
+            var radial = u * MathF.Cos(angle) + v * MathF.Sin(angle);
 
             if (towards is { } eye && Vector3.Dot(radial, eye) < 0f) {
                 previous = -1;
                 continue;
             }
 
-            var centre = origin + (radial * radius);
+            var centre = origin + radial * radius;
             var start = vertices.Count;
 
             for (var side = 0; side < TubeSides; side++) {
                 // ⚠ The cross-section's own normal is the outward direction of the tube at that
                 // point, which is what makes a ring look round rather than flat. It is not the
                 // ring's radial: half of the tube faces along the ring's axis.
-                var around = side / (float) TubeSides * MathF.Tau;
-                var normal = (radial * MathF.Cos(around)) + (axis * MathF.Sin(around));
+                var around = side / (float)TubeSides * MathF.Tau;
+                var normal = radial * MathF.Cos(around) + axis * MathF.Sin(around);
 
-                vertices.Add(new(centre + (normal * tube), normal, colour));
+                vertices.Add(new(centre + normal * tube, normal, colour));
             }
 
             if (previous >= 0) {
                 for (var side = 0; side < TubeSides; side++) {
                     var next = (side + 1) % TubeSides;
 
-                    var a = (uint) (previous + side);
-                    var b = (uint) (previous + next);
-                    var c = (uint) (start + next);
-                    var d = (uint) (start + side);
+                    var a = (uint)(previous + side);
+                    var b = (uint)(previous + next);
+                    var c = (uint)(start + next);
+                    var d = (uint)(start + side);
 
                     triangles.Add(a);
                     triangles.Add(b);
@@ -730,7 +765,7 @@ public static class GizmoGeometry {
         GizmoHandle active,
         Pen pen
     ) {
-        var shaft = scale * (1f - (HeadDepth(gizmo) * 0.5f));
+        var shaft = scale * (1f - HeadDepth(gizmo) * 0.5f);
 
         for (var axis = 0; axis < 3; axis++) {
             var direction = Axis(basis, axis);
@@ -742,14 +777,14 @@ public static class GizmoGeometry {
                 continue;
             }
 
-            var end = origin + (direction * shaft);
+            var end = origin + direction * shaft;
             var colour = AxisColour(axis, active == GizmoHandle.AxisX + axis);
 
             // ⚠ Started where the hit test starts it, so the middle of the gizmo belongs to the
             // centre handle in the picture as well as in the arithmetic. An arm drawn through a
             // region that answers for something else is the visible half of the oldest gizmo
             // complaint there is: "it grabbed the wrong axis".
-            Segment(into, origin + (direction * (scale * gizmo.ArmStart)), end, colour, pen, round: true);
+            Segment(into, origin + direction * (scale * gizmo.ArmStart), end, colour, pen, true);
         }
     }
 
@@ -784,13 +819,13 @@ public static class GizmoGeometry {
             }
 
             var colour = AxisColour(index, active == handles[index]);
-            colour = new Color4(colour.R, colour.G, colour.B, active == handles[index] ? 0.9f : 0.5f);
+            colour = new(colour.R, colour.G, colour.B, active == handles[index] ? 0.9f : 0.5f);
 
-            var corner = origin + ((first + second) * (scale * gizmo.PlaneOffset));
+            var corner = origin + (first + second) * (scale * gizmo.PlaneOffset);
             var a = corner;
-            var b = corner + (first * (scale * gizmo.PlaneSize));
-            var c = corner + ((first + second) * (scale * gizmo.PlaneSize));
-            var d = corner + (second * (scale * gizmo.PlaneSize));
+            var b = corner + first * (scale * gizmo.PlaneSize);
+            var c = corner + (first + second) * (scale * gizmo.PlaneSize);
+            var d = corner + second * (scale * gizmo.PlaneSize);
 
             Segment(into, a, b, colour, pen);
             Segment(into, b, c, colour, pen);
@@ -845,8 +880,11 @@ public static class GizmoGeometry {
     ///         arm nearest the eye quietly going back to one pixel wide.
     ///     </para>
     ///     <para>
-    ///         <b>What <paramref name="round" /> does is the whole reason a six-stroke arm stops
-    ///         looking like a six-stroke arm.</b> The strokes already sit across the segment on
+    ///         <b>
+    ///             What <paramref name="round" /> does is the whole reason a six-stroke arm stops
+    ///             looking like a six-stroke arm.
+    ///         </b>
+    ///         The strokes already sit across the segment on
     ///         screen, so which stroke a pixel is on <i>is</i> where round a cylinder it would be: the
     ///         middle one faces the eye, the outermost two face along <c>across</c>, and everything
     ///         between is the arc joining them. Shading each by <see cref="Shade" /> of that normal
@@ -905,8 +943,8 @@ public static class GizmoGeometry {
                 // outermost stroke and floating-point rounding puts it a hair past, which is a square
                 // root of a small negative number — NaN, in a colour, spreading to every pixel the
                 // stroke covers.
-                var facing = MathF.Sqrt(MathF.Max(0f, 1f - (sideways * sideways)));
-                var shade = Shade((across * sideways) + (towardsEye * facing), pen.Light);
+                var facing = MathF.Sqrt(MathF.Max(0f, 1f - sideways * sideways));
+                var shade = Shade(across * sideways + towardsEye * facing, pen.Light);
 
                 shaded = new(colour.R * shade, colour.G * shade, colour.B * shade, colour.A);
             }
@@ -971,10 +1009,22 @@ public static class GizmoGeometry {
         var up = direction * length;
 
         return new(
-            side.X, side.Y, side.Z, 0f,
-            up.X, up.Y, up.Z, 0f,
-            forward.X, forward.Y, forward.Z, 0f,
-            centre.X, centre.Y, centre.Z, 1f
+            side.X,
+            side.Y,
+            side.Z,
+            0f,
+            up.X,
+            up.Y,
+            up.Z,
+            0f,
+            forward.X,
+            forward.Y,
+            forward.Z,
+            0f,
+            centre.X,
+            centre.Y,
+            centre.Z,
+            1f
         );
     }
 
@@ -1003,7 +1053,7 @@ public static class GizmoGeometry {
         Color4 colour,
         EditorCamera camera
     ) {
-        var first = (uint) vertices.Count;
+        var first = (uint)vertices.Count;
 
         // ⚠ Through the inverse transpose, for the reason `SceneMeshes.Append` gives: a head is
         // scaled unevenly — a cone is longer than it is wide — so its own matrix leaves the normals
@@ -1024,32 +1074,36 @@ public static class GizmoGeometry {
         // triangle and the picture it produces is the one it produced before.
         if (!hasNormals) {
             foreach (var index in mesh.Indices) {
-                triangles.Add(first + (uint) index);
+                triangles.Add(first + (uint)index);
             }
 
             return;
         }
 
         for (var index = 0; index + 2 < mesh.Indices.Length; index += 3) {
-            var a = vertices[(int) first + mesh.Indices[index]];
-            var b = vertices[(int) first + mesh.Indices[index + 1]];
-            var c = vertices[(int) first + mesh.Indices[index + 2]];
+            var a = vertices[(int)first + mesh.Indices[index]];
+            var b = vertices[(int)first + mesh.Indices[index + 1]];
+            var c = vertices[(int)first + mesh.Indices[index + 2]];
 
             if (!Faces(a, b, c, camera)) {
                 continue;
             }
 
-            triangles.Add(first + (uint) mesh.Indices[index]);
-            triangles.Add(first + (uint) mesh.Indices[index + 1]);
-            triangles.Add(first + (uint) mesh.Indices[index + 2]);
+            triangles.Add(first + (uint)mesh.Indices[index]);
+            triangles.Add(first + (uint)mesh.Indices[index + 1]);
+            triangles.Add(first + (uint)mesh.Indices[index + 2]);
         }
     }
 
     /// <summary>Whether a triangle's outward side is the side the camera is on.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>This is the back-face cull, done here rather than by the rasteriser, and it is
-    ///         what stopped the middle box being drawn inside out.</b> The handles go into the pass
+    ///         ⚠
+    ///         <b>
+    ///             This is the back-face cull, done here rather than by the rasteriser, and it is
+    ///             what stopped the middle box being drawn inside out.
+    ///         </b>
+    ///         The handles go into the pass
     ///         that has <i>no depth test and no depth write</i> — a gizmo you cannot reach through the
     ///         thing it moves is a gizmo you cannot use — and the pipeline they share is two-sided. So
     ///         nothing decided which of a solid shape's own faces was in front of which, and the
@@ -1087,5 +1141,4 @@ public static class GizmoGeometry {
             1 => Vector3.Normalize(new(basis.M21, basis.M22, basis.M23)),
             _ => Vector3.Normalize(new(basis.M31, basis.M32, basis.M33))
         };
-
 }

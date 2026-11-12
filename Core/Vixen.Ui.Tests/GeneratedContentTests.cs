@@ -9,8 +9,12 @@ namespace Vixen.Ui.Tests;
 /// <summary><c>::before</c> and <c>::after</c>: a box the sheet generates, laid out, painted and hit as one.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Every assertion is on a box, a draw command, a hit or a name, and none is on the
-///         compiled selector.</b> Doc 43's F6 was a pseudo-element that compiled cleanly and styled
+///         ⚠
+///         <b>
+///             Every assertion is on a box, a draw command, a hit or a name, and none is on the
+///             compiled selector.
+///         </b>
+///         Doc 43's F6 was a pseudo-element that compiled cleanly and styled
 ///         the paragraph; a test that asked the compiler would have passed against it. The styling
 ///         suite checks the cascade; these check that something reads it.
 ///     </para>
@@ -26,7 +30,7 @@ public class GeneratedContentTests {
 
     static Text.FontFace LoadFace() {
         using var stream = System.Reflection.Assembly.GetExecutingAssembly()
-            .GetManifestResourceStream("Vixen.Ui.Tests.Fonts.TestShapeLana.ttf")
+                .GetManifestResourceStream("Vixen.Ui.Tests.Fonts.TestShapeLana.ttf")
             ?? throw new InvalidOperationException("the test font is not embedded");
 
         using var memory = new MemoryStream();
@@ -36,10 +40,10 @@ public class GeneratedContentTests {
     }
 
     const string Row = """
-        root { width: 400px; height: 300px; align-items: flex-start; }
-        .card { flex-direction: row; align-items: flex-start; }
-        .item { width: 20px; height: 20px; background-color: #00ff00; }
-        """;
+                       root { width: 400px; height: 300px; align-items: flex-start; }
+                       .card { flex-direction: row; align-items: flex-start; }
+                       .item { width: 20px; height: 20px; background-color: #00ff00; }
+                       """;
 
     static UiDocument Drawn(string css, Action<UiDocument> build) {
         var document = new UiDocument(400f, 300f);
@@ -80,7 +84,9 @@ public class GeneratedContentTests {
         Assert.True(card.Children[0].HasClass("item"));
 
         // Painted first, as the first child box.
-        Assert.True(document.Drawing.Commands.ToList().IndexOf(red) < document.Drawing.Commands.ToList().IndexOf(green));
+        Assert.True(
+            document.Drawing.Commands.ToList().IndexOf(red) < document.Drawing.Commands.ToList().IndexOf(green)
+        );
     }
 
     [Fact]
@@ -104,7 +110,7 @@ public class GeneratedContentTests {
         document.Draw();
 
         Assert.Equal(40f, Assert.Single(document.Drawing.Commands, IsRed).X, Tolerance);
-        Assert.Equal([0f, 20f], document.Drawing.Commands.Where(IsGreen).Select(command => command.X).ToArray());
+        Assert.Equal([0f, 20f], document.Drawing.Commands.Where(IsGreen).Select(static command => command.X).ToArray());
     }
 
     [Fact]
@@ -117,7 +123,7 @@ public class GeneratedContentTests {
             p { width: 50px; height: 30px; background-color: #00ff00; }
             p::before { content: ''; width: 10px; height: 10px; background-color: #ff0000; }
             """,
-            document => document.Root.Add("p")
+            static document => document.Root.Add("p")
         );
 
         var green = Assert.Single(document.Drawing.Commands, IsGreen);
@@ -194,7 +200,7 @@ public class GeneratedContentTests {
             .empty { width: 5px; height: 5px; }
             .empty:empty { background-color: #00ff00; }
             """,
-            document => {
+            static document => {
                 var card = document.Root.Add("div", classNames: "card");
                 card.Add("div", classNames: "item");
                 document.Root.Add("div", classNames: ["card", "empty"]);
@@ -281,7 +287,10 @@ public class GeneratedContentTests {
         Assert.True(box.Width > 0f, "the inline box measures its text");
 
         // One line, the box first: the word starts after it and on the same row.
-        Assert.True(word.AbsoluteLeft >= box.AbsoluteLeft + box.Width - 0.5f, $"the word at {word.AbsoluteLeft} overlaps the box ending at {box.AbsoluteLeft + box.Width}");
+        Assert.True(
+            word.AbsoluteLeft >= box.AbsoluteLeft + box.Width - 0.5f,
+            $"the word at {word.AbsoluteLeft} overlaps the box ending at {box.AbsoluteLeft + box.Width}"
+        );
         Assert.Equal(box.AbsoluteTop, word.AbsoluteTop, 1f);
     }
 
@@ -324,7 +333,7 @@ public class GeneratedContentTests {
 
         // ⚠ Drawn once, from the anonymous box and not from the element too: a text command at the
         // element's own content box would be the words a second time, under the `::before`.
-        var words = document.Drawing.Commands.Where(command => command.Kind == DrawCommandKind.Text).ToList();
+        var words = document.Drawing.Commands.Where(static command => command.Kind == DrawCommandKind.Text).ToList();
         Assert.Contains(words, command => Math.Abs(command.X - own.AbsoluteLeft) < 0.5f);
         Assert.DoesNotContain(words, command => Math.Abs(command.X - label.AbsoluteLeft) < 0.5f);
 
@@ -358,8 +367,14 @@ public class GeneratedContentTests {
         var after = Assert.IsType<GeneratedBox>(para.GeneratedAfter);
 
         Assert.True(own.Width > 0f, "the element's own words are measured");
-        Assert.True(own.AbsoluteLeft >= before.AbsoluteLeft + before.Width - 0.5f, $"the text at {own.AbsoluteLeft} overlaps the ::before ending at {before.AbsoluteLeft + before.Width}");
-        Assert.True(after.AbsoluteLeft >= own.AbsoluteLeft + own.Width - 0.5f, $"the ::after at {after.AbsoluteLeft} overlaps the text ending at {own.AbsoluteLeft + own.Width}");
+        Assert.True(
+            own.AbsoluteLeft >= before.AbsoluteLeft + before.Width - 0.5f,
+            $"the text at {own.AbsoluteLeft} overlaps the ::before ending at {before.AbsoluteLeft + before.Width}"
+        );
+        Assert.True(
+            after.AbsoluteLeft >= own.AbsoluteLeft + own.Width - 0.5f,
+            $"the ::after at {after.AbsoluteLeft} overlaps the text ending at {own.AbsoluteLeft + own.Width}"
+        );
         Assert.Equal(before.AbsoluteTop, own.AbsoluteTop, 1f);
         Assert.Equal(before.AbsoluteTop, after.AbsoluteTop, 1f);
     }
@@ -434,13 +449,17 @@ public class GeneratedContentTests {
             }
         );
 
-        Assert.Equal(label.AbsoluteLeft, Assert.Single(document.Drawing.Commands, command => command.Kind == DrawCommandKind.Text).X, 0.5f);
+        Assert.Equal(
+            label.AbsoluteLeft,
+            Assert.Single(document.Drawing.Commands, static command => command.Kind == DrawCommandKind.Text).X,
+            0.5f
+        );
 
         label.AddClass("marked");
         document.Update();
         document.Draw();
 
-        var words = Assert.Single(document.Drawing.Commands, command => command.Kind == DrawCommandKind.Text);
+        var words = Assert.Single(document.Drawing.Commands, static command => command.Kind == DrawCommandKind.Text);
         Assert.Equal(label.AbsoluteLeft + 10f, words.X, 0.5f);
     }
 

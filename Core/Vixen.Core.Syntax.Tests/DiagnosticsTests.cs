@@ -78,7 +78,7 @@ public class DiagnosticsTests {
         bag.Add(Unexpected, Location.None, "first");
         bag.AddRange([Diagnostic.Create(Advice, Location.None)]);
 
-        Assert.Equal(["TOY0001", "TOY0002"], bag.ToArray().Select(d => d.Id));
+        Assert.Equal(["TOY0001", "TOY0002"], bag.ToArray().Select(static d => d.Id));
     }
 
     [Fact]

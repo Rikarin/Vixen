@@ -132,7 +132,7 @@ public sealed class MacOSDialogs(INativeDialogs fallback) : INativeDialogs {
             }
         }
 
-        return [.. paths];
+        return [..paths];
     }
 
     static string? Save(FileDialogOptions options, CancellationToken cancellationToken) {
@@ -205,6 +205,5 @@ public sealed class MacOSDialogs(INativeDialogs fallback) : INativeDialogs {
         ObjC.SendSetBool(panel, ObjC.Selector("setAllowsOtherFileTypes:"), false);
     }
 
-    static string? PathOf(nint url) =>
-        url == 0 ? null : ObjC.ToString(ObjC.Send(url, ObjC.Selector("path")));
+    static string? PathOf(nint url) => url == 0 ? null : ObjC.ToString(ObjC.Send(url, ObjC.Selector("path")));
 }

@@ -9,8 +9,12 @@ namespace Vixen.Video.Rendering;
 
 /// <summary>Which shape of picture the shader is looking at.</summary>
 /// <remarks>
-///     ⚠ <b>Three cases rather than a plane count, because the two one-plane layouts are not the same
-///     picture.</b> A greyscale frame has luma and no colour, so its chroma is the neutral 128 the
+///     ⚠
+///     <b>
+///         Three cases rather than a plane count, because the two one-plane layouts are not the same
+///         picture.
+///     </b>
+///     A greyscale frame has luma and no colour, so its chroma is the neutral 128 the
 ///     shader supplies for itself; a BGRA frame has been through the conversion already and must not
 ///     go through it again. Counting planes cannot tell them apart, and a shader that guessed would
 ///     draw one of them in false colour.
@@ -84,30 +88,30 @@ public readonly struct VideoConstants {
             ? VideoColourCoefficients.For(VideoColourMatrix.Bt709, VideoColourRange.Limited)
             : draw.Texture.Coefficients;
 
-        return new VideoConstants(
-            new Vector4(
+        return new(
+            new(
                 draw.Target.Width * scaleX,
                 draw.Target.Height * scaleY,
-                (draw.Target.X * scaleX) - 1f,
-                (draw.Target.Y * scaleY) + 1f
+                draw.Target.X * scaleX - 1f,
+                draw.Target.Y * scaleY + 1f
             ),
-            new Vector4(
+            new(
                 draw.TextureScale.X,
                 draw.TextureScale.Y,
                 draw.TextureOffset.X,
                 draw.TextureOffset.Y
             ),
-            new Vector4(
+            new(
                 coefficients.LumaOffset,
                 coefficients.LumaScale,
                 coefficients.RedV,
                 coefficients.BlueU
             ),
-            new Vector4(
+            new(
                 coefficients.GreenU,
                 coefficients.GreenV,
                 draw.Tint.A,
-                (float) ModeOf(draw.Texture)
+                (float)ModeOf(draw.Texture)
             )
         );
     }

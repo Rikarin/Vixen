@@ -96,13 +96,17 @@ public class PlayerBuildTests {
             File.WriteAllText(Path.Combine(root, "Tests.csproj"), "<Project />");
             Assert.False(PlayerBuild.TryFindProjectFile(root, out _));
         } finally {
-            Directory.Delete(root, recursive: true);
+            Directory.Delete(root, true);
         }
     }
 
     /// <summary>
-    ///     ⚠ <b>The two halves joined, because separately they both passed while the editor was
-    ///     broken.</b> A new project used to be two directories, so this call answered false for
+    ///     ⚠
+    ///     <b>
+    ///         The two halves joined, because separately they both passed while the editor was
+    ///         broken.
+    ///     </b>
+    ///     A new project used to be two directories, so this call answered false for
     ///     every project the editor made and Build and Run was greyed for all of them. What has to be
     ///     true is not "the scaffold writes files" and not "this finds a project file" — it is that
     ///     what the first writes is what the second finds.
@@ -118,7 +122,7 @@ public class PlayerBuildTests {
             Assert.True(PlayerBuild.TryFindProjectFile(root, out var found));
             Assert.Equal("Asteroids.csproj", Path.GetFileName(found));
         } finally {
-            Directory.Delete(root, recursive: true);
+            Directory.Delete(root, true);
         }
     }
 

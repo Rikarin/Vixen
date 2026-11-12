@@ -10,8 +10,11 @@ namespace Vixen.Ui.Reactive.Tests;
 /// <summary>Every production effect names the scheduler it belongs to, rather than taking the thread's.</summary>
 /// <remarks>
 ///     <para>
-///         <b><a href="https://github.com/Rikarin/Vixen/issues/1129">#1129</a>, and it is an
-///         instrument question before it is a rule.</b> <c>UiDiagnostics.BrokenBindings</c> counts
+///         <b>
+///             <a href="https://github.com/Rikarin/Vixen/issues/1129">#1129</a>, and it is an
+///             instrument question before it is a rule.
+///         </b>
+///         <c>UiDiagnostics.BrokenBindings</c> counts
 ///         the effects <em>a document's</em> scheduler suspends, which is the only reading under
 ///         which a nought means something. An <see cref="Effect" /> constructed with no scheduler
 ///         queues on <see cref="EffectScheduler.Default" /> instead — <c>[ThreadStatic]</c>, owned by
@@ -27,8 +30,12 @@ namespace Vixen.Ui.Reactive.Tests;
 ///         and read as though the class were shut.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Measured rather than assumed, and it refutes the size the fix was thought to
-///         be.</b> "~58 construction sites" counts the test assemblies, where a thread default is
+///         ⚠
+///         <b>
+///             Measured rather than assumed, and it refutes the size the fix was thought to
+///             be.
+///         </b>
+///         "~58 construction sites" counts the test assemblies, where a thread default is
 ///         exactly right — a test host is one thread with one graph. In <em>production</em> source,
 ///         across <c>.cs</c> and <c>.vxml</c> alike, every one of these calls already names a
 ///         scheduler. So the exposure this issue is about is nought today and the whole of what is
@@ -63,7 +70,8 @@ public class SchedulerReachTests {
     [Fact]
     public void NoProductionEffectTakesTheThreadsScheduler() {
         List<string> unscheduled = [];
-        Dictionary<string, int> seen = Doors.ToDictionary(door => door.Token, _ => 0, StringComparer.Ordinal);
+        var seen =
+            Doors.ToDictionary(static door => door.Token, static _ => 0, StringComparer.Ordinal);
 
         foreach (var file in Production()) {
             Census(Path.GetRelativePath(Root(), file), File.ReadAllLines(file), seen, unscheduled);
@@ -91,8 +99,12 @@ public class SchedulerReachTests {
     /// <param name="seen">How many calls through each door have been located so far.</param>
     /// <param name="unscheduled">Where a call that takes the thread's scheduler is reported.</param>
     /// <remarks>
-    ///     ⚠ <b>A <c>.vxml</c> is read through <see cref="VxmlLines" /> and before #1341 it was read
-    ///     whole.</b> The paren walk steps over C# comments inside an argument list and nothing else,
+    ///     ⚠
+    ///     <b>
+    ///         A <c>.vxml</c> is read through <see cref="VxmlLines" /> and before #1341 it was read
+    ///         whole.
+    ///     </b>
+    ///     The paren walk steps over C# comments inside an argument list and nothing else,
     ///     so a header comment demonstrating how a view makes an effect was a call on both counts: one
     ///     more located call towards the floor below — the "it measured something" check satisfied by
     ///     prose — and, written the short way, a false accusation. The shared parts demonstrate their
@@ -104,7 +116,12 @@ public class SchedulerReachTests {
     ///         none of today's writes a door followed by an argument list.
     ///     </para>
     /// </remarks>
-    static void Census(string file, IReadOnlyList<string> lines, Dictionary<string, int> seen, List<string> unscheduled) {
+    static void Census(
+        string file,
+        IReadOnlyList<string> lines,
+        Dictionary<string, int> seen,
+        List<string> unscheduled
+    ) {
         var text = string.Join('\n', VxmlLines.Source(file, lines));
 
         foreach (var (token, least, what) in Doors) {
@@ -136,7 +153,7 @@ public class SchedulerReachTests {
     /// </remarks>
     [Fact]
     public void A_markup_comment_is_not_a_call() {
-        var seen = Doors.ToDictionary(door => door.Token, _ => 0, StringComparer.Ordinal);
+        var seen = Doors.ToDictionary(static door => door.Token, static _ => 0, StringComparer.Ordinal);
         List<string> unscheduled = [];
 
         Census(
@@ -161,8 +178,12 @@ public class SchedulerReachTests {
 
     /// <summary>Every source file in the working tree that is not a test.</summary>
     /// <remarks>
-    ///     ⚠ <b><c>.vxml</c> as well as <c>.cs</c>, because a view's <c>code</c> block is production
-    ///     C#</b> — and both production <c>UiWindowTitle.Bind</c> calls in this repository are in one.
+    ///     ⚠
+    ///     <b>
+    ///         <c>.vxml</c> as well as <c>.cs</c>, because a view's <c>code</c> block is production
+    ///         C#
+    ///     </b>
+    ///     — and both production <c>UiWindowTitle.Bind</c> calls in this repository are in one.
     ///     A sweep reading only <c>*.cs</c> would have reported this door as having no callers, which
     ///     is a clean grep that means nothing.
     ///     <para>
@@ -175,7 +196,11 @@ public class SchedulerReachTests {
         var found = RepositoryFiles.Files(Root(), "*.cs", "*.vxml");
         found.Sort(StringComparer.Ordinal);
 
-        return found.Where(file => !file.Contains(".Tests" + Path.DirectorySeparatorChar, StringComparison.Ordinal));
+        return found.Where(static file => !file.Contains(
+                ".Tests" + Path.DirectorySeparatorChar,
+                StringComparison.Ordinal
+            )
+        );
     }
 
     /// <summary>The working tree's root, found by a directory only it has.</summary>

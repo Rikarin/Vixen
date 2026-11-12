@@ -76,8 +76,11 @@ public class GaugeTests {
         var quarter = Lit(ui);
 
         Assert.NotEmpty(quarter);
-        Assert.All(quarter, pixel => Assert.True(pixel.X < Centre, $"({pixel.X}, {pixel.Y}) is right of the middle"));
-        Assert.Contains(quarter, pixel => pixel.Y > Centre + 4);
+        Assert.All(
+            quarter,
+            static pixel => Assert.True(pixel.X < Centre, $"({pixel.X}, {pixel.Y}) is right of the middle")
+        );
+        Assert.Contains(quarter, static pixel => pixel.Y > Centre + 4);
 
         // And full, the open quarter is at the bottom: nothing lit straight below the middle, and
         // the top of the dial lit.
@@ -86,8 +89,8 @@ public class GaugeTests {
 
         var full = Lit(ui);
 
-        Assert.DoesNotContain(full, pixel => pixel.X == Centre && pixel.Y > Centre);
-        Assert.Contains(full, pixel => pixel.X == Centre && pixel.Y < Centre);
+        Assert.DoesNotContain(full, static pixel => pixel.X == Centre && pixel.Y > Centre);
+        Assert.Contains(full, static pixel => pixel.X == Centre && pixel.Y < Centre);
     }
 
     /// <summary>
@@ -101,10 +104,8 @@ public class GaugeTests {
         var bar = ui.Add<LevelIndicator>("bar");
 
         foreach (var (warning, critical, direction) in new[] {
-                     (0.7f, 0.9f, LevelDirection.Inferred),
-                     (0.3f, 0.1f, LevelDirection.Inferred),
-                     (float.NaN, 0.1f, LevelDirection.Inferred),
-                     (float.NaN, 0.1f, LevelDirection.Falling)
+                     (0.7f, 0.9f, LevelDirection.Inferred), (0.3f, 0.1f, LevelDirection.Inferred),
+                     (float.NaN, 0.1f, LevelDirection.Inferred), (float.NaN, 0.1f, LevelDirection.Falling)
                  }) {
             gauge.Warning = bar.Warning = warning;
             gauge.Critical = bar.Critical = critical;
@@ -146,8 +147,12 @@ public class GaugeTests {
     ///         element was told; the class is what the theme colours, and only a change hook rewrites
     ///         it. The test above sets every threshold before the reading, so the reading's own hook
     ///         applied the class each time and a gauge whose threshold and direction hooks did nothing
-    ///         passed it. Markup is where this order is ordinary: <c>&lt;Gauge Value="0.9"
-    ///         Critical="0.15" Direction="Falling" /&gt;</c> assigns the reading first.
+    ///         passed it. Markup is where this order is ordinary:
+    ///         <c>
+    ///             &lt;Gauge Value="0.9"
+    ///             Critical="0.15" Direction="Falling" /&gt;
+    ///         </c>
+    ///         assigns the reading first.
     ///     </para>
     ///     <para>
     ///         So each step here changes one property and holds the reading, and asserts the class
@@ -167,12 +172,18 @@ public class GaugeTests {
 
         gauge.Warning = 0.6f;
         ui.Frame();
-        Assert.True(gauge.HasClass("warning"), "a warning line was drawn under the reading and the theme was never told");
+        Assert.True(
+            gauge.HasClass("warning"),
+            "a warning line was drawn under the reading and the theme was never told"
+        );
 
         gauge.Critical = 0.85f;
         ui.Frame();
         Assert.False(gauge.HasClass("warning"));
-        Assert.True(gauge.HasClass("critical"), "a critical line was drawn under the reading and the theme was never told");
+        Assert.True(
+            gauge.HasClass("critical"),
+            "a critical line was drawn under the reading and the theme was never told"
+        );
 
         // The lone line: inferred, it is a ceiling and a full-ish tank is critical; stated falling,
         // it is a floor and the same reading is ordinary.
@@ -214,7 +225,7 @@ public class GaugeTests {
         ui.Frame();
 
         // The instrument: the track is there to be seen, and it is bright in red.
-        Assert.Contains(Pixels(ui), pixel => pixel.R > 120);
+        Assert.Contains(Pixels(ui), static pixel => pixel.R > 120);
 
         gauge.Value = 1f;
         ui.Frame();
@@ -226,7 +237,10 @@ public class GaugeTests {
 
         var halo = Pixels(ui).Where(pixel => pixel.R > ceiling).ToList();
 
-        Assert.True(halo.Count == 0, $"{halo.Count} pixels of a full dial show the track, the first at ({halo.FirstOrDefault().X}, {halo.FirstOrDefault().Y}) with red {halo.FirstOrDefault().R} over {ceiling}");
+        Assert.True(
+            halo.Count == 0,
+            $"{halo.Count} pixels of a full dial show the track, the first at ({halo.FirstOrDefault().X}, {halo.FirstOrDefault().Y}) with red {halo.FirstOrDefault().R} over {ceiling}"
+        );
     }
 
     /// <summary>A meter, announced by its reading, and not a tab stop.</summary>
@@ -280,7 +294,7 @@ public class GaugeTests {
     ///     </para>
     /// </remarks>
     static List<(int X, int Y)> Lit(UiTest ui) =>
-        Pixels(ui).Where(static pixel => pixel.B - pixel.R > 100).Select(static pixel => (pixel.X, pixel.Y)).ToList();
+        [..Pixels(ui).Where(static pixel => pixel.B - pixel.R > 100).Select(static pixel => (pixel.X, pixel.Y))];
 
     static List<(int X, int Y, int R, int B)> Pixels(UiTest ui) {
         var image = ui.Capture();

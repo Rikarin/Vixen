@@ -3,7 +3,6 @@
 
 using Vixen.Core.Imaging;
 using Vixen.Core.Mathematics;
-using Vixen.Editor.Testing;
 using Vixen.Ui;
 using Xunit;
 
@@ -46,7 +45,7 @@ public sealed class TextColourPictureTests {
         var line = Descendants(document.Root).FirstOrDefault(element => element.Tag == tag)
             ?? throw fixture.Fail($"the {panel} panel shows no <{tag}>");
 
-        var words = Assert.Single(line.Children, child => child.Tag == "text");
+        var words = Assert.Single(line.Children, static child => child.Tag == "text");
         Assert.False(string.IsNullOrEmpty(words.Text), $"<{tag}> has no words to draw");
 
         var want = document.ColorOf(line.Style, color) ?? throw fixture.Fail($"<{tag}> resolved no colour");
@@ -131,10 +130,12 @@ public sealed class TextColourPictureTests {
         // far off that line it is.
         var toward = (R: want.R - ground.R, G: want.G - ground.G, B: want.B - ground.B);
         var drawn = (R: inked.R - ground.R, G: inked.G - ground.G, B: inked.B - ground.B);
-        var length = (toward.R * toward.R) + (toward.G * toward.G) + (toward.B * toward.B);
-        var along = ((drawn.R * toward.R) + (drawn.G * toward.G) + (drawn.B * toward.B)) / length;
+        var length = toward.R * toward.R + toward.G * toward.G + toward.B * toward.B;
+        var along = (drawn.R * toward.R + drawn.G * toward.G + drawn.B * toward.B) / length;
         var aside = MathF.Sqrt(
-            MathF.Pow(drawn.R - (along * toward.R), 2) + MathF.Pow(drawn.G - (along * toward.G), 2) + MathF.Pow(drawn.B - (along * toward.B), 2)
+            MathF.Pow(drawn.R - along * toward.R, 2)
+            + MathF.Pow(drawn.G - along * toward.G, 2)
+            + MathF.Pow(drawn.B - along * toward.B, 2)
         );
 
         if (along is not (> 0.5f and < 1.1f) || aside >= 0.08f) {
@@ -152,7 +153,7 @@ public sealed class TextColourPictureTests {
     static Color4 Of((byte R, byte G, byte B) pixel) => new(pixel.R / 255f, pixel.G / 255f, pixel.B / 255f, 1f);
 
     static float Distance(Color4 a, Color4 b) =>
-        MathF.Sqrt(((a.R - b.R) * (a.R - b.R)) + ((a.G - b.G) * (a.G - b.G)) + ((a.B - b.B) * (a.B - b.B)));
+        MathF.Sqrt((a.R - b.R) * (a.R - b.R) + (a.G - b.G) * (a.G - b.G) + (a.B - b.B) * (a.B - b.B));
 
     static IEnumerable<UiElement> Descendants(UiElement element) {
         yield return element;

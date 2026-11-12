@@ -184,10 +184,7 @@ public sealed class FoliageCullParityTests {
 
     static FoliageType Tree =>
         FoliageType.Of("Tree") with {
-            Mesh = "Meshes/pine",
-            Radius = 2f,
-            StartCullDistance = 160f,
-            EndCullDistance = 200f
+            Mesh = "Meshes/pine", Radius = 2f, StartCullDistance = 160f, EndCullDistance = 200f
         };
 
     static BoundingFrustum Looking(float far = 1000f) =>
@@ -210,7 +207,7 @@ public sealed class FoliageCullParityTests {
                         ((float)random.NextDouble() - 0.5f) * 500f
                     ),
                     Quaternion.Identity,
-                    0.6f + ((float)random.NextDouble() * 1.2f)
+                    0.6f + (float)random.NextDouble() * 1.2f
                 )
             );
         }
@@ -251,7 +248,7 @@ public sealed class FoliageCullParityTests {
     }
 
     static InstanceBounds[] BoundsOf(List<FoliageInstance> instances, float radius) =>
-        [.. instances.Select(instance => new InstanceBounds(instance.Position, radius * instance.Scale))];
+        [..instances.Select(instance => new InstanceBounds(instance.Position, radius * instance.Scale))];
 
     // --- The seam -----------------------------------------------------------
 
@@ -270,8 +267,8 @@ public sealed class FoliageCullParityTests {
 
         Assert.Equal(survivors, counts.Sum());
 
-        var host = culler.Survivors.ToArray().Select(index => (int)index).Order().ToArray();
-        var device = runs.SelectMany(run => run).Order().ToArray();
+        var host = culler.Survivors.ToArray().Select(static index => (int)index).Order().ToArray();
+        var device = runs.SelectMany(static run => run).Order().ToArray();
 
         Assert.Equal(host, device);
     }
@@ -291,8 +288,9 @@ public sealed class FoliageCullParityTests {
 
         for (var level = 0; level < culler.LevelCount; level++) {
             var run = culler.Runs[level];
-            var host = culler.Survivors.Slice(run.First, run.Count).ToArray()
-                .Select(index => (int)index)
+            var host = culler.Survivors.Slice(run.First, run.Count)
+                .ToArray()
+                .Select(static index => (int)index)
                 .Order()
                 .ToArray();
 
@@ -301,7 +299,7 @@ public sealed class FoliageCullParityTests {
         }
 
         // Every level was actually used, or the test would pass on a fixture that never binned.
-        Assert.All(counts.Take(3), count => Assert.True(count > 0));
+        Assert.All(counts.Take(3), static count => Assert.True(count > 0));
     }
 
     /// <summary>And the runs are contiguous, in level order, within the batch's own space.</summary>
@@ -376,9 +374,9 @@ public sealed class FoliageCullParityTests {
         Assert.True(survivors > 0);
         Assert.Equal(survivors, counts.Sum());
 
-        var host = culler.Survivors.ToArray().Select(index => (int)index).Order().ToArray();
+        var host = culler.Survivors.ToArray().Select(static index => (int)index).Order().ToArray();
 
-        Assert.Equal(host, runs.SelectMany(run => run).Order().ToArray());
+        Assert.Equal(host, runs.SelectMany(static run => run).Order().ToArray());
     }
 
     /// <summary>A thinned field keeps the instances it keeps as the scalar moves.</summary>
@@ -388,8 +386,8 @@ public sealed class FoliageCullParityTests {
         var (high, view, _, _) = Fixture(0.8f);
         var low = high with { DensityScale = 0.3f };
 
-        var kept = Dispatch(instances, in high, in view).Runs.SelectMany(run => run).ToHashSet();
-        var fewer = Dispatch(instances, in low, in view).Runs.SelectMany(run => run).ToHashSet();
+        var kept = Dispatch(instances, in high, in view).Runs.SelectMany(static run => run).ToHashSet();
+        var fewer = Dispatch(instances, in low, in view).Runs.SelectMany(static run => run).ToHashSet();
 
         Assert.True(fewer.Count < kept.Count, "lowering the scalar kept as many.");
         Assert.True(fewer.IsSubsetOf(kept), "lowering the scalar introduced an instance that was not there.");

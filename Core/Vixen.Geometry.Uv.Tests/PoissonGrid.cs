@@ -32,7 +32,7 @@ static class PoissonGrid {
 
         for (var y = 0; y < extent; y++) {
             for (var x = 0; x < extent; x++) {
-                var row = (y * extent) + x;
+                var row = y * extent + x;
                 builder.Add(row, row, 4d * scale);
 
                 if (x > 0) {
@@ -67,7 +67,7 @@ static class PoissonGrid {
 
         for (var y = 0; y < extent; y++) {
             for (var x = 0; x < extent; x++) {
-                vector[(y * extent) + x] =
+                vector[y * extent + x] =
                     Math.Sin(first * Math.PI * (x + 1) * spacing) * Math.Sin(second * Math.PI * (y + 1) * spacing);
             }
         }
@@ -83,6 +83,6 @@ static class PoissonGrid {
     public static double Eigenvalue(int extent, int first, int second) {
         var spacing = 1d / (extent + 1);
 
-        return 4d - (2d * Math.Cos(first * Math.PI * spacing)) - (2d * Math.Cos(second * Math.PI * spacing));
+        return 4d - 2d * Math.Cos(first * Math.PI * spacing) - 2d * Math.Cos(second * Math.PI * spacing);
     }
 }

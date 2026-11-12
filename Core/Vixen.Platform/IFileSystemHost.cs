@@ -67,8 +67,10 @@ public interface IFileSystemHost {
     /// </remarks>
     bool IsSandboxed { get; }
 
-    /// <summary>Mounts <c>/app</c>, <c>/data</c>, <c>/cache</c> and <c>/temp</c> onto this
-    /// platform's providers.</summary>
+    /// <summary>
+    ///     Mounts <c>/app</c>, <c>/data</c>, <c>/cache</c> and <c>/temp</c> onto this
+    ///     platform's providers.
+    /// </summary>
     /// <param name="fileSystem">The file system to mount into.</param>
     /// <remarks>
     ///     The platform mounts rather than the caller, because only the platform knows what kind of

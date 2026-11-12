@@ -11,7 +11,6 @@ using Vixen.Rendering.Compositor;
 using Vixen.Rendering.Features;
 using Vixen.Rendering.VirtualGeometry;
 using Vixen.Shaders;
-using Vixen.Ui.Testing.Visual;
 using Xunit;
 
 namespace Vixen.Graphics.Golden.Tests;
@@ -22,8 +21,11 @@ namespace Vixen.Graphics.Golden.Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>The comparison <c>docs/plan/22-virtualized-geometry.md</c> § phase 4 states and records as
-///         owed.</b> Everything under the raster had been checked on the host — the decode from a
+///         <b>
+///             The comparison <c>docs/plan/22-virtualized-geometry.md</c> § phase 4 states and records as
+///             owed.
+///         </b>
+///         Everything under the raster had been checked on the host — the decode from a
 ///         visible word through the instance, the geometry record, the slot table and the page bytes to
 ///         a world position, exactly, in <c>ClusterRasterTests</c> — and nothing had ever put a triangle
 ///         on a screen through the traversal and compared it with the same triangle drawn the ordinary
@@ -85,10 +87,10 @@ public sealed class VirtualGeometryGoldenTests {
 
         owned.Graph.Reset();
 
-        var virtualized = Virtualized(owned, geometry, softwareThreshold: 0f, out _, out _);
+        var virtualized = Virtualized(owned, geometry, 0f, out _, out _);
 
-        var drawn = Mask(forward, pixel => pixel.Span[0] != 0 || pixel.Span[1] != 0 || pixel.Span[2] != 0);
-        var covered = Mask(virtualized, pixel => Word(pixel) != GpuClusterRaster.Nothing);
+        var drawn = Mask(forward, static pixel => pixel.Span[0] != 0 || pixel.Span[1] != 0 || pixel.Span[2] != 0);
+        var covered = Mask(virtualized, static pixel => Word(pixel) != GpuClusterRaster.Nothing);
 
         // Neither is allowed to be empty, or "they agree" is a statement about two blank images.
         Assert.True(Count(drawn) > 512, $"The forward path covered {Count(drawn)} pixels.");
@@ -179,7 +181,7 @@ public sealed class VirtualGeometryGoldenTests {
 
         var geometry = Plane();
 
-        var hardware = Virtualized(owned, geometry, softwareThreshold: 0f, out var none, out _);
+        var hardware = Virtualized(owned, geometry, 0f, out var none, out _);
 
         Assert.Equal(0, none);
 
@@ -227,7 +229,7 @@ public sealed class VirtualGeometryGoldenTests {
 
         owned.Graph.Reset();
 
-        var whole = Virtualized(owned, ramp, softwareThreshold: 0f, out var unrouted, out var accepted);
+        var whole = Virtualized(owned, ramp, 0f, out var unrouted, out var accepted);
 
         Assert.Equal(0, unrouted);
         Assert.True(accepted > 1, $"The ramp's cut is {accepted} cluster(s), so it cannot be split.");
@@ -372,7 +374,7 @@ public sealed class VirtualGeometryGoldenTests {
         camera.ErrorThreshold = VirtualGeometryRenderFeature.DefaultErrorThreshold;
         camera.SoftwareThreshold = threshold;
 
-        return GpuClusterCulling.Traverse(scene, instance, camera, _ => true);
+        return GpuClusterCulling.Traverse(scene, instance, camera, static _ => true);
     }
 
     /// <summary>The plane drawn through the ordinary mesh feature.</summary>
@@ -393,20 +395,19 @@ public sealed class VirtualGeometryGoldenTests {
         // page builder cut and the mesh the vertex buffer holds would show as an empty image, which is
         // the same symptom as every other way of drawing nothing.
         var opaque = system.AddStage(
-            new("Opaque") {
-                DepthStencil = DepthStencilState.Disabled,
-                Rasterizer = RasterizerState.TwoSided
-            }
+            new("Opaque") { DepthStencil = DepthStencilState.Disabled, Rasterizer = RasterizerState.TwoSided }
         );
 
         var describer = new EffectPipelineDescriber(device);
 
-        describer.VertexLayouts.Add([
-            new VertexBufferLayout(
-                Vertex.Stride,
-                [new(0, VertexFormat.Float32X3, 0), new(1, VertexFormat.Float32X4, 12)]
-            )
-        ]);
+        describer.VertexLayouts.Add(
+            [
+                new VertexBufferLayout(
+                    Vertex.Stride,
+                    [new(0, VertexFormat.Float32X3, 0), new(1, VertexFormat.Float32X4, 12)]
+                )
+            ]
+        );
 
         var effects = new EffectSystem();
         effects.AddProvider(new Flat(fixture));
@@ -419,15 +420,11 @@ public sealed class VirtualGeometryGoldenTests {
         meshes.Add(materials);
         system.AddFeature(meshes);
 
-        var vertices = fixture.Buffer<Vertex>(geometry.Vertices, BufferUsage.Vertex);
-        var indices = fixture.Buffer<ushort>(geometry.Indices, BufferUsage.Index);
+        var vertices = fixture.Buffer(geometry.Vertices, BufferUsage.Vertex);
+        var indices = fixture.Buffer(geometry.Indices, BufferUsage.Index);
 
         var id = system.Objects.Add(
-            new() {
-                Bounds = new(Vector3.Zero, 100f),
-                Stages = opaque.Mask,
-                FeatureIndex = meshes.Index
-            }
+            new() { Bounds = new(Vector3.Zero, 100f), Stages = opaque.Mask, FeatureIndex = meshes.Index }
         );
 
         system.Objects.Data.Data(meshes.Draws)[id.Index] = new() {
@@ -442,7 +439,7 @@ public sealed class VirtualGeometryGoldenTests {
         // transform and no per-view block. The object's own world matrix is the identity, so this is the
         // whole of what puts the two paths in the same clip space.
         system.Objects.Data.Data(transforms.World)[id.Index] = ViewProjection;
-        materials.Assign(system, id, new Material("Mesh"));
+        materials.Assign(system, id, new("Mesh"));
 
         var display = fixture.Owned("Display", TextureUsage.ColourTarget | TextureUsage.CopySource);
         var pass = new RenderPassRenderer { Name = "Scene", ClearColour = new(0f, 0f, 0f, 1f) };
@@ -451,8 +448,7 @@ public sealed class VirtualGeometryGoldenTests {
         pass.Children.Add(new SingleStageRenderer { View = View(opaque.Mask), Stage = opaque });
 
         var compositor = new GraphicsCompositor(system) {
-            FrameSize = new(Fixture.Side, Fixture.Side),
-            Game = new SceneRendererSequence { Children = { pass } }
+            FrameSize = new(Fixture.Side, Fixture.Side), Game = new SceneRendererSequence { Children = { pass } }
         };
 
         compositor.Imports["Display"] = new(
@@ -493,11 +489,11 @@ public sealed class VirtualGeometryGoldenTests {
 
         using var system = new RenderSystem();
         var pipelines = new ComputePipelineCache(device);
-        using var clusters = new VirtualGeometrySystem(device, slots: 64, pageSize: PageSize);
+        using var clusters = new VirtualGeometrySystem(device, 64, PageSize);
 
         clusters.Effects = effects;
         clusters.Pipelines = pipelines;
-        clusters.Modules = new EffectPipelineDescriber(device);
+        clusters.Modules = new(device);
 
         var stage = system.AddStage(new("Opaque"));
 
@@ -506,17 +502,11 @@ public sealed class VirtualGeometryGoldenTests {
         var registered = clusters.Content(0, geometry.Clusters, new MemoryStream(geometry.Pages.Data), morphIndex);
 
         var id = system.Objects.Add(
-            new() {
-                Bounds = new(Vector3.Zero, 100f),
-                Stages = stage.Mask,
-                FeatureIndex = clusters.Feature.Index
-            }
+            new() { Bounds = new(Vector3.Zero, 100f), Stages = stage.Mask, FeatureIndex = clusters.Feature.Index }
         );
 
         system.Objects.Data.Data(clusters.Feature.Draws)[id.Index] = new() {
-            Mesh = registered,
-            Position = Vector3.Zero,
-            Scale = 1f
+            Mesh = registered, Position = Vector3.Zero, Scale = 1f
         };
 
         clusters.Feature.ScreenHeight = Fixture.Side;
@@ -717,14 +707,14 @@ public sealed class VirtualGeometryGoldenTests {
         var geometry = Plane();
         var shapes = Shapes(geometry);
 
-        var rest = Virtualized(owned, geometry, softwareThreshold: 0f, out _, out _, shapes, weight: 0f);
+        var rest = Virtualized(owned, geometry, 0f, out _, out _, shapes, 0f);
 
         owned.Graph.Reset();
 
-        var morphed = Virtualized(owned, geometry, softwareThreshold: 0f, out _, out _, shapes, weight: 1f);
+        var morphed = Virtualized(owned, geometry, 0f, out _, out _, shapes, 1f);
 
-        var restMask = Mask(rest, pixel => Word(pixel) != GpuClusterRaster.Nothing);
-        var morphedMask = Mask(morphed, pixel => Word(pixel) != GpuClusterRaster.Nothing);
+        var restMask = Mask(rest, static pixel => Word(pixel) != GpuClusterRaster.Nothing);
+        var morphedMask = Mask(morphed, static pixel => Word(pixel) != GpuClusterRaster.Nothing);
 
         // Before anything is compared: a plane's worth of pixels, twice. Two empty frames shrink by
         // exactly the right factor and mean nothing at all.
@@ -848,7 +838,7 @@ public sealed class VirtualGeometryGoldenTests {
 
             var hash = (word * 2654435761u) ^ (word >> 13);
 
-            pixels[at + 0] = (byte)(64 + (hash & 0x7F));
+            pixels[at] = (byte)(64 + (hash & 0x7F));
             pixels[at + 1] = (byte)(64 + ((hash >> 8) & 0x7F));
             pixels[at + 2] = (byte)(64 + ((hash >> 16) & 0x7F));
             pixels[at + 3] = 255;
@@ -906,7 +896,7 @@ public sealed class VirtualGeometryGoldenTests {
     /// <summary>The visibility word a pixel's four bytes are, little-endian as the device wrote them.</summary>
     static uint Word(ReadOnlyMemory<byte> pixel) => MemoryMarshal.Read<uint>(pixel.Span);
 
-    static int Count(bool[] mask) => mask.Count(covered => covered);
+    static int Count(bool[] mask) => mask.Count(static covered => covered);
 
     // What this fixture found, in the order it found it — kept because each failure is a class of
     // defect the suite should be able to name when it happens again.
@@ -974,14 +964,14 @@ public sealed class VirtualGeometryGoldenTests {
 
         for (var j = 0; j <= along; j++) {
             var t = (float)j / along;
-            var z = -3f + (-37f * t);
+            var z = -3f + -37f * t;
 
             for (var i = 0; i <= across; i++) {
                 var u = (float)i / across;
 
                 var position = new Vector3(
                     (u - 0.5f) * 4f,
-                    (0.35f * MathF.Sin(u * 12f)) + (0.35f * MathF.Sin(t * 18f)),
+                    0.35f * MathF.Sin(u * 12f) + 0.35f * MathF.Sin(t * 18f),
                     z
                 );
 
@@ -992,7 +982,7 @@ public sealed class VirtualGeometryGoldenTests {
 
         for (var j = 0; j < along; j++) {
             for (var i = 0; i < across; i++) {
-                var a = (j * (across + 1)) + i;
+                var a = j * (across + 1) + i;
                 var b = a + 1;
                 var c = a + across + 1;
 
@@ -1001,13 +991,13 @@ public sealed class VirtualGeometryGoldenTests {
             }
         }
 
-        var input = new MeshletBuildInput { Positions = [.. positions], Indices = [.. indices] };
+        var input = new MeshletBuildInput { Positions = [..positions], Indices = [..indices] };
         var mesh = MeshletBuilder.Build(input);
         var pages = MeshletPageBuilder.Build(mesh, input.Positions, [], new() { PageSize = PageSize });
 
         return new(
-            [.. vertices],
-            [.. indices.Select(index => (ushort)index)],
+            [..vertices],
+            [..indices.Select(static index => (ushort)index)],
             new(mesh, pages.WithoutData()),
             pages
         );
@@ -1026,8 +1016,8 @@ public sealed class VirtualGeometryGoldenTests {
         for (var y = 0; y <= segments; y++) {
             for (var x = 0; x <= segments; x++) {
                 var position = new Vector3(
-                    (((float)x / segments) - 0.5f) * 4f,
-                    (((float)y / segments) - 0.5f) * 4f,
+                    ((float)x / segments - 0.5f) * 4f,
+                    ((float)y / segments - 0.5f) * 4f,
                     Distance
                 );
 
@@ -1038,7 +1028,7 @@ public sealed class VirtualGeometryGoldenTests {
 
         for (var y = 0; y < segments; y++) {
             for (var x = 0; x < segments; x++) {
-                var a = (y * (segments + 1)) + x;
+                var a = y * (segments + 1) + x;
                 var b = a + 1;
                 var c = a + segments + 1;
 
@@ -1047,13 +1037,13 @@ public sealed class VirtualGeometryGoldenTests {
             }
         }
 
-        var input = new MeshletBuildInput { Positions = [.. positions], Indices = [.. indices] };
+        var input = new MeshletBuildInput { Positions = [..positions], Indices = [..indices] };
         var mesh = MeshletBuilder.Build(input);
         var pages = MeshletPageBuilder.Build(mesh, input.Positions, [], new() { PageSize = PageSize });
 
         return new(
-            [.. vertices],
-            [.. indices.Select(index => (ushort)index)],
+            [..vertices],
+            [..indices.Select(static index => (ushort)index)],
             new(mesh, pages.WithoutData()),
             pages
         );
@@ -1101,7 +1091,7 @@ public sealed class VirtualGeometryGoldenTests {
         }
 
         static ImmutableArray<byte> Read(string name) =>
-            [.. File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Shaders", name))];
+            [..File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Shaders", name))];
 
         public Effect? TryGet(EffectKey key) => mesh;
     }

@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core;
-using Vixen.Ecs;
 using Vixen.Net.Rules;
 
 namespace Vixen.Net.Engine;
@@ -12,8 +11,12 @@ namespace Vixen.Net.Engine;
 ///     <para>
 ///         <b>The authored half of <see cref="NetworkRulesRegistry.Set" />.</b> The registry holds a
 ///         policy per <c>NetworkId</c>, which is a number the server allocated and therefore
-///         something no content can carry; this is a designer's claim about content — <i>this thing
-///         plays by these rules</i> — made before any peer has connected and true in every process
+///         something no content can carry; this is a designer's claim about content —
+///         <i>
+///             this thing
+///             plays by these rules
+///         </i>
+///         — made before any peer has connected and true in every process
 ///         that loads the asset. <see cref="NetworkObject" /> makes exactly the same split for
 ///         exactly the same reason, one question over.
 ///     </para>

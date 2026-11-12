@@ -3,7 +3,6 @@
 
 using Vixen.Authoring;
 using Vixen.Core.Mathematics;
-using Vixen.Editor.Core;
 using Vixen.Input;
 using Vixen.Ui;
 using Xunit;
@@ -26,14 +25,14 @@ public class ViewportInputTests {
     public void A_tool_is_handed_the_narrow_pane_and_the_narrow_pane_is_what_tools_read() {
         Assert.All(
             typeof(IViewportInput).GetMethods(),
-            method => Assert.Equal(typeof(IViewportPane), method.GetParameters()[0].ParameterType)
+            static method => Assert.Equal(typeof(IViewportPane), method.GetParameters()[0].ParameterType)
         );
 
         Assert.True(typeof(IViewportPane).IsAssignableFrom(typeof(SceneViewport)));
 
         var members = typeof(IViewportPane).GetMembers()
-            .Where(member => member is not System.Reflection.MethodInfo { IsSpecialName: true })
-            .Select(member => member.Name)
+            .Where(static member => member is not System.Reflection.MethodInfo { IsSpecialName: true })
+            .Select(static member => member.Name)
             .Order(StringComparer.Ordinal);
 
         Assert.Equal(
@@ -66,7 +65,7 @@ public class ViewportInputTests {
         var scale = pane.Viewport.Gizmo.WorldPerPixel(pane.Camera, pane.Control.RenderHeight)
             * pane.Viewport.Gizmo.HandleLength;
 
-        return pane.Screen(new Vector3(scale * 0.6f, 0f, 0f));
+        return pane.Screen(new(scale * 0.6f, 0f, 0f));
     }
 
     [Fact]
@@ -203,8 +202,12 @@ public class ViewportInputTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>The one thing a synthetic <see cref="PointerAction.Exited" /> handed straight to an
-    ///     owner cannot say.</b> Crossings are never fed in from outside: the document works them out
+    ///     ⚠
+    ///     <b>
+    ///         The one thing a synthetic <see cref="PointerAction.Exited" /> handed straight to an
+    ///         owner cannot say.
+    ///     </b>
+    ///     Crossings are never fed in from outside: the document works them out
     ///     from where the pointer is and delivers them <see cref="RoutingStrategy.Direct" />, and
     ///     <c>UiElement.Invoke</c> matches handlers on the strategy they registered with — so the
     ///     bubble listener that hears every move hears no crossing at all. Anything a mode draws under
@@ -262,7 +265,7 @@ public class ViewportInputTests {
             * pane.Viewport.Gizmo.HandleLength;
 
         var projected = pane.Viewport.Camera.Project(
-            new Vector3(scale * 0.6f, 0f, 0f),
+            new(scale * 0.6f, 0f, 0f),
             pane.Control.RenderWidth,
             pane.Control.RenderHeight
         );

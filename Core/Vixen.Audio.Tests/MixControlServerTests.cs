@@ -33,7 +33,7 @@ public sealed class MixControlServerTests : IDisposable {
         readonly StreamWriter writer;
 
         public Session(int port) {
-            client = new TcpClient();
+            client = new();
             client.Connect(IPAddress.Loopback, port);
             var stream = client.GetStream();
             reader = new(stream, Encoding.UTF8, leaveOpen: true);
@@ -116,9 +116,9 @@ public sealed class MixControlServerTests : IDisposable {
         using var session = Connect();
         var lines = session.SayAndReadUntilEnd("list");
 
-        Assert.Contains(lines, l => l.StartsWith("control bus/Music/gain BusGain", StringComparison.Ordinal));
-        Assert.Contains(lines, l => l.StartsWith("control bus/Music/effect/0/Wet", StringComparison.Ordinal));
-        Assert.Contains(lines, l => l.StartsWith("control bus/Master/gain", StringComparison.Ordinal));
+        Assert.Contains(lines, static l => l.StartsWith("control bus/Music/gain BusGain", StringComparison.Ordinal));
+        Assert.Contains(lines, static l => l.StartsWith("control bus/Music/effect/0/Wet", StringComparison.Ordinal));
+        Assert.Contains(lines, static l => l.StartsWith("control bus/Master/gain", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -227,7 +227,7 @@ public sealed class MixControlServerTests : IDisposable {
             using var wire = new MixControlServer(loud.Control);
             wire.Start();
 
-            loud.Play(AudioTestData.Constant(48_000, 1f), new Mixing.PlaybackSettings { Bus = music.Index });
+            loud.Play(AudioTestData.Constant(48_000, 1f), new() { Bus = music.Index });
             loud.Update(0f);
 
             var before = AudioTestData.Peak(AudioTestData.Render(device, 64));

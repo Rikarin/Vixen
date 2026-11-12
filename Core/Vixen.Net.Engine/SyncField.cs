@@ -111,7 +111,7 @@ public static class SyncCodecs {
             );
 
     sealed class BoolCodec : ISyncCodec<bool> {
-        static readonly WireLane[] Layout = [new("", 1, false)];
+        static readonly WireLane[] Layout = [new(string.Empty, 1, false)];
 
         public ReadOnlySpan<WireLane> Lanes => Layout;
 
@@ -121,7 +121,7 @@ public static class SyncCodecs {
     }
 
     sealed class ByteCodec : ISyncCodec<byte> {
-        static readonly WireLane[] Layout = [new("", 8, false)];
+        static readonly WireLane[] Layout = [new(string.Empty, 8, false)];
 
         public ReadOnlySpan<WireLane> Lanes => Layout;
 
@@ -136,7 +136,7 @@ public static class SyncCodecs {
     }
 
     sealed class Int32Codec : ISyncCodec<int> {
-        static readonly WireLane[] Layout = [new("", 32, true)];
+        static readonly WireLane[] Layout = [new(string.Empty, 32, true)];
 
         public ReadOnlySpan<WireLane> Lanes => Layout;
 
@@ -146,7 +146,7 @@ public static class SyncCodecs {
     }
 
     sealed class UInt32Codec : ISyncCodec<uint> {
-        static readonly WireLane[] Layout = [new("", 32, true)];
+        static readonly WireLane[] Layout = [new(string.Empty, 32, true)];
 
         public ReadOnlySpan<WireLane> Lanes => Layout;
 
@@ -156,7 +156,7 @@ public static class SyncCodecs {
     }
 
     sealed class SingleCodec : ISyncCodec<float> {
-        static readonly WireLane[] Layout = [new("", 32, false)];
+        static readonly WireLane[] Layout = [new(string.Empty, 32, false)];
 
         public ReadOnlySpan<WireLane> Lanes => Layout;
 
@@ -187,6 +187,7 @@ public static class SyncCodecs {
 
         public void Write(ref BitWriter writer, in Quaternion value) => MathCodec.WriteRotation(ref writer, value);
 
-        public bool Read(ref BitReader reader, out Quaternion value) => MathCodec.TryReadRotation(ref reader, out value);
+        public bool Read(ref BitReader reader, out Quaternion value) =>
+            MathCodec.TryReadRotation(ref reader, out value);
     }
 }

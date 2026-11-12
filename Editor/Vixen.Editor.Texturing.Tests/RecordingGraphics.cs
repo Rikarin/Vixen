@@ -3,8 +3,6 @@
 
 using Vixen.Editor.Plugin;
 using Vixen.Graphics;
-using Vixen.Texturing.Layers;
-using Vixen.Texturing.Painting;
 
 namespace Vixen.Editor.Texturing.Tests;
 
@@ -52,8 +50,12 @@ sealed class RecordingGraphics(IGraphicsDevice? device) : IEditorGraphics {
 
     /// <summary>Whether this host can make a picture at all.</summary>
     /// <remarks>
-    ///     ⚠ <b>The state the editor is in on the first frame that has a device, and it was
-    ///     unreachable from any fixture.</b> <c>EditorHost</c> acquires the device in
+    ///     ⚠
+    ///     <b>
+    ///         The state the editor is in on the first frame that has a device, and it was
+    ///         unreachable from any fixture.
+    ///     </b>
+    ///     <c>EditorHost</c> acquires the device in
     ///     <c>Present()</c> and creates the thumbnail surface in <c>Sync()</c>, both *after*
     ///     <c>editor.Update</c> — so there is a frame with a device and no surface, where every
     ///     <see cref="Upload" /> answers null. A preview source that treated that as "drawn" would
@@ -72,7 +74,7 @@ sealed class RecordingGraphics(IGraphicsDevice? device) : IEditorGraphics {
 
         // ⚠ Copied, because the caller owns the span. A recorder holding a reference to somebody
         // else's buffer would assert against whatever was in it by the time the test looked.
-        var uploaded = new Uploaded((ulong)Uploads.Count + 1, width, height, rgba.ToArray());
+        var uploaded = new Uploaded((ulong)Uploads.Count + 1, width, height, [..rgba]);
 
         Uploads.Add(uploaded);
 
@@ -99,7 +101,7 @@ sealed class RecordingGraphics(IGraphicsDevice? device) : IEditorGraphics {
             return false;
         }
 
-        Updates.Add(new(handle.Image, x, y, width, height, rgba[..(width * height * 4)].ToArray()));
+        Updates.Add(new(handle.Image, x, y, width, height, [..rgba[..(width * height * 4)]]));
 
         return true;
     }

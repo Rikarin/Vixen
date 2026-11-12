@@ -11,8 +11,11 @@ namespace Vixen.Audio.Mixing;
 /// <summary>One sound being played: a source, a rate conversion, and a set of speaker gains.</summary>
 /// <remarks>
 ///     <para>
-///         <b>Everything is allocated in <see cref="Prepare" /> and nothing in
-///         <see cref="Render" />.</b> A voice is a fixed slot in a pool that exists for the mixer's
+///         <b>
+///             Everything is allocated in <see cref="Prepare" /> and nothing in
+///             <see cref="Render" />.
+///         </b>
+///         A voice is a fixed slot in a pool that exists for the mixer's
 ///         whole life, so a game that plays ten thousand sounds allocates for none of them.
 ///     </para>
 ///     <para>
@@ -287,9 +290,10 @@ sealed class Voice {
     ///     Read from the game thread while the audio thread writes it: every term is a float, so the
     ///     worst case is scoring against last block's distance, which is exactly as good.
     /// </remarks>
-    public float Audibility => IsSpatial
-        ? Gain * ParameterGain * LastSpatial.Attenuation * LastSpatial.ConeGain
-        : Gain * ParameterGain;
+    public float Audibility =>
+        IsSpatial
+            ? Gain * ParameterGain * LastSpatial.Attenuation * LastSpatial.ConeGain
+            : Gain * ParameterGain;
 
     /// <summary>Takes on a source a steal lined up, if there is one.</summary>
     /// <param name="paused">Whether the new sound should start held.</param>
@@ -415,10 +419,10 @@ sealed class Voice {
     }
 
     /// <summary>Which tap the interpolation point sits just after.</summary>
-    const int Centre = (SincTable.Taps / 2) - 1;
+    const int Centre = SincTable.Taps / 2 - 1;
 
     /// <summary>Where a tap's frame is in the flat history, oldest first.</summary>
-    int Slot(int tap) => ((historyHead + tap) % SincTable.Taps) * AudioFormat.MaxChannels;
+    int Slot(int tap) => (historyHead + tap) % SincTable.Taps * AudioFormat.MaxChannels;
 
     /// <summary>Adds this voice's contribution to a bus buffer.</summary>
     /// <param name="destination">The bus's interleaved accumulator.</param>
@@ -507,9 +511,9 @@ sealed class Voice {
                 // the path from the source to the ears — filter after panning and the two channels
                 // get two independent filters chasing one distance.
                 if (absorptionHz > 0f) {
-                    var filtered = (absorption.B0 * summed) + absorptionZ1;
-                    absorptionZ1 = (absorption.B1 * summed) - (absorption.A1 * filtered) + absorptionZ2;
-                    absorptionZ2 = (absorption.B2 * summed) - (absorption.A2 * filtered);
+                    var filtered = absorption.B0 * summed + absorptionZ1;
+                    absorptionZ1 = absorption.B1 * summed - absorption.A1 * filtered + absorptionZ2;
+                    absorptionZ2 = absorption.B2 * summed - absorption.A2 * filtered;
                     summed = filtered;
                 }
 
@@ -569,9 +573,9 @@ sealed class Voice {
         OwnsSource = false;
         Virtual = false;
         StartFrame = 0;
-        spatial = new SpatialSettings();
+        spatial = new();
         published.Write(spatial);
-        LastSpatial = new SpatialResult(0f, 1f, 1f, 1f);
+        LastSpatial = new(0f, 1f, 1f, 1f);
         Hrtf?.Reset();
         Array.Clear(currentGains);
         Array.Clear(targetGains);
@@ -601,8 +605,7 @@ sealed class Voice {
         return true;
     }
 
-    float Ramp(int channel, float t) =>
-        currentGains[channel] + ((targetGains[channel] - currentGains[channel]) * t);
+    float Ramp(int channel, float t) => currentGains[channel] + (targetGains[channel] - currentGains[channel]) * t;
 
     /// <summary>Redesigns the authored filters if their cutoffs have moved enough to matter.</summary>
     /// <returns>Whether either of them is doing anything.</returns>
@@ -651,16 +654,16 @@ sealed class Voice {
             var value = sample[channel];
 
             if (lowHz > 0f) {
-                var filtered = (low.B0 * value) + lowZ1[channel];
-                lowZ1[channel] = (low.B1 * value) - (low.A1 * filtered) + lowZ2[channel];
-                lowZ2[channel] = (low.B2 * value) - (low.A2 * filtered);
+                var filtered = low.B0 * value + lowZ1[channel];
+                lowZ1[channel] = low.B1 * value - low.A1 * filtered + lowZ2[channel];
+                lowZ2[channel] = low.B2 * value - low.A2 * filtered;
                 value = filtered;
             }
 
             if (highHz > 0f) {
-                var filtered = (high.B0 * value) + highZ1[channel];
-                highZ1[channel] = (high.B1 * value) - (high.A1 * filtered) + highZ2[channel];
-                highZ2[channel] = (high.B2 * value) - (high.A2 * filtered);
+                var filtered = high.B0 * value + highZ1[channel];
+                highZ1[channel] = high.B1 * value - high.A1 * filtered + highZ2[channel];
+                highZ2[channel] = high.B2 * value - high.A2 * filtered;
                 value = filtered;
             }
 

@@ -73,7 +73,11 @@ public sealed class StreamedContentTests {
     public void AnUnknownAddressIsRefusedByName() {
         var world = Build(("cutscenes/intro#container", Bytes(16)));
 
-        Assert.Throws<AddressNotFoundException>(() => world.Open("cutscenes/outro#container", TestContext.Current.CancellationToken));
+        Assert.Throws<AddressNotFoundException>(() => world.Open(
+                "cutscenes/outro#container",
+                TestContext.Current.CancellationToken
+            )
+        );
         Assert.False(world.CanOpen("cutscenes/outro#container"));
         Assert.True(world.CanOpen("cutscenes/intro#container"));
     }
@@ -96,7 +100,7 @@ public sealed class StreamedContentTests {
         var bytes = new byte[count];
 
         for (var index = 0; index < count; index++) {
-            bytes[index] = (byte) (index * 31);
+            bytes[index] = (byte)(index * 31);
         }
 
         return bytes;
@@ -104,7 +108,7 @@ public sealed class StreamedContentTests {
 
     static VirtualFileSystem Files(out MemoryFileProvider storage) {
         var files = new VirtualFileSystem();
-        storage = new MemoryFileProvider();
+        storage = new();
 
         files.Mount(new("/store"), storage);
         files.Mount(new("/bundles"), storage);
@@ -138,9 +142,9 @@ public sealed class StreamedContentTests {
             default,
             "Windows",
             catalogEntries,
-            [new("Main", "", default, 0, 0, CompressionMethod.None, [])]
+            [new("Main", string.Empty, default, 0, 0, CompressionMethod.None, [])]
         );
 
-        return new AssetManager(catalog, new LocalBundleSource(files, new("/bundles")));
+        return new(catalog, new LocalBundleSource(files, new("/bundles")));
     }
 }

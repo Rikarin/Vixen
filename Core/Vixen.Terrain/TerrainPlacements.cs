@@ -22,9 +22,13 @@ public readonly record struct TerrainPlacement(Terrain Terrain, Vector3 Origin);
 /// <summary>Where the terrains in a world are, for everything that is not drawing them.</summary>
 /// <remarks>
 ///     <para>
-///         <b><c>IWaterSurface</c>'s counterpart for the ground, and it exists for that interface's
-///         reason</b> — [35 § D1](../../docs/plan/35-water.md#d1-three-assemblies-and-the-kernel-touches-no-device),
-///         which is [31 § D1](../../docs/plan/31-terrain-grass-and-trees.md#d1-two-runtime-assemblies-and-one-editor-assembly-and-the-kernel-touches-no-device)
+///         <b>
+///             <c>IWaterSurface</c>'s counterpart for the ground, and it exists for that interface's
+///             reason
+///         </b>
+///         — [35 § D1](../../docs/plan/35-water.md#d1-three-assemblies-and-the-kernel-touches-no-device),
+///         which is [31 §
+///         D1](../../docs/plan/31-terrain-grass-and-trees.md#d1-two-runtime-assemblies-and-one-editor-assembly-and-the-kernel-touches-no-device)
 ///         one subsystem over.
 ///         Turning a <c>TerrainComponent</c>'s asset name into a loaded heightfield and placing it at
 ///         its entity's transform is work only the render stack does today, because that is where the
@@ -39,8 +43,12 @@ public readonly record struct TerrainPlacement(Terrain Terrain, Vector3 Origin);
 ///         <see cref="TerrainPlacement.Origin" /> is three floats.
 ///     </para>
 ///     <para>
-///         ⚠ <b>An empty answer is a world whose terrains have not loaded yet, not a world without
-///         ground.</b> A <c>.vxterrain</c> is tens of megabytes and resolves several frames after the
+///         ⚠
+///         <b>
+///             An empty answer is a world whose terrains have not loaded yet, not a world without
+///             ground.
+///         </b>
+///         A <c>.vxterrain</c> is tens of megabytes and resolves several frames after the
 ///         level is up — <c>ITerrainAssetSource</c> starts a load and answers null meanwhile — so a
 ///         consumer that asks once at load time gets nothing, silently, and never asks again. Ask
 ///         every frame; the list is cheap and a scene has a handful of terrains.

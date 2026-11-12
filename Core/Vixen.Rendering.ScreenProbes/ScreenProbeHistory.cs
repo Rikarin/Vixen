@@ -172,14 +172,19 @@ public sealed class ScreenProbeHistory {
     /// <summary>The accumulated probes, spatially filtered — the denoiser's second move.</summary>
     /// <param name="into">One entry per probe, row-major over the grid.</param>
     /// <param name="strength">A lattice neighbour's share relative to the probe's own, 0 to 1.</param>
-    /// <param name="tolerance">How far off the probe's plane a neighbour's surface may stand and
-    ///     still be blended, in world units.</param>
+    /// <param name="tolerance">
+    ///     How far off the probe's plane a neighbour's surface may stand and
+    ///     still be blended, in world units.
+    /// </param>
     /// <exception cref="ArgumentException">The span is too short.</exception>
     /// <exception cref="ArgumentOutOfRangeException">The strength is outside 0 to 1.</exception>
     /// <remarks>
     ///     <para>
-    ///         <b>A cross of four lattice neighbours, edge-aware by the plane test everything else
-    ///         here trusts.</b> A neighbour is blended at <paramref name="strength" /> when it has
+    ///         <b>
+    ///             A cross of four lattice neighbours, edge-aware by the plane test everything else
+    ///             here trusts.
+    ///         </b>
+    ///         A neighbour is blended at <paramref name="strength" /> when it has
     ///         history and stands on the probe's own plane; a neighbour across a depth edge, or one
     ///         with no history, drops out and the weights renormalise — the same shape as every
     ///         validity rule in this package, and for the same leak.
@@ -240,10 +245,10 @@ public sealed class ScreenProbeHistory {
                     }
 
                     blended = new(
-                        blended.L00 + (sh[neighbour].L00 * strength),
-                        blended.L1m1 + (sh[neighbour].L1m1 * strength),
-                        blended.L10 + (sh[neighbour].L10 * strength),
-                        blended.L11 + (sh[neighbour].L11 * strength)
+                        blended.L00 + sh[neighbour].L00 * strength,
+                        blended.L1m1 + sh[neighbour].L1m1 * strength,
+                        blended.L10 + sh[neighbour].L10 * strength,
+                        blended.L11 + sh[neighbour].L11 * strength
                     );
 
                     total += strength;
@@ -288,8 +293,8 @@ public sealed class ScreenProbeHistory {
             return false;
         }
 
-        var x = (int)MathF.Floor(((ndc.X * 0.5f) + 0.5f) * Layout.Viewport.X);
-        var y = (int)MathF.Floor(((ndc.Y * -0.5f) + 0.5f) * Layout.Viewport.Y);
+        var x = (int)MathF.Floor((ndc.X * 0.5f + 0.5f) * Layout.Viewport.X);
+        var y = (int)MathF.Floor((ndc.Y * -0.5f + 0.5f) * Layout.Viewport.Y);
 
         if (x < 0 || y < 0 || x >= Layout.Viewport.X || y >= Layout.Viewport.Y) {
             return false;

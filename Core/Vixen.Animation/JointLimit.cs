@@ -57,11 +57,7 @@ public readonly record struct JointLimit {
     /// <param name="axis">Which way the bone points, or zero for <c>+Y</c>.</param>
     /// <returns>The limit.</returns>
     public static JointLimit Of(float swing, float twist, Vector3 axis = default) =>
-        new() {
-            Swing = MathUtil.DegreesToRadians(swing),
-            Twist = MathUtil.DegreesToRadians(twist),
-            Axis = axis
-        };
+        new() { Swing = MathUtil.DegreesToRadians(swing), Twist = MathUtil.DegreesToRadians(twist), Axis = axis };
 
     /// <summary>Brings a rotation back inside the limit.</summary>
     /// <param name="local">The joint's local rotation.</param>
@@ -88,7 +84,7 @@ public readonly record struct JointLimit {
         // swing is whatever is left once it has been taken off. `Concatenate(a, b)` is "a then b",
         // so a rotation that twists and then swings is `Concatenate(twist, swing)` — and the swing is
         // recovered by taking the twist back off the far end.
-        var along = Vector3.Dot(new Vector3(delta.X, delta.Y, delta.Z), axis) * axis;
+        var along = Vector3.Dot(new(delta.X, delta.Y, delta.Z), axis) * axis;
         var twist = new Quaternion(along.X, along.Y, along.Z, delta.W);
 
         // A half turn about something square to the axis has no twist component at all, rather than
@@ -119,7 +115,7 @@ public readonly record struct JointLimit {
             return rotation;
         }
 
-        var sin = MathF.Sqrt(MathF.Max(1f - (w * w), 0f));
+        var sin = MathF.Sqrt(MathF.Max(1f - w * w, 0f));
 
         if (sin <= 1e-6f) {
             return Quaternion.Identity;

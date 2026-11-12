@@ -58,11 +58,9 @@ public static class AudioEventBuilder {
                 continue;
             }
 
-            variants.Add(new(clip) {
-                Weight = variant.Weight,
-                GainDb = variant.GainDb,
-                PitchSemitones = variant.PitchSemitones
-            });
+            variants.Add(
+                new(clip) { Weight = variant.Weight, GainDb = variant.GainDb, PitchSemitones = variant.PitchSemitones }
+            );
         }
 
         if (variants.Count == 0) {
@@ -71,24 +69,27 @@ public static class AudioEventBuilder {
 
         problems = found;
 
-        return new(engine, new AudioEventDescription {
-            Name = asset.Name,
-            Variants = [.. variants],
-            Selection = asset.Selection,
-            Seed = asset.Seed,
-            Bus = ResolveBus(engine.Mixer, asset.Bus, name, found),
-            GainDb = asset.GainDb,
-            GainVarianceDb = asset.GainVarianceDb,
-            PitchVarianceSemitones = asset.PitchVarianceSemitones,
-            Loop = asset.Loop,
-            Priority = asset.Priority,
-            MaxInstances = asset.MaxInstances,
-            Steal = asset.Steal,
-            Parameters = BuildParameters(asset.Parameters),
-            Layers = BuildLayers(asset.Layers, library, name, found),
-            IsSpatial = asset.Spatial is not null,
-            Spatial = asset.Spatial?.ToSettings() ?? new()
-        });
+        return new(
+            engine,
+            new AudioEventDescription {
+                Name = asset.Name,
+                Variants = [..variants],
+                Selection = asset.Selection,
+                Seed = asset.Seed,
+                Bus = ResolveBus(engine.Mixer, asset.Bus, name, found),
+                GainDb = asset.GainDb,
+                GainVarianceDb = asset.GainVarianceDb,
+                PitchVarianceSemitones = asset.PitchVarianceSemitones,
+                Loop = asset.Loop,
+                Priority = asset.Priority,
+                MaxInstances = asset.MaxInstances,
+                Steal = asset.Steal,
+                Parameters = BuildParameters(asset.Parameters),
+                Layers = BuildLayers(asset.Layers, library, name, found),
+                IsSpatial = asset.Spatial is not null,
+                Spatial = asset.Spatial?.ToSettings() ?? new()
+            }
+        );
     }
 
     static AudioEventLayer[] BuildLayers(
@@ -114,15 +115,17 @@ public static class AudioEventBuilder {
                 continue;
             }
 
-            layers.Add(new(sound) {
-                DelaySeconds = layer.DelaySeconds,
-                GainDb = layer.GainDb,
-                PitchSemitones = layer.PitchSemitones,
-                Probability = layer.Probability
-            });
+            layers.Add(
+                new(sound) {
+                    DelaySeconds = layer.DelaySeconds,
+                    GainDb = layer.GainDb,
+                    PitchSemitones = layer.PitchSemitones,
+                    Probability = layer.Probability
+                }
+            );
         }
 
-        return [.. layers];
+        return [..layers];
     }
 
     static AudioParameterSheet? BuildParameters(AudioParameterAsset[] assets) {

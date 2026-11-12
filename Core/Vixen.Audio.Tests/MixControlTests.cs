@@ -4,7 +4,6 @@
 using Vixen.Audio.Devices;
 using Vixen.Audio.Diagnostics;
 using Vixen.Audio.Effects;
-using Vixen.Audio.Mixing;
 using Vixen.Audio.Parameters;
 using Xunit;
 
@@ -15,7 +14,9 @@ public sealed class MixControlTests : IDisposable {
     readonly AudioEngine engine;
     readonly NullAudioDevice device;
 
-    public MixControlTests() => (engine, device) = AudioTestData.Engine();
+    public MixControlTests() {
+        (engine, device) = AudioTestData.Engine();
+    }
 
     public void Dispose() => engine.Dispose();
 
@@ -63,7 +64,7 @@ public sealed class MixControlTests : IDisposable {
     public void ASendIsNamedByWhatItSendsTo() {
         var reverb = engine.CreateBus("Reverb");
         var ambience = engine.CreateBus("Ambience");
-        var send = ambience.AddSend(reverb, 1f);
+        var send = ambience.AddSend(reverb);
 
         Assert.True(engine.Control.TrySet("bus/Ambience/send/Reverb", -6f));
         Assert.Equal(0.5012f, send.Level, 1e-3f);
@@ -95,19 +96,20 @@ public sealed class MixControlTests : IDisposable {
     public void AParameterIsReachableTooAndReadsWhereItActuallyIs() {
         var music = engine.CreateBus("Music");
 
-        engine.LoadParameters([
-            new AudioBusParameterDefinition {
-                Name = "rain",
-                SeekSeconds = 1f,
-                Automation = [
-                    new AudioBusAutomation {
-                        Bus = "Music",
-                        Target = AudioBusParameterTarget.GainDb,
-                        Curve = AudioCurve.Ramp(0f, -20f)
-                    }
-                ]
-            }
-        ], out _);
+        engine.LoadParameters(
+            [
+                new AudioBusParameterDefinition {
+                    Name = "rain",
+                    SeekSeconds = 1f,
+                    Automation = [
+                        new AudioBusAutomation {
+                            Bus = "Music", Target = AudioBusParameterTarget.GainDb, Curve = AudioCurve.Ramp(0f, -20f)
+                        }
+                    ]
+                }
+            ],
+            out _
+        );
 
         Assert.True(engine.Control.TrySet("parameter/rain", 1f));
 
@@ -143,32 +145,35 @@ public sealed class MixControlTests : IDisposable {
         music.Gain = 0.5f;
         music.AddSend(reverb, 0.25f);
 
-        engine.LoadParameters([
-            new AudioBusParameterDefinition { Name = "rain", Minimum = 0f, Maximum = 2f, Default = 0.5f }
-        ], out _);
+        engine.LoadParameters(
+            [
+                new AudioBusParameterDefinition { Name = "rain", Minimum = 0f, Maximum = 2f, Default = 0.5f }
+            ],
+            out _
+        );
 
         var controls = engine.Control.Enumerate();
 
-        var fader = controls.Single(c => c.Path == "bus/Music/gain");
+        var fader = controls.Single(static c => c.Path == "bus/Music/gain");
         Assert.Equal(MixControlKind.BusGain, fader.Kind);
         Assert.Equal(-6.02f, fader.Value, 0.05f);
 
-        var send = controls.Single(c => c.Path == "bus/Music/send/Reverb");
+        var send = controls.Single(static c => c.Path == "bus/Music/send/Reverb");
         Assert.Equal(MixControlKind.SendLevel, send.Kind);
         Assert.Equal(-12.04f, send.Value, 0.05f);
 
-        var wet = controls.Single(c => c.Path == "bus/Reverb/effect/0/Wet");
+        var wet = controls.Single(static c => c.Path == "bus/Reverb/effect/0/Wet");
         Assert.Equal(MixControlKind.EffectProperty, wet.Kind);
         Assert.Equal(0.7f, wet.Value);
 
-        var parameter = controls.Single(c => c.Path == "parameter/rain");
+        var parameter = controls.Single(static c => c.Path == "parameter/rain");
         Assert.Equal(MixControlKind.Parameter, parameter.Kind);
         Assert.Equal(0.5f, parameter.Value);
         Assert.Equal(0f, parameter.Minimum);
         Assert.Equal(2f, parameter.Maximum);
 
         // Including the master, which is a bus like any other.
-        Assert.Contains(controls, c => c.Path == "bus/Master/gain");
+        Assert.Contains(controls, static c => c.Path == "bus/Master/gain");
     }
 
     /// <summary>Round-tripping every path an editor could have been given.</summary>

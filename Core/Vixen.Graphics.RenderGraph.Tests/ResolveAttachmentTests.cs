@@ -67,23 +67,29 @@ public sealed class ResolveAttachmentTests : IDisposable {
         var samples = graph.CreateTexture(Multisampled("samples"));
         var resolved = graph.CreateTexture(Single("resolved"));
 
-        graph.AddPass("draw", pass => {
-            pass.ColourAttachment(samples, resolve: resolved);
-            pass.Execute(context => context.CommandList.Draw(3));
-        });
+        graph.AddPass(
+            "draw",
+            pass => {
+                pass.ColourAttachment(samples, resolve: resolved);
+                pass.Execute(static context => context.CommandList.Draw(3));
+            }
+        );
 
         // Somebody has to read the resolve or the whole thing is culled — which is itself the point
         // of the test below.
-        graph.AddPass("present", pass => {
-            pass.Reads(resolved);
-            pass.SideEffect();
-            pass.Execute(_ => { });
-        });
+        graph.AddPass(
+            "present",
+            pass => {
+                pass.Reads(resolved);
+                pass.SideEffect();
+                pass.Execute(static _ => { });
+            }
+        );
 
         var list = new TrackingCommandList();
         graph.Execute(list);
 
-        var drawn = Assert.Single(list.Passes, pass => pass.Name == "draw");
+        var drawn = Assert.Single(list.Passes, static pass => pass.Name == "draw");
         var attachment = Assert.Single(drawn.Colour);
 
         Assert.Equal(StoreAction.Resolve, attachment.Store);
@@ -92,8 +98,10 @@ public sealed class ResolveAttachmentTests : IDisposable {
     }
 
     /// <summary>
-    ///     <b>The derivation would have thrown the samples away, and this is why the resolve overrides
-    ///     it.</b>
+    ///     <b>
+    ///         The derivation would have thrown the samples away, and this is why the resolve overrides
+    ///         it.
+    ///     </b>
     /// </summary>
     /// <remarks>
     ///     <c>DeriveStore</c> asks whether anything reads the attachment later, and for a multisampled
@@ -107,21 +115,27 @@ public sealed class ResolveAttachmentTests : IDisposable {
         var samples = graph.CreateTexture(Multisampled("samples"));
         var resolved = graph.CreateTexture(Single("resolved"));
 
-        graph.AddPass("draw", pass => {
-            pass.ColourAttachment(samples, resolve: resolved);
-            pass.Execute(_ => { });
-        });
+        graph.AddPass(
+            "draw",
+            pass => {
+                pass.ColourAttachment(samples, resolve: resolved);
+                pass.Execute(static _ => { });
+            }
+        );
 
-        graph.AddPass("read", pass => {
-            pass.Reads(resolved);
-            pass.SideEffect();
-            pass.Execute(_ => { });
-        });
+        graph.AddPass(
+            "read",
+            pass => {
+                pass.Reads(resolved);
+                pass.SideEffect();
+                pass.Execute(static _ => { });
+            }
+        );
 
         var list = new TrackingCommandList();
         graph.Execute(list);
 
-        var drawn = Assert.Single(list.Passes, pass => pass.Name == "draw");
+        var drawn = Assert.Single(list.Passes, static pass => pass.Name == "draw");
         Assert.Equal(StoreAction.Resolve, Assert.Single(drawn.Colour).Store);
     }
 
@@ -139,16 +153,22 @@ public sealed class ResolveAttachmentTests : IDisposable {
         var resolved = graph.CreateTexture(Single("resolved"));
         var ran = false;
 
-        graph.AddPass("draw", pass => {
-            pass.ColourAttachment(samples, resolve: resolved);
-            pass.Execute(_ => ran = true);
-        });
+        graph.AddPass(
+            "draw",
+            pass => {
+                pass.ColourAttachment(samples, resolve: resolved);
+                pass.Execute(_ => ran = true);
+            }
+        );
 
-        graph.AddPass("read", pass => {
-            pass.Reads(resolved);
-            pass.SideEffect();
-            pass.Execute(_ => { });
-        });
+        graph.AddPass(
+            "read",
+            pass => {
+                pass.Reads(resolved);
+                pass.SideEffect();
+                pass.Execute(static _ => { });
+            }
+        );
 
         graph.Execute(new TrackingCommandList());
 
@@ -165,16 +185,22 @@ public sealed class ResolveAttachmentTests : IDisposable {
         var samples = graph.CreateTexture(Multisampled("samples"));
         var resolved = graph.CreateTexture(Single("resolved"));
 
-        graph.AddPass("draw", pass => {
-            pass.ColourAttachment(samples, resolve: resolved);
-            pass.Execute(_ => { });
-        });
+        graph.AddPass(
+            "draw",
+            pass => {
+                pass.ColourAttachment(samples, resolve: resolved);
+                pass.Execute(static _ => { });
+            }
+        );
 
-        graph.AddPass("read", pass => {
-            pass.Reads(resolved);
-            pass.SideEffect();
-            pass.Execute(_ => { });
-        });
+        graph.AddPass(
+            "read",
+            pass => {
+                pass.Reads(resolved);
+                pass.SideEffect();
+                pass.Execute(static _ => { });
+            }
+        );
 
         var list = new TrackingCommandList();
         graph.Execute(list);
@@ -183,8 +209,8 @@ public sealed class ResolveAttachmentTests : IDisposable {
         // the target they resolve into. A resolve destination is written by the render pass rather
         // than by a transfer, which is why the state is ColourTarget and not CopyDestination.
         var written = list.Barriers
-            .Where(barrier => barrier.After == ResourceState.ColourTarget)
-            .Select(barrier => barrier.Texture)
+            .Where(static barrier => barrier.After == ResourceState.ColourTarget)
+            .Select(static barrier => barrier.Texture)
             .Distinct()
             .Count();
 
@@ -192,7 +218,7 @@ public sealed class ResolveAttachmentTests : IDisposable {
 
         // And it moves on to shader-read for the pass that samples it, which is only possible
         // because the resolve was declared as a use in the first place.
-        Assert.Contains(list.Barriers, barrier => barrier.After == ResourceState.ShaderRead);
+        Assert.Contains(list.Barriers, static barrier => barrier.After == ResourceState.ShaderRead);
     }
 
     // ── What it refuses ─────────────────────────────────────────────────────────────────────
@@ -203,8 +229,10 @@ public sealed class ResolveAttachmentTests : IDisposable {
         var source = graph.CreateTexture(Single("source"));
         var resolved = graph.CreateTexture(Single("resolved"));
 
-        var thrown = Assert.Throws<RenderGraphException>(
-            () => graph.AddPass("draw", pass => pass.ColourAttachment(source, resolve: resolved))
+        var thrown = Assert.Throws<RenderGraphException>(() => graph.AddPass(
+                "draw",
+                pass => pass.ColourAttachment(source, resolve: resolved)
+            )
         );
 
         Assert.Contains("one sample", thrown.Message, StringComparison.Ordinal);
@@ -214,10 +242,12 @@ public sealed class ResolveAttachmentTests : IDisposable {
     [Fact]
     public void TheResolveTargetCannotItselfBeMultisampled() {
         var samples = graph.CreateTexture(Multisampled("samples"));
-        var alsoSamples = graph.CreateTexture(Multisampled("alsoSamples", samples: 2));
+        var alsoSamples = graph.CreateTexture(Multisampled("alsoSamples", 2));
 
-        var thrown = Assert.Throws<RenderGraphException>(
-            () => graph.AddPass("draw", pass => pass.ColourAttachment(samples, resolve: alsoSamples))
+        var thrown = Assert.Throws<RenderGraphException>(() => graph.AddPass(
+                "draw",
+                pass => pass.ColourAttachment(samples, resolve: alsoSamples)
+            )
         );
 
         Assert.Contains("samples stop", thrown.Message, StringComparison.Ordinal);
@@ -229,7 +259,7 @@ public sealed class ResolveAttachmentTests : IDisposable {
         var samples = graph.CreateTexture(Multisampled("samples"));
 
         var resolved = graph.CreateTexture(
-            new TextureDescription(
+            new(
                 PixelFormat.Rgba16Float,
                 64,
                 64,
@@ -238,8 +268,10 @@ public sealed class ResolveAttachmentTests : IDisposable {
             )
         );
 
-        var thrown = Assert.Throws<RenderGraphException>(
-            () => graph.AddPass("draw", pass => pass.ColourAttachment(samples, resolve: resolved))
+        var thrown = Assert.Throws<RenderGraphException>(() => graph.AddPass(
+                "draw",
+                pass => pass.ColourAttachment(samples, resolve: resolved)
+            )
         );
 
         Assert.Contains("does not convert", thrown.Message, StringComparison.Ordinal);
@@ -252,10 +284,12 @@ public sealed class ResolveAttachmentTests : IDisposable {
     [Fact]
     public void AResolveCannotChangeSize() {
         var samples = graph.CreateTexture(Multisampled("samples"));
-        var resolved = graph.CreateTexture(Single("resolved", size: 32));
+        var resolved = graph.CreateTexture(Single("resolved", 32));
 
-        var thrown = Assert.Throws<RenderGraphException>(
-            () => graph.AddPass("draw", pass => pass.ColourAttachment(samples, resolve: resolved))
+        var thrown = Assert.Throws<RenderGraphException>(() => graph.AddPass(
+                "draw",
+                pass => pass.ColourAttachment(samples, resolve: resolved)
+            )
         );
 
         Assert.Contains("not a blit", thrown.Message, StringComparison.Ordinal);
@@ -275,7 +309,7 @@ public sealed class ResolveAttachmentTests : IDisposable {
         var samples = graph.CreateTexture(Multisampled("samples"));
 
         var depth = graph.CreateTexture(
-            new TextureDescription(
+            new(
                 PixelFormat.Depth32Float,
                 64,
                 64,
@@ -286,12 +320,15 @@ public sealed class ResolveAttachmentTests : IDisposable {
 
         var resolved = graph.CreateTexture(Single("resolved"));
 
-        graph.AddPass("draw", pass => {
-            pass.ColourAttachment(samples, resolve: resolved);
-            pass.DepthAttachment(depth);
-            pass.SideEffect();
-            pass.Execute(_ => { });
-        });
+        graph.AddPass(
+            "draw",
+            pass => {
+                pass.ColourAttachment(samples, resolve: resolved);
+                pass.DepthAttachment(depth);
+                pass.SideEffect();
+                pass.Execute(static _ => { });
+            }
+        );
 
         var thrown = Assert.Throws<RenderGraphException>(() => graph.Execute(new TrackingCommandList()));
 
@@ -304,7 +341,7 @@ public sealed class ResolveAttachmentTests : IDisposable {
         var samples = graph.CreateTexture(Multisampled("samples"));
 
         var depth = graph.CreateTexture(
-            new TextureDescription(
+            new(
                 PixelFormat.Depth32Float,
                 64,
                 64,
@@ -316,12 +353,15 @@ public sealed class ResolveAttachmentTests : IDisposable {
 
         var resolved = graph.CreateTexture(Single("resolved"));
 
-        graph.AddPass("draw", pass => {
-            pass.ColourAttachment(samples, resolve: resolved);
-            pass.DepthAttachment(depth);
-            pass.SideEffect();
-            pass.Execute(_ => { });
-        });
+        graph.AddPass(
+            "draw",
+            pass => {
+                pass.ColourAttachment(samples, resolve: resolved);
+                pass.DepthAttachment(depth);
+                pass.SideEffect();
+                pass.Execute(static _ => { });
+            }
+        );
 
         graph.Execute(new TrackingCommandList());
 
@@ -339,11 +379,14 @@ public sealed class ResolveAttachmentTests : IDisposable {
     public void AnAttachmentWithNoResolveKeepsTheDerivedStore() {
         var target = graph.CreateTexture(Single("target"));
 
-        graph.AddPass("draw", pass => {
-            pass.ColourAttachment(target);
-            pass.SideEffect();
-            pass.Execute(_ => { });
-        });
+        graph.AddPass(
+            "draw",
+            pass => {
+                pass.ColourAttachment(target);
+                pass.SideEffect();
+                pass.Execute(static _ => { });
+            }
+        );
 
         var list = new TrackingCommandList();
         graph.Execute(list);

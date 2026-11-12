@@ -11,8 +11,11 @@ namespace Vixen.Editor.Water;
 /// <summary>What the zone panel edits, and the numbers it derives from them.</summary>
 /// <remarks>
 ///     <para>
-///         <b>[35 § The zone panel](../../docs/plan/35-water.md#the-zone-panel), and the derived half
-///         is the point of it.</b> A resolution somebody types is meaningless and a metre per texel is
+///         <b>
+///             [35 § The zone panel](../../docs/plan/35-water.md#the-zone-panel), and the derived half
+///             is the point of it.
+///         </b>
+///         A resolution somebody types is meaningless and a metre per texel is
 ///         not; the panel shows both, updating as the resolution changes, in
 ///         [31](../../docs/plan/31-terrain-grass-and-trees.md)'s create-dialog style. Doc 35 § D3 puts
 ///         it plainly: "a number an author types into <c>render_target_resolution</c> with no idea
@@ -26,9 +29,12 @@ namespace Vixen.Editor.Water;
 ///         configuration the renderer refuses.
 ///     </para>
 ///     <para>
-///         ⚠ <b>And <em>not</em> a <c>[DataContract]</c>, which this and
-///         <see cref="WaterBodySettings" /> carried until
-///         <a href="https://github.com/Rikarin/Vixen/issues/1025">#1025</a>.</b>
+///         ⚠
+///         <b>
+///             And <em>not</em> a <c>[DataContract]</c>, which this and
+///             <see cref="WaterBodySettings" /> carried until
+///             <a href="https://github.com/Rikarin/Vixen/issues/1025">#1025</a>.
+///         </b>
 ///         <c>Vixen.Editor.Water.csproj</c> names three analyzers and neither of the two that give
 ///         that attribute meaning, and analyzers do not flow through a <c>ProjectReference</c> — so
 ///         it registered nothing in either registry. What this toolset actually writes is a
@@ -160,8 +166,7 @@ public sealed class WaterZoneSettings {
     ///     means <em>this</em> sea, and a template that threw it away would make the asset the slower
     ///     route to the thing they already had.
     /// </remarks>
-    public WaterWavesAsset Asset =>
-        new() { Name = WaveAsset ?? string.Empty, Spectrum = Spectrum };
+    public WaterWavesAsset Asset => new() { Name = WaveAsset ?? string.Empty, Spectrum = Spectrum };
 
     /// <summary>Why this zone cannot be created, or <see langword="null" /> if it can.</summary>
     /// <remarks>
@@ -174,8 +179,12 @@ public sealed class WaterZoneSettings {
     /// <summary>The derived facts the panel shows under the form, in the order it shows them.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Four numbers, and each is one somebody would otherwise discover from a frame
-    ///         time.</b> Metres per texel is whether a shoreline can be resolved at all; the
+    ///         ⚠
+    ///         <b>
+    ///             Four numbers, and each is one somebody would otherwise discover from a frame
+    ///             time.
+    ///         </b>
+    ///         Metres per texel is whether a shoreline can be resolved at all; the
     ///         megabytes are what a resolution costs; the vertex count is what the surface mesh draws
     ///         at its finest; and the height quantum is what half precision does to a horizon.
     ///     </para>
@@ -299,16 +308,10 @@ public sealed class WaterBodySettings {
 
     /// <summary>The per-control-point profile this describes.</summary>
     public WaterProfilePoint Profile =>
-        new() {
-            HalfWidth = HalfWidth,
-            Depth = Depth,
-            Velocity = Velocity,
-            AudioIntensity = AudioIntensity
-        };
+        new() { HalfWidth = HalfWidth, Depth = Depth, Velocity = Velocity, AudioIntensity = AudioIntensity };
 
     /// <summary>How much of the bed the ground takes, and what it paints along it.</summary>
-    public WaterCarveProfile Carve =>
-        WaterCarveProfile.Default with { Strength = CarveStrength, BedLayer = BedLayer };
+    public WaterCarveProfile Carve => WaterCarveProfile.Default with { Strength = CarveStrength, BedLayer = BedLayer };
 
     /// <summary>What a scene entity carries, built from these and a spline's name.</summary>
     /// <param name="spline">What the body's curve is called.</param>

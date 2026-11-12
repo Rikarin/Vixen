@@ -45,8 +45,11 @@ public struct NetworkTransform {
 /// <summary>Which frame a <see cref="NetworkTransform" /> is expressed in.</summary>
 /// <remarks>
 ///     <para>
-///         <b>A component of its own rather than a field on <see cref="NetworkTransform" />, and that
-///         is the whole design.</b> Almost nothing in a world has a parent, and a field would put
+///         <b>
+///             A component of its own rather than a field on <see cref="NetworkTransform" />, and that
+///             is the whole design.
+///         </b>
+///         Almost nothing in a world has a parent, and a field would put
 ///         thirty-two bits on every transform in the game so that the handful of riders and turrets
 ///         could have theirs. As a separate replicated component an unparented entity pays nothing
 ///         at all — no record, no lane, no mask bit — and the transform stays the 88 bits doc 16

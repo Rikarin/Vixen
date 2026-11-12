@@ -6,8 +6,12 @@ namespace Vixen.Ui.Styling;
 /// <summary>The cascade layers a stylesheet declared, in the order they were declared.</summary>
 /// <remarks>
 ///     <para>
-///         Layers exist so that "which of these two rules wins" can be answered by <i>where the rule
-///         lives</i> rather than by how specific its selector happens to be. That is what makes the
+///         Layers exist so that "which of these two rules wins" can be answered by
+///         <i>
+///             where the rule
+///             lives
+///         </i>
+///         rather than by how specific its selector happens to be. That is what makes the
 ///         utility system in [doc 09](../../docs/plan/09-ui-framework.md) work at all: a generated
 ///         `.p-4` is one class and a hand-written `.card .body` is two, so without layers the
 ///         utility loses every time and the only fix is `!important` everywhere. With
@@ -16,8 +20,12 @@ namespace Vixen.Ui.Styling;
 ///         in the tree opens with it, and <c>docs/guide/ui/cascade-layers.md</c> is what it means.
 ///     </para>
 ///     <para>
-///         ⚠ <b>A layer only wins if something is in a lower one, which is a less obvious condition
-///         than it sounds.</b> The ladder above was declared and emitted into for a release before
+///         ⚠
+///         <b>
+///             A layer only wins if something is in a lower one, which is a less obvious condition
+///             than it sounds.
+///         </b>
+///         The ladder above was declared and emitted into for a release before
 ///         anything else joined it, and a lone <c>@layer utilities</c> against a tree of unlayered
 ///         component sheets is strictly <i>worse</i> than no layers at all — the utility loses to a
 ///         one-tag selector it would have beaten on specificity alone. The mechanism was never wrong;

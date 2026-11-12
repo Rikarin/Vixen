@@ -66,8 +66,12 @@ public sealed record ConditioningSettings {
 ///         no equivalent for: attribute transfer, baking, coordinates, and a quality report.
 ///     </para>
 ///     <para>
-///         ⚠ <b><see cref="Adaptivity" />, <see cref="DensityMask" /> and the tightening near
-///         features are one mechanism rather than three.</b> docs/plan/41 § D9: they all write into a
+///         ⚠
+///         <b>
+///             <see cref="Adaptivity" />, <see cref="DensityMask" /> and the tightening near
+///             features are one mechanism rather than three.
+///         </b>
+///         docs/plan/41 § D9: they all write into a
 ///         single per-vertex target edge length, consumed by the pre-remesh, the quantization and the
 ///         extraction alike. Three separate multipliers applied at three different stages is how a
 ///         remesher acquires settings that only work in certain combinations.
@@ -135,8 +139,12 @@ public sealed record RemeshSettings {
 
     /// <summary>What stage seven may carry, and what the target can hold.</summary>
     /// <remarks>
-    ///     ⚠ <b><see cref="TransferSettings.KeepTexCoords" /> is overruled by
-    ///     <see cref="GenerateUvs" /> and never the other way round.</b> Both write the same layer,
+    ///     ⚠
+    ///     <b>
+    ///         <see cref="TransferSettings.KeepTexCoords" /> is overruled by
+    ///         <see cref="GenerateUvs" /> and never the other way round.
+    ///     </b>
+    ///     Both write the same layer,
     ///     and a remesh that regenerated the atlas and then overwrote it with the source's old
     ///     coordinates would be indistinguishable from one where the atlas stage failed.
     /// </remarks>

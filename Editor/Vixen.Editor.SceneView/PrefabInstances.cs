@@ -18,8 +18,10 @@ namespace Vixen.Editor.SceneView;
 /// </remarks>
 public readonly record struct PrefabLink(AssetId Prefab, EntityId Source);
 
-/// <summary>Which of a scene's entities came from a prefab, from where in it, and which of their
-///     members the instance claims as its own.</summary>
+/// <summary>
+///     Which of a scene's entities came from a prefab, from where in it, and which of their
+///     members the instance claims as its own.
+/// </summary>
 /// <remarks>
 ///     <para>
 ///         <b>Beside the document rather than in the world.</b> A link is editor bookkeeping: the
@@ -29,8 +31,12 @@ public readonly record struct PrefabLink(AssetId Prefab, EntityId Source);
 ///         argument <see cref="SceneDocument" /> makes about names.
 ///     </para>
 ///     <para>
-///         ⚠ <b>In this assembly rather than beside the prefab document, because the writer is
-///         here.</b> <see cref="SceneSerializer" /> is what turns a document into a
+///         ⚠
+///         <b>
+///             In this assembly rather than beside the prefab document, because the writer is
+///             here.
+///         </b>
+///         <see cref="SceneSerializer" /> is what turns a document into a
 ///         <c>SceneEntityData</c>, so a table it cannot see is a link that cannot be written down —
 ///         which is exactly the state doc 47 § 7 recorded as owed. A document owns one of these
 ///         (<see cref="SceneDocument.Prefabs" />), and it travels with the names through
@@ -96,7 +102,7 @@ public sealed class PrefabInstances {
         ArgumentNullException.ThrowIfNull(claimed);
 
         links[entity] = link;
-        List<string> list = [.. claimed];
+        List<string> list = [..claimed];
 
         if (list.Count > 0) {
             overrides[entity] = list;
@@ -259,7 +265,7 @@ public sealed class PrefabInstances {
     public void RecordRemoved(Entity root, IEnumerable<EntityId> gone) {
         ArgumentNullException.ThrowIfNull(gone);
 
-        List<EntityId> list = [.. gone];
+        List<EntityId> list = [..gone];
 
         if (list.Count > 0) {
             removed[root] = list;

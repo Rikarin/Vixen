@@ -54,8 +54,11 @@ public struct ScreenProbeTraceJob {
 ///         instead, because the resolve reads validity out of the atlas.
 ///     </para>
 ///     <para>
-///         <b>Every binding index comes off the compiled effect rather than the generated
-///         constants</b>, and set 2 is filled by hand because the job buffer is a ring and a
+///         <b>
+///             Every binding index comes off the compiled effect rather than the generated
+///             constants
+///         </b>
+///         , and set 2 is filled by hand because the job buffer is a ring and a
 ///         name-driven write has nowhere to put an offset — both verbatim from the irradiance fill,
 ///         which learnt them the hard way.
 ///     </para>
@@ -212,8 +215,10 @@ public sealed class ScreenProbeTraceFill : IDisposable {
     /// <summary>How deep behind a surface a sample still counts as inside it, in device depth.</summary>
     public float ScreenThickness { get; set; } = 0.02f;
 
-    /// <summary>The depth's nearest-per-cell chain — <see cref="HiZPyramid" /> wearing
-    ///     <see cref="HiZReduction.Nearest" />. Invalid keeps the fixed-step walk.</summary>
+    /// <summary>
+    ///     The depth's nearest-per-cell chain — <see cref="HiZPyramid" /> wearing
+    ///     <see cref="HiZReduction.Nearest" />. Invalid keeps the fixed-step walk.
+    /// </summary>
     /// <remarks>
     ///     A view of every level, mip N holding level N + 1 of the march — the depth itself is level
     ///     zero. ⚠ It must be this frame's reduction of <see cref="ScreenDepth" />: a chain of a
@@ -221,13 +226,17 @@ public sealed class ScreenProbeTraceFill : IDisposable {
     /// </remarks>
     public TextureViewHandle ScreenPyramid { get; set; }
 
-    /// <summary>How many levels the march may use, counting the depth itself — the CPU pyramid's
-    ///     own <c>Levels</c>, which is the chain's plus one.</summary>
+    /// <summary>
+    ///     How many levels the march may use, counting the depth itself — the CPU pyramid's
+    ///     own <c>Levels</c>, which is the chain's plus one.
+    /// </summary>
     public int ScreenPyramidLevels { get; set; }
 
-    /// <summary>How deep the shell is in view units, where a perspective ray can say. Zero keeps
+    /// <summary>
+    ///     How deep the shell is in view units, where a perspective ray can say. Zero keeps
     ///     the device-depth shell — <c>ScreenSpaceTrace.LinearThickness</c>, choice for
-    ///     choice.</summary>
+    ///     choice.
+    /// </summary>
     public float ScreenLinearThickness { get; set; }
 
     /// <summary>Whether probes with no surface get a job that clears their patch to the invalid mark.</summary>
@@ -291,7 +300,9 @@ public sealed class ScreenProbeTraceFill : IDisposable {
         }
 
         var key = EffectKey.Of(ShaderName)
-            .With(MaterialCompiler.PassComposition((FieldSlot, Source), (FarSlot, FarSource), (CacheSlot, CacheSource)));
+            .With(
+                MaterialCompiler.PassComposition((FieldSlot, Source), (FarSlot, FarSource), (CacheSlot, CacheSource))
+            );
 
         if (Effects.Resolve(key) is not { IsPlaceholder: false } effect) {
             return Skip($"'{key}' has not compiled yet");
@@ -320,7 +331,7 @@ public sealed class ScreenProbeTraceFill : IDisposable {
         // Whether a screen hit radiates rather than occludes. Zero only where there is no colour to
         // read — the honest half of a screen trace that has nothing to answer with, not a default.
         Parameters.Set(ScreenProbeTraceKeys.ScreenRadiance, ScreenDepth.IsValid && ScreenColour.IsValid ? 1 : 0);
-        Parameters.Set(ScreenProbeTraceKeys.ScreenViewport, new Vector2(ScreenViewport.X, ScreenViewport.Y));
+        Parameters.Set(ScreenProbeTraceKeys.ScreenViewport, new(ScreenViewport.X, ScreenViewport.Y));
         Parameters.Set(ScreenProbeTraceKeys.ScreenThickness, ScreenThickness);
         Parameters.Set(ScreenProbeTraceKeys.ViewProjection, ViewProjection);
 
@@ -387,7 +398,7 @@ public sealed class ScreenProbeTraceFill : IDisposable {
                             new ScreenProbeTraceJob {
                                 AtlasOrigin = layout.AtlasOrigin(probe),
                                 Valid = 1,
-                                Origin = position + (normal * SurfaceBias)
+                                Origin = position + normal * SurfaceBias
                             }
                         ]
                     );
@@ -455,7 +466,12 @@ public sealed class ScreenProbeTraceFill : IDisposable {
             }
 
             writes.Add(
-                DescriptorWrite.Uniform(declared.Binding, materialBlock.Buffer, materialBlock.Offset, materialBlock.Size)
+                DescriptorWrite.Uniform(
+                    declared.Binding,
+                    materialBlock.Buffer,
+                    materialBlock.Offset,
+                    materialBlock.Size
+                )
             );
         }
 
@@ -471,14 +487,14 @@ public sealed class ScreenProbeTraceFill : IDisposable {
             return false;
         }
 
-        writes.Add(new DescriptorWrite(target.Binding, DescriptorKind.StorageTexture, TextureView: texture.AtlasView));
+        writes.Add(new(target.Binding, DescriptorKind.StorageTexture, TextureView: texture.AtlasView));
 
         if (effect.BindingOf(DepthName) is { } depth) {
             // With no screen to trace, a resolved-probe plane stands in: the descriptor must point
             // at something in the sampled layout, the planes are exactly that for the whole
             // dispatch, and zero screenSteps means the shader never loads it.
             writes.Add(
-                new DescriptorWrite(
+                new(
                     depth.Binding,
                     DescriptorKind.SampledTexture,
                     TextureView: ScreenDepth.IsValid ? ScreenDepth : texture.ProbeView(0)
@@ -490,7 +506,7 @@ public sealed class ScreenProbeTraceFill : IDisposable {
             // The same stand-in rule as the depth: the descriptor must point at something in the
             // sampled layout, and zero screenRadiance means the shader never loads it.
             writes.Add(
-                new DescriptorWrite(
+                new(
                     colour.Binding,
                     DescriptorKind.SampledTexture,
                     TextureView: ScreenColour.IsValid ? ScreenColour : texture.ProbeView(0)
@@ -502,7 +518,7 @@ public sealed class ScreenProbeTraceFill : IDisposable {
             // The same stand-in rule for the nearest chain: zero pyramidLevels means the shader
             // never loads it.
             writes.Add(
-                new DescriptorWrite(
+                new(
                     chain.Binding,
                     DescriptorKind.SampledTexture,
                     TextureView: ScreenPyramid.IsValid ? ScreenPyramid : texture.ProbeView(0)

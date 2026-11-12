@@ -35,8 +35,7 @@ public class DegradationTests {
     sealed class Fussy : SceneRenderer {
         public string? Reason { get; set; }
 
-        protected internal override void Build(GraphicsCompositor compositor, CompositorFrame frame) =>
-            Degrade(Reason);
+        protected internal override void Build(GraphicsCompositor compositor, CompositorFrame frame) => Degrade(Reason);
     }
 
     static GraphicsCompositor Compositor() => new(new RenderSystem());
@@ -278,7 +277,7 @@ public class DegradationTests {
     [Fact]
     public void A_full_screen_pass_with_no_modules_says_the_pass_was_never_declared() {
         using var fixture = new Passes();
-        using var h = fixture.FullScreen(modules: false);
+        using var h = fixture.FullScreen(false);
 
         fixture.Frame(h);
 
@@ -311,7 +310,7 @@ public class DegradationTests {
     /// </remarks>
     [Fact]
     public void A_full_screen_pass_whose_effect_did_not_resolve_names_the_shader() {
-        using var fixture = new Passes(compiles: false);
+        using var fixture = new Passes(false);
         using var h = fixture.FullScreen();
 
         fixture.Frame(h);
@@ -334,7 +333,7 @@ public class DegradationTests {
     [Fact]
     public void A_full_screen_pass_that_is_handed_its_modules_leaves_the_report() {
         using var fixture = new Passes();
-        using var h = fixture.FullScreen(modules: false);
+        using var h = fixture.FullScreen(false);
 
         fixture.Frame(h);
         Assert.Single(Read(h.Compositor));
@@ -353,7 +352,7 @@ public class DegradationTests {
     [Fact]
     public void A_compute_dispatch_with_no_pipelines_says_what_keeps_its_last_value() {
         using var fixture = new Passes();
-        using var h = fixture.Compute(pipelines: false);
+        using var h = fixture.Compute(false);
 
         fixture.Frame(h);
 
@@ -418,10 +417,7 @@ public class DegradationTests {
 
         public Frames FullScreen(bool modules = true) {
             var pass = new FullScreenRenderer {
-                Name = "Tonemap",
-                ShaderName = "Tonemap",
-                Modules = modules ? Describer : null,
-                Device = device
+                Name = "Tonemap", ShaderName = "Tonemap", Modules = modules ? Describer : null, Device = device
             };
 
             pass.ColourTargets.Add("Display");
@@ -451,7 +447,7 @@ public class DegradationTests {
             var system = new RenderSystem();
             var compositor = new GraphicsCompositor(system) { FrameSize = new(64, 64), Game = dispatch };
 
-            compositor.Imports["Metered"] = Imported("Metered", storage: true);
+            compositor.Imports["Metered"] = Imported("Metered", true);
 
             return new() { System = system, Compositor = compositor, Graph = new(device), Node = dispatch };
         }

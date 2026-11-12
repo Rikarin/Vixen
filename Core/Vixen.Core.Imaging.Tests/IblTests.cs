@@ -200,7 +200,7 @@ public sealed class IblTests {
     [InlineData(8)]
     public void ProjectingABasisFunctionGivesBackThatOneCoefficientAndNoOther(int which) {
         const int size = 32;
-        var cube = new TextureData(PixelFormat.Rgba32Float, size, size, levelCount: 1, faceCount: CubeMap.Faces);
+        var cube = new TextureData(PixelFormat.Rgba32Float, size, size, 1, faceCount: CubeMap.Faces);
         Span<float> basis = stackalloc float[SphericalHarmonicsL2.Count];
 
         for (var face = 0; face < CubeMap.Faces; face++) {
@@ -252,7 +252,7 @@ public sealed class IblTests {
     public void TheFirstPrefilteredLevelIsTheEnvironmentItself() {
         var cube = Noise(8);
 
-        var prefiltered = EnvironmentPrefilter.Specular(cube, levelCount: 4, samples: 16);
+        var prefiltered = EnvironmentPrefilter.Specular(cube, 4, 16);
 
         Assert.Equal(cube.Level(0).ToArray(), prefiltered.Level(0).ToArray());
     }
@@ -276,7 +276,7 @@ public sealed class IblTests {
     public void PrefilteringAUniformEnvironmentChangesNothingAtAnyRoughness() {
         var radiance = new Vector3(0.25f, 0.5f, 4f);
 
-        var prefiltered = EnvironmentPrefilter.Specular(Uniform(8, radiance), levelCount: 4, samples: 32);
+        var prefiltered = EnvironmentPrefilter.Specular(Uniform(8, radiance), 4, 32);
 
         for (var level = 0; level < prefiltered.LevelCount; level++) {
             var size = prefiltered.Levels[level].Width;
@@ -313,7 +313,7 @@ public sealed class IblTests {
     [Fact]
     public void PrefilteringNeverLeavesTheRangeTheEnvironmentOccupies() {
         const int size = 8;
-        var cube = new TextureData(PixelFormat.Rgba32Float, size, size, levelCount: 1, faceCount: CubeMap.Faces);
+        var cube = new TextureData(PixelFormat.Rgba32Float, size, size, 1, faceCount: CubeMap.Faces);
 
         for (var face = 0; face < CubeMap.Faces; face++) {
             for (var y = 0; y < size; y++) {
@@ -326,7 +326,7 @@ public sealed class IblTests {
             }
         }
 
-        var prefiltered = EnvironmentPrefilter.Specular(cube, levelCount: 4, samples: 64);
+        var prefiltered = EnvironmentPrefilter.Specular(cube, 4, 64);
 
         for (var level = 0; level < prefiltered.LevelCount; level++) {
             var levelSize = prefiltered.Levels[level].Width;
@@ -361,11 +361,11 @@ public sealed class IblTests {
         const int size = 32;
         var cube = Uniform(size, Vector3.Zero);
         CubeMap.WriteTexel(cube, 0, 2, size / 2, size / 2, new(2000f));
-        CubeMap.WriteTexel(cube, 0, 2, (size / 2) - 1, size / 2, new(2000f));
-        CubeMap.WriteTexel(cube, 0, 2, size / 2, (size / 2) - 1, new(2000f));
-        CubeMap.WriteTexel(cube, 0, 2, (size / 2) - 1, (size / 2) - 1, new(2000f));
+        CubeMap.WriteTexel(cube, 0, 2, size / 2 - 1, size / 2, new(2000f));
+        CubeMap.WriteTexel(cube, 0, 2, size / 2, size / 2 - 1, new(2000f));
+        CubeMap.WriteTexel(cube, 0, 2, size / 2 - 1, size / 2 - 1, new(2000f));
 
-        var prefiltered = EnvironmentPrefilter.Specular(cube, levelCount: 6, samples: 64);
+        var prefiltered = EnvironmentPrefilter.Specular(cube, 6, 64);
 
         for (var level = 2; level < 5; level++) {
             var half = prefiltered.Levels[level].Width / 2;
@@ -400,8 +400,8 @@ public sealed class IblTests {
 
     [Fact]
     public void PrefilteringSomethingThatIsNotACubeMapIsRefused() {
-        var failure = Assert.Throws<ArgumentException>(
-            () => EnvironmentPrefilter.Specular(new(PixelFormat.Rgba16Float, 8, 8, levelCount: 1))
+        var failure = Assert.Throws<ArgumentException>(static () =>
+            EnvironmentPrefilter.Specular(new(PixelFormat.Rgba16Float, 8, 8, 1))
         );
 
         Assert.Contains("six faces", failure.Message, StringComparison.Ordinal);
@@ -409,8 +409,8 @@ public sealed class IblTests {
 
     [Fact]
     public void AnEnvironmentInAFormatWithNoHeadroomIsRefused() {
-        var failure = Assert.Throws<ArgumentException>(
-            () => EnvironmentPrefilter.Specular(new(PixelFormat.Rgba8UNorm, 8, 8, levelCount: 1, faceCount: 6))
+        var failure = Assert.Throws<ArgumentException>(static () =>
+            EnvironmentPrefilter.Specular(new(PixelFormat.Rgba8UNorm, 8, 8, 1, faceCount: 6))
         );
 
         Assert.Contains("radiance", failure.Message, StringComparison.Ordinal);
@@ -434,7 +434,7 @@ public sealed class IblTests {
     [InlineData(0.9f)]
     [InlineData(1f)]
     public void AtRoughnessZeroTheTableIsSchlicksFresnelSplitInTwo(float cosine) {
-        var (scale, bias) = BrdfLut.Integrate(cosine, roughness: 0f, samples: 64);
+        var (scale, bias) = BrdfLut.Integrate(cosine, 0f, 64);
         var fresnel = MathF.Pow(1f - cosine, 5f);
 
         Assert.Equal(1f - fresnel, scale, 4);
@@ -448,7 +448,7 @@ public sealed class IblTests {
     /// </summary>
     [Fact]
     public void TheTableNeverReflectsMoreLightThanArrives() {
-        var table = BrdfLut.Generate(size: 32, samples: 128);
+        var table = BrdfLut.Generate(32, 128);
 
         for (var y = 0; y < 32; y++) {
             for (var x = 0; x < 32; x++) {
@@ -468,8 +468,8 @@ public sealed class IblTests {
     /// </summary>
     [Fact]
     public void ARougherSurfaceReflectsLessOfWhatArrivesHeadOn() {
-        var smooth = BrdfLut.Integrate(cosine: 1f, roughness: 0.1f, samples: 256);
-        var rough = BrdfLut.Integrate(cosine: 1f, roughness: 0.9f, samples: 256);
+        var smooth = BrdfLut.Integrate(1f, 0.1f, 256);
+        var rough = BrdfLut.Integrate(1f, 0.9f, 256);
 
         Assert.True(
             smooth.Scale + smooth.Bias > rough.Scale + rough.Bias,
@@ -479,10 +479,10 @@ public sealed class IblTests {
 
     [Fact]
     public void TheTableIsTwoChannelsBecauseItOnlyEverHoldsTwoNumbers() =>
-        Assert.Equal(PixelFormat.Rg16Float, BrdfLut.Generate(size: 4, samples: 8).Format);
+        Assert.Equal(PixelFormat.Rg16Float, BrdfLut.Generate(4, 8).Format);
 
     static TextureData Uniform(int size, Vector3 radiance) {
-        var cube = new TextureData(PixelFormat.Rgba32Float, size, size, levelCount: 1, faceCount: CubeMap.Faces);
+        var cube = new TextureData(PixelFormat.Rgba32Float, size, size, 1, faceCount: CubeMap.Faces);
 
         for (var face = 0; face < CubeMap.Faces; face++) {
             for (var y = 0; y < size; y++) {
@@ -496,13 +496,13 @@ public sealed class IblTests {
     }
 
     static TextureData Noise(int size) {
-        var cube = new TextureData(PixelFormat.Rgba32Float, size, size, levelCount: 1, faceCount: CubeMap.Faces);
+        var cube = new TextureData(PixelFormat.Rgba32Float, size, size, 1, faceCount: CubeMap.Faces);
         var value = 0;
 
         for (var face = 0; face < CubeMap.Faces; face++) {
             for (var y = 0; y < size; y++) {
                 for (var x = 0; x < size; x++) {
-                    value = ((value * 1103515245) + 12345) & 0x7FFFFFFF;
+                    value = (value * 1103515245 + 12345) & 0x7FFFFFFF;
                     CubeMap.WriteTexel(cube, 0, face, x, y, new(value % 1000 / 100f, x, y));
                 }
             }

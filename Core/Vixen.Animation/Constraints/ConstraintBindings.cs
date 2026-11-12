@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core;
-using Vixen.Core.Mathematics;
 
 namespace Vixen.Animation.Constraints;
 
@@ -83,8 +82,12 @@ public sealed class TransformBinding : IBindingSource {
 /// <remarks>
 ///     <para>
 ///         Two stores with different lifetimes, deliberately. <b>Bindings persist</b> — a character
-///         holding a sword has that slot filled for as long as it holds it — and <b>provided frames
-///         do not</b>: they are written during the frame that computed them and cleared with it, so
+///         holding a sword has that slot filled for as long as it holds it — and
+///         <b>
+///             provided frames
+///             do not
+///         </b>
+///         : they are written during the frame that computed them and cleared with it, so
 ///         a provider that stops writing produces an unresolved frame and an ease-out rather than a
 ///         goal pinned to a stale answer.
 ///     </para>

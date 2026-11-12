@@ -7,8 +7,10 @@ using Vixen.Rendering.DistanceFields;
 namespace Vixen.Rendering.SurfaceCache;
 
 /// <summary>What a surface is made of, for the reference capture to ask.</summary>
-/// <remarks>The runtime capture rasterises real materials; this is the fixture-and-reference seam,
-///     the same role <c>IRadianceSource</c> plays for the tracers.</remarks>
+/// <remarks>
+///     The runtime capture rasterises real materials; this is the fixture-and-reference seam,
+///     the same role <c>IRadianceSource</c> plays for the tracers.
+/// </remarks>
 public interface ISurfaceMaterial {
     /// <summary>What fraction of each channel a surface reflects.</summary>
     Vector3 Albedo(Vector3 position, Vector3 normal);
@@ -43,13 +45,13 @@ public sealed class TracedCardCapture(IDistanceField geometry, ISurfaceMaterial 
         var (shape, _) = (cache.Cards[card].Card, cache.Cards[card].Origin);
         var direction = -shape.Direction;
         var (_, halfDepth) = shape.Extents;
-        var trace = new DistanceFieldTraceSettings { MaxDistance = (halfDepth * 2f) + (Bias * 2f) };
+        var trace = new DistanceFieldTraceSettings { MaxDistance = halfDepth * 2f + Bias * 2f };
         var captured = 0;
 
         for (var y = 0; y < shape.Resolution.Y; y++) {
             for (var x = 0; x < shape.Resolution.X; x++) {
                 var texel = new Int2(x, y);
-                var origin = shape.TexelOrigin(texel) - (direction * Bias);
+                var origin = shape.TexelOrigin(texel) - direction * Bias;
                 var hit = DistanceFieldTracer.Trace(geometry, origin, direction, trace);
 
                 if (!hit.Hit) {

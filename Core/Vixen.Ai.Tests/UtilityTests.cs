@@ -82,7 +82,7 @@ public class ResponseCurveTests {
     public void NothingEscapesTheUnitIntervalAndNaNIsAVeto() {
         var loud = new ResponseCurve { Slope = 40f };
         var negative = new ResponseCurve { Slope = -3f };
-        var broken = new DelegateResponseCurve(_ => float.NaN);
+        var broken = new DelegateResponseCurve(static _ => float.NaN);
 
         Assert.Equal(1f, loud.Evaluate(0.9f), 4);
         Assert.Equal(0f, negative.Evaluate(0.9f), 4);
@@ -191,7 +191,7 @@ public class UtilitySelectorTests {
     [Fact]
     public void AWeightedRandomIsDrawnFromTheAgentsOwnStream() {
         var picks = Enumerable.Range(1, 64)
-            .Select(id => Pick(UtilitySelectors.WeightedRandom, [0.5f, 0.5f, 0.5f, 0.5f], id))
+            .Select(static id => Pick(UtilitySelectors.WeightedRandom, [0.5f, 0.5f, 0.5f, 0.5f], id))
             .Distinct()
             .Count();
 
@@ -202,12 +202,15 @@ public class UtilitySelectorTests {
         var values = scores ?? Scores;
         var set = new UtilitySet(
             Symbol.Intern("probe"),
-            [.. Enumerable.Range(0, values.Length).Select(index => new UtilityAction(Symbol.Intern($"a{index}"), (ushort)index))]
+            [
+                ..Enumerable.Range(0, values.Length)
+                    .Select(static index => new UtilityAction(Symbol.Intern($"a{index}"), (ushort)index))
+            ]
         );
 
         var entity = new Entity(id, 1, 0);
         var context = new AgentContext(
-            new World("selector-test"),
+            new("selector-test"),
             entity,
             Harness.Board(),
             null,
@@ -224,7 +227,7 @@ public class UtilityInertiaTests {
     public void ACooldownKeepsAnActionOutUntilItHasElapsed() {
         var set = new UtilitySet(
             Symbol.Intern("cooling"),
-            Constant("once", 0, 0.9f, cooldown: 1f),
+            Constant("once", 0, 0.9f, 1f),
             Constant("other", 1, 0.5f)
         ) { CommitmentBonus = 0f, DecisionInterval = 0f };
 
@@ -287,8 +290,7 @@ public class UtilityInertiaTests {
                 0,
                 new UtilityConsideration(
                     Symbol.Intern("axis"),
-                    UtilityInputs.From(
-                        (in AgentContext context) => {
+                    UtilityInputs.From((in AgentContext context) => {
                             reads++;
 
                             return 1f;
@@ -317,9 +319,7 @@ public class UtilityInertiaTests {
             Symbol.Intern(name),
             index,
             new UtilityConsideration(Symbol.Intern("axis"), UtilityInputs.Constant(score), ResponseCurve.Identity)
-        ) {
-            Cooldown = cooldown
-        };
+        ) { Cooldown = cooldown };
 }
 
 public class UtilityAgentTests {
@@ -337,7 +337,7 @@ public class UtilityAgentTests {
         var system = new AiSystem(registry, LayoutOf());
         var set = new UtilitySet(
             Symbol.Intern("villager"),
-            Scored("walk", 0, _ => 0.5f),
+            Scored("walk", 0, static _ => 0.5f),
             Scored("flee", 1, _ => danger)
         );
 
@@ -379,7 +379,7 @@ public class UtilityAgentTests {
         var volume = 0f;
         var set = new UtilitySet(
             Symbol.Intern("mood"),
-            Scored("quiet", 0, _ => 0.5f),
+            Scored("quiet", 0, static _ => 0.5f),
             Scored("loud", 1, _ => volume)
         ) { DecisionInterval = 0f };
 
@@ -413,7 +413,9 @@ public class UtilityAgentTests {
 
         registry.Register("never", new Counting(), Counting.Size);
 
-        var set = new UtilitySet(Symbol.Intern("nothing"), Scored("never", 0, _ => 0f)) { DecisionInterval = 0f };
+        var set = new UtilitySet(Symbol.Intern("nothing"), Scored("never", 0, static _ => 0f)) {
+            DecisionInterval = 0f
+        };
         var task = new RunUtilitySetTask(set, registry);
         var state = new byte[task.RequiredState];
         var context = Harness.Context();
@@ -497,10 +499,13 @@ public class UtilityContentTests {
         var resolver = new BehaviorTreeResolver();
 
         Assert.False(UtilitySetContentCompiler.TryCompile(content, resolver, out var diagnostics, out var set));
-        Assert.Contains(diagnostics, problem => problem.Message.Contains("is not a key", StringComparison.Ordinal));
+        Assert.Contains(
+            diagnostics,
+            static problem => problem.Message.Contains("is not a key", StringComparison.Ordinal)
+        );
 
         var board = content.BuildLayout();
-        var context = Harness.Context(blackboard: new Blackboard(board));
+        var context = Harness.Context(blackboard: new(board));
 
         Assert.Equal(0f, set![0].Score(in context));
     }
@@ -516,7 +521,10 @@ public class UtilityContentTests {
         var resolver = new BehaviorTreeResolver();
 
         Assert.False(UtilitySetContentCompiler.TryCompile(content, resolver, out var missing, out var vetoed));
-        Assert.Contains(missing, problem => problem.Message.Contains("No utility input called", StringComparison.Ordinal));
+        Assert.Contains(
+            missing,
+            static problem => problem.Message.Contains("No utility input called", StringComparison.Ordinal)
+        );
         Assert.Equal(0f, vetoed![0].Score(Harness.Context()));
 
         resolver.AddInput("mood", UtilityInputs.Constant(0.75f));
@@ -532,7 +540,7 @@ public class UtilityContentTests {
 
             content.Selector = kind;
 
-            Assert.True(UtilitySetContentCompiler.TryCompile(content, new BehaviorTreeResolver(), out _, out var set));
+            Assert.True(UtilitySetContentCompiler.TryCompile(content, new(), out _, out var set));
             Assert.NotNull(set!.Selector);
         }
     }
@@ -548,7 +556,7 @@ public class UtilityContentTests {
             new() { Time = 1f, Value = 1f }
         ];
 
-        Assert.True(UtilitySetContentCompiler.TryCompile(content, new BehaviorTreeResolver(), out _, out var set));
+        Assert.True(UtilitySetContentCompiler.TryCompile(content, new(), out _, out var set));
 
         var board = new Blackboard(content.BuildLayout());
 

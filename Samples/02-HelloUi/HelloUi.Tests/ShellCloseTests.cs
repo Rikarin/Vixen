@@ -39,10 +39,10 @@ public sealed class ShellCloseTests : IDisposable {
         // What `Program.cs` hands the shell from `Started`: the head's quit, which asks again.
         model.Quit = () => {
             quits++;
-            retried = ui.Document.RequestClose(UiCloseReason.Quit);
+            retried = ui.Document.RequestClose();
         };
 
-        shell = new Shell { Model = model };
+        shell = new() { Model = model };
         BuildContext.BuildInto(shell, ui.Document, ui.Document.Root);
         ui.Frame();
     }
@@ -69,10 +69,10 @@ public sealed class ShellCloseTests : IDisposable {
         Assert.True(hosted.IsDirty.Value);
 
         if (focused) {
-            ui.Document.Focus(Descendants(shell.Root).First(element => element is TextBox));
+            ui.Document.Focus(Descendants(shell.Root).First(static element => element is TextBox));
         }
 
-        Assert.False(ui.Document.RequestClose(UiCloseReason.Quit), "a quit over a dirty material was not asked about");
+        Assert.False(ui.Document.RequestClose(), "a quit over a dirty material was not asked about");
         ui.Frame();
 
         Press(save ? ControlStrings.DocumentSave.Text : ControlStrings.DocumentDiscard.Text);
@@ -92,7 +92,7 @@ public sealed class ShellCloseTests : IDisposable {
         model.Name.Value = "Brushed Steel";
         ui.Frame();
 
-        Assert.False(ui.Document.RequestClose(UiCloseReason.Quit));
+        Assert.False(ui.Document.RequestClose());
         ui.Frame();
 
         Press(ControlStrings.DialogCancel.Text);

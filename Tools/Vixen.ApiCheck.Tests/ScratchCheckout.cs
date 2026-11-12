@@ -6,7 +6,10 @@ using Xunit;
 
 namespace Vixen.ApiCheck.Tests;
 
-/// <summary>A temporary directory that git calls a repository, for rules that read the tree through <c>RepositoryFiles</c>.</summary>
+/// <summary>
+///     A temporary directory that git calls a repository, for rules that read the tree through
+///     <c>RepositoryFiles</c>.
+/// </summary>
 /// <remarks>
 ///     ⚠ <b>A git repository and not just a folder</b>, because the rules it feeds list files the way
 ///     every sweep here does since #1424 — <c>git ls-files --others --exclude-standard</c> — and a
@@ -56,6 +59,6 @@ sealed class ScratchCheckout : IDisposable {
             File.SetAttributes(file, FileAttributes.Normal);
         }
 
-        Directory.Delete(Root, recursive: true);
+        Directory.Delete(Root, true);
     }
 }

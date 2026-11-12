@@ -2,15 +2,18 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Net;
-using System.Net.Http.Json;
 using System.Text.Json.Serialization.Metadata;
 
 namespace Vixen.Live.Client.Tests;
 
 /// <summary>A gate that is a queue of answers.</summary>
 /// <remarks>
-///     ⚠ <b>A message handler rather than a running server, and the distinction is what the tests are
-///     about.</b> Everything worth asserting on this side — that the bearer header is sent, that a
+///     ⚠
+///     <b>
+///         A message handler rather than a running server, and the distinction is what the tests are
+///         about.
+///     </b>
+///     Everything worth asserting on this side — that the bearer header is sent, that a
 ///     refusal is an answer rather than an exception, that <c>Starting</c> is waited out and
 ///     <c>UpdateRequired</c> is not — is a property of the client. Whether Kestrel serves the routes
 ///     is <c>Vixen.Live.Gate</c>'s question and is answered there.
@@ -42,7 +45,7 @@ sealed class FakeGate : HttpMessageHandler {
     /// <param name="detail">The sentence.</param>
     /// <returns>This, for chaining.</returns>
     public FakeGate Refuses(HttpStatusCode status, string code, string detail) =>
-        Answers(new GateProblem(code, detail), GateJson.Default.GateProblem, status);
+        Answers(new(code, detail), GateJson.Default.GateProblem, status);
 
     /// <summary>Queues something that is not a gate at all — a proxy, a captive portal.</summary>
     /// <param name="status">What it answered.</param>
@@ -57,7 +60,7 @@ sealed class FakeGate : HttpMessageHandler {
     /// <summary>Queues a connection that never lands.</summary>
     /// <returns>This, for chaining.</returns>
     public FakeGate Vanishes() {
-        answers.Enqueue(_ => throw new HttpRequestException("no route to host"));
+        answers.Enqueue(static _ => throw new HttpRequestException("no route to host"));
 
         return this;
     }

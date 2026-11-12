@@ -128,7 +128,7 @@ public sealed class QuestObjectiveRegistry {
 
     /// <summary>Every type, in name order.</summary>
     public IEnumerable<IQuestObjective> Types =>
-        byType.Values.OrderBy(type => type.Type, StringComparer.Ordinal);
+        byType.Values.OrderBy(static type => type.Type, StringComparer.Ordinal);
 
     /// <summary>Adds a type.</summary>
     /// <param name="objective">The type.</param>
@@ -161,6 +161,5 @@ public sealed class QuestObjectiveRegistry {
     /// <summary>Finds a type.</summary>
     /// <param name="type">Its name.</param>
     /// <returns>It, or null.</returns>
-    public IQuestObjective? Find(string? type) =>
-        type is null ? null : byType.GetValueOrDefault(type);
+    public IQuestObjective? Find(string? type) => type is null ? null : byType.GetValueOrDefault(type);
 }

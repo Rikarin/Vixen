@@ -137,7 +137,7 @@ public sealed class ZLoggerFileSink : LogSink {
         // keyed by number and the file carried only the reworded sentence. Or-ed onto whatever the
         // default is rather than assigned, so a ZLogger upgrade that starts emitting something new
         // keeps emitting it.
-        options.UseJsonFormatter(formatter =>
+        options.UseJsonFormatter(static formatter =>
             formatter.IncludeProperties |= IncludeProperties.EventIdValue | IncludeProperties.EventIdName
         );
         provider = new(options);
@@ -228,11 +228,12 @@ public sealed class ZLoggerFileSink : LogSink {
 
         public int Count => 2;
 
-        public KeyValuePair<string, object?> this[int index] => index switch {
-            0 => new("SuppressedCount", Repeats),
-            1 => new("{OriginalFormat}", Template),
-            _ => throw new ArgumentOutOfRangeException(nameof(index))
-        };
+        public KeyValuePair<string, object?> this[int index] =>
+            index switch {
+                0 => new("SuppressedCount", Repeats),
+                1 => new("{OriginalFormat}", Template),
+                _ => throw new ArgumentOutOfRangeException(nameof(index))
+            };
 
         public IEnumerator<KeyValuePair<string, object?>> GetEnumerator() {
             yield return this[0];

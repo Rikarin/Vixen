@@ -51,7 +51,9 @@ static class BuiltInSerializers {
 
     sealed class BooleanSerializer : DataSerializer<bool> {
         public override void Serialize(ref SerializationWriter writer, in bool value) => writer.WriteBoolean(value);
-        public override void Deserialize(ref SerializationReader reader, ref bool value) => value = reader.ReadBoolean();
+
+        public override void Deserialize(ref SerializationReader reader, ref bool value) =>
+            value = reader.ReadBoolean();
     }
 
     sealed class ByteSerializer : DataSerializer<byte> {
@@ -71,7 +73,9 @@ static class BuiltInSerializers {
 
     sealed class UInt16Serializer : DataSerializer<ushort> {
         public override void Serialize(ref SerializationWriter writer, in ushort value) => writer.WriteUInt16(value);
-        public override void Deserialize(ref SerializationReader reader, ref ushort value) => value = reader.ReadUInt16();
+
+        public override void Deserialize(ref SerializationReader reader, ref ushort value) =>
+            value = reader.ReadUInt16();
     }
 
     sealed class Int32Serializer : DataSerializer<int> {
@@ -91,7 +95,9 @@ static class BuiltInSerializers {
 
     sealed class UInt64Serializer : DataSerializer<ulong> {
         public override void Serialize(ref SerializationWriter writer, in ulong value) => writer.WriteUInt64(value);
-        public override void Deserialize(ref SerializationReader reader, ref ulong value) => value = reader.ReadUInt64();
+
+        public override void Deserialize(ref SerializationReader reader, ref ulong value) =>
+            value = reader.ReadUInt64();
     }
 
     sealed class CharSerializer : DataSerializer<char> {
@@ -106,22 +112,30 @@ static class BuiltInSerializers {
 
     sealed class SingleSerializer : DataSerializer<float> {
         public override void Serialize(ref SerializationWriter writer, in float value) => writer.WriteSingle(value);
-        public override void Deserialize(ref SerializationReader reader, ref float value) => value = reader.ReadSingle();
+
+        public override void Deserialize(ref SerializationReader reader, ref float value) =>
+            value = reader.ReadSingle();
     }
 
     sealed class DoubleSerializer : DataSerializer<double> {
         public override void Serialize(ref SerializationWriter writer, in double value) => writer.WriteDouble(value);
-        public override void Deserialize(ref SerializationReader reader, ref double value) => value = reader.ReadDouble();
+
+        public override void Deserialize(ref SerializationReader reader, ref double value) =>
+            value = reader.ReadDouble();
     }
 
     sealed class DecimalSerializer : DataSerializer<decimal> {
         public override void Serialize(ref SerializationWriter writer, in decimal value) => writer.WriteDecimal(value);
-        public override void Deserialize(ref SerializationReader reader, ref decimal value) => value = reader.ReadDecimal();
+
+        public override void Deserialize(ref SerializationReader reader, ref decimal value) =>
+            value = reader.ReadDecimal();
     }
 
     sealed class StringSerializer : DataSerializer<string> {
         public override void Serialize(ref SerializationWriter writer, in string value) => writer.WriteString(value);
-        public override void Deserialize(ref SerializationReader reader, ref string value) => value = reader.ReadString()!;
+
+        public override void Deserialize(ref SerializationReader reader, ref string value) =>
+            value = reader.ReadString()!;
     }
 
     sealed class GuidSerializer : DataSerializer<Guid> {
@@ -130,8 +144,11 @@ static class BuiltInSerializers {
     }
 
     sealed class DateTimeSerializer : DataSerializer<DateTime> {
-        public override void Serialize(ref SerializationWriter writer, in DateTime value) => writer.WriteDateTime(value);
-        public override void Deserialize(ref SerializationReader reader, ref DateTime value) => value = reader.ReadDateTime();
+        public override void Serialize(ref SerializationWriter writer, in DateTime value) =>
+            writer.WriteDateTime(value);
+
+        public override void Deserialize(ref SerializationReader reader, ref DateTime value) =>
+            value = reader.ReadDateTime();
     }
 
     sealed class DateTimeOffsetSerializer : DataSerializer<DateTimeOffset> {
@@ -143,13 +160,19 @@ static class BuiltInSerializers {
     }
 
     sealed class TimeSpanSerializer : DataSerializer<TimeSpan> {
-        public override void Serialize(ref SerializationWriter writer, in TimeSpan value) => writer.WriteTimeSpan(value);
-        public override void Deserialize(ref SerializationReader reader, ref TimeSpan value) => value = reader.ReadTimeSpan();
+        public override void Serialize(ref SerializationWriter writer, in TimeSpan value) =>
+            writer.WriteTimeSpan(value);
+
+        public override void Deserialize(ref SerializationReader reader, ref TimeSpan value) =>
+            value = reader.ReadTimeSpan();
     }
 
     sealed class AssetIdSerializer : DataSerializer<AssetId> {
-        public override void Serialize(ref SerializationWriter writer, in AssetId value) => writer.WriteGuid(value.Value);
-        public override void Deserialize(ref SerializationReader reader, ref AssetId value) => value = new(reader.ReadGuid());
+        public override void Serialize(ref SerializationWriter writer, in AssetId value) =>
+            writer.WriteGuid(value.Value);
+
+        public override void Deserialize(ref SerializationReader reader, ref AssetId value) =>
+            value = new(reader.ReadGuid());
     }
 
     sealed class SubAssetIdSerializer : DataSerializer<SubAssetId> {
@@ -165,7 +188,6 @@ static class BuiltInSerializers {
     ///     <c>Vixen.Core</c> declares these with <c>[DataContract]</c> and cannot run the serialization
     ///     generator over them — that would need a reference to this assembly, which references it. The
     ///     attribute is what makes them describable for YAML; the binary form is decided here.
-    ///
     ///     Until this existed, no ECS component could hold an <see cref="AssetReference" />: the
     ///     generated serializer for the component would compile and then throw at the first write,
     ///     which is how <c>MeshRenderable</c> found it.

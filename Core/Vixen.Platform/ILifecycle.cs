@@ -8,12 +8,16 @@ public enum ApplicationState : byte {
     /// <summary>Not started yet.</summary>
     Starting = 0,
 
-    /// <summary>Running and in the foreground. The only state in which rendering is worth
-    /// doing.</summary>
+    /// <summary>
+    ///     Running and in the foreground. The only state in which rendering is worth
+    ///     doing.
+    /// </summary>
     Running = 1,
 
-    /// <summary>Running but not in the foreground: another window is on top, or the browser tab is
-    /// hidden.</summary>
+    /// <summary>
+    ///     Running but not in the foreground: another window is on top, or the browser tab is
+    ///     hidden.
+    /// </summary>
     /// <remarks>
     ///     Still ticking, and on the desktop that is often what the user wants — a level keeps
     ///     loading while they read something else. Frame rate should drop; the simulation need not
@@ -21,8 +25,10 @@ public enum ApplicationState : byte {
     /// </remarks>
     Background = 2,
 
-    /// <summary>Suspended by the OS. No frames, no GPU work, and on Android no valid graphics
-    /// surface.</summary>
+    /// <summary>
+    ///     Suspended by the OS. No frames, no GPU work, and on Android no valid graphics
+    ///     surface.
+    /// </summary>
     Suspended = 3,
 
     /// <summary>Shutting down.</summary>
@@ -34,12 +40,16 @@ public enum MemoryPressure : byte {
     /// <summary>Nothing to worry about.</summary>
     Normal = 0,
 
-    /// <summary>Give back what is easy to reconstruct: caches, decoded textures, pooled
-    /// buffers.</summary>
+    /// <summary>
+    ///     Give back what is easy to reconstruct: caches, decoded textures, pooled
+    ///     buffers.
+    /// </summary>
     Warning = 1,
 
-    /// <summary>Give back everything that is not needed for the current frame. The next step the OS
-    /// takes is killing the process.</summary>
+    /// <summary>
+    ///     Give back everything that is not needed for the current frame. The next step the OS
+    ///     takes is killing the process.
+    /// </summary>
     Critical = 2
 }
 

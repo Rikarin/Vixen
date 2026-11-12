@@ -2,13 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Collections.Immutable;
-using Vixen.Core.Imaging;
-using Vixen.Editor.Assets.Textures;
-using Vixen.Editor.Core;
-using Vixen.Editor.NodeGraph;
 using Vixen.Editor.Plugin;
 using Vixen.Editor.Texturing.Layers;
-using Vixen.Editor.Texturing.Painting;
 using Vixen.Graphics;
 using Vixen.NodeGraph;
 using Vixen.TextureGraph;
@@ -25,16 +20,24 @@ namespace Vixen.Editor.Texturing;
 /// <param name="Status">What to say under the pane.</param>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>The extent is carried even when the image is null, and that is the same decision
-///         <c>TextureGraphView.Show</c> makes.</b> The zoom, the fit and the pointer readout are about
+///         ⚠
+///         <b>
+///             The extent is carried even when the image is null, and that is the same decision
+///             <c>TextureGraphView.Show</c> makes.
+///         </b>
+///         The zoom, the fit and the pointer readout are about
 ///         the texels an author is authoring; a pane that lost them when a bake failed would rescale
 ///         itself every time somebody typed a bad number into a layer.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>Everything the compile said travels with the picture, and not just the sentence.</b>
 ///         <see cref="Status" /> answers "why is there no map", which is a question with one answer;
-///         <see cref="Problems" /> and <see cref="Diagnostics" /> are what the compile <em>had to
-///         say</em>, and a compilation that produced a plan can still say plenty. Until
+///         <see cref="Problems" /> and <see cref="Diagnostics" /> are what the compile
+///         <em>
+///             had to
+///             say
+///         </em>
+///         , and a compilation that produced a plan can still say plenty. Until
 ///         <a href="https://github.com/Rikarin/Vixen/issues/830">#830</a> a warning reached the panel
 ///         through neither: <c>Refused</c> only runs when there is no plan and filters to errors even
 ///         then, so <c>TG0022</c> — chosen over a silent rescale on the grounds that "it is said" —
@@ -70,16 +73,23 @@ sealed record LayerStackLive(PaintImage? Image, string Refusal);
 /// <summary>Turns a layer stack into pixels on the editor's device.</summary>
 /// <remarks>
 ///     <para>
-///         <b>The same path a graph takes, which is doc 48 § D1's whole claim and is now checkable
-///         rather than asserted.</b> A stack becomes a <c>NodeGraphModel</c>
+///         <b>
+///             The same path a graph takes, which is doc 48 § D1's whole claim and is now checkable
+///             rather than asserted.
+///         </b>
+///         A stack becomes a <c>NodeGraphModel</c>
 ///         (<see cref="LayerStackGraph" />), the graph becomes a <see cref="TexturePlan" /> through
 ///         the <em>public</em> <c>TextureGraphCompiler</c>, and the plan goes to the one
 ///         <c>TexturePlanEvaluator</c>. There is no second evaluator, no second emitter and no
 ///         arithmetic here for either to disagree with.
 ///     </para>
 ///     <para>
-///         ⚠ <b>This is what <c>TextureGraphPreview</c> was written before it could do, and it can
-///         now.</b> That type evaluated a fixed checkerboard for three batches while its status line
+///         ⚠
+///         <b>
+///             This is what <c>TextureGraphPreview</c> was written before it could do, and it can
+///             now.
+///         </b>
+///         That type evaluated a fixed checkerboard for three batches while its status line
 ///         cited <a href="https://github.com/Rikarin/Vixen/issues/738">#738</a> — "the compiler is
 ///         internal, so this plugin can offer every node and compile none of them" — which was false
 ///         the day it was written. <a href="https://github.com/Rikarin/Vixen/issues/792">#792</a> and
@@ -88,9 +98,13 @@ sealed record LayerStackLive(PaintImage? Image, string Refusal);
 ///         <see cref="TextureExternalImages" /> rather than three private statics here.
 ///     </para>
 ///     <para>
-///         ⚠ <b>An imported image is read on the panel's thread, and a picture that will not read is
-///         a sentence rather than an exception —
-///         <a href="https://github.com/Rikarin/Vixen/issues/818">#818</a>.</b> Skipping one was never
+///         ⚠
+///         <b>
+///             An imported image is read on the panel's thread, and a picture that will not read is
+///             a sentence rather than an exception —
+///             <a href="https://github.com/Rikarin/Vixen/issues/818">#818</a>.
+///         </b>
+///         Skipping one was never
 ///         an option: <c>TexturePlanEvaluator.Evaluate</c> refuses a plan with an external nothing
 ///         supplied, and it refuses it by throwing about an image index out of a panel build. What a
 ///         mesh map, a <c>vxpaint:</c> and a project asset each do is
@@ -104,14 +118,21 @@ sealed record LayerStackLive(PaintImage? Image, string Refusal);
 ///         four run before the host's <c>BeginFrame</c>.
 ///     </para>
 ///     <para>
-///         <b>One <see cref="LayerStackEvaluator" />, held from edit to edit, over the module's
-///         evaluator (plan § 3.2).</b> A value moves numbers in the plan it has; its uploads stay on
+///         <b>
+///             One <see cref="LayerStackEvaluator" />, held from edit to edit, over the module's
+///             evaluator (plan § 3.2).
+///         </b>
+///         A value moves numbers in the plan it has; its uploads stay on
 ///         the device and a stroke repairs them a tile at a time. This used to compile and upload
 ///         everything per call, which an opacity drag paid once per frame.
 ///     </para>
 ///     <para>
-///         ⚠ <b>What the paint panes show is this type's too, and it is the plan's output rather
-///         than anything computed here.</b> <see cref="Live" /> starts following a channel, and every
+///         ⚠
+///         <b>
+///             What the paint panes show is this type's too, and it is the plan's output rather
+///             than anything computed here.
+///         </b>
+///         <see cref="Live" /> starts following a channel, and every
 ///         evaluation from then on copies what it rewrote into <see cref="Picture" />: the bake says
 ///         which rectangles those were, because a stroke's own rectangle does not. A filter over the
 ///         painted layer spreads it, and an undo brings back a whole cached picture.
@@ -128,7 +149,7 @@ sealed class LayerStackPreview : IDisposable {
 
     IEditorImage? shown;
     Bound? bound;
-    string followed = "";
+    string followed = string.Empty;
     TextureResultKey followedKey;
 
     /// <summary>Builds a preview over the graphics a host lent the plugin.</summary>
@@ -187,8 +208,12 @@ sealed class LayerStackPreview : IDisposable {
     /// <returns>The picture and what to say under it, never null.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="document" /> is null.</exception>
     /// <remarks>
-    ///     ⚠ <b>Every refusal comes back as a sentence rather than an exception, including the ones
-    ///     that are this build's fault.</b> A preview runs on every edit; a throw out of one is a
+    ///     ⚠
+    ///     <b>
+    ///         Every refusal comes back as a sentence rather than an exception, including the ones
+    ///         that are this build's fault.
+    ///     </b>
+    ///     A preview runs on every edit; a throw out of one is a
     ///     throw out of a panel build, which takes the editor's frame with it. That is the same rule
     ///     <a href="https://github.com/Rikarin/Vixen/issues/805">#805</a> is about one layer down,
     ///     and it is why the terminus rule had to stop being a hard mismatch.
@@ -206,7 +231,13 @@ sealed class LayerStackPreview : IDisposable {
         var height = stack.BaseHeight;
 
         if (stack.Sets.Count == 0) {
-            return new(null, usage, width, height, "No preview: this stack has no texture set, so there is no map to bake.");
+            return new(
+                null,
+                usage,
+                width,
+                height,
+                "No preview: this stack has no texture set, so there is no map to bake."
+            );
         }
 
         // ⚠ Published before anything compiles, and the library comes off the document rather than
@@ -243,11 +274,7 @@ sealed class LayerStackPreview : IDisposable {
                 compilation.Plan is null
                     ? Refused(compilation.Problems, compilation.Diagnostics)
                     : TexturePreview.Describe(TexturePreview.Blocking(graphics))
-            ) {
-                Problems = compilation.Problems,
-                Diagnostics = compilation.Diagnostics,
-                Layers = compilation.Layers
-            };
+            ) { Problems = compilation.Problems, Diagnostics = compilation.Diagnostics, Layers = compilation.Layers };
         }
 
         using var bake = Baked(document, chosen, device, usage, out var refusal);
@@ -285,7 +312,7 @@ sealed class LayerStackPreview : IDisposable {
         // kind a finished thing nothing called.
         var cautions = bake.Warnings.Length > 0
             ? " ⚠ " + string.Join(" · ", bake.Warnings)
-            : "";
+            : string.Empty;
 
         return Said(
             uploaded,
@@ -330,15 +357,15 @@ sealed class LayerStackPreview : IDisposable {
             Stop();
 
             // The pane's sentence has its own opening, and the reason is the part that travels.
-            return new(null, refusal.Replace("No preview: ", "", StringComparison.Ordinal).TrimEnd('.'));
+            return new(null, refusal.Replace("No preview: ", string.Empty, StringComparison.Ordinal).TrimEnd('.'));
         }
 
-        return new(Picture, "");
+        return new(Picture, string.Empty);
     }
 
     /// <summary>Stops following, for a pane that has gone back to showing a layer.</summary>
     public void Stop() {
-        followed = "";
+        followed = string.Empty;
         followedKey = default;
         Picture = null;
         moved.Clear();
@@ -405,13 +432,13 @@ sealed class LayerStackPreview : IDisposable {
 
             if (Output(run, usage) < 0) {
                 refusal = $"No preview: this stack writes no '{usage}' map. It writes "
-                    + $"{string.Join(", ", run.Outputs.Select(output => output.Usage))}.";
+                    + $"{string.Join(", ", run.Outputs.Select(static output => output.Usage))}.";
 
                 return null;
             }
 
             if (Step() is { } bake) {
-                refusal = "";
+                refusal = string.Empty;
 
                 return bake;
             }
@@ -439,7 +466,12 @@ sealed class LayerStackPreview : IDisposable {
         }
 
         var run = bound!.Run;
-        var refusals = run.Prepare(document.Document, Named(document, chosen), document.Library.Registry, document.Library.SubGraphs);
+        var refusals = run.Prepare(
+            document.Document,
+            Named(document, chosen),
+            document.Library.Registry,
+            document.Library.SubGraphs
+        );
 
         if (run.Compiled) {
             Compilations++;
@@ -479,7 +511,14 @@ sealed class LayerStackPreview : IDisposable {
             (uploads, plan, owed) => {
                 fresh.Pass = new(canvases);
 
-                return TextureExternalImages.Supply(document.Project, document.AssetPath, uploads, plan, owed, fresh.Pass);
+                return TextureExternalImages.Supply(
+                    document.Project,
+                    document.AssetPath,
+                    uploads,
+                    plan,
+                    owed,
+                    fresh.Pass
+                );
             }
         );
 
@@ -499,11 +538,13 @@ sealed class LayerStackPreview : IDisposable {
             var layer = layers[index];
 
             if (string.Equals(layer.Id, id, StringComparison.Ordinal)) {
-                return layer.Paint.Trim().Length > 0 ? null : [.. layers[..index], layer with { Paint = paint }, .. layers[(index + 1)..]];
+                return layer.Paint.Trim().Length > 0
+                    ? null
+                    : [..layers[..index], layer with { Paint = paint }, ..layers[(index + 1)..]];
             }
 
             if (Renamed(layer.Children, id, paint) is { } children) {
-                return [.. layers[..index], layer with { Children = children }, .. layers[(index + 1)..]];
+                return [..layers[..index], layer with { Children = children }, ..layers[(index + 1)..]];
             }
         }
 
@@ -607,9 +648,11 @@ sealed class LayerStackPreview : IDisposable {
     ///     </para>
     /// </remarks>
     static string Refused(ImmutableArray<LayerStackProblem> problemsSaid, ImmutableArray<NodeDiagnostic> diagnostics) {
-        var problems = problemsSaid.Select(problem => problem.Message)
-            .Concat(diagnostics.Where(one => one.Severity == NodeSeverity.Error)
-                .Select(one => one.Id + ": " + one.Message))
+        var problems = problemsSaid.Select(static problem => problem.Message)
+            .Concat(
+                diagnostics.Where(static one => one.Severity == NodeSeverity.Error)
+                    .Select(static one => one.Id + ": " + one.Message)
+            )
             .ToArray();
 
         return problems.Length == 0

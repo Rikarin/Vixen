@@ -71,8 +71,12 @@ public readonly ref struct Transform {
 
     /// <summary>Rotation in world space.</summary>
     /// <remarks>
-    ///     ⚠ <b>The local rotation is <c>world * conjugate(parent)</c>, and the order is not
-    ///     interchangeable.</b> Composition in this library reads left to right —
+    ///     ⚠
+    ///     <b>
+    ///         The local rotation is <c>world * conjugate(parent)</c>, and the order is not
+    ///         interchangeable.
+    ///     </b>
+    ///     Composition in this library reads left to right —
     ///     <see cref="Quaternion.Concatenate" /> applies its first argument first — so a child's own
     ///     rotation is applied before its parent's, which is what <c>TransformSystem</c>'s
     ///     <c>local * parentWorld</c> says in matrices. Writing the conjugate on the left instead
@@ -98,8 +102,7 @@ public readonly ref struct Transform {
     ///     Scale in world space, which is a lie whenever a parent's rotation and scale disagree —
     ///     hence the name, and hence there being no setter.
     /// </summary>
-    public Vector3 LossyScale =>
-        Matrix4x4.Decompose(LocalToWorld, out var scale, out _, out _) ? scale : LocalScale;
+    public Vector3 LossyScale => Matrix4x4.Decompose(LocalToWorld, out var scale, out _, out _) ? scale : LocalScale;
 
     /// <summary>The direction the entity faces: its local -Z, in world space.</summary>
     public Vector3 Forward => Vector3.Normalize(TransformDirection(Vector3.Forward));
@@ -180,10 +183,22 @@ public readonly ref struct Transform {
 
         // Row-vector convention: row i is where local axis i lands.
         var basis = new Matrix4x4(
-            right.X, right.Y, right.Z, 0f,
-            trueUp.X, trueUp.Y, trueUp.Z, 0f,
-            backward.X, backward.Y, backward.Z, 0f,
-            0f, 0f, 0f, 1f
+            right.X,
+            right.Y,
+            right.Z,
+            0f,
+            trueUp.X,
+            trueUp.Y,
+            trueUp.Z,
+            0f,
+            backward.X,
+            backward.Y,
+            backward.Z,
+            0f,
+            0f,
+            0f,
+            0f,
+            1f
         );
 
         return Matrix4x4.Decompose(basis, out _, out var rotation, out _) ? rotation : Quaternion.Identity;

@@ -87,7 +87,7 @@ public sealed class VariantSelectionTests {
     public void WeightsDecideHowOftenAVariantIsHeard() {
         var selector = new VariantSelector([1f, 3f], VariantSelection.Random, 777);
         var drawn = Draw(selector, 4_000);
-        var second = drawn.Count(index => index == 1);
+        var second = drawn.Count(static index => index == 1);
 
         // Three thousand of four thousand, and the tolerance is about four standard deviations.
         Assert.InRange(second, 2_880, 3_120);
@@ -140,7 +140,9 @@ public sealed class AudioEventTests : IDisposable {
     readonly AudioEngine engine;
     readonly NullAudioDevice device;
 
-    public AudioEventTests() => (engine, device) = AudioTestData.Engine(voices: 16);
+    public AudioEventTests() {
+        (engine, device) = AudioTestData.Engine(voices: 16);
+    }
 
     public void Dispose() => engine.Dispose();
 
@@ -177,21 +179,18 @@ public sealed class AudioEventTests : IDisposable {
     /// <summary>A variant with no clip would otherwise be a draw that plays nothing — a sound misfiring at random.</summary>
     [Fact]
     public void AVariantWithNoClipIsDroppedRatherThanKeptAsAHole() {
-        var sound = Event(new() {
-            Variants = [new(AudioTestData.Constant(480, 1f)), new(null!), new(AudioTestData.Constant(480, 1f))]
-        });
+        var sound = Event(
+            new() {
+                Variants = [new(AudioTestData.Constant(480, 1f)), new(null!), new(AudioTestData.Constant(480, 1f))]
+            }
+        );
 
         Assert.Equal(2, sound.VariantCount);
     }
 
     [Fact]
     public void VariationMovesTheLevelAndThePitchWithinWhatWasAsked() {
-        var sound = Event(new() {
-            Variants = Variants(1),
-            GainVarianceDb = 3f,
-            PitchVarianceSemitones = 2f,
-            Seed = 5
-        });
+        var sound = Event(new() { Variants = Variants(1), GainVarianceDb = 3f, PitchVarianceSemitones = 2f, Seed = 5 });
 
         var gains = new List<float>();
         var pitches = new List<float>();
@@ -205,8 +204,8 @@ public sealed class AudioEventTests : IDisposable {
         }
 
         // Inside the declared range: ±3 dB is 0.708 to 1.413, and ±2 semitones is 0.891 to 1.122.
-        Assert.All(gains, gain => Assert.InRange(gain, 0.7f, 1.42f));
-        Assert.All(pitches, pitch => Assert.InRange(pitch, 0.89f, 1.13f));
+        Assert.All(gains, static gain => Assert.InRange(gain, 0.7f, 1.42f));
+        Assert.All(pitches, static pitch => Assert.InRange(pitch, 0.89f, 1.13f));
 
         // And actually varying, which is the point. A generator returning a constant would pass
         // every bound above.
@@ -228,10 +227,12 @@ public sealed class AudioEventTests : IDisposable {
     /// <summary>A take recorded hot is corrected in the asset, not in the wav.</summary>
     [Fact]
     public void AVariantCarriesItsOwnCorrections() {
-        var sound = Event(new() {
-            Variants = [new(AudioTestData.Constant(480, 1f)) { GainDb = -12f, PitchSemitones = 12f }],
-            Selection = VariantSelection.Sequential
-        });
+        var sound = Event(
+            new() {
+                Variants = [new(AudioTestData.Constant(480, 1f)) { GainDb = -12f, PitchSemitones = 12f }],
+                Selection = VariantSelection.Sequential
+            }
+        );
 
         sound.Play();
 
@@ -241,11 +242,7 @@ public sealed class AudioEventTests : IDisposable {
 
     [Fact]
     public void TheInstanceLimitRefusesWhenItIsToldTo() {
-        var sound = Event(new() {
-            Variants = Variants(1, 48_000),
-            MaxInstances = 2,
-            Steal = EventStealMode.None
-        });
+        var sound = Event(new() { Variants = Variants(1, 48_000), MaxInstances = 2, Steal = EventStealMode.None });
 
         Assert.True(sound.Play().IsValid);
         Assert.True(sound.Play().IsValid);
@@ -255,11 +252,7 @@ public sealed class AudioEventTests : IDisposable {
 
     [Fact]
     public void StealingTheOldestMakesRoomForTheNewOne() {
-        var sound = Event(new() {
-            Variants = Variants(1, 48_000),
-            MaxInstances = 2,
-            Steal = EventStealMode.Oldest
-        });
+        var sound = Event(new() { Variants = Variants(1, 48_000), MaxInstances = 2, Steal = EventStealMode.Oldest });
 
         var first = sound.Play();
         var second = sound.Play();
@@ -274,11 +267,7 @@ public sealed class AudioEventTests : IDisposable {
     /// <summary>For a long sound the newcomer is the interloper, not the one a minute in.</summary>
     [Fact]
     public void StealingTheNewestKeepsTheOneThatHasBeenGoingLongest() {
-        var sound = Event(new() {
-            Variants = Variants(1, 48_000),
-            MaxInstances = 2,
-            Steal = EventStealMode.Newest
-        });
+        var sound = Event(new() { Variants = Variants(1, 48_000), MaxInstances = 2, Steal = EventStealMode.Newest });
 
         var first = sound.Play();
         var second = sound.Play();
@@ -291,34 +280,32 @@ public sealed class AudioEventTests : IDisposable {
     /// <summary>Distance and attenuation count, not just the fader — which is why it is not "quietest gain".</summary>
     [Fact]
     public void TheQuietestGivesWayFirst() {
-        var sound = Event(new() {
-            Variants = Variants(1, 48_000),
-            MaxInstances = 2,
-            Steal = EventStealMode.Quietest,
-            IsSpatial = true,
-            Spatial = new() { MinDistance = 1f, MaxDistance = 400f }
-        });
+        var sound = Event(
+            new() {
+                Variants = Variants(1, 48_000),
+                MaxInstances = 2,
+                Steal = EventStealMode.Quietest,
+                IsSpatial = true,
+                Spatial = new() { MinDistance = 1f, MaxDistance = 400f }
+            }
+        );
 
         engine.SetListener(new());
-        var near = sound.Play(new Vector3(0f, 0f, 2f));
-        var far = sound.Play(new Vector3(0f, 0f, 300f));
+        var near = sound.Play(new(0f, 0f, 2f));
+        var far = sound.Play(new(0f, 0f, 300f));
 
         // Audibility is what the spatialiser worked out last block, so there has to have been one.
         AudioTestData.Render(device, 64);
 
         Assert.True(engine.AudibilityOf(far) < engine.AudibilityOf(near));
-        Assert.True(sound.Play(new Vector3(0f, 0f, 2f)).IsValid);
+        Assert.True(sound.Play(new(0f, 0f, 2f)).IsValid);
         Assert.Equal(VoiceState.Stopping, engine.StateOf(far));
         Assert.Equal(VoiceState.Playing, engine.StateOf(near));
     }
 
     [Fact]
     public void AnInstanceThatEndedOnItsOwnStopsCountingAgainstTheLimit() {
-        var sound = Event(new() {
-            Variants = Variants(1, 32),
-            MaxInstances = 1,
-            Steal = EventStealMode.None
-        });
+        var sound = Event(new() { Variants = Variants(1, 32), MaxInstances = 1, Steal = EventStealMode.None });
 
         Assert.True(sound.Play().IsValid);
         Assert.False(sound.Play().IsValid);
@@ -337,11 +324,7 @@ public sealed class AudioEventTests : IDisposable {
     /// </summary>
     [Fact]
     public void ARefusedPlayDoesNotAdvanceTheShuffleBag() {
-        var sound = Event(new() {
-            Variants = Variants(4, 48_000),
-            MaxInstances = 1,
-            Steal = EventStealMode.None
-        });
+        var sound = Event(new() { Variants = Variants(4, 48_000), MaxInstances = 1, Steal = EventStealMode.None });
 
         sound.Play();
         var chosen = sound.Variants.Last;
@@ -381,15 +364,17 @@ public sealed class AudioEventTests : IDisposable {
     /// <summary>Where a sound is belongs to the caller; how it attenuates belongs to the event.</summary>
     [Fact]
     public void PlacingASoundKeepsEverythingTheEventDecided() {
-        var sound = Event(new() {
-            Variants = Variants(1),
-            IsSpatial = true,
-            Spatial = new() { MinDistance = 3f, MaxDistance = 40f, Attenuation = AttenuationModel.Linear }
-        });
+        var sound = Event(
+            new() {
+                Variants = Variants(1),
+                IsSpatial = true,
+                Spatial = new() { MinDistance = 3f, MaxDistance = 40f, Attenuation = AttenuationModel.Linear }
+            }
+        );
 
-        var placed = sound.Place(new Vector3(1f, 2f, 3f), Vector3.Zero, Vector3.Zero);
+        var placed = sound.Place(new(1f, 2f, 3f), Vector3.Zero, Vector3.Zero);
 
-        Assert.Equal(new Vector3(1f, 2f, 3f), placed.Position);
+        Assert.Equal(new(1f, 2f, 3f), placed.Position);
         Assert.Equal(3f, placed.MinDistance);
         Assert.Equal(40f, placed.MaxDistance);
         Assert.Equal(AttenuationModel.Linear, placed.Attenuation);
@@ -410,7 +395,9 @@ public sealed class AudioEventTests : IDisposable {
 public sealed class AudioEventAssetTests : IDisposable {
     readonly AudioEngine engine;
 
-    public AudioEventAssetTests() => (engine, _) = AudioTestData.Engine();
+    public AudioEventAssetTests() {
+        (engine, _) = AudioTestData.Engine();
+    }
 
     public void Dispose() => engine.Dispose();
 
@@ -420,11 +407,12 @@ public sealed class AudioEventAssetTests : IDisposable {
     public void TheBusIsResolvedByName() {
         var music = engine.CreateBus("Music");
 
-        var sound = engine.LoadEvent(new AudioEventAsset {
-            Name = "Theme",
-            Bus = "Music",
-            Variants = [new() { Clip = Held(AudioTestData.Constant(480, 1f)) }]
-        }, out var problems);
+        var sound = engine.LoadEvent(
+            new() {
+                Name = "Theme", Bus = "Music", Variants = [new() { Clip = Held(AudioTestData.Constant(480, 1f)) }]
+            },
+            out var problems
+        );
 
         Assert.Empty(problems);
         Assert.Equal(music.Index, sound.Bus);
@@ -433,52 +421,60 @@ public sealed class AudioEventAssetTests : IDisposable {
     /// <summary>A footstep on the wrong bus is a mix problem; a missing footstep is an afternoon.</summary>
     [Fact]
     public void AnUnknownBusIsReportedAndPlaysOnTheMaster() {
-        var sound = engine.LoadEvent(new AudioEventAsset {
-            Name = "Theme",
-            Bus = "Nowhere",
-            Variants = [new() { Clip = Held(AudioTestData.Constant(480, 1f)) }]
-        }, out var problems);
+        var sound = engine.LoadEvent(
+            new() {
+                Name = "Theme", Bus = "Nowhere", Variants = [new() { Clip = Held(AudioTestData.Constant(480, 1f)) }]
+            },
+            out var problems
+        );
 
         Assert.Equal(0, sound.Bus);
-        Assert.Contains(problems, problem => problem.Contains("Nowhere", StringComparison.Ordinal));
+        Assert.Contains(problems, static problem => problem.Contains("Nowhere", StringComparison.Ordinal));
     }
 
     [Fact]
     public void AnUnresolvedClipIsDroppedAndSaidSo() {
-        var sound = engine.LoadEvent(new AudioEventAsset {
-            Name = "Footsteps",
-            Variants = [
-                new() { Clip = Held(AudioTestData.Constant(480, 1f)) },
-                new() { Clip = new ContentReference<AudioClip>(new(7, 9)) },
-                new()
-            ]
-        }, out var problems);
+        var sound = engine.LoadEvent(
+            new() {
+                Name = "Footsteps",
+                Variants = [
+                    new() { Clip = Held(AudioTestData.Constant(480, 1f)) },
+                    new() { Clip = new ContentReference<AudioClip>(new(7, 9)) },
+                    new()
+                ]
+            },
+            out var problems
+        );
 
         Assert.Equal(1, sound.VariantCount);
         Assert.Equal(2, problems.Count);
-        Assert.Contains(problems, problem => problem.Contains("unresolved clip", StringComparison.Ordinal));
-        Assert.Contains(problems, problem => problem.Contains("no clip", StringComparison.Ordinal));
+        Assert.Contains(problems, static problem => problem.Contains("unresolved clip", StringComparison.Ordinal));
+        Assert.Contains(problems, static problem => problem.Contains("no clip", StringComparison.Ordinal));
     }
 
     [Fact]
     public void AnEventWithNothingPlayableSaysSoAndStillLoads() {
-        var sound = engine.LoadEvent(new AudioEventAsset { Name = "Empty" }, out var problems);
+        var sound = engine.LoadEvent(new() { Name = "Empty" }, out var problems);
 
         Assert.Equal(0, sound.VariantCount);
-        Assert.Contains(problems, problem => problem.Contains("silent", StringComparison.Ordinal));
+        Assert.Contains(problems, static problem => problem.Contains("silent", StringComparison.Ordinal));
     }
 
     /// <summary>The presence of the block is the switch, as AudioSpatial's is in the ECS.</summary>
     [Fact]
     public void TheSpatialBlockIsWhatMakesAnEventPositional() {
-        var flat = engine.LoadEvent(new AudioEventAsset {
-            Variants = [new() { Clip = Held(AudioTestData.Constant(480, 1f)) }]
-        }, out _);
+        var flat = engine.LoadEvent(
+            new() { Variants = [new() { Clip = Held(AudioTestData.Constant(480, 1f)) }] },
+            out _
+        );
 
-        var placed = engine.LoadEvent(new AudioEventAsset {
-            Variants = [new() { Clip = Held(AudioTestData.Constant(480, 1f)) }],
-            Spatial = new() { MinDistance = 4f, MaxDistance = 90f }
-        }, out _);
+        var placed = engine.LoadEvent(
+            new() {
+                Variants = [new() { Clip = Held(AudioTestData.Constant(480, 1f)) }],
+                Spatial = new() { MinDistance = 4f, MaxDistance = 90f }
+            },
+            out _
+        );
 
         Assert.False(flat.IsSpatial);
         Assert.True(placed.IsSpatial);
@@ -488,13 +484,16 @@ public sealed class AudioEventAssetTests : IDisposable {
 
     [Fact]
     public void EverythingElseCopiesStraightAcross() {
-        var sound = engine.LoadEvent(new AudioEventAsset {
-            Name = "Impacts",
-            Variants = [new() { Clip = Held(AudioTestData.Constant(480, 1f)) }],
-            Selection = VariantSelection.Sequential,
-            MaxInstances = 4,
-            Steal = EventStealMode.Quietest
-        }, out _);
+        var sound = engine.LoadEvent(
+            new() {
+                Name = "Impacts",
+                Variants = [new() { Clip = Held(AudioTestData.Constant(480, 1f)) }],
+                Selection = VariantSelection.Sequential,
+                MaxInstances = 4,
+                Steal = EventStealMode.Quietest
+            },
+            out _
+        );
 
         Assert.Equal("Impacts", sound.Name);
         Assert.Equal(VariantSelection.Sequential, sound.Variants.Mode);

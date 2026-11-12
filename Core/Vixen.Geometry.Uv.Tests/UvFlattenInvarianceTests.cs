@@ -9,8 +9,12 @@ namespace Vixen.Geometry.Uv.Tests;
 /// <summary>Two things the answer must not depend on: how big the model is, and how it was numbered.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>An absolute tolerance is a claim about how big the model is, and this engine has been
-///         bitten by one twice.</b> <c>EditMesh</c>'s weld tolerance is relative to the bounds for that
+///         ⚠
+///         <b>
+///             An absolute tolerance is a claim about how big the model is, and this engine has been
+///             bitten by one twice.
+///         </b>
+///         <c>EditMesh</c>'s weld tolerance is relative to the bounds for that
 ///         reason, and docs/plan/24 § P1 records an absolute epsilon declaring sixty-four real
 ///         triangles at a capsule's pole degenerate. A flattener inherits the mesh's units squared
 ///         through the cotangent Laplacian, so the claim would be worse here rather than better.
@@ -78,8 +82,12 @@ public class UvFlattenInvarianceTests {
     /// <summary>Renumbering the vertices leaves the mapping where it was.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The pins are chosen by <i>position</i> and not by index, which makes this stronger
-    ///         than the similarity-invariance docs/plan/42 § D5 asks for.</b> An index tie-break would
+    ///         ⚠
+    ///         <b>
+    ///             The pins are chosen by <i>position</i> and not by index, which makes this stronger
+    ///             than the similarity-invariance docs/plan/42 § D5 asks for.
+    ///         </b>
+    ///         An index tie-break would
     ///         still give the same conformal map — LSCM's answer is unique up to a similarity, and
     ///         moving the pins only moves the gauge — so the honest test of an index tie-break is a
     ///         Procrustes fit with a tolerance, which is precisely the test that hides how far the
@@ -98,11 +106,13 @@ public class UvFlattenInvarianceTests {
         var moved = ShapeCorpus.Renumber(mesh, 0x51F3u);
 
         Assert.NotEqual(
-            Enumerable.Range(0, mesh.PositionCount).Select(index => mesh.Positions[index]).ToArray(),
-            Enumerable.Range(0, moved.PositionCount).Select(index => moved.Positions[index]).ToArray()
+            [..Enumerable.Range(0, mesh.PositionCount).Select(index => mesh.Positions[index])],
+            [..Enumerable.Range(0, moved.PositionCount).Select(index => moved.Positions[index])]
         );
 
-        var reference = FlattenFixtures.ByCorner(UvUnwrap.Flatten(mesh, ShapeCorpus.OneChart(mesh), new(), out var before));
+        var reference = FlattenFixtures.ByCorner(
+            UvUnwrap.Flatten(mesh, ShapeCorpus.OneChart(mesh), new(), out var before)
+        );
         var renumbered = FlattenFixtures.ByCorner(
             UvUnwrap.Flatten(moved, ShapeCorpus.OneChart(moved), new(), out var after)
         );
@@ -151,7 +161,7 @@ public class UvFlattenInvarianceTests {
     }
 
     static void Proportional(Vector2 unit, Vector2 scaled, float scale, float extent, string shape, int corner) {
-        var slip = ((unit * scale) - scaled).Length() / (extent * MathF.Abs(scale));
+        var slip = (unit * scale - scaled).Length() / (extent * MathF.Abs(scale));
 
         Assert.True(
             slip < 1e-4f,

@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Buffers.Binary;
-using Vixen.Core.Mathematics;
 using Xunit;
 
 namespace Vixen.Platform.Windows.Tests;
@@ -15,17 +14,14 @@ namespace Vixen.Platform.Windows.Tests;
 public class DibImageTests {
     [Fact]
     public void ARoundTripPreservesEveryChannel() {
-        var pixels = new byte[] {
-            255, 0, 0, 255, 0, 255, 0, 128,
-            0, 0, 255, 64, 10, 20, 30, 40
-        };
+        var pixels = new byte[] { 255, 0, 0, 255, 0, 255, 0, 128, 0, 0, 255, 64, 10, 20, 30, 40 };
 
         var image = new ClipboardImage(pixels, new(2, 2));
         var dib = DibImage.Encode(image);
 
         Assert.NotNull(dib);
         Assert.True(DibImage.TryDecode(dib, out var decoded));
-        Assert.Equal(new Int2(2, 2), decoded.Size);
+        Assert.Equal(new(2, 2), decoded.Size);
         Assert.Equal(pixels, decoded.Pixels.ToArray());
     }
 
@@ -51,7 +47,7 @@ public class DibImageTests {
 
     [Fact]
     public void ATopDownBitmapIsNotFlippedTwice() {
-        var topDown = Header(2, -1, 32, bitfields: false);
+        var topDown = Header(2, -1, 32, false);
         Write(topDown, 40, [10, 20, 30, 255, 40, 50, 60, 255]);
 
         Assert.True(DibImage.TryDecode(topDown, out var image));
@@ -65,7 +61,7 @@ public class DibImageTests {
     /// </summary>
     [Fact]
     public void AnAllZeroAlphaPlaneIsReadAsOpaque() {
-        var dib = Header(1, 1, 32, bitfields: false);
+        var dib = Header(1, 1, 32, false);
         Write(dib, 40, [1, 2, 3, 0]);
 
         Assert.True(DibImage.TryDecode(dib, out var image));
@@ -74,7 +70,7 @@ public class DibImageTests {
 
     [Fact]
     public void OneTransparentPixelAmongOpaqueOnesIsKept() {
-        var dib = Header(2, 1, 32, bitfields: false);
+        var dib = Header(2, 1, 32, false);
         Write(dib, 40, [1, 2, 3, 0, 4, 5, 6, 255]);
 
         Assert.True(DibImage.TryDecode(dib, out var image));
@@ -85,7 +81,7 @@ public class DibImageTests {
     /// <summary>Twenty-four bits per pixel has no alpha channel and is not transparent.</summary>
     [Fact]
     public void TwentyFourBitRowsArePaddedToFourBytes() {
-        var dib = Header(1, 2, 24, bitfields: false);
+        var dib = Header(1, 2, 24, false);
 
         // One pixel is three bytes; the row is padded to four. Bottom-up, so the second row of the
         // file is the first row of the image.
@@ -101,7 +97,7 @@ public class DibImageTests {
     /// </summary>
     [Fact]
     public void FiveBitChannelsScaleToFullRange() {
-        var dib = Header(1, 1, 16, bitfields: true);
+        var dib = Header(1, 1, 16, true);
         BinaryPrimitives.WriteUInt32LittleEndian(dib.AsSpan(40), 0xF800);
         BinaryPrimitives.WriteUInt32LittleEndian(dib.AsSpan(44), 0x07E0);
         BinaryPrimitives.WriteUInt32LittleEndian(dib.AsSpan(48), 0x001F);
@@ -114,12 +110,11 @@ public class DibImageTests {
     [Theory]
     [InlineData(0)]
     [InlineData(39)]
-    public void TooShortToBeAHeaderIsRefused(int length) =>
-        Assert.False(DibImage.TryDecode(new byte[length], out _));
+    public void TooShortToBeAHeaderIsRefused(int length) => Assert.False(DibImage.TryDecode(new byte[length], out _));
 
     [Fact]
     public void APalettisedBitmapIsRefusedRatherThanMisread() {
-        var dib = Header(1, 1, 8, bitfields: false);
+        var dib = Header(1, 1, 8, false);
         Assert.False(DibImage.TryDecode(dib, out _));
     }
 
@@ -143,12 +138,11 @@ public class DibImageTests {
     }
 
     [Fact]
-    public void AnImageSmallerThanItsSizeIsNotEncoded() =>
-        Assert.Null(DibImage.Encode(new(new byte[4], new(4, 4))));
+    public void AnImageSmallerThanItsSizeIsNotEncoded() => Assert.Null(DibImage.Encode(new(new byte[4], new(4, 4))));
 
     /// <summary>A V3 <c>BITMAPINFOHEADER</c> with room for pixels and, when asked for, its masks.</summary>
     static byte[] Header(int width, int height, ushort bits, bool bitfields) {
-        var stride = ((width * bits + 31) / 32) * 4;
+        var stride = (width * bits + 31) / 32 * 4;
         var masks = bitfields ? 12 : 0;
         var dib = new byte[40 + masks + stride * Math.Abs(height)];
 

@@ -8,8 +8,11 @@ namespace Vixen.Geometry.Uv.Tests;
 /// <summary>The atlas the placements describe, rasterized here so the measurements are of texels.</summary>
 /// <remarks>
 ///     <para>
-///         <b>docs/plan/42's exit criterion 4 says "verified by rasterizing the atlas and measuring",
-///         and this is that.</b> Reading the packer's own occupancy back would only prove the packer
+///         <b>
+///             docs/plan/42's exit criterion 4 says "verified by rasterizing the atlas and measuring",
+///             and this is that.
+///         </b>
+///         Reading the packer's own occupancy back would only prove the packer
 ///         agrees with itself; what has to hold is that the <i>coordinates</i> a caller gets — offset,
 ///         scale, quarter turn and tile, put through <see cref="UvPlacement.Apply" /> — land where the
 ///         margin says they should.
@@ -51,9 +54,9 @@ static class PackedAtlas {
             var triangles = coordinates.Count / 3;
 
             for (var triangle = 0; triangle < triangles; triangle++) {
-                var a = placement.Apply(island, coordinates[(triangle * 3) + 0]) * resolution;
-                var b = placement.Apply(island, coordinates[(triangle * 3) + 1]) * resolution;
-                var c = placement.Apply(island, coordinates[(triangle * 3) + 2]) * resolution;
+                var a = placement.Apply(island, coordinates[triangle * 3]) * resolution;
+                var b = placement.Apply(island, coordinates[triangle * 3 + 1]) * resolution;
+                var c = placement.Apply(island, coordinates[triangle * 3 + 2]) * resolution;
 
                 Fill(map, resolution, a, b, c, placement.Island, ref overlaps);
             }
@@ -77,7 +80,7 @@ static class PackedAtlas {
 
         for (var y = 0; y < resolution; y++) {
             for (var x = 0; x < resolution; x++) {
-                var island = map[(y * resolution) + x];
+                var island = map[y * resolution + x];
 
                 if (island < 0 || !IsBoundary(map, resolution, x, y)) {
                     continue;
@@ -97,7 +100,7 @@ static class PackedAtlas {
                             continue;
                         }
 
-                        var other = map[(ny * resolution) + nx];
+                        var other = map[ny * resolution + nx];
 
                         if (other < 0 || other == island) {
                             continue;
@@ -125,7 +128,7 @@ static class PackedAtlas {
 
         for (var y = 0; y < resolution; y++) {
             for (var x = 0; x < resolution; x++) {
-                if (map[(y * resolution) + x] < 0) {
+                if (map[y * resolution + x] < 0) {
                     continue;
                 }
 
@@ -156,11 +159,14 @@ static class PackedAtlas {
     }
 
     static bool IsBoundary(int[] map, int resolution, int x, int y) =>
-        x == 0 || y == 0 || x == resolution - 1 || y == resolution - 1
-        || map[(y * resolution) + x - 1] != map[(y * resolution) + x]
-        || map[(y * resolution) + x + 1] != map[(y * resolution) + x]
-        || map[((y - 1) * resolution) + x] != map[(y * resolution) + x]
-        || map[((y + 1) * resolution) + x] != map[(y * resolution) + x];
+        x == 0
+        || y == 0
+        || x == resolution - 1
+        || y == resolution - 1
+        || map[y * resolution + x - 1] != map[y * resolution + x]
+        || map[y * resolution + x + 1] != map[y * resolution + x]
+        || map[(y - 1) * resolution + x] != map[y * resolution + x]
+        || map[(y + 1) * resolution + x] != map[y * resolution + x];
 
     static void Fill(int[] map, int resolution, Vector2 a, Vector2 b, Vector2 c, int island, ref int overlaps) {
         var minimumX = Math.Clamp((int)MathF.Floor(MathF.Min(a.X, MathF.Min(b.X, c.X))), 0, resolution - 1);
@@ -174,7 +180,7 @@ static class PackedAtlas {
                     continue;
                 }
 
-                ref var slot = ref map[(y * resolution) + x];
+                ref var slot = ref map[y * resolution + x];
 
                 if (slot >= 0 && slot != island) {
                     overlaps++;
@@ -188,8 +194,12 @@ static class PackedAtlas {
     /// <summary>How far into a texel a triangle has to reach before the texel counts as claimed.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Zero is not a usable threshold here, and the reason is that this rasterizer and the
-    ///         packer's reach the same geometry through different arithmetic.</b> "The triangle meets
+    ///         ⚠
+    ///         <b>
+    ///             Zero is not a usable threshold here, and the reason is that this rasterizer and the
+    ///             packer's reach the same geometry through different arithmetic.
+    ///         </b>
+    ///         "The triangle meets
     ///         the square" is a discontinuous predicate: an arbitrarily small perturbation of a
     ///         coordinate flips a texel in or out. <see cref="Vixen.Geometry.Uv.Packing.IslandMask.Rasterize" /> works in the
     ///         island's own frame, at <c>(coordinate − minimum) × texels</c>; this works in the atlas,
@@ -247,14 +257,15 @@ static class PackedAtlas {
             return false;
         }
 
-        return Separates(a, b, c, x, y) is false && Separates(b, c, a, x, y) is false
+        return Separates(a, b, c, x, y) is false
+            && Separates(b, c, a, x, y) is false
             && Separates(c, a, b, x, y) is false;
     }
 
     static bool Separates(Vector2 from, Vector2 to, Vector2 opposite, int x, int y) {
         var normal = new Vector2(-(to.Y - from.Y), to.X - from.X);
-        var edge = (normal.X * from.X) + (normal.Y * from.Y);
-        var third = (normal.X * opposite.X) + (normal.Y * opposite.Y);
+        var edge = normal.X * from.X + normal.Y * from.Y;
+        var third = normal.X * opposite.X + normal.Y * opposite.Y;
         var inward = third >= edge ? 1f : -1f;
 
         // ⚠ Squared rather than a `Length()`, so the threshold costs a multiply instead of a square
@@ -268,7 +279,7 @@ static class PackedAtlas {
         for (var corner = 0; corner < 4; corner++) {
             var px = x + (corner & 1);
             var py = y + ((corner >> 1) & 1);
-            var projected = ((normal.X * px) + (normal.Y * py) - edge) * inward;
+            var projected = (normal.X * px + normal.Y * py - edge) * inward;
 
             if (projected > 0f && projected * projected > floor) {
                 return false;

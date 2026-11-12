@@ -15,8 +15,12 @@ namespace Vixen.Live.Gameplay;
 ///         thing: revealing a cell twice reveals it once.
 ///     </para>
 ///     <para>
-///         ⚠ <b>A map's fog is written with the size it was written at, and refused on load if the
-///         map has been resized.</b> A bitmap read into a grid of a different width is not wrong in a
+///         ⚠
+///         <b>
+///             A map's fog is written with the size it was written at, and refused on load if the
+///             map has been resized.
+///         </b>
+///         A bitmap read into a grid of a different width is not wrong in a
 ///         way anybody notices — it is a character whose explored map has quietly become diagonal
 ///         stripes. Losing the fog for one map on the patch that resized it is the honest outcome;
 ///         <c>ExplorationRecord.RestoreFog</c> is what enforces it and this only records that it

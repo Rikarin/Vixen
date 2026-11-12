@@ -49,10 +49,13 @@ public class StateBoxWidthTests {
         harness.Ui.Frame();
 
         var boxes = map.Children.Where(static child => child.Tag == "state-box" && !child.HasClass("parked")).ToList();
-        var left = boxes.Single(box => box.Children[0].Text == Name).Bounds;
-        var right = boxes.Single(box => box.Children[0].Text == Name + " ").Bounds;
+        var left = boxes.Single(static box => box.Children[0].Text == Name).Bounds;
+        var right = boxes.Single(static box => box.Children[0].Text == Name + " ").Bounds;
 
-        Assert.True(right.X - map.Bounds.X + left.Width > 400f, $"the premise: the box at {right.X - map.Bounds.X} has room for {left.Width}");
+        Assert.True(
+            right.X - map.Bounds.X + left.Width > 400f,
+            $"the premise: the box at {right.X - map.Bounds.X} has room for {left.Width}"
+        );
         Assert.Equal(left.Width, right.Width, 1f);
         Assert.Equal(left.Height, right.Height, 0.5f);
     }
@@ -60,7 +63,9 @@ public class StateBoxWidthTests {
     static string TypefacePath() {
         const string Relative = "Editor/Vixen.Editor.App/Fonts/OpenSans-Regular.ttf";
 
-        for (var directory = new DirectoryInfo(AppContext.BaseDirectory); directory is not null; directory = directory.Parent) {
+        for (var directory = new DirectoryInfo(AppContext.BaseDirectory);
+             directory is not null;
+             directory = directory.Parent) {
             var candidate = Path.Combine(directory.FullName, Relative.Replace('/', Path.DirectorySeparatorChar));
 
             if (File.Exists(candidate)) {

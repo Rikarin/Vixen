@@ -21,7 +21,7 @@ namespace Vixen.Build;
 ///         commit that grows it.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Both directions, the <c>CheckWhitespace</c> shape.</b> A file over its row fails; a
+///         ⚠ <b>Both directions, the <c>CheckDocComments</c> shape.</b> A file over its row fails; a
 ///         row more than <see cref="Slack" /> lines above its file fails too, so the table cannot
 ///         become a description of history — an extraction that moved four hundred lines out is
 ///         told to lower its row in the same commit. And a <c>(total)</c> row over all the parts,
@@ -71,7 +71,8 @@ static class ApplicationSizeRule {
     public static readonly string[] Named = ["ProjectBrowser.cs"];
 
     /// <summary>The class's lines: every measured file but the <see cref="Named" /> ones.</summary>
-    static int Sum(IReadOnlyDictionary<string, int> parts) => parts.Where(part => !Named.Contains(part.Key)).Sum(part => part.Value);
+    static int Sum(IReadOnlyDictionary<string, int> parts) =>
+        parts.Where(static part => !Named.Contains(part.Key)).Sum(static part => part.Value);
 
     static readonly Regex Declaration = new(@"\bpartial\s+class\s+EditorApplication\b", RegexOptions.CultureInvariant);
 
@@ -92,7 +93,8 @@ static class ApplicationSizeRule {
             var relative = Path.GetRelativePath(directory, file).Replace('\\', '/');
 
             // Build output is not source; a generated copy under obj/ would be a second row.
-            if (relative.StartsWith("obj/", StringComparison.Ordinal) || relative.StartsWith("bin/", StringComparison.Ordinal)) {
+            if (relative.StartsWith("obj/", StringComparison.Ordinal)
+                || relative.StartsWith("bin/", StringComparison.Ordinal)) {
                 continue;
             }
 
@@ -170,7 +172,7 @@ static class ApplicationSizeRule {
         ArgumentNullException.ThrowIfNull(parts);
         ArgumentNullException.ThrowIfNull(ceilings);
 
-        if (!parts.Keys.Any(part => !Named.Contains(part))) {
+        if (!parts.Keys.Any(static part => !Named.Contains(part))) {
             return $"No file under {Directory} declares partial class EditorApplication, so the size rule is "
                 + "checking nothing. If the class has really gone, delete the rule and its table in the same "
                 + "commit — doc 50 § P2's exit is that day.";
@@ -183,7 +185,10 @@ static class ApplicationSizeRule {
     /// <param name="parts">What <see cref="Measure" /> found.</param>
     /// <param name="ceilings">The table.</param>
     /// <returns>One sentence per violation.</returns>
-    public static List<string> Violations(IReadOnlyDictionary<string, int> parts, IReadOnlyDictionary<string, int> ceilings) {
+    public static List<string> Violations(
+        IReadOnlyDictionary<string, int> parts,
+        IReadOnlyDictionary<string, int> ceilings
+    ) {
         ArgumentNullException.ThrowIfNull(parts);
         ArgumentNullException.ThrowIfNull(ceilings);
 
@@ -193,7 +198,9 @@ static class ApplicationSizeRule {
             if (!ceilings.TryGetValue(file, out var ceiling)) {
                 violations.Add(
                     $"{Directory}/{file} "
-                    + (Named.Contains(file) ? "is named in ApplicationSizeRule.Named" : "holds part of EditorApplication")
+                    + (Named.Contains(file)
+                        ? "is named in ApplicationSizeRule.Named"
+                        : "holds part of EditorApplication")
                     + $" and has no row in {TableFile}. A new "
                     + "partial file moves lines rather than removing them — move the verb out of the class "
                     + $"(doc 50 § D2), or, if the file is genuinely new state, add its row with `{Regenerate}` "
@@ -245,13 +252,17 @@ static class ApplicationSizeRule {
             .Append("# ⚠ These may only go DOWN. A file over its row fails; a row more than ")
             .Append(Slack)
             .Append(" lines above its file\n")
-            .Append("# fails too, so an extraction lowers its rows in the same commit; a new partial file fails until\n")
+            .Append(
+                "# fails too, so an extraction lowers its rows in the same commit; a new partial file fails until\n"
+            )
             .Append("# it has a row, and (total) holds the sum. Lines are `wc -l`, comments included.\n")
             .Append("#\n")
-            .Append("# Regenerate after a merge with `").Append(Regenerate).Append("` — and read the diff:\n")
+            .Append("# Regenerate after a merge with `")
+            .Append(Regenerate)
+            .Append("` — and read the diff:\n")
             .Append("# a row that went UP is the application growing.\n\n");
 
-        var width = parts.Keys.Append(Total).Max(key => key.Length) + 2;
+        var width = parts.Keys.Append(Total).Max(static key => key.Length) + 2;
 
         foreach (var (file, lines) in parts) {
             text.Append(file.PadRight(width)).Append(lines).Append('\n');

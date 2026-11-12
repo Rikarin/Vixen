@@ -12,8 +12,12 @@ namespace Vixen.Editor.App.Tests;
 
 /// <summary>The project's own content, opened the way a player opens a build.</summary>
 /// <remarks>
-///     ⚠ <b>The step between an import and a viewport that can draw what was imported, and nothing
-///     took it.</b> <c>LooseContent</c> writes a catalog over the artefacts an import already left in
+///     ⚠
+///     <b>
+///         The step between an import and a viewport that can draw what was imported, and nothing
+///         took it.
+///     </b>
+///     <c>LooseContent</c> writes a catalog over the artefacts an import already left in
 ///     <c>Library/</c> and <c>LooseContentSource</c> turns that into an <c>AssetManager</c>; both were
 ///     built for this and the editor called neither, so nothing in it could resolve a mesh, a
 ///     material or a texture by address. What is asserted here is a real address resolving to the
@@ -25,7 +29,7 @@ public sealed class EditorContentTests : IDisposable {
     public void Dispose() {
         try {
             if (Directory.Exists(root)) {
-                Directory.Delete(root, recursive: true);
+                Directory.Delete(root, true);
             }
         } catch (IOException) {
             // A store the test wrote and the OS has not let go of. Not what is under test.
@@ -103,8 +107,12 @@ public sealed class EditorContentTests : IDisposable {
     /// <summary>The catalog resolves less than the import cache does, and says nothing about it.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Why the viewport's geometry does not come through here, and the reason is not the
-    ///         one three other files give.</b> They say the alternative is "waiting for a content
+    ///         ⚠
+    ///         <b>
+    ///             Why the viewport's geometry does not come through here, and the reason is not the
+    ///             one three other files give.
+    ///         </b>
+    ///         They say the alternative is "waiting for a content
     ///         build" — <c>ProjectMeshSource</c>, <c>ProjectSurfaceSource</c> and
     ///         <c>EditorWorldRenderer</c> all say some form of it — and that is simply not true of
     ///         <c>LooseContent</c>, which is what this class writes: no build, no packing, no copying,
@@ -113,8 +121,12 @@ public sealed class EditorContentTests : IDisposable {
     ///         reason either.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The real reason is that a catalog is what <em>ships</em>, and the editor has to
-    ///         draw what is in the project.</b> <c>BuildPlanner.AddressOf</c> gives an excluded asset
+    ///         ⚠
+    ///         <b>
+    ///             The real reason is that a catalog is what <em>ships</em>, and the editor has to
+    ///             draw what is in the project.
+    ///         </b>
+    ///         <c>BuildPlanner.AddressOf</c> gives an excluded asset
     ///         no address, so it gets no catalog entry and an <c>AssetMeshSource</c> over that catalog
     ///         throws <c>ReferenceNotFoundException</c> for it — while <c>ProjectMeshSource</c>, which
     ///         matches on the id in the import record, reads it perfectly well. Exclusion is the
@@ -145,10 +157,11 @@ public sealed class EditorContentTests : IDisposable {
         var problems = new List<string>();
 
         var rebuilt = content.Rebuild(diagnostic => {
-            if (diagnostic.Severity >= Vixen.Interchange.ImportSeverity.Warning) {
-                problems.Add(diagnostic.Message);
+                if (diagnostic.Severity >= ImportSeverity.Warning) {
+                    problems.Add(diagnostic.Message);
+                }
             }
-        });
+        );
 
         // ⚠ Asserted first and it is the point. A refusal would be a viewport that could say why a
         // mesh had vanished; this succeeds, so it could not.
@@ -168,7 +181,7 @@ public sealed class EditorContentTests : IDisposable {
 
         var excluded = Assert.Single(
             workspace.Database.Entries,
-            entry => entry.Path.EndsWith("backplate.txt", StringComparison.Ordinal)
+            static entry => entry.Path.EndsWith("backplate.txt", StringComparison.Ordinal)
         );
 
         Assert.True(workspace.Cache.TryGet(excluded.Guid, out var record));
@@ -197,7 +210,7 @@ public sealed class EditorContentTests : IDisposable {
         await ContentPipeline.ImportAsync(
             workspace,
             ProjectWorkspace.HostTarget,
-            _ => { },
+            static _ => { },
             cancellationToken: TestContext.Current.CancellationToken
         );
     }

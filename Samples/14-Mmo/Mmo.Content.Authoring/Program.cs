@@ -63,11 +63,11 @@ public static class Program {
         Console.WriteLine($"wrote {world.Count:N0} definitions to {root}");
 
         foreach (var prefix in new[] {
-            "items/", "abilities/", "creatures/", "quests/", "loot/", "vendors/", "effects/",
-            "crafting/", "collectibles/", "achievements/", "spawns/", "world/", "travel/",
-            "vehicles/", "maps/", "progression/", "chat/", "social/", "housing/", "pvp/",
-            "instances/", "currencies/", "weapons/", "events/"
-        }) {
+                     "items/", "abilities/", "creatures/", "quests/", "loot/", "vendors/", "effects/", "crafting/",
+                     "collectibles/", "achievements/", "spawns/", "world/", "travel/", "vehicles/", "maps/",
+                     "progression/", "chat/", "social/", "housing/", "pvp/", "instances/", "currencies/", "weapons/",
+                     "events/"
+                 }) {
             Console.WriteLine($"  {prefix,-16} {world.CountOf(prefix),5:N0}");
         }
 

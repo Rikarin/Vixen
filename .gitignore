@@ -95,3 +95,7 @@ Trellis/
 # Captures written by --vixen-capture. A picture that proved something belongs in a report or
 # beside a golden, not in the sample it was taken from.
 shots/
+
+# Skala: everything under .skala/ is a run's output except the committed baseline.
+.skala/*
+!.skala/baseline.sarif

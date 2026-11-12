@@ -10,8 +10,11 @@ namespace Vixen.TextureGraph;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>The step that would otherwise be written out at every bake, and there is going to be
-///         more than one.</b> A compilation says which images the caller supplies and what fills them
+///         <b>
+///             The step that would otherwise be written out at every bake, and there is going to be
+///             more than one.
+///         </b>
+///         A compilation says which images the caller supplies and what fills them
 ///         — <see cref="TextureGraphCompiler.Externals" /> — and <see cref="TextureUploads" /> puts
 ///         bytes on a device; joining the two is a four-line loop, and a four-line loop copied into a
 ///         CLI verb, a panel and a content build is three places to forget an entry.

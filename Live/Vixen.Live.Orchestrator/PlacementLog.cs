@@ -30,8 +30,12 @@ public sealed record PlacementRecord(
 /// <summary>The last placement decision per player, bounded. Doc 27 § Diagnostics' `explain`.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>The explanation already existed and had nowhere to live, which is the whole reason
-///         this type does.</b> <c>PlacementDecision.Explain()</c> has produced the full account since
+///         ⚠
+///         <b>
+///             The explanation already existed and had nowhere to live, which is the whole reason
+///             this type does.
+///         </b>
+///         <c>PlacementDecision.Explain()</c> has produced the full account since
 ///         L1 — the filter that excluded each candidate and the score of each survivor — and
 ///         <c>PlaceResult.Reason</c> carries it back to whoever asked. But that is the only moment it
 ///         exists: the gate turns it into an HTTP response and it is gone. § Diagnostics asks for
@@ -125,7 +129,7 @@ public sealed class PlacementLog {
     /// <returns>The records.</returns>
     public IReadOnlyList<PlacementRecord> Recent() {
         lock (gate) {
-            return [.. byPlayer.Values.OrderByDescending(record => record.At)];
+            return [..byPlayer.Values.OrderByDescending(static record => record.At)];
         }
     }
 }

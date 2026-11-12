@@ -134,7 +134,7 @@ public class SelectionTests {
         Assert.True(tabs.HasClass("document-tabs"));
 
         Assert.Equal(3, tabs.Items.Count);
-        Assert.Equal(["General", "Advanced", "About"], tabs.Items.Select(tab => tab.Label));
+        Assert.Equal(["General", "Advanced", "About"], tabs.Items.Select(static tab => tab.Label));
 
         // Every tag went into the strip, and every panel into the panels — which is the thing one
         // `ContentHost` cannot say and two can.
@@ -147,7 +147,7 @@ public class SelectionTests {
 
         // The tab's own children are its label part and nothing the markup wrote — which is the
         // failure this guards: before `ContentHost`, the slider was one of them.
-        Assert.DoesNotContain(tabs.Items[0].Children, child => child is Slider);
+        Assert.DoesNotContain(tabs.Items[0].Children, static child => child is Slider);
 
         // And the first one still selects itself, because adding the element is adding the tab.
         Assert.Equal(0, tabs.SelectedIndex);
@@ -355,8 +355,11 @@ public class SelectionTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>An option built as the select's own child is a choice in its list, not a row printed
-    ///     under the field.</b>
+    ///     ⚠
+    ///     <b>
+    ///         An option built as the select's own child is a choice in its list, not a row printed
+    ///         under the field.
+    ///     </b>
     /// </summary>
     /// <remarks>
     ///     <c>UiElement.Add</c> parented on the element and not on its content host, so
@@ -566,14 +569,14 @@ public class SelectionTests {
             pagination.CurrentPage = page;
             fixture.Update();
 
-            rows.Add([.. Numbers(pagination)]);
+            rows.Add([..Numbers(pagination)]);
         }
 
         // ⚠ Seven on every page, and it was four at the ends. A row that grows from four buttons to
         // seven and back moves every number under the pointer on every click, so paging with the
         // mouse means re-finding the button each time — the failure the arrows already avoid by
         // staying disabled rather than disappearing.
-        Assert.All(rows, row => Assert.Equal(7, row.Length));
+        Assert.All(rows, static row => Assert.Equal(7, row.Length));
 
         // ⚠ And a gap never stands for a single page: `1 … 3 4 5 … 12` spends a slot as wide as the
         // number it replaced to conceal page 2.
@@ -623,13 +626,12 @@ public class SelectionTests {
         Assert.Equal(["1", "2", "3", "…", "12"], Numbers(pagination));
     }
 
-    static List<string> Numbers(Pagination pagination) =>
-        [
-            .. pagination.Children
-                .OfType<PageButton>()
-                .Where(static button => !button.HasClass("page-arrow"))
-                .Select(static button => button.Label ?? string.Empty)
-        ];
+    static List<string> Numbers(Pagination pagination) => [
+        ..pagination.Children
+            .OfType<PageButton>()
+            .Where(static button => !button.HasClass("page-arrow"))
+            .Select(static button => button.Label ?? string.Empty)
+    ];
 
     [Fact]
     public void The_arrows_at_the_ends_are_disabled_rather_than_absent() {
@@ -653,7 +655,7 @@ public class SelectionTests {
         pagination.CurrentPage = 2;
         fixture.Update();
 
-        arrows = pagination.Children.OfType<PageButton>().Where(static button => button.HasClass("page-arrow")).ToList();
+        arrows = [..pagination.Children.OfType<PageButton>().Where(static button => button.HasClass("page-arrow"))];
         Assert.False(arrows[0].Disabled);
         Assert.True(arrows[1].Disabled);
     }

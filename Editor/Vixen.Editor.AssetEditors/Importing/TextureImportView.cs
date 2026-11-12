@@ -44,8 +44,12 @@ public sealed partial class TextureImportView;
 /// <param name="Levels">How many levels the chain has.</param>
 /// <param name="Total">And what the whole chain costs.</param>
 /// <remarks>
-///     ⚠ <b>A snapshot record in one signal, and the reason is a stale-binding trap rather than
-///     taste.</b> Three of the four are functions of <c>TextureImportSettings</c> — a plain mutable
+///     ⚠
+///     <b>
+///         A snapshot record in one signal, and the reason is a stale-binding trap rather than
+///         taste.
+///     </b>
+///     Three of the four are functions of <c>TextureImportSettings</c> — a plain mutable
 ///     object that no signal watches, edited through the inspector and reported by its
 ///     <c>ValueChanged</c> — so four separate bindings would depend on four different things and
 ///     three of them would not include the settings at all. <c>Refresh</c> computes all four

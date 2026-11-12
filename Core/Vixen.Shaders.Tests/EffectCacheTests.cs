@@ -45,7 +45,13 @@ public class EffectCacheTests {
                 new(ShaderStage.Fragment, [5, 6, 7, 8])
             ],
             Bindings = [
-                new("constants", DescriptorSetSlot.PerMaterial, 0, DescriptorKind.UniformBuffer, ShaderStage.Vertex | ShaderStage.Fragment),
+                new(
+                    "constants",
+                    DescriptorSetSlot.PerMaterial,
+                    0,
+                    DescriptorKind.UniformBuffer,
+                    ShaderStage.Vertex | ShaderStage.Fragment
+                ),
                 new("albedo", DescriptorSetSlot.PerMaterial, 1, DescriptorKind.SampledTexture, ShaderStage.Fragment)
             ],
             ConstantBufferSize = 128,
@@ -109,9 +115,12 @@ public class EffectCacheTests {
 
         Assert.NotNull(loaded);
         Assert.Equal("spirv", loaded.Target);
-        Assert.Equal([5, 6, 7, 8], loaded.Stages.Single(stage => stage.Stage == ShaderStage.Fragment).Bytecode);
+        Assert.Equal([5, 6, 7, 8], loaded.Stages.Single(static stage => stage.Stage == ShaderStage.Fragment).Bytecode);
         Assert.Equal(128, loaded.ConstantBufferSize);
-        Assert.Equal(DescriptorKind.SampledTexture, loaded.Bindings.Single(binding => binding.Name == "albedo").Kind);
+        Assert.Equal(
+            DescriptorKind.SampledTexture,
+            loaded.Bindings.Single(static binding => binding.Name == "albedo").Kind
+        );
     }
 
     /// <summary>Two records under one key is a build that compiled the same variant twice.</summary>
@@ -132,8 +141,12 @@ public class EffectCacheTests {
         store.Add(Variant("Shadow"));
 
         Assert.Equal(
-            ["Lighting[Lighting.MaxLights=4,Lighting.UseShadows=false]", "Lighting[Lighting.MaxLights=4,Lighting.UseShadows=true]", "Shadow[Lighting.MaxLights=4,Lighting.UseShadows=true]"],
-            store.ToBundle().Effects.Select(effect => effect.ToKey().ToString())
+            [
+                "Lighting[Lighting.MaxLights=4,Lighting.UseShadows=false]",
+                "Lighting[Lighting.MaxLights=4,Lighting.UseShadows=true]",
+                "Shadow[Lighting.MaxLights=4,Lighting.UseShadows=true]"
+            ],
+            store.ToBundle().Effects.Select(static effect => effect.ToKey().ToString())
         );
     }
 
@@ -162,14 +175,32 @@ public class EffectCacheTests {
         using var device = new NullDevice();
         var effect = new EffectLoader(device).Load(Variant());
 
-        Assert.Same(LightingKeys.Exposure, effect.Parameters.Single(parameter => parameter.Key.Name == "Lighting.exposure").Key);
-        Assert.Same(LightingKeys.WorldViewProjection, effect.Parameters.Single(parameter => parameter.Key.Name == "Lighting.worldViewProjection").Key);
-        Assert.Same(LightingKeys.Ambient, effect.Parameters.Single(parameter => parameter.Key.Name == "Lighting.ambient").Key);
-        Assert.Same(LightingKeys.UseShadows, effect.UsedPermutationKeys.Single(key => key.Name == "Lighting.UseShadows"));
-        Assert.Same(LightingKeys.MaxLights, effect.UsedPermutationKeys.Single(key => key.Name == "Lighting.MaxLights"));
+        Assert.Same(
+            LightingKeys.Exposure,
+            effect.Parameters.Single(static parameter => parameter.Key.Name == "Lighting.exposure").Key
+        );
+        Assert.Same(
+            LightingKeys.WorldViewProjection,
+            effect.Parameters.Single(static parameter => parameter.Key.Name == "Lighting.worldViewProjection").Key
+        );
+        Assert.Same(
+            LightingKeys.Ambient,
+            effect.Parameters.Single(static parameter => parameter.Key.Name == "Lighting.ambient").Key
+        );
+        Assert.Same(
+            LightingKeys.UseShadows,
+            effect.UsedPermutationKeys.Single(static key => key.Name == "Lighting.UseShadows")
+        );
+        Assert.Same(
+            LightingKeys.MaxLights,
+            effect.UsedPermutationKeys.Single(static key => key.Name == "Lighting.MaxLights")
+        );
 
         // And the type came from the record, so a value key is a value key and a permutation is not.
-        Assert.Equal(typeof(Vector3), effect.Parameters.Single(parameter => parameter.Key.Name == "Lighting.ambient").Key.ValueType);
+        Assert.Equal(
+            typeof(Vector3),
+            effect.Parameters.Single(static parameter => parameter.Key.Name == "Lighting.ambient").Key.ValueType
+        );
     }
 
     /// <summary>An effect comes off the device ready to be bound.</summary>
@@ -180,7 +211,10 @@ public class EffectCacheTests {
 
         Assert.Equal(4, effect.SetLayouts.Length);
         Assert.True(effect.Layout.IsValid);
-        Assert.Equal(124, effect.Parameters.Single(parameter => parameter.Key.Name == "Lighting.exposure").Offset);
+        Assert.Equal(
+            124,
+            effect.Parameters.Single(static parameter => parameter.Key.Name == "Lighting.exposure").Offset
+        );
 
         var albedo = effect.BindingOf("albedo");
 
@@ -206,7 +240,10 @@ public class EffectCacheTests {
         var first = loader.Load(Variant(shadows: true));
         var second = loader.Load(Variant(shadows: false));
 
-        Assert.Equal(first.SetLayouts[(int)DescriptorSetSlot.PerMaterial], second.SetLayouts[(int)DescriptorSetSlot.PerMaterial]);
+        Assert.Equal(
+            first.SetLayouts[(int)DescriptorSetSlot.PerMaterial],
+            second.SetLayouts[(int)DescriptorSetSlot.PerMaterial]
+        );
 
         // Three empty sets and one material set, once each — not eight. The empty ones are three
         // rather than one because a layout carries which slot it is for, and a backend is entitled
@@ -225,7 +262,7 @@ public class EffectCacheTests {
         using var device = new NullDevice();
         var effect = new EffectLoader(device).Load(Variant());
 
-        Assert.All(effect.SetLayouts, layout => Assert.True(layout.IsValid));
+        Assert.All(effect.SetLayouts, static layout => Assert.True(layout.IsValid));
     }
 
     /// <summary>
@@ -242,8 +279,12 @@ public class EffectCacheTests {
     ///         no dictionary anywhere holding the evidence.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The device's tally is the half that makes it a leak test rather than an identity
-    ///         test.</b> Handle equality alone is satisfied by a device that hands out one value for
+    ///         ⚠
+    ///         <b>
+    ///             The device's tally is the half that makes it a leak test rather than an identity
+    ///             test.
+    ///         </b>
+    ///         Handle equality alone is satisfied by a device that hands out one value for
     ///         everything, and <c>LiveResourceCount</c> is satisfied by a loader that created nothing
     ///         — which is why the first load is asserted to <em>cost</em> something before the rest
     ///         are asserted to cost nothing.
@@ -670,15 +711,26 @@ public class EffectCacheTests {
     [Fact]
     public void A_manifest_round_trips_through_its_own_text() {
         var keys = new[] {
-            Variant(shadows: false).ToKey(),
-            Variant(shadows: true).ToKey(),
+            Variant(shadows: false).ToKey(), Variant(shadows: true).ToKey(),
             EffectKey.Of("ForwardPlus").With(ShaderComposition.Of([new("surface", "MetalRoughnessSurface")]))
         };
 
         var manifest = EffectManifest.Parse(EffectManifest.Of(keys).ToJson());
 
-        Assert.Equal(keys.Order(Comparer<EffectKey>.Create(static (left, right) => string.CompareOrdinal(left.ToString(), right.ToString()))), manifest.ToKeys());
-        Assert.Equal("MetalRoughnessSurface", manifest.Effects.Single(request => request.Shader == "ForwardPlus").Composition["surface"]);
+        Assert.Equal(
+            keys.Order(
+                Comparer<EffectKey>.Create(static (left, right) => string.CompareOrdinal(
+                        left.ToString(),
+                        right.ToString()
+                    )
+                )
+            ),
+            manifest.ToKeys()
+        );
+        Assert.Equal(
+            "MetalRoughnessSurface",
+            manifest.Effects.Single(static request => request.Shader == "ForwardPlus").Composition["surface"]
+        );
     }
 
     /// <summary>
@@ -699,7 +751,7 @@ public class EffectCacheTests {
 
         Assert.Equal(
             ["Lighting[Lighting.UseShadows=true]", "Tonemap"],
-            manifest.ToKeys().Select(key => key.ToString()).Order(StringComparer.Ordinal)
+            manifest.ToKeys().Select(static key => key.ToString()).Order(StringComparer.Ordinal)
         );
     }
 
@@ -718,6 +770,7 @@ public class EffectCacheTests {
             EffectManifest.Of([keys[1], keys[0], keys[1]]).ToJson()
         );
     }
+
     /// <summary>A shadow map and a colour map do not share one set layout.</summary>
     /// <remarks>
     ///     ⚠ <b>Everything else about the two bindings is identical.</b> Same binding number, same
@@ -759,5 +812,4 @@ public class EffectCacheTests {
             EffectLoader.Shape(DescriptorSetSlot.PerMaterial, comparison, 1)
         );
     }
-
 }

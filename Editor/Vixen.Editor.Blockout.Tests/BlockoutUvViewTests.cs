@@ -2,10 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core.Mathematics;
-using Vixen.Editor.Blockout;
 using Vixen.Geometry;
 using Vixen.Ui;
-using Vixen.Ui.Composition;
 using Vixen.Ui.Controls;
 using Vixen.Ui.Controls.Advanced;
 using Vixen.Ui.Testing;
@@ -190,7 +188,7 @@ public sealed class BlockoutUvViewTests : IDisposable {
     public void A_refusal_reaches_the_message_list() {
         var view = Build();
 
-        view.Model = new BlockoutUvPanel();
+        view.Model = new();
         view.RunChart();
         test.Frames(2);
 
@@ -247,7 +245,7 @@ public sealed class BlockoutUvViewTests : IDisposable {
     static UiElement[] Islands(BlockoutUvView view) => Tagged(view, "uv-island");
 
     static UiElement[] Tagged(UiElement root, string tag) =>
-        [.. Descendants(root).Where(element => string.Equals(element.Tag, tag, StringComparison.Ordinal))];
+        [..Descendants(root).Where(element => string.Equals(element.Tag, tag, StringComparison.Ordinal))];
 
     static IEnumerable<UiElement> Descendants(UiElement root) {
         foreach (var child in root.Children) {
@@ -265,7 +263,7 @@ public sealed class BlockoutUvViewTests : IDisposable {
             ' ',
             Descendants(root)
                 .Prepend(root)
-                .Select(element => element.Text)
-                .Where(text => !string.IsNullOrEmpty(text))
+                .Select(static element => element.Text)
+                .Where(static text => !string.IsNullOrEmpty(text))
         );
 }

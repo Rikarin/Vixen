@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Runtime.InteropServices;
-using Vixen.Ai;
 using Vixen.Ai.Ecs;
 using Vixen.Core;
 using Vixen.Ecs;
@@ -45,7 +44,7 @@ public class AiSchedulingTests {
         // The joins, the blackboards and the pool's pages all happen in the first step, and the
         // warm-up in Measured is what puts them behind us. What is being measured is the frame after
         // the population stopped changing, which is what a game spends its time in.
-        Measured.NothingAllocated(() => system.Step(world, Frame(frame++)), warmUp: 20, passes: 200);
+        Measured.NothingAllocated(() => system.Step(world, Frame(frame++)), 20, 200);
 
         Assert.Equal(Population, system.Population);
     }
@@ -87,8 +86,7 @@ public class AiSchedulingTests {
         Assert.InRange(turns.Max(), 3, 4);
     }
 
-    static int Ticks(AiSystem system, in AiAgent agent) =>
-        MemoryMarshal.Read<int>(system.Memory.Resolve(agent.Memory));
+    static int Ticks(AiSystem system, in AiAgent agent) => MemoryMarshal.Read<int>(system.Memory.Resolve(agent.Memory));
 
     static (World World, AiSystem System) Build(IAgentGovernor governor) {
         var world = new World("ai-scheduling");
@@ -100,7 +98,13 @@ public class AiSchedulingTests {
     }
 
     static GameTime Frame(int index) =>
-        new(TimeSpan.FromSeconds(index / 60.0), TimeSpan.FromSeconds(1 / 60.0), TimeSpan.FromSeconds(1 / 60.0), index, 1f);
+        new(
+            TimeSpan.FromSeconds(index / 60.0),
+            TimeSpan.FromSeconds(1 / 60.0),
+            TimeSpan.FromSeconds(1 / 60.0),
+            index,
+            1f
+        );
 
     /// <summary>Four bytes of state and nothing else, so the measurement is of the schedule.</summary>
     sealed class TickCountingAction : IAgentAction {

@@ -17,8 +17,11 @@ namespace Vixen.Editor.SceneView.Tests;
 /// <summary>An entity's material reaches the instance the viewport draws it with.</summary>
 /// <remarks>
 ///     <para>
-///         <b>The viewport shaded every surface in one grey with one directional term, and the material
-///         an entity named was invisible.</b> Assigning one and seeing nothing happen is the shape of
+///         <b>
+///             The viewport shaded every surface in one grey with one directional term, and the material
+///             an entity named was invisible.
+///         </b>
+///         Assigning one and seeing nothing happen is the shape of
 ///         defect that sends an author to the game to find out whether the assignment took — so what is
 ///         asserted here is the join: a reference on the entity, a surface out of the source, and the
 ///         lanes on the instance the shader reads.
@@ -102,8 +105,12 @@ public class SceneMaterialTests : IDisposable {
     ///         cube.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Plus the block-out checker, which is doc 24's P5 and is what an entity with no
-    ///         material now draws.</b> That is a deliberate change to "the picture it always was" and it
+    ///         ⚠
+    ///         <b>
+    ///             Plus the block-out checker, which is doc 24's P5 and is what an entity with no
+    ///             material now draws.
+    ///         </b>
+    ///         That is a deliberate change to "the picture it always was" and it
     ///         is the whole point of the phase: grey on grey is what makes a block-out unreadable, and
     ///         squares of a fixed size in metres are what make proportion something you count. An entity
     ///         that <i>has</i> a material still draws it — see the tests above.
@@ -134,7 +141,10 @@ public class SceneMaterialTests : IDisposable {
         meshes.Build(scene);
 
         Assert.Equal(meshes.ShapeColour, meshes.Instances[0].Colour);
-        Assert.Equal(MeshInstance.Packed(MaterialSurface.Default, meshes.Checker, meshes.AxisTint), meshes.Instances[0].Surface);
+        Assert.Equal(
+            MeshInstance.Packed(MaterialSurface.Default, meshes.Checker, meshes.AxisTint),
+            meshes.Instances[0].Surface
+        );
     }
 
     /// <summary>A material the source has never heard of is neutral rather than absent.</summary>
@@ -152,7 +162,10 @@ public class SceneMaterialTests : IDisposable {
 
         Assert.Equal(1, meshes.Build(scene));
         Assert.Equal(meshes.ShapeColour, meshes.Instances[0].Colour);
-        Assert.Equal(MeshInstance.Packed(MaterialSurface.Default, meshes.Checker, meshes.AxisTint), meshes.Instances[0].Surface);
+        Assert.Equal(
+            MeshInstance.Packed(MaterialSurface.Default, meshes.Checker, meshes.AxisTint),
+            meshes.Instances[0].Surface
+        );
     }
 
     /// <summary>Emission arrives on the instance with the material's intensity already in it.</summary>
@@ -325,12 +338,12 @@ public class SceneMaterialTests : IDisposable {
             surface = MaterialSurface.Default;
 
             if (reference == Brick) {
-                surface = new(new Color4(0.6f, 0.2f, 0.1f, 1f), Metalness: 0f, Roughness: 0.8f, new(0.5f, 0.2f, 0f));
+                surface = new(new Color4(0.6f, 0.2f, 0.1f, 1f), 0f, 0.8f, new(0.5f, 0.2f, 0f));
                 return true;
             }
 
             if (reference == Chrome) {
-                surface = new(new Color4(0.9f, 0.9f, 0.9f, 1f), Metalness: 1f, Roughness: 0.05f, Color3.Black);
+                surface = new(new Color4(0.9f, 0.9f, 0.9f, 1f), 1f, 0.05f, Color3.Black);
                 return true;
             }
 
@@ -358,7 +371,7 @@ public class SceneMaterialTests : IDisposable {
         world.Dispose();
 
         if (Directory.Exists(root)) {
-            Directory.Delete(root, recursive: true);
+            Directory.Delete(root, true);
         }
 
         GC.SuppressFinalize(this);

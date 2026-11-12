@@ -17,7 +17,7 @@ sealed class RecordingQueues : IRenderGraphQueues {
 
     /// <summary>Every segment, in submission order, as "queue: first-last".</summary>
     public IEnumerable<string> Order =>
-        Recorded.Select(entry => $"{entry.Segment.Queue}: {entry.Segment.FirstPass}-{entry.Segment.LastPass}");
+        Recorded.Select(static entry => $"{entry.Segment.Queue}: {entry.Segment.FirstPass}-{entry.Segment.LastPass}");
 
     public ICommandList Begin(RenderGraphSegment segment) => new TrackingCommandList(segment.Queue);
 
@@ -27,9 +27,9 @@ sealed class RecordingQueues : IRenderGraphQueues {
         Recorded.Add((segment, (TrackingCommandList)list));
     }
 
-    public IEnumerable<ObservedBarrier> Barriers => Recorded.SelectMany(entry => entry.List.Barriers);
+    public IEnumerable<ObservedBarrier> Barriers => Recorded.SelectMany(static entry => entry.List.Barriers);
 
-    public IEnumerable<string> Passes => Recorded.SelectMany(entry => entry.List.Order);
+    public IEnumerable<string> Passes => Recorded.SelectMany(static entry => entry.List.Order);
 }
 
 /// <summary>Which queue a pass ends up on, and what has to happen at the boundary.</summary>
@@ -69,23 +69,32 @@ public sealed class QueueSchedulingTests : IDisposable {
             ResourceState.Present
         );
 
-        graph.AddPass("prepass", pass => {
-            pass.ColourAttachment(depth);
-            pass.Execute(_ => ran.Add("prepass"));
-        });
+        graph.AddPass(
+            "prepass",
+            pass => {
+                pass.ColourAttachment(depth);
+                pass.Execute(_ => ran.Add("prepass"));
+            }
+        );
 
-        graph.AddPass("cluster", pass => {
-            pass.Kind = PassKind.Compute;
-            pass.Reads(depth);
-            pass.Writes(clusters);
-            pass.Execute(_ => ran.Add("cluster"));
-        });
+        graph.AddPass(
+            "cluster",
+            pass => {
+                pass.Kind = PassKind.Compute;
+                pass.Reads(depth);
+                pass.Writes(clusters);
+                pass.Execute(_ => ran.Add("cluster"));
+            }
+        );
 
-        graph.AddPass("shade", pass => {
-            pass.Reads(clusters);
-            pass.ColourAttachment(output);
-            pass.Execute(_ => ran.Add("shade"));
-        });
+        graph.AddPass(
+            "shade",
+            pass => {
+                pass.Reads(clusters);
+                pass.ColourAttachment(output);
+                pass.Execute(_ => ran.Add("shade"));
+            }
+        );
     }
 
     // ── The assignment ──────────────────────────────────────────────────────────────────────
@@ -153,12 +162,15 @@ public sealed class QueueSchedulingTests : IDisposable {
         graph.Scheduling = QueueScheduling.Async;
         var output = graph.CreateTexture(Target("output"));
 
-        graph.AddPass("confused", pass => {
-            pass.Kind = PassKind.Compute;
-            pass.ColourAttachment(output);
-            pass.SideEffect();
-            pass.Execute(_ => { });
-        });
+        graph.AddPass(
+            "confused",
+            pass => {
+                pass.Kind = PassKind.Compute;
+                pass.ColourAttachment(output);
+                pass.SideEffect();
+                pass.Execute(static _ => { });
+            }
+        );
 
         graph.Compile();
 
@@ -185,12 +197,15 @@ public sealed class QueueSchedulingTests : IDisposable {
         graph.Scheduling = QueueScheduling.Async;
         var buffer = graph.CreateBuffer(new(1024, BufferUsage.Storage, Name: "staged"));
 
-        graph.AddPass("upload", pass => {
-            pass.Kind = PassKind.Transfer;
-            pass.Writes(buffer, ResourceState.CopyDestination);
-            pass.SideEffect();
-            pass.Execute(_ => { });
-        });
+        graph.AddPass(
+            "upload",
+            pass => {
+                pass.Kind = PassKind.Transfer;
+                pass.Writes(buffer, ResourceState.CopyDestination);
+                pass.SideEffect();
+                pass.Execute(static _ => { });
+            }
+        );
 
         graph.Compile();
 
@@ -198,8 +213,11 @@ public sealed class QueueSchedulingTests : IDisposable {
     }
 
     /// <summary>
-    ///     ⚠ <b>What hoisting a copy would cost, and why the switch stays off: the frame's transient
-    ///     aliasing, all of it, for a copy of four kilobytes.</b>
+    ///     ⚠
+    ///     <b>
+    ///         What hoisting a copy would cost, and why the switch stays off: the frame's transient
+    ///         aliasing, all of it, for a copy of four kilobytes.
+    ///     </b>
     /// </summary>
     /// <remarks>
     ///     <para>
@@ -219,8 +237,12 @@ public sealed class QueueSchedulingTests : IDisposable {
     ///         four extra 1920×1080 RGBA8 targets, about 31 MiB, held for the life of the pool.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And the row it is measured against is not "async is expensive", it is "async was
-    ///         free here".</b> A frame with no hoistable compute pass compiles identically under
+    ///         ⚠
+    ///         <b>
+    ///             And the row it is measured against is not "async is expensive", it is "async was
+    ///             free here".
+    ///         </b>
+    ///         A frame with no hoistable compute pass compiles identically under
     ///         <see cref="QueueScheduling.Async" /> and <see cref="QueueScheduling.Single" />: one
     ///         segment, two physical textures. Hoisting copies is what would turn every such frame
     ///         into a multi-queue one, on the strength of a buffer upload — and buy nothing back,
@@ -241,30 +263,39 @@ public sealed class QueueSchedulingTests : IDisposable {
                 new(4096, BufferUsage.Uniform | BufferUsage.CopyDestination, Name: "uniforms")
             );
 
-            graph.AddPass("upload", pass => {
-                pass.Kind = PassKind.Transfer;
-                pass.Writes(uniforms, ResourceState.CopyDestination);
-                pass.Execute(_ => { });
-            });
+            graph.AddPass(
+                "upload",
+                pass => {
+                    pass.Kind = PassKind.Transfer;
+                    pass.Writes(uniforms, ResourceState.CopyDestination);
+                    pass.Execute(static _ => { });
+                }
+            );
 
             var previous = graph.CreateTexture(Storage("step 0", 256));
 
-            graph.AddPass("step 0", pass => {
-                pass.Reads(uniforms, ResourceState.UniformRead);
-                pass.Writes(previous);
-                pass.Execute(_ => { });
-            });
+            graph.AddPass(
+                "step 0",
+                pass => {
+                    pass.Reads(uniforms, ResourceState.UniformRead);
+                    pass.Writes(previous);
+                    pass.Execute(static _ => { });
+                }
+            );
 
             for (var index = 1; index < 6; index++) {
                 var next = graph.CreateTexture(Storage($"step {index}", 256));
                 var source = previous;
 
-                graph.AddPass($"step {index}", pass => {
-                    pass.Reads(source);
-                    pass.Writes(next);
-                    pass.SideEffect();
-                    pass.Execute(_ => { });
-                });
+                graph.AddPass(
+                    $"step {index}",
+                    pass => {
+                        pass.Reads(source);
+                        pass.Writes(next);
+                        pass.SideEffect();
+                        pass.Execute(static _ => { });
+                    }
+                );
 
                 previous = next;
             }
@@ -310,19 +341,25 @@ public sealed class QueueSchedulingTests : IDisposable {
         graph.Scheduling = QueueScheduling.Async;
         var depth = graph.CreateTexture(Target("depth"));
 
-        graph.AddPass("prepass", pass => {
-            pass.ColourAttachment(depth);
-            pass.Execute(_ => { });
-        });
+        graph.AddPass(
+            "prepass",
+            pass => {
+                pass.ColourAttachment(depth);
+                pass.Execute(static _ => { });
+            }
+        );
 
         // A reduction into something the graph cannot see: it reads a graph resource and honestly
         // says its product is not one. HiZRenderer, exactly.
-        graph.AddPass("reduce", pass => {
-            pass.Kind = PassKind.Compute;
-            pass.Reads(depth);
-            pass.SideEffect();
-            pass.Execute(_ => { });
-        });
+        graph.AddPass(
+            "reduce",
+            pass => {
+                pass.Kind = PassKind.Compute;
+                pass.Reads(depth);
+                pass.SideEffect();
+                pass.Execute(static _ => { });
+            }
+        );
 
         graph.Compile();
 
@@ -345,18 +382,24 @@ public sealed class QueueSchedulingTests : IDisposable {
         var depth = graph.CreateTexture(Target("depth"));
         var pyramid = graph.CreateTexture(Storage("pyramid"));
 
-        graph.AddPass("prepass", pass => {
-            pass.ColourAttachment(depth);
-            pass.Execute(_ => { });
-        });
+        graph.AddPass(
+            "prepass",
+            pass => {
+                pass.ColourAttachment(depth);
+                pass.Execute(static _ => { });
+            }
+        );
 
-        graph.AddPass("reduce", pass => {
-            pass.Kind = PassKind.Compute;
-            pass.Reads(depth);
-            pass.Writes(pyramid);
-            pass.SideEffect();
-            pass.Execute(_ => { });
-        });
+        graph.AddPass(
+            "reduce",
+            pass => {
+                pass.Kind = PassKind.Compute;
+                pass.Reads(depth);
+                pass.Writes(pyramid);
+                pass.SideEffect();
+                pass.Execute(static _ => { });
+            }
+        );
 
         graph.Compile();
 
@@ -372,17 +415,23 @@ public sealed class QueueSchedulingTests : IDisposable {
         var wasted = graph.CreateTexture(Storage("wasted"));
         var kept = graph.CreateTexture(Target("kept"));
 
-        graph.AddPass("nobody wants this", pass => {
-            pass.Kind = PassKind.Compute;
-            pass.Writes(wasted);
-            pass.Execute(_ => { });
-        });
+        graph.AddPass(
+            "nobody wants this",
+            pass => {
+                pass.Kind = PassKind.Compute;
+                pass.Writes(wasted);
+                pass.Execute(static _ => { });
+            }
+        );
 
-        graph.AddPass("kept", pass => {
-            pass.ColourAttachment(kept);
-            pass.SideEffect();
-            pass.Execute(_ => { });
-        });
+        graph.AddPass(
+            "kept",
+            pass => {
+                pass.ColourAttachment(kept);
+                pass.SideEffect();
+                pass.Execute(static _ => { });
+            }
+        );
 
         graph.Compile();
 
@@ -408,11 +457,13 @@ public sealed class QueueSchedulingTests : IDisposable {
         var queues = new RecordingQueues();
         graph.Execute(queues);
 
-        var transfers = queues.Barriers.Where(barrier => barrier.TransfersOwnership).ToList();
+        var transfers = queues.Barriers.Where(static barrier => barrier.TransfersOwnership).ToList();
         Assert.NotEmpty(transfers);
 
-        foreach (var group in transfers.GroupBy(barrier => (barrier.Texture, barrier.Buffer, barrier.Before, barrier.After, barrier.SourceQueue, barrier.DestinationQueue))) {
-            var sides = group.Select(barrier => barrier.RecordedOn).ToHashSet();
+        foreach (var group in transfers.GroupBy(static barrier => (barrier.Texture, barrier.Buffer, barrier.Before,
+                         barrier.After, barrier.SourceQueue, barrier.DestinationQueue)
+                 )) {
+            var sides = group.Select(static barrier => barrier.RecordedOn).ToHashSet();
 
             Assert.True(
                 sides.SetEquals([group.Key.SourceQueue, group.Key.DestinationQueue]),
@@ -444,28 +495,37 @@ public sealed class QueueSchedulingTests : IDisposable {
         var clusters = graph.CreateBuffer(new(4096, BufferUsage.Storage, Name: "clusters"));
         var output = graph.CreateTexture(Target("output"));
 
-        graph.AddPass("prepass", pass => {
-            pass.ColourAttachment(depth);
-            pass.Execute(_ => { });
-        });
-
-        graph.AddPass("cluster", pass => {
-            pass.Kind = PassKind.Compute;
-            pass.Reads(depth);
-            pass.Writes(clusters);
-            pass.Execute(_ => { });
-        });
-
-        graph.AddPass("shade", pass => {
-            if (bothRead) {
-                pass.Reads(depth);
+        graph.AddPass(
+            "prepass",
+            pass => {
+                pass.ColourAttachment(depth);
+                pass.Execute(static _ => { });
             }
+        );
 
-            pass.Reads(clusters);
-            pass.ColourAttachment(output);
-            pass.SideEffect();
-            pass.Execute(_ => { });
-        });
+        graph.AddPass(
+            "cluster",
+            pass => {
+                pass.Kind = PassKind.Compute;
+                pass.Reads(depth);
+                pass.Writes(clusters);
+                pass.Execute(static _ => { });
+            }
+        );
+
+        graph.AddPass(
+            "shade",
+            pass => {
+                if (bothRead) {
+                    pass.Reads(depth);
+                }
+
+                pass.Reads(clusters);
+                pass.ColourAttachment(output);
+                pass.SideEffect();
+                pass.Execute(static _ => { });
+            }
+        );
 
         return graph;
     }
@@ -490,13 +550,13 @@ public sealed class QueueSchedulingTests : IDisposable {
     /// </remarks>
     [Fact]
     public void TwoQueuesReadingOneResourceDoNotHandItOver() {
-        var graph = TwoReaders(bothRead: true);
+        var graph = TwoReaders(true);
         var queues = new RecordingQueues();
         graph.Execute(queues);
 
         // The depth is the only texture that crosses; the clusters buffer is the frame's one real
         // handover and is asserted separately below.
-        Assert.DoesNotContain(queues.Barriers, barrier => barrier.TransfersOwnership && barrier.Texture.IsValid);
+        Assert.DoesNotContain(queues.Barriers, static barrier => barrier.TransfersOwnership && barrier.Texture.IsValid);
         Assert.Equal(1, graph.Schedule!.OwnershipTransferCount);
     }
 
@@ -510,11 +570,11 @@ public sealed class QueueSchedulingTests : IDisposable {
     /// </remarks>
     [Fact]
     public void OneReaderPerQueueStillHandsTheTextureOver() {
-        var graph = TwoReaders(bothRead: false);
+        var graph = TwoReaders(false);
         var queues = new RecordingQueues();
         graph.Execute(queues);
 
-        Assert.Contains(queues.Barriers, barrier => barrier.TransfersOwnership && barrier.Texture.IsValid);
+        Assert.Contains(queues.Barriers, static barrier => barrier.TransfersOwnership && barrier.Texture.IsValid);
         Assert.Equal(2, graph.Schedule!.OwnershipTransferCount);
     }
 
@@ -529,11 +589,11 @@ public sealed class QueueSchedulingTests : IDisposable {
     /// </remarks>
     [Fact]
     public void AResourceOneQueueWritesIsStillHandedOver() {
-        var graph = TwoReaders(bothRead: true);
+        var graph = TwoReaders(true);
         var queues = new RecordingQueues();
         graph.Execute(queues);
 
-        Assert.Contains(queues.Barriers, barrier => barrier.TransfersOwnership && barrier.Buffer.IsValid);
+        Assert.Contains(queues.Barriers, static barrier => barrier.TransfersOwnership && barrier.Buffer.IsValid);
     }
 
     /// <summary>A transfer is only ever recorded on a list at one of its two ends.</summary>
@@ -546,7 +606,7 @@ public sealed class QueueSchedulingTests : IDisposable {
         var queues = new RecordingQueues();
         graph.Execute(queues);
 
-        foreach (var barrier in queues.Barriers.Where(barrier => barrier.TransfersOwnership)) {
+        foreach (var barrier in queues.Barriers.Where(static barrier => barrier.TransfersOwnership)) {
             Assert.True(
                 barrier.RecordedOn == barrier.SourceQueue || barrier.RecordedOn == barrier.DestinationQueue,
                 $"A {barrier.SourceQueue}→{barrier.DestinationQueue} transfer was recorded on a "
@@ -569,7 +629,7 @@ public sealed class QueueSchedulingTests : IDisposable {
         var list = new TrackingCommandList();
         graph.Execute(list);
 
-        Assert.All(list.Barriers, barrier => Assert.False(barrier.TransfersOwnership));
+        Assert.All(list.Barriers, static barrier => Assert.False(barrier.TransfersOwnership));
         Assert.Equal(0, graph.Schedule!.OwnershipTransferCount);
     }
 
@@ -586,11 +646,14 @@ public sealed class QueueSchedulingTests : IDisposable {
             ResourceState.ShaderRead
         );
 
-        graph.AddPass("simulate", pass => {
-            pass.Kind = PassKind.Compute;
-            pass.Writes(imported);
-            pass.Execute(_ => { });
-        });
+        graph.AddPass(
+            "simulate",
+            pass => {
+                pass.Kind = PassKind.Compute;
+                pass.Writes(imported);
+                pass.Execute(static _ => { });
+            }
+        );
 
         var queues = new RecordingQueues();
         graph.Execute(queues);
@@ -600,7 +663,7 @@ public sealed class QueueSchedulingTests : IDisposable {
         Assert.Equal(QueueKind.Graphics, last.Segment.Queue);
         Assert.True(last.Segment.IsEmpty);
 
-        var acquire = last.List.Barriers.Single(barrier => barrier.TransfersOwnership);
+        var acquire = last.List.Barriers.Single(static barrier => barrier.TransfersOwnership);
         Assert.Equal(QueueKind.Compute, acquire.SourceQueue);
         Assert.Equal(QueueKind.Graphics, acquire.DestinationQueue);
     }
@@ -629,12 +692,15 @@ public sealed class QueueSchedulingTests : IDisposable {
             ResourceState.ShaderRead
         );
 
-        graph.AddPass("simulate", pass => {
-            pass.Kind = PassKind.Compute;
-            pass.Reads(imported);
-            pass.Writes(imported);
-            pass.Execute(_ => { });
-        });
+        graph.AddPass(
+            "simulate",
+            pass => {
+                pass.Kind = PassKind.Compute;
+                pass.Reads(imported);
+                pass.Writes(imported);
+                pass.Execute(static _ => { });
+            }
+        );
 
         var queues = new RecordingQueues();
         graph.Execute(queues);
@@ -643,7 +709,7 @@ public sealed class QueueSchedulingTests : IDisposable {
         Assert.Equal(QueueKind.Graphics, opening.Segment.Queue);
         Assert.True(opening.Segment.IsEmpty);
 
-        var release = opening.List.Barriers.Single(barrier => barrier.TransfersOwnership);
+        var release = opening.List.Barriers.Single(static barrier => barrier.TransfersOwnership);
         Assert.Equal(QueueKind.Graphics, release.SourceQueue);
         Assert.Equal(QueueKind.Compute, release.DestinationQueue);
 
@@ -658,12 +724,15 @@ public sealed class QueueSchedulingTests : IDisposable {
         graph.Scheduling = QueueScheduling.Async;
         var clusters = graph.CreateTexture(Storage("clusters"));
 
-        graph.AddPass("cluster", pass => {
-            pass.Kind = PassKind.Compute;
-            pass.Writes(clusters);
-            pass.SideEffect();
-            pass.Execute(_ => { });
-        });
+        graph.AddPass(
+            "cluster",
+            pass => {
+                pass.Kind = PassKind.Compute;
+                pass.Writes(clusters);
+                pass.SideEffect();
+                pass.Execute(static _ => { });
+            }
+        );
 
         graph.Compile();
 
@@ -701,27 +770,36 @@ public sealed class QueueSchedulingTests : IDisposable {
         var second = graph.CreateTexture(Storage("second"));
         var output = graph.CreateTexture(Target("output"));
 
-        graph.AddPass("seed", pass => {
-            pass.Writes(first, ResourceState.ColourTarget);
-            pass.Execute(_ => { });
-        });
+        graph.AddPass(
+            "seed",
+            pass => {
+                pass.Writes(first, ResourceState.ColourTarget);
+                pass.Execute(static _ => { });
+            }
+        );
 
-        graph.AddPass("compute a", pass => {
-            pass.Kind = PassKind.Compute;
-            pass.Reads(first);
-            pass.Writes(second);
-            pass.Execute(_ => { });
-        });
+        graph.AddPass(
+            "compute a",
+            pass => {
+                pass.Kind = PassKind.Compute;
+                pass.Reads(first);
+                pass.Writes(second);
+                pass.Execute(static _ => { });
+            }
+        );
 
-        graph.AddPass("draw", pass => {
-            // Reads both, so the naive answer is two waits: one on the compute segment and one on
-            // the graphics segment before it. The second is already implied.
-            pass.Reads(first);
-            pass.Reads(second);
-            pass.ColourAttachment(output);
-            pass.SideEffect();
-            pass.Execute(_ => { });
-        });
+        graph.AddPass(
+            "draw",
+            pass => {
+                // Reads both, so the naive answer is two waits: one on the compute segment and one on
+                // the graphics segment before it. The second is already implied.
+                pass.Reads(first);
+                pass.Reads(second);
+                pass.ColourAttachment(output);
+                pass.SideEffect();
+                pass.Execute(static _ => { });
+            }
+        );
 
         graph.Compile();
 
@@ -746,24 +824,33 @@ public sealed class QueueSchedulingTests : IDisposable {
         var aside = graph.CreateTexture(Storage("aside"));
         var output = graph.CreateTexture(Target("output"));
 
-        graph.AddPass("produce", pass => {
-            pass.Writes(shared, ResourceState.ColourTarget);
-            pass.Execute(_ => { });
-        });
+        graph.AddPass(
+            "produce",
+            pass => {
+                pass.Writes(shared, ResourceState.ColourTarget);
+                pass.Execute(static _ => { });
+            }
+        );
 
-        graph.AddPass("unrelated compute", pass => {
-            pass.Kind = PassKind.Compute;
-            pass.Writes(aside);
-            pass.SideEffect();
-            pass.Execute(_ => { });
-        });
+        graph.AddPass(
+            "unrelated compute",
+            pass => {
+                pass.Kind = PassKind.Compute;
+                pass.Writes(aside);
+                pass.SideEffect();
+                pass.Execute(static _ => { });
+            }
+        );
 
-        graph.AddPass("consume", pass => {
-            pass.Reads(shared);
-            pass.ColourAttachment(output);
-            pass.SideEffect();
-            pass.Execute(_ => { });
-        });
+        graph.AddPass(
+            "consume",
+            pass => {
+                pass.Reads(shared);
+                pass.ColourAttachment(output);
+                pass.SideEffect();
+                pass.Execute(static _ => { });
+            }
+        );
 
         graph.Compile();
 
@@ -821,12 +908,12 @@ public sealed class QueueSchedulingTests : IDisposable {
             if (scheduling == QueueScheduling.Single) {
                 var list = new TrackingCommandList();
                 graph.Execute(list);
-                return [.. list.Passes.Select(pass => pass.Name)];
+                return [..list.Passes.Select(static pass => pass.Name)];
             }
 
             var queues = new RecordingQueues();
             graph.Execute(queues);
-            return [.. queues.Recorded.SelectMany(entry => entry.List.Passes).Select(pass => pass.Name)];
+            return [..queues.Recorded.SelectMany(static entry => entry.List.Passes).Select(static pass => pass.Name)];
         }
 
         Assert.Equal(Trace(QueueScheduling.Single), Trace(QueueScheduling.Async));
@@ -838,7 +925,7 @@ public sealed class QueueSchedulingTests : IDisposable {
     [Fact]
     public void TheSameFrameScheduledBothWaysMakesTheSameTransitions() {
         static List<(ResourceState Before, ResourceState After)> Transitions(IEnumerable<ObservedBarrier> barriers) =>
-            [.. barriers.Select(barrier => (barrier.Before, barrier.After))];
+            [..barriers.Select(static barrier => (barrier.Before, barrier.After))];
 
         List<(ResourceState, ResourceState)> single;
         List<(ResourceState, ResourceState)> async;
@@ -860,7 +947,9 @@ public sealed class QueueSchedulingTests : IDisposable {
 
             // The releases are the extra half of each handover, and are the same transition again.
             async = Transitions(
-                queues.Barriers.Where(barrier => !barrier.TransfersOwnership || barrier.RecordedOn == barrier.DestinationQueue)
+                queues.Barriers.Where(static barrier => !barrier.TransfersOwnership
+                    || barrier.RecordedOn == barrier.DestinationQueue
+                )
             );
         }
 
@@ -942,24 +1031,33 @@ public sealed class QueueSchedulingTests : IDisposable {
             var second = graph.CreateTexture(Storage("second"));
             var third = graph.CreateTexture(Storage("third"));
 
-            graph.AddPass("seed", pass => {
-                pass.Writes(first);
-                pass.Execute(_ => { });
-            });
+            graph.AddPass(
+                "seed",
+                pass => {
+                    pass.Writes(first);
+                    pass.Execute(static _ => { });
+                }
+            );
 
-            graph.AddPass("first to second", pass => {
-                pass.Kind = PassKind.Compute;
-                pass.Reads(first);
-                pass.Writes(second);
-                pass.Execute(_ => { });
-            });
+            graph.AddPass(
+                "first to second",
+                pass => {
+                    pass.Kind = PassKind.Compute;
+                    pass.Reads(first);
+                    pass.Writes(second);
+                    pass.Execute(static _ => { });
+                }
+            );
 
-            graph.AddPass("second to third", pass => {
-                pass.Reads(second);
-                pass.Writes(third);
-                pass.SideEffect();
-                pass.Execute(_ => { });
-            });
+            graph.AddPass(
+                "second to third",
+                pass => {
+                    pass.Reads(second);
+                    pass.Writes(third);
+                    pass.SideEffect();
+                    pass.Execute(static _ => { });
+                }
+            );
 
             if (scheduling == QueueScheduling.Single) {
                 graph.Execute(new TrackingCommandList());

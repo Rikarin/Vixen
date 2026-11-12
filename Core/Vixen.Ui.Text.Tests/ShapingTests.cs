@@ -14,8 +14,12 @@ namespace Vixen.Ui.Text.Tests;
 ///         <i>Space Isn't Nothing</i>.
 ///     </para>
 ///     <para>
-///         ⚠ But the same sabotage found a hole. <b>Shaping each run without the text around it
-///         fails nothing at all</b>, because every case in the suite is a single run and so has no
+///         ⚠ But the same sabotage found a hole.
+///         <b>
+///             Shaping each run without the text around it
+///             fails nothing at all
+///         </b>
+///         , because every case in the suite is a single run and so has no
 ///         neighbour to lose. The pre- and post-context decision, and the absolute cluster indices
 ///         that come with it, are invisible to four hundred external cases and are tested here
 ///         instead. A gate is only a gate for what it can observe, and finding out which half that
@@ -30,8 +34,8 @@ public class ShapingTests {
 
         // The seen, alone and then as the second letter of a word. An Arabic letter's form depends
         // on whether its neighbours join, so these must not agree.
-        var isolated = TextShaper.ShapeRun(font, "س", new TextItem(0, 1, 1, Script.Arabic));
-        var inContext = TextShaper.ShapeRun(font, word, new TextItem(1, 1, 1, Script.Arabic));
+        var isolated = TextShaper.ShapeRun(font, "س", new(0, 1, 1, Script.Arabic));
+        var inContext = TextShaper.ShapeRun(font, word, new(1, 1, 1, Script.Arabic));
 
         var isolatedName = font.GlyphName(isolated.Glyphs[0].GlyphId);
         var contextName = font.GlyphName(inContext.Glyphs[0].GlyphId);
@@ -46,7 +50,7 @@ public class ShapingTests {
         const string mixed = "abcلسان";
 
         var shaped = TextShaper.Shape(font, mixed);
-        var arabic = shaped.Runs.Single(run => run.Item.Script == Script.Arabic);
+        var arabic = shaped.Runs.Single(static run => run.Item.Script == Script.Arabic);
 
         // Shaping the substring on its own would produce clusters starting at zero, which would
         // point at 'a' — and every caret, selection and hit test downstream would be three
@@ -59,9 +63,9 @@ public class ShapingTests {
         var font = TestFonts.Load(TestFonts.Arabic);
 
         var shaped = TextShaper.Shape(font, "لسان");
-        var clusters = shaped.Runs.Single().Glyphs.Select(glyph => glyph.Cluster).ToList();
+        var clusters = shaped.Runs.Single().Glyphs.Select(static glyph => glyph.Cluster).ToList();
 
-        Assert.Equal(clusters.OrderByDescending(cluster => cluster), clusters);
+        Assert.Equal(clusters.OrderByDescending(static cluster => cluster), clusters);
     }
 
     [Fact]

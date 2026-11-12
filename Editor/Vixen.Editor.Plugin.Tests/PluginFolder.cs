@@ -27,11 +27,11 @@ namespace Vixen.Editor.Plugin.Tests;
 sealed class PluginFolder : IDisposable {
     /// <summary>Everything loaded beside the test, which is what a plugin compiles against.</summary>
     static readonly ImmutableArray<MetadataReference> References = [
-        .. ((string) AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")!)
+        ..((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")!)
             .Split(Path.PathSeparator)
-            .Where(path => path.EndsWith(".dll", StringComparison.OrdinalIgnoreCase))
+            .Where(static path => path.EndsWith(".dll", StringComparison.OrdinalIgnoreCase))
             .Distinct(StringComparer.Ordinal)
-            .Select(path => (MetadataReference) MetadataReference.CreateFromFile(path))
+            .Select(static path => (MetadataReference)MetadataReference.CreateFromFile(path))
     ];
 
     readonly bool owned;
@@ -46,11 +46,12 @@ sealed class PluginFolder : IDisposable {
     public PluginFolder(string? root = null) {
         owned = root is null;
 
-        Root = root ?? Path.Combine(
-            Path.GetTempPath(),
-            "vixen-plugin-tests",
-            Guid.NewGuid().ToString("n", CultureInfo.InvariantCulture)
-        );
+        Root = root
+            ?? Path.Combine(
+                Path.GetTempPath(),
+                "vixen-plugin-tests",
+                Guid.NewGuid().ToString("n", CultureInfo.InvariantCulture)
+            );
 
         Directory.CreateDirectory(Root);
     }
@@ -73,14 +74,15 @@ sealed class PluginFolder : IDisposable {
 
         File.WriteAllText(
             Path.Combine(directory, PluginManifest.FileName),
-            manifest ?? $"""
-                         id: {id}
-                         name: {id}
-                         version: 1.0.0
-                         api: {EditorApi.Version.ToString(2)}
-                         assembly: {id}.dll
+            manifest
+            ?? $"""
+                id: {id}
+                name: {id}
+                version: 1.0.0
+                api: {EditorApi.Version.ToString(2)}
+                assembly: {id}.dll
 
-                         """
+                """
         );
 
         if (source is not null) {
@@ -97,8 +99,11 @@ sealed class PluginFolder : IDisposable {
     /// <returns>The compiled assembly's path, to be passed back as a reference.</returns>
     /// <remarks>
     ///     <para>
-    ///         <b>A plugin's runtime assembly, which is the case <c>AuthoringAssembly</c> exists
-    ///         for.</b> A component in the plugin's <i>entry</i> assembly is registered whatever
+    ///         <b>
+    ///             A plugin's runtime assembly, which is the case <c>AuthoringAssembly</c> exists
+    ///             for.
+    ///         </b>
+    ///         A component in the plugin's <i>entry</i> assembly is registered whatever
     ///         anybody declares — the loader instantiates a type there, so that module's initializer
     ///         has run before <c>Activate</c> returns. A library beside it is only loaded, and a
     ///         loaded module is not a run one.
@@ -124,8 +129,7 @@ sealed class PluginFolder : IDisposable {
     /// <summary>Rewrites a plugin's assembly in place, which is what a rebuild does.</summary>
     /// <param name="id">The plugin.</param>
     /// <param name="source">The new C#.</param>
-    public void Rebuild(string id, string source) =>
-        Compile(id, source, Path.Combine(Root, id, id + ".dll"), []);
+    public void Rebuild(string id, string source) => Compile(id, source, Path.Combine(Root, id, id + ".dll"), []);
 
     /// <inheritdoc />
     public void Dispose() {
@@ -134,7 +138,7 @@ sealed class PluginFolder : IDisposable {
         }
 
         try {
-            Directory.Delete(Root, recursive: true);
+            Directory.Delete(Root, true);
         } catch (IOException) {
             // A plugin whose context has not been collected still has its dependencies mapped, so
             // the folder may be locked on Windows. Losing a temp directory is not a test failure.
@@ -142,22 +146,29 @@ sealed class PluginFolder : IDisposable {
     }
 
     /// <remarks>
-    ///     ⚠ <b>Roslyn here is the package version, which is older than the compiler that builds the
-    ///     repository.</b> `params ReadOnlySpan&lt;T&gt;` is the visible difference — a plugin source
+    ///     ⚠
+    ///     <b>
+    ///         Roslyn here is the package version, which is older than the compiler that builds the
+    ///         repository.
+    ///     </b>
+    ///     `params ReadOnlySpan&lt;T&gt;` is the visible difference — a plugin source
     ///     that calls `element.Add&lt;TextBlock&gt;()` has to spell the two optional arguments out.
     ///     That is a limit of the test's own compiler and not of what a plugin may write.
     /// </remarks>
     static void Compile(string assemblyName, string source, string path, string[] references) {
         List<MetadataReference> visible = [
-            .. References,
-            .. references.Select(reference => (MetadataReference) MetadataReference.CreateFromFile(reference))
+            ..References,
+            ..references.Select(static reference => (MetadataReference)MetadataReference.CreateFromFile(reference))
         ];
 
         var compilation = CSharpCompilation.Create(
             assemblyName,
-            [CSharpSyntaxTree.ParseText(source, new CSharpParseOptions(LanguageVersion.Latest))],
+            [CSharpSyntaxTree.ParseText(source, new(LanguageVersion.Latest))],
             visible,
-            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, nullableContextOptions: NullableContextOptions.Enable)
+            new(
+                OutputKind.DynamicallyLinkedLibrary,
+                nullableContextOptions: NullableContextOptions.Enable
+            )
         );
 
         var result = compilation.Emit(path);
@@ -165,7 +176,10 @@ sealed class PluginFolder : IDisposable {
         Assert.True(
             result.Success,
             "The test's own plugin source did not compile:\n"
-            + string.Join("\n", result.Diagnostics.Where(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error))
+            + string.Join(
+                "\n",
+                result.Diagnostics.Where(static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error)
+            )
         );
     }
 }

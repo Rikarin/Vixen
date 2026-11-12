@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using CsCheck;
-using Vixen.Core;
 using Xunit;
 
 namespace Vixen.Core.Memory.Tests;
@@ -25,9 +24,9 @@ public class MemoryTests {
 
     [Fact]
     public void A_native_array_rejects_an_alignment_that_is_not_a_power_of_two() {
-        Assert.Throws<ArgumentOutOfRangeException>(() => new NativeArray<int>(4, 24));
-        Assert.Throws<ArgumentOutOfRangeException>(() => new NativeArray<int>(4, 0));
-        Assert.Throws<ArgumentOutOfRangeException>(() => new NativeArray<int>(-1));
+        Assert.Throws<ArgumentOutOfRangeException>(static () => new NativeArray<int>(4, 24));
+        Assert.Throws<ArgumentOutOfRangeException>(static () => new NativeArray<int>(4, 0));
+        Assert.Throws<ArgumentOutOfRangeException>(static () => new NativeArray<int>(-1));
     }
 
     [Fact]
@@ -84,7 +83,7 @@ public class MemoryTests {
         Assert.Equal(before + 1, LeakTracker.LiveCount);
 
         // Which is what turns "the profiler says we are leaking" into an allocation site.
-        Assert.Contains(LeakTracker.Snapshot(), report => report.Description == "test allocation");
+        Assert.Contains(LeakTracker.Snapshot(), static report => report.Description == "test allocation");
 
         array.Dispose();
         Assert.Equal(before, LeakTracker.LiveCount);
@@ -95,9 +94,9 @@ public class MemoryTests {
     public unsafe void An_arena_hands_out_distinct_aligned_ranges() {
         using var arena = new ArenaAllocator(4096);
 
-        var first = (byte*)arena.Allocate(100, 16);
+        var first = (byte*)arena.Allocate(100);
         var second = (byte*)arena.Allocate(100, 64);
-        var third = (byte*)arena.Allocate(100, 16);
+        var third = (byte*)arena.Allocate(100);
 
         Assert.Equal(0, (nint)first % 16);
         Assert.Equal(0, (nint)second % 64);
@@ -156,14 +155,14 @@ public class MemoryTests {
 
         void* inner;
         using (arena.Push()) {
-            inner = arena.Allocate(1000, 16);
+            inner = arena.Allocate(1000);
             Assert.True(arena.BytesAllocated > before);
         }
 
         Assert.Equal(before, arena.BytesAllocated);
 
         // And the next allocation reuses the scope's memory, which is the point of rewinding.
-        Assert.Equal((nint)inner, (nint)arena.Allocate(1000, 16));
+        Assert.Equal((nint)inner, (nint)arena.Allocate(1000));
     }
 
     [Fact]
@@ -284,51 +283,53 @@ public class MemoryTests {
     public void Buddy_allocations_never_overlap_and_stay_inside_the_region() =>
         // The property a driver punishes rather than reports: two resources sharing bytes is
         // corruption that shows up as garbled geometry somewhere else entirely.
-        Gen.Select(Gen.Int[0, 2], Gen.Int[1, 4000]).Array[1, 300].Sample(script => {
-                const long total = 1 << 16;
-                var allocator = new BuddyAllocator(total, 64);
-                var live = new Dictionary<long, long>();
+        Gen.Select(Gen.Int[0, 2], Gen.Int[1, 4000])
+            .Array[1, 300]
+            .Sample(static script => {
+                    const long total = 1 << 16;
+                    var allocator = new BuddyAllocator(total, 64);
+                    var live = new Dictionary<long, long>();
 
-                foreach (var (operation, size) in script) {
-                    if (operation == 2 && live.Count > 0) {
-                        var victim = live.Keys.First();
-                        Assert.True(allocator.Free(victim));
-                        live.Remove(victim);
-                        continue;
+                    foreach (var (operation, size) in script) {
+                        if (operation == 2 && live.Count > 0) {
+                            var victim = live.Keys.First();
+                            Assert.True(allocator.Free(victim));
+                            live.Remove(victim);
+                            continue;
+                        }
+
+                        if (!allocator.TryAllocate(size, 1, out var offset)) {
+                            continue;
+                        }
+
+                        Assert.True(allocator.TryGetSize(offset, out var reserved));
+                        Assert.True(offset >= 0);
+                        Assert.True(offset + reserved <= total);
+                        Assert.True(reserved >= size);
+
+                        foreach (var (otherOffset, otherSize) in live) {
+                            Assert.True(
+                                offset + reserved <= otherOffset || otherOffset + otherSize <= offset,
+                                $"[{offset}, {offset + reserved}) overlaps [{otherOffset}, {otherOffset + otherSize})"
+                            );
+                        }
+
+                        live[offset] = reserved;
                     }
 
-                    if (!allocator.TryAllocate(size, 1, out var offset)) {
-                        continue;
+                    Assert.Equal(live.Count, allocator.AllocationCount);
+                    Assert.Equal(live.Values.Sum(), allocator.AllocatedBytes);
+
+                    // And once everything is released the merging has to have put the region back
+                    // together, or the allocator leaks capacity a fragment at a time.
+                    foreach (var offset in live.Keys) {
+                        Assert.True(allocator.Free(offset));
                     }
 
-                    Assert.True(allocator.TryGetSize(offset, out var reserved));
-                    Assert.True(offset >= 0);
-                    Assert.True(offset + reserved <= total);
-                    Assert.True(reserved >= size);
-
-                    foreach (var (otherOffset, otherSize) in live) {
-                        Assert.True(
-                            offset + reserved <= otherOffset || otherOffset + otherSize <= offset,
-                            $"[{offset}, {offset + reserved}) overlaps [{otherOffset}, {otherOffset + otherSize})"
-                        );
-                    }
-
-                    live[offset] = reserved;
+                    Assert.Equal(0, allocator.AllocatedBytes);
+                    Assert.Equal(total, allocator.LargestFreeBlock);
                 }
-
-                Assert.Equal(live.Count, allocator.AllocationCount);
-                Assert.Equal(live.Values.Sum(), allocator.AllocatedBytes);
-
-                // And once everything is released the merging has to have put the region back
-                // together, or the allocator leaks capacity a fragment at a time.
-                foreach (var offset in live.Keys) {
-                    Assert.True(allocator.Free(offset));
-                }
-
-                Assert.Equal(0, allocator.AllocatedBytes);
-                Assert.Equal(total, allocator.LargestFreeBlock);
-            }
-        );
+            );
 
     [Fact]
     public void Resetting_a_buddy_allocator_returns_the_whole_region() {

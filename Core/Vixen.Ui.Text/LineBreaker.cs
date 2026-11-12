@@ -22,17 +22,25 @@ public enum WordBreakMode : byte {
     ///     Every letter offers a break. CSS's <c>word-break: break-all</c>.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>Implemented by resolving every letter to the ideographic class rather than by
-    ///     scattering opportunities over the string, and the difference is every punctuation rule in
-    ///     UAX#14.</b> CSS Text 3 § 5.2 allows a break "between any two typographic character units"
+    ///     ⚠
+    ///     <b>
+    ///         Implemented by resolving every letter to the ideographic class rather than by
+    ///         scattering opportunities over the string, and the difference is every punctuation rule in
+    ///         UAX#14.
+    ///     </b>
+    ///     CSS Text 3 § 5.2 allows a break "between any two typographic character units"
     ///     and still defers to the rules that are not about letters, which is a long list: a line may
     ///     not begin with a closing bracket, a comma or an exclamation mark (LB13), and may not end
     ///     with an opening one (LB14). Adding a break at every grapheme boundary breaks both; making
     ///     the letters behave like Chinese — which is exactly what the property is asking for — keeps
     ///     them, because those rules are written against the punctuation classes and go on holding.
     ///     <para>
-    ///         ⚠ <b>This list used to end "and may not start with a small kana (LB21)", and that was
-    ///         wrong.</b> A small kana is a <c>CJ</c> — a <i>conditional</i> Japanese starter, whose
+    ///         ⚠
+    ///         <b>
+    ///             This list used to end "and may not start with a small kana (LB21)", and that was
+    ///             wrong.
+    ///         </b>
+    ///         A small kana is a <c>CJ</c> — a <i>conditional</i> Japanese starter, whose
     ///         class is a question about typographic strictness rather than about punctuation — and
     ///         <c>break-all</c> is not asking about strictness. ICU4X's <c>break_all("フォ")</c>
     ///         segments as <c>フ|ォ</c>; this store answered <c>フォ</c> until
@@ -63,20 +71,32 @@ public enum WordBreakMode : byte {
 /// <summary>Whether a soft hyphen may end a line. CSS Text 4 § 6.1's <c>hyphens</c>.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>A third enum beside <see cref="WordBreakMode" /> and <c>TextWrapMode</c> for the
-///         reason those two are separate from each other</b>: it is a different stage and it
+///         ⚠
+///         <b>
+///             A third enum beside <see cref="WordBreakMode" /> and <c>TextWrapMode</c> for the
+///             reason those two are separate from each other
+///         </b>
+///         : it is a different stage and it
 ///         composes. <c>word-break</c> decides whether two letters may be parted; this decides
 ///         whether one <i>character the author put there to say so</i> is honoured, and the two are
 ///         asked at the same moment about different things.
 ///     </para>
 ///     <para>
-///         ⚠ <b>There are only two members and CSS has three, which is the gap stated rather than
-///         hidden.</b> <c>hyphens: auto</c> needs a per-language Liang pattern set to choose a
+///         ⚠
+///         <b>
+///             There are only two members and CSS has three, which is the gap stated rather than
+///             hidden.
+///         </b>
+///         <c>hyphens: auto</c> needs a per-language Liang pattern set to choose a
 ///         hyphenation from. No utility class emits it, so it cannot arrive here.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Half of that refusal's stated reason has expired, and it is written here rather than
-///         left standing.</b> This paragraph used to say that a language to choose the pattern set
+///         ⚠
+///         <b>
+///             Half of that refusal's stated reason has expired, and it is written here rather than
+///             left standing.
+///         </b>
+///         This paragraph used to say that a language to choose the pattern set
 ///         with was missing too — that <see cref="TextShaper" /> left HarfBuzz's language unset on
 ///         purpose, so the <i>input</i> was missing as well as the algorithm. It is not any more:
 ///         <c>UiElement.Language</c> and <c>UiElement.ResolvedLanguage</c> carry a BCP-47 tag that
@@ -106,8 +126,12 @@ public enum HyphenMode : byte {
 /// <summary>How strict a line break is. CSS Text 3 § 5.2's <c>line-break</c>.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>The property <c>CJ</c> is conditional on, and until this existed the class had no
-///         condition to read.</b> A conditional Japanese starter — the small kana, the prolonged
+///         ⚠
+///         <b>
+///             The property <c>CJ</c> is conditional on, and until this existed the class had no
+///             condition to read.
+///         </b>
+///         A conditional Japanese starter — the small kana, the prolonged
 ///         sound mark, the iteration marks — is the one line break class UAX#14 declines to resolve
 ///         on its own: § 6.1 says it resolves to <c>NS</c> or to <c>ID</c> "depending on the desired
 ///         line breaking strictness", and this is the sentence that says which. Resolving it
@@ -115,8 +139,12 @@ public enum HyphenMode : byte {
 ///         calling it the algorithm.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Not <see cref="WordBreakMode" /> under another name, and CSS Text § 5.2 puts them
-///         side by side for the same reason this file keeps three enums apart.</b> <c>word-break</c>
+///         ⚠
+///         <b>
+///             Not <see cref="WordBreakMode" /> under another name, and CSS Text § 5.2 puts them
+///             side by side for the same reason this file keeps three enums apart.
+///         </b>
+///         <c>word-break</c>
 ///         says what counts as a <i>word</i> — whether two letters may be parted — and knows nothing
 ///         about kana; this says how <i>strict</i> the typography is, which is a question about a
 ///         small set of characters that are almost all Japanese. They compose, and where they
@@ -125,8 +153,12 @@ public enum HyphenMode : byte {
 ///         these.
 ///     </para>
 ///     <para>
-///         ⚠ <b>No utility class emits any of the four, and that is a decision rather than an
-///         omission.</b> Tailwind has no <c>line-break</c> root in v3 or v4, so a family invented for
+///         ⚠
+///         <b>
+///             No utility class emits any of the four, and that is a decision rather than an
+///             omission.
+///         </b>
+///         Tailwind has no <c>line-break</c> root in v3 or v4, so a family invented for
 ///         it would be a spelling this store made up — the parity ledger is a comparison with
 ///         Tailwind and a row nothing outside this repository could write is not a comparison. The
 ///         property is reachable the way every un-utilitied CSS property is, by writing it in a
@@ -136,8 +168,12 @@ public enum HyphenMode : byte {
 public enum LineBreakStrictness : byte {
     /// <summary>The user agent decides. CSS's <c>line-break: auto</c>, and the initial value.</summary>
     /// <remarks>
-    ///     ⚠ <b>Deliberately identical to <see cref="Strict" /> rather than to <see cref="Normal" />,
-    ///     which is a choice and not an oversight.</b> CSS leaves <c>auto</c> to the implementation;
+    ///     ⚠
+    ///     <b>
+    ///         Deliberately identical to <see cref="Strict" /> rather than to <see cref="Normal" />,
+    ///         which is a choice and not an oversight.
+    ///     </b>
+    ///     CSS leaves <c>auto</c> to the implementation;
     ///     ICU's untailored rules and ICU4X's default both resolve <c>CJ</c> to <c>NS</c>, and so did
     ///     every line this store has broken since it had a line breaker. Making the initial value
     ///     mean anything else would have moved 19 338 conformance cases and every existing wrap, to
@@ -172,9 +208,13 @@ public enum LineBreakStrictness : byte {
     /// <summary>A break around every typographic character unit. CSS Text 4 § 5.1's <c>anywhere</c>.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Not <see cref="WordBreakMode.BreakAll" /> and not
-    ///         <see cref="TextWrapMode.Anywhere" />, and it is the only value here that is not a class
-    ///         substitution at all.</b> CSS Text 4 § 5.1 says the opportunity is there "disregarding
+    ///         ⚠
+    ///         <b>
+    ///             Not <see cref="WordBreakMode.BreakAll" /> and not
+    ///             <see cref="TextWrapMode.Anywhere" />, and it is the only value here that is not a class
+    ///             substitution at all.
+    ///         </b>
+    ///         CSS Text 4 § 5.1 says the opportunity is there "disregarding
     ///         any prohibition against line breaks, even those introduced by characters with the GL,
     ///         WJ, or ZWJ character class or mandated by the <c>word-break</c> property" — so a line
     ///         may begin with a comma, a word joiner does not join, and <c>keep-all</c> is overruled.
@@ -225,8 +265,12 @@ public static class LineBreaker {
     /// <param name="opportunities">Receives the positions, ascending, ending with the text length.</param>
     /// <param name="mode">Whether breaking inside a word is allowed, forbidden, or left to UAX#14.</param>
     /// <remarks>
-    ///     ⚠ <b>This is where <c>word-break</c> belongs and <c>overflow-wrap</c> does not, and the two
-    ///     look interchangeable until you write them down.</b> <c>overflow-wrap</c> is a decision the
+    ///     ⚠
+    ///     <b>
+    ///         This is where <c>word-break</c> belongs and <c>overflow-wrap</c> does not, and the two
+    ///         look interchangeable until you write them down.
+    ///     </b>
+    ///     <c>overflow-wrap</c> is a decision the
     ///     line <i>filler</i> takes when nothing fits — see <see cref="TextWrapMode" /> — so the
     ///     opportunity list is the same either way and only the last resort changes.
     ///     <c>word-break</c> changes which breaks exist at all, so a word that <i>would</i> have fitted
@@ -256,7 +300,7 @@ public static class LineBreaker {
         WordBreakMode mode,
         LineBreakStrictness strictness
     ) =>
-        Collect(text, opportunities, mode, strictness, contentLanguage: null);
+        Collect(text, opportunities, mode, strictness, null);
 
     /// <summary>
     ///     Collects every line break opportunity, under a <c>word-break</c>, a strictness and the
@@ -273,9 +317,13 @@ public static class LineBreaker {
     ///         <i>not</i> the machine's locale.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The fifth argument, and it is a <i>document</i> fact rather than a typographic
-    ///         preference — which is why it is not another value of
-    ///         <see cref="LineBreakStrictness" />.</b> ICU ships <b>six</b> line-breaking rule files
+    ///         ⚠
+    ///         <b>
+    ///             The fifth argument, and it is a <i>document</i> fact rather than a typographic
+    ///             preference — which is why it is not another value of
+    ///             <see cref="LineBreakStrictness" />.
+    ///         </b>
+    ///         ICU ships <b>six</b> line-breaking rule files
     ///         and not four: <c>line.txt</c>, <c>line_normal.txt</c> and <c>line_loose.txt</c>, each
     ///         with a <c>_cj</c> sibling that relaxes things its non-CJK twin does not. A break
     ///         before U+301C, between an ideograph and a hyphen, before the centred punctuation,
@@ -284,9 +332,13 @@ public static class LineBreaker {
     ///         the tailoring is the product of two axes, and this is the second one.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Only <c>ja</c> and <c>zh</c> select it, matching ICU4X's
-    ///         <c>LineBreakOptions::content_locale</c> exactly, and <c>ko</c> deliberately does
-    ///         not.</b> ICU has no Korean line-breaking file — Korean reads the untailored rules —
+    ///         ⚠
+    ///         <b>
+    ///             Only <c>ja</c> and <c>zh</c> select it, matching ICU4X's
+    ///             <c>LineBreakOptions::content_locale</c> exactly, and <c>ko</c> deliberately does
+    ///             not.
+    ///         </b>
+    ///         ICU has no Korean line-breaking file — Korean reads the untailored rules —
     ///         and neither does it have one for <c>yue</c>, <c>wuu</c> or the other Sinitic tags,
     ///         which ICU4X does not map onto <c>zh</c> either. Script and region subtags are ignored,
     ///         so <c>zh-Hant-TW</c> and <c>ja-JP</c> both count: the two <c>_cj</c> files are shared
@@ -294,8 +346,12 @@ public static class LineBreaker {
     ///     </para>
     /// </param>
     /// <remarks>
-    ///     ⚠ <b>An undetermined language is the initial value and answers exactly what this method
-    ///     answered before the parameter existed</b>, which is what keeps the Consortium's 19 338
+    ///     ⚠
+    ///     <b>
+    ///         An undetermined language is the initial value and answers exactly what this method
+    ///         answered before the parameter existed
+    ///     </b>
+    ///     , which is what keeps the Consortium's 19 338
     ///     conformance cases where they were: <c>LineBreakTest.txt</c> is written against
     ///     <c>line.txt</c>, and it is judged with no language and no tailoring. ⚠ Nothing here reads
     ///     <c>CultureInfo.CurrentCulture</c>, for <c>UiElement.ResolvedLanguage</c>'s reason — a
@@ -367,8 +423,14 @@ public static class LineBreaker {
     ///     often written for.
     /// </remarks>
     static bool IsLetterUnit(LineBreakClass value) =>
-        value is LineBreakClass.AL or LineBreakClass.HL or LineBreakClass.NU or LineBreakClass.ID
-            or LineBreakClass.H2 or LineBreakClass.H3 or LineBreakClass.JL or LineBreakClass.JV
+        value is LineBreakClass.AL
+            or LineBreakClass.HL
+            or LineBreakClass.NU
+            or LineBreakClass.ID
+            or LineBreakClass.H2
+            or LineBreakClass.H3
+            or LineBreakClass.JL
+            or LineBreakClass.JV
             or LineBreakClass.JT;
 
     /// <summary>Every line break opportunity in a string.</summary>
@@ -492,7 +554,7 @@ sealed class LineBreakRun {
     /// <param name="strictness">How strict the typography is. CSS's <c>line-break</c>.</param>
     /// <returns>The resolved run.</returns>
     public static LineBreakRun Resolve(ReadOnlySpan<char> text, WordBreakMode mode, LineBreakStrictness strictness) =>
-        Resolve(text, mode, strictness, contentLanguage: null);
+        Resolve(text, mode, strictness, null);
 
     /// <summary>Decodes and resolves a string under both tailoring axes.</summary>
     /// <param name="text">The text.</param>
@@ -507,8 +569,7 @@ sealed class LineBreakRun {
         string? contentLanguage
     ) {
         var run = new LineBreakRun {
-            Strictness = strictness,
-            ChineseOrJapanese = SelectsCjkTailoring(contentLanguage)
+            Strictness = strictness, ChineseOrJapanese = SelectsCjkTailoring(contentLanguage)
         };
 
         var position = 0;
@@ -534,8 +595,13 @@ sealed class LineBreakRun {
             }
 
             var previous = i == 0 ? LineBreakClass.Other : run.classes[i - 1];
-            var attachable = i > 0 && previous is not (LineBreakClass.BK or LineBreakClass.CR
-                or LineBreakClass.LF or LineBreakClass.NL or LineBreakClass.SP or LineBreakClass.ZW);
+            var attachable = i > 0
+                && previous is not (LineBreakClass.BK
+                    or LineBreakClass.CR
+                    or LineBreakClass.LF
+                    or LineBreakClass.NL
+                    or LineBreakClass.SP
+                    or LineBreakClass.ZW);
 
             run.classes.Add(attachable ? previous : LineBreakClass.AL);
             run.attached.Add(attachable);
@@ -549,8 +615,11 @@ sealed class LineBreakRun {
     /// <returns>Whether the CJK tailoring applies.</returns>
     /// <remarks>
     ///     <para>
-    ///         <b>The primary language subtag alone, compared case-insensitively against <c>ja</c>
-    ///         and <c>zh</c>.</b> Everything after the first separator is discarded, because the
+    ///         <b>
+    ///             The primary language subtag alone, compared case-insensitively against <c>ja</c>
+    ///             and <c>zh</c>.
+    ///         </b>
+    ///         Everything after the first separator is discarded, because the
     ///         three <c>_cj</c> files are shared by <c>zh-Hans</c>, <c>zh-Hant</c> and <c>ja</c>
     ///         alike — ICU names all three in one line of each header — so a script or region subtag
     ///         cannot change the answer.
@@ -562,8 +631,12 @@ sealed class LineBreakRun {
     ///         depend on the machine is a golden image that is red on one developer's laptop.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Both separators, because BCP-47 is written with <c>-</c> and .NET culture names
-    ///         are written with either.</b> <c>zh_Hant</c> arrives from a resource file often enough
+    ///         ⚠
+    ///         <b>
+    ///             Both separators, because BCP-47 is written with <c>-</c> and .NET culture names
+    ///             are written with either.
+    ///         </b>
+    ///         <c>zh_Hant</c> arrives from a resource file often enough
     ///         that accepting only the hyphen would silently drop the tailoring on it.
     ///     </para>
     /// </remarks>
@@ -613,8 +686,8 @@ sealed class LineBreakRun {
             // mark behaves as a mark and everything else as a letter.
             LineBreakClass.SA => CharUnicodeInfo.GetUnicodeCategory(codePoint)
                 is UnicodeCategory.NonSpacingMark or UnicodeCategory.SpacingCombiningMark
-                    ? LineBreakClass.CM
-                    : LineBreakClass.AL,
+                ? LineBreakClass.CM
+                : LineBreakClass.AL,
 
             // `CJ` is conditional Japanese starter: small kana, which may or may not start a line
             // depending on typographic strictness. Normal strictness is the default.
@@ -651,8 +724,7 @@ sealed class LineBreakRun {
     ///     hiragana and two katakana iteration marks. All six are <c>NS</c> in the Unicode tables;
     ///     ICU's <c>line_loose.txt</c> subtracts exactly these from <c>$NS</c> and nothing else.
     /// </remarks>
-    static bool IsIterationMark(int codePoint) =>
-        codePoint is 0x3005 or 0x303B or 0x309D or 0x309E or 0x30FD or 0x30FE;
+    static bool IsIterationMark(int codePoint) => codePoint is 0x3005 or 0x303B or 0x309D or 0x309E or 0x30FD or 0x30FE;
 
     /// <summary>
     ///     Whether ICU's <c>_cj</c> rule files allow a break <i>before</i> the code point at
@@ -662,8 +734,12 @@ sealed class LineBreakRun {
     /// <returns>Whether the CJK tailoring in force relaxes a prohibition there.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A rule tailoring and not a class substitution, which is why it could not join
-    ///         <see cref="Substitute" /> the way the iteration marks did.</b> ICU writes each of
+    ///         ⚠
+    ///         <b>
+    ///             A rule tailoring and not a class substitution, which is why it could not join
+    ///             <see cref="Substitute" /> the way the iteration marks did.
+    ///         </b>
+    ///         ICU writes each of
     ///         these by <i>subtracting</i> a handful of code points from <c>$NS</c>, <c>$EX</c> or
     ///         <c>$PO</c>, leaving them in no set and therefore in no prohibition — and there is no
     ///         class that means "in no prohibition". Giving them <c>ID</c> comes close and is wrong
@@ -708,8 +784,16 @@ sealed class LineBreakRun {
 
         // `line_loose_cj.txt`: "before some centered punct 203C, 2047, 2048, 2049, 30FB, FF1A,
         // FF1B, FF65 (all NS) and FF01, FF1F (both EX)."
-        if (codePoint is 0x203C or 0x2047 or 0x2048 or 0x2049 or 0x30FB or 0xFF1A or 0xFF1B or 0xFF65
-            or 0xFF01 or 0xFF1F) {
+        if (codePoint is 0x203C
+            or 0x2047
+            or 0x2048
+            or 0x2049
+            or 0x30FB
+            or 0xFF1A
+            or 0xFF1B
+            or 0xFF65
+            or 0xFF01
+            or 0xFF1F) {
             return true;
         }
 
@@ -771,8 +855,12 @@ sealed class LineBreakRun {
     /// <summary>CSS Text 3 § 5.2 <c>break-all</c> — every letter behaves as an ideograph.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Four classes and not "everything", and each of the four is a letter in the sense
-    ///         the property means.</b> <c>AL</c> is the Latin, Greek and Cyrillic bucket that
+    ///         ⚠
+    ///         <b>
+    ///             Four classes and not "everything", and each of the four is a letter in the sense
+    ///             the property means.
+    ///         </b>
+    ///         <c>AL</c> is the Latin, Greek and Cyrillic bucket that
     ///         <see cref="Substitute" /> has already folded <c>AI</c>, <c>SA</c> and the unassigned
     ///         into; <c>HL</c> is Hebrew, which UAX#14 separates only so that LB21a can keep a hyphen
     ///         attached to it; <c>NU</c> is the digits, and folding them is what makes
@@ -885,9 +973,16 @@ sealed class LineBreakRun {
             // asking looks past the answer. `: « E` broke before the E until this stopped skipping.
             var opener = BaseOf(beforeSpaces) - 1;
 
-            if (opener < 0 || classes[opener] is LineBreakClass.BK or LineBreakClass.CR or LineBreakClass.LF
-                or LineBreakClass.NL or LineBreakClass.OP or LineBreakClass.QU or LineBreakClass.GL
-                or LineBreakClass.SP or LineBreakClass.ZW) {
+            if (opener < 0
+                || classes[opener] is LineBreakClass.BK
+                    or LineBreakClass.CR
+                    or LineBreakClass.LF
+                    or LineBreakClass.NL
+                    or LineBreakClass.OP
+                    or LineBreakClass.QU
+                    or LineBreakClass.GL
+                    or LineBreakClass.SP
+                    or LineBreakClass.ZW) {
                 return false;
             }
         }
@@ -1004,12 +1099,14 @@ sealed class LineBreakRun {
             return false;
         }
 
-        if (before == LineBreakClass.PR && after is LineBreakClass.ID or LineBreakClass.EB or LineBreakClass.EM
+        if (before == LineBreakClass.PR
+            && after is LineBreakClass.ID or LineBreakClass.EB or LineBreakClass.EM
             && !relaxedAfter) {
             return false;
         }
 
-        if (before is LineBreakClass.ID or LineBreakClass.EB or LineBreakClass.EM && after == LineBreakClass.PO
+        if (before is LineBreakClass.ID or LineBreakClass.EB or LineBreakClass.EM
+            && after == LineBreakClass.PO
             && !relaxedBefore) {
             return false;
         }
@@ -1172,10 +1269,8 @@ sealed class LineBreakRun {
 
         // `1,000` and `1,000)-` — the number and its separators, then optionally a bracket, then a
         // suffix.
-        if (NumberEndsAt(i - 1)) {
-            if (after is LineBreakClass.NU or LineBreakClass.PO or LineBreakClass.PR) {
-                return true;
-            }
+        if (NumberEndsAt(i - 1) && after is LineBreakClass.NU or LineBreakClass.PO or LineBreakClass.PR) {
+            return true;
         }
 
         if (before is LineBreakClass.CL or LineBreakClass.CP
@@ -1229,8 +1324,15 @@ sealed class LineBreakRun {
     /// </remarks>
     bool StartsWord(int i) {
         var previous = BaseOf(i) - 1;
-        return previous < 0 || classes[previous] is LineBreakClass.BK or LineBreakClass.CR or LineBreakClass.LF
-            or LineBreakClass.NL or LineBreakClass.SP or LineBreakClass.ZW or LineBreakClass.CB or LineBreakClass.GL;
+        return previous < 0
+            || classes[previous] is LineBreakClass.BK
+                or LineBreakClass.CR
+                or LineBreakClass.LF
+                or LineBreakClass.NL
+                or LineBreakClass.SP
+                or LineBreakClass.ZW
+                or LineBreakClass.CB
+                or LineBreakClass.GL;
     }
 
     /// <summary>Whether a position is an opening quotation mark.</summary>
@@ -1250,11 +1352,21 @@ sealed class LineBreakRun {
 
     /// <summary>The classes LB15b allows to follow a closing quotation mark, plus the end of text.</summary>
     static bool ClosesQuotation(LineBreakClass value) =>
-        value == LineBreakClass.Other ||
-        value is LineBreakClass.SP or LineBreakClass.GL or LineBreakClass.WJ or LineBreakClass.CL
-            or LineBreakClass.QU or LineBreakClass.CP or LineBreakClass.EX or LineBreakClass.IS
-            or LineBreakClass.SY or LineBreakClass.BK or LineBreakClass.CR or LineBreakClass.LF
-            or LineBreakClass.NL or LineBreakClass.ZW;
+        value == LineBreakClass.Other
+        || value is LineBreakClass.SP
+            or LineBreakClass.GL
+            or LineBreakClass.WJ
+            or LineBreakClass.CL
+            or LineBreakClass.QU
+            or LineBreakClass.CP
+            or LineBreakClass.EX
+            or LineBreakClass.IS
+            or LineBreakClass.SY
+            or LineBreakClass.BK
+            or LineBreakClass.CR
+            or LineBreakClass.LF
+            or LineBreakClass.NL
+            or LineBreakClass.ZW;
 
     /// <summary>Whether a position holds an East Asian character.</summary>
     /// <remarks>
@@ -1274,8 +1386,11 @@ sealed class LineBreakRun {
     static bool IsLetter(LineBreakClass value) => value is LineBreakClass.AL or LineBreakClass.HL;
 
     static bool IsHangul(LineBreakClass value) =>
-        value is LineBreakClass.JL or LineBreakClass.JV or LineBreakClass.JT
-            or LineBreakClass.H2 or LineBreakClass.H3;
+        value is LineBreakClass.JL
+            or LineBreakClass.JV
+            or LineBreakClass.JT
+            or LineBreakClass.H2
+            or LineBreakClass.H3;
 
     /// <summary>Whether a position is an aksara, a start, or the dotted-circle placeholder.</summary>
     bool IsAksaraLike(int i) =>

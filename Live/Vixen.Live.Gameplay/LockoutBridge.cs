@@ -82,7 +82,10 @@ public sealed class LockoutBridge : ILockoutStore {
     ///     The one event a realm must not ignore: the answer it just gave was <em>"not locked"</em>
     ///     and the honest answer was <em>"ask the cluster"</em>.
     /// </remarks>
-    public event Action<PlayerId>? Cold { add => cold += value; remove => cold -= value; }
+    public event Action<PlayerId>? Cold {
+        add => cold += value;
+        remove => cold -= value;
+    }
 
     Action<PlayerId>? cold;
 
@@ -178,7 +181,7 @@ public sealed class LockoutBridge : ILockoutStore {
     ///     lockout by restarting.
     /// </remarks>
     public int Purge(double now) {
-        var lifted = view.Where(entry => entry.Value.Expires <= now).Select(entry => entry.Key).ToArray();
+        var lifted = view.Where(entry => entry.Value.Expires <= now).Select(static entry => entry.Key).ToArray();
 
         foreach (var key in lifted) {
             view.Remove(key);
@@ -189,7 +192,7 @@ public sealed class LockoutBridge : ILockoutStore {
 
     /// <summary>Takes everything waiting to be written down.</summary>
     /// <returns>The writes, oldest first. Not removed — see <see cref="Settle" />.</returns>
-    public ImmutableArray<PendingLockout> Drain() => [.. outbox];
+    public ImmutableArray<PendingLockout> Drain() => [..outbox];
 
     /// <summary>Says a write landed.</summary>
     /// <param name="write">Which.</param>

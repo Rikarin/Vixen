@@ -11,7 +11,7 @@ public class TextureReliefDeviceTests(ITestOutputHelper output) {
     const int Side = 64;
 
     /// <summary>A wall of height one across the image, x 40..43, on flat ground of nought.</summary>
-    static readonly byte[] Wall = Grey(Side, Side, (x, _) => x is >= 40 and < 44 ? 1f : 0f);
+    static readonly byte[] Wall = Grey(Side, Side, static (x, _) => x is >= 40 and < 44 ? 1f : 0f);
 
     /// <summary>
     ///     A wall of height one, a height scale of a quarter at 64 texels — sixteen texels tall — and a light to
@@ -70,7 +70,7 @@ public class TextureReliefDeviceTests(ITestOutputHelper output) {
     public void Softness_turns_the_edge_into_a_ramp_that_falls_toward_the_wall() {
         using var device = TextureKernelHarness.Open();
 
-        var soft = Shadow(device, MathF.PI / 4f, 0f, softness: 0.3f);
+        var soft = Shadow(device, MathF.PI / 4f, 0f, 0.3f);
 
         // Monotone non-increasing from the open ground to the wall's foot, and partly lit at the old edge.
         for (var x = 1; x < 40; x++) {
@@ -86,14 +86,21 @@ public class TextureReliefDeviceTests(ITestOutputHelper output) {
         using var device = TextureKernelHarness.Open();
 
         // The wall at the left edge, the light to the right: the ground left of it is the right edge.
-        var edge = Grey(Side, Side, (x, _) => x < 4 ? 1f : 0f);
-        var tiled = Bake(device, "Surface/Height Shadow", Side, Side, [new("Height", edge, Grey: true)], Light(MathF.PI / 4f, 0f, 0f));
+        var edge = Grey(Side, Side, static (x, _) => x < 4 ? 1f : 0f);
+        var tiled = Bake(
+            device,
+            "Surface/Height Shadow",
+            Side,
+            Side,
+            [new("Height", edge, true)],
+            Light(MathF.PI / 4f, 0f, 0f)
+        );
         var clamped = Bake(
             device,
             "Surface/Height Shadow",
             Side,
             Side,
-            [new("Height", edge, Grey: true)],
+            [new("Height", edge, true)],
             Light(MathF.PI / 4f, 0f, 0f),
             tiling: false
         );
@@ -110,8 +117,16 @@ public class TextureReliefDeviceTests(ITestOutputHelper output) {
             node.SetValue("Softness", softness);
         };
 
-    static TextureNodeBench.Lanes Shadow(Vixen.Graphics.Vulkan.VulkanDevice device, float elevation, float angle, float softness = 0f) =>
-        Bake(device, "Surface/Height Shadow", Side, Side, [new("Height", Wall, Grey: true)], Light(elevation, angle, softness), tiling: false);
+    static Lanes Shadow(Vixen.Graphics.Vulkan.VulkanDevice device, float elevation, float angle, float softness = 0f) =>
+        Bake(
+            device,
+            "Surface/Height Shadow",
+            Side,
+            Side,
+            [new("Height", Wall, true)],
+            Light(elevation, angle, softness),
+            tiling: false
+        );
 
     /// <summary>A normal leaning right, (0.6, 0, 0.8), and one leaning down, (0, 0.6, 0.8), encoded.</summary>
     static readonly byte[] Right = Solid(Side, Side, 0.8f, 0.5f, 0.9f);
@@ -123,14 +138,14 @@ public class TextureReliefDeviceTests(ITestOutputHelper output) {
         using var device = TextureKernelHarness.Open();
 
         // A mask that is nought on the left quarter, one on the right quarter and a half between.
-        var mask = Grey(Side, Side, (x, _) => x < 16 ? 0f : x >= 48 ? 1f : 0.5f);
+        var mask = Grey(Side, Side, static (x, _) => x < 16 ? 0f : x >= 48 ? 1f : 0.5f);
 
         var mixed = Bake(
             device,
             "Surface/Normal Blend",
             Side,
             Side,
-            [new("Background", Right), new("Foreground", Down), new("Mask", mask, Grey: true)]
+            [new("Background", Right), new("Foreground", Down), new("Mask", mask, true)]
         );
 
         var right = Unit(Decode(Right));
@@ -144,11 +159,11 @@ public class TextureReliefDeviceTests(ITestOutputHelper output) {
         // ⚠ The instrument: a plain colour mix lands somewhere else, shorter than one.
         var plain = (X: (right.X + down.X) / 2f, Y: (right.Y + down.Y) / 2f, Z: (right.Z + down.Z) / 2f);
 
-        Assert.True(MathF.Sqrt((plain.X * plain.X) + (plain.Y * plain.Y) + (plain.Z * plain.Z)) < 0.99f);
+        Assert.True(MathF.Sqrt(plain.X * plain.X + plain.Y * plain.Y + plain.Z * plain.Z) < 0.99f);
 
         var length = Decode(mixed.Texel(30, 5));
 
-        Assert.Equal(1f, MathF.Sqrt((length.X * length.X) + (length.Y * length.Y) + (length.Z * length.Z)), 0.002f);
+        Assert.Equal(1f, MathF.Sqrt(length.X * length.X + length.Y * length.Y + length.Z * length.Z), 0.002f);
 
         // Unmasked, the opacity alone decides, everywhere.
         var faint = Bake(
@@ -157,7 +172,7 @@ public class TextureReliefDeviceTests(ITestOutputHelper output) {
             Side,
             Side,
             [new("Background", Right), new("Foreground", Down)],
-            node => node.SetValue("Opacity", 0.5f)
+            static node => node.SetValue("Opacity", 0.5f)
         );
 
         Near(half, Decode(faint.Texel(5, 5)));
@@ -165,13 +180,13 @@ public class TextureReliefDeviceTests(ITestOutputHelper output) {
     }
 
     static (float X, float Y, float Z) Decode(byte[] picture) =>
-        ((picture[0] / 255f * 2f) - 1f, (picture[1] / 255f * 2f) - 1f, (picture[2] / 255f * 2f) - 1f);
+        (picture[0] / 255f * 2f - 1f, picture[1] / 255f * 2f - 1f, picture[2] / 255f * 2f - 1f);
 
     static (float X, float Y, float Z) Decode((float R, float G, float B, float A) texel) =>
-        ((texel.R * 2f) - 1f, (texel.G * 2f) - 1f, (texel.B * 2f) - 1f);
+        (texel.R * 2f - 1f, texel.G * 2f - 1f, texel.B * 2f - 1f);
 
     static (float X, float Y, float Z) Unit((float X, float Y, float Z) v) {
-        var length = MathF.Sqrt((v.X * v.X) + (v.Y * v.Y) + (v.Z * v.Z));
+        var length = MathF.Sqrt(v.X * v.X + v.Y * v.Y + v.Z * v.Z);
 
         return (v.X / length, v.Y / length, v.Z / length);
     }
@@ -194,15 +209,15 @@ public class TextureReliefDeviceTests(ITestOutputHelper output) {
         output.WriteLine($"adapter: {TextureKernelHarness.Adapter(device)}");
 
         // A block over x 20..27; a length of a quarter of 64 is sixteen texels.
-        var block = Grey(Side, Side, (x, y) => x is >= 20 and < 28 && y is >= 20 and < 44 ? 0.8f : 0f);
+        var block = Grey(Side, Side, static (x, y) => x is >= 20 and < 28 && y is >= 20 and < 44 ? 0.8f : 0f);
 
-        TextureNodeBench.Lanes Extrude(float falloff) =>
+        Lanes Extrude(float falloff) =>
             Bake(
                 device,
                 "Surface/Height Extrude",
                 Side,
                 Side,
-                [new("Height", block, Grey: true)],
+                [new("Height", block, true)],
                 node => {
                     node.SetValue("Angle", 0f);
                     node.SetValue("Length", 0.25f);
@@ -221,7 +236,7 @@ public class TextureReliefDeviceTests(ITestOutputHelper output) {
         Assert.Equal(0f, prism.At(35, 50, 0), 0.01f);
 
         // Eight texels past the block's last column the nearest block texel is eight back: half the length.
-        Assert.Equal(0.8f * (1f - (8f / 16f)), slope.At(27 + 8, 30, 0), 0.03f);
+        Assert.Equal(0.8f * (1f - 8f / 16f), slope.At(27 + 8, 30, 0), 0.03f);
         Assert.Equal(0.8f, slope.At(24, 30, 0), 0.01f);
     }
 }

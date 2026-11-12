@@ -93,8 +93,12 @@ public static class BuiltInTypes {
     ///         legal and is what the library does today.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b><c>SampleCompare</c> needs a fragment stage and <c>SampleCompareLevelZero</c>
-    ///         does not</b>, the same split <c>Sample</c>/<c>SampleLevel</c> has and for the same
+    ///         ⚠
+    ///         <b>
+    ///             <c>SampleCompare</c> needs a fragment stage and <c>SampleCompareLevelZero</c>
+    ///             does not
+    ///         </b>
+    ///         , the same split <c>Sample</c>/<c>SampleLevel</c> has and for the same
     ///         reason: an implicit level of detail is derived from the quad's derivatives, and only
     ///         a fragment stage has a quad. A shadow lookup in a compute pass — a screen-space
     ///         shadow mask, a probe bake — is the level-zero one.

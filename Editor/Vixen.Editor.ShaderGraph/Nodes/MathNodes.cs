@@ -108,7 +108,8 @@ public sealed partial class LerpNode : ShaderNode {
     public DynamicVector Out;
 
     /// <inheritdoc />
-    protected internal override void Emit(RavenEmitter emitter) => emitter.Assign(Out.Expression, $"lerp({A}, {B}, {T})");
+    protected internal override void Emit(RavenEmitter emitter) =>
+        emitter.Assign(Out.Expression, $"lerp({A}, {B}, {T})");
 }
 
 /// <summary>A value held between zero and one.</summary>

@@ -26,10 +26,14 @@ public class BuildStepTests {
 
         BuildStep[] steps = [Step("before", BuildStage.BeforeBuild, ran), Step("after", BuildStage.AfterBuild, ran)];
 
-        Assert.Null(await BuildSteps.RunAsync(steps, BuildStage.BeforeBuild, Anywhere, TestContext.Current.CancellationToken));
+        Assert.Null(
+            await BuildSteps.RunAsync(steps, BuildStage.BeforeBuild, Anywhere, TestContext.Current.CancellationToken)
+        );
         Assert.Equal(["before"], ran);
 
-        Assert.Null(await BuildSteps.RunAsync(steps, BuildStage.AfterBuild, Anywhere, TestContext.Current.CancellationToken));
+        Assert.Null(
+            await BuildSteps.RunAsync(steps, BuildStage.AfterBuild, Anywhere, TestContext.Current.CancellationToken)
+        );
         Assert.Equal(["before", "after"], ran);
     }
 
@@ -47,7 +51,9 @@ public class BuildStepTests {
             Step("first", BuildStage.BeforeBuild, ran) with { Order = -10 }
         ];
 
-        Assert.Null(await BuildSteps.RunAsync(steps, BuildStage.BeforeBuild, Anywhere, TestContext.Current.CancellationToken));
+        Assert.Null(
+            await BuildSteps.RunAsync(steps, BuildStage.BeforeBuild, Anywhere, TestContext.Current.CancellationToken)
+        );
 
         Assert.Equal(["first", "second", "third"], ran);
     }
@@ -56,8 +62,12 @@ public class BuildStepTests {
     ///     A refusal stops the build, names the step that refused, and nothing after it runs.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>The id is in the message because a build that stopped anonymously is a reason nobody
-    ///     can act on.</b> The step is in a plugin the person may not know is loaded.
+    ///     ⚠
+    ///     <b>
+    ///         The id is in the message because a build that stopped anonymously is a reason nobody
+    ///         can act on.
+    ///     </b>
+    ///     The step is in a plugin the person may not know is loaded.
     /// </remarks>
     [Fact]
     public async Task A_refusal_names_the_step_and_nothing_after_it_runs() {
@@ -88,13 +98,19 @@ public class BuildStepTests {
         BuildStepContext? seen = null;
 
         BuildStep[] steps = [
-            new("sample.read", BuildStage.AfterBuild, (context, _) => {
-                seen = context;
-                return ValueTask.FromResult<string?>(null);
-            })
+            new(
+                "sample.read",
+                BuildStage.AfterBuild,
+                (context, _) => {
+                    seen = context;
+                    return ValueTask.FromResult<string?>(null);
+                }
+            )
         ];
 
-        Assert.Null(await BuildSteps.RunAsync(steps, BuildStage.AfterBuild, Anywhere, TestContext.Current.CancellationToken));
+        Assert.Null(
+            await BuildSteps.RunAsync(steps, BuildStage.AfterBuild, Anywhere, TestContext.Current.CancellationToken)
+        );
 
         Assert.NotNull(seen);
         Assert.Equal("Linux", seen.Target);
@@ -110,17 +126,25 @@ public class BuildStepTests {
         using var cancellation = new CancellationTokenSource();
 
         BuildStep[] steps = [
-            new("sample.first", BuildStage.BeforeBuild, (_, _) => {
-                ran.Add("sample.first");
-                cancellation.Cancel();
+            new(
+                "sample.first",
+                BuildStage.BeforeBuild,
+                (_, _) => {
+                    ran.Add("sample.first");
+                    cancellation.Cancel();
 
-                return ValueTask.FromResult<string?>(null);
-            }),
+                    return ValueTask.FromResult<string?>(null);
+                }
+            ),
             Step("sample.second", BuildStage.BeforeBuild, ran)
         ];
 
-        await Assert.ThrowsAsync<OperationCanceledException>(
-            async () => await BuildSteps.RunAsync(steps, BuildStage.BeforeBuild, Anywhere, cancellation.Token)
+        await Assert.ThrowsAsync<OperationCanceledException>(async () => await BuildSteps.RunAsync(
+                steps,
+                BuildStage.BeforeBuild,
+                Anywhere,
+                cancellation.Token
+            )
         );
 
         Assert.Equal(["sample.first"], ran);
@@ -133,13 +157,19 @@ public class BuildStepTests {
     /// </summary>
     [Fact]
     public async Task Nothing_contributed_is_not_a_refusal() {
-        Assert.Null(await BuildSteps.RunAsync([], BuildStage.BeforeBuild, Anywhere, TestContext.Current.CancellationToken));
+        Assert.Null(
+            await BuildSteps.RunAsync([], BuildStage.BeforeBuild, Anywhere, TestContext.Current.CancellationToken)
+        );
         Assert.Empty(BuildSteps.Of([], BuildStage.AfterBuild));
     }
 
     static BuildStep Step(string id, BuildStage stage, List<string> ran, string? refusal = null) =>
-        new(id, stage, (_, _) => {
-            ran.Add(id);
-            return ValueTask.FromResult(refusal);
-        });
+        new(
+            id,
+            stage,
+            (_, _) => {
+                ran.Add(id);
+                return ValueTask.FromResult(refusal);
+            }
+        );
 }

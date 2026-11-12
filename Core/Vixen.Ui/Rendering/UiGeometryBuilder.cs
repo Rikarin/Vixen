@@ -49,8 +49,12 @@ public sealed class UiGeometryBuilder {
     /// <summary>How far a box's quad reaches past the box, so its antialiasing ramp has somewhere to land.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A box used to be drawn on a quad exactly its own size, and that silently threw
-    ///         away the outer half of every edge's ramp.</b> The shader resolves coverage <i>inside</i>
+    ///         ⚠
+    ///         <b>
+    ///             A box used to be drawn on a quad exactly its own size, and that silently threw
+    ///             away the outer half of every edge's ramp.
+    ///         </b>
+    ///         The shader resolves coverage <i>inside</i>
     ///         the geometry, so a fragment the field would have shaded is never generated if the
     ///         rasteriser did not produce it. On an integer-aligned edge that costs nothing — the
     ///         first sample is already half a pixel inside, where coverage is 1. On a
@@ -151,8 +155,12 @@ public sealed class UiGeometryBuilder {
 
     /// <summary>How many paths the cache keeps before it drops the ones this frame did not use.</summary>
     /// <remarks>
-    ///     ⚠ <b>A ceiling rather than a target, and it only bites on a frame that drew more distinct
-    ///     paths than this.</b> An editor's whole chrome is a couple of hundred; the number is here so
+    ///     ⚠
+    ///     <b>
+    ///         A ceiling rather than a target, and it only bites on a frame that drew more distinct
+    ///         paths than this.
+    ///     </b>
+    ///     An editor's whole chrome is a couple of hundred; the number is here so
     ///     that a document which scrolls a thousand distinct icons past cannot grow the cache without
     ///     limit, not because anything is expected to reach it.
     /// </remarks>
@@ -343,16 +351,28 @@ public sealed class UiGeometryBuilder {
     /// <summary>What the interface's white is worth in the units the target is drawn in.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The luminance half of the same handover <see cref="Gamut" /> is the chromaticity
-    ///         half of, and until #670 there was no such thing.</b> A <c>DrawCommand.Color</c> is
-    ///         linear and display-referred: <c>#fff</c> is one, meaning <i>as bright as this surface
-    ///         gets</i>. That is the right unit for a swapchain whose white is the display's, which
+    ///         ⚠
+    ///         <b>
+    ///             The luminance half of the same handover <see cref="Gamut" /> is the chromaticity
+    ///             half of, and until #670 there was no such thing.
+    ///         </b>
+    ///         A <c>DrawCommand.Color</c> is
+    ///         linear and display-referred: <c>#fff</c> is one, meaning
+    ///         <i>
+    ///             as bright as this surface
+    ///             gets
+    ///         </i>
+    ///         . That is the right unit for a swapchain whose white is the display's, which
     ///         is every window this framework has drawn into so far — so the default is one and one
     ///         is a no-op, exactly.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>It is wrong by four orders of magnitude for a scene-referred target, and wrong
-    ///         invisibly.</b> The renderer works in cd/m², where a sunlit surface is tens of
+    ///         ⚠
+    ///         <b>
+    ///             It is wrong by four orders of magnitude for a scene-referred target, and wrong
+    ///             invisibly.
+    ///         </b>
+    ///         The renderer works in cd/m², where a sunlit surface is tens of
     ///         thousands; a HUD drawn into that pass with a white of <i>one</i> is one candela, which
     ///         is not dim, it is black — and a pass that never ran looks the same. Whoever owns the
     ///         pass sets this: BT.2408's reference white is 203 cd/m², which is what an SDR interface
@@ -388,8 +408,12 @@ public sealed class UiGeometryBuilder {
 
     /// <summary>Whether the surface's colour handover has moved since the geometry was built.</summary>
     /// <remarks>
-    ///     ⚠ <b>The fourth part of <see cref="TryBuild" />'s key, and the one whose absence is
-    ///     invisible on the machine most of this is developed on.</b> <see cref="Gamut" /> and
+    ///     ⚠
+    ///     <b>
+    ///         The fourth part of <see cref="TryBuild" />'s key, and the one whose absence is
+    ///         invisible on the machine most of this is developed on.
+    ///     </b>
+    ///     <see cref="Gamut" /> and
     ///     <see cref="WhiteLevel" /> are handed over by the host from the swapchain it was
     ///     <i>granted</i>, and that grant is not known until the swapchain exists — which happens
     ///     inside the host's present, after the frame's tessellation has already run. So the first
@@ -468,8 +492,12 @@ public sealed class UiGeometryBuilder {
     ///         spent inside the triangles and a builder told to halve them has to build again.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Here rather than in a host, and that is this method's whole reason for
-    ///         existing.</b> The key was written out twice — once in <c>UiWindowSurface.Tessellate</c>
+    ///         ⚠
+    ///         <b>
+    ///             Here rather than in a host, and that is this method's whole reason for
+    ///             existing.
+    ///         </b>
+    ///         The key was written out twice — once in <c>UiWindowSurface.Tessellate</c>
     ///         and once, verbatim, in <c>EditorHost.Build</c>, which never called the method that
     ///         already did it. Two copies of a three-part key in the two hosts is the shape this
     ///         repository keeps finding: a feature wired into one renderer and not the other. It is
@@ -539,7 +567,7 @@ public sealed class UiGeometryBuilder {
         // field icon the same weight as a tessellated one is baked into the field, so a surface that
         // switched the fringe off would otherwise keep icons drawn for the one it had.
         if (icons is null || icons.Atlas != glyphs.Atlas || icons.Feather != Fringe) {
-            icons = new IconAtlas(glyphs.Atlas) { Feather = Fringe };
+            icons = new(glyphs.Atlas) { Feather = Fringe };
         }
 
         // ⚠ <b>Every glyph the frame needs goes into the atlas before a single quad reads a region
@@ -643,7 +671,7 @@ public sealed class UiGeometryBuilder {
         // colour above, and nothing downstream can recover a magnitude from a colour — so a frame
         // built at one for a pass that wanted 203 is not a dim HUD, it is an absent one, and the
         // only evidence left is this number. See `UiRenderFeature.Dim`, which is its reader.
-        return new UiGeometry(vertices, indices, draws, shapes) {
+        return new(vertices, indices, draws, shapes) {
             Layers = layers,
             Masks = masks,
             WhiteLevel = WhiteLevel,
@@ -664,8 +692,12 @@ public sealed class UiGeometryBuilder {
     /// <summary>Opens or closes a composited group, and emits the quad that composites it.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The bounds are the ink, and they are read from the vertices rather than from the
-    ///         command.</b> See <see cref="UiLayer" />: opacity isolates a subtree without bounding it,
+    ///         ⚠
+    ///         <b>
+    ///             The bounds are the ink, and they are read from the vertices rather than from the
+    ///             command.
+    ///         </b>
+    ///         See <see cref="UiLayer" />: opacity isolates a subtree without bounding it,
     ///         so a child that overflows its translucent parent is still part of the group. The vertices
     ///         emitted between the push and the pop are the only complete account of what the group
     ///         drew, and they are already here.
@@ -678,9 +710,13 @@ public sealed class UiGeometryBuilder {
     ///         each side and cannot lose ink.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Narrowed by the clip in force where the group opened — and that clip is
-    ///         <i>equal</i> to the one in force where it closes, which is worth saying because it looks
-    ///         like it should not be.</b> A group's element pushes and pops its own <c>overflow</c> clip
+    ///         ⚠
+    ///         <b>
+    ///             Narrowed by the clip in force where the group opened — and that clip is
+    ///             <i>equal</i> to the one in force where it closes, which is worth saying because it looks
+    ///             like it should not be.
+    ///         </b>
+    ///         A group's element pushes and pops its own <c>overflow</c> clip
     ///         entirely inside the bracket, so the stack is back where it started by the time the pop
     ///         arrives. <s>Those differ whenever the group's own element also clips.</s> They do not,
     ///         and a sabotage that read the pop-time clip instead changed no picture and failed no test.
@@ -692,7 +728,7 @@ public sealed class UiGeometryBuilder {
     void Layer(DrawList list, in DrawCommand command, Rectangle clip, Rectangle viewport) {
         if (command.Kind == DrawCommandKind.LayerPush) {
             opening.Add(
-                new Opening(
+                new(
                     draws.Count,
                     vertices.Count,
                     command.Color.A,
@@ -703,7 +739,7 @@ public sealed class UiGeometryBuilder {
                     command.HasMask ? command.Length : 0,
                     command.Shadow,
                     command.Backdrop,
-                    new Rectangle(command.X, command.Y, command.Width, command.Height),
+                    new(command.X, command.Y, command.Width, command.Height),
                     command.Transform,
                     command.Blend,
                     command.Radius
@@ -748,7 +784,7 @@ public sealed class UiGeometryBuilder {
         );
 
         if (reach > 0) {
-            ink = new Rectangle(ink.X - reach, ink.Y - reach, ink.Width + (2f * reach), ink.Height + (2f * reach));
+            ink = new(ink.X - reach, ink.Y - reach, ink.Width + 2f * reach, ink.Height + 2f * reach);
         }
 
         // ⚠ <b>The clip is pulled back through the transform before it narrows anything, and the
@@ -863,7 +899,7 @@ public sealed class UiGeometryBuilder {
 
         if (cast is { } shadow) {
             shadowBounds = Intersect(
-                new Rectangle(bounds.X + shadow.Offset.X, bounds.Y + shadow.Offset.Y, bounds.Width, bounds.Height),
+                new(bounds.X + shadow.Offset.X, bounds.Y + shadow.Offset.Y, bounds.Width, bounds.Height),
                 reachable
             );
 
@@ -967,8 +1003,9 @@ public sealed class UiGeometryBuilder {
         // number stays a counter because a dropped group leaves no gap that way.
         var at = layers.Count;
 
-        while (at > 0 && (layers[at - 1].First > layer.First
-            || (layers[at - 1].First == layer.First && layers[at - 1].Count < layer.Count))) {
+        while (at > 0
+               && (layers[at - 1].First > layer.First
+                   || (layers[at - 1].First == layer.First && layers[at - 1].Count < layer.Count))) {
             at--;
         }
 
@@ -1021,29 +1058,27 @@ public sealed class UiGeometryBuilder {
                 backdropBounds.Y,
                 backdropBounds.X + backdropBounds.Width,
                 backdropBounds.Y + backdropBounds.Height,
-                new Vector2(
+                new(
                     (backdropBounds.X - viewport.X) / viewport.Width,
                     (backdropBounds.Y - viewport.Y) / viewport.Height
                 ),
-                new Vector2(
+                new(
                     (backdropBounds.X + backdropBounds.Width - viewport.X) / viewport.Width,
                     (backdropBounds.Y + backdropBounds.Height - viewport.Y) / viewport.Height
                 ),
-                new Color4(1f, 1f, 1f, open.Alpha * filtered.Alpha),
-                new Vector4(1f, 0f, 0f, 0f),
+                new(1f, 1f, 1f, open.Alpha * filtered.Alpha),
+                new(1f, 0f, 0f, 0f),
                 carrier: true
             );
 
             draws.Add(
-                new UiDraw(
+                new(
                     BatchKind.Image,
                     backdropFirst,
                     indices.Count - backdropFirst,
                     0,
                     Intersect(open.Clip, viewport)
-                ) {
-                    Image = backdropImage
-                }
+                ) { Image = backdropImage }
             );
         }
 
@@ -1055,16 +1090,16 @@ public sealed class UiGeometryBuilder {
                 shadowBounds.Y,
                 shadowBounds.X + shadowBounds.Width,
                 shadowBounds.Y + shadowBounds.Height,
-                new Vector2(
+                new(
                     (shadowBounds.X - drop.Offset.X - viewport.X) / viewport.Width,
                     (shadowBounds.Y - drop.Offset.Y - viewport.Y) / viewport.Height
                 ),
-                new Vector2(
+                new(
                     (shadowBounds.X + shadowBounds.Width - drop.Offset.X - viewport.X) / viewport.Width,
                     (shadowBounds.Y + shadowBounds.Height - drop.Offset.Y - viewport.Y) / viewport.Height
                 ),
-                new Color4(1f, 1f, 1f, open.Alpha * drop.Colour.A),
-                new Vector4(1f, 0f, 0f, 0f),
+                new(1f, 1f, 1f, open.Alpha * drop.Colour.A),
+                new(1f, 0f, 0f, 0f),
 
                 // ⚠ Positions transformed, texture coordinates not — and the displacement above stays
                 // in the surface's space, which is what makes the order right. CSS applies the filter
@@ -1072,19 +1107,17 @@ public sealed class UiGeometryBuilder {
                 // frame and swings round with it, rather than always falling to the same corner of the
                 // screen. Both readings look identical at zero degrees.
                 open.Transform,
-                carrier: true
+                true
             );
 
             draws.Add(
-                new UiDraw(
+                new(
                     BatchKind.Image,
                     shadowFirst,
                     indices.Count - shadowFirst,
                     0,
                     Intersect(open.Clip, viewport)
-                ) {
-                    Image = shadowImage
-                }
+                ) { Image = shadowImage }
             );
         }
 
@@ -1104,13 +1137,13 @@ public sealed class UiGeometryBuilder {
             // ⚠ Relative to the viewport's own origin, which is not always zero. The surface covers the
             // viewport, so a UV is where a document coordinate sits *within* it — dividing the raw
             // coordinate would be right only for a surface whose top left is the document's.
-            new Vector2((bounds.X - viewport.X) / viewport.Width, (bounds.Y - viewport.Y) / viewport.Height),
-            new Vector2(
+            new((bounds.X - viewport.X) / viewport.Width, (bounds.Y - viewport.Y) / viewport.Height),
+            new(
                 (bounds.X + bounds.Width - viewport.X) / viewport.Width,
                 (bounds.Y + bounds.Height - viewport.Y) / viewport.Height
             ),
-            new Color4(1f, 1f, 1f, open.Alpha),
-            new Vector4(1f, 0f, 0f, 0f),
+            new(1f, 1f, 1f, open.Alpha),
+            new(1f, 0f, 0f, 0f),
 
             // ⚠ <b>This is the transform.</b> Four positions moved, four texture coordinates left
             // alone, and a picture that was rasterised upright arrives rotated or scaled. Nothing
@@ -1119,7 +1152,7 @@ public sealed class UiGeometryBuilder {
             open.Transform,
 
             // ⚠ Unlit: the surface is already in the frame's units. See `Quad` (#1418).
-            carrier: true
+            true
         );
 
         // ⚠ The scissor is the ancestor clip *untransformed*, which is the other half of the pre-image
@@ -1127,7 +1160,7 @@ public sealed class UiGeometryBuilder {
         // here is the real one; what the pre-image decided was only how much of the surface was worth
         // keeping on the way in.
         draws.Add(
-            new UiDraw(BatchKind.Image, first, indices.Count - first, 0, Intersect(open.Clip, viewport)) {
+            new(BatchKind.Image, first, indices.Count - first, 0, Intersect(open.Clip, viewport)) {
                 Image = layer.Image
             }
         );
@@ -1145,8 +1178,12 @@ public sealed class UiGeometryBuilder {
     ///     fragment can land outside the hull of the positions, and there is no per-kind margin to add
     ///     here that would not be added twice.
     ///     <para>
-    ///         ⚠ <b>A group's <c>filter: blur()</c> is the one exception, and it is not a per-kind
-    ///         margin.</b> It is applied to the surface the quads were rasterised into rather than to
+    ///         ⚠
+    ///         <b>
+    ///             A group's <c>filter: blur()</c> is the one exception, and it is not a per-kind
+    ///             margin.
+    ///         </b>
+    ///         It is applied to the surface the quads were rasterised into rather than to
     ///         any of them, so it moves coverage outside this hull no matter how each primitive
     ///         expanded itself. That outset is added by <see cref="Layer" />, once per group, and
     ///         deliberately not here — adding it per vertex would grow the hull of a group that
@@ -1174,13 +1211,17 @@ public sealed class UiGeometryBuilder {
         left = MathF.Floor(left);
         top = MathF.Floor(top);
 
-        return new Rectangle(left, top, MathF.Ceiling(right) - left, MathF.Ceiling(bottom) - top);
+        return new(left, top, MathF.Ceiling(right) - left, MathF.Ceiling(bottom) - top);
     }
 
     /// <summary>The number a composited group's surface is named by.</summary>
     /// <remarks>
-    ///     ⚠ <b>A reserved range at the top of the space, so that it cannot collide with a texture a
-    ///     host registered.</b> <see cref="DrawCommand.Image" /> is whatever number a renderer handed
+    ///     ⚠
+    ///     <b>
+    ///         A reserved range at the top of the space, so that it cannot collide with a texture a
+    ///         host registered.
+    ///     </b>
+    ///     <see cref="DrawCommand.Image" /> is whatever number a renderer handed
     ///     out for a texture it owns — <c>ThumbnailCache</c> and <c>Viewport</c> both count up from one
     ///     — and a group's surface has to be named without asking anybody, because it is discovered
     ///     while the geometry is being built. Counting <i>down</i> from the top means the two
@@ -1191,12 +1232,16 @@ public sealed class UiGeometryBuilder {
     ///         neither can be allowed to have its own copy of the rule.
     ///     </para>
     /// </remarks>
-    public static ulong LayerImage(int index) => ulong.MaxValue - (ulong) index;
+    public static ulong LayerImage(int index) => ulong.MaxValue - (ulong)index;
 
     /// <summary>A group that has been pushed and not yet popped.</summary>
     /// <remarks>
-    ///     ⚠ <b>The filter is carried from the <i>push</i>, and <see cref="UiGeometryBuilder.Layer" />
-    ///     never looks at the pop's copy.</b> `DrawListBuilder.Emit` writes the same values onto both
+    ///     ⚠
+    ///     <b>
+    ///         The filter is carried from the <i>push</i>, and <see cref="UiGeometryBuilder.Layer" />
+    ///         never looks at the pop's copy.
+    ///     </b>
+    ///     `DrawListBuilder.Emit` writes the same values onto both
     ///     brackets, so reading either is right today — and the push is the one that has to be read,
     ///     because a pop with no push is dropped and a `LayerPop` a caller assembled by hand carries
     ///     whatever it carries. The same argument the entry clip already makes a few lines up.
@@ -1288,9 +1333,7 @@ public sealed class UiGeometryBuilder {
     /// </remarks>
     int Close(BatchKind kind, int first, DrawBatch batch, Rectangle clip) {
         if (indices.Count > first) {
-            draws.Add(
-                new UiDraw(kind, first, indices.Count - first, batch.Font, clip) { Image = batch.Image }
-            );
+            draws.Add(new(kind, first, indices.Count - first, batch.Font, clip) { Image = batch.Image });
         }
 
         return indices.Count;
@@ -1326,13 +1369,13 @@ public sealed class UiGeometryBuilder {
             top,
             left + field.Quad.Width,
             top + field.Quad.Height,
-            new Vector2((float) field.Region.X / atlas.Width, (float) field.Region.Y / atlas.Height),
-            new Vector2(
-                (float) (field.Region.X + field.Region.Width) / atlas.Width,
-                (float) (field.Region.Y + field.Region.Height) / atlas.Height
+            new((float)field.Region.X / atlas.Width, (float)field.Region.Y / atlas.Height),
+            new(
+                (float)(field.Region.X + field.Region.Width) / atlas.Width,
+                (float)(field.Region.Y + field.Region.Height) / atlas.Height
             ),
             command.Color,
-            new Vector4(field.ScreenPixelRange, 0, 0, 0)
+            new(field.ScreenPixelRange, 0, 0, 0)
         );
 
         FieldPaths++;
@@ -1352,7 +1395,7 @@ public sealed class UiGeometryBuilder {
         // ⚠ Intersected with what is already in force, never replacing it. A push inside a push that
         // set the scissor outright would let a child draw outside the panel that contains it, which
         // is the one thing a clip exists to prevent.
-        var pushed = Intersect(new Rectangle(command.X, command.Y, command.Width, command.Height), current);
+        var pushed = Intersect(new(command.X, command.Y, command.Width, command.Height), current);
         clips.Add(pushed);
         return pushed;
     }
@@ -1363,7 +1406,7 @@ public sealed class UiGeometryBuilder {
         var right = MathF.Min(a.X + a.Width, b.X + b.Width);
         var bottom = MathF.Min(a.Y + a.Height, b.Y + b.Height);
 
-        return new Rectangle(left, top, MathF.Max(0, right - left), MathF.Max(0, bottom - top));
+        return new(left, top, MathF.Max(0, right - left), MathF.Max(0, bottom - top));
     }
 
     /// <summary>A rectangle or a border, as one quad the shader resolves.</summary>
@@ -1384,7 +1427,7 @@ public sealed class UiGeometryBuilder {
         // A plain box's uniform radius is written out as four equal corners rather than kept as a
         // separate path through the shader. One shape of parameters means one branch fewer per pixel
         // and one fewer thing that can disagree with itself.
-        var style = command.HasStyle && (uint) command.Offset < (uint) list.Boxes.Count
+        var style = command.HasStyle && (uint)command.Offset < (uint)list.Boxes.Count
             ? list.Boxes[command.Offset]
             : BoxStyle.Rounded(CornerRadii.Uniform(command.Radius));
 
@@ -1403,10 +1446,10 @@ public sealed class UiGeometryBuilder {
             command.Y - BoxMargin,
             command.X + command.Width + BoxMargin,
             command.Y + command.Height + BoxMargin,
-            new Vector2(-half.X - BoxMargin, -half.Y - BoxMargin),
-            new Vector2(half.X + BoxMargin, half.Y + BoxMargin),
+            new(-half.X - BoxMargin, -half.Y - BoxMargin),
+            new(half.X + BoxMargin, half.Y + BoxMargin),
             command.Color,
-            new Vector4(shapes.Count - 1, 0, 0, 0)
+            new(shapes.Count - 1, 0, 0, 0)
         );
     }
 
@@ -1434,7 +1477,7 @@ public sealed class UiGeometryBuilder {
         var half = new Vector2(command.Width / 2, command.Height / 2);
         var blur = MathF.Max(command.Thickness, 0f);
 
-        var style = command.HasStyle && (uint) command.Offset < (uint) list.Boxes.Count
+        var style = command.HasStyle && (uint)command.Offset < (uint)list.Boxes.Count
             ? list.Boxes[command.Offset]
             : BoxStyle.Rounded(CornerRadii.Uniform(command.Radius));
 
@@ -1453,10 +1496,10 @@ public sealed class UiGeometryBuilder {
             command.Y - margin,
             command.X + command.Width + margin,
             command.Y + command.Height + margin,
-            new Vector2(-half.X - margin, -half.Y - margin),
-            new Vector2(half.X + margin, half.Y + margin),
+            new(-half.X - margin, -half.Y - margin),
+            new(half.X + margin, half.Y + margin),
             command.Color,
-            new Vector4(shapes.Count - 1, 0, 0, 0)
+            new(shapes.Count - 1, 0, 0, 0)
         );
     }
 
@@ -1470,8 +1513,12 @@ public sealed class UiGeometryBuilder {
     ///         sample at once, which is a fourth pipeline and not a fourth branch.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Which is exactly why <see cref="DrawCommand.View" /> rides the <c>shape</c>
-    ///         stream</b> —
+    ///         ⚠
+    ///         <b>
+    ///             Which is exactly why <see cref="DrawCommand.View" /> rides the <c>shape</c>
+    ///             stream
+    ///         </b>
+    ///         —
     ///         <see href="https://github.com/Rikarin/Vixen/issues/611">#611</see>. Three of its four
     ///         components were unread on this path, so a channel isolate and a transfer curve cost
     ///         no attribute, no stride, no second pipeline and no batch break. The one component
@@ -1495,8 +1542,8 @@ public sealed class UiGeometryBuilder {
                 command.Y,
                 command.X + command.Width,
                 command.Y + command.Height,
-                new Vector2(command.Source.X, command.Source.Y),
-                new Vector2(command.Source.X + command.Source.Width, command.Source.Y + command.Source.Height),
+                new(command.Source.X, command.Source.Y),
+                new(command.Source.X + command.Source.Width, command.Source.Y + command.Source.Height),
                 command.Color,
                 command.View.Shape()
             );
@@ -1546,8 +1593,8 @@ public sealed class UiGeometryBuilder {
                 destination[cell].Top,
                 destination[cell].Right,
                 destination[cell].Bottom,
-                new Vector2(source[cell].Left, source[cell].Top),
-                new Vector2(source[cell].Right, source[cell].Bottom),
+                new(source[cell].Left, source[cell].Top),
+                new(source[cell].Right, source[cell].Bottom),
                 command.Color,
                 // ⚠ The same shape on all nine, not `Vector4.Zero` on eight of them. A nine-slice is
                 // one image the batcher happens to emit as nine quads, so a channel picker that
@@ -1592,10 +1639,10 @@ public sealed class UiGeometryBuilder {
             // ⚠ The placement is in ems and the pen is in pixels, so the size multiplies one and not
             // the other. And y runs down the surface while a font's runs up, which is why the top
             // edge is a subtraction.
-            var left = penX + (entry.Left * size);
-            var right = penX + (entry.Right * size);
-            var top = penY - (entry.Top * size);
-            var bottom = penY - (entry.Bottom * size);
+            var left = penX + entry.Left * size;
+            var right = penX + entry.Right * size;
+            var top = penY - entry.Top * size;
+            var bottom = penY - entry.Bottom * size;
 
             var u0 = (float)entry.Region.X / atlas.Width;
             var v0 = (float)entry.Region.Y / atlas.Height;
@@ -1607,10 +1654,10 @@ public sealed class UiGeometryBuilder {
                 top,
                 right,
                 bottom,
-                new Vector2(u0, v0),
-                new Vector2(u1, v1),
+                new(u0, v0),
+                new(u1, v1),
                 command.Color,
-                new Vector4(entry.ScreenPixelRange * size, 0, 0, 0)
+                new(entry.ScreenPixelRange * size, 0, 0, 0)
             );
         }
     }
@@ -1618,8 +1665,11 @@ public sealed class UiGeometryBuilder {
     /// <summary>Turns one path command into triangles, re-using the last ones where it can.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>Flattening and tessellating is the most expensive thing this builder does, and an
-    ///         interface asks for the same paths frame after frame.</b> The draw list is rebuilt every
+    ///         <b>
+    ///             Flattening and tessellating is the most expensive thing this builder does, and an
+    ///             interface asks for the same paths frame after frame.
+    ///         </b>
+    ///         The draw list is rebuilt every
     ///         frame from absolute coordinates, so an icon that has not moved emits byte-identical
     ///         segments each time — which is exactly the condition a cache wants.
     ///     </para>
@@ -1652,13 +1702,13 @@ public sealed class UiGeometryBuilder {
         if (!tessellations.TryGetValue(key, out var cached) || !cached.Matches(list, command, Tolerance, Fringe)) {
             Tessellate(list, command);
 
-            cached = new Tessellation(list, command, Tolerance, Fringe, triangles);
+            cached = new(list, command, Tolerance, Fringe, triangles);
             tessellations[key] = cached;
             TessellatedPaths++;
         }
 
         cached.LastUsed = frame;
-        Emit(cached.Triangles, command.Color, new Vector2(command.X, command.Y));
+        Emit(cached.Triangles, command.Color, new(command.X, command.Y));
     }
 
     /// <summary>A path, filled or stroked, as loose triangles.</summary>
@@ -1716,20 +1766,20 @@ public sealed class UiGeometryBuilder {
     ulong KeyOf(DrawList list, DrawCommand command) {
         var hash = 14695981039346656037UL;
 
-        Mix(ref hash, (ulong) command.Kind);
-        Mix(ref hash, (ulong) command.FillRule);
-        Mix(ref hash, (ulong) BitConverter.SingleToUInt32Bits(command.Thickness));
-        Mix(ref hash, (ulong) command.Join);
-        Mix(ref hash, (ulong) command.Cap);
+        Mix(ref hash, (ulong)command.Kind);
+        Mix(ref hash, (ulong)command.FillRule);
+        Mix(ref hash, (ulong)BitConverter.SingleToUInt32Bits(command.Thickness));
+        Mix(ref hash, (ulong)command.Join);
+        Mix(ref hash, (ulong)command.Cap);
         Mix(ref hash, BitConverter.SingleToUInt32Bits(command.MiterLimit));
         Mix(ref hash, BitConverter.SingleToUInt32Bits(Tolerance));
         Mix(ref hash, BitConverter.SingleToUInt32Bits(Fringe));
-        Mix(ref hash, (ulong) command.Length);
+        Mix(ref hash, (ulong)command.Length);
 
         for (var i = 0; i < command.Length; i++) {
             var segment = list.Segments[command.Offset + i];
 
-            Mix(ref hash, (ulong) segment.Verb);
+            Mix(ref hash, (ulong)segment.Verb);
             Mix(ref hash, BitConverter.SingleToUInt32Bits(segment.P0.X));
             Mix(ref hash, BitConverter.SingleToUInt32Bits(segment.P0.Y));
             Mix(ref hash, BitConverter.SingleToUInt32Bits(segment.P1.X));
@@ -1754,15 +1804,20 @@ public sealed class UiGeometryBuilder {
         // ⚠ Materialised before removing, because a dictionary cannot be written while it is being
         // enumerated — and this runs on a frame that has already drawn more paths than the ceiling,
         // so the allocation is the cheapest thing about it.
-        foreach (var key in tessellations.Where(entry => entry.Value.LastUsed != frame).Select(entry => entry.Key).ToArray()) {
+        foreach (var key in tessellations.Where(entry => entry.Value.LastUsed != frame)
+                     .Select(static entry => entry.Key)
+                     .ToArray()) {
             tessellations.Remove(key);
         }
     }
 
     /// <summary>Writes a path's triangles, moved to where the command put them.</summary>
     /// <remarks>
-    ///     ⚠ <b>Every other kind has read <c>X</c> and <c>Y</c> as its position since there were draw
-    ///     commands; a path was the one that ignored them, and it is a strict generalisation to stop.</b>
+    ///     ⚠
+    ///     <b>
+    ///         Every other kind has read <c>X</c> and <c>Y</c> as its position since there were draw
+    ///         commands; a path was the one that ignored them, and it is a strict generalisation to stop.
+    ///     </b>
     ///     A path emitted in absolute coordinates carries zero here and draws exactly where it did.
     ///     What it buys is the option of the other arrangement — geometry in the path's own space and
     ///     the position on the command — which is what makes a cache over the geometry hit for the
@@ -1787,11 +1842,11 @@ public sealed class UiGeometryBuilder {
                 // reads `Shape.x` for the same reason the text shader does. Nothing else is read: a
                 // path has no field to sample and no shape to evaluate.
                 vertices.Add(
-                    new UiVertex(
+                    new(
                         vertex.Position + origin,
                         Vector2.Zero,
                         color,
-                        new Vector4(vertex.Coverage, 0, 0, 0)
+                        new(vertex.Coverage, 0, 0, 0)
                     )
                 );
 
@@ -1842,7 +1897,7 @@ public sealed class UiGeometryBuilder {
             miterLimit = command.MiterLimit;
             this.tolerance = tolerance;
             this.fringe = fringe;
-            Triangles = [.. triangles];
+            Triangles = [..triangles];
         }
 
         public bool Matches(DrawList list, DrawCommand command, float tolerance, float fringe) {
@@ -1871,8 +1926,12 @@ public sealed class UiGeometryBuilder {
     /// <summary>Brings one colour into what the surface can show, remembering the answer.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The in-gamut test is ahead of the cache, not behind it, and that ordering is the
-    ///         point.</b> Almost every colour a frame draws is showable — an interface's palette is
+    ///         ⚠
+    ///         <b>
+    ///             The in-gamut test is ahead of the cache, not behind it, and that ordering is the
+    ///             point.
+    ///         </b>
+    ///         Almost every colour a frame draws is showable — an interface's palette is
     ///         in gamut by construction, and on a wide surface even a vivid one usually is — so the
     ///         common path must be the cheapest thing available, and on an sRGB surface that is six
     ///         comparisons against <c>[0, 1]</c> with no matrix, no hash and no memory traffic. Put
@@ -1887,8 +1946,12 @@ public sealed class UiGeometryBuilder {
     ///         be distinct keys.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>One step of linear probing, and it is what makes "two colours are two searches" a
-    ///         property rather than a hope.</b> With a bare direct-mapped table any two tokens that
+    ///         ⚠
+    ///         <b>
+    ///             One step of linear probing, and it is what makes "two colours are two searches" a
+    ///             property rather than a hope.
+    ///         </b>
+    ///         With a bare direct-mapped table any two tokens that
     ///         happened to share a slot evicted each other on every lookup, so a palette of two
     ///         colours could cost a <c>GamutMap.Map</c> per quad for the life of the process —
     ///         invisible except as time. Checking the next slot as well costs one comparison on a
@@ -1931,7 +1994,7 @@ public sealed class UiGeometryBuilder {
             slot = ref second;
         }
 
-        slot = new ShownColour { Source = linear, Shown = mapped, Occupied = true };
+        slot = new() { Source = linear, Shown = mapped, Occupied = true };
 
         return Lit(mapped, colour.A);
     }
@@ -1957,8 +2020,12 @@ public sealed class UiGeometryBuilder {
     ///         should happen. Alpha is absent for the reason <see cref="Show" /> gives.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A fixed mix rather than <see cref="HashCode.Combine{T1,T2,T3}" />, which folds in
-    ///         a seed drawn once per process.</b> Under that, which two colours shared a slot was
+    ///         ⚠
+    ///         <b>
+    ///             A fixed mix rather than <see cref="HashCode.Combine{T1,T2,T3}" />, which folds in
+    ///             a seed drawn once per process.
+    ///         </b>
+    ///         Under that, which two colours shared a slot was
     ///         decided afresh at every start — so the table's collision behaviour could not be
     ///         reproduced on the run where it misbehaved, and a test that counted searches for two
     ///         particular colours was an instrument whose verdict was a coin toss at roughly 1 in
@@ -1980,7 +2047,7 @@ public sealed class UiGeometryBuilder {
         hash *= 2246822519u;
         hash ^= hash >> 13;
 
-        return (int) (hash % Slots);
+        return (int)(hash % Slots);
     }
 
     /// <summary>One box's record, with every colour the shader will read brought into gamut.</summary>
@@ -2019,8 +2086,12 @@ public sealed class UiGeometryBuilder {
 
     /// <summary>A gradient's far colour, brought into the surface's gamut — if there is a gradient.</summary>
     /// <remarks>
-    ///     ⚠ <b>Guarded on the shape, because <see cref="UiShape" /> carries an end colour whether or
-    ///     not one is used and the shader reads it only when there is a gradient.</b> Mapping a
+    ///     ⚠
+    ///     <b>
+    ///         Guarded on the shape, because <see cref="UiShape" /> carries an end colour whether or
+    ///         not one is used and the shader reads it only when there is a gradient.
+    ///     </b>
+    ///     Mapping a
     ///     field nothing samples would be work spent on nothing, and worse, it would let a colour
     ///     that never reaches a pixel show up in <see cref="MappedColours" /> — a diagnostic that
     ///     counts invisible repairs is one nobody can act on.
@@ -2033,8 +2104,7 @@ public sealed class UiGeometryBuilder {
     ///     of a two-stop gradient is a lane the shader never samples, so mapping it would inflate
     ///     <see cref="MappedColours" /> on every ordinary <c>bg-linear-*</c> in the interface.
     /// </remarks>
-    Color4 Via(BoxStyle style) =>
-        style.HasGradient && style.HasVia ? Show(style.GradientVia) : style.GradientVia;
+    Color4 Via(BoxStyle style) => style.HasGradient && style.HasVia ? Show(style.GradientVia) : style.GradientVia;
 
     /// <summary>One remembered repair: where a colour was, and where it lands on this surface.</summary>
     /// <remarks>
@@ -2053,15 +2123,23 @@ public sealed class UiGeometryBuilder {
 
     /// <summary>Four vertices and six indices, wound the same way every time.</summary>
     /// <remarks>
-    ///     ⚠ <b><paramref name="placed" /> moves the four positions and leaves the four texture
-    ///     coordinates exactly where they were, and that asymmetry is the whole of how a transform is
-    ///     painted.</b> The coordinates name a place in a surface the group was rasterised into
+    ///     ⚠
+    ///     <b>
+    ///         <paramref name="placed" /> moves the four positions and leaves the four texture
+    ///         coordinates exactly where they were, and that asymmetry is the whole of how a transform is
+    ///         painted.
+    ///     </b>
+    ///     The coordinates name a place in a surface the group was rasterised into
     ///     untransformed; the positions say where that picture goes. Transforming both would be a
     ///     no-op, and transforming the coordinates alone would sample a rotated window onto an
     ///     upright picture.
     ///     <para>
-    ///         ⚠ <b>Exact for an affine, and exact for a homography only because the vertex carries
-    ///         the <c>w</c>.</b> Both executors interpolate the coordinate across the two triangles —
+    ///         ⚠
+    ///         <b>
+    ///             Exact for an affine, and exact for a homography only because the vertex carries
+    ///             the <c>w</c>.
+    ///         </b>
+    ///         Both executors interpolate the coordinate across the two triangles —
     ///         the software one by barycentrics in <c>SoftwareUiRasterizer.Triangle</c>, the device by
     ///         the rasteriser's own — and the composition of an affine map with a linear interpolation
     ///         is that same interpolation, so the two triangles agree along the shared diagonal and no
@@ -2076,8 +2154,12 @@ public sealed class UiGeometryBuilder {
     ///         is the identity, so every quad that existed before the field holds the same floats.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A corner behind the eye is written as it comes, reflected, with its negative
-    ///         <c>w</c> beside it — and the clip is the rasterisers', not this method's.</b> Its
+    ///         ⚠
+    ///         <b>
+    ///             A corner behind the eye is written as it comes, reflected, with its negative
+    ///             <c>w</c> beside it — and the clip is the rasterisers', not this method's.
+    ///         </b>
+    ///         Its
     ///         projected position is a finite, plausible point on the far side of the vanishing point,
     ///         which is why the sign has to travel with it: the device clips against <c>w = 0</c> in
     ///         hardware (a vertex at <c>z = 0</c> is inside the clip volume exactly when
@@ -2090,8 +2172,12 @@ public sealed class UiGeometryBuilder {
     ///         does a gamut lookup per quad.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b><paramref name="carrier" /> is the composite quads' and nobody else's, and it is
-    ///         what keeps a group from being lit twice (#1418).</b> A quad that samples a group's
+    ///         ⚠
+    ///         <b>
+    ///             <paramref name="carrier" /> is the composite quads' and nobody else's, and it is
+    ///             what keeps a group from being lit twice (#1418).
+    ///         </b>
+    ///         A quad that samples a group's
     ///         surface — the composite, the drop shadow, the filtered backdrop — samples colour those
     ///         same pipelines already wrote in the frame's units, and every stage that draws it
     ///         multiplies the sample by the vertex colour. Its colour is a coverage carrier, not a
@@ -2135,10 +2221,10 @@ public sealed class UiGeometryBuilder {
             (bottomLeft, w.Item4) = Place(matrix, bottomLeft);
         }
 
-        vertices.Add(new UiVertex(topLeft, textureMin, color, shape, w.Item1));
-        vertices.Add(new UiVertex(topRight, new Vector2(textureMax.X, textureMin.Y), color, shape, w.Item2));
-        vertices.Add(new UiVertex(bottomRight, textureMax, color, shape, w.Item3));
-        vertices.Add(new UiVertex(bottomLeft, new Vector2(textureMin.X, textureMax.Y), color, shape, w.Item4));
+        vertices.Add(new(topLeft, textureMin, color, shape, w.Item1));
+        vertices.Add(new(topRight, new(textureMax.X, textureMin.Y), color, shape, w.Item2));
+        vertices.Add(new(bottomRight, textureMax, color, shape, w.Item3));
+        vertices.Add(new(bottomLeft, new(textureMin.X, textureMax.Y), color, shape, w.Item4));
 
         indices.Add(start);
         indices.Add(start + 1);
@@ -2150,8 +2236,12 @@ public sealed class UiGeometryBuilder {
 
     /// <summary>The <c>w</c> a corner exactly on the eye plane is written with instead of zero.</summary>
     /// <remarks>
-    ///     ⚠ <b>Negative, because a point on the eye plane has no image and the clip has to take
-    ///     it.</b> <c>SoftwareUiRasterizer.NearW</c> cuts at a small positive <c>w</c>, so anything
+    ///     ⚠
+    ///     <b>
+    ///         Negative, because a point on the eye plane has no image and the clip has to take
+    ///         it.
+    ///     </b>
+    ///     <c>SoftwareUiRasterizer.NearW</c> cuts at a small positive <c>w</c>, so anything
     ///     at or below zero must arrive below it; writing a positive epsilon would keep the corner
     ///     and hand the rasteriser a position eight orders of magnitude off screen. Big enough that
     ///     the quotient below stays finite for any coordinate a surface can hold — a viewport is
@@ -2168,8 +2258,12 @@ public sealed class UiGeometryBuilder {
     ///         the matrix applied twice per corner for one answer.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Exactly zero is the one divisor that cannot be let through, and not because it is
-    ///         large.</b> Both consumers recover the homogeneous triple as <i>position × w</i> — the
+    ///         ⚠
+    ///         <b>
+    ///             Exactly zero is the one divisor that cannot be let through, and not because it is
+    ///             large.
+    ///         </b>
+    ///         Both consumers recover the homogeneous triple as <i>position × w</i> — the
     ///         software rasteriser's <c>Between</c> in so many words, the vertex stage as
     ///         <c>float4(xy·w, 0, w)</c> — and that recovery is exact for a negative <c>w</c> and
     ///         undefined for a zero one: the corner projects to an infinity and the product is
@@ -2180,8 +2274,12 @@ public sealed class UiGeometryBuilder {
     ///         corner it came from.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And it is a guard rather than a live path, which is why no test reaches it — that
-    ///         was measured rather than assumed.</b> The one call that passes a matrix is the layer
+    ///         ⚠
+    ///         <b>
+    ///             And it is a guard rather than a live path, which is why no test reaches it — that
+    ///             was measured rather than assumed.
+    ///         </b>
+    ///         The one call that passes a matrix is the layer
     ///         composite quad, and it is built only after <c>Invert</c> and
     ///         <see cref="UiTransform.TryBounds" /> have both succeeded over the viewport — which is
     ///         exactly the statement that every screen point's pre-image is in FRONT of the eye, since

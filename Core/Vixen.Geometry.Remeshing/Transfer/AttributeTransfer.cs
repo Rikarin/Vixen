@@ -17,14 +17,22 @@ namespace Vixen.Geometry.Remeshing;
 ///         indexed by the mesh's own indices.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Colours are per <i>corner</i> and weights are per <i>position</i>, and the split is
-///         not arbitrary.</b> A colour is a statement about the surface's appearance and can
+///         ⚠
+///         <b>
+///             Colours are per <i>corner</i> and weights are per <i>position</i>, and the split is
+///             not arbitrary.
+///         </b>
+///         A colour is a statement about the surface's appearance and can
 ///         legitimately jump across a seam; a weight is a statement about where the surface moves to,
 ///         and two corners at one position that moved differently would tear the mesh open.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Every channel is optional and an empty one means "the source had none", not
-///         "zero".</b> A source with no colours must not come back with a mesh painted black.
+///         ⚠
+///         <b>
+///             Every channel is optional and an empty one means "the source had none", not
+///             "zero".
+///         </b>
+///         A source with no colours must not come back with a mesh painted black.
 ///     </para>
 /// </remarks>
 public sealed record SourceAttributes {
@@ -37,8 +45,10 @@ public sealed record SourceAttributes {
     /// <summary>Where each bone's mirror sits, entry <i>i</i> being bone <i>i</i>'s, or null for none.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>Only <see cref="RemeshSettings.Symmetry" /> reads this, and it is what makes a
-    ///         symmetric remesh of a <i>rigged</i> mesh possible at all.</b>
+    ///         <b>
+    ///             Only <see cref="RemeshSettings.Symmetry" /> reads this, and it is what makes a
+    ///             symmetric remesh of a <i>rigged</i> mesh possible at all.
+    ///         </b>
     ///         <c>docs/plan/41-automatic-retopology.md</c> § D11 solves one half and reflects it, so a
     ///         mirrored vertex's weights are the kept half's weights — but they belong to the
     ///         <i>mirrored</i> bone, and a reflected left elbow drives the right one. This says which
@@ -50,8 +60,12 @@ public sealed record SourceAttributes {
     ///         and a map that is short is refused. The map must cover every bone the binding names.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Indices, and never names — the string matching belongs to whoever has the
-    ///         skeleton.</b> § D2 puts this assembly below anything that knows what a bone is called,
+    ///         ⚠
+    ///         <b>
+    ///             Indices, and never names — the string matching belongs to whoever has the
+    ///             skeleton.
+    ///         </b>
+    ///         § D2 puts this assembly below anything that knows what a bone is called,
     ///         and a naming convention baked in here would be a convention every rig in the engine had
     ///         to share. <c>ProxyShapeDocument.Sided</c> is the convention this repository already
     ///         carries — <c>_l</c>/<c>_r</c>, <c>left</c>/<c>right</c> and their spellings — and a
@@ -94,8 +108,12 @@ public sealed record TransferSettings {
 
     /// <summary>The angle, in degrees, above which two output faces do not share a shading normal.</summary>
     /// <remarks>
-    ///     ⚠ <b>The fallback for a source whose smoothing groups are all zero, which is most
-    ///     sources.</b> Nobody authors smoothing groups on a generated mesh, so a reconstruction that
+    ///     ⚠
+    ///     <b>
+    ///         The fallback for a source whose smoothing groups are all zero, which is most
+    ///         sources.
+    ///     </b>
+    ///     Nobody authors smoothing groups on a generated mesh, so a reconstruction that
     ///     trusted them alone would average one normal across every hard edge in the model — exactly
     ///     the artefact smoothing groups exist to prevent. Where the source <i>does</i> carry them
     ///     they partition first and unconditionally, and this only subdivides further.
@@ -133,8 +151,11 @@ public readonly record struct TransferResult(
 /// <summary>docs/plan/41 § D12's stage seven: the output carries the input, or it is useless.</summary>
 /// <remarks>
 ///     <para>
-///         <b>Closest-point queries against the source, driven by
-///         <see cref="TriangleTree" />.</b> Normals and texture coordinates and colours are
+///         <b>
+///             Closest-point queries against the source, driven by
+///             <see cref="TriangleTree" />.
+///         </b>
+///         Normals and texture coordinates and colours are
 ///         interpolated barycentrically at the point the output landed on; face groups are decided by
 ///         the majority of the area they cover; skinning weights are interpolated, clamped and
 ///         renormalised. Doc 41 calls this "what makes it useful rather than impressive", and the
@@ -144,8 +165,12 @@ public readonly record struct TransferResult(
 ///         that did not is a downgrade.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Face groups are decided by covered area and never by the nearest face, and that is
-///         not a micro-optimisation.</b> § D12: nearest-face assignment <i>shreds</i> along a
+///         ⚠
+///         <b>
+///             Face groups are decided by covered area and never by the nearest face, and that is
+///             not a micro-optimisation.
+///         </b>
+///         § D12: nearest-face assignment <i>shreds</i> along a
 ///         material boundary — the quads either side of it alternate, because which face is nearest
 ///         flips from one quad to the next — and the result is a sawtooth seam that reads as a UV bug
 ///         and gets debugged as one for a day. Integrating over the quad instead makes the boundary a
@@ -155,13 +180,21 @@ public readonly record struct TransferResult(
 ///         many boundary edges to describe.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Every query is made from a point <i>inside</i> the output face rather than from the
-///         vertex itself.</b> An output vertex on a hard edge is equidistant from both sides of it,
+///         ⚠
+///         <b>
+///             Every query is made from a point <i>inside</i> the output face rather than from the
+///             vertex itself.
+///         </b>
+///         An output vertex on a hard edge is equidistant from both sides of it,
 ///         so the triangle a closest-point query returns there is whichever the traversal reached
 ///         first — and the normal, the texture coordinate and the colour it hands back all belong to
 ///         a face chosen by the shape of a tree. Insetting toward the face's own centroid asks the
-///         question the corner is actually asking: <i>what is the source like on my side of the
-///         crease</i>. It is the same mechanism that keeps a texture-coordinate seam from being
+///         question the corner is actually asking:
+///         <i>
+///             what is the source like on my side of the
+///             crease
+///         </i>
+///         . It is the same mechanism that keeps a texture-coordinate seam from being
 ///         interpolated across.
 ///     </para>
 ///     <para>
@@ -313,16 +346,24 @@ public static class AttributeTransfer {
     /// <summary>The face group and smoothing group covering the majority of each output face's area.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The integral is over the output face and it is measuring which source group the
-    ///         face mostly sits on.</b> A true source-area integral would need the two surfaces
+    ///         ⚠
+    ///         <b>
+    ///             The integral is over the output face and it is measuring which source group the
+    ///             face mostly sits on.
+    ///         </b>
+    ///         A true source-area integral would need the two surfaces
     ///         intersected, which is a mesh boolean and costs more than the whole remesh; the
     ///         quantity that decision actually turns on is the same either way, because a quad and
     ///         the source under it differ in area by a factor that is common to every group voting on
     ///         it and so cancels out of a comparison.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Votes are tallied in a list rather than a dictionary, and the tie goes to the
-    ///         lower group.</b> § D14: two runs must reach the same answer, and a hash order is not a
+    ///         ⚠
+    ///         <b>
+    ///             Votes are tallied in a list rather than a dictionary, and the tie goes to the
+    ///             lower group.
+    ///         </b>
+    ///         § D14: two runs must reach the same answer, and a hash order is not a
     ///         function of the input. There are one or two groups over a quad and three is exotic, so
     ///         the linear scan is also the faster structure.
     ///     </para>
@@ -355,7 +396,7 @@ public static class AttributeTransfer {
                 var share = area / (AreaSamples * AreaSamples);
 
                 foreach (var (u, v) in Lattice()) {
-                    var point = a + ((b - a) * u) + ((c - a) * v);
+                    var point = a + (b - a) * u + (c - a) * v;
                     var hit = surface.Tree.Closest(point);
 
                     if (hit.Triangle < 0) {
@@ -386,10 +427,10 @@ public static class AttributeTransfer {
 
         for (var i = 0; i < AreaSamples; i++) {
             for (var j = 0; j + i < AreaSamples; j++) {
-                yield return ((i * Step) + Third, (j * Step) + Third);
+                yield return (i * Step + Third, j * Step + Third);
 
                 if (j + i + 1 < AreaSamples) {
-                    yield return ((i * Step) + (2f * Third), (j * Step) + (2f * Third));
+                    yield return (i * Step + 2f * Third, j * Step + 2f * Third);
                 }
             }
         }
@@ -439,9 +480,9 @@ public static class AttributeTransfer {
     static Vector4 Color(SourceSurface surface, IReadOnlyList<Vector4> colors, int triangle, Vector3 barycentric) {
         var slots = surface.CornersOf(triangle);
 
-        return (colors[slots[0]] * barycentric.X)
-            + (colors[slots[1]] * barycentric.Y)
-            + (colors[slots[2]] * barycentric.Z);
+        return colors[slots[0]] * barycentric.X
+            + colors[slots[1]] * barycentric.Y
+            + colors[slots[2]] * barycentric.Z;
     }
 
     /// <summary>§ D12's smoothing-group-aware reconstruction: which output faces may share a normal.</summary>
@@ -610,7 +651,7 @@ public static class AttributeTransfer {
                 }
 
                 for (var slot = 0; slot < source.Stride; slot++) {
-                    var influence = source.Influences[(slots[corner] * source.Stride) + slot];
+                    var influence = source.Influences[slots[corner] * source.Stride + slot];
 
                     if (influence.Weight <= 0f) {
                         continue;
@@ -622,9 +663,9 @@ public static class AttributeTransfer {
 
             // ⚠ Descending weight, ties on the bone index. Both halves are load-bearing: the first
             // is which influence is worth keeping, and the second is why two runs keep the same one.
-            gathered.Sort((one, two) => two.Weight != one.Weight
-                ? two.Weight.CompareTo(one.Weight)
-                : one.Bone.CompareTo(two.Bone)
+            gathered.Sort(static (one, two) => two.Weight != one.Weight
+                    ? two.Weight.CompareTo(one.Weight)
+                    : one.Bone.CompareTo(two.Bone)
             );
 
             var kept = Math.Min(gathered.Count, limit);
@@ -641,7 +682,7 @@ public static class AttributeTransfer {
             }
 
             for (var slot = 0; slot < kept; slot++) {
-                influences[(vertex * limit) + slot] = new(gathered[slot].Bone, gathered[slot].Weight / total);
+                influences[vertex * limit + slot] = new(gathered[slot].Bone, gathered[slot].Weight / total);
             }
         }
 

@@ -22,15 +22,23 @@ public sealed partial class LayoutTree {
         bool performLayout,
         bool flexSkipped
     ) {
-        var leadingContentInsetMain = StyleResolution.FlexStartContentInset(in styles[index], mainAxis, direction, ownerWidth);
-        var trailingContentInsetMain = StyleResolution.FlexEndContentInset(in styles[index], mainAxis, direction, ownerWidth);
+        var leadingContentInsetMain =
+            StyleResolution.FlexStartContentInset(in styles[index], mainAxis, direction, ownerWidth);
+        var trailingContentInsetMain =
+            StyleResolution.FlexEndContentInset(in styles[index], mainAxis, direction, ownerWidth);
         var gap = StyleResolution.GapForAxis(in styles[index], mainAxis, availableInnerMainDim);
         var mainDimension = FlexAxis.DimensionOf(mainAxis);
 
         // Under "at most" rules there is no free space to hand out unless a minimum forces some.
         if (sizingModeMainDim == SizingMode.FitContent && line.RemainingFreeSpace > 0f) {
-            var min = StyleResolution.ResolvedMinDimension(in styles[index], mainDimension, mainAxisOwnerSize, ownerWidth, direction);
-            if (styles[index].MinDimensions[(int) mainDimension].IsDefined && !float.IsNaN(min)) {
+            var min = StyleResolution.ResolvedMinDimension(
+                in styles[index],
+                mainDimension,
+                mainAxisOwnerSize,
+                ownerWidth,
+                direction
+            );
+            if (styles[index].MinDimensions[(int)mainDimension].IsDefined && !float.IsNaN(min)) {
                 var minAvailableMainDim = min - leadingContentInsetMain - trailingContentInsetMain;
                 var occupied = availableInnerMainDim - line.RemainingFreeSpace;
                 line.RemainingFreeSpace = MathF.Max(0f, minAvailableMainDim - occupied);
@@ -85,7 +93,7 @@ public sealed partial class LayoutTree {
         var maxDescent = 0f;
         var isBaseline = IsBaselineLayout(index);
         var children = ChildIds(index);
-        var mainStartEdge = (int) FlexAxis.FlexStartEdge(mainAxis);
+        var mainStartEdge = (int)FlexAxis.FlexStartEdge(mainAxis);
 
         for (var i = line.StartChild; i < line.EndChild; i++) {
             var child = children[i];
@@ -93,7 +101,8 @@ public sealed partial class LayoutTree {
                 continue;
             }
 
-            if (line.RemainingFreeSpace > 0f && StyleResolution.FlexStartMarginIsAuto(in styles[child], mainAxis, direction)) {
+            if (line.RemainingFreeSpace > 0f
+                && StyleResolution.FlexStartMarginIsAuto(in styles[child], mainAxis, direction)) {
                 line.MainDim += line.RemainingFreeSpace / line.AutoMarginCount;
             }
 
@@ -105,7 +114,8 @@ public sealed partial class LayoutTree {
                 line.MainDim += betweenMainDim;
             }
 
-            if (line.RemainingFreeSpace > 0f && StyleResolution.FlexEndMarginIsAuto(in styles[child], mainAxis, direction)) {
+            if (line.RemainingFreeSpace > 0f
+                && StyleResolution.FlexEndMarginIsAuto(in styles[child], mainAxis, direction)) {
                 line.MainDim += line.RemainingFreeSpace / line.AutoMarginCount;
             }
 
@@ -135,8 +145,13 @@ public sealed partial class LayoutTree {
 
             if (isBaseline) {
                 var ascent = CalculateBaseline(child)
-                    + StyleResolution.FlexStartMargin(in styles[child], FlexDirection.Column, direction, availableInnerWidth);
-                var descent = results[child].MeasuredDimensions[(int) Dimension.Height]
+                    + StyleResolution.FlexStartMargin(
+                        in styles[child],
+                        FlexDirection.Column,
+                        direction,
+                        availableInnerWidth
+                    );
+                var descent = results[child].MeasuredDimensions[(int)Dimension.Height]
                     + StyleResolution.MarginForAxis(in styles[child], FlexDirection.Column, availableInnerWidth)
                     - ascent;
 
@@ -186,7 +201,8 @@ public sealed partial class LayoutTree {
                 : totalLineCrossDim + contentInsetAxisCross;
 
         var innerCrossDim =
-            BoundAxis(index, crossAxis, direction, unclampedCrossDim, crossAxisOwnerSize, ownerWidth) - contentInsetAxisCross;
+            BoundAxis(index, crossAxis, direction, unclampedCrossDim, crossAxisOwnerSize, ownerWidth)
+            - contentInsetAxisCross;
         var remaining = innerCrossDim - totalLineCrossDim;
         var alignContent = remaining >= 0f
             ? styles[index].AlignContent
@@ -221,7 +237,7 @@ public sealed partial class LayoutTree {
         }
 
         var children = ChildIds(index);
-        var crossStartEdge = (int) FlexAxis.FlexStartEdge(crossAxis);
+        var crossStartEdge = (int)FlexAxis.FlexStartEdge(crossAxis);
         var start = 0;
 
         for (var lineIndex = 0; lineIndex < lineCount; lineIndex++) {
@@ -247,15 +263,20 @@ public sealed partial class LayoutTree {
                 if (IsLayoutDimensionDefined(child, crossAxis)) {
                     lineHeight = MathF.Max(
                         lineHeight,
-                        results[child].MeasuredDimensions[(int) crossDimension]
+                        results[child].MeasuredDimensions[(int)crossDimension]
                         + StyleResolution.MarginForAxis(in styles[child], crossAxis, availableInnerWidth)
                     );
                 }
 
                 if (ResolveChildAlignment(index, child) == Align.Baseline) {
                     var ascent = CalculateBaseline(child)
-                        + StyleResolution.FlexStartMargin(in styles[child], FlexDirection.Column, direction, availableInnerWidth);
-                    var descent = results[child].MeasuredDimensions[(int) Dimension.Height]
+                        + StyleResolution.FlexStartMargin(
+                            in styles[child],
+                            FlexDirection.Column,
+                            direction,
+                            availableInnerWidth
+                        );
+                    var descent = results[child].MeasuredDimensions[(int)Dimension.Height]
                         + StyleResolution.MarginForAxis(in styles[child], FlexDirection.Column, availableInnerWidth)
                         - ascent;
 
@@ -299,8 +320,18 @@ public sealed partial class LayoutTree {
                         // `align-items: flex-start`: Chrome puts the first row at y=10 and the second
                         // at y=80, and every one of them came out exactly 10 high.
                         results[child].Position[crossStartEdge] = currentLead
-                            + StyleResolution.FlexStartMargin(in styles[child], crossAxis, direction, availableInnerWidth)
-                            + StyleResolution.FlexStartPosition(in styles[child], crossAxis, direction, availableInnerWidth)
+                            + StyleResolution.FlexStartMargin(
+                                in styles[child],
+                                crossAxis,
+                                direction,
+                                availableInnerWidth
+                            )
+                            + StyleResolution.FlexStartPosition(
+                                in styles[child],
+                                crossAxis,
+                                direction,
+                                availableInnerWidth
+                            )
                             + DegradedBaselineShift(index, child, crossAxis, baselineGroupExtent, availableInnerWidth);
                         break;
 
@@ -308,17 +339,22 @@ public sealed partial class LayoutTree {
                         results[child].Position[crossStartEdge] = currentLead
                             + lineHeight
                             - StyleResolution.FlexEndMargin(in styles[child], crossAxis, direction, availableInnerWidth)
-                            - results[child].MeasuredDimensions[(int) crossDimension];
+                            - results[child].MeasuredDimensions[(int)crossDimension];
                         break;
 
                     case Align.Center:
                         results[child].Position[crossStartEdge] =
-                            currentLead + ((lineHeight - results[child].MeasuredDimensions[(int) crossDimension]) / 2f);
+                            currentLead + (lineHeight - results[child].MeasuredDimensions[(int)crossDimension]) / 2f;
                         break;
 
                     case Align.Stretch: {
                         results[child].Position[crossStartEdge] = currentLead
-                            + StyleResolution.FlexStartMargin(in styles[child], crossAxis, direction, availableInnerWidth);
+                            + StyleResolution.FlexStartMargin(
+                                in styles[child],
+                                crossAxis,
+                                direction,
+                                availableInnerWidth
+                            );
 
                         // It was measured against the container's cross size, not the line's.
                         if (HasDefiniteLength(child, crossDimension, availableInnerCrossDim)) {
@@ -326,17 +362,17 @@ public sealed partial class LayoutTree {
                         }
 
                         var childWidth = isMainAxisRow
-                            ? results[child].MeasuredDimensions[(int) Dimension.Width]
+                            ? results[child].MeasuredDimensions[(int)Dimension.Width]
                             + StyleResolution.MarginForAxis(in styles[child], mainAxis, availableInnerWidth)
                             : leadPerLine + lineHeight;
 
                         var childHeight = !isMainAxisRow
-                            ? results[child].MeasuredDimensions[(int) Dimension.Height]
+                            ? results[child].MeasuredDimensions[(int)Dimension.Height]
                             + StyleResolution.MarginForAxis(in styles[child], crossAxis, availableInnerWidth)
                             : leadPerLine + lineHeight;
 
-                        if (Inexact(childWidth, results[child].MeasuredDimensions[(int) Dimension.Width])
-                            && Inexact(childHeight, results[child].MeasuredDimensions[(int) Dimension.Height])) {
+                        if (Inexact(childWidth, results[child].MeasuredDimensions[(int)Dimension.Width])
+                            && Inexact(childHeight, results[child].MeasuredDimensions[(int)Dimension.Height])) {
                             break;
                         }
 
@@ -349,7 +385,7 @@ public sealed partial class LayoutTree {
                             SizingMode.StretchFit,
                             availableInnerWidth,
                             availableInnerHeight,
-                            performLayout: true,
+                            true,
                             currentDepth
                         );
 
@@ -383,17 +419,31 @@ public sealed partial class LayoutTree {
 
                         if (styles[index].FlexWrap == Wrap.WrapReverse) {
                             var ascent = CalculateBaseline(child)
-                                + StyleResolution.FlexStartMargin(in styles[child], FlexDirection.Column, direction, availableInnerWidth);
-                            var descent = results[child].MeasuredDimensions[(int) Dimension.Height]
-                                + StyleResolution.MarginForAxis(in styles[child], FlexDirection.Column, availableInnerWidth)
+                                + StyleResolution.FlexStartMargin(
+                                    in styles[child],
+                                    FlexDirection.Column,
+                                    direction,
+                                    availableInnerWidth
+                                );
+                            var descent = results[child].MeasuredDimensions[(int)Dimension.Height]
+                                + StyleResolution.MarginForAxis(
+                                    in styles[child],
+                                    FlexDirection.Column,
+                                    availableInnerWidth
+                                )
                                 - ascent;
 
                             offset = maxDescent - descent;
                         }
 
-                        results[child].Position[(int) Edge.Top] = currentLead
+                        results[child].Position[(int)Edge.Top] = currentLead
                             + offset
-                            + StyleResolution.FlexStartPosition(in styles[child], FlexDirection.Column, direction, availableInnerCrossDim);
+                            + StyleResolution.FlexStartPosition(
+                                in styles[child],
+                                FlexDirection.Column,
+                                direction,
+                                availableInnerCrossDim
+                            );
                         break;
                     }
 
@@ -417,9 +467,9 @@ public sealed partial class LayoutTree {
         var baselineFunction = BaselineFunctionOf(index);
         if (baselineFunction is not null) {
             var baseline = baselineFunction(
-                new LayoutNodeId(index),
-                results[index].MeasuredDimensions[(int) Dimension.Width],
-                results[index].MeasuredDimensions[(int) Dimension.Height],
+                new(index),
+                results[index].MeasuredDimensions[(int)Dimension.Width],
+                results[index].MeasuredDimensions[(int)Dimension.Height],
                 ContextOf(index)
             );
 
@@ -449,8 +499,12 @@ public sealed partial class LayoutTree {
             return results[index].InlineBaseline;
         }
 
-        if (styles[index].Display is Display.Block or Display.InlineBlock or Display.Inline or Display.FlowRoot or Display.TableCell) {
-            return results[index].MeasuredDimensions[(int) Dimension.Height];
+        if (styles[index].Display is Display.Block
+            or Display.InlineBlock
+            or Display.Inline
+            or Display.FlowRoot
+            or Display.TableCell) {
+            return results[index].MeasuredDimensions[(int)Dimension.Height];
         }
 
         var baselineChild = -1;
@@ -475,10 +529,10 @@ public sealed partial class LayoutTree {
         }
 
         if (baselineChild < 0) {
-            return results[index].MeasuredDimensions[(int) Dimension.Height];
+            return results[index].MeasuredDimensions[(int)Dimension.Height];
         }
 
-        return CalculateBaseline(baselineChild) + results[baselineChild].Position[(int) Edge.Top];
+        return CalculateBaseline(baselineChild) + results[baselineChild].Position[(int)Edge.Top];
     }
 
     /// <summary>Whether anything in this container asks to be aligned on a baseline.</summary>
@@ -500,25 +554,31 @@ public sealed partial class LayoutTree {
         return false;
     }
 
-    static Align FallbackAlign(Align align) => align switch {
-        // Nothing to distribute means nothing to distribute, so these collapse to packing at the
-        // start rather than producing negative gaps.
-        Align.SpaceBetween or Align.Stretch or Align.SpaceAround or Align.SpaceEvenly => Align.FlexStart,
-        _ => align
-    };
+    static Align FallbackAlign(Align align) =>
+        align switch {
+            // Nothing to distribute means nothing to distribute, so these collapse to packing at the
+            // start rather than producing negative gaps.
+            Align.SpaceBetween or Align.Stretch or Align.SpaceAround or Align.SpaceEvenly => Align.FlexStart,
+            _ => align
+        };
 
-    static Justify FallbackJustify(Justify justify) => justify switch {
-        Justify.SpaceBetween or Justify.SpaceAround or Justify.SpaceEvenly => Justify.FlexStart,
-        _ => justify
-    };
+    static Justify FallbackJustify(Justify justify) =>
+        justify switch {
+            Justify.SpaceBetween or Justify.SpaceAround or Justify.SpaceEvenly => Justify.FlexStart,
+            _ => justify
+        };
 
     /// <summary>
     ///     CSS Box Alignment §4.4: a <c>safe</c> alignment packs at the start once it would overflow.
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The one rule, applied at the end of an alignment computation and nowhere
-    ///         earlier.</b> Whether a subject overflows is not knowable from the style — it is the
+    ///         ⚠
+    ///         <b>
+    ///             The one rule, applied at the end of an alignment computation and nowhere
+    ///             earlier.
+    ///         </b>
+    ///         Whether a subject overflows is not knowable from the style — it is the
     ///         sign of the free space, which is the last thing each of the six alignment sites works
     ///         out. So this is deliberately a function of a number rather than a resolution step:
     ///         call it where the free space is in hand, immediately before the <c>switch</c> that

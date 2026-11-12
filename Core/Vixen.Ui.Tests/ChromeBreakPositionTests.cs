@@ -12,8 +12,11 @@ namespace Vixen.Ui.Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>The oracle #257 says exists nowhere else: break positions at actual widths in an
-///         actual font, against a real browser.</b> Parley's 2 048 Chrome-recorded rows carry a
+///         <b>
+///             The oracle #257 says exists nowhere else: break positions at actual widths in an
+///             actual font, against a real browser.
+///         </b>
+///         Parley's 2 048 Chrome-recorded rows carry a
 ///         seed rather than the text and were taken in faces this tree does not commit, which is
 ///         why every pass on that issue sized them as a font decision and a shaping-parity claim
 ///         before a break-position oracle. This file takes the route the same passes named as
@@ -21,8 +24,12 @@ namespace Vixen.Ui.Tests;
 ///         localhost to the desktop app's browser pane, read through <c>Range.getClientRects</c>.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The face is the one <c>Vixen.Ui.Tests</c> already embeds, and Chrome shapes it to
-///         the same advances.</b> Open Sans Regular at 16px: <c>ab cd</c> is 40.297 in Chrome and
+///         ⚠
+///         <b>
+///             The face is the one <c>Vixen.Ui.Tests</c> already embeds, and Chrome shapes it to
+///             the same advances.
+///         </b>
+///         Open Sans Regular at 16px: <c>ab cd</c> is 40.297 in Chrome and
 ///         40.29 here, <c>ab cd  </c> 48.609 against 48.60. So a row that disagrees is a
 ///         <i>breaking</i> disagreement and not a shaping one, which is the property the earlier
 ///         sizing said could not be had without Roboto or Arimo.
@@ -52,7 +59,7 @@ public class ChromeBreakPositionTests {
 
     static FontFace LoadFont() {
         using var stream = Assembly.GetExecutingAssembly()
-            .GetManifestResourceStream("Vixen.Ui.Tests.Fonts.OpenSans-Regular.ttf")
+                .GetManifestResourceStream("Vixen.Ui.Tests.Fonts.OpenSans-Regular.ttf")
             ?? throw new InvalidOperationException("the test font is not embedded");
 
         using var memory = new MemoryStream();
@@ -63,9 +70,13 @@ public class ChromeBreakPositionTests {
 
     /// <summary>This engine's line starts for a paragraph in a box of the given width.</summary>
     /// <remarks>
-    ///     ⚠ <b>The width is on the label and not on the root, and the first version of this file
-    ///     had it the other way and disagreed with Chrome on a paragraph the raw wrapper agreed
-    ///     on.</b> The root is a flex container, a flex item's <c>min-width</c> is <c>auto</c>, and
+    ///     ⚠
+    ///     <b>
+    ///         The width is on the label and not on the root, and the first version of this file
+    ///         had it the other way and disagreed with Chrome on a paragraph the raw wrapper agreed
+    ///         on.
+    ///     </b>
+    ///     The root is a flex container, a flex item's <c>min-width</c> is <c>auto</c>, and
     ///     <c>Zeilenumbruch</c> is 113 points wide — so a label in a 60-point root is 113 wide and
     ///     wraps at 113, which is CSS and not a defect. Chrome's fixture was a block of the width;
     ///     so is this one.
@@ -88,33 +99,34 @@ public class ChromeBreakPositionTests {
         var block = element.Block();
         Assert.NotNull(block);
 
-        return block.Lines.Select(line => line.Start).ToArray();
+        return [..block.Lines.Select(static line => line.Start)];
     }
 
     /// <summary>Chrome's line starts, one row per paragraph and width.</summary>
-    public static TheoryData<string, float, int[]> Recorded => new() {
-        { "the quick brown fox jumps over the lazy dog", 60f, [0, 4, 10, 16, 20, 26, 31, 40] },
-        { "the quick brown fox jumps over the lazy dog", 100f, [0, 10, 20, 31] },
-        { "the quick brown fox jumps over the lazy dog", 150f, [0, 20, 40] },
-        { "the quick brown fox jumps over the lazy dog", 220f, [0, 26] },
-        { "well-known state-of-the-art hyphen-ated words wrap here", 60f, [0, 5, 11, 17, 24, 28, 35, 40, 46, 51] },
-        { "well-known state-of-the-art hyphen-ated words wrap here", 100f, [0, 11, 24, 35, 46] },
-        { "well-known state-of-the-art hyphen-ated words wrap here", 150f, [0, 17, 35, 51] },
-        { "well-known state-of-the-art hyphen-ated words wrap here", 220f, [0, 28, 51] },
-        { "Zeilenumbruch mit längeren Wörtern und Umlauten ähnlich", 60f, [0, 14, 18, 27, 35, 39, 48] },
-        { "Zeilenumbruch mit längeren Wörtern und Umlauten ähnlich", 100f, [0, 14, 27, 39, 48] },
-        { "Zeilenumbruch mit längeren Wörtern und Umlauten ähnlich", 150f, [0, 18, 35, 48] },
-        { "Zeilenumbruch mit längeren Wörtern und Umlauten ähnlich", 220f, [0, 27, 48] },
-        { "a/b c/d paths/like/this and (parenthesised) text, punctuation; more.", 220f, [0, 28, 50] },
-        { "one   two  three    four   ", 60f, [0, 6, 11, 20] },
-        { "one   two  three    four   ", 100f, [0, 11] },
-        { "one   two  three    four   ", 150f, [0, 20] },
-        { "one   two  three    four   ", 220f, [0] },
-        { "numbers 1,000.50 and 3-4 and 12/25 and 5% off", 60f, [0, 8, 17, 25, 29, 35, 42] },
-        { "numbers 1,000.50 and 3-4 and 12/25 and 5% off", 100f, [0, 8, 21, 29, 39] },
-        { "numbers 1,000.50 and 3-4 and 12/25 and 5% off", 150f, [0, 17, 35] },
-        { "numbers 1,000.50 and 3-4 and 12/25 and 5% off", 220f, [0, 25] },
-    };
+    public static TheoryData<string, float, int[]> Recorded =>
+        new() {
+            { "the quick brown fox jumps over the lazy dog", 60f, [0, 4, 10, 16, 20, 26, 31, 40] },
+            { "the quick brown fox jumps over the lazy dog", 100f, [0, 10, 20, 31] },
+            { "the quick brown fox jumps over the lazy dog", 150f, [0, 20, 40] },
+            { "the quick brown fox jumps over the lazy dog", 220f, [0, 26] },
+            { "well-known state-of-the-art hyphen-ated words wrap here", 60f, [0, 5, 11, 17, 24, 28, 35, 40, 46, 51] },
+            { "well-known state-of-the-art hyphen-ated words wrap here", 100f, [0, 11, 24, 35, 46] },
+            { "well-known state-of-the-art hyphen-ated words wrap here", 150f, [0, 17, 35, 51] },
+            { "well-known state-of-the-art hyphen-ated words wrap here", 220f, [0, 28, 51] },
+            { "Zeilenumbruch mit längeren Wörtern und Umlauten ähnlich", 60f, [0, 14, 18, 27, 35, 39, 48] },
+            { "Zeilenumbruch mit längeren Wörtern und Umlauten ähnlich", 100f, [0, 14, 27, 39, 48] },
+            { "Zeilenumbruch mit längeren Wörtern und Umlauten ähnlich", 150f, [0, 18, 35, 48] },
+            { "Zeilenumbruch mit längeren Wörtern und Umlauten ähnlich", 220f, [0, 27, 48] },
+            { "a/b c/d paths/like/this and (parenthesised) text, punctuation; more.", 220f, [0, 28, 50] },
+            { "one   two  three    four   ", 60f, [0, 6, 11, 20] },
+            { "one   two  three    four   ", 100f, [0, 11] },
+            { "one   two  three    four   ", 150f, [0, 20] },
+            { "one   two  three    four   ", 220f, [0] },
+            { "numbers 1,000.50 and 3-4 and 12/25 and 5% off", 60f, [0, 8, 17, 25, 29, 35, 42] },
+            { "numbers 1,000.50 and 3-4 and 12/25 and 5% off", 100f, [0, 8, 21, 29, 39] },
+            { "numbers 1,000.50 and 3-4 and 12/25 and 5% off", 150f, [0, 17, 35] },
+            { "numbers 1,000.50 and 3-4 and 12/25 and 5% off", 220f, [0, 25] }
+        };
 
     [Theory]
     [MemberData(nameof(Recorded))]
@@ -142,19 +154,55 @@ public class ChromeBreakPositionTests {
     ///         assertion is there to demand.
     ///     </para>
     /// </remarks>
-    public static TheoryData<string, float, int[], int[]> Departures => new() {
-        { "a/b c/d paths/like/this and (parenthesised) text, punctuation; more.", 60f, [0, 8, 24, 28, 44, 50, 63], [0, 8, 14, 24, 28, 44, 50, 63] },
-        { "a/b c/d paths/like/this and (parenthesised) text, punctuation; more.", 100f, [0, 8, 24, 28, 44, 50, 63], [0, 8, 19, 28, 44, 50, 63] },
-        { "a/b c/d paths/like/this and (parenthesised) text, punctuation; more.", 150f, [0, 8, 28, 44, 63], [0, 19, 28, 44, 63] },
-        { "email me@example.com or visit https://example.org/path?q=1 today", 60f, [0, 6, 21, 30, 55, 59], [0, 6, 21, 30, 38, 50, 55, 59] },
-        { "email me@example.com or visit https://example.org/path?q=1 today", 100f, [0, 6, 21, 30, 55], [0, 6, 21, 30, 38, 50, 59] },
-        { "email me@example.com or visit https://example.org/path?q=1 today", 150f, [0, 6, 21, 30, 55], [0, 6, 21, 38, 55] },
-        { "email me@example.com or visit https://example.org/path?q=1 today", 220f, [0, 24, 30, 55], [0, 24, 50] },
-    };
+    public static TheoryData<string, float, int[], int[]> Departures =>
+        new() {
+            {
+                "a/b c/d paths/like/this and (parenthesised) text, punctuation; more.",
+                60f,
+                [0, 8, 24, 28, 44, 50, 63],
+                [0, 8, 14, 24, 28, 44, 50, 63]
+            },
+            {
+                "a/b c/d paths/like/this and (parenthesised) text, punctuation; more.",
+                100f,
+                [0, 8, 24, 28, 44, 50, 63],
+                [0, 8, 19, 28, 44, 50, 63]
+            },
+            {
+                "a/b c/d paths/like/this and (parenthesised) text, punctuation; more.",
+                150f,
+                [0, 8, 28, 44, 63],
+                [0, 19, 28, 44, 63]
+            },
+            {
+                "email me@example.com or visit https://example.org/path?q=1 today",
+                60f,
+                [0, 6, 21, 30, 55, 59],
+                [0, 6, 21, 30, 38, 50, 55, 59]
+            },
+            {
+                "email me@example.com or visit https://example.org/path?q=1 today",
+                100f,
+                [0, 6, 21, 30, 55],
+                [0, 6, 21, 30, 38, 50, 59]
+            },
+            {
+                "email me@example.com or visit https://example.org/path?q=1 today",
+                150f,
+                [0, 6, 21, 30, 55],
+                [0, 6, 21, 38, 55]
+            },
+            { "email me@example.com or visit https://example.org/path?q=1 today", 220f, [0, 24, 30, 55], [0, 24, 50] }
+        };
 
     [Theory]
     [MemberData(nameof(Departures))]
-    public void Lines_depart_from_chrome_only_where_the_ledger_says(string text, float width, int[] chrome, int[] vixen) {
+    public void Lines_depart_from_chrome_only_where_the_ledger_says(
+        string text,
+        float width,
+        int[] chrome,
+        int[] vixen
+    ) {
         Assert.NotEqual(chrome, vixen);
         Assert.Equal(vixen, Starts(text, width));
 

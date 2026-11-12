@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Microsoft.Extensions.Logging;
-using Vixen.Core.IO;
 using Vixen.Core.IO.Watch;
 using Vixen.Core.Mathematics;
 using Vixen.Core.Threading;
@@ -102,16 +101,23 @@ public sealed class EditorWorldRendererTests : IDisposable {
     /// <summary>The editor's scheduler reaches both seams <c>AppGraphics</c> wires for a game.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Both were null for the life of every editor Vixen has shipped, because the editor
-    ///         process constructed no scheduler at all</b>
+    ///         ⚠
+    ///         <b>
+    ///             Both were null for the life of every editor Vixen has shipped, because the editor
+    ///             process constructed no scheduler at all
+    ///         </b>
     ///         (<a href="https://github.com/Rikarin/Vixen/issues/1248">#1248</a>): <c>JobScheduler</c>
     ///         appeared in no file under <c>Editor/</c>, <c>.cs</c> or <c>.vxml</c>. So the scene view
     ///         tested every object against every pane's view on the frame thread — the head that is
     ///         most likely to be looking at one scene through four views at once.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Two assertions and not one, because the two seams are wired at different moments
-    ///         and only one of them is order-sensitive.</b> <c>CompositorBuilder.Jobs</c> is read by
+    ///         ⚠
+    ///         <b>
+    ///             Two assertions and not one, because the two seams are wired at different moments
+    ///             and only one of them is order-sensitive.
+    ///         </b>
+    ///         <c>CompositorBuilder.Jobs</c> is read by
     ///         each node <em>as it is built</em>, and the build is inside
     ///         <c>EditorWorldRenderer</c>'s constructor — so this also proves the scheduler arrived
     ///         before the build rather than after it, which a property assigned by the host later
@@ -126,7 +132,7 @@ public sealed class EditorWorldRendererTests : IDisposable {
     /// </remarks>
     [Fact]
     public void The_editors_scheduler_reaches_the_builder_and_the_render_system() {
-        using var scheduler = new JobScheduler(workerCount: 0);
+        using var scheduler = new JobScheduler(0);
 
         var session = EditorSession.Start();
 
@@ -197,12 +203,12 @@ public sealed class EditorWorldRendererTests : IDisposable {
         var session = Running();
         var editor = session.Application;
 
-        Assert.False(editor.ReloadShaders([new FileChange(new VirtualPath("/Rock.png"), FileChangeKind.Changed)]));
+        Assert.False(editor.ReloadShaders([new FileChange(new("/Rock.png"), FileChangeKind.Changed)]));
         Assert.Null(editor.Effects!.Refusal);
 
         File.WriteAllText(Path.Combine(session.Project.Paths.Assets, "Broken.rvn"), "not a shader {{{");
 
-        Assert.True(editor.ReloadShaders([new FileChange(new VirtualPath("/Broken.rvn"), FileChangeKind.Created)]));
+        Assert.True(editor.ReloadShaders([new FileChange(new("/Broken.rvn"), FileChangeKind.Created)]));
         Assert.NotNull(editor.Effects.Refusal);
 
         // ⚠ Through the reference the renderer took in its constructor, which is the only one that
@@ -220,8 +226,12 @@ public sealed class EditorWorldRendererTests : IDisposable {
 
     /// <summary>Nothing paints materials, so everything is painted with one, and it says so.</summary>
     /// <remarks>
-    ///     ⚠ <b>A sentence rather than a silent fallback, and it is not a
-    ///     <c>SceneRenderer.Degrade</c>.</b> That reports a <em>node</em>'s condition into
+    ///     ⚠
+    ///     <b>
+    ///         A sentence rather than a silent fallback, and it is not a
+    ///         <c>SceneRenderer.Degrade</c>.
+    ///     </b>
+    ///     That reports a <em>node</em>'s condition into
     ///     <c>GraphicsCompositor.Degradations</c>; a missing material source is the host's, before any
     ///     document is loaded, and no node could report it. What must not happen is a viewport where
     ///     assigning a material appears to do nothing and nothing anywhere says why.
@@ -287,8 +297,8 @@ public sealed class EditorWorldRendererTests : IDisposable {
         // counter green.
         var centres = Centres(frame);
 
-        Assert.Contains(centres, centre => Near(centre, new Vector3(1.5f, 0.5f, 0f)));
-        Assert.Contains(centres, centre => Near(centre, new Vector3(-2f, 0.5f, 1f)));
+        Assert.Contains(centres, static centre => Near(centre, new(1.5f, 0.5f, 0f)));
+        Assert.Contains(centres, static centre => Near(centre, new(-2f, 0.5f, 1f)));
 
         // And that they are painted at all. A drawable with no material is assigned none, resolves to
         // no variant, and is skipped by `MeshRenderFeature.Draw` — which is a store of two objects
@@ -342,18 +352,22 @@ public sealed class EditorWorldRendererTests : IDisposable {
         var session = Running();
         var frame = session.Application.Frame!;
 
-        session.Scene.CreateShape(PrimitiveKind.Sphere, LocalTransform.At(new Vector3(0f, 4f, 0f)));
+        session.Scene.CreateShape(PrimitiveKind.Sphere, LocalTransform.At(new(0f, 4f, 0f)));
         session.Frame();
 
         Assert.Equal(3, frame.ObjectCount);
 
-        Assert.Contains(Centres(frame), centre => Near(centre, new Vector3(0f, 4f, 0f)));
+        Assert.Contains(Centres(frame), static centre => Near(centre, new(0f, 4f, 0f)));
     }
 
     /// <summary>An entity moved this frame is in the frame where it is now.</summary>
     /// <remarks>
-    ///     ⚠ <b>The ordering assertion, and it is the reason extraction sits immediately after
-    ///     <c>ResolveTransforms</c>.</b> Both extraction queries read <c>WorldTransform</c> and neither
+    ///     ⚠
+    ///     <b>
+    ///         The ordering assertion, and it is the reason extraction sits immediately after
+    ///         <c>ResolveTransforms</c>.
+    ///     </b>
+    ///     Both extraction queries read <c>WorldTransform</c> and neither
     ///     writes one; in a game the phase and the declared access put them after
     ///     <c>TransformSystem</c>, and the editor has no graph to do that. An extraction that ran first
     ///     places every object where it was last frame — which is a gizmo drag the viewport follows one
@@ -364,17 +378,17 @@ public sealed class EditorWorldRendererTests : IDisposable {
         var session = Running();
         var frame = session.Application.Frame!;
 
-        var entity = session.Scene.CreateShape(PrimitiveKind.Sphere, LocalTransform.At(new Vector3(0f, 4f, 0f)));
+        var entity = session.Scene.CreateShape(PrimitiveKind.Sphere, LocalTransform.At(new(0f, 4f, 0f)));
 
         session.Frame();
 
         Assert.Equal(3, frame.ObjectCount);
 
-        session.Scene.World.Get<LocalTransform>(entity).Position = new Vector3(0f, 12f, 0f);
+        session.Scene.World.Get<LocalTransform>(entity).Position = new(0f, 12f, 0f);
         session.Frame();
 
-        Assert.Contains(Centres(frame), centre => Near(centre, new Vector3(0f, 12f, 0f)));
-        Assert.DoesNotContain(Centres(frame), centre => Near(centre, new Vector3(0f, 4f, 0f)));
+        Assert.Contains(Centres(frame), static centre => Near(centre, new(0f, 12f, 0f)));
+        Assert.DoesNotContain(Centres(frame), static centre => Near(centre, new(0f, 4f, 0f)));
     }
 
     /// <summary>The stage mask a host sets before extracting is the one the objects carry.</summary>
@@ -388,20 +402,20 @@ public sealed class EditorWorldRendererTests : IDisposable {
     [Fact]
     public void Objects_carry_the_stage_mask_that_was_set_before_they_were_extracted() {
         using var device2 = new NullDevice();
-        var project = new Editor.Core.EditorProject(new Editor.Core.ProjectPaths(Temporary()));
+        var project = new Editor.Core.EditorProject(new(Temporary()));
 
         using var effects = new EditorEffects(device2, project);
         using var frame = new EditorWorldRenderer(device2, effects.System);
         using var world = new Ecs.World();
 
-        var stage = frame.Renderer.Host.System.AddStage(new RenderStage("Opaque"));
+        var stage = frame.Renderer.Host.System.AddStage(new("Opaque"));
 
         frame.Stages = stage.Mask;
 
         var entity = world.Create();
 
         world.Add(entity, new WorldTransform { Value = Matrix4x4.Identity });
-        Rendering.Ecs.PrimitiveShapes.Attach(world, entity, PrimitiveKind.Cube);
+        PrimitiveShapes.Attach(world, entity, PrimitiveKind.Cube);
 
         frame.Extract(world);
 
@@ -420,7 +434,7 @@ public sealed class EditorWorldRendererTests : IDisposable {
     [Fact]
     public void A_perspective_camera_fills_the_view_with_a_frustum_that_contains_what_it_looks_at() {
         var frame = Running().Application.Frame!;
-        var camera = new EditorCamera { Pivot = new Vector3(3f, 1f, -2f), Distance = 8f };
+        var camera = new EditorCamera { Pivot = new(3f, 1f, -2f), Distance = 8f };
 
         frame.Aim(camera, 16f / 9f);
 
@@ -430,7 +444,7 @@ public sealed class EditorWorldRendererTests : IDisposable {
 
         // Behind the eye, which a frustum whose planes came from the wrong matrix would happily hold.
         Assert.False(
-            frame.View.Frustum.Contains(camera.Position - (camera.Forward * 5f)),
+            frame.View.Frustum.Contains(camera.Position - camera.Forward * 5f),
             "a point behind the camera is inside its frustum."
         );
     }
@@ -438,8 +452,11 @@ public sealed class EditorWorldRendererTests : IDisposable {
     /// <summary>A pane measures screen height, which is what every LOD consumer in the frame reads.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>It did not, and the failure was silent in the way this repository keeps
-    ///         rediscovering: zero is a valid value meaning "off".</b>
+    ///         ⚠
+    ///         <b>
+    ///             It did not, and the failure was silent in the way this repository keeps
+    ///             rediscovering: zero is a valid value meaning "off".
+    ///         </b>
     ///         <c>RenderView.ScreenHeightScale</c> defaults to zero because a shadow cascade and a
     ///         probe face want it — choosing a different mesh for a shadow than for its caster makes
     ///         the shadow stop matching it — so a pane that never set it had opted out of every
@@ -493,11 +510,11 @@ public sealed class EditorWorldRendererTests : IDisposable {
     public void An_orthographic_pane_measures_no_screen_height() {
         var frame = Running().Application.Frame!;
 
-        frame.Aim(new EditorCamera { Distance = 8f }, 1f);
+        frame.Aim(new() { Distance = 8f }, 1f);
 
         Assert.True(frame.View.ScreenHeightScale > 0f, "the perspective half of this test set nothing");
 
-        frame.Aim(new EditorCamera { IsOrthographic = true, Distance = 8f }, 1f);
+        frame.Aim(new() { IsOrthographic = true, Distance = 8f }, 1f);
 
         Assert.Equal(0f, frame.View.ScreenHeightScale);
     }
@@ -539,7 +556,7 @@ public sealed class EditorWorldRendererTests : IDisposable {
 
         var first = frame.View.ViewProjection;
 
-        camera.Pivot = new Vector3(20f, 0f, 0f);
+        camera.Pivot = new(20f, 0f, 0f);
         frame.Aim(camera, 1f);
 
         Assert.Equal(first, frame.View.PreviousViewProjection);
@@ -567,7 +584,7 @@ public sealed class EditorWorldRendererTests : IDisposable {
     [Fact]
     public void Reloading_the_frame_disposes_the_tree_it_replaced() {
         using var device2 = new NullDevice();
-        var project = new Editor.Core.EditorProject(new Editor.Core.ProjectPaths(Temporary()));
+        var project = new Editor.Core.EditorProject(new(Temporary()));
 
         using var effects = new EditorEffects(device2, project);
         using var frame = new EditorWorldRenderer(device2, effects.System);
@@ -638,7 +655,7 @@ public sealed class EditorWorldRendererTests : IDisposable {
     [InlineData(false, 0)]
     public void An_editor_document_naming_UiCompose_is_counted_as_a_recompose(bool enabled, int recomposed) {
         using var device2 = new NullDevice();
-        var project = new Editor.Core.EditorProject(new Editor.Core.ProjectPaths(Temporary()));
+        var project = new Editor.Core.EditorProject(new(Temporary()));
 
         using var effects = new EditorEffects(device2, project);
         using var frame = new EditorWorldRenderer(device2, effects.System);
@@ -658,7 +675,9 @@ public sealed class EditorWorldRendererTests : IDisposable {
                 Stages = [new Rendering.Compositor.RenderStageAsset { Name = "Ui", SortMode = RenderSortMode.ByGroup }],
                 Game = new Rendering.Compositor.SequenceAsset {
                     Name = "Frame",
-                    Children = [scene, new global::Vixen.Ui.Renderer.UiComposeAsset { Name = "Compose", Enabled = enabled }]
+                    Children = [
+                        scene, new global::Vixen.Ui.Renderer.UiComposeAsset { Name = "Compose", Enabled = enabled }
+                    ]
                 }
             },
             world
@@ -679,13 +698,13 @@ public sealed class EditorWorldRendererTests : IDisposable {
         var commands = device2.BeginCommandList(Graphics.QueueKind.Graphics, "frame");
 
         frame.Begin(commands);
-        frame.Compose(graph, [frame.Compositor.Game!], new Int2(64, 64), device2.WaitIdle);
+        frame.Compose(graph, [frame.Compositor.Game!], new(64, 64), device2.WaitIdle);
         graph.Execute(commands);
         commands.Finish();
 
         // The instrument: the node is in the tree the editor built, and ran exactly when enabled.
         var node = Assert.IsType<global::Vixen.Ui.Renderer.UiComposeRenderer>(
-            global::Vixen.Ui.Renderer.UiComposeRenderer.PathTo(frame.Compositor.Game, feature).LastOrDefault()
+            Vixen.Ui.Renderer.UiComposeRenderer.PathTo(frame.Compositor.Game, feature).LastOrDefault()
         );
 
         Assert.Equal(enabled ? 1 : 0, node.ComposeCount);
@@ -697,16 +716,60 @@ public sealed class EditorWorldRendererTests : IDisposable {
         var list = new global::Vixen.Ui.DrawList();
 
         list.BeginFrame();
-        list.Add(new global::Vixen.Ui.DrawCommand(global::Vixen.Ui.DrawCommandKind.LayerPush, 8f, 8f, 40f, 30f, new Color4(1f, 1f, 1f, 0.5f), 0f, 0f));
-        list.Add(new global::Vixen.Ui.DrawCommand(global::Vixen.Ui.DrawCommandKind.Rectangle, 8f, 8f, 40f, 30f, Color4.White, 0f, 0f));
-        list.Add(new global::Vixen.Ui.DrawCommand(global::Vixen.Ui.DrawCommandKind.Rectangle, 12f, 12f, 10f, 8f, new Color4(1f, 0f, 0f, 1f), 0f, 0f));
-        list.Add(new global::Vixen.Ui.DrawCommand(global::Vixen.Ui.DrawCommandKind.LayerPop, 0f, 0f, 0f, 0f, Color4.White, 0f, 0f));
+        list.Add(
+            new(
+                Vixen.Ui.DrawCommandKind.LayerPush,
+                8f,
+                8f,
+                40f,
+                30f,
+                new(1f, 1f, 1f, 0.5f),
+                0f,
+                0f
+            )
+        );
+        list.Add(
+            new(
+                Vixen.Ui.DrawCommandKind.Rectangle,
+                8f,
+                8f,
+                40f,
+                30f,
+                Color4.White,
+                0f,
+                0f
+            )
+        );
+        list.Add(
+            new(
+                Vixen.Ui.DrawCommandKind.Rectangle,
+                12f,
+                12f,
+                10f,
+                8f,
+                new(1f, 0f, 0f, 1f),
+                0f,
+                0f
+            )
+        );
+        list.Add(
+            new(
+                Vixen.Ui.DrawCommandKind.LayerPop,
+                0f,
+                0f,
+                0f,
+                0f,
+                Color4.White,
+                0f,
+                0f
+            )
+        );
         list.EndFrame();
 
         var geometry = new global::Vixen.Ui.Rendering.UiGeometryBuilder().Build(
             list,
-            new global::Vixen.Ui.Text.Rasterizing.GlyphFieldCache(atlas),
-            new Rectangle(0, 0, 64, 64)
+            new(atlas),
+            new(0, 0, 64, 64)
         );
 
         // The instrument: there is a group, so a compose has a surface to render.
@@ -723,9 +786,7 @@ public sealed class EditorWorldRendererTests : IDisposable {
                 device.CreateShader(Graphics.ShaderStage.Fragment, [1, 2, 3, 4], "ui box"),
                 device.CreateShader(Graphics.ShaderStage.Fragment, [1, 2, 3, 4], "ui text"),
                 device.CreateShader(Graphics.ShaderStage.Fragment, [1, 2, 3, 4], "ui solid")
-            ) {
-                Image = device.CreateShader(Graphics.ShaderStage.Fragment, [1, 2, 3, 4], "ui image")
-            },
+            ) { Image = device.CreateShader(Graphics.ShaderStage.Fragment, [1, 2, 3, 4], "ui image") },
             new RenderOutput([Graphics.PixelFormat.Bgra8UNorm])
         );
 
@@ -756,13 +817,13 @@ public sealed class EditorWorldRendererTests : IDisposable {
         // A pass shaped like nothing at all: `Extract` reads the shader's name off the key to qualify
         // every parameter, and the branch under test is reached before any binding is consulted.
         frame.Renderer.SceneEnvironment.Extract(
-            new ParameterCollection(),
-            new Effect { Key = EffectKey.Of("ForwardPlus"), Stages = [] }
+            new(),
+            new() { Key = EffectKey.Of("ForwardPlus"), Stages = [] }
         );
 
         var said = Assert.Single(
             editor.Logs.Snapshot(),
-            record => record.EventId.Id == 4004 && record.Category == EditorApplication.RenderCategory
+            static record => record.EventId.Id == 4004 && record.Category == EditorApplication.RenderCategory
         );
 
         Assert.Equal(LogLevel.Warning, said.Level);
@@ -803,7 +864,7 @@ public sealed class EditorWorldRendererTests : IDisposable {
 
         var warned = Assert.Single(
             editor.Logs.Snapshot(),
-            record => record.Level == LogLevel.Warning
+            static record => record.Level == LogLevel.Warning
                 && record.Message.Contains("thresholds do not descend", StringComparison.Ordinal)
         );
 
@@ -816,7 +877,7 @@ public sealed class EditorWorldRendererTests : IDisposable {
 
         Assert.Single(
             editor.Logs.Snapshot(),
-            record => record.Message.Contains("thresholds do not descend", StringComparison.Ordinal)
+            static record => record.Message.Contains("thresholds do not descend", StringComparison.Ordinal)
         );
 
         // And the other edge: the same group, repaired.
@@ -828,7 +889,7 @@ public sealed class EditorWorldRendererTests : IDisposable {
 
         Assert.Single(
             editor.Logs.Snapshot(),
-            record => record.Message.Contains("thresholds that descend", StringComparison.Ordinal)
+            static record => record.Message.Contains("thresholds that descend", StringComparison.Ordinal)
         );
     }
 
@@ -883,7 +944,7 @@ public sealed class EditorWorldRendererTests : IDisposable {
         public void Dispose() {
             try {
                 if (Directory.Exists(root)) {
-                    Directory.Delete(root, recursive: true);
+                    Directory.Delete(root, true);
                 }
             } catch (IOException) {
                 // A cache the test wrote and the OS has not let go of. Not what is under test.

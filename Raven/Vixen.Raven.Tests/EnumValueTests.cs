@@ -115,7 +115,7 @@ public class EnumValueTests {
             """
         );
 
-        Assert.Contains("RVN2005", diagnostics.Select(d => d.Id));
+        Assert.Contains("RVN2005", diagnostics.Select(static d => d.Id));
     }
 
     /// <summary>

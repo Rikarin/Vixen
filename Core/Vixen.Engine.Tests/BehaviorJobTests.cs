@@ -78,8 +78,8 @@ public sealed class BehaviorJobTests {
 
         Run(loop);
 
-        Assert.All(behaviors, behavior => Assert.Equal(1, behavior.Updates));
-        Assert.All(behaviors, behavior => Assert.Equal(1, behavior.LateUpdates));
+        Assert.All(behaviors, static behavior => Assert.Equal(1, behavior.Updates));
+        Assert.All(behaviors, static behavior => Assert.Equal(1, behavior.LateUpdates));
 
         // Two frames, and two passes a frame: the batch is enabled from the first drain onwards, so
         // the first frame dispatches a pass that finds nothing started and does nothing. That is the
@@ -93,8 +93,12 @@ public sealed class BehaviorJobTests {
     ///     with two, has to reach the same answer.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>A <see cref="JobScheduler" /> with nought workers is what the browser head builds by
-    ///     construction</b>, and it is the configuration in which "dispatch and never wait" looks
+    ///     ⚠
+    ///     <b>
+    ///         A <see cref="JobScheduler" /> with nought workers is what the browser head builds by
+    ///         construction
+    ///     </b>
+    ///     , and it is the configuration in which "dispatch and never wait" looks
     ///     exactly like "dispatch and complete" from every counter — the batch is handed over, the
     ///     frame ends, and the instances are simply never updated. Every other fixture in this file
     ///     runs two workers, so none of them can tell those apart (#328).
@@ -115,8 +119,8 @@ public sealed class BehaviorJobTests {
 
         Run(loop);
 
-        Assert.All(behaviors, behavior => Assert.Equal(1, behavior.Updates));
-        Assert.All(behaviors, behavior => Assert.Equal(1, behavior.LateUpdates));
+        Assert.All(behaviors, static behavior => Assert.Equal(1, behavior.Updates));
+        Assert.All(behaviors, static behavior => Assert.Equal(1, behavior.LateUpdates));
         Assert.Equal(4, loop.Behaviors.DispatchedBatches);
     }
 
@@ -137,7 +141,7 @@ public sealed class BehaviorJobTests {
 
         Run(loop);
 
-        Assert.All(behaviors, behavior => Assert.Equal(1, behavior.Updates));
+        Assert.All(behaviors, static behavior => Assert.Equal(1, behavior.Updates));
         Assert.Equal(0, loop.Behaviors.DispatchedBatches);
     }
 
@@ -152,7 +156,7 @@ public sealed class BehaviorJobTests {
 
         Run(loop);
 
-        Assert.All(behaviors, behavior => Assert.Equal(1, behavior.Updates));
+        Assert.All(behaviors, static behavior => Assert.Equal(1, behavior.Updates));
         Assert.Equal(0, loop.Behaviors.DispatchedBatches);
     }
 
@@ -189,8 +193,8 @@ public sealed class BehaviorJobTests {
 
         Run(loop, 1);
 
-        Assert.All(behaviors[..8], behavior => Assert.Equal(2, behavior.Updates));
-        Assert.All(behaviors[8..], behavior => Assert.Equal(1, behavior.Updates));
+        Assert.All(behaviors[..8], static behavior => Assert.Equal(2, behavior.Updates));
+        Assert.All(behaviors[8..], static behavior => Assert.Equal(1, behavior.Updates));
     }
 
     /// <summary>
@@ -205,7 +209,7 @@ public sealed class BehaviorJobTests {
 
         Run(loop, 1);
 
-        Assert.All(behaviors, behavior => Assert.Equal(0, behavior.Updates));
+        Assert.All(behaviors, static behavior => Assert.Equal(0, behavior.Updates));
 
         // Dispatched and empty-handed, which is the point: the IsStarted test is inside the job.
         Assert.Equal(2, loop.Behaviors.DispatchedBatches);

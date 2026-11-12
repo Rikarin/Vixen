@@ -30,8 +30,12 @@ namespace Vixen.Net.Transport.Composite;
 ///         racing them is a client that gets through a corporate firewall that drops UDP.
 ///     </para>
 ///     <para>
-///         ⚠ <b>A race is resolved on the first transport-level connect unless it is asked to wait
-///         for the first inbound byte, and those are different questions.</b> A handshake is
+///         ⚠
+///         <b>
+///             A race is resolved on the first transport-level connect unless it is asked to wait
+///             for the first inbound byte, and those are different questions.
+///         </b>
+///         A handshake is
 ///         <c>NetworkSession</c>'s — its <c>ConnectRequest</c> and <c>ConnectAccepted</c> — and an
 ///         <see cref="ITransport" /> sees connections, disconnections and opaque bytes. The
 ///         transport-observable proxy for a completed handshake is <i>first inbound data</i>, and
@@ -96,8 +100,12 @@ public sealed class CompositeTransport : ITransport {
 
     /// <summary>Which of them a client half runs on.</summary>
     /// <remarks>
-    ///     ⚠ <b>On a racing composite this is the winner, and the first candidate until there is
-    ///     one.</b> There is no honest answer before the race resolves — every candidate is still a
+    ///     ⚠
+    ///     <b>
+    ///         On a racing composite this is the winner, and the first candidate until there is
+    ///         one.
+    ///     </b>
+    ///     There is no honest answer before the race resolves — every candidate is still a
     ///     possibility — so a caller that needs to know whether it has resolved asks
     ///     <see cref="ClientState" />, which is <see cref="TransportState.Starting" /> for exactly
     ///     that long. ⚠ <b>And with a confirmation budget this can change after it has been read</b>,
@@ -226,7 +234,7 @@ public sealed class CompositeTransport : ITransport {
     /// <exception cref="ArgumentException">There are none.</exception>
     /// <exception cref="ArgumentOutOfRangeException">The client index is not one of them.</exception>
     public CompositeTransport(IReadOnlyList<ITransport> transports, int clientTransport = 0)
-        : this(transports, clientTransport, race: false, TimeSpan.Zero, TimeSpan.Zero) { }
+        : this(transports, clientTransport, false, TimeSpan.Zero, TimeSpan.Zero) { }
 
     /// <summary>
     ///     Combines transports and races the client half across every one of them: whichever connects
@@ -251,8 +259,12 @@ public sealed class CompositeTransport : ITransport {
     /// </exception>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The stagger is counted in the <c>elapsed</c> <see cref="Poll" /> is handed and not
-    ///         from a clock</b>, like everything else in this layer whose behaviour depends on time.
+    ///         ⚠
+    ///         <b>
+    ///             The stagger is counted in the <c>elapsed</c> <see cref="Poll" /> is handed and not
+    ///             from a clock
+    ///         </b>
+    ///         , like everything else in this layer whose behaviour depends on time.
     ///         A wall-clock budget calibrated on an idle machine is this repository's largest source
     ///         of flaky tests; counted this way a race is a pure function of the calls made to it, so
     ///         a test that wants to watch a 250 ms fallback does it in sixteen steps rather than in
@@ -264,8 +276,12 @@ public sealed class CompositeTransport : ITransport {
     ///         race nothing at all.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b><paramref name="confirmWithin" /> is what a firewall that accepts the connection
-    ///         and drops the payload costs.</b> Without it the race is decided by a signal that
+    ///         ⚠
+    ///         <b>
+    ///             <paramref name="confirmWithin" /> is what a firewall that accepts the connection
+    ///             and drops the payload costs.
+    ///         </b>
+    ///         Without it the race is decided by a signal that
     ///         middlebox produces perfectly — it completes the connection — and every other route is
     ///         then gone, which is precisely the case fallback exists for. With it, a candidate that
     ///         connects is reported upwards but held to a budget: something above it will send its
@@ -275,8 +291,11 @@ public sealed class CompositeTransport : ITransport {
     ///         in <see cref="Poll" />'s own <c>elapsed</c>.
     ///     </para>
     ///     <para>
-    ///         <b>What it costs when nothing is wrong is nothing, and when something is it is the
-    ///         budget.</b> A healthy route is confirmed by the first byte the server sends back, which
+    ///         <b>
+    ///             What it costs when nothing is wrong is nothing, and when something is it is the
+    ///             budget.
+    ///         </b>
+    ///         A healthy route is confirmed by the first byte the server sends back, which
     ///         on a session is the <c>ConnectAccepted</c> of a handshake the connect itself provoked —
     ///         so a good link resolves in one round trip rather than in <paramref name="confirmWithin" />,
     ///         and the budget is only ever paid by a route that is not going to work.
@@ -296,7 +315,7 @@ public sealed class CompositeTransport : ITransport {
         ArgumentOutOfRangeException.ThrowIfLessThan(stagger, TimeSpan.Zero);
         ArgumentOutOfRangeException.ThrowIfLessThan(confirmWithin, TimeSpan.Zero);
 
-        return new(transports, clientTransport: 0, race: true, stagger, confirmWithin);
+        return new(transports, 0, true, stagger, confirmWithin);
     }
 
     CompositeTransport(
@@ -315,7 +334,7 @@ public sealed class CompositeTransport : ITransport {
         ArgumentOutOfRangeException.ThrowIfNegative(clientTransport);
         ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(clientTransport, transports.Count);
 
-        inner = [.. transports];
+        inner = [..transports];
         clientIndex = clientTransport;
         racing = race;
         this.stagger = stagger;
@@ -463,8 +482,7 @@ public sealed class CompositeTransport : ITransport {
     ///     <see cref="ITransport" /> already gives for sending before the client half is connected —
     ///     and nothing above sends before it is told it connected.
     /// </remarks>
-    public void SendToServer(ReadOnlySpan<byte> payload, Channel channel) =>
-        ClientHalf?.SendToServer(payload, channel);
+    public void SendToServer(ReadOnlySpan<byte> payload, Channel channel) => ClientHalf?.SendToServer(payload, channel);
 
     /// <inheritdoc />
     public void Poll(TimeSpan elapsed, ITransportEvents events) {
@@ -718,7 +736,7 @@ public sealed class CompositeTransport : ITransport {
 
         public void OnDisconnected(TransportRole role, ConnectionId connection, DisconnectReason reason) {
             if (role == TransportRole.Client) {
-                if (owner.racing && !owner.resolved) {
+                if (owner is { racing: true, resolved: false }) {
                     // ⚠ Swallowed rather than forwarded, and that is the whole point: a pure client
                     // is driven to SessionState.Stopped by a disconnect, so a losing candidate's
                     // would end a session that has not started. That covers the provisional route

@@ -21,7 +21,13 @@ namespace Vixen.Editor.AssetEditors.Tests;
 /// </remarks>
 public class SpriteDocumentTests {
     static SpriteRect Rect(string name, int x, int y, int width = 32, int height = 32) =>
-        new() { Name = name, X = x, Y = y, Width = width, Height = height };
+        new() {
+            Name = name,
+            X = x,
+            Y = y,
+            Width = width,
+            Height = height
+        };
 
     static TextureImportDocument Open(EditorFixture project, string name = "Assets/sheet.png") =>
         new(project.Project, AssetId.New(), project.WriteAsset(name, "bytes"));
@@ -142,14 +148,23 @@ public class SpriteDocumentTests {
         document.Texture.SpriteMode = SpriteMode.Multiple;
         document.Texture.PixelsPerUnit = 32f;
 
-        document.SetSprites([
-            new() {
-                Name = "hero_0",
-                X = 0, Y = 0, Width = 32, Height = 48,
-                PivotX = 0.5f, PivotY = 0f,
-                BorderLeft = 4, BorderTop = 4, BorderRight = 4, BorderBottom = 4
-            }
-        ]);
+        document.SetSprites(
+            [
+                new() {
+                    Name = "hero_0",
+                    X = 0,
+                    Y = 0,
+                    Width = 32,
+                    Height = 48,
+                    PivotX = 0.5f,
+                    PivotY = 0f,
+                    BorderLeft = 4,
+                    BorderTop = 4,
+                    BorderRight = 4,
+                    BorderBottom = 4
+                }
+            ]
+        );
 
         document.Save();
 
@@ -159,8 +174,8 @@ public class SpriteDocumentTests {
         Assert.Equal(SpriteMode.Multiple, reopened.Texture.SpriteMode);
         Assert.Equal(32f, reopened.Texture.PixelsPerUnit);
         Assert.Equal("hero_0", sprite.Name);
-        Assert.Equal(new Rectangle(0f, 0f, 32f, 48f), sprite.Region);
-        Assert.Equal(new Vector2(0.5f, 0f), sprite.Pivot);
+        Assert.Equal(new(0f, 0f, 32f, 48f), sprite.Region);
+        Assert.Equal(new(0.5f, 0f), sprite.Pivot);
         Assert.Equal(NineSlice.Uniform(4f), sprite.Border);
     }
 
@@ -190,7 +205,7 @@ public class SpriteViewTests {
         var path = project.Paths.Absolute(name);
         var pixels = new byte[128 * 64 * 4];
 
-        Array.Fill(pixels, (byte) 255);
+        Array.Fill(pixels, (byte)255);
 
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         File.WriteAllBytes(path, Assets.Tests.MinimalPng.Write(128, 64, pixels));
@@ -279,9 +294,19 @@ public class SpriteViewTests {
         using var harness = new ViewHarness();
         var (view, document) = Build(harness);
 
-        document.SetSprites([
-            new() { Name = "hero", X = 8, Y = 12, Width = 20, Height = 24, PivotX = 0.25f, BorderLeft = 3 }
-        ]);
+        document.SetSprites(
+            [
+                new() {
+                    Name = "hero",
+                    X = 8,
+                    Y = 12,
+                    Width = 20,
+                    Height = 24,
+                    PivotX = 0.25f,
+                    BorderLeft = 3
+                }
+            ]
+        );
 
         view.Select(0);
         harness.Ui.Frame();
@@ -298,7 +323,17 @@ public class SpriteViewTests {
         using var harness = new ViewHarness();
         var (view, document) = Build(harness);
 
-        document.SetSprites([new() { Name = "hero", X = 0, Y = 0, Width = 32, Height = 32 }]);
+        document.SetSprites(
+            [
+                new() {
+                    Name = "hero",
+                    X = 0,
+                    Y = 0,
+                    Width = 32,
+                    Height = 32
+                }
+            ]
+        );
         view.Select(0);
 
         view.RectX.Number = 12;
@@ -317,7 +352,17 @@ public class SpriteViewTests {
         using var harness = new ViewHarness();
         var (view, document) = Build(harness);
 
-        document.SetSprites([new() { Name = "hero", X = 0, Y = 0, Width = 32, Height = 32 }]);
+        document.SetSprites(
+            [
+                new() {
+                    Name = "hero",
+                    X = 0,
+                    Y = 0,
+                    Width = 32,
+                    Height = 32
+                }
+            ]
+        );
         view.Select(0);
 
         // ⚠ `NumericInput` holds and reports an out-of-range number rather than clamping it, so this
@@ -346,7 +391,18 @@ public class SpriteViewTests {
         using var harness = new ViewHarness();
         var (view, document) = Build(harness);
 
-        document.SetSprites([new() { Name = "hero", X = 0, Y = 0, Width = 32, Height = 32, PivotX = 0.5f }]);
+        document.SetSprites(
+            [
+                new() {
+                    Name = "hero",
+                    X = 0,
+                    Y = 0,
+                    Width = 32,
+                    Height = 32,
+                    PivotX = 0.5f
+                }
+            ]
+        );
         view.Select(0);
 
         view.PivotX.Number = 5;
@@ -372,7 +428,17 @@ public class SpriteViewTests {
         using var harness = new ViewHarness();
         var (view, document) = Build(harness);
 
-        document.SetSprites([new() { Name = "a", X = 4, Y = 0, Width = 32, Height = 32 }]);
+        document.SetSprites(
+            [
+                new() {
+                    Name = "a",
+                    X = 4,
+                    Y = 0,
+                    Width = 32,
+                    Height = 32
+                }
+            ]
+        );
         view.Select(0);
 
         var depth = 0;
@@ -392,18 +458,41 @@ public class SpriteViewTests {
         using var harness = new ViewHarness();
         var (view, document) = Build(harness);
 
-        document.SetSprites([
-            new() { Name = "panel", X = 0, Y = 0, Width = 32, Height = 32, BorderLeft = 8, BorderRight = 8 },
-            new() { Name = "plain", X = 32, Y = 0, Width = 32, Height = 32 }
-        ]);
+        document.SetSprites(
+            [
+                new() {
+                    Name = "panel",
+                    X = 0,
+                    Y = 0,
+                    Width = 32,
+                    Height = 32,
+                    BorderLeft = 8,
+                    BorderRight = 8
+                },
+                new() {
+                    Name = "plain",
+                    X = 32,
+                    Y = 0,
+                    Width = 32,
+                    Height = 32
+                }
+            ]
+        );
 
         view.Select(0);
         harness.Ui.Frame();
 
         // Two borders, two guides — and the unselected rect shows none, because guides are what the
         // selection is for rather than decoration on every box.
-        Assert.Equal(2, view.Rects[0].Children.Count(child => string.Equals(child.Tag, "sprite-guide", StringComparison.Ordinal)));
-        Assert.DoesNotContain(view.Rects[1].Children, child => string.Equals(child.Tag, "sprite-guide", StringComparison.Ordinal));
+        Assert.Equal(
+            2,
+            view.Rects[0]
+                .Children.Count(static child => string.Equals(child.Tag, "sprite-guide", StringComparison.Ordinal))
+        );
+        Assert.DoesNotContain(
+            view.Rects[1].Children,
+            static child => string.Equals(child.Tag, "sprite-guide", StringComparison.Ordinal)
+        );
     }
 
     [Fact]
@@ -413,14 +502,27 @@ public class SpriteViewTests {
 
         // A border as wide as the sprite is the rect's own outline, and one wider is a number
         // somebody is still typing.
-        document.SetSprites([
-            new() { Name = "panel", X = 0, Y = 0, Width = 32, Height = 32, BorderLeft = 32, BorderTop = 40 }
-        ]);
+        document.SetSprites(
+            [
+                new() {
+                    Name = "panel",
+                    X = 0,
+                    Y = 0,
+                    Width = 32,
+                    Height = 32,
+                    BorderLeft = 32,
+                    BorderTop = 40
+                }
+            ]
+        );
 
         view.Select(0);
         harness.Ui.Frame();
 
-        Assert.DoesNotContain(view.Rects[0].Children, child => string.Equals(child.Tag, "sprite-guide", StringComparison.Ordinal));
+        Assert.DoesNotContain(
+            view.Rects[0].Children,
+            static child => string.Equals(child.Tag, "sprite-guide", StringComparison.Ordinal)
+        );
     }
 
     [Fact]
@@ -439,7 +541,14 @@ public class SpriteViewTests {
         Assert.Equal(1, view.Selected);
         Assert.Equal(2, view.Rects.Count);
 
-        static SpriteRect Rect(string name) => new() { Name = name, X = 0, Y = 0, Width = 32, Height = 32 };
+        static SpriteRect Rect(string name) =>
+            new() {
+                Name = name,
+                X = 0,
+                Y = 0,
+                Width = 32,
+                Height = 32
+            };
     }
 
     [Fact]
@@ -478,8 +587,11 @@ public class SpriteViewTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>The slice method is chosen from the toolbar with the pointer, and each of the three
-    ///     reaches the slicer.</b>
+    ///     ⚠
+    ///     <b>
+    ///         The slice method is chosen from the toolbar with the pointer, and each of the three
+    ///         reaches the slicer.
+    ///     </b>
     /// </summary>
     /// <remarks>
     ///     The select's options were built as its own children rather than in its popover (#1394), so
@@ -492,7 +604,10 @@ public class SpriteViewTests {
         using var harness = new ViewHarness();
         var (view, _) = Build(harness);
 
-        Assert.Equal(["grid-size", "grid-count", "automatic"], view.Method.Options.Select(static option => option.Value));
+        Assert.Equal(
+            ["grid-size", "grid-count", "automatic"],
+            view.Method.Options.Select(static option => option.Value)
+        );
         Assert.Equal("Grid by cell size", view.Method.Field.Text);
 
         Click(harness, view.Method);
@@ -512,8 +627,8 @@ public class SpriteViewTests {
     }
 
     static void Click(ViewHarness harness, UiElement element) {
-        var x = element.AbsoluteLeft + (element.Width / 2f);
-        var y = element.AbsoluteTop + (element.Height / 2f);
+        var x = element.AbsoluteLeft + element.Width / 2f;
+        var y = element.AbsoluteTop + element.Height / 2f;
 
         harness.Ui.Document.Dispatch(
             new PointerEvent { X = x, Y = y, Action = PointerAction.Pressed, Button = PointerButton.Primary }

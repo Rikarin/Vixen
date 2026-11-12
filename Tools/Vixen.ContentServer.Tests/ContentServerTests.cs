@@ -240,11 +240,11 @@ public sealed class ContentServerTests {
     public async Task AHashFileThatIsOnDiskWins() {
         var world = new ServedDirectory();
         world.Put("catalog.bin", 512);
-        world.PutText("catalog.bin.hash", new string('a', ObjectId.TextLength));
+        world.PutText("catalog.bin.hash", new('a', ObjectId.TextLength));
 
         using var reply = world.Server.Serve("/catalog.bin.hash");
 
-        Assert.Equal(new string('a', ObjectId.TextLength), Encoding.UTF8.GetString(await ServedDirectory.Read(reply)));
+        Assert.Equal(new('a', ObjectId.TextLength), Encoding.UTF8.GetString(await ServedDirectory.Read(reply)));
     }
 
     /// <summary>A hash for a file that does not exist is not invented.</summary>

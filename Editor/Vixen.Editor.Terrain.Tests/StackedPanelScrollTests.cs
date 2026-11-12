@@ -16,8 +16,11 @@ namespace Vixen.Editor.Terrain.Tests;
 /// <summary>The grass and foliage panels' arrangement: a panel that scrolls around views that do not.</summary>
 /// <remarks>
 ///     <para>
-///         <b>The claim under test is the one <c>TerrainModulePanels</c> acts on and had never
-///         checked.</b> Those panels stack an <c>InspectorView</c> — which owns its own
+///         <b>
+///             The claim under test is the one <c>TerrainModulePanels</c> acts on and had never
+///             checked.
+///         </b>
+///         Those panels stack an <c>InspectorView</c> — which owns its own
 ///         <c>ScrollView</c> — with section titles, verbs and fact rows, and deliberately keep
 ///         <i>panel</i> scrolling rather than calling <c>DockPanel.Fills</c>. The argument for that is
 ///         written in <c>AdvancedTheme.vcss</c> beside <c>dock-panel.scrolls &gt; *</c>: "Items that
@@ -135,8 +138,12 @@ public class StackedPanelScrollTests : IDisposable {
     ///         <c>SoftwareUiRasterizer</c> does the same arithmetic on every machine.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The panel's own bar is the instrument check, and without it this test passes on
-    ///         a blank window.</b> A comparison that finds no difference proves nothing until the
+    ///         ⚠
+    ///         <b>
+    ///             The panel's own bar is the instrument check, and without it this test passes on
+    ///             a blank window.
+    ///         </b>
+    ///         A comparison that finds no difference proves nothing until the
     ///         same comparison is shown finding one — so the third capture takes the width off the
     ///         panel's own bar, which is live at this height, and the difference it produces is what
     ///         says a painted scrollbar is visible to this measurement at all.
@@ -200,8 +207,8 @@ public class StackedPanelScrollTests : IDisposable {
 
         document.Dispatch(
             new WheelEvent {
-                X = bounds.X + (bounds.Width * 0.5f),
-                Y = bounds.Y + (bounds.Height * 0.5f),
+                X = bounds.X + bounds.Width * 0.5f,
+                Y = bounds.Y + bounds.Height * 0.5f,
                 DeltaY = 120f,
                 Timestamp = TimeSpan.FromMilliseconds(16)
             }

@@ -47,8 +47,7 @@ public readonly record struct QueryPreviewStyle {
     public Color4 Filtered { get; init; } = new(0.45f, 0.45f, 0.5f, 1f);
 
     /// <summary>Creates the usual style.</summary>
-    public QueryPreviewStyle() {
-    }
+    public QueryPreviewStyle() { }
 
     /// <summary>How big a marker actually is, with a zeroed style answering the usual size.</summary>
     public float Extent => Size > 0f ? Size : DefaultSize;
@@ -118,12 +117,12 @@ public static class QueryPreview {
 
             var colour = style.ColourOf(point.Score);
 
-            draw.Line(at, at + (Vector3.UnitY * (size + (point.Score * size * 4f))), colour);
+            draw.Line(at, at + Vector3.UnitY * (size + point.Score * size * 4f), colour);
             draw.Circle(at, Vector3.UnitY, size, colour);
 
             if (style.Scores) {
                 draw.Text(
-                    at + (Vector3.UnitY * (size * 1.5f)),
+                    at + Vector3.UnitY * (size * 1.5f),
                     point.Score.ToString("0.##", CultureInfo.InvariantCulture),
                     colour,
                     size

@@ -16,7 +16,8 @@ public class TaxonomyTests {
             """
             [Vixen.Core.Component]
             public struct Velocity { public float X; }
-            """);
+            """
+        );
 
         Assert.Equal(DocKind.Component, Taxonomy.Of(compilation.Type("Velocity")));
     }
@@ -33,7 +34,8 @@ public class TaxonomyTests {
             [Vixen.Core.Component]
             [Vixen.Core.DataContract]
             public struct MeshRenderer { public int Mesh; }
-            """);
+            """
+        );
 
         Assert.Equal(DocKind.SceneComponent, Taxonomy.Of(compilation.Type("MeshRenderer")));
     }
@@ -44,7 +46,8 @@ public class TaxonomyTests {
             """
             [Vixen.Core.DataContract]
             public sealed class Settings { public int Value; }
-            """);
+            """
+        );
 
         Assert.Equal(DocKind.Class, Taxonomy.Of(compilation.Type("Settings")));
     }
@@ -56,7 +59,8 @@ public class TaxonomyTests {
             public sealed class MovementSystem : Vixen.Ecs.Systems.ISystem {
                 public void Dispose() { }
             }
-            """);
+            """
+        );
 
         Assert.Equal(DocKind.System, Taxonomy.Of(compilation.Type("MovementSystem")));
     }
@@ -67,7 +71,8 @@ public class TaxonomyTests {
         var compilation = Fixture.Compile(
             """
             public sealed class RenderSystem : Vixen.Ecs.Systems.SystemBase;
-            """);
+            """
+        );
 
         Assert.Equal(DocKind.System, Taxonomy.Of(compilation.Type("RenderSystem")));
     }
@@ -77,7 +82,8 @@ public class TaxonomyTests {
         var compilation = Fixture.Compile(
             """
             public sealed class PlayerController : Vixen.Engine.Behaviors.Behavior;
-            """);
+            """
+        );
 
         Assert.Equal(DocKind.Behavior, Taxonomy.Of(compilation.Type("PlayerController")));
     }
@@ -88,7 +94,8 @@ public class TaxonomyTests {
             """
             [Vixen.Net.Replication.Replicated]
             public struct NetworkTransform { public float X; }
-            """);
+            """
+        );
 
         Assert.Equal(DocKind.ReplicatedComponent, Taxonomy.Of(compilation.Type("NetworkTransform")));
     }
@@ -99,7 +106,8 @@ public class TaxonomyTests {
             """
             [Vixen.NodeGraph.Node("Math/Add")]
             public partial class AddNode;
-            """);
+            """
+        );
 
         Assert.Equal(DocKind.GraphNode, Taxonomy.Of(compilation.Type("AddNode")));
     }
@@ -110,7 +118,8 @@ public class TaxonomyTests {
             """
             [Vixen.Editor.Assets.Importer(".fbx", ".obj")]
             public sealed class ModelImporter;
-            """);
+            """
+        );
 
         Assert.Equal(DocKind.Importer, Taxonomy.Of(compilation.Type("ModelImporter")));
     }
@@ -122,7 +131,8 @@ public class TaxonomyTests {
             public sealed class TooltipAttribute(string text) : System.Attribute {
                 public string Text { get; } = text;
             }
-            """);
+            """
+        );
 
         Assert.Equal(DocKind.Annotation, Taxonomy.Of(compilation.Type("TooltipAttribute")));
     }
@@ -134,7 +144,8 @@ public class TaxonomyTests {
             namespace Vixen.Ui.Controls {
                 public sealed class Button;
             }
-            """);
+            """
+        );
 
         Assert.Equal(DocKind.UiControl, Taxonomy.Of(compilation.Type("Vixen.Ui.Controls.Button")));
     }
@@ -152,7 +163,8 @@ public class TaxonomyTests {
                 [Vixen.Core.DataContract]
                 public struct CanvasTag { public int Value; }
             }
-            """);
+            """
+        );
 
         Assert.Equal(DocKind.SceneComponent, Taxonomy.Of(compilation.Type("Vixen.Ui.Controls.CanvasTag")));
     }

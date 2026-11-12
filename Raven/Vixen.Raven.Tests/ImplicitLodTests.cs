@@ -46,7 +46,7 @@ public class ImplicitLodTests {
               """
         );
 
-        var warning = Assert.Single(diagnostics, d => d.Id == "RVN3013");
+        var warning = Assert.Single(diagnostics, static d => d.Id == "RVN3013");
 
         Assert.False(warning.IsError);
         Assert.Contains($"{stage} entry point", warning.GetMessage(), StringComparison.Ordinal);
@@ -73,7 +73,7 @@ public class ImplicitLodTests {
             """
         );
 
-        Assert.DoesNotContain(diagnostics, d => d.Id == "RVN3013");
+        Assert.DoesNotContain(diagnostics, static d => d.Id == "RVN3013");
     }
 
     /// <summary>Stating the level is the fix, and it is one word.</summary>
@@ -97,7 +97,7 @@ public class ImplicitLodTests {
             """
         );
 
-        Assert.DoesNotContain(diagnostics, d => d.Id == "RVN3013");
+        Assert.DoesNotContain(diagnostics, static d => d.Id == "RVN3013");
     }
 
     /// <summary>
@@ -129,6 +129,6 @@ public class ImplicitLodTests {
             """
         );
 
-        Assert.Contains(diagnostics, d => d.Id == "RVN3013");
+        Assert.Contains(diagnostics, static d => d.Id == "RVN3013");
     }
 }

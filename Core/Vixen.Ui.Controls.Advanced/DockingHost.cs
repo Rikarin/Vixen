@@ -18,8 +18,12 @@ namespace Vixen.Ui.Controls.Advanced;
 ///         panel would pass every structural test and lose the user's work.
 ///     </para>
 ///     <para>
-///         ⚠ <b>It scrolls vertically by default, and it does so <i>itself</i> rather than by holding
-///         a <c>ScrollView</c>.</b> This is the same judgement <see cref="DockGroupView" /> records
+///         ⚠
+///         <b>
+///             It scrolls vertically by default, and it does so <i>itself</i> rather than by holding
+///             a <c>ScrollView</c>.
+///         </b>
+///         This is the same judgement <see cref="DockGroupView" /> records
 ///         for its tab strip, one axis over: <c>overflow: hidden</c> in the theme is the draw list's
 ///         clip stack, <see cref="UiElement.OffsetY" /> is a post-layout translation, and between them
 ///         that is the whole of scrolling. What a <c>ScrollView</c> would add here is a box — and a
@@ -187,9 +191,9 @@ public sealed partial class DockPanel : Control {
             AddClass("scrolls");
         }
 
-        AddHandler<WheelEvent>(static (element, args) => ((DockPanel) element).Wheeled(args));
-        AddHandler<KeyEvent>(static (element, args) => ((DockPanel) element).Keyed(args));
-        AddHandler<FocusEvent>(static (element, args) => ((DockPanel) element).Refocused(args));
+        AddHandler<WheelEvent>(static (element, args) => ((DockPanel)element).Wheeled(args));
+        AddHandler<KeyEvent>(static (element, args) => ((DockPanel)element).Keyed(args));
+        AddHandler<FocusEvent>(static (element, args) => ((DockPanel)element).Refocused(args));
 
         // ⚠ The pass rather than `Control.WhenResized`, and it is the case that method documents as
         // not being its own: whether a panel overflows depends on what is *in* it. A section expanded,
@@ -221,8 +225,12 @@ public sealed partial class DockPanel : Control {
     /// <param name="element">Anything inside the panel, or the panel itself.</param>
     /// <returns>Whether a panel was found to tell.</returns>
     /// <remarks>
-    ///     ⚠ <b>A walk up rather than a property, because the caller usually does not have a
-    ///     <see cref="DockPanel" />.</b> An asset editor's <c>CreateView</c> is handed "where the
+    ///     ⚠
+    ///     <b>
+    ///         A walk up rather than a property, because the caller usually does not have a
+    ///         <see cref="DockPanel" />.
+    ///     </b>
+    ///     An asset editor's <c>CreateView</c> is handed "where the
     ///     controls go" as a bare <see cref="UiElement" />, which is right — an editor view has no
     ///     business knowing it is in a dock — and a factory that had to cast would be a factory that
     ///     silently stopped opting out the day somebody hosted it in a splitter instead. Written as a
@@ -250,8 +258,12 @@ public sealed partial class DockPanel : Control {
     /// </param>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>On press and on the capture leg, so it lands before anything inside the panel
-    ///         acts on it.</b> A click in the outliner is what makes Delete mean an entity; a handler
+    ///         ⚠
+    ///         <b>
+    ///             On press and on the capture leg, so it lands before anything inside the panel
+    ///             acts on it.
+    ///         </b>
+    ///         A click in the outliner is what makes Delete mean an entity; a handler
     ///         that ran after the tree's own would mean the first Delete of a visit to a panel was
     ///         still aimed at the panel before it. <c>handledEventsToo</c> for the same reason —
     ///         a press a control consumes is still a press in this panel.
@@ -280,7 +292,7 @@ public sealed partial class DockPanel : Control {
                 }
             },
             RoutingStrategy.Capture,
-            handledEventsToo: true
+            true
         );
     }
 
@@ -395,8 +407,12 @@ public sealed partial class DockPanel : Control {
 
     /// <summary>How tall the content is, measured from where layout put it.</summary>
     /// <remarks>
-    ///     ⚠ <b><see cref="UiElement.Top" /> rather than <see cref="UiElement.AbsoluteTop" />, because
-    ///     the offset this is used to compute is already in the second one.</b> Measuring the scrolled
+    ///     ⚠
+    ///     <b>
+    ///         <see cref="UiElement.Top" /> rather than <see cref="UiElement.AbsoluteTop" />, because
+    ///         the offset this is used to compute is already in the second one.
+    ///     </b>
+    ///     Measuring the scrolled
     ///     position to decide how far to scroll is the loop that makes a list run away from the
     ///     pointer. The bar is excluded because it is absolutely positioned and pinned to the panel's
     ///     own bottom, so counting it would make every panel overflow by exactly its own height.
@@ -797,7 +813,7 @@ public sealed partial class DockSplitterView : Control {
     /// <inheritdoc />
     protected override void OnCreated() {
         base.OnCreated();
-        AddHandler<PointerEvent>(static (element, args) => ((DockSplitterView) element).Pointed(args));
+        AddHandler<PointerEvent>(static (element, args) => ((DockSplitterView)element).Pointed(args));
     }
 
     /// <summary>Writes a ratio onto the two halves.</summary>
@@ -805,8 +821,12 @@ public sealed partial class DockSplitterView : Control {
     /// <param name="second">The other one.</param>
     /// <param name="ratio">How much of the space the first takes.</param>
     /// <remarks>
-    ///     ⚠ <b><c>flex-basis: 0px</c> on both, which is what makes the grow factors mean the ratio
-    ///     they say.</b> With the default <c>auto</c> basis, flexbox distributes only the space left
+    ///     ⚠
+    ///     <b>
+    ///         <c>flex-basis: 0px</c> on both, which is what makes the grow factors mean the ratio
+    ///         they say.
+    ///     </b>
+    ///     With the default <c>auto</c> basis, flexbox distributes only the space left
     ///     over after the content has been measured — so two halves at 50/50 come out at whatever
     ///     their contents happened to want, plus half the remainder each, and a splitter dragged to
     ///     the middle does not land in the middle.
@@ -948,21 +968,21 @@ public sealed partial class DockingHost : Control {
         // rectangle it is offering would be a handle the user cannot see at the moment they need it.
         Guides = BuildGuides(this);
 
-        AddHandler<ClickEvent>(static (element, args) => ((DockingHost) element).Chosen(args));
-        AddHandler<DragEvent>(static (element, args) => ((DockingHost) element).Dragged(args));
+        AddHandler<ClickEvent>(static (element, args) => ((DockingHost)element).Chosen(args));
+        AddHandler<DragEvent>(static (element, args) => ((DockingHost)element).Dragged(args));
 
         // ⚠ On the capture leg, so it runs before whatever was pressed does anything with the event
         // — including marking it handled, which a tree row and a button both do. Which panel the
         // user is working in is not something any of them should be able to swallow.
         AddHandler<PointerEvent>(
-            static (element, args) => ((DockingHost) element).Pressed(args),
+            static (element, args) => ((DockingHost)element).Pressed(args),
             RoutingStrategy.Capture,
-            handledEventsToo: true
+            true
         );
 
         // Tab moves the focus without any pointer being involved, and the active panel has to follow
         // it or the border says one thing while the keyboard does another.
-        AddHandler<FocusEvent>(static (element, args) => ((DockingHost) element).Focused(args));
+        AddHandler<FocusEvent>(static (element, args) => ((DockingHost)element).Focused(args));
     }
 
     /// <summary>Adds a panel, docking it if the arrangement does not already place it.</summary>
@@ -1340,7 +1360,11 @@ public sealed partial class DockingHost : Control {
         };
 
     UiElement BuildSplit(DockSplitNode node, UiElement parent) {
-        var split = parent.Add("dock-split", null, node.Orientation == Orientation.Vertical ? "vertical" : "horizontal");
+        var split = parent.Add(
+            "dock-split",
+            null,
+            node.Orientation == Orientation.Vertical ? "vertical" : "horizontal"
+        );
 
         var first = Build(node.First, split);
         var splitter = split.Add<DockSplitterView>();
@@ -1446,9 +1470,6 @@ public sealed partial class DockingHost : Control {
                 args.Handled = true;
 
                 break;
-
-            default:
-                break;
         }
     }
 
@@ -1476,17 +1497,18 @@ public sealed partial class DockingHost : Control {
             case DragStage.Cancelled when dragged is not null:
                 Cancel();
                 break;
-
-            default:
-                break;
         }
     }
 
     /// <summary>Which tab a drag that started on an element is a drag of.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The element a press lands on is the deepest one under the pointer, and on a tab
-    ///         that is almost never the tab.</b> A tab's title is a child element — it has to be, or
+    ///         ⚠
+    ///         <b>
+    ///             The element a press lands on is the deepest one under the pointer, and on a tab
+    ///             that is almost never the tab.
+    ///         </b>
+    ///         A tab's title is a child element — it has to be, or
     ///         a tab could not also have an icon — so a drag begun anywhere on the words reported the
     ///         label, a test for the tab itself failed, and the only part of a tab that could be
     ///         picked up was the few pixels of padding around the text. Users find that and report it
@@ -1515,8 +1537,12 @@ public sealed partial class DockingHost : Control {
 
     /// <summary>Follows a tab drag, in desktop space, across every window this host has.</summary>
     /// <remarks>
-    ///     ⚠ <b>Desktop space rather than the document's, because two windows have two coordinate
-    ///     spaces and a drag between them has to be in one.</b> The pointer's position arrives in
+    ///     ⚠
+    ///     <b>
+    ///         Desktop space rather than the document's, because two windows have two coordinate
+    ///         spaces and a drag between them has to be in one.
+    ///     </b>
+    ///     The pointer's position arrives in
     ///     whichever surface last received it — which during a capture is the window the drag started
     ///     in, wherever the cursor has since wandered — and every group's rectangle is in its own.
     ///     Both are lifted through <see cref="Locate" /> to the one space they share. With a single
@@ -1532,7 +1558,7 @@ public sealed partial class DockingHost : Control {
             return;
         }
 
-        pointer = new Vector2(origin.X + x, origin.Y + y);
+        pointer = new(origin.X + x, origin.Y + y);
 
         foreach (var view in groups) {
             if (view.Node is not { } node || !Desktop(view, out var bounds) || !Inside(bounds, pointer.X, pointer.Y)) {
@@ -1593,7 +1619,7 @@ public sealed partial class DockingHost : Control {
                 continue;
             }
 
-            if (x < tab.Bounds.X + (tab.Bounds.Width * 0.5f)) {
+            if (x < tab.Bounds.X + tab.Bounds.Width * 0.5f) {
                 return place;
             }
 
@@ -1659,9 +1685,14 @@ public sealed partial class DockingHost : Control {
             ? bounds
             : side switch {
                 DockZone.Left => new Rectangle(bounds.X, bounds.Y, bounds.Width * 0.5f, bounds.Height),
-                DockZone.Right => new Rectangle(bounds.X + (bounds.Width * 0.5f), bounds.Y, bounds.Width * 0.5f, bounds.Height),
+                DockZone.Right => new Rectangle(
+                    bounds.X + bounds.Width * 0.5f,
+                    bounds.Y,
+                    bounds.Width * 0.5f,
+                    bounds.Height
+                ),
                 DockZone.Top => new Rectangle(bounds.X, bounds.Y, bounds.Width, bounds.Height * 0.5f),
-                _ => new Rectangle(bounds.X, bounds.Y + (bounds.Height * 0.5f), bounds.Width, bounds.Height * 0.5f)
+                _ => new Rectangle(bounds.X, bounds.Y + bounds.Height * 0.5f, bounds.Width, bounds.Height * 0.5f)
             };
 
         Hide();
@@ -1740,7 +1771,7 @@ public sealed partial class DockingHost : Control {
             return;
         }
 
-        Float(tab.PanelId, where.X - TearGrip, where.Y - (TearGrip * 0.25f), TearWidth, TearHeight);
+        Float(tab.PanelId, where.X - TearGrip, where.Y - TearGrip * 0.25f, TearWidth, TearHeight);
     }
 
     void Cancel() {

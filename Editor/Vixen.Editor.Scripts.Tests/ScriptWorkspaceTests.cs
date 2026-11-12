@@ -8,9 +8,13 @@ namespace Vixen.Editor.Scripts.Tests;
 /// <summary>Doc 36 § P5's incremental compilation, asserted as work rather than as milliseconds.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>The document's bound is a wall-clock one — "tens of milliseconds for a dozen files,
-///         and nothing here measures a project with hundreds" — and a wall-clock assertion is the
-///         wrong instrument for it.</b> A budget calibrated on an idle machine is this repository's
+///         ⚠
+///         <b>
+///             The document's bound is a wall-clock one — "tens of milliseconds for a dozen files,
+///             and nothing here measures a project with hundreds" — and a wall-clock assertion is the
+///             wrong instrument for it.
+///         </b>
+///         A budget calibrated on an idle machine is this repository's
 ///         largest flake source, and on a loaded one it is wrong by a factor in the direction that
 ///         hides the regression. What is asserted here is the same property said as a count of files
 ///         parsed, which is deterministic, and which is false before the work and false again under
@@ -26,11 +30,13 @@ namespace Vixen.Editor.Scripts.Tests;
 public class ScriptWorkspaceTests : IDisposable {
     readonly string root = Path.Combine(Path.GetTempPath(), "vixen-workspace-" + Guid.NewGuid().ToString("N"));
 
-    public ScriptWorkspaceTests() => Directory.CreateDirectory(Path.Combine(root, "Assets", "Editor"));
+    public ScriptWorkspaceTests() {
+        Directory.CreateDirectory(Path.Combine(root, "Assets", "Editor"));
+    }
 
     public void Dispose() {
         if (Directory.Exists(root)) {
-            Directory.Delete(root, recursive: true);
+            Directory.Delete(root, true);
         }
 
         GC.SuppressFinalize(this);
@@ -38,8 +44,7 @@ public class ScriptWorkspaceTests : IDisposable {
 
     string Output => Path.Combine(root, "Library", "EditorScripts");
 
-    void Write(string name, string source) =>
-        File.WriteAllText(Path.Combine(root, "Assets", "Editor", name), source);
+    void Write(string name, string source) => File.WriteAllText(Path.Combine(root, "Assets", "Editor", name), source);
 
     static string Type(string name, string body = "") => $"public static class {name} {{ {body} }}";
 
@@ -88,8 +93,11 @@ public class ScriptWorkspaceTests : IDisposable {
 
         Assert.Equal(1, edited.Parsed);
         Assert.Null(edited.AssemblyPath);
-        Assert.Contains(edited.Errors, diagnostic => diagnostic.Id == "CS0103");
-        Assert.All(edited.Errors, diagnostic => Assert.EndsWith("B.cs", diagnostic.File, StringComparison.Ordinal));
+        Assert.Contains(edited.Errors, static diagnostic => diagnostic.Id == "CS0103");
+        Assert.All(
+            edited.Errors,
+            static diagnostic => Assert.EndsWith("B.cs", diagnostic.File, StringComparison.Ordinal)
+        );
 
         // And back: fixing it is one parse again, and the error goes.
         Write("B.cs", Type("B"));
@@ -134,7 +142,7 @@ public class ScriptWorkspaceTests : IDisposable {
         // point: the removal is a fact about the compilation and not about the parse.
         Assert.Equal(0, after.Parsed);
         Assert.Null(after.AssemblyPath);
-        Assert.Contains(after.Errors, diagnostic => diagnostic.Id == "CS0246");
+        Assert.Contains(after.Errors, static diagnostic => diagnostic.Id == "CS0246");
     }
 
     /// <summary>

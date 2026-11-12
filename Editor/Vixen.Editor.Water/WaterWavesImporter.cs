@@ -25,8 +25,11 @@ public sealed record WaterWavesImportSettings : IImportSettings {
 /// <summary>Imports a <c>.vxwaves</c> — the one asset kind water adds.</summary>
 /// <remarks>
 ///     <para>
-///         <b>[35 § D6](../../docs/plan/35-water.md#d6-a-water-body-is-a-spline-and-a-profile-and-there-is-no-new-spline)
-///         admits exactly one new asset kind and this is it.</b> A water body is a spline reference and
+///         <b>
+///             [35 § D6](../../docs/plan/35-water.md#d6-a-water-body-is-a-spline-and-a-profile-and-there-is-no-new-spline)
+///             admits exactly one new asset kind and this is it.
+///         </b>
+///         A water body is a spline reference and
 ///         eleven numbers, so it stays in the scene where the merge is; a sea state is shared between
 ///         every body in a region <em>and between levels</em>, so it does not.
 ///     </para>
@@ -38,8 +41,12 @@ public sealed record WaterWavesImportSettings : IImportSettings {
 ///         deserialises. A text chunk would be a sea state that quietly never arrives.
 ///     </para>
 ///     <para>
-///         ⚠ <b>An unsummable spectrum is an <em>error</em>, and that is the one place this is
-///         stricter than its terrain sibling.</b> A foliage type with no mesh is an author part-way
+///         ⚠
+///         <b>
+///             An unsummable spectrum is an <em>error</em>, and that is the one place this is
+///             stricter than its terrain sibling.
+///         </b>
+///         A foliage type with no mesh is an author part-way
 ///         through and warns; a spectrum whose wavelength range runs backwards has no defensible
 ///         partial state — <see cref="WaterWaveSpectrum.Generate" /> throws on it, so what a build that
 ///         accepted it produces is a zone that renders no waves at all, which reads as the water being
@@ -64,9 +71,13 @@ public sealed class WaterWavesImporter : AssetImporter<WaterWavesImportSettings>
     public const string WavesType = nameof(WaterWavesAsset);
 
     /// <summary>The vector forms a spectrum's document may write.</summary>
-    /// <remarks>On <c>TerrainAssetImporter</c>'s terms: from a static constructor rather than a module
-    ///     initializer, for the reason <see cref="MathScalars" /> gives about a process-wide table.</remarks>
-    static WaterWavesImporter() => MathScalars.Register();
+    /// <remarks>
+    ///     On <c>TerrainAssetImporter</c>'s terms: from a static constructor rather than a module
+    ///     initializer, for the reason <see cref="MathScalars" /> gives about a process-wide table.
+    /// </remarks>
+    static WaterWavesImporter() {
+        MathScalars.Register();
+    }
 
     /// <inheritdoc />
     public override int Version => 1;

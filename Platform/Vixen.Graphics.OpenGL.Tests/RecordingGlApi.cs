@@ -11,7 +11,7 @@ namespace Vixen.Graphics.OpenGL.Tests;
 public readonly record struct GlCall(string Name, object?[] Arguments) {
     /// <inheritdoc />
     public override string ToString() =>
-        $"{Name}({string.Join(", ", Arguments.Select(argument => Convert.ToString(argument, CultureInfo.InvariantCulture)))})";
+        $"{Name}({string.Join(", ", Arguments.Select(static argument => Convert.ToString(argument, CultureInfo.InvariantCulture)))})";
 }
 
 /// <summary>A GL that records what it was asked to do and does none of it.</summary>
@@ -58,8 +58,7 @@ public sealed class RecordingGlApi(GlProfile profile = GlProfile.Core45) : IGlAp
     public uint FramebufferStatus { get; set; } = GlConstants.FramebufferComplete;
 
     /// <summary>Every call with a given name.</summary>
-    public IReadOnlyList<GlCall> Named(string name) =>
-        calls.Where(call => call.Name == name).ToList();
+    public IReadOnlyList<GlCall> Named(string name) => calls.Where(call => call.Name == name).ToList();
 
     /// <summary>How many calls with a given name were made.</summary>
     public int Count(string name) => calls.Count(call => call.Name == name);
@@ -68,7 +67,7 @@ public sealed class RecordingGlApi(GlProfile profile = GlProfile.Core45) : IGlAp
     public GlCall Single(string name) => calls.Single(call => call.Name == name);
 
     /// <summary>The names of every call, for an ordering assertion.</summary>
-    public IReadOnlyList<string> Names => calls.Select(call => call.Name).ToList();
+    public IReadOnlyList<string> Names => calls.Select(static call => call.Name).ToList();
 
     /// <summary>Whether one call happened before another.</summary>
     /// <param name="first">The name that should come first.</param>
@@ -101,8 +100,7 @@ public sealed class RecordingGlApi(GlProfile profile = GlProfile.Core45) : IGlAp
         Record("BindBufferRange", target, index, buffer, (long)offset, (ulong)size);
 
     /// <inheritdoc />
-    public void BufferData(uint target, nuint size, uint usage) =>
-        Record("BufferData", target, (ulong)size, usage);
+    public void BufferData(uint target, nuint size, uint usage) => Record("BufferData", target, (ulong)size, usage);
 
     /// <inheritdoc />
     public void BufferSubData(uint target, nint offset, ReadOnlySpan<byte> data) =>
@@ -115,7 +113,8 @@ public sealed class RecordingGlApi(GlProfile profile = GlProfile.Core45) : IGlAp
         nint readOffset,
         nint writeOffset,
         nuint size
-    ) => Record("CopyBufferSubData", readTarget, writeTarget, (long)readOffset, (long)writeOffset, (ulong)size);
+    ) =>
+        Record("CopyBufferSubData", readTarget, writeTarget, (long)readOffset, (long)writeOffset, (ulong)size);
 
     /// <inheritdoc />
     public void GetBufferSubData(uint target, nint offset, Span<byte> destination) =>
@@ -142,7 +141,8 @@ public sealed class RecordingGlApi(GlProfile profile = GlProfile.Core45) : IGlAp
         int layer,
         uint access,
         uint format
-    ) => Record("BindImageTexture", unit, texture, level, layered, layer, access, format);
+    ) =>
+        Record("BindImageTexture", unit, texture, level, layered, layer, access, format);
 
     /// <inheritdoc />
     public void TexStorage2D(uint target, int levels, uint internalFormat, int width, int height) =>
@@ -167,7 +167,8 @@ public sealed class RecordingGlApi(GlProfile profile = GlProfile.Core45) : IGlAp
         uint format,
         uint type,
         nint bufferOffset
-    ) => Record("TexSubImage2D", target, level, x, y, width, height, format, type, (long)bufferOffset);
+    ) =>
+        Record("TexSubImage2D", target, level, x, y, width, height, format, type, (long)bufferOffset);
 
     /// <inheritdoc />
     public void TexSubImage3D(
@@ -182,7 +183,8 @@ public sealed class RecordingGlApi(GlProfile profile = GlProfile.Core45) : IGlAp
         uint format,
         uint type,
         nint bufferOffset
-    ) => Record("TexSubImage3D", target, level, x, y, z, width, height, depth, format, type, (long)bufferOffset);
+    ) =>
+        Record("TexSubImage3D", target, level, x, y, z, width, height, depth, format, type, (long)bufferOffset);
 
     /// <inheritdoc />
     public void TexParameter(uint target, uint parameter, int value) =>
@@ -208,24 +210,25 @@ public sealed class RecordingGlApi(GlProfile profile = GlProfile.Core45) : IGlAp
         int width,
         int height,
         int depth
-    ) => Record(
-        "CopyImageSubData",
-        sourceName,
-        sourceTarget,
-        sourceLevel,
-        sourceX,
-        sourceY,
-        sourceZ,
-        destinationName,
-        destinationTarget,
-        destinationLevel,
-        destinationX,
-        destinationY,
-        destinationZ,
-        width,
-        height,
-        depth
-    );
+    ) =>
+        Record(
+            "CopyImageSubData",
+            sourceName,
+            sourceTarget,
+            sourceLevel,
+            sourceX,
+            sourceY,
+            sourceZ,
+            destinationName,
+            destinationTarget,
+            destinationLevel,
+            destinationX,
+            destinationY,
+            destinationZ,
+            width,
+            height,
+            depth
+        );
 
     /// <inheritdoc />
     public uint GenSampler() => Name("GenSampler");
@@ -255,8 +258,7 @@ public sealed class RecordingGlApi(GlProfile profile = GlProfile.Core45) : IGlAp
     public void DeleteFramebuffer(uint framebuffer) => Record("DeleteFramebuffer", framebuffer);
 
     /// <inheritdoc />
-    public void BindFramebuffer(uint target, uint framebuffer) =>
-        Record("BindFramebuffer", target, framebuffer);
+    public void BindFramebuffer(uint target, uint framebuffer) => Record("BindFramebuffer", target, framebuffer);
 
     /// <inheritdoc />
     public void FramebufferTexture2D(
@@ -265,7 +267,8 @@ public sealed class RecordingGlApi(GlProfile profile = GlProfile.Core45) : IGlAp
         uint textureTarget,
         uint texture,
         int level
-    ) => Record("FramebufferTexture2D", target, attachment, textureTarget, texture, level);
+    ) =>
+        Record("FramebufferTexture2D", target, attachment, textureTarget, texture, level);
 
     /// <inheritdoc />
     public void FramebufferTextureLayer(uint target, uint attachment, uint texture, int level, int layer) =>
@@ -279,14 +282,14 @@ public sealed class RecordingGlApi(GlProfile profile = GlProfile.Core45) : IGlAp
 
     /// <inheritdoc />
     public void DrawBuffers(ReadOnlySpan<uint> attachments) =>
-        Record("DrawBuffers", attachments.ToArray().Cast<object?>().ToArray());
+        Record("DrawBuffers", [..attachments.ToArray().Cast<object?>()]);
 
     /// <inheritdoc />
     public void ReadBuffer(uint attachment) => Record("ReadBuffer", attachment);
 
     /// <inheritdoc />
     public void InvalidateFramebuffer(uint target, ReadOnlySpan<uint> attachments) =>
-        Record("InvalidateFramebuffer", [target, .. attachments.ToArray().Cast<object?>()]);
+        Record("InvalidateFramebuffer", [target, ..attachments.ToArray().Cast<object?>()]);
 
     /// <inheritdoc />
     public void BlitFramebuffer(
@@ -300,19 +303,20 @@ public sealed class RecordingGlApi(GlProfile profile = GlProfile.Core45) : IGlAp
         int destinationY1,
         uint mask,
         uint filter
-    ) => Record(
-        "BlitFramebuffer",
-        sourceX0,
-        sourceY0,
-        sourceX1,
-        sourceY1,
-        destinationX0,
-        destinationY0,
-        destinationX1,
-        destinationY1,
-        mask,
-        filter
-    );
+    ) =>
+        Record(
+            "BlitFramebuffer",
+            sourceX0,
+            sourceY0,
+            sourceX1,
+            sourceY1,
+            destinationX0,
+            destinationY0,
+            destinationX1,
+            destinationY1,
+            mask,
+            filter
+        );
 
     /// <inheritdoc />
     public void ReadPixels(int x, int y, int width, int height, uint format, uint type, nint bufferOffset) =>
@@ -320,11 +324,11 @@ public sealed class RecordingGlApi(GlProfile profile = GlProfile.Core45) : IGlAp
 
     /// <inheritdoc />
     public void ClearBuffer(uint buffer, int drawBuffer, ReadOnlySpan<float> value) =>
-        Record("ClearBufferF", [buffer, drawBuffer, .. value.ToArray().Cast<object?>()]);
+        Record("ClearBufferF", [buffer, drawBuffer, ..value.ToArray().Cast<object?>()]);
 
     /// <inheritdoc />
     public void ClearBuffer(uint buffer, int drawBuffer, ReadOnlySpan<int> value) =>
-        Record("ClearBufferI", [buffer, drawBuffer, .. value.ToArray().Cast<object?>()]);
+        Record("ClearBufferI", [buffer, drawBuffer, ..value.ToArray().Cast<object?>()]);
 
     /// <inheritdoc />
     public void ClearBufferDepthStencil(int drawBuffer, float depth, int stencil) =>
@@ -353,15 +357,15 @@ public sealed class RecordingGlApi(GlProfile profile = GlProfile.Core45) : IGlAp
         bool normalised,
         int stride,
         nint offset
-    ) => Record("VertexAttribPointer", index, size, type, normalised, stride, (long)offset);
+    ) =>
+        Record("VertexAttribPointer", index, size, type, normalised, stride, (long)offset);
 
     /// <inheritdoc />
     public void VertexAttribIPointer(uint index, int size, uint type, int stride, nint offset) =>
         Record("VertexAttribIPointer", index, size, type, stride, (long)offset);
 
     /// <inheritdoc />
-    public void VertexAttribDivisor(uint index, uint divisor) =>
-        Record("VertexAttribDivisor", index, divisor);
+    public void VertexAttribDivisor(uint index, uint divisor) => Record("VertexAttribDivisor", index, divisor);
 
     /// <inheritdoc />
     public uint CreateShader(uint type) {
@@ -427,7 +431,7 @@ public sealed class RecordingGlApi(GlProfile profile = GlProfile.Core45) : IGlAp
 
     /// <inheritdoc />
     public void Uniform4(int location, ReadOnlySpan<float> values) =>
-        Record("Uniform4fv", [location, .. values.ToArray().Cast<object?>()]);
+        Record("Uniform4fv", [location, ..values.ToArray().Cast<object?>()]);
 
     /// <inheritdoc />
     public void Enable(uint capability) => Record("Enable", capability);
@@ -442,8 +446,7 @@ public sealed class RecordingGlApi(GlProfile profile = GlProfile.Core45) : IGlAp
     public void DepthMask(bool write) => Record("DepthMask", write);
 
     /// <inheritdoc />
-    public void ColourMask(bool red, bool green, bool blue, bool alpha) =>
-        Record("ColorMask", red, green, blue, alpha);
+    public void ColourMask(bool red, bool green, bool blue, bool alpha) => Record("ColorMask", red, green, blue, alpha);
 
     /// <inheritdoc />
     public void CullFace(uint face) => Record("CullFace", face);
@@ -458,8 +461,7 @@ public sealed class RecordingGlApi(GlProfile profile = GlProfile.Core45) : IGlAp
     public void PolygonOffset(float factor, float units) => Record("PolygonOffset", factor, units);
 
     /// <inheritdoc />
-    public void BlendEquationSeparate(uint colour, uint alpha) =>
-        Record("BlendEquationSeparate", colour, alpha);
+    public void BlendEquationSeparate(uint colour, uint alpha) => Record("BlendEquationSeparate", colour, alpha);
 
     /// <inheritdoc />
     public void BlendFuncSeparate(
@@ -467,7 +469,8 @@ public sealed class RecordingGlApi(GlProfile profile = GlProfile.Core45) : IGlAp
         uint destinationColour,
         uint sourceAlpha,
         uint destinationAlpha
-    ) => Record("BlendFuncSeparate", sourceColour, destinationColour, sourceAlpha, destinationAlpha);
+    ) =>
+        Record("BlendFuncSeparate", sourceColour, destinationColour, sourceAlpha, destinationAlpha);
 
     /// <inheritdoc />
     public void BlendColour(float red, float green, float blue, float alpha) =>
@@ -507,7 +510,8 @@ public sealed class RecordingGlApi(GlProfile profile = GlProfile.Core45) : IGlAp
         int count,
         int instanceCount,
         uint baseInstance
-    ) => Record("DrawArraysInstancedBaseInstance", topology, first, count, instanceCount, baseInstance);
+    ) =>
+        Record("DrawArraysInstancedBaseInstance", topology, first, count, instanceCount, baseInstance);
 
     /// <inheritdoc />
     public void DrawElementsInstancedBaseVertex(
@@ -517,15 +521,16 @@ public sealed class RecordingGlApi(GlProfile profile = GlProfile.Core45) : IGlAp
         nint offset,
         int instanceCount,
         int baseVertex
-    ) => Record(
-        "DrawElementsInstancedBaseVertex",
-        topology,
-        count,
-        indexType,
-        (long)offset,
-        instanceCount,
-        baseVertex
-    );
+    ) =>
+        Record(
+            "DrawElementsInstancedBaseVertex",
+            topology,
+            count,
+            indexType,
+            (long)offset,
+            instanceCount,
+            baseVertex
+        );
 
     /// <inheritdoc />
     public void DrawElementsInstancedBaseVertexBaseInstance(
@@ -536,16 +541,17 @@ public sealed class RecordingGlApi(GlProfile profile = GlProfile.Core45) : IGlAp
         int instanceCount,
         int baseVertex,
         uint baseInstance
-    ) => Record(
-        "DrawElementsInstancedBaseVertexBaseInstance",
-        topology,
-        count,
-        indexType,
-        (long)offset,
-        instanceCount,
-        baseVertex,
-        baseInstance
-    );
+    ) =>
+        Record(
+            "DrawElementsInstancedBaseVertexBaseInstance",
+            topology,
+            count,
+            indexType,
+            (long)offset,
+            instanceCount,
+            baseVertex,
+            baseInstance
+        );
 
     /// <inheritdoc />
     public void MultiDrawElementsIndirect(
@@ -554,7 +560,8 @@ public sealed class RecordingGlApi(GlProfile profile = GlProfile.Core45) : IGlAp
         nint offset,
         int drawCount,
         int stride
-    ) => Record("MultiDrawElementsIndirect", topology, indexType, (long)offset, drawCount, stride);
+    ) =>
+        Record("MultiDrawElementsIndirect", topology, indexType, (long)offset, drawCount, stride);
 
     /// <inheritdoc />
     public void DispatchCompute(uint x, uint y, uint z) => Record("DispatchCompute", x, y, z);
@@ -581,8 +588,7 @@ public sealed class RecordingGlApi(GlProfile profile = GlProfile.Core45) : IGlAp
     public void DebugMarker(string name) => Record("DebugMarker", name);
 
     /// <inheritdoc />
-    public void ObjectLabel(uint identifier, uint name, string label) =>
-        Record("ObjectLabel", identifier, name, label);
+    public void ObjectLabel(uint identifier, uint name, string label) => Record("ObjectLabel", identifier, name, label);
 
     /// <inheritdoc />
     public uint GetError() => 0;

@@ -13,8 +13,12 @@ namespace Vixen.Editor.Blockout;
 ///         view-bookmark recall, both claims are right, and only a mode can hold one of them at a time.
 ///     </para>
 ///     <para>
-///         ⚠ <b><see cref="Object" /> is one of the four rather than the absence of the other
-///         three.</b> Moving a whole wall is the commonest blockout edit there is, and an
+///         ⚠
+///         <b>
+///             <see cref="Object" /> is one of the four rather than the absence of the other
+///             three.
+///         </b>
+///         Moving a whole wall is the commonest blockout edit there is, and an
 ///         implementation where "no sub-object mode" is a null has to answer "what is selected" twice.
 ///     </para>
 /// </remarks>

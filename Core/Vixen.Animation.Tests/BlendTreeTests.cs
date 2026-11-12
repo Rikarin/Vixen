@@ -14,7 +14,7 @@ public class BlendTreeTests {
     ClipMotion Held(string name, float x, float duration = 1f) =>
         new(
             AnimationClip.Create(
-                TestRigs.Hold(name, "Mid", new Vector3(x, 0f, 0f), duration),
+                TestRigs.Hold(name, "Mid", new(x, 0f, 0f), duration),
                 skeleton
             )
         );
@@ -85,7 +85,7 @@ public class BlendTreeTests {
 
     [Fact]
     public void BlendTree1D_NoChildren_IsRejected() =>
-        Assert.Throws<ArgumentException>(() => new BlendTree1D(0, []));
+        Assert.Throws<ArgumentException>(static () => new BlendTree1D(0, []));
 
     [Fact]
     public void BlendTree2D_AtAMotionsOwnPoint_ThatMotionTakesEverything() {

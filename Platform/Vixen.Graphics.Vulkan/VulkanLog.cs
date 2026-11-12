@@ -51,9 +51,13 @@ static partial class VulkanLog {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The counts are useless without <c>ValidationActive</c> beside them, and that is
-    ///         the whole reason this is one record with three properties rather than an error count
-    ///         somebody greps for.</b> A validation layer that is not installed, or is installed and
+    ///         ⚠
+    ///         <b>
+    ///             The counts are useless without <c>ValidationActive</c> beside them, and that is
+    ///             the whole reason this is one record with three properties rather than an error count
+    ///             somebody greps for.
+    ///         </b>
+    ///         A validation layer that is not installed, or is installed and
     ///         will not load, does not stop the instance being created — <c>VulkanInstance.TryCreate</c>
     ///         retries without it and logs a warning — so a run with no layers at all reports zero
     ///         errors, which is exactly what a clean run reports. A gate reading only the count would

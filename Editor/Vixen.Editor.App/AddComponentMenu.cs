@@ -9,8 +9,12 @@ namespace Vixen.Editor.App;
 
 /// <summary>What a line's chevron says, if it says anything.</summary>
 /// <remarks>
-///     ⚠ <b>One value rather than two flags, because two of the four combinations are not
-///     states.</b> A line either does something, opens a category or goes back out of one, and
+///     ⚠
+///     <b>
+///         One value rather than two flags, because two of the four combinations are not
+///         states.
+///     </b>
+///     A line either does something, opens a category or goes back out of one, and
 ///     "no arrow but pointing left" is a row nothing can produce.
 /// </remarks>
 enum RowArrow {
@@ -67,9 +71,7 @@ sealed partial class AddComponentRow : ButtonBase {
         set {
             detail = value;
 
-            if (DetailPart is not null) {
-                DetailPart.Text = value;
-            }
+            DetailPart?.Text = value;
         }
     }
 
@@ -92,8 +94,12 @@ sealed partial class AddComponentRow : ButtonBase {
 
     /// <summary>Whether the line opens something, and which way.</summary>
     /// <remarks>
-    ///     ⚠ <b>The arrow is turned rather than swapped for another glyph, and it is turned here
-    ///     rather than by a rule</b>: a transform is not something this layout applies, so "the same
+    ///     ⚠
+    ///     <b>
+    ///         The arrow is turned rather than swapped for another glyph, and it is turned here
+    ///         rather than by a rule
+    ///     </b>
+    ///     : a transform is not something this layout applies, so "the same
     ///     arrow, the other way" has to be the other chevron. The display is written inline for the
     ///     same reason the hand-written picker wrote it inline — <c>add-component-row &gt; icon</c>
     ///     has a size and no visibility, and a class for it would be a second place to decide.

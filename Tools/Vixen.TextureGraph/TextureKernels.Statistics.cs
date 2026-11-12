@@ -190,8 +190,9 @@ static class TextureStatistics {
         int width,
         int height
     ) {
-        var passes = Strides(width).Select(stride => (Axis: 0, Stride: stride))
-            .Concat(Strides(height).Select(stride => (Axis: 1, Stride: stride)))
+        var passes = Strides(width)
+            .Select(static stride => (Axis: 0, Stride: stride))
+            .Concat(Strides(height).Select(static stride => (Axis: 1, Stride: stride)))
             .ToArray();
 
         if (scratch.Length != passes.Length - 1) {

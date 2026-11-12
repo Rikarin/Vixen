@@ -22,27 +22,30 @@ public class PixelRoundingTests {
         // Fractional sizes at a 2× scale, which is where rounding actually does something: a
         // 33.3-point row on a retina display lands between pixels and its neighbours have to agree
         // about where the seam is.
-        Gen.Select(Gen.Int[2, 5], Gen.Int[1, 4], Gen.Int[0, 999].Array[1, 12]).Sample(shape => {
-                var (rows, cells, mutations) = shape;
+        Gen.Select(Gen.Int[2, 5], Gen.Int[1, 4], Gen.Int[0, 999].Array[1, 12])
+            .Sample(static shape => {
+                    var (rows, cells, mutations) = shape;
 
-                var spec = new PanelSpec(rows, cells);
-                using var incremental = new LayoutTree { PointScaleFactor = 2f };
-                var incrementalRoot = spec.Build(incremental);
-                incremental.CalculateLayout(incrementalRoot, 320.5f, 240.25f, Direction.Ltr);
-
-                foreach (var mutation in mutations) {
-                    spec.Mutate(mutation);
-                    spec.Apply(incremental, incrementalRoot, mutation);
+                    var spec = new PanelSpec(rows, cells);
+                    using var incremental = new LayoutTree();
+                    incremental.PointScaleFactor = 2f;
+                    var incrementalRoot = spec.Build(incremental);
                     incremental.CalculateLayout(incrementalRoot, 320.5f, 240.25f, Direction.Ltr);
 
-                    using var cold = new LayoutTree { PointScaleFactor = 2f };
-                    var coldRoot = spec.Build(cold);
-                    cold.CalculateLayout(coldRoot, 320.5f, 240.25f, Direction.Ltr);
+                    foreach (var mutation in mutations) {
+                        spec.Mutate(mutation);
+                        spec.Apply(incremental, incrementalRoot, mutation);
+                        incremental.CalculateLayout(incrementalRoot, 320.5f, 240.25f, Direction.Ltr);
 
-                    AssertSameLayout(incremental, incrementalRoot, cold, coldRoot, "root");
+                        using var cold = new LayoutTree();
+                        cold.PointScaleFactor = 2f;
+                        var coldRoot = spec.Build(cold);
+                        cold.CalculateLayout(coldRoot, 320.5f, 240.25f, Direction.Ltr);
+
+                        AssertSameLayout(incremental, incrementalRoot, cold, coldRoot, "root");
+                    }
                 }
-            }
-        );
+            );
     }
 
     [Fact]
@@ -50,7 +53,8 @@ public class PixelRoundingTests {
         // The case the shortcut is most likely to get wrong: nothing inside the subtree changed, so
         // its algorithm did not run — but an ancestor grew by half a pixel, and every descendant's
         // rounded edge depends on where it now sits.
-        using var tree = new LayoutTree { PointScaleFactor = 2f };
+        using var tree = new LayoutTree();
+        tree.PointScaleFactor = 2f;
         var root = tree.CreateNode();
         tree.SetFlexDirection(root, FlexDirection.Column);
         tree.SetDimension(root, Dimension.Width, StyleLength.Points(200f));
@@ -79,7 +83,8 @@ public class PixelRoundingTests {
         tree.SetDimension(spacer, Dimension.Height, StyleLength.Points(10.25f));
         tree.CalculateLayout(root, 200f, 400f, Direction.Ltr);
 
-        using var cold = new LayoutTree { PointScaleFactor = 2f };
+        using var cold = new LayoutTree();
+        cold.PointScaleFactor = 2f;
         var coldRoot = cold.CreateNode();
         cold.SetFlexDirection(coldRoot, FlexDirection.Column);
         cold.SetDimension(coldRoot, Dimension.Width, StyleLength.Points(200f));
@@ -103,7 +108,8 @@ public class PixelRoundingTests {
     public void Adjacent_boxes_do_not_round_into_a_seam() {
         // What the whole pass exists for. Three stacked 33.3-point rows at 2× scale: their rounded
         // heights differ from each other, and they still tile the space exactly.
-        using var tree = new LayoutTree { PointScaleFactor = 2f };
+        using var tree = new LayoutTree();
+        tree.PointScaleFactor = 2f;
         var root = tree.CreateNode();
         tree.SetFlexDirection(root, FlexDirection.Column);
         tree.SetDimension(root, Dimension.Width, StyleLength.Points(100f));
@@ -141,7 +147,7 @@ public class PixelRoundingTests {
 
                 for (var c = 0; c < cells; c++) {
                     var cell = tree.CreateNode();
-                    tree.SetDimension(cell, Dimension.Width, StyleLength.Points(cellWidths[(r * cells) + c]));
+                    tree.SetDimension(cell, Dimension.Width, StyleLength.Points(cellWidths[r * cells + c]));
                     tree.SetMargin(cell, Edge.Right, StyleLength.Points(1.25f));
                     tree.AddChild(row, cell);
                 }
@@ -152,9 +158,9 @@ public class PixelRoundingTests {
 
         public void Mutate(int mutation) {
             if (mutation % 2 == 0) {
-                cellWidths[mutation % cellWidths.Length] = 11f + (mutation % 23 * 0.37f);
+                cellWidths[mutation % cellWidths.Length] = 11f + mutation % 23 * 0.37f;
             } else {
-                rowHeights[mutation % rowHeights.Length] = 13f + (mutation % 17 * 0.41f);
+                rowHeights[mutation % rowHeights.Length] = 13f + mutation % 17 * 0.41f;
             }
         }
 
@@ -167,20 +173,30 @@ public class PixelRoundingTests {
             }
 
             var rowIndex = mutation % rowHeights.Length;
-            tree.SetDimension(tree.GetChild(root, rowIndex), Dimension.Height, StyleLength.Points(rowHeights[rowIndex]));
+            tree.SetDimension(
+                tree.GetChild(root, rowIndex),
+                Dimension.Height,
+                StyleLength.Points(rowHeights[rowIndex])
+            );
         }
 
         static float[] CreateSizes(int count, float start, float step) {
             var sizes = new float[count];
             for (var i = 0; i < count; i++) {
-                sizes[i] = start + (i * step % 19f);
+                sizes[i] = start + i * step % 19f;
             }
 
             return sizes;
         }
     }
 
-    static void AssertSameLayout(LayoutTree left, LayoutNodeId leftNode, LayoutTree right, LayoutNodeId rightNode, string path) {
+    static void AssertSameLayout(
+        LayoutTree left,
+        LayoutNodeId leftNode,
+        LayoutTree right,
+        LayoutNodeId rightNode,
+        string path
+    ) {
         Assert.Equal(right.GetLeft(rightNode), left.GetLeft(leftNode));
         Assert.Equal(right.GetTop(rightNode), left.GetTop(leftNode));
         Assert.Equal(right.GetWidth(rightNode), left.GetWidth(leftNode));

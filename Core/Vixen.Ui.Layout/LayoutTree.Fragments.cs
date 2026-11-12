@@ -6,16 +6,24 @@ namespace Vixen.Ui.Layout;
 /// <summary>Reading and writing the boxes of a node that produced more than one.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>The invariant this relaxes was never written down, which is exactly why it held for
-///         four algorithms: one node produces one box.</b> A flex item, a block-level child and a grid
+///         ⚠
+///         <b>
+///             The invariant this relaxes was never written down, which is exactly why it held for
+///             four algorithms: one node produces one box.
+///         </b>
+///         A flex item, a block-level child and a grid
 ///         item are each one rectangle, so a node's geometry was four floats at a known offset. CSS
 ///         Display §2.2's non-replaced <c>inline</c> box is not: a <c>span</c> crossing a line break is
 ///         one box per line, with the horizontal border and padding drawn at the two real ends and not
 ///         at the breaks.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The relaxation is deliberately one-directional: a node may have <i>more</i> boxes than
-///         one, and it may not have <i>fewer</i> or <i>none</i>.</b> That matters because the two
+///         ⚠
+///         <b>
+///             The relaxation is deliberately one-directional: a node may have <i>more</i> boxes than
+///             one, and it may not have <i>fewer</i> or <i>none</i>.
+///         </b>
+///         That matters because the two
 ///         things people put in the same sentence as this invariant are not the same problem.
 ///         Fragmentation is one node to many boxes and lives here. An <b>anonymous</b> block box
 ///         (§9.2.1.1) and a <b>generated</b> box (<c>::before</c>, doc 43's A12) are the other
@@ -40,8 +48,12 @@ public sealed partial class LayoutTree {
     ///     Never zero for a laid-out node.
     /// </returns>
     /// <remarks>
-    ///     ⚠ <b>One rather than zero for an unfragmented node, so that a consumer has one shape of
-    ///     loop rather than two.</b> The store distinguishes "no fragment block" from "one fragment"
+    ///     ⚠
+    ///     <b>
+    ///         One rather than zero for an unfragmented node, so that a consumer has one shape of
+    ///         loop rather than two.
+    ///     </b>
+    ///     The store distinguishes "no fragment block" from "one fragment"
     ///     internally because the first costs nothing; a caller should not have to, and a caller that
     ///     did would be the caller that forgets and paints the union of a two-line span as one
     ///     rectangle across the middle of the paragraph.
@@ -60,8 +72,12 @@ public sealed partial class LayoutTree {
     ///     which of the box's real ends it carries.
     /// </returns>
     /// <remarks>
-    ///     ⚠ <b>Relative to the node, not to the node's parent, and the asymmetry with
-    ///     <see cref="GetLeft" /> is deliberate.</b> A consumer reaches a fragment by walking to the
+    ///     ⚠
+    ///     <b>
+    ///         Relative to the node, not to the node's parent, and the asymmetry with
+    ///         <see cref="GetLeft" /> is deliberate.
+    ///     </b>
+    ///     A consumer reaches a fragment by walking to the
     ///     node first — that is what painting and hit testing both already do, accumulating an
     ///     absolute offset as they descend — so a fragment offset that is relative to the node adds
     ///     to what the walk already has. Relative to the parent it would have to be un-added first,
@@ -76,12 +92,12 @@ public sealed partial class LayoutTree {
 
         if (count == 0) {
             return fragment == 0
-                ? (0f, 0f, results[index].RoundedDimensions[(int) Dimension.Width],
-                    results[index].RoundedDimensions[(int) Dimension.Height], LayoutFragmentEnds.Both)
+                ? (0f, 0f, results[index].RoundedDimensions[(int)Dimension.Width],
+                    results[index].RoundedDimensions[(int)Dimension.Height], LayoutFragmentEnds.Both)
                 : throw new ArgumentOutOfRangeException(nameof(fragment));
         }
 
-        if ((uint) fragment >= (uint) count) {
+        if ((uint)fragment >= (uint)count) {
             throw new ArgumentOutOfRangeException(nameof(fragment));
         }
 

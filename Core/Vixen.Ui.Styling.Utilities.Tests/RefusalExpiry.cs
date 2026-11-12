@@ -30,8 +30,12 @@ enum ExpiryKind {
     /// <remarks>
     ///     <para>
     ///         Written <c>[expires-when-read &lt;css-property&gt;]</c>, and it is the other file's half
-    ///         of #288: a note that says <i>"the width is read; the logical colour is not —
-    ///         InertProperties.txt #21"</i> is a refusal resting on an allow-list line, one dependency
+    ///         of #288: a note that says
+    ///         <i>
+    ///             "the width is read; the logical colour is not —
+    ///             InertProperties.txt #21"
+    ///         </i>
+    ///         is a refusal resting on an allow-list line, one dependency
     ///         edge out from that file's own expiry. Nothing carried the verdict across, so the run
     ///         that deleted the exemption left the ledger's sentence standing.
     ///     </para>
@@ -71,15 +75,18 @@ sealed record ExpiryClause(string Root, ExpiryKind Kind, string Anchor, bool Pro
             _ => "expires-when-read"
         };
 
-    public int CompareTo(ExpiryClause? other) =>
-        other is null ? 1 : string.CompareOrdinal(Line, other.Line);
+    public int CompareTo(ExpiryClause? other) => other is null ? 1 : string.CompareOrdinal(Line, other.Line);
 }
 
 /// <summary>Reads the expiry conditions the parity ledger's refusals declare, and the census of them.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>The clause lives in the <c>note</c> column rather than in a fifteenth column or a
-///         second file, and that is the design decision the whole thing turns on.</b> The failure being
+///         ⚠
+///         <b>
+///             The clause lives in the <c>note</c> column rather than in a fifteenth column or a
+///             second file, and that is the design decision the whole thing turns on.
+///         </b>
+///         The failure being
 ///         prevented is that nobody writes the condition down as a condition. Anything that makes
 ///         recording one a separate act — another column to fill, another file to open — loses to the
 ///         thing it is competing with, which is finishing the sentence you were already writing. A
@@ -87,8 +94,12 @@ sealed record ExpiryClause(string Root, ExpiryKind Kind, string Anchor, bool Pro
 ///         formalises, so a reviewer reads the reason and the condition in one place.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Detecting an <i>undeclared</i> citation was tried first and abandoned, with a
-///         measurement.</b> The obvious mechanism is to notice a refusal's note mentioning another
+///         ⚠
+///         <b>
+///             Detecting an <i>undeclared</i> citation was tried first and abandoned, with a
+///             measurement.
+///         </b>
+///         The obvious mechanism is to notice a refusal's note mentioning another
 ///         root's name and require it to be declared. Swept over the 47 refusal-shaped notes, that
 ///         finds 106 mentions across 42 rows — and almost all of them are English. The roots include
 ///         <c>list-*</c>, <c>from-*</c>, <c>text</c>, <c>block-*</c>, <c>mask</c>, <c>scroll</c>,
@@ -114,8 +125,12 @@ static partial class RefusalExpiry {
     /// <summary>The states in which a root may still rest a gap on a condition of its own.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b><c>partial</c> <i>is</i> on this list, and the difference from
-    ///         <see cref="Refusing" /> is the point rather than an inconsistency.</b> An
+    ///         ⚠
+    ///         <b>
+    ///             <c>partial</c> <i>is</i> on this list, and the difference from
+    ///             <see cref="Refusing" /> is the point rather than an inconsistency.
+    ///         </b>
+    ///         An
     ///         <c>expires-with</c> says "this root is refused because that one is", which is prose
     ///         about a state a root that half works has already left. An <c>expires-when-read</c> says
     ///         "this longhand of mine is emitted and read by nothing" — <c>border-s-*</c>'s width is
@@ -125,8 +140,12 @@ static partial class RefusalExpiry {
     ///         left has nothing to rest on anything.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b><c>expires-on</c> now takes this list too, and the case that forced it is the one
-    ///         the whole suite exists for.</b> <c>hyphens</c> is <c>partial</c> because two of CSS's
+    ///         ⚠
+    ///         <b>
+    ///             <c>expires-on</c> now takes this list too, and the case that forced it is the one
+    ///             the whole suite exists for.
+    ///         </b>
+    ///         <c>hyphens</c> is <c>partial</c> because two of CSS's
     ///         three keywords landed and <c>auto</c> is refused. That refusal named two blockers — no
     ///         Liang pattern set, and nothing carrying a language — and the second one closed when
     ///         #600 put <c>UiElement.ResolvedLanguage</c> on the element and through to the shaper.
@@ -145,14 +164,17 @@ static partial class RefusalExpiry {
     /// <summary>Every clause the ledger's notes declare, sorted.</summary>
     /// <param name="rows">The ledger.</param>
     /// <returns>The clauses.</returns>
-    public static List<ExpiryClause> Declared(IEnumerable<ParityRow> rows) =>
-        Read(rows, Clause());
+    public static List<ExpiryClause> Declared(IEnumerable<ParityRow> rows) => Read(rows, Clause());
 
     /// <summary>Every clause the ledger's notes only <i>mention</i>, sorted.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Written <c>[~expires-… …]</c>, and it exists because the grammar had no way to
-    ///         spell a mention that is not a declaration</b> (#1325). The <c>select</c> row's note
+    ///         ⚠
+    ///         <b>
+    ///             Written <c>[~expires-… …]</c>, and it exists because the grammar had no way to
+    ///             spell a mention that is not a declaration
+    ///         </b>
+    ///         (#1325). The <c>select</c> row's note
     ///         narrates the commit that gave it a second clause and the merge that took it away again
     ///         — which is the kind of sentence this column is for — and writing that clause in the
     ///         ordinary way <i>declared a second real one</i>: two identical census rows off one cell.
@@ -168,8 +190,7 @@ static partial class RefusalExpiry {
     /// </remarks>
     /// <param name="rows">The ledger.</param>
     /// <returns>The quotations.</returns>
-    public static List<ExpiryClause> Quoted(IEnumerable<ParityRow> rows) =>
-        Read(rows, Quotation());
+    public static List<ExpiryClause> Quoted(IEnumerable<ParityRow> rows) => Read(rows, Quotation());
 
     /// <summary>Reads one of the two forms out of every note.</summary>
     /// <param name="rows">The ledger.</param>
@@ -201,7 +222,7 @@ static partial class RefusalExpiry {
             _ => ExpiryKind.WhenRead
         };
 
-        return new ExpiryClause(root, kind, match.Groups["anchor"].Value.Trim(), prose);
+        return new(root, kind, match.Groups["anchor"].Value.Trim(), prose);
     }
 
     /// <summary>Census lines that more than one clause produced.</summary>
@@ -215,20 +236,23 @@ static partial class RefusalExpiry {
     /// </remarks>
     /// <param name="clauses">The clauses.</param>
     /// <returns>The repeated lines, sorted, once each.</returns>
-    public static List<string> Duplicates(IEnumerable<ExpiryClause> clauses) =>
-        [
-            .. clauses
-                .GroupBy(clause => clause.Line, StringComparer.Ordinal)
-                .Where(group => group.Count() > 1)
-                .Select(group => group.Key)
-                .Order(StringComparer.Ordinal)
-        ];
+    public static List<string> Duplicates(IEnumerable<ExpiryClause> clauses) => [
+        ..clauses
+            .GroupBy(static clause => clause.Line, StringComparer.Ordinal)
+            .Where(static group => group.Count() > 1)
+            .Select(static group => group.Key)
+            .Order(StringComparer.Ordinal)
+    ];
 
     /// <summary>How many clause-shaped things the notes contain, well formed or not.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The instrument's own check, and the reason it is counted separately from the
-    ///         parse.</b> A regex that fails to match a malformed clause does not report anything — it
+    ///         ⚠
+    ///         <b>
+    ///             The instrument's own check, and the reason it is counted separately from the
+    ///             parse.
+    ///         </b>
+    ///         A regex that fails to match a malformed clause does not report anything — it
     ///         returns one fewer row, and one fewer row in a sweep is indistinguishable from a clause
     ///         nobody wrote. So the opening bracket is counted with a pattern that cannot be fooled by
     ///         the contents, and the two numbers have to agree. A typo inside a clause is then a red
@@ -245,13 +269,11 @@ static partial class RefusalExpiry {
     /// </remarks>
     /// <param name="rows">The ledger.</param>
     /// <returns>The count.</returns>
-    public static int Opened(IEnumerable<ParityRow> rows) =>
-        rows.Sum(row => Opening().Count(row.Note));
+    public static int Opened(IEnumerable<ParityRow> rows) => rows.Sum(static row => Opening().Count(row.Note));
 
     /// <summary>The repository root, found through the ledger's own walk.</summary>
     /// <returns>Its path.</returns>
-    public static string Root() =>
-        Directory.GetParent(Path.GetDirectoryName(ParityLedger.Locate())!)!.Parent!.FullName;
+    public static string Root() => Directory.GetParent(Path.GetDirectoryName(ParityLedger.Locate())!)!.Parent!.FullName;
 
     /// <summary>Finds the committed census, beside the tests that own it.</summary>
     /// <returns>Its path.</returns>
@@ -293,8 +315,10 @@ static partial class RefusalExpiry {
     /// </remarks>
     public static List<string> ProseFiles(string root) {
         var files = RepositoryFiles.Listed(root)
-            .Where(relative => relative.EndsWith(".cs", StringComparison.Ordinal) || relative.EndsWith(".md", StringComparison.Ordinal))
-            .Where(relative => !Grammar.Contains(relative, StringComparer.Ordinal))
+            .Where(static relative => relative.EndsWith(".cs", StringComparison.Ordinal)
+                || relative.EndsWith(".md", StringComparison.Ordinal)
+            )
+            .Where(static relative => !Grammar.Contains(relative, StringComparer.Ordinal))
             .ToList();
 
         files.Sort(StringComparer.Ordinal);
@@ -311,8 +335,12 @@ static partial class RefusalExpiry {
     ///     this sweep existed the condition had nowhere to go except a sentence, and #674's four are
     ///     what a sentence is worth.
     ///     <para>
-    ///         ⚠ <b>"A quoted clause is indistinguishable from a declared one and is meant to be" is
-    ///         what this paragraph used to say, and it was wrong.</b> The argument was that a comment
+    ///         ⚠
+    ///         <b>
+    ///             "A quoted clause is indistinguishable from a declared one and is meant to be" is
+    ///             what this paragraph used to say, and it was wrong.
+    ///         </b>
+    ///         The argument was that a comment
     ///         narrating an old clause records it here once and the census diff is where a reviewer
     ///         says so — the same review step the ledger's clauses get — and that the alternative, a
     ///         second syntax for quoting, is a grammar nobody would remember. Both halves failed
@@ -371,11 +399,11 @@ static partial class RefusalExpiry {
                 opened += Opening().Count(text);
 
                 foreach (Match match in Clause().Matches(text)) {
-                    clauses.Add(Parse(match, file, prose: true));
+                    clauses.Add(Parse(match, file, true));
                 }
 
                 foreach (Match match in Quotation().Matches(text)) {
-                    quotations.Add(Parse(match, file, prose: true));
+                    quotations.Add(Parse(match, file, true));
                 }
             }
 
@@ -395,7 +423,7 @@ static partial class RefusalExpiry {
     /// <param name="root">The repository root.</param>
     /// <returns>The clauses.</returns>
     public static List<ExpiryClause> All(IEnumerable<ParityRow> rows, string root) {
-        List<ExpiryClause> clauses = [.. Declared(rows), .. DeclaredInProse(root)];
+        List<ExpiryClause> clauses = [..Declared(rows), ..DeclaredInProse(root)];
 
         clauses.Sort();
 
@@ -407,7 +435,7 @@ static partial class RefusalExpiry {
     /// <param name="root">The repository root.</param>
     /// <returns>The quotations.</returns>
     public static List<ExpiryClause> AllQuoted(IEnumerable<ParityRow> rows, string root) {
-        List<ExpiryClause> quotations = [.. Quoted(rows), .. QuotedInProse(root)];
+        List<ExpiryClause> quotations = [..Quoted(rows), ..QuotedInProse(root)];
 
         quotations.Sort();
 
@@ -417,19 +445,18 @@ static partial class RefusalExpiry {
     /// <summary>Reads the census, ignoring its prose.</summary>
     /// <param name="path">Where it is.</param>
     /// <returns>The lines that are clauses.</returns>
-    public static List<string> ReadCensus(string path) =>
-        [
-            .. File.ReadAllLines(path)
-                .Select(line => line.TrimEnd())
-                .Where(line => line.Length != 0 && !line.StartsWith('#'))
-        ];
+    public static List<string> ReadCensus(string path) => [
+        ..File.ReadAllLines(path)
+            .Select(static line => line.TrimEnd())
+            .Where(static line => line.Length != 0 && !line.StartsWith('#'))
+    ];
 
     /// <summary>Writes the census back, keeping the prose header the file opens with.</summary>
     /// <param name="path">Where it is.</param>
     /// <param name="clauses">What to record.</param>
     public static void WriteCensus(string path, IEnumerable<ExpiryClause> clauses) {
         var header = File.ReadAllLines(path)
-            .TakeWhile(line => line.Length == 0 || line.StartsWith('#'))
+            .TakeWhile(static line => line.Length == 0 || line.StartsWith('#'))
             .ToList();
 
         var text = new StringBuilder();
@@ -484,8 +511,8 @@ static partial class RefusalExpiry {
             .Distinct();
 
         var type = assemblies
-            .Select(assembly => assembly.GetType(typeName, throwOnError: false))
-            .FirstOrDefault(candidate => candidate is not null);
+            .Select(assembly => assembly.GetType(typeName, false))
+            .FirstOrDefault(static candidate => candidate is not null);
 
         return (type, member);
     }
@@ -496,10 +523,15 @@ static partial class RefusalExpiry {
     /// <returns>Whether it is there.</returns>
     public static bool Has(Type type, string member) =>
         type.GetMember(
-            member,
-            BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static
-            | BindingFlags.FlattenHierarchy
-        ).Length != 0;
+                member,
+                BindingFlags.Public
+                | BindingFlags.NonPublic
+                | BindingFlags.Instance
+                | BindingFlags.Static
+                | BindingFlags.FlattenHierarchy
+            )
+            .Length
+        != 0;
 
     [GeneratedRegex(@"\[expires-(?<kind>with|on|when-read)\s+(?<anchor>[^\]]+)\]")]
     private static partial Regex Clause();

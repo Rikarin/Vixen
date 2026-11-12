@@ -115,7 +115,8 @@ public class ConjugateGradientTests {
     /// <summary>Against Gaussian elimination, over systems nobody chose.</summary>
     [Fact]
     public void It_agrees_with_gaussian_elimination_on_random_systems() {
-        Systems.Sample(system => {
+        Systems.Sample(
+            static system => {
                 var (size, dense, right) = system;
                 var expected = DenseReference.Solve(dense, right, size);
 
@@ -142,7 +143,8 @@ public class ConjugateGradientTests {
     /// <summary>The same, with no preconditioner at all, so a bug in one cannot hide behind the other.</summary>
     [Fact]
     public void It_agrees_with_gaussian_elimination_unpreconditioned() {
-        Systems.Sample(system => {
+        Systems.Sample(
+            static system => {
                 var (size, dense, right) = system;
                 var expected = DenseReference.Solve(dense, right, size);
 
@@ -184,7 +186,7 @@ public class ConjugateGradientTests {
     [Fact]
     public void A_budget_of_zero_leaves_the_warm_start_alone() {
         var matrix = PoissonGrid.Matrix(4);
-        var solution = Enumerable.Range(0, matrix.RowCount).Select(index => index * 0.25d).ToArray();
+        var solution = Enumerable.Range(0, matrix.RowCount).Select(static index => index * 0.25d).ToArray();
         var copy = (double[])solution.Clone();
 
         var report = new ConjugateGradient(matrix).Solve(new double[matrix.RowCount], solution, 0);
@@ -200,7 +202,7 @@ public class ConjugateGradientTests {
 
         for (var row = 0; row < size; row++) {
             for (var column = row + 1; column < size; column++) {
-                var value = entries[(row * size) + column];
+                var value = entries[row * size + column];
 
                 // Cut by magnitude so the pattern varies with the sample. Half of a uniform draw on
                 // [-1, 1] falls inside, which is about the density of a mesh Laplacian at this size.
@@ -208,8 +210,8 @@ public class ConjugateGradientTests {
                     continue;
                 }
 
-                matrix[(row * size) + column] = value;
-                matrix[(column * size) + row] = value;
+                matrix[row * size + column] = value;
+                matrix[column * size + row] = value;
             }
         }
 
@@ -218,11 +220,11 @@ public class ConjugateGradientTests {
 
             for (var column = 0; column < size; column++) {
                 if (column != row) {
-                    sum += Math.Abs(matrix[(row * size) + column]);
+                    sum += Math.Abs(matrix[row * size + column]);
                 }
             }
 
-            matrix[(row * size) + row] = sum + bump;
+            matrix[row * size + row] = sum + bump;
         }
 
         return matrix;

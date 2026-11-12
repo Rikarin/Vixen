@@ -7,8 +7,6 @@ using Vixen.Core.Yaml.Meta;
 using Vixen.Editor.Assets;
 using Vixen.Editor.Plugin;
 using Vixen.Editor.Ui;
-using Vixen.Ui;
-using Vixen.Ui.Controls;
 using Xunit;
 
 namespace Vixen.Editor.Scripts.Tests;
@@ -34,8 +32,8 @@ public class EditorScriptTests : IDisposable {
     public EditorScriptTests() {
         Directory.CreateDirectory(Path.Combine(root, "Assets", "Editor"));
 
-        shell = new EditorShell(1280f, 800f);
-        host = new PluginHost(shell);
+        shell = new(1280f, 800f);
+        host = new(shell);
     }
 
     public void Dispose() {
@@ -43,7 +41,7 @@ public class EditorScriptTests : IDisposable {
         shell.Dispose();
 
         if (Directory.Exists(root)) {
-            Directory.Delete(root, recursive: true);
+            Directory.Delete(root, true);
         }
 
         GC.SuppressFinalize(this);
@@ -51,28 +49,31 @@ public class EditorScriptTests : IDisposable {
 
     EditorScripts Scripts() => new(host, root, Path.Combine(root, "Library", "EditorScripts"));
 
-    void Write(string name, string source) =>
-        File.WriteAllText(Path.Combine(root, "Assets", "Editor", name), source);
+    void Write(string name, string source) => File.WriteAllText(Path.Combine(root, "Assets", "Editor", name), source);
 
     /// <summary>A script that registers one verb, which is what these tests watch come and go.</summary>
     /// <remarks>
-    ///     ⚠ <b>An <c>IEditorPlugin</c> rather than an <c>[EditorMenu]</c>, and the reason is where the
-    ///     attributes are read.</b> Doc 36 § D3 put that in <c>PluginHost.Scanners</c> — filled by the
+    ///     ⚠
+    ///     <b>
+    ///         An <c>IEditorPlugin</c> rather than an <c>[EditorMenu]</c>, and the reason is where the
+    ///         attributes are read.
+    ///     </b>
+    ///     Doc 36 § D3 put that in <c>PluginHost.Scanners</c> — filled by the
     ///     editor's application, because the attributes name types the plugin contract must not
     ///     reference — so a bare host has none and an attribute here would do nothing. What this suite
     ///     is about is the compile, the load, the reload and the unload; the attributes are asserted in
     ///     <c>Vixen.Editor.App.Tests</c>, against a host that wires the real scanner.
     /// </remarks>
     const string OneVerb = """
-        using Vixen.Editor.Plugin;
-        using Vixen.Editor.Ui;
-        using Vixen.Ui;
+                           using Vixen.Editor.Plugin;
+                           using Vixen.Editor.Ui;
+                           using Vixen.Ui;
 
-        public sealed class ProjectTools : IEditorPlugin {
-            public void Activate(PluginContext context) =>
-                context.AddCommand("project.rebuild-navigation", new StringId("x", "Rebuild Navigation"), () => { });
-        }
-        """;
+                           public sealed class ProjectTools : IEditorPlugin {
+                               public void Activate(PluginContext context) =>
+                                   context.AddCommand("project.rebuild-navigation", new StringId("x", "Rebuild Navigation"), () => { });
+                           }
+                           """;
 
     /// <summary>
     ///     ⚠ <b>A file appears in the folder, and what it registered is in the shell</b> — no restart,
@@ -100,11 +101,14 @@ public class EditorScriptTests : IDisposable {
     /// </summary>
     [Fact]
     public void A_compile_error_is_a_diagnostic_with_a_place_in_it() {
-        Write("Broken.cs", """
+        Write(
+            "Broken.cs",
+            """
             public static class Broken {
                 public static void Run() => Nonexistent.Thing();
             }
-            """);
+            """
+        );
 
         var state = Scripts().Rebuild();
 
@@ -163,7 +167,7 @@ public class EditorScriptTests : IDisposable {
         // times would be ten copies of every verb, and `CommandRegistry` would have refused the
         // second.
         Assert.NotNull(shell.Commands["project.rebuild-navigation"]);
-        Assert.Single(host.Plugins, plugin => plugin.Id == EditorScripts.PluginId);
+        Assert.Single(host.Plugins, static plugin => plugin.Id == EditorScripts.PluginId);
     }
 
     /// <summary>
@@ -191,7 +195,9 @@ public class EditorScriptTests : IDisposable {
     /// </summary>
     [Fact]
     public void A_script_can_be_a_whole_plugin() {
-        Write("Plugin.cs", """
+        Write(
+            "Plugin.cs",
+            """
             using Vixen.Editor.Plugin;
             using Vixen.Editor.Ui;
             using Vixen.Ui;
@@ -200,7 +206,8 @@ public class EditorScriptTests : IDisposable {
                 public void Activate(PluginContext context) =>
                     context.AddCommand("scripted.verb", new StringId("scripted.verb", "Scripted Verb"), () => { });
             }
-            """);
+            """
+        );
 
         var state = Scripts().Rebuild();
 
@@ -217,30 +224,30 @@ public class EditorScriptTests : IDisposable {
     ///     back as every default. <c>Tint</c> exists to be a non-default value that has to survive.
     /// </remarks>
     const string CustomImporter = """
-        using System.Threading;
-        using System.Threading.Tasks;
-        using Vixen.Core;
-        using Vixen.Core.Yaml.Meta;
-        using Vixen.Editor.Assets;
+                                  using System.Threading;
+                                  using System.Threading.Tasks;
+                                  using Vixen.Core;
+                                  using Vixen.Core.Yaml.Meta;
+                                  using Vixen.Editor.Assets;
 
-        [DataContract("WidgetImporter")]
-        public sealed record WidgetImportSettings : IImportSettings {
-            public int Version { get; init; } = 1;
-            public float Tint { get; init; } = 0.5f;
-            public string Notes { get; init; } = "";
-        }
+                                  [DataContract("WidgetImporter")]
+                                  public sealed record WidgetImportSettings : IImportSettings {
+                                      public int Version { get; init; } = 1;
+                                      public float Tint { get; init; } = 0.5f;
+                                      public string Notes { get; init; } = "";
+                                  }
 
-        [Importer(".widget")]
-        public sealed class WidgetImporter : AssetImporter<WidgetImportSettings> {
-            public override int Version => 1;
+                                  [Importer(".widget")]
+                                  public sealed class WidgetImporter : AssetImporter<WidgetImportSettings> {
+                                      public override int Version => 1;
 
-            protected override ValueTask<ImportResult> ImportAsync(
-                ImportContext context,
-                WidgetImportSettings settings,
-                CancellationToken cancellationToken
-            ) => ValueTask.FromResult(new ImportResult([], [], []));
-        }
-        """;
+                                      protected override ValueTask<ImportResult> ImportAsync(
+                                          ImportContext context,
+                                          WidgetImportSettings settings,
+                                          CancellationToken cancellationToken
+                                      ) => ValueTask.FromResult(new ImportResult([], [], []));
+                                  }
+                                  """;
 
     /// <summary>
     ///     ⚠ <b>Doc 36 § F8, from the tier that could not do it.</b> A game author defines an importer
@@ -260,7 +267,7 @@ public class EditorScriptTests : IDisposable {
         Assert.True(state.Loaded, string.Join(Environment.NewLine, state.Build.Diagnostics));
         Assert.Equal(1, state.Importers);
 
-        var registry = contributions.ApplyTo(new ImporterRegistry());
+        var registry = contributions.ApplyTo(new());
 
         Assert.True(registry.TryGetForFile("thing.widget", out var importer));
 
@@ -302,7 +309,7 @@ public class EditorScriptTests : IDisposable {
 
         // And out to YAML and back, which is what a .meta actually is.
         var yaml = YamlSerializer.Serialize(settings);
-        var read = (IImportSettings) YamlSerializer.Deserialize(yaml, importer.SettingsType)!;
+        var read = (IImportSettings)YamlSerializer.Deserialize(yaml, importer.SettingsType)!;
 
         Assert.Equal(0.75f, descriptor.FindMember("Tint")!.GetValue(read));
         Assert.Equal("from the file", descriptor.FindMember("Notes")!.GetValue(read));
@@ -336,8 +343,12 @@ public class EditorScriptTests : IDisposable {
     }
 
     /// <summary>
-    ///     ⚠ <b>A positional settings record is refused by the C# compiler, not by us — and that is
-    ///     the better answer.</b> <c>AssetImporter&lt;TSettings&gt;</c> constrains its parameter to
+    ///     ⚠
+    ///     <b>
+    ///         A positional settings record is refused by the C# compiler, not by us — and that is
+    ///         the better answer.
+    ///     </b>
+    ///     <c>AssetImporter&lt;TSettings&gt;</c> constrains its parameter to
     ///     <c>new()</c>, which a positional record does not satisfy, so the script does not compile
     ///     and the author gets CS0310 on the line they wrote. <c>ReflectedTypes</c> keeps its own
     ///     check because <c>Register</c> is public and a settings type can *contain* a positional
@@ -345,7 +356,9 @@ public class EditorScriptTests : IDisposable {
     /// </summary>
     [Fact]
     public void A_positional_settings_record_does_not_compile_at_all() {
-        Write("WidgetImporter.cs", """
+        Write(
+            "WidgetImporter.cs",
+            """
             using System.Threading;
             using System.Threading.Tasks;
             using Vixen.Core;
@@ -365,13 +378,14 @@ public class EditorScriptTests : IDisposable {
                     CancellationToken cancellationToken
                 ) => ValueTask.FromResult(new ImportResult([], [], []));
             }
-            """);
+            """
+        );
 
         var state = Scripts().Rebuild();
 
         Assert.True(state.Build.Failed);
 
-        var error = Assert.Single(state.Build.Errors, diagnostic => diagnostic.Id == "CS0310");
+        var error = Assert.Single(state.Build.Errors, static diagnostic => diagnostic.Id == "CS0310");
 
         Assert.Contains("parameterless constructor", error.Message, StringComparison.Ordinal);
     }

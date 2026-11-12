@@ -24,7 +24,7 @@ public sealed class SessionHarness : IDisposable {
     /// <param name="authenticator">Who it lets in.</param>
     /// <returns>The session, started.</returns>
     public NetworkSession StartServer(SessionOptions? options = null, ISessionAuthenticator? authenticator = null) {
-        var session = Track(new(new LocalTransport(network), options, authenticator, ownsTransport: true), "server");
+        var session = Track(new(new LocalTransport(network), options, authenticator, true), "server");
         session.StartServer();
 
         return session;
@@ -34,7 +34,7 @@ public sealed class SessionHarness : IDisposable {
     /// <param name="options">How it behaves.</param>
     /// <returns>The session, started.</returns>
     public NetworkSession StartHost(SessionOptions? options = null) {
-        var session = Track(new(new LocalTransport(network), options, null, ownsTransport: true), "host");
+        var session = Track(new(new LocalTransport(network), options, null, true), "host");
         session.StartHost();
 
         return session;
@@ -46,7 +46,7 @@ public sealed class SessionHarness : IDisposable {
     /// <returns>The session, started.</returns>
     public NetworkSession StartClient(SessionOptions? options = null, ReadOnlySpan<byte> token = default) {
         var name = $"client{sessions.Count}";
-        var session = Track(new(new LocalTransport(network), options, null, ownsTransport: true), name);
+        var session = Track(new(new LocalTransport(network), options, null, true), name);
 
         if (!token.IsEmpty) {
             session.PresentReconnectToken(token);
@@ -63,7 +63,7 @@ public sealed class SessionHarness : IDisposable {
     /// <param name="options">How it behaves.</param>
     /// <returns>The session, not started.</returns>
     public NetworkSession Add(ITransport transport, string name, SessionOptions? options = null) =>
-        Track(new(transport, options, null, ownsTransport: true), name);
+        Track(new(transport, options, null, true), name);
 
     /// <summary>A bare transport on the same network, for a test that wants to misbehave.</summary>
     /// <returns>The transport, not started. Disposed with the harness.</returns>
@@ -156,7 +156,7 @@ public sealed class ScriptedAuthenticator(AuthenticationDecision decision) : ISe
     /// <inheritdoc />
     public AuthenticationDecision Authenticate(in AuthenticationRequest request) {
         Asked++;
-        LastPayload = request.Payload.ToArray();
+        LastPayload = [..request.Payload];
         LastWasReconnect = request.IsReconnect;
 
         return Decision;

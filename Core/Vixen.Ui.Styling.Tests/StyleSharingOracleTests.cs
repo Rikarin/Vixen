@@ -30,41 +30,44 @@ public class StyleSharingOracleTests {
     public void Sharing_produces_exactly_what_cascading_every_element_produces() {
         var hits = 0;
 
-        Gen.Select(Gen.Int[0, 100_000], Gen.Int[2, 4], Gen.Int[1, 4]).Sample(shape => {
-                var (seed, depth, breadth) = shape;
+        Gen.Select(Gen.Int[0, 100_000], Gen.Int[2, 4], Gen.Int[1, 4])
+            .Sample(
+                shape => {
+                    var (seed, depth, breadth) = shape;
 
-                var shared = new CascadeFixture();
-                var oracle = new CascadeFixture();
-                var css = BuildStylesheet(seed);
+                    var shared = new CascadeFixture();
+                    var oracle = new CascadeFixture();
+                    var css = BuildStylesheet(seed);
 
-                shared.Load(css);
-                oracle.Load(css);
-                BuildTree(shared, seed, depth, breadth);
-                BuildTree(oracle, seed, depth, breadth);
+                    shared.Load(css);
+                    oracle.Load(css);
+                    BuildTree(shared, seed, depth, breadth);
+                    BuildTree(oracle, seed, depth, breadth);
 
-                var withSharing = shared.Engine.ResolveAll();
-                var withoutSharing = ResolveAllWithoutSharing(oracle);
+                    var withSharing = shared.Engine.ResolveAll();
+                    var withoutSharing = ResolveAllWithoutSharing(oracle);
 
-                Assert.Equal(withoutSharing.Length, withSharing.Length);
+                    Assert.Equal(withoutSharing.Length, withSharing.Length);
 
-                // Without this the property is vacuous: one position-dependent rule anywhere in the
-                // generated stylesheet turns sharing off, and then both sides are the same code
-                // path agreeing with itself.
-                Assert.True(
-                    shared.Engine.Rules.SharingIsSound(
-                        shared.Engine.Scopes.VerdictsOf(MediaScopes.Document),
-                        shared.Engine.ContainerScopes.VerdictsOf(ContainerScopes.Root)
-                    )
-                );
-                Interlocked.Add(ref hits, shared.Engine.Resolver.SharingHits);
+                    // Without this the property is vacuous: one position-dependent rule anywhere in the
+                    // generated stylesheet turns sharing off, and then both sides are the same code
+                    // path agreeing with itself.
+                    Assert.True(
+                        shared.Engine.Rules.SharingIsSound(
+                            shared.Engine.Scopes.VerdictsOf(MediaScopes.Document),
+                            shared.Engine.ContainerScopes.VerdictsOf(ContainerScopes.Root)
+                        )
+                    );
+                    Interlocked.Add(ref hits, shared.Engine.Resolver.SharingHits);
 
-                for (var i = 0; i < withSharing.Length; i++) {
-                    // Two engines, so not the same object — but the same property table, and the
-                    // sharing engine must not have invented one the cascade would not have.
-                    Assert.Equal(Describe(shared, withSharing[i]), Describe(oracle, withoutSharing[i]));
-                }
-            }, iter: 300
-        );
+                    for (var i = 0; i < withSharing.Length; i++) {
+                        // Two engines, so not the same object — but the same property table, and the
+                        // sharing engine must not have invented one the cascade would not have.
+                        Assert.Equal(Describe(shared, withSharing[i]), Describe(oracle, withoutSharing[i]));
+                    }
+                },
+                iter: 300
+            );
 
         // Counted across the sample rather than per case, because a shape with a breadth of one has
         // no siblings to share between and would fail a per-case guard for being an honest tree.
@@ -77,12 +80,10 @@ public class StyleSharingOracleTests {
         // same class and the same parent — the sharing key cannot tell them apart, and
         // `:nth-child(2n)` can.
         foreach (var css in new[] {
-            "li:nth-child(2n) { color: even }",
-            ".row + .row { color: later }",
-            "li:first-child { color: first }",
-            "li:is(:last-child) { color: last }",
-            "[data-kind=danger] { color: danger }"
-        }) {
+                     "li:nth-child(2n) { color: even }", ".row + .row { color: later }",
+                     "li:first-child { color: first }", "li:is(:last-child) { color: last }",
+                     "[data-kind=danger] { color: danger }"
+                 }) {
             var fixture = new CascadeFixture();
             fixture.Load(css);
 
@@ -131,11 +132,13 @@ public class StyleSharingOracleTests {
         // computed style — one property, one value — so a key holding the parent's style would let
         // these two children share, and `.a .row` matches only one of them.
         var fixture = new CascadeFixture();
-        fixture.Load("""
+        fixture.Load(
+            """
             .a { color: red }
             .b { color: red }
             .a .row { background: only-under-a }
-            """);
+            """
+        );
 
         var underA = fixture.Tree.CreateElement("div", classNames: ["a"]);
         var underB = fixture.Tree.CreateElement("div", classNames: ["b"]);
@@ -221,11 +224,11 @@ public class StyleSharingOracleTests {
                     tags[random.Next(tags.Length)],
                     parent,
                     random.Next(5) == 0 ? $"id{random.Next(3)}" : null,
-                    [.. chosen]
+                    [..chosen]
                 );
 
                 if (random.Next(4) == 0) {
-                    fixture.Tree.SetState(element, (ElementState) (1u << random.Next(6)));
+                    fixture.Tree.SetState(element, (ElementState)(1u << random.Next(6)));
                 }
 
                 Build(element, level + 1);
@@ -239,17 +242,14 @@ public class StyleSharingOracleTests {
         // No position or sibling selectors: with one, sharing turns itself off and the oracle would
         // be comparing the cascade against itself. `Sharing_is_refused_when_…` is what covers those.
         var pieces = new[] {
-            "div", "span", "li", "Button", "*",
-            ".row", ".cell", ".selected", ".dark", ".sidebar",
-            "#id0", "#id1",
-            ":hover", ":focus", ":disabled",
-            ":not(.selected)", ":is(.row, .cell)"
+            "div", "span", "li", "Button", "*", ".row", ".cell", ".selected", ".dark", ".sidebar", "#id0", "#id1",
+            ":hover", ":focus", ":disabled", ":not(.selected)", ":is(.row, .cell)"
         };
 
         var combinators = new[] { " ", " > " };
         var properties = new[] { "color", "background", "padding-left", "font-size", "--accent" };
         var values = new[] { "one", "two", "three", "var(--accent)", "var(--missing, fallback)" };
-        var layers = new[] { "", "base", "theme", "utilities" };
+        var layers = new[] { string.Empty, "base", "theme", "utilities" };
 
         var builder = new StringBuilder();
         builder.Append("@layer base, theme, utilities;\n");
@@ -280,7 +280,8 @@ public class StyleSharingOracleTests {
             builder.Append(" { ");
             var declarations = 1 + random.Next(3);
             for (var d = 0; d < declarations; d++) {
-                builder.Append(CultureInfo.InvariantCulture,
+                builder.Append(
+                    CultureInfo.InvariantCulture,
                     $"{properties[random.Next(properties.Length)]}: {values[random.Next(values.Length)]}"
                 );
 

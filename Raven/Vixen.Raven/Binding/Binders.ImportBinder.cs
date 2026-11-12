@@ -33,7 +33,7 @@ internal sealed class ImportBinder(Binder next, NamespaceSymbol packageNamespace
             chain.Add(ns);
         }
 
-        packageChain = chain.ToArray();
+        packageChain = [..chain];
 
         List<NamespaceSymbol> namespaces = [];
         List<TypeSymbol> types = [];
@@ -63,8 +63,8 @@ internal sealed class ImportBinder(Binder next, NamespaceSymbol packageNamespace
             }
         }
 
-        importedNamespaces = namespaces.ToArray();
-        staticImports = types.ToArray();
+        importedNamespaces = [..namespaces];
+        staticImports = [..types];
     }
 
     NamespaceSymbol? ResolveNamespace(IEnumerable<string> path) {

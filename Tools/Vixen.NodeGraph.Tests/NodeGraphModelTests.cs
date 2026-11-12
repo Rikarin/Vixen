@@ -84,7 +84,7 @@ public class NodeGraphModelTests {
         graph.Connect(new(first.Id, "Out"), new(middle.Id, "A"));
         graph.Connect(new(middle.Id, "Out"), new(last.Id, "A"));
 
-        Assert.Equal([first.Id, middle.Id, last.Id], graph.Ordered().Select(node => node.Id));
+        Assert.Equal([first.Id, middle.Id, last.Id], graph.Ordered().Select(static node => node.Id));
     }
 
     /// <summary>Removing a node takes its edges with it, and hands them back for an undo.</summary>
@@ -163,8 +163,8 @@ public class NodeGraphModelTests {
 
         Assert.Empty(diagnostics);
         Assert.Equal("Round", reloaded.Name);
-        Assert.Equal(graph.Nodes.Select(node => node.Id), reloaded.Nodes.Select(node => node.Id));
-        Assert.Equal(graph.Nodes.Select(node => node.Type), reloaded.Nodes.Select(node => node.Type));
+        Assert.Equal(graph.Nodes.Select(static node => node.Id), reloaded.Nodes.Select(static node => node.Id));
+        Assert.Equal(graph.Nodes.Select(static node => node.Type), reloaded.Nodes.Select(static node => node.Type));
         Assert.Equal(graph.Edges, reloaded.Edges);
 
         var restored = Assert.Single(reloaded.Nodes, node => node.Id == b.Id);
@@ -178,7 +178,7 @@ public class NodeGraphModelTests {
         var comment = Assert.Single(reloaded.Comments);
 
         Assert.Equal("why this is here", comment.Text);
-        Assert.Equal(new Vector2(180f, 90f), comment.Size);
+        Assert.Equal(new(180f, 90f), comment.Size);
     }
 
     /// <summary>A file that has been merged badly opens, and says what it lost.</summary>
@@ -198,7 +198,7 @@ public class NodeGraphModelTests {
 
         Assert.Single(graph.Nodes);
         Assert.Empty(graph.Edges);
-        Assert.Contains(diagnostics, diagnostic => diagnostic.Id == "NG0101");
+        Assert.Contains(diagnostics, static diagnostic => diagnostic.Id == "NG0101");
     }
 
     /// <summary>A file from a later version is refused, because its bytes cannot be guessed at.</summary>

@@ -12,19 +12,24 @@ public class SymbolReaderTests {
         var compilation = Fixture.Compile(source);
         var links = new SourceLinks(Path.GetTempPath(), "https://github.com/rikarin/Vixen", "abc123");
 
-        return [.. new SymbolReader(links).Read(compilation.Assembly, "Core", isPackable: true)
-            .Where(node => node.Namespace.StartsWith("Fixtures", StringComparison.Ordinal))];
+        return [
+            ..new SymbolReader(links).Read(compilation.Assembly, "Core", true)
+                .Where(static node => node.Namespace.StartsWith("Fixtures", StringComparison.Ordinal))
+        ];
     }
 
     [Fact]
     public void APublicTypeBecomesANodeKeyedByItsDocumentationId() {
-        var node = Assert.Single(Read(
-            """
-            namespace Fixtures {
-                /// <summary>A world.</summary>
-                public sealed class World;
-            }
-            """));
+        var node = Assert.Single(
+            Read(
+                """
+                namespace Fixtures {
+                    /// <summary>A world.</summary>
+                    public sealed class World;
+                }
+                """
+            )
+        );
 
         Assert.Equal("T:Fixtures.World", node.Id);
         Assert.Equal("World", node.Name);
@@ -50,13 +55,16 @@ public class SymbolReaderTests {
 
                 public sealed class Visible;
             }
-            """);
+            """
+        );
 
-        Assert.Equal(["T:Fixtures.Visible"], nodes.Select(node => node.Id));
+        Assert.Equal(["T:Fixtures.Visible"], nodes.Select(static node => node.Id));
     }
 
-    /// <summary>A nested type gets its own page: a reader searching for it should not have to know
-    ///     which type it hangs off.</summary>
+    /// <summary>
+    ///     A nested type gets its own page: a reader searching for it should not have to know
+    ///     which type it hangs off.
+    /// </summary>
     [Fact]
     public void PublicNestedTypesGetTheirOwnNode() {
         var nodes = Read(
@@ -66,28 +74,32 @@ public class SymbolReaderTests {
                     public sealed class Builder;
                 }
             }
-            """);
+            """
+        );
 
-        Assert.Contains("T:Fixtures.Query.Builder", nodes.Select(node => node.Id));
-        Assert.Contains("fixtures/query.builder", nodes.Select(node => node.Slug));
+        Assert.Contains("T:Fixtures.Query.Builder", nodes.Select(static node => node.Id));
+        Assert.Contains("fixtures/query.builder", nodes.Select(static node => node.Slug));
     }
 
     [Fact]
     public void MembersAreReadWithTheirKindAndSignature() {
-        var node = Assert.Single(Read(
-            """
-            namespace Fixtures {
-                public sealed class Bag {
-                    /// <summary>How many.</summary>
-                    public int Count { get; }
-                    public const int Max = 8;
-                    public event System.Action? Changed;
-                    public void Add(int value) { }
+        var node = Assert.Single(
+            Read(
+                """
+                namespace Fixtures {
+                    public sealed class Bag {
+                        /// <summary>How many.</summary>
+                        public int Count { get; }
+                        public const int Max = 8;
+                        public event System.Action? Changed;
+                        public void Add(int value) { }
+                    }
                 }
-            }
-            """));
+                """
+            )
+        );
 
-        var members = node.Members.ToDictionary(member => member.Name, StringComparer.Ordinal);
+        var members = node.Members.ToDictionary(static member => member.Name, StringComparer.Ordinal);
 
         Assert.Equal("property", members["Count"].MemberKind);
         Assert.Equal("How many.", members["Count"].Summary);
@@ -103,31 +115,37 @@ public class SymbolReaderTests {
     /// </summary>
     [Fact]
     public void PropertyAccessorsAreNotAlsoMethods() {
-        var node = Assert.Single(Read(
-            """
-            namespace Fixtures {
-                public sealed class Bag {
-                    public int Count { get; set; }
+        var node = Assert.Single(
+            Read(
+                """
+                namespace Fixtures {
+                    public sealed class Bag {
+                        public int Count { get; set; }
+                    }
                 }
-            }
-            """));
+                """
+            )
+        );
 
-        Assert.Equal(["Count"], node.Members.Select(member => member.Name));
+        Assert.Equal(["Count"], node.Members.Select(static member => member.Name));
     }
 
     [Fact]
     public void AttributeArgumentsAreKeptAsTheyWereWritten() {
-        var node = Assert.Single(Read(
-            """
-            namespace Fixtures {
-                [Vixen.Editor.Assets.Importer(".fbx", ".obj")]
-                public sealed class ModelImporter;
-            }
-            """));
+        var node = Assert.Single(
+            Read(
+                """
+                namespace Fixtures {
+                    [Vixen.Editor.Assets.Importer(".fbx", ".obj")]
+                    public sealed class ModelImporter;
+                }
+                """
+            )
+        );
 
-        var importer = Assert.Single(node.Attributes, attribute => attribute.Name == "Importer");
+        var importer = Assert.Single(node.Attributes, static attribute => attribute.Name == "Importer");
 
-        Assert.Equal(["[\".fbx\", \".obj\"]"], importer.Arguments);
+        Assert.Equal(["""[".fbx", ".obj"]"""], importer.Arguments);
         Assert.Equal(DocKind.Importer, node.Kind);
     }
 
@@ -137,28 +155,34 @@ public class SymbolReaderTests {
     /// </summary>
     [Fact]
     public void ANullArrayArgumentIsFormattedRatherThanThrown() {
-        var node = Assert.Single(Read(
-            """
-            namespace Fixtures {
-                [Vixen.Editor.Assets.Importer(null)]
-                public sealed class NullImporter;
-            }
-            """));
+        var node = Assert.Single(
+            Read(
+                """
+                namespace Fixtures {
+                    [Vixen.Editor.Assets.Importer(null)]
+                    public sealed class NullImporter;
+                }
+                """
+            )
+        );
 
-        var importer = Assert.Single(node.Attributes, attribute => attribute.Name == "Importer");
+        var importer = Assert.Single(node.Attributes, static attribute => attribute.Name == "Importer");
 
         Assert.Equal(["null"], importer.Arguments);
     }
 
     [Fact]
     public void ObsoleteIsRecordedBecauseTheReleaseDiffReadsIt() {
-        var node = Assert.Single(Read(
-            """
-            namespace Fixtures {
-                [System.Obsolete("Use World instead.")]
-                public sealed class Universe;
-            }
-            """));
+        var node = Assert.Single(
+            Read(
+                """
+                namespace Fixtures {
+                    [System.Obsolete("Use World instead.")]
+                    public sealed class Universe;
+                }
+                """
+            )
+        );
 
         Assert.Equal("Use World instead.", node.Obsolete);
     }
@@ -166,13 +190,15 @@ public class SymbolReaderTests {
     [Fact]
     public void BaseTypesAndInterfacesAreRecordedAsIds() {
         var node = Read(
-            """
-            namespace Fixtures {
-                public interface IThing { }
-                public abstract class Base;
-                public sealed class Thing : Base, IThing;
-            }
-            """).Single(candidate => candidate.Name == "Thing");
+                """
+                namespace Fixtures {
+                    public interface IThing { }
+                    public abstract class Base;
+                    public sealed class Thing : Base, IThing;
+                }
+                """
+            )
+            .Single(static candidate => candidate.Name == "Thing");
 
         Assert.Equal("T:Fixtures.Base", node.BaseType);
         Assert.Equal(["T:Fixtures.IThing"], node.Interfaces);
@@ -180,12 +206,15 @@ public class SymbolReaderTests {
 
     [Fact]
     public void ObjectIsNotRecordedAsABaseTypeBecauseEverythingHasIt() {
-        var node = Assert.Single(Read(
-            """
-            namespace Fixtures {
-                public sealed class Plain;
-            }
-            """));
+        var node = Assert.Single(
+            Read(
+                """
+                namespace Fixtures {
+                    public sealed class Plain;
+                }
+                """
+            )
+        );
 
         Assert.Null(node.BaseType);
     }
@@ -197,7 +226,8 @@ public class SymbolReaderTests {
             namespace Fixtures {
                 public sealed class Linked;
             }
-            """);
+            """
+        );
 
         var root = Path.GetTempPath();
         var links = new SourceLinks(root, "https://github.com/rikarin/Vixen", "abc123");
@@ -216,9 +246,10 @@ public class SymbolReaderTests {
             namespace Fixtures {
                 public sealed class Linked;
             }
-            """);
+            """
+        );
 
-        var links = new SourceLinks(Path.GetTempPath(), "https://github.com/rikarin/Vixen", commit: null);
+        var links = new SourceLinks(Path.GetTempPath(), "https://github.com/rikarin/Vixen", null);
 
         Assert.Null(links.For(compilation.Type("Fixtures.Linked"))?.Url);
     }

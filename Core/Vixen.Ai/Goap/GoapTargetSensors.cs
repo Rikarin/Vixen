@@ -3,7 +3,6 @@
 
 using Vixen.Core;
 using Vixen.Core.Mathematics;
-using Vixen.Ecs;
 
 namespace Vixen.Ai;
 
@@ -63,8 +62,12 @@ public sealed class GoapTargetSensors {
     /// <returns>This table.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="sensor" /> is null.</exception>
     /// <remarks>
-    ///     ⚠ <b>§ D13 says there is one implementation and two front ends, and this is the second
-    ///     front end.</b> "The nearest apple to me" is one search whether a behaviour tree writes it to
+    ///     ⚠
+    ///     <b>
+    ///         § D13 says there is one implementation and two front ends, and this is the second
+    ///         front end.
+    ///     </b>
+    ///     "The nearest apple to me" is one search whether a behaviour tree writes it to
     ///     a key, a utility consideration measures its distance, or a GOAP action goes there — so
     ///     <see cref="ITargetSensor" /> is what a project writes, and a domain names it here rather
     ///     than making them write it twice.

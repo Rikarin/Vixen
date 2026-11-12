@@ -48,8 +48,7 @@ public abstract record Definition {
     ///     tag is the <c>[DataContract]</c> alias and those are allowed to differ — and because a
     ///     trimmed publish keeps the descriptor and may not keep the name.
     /// </remarks>
-    public string TypeName =>
-        TypeRegistry.TryGet(GetType(), out var descriptor) ? descriptor.Alias : GetType().Name;
+    public string TypeName => TypeRegistry.TryGet(GetType(), out var descriptor) ? descriptor.Alias : GetType().Name;
 
     /// <summary>Every tag this definition mentions, so the content build can bake the tag table.</summary>
     /// <param name="tags">What to add the names to.</param>

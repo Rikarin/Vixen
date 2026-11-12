@@ -68,7 +68,7 @@ public sealed class VoiceReceiver : IDisposable {
     /// <param name="frameMilliseconds">What the far end packetises at.</param>
     /// <param name="depth">How many packets to hold before playing, trading latency for tolerance.</param>
     public VoiceReceiver(int channels = 1, int frameMilliseconds = 20, int depth = 2)
-        : this(new OpusPacketDecoder(channels, frameMilliseconds), depth) { }
+        : this(new(channels, frameMilliseconds), depth) { }
 
     /// <summary>A receiver over a decoder somebody else configured.</summary>
     /// <param name="decoder">It. Disposed with this receiver.</param>
@@ -83,7 +83,7 @@ public sealed class VoiceReceiver : IDisposable {
 
         // Room for the jitter window plus a little, so a caller that pumps once a frame and reads
         // once a block is not fighting the ring for space.
-        provider = new LiveSampleProvider(decoder.Format, decoder.FrameSize * (Window + Depth));
+        provider = new(decoder.Format, decoder.FrameSize * (Window + Depth));
 
         for (var i = 0; i < Window; i++) {
             packets[i] = new byte[OpusPacketEncoder.MaxPacketBytes];

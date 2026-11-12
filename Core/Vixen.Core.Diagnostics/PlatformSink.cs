@@ -110,7 +110,10 @@ public sealed partial class PlatformSink : LogRecordSink {
 
         lock (gate) {
             builder.Clear();
-            builder.Append('[').Append(LogText.Abbreviate(record.Level)).Append("] ").Append(record.Category)
+            builder.Append('[')
+                .Append(LogText.Abbreviate(record.Level))
+                .Append("] ")
+                .Append(record.Category)
                 .Append(": ");
 
             LogText.AppendMessage(builder, record);
@@ -196,33 +199,38 @@ public sealed partial class PlatformSink : LogRecordSink {
             return PlatformLog.Windows;
         }
 
-        if (OperatingSystem.IsLinux() || OperatingSystem.IsMacOS() || OperatingSystem.IsIOS()
-            || OperatingSystem.IsTvOS() || OperatingSystem.IsMacCatalyst()) {
+        if (OperatingSystem.IsLinux()
+            || OperatingSystem.IsMacOS()
+            || OperatingSystem.IsIOS()
+            || OperatingSystem.IsTvOS()
+            || OperatingSystem.IsMacCatalyst()) {
             return PlatformLog.Syslog;
         }
 
         return PlatformLog.None;
     }
 
-    static int SyslogPriority(LogLevel level) => level switch {
-        LogLevel.Trace => SyslogDebug,
-        LogLevel.Debug => SyslogDebug,
-        LogLevel.Information => SyslogInfo,
-        LogLevel.Warning => SyslogWarning,
-        LogLevel.Error => SyslogError,
-        LogLevel.Critical => SyslogCritical,
-        _ => SyslogNotice
-    };
+    static int SyslogPriority(LogLevel level) =>
+        level switch {
+            LogLevel.Trace => SyslogDebug,
+            LogLevel.Debug => SyslogDebug,
+            LogLevel.Information => SyslogInfo,
+            LogLevel.Warning => SyslogWarning,
+            LogLevel.Error => SyslogError,
+            LogLevel.Critical => SyslogCritical,
+            _ => SyslogNotice
+        };
 
-    static int AndroidPriority(LogLevel level) => level switch {
-        LogLevel.Trace => AndroidVerbose,
-        LogLevel.Debug => AndroidDebug,
-        LogLevel.Information => AndroidInfo,
-        LogLevel.Warning => AndroidWarning,
-        LogLevel.Error => AndroidError,
-        LogLevel.Critical => AndroidFatal,
-        _ => AndroidInfo
-    };
+    static int AndroidPriority(LogLevel level) =>
+        level switch {
+            LogLevel.Trace => AndroidVerbose,
+            LogLevel.Debug => AndroidDebug,
+            LogLevel.Information => AndroidInfo,
+            LogLevel.Warning => AndroidWarning,
+            LogLevel.Error => AndroidError,
+            LogLevel.Critical => AndroidFatal,
+            _ => AndroidInfo
+        };
 
     static byte[] NullTerminatedUtf8(string text) {
         var bytes = new byte[Encoding.UTF8.GetByteCount(text) + 1];

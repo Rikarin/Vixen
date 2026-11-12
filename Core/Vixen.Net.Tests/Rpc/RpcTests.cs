@@ -30,7 +30,7 @@ public sealed class RpcTests {
 
     [Fact]
     public void AServerCallFromItsOwnerRuns() {
-        var sent = Send(Turret.Fire, (ref BitWriter writer) => writer.WriteInt32(7));
+        var sent = Send(Turret.Fire, static (ref BitWriter writer) => writer.WriteInt32(7));
 
         Assert.True(router.Receive(Owner, sent));
         Assert.Equal([7], turret.Fired);
@@ -40,7 +40,7 @@ public sealed class RpcTests {
 
     [Fact]
     public void AServerCallFromSomebodyElse_IsRefused() {
-        var sent = Send(Turret.Fire, (ref BitWriter writer) => writer.WriteInt32(7));
+        var sent = Send(Turret.Fire, static (ref BitWriter writer) => writer.WriteInt32(7));
 
         Assert.False(router.Receive(Stranger, sent));
         Assert.Empty(turret.Fired);
@@ -49,7 +49,7 @@ public sealed class RpcTests {
 
     [Fact]
     public void ACallThatDoesNotAskForOwnership_TakesAnybody() {
-        var sent = Send(Turret.Chat, (ref BitWriter writer) => writer.WriteVariable(42));
+        var sent = Send(Turret.Chat, static (ref BitWriter writer) => writer.WriteVariable(42));
 
         Assert.True(router.Receive(Stranger, sent));
         Assert.Equal([42u], turret.Chatted);
@@ -60,7 +60,7 @@ public sealed class RpcTests {
         var client = new RpcRouter(manifest, transport, RpcRole.Client);
         client.Register(Object, turret);
 
-        var sent = Send(Turret.Fire, (ref BitWriter writer) => writer.WriteInt32(7));
+        var sent = Send(Turret.Fire, static (ref BitWriter writer) => writer.WriteInt32(7));
 
         // Wrong way round, and the packet says nothing about that — the direction is the manifest's
         // and the role is ours.
@@ -73,7 +73,7 @@ public sealed class RpcTests {
         var client = new RpcRouter(manifest, transport, RpcRole.Client);
         client.Register(Object, turret);
 
-        var sent = Send(Turret.Explode, (ref BitWriter writer) => writer.WriteSingle(1.5f));
+        var sent = Send(Turret.Explode, static (ref BitWriter writer) => writer.WriteSingle(1.5f));
 
         // A client call comes from the server, which is not a player. One that claims to be from a
         // player came from a player, and a player is not the server.
@@ -179,7 +179,7 @@ public sealed class RpcTests {
 
     [Fact]
     public void ArgumentsThatDoNotDecode_AreRefused() {
-        var sent = Send(Turret.Fire, (ref BitWriter writer) => { });
+        var sent = Send(Turret.Fire, static (ref BitWriter writer) => { });
 
         Assert.False(router.Receive(Owner, sent));
         Assert.Empty(turret.Fired);
@@ -190,7 +190,7 @@ public sealed class RpcTests {
     public void ArgumentsWithBitsLeftOver_AreRefused() {
         var sent = Send(
             Turret.Fire,
-            (ref BitWriter writer) => {
+            static (ref BitWriter writer) => {
                 writer.WriteInt32(7);
                 writer.WriteInt32(8); // one argument too many
             }
@@ -211,7 +211,7 @@ public sealed class RpcTests {
         );
 
         limited.Register(Object, turret);
-        var sent = Send(Turret.Fire, (ref BitWriter writer) => writer.WriteInt32(1)).ToArray();
+        var sent = Send(Turret.Fire, static (ref BitWriter writer) => writer.WriteInt32(1)).ToArray();
 
         Assert.True(limited.Receive(Owner, sent));
         Assert.True(limited.Receive(Owner, sent));
@@ -231,7 +231,7 @@ public sealed class RpcTests {
     public void ForgettingAnObjectDropsItsHandlersAndItsOwner() {
         router.Forget(Object);
 
-        var sent = Send(Turret.Chat, (ref BitWriter writer) => writer.WriteVariable(1));
+        var sent = Send(Turret.Chat, static (ref BitWriter writer) => writer.WriteVariable(1));
 
         Assert.False(router.Receive(Stranger, sent));
         Assert.Equal(0, router.RegisteredCount);
@@ -278,7 +278,7 @@ public sealed class RpcTests {
             new RpcMethod("Thing", "A()", RpcKind.Server, false, Channel.Reliable, RpcTarget.Observers)
         };
 
-        Array.Sort(table, (left, right) => right.MethodId.CompareTo(left.MethodId));
+        Array.Sort(table, static (left, right) => right.MethodId.CompareTo(left.MethodId));
 
         Assert.Throws<ArgumentException>(() => out_of_order.Register(table));
     }
@@ -361,12 +361,12 @@ public sealed class RpcTests {
 
         public List<byte[]> ToAll { get; } = [];
 
-        public void SendToServer(ReadOnlySpan<byte> payload, Channel channel) => ToServer.Add(payload.ToArray());
+        public void SendToServer(ReadOnlySpan<byte> payload, Channel channel) => ToServer.Add([..payload]);
 
         public void SendToPlayer(PlayerId player, ReadOnlySpan<byte> payload, Channel channel) =>
             ToPlayer.Add((player, payload.ToArray(), channel));
 
-        public void SendToAll(ReadOnlySpan<byte> payload, Channel channel) => ToAll.Add(payload.ToArray());
+        public void SendToAll(ReadOnlySpan<byte> payload, Channel channel) => ToAll.Add([..payload]);
     }
 
     /// <summary>An observer source a test drives by hand.</summary>
@@ -384,9 +384,30 @@ public sealed class RpcTests {
     sealed class Turret(NetworkId id, RpcRouter router) : IRpcObject, IRpcInvoker {
         public static readonly RpcMethod[] RpcMethodTable = Order(
             [
-                new("Vixen.Net.Tests.Rpc.Turret", "Fire(int)", RpcKind.Server, true, Channel.Reliable, RpcTarget.Observers),
-                new("Vixen.Net.Tests.Rpc.Turret", "Chat(uint)", RpcKind.Server, false, Channel.Reliable, RpcTarget.Observers),
-                new("Vixen.Net.Tests.Rpc.Turret", "Explode(float)", RpcKind.Client, false, Channel.Unreliable, RpcTarget.Observers),
+                new(
+                    "Vixen.Net.Tests.Rpc.Turret",
+                    "Fire(int)",
+                    RpcKind.Server,
+                    true,
+                    Channel.Reliable,
+                    RpcTarget.Observers
+                ),
+                new(
+                    "Vixen.Net.Tests.Rpc.Turret",
+                    "Chat(uint)",
+                    RpcKind.Server,
+                    false,
+                    Channel.Reliable,
+                    RpcTarget.Observers
+                ),
+                new(
+                    "Vixen.Net.Tests.Rpc.Turret",
+                    "Explode(float)",
+                    RpcKind.Client,
+                    false,
+                    Channel.Unreliable,
+                    RpcTarget.Observers
+                ),
                 new("Vixen.Net.Tests.Rpc.Turret", "Reload()", RpcKind.Client, false, Channel.Reliable, RpcTarget.Owner)
             ]
         );
@@ -461,7 +482,7 @@ public sealed class RpcTests {
         }
 
         static RpcMethod[] Order(RpcMethod[] methods) {
-            Array.Sort(methods, (left, right) => left.MethodId.CompareTo(right.MethodId));
+            Array.Sort(methods, static (left, right) => left.MethodId.CompareTo(right.MethodId));
 
             return methods;
         }

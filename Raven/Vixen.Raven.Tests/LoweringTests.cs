@@ -37,7 +37,7 @@ public class LoweringTests {
                 ("normalMap", IrBindingKind.Texture, 1),
                 ("linear", IrBindingKind.Sampler, 0)
             ],
-            shader.Bindings.Select(b => (b.Name, b.Kind, b.Slot))
+            shader.Bindings.Select(static b => (b.Name, b.Kind, b.Slot))
         );
 
         Assert.Equal("vec<f32,4>", shader.Bindings[0].Type.Name);
@@ -372,10 +372,10 @@ public class LoweringTests {
 
         var structType = Assert.Single(module.Structs);
         Assert.Equal("Ray", structType.Name);
-        Assert.Equal(["origin", "direction"], structType.Fields.Select(f => f.Name));
+        Assert.Equal(["origin", "direction"], structType.Fields.Select(static f => f.Name));
 
         var method = FindFunction(module, "At");
-        Assert.Equal(["self", "t"], method.Parameters.Select(p => p.Name));
+        Assert.Equal(["self", "t"], method.Parameters.Select(static p => p.Name));
         Assert.Same(structType, method.Parameters[0].Type);
 
         // The receiver is explicit, and fields are reached through it.
@@ -401,7 +401,7 @@ public class LoweringTests {
 
         var constructor = FindFunction(module, "Point.init");
         Assert.Equal("Point", constructor.ReturnType.Name);
-        Assert.Equal(["value"], constructor.Parameters.Select(p => p.Name));
+        Assert.Equal(["value"], constructor.Parameters.Select(static p => p.Name));
     }
 
     [Fact]

@@ -14,8 +14,12 @@ namespace Vixen.Geometry.Remeshing.Tests;
 ///         whose three bounding arcs are one mesh edge each and all three of them feature arcs.
 ///     </para>
 ///     <para>
-///         ⚠ <b><c>MergeTriangles</c> was never what stopped it, and that was the recorded
-///         attribution.</b> The patch is one triangle against a cap of four, so the cap passes;
+///         ⚠
+///         <b>
+///             <c>MergeTriangles</c> was never what stopped it, and that was the recorded
+///             attribution.
+///         </b>
+///         The patch is one triangle against a cap of four, so the cap passes;
 ///         <c>Merge</c> returned false because it will not dissolve a feature arc and every arc it is
 ///         offered is one. Raising the cap to sixteen was measured and changed nothing. Which is the
 ///         correct refusal in isolation, since dissolving a feature arc is deleting a crease; what was
@@ -23,8 +27,12 @@ namespace Vixen.Geometry.Remeshing.Tests;
 ///         as a <i>fan</i> and <c>PatchExtractor</c> fills it as three quads round a centre.
 ///     </para>
 ///     <para>
-///         ⚠ <b>These were characterisation tests of the defect and are now assertions about the
-///         repair.</b> <see cref="TheCylindersHoleIsGone" /> asserted six boundary edges at the low
+///         ⚠
+///         <b>
+///             These were characterisation tests of the defect and are now assertions about the
+///             repair.
+///         </b>
+///         <see cref="TheCylindersHoleIsGone" /> asserted six boundary edges at the low
 ///         budgets; it asserts none, at every budget, and the fan is what changed.
 ///     </para>
 /// </remarks>
@@ -60,15 +68,26 @@ public class AllFeatureArcPatchTests {
     /// <summary>The patch is still all creases and still one triangle — and is now in the layout.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>The refutation of the <c>MergeTriangles</c> attribution, kept because it is what
-    ///         pointed at the fan.</b> The cylinder's surviving three-arc patch is a <i>single
-    ///         triangle</i>, a quarter of the cap, so the cap is not what refuses it; what refuses it is
+    ///         <b>
+    ///             The refutation of the <c>MergeTriangles</c> attribution, kept because it is what
+    ///             pointed at the fan.
+    ///         </b>
+    ///         The cylinder's surviving three-arc patch is a
+    ///         <i>
+    ///             single
+    ///             triangle
+    ///         </i>
+    ///         , a quarter of the cap, so the cap is not what refuses it; what refuses it is
     ///         that all three of its arcs are feature arcs and <c>Merge</c> has nothing it is allowed to
     ///         dissolve. Both facts are asserted off the layout rather than argued.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And the patch is no longer missing, which is the assertion the old version could
-    ///         not make.</b> It looked for the arc that no usable patch claimed from both directions —
+    ///         ⚠
+    ///         <b>
+    ///             And the patch is no longer missing, which is the assertion the old version could
+    ///             not make.
+    ///         </b>
+    ///         It looked for the arc that no usable patch claimed from both directions —
     ///         the rim of the hole — and found three. There are none now: the fan claims its three arcs
     ///         exactly as any other patch claims its sides, so every arc in the layout is claimed twice.
     ///     </para>
@@ -76,7 +95,7 @@ public class AllFeatureArcPatchTests {
     [Fact]
     public void TheThreeCreasedArcsAreCarriedAsAFanRatherThanDropped() {
         var layout = RemesherTests.Layout("cylinder", out _, out _);
-        var fans = layout.Patches.Where(patch => patch.IsFan).ToList();
+        var fans = layout.Patches.Where(static patch => patch.IsFan).ToList();
 
         Assert.NotEmpty(fans);
 
@@ -111,7 +130,7 @@ public class AllFeatureArcPatchTests {
             }
         }
 
-        Assert.Empty(claimed.Where(pair => pair.Value < 2).Select(pair => pair.Key));
+        Assert.Empty(claimed.Where(static pair => pair.Value < 2).Select(static pair => pair.Key));
     }
 
     /// <summary>The fan's three spokes are what make its three sides quadrangulable at all.</summary>

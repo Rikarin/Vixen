@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core;
-using Vixen.Core.Mathematics;
 using Vixen.Ecs;
 using Vixen.Engine.Transforms;
 using Vixen.Rendering.Ecs;
@@ -13,8 +12,12 @@ namespace Vixen.Rendering.Terrain;
 /// <summary>What a spline-placed mesh entity is, so a regeneration can find the ones it made.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Without a tag, regenerating a road either duplicates every post along it or deletes
-///         something an artist placed by hand.</b> A generated entity has to be distinguishable from
+///         ⚠
+///         <b>
+///             Without a tag, regenerating a road either duplicates every post along it or deletes
+///             something an artist placed by hand.
+///         </b>
+///         A generated entity has to be distinguishable from
 ///         an authored one, and the only place that distinction can live is on the entity.
 ///     </para>
 ///     <para>
@@ -54,8 +57,12 @@ public struct SplinePlacedComponent {
 ///         between duplicating on every regeneration and deleting an artist's work.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Removed and re-created rather than moved, which is the opposite of what the terrain
-///         deformation does.</b> A deformation is a rectangle of numbers and can be recomputed in
+///         ⚠
+///         <b>
+///             Removed and re-created rather than moved, which is the opposite of what the terrain
+///             deformation does.
+///         </b>
+///         A deformation is a rectangle of numbers and can be recomputed in
 ///         place; a placement's <em>count</em> changes with the spacing and the length, so matching
 ///         old entities to new ones would be an alignment problem to save an allocation. The undo
 ///         record is the same size either way.
@@ -103,10 +110,7 @@ public static class TerrainSplineSpawner {
 
             world.Add(
                 entity,
-                new MeshRenderable {
-                    Mesh = resolve?.Invoke(mesh.Mesh) ?? AssetReference.Null,
-                    CastsShadows = true
-                }
+                new MeshRenderable { Mesh = resolve?.Invoke(mesh.Mesh) ?? AssetReference.Null, CastsShadows = true }
             );
             world.Add(entity, new SplinePlacedComponent { Spline = spline, Distance = mesh.Distance });
         }

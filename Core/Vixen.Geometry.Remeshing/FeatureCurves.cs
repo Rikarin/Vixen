@@ -16,8 +16,12 @@ namespace Vixen.Geometry.Remeshing;
 ///         onto whatever surface came out.
 ///     </para>
 ///     <para>
-///         ⚠ <b>docs/plan/41 § D4 says "explicit creases — doc 24's shapes and the importer both carry
-///         them", and doc 24's <see cref="EditMesh" /> does not have creases.</b> It has
+///         ⚠
+///         <b>
+///             docs/plan/41 § D4 says "explicit creases — doc 24's shapes and the importer both carry
+///             them", and doc 24's <see cref="EditMesh" /> does not have creases.
+///         </b>
+///         It has
 ///         <see cref="MeshFace.Group" />, which is § D4's separate face-group row, and
 ///         <see cref="MeshFace.Smoothing" />, which is the shading-group number
 ///         <c>EditMeshes.ToMeshData</c> splits normals on. A smoothing-group boundary <i>is</i> the
@@ -89,14 +93,21 @@ static class FeatureCurves {
     /// <returns>One curve per seam edge.</returns>
     /// <remarks>
     ///     <para>
-    ///         <b>docs/plan/41 § D4: "so that a retexture-then-remesh round trip does not shred an
-    ///         atlas".</b> A seam in the input is where the atlas was cut, and a remesh that ignores it
+    ///         <b>
+    ///             docs/plan/41 § D4: "so that a retexture-then-remesh round trip does not shred an
+    ///             atlas".
+    ///         </b>
+    ///         A seam in the input is where the atlas was cut, and a remesh that ignores it
     ///         puts output edges across the cut — which means the baked texture cannot be reused at
     ///         all.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Empty coordinates mean absent rather than zero, which is <c>MeshData</c>'s own rule
-    ///         and <see cref="EditMesh.TexCoords" /> keeps it.</b> A mesh with no coordinate layer has
+    ///         ⚠
+    ///         <b>
+    ///             Empty coordinates mean absent rather than zero, which is <c>MeshData</c>'s own rule
+    ///             and <see cref="EditMesh.TexCoords" /> keeps it.
+    ///         </b>
+    ///         A mesh with no coordinate layer has
     ///         no seams; a mesh whose coordinates are all zero has one enormous degenerate chart and
     ///         also no seams, and the two must not be confused with an error.
     ///     </para>

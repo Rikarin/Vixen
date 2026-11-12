@@ -69,10 +69,22 @@ static class JoltMath {
     /// <returns>The matrix Jolt will read as the same transform.</returns>
     public static Numerics.Matrix4x4 ToJolt(in Matrix4x4 value) =>
         new(
-            value.M11, value.M21, value.M31, value.M41,
-            value.M12, value.M22, value.M32, value.M42,
-            value.M13, value.M23, value.M33, value.M43,
-            value.M14, value.M24, value.M34, value.M44
+            value.M11,
+            value.M21,
+            value.M31,
+            value.M41,
+            value.M12,
+            value.M22,
+            value.M32,
+            value.M42,
+            value.M13,
+            value.M23,
+            value.M33,
+            value.M43,
+            value.M14,
+            value.M24,
+            value.M34,
+            value.M44
         );
 
     /// <summary>Transposes a matrix Jolt produced into Vixen's row-major layout.</summary>
@@ -80,10 +92,22 @@ static class JoltMath {
     /// <returns>The same transform, stored Vixen's way.</returns>
     public static Matrix4x4 ToVixen(in Numerics.Matrix4x4 value) =>
         new(
-            value.M11, value.M21, value.M31, value.M41,
-            value.M12, value.M22, value.M32, value.M42,
-            value.M13, value.M23, value.M33, value.M43,
-            value.M14, value.M24, value.M34, value.M44
+            value.M11,
+            value.M21,
+            value.M31,
+            value.M41,
+            value.M12,
+            value.M22,
+            value.M32,
+            value.M42,
+            value.M13,
+            value.M23,
+            value.M33,
+            value.M43,
+            value.M14,
+            value.M24,
+            value.M34,
+            value.M44
         );
 
     /// <summary>Builds the rigid transform Jolt's shape queries want, from a position and a rotation.</summary>
@@ -101,10 +125,22 @@ static class JoltMath {
         // Numerics.CreateFromQuaternion is row-major like Vixen's, so the rotation basis needs the
         // same transpose the general conversion does; only the translation moves to column four.
         return new(
-            matrix.M11, matrix.M21, matrix.M31, position.X,
-            matrix.M12, matrix.M22, matrix.M32, position.Y,
-            matrix.M13, matrix.M23, matrix.M33, position.Z,
-            0f, 0f, 0f, 1f
+            matrix.M11,
+            matrix.M21,
+            matrix.M31,
+            position.X,
+            matrix.M12,
+            matrix.M22,
+            matrix.M32,
+            position.Y,
+            matrix.M13,
+            matrix.M23,
+            matrix.M33,
+            position.Z,
+            0f,
+            0f,
+            0f,
+            1f
         );
     }
 }

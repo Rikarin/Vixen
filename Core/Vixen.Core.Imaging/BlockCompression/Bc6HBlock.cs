@@ -29,11 +29,18 @@ namespace Vixen.Core.Imaging.BlockCompression;
 ///         also where the format interpolates, so a least-squares solve there is exact.
 ///     </para>
 ///     <para>
-///         <b>Infinity is not representable in the unsigned format, and that is the format being
-///         careful rather than this encoder being careful.</b> The largest unquantised endpoint widens
+///         <b>
+///             Infinity is not representable in the unsigned format, and that is the format being
+///             careful rather than this encoder being careful.
+///         </b>
+///         The largest unquantised endpoint widens
 ///         to 0xFFFF and finishes as the half bit pattern 0x7BFF — 65 504, the largest <i>finite</i>
-///         half. ⚠ <b>The signed format has exactly one way past it, and this file used to say it had
-///         none.</b> Mode 14 stores sixteen-bit endpoints with no special cases, so the code −32768
+///         half. ⚠
+///         <b>
+///             The signed format has exactly one way past it, and this file used to say it had
+///             none.
+///         </b>
+///         Mode 14 stores sixteen-bit endpoints with no special cases, so the code −32768
 ///         finishes as magnitude 0x7C00: negative infinity. The GPU returns 0xFC00 for it. So the
 ///         encoder treats −32767 as the lowest code, in <see cref="Quantise" /> and in the walk alike.
 ///         An infinity or a NaN arriving in the source is clamped on the way in, where it is still
@@ -103,7 +110,12 @@ static class Bc6HBlock {
         /// <summary>The width of the stored form of a channel of the endpoints after the first.</summary>
         /// <param name="channel">Red, green or blue.</param>
         /// <returns>Its width.</returns>
-        public int DeltaBits(int channel) => channel switch { 0 => DeltaRed, 1 => DeltaGreen, _ => DeltaBlue };
+        public int DeltaBits(int channel) =>
+            channel switch {
+                0 => DeltaRed,
+                1 => DeltaGreen,
+                _ => DeltaBlue
+            };
     }
 
     /// <summary>
@@ -118,43 +130,160 @@ static class Bc6HBlock {
     public static IReadOnlyList<ModeInfo> Layouts => Modes;
 
     static readonly ModeInfo[] Modes = [
-        new(0b00, 2, 2, 10, 5, 5, 5, true,
+        new(
+            0b00,
+            2,
+            2,
+            10,
+            5,
+            5,
+            5,
+            true,
             "g2[4],b2[4],b3[4],r0[9:0],g0[9:0],b0[9:0],r1[4:0],g3[4],g2[3:0],g1[4:0],b3[0],g3[3:0],b1[4:0],b3[1],"
-            + "b2[3:0],r2[4:0],b3[2],r3[4:0],b3[3],d[4:0]"),
-        new(0b01, 2, 2, 7, 6, 6, 6, true,
+            + "b2[3:0],r2[4:0],b3[2],r3[4:0],b3[3],d[4:0]"
+        ),
+        new(
+            0b01,
+            2,
+            2,
+            7,
+            6,
+            6,
+            6,
+            true,
             "g2[5],g3[4],g3[5],r0[6:0],b3[0],b3[1],b2[4],g0[6:0],b2[5],b3[2],g2[4],b0[6:0],b3[3],b3[5],b3[4],r1[5:0],"
-            + "g2[3:0],g1[5:0],g3[3:0],b1[5:0],b2[3:0],r2[5:0],r3[5:0],d[4:0]"),
-        new(0b00010, 5, 2, 11, 5, 4, 4, true,
+            + "g2[3:0],g1[5:0],g3[3:0],b1[5:0],b2[3:0],r2[5:0],r3[5:0],d[4:0]"
+        ),
+        new(
+            0b00010,
+            5,
+            2,
+            11,
+            5,
+            4,
+            4,
+            true,
             "r0[9:0],g0[9:0],b0[9:0],r1[4:0],r0[10],g2[3:0],g1[3:0],g0[10],b3[0],g3[3:0],b1[3:0],b0[10],b3[1],b2[3:0],"
-            + "r2[4:0],b3[2],r3[4:0],b3[3],d[4:0]"),
-        new(0b00110, 5, 2, 11, 4, 5, 4, true,
+            + "r2[4:0],b3[2],r3[4:0],b3[3],d[4:0]"
+        ),
+        new(
+            0b00110,
+            5,
+            2,
+            11,
+            4,
+            5,
+            4,
+            true,
             "r0[9:0],g0[9:0],b0[9:0],r1[3:0],r0[10],g3[4],g2[3:0],g1[4:0],g0[10],g3[3:0],b1[3:0],b0[10],b3[1],b2[3:0],"
-            + "r2[3:0],b3[0],b3[2],r3[3:0],g2[4],b3[3],d[4:0]"),
-        new(0b01010, 5, 2, 11, 4, 4, 5, true,
+            + "r2[3:0],b3[0],b3[2],r3[3:0],g2[4],b3[3],d[4:0]"
+        ),
+        new(
+            0b01010,
+            5,
+            2,
+            11,
+            4,
+            4,
+            5,
+            true,
             "r0[9:0],g0[9:0],b0[9:0],r1[3:0],r0[10],b2[4],g2[3:0],g1[3:0],g0[10],b3[0],g3[3:0],b1[4:0],b0[10],b2[3:0],"
-            + "r2[3:0],b3[1],b3[2],r3[3:0],b3[4],b3[3],d[4:0]"),
-        new(0b01110, 5, 2, 9, 5, 5, 5, true,
+            + "r2[3:0],b3[1],b3[2],r3[3:0],b3[4],b3[3],d[4:0]"
+        ),
+        new(
+            0b01110,
+            5,
+            2,
+            9,
+            5,
+            5,
+            5,
+            true,
             "r0[8:0],b2[4],g0[8:0],g2[4],b0[8:0],b3[4],r1[4:0],g3[4],g2[3:0],g1[4:0],b3[0],g3[3:0],b1[4:0],b3[1],b2[3:0],"
-            + "r2[4:0],b3[2],r3[4:0],b3[3],d[4:0]"),
-        new(0b10010, 5, 2, 8, 6, 5, 5, true,
+            + "r2[4:0],b3[2],r3[4:0],b3[3],d[4:0]"
+        ),
+        new(
+            0b10010,
+            5,
+            2,
+            8,
+            6,
+            5,
+            5,
+            true,
             "r0[7:0],g3[4],b2[4],g0[7:0],b3[2],g2[4],b0[7:0],b3[3],b3[4],r1[5:0],g2[3:0],g1[4:0],b3[0],g3[3:0],b1[4:0],"
-            + "b3[1],b2[3:0],r2[5:0],r3[5:0],d[4:0]"),
-        new(0b10110, 5, 2, 8, 5, 6, 5, true,
+            + "b3[1],b2[3:0],r2[5:0],r3[5:0],d[4:0]"
+        ),
+        new(
+            0b10110,
+            5,
+            2,
+            8,
+            5,
+            6,
+            5,
+            true,
             "r0[7:0],b3[0],b2[4],g0[7:0],g2[5],g2[4],b0[7:0],g3[5],b3[4],r1[4:0],g3[4],g2[3:0],g1[5:0],g3[3:0],b1[4:0],"
-            + "b3[1],b2[3:0],r2[4:0],b3[2],r3[4:0],b3[3],d[4:0]"),
-        new(0b11010, 5, 2, 8, 5, 5, 6, true,
+            + "b3[1],b2[3:0],r2[4:0],b3[2],r3[4:0],b3[3],d[4:0]"
+        ),
+        new(
+            0b11010,
+            5,
+            2,
+            8,
+            5,
+            5,
+            6,
+            true,
             "r0[7:0],b3[1],b2[4],g0[7:0],b2[5],g2[4],b0[7:0],b3[5],b3[4],r1[4:0],g3[4],g2[3:0],g1[4:0],b3[0],g3[3:0],"
-            + "b1[5:0],b2[3:0],r2[4:0],b3[2],r3[4:0],b3[3],d[4:0]"),
-        new(0b11110, 5, 2, 6, 6, 6, 6, false,
+            + "b1[5:0],b2[3:0],r2[4:0],b3[2],r3[4:0],b3[3],d[4:0]"
+        ),
+        new(
+            0b11110,
+            5,
+            2,
+            6,
+            6,
+            6,
+            6,
+            false,
             "r0[5:0],g3[4],b3[0],b3[1],b2[4],g0[5:0],g2[5],b2[5],b3[2],g2[4],b0[5:0],g3[5],b3[3],b3[5],b3[4],r1[5:0],"
-            + "g2[3:0],g1[5:0],g3[3:0],b1[5:0],b2[3:0],r2[5:0],r3[5:0],d[4:0]"),
+            + "g2[3:0],g1[5:0],g3[3:0],b1[5:0],b2[3:0],r2[5:0],r3[5:0],d[4:0]"
+        ),
         new(0b00011, 5, 1, 10, 10, 10, 10, false, "r0[9:0],g0[9:0],b0[9:0],r1[9:0],g1[9:0],b1[9:0]"),
-        new(0b00111, 5, 1, 11, 9, 9, 9, true,
-            "r0[9:0],g0[9:0],b0[9:0],r1[8:0],r0[10],g1[8:0],g0[10],b1[8:0],b0[10]"),
-        new(0b01011, 5, 1, 12, 8, 8, 8, true,
-            "r0[9:0],g0[9:0],b0[9:0],r1[7:0],r0[10:11],g1[7:0],g0[10:11],b1[7:0],b0[10:11]"),
-        new(0b01111, 5, 1, 16, 4, 4, 4, true,
-            "r0[9:0],g0[9:0],b0[9:0],r1[3:0],r0[10:15],g1[3:0],g0[10:15],b1[3:0],b0[10:15]")
+        new(
+            0b00111,
+            5,
+            1,
+            11,
+            9,
+            9,
+            9,
+            true,
+            "r0[9:0],g0[9:0],b0[9:0],r1[8:0],r0[10],g1[8:0],g0[10],b1[8:0],b0[10]"
+        ),
+        new(
+            0b01011,
+            5,
+            1,
+            12,
+            8,
+            8,
+            8,
+            true,
+            "r0[9:0],g0[9:0],b0[9:0],r1[7:0],r0[10:11],g1[7:0],g0[10:11],b1[7:0],b0[10:11]"
+        ),
+        new(
+            0b01111,
+            5,
+            1,
+            16,
+            4,
+            4,
+            4,
+            true,
+            "r0[9:0],g0[9:0],b0[9:0],r1[3:0],r0[10:15],g1[3:0],g0[10:15],b1[3:0],b0[10:15]"
+        )
     ];
 
     /// <summary>Which mode each five-bit mode field names, or −1 for the four reserved values.</summary>
@@ -223,7 +352,7 @@ static class Bc6HBlock {
                     stored = (first + SignExtend(stored, mode.DeltaBits(channel))) & ((1 << mode.EndpointBits) - 1);
                 }
 
-                endpoints[(endpoint * 3) + channel] = signed ? SignExtend(stored, mode.EndpointBits) : stored;
+                endpoints[endpoint * 3 + channel] = signed ? SignExtend(stored, mode.EndpointBits) : stored;
             }
         }
 
@@ -243,11 +372,11 @@ static class Bc6HBlock {
             var weight = weights[(int)reader.Read(anchor ? indexBits - 1 : indexBits)];
 
             for (var channel = 0; channel < 3; channel++) {
-                var low = endpoints[(subset * 6) + channel];
-                var high = endpoints[(subset * 6) + 3 + channel];
-                var interpolated = (((64 - weight) * low) + (weight * high) + 32) >> 6;
+                var low = endpoints[subset * 6 + channel];
+                var high = endpoints[subset * 6 + 3 + channel];
+                var interpolated = ((64 - weight) * low + weight * high + 32) >> 6;
 
-                rgb[(texel * 3) + channel] = PatternOf(Finish(interpolated, signed));
+                rgb[texel * 3 + channel] = PatternOf(Finish(interpolated, signed));
             }
         }
     }
@@ -284,7 +413,21 @@ static class Bc6HBlock {
         SeedLines(points, pattern, 1, 0, line);
 
         for (var modeIndex = 10; modeIndex < ModeCount; modeIndex++) {
-            Consider(points, pattern, signed, modeIndex, 0, line, tuning, ref search, codes, indices, bestCodes, bestIndices, bestLine);
+            Consider(
+                points,
+                pattern,
+                signed,
+                modeIndex,
+                0,
+                line,
+                tuning,
+                ref search,
+                codes,
+                indices,
+                bestCodes,
+                bestIndices,
+                bestLine
+            );
         }
 
         if (search.Error > tuning.EnoughError) {
@@ -293,8 +436,8 @@ static class Bc6HBlock {
             for (var texel = 0; texel < Texels; texel++) {
                 floats[texel] = Vector128.Create(
                     (float)points[texel * 3],
-                    points[(texel * 3) + 1],
-                    points[(texel * 3) + 2],
+                    points[texel * 3 + 1],
+                    points[texel * 3 + 2],
                     0f
                 );
             }
@@ -311,8 +454,19 @@ static class Bc6HBlock {
 
                 for (var modeIndex = 0; modeIndex < 10; modeIndex++) {
                     Consider(
-                        points, pattern, signed, modeIndex, partition, line, tuning, ref search, codes, indices, bestCodes,
-                        bestIndices, bestLine
+                        points,
+                        pattern,
+                        signed,
+                        modeIndex,
+                        partition,
+                        line,
+                        tuning,
+                        ref search,
+                        codes,
+                        indices,
+                        bestCodes,
+                        bestIndices,
+                        bestLine
                     );
                 }
             }
@@ -446,7 +600,7 @@ static class Bc6HBlock {
             var reach = 1 << (mode.DeltaBits(channel) - 1);
 
             for (var endpoint = 0; endpoint < endpoints; endpoint++) {
-                var code = codes[(endpoint * 3) + channel];
+                var code = codes[endpoint * 3 + channel];
 
                 if (code < lowest || code > highest) {
                     return false;
@@ -486,11 +640,11 @@ static class Bc6HBlock {
             var first = codes[channel];
 
             for (var endpoint = 1; endpoint < endpoints; endpoint++) {
-                var delta = codes[(endpoint * 3) + channel] - first;
+                var delta = codes[endpoint * 3 + channel] - first;
 
                 sensible &= delta >= -2 * reach && delta < 2 * reach;
 
-                codes[(endpoint * 3) + channel] = first + Math.Clamp(delta, -reach, reach - 1);
+                codes[endpoint * 3 + channel] = first + Math.Clamp(delta, -reach, reach - 1);
             }
         }
 
@@ -518,14 +672,14 @@ static class Bc6HBlock {
 
         for (var subset = 0; subset < mode.Subsets; subset++) {
             for (var channel = 0; channel < 3; channel++) {
-                var low = Unquantise(codes[(subset * 6) + channel], mode.EndpointBits, signed);
-                var high = Unquantise(codes[(subset * 6) + 3 + channel], mode.EndpointBits, signed);
+                var low = Unquantise(codes[subset * 6 + channel], mode.EndpointBits, signed);
+                var high = Unquantise(codes[subset * 6 + 3 + channel], mode.EndpointBits, signed);
 
                 for (var entry = 0; entry < entries; entry++) {
                     var weight = weights[entry];
 
-                    palette[(((subset * 16) + entry) * 3) + channel] =
-                        Finish((((64 - weight) * low) + (weight * high) + 32) >> 6, signed);
+                    palette[(subset * 16 + entry) * 3 + channel] =
+                        Finish(((64 - weight) * low + weight * high + 32) >> 6, signed);
                 }
             }
         }
@@ -537,15 +691,15 @@ static class Bc6HBlock {
             var anchor = texel == BptcTables.AnchorOf(mode.Subsets, partition, subset);
             var limitEntries = anchor ? entries / 2 : entries;
             var entriesOfSubset = palette.Slice(subset * 16 * 3, limitEntries * 3);
-            var (r, g, b) = (points[texel * 3], points[(texel * 3) + 1], points[(texel * 3) + 2]);
+            var (r, g, b) = (points[texel * 3], points[texel * 3 + 1], points[texel * 3 + 2]);
             var bestDistance = long.MaxValue;
             var bestEntry = 0;
 
             for (var entry = 0; entry < limitEntries; entry++) {
                 long dr = r - entriesOfSubset[entry * 3];
-                long dg = g - entriesOfSubset[(entry * 3) + 1];
-                long db = b - entriesOfSubset[(entry * 3) + 2];
-                var distance = (dr * dr) + (dg * dg) + (db * db);
+                long dg = g - entriesOfSubset[entry * 3 + 1];
+                long db = b - entriesOfSubset[entry * 3 + 2];
+                var distance = dr * dr + dg * dg + db * db;
 
                 if (distance < bestDistance) {
                     bestDistance = distance;
@@ -565,7 +719,13 @@ static class Bc6HBlock {
     }
 
     /// <summary>Fits one line per subset and orders its ends so each anchor is nearer the first.</summary>
-    static void SeedLines(ReadOnlySpan<int> points, ReadOnlySpan<byte> pattern, int subsets, int partition, Span<float> line) {
+    static void SeedLines(
+        ReadOnlySpan<int> points,
+        ReadOnlySpan<byte> pattern,
+        int subsets,
+        int partition,
+        Span<float> line
+    ) {
         Span<float> mean = stackalloc float[3];
         Span<float> covariance = stackalloc float[9];
         Span<float> centred = stackalloc float[3];
@@ -585,7 +745,7 @@ static class Bc6HBlock {
                 count++;
 
                 for (var channel = 0; channel < 3; channel++) {
-                    mean[channel] += points[(texel * 3) + channel];
+                    mean[channel] += points[texel * 3 + channel];
                 }
             }
 
@@ -599,12 +759,12 @@ static class Bc6HBlock {
                 }
 
                 for (var channel = 0; channel < 3; channel++) {
-                    centred[channel] = points[(texel * 3) + channel] - mean[channel];
+                    centred[channel] = points[texel * 3 + channel] - mean[channel];
                 }
 
                 for (var row = 0; row < 3; row++) {
                     for (var column = 0; column < 3; column++) {
-                        covariance[(row * 3) + column] += centred[row] * centred[column];
+                        covariance[row * 3 + column] += centred[row] * centred[column];
                     }
                 }
             }
@@ -619,17 +779,17 @@ static class Bc6HBlock {
                     continue;
                 }
 
-                var along = ((points[texel * 3] - mean[0]) * axis[0])
-                    + ((points[(texel * 3) + 1] - mean[1]) * axis[1])
-                    + ((points[(texel * 3) + 2] - mean[2]) * axis[2]);
+                var along = (points[texel * 3] - mean[0]) * axis[0]
+                    + (points[texel * 3 + 1] - mean[1]) * axis[1]
+                    + (points[texel * 3 + 2] - mean[2]) * axis[2];
 
                 lowest = Math.Min(lowest, along);
                 highest = Math.Max(highest, along);
             }
 
             for (var channel = 0; channel < 3; channel++) {
-                line[(subset * 6) + channel] = mean[channel] + (axis[channel] * lowest);
-                line[(subset * 6) + 3 + channel] = mean[channel] + (axis[channel] * highest);
+                line[subset * 6 + channel] = mean[channel] + axis[channel] * lowest;
+                line[subset * 6 + 3 + channel] = mean[channel] + axis[channel] * highest;
             }
         }
 
@@ -644,8 +804,8 @@ static class Bc6HBlock {
             var nearSecond = 0f;
 
             for (var channel = 0; channel < 3; channel++) {
-                var toFirst = points[(anchor * 3) + channel] - line[(subset * 6) + channel];
-                var toSecond = points[(anchor * 3) + channel] - line[(subset * 6) + 3 + channel];
+                var toFirst = points[anchor * 3 + channel] - line[subset * 6 + channel];
+                var toSecond = points[anchor * 3 + channel] - line[subset * 6 + 3 + channel];
 
                 nearFirst += toFirst * toFirst;
                 nearSecond += toSecond * toSecond;
@@ -653,8 +813,8 @@ static class Bc6HBlock {
 
             if (nearSecond < nearFirst) {
                 for (var channel = 0; channel < 3; channel++) {
-                    (line[(subset * 6) + channel], line[(subset * 6) + 3 + channel]) =
-                        (line[(subset * 6) + 3 + channel], line[(subset * 6) + channel]);
+                    (line[subset * 6 + channel], line[subset * 6 + 3 + channel]) =
+                        (line[subset * 6 + 3 + channel], line[subset * 6 + channel]);
                 }
             }
         }
@@ -662,7 +822,13 @@ static class Bc6HBlock {
 
     /// <summary>Re-solves each subset's endpoints from the indices by least squares.</summary>
     /// <returns>False when no subset had anything to solve.</returns>
-    static bool Solve(ReadOnlySpan<int> points, ReadOnlySpan<byte> pattern, int subsets, ReadOnlySpan<byte> indices, Span<float> line) {
+    static bool Solve(
+        ReadOnlySpan<int> points,
+        ReadOnlySpan<byte> pattern,
+        int subsets,
+        ReadOnlySpan<byte> indices,
+        Span<float> line
+    ) {
         var weights = subsets == 2 ? BptcTables.Weights3 : BptcTables.Weights4;
         Span<float> right0 = stackalloc float[3];
         Span<float> right1 = stackalloc float[3];
@@ -686,12 +852,12 @@ static class Bc6HBlock {
                 c += weight * weight;
 
                 for (var channel = 0; channel < 3; channel++) {
-                    right0[channel] += inverse * points[(texel * 3) + channel];
-                    right1[channel] += weight * points[(texel * 3) + channel];
+                    right0[channel] += inverse * points[texel * 3 + channel];
+                    right1[channel] += weight * points[texel * 3 + channel];
                 }
             }
 
-            var determinant = (a * c) - (b * b);
+            var determinant = a * c - b * b;
 
             if (MathF.Abs(determinant) < 1e-4f) {
                 continue;
@@ -700,8 +866,8 @@ static class Bc6HBlock {
             solved = true;
 
             for (var channel = 0; channel < 3; channel++) {
-                line[(subset * 6) + channel] = ((c * right0[channel]) - (b * right1[channel])) / determinant;
-                line[(subset * 6) + 3 + channel] = ((a * right1[channel]) - (b * right0[channel])) / determinant;
+                line[subset * 6 + channel] = (c * right0[channel] - b * right1[channel]) / determinant;
+                line[subset * 6 + 3 + channel] = (a * right1[channel] - b * right0[channel]) / determinant;
             }
         }
 
@@ -718,7 +884,7 @@ static class Bc6HBlock {
     /// <param name="signed">Whether this is the signed format.</param>
     /// <returns>The endpoint.</returns>
     public static int Quantise(float value, int bits, bool signed) {
-        var limit = (float)LargestHalf;
+        float limit = LargestHalf;
         var wanted = (int)MathF.Round(Math.Clamp(value, signed ? -limit : 0f, limit));
         var magnitude = Math.Abs(wanted);
 
@@ -819,7 +985,7 @@ static class Bc6HBlock {
     }
 
     /// <summary>Which field holds a channel of an endpoint: <c>r0 g0 b0 r1 g1 b1 r2 g2 b2 r3 g3 b3</c>.</summary>
-    static int FieldOf(int endpoint, int channel) => (endpoint * 3) + channel;
+    static int FieldOf(int endpoint, int channel) => endpoint * 3 + channel;
 
     /// <summary>Lays out the fields and the indices.</summary>
     static void Write(in Winner found, ReadOnlySpan<int> codes, ReadOnlySpan<byte> indices, Span<byte> block) {
@@ -832,7 +998,7 @@ static class Bc6HBlock {
             fields[FieldOf(0, channel)] = codes[channel] & ((1 << mode.EndpointBits) - 1);
 
             for (var endpoint = 1; endpoint < mode.Subsets * 2; endpoint++) {
-                var code = codes[(endpoint * 3) + channel];
+                var code = codes[endpoint * 3 + channel];
 
                 fields[FieldOf(endpoint, channel)] = mode.Transformed
                     ? (code - codes[channel]) & ((1 << mode.DeltaBits(channel)) - 1)
@@ -873,7 +1039,14 @@ static class Bc6HBlock {
 
             var field = name == "d"
                 ? PartitionField
-                : FieldOf(name[1] - '0', name[0] switch { 'r' => 0, 'g' => 1, _ => 2 });
+                : FieldOf(
+                    name[1] - '0',
+                    name[0] switch {
+                        'r' => 0,
+                        'g' => 1,
+                        _ => 2
+                    }
+                );
 
             // Right to left, whichever way round the range is written.
             for (var bit = end; bit != start + Math.Sign(start - end); bit += Math.Sign(start - end)) {
@@ -885,7 +1058,7 @@ static class Bc6HBlock {
             }
         }
 
-        return [.. bits];
+        return [..bits];
     }
 
     static sbyte[] BuildModeOfField() {

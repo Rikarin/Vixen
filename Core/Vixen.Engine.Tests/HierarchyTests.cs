@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core;
-using Vixen.Core.Mathematics;
 using Vixen.Ecs;
 using Vixen.Engine.Transforms;
 using Xunit;
@@ -46,7 +45,7 @@ public sealed class HierarchyTests {
             children.Add(child);
         }
 
-        Assert.Equal([.. children.Order()], [.. Children(world, parent).Order()]);
+        Assert.Equal([..children.Order()], [..Children(world, parent).Order()]);
     }
 
     [Fact]
@@ -219,8 +218,8 @@ public sealed class HierarchyTests {
                     Assert.Equal(parent, Hierarchy.ParentOf(world, entity));
                     Assert.Equal(DepthIn(parentOf, entity), Hierarchy.DepthOf(world, entity));
 
-                    var expected = parentOf.Where(pair => pair.Value == entity).Select(pair => pair.Key).Order();
-                    Assert.Equal([.. expected], [.. Children(world, entity).Order()]);
+                    var expected = parentOf.Where(pair => pair.Value == entity).Select(static pair => pair.Key).Order();
+                    Assert.Equal([..expected], [..Children(world, entity).Order()]);
                 }
 
                 Assert.Equal(parentOf.Count, world.EntityCount);
@@ -232,7 +231,7 @@ public sealed class HierarchyTests {
         var found = new List<Entity> { root };
 
         for (var index = 0; index < found.Count; index++) {
-            found.AddRange(parentOf.Where(pair => pair.Value == found[index]).Select(pair => pair.Key));
+            found.AddRange(parentOf.Where(pair => pair.Value == found[index]).Select(static pair => pair.Key));
         }
 
         return found;
@@ -240,8 +239,11 @@ public sealed class HierarchyTests {
 
     /// <summary>Moving a child to the head of the list it is already in actually moves it.</summary>
     /// <remarks>
-    ///     ⚠ <b><c>SetParentAfter</c> said "already first: SetParent prepends, which is where this
-    ///     wants it", and that was true only of an entity arriving from another parent.</b>
+    ///     ⚠
+    ///     <b>
+    ///         <c>SetParentAfter</c> said "already first: SetParent prepends, which is where this
+    ///         wants it", and that was true only of an entity arriving from another parent.
+    ///     </b>
     ///     <c>SetParent</c> returns without touching anything when the parent already matches — the
     ///     right early-out for a reparent and exactly wrong for a reorder — so asking to put the
     ///     third of four children first did nothing at all: no exception, no move, and no way for the

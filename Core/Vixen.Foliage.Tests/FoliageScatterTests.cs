@@ -20,7 +20,7 @@ public sealed class FoliageScatterTests {
     public void A_stamp_places_instances_on_the_ground_under_it() {
         var (volume, type) = Built();
 
-        var result = FoliageScatter.Stamp(volume, type, Ground.Flat, new(50f, 50f), radius: 10f);
+        var result = FoliageScatter.Stamp(volume, type, Ground.Flat, new(50f, 50f), 10f);
 
         Assert.True(result.Placed > 0, "a stamp on open flat ground should place something.");
         Assert.Equal(result.Placed, volume.InstanceCount);
@@ -93,7 +93,7 @@ public sealed class FoliageScatterTests {
         var (half, halfType) = Built();
 
         var whole = FoliageScatter.Stamp(full, fullType, Ground.Flat, new(50f, 50f), 20f);
-        var part = FoliageScatter.Stamp(half, halfType, Ground.Flat, new(50f, 50f), 20f, strength: 0.5f);
+        var part = FoliageScatter.Stamp(half, halfType, Ground.Flat, new(50f, 50f), 20f, 0.5f);
 
         Assert.True(part.Considered < whole.Considered);
         Assert.True(part.Considered > 0);
@@ -108,7 +108,11 @@ public sealed class FoliageScatterTests {
     public void A_brush_twice_as_wide_considers_four_times_as_many() {
         var settings = Types.Tree;
 
-        Assert.InRange(settings.CandidatesFor(20f), settings.CandidatesFor(10f) * 4 - 2, settings.CandidatesFor(10f) * 4 + 2);
+        Assert.InRange(
+            settings.CandidatesFor(20f),
+            settings.CandidatesFor(10f) * 4 - 2,
+            settings.CandidatesFor(10f) * 4 + 2
+        );
     }
 
     // --- The rules that refuse ----------------------------------------------
@@ -116,7 +120,7 @@ public sealed class FoliageScatterTests {
     [Fact]
     public void Nothing_is_placed_where_there_is_no_ground() {
         var (volume, type) = Built();
-        var nothing = new Ground(hit: _ => false);
+        var nothing = new Ground(hit: static _ => false);
 
         var result = FoliageScatter.Stamp(volume, type, nothing, new(50f, 50f), 10f);
 
@@ -151,19 +155,19 @@ public sealed class FoliageScatterTests {
         var (volume, type) = Built(Types.Tree with { LayerFilter = "Grass", LayerThreshold = 0.5f });
 
         // Painted on the left half only.
-        var patchy = new Ground(weight: at => at.X < 50f ? 1f : 0f);
+        var patchy = new Ground(weight: static at => at.X < 50f ? 1f : 0f);
 
         FoliageScatter.Stamp(volume, type, patchy, new(50f, 50f), 20f);
 
         Assert.True(volume.InstanceCount > 0);
-        Assert.All(Positions(volume), at => Assert.True(at.X < 50f, $"one landed at x = {at.X}."));
+        Assert.All(Positions(volume), static at => Assert.True(at.X < 50f, $"one landed at x = {at.X}."));
     }
 
     /// <summary>A type with no filter never asks what is painted.</summary>
     [Fact]
     public void A_type_with_no_filter_spawns_anywhere_there_is_ground() {
         var (volume, type) = Built();
-        var painted = new Ground(weight: _ => 0f);
+        var painted = new Ground(weight: static _ => 0f);
 
         Assert.True(FoliageScatter.Stamp(volume, type, painted, new(50f, 50f), 12f).Placed > 0);
     }
@@ -179,7 +183,7 @@ public sealed class FoliageScatterTests {
             Ground.Sloped(1f),
             new(10f, 10f),
             [],
-            hash: 1u,
+            1u,
             out _
         );
 
@@ -194,10 +198,12 @@ public sealed class FoliageScatterTests {
 
         FoliageScatter.Stamp(volume, type, Ground.Flat, new(50f, 50f), 15f);
 
-        var scales = volume.Chunks.SelectMany(chunk => chunk.Instances).Select(instance => instance.Scale).ToList();
+        var scales = volume.Chunks.SelectMany(static chunk => chunk.Instances)
+            .Select(static instance => instance.Scale)
+            .ToList();
 
         Assert.NotEmpty(scales);
-        Assert.All(scales, scale => Assert.InRange(scale, 0.5f, 2f));
+        Assert.All(scales, static scale => Assert.InRange(scale, 0.5f, 2f));
 
         // And the range is used rather than one value being drawn every time.
         Assert.True(scales.Distinct().Count() > 1, "every instance came out the same size.");
@@ -212,7 +218,7 @@ public sealed class FoliageScatterTests {
     [Fact]
     public void Alignment_leans_an_instance_partway_towards_the_normal() {
         var slope = Ground.Sloped(0.8f);
-        var normal = slope.SampleAt(new(0f, 0f), "").Normal;
+        var normal = slope.SampleAt(new(0f, 0f), string.Empty).Normal;
 
         var upright = Tilt(Types.Rock with { AlignToNormal = 0f, RandomYaw = false }, slope);
         var half = Tilt(Types.Rock with { AlignToNormal = 0.5f, RandomYaw = false }, slope);
@@ -233,23 +239,27 @@ public sealed class FoliageScatterTests {
         FoliageScatter.Stamp(turned, turnedType, Ground.Flat, new(50f, 50f), 15f);
         FoliageScatter.Stamp(fixedYaw, fixedType, Ground.Flat, new(50f, 50f), 15f);
 
-        var headings = turned.Chunks.SelectMany(chunk => chunk.Instances)
-            .Select(instance => instance.Rotation)
+        var headings = turned.Chunks.SelectMany(static chunk => chunk.Instances)
+            .Select(static instance => instance.Rotation)
             .Distinct()
             .Count();
 
         Assert.True(headings > 1);
 
         Assert.All(
-            fixedYaw.Chunks.SelectMany(chunk => chunk.Instances),
-            instance => Assert.Equal(Quaternion.Identity, instance.Rotation)
+            fixedYaw.Chunks.SelectMany(static chunk => chunk.Instances),
+            static instance => Assert.Equal(Quaternion.Identity, instance.Rotation)
         );
     }
 
     /// <summary>Two draws from one hash are not correlated.</summary>
     /// <remarks>
-    ///     ⚠ <b>Slicing the streams out of one hash's bits gives the yaw and the scale correlated low
-    ///     bits</b>, which shows up as every large tree facing the same way — a pattern an artist sees
+    ///     ⚠
+    ///     <b>
+    ///         Slicing the streams out of one hash's bits gives the yaw and the scale correlated low
+    ///         bits
+    ///     </b>
+    ///     , which shows up as every large tree facing the same way — a pattern an artist sees
     ///     immediately and cannot describe. Re-hashing per stream is what avoids it.
     /// </remarks>
     [Fact]
@@ -285,19 +295,18 @@ public sealed class FoliageScatterTests {
     }
 
     static float Tilt(FoliageType settings, Ground surface) {
-        var ground = surface.SampleAt(new(0f, 0f), "");
-        var instance = FoliageScatter.Place(settings, ground, hash: 11u);
+        var ground = surface.SampleAt(new(0f, 0f), string.Empty);
+        var instance = FoliageScatter.Place(settings, ground, 11u);
         var up = Quaternion.Transform(Vector3.UnitY, instance.Rotation);
 
         return MathF.Acos(Math.Clamp(Vector3.Dot(Vector3.Normalize(up), Vector3.UnitY), -1f, 1f));
     }
 
-    static List<Vector2> Positions(FoliageVolume volume) =>
-        [
-            .. volume.Chunks
-                .OrderBy(chunk => chunk.Cell.Z)
-                .ThenBy(chunk => chunk.Cell.X)
-                .SelectMany(chunk => chunk.Instances)
-                .Select(instance => new Vector2(instance.Position.X, instance.Position.Z))
-        ];
+    static List<Vector2> Positions(FoliageVolume volume) => [
+        ..volume.Chunks
+            .OrderBy(static chunk => chunk.Cell.Z)
+            .ThenBy(static chunk => chunk.Cell.X)
+            .SelectMany(static chunk => chunk.Instances)
+            .Select(static instance => new Vector2(instance.Position.X, instance.Position.Z))
+    ];
 }

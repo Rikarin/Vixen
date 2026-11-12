@@ -11,8 +11,12 @@ namespace Vixen.Cli.Tests;
 /// <summary>`vixen doctor behaviors`, run against this assembly and scenes written for it.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>The registrations these read were emitted by <c>BehaviorRegistrationGenerator</c>,
-///         not written here</b> — the same arrangement <c>DoctorSystemsTests</c> uses and for the
+///         ⚠
+///         <b>
+///             The registrations these read were emitted by <c>BehaviorRegistrationGenerator</c>,
+///             not written here
+///         </b>
+///         — the same arrangement <c>DoctorSystemsTests</c> uses and for the
 ///         same reason: a fixture that called <c>SceneBehaviorRegistry.Register</c> by hand would
 ///         prove the registry works and say nothing about whether a real project's behaviours reach
 ///         the command.

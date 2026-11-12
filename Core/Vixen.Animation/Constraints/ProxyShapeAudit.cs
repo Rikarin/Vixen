@@ -78,7 +78,7 @@ public static class ProxyShapeAudit {
                 new(
                     shape.Name,
                     $"'{have.Name}' has a shape called '{shape.Name}' and '{want.Name}' does not. A clip with a "
-                    + $"contact there works on one of these bodies and silently does nothing on the other."
+                    + "contact there works on one of these bodies and silently does nothing on the other."
                 )
             );
         }
@@ -142,7 +142,7 @@ public static class ProxyShapeAudit {
                 new(
                     set[at].Name,
                     $"'{set[at].Name}' never moves across the clips it was checked against. That is right for a "
-                    + $"prop and usually means a shape was attached to the wrong joint — it hangs off "
+                    + "prop and usually means a shape was attached to the wrong joint — it hangs off "
                     + $"'{skeleton.NameOf(set[at].Joint)}'."
                 )
             );

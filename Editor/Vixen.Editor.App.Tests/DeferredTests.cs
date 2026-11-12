@@ -9,16 +9,24 @@ namespace Vixen.Editor.App.Tests;
 /// <summary>The queue every platform answer comes back to the frame thread through.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b><c>Deferred.When</c> used to make a call that had <em>already answered</em> wait on
-///         the thread pool, and that is #1179.</b> <c>Task.ContinueWith</c> against
+///         ⚠
+///         <b>
+///             <c>Deferred.When</c> used to make a call that had <em>already answered</em> wait on
+///             the thread pool, and that is #1179.
+///         </b>
+///         <c>Task.ContinueWith</c> against
 ///         <see cref="TaskScheduler.Default" /> schedules a pool work item even for a task that is
 ///         already complete — it does not run inline — so the hand-off back to the frame thread cost
 ///         a pool schedule whether or not anything had been waited for. On an idle machine that is
 ///         microseconds; under fifteen concurrent test assemblies it is however long the queue is.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Which is the answer to the question #1179 left open, and it is the second of the two
-///         candidates rather than the first.</b> That issue asked whether the delay was
+///         ⚠
+///         <b>
+///             Which is the answer to the question #1179 left open, and it is the second of the two
+///             candidates rather than the first.
+///         </b>
+///         That issue asked whether the delay was
 ///         <c>SweepAsync</c>'s <c>Task.Run</c> or the deferred pump.
 ///         <c>ProjectSourceControl.Use</c> sets <c>IsSought</c>, so the harness's sweep never
 ///         reaches the <c>Task.Run</c> at all, and the <c>Fake</c> provider answers with an
@@ -97,7 +105,7 @@ public class DeferredTests {
         var answered = 0;
         var failed = 0;
 
-        deferred.When(ValueTask.FromCanceled<int>(new(canceled: true)), _ => answered++, _ => failed++);
+        deferred.When(ValueTask.FromCanceled<int>(new(true)), _ => answered++, _ => failed++);
 
         deferred.Pump();
         deferred.Pump();
@@ -120,7 +128,7 @@ public class DeferredTests {
         var failed = 0;
         var cancelled = 0;
 
-        deferred.When(ValueTask.FromCanceled<int>(new(canceled: true)), _ => answered++, _ => failed++, () => cancelled++);
+        deferred.When(ValueTask.FromCanceled<int>(new(true)), _ => answered++, _ => failed++, () => cancelled++);
 
         Assert.Equal(0, cancelled);
         deferred.Pump();
@@ -153,8 +161,12 @@ public class DeferredTests {
     ///     the whole implementation.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>Without this, deleting the asynchronous branch entirely would leave the other three
-    ///     green.</b> The spin below is bounded because an unbounded one hangs the suite rather than
+    ///     ⚠
+    ///     <b>
+    ///         Without this, deleting the asynchronous branch entirely would leave the other three
+    ///         green.
+    ///     </b>
+    ///     The spin below is bounded because an unbounded one hangs the suite rather than
     ///     failing it; the bound is a hang check and not a budget, and the assertion is that the
     ///     answer arrived at all rather than that it arrived quickly.
     ///     <para>
@@ -258,6 +270,7 @@ public class DeferredTests {
             object? state,
             short token,
             System.Threading.Tasks.Sources.ValueTaskSourceOnCompletedFlags flags
-        ) => continuation(state);
+        ) =>
+            continuation(state);
     }
 }

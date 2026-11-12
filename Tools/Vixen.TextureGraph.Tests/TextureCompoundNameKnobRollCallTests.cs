@@ -4,7 +4,6 @@
 using Vixen.Core.Yaml;
 using Vixen.NodeGraph;
 using Vixen.TextureGraph;
-using Vixen.TextureGraph.Nodes;
 using Xunit;
 
 namespace Tests;
@@ -46,9 +45,13 @@ public class TextureCompoundNameKnobRollCallTests {
     /// <remarks>
     ///     Four ship today — <c>Patterns/Tile Random</c>'s <c>Accumulation</c>,
     ///     <c>Patterns/Cells</c>' <c>Metric</c>, <c>Surface/Metal Reflectance</c>'s <c>Metal</c> and
-    ///     <c>Utility/Safe Transform</c>'s <c>Tiling</c>. ⚠ <b>The enumeration said three and the
-    ///     floor was three, and the one it left out was the knob whose drift this roll call
-    ///     found</b> — a floor set below the shipped count is a roll call one knob can stop
+    ///     <c>Utility/Safe Transform</c>'s <c>Tiling</c>. ⚠
+    ///     <b>
+    ///         The enumeration said three and the
+    ///         floor was three, and the one it left out was the knob whose drift this roll call
+    ///         found
+    ///     </b>
+    ///     — a floor set below the shipped count is a roll call one knob can stop
     ///     forwarding without turning red, which is the instrument failing at exactly the thing it
     ///     was built for.
     ///     ⚠ A floor rather than an exact count, for the reason five roll calls in this workstream
@@ -75,8 +78,8 @@ public class TextureCompoundNameKnobRollCallTests {
             var graph = NodeGraphDocument.Load(YamlSerializer.Parse<NodeGraphAsset>(text), out _);
 
             foreach (var knob in TextureGraphParameters
-                .Declared(graph.Parameters)
-                .Where(parameter => parameter.Kind == TextureGraphParameterKind.Name)) {
+                         .Declared(graph.Parameters)
+                         .Where(static parameter => parameter.Kind == TextureGraphParameterKind.Name)) {
                 var reached = 0;
 
                 foreach (var node in graph.Nodes) {

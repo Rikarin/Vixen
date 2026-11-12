@@ -35,8 +35,16 @@ public class ForwardPlusLayoutTests {
     ///     changes under <c>dotnet publish</c>.
     /// </remarks>
     static string Path() {
-        for (var directory = new DirectoryInfo(AppContext.BaseDirectory); directory is not null; directory = directory.Parent) {
-            var candidate = System.IO.Path.Combine(directory.FullName, "Raven", "Library", "Pipeline", "ForwardPlus.reflect.json");
+        for (var directory = new DirectoryInfo(AppContext.BaseDirectory);
+             directory is not null;
+             directory = directory.Parent) {
+            var candidate = System.IO.Path.Combine(
+                directory.FullName,
+                "Raven",
+                "Library",
+                "Pipeline",
+                "ForwardPlus.reflect.json"
+            );
 
             if (File.Exists(candidate)) {
                 return candidate;
@@ -167,8 +175,8 @@ public class ForwardPlusLayoutTests {
     public void The_probes_are_one_binding_with_a_count() {
         var probes = Reflection.GetProperty("Sets")
             .EnumerateArray()
-            .SelectMany(set => set.GetProperty("Bindings").EnumerateArray())
-            .Single(binding => binding.GetProperty("Name").GetString() == "probes");
+            .SelectMany(static set => set.GetProperty("Bindings").EnumerateArray())
+            .Single(static binding => binding.GetProperty("Name").GetString() == "probes");
 
         Assert.Equal("SampledTexture", probes.GetProperty("Type").GetString());
         Assert.True(probes.GetProperty("Count").GetInt32() > 1);

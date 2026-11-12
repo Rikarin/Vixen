@@ -48,8 +48,9 @@ public sealed class RenderGraph {
 
     /// <summary>Creates a graph and the pool its transients come from.</summary>
     /// <param name="device">The device.</param>
-    public RenderGraph(IGraphicsDevice device) : this(device, new TransientResourcePool(device)) =>
+    public RenderGraph(IGraphicsDevice device) : this(device, new(device)) {
         ownsPool = true;
+    }
 
     /// <summary>Creates a graph over an existing pool.</summary>
     /// <param name="device">The device.</param>
@@ -100,13 +101,15 @@ public sealed class RenderGraph {
         ThrowIfCompiled();
         description.Validate();
 
-        resources.Add(new() {
-            Index = resources.Count + 1,
-            Name = string.IsNullOrEmpty(description.Name) ? $"texture {resources.Count + 1}" : description.Name,
-            IsTexture = true,
-            IsImported = false,
-            TextureDescription = description
-        });
+        resources.Add(
+            new() {
+                Index = resources.Count + 1,
+                Name = string.IsNullOrEmpty(description.Name) ? $"texture {resources.Count + 1}" : description.Name,
+                IsTexture = true,
+                IsImported = false,
+                TextureDescription = description
+            }
+        );
 
         return new(resources.Count, generation);
     }
@@ -117,13 +120,15 @@ public sealed class RenderGraph {
         ThrowIfCompiled();
         description.Validate();
 
-        resources.Add(new() {
-            Index = resources.Count + 1,
-            Name = string.IsNullOrEmpty(description.Name) ? $"buffer {resources.Count + 1}" : description.Name,
-            IsTexture = false,
-            IsImported = false,
-            BufferDescription = description
-        });
+        resources.Add(
+            new() {
+                Index = resources.Count + 1,
+                Name = string.IsNullOrEmpty(description.Name) ? $"buffer {resources.Count + 1}" : description.Name,
+                IsTexture = false,
+                IsImported = false,
+                BufferDescription = description
+            }
+        );
 
         return new(resources.Count, generation);
     }
@@ -148,17 +153,19 @@ public sealed class RenderGraph {
     ) {
         ThrowIfCompiled();
 
-        resources.Add(new() {
-            Index = resources.Count + 1,
-            Name = string.IsNullOrEmpty(description.Name) ? $"imported {resources.Count + 1}" : description.Name,
-            IsTexture = true,
-            IsImported = true,
-            TextureDescription = description,
-            ImportedTexture = handle,
-            ImportedView = view,
-            EntryState = entryState,
-            ExitState = exitState
-        });
+        resources.Add(
+            new() {
+                Index = resources.Count + 1,
+                Name = string.IsNullOrEmpty(description.Name) ? $"imported {resources.Count + 1}" : description.Name,
+                IsTexture = true,
+                IsImported = true,
+                TextureDescription = description,
+                ImportedTexture = handle,
+                ImportedView = view,
+                EntryState = entryState,
+                ExitState = exitState
+            }
+        );
 
         return new(resources.Count, generation);
     }
@@ -176,16 +183,18 @@ public sealed class RenderGraph {
     ) {
         ThrowIfCompiled();
 
-        resources.Add(new() {
-            Index = resources.Count + 1,
-            Name = string.IsNullOrEmpty(description.Name) ? $"imported {resources.Count + 1}" : description.Name,
-            IsTexture = false,
-            IsImported = true,
-            BufferDescription = description,
-            ImportedBuffer = handle,
-            EntryState = entryState,
-            ExitState = exitState
-        });
+        resources.Add(
+            new() {
+                Index = resources.Count + 1,
+                Name = string.IsNullOrEmpty(description.Name) ? $"imported {resources.Count + 1}" : description.Name,
+                IsTexture = false,
+                IsImported = true,
+                BufferDescription = description,
+                ImportedBuffer = handle,
+                EntryState = entryState,
+                ExitState = exitState
+            }
+        );
 
         return new(resources.Count, generation);
     }
@@ -241,7 +250,7 @@ public sealed class RenderGraph {
         BuildSegments();
         PlanSharing();
         PlanBarriers();
-        Schedule = new([.. segments], QueuesOfPasses(), handovers);
+        Schedule = new([..segments], QueuesOfPasses(), handovers);
         compiled = true;
     }
 
@@ -538,7 +547,7 @@ public sealed class RenderGraph {
         var text = new System.Text.StringBuilder();
         text.AppendLine("digraph RenderGraph {");
         text.AppendLine("  rankdir=LR;");
-        text.AppendLine("  node [fontname=\"Helvetica\"];");
+        text.AppendLine("""  node [fontname="Helvetica"];""");
 
         if (Schedule!.IsMultiQueue) {
             foreach (var segment in segments) {
@@ -560,18 +569,14 @@ public sealed class RenderGraph {
             var style = pass.Survives ? "solid" : "dashed";
             var colour = pass.Survives ? "black" : "grey";
 
-            text.AppendLine(
-                $"  p{pass.Index} [shape=box,style={style},color={colour},label=\"{Escape(pass.Name)}\"];"
-            );
+            text.AppendLine($"  p{pass.Index} [shape=box,style={style},color={colour},label=\"{Escape(pass.Name)}\"];");
         }
 
         foreach (var resource in resources) {
             var shape = resource.IsImported ? "ellipse" : "oval";
             var style = resource.IsImported ? "bold" : "solid";
 
-            text.AppendLine(
-                $"  r{resource.Index} [shape={shape},style={style},label=\"{Escape(resource.Name)}\"];"
-            );
+            text.AppendLine($"  r{resource.Index} [shape={shape},style={style},label=\"{Escape(resource.Name)}\"];");
         }
 
         foreach (var pass in passes) {
@@ -743,8 +748,12 @@ public sealed class RenderGraph {
     /// <remarks>
     ///     <para>
     ///         All three conditions are ones a validation layer will report and a release driver will
-    ///         not, and the third is the one worth the check: a resolve between two <em>differently
-    ///         sized</em> attachments is undefined rather than a scale, so it reads as a picture that
+    ///         not, and the third is the one worth the check: a resolve between two
+    ///         <em>
+    ///             differently
+    ///             sized
+    ///         </em>
+    ///         attachments is undefined rather than a scale, so it reads as a picture that
     ///         is subtly cropped rather than as an error.
     ///     </para>
     ///     <para>
@@ -1101,8 +1110,11 @@ public sealed class RenderGraph {
     /// <summary>Assigns every surviving pass a queue and cuts the frame into segments.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>Only <see cref="PassKind.Compute" /> leaves the graphics queue, and only where the
-    ///         device has a compute family of its own.</b> A pass declaring attachments stays put
+    ///         <b>
+    ///             Only <see cref="PassKind.Compute" /> leaves the graphics queue, and only where the
+    ///             device has a compute family of its own.
+    ///         </b>
+    ///         A pass declaring attachments stays put
     ///         whatever it says its kind is — attachments are a draw, and the RHI already refuses a
     ///         render pass on a compute list — and so does <see cref="PassKind.Transfer" />, which is
     ///         the one kind whose queue can do <em>less</em> than the graphics queue: a Vulkan
@@ -1207,8 +1219,12 @@ public sealed class RenderGraph {
     ///         them is changing.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Which is why the rule is exactly "read by more than one queue, written by at most
-    ///         one".</b> That is the case where ownership is buying nothing: nobody is racing to
+    ///         ⚠
+    ///         <b>
+    ///             Which is why the rule is exactly "read by more than one queue, written by at most
+    ///             one".
+    ///         </b>
+    ///         That is the case where ownership is buying nothing: nobody is racing to
     ///         change the contents, so there is nothing for a handover to make visible that the
     ///         read-after-write edge does not already. Two <em>writers</em> on two queues is the
     ///         opposite case — there the handover is the whole point, and this leaves it alone.
@@ -1278,13 +1294,11 @@ public sealed class RenderGraph {
                 resource.Sharing = ResourceSharing.Concurrent;
 
                 if (resource.IsTexture) {
-                    resource.TextureDescription = resource.TextureDescription with {
-                        Sharing = ResourceSharing.Concurrent
-                    };
+                    resource.TextureDescription =
+                        resource.TextureDescription with { Sharing = ResourceSharing.Concurrent };
                 } else {
-                    resource.BufferDescription = resource.BufferDescription with {
-                        Sharing = ResourceSharing.Concurrent
-                    };
+                    resource.BufferDescription =
+                        resource.BufferDescription with { Sharing = ResourceSharing.Concurrent };
                 }
             }
         }
@@ -1311,8 +1325,11 @@ public sealed class RenderGraph {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <b>Planned rather than derived while recording, because a handover is two barriers and
-    ///         they are not adjacent.</b> The release belongs at the end of the segment that owns the
+    ///         <b>
+    ///             Planned rather than derived while recording, because a handover is two barriers and
+    ///             they are not adjacent.
+    ///         </b>
+    ///         The release belongs at the end of the segment that owns the
     ///         resource; the acquire belongs in front of the pass that wants it — and by the time
     ///         recording reaches that pass, the releasing segment's list has been submitted. One walk
     ///         decides both, from the same states, which is also what makes them identical: a release
@@ -1485,7 +1502,7 @@ public sealed class RenderGraph {
         var original = new Dictionary<RenderGraphSegment, RenderGraphSegment[]>();
 
         foreach (var segment in segments) {
-            original[segment] = [.. segment.Waits];
+            original[segment] = [..segment.Waits];
         }
 
         foreach (var segment in segments) {

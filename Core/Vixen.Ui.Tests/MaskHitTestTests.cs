@@ -33,7 +33,9 @@ public class MaskHitTestTests {
         document.Load(
             "root { width: 400px; height: 300px; flex-direction: row; align-items: flex-start; }\n"
             + ".child { display: block; width: 120px; height: 30px; background-color: #ff0000; }\n"
-            + ".box { display: block; " + boxCss + " }"
+            + ".box { display: block; "
+            + boxCss
+            + " }"
         );
 
         document.Root.Add("div", classNames: "box").Add("div", classNames: "child");
@@ -70,7 +72,11 @@ public class MaskHitTestTests {
 
         // The instrument: the mask is real — the child is painted only without it.
         var red = new Color4(1f, 0f, 0f, 1f);
-        Assert.Equal(masked ? 0 : 1, document.Drawing.Commands.Count(command => command.Kind == DrawCommandKind.Rectangle && command.Color == red));
+        Assert.Equal(
+            masked ? 0 : 1,
+            document.Drawing.Commands.Count(command => command.Kind == DrawCommandKind.Rectangle && command.Color == red
+            )
+        );
 
         Assert.Same(Child(document), document.HitTest(50f, 15f));
     }

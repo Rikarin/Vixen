@@ -63,9 +63,12 @@ public readonly record struct RemoteCounter(string Name, double Value);
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>Doc 13 owns the protocol and says what it must carry — browse the live hierarchy, read
-///         and <i>write</i> component values, live counters, and trigger a capture. This is that
-///         list and no more.</b> Discovery and pairing are deliberately not here: which transport
+///         <b>
+///             Doc 13 owns the protocol and says what it must carry — browse the live hierarchy, read
+///             and <i>write</i> component values, live counters, and trigger a capture. This is that
+///             list and no more.
+///         </b>
+///         Discovery and pairing are deliberately not here: which transport
 ///         finds which device is <c>Vixen.Net</c>'s question, and a protocol that opened its own
 ///         socket would be a second answer to it.
 ///     </para>

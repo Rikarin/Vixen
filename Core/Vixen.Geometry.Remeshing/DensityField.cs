@@ -16,8 +16,12 @@ namespace Vixen.Geometry.Remeshing;
 ///         polyline so a hard edge is not straddled by one enormous quad.
 ///     </para>
 ///     <para>
-///         ⚠ <b>One field and not three multipliers applied at three stages, and § D9 says why in as
-///         many words.</b> "Adaptive Size", density masking and keep-detail-near-the-creases are the
+///         ⚠
+///         <b>
+///             One field and not three multipliers applied at three stages, and § D9 says why in as
+///             many words.
+///         </b>
+///         "Adaptive Size", density masking and keep-detail-near-the-creases are the
 ///         same mechanism here; three separate ones interacting by accident is how a remesher acquires
 ///         settings that only work in certain combinations. The pre-remesh, the quantization and the
 ///         extraction all read this one array.
@@ -28,21 +32,33 @@ namespace Vixen.Geometry.Remeshing;
 ///         doc 24 records twice and R1's <c>ScaleInvarianceTests</c> exists to catch.
 ///     </para>
 ///     <para>
-///         ⚠ <b>At <see cref="RemeshSettings.Adaptivity" /> zero the curvature term is one
-///         <i>everywhere</i>, which is ZRemesher's uniform squares and is a real setting rather than a
-///         degenerate case.</b> An empty mask, no guides, no features and a flat plane all reduce this
+///         ⚠
+///         <b>
+///             At <see cref="RemeshSettings.Adaptivity" /> zero the curvature term is one
+///             <i>everywhere</i>, which is ZRemesher's uniform squares and is a real setting rather than a
+///             degenerate case.
+///         </b>
+///         An empty mask, no guides, no features and a flat plane all reduce this
 ///         to <c>base</c> exactly, and that is the answer.
 ///     </para>
 ///     <para>
-///         ⚠ <b><c>base</c> is <i>solved</i> from the budget rather than computed from the area, and
-///         assuming the terms away was worth about 4× on the count.</b> Two of the three terms are at
+///         ⚠
+///         <b>
+///             <c>base</c> is <i>solved</i> from the budget rather than computed from the area, and
+///             assuming the terms away was worth about 4× on the count.
+///         </b>
+///         Two of the three terms are at
 ///         most one, so <c>√(area / quads)</c> is the length the field would use if it never modulated
 ///         anything — see <see cref="Normalise" /> for the measurement and for why this is not the
 ///         rejected "scale the targets afterwards" fix.
 ///     </para>
 ///     <para>
-///         ⚠ <b>A consequence worth stating: a <i>uniform</i> <see cref="RemeshSettings.DensityMask" />
-///         is now a no-op.</b> The budget is the budget, so a mask that says "twice as dense
+///         ⚠
+///         <b>
+///             A consequence worth stating: a <i>uniform</i> <see cref="RemeshSettings.DensityMask" />
+///             is now a no-op.
+///         </b>
+///         The budget is the budget, so a mask that says "twice as dense
 ///         everywhere" says nothing — it is <i>where</i> the mask varies that moves quads, and a
 ///         painted region is paid for by the unpainted ones. Painting the whole model and expecting
 ///         more quads is what <see cref="RemeshSettings.TargetQuads" /> is for.
@@ -72,8 +88,12 @@ sealed class DensityField {
 
     /// <summary>How many times the normalisation re-solves for <c>base</c> before settling for what it has.</summary>
     /// <remarks>
-    ///     ⚠ <b>The solve is a fixed point rather than a formula, because <see cref="FeatureReach" /> is
-    ///     stated in multiples of <c>base</c>.</b> A longer <c>base</c> widens the band the feature term
+    ///     ⚠
+    ///     <b>
+    ///         The solve is a fixed point rather than a formula, because <see cref="FeatureReach" /> is
+    ///         stated in multiples of <c>base</c>.
+    ///     </b>
+    ///     A longer <c>base</c> widens the band the feature term
     ///     tightens, which lowers the mean multiplier, which lengthens <c>base</c> again. The map is
     ///     bounded — no multiplier leaves <c>[MinScale, MaxScale]</c>, so <c>base</c> can never leave
     ///     <c>[seed × MinScale, seed / MinScale]</c> — and in practice it settles in two or three rounds.
@@ -162,8 +182,8 @@ sealed class DensityField {
 
         for (var vertex = 0; vertex < count; vertex++) {
             // At adaptivity zero this is exactly one, at every vertex, whatever the surface does.
-            var curved = 1f / (1f + (CurvatureResponse * curvature.Magnitude(vertex)));
-            var curvatureTerm = 1f + (adaptivity * (curved - 1f));
+            var curved = 1f / (1f + CurvatureResponse * curvature.Magnitude(vertex));
+            var curvatureTerm = 1f + adaptivity * (curved - 1f);
 
             var density = mask.Count == count ? mask[vertex] : 1f;
 
@@ -196,7 +216,7 @@ sealed class DensityField {
     /// <returns>The multiplier, within <c>[MinScale, MaxScale]</c>.</returns>
     static float Multiplier(float standing, float distance, float reach) {
         var near = reach > 0f ? MathF.Min(1f, distance / reach) : 1f;
-        var featureTerm = FeatureTighten + ((1f - FeatureTighten) * near);
+        var featureTerm = FeatureTighten + (1f - FeatureTighten) * near;
 
         return Math.Clamp(standing * featureTerm, MinScale, MaxScale);
     }
@@ -210,8 +230,12 @@ sealed class DensityField {
     /// <returns>The solved <c>base</c>.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b><c>base = √(area / quads)</c> is the answer to a different question, and this is the
-    ///         defect docs/plan/41's first exit criterion recorded as belonging to § D9's field.</b> That
+    ///         ⚠
+    ///         <b>
+    ///             <c>base = √(area / quads)</c> is the answer to a different question, and this is the
+    ///             defect docs/plan/41's first exit criterion recorded as belonging to § D9's field.
+    ///         </b>
+    ///         That
     ///         formula is derived as though every multiplier were exactly one. <c>curvatureTerm</c> and
     ///         <c>featureTerm</c> are both at most one, so on any surface with curvature or a crease every
     ///         target comes out <i>shorter</i> than <c>base</c> — and since a quad of side <c>L</c> covers
@@ -228,8 +252,12 @@ sealed class DensityField {
     ///         is unchanged.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>This is <i>not</i> the rejected "scale the targets afterwards" fix, and the
-    ///         difference is what is being matched.</b> That one scaled by the ratio of the emitted quad
+    ///         ⚠
+    ///         <b>
+    ///             This is <i>not</i> the rejected "scale the targets afterwards" fix, and the
+    ///             difference is what is being matched.
+    ///         </b>
+    ///         That one scaled by the ratio of the emitted quad
     ///         count to the budget, so it also absorbed the partition's own overshoot — it brought a box
     ///         to 444 quads and took the feature reproduction error from <c>5.1e-5</c> to <c>5.1e-2</c>,
     ///         because the arcs paying for the reduction were the ones running along the creases. This one
@@ -253,7 +281,7 @@ sealed class DensityField {
                 return baseLength;
             }
 
-            var solved = (float) Math.Sqrt(wanted / quads);
+            var solved = (float)Math.Sqrt(wanted / quads);
 
             if (MathF.Abs(solved - baseLength) <= NormalisationTolerance * baseLength) {
                 return solved;
@@ -330,9 +358,9 @@ sealed class DensityField {
 
             var corner = closest.Triangle * 3;
 
-            resampled[vertex] = (mask[source[corner + 0]] * closest.Barycentric.X)
-                + (mask[source[corner + 1]] * closest.Barycentric.Y)
-                + (mask[source[corner + 2]] * closest.Barycentric.Z);
+            resampled[vertex] = mask[source[corner]] * closest.Barycentric.X
+                + mask[source[corner + 1]] * closest.Barycentric.Y
+                + mask[source[corner + 2]] * closest.Barycentric.Z;
         }
 
         return resampled;

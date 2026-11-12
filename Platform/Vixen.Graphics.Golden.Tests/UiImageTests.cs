@@ -6,7 +6,6 @@ using Vixen.Core.Mathematics;
 using Vixen.Ui;
 using Vixen.Ui.Renderer;
 using Vixen.Ui.Rendering;
-using Vixen.Ui.Testing.Visual;
 using Vixen.Ui.Text;
 using Vixen.Ui.Text.Rasterizing;
 using Xunit;
@@ -57,7 +56,7 @@ public sealed class UiImageTests {
         using var owned = fixture!;
         var colour = owned.ColourTarget("ui");
 
-        var cache = new GlyphFieldCache(new GlyphAtlas(256, 256));
+        var cache = new GlyphFieldCache(new(256, 256));
         var geometry = Paint(cache);
 
         var renderer = new UiRenderer(
@@ -73,11 +72,14 @@ public sealed class UiImageTests {
 
         owned.Owns(renderer.Dispose);
 
-        owned.Graph.AddPass("ui", pass => {
-            pass.ColourAttachment(colour, LoadAction.Clear, new(0.08f, 0.09f, 0.11f, 1f));
-            pass.SideEffect();
-            pass.Execute(context => renderer.Record(context.CommandList, geometry, new(Side, Side)));
-        });
+        owned.Graph.AddPass(
+            "ui",
+            pass => {
+                pass.ColourAttachment(colour, LoadAction.Clear, new(0.08f, 0.09f, 0.11f, 1f));
+                pass.SideEffect();
+                pass.Execute(context => renderer.Record(context.CommandList, geometry, new(Side, Side)));
+            }
+        );
 
         var image = owned.Render(colour, commands => renderer.Upload(commands, geometry, cache.Atlas));
 
@@ -130,7 +132,7 @@ public sealed class UiImageTests {
 
         using var owned = fixture!;
         var colour = owned.ColourTarget("ui-shadowed");
-        var cache = new GlyphFieldCache(new GlyphAtlas(64, 64));
+        var cache = new GlyphFieldCache(new(64, 64));
 
         var list = new DrawList();
         list.BeginFrame();
@@ -156,11 +158,14 @@ public sealed class UiImageTests {
 
         owned.Owns(renderer.Dispose);
 
-        owned.Graph.AddPass("ui-shadowed", pass => {
-            pass.ColourAttachment(colour, LoadAction.Clear, new(1f, 1f, 1f, 1f));
-            pass.SideEffect();
-            pass.Execute(context => renderer.Record(context.CommandList, geometry, new(Side, Side)));
-        });
+        owned.Graph.AddPass(
+            "ui-shadowed",
+            pass => {
+                pass.ColourAttachment(colour, LoadAction.Clear, new(1f, 1f, 1f, 1f));
+                pass.SideEffect();
+                pass.Execute(context => renderer.Record(context.CommandList, geometry, new(Side, Side)));
+            }
+        );
 
         var image = owned.Render(colour, commands => renderer.Upload(commands, geometry, cache.Atlas));
 
@@ -184,8 +189,12 @@ public sealed class UiImageTests {
     ///         picture that would be one more region nobody looks at.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The box is deliberately not symmetric about the clip's edge, and the first version
-    ///         of this fixture was.</b> A centred box under a scissor at the halfway line looks
+    ///         ⚠
+    ///         <b>
+    ///             The box is deliberately not symmetric about the clip's edge, and the first version
+    ///             of this fixture was.
+    ///         </b>
+    ///         A centred box under a scissor at the halfway line looks
     ///         identical whether or not y is flipped — so it passed while the whole frame was being
     ///         drawn upside down, and it was the busier fixture next door that noticed. A clip test
     ///         whose picture is its own mirror image is a clip test that cannot see the most common
@@ -201,7 +210,7 @@ public sealed class UiImageTests {
         using var owned = fixture!;
         var colour = owned.ColourTarget("ui-clipped");
 
-        var cache = new GlyphFieldCache(new GlyphAtlas(64, 64));
+        var cache = new GlyphFieldCache(new(64, 64));
 
         var list = new DrawList();
         list.BeginFrame();
@@ -236,11 +245,14 @@ public sealed class UiImageTests {
 
         owned.Owns(renderer.Dispose);
 
-        owned.Graph.AddPass("ui-clipped", pass => {
-            pass.ColourAttachment(colour, LoadAction.Clear, new(0f, 0f, 0f, 1f));
-            pass.SideEffect();
-            pass.Execute(context => renderer.Record(context.CommandList, geometry, new(Side, Side)));
-        });
+        owned.Graph.AddPass(
+            "ui-clipped",
+            pass => {
+                pass.ColourAttachment(colour, LoadAction.Clear, new(0f, 0f, 0f, 1f));
+                pass.SideEffect();
+                pass.Execute(context => renderer.Record(context.CommandList, geometry, new(Side, Side)));
+            }
+        );
 
         var image = owned.Render(colour, commands => renderer.Upload(commands, geometry, cache.Atlas));
 
@@ -278,7 +290,7 @@ public sealed class UiImageTests {
         using var owned = fixture!;
         var colour = owned.ColourTarget("ui-regrown");
 
-        var cache = new GlyphFieldCache(new GlyphAtlas(64, 64));
+        var cache = new GlyphFieldCache(new(64, 64));
         var small = Grid(cache, 2);
         var large = Grid(cache, 10);
 
@@ -295,11 +307,14 @@ public sealed class UiImageTests {
 
         owned.Owns(renderer.Dispose);
 
-        owned.Graph.AddPass("ui-regrown", pass => {
-            pass.ColourAttachment(colour, LoadAction.Clear, new(0f, 0f, 0f, 1f));
-            pass.SideEffect();
-            pass.Execute(context => renderer.Record(context.CommandList, large, new(Side, Side)));
-        });
+        owned.Graph.AddPass(
+            "ui-regrown",
+            pass => {
+                pass.ColourAttachment(colour, LoadAction.Clear, new(0f, 0f, 0f, 1f));
+                pass.SideEffect();
+                pass.Execute(context => renderer.Record(context.CommandList, large, new(Side, Side)));
+            }
+        );
 
         var image = owned.Render(
             colour,
@@ -316,8 +331,8 @@ public sealed class UiImageTests {
         // the fourth come out the wrong size or not at all.
         for (var row = 0; row < 10; row++) {
             for (var column = 0; column < 10; column++) {
-                var x = (column * 12) + 9;
-                var y = (row * 12) + 9;
+                var x = column * 12 + 9;
+                var y = row * 12 + 9;
 
                 Assert.True(Green(image, x, y) > 150, $"the box at ({column}, {row}) is missing");
             }
@@ -338,8 +353,8 @@ public sealed class UiImageTests {
                 list.Add(
                     new(
                         DrawCommandKind.Rectangle,
-                        (column * 12) + 5,
-                        (row * 12) + 5,
+                        column * 12 + 5,
+                        row * 12 + 5,
                         8,
                         8,
                         new Color4(0.2f, 0.85f, 0.4f, 1f),
@@ -365,12 +380,12 @@ public sealed class UiImageTests {
         // left — 20 across by 8 down. A shader that read one radius, or read the four in the wrong
         // order, still draws a rounded rectangle; only a box whose corners disagree says which.
         list.Add(
-            new DrawCommand(DrawCommandKind.Rectangle, 8, 8, 54, 40, new Color4(0.25f, 0.55f, 0.95f, 1f), 0, 0) {
+            new(DrawCommandKind.Rectangle, 8, 8, 54, 40, new(0.25f, 0.55f, 0.95f, 1f), 0, 0) {
                 Offset = list.AddBox(
-                    new BoxStyle(
-                        new CornerRadii(new Vector2(20, 8), new Vector2(2, 2), Vector2.Zero, new Vector2(16, 16)),
-                        new Color4(0.1f, 0.15f, 0.5f, 1f),
-                        new Vector2(0, 1)
+                    new(
+                        new(new(20, 8), new(2, 2), Vector2.Zero, new(16, 16)),
+                        new(0.1f, 0.15f, 0.5f, 1f),
+                        new(0, 1)
                     )
                 ),
                 Length = 1
@@ -382,15 +397,14 @@ public sealed class UiImageTests {
 
         // A stroked path with a corner in it, which is where a join either exists or does not.
         var path = new PathBuilder()
-            .MoveTo(new Vector2(12, 66))
-            .LineTo(new Vector2(44, 88))
-            .LineTo(new Vector2(76, 62))
-            .LineTo(new Vector2(114, 84));
+            .MoveTo(new(12, 66))
+            .LineTo(new(44, 88))
+            .LineTo(new(76, 62))
+            .LineTo(new(114, 84));
 
         list.Add(
-            new DrawCommand(DrawCommandKind.PathStroke, 0, 0, 0, 0, new Color4(0.4f, 0.9f, 0.5f, 1f), 0, 4) {
-                Offset = list.AddPath(path),
-                Length = path.Count
+            new(DrawCommandKind.PathStroke, 0, 0, 0, 0, new(0.4f, 0.9f, 0.5f, 1f), 0, 4) {
+                Offset = list.AddPath(path), Length = path.Count
             }
         );
 
@@ -425,11 +439,8 @@ public sealed class UiImageTests {
         }
 
         list.Add(
-            new DrawCommand(DrawCommandKind.Text, x, y, pen, Size, Color4.White, 0, 0) {
-                Offset = list.AddGlyphs(glyphs),
-                Length = glyphs.Count,
-                Font = list.AddFont(font),
-                FontSize = Size
+            new(DrawCommandKind.Text, x, y, pen, Size, Color4.White, 0, 0) {
+                Offset = list.AddGlyphs(glyphs), Length = glyphs.Count, Font = list.AddFont(font), FontSize = Size
             }
         );
     }
@@ -510,7 +521,7 @@ public sealed class UiImageTests {
         // And the picture is actually there, so that two blank surfaces cannot agree their way to a
         // pass.
         Assert.True(Green(scaled, Side / 4, Side / 4) > 100, "the scaled picture is empty");
-        Assert.True(Green(scaled, (Side / 2) + 8, Side / 4) > 100, "the scaled picture stops early");
+        Assert.True(Green(scaled, Side / 2 + 8, Side / 4) > 100, "the scaled picture stops early");
     }
 
     /// <summary>Draws one clipped box into a <c>Side</c>-square surface.</summary>
@@ -525,7 +536,7 @@ public sealed class UiImageTests {
     /// </remarks>
     static Bitmap Draw(Fixture fixture, string name, int extent, float scale) {
         var colour = fixture.ColourTarget(name);
-        var cache = new GlyphFieldCache(new GlyphAtlas(64, 64));
+        var cache = new GlyphFieldCache(new(64, 64));
 
         var list = new DrawList();
         list.BeginFrame();
@@ -547,7 +558,7 @@ public sealed class UiImageTests {
         list.Add(new(DrawCommandKind.ClipPop, 0, 0, 0, 0, default, 0, 0));
         list.EndFrame();
 
-        var geometry = new UiGeometryBuilder().Build(list, cache, new Rectangle(0, 0, extent, extent));
+        var geometry = new UiGeometryBuilder().Build(list, cache, new(0, 0, extent, extent));
 
         var renderer = new UiRenderer(
             fixture.Device,
@@ -567,9 +578,7 @@ public sealed class UiImageTests {
             pass => {
                 pass.ColourAttachment(colour, LoadAction.Clear, new(0f, 0f, 0f, 1f));
                 pass.SideEffect();
-                pass.Execute(
-                    context => renderer.Record(context.CommandList, geometry, new(extent, extent), scale)
-                );
+                pass.Execute(context => renderer.Record(context.CommandList, geometry, new(extent, extent), scale));
             }
         );
 
@@ -704,8 +713,8 @@ public sealed class UiImageTests {
         }
 
         using var stream = typeof(UiImageTests).Assembly
-                               .GetManifestResourceStream("Vixen.Graphics.Golden.Tests.TestShapeLana.ttf")
-                           ?? throw new InvalidOperationException("no test font is embedded");
+                .GetManifestResourceStream("Vixen.Graphics.Golden.Tests.TestShapeLana.ttf")
+            ?? throw new InvalidOperationException("no test font is embedded");
 
         using var memory = new MemoryStream();
         stream.CopyTo(memory);
@@ -720,8 +729,12 @@ public sealed class UiImageTests {
     ///     <para>
     ///         The image pipeline is the fourth to share one vertex layout and one pipeline layout,
     ///         and the failure it exists to catch is the same one <see cref="Interface" /> catches for
-    ///         the other three — except worse, because an image binds a descriptor set of <i>its
-    ///         own</i>. A set bound for an image that survives into the text after it draws the
+    ///         the other three — except worse, because an image binds a descriptor set of
+    ///         <i>
+    ///             its
+    ///             own
+    ///         </i>
+    ///         . A set bound for an image that survives into the text after it draws the
     ///         picture where the letters should be; one that does not get bound at all draws the font
     ///         atlas where the picture should be. Both need two kinds in one frame to show.
     ///     </para>
@@ -759,15 +772,12 @@ public sealed class UiImageTests {
         list.Add(new(DrawCommandKind.Rectangle, 8, 8, 40, 40, new Color4(0.2f, 0.2f, 0.25f, 1f), 6, 0));
 
         // Upright, whole texture, untinted.
-        list.Add(
-            new DrawCommand(DrawCommandKind.Image, 56, 8, 64, 48, Color4.White, 0, 0) { Image = Texture }
-        );
+        list.Add(new(DrawCommandKind.Image, 56, 8, 64, 48, Color4.White, 0, 0) { Image = Texture });
 
         // Flipped vertically, the way a viewport's render target is drawn, and half faded.
         list.Add(
-            new DrawCommand(DrawCommandKind.Image, 56, 64, 64, 48, new Color4(1f, 1f, 1f, 0.5f), 0, 0) {
-                Image = Texture,
-                Source = new Rectangle(0f, 1f, 1f, -1f)
+            new(DrawCommandKind.Image, 56, 64, 64, 48, new(1f, 1f, 1f, 0.5f), 0, 0) {
+                Image = Texture, Source = new(0f, 1f, 1f, -1f)
             }
         );
 
@@ -776,7 +786,7 @@ public sealed class UiImageTests {
 
         list.EndFrame();
 
-        var cache = new GlyphFieldCache(new GlyphAtlas(256, 256));
+        var cache = new GlyphFieldCache(new(256, 256));
         var geometry = new UiGeometryBuilder().Build(list, cache, Viewport);
 
         var renderer = new UiRenderer(
@@ -786,20 +796,21 @@ public sealed class UiImageTests {
                 owned.Shader("ui-box.frag.spv", ShaderStage.Fragment),
                 owned.Shader("ui-text.frag.spv", ShaderStage.Fragment),
                 owned.Shader("ui-solid.frag.spv", ShaderStage.Fragment)
-            ) {
-                Image = owned.Shader("ui-image.frag.spv", ShaderStage.Fragment)
-            },
+            ) { Image = owned.Shader("ui-image.frag.spv", ShaderStage.Fragment) },
             new Rendering.RenderOutput([PixelFormat.Rgba8UNorm])
         );
 
         owned.Owns(renderer.Dispose);
         renderer.RegisterImage(Texture, sampled.View);
 
-        owned.Graph.AddPass("ui", pass => {
-            pass.ColourAttachment(colour, LoadAction.Clear, new(0.08f, 0.09f, 0.11f, 1f));
-            pass.SideEffect();
-            pass.Execute(graph => renderer.Record(graph.CommandList, geometry, new(Side, Side)));
-        });
+        owned.Graph.AddPass(
+            "ui",
+            pass => {
+                pass.ColourAttachment(colour, LoadAction.Clear, new(0.08f, 0.09f, 0.11f, 1f));
+                pass.SideEffect();
+                pass.Execute(graph => renderer.Record(graph.CommandList, geometry, new(Side, Side)));
+            }
+        );
 
         var image = owned.Render(
             colour,

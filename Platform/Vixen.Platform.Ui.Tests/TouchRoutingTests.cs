@@ -10,8 +10,12 @@ namespace Vixen.Platform.Ui.Tests;
 /// <summary>A finger reaches the document, and reaches it as its own pointer.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>The same seam <c>TextCompositionRoutingTests</c> is on, and the same shape of
-///         gap.</b> <c>PlatformEventKind.TouchDown</c>, <c>TouchMoved</c> and <c>TouchUp</c> have
+///         ⚠
+///         <b>
+///             The same seam <c>TextCompositionRoutingTests</c> is on, and the same shape of
+///             gap.
+///         </b>
+///         <c>PlatformEventKind.TouchDown</c>, <c>TouchMoved</c> and <c>TouchUp</c> have
 ///         existed since the platform layer was written, are produced by <c>WebPlatform</c>, have
 ///         <c>TouchTracker</c> to give their fingers small stable ids and a constructor test of
 ///         their own — and <c>PlatformInput.Dispatch</c> had no arm for any of them, so every one
@@ -44,7 +48,7 @@ public class TouchRoutingTests {
     }
 
     static PlatformEvent Touch(PlatformEventKind kind, int finger, float x, float y) =>
-        PlatformEvent.Touch(kind, 1, 0, finger, new Vector2(x, y));
+        PlatformEvent.Touch(kind, 1, 0, finger, new(x, y));
 
     /// <summary>A finger down, moved and lifted arrives as press, move and release.</summary>
     [Fact]
@@ -101,8 +105,7 @@ public class TouchRoutingTests {
         using var document = Documented();
 
         var pointers = new List<int>();
-        document.Root.AddHandler<PointerEvent>(
-            (_, args) => {
+        document.Root.AddHandler<PointerEvent>((_, args) => {
                 if (args.Action == PointerAction.Pressed) {
                     pointers.Add(args.PointerId);
                 }
@@ -111,7 +114,13 @@ public class TouchRoutingTests {
 
         PlatformInput.Dispatch(
             document,
-            PlatformEvent.MouseButtonChanged(PlatformEventKind.MouseButtonDown, 1, 0, MouseButton.Primary, new Vector2(20f, 20f))
+            PlatformEvent.MouseButtonChanged(
+                PlatformEventKind.MouseButtonDown,
+                1,
+                0,
+                MouseButton.Primary,
+                new(20f, 20f)
+            )
         );
 
         PlatformInput.Dispatch(document, Touch(PlatformEventKind.TouchDown, 0, 20f, 20f));
@@ -123,16 +132,24 @@ public class TouchRoutingTests {
     /// <summary>And a finger says it is a finger, which no id range can be asked.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The floor under this is the assertion that the two values <i>differ</i>, not that
-    ///         either is right.</b> A build in which <see cref="PointerEvent.PointerType" /> exists
+    ///         ⚠
+    ///         <b>
+    ///             The floor under this is the assertion that the two values <i>differ</i>, not that
+    ///             either is right.
+    ///         </b>
+    ///         A build in which <see cref="PointerEvent.PointerType" /> exists
     ///         and no producer sets it delivers <see cref="PointerType.Unknown" /> for both, which is
     ///         a consistent, plausible, and entirely useless answer — and it is the state this
     ///         repository was in until #699. Reading both from one route and comparing them is what
     ///         a per-arm assertion could not do.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And it is <em>not</em> the same claim as
-    ///         <see cref="A_finger_and_the_mouse_are_different_pointers" />.</b> That one says the
+    ///         ⚠
+    ///         <b>
+    ///             And it is <em>not</em> the same claim as
+    ///             <see cref="A_finger_and_the_mouse_are_different_pointers" />.
+    ///         </b>
+    ///         That one says the
     ///         two are numbered apart, which is a collision-avoidance measure: it is satisfied by a
     ///         second mouse being given finger one. <c>touch-action</c> governs touch and nothing
     ///         else, so the question it has to ask at the arbitration point is what the device
@@ -145,8 +162,7 @@ public class TouchRoutingTests {
         using var document = Documented();
 
         var kinds = new List<PointerType>();
-        document.Root.AddHandler<PointerEvent>(
-            (_, args) => {
+        document.Root.AddHandler<PointerEvent>((_, args) => {
                 if (args.Action == PointerAction.Pressed) {
                     kinds.Add(args.PointerType);
                 }
@@ -160,7 +176,7 @@ public class TouchRoutingTests {
                 1,
                 0,
                 MouseButton.Primary,
-                new Vector2(20f, 20f)
+                new(20f, 20f)
             )
         );
 
@@ -174,8 +190,12 @@ public class TouchRoutingTests {
 
     /// <summary>And the crossings the document invents for itself keep the device that caused them.</summary>
     /// <remarks>
-    ///     ⚠ <b><see cref="PointerAction.Entered" /> and <see cref="PointerAction.Exited" /> are
-    ///     never fed in from outside</b> — <c>Hover</c> works them out from where the pointer is and
+    ///     ⚠
+    ///     <b>
+    ///         <see cref="PointerAction.Entered" /> and <see cref="PointerAction.Exited" /> are
+    ///         never fed in from outside
+    ///     </b>
+    ///     — <c>Hover</c> works them out from where the pointer is and
     ///     posts them itself. So they are the one place in a touch sequence where the device could
     ///     be lost, and a reader that classified a sequence by its crossings would see
     ///     <see cref="PointerType.Unknown" /> for a frame with the field set correctly everywhere
@@ -204,14 +224,18 @@ public class TouchRoutingTests {
         PlatformInput.Dispatch(document, Touch(PlatformEventKind.TouchMoved, 0, 24f, 20f));
 
         Assert.NotEmpty(crossings);
-        Assert.All(crossings, kind => Assert.Equal(PointerType.Touch, kind));
+        Assert.All(crossings, static kind => Assert.Equal(PointerType.Touch, kind));
     }
 
     /// <summary>Two fingers spreading apart are a pinch, which is the gesture only touch can make.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>This is the assertion that says the routing is <i>right</i> and not merely
-    ///         present.</b> <c>GestureRecognizer.Pair</c> only considers a transform once two
+    ///         ⚠
+    ///         <b>
+    ///             This is the assertion that says the routing is <i>right</i> and not merely
+    ///             present.
+    ///         </b>
+    ///         <c>GestureRecognizer.Pair</c> only considers a transform once two
     ///         distinct pointer ids are pressed at the same time, so a router that delivered every
     ///         finger as the same pointer would satisfy every other fixture in this file and leave
     ///         this one silent — the second press would overwrite the first and there would never be
@@ -231,8 +255,7 @@ public class TouchRoutingTests {
         var stages = new List<TransformStage>();
         var scale = 0f;
 
-        document.Root.AddHandler<TransformEvent>(
-            (_, args) => {
+        document.Root.AddHandler<TransformEvent>((_, args) => {
                 stages.Add(args.Stage);
                 scale = args.Scale;
             }

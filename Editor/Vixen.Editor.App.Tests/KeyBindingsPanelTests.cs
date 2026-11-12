@@ -33,7 +33,10 @@ public class KeyBindingsPanelTests {
         fixture.Settle();
 
         Assert.NotEmpty(view.Grid.Items);
-        Assert.All(view.Grid.Items, item => Assert.Contains("orbit", ((KeyBindingRow) item).Id, StringComparison.OrdinalIgnoreCase));
+        Assert.All(
+            view.Grid.Items,
+            static item => Assert.Contains("orbit", ((KeyBindingRow)item).Id, StringComparison.OrdinalIgnoreCase)
+        );
     }
 
     /// <summary>
@@ -52,7 +55,7 @@ public class KeyBindingsPanelTests {
         Press(fixture, InputKey.G, ModifierKeys.Alt);
 
         Assert.False(view.IsCapturing);
-        Assert.Equal(new KeyChord(InputKey.G, ModifierKeys.Alt), fixture.Shell.Keys.ChordFor("scene.frame-all"));
+        Assert.Equal(new(InputKey.G, ModifierKeys.Alt), fixture.Shell.Keys.ChordFor("scene.frame-all"));
         Assert.Equal(BindingSource.User, fixture.Shell.Keys.SourceOf("scene.frame-all"));
     }
 
@@ -87,11 +90,11 @@ public class KeyBindingsPanelTests {
 
         Assert.Equal("document.save", view.Conflict);
         Assert.True(view.IsCapturing);
-        Assert.Equal(new KeyChord(InputKey.S, ModifierKeys.Control), fixture.Shell.Keys.ChordFor("document.save"));
+        Assert.Equal(new(InputKey.S, ModifierKeys.Control), fixture.Shell.Keys.ChordFor("document.save"));
 
         Press(fixture, InputKey.S, ModifierKeys.Control);
 
-        Assert.Equal(new KeyChord(InputKey.S, ModifierKeys.Control), fixture.Shell.Keys.ChordFor("scene.frame-all"));
+        Assert.Equal(new(InputKey.S, ModifierKeys.Control), fixture.Shell.Keys.ChordFor("scene.frame-all"));
         Assert.False(fixture.Shell.Keys.ChordFor("document.save").IsBound);
     }
 
@@ -109,7 +112,7 @@ public class KeyBindingsPanelTests {
         fixture.Restart();
 
         Assert.Equal(KeyMapPresets.Unreal, fixture.Shell.Keys.PresetName);
-        Assert.Equal(new KeyChord(InputKey.G, ModifierKeys.Alt), fixture.Shell.Keys.ChordFor("scene.frame-all"));
+        Assert.Equal(new(InputKey.G, ModifierKeys.Alt), fixture.Shell.Keys.ChordFor("scene.frame-all"));
 
         // And the rest still follows the preset rather than having been copied into the user's file.
         Assert.Equal(BindingSource.Preset, fixture.Shell.Keys.SourceOf("play.play"));
@@ -130,7 +133,7 @@ public class KeyBindingsPanelTests {
 
     static void Select(EditorSession fixture, KeyBindingsView view, string id) {
         var index = view.Grid.Items
-            .Select((item, at) => (Row: item as KeyBindingRow, At: at))
+            .Select(static (item, at) => (Row: item as KeyBindingRow, At: at))
             .First(entry => entry.Row?.Id == id)
             .At;
 

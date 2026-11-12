@@ -27,8 +27,12 @@ public enum PipelineCacheGrowth {
 /// </summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>"This driver does not cache" is not the same fact as "there is no driver", and
-///         <c>VIXEN_REQUIRE_VULKAN</c> exists to catch the second.</b> lavapipe compiles every
+///         ⚠
+///         <b>
+///             "This driver does not cache" is not the same fact as "there is no driver", and
+///             <c>VIXEN_REQUIRE_VULKAN</c> exists to catch the second.
+///         </b>
+///         lavapipe compiles every
 ///         pipeline the suite asks for and answers <c>vkGetPipelineCacheData</c> with the 32-byte
 ///         header whatever went in, because a software rasterizer has no compiled shader binaries to
 ///         keep — and the size of the blob is entirely the implementation's business. The first
@@ -37,7 +41,8 @@ public enum PipelineCacheGrowth {
 ///         of them the real one (#1274).
 ///     </para>
 ///     <para>
-///         So <see cref="PipelineCacheGrowth.StoresNothing" /> is a skip everywhere, with the adapter's name in it, and the
+///         So <see cref="PipelineCacheGrowth.StoresNothing" /> is a skip everywhere, with the adapter's name in it, and
+///         the
 ///         two outcomes the flag is <em>for</em> stay hard failures: a cache that shrinks when a
 ///         pipeline is added, and a blob too short to be one at all. The caller also has to show the
 ///         driver takes its own empty blob back before skipping — a file that is the right length and
@@ -63,7 +68,8 @@ static class PipelineCacheGrowthDecision {
     /// <summary>The sentence a skip or a failure carries, naming the adapter it is true of.</summary>
     public static string Describe(PipelineCacheGrowth growth, string adapter, long nothing, long learned) =>
         growth switch {
-            PipelineCacheGrowth.Grew => $"'{adapter}' grew its cache from {nothing} to {learned} bytes for one pipeline",
+            PipelineCacheGrowth.Grew =>
+                $"'{adapter}' grew its cache from {nothing} to {learned} bytes for one pipeline",
             PipelineCacheGrowth.StoresNothing =>
                 $"'{adapter}' stores nothing in a pipeline cache: one pipeline made it {learned} bytes and no "
                 + $"pipelines made it {nothing}, which the specification permits, so whether a cache seeds the next "

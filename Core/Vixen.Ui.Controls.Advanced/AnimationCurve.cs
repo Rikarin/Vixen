@@ -69,8 +69,7 @@ public sealed class AnimationCurve {
     readonly List<CurveKey> keys = [];
 
     /// <summary>Creates an empty curve.</summary>
-    public AnimationCurve() {
-    }
+    public AnimationCurve() { }
 
     /// <summary>Creates a curve from some keys.</summary>
     /// <param name="source">The keys, in any order.</param>
@@ -157,8 +156,12 @@ public sealed class AnimationCurve {
     /// <param name="time">Its new time.</param>
     /// <param name="value">Its new value.</param>
     /// <remarks>
-    ///     ⚠ <b>The list is re-sorted, so a key dragged past its neighbour changes places with
-    ///     it.</b> The alternative — clamping a key between its neighbours — is what makes a curve
+    ///     ⚠
+    ///     <b>
+    ///         The list is re-sorted, so a key dragged past its neighbour changes places with
+    ///         it.
+    ///     </b>
+    ///     The alternative — clamping a key between its neighbours — is what makes a curve
     ///     editor feel stuck, and the reordering is exactly what the user means by dragging one key
     ///     over another.
     /// </remarks>

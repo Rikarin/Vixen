@@ -48,8 +48,10 @@ public interface IHaptics {
 /// </remarks>
 public interface IGamepad {
     /// <summary>The id this device appears under in <see cref="PlatformEvent.DeviceId" />.</summary>
-    /// <remarks>Not reused after the device is unplugged, so a stale id never silently refers to a
-    /// different pad.</remarks>
+    /// <remarks>
+    ///     Not reused after the device is unplugged, so a stale id never silently refers to a
+    ///     different pad.
+    /// </remarks>
     int DeviceId { get; }
 
     /// <summary>The device's name, for a settings screen.</summary>
@@ -58,8 +60,10 @@ public interface IGamepad {
     /// <summary>Which family it belongs to, for drawing the right button glyphs.</summary>
     GamepadKind Kind { get; }
 
-    /// <summary>Which player slot the OS has assigned, or <c>-1</c> where there is no such
-    /// concept.</summary>
+    /// <summary>
+    ///     Which player slot the OS has assigned, or <c>-1</c> where there is no such
+    ///     concept.
+    /// </summary>
     int PlayerIndex { get; }
 
     /// <summary>Whether it is still plugged in.</summary>
@@ -105,8 +109,10 @@ public interface IInputSource {
     KeyModifiers Modifiers { get; }
 
     /// <summary>Where the pointer is, in desktop coordinates and logical points.</summary>
-    /// <remarks>Desktop coordinates rather than window-relative, because the pointer may not be over
-    /// any of our windows. <see cref="PlatformEvent.Position" /> is the window-relative one.</remarks>
+    /// <remarks>
+    ///     Desktop coordinates rather than window-relative, because the pointer may not be over
+    ///     any of our windows. <see cref="PlatformEvent.Position" /> is the window-relative one.
+    /// </remarks>
     Vector2 PointerPosition { get; }
 
     /// <summary>Finds a gamepad by the id its events carry.</summary>

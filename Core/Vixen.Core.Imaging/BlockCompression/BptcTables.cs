@@ -261,9 +261,9 @@ static class BptcTables {
             var (r, g, b, a) = (point[0], point[1], point[2], point[3]);
 
             moments[texel * 4] = point;
-            moments[(texel * 4) + 1] = point * r;
-            moments[(texel * 4) + 2] = Vector128.Create(g * g, g * b, g * a, b * b);
-            moments[(texel * 4) + 3] = Vector128.Create(b * a, a * a, 0f, 0f);
+            moments[texel * 4 + 1] = point * r;
+            moments[texel * 4 + 2] = Vector128.Create(g * g, g * b, g * a, b * b);
+            moments[texel * 4 + 3] = Vector128.Create(b * a, a * a, 0f, 0f);
         }
 
         Span<Vector128<float>> sums = stackalloc Vector128<float>[3 * 4];
@@ -281,7 +281,7 @@ static class BptcTables {
                 counts[subset]++;
 
                 for (var moment = 0; moment < 4; moment++) {
-                    sums[(subset * 4) + moment] += moments[(texel * 4) + moment];
+                    sums[subset * 4 + moment] += moments[texel * 4 + moment];
                 }
             }
 
@@ -340,16 +340,16 @@ static class BptcTables {
         var more = sum[2];
         var rest = sum[3];
 
-        var rr = rows[0] - (r * r * inverse);
-        var rg = rows[1] - (r * g * inverse);
-        var rb = rows[2] - (r * b * inverse);
-        var ra = rows[3] - (r * a * inverse);
-        var gg = more[0] - (g * g * inverse);
-        var gb = more[1] - (g * b * inverse);
-        var ga = more[2] - (g * a * inverse);
-        var bb = more[3] - (b * b * inverse);
-        var ba = rest[0] - (b * a * inverse);
-        var aa = rest[1] - (a * a * inverse);
+        var rr = rows[0] - r * r * inverse;
+        var rg = rows[1] - r * g * inverse;
+        var rb = rows[2] - r * b * inverse;
+        var ra = rows[3] - r * a * inverse;
+        var gg = more[0] - g * g * inverse;
+        var gb = more[1] - g * b * inverse;
+        var ga = more[2] - g * a * inverse;
+        var bb = more[3] - b * b * inverse;
+        var ba = rest[0] - b * a * inverse;
+        var aa = rest[1] - a * a * inverse;
 
         var trace = rr + gg + bb + aa;
 
@@ -371,19 +371,19 @@ static class BptcTables {
             (x, y, z, w) = (ra, ga, ba, aa);
         }
 
-        var length = 1f / MathF.Sqrt((x * x) + (y * y) + (z * z) + (w * w) + 1e-12f);
+        var length = 1f / MathF.Sqrt(x * x + y * y + z * z + w * w + 1e-12f);
 
         (x, y, z, w) = (x * length, y * length, z * length, w * length);
 
         var largest = 0f;
 
         for (var round = 0; round < 3; round++) {
-            var nx = (rr * x) + (rg * y) + (rb * z) + (ra * w);
-            var ny = (rg * x) + (gg * y) + (gb * z) + (ga * w);
-            var nz = (rb * x) + (gb * y) + (bb * z) + (ba * w);
-            var nw = (ra * x) + (ga * y) + (ba * z) + (aa * w);
+            var nx = rr * x + rg * y + rb * z + ra * w;
+            var ny = rg * x + gg * y + gb * z + ga * w;
+            var nz = rb * x + gb * y + bb * z + ba * w;
+            var nw = ra * x + ga * y + ba * z + aa * w;
 
-            largest = MathF.Sqrt((nx * nx) + (ny * ny) + (nz * nz) + (nw * nw));
+            largest = MathF.Sqrt(nx * nx + ny * ny + nz * nz + nw * nw);
 
             if (largest < 1e-9f) {
                 return trace;

@@ -37,9 +37,13 @@ namespace Vixen.Texturing.Painting;
 ///         the brush.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The change callback fires once per stroke, and the union it used to fire once with is
-///         the very thing <a href="https://github.com/Rikarin/Vixen/issues/871">#871</a> took off the
-///         pointer path — <a href="https://github.com/Rikarin/Vixen/issues/891">#891</a>.</b> A union
+///         ⚠
+///         <b>
+///             The change callback fires once per stroke, and the union it used to fire once with is
+///             the very thing <a href="https://github.com/Rikarin/Vixen/issues/871">#871</a> took off the
+///             pointer path — <a href="https://github.com/Rikarin/Vixen/issues/891">#891</a>.
+///         </b>
+///         A union
 ///         of rectangles is a rectangle, and a mirrored drag's two strokes sit wherever the atlas
 ///         packer put their islands: undoing one paid for the bounding box between them, which is
 ///         most of the atlas. <see cref="Rect" /> is still the union, because a name for "everything

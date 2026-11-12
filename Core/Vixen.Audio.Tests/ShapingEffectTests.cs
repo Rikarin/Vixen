@@ -72,8 +72,8 @@ public sealed class ShapingEffectTests {
 
     [Fact]
     public void DriveIsWhatDecidesHowMuchDistortionThereIs() {
-        var quiet = Harmonics(new DistortionEffect { DriveDb = 0f, OutputDb = 0f, Curve = DistortionCurve.SoftClip });
-        var loud = Harmonics(new DistortionEffect { DriveDb = 30f, OutputDb = 0f, Curve = DistortionCurve.SoftClip });
+        var quiet = Harmonics(new() { DriveDb = 0f, OutputDb = 0f, Curve = DistortionCurve.SoftClip });
+        var loud = Harmonics(new() { DriveDb = 30f, OutputDb = 0f, Curve = DistortionCurve.SoftClip });
 
         Assert.True(loud > quiet * 5f, $"quiet {quiet:F4}, loud {loud:F4}");
 
@@ -89,7 +89,7 @@ public sealed class ShapingEffectTests {
             var error = 0f;
 
             for (var i = 0; i < buffer.Length; i++) {
-                error = MathF.Max(error, MathF.Abs((buffer[i] * scale) - original[i]));
+                error = MathF.Max(error, MathF.Abs(buffer[i] * scale - original[i]));
             }
 
             return error;
@@ -98,12 +98,7 @@ public sealed class ShapingEffectTests {
 
     [Fact]
     public void AMixBelowOneKeepsSomeOfTheOriginal() {
-        var effect = new DistortionEffect {
-            Curve = DistortionCurve.HardClip,
-            DriveDb = 0f,
-            OutputDb = 0f,
-            Mix = 0f
-        };
+        var effect = new DistortionEffect { Curve = DistortionCurve.HardClip, DriveDb = 0f, OutputDb = 0f, Mix = 0f };
 
         effect.Prepare(AudioFormat.Mono48k, 512);
         var buffer = Sine(1_000f, 512, 4f);
@@ -163,7 +158,7 @@ public sealed class ShapingEffectTests {
             var first = buffer[group * 4];
 
             for (var offset = 1; offset < 4; offset++) {
-                Assert.Equal(first, buffer[(group * 4) + offset], 1e-6f);
+                Assert.Equal(first, buffer[group * 4 + offset], 1e-6f);
             }
         }
     }

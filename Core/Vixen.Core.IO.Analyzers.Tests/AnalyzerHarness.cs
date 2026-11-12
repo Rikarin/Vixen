@@ -14,8 +14,10 @@ public static class AnalyzerHarness {
     static readonly ImmutableArray<MetadataReference> References = CollectReferences();
 
     /// <summary>Compiles source and runs the analyzer over it.</summary>
-    /// <param name="source">The C# to compile. It has to compile: a snippet with an error in it
-    ///     binds to nothing, and an analyzer that reports nothing about nothing would pass.</param>
+    /// <param name="source">
+    ///     The C# to compile. It has to compile: a snippet with an error in it
+    ///     binds to nothing, and an analyzer that reports nothing about nothing would pass.
+    /// </param>
     /// <param name="path">The file name the source is given, for the rules that read one.</param>
     /// <returns>What the analyzer reported.</returns>
     public static async Task<ImmutableArray<Diagnostic>> RunAsync(string source, string path = "Engine.cs") {
@@ -24,7 +26,7 @@ public static class AnalyzerHarness {
         // analyzer doing anything.
         var tree = CSharpSyntaxTree.ParseText(
             source,
-            new CSharpParseOptions(documentationMode: DocumentationMode.Diagnose),
+            new(documentationMode: DocumentationMode.Diagnose),
             path
         );
 
@@ -36,13 +38,11 @@ public static class AnalyzerHarness {
         );
 
         var broken = compilation.GetDiagnostics()
-            .Where(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error)
+            .Where(static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error)
             .ToImmutableArray();
 
         if (broken.Length != 0) {
-            throw new InvalidOperationException(
-                $"The source under test does not compile: {string.Join("; ", broken)}"
-            );
+            throw new InvalidOperationException($"The source under test does not compile: {string.Join("; ", broken)}");
         }
 
         return await compilation

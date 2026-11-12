@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core.Mathematics;
-using Vixen.Ecs;
 using Vixen.Engine.Diagnostics;
 using Vixen.Engine.Transforms;
 using Vixen.Physics.Ecs;
@@ -43,9 +42,9 @@ public sealed class BuoyancyDebugDrawTests {
 
         var draw = new DebugDraw();
 
-        Raft(entities, wet: 4);
+        Raft(entities, 4);
 
-        new BuoyancyDebugDraw().Draw(draw, entities, new BuoyancySystem(scene, new Still()));
+        new BuoyancyDebugDraw().Draw(draw, entities, new(scene, new Still()));
 
         Assert.Equal(0, draw.Count);
         Assert.Equal(0, draw.Texts.Length);
@@ -65,9 +64,9 @@ public sealed class BuoyancyDebugDrawTests {
 
         var draw = new DebugDraw();
 
-        Raft(entities, wet: 2);
+        Raft(entities, 2);
 
-        new BuoyancyDebugDraw { Enabled = true }.Draw(draw, entities, new BuoyancySystem(scene, new Still()));
+        new BuoyancyDebugDraw { Enabled = true }.Draw(draw, entities, new(scene, new Still()));
 
         Assert.True(draw.Count > 0, "the overlay drew no pontoons");
 
@@ -93,7 +92,7 @@ public sealed class BuoyancyDebugDrawTests {
         entities.Add(entity, new BuoyancyState { Wet = 0, Total = 0 });
         entities.Add(entity, new WorldTransform { Value = Matrix4x4.Identity });
 
-        new BuoyancyDebugDraw { Enabled = true }.Draw(draw, entities, new BuoyancySystem(scene, new Still()));
+        new BuoyancyDebugDraw { Enabled = true }.Draw(draw, entities, new(scene, new Still()));
 
         Assert.Equal(0, draw.Count);
         Assert.Equal(0, draw.Texts.Length);
@@ -102,7 +101,7 @@ public sealed class BuoyancyDebugDrawTests {
     static void Raft(EcsWorld entities, int wet) {
         var entity = entities.Create(LocalTransform.At(Vector3.Zero));
 
-        entities.Add(entity, BuoyancyBody.Raft(halfLength: 2f, halfWidth: 1f, radius: 0.5f));
+        entities.Add(entity, BuoyancyBody.Raft(2f, 1f, 0.5f));
         entities.Add(entity, new BuoyancyState { Wet = wet, Total = 4, Submerged = 0.4f, SurfaceHeight = 0.2f });
         entities.Add(entity, new WorldTransform { Value = Matrix4x4.Identity });
     }

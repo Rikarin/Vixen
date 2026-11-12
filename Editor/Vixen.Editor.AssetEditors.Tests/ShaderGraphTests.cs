@@ -3,12 +3,10 @@
 
 using Vixen.Core;
 using Vixen.Editor.AssetEditors.Shading;
-using Vixen.Editor.NodeGraph;
 using Vixen.Editor.ShaderGraph;
 using Vixen.Graphics.Null;
 using Vixen.NodeGraph;
 using Vixen.Ui;
-using Vixen.Ui.Controls.Advanced;
 using Xunit;
 
 namespace Vixen.Editor.AssetEditors.Tests;
@@ -23,8 +21,12 @@ namespace Vixen.Editor.AssetEditors.Tests;
 ///         halves: what the graph compiler said, and what Raven said about the text it produced.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The Raven check is the one that would have caught the failure this document exists to
-///         make visible.</b> A graph can be perfectly well-formed and emit a shader that does not
+///         ⚠
+///         <b>
+///             The Raven check is the one that would have caught the failure this document exists to
+///             make visible.
+///         </b>
+///         A graph can be perfectly well-formed and emit a shader that does not
 ///         type-check; a panel that only listed <c>Diagnostics</c> would call that a success.
 ///     </para>
 /// </remarks>
@@ -46,7 +48,7 @@ public class ShaderGraphTests {
         Assert.Empty(document.SourceDiagnostics);
 
         Assert.Equal("Tinted", shader!.Name);
-        Assert.Contains(shader.Properties, property => property is { Name: "tint", Type: "float4" });
+        Assert.Contains(shader.Properties, static property => property is { Name: "tint", Type: "float4" });
     }
 
     [Fact]
@@ -71,8 +73,12 @@ public class ShaderGraphTests {
 
     /// <summary>A property's name is authored, survives a save, and is one undo entry.</summary>
     /// <remarks>
-    ///     ⚠ <b>The defect this covers is the one that made the node library unusable in a real
-    ///     project.</b> The name used to be a C# field on the node — which nothing writes and nothing
+    ///     ⚠
+    ///     <b>
+    ///         The defect this covers is the one that made the node library unusable in a real
+    ///         project.
+    ///     </b>
+    ///     The name used to be a C# field on the node — which nothing writes and nothing
     ///     saves — so every texture in every graph was <c>albedo</c> and two colour properties were
     ///     one binding. It lives in the graph's texts now, which is what makes renaming possible at
     ///     all.
@@ -84,7 +90,7 @@ public class ShaderGraphTests {
         var path = fixture.Write("Assets/Metal.vxshadergraph", string.Empty);
         var document = new ShaderGraphDocument(fixture.Project, AssetId.Empty, path);
 
-        var tint = document.Graph.Nodes.First(node => node.Type == "Input/Colour Property");
+        var tint = document.Graph.Nodes.First(static node => node.Type == "Input/Colour Property");
 
         document.Stack.Execute(
             new SetPortTextCommand(document.Graph, tint.Id, ShaderProperties.Key, "baseColour", document)
@@ -126,7 +132,7 @@ public class ShaderGraphTests {
 
         second.SetText(ShaderProperties.Key, "detail");
 
-        var master = document.Graph.Nodes.First(node => node.Type == "Master/Unlit");
+        var master = document.Graph.Nodes.First(static node => node.Type == "Master/Unlit");
 
         document.Graph.Connect(new(first.Id, "RGBA"), new(master.Id, "Colour"));
 
@@ -136,10 +142,10 @@ public class ShaderGraphTests {
         Assert.Empty(document.SourceDiagnostics);
 
         // A texture and its sampler are one property, so two textures are four declarations.
-        Assert.Contains(shader!.Properties, property => property.Name == "albedo");
-        Assert.Contains(shader.Properties, property => property.Name == "albedoSampler");
-        Assert.Contains(shader.Properties, property => property.Name == "detail");
-        Assert.Contains(shader.Properties, property => property.Name == "detailSampler");
+        Assert.Contains(shader!.Properties, static property => property.Name == "albedo");
+        Assert.Contains(shader.Properties, static property => property.Name == "albedoSampler");
+        Assert.Contains(shader.Properties, static property => property.Name == "detail");
+        Assert.Contains(shader.Properties, static property => property.Name == "detailSampler");
     }
 
     /// <summary>A graph with nothing to write says so against the graph rather than emitting.</summary>
@@ -153,12 +159,12 @@ public class ShaderGraphTests {
             fixture.Write("Assets/Headless.vxshadergraph", string.Empty)
         );
 
-        var master = document.Graph.Nodes.First(node => node.Type == "Master/Unlit");
+        var master = document.Graph.Nodes.First(static node => node.Type == "Master/Unlit");
 
         document.Graph.Remove(master.Id, out _);
 
         Assert.Null(document.Compile());
-        Assert.Contains(document.Diagnostics, diagnostic => diagnostic.Id == "SG0003");
+        Assert.Contains(document.Diagnostics, static diagnostic => diagnostic.Id == "SG0003");
 
         // Nothing was emitted, so there is nothing for Raven to have an opinion about — and a list of
         // complaints about the *previous* shader would be worse than an empty one.
@@ -179,7 +185,7 @@ public class ShaderGraphTests {
     ) {
         var graph = new NodeGraphModel { Name = "Tint" };
 
-        graph.Interface.Add(new("Colour", global::Vixen.NodeGraph.PortDirection.Output, PortKind.Float4));
+        graph.Interface.Add(new("Colour", PortDirection.Output, PortKind.Float4));
 
         var colour = graph.Add("Input/Colour Property");
         var exit = graph.Add(SubGraphs.OutputType);
@@ -205,7 +211,7 @@ public class ShaderGraphTests {
             fixture.Write("Assets/Spaced.vxshadergraph", string.Empty)
         );
 
-        var tint = document.Graph.Nodes.First(node => node.Type == "Input/Colour Property");
+        var tint = document.Graph.Nodes.First(static node => node.Type == "Input/Colour Property");
 
         tint.SetText(ShaderProperties.Key, "my tint");
         document.Compile();
@@ -221,7 +227,7 @@ public class ShaderGraphTests {
         // would send an author to a node that is fine.
         Assert.All(
             document.SourceNodeDiagnostics,
-            diagnostic => Assert.False(diagnostic.Span.IsNone)
+            static diagnostic => Assert.False(diagnostic.Span.IsNone)
         );
     }
 
@@ -239,11 +245,9 @@ public class ShaderGraphTests {
             fixture.Project,
             AssetId.Empty,
             fixture.Write("Assets/Nested.vxshadergraph", string.Empty)
-        ) {
-            SubGraphSource = Tint("my tint")
-        };
+        ) { SubGraphSource = Tint("my tint") };
 
-        var master = document.Graph.Nodes.First(node => node.Type == "Master/Unlit");
+        var master = document.Graph.Nodes.First(static node => node.Type == "Master/Unlit");
         var sub = document.Graph.Add("Sub-graphs/Tint", new(240f, 320f));
 
         document.Graph.Connect(new(sub.Id, "Colour"), new(master.Id, "Colour"));
@@ -255,7 +259,7 @@ public class ShaderGraphTests {
         Assert.Empty(document.Diagnostics);
         Assert.NotEmpty(document.SourceDiagnostics);
 
-        var blamed = document.SourceNodeDiagnostics.Where(diagnostic => diagnostic.Node.IsValid).ToArray();
+        var blamed = document.SourceNodeDiagnostics.Where(static diagnostic => diagnostic.Node.IsValid).ToArray();
 
         Assert.NotEmpty(blamed);
         Assert.Contains(blamed, diagnostic => diagnostic.Node == sub.Id);
@@ -280,7 +284,7 @@ public class ShaderGraphTests {
         // commonest thing to find inside somebody else's sub-graph.
         var inner = new NodeGraphModel { Name = "Stale" };
 
-        inner.Interface.Add(new("Colour", global::Vixen.NodeGraph.PortDirection.Output, PortKind.Float4));
+        inner.Interface.Add(new("Colour", PortDirection.Output, PortKind.Float4));
 
         var missing = inner.Add("Plugin/Missing");
         var exit = inner.Add(SubGraphs.OutputType);
@@ -296,7 +300,7 @@ public class ShaderGraphTests {
 
         Assert.Null(document.Compile());
 
-        var unknown = Assert.Single(document.Diagnostics, diagnostic => diagnostic.Id == "NG0001");
+        var unknown = Assert.Single(document.Diagnostics, static diagnostic => diagnostic.Id == "NG0001");
 
         // ⚠ Not the identity the flattener gave the copy. That one is in no file and on no canvas, so
         // a panel could print this sentence and an author would have nothing to click.
@@ -391,7 +395,7 @@ public class ShaderGraphViewTests {
 
         var view = Open(harness, "Listed.vxshadergraph", out _);
 
-        Assert.Contains(view.Properties.Children, row => row.Children[^1].Text == "tint");
+        Assert.Contains(view.Properties.Children, static row => row.Children[^1].Text == "tint");
     }
 
     /// <summary>Selecting a property node offers its name, and typing one is an undoable edit.</summary>
@@ -404,7 +408,7 @@ public class ShaderGraphViewTests {
         // Nothing selected: no row, because there is no name to type into.
         Assert.Null(view.PropertyName);
 
-        var tint = document.Graph.Nodes.First(node => node.Type == "Input/Colour Property");
+        var tint = document.Graph.Nodes.First(static node => node.Type == "Input/Colour Property");
 
         view.GraphView.Select([tint.Id]);
         harness.Ui.Frame();
@@ -436,8 +440,8 @@ public class ShaderGraphViewTests {
 
         Assert.Contains(
             view.Diagnostics.Children,
-            row => row.Children[0].Text == "graph"
-                && (row.Children[^1].Text ?? "").Contains("SG0002", StringComparison.Ordinal)
+            static row => row.Children[0].Text == "graph"
+                && (row.Children[^1].Text ?? string.Empty).Contains("SG0002", StringComparison.Ordinal)
         );
 
         Assert.Empty(view.Generated.Source);
@@ -467,7 +471,7 @@ public class ShaderGraphViewTests {
 
         document.SubGraphSource = ShaderGraphTests.Tint("my tint", document.Registry);
 
-        var master = document.Graph.Nodes.First(node => node.Type == "Master/Unlit");
+        var master = document.Graph.Nodes.First(static node => node.Type == "Master/Unlit");
         var sub = document.Graph.Add("Sub-graphs/Tint", new(240f, 320f));
 
         document.Graph.Connect(new(sub.Id, "Colour"), new(master.Id, "Colour"));
@@ -485,11 +489,18 @@ public class ShaderGraphViewTests {
             }
         }
 
-        Assert.True(row >= 0, string.Join("\n", view.Diagnostics.Children.Select(child => child.Children[^1].Text)));
+        Assert.True(
+            row >= 0,
+            string.Join("\n", view.Diagnostics.Children.Select(static child => child.Children[^1].Text))
+        );
 
         // The row says which node as well as which line, because a list of line numbers is a list
         // about a file the author never wrote.
-        Assert.Contains("Tint", view.Diagnostics.Children[row].Children[^1].Text ?? "", StringComparison.Ordinal);
+        Assert.Contains(
+            "Tint",
+            view.Diagnostics.Children[row].Children[^1].Text ?? string.Empty,
+            StringComparison.Ordinal
+        );
 
         view.Diagnostics.Children[row].Raise(new TapEvent { Count = 1 });
         harness.Ui.Frame();
@@ -500,8 +511,12 @@ public class ShaderGraphViewTests {
     /// <summary>A node that asks for a preview and is refused says why, in the panel.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b><c>ShaderGraphPreviewRenderer.RefusalFor</c> had no caller outside its own device
-    ///         test.</b> The renderer writes a specific sentence for a node whose effect reflects a
+    ///         ⚠
+    ///         <b>
+    ///             <c>ShaderGraphPreviewRenderer.RefusalFor</c> had no caller outside its own device
+    ///             test.
+    ///         </b>
+    ///         The renderer writes a specific sentence for a node whose effect reflects a
     ///         binding it cannot fill — <c>Texture/Sample 2D</c>, every time, because a preview binds
     ///         no resources — and <c>INodePreviewSource.TryGet</c> can only answer
     ///         <see langword="false" />, which is the same answer as "this node has no preview". So an
@@ -552,8 +567,8 @@ public class ShaderGraphViewTests {
 
         var said = string.Join(
             " ",
-            view.PreviewNote.Children.Select(
-                child => child.Text ?? string.Join(" ", child.Children.Select(cell => cell.Text ?? ""))
+            view.PreviewNote.Children.Select(static child => child.Text
+                ?? string.Join(" ", child.Children.Select(static cell => cell.Text ?? string.Empty))
             )
         );
 

@@ -11,9 +11,13 @@ namespace Vixen.TextureGraph;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>These were properties of the <em>compiler</em>, set by whichever host constructed
-///         one, and a saved <c>.vxtexgraph</c> came back at whatever that host defaulted to —
-///         <a href="https://github.com/Rikarin/Vixen/issues/719">#719</a>.</b> § D8 opens with "the
+///         ⚠
+///         <b>
+///             These were properties of the <em>compiler</em>, set by whichever host constructed
+///             one, and a saved <c>.vxtexgraph</c> came back at whatever that host defaulted to —
+///             <a href="https://github.com/Rikarin/Vixen/issues/719">#719</a>.
+///         </b>
+///         § D8 opens with "the
 ///         graph declares a base resolution" and the relative half was built; the declaring half had
 ///         nowhere to live, because <c>NodeGraphModel</c> carried a name, nodes, edges, groups,
 ///         comments and an interface. It carries a settings bag now, and this is the texture graph's
@@ -26,8 +30,11 @@ namespace Vixen.TextureGraph;
 ///         back wrong is visible and a seed that came back different is just a different picture.
 ///     </para>
 ///     <para>
-///         <b>What the graph declares and what the bake decides are two different lists, and only the
-///         first is here.</b> <see cref="TextureGraphCompiler.BakeLevelOffset" /> is how big
+///         <b>
+///             What the graph declares and what the bake decides are two different lists, and only the
+///             first is here.
+///         </b>
+///         <see cref="TextureGraphCompiler.BakeLevelOffset" /> is how big
 ///         <em>this run</em> is making the material, <c>Arguments</c> is what a
 ///         <c>.vxsmartmat</c> overrode, and <c>PreviewEveryNode</c> is what a panel wants — none of
 ///         them is a property of the graph, and putting any of them in the file would be a bake
@@ -87,8 +94,12 @@ public static class TextureGraphSettings {
     /// <param name="problem">What was wrong with what it declared, or null.</param>
     /// <returns>The number to compile at.</returns>
     /// <remarks>
-    ///     ⚠ <b>A graph that declares nothing keeps the host's value, and one that declares nonsense
-    ///     keeps it <em>and says so</em>.</b> Answering with zero for an unparseable width would be a
+    ///     ⚠
+    ///     <b>
+    ///         A graph that declares nothing keeps the host's value, and one that declares nonsense
+    ///         keeps it <em>and says so</em>.
+    ///     </b>
+    ///     Answering with zero for an unparseable width would be a
     ///     plan whose every image is one texel — which validates, evaluates, and produces a material
     ///     nobody would connect with a hand edit to a file.
     /// </remarks>

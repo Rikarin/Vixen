@@ -206,7 +206,7 @@ internal static class ImportPruner {
             case IrLoopStatement loop: {
                 IrBlock?[] parts = [loop.Condition, loop.Body, loop.Continue];
 
-                foreach (var value in parts.Where(p => p is not null).SelectMany(p => Values(p!))) {
+                foreach (var value in parts.Where(static p => p is not null).SelectMany(static p => Values(p!))) {
                     yield return value;
                 }
 

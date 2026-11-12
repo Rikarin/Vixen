@@ -42,8 +42,12 @@ public readonly ref struct CameraSubject {
 /// </param>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>An <see cref="IConstraintFrame" /> that answers a question about the camera rather
-///         than about the subject, and that inversion is the whole trick.</b> Every other frame says
+///         ⚠
+///         <b>
+///             An <see cref="IConstraintFrame" /> that answers a question about the camera rather
+///             than about the subject, and that inversion is the whole trick.
+///         </b>
+///         Every other frame says
 ///         "the goal is here". This one says "for the subject to be <em>there</em> in the picture, the
 ///         camera would have to be here" — which turns a framing constraint into an ordinary position
 ///         goal on a rigid body, and lets it average, weight, prioritise and arbitrate with the world
@@ -65,8 +69,7 @@ public sealed record ScreenFrame(IConstraintFrame Subject, Vector2 Screen, Vecto
     /// <summary>A place in the picture, with no dead zone.</summary>
     /// <param name="subject">Where the thing being framed is.</param>
     /// <param name="screen">Where it should land.</param>
-    public ScreenFrame(IConstraintFrame subject, Vector2 screen) : this(subject, screen, Vector2.Zero) {
-    }
+    public ScreenFrame(IConstraintFrame subject, Vector2 screen) : this(subject, screen, Vector2.Zero) { }
 
     /// <inheritdoc />
     /// <remarks>
@@ -85,13 +88,22 @@ public sealed record ScreenFrame(IConstraintFrame Subject, Vector2 Screen, Vecto
 
         // The subject resolves in the character's model space; the camera lives in the world.
         var point = BoneTransform.Concatenate(
-            new BoneTransform(subject.Origin, subject.Rotation, Vector3.One),
-            context.WorldTransform
-        ).Translation;
+                new(subject.Origin, subject.Rotation, Vector3.One),
+                context.WorldTransform
+            )
+            .Translation;
 
         var camera = view.Transform;
 
-        if (!CameraFraming.Project(point, camera.Translation, camera.Rotation, view.Lens, view.Aspect, out var at, out var depth)) {
+        if (!CameraFraming.Project(
+                point,
+                camera.Translation,
+                camera.Rotation,
+                view.Lens,
+                view.Aspect,
+                out var at,
+                out var depth
+            )) {
             return false;
         }
 

@@ -113,8 +113,9 @@ public sealed class ParameterKey<T> : ParameterKey {
 
     internal ParameterKey(string name) : base(name, typeof(T)) { }
 
-    internal ParameterKey(string name, T defaultValue) : base(name, typeof(T)) =>
+    internal ParameterKey(string name, T defaultValue) : base(name, typeof(T)) {
         declaration = new(defaultValue);
+    }
 
     /// <summary>The value used when nothing has set one.</summary>
     /// <remarks>
@@ -152,7 +153,7 @@ public sealed class ParameterKey<T> : ParameterKey {
             return;
         }
 
-        Interlocked.CompareExchange(ref declaration, new Declaration(defaultValue), null);
+        Interlocked.CompareExchange(ref declaration, new(defaultValue), null);
     }
 
     /// <summary>A declared default, and its bytes, computed once and never changed.</summary>
@@ -179,9 +180,10 @@ public sealed class ParameterKey<T> : ParameterKey {
                 return [];
             }
 
-            return MemoryMarshal
-                .CreateReadOnlySpan(ref Unsafe.As<T, byte>(ref value), Unsafe.SizeOf<T>())
-                .ToArray();
+            return [
+                ..MemoryMarshal
+                    .CreateReadOnlySpan(ref Unsafe.As<T, byte>(ref value), Unsafe.SizeOf<T>())
+            ];
         }
     }
 }
@@ -198,7 +200,9 @@ public sealed class ParameterKey<T> : ParameterKey {
 /// </remarks>
 /// <typeparam name="T">The key's type. Raven admits <c>bool</c>, <c>int</c> and <c>uint</c> only.</typeparam>
 public sealed class PermutationKey<T> : ParameterKey {
-    internal PermutationKey(string name, T defaultValue) : base(name, typeof(T)) => DefaultValue = defaultValue;
+    internal PermutationKey(string name, T defaultValue) : base(name, typeof(T)) {
+        DefaultValue = defaultValue;
+    }
 
     /// <summary>The value the shader declared, used when a material does not override it.</summary>
     public T DefaultValue { get; }
@@ -256,7 +260,7 @@ public static class ParameterKeys {
         return Checked<ParameterKey<T>>(
             Interned.GetOrAdd(name, static n => new ParameterKey<T>(n)),
             typeof(T),
-            permutation: false
+            false
         );
     }
 
@@ -280,7 +284,7 @@ public static class ParameterKeys {
         var key = Checked<ParameterKey<T>>(
             Interned.GetOrAdd(name, static (n, value) => new ParameterKey<T>(n, value), defaultValue),
             typeof(T),
-            permutation: false
+            false
         );
 
         // Created carrying its default above — nothing can observe the key without it — so this has
@@ -291,8 +295,12 @@ public static class ParameterKeys {
 
     /// <summary>The permutation key for <paramref name="name" />, creating it if new.</summary>
     /// <remarks>
-    ///     The default comes first, matching how a shader declares one: <c>[Permutation] val
-    ///     UseShadows: bool = false</c> puts the value before the name reaches anything. Required
+    ///     The default comes first, matching how a shader declares one:
+    ///     <c>
+    ///         [Permutation] val
+    ///         UseShadows: bool = false
+    ///     </c>
+    ///     puts the value before the name reaches anything. Required
     ///     rather than optional, which is why a permutation key has no equivalent of the join above:
     ///     there is no caller that knows one of these by name and not by default.
     /// </remarks>
@@ -302,7 +310,7 @@ public static class ParameterKeys {
         return Checked<PermutationKey<T>>(
             Interned.GetOrAdd(name, static (n, value) => new PermutationKey<T>(n, value), defaultValue),
             typeof(T),
-            permutation: true
+            true
         );
     }
 

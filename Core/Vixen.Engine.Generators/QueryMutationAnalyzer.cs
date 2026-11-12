@@ -12,8 +12,11 @@ namespace Vixen.Engine.Generators;
 /// <remarks>
 ///     <para>
 ///         <c>docs/plan/04-ecs-and-scripting.md</c> § Structural change safety states this as
-///         something the tooling already does: <i>"Direct structural mutation on the main thread
-///         outside iteration is allowed and fast; the analyzer flags it inside a query body."</i>
+///         something the tooling already does:
+///         <i>
+///             "Direct structural mutation on the main thread
+///             outside iteration is allowed and fast; the analyzer flags it inside a query body."
+///         </i>
 ///         The two mechanisms that make it safe — <c>CommandBuffer</c> and its
 ///         <c>ParallelWriter</c> — are both opt-in, so an author who has not reached for one is not
 ///         told.
@@ -50,7 +53,15 @@ public sealed class QueryMutationAnalyzer : DiagnosticAnalyzer {
     const string QueryExtensionsMetadataName = "Vixen.Ecs.WorldQueryExtensions";
 
     static readonly ImmutableHashSet<string> Structural =
-        ImmutableHashSet.Create(StringComparer.Ordinal, "Create", "CreateMany", "Destroy", "Add", "AddDefault", "Remove");
+        ImmutableHashSet.Create(
+            StringComparer.Ordinal,
+            "Create",
+            "CreateMany",
+            "Destroy",
+            "Add",
+            "AddDefault",
+            "Remove"
+        );
 
     static readonly DiagnosticDescriptor Rule = new(
         DiagnosticId,
@@ -59,7 +70,7 @@ public sealed class QueryMutationAnalyzer : DiagnosticAnalyzer {
         + "CommandBuffer and let the sync point play it back.",
         "Vixen.Engine",
         DiagnosticSeverity.Warning,
-        isEnabledByDefault: true,
+        true,
         "Adding or removing a component moves the entity to another archetype, which invalidates the "
         + "chunk the loop is walking. It corrupts iteration only when it moves the entity the loop is "
         + "standing on or splits the chunk being read, so it passes with three entities and fails "
@@ -79,8 +90,7 @@ public sealed class QueryMutationAnalyzer : DiagnosticAnalyzer {
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
         context.EnableConcurrentExecution();
 
-        context.RegisterCompilationStartAction(
-            start => {
+        context.RegisterCompilationStartAction(static start => {
                 var world = start.Compilation.GetTypeByMetadataName(WorldMetadataName);
 
                 if (world is null) {

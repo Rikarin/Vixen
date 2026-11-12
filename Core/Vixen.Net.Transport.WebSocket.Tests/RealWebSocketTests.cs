@@ -39,8 +39,7 @@ public sealed class RealWebSocketTests {
         var clientEvents = new EventRecorder();
 
         Assert.True(
-            Until(
-                () => {
+            Until(() => {
                     client.Poll(Step, clientEvents);
                     server.Poll(Step, serverEvents);
 
@@ -53,11 +52,10 @@ public sealed class RealWebSocketTests {
         // The number the server gave it, over a real socket rather than an in-memory queue.
         Assert.Equal(serverEvents.Connects(TransportRole.Server)[0], clientEvents.Connects(TransportRole.Client)[0]);
 
-        client.SendToServer(Encoding.UTF8.GetBytes("over a real websocket"), Channel.Reliable);
+        client.SendToServer("over a real websocket"u8, Channel.Reliable);
 
         Assert.True(
-            Until(
-                () => {
+            Until(() => {
                     client.Poll(Step, clientEvents);
                     server.Poll(Step, serverEvents);
 

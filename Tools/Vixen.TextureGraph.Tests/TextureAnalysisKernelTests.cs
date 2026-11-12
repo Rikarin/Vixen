@@ -21,15 +21,19 @@ namespace Tests;
 ///         arithmetic of the chain lengths, and the two refusals that stand in for a clamp.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The chain-length arithmetic is the claim most worth pinning here, because it is the
-///         one a device test would confirm for the wrong reason.</b> A jump flood that ran one
+///         ⚠
+///         <b>
+///             The chain-length arithmetic is the claim most worth pinning here, because it is the
+///             one a device test would confirm for the wrong reason.
+///         </b>
+///         A jump flood that ran one
 ///         dispatch too few still produces a distance field — one that is wrong by whatever the last
 ///         halving would have fixed, which on a small test image is nothing at all. The number is
 ///         asserted directly.
 ///     </para>
 /// </remarks>
 public class TextureAnalysisKernelTests {
-    public static TheoryData<string> Kernels => [.. TextureAnalysisKernels.All];
+    public static TheoryData<string> Kernels => [..TextureAnalysisKernels.All];
 
     /// <summary>Every name this slice registers is a kernel the folder actually holds.</summary>
     /// <remarks>
@@ -60,16 +64,16 @@ public class TextureAnalysisKernelTests {
         var data = Compile(kernel);
 
         var declared = data.Parameters
-            .Where(member => member.Set == DescriptorSetSlot.PerMaterial)
+            .Where(static member => member.Set == DescriptorSetSlot.PerMaterial)
             .Select(member => Unqualified(member.Name, data.ShaderName))
             // `seed` is the one member the evaluator fills itself, from `TexturePlan.SeedFor`.
-            .Where(name => !TexturePlan.Supplies(name))
-            .OrderBy(name => name, StringComparer.Ordinal)
+            .Where(static name => !TexturePlan.Supplies(name))
+            .OrderBy(static name => name, StringComparer.Ordinal)
             .ToArray();
 
         var supplied = op.Parameters
-            .Select(parameter => parameter.Name)
-            .OrderBy(name => name, StringComparer.Ordinal)
+            .Select(static parameter => parameter.Name)
+            .OrderBy(static name => name, StringComparer.Ordinal)
             .ToArray();
 
         Assert.Equal(declared, supplied);
@@ -93,9 +97,12 @@ public class TextureAnalysisKernelTests {
         var data = Compile(kernel);
 
         var textures = data.Bindings
-            .Where(binding => binding is { Set: DescriptorSetSlot.PerMaterial, Kind: DescriptorKind.SampledTexture })
-            .OrderBy(binding => binding.Binding)
-            .Select(binding => binding.Name)
+            .Where(static binding => binding is {
+                    Set: DescriptorSetSlot.PerMaterial, Kind: DescriptorKind.SampledTexture
+                }
+            )
+            .OrderBy(static binding => binding.Binding)
+            .Select(static binding => binding.Name)
             .ToArray();
 
         Assert.Equal(inputs, textures);
@@ -104,8 +111,12 @@ public class TextureAnalysisKernelTests {
     /// <summary><c>FloodFill</c>'s random value is the shader library's, called rather than copied.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>This was <c>An_analysis_kernel_imports_nothing</c>, and the rule it asserted was
-    ///         never a property of a kernel</b> — it was a property of how the evaluator called the
+    ///         ⚠
+    ///         <b>
+    ///             This was <c>An_analysis_kernel_imports_nothing</c>, and the rule it asserted was
+    ///             never a property of a kernel
+    ///         </b>
+    ///         — it was a property of how the evaluator called the
     ///         compiler, which passed one text.
     ///         <see href="https://github.com/Rikarin/Vixen/issues/635">#635</see> reads it as a
     ///         missing <c>.rvnlib</c>; it was neither. <c>TextureKernelPrelude</c> puts
@@ -149,8 +160,12 @@ public class TextureAnalysisKernelTests {
     /// <summary>The chain the builder emits is the chain the arithmetic promised, in order.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The step sequence is what no device test in this assembly can see going wrong, and
-    ///         that was measured rather than assumed.</b> Emitting the steps <em>ascending</em> — 1, 2,
+    ///         ⚠
+    ///         <b>
+    ///             The step sequence is what no device test in this assembly can see going wrong, and
+    ///             that was measured rather than assumed.
+    ///         </b>
+    ///         Emitting the steps <em>ascending</em> — 1, 2,
     ///         4, … 32 — was tried against the whole device suite and left every one of its assertions
     ///         green, including the exact single-seed distance field.
     ///     </para>
@@ -171,8 +186,8 @@ public class TextureAnalysisKernelTests {
         Assert.Equal(7, ops.Length);
 
         var steps = ops
-            .Where(op => op.Kernel == TextureAnalysisKernels.JumpFlood)
-            .Select(op => op.Find("step")!.Value.Value)
+            .Where(static op => op.Kernel == TextureAnalysisKernels.JumpFlood)
+            .Select(static op => op.Find("step")!.Value.Value)
             .ToArray();
 
         Assert.Equal([32f, 16f, 8f, 4f, 2f, 1f], steps);
@@ -194,9 +209,7 @@ public class TextureAnalysisKernelTests {
     /// <summary>A scratch list that is not the chain's length is refused where the plan is built.</summary>
     [Fact]
     public void A_distance_chain_refuses_a_scratch_list_that_does_not_match_it() {
-        var failure = Assert.Throws<ArgumentException>(
-            () => TextureAnalysis.Distance(0, 1, [2, 3], 64, 64)
-        );
+        var failure = Assert.Throws<ArgumentException>(static () => TextureAnalysis.Distance(0, 1, [2, 3], 64, 64));
 
         Assert.Contains("6 jump-flood dispatches", failure.Message, StringComparison.Ordinal);
     }
@@ -206,7 +219,10 @@ public class TextureAnalysisKernelTests {
     /// </summary>
     [Fact]
     public void A_distance_and_a_flood_fill_have_no_ceiling_at_4096() {
-        Assert.Equal(13, TextureAnalysis.Distance(0, 1, [.. Enumerable.Range(2, 12)], 4096, 4096, maxDistance: 1f).Length);
+        Assert.Equal(
+            13,
+            TextureAnalysis.Distance(0, 1, [..Enumerable.Range(2, 12)], 4096, 4096, maxDistance: 1f).Length
+        );
         Assert.Equal(3, TextureAnalysis.FloodFill(0, 1, [2, 3], 4096, 4096).Length);
     }
 
@@ -217,12 +233,11 @@ public class TextureAnalysisKernelTests {
     /// </remarks>
     [Fact]
     public void A_flood_takes_turns_along_its_axes_and_diagonal_only_adds_turns() {
-        float[] Axes(bool diagonal) =>
-            [
-                .. TextureAnalysis.FloodFill(0, 1, [2, 3, 4, 5, 6, 7], 64, 64, diagonal: diagonal)
-                    .Where(static op => op.Kernel == TextureAnalysisKernels.FloodBounds)
-                    .Select(static op => op.Find("axis")!.Value.Value)
-            ];
+        static float[] Axes(bool diagonal) => [
+            ..TextureAnalysis.FloodFill(0, 1, [2, 3, 4, 5, 6, 7], 64, 64, diagonal: diagonal)
+                .Where(static op => op.Kernel == TextureAnalysisKernels.FloodBounds)
+                .Select(static op => op.Find("axis")!.Value.Value)
+        ];
 
         Assert.Equal([0f, 1f, 0f, 1f, 0f, 1f], Axes(false));
         Assert.Equal([0f, 1f, 2f, 3f, 0f, 1f], Axes(true));
@@ -268,7 +283,7 @@ public class TextureAnalysisKernelTests {
     public void The_residual_kernel_takes_no_parameters() {
         var data = Compile(TextureAnalysisKernels.FloodResidual);
 
-        Assert.DoesNotContain(data.Parameters, member => member.Set == DescriptorSetSlot.PerMaterial);
+        Assert.DoesNotContain(data.Parameters, static member => member.Set == DescriptorSetSlot.PerMaterial);
         Assert.Empty(TextureAnalysis.Residual(0, 1, 2).Parameters);
     }
 
@@ -277,8 +292,11 @@ public class TextureAnalysisKernelTests {
     ///     <c>TexelsAtBase</c>, and every other length in the slice is.
     /// </summary>
     /// <remarks>
-    ///     <b>The one place doc 48 § D8's rule is departed from, so it is asserted rather than
-    ///     assumed.</b> A jump flood's op count is already <c>log2</c> of the <em>baked</em> extent, so
+    ///     <b>
+    ///         The one place doc 48 § D8's rule is departed from, so it is asserted rather than
+    ///         assumed.
+    ///     </b>
+    ///     A jump flood's op count is already <c>log2</c> of the <em>baked</em> extent, so
     ///     its chain is emitted per bake and its numbers are the baked image's; scaling them again
     ///     through <c>TexturePlan.Resolve</c> would apply the bake's factor twice. Everything else —
     ///     an edge detect's width — is a length in texels at the authoring resolution and is scaled
@@ -287,9 +305,9 @@ public class TextureAnalysisKernelTests {
     [Fact]
     public void Only_the_lengths_that_are_authored_carry_the_texels_at_base_unit() {
         var scaled = TextureAnalysis.All
-            .SelectMany(op => op.Parameters.Select(parameter => (op.Kernel, parameter.Name, parameter.Unit)))
-            .Where(entry => entry.Unit == TextureParameterUnit.TexelsAtBase)
-            .Select(entry => $"{entry.Kernel}.{entry.Name}")
+            .SelectMany(static op => op.Parameters.Select(parameter => (op.Kernel, parameter.Name, parameter.Unit)))
+            .Where(static entry => entry.Unit == TextureParameterUnit.TexelsAtBase)
+            .Select(static entry => $"{entry.Kernel}.{entry.Name}")
             .Distinct(StringComparer.Ordinal)
             .Order(StringComparer.Ordinal)
             .ToArray();
@@ -305,8 +323,12 @@ public class TextureAnalysisKernelTests {
     /// <remarks>
     ///     <para>
     ///         <b>#691 recorded the box-as-identity as a known collision</b>, with "an L-shape and a
-    ///         small square tucked into its corner" as the realistic case. ⚠ <b>There is no such
-    ///         case.</b> Both islands would have to touch all four sides of the shared box, so one
+    ///         small square tucked into its corner" as the realistic case. ⚠
+    ///         <b>
+    ///             There is no such
+    ///             case.
+    ///         </b>
+    ///         Both islands would have to touch all four sides of the shared box, so one
     ///         holds a connected left-to-right path across it and the other a top-to-bottom one; the
     ///         4/8 duality of digital topology says a black 4-connected left-right crossing exists
     ///         exactly when the white set has no 8-connected top-bottom one, and the mirror statement
@@ -317,8 +339,12 @@ public class TextureAnalysisKernelTests {
     ///         costs its dispatches for nothing.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>What is real is one level down, and it is what "flood fill to index" actually
-    ///         reads</b>: <c>FloodFill.rvn</c>'s <c>kind == 0</c> stores <c>minX</c> and <c>minY</c>
+    ///         ⚠
+    ///         <b>
+    ///             What is real is one level down, and it is what "flood fill to index" actually
+    ///             reads
+    ///         </b>
+    ///         : <c>FloodFill.rvn</c>'s <c>kind == 0</c> stores <c>minX</c> and <c>minY</c>
     ///         and nothing else, and two islands sharing a minimum corner with different boxes are
     ///         ordinary — a bar and a hook that starts under its left end. Below, 1 273 of the 65 536
     ///         four-by-four masks contain such a pair. <c>Id</c> therefore carries a third channel,
@@ -327,8 +353,11 @@ public class TextureAnalysisKernelTests {
     ///         is the picture.
     ///     </para>
     ///     <para>
-    ///         <b>Exhaustive rather than sampled, and it walks the definition rather than the
-    ///         kernel</b> — this is a claim about connectivity, not about a dispatch, so a CPU
+    ///         <b>
+    ///             Exhaustive rather than sampled, and it walks the definition rather than the
+    ///             kernel
+    ///         </b>
+    ///         — this is a claim about connectivity, not about a dispatch, so a CPU
     ///         enumeration is the right instrument and a device would only confirm one mask of it.
     ///         ⚠ <b>The second assertion is the first one's instrument check</b>: a component walk
     ///         that merged everything into one island, or found none, would report zero shared boxes
@@ -355,7 +384,7 @@ public class TextureAnalysisKernelTests {
                 sharedBoxes++;
             }
 
-            if (boxes.Select(box => (box.MinX, box.MinY)).Distinct().Count() < boxes.Count) {
+            if (boxes.Select(static box => (box.MinX, box.MinY)).Distinct().Count() < boxes.Count) {
                 sharedCorners++;
             }
         }
@@ -400,7 +429,7 @@ public class TextureAnalysisKernelTests {
                             continue;
                         }
 
-                        var next = (ny * side) + nx;
+                        var next = ny * side + nx;
 
                         if ((bits & (1 << next)) != 0 && !seen[next]) {
                             seen[next] = true;

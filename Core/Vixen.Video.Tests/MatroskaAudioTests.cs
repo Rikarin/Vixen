@@ -17,18 +17,18 @@ public sealed class MatroskaAudioTests {
         Assert.True(MatroskaAudioStreamDecoder.TryOpen(demuxer, out var stream));
         using var sound = stream!;
 
-        Assert.Equal(new AudioFormat(48_000, 2), sound.Format);
+        Assert.Equal(new(48_000, 2), sound.Format);
 
         var buffer = new float[64];
         var frames = sound.Decode(buffer, 32);
 
         Assert.Equal(32, frames);
-        Assert.All(buffer[..64], sample => Assert.Equal(0.5f, sample));
+        Assert.All(buffer[..64], static sample => Assert.Equal(0.5f, sample));
     }
 
     [Fact]
     public void TheWholeTrackComesOutAcrossItsClusters() {
-        using var demuxer = new MatroskaDemuxer(WithSound(0.25f, clusters: 3, framesPerBlock: 100).Stream());
+        using var demuxer = new MatroskaDemuxer(WithSound(0.25f, 3, 100).Stream());
 
         Assert.True(MatroskaAudioStreamDecoder.TryOpen(demuxer, out var stream));
         using var sound = stream!;
@@ -54,8 +54,8 @@ public sealed class MatroskaAudioTests {
     public void EightBitIntegerPcmIsUnsignedAndEverythingElseIsSigned() {
         // WAV's rule since 1991, inherited by every specification since. Decoding 8-bit as signed
         // gives a track that is loud, distorted, and half a scale off centre.
-        var eight = new PcmPacketDecoder(new AudioFormat(48_000, 1), 8, isFloat: false);
-        var sixteen = new PcmPacketDecoder(new AudioFormat(48_000, 1), 16, isFloat: false);
+        using var eight = new PcmPacketDecoder(new(48_000, 1), 8, false);
+        using var sixteen = new PcmPacketDecoder(new(48_000, 1), 16, false);
         var buffer = new float[1];
 
         eight.Decode([128], buffer);
@@ -70,7 +70,7 @@ public sealed class MatroskaAudioTests {
 
     [Fact]
     public void TwentyFourBitIsSignExtendedOutOfThreeBytes() {
-        var decoder = new PcmPacketDecoder(new AudioFormat(48_000, 1), 24, isFloat: false);
+        using var decoder = new PcmPacketDecoder(new(48_000, 1), 24, false);
         var buffer = new float[1];
 
         decoder.Decode([0x00, 0x00, 0x80], buffer);
@@ -80,8 +80,11 @@ public sealed class MatroskaAudioTests {
 
     [Fact]
     public void ADepthThatDoesNotExistIsRefused() =>
-        Assert.Throws<ArgumentException>(
-            () => new PcmPacketDecoder(new AudioFormat(48_000, 1), 12, isFloat: false)
+        Assert.Throws<ArgumentException>(static () => new PcmPacketDecoder(
+                new(48_000, 1),
+                12,
+                false
+            )
         );
 
     [Fact]
@@ -92,7 +95,7 @@ public sealed class MatroskaAudioTests {
             .VideoTrack(1, 16, 16)
             .AudioTrack(2, 48_000, 2, codecId: "A_OPUS")
             .Cluster(0)
-            .SimpleBlock(1, 0, keyFrame: true, VideoTestContent.I420(16, 16, 30));
+            .SimpleBlock(1, 0, true, VideoTestContent.I420(16, 16, 30));
 
         using var demuxer = new MatroskaDemuxer(builder.Stream());
 
@@ -116,9 +119,7 @@ public sealed class MatroskaAudioTests {
 
     [Fact]
     public void SeekingReportsWhereItActuallyLandedRatherThanWhereItWasAsked() {
-        using var demuxer = new MatroskaDemuxer(
-            WithSound(0.5f, clusters: 4, framesPerBlock: 480, cues: true).Stream()
-        );
+        using var demuxer = new MatroskaDemuxer(WithSound(0.5f, 4, 480, cues: true).Stream());
 
         Assert.True(MatroskaAudioStreamDecoder.TryOpen(demuxer, out var stream));
         using var sound = stream!;
@@ -160,10 +161,10 @@ public sealed class MatroskaAudioTests {
             builder.Cluster(index * ticksPerBlock);
 
             if (withVideo) {
-                builder.SimpleBlock(1, 0, keyFrame: true, VideoTestContent.I420(16, 16, 30));
+                builder.SimpleBlock(1, 0, true, VideoTestContent.I420(16, 16, 30));
             }
 
-            builder.SimpleBlock(2, 0, keyFrame: true, VideoTestContent.FloatPcm(framesPerBlock, 2, value));
+            builder.SimpleBlock(2, 0, true, VideoTestContent.FloatPcm(framesPerBlock, 2, value));
         }
 
         return builder;

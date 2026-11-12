@@ -57,12 +57,16 @@ public interface IPowerInfo {
     /// <summary>Where power is coming from.</summary>
     PowerSource Source { get; }
 
-    /// <summary>How full the battery is, <c>[0, 1]</c>, or <see langword="null" /> if there is no
-    /// battery or the platform will not say.</summary>
+    /// <summary>
+    ///     How full the battery is, <c>[0, 1]</c>, or <see langword="null" /> if there is no
+    ///     battery or the platform will not say.
+    /// </summary>
     float? BatteryLevel { get; }
 
-    /// <summary>How long the platform thinks the battery will last, or <see langword="null" /> if it
-    /// does not estimate.</summary>
+    /// <summary>
+    ///     How long the platform thinks the battery will last, or <see langword="null" /> if it
+    ///     does not estimate.
+    /// </summary>
     TimeSpan? EstimatedTimeRemaining { get; }
 
     /// <summary>How hot the device is.</summary>

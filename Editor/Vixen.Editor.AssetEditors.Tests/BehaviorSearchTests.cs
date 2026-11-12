@@ -35,9 +35,12 @@ public class BehaviorSearchTests {
 
         // A composite's child row takes a composite or a task, and nothing that attaches.
         Assert.Equal([BehaviorSlot.Composite, BehaviorSlot.Task], view.Search.Slots);
-        Assert.Contains(view.Search.Matches, type => type.Type == "Sequence");
-        Assert.Contains(view.Search.Matches, type => type.Type == "Wait");
-        Assert.All(view.Search.Matches, type => Assert.True(type.Slot is BehaviorSlot.Composite or BehaviorSlot.Task));
+        Assert.Contains(view.Search.Matches, static type => type.Type == "Sequence");
+        Assert.Contains(view.Search.Matches, static type => type.Type == "Wait");
+        Assert.All(
+            view.Search.Matches,
+            static type => Assert.True(type.Slot is BehaviorSlot.Composite or BehaviorSlot.Task)
+        );
 
         // At the pointer, in document space, and holding the focus so the next letter lands in it.
         Assert.Equal(x, view.Search.AbsoluteLeft, 0.5f);
@@ -86,7 +89,7 @@ public class BehaviorSearchTests {
         Assert.True(view.Search.IsOpen, "Add decorator did not open the search.");
         Assert.Equal([BehaviorSlot.Decorator], view.Search.Slots);
         Assert.NotEmpty(view.Search.Matches);
-        Assert.All(view.Search.Matches, type => Assert.Equal(BehaviorSlot.Decorator, type.Slot));
+        Assert.All(view.Search.Matches, static type => Assert.Equal(BehaviorSlot.Decorator, type.Slot));
 
         var first = view.Search.Matches[0];
 
@@ -98,7 +101,7 @@ public class BehaviorSearchTests {
         Click(harness, view.AddService);
 
         Assert.True(view.Search.IsOpen, "Add service did not open the search on a composite.");
-        Assert.All(view.Search.Matches, type => Assert.Equal(BehaviorSlot.Service, type.Slot));
+        Assert.All(view.Search.Matches, static type => Assert.Equal(BehaviorSlot.Service, type.Slot));
 
         harness.Ui.PressKey(InputKey.Escape);
         Assert.False(view.Search.IsOpen);
@@ -170,7 +173,7 @@ public class BehaviorSearchTests {
         using var harness = new ViewHarness();
         var (view, _) = Open(harness);
 
-        Over(harness, view, nearBottom: true);
+        Over(harness, view, true);
         harness.Ui.PressKey(InputKey.Space);
         harness.Ui.Frame();
 
@@ -230,7 +233,7 @@ public class BehaviorSearchTests {
         harness.Ui.Frame();
 
         // Selector on the prefix, then Random selector on the substring: the row has moved up two.
-        Assert.Equal(["Selector", "Random selector"], search.Matches.Select(type => type.Label));
+        Assert.Equal(["Selector", "Random selector"], search.Matches.Select(static type => type.Label));
         Assert.Same(before, search.Results.Children[1]);
         Assert.Same(before, Row(search, "Random selector"));
         Assert.False(before.IsRemoved);
@@ -287,8 +290,8 @@ public class BehaviorSearchTests {
     }
 
     static void Click(ViewHarness harness, UiElement element) {
-        var x = element.AbsoluteLeft + (element.Width / 2f);
-        var y = element.AbsoluteTop + (element.Height / 2f);
+        var x = element.AbsoluteLeft + element.Width / 2f;
+        var y = element.AbsoluteTop + element.Height / 2f;
 
         harness.Ui.MovePointer(x, y);
         harness.Ui.PressPointer();

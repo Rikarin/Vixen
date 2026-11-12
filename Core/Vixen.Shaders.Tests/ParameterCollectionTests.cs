@@ -11,7 +11,7 @@ namespace Tests;
 ///     Values and permutations set against keys — docs/plan/06 § Effect permutations.
 /// </summary>
 public class ParameterCollectionTests {
-    static ParameterKey<T> Value<T>(string name, T fallback = default!) where T : unmanaged =>
+    static ParameterKey<T> Value<T>(string name, T fallback = default) where T : unmanaged =>
         ParameterKeys.New($"Test.Collection.{name}", fallback);
 
     static PermutationKey<T> Permutation<T>(string name, T fallback) where T : notnull =>
@@ -24,7 +24,7 @@ public class ParameterCollectionTests {
 
         parameters.Set(tint, new(1f, 2f, 3f, 4f));
 
-        Assert.Equal(new Vector4(1f, 2f, 3f, 4f), parameters.Get(tint));
+        Assert.Equal(new(1f, 2f, 3f, 4f), parameters.Get(tint));
     }
 
     /// <summary>
@@ -175,7 +175,7 @@ public class ParameterCollectionTests {
 
         material.Apply(instance);
 
-        Assert.Equal(new Vector4(1f, 0f, 0f, 1f), material.Get(tint));
+        Assert.Equal(new(1f, 0f, 0f, 1f), material.Get(tint));
         Assert.Equal(0.25f, material.Get(rough));
     }
 

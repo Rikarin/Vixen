@@ -50,10 +50,7 @@ public struct CameraBlend {
     /// <summary>An eased blend of a given length.</summary>
     /// <param name="seconds">How long.</param>
     /// <returns>The blend.</returns>
-    public static CameraBlend Over(float seconds) => new() {
-        Style = CameraBlendStyle.EaseInOut,
-        Duration = seconds
-    };
+    public static CameraBlend Over(float seconds) => new() { Style = CameraBlendStyle.EaseInOut, Duration = seconds };
 
     /// <summary>Whether this blend does anything at all.</summary>
     public readonly bool IsCut => Style == CameraBlendStyle.Cut || Duration <= 0f;
@@ -158,11 +155,7 @@ public struct CameraDirector : IDefaultComponent<CameraDirector> {
     ///     silently declines to write the lens, which are two surprising behaviours dressed up as
     ///     the absence of configuration.
     /// </remarks>
-    public static CameraDirector Default => new() {
-        DefaultBlend = CameraBlend.Default,
-        WriteLens = true,
-        Channel = 0
-    };
+    public static CameraDirector Default => new() { DefaultBlend = CameraBlend.Default, WriteLens = true, Channel = 0 };
 
     /// <inheritdoc />
     static CameraDirector IDefaultComponent<CameraDirector>.DefaultValue => Default;

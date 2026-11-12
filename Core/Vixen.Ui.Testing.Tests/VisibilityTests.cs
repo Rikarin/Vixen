@@ -10,8 +10,12 @@ namespace Vixen.Ui.Testing.Tests;
 ///     <c>visibility</c> and <c>opacity</c>, asserted and drawn — checked together on purpose.
 /// </summary>
 /// <remarks>
-///     ⚠ <b>Every test here makes the claim twice: once through <c>ShouldBeVisible</c> and once by
-///     reading the picture.</b> That is the whole point. An assertion that read a property the
+///     ⚠
+///     <b>
+///         Every test here makes the claim twice: once through <c>ShouldBeVisible</c> and once by
+///         reading the picture.
+///     </b>
+///     That is the whole point. An assertion that read a property the
 ///     renderer ignored would fail on an element that is plainly on the screen, and a renderer that
 ///     honoured one the assertion did not would draw something no test could describe. Asserting
 ///     both in one test is what stops the two drifting apart.
@@ -23,7 +27,7 @@ public class VisibilityTests {
         var ui = UiTest.Create(
             Side,
             Side,
-            new UiTestOptions { Background = new Color4(0f, 0f, 0f, 1f), RetryFrames = 2 }
+            new() { Background = new(0f, 0f, 0f, 1f), RetryFrames = 2 }
         );
 
         ui.Load($"root {{ width: {Side}px; height: {Side}px; }} {css}");
@@ -62,11 +66,13 @@ public class VisibilityTests {
 
     [Fact]
     public void Visibility_is_inherited_and_a_child_can_come_back() {
-        using var ui = Opened("""
-            .panel { width: 32px; height: 32px; visibility: hidden; }
-            .child { width: 8px; height: 8px; background-color: #ffffff; }
-            .shown { visibility: visible; }
-        """);
+        using var ui = Opened(
+            """
+                .panel { width: 32px; height: 32px; visibility: hidden; }
+                .child { width: 8px; height: 8px; background-color: #ffffff; }
+                .shown { visibility: visible; }
+            """
+        );
 
         var panel = ui.Create("div", ui.Document.Root, "panel", "panel");
         ui.Create("div", panel, "buried", "child");
@@ -99,10 +105,12 @@ public class VisibilityTests {
 
     [Fact]
     public void An_opaque_ancestor_of_zero_takes_its_subtree_with_it() {
-        using var ui = Opened("""
-            .panel { width: 32px; height: 32px; opacity: 0; }
-            .child { width: 8px; height: 8px; background-color: #ffffff; }
-        """);
+        using var ui = Opened(
+            """
+                .panel { width: 32px; height: 32px; opacity: 0; }
+                .child { width: 8px; height: 8px; background-color: #ffffff; }
+            """
+        );
 
         var panel = ui.Create("div", ui.Document.Root, "panel", "panel");
         ui.Create("div", panel, "buried", "child");
@@ -138,16 +146,18 @@ public class VisibilityTests {
 
     [Fact]
     public void Opacity_multiplies_down_the_tree() {
-        using var ui = Opened("""
-            .panel { width: 32px; height: 32px; opacity: 0.5; }
-            .child { width: 16px; height: 16px; background-color: #ffffff; opacity: 0.5; }
-        """);
+        using var ui = Opened(
+            """
+                .panel { width: 32px; height: 32px; opacity: 0.5; }
+                .child { width: 16px; height: 16px; background-color: #ffffff; opacity: 0.5; }
+            """
+        );
 
         var panel = ui.Create("div", ui.Document.Root, "panel", "panel");
         ui.Create("div", panel, "child", "child");
         ui.Frame();
 
-        var command = ui.Document.Drawing.Commands.Single(c => c.Kind == DrawCommandKind.Rectangle);
+        var command = ui.Document.Drawing.Commands.Single(static c => c.Kind == DrawCommandKind.Rectangle);
 
         // A quarter, not a half and not two separate halves applied twice to different things.
         Assert.Equal(0.25f, command.Color.A, 0.001f);
@@ -155,16 +165,18 @@ public class VisibilityTests {
 
     [Fact]
     public void The_computed_style_assertions_read_what_the_cascade_resolved() {
-        using var ui = Opened("""
-            .box {
-                width: 16px;
-                height: 16px;
-                background-color: #3b82f6;
-                border-radius: 4px;
-                opacity: 0.5;
-                flex-direction: column;
-            }
-        """);
+        using var ui = Opened(
+            """
+                .box {
+                    width: 16px;
+                    height: 16px;
+                    background-color: #3b82f6;
+                    border-radius: 4px;
+                    opacity: 0.5;
+                    flex-direction: column;
+                }
+            """
+        );
 
         ui.Create("div", ui.Document.Root, "box", "box");
         ui.Frame();

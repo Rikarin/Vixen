@@ -87,7 +87,13 @@ internal sealed class PolyMeshDetail {
     ///     <see cref="TryGroundHeight" /> — this is not a tolerance, it is a proof.
     /// </param>
     /// <returns>The detail mesh, or an empty one if sampling was switched off.</returns>
-    public static PolyMeshDetail Build(PolyMesh mesh, CompactHeightfield field, float sampleDistance, float maxError, int walkableHeight) {
+    public static PolyMeshDetail Build(
+        PolyMesh mesh,
+        CompactHeightfield field,
+        float sampleDistance,
+        float maxError,
+        int walkableHeight
+    ) {
         var detail = new PolyMeshDetail();
 
         if (sampleDistance <= 0) {
@@ -108,7 +114,7 @@ internal sealed class PolyMeshDetail {
             for (var slot = 0; slot < count; slot++) {
                 var vertex = mesh.Polys[offset + slot];
 
-                hull.Add(new(mesh.Vertices[vertex * 3], mesh.Vertices[(vertex * 3) + 1], mesh.Vertices[(vertex * 3) + 2]));
+                hull.Add(new(mesh.Vertices[vertex * 3], mesh.Vertices[vertex * 3 + 1], mesh.Vertices[vertex * 3 + 2]));
             }
 
             vertices.Clear();
@@ -131,7 +137,9 @@ internal sealed class PolyMeshDetail {
 
             // Counted in triangles, not in indices — the reader multiplies by three, and doing it
             // twice is a read three polygons further down the array.
-            detail.Polys.Add(new(detail.Vertices.Count, vertices.Count - count, detail.Triangles.Count / 3, triangles.Count / 3));
+            detail.Polys.Add(
+                new(detail.Vertices.Count, vertices.Count - count, detail.Triangles.Count / 3, triangles.Count / 3)
+            );
 
             for (var index = count; index < vertices.Count; index++) {
                 detail.Vertices.Add(vertices[index]);
@@ -161,14 +169,21 @@ internal sealed class PolyMeshDetail {
     ///         bake guarantees.
     ///     </para>
     /// </remarks>
-    static bool TryGroundHeight(CompactHeightfield field, int x, int z, float expected, int walkableHeight, out float height) {
+    static bool TryGroundHeight(
+        CompactHeightfield field,
+        int x,
+        int z,
+        float expected,
+        int walkableHeight,
+        out float height
+    ) {
         height = expected;
 
         if (x < 0 || z < 0 || x >= field.Width || z >= field.Depth) {
             return false;
         }
 
-        ref var cell = ref field.Cells[x + (z * field.Width)];
+        ref var cell = ref field.Cells[x + z * field.Width];
         var best = (float)walkableHeight * HeightfieldSpan.DropScale;
         var found = false;
 
@@ -225,7 +240,7 @@ internal sealed class PolyMeshDetail {
                 ? (first, second)
                 : (second, first);
 
-            var length = MathF.Sqrt(((to.X - from.X) * (to.X - from.X)) + ((to.Z - from.Z) * (to.Z - from.Z)));
+            var length = MathF.Sqrt((to.X - from.X) * (to.X - from.X) + (to.Z - from.Z) * (to.Z - from.Z));
             var steps = (int)MathF.Ceiling(length / sampleDistance);
 
             if (steps < 2) {
@@ -240,12 +255,19 @@ internal sealed class PolyMeshDetail {
                 var fraction = step / (float)steps;
 
                 var point = new Vector3(
-                    from.X + ((to.X - from.X) * fraction),
-                    from.Y + ((to.Y - from.Y) * fraction),
-                    from.Z + ((to.Z - from.Z) * fraction)
+                    from.X + (to.X - from.X) * fraction,
+                    from.Y + (to.Y - from.Y) * fraction,
+                    from.Z + (to.Z - from.Z) * fraction
                 );
 
-                if (!TryGroundHeight(field, (int)MathF.Floor(point.X), (int)MathF.Floor(point.Z), point.Y, walkableHeight, out var ground)) {
+                if (!TryGroundHeight(
+                        field,
+                        (int)MathF.Floor(point.X),
+                        (int)MathF.Floor(point.Z),
+                        point.Y,
+                        walkableHeight,
+                        out var ground
+                    )) {
                     continue;
                 }
 
@@ -287,14 +309,23 @@ internal sealed class PolyMeshDetail {
         // Anchored to a multiple of the spacing rather than to the polygon's own corner, so that two
         // polygons over the same ground sample the same places and describe it the same way.
         for (var z = MathF.Ceiling(minimumZ / sampleDistance) * sampleDistance; z <= maximumZ; z += sampleDistance) {
-            for (var x = MathF.Ceiling(minimumX / sampleDistance) * sampleDistance; x <= maximumX; x += sampleDistance) {
+            for (var x = MathF.Ceiling(minimumX / sampleDistance) * sampleDistance;
+                 x <= maximumX;
+                 x += sampleDistance) {
                 var point = new Vector3(x, 0, z);
 
                 if (!Contains(hull, point)) {
                     continue;
                 }
 
-                if (TryGroundHeight(field, (int)MathF.Floor(x), (int)MathF.Floor(z), Height(vertices, triangles, point), walkableHeight, out var ground)) {
+                if (TryGroundHeight(
+                        field,
+                        (int)MathF.Floor(x),
+                        (int)MathF.Floor(z),
+                        Height(vertices, triangles, point),
+                        walkableHeight,
+                        out var ground
+                    )) {
                     samples.Add(new(x, ground, z));
                 }
             }
@@ -365,19 +396,19 @@ internal sealed class PolyMeshDetail {
         for (var triangle = 0; triangle < triangles.Count; triangle += 3) {
             for (var edge = 0; edge < 3; edge++) {
                 var from = triangles[triangle + edge];
-                var to = triangles[triangle + ((edge + 1) % 3)];
+                var to = triangles[triangle + (edge + 1) % 3];
 
                 if (!IsBoundary(triangles, from, to) || !OnSegment(vertices[from], vertices[to], point)) {
                     continue;
                 }
 
-                var opposite = triangles[triangle + ((edge + 2) % 3)];
+                var opposite = triangles[triangle + (edge + 2) % 3];
                 var added = vertices.Count;
                 vertices.Add(point);
 
                 // The triangle keeps its winding: the slot that held the far end of the split edge
                 // now holds the new vertex, and the other half is appended.
-                triangles[triangle + ((edge + 1) % 3)] = added;
+                triangles[triangle + (edge + 1) % 3] = added;
                 triangles.AddRange([added, to, opposite]);
 
                 return;
@@ -389,7 +420,7 @@ internal sealed class PolyMeshDetail {
     static bool IsBoundary(List<int> triangles, int from, int to) {
         for (var triangle = 0; triangle < triangles.Count; triangle += 3) {
             for (var edge = 0; edge < 3; edge++) {
-                if (triangles[triangle + edge] == to && triangles[triangle + ((edge + 1) % 3)] == from) {
+                if (triangles[triangle + edge] == to && triangles[triangle + (edge + 1) % 3] == from) {
                     return false;
                 }
             }
@@ -419,7 +450,7 @@ internal sealed class PolyMeshDetail {
             var beta = Side(c, a, point) / area;
             var gamma = 1f - alpha - beta;
 
-            return (a.Y * alpha) + (b.Y * beta) + (c.Y * gamma);
+            return a.Y * alpha + b.Y * beta + c.Y * gamma;
         }
 
         return float.NaN;
@@ -455,8 +486,8 @@ internal sealed class PolyMeshDetail {
             for (var triangle = 0; triangle < triangles.Count; triangle += 3) {
                 for (var slot = 0; slot < 3; slot++) {
                     var apex = triangles[triangle + slot];
-                    var from = triangles[triangle + ((slot + 1) % 3)];
-                    var to = triangles[triangle + ((slot + 2) % 3)];
+                    var from = triangles[triangle + (slot + 1) % 3];
+                    var to = triangles[triangle + (slot + 2) % 3];
 
                     var other = FindEdge(triangles, to, from, out var otherSlot);
 
@@ -464,7 +495,7 @@ internal sealed class PolyMeshDetail {
                         continue;
                     }
 
-                    var far = triangles[other + ((otherSlot + 2) % 3)];
+                    var far = triangles[other + (otherSlot + 2) % 3];
 
                     if (!InCircumcircle(vertices[apex], vertices[from], vertices[to], vertices[far])) {
                         continue;
@@ -472,8 +503,8 @@ internal sealed class PolyMeshDetail {
 
                     // The quadrilateral has to be convex, or the flip produces two triangles that
                     // overlap instead of two that tile it.
-                    if (Side(vertices[apex], vertices[from], vertices[far]) <= 0 ||
-                        Side(vertices[apex], vertices[far], vertices[to]) <= 0) {
+                    if (Side(vertices[apex], vertices[from], vertices[far]) <= 0
+                        || Side(vertices[apex], vertices[far], vertices[to]) <= 0) {
                         continue;
                     }
 
@@ -501,7 +532,7 @@ internal sealed class PolyMeshDetail {
     static int FindEdge(List<int> triangles, int from, int to, out int slot) {
         for (var triangle = 0; triangle < triangles.Count; triangle += 3) {
             for (slot = 0; slot < 3; slot++) {
-                if (triangles[triangle + slot] == from && triangles[triangle + ((slot + 1) % 3)] == to) {
+                if (triangles[triangle + slot] == from && triangles[triangle + (slot + 1) % 3] == to) {
                     return triangle;
                 }
             }
@@ -527,16 +558,15 @@ internal sealed class PolyMeshDetail {
         double cx = c.X - point.X;
         double cz = c.Z - point.Z;
 
-        var determinant = (((ax * ax) + (az * az)) * ((bx * cz) - (cx * bz)))
-            - (((bx * bx) + (bz * bz)) * ((ax * cz) - (cx * az)))
-            + (((cx * cx) + (cz * cz)) * ((ax * bz) - (bx * az)));
+        var determinant = (ax * ax + az * az) * (bx * cz - cx * bz)
+            - (bx * bx + bz * bz) * (ax * cz - cx * az)
+            + (cx * cx + cz * cz) * (ax * bz - bx * az);
 
         return determinant > 1e-9;
     }
 
     /// <summary>Twice the signed area of a triangle in XZ. Positive when it turns counter-clockwise.</summary>
-    static float Side(Vector3 a, Vector3 b, Vector3 c) =>
-        ((b.X - a.X) * (c.Z - a.Z)) - ((c.X - a.X) * (b.Z - a.Z));
+    static float Side(Vector3 a, Vector3 b, Vector3 c) => (b.X - a.X) * (c.Z - a.Z) - (c.X - a.X) * (b.Z - a.Z);
 
     static bool Contains(List<Vector3> hull, Vector3 point) {
         for (var index = 0; index < hull.Count; index++) {
@@ -553,8 +583,8 @@ internal sealed class PolyMeshDetail {
             return false;
         }
 
-        var along = ((point.X - from.X) * (to.X - from.X)) + ((point.Z - from.Z) * (to.Z - from.Z));
-        var length = ((to.X - from.X) * (to.X - from.X)) + ((to.Z - from.Z) * (to.Z - from.Z));
+        var along = (point.X - from.X) * (to.X - from.X) + (point.Z - from.Z) * (to.Z - from.Z);
+        var length = (to.X - from.X) * (to.X - from.X) + (to.Z - from.Z) * (to.Z - from.Z);
 
         return along > 1e-4f && along < length - 1e-4f;
     }

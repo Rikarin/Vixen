@@ -72,7 +72,11 @@ public sealed class MoveTransitionTests {
         var motion = new MoveSetMotion(
             set,
             transitions: new RuleTransitionPolicy(
-                new TransitionRule(FacetPredicate.Of(("gait", "walk")), FacetPredicate.Of(("gait", "swim")), TransitionSpec.Forbidden),
+                new TransitionRule(
+                    FacetPredicate.Of(("gait", "walk")),
+                    FacetPredicate.Of(("gait", "swim")),
+                    TransitionSpec.Forbidden
+                ),
                 new TransitionRule(FacetPredicate.Any, FacetPredicate.Any, new(0f))
             )
         );
@@ -102,7 +106,7 @@ public sealed class MoveTransitionTests {
         var from = Move("walk", 0f, ("gait", "walk"));
         var to = Move("carry", 0.25f, ("gait", "carry"));
 
-        var source = new StubPhase(phase: 0.6f, footPhase: from.Traits.FootPhase);
+        var source = new StubPhase(0.6f, from.Traits.FootPhase);
 
         // Following the fraction puts the follower at 0.6 and its contact a quarter out of step.
         Assert.Equal(0.6f, PhaseSource.Follow(source).Resolve(0f, to.Traits.FootPhase), 1e-4f);
@@ -116,7 +120,7 @@ public sealed class MoveTransitionTests {
         Assert.Equal(0.4f, PhaseSource.Own.Resolve(0.4f, 0.25f), 1e-4f);
 
         // And a source with no cycle right now is the same as having none.
-        Assert.Equal(0.4f, PhaseSource.Follow(new StubPhase(0f, 0f, has: false)).Resolve(0.4f, 0.25f), 1e-4f);
+        Assert.Equal(0.4f, PhaseSource.Follow(new StubPhase(0f, 0f, false)).Resolve(0.4f, 0.25f), 1e-4f);
     }
 
     /// <summary>A move set reports its own cycle, so an upper body can hang off it.</summary>
@@ -283,7 +287,7 @@ public sealed class MoveTransitionTests {
 
                 if (!float.IsNaN(previousContact)) {
                     var moved = Wrap(previousContact - contact);
-                    worst = MathF.Max(worst, MathF.Abs(moved - (1f / 40f)));
+                    worst = MathF.Max(worst, MathF.Abs(moved - 1f / 40f));
                 }
 
                 previousContact = contact;
@@ -297,7 +301,7 @@ public sealed class MoveTransitionTests {
         var pose = new BoneTransform[Rig.JointCount];
 
         motion.Evaluate(
-            new MotionContext(new AnimationParameters(), new PoseScratch(Rig.JointCount), time, previous, 0, false, null, 0, "s", 1f),
+            new(new(), new(Rig.JointCount), time, previous, 0, false, null, 0, "s", 1f),
             pose
         );
     }

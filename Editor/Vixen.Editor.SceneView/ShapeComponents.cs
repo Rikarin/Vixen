@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core;
-using Vixen.Core.Serialization;
 using Vixen.Ecs;
 using Vixen.Rendering.Ecs;
 

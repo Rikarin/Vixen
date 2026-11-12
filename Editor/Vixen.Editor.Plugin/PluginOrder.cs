@@ -13,8 +13,12 @@ namespace Vixen.Editor.Plugin;
 ///         on the order is reproducible rather than a Tuesday thing.
 ///     </para>
 ///     <para>
-///         ⚠ <b>A plugin whose dependency is missing does not load, and neither does anything that
-///         depends on <i>it</i>.</b> The alternative — activate it anyway and let it find out —
+///         ⚠
+///         <b>
+///             A plugin whose dependency is missing does not load, and neither does anything that
+///             depends on <i>it</i>.
+///         </b>
+///         The alternative — activate it anyway and let it find out —
 ///         means the failure surfaces inside the plugin's own code as a null service or an id
 ///         nothing registered, which is the same bug reported worse.
 ///     </para>
@@ -75,7 +79,7 @@ static class PluginOrder {
                 // Named from the plugin that closes the loop, so the message reads as the cycle
                 // rather than as a list of plugins that happen to be involved in one.
                 diagnostics.Add(
-                    new PluginDiagnostic(
+                    new(
                         PluginSeverity.Error,
                         id,
                         "is in a dependency cycle: " + string.Join(" → ", members.Append(id)) + "."
@@ -113,7 +117,7 @@ static class PluginOrder {
                 }
 
                 diagnostics.Add(
-                    new PluginDiagnostic(
+                    new(
                         PluginSeverity.Error,
                         id,
                         byId.ContainsKey(dependency)

@@ -26,7 +26,7 @@ public static class InspectorRegistry {
     static readonly ConcurrentDictionary<Type, InspectorDescriptor?> Resolved = new();
 
     /// <summary>The types that declared members of their own.</summary>
-    public static IReadOnlyCollection<Type> DeclaredTypes => (IReadOnlyCollection<Type>) Declared.Keys;
+    public static IReadOnlyCollection<Type> DeclaredTypes => (IReadOnlyCollection<Type>)Declared.Keys;
 
     /// <summary>Registers a type's descriptor.</summary>
     /// <param name="descriptor">The descriptor.</param>

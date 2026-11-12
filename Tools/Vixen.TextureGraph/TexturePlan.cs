@@ -87,9 +87,13 @@ public sealed record TextureOp {
     /// <summary>The operation to run on the CPU, or <see langword="null" /> for a compute dispatch.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Doc 48 § 4.6's stated exception to § D3, and until
-    ///         <a href="https://github.com/Rikarin/Vixen/issues/688">#688</a> a plan had no way to
-    ///         hold one.</b> Every op went through <c>VariantFor</c>, which compiles
+    ///         ⚠
+    ///         <b>
+    ///             Doc 48 § 4.6's stated exception to § D3, and until
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/688">#688</a> a plan had no way to
+    ///             hold one.
+    ///         </b>
+    ///         Every op went through <c>VariantFor</c>, which compiles
     ///         <see cref="Kernel" /> as Raven — so an op naming no <c>.rvn</c> was an exception about
     ///         an embedded resource. <c>Normal → Height</c> is a Poisson solve over doc 42 § B1's
     ///         conjugate-gradient solver and there is no GPU formulation of it worth having; see
@@ -111,9 +115,13 @@ public sealed record TextureOp {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b><a href="https://github.com/Rikarin/Vixen/issues/689">#689</a>: doc 48 § D8
-    ///         promises one graph bakes at any resolution, and two nodes in the catalogue quietly do
-    ///         not.</b> Nearly every node is one dispatch whatever the bake — a blur at 4K is the
+    ///         ⚠
+    ///         <b>
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/689">#689</a>: doc 48 § D8
+    ///             promises one graph bakes at any resolution, and two nodes in the catalogue quietly do
+    ///             not.
+    ///         </b>
+    ///         Nearly every node is one dispatch whatever the bake — a blur at 4K is the
     ///         same op with a radius <see cref="TexturePlan.Resolve" /> scaled — and those ops leave
     ///         this <see langword="null" />. A jump flood is <c>log2(n)</c> ping-ponged dispatches in
     ///         the <em>baked</em> extent, an <c>AutoLevels</c> reduction is one dispatch per level
@@ -141,8 +149,12 @@ public sealed record TextureOp {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b><a href="https://github.com/Rikarin/Vixen/issues/801">#801</a>, and the whole
-    ///         difficulty is that both halves look identical from here.</b> Nearly every kernel in
+    ///         ⚠
+    ///         <b>
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/801">#801</a>, and the whole
+    ///             difficulty is that both halves look identical from here.
+    ///         </b>
+    ///         Nearly every kernel in
     ///         <c>Shaders/</c> is pointwise — it reads <c>source.Load(clamp(coord, …))</c> at the
     ///         coordinate it is writing — so an op writing 256² while reading 128² draws the source's
     ///         top-left quarter with its right and bottom rows smeared over the rest: no refusal, no
@@ -152,8 +164,12 @@ public sealed record TextureOp {
     ///         what tells it which it is looking at.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A property of the <em>op</em> rather than a list of kernel names, and #801 named
-    ///         the alternative it is better than.</b> A roll call of "kernels allowed to disagree"
+    ///         ⚠
+    ///         <b>
+    ///             A property of the <em>op</em> rather than a list of kernel names, and #801 named
+    ///             the alternative it is better than.
+    ///         </b>
+    ///         A roll call of "kernels allowed to disagree"
     ///         goes red on the merge that adds a kernel rather than on the change that breaks one, it
     ///         cannot say anything at all about a kernel a graph authored — doc 48 § D6's Pixel
     ///         Processor is a kernel with no entry in any table — and it would have been wrong from
@@ -168,8 +184,12 @@ public sealed record TextureOp {
     ///         is not true costs only this one op's guard.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>On its own it says nothing about <em>which</em> input, and that used to be the
-    ///         whole of it</b> — <a href="https://github.com/Rikarin/Vixen/issues/878">#878</a>.
+    ///         ⚠
+    ///         <b>
+    ///             On its own it says nothing about <em>which</em> input, and that used to be the
+    ///             whole of it
+    ///         </b>
+    ///         — <a href="https://github.com/Rikarin/Vixen/issues/878">#878</a>.
     ///         <see cref="TexturePlan.Check" /> tests it inside the loop over the op's inputs, so a
     ///         bare declaration silences the guard for <em>every</em> one of them — including
     ///         <c>AutoLevels</c>' full-size pointwise source, which is the precise thing a
@@ -192,8 +212,12 @@ public sealed record TextureOp {
     ///         (<a href="https://github.com/Rikarin/Vixen/issues/878">#878</a>).
     ///     </para>
     ///     <para>
-    ///         ⚠ <b><c>AutoLevels</c> is why this is not hypothetical, and it is the one op in the
-    ///         library where the distinction can be seen.</b> Its final dispatch is <em>pointwise</em>
+    ///         ⚠
+    ///         <b>
+    ///             <c>AutoLevels</c> is why this is not hypothetical, and it is the one op in the
+    ///             library where the distinction can be seen.
+    ///         </b>
+    ///         Its final dispatch is <em>pointwise</em>
     ///         over its source and reads the 1×1 image the reduction ended on beside it; the flag it
     ///         has to set for the second input silenced the guard on the first, which is the input the
     ///         guard exists for. Every other declaring site is either single-input — where per-op and
@@ -219,8 +243,12 @@ public sealed record TextureOp {
     /// <summary>Whether one texel of this op's output depends on <em>every</em> texel of its input.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b><a href="https://github.com/Rikarin/Vixen/issues/636">#636</a>, and doc 48 § 4.2
-    ///         says of <c>Auto Levels</c> in as many words that the plan runner has to know.</b> It
+    ///         ⚠
+    ///         <b>
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/636">#636</a>, and doc 48 § 4.2
+    ///             says of <c>Auto Levels</c> in as many words that the plan runner has to know.
+    ///         </b>
+    ///         It
     ///         did not: every op in the catalogue up to that node had a bounded neighbourhood, so
     ///         nothing had ever needed to ask, and the knowledge lived in three prose paragraphs
     ///         beside the kernels that have it.
@@ -233,8 +261,12 @@ public sealed record TextureOp {
     ///         in whatever consumes the map.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Not the same property as <see cref="EmittedForExtent" />, though the same three
-    ///         chains carry both and it is tempting to read one off the other.</b> That one says the
+    ///         ⚠
+    ///         <b>
+    ///             Not the same property as <see cref="EmittedForExtent" />, though the same three
+    ///             chains carry both and it is tempting to read one off the other.
+    ///         </b>
+    ///         That one says the
     ///         op <em>count</em> is a function of the bake; this says one texel's <em>value</em> is a
     ///         function of the whole image. <c>AutoLevels</c>' final map dispatch is the case that
     ///         separates them: it is one dispatch at any resolution and carries no
@@ -242,8 +274,11 @@ public sealed record TextureOp {
     ///         every one of its texels is scaled by the 1×1 the reduction ended on.
     ///     </para>
     ///     <para>
-    ///         <b>Declared by whoever writes the chain, for <see cref="ReadsOtherExtents" />'s
-    ///         reason.</b> A list of global kernel names goes red on the merge that adds a kernel
+    ///         <b>
+    ///             Declared by whoever writes the chain, for <see cref="ReadsOtherExtents" />'s
+    ///             reason.
+    ///         </b>
+    ///         A list of global kernel names goes red on the merge that adds a kernel
     ///         rather than on the change that breaks one, and it could say nothing at all about a
     ///         kernel a graph authored — doc 48 § D6's Pixel Processor is a kernel with no entry in
     ///         any table.
@@ -263,8 +298,11 @@ public sealed record TextureOp {
     /// <summary>What the front end that emitted this op calls it, for a seed an insertion cannot move.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b><a href="https://github.com/Rikarin/Vixen/issues/875">#875</a>, and it is the
-    ///         field <see cref="TexturePlan.Seed" />'s remarks said a fix would need.</b>
+    ///         ⚠
+    ///         <b>
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/875">#875</a>, and it is the
+    ///             field <see cref="TexturePlan.Seed" />'s remarks said a fix would need.
+    ///         </b>
     ///         <see cref="TexturePlan.SeedFor" /> mixed the op's index in <see cref="TexturePlan.Ops" />
     ///         — precisely the number an insertion moves. Adding a layer beneath a noise renumbered
     ///         every op after it, so the artist moved a node and the material shimmered;
@@ -356,9 +394,13 @@ public sealed class TexturePlan {
     /// <summary>How much bigger this bake is than the resolution the graph was authored at.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Doc 48 § D8's actual criterion, and until
-    ///         <a href="https://github.com/Rikarin/Vixen/issues/619">#619</a> the plan had no field
-    ///         that could express it.</b> <see cref="BaseWidth" /> alone answers "how big is a
+    ///         ⚠
+    ///         <b>
+    ///             Doc 48 § D8's actual criterion, and until
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/619">#619</a> the plan had no field
+    ///             that could express it.
+    ///         </b>
+    ///         <see cref="BaseWidth" /> alone answers "how big is a
     ///         half-resolution image inside this graph"; it cannot answer "what is this graph at 4K",
     ///         because moving it moves the unit a radius is counted in by exactly as much and the
     ///         radius comes out unchanged. A plan with a base of 1024 and one with a base of 4096
@@ -366,8 +408,11 @@ public sealed class TexturePlan {
     ///         written to prevent, lit inside the type meant to prevent it.
     ///     </para>
     ///     <para>
-    ///         <b>Same currency and same sign as <see cref="TextureImage.LevelOffset" />, and it adds
-    ///         to it:</b> <c>0</c> bakes at the authoring resolution, <c>-2</c> bakes a 1K graph at
+    ///         <b>
+    ///             Same currency and same sign as <see cref="TextureImage.LevelOffset" />, and it adds
+    ///             to it:
+    ///         </b>
+    ///         <c>0</c> bakes at the authoring resolution, <c>-2</c> bakes a 1K graph at
     ///         4K, <c>1</c> bakes it at 512 for a preview. <see cref="BakeLevelFor" /> turns a pair of
     ///         resolutions into one.
     ///     </para>
@@ -435,17 +480,24 @@ public sealed class TexturePlan {
     ///         first. <see cref="SeedFor" /> mixes the plan's seed with the op's identity instead.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>That identity is <see cref="TextureOp.Identity" /> now, and it was the op's
-    ///         <em>index in <see cref="Ops" /></em> until
-    ///         <a href="https://github.com/Rikarin/Vixen/issues/875">#875</a>.</b> An index is
+    ///         ⚠
+    ///         <b>
+    ///             That identity is <see cref="TextureOp.Identity" /> now, and it was the op's
+    ///             <em>index in <see cref="Ops" /></em> until
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/875">#875</a>.
+    ///         </b>
+    ///         An index is
     ///         precisely the number an insertion moves: add a layer beneath a noise and every op
     ///         after it shifts, so the artist moved a node and the material shimmered.
     ///         <a href="https://github.com/Rikarin/Vixen/issues/832">#832</a> did that at scale —
     ///         three ops per masked layer per channel — and nothing reported the pixel change.
     ///     </para>
     ///     <para>
-    ///         <b>So what is stable depends on which front end wrote the plan, and only one of the
-    ///         three is finished.</b> <c>TextureGraphCompiler</c> derives an op's identity from the
+    ///         <b>
+    ///             So what is stable depends on which front end wrote the plan, and only one of the
+    ///             three is finished.
+    ///         </b>
+    ///         <c>TextureGraphCompiler</c> derives an op's identity from the
     ///         <em>node</em> that emitted it, and a node's id is persisted in the <c>.vxtexgraph</c>
     ///         and never reused — so adding a node to an author's graph leaves every existing node's
     ///         noise exactly as it was. ⚠ A node <em>inlined out of a compound</em> is identified by
@@ -453,8 +505,12 @@ public sealed class TexturePlan {
     ///         stable for the same reason even though the flattened identity it is given is not.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A layer stack needed a second half, because it has no file of node ids to be
-    ///         stable about.</b> <c>LayerStackGraph</c> builds a fresh <c>NodeGraphModel</c> out of
+    ///         ⚠
+    ///         <b>
+    ///             A layer stack needed a second half, because it has no file of node ids to be
+    ///             stable about.
+    ///         </b>
+    ///         <c>LayerStackGraph</c> builds a fresh <c>NodeGraphModel</c> out of
     ///         the <c>.vxlayers</c> on every compile, so taking whatever <c>NodeGraphModel.Add</c>
     ///         hands out would have renumbered every node after an inserted layer exactly as it used
     ///         to renumber every op after it — #832's own case, with one counter swapped for another.
@@ -479,8 +535,11 @@ public sealed class TexturePlan {
     /// <summary>Whether a read past the left or right edge of an image comes back on the other side.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>The address of every kernel that reads a neighbour, and it is the plan's because the
-    ///         right answer is a property of what the images are.</b> In a tiling image the texel past
+    ///         <b>
+    ///             The address of every kernel that reads a neighbour, and it is the plan's because the
+    ///             right answer is a property of what the images are.
+    ///         </b>
+    ///         In a tiling image the texel past
     ///         the right edge is the left edge, so a clamp there stops the output tiling: a row
     ///         <c>1 0 1 0</c> through a radius of one is 0.667 at <c>x = 0</c> clamped and 0.333
     ///         wrapped. In a mesh atlas the far edge is unrelated, and a wrap pulls another island's
@@ -501,9 +560,13 @@ public sealed class TexturePlan {
     /// <summary>The kernels this plan brought with it, by the name its ops give them.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Doc 48 § D6's Pixel Processor emitted an op nothing could evaluate, and this is
-    ///         the field it needed —
-    ///         <a href="https://github.com/Rikarin/Vixen/issues/729">#729</a>.</b> An op's
+    ///         ⚠
+    ///         <b>
+    ///             Doc 48 § D6's Pixel Processor emitted an op nothing could evaluate, and this is
+    ///             the field it needed —
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/729">#729</a>.
+    ///         </b>
+    ///         An op's
     ///         <see cref="TextureOp.Kernel" /> is a <em>name</em>, and the evaluator resolved every
     ///         one of them through <see cref="TextureKernels" />, which reads this assembly's
     ///         embedded <c>Shaders/*.rvn</c> and nothing else. A kernel a graph <em>authored</em> is
@@ -511,8 +574,11 @@ public sealed class TexturePlan {
     ///         shader nobody has — while looking, in every other respect, like a plan.
     ///     </para>
     ///     <para>
-    ///         <b>On the plan rather than beside it, which is the smaller of the two shapes #729
-    ///         weighed.</b> An evaluator taking a source table alongside the plan would mean a bake
+    ///         <b>
+    ///             On the plan rather than beside it, which is the smaller of the two shapes #729
+    ///             weighed.
+    ///         </b>
+    ///         An evaluator taking a source table alongside the plan would mean a bake
     ///         carrying two things that have to agree, and the plan is already the compiled artefact
     ///         § D8 says it is: everything else an evaluation needs is here, and a kernel is no
     ///         different.
@@ -604,8 +670,12 @@ public sealed class TexturePlan {
     /// <returns>The source, ready for the format rewrite.</returns>
     /// <exception cref="ArgumentException">The plan does not carry it and this assembly does not ship it.</exception>
     /// <remarks>
-    ///     ⚠ <b>A name is either authored or embedded and never both, and this refuses the overlap
-    ///     rather than picking a winner.</b> Shadowing would look like the friendly answer and is a
+    ///     ⚠
+    ///     <b>
+    ///         A name is either authored or embedded and never both, and this refuses the overlap
+    ///         rather than picking a winner.
+    ///     </b>
+    ///     Shadowing would look like the friendly answer and is a
     ///     trap two layers down: an evaluator caches a compiled module on
     ///     <c>(kernel name, output format)</c> across every plan it runs, so a plan that redefined
     ///     <c>Blur</c> would either take the cached embedded module or leave its own behind for the
@@ -654,8 +724,12 @@ public sealed class TexturePlan {
     ///         by nothing, and wrong for every picture that was not the plan's own resolution.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>It was harmless right up until it was not, which is why the refusal is here
-    ///         rather than in a comment.</b> #715 recorded "nothing currently asks"; #1000 found the
+    ///         ⚠
+    ///         <b>
+    ///             It was harmless right up until it was not, which is why the refusal is here
+    ///             rather than in a comment.
+    ///         </b>
+    ///         #715 recorded "nothing currently asks"; #1000 found the
     ///         asker — <c>TexturePlanEvaluator.OnCpu</c> sized a CPU op's read-back from it, so a
     ///         16×16 upload in a 64² plan copied 64×64 out of the device and handed the operation
     ///         48 rows of a buffer nothing had written. Who knows the size is whoever supplied the
@@ -690,8 +764,12 @@ public sealed class TexturePlan {
     /// <returns><c>1</c> at the base, <c>0.5</c> one level down, <c>4</c> in a bake two levels up.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Per texel of the base the graph was <em>authored</em> at, which is what makes
-    ///         this the whole of § D8.</b> A level-0 image is <c>1</c> in a bake at the authoring
+    ///         ⚠
+    ///         <b>
+    ///             Per texel of the base the graph was <em>authored</em> at, which is what makes
+    ///             this the whole of § D8.
+    ///         </b>
+    ///         A level-0 image is <c>1</c> in a bake at the authoring
     ///         resolution and <c>4</c> in a bake two levels above it, so the same authored radius is
     ///         four times as many texels there — the same physical width, which is the property that
     ///         makes a 1K graph and its 4K bake one material.
@@ -731,8 +809,12 @@ public sealed class TexturePlan {
     ///         the one that matters: two ops one apart must not draw neighbouring noise.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The identity is <see cref="TextureOp.Identity" /> when the emitter supplied one
-    ///         and the op's <em>index</em> when it did not</b> —
+    ///         ⚠
+    ///         <b>
+    ///             The identity is <see cref="TextureOp.Identity" /> when the emitter supplied one
+    ///             and the op's <em>index</em> when it did not
+    ///         </b>
+    ///         —
     ///         <a href="https://github.com/Rikarin/Vixen/issues/875">#875</a>. The index is what this
     ///         used to mix unconditionally, and it is exactly the number an insertion moves; the
     ///         fallback is kept because a hand-built plan has no front end to supply an identity and
@@ -749,7 +831,7 @@ public sealed class TexturePlan {
     /// </remarks>
     public uint SeedFor(int op) {
         var named = (uint)op < (uint)Ops.Length ? Ops[op].Identity : null;
-        var value = unchecked(Seed + (0x9E3779B9u * (named ?? (uint)(op + 1))));
+        var value = unchecked(Seed + 0x9E3779B9u * (named ?? (uint)(op + 1)));
 
         value ^= value >> 16;
         value = unchecked(value * 0x85EBCA6Bu);
@@ -764,8 +846,12 @@ public sealed class TexturePlan {
     /// <returns>One message per op whose texel depends on the whole image; empty when tiling is safe.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b><a href="https://github.com/Rikarin/Vixen/issues/636">#636</a>, and it is
-    ///         deliberately here before the evaluator that will ask.</b> Nothing in this assembly
+    ///         ⚠
+    ///         <b>
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/636">#636</a>, and it is
+    ///             deliberately here before the evaluator that will ask.
+    ///         </b>
+    ///         Nothing in this assembly
     ///         evaluates in tiles today; doc 48 § M5's bake is what wants to, at 4K and 8K. The
     ///         reason the record cannot wait for it is that the answer is only knowable by whoever
     ///         wrote the chain — <see cref="TextureOp.DependsOnEveryTexel" /> — and the failure it
@@ -773,8 +859,11 @@ public sealed class TexturePlan {
     ///         would ship, look right per tile, and put a contrast seam in every map.
     ///     </para>
     ///     <para>
-    ///         <b>Separate from <see cref="Check" /> rather than folded into it, because this is not
-    ///         wrong with the plan.</b> Every op named here bakes correctly whole; what it cannot do
+    ///         <b>
+    ///             Separate from <see cref="Check" /> rather than folded into it, because this is not
+    ///             wrong with the plan.
+    ///         </b>
+    ///         Every op named here bakes correctly whole; what it cannot do
     ///         is be cut up. A caller that intends to tile asks this first and falls back to a whole
     ///         dispatch — which is a decision, not a refusal.
     ///     </para>
@@ -826,9 +915,13 @@ public sealed class TexturePlan {
     /// <returns>One entry per problem, in the order the plan is read.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The numbers as well as the shape, which
-    ///         <a href="https://github.com/Rikarin/Vixen/issues/692">#692</a> is the finding that
-    ///         they were not.</b> Everything this checked before was structural — indices, formats,
+    ///         ⚠
+    ///         <b>
+    ///             The numbers as well as the shape, which
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/692">#692</a> is the finding that
+    ///             they were not.
+    ///         </b>
+    ///         Everything this checked before was structural — indices, formats,
     ///         write-once, liveness — and a plan whose numbers were absurd passed and drew a picture
     ///         nothing described. The layer that can see a resolved number is this one and only this
     ///         one: a kernel's loop bound is known on the CPU and a kernel cannot raise, while the
@@ -852,7 +945,7 @@ public sealed class TexturePlan {
         // ⚠ Only over a plan whose shape holds. Resolving a parameter reads the image an op writes,
         // so asking what a radius is worth on an op whose output index is out of range would throw
         // out of the method whose whole job is to report rather than throw.
-        if (problems.All(problem => problem.Severity != TextureProblemSeverity.Error)) {
+        if (problems.All(static problem => problem.Severity != TextureProblemSeverity.Error)) {
             foreach (var clipped in TextureFilters.Verify(this)) {
                 problems.Add(TextureProblem.Caution(clipped));
             }
@@ -884,7 +977,7 @@ public sealed class TexturePlan {
                 // level comes back as the base resolution and the plan bakes something that looks
                 // plausible. Positive levels clamp to a texel and are a legitimate, if odd, thing to
                 // ask for; only the doubling direction can run away.
-                if (level < 0 && (Math.Max(BaseWidth, BaseHeight) > MaxExtent >> -Math.Max(level, -31))) {
+                if (level < 0 && Math.Max(BaseWidth, BaseHeight) > MaxExtent >> -Math.Max(level, -31)) {
                     problems.Add(
                         TextureProblem.Refusal(
                             $"Image {image} is at level {level} of a {BaseWidth}×{BaseHeight} base — "
@@ -911,7 +1004,8 @@ public sealed class TexturePlan {
 
             if (string.IsNullOrWhiteSpace(source)) {
                 problems.Add(
-                    TextureProblem.Refusal($"The kernel '{kernel}' this plan carries has no source, so nothing "
+                    TextureProblem.Refusal(
+                        $"The kernel '{kernel}' this plan carries has no source, so nothing "
                         + "could be compiled for the ops that name it."
                     )
                 );
@@ -931,9 +1025,7 @@ public sealed class TexturePlan {
 
             if (op.Output < 0 || op.Output >= Images.Length) {
                 problems.Add(
-                    TextureProblem.Refusal(
-                        $"Op {index} writes image {op.Output}, and the table holds {Images.Length}."
-                    )
+                    TextureProblem.Refusal($"Op {index} writes image {op.Output}, and the table holds {Images.Length}.")
                 );
 
                 continue;
@@ -998,9 +1090,7 @@ public sealed class TexturePlan {
             foreach (var input in op.Inputs) {
                 if (input < 0 || input >= Images.Length) {
                     problems.Add(
-                        TextureProblem.Refusal(
-                            $"Op {index} reads image {input}, and the table holds {Images.Length}."
-                        )
+                        TextureProblem.Refusal($"Op {index} reads image {input}, and the table holds {Images.Length}.")
                     );
 
                     continue;
@@ -1085,15 +1175,23 @@ public sealed class TexturePlan {
     /// <returns>Whether the extent guard has been answered for that input.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>An empty <see cref="TextureOp.OtherExtentInputs" /> means every input and not
-    ///         none</b> — <a href="https://github.com/Rikarin/Vixen/issues/878">#878</a>. That is
+    ///         ⚠
+    ///         <b>
+    ///             An empty <see cref="TextureOp.OtherExtentInputs" /> means every input and not
+    ///             none
+    ///         </b>
+    ///         — <a href="https://github.com/Rikarin/Vixen/issues/878">#878</a>. That is
     ///         what makes the narrowing additive: an op written before the list existed, or one whose
     ///         every input really is read at its own extent (<c>TileSampler</c>, <c>Splatter</c>),
     ///         says nothing and is where it was. The list only ever puts a guard <em>back</em>.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Internal rather than private, because there are two extent guards and only one of
-    ///         them can measure.</b> An external image's size is the caller's, so <see cref="Check" />
+    ///         ⚠
+    ///         <b>
+    ///             Internal rather than private, because there are two extent guards and only one of
+    ///             them can measure.
+    ///         </b>
+    ///         An external image's size is the caller's, so <see cref="Check" />
     ///         skips one entirely — and <c>TexturePlanEvaluator</c>, which is handed the declared
     ///         size, asks the same question about the same ops over there. Two spellings of "did this
     ///         op say it meant it" is how one of them ends up silencing a guard the other keeps.
@@ -1117,8 +1215,12 @@ public sealed class TexturePlan {
 
     /// <summary>One axis at a level, saturating rather than wrapping at either end.</summary>
     /// <remarks>
-    ///     ⚠ <b>Both shifts are clamped to 31, because C# shifts by <c>count &amp; 31</c> for an
-    ///     <see cref="int" />.</b> Without the clamp a level of 32 would be a level of 0 and a level
+    ///     ⚠
+    ///     <b>
+    ///         Both shifts are clamped to 31, because C# shifts by <c>count &amp; 31</c> for an
+    ///         <see cref="int" />.
+    ///     </b>
+    ///     Without the clamp a level of 32 would be a level of 0 and a level
     ///     of −32 would be one too: an absurd plan would come back reporting exactly the base
     ///     resolution, which is the most plausible-looking wrong answer available.
     ///     <see cref="Validate" /> refuses those plans; this makes the number honest even for a

@@ -38,16 +38,14 @@ public sealed class WaterSurfaceMeshTests {
                     new(low.X + side, surface, low.Y + side),
                     new(low.X, surface, low.Y + side)
                 ],
-                closed: true,
-                tension: 1f
+                true,
+                1f
             ),
-            closed: true
+            true
         );
 
         return new(WaterBodyKind.Lake, spline, defaults: new() { Depth = depth }) {
-            SurfaceHeight = surface,
-            ShoreFalloff = falloff,
-            BedRamp = MathF.Max(falloff * 2f, 1f)
+            SurfaceHeight = surface, ShoreFalloff = falloff, BedRamp = MathF.Max(falloff * 2f, 1f)
         };
     }
 
@@ -140,8 +138,7 @@ public sealed class WaterSurfaceMeshTests {
             Assert.Equal(theirs, position);
         }
 
-        static string Key(Vector2 ground) =>
-            $"{MathF.Round(ground.X, 3)}|{MathF.Round(ground.Y, 3)}";
+        static string Key(Vector2 ground) => $"{MathF.Round(ground.X, 3)}|{MathF.Round(ground.Y, 3)}";
     }
 
     [Fact]
@@ -154,7 +151,7 @@ public sealed class WaterSurfaceMeshTests {
             distinct.Add(MathF.Round(mesh.GroundOf(node, grid, 0).X, 4));
         }
 
-        Assert.Equal((mesh.GridQuads / 2) + 1, distinct.Count);
+        Assert.Equal(mesh.GridQuads / 2 + 1, distinct.Count);
     }
 
     /// <summary>A vertex moves continuously as the camera does — the pop a screenshot will not catch.</summary>
@@ -296,10 +293,10 @@ public sealed class WaterSurfaceMeshTests {
         var nodes = new List<TerrainLodNode>();
 
         Assert.True(mesh.SelectFar(Everything(), 10f, nodes) > 0);
-        Assert.DoesNotContain(nodes, node => node is { X: 0, Z: 0 });
+        Assert.DoesNotContain(nodes, static node => node is { X: 0, Z: 0 });
 
         // Four rings of window-sized cells for a kilometre past a 256-metre window, minus the middle.
-        Assert.Equal((9 * 9) - 1, nodes.Count);
+        Assert.Equal(9 * 9 - 1, nodes.Count);
     }
 
     /// <summary>
@@ -334,8 +331,7 @@ public sealed class WaterSurfaceMeshTests {
         }
     }
 
-    static BoundingFrustum Everything() =>
-        Slab(-100000f, 100000f);
+    static BoundingFrustum Everything() => Slab(-100000f, 100000f);
 
     /// <summary>A frustum that is a horizontal slab, so a test can aim at a height range.</summary>
     static BoundingFrustum Slab(float low, float high) {

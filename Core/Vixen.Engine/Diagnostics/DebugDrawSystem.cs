@@ -14,8 +14,12 @@ namespace Vixen.Engine.Diagnostics;
 ///         after the draining and not before.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Which means this system is wrong for a host that records its frame outside the
-///         loop, and the shipped host is one.</b> <c>VixenApplication</c> runs every phase of
+///         ⚠
+///         <b>
+///             Which means this system is wrong for a host that records its frame outside the
+///             loop, and the shipped host is one.
+///         </b>
+///         <c>VixenApplication</c> runs every phase of
 ///         <c>EngineLoop.Frame</c> — <c>PostRender</c> included — and only then calls
 ///         <c>AppGraphics.Begin</c>, which is where the compositor's debug node drains the
 ///         accumulator. Adding this to that loop ages the frame's geometry away one call before

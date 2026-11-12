@@ -39,14 +39,15 @@ public sealed class NullXrBackend : IXrBackend {
     }
 
     /// <summary>A two-eyed headset at a resolution nobody will mistake for a real product's.</summary>
-    public static XrSystemInfo DefaultSystem => new(
-        "Vixen Null Headset",
-        2,
-        new Int2(1024, 1024),
-        new Int2(4096, 4096),
-        1,
-        HasPositionTracking: true
-    );
+    public static XrSystemInfo DefaultSystem =>
+        new(
+            "Vixen Null Headset",
+            2,
+            new Int2(1024, 1024),
+            new Int2(4096, 4096),
+            1,
+            true
+        );
 
     /// <summary>What it claims to be.</summary>
     public XrSystemInfo System { get; }
@@ -66,7 +67,8 @@ public sealed class NullXrBackend : IXrBackend {
     public bool IsAvailable => !PretendUnavailable;
 
     /// <inheritdoc />
-    public string UnavailableReason => PretendUnavailable ? "The null backend was asked to pretend it had no device." : "";
+    public string UnavailableReason =>
+        PretendUnavailable ? "The null backend was asked to pretend it had no device." : string.Empty;
 
     /// <inheritdoc />
     public bool TryGetSystem(out XrSystemInfo system) {
@@ -216,7 +218,7 @@ public sealed class NullXrSession : IXrSession {
 
         frameOpen = true;
 
-        frame = new XrFrameState(
+        frame = new(
             frameIndex * FramePeriod.Ticks * 100,
             FramePeriod,
             State is XrSessionState.Visible or XrSessionState.Focused
@@ -235,8 +237,8 @@ public sealed class NullXrSession : IXrSession {
             var sign = index == (int)XrEye.Left ? -1f : 1f;
             var local = new Vector3(sign * offset, 0f, 0f);
 
-            views[index] = new XrView(
-                new XrPose(
+            views[index] = new(
+                new(
                     HeadPose.Position + Quaternion.Transform(local, HeadPose.Orientation),
                     HeadPose.Orientation
                 ),
@@ -295,8 +297,8 @@ public sealed class NullXrSession : IXrSession {
                 }
 
                 var state = action.Type == XrActionType.Pose
-                    ? new XrActionState(IsActive: true, Pose: HeadPose, IsTracked: true)
-                    : new XrActionState(IsActive: true);
+                    ? new XrActionState(true, Pose: HeadPose, IsTracked: true)
+                    : new XrActionState(true);
 
                 action.Publish(XrHand.Left, in state);
                 action.Publish(XrHand.Right, in state);
@@ -347,7 +349,7 @@ sealed class NullXrSwapchain : IXrSwapchain {
 
         for (var index = 0; index < images.Length; index++) {
             images[index] = device.CreateTexture(
-                new TextureDescription(
+                new(
                     description.Format,
                     description.Size.X,
                     description.Size.Y,

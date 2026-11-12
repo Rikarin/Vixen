@@ -50,7 +50,7 @@ static class VoiceLink {
             return false;
         }
 
-        header = new VoicePacketHeader(
+        header = new(
             BinaryPrimitives.ReadUInt16LittleEndian(payload),
             BinaryPrimitives.ReadUInt32LittleEndian(payload[2..])
         );

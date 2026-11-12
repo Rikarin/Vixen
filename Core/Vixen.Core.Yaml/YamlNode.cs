@@ -155,7 +155,7 @@ public sealed class YamlMapping : YamlNode, IEnumerable<KeyValuePair<string, Yam
     public int Count => entries.Count;
 
     /// <summary>The keys, in order.</summary>
-    public IEnumerable<string> Keys => entries.Select(entry => entry.Key);
+    public IEnumerable<string> Keys => entries.Select(static entry => entry.Key);
 
     /// <summary>One entry's value.</summary>
     /// <param name="key">Which one.</param>

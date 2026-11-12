@@ -23,7 +23,7 @@ namespace Vixen.Rendering;
 /// </remarks>
 public sealed class RenderView(string name) {
     Matrix4x4 viewProjection = Matrix4x4.Identity;
-    RenderCamera? camera;
+
 
     /// <summary>The view's name, for logging and profiling.</summary>
     public string Name { get; } = name;
@@ -82,9 +82,9 @@ public sealed class RenderView(string name) {
     ///     </para>
     /// </remarks>
     public RenderCamera? Camera {
-        get => camera;
+        get => field;
         set {
-            camera = value;
+            field = value;
 
             if (value is { } from) {
                 Position = from.Position;
@@ -98,8 +98,11 @@ public sealed class RenderView(string name) {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <b>Here rather than on the camera component, because the component does not keep
-    ///         history.</b> Whatever moved the camera overwrote it, and by the time extraction runs
+    ///         <b>
+    ///             Here rather than on the camera component, because the component does not keep
+    ///             history.
+    ///         </b>
+    ///         Whatever moved the camera overwrote it, and by the time extraction runs
     ///         there is nothing left to compare against — so the last matrix has to be kept by
     ///         something that outlives a frame, and the view is the only thing in the frame that does.
     ///     </para>

@@ -35,7 +35,7 @@ public class ZeroBasisWrapHeightTests {
 
     static FontFace LoadFont() {
         using var stream = Assembly.GetExecutingAssembly()
-            .GetManifestResourceStream("Vixen.Ui.Tests.Fonts.OpenSans-Regular.ttf")
+                .GetManifestResourceStream("Vixen.Ui.Tests.Fonts.OpenSans-Regular.ttf")
             ?? throw new InvalidOperationException("the test font is not embedded");
 
         using var memory = new MemoryStream();
@@ -46,7 +46,9 @@ public class ZeroBasisWrapHeightTests {
 
     const string Message = "19 bus(es), 0 snapshot(s). Built without errors.";
 
-    static (UiDocument Document, UiElement Content, UiElement List, UiElement Row, UiElement Stage, UiElement Text) Build(string extra = "") {
+    static (UiDocument Document, UiElement Content, UiElement List, UiElement Row, UiElement Stage, UiElement Text) Build(
+        string extra = ""
+    ) {
         var document = new UiDocument(900f, 600f);
         document.Fonts.Register("Test", Font);
 
@@ -111,8 +113,12 @@ public class ZeroBasisWrapHeightTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>With nothing for the minimum to widen, a growable zero-basis item still counts its
-    ///     content (#1440).</b> CSS Flexbox §9.9.1 makes a growable item's max-content contribution its
+    ///     ⚠
+    ///     <b>
+    ///         With nothing for the minimum to widen, a growable zero-basis item still counts its
+    ///         content (#1440).
+    ///     </b>
+    ///     CSS Flexbox §9.9.1 makes a growable item's max-content contribution its
     ///     content, and lets the flex base size clamp it only from above and only when the item is not
     ///     growable — so the column is as wide as the row's content allows within the 300 px it is
     ///     offered, and the message, back on its zero basis once that width is decided, grows into
@@ -135,8 +141,12 @@ public class ZeroBasisWrapHeightTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>A minimum below the offer no longer decides this column, because its content is wider
-    ///     than the offer (#1440).</b> This test used to assert 300: offered 400 px with a 300 px
+    ///     ⚠
+    ///     <b>
+    ///         A minimum below the offer no longer decides this column, because its content is wider
+    ///         than the offer (#1440).
+    ///     </b>
+    ///     This test used to assert 300: offered 400 px with a 300 px
     ///     minimum, the column's content asked for 88 — the message's zero basis contributing
     ///     nothing — so the clamp decided. That 88 was this engine's reading and not CSS's: the message
     ///     is growable, so its content counts, the row's one-line width exceeds the offer, and

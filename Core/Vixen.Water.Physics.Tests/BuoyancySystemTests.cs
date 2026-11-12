@@ -4,7 +4,6 @@
 using System.Reflection;
 using Vixen.Core;
 using Vixen.Core.Mathematics;
-using Vixen.Ecs;
 using Vixen.Ecs.Systems;
 using Vixen.Engine.Transforms;
 using Vixen.Physics;
@@ -21,8 +20,11 @@ namespace Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>The kernel's arithmetic is tested in <c>Vixen.Water.Tests</c> and is not retested
-///         here.</b> What is here is the join: a component, a rigid body, a fixed step and the phase
+///         <b>
+///             The kernel's arithmetic is tested in <c>Vixen.Water.Tests</c> and is not retested
+///             here.
+///         </b>
+///         What is here is the join: a component, a rigid body, a fixed step and the phase
 ///         order between them — and every one of those is silent when it is wrong. A force applied
 ///         after the step is thrown away by Jolt and the boat simply sinks; a pose read from a
 ///         component rather than from the simulation is a boat floated where it was last frame; a
@@ -30,8 +32,12 @@ namespace Tests;
 ///         it. None of them looks like a bug in the thing that caused it.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The measurements are made against <c>Buoyancy.RestDisplacement</c> rather than
-///         against a number somebody watched happen.</b> A convergence test whose expected value came
+///         ⚠
+///         <b>
+///             The measurements are made against <c>Buoyancy.RestDisplacement</c> rather than
+///             against a number somebody watched happen.
+///         </b>
+///         A convergence test whose expected value came
 ///         from running the code is a test that pins the bug as firmly as the behaviour.
 ///     </para>
 /// </remarks>
@@ -67,22 +73,19 @@ public sealed class BuoyancySystemTests {
 
             var lake = new WaterBody(
                 WaterBodyKind.Lake,
-                new Spline(
+                new(
                     Spline.SmoothTangents(
                         [
                             new(-80f, height, -80f), new(80f, height, -80f),
                             new(80f, height, 80f), new(-80f, height, 80f)
                         ],
-                        closed: true,
-                        tension: 1f
+                        true,
+                        1f
                     ),
-                    closed: true
+                    true
                 ),
                 defaults: new() { Depth = 20f }
-            ) {
-                SurfaceHeight = height,
-                ShoreFalloff = 2f
-            };
+            ) { SurfaceHeight = height, ShoreFalloff = 2f };
 
             field.Rasterize([lake], new FlatWaterGround(height - 20f));
 
@@ -101,8 +104,12 @@ public sealed class BuoyancySystemTests {
     ///         the lift also floats, higher, and looks entirely convincing until somebody stands on it.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The waterline is what is asserted, and the displacement on its own would not have
-    ///         been enough.</b> At equilibrium the lift equals the weight by definition, so
+    ///         ⚠
+    ///         <b>
+    ///             The waterline is what is asserted, and the displacement on its own would not have
+    ///             been enough.
+    ///         </b>
+    ///         At equilibrium the lift equals the weight by definition, so
     ///         "displaced volume equals <c>RestDisplacement</c>" is true for <em>any</em> coefficient
     ///         — both sides scale by it — and a test asserting only that would pass with the
     ///         coefficient doubled. The height is where the coefficient actually shows, so the cap
@@ -123,7 +130,7 @@ public sealed class BuoyancySystemTests {
         var lake = new Lake(0f);
         var buoyancy = new BuoyancySystem(scene, lake);
 
-        var crate = Crate(scene, new(0f, 4f, 0f), mass: 300f, radius: 0.6f, coefficient: 1.6f);
+        var crate = Crate(scene, new(0f, 4f, 0f), 300f, 0.6f, 1.6f);
 
         Advance(scene, buoyancy, entities, 600, lake);
 
@@ -145,8 +152,12 @@ public sealed class BuoyancySystemTests {
 
     /// <summary>The centre height of a sphere floating with a given fraction submerged.</summary>
     /// <remarks>
-    ///     ⚠ <b>Bisected against <see cref="Buoyancy.SubmergedFraction" /> rather than solved in
-    ///     closed form.</b> Inverting the spherical cap is a cubic, and a second implementation of the
+    ///     ⚠
+    ///     <b>
+    ///         Bisected against <see cref="Buoyancy.SubmergedFraction" /> rather than solved in
+    ///         closed form.
+    ///     </b>
+    ///     Inverting the spherical cap is a cubic, and a second implementation of the
     ///     cap here would be a test that agrees with itself; bisecting the shipped function makes the
     ///     assertion about the <em>solver</em> reaching the height the cap predicts.
     /// </remarks>
@@ -181,10 +192,10 @@ public sealed class BuoyancySystemTests {
         using var entities = new EcsWorld("Test");
         using var scene = new PhysicsScene(entities);
 
-        var lake = new Lake(0f, extent: 20f);
+        var lake = new Lake(0f, 20f);
         var buoyancy = new BuoyancySystem(scene, lake);
 
-        var crate = Crate(scene, new(500f, 4f, 0f), mass: 300f, radius: 0.6f);
+        var crate = Crate(scene, new(500f, 4f, 0f), 300f, 0.6f);
 
         Advance(scene, buoyancy, entities, 120, lake);
 
@@ -215,14 +226,12 @@ public sealed class BuoyancySystemTests {
         var buoyancy = new BuoyancySystem(scene, lake);
 
         var raft = entities.Create(
-            LocalTransform.At(new(0f, 0.2f, 0f)) with {
-                Rotation = Quaternion.FromAxisAngle(Vector3.UnitZ, 0.6f)
-            }
+            LocalTransform.At(new(0f, 0.2f, 0f)) with { Rotation = Quaternion.FromAxisAngle(Vector3.UnitZ, 0.6f) }
         );
 
         entities.Add(raft, Collider.Of(scene.Shapes.Box(new Vector3(2f, 0.25f, 3f))));
         entities.Add(raft, RigidBody.Dynamic() with { Mass = 800f });
-        entities.Add(raft, BuoyancyBody.Raft(halfLength: 2.5f, halfWidth: 1.5f, radius: 0.7f));
+        entities.Add(raft, BuoyancyBody.Raft(2.5f, 1.5f, 0.7f));
         entities.Add<BuoyancyState>(raft);
 
         Advance(scene, buoyancy, entities, 900, lake);
@@ -254,7 +263,7 @@ public sealed class BuoyancySystemTests {
         var lake = new Swell();
         var buoyancy = new BuoyancySystem(scene, lake);
 
-        Crate(scene, new(0f, 0.2f, 0f), mass: 300f, radius: 0.6f);
+        Crate(scene, new(0f, 0.2f, 0f), 300f, 0.6f);
         scene.Synchronize(Step);
 
         lake.WaterTime = 0f;
@@ -298,12 +307,12 @@ public sealed class BuoyancySystemTests {
 
         Assert.Contains(
             type.GetCustomAttributes<UpdateAfterAttribute>(),
-            attribute => attribute.SystemType == typeof(PhysicsSyncSystem)
+            static attribute => attribute.SystemType == typeof(PhysicsSyncSystem)
         );
 
         Assert.Contains(
             type.GetCustomAttributes<UpdateBeforeAttribute>(),
-            attribute => attribute.SystemType == typeof(PhysicsStepSystem)
+            static attribute => attribute.SystemType == typeof(PhysicsStepSystem)
         );
     }
 
@@ -350,8 +359,11 @@ public sealed class BuoyancySystemTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <b>§ W7's second exit criterion, and it is met by a property rather than by
-    ///         machinery.</b> A buoyant body needs no replication of its own: it rides
+    ///         <b>
+    ///             § W7's second exit criterion, and it is met by a property rather than by
+    ///             machinery.
+    ///         </b>
+    ///         A buoyant body needs no replication of its own: it rides
     ///         <c>Vixen.Net.Physics</c>' existing rigid-body path unchanged, because the force is a
     ///         <em>pure function</em> of things both peers already have — the pontoons (authored), the
     ///         pose and velocity (replicated), the field and the spectrum (content), and the water
@@ -379,7 +391,10 @@ public sealed class BuoyancySystemTests {
 
     static (Vector3 Position, Quaternion Rotation, float Submerged) Predicted(int steps) {
         using var entities = new EcsWorld("Test");
-        using var scene = new PhysicsScene(entities, new PhysicsWorldSettings { ThreadCount = 1, Deterministic = true });
+        using var scene = new PhysicsScene(
+            entities,
+            new PhysicsWorldSettings { ThreadCount = 1, Deterministic = true }
+        );
 
         var lake = new Lake(0f);
         var buoyancy = new BuoyancySystem(scene, lake);
@@ -390,7 +405,7 @@ public sealed class BuoyancySystemTests {
 
         entities.Add(raft, Collider.Of(scene.Shapes.Box(new Vector3(2f, 0.25f, 3f))));
         entities.Add(raft, RigidBody.Dynamic() with { Mass = 800f, AllowSleeping = false });
-        entities.Add(raft, BuoyancyBody.Raft(halfLength: 2.5f, halfWidth: 1.5f, radius: 0.7f));
+        entities.Add(raft, BuoyancyBody.Raft(2.5f, 1.5f, 0.7f));
         entities.Add(raft, new LinearVelocity { Value = new(1.5f, 0f, -0.5f) });
         entities.Add<BuoyancyState>(raft);
 

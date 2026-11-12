@@ -73,8 +73,8 @@ public class NodePortProviderTests : IDisposable {
     public void Only_the_inputs_that_take_a_typed_value_are_members() {
         var (_, target) = Bound("Test/Settings");
 
-        Assert.Equal(["Enabled", "Count"], target.Members.Select(member => member.Name));
-        Assert.Equal([typeof(bool), typeof(int)], target.Members.Select(member => member.ValueType));
+        Assert.Equal(["Enabled", "Count"], target.Members.Select(static member => member.Name));
+        Assert.Equal([typeof(bool), typeof(int)], target.Members.Select(static member => member.ValueType));
     }
 
     /// <remarks>
@@ -100,7 +100,7 @@ public class NodePortProviderTests : IDisposable {
         var provider = Provider("Test/Named", sink.Id);
 
         Assert.Empty(provider.Descriptor.Members);
-        Assert.Equal(["Base Colour"], provider.Connected.Select(port => port.Name));
+        Assert.Equal(["Base Colour"], provider.Connected.Select(static port => port.Name));
     }
 
     // ── Writing through it ───────────────────────────────────────────────────
@@ -231,7 +231,7 @@ public class NodePortProviderTests : IDisposable {
         // this panel's: the old hand-written one counted lanes itself. `Value` and not `Number`,
         // because a vector row is three text boxes the drawer fills in — see `ComponentDrawer.Show`.
         Assert.Equal(3, Inside<NumericInput>(row).Count());
-        Assert.Equal(["0.1", "0.2", "0.3"], Inside<NumericInput>(row).Select(box => box.Value));
+        Assert.Equal(["0.1", "0.2", "0.3"], Inside<NumericInput>(row).Select(static box => box.Value));
     }
 
     /// <remarks>
@@ -335,7 +335,7 @@ public class NodePortProviderTests : IDisposable {
 
         // The initializer is the default, and a node that has never been typed into holds nothing.
         Assert.Equal("unnamed", target.Find("Label")!.Read().Value);
-        Assert.Equal("", target.Find("Target Name")!.Read().Value);
+        Assert.Equal(string.Empty, target.Find("Target Name")!.Read().Value);
         Assert.Empty(node.Texts);
     }
 
@@ -346,26 +346,33 @@ public class NodePortProviderTests : IDisposable {
     [Fact]
     public void A_setting_is_a_string_to_the_pipeline() {
         var members = Provider("Test/Named Thing", NodeId.None).Descriptor.Members;
-        var member = Assert.IsType<NodeSettingMember>(members.Single(entry => entry.Name == "Label"));
+        var member = Assert.IsType<NodeSettingMember>(members.Single(static entry => entry.Name == "Label"));
 
         Assert.Equal(typeof(string), member.MemberType);
         Assert.Equal("What the thing is called.", member.Tooltip);
 
         // Ports first, settings after: a port may lose its row to a wire and a setting never can.
-        Assert.Equal(["Weight", "Label", "Target Name"], members.Select(entry => entry.Name));
+        Assert.Equal(["Weight", "Label", "Target Name"], members.Select(static entry => entry.Name));
     }
 
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A setting that states what it accepts is a dropdown, and the one beside it is
-    ///         still a text box — <a href="https://github.com/Rikarin/Vixen/issues/964">#964</a>.</b>
+    ///         ⚠
+    ///         <b>
+    ///             A setting that states what it accepts is a dropdown, and the one beside it is
+    ///             still a text box — <a href="https://github.com/Rikarin/Vixen/issues/964">#964</a>.
+    ///         </b>
     ///         Both halves, because either alone is satisfied by a defect: a panel that drew every
     ///         string as a <c>Select</c> would pass the first, and one that drew every string as a
     ///         <c>TextBox</c> — which is what it did — passes the second.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The options are read off the control rather than compared with a list written
-    ///         here.</b> What is asserted is that the declaration reached the control in the
+    ///         ⚠
+    ///         <b>
+    ///             The options are read off the control rather than compared with a list written
+    ///             here.
+    ///         </b>
+    ///         What is asserted is that the declaration reached the control in the
     ///         declaration's own order, which is the only claim the seam makes; three literal names
     ///         are the node type's, one file away.
     ///     </para>
@@ -382,12 +389,12 @@ public class NodePortProviderTests : IDisposable {
 
         fixture.Update();
 
-        var chosen = panel.Rows.Single(row => row.Field.Member.Name == "Pick");
-        var free = panel.Rows.Single(row => row.Field.Member.Name == "Free");
+        var chosen = panel.Rows.Single(static row => row.Field.Member.Name == "Pick");
+        var free = panel.Rows.Single(static row => row.Field.Member.Name == "Free");
 
         var select = Assert.Single(Inside<Select>(chosen));
 
-        Assert.Equal(["alpha", "beta", "gamma"], select.Options.Select(option => option.Value));
+        Assert.Equal(["alpha", "beta", "gamma"], select.Options.Select(static option => option.Value));
 
         // The declared default is what a node nobody has typed into shows.
         Assert.Equal("beta", select.Value);
@@ -414,7 +421,7 @@ public class NodePortProviderTests : IDisposable {
 
         fixture.Update();
 
-        var select = Assert.Single(Inside<Select>(panel.Rows.Single(row => row.Field.Member.Name == "Pick")));
+        var select = Assert.Single(Inside<Select>(panel.Rows.Single(static row => row.Field.Member.Name == "Pick")));
         var depth = fixture.Stack.History.Count;
 
         select.Value = "gamma";

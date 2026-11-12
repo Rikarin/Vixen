@@ -115,13 +115,13 @@ static class Topology {
         }
 
         for (var influence = 0; influence < 4; influence++) {
-            if (mesh.BoneIndices.Length != 0 &&
-                mesh.BoneIndices[(left * 4) + influence] != mesh.BoneIndices[(right * 4) + influence]) {
+            if (mesh.BoneIndices.Length != 0
+                && mesh.BoneIndices[left * 4 + influence] != mesh.BoneIndices[right * 4 + influence]) {
                 return false;
             }
 
-            if (mesh.BoneWeights.Length != 0 &&
-                mesh.BoneWeights[(left * 4) + influence] != mesh.BoneWeights[(right * 4) + influence]) {
+            if (mesh.BoneWeights.Length != 0
+                && mesh.BoneWeights[left * 4 + influence] != mesh.BoneWeights[right * 4 + influence]) {
                 return false;
             }
         }
@@ -159,8 +159,8 @@ static class Topology {
 
         for (var triangle = 0; triangle < triangles; triangle++) {
             for (var corner = 0; corner < 3; corner++) {
-                var a = welded[corners[(triangle * 3) + corner]];
-                var b = welded[corners[(triangle * 3) + ((corner + 1) % 3)]];
+                var a = welded[corners[triangle * 3 + corner]];
+                var b = welded[corners[triangle * 3 + (corner + 1) % 3]];
 
                 if (a == b) {
                     continue;
@@ -295,8 +295,8 @@ static class Topology {
 
         foreach (var triangle in triangles) {
             for (var corner = 0; corner < 3; corner++) {
-                var a = welded[corners[(triangle * 3) + corner]];
-                var b = welded[corners[(triangle * 3) + ((corner + 1) % 3)]];
+                var a = welded[corners[triangle * 3 + corner]];
+                var b = welded[corners[triangle * 3 + (corner + 1) % 3]];
 
                 if (a == b) {
                     continue;

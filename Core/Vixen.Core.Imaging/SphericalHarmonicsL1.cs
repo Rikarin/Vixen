@@ -8,8 +8,11 @@ namespace Vixen.Core.Imaging;
 /// <summary>An irradiance probe's whole payload: four numbers per channel.</summary>
 /// <remarks>
 ///     <para>
-///         <b>A struct where <see cref="SphericalHarmonicsL2" /> is a class, and the difference is
-///         the use.</b> One of those describes a scene's sky and there is one of it; a brick of an
+///         <b>
+///             A struct where <see cref="SphericalHarmonicsL2" /> is a class, and the difference is
+///             the use.
+///         </b>
+///         One of those describes a scene's sky and there is one of it; a brick of an
 ///         irradiance field holds sixty-four of these and a clipmap holds thousands of bricks. At
 ///         that count an object header per probe is most of the memory, and the array has to be
 ///         contiguous anyway because it is copied into a volume texture.
@@ -91,8 +94,11 @@ public struct SphericalHarmonicsL1 : IEquatable<SphericalHarmonicsL1> {
     /// <param name="solidAngle">How much of the sphere this sample stands for.</param>
     /// <remarks>
     ///     <para>
-    ///         <b>The solid angle is the caller's, and that is what makes the projection exact rather
-    ///         than nearly right.</b> A projection is an integral over the sphere, so every sample
+    ///         <b>
+    ///             The solid angle is the caller's, and that is what makes the projection exact rather
+    ///             than nearly right.
+    ///         </b>
+    ///         A projection is an integral over the sphere, so every sample
     ///         has to carry the area it represents — <c>4π/n</c> for <i>n</i> uniform directions, a
     ///         texel's own solid angle for a cube map, a cosine-weighted weight for an importance
     ///         sampler. Folding a constant in here would be assuming one of those, and it is the
@@ -108,10 +114,10 @@ public struct SphericalHarmonicsL1 : IEquatable<SphericalHarmonicsL1> {
         var weighted = radiance * solidAngle;
 
         return new(
-            L00 + (weighted * basis[0]),
-            L1m1 + (weighted * basis[1]),
-            L10 + (weighted * basis[2]),
-            L11 + (weighted * basis[3])
+            L00 + weighted * basis[0],
+            L1m1 + weighted * basis[1],
+            L10 + weighted * basis[2],
+            L11 + weighted * basis[3]
         );
     }
 
@@ -130,8 +136,8 @@ public struct SphericalHarmonicsL1 : IEquatable<SphericalHarmonicsL1> {
         Span<float> basis = stackalloc float[Count];
         Evaluate(normal, basis);
 
-        return (L00 * basis[0])
-            + ((L1m1 * basis[1]) + (L10 * basis[2]) + (L11 * basis[3])) * (2f / 3f);
+        return L00 * basis[0]
+            + (L1m1 * basis[1] + L10 * basis[2] + L11 * basis[3]) * (2f / 3f);
     }
 
     /// <summary>The radiance arriving from a direction, as far as four coefficients can say.</summary>
@@ -148,7 +154,7 @@ public struct SphericalHarmonicsL1 : IEquatable<SphericalHarmonicsL1> {
         Span<float> basis = stackalloc float[Count];
         Evaluate(direction, basis);
 
-        return (L00 * basis[0]) + (L1m1 * basis[1]) + (L10 * basis[2]) + (L11 * basis[3]);
+        return L00 * basis[0] + L1m1 * basis[1] + L10 * basis[2] + L11 * basis[3];
     }
 
     /// <summary>One probe blended toward another.</summary>

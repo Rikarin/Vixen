@@ -120,7 +120,8 @@ static class MaterialIcons {
     const string Movie = "M2.6 6.4h12.2v11.2H2.6zM16.6 10.2l4.8-3.2v10l-4.8-3.2z";
 
     /// <summary>A clapperboard. The thing that decides which camera is live.</summary>
-    const string Director = "M2.6 9.4h18.8v9.2H2.6zM2.6 5.4h4.4l1.6 3H4.2zM8.6 5.4H13l1.6 3h-4.4zM14.6 5.4H19l1.6 3h-4.4z";
+    const string Director =
+        "M2.6 9.4h18.8v9.2H2.6zM2.6 5.4h4.4l1.6 3H4.2zM8.6 5.4H13l1.6 3h-4.4zM14.6 5.4H19l1.6 3h-4.4z";
 
     /// <summary>A rectangle with corner marks. Framing.</summary>
     const string Frame = "M3 3h6v2.2H5.2V9H3zM15 3h6v6h-2.2V5.2H15zM3 15h2.2v3.8H9V21H3zM21 15v6h-6v-2.2h3.8V15z"
@@ -136,17 +137,20 @@ static class MaterialIcons {
     const string OrbitRing = "M12 6.4c5.3 0 9.6 2.5 9.6 5.6s-4.3 5.6-9.6 5.6-9.6-2.5-9.6-5.6 4.3-5.6 9.6-5.6z";
 
     /// <summary>A rail with two stops. A dolly track.</summary>
-    const string Track = "M4.6 13.6a2.6 2.6 0 1 1 0-5.2 2.6 2.6 0 0 1 0 5.2zM19.4 13.6a2.6 2.6 0 1 1 0-5.2 2.6 2.6 0 0 1 0 5.2z"
+    const string Track =
+        "M4.6 13.6a2.6 2.6 0 1 1 0-5.2 2.6 2.6 0 0 1 0 5.2zM19.4 13.6a2.6 2.6 0 1 1 0-5.2 2.6 2.6 0 0 1 0 5.2z"
         + "M4.6 9.8h14.8v2.4H4.6z";
 
     /// <summary>A shield. Something that stops the camera being blocked.</summary>
     const string Shield = "M12 2.4 20.4 5.6v6c0 4.6-3.6 8.4-8.4 10-4.8-1.6-8.4-5.4-8.4-10v-6z";
 
     /// <summary>A jagged line. Shake, noise, an impulse.</summary>
-    const string Noise = "M1.6 12.8 4.4 6l2.8 12L10 4l2.8 16L15.6 8l2.8 8 1.6-3.2h2.4v2.4h-1l-3 6-2.8-8-2.8 12L7.2 20 4.4 8 2.6 12.8z";
+    const string Noise =
+        "M1.6 12.8 4.4 6l2.8 12L10 4l2.8 16L15.6 8l2.8 8 1.6-3.2h2.4v2.4h-1l-3 6-2.8-8-2.8 12L7.2 20 4.4 8 2.6 12.8z";
 
     /// <summary>A box drawn as four corner brackets. A volume something is confined to.</summary>
-    const string Bounds = "M3 3h7v2.2H5.2v4.6H3zM21 3v6.8h-2.2V5.2H14V3zM3 14.2h2.2v4.6H10V21H3zM21 14.2V21h-7v-2.2h4.8v-4.6z";
+    const string Bounds =
+        "M3 3h7v2.2H5.2v4.6H3zM21 3v6.8h-2.2V5.2H14V3zM3 14.2h2.2v4.6H10V21H3zM21 14.2V21h-7v-2.2h4.8v-4.6z";
 
     /// <summary>A bulb with rays. A light.</summary>
     const string Bulb = "M12 2.6a6.4 6.4 0 0 1 3.8 11.6v2.2H8.2v-2.2A6.4 6.4 0 0 1 12 2.6zM8.6 17.6h6.8v1.8H8.6z"
@@ -182,7 +186,8 @@ static class MaterialIcons {
     const string SplineKnots = "M1 15.6h4.4V20H1zM18.6 4.2H23v4.4h-4.4z";
 
     /// <summary>A head and shoulders. A player.</summary>
-    const string Person = "M12 3.2a3.8 3.8 0 1 1 0 7.6 3.8 3.8 0 0 1 0-7.6zM12 12.4c4.2 0 7.6 2.4 7.6 5.4v3H4.4v-3c0-3 3.4-5.4 7.6-5.4z";
+    const string Person =
+        "M12 3.2a3.8 3.8 0 1 1 0 7.6 3.8 3.8 0 0 1 0-7.6zM12 12.4c4.2 0 7.6 2.4 7.6 5.4v3H4.4v-3c0-3 3.4-5.4 7.6-5.4z";
 
     /// <summary>A stick and two buttons. Input.</summary>
     const string Gamepad = "M7.4 7.4h9.2a5.6 5.6 0 0 1 0 11.2H7.4a5.6 5.6 0 0 1 0-11.2z"
@@ -200,7 +205,8 @@ static class MaterialIcons {
         + "M12.8 7.6h3.6a4.4 4.4 0 0 1 0 8.8h-3.6v-1.9h3.6a2.5 2.5 0 0 0 0-5h-3.6z";
 
     /// <summary>A bell. Something that fires rather than something that plays.</summary>
-    const string Event = "M12 2.2a1.7 1.7 0 0 1 1.7 1.7v.6a6.4 6.4 0 0 1 4.7 6.2v4l1.8 2.4v1.3H3.8v-1.3l1.8-2.4v-4a6.4 6.4 0 0 1 4.7-6.2v-.6A1.7 1.7 0 0 1 12 2.2z"
+    const string Event =
+        "M12 2.2a1.7 1.7 0 0 1 1.7 1.7v.6a6.4 6.4 0 0 1 4.7 6.2v4l1.8 2.4v1.3H3.8v-1.3l1.8-2.4v-4a6.4 6.4 0 0 1 4.7-6.2v-.6A1.7 1.7 0 0 1 12 2.2z"
         + "M9.8 19.4h4.4a2.2 2.2 0 0 1-4.4 0z";
 
     // ── The set ─────────────────────────────────────────────────────────────────────────────────
@@ -229,8 +235,12 @@ static class MaterialIcons {
         new(new Rectangle(0f, 0f, 24f, 24f), [new IconPath(Path(data), IconPaint.None, IconPaint.Of(colour), width)]);
 
     /// <summary>
-    ///     ⚠ <b>Parsed once into a static, because an <see cref="IconArt" /> is shared by every
-    ///     element that draws it</b> — see its own remarks — and because a parse per icon per panel
+    ///     ⚠
+    ///     <b>
+    ///         Parsed once into a static, because an <see cref="IconArt" /> is shared by every
+    ///         element that draws it
+    ///     </b>
+    ///     — see its own remarks — and because a parse per icon per panel
     ///     rebuild would put a string scan in the inspector's build path for no reason at all.
     /// </summary>
     static PathBuilder Path(string data) =>
@@ -301,10 +311,10 @@ static class MaterialIcons {
         ];
 
         if (glyph is not null) {
-            paths.Add(new IconPath(Path(glyph), IconPaint.Of(mark.A > 0f ? mark : new Color4(1f, 1f, 1f, 0.92f))));
+            paths.Add(new(Path(glyph), IconPaint.Of(mark.A > 0f ? mark : new Color4(1f, 1f, 1f, 0.92f))));
         }
 
-        return new IconArt(new Rectangle(0f, 0f, 24f, 24f), paths);
+        return new(new(0f, 0f, 24f, 24f), paths);
     }
 
     /// <summary>The same hue, further down. What the folded corner and the back panel are drawn in.</summary>
@@ -316,14 +326,16 @@ static class MaterialIcons {
         public const string Texture = "M7.4 11.6h9.4v6.6H7.4zM8.6 17.2l2.4-3 1.6 2 2-2.6 2.4 3.6z";
 
         /// <summary>A ringed globe. A scene.</summary>
-        public const string Scene = "M12 10.4a4 4 0 1 1 0 8 4 4 0 0 1 0-8zm0 1.4a2.6 2.6 0 1 0 0 5.2 2.6 2.6 0 0 0 0-5.2z"
+        public const string Scene =
+            "M12 10.4a4 4 0 1 1 0 8 4 4 0 0 1 0-8zm0 1.4a2.6 2.6 0 1 0 0 5.2 2.6 2.6 0 0 0 0-5.2z"
             + "M7.6 13.7h8.8v1.4H7.6z";
 
         /// <summary>A little box. A model or a mesh.</summary>
         public const string Model = "M12 9.6 17 12.3v5.4L12 20.4 7 17.7v-5.4zm0 1.7-3.2 1.7 3.2 1.7 3.2-1.7z";
 
         /// <summary>A sphere with a highlight. A material.</summary>
-        public const string Material = "M12 9.8a4.6 4.6 0 1 1 0 9.2 4.6 4.6 0 0 1 0-9.2zM10.1 11.6a2.4 2.4 0 0 0 2.6 1.2 2.4 2.4 0 0 1-2.6-1.2z";
+        public const string Material =
+            "M12 9.8a4.6 4.6 0 1 1 0 9.2 4.6 4.6 0 0 1 0-9.2zM10.1 11.6a2.4 2.4 0 0 0 2.6 1.2 2.4 2.4 0 0 1-2.6-1.2z";
 
         /// <summary>A note. Audio.</summary>
         public const string Audio = "M15.6 9.4v6.2a2.2 2.2 0 1 1-1.5-2.1V11l-3.9.9v4.9a2.2 2.2 0 1 1-1.5-2.1v-4.4z";
@@ -332,7 +344,8 @@ static class MaterialIcons {
         public const string Video = "M9.8 10.6 16.6 14.6 9.8 18.6z";
 
         /// <summary>Braces. Something the editor wrote itself.</summary>
-        public const string Native = "M10.4 9.8v1.5h-1v2.4H8.2v1.6h1.2v2.4h1v1.5H8.6a1.4 1.4 0 0 1-1.4-1.4v-2.5H6.2v-1.6h1v-2.5a1.4 1.4 0 0 1 1.4-1.4z"
+        public const string Native =
+            "M10.4 9.8v1.5h-1v2.4H8.2v1.6h1.2v2.4h1v1.5H8.6a1.4 1.4 0 0 1-1.4-1.4v-2.5H6.2v-1.6h1v-2.5a1.4 1.4 0 0 1 1.4-1.4z"
             + "M13.6 9.8h1.8a1.4 1.4 0 0 1 1.4 1.4v2.5h1v1.6h-1v2.5a1.4 1.4 0 0 1-1.4 1.4h-1.8v-1.5h1v-2.4h1.2v-1.6h-1.2v-2.4h-1z";
     }
 

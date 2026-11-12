@@ -45,7 +45,7 @@ public class MeshTopologyTests {
         var mesh = TestShapes.Tube();
         var was = mesh.EdgesAt(4).ToArray();
 
-        mesh.MovePosition(4, new Vector3(9f, 9f, 9f));
+        mesh.MovePosition(4, new(9f, 9f, 9f));
 
         // ⚠ The same guarantee the edge table itself makes, and for the same reason: a drag is a
         // change of where and not of what is joined to what. Rebuilding these per frame of a drag is
@@ -57,8 +57,8 @@ public class MeshTopologyTests {
 
     [Fact]
     public void A_loop_round_a_tube_closes_and_is_one_edge_per_side() {
-        var mesh = TestShapes.Tube(8, 3);
-        var around = Around(mesh, band: 1);
+        var mesh = TestShapes.Tube();
+        var around = Around(mesh, 1);
 
         List<int> loop = [];
 
@@ -75,7 +75,7 @@ public class MeshTopologyTests {
 
     [Fact]
     public void A_loop_along_a_tube_runs_the_whole_length_and_stops_at_the_open_ends() {
-        var mesh = TestShapes.Tube(8, 3);
+        var mesh = TestShapes.Tube();
 
         // An edge from the first circle to the second, at side zero.
         var along = mesh.EdgeBetween(0, 8);
@@ -118,7 +118,7 @@ public class MeshTopologyTests {
 
     [Fact]
     public void A_ring_crosses_the_quads_a_loop_runs_along() {
-        var mesh = TestShapes.Tube(8, 3);
+        var mesh = TestShapes.Tube();
 
         // An edge along the tube: its ring is the eight edges at the same height, one per side.
         var along = mesh.EdgeBetween(0, 8);
@@ -136,7 +136,7 @@ public class MeshTopologyTests {
 
     [Fact]
     public void A_ring_and_a_loop_through_one_edge_share_only_that_edge() {
-        var mesh = TestShapes.Tube(8, 3);
+        var mesh = TestShapes.Tube();
         var along = mesh.EdgeBetween(0, 8);
 
         List<int> ring = [];
@@ -152,7 +152,7 @@ public class MeshTopologyTests {
 
     [Fact]
     public void A_ring_through_a_grid_ends_at_the_rim() {
-        var mesh = TestShapes.Grid(3, 3);
+        var mesh = TestShapes.Grid();
         var across = mesh.EdgeBetween(0, 4);
 
         List<int> ring = [];
@@ -191,7 +191,7 @@ public class MeshTopologyTests {
 
     [Fact]
     public void Every_coplanar_face_of_a_grid_is_the_whole_grid() {
-        var mesh = TestShapes.Grid(3, 3);
+        var mesh = TestShapes.Grid();
 
         List<int> region = [];
 
@@ -229,7 +229,7 @@ public class MeshTopologyTests {
 
     [Fact]
     public void A_group_is_every_face_filed_under_it_whether_or_not_they_touch() {
-        var mesh = TestShapes.Tube(8, 3);
+        var mesh = TestShapes.Tube();
 
         List<int> group = [];
 
@@ -272,7 +272,7 @@ public class MeshTopologyTests {
 
     [Fact]
     public void A_grids_rim_is_one_closed_loop_of_positions() {
-        var mesh = TestShapes.Grid(3, 3);
+        var mesh = TestShapes.Grid();
         var rim = Boundary(mesh);
 
         List<int> loop = [];
@@ -306,7 +306,7 @@ public class MeshTopologyTests {
         List<int> second = [];
 
         Assert.True(MeshTopology.BoundaryLoop(mesh, Boundary(mesh), first));
-        Assert.True(MeshTopology.BoundaryLoop(mesh, Boundary(mesh, skip: first), second));
+        Assert.True(MeshTopology.BoundaryLoop(mesh, Boundary(mesh, first), second));
 
         Assert.Equal(8, first.Count);
         Assert.Equal(8, second.Count);
@@ -325,8 +325,7 @@ public class MeshTopologyTests {
     }
 
     /// <summary>An edge running round one of a tube's circles.</summary>
-    static int Around(EditMesh mesh, int band, int sides = 8) =>
-        mesh.EdgeBetween((band * sides) + 0, (band * sides) + 1);
+    static int Around(EditMesh mesh, int band, int sides = 8) => mesh.EdgeBetween(band * sides, band * sides + 1);
 
     /// <summary>Which of a tube's circles a position is on.</summary>
     static int Band(EditMesh mesh, int position, int sides = 8) => position / sides;

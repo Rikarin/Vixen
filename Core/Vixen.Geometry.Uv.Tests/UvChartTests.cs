@@ -15,40 +15,47 @@ namespace Vixen.Geometry.Uv.Tests;
 ///         answer rather than a retry.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Exit criterion 2 is "no exceptions, no hangs", and that is a statement about the
-///         recursion rather than about the geometry.</b> The two ways it could fail are a chart that
+///         ⚠
+///         <b>
+///             Exit criterion 2 is "no exceptions, no hangs", and that is a statement about the
+///             recursion rather than about the geometry.
+///         </b>
+///         The two ways it could fail are a chart that
 ///         never comes under τ and never gets smaller, and a split that returns its own input — both are
 ///         covered below, at settings chosen to provoke them rather than at the defaults.
 ///     </para>
 /// </remarks>
 public class UvChartTests {
-    public static TheoryData<string> Corpus =>
-        [
-            "sphere-cut-open",
-            "cylinder-slit",
-            "cylinder-closed",
-            "torus-slit",
-            "torus-closed",
-            "hemisphere",
-            "saddle",
-            "strip",
-            "obtuse-grid",
-            "sphere-nearly-closed",
-            "dumbbell",
-            "grouped-plate",
-            "bowtie",
-            "two-islands",
-            "one-triangle",
-            "two-triangles",
-            "degenerate-triangle"
-        ];
+    public static TheoryData<string> Corpus => [
+        "sphere-cut-open",
+        "cylinder-slit",
+        "cylinder-closed",
+        "torus-slit",
+        "torus-closed",
+        "hemisphere",
+        "saddle",
+        "strip",
+        "obtuse-grid",
+        "sphere-nearly-closed",
+        "dumbbell",
+        "grouped-plate",
+        "bowtie",
+        "two-islands",
+        "one-triangle",
+        "two-triangles",
+        "degenerate-triangle"
+    ];
 
     /// <summary>Every chart is a disk the flattener accepts, on every shape in the corpus.</summary>
     /// <remarks>
     ///     ⚠ <b>This is the phase's contract and everything else is detail.</b> § D5's ladder is defined
     ///     on a disk; U2 refuses anything else by name before a solve runs. So a charter that emitted an
-    ///     annulus would not produce a bad atlas, it would produce a chart with <i>no coordinates at
-    ///     all</i> — and the mesh's texture would have a hole in it that no distortion figure mentions.
+    ///     annulus would not produce a bad atlas, it would produce a chart with
+    ///     <i>
+    ///         no coordinates at
+    ///         all
+    ///     </i>
+    ///     — and the mesh's texture would have a hole in it that no distortion figure mentions.
     /// </remarks>
     [Theory]
     [MemberData(nameof(Corpus))]
@@ -80,8 +87,12 @@ public class UvChartTests {
 
     /// <summary>A shape that needs no cut is not cut.</summary>
     /// <remarks>
-    ///     ⚠ <b>A flat plate and a slit cylinder are both isometric, so a charter that split either of
-    ///     them is splitting on something other than distortion.</b> That is the failure § D3 names in
+    ///     ⚠
+    ///     <b>
+    ///         A flat plate and a slit cylinder are both isometric, so a charter that split either of
+    ///         them is splitting on something other than distortion.
+    ///     </b>
+    ///     That is the failure § D3 names in
     ///     the established tools — a growth bound tripping rather than a quality target being missed —
     ///     and it is invisible on a curved shape, where a split is always defensible.
     /// </remarks>
@@ -95,7 +106,7 @@ public class UvChartTests {
         var charts = UvUnwrap.Charts(mesh, new(), out var report);
 
         Assert.Equal(1, report.ChartCount);
-        Assert.All(charts, chart => Assert.Equal(0, chart));
+        Assert.All(charts, static chart => Assert.Equal(0, chart));
         Assert.Equal(0f, report.SeamLength);
         Assert.Equal(0f, report.SeamLengthNormalized);
     }
@@ -261,8 +272,8 @@ public class UvChartTests {
     /// <summary>A null argument is named.</summary>
     [Fact]
     public void ANullArgumentIsNamed() {
-        Assert.Throws<ArgumentNullException>(() => UvUnwrap.Charts(null!, new()));
-        Assert.Throws<ArgumentNullException>(() => UvUnwrap.Charts(new(), null!));
+        Assert.Throws<ArgumentNullException>(static () => UvUnwrap.Charts(null!, new()));
+        Assert.Throws<ArgumentNullException>(static () => UvUnwrap.Charts(new(), null!));
         Assert.Throws<ArgumentOutOfRangeException>(() => UvUnwrap.Charts(new(), new() { MaxDepth = -1 }));
     }
 

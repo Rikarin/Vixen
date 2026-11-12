@@ -9,8 +9,11 @@ namespace Vixen.Ui;
 /// <summary>An element's bare key equivalent was pressed and nothing on the route wanted it.</summary>
 /// <remarks>
 ///     <para>
-///         <b>The Return and Escape of a form, and the same shape as <see cref="AccessKeyEvent" />
-///         with the modifier taken off.</b> AppKit's <c>keyEquivalent</c>, WPF's
+///         <b>
+///             The Return and Escape of a form, and the same shape as <see cref="AccessKeyEvent" />
+///             with the modifier taken off.
+///         </b>
+///         AppKit's <c>keyEquivalent</c>, WPF's
 ///         <c>IsDefault</c>/<c>IsCancel</c>: a button that presses when Return reaches the form
 ///         unclaimed, and one that presses on Escape. The document decides <i>which</i> element —
 ///         within the focus scope, so a dialog's default cannot be pressed from the window behind it
@@ -76,7 +79,7 @@ public static class AccessKey {
         key = '\0';
 
         if (string.IsNullOrEmpty(label) || label.IndexOf(Marker, StringComparison.Ordinal) < 0) {
-            return label ?? "";
+            return label ?? string.Empty;
         }
 
         var text = new System.Text.StringBuilder(label.Length);
@@ -257,12 +260,12 @@ public sealed partial class UiDocument {
         }
 
         if (args.Key is >= InputKey.A and <= InputKey.Z) {
-            key = (char) ('A' + (args.Key - InputKey.A));
+            key = (char)('A' + (args.Key - InputKey.A));
             return true;
         }
 
         if (args.Key is >= InputKey.Number1 and <= InputKey.Number9) {
-            key = (char) ('1' + (args.Key - InputKey.Number1));
+            key = (char)('1' + (args.Key - InputKey.Number1));
             return true;
         }
 

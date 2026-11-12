@@ -41,10 +41,18 @@ public readonly record struct MetaEnvelope(AssetId Guid, int MetaVersion, string
 ///         "the first" and "the only" are the same answer.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The keys are matched case-insensitively, and matching them ordinally was the same
-///         class of disagreement in a different place.</b> <c>YamlSerializer</c> binds members
-///         case-insensitively, so a document saying <c>MetaVersion: 5</c> gave <b>0 from this scanner
-///         and 5 from the parser</b> — the index would file the asset at version zero and the compiler
+///         ⚠
+///         <b>
+///             The keys are matched case-insensitively, and matching them ordinally was the same
+///             class of disagreement in a different place.
+///         </b>
+///         <c>YamlSerializer</c> binds members
+///         case-insensitively, so a document saying <c>MetaVersion: 5</c> gave
+///         <b>
+///             0 from this scanner
+///             and 5 from the parser
+///         </b>
+///         — the index would file the asset at version zero and the compiler
 ///         would build it at five. The fix belongs here rather than at the reader: refusing keys that
 ///         differ only in case would false-refuse a legitimate <c>extensions</c> map carrying both
 ///         <c>Foo</c> and <c>foo</c>, which is a document nobody wrote by mistake.

@@ -8,8 +8,12 @@ namespace Vixen.TailwindParity.Tests;
 /// <summary>That the counts doc 43 <i>states</i> are the counts its artefacts <i>hold</i>.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>This gate exists because the batch that replaced doc 43's assertions with
-///         measurements left one of the assertions behind.</b> One commit wrote "163 of v4's 890
+///         ⚠
+///         <b>
+///             This gate exists because the batch that replaced doc 43's assertions with
+///             measurements left one of the assertions behind.
+///         </b>
+///         One commit wrote "163 of v4's 890
 ///         static utilities are named by no row"; the next shrank that list to 150 and did not
 ///         revisit the sentence; a third edited the same file again and did not either. Every
 ///         artefact was right and the document describing them was thirteen out, because
@@ -35,7 +39,7 @@ public sealed class ProseAuditTests {
         FunctionalRoots = ["left", "top"],
         Variants = [new TailwindVariant("hover", "hover"), new TailwindVariant("before", "before")],
         Checked = ["sr-only", "static"],
-        Refused = [],
+        Refused = []
     };
 
     /// <summary>Prose that agrees with <see cref="Miniature" /> and with one entry in each list.</summary>
@@ -47,7 +51,7 @@ public sealed class ProseAuditTests {
         """;
 
     static IReadOnlyList<string> Codes(string document) =>
-        [.. ProseAudit.Run(document, Miniature, ["sr-only"], ["before"]).Select(finding => finding.Code)];
+        [..ProseAudit.Run(document, Miniature, ["sr-only"], ["before"]).Select(static finding => finding.Code)];
 
     /// <summary>The check this file exists for, over the committed document.</summary>
     [Fact]
@@ -59,7 +63,7 @@ public sealed class ProseAuditTests {
         Assert.Equal(
             [],
             ProseAudit.Run(File.ReadAllText(Files.Document), registry, unlisted, unsupported)
-                .Select(finding => finding.ToString())
+                .Select(static finding => finding.ToString())
         );
     }
 
@@ -100,7 +104,7 @@ public sealed class ProseAuditTests {
     public void A_claim_that_has_been_reworded_away_is_TWP013() {
         Assert.Contains("TWP013", Codes(Clean().Replace("are named by no row", "are named by no ledger row")));
         Assert.Contains("TWP013", Codes(Clean().Replace("It is **1 of v4's 2**", "It is 1 of v4's 2")));
-        Assert.Contains("TWP013", Codes(""));
+        Assert.Contains("TWP013", Codes(string.Empty));
 
         // And twice, which is the other way a count stops being one number: two sentences stating it
         // can disagree with each other while each agrees with the file.

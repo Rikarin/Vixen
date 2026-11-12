@@ -43,7 +43,7 @@ public static class TgaWriter {
         }
 
         const int header = 18;
-        ReadOnlySpan<byte> footer = "\0\0\0\0\0\0\0\0TRUEVISION-XFILE.\0"u8;
+        var footer = "\0\0\0\0\0\0\0\0TRUEVISION-XFILE.\0"u8;
         var file = new byte[header + samples.Length + footer.Length];
         file[2] = (byte)(channels == 1 ? 3 : 2);
         BinaryPrimitives.WriteUInt16LittleEndian(file.AsSpan(12), (ushort)width);

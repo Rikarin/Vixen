@@ -86,9 +86,9 @@ static class TexturePixelProcessor {
         }
 
         Say("package Vixen.TextureGraph.Shaders");
-        Say("");
+        Say(string.Empty);
         Say("// Generated from a Pixel Processor node's expression — doc 48 § D6. Not a file.");
-        Say("");
+        Say(string.Empty);
         Say($"shader {name} {{");
 
         if (hasA) {
@@ -103,29 +103,29 @@ static class TexturePixelProcessor {
             Say($"    var {number}: float = 0f");
         }
 
-        Say("");
-        Say("    [Format(\"rgba16f\")] var target: RWTexture2D<float4>");
+        Say(string.Empty);
+        Say("""    [Format("rgba16f")] var target: RWTexture2D<float4>""");
 
         if (hasA) {
-            Say("");
+            Say(string.Empty);
             Tap(Say, "TapA", "sourceA");
         }
 
         if (hasB) {
-            Say("");
+            Say(string.Empty);
             Tap(Say, "TapB", "sourceB");
         }
 
-        Say("");
+        Say(string.Empty);
         Say("    [ComputeShader(8, 8, 1)]");
-        Say("    func Main([Semantic(\"SV_DispatchThreadID\")] id: uint3) {");
+        Say("""    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {""");
         Say("        val coord = int2(int(id.x), int(id.y))");
         Say("        val size = target.GetDimensions()");
-        Say("");
+        Say(string.Empty);
         Say("        if (coord.x >= size.x || coord.y >= size.y) {");
         Say("            return");
         Say("        }");
-        Say("");
+        Say(string.Empty);
 
         // ⚠ A `float4` and not a `float` even for an unconnected input, and the alpha is one. A
         // splatted zero would make `a` invisible to every blend an expression could write, which is
@@ -133,8 +133,10 @@ static class TexturePixelProcessor {
         Say(hasA ? "        val a = TapA(coord)" : "        val a = float4(0f, 0f, 0f, 1f)");
         Say(hasB ? "        val b = TapB(coord)" : "        val b = float4(0f, 0f, 0f, 1f)");
 
-        Say("        val uv = float2((float(coord.x) + 0.5f) / float(size.x), (float(coord.y) + 0.5f) / float(size.y))");
-        Say("");
+        Say(
+            "        val uv = float2((float(coord.x) + 0.5f) / float(size.x), (float(coord.y) + 0.5f) / float(size.y))"
+        );
+        Say(string.Empty);
 
         body = line;
 
@@ -166,16 +168,18 @@ static class TexturePixelProcessor {
 
             var at = diagnostic.Location.IsNone ? -1 : diagnostic.Location.GetLineSpan().Start.Line;
 
-            problems.Add(new(
-                // ⚠ The line is *not* in the message when it is the expression's own, because the
-                // author is looking at a field with one line in it and being told "line 27" of a file
-                // they have never seen is worse than being told nothing.
-                at == kernel.Line
-                    ? $"{diagnostic.Id}: {diagnostic.GetMessage()}"
-                    : $"The generated kernel does not compile at line {at + 1}: {diagnostic.Id}: "
-                      + diagnostic.GetMessage(),
-                at < 0 ? NodeSpan.None : new NodeSpan(at, 1)
-            ));
+            problems.Add(
+                new(
+                    // ⚠ The line is *not* in the message when it is the expression's own, because the
+                    // author is looking at a field with one line in it and being told "line 27" of a file
+                    // they have never seen is worse than being told nothing.
+                    at == kernel.Line
+                        ? $"{diagnostic.Id}: {diagnostic.GetMessage()}"
+                        : $"The generated kernel does not compile at line {at + 1}: {diagnostic.Id}: "
+                        + diagnostic.GetMessage(),
+                    at < 0 ? NodeSpan.None : new NodeSpan(at, 1)
+                )
+            );
         }
 
         return problems.ToImmutable();
@@ -187,7 +191,7 @@ static class TexturePixelProcessor {
     public static string? Refuse(string expression) {
         if (string.IsNullOrWhiteSpace(expression)) {
             return "is empty. A Pixel Processor's expression is what it computes; there is no default "
-                   + "picture it could produce instead.";
+                + "picture it could produce instead.";
         }
 
         // ⚠ The same refusal `TextureGraphExpressions` makes, for the same reason and with more at
@@ -197,13 +201,13 @@ static class TexturePixelProcessor {
         if (expression.Contains('\n', StringComparison.Ordinal)
             || expression.Contains('\r', StringComparison.Ordinal)) {
             return "runs over more than one line. A newline ends a statement in Raven, so only the first "
-                   + "line would be part of it — write it as one expression.";
+                + "line would be part of it — write it as one expression.";
         }
 
         if (expression.Contains('{', StringComparison.Ordinal)
             || expression.Contains('}', StringComparison.Ordinal)) {
             return "contains a brace. This is one expression rather than a function body: a block would "
-                   + "close the one it is written into.";
+                + "close the one it is written into.";
         }
 
         return null;
@@ -212,14 +216,16 @@ static class TexturePixelProcessor {
     static void Tap(Action<string> say, string name, string source) {
         say($"    func {name}(coord: int2): float4 {{");
         say($"        val size = {source}.GetDimensions(0)");
-        say("");
+        say(string.Empty);
 
         // ⚠ Clamped to the *source's* extent and not the target's, which is every kernel in this
         // assembly's rule: an op may write an image larger than the one it reads, and clamping to the
         // storage image would be a no-op after Main's guard — a bounds check that is not one, and an
         // out-of-bounds Load reads as zero on most drivers rather than failing.
-        say($"        return {source}.Load(int3(clamp(coord.x, 0, size.x - 1), "
-            + "clamp(coord.y, 0, size.y - 1), 0))");
+        say(
+            $"        return {source}.Load(int3(clamp(coord.x, 0, size.x - 1), "
+            + "clamp(coord.y, 0, size.y - 1), 0))"
+        );
 
         say("    }");
     }

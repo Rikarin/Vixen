@@ -22,7 +22,7 @@ judgement it says so.
 
 | # | What an application needs | Where it is | Lines | What `Vixen.Ui` has instead |
 |---|---|---|---|---|
-| 1 | Commands: an id, a handler, enablement, a keymap, a palette | `Editor/Vixen.Editor.Ui/Commands/` | **1 629** | `MenuItem : ButtonBase`, and a `Control.Disabled` bool (`Control.cs:78`) that nothing in the control set ever sets on one |
+| 1 | Commands: an id, a handler, enablement, a keymap, a palette | `Editor/Vixen.Editor.Ui/Commands/` | **1 629** | `MenuItem : ButtonBase`, and a `Control.Disabled` bool (`Control.cs:82`) that nothing in the control set ever sets on one |
 | 2 | A string catalogue | `Editor/Vixen.Editor.Ui/Localisation/` | **783** | Nothing — plus ~~twelve~~ **thirteen** English literals baked into the controls (§ A3 counts them). ✅ **Promoted** — `Core/Vixen.Ui/Strings.cs`, `StringCatalog.cs`, and `Vixen.Ui.Controls.ControlStrings`. See A3 |
 | 3 | A modal question that returns an answer | `Editor/Vixen.Editor.Ui/Dialogs/DialogService.cs` | **376** | `Dialog` (`Vixen.Ui.Controls/Dialogs.cs`) — an overlay with a body, a footer and no answer |
 | 4 | An undo history | `Editor/Vixen.Editor.Core/CommandStack.cs` | **372** | Nothing, and `CodeBuffer.cs:50` says so in as many words |
@@ -135,8 +135,8 @@ checked before being repeated:
   relations. There is no § Accessibility in doc 09 and no base-API line anywhere in it.
 - **There is nothing in the code.** No `Role`, no `AccessibleName`, no `AutomationId`, no accessibility
   namespace, no platform bridge, in `Vixen.Ui`, `.Controls`, `.Controls.Advanced`, `.Layout`, `.Text`,
-  `.Testing` or `Vixen.Platform`. The entire surface is three doc comments — `Buttons.cs:96`,
-  `Display.cs:210`, `BuildContext.cs:767` — and two of them are written in the future tense: *"what an
+  `.Testing` or `Vixen.Platform`. The entire surface is three doc comments — `Buttons.cs:100`,
+  `Display.cs:218`, `BuildContext.cs:874` — and two of them are written in the future tense: *"what an
   accessibility bridge **will** read"*.
 
 "Unaudited" implies an audit could find something. It cannot. **The correct word is greenfield**, and
@@ -177,7 +177,7 @@ worse than that, and the evidence is in the protocol rather than in an opinion:
 
 So in Trinix **the enabled bit gates the keyboard shortcut, in another process, before the application
 is asked anything.** A menu that computes enablement as it opens — which is what
-the editor's menus do, and `MenuPresenter.cs:19` says so: *"Enablement is applied as the menu opens, not
+the editor's menus do, and `MenuPresenter.cs:21` says so: *"Enablement is applied as the menu opens, not
 as it is built"* (now through `Menu`'s own `OpenChanged` rather than the presenter, the same remark adds) — is a menu whose ⌘S silently does nothing, because the accelerator path never opens
 a menu. `about_to_show` does not rescue it: it fires per submenu, when a submenu opens, and it is
 explicitly best-effort (*"the shell shows the menu on the next commit, or immediately if none arrives
@@ -440,8 +440,8 @@ intersection with `ControlStrings`' thirteen call sites actually contains is:
 | Sites | What reaches the accessible name | Verdict |
 |---|---|---|
 | **11** — every `ClearButton`/`CloseButton`/`Toggle`/`Reset`/`Eyedropper`/arrow | `ButtonBase.NativeAccessibleName => Label`, and the label is the catalogue's | ✅ Localised, with nothing written for it |
-| `PropertyGrid.cs:125` | Nothing. The string went to `Placeholder`, and a `TextField`'s name is `null` on purpose | ⚠ **Announced nothing at all** — fixed by naming it from the same `StringId`, one line under the placeholder |
-| `ColorPicker.cs:863` | Nothing. The string is on a caption element and the slider beside it had no relation to it | ⚠ **Announced nothing at all** — fixed by one `LabelledBy` |
+| `PropertyGrid.cs:129` | Nothing. The string went to `Placeholder`, and a `TextField`'s name is `null` on purpose | ⚠ **Announced nothing at all** — fixed by naming it from the same `StringId`, one line under the placeholder |
+| `ColorPicker.cs:891` | Nothing. The string is on a caption element and the slider beside it had no relation to it | ⚠ **Announced nothing at all** — fixed by one `LabelledBy` |
 
 Both defects are the same shape and neither is a hardcoded literal: **a translated word on screen that
 no element in the accessibility tree was reading.** That is the failure mode a reconciliation of these
@@ -456,7 +456,7 @@ because the source text is the right answer when nothing translates it. The two 
 one per control assembly, since the test projects cannot see each other — assert `Unnamed` first (a
 tree with nothing in it satisfies everything else), then that every string the window exists to
 exercise is actually audible in it, then `Untranslated`. **Sabotaged twice**: reverting
-`Dialogs.cs:129` to the literal `"Close"` fails it with
+`Dialogs.cs:137` to the literal `"Close"` fails it with
 `<icon-button> is named "Close", which is the source text of ui.control.dialog.close`, and reverting
 the property grid's name to `"Search"` fails both the class assertion and the focused regression.
 
@@ -555,7 +555,7 @@ request rather than a project:
 >
 > | String | Where |
 > |---|---|
-> | `"Previous page"` · `"Next page"` | `Vixen.Ui.Controls/Navigation.cs:315`, `:340` |
+> | `"Previous page"` · `"Next page"` | `Vixen.Ui.Controls/Navigation.cs:323`, `:348` |
 >
 > They are `Pagination`'s arrow labels, passed to a private `Arrow(geometry, page, label)` helper
 > rather than assigned — which is why a sweep for `.Label = "` alone misses them, and why the count
@@ -565,17 +565,17 @@ request rather than a project:
 > control assemblies, with two ids for the two `"Close"`s because a dialog's dismiss button and a
 > dock tab's are the same English word and are not the same string.
 >
-> **Three left out, and they are a judgement rather than an oversight.** `GradientEditor.cs:720`
+> **Three left out, and they are a judgement rather than an oversight.** `GradientEditor.cs:743`
 > names colour spaces — `"sRGB"`, `"Linear light"`, `"Perceptual (Oklab)"`. A colour-space name is a
 > term of art a translator should generally leave alone, `"sRGB"` is not translatable at all, and
 > putting a mixed set of three through the catalogue would be worse than leaving all three. Also
-> left: `CodeEditor.cs:616`'s `"0"` (a measurement probe, never drawn).
+> left: `CodeEditor.cs:636`'s `"0"` (a measurement probe, never drawn).
 >
 > ⚠ **Two more stood in that list and did not belong there.** `Timeline`'s one-letter `"M"` and
 > `Pagination`'s `"…"` were left out as design questions about the glyph, but each was also the name
 > a screen reader announced: every track's mute toggle was "M" and every gap a disabled button
-> called "…". #1368 moved both into `ControlStrings` (`Timeline.cs:279`, `Vixen.Ui.Controls/Navigation.cs:325`); the
-> toggle is announced by `TimelineMute` at `Timeline.cs:280`, and the gap is out of the
+> called "…". #1368 moved both into `ControlStrings` (`Timeline.cs:281`, `Vixen.Ui.Controls/Navigation.cs:333`); the
+> toggle is announced by `TimelineMute` at `Timeline.cs:282`, and the gap is out of the
 > accessibility tree.
 
 Where each one was until `ca239c357` (2026-08-25) moved all of them into `ControlStrings` — the line
@@ -588,8 +588,8 @@ numbers are that commit's parent's, and the literals are no longer at them.
 | `"Dismiss"` | `Vixen.Ui.Controls/Toasts.cs:66@23bc268b8` |
 | `"Show suggestions"` | `Vixen.Ui.Controls/Selects.cs:621@23bc268b8` |
 | `"Previous tab"` · `"Next tab"` | `Vixen.Ui.Controls.Advanced/DockingHost.cs:548@23bc268b8`, `:557` |
-| `"Reset"` · `"Search"` | `Vixen.Ui.Controls.Advanced/PropertyGrid.cs:53`, `:117` |
-| `"Intensity"` · `"Pick a colour from the screen"` | `Vixen.Ui.Controls.Advanced/ColorPicker.cs:863`, `:855` |
+| `"Reset"` · `"Search"` | `Vixen.Ui.Controls.Advanced/PropertyGrid.cs:53`, `:121` |
+| `"Intensity"` · `"Pick a colour from the screen"` | `Vixen.Ui.Controls.Advanced/ColorPicker.cs:891`, `:883` |
 
 **`Strings.Resource`, checked as asked: planned, not built.** [11](11-editor.md) § asks for it at line
 87; the *As built* box at line 104 records that it is not generated; [`../overview.md`](../overview.md)

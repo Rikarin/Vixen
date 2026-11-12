@@ -8,8 +8,12 @@ namespace Vixen.Graphics.Vulkan;
 /// <summary>The driver's own pipeline cache: created with the device, kept beside the user's data.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Every <c>vkCreate*Pipelines</c> call used to pass <c>VK_NULL_HANDLE</c> here, which
-///         turns the driver's cache off rather than defaulting it on.</b> There is no implicit
+///         ⚠
+///         <b>
+///             Every <c>vkCreate*Pipelines</c> call used to pass <c>VK_NULL_HANDLE</c> here, which
+///             turns the driver's cache off rather than defaulting it on.
+///         </b>
+///         There is no implicit
 ///         cache: two pipelines that differ only in blend state hand the driver the same shader
 ///         twice and it compiles it twice, and nothing at all survives the process. That is one
 ///         level below the pre-warm doc 05 asks for (#301) and independent of it — it decides how
@@ -43,8 +47,7 @@ public sealed unsafe partial class VulkanDevice {
 
         var seed = ReadSeed(path);
         var create = new PipelineCacheCreateInfo {
-            SType = StructureType.PipelineCacheCreateInfo,
-            InitialDataSize = (nuint)seed.Length
+            SType = StructureType.PipelineCacheCreateInfo, InitialDataSize = (nuint)seed.Length
         };
 
         fixed (byte* data = seed) {
@@ -125,7 +128,8 @@ public sealed unsafe partial class VulkanDevice {
 
                     Write(path, blob);
                 }
-            } catch (Exception error) when (error is IOException or UnauthorizedAccessException
+            } catch (Exception error) when (error is IOException
+                                                or UnauthorizedAccessException
                                                 or VulkanException) {
                 if (logger is { } log) {
                     VulkanLog.PipelineCacheUnwritable(log, path, error.Message);

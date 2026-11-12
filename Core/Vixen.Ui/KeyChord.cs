@@ -79,8 +79,12 @@ public readonly record struct KeyChord(InputKey Key, ModifierKeys Modifiers) {
     /// <returns>The swapped chord, or this one where the two are the same modifier.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>An involution, used in both directions, and that is what makes one method
-    ///         enough.</b> A keymap stores and a menu model declares <c>Ctrl+S</c> — one portable
+    ///         ⚠
+    ///         <b>
+    ///             An involution, used in both directions, and that is what makes one method
+    ///             enough.
+    ///         </b>
+    ///         A keymap stores and a menu model declares <c>Ctrl+S</c> — one portable
     ///         vocabulary, in the file and in the table, so a keymap written on a Mac still loads on
     ///         Linux. What adapts is the two ends: an arriving key event is swapped <i>into</i> that
     ///         vocabulary before it is looked up, and a stored chord is swapped <i>out</i> of it
@@ -124,15 +128,18 @@ public readonly record struct KeyChord(InputKey Key, ModifierKeys Modifiers) {
     /// <summary>What a menu shows against the command.</summary>
     /// <returns>Something like <c>Ctrl+Shift+S</c>.</returns>
     /// <remarks>
-    ///     ⚠ <b>Through <see cref="ShortcutFormat.Formatter" /> and after
-    ///     <see cref="ForPlatform()" />, which is the two halves of writing a shortcut the way the
-    ///     machine's other applications do.</b> The swap turns the stored <c>Ctrl+S</c> into the
+    ///     ⚠
+    ///     <b>
+    ///         Through <see cref="ShortcutFormat.Formatter" /> and after
+    ///         <see cref="ForPlatform()" />, which is the two halves of writing a shortcut the way the
+    ///         machine's other applications do.
+    ///     </b>
+    ///     The swap turns the stored <c>Ctrl+S</c> into the
     ///     <c>Meta+S</c> a Mac user actually presses; the formatter turns that into <c>⌘S</c>. A
     ///     chord in a menu, in a toolbar tooltip and in the palette all go through here, so they
     ///     cannot disagree.
     /// </remarks>
-    public string Describe() =>
-        IsBound ? ShortcutFormat.Formatter(Key, ForPlatform().Modifiers) : string.Empty;
+    public string Describe() => IsBound ? ShortcutFormat.Formatter(Key, ForPlatform().Modifiers) : string.Empty;
 
     /// <summary>Makes every shortcut in the process read the way this machine writes them.</summary>
     /// <remarks>
@@ -309,11 +316,11 @@ public readonly record struct KeyChord(InputKey Key, ModifierKeys Modifiers) {
             modifiers |= modifier;
         }
 
-        if (!Enum.TryParse(parts[^1], ignoreCase: true, out InputKey key) || key == InputKey.Unknown) {
+        if (!Enum.TryParse(parts[^1], true, out InputKey key) || key == InputKey.Unknown) {
             return false;
         }
 
-        chord = new KeyChord(key, modifiers);
+        chord = new(key, modifiers);
         return true;
     }
 
@@ -330,10 +337,14 @@ public readonly record struct KeyChord(InputKey Key, ModifierKeys Modifiers) {
     public static KeyChord Of(KeyEvent args) {
         ArgumentNullException.ThrowIfNull(args);
 
-        return args.Key is InputKey.LeftControl or InputKey.RightControl
-            or InputKey.LeftShift or InputKey.RightShift
-            or InputKey.LeftAlt or InputKey.RightAlt
-            or InputKey.LeftMeta or InputKey.RightMeta
+        return args.Key is InputKey.LeftControl
+            or InputKey.RightControl
+            or InputKey.LeftShift
+            or InputKey.RightShift
+            or InputKey.LeftAlt
+            or InputKey.RightAlt
+            or InputKey.LeftMeta
+            or InputKey.RightMeta
             ? None
             : new KeyChord(args.Key, args.Modifiers);
     }

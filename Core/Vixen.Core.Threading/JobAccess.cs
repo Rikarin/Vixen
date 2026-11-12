@@ -33,10 +33,10 @@ namespace Vixen.Core.Threading;
 /// </remarks>
 public sealed class JobAccess {
     /// <summary>Nothing declared, so nothing is checked. What every job has unless one is declared.</summary>
-    public static JobAccess None { get; } = new(isEverything: false);
+    public static JobAccess None { get; } = new(false);
 
     /// <summary>Declared as touching everything, so it conflicts with every other declared job.</summary>
-    public static JobAccess Everything { get; } = new(isEverything: true);
+    public static JobAccess Everything { get; } = new(true);
 
     readonly ulong[] readWords = [];
     readonly ulong[] writeWords = [];
@@ -87,11 +87,13 @@ public sealed class JobAccess {
             writeWords[id >> 6] |= 1ul << (id & 63);
         }
 
-        Reads = [.. read];
-        Writes = [.. written];
+        Reads = [..read];
+        Writes = [..written];
     }
 
-    JobAccess(bool isEverything) => IsEverything = isEverything;
+    JobAccess(bool isEverything) {
+        IsEverything = isEverything;
+    }
 
     /// <summary>Whether two jobs that ran at the same time would race.</summary>
     /// <param name="other">The other job's declaration.</param>

@@ -12,8 +12,11 @@ namespace Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>The refusal is the whole reason it is a new member rather than a second meaning for
-///         <c>Texture</c>.</b> Doc 48 § Part 4 asks for <c>Image</c> and § D2 says why: a texture
+///         <b>
+///             The refusal is the whole reason it is a new member rather than a second meaning for
+///             <c>Texture</c>.
+///         </b>
+///         Doc 48 § Part 4 asks for <c>Image</c> and § D2 says why: a texture
 ///         graph's nodes read a <i>neighbourhood</i> of a raster and a shader graph's read one texel
 ///         of a bound resource, so a node vocabulary spanning both would be one where two thirds of
 ///         the nodes are invalid wherever you happen to be. Riding <c>Texture</c> would have made
@@ -27,11 +30,10 @@ namespace Tests;
 ///     </para>
 /// </remarks>
 public class PortKindImageTests {
-    static PortDefinition Port(string name, PortDirection direction, PortKind kind) =>
-        new(name, direction, kind);
+    static PortDefinition Port(string name, PortDirection direction, PortKind kind) => new(name, direction, kind);
 
     static NodeTypeDefinition Type(string path, params PortDefinition[] ports) =>
-        new(path, [.. ports], static () => new TestConstantNode());
+        new(path, [..ports], static () => new TestConstantNode());
 
     [Fact]
     public void An_image_is_neither_a_vector_nor_a_number_typed_into_a_box() {
@@ -114,7 +116,7 @@ public class PortKindImageTests {
             )
         );
 
-        var results = NodeSearch.Rank(registry, "", new PortFilter(PortKind.Image, PortDirection.Input));
+        var results = NodeSearch.Rank(registry, string.Empty, new PortFilter(PortKind.Image, PortDirection.Input));
         var offered = Assert.Single(results);
 
         Assert.Equal("Texture/Blur", offered.Type.Path);

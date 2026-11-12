@@ -153,11 +153,14 @@ public sealed class FixtureTextureViewTests {
             + "loaded and silent — which is worse than absent, because everything looks clean."
         );
 
-        owned.Graph.AddPass("setup error", pass => {
-            pass.ColourAttachment(colour, LoadAction.Clear, new(0f, 0f, 0f, 1f));
-            pass.SideEffect();
-            pass.Execute(_ => { });
-        });
+        owned.Graph.AddPass(
+            "setup error",
+            pass => {
+                pass.ColourAttachment(colour, LoadAction.Clear, new(0f, 0f, 0f, 1f));
+                pass.SideEffect();
+                pass.Execute(static _ => { });
+            }
+        );
 
         var thrown = Assert.Throws<InvalidOperationException>(() => owned.Render(colour));
 

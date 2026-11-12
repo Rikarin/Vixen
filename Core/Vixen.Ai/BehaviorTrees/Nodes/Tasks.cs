@@ -181,9 +181,7 @@ public sealed class RunSubtreeDynamicTask(BlackboardKey key, BehaviorTreeLibrary
             return ActionStatus.Failed;
         }
 
-        var status = instance.Step(in context, delta);
-
-        return status;
+        return instance.Step(in context, delta);
     }
 
     /// <inheritdoc />

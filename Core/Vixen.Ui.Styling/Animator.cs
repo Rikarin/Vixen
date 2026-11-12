@@ -46,7 +46,7 @@ readonly record struct RunningTransition(
     /// <summary>How far along <see cref="MixFrom" /> → <see cref="MixTo" /> it has got.</summary>
     /// <param name="now">The current time in seconds.</param>
     /// <returns>The mix progress, eased — so outside zero to one where the timing overshoots.</returns>
-    public float MixAt(float now) => MixStart + ((MixEnd - MixStart) * Timing.Evaluate(Progress(now)));
+    public float MixAt(float now) => MixStart + (MixEnd - MixStart) * Timing.Evaluate(Progress(now));
 
     /// <summary>The interned text the mix ends at.</summary>
     public int MixDestination => MixEnd >= 0.5f ? MixTo : MixFrom;
@@ -104,13 +104,18 @@ readonly record struct RunningAnimation(AnimationSpec Spec, float StartedAt);
 public sealed class Animator {
     /// <summary>The running transitions, keyed by element and then by property.</summary>
     /// <remarks>
-    ///     ⚠ <b>By element first, because every per-element question is asked once per element per
-    ///     restyle.</b> A flat <c>(element, property)</c> table answered "what is running on this
+    ///     ⚠
+    ///     <b>
+    ///         By element first, because every per-element question is asked once per element per
+    ///         restyle.
+    ///     </b>
+    ///     A flat <c>(element, property)</c> table answered "what is running on this
     ///     element" only by walking all of it, which <see cref="Withdrawing" /> did for every element
     ///     in the style walk the moment anything anywhere transitioned — O(elements × running
     ///     transitions) per restyle (#1383). See <see cref="TransitionTable" />.
     /// </remarks>
     readonly TransitionTable running = new();
+
     readonly List<(int Element, int Property)> finished = [];
     readonly List<TransitionSpec> specs = [];
     readonly List<AnimationSpec> animationSpecs = [];
@@ -145,8 +150,12 @@ public sealed class Animator {
     /// <summary>The properties this animator times and does not interpolate, and the function it hands each on as.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>One entry, <c>transform</c>, and it is what #174 and #51 were blocked on for four
-    ///         passes.</b> A <c>&lt;transform-list&gt;</c> parses as <see cref="StyleValueKind.Unknown" />
+    ///         ⚠
+    ///         <b>
+    ///             One entry, <c>transform</c>, and it is what #174 and #51 were blocked on for four
+    ///             passes.
+    ///         </b>
+    ///         A <c>&lt;transform-list&gt;</c> parses as <see cref="StyleValueKind.Unknown" />
     ///         — <see cref="StyleValueKind" /> has no function form — and <see cref="Observe" /> dropped
     ///         a transition whose either end was <c>Unknown</c>, so a transform transition never
     ///         started: not "started and jumped", never started. Interpolating one here was never an
@@ -156,9 +165,13 @@ public sealed class Animator {
     ///         depends on this assembly rather than the other way round.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>So the transition is timed here and written as CSS Values 5's own spelling of "this
-    ///         far between these two" — <c>transform-mix(p, A, B)</c> — and the reader that owns the
-    ///         arithmetic resolves it.</b> Nothing downstream is told a transition exists: the overlaid
+    ///         ⚠
+    ///         <b>
+    ///             So the transition is timed here and written as CSS Values 5's own spelling of "this
+    ///             far between these two" — <c>transform-mix(p, A, B)</c> — and the reader that owns the
+    ///             arithmetic resolves it.
+    ///         </b>
+    ///         Nothing downstream is told a transition exists: the overlaid
     ///         value is simply a transform, re-read every pass like any other, which is also what
     ///         re-decides <c>backface-visibility</c> at every step. <c>TransformReader</c>'s
     ///         interpolation half is the other end of this.
@@ -234,9 +247,9 @@ public sealed class Animator {
         this.values = values;
         this.keywords = keywords;
         this.keyframes = keyframes;
-        parser = new StyleValueParser(values, keywords);
-        this.transitions = new TransitionParser(properties);
-        initials = new InitialValues(properties, values);
+        parser = new(values, keywords);
+        transitions = new(properties);
+        initials = new(properties, values);
 
         animationName = properties.Intern("animation-name");
         animationDuration = properties.Intern("animation-duration");
@@ -260,8 +273,14 @@ public sealed class Animator {
         scaleProperty = properties.Intern("scale");
         filterProperty = properties.Intern("filter");
         backdropFilterProperty = properties.Intern("backdrop-filter");
-        filterZeroes = [keywords.Intern("blur"), keywords.Intern("hue-rotate"), keywords.Intern("grayscale"), keywords.Intern("invert"), keywords.Intern("sepia")];
-        filterOnes = [keywords.Intern("brightness"), keywords.Intern("contrast"), keywords.Intern("saturate"), keywords.Intern("opacity")];
+        filterZeroes = [
+            keywords.Intern("blur"), keywords.Intern("hue-rotate"), keywords.Intern("grayscale"),
+            keywords.Intern("invert"), keywords.Intern("sepia")
+        ];
+        filterOnes = [
+            keywords.Intern("brightness"), keywords.Intern("contrast"), keywords.Intern("saturate"),
+            keywords.Intern("opacity")
+        ];
         dropShadowFunction = keywords.Intern("drop-shadow");
         boxShadowProperty = properties.Intern("box-shadow");
         insetKeyword = keywords.Intern("inset");
@@ -271,16 +290,23 @@ public sealed class Animator {
     /// <summary>Whether the user has asked for less movement, and everything therefore snaps.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>Set from <see cref="MediaPreferences.Motion" /> by
-    ///         <see cref="StyleEngine.SetMedia(MediaContext)" />, and false until something says
-    ///         otherwise.</b> A transition is not started and a <c>@keyframes</c> animation is not
+    ///         <b>
+    ///             Set from <see cref="MediaPreferences.Motion" /> by
+    ///             <see cref="StyleEngine.SetMedia(MediaContext)" />, and false until something says
+    ///             otherwise.
+    ///         </b>
+    ///         A transition is not started and a <c>@keyframes</c> animation is not
     ///         run, so a property arrives at its new value the instant the cascade decides it — which
     ///         is exactly what <c>transition-duration: 0s</c> already meant here, on the path
     ///         <see cref="Observe" /> already had.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A framework switch <i>and</i> a media feature, because neither alone is
-    ///         honest.</b> The web's answer is the query alone, and it is right that an author who
+    ///         ⚠
+    ///         <b>
+    ///             A framework switch <i>and</i> a media feature, because neither alone is
+    ///             honest.
+    ///         </b>
+    ///         The web's answer is the query alone, and it is right that an author who
     ///         writes <c>@media (prefers-reduced-motion: reduce)</c> should be able to say what
     ///         happens; but a toolkit whose default is "animate anyway" makes every application that
     ///         did not think about it an application that ignores the preference, and this framework
@@ -290,8 +316,12 @@ public sealed class Animator {
     ///         and turns this off.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A transition already in flight when this is turned on finishes; a keyframe
-    ///         animation does not, and the asymmetry is the two being different things.</b> A
+    ///         ⚠
+    ///         <b>
+    ///             A transition already in flight when this is turned on finishes; a keyframe
+    ///             animation does not, and the asymmetry is the two being different things.
+    ///         </b>
+    ///         A
     ///         transition has an end — cutting it short freezes a panel at whatever opacity it had
     ///         reached, which is the one state no stylesheet asked for. An animation may loop
     ///         forever, so there is no end to let it reach and a spinner would go on spinning.
@@ -429,7 +459,7 @@ public sealed class Animator {
                 return;
             }
 
-            running[key] = new RunningTransition(
+            running[key] = new(
                 element,
                 property,
                 displayed,
@@ -522,8 +552,12 @@ public sealed class Animator {
     /// <summary>A mix written out as the CSS function <c>TransformReader</c> reads it back from.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The progress is written to four decimals, and that is the decision #1383 asked
-    ///         for.</b> Every overlaid value is interned, because a <see cref="ComputedStyle" /> holds
+    ///         ⚠
+    ///         <b>
+    ///             The progress is written to four decimals, and that is the decision #1383 asked
+    ///             for.
+    ///         </b>
+    ///         Every overlaid value is interned, because a <see cref="ComputedStyle" /> holds
     ///         ids, and <see cref="NameTable" /> never forgets one. Written at full float precision the
     ///         progress was a new string on nearly every frame, so an infinite spinner grew the value
     ///         table by one entry a frame for the life of the document — twenty-five thousand frames,
@@ -531,8 +565,12 @@ public sealed class Animator {
     ///         most 10,001 spellings, however long it runs.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Four decimals because that is what every number the animator overlays already
-    ///         had</b> — <see cref="StyleValue.ToCss" /> writes <c>0.####</c> — which is why the numeric
+    ///         ⚠
+    ///         <b>
+    ///             Four decimals because that is what every number the animator overlays already
+    ///             had
+    ///         </b>
+    ///         — <see cref="StyleValue.ToCss" /> writes <c>0.####</c> — which is why the numeric
     ///         half of #1383's claim did not hold: a fading opacity has at most ten thousand spellings a
     ///         unit and always did. The two alternatives were worse: caching per
     ///         <c>(element, property, t)</c> saves nothing when <c>t</c> moves every frame, and keeping
@@ -553,8 +591,12 @@ public sealed class Animator {
     /// <returns>The value, or <see cref="StyleValue.Unknown" /> where there is nothing to say.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The computed-value stage this cascade does not otherwise have, and it exists for
-    ///         exactly one reader.</b> A <see cref="ComputedStyle" /> holds only what a declaration or
+    ///         ⚠
+    ///         <b>
+    ///             The computed-value stage this cascade does not otherwise have, and it exists for
+    ///             exactly one reader.
+    ///         </b>
+    ///         A <see cref="ComputedStyle" /> holds only what a declaration or
     ///         an inheritance put in it, so "absent" and "computes to its initial value" are one state
     ///         here — which every consumer downstream is content with, because a missing length means
     ///         zero to the layout store and a missing colour means nothing is painted. A transition
@@ -562,8 +604,12 @@ public sealed class Animator {
     ///         and <c>absent</c> is neither.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b><see cref="StyleValue.Unknown" /> is still the answer for a property with no entry,
-    ///         and that is the honest partial rather than an omission.</b> See
+    ///         ⚠
+    ///         <b>
+    ///             <see cref="StyleValue.Unknown" /> is still the answer for a property with no entry,
+    ///             and that is the honest partial rather than an omission.
+    ///         </b>
+    ///         See
     ///         <see cref="InitialValues" /> for the two rules that decide the table — it does not
     ///         inherit, and its initial is something <see cref="StyleValue.Lerp" /> can travel from.
     ///         A property outside them keeps the behaviour it had: no fade, and the new value the
@@ -620,7 +666,7 @@ public sealed class Animator {
             }
         }
 
-        return StyleValue.FromCommaList([.. shadows]);
+        return StyleValue.FromCommaList([..shadows]);
     }
 
     /// <summary>Starts or stops the element's keyframe animations.</summary>
@@ -632,8 +678,12 @@ public sealed class Animator {
     ///         invalidation working properly, is exactly when it would be least expected.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Matched by position in the list, not by name.</b> <c>animation-name: spin,
-    ///         pulse</c> becoming <c>spin, flash</c> must leave the spinner where it is and start the
+    ///         ⚠ <b>Matched by position in the list, not by name.</b>
+    ///         <c>
+    ///             animation-name: spin,
+    ///             pulse
+    ///         </c>
+    ///         becoming <c>spin, flash</c> must leave the spinner where it is and start the
     ///         flash from zero — matching by name would do that too, right up until a stylesheet
     ///         reorders the list, where every animation would keep running and the two would have
     ///         swapped which of them wins for a shared property. Position is the identity CSS gives
@@ -726,8 +776,12 @@ public sealed class Animator {
     ///     <c>animation-name</c> decides it. Every one of them is still asked, because an animation
     ///     that says nothing about this property must not stop an earlier one that does.
     ///     <para>
-    ///         ⚠ <b>With no style to read, a missing <c>from</c> or <c>to</c> is built from the
-    ///         property's initial value.</b> <see cref="Apply" /> builds it from the cascaded value the
+    ///         ⚠
+    ///         <b>
+    ///             With no style to read, a missing <c>from</c> or <c>to</c> is built from the
+    ///             property's initial value.
+    ///         </b>
+    ///         <see cref="Apply" /> builds it from the cascaded value the
     ///         element actually has (#1381); this overload is not handed one, and the initial value is
     ///         what that cascaded value is for an element that declares nothing.
     ///     </para>
@@ -803,8 +857,12 @@ public sealed class Animator {
     /// <returns><paramref name="value" />, or the identity in its place.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>CSS Transforms 2 interpolates <c>none</c> against a value as the identity, and
-    ///         treating it as a keyword held the other end for the whole run</b> (#1410).
+    ///         ⚠
+    ///         <b>
+    ///             CSS Transforms 2 interpolates <c>none</c> against a value as the identity, and
+    ///             treating it as a keyword held the other end for the whole run
+    ///         </b>
+    ///         (#1410).
     ///         <c>rotate: none</c> against <c>90deg</c> is <c>0deg</c>, about the other value's axis;
     ///         <c>translate: none</c> is a zero of each of the other's lengths; <c>scale: none</c> is
     ///         one per axis, or <c>100%</c> against a percentage. <c>transform</c> gets the same
@@ -846,11 +904,19 @@ public sealed class Animator {
         }
 
         if (property == rotateProperty) {
-            return IdentityOf(other, static part => part.Kind == StyleValueKind.Length ? StyleValue.FromLength(0f, part.Unit) : part);
+            return IdentityOf(
+                other,
+                static part => part.Kind == StyleValueKind.Length ? StyleValue.FromLength(0f, part.Unit) : part
+            );
         }
 
         if (property == translateProperty) {
-            return IdentityOf(other, static part => part.Kind == StyleValueKind.Length ? StyleValue.FromLength(0f, part.Unit) : StyleValue.FromNumber(0f));
+            return IdentityOf(
+                other,
+                static part => part.Kind == StyleValueKind.Length
+                    ? StyleValue.FromLength(0f, part.Unit)
+                    : StyleValue.FromNumber(0f)
+            );
         }
 
         if (property == scaleProperty) {
@@ -955,7 +1021,9 @@ public sealed class Animator {
                     _ => part
                 };
             } else if (Array.IndexOf(filterZeroes, name) >= 0) {
-                parts[i] = part.Kind == StyleValueKind.Length ? StyleValue.FromLength(0f, part.Unit) : StyleValue.FromNumber(0f);
+                parts[i] = part.Kind == StyleValueKind.Length
+                    ? StyleValue.FromLength(0f, part.Unit)
+                    : StyleValue.FromNumber(0f);
             } else if (Array.IndexOf(filterOnes, name) >= 0) {
                 parts[i] = part.Kind == StyleValueKind.Length && part.Unit == StyleUnit.Percent
                     ? StyleValue.FromLength(100f, StyleUnit.Percent)
@@ -1061,8 +1129,12 @@ public sealed class Animator {
     ///         and <c>none</c> is the shorter list of nothing.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>An <c>inset</c> on one end and not the other, at any position, is not handled
-    ///         here and does not need to be</b>: the two shadows there have different lengths or a
+    ///         ⚠
+    ///         <b>
+    ///             An <c>inset</c> on one end and not the other, at any position, is not handled
+    ///             here and does not need to be
+    ///         </b>
+    ///         : the two shadows there have different lengths or a
     ///         keyword against a length, <see cref="StyleValue.CanInterpolate" /> refuses that pair,
     ///         and one refused pair makes the whole list discrete — which is the specification's
     ///         answer for the whole list, not just that shadow.
@@ -1092,8 +1164,12 @@ public sealed class Animator {
     /// <returns>The identity, or null where <paramref name="shadow" /> is not one shadow this can read.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>CSS Backgrounds 3 § 7: a missing shadow interpolates as a transparent one whose
-    ///         lengths are zero and whose <c>inset</c> matches the shadow it pairs with</b> (#1464).
+    ///         ⚠
+    ///         <b>
+    ///             CSS Backgrounds 3 § 7: a missing shadow interpolates as a transparent one whose
+    ///             lengths are zero and whose <c>inset</c> matches the shadow it pairs with
+    ///         </b>
+    ///         (#1464).
     ///         Treating <c>none</c> as a keyword applied the shadow at once; now
     ///         <c>none</c> → <c>0 0 8px red</c> is half blurred and half faded at the midpoint. The
     ///         <c>inset</c> keyword is kept, so an inner shadow grows in as an inner one, and an
@@ -1152,13 +1228,24 @@ public sealed class Animator {
     ///     "" and the element lost even the transform its own rule gave it, for as long as the
     ///     animation ran. A stop pair is a mix like any transition's; see <c>mixes</c>.
     ///     <para>
-    ///         ⚠ <b>A missing end is the element's own transform, or <c>none</c> — the value a
-    ///         transition withdrawing the property mixes to.</b> <c>to { transform: rotate(360deg) }</c>
+    ///         ⚠
+    ///         <b>
+    ///             A missing end is the element's own transform, or <c>none</c> — the value a
+    ///             transition withdrawing the property mixes to.
+    ///         </b>
+    ///         <c>to { transform: rotate(360deg) }</c>
     ///         alone is the Tailwind spinner, and holding its one stop drew a full turn from the first
     ///         frame: indistinguishable from standing still (#1381).
     ///     </para>
     /// </remarks>
-    bool TryGetAnimatedMix(StyleNodeId element, int property, string function, float now, ComputedStyle style, out int value) {
+    bool TryGetAnimatedMix(
+        StyleNodeId element,
+        int property,
+        string function,
+        float now,
+        ComputedStyle style,
+        out int value
+    ) {
         value = NameTable.None;
 
         if (!animations.TryGetValue(element.Index, out var entries)) {
@@ -1221,8 +1308,12 @@ public sealed class Animator {
     /// <param name="side">Which end, if either, the caller must build from the underlying value.</param>
     /// <returns>Whether the animation says anything about the property at this moment.</returns>
     /// <remarks>
-    ///     ⚠ <b>A missing end used to be answered by the one stop that exists, held for the whole
-    ///     segment</b> — so <c>to { transform: rotate(90deg) }</c> read 90° half way where CSS reads
+    ///     ⚠
+    ///     <b>
+    ///         A missing end used to be answered by the one stop that exists, held for the whole
+    ///         segment
+    ///     </b>
+    ///     — so <c>to { transform: rotate(90deg) }</c> read 90° half way where CSS reads
     ///     45°, and a <c>from</c>-only fade never faded (#1381). The segment now runs to or from a stop
     ///     synthesised at offset zero or one, and the caller, which has the style, fills in its value.
     /// </remarks>
@@ -1365,7 +1456,7 @@ public sealed class Animator {
             }
 
             overlaid ??= Copy(style);
-            overlaid[i] = new KeyValuePair<int, int>(property, value);
+            overlaid[i] = new(property, value);
         }
 
         overlaid = Introduce(element, style, now, overlaid);
@@ -1405,8 +1496,12 @@ public sealed class Animator {
     /// <summary>Adds a transition still running for a property the cascade no longer gives the element.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The commonest transition there is, and without this it would run and never be
-    ///         seen.</b> <c>hover:rotate-z-45</c> puts a <c>transform</c> on an element that has none at
+    ///         ⚠
+    ///         <b>
+    ///             The commonest transition there is, and without this it would run and never be
+    ///             seen.
+    ///         </b>
+    ///         <c>hover:rotate-z-45</c> puts a <c>transform</c> on an element that has none at
     ///         rest, and <c>hover:ml-10</c> a <c>margin-left</c>, so the moment the pointer leaves the
     ///         cascade stops holding the property at all and <see cref="Apply" />'s loop — which walks
     ///         the properties the style has — never reaches the transition <see cref="Observe" />
@@ -1448,7 +1543,7 @@ public sealed class Animator {
                 : values.Intern(transition.ValueAt(now).ToCss(keywords));
 
             overlaid ??= Copy(style);
-            overlaid.Add(new KeyValuePair<int, int>(property, value));
+            overlaid.Add(new(property, value));
         }
 
         return overlaid;
@@ -1489,8 +1584,12 @@ public sealed class Animator {
     /// <returns>The copy, made here if it did not exist yet, or <c>null</c> if there was nothing to add.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>This is the whole difference between a transition and an animation, and
-    ///         <see cref="Apply" /> used to treat them the same.</b> Overlaying only the properties
+    ///         ⚠
+    ///         <b>
+    ///             This is the whole difference between a transition and an animation, and
+    ///             <see cref="Apply" /> used to treat them the same.
+    ///         </b>
+    ///         Overlaying only the properties
     ///         already in the computed style is right for a transition — <see cref="Observe" /> takes
     ///         the from-value out of the previous style, so a transition on a property the cascade
     ///         never set has nothing to start from. A <c>@keyframes</c> block is the opposite: it is a
@@ -1550,7 +1649,7 @@ public sealed class Animator {
                     }
 
                     overlaid ??= Copy(style);
-                    overlaid.Add(new KeyValuePair<int, int>(property, value));
+                    overlaid.Add(new(property, value));
                     (introduced ??= []).Add(property);
                 }
             }
@@ -1627,8 +1726,7 @@ public sealed class Animator {
     ///     inside one pass — but reading off the end of a caller's span would be a much worse way to
     ///     find that out than dropping the entry.
     /// </remarks>
-    static int At(ReadOnlySpan<int> remap, int element) =>
-        (uint) element < (uint) remap.Length ? remap[element] : -1;
+    static int At(ReadOnlySpan<int> remap, int element) => (uint)element < (uint)remap.Length ? remap[element] : -1;
 
     /// <summary>Reads whichever form of <c>animation</c> the stylesheet produced.</summary>
     /// <returns>Whether the element animates anything.</returns>
@@ -1640,8 +1738,12 @@ public sealed class Animator {
     ///         it doing so. The shorthand fallback is the same code path either way.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Every one of these properties is a list, and the lists are matched by position and
-    ///         then <i>cycled</i>.</b> <c>animation-name: spin, pulse</c> with
+    ///         ⚠
+    ///         <b>
+    ///             Every one of these properties is a list, and the lists are matched by position and
+    ///             then <i>cycled</i>.
+    ///         </b>
+    ///         <c>animation-name: spin, pulse</c> with
     ///         <c>animation-duration: 1s</c> gives both a second, because the shorter list repeats;
     ///         with <c>1s, 2s</c> they get one each. That is CSS Animations 1 §4.4, and it is the
     ///         reason a naive reader that took the first value of each longhand gave the second
@@ -1695,7 +1797,7 @@ public sealed class Animator {
             }
 
             animationSpecs.Add(
-                new AnimationSpec(
+                new(
                     name.ToString(),
                     duration,
                     TransitionParser.TryDuration(Nth(delays, index), out var waited) ? waited : 0f,
@@ -1712,12 +1814,13 @@ public sealed class Animator {
         return animationSpecs.Count > 0;
     }
 
-    string Longhand(ComputedStyle style, int property) => style.TryGet(property, out var value) ? values.NameOf(value) : "";
+    string Longhand(ComputedStyle style, int property) =>
+        style.TryGet(property, out var value) ? values.NameOf(value) : string.Empty;
 
     /// <summary>The <paramref name="index" />th entry of a comma-separated longhand, cycling.</summary>
     static string Nth(string text, int index) {
         if (text.Length == 0) {
-            return "";
+            return string.Empty;
         }
 
         var ranges = TransitionParser.TopLevelSplit(text.AsSpan(), ',');
@@ -1725,7 +1828,7 @@ public sealed class Animator {
         // ⚠ The modulo is the cycling rule, and it is why this cannot simply index. One duration for
         // three animations means all three get it; two durations for three means the third gets the
         // first one back again.
-        return ranges.Count == 0 ? "" : text.AsSpan(ranges[index % ranges.Count]).Trim().ToString();
+        return ranges.Count == 0 ? string.Empty : text.AsSpan(ranges[index % ranges.Count]).Trim().ToString();
     }
 
     static float Iterations(string text) =>
@@ -1733,8 +1836,8 @@ public sealed class Animator {
             ? float.PositiveInfinity
             : float.TryParse(
                 text,
-                System.Globalization.NumberStyles.Float,
-                System.Globalization.CultureInfo.InvariantCulture,
+                NumberStyles.Float,
+                CultureInfo.InvariantCulture,
                 out var count
             )
                 ? count
@@ -1766,7 +1869,12 @@ public sealed class Animator {
     ///     an exact reversal; applying it to any interruption is a small deliberate generalisation,
     ///     and it is the behaviour that stops a half-finished transition feeling sticky.
     /// </remarks>
-    static float RemainingFraction(RunningTransition current, bool wasRunning, StyleValue destination, StyleValue displayed) {
+    static float RemainingFraction(
+        RunningTransition current,
+        bool wasRunning,
+        StyleValue destination,
+        StyleValue displayed
+    ) {
         if (!wasRunning) {
             return 1f;
         }
@@ -1787,7 +1895,7 @@ public sealed class Animator {
     static List<KeyValuePair<int, int>> Copy(ComputedStyle style) {
         var pairs = new List<KeyValuePair<int, int>>(style.Count);
         for (var i = 0; i < style.Count; i++) {
-            pairs.Add(new KeyValuePair<int, int>(style.Properties[i], style.Values[i]));
+            pairs.Add(new(style.Properties[i], style.Values[i]));
         }
 
         return pairs;
@@ -1839,7 +1947,7 @@ public sealed class Animator {
             }
 
             specs.Add(
-                new TransitionSpec(
+                new(
                     name.Equals("all", StringComparison.OrdinalIgnoreCase)
                         ? NameTable.None
                         : properties.Intern(name.ToString()),

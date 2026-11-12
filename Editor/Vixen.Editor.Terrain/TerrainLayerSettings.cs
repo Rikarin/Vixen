@@ -18,8 +18,12 @@ namespace Vixen.Editor.Terrain;
 /// <param name="Blend">Whether it takes part in the sum-to-one budget.</param>
 /// <param name="Coverage">How much of the terrain it covers, 0…1.</param>
 /// <remarks>
-///     ⚠ <b>The coverage is the histogram [§ The terrain panel] asks for, reduced to one
-///     number.</b> A per-layer histogram of a four-million-sample terrain is a bar nobody reads; what
+///     ⚠
+///     <b>
+///         The coverage is the histogram [§ The terrain panel] asks for, reduced to one
+///         number.
+///     </b>
+///     A per-layer histogram of a four-million-sample terrain is a bar nobody reads; what
 ///     an artist actually needs from that section is "this layer is at zero and I do not know why" —
 ///     which is the state you get into by painting over your base layer — and one number answers it.
 /// </remarks>
@@ -45,14 +49,21 @@ public readonly record struct TerrainTargetRow(
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>[docs/plan/31 § The terrain panel]: the paint channels the terrain's layer list
-///         declares, each with its coverage, an assign control for the <c>.vxlayer</c>, and a
-///         weight-blended toggle.</b> Selecting one makes it the paint target — which is
+///         <b>
+///             [docs/plan/31 § The terrain panel]: the paint channels the terrain's layer list
+///             declares, each with its coverage, an assign control for the <c>.vxlayer</c>, and a
+///             weight-blended toggle.
+///         </b>
+///         Selecting one makes it the paint target — which is
 ///         <see cref="TerrainEdit.Target" />, and the tools are the strip.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The layer being painted changes far more often than the tool, so the list is above
-///         the strip and not in it.</b> That is Unreal's layout and it is correct: an artist paints
+///         ⚠
+///         <b>
+///             The layer being painted changes far more often than the tool, so the list is above
+///             the strip and not in it.
+///         </b>
+///         That is Unreal's layout and it is correct: an artist paints
 ///         grass, then rock, then grass again with the same tool, and a design that made the layer a
 ///         mode would make that three mode switches.
 ///     </para>
@@ -65,16 +76,16 @@ public sealed class TerrainLayerSettings {
     /// <summary>Its base colour texture.</summary>
     [Inspector]
     [Tooltip("The ground's colour. A layer with none draws flat, which is a fine placeholder.")]
-    public string Albedo { get; set; } = "";
+    public string Albedo { get; set; } = string.Empty;
 
     /// <summary>Its normal map.</summary>
     [Inspector]
-    public string Normal { get; set; } = "";
+    public string Normal { get; set; } = string.Empty;
 
     /// <summary>Its packed occlusion / roughness / metalness, with the blend height in alpha.</summary>
     [Inspector]
     [Tooltip("Occlusion, roughness and metalness — and the height a height blend reads, in alpha.")]
-    public string Surface { get; set; } = "";
+    public string Surface { get; set; } = string.Empty;
 
     /// <summary>How many metres of world one repeat of the textures covers.</summary>
     /// <remarks>
@@ -112,7 +123,7 @@ public sealed class TerrainLayerSettings {
 
     /// <summary>What the ground is made of, so a footstep knows it is on gravel.</summary>
     [Inspector]
-    public string PhysicsMaterial { get; set; } = "";
+    public string PhysicsMaterial { get; set; } = string.Empty;
 
     /// <summary>Whether the height-blend rows apply.</summary>
     public bool IsHeightBlended => Blend == TerrainLayerBlend.Height;

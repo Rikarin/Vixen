@@ -4,7 +4,6 @@
 using Vixen.Ai.Nodes.Ecs;
 using Vixen.Core;
 using Vixen.Core.Mathematics;
-using Vixen.Ecs;
 using Vixen.Engine.Transforms;
 using Vixen.Navigation.Ecs;
 using Xunit;
@@ -17,7 +16,7 @@ public class MoveToTests {
         var level = new Level();
         var walker = level.Walker(new(5f, 0f, 5f));
         var board = Board.Position(new(30f, 0f, 30f));
-        var task = new MoveToTask(Board.Key, acceptance: 1.5f);
+        var task = new MoveToTask(Board.Key, 1.5f);
         var state = new byte[MoveToTask.StateSize];
         var status = ActionStatus.Running;
 
@@ -116,7 +115,7 @@ public class MoveDirectlyTowardTests {
         var level = new Level();
         var flier = level.World.Create(LocalTransform.At(Vector3.Zero));
         var board = Board.Position(new(0f, 0f, -1f));
-        var task = new MoveDirectlyTowardTask(Board.Key, speed: 2f, acceptance: 0.05f);
+        var task = new MoveDirectlyTowardTask(Board.Key, 2f, 0.05f);
         var state = Array.Empty<byte>();
 
         Assert.Equal(ActionStatus.Running, task.Tick(Board.Context(level, flier, board), state, 0.25f));
@@ -238,7 +237,7 @@ public class RotateTowardTests {
         var level = new Level();
         var guard = level.World.Create(LocalTransform.At(Vector3.Zero));
         var board = Board.Position(new(10f, 0f, 0f));
-        var task = new RotateTowardTask(Board.Key, degreesPerSecond: 90f, tolerance: 1f);
+        var task = new RotateTowardTask(Board.Key, 90f, 1f);
         var state = Array.Empty<byte>();
 
         // Facing +X is a quarter turn clockwise from the default −Z.
@@ -264,7 +263,7 @@ public class RotateTowardTests {
     public void ItFallsBackToTheFocusWhenNoKeyIsGiven() {
         var level = new Level();
         var guard = level.World.Create(LocalTransform.At(Vector3.Zero));
-        var task = new RotateTowardTask(BlackboardKey.Invalid, degreesPerSecond: 3600f);
+        var task = new RotateTowardTask(BlackboardKey.Invalid, 3600f);
         var state = Array.Empty<byte>();
 
         Assert.Equal(ActionStatus.Failed, task.Tick(Board.Context(level, guard, Board.Empty()), state, 0.1f));
@@ -306,7 +305,7 @@ public class DoesPathExistTests {
         var level = new Level(200f);
         var walker = level.Walker(new(5f, 0f, 5f));
 
-        Assert.False(Ask(level, walker, new(190f, 0f, 190f), PathTest.Budgeted, budget: 1));
+        Assert.False(Ask(level, walker, new(190f, 0f, 190f), PathTest.Budgeted, 1));
         Assert.True(Ask(level, walker, new(190f, 0f, 190f), PathTest.Full));
     }
 
@@ -336,7 +335,7 @@ public class FocusTests {
         Assert.True(level.World.Get<AiFocus>(guard).HasFocus);
         Assert.Equal(quarry, level.World.Get<AiFocus>(guard).Target);
         Assert.True(level.World.Get<AiFocus>(guard).TryResolve(level.World, out var where));
-        Assert.Equal(new Vector3(4f, 0f, 4f), where);
+        Assert.Equal(new(4f, 0f, 4f), where);
 
         board.Clear(Board.Key);
         service.Tick(new(Board.Context(level, guard, board), null!, 0), [], 0.1f);

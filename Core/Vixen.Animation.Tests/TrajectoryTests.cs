@@ -73,7 +73,7 @@ public class TrajectoryTests {
 
         for (var index = 0; index < across.Length; index++) {
             var phase = index / (float)(across.Length - 1);
-            var u = 0.9f + (phase * 0.2f);
+            var u = 0.9f + phase * 0.2f;
 
             across[index] = new(phase, new(-1, u >= 1f ? u - 1f : u, 0.5f));
         }
@@ -98,7 +98,7 @@ public class TrajectoryTests {
             previous = here;
         }
 
-        TestRigs.Near(new Vector3(0.1f, 0f, 0f), new Vector3(path.Sample(1f).U, 0f, 0f), "it ends where it ended");
+        TestRigs.Near(new(0.1f, 0f, 0f), new Vector3(path.Sample(1f).U, 0f, 0f), "it ends where it ended");
     }
 
     // ---------------------------------------------------------------- the claim
@@ -111,12 +111,12 @@ public class TrajectoryTests {
     public void ASlidingContactReproducesOnADifferentRailWithinTolerance() {
         const float Tolerance = 2e-3f;
 
-        var authored = Rail(radius: 0.05f, halfHeight: 0.6f);
+        var authored = Rail(0.05f, 0.6f);
         var samples = Capture(authored);
 
         var trajectory = GoalTrajectory.Decompose(
             samples,
-            new TrajectoryTolerance(Tolerance, 8.7e-3f, 1e-3f),
+            new(Tolerance, 8.7e-3f, 1e-3f),
             out var report
         );
 
@@ -131,7 +131,7 @@ public class TrajectoryTests {
         }
 
         // Now the other rail: twice the radius and nearly twice the length.
-        var other = Rail(radius: 0.12f, halfHeight: 1.1f);
+        var other = Rail(0.12f, 1.1f);
         var frame = new TrajectoryFrame(new SurfaceFrame(SurfaceCoordinate.On("rail", SurfacePoint.Side)), trajectory);
 
         List<Vector3> replayed = [];
@@ -147,7 +147,12 @@ public class TrajectoryTests {
             // authored at — not at the centimetres it was authored at.
             Assert.True(new ProxyShapes(other.Shapes).TryPose(Symbol.Intern("rail"), other.Model, out var rail));
 
-            var where = ShapeGeometry.Project(rail.Shape.Kind, rail.Dimensions, rail.ToShape(resolved.Origin), out var gap);
+            var where = ShapeGeometry.Project(
+                rail.Shape.Kind,
+                rail.Dimensions,
+                rail.ToShape(resolved.Origin),
+                out var gap
+            );
             var wanted = trajectory.Surface!.Sample(phase);
 
             Assert.Equal(wanted.V, where.V, 5e-3f);
@@ -155,7 +160,7 @@ public class TrajectoryTests {
         }
 
         // Longer rail, longer slide — which is the whole of why the path is normalised.
-        var authoredRun = Length(samples.Select(sample => sample.Origin + sample.Offset).ToList());
+        var authoredRun = Length([..samples.Select(static sample => sample.Origin + sample.Offset)]);
         var replayedRun = Length(replayed);
 
         Assert.True(
@@ -168,7 +173,7 @@ public class TrajectoryTests {
     public void ATrajectoryOverANonSurfaceFrameIsJustAMovingOffset() {
         var trajectory = new GoalTrajectory(
             TrajectoryCurve.Constant(Vector3.Zero),
-            new TrajectoryCurve(
+            new(
                 new TrajectoryKey(0f, new(0f, 0f, 0f)),
                 new TrajectoryKey(1f, new(0f, 1f, 0f))
             )
@@ -187,9 +192,9 @@ public class TrajectoryTests {
     [Fact]
     public void ATrajectoryWhoseFrameDoesNotResolveFailsRatherThanReplayingWhereTheRailUsedToBe() {
         var trajectory = new GoalTrajectory(
-            new TrajectoryCurve(new TrajectoryKey(0f, new(9f, 9f, 9f))),
+            new(new TrajectoryKey(0f, new(9f, 9f, 9f))),
             TrajectoryCurve.Constant(Vector3.Zero),
-            new SurfacePath(new SurfacePathKey(0f, SurfacePoint.Side))
+            new(new SurfacePathKey(0f, SurfacePoint.Side))
         );
 
         var frame = new TrajectoryFrame(new SurfaceFrame(SurfaceCoordinate.On("gone", SurfacePoint.Side)), trajectory);
@@ -245,7 +250,7 @@ public class TrajectoryTests {
         Assert.True(along[0] < along[1] && along[1] < along[2], $"the hand did not slide: {string.Join(", ", along)}");
 
         for (var index = 0; index < along.Count; index++) {
-            var phase = 0.1f + (index * 0.4f);
+            var phase = 0.1f + index * 0.4f;
             Assert.Equal(trajectory.Surface!.Sample(phase).V, along[index], 2e-2f);
         }
     }
@@ -294,12 +299,15 @@ public class TrajectoryTests {
 
             // A centimetre of clearance that dips in the middle — the shape a decimator has to keep,
             // against a slide that is otherwise a straight line it should throw away.
-            var gap = 0.01f + (0.004f * MathF.Sin(phase * MathUtil.Pi));
+            var gap = 0.01f + 0.004f * MathF.Sin(phase * MathUtil.Pi);
 
             samples[index] = new(
                 phase,
                 origin,
-                Quaternion.Transform(new Vector3(0f, gap, 0f), Quaternion.Concatenate(sample.Rotation(), posed.Transform.Rotation)),
+                Quaternion.Transform(
+                    new(0f, gap, 0f),
+                    Quaternion.Concatenate(sample.Rotation(), posed.Transform.Rotation)
+                ),
                 point,
                 Quaternion.Identity
             );

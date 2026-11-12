@@ -48,14 +48,14 @@ public class SettingsPageContributionTests {
             editor.Settle();
 
             // The rail, which is the window's own list rather than the registry's.
-            Assert.Contains(view.Categories, category => category.Id == PageId);
+            Assert.Contains(view.Categories, static category => category.Id == PageId);
 
             // And the pane: selecting the page builds what the contribution said to build. A rail
             // line whose Build never runs is a line, not a settings page.
             Assert.True(view.Select(PageId));
             editor.Settle();
 
-            Assert.Contains(Texts(view.Pane), text => text == PageText);
+            Assert.Contains(Texts(view.Pane), static text => text == PageText);
         } finally {
             Remove(data);
         }
@@ -66,8 +66,12 @@ public class SettingsPageContributionTests {
     ///     that reads the registry once gets wrong.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>A plugin activating three seconds after start-up is always after the window was
-    ///     built.</b> Enabling a plugin from the manager, a project script's first build and a reload
+    ///     ⚠
+    ///     <b>
+    ///         A plugin activating three seconds after start-up is always after the window was
+    ///         built.
+    ///     </b>
+    ///     Enabling a plugin from the manager, a project script's first build and a reload
     ///     are all this moment, so a page that only appeared when the plugin happened to load first
     ///     would be one tier working and another silently not.
     /// </remarks>
@@ -85,18 +89,18 @@ public class SettingsPageContributionTests {
 
             // The instrument: the window is open and has pages of its own, and none of them is this.
             Assert.NotEmpty(view.Categories);
-            Assert.DoesNotContain(view.Categories, category => category.Id == PageId);
+            Assert.DoesNotContain(view.Categories, static category => category.Id == PageId);
 
             using var scope = registry.Add(Page(SettingsScope.Preferences));
 
             editor.Settle();
 
-            Assert.Contains(view.Categories, category => category.Id == PageId);
+            Assert.Contains(view.Categories, static category => category.Id == PageId);
 
             Assert.True(view.Select(PageId));
             editor.Settle();
 
-            Assert.Contains(Texts(view.Pane), text => text == PageText);
+            Assert.Contains(Texts(view.Pane), static text => text == PageText);
         } finally {
             Remove(data);
         }
@@ -133,11 +137,11 @@ public class SettingsPageContributionTests {
             scope.Dispose();
             editor.Settle();
 
-            Assert.DoesNotContain(view.Categories, category => category.Id == PageId);
+            Assert.DoesNotContain(view.Categories, static category => category.Id == PageId);
             Assert.NotEqual(PageId, view.Current);
 
             // And the pane is no longer showing what the withdrawn page drew.
-            Assert.DoesNotContain(Texts(view.Pane), text => text == PageText);
+            Assert.DoesNotContain(Texts(view.Pane), static text => text == PageText);
         } finally {
             Remove(data);
         }
@@ -160,13 +164,13 @@ public class SettingsPageContributionTests {
 
             editor.Settle();
 
-            Assert.DoesNotContain(preferences.Categories, category => category.Id == PageId);
+            Assert.DoesNotContain(preferences.Categories, static category => category.Id == PageId);
 
             var projects = editor.Control<SettingsView>(EditorApplication.ProjectSettingsPanel);
 
             editor.Settle();
 
-            Assert.Contains(projects.Categories, category => category.Id == PageId);
+            Assert.Contains(projects.Categories, static category => category.Id == PageId);
         } finally {
             Remove(data);
         }
@@ -186,7 +190,7 @@ public class SettingsPageContributionTests {
             using var scope = registry.Add(
                 new SettingsPage(
                     SettingsScope.Preferences,
-                    new SettingsCategory("general", new StringId("editor.settings.sample", "Sample"), Draw)
+                    new("general", new("editor.settings.sample", "Sample"), Draw)
                 )
             );
 
@@ -197,15 +201,15 @@ public class SettingsPageContributionTests {
             editor.Settle();
 
             // The editor's own General page is still the one under that id, and the window is up.
-            Assert.Single(view.Categories, category => category.Id == "general");
-            Assert.DoesNotContain(Texts(view.Pane), text => text == PageText);
+            Assert.Single(view.Categories, static category => category.Id == "general");
+            Assert.DoesNotContain(Texts(view.Pane), static text => text == PageText);
         } finally {
             Remove(data);
         }
     }
 
     static SettingsPage Page(SettingsScope scope) =>
-        new(scope, new SettingsCategory(PageId, new StringId("editor.settings.sample", "Sample"), Draw));
+        new(scope, new SettingsCategory(PageId, new("editor.settings.sample", "Sample"), Draw));
 
     static void Draw(UiElement pane) => pane.Add<TextBlock>().Text = PageText;
 
@@ -232,7 +236,7 @@ public class SettingsPageContributionTests {
 
     static void Remove(string data) {
         if (System.IO.Directory.Exists(data)) {
-            System.IO.Directory.Delete(data, recursive: true);
+            System.IO.Directory.Delete(data, true);
         }
     }
 }

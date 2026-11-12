@@ -23,8 +23,12 @@ namespace Vixen.Ui.Styling.Utilities;
 ///         punctuation, so a paragraph of prose yields its words and nothing longer.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Exactly one input is narrowed, and it is narrowed by structure rather than by
-///         judgement.</b> <see cref="ScanStyleSheet" /> skips a declaration's value, because a class
+///         ⚠
+///         <b>
+///             Exactly one input is narrowed, and it is narrowed by structure rather than by
+///             judgement.
+///         </b>
+///         <see cref="ScanStyleSheet" /> skips a declaration's value, because a class
 ///         name cannot be <i>used</i> from the right of a colon and <c>position: absolute</c> is
 ///         otherwise indistinguishable from <c>class="absolute"</c>. That is a fact about where CSS
 ///         puts class names, not a guess about which candidates are real, so it takes nothing away
@@ -48,8 +52,12 @@ public static class CandidateScanner {
     /// <param name="into">Receives the candidates.</param>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The one input where over-inclusiveness has a shape it can be narrowed by, and the
-    ///         narrowing is a delimiter rule rather than a parser.</b> <c>position: absolute;</c> and
+    ///         ⚠
+    ///         <b>
+    ///             The one input where over-inclusiveness has a shape it can be narrowed by, and the
+    ///             narrowing is a delimiter rule rather than a parser.
+    ///         </b>
+    ///         <c>position: absolute;</c> and
     ///         <c>class="absolute"</c> are the same characters to <see cref="Scan(string,ISet{string})" />,
     ///         so seven of the editor's twenty-five generated rules were CSS keywords out of its own
     ///         sheets. <b>A class name cannot be <i>used</i> from the right of a colon</b>: inside a
@@ -59,8 +67,12 @@ public static class CandidateScanner {
     ///         still go through <see cref="Scan(string,ISet{string})" /> unchanged.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The colon is not the test — <c>an identifier, then the colon</c> is — and
-    ///         <c>@apply p-4 flex;</c> is why.</b> An at-rule's prelude inside a block <i>is</i> a list
+    ///         ⚠
+    ///         <b>
+    ///             The colon is not the test — <c>an identifier, then the colon</c> is — and
+    ///             <c>@apply p-4 flex;</c> is why.
+    ///         </b>
+    ///         An at-rule's prelude inside a block <i>is</i> a list
     ///         of class names — <c>@apply</c> is the one construct in CSS that puts one there. A rule
     ///         written as "skip from any <c>:</c> inside a block" would take <c>flex</c> out of
     ///         <c>@apply p-4 hover:bg-accent flex;</c> — the false negative this whole design exists to
@@ -81,8 +93,12 @@ public static class CandidateScanner {
     ///         Three delimiters are tracked and nothing else. Brace depth, because a <c>:</c> outside a
     ///         block belongs to a selector — <c>button:hover</c> — and not to a declaration. An
     ///         opening <c>{</c> retracts the guess rather than ending it: a declaration cannot contain
-    ///         one, so text that ran into a brace was a selector inside a wrapper — <c>@layer
-    ///         components { tree-row:hover { … } }</c> is most of this tree — and it is scanned after
+    ///         one, so text that ran into a brace was a selector inside a wrapper —
+    ///         <c>
+    ///             @layer
+    ///             components { tree-row:hover { … } }
+    ///         </c>
+    ///         is most of this tree — and it is scanned after
     ///         all. And <c>/* … */</c> is stepped over as structure while still being scanned as text,
     ///         because a comment is where a good deal of this tree's candidates come from and a colon
     ///         inside one is not a declaration.
@@ -230,12 +246,20 @@ public static class CandidateScanner {
     ///     <c>@</c> had to be admitted for the container variants — <c>@sm:p-4</c> — and it is also
     ///     the character every at-keyword starts with, so <c>@apply</c>, <c>@theme</c>,
     ///     <c>@layer</c> and <c>@container</c> would all become candidates. What tells them apart is
-    ///     not a list of keywords but the grammar: <b>an at-keyword never contains a colon and a
-    ///     container variant always does</b>, because the colon is what makes it a variant. So a run
+    ///     not a list of keywords but the grammar:
+    ///     <b>
+    ///         an at-keyword never contains a colon and a
+    ///         container variant always does
+    ///     </b>
+    ///     , because the colon is what makes it a variant. So a run
     ///     containing an <c>@</c> and no <c>:</c> is refused, and no name has to be enumerated.
     ///     <para>
-    ///         ⚠ <b>With exactly one name enumerated after all, and it is the one v4 spells as a
-    ///         class.</b> <c>@container</c>, <c>@container-normal</c> and <c>@container/main</c> are
+    ///         ⚠
+    ///         <b>
+    ///             With exactly one name enumerated after all, and it is the one v4 spells as a
+    ///             class.
+    ///         </b>
+    ///         <c>@container</c>, <c>@container-normal</c> and <c>@container/main</c> are
     ///         utilities — the <i>marker</i> family, which makes a box a query container — and
     ///         they have no colon by construction. They are also, letter for letter, the at-rule
     ///         that queries one, so the grammar cannot tell the class from the keyword and this is
@@ -246,8 +270,12 @@ public static class CandidateScanner {
     ///         <c>@containers</c> out too: the name is followed by nothing, a hyphen or a slash.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b><c>@@</c> is folded to <c>@</c>, which is what makes the family reachable from
-    ///         <c>.vxml</c> at all.</b> <c>@</c> is that dialect's interpolation marker inside an
+    ///         ⚠
+    ///         <b>
+    ///             <c>@@</c> is folded to <c>@</c>, which is what makes the family reachable from
+    ///             <c>.vxml</c> at all.
+    ///         </b>
+    ///         <c>@</c> is that dialect's interpolation marker inside an
     ///         attribute value, so <c>class="@sm:p-4"</c> interpolates an expression called
     ///         <c>sm</c> and the escape <c>@@</c> is how a literal one is written — the same escape
     ///         the dialect has always had. The binder decodes it, so the element at runtime carries
@@ -299,5 +327,23 @@ public static class CandidateScanner {
     static ReadOnlySpan<char> Interesting => "-:[/";
 
     static bool IsCandidateChar(char c) =>
-        char.IsAsciiLetterOrDigit(c) || c is '-' or '_' or ':' or '/' or '.' or '[' or ']' or '&' or '>' or '*' or '=' or '!' or '%' or '#' or '(' or ')' or ',' or '@';
+        char.IsAsciiLetterOrDigit(c)
+        || c is '-'
+            or '_'
+            or ':'
+            or '/'
+            or '.'
+            or '['
+            or ']'
+            or '&'
+            or '>'
+            or '*'
+            or '='
+            or '!'
+            or '%'
+            or '#'
+            or '('
+            or ')'
+            or ','
+            or '@';
 }

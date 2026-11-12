@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core.Mathematics;
-using Vixen.Ui;
 using Vixen.Ui.Rendering;
 using Vixen.Ui.Text.Rasterizing;
 using Xunit;
@@ -31,9 +30,9 @@ public class PathTessellationCacheTests {
 
     static PathBuilder Blob() =>
         new PathBuilder()
-            .MoveTo(new Vector2(20, 20))
-            .LineTo(new Vector2(120, 30))
-            .CubicTo(new Vector2(140, 80), new Vector2(60, 120), new Vector2(20, 90))
+            .MoveTo(new(20, 20))
+            .LineTo(new(120, 30))
+            .CubicTo(new(140, 80), new(60, 120), new(20, 90))
             .Close();
 
     [Fact]
@@ -82,11 +81,11 @@ public class PathTessellationCacheTests {
         var pale = builder.Build(Drawn(Blob(), Color4.White), glyphs, Viewport);
         var paleColour = pale.Vertices[0].Color;
 
-        var deep = builder.Build(Drawn(Blob(), new Color4(1f, 0f, 0f, 1f)), glyphs, Viewport);
+        var deep = builder.Build(Drawn(Blob(), new(1f, 0f, 0f, 1f)), glyphs, Viewport);
 
         Assert.Equal(0, builder.TessellatedPaths);
         Assert.NotEqual(paleColour, deep.Vertices[0].Color);
-        Assert.Equal(new Color4(1f, 0f, 0f, 1f), deep.Vertices[0].Color);
+        Assert.Equal(new(1f, 0f, 0f, 1f), deep.Vertices[0].Color);
     }
 
     [Fact]
@@ -97,9 +96,9 @@ public class PathTessellationCacheTests {
         builder.Build(Drawn(Blob(), Color4.White), glyphs, Viewport);
 
         var moved = new PathBuilder()
-            .MoveTo(new Vector2(21, 20))
-            .LineTo(new Vector2(120, 30))
-            .CubicTo(new Vector2(140, 80), new Vector2(60, 120), new Vector2(20, 90))
+            .MoveTo(new(21, 20))
+            .LineTo(new(120, 30))
+            .CubicTo(new(140, 80), new(60, 120), new(20, 90))
             .Close();
 
         builder.Build(Drawn(moved, Color4.White), glyphs, Viewport);
@@ -109,8 +108,12 @@ public class PathTessellationCacheTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>Every input the tessellator reads is in the key, and a stroke's width is the one most
-    ///     easily forgotten.</b> Leaving it out is a line that keeps the weight it had.
+    ///     ⚠
+    ///     <b>
+    ///         Every input the tessellator reads is in the key, and a stroke's width is the one most
+    ///         easily forgotten.
+    ///     </b>
+    ///     Leaving it out is a line that keeps the weight it had.
     /// </summary>
     [Fact]
     public void A_stroke_that_changed_width_is_tessellated_again() {
@@ -152,9 +155,9 @@ public class PathTessellationCacheTests {
 
         for (var i = 0; i < 8; i++) {
             var moved = new PathBuilder()
-                .MoveTo(new Vector2(20 + i, 20))
-                .LineTo(new Vector2(120, 30))
-                .LineTo(new Vector2(20, 90))
+                .MoveTo(new(20 + i, 20))
+                .LineTo(new(120, 30))
+                .LineTo(new(20, 90))
                 .Close();
 
             builder.Build(Drawn(moved, Color4.White), glyphs, Viewport);
@@ -162,9 +165,9 @@ public class PathTessellationCacheTests {
 
         // The last frame drew one path, so one survives — and drawing it again is a hit.
         var survivor = new PathBuilder()
-            .MoveTo(new Vector2(27, 20))
-            .LineTo(new Vector2(120, 30))
-            .LineTo(new Vector2(20, 90))
+            .MoveTo(new(27, 20))
+            .LineTo(new(120, 30))
+            .LineTo(new(20, 90))
             .Close();
 
         builder.Build(Drawn(survivor, Color4.White), glyphs, Viewport);
@@ -177,10 +180,8 @@ public class PathTessellationCacheTests {
 
         list.BeginFrame();
         list.Add(
-            new DrawCommand(DrawCommandKind.Path, 0, 0, 0, 0, color, 0, 0) {
-                Offset = list.AddPath(path),
-                Length = path.Count,
-                FillRule = PathFillRule.NonZero
+            new(DrawCommandKind.Path, 0, 0, 0, 0, color, 0, 0) {
+                Offset = list.AddPath(path), Length = path.Count, FillRule = PathFillRule.NonZero
             }
         );
 
@@ -193,11 +194,8 @@ public class PathTessellationCacheTests {
 
         list.BeginFrame();
         list.Add(
-            new DrawCommand(DrawCommandKind.PathStroke, 0, 0, 0, 0, Color4.White, 0, thickness) {
-                Offset = list.AddPath(path),
-                Length = path.Count,
-                Join = LineJoin.Miter,
-                Cap = LineCap.Butt
+            new(DrawCommandKind.PathStroke, 0, 0, 0, 0, Color4.White, 0, thickness) {
+                Offset = list.AddPath(path), Length = path.Count, Join = LineJoin.Miter, Cap = LineCap.Butt
             }
         );
 
@@ -206,7 +204,7 @@ public class PathTessellationCacheTests {
     }
 
     static List<(Vector2 Position, Vector4 Shape)> Snapshot(UiGeometry geometry) =>
-        [.. geometry.Vertices.Select(vertex => (vertex.Position, vertex.Shape))];
+        [..geometry.Vertices.Select(static vertex => (vertex.Position, vertex.Shape))];
 
     static GlyphFieldCache Cache() => new(new GlyphAtlas(512, 512));
 }

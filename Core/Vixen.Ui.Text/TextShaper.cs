@@ -46,16 +46,24 @@ public static class TextShaper {
     ///     The BCP-47 tag the text is written in, or <see langword="null" /> or empty for
     ///     undetermined.
     ///     <para>
-    ///         ⚠ <b>Undetermined is the default and stays the default, because the alternative is
-    ///         not "the right language" but "this machine's".</b> HarfBuzz takes its own default
+    ///         ⚠
+    ///         <b>
+    ///             Undetermined is the default and stays the default, because the alternative is
+    ///             not "the right language" but "this machine's".
+    ///         </b>
+    ///         HarfBuzz takes its own default
     ///         from the process locale, so a paragraph shaped without one would lay out differently
     ///         on a German developer's laptop and on CI — a golden image red on one machine only.
     ///         Nothing in this assembly reads <c>CultureInfo</c>: a language arrives here from
     ///         whatever declared it, or it does not arrive.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Not the same fact as the script, which is what <see cref="TextItemizer" />
-    ///         already cuts on.</b> English, German and French are one script and three different
+    ///         ⚠
+    ///         <b>
+    ///             Not the same fact as the script, which is what <see cref="TextItemizer" />
+    ///             already cuts on.
+    ///         </b>
+    ///         English, German and French are one script and three different
     ///         sets of language-specific substitutions — and three different hyphenations, which is
     ///         the consumer this exists ahead of. See #600.
     ///     </para>
@@ -103,7 +111,7 @@ public static class TextShaper {
             advance += runs[i].Advance;
         }
 
-        return new ShapedText(text, runs, advance);
+        return new(text, runs, advance);
     }
 
     /// <summary>Shapes one run.</summary>
@@ -128,8 +136,7 @@ public static class TextShaper {
     ///         without ever consulting it; nothing here falls back to <c>CultureInfo</c>.
     ///     </para>
     /// </remarks>
-    internal static ShapedRun ShapeRun(FontFace font, string text, TextItem item) =>
-        ShapeRun(font, text, item, []);
+    internal static ShapedRun ShapeRun(FontFace font, string text, TextItem item) => ShapeRun(font, text, item, []);
 
     internal static ShapedRun ShapeRun(
         FontFace font,
@@ -148,7 +155,7 @@ public static class TextShaper {
         // assignment of "whatever we have" would reach `new Language("")`, which HarfBuzz resolves
         // through the process locale — exactly the machine dependence being avoided.
         if (!string.IsNullOrEmpty(language)) {
-            buffer.Language = new Language(language);
+            buffer.Language = new(language);
         }
 
         // ⚠ Default-ignorables are deleted rather than hidden. Left alone, HarfBuzz keeps a zero
@@ -168,7 +175,7 @@ public static class TextShaper {
         var advance = 0f;
 
         for (var i = 0; i < infos.Length; i++) {
-            glyphs[i] = new ShapedGlyph(
+            glyphs[i] = new(
                 (ushort)infos[i].Codepoint,
                 (int)infos[i].Cluster,
                 positions[i].XAdvance,
@@ -180,7 +187,7 @@ public static class TextShaper {
             advance += positions[i].XAdvance;
         }
 
-        return new ShapedRun(item, font, glyphs, advance);
+        return new(item, font, glyphs, advance);
     }
 
     /// <summary>Turns the engine's feature set into the array HarfBuzz wants.</summary>
@@ -204,8 +211,8 @@ public static class TextShaper {
             var tag = feature.Tag;
 
             // The whole buffer, which is the only range CSS can express. See `FontFeature`.
-            applied[i] = new Feature(
-                new Tag((char) (tag >> 24), (char) ((tag >> 16) & 0xFF), (char) ((tag >> 8) & 0xFF), (char) (tag & 0xFF)),
+            applied[i] = new(
+                new((char)(tag >> 24), (char)((tag >> 16) & 0xFF), (char)((tag >> 8) & 0xFF), (char)(tag & 0xFF)),
                 feature.Value,
                 0,
                 uint.MaxValue
@@ -215,17 +222,20 @@ public static class TextShaper {
         return applied;
     }
 
-    static HbScript TagFor(Script script) => Tags.GetOrAdd(
-        script,
-        static value => HbScript.Parse(string.Create(
-            4,
-            (uint)value,
-            static (span, tag) => {
-                span[0] = (char)(byte)(tag >> 24);
-                span[1] = (char)(byte)(tag >> 16);
-                span[2] = (char)(byte)(tag >> 8);
-                span[3] = (char)(byte)tag;
-            }
-        ))
-    );
+    static HbScript TagFor(Script script) =>
+        Tags.GetOrAdd(
+            script,
+            static value => HbScript.Parse(
+                string.Create(
+                    4,
+                    (uint)value,
+                    static (span, tag) => {
+                        span[0] = (char)(byte)(tag >> 24);
+                        span[1] = (char)(byte)(tag >> 16);
+                        span[2] = (char)(byte)(tag >> 8);
+                        span[3] = (char)(byte)tag;
+                    }
+                )
+            )
+        );
 }

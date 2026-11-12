@@ -6,7 +6,6 @@ using Vixen.Ecs;
 using Vixen.Net.Messaging;
 using Vixen.Net.Motion;
 using Vixen.Net.Replication;
-using Vixen.Net.Transport;
 using Xunit;
 
 namespace Vixen.Net.Tests.Motion;
@@ -178,15 +177,15 @@ public sealed class MotionTests {
 
     [Fact]
     public void TheOldestGoesWhenTheBufferIsFull() {
-        var buffer = new SnapshotBuffer(capacity: 4);
+        var buffer = new SnapshotBuffer(4);
 
         for (var i = 1u; i <= 10u; i++) {
             buffer.Add(new(new(i), new(i, 0, 0), Quaternion.Identity));
         }
 
         Assert.Equal(4, buffer.Count);
-        Assert.Equal(new Tick(7), buffer.Oldest.Tick);
-        Assert.Equal(new Tick(10), buffer.Newest.Tick);
+        Assert.Equal(new(7), buffer.Oldest.Tick);
+        Assert.Equal(new(10), buffer.Newest.Tick);
     }
 
     [Fact]
@@ -204,8 +203,8 @@ public sealed class MotionTests {
         buffer.Add(new(new(5), new(1, 2, 3), Quaternion.Identity));
 
         Assert.True(buffer.TrySample(new(9), 0f, out var sample));
-        Assert.Equal(new Vector3(1, 2, 3), sample.Position);
-        Assert.Equal(new Tick(9), sample.Tick);
+        Assert.Equal(new(1, 2, 3), sample.Position);
+        Assert.Equal(new(9), sample.Tick);
     }
 
     [Fact]
@@ -284,11 +283,7 @@ public sealed class MotionTests {
         using var world = new World();
 
         var entity = world.Create(
-            new NetworkTransform {
-                Position = new(1, 2, 3),
-                Rotation = Quaternion.Identity,
-                TeleportCount = 2
-            }
+            new NetworkTransform { Position = new(1, 2, 3), Rotation = Quaternion.Identity, TeleportCount = 2 }
         );
 
         Span<byte> buffer = stackalloc byte[64];
@@ -343,11 +338,7 @@ public sealed class MotionTests {
         using var world = new World();
 
         var entity = world.Create(
-            new NetworkTransform {
-                Position = new(1, 2, 3),
-                Rotation = Quaternion.Identity,
-                TeleportCount = 2
-            }
+            new NetworkTransform { Position = new(1, 2, 3), Rotation = Quaternion.Identity, TeleportCount = 2 }
         );
 
         Span<byte> buffer = stackalloc byte[64];
@@ -381,8 +372,7 @@ public sealed class MotionTests {
 
         var sent = server.Create(
             new NetworkTransform {
-                Position = new(500f, 0f, -250f),
-                Rotation = Quaternion.FromAxisAngle(Vector3.UnitY, 1.1f)
+                Position = new(500f, 0f, -250f), Rotation = Quaternion.FromAxisAngle(Vector3.UnitY, 1.1f)
             }
         );
 
@@ -399,7 +389,7 @@ public sealed class MotionTests {
         Assert.True(replicator.Apply(client, door, ref reader));
 
         ref readonly var got = ref client.Read<NetworkTransform>(door);
-        Assert.Equal(new Vector3(12f, 0f, 34f), got.Position);
+        Assert.Equal(new(12f, 0f, 34f), got.Position);
         Assert.Equal(server.Read<NetworkTransform>(sent).Rotation.Y, got.Rotation.Y, 2);
     }
 
@@ -433,8 +423,9 @@ public sealed class MotionTests {
     /// <summary>A replicator that sends no axis is refused rather than registered.</summary>
     [Fact]
     public void AReplicatorWithNoAxesIsRefused() {
-        Assert.Throws<ArgumentOutOfRangeException>(
-            () => new NetworkTransformReplicator(NetworkTransformAxes.None)
+        Assert.Throws<ArgumentOutOfRangeException>(static () => new NetworkTransformReplicator(
+                NetworkTransformAxes.None
+            )
         );
     }
 

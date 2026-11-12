@@ -36,24 +36,24 @@ public class PaintPaneCompositeDeviceTests {
     [InlineData(LayerBlendMode.Multiply)]
     [InlineData(LayerBlendMode.Overlay)]
     public void Under_the_brush_the_pane_shows_the_plan(LayerBlendMode mode) {
-        using var pane = Pane.Open(mode, over: false);
+        using var pane = Pane.Open(mode, false);
 
         // The first stroke of a layer that names no canvas, which the document does not know about.
-        pane.Stroke(new(40f, 40f), new(90f, 60f), release: false);
+        pane.Stroke(new(40f, 40f), new(90f, 60f), false);
         pane.SamePicture("under the first stroke, before anything named its canvas");
 
-        pane.Stroke(new(90f, 60f), new(90f, 60f), release: true, press: false);
+        pane.Stroke(new(90f, 60f), new(90f, 60f), true, false);
         pane.SamePicture("after the first stroke let go");
 
         var plain = pane.Bytes();
 
         // The second, mid-air, far enough from the first that a union would be most of the image.
-        pane.Stroke(new(270f, 270f), new(290f, 295f), release: false);
+        pane.Stroke(new(270f, 270f), new(290f, 295f), false);
         pane.SamePicture("under a second stroke, reaching the far corner of a picture no workgroup fits");
 
         Assert.False(plain.AsSpan().SequenceEqual(pane.Bytes()), "the second stroke changed nothing the pane holds");
 
-        pane.Stroke(new(290f, 295f), new(290f, 295f), release: true, press: false);
+        pane.Stroke(new(290f, 295f), new(290f, 295f), true, false);
     }
 
     /// <summary>A drag costs its tiles: nothing compiles, and the pane is sent a part of the picture.</summary>
@@ -62,20 +62,21 @@ public class PaintPaneCompositeDeviceTests {
         // A tile is 256 texels, so a smaller picture is one tile and has nothing to show here.
         const int Large = 1024;
 
-        using var pane = Pane.Open(LayerBlendMode.Multiply, over: false, Large);
+        using var pane = Pane.Open(LayerBlendMode.Multiply, false, Large);
 
-        pane.Stroke(new(40f, 40f), new(40f, 40f), release: true);
+        pane.Stroke(new(40f, 40f), new(40f, 40f), true);
 
         var compiled = pane.Module.Preview!.Compilations;
         var patched = pane.Fixture.Graphics!.Updates.Count;
         var uploaded = pane.Fixture.Graphics.Uploads.Count;
 
-        pane.Stroke(new(20f, 20f), new(50f, 30f), release: false);
+        pane.Stroke(new(20f, 20f), new(50f, 30f), false);
 
         Assert.Equal(compiled, pane.Module.Preview.Compilations);
         Assert.Equal(uploaded, pane.Fixture.Graphics.Uploads.Count);
 
-        var written = pane.Fixture.Graphics.Updates.Skip(patched).Sum(static update => (long)update.Width * update.Height);
+        var written = pane.Fixture.Graphics.Updates.Skip(patched)
+            .Sum(static update => (long)update.Width * update.Height);
 
         Assert.True(written > 0, "the pane was sent nothing, so the bound below is empty");
         Assert.True(
@@ -89,22 +90,22 @@ public class PaintPaneCompositeDeviceTests {
     /// <summary>A filter over the layer spreads a stroke past its own rectangle, and the pane has to follow.</summary>
     [Fact]
     public void A_filter_over_the_layer_shows_what_it_spread() {
-        using var pane = Pane.Open(LayerBlendMode.Multiply, over: true);
+        using var pane = Pane.Open(LayerBlendMode.Multiply, true);
 
-        pane.Stroke(new(100f, 100f), new(130f, 100f), release: false);
+        pane.Stroke(new(100f, 100f), new(130f, 100f), false);
         pane.SamePicture("under a stroke with a blur over it");
     }
 
     /// <summary>Undo brings back a picture the cache may still hold, and that rewrites no rectangle.</summary>
     [Fact]
     public void An_undo_puts_the_plans_picture_back() {
-        using var pane = Pane.Open(LayerBlendMode.Overlay, over: false);
+        using var pane = Pane.Open(LayerBlendMode.Overlay, false);
 
-        pane.Stroke(new(40f, 40f), new(40f, 40f), release: true);
+        pane.Stroke(new(40f, 40f), new(40f, 40f), true);
 
         var before = pane.Bytes();
 
-        pane.Stroke(new(120f, 120f), new(160f, 150f), release: true);
+        pane.Stroke(new(120f, 120f), new(160f, 150f), true);
 
         Assert.False(before.AsSpan().SequenceEqual(pane.Bytes()), "the stroke changed nothing the pane holds");
         Assert.True(pane.Document.Stack.Undo());
@@ -123,9 +124,9 @@ public class PaintPaneCompositeDeviceTests {
     /// <summary>⚠ A value moves numbers: the plan is not compiled again and the pane follows it.</summary>
     [Fact]
     public void A_value_edit_compiles_nothing_and_reaches_the_pane() {
-        using var pane = Pane.Open(LayerBlendMode.Multiply, over: false);
+        using var pane = Pane.Open(LayerBlendMode.Multiply, false);
 
-        pane.Stroke(new(40f, 40f), new(60f, 60f), release: true);
+        pane.Stroke(new(40f, 40f), new(60f, 60f), true);
 
         var compiled = pane.Module.Preview!.Compilations;
         var before = pane.Bytes();
@@ -147,7 +148,13 @@ public class PaintPaneCompositeDeviceTests {
         readonly VulkanDevice device;
         readonly ImageView image;
 
-        Pane(VulkanDevice device, TexturingFixture fixture, TexturingModule module, LayerStackDocument document, ImageView image) {
+        Pane(
+            VulkanDevice device,
+            TexturingFixture fixture,
+            TexturingModule module,
+            LayerStackDocument document,
+            ImageView image
+        ) {
             this.device = device;
             this.image = image;
 
@@ -177,29 +184,40 @@ public class PaintPaneCompositeDeviceTests {
             var stack = LayerStackDocument.Starter("Hull") with { BaseWidth = side, BaseHeight = side };
 
             stack.Sets[0].Layers[0].Values["baseColor"] = [0.8f, 0.6f, 0.3f, 1f];
-            stack.Sets[0].Layers.Add(new() { Id = "rust", Name = "Rust", Kind = LayerKind.Paint, Blend = mode, Opacity = 0.8f });
-            stack.Sets[0].Layers.Add(
-                new() {
-                    Id = "over",
-                    Name = "Over",
-                    Kind = LayerKind.Fill,
-                    Fill = LayerFillSource.Constant,
-                    Blend = LayerBlendMode.Overlay,
-                    Opacity = 0.5f,
-                    Values = { ["baseColor"] = [0.3f, 0.7f, 0.5f, 1f] }
-                }
-            );
-
-            if (over) {
-                stack.Sets[0].Layers.Add(
+            stack.Sets[0]
+                .Layers.Add(
                     new() {
-                        Id = "blur",
-                        Name = "Blur",
-                        Kind = LayerKind.Filter,
-                        Filter = LayerFilterKind.Blur,
-                        Settings = { ["Radius"] = [3f] }
+                        Id = "rust",
+                        Name = "Rust",
+                        Kind = LayerKind.Paint,
+                        Blend = mode,
+                        Opacity = 0.8f
                     }
                 );
+            stack.Sets[0]
+                .Layers.Add(
+                    new() {
+                        Id = "over",
+                        Name = "Over",
+                        Kind = LayerKind.Fill,
+                        Fill = LayerFillSource.Constant,
+                        Blend = LayerBlendMode.Overlay,
+                        Opacity = 0.5f,
+                        Values = { ["baseColor"] = [0.3f, 0.7f, 0.5f, 1f] }
+                    }
+                );
+
+            if (over) {
+                stack.Sets[0]
+                    .Layers.Add(
+                        new() {
+                            Id = "blur",
+                            Name = "Blur",
+                            Kind = LayerKind.Filter,
+                            Filter = LayerFilterKind.Blur,
+                            Settings = { ["Radius"] = [3f] }
+                        }
+                    );
             }
 
             document.Document = stack;
@@ -223,19 +241,25 @@ public class PaintPaneCompositeDeviceTests {
 
             if (press) {
                 Fixture.Shell.Document.Dispatch(
-                    new PointerEvent { X = start.X, Y = start.Y, Action = PointerAction.Pressed, Button = PointerButton.Primary }
+                    new PointerEvent {
+                        X = start.X, Y = start.Y, Action = PointerAction.Pressed, Button = PointerButton.Primary
+                    }
                 );
 
                 for (var step = 1; step <= 3; step++) {
                     var at = Vector2.Lerp(start, end, step / 3f);
 
-                    Fixture.Shell.Document.Dispatch(new PointerEvent { X = at.X, Y = at.Y, Action = PointerAction.Moved });
+                    Fixture.Shell.Document.Dispatch(
+                        new PointerEvent { X = at.X, Y = at.Y, Action = PointerAction.Moved }
+                    );
                 }
             }
 
             if (release) {
                 Fixture.Shell.Document.Dispatch(
-                    new PointerEvent { X = end.X, Y = end.Y, Action = PointerAction.Released, Button = PointerButton.Primary }
+                    new PointerEvent {
+                        X = end.X, Y = end.Y, Action = PointerAction.Released, Button = PointerButton.Primary
+                    }
                 );
             }
 
@@ -252,7 +276,7 @@ public class PaintPaneCompositeDeviceTests {
             foreach (var patch in graphics.Updates.Where(update => update.Image == shown.Image)) {
                 for (var row = 0; row < patch.Height; row++) {
                     patch.Pixels.AsSpan(row * patch.Width * 4, patch.Width * 4)
-                        .CopyTo(pixels.AsSpan((((patch.Y + row) * shown.Width) + patch.X) * 4));
+                        .CopyTo(pixels.AsSpan(((patch.Y + row) * shown.Width + patch.X) * 4));
                 }
             }
 
@@ -265,7 +289,7 @@ public class PaintPaneCompositeDeviceTests {
             var set = stack.Sets[0];
             var named = set with {
                 Layers = [
-                    .. set.Layers.Select(layer =>
+                    ..set.Layers.Select(layer =>
                         layer.Kind == LayerKind.Paint && layer.Paint.Length == 0
                             ? layer with { Paint = LayerPaint.NameFor("Hull", set.Name, layer.Id) }
                             : layer

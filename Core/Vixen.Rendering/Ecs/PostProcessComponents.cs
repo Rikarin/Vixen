@@ -200,8 +200,12 @@ public struct PostProcessSettings {
 
     /// <summary>How thick the froxel medium is here, per metre.</summary>
     /// <remarks>
-    ///     ⚠ <b><c>null</c> and <c>0</c> are different answers and the difference is the whole
-    ///     overlap rule.</b> Null is "this volume has no opinion about fog", so whatever is underneath
+    ///     ⚠
+    ///     <b>
+    ///         <c>null</c> and <c>0</c> are different answers and the difference is the whole
+    ///         overlap rule.
+    ///     </b>
+    ///     Null is "this volume has no opinion about fog", so whatever is underneath
     ///     it stands; zero is "there is no fog <em>here</em>", which is an opinion, and a strong one —
     ///     it is how a designer clears the mist out of an interior that a level-wide volume filled.
     ///     Flattening the two would make every volume that cares only about the grade also silently
@@ -546,8 +550,12 @@ public readonly struct SpherePostProcessShape : IPostProcessShape {
 ///         containment test rather than a system.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Asked once per custom volume per fold, so the answer should be an object that lives
-///         as long as the entity does.</b> A source that builds a shape per call is an allocation per
+///         ⚠
+///         <b>
+///             Asked once per custom volume per fold, so the answer should be an object that lives
+///             as long as the entity does.
+///         </b>
+///         A source that builds a shape per call is an allocation per
 ///         volume per frame, and this is called from the frame's own fold.
 ///     </para>
 /// </remarks>
@@ -640,15 +648,16 @@ public struct PostProcessVolume : IDefaultComponent<PostProcessVolume> {
     ///     volume contains nothing and contributes nothing, so an inspector that added one would show
     ///     a component that appears not to work.
     /// </remarks>
-    public static PostProcessVolume Default => new() {
-        Extents = new(5f, 5f, 5f),
-        BlendRadius = 1f,
-        Weight = 1f,
-        Priority = 0,
-        Unbound = false,
-        Shape = PostProcessShapeKind.Box,
-        Settings = PostProcessSettings.None
-    };
+    public static PostProcessVolume Default =>
+        new() {
+            Extents = new(5f, 5f, 5f),
+            BlendRadius = 1f,
+            Weight = 1f,
+            Priority = 0,
+            Unbound = false,
+            Shape = PostProcessShapeKind.Box,
+            Settings = PostProcessSettings.None
+        };
 
     /// <inheritdoc />
     static PostProcessVolume IDefaultComponent<PostProcessVolume>.DefaultValue => Default;
@@ -667,7 +676,7 @@ public struct PostProcessVolume : IDefaultComponent<PostProcessVolume> {
             return 1f;
         }
 
-        return blendRadius > 0f ? MathF.Max(1f - (distanceOutside / blendRadius), 0f) : 0f;
+        return blendRadius > 0f ? MathF.Max(1f - distanceOutside / blendRadius, 0f) : 0f;
     }
 
     /// <summary>How much this volume applies at a point, before its <see cref="Weight" />.</summary>
@@ -698,4 +707,3 @@ public struct PostProcessVolume : IDefaultComponent<PostProcessVolume> {
         return FadeAt(distance, BlendRadius);
     }
 }
-

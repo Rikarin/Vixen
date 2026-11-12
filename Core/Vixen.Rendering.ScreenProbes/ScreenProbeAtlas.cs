@@ -49,7 +49,9 @@ public sealed class ScreenProbeAtlas {
     /// <param name="layout">Where the probes stand.</param>
     public ScreenProbeAtlas(ScreenProbeLayout layout) {
         Layout = layout;
-        texels = new Vector3[(layout.ProbeCount + layout.AdaptiveCapacity) * layout.MapResolution * layout.MapResolution];
+        texels = new Vector3[(layout.ProbeCount + layout.AdaptiveCapacity)
+            * layout.MapResolution
+            * layout.MapResolution];
         positions = new Vector3[layout.ProbeCount];
         normals = new Vector3[layout.ProbeCount];
         valid = new bool[layout.ProbeCount];
@@ -224,7 +226,7 @@ public sealed class ScreenProbeAtlas {
                         projection = projection.Accumulated(
                             OctahedralMap.Direction(new(tx, ty), resolution),
                             this[probe, new(tx, ty)],
-                            weights[(ty * resolution) + tx]
+                            weights[ty * resolution + tx]
                         );
                     }
                 }
@@ -240,8 +242,8 @@ public sealed class ScreenProbeAtlas {
                 for (var tx = 0; tx < resolution; tx++) {
                     projection = projection.Accumulated(
                         OctahedralMap.Direction(new(tx, ty), resolution),
-                        this[adaptive, new Int2(tx, ty)],
-                        weights[(ty * resolution) + tx]
+                        this[adaptive, new(tx, ty)],
+                        weights[ty * resolution + tx]
                     );
                 }
             }
@@ -279,10 +281,10 @@ public sealed class ScreenProbeAtlas {
             }
 
             blended = new(
-                blended.L00 + (resolved[Layout.ProbeIndex(tap.Probe)].L00 * tap.Weight),
-                blended.L1m1 + (resolved[Layout.ProbeIndex(tap.Probe)].L1m1 * tap.Weight),
-                blended.L10 + (resolved[Layout.ProbeIndex(tap.Probe)].L10 * tap.Weight),
-                blended.L11 + (resolved[Layout.ProbeIndex(tap.Probe)].L11 * tap.Weight)
+                blended.L00 + resolved[Layout.ProbeIndex(tap.Probe)].L00 * tap.Weight,
+                blended.L1m1 + resolved[Layout.ProbeIndex(tap.Probe)].L1m1 * tap.Weight,
+                blended.L10 + resolved[Layout.ProbeIndex(tap.Probe)].L10 * tap.Weight,
+                blended.L11 + resolved[Layout.ProbeIndex(tap.Probe)].L11 * tap.Weight
             );
 
             weight += tap.Weight;
@@ -331,10 +333,10 @@ public sealed class ScreenProbeAtlas {
             }
 
             blended = new(
-                blended.L00 + (resolved[index].L00 * tap.Weight),
-                blended.L1m1 + (resolved[index].L1m1 * tap.Weight),
-                blended.L10 + (resolved[index].L10 * tap.Weight),
-                blended.L11 + (resolved[index].L11 * tap.Weight)
+                blended.L00 + resolved[index].L00 * tap.Weight,
+                blended.L1m1 + resolved[index].L1m1 * tap.Weight,
+                blended.L10 + resolved[index].L10 * tap.Weight,
+                blended.L11 + resolved[index].L11 * tap.Weight
             );
 
             weight += tap.Weight;
@@ -353,7 +355,7 @@ public sealed class ScreenProbeAtlas {
             }
 
             var offset = adaptivePixels[adaptive] - pixel;
-            var distance = (float)((offset.X * offset.X) + (offset.Y * offset.Y));
+            float distance = offset.X * offset.X + offset.Y * offset.Y;
 
             if (distance < nearestDistance) {
                 nearest = adaptive;
@@ -383,7 +385,7 @@ public sealed class ScreenProbeAtlas {
         ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(texel.X, resolution);
         ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(texel.Y, resolution);
 
-        return ((Layout.ProbeCount + adaptive) * resolution * resolution) + (texel.Y * resolution) + texel.X;
+        return (Layout.ProbeCount + adaptive) * resolution * resolution + texel.Y * resolution + texel.X;
     }
 
     int TexelIndex(Int2 probe, Int2 texel) {
@@ -394,6 +396,6 @@ public sealed class ScreenProbeAtlas {
         ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(texel.X, resolution);
         ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(texel.Y, resolution);
 
-        return (Layout.ProbeIndex(probe) * resolution * resolution) + (texel.Y * resolution) + texel.X;
+        return Layout.ProbeIndex(probe) * resolution * resolution + texel.Y * resolution + texel.X;
     }
 }

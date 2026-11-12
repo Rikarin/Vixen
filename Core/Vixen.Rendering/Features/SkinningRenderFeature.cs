@@ -18,8 +18,12 @@ namespace Vixen.Rendering.Features;
 ///         It does not, and this file is the whole of it.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Nothing constructs this outside its own tests, and the rest of the path is missing
-///         too.</b> Neither <c>WorldRenderer</c> nor <c>EditorWorldRenderer</c> names it; below it,
+///         ⚠
+///         <b>
+///             Nothing constructs this outside its own tests, and the rest of the path is missing
+///             too.
+///         </b>
+///         Neither <c>WorldRenderer</c> nor <c>EditorWorldRenderer</c> names it; below it,
 ///         <see cref="SurfaceVertex" /> carries no bone indices and no bone weights, so the vertex
 ///         buffer the classic mesh path uploads has no influences to skin by, and no <em>shading</em>
 ///         pass in the library skins — <c>ForwardPlus.rvn</c> declares no <c>Skinned</c> permutation,
@@ -51,7 +55,9 @@ public sealed class SkinningRenderFeature : SubRenderFeature, IDrawSubFeature, I
     bool disposed;
 
     /// <summary>Creates the feature, interning its permutation key.</summary>
-    public SkinningRenderFeature() => keys = [ParameterKeys.NewPermutation(false, "Vixen.Skinned")];
+    public SkinningRenderFeature() {
+        keys = [ParameterKeys.NewPermutation(false, "Vixen.Skinned")];
+    }
 
     /// <inheritdoc />
     public override string Name => "Skinning";

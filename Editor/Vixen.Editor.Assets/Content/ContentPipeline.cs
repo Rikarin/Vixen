@@ -161,15 +161,13 @@ public static class ContentPipeline {
             workspace.Artifacts,
             workspace.Files,
             workspace.Cache
-        ) {
-            Target = target
-        };
+        ) { Target = target };
 
         if (executor is not null) {
             pipeline.Executor = executor;
         }
 
-        var pathOf = workspace.Database.Entries.ToDictionary(entry => entry.Guid, entry => entry.Path);
+        var pathOf = workspace.Database.Entries.ToDictionary(static entry => entry.Guid, static entry => entry.Path);
         var outcomes = await pipeline.ImportAllAsync(cancellationToken).ConfigureAwait(false);
         var imported = 0;
         var cached = 0;
@@ -195,7 +193,7 @@ public static class ContentPipeline {
             // finished, so this is a walk over what happened and not a live progress feed — which is
             // honest for a bar that fills at the end, and is what the pipeline's own shape allows
             // until it takes a progress callback of its own.
-            progress?.Invoke(new(++seen / (float) Math.Max(outcomes.Count, 1), path, outcome));
+            progress?.Invoke(new(++seen / (float)Math.Max(outcomes.Count, 1), path, outcome));
         }
 
         workspace.Save();
@@ -284,7 +282,7 @@ public static class ContentPipeline {
             report(new(diagnostic.Severity, ContentStage.Pack, string.Empty, diagnostic.Message));
         }
 
-        if (built.Diagnostics.Any(diagnostic => diagnostic.Severity == ImportSeverity.Error)) {
+        if (built.Diagnostics.Any(static diagnostic => diagnostic.Severity == ImportSeverity.Error)) {
             return default;
         }
 
@@ -294,7 +292,7 @@ public static class ContentPipeline {
             true,
             plan.Assets.Length,
             built.Bundles.Length,
-            built.Bundles.Sum(bundle => (long) bundle.Bytes.Length),
+            built.Bundles.Sum(static bundle => (long)bundle.Bytes.Length),
             outputDirectory
         );
     }
@@ -331,16 +329,24 @@ public static class ContentPipeline {
     ///         moment both of those things are in the same process.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>An entry that does not reach an addressable scene is an <i>error</i>, and it is
-    ///         the same call doc 08 makes about an addressable asset depending on one that is
-    ///         not.</b> A scene with no address is packed into no bundle, so the alternative to
+    ///         ⚠
+    ///         <b>
+    ///             An entry that does not reach an addressable scene is an <i>error</i>, and it is
+    ///             the same call doc 08 makes about an addressable asset depending on one that is
+    ///             not.
+    ///         </b>
+    ///         A scene with no address is packed into no bundle, so the alternative to
     ///         refusing is a build that succeeds, ships, and starts to an empty world — the failure
     ///         found by a tester rather than by the person who caused it. The fix is one field in the
     ///         inspector and the message says so.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A settings file that will not parse refuses the build rather than being taken as
-    ///         "no scenes".</b> Falling back to the defaults would turn a stray tab character into a
+    ///         ⚠
+    ///         <b>
+    ///             A settings file that will not parse refuses the build rather than being taken as
+    ///             "no scenes".
+    ///         </b>
+    ///         Falling back to the defaults would turn a stray tab character into a
     ///         player that boots to nothing, which is exactly the silent reset
     ///         <see cref="ProjectSettingsStore" /> refuses one layer down.
     ///     </para>
@@ -478,8 +484,17 @@ public static class ContentPipeline {
         }
 
         return unreadable.Count > 0
-            ? new(ImmutableArray<BuildableAsset>.Empty, ImmutableArray<AddressableGroup>.Empty, ImmutableArray<ImportDiagnostic>.Empty)
-            : BuildPlanner.Plan(workspace.Database.Entries, workspace.Cache, entry => ReadMeta(workspace, entry), groups);
+            ? new(
+                ImmutableArray<BuildableAsset>.Empty,
+                ImmutableArray<AddressableGroup>.Empty,
+                ImmutableArray<ImportDiagnostic>.Empty
+            )
+            : BuildPlanner.Plan(
+                workspace.Database.Entries,
+                workspace.Cache,
+                entry => ReadMeta(workspace, entry),
+                groups
+            );
     }
 
     static AssetMeta? ReadMeta(ProjectWorkspace workspace, AssetEntry entry) {

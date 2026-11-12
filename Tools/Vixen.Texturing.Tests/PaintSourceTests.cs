@@ -8,7 +8,10 @@ using Xunit;
 
 namespace Vixen.Texturing.Tests;
 
-/// <summary>Polygon fills, and strokes whose colour comes from somewhere other than one colour, on shapes worked out by hand.</summary>
+/// <summary>
+///     Polygon fills, and strokes whose colour comes from somewhere other than one colour, on shapes worked out by
+///     hand.
+/// </summary>
 public class PaintSourceTests {
     const int Side = 128;
     const uint Red = 0xFF0000FFu;
@@ -37,11 +40,11 @@ public class PaintSourceTests {
         int[] apart = [6, 7, 8, 6, 8, 9];
 
         if (!parts) {
-            return PaintProjection.Over(positions, layout, [.. front, .. side, .. apart]);
+            return PaintProjection.Over(positions, layout, [..front, ..side, ..apart]);
         }
 
         // Two meshes: the box's two faces, and the square apart.
-        MeshData box = new() { Positions = positions, TexCoords = layout, Indices = [.. front, .. side] };
+        MeshData box = new() { Positions = positions, TexCoords = layout, Indices = [..front, ..side] };
         MeshData other = new() { Positions = positions, TexCoords = layout, Indices = apart };
 
         return PaintProjection.Open([box, other], out _)!;
@@ -84,7 +87,13 @@ public class PaintSourceTests {
         stroke.Dab(new(0.25f * Side, 0.1f * Side));
 
         // The front square is 0.05 to 0.3 of the atlas: 32 texels square, 1,024 of them.
-        var square = Painted(image, (int)(0.05f * Side), (int)(0.3f * Side) + 1, (int)(0.05f * Side), (int)(0.3f * Side) + 1);
+        var square = Painted(
+            image,
+            (int)(0.05f * Side),
+            (int)(0.3f * Side) + 1,
+            (int)(0.05f * Side),
+            (int)(0.3f * Side) + 1
+        );
 
         Assert.InRange(square, 1024 * least, 1024 * most);
         Assert.Equal(side, Painted(image, (int)(0.31f * Side), (int)(0.56f * Side), 0, (int)(0.31f * Side)) > 500);
@@ -92,7 +101,9 @@ public class PaintSourceTests {
 
         PaintImage gutter = new(Side, Side);
 
-        new PaintStroke(gutter, surface.Coverage, Hard, Red, 0, placement: surface.Fill(mode)).Dab(new(0.45f * Side, 0.5f * Side));
+        new PaintStroke(gutter, surface.Coverage, Hard, Red, 0, placement: surface.Fill(mode)).Dab(
+            new(0.45f * Side, 0.5f * Side)
+        );
 
         Assert.Equal(0, Painted(gutter, 0, Side, 0, Side));
     }
@@ -146,7 +157,14 @@ public class PaintSourceTests {
 
         PaintImage edge = new(Side, Side);
 
-        new PaintStroke(edge, surface.Coverage, Hard, Red, 0, source: new PaintAtlasSource(composite, Side, Side, new(-25f, 0f)))
+        new PaintStroke(
+            edge,
+            surface.Coverage,
+            Hard,
+            Red,
+            0,
+            source: new PaintAtlasSource(composite, Side, Side, new(-25f, 0f))
+        )
             .MoveTo(new(22f, 20f));
 
         Assert.Equal(0u, edge.At(22, 20));
@@ -169,7 +187,14 @@ public class PaintSourceTests {
         }
 
         var digest = canvas.Digest;
-        PaintStroke still = new(canvas, surface.Coverage, Hard, Red, 0, source: new PaintSmudge(canvas, surface.Coverage));
+        PaintStroke still = new(
+            canvas,
+            surface.Coverage,
+            Hard,
+            Red,
+            0,
+            source: new PaintSmudge(canvas, surface.Coverage)
+        );
 
         still.MoveTo(new(16f, 20f));
 
@@ -269,6 +294,9 @@ public class PaintSourceTests {
 
         // Blue is dark, so it lets little of the brush through; white lets it all.
         Assert.Equal(Red, masked.At(34, 22));
-        Assert.True(PaintImage.Channel(masked.At(14, 22), 0) < 0.2f, "The dark half of the stencil let the brush through.");
+        Assert.True(
+            PaintImage.Channel(masked.At(14, 22), 0) < 0.2f,
+            "The dark half of the stencil let the brush through."
+        );
     }
 }

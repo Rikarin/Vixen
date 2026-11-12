@@ -63,9 +63,9 @@ public class TriangleTreeTests {
         // Every pairing, because each collapsed edge divides by a different one of the three
         // denominators and only one of them is the pole fan's.
         foreach (var (a, b, c) in ((Vector3 A, Vector3 B, Vector3 C)[]) [
-            (A, A, B), (A, B, B), (A, B, A), (A, A, A)
-        ]) {
-            foreach (var probe in (Vector3[]) [new(0, 0, 1), new(2, 2, 0), new(-1, -1, -1), new(0.5f, 0, 0)]) {
+                     (A, A, B), (A, B, B), (A, B, A), (A, A, A)
+                 ]) {
+            foreach (var probe in (Vector3[])[new(0, 0, 1), new(2, 2, 0), new(-1, -1, -1), new(0.5f, 0, 0)]) {
                 var closest = TriangleTree.ClosestPointOnTriangle(probe, a, b, c);
 
                 Assert.False(
@@ -150,7 +150,7 @@ public class TriangleTreeTests {
         Assert.Equal(0f, hit.Point.Z, 4);
         Assert.Equal(1f, Total(hit.Barycentric), 4);
 
-        var rebuilt = (A * hit.Barycentric.X) + (B * hit.Barycentric.Y) + (C * hit.Barycentric.Z);
+        var rebuilt = A * hit.Barycentric.X + B * hit.Barycentric.Y + C * hit.Barycentric.Z;
 
         Assert.Equal(hit.Point.X, rebuilt.X, 4);
         Assert.Equal(hit.Point.Y, rebuilt.Y, 4);
@@ -159,8 +159,12 @@ public class TriangleTreeTests {
 
     /// <summary>The direction's length is the search radius, so a short ray stops short.</summary>
     /// <remarks>
-    ///     ⚠ <b>Bounding by the direction rather than by a separate limit is what keeps the two from
-    ///     disagreeing</b>, and it is what lets a bake express its cage as a fraction of the model's
+    ///     ⚠
+    ///     <b>
+    ///         Bounding by the direction rather than by a separate limit is what keeps the two from
+    ///         disagreeing
+    ///     </b>
+    ///     , and it is what lets a bake express its cage as a fraction of the model's
     ///     diagonal — a limit in metres is a claim about how big the model is.
     /// </remarks>
     [Fact]
@@ -243,7 +247,7 @@ public class TriangleTreeTests {
         var shuffled = new int[indices.Length];
 
         for (var triangle = 0; triangle < indices.Length / 3; triangle++) {
-            var source = ((indices.Length / 3) - 1 - triangle) * 3;
+            var source = (indices.Length / 3 - 1 - triangle) * 3;
             indices.AsSpan(source, 3).CopyTo(shuffled.AsSpan(triangle * 3, 3));
         }
 
@@ -319,11 +323,11 @@ public class TriangleTreeTests {
     [Fact]
     public void ADegenerateTriangleStillWeighsToOne() {
         foreach (var (a, b, c) in ((Vector3 A, Vector3 B, Vector3 C)[]) [
-            (A, A, B), (A, B, B), (A, B, A), (A, A, A), (A, B, new(2, 0, 0))
-        ]) {
+                     (A, A, B), (A, B, B), (A, B, A), (A, A, A), (A, B, new(2, 0, 0))
+                 ]) {
             var tree = new TriangleTree([a, b, c], [0, 1, 2]);
 
-            foreach (var probe in (Vector3[]) [new(0, 0, 1), new(2, 2, 0), new(-1, -1, -1), new(0.5f, 1f, 0f)]) {
+            foreach (var probe in (Vector3[])[new(0, 0, 1), new(2, 2, 0), new(-1, -1, -1), new(0.5f, 1f, 0f)]) {
                 var closest = tree.Closest(probe);
                 var weights = closest.Barycentric;
 
@@ -365,8 +369,8 @@ public class TriangleTreeTests {
 
                     AssertReconstructs(
                         vertices[indices[closest.Triangle * 3]],
-                        vertices[indices[(closest.Triangle * 3) + 1]],
-                        vertices[indices[(closest.Triangle * 3) + 2]],
+                        vertices[indices[closest.Triangle * 3 + 1]],
+                        vertices[indices[closest.Triangle * 3 + 2]],
                         closest
                     );
                 }
@@ -388,8 +392,7 @@ public class TriangleTreeTests {
         var tree = new TriangleTree(vertices, indices);
 
         Gen.Select(Gen.Float[-3f, 3f], Gen.Float[-3f, 3f], Gen.Float[-3f, 3f])
-            .Sample(
-                values => {
+            .Sample(values => {
                     var (x, y, z) = values;
                     var point = new Vector3(x, y, z);
 
@@ -416,7 +419,7 @@ public class TriangleTreeTests {
 
     /// <summary>The weights, applied to the triangle they belong to, are the point they came from.</summary>
     static void AssertReconstructs(Vector3 a, Vector3 b, Vector3 c, ClosestTriangle closest) {
-        var rebuilt = (a * closest.Barycentric.X) + (b * closest.Barycentric.Y) + (c * closest.Barycentric.Z);
+        var rebuilt = a * closest.Barycentric.X + b * closest.Barycentric.Y + c * closest.Barycentric.Z;
 
         Assert.Equal(closest.Point.X, rebuilt.X, 4);
         Assert.Equal(closest.Point.Y, rebuilt.Y, 4);
@@ -431,8 +434,8 @@ public class TriangleTreeTests {
             var closest = TriangleTree.ClosestPointOnTriangle(
                 point,
                 vertices[indices[triangle * 3]],
-                vertices[indices[(triangle * 3) + 1]],
-                vertices[indices[(triangle * 3) + 2]],
+                vertices[indices[triangle * 3 + 1]],
+                vertices[indices[triangle * 3 + 2]],
                 out var barycentric
             );
 
@@ -483,11 +486,12 @@ public class TriangleTreeTests {
             for (var segment = 0; segment <= segments; segment++) {
                 var phi = 2f * MathF.PI * segment / segments;
 
-                vertices[(ring * (segments + 1)) + segment] = new Vector3(
-                    sinTheta * MathF.Cos(phi),
-                    cosTheta,
-                    sinTheta * MathF.Sin(phi)
-                ) * radius;
+                vertices[ring * (segments + 1) + segment] = new Vector3(
+                        sinTheta * MathF.Cos(phi),
+                        cosTheta,
+                        sinTheta * MathF.Sin(phi)
+                    )
+                    * radius;
             }
         }
 
@@ -495,7 +499,7 @@ public class TriangleTreeTests {
 
         for (var ring = 0; ring < rings; ring++) {
             for (var segment = 0; segment < segments; segment++) {
-                var here = (ring * (segments + 1)) + segment;
+                var here = ring * (segments + 1) + segment;
                 var below = here + segments + 1;
 
                 indices.Add(here);
@@ -508,6 +512,6 @@ public class TriangleTreeTests {
             }
         }
 
-        return (vertices, [.. indices]);
+        return (vertices, [..indices]);
     }
 }

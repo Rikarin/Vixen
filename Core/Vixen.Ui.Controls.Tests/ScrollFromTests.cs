@@ -18,14 +18,16 @@ public class ScrollFromTests {
 
     /// <summary>A 40-wide margin beside a 100×100 view over a 600×600 body, both inside one row.</summary>
     static (ControlFixture Fixture, ScrollView View, UiElement Margin) Pair(string css = "", bool wired = true) {
-        var fixture = new ControlFixture(css: $$"""
-            root    { width: 400px; height: 300px; }
-            #pair   { flex-direction: row; width: 140px; height: 100px; }
-            #margin { width: 40px; height: 100px; flex-shrink: 0; }
-            #view   { width: 100px; height: 100px; flex-shrink: 0; }
-            #body   { width: 600px; height: 600px; }
-            {{css}}
-            """);
+        var fixture = new ControlFixture(
+            css: $$"""
+                   root    { width: 400px; height: 300px; }
+                   #pair   { flex-direction: row; width: 140px; height: 100px; }
+                   #margin { width: 40px; height: 100px; flex-shrink: 0; }
+                   #view   { width: 100px; height: 100px; flex-shrink: 0; }
+                   #body   { width: 600px; height: 600px; }
+                   {{css}}
+                   """
+        );
 
         var pair = fixture.Document.Create("div", fixture.Document.Root, "pair");
         var margin = fixture.Document.Create("div", pair, "margin");
@@ -44,17 +46,17 @@ public class ScrollFromTests {
 
     static void Swipe(ControlFixture fixture, UiElement from, float dx, float dy) {
         var bounds = from.Bounds;
-        var x = bounds.X + (bounds.Width * 0.5f);
-        var y = bounds.Y + (bounds.Height * 0.5f);
+        var x = bounds.X + bounds.Width * 0.5f;
+        var y = bounds.Y + bounds.Height * 0.5f;
 
         fixture.Press(x, y, type: PointerType.Touch);
 
         for (var step = 1; step <= 3; step++) {
-            fixture.MovePointer(x + (dx * step), y + (dy * step), type: PointerType.Touch);
+            fixture.MovePointer(x + dx * step, y + dy * step, type: PointerType.Touch);
             fixture.Advance(Frame);
         }
 
-        fixture.Release(x + (dx * 3f), y + (dy * 3f), type: PointerType.Touch);
+        fixture.Release(x + dx * 3f, y + dy * 3f, type: PointerType.Touch);
     }
 
     [Fact]

@@ -4,7 +4,6 @@
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Vixen.Ai.Perception.Ecs;
-using Vixen.Core.Mathematics;
 
 namespace Vixen.Ai.Perception;
 
@@ -75,7 +74,6 @@ public sealed class PerceivedTargetDecorator(
 ///     doc 37 § Part 3's <c>NearestPerceived</c>. <c>UpdateBlackboardService</c> would not do: an
 ///     <see cref="IWorldSensor" /> writes one key and nearest-perceived is naturally two, and the
 ///     "nearest" it needs is a distance from the listener rather than a value read out of the world.
-///
 ///     ⚠ <b>Nearest, not freshest — and that is a different node from what the binding does.</b> A
 ///     binding follows the most recent news, which is what "react to what just happened" means. A
 ///     service like this one follows the closest thing, which is what "shoot at whichever one is
@@ -159,8 +157,12 @@ public sealed class MakeNoiseTask(PerceptionSystem system, float loudness = 1f) 
 /// <summary>The three nodes this assembly adds to the library, and how a file builds them.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Registered rather than declared in <c>BehaviorNodeSchema</c>'s own table, because these
-///         types are not in <c>Vixen.Ai</c>.</b> The table lives there so that a game loading a
+///         ⚠
+///         <b>
+///             Registered rather than declared in <c>BehaviorNodeSchema</c>'s own table, because these
+///             types are not in <c>Vixen.Ai</c>.
+///         </b>
+///         The table lives there so that a game loading a
 ///         <c>.vxbt</c> at run time and the editor authoring one read the same declarations; a node
 ///         whose implementation is somewhere else has to arrive the same way a project's own node
 ///         does, which is the mechanism <see cref="BehaviorTreeResolver.AddDecorator" /> is.

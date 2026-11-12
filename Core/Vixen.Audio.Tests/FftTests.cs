@@ -39,7 +39,7 @@ public sealed class FftTests {
         Assert.Equal(16f, real[0], 1e-4f);
 
         for (var i = 1; i < 16; i++) {
-            Assert.Equal(0f, MathF.Sqrt((real[i] * real[i]) + (imaginary[i] * imaginary[i])), 1e-4f);
+            Assert.Equal(0f, MathF.Sqrt(real[i] * real[i] + imaginary[i] * imaginary[i]), 1e-4f);
         }
     }
 
@@ -63,7 +63,7 @@ public sealed class FftTests {
         fft.Forward(real, imaginary);
 
         for (var i = 0; i < size; i++) {
-            var magnitude = MathF.Sqrt((real[i] * real[i]) + (imaginary[i] * imaginary[i]));
+            var magnitude = MathF.Sqrt(real[i] * real[i] + imaginary[i] * imaginary[i]);
 
             if (i == bin || i == size - bin) {
                 Assert.Equal(size / 2f, magnitude, 1e-3f);
@@ -84,7 +84,7 @@ public sealed class FftTests {
 
         for (var i = 0; i < size; i++) {
             // Something with no symmetry to hide a mistake behind.
-            expected[i] = real[i] = MathF.Sin(i * 0.37f) + (0.3f * MathF.Cos(i * 1.11f));
+            expected[i] = real[i] = MathF.Sin(i * 0.37f) + 0.3f * MathF.Cos(i * 1.11f);
         }
 
         fft.Forward(real, imaginary);
@@ -129,8 +129,8 @@ public sealed class FftTests {
         fft.Forward(br, bi);
 
         for (var i = 0; i < size; i++) {
-            var re = (ar[i] * br[i]) - (ai[i] * bi[i]);
-            var im = (ar[i] * bi[i]) + (ai[i] * br[i]);
+            var re = ar[i] * br[i] - ai[i] * bi[i];
+            var im = ar[i] * bi[i] + ai[i] * br[i];
             ar[i] = re;
             ai[i] = im;
         }
@@ -144,9 +144,9 @@ public sealed class FftTests {
 
     [Fact]
     public void ASizeThatIsNotAPowerOfTwoIsRefused() {
-        Assert.Throws<ArgumentOutOfRangeException>(() => new Fft(12));
-        Assert.Throws<ArgumentOutOfRangeException>(() => new Fft(1));
-        Assert.Throws<ArgumentOutOfRangeException>(() => new Fft(0));
+        Assert.Throws<ArgumentOutOfRangeException>(static () => new Fft(12));
+        Assert.Throws<ArgumentOutOfRangeException>(static () => new Fft(1));
+        Assert.Throws<ArgumentOutOfRangeException>(static () => new Fft(0));
     }
 
     [Fact]

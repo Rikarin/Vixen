@@ -104,7 +104,7 @@ public static class ClusterAttributes {
         // every ratio below, so nothing here has to know which way the triangle faces.
         var edge1 = ndc1 - ndc0;
         var edge2 = ndc2 - ndc0;
-        var area = (edge1.X * edge2.Y) - (edge1.Y * edge2.X);
+        var area = edge1.X * edge2.Y - edge1.Y * edge2.X;
 
         if (MathF.Abs(area) < Epsilon) {
             return degenerate;
@@ -112,8 +112,8 @@ public static class ClusterAttributes {
 
         var scale = 1f / area;
         var to = pixel - ndc0;
-        var b1 = ((to.X * edge2.Y) - (to.Y * edge2.X)) * scale;
-        var b2 = ((edge1.X * to.Y) - (edge1.Y * to.X)) * scale;
+        var b1 = (to.X * edge2.Y - to.Y * edge2.X) * scale;
+        var b2 = (edge1.X * to.Y - edge1.Y * to.X) * scale;
 
         var screen = new Vector3(1f - b1 - b2, b1, b2);
 
@@ -141,26 +141,26 @@ public static class ClusterAttributes {
 
         return new(
             weights,
-            (weightedDdx - (weights * sumDdx)) * inverseSum,
-            (weightedDdy - (weights * sumDdy)) * inverseSum
+            (weightedDdx - weights * sumDdx) * inverseSum,
+            (weightedDdy - weights * sumDdy) * inverseSum
         );
     }
 
     /// <summary>One scalar attribute, interpolated.</summary>
     public static float Lerp(in Barycentrics b, float a0, float a1, float a2) =>
-        (a0 * b.Weights.X) + (a1 * b.Weights.Y) + (a2 * b.Weights.Z);
+        a0 * b.Weights.X + a1 * b.Weights.Y + a2 * b.Weights.Z;
 
     /// <summary>A two-component attribute, interpolated.</summary>
     public static Vector2 Lerp(in Barycentrics b, Vector2 a0, Vector2 a1, Vector2 a2) =>
-        (a0 * b.Weights.X) + (a1 * b.Weights.Y) + (a2 * b.Weights.Z);
+        a0 * b.Weights.X + a1 * b.Weights.Y + a2 * b.Weights.Z;
 
     /// <summary>A three-component attribute, interpolated.</summary>
     public static Vector3 Lerp(in Barycentrics b, Vector3 a0, Vector3 a1, Vector3 a2) =>
-        (a0 * b.Weights.X) + (a1 * b.Weights.Y) + (a2 * b.Weights.Z);
+        a0 * b.Weights.X + a1 * b.Weights.Y + a2 * b.Weights.Z;
 
     /// <summary>A four-component attribute, interpolated.</summary>
     public static Vector4 Lerp(in Barycentrics b, Vector4 a0, Vector4 a1, Vector4 a2) =>
-        (a0 * b.Weights.X) + (a1 * b.Weights.Y) + (a2 * b.Weights.Z);
+        a0 * b.Weights.X + a1 * b.Weights.Y + a2 * b.Weights.Z;
 
     /// <summary>How a two-component attribute changes across one pixel in x.</summary>
     /// <remarks>
@@ -170,11 +170,11 @@ public static class ClusterAttributes {
     ///     derivative weights. No finite difference and no neighbouring pixel.
     /// </remarks>
     public static Vector2 Ddx(in Barycentrics b, Vector2 a0, Vector2 a1, Vector2 a2) =>
-        (a0 * b.Ddx.X) + (a1 * b.Ddx.Y) + (a2 * b.Ddx.Z);
+        a0 * b.Ddx.X + a1 * b.Ddx.Y + a2 * b.Ddx.Z;
 
     /// <summary>How it changes across one pixel in y.</summary>
     public static Vector2 Ddy(in Barycentrics b, Vector2 a0, Vector2 a1, Vector2 a2) =>
-        (a0 * b.Ddy.X) + (a1 * b.Ddy.Y) + (a2 * b.Ddy.Z);
+        a0 * b.Ddy.X + a1 * b.Ddy.Y + a2 * b.Ddy.Z;
 
     /// <summary>How much of NDC one pixel spans, for a view of a size.</summary>
     /// <param name="size">The view, in pixels.</param>
@@ -183,8 +183,7 @@ public static class ClusterAttributes {
     ///     Written here rather than at the caller because it is what every gradient is scaled by, and a
     ///     factor of two in it is a mip level.
     /// </remarks>
-    public static Vector2 PixelSize(Int2 size) =>
-        new(size.X > 0 ? 2f / size.X : 0f, size.Y > 0 ? 2f / size.Y : 0f);
+    public static Vector2 PixelSize(Int2 size) => new(size.X > 0 ? 2f / size.X : 0f, size.Y > 0 ? 2f / size.Y : 0f);
 
     static float Reciprocal(float value) => MathF.Abs(value) < GpuCulling.ClipEpsilon ? 0f : 1f / value;
 }

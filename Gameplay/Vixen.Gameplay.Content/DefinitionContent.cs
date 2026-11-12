@@ -30,9 +30,17 @@ public readonly record struct DefinitionLoad(DefinitionCatalog Catalog, Immutabl
 ///         second one would be a second thing to keep in step.
 ///     </para>
 ///     <para>
-///         ⚠ <b>A definition is copied out of its bundle rather than held by a handle, and doc 28's
-///         sketch is wrong about this.</b> § Definitions says a definition is <em>"resolved through
-///         <c>Vixen.Assets</c>, ref-counted"</em>. Ref-counting the definitions themselves would be
+///         ⚠
+///         <b>
+///             A definition is copied out of its bundle rather than held by a handle, and doc 28's
+///             sketch is wrong about this.
+///         </b>
+///         § Definitions says a definition is
+///         <em>
+///             "resolved through
+///             <c>Vixen.Assets</c>, ref-counted"
+///         </em>
+///         . Ref-counting the definitions themselves would be
 ///         the wrong shape twice over: it puts a load call on the damage path, and it admits a state
 ///         in which a sword sitting in somebody's bag names a definition that has been unloaded — and
 ///         a <see cref="DefId" /> that sometimes resolves is worse than one that never does. The
@@ -45,8 +53,12 @@ public readonly record struct DefinitionLoad(DefinitionCatalog Catalog, Immutabl
 ///         by whoever draws them, on the ordinary handle path, long after this has run.
 ///     </para>
 ///     <para>
-///         ⚠ <b><see cref="DefinitionCatalog.BuildHash" /> and <c>ContentCatalog.BuildHash</c> are
-///         different numbers and neither substitutes for the other.</b> The content catalog's covers
+///         ⚠
+///         <b>
+///             <see cref="DefinitionCatalog.BuildHash" /> and <c>ContentCatalog.BuildHash</c> are
+///             different numbers and neither substitutes for the other.
+///         </b>
+///         The content catalog's covers
 ///         every byte a build shipped and is what doc 27's placement filters on; this one covers the
 ///         addresses and the tag table, which is what two peers have to agree on before a tag index
 ///         means the same thing at both ends.
@@ -84,8 +96,12 @@ public static class DefinitionContent {
     /// <remarks>
     ///     <para>
     ///         ⚠ <b>The overload a game with modules wants, and the one whose absence was the gap.</b>
-    ///         <see cref="GameplayComposition.Tags" /> is documented as <em>"every tag a module's own
-    ///         code needs, for the content build to bake in"</em> — and until this overload existed the
+    ///         <see cref="GameplayComposition.Tags" /> is documented as
+    ///         <em>
+    ///             "every tag a module's own
+    ///             code needs, for the content build to bake in"
+    ///         </em>
+    ///         — and until this overload existed the
     ///         runtime load path had nowhere to put them, so the only way to bake them was to read
     ///         every artefact by hand and drive <see cref="DefinitionCatalogBuilder" /> yourself.
     ///     </para>
@@ -154,9 +170,8 @@ public static class DefinitionContent {
         AssetManager assets,
         IEnumerable<string> labels,
         CancellationToken cancellation = default
-    ) {
-        return LoadFromAsync(assets, addresses: Addresses(assets, labels), cancellation);
-    }
+    ) =>
+        LoadFromAsync(assets, Addresses(assets, labels), cancellation);
 
     static List<string> Addresses(AssetManager assets, IEnumerable<string> labels) {
         ArgumentNullException.ThrowIfNull(assets);
@@ -187,7 +202,7 @@ public static class DefinitionContent {
         IEnumerable<string> addresses,
         CancellationToken cancellation = default
     ) =>
-        LoadFromAsync(assets, tags: [], addresses, cancellation);
+        LoadFromAsync(assets, [], addresses, cancellation);
 
     static async ValueTask<DefinitionLoad> LoadFromAsync(
         AssetManager assets,
@@ -227,7 +242,7 @@ public static class DefinitionContent {
             }
         }
 
-        return new(builder.Build(), [.. problems]);
+        return new(builder.Build(), [..problems]);
     }
 
     static async ValueTask<byte[]> ReadAsync(AssetManager assets, string address, CancellationToken cancellation) {

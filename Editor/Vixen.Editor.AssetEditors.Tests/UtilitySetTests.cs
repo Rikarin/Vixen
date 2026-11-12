@@ -108,15 +108,15 @@ public class UtilitySetDocumentTests {
 
         Author(document);
 
-        var key = document.Model.Content.Keys.First(row => row.Name == "hunger");
+        var key = document.Model.Content.Keys.First(static row => row.Name == "hunger");
         var rewritten = 0;
 
         document.Edit("Rename", model => rewritten = model.RenameKey(key, "appetite"));
 
         Assert.Equal(2, rewritten);
         Assert.DoesNotContain(
-            document.Model.Content.Actions.SelectMany(action => action.Considerations),
-            consideration => consideration.Key == "hunger"
+            document.Model.Content.Actions.SelectMany(static action => action.Considerations),
+            static consideration => consideration.Key == "hunger"
         );
     }
 
@@ -132,59 +132,84 @@ public class UtilitySetDocumentTests {
         var document = new UtilitySetDocument(fixture.Project, AssetId.Empty, path);
 
         Author(document);
-        document.Edit("Typo", model => model.SetInput(model.Content.Actions[0].Considerations[0], UtilityInputKind.Blackboard, "hungr"));
+        document.Edit(
+            "Typo",
+            static model => model.SetInput(
+                model.Content.Actions[0].Considerations[0],
+                UtilityInputKind.Blackboard,
+                "hungr"
+            )
+        );
         document.Compile();
 
         Assert.Contains(
             document.Diagnostics,
-            problem => problem.Message.Contains("is not a key on this agent's blackboard", StringComparison.Ordinal)
+            static problem => problem.Message.Contains(
+                "is not a key on this agent's blackboard",
+                StringComparison.Ordinal
+            )
         );
     }
 
     /// <summary>A villager: four things it might do, scored on two keys.</summary>
     static void Author(UtilitySetDocument document) {
         // The seeded action a new file opens with, so that the numbers below are the test's own.
-        document.Edit("Clear", model => model.RemoveAction(model.Content.Actions[0]));
+        document.Edit("Clear", static model => model.RemoveAction(model.Content.Actions[0]));
 
-        document.Edit("Keys", model => {
-            model.AddKey("hunger", BlackboardValueType.Float);
-            model.AddKey("danger", BlackboardValueType.Float);
-        });
+        document.Edit(
+            "Keys",
+            static model => {
+                model.AddKey("hunger", BlackboardValueType.Float);
+                model.AddKey("danger", BlackboardValueType.Float);
+            }
+        );
 
-        document.Edit("Eat", model => {
-            var action = model.AddAction("Eat");
-            var axis = model.AddConsideration(action, "hungry")!;
+        document.Edit(
+            "Eat",
+            static model => {
+                var action = model.AddAction("Eat");
+                var axis = model.AddConsideration(action, "hungry")!;
 
-            model.SetInput(axis, UtilityInputKind.Blackboard, "hunger");
-            model.SetCurve(axis, ResponseCurveKind.Logistic);
-            model.SetShape(axis, exponent: 10f, centre: 0.5f);
-        });
+                model.SetInput(axis, UtilityInputKind.Blackboard, "hunger");
+                model.SetCurve(axis, ResponseCurveKind.Logistic);
+                model.SetShape(axis, exponent: 10f, centre: 0.5f);
+            }
+        );
 
-        document.Edit("Flee", model => {
-            var action = model.AddAction("Flee");
+        document.Edit(
+            "Flee",
+            static model => {
+                var action = model.AddAction("Flee");
 
-            action.Weight = 5f;
-            action.Bucket = 5;
+                action.Weight = 5f;
+                action.Bucket = 5;
 
-            var axis = model.AddConsideration(action, "afraid")!;
+                var axis = model.AddConsideration(action, "afraid")!;
 
-            model.SetInput(axis, UtilityInputKind.Blackboard, "danger");
-        });
+                model.SetInput(axis, UtilityInputKind.Blackboard, "danger");
+            }
+        );
 
-        document.Edit("Rest", model => {
-            var action = model.AddAction("Rest");
-            var axis = model.AddConsideration(action, "tired")!;
+        document.Edit(
+            "Rest",
+            static model => {
+                var action = model.AddAction("Rest");
+                var axis = model.AddConsideration(action, "tired")!;
 
-            model.SetInput(axis, UtilityInputKind.Blackboard, "hunger");
-            model.SetCurve(axis, ResponseCurveKind.Sampled);
-        });
+                model.SetInput(axis, UtilityInputKind.Blackboard, "hunger");
+                model.SetCurve(axis, ResponseCurveKind.Sampled);
+            }
+        );
 
-        document.Edit("Wander", model => model.AddAction("Wander"));
-        document.Edit("Order", model => model.Move(model.Content.Actions[3], -1));
-        document.Edit("Rules", model => {
-            model.Content.Selector = UtilitySelectorKind.Bucketed;
-            model.Content.CommitmentBonus = 0.2f;
-        });
+        document.Edit("Wander", static model => model.AddAction("Wander"));
+        document.Edit("Order", static model => model.Move(model.Content.Actions[3], -1));
+        document.Edit(
+            "Rules",
+            static model => {
+                model.Content.Selector = UtilitySelectorKind.Bucketed;
+                model.Content.CommitmentBonus = 0.2f;
+            }
+        );
     }
 }
 
@@ -211,9 +236,20 @@ public class UtilitySetViewTests {
         var action = new UtilityActionContent { Name = "Eat", Task = "Wait" };
 
         action.Considerations.Add(new() { Name = "hungry", Key = "hunger" });
-        action.Considerations.Add(new() { Name = "safe", Key = "danger", Slope = -1f, Centre = 0f, Shift = 1f });
+        action.Considerations.Add(
+            new() {
+                Name = "safe",
+                Key = "danger",
+                Slope = -1f,
+                Centre = 0f,
+                Shift = 1f
+            }
+        );
 
-        var (score, detail) = UtilitySetModel.Preview(action, new Dictionary<string, float> { ["hunger"] = 0.9f, ["danger"] = 0.1f });
+        var (score, detail) = UtilitySetModel.Preview(
+            action,
+            new Dictionary<string, float> { ["hunger"] = 0.9f, ["danger"] = 0.1f }
+        );
 
         Assert.Equal(0.9f, detail[0], 3);
         Assert.Equal(0.9f, detail[1], 3);

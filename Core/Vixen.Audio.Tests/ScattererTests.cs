@@ -3,7 +3,6 @@
 
 using Vixen.Audio.Devices;
 using Vixen.Audio.Events;
-using Vixen.Audio.Spatial;
 using Vixen.Core.Mathematics;
 using Xunit;
 
@@ -14,15 +13,21 @@ public sealed class ScattererTests : IDisposable {
     readonly AudioEngine engine;
     readonly NullAudioDevice device;
 
-    public ScattererTests() => (engine, device) = AudioTestData.Engine(voices: 16);
+    public ScattererTests() {
+        (engine, device) = AudioTestData.Engine(voices: 16);
+    }
 
     public void Dispose() => engine.Dispose();
 
-    AudioEvent Birds(int frames = 4_800) => new(engine, new AudioEventDescription {
-        Variants = [new(AudioTestData.Constant(frames, 1f))],
-        IsSpatial = true,
-        Spatial = new SpatialSettings { MinDistance = 1f, MaxDistance = 1_000f, DopplerFactor = 0f }
-    });
+    AudioEvent Birds(int frames = 4_800) =>
+        new(
+            engine,
+            new AudioEventDescription {
+                Variants = [new(AudioTestData.Constant(frames, 1f))],
+                IsSpatial = true,
+                Spatial = new() { MinDistance = 1f, MaxDistance = 1_000f, DopplerFactor = 0f }
+            }
+        );
 
     AudioScatterer Scatterer(AudioScattererSettings settings, AudioEvent? sound = null) =>
         new(engine, sound ?? Birds(), settings);
@@ -77,7 +82,7 @@ public sealed class ScattererTests : IDisposable {
             scatterer.Update(scatterer.NextSpawnSeconds + 0.001f);
         }
 
-        Assert.All(intervals, interval => Assert.InRange(interval, 1f, 4f));
+        Assert.All(intervals, static interval => Assert.InRange(interval, 1f, 4f));
         Assert.True(intervals.Max() - intervals.Min() > 1.5f, "they were all much the same");
     }
 
@@ -132,11 +137,11 @@ public sealed class ScattererTests : IDisposable {
     /// <summary>Ambience that cannot be walked away from, against a place that must be.</summary>
     [Fact]
     public void FollowingTheListenerIsWhatSeparatesAmbienceFromAPlace() {
-        engine.SetListener(new AudioListener { Position = new Vector3(100f, 0f, 0f) });
+        engine.SetListener(new() { Position = new(100f, 0f, 0f) });
 
         var following = Scatterer(new() { FollowListener = true, MinimumDistance = 5f, MaximumDistance = 6f });
         var fixedPlace = Scatterer(new() { FollowListener = false, MinimumDistance = 5f, MaximumDistance = 6f });
-        fixedPlace.Origin = new Vector3(-100f, 0f, 0f);
+        fixedPlace.Origin = new(-100f, 0f, 0f);
 
         Assert.InRange((following.Scatter() - new Vector3(100f, 0f, 0f)).Length(), 5f, 6f);
         Assert.InRange((fixedPlace.Scatter() - new Vector3(-100f, 0f, 0f)).Length(), 5f, 6f);
@@ -145,11 +150,12 @@ public sealed class ScattererTests : IDisposable {
     /// <summary>What the event's own instance limit is for, seen from the thing that will hit it.</summary>
     [Fact]
     public void TheEventsInstanceLimitIsWhatCapsAFastScatterer() {
-        var sound = new AudioEvent(engine, new AudioEventDescription {
-            Variants = [new(AudioTestData.Constant(48_000, 1f))],
-            MaxInstances = 3,
-            Steal = EventStealMode.None
-        });
+        var sound = new AudioEvent(
+            engine,
+            new() {
+                Variants = [new(AudioTestData.Constant(48_000, 1f))], MaxInstances = 3, Steal = EventStealMode.None
+            }
+        );
 
         var scatterer = Scatterer(new() { MinimumInterval = 0.01f, MaximumInterval = 0.01f }, sound);
         scatterer.Start();
@@ -180,7 +186,7 @@ public sealed class ScattererTests : IDisposable {
 
     [Fact]
     public void ASpawnActuallyReachesTheMixer() {
-        engine.SetListener(new AudioListener());
+        engine.SetListener(new());
         var scatterer = Scatterer(new() { MinimumDistance = 2f, MaximumDistance = 3f });
 
         Assert.True(scatterer.SpawnNow().IsValid);

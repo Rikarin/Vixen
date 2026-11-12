@@ -17,25 +17,25 @@ namespace Tests;
 /// </summary>
 public class IncrementalParseTests {
     const string Source = """
-        package A.B
+                          package A.B
 
-        shader First {
-            var tint: float4
+                          shader First {
+                              var tint: float4
 
-            func Untouched(): int {
-                return 42
-            }
+                              func Untouched(): int {
+                                  return 42
+                              }
 
-            func Edited(): int {
-                return 1
-            }
-        }
+                              func Edited(): int {
+                                  return 1
+                              }
+                          }
 
-        struct Second {
-            var value: float
-        }
+                          struct Second {
+                              var value: float
+                          }
 
-        """;
+                          """;
 
     static SyntaxTree Parse(string text) => SyntaxTree.ParseText(text, path: "incremental.rvn");
 
@@ -180,8 +180,12 @@ public class IncrementalParseTests {
     ///         while reporting nothing to explain them.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Every test above asserts the diagnostic counts match and none of them caught
-    ///         it</b>, because they all edit a shader that parses cleanly and zero equals zero. That
+    ///         ⚠
+    ///         <b>
+    ///             Every test above asserts the diagnostic counts match and none of them caught
+    ///             it
+    ///         </b>
+    ///         , because they all edit a shader that parses cleanly and zero equals zero. That
     ///         is the whole reason this one starts from a broken file. Found by
     ///         <c>Vixen.Fuzz</c>'s <c>raven</c> target, which reported it thirty-two ways in four
     ///         hundred cases.
@@ -211,7 +215,9 @@ public class IncrementalParseTests {
     [InlineData("package A.B\n\nstruct A {\n} struct B {\n}\n\nstruct C {\n    var EDIT: float\n}\n")]
     // A broken member inside a shader, so the candidate walk reaches it by nesting rather than at
     // the top level.
-    [InlineData("package A.B\n\nshader S {\n    func F(): int {\n        return @@@\n    }\n}\n\nstruct T {\n    var EDIT: float\n}\n")]
+    [InlineData(
+        "package A.B\n\nshader S {\n    func F(): int {\n        return @@@\n    }\n}\n\nstruct T {\n    var EDIT: float\n}\n"
+    )]
     // A comment between a member and the token its missing terminator is reported at. The field ends
     // after `float`; `/* c */` is the next token's leading trivia and `tp` is where the parser stands,
     // so a window that skips whitespace only stops eight characters short of the diagnostic.
@@ -315,7 +321,12 @@ public class IncrementalParseTests {
         "("
     )]
     [InlineData("val t\nfunc G(): float[A(E{a, 1)]\n[C(8)]\n", 24, 10, "(")]
-    public void A_member_is_not_reused_across_an_edit_its_parse_looked_at(string source, int start, int length, string inserted) {
+    public void A_member_is_not_reused_across_an_edit_its_parse_looked_at(
+        string source,
+        int start,
+        int length,
+        string inserted
+    ) {
         var oldTree = SyntaxTree.ParseText(source, path: "incremental.rvn");
         var newText = oldTree.Text!.WithChanges(new TextChange(new(start, length), inserted));
 

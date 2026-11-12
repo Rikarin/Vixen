@@ -167,8 +167,12 @@ public sealed partial class DataRow : Control {
 
     /// <inheritdoc />
     /// <remarks>
-    ///     ⚠ <b>A group header is named by the words it shows; an item row is not named at
-    ///     all.</b> A <c>row</c> is a container role rather than a widget, so a bridge reads its
+    ///     ⚠
+    ///     <b>
+    ///         A group header is named by the words it shows; an item row is not named at
+    ///         all.
+    ///     </b>
+    ///     A <c>row</c> is a container role rather than a widget, so a bridge reads its
     ///     cells; naming it with the first cell's text would make a screen reader say that value
     ///     twice. A group header has no cells and its label is the only thing in it.
     /// </remarks>
@@ -286,14 +290,17 @@ public sealed partial class DataGrid : Control {
 
     /// <inheritdoc />
     /// <remarks>
-    ///     ⚠ <b><c>treegrid</c> once it is grouped and <c>grid</c> otherwise, which is a real
-    ///     difference rather than a nicety.</b> A grouped grid has expandable rows, and
+    ///     ⚠
+    ///     <b>
+    ///         <c>treegrid</c> once it is grouped and <c>grid</c> otherwise, which is a real
+    ///         difference rather than a nicety.
+    ///     </b>
+    ///     A grouped grid has expandable rows, and
     ///     <c>treegrid</c> is the role whose keyboard model a screen reader announces the Left and
     ///     Right arrows for. Reporting <c>grid</c> while the rows collapse would leave a
     ///     screen-reader user with no way to know the groups can be opened.
     /// </remarks>
-    protected override AccessibleRole NativeRole =>
-        GroupColumn is null ? AccessibleRole.Grid : AccessibleRole.TreeGrid;
+    protected override AccessibleRole NativeRole => GroupColumn is null ? AccessibleRole.Grid : AccessibleRole.TreeGrid;
 
     /// <inheritdoc />
     /// <remarks>On <c>TreeView</c>'s terms: it changes what Ctrl and Shift mean.</remarks>
@@ -338,8 +345,12 @@ public sealed partial class DataGrid : Control {
 
     /// <summary>How tall the heading strip is, from <c>--header-height</c>.</summary>
     /// <remarks>
-    ///     ⚠ <b>A declared length rather than <c>Header.Height</c>, and the difference is an ordering
-    ///     one.</b> <see cref="Refresh" /> sets the content pane's height before the pass that would
+    ///     ⚠
+    ///     <b>
+    ///         A declared length rather than <c>Header.Height</c>, and the difference is an ordering
+    ///         one.
+    ///     </b>
+    ///     <see cref="Refresh" /> sets the content pane's height before the pass that would
     ///     measure the header, so reading the measured value there gives zero on the first frame and
     ///     the right answer on every one after it — a grid whose rows are all one header out of place
     ///     until something else invalidates it. The row offsets and the pane's height are decided from
@@ -393,9 +404,9 @@ public sealed partial class DataGrid : Control {
         // size — see Control.WhenResized — because Refresh rebuilds the sorted, filtered view.
         WhenResized(Refresh);
 
-        AddHandler<PointerEvent>(static (element, args) => ((DataGrid) element).Pointed(args));
-        AddHandler<TapEvent>(static (element, args) => ((DataGrid) element).Tapped(args));
-        AddHandler<KeyEvent>(static (element, args) => ((DataGrid) element).Keyed(args));
+        AddHandler<PointerEvent>(static (element, args) => ((DataGrid)element).Pointed(args));
+        AddHandler<TapEvent>(static (element, args) => ((DataGrid)element).Tapped(args));
+        AddHandler<KeyEvent>(static (element, args) => ((DataGrid)element).Keyed(args));
     }
 
     // ── Contents ─────────────────────────────────────────────────────────────
@@ -513,7 +524,7 @@ public sealed partial class DataGrid : Control {
 
         // The header is in the pane now, so the pane is that much taller and every row starts that
         // much further down. One term, in the two places that decide a vertical position.
-        Scroller.Content.SetStyle("height", Inline.Px(HeaderHeight + (view.Count * RowHeight)));
+        Scroller.Content.SetStyle("height", Inline.Px(HeaderHeight + view.Count * RowHeight));
         Scroller.Content.SetStyle("width", Inline.Px(running));
 
         // A pass before anything reads a size — see `TreeView.Refresh` for why a declaration is not
@@ -541,13 +552,13 @@ public sealed partial class DataGrid : Control {
             // compare equal must keep the order they were in — otherwise clicking a heading twice
             // shuffles the ties, and "sort by name, then sort by level" stops being a two-key sort.
             order = SortDescending
-                ? [.. order.OrderByDescending(index => sort.Value?.Invoke(items[index]), comparer)]
-                : [.. order.OrderBy(index => sort.Value?.Invoke(items[index]), comparer)];
+                ? [..order.OrderByDescending(index => sort.Value?.Invoke(items[index]), comparer)]
+                : [..order.OrderBy(index => sort.Value?.Invoke(items[index]), comparer)];
         }
 
         if (GroupColumn is not { } group) {
             foreach (var index in order) {
-                view.Add(new GridRow(index, null, 0));
+                view.Add(new(index, null, 0));
             }
 
             return;
@@ -571,14 +582,14 @@ public sealed partial class DataGrid : Control {
 
         foreach (var key in seen) {
             var bucket = buckets[key];
-            view.Add(new GridRow(-1, key, bucket.Count));
+            view.Add(new(-1, key, bucket.Count));
 
             if (collapsed.Contains(key)) {
                 continue;
             }
 
             foreach (var index in bucket) {
-                view.Add(new GridRow(index, key, 0));
+                view.Add(new(index, key, 0));
             }
         }
     }
@@ -592,9 +603,9 @@ public sealed partial class DataGrid : Control {
 
         Window();
 
-        var capacity = Math.Min(view.Count, (int) MathF.Ceiling(Scroller.Height / rowHeight) + (Overscan * 2) + 1);
+        var capacity = Math.Min(view.Count, (int)MathF.Ceiling(Scroller.Height / rowHeight) + Overscan * 2 + 1);
         first = Math.Clamp(
-            (int) MathF.Floor((Scroller.ScrollTop - HeaderHeight) / rowHeight) - Overscan,
+            (int)MathF.Floor((Scroller.ScrollTop - HeaderHeight) / rowHeight) - Overscan,
             0,
             Math.Max(0, view.Count - capacity)
         );
@@ -660,7 +671,7 @@ public sealed partial class DataGrid : Control {
         row.GroupKey = line.GroupKey;
         row.Item = line.Item >= 0 ? items[line.Item] : null;
 
-        row.SetStyle("top", Inline.Px(HeaderHeight + (index * rowHeight)));
+        row.SetStyle("top", Inline.Px(HeaderHeight + index * rowHeight));
         row.SetStyle("height", Inline.Px(rowHeight));
 
         if (line.Item < 0) {
@@ -895,8 +906,7 @@ public sealed partial class DataGrid : Control {
 
         editor.Submitted += _ => Commit(cell, true);
 
-        editor.AddHandler<KeyEvent>(
-            (_, args) => {
+        editor.AddHandler<KeyEvent>((_, args) => {
                 if (args is { Action: KeyAction.Pressed, Key: InputKey.Escape }) {
                     Commit(cell, false);
                     args.Handled = true;
@@ -1106,7 +1116,7 @@ public sealed partial class DataGrid : Control {
         // ⚠ The near edge is the bottom of the sticky header and not the top of the port, because
         // the header is inside the port and covers exactly that much of it. Scrolling a row to
         // `ScrollTop` would put it underneath the heading it belongs to.
-        var top = HeaderHeight + (row * RowHeight);
+        var top = HeaderHeight + row * RowHeight;
 
         if (top - HeaderHeight < Scroller.ScrollTop) {
             Scroller.ScrollTop = top - HeaderHeight;

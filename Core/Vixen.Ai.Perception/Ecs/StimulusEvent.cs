@@ -14,15 +14,23 @@ namespace Vixen.Ai.Perception;
 /// <param name="Strength">How loud, or how much damage.</param>
 /// <param name="Stamp">The clock reading when it was reported.</param>
 /// <param name="Sequence">
-///     Where it came in the order of reports. ⚠ <b>What a listener consumes against, and the clock is
-///     not.</b> The clock only advances inside a step, so an event reported after a pass in the same
+///     Where it came in the order of reports. ⚠
+///     <b>
+///         What a listener consumes against, and the clock is
+///         not.
+///     </b>
+///     The clock only advances inside a step, so an event reported after a pass in the same
 ///     frame carries exactly the clock that pass recorded — and a listener comparing clocks would
 ///     decide it had already heard a gunshot that had not happened yet.
 /// </param>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Hearing and damage are events, and sight and touch are states, and that difference is
-///         why both machines exist.</b> An entity is continuously visible, so sight is sampled: it can
+///         ⚠
+///         <b>
+///             Hearing and damage are events, and sight and touch are states, and that difference is
+///             why both machines exist.
+///         </b>
+///         An entity is continuously visible, so sight is sampled: it can
 ///         be asked at any moment and the answer is a property of the world right now. A gunshot is
 ///         not continuously audible — an entity is not "audible", an <i>event</i> is — so a hearing
 ///         sense that sampled would have to sample the exact frame the shot happened, which at 4 Hz
@@ -50,8 +58,12 @@ public readonly record struct StimulusEvent(
 /// <param name="Sources">How many stimuli sources there are.</param>
 /// <param name="Passes">How many listeners actually sensed this frame.</param>
 /// <param name="Examined">
-///     How many source-distance tests were done. ⚠ <b>The number the broad phase exists to make
-///     small</b>: without one it is <c>Passes × Sources</c> by construction.
+///     How many source-distance tests were done. ⚠
+///     <b>
+///         The number the broad phase exists to make
+///         small
+///     </b>
+///     : without one it is <c>Passes × Sources</c> by construction.
 /// </param>
 /// <param name="Cells">How many grid cells were walked.</param>
 /// <param name="Candidates">How many sources came out of the radius test and into the sense tests.</param>

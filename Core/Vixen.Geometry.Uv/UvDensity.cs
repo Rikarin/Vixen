@@ -9,22 +9,34 @@ namespace Vixen.Geometry.Uv;
 /// <remarks>
 ///     <para>
 ///         <b>docs/plan/42 § D9.</b> Islands are scaled to a uniform texels-per-world-unit, and this is
-///         where "except this material" and "except this chart" are said. ⚠ <b>The default has to be
-///         uniform, because non-uniform density is invisible in the atlas and glaring in the game</b> —
+///         where "except this material" and "except this chart" are said. ⚠
+///         <b>
+///             The default has to be
+///             uniform, because non-uniform density is invisible in the atlas and glaring in the game
+///         </b>
+///         —
 ///         the classic symptom being a character's face at half the resolution of their boots, which
 ///         nobody notices until the asset is in a scene next to something correct.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Everything here is a change to an island's <see cref="UvIsland.Scale" /> and never to
-///         its coordinates.</b> <c>Scale</c> is coordinates per world unit and it is the only thing
+///         ⚠
+///         <b>
+///             Everything here is a change to an island's <see cref="UvIsland.Scale" /> and never to
+///             its coordinates.
+///         </b>
+///         <c>Scale</c> is coordinates per world unit and it is the only thing
 ///         <see cref="PackSettings.TexelDensity" /> divides by, so telling the packer an island is
 ///         twice the size it said it was is exactly "give this island twice the texels per metre" — and
 ///         it is the one way to say it that leaves the island's own shape untouched, which is
 ///         docs/plan/42's exit criterion 7.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Measured: uniform mode holds every chart to <c>0.0000 %</c> of the mean, and the
-///         default does not.</b> Criterion 5 asks for 2 %. With <see cref="PackSettings.TexelDensity" />
+///         ⚠
+///         <b>
+///             Measured: uniform mode holds every chart to <c>0.0000 %</c> of the mean, and the
+///             default does not.
+///         </b>
+///         Criterion 5 asks for 2 %. With <see cref="PackSettings.TexelDensity" />
 ///         set, an independent recomputation off the placements and the mesh — atlas texels over world
 ///         area, per island — comes out identical across every chart on every fixture. With it left at
 ///         its default of zero, which keeps each island at whatever scale the flattener gave it, the
@@ -95,8 +107,12 @@ public static class UvDensity {
     /// <exception cref="ArgumentException">The two lists are different lengths.</exception>
     /// <exception cref="ArgumentOutOfRangeException">A multiplier is not finite and positive.</exception>
     /// <remarks>
-    ///     ⚠ <b>A multiplier and not a density, because the two compose and only one of them survives a
-    ///     rescale.</b> When the islands do not fit, the packer scales every one of them by the same
+    ///     ⚠
+    ///     <b>
+    ///         A multiplier and not a density, because the two compose and only one of them survives a
+    ///         rescale.
+    ///     </b>
+    ///     When the islands do not fit, the packer scales every one of them by the same
     ///     factor and says so — a chart asked for at twice its neighbours' density is still at twice
     ///     theirs afterwards, where a chart asked for at an absolute figure would silently stop being at
     ///     it. § D9's report answers <i>"did the packer quietly rescale something"</i>; this is what
@@ -221,8 +237,12 @@ public static class UvDensity {
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="resolution" /> is not positive.</exception>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>This is the number a texture artist sees, and it is not the same measurement
-    ///         <see cref="UvReport.TexelDensity" /> makes.</b> The report's figure is computed from the
+    ///         ⚠
+    ///         <b>
+    ///             This is the number a texture artist sees, and it is not the same measurement
+    ///             <see cref="UvReport.TexelDensity" /> makes.
+    ///         </b>
+    ///         The report's figure is computed from the
     ///         factors the packer applied; this one goes back through
     ///         <see cref="UvPlacement.Apply" /> and the island's own parameter area. The two agreeing
     ///         is the check worth having — a metric that agrees with a naive recomputation is one you
@@ -230,8 +250,12 @@ public static class UvDensity {
     ///         construction gets mistaken for a measurement.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Hand it the islands the flattener produced and never the ones
-    ///         <see cref="Weight" /> returned.</b> A multiplier is expressed as a change to
+    ///         ⚠
+    ///         <b>
+    ///             Hand it the islands the flattener produced and never the ones
+    ///             <see cref="Weight" /> returned.
+    ///         </b>
+    ///         A multiplier is expressed as a change to
     ///         <see cref="UvIsland.Scale" /> — the island tells the packer it is larger in the world
     ///         than it is — and this measurement divides by that same scale to recover the world area.
     ///         Given the weighted list it would believe the claim and report every island at the same
@@ -285,8 +309,12 @@ public static class UvDensity {
     /// <returns>The full range over the mean, or zero when there is nothing to compare.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="densities" /> is null.</exception>
     /// <remarks>
-    ///     ⚠ <b>The full range and not a standard deviation, because docs/plan/42's exit criterion 5 is
-    ///     a statement about <i>every</i> chart.</b> "Within 2 % across every chart" is violated by one
+    ///     ⚠
+    ///     <b>
+    ///         The full range and not a standard deviation, because docs/plan/42's exit criterion 5 is
+    ///         a statement about <i>every</i> chart.
+    ///     </b>
+    ///     "Within 2 % across every chart" is violated by one
     ///     chart at 10 % among four hundred at zero, and a variance over that set is a number small
     ///     enough to pass. Islands with no usable density are skipped rather than counted as zero,
     ///     which would make the spread 100 % for a reason that has nothing to do with the packer.
@@ -330,12 +358,15 @@ public static class UvDensity {
         var area = 0d;
 
         for (var triangle = 0; triangle < island.TriangleCount; triangle++) {
-            var a = island.Coordinates[(triangle * 3) + 0];
-            var b = island.Coordinates[(triangle * 3) + 1];
-            var c = island.Coordinates[(triangle * 3) + 2];
+            var a = island.Coordinates[triangle * 3];
+            var b = island.Coordinates[triangle * 3 + 1];
+            var c = island.Coordinates[triangle * 3 + 2];
 
-            area += 0.5d * Math.Abs((((double)b.X - a.X) * ((double)c.Y - a.Y))
-                - (((double)b.Y - a.Y) * ((double)c.X - a.X)));
+            area += 0.5d
+                * Math.Abs(
+                    ((double)b.X - a.X) * ((double)c.Y - a.Y)
+                    - ((double)b.Y - a.Y) * ((double)c.X - a.X)
+                );
         }
 
         return area;

@@ -56,8 +56,11 @@ public interface IPermutationSubFeature {
 ///         array lookup.
 ///     </para>
 ///     <para>
-///         <strong>Resolution happens in preparation, not in the draw call, and not in
-///         extraction.</strong> Not in the draw call because resolving can compile, and compiling
+///         <strong>
+///             Resolution happens in preparation, not in the draw call, and not in
+///             extraction.
+///         </strong>
+///         Not in the draw call because resolving can compile, and compiling
 ///         inside a command list is the stall that a frame budget cannot absorb. Not in extraction
 ///         because the answer is only needed for objects that survived culling, which in a
 ///         well-culled scene is far fewer — the same reason the phase exists at all.
@@ -81,7 +84,9 @@ public sealed class MaterialRenderFeature : SubRenderFeature, IDisposable {
     readonly List<Material> materials = [];
     readonly Dictionary<Material, int> indices = [];
     readonly Dictionary<EffectKey, uint> groups = new();
+
     readonly List<Variant> variants = [];
+
     // ⚠ **The imposing stage is part of the key, and leaving it out was a GPU fault.** A variant
     // carries the stage whose `Parameters` supply the bindings a material has no name for — see
     // `Variant.Stage` — and two stages imposing one shader used to collapse to a single variant, so
@@ -121,6 +126,7 @@ public sealed class MaterialRenderFeature : SubRenderFeature, IDisposable {
     ///     frame for the benefit of the two stages that override anything.
     /// </remarks>
     int[] overrides = [];
+
     int stageCount;
     bool disposed;
 
@@ -165,8 +171,12 @@ public sealed class MaterialRenderFeature : SubRenderFeature, IDisposable {
     ///         resolves to the default variant rather than to nothing.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Assigning a shader's list cannot drop a key <see cref="PermutationKeyDictionary.Register" />
-    ///         put in it</b>, and that rule is the type rather than a convention: a key contributed by
+    ///         ⚠
+    ///         <b>
+    ///             Assigning a shader's list cannot drop a key <see cref="PermutationKeyDictionary.Register" />
+    ///             put in it
+    ///         </b>
+    ///         , and that rule is the type rather than a convention: a key contributed by
     ///         a composed surface is in no pass's reflection, so the host line that assigns the
     ///         generated array used to unregister it in silence. See <see cref="PermutationKeyDictionary" />.
     ///     </para>
@@ -234,8 +244,10 @@ public sealed class MaterialRenderFeature : SubRenderFeature, IDisposable {
     /// </remarks>
     public BindlessTable? Textures { get; set; }
 
-    /// <summary>Which of a shader's <c>uint</c> parameters is filled from which of a material's
-    /// textures.</summary>
+    /// <summary>
+    ///     Which of a shader's <c>uint</c> parameters is filled from which of a material's
+    ///     textures.
+    /// </summary>
     /// <remarks>
     ///     <para>
     ///         Explicit rather than inferred, and for the reason <see cref="PermutationSources" />
@@ -586,7 +598,7 @@ public sealed class MaterialRenderFeature : SubRenderFeature, IDisposable {
             }
 
             var id = new RenderObjectId(index);
-            var resolved = VariantOf(system, id, material, materials[material].ShaderName, composes: true);
+            var resolved = VariantOf(system, id, material, materials[material].ShaderName, true);
             variantIndex[index] = resolved;
 
             // Resolved here, in preparation, for the same reason the base variant is: a stage
@@ -619,8 +631,11 @@ public sealed class MaterialRenderFeature : SubRenderFeature, IDisposable {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <strong>What used to be the host's job, and could not be until the plan reached the
-    ///         runtime.</strong> A material knows it has a texture called <c>albedo</c>; which binding
+    ///         <strong>
+    ///             What used to be the host's job, and could not be until the plan reached the
+    ///             runtime.
+    ///         </strong>
+    ///         A material knows it has a texture called <c>albedo</c>; which binding
     ///         index that is belongs to the compiled shader, and adding a texture above it in the
     ///         <c>.rvn</c> renumbers it. So the name is what a material carries and
     ///         <see cref="Effect.Bindings" /> is what turns it into an index — the same fix, and the
@@ -700,7 +715,10 @@ public sealed class MaterialRenderFeature : SubRenderFeature, IDisposable {
             }
 
             variants[index] = variant with {
-                Set = Descriptors.Allocate(effect.SetLayouts[slot], System.Runtime.InteropServices.CollectionsMarshal.AsSpan(writes))
+                Set = Descriptors.Allocate(
+                    effect.SetLayouts[slot],
+                    System.Runtime.InteropServices.CollectionsMarshal.AsSpan(writes)
+                )
             };
 
             BoundCount++;
@@ -830,8 +848,11 @@ public sealed class MaterialRenderFeature : SubRenderFeature, IDisposable {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <strong>One set for a whole group, and that is the point rather than an
-    ///         optimisation.</strong> Every variant of one group asks the allocator for the same
+    ///         <strong>
+    ///             One set for a whole group, and that is the point rather than an
+    ///             optimisation.
+    ///         </strong>
+    ///         Every variant of one group asks the allocator for the same
     ///         layout and the same single write, and the allocator is content-addressed — so they all
     ///         get the same handle back, and <see cref="Features.MeshRenderFeature" />'s
     ///         "did this differ from the last one" check turns a run of objects into one bind. A set
@@ -1041,7 +1062,7 @@ public sealed class MaterialRenderFeature : SubRenderFeature, IDisposable {
             return index;
         }
 
-        var slot = (index * stageCount) + stage.Index;
+        var slot = index * stageCount + stage.Index;
         return slot < overrides.Length && overrides[slot] > 0 ? overrides[slot] : index;
     }
 
@@ -1113,7 +1134,7 @@ public sealed class MaterialRenderFeature : SubRenderFeature, IDisposable {
 
     /// <summary>Resolves and records what one variant becomes in a stage that overrides the shader.</summary>
     void Override(RenderSystem system, RenderObjectId id, int material, int variant, int stage, RenderStage imposing) {
-        var slot = (variant * stageCount) + stage;
+        var slot = variant * stageCount + stage;
 
         if (slot < overrides.Length && overrides[slot] > 0) {
             return;
@@ -1251,7 +1272,6 @@ public sealed class MaterialRenderFeature : SubRenderFeature, IDisposable {
     ///     <see cref="Stage" /> is carried so that <see cref="Bind" /> can ask it for the bindings a
     ///     material has no name for — see <see cref="RenderStage.Parameters" />, which is where a
     ///     caster's opacity map, its sampler and its bone palette come from.
-    ///
     ///     ⚠ <b>It is part of the variant's identity, and it used not to be.</b> Two stages imposing
     ///     one shader collapsed to a single variant, so whichever stage reached a material first
     ///     decided which stand-ins <em>every</em> stage drew with — and a stage whose

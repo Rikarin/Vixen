@@ -2,15 +2,17 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Diagnostics.CodeAnalysis;
-using Vixen.Authoring;
 
 namespace Vixen.Editor.Core;
 
 /// <summary>Setting one member to one value on every selected object, through boxed accessors.</summary>
 /// <remarks>
 ///     <para>
-///         <b>What an <see cref="IEditMember" /> without typed accessors returns from
-///         <see cref="IEditMember.CreateSetCommand" />.</b> The inspector's generated members build a
+///         <b>
+///             What an <see cref="IEditMember" /> without typed accessors returns from
+///             <see cref="IEditMember.CreateSetCommand" />.
+///         </b>
+///         The inspector's generated members build a
 ///         typed command instead, because they can reach a <c>struct</c> field by reference and this
 ///         cannot. Everything else about the two is the same, and this is the one a graph port, a
 ///         settings row or a plugin's own member gets for free rather than writing.
@@ -63,8 +65,8 @@ public sealed class SetValuesCommand : IEditorCommand {
         }
 
         this.member = member;
-        this.targets = [.. targets];
-        this.oldValues = [.. oldValues];
+        this.targets = [..targets];
+        this.oldValues = [..oldValues];
         this.newValue = newValue;
         this.document = document;
 

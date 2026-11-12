@@ -57,7 +57,7 @@ public readonly record struct QuantizeRange(float Min, float Max, int Bits) {
             return 0;
         }
 
-        return (uint)((normalized * Levels) + 0.5);
+        return (uint)(normalized * Levels + 0.5);
     }
 
     /// <summary>Turns received bits back into a value.</summary>
@@ -68,6 +68,6 @@ public readonly record struct QuantizeRange(float Min, float Max, int Bits) {
             encoded = Levels;
         }
 
-        return (float)(Min + ((double)encoded / Levels * (Max - (double)Min)));
+        return (float)(Min + (double)encoded / Levels * (Max - (double)Min));
     }
 }

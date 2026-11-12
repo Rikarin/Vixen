@@ -65,7 +65,7 @@ public class LootSimulatorTests {
         var loot = Content.Loot();
         var table = loot.Get(DefId.From(Content.Boss));
 
-        var simulation = LootSimulator.Run(loot, table, Content.Items(), events: 2000, firstEventId: 1, player: 1);
+        var simulation = LootSimulator.Run(loot, table, Content.Items(), 2000, 1, player: 1);
 
         var ore = 0L;
 
@@ -82,7 +82,7 @@ public class LootSimulatorTests {
             }
         }
 
-        Assert.Equal(ore, simulation.Items.Single(item => item.Item == DefId.From(Content.Ore)).Total);
+        Assert.Equal(ore, simulation.Items.Single(static item => item.Item == DefId.From(Content.Ore)).Total);
     }
 
     [Fact]
@@ -104,10 +104,10 @@ public class LootSimulatorTests {
     [Fact]
     public void ItemsAreNamedAndSortedMostFrequentFirst() {
         var loot = Content.Loot();
-        var simulation = LootSimulator.Run(loot, loot.Get(DefId.From(Content.Boss)), Content.Items(), events: 4000);
+        var simulation = LootSimulator.Run(loot, loot.Get(DefId.From(Content.Boss)), Content.Items(), 4000);
 
-        Assert.Contains(simulation.Items, item => item.Name == "Copper Ore");
-        Assert.Contains(simulation.Items, item => item.Name == "Raid Drake");
+        Assert.Contains(simulation.Items, static item => item.Name == "Copper Ore");
+        Assert.Contains(simulation.Items, static item => item.Name == "Raid Drake");
 
         for (var index = 1; index < simulation.Items.Count; index++) {
             Assert.True(simulation.Items[index - 1].Events >= simulation.Items[index].Events);
@@ -117,10 +117,10 @@ public class LootSimulatorTests {
     [Fact]
     public void StackRangesAreReportedAsTheyWereAuthored() {
         var loot = Content.Loot();
-        var simulation = LootSimulator.Run(loot, loot.Get(DefId.From(Content.Boss)), Content.Items(), events: 4000);
+        var simulation = LootSimulator.Run(loot, loot.Get(DefId.From(Content.Boss)), Content.Items(), 4000);
 
         // Ore drops as exactly two from the boss and one to four from the trash table beneath it.
-        var ore = simulation.Items.Single(item => item.Item == DefId.From(Content.Ore));
+        var ore = simulation.Items.Single(static item => item.Item == DefId.From(Content.Ore));
 
         Assert.Equal(1, ore.Smallest);
         Assert.Equal(4, ore.Largest);
@@ -211,7 +211,7 @@ public class LootOutlineTests {
                 (2, "Copper Ore"),
                 (2, "Linen")
             ],
-            rows.Select(row => (row.Depth, row.Label))
+            rows.Select(static row => (row.Depth, row.Label))
         );
     }
 
@@ -220,8 +220,8 @@ public class LootOutlineTests {
         var loot = Content.Loot();
         var rows = LootOutline.Of(loot, loot.Get(DefId.From(Content.Trash)), Content.Items());
 
-        var ore = rows.Single(row => row is { Row: 0, Depth: 1 });
-        var cloth = rows.Single(row => row is { Row: 1, Depth: 1 });
+        var ore = rows.Single(static row => row is { Row: 0, Depth: 1 });
+        var cloth = rows.Single(static row => row is { Row: 1, Depth: 1 });
 
         Assert.Equal(0.75f, ore.Share, 4);
         Assert.Equal(0.25f, cloth.Share, 4);
@@ -232,7 +232,7 @@ public class LootOutlineTests {
         var loot = Content.Loot();
         var rows = LootOutline.Of(loot, loot.Get(DefId.From(Content.Boss)), Content.Items());
 
-        var mount = rows.Single(row => row.Label == "Raid Drake");
+        var mount = rows.Single(static row => row.Label == "Raid Drake");
 
         Assert.Equal(0f, mount.Share);
         Assert.Equal(0.02f, mount.Chance, 4);
@@ -260,8 +260,8 @@ public class LootOutlineTests {
         var loot = LootLibrary.Compile(catalog);
         var rows = LootOutline.Of(loot, loot.Get(DefId.From("loot/mixed")));
 
-        Assert.False(rows.Single(row => row.Row == 0).Conditional);
-        Assert.True(rows.Single(row => row.Row == 1).Conditional);
+        Assert.False(rows.Single(static row => row.Row == 0).Conditional);
+        Assert.True(rows.Single(static row => row.Row == 1).Conditional);
     }
 
     [Fact]
@@ -297,7 +297,7 @@ public class LootTableModelTests {
         model.Changed += _ => changes++;
 
         model.AddEntry();
-        model.Edit(2, entry => entry.Item = Content.Mount);
+        model.Edit(2, static entry => entry.Item = Content.Mount);
         model.MoveEntry(2, 0);
         model.SetRolls(2);
         model.RemoveEntry(0);
@@ -316,7 +316,7 @@ public class LootTableModelTests {
         Assert.False(model.RemoveEntry(9));
         Assert.False(model.MoveEntry(0, 9));
         Assert.False(model.MoveEntry(0, 0));
-        Assert.False(model.Edit(-1, _ => { }));
+        Assert.False(model.Edit(-1, static _ => { }));
         Assert.Equal(0, changes);
     }
 
@@ -327,7 +327,7 @@ public class LootTableModelTests {
         var model = Model();
         var snapshot = model.Snapshot();
 
-        model.Edit(0, entry => entry.Weight = 99f);
+        model.Edit(0, static entry => entry.Weight = 99f);
         model.RemoveEntry(1);
 
         Assert.Equal(1, model.Count);
@@ -365,33 +365,66 @@ public class LootTableModelTests {
 
         var problems = model.Validate();
 
-        Assert.Contains(problems, problem => problem is { Row: 0 } && problem.Message.Contains("not both", StringComparison.Ordinal));
-        Assert.Contains(problems, problem => problem is { Row: 0 } && problem.Message.Contains("both an item and a table", StringComparison.Ordinal));
-        Assert.Contains(problems, problem => problem is { Row: 1 } && problem.Message.Contains("neither an item nor a table", StringComparison.Ordinal));
-        Assert.Contains(problems, problem => problem is { Row: 2 } && problem.Message.Contains("never drop", StringComparison.Ordinal));
-        Assert.Contains(problems, problem => problem is { Row: 3 } && problem.Message.Contains("at most", StringComparison.Ordinal));
-        Assert.Contains(problems, problem => problem is { Row: 4 } && problem.Message.Contains("no chance to raise", StringComparison.Ordinal));
-        Assert.Contains(problems, problem => problem is { Row: 4 } && problem.Message.Contains("no pity policy", StringComparison.Ordinal));
+        Assert.Contains(
+            problems,
+            static problem => problem is { Row: 0 } && problem.Message.Contains("not both", StringComparison.Ordinal)
+        );
+        Assert.Contains(
+            problems,
+            static problem => problem is { Row: 0 }
+                && problem.Message.Contains("both an item and a table", StringComparison.Ordinal)
+        );
+        Assert.Contains(
+            problems,
+            static problem => problem is { Row: 1 }
+                && problem.Message.Contains("neither an item nor a table", StringComparison.Ordinal)
+        );
+        Assert.Contains(
+            problems,
+            static problem => problem is { Row: 2 } && problem.Message.Contains("never drop", StringComparison.Ordinal)
+        );
+        Assert.Contains(
+            problems,
+            static problem => problem is { Row: 3 } && problem.Message.Contains("at most", StringComparison.Ordinal)
+        );
+        Assert.Contains(
+            problems,
+            static problem => problem is { Row: 4 }
+                && problem.Message.Contains("no chance to raise", StringComparison.Ordinal)
+        );
+        Assert.Contains(
+            problems,
+            static problem => problem is { Row: 4 }
+                && problem.Message.Contains("no pity policy", StringComparison.Ordinal)
+        );
 
         // And the two the content build also refuses, so the editor and the build agree.
         var catalog = new DefinitionCatalogBuilder().Add("loot/broken", model.Table).Build();
         var built = LootLibrary.Compile(catalog).Problems;
 
-        Assert.Contains(built, problem => problem.Contains("both a weight and a chance", StringComparison.Ordinal));
-        Assert.Contains(built, problem => problem.Contains("neither an item nor a table", StringComparison.Ordinal));
+        Assert.Contains(
+            built,
+            static problem => problem.Contains("both a weight and a chance", StringComparison.Ordinal)
+        );
+        Assert.Contains(
+            built,
+            static problem => problem.Contains("neither an item nor a table", StringComparison.Ordinal)
+        );
     }
 
     [Fact]
     public void ATableThatCannotRollIsReportedAgainstTheTableRatherThanARow() {
-        var model = new LootTableModel(
-            new() { Rolls = 1, Entries = [new() { Item = Content.Ore, Chance = 1f }] }
-        );
+        var model = new LootTableModel(new() { Rolls = 1, Entries = [new() { Item = Content.Ore, Chance = 1f }] });
 
-        Assert.Contains(model.Validate(), problem => problem is { Row: -1 } && problem.Message.Contains("no weighted rows", StringComparison.Ordinal));
+        Assert.Contains(
+            model.Validate(),
+            static problem => problem is { Row: -1 }
+                && problem.Message.Contains("no weighted rows", StringComparison.Ordinal)
+        );
 
         Assert.Contains(
             new LootTableModel(new()).Validate(),
-            problem => problem is { Row: -1 } && problem.Message.Contains("no rows", StringComparison.Ordinal)
+            static problem => problem is { Row: -1 } && problem.Message.Contains("no rows", StringComparison.Ordinal)
         );
     }
 
@@ -405,7 +438,10 @@ public class LootTableModelTests {
             }
         );
 
-        Assert.Contains(model.Validate(), problem => problem.Message.Contains("never happens", StringComparison.Ordinal));
+        Assert.Contains(
+            model.Validate(),
+            static problem => problem.Message.Contains("never happens", StringComparison.Ordinal)
+        );
     }
 
     [Fact]

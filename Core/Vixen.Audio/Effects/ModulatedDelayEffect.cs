@@ -105,42 +105,45 @@ public sealed class ModulatedDelayEffect : IAudioEffect {
 
     /// <summary>A chorus: three taps, a slow deep sweep, no feedback.</summary>
     /// <returns>The effect.</returns>
-    public static ModulatedDelayEffect Chorus() => new() {
-        Kind = ModulatedDelayKind.Chorus,
-        DelaySeconds = 0.022f,
-        DepthSeconds = 0.006f,
-        RateHz = 0.35f,
-        Feedback = 0f,
-        Voices = 3,
-        Wet = 0.5f,
-        Dry = 1f
-    };
+    public static ModulatedDelayEffect Chorus() =>
+        new() {
+            Kind = ModulatedDelayKind.Chorus,
+            DelaySeconds = 0.022f,
+            DepthSeconds = 0.006f,
+            RateHz = 0.35f,
+            Feedback = 0f,
+            Voices = 3,
+            Wet = 0.5f,
+            Dry = 1f
+        };
 
     /// <summary>A flanger: one tap, short, fast, and resonant.</summary>
     /// <returns>The effect.</returns>
-    public static ModulatedDelayEffect Flanger() => new() {
-        Kind = ModulatedDelayKind.Flanger,
-        DelaySeconds = 0.004f,
-        DepthSeconds = 0.003f,
-        RateHz = 0.25f,
-        Feedback = 0.7f,
-        Voices = 1,
-        Wet = 0.7f,
-        Dry = 1f
-    };
+    public static ModulatedDelayEffect Flanger() =>
+        new() {
+            Kind = ModulatedDelayKind.Flanger,
+            DelaySeconds = 0.004f,
+            DepthSeconds = 0.003f,
+            RateHz = 0.25f,
+            Feedback = 0.7f,
+            Voices = 1,
+            Wet = 0.7f,
+            Dry = 1f
+        };
 
     /// <summary>A vibrato: the sweep alone, with none of the dry signal to interfere with.</summary>
     /// <returns>The effect.</returns>
-    public static ModulatedDelayEffect Vibrato() => new() {
-        Kind = ModulatedDelayKind.Vibrato,
-        DelaySeconds = 0.006f,
-        DepthSeconds = 0.002f,
-        RateHz = 5f,
-        Feedback = 0f,
-        Voices = 1,
-        Wet = 1f,
-        Dry = 0f
-    };
+    public static ModulatedDelayEffect Vibrato() =>
+        new() {
+            Kind = ModulatedDelayKind.Vibrato,
+            DelaySeconds = 0.006f,
+            DepthSeconds = 0.002f,
+            RateHz = 5f,
+            Feedback = 0f,
+            Voices = 1,
+            Wet = 1f,
+            Dry = 0f
+        };
 
     /// <inheritdoc />
     public void Prepare(in AudioFormat format, int maxFrames) {
@@ -183,18 +186,18 @@ public sealed class ModulatedDelayEffect : IAudioEffect {
                 for (var tap = 0; tap < taps; tap++) {
                     // Each channel and each tap sits at its own point in the cycle. The taps are
                     // spread over the whole cycle and the channels by StereoSpread.
-                    var tapPhase = phase + (channel * spread) + ((float)tap / taps);
+                    var tapPhase = phase + channel * spread + (float)tap / taps;
                     var modulation = MathF.Sin(2f * MathF.PI * (float)(tapPhase - Math.Floor(tapPhase)));
-                    swept += Read(channel, centre + (depth * modulation), channels);
+                    swept += Read(channel, centre + depth * modulation, channels);
                 }
 
                 swept /= taps;
 
                 // The feedback is taken from the swept signal of the previous sample, which is what
                 // makes a flanger resonate rather than merely interfere.
-                lines[write + channel] = input + (feedbackState[channel] * feedback);
+                lines[write + channel] = input + feedbackState[channel] * feedback;
                 feedbackState[channel] = swept;
-                buffer[offset + channel] = (input * dry) + (swept * wet);
+                buffer[offset + channel] = input * dry + swept * wet;
             }
 
             phase += increment;
@@ -295,7 +298,8 @@ public sealed class ModulatedDelayEffect : IAudioEffect {
     /// <inheritdoc />
     public IReadOnlyList<string> Properties => Knobs;
 
-    static readonly string[] Knobs = ["DelaySeconds", "DepthSeconds", "RateHz", "Feedback", "StereoSpread", "Wet", "Dry"];
+    static readonly string[] Knobs =
+        ["DelaySeconds", "DepthSeconds", "RateHz", "Feedback", "StereoSpread", "Wet", "Dry"];
 
     /// <summary>Reads the line a fractional number of samples behind the write head.</summary>
     /// <remarks>
@@ -314,8 +318,8 @@ public sealed class ModulatedDelayEffect : IAudioEffect {
         var fraction = position - index;
         var next = index + 1 >= lineFrames ? 0 : index + 1;
 
-        var a = lines[(index * channels) + channel];
-        var b = lines[(next * channels) + channel];
-        return a + ((b - a) * fraction);
+        var a = lines[index * channels + channel];
+        var b = lines[next * channels + channel];
+        return a + (b - a) * fraction;
     }
 }

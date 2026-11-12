@@ -33,7 +33,7 @@ public class CliTests : IDisposable {
     [Fact]
     public void The_documented_invocation_works_front_to_back() {
         // Exactly what the README says: raven compile --target glsl <input> <output>
-        var exitCode = Invoke("compile", "--target", "glsl", Fixture("lambert.rvn"), At(""));
+        var exitCode = Invoke("compile", "--target", "glsl", Fixture("lambert.rvn"), At(string.Empty));
 
         Assert.Equal(0, exitCode);
         Assert.True(File.Exists(At("Lambert.vert.glsl")));
@@ -73,7 +73,7 @@ public class CliTests : IDisposable {
             Assert.Skip(said);
         }
 
-        Assert.Equal(0, Invoke("compile", "--target", "essl", Fixture("lambert.rvn"), At("")));
+        Assert.Equal(0, Invoke("compile", "--target", "essl", Fixture("lambert.rvn"), At(string.Empty)));
 
         Assert.StartsWith("#version 300 es", File.ReadAllText(At("Lambert.vert.glsl")), StringComparison.Ordinal);
         Assert.StartsWith("#version 300 es", File.ReadAllText(At("Lambert.frag.glsl")), StringComparison.Ordinal);
@@ -81,14 +81,14 @@ public class CliTests : IDisposable {
 
     [Fact]
     public void Glsl_is_the_default_target() {
-        Assert.Equal(0, Invoke("compile", Fixture("lambert.rvn"), At("")));
+        Assert.Equal(0, Invoke("compile", Fixture("lambert.rvn"), At(string.Empty)));
         Assert.True(File.Exists(At("Lambert.frag.glsl")));
     }
 
     [Fact]
     public void Nothing_is_said_on_success_unless_asked() {
-        Invoke("compile", Fixture("lambert.rvn"), At(""));
-        Assert.Equal("", output.ToString());
+        Invoke("compile", Fixture("lambert.rvn"), At(string.Empty));
+        Assert.Equal(string.Empty, output.ToString());
 
         var verbose = new StringWriter();
         RavenCommand.Create(verbose, new StringWriter())
@@ -137,7 +137,7 @@ public class CliTests : IDisposable {
 
     [Fact]
     public void Emit_ir_writes_the_dump_alongside() {
-        Assert.Equal(0, Invoke("compile", Fixture("lambert.rvn"), At(""), "--emit-ir"));
+        Assert.Equal(0, Invoke("compile", Fixture("lambert.rvn"), At(string.Empty), "--emit-ir"));
 
         var ir = File.ReadAllText(At("lambert.ir"));
         Assert.Contains("shader Lambert", ir);
@@ -160,7 +160,7 @@ public class CliTests : IDisposable {
             """
         );
 
-        Assert.Equal(1, Invoke("compile", input, At("")));
+        Assert.Equal(1, Invoke("compile", input, At(string.Empty)));
 
         var reported = error.ToString();
         Assert.Contains("bad.rvn(6,23): error RVN2010", reported);
@@ -176,7 +176,7 @@ public class CliTests : IDisposable {
     public void A_syntax_error_stops_before_the_binder_can_pile_on() {
         var input = Write("syntax.rvn", "package A\n\nshader S {\n    func F(: float {\n}\n");
 
-        Assert.Equal(1, Invoke("compile", input, At("")));
+        Assert.Equal(1, Invoke("compile", input, At(string.Empty)));
 
         var reported = error.ToString();
         Assert.Contains("RVN1001", reported);
@@ -188,7 +188,7 @@ public class CliTests : IDisposable {
         // The shader gives a binding a default; a descriptor-backed variable cannot carry
         // one, so it stays host-side data and SPIR-V says so — once, however many stages
         // come out of the shader.
-        Assert.Equal(0, Invoke("compile", "-t", "spirv", Fixture("lambert.rvn"), At("")));
+        Assert.Equal(0, Invoke("compile", "-t", "spirv", Fixture("lambert.rvn"), At(string.Empty)));
 
         var reported = error.ToString();
         Assert.Contains("info RVN4003", reported);
@@ -197,7 +197,7 @@ public class CliTests : IDisposable {
 
     [Fact]
     public void A_binary_target_writes_bytes_and_can_write_its_listing_too() {
-        Assert.Equal(0, Invoke("compile", "-t", "spirv", Fixture("lambert.rvn"), At(""), "--emit-listing"));
+        Assert.Equal(0, Invoke("compile", "-t", "spirv", Fixture("lambert.rvn"), At(string.Empty), "--emit-listing"));
 
         var binary = File.ReadAllBytes(At("Lambert.frag.spv"));
         Assert.Equal(0x03, binary[0]);
@@ -211,14 +211,14 @@ public class CliTests : IDisposable {
 
     [Fact]
     public void A_missing_input_is_a_usage_error_not_a_compilation_failure() {
-        Assert.Equal(2, Invoke("compile", At("nothing.rvn"), At("")));
+        Assert.Equal(2, Invoke("compile", At("nothing.rvn"), At(string.Empty)));
         Assert.Contains("input file not found", error.ToString());
     }
 
     [Fact]
     public void An_unknown_target_is_rejected_and_the_known_ones_are_listed() {
         var code = CompileDriver.Run(
-            new() { Inputs = [Fixture("lambert.rvn")], Output = At(""), Target = "hlsl" },
+            new() { Inputs = [Fixture("lambert.rvn")], Output = At(string.Empty), Target = "hlsl" },
             output,
             error
         );
@@ -234,9 +234,9 @@ public class CliTests : IDisposable {
         // each is caught by the parser, so `raven` never starts compiling.
         Assert.NotEmpty(Parse("compile").Errors);
         Assert.NotEmpty(Parse("compile", Fixture("lambert.rvn")).Errors);
-        Assert.NotEmpty(Parse("compile", "-t", "metal", Fixture("lambert.rvn"), At("")).Errors);
+        Assert.NotEmpty(Parse("compile", "-t", "metal", Fixture("lambert.rvn"), At(string.Empty)).Errors);
 
-        Assert.Equal(2, Invoke("compile", "-t", "metal", Fixture("lambert.rvn"), At("")));
+        Assert.Equal(2, Invoke("compile", "-t", "metal", Fixture("lambert.rvn"), At(string.Empty)));
     }
 
     [Fact]
@@ -253,7 +253,7 @@ public class CliTests : IDisposable {
             """
         );
 
-        Assert.Equal(1, Invoke("compile", input, At("")));
+        Assert.Equal(1, Invoke("compile", input, At(string.Empty)));
         Assert.Contains("no entry points", error.ToString());
     }
 
@@ -334,7 +334,7 @@ public class CliTests : IDisposable {
     public void A_reference_that_is_not_a_library_is_rejected() {
         Assert.Equal(
             2,
-            Invoke("compile", Fixture("lambert.rvn"), At(""), "--reference", Fixture("lambert.rvn"))
+            Invoke("compile", Fixture("lambert.rvn"), At(string.Empty), "--reference", Fixture("lambert.rvn"))
         );
 
         Assert.Contains("magic number does not match", error.ToString());
@@ -379,7 +379,7 @@ public class CliTests : IDisposable {
     /// </remarks>
     [Fact]
     public void Emitted_reflection_has_no_carriage_return_on_any_host() {
-        Assert.Equal(0, Invoke("compile", Fixture("lambert.rvn"), At(""), "--emit-reflection"));
+        Assert.Equal(0, Invoke("compile", Fixture("lambert.rvn"), At(string.Empty), "--emit-reflection"));
 
         var reflections = Directory.GetFiles(directory, "*.reflect.json");
 

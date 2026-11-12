@@ -51,10 +51,10 @@ public class MeshShapeTests {
         // box and one of them is: a torus whose tube is a quarter of its ring does not reach the
         // corners. What no shape may do is escape the extent it was asked for, which is what makes a
         // parameter mean something to somebody dragging it.
-        Assert.True(bounds.Maximum.X <= (parameters.Size.X * 0.5f) + Tolerance, "inside its width");
-        Assert.True(bounds.Minimum.X >= (-parameters.Size.X * 0.5f) - Tolerance, "inside its width");
-        Assert.True(bounds.Maximum.Z <= (parameters.Size.Z * 0.5f) + Tolerance, "inside its depth");
-        Assert.True(bounds.Minimum.Z >= (-parameters.Size.Z * 0.5f) - Tolerance, "inside its depth");
+        Assert.True(bounds.Maximum.X <= parameters.Size.X * 0.5f + Tolerance, "inside its width");
+        Assert.True(bounds.Minimum.X >= -parameters.Size.X * 0.5f - Tolerance, "inside its width");
+        Assert.True(bounds.Maximum.Z <= parameters.Size.Z * 0.5f + Tolerance, "inside its depth");
+        Assert.True(bounds.Minimum.Z >= -parameters.Size.Z * 0.5f - Tolerance, "inside its depth");
 
         // Sitting on the origin rather than centred on it, which is the whole of why a shape dropped
         // on the work plane is not half-buried in it.
@@ -87,8 +87,8 @@ public class MeshShapeTests {
         var mesh = MeshShapes.Create(new ShapeParameters { Kind = ShapeKind.Box, Size = new(2f, 3f, 4f) });
 
         Assert.Equal(6, mesh.FaceCount);
-        Assert.All(mesh.Faces, face => Assert.Equal(4, face.Count));
-        Assert.Equal(6, mesh.Faces.Select(face => face.Group).Distinct().Count());
+        Assert.All(mesh.Faces, static face => Assert.Equal(4, face.Count));
+        Assert.Equal(6, mesh.Faces.Select(static face => face.Group).Distinct().Count());
 
         Assert.Equal(24f, Volume(mesh), 3);
     }
@@ -106,14 +106,14 @@ public class MeshShapeTests {
         // ⚠ Six treads and six risers, grouped by what they *are*. The floor and the tall back end are
         // their own groups, so "select every tread" is one click at any angle — which is what a
         // material assigned to the treads has to survive the flight being made steeper.
-        var treads = mesh.Faces.Count(face => face.Group == MeshShapes.GroupTop);
-        var risers = mesh.Faces.Count(face => face.Group == MeshShapes.GroupFront);
+        var treads = mesh.Faces.Count(static face => face.Group == MeshShapes.GroupTop);
+        var risers = mesh.Faces.Count(static face => face.Group == MeshShapes.GroupFront);
 
         Assert.Equal(6, treads);
         Assert.Equal(6, risers);
 
         Assert.All(
-            mesh.Faces.Index().Where(entry => entry.Item.Group == MeshShapes.GroupTop),
+            mesh.Faces.Index().Where(static entry => entry.Item.Group == MeshShapes.GroupTop),
             entry => Assert.Equal(1f, mesh.Normal(entry.Index).Y, 3)
         );
 
@@ -134,24 +134,32 @@ public class MeshShapeTests {
         Assert.True(report.IsClosed, report.Describe() ?? "closed");
 
         // The wall, less the opening: two metres wide by two and a half tall by the wall's depth.
-        Assert.Equal((4f * 3f * 0.4f) - (2f * 2.5f * 0.4f), Volume(mesh), 3);
+        Assert.Equal(4f * 3f * 0.4f - 2f * 2.5f * 0.4f, Volume(mesh), 3);
 
         // And the reveal is its own group, because a doorway's lining is nearly always different
         // material from the wall it is cut through.
-        Assert.Equal(3, mesh.Faces.Count(face => face.Group == MeshShapes.GroupBore));
+        Assert.Equal(3, mesh.Faces.Count(static face => face.Group == MeshShapes.GroupBore));
     }
 
     [Fact]
     public void An_arch_is_a_door_frame_with_a_curved_head_and_less_of_it_missing() {
         var square = MeshShapes.Create(
             new ShapeParameters {
-                Kind = ShapeKind.DoorFrame, Size = new(4f, 3f, 0.4f), Sides = 8, Thickness = 0.5f, Inner = 0.5f
+                Kind = ShapeKind.DoorFrame,
+                Size = new(4f, 3f, 0.4f),
+                Sides = 8,
+                Thickness = 0.5f,
+                Inner = 0.5f
             }
         );
 
         var round = MeshShapes.Create(
             new ShapeParameters {
-                Kind = ShapeKind.Arch, Size = new(4f, 3f, 0.4f), Sides = 8, Thickness = 0.5f, Inner = 0.5f
+                Kind = ShapeKind.Arch,
+                Size = new(4f, 3f, 0.4f),
+                Sides = 8,
+                Thickness = 0.5f,
+                Inner = 0.5f
             }
         );
 
@@ -164,17 +172,15 @@ public class MeshShapeTests {
 
         // Eight segments in the curve rather than one flat lintel, and the reveal follows it.
         Assert.True(
-            round.Faces.Count(face => face.Group == MeshShapes.GroupBore)
-            > square.Faces.Count(face => face.Group == MeshShapes.GroupBore),
+            round.Faces.Count(static face => face.Group == MeshShapes.GroupBore)
+            > square.Faces.Count(static face => face.Group == MeshShapes.GroupBore),
             "the arc is segmented"
         );
     }
 
     [Fact]
     public void A_pipe_has_a_bore_and_the_bore_faces_the_axis() {
-        var shape = new ShapeParameters {
-            Kind = ShapeKind.Pipe, Size = new(2f, 4f, 2f), Sides = 24, Inner = 0.5f
-        };
+        var shape = new ShapeParameters { Kind = ShapeKind.Pipe, Size = new(2f, 4f, 2f), Sides = 24, Inner = 0.5f };
 
         var mesh = MeshShapes.Create(shape);
 
@@ -194,7 +200,7 @@ public class MeshShapeTests {
             var centre = Centre(mesh, index);
             var normal = mesh.Normal(index);
 
-            Assert.True(Vector3.Dot(normal, new Vector3(centre.X, 0f, centre.Z)) < 0f, "the bore faces inwards");
+            Assert.True(Vector3.Dot(normal, new(centre.X, 0f, centre.Z)) < 0f, "the bore faces inwards");
         }
     }
 

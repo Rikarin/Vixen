@@ -56,7 +56,7 @@ public interface IGraphicsAdapter {
 ///         waits for <em>a submission it made</em> rather than for a semaphore it allocated, which is
 ///         the difference between "the compute segment's dispatches have finished" and "somebody
 ///         signalled something". Submitting is how one is obtained — <see
-///         cref="ICommandSubmitter.Submit(ReadOnlySpan{ICommandList}, ReadOnlySpan{TimelinePoint})" />
+///                                                                       cref="ICommandSubmitter.Submit(ReadOnlySpan{ICommandList}, ReadOnlySpan{TimelinePoint})" />
 ///         returns the point its own work reaches — so the natural way to use this is also the
 ///         correct one.
 ///     </para>
@@ -104,8 +104,11 @@ public interface ICommandSubmitter {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <b>Exactly <c>GraphicsDeviceFeatures.HasTimelineSemaphores</c>, seen from the queue
-    ///         that has to act on it.</b> The feature flag says the device could; this says this
+    ///         <b>
+    ///             Exactly <c>GraphicsDeviceFeatures.HasTimelineSemaphores</c>, seen from the queue
+    ///             that has to act on it.
+    ///         </b>
+    ///         The feature flag says the device could; this says this
     ///         submitter does, which is what a caller about to submit actually needs to know.
     ///     </para>
     ///     <para>
@@ -188,8 +191,11 @@ public interface ISwapChain : IDisposable {
     /// <summary>What its images were created able to do, which is what a frame may declare them as.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Read by the host that lends the acquired image to a frame, and an import of fewer
-    ///         bits than the image has is a frame refused work the image could do (#1419).</b>
+    ///         ⚠
+    ///         <b>
+    ///             Read by the host that lends the acquired image to a frame, and an import of fewer
+    ///             bits than the image has is a frame refused work the image could do (#1419).
+    ///         </b>
     ///         <c>AppGraphics</c> used to import every backend's image as a colour target and nothing
     ///         else, so a document could neither sample the window — which is what <c>!UiCompose</c>
     ///         needs to give a HUD the scene — nor <c>!Copy</c> into it, although the Vulkan image
@@ -231,8 +237,10 @@ public interface ISwapChain : IDisposable {
 
     /// <summary>Takes the next image to render into.</summary>
     /// <param name="view">A view of the image, valid until the next <see cref="Present" />.</param>
-    /// <returns>What happened. Anything but <see cref="SwapChainStatus.Ready" /> or
-    /// <see cref="SwapChainStatus.Suboptimal" /> means nothing was acquired.</returns>
+    /// <returns>
+    ///     What happened. Anything but <see cref="SwapChainStatus.Ready" /> or
+    ///     <see cref="SwapChainStatus.Suboptimal" /> means nothing was acquired.
+    /// </returns>
     /// <remarks>
     ///     Returns a status rather than throwing, because
     ///     <see cref="SwapChainStatus.OutOfDate" /> is not an error — it happens every time a user
@@ -308,12 +316,16 @@ public interface IGraphicsDevice : IDisposable {
     /// <summary>The queue that can do everything.</summary>
     ICommandSubmitter GraphicsQueue { get; }
 
-    /// <summary>The compute queue, which is <see cref="GraphicsQueue" /> where the hardware has
-    /// only one.</summary>
+    /// <summary>
+    ///     The compute queue, which is <see cref="GraphicsQueue" /> where the hardware has
+    ///     only one.
+    /// </summary>
     ICommandSubmitter ComputeQueue { get; }
 
-    /// <summary>The transfer queue, which is <see cref="GraphicsQueue" /> where the hardware has
-    /// only one.</summary>
+    /// <summary>
+    ///     The transfer queue, which is <see cref="GraphicsQueue" /> where the hardware has
+    ///     only one.
+    /// </summary>
     ICommandSubmitter TransferQueue { get; }
 
     /// <summary>How many frames may be recorded before the first has to have finished.</summary>
@@ -354,8 +366,10 @@ public interface IGraphicsDevice : IDisposable {
 
     /// <summary>Creates a view of part of a texture.</summary>
     /// <param name="texture">The texture.</param>
-    /// <param name="format">The format to read it as, or
-    /// <see cref="PixelFormat.Undefined" /> for the texture's own.</param>
+    /// <param name="format">
+    ///     The format to read it as, or
+    ///     <see cref="PixelFormat.Undefined" /> for the texture's own.
+    /// </param>
     /// <param name="baseMipLevel">The first mip level.</param>
     /// <param name="mipLevelCount">How many levels, or <c>0</c> for all of them.</param>
     /// <param name="baseArrayLayer">The first array layer.</param>
@@ -427,8 +441,10 @@ public interface IGraphicsDevice : IDisposable {
     void Destroy(QueryPoolHandle handle);
 
     /// <summary>Asks how much memory one acceleration-structure build needs.</summary>
-    /// <param name="input">Everything the build will read. The counts are what sizing uses; the
-    ///     buffers may still be empty.</param>
+    /// <param name="input">
+    ///     Everything the build will read. The counts are what sizing uses; the
+    ///     buffers may still be empty.
+    /// </param>
     /// <returns>The structure's size and the build's scratch size.</returns>
     /// <remarks>
     ///     ⚠ <b>Ask <see cref="Features" /> first.</b> A device without
@@ -440,8 +456,10 @@ public interface IGraphicsDevice : IDisposable {
     AccelerationStructureSizes GetAccelerationStructureSizes(in AccelerationStructureBuildInput input);
 
     /// <summary>Creates an acceleration structure — empty until a build fills it.</summary>
-    /// <param name="description">What to create, sized by
-    ///     <see cref="GetAccelerationStructureSizes" />.</param>
+    /// <param name="description">
+    ///     What to create, sized by
+    ///     <see cref="GetAccelerationStructureSizes" />.
+    /// </param>
     /// <exception cref="NotSupportedException">The device has no ray tracing.</exception>
     AccelerationStructureHandle CreateAccelerationStructure(in AccelerationStructureDescription description);
 
@@ -488,8 +506,11 @@ public interface IGraphicsDevice : IDisposable {
     /// <param name="handle">The buffer.</param>
     /// <remarks>
     ///     <para>
-    ///         <strong>Every <c>Destroy</c> on this interface is deferred, and a backend that frees
-    ///         immediately is wrong.</strong> Destroying an object a submitted command buffer still
+    ///         <strong>
+    ///             Every <c>Destroy</c> on this interface is deferred, and a backend that frees
+    ///             immediately is wrong.
+    ///         </strong>
+    ///         Destroying an object a submitted command buffer still
     ///         references is undefined behaviour, and the window in which it is unsafe is exactly
     ///         <see cref="FramesInFlight" /> frames wide — which the caller has no way of knowing and
     ///         should not have to. So the handle becomes invalid to the caller here and the object is
@@ -542,15 +563,19 @@ public interface IGraphicsDevice : IDisposable {
     void Destroy(DescriptorSetHandle handle);
 
     /// <summary>Writes into a host-visible buffer.</summary>
-    /// <param name="buffer">The buffer, which must not be
-    /// <see cref="MemoryAccess.DeviceLocal" />.</param>
+    /// <param name="buffer">
+    ///     The buffer, which must not be
+    ///     <see cref="MemoryAccess.DeviceLocal" />.
+    /// </param>
     /// <param name="offset">Where to start writing, in bytes.</param>
     /// <param name="data">What to write.</param>
     void Write(BufferHandle buffer, long offset, ReadOnlySpan<byte> data);
 
     /// <summary>Reads out of a readback buffer.</summary>
-    /// <param name="buffer">The buffer, which must be
-    /// <see cref="MemoryAccess.HostReadback" />.</param>
+    /// <param name="buffer">
+    ///     The buffer, which must be
+    ///     <see cref="MemoryAccess.HostReadback" />.
+    /// </param>
     /// <param name="offset">Where to start reading, in bytes.</param>
     /// <param name="destination">Where to put it.</param>
     /// <remarks>
@@ -691,8 +716,10 @@ public readonly record struct DescriptorWrite(
 
     /// <summary>Binds a top-level acceleration structure for a ray query to open against.</summary>
     /// <param name="binding">Which binding.</param>
-    /// <param name="structure">The structure — built, or the query finds whatever a build never
-    ///     wrote.</param>
+    /// <param name="structure">
+    ///     The structure — built, or the query finds whatever a build never
+    ///     wrote.
+    /// </param>
     public static DescriptorWrite Acceleration(uint binding, AccelerationStructureHandle structure) =>
         new(binding, DescriptorKind.AccelerationStructure, Structure: structure);
 }

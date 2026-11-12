@@ -14,8 +14,12 @@ static class TextureUsages {
     /// <summary>The nine an <c>Output</c> node may name.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Read off the node's own declaration rather than written here —
-    ///         <a href="https://github.com/Rikarin/Vixen/issues/1013">#1013</a>.</b> The nine were a
+    ///         ⚠
+    ///         <b>
+    ///             Read off the node's own declaration rather than written here —
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/1013">#1013</a>.
+    ///         </b>
+    ///         The nine were a
     ///         literal in this class and the setting that names one of them stated nothing, so the
     ///         single most-edited setting in the library — every graph has an <c>Output</c> — drew
     ///         as a text box, and the list only existed where the refusal could reach it. Moving it
@@ -24,8 +28,12 @@ static class TextureUsages {
     ///         the node inspector's dropdown, and by whatever a plugin draws.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A literal and not an <c>AcceptedFrom</c>, because these are not an enum's
-    ///         names.</b> A usage is what a <c>.vxmat</c>'s slot is called — <c>baseColor</c>, in
+    ///         ⚠
+    ///         <b>
+    ///             A literal and not an <c>AcceptedFrom</c>, because these are not an enum's
+    ///             names.
+    ///         </b>
+    ///         A usage is what a <c>.vxmat</c>'s slot is called — <c>baseColor</c>, in
     ///         that spelling — and the enum that mirrored it would be a second set of names with a
     ///         casing rule between them.
     ///     </para>
@@ -100,7 +108,9 @@ sealed partial class OutputNode : TextureNode {
     /// </remarks>
     [Setting(
         Name = Setting,
-        Accepted = ["baseColor", "normal", "roughness", "metalness", "occlusion", "height", "emissive", "opacity", "mask"]
+        Accepted = [
+            "baseColor", "normal", "roughness", "metalness", "occlusion", "height", "emissive", "opacity", "mask"
+        ]
     )]
     public string Usage = "baseColor";
 

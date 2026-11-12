@@ -10,8 +10,12 @@ namespace Vixen.Live.Placement;
 /// <summary>The six calls this backend makes of a cluster.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>A seam over <c>IKubernetes</c> rather than the interface itself, and for the reason
-///         every other backend has one.</b> <c>IKubernetes</c> is the whole generated API — dozens of
+///         ⚠
+///         <b>
+///             A seam over <c>IKubernetes</c> rather than the interface itself, and for the reason
+///             every other backend has one.
+///         </b>
+///         <c>IKubernetes</c> is the whole generated API — dozens of
 ///         operation groups, hundreds of methods — and a fake of it is not something anybody writes.
 ///         Six methods is, and behind them the placement logic is asserted on every push instead of
 ///         only on the nightly <c>kind</c> leg.
@@ -93,7 +97,9 @@ public sealed class ClusterApi(IKubernetes client) : IClusterApi {
                     ? KubernetesClientConfiguration.InClusterConfig()
                     : KubernetesClientConfiguration.BuildConfigFromConfigFile()
             );
-        } catch (Exception failure) when (failure is IOException or UnauthorizedAccessException or InvalidOperationException) {
+        } catch (Exception failure) when (failure is IOException
+                                              or UnauthorizedAccessException
+                                              or InvalidOperationException) {
             return null;
         }
     }
@@ -102,7 +108,7 @@ public sealed class ClusterApi(IKubernetes client) : IClusterApi {
     public async Task<string> VersionAsync(CancellationToken cancellation) {
         var version = await client.Version.GetCodeAsync(cancellation).ConfigureAwait(false);
 
-        return version?.GitVersion ?? "";
+        return version?.GitVersion ?? string.Empty;
     }
 
     /// <inheritdoc />
@@ -116,8 +122,8 @@ public sealed class ClusterApi(IKubernetes client) : IClusterApi {
                 .ConfigureAwait(false);
         } catch (k8s.Autorest.HttpOperationException failure)
             when (failure.Response.StatusCode == System.Net.HttpStatusCode.NotFound) {
-            return null;
-        }
+                return null;
+            }
     }
 
     /// <inheritdoc />
@@ -132,9 +138,9 @@ public sealed class ClusterApi(IKubernetes client) : IClusterApi {
                 .ConfigureAwait(false);
         } catch (k8s.Autorest.HttpOperationException failure)
             when (failure.Response.StatusCode == System.Net.HttpStatusCode.NotFound) {
-            // Every backend races the thing it manages, and a pod that is already gone is the
-            // ordinary end of that race rather than a failure to report.
-        }
+                // Every backend races the thing it manages, and a pod that is already gone is the
+                // ordinary end of that race rather than a failure to report.
+            }
     }
 
     /// <inheritdoc />
@@ -147,7 +153,7 @@ public sealed class ClusterApi(IKubernetes client) : IClusterApi {
             .ListNamespacedPodAsync(space, labelSelector: selector, cancellationToken: cancellation)
             .ConfigureAwait(false);
 
-        return [.. pods?.Items ?? []];
+        return [..pods?.Items ?? []];
     }
 
     /// <inheritdoc />

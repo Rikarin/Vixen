@@ -46,8 +46,12 @@ public sealed record SpawnTableDefinition : Definition {
 
     /// <summary>How far what lives here may be pulled from it, or null for the default.</summary>
     /// <remarks>
-    ///     ⚠ <b>On the table because a leash is about a place, and the table is the only thing in
-    ///     this library that names one.</b> <see cref="LeashDefinition" /> is not a
+    ///     ⚠
+    ///     <b>
+    ///         On the table because a leash is about a place, and the table is the only thing in
+    ///         this library that names one.
+    ///     </b>
+    ///     <see cref="LeashDefinition" /> is not a
     ///     <see cref="Definition" /> and has no address, so before this there was no authored path to
     ///     one at all — every camp in a game had to be leashed from code, which is the half of doc
     ///     28's AI section that had a type and no way to author it. <c>Samples/14-Mmo</c> is what
@@ -128,7 +132,7 @@ public sealed class SpawnLibrary {
 
     /// <summary>Every table, in address order.</summary>
     public IEnumerable<SpawnTable> Tables =>
-        tables.Values.OrderBy(table => table.Definition.Address, StringComparer.Ordinal);
+        tables.Values.OrderBy(static table => table.Definition.Address, StringComparer.Ordinal);
 
     /// <summary>What did not resolve, and what a definition said that cannot be true at once.</summary>
     public IReadOnlyList<string> Problems => problems;
@@ -167,7 +171,10 @@ public sealed class SpawnLibrary {
                     );
                 }
 
-                rows.Add((DefId.From(entry.Creature), entry.Creature, entry.Weight, Math.Max(0, entry.Minimum), Math.Max(entry.Minimum, entry.Maximum)));
+                rows.Add(
+                    (DefId.From(entry.Creature), entry.Creature, entry.Weight, Math.Max(0, entry.Minimum),
+                        Math.Max(entry.Minimum, entry.Maximum))
+                );
                 weights.Add(entry.Weight);
             }
 
@@ -189,10 +196,10 @@ public sealed class SpawnLibrary {
                 );
             }
 
-            tables.Add(definition.Id.Value, new(definition, [.. rows], [.. weights]));
+            tables.Add(definition.Id.Value, new(definition, [..rows], [..weights]));
         }
 
-        return new(tables, [.. problems]);
+        return new(tables, [..problems]);
     }
 
     /// <summary>Finds a table.</summary>
@@ -241,7 +248,7 @@ public sealed class Spawner {
     public SpawnTable Table => table;
 
     /// <summary>How many are alive.</summary>
-    public int Alive => alive.Count(entry => entry);
+    public int Alive => alive.Count(static entry => entry);
 
     /// <summary>How many could still be.</summary>
     public int Free => table.Cap - Alive;

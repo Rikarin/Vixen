@@ -27,8 +27,12 @@ static class Program {
     /// <param name="args">The UCD directory, the two output directories, and optionally one artefact name.</param>
     /// <returns>Zero when everything asked for was written.</returns>
     /// <remarks>
-    ///     ⚠ <b><c>internal</c> rather than private, which an entry point is free to be and which
-    ///     nothing else here needs.</b> The arms below dispatch on a name, and a table written by
+    ///     ⚠
+    ///     <b>
+    ///         <c>internal</c> rather than private, which an entry point is free to be and which
+    ///         nothing else here needs.
+    ///     </b>
+    ///     The arms below dispatch on a name, and a table written by
     ///     the wrong arm — or a partial database silently producing a table of nothing — is a
     ///     failure only a caller can see. A test that spawned the process instead would have to read
     ///     it out of stdout.
@@ -86,7 +90,10 @@ static class Program {
                     return 0;
 
                 case "SoftDotted":
-                    WriteSoftDottedTable(Path.Combine(tables, "SoftDottedTable.g.cs"), Path.Combine(ucd, "PropList.txt"));
+                    WriteSoftDottedTable(
+                        Path.Combine(tables, "SoftDottedTable.g.cs"),
+                        Path.Combine(ucd, "PropList.txt")
+                    );
                     return 0;
 
                 case "Casing":
@@ -100,7 +107,10 @@ static class Program {
                         Path.Combine(ucd, "DerivedCombiningClass.txt")
                     );
 
-                    WriteSoftDottedTable(Path.Combine(tables, "SoftDottedTable.g.cs"), Path.Combine(ucd, "PropList.txt"));
+                    WriteSoftDottedTable(
+                        Path.Combine(tables, "SoftDottedTable.g.cs"),
+                        Path.Combine(ucd, "PropList.txt")
+                    );
                     return 0;
 
                 default:
@@ -142,7 +152,12 @@ static class Program {
         WriteTable(Path.Combine(tables, "GraphemeBreakTable.g.cs"), "GraphemeBreakClass", grapheme, version);
         WriteTable(Path.Combine(tables, "IndicConjunctTable.g.cs"), "IndicConjunctClass", conjunct, version);
         WriteTable(Path.Combine(tables, "WordBreakTable.g.cs"), "WordBreakClass", word, version);
-        WriteTable(Path.Combine(tables, "LineBreakTable.g.cs"), "LineBreakClass", ReadProperties(Path.Combine(ucd, "LineBreak.txt")), version);
+        WriteTable(
+            Path.Combine(tables, "LineBreakTable.g.cs"),
+            "LineBreakClass",
+            ReadProperties(Path.Combine(ucd, "LineBreak.txt")),
+            version
+        );
 
         WriteTable(
             Path.Combine(tables, "BidiClassTable.g.cs"),
@@ -151,7 +166,11 @@ static class Program {
             version
         );
 
-        WriteBracketTable(Path.Combine(tables, "BidiBracketTable.g.cs"), Path.Combine(ucd, "BidiBrackets.txt"), version);
+        WriteBracketTable(
+            Path.Combine(tables, "BidiBracketTable.g.cs"),
+            Path.Combine(ucd, "BidiBrackets.txt"),
+            version
+        );
 
         // ⚠ The one table whose version is read from its <i>own</i> file rather than from
         // GraphemeBreakTest.txt, because it is also the one that can be regenerated alone — see the
@@ -289,7 +308,11 @@ static class Program {
             var range = line[..semicolon].Trim();
             var dots = range.IndexOf("..", StringComparison.Ordinal);
 
-            var first = int.Parse(dots < 0 ? range : range[..dots], NumberStyles.HexNumber, CultureInfo.InvariantCulture);
+            var first = int.Parse(
+                dots < 0 ? range : range[..dots],
+                NumberStyles.HexNumber,
+                CultureInfo.InvariantCulture
+            );
             var last = dots < 0
                 ? first
                 : int.Parse(range[(dots + 2)..], NumberStyles.HexNumber, CultureInfo.InvariantCulture);
@@ -328,11 +351,13 @@ static class Program {
             var range = body[..semicolon].Trim();
             var dots = range.IndexOf("..", StringComparison.Ordinal);
 
-            defaults.Add((
-                int.Parse(range[..dots], NumberStyles.HexNumber, CultureInfo.InvariantCulture),
-                int.Parse(range[(dots + 2)..], NumberStyles.HexNumber, CultureInfo.InvariantCulture),
-                Abbreviate(body[(semicolon + 1)..].Trim())
-            ));
+            defaults.Add(
+                (
+                    int.Parse(range[..dots], NumberStyles.HexNumber, CultureInfo.InvariantCulture),
+                    int.Parse(range[(dots + 2)..], NumberStyles.HexNumber, CultureInfo.InvariantCulture),
+                    Abbreviate(body[(semicolon + 1)..].Trim())
+                )
+            );
         }
 
         // Later @missing lines are narrower and override the wide one that opens the file.
@@ -395,13 +420,14 @@ static class Program {
     }
 
     /// <summary>The short names the algorithm is written in, from the long ones the file uses.</summary>
-    static string Abbreviate(string name) => name switch {
-        "Left_To_Right" => "L",
-        "Right_To_Left" => "R",
-        "Arabic_Letter" => "AL",
-        "European_Terminator" => "ET",
-        _ => name
-    };
+    static string Abbreviate(string name) =>
+        name switch {
+            "Left_To_Right" => "L",
+            "Right_To_Left" => "R",
+            "Arabic_Letter" => "AL",
+            "European_Terminator" => "ET",
+            _ => name
+        };
 
     /// <summary>Writes the paired-bracket table N0 needs.</summary>
     static void WriteBracketTable(string path, string source, string version) {
@@ -419,11 +445,13 @@ static class Program {
                 continue;
             }
 
-            entries.Add((
-                int.Parse(fields[0], NumberStyles.HexNumber, CultureInfo.InvariantCulture),
-                int.Parse(fields[1], NumberStyles.HexNumber, CultureInfo.InvariantCulture),
-                fields[2][0]
-            ));
+            entries.Add(
+                (
+                    int.Parse(fields[0], NumberStyles.HexNumber, CultureInfo.InvariantCulture),
+                    int.Parse(fields[1], NumberStyles.HexNumber, CultureInfo.InvariantCulture),
+                    fields[2][0]
+                )
+            );
         }
 
         entries.Sort(static (left, right) => left.Code.CompareTo(right.Code));
@@ -432,14 +460,17 @@ static class Program {
         builder.Append("// SPDX-FileCopyrightText: Copyright (c) Rikarin\n");
         builder.Append("// SPDX-License-Identifier: Apache-2.0\n//\n// <auto-generated>\n");
         builder.Append("//     Generated by Tools/Vixen.UnicodeTableGen from the Unicode Character Database,\n");
-        builder.Append(CultureInfo.InvariantCulture, $"//     version {version}. Do not edit — re-run the generator.\n");
+        builder.Append(
+            CultureInfo.InvariantCulture,
+            $"//     version {version}. Do not edit — re-run the generator.\n"
+        );
         builder.Append("// </auto-generated>\n\nnamespace Vixen.Ui.Text;\n\n");
         builder.Append("/// <summary>The brackets rule N0 pairs up, and what each one pairs with.</summary>\n");
         builder.Append("static class BidiBracketTable {\n");
         builder.Append("    static readonly int[] Codes = [\n");
-        AppendNumbers(builder, entries.Select(entry => entry.Code));
+        AppendNumbers(builder, entries.Select(static entry => entry.Code));
         builder.Append("    ];\n\n    static readonly int[] Paired = [\n");
-        AppendNumbers(builder, entries.Select(entry => entry.Paired));
+        AppendNumbers(builder, entries.Select(static entry => entry.Paired));
         builder.Append("    ];\n\n    static readonly bool[] Opens = [\n        ");
 
         var count = 0;
@@ -458,8 +489,12 @@ static class Program {
         builder.Append("    /// <returns>Whether it is a paired bracket at all.</returns>\n");
         builder.Append("    public static bool TryGet(int codePoint, out int paired, out bool opens) {\n");
         builder.Append("        var index = Array.BinarySearch(Codes, codePoint);\n\n");
-        builder.Append("        if (index < 0) {\n            paired = 0;\n            opens = false;\n            return false;\n        }\n\n");
-        builder.Append("        paired = Paired[index];\n        opens = Opens[index];\n        return true;\n    }\n}\n");
+        builder.Append(
+            "        if (index < 0) {\n            paired = 0;\n            opens = false;\n            return false;\n        }\n\n"
+        );
+        builder.Append(
+            "        paired = Paired[index];\n        opens = Opens[index];\n        return true;\n    }\n}\n"
+        );
 
         File.WriteAllText(path, builder.ToString());
         Console.WriteLine($"{Path.GetFileName(path)}: {entries.Count} brackets");
@@ -531,7 +566,10 @@ static class Program {
         builder.Append("// SPDX-FileCopyrightText: Copyright (c) Rikarin\n");
         builder.Append("// SPDX-License-Identifier: Apache-2.0\n//\n// <auto-generated>\n");
         builder.Append("//     Generated by Tools/Vixen.UnicodeTableGen from the Unicode Character Database,\n");
-        builder.Append(CultureInfo.InvariantCulture, $"//     version {version}. Do not edit — re-run the generator.\n//\n");
+        builder.Append(
+            CultureInfo.InvariantCulture,
+            $"//     version {version}. Do not edit — re-run the generator.\n//\n"
+        );
         builder.Append("//     Derived from Unicode data files, which carry the Unicode terms of use:\n");
         builder.Append("//     https://www.unicode.org/terms_of_use.html\n");
         builder.Append("// </auto-generated>\n\nnamespace Vixen.Ui.Text;\n\n");
@@ -551,7 +589,10 @@ static class Program {
 
         foreach (var name in names) {
             var tag = tags[name];
-            builder.Append(CultureInfo.InvariantCulture, $"    /// <summary><c>{tag}</c> — {name.Replace('_', ' ')}.</summary>\n");
+            builder.Append(
+                CultureInfo.InvariantCulture,
+                $"    /// <summary><c>{tag}</c> — {name.Replace('_', ' ')}.</summary>\n"
+            );
             builder.Append(CultureInfo.InvariantCulture, $"    {Identifier(name)} = 0x{Pack(tag):X8}u,\n\n");
         }
 
@@ -560,16 +601,19 @@ static class Program {
 
         builder.Append("/// <summary>Looks the script of a code point up.</summary>\n");
         builder.Append("/// <remarks>\n");
-        builder.Append(CultureInfo.InvariantCulture, $"///     {merged.Count} ranges, sorted and merged, in one flat array — the same layout the\n");
+        builder.Append(
+            CultureInfo.InvariantCulture,
+            $"///     {merged.Count} ranges, sorted and merged, in one flat array — the same layout the\n"
+        );
         builder.Append("///     segmentation tables use and for the same reason.\n");
         builder.Append("/// </remarks>\n");
         builder.Append("static class ScriptTable {\n");
         builder.Append("    /// <summary>The Unicode version these ranges came from.</summary>\n");
         builder.Append(CultureInfo.InvariantCulture, $"    public const string UnicodeVersion = \"{version}\";\n\n");
         builder.Append("    static readonly int[] Starts = [\n");
-        AppendNumbers(builder, merged.Select(entry => entry.First));
+        AppendNumbers(builder, merged.Select(static entry => entry.First));
         builder.Append("    ];\n\n    static readonly int[] Ends = [\n");
-        AppendNumbers(builder, merged.Select(entry => entry.Last));
+        AppendNumbers(builder, merged.Select(static entry => entry.Last));
         builder.Append("    ];\n\n    static readonly Script[] Scripts = [\n");
 
         for (var i = 0; i < merged.Count; i += 8) {
@@ -599,15 +643,17 @@ static class Program {
     }
 
     /// <summary>Packs a four-letter ISO 15924 tag into the integer a shaper wants.</summary>
-    static uint Pack(string tag) =>
-        ((uint)tag[0] << 24) | ((uint)tag[1] << 16) | ((uint)tag[2] << 8) | tag[3];
+    static uint Pack(string tag) => ((uint)tag[0] << 24) | ((uint)tag[1] << 16) | ((uint)tag[2] << 8) | tag[3];
 
     /// <summary>Writes BidiCharacterTest as compact data.</summary>
     static void WriteBidiConformance(string source, string path, string version) {
         var builder = new StringBuilder();
         var cases = 0;
 
-        builder.Append(CultureInfo.InvariantCulture, $"# Unicode {version}. Generated by Tools/Vixen.UnicodeTableGen — do not edit.\n");
+        builder.Append(
+            CultureInfo.InvariantCulture,
+            $"# Unicode {version}. Generated by Tools/Vixen.UnicodeTableGen — do not edit.\n"
+        );
         builder.Append("# codePoints;paragraphDirection;resolvedParagraphLevel;levels;visualOrder\n");
 
         foreach (var raw in File.ReadLines(source)) {
@@ -661,14 +707,20 @@ static class Program {
         builder.Append("//\n");
         builder.Append("// <auto-generated>\n");
         builder.Append("//     Generated by Tools/Vixen.UnicodeTableGen from the Unicode Character Database,\n");
-        builder.Append(CultureInfo.InvariantCulture, $"//     version {version}. Do not edit — re-run the generator.\n");
+        builder.Append(
+            CultureInfo.InvariantCulture,
+            $"//     version {version}. Do not edit — re-run the generator.\n"
+        );
         builder.Append("//\n");
         builder.Append("//     Derived from Unicode data files, which carry the Unicode terms of use:\n");
         builder.Append("//     https://www.unicode.org/terms_of_use.html\n");
         builder.Append("// </auto-generated>\n\n");
         builder.Append("namespace Vixen.Ui.Text;\n\n");
 
-        builder.Append(CultureInfo.InvariantCulture, $"/// <summary>The {enumName.Replace("Class", string.Empty, StringComparison.Ordinal)} property of a code point.</summary>\n");
+        builder.Append(
+            CultureInfo.InvariantCulture,
+            $"/// <summary>The {enumName.Replace("Class", string.Empty, StringComparison.Ordinal)} property of a code point.</summary>\n"
+        );
         builder.Append("/// <remarks>\n");
         builder.Append("///     <c>Other</c> is zero and is the default, which is what the specification calls\n");
         builder.Append("///     <c>Any</c> — every code point the tables do not mention has it.\n");
@@ -685,20 +737,33 @@ static class Program {
         builder.Length -= 2;
         builder.Append("\n}\n\n");
 
-        builder.Append(CultureInfo.InvariantCulture, $"/// <summary>Looks the {enumName} of a code point up.</summary>\n");
+        builder.Append(
+            CultureInfo.InvariantCulture,
+            $"/// <summary>Looks the {enumName} of a code point up.</summary>\n"
+        );
         builder.Append("/// <remarks>\n");
-        builder.Append(CultureInfo.InvariantCulture, $"///     {merged.Count} ranges, sorted and merged, in one flat array — a lookup is a binary search\n");
-        builder.Append("///     over a contiguous span rather than a probe per property. Segmentation asks this once per\n");
-        builder.Append("///     code point of every string it measures, so the layout matters more than the count does.\n");
+        builder.Append(
+            CultureInfo.InvariantCulture,
+            $"///     {merged.Count} ranges, sorted and merged, in one flat array — a lookup is a binary search\n"
+        );
+        builder.Append(
+            "///     over a contiguous span rather than a probe per property. Segmentation asks this once per\n"
+        );
+        builder.Append(
+            "///     code point of every string it measures, so the layout matters more than the count does.\n"
+        );
         builder.Append("/// </remarks>\n");
         builder.Append(CultureInfo.InvariantCulture, $"static class {enumName}Table {{\n");
-        builder.Append(CultureInfo.InvariantCulture, $"    /// <summary>The Unicode version these ranges came from.</summary>\n");
+        builder.Append(
+            CultureInfo.InvariantCulture,
+            $"    /// <summary>The Unicode version these ranges came from.</summary>\n"
+        );
         builder.Append(CultureInfo.InvariantCulture, $"    public const string UnicodeVersion = \"{version}\";\n\n");
         builder.Append("    static readonly int[] Starts = [\n");
-        AppendNumbers(builder, merged.Select(entry => entry.First));
+        AppendNumbers(builder, merged.Select(static entry => entry.First));
         builder.Append("    ];\n\n");
         builder.Append("    static readonly int[] Ends = [\n");
-        AppendNumbers(builder, merged.Select(entry => entry.Last));
+        AppendNumbers(builder, merged.Select(static entry => entry.Last));
         builder.Append("    ];\n\n");
         builder.Append(CultureInfo.InvariantCulture, $"    static readonly {enumName}[] Classes = [\n");
 
@@ -739,9 +804,7 @@ static class Program {
         // and a one-table refresh prints nothing but this line. `SoftDotted` is refreshed alone —
         // it is the arm #913 adds — so without the version the console cannot answer the question
         // #544 was filed over, which is which release a table in the tree came from.
-        Console.WriteLine(
-            $"{Path.GetFileName(path)}: Unicode {version}, {merged.Count} ranges, {names.Count} classes"
-        );
+        Console.WriteLine($"{Path.GetFileName(path)}: Unicode {version}, {merged.Count} ranges, {names.Count} classes");
     }
 
     /// <summary>Writes the full case mappings that are not one code point to one code point.</summary>
@@ -779,7 +842,9 @@ static class Program {
 
         foreach (var raw in File.ReadLines(source)) {
             if (version == "unknown" && raw.StartsWith("# SpecialCasing-", StringComparison.Ordinal)) {
-                version = raw["# SpecialCasing-".Length..].Replace(".txt", string.Empty, StringComparison.Ordinal).Trim();
+                version = raw["# SpecialCasing-".Length..]
+                    .Replace(".txt", string.Empty, StringComparison.Ordinal)
+                    .Trim();
             }
 
             var line = raw;
@@ -815,7 +880,10 @@ static class Program {
         builder.Append("// SPDX-FileCopyrightText: Copyright (c) Rikarin\n");
         builder.Append("// SPDX-License-Identifier: Apache-2.0\n//\n// <auto-generated>\n");
         builder.Append("//     Generated by Tools/Vixen.UnicodeTableGen from the Unicode Character Database,\n");
-        builder.Append(CultureInfo.InvariantCulture, $"//     version {version}. Do not edit — re-run the generator.\n");
+        builder.Append(
+            CultureInfo.InvariantCulture,
+            $"//     version {version}. Do not edit — re-run the generator.\n"
+        );
         builder.Append("//\n");
         builder.Append("//     Derived from Unicode data files, which carry the Unicode terms of use:\n");
         builder.Append("//     https://www.unicode.org/terms_of_use.html\n");
@@ -825,7 +893,10 @@ static class Program {
         builder.Append("///     SpecialCasing.txt's unconditional rows, and only those. A code point absent from a\n");
         builder.Append("///     table here has a full mapping equal to its simple one, which is what\n");
         builder.Append("///     <c>Rune.ToUpperInvariant</c> and its siblings already answer.\n");
-        builder.Append(CultureInfo.InvariantCulture, $"///     The {conditional} conditional rows are deliberately not here — see the generator.\n");
+        builder.Append(
+            CultureInfo.InvariantCulture,
+            $"///     The {conditional} conditional rows are deliberately not here — see the generator.\n"
+        );
         builder.Append("/// </remarks>\n");
         builder.Append("static class SpecialCasingTable {\n");
 
@@ -853,7 +924,7 @@ static class Program {
                 );
             }
 
-            var rune = new System.Text.Rune(code);
+            var rune = new Rune(code);
 
             // ⚠ Only the rows where the full mapping differs from the simple one reach the table.
             // Every other row would cost a binary search to answer what `Rune.ToUpperInvariant` was
@@ -866,8 +937,8 @@ static class Program {
             // keeps the row whenever it differs from the code point itself, which over-collects by
             // the handful of rows where title equals simple-title and costs nothing but entries.
             var simple = kind switch {
-                'u' => System.Text.Rune.ToUpperInvariant(rune).ToString(),
-                'l' => System.Text.Rune.ToLowerInvariant(rune).ToString(),
+                'u' => Rune.ToUpperInvariant(rune).ToString(),
+                'l' => Rune.ToLowerInvariant(rune).ToString(),
                 _ => rune.ToString()
             };
 
@@ -887,8 +958,12 @@ static class Program {
     ///         <b>The table .NET does not expose.</b> <c>CharUnicodeInfo</c> answers the general
     ///         category and the numeric value and nothing about canonical ordering, and
     ///         <c>string.Normalize</c> uses the class without ever saying what it was. UAX #21's
-    ///         context conditions are phrased in terms of it — <i>"no intervening character of
-    ///         combining class 0 or 230"</i> — so the casing walk cannot ask the question without
+    ///         context conditions are phrased in terms of it —
+    ///         <i>
+    ///             "no intervening character of
+    ///             combining class 0 or 230"
+    ///         </i>
+    ///         — so the casing walk cannot ask the question without
     ///         this file.
     ///     </para>
     ///     <para>
@@ -939,7 +1014,10 @@ static class Program {
         AppendHeader(builder, version);
         builder.Append("/// <summary>The canonical combining class of a code point.</summary>\n");
         builder.Append("/// <remarks>\n");
-        builder.Append(CultureInfo.InvariantCulture, $"///     {merged.Count} ranges, sorted and merged, holding every non-zero class; a code point the\n");
+        builder.Append(
+            CultureInfo.InvariantCulture,
+            $"///     {merged.Count} ranges, sorted and merged, holding every non-zero class; a code point the\n"
+        );
         builder.Append("///     table does not mention is class 0 (<c>Not_Reordered</c>), which is what UAX #21's\n");
         builder.Append("///     conditions mean by a base character. 230 is <c>Above</c> and 220 is <c>Below</c>.\n");
         builder.Append("/// </remarks>\n");
@@ -949,10 +1027,10 @@ static class Program {
         builder.Append("    /// <summary>Canonical combining class 230, <c>Above</c>.</summary>\n");
         builder.Append("    public const byte Above = 230;\n\n");
         builder.Append("    static readonly int[] Starts = [\n");
-        AppendNumbers(builder, merged.Select(entry => entry.First));
+        AppendNumbers(builder, merged.Select(static entry => entry.First));
         builder.Append("    ];\n\n");
         builder.Append("    static readonly int[] Ends = [\n");
-        AppendNumbers(builder, merged.Select(entry => entry.Last));
+        AppendNumbers(builder, merged.Select(static entry => entry.Last));
         builder.Append("    ];\n\n");
         builder.Append("    static readonly byte[] Classes = [\n");
 
@@ -976,7 +1054,9 @@ static class Program {
         builder.Append("}\n");
 
         File.WriteAllText(path, builder.ToString());
-        Console.WriteLine($"{Path.GetFileName(path)}: Unicode {version}, {merged.Count} ranges, {classes.Keys.Count(static name => name != "0")} non-zero classes");
+        Console.WriteLine(
+            $"{Path.GetFileName(path)}: Unicode {version}, {merged.Count} ranges, {classes.Keys.Count(static name => name != "0")} non-zero classes"
+        );
     }
 
     /// <summary>Writes the <c>Soft_Dotted</c> property, which is the other half of UAX #21's data.</summary>
@@ -989,7 +1069,7 @@ static class Program {
         WriteTable(
             path,
             "SoftDottedClass",
-            ReadProperties(source, only: "Soft_Dotted"),
+            ReadProperties(source, "Soft_Dotted"),
             ReadOwnVersion(source, "# PropList-")
         );
 
@@ -1018,7 +1098,10 @@ static class Program {
         builder.Append("//\n");
         builder.Append("// <auto-generated>\n");
         builder.Append("//     Generated by Tools/Vixen.UnicodeTableGen from the Unicode Character Database,\n");
-        builder.Append(CultureInfo.InvariantCulture, $"//     version {version}. Do not edit — re-run the generator.\n");
+        builder.Append(
+            CultureInfo.InvariantCulture,
+            $"//     version {version}. Do not edit — re-run the generator.\n"
+        );
         builder.Append("//\n");
         builder.Append("//     Derived from Unicode data files, which carry the Unicode terms of use:\n");
         builder.Append("//     https://www.unicode.org/terms_of_use.html\n");
@@ -1045,28 +1128,44 @@ static class Program {
 
     static void AppendCasing(StringBuilder builder, string name, List<(int Code, string Mapping)> entries) {
         builder.Append(CultureInfo.InvariantCulture, $"    static readonly int[] {name}Codes = [\n");
-        AppendNumbers(builder, entries.Select(entry => entry.Code));
+        AppendNumbers(builder, entries.Select(static entry => entry.Code));
         builder.Append(CultureInfo.InvariantCulture, $"    ];\n\n    static readonly string[] {name}Mappings = [\n");
 
         foreach (var (_, mapping) in entries) {
             builder.Append("        \"");
 
             foreach (var unit in mapping) {
-                builder.Append(CultureInfo.InvariantCulture, $"\\u{(int) unit:X4}");
+                builder.Append(CultureInfo.InvariantCulture, $"\\u{(int)unit:X4}");
             }
 
             builder.Append("\",\n");
         }
 
         builder.Append("    ];\n\n");
-        builder.Append(CultureInfo.InvariantCulture, $"    /// <summary>The full {name.ToLowerInvariant()}case mapping, when it is not the simple one.</summary>\n");
+        builder.Append(
+            CultureInfo.InvariantCulture,
+            $"    /// <summary>The full {name.ToLowerInvariant()}case mapping, when it is not the simple one.</summary>\n"
+        );
         builder.Append("    /// <param name=\"codePoint\">The code point.</param>\n");
-        builder.Append("    /// <param name=\"mapping\">Receives the replacement, which may be several code units.</param>\n");
+        builder.Append(
+            "    /// <param name=\"mapping\">Receives the replacement, which may be several code units.</param>\n"
+        );
         builder.Append("    /// <returns>Whether this code point has one at all.</returns>\n");
-        builder.Append(CultureInfo.InvariantCulture, $"    public static bool Try{name}(int codePoint, out string mapping) {{\n");
-        builder.Append(CultureInfo.InvariantCulture, $"        var index = Array.BinarySearch({name}Codes, codePoint);\n\n");
-        builder.Append("        if (index < 0) {\n            mapping = string.Empty;\n            return false;\n        }\n\n");
-        builder.Append(CultureInfo.InvariantCulture, $"        mapping = {name}Mappings[index];\n        return true;\n    }}\n");
+        builder.Append(
+            CultureInfo.InvariantCulture,
+            $"    public static bool Try{name}(int codePoint, out string mapping) {{\n"
+        );
+        builder.Append(
+            CultureInfo.InvariantCulture,
+            $"        var index = Array.BinarySearch({name}Codes, codePoint);\n\n"
+        );
+        builder.Append(
+            "        if (index < 0) {\n            mapping = string.Empty;\n            return false;\n        }\n\n"
+        );
+        builder.Append(
+            CultureInfo.InvariantCulture,
+            $"        mapping = {name}Mappings[index];\n        return true;\n    }}\n"
+        );
     }
 
     /// <summary>Appends an array body, twelve values to the line.</summary>
@@ -1134,7 +1233,10 @@ static class Program {
         builder.Append("//\n");
         builder.Append("// <auto-generated>\n");
         builder.Append("//     Generated by Tools/Vixen.UnicodeTableGen from the Unicode Character Database,\n");
-        builder.Append(CultureInfo.InvariantCulture, $"//     version {version}. Do not edit — re-run the generator.\n");
+        builder.Append(
+            CultureInfo.InvariantCulture,
+            $"//     version {version}. Do not edit — re-run the generator.\n"
+        );
         builder.Append("//\n");
         builder.Append("//     Every case is the Unicode Consortium's, from the conformance suite published\n");
         builder.Append("//     alongside UAX#29. Nothing here is a Vixen expectation about what the algorithm\n");
@@ -1142,7 +1244,10 @@ static class Program {
         builder.Append("// </auto-generated>\n\n");
         builder.Append("using Xunit;\n\n");
         builder.Append("namespace Vixen.Ui.Text.Tests;\n\n");
-        builder.Append(CultureInfo.InvariantCulture, $"/// <summary>The UAX#29 {what.ToLowerInvariant()} conformance suite, Unicode {version}.</summary>\n");
+        builder.Append(
+            CultureInfo.InvariantCulture,
+            $"/// <summary>The UAX#29 {what.ToLowerInvariant()} conformance suite, Unicode {version}.</summary>\n"
+        );
         builder.Append(CultureInfo.InvariantCulture, $"public class {className} {{\n");
 
         foreach (var raw in File.ReadLines(source)) {
@@ -1167,8 +1272,14 @@ static class Program {
             cases++;
             builder.Append(CultureInfo.InvariantCulture, $"\n    /// <summary>{Escape(comment)}</summary>\n");
             builder.Append("    [Fact]\n");
-            builder.Append(CultureInfo.InvariantCulture, $"    public void Case{cases:0000}() => UnicodeConformance.Assert{what}(\n");
-            builder.Append(CultureInfo.InvariantCulture, $"        [{string.Join(", ", codePoints.Select(c => $"0x{c:X}"))}],\n");
+            builder.Append(
+                CultureInfo.InvariantCulture,
+                $"    public void Case{cases:0000}() => UnicodeConformance.Assert{what}(\n"
+            );
+            builder.Append(
+                CultureInfo.InvariantCulture,
+                $"        [{string.Join(", ", codePoints.Select(static c => $"0x{c:X}"))}],\n"
+            );
             builder.Append(CultureInfo.InvariantCulture, $"        [{string.Join(", ", breaks)}]\n");
             builder.Append("    );\n");
         }
@@ -1188,7 +1299,10 @@ static class Program {
         var builder = new StringBuilder();
         var cases = 0;
 
-        builder.Append(CultureInfo.InvariantCulture, $"# Unicode {version}. Generated by Tools/Vixen.UnicodeTableGen — do not edit.\n");
+        builder.Append(
+            CultureInfo.InvariantCulture,
+            $"# Unicode {version}. Generated by Tools/Vixen.UnicodeTableGen — do not edit.\n"
+        );
         builder.Append("# codePoints<TAB>breakOffsets<TAB>the Unicode Consortium's own description of the case.\n");
 
         foreach (var raw in File.ReadLines(source)) {
@@ -1206,7 +1320,10 @@ static class Program {
             }
 
             cases++;
-            builder.Append(CultureInfo.InvariantCulture, $"{string.Join(' ', codePoints.Select(c => c.ToString("X", CultureInfo.InvariantCulture)))}\t");
+            builder.Append(
+                CultureInfo.InvariantCulture,
+                $"{string.Join(' ', codePoints.Select(static c => c.ToString("X", CultureInfo.InvariantCulture)))}\t"
+            );
             builder.Append(CultureInfo.InvariantCulture, $"{string.Join(' ', breaks)}\t{comment}\n");
         }
 

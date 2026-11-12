@@ -33,23 +33,35 @@ public enum LayoutFragmentEnds : byte {
 /// <summary>One of the several boxes a single node was fragmented into.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>This is the store's answer to the one invariant its first four algorithms preserved
-///         without stating: one node produces one box.</b> A <see cref="LayoutResult" /> holds one
+///         ⚠
+///         <b>
+///             This is the store's answer to the one invariant its first four algorithms preserved
+///             without stating: one node produces one box.
+///         </b>
+///         A <see cref="LayoutResult" /> holds one
 ///         rectangle, and CSS Display §2.2's non-replaced <c>inline</c> box needs several — a
 ///         <c>span</c> crossing a line break is one box per line. The rectangle lives here and the
 ///         node keeps a handle to a run of them.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Both the raw and the rounded rectangle, for the reason <see cref="LayoutResult" />
-///         keeps <see cref="LayoutResult.Position" /> apart from
-///         <see cref="LayoutResult.RoundedPosition" />.</b> Rounding has to stay a pure function of the
+///         ⚠
+///         <b>
+///             Both the raw and the rounded rectangle, for the reason <see cref="LayoutResult" />
+///             keeps <see cref="LayoutResult.Position" /> apart from
+///             <see cref="LayoutResult.RoundedPosition" />.
+///         </b>
+///         Rounding has to stay a pure function of the
 ///         raw layout or an incremental pass and a cold pass stop agreeing — the drift the rounding
 ///         pass was restructured to avoid. A fragment rounded in place would reintroduce exactly that,
 ///         one level down and somewhere nobody is looking.
 ///     </para>
 ///     <para>
-///         Coordinates match <see cref="LayoutResult.Position" />'s: an offset from the <i>owning
-///         node's</i> border-box origin, which for a fragmented node is the top-left of the union of
+///         Coordinates match <see cref="LayoutResult.Position" />'s: an offset from the
+///         <i>
+///             owning
+///             node's
+///         </i>
+///         border-box origin, which for a fragmented node is the top-left of the union of
 ///         its fragments. So a consumer that has already walked to the node's absolute position adds a
 ///         fragment's offset to it and is done, and the first fragment of a single-fragment box is at
 ///         (0, 0).

@@ -53,8 +53,12 @@ public sealed class BehaviorRegistrationTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>The binder closes the generic once, and that is what keeps the store's buckets
-    ///     monomorphic.</b> A type-erased <c>Add&lt;Behavior&gt;</c> would put every behaviour in the
+    ///     ⚠
+    ///     <b>
+    ///         The binder closes the generic once, and that is what keeps the store's buckets
+    ///         monomorphic.
+    ///     </b>
+    ///     A type-erased <c>Add&lt;Behavior&gt;</c> would put every behaviour in the
     ///     project into one bucket and undo the arrangement <see cref="BehaviorStore" /> exists for.
     /// </summary>
     [Fact]

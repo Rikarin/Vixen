@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core.Imaging;
-using Vixen.Editor.Texturing.Layers;
 using Vixen.Graphics.Vulkan;
 using Vixen.TextureGraph;
 using Vixen.Texturing;
@@ -61,8 +60,8 @@ public class MaskStackTests(ITestOutputHelper output) {
 
         static IEnumerable<float> Levels(LayerStackAsset stack) =>
             LayerStackCompiler.Compile(stack, stack.Sets[0]).Plan!.Ops
-                .SelectMany(op => op.Parameters)
-                .Select(parameter => parameter.Value);
+                .SelectMany(static op => op.Parameters)
+                .Select(static parameter => parameter.Value);
 
         var plain = Worn([]);
         var reaching = Worn(new() { ["amount"] = "0.9" });
@@ -74,15 +73,19 @@ public class MaskStackTests(ITestOutputHelper output) {
         Assert.Equal("0.9", read.Sets[0].Layers[0].Mask.GeneratorTexts["amount"]);
         Assert.Contains(
             LayerStackCompiler.Compile(wrong, wrong.Sets[0]).Problems,
-            problem => problem.Message.Contains("'nothing'", StringComparison.Ordinal)
+            static problem => problem.Message.Contains("'nothing'", StringComparison.Ordinal)
         );
     }
 
     /// <summary>A project's own compounds reach a stack, and only when the project is named.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>One node type meant two different things depending on which panel an author was
-    ///         in</b> — <a href="https://github.com/Rikarin/Vixen/issues/858">#858</a>.
+    ///         ⚠
+    ///         <b>
+    ///             One node type meant two different things depending on which panel an author was
+    ///             in
+    ///         </b>
+    ///         — <a href="https://github.com/Rikarin/Vixen/issues/858">#858</a>.
     ///         <c>TextureGraphDocument</c> publishes <c>Assets/Compounds</c> beside the shipped four
     ///         and the stack published <c>folder: null</c>, so a <c>LayerFillSource.Graph</c> fill or
     ///         a <c>MaskEffectAsset.Node</c> naming a project compound compiled in the graph panel
@@ -120,7 +123,7 @@ public class MaskStackTests(ITestOutputHelper output) {
             Path.Combine(folder, "Grunge" + TextureGraphDocument.Extension)
         );
 
-        compound.Graph.Interface.Add(new("Out", global::Vixen.NodeGraph.PortDirection.Output, global::Vixen.NodeGraph.PortKind.Image));
+        compound.Graph.Interface.Add(new("Out", Vixen.NodeGraph.PortDirection.Output, Vixen.NodeGraph.PortKind.Image));
         compound.Save();
 
         var named = LayerStackCompiler.Library(out var withProject, fixture.Paths.Assets);
@@ -188,8 +191,11 @@ public class MaskStackTests(ITestOutputHelper output) {
     ///         the first time <c>Generators/Dirt</c> has been evaluated at all.
     ///     </para>
     ///     <para>
-    ///         <b>"No rewiring" is asserted by construction: there is one stack and one
-    ///         compilation.</b> Only the uploaded mesh maps differ between the two bakes, which is
+    ///         <b>
+    ///             "No rewiring" is asserted by construction: there is one stack and one
+    ///             compilation.
+    ///         </b>
+    ///         Only the uploaded mesh maps differ between the two bakes, which is
     ///         exactly what changes when the same material is applied to a different mesh. A test
     ///         that compiled twice could not tell that apart from a stack edited in between.
     ///     </para>
@@ -266,8 +272,12 @@ public class MaskStackTests(ITestOutputHelper output) {
     ///     model, from inside a mask stack.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>The anchor is an <em>entry</em> of the mask rather than its base, which is the path a
-    ///     mask stack added.</b> Doc 48 § D10 says the stack compiles <em>through</em>
+    ///     ⚠
+    ///     <b>
+    ///         The anchor is an <em>entry</em> of the mask rather than its base, which is the path a
+    ///         mask stack added.
+    ///     </b>
+    ///     Doc 48 § D10 says the stack compiles <em>through</em>
     ///     <c>NodeGraphModel</c>, which already refuses a cycle at construction, rather than growing a
     ///     second check of its own — so the proof that it is that check and not a lookup which
     ///     happened to fail is the wording: <c>GraphInvariants.Describe</c>'s words for
@@ -380,21 +390,27 @@ public class MaskStackTests(ITestOutputHelper output) {
 
     /// <summary>A mask stack composites its entries, with a value arithmetic decides.</summary>
     /// <remarks>
-    ///     ⚠ <b>A half multiplied by a half is a quarter, and a mask that ignored its second entry
-    ///     would be a half.</b> 64 against 128 — no tolerance to widen, and the two numbers are far
+    ///     ⚠
+    ///     <b>
+    ///         A half multiplied by a half is a quarter, and a mask that ignored its second entry
+    ///         would be a half.
+    ///     </b>
+    ///     64 against 128 — no tolerance to widen, and the two numbers are far
     ///     enough apart that no rounding reaches from one to the other.
     /// </remarks>
     [Fact]
     public void A_mask_stack_composites_its_entries() {
         using var device = TexturingDevice.Open();
 
-        var stack = Masked(new() {
-            Source = LayerMaskSource.Constant,
-            Value = 0.5f,
-            Layers = [
-                new() { Source = LayerMaskSource.Constant, Value = 0.5f, Blend = LayerBlendMode.Multiply }
-            ]
-        });
+        var stack = Masked(
+            new() {
+                Source = LayerMaskSource.Constant,
+                Value = 0.5f,
+                Layers = [
+                    new() { Source = LayerMaskSource.Constant, Value = 0.5f, Blend = LayerBlendMode.Multiply }
+                ]
+            }
+        );
 
         var compilation = LayerStackCompiler.Compile(stack, stack.Sets[0]);
 
@@ -416,11 +432,13 @@ public class MaskStackTests(ITestOutputHelper output) {
     /// <summary>A mask effect is any node with one image in and one out.</summary>
     [Fact]
     public void A_mask_effect_is_any_single_input_graph() {
-        var stack = Masked(new() {
-            Source = LayerMaskSource.Constant,
-            Value = 1f,
-            Effects = [new() { Node = "Colour/Levels", Values = { ["Input Black"] = [0.25f] } }]
-        });
+        var stack = Masked(
+            new() {
+                Source = LayerMaskSource.Constant,
+                Value = 1f,
+                Effects = [new() { Node = "Colour/Levels", Values = { ["Input Black"] = [0.25f] } }]
+            }
+        );
 
         var compilation = LayerStackCompiler.Compile(stack, stack.Sets[0]);
 
@@ -441,11 +459,11 @@ public class MaskStackTests(ITestOutputHelper output) {
     /// </remarks>
     [Fact]
     public void A_published_compound_is_a_mask_effect() {
-        var stack = Masked(new() {
-            Source = LayerMaskSource.Constant,
-            Value = 0.5f,
-            Effects = [new() { Node = "Utility/Histogram Scan" }]
-        });
+        var stack = Masked(
+            new() {
+                Source = LayerMaskSource.Constant, Value = 0.5f, Effects = [new() { Node = "Utility/Histogram Scan" }]
+            }
+        );
 
         var compilation = LayerStackCompiler.Compile(stack, stack.Sets[0]);
 
@@ -461,18 +479,16 @@ public class MaskStackTests(ITestOutputHelper output) {
     /// <summary>A step's second image reads what the file names, and one naming nothing is refused (Patina #113).</summary>
     [Fact]
     public void A_mask_step_whose_second_image_reads_nothing_is_refused() {
-        var stack = Masked(new() {
-            Source = LayerMaskSource.Constant,
-            Value = 1f,
-            Effects = [new() { Node = "Colour/Blend" }]
-        });
+        var stack = Masked(
+            new() { Source = LayerMaskSource.Constant, Value = 1f, Effects = [new() { Node = "Colour/Blend" }] }
+        );
 
         var compilation = LayerStackCompiler.Compile(stack, stack.Sets[0]);
 
         Assert.Null(compilation.Plan);
         Assert.Contains(
             compilation.Problems,
-            problem => problem.Message.Contains("reads 'Foreground' from nothing yet", StringComparison.Ordinal)
+            static problem => problem.Message.Contains("reads 'Foreground' from nothing yet", StringComparison.Ordinal)
         );
     }
 
@@ -484,11 +500,13 @@ public class MaskStackTests(ITestOutputHelper output) {
     /// </remarks>
     [Fact]
     public void A_mask_effect_value_cannot_overwrite_the_image_it_adjusts() {
-        var stack = Masked(new() {
-            Source = LayerMaskSource.Constant,
-            Value = 1f,
-            Effects = [new() { Node = "Colour/Levels", Values = { ["Input"] = [0f] } }]
-        });
+        var stack = Masked(
+            new() {
+                Source = LayerMaskSource.Constant,
+                Value = 1f,
+                Effects = [new() { Node = "Colour/Levels", Values = { ["Input"] = [0f] } }]
+            }
+        );
 
         var compilation = LayerStackCompiler.Compile(stack, stack.Sets[0]);
 
@@ -496,7 +514,7 @@ public class MaskStackTests(ITestOutputHelper output) {
 
         var dropped = Assert.Single(compilation.Problems);
 
-        Assert.Equal(global::Vixen.NodeGraph.NodeSeverity.Warning, dropped.Severity);
+        Assert.Equal(Vixen.NodeGraph.NodeSeverity.Warning, dropped.Severity);
         Assert.Contains("Input", dropped.Message, StringComparison.Ordinal);
 
         // And the levels still reads the mask rather than a constant.
@@ -547,20 +565,19 @@ public class MaskStackTests(ITestOutputHelper output) {
     /// </remarks>
     [Fact]
     public void A_stack_with_masks_and_its_explosion_compile_to_the_same_plan() {
-        var stack = Masked(new() {
-            Source = LayerMaskSource.Constant,
-            Value = 0.5f,
-            Layers = [
-                new() { Source = LayerMaskSource.Bake, Map = "curvature", Blend = LayerBlendMode.Multiply },
-                new() {
-                    Source = LayerMaskSource.Constant,
-                    Value = 0.75f,
-                    Blend = LayerBlendMode.Screen,
-                    Opacity = 0.5f
-                }
-            ],
-            Effects = [new() { Node = "Colour/Levels", Values = { ["Input White"] = [0.8f] } }]
-        });
+        var stack = Masked(
+            new() {
+                Source = LayerMaskSource.Constant,
+                Value = 0.5f,
+                Layers = [
+                    new() { Source = LayerMaskSource.Bake, Map = "curvature", Blend = LayerBlendMode.Multiply },
+                    new() {
+                        Source = LayerMaskSource.Constant, Value = 0.75f, Blend = LayerBlendMode.Screen, Opacity = 0.5f
+                    }
+                ],
+                Effects = [new() { Node = "Colour/Levels", Values = { ["Input White"] = [0.8f] } }]
+            }
+        );
 
         var (direct, exploded) = LayerStackDifferential.Both(stack);
 
@@ -583,15 +600,22 @@ public class MaskStackTests(ITestOutputHelper output) {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <b><c>Colour/Blend</c> is a compositor and the mask stack is using it to combine
-    ///         numbers</b>, which is the pairing <c>LayerStackGraph.Mask</c> already forces one level
+    ///         <b>
+    ///             <c>Colour/Blend</c> is a compositor and the mask stack is using it to combine
+    ///             numbers
+    ///         </b>
+    ///         , which is the pairing <c>LayerStackGraph.Mask</c> already forces one level
     ///         up for exactly this reason (#832). An entry whose alpha is not 1 composites by that
     ///         alpha as though it were coverage — so a bake, a bitmap and a generator, none of whose
     ///         alpha this file controls, are lifted into an opaque grey before they meet a blend.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The second half is what makes this an assertion about the rule and not about a
-    ///         blanket.</b> A constant is opaque by construction, so it gets no shuffle: the mask
+    ///         ⚠
+    ///         <b>
+    ///             The second half is what makes this an assertion about the rule and not about a
+    ///             blanket.
+    ///         </b>
+    ///         A constant is opaque by construction, so it gets no shuffle: the mask
     ///         below has a bake entry and a constant entry, and exactly one of the two is forced. A
     ///         version of this file that shuffled everything would cost #789's fold a dispatch per
     ///         entry and would be indistinguishable here without that count.
@@ -603,8 +627,12 @@ public class MaskStackTests(ITestOutputHelper output) {
     ///         an alpha, which <c>Blend.rvn</c>'s own suite covers.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b><c>normal</c> and not <c>curvature</c>, and the first draft of this test was
-    ///         green under sabotage because of it.</b> The four grey maps reach a blend through
+    ///         ⚠
+    ///         <b>
+    ///             <c>normal</c> and not <c>curvature</c>, and the first draft of this test was
+    ///             green under sabotage because of it.
+    ///         </b>
+    ///         The four grey maps reach a blend through
     ///         <c>TextureGraphCompiler</c>'s own promotion, which is a <c>ChannelShuffle</c> with
     ///         selectors 0, 0, 0, 9 over the same image twice — <em>byte-identical</em> to the one
     ///         this asserts, and emitted whether or not the builder forces anything. So a grey map
@@ -615,13 +643,15 @@ public class MaskStackTests(ITestOutputHelper output) {
     /// </remarks>
     [Fact]
     public void A_mask_entry_that_could_carry_an_alpha_is_forced_opaque_before_it_is_composited() {
-        var stack = Masked(new() {
-            Source = LayerMaskSource.Bake,
-            Map = "normal",
-            Layers = [
-                new() { Source = LayerMaskSource.Constant, Value = 0.5f, Blend = LayerBlendMode.Multiply }
-            ]
-        });
+        var stack = Masked(
+            new() {
+                Source = LayerMaskSource.Bake,
+                Map = "normal",
+                Layers = [
+                    new() { Source = LayerMaskSource.Constant, Value = 0.5f, Blend = LayerBlendMode.Multiply }
+                ]
+            }
+        );
 
         var compilation = LayerStackCompiler.Compile(stack, stack.Sets[0]);
 
@@ -650,7 +680,7 @@ public class MaskStackTests(ITestOutputHelper output) {
         // here.
         var constant = Assert.Single(
             Ops(compilation.Plan, "Uniform"),
-            op => op.Find("red")!.Value.Value == 0.5f
+            static op => op.Find("red")!.Value.Value == 0.5f
         );
 
         Assert.DoesNotContain(
@@ -672,10 +702,7 @@ public class MaskStackTests(ITestOutputHelper output) {
                     Channels = [new() { Usage = "baseColor", Default = [0f, 0f, 0f, 1f] }],
                     Layers = [
                         new() {
-                            Id = "l",
-                            Kind = LayerKind.Fill,
-                            Values = { ["baseColor"] = [1f, 1f, 1f, 1f] },
-                            Mask = mask
+                            Id = "l", Kind = LayerKind.Fill, Values = { ["baseColor"] = [1f, 1f, 1f, 1f] }, Mask = mask
                         }
                     ]
                 }
@@ -736,22 +763,23 @@ public class MaskStackTests(ITestOutputHelper output) {
     static byte Vertical(int x, int y) => (byte)(y * 255 / (Side - 1));
 
     /// <summary>The vertical ramp lifted, so that occlusion rises at every texel at once.</summary>
-    static byte Raised(int x, int y) => (byte)Math.Min(255, (y * 255 / (Side - 1)) + 40);
+    static byte Raised(int x, int y) => (byte)Math.Min(255, y * 255 / (Side - 1) + 40);
 
     /// <summary>One mesh, as the two maps <c>Generators/Dirt</c> asks for.</summary>
     static Dictionary<string, Func<int, int, byte>> Mesh(
         Func<int, int, byte> curvature,
         Func<int, int, byte> occlusion
     ) =>
-        new(StringComparer.Ordinal) {
-            ["meshmap:curvature"] = curvature,
-            ["meshmap:ao"] = occlusion
-        };
+        new(StringComparer.Ordinal) { ["meshmap:curvature"] = curvature, ["meshmap:ao"] = occlusion };
 
     /// <summary>Bakes the one channel, with each mesh map supplied under the name it asked for.</summary>
     /// <remarks>
-    ///     ⚠ <b>A map the generator asked for and this table does not have fails rather than being
-    ///     filled with black.</b> A silently black occlusion map would make the mask a plausible
+    ///     ⚠
+    ///     <b>
+    ///         A map the generator asked for and this table does not have fails rather than being
+    ///         filled with black.
+    ///     </b>
+    ///     A silently black occlusion map would make the mask a plausible
     ///     picture of nothing, which is the failure this whole test exists to rule out.
     /// </remarks>
     static Bitmap Bake(
@@ -786,7 +814,7 @@ public class MaskStackTests(ITestOutputHelper output) {
         for (var y = 0; y < Side; y++) {
             for (var x = 0; x < Side; x++) {
                 var value = map(x, y);
-                var offset = ((y * Side) + x) * 4;
+                var offset = (y * Side + x) * 4;
 
                 texels[offset] = value;
                 texels[offset + 1] = value;

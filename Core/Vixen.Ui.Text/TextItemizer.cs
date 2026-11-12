@@ -68,12 +68,14 @@ public static class TextItemizer {
                 continue;
             }
 
-            items.Add(new TextItem(
-                offsets[start],
-                offsets[i] - offsets[start],
-                bidi.Levels[start],
-                scripts[start]
-            ));
+            items.Add(
+                new(
+                    offsets[start],
+                    offsets[i] - offsets[start],
+                    bidi.Levels[start],
+                    scripts[start]
+                )
+            );
 
             start = i;
         }

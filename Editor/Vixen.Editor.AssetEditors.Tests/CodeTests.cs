@@ -132,7 +132,7 @@ public class CodeAnalysisTests {
         document.Reanalyse();
 
         Assert.True(document.HasErrors);
-        Assert.All(document.Diagnostics, diagnostic => Assert.True(diagnostic.Line >= 0));
+        Assert.All(document.Diagnostics, static diagnostic => Assert.True(diagnostic.Line >= 0));
     }
 
     /// <summary>The tokenizer is Raven's, which is the control set's own list rather than a second one.</summary>

@@ -18,8 +18,12 @@ namespace Vixen.Ai.Diagnostics;
 ///         rather than the last one's.
 ///     </para>
 ///     <para>
-///         ⚠ <b>A system rather than a call in the host, so that turning the debugger on is adding a
-///         system.</b> A host that never adds it pays nothing at all — no capture, no formatting, and
+///         ⚠
+///         <b>
+///             A system rather than a call in the host, so that turning the debugger on is adding a
+///             system.
+///         </b>
+///         A host that never adds it pays nothing at all — no capture, no formatting, and
 ///         no reference from the frame loop to an assembly it does not otherwise need.
 ///     </para>
 /// </remarks>

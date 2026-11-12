@@ -13,16 +13,14 @@ namespace Vixen.Ui.Markup.Generators.Tests;
 sealed class MarkupFile(string path, string text) : AdditionalText {
     public override string Path { get; } = path;
 
-    public override SourceText GetText(CancellationToken cancellationToken = default) =>
-        SourceText.From(text);
+    public override SourceText GetText(CancellationToken cancellationToken = default) => SourceText.From(text);
 }
 
 /// <summary>The two MSBuild properties the generator reads, and nothing else.</summary>
 sealed class BuildOptions(string projectDirectory, string rootNamespace) : AnalyzerConfigOptionsProvider {
     public override AnalyzerConfigOptions GlobalOptions { get; } = new Options(
-        new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) {
-            ["build_property.projectdir"] = projectDirectory,
-            ["build_property.rootnamespace"] = rootNamespace
+        new(StringComparer.OrdinalIgnoreCase) {
+            ["build_property.projectdir"] = projectDirectory, ["build_property.rootnamespace"] = rootNamespace
         }
     );
 
@@ -49,25 +47,26 @@ static class Harness {
 
     /// <summary>Everything loaded beside the test, which is the runtime the output calls.</summary>
     public static readonly ImmutableArray<MetadataReference> References = [
-        .. ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")!)
-            .Split(System.IO.Path.PathSeparator)
+        ..((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")!)
+            .Split(Path.PathSeparator)
             .Concat(Directory.EnumerateFiles(AppContext.BaseDirectory, "Vixen.*.dll"))
-            .Where(path => path.EndsWith(".dll", StringComparison.OrdinalIgnoreCase))
+            .Where(static path => path.EndsWith(".dll", StringComparison.OrdinalIgnoreCase))
             .Distinct(StringComparer.Ordinal)
-            .Select(path => (MetadataReference)MetadataReference.CreateFromFile(path))
+            .Select(static path => (MetadataReference)MetadataReference.CreateFromFile(path))
     ];
 
     /// <summary>A compilation with the given C# in it and nothing generated yet.</summary>
     public static CSharpCompilation Compilation(params (string Path, string Text)[] files) =>
         CSharpCompilation.Create(
             "Generated",
-            files.Select(file => CSharpSyntaxTree.ParseText(
-                file.Text,
-                new CSharpParseOptions(LanguageVersion.Latest),
-                file.Path
-            )),
+            files.Select(static file => CSharpSyntaxTree.ParseText(
+                    file.Text,
+                    new(LanguageVersion.Latest),
+                    file.Path
+                )
+            ),
             References,
-            new CSharpCompilationOptions(
+            new(
                 OutputKind.DynamicallyLinkedLibrary,
                 nullableContextOptions: NullableContextOptions.Enable
             )
@@ -78,18 +77,22 @@ static class Harness {
         CSharpGeneratorDriver.Create(
             [new VxmlGenerator().AsSourceGenerator()],
             files,
-            new CSharpParseOptions(LanguageVersion.Latest),
+            new(LanguageVersion.Latest),
             new BuildOptions(ProjectDirectory, RootNamespace),
-            new GeneratorDriverOptions(IncrementalGeneratorOutputKind.None, trackIncrementalGeneratorSteps: true)
+            new(IncrementalGeneratorOutputKind.None, true)
         );
 
     /// <summary>Runs the generator once and hands back what it produced.</summary>
-    public static Run Once(string markup, string path = ProjectDirectory + "Counter.vxml", params (string Path, string Text)[] csharp) {
+    public static Run Once(
+        string markup,
+        string path = ProjectDirectory + "Counter.vxml",
+        params (string Path, string Text)[] csharp
+    ) {
         var driver = Driver(new MarkupFile(path, markup));
         var compilation = Compilation(csharp);
         var after = driver.RunGeneratorsAndUpdateCompilation(compilation, out var updated, out _);
 
-        return new Run(after, updated);
+        return new(after, updated);
     }
 
     /// <summary>What one generator run produced.</summary>
@@ -104,7 +107,7 @@ static class Harness {
 
         /// <summary>Errors from compiling the generated code together with the hand-written code.</summary>
         public ImmutableArray<Diagnostic> Errors =>
-            [.. Compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error)];
+            [..Compilation.GetDiagnostics().Where(static d => d.Severity == DiagnosticSeverity.Error)];
 
         /// <summary>The one generated file, when there should only be one.</summary>
         public string Source => Generated.Single().ToString();

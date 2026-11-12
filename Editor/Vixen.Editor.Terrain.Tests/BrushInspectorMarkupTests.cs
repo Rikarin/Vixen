@@ -30,8 +30,12 @@ public class BrushInspectorMarkupTests : IDisposable {
     readonly UiDocument document = new(400f, 800f);
 
     /// <remarks>
-    ///     ⚠ <b>All three sheets, because one of the claims below is about a rule in the first
-    ///     one.</b> Collapsing is <c>expander-content { display: none }</c> and lives in
+    ///     ⚠
+    ///     <b>
+    ///         All three sheets, because one of the claims below is about a rule in the first
+    ///         one.
+    ///     </b>
+    ///     Collapsing is <c>expander-content { display: none }</c> and lives in
     ///     <c>ControlTheme</c>; a fixture that loaded only the inspector's own sheet could assert
     ///     that a group's flag went false and never notice that its rows stayed on screen.
     /// </remarks>
@@ -53,7 +57,7 @@ public class BrushInspectorMarkupTests : IDisposable {
         MarkupBinding.Bind(view.Root, new InspectorTarget([brush]));
         document.Update();
 
-        return (brush, [.. Descendants(view.Root).OfType<PropertyField>()]);
+        return (brush, [..Descendants(view.Root).OfType<PropertyField>()]);
     }
 
     [Fact]
@@ -61,7 +65,7 @@ public class BrushInspectorMarkupTests : IDisposable {
         var (_, fields) = Built();
 
         Assert.NotEmpty(fields);
-        Assert.All(fields, field => Assert.NotNull(field.Row));
+        Assert.All(fields, static field => Assert.NotNull(field.Row));
     }
 
     /// <summary>
@@ -73,21 +77,25 @@ public class BrushInspectorMarkupTests : IDisposable {
     [Fact]
     public void The_rows_are_grouped_the_way_the_markup_says_rather_than_the_way_the_type_does() {
         var (_, fields) = Built();
-        var order = fields.Select(field => field.Path).ToList();
+        var order = fields.Select(static field => field.Path).ToList();
 
         Assert.Equal(
             ["Radius", "Falloff", "Curve", "Strength", "Spacing"],
             order
         );
 
-        var groups = Descendants(document.Root).OfType<Expander>().Select(group => group.Label).ToList();
+        var groups = Descendants(document.Root).OfType<Expander>().Select(static group => group.Label).ToList();
 
         Assert.Equal(["Shape", "Stroke"], groups);
     }
 
     /// <summary>
-    ///     ⚠ <b>Markup children of an <c>&lt;Expander&gt;</c> belong to its content part, not to the
-    ///     control.</b> Hung off the control they are siblings of the part that
+    ///     ⚠
+    ///     <b>
+    ///         Markup children of an <c>&lt;Expander&gt;</c> belong to its content part, not to the
+    ///         control.
+    ///     </b>
+    ///     Hung off the control they are siblings of the part that
     ///     <c>display: none</c> hides, so a group could be shut and its rows would stay — the
     ///     chevron flipping over nine sliders that never moved. This is the structural half of the
     ///     claim the next test measures.
@@ -98,11 +106,14 @@ public class BrushInspectorMarkupTests : IDisposable {
         var groups = Descendants(document.Root).OfType<Expander>().ToList();
 
         Assert.Equal(2, groups.Count);
-        Assert.All(groups, group => Assert.NotEmpty(group.Content.Children));
+        Assert.All(groups, static group => Assert.NotEmpty(group.Content.Children));
 
         // Every row is under some group's content, and none of them is a child of a group itself.
         Assert.All(fields, field => Assert.Contains(groups, group => Descendants(group.Content).Contains(field)));
-        Assert.All(groups, group => Assert.DoesNotContain(group.Children, child => child is PropertyField));
+        Assert.All(
+            groups,
+            static group => Assert.DoesNotContain(group.Children, static child => child is PropertyField)
+        );
     }
 
     /// <summary>
@@ -119,24 +130,24 @@ public class BrushInspectorMarkupTests : IDisposable {
     public void A_collapsed_group_does_not_show_its_rows() {
         var (_, fields) = Built();
 
-        var stroke = Descendants(document.Root).OfType<Expander>().Single(group => group.Label == "Stroke");
+        var stroke = Descendants(document.Root).OfType<Expander>().Single(static group => group.Label == "Stroke");
         var rows = fields.Where(field => Descendants(stroke.Content).Contains(field)).ToList();
 
-        Assert.Equal(["Strength", "Spacing"], rows.Select(row => row.Path));
-        Assert.All(rows, row => Assert.True(row.Height > 0f));
+        Assert.Equal(["Strength", "Spacing"], rows.Select(static row => row.Path));
+        Assert.All(rows, static row => Assert.True(row.Height > 0f));
 
         stroke.IsExpanded = false;
         document.Update();
 
         Assert.False(stroke.HasClass("open"));
         Assert.Equal(0f, stroke.Content.Height);
-        Assert.All(rows, row => Assert.Equal(0f, row.Height));
+        Assert.All(rows, static row => Assert.Equal(0f, row.Height));
 
         // And back, because a section that shut once and never reopened would pass everything above.
         stroke.IsExpanded = true;
         document.Update();
 
-        Assert.All(rows, row => Assert.True(row.Height > 0f));
+        Assert.All(rows, static row => Assert.True(row.Height > 0f));
     }
 
     /// <summary>
@@ -149,8 +160,8 @@ public class BrushInspectorMarkupTests : IDisposable {
     public void The_header_toggles_a_group_that_the_markup_asked_to_be_open() {
         var (_, fields) = Built();
 
-        var shape = Descendants(document.Root).OfType<Expander>().Single(group => group.Label == "Shape");
-        var radius = fields.Single(field => field.Path == "Radius");
+        var shape = Descendants(document.Root).OfType<Expander>().Single(static group => group.Label == "Shape");
+        var radius = fields.Single(static field => field.Path == "Radius");
 
         Assert.True(shape.IsExpanded);
         Assert.True(radius.Height > 0f);
@@ -171,22 +182,26 @@ public class BrushInspectorMarkupTests : IDisposable {
     [Fact]
     public void A_row_writes_the_setting_it_names() {
         var (brush, fields) = Built();
-        var radius = fields.Single(field => field.Path == "Radius");
+        var radius = fields.Single(static field => field.Path == "Radius");
 
         Assert.True(radius.Row!.Field.Write(12f));
         Assert.Equal(12f, brush.Radius);
     }
 
     /// <summary>
-    ///     ⚠ <b>The reset button and the tooltip come with the row and are not written in the
-    ///     markup.</b> That is what makes <c>&lt;PropertyField&gt;</c> worth having over a slider and
+    ///     ⚠
+    ///     <b>
+    ///         The reset button and the tooltip come with the row and are not written in the
+    ///         markup.
+    ///     </b>
+    ///     That is what makes <c>&lt;PropertyField&gt;</c> worth having over a slider and
     ///     a label: an author who reached for the controls directly would be reimplementing the
     ///     default row, badly, once per member.
     /// </summary>
     [Fact]
     public void A_row_arrives_with_what_the_generated_one_has() {
         var (_, fields) = Built();
-        var radius = fields.Single(field => field.Path == "Radius").Row;
+        var radius = fields.Single(static field => field.Path == "Radius").Row;
 
         Assert.NotNull(radius);
         Assert.True(radius.Field.CanReset);
@@ -194,7 +209,7 @@ public class BrushInspectorMarkupTests : IDisposable {
 
         // A `[Range]` member is a slider, which is the drawer resolving rather than the markup
         // choosing — nothing in the .vxml says what a radius looks like.
-        Assert.Contains(Descendants(radius).OfType<Slider>(), _ => true);
+        Assert.Contains(Descendants(radius).OfType<Slider>(), static _ => true);
     }
 
     /// <summary>
@@ -218,7 +233,7 @@ public class BrushInspectorMarkupTests : IDisposable {
 
         var radius = Descendants(document.Root)
             .OfType<PropertyField>()
-            .Single(field => field.Path == "Radius");
+            .Single(static field => field.Path == "Radius");
 
         Assert.NotNull(radius.Row);
         Assert.True(radius.Row.Field.Write(20f));
@@ -268,7 +283,7 @@ public class BrushInspectorMarkupTests : IDisposable {
         var baseline = Stroked(null);
         var inert = new List<string>();
 
-        foreach (var path in fields.Select(field => field.Path ?? "")) {
+        foreach (var path in fields.Select(static field => field.Path ?? string.Empty)) {
             Assert.True(Moved.ContainsKey(path), $"'{path}' is a new row; say what it changes in {nameof(Moved)}.");
 
             if (Stroked(path).SequenceEqual(baseline)) {
@@ -303,14 +318,14 @@ public class BrushInspectorMarkupTests : IDisposable {
 
         Assert.True(edit.Begin(new(30f, 30f)));
         edit.Extend(new(40f, 34f));
-        edit.Commit(rebuildColliders: false);
+        edit.Commit(false);
 
         var samples = Ground.Shape.TileSamples * Ground.Shape.TilesX - 1;
         var heights = new float[samples * samples];
 
         for (var z = 0; z < samples; z++) {
             for (var x = 0; x < samples; x++) {
-                heights[(z * samples) + x] = Ground.HeightAt(terrain, x, z);
+                heights[z * samples + x] = Ground.HeightAt(terrain, x, z);
             }
         }
 

@@ -71,7 +71,7 @@ public sealed class GrassResidencyTests {
         var settled = 0;
 
         for (var frame = 0; frame < 8; frame++) {
-            var wobble = (frame % 2) == 0 ? 0.01f : -0.01f;
+            var wobble = frame % 2 == 0 ? 0.01f : -0.01f;
             var change = ring.Update(new(wobble, 0f, 0f), 64f);
 
             // Nothing may ever leave. A cell that is out of *range* is still inside the eviction
@@ -145,7 +145,7 @@ public sealed class GrassResidencyTests {
 
         ring.Update(new(200f, 0f, 200f), 96f);
 
-        var chosen = ring.Resident.OrderBy(entry => entry.Slot).ToArray();
+        var chosen = ring.Resident.OrderBy(static entry => entry.Slot).ToArray();
 
         Assert.Equal(9, ring.Count);
         Assert.True(ring.Refused > 0, "a nine-slot ring covered a 96 m range and said nothing.");
@@ -162,7 +162,7 @@ public sealed class GrassResidencyTests {
             Assert.True(ring.Refused > 0, $"frame {frame} refused nothing and still holds nine slots.");
         }
 
-        Assert.Equal(chosen, ring.Resident.OrderBy(entry => entry.Slot).ToArray());
+        Assert.Equal(chosen, ring.Resident.OrderBy(static entry => entry.Slot).ToArray());
     }
 
     [Fact]
@@ -187,7 +187,7 @@ public sealed class GrassResidencyTests {
         for (var step = 0; step < 12; step++) {
             ring.Update(new(step * 24f, 0f, step * 7f), 48f);
 
-            var slots = ring.Resident.Select(entry => entry.Slot).ToArray();
+            var slots = ring.Resident.Select(static entry => entry.Slot).ToArray();
 
             Assert.Equal(slots.Length, slots.Distinct().Count());
             Assert.All(slots, slot => Assert.InRange(slot, 0, ring.Capacity - 1));

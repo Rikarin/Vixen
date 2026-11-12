@@ -14,8 +14,12 @@ namespace Vixen.Live.Placement.Tests;
 /// <summary>A Docker daemon that is a dictionary and a handler.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>What is under test is the client's dialect and the backend's behaviour, not the
-///         daemon.</b> Whether a real Engine accepts these requests is a question only a real Engine
+///         ⚠
+///         <b>
+///             What is under test is the client's dialect and the backend's behaviour, not the
+///             daemon.
+///         </b>
+///         Whether a real Engine accepts these requests is a question only a real Engine
 ///         answers, and doc 27 § Testing puts that on the nightly leg alongside Kubernetes. What runs
 ///         on every push is: does the client send the right body, does it read the framed log stream
 ///         correctly, does the backend label containers so a restart can find them, and is an exit
@@ -49,10 +53,10 @@ sealed class FakeEngine : HttpMessageHandler {
     public List<(string Path, string Body)> Posts { get; } = [];
 
     /// <summary>Every container the daemon holds.</summary>
-    public IReadOnlyCollection<Container> Containers => [.. containers.Values];
+    public IReadOnlyCollection<Container> Containers => [..containers.Values];
 
     /// <summary>The most recently created one.</summary>
-    public Container Last => containers.Values.OrderBy(entry => entry.Created).Last();
+    public Container Last => containers.Values.OrderBy(static entry => entry.Created).Last();
 
     /// <summary>Says a line as a container would.</summary>
     /// <param name="id">Which container.</param>
@@ -99,7 +103,12 @@ sealed class FakeEngine : HttpMessageHandler {
             var body = JsonElement.Parse(Posts[^1].Body);
 
             var labels = body.TryGetProperty("labels", out var declared)
-                ? declared.EnumerateObject().ToDictionary(entry => entry.Name, entry => entry.Value.GetString() ?? "", StringComparer.Ordinal)
+                ? declared.EnumerateObject()
+                    .ToDictionary(
+                        static entry => entry.Name,
+                        static entry => entry.Value.GetString() ?? string.Empty,
+                        StringComparer.Ordinal
+                    )
                 : new Dictionary<string, string>(StringComparer.Ordinal);
 
             containers[id] = new(id, labels, Posts[^1].Body);
@@ -133,13 +142,13 @@ sealed class FakeEngine : HttpMessageHandler {
             var wanted = Uri.UnescapeDataString(query);
 
             var listed = containers.Values
-                .Where(entry => entry.Labels.Any(label => wanted.Contains($"{label.Key}={label.Value}", StringComparison.Ordinal)))
-                .Select(entry => new {
-                        Id = entry.Id,
-                        Labels = entry.Labels,
-                        State = entry.State
-                    }
-                );
+                .Where(entry => entry.Labels.Any(label => wanted.Contains(
+                            $"{label.Key}={label.Value}",
+                            StringComparison.Ordinal
+                        )
+                    )
+                )
+                .Select(static entry => new { entry.Id, entry.Labels, entry.State });
 
             return Json(JsonSerializer.Serialize(listed));
         }
@@ -198,7 +207,10 @@ sealed class FakeEngine : HttpMessageHandler {
             set => throw new NotSupportedException();
         }
 
-        public override async ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default) {
+        public override async ValueTask<int> ReadAsync(
+            Memory<byte> buffer,
+            CancellationToken cancellationToken = default
+        ) {
             if (offset >= pending.Length) {
                 string line;
 

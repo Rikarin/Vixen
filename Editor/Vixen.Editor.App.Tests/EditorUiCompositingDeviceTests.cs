@@ -18,8 +18,11 @@ namespace Vixen.Editor.App.Tests;
 /// <summary>The editor's own shader table, asked to blur, filter and mask a group on a real device.</summary>
 /// <remarks>
 ///     <para>
-///         <b>The gap this closes: the editor supplied five of the eight stages and nothing said
-///         so.</b> <c>EditorHost</c> built its table by hand from a second copy of <c>Ui.rvn</c> under
+///         <b>
+///             The gap this closes: the editor supplied five of the eight stages and nothing said
+///             so.
+///         </b>
+///         <c>EditorHost</c> built its table by hand from a second copy of <c>Ui.rvn</c> under
 ///         <c>Editor/Vixen.Editor.Host/Shaders</c>, and that copy declared <c>UiVertex</c>,
 ///         <c>UiBox</c>, <c>UiText</c>, <c>UiSolid</c> and <c>UiImage</c> — not <c>UiBlur</c>,
 ///         <c>UiColour</c> or <c>UiMask</c>. So in the one application whose stylesheets are this
@@ -35,8 +38,12 @@ namespace Vixen.Editor.App.Tests;
 ///         counter out of range — the editor drew a correct picture of the wrong stylesheet.
 ///     </para>
 ///     <para>
-///         ⚠ <b>So the sabotage is in the test rather than in a commit somebody has to remember to
-///         make.</b> Every assertion below is made twice: once against
+///         ⚠
+///         <b>
+///             So the sabotage is in the test rather than in a commit somebody has to remember to
+///             make.
+///         </b>
+///         Every assertion below is made twice: once against
 ///         <see cref="UiShaderLibrary.Load" />, which is what <c>EditorHost</c> now hands its
 ///         renderers, and once against that table with the three optional stages cleared — which
 ///         reconstructs the editor exactly as it was. The second half is what says the oracles can
@@ -52,8 +59,12 @@ namespace Vixen.Editor.App.Tests;
 ///         unfiltered, unmasked arm asserts the opposite of each.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Skips when there is no Vulkan, and <c>VIXEN_REQUIRE_VULKAN=1</c> turns the skip into
-///         a failure</b> — <see cref="ThumbnailSurfaceDeviceTests" />'s rule, for its reason.
+///         ⚠
+///         <b>
+///             Skips when there is no Vulkan, and <c>VIXEN_REQUIRE_VULKAN=1</c> turns the skip into
+///             a failure
+///         </b>
+///         — <see cref="ThumbnailSurfaceDeviceTests" />'s rule, for its reason.
 ///     </para>
 /// </remarks>
 public sealed class EditorUiCompositingDeviceTests {
@@ -105,7 +116,7 @@ public sealed class EditorUiCompositingDeviceTests {
     /// <param name="Filtered">How many it put a colour matrix through.</param>
     /// <param name="Masked">How many it put a mask through.</param>
     record struct Frame(byte[] Pixels, int Blurred, int Filtered, int Masked) {
-        public byte Channel(int x, int y, int channel) => Pixels[(((y * Side) + x) * 4) + channel];
+        public byte Channel(int x, int y, int channel) => Pixels[(y * Side + x) * 4 + channel];
 
         /// <summary>The green channel, which every box below is bright in and the ground is dark in.</summary>
         public byte Level(int x, int y) => Channel(x, y, 1);
@@ -115,8 +126,12 @@ public sealed class EditorUiCompositingDeviceTests {
     ///     One blurred group, one grayscale group and one masked group, over a dark ground.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>Three groups rather than one with all three effects, because a group with a mask and a
-    ///     matrix is served by one module.</b> <c>UiMask</c> carries the colour matrix too, so a
+    ///     ⚠
+    ///     <b>
+    ///         Three groups rather than one with all three effects, because a group with a mask and a
+    ///         matrix is served by one module.
+    ///     </b>
+    ///     <c>UiMask</c> carries the colour matrix too, so a
     ///     single group would say nothing about <see cref="UiShaders.Colour" /> — that stage is the
     ///     one an unmasked filtered group takes, and it is the arm every <c>filter:</c> in a
     ///     stylesheet without a <c>mask-image</c> beside it goes through.
@@ -126,7 +141,7 @@ public sealed class EditorUiCompositingDeviceTests {
         list.BeginFrame();
 
         // Blurred: a white box whose left edge is the step the Gaussian has to turn into a ramp.
-        Push(list, 24, 16, 48, 32, blur: Sigma);
+        Push(list, 24, 16, 48, 32, Sigma);
         list.Add(new(DrawCommandKind.Rectangle, 24, 16, 48, 32, Color4.White, 0, 0));
         list.Add(new(DrawCommandKind.LayerPop, 0, 0, 0, 0, Color4.White, 0, 0));
 
@@ -144,13 +159,13 @@ public sealed class EditorUiCompositingDeviceTests {
             24,
             mask: [
                 new UiMask(
-                    new Vector2(24f + 40f, 88f + 12f),
-                    new Vector2(40f, 12f),
-                    new Vector2(1f, 0f),
-                    new Vector3(1f, 0f, 0f),
+                    new(24f + 40f, 88f + 12f),
+                    new(40f, 12f),
+                    new(1f, 0f),
+                    new(1f, 0f, 0f),
                     GradientStops.Default,
                     GradientShape.Linear,
-                    Via: false
+                    false
                 )
             ]
         );
@@ -160,7 +175,7 @@ public sealed class EditorUiCompositingDeviceTests {
 
         list.EndFrame();
 
-        return new UiGeometryBuilder().Build(list, glyphs, new Rectangle(0, 0, Side, Side));
+        return new UiGeometryBuilder().Build(list, glyphs, new(0, 0, Side, Side));
     }
 
     /// <summary>Opens a group carrying one effect and nothing else.</summary>
@@ -175,18 +190,19 @@ public sealed class EditorUiCompositingDeviceTests {
         ReadOnlySpan<UiMask> mask = default
     ) =>
         list.Add(
-            new Vixen.Ui.DrawCommand(DrawCommandKind.LayerPush, x, y, width, height, Color4.White, 0, 0) {
-                Blur = blur,
-                Filter = filter,
-                Offset = mask.Length > 0 ? list.AddMasks(mask) : 0,
-                Length = mask.Length
+            new(DrawCommandKind.LayerPush, x, y, width, height, Color4.White, 0, 0) {
+                Blur = blur, Filter = filter, Offset = mask.Length > 0 ? list.AddMasks(mask) : 0, Length = mask.Length
             }
         );
 
     /// <summary>Renders <see cref="Geometry" /> through one shader table and reads the pixels back.</summary>
     /// <remarks>
-    ///     ⚠ <b><c>Compose</c> after <c>Upload</c> and before the pass, which is the order
-    ///     <c>UiWindowSurface</c> uses.</b> A group's pass draws from the buffers <c>Upload</c> writes
+    ///     ⚠
+    ///     <b>
+    ///         <c>Compose</c> after <c>Upload</c> and before the pass, which is the order
+    ///         <c>UiWindowSurface</c> uses.
+    ///     </b>
+    ///     A group's pass draws from the buffers <c>Upload</c> writes
     ///     and through the descriptor set it rebinds for this frame, so composing first renders every
     ///     group from the previous frame's geometry — and with one frame that is a group rendered
     ///     from nothing.
@@ -194,7 +210,7 @@ public sealed class EditorUiCompositingDeviceTests {
     static Frame Render(VulkanDevice device, UiShaders shaders, string? picture = null) {
         using var renderer = new UiRenderer(device, shaders, new RenderOutput([PixelFormat.Rgba8UNorm]));
 
-        var glyphs = new GlyphFieldCache(new GlyphAtlas(64, 64));
+        var glyphs = new GlyphFieldCache(new(64, 64));
         var geometry = Geometry(glyphs);
 
         // The instrument, before the measurement: a frame that opened no group is one where every
@@ -213,13 +229,15 @@ public sealed class EditorUiCompositingDeviceTests {
 
         var view = device.CreateTextureView(target);
         var bytes = Side * Side * 4;
-        var readback = device.CreateBuffer(new(bytes, BufferUsage.CopyDestination, MemoryAccess.HostReadback, "readback"));
+        var readback = device.CreateBuffer(
+            new(bytes, BufferUsage.CopyDestination, MemoryAccess.HostReadback, "readback")
+        );
 
         device.BeginFrame();
 
         using (var commands = device.BeginCommandList(QueueKind.Graphics, "editor ui composite")) {
             renderer.Upload(commands, geometry, glyphs.Atlas);
-            renderer.Compose(commands, geometry, new Int2(Side, Side), beneath: new UiBackdropSource(Background));
+            renderer.Compose(commands, geometry, new(Side, Side), beneath: new(Background));
 
             commands.Barrier(
                 new BarrierGroup([], [new TextureBarrier(target, ResourceState.Undefined, ResourceState.ColourTarget)])
@@ -232,7 +250,7 @@ public sealed class EditorUiCompositingDeviceTests {
                 )
             );
 
-            renderer.Record(commands, geometry, new Int2(Side, Side));
+            renderer.Record(commands, geometry, new(Side, Side));
 
             commands.EndRenderPass();
 
@@ -240,7 +258,7 @@ public sealed class EditorUiCompositingDeviceTests {
                 new BarrierGroup([], [new TextureBarrier(target, ResourceState.ColourTarget, ResourceState.CopySource)])
             );
 
-            commands.CopyTextureToBuffer(new TextureRegion(target), new(Side, Side, 1), readback, 0);
+            commands.CopyTextureToBuffer(new(target), new(Side, Side, 1), readback, 0);
 
             commands.Finish();
             device.GraphicsQueue.Submit([commands]);
@@ -258,10 +276,10 @@ public sealed class EditorUiCompositingDeviceTests {
         device.Destroy(target);
 
         if (picture is { Length: > 0 } && Destination is { Length: > 0 } directory) {
-            PngCodec.Save(Path.Combine(directory, picture), new Bitmap(Side, Side, pixels));
+            PngCodec.Save(Path.Combine(directory, picture), new(Side, Side, pixels));
         }
 
-        return new Frame(pixels, renderer.Blurred, renderer.Filtered, renderer.Masked);
+        return new(pixels, renderer.Blurred, renderer.Filtered, renderer.Masked);
     }
 
     /// <summary>The editor's table, and the same table with the three optional stages taken away.</summary>
@@ -285,7 +303,7 @@ public sealed class EditorUiCompositingDeviceTests {
         for (var x = from; x < to; x++) {
             var level = frame.Level(x, y);
 
-            if (level > 24 && level < 232) {
+            if (level is > 24 and < 232) {
                 ramp++;
             }
         }

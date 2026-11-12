@@ -3,9 +3,7 @@
 
 using Vixen.Authoring;
 using Vixen.Core.Mathematics;
-using Vixen.Editor.Core;
 using Vixen.Input;
-using Vixen.Texturing.Layers;
 using Vixen.Texturing.Painting;
 using Vixen.Ui;
 using Vixen.Ui.Controls.Advanced;
@@ -18,8 +16,11 @@ namespace Vixen.Editor.Texturing.Painting;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>The first surface in this tree that paints, and the three obligations it discharges are
-///         <see cref="PaintSession" />'s.</b> Until this existed the whole paint model — brush,
+///         <b>
+///             The first surface in this tree that paints, and the three obligations it discharges are
+///             <see cref="PaintSession" />'s.
+///         </b>
+///         Until this existed the whole paint model — brush,
 ///         stroke, spacing, dilation, the undo entry, the <c>.vxpaint</c> —
 ///         was reachable only from xunit, which is
 ///         <a href="https://github.com/Rikarin/Vixen/issues/852">#852</a> and this repository's
@@ -33,8 +34,12 @@ namespace Vixen.Editor.Texturing.Painting;
 ///             disagreed about where a texel is.
 ///         </item>
 ///         <item>
-///             ⚠ <b>Screen radius to texels is the <em>identity</em> here, and finding that out
-///             refutes the obvious reading.</b> <see cref="PaintBrush.Radius" /> is authored in
+///             ⚠
+///             <b>
+///                 Screen radius to texels is the <em>identity</em> here, and finding that out
+///                 refutes the obvious reading.
+///             </b>
+///             <see cref="PaintBrush.Radius" /> is authored in
 ///             texels of the atlas — its own remarks say why — so a 2D view has nothing to convert
 ///             on the way in, and nothing on the way out either: <see cref="ShowCursor" /> draws the
 ///             ring in texels, and <c>ImageView</c>'s own pan and zoom are what put it on the screen
@@ -55,8 +60,12 @@ namespace Vixen.Editor.Texturing.Painting;
 ///         </item>
 ///     </list>
 ///     <para>
-///         ⚠ <b>The pointer handler is registered on the <see cref="RoutingStrategy.Capture" /> leg
-///         and that is load-bearing.</b> <c>ImageView</c> pans on a primary drag and marks every
+///         ⚠
+///         <b>
+///             The pointer handler is registered on the <see cref="RoutingStrategy.Capture" /> leg
+///             and that is load-bearing.
+///         </b>
+///         <c>ImageView</c> pans on a primary drag and marks every
 ///         pointer event handled; a handler added the ordinary way — <c>Bubble</c>, with
 ///         <c>handledEventsToo</c> defaulting to false — would be registered, would look correct, and
 ///         would never once run. Capture also gives the right behaviour rather than merely a running
@@ -65,8 +74,12 @@ namespace Vixen.Editor.Texturing.Painting;
 ///         it always did.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Shift-click lays a straight stroke from where the last one ended, and it needed no
-///         new arithmetic at all.</b> Doc 48 § D13 lists "curve/path strokes" beside symmetry and
+///         ⚠
+///         <b>
+///             Shift-click lays a straight stroke from where the last one ended, and it needed no
+///             new arithmetic at all.
+///         </b>
+///         Doc 48 § D13 lists "curve/path strokes" beside symmetry and
 ///         smoothing as stroke-level work that does not touch the kernel, and the straight case
 ///         turns out to be nothing whatever: <c>BrushStroke.MoveTo</c> already walks the segment
 ///         between two positions laying evenly spaced stamps and carrying the leftover distance, so
@@ -74,8 +87,12 @@ namespace Vixen.Editor.Texturing.Painting;
 ///         calls and one undo entry.
 ///     </para>
 ///     <para>
-///         ⚠ <b>A <em>curved</em> path needed a front end and not a sampler, which is what
-///         <a href="https://github.com/Rikarin/Vixen/issues/1084">#1084</a> found.</b> Those two
+///         ⚠
+///         <b>
+///             A <em>curved</em> path needed a front end and not a sampler, which is what
+///             <a href="https://github.com/Rikarin/Vixen/issues/1084">#1084</a> found.
+///         </b>
+///         Those two
 ///         calls interpolate straight, so a curve fed to them as its endpoints paints its chord —
 ///         and a sampler built before there was anywhere to author control points would have been a
 ///         finished thing nothing called. <see cref="PaintToolMode.Path" /> is that somewhere: left
@@ -111,8 +128,12 @@ sealed class PaintUvView {
 
     /// <summary>The curve an artist is placing, in <see cref="PaintToolMode.Path" />.</summary>
     /// <remarks>
-    ///     ⚠ <b>On the view and not on the tool, because its points are texels of <em>this</em>
-    ///     atlas.</b> The tool survives the panel being closed and is shared with whatever 3D surface
+    ///     ⚠
+    ///     <b>
+    ///         On the view and not on the tool, because its points are texels of <em>this</em>
+    ///         atlas.
+    ///     </b>
+    ///     The tool survives the panel being closed and is shared with whatever 3D surface
     ///     arrives; a half-placed path is a gesture in one pane at one resolution, and carrying it
     ///     across either would be a curve through points nobody clicked. It is the same argument
     ///     <see cref="anchor" /> already makes, which is why both are cleared together.
@@ -124,8 +145,12 @@ sealed class PaintUvView {
 
     /// <summary>Which placed point the pointer is dragging, or -1.</summary>
     /// <remarks>
-    ///     ⚠ <b>An index and not the point itself, because the drag has to survive the list moving
-    ///     under it.</b> Inserting a point is followed straight away by dragging the one that was
+    ///     ⚠
+    ///     <b>
+    ///         An index and not the point itself, because the drag has to survive the list moving
+    ///         under it.
+    ///     </b>
+    ///     Inserting a point is followed straight away by dragging the one that was
     ///     just inserted, which is one gesture from the artist's side — so what the drag holds is a
     ///     place in the order rather than a value that would go stale the moment anything shifted.
     /// </remarks>
@@ -133,8 +158,12 @@ sealed class PaintUvView {
 
     /// <summary>Where the pointer last was, in texels, whether or not anything was painted.</summary>
     /// <remarks>
-    ///     ⚠ <b>Beside <see cref="last" /> rather than instead of it, because they answer different
-    ///     questions.</b> <see cref="last" /> is where the last <em>stamp</em> went and is what a
+    ///     ⚠
+    ///     <b>
+    ///         Beside <see cref="last" /> rather than instead of it, because they answer different
+    ///         questions.
+    ///     </b>
+    ///     <see cref="last" /> is where the last <em>stamp</em> went and is what a
     ///     shift-click line starts from; this is where the pointer is, which is what a key pressed
     ///     over a placed point has to be measured against. Using the stamp for that would delete a
     ///     point near wherever the previous stroke happened to end.
@@ -151,8 +180,12 @@ sealed class PaintUvView {
 
     /// <summary>Whether a fit has succeeded since the atlas last changed size.</summary>
     /// <remarks>
-    ///     ⚠ <b>Retried rather than done once, because the first <see cref="Show" /> is before the
-    ///     first layout.</b> A panel's factory runs while its box is still zero-sized, and
+    ///     ⚠
+    ///     <b>
+    ///         Retried rather than done once, because the first <see cref="Show" /> is before the
+    ///         first layout.
+    ///     </b>
+    ///     A panel's factory runs while its box is still zero-sized, and
     ///     <c>ImageView.Fit</c> answers false for exactly that case rather than computing a zoom of
     ///     zero — so a view that fitted once, at build, would open every stack at 100% in a corner.
     /// </remarks>
@@ -220,7 +253,7 @@ sealed class PaintUvView {
         // the capture leg would take Enter off anything the pane ever comes to contain.
         Image.AddHandler<KeyEvent>((_, args) => Keyed(args));
 
-        Status = "";
+        Status = string.Empty;
     }
 
     /// <summary>The atlas at zoom, with the islands over it.</summary>
@@ -260,8 +293,12 @@ sealed class PaintUvView {
 
     /// <summary>Told when an undo or a redo has moved texels, so a caller can persist them.</summary>
     /// <remarks>
-    ///     ⚠ <b>Separate from <see cref="Painted" /> because the two have different costs and
-    ///     different audiences.</b> <see cref="Painted" /> fires per dirtied region, including once
+    ///     ⚠
+    ///     <b>
+    ///         Separate from <see cref="Painted" /> because the two have different costs and
+    ///         different audiences.
+    ///     </b>
+    ///     <see cref="Painted" /> fires per dirtied region, including once
     ///     per pointer move during a drag, and re-uploads a rectangle. This fires once per undo or
     ///     redo of a whole stroke, and its caller writes a 64 MB canvas to disk — which is affordable
     ///     at that rate and ruinous at the other. Without it an undone stroke stays in the
@@ -382,8 +419,12 @@ sealed class PaintUvView {
     /// <param name="at">Where, in texels.</param>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>In texels with a screen-pixel thickness, which is what makes it read as a
-    ///         cursor.</b> A ring whose radius were in screen pixels would be the same size at every
+    ///         ⚠
+    ///         <b>
+    ///             In texels with a screen-pixel thickness, which is what makes it read as a
+    ///             cursor.
+    ///         </b>
+    ///         A ring whose radius were in screen pixels would be the same size at every
     ///         zoom and would therefore lie about what the stamp covers — and that lie is invisible
     ///         until the artist zooms, which is precisely when they are trying to place a small
     ///         stroke exactly.
@@ -440,8 +481,12 @@ sealed class PaintUvView {
     /// <summary>The curve being placed, drawn under the cursor.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Sampled at the same tolerance the stroke will be laid at, so the preview is the
-    ///         stroke's own path and not a smoother drawing of it</b> —
+    ///         ⚠
+    ///         <b>
+    ///             Sampled at the same tolerance the stroke will be laid at, so the preview is the
+    ///             stroke's own path and not a smoother drawing of it
+    ///         </b>
+    ///         —
     ///         <a href="https://github.com/Rikarin/Vixen/issues/1084">#1084</a>. A preview drawn from
     ///         a second sampler is how a curve comes to look right in the pane and paint faceted,
     ///         which is a defect an artist can only find by painting.
@@ -554,8 +599,12 @@ sealed class PaintUvView {
     /// <summary>Lays the placed curve as one stroke, and forgets it.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>With no lazy mouse whatever the tool's slider says, for the shift-click line's
-    ///         reason</b> — <c>PaintStroke</c> trails the input points, so a path laid from sampled
+    ///         ⚠
+    ///         <b>
+    ///             With no lazy mouse whatever the tool's slider says, for the shift-click line's
+    ///             reason
+    ///         </b>
+    ///         — <c>PaintStroke</c> trails the input points, so a path laid from sampled
     ///         positions would stop short of its end by the lazy distance, and the
     ///         painting would miss the drawing the artist was looking at. #1084 names this half
     ///         explicitly.
@@ -613,8 +662,12 @@ sealed class PaintUvView {
     /// <param name="square">Whether the stamp is a masked one, whose boundary is its square.</param>
     /// <param name="angle">How far the square is turned, in radians.</param>
     /// <remarks>
-    ///     ⚠ <b>A square for a masked brush, and it is the difference between a settable angle and
-    ///     an unsettable one</b> — <a href="https://github.com/Rikarin/Vixen/issues/1083">#1083</a>.
+    ///     ⚠
+    ///     <b>
+    ///         A square for a masked brush, and it is the difference between a settable angle and
+    ///         an unsettable one
+    ///     </b>
+    ///     — <a href="https://github.com/Rikarin/Vixen/issues/1083">#1083</a>.
     ///     A masked stamp covers its square and not the disc inside it, so a ring drawn over one lies
     ///     about the stamp by the corners — and, worse, it is the same picture at every angle, which
     ///     leaves an artist setting a rotation they cannot see. The corners are at <c>(±1, ±1)</c>
@@ -634,7 +687,7 @@ sealed class PaintUvView {
             for (var corner = 0; corner < outline.Length; corner++) {
                 var (x, y) = (corners[corner].X, corners[corner].Y);
 
-                outline[corner] = new((x * cos) - (y * sin), (x * sin) + (y * cos));
+                outline[corner] = new(x * cos - y * sin, x * sin + y * cos);
             }
 
             return;
@@ -659,7 +712,7 @@ sealed class PaintUvView {
         var u = unit.X * along;
         var v = unit.Y * across;
 
-        return at + new Vector2((u * cos) - (v * sin), (u * sin) + (v * cos));
+        return at + new Vector2(u * cos - v * sin, u * sin + v * cos);
     }
 
     Vector2 Texels(Vector2 uv) => new(uv.X * Image.ImageWidth, uv.Y * Image.ImageHeight);
@@ -793,8 +846,12 @@ sealed class PaintUvView {
 
     /// <summary>Ends a drag of a placed point, capture and all.</summary>
     /// <remarks>
-    ///     ⚠ <b>One place, because clearing <c>held</c> without releasing the capture is worse than
-    ///     leaving both.</b> <c>UiDocument.Captured</c> routes every later pointer event to this
+    ///     ⚠
+    ///     <b>
+    ///         One place, because clearing <c>held</c> without releasing the capture is worse than
+    ///         leaving both.
+    ///     </b>
+    ///     <c>UiDocument.Captured</c> routes every later pointer event to this
     ///     element until something clears it, so a drag ended by Escape, by Enter or by a secondary
     ///     press — none of which reaches the <c>Released</c> arm, since that arm is guarded on
     ///     <c>held</c> — left the pane swallowing the pointer for the rest of the session. That is
@@ -840,16 +897,24 @@ sealed class PaintUvView {
     /// <param name="at">Where the press was, in texels.</param>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Three meanings for one gesture and no modifier between them, which is what every
-    ///         pen tool does and is the only shape that fits this pane.</b> #1084 records that the
+    ///         ⚠
+    ///         <b>
+    ///             Three meanings for one gesture and no modifier between them, which is what every
+    ///             pen tool does and is the only shape that fits this pane.
+    ///         </b>
+    ///         #1084 records that the
     ///         2D pane is one pointer handler on the capture leg; a correction verb behind a
     ///         modifier is a verb an artist has to be told about, and the alternative — a second
     ///         tool mode for editing — would put the artist in a mode where placing a point no
     ///         longer works.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The order is the whole of it: a point first, then the curve, then the
-    ///         canvas.</b> A placed point is <em>on</em> the curve, so a test that asked about the
+    ///         ⚠
+    ///         <b>
+    ///             The order is the whole of it: a point first, then the curve, then the
+    ///             canvas.
+    ///         </b>
+    ///         A placed point is <em>on</em> the curve, so a test that asked about the
     ///         curve first would answer "insert" for every click on an existing point and the path
     ///         would grow a duplicate point each time an artist tried to correct one.
     ///     </para>

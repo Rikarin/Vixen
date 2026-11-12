@@ -33,7 +33,7 @@ public sealed class TerrainHoles {
     TerrainHoles(int width, int height) {
         this.width = width;
         this.height = height;
-        bits = new ulong[(((long)width * height) + 63) / 64];
+        bits = new ulong[((long)width * height + 63) / 64];
     }
 
     /// <summary>How many samples are holes.</summary>
@@ -55,7 +55,7 @@ public sealed class TerrainHoles {
             return false;
         }
 
-        var index = ((long)z * width) + x;
+        var index = (long)z * width + x;
         return (bits[index / 64] & (1ul << (int)(index % 64))) != 0;
     }
 
@@ -68,7 +68,7 @@ public sealed class TerrainHoles {
             return;
         }
 
-        var index = ((long)z * width) + x;
+        var index = (long)z * width + x;
         var word = index / 64;
         var mask = 1ul << (int)(index % 64);
         var was = (bits[word] & mask) != 0;

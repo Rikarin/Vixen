@@ -37,7 +37,9 @@ public ref partial struct SerializationReader {
 
     /// <summary>Reads from a span.</summary>
     /// <param name="source">The bytes.</param>
-    public SerializationReader(ReadOnlySpan<byte> source) => span = source;
+    public SerializationReader(ReadOnlySpan<byte> source) {
+        span = source;
+    }
 
     /// <summary>Reads one byte.</summary>
     /// <returns>The byte.</returns>
@@ -136,7 +138,7 @@ public ref partial struct SerializationReader {
     /// <returns>The value.</returns>
     public Guid ReadGuid() {
         Ensure(16);
-        var value = new Guid(span.Slice(position, 16), bigEndian: false);
+        var value = new Guid(span.Slice(position, 16), false);
         position += 16;
         return value;
     }

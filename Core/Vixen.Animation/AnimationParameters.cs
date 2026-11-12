@@ -26,8 +26,11 @@ public enum AnimationParameterType {
     /// <summary>An interned word — a surface, a stance, a condition.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>What a move set's facets are queried from, and the reason there is no second state
-    ///         store.</b> A selection is driven by the same values a condition and a blend tree read:
+    ///         <b>
+    ///             What a move set's facets are queried from, and the reason there is no second state
+    ///             store.
+    ///         </b>
+    ///         A selection is driven by the same values a condition and a blend tree read:
     ///         game code writes <c>injured</c> the way it writes <c>Speed</c>, one concept, one thing
     ///         to serialise, one thing to replicate, one answer to "what state is this character in".
     ///     </para>
@@ -45,8 +48,12 @@ public enum AnimationParameterType {
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>Named to set up, indexed to use.</b> Game code says <c>parameters.SetFloat("Speed",
-///         v)</c> once per frame and the string lookup does not matter; a state machine evaluating
+///         <b>Named to set up, indexed to use.</b> Game code says
+///         <c>
+///             parameters.SetFloat("Speed",
+///             v)
+///         </c>
+///         once per frame and the string lookup does not matter; a state machine evaluating
 ///         forty conditions per layer per frame cannot afford one, so a transition holds the index
 ///         it resolved at build time. Both surfaces are here, and the indexed one is what the graph
 ///         uses.
@@ -196,8 +203,7 @@ public sealed class AnimationParameters {
     /// <summary>Writes a number, by name. Declares the parameter if it does not exist.</summary>
     /// <param name="name">The parameter's name.</param>
     /// <param name="value">The value.</param>
-    public void SetFloat(string name, float value) =>
-        SetFloat(Declare(name, AnimationParameterType.Float), value);
+    public void SetFloat(string name, float value) => SetFloat(Declare(name, AnimationParameterType.Float), value);
 
     /// <summary>Writes a whole number, by name. Declares the parameter if it does not exist.</summary>
     /// <param name="name">The parameter's name.</param>
@@ -221,7 +227,7 @@ public sealed class AnimationParameters {
             return;
         }
 
-        values[index] = new Value { Int = unchecked((int)value.Id) };
+        values[index] = new() { Int = unchecked((int)value.Id) };
     }
 
     /// <summary>Writes an interned word, by name. Declares the parameter if it does not exist.</summary>

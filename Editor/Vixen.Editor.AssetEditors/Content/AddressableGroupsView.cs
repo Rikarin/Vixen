@@ -11,8 +11,11 @@ namespace Vixen.Editor.AssetEditors.Content;
 /// <summary>The addressable groups a project defines, one group's policy, and what a build would say.</summary>
 /// <remarks>
 ///     <para>
-///         <b>The panel is <c>AddressableGroupsView.vxml</c>; this file exists only to make it public
-///         and sealed</b> (#89). The markup compiler emits a partial class with no accessibility
+///         <b>
+///             The panel is <c>AddressableGroupsView.vxml</c>; this file exists only to make it public
+///             and sealed
+///         </b>
+///         (#89). The markup compiler emits a partial class with no accessibility
 ///         modifier, which is <c>internal</c>, and this one is constructed from the application and
 ///         read by two test suites. The file header there carries the port's model decision.
 ///     </para>
@@ -62,7 +65,10 @@ public sealed class AddressableGroupEditorFactory : DocumentKind {
     }
 }
 
-/// <summary>What <see cref="AddressableGroupEditorFactory" />'s documents are shown in: the Workspace half of the pair (#1294).</summary>
+/// <summary>
+///     What <see cref="AddressableGroupEditorFactory" />'s documents are shown in: the Workspace half of the pair
+///     (#1294).
+/// </summary>
 public sealed class AddressableGroupEditorView : DocumentView<AddressableGroupDocument> {
     /// <summary>What produces a build plan for the analysis, or <see langword="null" />.</summary>
     /// <remarks>

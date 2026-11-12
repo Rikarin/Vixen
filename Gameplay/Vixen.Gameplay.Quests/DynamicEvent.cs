@@ -103,8 +103,12 @@ public sealed class DynamicEventTemplate {
 
     /// <summary>Whether it can end without anybody doing anything.</summary>
     /// <remarks>
-    ///     ⚠ <b>Doc 28's "event chains reach a terminal state" is only true of an event that can end
-    ///     on its own.</b> An event with no clock and an objective nobody is working on runs for ever,
+    ///     ⚠
+    ///     <b>
+    ///         Doc 28's "event chains reach a terminal state" is only true of an event that can end
+    ///         on its own.
+    ///     </b>
+    ///     An event with no clock and an objective nobody is working on runs for ever,
     ///     which is a legitimate thing to author — a capture point waits to be captured — but it means
     ///     the property is about events with a duration, and the library says which ones those are
     ///     rather than the test assuming all of them are.
@@ -124,7 +128,7 @@ public sealed class DynamicEventTemplate {
         var over = Math.Max(0, participants - Math.Max(1, scaling.BaseParticipants));
         var maximum = MathF.Max(1f, scaling.Maximum);
 
-        return Math.Clamp(1f + (over * MathF.Max(0f, scaling.PerParticipant)), 1f, maximum);
+        return Math.Clamp(1f + over * MathF.Max(0f, scaling.PerParticipant), 1f, maximum);
     }
 
     /// <summary>Which tier a contribution reaches.</summary>
@@ -173,7 +177,7 @@ public sealed class DynamicEventTemplate {
 
         var tiers = definition.Tiers
             .Select(tier => new ContributionTier(tier, CompileReward(tier.Rewards)))
-            .OrderByDescending(tier => tier.Minimum)
+            .OrderByDescending(static tier => tier.Minimum)
             .ToArray();
 
         return new(
@@ -182,8 +186,8 @@ public sealed class DynamicEventTemplate {
             DefId.From(definition.Scene),
             objectives,
             tiers,
-            [.. definition.OnSuccess.Select(address => new EventLink(DefId.From(address), address))],
-            [.. definition.OnFailure.Select(address => new EventLink(DefId.From(address), address))]
+            [..definition.OnSuccess.Select(static address => new EventLink(DefId.From(address), address))],
+            [..definition.OnFailure.Select(static address => new EventLink(DefId.From(address), address))]
         );
 
         static QuestReward CompileReward(QuestRewardDefinition? rewards) =>
@@ -198,7 +202,7 @@ public sealed class DynamicEventTemplate {
                 );
 
         static QuestGrant[] Grants(List<QuestGrantDefinition> grants) =>
-            [.. grants.Select(grant => new QuestGrant(DefId.From(grant.Def), grant.Def, grant.Count))];
+            [..grants.Select(static grant => new QuestGrant(DefId.From(grant.Def), grant.Def, grant.Count))];
     }
 }
 
@@ -210,8 +214,12 @@ public sealed class DynamicEventTemplate {
 ///         everybody's kills count towards the same number.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Contribution rather than tap-ownership, and it is recorded per participant as the
-///         event runs.</b> Deciding who "gets" an event when it ends — by first hit, most damage or
+///         ⚠
+///         <b>
+///             Contribution rather than tap-ownership, and it is recorded per participant as the
+///             event runs.
+///         </b>
+///         Deciding who "gets" an event when it ends — by first hit, most damage or
 ///         killing blow — is the mechanic that makes a world boss a race and a passer-by an intruder.
 ///         Doc 28 picks tiers deliberately: everyone who did enough gets their tier, and one player's
 ///         reward is not another player's loss.

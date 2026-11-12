@@ -6,8 +6,11 @@ namespace Vixen.Audio.Dsp;
 /// <summary>Runs a nonlinearity at a higher rate, so the harmonics it makes have somewhere to go.</summary>
 /// <remarks>
 ///     <para>
-///         <b>Bending a waveform makes harmonics, and harmonics above Nyquist do not vanish — they
-///         fold.</b> A 5 kHz tone through a cubic curve produces 15 kHz, 25 kHz and 35 kHz. At 48 kHz
+///         <b>
+///             Bending a waveform makes harmonics, and harmonics above Nyquist do not vanish — they
+///             fold.
+///         </b>
+///         A 5 kHz tone through a cubic curve produces 15 kHz, 25 kHz and 35 kHz. At 48 kHz
 ///         everything above 24 comes back down: 25 reappears at 23, and 35 at 13. Those are not
 ///         harmonics of 5 kHz. They are inharmonic tones that move the <em>wrong way</em> when the
 ///         input pitch changes, which is exactly what makes aliased distortion sound like grit rather
@@ -74,7 +77,7 @@ public sealed class Oversampler {
             var x = (i - centre) / factor;
             var sinc = Math.Abs(x) < 1e-9 ? 1.0 : Math.Sin(Math.PI * x) / (Math.PI * x);
             var t = 2.0 * Math.PI * i / (downTaps - 1);
-            var window = 0.42 - (0.5 * Math.Cos(t)) + (0.08 * Math.Cos(2.0 * t));
+            var window = 0.42 - 0.5 * Math.Cos(t) + 0.08 * Math.Cos(2.0 * t);
             prototype[i] = (float)(sinc * window);
         }
 
@@ -101,7 +104,7 @@ public sealed class Oversampler {
             var sum = 0.0;
 
             for (var tap = 0; tap < Taps; tap++) {
-                sum += phases[(tap * factor) + phase];
+                sum += phases[tap * factor + phase];
             }
 
             if (Math.Abs(sum) < 1e-9) {
@@ -109,7 +112,7 @@ public sealed class Oversampler {
             }
 
             for (var tap = 0; tap < Taps; tap++) {
-                phases[(tap * factor) + phase] /= (float)sum;
+                phases[tap * factor + phase] /= (float)sum;
             }
         }
     }
@@ -152,7 +155,7 @@ public sealed class Oversampler {
             var sum = 0f;
 
             for (var tap = 0; tap < Taps; tap++) {
-                sum += phases[(tap * Factor) + phase] * upHistory[offset + ((newest - tap + Taps) % Taps)];
+                sum += phases[tap * Factor + phase] * upHistory[offset + (newest - tap + Taps) % Taps];
             }
 
             destination[phase] = sum;
@@ -181,7 +184,7 @@ public sealed class Oversampler {
             var sum = 0f;
 
             for (var tap = 0; tap < downTaps; tap++) {
-                sum += prototype[tap] * downHistory[offset + ((cursor + tap) % downTaps)];
+                sum += prototype[tap] * downHistory[offset + (cursor + tap) % downTaps];
             }
 
             result = sum;

@@ -23,7 +23,9 @@ internal readonly struct Index : IEquatable<Index> {
         this.value = fromEnd ? ~value : value;
     }
 
-    Index(int value, bool _, bool __) => this.value = value;
+    Index(int value, bool _, bool __) {
+        this.value = value;
+    }
 
     /// <summary>The first element.</summary>
     public static Index Start => new(0, false, false);
@@ -59,7 +61,8 @@ internal readonly struct Index : IEquatable<Index> {
     public static implicit operator Index(int value) => FromStart(value);
 
     /// <inheritdoc />
-    public override string ToString() => IsFromEnd ? "^" + Value : Value.ToString(Globalization.CultureInfo.InvariantCulture);
+    public override string ToString() =>
+        IsFromEnd ? "^" + Value : Value.ToString(Globalization.CultureInfo.InvariantCulture);
 }
 
 /// <summary>A start and an end <see cref="Index" />, for <c>a..b</c> in the source a generator compiles.</summary>
@@ -91,7 +94,7 @@ internal readonly struct Range : IEquatable<Range> {
         var start = Start.GetOffset(length);
         var end = End.GetOffset(length);
 
-        if ((uint) end > (uint) length || (uint) start > (uint) end) {
+        if ((uint)end > (uint)length || (uint)start > (uint)end) {
             throw new ArgumentOutOfRangeException(nameof(length));
         }
 
@@ -105,7 +108,7 @@ internal readonly struct Range : IEquatable<Range> {
     public override bool Equals(object? obj) => obj is Range other && Equals(other);
 
     /// <inheritdoc />
-    public override int GetHashCode() => (Start.GetHashCode() * 31) + End.GetHashCode();
+    public override int GetHashCode() => Start.GetHashCode() * 31 + End.GetHashCode();
 
     /// <inheritdoc />
     public override string ToString() => Start + ".." + End;

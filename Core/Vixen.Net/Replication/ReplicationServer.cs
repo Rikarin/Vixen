@@ -148,7 +148,7 @@ public sealed class ReplicationServer {
 
         // Highest priority first, so that when the budget runs out it is the tail of this list that
         // goes. Stable within a priority, so two runs of the same tick shed the same things.
-        byPriority.Sort((left, right) => right.Priority.CompareTo(left.Priority));
+        byPriority.Sort(static (left, right) => right.Priority.CompareTo(left.Priority));
 
         foreach (var replicator in byPriority) {
             wireIndex[replicator.TypeId] = (uint)registry.IndexOf(replicator.TypeId);
@@ -169,8 +169,11 @@ public sealed class ReplicationServer {
     ///         Call once a tick, after the simulation has run and before the snapshots go out.
     ///     </para>
     ///     <para>
-    ///         <b>The world's version must not advance between a write and the capture that should
-    ///         see it.</b> A capture takes everything written since the previous capture's version,
+    ///         <b>
+    ///             The world's version must not advance between a write and the capture that should
+    ///             see it.
+    ///         </b>
+    ///         A capture takes everything written since the previous capture's version,
     ///         so the order within a tick has to be advance–write–capture (what the scheduler does)
     ///         or write–capture–advance. Advancing in between puts the write on the far side of the
     ///         comparison and it is never sent: the client simply never learns about that change,

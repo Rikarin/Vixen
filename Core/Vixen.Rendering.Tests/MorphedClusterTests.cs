@@ -154,7 +154,7 @@ public sealed class MorphedClusterTests {
             var last = words[(int)record.MorphRunBase + vertex + 1];
 
             for (var slot = first; slot < last; slot++) {
-                var at = (int)(record.MorphEntryBase + (slot * MorphIndex.EntryWords));
+                var at = (int)(record.MorphEntryBase + slot * MorphIndex.EntryWords);
                 var shape = (int)words[at];
 
                 var a = words[at + 1];
@@ -187,8 +187,11 @@ public sealed class MorphedClusterTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <b>The "built but never fed" assertion, and it is the one this whole task exists to
-    ///         make true.</b> `MorphRenderFeatureTests` makes it for the suballocated path. Everything
+    ///         <b>
+    ///             The "built but never fed" assertion, and it is the one this whole task exists to
+    ///             make true.
+    ///         </b>
+    ///         `MorphRenderFeatureTests` makes it for the suballocated path. Everything
     ///         else here drives the feature or the tables directly, which says the machinery works and
     ///         says nothing about whether a frame reaches it — and "a frame that does not reach it"
     ///         is precisely the defect that made a head with twenty shapes draw at rest.
@@ -209,7 +212,9 @@ public sealed class MorphedClusterTests {
         using var device = new NullDevice(new());
         using var visibility = new GpuClusterVisibility(device);
         using var system = new RenderSystem();
-        using var world = new World(nameof(An_entity_with_a_hierarchy_is_given_its_weights_by_the_systems_a_frame_runs));
+        using var world = new World(
+            nameof(An_entity_with_a_hierarchy_is_given_its_weights_by_the_systems_a_frame_runs)
+        );
 
         var buffer = new GeometryBuffer(device, SurfaceVertex.SizeInBytes, 4096, 8192);
         var residency = new GeometryResidency(buffer);
@@ -237,7 +242,9 @@ public sealed class MorphedClusterTests {
             Meshes = new OneTriangle()
         };
 
-        var weights = new MorphWeightSystem { Virtualized = virtualized, Renderer = system };
+        using var weights = new MorphWeightSystem();
+        weights.Virtualized = virtualized;
+        weights.Renderer = system;
 
         var entity = world.Create();
 
@@ -310,7 +317,7 @@ public sealed class MorphedClusterTests {
         var meshes = new MeshRenderFeature();
         var transforms = new TransformRenderFeature();
         var materials = new MaterialRenderFeature();
-        var morphing = new MorphRenderFeature(device, vertexCapacity: 1024, entryCapacity: 4096) { Source = buffer };
+        var morphing = new MorphRenderFeature(device, 1024, 4096) { Source = buffer };
         var virtualized = new VirtualGeometryRenderFeature { Visibility = visibility };
 
         var opaque = system.AddStage(new("Opaque"));
@@ -345,11 +352,10 @@ public sealed class MorphedClusterTests {
             Morphing = morphing
         };
 
-        var weights = new MorphWeightSystem {
-            Feature = morphing,
-            Virtualized = virtualized,
-            Renderer = system
-        };
+        using var weights = new MorphWeightSystem();
+        weights.Feature = morphing;
+        weights.Virtualized = virtualized;
+        weights.Renderer = system;
 
         var entity = world.Create();
 
@@ -554,20 +560,20 @@ public sealed class MorphedClusterTests {
 
         for (var y = 0; y <= segments; y++) {
             for (var x = 0; x <= segments; x++) {
-                positions.Add(new(((float)x / segments) - 0.5f, ((float)y / segments) - 0.5f, 0f));
+                positions.Add(new((float)x / segments - 0.5f, (float)y / segments - 0.5f, 0f));
             }
         }
 
         for (var y = 0; y < segments; y++) {
             for (var x = 0; x < segments; x++) {
-                var a = (y * (segments + 1)) + x;
+                var a = y * (segments + 1) + x;
 
                 indices.AddRange([a, a + 1, a + segments + 1]);
                 indices.AddRange([a + 1, a + segments + 2, a + segments + 1]);
             }
         }
 
-        return new() { Positions = [.. positions], Indices = [.. indices] };
+        return new() { Positions = [..positions], Indices = [..indices] };
     }
 
     /// <summary>One shape that pulls the grid toward its centre, plus a sparse one over it.</summary>
@@ -606,7 +612,8 @@ public sealed class MorphedClusterTests {
 
     /// <summary>The text of one shader's <c>Morphed</c>, from its signature to its closing brace.</summary>
     static string Body(string text) {
-        const string signature = "func Morphed(instance: CullInstance, mesh: RasterMesh, clusterIndex: uint, local: uint): MorphDelta {";
+        const string signature =
+            "func Morphed(instance: CullInstance, mesh: RasterMesh, clusterIndex: uint, local: uint): MorphDelta {";
 
         var start = text.IndexOf(signature, StringComparison.Ordinal);
         Assert.True(start >= 0, "The shader declares no Morphed.");
@@ -618,7 +625,9 @@ public sealed class MorphedClusterTests {
     }
 
     static string Source(string file) {
-        for (var directory = new DirectoryInfo(AppContext.BaseDirectory); directory is not null; directory = directory.Parent) {
+        for (var directory = new DirectoryInfo(AppContext.BaseDirectory);
+             directory is not null;
+             directory = directory.Parent) {
             var candidate = Path.Combine(directory.FullName, "Raven", "Library", "Pipeline", file);
 
             if (File.Exists(candidate)) {
@@ -626,6 +635,8 @@ public sealed class MorphedClusterTests {
             }
         }
 
-        throw new FileNotFoundException($"Raven/Library/Pipeline/{file} was not found above '{AppContext.BaseDirectory}'.");
+        throw new FileNotFoundException(
+            $"Raven/Library/Pipeline/{file} was not found above '{AppContext.BaseDirectory}'."
+        );
     }
 }

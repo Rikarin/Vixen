@@ -130,7 +130,9 @@ sealed unsafe class VulkanAllocator : IDisposable {
 
     readonly Vk api;
     readonly Device device;
+
     readonly PhysicalDeviceMemoryProperties memory;
+
     // Device-address blocks are their own pools, not a flag on the shared ones: the allocate flag
     // applies to a whole vkAllocateMemory, so one addressed buffer in an ordinary block would need
     // every block to carry the flag — which is legal from 1.2 but disables suballocation-friendly
@@ -327,8 +329,7 @@ sealed unsafe class VulkanAllocator : IDisposable {
         // the vkAllocateMemory, and taking an address out of a block allocated without it is
         // invalid usage that reads as a working pointer right up until a build dereferences it.
         var flags = new MemoryAllocateFlagsInfo {
-            SType = StructureType.MemoryAllocateFlagsInfo,
-            Flags = MemoryAllocateFlags.DeviceAddressBit
+            SType = StructureType.MemoryAllocateFlagsInfo, Flags = MemoryAllocateFlags.DeviceAddressBit
         };
 
         var info = new MemoryAllocateInfo {

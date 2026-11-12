@@ -39,7 +39,11 @@ sealed class FakeContentTransport : IContentTransport, IDisposable {
         }
 
         return ValueTask.FromResult(
-            new ContentDownload(new MemoryStream(contents, (int)offset, contents.Length - (int)offset), offset, contents.Length)
+            new ContentDownload(
+                new MemoryStream(contents, (int)offset, contents.Length - (int)offset),
+                offset,
+                contents.Length
+            )
         );
     }
 

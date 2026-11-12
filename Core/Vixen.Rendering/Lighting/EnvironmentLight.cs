@@ -18,8 +18,11 @@ namespace Vixen.Rendering.Lighting;
 ///         has one of these; a reflection probe is the same shape with bounds around it.
 ///     </para>
 ///     <para>
-///         <strong>Both halves come from <c>EnvironmentBaker</c>, and they have to come from
-///         the same source.</strong> Coefficients projected from one environment and a chain
+///         <strong>
+///             Both halves come from <c>EnvironmentBaker</c>, and they have to come from
+///             the same source.
+///         </strong>
+///         Coefficients projected from one environment and a chain
 ///         prefiltered from another give a surface whose reflection and whose ambient disagree, which
 ///         reads as a material with the wrong roughness rather than as two mismatched bakes.
 ///     </para>

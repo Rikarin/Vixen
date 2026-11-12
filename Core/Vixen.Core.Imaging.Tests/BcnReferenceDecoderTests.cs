@@ -70,7 +70,7 @@ public sealed class BcnReferenceDecoderTests {
 
         Assert.Equal(64 * 64 / 16 * pixelFormat.BlockSize(), encoded.Level(0).Length);
 
-        Compare(format, "encoded", encoded.Level(0).ToArray(), pixelFormat);
+        Compare(format, "encoded", [..encoded.Level(0)], pixelFormat);
     }
 
     /// <summary>Puts every block through both decoders and demands the same texels.</summary>
@@ -97,8 +97,8 @@ public sealed class BcnReferenceDecoderTests {
 
                 for (var texel = 0; texel < 16; texel++) {
                     foreach (var (theirLane, ourLane) in lanes.Pairs) {
-                        var theirs = reference[((((index * 16) + texel) * lanes.Width) + theirLane)];
-                        var mine = ours[(texel * 4) + ourLane];
+                        var theirs = reference[(index * 16 + texel) * lanes.Width + theirLane];
+                        var mine = ours[texel * 4 + ourLane];
 
                         Assert.True(
                             mine == theirs,
@@ -118,7 +118,7 @@ public sealed class BcnReferenceDecoderTests {
         var sliced = new byte[count * stride];
 
         for (var index = 0; index < count; index++) {
-            blocks.AsSpan((index * blockBytes) + offset, stride).CopyTo(sliced.AsSpan(index * stride));
+            blocks.AsSpan(index * blockBytes + offset, stride).CopyTo(sliced.AsSpan(index * stride));
         }
 
         return sliced;
@@ -133,9 +133,13 @@ public sealed class BcnReferenceDecoderTests {
     readonly record struct Lanes(string Oracle, int Offset, int Stride, int Width, (int, int)[] Pairs);
 
     /// <summary>
-    ///     ⚠ <b>BC3's alpha is checked against bcdec's BC4 and not against its BC3, because bcdec
-    ///     decodes the same sixty-four bits two different ways and Vixen agrees with the right
-    ///     one.</b> A BC3 block's alpha half <i>is</i> a BC4 block, but <c>bcdec_bc3</c> routes it
+    ///     ⚠
+    ///     <b>
+    ///         BC3's alpha is checked against bcdec's BC4 and not against its BC3, because bcdec
+    ///         decodes the same sixty-four bits two different ways and Vixen agrees with the right
+    ///         one.
+    ///     </b>
+    ///     A BC3 block's alpha half <i>is</i> a BC4 block, but <c>bcdec_bc3</c> routes it
     ///     through a fast path that truncates the interpolation while <c>bcdec_bc4</c>, built with
     ///     <c>BCDEC_BC4BC5_PRECISE</c>, rounds it. For endpoints 96 and 13 at index 5 the exact value
     ///     is 340/7 = 48.571: <c>bcdec_bc4</c> and Vixen both say 49, <c>bcdec_bc3</c> says 48. The
@@ -172,7 +176,7 @@ public sealed class BcnReferenceDecoderTests {
             BlockCompressor.DecodeHdrBlock(blocks.AsSpan(index * 16, 16), ours);
 
             for (var component = 0; component < 48; component++) {
-                var at = ((index * 48) + component) * 2;
+                var at = (index * 48 + component) * 2;
                 var theirs = (ushort)(reference[at] | (reference[at + 1] << 8));
 
                 Assert.True(
@@ -202,7 +206,7 @@ public sealed class BcnReferenceDecoderTests {
             BlockCompressor.DecodeHdrBlock(blocks.AsSpan(index * 16, 16), ours);
 
             for (var component = 0; component < 48; component++) {
-                var at = ((index * 48) + component) * 2;
+                var at = (index * 48 + component) * 2;
                 var theirs = (ushort)(reference[at] | (reference[at + 1] << 8));
 
                 Assert.True(
@@ -239,13 +243,13 @@ public sealed class BcnReferenceDecoderTests {
 
     /// <summary>Something with gradients, hard edges and noise in it, because those compress differently.</summary>
     static TextureData Source() {
-        var texture = new TextureData(PixelFormat.Rgba8UNorm, 64, 64, levelCount: 1);
+        var texture = new TextureData(PixelFormat.Rgba8UNorm, 64, 64, 1);
         var pixels = texture.PixelSpan();
         var random = new Random(0x5EED);
 
         for (var y = 0; y < 64; y++) {
             for (var x = 0; x < 64; x++) {
-                var at = ((y * 64) + x) * 4;
+                var at = (y * 64 + x) * 4;
                 var edge = x > 31 ? 255 : 0;
 
                 pixels[at] = (byte)(x * 4);
@@ -259,16 +263,16 @@ public sealed class BcnReferenceDecoderTests {
     }
 
     static TextureData HdrSource() {
-        var texture = new TextureData(PixelFormat.Rgba16Float, 64, 64, levelCount: 1);
+        var texture = new TextureData(PixelFormat.Rgba16Float, 64, 64, 1);
         var pixels = texture.PixelSpan();
 
         for (var y = 0; y < 64; y++) {
             for (var x = 0; x < 64; x++) {
-                var at = ((y * 64) + x) * 8;
+                var at = (y * 64 + x) * 8;
 
                 // A range a tone mapper would see rather than a 0-1 one: BC6H exists for values
                 // above white, and an encoder tested only on 0-1 is tested on a corner of itself.
-                Write(pixels[(at + 0)..], (Half)(x * 0.75f));
+                Write(pixels[at..], (Half)(x * 0.75f));
                 Write(pixels[(at + 2)..], (Half)(y * 0.25f));
                 Write(pixels[(at + 4)..], (Half)((x + y) * 0.05f));
                 Write(pixels[(at + 6)..], (Half)1f);
@@ -277,8 +281,7 @@ public sealed class BcnReferenceDecoderTests {
 
         return texture;
 
-        static void Write(Span<byte> destination, Half value) =>
-            BitConverter.TryWriteBytes(destination, value);
+        static void Write(Span<byte> destination, Half value) => BitConverter.TryWriteBytes(destination, value);
     }
 
     static PixelFormat PixelFormatOf(string format) =>

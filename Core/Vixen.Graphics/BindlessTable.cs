@@ -44,8 +44,11 @@ namespace Vixen.Graphics;
 ///         than an optimisation.
 ///     </para>
 ///     <para>
-///         <strong>Writes go to the device immediately, and that is only safe because of the
-///         flag.</strong> Updating a descriptor set that a recorded-but-unsubmitted command buffer
+///         <strong>
+///             Writes go to the device immediately, and that is only safe because of the
+///             flag.
+///         </strong>
+///         Updating a descriptor set that a recorded-but-unsubmitted command buffer
 ///         binds is invalid usage on Vulkan — unless the set was created with update-after-bind,
 ///         which is exactly what an unbounded binding is created with. It is also why this can write
 ///         one descriptor at a time without buffering: a distinct view is written once for the life
@@ -179,9 +182,7 @@ public sealed class BindlessTable : IDisposable {
         // that would size every table at the device's ceiling and reserve a pool to match.
         // Everything else about the layout is the shader's to state, which is why all of it is a
         // parameter.
-        Layout = device.CreateDescriptorSetLayout(
-            new(slot, [new(binding, kind, stages, 0)], name, Capacity)
-        );
+        Layout = device.CreateDescriptorSetLayout(new(slot, [new(binding, kind, stages, 0)], name, Capacity));
 
         Set = device.CreateDescriptorSet(Layout, name);
     }
@@ -235,8 +236,10 @@ public sealed class BindlessTable : IDisposable {
         return device.Features is { HasBindless: true, MaxBindlessDescriptors: > 0 };
     }
 
-    /// <summary>Starts a frame, making available the slots released
-    /// <see cref="FramesInFlight" /> frames ago.</summary>
+    /// <summary>
+    ///     Starts a frame, making available the slots released
+    ///     <see cref="FramesInFlight" /> frames ago.
+    /// </summary>
     /// <remarks>
     ///     <para>
     ///         Call after <see cref="IGraphicsDevice.BeginFrame" />. A missed call does not leak — the
@@ -245,8 +248,12 @@ public sealed class BindlessTable : IDisposable {
     ///         walks the high-water mark up to <see cref="Capacity" /> and then refuses.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Deliberately not guarded the way <see cref="DescriptorAllocator.Allocate" /> is,
-    ///         and the asymmetry is the difference between the two misses.</b> The allocator's is a
+    ///         ⚠
+    ///         <b>
+    ///             Deliberately not guarded the way <see cref="DescriptorAllocator.Allocate" /> is,
+    ///             and the asymmetry is the difference between the two misses.
+    ///         </b>
+    ///         The allocator's is a
     ///         correctness bug that draws a plausible frame, so it has to be refused where it happens.
     ///         This one costs no correctness and no memory: nothing here is ever handed back stale,
     ///         because a slot is only reused once <see cref="FramesInFlight" /> visits have retired

@@ -3,7 +3,6 @@
 
 using System.Runtime.CompilerServices;
 using Vixen.Ui.Composition;
-using Vixen.Ui.Desktop;
 using Vixen.Ui.HotReload;
 
 namespace Vixen.Ui.Desktop.HotReload;
@@ -73,8 +72,12 @@ public static class DesktopHotReload {
 
     /// <summary>Mounts an application's content through a reload host that tracks it.</summary>
     /// <remarks>
-    ///     ⚠ <b>The factory is handed over rather than called here, and that is what makes a
-    ///     re-created component keep its parameters.</b> An application writes
+    ///     ⚠
+    ///     <b>
+    ///         The factory is handed over rather than called here, and that is what makes a
+    ///         re-created component keep its parameters.
+    ///     </b>
+    ///     An application writes
     ///     <c>Content = () =&gt; new Shell { Model = model }</c>; an edit the runtime cannot patch
     ///     makes the host construct a replacement, and this lambda is the only thing that knows how.
     ///     Without it the replacement comes up with every parameter at its default — and the reload
@@ -101,8 +104,12 @@ public static class DesktopHotReload {
     ///         certainly not in <c>bin</c>.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Every <c>.vcss</c> under it is loaded, and most of them will overlay rather than
-    ///         replace.</b> <c>HotReloadWatcher.Load</c> binds a path to a sheet the document already
+    ///         ⚠
+    ///         <b>
+    ///             Every <c>.vcss</c> under it is loaded, and most of them will overlay rather than
+    ///             replace.
+    ///         </b>
+    ///         <c>HotReloadWatcher.Load</c> binds a path to a sheet the document already
     ///         holds when the two texts match; a sheet the build concatenated into a generated one —
     ///         which is what a <c>VixenStyleBase</c> is — matches nothing, so a save layers on top.
     ///         Changing a rule works either way; *deleting* one only works when the path replaced.
@@ -143,7 +150,7 @@ public static class DesktopHotReload {
         // assembly. Printing it is the only way to tell a rebuild that reloaded from one that could
         // not — a `Build` that throws leaves the component empty, and an empty panel and an
         // unchanged panel look identical for the second it takes to notice.
-        host.Reloaded += report => Console.WriteLine($"vixen: {report}");
+        host.Reloaded += static report => Console.WriteLine($"vixen: {report}");
     }
 
     /// <summary>The project's hand-written stylesheets, newest-looking first.</summary>
@@ -158,10 +165,11 @@ public static class DesktopHotReload {
     /// </remarks>
     static IEnumerable<string> Sheets(string directory) =>
         Directory.EnumerateFiles(directory, "*.vcss", SearchOption.AllDirectories)
-            .Where(path => !Segments(directory, path).Any(
-                segment => segment.Equals("obj", StringComparison.OrdinalIgnoreCase)
+            .Where(path => !Segments(directory, path)
+                .Any(static segment => segment.Equals("obj", StringComparison.OrdinalIgnoreCase)
                     || segment.Equals("bin", StringComparison.OrdinalIgnoreCase)
-            ));
+                )
+            );
 
     static string[] Segments(string directory, string path) =>
         Path.GetRelativePath(directory, path).Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);

@@ -9,8 +9,11 @@ namespace Vixen.Foliage;
 /// <summary>How a type behaves in a growth simulation.</summary>
 /// <remarks>
 ///     <para>
-///         <b>[docs/plan/31 § T9]'s four sliders, and they are Unreal's procedural foliage
-///         parameters.</b> A type sows itself at some density, ages towards maturity, spreads seeds
+///         <b>
+///             [docs/plan/31 § T9]'s four sliders, and they are Unreal's procedural foliage
+///             parameters.
+///         </b>
+///         A type sows itself at some density, ages towards maturity, spreads seeds
 ///         a distance, casts shade over a radius, tolerates some amount of it, and wins or loses when
 ///         two of them land on the same ground.
 ///     </para>
@@ -112,8 +115,12 @@ public readonly record struct FoliageEcology {
     /// <param name="age">Its age in steps.</param>
     /// <returns>The radius.</returns>
     /// <remarks>
-    ///     ⚠ <b>The canopy grows with the plant, and a simulation that shaded from the mature radius
-    ///     would never fill in.</b> A seed under a sapling survives and the same seed under the grown
+    ///     ⚠
+    ///     <b>
+    ///         The canopy grows with the plant, and a simulation that shaded from the mature radius
+    ///         would never fill in.
+    ///     </b>
+    ///     A seed under a sapling survives and the same seed under the grown
     ///     tree does not — which is the difference between a forest with an understorey and a forest
     ///     that is one tree per shade radius, evenly spaced, everywhere.
     /// </remarks>

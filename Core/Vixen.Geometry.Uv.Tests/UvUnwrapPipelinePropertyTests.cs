@@ -12,11 +12,14 @@ namespace Vixen.Geometry.Uv.Tests;
 /// <summary>docs/plan/42's exit criterion 2 over the <i>pipeline</i>, which is what it is a sentence about.</summary>
 /// <remarks>
 ///     <para>
-///         <b>Criterion 2 says "zero flipped triangles on 100 % of the corpus, or an explicit refusal
-///         naming the chart. No exceptions, no hangs", and until this file existed nothing generative
-///         called <see cref="UvUnwrap.All(EditMesh, UvSettings, PackSettings, out IReadOnlyList{Vector2})" />.</b>
+///         <b>
+///             Criterion 2 says "zero flipped triangles on 100 % of the corpus, or an explicit refusal
+///             naming the chart. No exceptions, no hangs", and until this file existed nothing generative
+///             called <see cref="UvUnwrap.All(EditMesh, UvSettings, PackSettings, out IReadOnlyList{Vector2})" />.
+///         </b>
 ///         <see cref="UvPackPropertyTests" /> states its half
-///         over <see cref="UvUnwrap.Pack(IReadOnlyList{UvIsland}, PackSettings)" />, which is the <i>third</i> stage and is
+///         over <see cref="UvUnwrap.Pack(IReadOnlyList{UvIsland}, PackSettings)" />, which is the <i>third</i> stage and
+///         is
 ///         handed islands a
 ///         generator drew rather than islands a flattener produced. Every property that holds over a
 ///         stage can still fail over the composition: a packer that never overlaps islands it was given
@@ -33,8 +36,12 @@ namespace Vixen.Geometry.Uv.Tests;
 ///         <see cref="Vector2.Zero" />.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Every case runs under <see cref="RunawayGuard" />, which is the half of criterion 2 no
-///         assertion after the call can reach.</b> See its remarks: a property test that hangs is not a
+///         ⚠
+///         <b>
+///             Every case runs under <see cref="RunawayGuard" />, which is the half of criterion 2 no
+///             assertion after the call can reach.
+///         </b>
+///         See its remarks: a property test that hangs is not a
 ///         failing property test, it is a suite that never finishes with nothing on the console naming
 ///         the case that did it.
 ///     </para>
@@ -74,8 +81,12 @@ public class UvUnwrapPipelinePropertyTests {
     ///         the sheet's edge.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The three stages are run again beside the fused verb, and the sixth claim is that
-    ///         they agree bit for bit.</b> <see cref="UvAllTests.TheThreeStagesComposeIntoTheFusedVerb" />
+    ///         ⚠
+    ///         <b>
+    ///             The three stages are run again beside the fused verb, and the sixth claim is that
+    ///             they agree bit for bit.
+    ///         </b>
+    ///         <see cref="UvAllTests.TheThreeStagesComposeIntoTheFusedVerb" />
     ///         makes that claim on one dumbbell; § D1's actual design is that <i>every</i> arrow in the
     ///         pipeline is a public entry point over a value a caller can hold and hand back, so a
     ///         fused verb that quietly does something else makes "just repack these islands" a
@@ -85,9 +96,13 @@ public class UvUnwrapPipelinePropertyTests {
     ///         packed, not a re-derivation that might not be.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>An island the packer had to shrink below one texel is excluded from the margin
-    ///         claim, and that is <see cref="UvPackPropertyTests" />' measured defect rather than a
-    ///         convenience.</b> Such an island rasterizes to a single texel it covers a few per cent
+    ///         ⚠
+    ///         <b>
+    ///             An island the packer had to shrink below one texel is excluded from the margin
+    ///             claim, and that is <see cref="UvPackPropertyTests" />' measured defect rather than a
+    ///             convenience.
+    ///         </b>
+    ///         Such an island rasterizes to a single texel it covers a few per cent
     ///         of, and where that texel lands is decided twice by different arithmetic — once by the
     ///         packer in the island's own frame and once here through <see cref="UvPlacement.Apply" />
     ///         — so the two can differ by a texel. That property's remarks have the measurement and the
@@ -95,8 +110,11 @@ public class UvUnwrapPipelinePropertyTests {
     ///         asserted, so this cannot pass by excluding everything.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The island-to-island gap is stated through <see cref="Diagonal" />, because on this
-    ///         space it is one texel short about once in a hundred sets and the shortfall has a shape.</b>
+    ///         ⚠
+    ///         <b>
+    ///             The island-to-island gap is stated through <see cref="Diagonal" />, because on this
+    ///             space it is one texel short about once in a hundred sets and the shortfall has a shape.
+    ///         </b>
     ///         That is a defect this target found and did not fix; see <see cref="Diagonal" />'s remarks
     ///         for the rate at five margins, the geometry, and why the exclusion the packer already
     ///         carries does not cover it. The border and the overlap count are unaffected and are
@@ -144,7 +162,7 @@ public class UvUnwrapPipelinePropertyTests {
                         && BitConverter.SingleToInt32Bits(stepwise[corner].Y)
                         == BitConverter.SingleToInt32Bits(uvs[corner].Y),
                         $"{what}: corner {corner} is {uvs[corner]} through All and {stepwise[corner]} through "
-                        + $"the three stages called separately."
+                        + "the three stages called separately."
                     );
                 }
 
@@ -188,8 +206,12 @@ public class UvUnwrapPipelinePropertyTests {
     /// <summary>The same criterion across six orders of magnitude, which is where a constant shows up.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The one axis the first property leaves out, and it is the one this repository has
-    ///         been bitten by repeatedly.</b> <c>Vector3.Normalize</c> gives up below an <i>absolute</i>
+    ///         ⚠
+    ///         <b>
+    ///             The one axis the first property leaves out, and it is the one this repository has
+    ///             been bitten by repeatedly.
+    ///         </b>
+    ///         <c>Vector3.Normalize</c> gives up below an <i>absolute</i>
     ///         <c>MathUtil.ZeroTolerance</c> and a cross product scales as the square of the model, so a
     ///         cotangent weight, a chart area and a triangle's own orientation are all quantities that
     ///         underflow at a thousandth and are fine at a thousand times.
@@ -206,7 +228,7 @@ public class UvUnwrapPipelinePropertyTests {
     [Fact]
     public void Every_surface_at_every_scale_unwraps_or_refuses_and_never_throws() {
         SurfaceSpace.Sized.Sample(
-            recipe => {
+            static recipe => {
                 var settings = new UvSettings();
                 var what = $"unwrapping {recipe}";
                 var mesh = RunawayGuard.Run($"building {recipe}", () => SurfaceSpace.Build(recipe));
@@ -240,20 +262,35 @@ public class UvUnwrapPipelinePropertyTests {
     /// <param name="gap">What <see cref="PackedAtlas.MinimumGap" /> read.</param>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>This is a finding rather than a tolerance, and it is written as an assertion about
-    ///         the defect's <i>shape</i> so that it cannot quietly grow.</b> Over the space of surfaces,
+    ///         ⚠
+    ///         <b>
+    ///             This is a finding rather than a tolerance, and it is written as an assertion about
+    ///             the defect's <i>shape</i> so that it cannot quietly grow.
+    ///         </b>
+    ///         Over the space of surfaces,
     ///         the packer's texel gap comes out short of the margin on a set in a few hundred:
-    ///         re-measured at 128², 600 recipes per margin, <b>1 of 564 sets at a margin of 1, 1 of 567
-    ///         at 2, 2 of 561 at 3, 10 of 554 at 4 and 2 of 556 at 6</b>. ⚠ <b>The rate is the part
-    ///         that is not stable and must not be quoted as though it were</b> — sixteen occurrences
+    ///         re-measured at 128², 600 recipes per margin,
+    ///         <b>
+    ///             1 of 564 sets at a margin of 1, 1 of 567
+    ///             at 2, 2 of 561 at 3, 10 of 554 at 4 and 2 of 556 at 6
+    ///         </b>
+    ///         . ⚠
+    ///         <b>
+    ///             The rate is the part
+    ///             that is not stable and must not be quoted as though it were
+    ///         </b>
+    ///         — sixteen occurrences
     ///         across 2,802 sets is too few to separate a margin's rate from the seed, and an earlier
     ///         measurement of the same sweep put the counts at 0, 4, 4, 6 and 9. What is stable, and
     ///         what is asserted below, is the <i>shape</i>: in all sixteen the shortfall is exactly
     ///         one texel, never two, and every offending pair is on the exact diagonal.
     ///     </para>
     ///     <para>
-    ///         <b>That every offending pair is at exactly 45° is what this asserts and what makes it a
-    ///         statement rather than a slackened bound.</b> The margin is enforced per axis, so a
+    ///         <b>
+    ///             That every offending pair is at exactly 45° is what this asserts and what makes it a
+    ///             statement rather than a slackened bound.
+    ///         </b>
+    ///         The margin is enforced per axis, so a
     ///         contact on the diagonal is <c>margin</c> apart in <i>each</i> axis rather than
     ///         <c>margin + 1</c>, and the Chebyshev probe — which is the right metric, because a mip tap
     ///         averages a box and not a cross — reads that as one texel short. Smallest reproducer:
@@ -262,19 +299,30 @@ public class UvUnwrapPipelinePropertyTests {
     ///         two right triangles whose hypotenuses face each other.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>At the build's counts this path is all but dormant, and that is worth knowing
-    ///         before reading a green run as evidence.</b> A rate near one set in three hundred against
+    ///         ⚠
+    ///         <b>
+    ///             At the build's counts this path is all but dormant, and that is worth knowing
+    ///             before reading a green run as evidence.
+    ///         </b>
+    ///         A rate near one set in three hundred against
     ///         a dozen cases a build means the assertion below fires a few times a year on the gate and
     ///         a few times a night overnight. It is a tripwire on a known shape, not a measurement.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>It is not the mechanism the packer's own remarks blame, and that is the part worth
-    ///         acting on.</b>
+    ///         ⚠
+    ///         <b>
+    ///             It is not the mechanism the packer's own remarks blame, and that is the part worth
+    ///             acting on.
+    ///         </b>
     ///         <see cref="UvPackPropertyTests.No_island_ever_comes_nearer_than_the_margin_to_another_island_or_to_the_edge" />
     ///         measured the same one-texel shortfall at the same rate over <see cref="IslandSpace" /> and
     ///         attributed it to slivers — "every offending pair in every one of them had a sliver under a
-    ///         texel thick in it" — and excluded islands below a texel on that basis. ⚠ <b>The sweep
-    ///         above applies that same exclusion and the shortfall survives it</b>, on islands the
+    ///         texel thick in it" — and excluded islands below a texel on that basis. ⚠
+    ///         <b>
+    ///             The sweep
+    ///             above applies that same exclusion and the shortfall survives it
+    ///         </b>
+    ///         , on islands the
     ///         packer never shrank under a texel. So the sliver was a coincidence of that generator,
     ///         the cause is the diagonal, and the fix is in the conservative bound rather than in the
     ///         exclusion.
@@ -285,7 +333,7 @@ public class UvUnwrapPipelinePropertyTests {
 
         for (var y = 0; y < Resolution; y++) {
             for (var x = 0; x < Resolution; x++) {
-                var here = map[(y * Resolution) + x];
+                var here = map[y * Resolution + x];
 
                 if (here < 0) {
                     continue;
@@ -300,7 +348,7 @@ public class UvUnwrapPipelinePropertyTests {
                             continue;
                         }
 
-                        var there = map[(row * Resolution) + column];
+                        var there = map[row * Resolution + column];
 
                         if (there < 0 || there == here) {
                             continue;
@@ -309,7 +357,7 @@ public class UvUnwrapPipelinePropertyTests {
                         Assert.True(
                             Math.Abs(dx) == Margin && Math.Abs(dy) == Margin,
                             $"{what}: island {here} at ({x}, {y}) is ({dx}, {dy}) from island {there}, which is "
-                            + $"a shortfall that is not the diagonal one."
+                            + "a shortfall that is not the diagonal one."
                         );
                     }
                 }
@@ -352,7 +400,7 @@ public class UvUnwrapPipelinePropertyTests {
         foreach (var timing in report.Stages) {
             Assert.True(
                 (int)timing.Stage > seen,
-                $"{what}: the stage ledger runs [{string.Join(", ", report.Stages.Select(entry => entry.Stage))}]."
+                $"{what}: the stage ledger runs [{string.Join(", ", report.Stages.Select(static entry => entry.Stage))}]."
             );
 
             seen = (int)timing.Stage;
@@ -367,7 +415,7 @@ public class UvUnwrapPipelinePropertyTests {
             var placements = UvUnwrap.Pack(islands, Packing);
             var report = UvUnwrap.All(mesh, settings, Packing, out var uvs);
 
-            return (report, uvs, [.. islands], placements);
+            return (report, uvs, [..islands], placements);
         } catch (InvalidOperationException) {
             return null;
         }
@@ -406,6 +454,6 @@ public class UvUnwrapPipelinePropertyTests {
             }
         }
 
-        return [.. thick];
+        return [..thick];
     }
 }

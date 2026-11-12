@@ -104,8 +104,12 @@ public interface ISceneComponentBinder {
     /// <param name="entity">The entity.</param>
     /// <returns>Whether it does.</returns>
     /// <remarks>
-    ///     ⚠ <b>Asked before <see cref="ValueOn" />, which throws on an entity that does not have
-    ///     one.</b> An editor drawing "what is on this entity" has to enumerate the registered
+    ///     ⚠
+    ///     <b>
+    ///         Asked before <see cref="ValueOn" />, which throws on an entity that does not have
+    ///         one.
+    ///     </b>
+    ///     An editor drawing "what is on this entity" has to enumerate the registered
     ///     components and ask each — there is no way to go the other way, because an archetype knows
     ///     dense ids and a panel knows names.
     /// </remarks>
@@ -183,7 +187,7 @@ sealed class SceneComponentBinder<T> : ISceneComponentBinder {
             return;
         }
 
-        var typed = (T) value;
+        var typed = (T)value;
         serializer.Serialize(ref writer, in typed);
     }
 
@@ -207,7 +211,7 @@ sealed class SceneComponentBinder<T> : ISceneComponentBinder {
             return;
         }
 
-        var typed = (T) value;
+        var typed = (T)value;
 
         if (world.Has<T>(entity)) {
             world.Set(entity, in typed);
@@ -258,8 +262,12 @@ sealed class SceneComponentBinder<T> : ISceneComponentBinder {
 ///         registration rather than at the load.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Two attributes rather than one, because a handle is a component and is not scene
-///         data.</b> <c>PhysicsBody</c> holds a body handle and carries <c>[Component]</c> without
+///         ⚠
+///         <b>
+///             Two attributes rather than one, because a handle is a component and is not scene
+///             data.
+///         </b>
+///         <c>PhysicsBody</c> holds a body handle and carries <c>[Component]</c> without
 ///         <c>[DataContract]</c>, so it is excluded by construction — no denylist, no opt-out
 ///         attribute, and nothing for anybody to remember. <see cref="Transforms.LocalTransform" />
 ///         carries neither and is absent for its own reason: every entity in a scene has one, so it
@@ -308,8 +316,12 @@ public static class SceneComponentRegistry {
     ///         entity carries.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Sorted here, because this said "in the order they were registered" and that was
-    ///         false.</b> The store is a <see cref="ConcurrentDictionary{TKey,TValue}" />, whose
+    ///         ⚠
+    ///         <b>
+    ///             Sorted here, because this said "in the order they were registered" and that was
+    ///             false.
+    ///         </b>
+    ///         The store is a <see cref="ConcurrentDictionary{TKey,TValue}" />, whose
     ///         <c>Values</c> walks the internal buckets — so the order was a function of the alias hash
     ///         codes and of how the table happened to grow, and <c>String.GetHashCode</c> is randomised
     ///         per process. The components panel draws its foldouts in this order, which is why it moved
@@ -339,8 +351,11 @@ public static class SceneComponentRegistry {
     /// <typeparam name="T">The component.</typeparam>
     /// <remarks>
     ///     <para>
-    ///         <b>What the generated <c>[ModuleInitializer]</c> calls, and the deferral is the whole
-    ///         point of it having its own method.</b> Registering needs the component's serializer,
+    ///         <b>
+    ///             What the generated <c>[ModuleInitializer]</c> calls, and the deferral is the whole
+    ///             point of it having its own method.
+    ///         </b>
+    ///         Registering needs the component's serializer,
     ///         which its assembly registers from a module initializer of its own — and the order two
     ///         module initializers in one assembly run in is unspecified. Enqueuing costs one static
     ///         delegate per component and cannot observe that order at all.
@@ -352,14 +367,17 @@ public static class SceneComponentRegistry {
     ///         message <see cref="Register{T}()" /> throws names the type and the fix either way.
     ///     </para>
     /// </remarks>
-    public static void Declare<T>() => Enqueue(static () => Register<T>(fallback: null));
+    public static void Declare<T>() => Enqueue(static () => Register<T>(null));
 
     /// <summary>Says a component exists and declares what a freshly created one holds.</summary>
     /// <typeparam name="T">The component, which has to declare a default to be named here.</typeparam>
     /// <remarks>
     ///     <para>
-    ///         <b>The other call the generated <c>[ModuleInitializer]</c> makes, and the only place the
-    ///         value can be reached from.</b> <see cref="Register{T}()" /> closes its generic over an
+    ///         <b>
+    ///             The other call the generated <c>[ModuleInitializer]</c> makes, and the only place the
+    ///             value can be reached from.
+    ///         </b>
+    ///         <see cref="Register{T}()" /> closes its generic over an
     ///         unconstrained <c>T</c>, so <c>T.DefaultValue</c> cannot be named there at all; the
     ///         constraint here is what lets the compiler bind it, which is why a declared default
     ///         costs no reflection and survives trimming and NativeAOT along with everything else the
@@ -394,7 +412,7 @@ public static class SceneComponentRegistry {
     ///     coordinate. Annotating the component is the ordinary way in; this stays public for a type
     ///     whose assembly cannot run a generator, and for a test that wants one registered now.
     /// </remarks>
-    public static void Register<T>() => Register<T>(fallback: null);
+    public static void Register<T>() => Register<T>(null);
 
     /// <summary>Makes a component nameable by a scene, carrying what a fresh one holds.</summary>
     /// <typeparam name="T">The component, which has to declare a default to be named here.</typeparam>

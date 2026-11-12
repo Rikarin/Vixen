@@ -115,9 +115,7 @@ public class TracedReflectionTests {
         var view = Vector3.Normalize(new(1f, -1f, 0f));
 
         var tracer = new TracedReflections(new Wall(), radiance, new SkyFallback(radiance)) {
-            Field = field,
-            RoughnessThreshold = 0.5f,
-            RoughnessBlend = 0.2f
+            Field = field, RoughnessThreshold = 0.5f, RoughnessBlend = 0.2f
         };
 
         // Below the band: the wall whole. At the threshold: the field whole. Midway: half of each.
@@ -139,7 +137,7 @@ public class TracedReflectionTests {
         var wall = new Wall();
 
         new SurfaceCache.TracedCardCapture(wall, new Paint()).Capture(store, card);
-        new SurfaceCache.CardRadiosity(wall) { Sky = _ => new(1f) }.Gather(store);
+        new SurfaceCache.CardRadiosity(wall) { Sky = static _ => new(1f) }.Gather(store);
 
         var dark = new Constant { SurfaceValue = Vector3.Zero, SkyValue = Vector3.Zero };
         var cached = new SurfaceCache.SurfaceCacheRadiance(store, dark);

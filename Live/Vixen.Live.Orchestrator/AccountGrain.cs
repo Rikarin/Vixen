@@ -54,8 +54,8 @@ public sealed class AccountState {
     /// <returns>The holdings.</returns>
     public AccountHoldings Holdings() =>
         new(
-            [.. unlocks.Values.OrderBy(unlock => unlock.Order)],
-            [.. earned.OrderBy(pair => pair.Value).Select(pair => pair.Key)],
+            [..unlocks.Values.OrderBy(static unlock => unlock.Order)],
+            [..earned.OrderBy(static pair => pair.Value).Select(static pair => pair.Key)],
             Points,
             Revision
         );

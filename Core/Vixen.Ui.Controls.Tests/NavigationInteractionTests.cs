@@ -45,7 +45,7 @@ public class NavigationInteractionTests {
 
         // Exactly one is checked, which is the claim a tab strip exists to make.
         ui.Get("tab").Nth(2).ShouldHaveState(ElementState.Checked);
-        Assert.Equal(1, ui.Get("tab").Elements.Count(tab => (tab.State & ElementState.Checked) != 0));
+        Assert.Equal(1, ui.Get("tab").Elements.Count(static tab => (tab.State & ElementState.Checked) != 0));
     }
 
     [Fact]
@@ -163,8 +163,12 @@ public class NavigationInteractionTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>Sections built as children rather than through <c>AddSection</c>, because that is
-    ///     the only shape markup can produce.</b> An <c>&lt;Accordion AllowMultiple="false"&gt;</c>
+    ///     ⚠
+    ///     <b>
+    ///         Sections built as children rather than through <c>AddSection</c>, because that is
+    ///         the only shape markup can produce.
+    ///     </b>
+    ///     An <c>&lt;Accordion AllowMultiple="false"&gt;</c>
     ///     with expanders written inside it has no <c>AddSection</c> to call, so an accordion that
     ///     only knew about registered sections parsed the attribute, bound it, and behaved like a
     ///     column of expanders. This is the same test as the one above with the two lines that build
@@ -362,11 +366,11 @@ public class NavigationInteractionTests {
         // of a few pixels drags empty space — and the first version of this test did exactly that
         // and reported the scrollbar as broken.
         var bounds = bar.Bounds;
-        var x = bounds.X + (bounds.Width * 0.5f);
+        var x = bounds.X + bounds.Width * 0.5f;
 
         // A scrollbar's thumb is drawn rather than laid out, so the drag has to be given
         // coordinates. Starting at the element's centre would grab whatever happens to be there.
-        ui.Drag(x, bounds.Y + 10f, x, bounds.Y + (bounds.Height * 0.8f));
+        ui.Drag(x, bounds.Y + 10f, x, bounds.Y + bounds.Height * 0.8f);
 
         Assert.True(bar.Value > 0f, $"expected the bar to move, got {bar.Value}");
         Assert.NotEmpty(scrolled);

@@ -52,8 +52,12 @@ public readonly record struct ColouredEdge(Vector2 From, Vector2 To, EdgeChannel
 ///         grows a notch.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Corners are found from the outline's own tangents, never from the flattened
-///         chords.</b> Two things go wrong with chords, and this cost two attempts. A curve cut into
+///         ⚠
+///         <b>
+///             Corners are found from the outline's own tangents, never from the flattened
+///             chords.
+///         </b>
+///         Two things go wrong with chords, and this cost two attempts. A curve cut into
 ///         twenty pieces has nineteen internal joins that each turn a few degrees, and any threshold
 ///         small enough to catch a shallow real corner calls all of them corners. And even at a
 ///         genuine segment boundary the two neighbouring chords differ by about one step's worth of
@@ -89,7 +93,7 @@ public static class EdgeColoring {
                 ? channels[edge.Source]
                 : EdgeChannels.White;
 
-            coloured.Add(new ColouredEdge(edge.From, edge.To, channel));
+            coloured.Add(new(edge.From, edge.To, channel));
         }
 
         return coloured;
@@ -112,7 +116,7 @@ public static class EdgeColoring {
             switch (segment.Verb) {
                 case OutlineVerb.Move:
                     Finish(channels, contour, points);
-                    cursor = start = new Vector2(segment.X0, segment.Y0);
+                    cursor = start = new(segment.X0, segment.Y0);
                     break;
 
                 case OutlineVerb.Line: {
@@ -125,7 +129,13 @@ public static class EdgeColoring {
                 case OutlineVerb.Quadratic: {
                     var control = new Vector2(segment.X0, segment.Y0);
                     var to = new Vector2(segment.X1, segment.Y1);
-                    Record(contour, points, i, Nonzero(control - cursor, to - cursor), Nonzero(to - control, to - cursor));
+                    Record(
+                        contour,
+                        points,
+                        i,
+                        Nonzero(control - cursor, to - cursor),
+                        Nonzero(to - control, to - cursor)
+                    );
                     cursor = to;
                     break;
                 }
@@ -147,9 +157,6 @@ public static class EdgeColoring {
                     Finish(channels, contour, points);
                     cursor = start;
                     break;
-
-                default:
-                    break;
             }
         }
 
@@ -157,7 +164,13 @@ public static class EdgeColoring {
         return channels;
     }
 
-    static void Record(List<int> contour, List<(Vector2 In, Vector2 Out)> points, int index, Vector2 entering, Vector2 leaving) {
+    static void Record(
+        List<int> contour,
+        List<(Vector2 In, Vector2 Out)> points,
+        int index,
+        Vector2 entering,
+        Vector2 leaving
+    ) {
         contour.Add(index);
         points.Add((entering, leaving));
     }

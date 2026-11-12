@@ -18,7 +18,7 @@ namespace Vixen.Ai.Nodes.Tests;
 
 /// <summary>A thing worth scavenging. The sample's only game rule, and it is one component.</summary>
 [Component]
-struct Scrap;
+readonly struct Scrap;
 
 /// <summary>
 ///     P9's sample: one level, three agent kinds, one of each planner, sharing one perception model.
@@ -180,7 +180,7 @@ public class VillageSampleTests {
         readonly Level level = new();
 
         public Village() {
-            Registry = new AgentActionRegistry();
+            Registry = new();
             Layout = new BlackboardLayoutBuilder()
                 .Add("target", BlackboardValueType.Entity)
                 .Add("seen", BlackboardValueType.Vector3)
@@ -198,7 +198,7 @@ public class VillageSampleTests {
             var deposit = Registry.Register("deposit", new MoveToTask(Key("depot"), 2f, 2f), MoveToTask.StateSize);
             var patrol = Registry.Register("patrol", new PatrolTask(1.5f), PatrolTask.StateSize);
 
-            Agents = new AiSystem(Registry, Layout) { Governor = new UnboundedGovernor() };
+            Agents = new(Registry, Layout) { Governor = new UnboundedGovernor() };
             Perception = Perceive();
             Perception.Agents = Agents;
             level.Agents = Agents;
@@ -226,7 +226,7 @@ public class VillageSampleTests {
 
             Intruder = level.World.Create(
                 LocalTransform.At(new(38f, 0f, 38f)),
-                AiStimuliSource.Perceivable(team: 2, senses: SenseMask.Sight)
+                AiStimuliSource.Perceivable(2, SenseMask.Sight)
             );
         }
 
@@ -255,14 +255,13 @@ public class VillageSampleTests {
         public ref LocalTransform Transform(Entity entity) => ref level.Transform(entity);
 
         /// <summary>Sense, then think, then walk — the order <c>PerceptionSystem</c> declares.</summary>
-        public void Step(int frames) =>
-            level.Step(frames, frame => Perception.Step(level.World, Level.Frame(frame)));
+        public void Step(int frames) => level.Step(frames, frame => Perception.Step(level.World, Level.Frame(frame)));
 
         Entity Spawn(Vector3 at, in AiAgent agent) {
             var entity = level.Walker(at);
 
             level.World.Add(entity, agent);
-            level.World.Add(entity, AiPerception.Sensing(0, team: 1));
+            level.World.Add(entity, AiPerception.Sensing(0, 1));
 
             return entity;
         }
@@ -278,7 +277,7 @@ public class VillageSampleTests {
             var system = new PerceptionSystem();
 
             system.Configs.Add(
-                new PerceptionConfig {
+                new() {
                     Name = Symbol.Intern("villager-eyes"),
                     Senses = SenseMask.Sight,
                     Sight = new() { Radius = 14f, LoseSightRadius = 16f, ConeDegrees = 360f, Occlusion = false },
@@ -333,15 +332,22 @@ public class VillageSampleTests {
                 new UtilityAction(
                     Symbol.Intern("rest"),
                     Pause,
-                    new UtilityConsideration(Symbol.Intern("calm"), UtilityInputs.Constant(0.35f), ResponseCurve.Identity)
+                    new UtilityConsideration(
+                        Symbol.Intern("calm"),
+                        UtilityInputs.Constant(0.35f),
+                        ResponseCurve.Identity
+                    )
                 )
             );
 
         /// <summary>Fetch the scrap, then take it to the depot.</summary>
         GoapDomain ScavengerDomain(ushort collect, ushort deposit) {
             var keys = new GoapWorldKeys(
-                new(Symbol.Intern("at-scrap"), GoapWorldSources.From((in AgentContext c) => Near(in c, ScrapPile))),
-                new(Symbol.Intern("delivered"), GoapWorldSources.From((in AgentContext c) => Near(in c, Depot)))
+                new(
+                    Symbol.Intern("at-scrap"),
+                    GoapWorldSources.From(static (in AgentContext c) => Near(in c, ScrapPile))
+                ),
+                new(Symbol.Intern("delivered"), GoapWorldSources.From(static (in AgentContext c) => Near(in c, Depot)))
             );
 
             var atScrap = new GoapWorldKey(0);

@@ -17,8 +17,12 @@ namespace Vixen.Editor.Texturing.Tests;
 ///         reordered op that identical pixels would hide.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Both halves go through one compiler on purpose, and that is what the differential is
-///         and is not.</b> § D1 says the stack must not get an evaluator of its own, so
+///         ⚠
+///         <b>
+///             Both halves go through one compiler on purpose, and that is what the differential is
+///             and is not.
+///         </b>
+///         § D1 says the stack must not get an evaluator of its own, so
 ///         <c>LayerStackGraph</c> builds a graph and <c>TextureGraphCompiler</c> compiles it — there
 ///         are not two compilers here to disagree. What the test therefore measures is the
 ///         <em>round trip and the decoration</em>: whether the comments, the layout and the YAML
@@ -69,8 +73,11 @@ public class LayerStackExplodeTests {
 
     /// <summary>⚠ The differential's mask reaches the compiler rather than folding into an opacity.</summary>
     /// <remarks>
-    ///     <b><a href="https://github.com/Rikarin/Vixen/issues/895">#895</a>, and it is an instrument
-    ///     check rather than a feature.</b> The fixture's summary said it contained a mask and so did
+    ///     <b>
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/895">#895</a>, and it is an instrument
+    ///         check rather than a feature.
+    ///     </b>
+    ///     The fixture's summary said it contained a mask and so did
     ///     <c>docs/overview.md</c>; <a href="https://github.com/Rikarin/Vixen/issues/789">#789</a>'s
     ///     fold had quietly made both false, because a bare constant mask inside the unit interval
     ///     compiles to no ops at all. The mask now has two entries, and this is what says so — read
@@ -99,12 +106,12 @@ public class LayerStackExplodeTests {
     public void An_exploded_graph_says_it_is_one_way_and_names_its_layers() {
         var stack = LayerStackDifferential.Stack();
         var exploded = LayerStackExplode.Explode(stack, stack.Sets[0]);
-        var texts = exploded.Graph.Comments.ConvertAll(comment => comment.Text);
+        var texts = exploded.Graph.Comments.ConvertAll(static comment => comment.Text);
 
         Assert.Contains(LayerStackExplode.ExplodedHeader, texts);
-        Assert.Contains(texts, text => text.Contains("Layer 'Grime colour'", StringComparison.Ordinal));
-        Assert.Contains(texts, text => text.Contains("Constant mask", StringComparison.Ordinal));
-        Assert.Contains(texts, text => text.Contains("Channel 'roughness'", StringComparison.Ordinal));
+        Assert.Contains(texts, static text => text.Contains("Layer 'Grime colour'", StringComparison.Ordinal));
+        Assert.Contains(texts, static text => text.Contains("Constant mask", StringComparison.Ordinal));
+        Assert.Contains(texts, static text => text.Contains("Channel 'roughness'", StringComparison.Ordinal));
     }
 
     /// <summary>The decoration is comments, and comments only.</summary>
@@ -170,15 +177,15 @@ public class LayerStackExplodeTests {
             var reloaded = LayerStackExplode.Read(text, out var diagnostics);
 
             Assert.Empty(diagnostics);
-            Assert.Contains(reloaded.Nodes, node => node.Type == "Output/Output");
+            Assert.Contains(reloaded.Nodes, static node => node.Type == "Output/Output");
         } finally {
-            Directory.Delete(directory, recursive: true);
+            Directory.Delete(directory, true);
         }
     }
 
     static string Order(LayerStackBuild build) =>
-        string.Join("\n", build.Graph.Nodes.Select(node => $"{node.Id.Value} {node.Type}"));
+        string.Join("\n", build.Graph.Nodes.Select(static node => $"{node.Id.Value} {node.Type}"));
 
     static string Wires(LayerStackBuild build) =>
-        string.Join("\n", build.Graph.Edges.Select(edge => $"{edge.From} -> {edge.To}"));
+        string.Join("\n", build.Graph.Edges.Select(static edge => $"{edge.From} -> {edge.To}"));
 }

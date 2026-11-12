@@ -35,8 +35,11 @@ public enum BindingSource : byte {
 /// <summary>Which chord runs which command.</summary>
 /// <remarks>
 ///     <para>
-///         <b>Three layers: the defaults the application ships, a preset, and the overrides the user
-///         made.</b> Only the last is saved, which is what makes "we moved Save All to Ctrl+Alt+S in
+///         <b>
+///             Three layers: the defaults the application ships, a preset, and the overrides the user
+///             made.
+///         </b>
+///         Only the last is saved, which is what makes "we moved Save All to Ctrl+Alt+S in
 ///         0.3" reach everyone who had not deliberately rebound it — a keymap file holding every
 ///         binding freezes the defaults at the version the user first ran, and every editor that
 ///         shipped one has a support burden to prove it.
@@ -121,8 +124,12 @@ public sealed class KeyMap {
     /// <summary>Where a preset named in a keymap file is looked up.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A delegate rather than a table here, because a team's own preset is a file rather
-    ///         than a constant.</b> Doc 20 asks for three shipped presets and says the format is the
+    ///         ⚠
+    ///         <b>
+    ///             A delegate rather than a table here, because a team's own preset is a file rather
+    ///             than a constant.
+    ///         </b>
+    ///         Doc 20 asks for three shipped presets and says the format is the
     ///         one the override layer already reads — which means a studio can ship a fourth, and the
     ///         only thing standing between them and it is where the name is resolved.
     ///     </para>
@@ -133,13 +140,16 @@ public sealed class KeyMap {
     ///         reached for a particular set would make this class know one application's names.
     ///     </para>
     /// </remarks>
-    public Func<string, KeyMapPreset?> PresetSource { get; set; } = _ => null;
+    public Func<string, KeyMapPreset?> PresetSource { get; set; } = static _ => null;
 
     /// <summary>Which context a command belongs to, asked whenever a chord is claimed or resolved.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>The registry answers this, so <see cref="EditorCommand.Context" /> stays the one
-    ///         declaration.</b> A second table here would be a second place to keep in step, and the
+    ///         <b>
+    ///             The registry answers this, so <see cref="EditorCommand.Context" /> stays the one
+    ///             declaration.
+    ///         </b>
+    ///         A second table here would be a second place to keep in step, and the
     ///         way that goes wrong is a plugin's command whose context the keymap never heard about
     ///         binding over the outliner's Delete.
     ///     </para>
@@ -429,8 +439,12 @@ public sealed class KeyMap {
     ///         underneath" and the user said the opposite.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Exposed rather than written out here, because the format is not this
-    ///         assembly's.</b> See <see cref="KeyMapPreset" />: persisting a keymap is a choice about
+    ///         ⚠
+    ///         <b>
+    ///             Exposed rather than written out here, because the format is not this
+    ///             assembly's.
+    ///         </b>
+    ///         See <see cref="KeyMapPreset" />: persisting a keymap is a choice about
     ///         where an application keeps preferences, and <c>Vixen.Ui.Controls.Advanced.KeyMapYaml</c>
     ///         is one answer, above this assembly. This property and <see cref="Restore" /> are the
     ///         two halves of the round trip, and nothing between them names a file format.

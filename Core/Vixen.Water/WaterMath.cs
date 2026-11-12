@@ -8,8 +8,11 @@ namespace Vixen.Water;
 /// <summary>The arithmetic both hosts of the evaluator agree on, to the last bit.</summary>
 /// <remarks>
 ///     <para>
-///         <b>[35 § Risks](../../docs/plan/35-water.md#risks), decided in W1 rather than discovered
-///         in W7.</b> The seam test between the C# evaluator and the Raven one states a tolerance of
+///         <b>
+///             [35 § Risks](../../docs/plan/35-water.md#risks), decided in W1 rather than discovered
+///             in W7.
+///         </b>
+///         The seam test between the C# evaluator and the Raven one states a tolerance of
 ///         <em>exact</em>, and exact float agreement between a CPU and a SPIR-V implementation is a
 ///         real claim that <c>sin</c> and <c>cos</c> do not support: the Vulkan specification allows
 ///         <c>OpSin</c> 8192 ULP of error over the useful range, and a driver is free to use a
@@ -102,12 +105,23 @@ public static class WaterMath {
 
         // Minimax-style odd polynomial for sine over [-π, π]. Written in Horner form and
         // parenthesised, because the order of the roundings is part of the contract.
-        var s = reduced * (1f + (square * (-0.16666667f + (square * (0.008333333f
-            + (square * (-0.00019841270f + (square * (2.7557314e-6f + (square * -2.5052108e-8f))))))))));
+        var s = reduced
+            * (1f
+                + square
+                * (-0.16666667f
+                    + square
+                    * (0.008333333f
+                        + square * (-0.00019841270f + square * (2.7557314e-6f + square * -2.5052108e-8f)))));
 
         // And the even one for cosine.
-        var c = 1f + (square * (-0.5f + (square * (0.041666668f + (square * (-0.0013888889f
-            + (square * (2.4801587e-5f + (square * -2.7557319e-7f)))))))));
+        var c = 1f
+            + square
+            * (-0.5f
+                + square
+                * (0.041666668f
+                    + square
+                    * (-0.0013888889f
+                        + square * (2.4801587e-5f + square * -2.7557319e-7f))));
 
         sin = flipped ? -s : s;
         cos = flipped ? -c : c;
@@ -155,14 +169,14 @@ public static class WaterMath {
 
         // Each product is exact against its piece, so each subtraction cancels completely and what is
         // left is the next piece's business.
-        var reduced = radians - (halfCycles * PiA);
+        var reduced = radians - halfCycles * PiA;
         reduced -= halfCycles * PiB;
         reduced -= halfCycles * PiC;
         reduced -= halfCycles * PiD;
 
         // An odd number of πs removed negates both sine and cosine. Computed by halving rather than
         // by a bit test, because `halfCycles` is a float and may be larger than an int.
-        flipped = MathF.Abs(halfCycles - (2f * MathF.Round(halfCycles * 0.5f))) > 0.5f;
+        flipped = MathF.Abs(halfCycles - 2f * MathF.Round(halfCycles * 0.5f)) > 0.5f;
 
         return reduced;
     }
@@ -186,8 +200,12 @@ public static class WaterMath {
     ///         is the one a Raven module already mirrors.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The two are combined by multiply-and-add rather than by XOR, and that one
-    ///         difference is load-bearing.</b> The mixer is a bijection with a fixed point at zero, so
+    ///         ⚠
+    ///         <b>
+    ///             The two are combined by multiply-and-add rather than by XOR, and that one
+    ///             difference is load-bearing.
+    ///         </b>
+    ///         The mixer is a bijection with a fixed point at zero, so
     ///         <c>seed ^ index</c> hands it zero whenever the two are equal — and every spectrum would
     ///         share one wave with every other along that diagonal, at exactly the same wavelength,
     ///         phase and direction. In a scatter that is one shrub; in a spectrum it is two seas that
@@ -195,7 +213,7 @@ public static class WaterMath {
     ///     </para>
     /// </remarks>
     public static uint Hash(uint seed, int index) {
-        var hash = (seed * 0x9E3779B1u) + (uint)index;
+        var hash = seed * 0x9E3779B1u + (uint)index;
 
         hash ^= hash >> 16;
         hash *= 0x7FEB352Du;
@@ -249,6 +267,6 @@ public static class WaterMath {
 
         var t = Saturate((value - edge0) / (edge1 - edge0));
 
-        return t * t * (3f - (2f * t));
+        return t * t * (3f - 2f * t);
     }
 }

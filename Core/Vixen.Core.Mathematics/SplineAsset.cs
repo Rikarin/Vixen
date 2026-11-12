@@ -46,7 +46,7 @@ public sealed class SplineAsset {
     }
 
     /// <summary>What it is called, which is what a scene names it by.</summary>
-    public string Name { get; set; } = "";
+    public string Name { get; set; } = string.Empty;
 
     /// <summary>Whether the last point joins back to the first.</summary>
     public bool IsClosed { get; set; }
@@ -54,8 +54,12 @@ public sealed class SplineAsset {
     /// <summary>The control points, in order.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Settable, and it has to be, because this is the one member that makes the asset an
-    ///         asset.</b> It was a getter-only <c>IReadOnlyList</c>, and both serialisers skip a member
+    ///         ⚠
+    ///         <b>
+    ///             Settable, and it has to be, because this is the one member that makes the asset an
+    ///             asset.
+    ///         </b>
+    ///         It was a getter-only <c>IReadOnlyList</c>, and both serialisers skip a member
     ///         they cannot write to — so a <c>.vxspline</c> round-tripped to a name, a closed flag and
     ///         <em>no curve</em>. Nothing caught it because everything downstream asks
     ///         <see cref="CanBuild" /> first and draws nothing when the answer is no: a road that never
@@ -153,8 +157,7 @@ public sealed class SplineAsset {
     /// </remarks>
     public void SetTangentOut(int index, Vector3 tangentOut, bool mirror = true) =>
         points[index] = points[index] with {
-            TangentOut = tangentOut,
-            TangentIn = mirror ? -tangentOut : points[index].TangentIn
+            TangentOut = tangentOut, TangentIn = mirror ? -tangentOut : points[index].TangentIn
         };
 
     /// <summary>And the incoming one.</summary>
@@ -163,8 +166,7 @@ public sealed class SplineAsset {
     /// <param name="mirror">Whether the outgoing tangent becomes its negation.</param>
     public void SetTangentIn(int index, Vector3 tangentIn, bool mirror = true) =>
         points[index] = points[index] with {
-            TangentIn = tangentIn,
-            TangentOut = mirror ? -tangentIn : points[index].TangentOut
+            TangentIn = tangentIn, TangentOut = mirror ? -tangentIn : points[index].TangentOut
         };
 
     /// <summary>Recomputes every tangent from the positions, making the path smooth throughout.</summary>
@@ -196,8 +198,12 @@ public sealed class SplineAsset {
     /// <returns>The index of the new point, or −1 if there was no segment there.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The shape is preserved, and that is the whole reason this is not
-    ///         <see cref="Insert" /> with an evaluated position.</b> Dropping a point onto the curve
+    ///         ⚠
+    ///         <b>
+    ///             The shape is preserved, and that is the whole reason this is not
+    ///             <see cref="Insert" /> with an evaluated position.
+    ///         </b>
+    ///         Dropping a point onto the curve
     ///         and leaving the tangents alone moves the road, because the two halves are now
     ///         parameterised over half the span each — so the author's next act is to drag it back to
     ///         where it already was.
@@ -234,8 +240,8 @@ public sealed class SplineAsset {
         // Hermite to Bézier. Evaluate's basis uses M0 = TangentOut and M1 = −TangentIn, and a cubic
         // Bézier's inner controls are one third of those along the segment.
         var b0 = start.Position;
-        var b1 = start.Position + (start.TangentOut / 3f);
-        var b2 = end.Position + (end.TangentIn / 3f);
+        var b1 = start.Position + start.TangentOut / 3f;
+        var b2 = end.Position + end.TangentIn / 3f;
         var b3 = end.Position;
 
         var a = Vector3.Lerp(b0, b1, t);
@@ -274,10 +280,8 @@ public sealed class SplineAsset {
     ///     one path and not two.
     /// </remarks>
     public SplineAsset? Split(int index, string? name = null) {
-        if (index <= 0 || index >= points.Count - 1) {
-            if (!IsClosed) {
-                return null;
-            }
+        if ((index <= 0 || index >= points.Count - 1) && !IsClosed) {
+            return null;
         }
 
         if (IsClosed) {
@@ -295,7 +299,10 @@ public sealed class SplineAsset {
             return null;
         }
 
-        var tail = new SplineAsset(name ?? $"{Name} (2)", System.Runtime.InteropServices.CollectionsMarshal.AsSpan(points)[index..]);
+        var tail = new SplineAsset(
+            name ?? $"{Name} (2)",
+            System.Runtime.InteropServices.CollectionsMarshal.AsSpan(points)[index..]
+        );
 
         points.RemoveRange(index + 1, points.Count - index - 1);
 
@@ -363,8 +370,7 @@ public sealed class SplineAsset {
 
     /// <summary>An independent copy.</summary>
     /// <returns>The copy.</returns>
-    public SplineAsset Clone() =>
-        new(Name, System.Runtime.InteropServices.CollectionsMarshal.AsSpan(points), IsClosed);
+    public SplineAsset Clone() => new(Name, System.Runtime.InteropServices.CollectionsMarshal.AsSpan(points), IsClosed);
 
     /// <summary>Why this asset cannot be used, or <see langword="null" /> if it can.</summary>
     public string? Validate() {

@@ -72,7 +72,7 @@ public sealed class ScriptedWalk : IPlayerInputSource {
     /// <exception cref="ArgumentNullException"><paramref name="legs" /> is null.</exception>
     public ScriptedWalk(IEnumerable<Leg> legs) {
         ArgumentNullException.ThrowIfNull(legs);
-        this.legs = [.. legs];
+        this.legs = [..legs];
 
         foreach (var leg in this.legs) {
             Duration += leg.Seconds;
@@ -83,8 +83,10 @@ public sealed class ScriptedWalk : IPlayerInputSource {
     /// <param name="Seconds">How long, in simulated seconds.</param>
     /// <param name="Forward">Throttle along the aim. One is the character's full walk speed.</param>
     /// <param name="Strafe">Throttle across it. Positive is right.</param>
-    /// <param name="YawRate">Degrees a second of turn. Positive turns left, as
-    ///     <c>ControlRotation.Turn</c> does.</param>
+    /// <param name="YawRate">
+    ///     Degrees a second of turn. Positive turns left, as
+    ///     <c>ControlRotation.Turn</c> does.
+    /// </param>
     /// <param name="PitchRate">Degrees a second of tilt. Positive looks up.</param>
     public readonly record struct Leg(
         float Seconds,

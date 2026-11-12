@@ -9,8 +9,11 @@ namespace Vixen.Ui.Controls.Tests;
 /// <summary>A virtualised list whose row template is a build body rather than hand-written C#.</summary>
 /// <remarks>
 ///     <para>
-///         <b><c>BuildContext.Pool</c> is the runtime half of
-///         <a href="https://github.com/Rikarin/Vixen/issues/758">#758</a></b>, and the half a markup
+///         <b>
+///             <c>BuildContext.Pool</c> is the runtime half of
+///             <a href="https://github.com/Rikarin/Vixen/issues/758">#758</a>
+///         </b>
+///         , and the half a markup
 ///         spelling would compile to. <c>VirtualListReachTests</c> established what was actually
 ///         true — the control is reachable from a <c>.vxml</c> through <c>use=</c>, and the gap is
 ///         that a row <i>template</i> had no construct — so this closes the part of that gap which
@@ -18,8 +21,12 @@ namespace Vixen.Ui.Controls.Tests;
 ///         else, with <c>@if</c>, <c>refs</c>, a nested loop and ordinary bindings available in it.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The body runs once per SLOT and not once per item, and that is the assertion that
-///         matters.</b> A pooled list and a correct list that allocated ten thousand boxes look
+///         ⚠
+///         <b>
+///             The body runs once per SLOT and not once per item, and that is the assertion that
+///             matters.
+///         </b>
+///         A pooled list and a correct list that allocated ten thousand boxes look
 ///         identical on screen and differ by four orders of magnitude in what they built, so
 ///         <c>Built</c> — counted, never timed — is what tells them apart.
 ///     </para>
@@ -112,7 +119,7 @@ public class PooledListTests {
         context.Pool(
             grid,
             "virtual-tile",
-            () => Items,
+            static () => Items,
             (_, tile, showing) => context.Bind(() => tile.Text = "tile " + showing.Value)
         );
 
@@ -153,7 +160,7 @@ public class PooledListTests {
 
         Assert.Equal(Items, sheet.List.Count);
 
-        sheet.Items.Value = [.. Enumerable.Range(0, 5).Select(i => "short " + i)];
+        sheet.Items.Value = [..Enumerable.Range(0, 5).Select(static i => "short " + i)];
         fixture.Update();
         fixture.Update();
 
@@ -207,7 +214,7 @@ public class PooledListTests {
         context.Pool(
             grid,
             "virtual-tile",
-            () => Items,
+            static () => Items,
             (_, tile, showing) => {
                 built++;
                 context.Bind(() => tile.Text = "tile " + showing.Value);
@@ -229,7 +236,7 @@ public class PooledListTests {
     static PooledListSheet Sheet(ControlFixture fixture) {
         var sheet = new PooledListSheet();
 
-        sheet.Items.Value = [.. Enumerable.Range(0, Items).Select(i => "row " + i)];
+        sheet.Items.Value = [..Enumerable.Range(0, Items).Select(static i => "row " + i)];
         BuildContext.BuildInto(sheet, fixture.Document, fixture.Document.Root);
         fixture.Update();
 

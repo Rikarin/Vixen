@@ -70,14 +70,12 @@ sed -n '/Target.*Status/,/═══/p' /tmp/gate.log
 ⚠ **Gates are per-tree, so run them after the last merge, not before the first.** A `CheckFormat`
 regression reached master twice this way; three separate agents rediscovered it independently.
 
-`--since <ref>` narrows a target to what changed — `./build.sh CheckFormat --since master` formats
-only the projects that own the diff, `./build.sh AffectedTests --since master` runs only the test
+`--since <ref>` narrows a target to what changed — `./build.sh CheckFormat --since master` checks
+only the C# files the diff touched, `./build.sh AffectedTests --since master` runs only the test
 projects reachable from them (one at a time), and `./build.sh AffectedProjects --since master` prints
 both sets without running anything. These are inner-loop conveniences and **never the gate**:
 narrowing cannot see a file a neighbour's merge broke, and a `ProjectReference` closure cannot see a
 golden image, a content bundle, an `.rvn` import closure or a test that walks the repository.
-⚠ `--include` is *not* what makes `CheckFormat --since` fast — scoping the input scopes the analysis
-and not the workspace load, and the load is essentially all of the cost.
 
 ⚠ **Run gates and test projects one at a time** on a developer machine. The whole-solution `Test`
 target runs ~176 assemblies concurrently and will saturate a laptop; runs have been SIGTERM'd
@@ -98,16 +96,14 @@ through `ProjectReference` and silently drop ~300 types in any other configurati
 "this test never runs in CI" drawn from one is wrong. Reproduce a gate result in the gate's own
 configuration.
 
-⚠ **`CheckFormat` now hard-codes Release too**: it depends on `CompileRelease` and exports
-`Configuration=Release` to `dotnet format`, because the `analyzers` pass reads a compilation and a
-compilation is only the code if the generators are in it.
-Every generator here arrives as a `ProjectReference` with `OutputItemType="Analyzer"`, so the
-workspace resolves it under `bin/$(Configuration)/` and, finding nothing, drops it — with **no
-warning at any verbosity**. `dotnet format analyzers` reports analyzer diagnostics and not compiler
-ones, so a type that exists only in generated code just vanishes and the CS0246 is filtered out; what
-reaches the console is whatever nonsense an analyzer can still express, which on master was ten
-`CA2021` errors about correct call sites (#1022). ⚠ It killed `CheckArchitecture` and `CheckApi` too,
-since CI runs the three in one invocation.
+⚠ **`CheckFormat` formats with Skala, not `dotnet format`**, and builds nothing: `skala format --check`
+is syntactic. Skala reads the same `.editorconfig`, formats every file (there is no exemption list), and
+`dotnet skala format <paths>` rewrites what it reports. Analysis is the `Skala` workflow
+(`.github/workflows/skala.yml`): a Release build with a binary log, so the generated code is in what it
+reads, then `skala check` under the gates in `skala.jsonc`. `dotnet skala verify` is the local
+equivalent — exit 0 means nothing to do. Rule severities live only in `.editorconfig`, each with its
+reason; `.skala/baseline.sarif` only shrinks. ⚠ A reformat moves the lines that `File.cs:N` citations
+point at: re-point them in the same commit, which is what `RealPlanCitationTests` checks.
 
 ### GPU and golden tests
 
@@ -212,11 +208,6 @@ zero is a valid-looking value.
   with the code.
 - **`CheckStrings`** fails on a declared string id used nowhere, and on a call site that rebuilds an id
   a declaration class already declares.
-- **`CheckWhitespace`** (also run inside `CheckFormat`) fails on a file that disagrees with
-  `dotnet format whitespace` and is not in `docs/WhitespaceExempt.txt` — **and equally on a file in
-  that list that has become clean**, so the list can only shrink. ⚠ It is 13 s for the whole tree,
-  not minutes: `--folder` loads no MSBuild workspace. `./build.sh CheckWhitespace --update-exemptions`
-  rewrites the list; read the diff, because a commit that grows it added mis-indented code.
 - **`CheckDocComments`** (also run inside `CheckFormat`) fails on a doc comment block that describes a
   member other than the one it is attached to — two `<summary>`, or a `<param>` naming a parameter the
   following member does not have — outside `docs/DocCommentExempt.txt`, **and equally on a file in

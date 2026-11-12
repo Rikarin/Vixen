@@ -20,8 +20,12 @@ namespace Vixen.Editor.Terrain.Tests;
 ///     read — [docs/plan/31 § T3], and <see cref="SceneViewport.Cursor" /> for why it is a push.
 /// </summary>
 /// <remarks>
-///     ⚠ <b>Everything here goes through <see cref="SceneLines.Build" /> rather than calling the
-///     mode's drawing directly.</b> <c>Build</c> is what <c>ScenePresenter</c> and
+///     ⚠
+///     <b>
+///         Everything here goes through <see cref="SceneLines.Build" /> rather than calling the
+///         mode's drawing directly.
+///     </b>
+///     <c>Build</c> is what <c>ScenePresenter</c> and
 ///     <c>FramePresenter</c> both call, so a ring asserted anywhere else would be a ring asserted in
 ///     a place no frame goes through — and the thing most likely to break is the wiring, not the
 ///     circle.
@@ -59,8 +63,12 @@ public sealed class TerrainCursorSeamTests : IDisposable {
 
     /// <summary>A pane the size of a window, aimed down at the middle of the terrain.</summary>
     /// <remarks>
-    ///     ⚠ <b>Show flags off and no gizmo targets, so the overlay channel is the cursor and only the
-    ///     cursor.</b> Asserting "the overlay grew" against a pane also drawing a transform gizmo
+    ///     ⚠
+    ///     <b>
+    ///         Show flags off and no gizmo targets, so the overlay channel is the cursor and only the
+    ///         cursor.
+    ///     </b>
+    ///     Asserting "the overlay grew" against a pane also drawing a transform gizmo
     ///     would pass for a ring of zero segments.
     /// </remarks>
     SceneViewport Pane() {
@@ -73,7 +81,7 @@ public sealed class TerrainCursorSeamTests : IDisposable {
         document.Update();
         control.Refresh();
 
-        var pane = new SceneViewport(control, new Selection<Entity>()) { Show = SceneShow.None };
+        var pane = new SceneViewport(control, new()) { Show = SceneShow.None };
 
         pane.Camera.Pivot = Centre;
         pane.Camera.Distance = 40f;
@@ -285,7 +293,10 @@ public sealed class TerrainCursorSeamTests : IDisposable {
 
         Assert.Equal(6f, Reach(Overlay(pane), ground), 2);
 
-        mode.Pointer(pane, new() { X = 400f, Y = 300f, Action = PointerAction.Released, Button = PointerButton.Primary });
+        mode.Pointer(
+            pane,
+            new() { X = 400f, Y = 300f, Action = PointerAction.Released, Button = PointerButton.Primary }
+        );
 
         Assert.False(mode.Editing.IsStroking);
         Assert.Equal(20f, Reach(Overlay(pane), ground), 2);
@@ -293,8 +304,13 @@ public sealed class TerrainCursorSeamTests : IDisposable {
 
     /// <summary>The pointer, through a real document, into and out of a pane that is not the window.</summary>
     /// <remarks>
-    ///     ⚠ <b>The one assertion here that calling <see cref="TerrainMode.Pointer(IViewportPane, PointerEvent)" /> directly cannot
-    ///     make.</b> <see cref="PointerAction.Exited" /> is never fed in from outside — the document
+    ///     ⚠
+    ///     <b>
+    ///         The one assertion here that calling <see cref="TerrainMode.Pointer(IViewportPane, PointerEvent)" /> directly
+    ///         cannot
+    ///         make.
+    ///     </b>
+    ///     <see cref="PointerAction.Exited" /> is never fed in from outside — the document
     ///     works it out from where the pointer is and delivers it
     ///     <see cref="RoutingStrategy.Direct" />, so whether the mode ever hears one is a fact about
     ///     <c>Hover</c>, <c>EventRouter</c> and <c>Viewport.IsOverlayEvent</c> rather than about this
@@ -313,7 +329,8 @@ public sealed class TerrainCursorSeamTests : IDisposable {
         document.Update();
         control.Refresh();
 
-        using var pane = new SceneViewport(control, new Selection<Entity>()) { Show = SceneShow.None };
+        using var pane = new SceneViewport(control, new());
+        pane.Show = SceneShow.None;
 
         pane.Camera.Pivot = Centre;
         pane.Camera.Distance = 40f;
@@ -343,7 +360,7 @@ public sealed class TerrainCursorSeamTests : IDisposable {
         Assert.True(mode.Pointer(pane, Press()));
 
         // A drag a little to the left, which the mode takes.
-        Assert.True(mode.Pointer(pane, Move(360f, 300f)));
+        Assert.True(mode.Pointer(pane, Move(360f)));
 
         var ground = Assert.NotNull(mode.Hover);
         var overlay = Overlay(pane);

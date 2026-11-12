@@ -30,8 +30,11 @@ namespace Tests;
 ///         as a frame that bound three sets instead of four.
 ///     </para>
 ///     <para>
-///         <strong>The effect is built from <c>ForwardPlus.reflect.json</c> and loaded by the real
-///         <see cref="EffectLoader" />.</strong> A hand-written fake would assert that the renderer
+///         <strong>
+///             The effect is built from <c>ForwardPlus.reflect.json</c> and loaded by the real
+///             <see cref="EffectLoader" />.
+///         </strong>
+///         A hand-written fake would assert that the renderer
 ///         agrees with itself; this asserts it agrees with the shader, and it fails when someone adds
 ///         a binding to the <c>.rvn</c> that nothing fills. What is faked is the bytecode alone,
 ///         because compiling it needs a toolchain a unit test cannot assume.
@@ -98,7 +101,8 @@ public sealed class ForwardFrameTests : IDisposable {
                         StagesOf(binding.GetProperty("Stages").GetString()!),
                         binding.GetProperty("Count").GetInt32(),
                         binding.GetProperty("Size").GetInt32(),
-                        DynamicOffset: binding.TryGetProperty("IsDynamicOffset", out var dynamic) && dynamic.GetBoolean()
+                        DynamicOffset: binding.TryGetProperty("IsDynamicOffset", out var dynamic)
+                        && dynamic.GetBoolean()
                     )
                 );
 
@@ -117,9 +121,9 @@ public sealed class ForwardFrameTests : IDisposable {
 
         return new() {
             ShaderName = "ForwardPlus",
-            ConstantBufferSize = bindings.First(b => b.Set == DescriptorSetSlot.PerFrame).Size,
-            Bindings = [.. bindings],
-            Parameters = [.. parameters],
+            ConstantBufferSize = bindings.First(static b => b.Set == DescriptorSetSlot.PerFrame).Size,
+            Bindings = [..bindings],
+            Parameters = [..parameters],
             Stages = [
                 new(ShaderStage.Vertex, [1, 2, 3, 4], "main"),
                 new(ShaderStage.Fragment, [5, 6, 7, 8], "main")
@@ -175,7 +179,7 @@ public sealed class ForwardFrameTests : IDisposable {
             yield return new(
                 $"ForwardPlus.{name[..marker]}[{index}]{name[(marker + 2)..]}",
                 kind,
-                offset + (index * stride),
+                offset + index * stride,
                 size,
                 slot
             );
@@ -218,16 +222,29 @@ public sealed class ForwardFrameTests : IDisposable {
         }
 
         return type.GetProperty("Scalar").GetString() switch {
-            "Int" => rows switch { 2 => ShaderValueKind.Int2, 3 => ShaderValueKind.Int3, 4 => ShaderValueKind.Int4, _ => ShaderValueKind.Int },
+            "Int" => rows switch {
+                2 => ShaderValueKind.Int2,
+                3 => ShaderValueKind.Int3,
+                4 => ShaderValueKind.Int4,
+                _ => ShaderValueKind.Int
+            },
             "UInt" => ShaderValueKind.UInt,
             "Bool" => ShaderValueKind.Bool,
-            _ => rows switch { 2 => ShaderValueKind.Float2, 3 => ShaderValueKind.Float3, 4 => ShaderValueKind.Float4, _ => ShaderValueKind.Float }
+            _ => rows switch {
+                2 => ShaderValueKind.Float2,
+                3 => ShaderValueKind.Float3,
+                4 => ShaderValueKind.Float4,
+                _ => ShaderValueKind.Float
+            }
         };
     }
 
     static string ReflectionPath() {
-        for (var directory = new DirectoryInfo(AppContext.BaseDirectory); directory is not null; directory = directory.Parent) {
-            var candidate = Path.Combine(directory.FullName, "Raven", "Library", "Pipeline", "ForwardPlus.reflect.json");
+        for (var directory = new DirectoryInfo(AppContext.BaseDirectory);
+             directory is not null;
+             directory = directory.Parent) {
+            var candidate =
+                Path.Combine(directory.FullName, "Raven", "Library", "Pipeline", "ForwardPlus.reflect.json");
 
             if (File.Exists(candidate)) {
                 return candidate;
@@ -273,19 +290,14 @@ public sealed class ForwardFrameTests : IDisposable {
         var opaque = system.AddStage(new("Opaque"));
         var casters = system.AddStage(new("Shadow"));
 
-        var meshes = new MeshRenderFeature {
-            Pipelines = new(device),
-            Describer = new EffectPipelineDescriber(device)
-        };
+        var meshes = new MeshRenderFeature { Pipelines = new(device), Describer = new EffectPipelineDescriber(device) };
 
         var materials = new MaterialRenderFeature { Effects = effects, Device = device, Descriptors = allocator };
         // ⚠ The effect's own, not one the feature builds: a set bound at slot 3 is compatible only
         // with a layout identically defined to the one the pipeline was created with, and the feature
         // used to believe the block was fragment-only where the shader declares it for both stages.
         var lights = new ForwardLightingRenderFeature {
-            Device = device,
-            MaxLightsPerObject = MaxLights,
-            Layout = effect.SetLayouts[(int)DescriptorSetSlot.PerDraw]
+            Device = device, MaxLightsPerObject = MaxLights, Layout = effect.SetLayouts[(int)DescriptorSetSlot.PerDraw]
         };
 
         var transforms = new TransformRenderFeature { Device = device };
@@ -302,8 +314,7 @@ public sealed class ForwardFrameTests : IDisposable {
         camera.Frustum = new(camera.ViewProjection);
 
         var view = new ViewConstants(device) {
-            Descriptors = allocator,
-            Layout = effect.SetLayouts[(int)DescriptorSetSlot.PerView]
+            Descriptors = allocator, Layout = effect.SetLayouts[(int)DescriptorSetSlot.PerView]
         };
 
         var scene = new SceneConstants(device) { Descriptors = allocator };
@@ -370,7 +381,7 @@ public sealed class ForwardFrameTests : IDisposable {
         // Empty, and composited anyway: `Upload` refuses a clipmap nothing has composited, because
         // every level would be a volume of zeroes and zero is a surface. What set 0 needs is four
         // volumes that exist, not four volumes with a scene in them.
-        field.Update(Vector3.Zero, [], parallel: false);
+        field.Update(Vector3.Zero, [], false);
 
         var clipmap = new GlobalDistanceFieldTexture(field);
 
@@ -409,8 +420,7 @@ public sealed class ForwardFrameTests : IDisposable {
         pass.SceneBuffers["clusters"] = "Clusters";
 
         var compositor = new GraphicsCompositor(system) {
-            FrameSize = new(1280, 720),
-            Game = new SceneRendererSequence { Children = { shadows, pass } }
+            FrameSize = new(1280, 720), Game = new SceneRendererSequence { Children = { shadows, pass } }
         };
 
         var colour = new TextureDescription(
@@ -437,7 +447,12 @@ public sealed class ForwardFrameTests : IDisposable {
         // Imported rather than declared, because this frame has no culling pass to write it: the
         // graph refuses a declared resource that a pass reads and nobody produced, which is exactly
         // the check that keeps a forward pass from reading last frame's clusters.
-        var clusters = new BufferDescription(ClusterGrid.BufferSize, BufferUsage.Storage, MemoryAccess.DeviceLocal, "Clusters");
+        var clusters = new BufferDescription(
+            ClusterGrid.BufferSize,
+            BufferUsage.Storage,
+            MemoryAccess.DeviceLocal,
+            "Clusters"
+        );
         compositor.BufferImports["Clusters"] = new(device.CreateBuffer(clusters), clusters);
 
         var vertices = device.CreateBuffer(new() { Size = 1024, Usage = BufferUsage.Vertex });
@@ -484,8 +499,14 @@ public sealed class ForwardFrameTests : IDisposable {
         device.CreateTextureView(
             device.CreateTexture(
                 new() {
-                    Width = 8, Height = 8, Depth = 1, MipLevels = 5, ArrayLayers = 6, SampleCount = 1,
-                    Format = PixelFormat.Rgba16Float, Usage = TextureUsage.Sampled
+                    Width = 8,
+                    Height = 8,
+                    Depth = 1,
+                    MipLevels = 5,
+                    ArrayLayers = 6,
+                    SampleCount = 1,
+                    Format = PixelFormat.Rgba16Float,
+                    Usage = TextureUsage.Sampled
                 }
             )
         );
@@ -504,7 +525,7 @@ public sealed class ForwardFrameTests : IDisposable {
     }
 
     static IEnumerable<long> SetsBound(NullDevice device) =>
-        device.Recorder!.OfKind(RecordedCommandKind.BindDescriptorSet).Select(command => command.A).Distinct();
+        device.Recorder!.OfKind(RecordedCommandKind.BindDescriptorSet).Select(static command => command.A).Distinct();
 
     // --- The claim ----------------------------------------------------------
 
@@ -642,12 +663,12 @@ public sealed class ForwardFrameTests : IDisposable {
         Record(frame);
 
         var declared = effect.Parameters
-            .Select(parameter => parameter.Key.Name)
+            .Select(static parameter => parameter.Key.Name)
             .Concat(effect.Bindings.SelectMany(Names))
             .ToHashSet(StringComparer.Ordinal);
 
         var orphaned = frame.Scene.Parameters.Keys
-            .Select(key => key.Name)
+            .Select(static key => key.Name)
             .Where(name => !declared.Contains(name))
             .Order(StringComparer.Ordinal)
             .ToArray();
@@ -717,9 +738,8 @@ public sealed class ForwardFrameTests : IDisposable {
 
         Assert.Equal(
             frame.Shadows.CascadeCount,
-            effect.Parameters.Count(
-                p => p.Key.Name.StartsWith("ForwardPlus.cascades[", StringComparison.Ordinal)
-                    && p.Key.Name.EndsWith("].viewProjection", StringComparison.Ordinal)
+            effect.Parameters.Count(static p => p.Key.Name.StartsWith("ForwardPlus.cascades[", StringComparison.Ordinal)
+                && p.Key.Name.EndsWith("].viewProjection", StringComparison.Ordinal)
             )
         );
     }
@@ -734,7 +754,6 @@ public sealed class ForwardFrameTests : IDisposable {
     ///     <see cref="ShadowCascades.CascadeOf" /> is a copy of it. Reversed, the host would fit
     ///     cascades for one set of distances and the shader would read them for another, which is a
     ///     shadow at the wrong resolution rather than a missing one.
-    ///
     ///     Read from <c>ClusteredShading.rvn</c> rather than from the pass: the cascades and the light
     ///     loops moved to a base shader so a visibility-buffer resolve could reach them, and the forward
     ///     pass now inherits the selection rather than declaring it. Same arithmetic, one file over.
@@ -804,6 +823,6 @@ public sealed class ForwardFrameTests : IDisposable {
     public void The_per_object_block_is_the_size_the_shader_declared() {
         var block = effect.BlockOf(DescriptorSetSlot.PerDraw);
 
-        Assert.Equal(ForwardLightingRenderFeature.HeaderSize + (MaxLights * 80), block.Size);
+        Assert.Equal(ForwardLightingRenderFeature.HeaderSize + MaxLights * 80, block.Size);
     }
 }

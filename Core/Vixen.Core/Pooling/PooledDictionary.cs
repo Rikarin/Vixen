@@ -49,7 +49,9 @@ public struct PooledDictionary<TKey, TValue> : IDisposable where TKey : notnull 
     public readonly Dictionary<TKey, TValue>.ValueCollection Values => Map.Values;
 
     /// <summary>Rents a dictionary from the pool.</summary>
-    public PooledDictionary() => map = Pool.Rent();
+    public PooledDictionary() {
+        map = Pool.Rent();
+    }
 
     /// <summary>Rents a dictionary and grows it to hold <paramref name="capacity" /> entries.</summary>
     /// <param name="capacity">How many entries to make room for up front.</param>

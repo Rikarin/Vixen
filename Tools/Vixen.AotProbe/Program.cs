@@ -81,15 +81,20 @@ static class Smoke {
     [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage(
         "AOT",
         "IL3050",
-        Justification = "#1524: Of's All annotation reaches System.Enum.GetValues(Type) through a nested enum of UiElement."
+        Justification =
+            "#1524: Of's All annotation reaches System.Enum.GetValues(Type) through a nested enum of UiElement."
     )]
     static void ABaseTypesPropertiesReachALeafThatDeclaresNone(List<string> failures) {
-        var leaf = UiPropertyRegistry.Of(typeof(ProbeLeaf)).Select(key => key.Name).ToHashSet(StringComparer.Ordinal);
-        var element = UiPropertyRegistry.Of(typeof(UiElement)).Select(key => key.Name).ToList();
+        var leaf = UiPropertyRegistry.Of(typeof(ProbeLeaf))
+            .Select(static key => key.Name)
+            .ToHashSet(StringComparer.Ordinal);
+        var element = UiPropertyRegistry.Of(typeof(UiElement)).Select(static key => key.Name).ToList();
 
         // The instrument first: an element with no properties would make the subset check vacuous.
         if (element.Count == 0) {
-            failures.Add("UiPropertyRegistry.Of(typeof(UiElement)) answered nothing, so the check below would hold vacuously.");
+            failures.Add(
+                "UiPropertyRegistry.Of(typeof(UiElement)) answered nothing, so the check below would hold vacuously."
+            );
         }
 
         if (!leaf.Contains(ProbeBase.WeightName)) {

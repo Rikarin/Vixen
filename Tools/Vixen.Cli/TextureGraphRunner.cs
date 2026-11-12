@@ -4,9 +4,7 @@
 using Vixen.Core.Imaging;
 using Vixen.Core.Yaml;
 using Vixen.Editor.Assets.Materials;
-using Vixen.Editor.Assets.Textures;
 using Vixen.Editor.Core;
-using Vixen.Editor.NodeGraph;
 using Vixen.Editor.TextureGraph;
 using Vixen.Graphics;
 using Vixen.Interchange;
@@ -43,8 +41,12 @@ namespace Vixen.Cli;
 ///         has three callers.
 ///     </para>
 ///     <para>
-///         ⚠ <b>A <c>Source/Bitmap</c> naming a project asset is filled here now, and the resolver
-///         that fills it is not this file's</b> —
+///         ⚠
+///         <b>
+///             A <c>Source/Bitmap</c> naming a project asset is filled here now, and the resolver
+///             that fills it is not this file's
+///         </b>
+///         —
 ///         <a href="https://github.com/Rikarin/Vixen/issues/1087">#1087</a>.
 ///         <see cref="TextureGraphExternals.Upload" /> hands such an entry back rather than skipping
 ///         it, so that a host with no asset database can see before it starts that this graph is not
@@ -182,7 +184,19 @@ static class TextureGraphRunner {
 
         using (device) {
             return Run(
-                editor, project, device!, plan, wanted, compiler, graph, model, name, folder, force, parallax, output,
+                editor,
+                project,
+                device!,
+                plan,
+                wanted,
+                compiler,
+                graph,
+                model,
+                name,
+                folder,
+                force,
+                parallax,
+                output,
                 error
             );
         }
@@ -301,8 +315,11 @@ static class TextureGraphRunner {
     /// <returns>The picture, or the sentence saying why there is none.</returns>
     /// <remarks>
     ///     <para>
-    ///         <b>The whole of what this route supplies to the resolver, and the reason the split is
-    ///         where it is.</b> <c>ImageDecoders</c> is <c>Vixen.Editor.Assets</c>', whose closure
+    ///         <b>
+    ///             The whole of what this route supplies to the resolver, and the reason the split is
+    ///             where it is.
+    ///         </b>
+    ///         <c>ImageDecoders</c> is <c>Vixen.Editor.Assets</c>', whose closure
     ///         adds twenty-five assemblies — <c>Vixen.Engine</c>, <c>Vixen.Ecs</c>,
     ///         <c>Vixen.Terrain</c> among them — to <c>Vixen.TextureGraph</c>'s. Both hosts
     ///         already have it; the evaluator must not.
@@ -321,7 +338,10 @@ static class TextureGraphRunner {
     /// <param name="file">The picture, absolute.</param>
     /// <param name="decoders">The codecs to choose from; the bake passes <see cref="ImageDecoders.BuiltIn" />.</param>
     /// <returns>The pixels, or the sentence that says why there are none.</returns>
-    internal static (TextureData? Picture, string? Unreadable) Decoded(string file, IReadOnlyList<IImageDecoder> decoders) {
+    internal static (TextureData? Picture, string? Unreadable) Decoded(
+        string file,
+        IReadOnlyList<IImageDecoder> decoders
+    ) {
         var extension = Path.GetExtension(file);
 
         if (ImageDecoders.For(decoders, extension) is not { } decoder) {
@@ -335,8 +355,10 @@ static class TextureGraphRunner {
         try {
             return (ImageDecoders.DecodeFile(decoder, file, extension), null);
         } catch (Exception failure) when (failure is IOException
-            or InvalidDataException or NotSupportedException or ArgumentException
-            or UnauthorizedAccessException) {
+                                              or InvalidDataException
+                                              or NotSupportedException
+                                              or ArgumentException
+                                              or UnauthorizedAccessException) {
             // A returned sentence rather than a throw, for the resolver's own rule: every way of not
             // reading a picture is the same kind of answer, so that a graph reading four of them
             // names all four rather than the first.
@@ -377,8 +399,8 @@ static class TextureGraphRunner {
             // What the graph exposes, as it stood. A graph exposing none writes an empty mapping
             // rather than omitting the key, which is `MaterialBakeRoute.Record`'s choice.
             Parameters = model.Parameters.ToDictionary(
-                parameter => parameter.Name,
-                parameter => parameter.Default,
+                static parameter => parameter.Name,
+                static parameter => parameter.Default,
                 StringComparer.Ordinal
             )
         };
@@ -399,10 +421,10 @@ static class TextureGraphRunner {
             stored = YamlSerializer.Parse<NodeGraphAsset>(File.ReadAllText(path));
         } catch (Exception failure)
             when (failure is YamlParseException or YamlBindingException or NotSupportedException or IOException) {
-            error.WriteLine($"'{Path.GetFileName(path)}' could not be read: {failure.Message}");
+                error.WriteLine($"'{Path.GetFileName(path)}' could not be read: {failure.Message}");
 
-            return false;
-        }
+                return false;
+            }
 
         model = NodeGraphDocument.Load(stored, out var repairs);
 
@@ -419,7 +441,8 @@ static class TextureGraphRunner {
         var root = Path.GetFullPath(project.Paths.Root);
 
         return full.StartsWith(root, StringComparison.Ordinal)
-            ? full[root.Length..].TrimStart(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+            ? full[root.Length..]
+                .TrimStart(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
                 .Replace(Path.DirectorySeparatorChar, '/')
             : full;
     }

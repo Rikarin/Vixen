@@ -21,8 +21,12 @@ enum ValueKind : byte {
     /// <summary>A length along z: <c>translate-z-4</c>, <c>translate-z-px</c>.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b><see cref="Spacing" /> minus <c>auto</c>, and the subtraction is the whole
-    ///         reason it is a kind.</b> Every other value <see cref="Spacing" /> and
+    ///         ⚠
+    ///         <b>
+    ///             <see cref="Spacing" /> minus <c>auto</c>, and the subtraction is the whole
+    ///             reason it is a kind.
+    ///         </b>
+    ///         Every other value <see cref="Spacing" /> and
     ///         <see cref="Size" /> answer — <c>auto</c>, <c>full</c>, <c>min</c>, <c>max</c>,
     ///         <c>fit</c>, <c>screen</c>, <c>lh</c>, and any <c>n/d</c> fraction — is a value
     ///         <c>TransformReader.Depth</c> refuses, because Transforms 2 § 12 gives a z offset no
@@ -30,8 +34,12 @@ enum ValueKind : byte {
     ///     </para>
     ///     <para>
     ///         ⚠ <b>And a refused argument drops the <i>whole</i> transform list</b>, so the cost of
-    ///         resolving one of those is not a slot that does nothing: <c>translate-z-full
-    ///         rotate-z-90</c> would emit a <c>transform</c> the reader declines entirely and the
+    ///         resolving one of those is not a slot that does nothing:
+    ///         <c>
+    ///             translate-z-full
+    ///             rotate-z-90
+    ///         </c>
+    ///         would emit a <c>transform</c> the reader declines entirely and the
     ///         element would not rotate. That is worse than the unrecognised class it was before the
     ///         root existed, which is what makes this a kind rather than a tolerated rough edge.
     ///     </para>
@@ -52,8 +60,12 @@ enum ValueKind : byte {
 
     /// <summary>A whole count substituted into a template: <c>grid-cols-3</c>, <c>col-span-2</c>.</summary>
     /// <remarks>
-    ///     ⚠ <b>Its own kind because the emitted value is not the value that was written, and every
-    ///     other numeric family's is.</b> <c>grid-cols-3</c> does not mean
+    ///     ⚠
+    ///     <b>
+    ///         Its own kind because the emitted value is not the value that was written, and every
+    ///         other numeric family's is.
+    ///     </b>
+    ///     <c>grid-cols-3</c> does not mean
     ///     <c>grid-template-columns: 3</c> — that is not a track list and no engine has ever read it
     ///     — it means <c>repeat(3, minmax(0, 1fr))</c>. Emitting the bare number was a family that
     ///     resolved, cascaded, and could never do anything, which is exactly the shape of failure the
@@ -90,17 +102,25 @@ enum ValueKind : byte {
     /// <summary>A CSS <c>&lt;position&gt;</c> or a pair of lengths, written as an arbitrary value.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Arbitrary-valued because Tailwind gives these two roots no named scale at all, and
-    ///         inventing one is the failure <c>bg-conic-&lt;angle&gt;</c> is recorded under.</b> v4
+    ///         ⚠
+    ///         <b>
+    ///             Arbitrary-valued because Tailwind gives these two roots no named scale at all, and
+    ///             inventing one is the failure <c>bg-conic-&lt;angle&gt;</c> is recorded under.
+    ///         </b>
+    ///         v4
     ///         spells <c>background-size</c> and <c>background-position</c> as
     ///         <c>bg-size-[&lt;value&gt;]</c> and <c>bg-position-[&lt;value&gt;]</c> — the keyword
     ///         forms it does ship (<c>bg-cover</c>, <c>bg-center</c>) hang off the bare <c>bg</c>
     ///         root, which is a different family.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Its own kind rather than <see cref="Static" />, because a family whose only
-    ///         surface is an arbitrary value is one <c>UtilityConsumptionGateTests</c> would never
-    ///         meet.</b> <c>ValuesFor</c> yields an arbitrary probe for this kind and for no
+    ///         ⚠
+    ///         <b>
+    ///             Its own kind rather than <see cref="Static" />, because a family whose only
+    ///             surface is an arbitrary value is one <c>UtilityConsumptionGateTests</c> would never
+    ///             meet.
+    ///         </b>
+    ///         <c>ValuesFor</c> yields an arbitrary probe for this kind and for no
     ///         other — which is what makes these two families measurable rather than vacuously green,
     ///         and is exactly the objection that keeps <c>font-features-*</c> unregistered one section
     ///         up. The difference is the class name: a length and a percentage escape into a
@@ -111,8 +131,12 @@ enum ValueKind : byte {
 
     /// <summary>An OpenType feature list, which is arbitrary-only: <c>font-features-["onum"_1]</c>.</summary>
     /// <remarks>
-    ///     ⚠ <b><see cref="Placement" />'s shape and the objection <see cref="Placement" />'s remark
-    ///     raises against it, met rather than restated.</b> v4 has no named step for this root — the
+    ///     ⚠
+    ///     <b>
+    ///         <see cref="Placement" />'s shape and the objection <see cref="Placement" />'s remark
+    ///         raises against it, met rather than restated.
+    ///     </b>
+    ///     v4 has no named step for this root — the
     ///     value is always arbitrary — so like a placement it would contribute nothing to
     ///     <c>UtilityFamilies.Surface</c> without a probe of its own, and a family with no surface is one the
     ///     consumption gate never meets: it passes vacuously, for ever, while the ledger reads
@@ -125,8 +149,12 @@ enum ValueKind : byte {
 
     /// <summary>A blur radius: a named step, or a spacing count: <c>blur-md</c>, <c>blur-8</c>.</summary>
     /// <remarks>
-    ///     ⚠ <b>Two scales under one prefix, and the named one wins — which is the opposite of the
-    ///     arrangement <see cref="Radius" /> has and is deliberate.</b> A radius has only a named
+    ///     ⚠
+    ///     <b>
+    ///         Two scales under one prefix, and the named one wins — which is the opposite of the
+    ///         arrangement <see cref="Radius" /> has and is deliberate.
+    ///     </b>
+    ///     A radius has only a named
     ///     scale, so <c>rounded-4</c> is not a class. A blur here has both: v4's spellings are
     ///     <c>blur-xs</c>…<c>blur-3xl</c> and nothing else, and this engine answered a spacing count
     ///     and nothing else — so keeping the count is a superset that costs a line, while dropping
@@ -193,8 +221,12 @@ enum ValueKind : byte {
 /// <summary>What a top-level slash means to a family.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>A slash is not one thing, and reading it as one was a silent wrong answer rather
-///         than a missing feature.</b> <see cref="UtilityParser" /> has always kept both readings —
+///         ⚠
+///         <b>
+///             A slash is not one thing, and reading it as one was a silent wrong answer rather
+///             than a missing feature.
+///         </b>
+///         <see cref="UtilityParser" /> has always kept both readings —
 ///         <see cref="UtilityCandidate.Opacity" /> and <see cref="UtilityCandidate.SlashSuffix" /> —
 ///         and its own remark says which one a slash means is the utility's to decide. Nothing
 ///         decided: a family that did not look at the suffix simply resolved the head and dropped
@@ -287,8 +319,12 @@ public static class UtilityFamilies {
     ///     Declarations emitted verbatim when the family resolves <i>a particular keyword</i>, keyed
     ///     by that keyword.
     ///     <para>
-    ///         ⚠ <b>This exists because a Tailwind prefix is not always one property family, and
-    ///         <see cref="Alongside" /> above cannot express that.</b> <c>mask-circle</c> and
+    ///         ⚠
+    ///         <b>
+    ///             This exists because a Tailwind prefix is not always one property family, and
+    ///             <see cref="Alongside" /> above cannot express that.
+    ///         </b>
+    ///         <c>mask-circle</c> and
     ///         <c>mask-ellipse</c> are spelled with the bare <c>mask</c> prefix, which is already the
     ///         <c>mask-repeat</c> family — and <see cref="Register" /> keeps the first family under a
     ///         name and discards a second silently, so a second registration is not an option. The
@@ -312,8 +348,12 @@ public static class UtilityFamilies {
     ///     otherwise produce. Null — the overwhelming default — means the rule is about the element
     ///     carrying the class.
     ///     <para>
-    ///         ⚠ <b>Two of Tailwind's families are not property families at all, and this is the
-    ///         whole of what they need.</b> <c>space-x-4</c> and <c>divide-y</c> put a margin or a
+    ///         ⚠
+    ///         <b>
+    ///             Two of Tailwind's families are not property families at all, and this is the
+    ///             whole of what they need.
+    ///         </b>
+    ///         <c>space-x-4</c> and <c>divide-y</c> put a margin or a
     ///         border on <i>every child but the last</i>: they are a rule over a relationship, not a
     ///         declaration on a box, and no amount of value-table work reaches them. With
     ///         <c>" &gt; :not(:last-child)"</c> here the generator writes
@@ -323,8 +363,12 @@ public static class UtilityFamilies {
     ///         <c>:where()</c> that keeps the rule out of a child's way is the generator's.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>It is appended <i>after</i> the variants, which is the only order that is
-    ///         right.</b> <c>hover:space-x-4</c> means "when the container is hovered, space its
+    ///         ⚠
+    ///         <b>
+    ///             It is appended <i>after</i> the variants, which is the only order that is
+    ///             right.
+    ///         </b>
+    ///         <c>hover:space-x-4</c> means "when the container is hovered, space its
     ///         children" — <c>.hover\:space-x-4:hover &gt; :not(:last-child)</c> — and a suffix
     ///         written before the variant would say "when a spaced child is hovered", which is a
     ///         different rule that happens to compile.
@@ -349,17 +393,25 @@ public static class UtilityFamilies {
     ) {
         /// <summary>Which reading of a top-level slash this family takes.</summary>
         /// <remarks>
-        ///     ⚠ <b>Defaulted from <see cref="Kind" /> rather than written on every registration,
-        ///     because a family that forgot to say would then quietly take the permissive reading
-        ///     — and permissive is the bug.</b> Two hundred registrations and one omission is all
+        ///     ⚠
+        ///     <b>
+        ///         Defaulted from <see cref="Kind" /> rather than written on every registration,
+        ///         because a family that forgot to say would then quietly take the permissive reading
+        ///         — and permissive is the bug.
+        ///     </b>
+        ///     Two hundred registrations and one omission is all
         ///     it takes to put a silently-dropped modifier back. The kinds that take one are the
         ///     kinds that resolve a colour (an alpha) and the sizing kind (a fraction); everything
         ///     else refuses, and the two families whose slash the kind cannot predict —
         ///     <c>aspect</c> and <c>text</c> — say so themselves.
         /// </remarks>
         public SlashMeaning Slash { get; init; } = Kind switch {
-            ValueKind.Color or ValueKind.BorderEdge or ValueKind.Shadow or ValueKind.DropShadow
-                or ValueKind.InsetShadow or ValueKind.GradientStop => SlashMeaning.Opacity,
+            ValueKind.Color
+                or ValueKind.BorderEdge
+                or ValueKind.Shadow
+                or ValueKind.DropShadow
+                or ValueKind.InsetShadow
+                or ValueKind.GradientStop => SlashMeaning.Opacity,
             ValueKind.Size => SlashMeaning.Fraction,
             ValueKind.FontSize => SlashMeaning.Leading,
             _ => SlashMeaning.None
@@ -402,11 +454,16 @@ public static class UtilityFamilies {
         // `table-cell` are longer names, so they reach their own entries. These three are the table
         // keywords `LayoutTree.Table.cs` lays out (#258); `inline-table`, the row groups, the column
         // keywords and `table-caption` need boxes it does not generate and stay unregistered.
-        Register(new Family("table", ValueKind.Keyword, ["table-layout"], new Dictionary<string, string>(StringComparer.Ordinal) {
-            [string.Empty] = "display:table",
-            ["auto"] = "table-layout:auto",
-            ["fixed"] = "table-layout:fixed"
-        }));
+        Register(
+            new Family(
+                "table",
+                ValueKind.Keyword,
+                ["table-layout"],
+                new(StringComparer.Ordinal) {
+                    [string.Empty] = "display:table", ["auto"] = "table-layout:auto", ["fixed"] = "table-layout:fixed"
+                }
+            )
+        );
         Static("table-row", "display", "table-row");
         Static("table-cell", "display", "table-cell");
 
@@ -433,15 +490,30 @@ public static class UtilityFamilies {
         // `float_bfc_*` families do ship RTL variants with identical expectations, which proves
         // `float: left` does not flip — and that is the reason `inline-start` is a separate value
         // rather than a rereading of `left`, not a reason it cannot be spelt.
-        Keywords("float", "float", new() {
-            ["left"] = "left", ["right"] = "right", ["none"] = "none",
-            ["start"] = "inline-start", ["end"] = "inline-end"
-        });
+        Keywords(
+            "float",
+            "float",
+            new() {
+                ["left"] = "left",
+                ["right"] = "right",
+                ["none"] = "none",
+                ["start"] = "inline-start",
+                ["end"] = "inline-end"
+            }
+        );
 
-        Keywords("clear", "clear", new() {
-            ["left"] = "left", ["right"] = "right", ["both"] = "both", ["none"] = "none",
-            ["start"] = "inline-start", ["end"] = "inline-end"
-        });
+        Keywords(
+            "clear",
+            "clear",
+            new() {
+                ["left"] = "left",
+                ["right"] = "right",
+                ["both"] = "both",
+                ["none"] = "none",
+                ["start"] = "inline-start",
+                ["end"] = "inline-end"
+            }
+        );
 
         // ⚠ <b>`visibility` was never a missing reader — `DrawListBuilder` has honoured `hidden`
         // since the draw list existed. What was absent was the three classes and one keyword.</b>
@@ -474,39 +546,43 @@ public static class UtilityFamilies {
         // alone; nothing subtracts an element for being one point wide, clipped or off-screen. Were
         // it otherwise this family would not hide an element from sight, it would delete it — which
         // is the opposite of what the author wrote, and would have been the reason to refuse.
-        Register(new Family(
-            "sr-only",
-            ValueKind.Static,
-            ["position"],
-            new Dictionary<string, string>(StringComparer.Ordinal) { [string.Empty] = "position:absolute" },
-            Alongside: [
-                new UtilityDeclaration("width", "1px"),
-                new UtilityDeclaration("height", "1px"),
-                new UtilityDeclaration("padding", "0"),
-                new UtilityDeclaration("margin", "-1px"),
-                new UtilityDeclaration("overflow", "hidden"),
-                new UtilityDeclaration("white-space", "nowrap"),
-                new UtilityDeclaration("border-width", "0")
-            ]
-        ));
+        Register(
+            new Family(
+                "sr-only",
+                ValueKind.Static,
+                ["position"],
+                new(StringComparer.Ordinal) { [string.Empty] = "position:absolute" },
+                Alongside: [
+                    new UtilityDeclaration("width", "1px"),
+                    new UtilityDeclaration("height", "1px"),
+                    new UtilityDeclaration("padding", "0"),
+                    new UtilityDeclaration("margin", "-1px"),
+                    new UtilityDeclaration("overflow", "hidden"),
+                    new UtilityDeclaration("white-space", "nowrap"),
+                    new UtilityDeclaration("border-width", "0")
+                ]
+            )
+        );
 
         // The undo, and it is not the same list backwards: v4's `not-sr-only` restores seven
         // properties and leaves `border-width` alone, because a border the element declared for
         // itself is not `sr-only`'s to give back.
-        Register(new Family(
-            "not-sr-only",
-            ValueKind.Static,
-            ["position"],
-            new Dictionary<string, string>(StringComparer.Ordinal) { [string.Empty] = "position:static" },
-            Alongside: [
-                new UtilityDeclaration("width", "auto"),
-                new UtilityDeclaration("height", "auto"),
-                new UtilityDeclaration("padding", "0"),
-                new UtilityDeclaration("margin", "0"),
-                new UtilityDeclaration("overflow", "visible"),
-                new UtilityDeclaration("white-space", "normal")
-            ]
-        ));
+        Register(
+            new Family(
+                "not-sr-only",
+                ValueKind.Static,
+                ["position"],
+                new(StringComparer.Ordinal) { [string.Empty] = "position:static" },
+                Alongside: [
+                    new UtilityDeclaration("width", "auto"),
+                    new UtilityDeclaration("height", "auto"),
+                    new UtilityDeclaration("padding", "0"),
+                    new UtilityDeclaration("margin", "0"),
+                    new UtilityDeclaration("overflow", "visible"),
+                    new UtilityDeclaration("white-space", "normal")
+                ]
+            )
+        );
 
         // ⚠ <b>The refusal on this one expired rather than being argued away, and it had moved twice
         // before it did.</b> `forced-color-adjust` tells a user agent whether to leave an element out
@@ -583,36 +659,45 @@ public static class UtilityFamilies {
         // caught it and been answered with a line in `InertProperties.txt`, which is the cheap close.
         // The reader landed first (`UiDocument.EllipsisOf`), the `clipped` scene proved the gate can
         // see it, and this changed last. So no line was needed and none was added.
-        Register(new Family(
-            "truncate",
-            ValueKind.Static,
-            ["overflow"],
-            new Dictionary<string, string>(StringComparer.Ordinal) { [string.Empty] = "overflow:hidden" },
-            Alongside: [
-                new UtilityDeclaration("text-overflow", "ellipsis"),
-                new UtilityDeclaration("white-space", "nowrap")
-            ]
-        ));
+        Register(
+            new Family(
+                "truncate",
+                ValueKind.Static,
+                ["overflow"],
+                new(StringComparer.Ordinal) { [string.Empty] = "overflow:hidden" },
+                Alongside: [
+                    new UtilityDeclaration("text-overflow", "ellipsis"),
+                    new UtilityDeclaration("white-space", "nowrap")
+                ]
+            )
+        );
 
         // `flex-wrap` and `flex-col` are both values of `flex`, and they set different properties.
         // Registering `flex-wrap` as a family of its own would make the class `flex-wrap` a family
         // with no value rather than the family `flex` with the value `wrap`.
-        Keywords("flex", "flex-direction", new() {
-            ["row"] = "row", ["row-reverse"] = "row-reverse",
-            ["col"] = "column", ["col-reverse"] = "column-reverse"
-        });
+        Keywords(
+            "flex",
+            "flex-direction",
+            new() {
+                ["row"] = "row", ["row-reverse"] = "row-reverse", ["col"] = "column", ["col-reverse"] = "column-reverse"
+            }
+        );
 
-        Keywords("flex", "flex-wrap", new() {
-            ["wrap"] = "wrap", ["wrap-reverse"] = "wrap-reverse", ["nowrap"] = "nowrap"
-        });
+        Keywords(
+            "flex",
+            "flex-wrap",
+            new() { ["wrap"] = "wrap", ["wrap-reverse"] = "wrap-reverse", ["nowrap"] = "nowrap" }
+        );
 
         // `flex-1` is the shorthand and not a third property, so it joins the same keyword table:
         // one prefix, and the value decides which of `display`, `flex-direction`, `flex-wrap` and
         // `flex` it sets. ExCSS expands the shorthand into its longhands while parsing, so the
         // cascade sees `flex-grow`/`flex-shrink`/`flex-basis` and never the word itself.
-        Keywords("flex", "flex", new() {
-            ["1"] = "1 1 0%", ["auto"] = "1 1 auto", ["initial"] = "0 1 auto", ["none"] = "none"
-        });
+        Keywords(
+            "flex",
+            "flex",
+            new() { ["1"] = "1 1 0%", ["auto"] = "1 1 auto", ["initial"] = "0 1 auto", ["none"] = "none" }
+        );
 
         // ⚠ <b>The <c>-safe</c> suffix is a prefix in the CSS, and the two halves are one value.</b>
         // Tailwind spells CSS Box Alignment §4.1's <c>[ safe | unsafe ]? &lt;position&gt;</c> with the
@@ -638,37 +723,72 @@ public static class UtilityFamilies {
         // to the generated state and would drag two `works` rows to `partial` over classes the
         // ledger never listed. `content-*` is the row that does carry its refusal in `value_gap`,
         // and is `partial` because of it.
-        Keywords("items", "align-items", new() {
-            ["start"] = "flex-start", ["end"] = "flex-end", ["center"] = "center",
-            ["baseline"] = "baseline", ["stretch"] = "stretch",
-            ["center-safe"] = "safe center", ["end-safe"] = "safe end"
-        });
+        Keywords(
+            "items",
+            "align-items",
+            new() {
+                ["start"] = "flex-start",
+                ["end"] = "flex-end",
+                ["center"] = "center",
+                ["baseline"] = "baseline",
+                ["stretch"] = "stretch",
+                ["center-safe"] = "safe center",
+                ["end-safe"] = "safe end"
+            }
+        );
 
-        Keywords("self", "align-self", new() {
-            ["auto"] = "auto", ["start"] = "flex-start", ["end"] = "flex-end",
-            ["center"] = "center", ["baseline"] = "baseline", ["stretch"] = "stretch",
-            ["center-safe"] = "safe center", ["end-safe"] = "safe end"
-        });
+        Keywords(
+            "self",
+            "align-self",
+            new() {
+                ["auto"] = "auto",
+                ["start"] = "flex-start",
+                ["end"] = "flex-end",
+                ["center"] = "center",
+                ["baseline"] = "baseline",
+                ["stretch"] = "stretch",
+                ["center-safe"] = "safe center",
+                ["end-safe"] = "safe end"
+            }
+        );
 
         // ⚠ <b><c>normal</c> is the initial value written out, and it is not a no-op</b> — the same
         // argument `visible` makes two sections up. `justify-content: normal` behaves as
         // `flex-start` and `align-content: normal` as `stretch`, which is what the bridge already
         // does with the property unset; what the class buys is overriding a `justify-center` that a
         // theme sheet or an earlier utility set, which nothing else in this vocabulary can say.
-        Keywords("justify", "justify-content", new() {
-            ["normal"] = "normal",
-            ["start"] = "flex-start", ["end"] = "flex-end", ["center"] = "center",
-            ["between"] = "space-between", ["around"] = "space-around", ["evenly"] = "space-evenly",
-            ["center-safe"] = "safe center", ["end-safe"] = "safe end"
-        });
+        Keywords(
+            "justify",
+            "justify-content",
+            new() {
+                ["normal"] = "normal",
+                ["start"] = "flex-start",
+                ["end"] = "flex-end",
+                ["center"] = "center",
+                ["between"] = "space-between",
+                ["around"] = "space-around",
+                ["evenly"] = "space-evenly",
+                ["center-safe"] = "safe center",
+                ["end-safe"] = "safe end"
+            }
+        );
 
-        Keywords("content", "align-content", new() {
-            ["normal"] = "normal",
-            ["start"] = "flex-start", ["end"] = "flex-end", ["center"] = "center",
-            ["between"] = "space-between", ["around"] = "space-around", ["stretch"] = "stretch",
-            ["evenly"] = "space-evenly",
-            ["center-safe"] = "safe center", ["end-safe"] = "safe end"
-        });
+        Keywords(
+            "content",
+            "align-content",
+            new() {
+                ["normal"] = "normal",
+                ["start"] = "flex-start",
+                ["end"] = "flex-end",
+                ["center"] = "center",
+                ["between"] = "space-between",
+                ["around"] = "space-around",
+                ["stretch"] = "stretch",
+                ["evenly"] = "space-evenly",
+                ["center-safe"] = "safe center",
+                ["end-safe"] = "safe end"
+            }
+        );
 
         // ── The three `place-*` shorthands ──────────────────────────────────────────────────
         //
@@ -691,38 +811,57 @@ public static class UtilityFamilies {
         // `justify-items: baseline` falls through `AlignInArea`'s switch to the start edge, which is
         // exactly the fallback alignment CSS Box Alignment §9.3 specifies when baseline alignment
         // cannot be performed. A degradation the spec names is not an inert half.
-        Register(new Family(
-            "place-content",
-            ValueKind.Keyword,
-            ["align-content", "justify-content"],
-            new Dictionary<string, string>(StringComparer.Ordinal) {
-                ["center"] = "center", ["start"] = "start", ["end"] = "end",
-                ["center-safe"] = "safe center", ["end-safe"] = "safe end",
-                ["between"] = "space-between", ["around"] = "space-around", ["evenly"] = "space-evenly"
-            }
-        ));
+        Register(
+            new Family(
+                "place-content",
+                ValueKind.Keyword,
+                ["align-content", "justify-content"],
+                new(StringComparer.Ordinal) {
+                    ["center"] = "center",
+                    ["start"] = "start",
+                    ["end"] = "end",
+                    ["center-safe"] = "safe center",
+                    ["end-safe"] = "safe end",
+                    ["between"] = "space-between",
+                    ["around"] = "space-around",
+                    ["evenly"] = "space-evenly"
+                }
+            )
+        );
 
-        Register(new Family(
-            "place-items",
-            ValueKind.Keyword,
-            ["align-items", "justify-items"],
-            new Dictionary<string, string>(StringComparer.Ordinal) {
-                ["center"] = "center", ["start"] = "start", ["end"] = "end",
-                ["center-safe"] = "safe center", ["end-safe"] = "safe end",
-                ["baseline"] = "baseline", ["stretch"] = "stretch"
-            }
-        ));
+        Register(
+            new Family(
+                "place-items",
+                ValueKind.Keyword,
+                ["align-items", "justify-items"],
+                new(StringComparer.Ordinal) {
+                    ["center"] = "center",
+                    ["start"] = "start",
+                    ["end"] = "end",
+                    ["center-safe"] = "safe center",
+                    ["end-safe"] = "safe end",
+                    ["baseline"] = "baseline",
+                    ["stretch"] = "stretch"
+                }
+            )
+        );
 
-        Register(new Family(
-            "place-self",
-            ValueKind.Keyword,
-            ["align-self", "justify-self"],
-            new Dictionary<string, string>(StringComparer.Ordinal) {
-                ["auto"] = "auto", ["center"] = "center", ["start"] = "start", ["end"] = "end",
-                ["center-safe"] = "safe center", ["end-safe"] = "safe end",
-                ["stretch"] = "stretch"
-            }
-        ));
+        Register(
+            new Family(
+                "place-self",
+                ValueKind.Keyword,
+                ["align-self", "justify-self"],
+                new(StringComparer.Ordinal) {
+                    ["auto"] = "auto",
+                    ["center"] = "center",
+                    ["start"] = "start",
+                    ["end"] = "end",
+                    ["center-safe"] = "safe center",
+                    ["end-safe"] = "safe end",
+                    ["stretch"] = "stretch"
+                }
+            )
+        );
 
         // ── Flex and grid ───────────────────────────────────────────────────────────────────
         Number("grow", "flex-grow");
@@ -785,13 +924,17 @@ public static class UtilityFamilies {
         Spacing("auto-cols", "grid-auto-columns");
         Spacing("auto-rows", "grid-auto-rows");
 
-        Keywords("auto-cols", "grid-auto-columns", new() {
-            ["auto"] = "auto", ["min"] = "min-content", ["max"] = "max-content", ["fr"] = "minmax(0, 1fr)"
-        });
+        Keywords(
+            "auto-cols",
+            "grid-auto-columns",
+            new() { ["auto"] = "auto", ["min"] = "min-content", ["max"] = "max-content", ["fr"] = "minmax(0, 1fr)" }
+        );
 
-        Keywords("auto-rows", "grid-auto-rows", new() {
-            ["auto"] = "auto", ["min"] = "min-content", ["max"] = "max-content", ["fr"] = "minmax(0, 1fr)"
-        });
+        Keywords(
+            "auto-rows",
+            "grid-auto-rows",
+            new() { ["auto"] = "auto", ["min"] = "min-content", ["max"] = "max-content", ["fr"] = "minmax(0, 1fr)" }
+        );
 
         // ⚠ <b>`grid-flow-col` is `column`, and the family is `grid-flow` rather than `grid`.</b>
         // Tailwind abbreviates in the class name and CSS does not in the value — the same trade
@@ -799,10 +942,17 @@ public static class UtilityFamilies {
         // `SplitName` takes the longest registered name and `grid` is one: without the longer entry,
         // `grid-flow-col` would split as the display family `grid` with the value `flow-col`, which is
         // not a keyword it has, and the class would be reported as a typo.
-        Keywords("grid-flow", "grid-auto-flow", new() {
-            ["row"] = "row", ["col"] = "column", ["dense"] = "dense",
-            ["row-dense"] = "row dense", ["col-dense"] = "column dense"
-        });
+        Keywords(
+            "grid-flow",
+            "grid-auto-flow",
+            new() {
+                ["row"] = "row",
+                ["col"] = "column",
+                ["dense"] = "dense",
+                ["row-dense"] = "row dense",
+                ["col-dense"] = "column dense"
+            }
+        );
 
         // The four placement longhands. `Number` rather than `CountTemplate` because the value is
         // emitted as written — a line number is a line number — and because that is what makes
@@ -858,17 +1008,33 @@ public static class UtilityFamilies {
         // top-level whitespace before it decides anything; there is no interned `"safe center"` for
         // the table to miss. Either way the property stayed at its initial value with nothing said.
         // `LayoutStyleBuilder.TryAlignment` is the reading these were waiting for.
-        Keywords("justify-items", "justify-items", new() {
-            ["normal"] = "normal",
-            ["start"] = "start", ["end"] = "end", ["center"] = "center", ["stretch"] = "stretch",
-            ["center-safe"] = "safe center", ["end-safe"] = "safe end"
-        });
+        Keywords(
+            "justify-items",
+            "justify-items",
+            new() {
+                ["normal"] = "normal",
+                ["start"] = "start",
+                ["end"] = "end",
+                ["center"] = "center",
+                ["stretch"] = "stretch",
+                ["center-safe"] = "safe center",
+                ["end-safe"] = "safe end"
+            }
+        );
 
-        Keywords("justify-self", "justify-self", new() {
-            ["auto"] = "auto", ["start"] = "start", ["end"] = "end",
-            ["center"] = "center", ["stretch"] = "stretch",
-            ["center-safe"] = "safe center", ["end-safe"] = "safe end"
-        });
+        Keywords(
+            "justify-self",
+            "justify-self",
+            new() {
+                ["auto"] = "auto",
+                ["start"] = "start",
+                ["end"] = "end",
+                ["center"] = "center",
+                ["stretch"] = "stretch",
+                ["center-safe"] = "safe center",
+                ["end-safe"] = "safe end"
+            }
+        );
 
         // ── Gap and spacing ─────────────────────────────────────────────────────────────────
         Spacing("gap", "gap");
@@ -881,24 +1047,30 @@ public static class UtilityFamilies {
         // grammar: a number of spacing units, `px` or an arbitrary length, and no keyword or fraction
         // — `auto` and `1/2` are not lengths `border-spacing` can take, and the bridge would drop the
         // whole declaration for them. Read by `LayoutTree.Table.cs` on a table (#258).
-        Register(new Family(
-            "border-spacing",
-            ValueKind.Depth,
-            [UtilityComposition.BorderSpacingX, UtilityComposition.BorderSpacingY],
-            Alongside: [new UtilityDeclaration("border-spacing", UtilityComposition.BorderSpacing())]
-        ));
-        Register(new Family(
-            "border-spacing-x",
-            ValueKind.Depth,
-            [UtilityComposition.BorderSpacingX],
-            Alongside: [new UtilityDeclaration("border-spacing", UtilityComposition.BorderSpacing())]
-        ));
-        Register(new Family(
-            "border-spacing-y",
-            ValueKind.Depth,
-            [UtilityComposition.BorderSpacingY],
-            Alongside: [new UtilityDeclaration("border-spacing", UtilityComposition.BorderSpacing())]
-        ));
+        Register(
+            new Family(
+                "border-spacing",
+                ValueKind.Depth,
+                [UtilityComposition.BorderSpacingX, UtilityComposition.BorderSpacingY],
+                Alongside: [new UtilityDeclaration("border-spacing", UtilityComposition.BorderSpacing())]
+            )
+        );
+        Register(
+            new Family(
+                "border-spacing-x",
+                ValueKind.Depth,
+                [UtilityComposition.BorderSpacingX],
+                Alongside: [new UtilityDeclaration("border-spacing", UtilityComposition.BorderSpacing())]
+            )
+        );
+        Register(
+            new Family(
+                "border-spacing-y",
+                ValueKind.Depth,
+                [UtilityComposition.BorderSpacingY],
+                Alongside: [new UtilityDeclaration("border-spacing", UtilityComposition.BorderSpacing())]
+            )
+        );
 
         Spacing("p", "padding");
         Spacing("px", "padding-left", "padding-right");
@@ -986,7 +1158,13 @@ public static class UtilityFamilies {
         Spacing("scroll-mbs", "scroll-margin-top");
         Spacing("scroll-mbe", "scroll-margin-bottom");
 
-        Spacing("scroll-p", "scroll-padding-top", "scroll-padding-right", "scroll-padding-bottom", "scroll-padding-left");
+        Spacing(
+            "scroll-p",
+            "scroll-padding-top",
+            "scroll-padding-right",
+            "scroll-padding-bottom",
+            "scroll-padding-left"
+        );
         Spacing("scroll-px", "scroll-padding-left", "scroll-padding-right");
         Spacing("scroll-py", "scroll-padding-top", "scroll-padding-bottom");
         Spacing("scroll-pt", "scroll-padding-top");
@@ -1005,9 +1183,11 @@ public static class UtilityFamilies {
         // match `scroll`, and `scroll-smooth` cannot match `scroll-m` because the character after the
         // prefix has to be a hyphen. Both are `SplitName`'s existing rules rather than anything this
         // family needed, and `ThemeAndScannerTests` is what would notice if that changed.
-        Keywords("scroll", "scroll-behavior", new Dictionary<string, string>(StringComparer.Ordinal) {
-            ["auto"] = "auto", ["smooth"] = "smooth"
-        });
+        Keywords(
+            "scroll",
+            "scroll-behavior",
+            new(StringComparer.Ordinal) { ["auto"] = "auto", ["smooth"] = "smooth" }
+        );
 
         // ⚠ <b>All three values now move something, and two of them move two things.</b> `auto`
         // chains the wheel outwards and the other two do not; and of those two, `contain` keeps the
@@ -1040,25 +1220,27 @@ public static class UtilityFamilies {
         // ⚠ <b>`snap-align-none` and not `snap-none` for the alignment's off switch.</b> `snap-none`
         // is already the container's `scroll-snap-type: none`, and that is v4's spelling of both —
         // one prefix, two properties, and the longer name belongs to the one that came second.
-        Register(new Family(
-            "snap",
-            ValueKind.Keyword,
-            ["scroll-snap-type"],
-            new Dictionary<string, string>(StringComparer.Ordinal) {
-                ["none"] = "scroll-snap-type:none",
-                ["x"] = $"scroll-snap-type:x {SnapStrictness}",
-                ["y"] = $"scroll-snap-type:y {SnapStrictness}",
-                ["both"] = $"scroll-snap-type:both {SnapStrictness}",
-                ["mandatory"] = $"{UtilityComposition.ScrollSnapStrictness}:mandatory",
-                ["proximity"] = $"{UtilityComposition.ScrollSnapStrictness}:proximity",
-                ["start"] = "scroll-snap-align:start",
-                ["end"] = "scroll-snap-align:end",
-                ["center"] = "scroll-snap-align:center",
-                ["align-none"] = "scroll-snap-align:none",
-                ["normal"] = "scroll-snap-stop:normal",
-                ["always"] = "scroll-snap-stop:always"
-            }
-        ));
+        Register(
+            new Family(
+                "snap",
+                ValueKind.Keyword,
+                ["scroll-snap-type"],
+                new(StringComparer.Ordinal) {
+                    ["none"] = "scroll-snap-type:none",
+                    ["x"] = $"scroll-snap-type:x {SnapStrictness}",
+                    ["y"] = $"scroll-snap-type:y {SnapStrictness}",
+                    ["both"] = $"scroll-snap-type:both {SnapStrictness}",
+                    ["mandatory"] = $"{UtilityComposition.ScrollSnapStrictness}:mandatory",
+                    ["proximity"] = $"{UtilityComposition.ScrollSnapStrictness}:proximity",
+                    ["start"] = "scroll-snap-align:start",
+                    ["end"] = "scroll-snap-align:end",
+                    ["center"] = "scroll-snap-align:center",
+                    ["align-none"] = "scroll-snap-align:none",
+                    ["normal"] = "scroll-snap-stop:normal",
+                    ["always"] = "scroll-snap-stop:always"
+                }
+            )
+        );
 
         // ── The two families that are a rule over children ──────────────────────────────────
         //
@@ -1196,11 +1378,21 @@ public static class UtilityFamilies {
         // `start` and `end` alongside the physical four, because the renderer resolves them against
         // `direction` — the same property the logical edges above resolve against, so `text-end` and
         // `pe-2` land on the same side of a mirrored panel.
-        Register(new Family("text", ValueKind.FontSize, ["font-size"], new Dictionary<string, string>(StringComparer.Ordinal) {
-            ["left"] = "text-align:left", ["center"] = "text-align:center",
-            ["right"] = "text-align:right", ["justify"] = "text-align:justify",
-            ["start"] = "text-align:start", ["end"] = "text-align:end"
-        }));
+        Register(
+            new Family(
+                "text",
+                ValueKind.FontSize,
+                ["font-size"],
+                new(StringComparer.Ordinal) {
+                    ["left"] = "text-align:left",
+                    ["center"] = "text-align:center",
+                    ["right"] = "text-align:right",
+                    ["justify"] = "text-align:justify",
+                    ["start"] = "text-align:start",
+                    ["end"] = "text-align:end"
+                }
+            )
+        );
 
         Register(new Family("font", ValueKind.FontWeight, ["font-weight"]));
         // Two genuinely different things behind one prefix, and the difference is not cosmetic:
@@ -1208,14 +1400,21 @@ public static class UtilityFamilies {
         // a *ratio* each descendant multiplies by its own font size. The renderer keeps them apart,
         // so the utilities have to as well — a heading inside a body with `leading-relaxed` wants
         // the ratio, and the same value in pixels would give it the body's line height.
-        Register(new Family("leading", ValueKind.Spacing, ["line-height"], new Dictionary<string, string>(StringComparer.Ordinal) {
-            ["none"] = "line-height:1",
-            ["tight"] = "line-height:1.25",
-            ["snug"] = "line-height:1.375",
-            ["normal"] = "line-height:1.5",
-            ["relaxed"] = "line-height:1.625",
-            ["loose"] = "line-height:2"
-        }));
+        Register(
+            new Family(
+                "leading",
+                ValueKind.Spacing,
+                ["line-height"],
+                new(StringComparer.Ordinal) {
+                    ["none"] = "line-height:1",
+                    ["tight"] = "line-height:1.25",
+                    ["snug"] = "line-height:1.375",
+                    ["normal"] = "line-height:1.5",
+                    ["relaxed"] = "line-height:1.625",
+                    ["loose"] = "line-height:2"
+                }
+            )
+        );
         Spacing("tracking", "letter-spacing");
 
         // ⚠ <b>`text-indent` was one of Part 0's seven interned-but-unread properties and is now
@@ -1266,10 +1465,18 @@ public static class UtilityFamilies {
         // premise. ⚠ The qualifier is what the paragraph above added: the engine does collapse now,
         // under `pre-line` and only there, so the tree-wide claim this sentence used to make is
         // false while the conclusion it supports is untouched.
-        Keywords("whitespace", "white-space", new() {
-            ["normal"] = "normal", ["nowrap"] = "nowrap", ["pre"] = "pre", ["pre-wrap"] = "pre-wrap",
-            ["pre-line"] = "pre-line", ["break-spaces"] = "break-spaces"
-        });
+        Keywords(
+            "whitespace",
+            "white-space",
+            new() {
+                ["normal"] = "normal",
+                ["nowrap"] = "nowrap",
+                ["pre"] = "pre",
+                ["pre-wrap"] = "pre-wrap",
+                ["pre-line"] = "pre-line",
+                ["break-spaces"] = "break-spaces"
+            }
+        );
 
         // ⚠ <b>The slant, and it is registered here rather than being another value of `font`
         // because v4 spells it as two bare words.</b> `italic` and `not-italic` are `font-style`;
@@ -1368,9 +1575,11 @@ public static class UtilityFamilies {
         // #682 is where that landed, as `TextWrapMode.BreakWord` beside `Anywhere` — the two are the
         // same break at every width a box can be seen at and differ in a room of nothing, which is
         // exactly how `LayoutTree` asks a box for its min-content size.
-        Keywords("wrap", "overflow-wrap", new() {
-            ["anywhere"] = "anywhere", ["break-word"] = "break-word", ["normal"] = "normal"
-        });
+        Keywords(
+            "wrap",
+            "overflow-wrap",
+            new() { ["anywhere"] = "anywhere", ["break-word"] = "break-word", ["normal"] = "normal" }
+        );
 
         // v3's spelling of `wrap-break-word`, which v4 keeps. The same declaration under the name
         // people have in their fingers, exactly as `start-*` is kept beside `inset-s-*`.
@@ -1404,13 +1613,15 @@ public static class UtilityFamilies {
         // `InheritedProperties`, and so the half that was missing is exactly the opt-out a child
         // needs from a `break-all` on its container — the same argument `text-clip` and `wrap-normal`
         // each earn their place with, and the row's value gap closes with it.
-        Register(new Family(
-            "break-normal",
-            ValueKind.Static,
-            ["overflow-wrap"],
-            new Dictionary<string, string>(StringComparer.Ordinal) { [string.Empty] = "overflow-wrap:normal" },
-            Alongside: [new UtilityDeclaration("word-break", "normal")]
-        ));
+        Register(
+            new Family(
+                "break-normal",
+                ValueKind.Static,
+                ["overflow-wrap"],
+                new(StringComparer.Ordinal) { [string.Empty] = "overflow-wrap:normal" },
+                Alongside: [new UtilityDeclaration("word-break", "normal")]
+            )
+        );
 
         // The two halves of `text-overflow` under the prefix v4 gives them. Registered as a second
         // keyword table on `text` rather than as a family of its own, for the reason the type's
@@ -1421,9 +1632,7 @@ public static class UtilityFamilies {
         // would be a no-op on its own — but `text-overflow` inherits in Vixen (see
         // `UiDocument.EllipsisOf`), so it is the opt-out a child needs to escape an ellipsis its
         // container asked for, and there is no other way to write that.
-        Keywords("text", "text-overflow", new() {
-            ["ellipsis"] = "ellipsis", ["clip"] = "clip"
-        });
+        Keywords("text", "text-overflow", new() { ["ellipsis"] = "ellipsis", ["clip"] = "clip" });
 
         // ⚠ <b>Two of this root's four, and the two that are absent are absent on purpose.</b>
         // `text-wrap` is CSS Text 4's half of `white-space`, and `UiDocument.WrapsOf` reads it beside
@@ -1441,9 +1650,11 @@ public static class UtilityFamilies {
         // The wrapper has a second pass now: `TextWrapStyle.Balance` bisects for the narrowest width
         // that still costs no line, and `Pretty` refuses a last line with one word on it. The greedy
         // first-fit decision is untouched and is still what `auto` means.
-        Keywords("text", "text-wrap", new() {
-            ["wrap"] = "wrap", ["nowrap"] = "nowrap", ["balance"] = "balance", ["pretty"] = "pretty"
-        });
+        Keywords(
+            "text",
+            "text-wrap",
+            new() { ["wrap"] = "wrap", ["nowrap"] = "nowrap", ["balance"] = "balance", ["pretty"] = "pretty" }
+        );
 
         // ⚠ <b>Eight of Tailwind's eight now, and the four that arrive last are the four that were
         // waiting on a strut rather than on this table.</b> `align-text-top`, `align-text-bottom`,
@@ -1453,16 +1664,20 @@ public static class UtilityFamilies {
         // numbers `UiDocument.StrutOf` resolves from the element's own face — so all four now reach
         // the line walk and move a box. Registering them before that would have been the inert
         // family this table's gate exists to keep out.
-        Keywords("align", "vertical-align", new() {
-            ["top"] = "top",
-            ["middle"] = "middle",
-            ["bottom"] = "bottom",
-            ["baseline"] = "baseline",
-            ["text-top"] = "text-top",
-            ["text-bottom"] = "text-bottom",
-            ["sub"] = "sub",
-            ["super"] = "super"
-        });
+        Keywords(
+            "align",
+            "vertical-align",
+            new() {
+                ["top"] = "top",
+                ["middle"] = "middle",
+                ["bottom"] = "bottom",
+                ["baseline"] = "baseline",
+                ["text-top"] = "text-top",
+                ["text-bottom"] = "text-bottom",
+                ["sub"] = "sub",
+                ["super"] = "super"
+            }
+        );
 
         // ── Line clamp ──────────────────────────────────────────────────────────────────────
         // ⚠ <b>One declaration where Tailwind emits four, and the three that are missing are three
@@ -1579,9 +1794,18 @@ public static class UtilityFamilies {
         // the spacing one.</b> `underline-offset-3` is not a class in any Tailwind, and registering
         // the spacing scale here would invent five that resolve, compute and draw — real classes
         // this project made up, which is the failure `bg-conic-<angle>` is recorded under.
-        Keywords("underline-offset", "text-underline-offset", new() {
-            ["0"] = "0px", ["1"] = "1px", ["2"] = "2px", ["4"] = "4px", ["8"] = "8px", ["auto"] = "auto"
-        });
+        Keywords(
+            "underline-offset",
+            "text-underline-offset",
+            new() {
+                ["0"] = "0px",
+                ["1"] = "1px",
+                ["2"] = "2px",
+                ["4"] = "4px",
+                ["8"] = "8px",
+                ["auto"] = "auto"
+            }
+        );
 
         // ⚠ <b>One prefix, three properties, and the resolution order is the same one `text` uses:
         // keywords first, then the family's own kind.</b> `decoration-2` is a thickness because `2`
@@ -1603,14 +1827,25 @@ public static class UtilityFamilies {
         // is the inert family `UtilityConsumptionGateTests` exists to keep out.
         Color("decoration", "text-decoration-color");
 
-        Keywords("decoration", "text-decoration-thickness", new() {
-            ["0"] = "0px", ["1"] = "1px", ["2"] = "2px", ["4"] = "4px", ["8"] = "8px",
-            ["auto"] = "auto", ["from-font"] = "from-font"
-        });
+        Keywords(
+            "decoration",
+            "text-decoration-thickness",
+            new() {
+                ["0"] = "0px",
+                ["1"] = "1px",
+                ["2"] = "2px",
+                ["4"] = "4px",
+                ["8"] = "8px",
+                ["auto"] = "auto",
+                ["from-font"] = "from-font"
+            }
+        );
 
-        Keywords("decoration", "text-decoration-style", new() {
-            ["solid"] = "solid", ["double"] = "double", ["dashed"] = "dashed", ["dotted"] = "dotted"
-        });
+        Keywords(
+            "decoration",
+            "text-decoration-style",
+            new() { ["solid"] = "solid", ["double"] = "double", ["dashed"] = "dashed", ["dotted"] = "dotted" }
+        );
 
         // ── Colours ─────────────────────────────────────────────────────────────────────────
         Color("bg", "background-color");
@@ -1658,13 +1893,15 @@ public static class UtilityFamilies {
         // <c>BorderEdge</c> because the ambiguity is precisely `border`'s: `ring-2` is a width and
         // `ring-accent` is a colour, one prefix, told apart by the value's shape. The bare `ring` is
         // one pixel, which is v4 — v3's three-pixel `ring` became `ring-3` (§ D5).
-        Register(new Family(
-            "ring",
-            ValueKind.BorderEdge,
-            [UtilityComposition.RingWidth],
-            ColorProperties: [UtilityComposition.RingColor],
-            Alongside: [new UtilityDeclaration("box-shadow", UtilityComposition.Shadows())]
-        ));
+        Register(
+            new Family(
+                "ring",
+                ValueKind.BorderEdge,
+                [UtilityComposition.RingWidth],
+                ColorProperties: [UtilityComposition.RingColor],
+                Alongside: [new UtilityDeclaration("box-shadow", UtilityComposition.Shadows())]
+            )
+        );
 
         // ── Gradients: the composed families ────────────────────────────────────────────────
         //
@@ -1682,7 +1919,7 @@ public static class UtilityFamilies {
             "via",
             UtilityComposition.GradientVia,
             UtilityComposition.GradientViaPosition,
-            new UtilityDeclaration(UtilityComposition.GradientStops, UtilityComposition.StopList(via: true))
+            new UtilityDeclaration(UtilityComposition.GradientStops, UtilityComposition.StopList(true))
         );
 
         // The assemblers. Eight directions, and the direction is written into each one rather than
@@ -1701,12 +1938,20 @@ public static class UtilityFamilies {
         // be reported as an unrecognised typo. The same shape as `StaticOrSize`, one section up.
         Register(new Family("bg-linear", ValueKind.Angle, ["background-image"], Template: Gradient("linear", "{0}")));
 
-        Keywords("bg-linear", "background-image", new() {
-            ["to-t"] = Gradient("linear", "to top"), ["to-tr"] = Gradient("linear", "to top right"),
-            ["to-r"] = Gradient("linear", "to right"), ["to-br"] = Gradient("linear", "to bottom right"),
-            ["to-b"] = Gradient("linear", "to bottom"), ["to-bl"] = Gradient("linear", "to bottom left"),
-            ["to-l"] = Gradient("linear", "to left"), ["to-tl"] = Gradient("linear", "to top left")
-        });
+        Keywords(
+            "bg-linear",
+            "background-image",
+            new() {
+                ["to-t"] = Gradient("linear", "to top"),
+                ["to-tr"] = Gradient("linear", "to top right"),
+                ["to-r"] = Gradient("linear", "to right"),
+                ["to-br"] = Gradient("linear", "to bottom right"),
+                ["to-b"] = Gradient("linear", "to bottom"),
+                ["to-bl"] = Gradient("linear", "to bottom left"),
+                ["to-l"] = Gradient("linear", "to left"),
+                ["to-tl"] = Gradient("linear", "to top left")
+            }
+        );
 
         // ⚠ <b>The two round shapes take no geometry when they are written bare, and that is
         // Tailwind's own default rather than a simplification.</b> `bg-radial` is
@@ -1720,7 +1965,9 @@ public static class UtilityFamilies {
         // box shader recovers it from the axis lane with `atan2(x, -y)` — so this line is the whole
         // of the feature, and writing it earlier was blocked only on a value kind that admits zero.
         // The bare `bg-conic` keeps its own registration below, which is what `Register` merges in.
-        Register(new Family("bg-conic", ValueKind.Angle, ["background-image"], Template: Gradient("conic", "from {0}")));
+        Register(
+            new Family("bg-conic", ValueKind.Angle, ["background-image"], Template: Gradient("conic", "from {0}"))
+        );
         Static("bg-conic", "background-image", Gradient("conic", string.Empty));
 
         // ⚠ <b>`bg-none` is the opt-out and the eight `bg-gradient-to-*` are v3's spelling, and both
@@ -1758,24 +2005,29 @@ public static class UtilityFamilies {
         // not a flag, and `space`'s gaps are not a period a `mod` can express. `DrawListBuilder.Repeat`
         // drops a declaration naming either, which leaves CSS's initial `repeat`; registering them
         // would be two classes that resolve, compute and tile exactly like `bg-repeat`.
-        Keywords("bg", "background-repeat", new() {
-            ["repeat"] = "repeat",
-            ["no-repeat"] = "no-repeat",
-            ["repeat-x"] = "repeat-x",
-            ["repeat-y"] = "repeat-y"
-        });
+        Keywords(
+            "bg",
+            "background-repeat",
+            new() {
+                ["repeat"] = "repeat", ["no-repeat"] = "no-repeat", ["repeat-x"] = "repeat-x", ["repeat-y"] = "repeat-y"
+            }
+        );
 
-        Keywords("bg", "background-image", new() {
-            ["none"] = "none",
-            ["gradient-to-t"] = Gradient("linear", "to top"),
-            ["gradient-to-tr"] = Gradient("linear", "to top right"),
-            ["gradient-to-r"] = Gradient("linear", "to right"),
-            ["gradient-to-br"] = Gradient("linear", "to bottom right"),
-            ["gradient-to-b"] = Gradient("linear", "to bottom"),
-            ["gradient-to-bl"] = Gradient("linear", "to bottom left"),
-            ["gradient-to-l"] = Gradient("linear", "to left"),
-            ["gradient-to-tl"] = Gradient("linear", "to top left")
-        });
+        Keywords(
+            "bg",
+            "background-image",
+            new() {
+                ["none"] = "none",
+                ["gradient-to-t"] = Gradient("linear", "to top"),
+                ["gradient-to-tr"] = Gradient("linear", "to top right"),
+                ["gradient-to-r"] = Gradient("linear", "to right"),
+                ["gradient-to-br"] = Gradient("linear", "to bottom right"),
+                ["gradient-to-b"] = Gradient("linear", "to bottom"),
+                ["gradient-to-bl"] = Gradient("linear", "to bottom left"),
+                ["gradient-to-l"] = Gradient("linear", "to left"),
+                ["gradient-to-tl"] = Gradient("linear", "to top left")
+            }
+        );
 
         // ── Borders ─────────────────────────────────────────────────────────────────────────
         // ⚠ `border-2` is two *pixels* where `p-2` is two spacing steps, which is Tailwind's choice
@@ -1799,12 +2051,28 @@ public static class UtilityFamilies {
         // either.</b> All four are two-tone — CSS derives a lighter and a darker shade of the border
         // colour and gives one to each pair of edges — which is a second colour the border record
         // does not carry. See `Vixen.Ui.StrokeStyle`.
-        Keywords("border", "border-style", new() {
-            ["solid"] = "solid", ["dashed"] = "dashed", ["dotted"] = "dotted",
-            ["double"] = "double", ["none"] = "none", ["hidden"] = "hidden"
-        });
-        BorderEdge("border-x", ["border-left-width", "border-right-width"], ["border-left-color", "border-right-color"]);
-        BorderEdge("border-y", ["border-top-width", "border-bottom-width"], ["border-top-color", "border-bottom-color"]);
+        Keywords(
+            "border",
+            "border-style",
+            new() {
+                ["solid"] = "solid",
+                ["dashed"] = "dashed",
+                ["dotted"] = "dotted",
+                ["double"] = "double",
+                ["none"] = "none",
+                ["hidden"] = "hidden"
+            }
+        );
+        BorderEdge(
+            "border-x",
+            ["border-left-width", "border-right-width"],
+            ["border-left-color", "border-right-color"]
+        );
+        BorderEdge(
+            "border-y",
+            ["border-top-width", "border-bottom-width"],
+            ["border-top-color", "border-bottom-color"]
+        );
         BorderEdge("border-t", ["border-top-width"], ["border-top-color"]);
         BorderEdge("border-r", ["border-right-width"], ["border-right-color"]);
         BorderEdge("border-b", ["border-bottom-width"], ["border-bottom-color"]);
@@ -1898,10 +2166,17 @@ public static class UtilityFamilies {
         // dash pattern in `Vixen.Ui` and a doubled ring is two rings. Both exist now — `Dashes`
         // distributes the marks, `Rings` walks the ring's centre line, and `EmitOutline` draws a
         // doubled ring as two `Border` commands a third as thick.
-        Keywords("outline", "outline-style", new() {
-            ["solid"] = "solid", ["none"] = "none", ["dashed"] = "dashed",
-            ["dotted"] = "dotted", ["double"] = "double"
-        });
+        Keywords(
+            "outline",
+            "outline-style",
+            new() {
+                ["solid"] = "solid",
+                ["none"] = "none",
+                ["dashed"] = "dashed",
+                ["dotted"] = "dotted",
+                ["double"] = "double"
+            }
+        );
 
         // ⚠ <b>`outline-hidden` compiles to `hidden` and `outline-none` to `none`, and the two words
         // being different is load-bearing rather than incidental.</b> CSS UI 4 makes them synonyms on
@@ -1920,9 +2195,17 @@ public static class UtilityFamilies {
         // `border-*`'s argument one property over.</b> An outline is a hairline that happens to sit
         // a hairline away; scaling its offset with the theme's spacing base would mean a larger base
         // silently pushed every focus ring off its control.
-        Keywords("outline-offset", "outline-offset", new() {
-            ["0"] = "0px", ["1"] = "1px", ["2"] = "2px", ["4"] = "4px", ["8"] = "8px"
-        });
+        Keywords(
+            "outline-offset",
+            "outline-offset",
+            new() {
+                ["0"] = "0px",
+                ["1"] = "1px",
+                ["2"] = "2px",
+                ["4"] = "4px",
+                ["8"] = "8px"
+            }
+        );
 
         Between("divide-x", ValueKind.BorderEdge, ["border-inline-end-width"]);
         Between("divide-y", ValueKind.BorderEdge, ["border-bottom-width"]);
@@ -1935,10 +2218,17 @@ public static class UtilityFamilies {
         // its ring — which is why that path had to answer the broken styles too and could not leave
         // them to the stroked centre line. `Register` merges these into the family above and keeps
         // its `> :not(:last-child)` scope, so the style reaches exactly the edges the width did.
-        Keywords("divide", "border-style", new() {
-            ["solid"] = "solid", ["dashed"] = "dashed", ["dotted"] = "dotted",
-            ["double"] = "double", ["none"] = "none"
-        });
+        Keywords(
+            "divide",
+            "border-style",
+            new() {
+                ["solid"] = "solid",
+                ["dashed"] = "dashed",
+                ["dotted"] = "dotted",
+                ["double"] = "double",
+                ["none"] = "none"
+            }
+        );
 
         // ⚠ <b>Four of these names are prefixes of others — <c>rounded</c> of <c>rounded-t</c>, and
         // <c>rounded-t</c> of <c>rounded-tl</c> — and it is `SplitName`'s longest-first sort that
@@ -1996,12 +2286,14 @@ public static class UtilityFamilies {
         // half of A8.</b> `--blur` was a name of this engine's own invention that nothing assembled
         // and nothing could read; the fragment and the assembler put the length inside a real
         // `filter` declaration, which `DrawListBuilder` now reads. See `UtilityComposition.Filter`.
-        Register(new Family(
-            "blur",
-            ValueKind.Blur,
-            [UtilityComposition.Blur],
-            Alongside: [new UtilityDeclaration("filter", UtilityComposition.Filter())]
-        ));
+        Register(
+            new Family(
+                "blur",
+                ValueKind.Blur,
+                [UtilityComposition.Blur],
+                Alongside: [new UtilityDeclaration("filter", UtilityComposition.Filter())]
+            )
+        );
 
         // ── The colour filters ──────────────────────────────────────────────────────────
         //
@@ -2024,23 +2316,25 @@ public static class UtilityFamilies {
         // not define it. The empty key is the keyword table's, so the pair is written out.
         Filter("brightness", UtilityComposition.Brightness);
         Filter("contrast", UtilityComposition.Contrast);
-        Filter("grayscale", UtilityComposition.Grayscale, bare: "1");
-        Filter("invert", UtilityComposition.Invert, bare: "1");
+        Filter("grayscale", UtilityComposition.Grayscale, "1");
+        Filter("invert", UtilityComposition.Invert, "1");
         Filter("saturate", UtilityComposition.Saturate);
-        Filter("sepia", UtilityComposition.Sepia, bare: "1");
+        Filter("sepia", UtilityComposition.Sepia, "1");
 
         // ⚠ <b>An angle, and the one of the eight that is not a proportion.</b> `hue-rotate-90` is
         // ninety degrees, so the unit has to be appended — which is `CountTemplate`'s whole job, and
         // the same reason `rotate` uses it. `StyleValueParser` refuses `hue-rotate(90)` outright, so
         // a family emitting the bare count here would produce a declaration the engine drops *whole*,
         // taking every other filter on the element with it.
-        Register(new Family(
-            "hue-rotate",
-            ValueKind.CountTemplate,
-            [UtilityComposition.HueRotate],
-            Template: "{0}deg",
-            Alongside: [new UtilityDeclaration("filter", UtilityComposition.Filter())]
-        ));
+        Register(
+            new Family(
+                "hue-rotate",
+                ValueKind.CountTemplate,
+                [UtilityComposition.HueRotate],
+                Template: "{0}deg",
+                Alongside: [new UtilityDeclaration("filter", UtilityComposition.Filter())]
+            )
+        );
 
         // ⚠ <b>The ninth family in the block and the only one that sets no fragment, which is what
         // makes it the odd one and also what makes it correct.</b> `filter-none` is not "every
@@ -2058,7 +2352,7 @@ public static class UtilityFamilies {
         // classes were written in. Tailwind v4 has the identical ambiguity for the identical reason.
         // The class earns its place on elements that inherit or `@apply` a filter and want it off,
         // which is the only case where there is nothing else to write.
-        Keywords("filter", "filter", new Dictionary<string, string>(StringComparer.Ordinal) { ["none"] = "none" });
+        Keywords("filter", "filter", new(StringComparer.Ordinal) { ["none"] = "none" });
 
         // ⚠ <b>The ninth function, and the one that took a compositor change rather than a
         // constant.</b> The seven above are a 3×4 matrix folded into the composite draw the group was
@@ -2078,15 +2372,15 @@ public static class UtilityFamilies {
         // fragment to the same transparent shadow the initial value holds, which
         // `DrawListBuilder.Settle` drops before it costs a surface — so the class is a real override
         // in the cascade and costs the frame nothing.
-        Register(new Family(
-            "drop-shadow",
-            ValueKind.DropShadow,
-            [UtilityComposition.DropShadow],
-            new Dictionary<string, string>(StringComparer.Ordinal) {
-                ["none"] = UtilityComposition.DropShadow + ":0 0 transparent"
-            },
-            Alongside: [new UtilityDeclaration("filter", UtilityComposition.Filter())]
-        ));
+        Register(
+            new Family(
+                "drop-shadow",
+                ValueKind.DropShadow,
+                [UtilityComposition.DropShadow],
+                new(StringComparer.Ordinal) { ["none"] = UtilityComposition.DropShadow + ":0 0 transparent" },
+                Alongside: [new UtilityDeclaration("filter", UtilityComposition.Filter())]
+            )
+        );
 
         // ⚠ <b>Sixteen keywords rather than the eight the ledger's `classes` column transcribed, and
         // the extra eight are not padding.</b> That column is the original survey's list and is short
@@ -2104,7 +2398,7 @@ public static class UtilityFamilies {
         Keywords(
             "mix-blend",
             "mix-blend-mode",
-            new Dictionary<string, string>(StringComparer.Ordinal) {
+            new(StringComparer.Ordinal) {
                 ["normal"] = "normal",
                 ["multiply"] = "multiply",
                 ["screen"] = "screen",
@@ -2144,31 +2438,35 @@ public static class UtilityFamilies {
         // is Tailwind's set, and it is also this engine's: a shadow of the backdrop is a silhouette
         // composited under a picture that is already behind everything, and `DrawListBuilder.One`
         // refuses `drop-shadow()` inside a `backdrop-filter` for that reason.
-        Register(new Family(
-            "backdrop-blur",
-            ValueKind.Blur,
-            [UtilityComposition.BackdropBlur],
-            Alongside: BackdropAlongside
-        ));
+        Register(
+            new Family(
+                "backdrop-blur",
+                ValueKind.Blur,
+                [UtilityComposition.BackdropBlur],
+                Alongside: BackdropAlongside
+            )
+        );
 
         Backdrop("backdrop-brightness", UtilityComposition.BackdropBrightness);
         Backdrop("backdrop-contrast", UtilityComposition.BackdropContrast);
-        Backdrop("backdrop-grayscale", UtilityComposition.BackdropGrayscale, bare: "1");
-        Backdrop("backdrop-invert", UtilityComposition.BackdropInvert, bare: "1");
+        Backdrop("backdrop-grayscale", UtilityComposition.BackdropGrayscale, "1");
+        Backdrop("backdrop-invert", UtilityComposition.BackdropInvert, "1");
         Backdrop("backdrop-opacity", UtilityComposition.BackdropOpacity);
         Backdrop("backdrop-saturate", UtilityComposition.BackdropSaturate);
-        Backdrop("backdrop-sepia", UtilityComposition.BackdropSepia, bare: "1");
+        Backdrop("backdrop-sepia", UtilityComposition.BackdropSepia, "1");
 
         // ⚠ The angle, for `hue-rotate`'s reason exactly: `StyleValueParser` refuses a bare number
         // where an angle belongs, and a family emitting one would produce a declaration the engine
         // drops *whole* — taking every other backdrop function on the element with it.
-        Register(new Family(
-            "backdrop-hue-rotate",
-            ValueKind.CountTemplate,
-            [UtilityComposition.BackdropHueRotate],
-            Template: "{0}deg",
-            Alongside: BackdropAlongside
-        ));
+        Register(
+            new Family(
+                "backdrop-hue-rotate",
+                ValueKind.CountTemplate,
+                [UtilityComposition.BackdropHueRotate],
+                Template: "{0}deg",
+                Alongside: BackdropAlongside
+            )
+        );
 
         // ⚠ <b><c>backdrop-filter-none</c>, which sets no fragment for the reason <c>filter-none</c>
         // sets none.</b> It is the keyword `none`, which `DrawListBuilder` reads as "not a list" and
@@ -2180,7 +2478,7 @@ public static class UtilityFamilies {
         Keywords(
             "backdrop-filter",
             "backdrop-filter",
-            new Dictionary<string, string>(StringComparer.Ordinal) { ["none"] = "none" }
+            new(StringComparer.Ordinal) { ["none"] = "none" }
         );
 
         // ── Masks ───────────────────────────────────────────────────────────────────────
@@ -2201,30 +2499,66 @@ public static class UtilityFamilies {
         // nothing until a `bg-linear-*` says what shape to paint; `mask-linear-from-50%` alone has to
         // mask, because there is no separate "turn masking on" class in v4 and forgetting one would
         // look exactly like the utility being broken.
-        Mask("mask-linear-from", UtilityComposition.MaskFrom, UtilityComposition.MaskFromPosition, UtilityComposition.MaskLinear, Linear);
-        Mask("mask-linear-to", UtilityComposition.MaskTo, UtilityComposition.MaskToPosition, UtilityComposition.MaskLinear, Linear);
-        Mask("mask-radial-from", UtilityComposition.MaskFrom, UtilityComposition.MaskFromPosition, UtilityComposition.MaskRadial, Radial);
-        Mask("mask-radial-to", UtilityComposition.MaskTo, UtilityComposition.MaskToPosition, UtilityComposition.MaskRadial, Radial);
-        Mask("mask-conic-from", UtilityComposition.MaskFrom, UtilityComposition.MaskFromPosition, UtilityComposition.MaskConic, Conic);
-        Mask("mask-conic-to", UtilityComposition.MaskTo, UtilityComposition.MaskToPosition, UtilityComposition.MaskConic, Conic);
+        Mask(
+            "mask-linear-from",
+            UtilityComposition.MaskFrom,
+            UtilityComposition.MaskFromPosition,
+            UtilityComposition.MaskLinear,
+            Linear
+        );
+        Mask(
+            "mask-linear-to",
+            UtilityComposition.MaskTo,
+            UtilityComposition.MaskToPosition,
+            UtilityComposition.MaskLinear,
+            Linear
+        );
+        Mask(
+            "mask-radial-from",
+            UtilityComposition.MaskFrom,
+            UtilityComposition.MaskFromPosition,
+            UtilityComposition.MaskRadial,
+            Radial
+        );
+        Mask(
+            "mask-radial-to",
+            UtilityComposition.MaskTo,
+            UtilityComposition.MaskToPosition,
+            UtilityComposition.MaskRadial,
+            Radial
+        );
+        Mask(
+            "mask-conic-from",
+            UtilityComposition.MaskFrom,
+            UtilityComposition.MaskFromPosition,
+            UtilityComposition.MaskConic,
+            Conic
+        );
+        Mask(
+            "mask-conic-to",
+            UtilityComposition.MaskTo,
+            UtilityComposition.MaskToPosition,
+            UtilityComposition.MaskConic,
+            Conic
+        );
 
         // ⚠ <b>The twelve edge ramps, and `mask-x-*` and `mask-y-*` are pairs rather than shorthands
         // for a wider box.</b> `mask-x-from-50%` sets the near stop of the left ramp *and* of the
         // right one — two entries in the list, intersected — which is why `Family.Positions` is
         // several rather than one. A shorthand that widened a single ramp would fade one side and
         // brighten the other.
-        MaskEdgeRamp("mask-t-from", ["top"], near: true);
-        MaskEdgeRamp("mask-t-to", ["top"], near: false);
-        MaskEdgeRamp("mask-r-from", ["right"], near: true);
-        MaskEdgeRamp("mask-r-to", ["right"], near: false);
-        MaskEdgeRamp("mask-b-from", ["bottom"], near: true);
-        MaskEdgeRamp("mask-b-to", ["bottom"], near: false);
-        MaskEdgeRamp("mask-l-from", ["left"], near: true);
-        MaskEdgeRamp("mask-l-to", ["left"], near: false);
-        MaskEdgeRamp("mask-x-from", ["left", "right"], near: true);
-        MaskEdgeRamp("mask-x-to", ["left", "right"], near: false);
-        MaskEdgeRamp("mask-y-from", ["top", "bottom"], near: true);
-        MaskEdgeRamp("mask-y-to", ["top", "bottom"], near: false);
+        MaskEdgeRamp("mask-t-from", ["top"], true);
+        MaskEdgeRamp("mask-t-to", ["top"], false);
+        MaskEdgeRamp("mask-r-from", ["right"], true);
+        MaskEdgeRamp("mask-r-to", ["right"], false);
+        MaskEdgeRamp("mask-b-from", ["bottom"], true);
+        MaskEdgeRamp("mask-b-to", ["bottom"], false);
+        MaskEdgeRamp("mask-l-from", ["left"], true);
+        MaskEdgeRamp("mask-l-to", ["left"], false);
+        MaskEdgeRamp("mask-x-from", ["left", "right"], true);
+        MaskEdgeRamp("mask-x-to", ["left", "right"], false);
+        MaskEdgeRamp("mask-y-from", ["top", "bottom"], true);
+        MaskEdgeRamp("mask-y-to", ["top", "bottom"], false);
 
         // ⚠ <b>The operator, as four keywords, and it is worth having even though every mask utility
         // already writes one.</b> `intersect` is what the families emit because it is what makes an
@@ -2254,18 +2588,34 @@ public static class UtilityFamilies {
         // while the four repeat values must not. `Family.ValueAlongside` is that difference, and it
         // was worth a second field rather than a second family: `Register` keeps the first family
         // under a name and discards a second silently.
-        Keywords("mask-radial", UtilityComposition.MaskRadialSize, new() {
-            ["closest-side"] = "closest-side",
-            ["closest-corner"] = "closest-corner",
-            ["farthest-side"] = "farthest-side",
-            ["farthest-corner"] = "farthest-corner"
-        }, [.. MaskAlongside(UtilityComposition.MaskRadial, Radial)]);
+        Keywords(
+            "mask-radial",
+            UtilityComposition.MaskRadialSize,
+            new() {
+                ["closest-side"] = "closest-side",
+                ["closest-corner"] = "closest-corner",
+                ["farthest-side"] = "farthest-side",
+                ["farthest-corner"] = "farthest-corner"
+            },
+            [..MaskAlongside(UtilityComposition.MaskRadial, Radial)]
+        );
 
-        Keywords("mask-radial-at", UtilityComposition.MaskRadialPosition, new() {
-            ["top"] = "top", ["top-left"] = "top left", ["top-right"] = "top right",
-            ["left"] = "left", ["center"] = "center", ["right"] = "right",
-            ["bottom"] = "bottom", ["bottom-left"] = "bottom left", ["bottom-right"] = "bottom right"
-        }, [.. MaskAlongside(UtilityComposition.MaskRadial, Radial)]);
+        Keywords(
+            "mask-radial-at",
+            UtilityComposition.MaskRadialPosition,
+            new() {
+                ["top"] = "top",
+                ["top-left"] = "top left",
+                ["top-right"] = "top right",
+                ["left"] = "left",
+                ["center"] = "center",
+                ["right"] = "right",
+                ["bottom"] = "bottom",
+                ["bottom-left"] = "bottom left",
+                ["bottom-right"] = "bottom right"
+            },
+            [..MaskAlongside(UtilityComposition.MaskRadial, Radial)]
+        );
 
         // ⚠ <b>`mask-mode`, and it is the one property of the six that costs no lane and no branch.</b>
         // CSS Masking 1 § 7.2 makes a luminance mask `luminance(rgb) × a` — a scalar per stop — so
@@ -2288,21 +2638,25 @@ public static class UtilityFamilies {
         // `translate-x-2 translate-y-4` is in. `CountTemplate` appends the unit for
         // `hue-rotate`'s reason: `StyleValueParser` refuses a bare number where an angle belongs, and
         // a bare one here would invalidate the whole assembled declaration.
-        Register(new Family(
-            "mask-linear",
-            ValueKind.CountTemplate,
-            [UtilityComposition.MaskLinearAngle],
-            Template: "{0}deg",
-            Alongside: MaskAlongside(UtilityComposition.MaskLinear, Linear)
-        ));
+        Register(
+            new Family(
+                "mask-linear",
+                ValueKind.CountTemplate,
+                [UtilityComposition.MaskLinearAngle],
+                Template: "{0}deg",
+                Alongside: MaskAlongside(UtilityComposition.MaskLinear, Linear)
+            )
+        );
 
-        Register(new Family(
-            "mask-conic",
-            ValueKind.CountTemplate,
-            [UtilityComposition.MaskConicAngle],
-            Template: "{0}deg",
-            Alongside: MaskAlongside(UtilityComposition.MaskConic, Conic)
-        ));
+        Register(
+            new Family(
+                "mask-conic",
+                ValueKind.CountTemplate,
+                [UtilityComposition.MaskConicAngle],
+                Template: "{0}deg",
+                Alongside: MaskAlongside(UtilityComposition.MaskConic, Conic)
+            )
+        );
 
         // ⚠ Its own family rather than a keyword on one of the above, because `mask-none` has to work
         // where nothing else set a mask — a keyword hanging off `mask-linear` would need the author to
@@ -2330,23 +2684,25 @@ public static class UtilityFamilies {
         // which is why `Family.ValueAlongside` had to exist before this line could be written. A
         // shape carries the three mask-layer declarations every other `mask-radial-*` carries; a
         // repeat value must not, or `mask-no-repeat` on its own would install a radial mask.
-        Register(new Family(
-            "mask",
-            ValueKind.Keyword,
-            ["mask-repeat"],
-            new Dictionary<string, string>(StringComparer.Ordinal) {
-                ["repeat"] = "mask-repeat:repeat",
-                ["no-repeat"] = "mask-repeat:no-repeat",
-                ["repeat-x"] = "mask-repeat:repeat-x",
-                ["repeat-y"] = "mask-repeat:repeat-y",
-                ["circle"] = $"{UtilityComposition.MaskRadialShape}:circle",
-                ["ellipse"] = $"{UtilityComposition.MaskRadialShape}:ellipse"
-            },
-            ValueAlongside: new Dictionary<string, UtilityDeclaration[]>(StringComparer.Ordinal) {
-                ["circle"] = MaskAlongside(UtilityComposition.MaskRadial, Radial),
-                ["ellipse"] = MaskAlongside(UtilityComposition.MaskRadial, Radial)
-            }
-        ));
+        Register(
+            new Family(
+                "mask",
+                ValueKind.Keyword,
+                ["mask-repeat"],
+                new(StringComparer.Ordinal) {
+                    ["repeat"] = "mask-repeat:repeat",
+                    ["no-repeat"] = "mask-repeat:no-repeat",
+                    ["repeat-x"] = "mask-repeat:repeat-x",
+                    ["repeat-y"] = "mask-repeat:repeat-y",
+                    ["circle"] = $"{UtilityComposition.MaskRadialShape}:circle",
+                    ["ellipse"] = $"{UtilityComposition.MaskRadialShape}:ellipse"
+                },
+                ValueAlongside: new(StringComparer.Ordinal) {
+                    ["circle"] = MaskAlongside(UtilityComposition.MaskRadial, Radial),
+                    ["ellipse"] = MaskAlongside(UtilityComposition.MaskRadial, Radial)
+                }
+            )
+        );
 
         Static("mask-none", "mask-image", "none");
 
@@ -2365,15 +2721,15 @@ public static class UtilityFamilies {
         // change is not cosmetic: `none` substituted into the middle of a comma list is not an empty
         // item, it is a keyword `EmitShadow` refuses the whole declaration over — so the old spelling
         // would have made `shadow-none ring-2` paint no ring either.
-        Register(new Family(
-            "shadow",
-            ValueKind.Shadow,
-            [UtilityComposition.Shadow],
-            new Dictionary<string, string>(StringComparer.Ordinal) {
-                ["none"] = UtilityComposition.Shadow + ":0 0 transparent"
-            },
-            Alongside: [new UtilityDeclaration("box-shadow", UtilityComposition.Shadows())]
-        ));
+        Register(
+            new Family(
+                "shadow",
+                ValueKind.Shadow,
+                [UtilityComposition.Shadow],
+                new(StringComparer.Ordinal) { ["none"] = UtilityComposition.Shadow + ":0 0 transparent" },
+                Alongside: [new UtilityDeclaration("box-shadow", UtilityComposition.Shadows())]
+            )
+        );
 
         // ⚠ <b>The inner twin of the family above, and it waited on a draw path rather than on a
         // registration.</b> `box-shadow` has been read for as long as `shadow-*` has existed, so
@@ -2386,15 +2742,15 @@ public static class UtilityFamilies {
         // ⚠ <b>Its own theme namespace, and the values are not the outer scale read inwards.</b> An
         // outer shadow is seen at its edge and an inner one is seen whole, over the element's own
         // background — see `--inset-shadow-*` in `vixen.default.vcss`, three steps against seven.
-        Register(new Family(
-            "inset-shadow",
-            ValueKind.InsetShadow,
-            [UtilityComposition.InsetShadow],
-            new Dictionary<string, string>(StringComparer.Ordinal) {
-                ["none"] = UtilityComposition.InsetShadow + ":0 0 transparent"
-            },
-            Alongside: [new UtilityDeclaration("box-shadow", UtilityComposition.Shadows())]
-        ));
+        Register(
+            new Family(
+                "inset-shadow",
+                ValueKind.InsetShadow,
+                [UtilityComposition.InsetShadow],
+                new(StringComparer.Ordinal) { ["none"] = UtilityComposition.InsetShadow + ":0 0 transparent" },
+                Alongside: [new UtilityDeclaration("box-shadow", UtilityComposition.Shadows())]
+            )
+        );
 
         // ⚠ <b><c>ring-*</c>'s two fragments and one keyword's difference, which is a whole other
         // draw path.</b> An outer ring is the border box grown by the spread and painted behind it;
@@ -2407,13 +2763,15 @@ public static class UtilityFamilies {
         // inner twin covers nothing, and the fragment stage reaches "nothing" as one minus the box's
         // own coverage — a quarter of the ring's colour around every antialiased edge. See
         // `UtilityComposition.InsetRingWidth`, and `EmitOneShadow`, where CSS's answer is enforced.
-        Register(new Family(
-            "inset-ring",
-            ValueKind.BorderEdge,
-            [UtilityComposition.InsetRingWidth],
-            ColorProperties: [UtilityComposition.InsetRingColor],
-            Alongside: [new UtilityDeclaration("box-shadow", UtilityComposition.Shadows())]
-        ));
+        Register(
+            new Family(
+                "inset-ring",
+                ValueKind.BorderEdge,
+                [UtilityComposition.InsetRingWidth],
+                ColorProperties: [UtilityComposition.InsetRingColor],
+                Alongside: [new UtilityDeclaration("box-shadow", UtilityComposition.Shadows())]
+            )
+        );
 
         // ⚠ <b>The last of doc 43 § F8's three shape-3 refusals, and it closed on a decision rather
         // than on a mechanism.</b> Everything mechanical had already expired: `EmitShadow` paints a
@@ -2436,13 +2794,15 @@ public static class UtilityFamilies {
         // `BorderEdge` for `ring-*`'s reason — `ring-offset-2` is a width and `ring-offset-accent` is
         // a colour, one prefix, told apart by the value's shape. `SplitName` takes the longest
         // registered prefix, so this wins over `ring` wherever both match.
-        Register(new Family(
-            "ring-offset",
-            ValueKind.BorderEdge,
-            [UtilityComposition.RingOffsetWidth],
-            ColorProperties: [UtilityComposition.RingOffsetColor],
-            Alongside: [new UtilityDeclaration("box-shadow", UtilityComposition.Shadows())]
-        ));
+        Register(
+            new Family(
+                "ring-offset",
+                ValueKind.BorderEdge,
+                [UtilityComposition.RingOffsetWidth],
+                ColorProperties: [UtilityComposition.RingOffsetColor],
+                Alongside: [new UtilityDeclaration("box-shadow", UtilityComposition.Shadows())]
+            )
+        );
 
         // ── Transforms ──────────────────────────────────────────────────────────────────────
         //
@@ -2493,12 +2853,14 @@ public static class UtilityFamilies {
         // `CompositionTests.Emits("translate-x-full")` has pinned `--tw-translate-x: 100%` the whole
         // time. A value-gap column enumerated by class-name prefix attributes a sibling root's
         // classes to this one.
-        Register(new Family(
-            "translate",
-            ValueKind.Size,
-            [UtilityComposition.TranslateX, UtilityComposition.TranslateY],
-            Alongside: [new UtilityDeclaration("translate", UtilityComposition.Translation())]
-        ));
+        Register(
+            new Family(
+                "translate",
+                ValueKind.Size,
+                [UtilityComposition.TranslateX, UtilityComposition.TranslateY],
+                Alongside: [new UtilityDeclaration("translate", UtilityComposition.Translation())]
+            )
+        );
 
         // ⚠ <b>Its own registered name rather than a keyword on the family above, because
         // `Alongside` is appended on EVERY resolution of a family.</b> A `none` in that keyword
@@ -2589,13 +2951,15 @@ public static class UtilityFamilies {
         // remark, and `Apply`'s: the composite quad's texture coordinates are interpolated linearly,
         // which is exact for an affine map and an approximation for a projective one. That is a
         // renderer decision and it is recorded on issue #228, not worked around here.
-        Register(new Family(
-            "rotate-z",
-            ValueKind.Angle,
-            [UtilityComposition.RotateZ],
-            Template: "{0}",
-            Alongside: [new UtilityDeclaration("transform", UtilityComposition.Transform())]
-        ));
+        Register(
+            new Family(
+                "rotate-z",
+                ValueKind.Angle,
+                [UtilityComposition.RotateZ],
+                Template: "{0}",
+                Alongside: [new UtilityDeclaration("transform", UtilityComposition.Transform())]
+            )
+        );
 
         // ⚠ <b>The two skews, and they were never a parser away either — which makes this the second
         // family to close on a refusal whose premise had already expired.</b> `rotate-z-*`'s note
@@ -2658,20 +3022,24 @@ public static class UtilityFamilies {
         // root existed</b>, and the census could not see it — it measures a class as resolvable when
         // it emits a declaration, not when a consumer reads one. `scale-z-*` was never exposed to it:
         // `TryCount` takes positive integers only.
-        Register(new Family(
-            "translate-z",
-            ValueKind.Depth,
-            [UtilityComposition.TranslateZ],
-            Alongside: [new UtilityDeclaration("transform", UtilityComposition.Transform())]
-        ));
+        Register(
+            new Family(
+                "translate-z",
+                ValueKind.Depth,
+                [UtilityComposition.TranslateZ],
+                Alongside: [new UtilityDeclaration("transform", UtilityComposition.Transform())]
+            )
+        );
 
-        Register(new Family(
-            "scale-z",
-            ValueKind.CountTemplate,
-            [UtilityComposition.ScaleZ],
-            Template: "{0}%",
-            Alongside: [new UtilityDeclaration("transform", UtilityComposition.Transform())]
-        ));
+        Register(
+            new Family(
+                "scale-z",
+                ValueKind.CountTemplate,
+                [UtilityComposition.ScaleZ],
+                Template: "{0}%",
+                Alongside: [new UtilityDeclaration("transform", UtilityComposition.Transform())]
+            )
+        );
 
         // ⚠ <b>A property and not a function, established by the PARENT — which is the half of
         // Transforms 2 § 6 that is easy to get backwards and produces a plausible picture either
@@ -2684,30 +3052,38 @@ public static class UtilityFamilies {
         // looks at — the `--blur` failure this table has already paid for once. They are v4's own
         // defaults, and a `perspective-[600px]` reaches the same property through the arbitrary
         // branch.
-        Keywords("perspective", "perspective", new() {
-            ["dramatic"] = "100px",
-            ["near"] = "300px",
-            ["normal"] = "500px",
-            ["midrange"] = "800px",
-            ["distant"] = "1200px",
-            ["none"] = "none"
-        });
+        Keywords(
+            "perspective",
+            "perspective",
+            new() {
+                ["dramatic"] = "100px",
+                ["near"] = "300px",
+                ["normal"] = "500px",
+                ["midrange"] = "800px",
+                ["distant"] = "1200px",
+                ["none"] = "none"
+            }
+        );
 
         // ⚠ <b>`origin`'s nine positions over a different property, and `SplitName` is what makes the
         // two coexist</b>: the longest registered prefix wins, so `perspective-origin-top-right`
         // reaches here and `perspective-distant` still reaches the family above. The same rule that
         // keeps `rotate-z-45` and `rotate-45` apart.
-        Keywords("perspective-origin", "perspective-origin", new() {
-            ["center"] = "center",
-            ["top"] = "top",
-            ["top-right"] = "top right",
-            ["right"] = "right",
-            ["bottom-right"] = "bottom right",
-            ["bottom"] = "bottom",
-            ["bottom-left"] = "bottom left",
-            ["left"] = "left",
-            ["top-left"] = "top left"
-        });
+        Keywords(
+            "perspective-origin",
+            "perspective-origin",
+            new() {
+                ["center"] = "center",
+                ["top"] = "top",
+                ["top-right"] = "top right",
+                ["right"] = "right",
+                ["bottom-right"] = "bottom right",
+                ["bottom"] = "bottom",
+                ["bottom-left"] = "bottom left",
+                ["left"] = "left",
+                ["top-left"] = "top left"
+            }
+        );
 
         // ⚠ <b>A plain property, and the registration waited on the INSTRUMENT rather than on the
         // engine.</b> `TransformReader` has answered "has this element turned away" since #550's
@@ -2751,17 +3127,21 @@ public static class UtilityFamilies {
         // about a corner is a different picture from one about the centre, which is asserted against
         // pixels in `TransformPaintTests`. The refusal named its own condition and nothing was
         // watching for it — the third time on this page.
-        Keywords("origin", "transform-origin", new() {
-            ["center"] = "center",
-            ["top"] = "top",
-            ["top-right"] = "top right",
-            ["right"] = "right",
-            ["bottom-right"] = "bottom right",
-            ["bottom"] = "bottom",
-            ["bottom-left"] = "bottom left",
-            ["left"] = "left",
-            ["top-left"] = "top left"
-        });
+        Keywords(
+            "origin",
+            "transform-origin",
+            new() {
+                ["center"] = "center",
+                ["top"] = "top",
+                ["top-right"] = "top right",
+                ["right"] = "right",
+                ["bottom-right"] = "bottom right",
+                ["bottom"] = "bottom",
+                ["bottom-left"] = "bottom left",
+                ["left"] = "left",
+                ["top-left"] = "top left"
+            }
+        );
 
         // ── Transitions ─────────────────────────────────────────────────────────────────────
         //
@@ -2803,13 +3183,22 @@ public static class UtilityFamilies {
         // initial `transition-property` is `all`, so `class="transition-discrete"` alone would have
         // begun animating every property on the element where in Tailwind it animates nothing. Keyed
         // on the bare value, it reaches the one class it is v4's default for.
-        Register(new Family("transition", ValueKind.Static, ["transition-property"], new Dictionary<string, string>(StringComparer.Ordinal) {
-            [string.Empty] = "all"
-        }, ValueAlongside: new Dictionary<string, UtilityDeclaration[]>(StringComparer.Ordinal) {
-            [string.Empty] = [
-                new UtilityDeclaration("transition-duration", UtilityComposition.Reference(UtilityComposition.TransitionDuration))
-            ]
-        }));
+        Register(
+            new Family(
+                "transition",
+                ValueKind.Static,
+                ["transition-property"],
+                new(StringComparer.Ordinal) { [string.Empty] = "all" },
+                ValueAlongside: new(StringComparer.Ordinal) {
+                    [string.Empty] = [
+                        new UtilityDeclaration(
+                            "transition-duration",
+                            UtilityComposition.Reference(UtilityComposition.TransitionDuration)
+                        )
+                    ]
+                }
+            )
+        );
 
         // ⚠ <b>Tailwind's bare `transition` root is `transition-behavior`, which is a DIFFERENT root
         // from `transition-*` despite the name, and its refusal expired rather than being argued
@@ -2821,15 +3210,15 @@ public static class UtilityFamilies {
         // off both the shorthand and the longhand, and `!wanted.AllowDiscrete &&
         // !StyleValue.CanInterpolate(...)` is what now skips a discrete property. So the property
         // has its reader and this is the spelling.
-        Keywords("transition", "transition-behavior", new() {
-            ["normal"] = "normal", ["discrete"] = "allow-discrete"
-        });
+        Keywords("transition", "transition-behavior", new() { ["normal"] = "normal", ["discrete"] = "allow-discrete" });
 
         // ⚠ Both the fragment and the longhand, which is v4's shape too. The longhand alone would be
         // invisible to the `transition` above; the fragment alone would make the family `composed`,
         // and `duration-*` has to keep working beside a hand-written `transition-property` that knows
         // nothing about any `--tw-*`.
-        Register(new Family("duration", ValueKind.Duration, ["transition-duration", UtilityComposition.TransitionDuration]));
+        Register(
+            new Family("duration", ValueKind.Duration, ["transition-duration", UtilityComposition.TransitionDuration])
+        );
 
         // ⚠ <b>`transition-delay` had a reader before it had a class</b> — `Animator.ReadSpecs` reads
         // it into `RunningTransition.Delay`, which `Progress` and `IsFinished` both consult — so this
@@ -2838,27 +3227,45 @@ public static class UtilityFamilies {
         // does not: one was missing a spelling, the other is missing three mechanisms.
         Register(new Family("delay", ValueKind.Duration, ["transition-delay"]));
 
-        Keywords("ease", "transition-timing-function", new() {
-            ["linear"] = "linear", ["in"] = "ease-in", ["out"] = "ease-out", ["in-out"] = "ease-in-out"
-        });
+        Keywords(
+            "ease",
+            "transition-timing-function",
+            new() { ["linear"] = "linear", ["in"] = "ease-in", ["out"] = "ease-out", ["in-out"] = "ease-in-out" }
+        );
 
         // ── Interactivity ───────────────────────────────────────────────────────────────────
         // The set `UiCursor` has a reading of, and no more — a keyword the document cannot map is a
         // rule that resolves to the host's default, which is indistinguishable from having written
         // nothing and is not worth a family entry.
-        Keywords("cursor", "cursor", new() {
-            ["auto"] = "auto", ["default"] = "default", ["none"] = "none", ["pointer"] = "pointer",
-            ["text"] = "text", ["move"] = "move", ["not-allowed"] = "not-allowed",
-            ["grab"] = "grab", ["grabbing"] = "grabbing", ["crosshair"] = "crosshair",
-            ["wait"] = "wait", ["progress"] = "progress",
-            ["col-resize"] = "col-resize", ["row-resize"] = "row-resize",
-            ["ew-resize"] = "ew-resize", ["ns-resize"] = "ns-resize",
-            ["help"] = "help"
-        });
+        Keywords(
+            "cursor",
+            "cursor",
+            new() {
+                ["auto"] = "auto",
+                ["default"] = "default",
+                ["none"] = "none",
+                ["pointer"] = "pointer",
+                ["text"] = "text",
+                ["move"] = "move",
+                ["not-allowed"] = "not-allowed",
+                ["grab"] = "grab",
+                ["grabbing"] = "grabbing",
+                ["crosshair"] = "crosshair",
+                ["wait"] = "wait",
+                ["progress"] = "progress",
+                ["col-resize"] = "col-resize",
+                ["row-resize"] = "row-resize",
+                ["ew-resize"] = "ew-resize",
+                ["ns-resize"] = "ns-resize",
+                ["help"] = "help"
+            }
+        );
 
-        Keywords("select", "user-select", new() {
-            ["none"] = "none", ["text"] = "text", ["all"] = "all", ["auto"] = "auto"
-        });
+        Keywords(
+            "select",
+            "user-select",
+            new() { ["none"] = "none", ["text"] = "text", ["all"] = "all", ["auto"] = "auto" }
+        );
 
         Keywords("pointer-events", "pointer-events", new() { ["none"] = "none", ["auto"] = "auto" });
 
@@ -2877,11 +3284,21 @@ public static class UtilityFamilies {
         // `touch-pinch-zoom` is deliberately not registered: the value parses, but nothing here
         // performs a pinch as a user-agent default, so the class would be the inert kind this file's
         // gate exists to refuse. It arrives with the first UA pinch.
-        Keywords("touch", "touch-action", new() {
-            ["auto"] = "auto", ["none"] = "none", ["manipulation"] = "manipulation",
-            ["pan-x"] = "pan-x", ["pan-left"] = "pan-left", ["pan-right"] = "pan-right",
-            ["pan-y"] = "pan-y", ["pan-up"] = "pan-up", ["pan-down"] = "pan-down"
-        });
+        Keywords(
+            "touch",
+            "touch-action",
+            new() {
+                ["auto"] = "auto",
+                ["none"] = "none",
+                ["manipulation"] = "manipulation",
+                ["pan-x"] = "pan-x",
+                ["pan-left"] = "pan-left",
+                ["pan-right"] = "pan-right",
+                ["pan-y"] = "pan-y",
+                ["pan-up"] = "pan-up",
+                ["pan-down"] = "pan-down"
+            }
+        );
 
         // ⚠ `clip` is the fifth keyword and it was the one thing keeping all three of these roots off
         // `works`. It reads as `hidden` — `LayoutStyleBuilder` maps it there and says why at length:
@@ -2890,17 +3307,41 @@ public static class UtilityFamilies {
         // was not cosmetic: until `LayoutStyleBuilder` learned the keyword, `overflow-clip` clipped in
         // the draw list and stayed `Visible` to the layout, which is the half-property `overflow-auto`
         // used to be.
-        Keywords("overflow", "overflow", new() {
-            ["auto"] = "auto", ["hidden"] = "hidden", ["clip"] = "clip", ["visible"] = "visible", ["scroll"] = "scroll"
-        });
+        Keywords(
+            "overflow",
+            "overflow",
+            new() {
+                ["auto"] = "auto",
+                ["hidden"] = "hidden",
+                ["clip"] = "clip",
+                ["visible"] = "visible",
+                ["scroll"] = "scroll"
+            }
+        );
 
-        Keywords("overflow-x", "overflow-x", new() {
-            ["auto"] = "auto", ["hidden"] = "hidden", ["clip"] = "clip", ["visible"] = "visible", ["scroll"] = "scroll"
-        });
+        Keywords(
+            "overflow-x",
+            "overflow-x",
+            new() {
+                ["auto"] = "auto",
+                ["hidden"] = "hidden",
+                ["clip"] = "clip",
+                ["visible"] = "visible",
+                ["scroll"] = "scroll"
+            }
+        );
 
-        Keywords("overflow-y", "overflow-y", new() {
-            ["auto"] = "auto", ["hidden"] = "hidden", ["clip"] = "clip", ["visible"] = "visible", ["scroll"] = "scroll"
-        });
+        Keywords(
+            "overflow-y",
+            "overflow-y",
+            new() {
+                ["auto"] = "auto",
+                ["hidden"] = "hidden",
+                ["clip"] = "clip",
+                ["visible"] = "visible",
+                ["scroll"] = "scroll"
+            }
+        );
 
         // ⚠ <b>The property was built and this family was not, and that gap is the whole of what kept
         // this root <c>absent</c> — see #246, #785 and #786.</b> Every one of the eight values is
@@ -2924,11 +3365,20 @@ public static class UtilityFamilies {
         // <c>container</c> class here, so the longest-prefix walk in <c>UtilityGenerator</c> has no
         // second candidate to choose between — and if one is ever added it must be its own root, or
         // <c>container</c> resolves as this family asked for a keyword called <c>er</c>.
-        Keywords("contain", "contain", new() {
-            ["none"] = "none", ["content"] = "content", ["strict"] = "strict",
-            ["size"] = "size", ["inline-size"] = "inline-size",
-            ["layout"] = "layout", ["paint"] = "paint", ["style"] = "style"
-        });
+        Keywords(
+            "contain",
+            "contain",
+            new() {
+                ["none"] = "none",
+                ["content"] = "content",
+                ["strict"] = "strict",
+                ["size"] = "size",
+                ["inline-size"] = "inline-size",
+                ["layout"] = "layout",
+                ["paint"] = "paint",
+                ["style"] = "style"
+            }
+        );
 
         // ⚠ <b>The `@container` MARKER family — the class that makes a box a query container — and
         // the one root in this table spelled with a sigil.</b> v4 emits `container-type: inline-size`
@@ -2944,9 +3394,14 @@ public static class UtilityFamilies {
         // remark above warns a bare `container` root would have. The `@` reaches the registry only
         // because `CandidateScanner` admits exactly this name without a colon; every other
         // `@`-word it sees is an at-keyword.
-        Register(new Family("@container", ValueKind.Static, ["container-type"], Keywords: new(StringComparer.Ordinal) {
-            [string.Empty] = "inline-size", ["normal"] = "normal", ["size"] = "size"
-        }) { Slash = SlashMeaning.Name });
+        Register(
+            new Family(
+                "@container",
+                ValueKind.Static,
+                ["container-type"],
+                new(StringComparer.Ordinal) { [string.Empty] = "inline-size", ["normal"] = "normal", ["size"] = "size" }
+            ) { Slash = SlashMeaning.Name }
+        );
 
         // ⚠ <b>Lengths where the web has keywords, because the two are answering different
         // questions.</b> A browser's `scrollbar-width: auto | thin | none` is a page's *preference*
@@ -2962,9 +3417,7 @@ public static class UtilityFamilies {
         // ⚠ Inert unless the box scrolls, and that is the property doing its job rather than a
         // hole: `Overflow.Hidden` clips without a bar, so there is nothing to reserve for. See
         // `LayoutStyle.ScrollbarWidth`.
-        Keywords("scrollbar", "scrollbar-width", new() {
-            ["auto"] = "10px", ["thin"] = "6px", ["none"] = "0px"
-        });
+        Keywords("scrollbar", "scrollbar-width", new() { ["auto"] = "10px", ["thin"] = "6px", ["none"] = "0px" });
 
         // The ratio keywords are pairs rather than numbers because the layout reads `16 / 9` with a
         // parser of its own — `LayoutStyleBuilder.TryRatio`, beside the bare-number form.
@@ -2975,11 +3428,16 @@ public static class UtilityFamilies {
         // it means is the family's to decide. What was missing is the deciding: this family did not
         // look, so `aspect-16/9` resolved its head and emitted `aspect-ratio: 16`. A wrong ratio,
         // silently, rather than a class that could not be written.
-        Register(new Family("aspect", ValueKind.Number, ["aspect-ratio"], new Dictionary<string, string>(StringComparer.Ordinal) {
-            ["square"] = "aspect-ratio:1 / 1",
-            ["video"] = "aspect-ratio:16 / 9",
-            ["auto"] = "aspect-ratio:auto"
-        }) { Slash = SlashMeaning.Ratio });
+        Register(
+            new Family(
+                "aspect",
+                ValueKind.Number,
+                ["aspect-ratio"],
+                new(StringComparer.Ordinal) {
+                    ["square"] = "aspect-ratio:1 / 1", ["video"] = "aspect-ratio:16 / 9", ["auto"] = "aspect-ratio:auto"
+                }
+            ) { Slash = SlashMeaning.Ratio }
+        );
 
         // ── The eighteen roots that are deliberately NOT here ───────────────────────────────
         //
@@ -3120,8 +3578,12 @@ public static class UtilityFamilies {
     /// <param name="name">A name, as <see cref="SplitName" /> returns it.</param>
     /// <returns>Whether a family is registered under it.</returns>
     /// <remarks>
-    ///     ⚠ <b>The question <see cref="TryResolve" />'s <c>false</c> cannot answer, and the whole of
-    ///     why it is public.</b> <c>TryResolve</c> returns <c>false</c> for two situations that read
+    ///     ⚠
+    ///     <b>
+    ///         The question <see cref="TryResolve" />'s <c>false</c> cannot answer, and the whole of
+    ///         why it is public.
+    ///     </b>
+    ///     <c>TryResolve</c> returns <c>false</c> for two situations that read
     ///     identically to whoever wrote the class and are opposite in what to do about them:
     ///     <c>flexx-4</c> is a typo and <c>bg-clip-text</c> is a registered family being asked for a
     ///     value it does not have. Reporting them through one channel makes the second look like the
@@ -3145,8 +3607,12 @@ public static class UtilityFamilies {
     ///     overwhelming majority of families, whose rule is about the element itself.
     /// </returns>
     /// <remarks>
-    ///     ⚠ <b>Public because two callers outside this file have to know, and both of them are
-    ///     wrong without it.</b> <see cref="UtilityGenerator" /> has to append it to the selector, or
+    ///     ⚠
+    ///     <b>
+    ///         Public because two callers outside this file have to know, and both of them are
+    ///         wrong without it.
+    ///     </b>
+    ///     <see cref="UtilityGenerator" /> has to append it to the selector, or
     ///     <c>space-x-4</c> emits a margin on the container and silently does the opposite of what it
     ///     says. <see cref="ApplyExpander" /> has to refuse it, or <c>@apply space-x-4</c> quietly
     ///     drops the same declarations into whichever block it was written in. A family registered
@@ -3163,16 +3629,23 @@ public static class UtilityFamilies {
     /// <returns>The class names, ordered, each one of which resolves against <paramref name="tokens" />.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The point of this is that it is <i>computed</i>, and every hand-written inventory of
-    ///         this table has rotted.</b> <c>docs/plan/43</c> § Part 0 is a survey somebody did by hand
+    ///         ⚠
+    ///         <b>
+    ///             The point of this is that it is <i>computed</i>, and every hand-written inventory of
+    ///             this table has rotted.
+    ///         </b>
+    ///         <c>docs/plan/43</c> § Part 0 is a survey somebody did by hand
     ///         against 328 Tailwind roots, and its own opening caveat is that the script that produced
     ///         it is not in the tree. Anything that enumerates the family surface by listing class names
     ///         is a second copy of the registry that drifts from the first the next time a family is
     ///         added — which is exactly how "43 registrations" came to be quoted for a table holding 98.
     ///     </para>
     ///     <para>
-    ///         <b>A family is covered by more than one class, because a family emits more than one
-    ///         thing.</b> <c>flex</c> alone is <c>display</c>, <c>flex-col</c> is <c>flex-direction</c>,
+    ///         <b>
+    ///             A family is covered by more than one class, because a family emits more than one
+    ///             thing.
+    ///         </b>
+    ///         <c>flex</c> alone is <c>display</c>, <c>flex-col</c> is <c>flex-direction</c>,
     ///         <c>flex-wrap</c> is <c>flex-wrap</c> and <c>flex-1</c> is the <c>flex</c> shorthand — one
     ///         prefix, four properties, so one example class would measure a quarter of it. Every key of
     ///         a family's keyword table is emitted, plus a value of the family's own kind, plus a colour
@@ -3283,7 +3756,7 @@ public static class UtilityFamilies {
             // same trap `bg-conic-0` is written up under, arriving through a font instead of a
             // default.
             case ValueKind.FontFeatures:
-                yield return "[\"onum\"_1]";
+                yield return """["onum"_1]""";
                 break;
 
             case ValueKind.Duration:
@@ -3416,7 +3889,11 @@ public static class UtilityFamilies {
     /// <param name="tokens">The theme.</param>
     /// <param name="declarations">Receives the declarations.</param>
     /// <returns>Whether it is a utility this system knows.</returns>
-    public static bool TryResolve(UtilityCandidate candidate, ThemeTokens tokens, List<UtilityDeclaration> declarations) {
+    public static bool TryResolve(
+        UtilityCandidate candidate,
+        ThemeTokens tokens,
+        List<UtilityDeclaration> declarations
+    ) {
         ArgumentNullException.ThrowIfNull(tokens);
         ArgumentNullException.ThrowIfNull(declarations);
 
@@ -3476,8 +3953,12 @@ public static class UtilityFamilies {
     /// <summary>Emits the one declaration an arbitrary property names, if both halves are sound.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>This is exempt from the consumption gate, it needs no code to be exempt, and the
-    ///         absence of that code is the point.</b> <c>UtilityConsumptionGateTests</c> asks that no
+    ///         ⚠
+    ///         <b>
+    ///             This is exempt from the consumption gate, it needs no code to be exempt, and the
+    ///             absence of that code is the point.
+    ///         </b>
+    ///         <c>UtilityConsumptionGateTests</c> asks that no
     ///         utility <i>family</i> emit a property nothing acts on, and it asks it of
     ///         <see cref="Surface" /> — an enumeration of the registry. An arbitrary property is never
     ///         registered, so it is not on the surface, contributes nothing to the gate's `Emitted`
@@ -3487,8 +3968,11 @@ public static class UtilityFamilies {
     ///         a list of things that get out of it.
     ///     </para>
     ///     <para>
-    ///         <b>Nor can the hatch launder a family's debt, which is the test of whether an exemption
-    ///         is really a hole.</b> Registering a <see cref="UtilityComposition" /> fragment
+    ///         <b>
+    ///             Nor can the hatch launder a family's debt, which is the test of whether an exemption
+    ///             is really a hole.
+    ///         </b>
+    ///         Registering a <see cref="UtilityComposition" /> fragment
     ///         <i>was</i> a way to move a property out of `Inert`, which is why that mechanism needed
     ///         an explicit guard holding the assembler accountable. There is no matching move here.
     ///         Writing <c>[mask-type:luminance]</c> in a <c>.vxml</c> changes
@@ -3526,12 +4010,17 @@ public static class UtilityFamilies {
             return false;
         }
 
-        declarations.Add(new UtilityDeclaration(property, value));
+        declarations.Add(new(property, value));
 
         return true;
     }
 
-    static bool Resolve(Family family, UtilityCandidate candidate, ThemeTokens tokens, List<UtilityDeclaration> declarations) {
+    static bool Resolve(
+        Family family,
+        UtilityCandidate candidate,
+        ThemeTokens tokens,
+        List<UtilityDeclaration> declarations
+    ) {
         // An arbitrary value goes straight through, once it is CSS at all. That is the point of it:
         // `w-[37px]` exists precisely for the case the token scale does not cover, and second-guessing
         // it would make the escape hatch useless.
@@ -3568,7 +4057,11 @@ public static class UtilityFamilies {
             // is `hue-rotate`'s argument one level up: there the template appends a unit, here it
             // wraps the value in the function it belongs to.
             if (family.Kind == ValueKind.Angle) {
-                return Emit(family, string.Format(CultureInfo.InvariantCulture, family.Template!, arbitrary), declarations);
+                return Emit(
+                    family,
+                    string.Format(CultureInfo.InvariantCulture, family.Template!, arbitrary),
+                    declarations
+                );
             }
 
             return Emit(family, arbitrary, declarations);
@@ -3622,24 +4115,32 @@ public static class UtilityFamilies {
             // which the branch above has already tried. Getting here means a value was given to a
             // utility that does not take one.
             ValueKind.Static => false,
-            ValueKind.Spacing => TrySpacing(candidate.Value, tokens, out var spacing) && Emit(family, spacing, declarations),
+            ValueKind.Spacing => TrySpacing(candidate.Value, tokens, out var spacing)
+                && Emit(family, spacing, declarations),
             ValueKind.Depth => TryDepth(candidate.Value, tokens, out var depth) && Emit(family, depth, declarations),
             ValueKind.Size => TrySize(candidate, tokens, out var size) && Emit(family, size, declarations),
             ValueKind.Number => TryNumber(candidate.Value, out var number) && Emit(family, number, declarations),
             ValueKind.CountTemplate => TryCount(candidate.Value, out var count)
                 && Emit(family, string.Format(CultureInfo.InvariantCulture, family.Template!, count), declarations),
             ValueKind.Angle => TryAngle(candidate.Value, out var degrees)
-                && Emit(family, string.Format(CultureInfo.InvariantCulture, family.Template!, degrees + "deg"), declarations),
+                && Emit(
+                    family,
+                    string.Format(CultureInfo.InvariantCulture, family.Template!, degrees + "deg"),
+                    declarations
+                ),
 
             // The arbitrary branch above has already answered every value this kind takes; a bare one
             // is a class v4 does not have, and inventing it here is what this kind's remark refuses.
             ValueKind.Placement => false,
             ValueKind.FontFeatures => false,
             ValueKind.Duration => TryNumber(candidate.Value, out var ms) && Emit(family, ms + "ms", declarations),
-            ValueKind.Fraction => TryFraction(candidate.Value, out var fraction) && Emit(family, fraction, declarations),
-            ValueKind.Radius => TryRadius(candidate.Value, tokens, out var radius) && Emit(family, radius, declarations),
+            ValueKind.Fraction => TryFraction(candidate.Value, out var fraction)
+                && Emit(family, fraction, declarations),
+            ValueKind.Radius => TryRadius(candidate.Value, tokens, out var radius)
+                && Emit(family, radius, declarations),
             ValueKind.Blur => TryBlur(candidate.Value, tokens, out var blur) && Emit(family, blur, declarations),
-            ValueKind.FontWeight => TryFontWeight(candidate.Value, tokens, out var weight) && Emit(family, weight, declarations),
+            ValueKind.FontWeight => TryFontWeight(candidate.Value, tokens, out var weight)
+                && Emit(family, weight, declarations),
             ValueKind.FontSize => TryFontSizeOrColor(candidate, tokens, declarations),
             ValueKind.Color => TryColor(candidate, tokens, out var colour) && Emit(family, colour, declarations),
             ValueKind.BorderEdge => TryBorderEdge(family, candidate, tokens, declarations),
@@ -3658,12 +4159,17 @@ public static class UtilityFamilies {
     ///     written with — so the two readings of <c>from-</c> are separated by the value's shape and
     ///     no palette can collide with either.
     /// </remarks>
-    static bool TryGradientStop(Family family, UtilityCandidate candidate, ThemeTokens tokens, List<UtilityDeclaration> declarations) {
+    static bool TryGradientStop(
+        Family family,
+        UtilityCandidate candidate,
+        ThemeTokens tokens,
+        List<UtilityDeclaration> declarations
+    ) {
         var value = candidate.Arbitrary ?? candidate.Value;
 
         if (value.EndsWith('%') && float.TryParse(value[..^1], CultureInfo.InvariantCulture, out _)) {
             foreach (var position in family.Positions!) {
-                declarations.Add(new UtilityDeclaration(position, value));
+                declarations.Add(new(position, value));
             }
 
             return true;
@@ -3683,8 +4189,11 @@ public static class UtilityFamilies {
     ///     and it took the negation being written the shape-only way once to notice.
     ///     <c>px</c> is deliberately absent: <c>-mt-px</c> is a real and useful one-pixel pull.
     ///     <para>
-    ///         ⚠ <b>The six viewport keywords are here for exactly the reason the note above
-    ///         describes, and they are the case that would have slipped through it.</b>
+    ///         ⚠
+    ///         <b>
+    ///             The six viewport keywords are here for exactly the reason the note above
+    ///             describes, and they are the case that would have slipped through it.
+    ///         </b>
     ///         <c>full</c> and <c>screen</c> resolve to <c>100%</c>, which the shape test catches
     ///         only because this set names them; <c>svh</c> and its five siblings resolve to
     ///         <c>100vh</c>, which begins with a digit in the same way. <c>-h-dvh</c> is not
@@ -3692,8 +4201,12 @@ public static class UtilityFamilies {
     ///         cent wide.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b><c>lh</c> joined them the day it resolved, and it is the same trap a third
-    ///         time.</b> It comes out as <c>1lh</c> — a digit again — so <c>-max-block-lh</c> would
+    ///         ⚠
+    ///         <b>
+    ///             <c>lh</c> joined them the day it resolved, and it is the same trap a third
+    ///             time.
+    ///         </b>
+    ///         It comes out as <c>1lh</c> — a digit again — so <c>-max-block-lh</c> would
     ///         have been "minus one line box tall" rather than a refusal. A value that stops being
     ///         unresolvable has to be looked at here as well as in <see cref="TrySize" />.
     ///     </para>
@@ -3719,15 +4232,30 @@ public static class UtilityFamilies {
     ///     </para>
     /// </remarks>
     static readonly HashSet<string> NotNegatable = new(StringComparer.Ordinal) {
-        "auto", "screen", "min", "max", "fit", "none",
-        "svw", "lvw", "dvw", "svh", "lvh", "dvh", "lh"
+        "auto",
+        "screen",
+        "min",
+        "max",
+        "fit",
+        "none",
+        "svw",
+        "lvw",
+        "dvw",
+        "svh",
+        "lvh",
+        "dvh",
+        "lh"
     };
 
     /// <summary>The roots whose leading <c>-</c> flips the sign. Every other root refuses it.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>An allow-list, because the deny-list it replaced leaked everything it did not
-    ///         name</b> (#1409). A family used to accept a minus unless it was marked unsigned, and
+    ///         ⚠
+    ///         <b>
+    ///             An allow-list, because the deny-list it replaced leaked everything it did not
+    ///             name
+    ///         </b>
+    ///         (#1409). A family used to accept a minus unless it was marked unsigned, and
     ///         <see cref="TryNegate" /> flips any value that begins with a digit — so <c>-p-2</c> was
     ///         <c>padding: -8px</c>, <c>-font-bold</c> was <c>font-weight: -700</c>,
     ///         <c>-border-2</c> a negative width, <c>-duration-300</c> a negative duration and
@@ -3755,34 +4283,88 @@ public static class UtilityFamilies {
     /// </remarks>
     static readonly HashSet<string> Signed = new(StringComparer.Ordinal) {
         // Margins, including the flow-relative and block-logical ones, and their scroll twins.
-        "m", "mx", "my", "mt", "mr", "mb", "ml", "ms", "me", "mbs", "mbe",
-        "scroll-m", "scroll-mx", "scroll-my", "scroll-mt", "scroll-mr", "scroll-mb", "scroll-ml",
-        "scroll-ms", "scroll-me", "scroll-mbs", "scroll-mbe",
+        "m",
+        "mx",
+        "my",
+        "mt",
+        "mr",
+        "mb",
+        "ml",
+        "ms",
+        "me",
+        "mbs",
+        "mbe",
+        "scroll-m",
+        "scroll-mx",
+        "scroll-my",
+        "scroll-mt",
+        "scroll-mr",
+        "scroll-mb",
+        "scroll-ml",
+        "scroll-ms",
+        "scroll-me",
+        "scroll-mbs",
+        "scroll-mbe",
 
         // Placement.
-        "inset", "inset-x", "inset-y", "inset-s", "inset-e", "inset-bs", "inset-be",
-        "top", "right", "bottom", "left", "start", "end",
+        "inset",
+        "inset-x",
+        "inset-y",
+        "inset-s",
+        "inset-e",
+        "inset-bs",
+        "inset-be",
+        "top",
+        "right",
+        "bottom",
+        "left",
+        "start",
+        "end",
 
         // The individual transforms and the assembled 3D ones.
-        "translate", "translate-x", "translate-y", "translate-z",
-        "rotate", "rotate-x", "rotate-y", "rotate-z",
-        "skew", "skew-x", "skew-y",
-        "scale", "scale-x", "scale-y", "scale-z",
+        "translate",
+        "translate-x",
+        "translate-y",
+        "translate-z",
+        "rotate",
+        "rotate-x",
+        "rotate-y",
+        "rotate-z",
+        "skew",
+        "skew-x",
+        "skew-y",
+        "scale",
+        "scale-x",
+        "scale-y",
+        "scale-z",
 
         // Between children.
-        "space-x", "space-y",
+        "space-x",
+        "space-y",
 
         // Order, layers and grid lines — the numbers CSS gives a sign.
-        "order", "z", "col", "col-start", "col-end", "row", "row-start", "row-end",
+        "order",
+        "z",
+        "col",
+        "col-start",
+        "col-end",
+        "row",
+        "row-start",
+        "row-end",
 
         // Typography.
-        "indent", "tracking", "underline-offset",
+        "indent",
+        "tracking",
+        "underline-offset",
 
         // Outline.
         "outline-offset",
 
         // Angles.
-        "hue-rotate", "backdrop-hue-rotate", "mask-linear", "mask-conic"
+        "hue-rotate",
+        "backdrop-hue-rotate",
+        "mask-linear",
+        "mask-conic"
     };
 
     /// <summary>Flips the sign of everything a utility resolved to.</summary>
@@ -3852,7 +4434,11 @@ public static class UtilityFamilies {
 
     /// <summary>The functions whose value is a number, and so can be negated by wrapping: see <see cref="TryNegate" />.</summary>
     static readonly HashSet<string> NumericFunctions = new(StringComparer.OrdinalIgnoreCase) {
-        "calc", "var", "min", "max", "clamp"
+        "calc",
+        "var",
+        "min",
+        "max",
+        "clamp"
     };
 
     /// <summary>A border edge, which is a width or a colour depending on how the value reads.</summary>
@@ -3869,7 +4455,12 @@ public static class UtilityFamilies {
     ///         invented class and, before this line, a null reference.
     ///     </para>
     /// </remarks>
-    static bool TryBorderEdge(Family family, UtilityCandidate candidate, ThemeTokens tokens, List<UtilityDeclaration> declarations) {
+    static bool TryBorderEdge(
+        Family family,
+        UtilityCandidate candidate,
+        ThemeTokens tokens,
+        List<UtilityDeclaration> declarations
+    ) {
         // `border` and `border-t` on their own are a one-pixel edge — CSS's own default, and the
         // reason `border-width` has one at all.
         if (candidate.Value.Length == 0) {
@@ -3891,7 +4482,12 @@ public static class UtilityFamilies {
     ///     <c>bg-accent</c> answer their unqualified forms the same way rather than each having its
     ///     own rule.
     /// </remarks>
-    static bool TryShadow(Family family, UtilityCandidate candidate, ThemeTokens tokens, List<UtilityDeclaration> declarations) {
+    static bool TryShadow(
+        Family family,
+        UtilityCandidate candidate,
+        ThemeTokens tokens,
+        List<UtilityDeclaration> declarations
+    ) {
         var key = candidate.Value.Length == 0 ? ThemeTokens.DefaultKey : candidate.Value;
         return tokens.Shadow.TryGetValue(key, out var shadow) && Emit(family, shadow, declarations);
     }
@@ -4111,15 +4707,15 @@ public static class UtilityFamilies {
 
         switch (candidate.Name) {
             case "grow":
-                declarations.Add(new UtilityDeclaration("flex-grow", "1"));
+                declarations.Add(new("flex-grow", "1"));
                 return true;
 
             case "shrink":
-                declarations.Add(new UtilityDeclaration("flex-shrink", "1"));
+                declarations.Add(new("flex-shrink", "1"));
                 return true;
 
             case "rounded":
-                declarations.Add(new UtilityDeclaration("border-radius", "4px"));
+                declarations.Add(new("border-radius", "4px"));
                 return true;
 
             default:
@@ -4129,8 +4725,12 @@ public static class UtilityFamilies {
 
     /// <summary>Resolves the <c>/7</c> of <c>text-lg/7</c> through the family that owns line heights.</summary>
     /// <remarks>
-    ///     ⚠ <b>Delegated to <c>leading</c>'s own table rather than reimplemented, because the two
-    ///     spellings have to mean the same thing.</b> <c>text-lg/7</c> and
+    ///     ⚠
+    ///     <b>
+    ///         Delegated to <c>leading</c>'s own table rather than reimplemented, because the two
+    ///         spellings have to mean the same thing.
+    ///     </b>
+    ///     <c>text-lg/7</c> and
     ///     <c>text-lg leading-7</c> are the same declaration written twice in Tailwind v4, and a
     ///     second copy of the scale here is a pair that agrees until one of them is edited. The
     ///     keyword half matters as much as the count: <c>leading-none</c> is the ratio <c>1</c> and
@@ -4170,7 +4770,11 @@ public static class UtilityFamilies {
         return TrySpacing(suffix, tokens, out result);
     }
 
-    static bool TryFontSizeOrColor(UtilityCandidate candidate, ThemeTokens tokens, List<UtilityDeclaration> declarations) {
+    static bool TryFontSizeOrColor(
+        UtilityCandidate candidate,
+        ThemeTokens tokens,
+        List<UtilityDeclaration> declarations
+    ) {
         // The documented resolution order for `text-`: keyword (already tried), then font size,
         // then colour. A colour named `lg` would be unreachable, which is the price of one prefix
         // meaning three things and is worth paying — `text-lg` and `text-accent` both read right.
@@ -4182,14 +4786,12 @@ public static class UtilityFamilies {
             // the value decides which: a font-size token takes a leading, a colour takes an alpha.
             // That is why the suffix is kept as written — a leading of `7` read as an opacity is
             // seven per cent.
-            if (candidate.SlashSuffix is { } leading) {
-                if (!TryLeading(leading, tokens, out height)) {
-                    return false;
-                }
+            if (candidate.SlashSuffix is { } leading && !TryLeading(leading, tokens, out height)) {
+                return false;
             }
 
-            declarations.Add(new UtilityDeclaration("font-size", Px(size.Size)));
-            declarations.Add(new UtilityDeclaration("line-height", height));
+            declarations.Add(new("font-size", Px(size.Size)));
+            declarations.Add(new("line-height", height));
             return true;
         }
 
@@ -4197,16 +4799,20 @@ public static class UtilityFamilies {
             return false;
         }
 
-        declarations.Add(new UtilityDeclaration("color", colour));
+        declarations.Add(new("color", colour));
         return true;
     }
 
     /// <summary>A theme colour, with the <c>/50</c> modifier folded in if there was one.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>This used to rewrite the colour as <c>rgba()</c>, and could only do so when the
-    ///         token was a hex triple — so every token that was not one had its opacity silently
-    ///         dropped.</b> Which sounds like an edge case and is the ordinary case the moment tokens
+    ///         ⚠
+    ///         <b>
+    ///             This used to rewrite the colour as <c>rgba()</c>, and could only do so when the
+    ///             token was a hex triple — so every token that was not one had its opacity silently
+    ///             dropped.
+    ///         </b>
+    ///         Which sounds like an edge case and is the ordinary case the moment tokens
     ///         become references: <c>--accent: var(--blue-500)</c>, or an <c>@theme</c> block written
     ///         in <c>oklch()</c> as <c>docs/plan/43</c> § D4 calls for, are both "not a hex triple".
     ///         The utility resolved, emitted valid CSS, and painted at full opacity.
@@ -4278,8 +4884,12 @@ public static class UtilityFamilies {
 
     /// <summary>The spacing scale as a length along z — <see cref="TrySpacing" /> without <c>auto</c>.</summary>
     /// <remarks>
-    ///     ⚠ <b><c>auto</c> is the one value that has to be subtracted here, and the reason it is
-    ///     easy to miss is that it is the only keyword <see cref="TrySpacing" /> answers.</b> Reaching
+    ///     ⚠
+    ///     <b>
+    ///         <c>auto</c> is the one value that has to be subtracted here, and the reason it is
+    ///         easy to miss is that it is the only keyword <see cref="TrySpacing" /> answers.
+    ///     </b>
+    ///     Reaching
     ///     for <see cref="ValueKind.Spacing" /> on the belief that it is already lengths-only leaves
     ///     <c>translate-z-auto</c> emitting <c>translateZ(auto)</c>, which
     ///     <c>TransformReader.Depth</c> refuses — and one refused function drops the whole list. See
@@ -4293,8 +4903,12 @@ public static class UtilityFamilies {
 
     /// <summary>Resolves the value half of a sizing utility.</summary>
     /// <remarks>
-    ///     ⚠ <b>The six viewport keywords are three spellings of two answers, and that is a property
-    ///     of this engine rather than a shortcut.</b> CSS Values 4 separates <c>svw</c>/<c>lvw</c>/
+    ///     ⚠
+    ///     <b>
+    ///         The six viewport keywords are three spellings of two answers, and that is a property
+    ///         of this engine rather than a shortcut.
+    ///     </b>
+    ///     CSS Values 4 separates <c>svw</c>/<c>lvw</c>/
     ///     <c>dvw</c> — and the <c>-vh</c> trio — only by what a retracting browser toolbar does to
     ///     the viewport: the <i>small</i> viewport assumes every retractable UA chrome is shown, the
     ///     <i>large</i> one assumes it is all hidden, and the <i>dynamic</i> one tracks the current
@@ -4305,8 +4919,12 @@ public static class UtilityFamilies {
     ///     would put a unit into the sheet that <c>StyleValueParser</c> does not read, which is the
     ///     inert-class shape this table is not allowed to add.
     ///     <para>
-    ///         ⚠ <b>Both trios are answered by every family, including the ones named for the other
-    ///         axis.</b> <c>h-dvw</c> is <c>height: 100vw</c> and <c>w-svh</c> is
+    ///         ⚠
+    ///         <b>
+    ///             Both trios are answered by every family, including the ones named for the other
+    ///             axis.
+    ///         </b>
+    ///         <c>h-dvw</c> is <c>height: 100vw</c> and <c>w-svh</c> is
     ///         <c>width: 100vh</c> — Tailwind names these after the viewport axis being measured and
     ///         not after the property being set, so the mapping belongs here, on the value, rather
     ///         than in the seven <see cref="Size" /> registrations. That is also what makes one rule
@@ -4366,8 +4984,6 @@ public static class UtilityFamilies {
             case "lh":
                 result = "1lh";
                 return true;
-            default:
-                break;
         }
 
         return TrySpacing(candidate.Value, tokens, out result);
@@ -4410,8 +5026,12 @@ public static class UtilityFamilies {
 
     /// <summary>Resolves a <c>blur-*</c>: a named step of the scale, or a count of the spacing unit.</summary>
     /// <remarks>
-    ///     ⚠ <b>The named step is tried first and the fall-through is what keeps the old spelling
-    ///     alive.</b> `blur-md` is v4's and was unresolvable here until the `--blur-*` namespace
+    ///     ⚠
+    ///     <b>
+    ///         The named step is tried first and the fall-through is what keeps the old spelling
+    ///         alive.
+    ///     </b>
+    ///     `blur-md` is v4's and was unresolvable here until the `--blur-*` namespace
     ///     shipped; `blur-8` is this engine's and is written in its own remarks. They cannot
     ///     collide — a theme key is not a number — so answering both costs one lookup and loses
     ///     nothing.
@@ -4501,7 +5121,7 @@ public static class UtilityFamilies {
 
     static bool EmitInto(string[] properties, string value, List<UtilityDeclaration> declarations) {
         foreach (var property in properties) {
-            declarations.Add(new UtilityDeclaration(property, value));
+            declarations.Add(new(property, value));
         }
 
         return true;
@@ -4509,7 +5129,7 @@ public static class UtilityFamilies {
 
     static bool EmitPair(string pair, List<UtilityDeclaration> declarations) {
         var colon = pair.IndexOf(':', StringComparison.Ordinal);
-        declarations.Add(new UtilityDeclaration(pair[..colon], pair[(colon + 1)..]));
+        declarations.Add(new(pair[..colon], pair[(colon + 1)..]));
         return true;
     }
 
@@ -4551,20 +5171,27 @@ public static class UtilityFamilies {
     ///     that derived the slot from the name would give them one each and let both apply.
     /// </remarks>
     static void NumericFigure(string name, string fragment, string keyword) =>
-        Register(new Family(
-            name,
-            ValueKind.Static,
-            [fragment],
-            new Dictionary<string, string>(StringComparer.Ordinal) { [string.Empty] = $"{fragment}:{keyword}" },
-            Alongside: [
-                new UtilityDeclaration("font-variant-numeric", UtilityComposition.NumericFigures())
-            ]
-        ));
+        Register(
+            new Family(
+                name,
+                ValueKind.Static,
+                [fragment],
+                new(StringComparer.Ordinal) { [string.Empty] = $"{fragment}:{keyword}" },
+                Alongside: [
+                    new UtilityDeclaration("font-variant-numeric", UtilityComposition.NumericFigures())
+                ]
+            )
+        );
 
     static void Static(string name, string property, string value) =>
-        Register(new Family(name, ValueKind.Static, [property], new Dictionary<string, string>(StringComparer.Ordinal) {
-            [string.Empty] = $"{property}:{value}"
-        }));
+        Register(
+            new Family(
+                name,
+                ValueKind.Static,
+                [property],
+                new(StringComparer.Ordinal) { [string.Empty] = $"{property}:{value}" }
+            )
+        );
 
     /// <summary>Registers a name that is a static utility bare and a sizing one with a value.</summary>
     /// <param name="name">The utility prefix, which is also the whole of the static class.</param>
@@ -4572,8 +5199,12 @@ public static class UtilityFamilies {
     /// <param name="staticValue">What it sets it to.</param>
     /// <param name="sizeProperty">What the form with a value sets.</param>
     /// <remarks>
-    ///     ⚠ <b>One family and not two, because <see cref="Register" /> keeps the first under a
-    ///     name.</b> A second <see cref="Size" /> call for <c>block</c> would be silently discarded
+    ///     ⚠
+    ///     <b>
+    ///         One family and not two, because <see cref="Register" /> keeps the first under a
+    ///         name.
+    ///     </b>
+    ///     A second <see cref="Size" /> call for <c>block</c> would be silently discarded
     ///     and every <c>block-*</c> class would go on being reported as an unrecognised typo — the
     ///     failure being quiet is why this is a named helper rather than a hand-rolled
     ///     <see cref="Register" /> at each site.
@@ -4586,11 +5217,21 @@ public static class UtilityFamilies {
     ///     </para>
     /// </remarks>
     /// <param name="screen">The viewport extent along the sizing property's axis. See <see cref="SizeToScreen" />.</param>
-    static void StaticOrSize(string name, string staticProperty, string staticValue, string sizeProperty, string screen) =>
-        Register(new Family(name, ValueKind.Size, [sizeProperty], new Dictionary<string, string>(StringComparer.Ordinal) {
-            [string.Empty] = $"{staticProperty}:{staticValue}",
-            ["screen"] = screen
-        }));
+    static void StaticOrSize(
+        string name,
+        string staticProperty,
+        string staticValue,
+        string sizeProperty,
+        string screen
+    ) =>
+        Register(
+            new Family(
+                name,
+                ValueKind.Size,
+                [sizeProperty],
+                new(StringComparer.Ordinal) { [string.Empty] = $"{staticProperty}:{staticValue}", ["screen"] = screen }
+            )
+        );
 
     static void Keywords(
         string name,
@@ -4619,8 +5260,7 @@ public static class UtilityFamilies {
         );
     }
 
-    static void Spacing(string name, params string[] properties) =>
-        Register(new Family(name, ValueKind.Spacing, properties));
+    static void Spacing(string name, params string[] properties) => Register(new(name, ValueKind.Spacing, properties));
 
     /// <summary>One of the six proportional <c>filter</c> functions.</summary>
     /// <param name="name">The class prefix, which is also the CSS function's name.</param>
@@ -4630,28 +5270,38 @@ public static class UtilityFamilies {
     ///     <c>invert</c> and <c>sepia</c> have one and the other three do not.
     /// </param>
     /// <remarks>
-    ///     ⚠ <b>Every one of these emits the <i>whole</i> <c>filter</c> declaration alongside its
-    ///     fragment, and that is what makes any of them work on its own.</b> See
+    ///     ⚠
+    ///     <b>
+    ///         Every one of these emits the <i>whole</i> <c>filter</c> declaration alongside its
+    ///         fragment, and that is what makes any of them work on its own.
+    ///     </b>
+    ///     See
     ///     <see cref="UtilityComposition.Filter" />: the declaration names all eight functions and
     ///     the seven nobody set resolve to their identities through the <c>var()</c> fallbacks, so
     ///     one class is one working filter and eight classes are one declaration rather than eight
     ///     fighting over the cascade.
     /// </remarks>
     static void Filter(string name, string fragment, string? bare = null) =>
-        Register(new Family(
-            name,
-            ValueKind.Fraction,
-            [fragment],
-            bare is null
-                ? null
-                : new Dictionary<string, string>(StringComparer.Ordinal) { [string.Empty] = fragment + ":" + bare },
-            Alongside: [new UtilityDeclaration("filter", UtilityComposition.Filter())]
-        ));
+        Register(
+            new Family(
+                name,
+                ValueKind.Fraction,
+                [fragment],
+                bare is null
+                    ? null
+                    : new Dictionary<string, string>(StringComparer.Ordinal) { [string.Empty] = fragment + ":" + bare },
+                Alongside: [new UtilityDeclaration("filter", UtilityComposition.Filter())]
+            )
+        );
 
     /// <summary>What every <c>backdrop-*</c> family emits beside its own fragment.</summary>
     /// <remarks>
-    ///     ⚠ <b>The unprefixed property alone, where Tailwind v4 emits <c>-webkit-backdrop-filter</c>
-    ///     beside it.</b> That copy exists for Safari and there is no Safari here — it would be a
+    ///     ⚠
+    ///     <b>
+    ///         The unprefixed property alone, where Tailwind v4 emits <c>-webkit-backdrop-filter</c>
+    ///         beside it.
+    ///     </b>
+    ///     That copy exists for Safari and there is no Safari here — it would be a
     ///     declaration in every generated sheet that nothing in the engine could ever read, which is
     ///     the exact shape of debt the consumption gate is for. Dropping it also keeps these ten roots
     ///     honest in the parity ledger: with the prefix, every one of them would read <c>partial</c>
@@ -4674,68 +5324,90 @@ public static class UtilityFamilies {
     ///     both would have to be told which, on every call, for one line saved.
     /// </remarks>
     static void Backdrop(string name, string fragment, string? bare = null) =>
-        Register(new Family(
-            name,
-            ValueKind.Fraction,
-            [fragment],
-            bare is null
-                ? null
-                : new Dictionary<string, string>(StringComparer.Ordinal) { [string.Empty] = fragment + ":" + bare },
-            Alongside: BackdropAlongside
-        ));
+        Register(
+            new Family(
+                name,
+                ValueKind.Fraction,
+                [fragment],
+                bare is null
+                    ? null
+                    : new Dictionary<string, string>(StringComparer.Ordinal) { [string.Empty] = fragment + ":" + bare },
+                Alongside: BackdropAlongside
+            )
+        );
 
     /// <summary>Registers a family whose rule is about the element's children rather than the element.</summary>
     /// <param name="name">The utility prefix.</param>
     /// <param name="kind">How its value turns into declarations — the same kinds as anything else.</param>
     /// <param name="properties">What it sets, on each child but the last.</param>
     /// <remarks>
-    ///     ⚠ <b>The scope is the bare <c>&gt; :not(:last-child)</c>, and v4's <c>:where()</c> goes
-    ///     round the whole selector rather than round this.</b> The <c>&amp;</c> in v4's
+    ///     ⚠
+    ///     <b>
+    ///         The scope is the bare <c>&gt; :not(:last-child)</c>, and v4's <c>:where()</c> goes
+    ///         round the whole selector rather than round this.
+    ///     </b>
+    ///     The <c>&amp;</c> in v4's
     ///     <c>:where(&amp; &gt; :not(:last-child))</c> is CSS nesting, which the loader does not do,
     ///     so the flattening is <see cref="UtilityGenerator" />'s — and it wraps there because that
     ///     is where the variants have already been applied and the whole selector exists. Wrapping
     ///     this constant instead would emit <c>.space-y-4 &gt; :where(:not(:last-child))</c>, which
     ///     lands at (0,1,0) and only ties with a child's own <c>mb-0</c>.
     ///     <para>
-    ///         ⚠ <b>This remark used to say the rule was stuck at (0,2,0) because
-    ///         <c>SelectorCompiler</c> counts <c>:where()</c> like <c>:is()</c> and the charge could
-    ///         not be dropped. It counted nothing:</b> ExCSS 4.3.2 does not parse <c>:where()</c> at
+    ///         ⚠
+    ///         <b>
+    ///             This remark used to say the rule was stuck at (0,2,0) because
+    ///             <c>SelectorCompiler</c> counts <c>:where()</c> like <c>:is()</c> and the charge could
+    ///             not be dropped. It counted nothing:
+    ///         </b>
+    ///         ExCSS 4.3.2 does not parse <c>:where()</c> at
     ///         all, so the whole selector arrived as one unknown and the rule was refused rather
     ///         than compiled at the wrong specificity. The compiler repairs that text itself now —
     ///         <c>Vixen.Ui.Styling.Tests</c>' <c>WhereSelectorTests</c>.
     ///     </para>
     /// </remarks>
     static void Between(string name, ValueKind kind, string[] properties) =>
-        Register(new Family(name, kind, properties, Scope: BetweenChildren));
+        Register(new(name, kind, properties, Scope: BetweenChildren));
 
     /// <summary>Every child but the last, which is what <c>space-*</c> and <c>divide-*</c> are about.</summary>
     const string BetweenChildren = " > :not(:last-child)";
 
-    static void Size(string name, params string[] properties) =>
-        Register(new Family(name, ValueKind.Size, properties));
+    static void Size(string name, params string[] properties) => Register(new(name, ValueKind.Size, properties));
 
     /// <summary>A sizing family that also answers <c>screen</c>, on the axis its property measures.</summary>
     /// <param name="name">The utility prefix.</param>
     /// <param name="screen">The viewport extent along that axis: <c>100vw</c> or <c>100vh</c>.</param>
     /// <param name="properties">What it sets. All on the one axis, or the answer would be two values.</param>
     /// <remarks>
-    ///     ⚠ <b>Through the keyword table rather than through <see cref="TrySize" />, because
-    ///     <see cref="Resolve" /> consults keywords first and <see cref="TrySize" /> never sees the
-    ///     property.</b> The value carries no colon, so the keyword branch emits it into every one of
+    ///     ⚠
+    ///     <b>
+    ///         Through the keyword table rather than through <see cref="TrySize" />, because
+    ///         <see cref="Resolve" /> consults keywords first and <see cref="TrySize" /> never sees the
+    ///         property.
+    ///     </b>
+    ///     The value carries no colon, so the keyword branch emits it into every one of
     ///     the family's properties — which is why they must share an axis. <c>size-*</c> is the one
     ///     sizing root that does not, and Tailwind has no <c>size-screen</c> for it to answer.
     /// </remarks>
     static void SizeToScreen(string name, string screen, params string[] properties) =>
-        Register(new Family(name, ValueKind.Size, properties, new Dictionary<string, string>(StringComparer.Ordinal) {
-            ["screen"] = screen
-        }));
+        Register(
+            new(
+                name,
+                ValueKind.Size,
+                properties,
+                new(StringComparer.Ordinal) { ["screen"] = screen }
+            )
+        );
 
     /// <summary>Registers one axis of the composed translation: a fragment, and the assembly.</summary>
     /// <param name="name">The utility prefix.</param>
     /// <param name="fragment">The fragment this axis sets.</param>
     /// <remarks>
-    ///     ⚠ <b><see cref="ValueKind.Size" /> rather than <c>Spacing</c>, so that <c>translate-x-full</c>
-    ///     is a hundred per cent.</b> CSS resolves a percentage translation against the element's own
+    ///     ⚠
+    ///     <b>
+    ///         <see cref="ValueKind.Size" /> rather than <c>Spacing</c>, so that <c>translate-x-full</c>
+    ///         is a hundred per cent.
+    ///     </b>
+    ///     CSS resolves a percentage translation against the element's own
     ///     border box, which is what makes <c>-translate-x-full</c> the idiom for sliding a panel
     ///     exactly its own width off the edge — a spacing-only family could not express it, and the
     ///     number it would need depends on a width nobody knows when the class is written.
@@ -4748,12 +5420,14 @@ public static class UtilityFamilies {
     ///     </para>
     /// </remarks>
     static void Translate(string name, string fragment) =>
-        Register(new Family(
-            name,
-            ValueKind.Size,
-            [fragment],
-            Alongside: [new UtilityDeclaration("translate", UtilityComposition.Translation())]
-        ));
+        Register(
+            new Family(
+                name,
+                ValueKind.Size,
+                [fragment],
+                Alongside: [new UtilityDeclaration("translate", UtilityComposition.Translation())]
+            )
+        );
 
     /// <summary>Registers one axis of a composed <c>scale</c>.</summary>
     /// <param name="name">The utility prefix.</param>
@@ -4766,67 +5440,80 @@ public static class UtilityFamilies {
     ///     hundred pixels of nothing.
     /// </remarks>
     static void Scale(string name, string fragment) =>
-        Register(new Family(
-            name,
-            ValueKind.CountTemplate,
-            [fragment],
-            Template: "{0}%",
-            Alongside: [new UtilityDeclaration("scale", UtilityComposition.Scaling())]
-        ));
+        Register(
+            new Family(
+                name,
+                ValueKind.CountTemplate,
+                [fragment],
+                Template: "{0}%",
+                Alongside: [new UtilityDeclaration("scale", UtilityComposition.Scaling())]
+            )
+        );
 
     /// <summary>Registers a skew axis as an angle fragment plus the <c>transform</c> it assembles into.</summary>
     /// <param name="name">The utility prefix.</param>
     /// <param name="fragments">The fragments it writes — one per axis, both for the bare root.</param>
     static void Skew(string name, string[] fragments) =>
-        Register(new Family(
-            name,
-            ValueKind.Angle,
-            fragments,
-            Template: "{0}",
-            Alongside: [new UtilityDeclaration("transform", UtilityComposition.Transform())]
-        ));
+        Register(
+            new Family(
+                name,
+                ValueKind.Angle,
+                fragments,
+                Template: "{0}",
+                Alongside: [new UtilityDeclaration("transform", UtilityComposition.Transform())]
+            )
+        );
 
-    static void Number(string name, params string[] properties) =>
-        Register(new Family(name, ValueKind.Number, properties));
+    static void Number(string name, params string[] properties) => Register(new(name, ValueKind.Number, properties));
 
     /// <summary>Registers a family whose count is substituted into a CSS template.</summary>
     /// <param name="name">The utility prefix.</param>
     /// <param name="template">The value, with <c>{0}</c> where the count goes.</param>
     /// <param name="properties">The properties it sets.</param>
     static void CountTemplate(string name, string template, params string[] properties) =>
-        Register(new Family(name, ValueKind.CountTemplate, properties, Template: template));
+        Register(new(name, ValueKind.CountTemplate, properties, Template: template));
 
-    static void Color(string name, params string[] properties) =>
-        Register(new Family(name, ValueKind.Color, properties));
+    static void Color(string name, params string[] properties) => Register(new(name, ValueKind.Color, properties));
 
     static void BorderEdge(string name, string[] widths, string[] colours) =>
-        Register(new Family(name, ValueKind.BorderEdge, widths, ColorProperties: colours));
+        Register(new(name, ValueKind.BorderEdge, widths, ColorProperties: colours));
 
-    static void Radius(string name, params string[] properties) =>
-        Register(new Family(name, ValueKind.Radius, properties));
+    static void Radius(string name, params string[] properties) => Register(new(name, ValueKind.Radius, properties));
 
     /// <summary>A linear mask, swept by <c>--tw-mask-linear-angle</c>.</summary>
-    static string Linear => UtilityComposition.MaskImage("linear", UtilityComposition.Reference(UtilityComposition.MaskLinearAngle));
+    static string Linear =>
+        UtilityComposition.MaskImage("linear", UtilityComposition.Reference(UtilityComposition.MaskLinearAngle));
 
     /// <summary>A round mask, centred where <c>mask-radial-at-*</c> put it.</summary>
     /// <remarks>
-    ///     ⚠ <b>The <c>at</c> is written unconditionally and its fragment defaults to <c>center</c>,
-    ///     which is CSS's own default — so this says what "no geometry at all" said before it.</b>
+    ///     ⚠
+    ///     <b>
+    ///         The <c>at</c> is written unconditionally and its fragment defaults to <c>center</c>,
+    ///         which is CSS's own default — so this says what "no geometry at all" said before it.
+    ///     </b>
     ///     <c>DrawListBuilder.MaskFrame</c> resolves a centred position to a zero offset and the box's
     ///     half size, which is the record a radial mask already had; the alternative, emitting the
     ///     <c>at</c> only from <c>mask-radial-at-*</c>, would need that class to win the cascade
     ///     against every other <c>mask-radial-*</c> on the element, and it does not.
     /// </remarks>
     /// <remarks>
-    ///     ⚠ <b>The ending size is written unconditionally too, for the <c>at</c>'s reason and with
-    ///     the same consequence.</b> Its fragment defaults to CSS's own <c>farthest-corner</c>, so a
+    ///     ⚠
+    ///     <b>
+    ///         The ending size is written unconditionally too, for the <c>at</c>'s reason and with
+    ///         the same consequence.
+    ///     </b>
+    ///     Its fragment defaults to CSS's own <c>farthest-corner</c>, so a
     ///     mask that names no ending says exactly what "no geometry at all" said before — and
     ///     <c>BackgroundGradient.IsDefaultEnding</c> is what keeps that on the shader's fast path
     ///     rather than merely arriving at the same picture by a longer route.
     /// </remarks>
     /// <remarks>
-    ///     ⚠ <b>The ending <i>shape</i> is written unconditionally as well, and it is a second
-    ///     fragment rather than part of the size's.</b> CSS makes the two independent —
+    ///     ⚠
+    ///     <b>
+    ///         The ending <i>shape</i> is written unconditionally as well, and it is a second
+    ///         fragment rather than part of the size's.
+    ///     </b>
+    ///     CSS makes the two independent —
     ///     <c>circle closest-side</c> is one ending named in two keywords — so
     ///     <c>mask-circle mask-radial-closest-side</c> is two classes assembling one
     ///     <c>mask-image</c>, and a single fragment would let whichever the cascade picked last
@@ -4843,7 +5530,11 @@ public static class UtilityFamilies {
         );
 
     /// <summary>A swept mask, started by <c>--tw-mask-conic-angle</c>.</summary>
-    static string Conic => UtilityComposition.MaskImage("conic", $"from {UtilityComposition.Reference(UtilityComposition.MaskConicAngle)}");
+    static string Conic =>
+        UtilityComposition.MaskImage(
+            "conic",
+            $"from {UtilityComposition.Reference(UtilityComposition.MaskConicAngle)}"
+        );
 
     /// <summary>One mask stop: a colour or a position, and the <c>mask-image</c> that reads it.</summary>
     /// <param name="name">The class prefix.</param>
@@ -4852,8 +5543,12 @@ public static class UtilityFamilies {
     /// <param name="layer">The <c>mask-image</c> layer fragment this shape fills.</param>
     /// <param name="image">The assembled gradient that goes in it.</param>
     /// <remarks>
-    ///     ⚠ <b><see cref="ValueKind.GradientStop" /> rather than a kind of its own, and it is the
-    ///     right one for a reason beyond convenience.</b> That kind is what routes a percentage to
+    ///     ⚠
+    ///     <b>
+    ///         <see cref="ValueKind.GradientStop" /> rather than a kind of its own, and it is the
+    ///         right one for a reason beyond convenience.
+    ///     </b>
+    ///     That kind is what routes a percentage to
     ///     <paramref name="position" /> and a colour to <paramref name="colour" />, which is exactly
     ///     the split a mask stop needs: <c>mask-linear-from-50%</c> is a position and
     ///     <c>mask-linear-from-black</c> is a colour. Only the alpha of the colour survives into
@@ -4871,8 +5566,12 @@ public static class UtilityFamilies {
     /// <param name="image">The gradient that goes in it.</param>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Three declarations and not one, and the <c>mask-composite</c> is the one that is
-    ///         easy to think optional.</b> The layer fragment says what this class draws; the
+    ///         ⚠
+    ///         <b>
+    ///             Three declarations and not one, and the <c>mask-composite</c> is the one that is
+    ///             easy to think optional.
+    ///         </b>
+    ///         The layer fragment says what this class draws; the
     ///         <c>mask-image</c> says the list is three layers of which this is one; and the
     ///         <c>intersect</c> is what makes the two layers nobody filled — opaque, by their initial
     ///         value — change nothing. Without it the list composites with CSS's initial <c>add</c>,
@@ -4894,13 +5593,15 @@ public static class UtilityFamilies {
 
     /// <summary>One mask stop family: colour fragments, position fragments, and the layer they fill.</summary>
     static void MaskFamily(string name, string[] colours, string[] positions, string layer, string image) =>
-        Register(new Family(
-            name,
-            ValueKind.GradientStop,
-            colours,
-            Positions: positions,
-            Alongside: MaskAlongside(layer, image)
-        ));
+        Register(
+            new(
+                name,
+                ValueKind.GradientStop,
+                colours,
+                Positions: positions,
+                Alongside: MaskAlongside(layer, image)
+            )
+        );
 
     /// <summary>One edge-ramp family, which is <see cref="MaskFamily" /> over one or two edges.</summary>
     /// <param name="name">The class prefix, such as <c>mask-t-from</c>.</param>
@@ -4908,8 +5609,12 @@ public static class UtilityFamilies {
     /// <param name="near">Whether it sets the ramp's near stop rather than its far one.</param>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Every edge's gradient is emitted, not only the ones this class drives, and that is
-    ///         what makes two edge classes compose.</b> `mask-t-from-50% mask-b-from-50%` is two rules
+    ///         ⚠
+    ///         <b>
+    ///             Every edge's gradient is emitted, not only the ones this class drives, and that is
+    ///             what makes two edge classes compose.
+    ///         </b>
+    ///         `mask-t-from-50% mask-b-from-50%` is two rules
     ///         writing the same <c>--tw-mask-linear</c>; whichever the cascade picks, it names all
     ///         four edge fragments, and each of those resolves to whatever its own class set or to an
     ///         opaque gradient if nothing did. Emitting only the driven edge would make the second
@@ -4938,31 +5643,34 @@ public static class UtilityFamilies {
         }
 
         foreach (var edge in UtilityComposition.MaskEdges) {
-            alongside.Add(new UtilityDeclaration(UtilityComposition.MaskEdge(edge), UtilityComposition.MaskEdgeImage(edge)));
+            alongside.Add(new(UtilityComposition.MaskEdge(edge), UtilityComposition.MaskEdgeImage(edge)));
         }
 
         alongside.AddRange(MaskAlongside(UtilityComposition.MaskLinear, UtilityComposition.MaskEdgeLayers()));
 
-        Register(new Family(
-            name,
-            ValueKind.GradientStop,
-            colours,
-            Positions: positions,
-            Alongside: [.. alongside]
-        ));
+        Register(
+            new Family(
+                name,
+                ValueKind.GradientStop,
+                colours,
+                Positions: positions,
+                Alongside: [..alongside]
+            )
+        );
     }
-
 
 
     /// <summary>Registers a composed family: a colour fragment, a position fragment, and no declaration.</summary>
     static void GradientStop(string name, string colour, string position, params UtilityDeclaration[] alongside) =>
-        Register(new Family(
-            name,
-            ValueKind.GradientStop,
-            [colour],
-            Positions: [position],
-            Alongside: alongside.Length == 0 ? null : alongside
-        ));
+        Register(
+            new Family(
+                name,
+                ValueKind.GradientStop,
+                [colour],
+                Positions: [position],
+                Alongside: alongside.Length == 0 ? null : alongside
+            )
+        );
 
     /// <summary>One gradient assembler: the shape, the geometry, and the stop list.</summary>
     /// <param name="shape">
@@ -4975,15 +5683,23 @@ public static class UtilityFamilies {
     /// <returns>The <c>background-image</c> value.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The stop list is reached through <see cref="UtilityComposition.Reference" />, so
-    ///         the two-stop form is what an absent <c>via-*</c> falls back to</b> rather than something
+    ///         ⚠
+    ///         <b>
+    ///             The stop list is reached through <see cref="UtilityComposition.Reference" />, so
+    ///             the two-stop form is what an absent <c>via-*</c> falls back to
+    ///         </b>
+    ///         rather than something
     ///         this string has to remember to spell. <c>from-red to-blue</c> with no <c>via</c> is a
     ///         two-stop gradient; the version of this that wrote <c>var(--tw-gradient-stops)</c> bare
     ///         would make it no gradient at all.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b><c>in oklab</c> on every one of them, because that is what Tailwind v4 emits and
-    ///         the difference is not subtle.</b> CSS's default for an unhinted gradient is sRGB, and
+    ///         ⚠
+    ///         <b>
+    ///             <c>in oklab</c> on every one of them, because that is what Tailwind v4 emits and
+    ///             the difference is not subtle.
+    ///         </b>
+    ///         CSS's default for an unhinted gradient is sRGB, and
     ///         the engine's palette now ships as v4.3.3's — quoted in <c>oklch</c>, chosen so that
     ///         equal steps look equal. Interpolating two of those swatches anywhere but a perceptual
     ///         space throws that away at the midpoint, which is the one pixel the choice is visible

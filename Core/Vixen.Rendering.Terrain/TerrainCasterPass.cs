@@ -88,7 +88,12 @@ sealed class TerrainCasterPass : IDisposable {
     /// <param name="surface">Whose heightmap, holes and index buffer this draws from.</param>
     /// <param name="shaders">The <c>TerrainCaster</c> stages.</param>
     /// <param name="depthFormat">The atlas's format.</param>
-    public TerrainCasterPass(IGraphicsDevice device, TerrainRenderer surface, TerrainShaders shaders, PixelFormat depthFormat) {
+    public TerrainCasterPass(
+        IGraphicsDevice device,
+        TerrainRenderer surface,
+        TerrainShaders shaders,
+        PixelFormat depthFormat
+    ) {
         ArgumentNullException.ThrowIfNull(device);
         ArgumentNullException.ThrowIfNull(surface);
 
@@ -137,14 +142,41 @@ sealed class TerrainCasterPass : IDisposable {
             new(
                 DescriptorSetSlot.PerMaterial,
                 [
-                    new(TerrainCasterKeys.ConstantBufferBinding, DescriptorKind.UniformBuffer, ShaderStage.Vertex | ShaderStage.Fragment),
-                    new(TerrainCasterKeys.HeightMapBinding, DescriptorKind.SampledTexture, ShaderStage.Vertex | ShaderStage.Fragment),
-                    new(TerrainCasterKeys.WeightMapsBinding, DescriptorKind.SampledTexture, ShaderStage.Fragment, TerrainRenderer.MaxWeightMaps),
-                    new(TerrainCasterKeys.LayerMapsBinding, DescriptorKind.SampledTexture, ShaderStage.Fragment, TerrainRenderer.MaxLayers),
-                    new(TerrainCasterKeys.SurfaceMapsBinding, DescriptorKind.SampledTexture, ShaderStage.Fragment, TerrainRenderer.MaxLayers),
+                    new(
+                        TerrainCasterKeys.ConstantBufferBinding,
+                        DescriptorKind.UniformBuffer,
+                        ShaderStage.Vertex | ShaderStage.Fragment
+                    ),
+                    new(
+                        TerrainCasterKeys.HeightMapBinding,
+                        DescriptorKind.SampledTexture,
+                        ShaderStage.Vertex | ShaderStage.Fragment
+                    ),
+                    new(
+                        TerrainCasterKeys.WeightMapsBinding,
+                        DescriptorKind.SampledTexture,
+                        ShaderStage.Fragment,
+                        TerrainRenderer.MaxWeightMaps
+                    ),
+                    new(
+                        TerrainCasterKeys.LayerMapsBinding,
+                        DescriptorKind.SampledTexture,
+                        ShaderStage.Fragment,
+                        TerrainRenderer.MaxLayers
+                    ),
+                    new(
+                        TerrainCasterKeys.SurfaceMapsBinding,
+                        DescriptorKind.SampledTexture,
+                        ShaderStage.Fragment,
+                        TerrainRenderer.MaxLayers
+                    ),
                     new(TerrainCasterKeys.HoleMapBinding, DescriptorKind.SampledTexture, ShaderStage.Fragment),
                     new(TerrainCasterKeys.HoleSamplerBinding, DescriptorKind.Sampler, ShaderStage.Fragment),
-                    new(TerrainCasterKeys.HeightSamplerBinding, DescriptorKind.Sampler, ShaderStage.Vertex | ShaderStage.Fragment),
+                    new(
+                        TerrainCasterKeys.HeightSamplerBinding,
+                        DescriptorKind.Sampler,
+                        ShaderStage.Vertex | ShaderStage.Fragment
+                    ),
                     new(TerrainCasterKeys.WeightSamplerBinding, DescriptorKind.Sampler, ShaderStage.Fragment),
                     new(TerrainCasterKeys.LayerSamplerBinding, DescriptorKind.Sampler, ShaderStage.Fragment),
                     new(TerrainCasterKeys.NodesBinding, DescriptorKind.StorageBuffer, ShaderStage.Vertex),
@@ -218,7 +250,7 @@ sealed class TerrainCasterPass : IDisposable {
         var count = Math.Min(cascades.Length, ShadowCascades.MaxCascades);
 
         for (var cascade = 0; cascade < count; cascade++) {
-            var at = (slot * ShadowCascades.MaxCascades) + cascade;
+            var at = slot * ShadowCascades.MaxCascades + cascade;
 
             surface.WriteCasterConstants(block, placement * cascades[cascade]);
             device.Write(constants[at], 0, block);
@@ -241,7 +273,10 @@ sealed class TerrainCasterPass : IDisposable {
         }
 
         commands.BindPipeline(pipeline);
-        commands.BindDescriptorSet(DescriptorSetSlot.PerMaterial, descriptors[(slot * ShadowCascades.MaxCascades) + cascade]);
+        commands.BindDescriptorSet(
+            DescriptorSetSlot.PerMaterial,
+            descriptors[slot * ShadowCascades.MaxCascades + cascade]
+        );
         commands.BindIndexBuffer(surface.SharedIndices, IndexFormat.UInt32);
         commands.DrawIndexed(surface.SharedIndexCount, PatchCount);
 

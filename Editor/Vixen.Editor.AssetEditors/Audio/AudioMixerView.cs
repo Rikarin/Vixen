@@ -43,8 +43,12 @@ public sealed partial class AudioMixerView;
 /// <param name="Parent">What it feeds, or empty.</param>
 /// <param name="Master">Whether this is the implicit master strip, which is drawn and is not in the file.</param>
 /// <remarks>
-///     ⚠ <b>The three things whose change is a different <i>strip</i>, and deliberately not the
-///     gain.</b> A <c>@for</c> key that carried the gain would replace the fader's region on every
+///     ⚠
+///     <b>
+///         The three things whose change is a different <i>strip</i>, and deliberately not the
+///         gain.
+///     </b>
+///     A <c>@for</c> key that carried the gain would replace the fader's region on every
 ///     step of a drag — the element under the pointer, mid-gesture — where these three replace it
 ///     exactly when the row genuinely became a different row. Everything that does change while a
 ///     strip lives (its gain, its mute, whether it is selected) reaches the screen through a binding

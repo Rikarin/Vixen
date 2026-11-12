@@ -42,8 +42,12 @@ public sealed partial class ScrollBar : Control {
 
     /// <inheritdoc />
     /// <remarks>
-    ///     ⚠ <b>The one control in the set whose name is read from the catalogue on every get
-    ///     rather than assigned once.</b> A scrollbar has no words on screen and no caption to be
+    ///     ⚠
+    ///     <b>
+    ///         The one control in the set whose name is read from the catalogue on every get
+    ///         rather than assigned once.
+    ///     </b>
+    ///     A scrollbar has no words on screen and no caption to be
     ///     <see cref="AccessibleRelation.LabelledBy" />, so its only words are the announced ones —
     ///     and because this is a virtual rather than an assignment in <c>OnCreated</c>, it is also
     ///     the one that follows a language change on a bar that is already on screen. Which way
@@ -89,8 +93,11 @@ public sealed partial class ScrollBar : Control {
 
     /// <summary>Raised when a drag on the thumb is let go of.</summary>
     /// <remarks>
-    ///     ⚠ <b>The end of a gesture, which is the thing this control had no way to say and the
-    ///     reason <c>scroll-snap-type</c> could not be read before it existed.</b>
+    ///     ⚠
+    ///     <b>
+    ///         The end of a gesture, which is the thing this control had no way to say and the
+    ///         reason <c>scroll-snap-type</c> could not be read before it existed.
+    ///     </b>
     ///     <see cref="Scrolled" /> is a stream of positions with no terminator — it says where the
     ///     thumb is, never that the hand has come off it — so a scroll container listening to it
     ///     alone can know everything about where the content went and nothing about when it stopped.
@@ -108,7 +115,7 @@ public sealed partial class ScrollBar : Control {
         thumbBorderColor = Document.PropertyId("--thumb-border-color");
 
         AddClass(Separator.ClassOf(Orientation));
-        AddHandler<PointerEvent>(static (element, args) => ((ScrollBar) element).Pointed(args));
+        AddHandler<PointerEvent>(static (element, args) => ((ScrollBar)element).Pointed(args));
     }
 
     /// <summary>How far it can travel.</summary>
@@ -117,8 +124,12 @@ public sealed partial class ScrollBar : Control {
     /// <summary>How much of the far end of the bar is the corner where the other bar ends.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Zero unless a <see cref="ScrollView" /> is showing both of its bars, and what the
-    ///         corner exists for is the thumb.</b> Both bars run to the view's edges, so with both
+    ///         ⚠
+    ///         <b>
+    ///             Zero unless a <see cref="ScrollView" /> is showing both of its bars, and what the
+    ///             corner exists for is the thumb.
+    ///         </b>
+    ///         Both bars run to the view's edges, so with both
     ///         shown the horizontal track, a later sibling, was painted over the last ten pixels of
     ///         the vertical one — and the vertical thumb's travel was measured over the whole bar, so
     ///         at the end of the scroll eleven of its twenty-four pixels were under the other track
@@ -213,7 +224,7 @@ public sealed partial class ScrollBar : Control {
         var vertical = Orientation == Orientation.Vertical;
 
         var bar = Track(bounds);
-        var along = (vertical ? args.Y - bounds.Y : args.X - bounds.X);
+        var along = vertical ? args.Y - bounds.Y : args.X - bounds.X;
 
         switch (args.Action) {
             // A press in the corner is not on the track, so it is left to go on bubbling.
@@ -270,8 +281,12 @@ public sealed partial class ScrollBar : Control {
 ///         browsers exempt direct manipulation for the same reason.
 ///     </para>
 ///     <para>
-///         ⚠ <b>It used to say "and not the wheel", and that half was wrong for half of the wheels
-///         — it was written when the two could not be told apart.</b> A trackpad is direct
+///         ⚠
+///         <b>
+///             It used to say "and not the wheel", and that half was wrong for half of the wheels
+///             — it was written when the two could not be told apart.
+///         </b>
+///         A trackpad is direct
 ///         manipulation and stays exempt; a <see cref="WheelEvent.Notched" /> wheel is a discrete
 ///         request for a distance and is exactly what a browser smooths. Which of the two arrived is
 ///         now on the event, so <see cref="ScrollView" /> reads it rather than assuming the worse
@@ -295,8 +310,12 @@ public enum ScrollBehavior : byte {
 ///         <c>None</c> does neither.
 ///     </para>
 ///     <para>
-///         ⚠ <b><c>Contain</c> and <c>None</c> used to be one value, and the reason they no longer
-///         are is that the local effect they differ over now exists.</b> The elastic overscroll
+///         ⚠
+///         <b>
+///             <c>Contain</c> and <c>None</c> used to be one value, and the reason they no longer
+///             are is that the local effect they differ over now exists.
+///         </b>
+///         The elastic overscroll
 ///         <c>none</c> suppresses is <see cref="ScrollView.OverscrollTop" />; before there was one,
 ///         <c>none</c> had nothing to additionally turn off and this enum said so. A reader who
 ///         remembers that identity is reading a note that is no longer true.
@@ -379,8 +398,12 @@ public enum ScrollSnapAlign : byte {
 ///         uses.
 ///     </para>
 ///     <para>
-///         ⚠ <b>It reads no <c>overflow</c> of its own, including the per-axis pair, and that is a
-///         decision.</b> In CSS <c>overflow</c> on a box is what conjures the scrollbars; here the
+///         ⚠
+///         <b>
+///             It reads no <c>overflow</c> of its own, including the per-axis pair, and that is a
+///             decision.
+///         </b>
+///         In CSS <c>overflow</c> on a box is what conjures the scrollbars; here the
 ///         bars are children this control creates and drives, and the property only says where the
 ///         clip rectangle's edges are. Wiring the two together would mean this reading its own
 ///         user-agent rule — <c>scroll-view { overflow: hidden }</c>, the one that makes it clip at
@@ -394,8 +417,12 @@ public enum ScrollSnapAlign : byte {
 ///         its tail.
 ///     </para>
 ///     <para>
-///         ⚠ <b>And a scroll view under a tag of its own gets none of the <c>scroll-view</c>
-///         user-agent rule</b> — <c>parent.Add&lt;ScrollView&gt;("choice-scroller")</c> or
+///         ⚠
+///         <b>
+///             And a scroll view under a tag of its own gets none of the <c>scroll-view</c>
+///             user-agent rule
+///         </b>
+///         — <c>parent.Add&lt;ScrollView&gt;("choice-scroller")</c> or
 ///         <c>&lt;ScrollView tag="…"&gt;</c> is styled by whatever the sheet says about that tag,
 ///         and the sheet has to write the <c>overflow: hidden; position: relative</c> the clip and
 ///         the bars' anchor need. Without the first, the rows scrolled past the top draw over
@@ -459,15 +486,23 @@ public sealed partial class ScrollView : Control {
     ///         re-introduce exactly the desktop regression the property was invented to avoid.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>It is what momentum is built on, and until it existed there was no gesture to
-    ///         attach a velocity to.</b> The view scrolled from the wheel, the keyboard and its bars,
+    ///         ⚠
+    ///         <b>
+    ///             It is what momentum is built on, and until it existed there was no gesture to
+    ///             attach a velocity to.
+    ///         </b>
+    ///         The view scrolled from the wheel, the keyboard and its bars,
     ///         none of which has a finger leaving it — so a fling had nothing to continue. That is
     ///         the premise the momentum work was blocked on rather than the deceleration curve, which
     ///         is four lines.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The wheel is deliberately <i>not</i> given a fling, and that is now
-    ///         <i>measured</i> on macOS rather than expected.</b> AppKit's momentum phase arrives at
+    ///         ⚠
+    ///         <b>
+    ///             The wheel is deliberately <i>not</i> given a fling, and that is now
+    ///             <i>measured</i> on macOS rather than expected.
+    ///         </b>
+    ///         AppKit's momentum phase arrives at
     ///         the wheel handler as an ordinary wheel delta, so a curve added on that path would run
     ///         on top of the operating system's and the two would compound. A drag is the
     ///         platform-neutral gesture that carries no momentum of its own. See
@@ -496,18 +531,26 @@ public sealed partial class ScrollView : Control {
         // itself — the thumb is under the finger and must stay there.
         VerticalBar = Part<ScrollBar>();
         VerticalBar.Orientation = Orientation.Vertical;
-        VerticalBar.Scrolled += (_, value) => { Began(); Settle(); ScrollTop = value; };
+        VerticalBar.Scrolled += (_, value) => {
+            Began();
+            Settle();
+            ScrollTop = value;
+        };
         VerticalBar.ScrollEnded += _ => Ended();
 
         HorizontalBar = Part<ScrollBar>();
         HorizontalBar.Orientation = Orientation.Horizontal;
-        HorizontalBar.Scrolled += (_, value) => { Began(); Settle(); ScrollLeft = value; };
+        HorizontalBar.Scrolled += (_, value) => {
+            Began();
+            Settle();
+            ScrollLeft = value;
+        };
         HorizontalBar.ScrollEnded += _ => Ended();
 
-        AddHandler<WheelEvent>(static (element, args) => ((ScrollView) element).Wheeled(args));
-        AddHandler<DragEvent>(static (element, args) => ((ScrollView) element).Dragged(args));
-        AddHandler<KeyEvent>(static (element, args) => ((ScrollView) element).Keyed(args));
-        AddHandler<FocusEvent>(static (element, args) => ((ScrollView) element).Refocused(args));
+        AddHandler<WheelEvent>(static (element, args) => ((ScrollView)element).Wheeled(args));
+        AddHandler<DragEvent>(static (element, args) => ((ScrollView)element).Dragged(args));
+        AddHandler<KeyEvent>(static (element, args) => ((ScrollView)element).Keyed(args));
+        AddHandler<FocusEvent>(static (element, args) => ((ScrollView)element).Refocused(args));
 
         names = ScrollNames.Of(Document);
 
@@ -521,7 +564,10 @@ public sealed partial class ScrollView : Control {
     Action<UiDocument>? settle;
     Action<UiDocument, TimeSpan>? step;
 
-    /// <summary>Makes a wheel turned, or a finger dragged, over an element outside this view scroll it as though it were inside.</summary>
+    /// <summary>
+    ///     Makes a wheel turned, or a finger dragged, over an element outside this view scroll it as though it were
+    ///     inside.
+    /// </summary>
     /// <param name="region">The element. Its descendants count too, since the events bubble through it.</param>
     /// <remarks>
     ///     <para>
@@ -638,8 +684,12 @@ public sealed partial class ScrollView : Control {
 
     /// <summary>Goes to an offset the way <c>scroll-behavior</c> says to, snapping nothing.</summary>
     /// <remarks>
-    ///     ⚠ <b>The half of <see cref="ScrollTo" /> that is not the snap, split out because the snap
-    ///     would otherwise recurse.</b> A gesture ending computes where it should come to rest and
+    ///     ⚠
+    ///     <b>
+    ///         The half of <see cref="ScrollTo" /> that is not the snap, split out because the snap
+    ///         would otherwise recurse.
+    ///     </b>
+    ///     A gesture ending computes where it should come to rest and
     ///     then has to <i>get</i> there, and getting there through <see cref="ScrollTo" /> would ask
     ///     the snap where a snap position snaps to. That is idempotent for the nearest-candidate rule
     ///     and is <i>not</i> for <c>scroll-snap-stop: always</c>, which is a claim about what a scroll
@@ -677,7 +727,7 @@ public sealed partial class ScrollView : Control {
     TimeSpan last;
 
     void Advance(TimeSpan now) {
-        var elapsed = (float) (now - last).TotalSeconds;
+        var elapsed = (float)(now - last).TotalSeconds;
         last = now;
 
         // ⚠ Before the easing rather than after it, and outside the `IsScrolling` guard: the whole
@@ -696,7 +746,7 @@ public sealed partial class ScrollView : Control {
             && !dragging
             && !IsFlinging
             && !IsRubberBanding
-            && (float) (now - gestureAt).TotalSeconds >= SnapIdleSeconds) {
+            && (float)(now - gestureAt).TotalSeconds >= SnapIdleSeconds) {
             Ended();
         }
 
@@ -827,7 +877,8 @@ public sealed partial class ScrollView : Control {
                     // view for itself, which is the same pair of halves a descendant's chain covers.
                     var allowed = region is null
                         ? Document.TouchActionBetween(args.Source ?? this, this)
-                        : Document.TouchActionBetween(args.Source ?? region, region) & Document.TouchActionBetween(this, this);
+                        : Document.TouchActionBetween(args.Source ?? region, region)
+                        & Document.TouchActionBetween(this, this);
 
                     if (!Admits(allowed, args.TotalX, args.TotalY, out panning)) {
                         return;
@@ -906,9 +957,6 @@ public sealed partial class ScrollView : Control {
 
                 args.Handled = true;
                 break;
-
-            default:
-                break;
         }
     }
 
@@ -955,7 +1003,9 @@ public sealed partial class ScrollView : Control {
         // press a drag once it has left the slop circle.
         var began = MathF.Abs(totalX) > MathF.Abs(totalY)
             ? totalX > 0f ? TouchAction.PanLeft : TouchAction.PanRight
-            : totalY > 0f ? TouchAction.PanUp : TouchAction.PanDown;
+            : totalY > 0f
+                ? TouchAction.PanUp
+                : TouchAction.PanDown;
 
         if ((allowed & began) == 0) {
             return false;
@@ -1072,8 +1122,11 @@ public sealed partial class ScrollView : Control {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>This is the offset that may leave <c>[0, <see cref="MaximumTop" />]</c>, and the
-    ///         reason it is a second number rather than a wider range on <see cref="ScrollTop" />.</b>
+    ///         ⚠
+    ///         <b>
+    ///             This is the offset that may leave <c>[0, <see cref="MaximumTop" />]</c>, and the
+    ///             reason it is a second number rather than a wider range on <see cref="ScrollTop" />.
+    ///         </b>
     ///         The scroll offset is what the bars show, what <c>ScrollIntoView</c> computes against
     ///         and what a snap position is measured in; letting it go negative would make every one
     ///         of those answer about a state the content is only passing through. So the clamp on
@@ -1106,8 +1159,12 @@ public sealed partial class ScrollView : Control {
     ///         travel, which does not scale with the panel it happens in.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Capped at half the viewport's height when it is read, because the edge can never
-    ///         give the viewport's whole height.</b> <see cref="Resist" /> approaches the height and
+    ///         ⚠
+    ///         <b>
+    ///             Capped at half the viewport's height when it is read, because the edge can never
+    ///             give the viewport's whole height.
+    ///         </b>
+    ///         <see cref="Resist" /> approaches the height and
     ///         does not reach it, so a distance at or past it is a threshold no finger can cross: a
     ///         view 64 pixels tall or shorter, measured against this default, could never raise
     ///         <see cref="PulledToRefresh" /> by any gesture at all (#1355). Half is reached after
@@ -1178,8 +1235,12 @@ public sealed partial class ScrollView : Control {
 
     /// <summary>The elastic curve: a distance pulled, in the distance actually given.</summary>
     /// <remarks>
-    ///     ⚠ <b>Asymptotic to the viewport, so the content can never be pulled entirely out of its
-    ///     own window.</b> Linear near zero at <see cref="RubberBandConstant" />'s slope and flatter
+    ///     ⚠
+    ///     <b>
+    ///         Asymptotic to the viewport, so the content can never be pulled entirely out of its
+    ///         own window.
+    ///     </b>
+    ///     Linear near zero at <see cref="RubberBandConstant" />'s slope and flatter
     ///     with every pixel after — the standard rubber band, and the shape is the point rather than
     ///     the constants: a bounded, monotone, odd function whose derivative is largest at the
     ///     boundary. A view with no height has no scale to be elastic against and gives nothing.
@@ -1190,7 +1251,7 @@ public sealed partial class ScrollView : Control {
         }
 
         var distance = MathF.Abs(pulled);
-        var given = (1f - (1f / ((distance * RubberBandConstant / dimension) + 1f))) * dimension;
+        var given = (1f - 1f / (distance * RubberBandConstant / dimension + 1f)) * dimension;
 
         return MathF.CopySign(given, pulled);
     }
@@ -1201,8 +1262,12 @@ public sealed partial class ScrollView : Control {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The one place a gesture writes the offset, so that the excess has somewhere to
-    ///         go.</b> Both the drag and the fling used to assign <see cref="ScrollTop" /> directly
+    ///         ⚠
+    ///         <b>
+    ///             The one place a gesture writes the offset, so that the excess has somewhere to
+    ///             go.
+    ///         </b>
+    ///         Both the drag and the fling used to assign <see cref="ScrollTop" /> directly
     ///         and the coercion ate whatever was past the end — silently, which is exactly what an
     ///         elastic boundary must not do. Here the virtual position <c>offset + pull</c> is what
     ///         moves, and the split back into the two is the clamp.
@@ -1328,8 +1393,12 @@ public sealed partial class ScrollView : Control {
     ///         anything read off the screen.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Suppressed on any frame the offset itself moved, which is what makes a recycler
-    ///         safe.</b> `Core/Vixen.Ui.Controls/README.md` recorded this as the obstacle that stopped
+    ///         ⚠
+    ///         <b>
+    ///             Suppressed on any frame the offset itself moved, which is what makes a recycler
+    ///             safe.
+    ///         </b>
+    ///         `Core/Vixen.Ui.Controls/README.md` recorded this as the obstacle that stopped
     ///         anchoring landing, and it named the mechanism exactly: a virtualiser reuses one element
     ///         for a different row, so the anchor's content position changes for a reason that is not
     ///         growth, and the correction cancels the scroll that caused it
@@ -1348,8 +1417,12 @@ public sealed partial class ScrollView : Control {
     ///         children move when <i>it</i> scrolls, which says nothing about this view's content.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Out-of-flow and stuck boxes are excluded, and that is a correctness guard rather
-    ///         than tidiness.</b> A <c>position: sticky</c> header pinned to the top of the port sits
+    ///         ⚠
+    ///         <b>
+    ///             Out-of-flow and stuck boxes are excluded, and that is a correctness guard rather
+    ///             than tidiness.
+    ///         </b>
+    ///         A <c>position: sticky</c> header pinned to the top of the port sits
     ///         at the scroll offset by definition, so anchoring on it reports zero movement for ever —
     ///         a feature that silently does nothing — and one pinned to the <i>bottom</i> would report
     ///         movement equal to the correction and chase itself around the settle loop.
@@ -1483,8 +1556,12 @@ public sealed partial class ScrollView : Control {
     /// <summary>How long the wheel has to be still before the scroll is deemed to have come to rest.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Wall-clock, and it has to be — a wheel is a stream of deltas with no terminator
-    ///         in it.</b> A finger leaving a trackpad, a wheel that stops turning and a hand that
+    ///         ⚠
+    ///         <b>
+    ///             Wall-clock, and it has to be — a wheel is a stream of deltas with no terminator
+    ///             in it.
+    ///         </b>
+    ///         A finger leaving a trackpad, a wheel that stops turning and a hand that
     ///         paused mid-flick are the same silence, and no amount of counting frames or deltas
     ///         tells them apart; every browser answers this with an idle timeout for the same reason.
     ///         What is <i>not</i> wall-clock is anything that asserts on it: the clock is
@@ -1558,8 +1635,12 @@ public sealed partial class ScrollView : Control {
     /// <returns>The offsets to come to rest at, which are the arguments when nothing snaps.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The candidates' bounds are read at the offset the view is at <i>now</i>, not at
-    ///         <paramref name="top" />.</b> A snap position is therefore
+    ///         ⚠
+    ///         <b>
+    ///             The candidates' bounds are read at the offset the view is at <i>now</i>, not at
+    ///             <paramref name="top" />.
+    ///         </b>
+    ///         A snap position is therefore
     ///         <c>ScrollTop + (candidate edge − snapport edge)</c> — an absolute offset that does not
     ///         depend on where the scroll wanted to go, which is what lets one walk answer both "the
     ///         nearest one to here" and "the first one between here and there".
@@ -1608,8 +1689,8 @@ public sealed partial class ScrollView : Control {
                     ScrollSnapAlign.Start => ScrollTop + (area.Top - margin.Top) - nearTop,
                     ScrollSnapAlign.End => ScrollTop + area.Bottom + margin.Bottom - farBottom,
                     _ => ScrollTop
-                        + (((area.Top - margin.Top) + area.Bottom + margin.Bottom) * 0.5f)
-                        - ((nearTop + farBottom) * 0.5f)
+                        + (area.Top - margin.Top + area.Bottom + margin.Bottom) * 0.5f
+                        - (nearTop + farBottom) * 0.5f
                 };
 
                 Consider(ref choiceY, Math.Clamp(position, 0f, MaximumTop), fromTop, top, always);
@@ -1620,8 +1701,8 @@ public sealed partial class ScrollView : Control {
                     ScrollSnapAlign.Start => ScrollLeft + (area.Left - margin.Left) - nearLeft,
                     ScrollSnapAlign.End => ScrollLeft + area.Right + margin.Right - farRight,
                     _ => ScrollLeft
-                        + (((area.Left - margin.Left) + area.Right + margin.Right) * 0.5f)
-                        - ((nearLeft + farRight) * 0.5f)
+                        + (area.Left - margin.Left + area.Right + margin.Right) * 0.5f
+                        - (nearLeft + farRight) * 0.5f
                 };
 
                 Consider(ref choiceX, Math.Clamp(position, 0f, MaximumLeft), fromLeft, left, always);
@@ -1649,8 +1730,12 @@ public sealed partial class ScrollView : Control {
 
     /// <summary>Folds one candidate's snap position into an axis's answer.</summary>
     /// <remarks>
-    ///     ⚠ <b>The two halves answer different questions and the second is not a tie-break of the
-    ///     first.</b> "Nearest" is measured from where the scroll <i>ended</i>; a
+    ///     ⚠
+    ///     <b>
+    ///         The two halves answer different questions and the second is not a tie-break of the
+    ///         first.
+    ///     </b>
+    ///     "Nearest" is measured from where the scroll <i>ended</i>; a
     ///     <c>scroll-snap-stop: always</c> candidate is chosen by how little was travelled to reach
     ///     it, because the rule is that a scroll may not pass one — so of two that were both passed
     ///     over, the one that stops the scroll is the earlier, which is very often the further from
@@ -1702,8 +1787,12 @@ public sealed partial class ScrollView : Control {
 
     /// <summary>Collects every element under this view that declares itself a snap candidate.</summary>
     /// <remarks>
-    ///     ⚠ <b>It does not descend into another <see cref="ScrollView" />, and that is the rule
-    ///     rather than an optimisation.</b> A snap area belongs to its <i>nearest</i> scroll
+    ///     ⚠
+    ///     <b>
+    ///         It does not descend into another <see cref="ScrollView" />, and that is the rule
+    ///         rather than an optimisation.
+    ///     </b>
+    ///     A snap area belongs to its <i>nearest</i> scroll
     ///     container, so a row inside an inner list is the inner list's candidate and not this one's
     ///     — an outer view that gathered them would snap to a position the inner view is about to
     ///     move out from under it. The inner view itself may still carry a
@@ -1724,8 +1813,12 @@ public sealed partial class ScrollView : Control {
 
     /// <summary>What <c>scroll-snap-type</c> says on this view.</summary>
     /// <remarks>
-    ///     ⚠ <b>Read as text rather than through <see cref="UiDocument.KeywordOf" />, because the
-    ///     value is legally two words.</b> <c>scroll-snap-type: y mandatory</c> is one declaration
+    ///     ⚠
+    ///     <b>
+    ///         Read as text rather than through <see cref="UiDocument.KeywordOf" />, because the
+    ///         value is legally two words.
+    ///     </b>
+    ///     <c>scroll-snap-type: y mandatory</c> is one declaration
     ///     carrying an axis and a strictness, and every accessor on <c>StyleAccess</c> answers
     ///     <c>null</c> to a two-word value by design. The two keywords are order-independent in this
     ///     reading, which is laxer than the grammar and is the right way round: the strictness
@@ -1804,8 +1897,12 @@ public sealed partial class ScrollView : Control {
     ///     read follows from which of the two it is, because the same element is never both.
     /// </param>
     /// <remarks>
-    ///     ⚠ <b>The logical pair is resolved here rather than by the layout, which is the one place
-    ///     this differs from <c>margin-inline-start</c>.</b> `LayoutStyleBuilder` reads that longhand
+    ///     ⚠
+    ///     <b>
+    ///         The logical pair is resolved here rather than by the layout, which is the one place
+    ///         this differs from <c>margin-inline-start</c>.
+    ///     </b>
+    ///     `LayoutStyleBuilder` reads that longhand
     ///     into an edge slot and `StyleResolution` folds it against `direction` during the pass; no
     ///     pass ever sees these, because a scroll offset is not layout. So the fold is done here,
     ///     against the same `direction` keyword and with the same precedence — the physical edge wins
@@ -1827,7 +1924,7 @@ public sealed partial class ScrollView : Control {
         var left = Document.LengthOf(style, edges.Left) ?? (rtl ? end : start) ?? 0f;
         var right = Document.LengthOf(style, edges.Right) ?? (rtl ? start : end) ?? 0f;
 
-        return new ScrollInset(top, right, bottom, left);
+        return new(top, right, bottom, left);
     }
 
     /// <summary>What <c>scroll-behavior</c> says on this view.</summary>
@@ -1857,11 +1954,12 @@ public sealed partial class ScrollView : Control {
 
         return OverscrollBehavior.Auto;
 
-        OverscrollBehavior Behaviour(int keyword) => keyword == names.Auto
-            ? OverscrollBehavior.Auto
-            : keyword == names.None
-                ? OverscrollBehavior.None
-                : OverscrollBehavior.Contain;
+        OverscrollBehavior Behaviour(int keyword) =>
+            keyword == names.Auto
+                ? OverscrollBehavior.Auto
+                : keyword == names.None
+                    ? OverscrollBehavior.None
+                    : OverscrollBehavior.Contain;
     }
 
     ScrollNames names = null!;
@@ -1912,7 +2010,7 @@ public sealed partial class ScrollView : Control {
             Absolute = values.Intern("absolute");
         }
 
-        public static ScrollNames Of(UiDocument document) => Cache.GetValue(document, static key => new ScrollNames(key));
+        public static ScrollNames Of(UiDocument document) => Cache.GetValue(document, static key => new(key));
 
         public EdgeIds Margin { get; }
         public EdgeIds Padding { get; }
@@ -1938,8 +2036,12 @@ public sealed partial class ScrollView : Control {
 
     /// <summary>The six longhands of one scroll-inset family, interned.</summary>
     /// <remarks>
-    ///     ⚠ <b>No shorthand slot, unlike <c>LayoutStyleBuilder.EdgeNames</c>, and that is deliberate
-    ///     rather than an omission.</b> ExCSS expands <c>margin</c> and <c>padding</c> while parsing
+    ///     ⚠
+    ///     <b>
+    ///         No shorthand slot, unlike <c>LayoutStyleBuilder.EdgeNames</c>, and that is deliberate
+    ///         rather than an omission.
+    ///     </b>
+    ///     ExCSS expands <c>margin</c> and <c>padding</c> while parsing
     ///     and has never heard of <c>scroll-margin</c>, so a <c>scroll-margin: 4px</c> would reach the
     ///     cascade as one unexpanded declaration that nothing here could read — the <c>inset</c> hole
     ///     `ShorthandExpansion` already records. The families emit the four longhands instead, so
@@ -2068,13 +2170,19 @@ public sealed partial class ScrollView : Control {
         HorizontalBar.Corner = VerticalBar.Range > 0f ? VerticalBar.Width : 0f;
     }
 
-    /// <summary>Scrolls from a wheel notch or a trackpad scroll, smoothing the first kind only, with
-    /// no fling and no bounce.</summary>
+    /// <summary>
+    ///     Scrolls from a wheel notch or a trackpad scroll, smoothing the first kind only, with
+    ///     no fling and no bounce.
+    /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Measured on macOS 15 (arm64) against the SDL this repository ships — 2.32.70 —
-    ///         rather than expected, which is what three passes over the momentum work said was
-    ///         owed.</b> The claim under test was that AppKit generates the trackpad's momentum phase
+    ///         ⚠
+    ///         <b>
+    ///             Measured on macOS 15 (arm64) against the SDL this repository ships — 2.32.70 —
+    ///             rather than expected, which is what three passes over the momentum work said was
+    ///             owed.
+    ///         </b>
+    ///         The claim under test was that AppKit generates the trackpad's momentum phase
     ///         itself and SDL forwards it as ordinary wheel deltas, so a deceleration curve here
     ///         would compound with the operating system's. It holds, and the measurement is a
     ///         mechanical one that needs no hands on the glass: a <c>CGEvent</c> scroll carrying
@@ -2093,8 +2201,12 @@ public sealed partial class ScrollView : Control {
     ///         cannot tell a mouse wheel from a trackpad flick.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Windows and Linux are <i>not</i> measured and the refusal above is written as
-    ///         though the three platforms agree, which they may not.</b> A Windows precision touchpad
+    ///         ⚠
+    ///         <b>
+    ///             Windows and Linux are <i>not</i> measured and the refusal above is written as
+    ///             though the three platforms agree, which they may not.
+    ///         </b>
+    ///         A Windows precision touchpad
     ///         produces its inertia in the driver and it arrives as <c>WM_MOUSEWHEEL</c>, which would
     ///         give the same answer; libinput generates no kinetic scrolling for a touchpad — GTK
     ///         does that in the toolkit — which would give the opposite one. Neither has been put on

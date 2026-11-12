@@ -160,6 +160,7 @@ sealed class WorkStealingDeque {
 
     [StructLayout(LayoutKind.Explicit, Size = 128)]
     struct PaddedLong {
-        [FieldOffset(64)] internal long Value;
+        [FieldOffset(64)]
+        internal long Value;
     }
 }

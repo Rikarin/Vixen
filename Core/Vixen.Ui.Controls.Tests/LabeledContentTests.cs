@@ -7,8 +7,12 @@ namespace Vixen.Ui.Controls.Tests;
 
 /// <summary>The form row: a caption, the field it names, and the line under it.</summary>
 /// <remarks>
-///     ⚠ <b>Every assertion here is about a relation rather than about a layout, and that is the
-///     point of the control existing at all.</b> A caption and a field side by side is two elements
+///     ⚠
+///     <b>
+///         Every assertion here is about a relation rather than about a layout, and that is the
+///         point of the control existing at all.
+///     </b>
+///     A caption and a field side by side is two elements
 ///     and a stylesheet; what a stylesheet cannot do is tell a screen reader that the words on the
 ///     left are the name of the box on the right. Doc 49 § 7.1 ranks this among the missing controls
 ///     and notes that <c>Card</c> and <c>KeyValueList</c> approximate it — they approximate the
@@ -33,8 +37,12 @@ public class LabeledContentTests {
 
     /// <summary>A field in a row is named by the row's caption, with nothing said at the call site.</summary>
     /// <remarks>
-    ///     ⚠ <b>A <see cref="TextBox" /> answers <c>null</c> to its own native accessible name on
-    ///     purpose</b> — a placeholder is a hint and vanishes the moment there is a value — so the
+    ///     ⚠
+    ///     <b>
+    ///         A <see cref="TextBox" /> answers <c>null</c> to its own native accessible name on
+    ///         purpose
+    ///     </b>
+    ///     — a placeholder is a hint and vanishes the moment there is a value — so the
     ///     first assertion is the one that would hold against an unrelated caption, and the second is
     ///     the one that says which caption.
     /// </remarks>

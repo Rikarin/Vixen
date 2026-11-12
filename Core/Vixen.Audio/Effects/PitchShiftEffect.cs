@@ -123,7 +123,7 @@ public sealed class PitchShiftEffect : IAudioEffect {
             // The two taps are half a grain apart, so one is always in the middle of its window —
             // at full gain, furthest from its jump — while the other is at an edge.
             var first = position;
-            var second = position + (grainFrames * 0.5f);
+            var second = position + grainFrames * 0.5f;
 
             if (second >= grainFrames) {
                 second -= grainFrames;
@@ -137,10 +137,10 @@ public sealed class PitchShiftEffect : IAudioEffect {
             for (var channel = 0; channel < channels; channel++) {
                 var dry = buffer[offset + channel];
 
-                var shifted = (Read(channel, first, channels) * firstGain)
-                    + (Read(channel, second, channels) * secondGain);
+                var shifted = Read(channel, first, channels) * firstGain
+                    + Read(channel, second, channels) * secondGain;
 
-                buffer[offset + channel] = dry + ((shifted - dry) * mix);
+                buffer[offset + channel] = dry + (shifted - dry) * mix;
             }
 
             position += drift;
@@ -227,8 +227,8 @@ public sealed class PitchShiftEffect : IAudioEffect {
         var fraction = read - index;
         var next = index + 1 >= lineFrames ? 0 : index + 1;
 
-        var a = lines[(index * channels) + channel];
-        var b = lines[(next * channels) + channel];
-        return a + ((b - a) * fraction);
+        var a = lines[index * channels + channel];
+        var b = lines[next * channels + channel];
+        return a + (b - a) * fraction;
     }
 }

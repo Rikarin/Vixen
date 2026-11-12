@@ -58,22 +58,31 @@ public sealed class PaintStroke {
 
     /// <summary>How many four-neighbour steps from coverage each dilated texel is.</summary>
     /// <remarks>
-    ///     ⚠ <b>The field that makes the reach a property of the atlas rather than of the stroke —
-    ///     <a href="https://github.com/Rikarin/Vixen/issues/868">#868</a>.</b> A distance from the
+    ///     ⚠
+    ///     <b>
+    ///         The field that makes the reach a property of the atlas rather than of the stroke —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/868">#868</a>.
+    ///     </b>
+    ///     A distance from the
     ///     coverage map is the same number whichever stamp measured it, which is what lets
     ///     <see cref="Dilate" /> run round <c>r</c> from the texels at distance <c>r</c> and stop at
     ///     <see cref="gutter" /> however many stamps have crossed the seam. Kept beside
     ///     <see cref="reached" /> and not folded into it because the two answer different questions:
     ///     a reach may rise as later stamps paint the island harder, and a distance may only fall.
     ///     <para>
-    ///         ⚠ <b>And "may only fall" was a claim rather than a behaviour until
-    ///         <a href="https://github.com/Rikarin/Vixen/issues/896">#896</a>.</b> The write lived in
+    ///         ⚠
+    ///         <b>
+    ///             And "may only fall" was a claim rather than a behaviour until
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/896">#896</a>.
+    ///         </b>
+    ///         The write lived in
     ///         the commit loop, which the scan's <c>already &gt;= best</c> early-out jumps over — so
     ///         a distance fell only when the reach also rose, which for a uniform opaque stroke is
     ///         almost never. It is written in the scan now, where the proof of the shorter path is.
     ///     </para>
     /// </remarks>
     readonly PaintTexelMap<int> distance;
+
     readonly float lazy;
     readonly IPaintPlacement? placement;
     readonly PaintStampTexels placed;
@@ -90,6 +99,7 @@ public sealed class PaintStroke {
 
     /// <summary>A stamp's colours, gathered before any is written, for a source that reads the canvas.</summary>
     readonly List<(bool Has, uint Colour)> gathered = [];
+
     Vector2 smoothed;
     float pressed = 1f;
     bool started;
@@ -170,11 +180,11 @@ public sealed class PaintStroke {
             FullReach = source is { ReadsCanvas: true }
                 ? float.PositiveInfinity
                 : Math.Clamp(
-                        brush.Blend == PaintStampBlend.Maximum ? Math.Min(brush.Opacity, brush.Flow) : brush.Opacity,
-                        0f,
-                        1f
-                    )
-                    - (0.5f / byte.MaxValue)
+                    brush.Blend == PaintStampBlend.Maximum ? Math.Min(brush.Opacity, brush.Flow) : brush.Opacity,
+                    0f,
+                    1f
+                )
+                - 0.5f / byte.MaxValue
         };
         beneath = new(image.Width, image.Height);
         laid = source is null ? null : new(image.Width, image.Height);
@@ -232,16 +242,24 @@ public sealed class PaintStroke {
     /// <summary>How many texels either loop has <em>looked at</em>, over the whole stroke.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The counter <see cref="WeightsEvaluated" /> is not, and the difference is what
-    ///         <a href="https://github.com/Rikarin/Vixen/issues/871">#871</a> found.</b> A weight is
+    ///         ⚠
+    ///         <b>
+    ///             The counter <see cref="WeightsEvaluated" /> is not, and the difference is what
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/871">#871</a> found.
+    ///         </b>
+    ///         A weight is
     ///         evaluated only for a texel an island covers, and only inside the stamp's footprint —
     ///         so a counter of weights measures the cheaper of a stamp's two loops. The dilation
     ///         scans the footprint grown by the gutter on every side, up to <see cref="gutter" />
     ///         times. Exit criterion 8 was gated on the smaller number.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>How much larger depends on the coverage, and #871's own "roughly 45 000" is the
-    ///         ceiling rather than the usual case.</b> <see cref="Dilate" /> stops as soon as a round
+    ///         ⚠
+    ///         <b>
+    ///             How much larger depends on the coverage, and #871's own "roughly 45 000" is the
+    ///             ceiling rather than the usual case.
+    ///         </b>
+    ///         <see cref="Dilate" /> stops as soon as a round
     ///         finds nothing to fill, so over an atlas an island covers entirely it runs <em>once</em>
     ///         — measured at radius 48 and gutter 4, 10 810 scanned texels a stamp against 9 216
     ///         weights. The 45 000 is what an atlas with real seams in it costs, where each of the
@@ -279,8 +297,12 @@ public sealed class PaintStroke {
     ///         without dragging expects one stamp rather than none.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The return is the union and <paramref name="regions" /> is not, and the second is
-    ///         the one a recomposite must use</b> —
+    ///         ⚠
+    ///         <b>
+    ///             The return is the union and <paramref name="regions" /> is not, and the second is
+    ///             the one a recomposite must use
+    ///         </b>
+    ///         —
     ///         <a href="https://github.com/Rikarin/Vixen/issues/871">#871</a>. One pointer move can
     ///         earn many stamps: a pointer that jumps half the atlas between two frames lays a line
     ///         of them, and the union of that line is a rectangle covering everything between the
@@ -312,7 +334,7 @@ public sealed class PaintStroke {
 
         foreach (var stamp in spaced) {
             var along = first || !(travel > 0f) ? 1f : Math.Clamp((stamp.Centre - from).Length() / travel, 0f, 1f);
-            var at = first ? hard : pressed + ((hard - pressed) * along);
+            var at = first ? hard : pressed + (hard - pressed) * along;
 
             dirty = dirty.Union(Apply(Jittered(stamp, StampCount, at), regions));
             StampCount++;
@@ -362,7 +384,7 @@ public sealed class PaintStroke {
         var offset = pointer - brush;
         var length = offset.Length();
 
-        return length <= lazy ? brush : brush + (offset * ((length - lazy) / length));
+        return length <= lazy ? brush : brush + offset * ((length - lazy) / length);
     }
 
     /// <summary>Puts the layer back the way it was before the stroke.</summary>
@@ -403,9 +425,9 @@ public sealed class PaintStroke {
     /// </remarks>
     PaintStamp Jittered(BrushStamp stamp, int index, float pressure) {
         var radius = brush.Radius
-            * (1f - (Unit(index, 3) * Math.Clamp(brush.SizeJitter, 0f, 1f)))
+            * (1f - Unit(index, 3) * Math.Clamp(brush.SizeJitter, 0f, 1f))
             * Pressed(brush.PressureSize, pressure);
-        var angle = stamp.Rotation + (((Unit(index, 1) * 2f) - 1f) * brush.AngleJitter);
+        var angle = stamp.Rotation + (Unit(index, 1) * 2f - 1f) * brush.AngleJitter;
         var centre = stamp.Centre;
         var path = previous is { } last ? stamp.Centre - last : Vector2.Zero;
 
@@ -420,7 +442,7 @@ public sealed class PaintStroke {
                 var length = path.Length();
 
                 if (length > 0f) {
-                    centre += new Vector2(-path.Y, path.X) / length * (((Unit(index, 2) * 2f) - 1f) * scatter);
+                    centre += new Vector2(-path.Y, path.X) / length * ((Unit(index, 2) * 2f - 1f) * scatter);
                 }
             } else {
                 var direction = Unit(index, 2) * MathF.Tau;
@@ -432,7 +454,7 @@ public sealed class PaintStroke {
         }
 
         // Its own stream, so turning flow jitter on moves no stamp and resizes none.
-        var flow = Math.Clamp(brush.Flow, 0f, 1f) * (1f - (Unit(index, 5) * Math.Clamp(brush.FlowJitter, 0f, 1f)));
+        var flow = Math.Clamp(brush.Flow, 0f, 1f) * (1f - Unit(index, 5) * Math.Clamp(brush.FlowJitter, 0f, 1f));
 
         // ⚠ The shape travels with every stamp, jittered or not — #1064. It is the brush's for the
         // whole stroke (the hit triangle at pointer-down is what measured it, and re-measuring per
@@ -449,7 +471,7 @@ public sealed class PaintStroke {
     }
 
     /// <summary>What a pressure leaves of something it takes a share of.</summary>
-    static float Pressed(float share, float pressure) => 1f - (Math.Clamp(share, 0f, 1f) * (1f - pressure));
+    static float Pressed(float share, float pressure) => 1f - Math.Clamp(share, 0f, 1f) * (1f - pressure);
 
     /// <summary>Composites one stamp into the layer and dilates it past the seam.</summary>
     /// <remarks>
@@ -506,7 +528,7 @@ public sealed class PaintStroke {
 
         for (var y = footprint.Y; y < footprint.EndY; y++) {
             for (var x = footprint.X; x < footprint.EndX; x++) {
-                var index = (y * image.Width) + x;
+                var index = y * image.Width + x;
 
                 // Counted before the coverage test, because this loop visited the texel whether or
                 // not an island covers it — see `TexelsScanned`.
@@ -604,7 +626,7 @@ public sealed class PaintStroke {
         // Over what the stroke laid, or the strongest single stamp: see `PaintStampBlend`.
         var reach = brush.Blend == PaintStampBlend.Maximum
             ? Math.Min(cap, weight)
-            : Math.Min(cap, already + (weight * (1f - already)));
+            : Math.Min(cap, already + weight * (1f - already));
 
         if (reach <= already) {
             return;
@@ -647,9 +669,13 @@ public sealed class PaintStroke {
     ///         cannot overwrite the island beside it in the atlas.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The first of those three was false for a stroke of more than one stamp, and the
-    ///         third is not what made it matter —
-    ///         <a href="https://github.com/Rikarin/Vixen/issues/868">#868</a>.</b> Coverage is what
+    ///         ⚠
+    ///         <b>
+    ///             The first of those three was false for a stroke of more than one stamp, and the
+    ///             third is not what made it matter —
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/868">#868</a>.
+    ///         </b>
+    ///         Coverage is what
     ///         stops a gutter reaching the island beside it, so an over-reach could never overwrite a
     ///         neighbour whatever its length; what it could do is make the halo a function of the
     ///         brush and the stamp spacing. <see cref="reached" /> is stroke-wide, so stamp N seeded
@@ -737,7 +763,7 @@ public sealed class PaintStroke {
 
         for (var y = fromY; y < toY; y++) {
             for (var x = fromX; x < toX; x++) {
-                var index = (y * image.Width) + x;
+                var index = y * image.Width + x;
 
                 // ⚠ The loop exit criterion 8's counter used not to see at all, and the larger
                 // of a stamp's two: one round over the grown footprint already exceeds the whole
@@ -795,8 +821,12 @@ public sealed class PaintStroke {
 
     /// <summary>What one neighbour contributes to a texel being filled in <paramref name="round" />.</summary>
     /// <remarks>
-    ///     ⚠ <b>Gated on the neighbour's distance, which is the whole of
-    ///     <a href="https://github.com/Rikarin/Vixen/issues/868">#868</a>.</b> Round <c>r</c> fills
+    ///     ⚠
+    ///     <b>
+    ///         Gated on the neighbour's distance, which is the whole of
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/868">#868</a>.
+    ///     </b>
+    ///     Round <c>r</c> fills
     ///     the texels at distance <c>r + 1</c>, so its sources are the covered texels when
     ///     <c>r</c> is zero and the texels at distance <c>r</c> after that. Ungated — reading
     ///     <see cref="reached" /> alone, which is stroke-wide and already holds what the previous
@@ -811,7 +841,7 @@ public sealed class PaintStroke {
             return 0f;
         }
 
-        var index = (y * image.Width) + x;
+        var index = y * image.Width + x;
 
         if (!reached.TryGet(index, out var reach)) {
             return 0f;
@@ -819,7 +849,9 @@ public sealed class PaintStroke {
 
         return coverage.IsCovered(index)
             ? round == 0 ? reach : 0f
-            : distance.TryGet(index, out var steps) && steps == round ? reach : 0f;
+            : distance.TryGet(index, out var steps) && steps == round
+                ? reach
+                : 0f;
     }
 
     /// <summary>Takes a neighbour's contribution if it is the strongest so far, and remembers which it was.</summary>
@@ -828,7 +860,7 @@ public sealed class PaintStroke {
 
         if (reach > best) {
             best = reach;
-            from = (y * image.Width) + x;
+            from = y * image.Width + x;
         }
     }
 

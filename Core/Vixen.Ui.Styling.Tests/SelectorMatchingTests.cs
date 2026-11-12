@@ -263,7 +263,7 @@ public class SelectorMatchingTests {
         Assert.False(fixture.Matches(":is(:empty, .selected)", named));
 
         // A pseudo-class, so it counts in the middle column exactly as `:hover` does.
-        Assert.Equal(new Specificity(0, 1, 1), fixture.Compile("node-port-lane:empty").Specificity);
+        Assert.Equal(new(0, 1, 1), fixture.Compile("node-port-lane:empty").Specificity);
     }
 
     [Fact]
@@ -274,7 +274,7 @@ public class SelectorMatchingTests {
         // cache that shared between them would hand the named one the hidden one's style. This is
         // the same hole `:nth-child` and `[attr]` are already kept out of.
         var fixture = new StyleFixture();
-        var rules = new StyleRuleSet(fixture.Table, fixture.Names, new NameTable(), new NameTable());
+        var rules = new StyleRuleSet(fixture.Table, fixture.Names, new(), new());
 
         rules.Add(fixture.Compile("node-port-lane"), [], StyleOrigin.Author, CascadeLayers.Unlayered);
         Assert.True(rules.SharingIsSound(default, default));
@@ -303,8 +303,12 @@ public class SelectorMatchingTests {
     /// <summary>A pseudo-element the engine cannot build is refused, because the alternative was matching the wrong thing.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>This test has been inverted twice, and each version asserted the defect of the one
-    ///         before.</b> It was first called <c>A_pseudo_element_says_which_box_a_rule_targets_rather_than_filtering_the_element</c>
+    ///         ⚠
+    ///         <b>
+    ///             This test has been inverted twice, and each version asserted the defect of the one
+    ///             before.
+    ///         </b>
+    ///         It was first called <c>A_pseudo_element_says_which_box_a_rule_targets_rather_than_filtering_the_element</c>
     ///         and asserted that <c>.tooltip::before</c> matched a <c>.tooltip</c> with the name
     ///         interned onto the compiled selector — true, and read by nothing, so
     ///         <c>p::before { color: red }</c> was a red paragraph (doc 43's F6). It then asserted the
@@ -362,15 +366,15 @@ public class SelectorMatchingTests {
 
         var compiled = fixture.Load(
             "div.row > span.cell { color: red }"
-                + " p:is(.x, .y)::marker { color: blue }"
-                + " .row .cell { color: green }"
+            + " p:is(.x, .y)::marker { color: blue }"
+            + " .row .cell { color: green }"
         );
 
         Assert.Equal(2, compiled.Count);
         Assert.Single(fixture.Compiler.Diagnostics);
 
         Assert.Equal(expected, compiled[0].Specificity);
-        Assert.Equal(new Specificity(0, 2, 0), compiled[1].Specificity);
+        Assert.Equal(new(0, 2, 0), compiled[1].Specificity);
 
         Assert.True(fixture.Matcher.Matches(fixture.Tree, cell, compiled[0]));
         Assert.True(fixture.Matcher.Matches(fixture.Tree, cell, compiled[1]));
@@ -384,13 +388,13 @@ public class SelectorMatchingTests {
     public void Specificity_counts_the_way_the_cascade_needs_it_to() {
         var fixture = new StyleFixture();
 
-        Assert.Equal(new Specificity(0, 0, 1), fixture.Compile("div").Specificity);
-        Assert.Equal(new Specificity(0, 1, 0), fixture.Compile(".row").Specificity);
-        Assert.Equal(new Specificity(1, 0, 0), fixture.Compile("#app").Specificity);
-        Assert.Equal(new Specificity(1, 1, 1), fixture.Compile("div#app.row").Specificity);
-        Assert.Equal(new Specificity(0, 1, 0), fixture.Compile("[data-x]").Specificity);
-        Assert.Equal(new Specificity(0, 1, 0), fixture.Compile(":hover").Specificity);
-        Assert.Equal(new Specificity(0, 0, 3), fixture.Compile("div span p").Specificity);
+        Assert.Equal(new(0, 0, 1), fixture.Compile("div").Specificity);
+        Assert.Equal(new(0, 1, 0), fixture.Compile(".row").Specificity);
+        Assert.Equal(new(1, 0, 0), fixture.Compile("#app").Specificity);
+        Assert.Equal(new(1, 1, 1), fixture.Compile("div#app.row").Specificity);
+        Assert.Equal(new(0, 1, 0), fixture.Compile("[data-x]").Specificity);
+        Assert.Equal(new(0, 1, 0), fixture.Compile(":hover").Specificity);
+        Assert.Equal(new(0, 0, 3), fixture.Compile("div span p").Specificity);
 
         Assert.True(fixture.Compile("#app").Specificity > fixture.Compile(".a.b.c.d").Specificity);
         Assert.True(fixture.Compile(".row").Specificity > fixture.Compile("div span").Specificity);

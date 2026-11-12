@@ -8,8 +8,12 @@ namespace Vixen.Ui.Styling.Tests;
 /// <summary>What <c>@container</c> resolves to, asserted as a computed value and never as a parse.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Every case here asserts positively <i>and</i> negatively, because a rule that applies
-///         unconditionally passes every positive assertion ever written about it.</b> That is the
+///         ⚠
+///         <b>
+///             Every case here asserts positively <i>and</i> negatively, because a rule that applies
+///             unconditionally passes every positive assertion ever written about it.
+///         </b>
+///         That is the
 ///         lesson <c>VariantCoverageTests</c> paid for — <c>aria-expanded:</c> matched a collapsed
 ///         disclosure for a release because the only assertions were "true matches" and "absent does
 ///         not", and the discriminating case was never written. For a container query the
@@ -32,10 +36,10 @@ public class ContainerQueryTests {
         fixture.Load("@container (min-width: 400px) { .body { color: wide } }");
 
         var roomy = fixture.Tree.CreateElement("div");
-        fixture.Contain(roomy, width: 900f);
+        fixture.Contain(roomy, 900f);
 
         var cramped = fixture.Tree.CreateElement("div");
-        fixture.Contain(cramped, width: 200f);
+        fixture.Contain(cramped, 200f);
 
         var inRoomy = fixture.Tree.CreateElement("div", roomy, classNames: ["body"]);
         var inCramped = fixture.Tree.CreateElement("div", cramped, classNames: ["body"]);
@@ -53,7 +57,7 @@ public class ContainerQueryTests {
         fixture.Load("@container (min-width: 400px) { .panel { color: inside } }");
 
         var container = fixture.Tree.CreateElement("div", classNames: ["panel"]);
-        fixture.Contain(container, width: 900f);
+        fixture.Contain(container, 900f);
 
         var child = fixture.Tree.CreateElement("div", container, classNames: ["panel"]);
 
@@ -68,10 +72,10 @@ public class ContainerQueryTests {
         fixture.Load("@container outer (min-width: 400px) { .leaf { color: outer-is-wide } }");
 
         var outer = fixture.Tree.CreateElement("div");
-        fixture.Contain(outer, width: 900f, name: "outer");
+        fixture.Contain(outer, 900f, name: "outer");
 
         var inner = fixture.Tree.CreateElement("div", outer);
-        fixture.Contain(inner, width: 100f, name: "inner");
+        fixture.Contain(inner, 100f, name: "inner");
 
         var leaf = fixture.Tree.CreateElement("div", inner, classNames: ["leaf"]);
 
@@ -84,10 +88,10 @@ public class ContainerQueryTests {
         narrow.Load("@container outer (min-width: 400px) { .leaf { color: outer-is-wide } }");
 
         var narrowOuter = narrow.Tree.CreateElement("div");
-        narrow.Contain(narrowOuter, width: 300f, name: "outer");
+        narrow.Contain(narrowOuter, 300f, name: "outer");
 
         var narrowInner = narrow.Tree.CreateElement("div", narrowOuter);
-        narrow.Contain(narrowInner, width: 900f, name: "inner");
+        narrow.Contain(narrowInner, 900f, name: "inner");
 
         Assert.Null(narrow.Value(narrow.Tree.CreateElement("div", narrowInner, classNames: ["leaf"])));
     }
@@ -102,14 +106,14 @@ public class ContainerQueryTests {
         fixture.Load("@container card (min-width: 400px) { .leaf { color: named } }");
 
         var anonymous = fixture.Tree.CreateElement("div");
-        fixture.Contain(anonymous, width: 900f);
+        fixture.Contain(anonymous, 900f);
 
         Assert.Null(fixture.Value(fixture.Tree.CreateElement("div", anonymous, classNames: ["leaf"])));
 
         // The same box with the name it was asked for does match, so the null above is the name and
         // not the width.
         var named = fixture.Tree.CreateElement("div");
-        fixture.Contain(named, width: 900f, name: "card");
+        fixture.Contain(named, 900f, name: "card");
 
         Assert.Equal("named", fixture.Value(fixture.Tree.CreateElement("div", named, classNames: ["leaf"])));
     }
@@ -136,9 +140,12 @@ public class ContainerQueryTests {
         fixture.Load($"@container {asked} (min-width: 400px) {{ .leaf {{ color: named }} }}");
 
         var container = fixture.Tree.CreateElement("div");
-        fixture.Contain(container, width: 900f, name: names);
+        fixture.Contain(container, 900f, name: names);
 
-        Assert.Equal(matches ? "named" : null, fixture.Value(fixture.Tree.CreateElement("div", container, classNames: ["leaf"])));
+        Assert.Equal(
+            matches ? "named" : null,
+            fixture.Value(fixture.Tree.CreateElement("div", container, classNames: ["leaf"]))
+        );
     }
 
     [Fact]
@@ -150,10 +157,10 @@ public class ContainerQueryTests {
         fixture.Load("@container (min-width: 400px) { .leaf { color: near-is-wide } }");
 
         var outer = fixture.Tree.CreateElement("div");
-        fixture.Contain(outer, width: 900f);
+        fixture.Contain(outer, 900f);
 
         var inner = fixture.Tree.CreateElement("div", outer);
-        fixture.Contain(inner, width: 100f, name: "sidebar");
+        fixture.Contain(inner, 100f, name: "sidebar");
 
         var leaf = fixture.Tree.CreateElement("div", inner, classNames: ["leaf"]);
 
@@ -169,12 +176,12 @@ public class ContainerQueryTests {
         // The same property `MediaConditions` has, and it has to hold independently: flattening to the
         // outermost or the innermost passes two of these three and fails the middle one.
         const string Css = """
-            @container (min-width: 300px) {
-              @container (min-width: 600px) {
-                .leaf { color: both }
-              }
-            }
-            """;
+                           @container (min-width: 300px) {
+                             @container (min-width: 600px) {
+                               .leaf { color: both }
+                             }
+                           }
+                           """;
 
         Assert.Equal("both", Resolve(Css, 900f));
         Assert.Null(Resolve(Css, 450f));
@@ -196,25 +203,25 @@ public class ContainerQueryTests {
         // ⚠ Two tables, two subjects, and a rule carries one id from each. This is the case that would
         // have forced a tagged union if the container group had been squeezed into `Conditions`.
         const string Inside = """
-            @media (min-width: 1000px) {
-              @container (min-width: 400px) { .leaf { color: both } }
-            }
-            """;
+                              @media (min-width: 1000px) {
+                                @container (min-width: 400px) { .leaf { color: both } }
+                              }
+                              """;
 
         const string Outside = """
-            @container (min-width: 400px) {
-              @media (min-width: 1000px) { .leaf { color: both } }
-            }
-            """;
+                               @container (min-width: 400px) {
+                                 @media (min-width: 1000px) { .leaf { color: both } }
+                               }
+                               """;
 
         foreach (var css in new[] { Inside, Outside }) {
-            Assert.Equal("both", Resolve(css, surface: 1200f, container: 900f));
+            Assert.Equal("both", Resolve(css, 1200f, 900f));
 
             // The window is wide and the panel is not.
-            Assert.Null(Resolve(css, surface: 1200f, container: 100f));
+            Assert.Null(Resolve(css, 1200f, 100f));
 
             // The panel is wide and the window is not.
-            Assert.Null(Resolve(css, surface: 500f, container: 900f));
+            Assert.Null(Resolve(css, 500f, 900f));
         }
 
         static string? Resolve(string css, float surface, float container) {
@@ -224,8 +231,8 @@ public class ContainerQueryTests {
             // load-time form, where a `@media` block is kept or dropped there and then. Registering a
             // group per block is the form the surface answers, and it is the only one a container
             // query can nest inside meaningfully.
-            fixture.Engine.Load(css, StyleOrigin.Author, media: null);
-            fixture.Engine.SetMedia(new MediaContext(surface, 800f));
+            fixture.Engine.Load(css);
+            fixture.Engine.SetMedia(new(surface, 800f));
 
             var box = fixture.Tree.CreateElement("div");
             fixture.Contain(box, container);
@@ -243,13 +250,13 @@ public class ContainerQueryTests {
         fixture.Load("@container (min-height: 100px) { .leaf { color: tall } }");
 
         var inline = fixture.Tree.CreateElement("div");
-        fixture.Contain(inline, width: 900f, height: 900f, kind: ContainerKind.InlineSize);
+        fixture.Contain(inline, 900f, 900f, kind: ContainerKind.InlineSize);
 
         Assert.Null(fixture.Value(fixture.Tree.CreateElement("div", inline, classNames: ["leaf"])));
 
         // The same box, the same height, contained on both axes: now it answers.
         var both = fixture.Tree.CreateElement("div");
-        fixture.Contain(both, width: 900f, height: 900f, kind: ContainerKind.Size);
+        fixture.Contain(both, 900f, 900f, kind: ContainerKind.Size);
 
         Assert.Equal("tall", fixture.Value(fixture.Tree.CreateElement("div", both, classNames: ["leaf"])));
     }
@@ -299,10 +306,10 @@ public class ContainerQueryTests {
         Assert.Empty(fixture.Engine.Loader.Diagnostics);
 
         var outer = fixture.Tree.CreateElement("div");
-        fixture.Contain(outer, width: outerWidth, height: outerHeight, kind: ContainerKind.Size);
+        fixture.Contain(outer, outerWidth, outerHeight, kind: ContainerKind.Size);
 
         var inner = fixture.Tree.CreateElement("div", outer);
-        fixture.Contain(inner, width: 100f, height: 50f, kind: ContainerKind.InlineSize);
+        fixture.Contain(inner, 100f, 50f, kind: ContainerKind.InlineSize);
 
         var leaf = fixture.Tree.CreateElement("div", inner, classNames: ["leaf"]);
 
@@ -319,10 +326,10 @@ public class ContainerQueryTests {
         fixture.Load("@container card (min-height: 200px) { .leaf { color: tall-card } }");
 
         var outer = fixture.Tree.CreateElement("div");
-        fixture.Contain(outer, width: 900f, height: 900f, name: "card", kind: ContainerKind.Size);
+        fixture.Contain(outer, 900f, 900f, "card", ContainerKind.Size);
 
         var inner = fixture.Tree.CreateElement("div", outer);
-        fixture.Contain(inner, width: 900f, height: 50f, name: "card", kind: ContainerKind.InlineSize);
+        fixture.Contain(inner, 900f, 50f, "card");
 
         Assert.Equal("tall-card", fixture.Value(fixture.Tree.CreateElement("div", inner, classNames: ["leaf"])));
 
@@ -332,7 +339,7 @@ public class ContainerQueryTests {
         alone.Load("@container card (min-height: 200px) { .leaf { color: tall-card } }");
 
         var only = alone.Tree.CreateElement("div");
-        alone.Contain(only, width: 900f, height: 900f, name: "card", kind: ContainerKind.InlineSize);
+        alone.Contain(only, 900f, 900f, "card");
 
         Assert.Null(alone.Value(alone.Tree.CreateElement("div", only, classNames: ["leaf"])));
     }
@@ -349,7 +356,7 @@ public class ContainerQueryTests {
         // ⚠ And a `container-type: normal` ancestor is not an eligible container either — being in the
         // tree is not being a query container.
         var plain = fixture.Tree.CreateElement("div");
-        fixture.Contain(plain, width: 900f, kind: ContainerKind.Normal);
+        fixture.Contain(plain, 900f, kind: ContainerKind.Normal);
 
         Assert.Equal("base", fixture.Value(fixture.Tree.CreateElement("div", plain, classNames: ["leaf"])));
     }
@@ -366,7 +373,7 @@ public class ContainerQueryTests {
         Assert.Empty(loaded.Engine.Loader.Diagnostics);
 
         var box = loaded.Tree.CreateElement("div");
-        loaded.Contain(box, width: 900f);
+        loaded.Contain(box, 900f);
 
         Assert.Equal("kept", loaded.Value(loaded.Tree.CreateElement("div", box, classNames: ["leaf"])));
 
@@ -378,7 +385,7 @@ public class ContainerQueryTests {
         Assert.Contains("prefers-color-scheme", diagnostic.Reason, StringComparison.Ordinal);
 
         var refusedBox = refused.Tree.CreateElement("div");
-        refused.Contain(refusedBox, width: 900f);
+        refused.Contain(refusedBox, 900f);
 
         Assert.Null(refused.Value(refused.Tree.CreateElement("div", refusedBox, classNames: ["leaf"])));
     }
@@ -401,10 +408,10 @@ public class ContainerQueryTests {
         Assert.Empty(fixture.Engine.Loader.Diagnostics);
 
         var narrow = fixture.Tree.CreateElement("div");
-        fixture.Contain(narrow, width: 300f);
+        fixture.Contain(narrow, 300f);
 
         var wide = fixture.Tree.CreateElement("div");
-        fixture.Contain(wide, width: 900f);
+        fixture.Contain(wide, 900f);
 
         Assert.Equal("narrow", fixture.Value(fixture.Tree.CreateElement("div", narrow, classNames: ["leaf"])));
         Assert.Null(fixture.Value(fixture.Tree.CreateElement("div", wide, classNames: ["leaf"])));
@@ -433,9 +440,12 @@ public class ContainerQueryTests {
         Assert.Empty(fixture.Engine.Loader.Diagnostics);
 
         var box = fixture.Tree.CreateElement("div");
-        fixture.Contain(box, width: width, height: height, name: name.Trim(), kind: ContainerKind.Size);
+        fixture.Contain(box, width, height, name.Trim(), ContainerKind.Size);
 
-        Assert.Equal(matches ? "either" : null, fixture.Value(fixture.Tree.CreateElement("div", box, classNames: ["leaf"])));
+        Assert.Equal(
+            matches ? "either" : null,
+            fixture.Value(fixture.Tree.CreateElement("div", box, classNames: ["leaf"]))
+        );
     }
 
     /// <summary>
@@ -464,10 +474,10 @@ public class ContainerQueryTests {
         Assert.Empty(fixture.Engine.Loader.Diagnostics);
 
         var wide = fixture.Tree.CreateElement("div");
-        fixture.Contain(wide, width: 500f, height: 100f, name: name, kind: ContainerKind.Size);
+        fixture.Contain(wide, 500f, 100f, name, ContainerKind.Size);
 
         var narrow = fixture.Tree.CreateElement("div");
-        fixture.Contain(narrow, width: 300f, height: 100f, name: name, kind: ContainerKind.Size);
+        fixture.Contain(narrow, 300f, 100f, name, ContainerKind.Size);
 
         Assert.Equal("either", fixture.Value(fixture.Tree.CreateElement("div", wide, classNames: ["leaf"])));
         Assert.Null(fixture.Value(fixture.Tree.CreateElement("div", narrow, classNames: ["leaf"])));
@@ -475,12 +485,21 @@ public class ContainerQueryTests {
 
     /// <summary>What the grammar still refuses, each with a reason, and the names CSS reserves.</summary>
     [Theory]
-    [InlineData("@container (min-width: 1px) and (max-width: 9px) or (min-height: 1px) { .leaf { color: x } }", "cannot be mixed")]
-    [InlineData("@container not (min-width: 1px) and (max-width: 9px) { .leaf { color: x } }", "'not' applies to one feature")]
+    [InlineData(
+        "@container (min-width: 1px) and (max-width: 9px) or (min-height: 1px) { .leaf { color: x } }",
+        "cannot be mixed"
+    )]
+    [InlineData(
+        "@container not (min-width: 1px) and (max-width: 9px) { .leaf { color: x } }",
+        "'not' applies to one feature"
+    )]
     [InlineData("@container ((min-width: 1px) and (max-width: 9px)) { .leaf { color: x } }", "parenthesised group")]
     [InlineData("@container (min-width: 1px) xor (max-width: 9px) { .leaf { color: x } }", "does not join")]
     [InlineData("@container none (min-width: 1px) { .leaf { color: x } }", "'none' cannot be a container name")]
-    [InlineData("@container or (min-width: 1px) or (max-width: 9px) { .leaf { color: x } }", "'or' cannot be a container name")]
+    [InlineData(
+        "@container or (min-width: 1px) or (max-width: 9px) { .leaf { color: x } }",
+        "'or' cannot be a container name"
+    )]
     public void A_size_query_this_grammar_cannot_read_is_a_diagnostic(string css, string because) {
         var fixture = new CascadeFixture();
         fixture.Load(css);
@@ -509,7 +528,7 @@ public class ContainerQueryTests {
         Assert.Empty(loaded.Engine.Loader.Diagnostics);
 
         var box = loaded.Tree.CreateElement("div");
-        loaded.Contain(box, width: 900f);
+        loaded.Contain(box, 900f);
 
         Assert.Equal("kept", loaded.Value(loaded.Tree.CreateElement("div", box, classNames: ["leaf"])));
     }
@@ -526,9 +545,9 @@ public class ContainerQueryTests {
         var second = fixture.Tree.CreateElement("div");
         var third = fixture.Tree.CreateElement("div");
 
-        fixture.Contain(first, width: 500f);
-        fixture.Contain(second, width: 500f);
-        fixture.Contain(third, width: 300f);
+        fixture.Contain(first, 500f);
+        fixture.Contain(second, 500f);
+        fixture.Contain(third, 300f);
 
         Assert.Equal(fixture.Tree.GetProvidedContainerScope(first), fixture.Tree.GetProvidedContainerScope(second));
         Assert.NotEqual(fixture.Tree.GetProvidedContainerScope(first), fixture.Tree.GetProvidedContainerScope(third));
@@ -547,10 +566,10 @@ public class ContainerQueryTests {
         fixture.Load("@container (min-width: 400px) { .row:nth-child(2n) { color: even } }");
 
         var narrow = fixture.Tree.CreateElement("div");
-        fixture.Contain(narrow, width: 100f);
+        fixture.Contain(narrow, 100f);
 
         var wide = fixture.Tree.CreateElement("div");
-        fixture.Contain(wide, width: 900f);
+        fixture.Contain(wide, 900f);
 
         var verdicts = fixture.Engine.Scopes.VerdictsOf(MediaScopes.Document);
 
@@ -579,7 +598,7 @@ public class ContainerQueryTests {
         fixture.Load("@container (min-width: 400px) { .leaf { color: first } }");
 
         var box = fixture.Tree.CreateElement("div");
-        fixture.Contain(box, width: 900f);
+        fixture.Contain(box, 900f);
 
         var leaf = fixture.Tree.CreateElement("div", box, classNames: ["leaf"]);
         Assert.Equal("first", fixture.Value(leaf));
@@ -694,7 +713,7 @@ public class ContainerQueryTests {
         Assert.False(ContainerQuery.TryEvaluate(condition, default, out _, out var reason));
         Assert.NotNull(reason);
 
-        Assert.False(ContainerQuery.TryEvaluate(condition, new ContainerBox(500f, 500f, ContainerKind.InlineSize), out _, out _));
+        Assert.False(ContainerQuery.TryEvaluate(condition, new(500f, 500f, ContainerKind.InlineSize), out _, out _));
     }
 
     /// <summary>
@@ -715,7 +734,11 @@ public class ContainerQueryTests {
     [InlineData("(min-width: 30rem)", 299f, false)]
     [InlineData("(200px <= width < 30rem)", 299f, true)]
     [InlineData("(200px <= width < 30rem)", 300f, false)]
-    public void A_font_relative_width_is_measured_against_the_containers_font_and_the_roots(string condition, float width, bool expected) {
+    public void A_font_relative_width_is_measured_against_the_containers_font_and_the_roots(
+        string condition,
+        float width,
+        bool expected
+    ) {
         var box = new ContainerBox(width, 100f, ContainerKind.InlineSize) { FontSize = 20f, RootFontSize = 10f };
 
         Assert.True(ContainerQuery.TryEvaluate(condition, box, out var matches, out var reason), reason);
@@ -774,12 +797,12 @@ public class ContainerQueryTests {
         Assert.Empty(fixture.Engine.Loader.Diagnostics);
 
         var atThreshold = fixture.Tree.CreateElement("div");
-        fixture.Contain(atThreshold, width: 400f);
+        fixture.Contain(atThreshold, 400f);
 
         Assert.Null(fixture.Value(fixture.Tree.CreateElement("div", atThreshold, classNames: ["leaf"])));
 
         var below = fixture.Tree.CreateElement("div");
-        fixture.Contain(below, width: 399f);
+        fixture.Contain(below, 399f);
 
         Assert.Equal("narrow", fixture.Value(fixture.Tree.CreateElement("div", below, classNames: ["leaf"])));
     }

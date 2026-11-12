@@ -17,16 +17,24 @@ namespace Vixen.Net.Engine.Tests;
 /// <summary>What becomes of a departing player's objects, which nothing used to ask.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b><c>NetworkRulesRegistry.OnOwnerLeft</c> had exactly one caller in the repository, and
-///         it was a test.</b> Its own remarks hand the <see cref="DisconnectBehaviour.Destroy" />
+///         ⚠
+///         <b>
+///             <c>NetworkRulesRegistry.OnOwnerLeft</c> had exactly one caller in the repository, and
+///             it was a test.
+///         </b>
+///         Its own remarks hand the <see cref="DisconnectBehaviour.Destroy" />
 ///         entries to "whoever owns spawning", and nothing was that — so a <c>.vxnetrules</c> could
 ///         say <c>onOwnerDisconnect: Destroy</c>, import cleanly, resolve onto a spawned node, and
 ///         then outlive the session owned by a player who had gone.
 ///         <see cref="NetworkSpawner.OnOwnerLeft" /> is the half that was missing.
 ///     </para>
 ///     <para>
-///         The three behaviours are asserted by <i>what happened to the world and the ownership
-///         table</i> rather than by the actions the registry returns, because a list of intentions is
+///         The three behaviours are asserted by
+///         <i>
+///             what happened to the world and the ownership
+///             table
+///         </i>
+///         rather than by the actions the registry returns, because a list of intentions is
 ///         what the defect already had.
 ///     </para>
 /// </remarks>

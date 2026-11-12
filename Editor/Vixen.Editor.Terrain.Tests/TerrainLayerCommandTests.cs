@@ -106,14 +106,14 @@ public sealed class TerrainLayerCommandTests {
         terrain.AddLayer("C");
         terrain.AddLayer("D");
 
-        var before = terrain.Layers.Select(layer => layer.Name).ToArray();
+        var before = terrain.Layers.Select(static layer => layer.Name).ToArray();
         var command = TerrainLayerCommands.Move(terrain, 3, 0);
 
         command.Do(NoContext);
-        Assert.Equal(["D", "Base", "B", "C"], terrain.Layers.Select(layer => layer.Name));
+        Assert.Equal(["D", "Base", "B", "C"], terrain.Layers.Select(static layer => layer.Name));
 
         command.Undo(NoContext);
-        Assert.Equal(before, terrain.Layers.Select(layer => layer.Name));
+        Assert.Equal(before, terrain.Layers.Select(static layer => layer.Name));
     }
 
     [Fact]

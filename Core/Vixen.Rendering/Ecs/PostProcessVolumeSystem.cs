@@ -216,8 +216,11 @@ public sealed class PostProcessVolumeSystem(RenderView view) : SystemBase, IDecl
     /// <summary>How much a volume reaches a world-space point.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>Through <see cref="IPostProcessShape" />, which is what a box stopped being the only
-    ///         one of</b> ([35 § B2](../../../docs/plan/35-water.md#b2-doc-32s-volumes-are-boxes)). The
+    ///         <b>
+    ///             Through <see cref="IPostProcessShape" />, which is what a box stopped being the only
+    ///             one of
+    ///         </b>
+    ///         ([35 § B2](../../../docs/plan/35-water.md#b2-doc-32s-volumes-are-boxes)). The
     ///         two built-in shapes are constructed on the stack as concrete types, so the interface
     ///         costs nothing until somebody supplies a third — and the third is asked for by entity,
     ///         because a water body's shape belongs to the body rather than to the transform.

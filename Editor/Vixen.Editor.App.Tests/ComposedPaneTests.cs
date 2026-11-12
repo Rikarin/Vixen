@@ -26,8 +26,12 @@ namespace Vixen.Editor.App.Tests;
 ///         hands the interface is the texture that pane lent the frame.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The loop under test is <c>EditorHost.Record</c>'s and it is reproduced here rather
-///         than called.</b> <c>Vixen.Editor.Host</c> is an executable with no test project — it holds
+///         ⚠
+///         <b>
+///             The loop under test is <c>EditorHost.Record</c>'s and it is reproduced here rather
+///             than called.
+///         </b>
+///         <c>Vixen.Editor.Host</c> is an executable with no test project — it holds
 ///         the swapchain, the window and the platform — so the order <see cref="Compose" /> runs in is
 ///         a copy of that method's, kept honest by being the only order that works: resize every pane,
 ///         run the frame's prologue <em>once</em>, upload and prepare every pane, then one
@@ -39,7 +43,9 @@ public sealed class ComposedPaneTests : IDisposable {
     readonly NullDevice device;
     readonly List<IDisposable> owned = [];
 
-    public ComposedPaneTests() => device = new(new() { Record = true });
+    public ComposedPaneTests() {
+        device = new(new() { Record = true });
+    }
 
     public void Dispose() {
         for (var index = owned.Count - 1; index >= 0; index--) {
@@ -97,10 +103,10 @@ public sealed class ComposedPaneTests : IDisposable {
             var presenter = new FramePresenter(
                 device,
                 world,
-                new LineShaders(Stage(ShaderStage.Vertex, "line.vs"), Stage(ShaderStage.Fragment, "line.fs")),
-                new MeshShaders(Stage(ShaderStage.Vertex, "mesh.vs"), Stage(ShaderStage.Fragment, "mesh.fs")),
+                new(Stage(ShaderStage.Vertex, "line.vs"), Stage(ShaderStage.Fragment, "line.fs")),
+                new(Stage(ShaderStage.Vertex, "mesh.vs"), Stage(ShaderStage.Fragment, "mesh.fs")),
                 FramePresenter.ColourFormat,
-                ((ulong) index * 2) + 2,
+                (ulong)index * 2 + 2,
                 index
             );
 
@@ -197,8 +203,12 @@ public sealed class ComposedPaneTests : IDisposable {
 
     /// <summary>Four panes are four views, and the frame's collect gives each of them an index.</summary>
     /// <remarks>
-    ///     ⚠ <b>Four <em>distinct</em> indices out of one collect, which is the whole reason the build
-    ///     may not be split.</b> <c>RenderSystem.SetViews</c> assigns <c>RenderView.Index</c> and is
+    ///     ⚠
+    ///     <b>
+    ///         Four <em>distinct</em> indices out of one collect, which is the whole reason the build
+    ///         may not be split.
+    ///     </b>
+    ///     <c>RenderSystem.SetViews</c> assigns <c>RenderView.Index</c> and is
     ///     called once per <c>GraphicsCompositor.Collect</c>, clearing the list first — so a build per
     ///     pane would give each pane's view index 0 in turn, and every pass records at <em>execute</em>
     ///     time against whichever view held its index last. Four panes, four cameras, one visible set,
@@ -223,7 +233,7 @@ public sealed class ComposedPaneTests : IDisposable {
         // frame that collected one view four times would have four entries of one index.
         Assert.Equal(
             EditorWorldRenderer.MaxPanes,
-            views.Select(view => view.Index).Distinct().Count()
+            views.Select(static view => view.Index).Distinct().Count()
         );
     }
 
@@ -246,7 +256,7 @@ public sealed class ComposedPaneTests : IDisposable {
 
         for (var pane = 0; pane < EditorWorldRenderer.MaxPanes; pane++) {
             var view = world.ViewOf(pane);
-            var aspect = (float) panes[pane].Control.RenderWidth / panes[pane].Control.RenderHeight;
+            var aspect = (float)panes[pane].Control.RenderWidth / panes[pane].Control.RenderHeight;
 
             Assert.Equal(panes[pane].Camera.Position, view.Position);
 
@@ -261,8 +271,12 @@ public sealed class ComposedPaneTests : IDisposable {
 
     /// <summary>Every view has work of its own in the stage its pane's mode draws.</summary>
     /// <remarks>
-    ///     ⚠ <b><c>RenderSystem.Nodes</c> is keyed by <c>(view.Index, stage.Index)</c>, and this is the
-    ///     one assertion a frame that draws nothing cannot pass.</b> A pane that composed, resized,
+    ///     ⚠
+    ///     <b>
+    ///         <c>RenderSystem.Nodes</c> is keyed by <c>(view.Index, stage.Index)</c>, and this is the
+    ///         one assertion a frame that draws nothing cannot pass.
+    ///     </b>
+    ///     A pane that composed, resized,
     ///     uploaded and declared without contributing a view has an empty work list — and reports its
     ///     objects, its lights, zero waiting and zero dropped while it does.
     /// </remarks>
@@ -289,8 +303,12 @@ public sealed class ComposedPaneTests : IDisposable {
     /// <summary>A pane switched to wireframe collects the wireframe stage and its neighbours do not.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A stage belongs to the mode and a view belongs to the pane, and this is both halves
-    ///         at once.</b> <c>PipelineKey</c> is <c>(Effect, Stage.Index, VertexLayout, Output)</c> and
+    ///         ⚠
+    ///         <b>
+    ///             A stage belongs to the mode and a view belongs to the pane, and this is both halves
+    ///             at once.
+    ///         </b>
+    ///         <c>PipelineKey</c> is <c>(Effect, Stage.Index, VertexLayout, Output)</c> and
     ///         <c>PipelineCache</c> never evicts, so a stage's state is baked in on the first cache miss
     ///         — which is why two panes in wireframe share one stage index and are still two views.
     ///     </para>
@@ -334,8 +352,12 @@ public sealed class ComposedPaneTests : IDisposable {
 
     /// <summary>Every pane hands the interface the texture that pane lent the frame.</summary>
     /// <remarks>
-    ///     ⚠ <b>Four names, four imports and four image ids, and each of the three is a way to make a
-    ///     quad layout show one picture four times.</b> A shared target name is three panes drawing
+    ///     ⚠
+    ///     <b>
+    ///         Four names, four imports and four image ids, and each of the three is a way to make a
+    ///         quad layout show one picture four times.
+    ///     </b>
+    ///     A shared target name is three panes drawing
     ///     into one texture; a shared image id is two registrations of one number and the interface
     ///     showing whichever was registered last.
     /// </remarks>
@@ -354,7 +376,7 @@ public sealed class ComposedPaneTests : IDisposable {
         // The image ids the interface samples through.
         Assert.Equal(
             presenters.Count,
-            presenters.Select(presenter => presenter.Image).Distinct().Count()
+            presenters.Select(static presenter => presenter.Image).Distinct().Count()
         );
 
         for (var pane = 0; pane < presenters.Count; pane++) {
@@ -384,8 +406,12 @@ public sealed class ComposedPaneTests : IDisposable {
 
     /// <summary>A pane's linear target is sized to that pane, not to the frame.</summary>
     /// <remarks>
-    ///     ⚠ <b>A framebuffer whose attachments disagree about their extent is one the driver refuses,
-    ///     and this is the arrangement that produces one.</b> A resource declared with no size is
+    ///     ⚠
+    ///     <b>
+    ///         A framebuffer whose attachments disagree about their extent is one the driver refuses,
+    ///         and this is the arrangement that produces one.
+    ///     </b>
+    ///     A resource declared with no size is
     ///     <c>Scale</c> of <c>FrameSize</c> — and a compositor has one of those where four panes have
     ///     four extents — so the linear target between the shading pass and the grade has to be given
     ///     the pane's own numbers. Left to the reference size, three of the four panes would attach a
@@ -543,15 +569,14 @@ public sealed class ComposedPaneTests : IDisposable {
         Assert.Throws<ArgumentOutOfRangeException>(() => world.ViewOf(EditorWorldRenderer.MaxPanes));
         Assert.Throws<ArgumentOutOfRangeException>(() => world.ViewOf(-1));
 
-        Assert.Throws<ArgumentOutOfRangeException>(
-            () => new FramePresenter(
+        Assert.Throws<ArgumentOutOfRangeException>(() => new FramePresenter(
                 device,
                 world,
-                new LineShaders(Stage(ShaderStage.Vertex, "line.vs"), Stage(ShaderStage.Fragment, "line.fs")),
-                new MeshShaders(Stage(ShaderStage.Vertex, "mesh.vs"), Stage(ShaderStage.Fragment, "mesh.fs")),
+                new(Stage(ShaderStage.Vertex, "line.vs"), Stage(ShaderStage.Fragment, "line.fs")),
+                new(Stage(ShaderStage.Vertex, "mesh.vs"), Stage(ShaderStage.Fragment, "mesh.fs")),
                 FramePresenter.ColourFormat,
-                image: 64,
-                pane: EditorWorldRenderer.MaxPanes
+                64,
+                EditorWorldRenderer.MaxPanes
             )
         );
     }
@@ -573,8 +598,12 @@ public sealed class ComposedPaneTests : IDisposable {
     ///     <para>
     ///         ⚠ <b>And the instrument, which is the half with the trap in it.</b> A count that stays
     ///         at zero because the fixture never drew is indistinguishable from one that stays flat
-    ///         because nothing leaked — so the first generation is asserted non-zero <em>in this same
-    ///         run</em> before anything is compared, and the count after each reload is asserted to
+    ///         because nothing leaked — so the first generation is asserted non-zero
+    ///         <em>
+    ///             in this same
+    ///             run
+    ///         </em>
+    ///         before anything is compared, and the count after each reload is asserted to
     ///         have gone back down. Two reloads then leave it where one did, which is the property a
     ///         cache that never evicts across generations cannot have.
     ///     </para>
@@ -764,9 +793,7 @@ public sealed class ComposedPaneTests : IDisposable {
             Stage(ShaderStage.Fragment, "ui.box"),
             Stage(ShaderStage.Fragment, "ui.text"),
             Stage(ShaderStage.Fragment, "ui.solid")
-        ) {
-            Image = Stage(ShaderStage.Fragment, "ui.image")
-        };
+        ) { Image = Stage(ShaderStage.Fragment, "ui.image") };
 
     ShaderHandle Stage(ShaderStage stage, string name) => device.CreateShader(stage, [1, 2, 3, 4], name);
 }

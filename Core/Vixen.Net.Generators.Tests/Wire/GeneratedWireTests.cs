@@ -102,8 +102,7 @@ public sealed class GeneratedWireTests {
         listing.Case("transform/edges", Encode(Find(typeof(GeneratedTransform)), world, edges));
 
         var poses = new (string Name, Vector3 Position, Quaternion Rotation)[] {
-            ("identity", Vector3.Zero, Quaternion.Identity),
-            ("negated-identity", Vector3.Zero, new(0f, 0f, 0f, -1f)),
+            ("identity", Vector3.Zero, Quaternion.Identity), ("negated-identity", Vector3.Zero, new(0f, 0f, 0f, -1f)),
             ("tied", new(1.5f, -2.25f, 3.125f), new(0.5f, 0.5f, 0.5f, 0.5f)),
             ("w-largest", new(-999.9f, 0.0625f, 999.9f), new(0.1f, 0.2f, 0.3f, 0.9f)),
             ("degenerate", new(0.03051804f, -0.03051804f, 0.015259f), default)
@@ -181,7 +180,14 @@ public sealed class GeneratedWireTests {
 
         var first = world.Create(
             ids.Next(),
-            new GeneratedTransform { X = 0f, Y = -1000f, Yaw = 0.5f, Frame = 0, Team = 1, Grounded = true },
+            new GeneratedTransform {
+                X = 0f,
+                Y = -1000f,
+                Yaw = 0.5f,
+                Frame = 0,
+                Team = 1,
+                Grounded = true
+            },
             new GeneratedScore { Value = 0 }
         );
 
@@ -276,14 +282,14 @@ public sealed class GeneratedWireTests {
         // Sixty-four bit arguments, which are two 32-bit halves with the low one first. A build that
         // swapped the halves would round-trip against itself and read every id backwards against a
         // peer, which is exactly the symmetric break only committed bytes catch.
-        foreach (var (name, value) in (ValueTuple<string, ulong>[])[
-            ("zero", 0ul),
-            ("one", 1ul),
-            ("low-half-full", 0xFFFF_FFFFul),
-            ("high-half-only", 0x1_0000_0000ul),
-            ("asymmetric", 0x0123_4567_89AB_CDEFul),
-            ("all-ones", ulong.MaxValue)
-        ]) {
+        foreach (var (name, value) in (ValueTuple<string, ulong>[]) [
+                     ("zero", 0ul),
+                     ("one", 1ul),
+                     ("low-half-full", 0xFFFF_FFFFul),
+                     ("high-half-only", 0x1_0000_0000ul),
+                     ("asymmetric", 0x0123_4567_89AB_CDEFul),
+                     ("all-ones", ulong.MaxValue)
+                 ]) {
             transport.Sent.Clear();
             turret.Rpc.Claim(value, ~value, unchecked((long)value));
             listing.Case($"call/Claim/{name}", Assert.Single(transport.Sent));
@@ -320,18 +326,17 @@ public sealed class GeneratedWireTests {
 
         Assert.True(writer.TryFinish(out var bits));
 
-        return bits.ToArray();
+        return [..bits];
     }
 
     /// <summary>Keeps what was sent instead of sending it, whoever it was for.</summary>
     sealed class CapturingTransport : IRpcTransport {
         public List<byte[]> Sent { get; } = [];
 
-        public void SendToServer(ReadOnlySpan<byte> payload, Channel channel) => Sent.Add(payload.ToArray());
+        public void SendToServer(ReadOnlySpan<byte> payload, Channel channel) => Sent.Add([..payload]);
 
-        public void SendToPlayer(PlayerId player, ReadOnlySpan<byte> payload, Channel channel) =>
-            Sent.Add(payload.ToArray());
+        public void SendToPlayer(PlayerId player, ReadOnlySpan<byte> payload, Channel channel) => Sent.Add([..payload]);
 
-        public void SendToAll(ReadOnlySpan<byte> payload, Channel channel) => Sent.Add(payload.ToArray());
+        public void SendToAll(ReadOnlySpan<byte> payload, Channel channel) => Sent.Add([..payload]);
     }
 }

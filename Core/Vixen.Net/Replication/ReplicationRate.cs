@@ -12,8 +12,11 @@ namespace Vixen.Net.Replication;
 /// <summary>How often one object's state is worth sending to one connection.</summary>
 /// <remarks>
 ///     <para>
-///         <b>Separate from interest, and the separation is a correction to
-///         [16](../../../docs/plan/16-networking.md).</b> That document lists the resolvers as "scene
+///         <b>
+///             Separate from interest, and the separation is a correction to
+///             [16](../../../docs/plan/16-networking.md).
+///         </b>
+///         That document lists the resolvers as "scene
 ///         scope → explicit visibility overrides → distance grid → LOD rate reduction", which reads
 ///         as four filters in a chain. The last one is not a filter, and building it as one produces a
 ///         bug that looks like the feature working.

@@ -46,13 +46,9 @@ public sealed class VulkanPipelineTests {
         VulkanRequirement.Available(TryOpen(false, out var device, out var reason), reason ?? "no Vulkan");
         using var owned = device!;
 
-        Assert.Throws<ArgumentException>(
-            () => owned.CreateShader(ShaderStage.Vertex, new byte[7], "truncated")
-        );
+        Assert.Throws<ArgumentException>(() => owned.CreateShader(ShaderStage.Vertex, new byte[7], "truncated"));
 
-        Assert.Throws<ArgumentException>(
-            () => owned.CreateShader(ShaderStage.Vertex, [], "empty")
-        );
+        Assert.Throws<ArgumentException>(() => owned.CreateShader(ShaderStage.Vertex, [], "empty"));
     }
 
     [Fact]
@@ -60,8 +56,7 @@ public sealed class VulkanPipelineTests {
         VulkanRequirement.Available(TryOpen(false, out var device, out var reason), reason ?? "no Vulkan");
         using var owned = device!;
 
-        var thrown = Assert.Throws<ArgumentException>(
-            () => owned.CreatePipelineLayout(
+        var thrown = Assert.Throws<ArgumentException>(() => owned.CreatePipelineLayout(
                 new([], [new(ShaderStage.Vertex, 0, owned.Features.MaxPushConstantSize + 4)], "too big")
             )
         );
@@ -97,30 +92,34 @@ public sealed class VulkanPipelineTests {
         var fragment = owned.CreateShader(ShaderStage.Fragment, TestShaders.Fragment, "triangle fragment");
         var layout = owned.CreatePipelineLayout(new([], null, "triangle layout"));
 
-        var pipeline = owned.CreateGraphicsPipeline(new(
-            vertex,
-            fragment,
-            layout,
-            [new(PixelFormat.Rgba8UNorm)],
+        var pipeline = owned.CreateGraphicsPipeline(
+            new(
+                vertex,
+                fragment,
+                layout,
+                [new(PixelFormat.Rgba8UNorm)],
 
-            // No vertex buffers: the shader builds the triangle from gl_VertexIndex, which keeps this
-            // about the pipeline and the pass rather than about vertex-input translation.
-            VertexBuffers: null,
+                // No vertex buffers: the shader builds the triangle from gl_VertexIndex, which keeps this
+                // about the pipeline and the pass rather than about vertex-input translation.
+                null,
 
-            // Both faces, so that a front-face or winding mistake shows up as a wrong *picture* in the
-            // dedicated winding test below rather than as an empty one here.
-            Rasterizer: RasterizerState.TwoSided,
-            DepthStencil: DepthStencilState.Disabled,
-            Name: "triangle"
-        ));
+                // Both faces, so that a front-face or winding mistake shows up as a wrong *picture* in the
+                // dedicated winding test below rather than as an empty one here.
+                Rasterizer: RasterizerState.TwoSided,
+                DepthStencil: DepthStencilState.Disabled,
+                Name: "triangle"
+            )
+        );
 
-        var target = owned.CreateTexture(new(
-            PixelFormat.Rgba8UNorm,
-            Side,
-            Side,
-            TextureUsage.ColourTarget | TextureUsage.CopySource,
-            Name: "triangle target"
-        ));
+        var target = owned.CreateTexture(
+            new(
+                PixelFormat.Rgba8UNorm,
+                Side,
+                Side,
+                TextureUsage.ColourTarget | TextureUsage.CopySource,
+                Name: "triangle target"
+            )
+        );
 
         var view = owned.CreateTextureView(target);
 
@@ -133,10 +132,12 @@ public sealed class VulkanPipelineTests {
         using (var list = owned.BeginCommandList(QueueKind.Graphics, "triangle")) {
             list.Barrier(new([], [new(target, ResourceState.Undefined, ResourceState.ColourTarget)]));
 
-            list.BeginRenderPass(new(
-                [new(view, LoadAction.Clear, StoreAction.Store, new(0f, 0f, 0f, 1f))],
-                name: "triangle pass"
-            ));
+            list.BeginRenderPass(
+                new(
+                    [new(view, LoadAction.Clear, StoreAction.Store, new(0f, 0f, 0f, 1f))],
+                    name: "triangle pass"
+                )
+            );
 
             list.BindPipeline(pipeline);
             list.Draw(3);
@@ -207,23 +208,27 @@ public sealed class VulkanPipelineTests {
         var fragment = device.CreateShader(ShaderStage.Fragment, TestShaders.Fragment, "fragment");
         var layout = device.CreatePipelineLayout(new([], null, "layout"));
 
-        var pipeline = device.CreateGraphicsPipeline(new(
-            vertex,
-            fragment,
-            layout,
-            [new(PixelFormat.Rgba8UNorm)],
-            Rasterizer: new(cull),
-            DepthStencil: DepthStencilState.Disabled,
-            Name: $"cull {cull}"
-        ));
+        var pipeline = device.CreateGraphicsPipeline(
+            new(
+                vertex,
+                fragment,
+                layout,
+                [new(PixelFormat.Rgba8UNorm)],
+                Rasterizer: new(cull),
+                DepthStencil: DepthStencilState.Disabled,
+                Name: $"cull {cull}"
+            )
+        );
 
-        var target = device.CreateTexture(new(
-            PixelFormat.Rgba8UNorm,
-            Side,
-            Side,
-            TextureUsage.ColourTarget | TextureUsage.CopySource,
-            Name: "target"
-        ));
+        var target = device.CreateTexture(
+            new(
+                PixelFormat.Rgba8UNorm,
+                Side,
+                Side,
+                TextureUsage.ColourTarget | TextureUsage.CopySource,
+                Name: "target"
+            )
+        );
 
         var view = device.CreateTextureView(target);
 
@@ -236,10 +241,12 @@ public sealed class VulkanPipelineTests {
         using (var list = device.BeginCommandList(QueueKind.Graphics, $"cull {cull}")) {
             list.Barrier(new([], [new(target, ResourceState.Undefined, ResourceState.ColourTarget)]));
 
-            list.BeginRenderPass(new(
-                [new(view, LoadAction.Clear, StoreAction.Store, new(0f, 0f, 0f, 1f))],
-                name: "pass"
-            ));
+            list.BeginRenderPass(
+                new(
+                    [new(view, LoadAction.Clear, StoreAction.Store, new(0f, 0f, 0f, 1f))],
+                    name: "pass"
+                )
+            );
 
             list.BindPipeline(pipeline);
             list.Draw(3);
@@ -271,7 +278,7 @@ public sealed class VulkanPipelineTests {
 
     /// <summary>Whether a texel is anything other than the black it was cleared to.</summary>
     static bool Lit(byte[] pixels, int x, int y) {
-        var offset = ((y * Side) + x) * 4;
+        var offset = (y * Side + x) * 4;
         return pixels[offset] > 8 || pixels[offset + 1] > 8 || pixels[offset + 2] > 8;
     }
 }

@@ -5,7 +5,6 @@ using Vixen.Core.IO;
 using Vixen.Core.IO.Watch;
 using Vixen.Editor.Core;
 using Vixen.Editor.Plugin;
-using Vixen.Editor.Ui;
 using Vixen.Ui;
 using Vixen.Ui.Controls;
 using Vixen.Ui.Controls.Advanced;
@@ -54,7 +53,7 @@ public sealed class ScriptsModule : IEditorPlugin, IDisposable {
     UiElement? list;
 
     /// <summary>What the last build produced, for a panel and for a test.</summary>
-    public ScriptState State => scripts?.State ?? new(ScriptBuild.None, Loaded: false, 0);
+    public ScriptState State => scripts?.State ?? new(ScriptBuild.None, false, 0);
 
     /// <inheritdoc />
     public void Activate(PluginContext context) {
@@ -63,7 +62,7 @@ public sealed class ScriptsModule : IEditorPlugin, IDisposable {
         var project = context.Services.Require<EditorProject>();
         var host = context.Services.Require<PluginHost>();
 
-        scripts = new EditorScripts(host, project.Paths.Root, Path.Combine(project.Paths.Library, "EditorScripts"));
+        scripts = new(host, project.Paths.Root, Path.Combine(project.Paths.Library, "EditorScripts"));
         scripts.Rebuilt += _ => Show();
 
         // The module's words go into the translator's template with the module, not with the shell
@@ -105,8 +104,6 @@ public sealed class ScriptsModule : IEditorPlugin, IDisposable {
 
         scripts?.Unload();
         scripts = null;
-
-        GC.SuppressFinalize(this);
     }
 
     void Watch(EditorProject project) {
@@ -123,8 +120,12 @@ public sealed class ScriptsModule : IEditorPlugin, IDisposable {
     /// <summary>Rebuilds if anything under an <c>Editor/</c> folder changed since the last frame.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Filtered to <c>.cs</c> under an <c>Editor</c> folder, because the watcher covers
-    ///         the project.</b> A texture import writes hundreds of files and every one of them would
+    ///         ⚠
+    ///         <b>
+    ///             Filtered to <c>.cs</c> under an <c>Editor</c> folder, because the watcher covers
+    ///             the project.
+    ///         </b>
+    ///         A texture import writes hundreds of files and every one of them would
     ///         otherwise be a compile — and there is only one watcher per project worth having, so it
     ///         is the consumer that narrows rather than the watch.
     ///     </para>

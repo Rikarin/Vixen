@@ -27,8 +27,12 @@ namespace Tests;
 ///         real Jolt geometry and reads its height back.
 ///     </para>
 ///     <para>
-///         ⚠ <b><see cref="SculptingWithNoAdapterLeavesTheBodyOnGroundThatIsNoLongerThere" /> is the
-///         sabotage, and it is the state the tree was actually in.</b> Same terrain, same stroke,
+///         ⚠
+///         <b>
+///             <see cref="SculptingWithNoAdapterLeavesTheBodyOnGroundThatIsNoLongerThere" /> is the
+///             sabotage, and it is the state the tree was actually in.
+///         </b>
+///         Same terrain, same stroke,
 ///         same physics world, and <c>TerrainEdit.Colliders</c> left null — the ground moves five
 ///         metres, the crate goes on resting in mid-air where the ground used to be, and nothing
 ///         throws or warns.
@@ -51,11 +55,11 @@ public sealed class SculptedGroundTests {
 
     /// <summary>A fixed list of placements, which is what a renderer's frame list is.</summary>
     sealed class Placed(params TerrainPlacement[] placements) : ITerrainPlacements {
-        readonly List<TerrainPlacement> placements = [.. placements];
+        readonly List<TerrainPlacement> placements = [..placements];
 
-        public int PlacementCount => this.placements.Count;
+        public int PlacementCount => placements.Count;
 
-        public TerrainPlacement PlacementAt(int index) => this.placements[index];
+        public TerrainPlacement PlacementAt(int index) => placements[index];
     }
 
     /// <summary>
@@ -68,8 +72,12 @@ public sealed class SculptedGroundTests {
     static TerrainMap Flat() {
         var terrain = new TerrainMap(
             TerrainDescription.Default with {
-                TileSamples = 32, TilesX = 2, TilesZ = 2,
-                MetresPerQuad = 1f, MinHeight = -100f, MaxHeight = 100f
+                TileSamples = 32,
+                TilesX = 2,
+                TilesZ = 2,
+                MetresPerQuad = 1f,
+                MinHeight = -100f,
+                MaxHeight = 100f
             }
         );
 
@@ -104,8 +112,12 @@ public sealed class SculptedGroundTests {
     /// <summary>Drops a crate from well above <see cref="Spot" /> and answers where it stopped.</summary>
     /// <returns>The height of its centre at rest.</returns>
     /// <remarks>
-    ///     ⚠ <b>A new crate every time rather than the same one moved back up, and the difference is
-    ///     not tidiness.</b> Writing <c>LocalTransform</c> on an entity that already has a body does
+    ///     ⚠
+    ///     <b>
+    ///         A new crate every time rather than the same one moved back up, and the difference is
+    ///         not tidiness.
+    ///     </b>
+    ///     Writing <c>LocalTransform</c> on an entity that already has a body does
     ///     not teleport it — <c>PhysicsScene.Writeback</c> puts Jolt's own position back over
     ///     whatever was written — so a second measurement taken that way reads the first one's
     ///     answer, and reads it whether or not the ground moved. That is a harness which proves the

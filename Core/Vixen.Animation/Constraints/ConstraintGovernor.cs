@@ -8,8 +8,7 @@ namespace Vixen.Animation.Constraints;
 /// <param name="Lod">Which detail level, which is also which chains are dropped.</param>
 public readonly record struct ConstraintTier(int SolveEvery, byte Lod) {
     /// <inheritdoc />
-    public override string ToString() =>
-        SolveEvery == 1 && Lod == 0 ? "full" : $"1-in-{SolveEvery} at detail {Lod}";
+    public override string ToString() => SolveEvery == 1 && Lod == 0 ? "full" : $"1-in-{SolveEvery} at detail {Lod}";
 }
 
 /// <summary>What a governor decided, and what it could not fit.</summary>
@@ -144,7 +143,7 @@ public sealed class ConstraintGovernor {
 
             // The best rung this character can have while everybody after it still gets the floor.
             for (var rung = 0; rung < tiers.Length; rung++) {
-                if (spent + (cost / Math.Max(tiers[rung].SolveEvery, 1)) + owed <= Budget) {
+                if (spent + cost / Math.Max(tiers[rung].SolveEvery, 1) + owed <= Budget) {
                     tier = rung;
                     break;
                 }

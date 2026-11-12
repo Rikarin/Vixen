@@ -87,7 +87,11 @@ public class ShortCircuitTests {
         // rather than the branches being swapped.
         Assert.Contains("%4 = not %3 : bool", body, StringComparison.Ordinal);
         Assert.Contains("if %4", body, StringComparison.Ordinal);
-        Assert.Contains("load @data", body[body.IndexOf("if %4", StringComparison.Ordinal)..], StringComparison.Ordinal);
+        Assert.Contains(
+            "load @data",
+            body[body.IndexOf("if %4", StringComparison.Ordinal)..],
+            StringComparison.Ordinal
+        );
         Assert.DoesNotContain("logicalOr", body, StringComparison.Ordinal);
     }
 

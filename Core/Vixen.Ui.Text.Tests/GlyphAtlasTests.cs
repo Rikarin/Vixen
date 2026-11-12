@@ -30,7 +30,7 @@ public class GlyphAtlasTests {
     public void A_glyph_that_was_never_put_in_is_a_miss() {
         var atlas = new GlyphAtlas(64, 64);
 
-        Assert.False(atlas.TryGet(new GlyphKey(0, 1, 32), out _));
+        Assert.False(atlas.TryGet(new(0, 1, 32), out _));
         Assert.Equal(1, atlas.Misses);
         Assert.Equal(0, atlas.Hits);
     }
@@ -50,9 +50,9 @@ public class GlyphAtlasTests {
     [Fact]
     public void A_field_larger_than_the_texture_is_refused_rather_than_evicting_everything() {
         var atlas = new GlyphAtlas(32, 32);
-        Assert.True(atlas.Add(new GlyphKey(0, 1, 32), Field(8, 8), out _));
+        Assert.True(atlas.Add(new(0, 1, 32), Field(8, 8), out _));
 
-        Assert.False(atlas.Add(new GlyphKey(0, 2, 32), Field(64, 8), out _));
+        Assert.False(atlas.Add(new(0, 2, 32), Field(64, 8), out _));
         Assert.Equal(1, atlas.Count);
         Assert.Equal(0, atlas.Evictions);
     }
@@ -61,8 +61,8 @@ public class GlyphAtlasTests {
     [Fact]
     public void The_field_is_written_at_the_region_it_reports() {
         var atlas = new GlyphAtlas(64, 64);
-        Assert.True(atlas.Add(new GlyphKey(0, 1, 32), Field(4, 4, 0.25f), out var first));
-        Assert.True(atlas.Add(new GlyphKey(0, 2, 32), Field(4, 4, 0.75f), out var second));
+        Assert.True(atlas.Add(new(0, 1, 32), Field(4, 4, 0.25f), out var first));
+        Assert.True(atlas.Add(new(0, 2, 32), Field(4, 4, 0.75f), out var second));
 
         Assert.Equal(0.25f, At(atlas, first.X + 2, first.Y + 2), 4);
         Assert.Equal(0.75f, At(atlas, second.X + 2, second.Y + 2), 4);
@@ -76,10 +76,10 @@ public class GlyphAtlasTests {
     /// </summary>
     [Fact]
     public void An_entry_below_the_first_shelf_is_written_below_the_first_shelf() {
-        var atlas = new GlyphAtlas(16, 32, padding: 0);
+        var atlas = new GlyphAtlas(16, 32, 0);
 
-        Assert.True(atlas.Add(new GlyphKey(0, 1, 32), Field(16, 8, 0.25f), out var first));
-        Assert.True(atlas.Add(new GlyphKey(0, 2, 32), Field(16, 8, 0.75f), out var second));
+        Assert.True(atlas.Add(new(0, 1, 32), Field(16, 8, 0.25f), out var first));
+        Assert.True(atlas.Add(new(0, 2, 32), Field(16, 8, 0.75f), out var second));
 
         Assert.Equal(0, first.Y);
         Assert.Equal(8, second.Y);
@@ -94,9 +94,9 @@ public class GlyphAtlasTests {
     /// </summary>
     [Fact]
     public void Two_entries_never_touch() {
-        var atlas = new GlyphAtlas(64, 64, padding: 1);
-        Assert.True(atlas.Add(new GlyphKey(0, 1, 32), Field(4, 4), out var first));
-        Assert.True(atlas.Add(new GlyphKey(0, 2, 32), Field(4, 4), out var second));
+        var atlas = new GlyphAtlas(64, 64, 1);
+        Assert.True(atlas.Add(new(0, 1, 32), Field(4, 4), out var first));
+        Assert.True(atlas.Add(new(0, 2, 32), Field(4, 4), out var second));
 
         var gap = second.X - (first.X + first.Width);
         Assert.True(gap >= 1, $"the two entries are {gap} pixels apart");
@@ -110,20 +110,20 @@ public class GlyphAtlasTests {
     /// </summary>
     [Fact]
     public void The_least_recently_used_glyph_is_the_one_that_goes() {
-        var atlas = new GlyphAtlas(16, 16, padding: 0);
+        var atlas = new GlyphAtlas(16, 16, 0);
 
-        Assert.True(atlas.Add(new GlyphKey(0, 1, 32), Field(8, 8), out _));
-        Assert.True(atlas.Add(new GlyphKey(0, 2, 32), Field(8, 8), out _));
-        Assert.True(atlas.Add(new GlyphKey(0, 3, 32), Field(8, 8), out _));
-        Assert.True(atlas.Add(new GlyphKey(0, 4, 32), Field(8, 8), out _));
+        Assert.True(atlas.Add(new(0, 1, 32), Field(8, 8), out _));
+        Assert.True(atlas.Add(new(0, 2, 32), Field(8, 8), out _));
+        Assert.True(atlas.Add(new(0, 3, 32), Field(8, 8), out _));
+        Assert.True(atlas.Add(new(0, 4, 32), Field(8, 8), out _));
 
         // Touch the first, so the second becomes the coldest.
-        Assert.True(atlas.TryGet(new GlyphKey(0, 1, 32), out _));
+        Assert.True(atlas.TryGet(new(0, 1, 32), out _));
 
-        Assert.True(atlas.Add(new GlyphKey(0, 5, 32), Field(8, 8), out _));
+        Assert.True(atlas.Add(new(0, 5, 32), Field(8, 8), out _));
 
-        Assert.True(atlas.TryGet(new GlyphKey(0, 1, 32), out _));
-        Assert.False(atlas.TryGet(new GlyphKey(0, 2, 32), out _));
+        Assert.True(atlas.TryGet(new(0, 1, 32), out _));
+        Assert.False(atlas.TryGet(new(0, 2, 32), out _));
         Assert.Equal(1, atlas.Evictions);
     }
 
@@ -134,14 +134,14 @@ public class GlyphAtlasTests {
     /// </summary>
     [Fact]
     public void An_evicted_slot_is_reused_by_a_glyph_that_fits_it() {
-        var atlas = new GlyphAtlas(16, 16, padding: 0);
+        var atlas = new GlyphAtlas(16, 16, 0);
 
         for (ushort glyph = 1; glyph <= 4; glyph++) {
-            Assert.True(atlas.Add(new GlyphKey(0, glyph, 32), Field(8, 8), out _));
+            Assert.True(atlas.Add(new(0, glyph, 32), Field(8, 8), out _));
         }
 
         var before = atlas.Version;
-        Assert.True(atlas.Add(new GlyphKey(0, 5, 32), Field(8, 8), out _));
+        Assert.True(atlas.Add(new(0, 5, 32), Field(8, 8), out _));
 
         // One eviction, one reuse, and no repack — which is the thing being asserted.
         Assert.Equal(1, atlas.Evictions);
@@ -156,49 +156,49 @@ public class GlyphAtlasTests {
     /// </summary>
     [Fact]
     public void A_glyph_that_fits_no_hole_forces_a_compaction_and_moves_the_version() {
-        var atlas = new GlyphAtlas(16, 16, padding: 0);
+        var atlas = new GlyphAtlas(16, 16, 0);
 
         // Two shelves of narrow glyphs, filling the texture.
         for (ushort glyph = 1; glyph <= 4; glyph++) {
-            Assert.True(atlas.Add(new GlyphKey(0, glyph, 32), Field(8, 8), out _));
+            Assert.True(atlas.Add(new(0, glyph, 32), Field(8, 8), out _));
         }
 
         var before = atlas.Version;
 
         // Wider than any single slot, so evicting cannot make a hole it fits.
-        Assert.True(atlas.Add(new GlyphKey(0, 9, 32), Field(16, 8), out var region));
+        Assert.True(atlas.Add(new(0, 9, 32), Field(16, 8), out var region));
 
         Assert.NotEqual(before, atlas.Version);
         Assert.Equal(16, region.Width);
-        Assert.True(atlas.TryGet(new GlyphKey(0, 9, 32), out _));
+        Assert.True(atlas.TryGet(new(0, 9, 32), out _));
     }
 
     [Fact]
     public void Compaction_keeps_the_warmest_entries_when_not_all_of_them_fit() {
-        var atlas = new GlyphAtlas(16, 16, padding: 0);
+        var atlas = new GlyphAtlas(16, 16, 0);
 
         for (ushort glyph = 1; glyph <= 4; glyph++) {
-            Assert.True(atlas.Add(new GlyphKey(0, glyph, 32), Field(8, 8), out _));
+            Assert.True(atlas.Add(new(0, glyph, 32), Field(8, 8), out _));
         }
 
         // Make glyph 1 the warmest, then force a compaction that cannot hold everything.
-        Assert.True(atlas.TryGet(new GlyphKey(0, 1, 32), out _));
-        Assert.True(atlas.Add(new GlyphKey(0, 9, 32), Field(16, 8), out _));
+        Assert.True(atlas.TryGet(new(0, 1, 32), out _));
+        Assert.True(atlas.Add(new(0, 9, 32), Field(16, 8), out _));
 
-        Assert.True(atlas.TryGet(new GlyphKey(0, 1, 32), out _));
+        Assert.True(atlas.TryGet(new(0, 1, 32), out _));
     }
 
     [Fact]
     public void Clearing_forgets_everything_and_moves_the_version() {
         var atlas = new GlyphAtlas(64, 64);
-        Assert.True(atlas.Add(new GlyphKey(0, 1, 32), Field(8, 8), out _));
+        Assert.True(atlas.Add(new(0, 1, 32), Field(8, 8), out _));
 
         var before = atlas.Version;
         atlas.Clear();
 
         Assert.Equal(0, atlas.Count);
         Assert.NotEqual(before, atlas.Version);
-        Assert.False(atlas.TryGet(new GlyphKey(0, 1, 32), out _));
+        Assert.False(atlas.TryGet(new(0, 1, 32), out _));
     }
 
     // ------------------------------------------------------------ Upload
@@ -209,7 +209,7 @@ public class GlyphAtlasTests {
         atlas.Uploaded();
         Assert.False(atlas.Dirty);
 
-        Assert.True(atlas.Add(new GlyphKey(0, 1, 32), Field(8, 8), out _));
+        Assert.True(atlas.Add(new(0, 1, 32), Field(8, 8), out _));
         Assert.True(atlas.Dirty);
 
         atlas.Uploaded();
@@ -218,7 +218,7 @@ public class GlyphAtlasTests {
         // ⚠ A hit changes nothing about the texture, so it must not ask for an upload — every frame
         // of a static interface is hits, and re-uploading a megabyte for each of them is the bug
         // this flag exists to prevent.
-        Assert.True(atlas.TryGet(new GlyphKey(0, 1, 32), out _));
+        Assert.True(atlas.TryGet(new(0, 1, 32), out _));
         Assert.False(atlas.Dirty);
     }
 
@@ -232,12 +232,12 @@ public class GlyphAtlasTests {
     [Fact]
     public void A_glyph_added_moves_the_revision_and_leaves_the_version_where_it_was() {
         var atlas = new GlyphAtlas(64, 64);
-        Assert.True(atlas.Add(new GlyphKey(0, 1, 32), Field(8, 8), out _));
+        Assert.True(atlas.Add(new(0, 1, 32), Field(8, 8), out _));
 
         var version = atlas.Version;
         var revision = atlas.Revision;
 
-        Assert.True(atlas.Add(new GlyphKey(0, 2, 32), Field(8, 8), out _));
+        Assert.True(atlas.Add(new(0, 2, 32), Field(8, 8), out _));
 
         Assert.Equal(version, atlas.Version);
         Assert.NotEqual(revision, atlas.Revision);
@@ -245,22 +245,22 @@ public class GlyphAtlasTests {
         // A hit changes no pixels, so it must leave the revision alone for the same reason it leaves
         // the dirty flag alone — otherwise a static interface re-uploads the texture every frame.
         revision = atlas.Revision;
-        Assert.True(atlas.TryGet(new GlyphKey(0, 1, 32), out _));
+        Assert.True(atlas.TryGet(new(0, 1, 32), out _));
         Assert.Equal(revision, atlas.Revision);
     }
 
     [Fact]
     public void Repacking_and_clearing_move_the_revision_too() {
-        var atlas = new GlyphAtlas(16, 16, padding: 0);
+        var atlas = new GlyphAtlas(16, 16, 0);
 
         for (ushort glyph = 1; glyph <= 4; glyph++) {
-            Assert.True(atlas.Add(new GlyphKey(0, glyph, 32), Field(8, 8), out _));
+            Assert.True(atlas.Add(new(0, glyph, 32), Field(8, 8), out _));
         }
 
         var revision = atlas.Revision;
 
         // Wider than any hole eviction can make, so this is the compaction path.
-        Assert.True(atlas.Add(new GlyphKey(0, 9, 32), Field(16, 8), out _));
+        Assert.True(atlas.Add(new(0, 9, 32), Field(16, 8), out _));
         Assert.NotEqual(revision, atlas.Revision);
 
         revision = atlas.Revision;
@@ -283,12 +283,12 @@ public class GlyphAtlasTests {
         var scale = 32f / Math.Max(bounds.Width, bounds.Height);
         var width = (int)Math.Ceiling(bounds.Width * scale) + 8;
         var height = (int)Math.Ceiling(bounds.Height * scale) + 8;
-        var origin = new Vector2(bounds.MinX - (4 / scale), bounds.MinY - (4 / scale));
+        var origin = new Vector2(bounds.MinX - 4 / scale, bounds.MinY - 4 / scale);
 
         var field = DistanceField.Generate(outline, width, height, scale, origin);
         var atlas = new GlyphAtlas(256, 256);
 
-        Assert.True(atlas.Add(new GlyphKey(1, glyph, 32), field, out var region));
+        Assert.True(atlas.Add(new(1, glyph, 32), field, out var region));
         Assert.Equal(width, region.Width);
         Assert.Equal(height, region.Height);
 
@@ -301,13 +301,13 @@ public class GlyphAtlasTests {
 
     // ------------------------------------------------------------ Helpers
 
-    static float At(GlyphAtlas atlas, int x, int y) => atlas.Pixels[(((y * atlas.Width) + x) * 3) + 0];
+    static float At(GlyphAtlas atlas, int x, int y) => atlas.Pixels[(y * atlas.Width + x) * 3];
 
     /// <summary>A field of a given size, filled with one value, so a copy can be told apart.</summary>
     static DistanceFieldBitmap Field(int width, int height, float value = 0.5f) {
         var channels = new float[width * height * 3];
         Array.Fill(channels, value);
-        return new DistanceFieldBitmap(width, height, 4f, channels);
+        return new(width, height, 4f, channels);
     }
 
     static GlyphOutline Path(params OutlineSegment[] segments) => new(ImmutableArray.Create(segments));

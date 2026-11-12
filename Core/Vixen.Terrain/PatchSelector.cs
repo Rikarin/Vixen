@@ -11,7 +11,8 @@ namespace Vixen.Terrain;
 ///         <b>The two questions, and only the two</b> — how tall is it, and is there anything there.
 ///         Everything else a descent needs is arithmetic on the node's own extent, which is why
 ///         <see cref="PatchSelector" /> can be shared between a terrain and a water zone
-///         ([35 § D4](../../docs/plan/35-water.md#d4-the-surface-is-the-terrains-quadtree-with-a-different-height-source)):
+///         ([35 §
+///         D4](../../docs/plan/35-water.md#d4-the-surface-is-the-terrains-quadtree-with-a-different-height-source)):
 ///         the only difference between the two consumers is what the vertex stage samples for height.
 ///     </para>
 ///     <para>
@@ -205,8 +206,7 @@ public sealed class PatchSelector {
     ///     C# form of what the vertex stage does, and the reason it is here: the shader cannot be asked
     ///     whether two nodes agree, and this can.
     /// </remarks>
-    public static float MorphIndex(int index, float morph) =>
-        index - ((index & 1) * Math.Clamp(morph, 0f, 1f));
+    public static float MorphIndex(int index, float morph) => index - (index & 1) * Math.Clamp(morph, 0f, 1f);
 
     /// <summary>How far a point is from a box, and zero inside it.</summary>
     /// <param name="bounds">The box.</param>
@@ -217,7 +217,7 @@ public sealed class PatchSelector {
         var dy = MathF.Max(0f, MathF.Max(bounds.Minimum.Y - point.Y, point.Y - bounds.Maximum.Y));
         var dz = MathF.Max(0f, MathF.Max(bounds.Minimum.Z - point.Z, point.Z - bounds.Maximum.Z));
 
-        return MathF.Sqrt((dx * dx) + (dy * dy) + (dz * dz));
+        return MathF.Sqrt(dx * dx + dy * dy + dz * dz);
     }
 
     void Descend<TSource>(

@@ -115,10 +115,10 @@ static class ColorFunctions {
             _ when name.Equals("longer", StringComparison.OrdinalIgnoreCase) => HueInterpolation.Longer,
             _ when name.Equals("increasing", StringComparison.OrdinalIgnoreCase) => HueInterpolation.Increasing,
             _ when name.Equals("decreasing", StringComparison.OrdinalIgnoreCase) => HueInterpolation.Decreasing,
-            _ => (HueInterpolation) byte.MaxValue
+            _ => (HueInterpolation)byte.MaxValue
         };
 
-        return hue != (HueInterpolation) byte.MaxValue;
+        return hue != (HueInterpolation)byte.MaxValue;
     }
 
     /// <summary>Builds a linear colour from Oklab components.</summary>
@@ -129,7 +129,7 @@ static class ColorFunctions {
     /// <returns>The colour, in linear RGB and unclamped.</returns>
     public static Color4 FromOklab(float l, float a, float b, float alpha) {
         var linear = new Oklab(l, a, b).ToLinear();
-        return new Color4(linear.X, linear.Y, linear.Z, alpha);
+        return new(linear.X, linear.Y, linear.Z, alpha);
     }
 
     /// <summary>Builds a linear colour from Oklch components.</summary>
@@ -249,8 +249,12 @@ static class ColorFunctions {
     ///         a light one, which is the worst way for a bug to be visible.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Hue is not premultiplied, and that is why the opacity modifier must say
-    ///         <c>in oklab</c> and not <c>in oklch</c>.</b> An angle has no zero to scale towards, so
+    ///         ⚠
+    ///         <b>
+    ///             Hue is not premultiplied, and that is why the opacity modifier must say
+    ///             <c>in oklab</c> and not <c>in oklch</c>.
+    ///         </b>
+    ///         An angle has no zero to scale towards, so
     ///         the specification leaves it out of the premultiplication — and <c>transparent</c> is
     ///         <c>rgb(0 0 0 / 0)</c>, whose hue is 0°. Mixing blue with transparent in <c>oklch</c>
     ///         therefore drags the hue half way from blue's 264° to 360°, and comes out a half-alpha
@@ -269,7 +273,7 @@ static class ColorFunctions {
     ) {
         var p1 = weights[0];
         var p2 = weights[1];
-        var alpha = (p1 * first.A) + (p2 * second.A);
+        var alpha = p1 * first.A + p2 * second.A;
 
         var one = ToSpace(first, space);
         var two = ToSpace(second, space);
@@ -279,17 +283,17 @@ static class ColorFunctions {
         if (space == InterpolationSpace.Oklch) {
             var (h1, h2) = Arc(one.Z, two.Z, hue);
 
-            mixed = new Vector3(
-                (p1 * one.X * first.A) + (p2 * two.X * second.A),
-                (p1 * one.Y * first.A) + (p2 * two.Y * second.A),
-                (p1 * h1) + (p2 * h2)
+            mixed = new(
+                p1 * one.X * first.A + p2 * two.X * second.A,
+                p1 * one.Y * first.A + p2 * two.Y * second.A,
+                p1 * h1 + p2 * h2
             );
 
             if (alpha > 0f) {
-                mixed = new Vector3(mixed.X / alpha, mixed.Y / alpha, mixed.Z);
+                mixed = new(mixed.X / alpha, mixed.Y / alpha, mixed.Z);
             }
         } else {
-            mixed = (one * (p1 * first.A)) + (two * (p2 * second.A));
+            mixed = one * (p1 * first.A) + two * (p2 * second.A);
 
             if (alpha > 0f) {
                 mixed /= alpha;
@@ -319,24 +323,29 @@ static class ColorFunctions {
     }
 
     /// <summary>And back again.</summary>
-    static Color4 FromSpace(Vector3 components, float alpha, InterpolationSpace space) => space switch {
-        InterpolationSpace.Srgb => new Color4(
-            ColorSpace.SrgbToLinear(components.X),
-            ColorSpace.SrgbToLinear(components.Y),
-            ColorSpace.SrgbToLinear(components.Z),
-            alpha
-        ),
-        InterpolationSpace.SrgbLinear => new Color4(components.X, components.Y, components.Z, alpha),
-        InterpolationSpace.Oklab => FromOklab(components.X, components.Y, components.Z, alpha),
-        _ => FromOklch(components.X, components.Y, components.Z, alpha)
-    };
+    static Color4 FromSpace(Vector3 components, float alpha, InterpolationSpace space) =>
+        space switch {
+            InterpolationSpace.Srgb => new Color4(
+                ColorSpace.SrgbToLinear(components.X),
+                ColorSpace.SrgbToLinear(components.Y),
+                ColorSpace.SrgbToLinear(components.Z),
+                alpha
+            ),
+            InterpolationSpace.SrgbLinear => new Color4(components.X, components.Y, components.Z, alpha),
+            InterpolationSpace.Oklab => FromOklab(components.X, components.Y, components.Z, alpha),
+            _ => FromOklch(components.X, components.Y, components.Z, alpha)
+        };
 
     static Vector3 Components(Oklab colour) => new(colour.L, colour.A, colour.B);
 
     /// <summary>Oklab read in polar coordinates: lightness, chroma, hue in degrees.</summary>
     static Vector3 Polar(Oklab colour) {
         var hue = MathF.Atan2(colour.B, colour.A) * (180f / MathF.PI);
-        return new Vector3(colour.L, MathF.Sqrt((colour.A * colour.A) + (colour.B * colour.B)), hue < 0f ? hue + 360f : hue);
+        return new(
+            colour.L,
+            MathF.Sqrt(colour.A * colour.A + colour.B * colour.B),
+            hue < 0f ? hue + 360f : hue
+        );
     }
 
     /// <summary>Moves two hues onto the arc the method asks for, before they are interpolated.</summary>
@@ -372,9 +381,6 @@ static class ColorFunctions {
 
             case HueInterpolation.Decreasing when delta > 0f:
                 first += 360f;
-                break;
-
-            default:
                 break;
         }
 

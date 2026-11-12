@@ -13,8 +13,11 @@ namespace Vixen.Editor.App;
 /// <summary>The content library's verbs that ask something first: Create, Import Files, Export Package, Clean Library.</summary>
 /// <remarks>
 ///     <para>
-///         <b>Moved out of <c>EditorParity.cs</c> (#1296), because none of them asks through anything
-///         private.</b> They stayed on the application as "the asset lines that ask through this
+///         <b>
+///             Moved out of <c>EditorParity.cs</c> (#1296), because none of them asks through anything
+///             private.
+///         </b>
+///         They stayed on the application as "the asset lines that ask through this
 ///         editor's dialogs" — but the drawn chooser is <c>EditorShell.ChooseAsync</c>, the native
 ///         pickers and the frame queue their answers come back through are published, and every verb
 ///         ends in <see cref="IContentLibrary" />. <c>LibraryModule</c> registers them, beside the
@@ -54,10 +57,7 @@ static class LibraryQuestions {
                 "assets.import-files",
                 EditorStrings.CommandAssetsImportFiles,
                 () => ImportFiles(shell, library, dialogs, deferred)
-            ) {
-                Category = EditorStrings.CategoryFile,
-                Enablement = () => dialogs is not null && !library.IsImporting
-            }
+            ) { Category = EditorStrings.CategoryFile, Enablement = () => dialogs is not null && !library.IsImporting }
         );
 
         // ⚠ The walk this waited on is `assets.select-dependencies`, and it has been a real verb
@@ -78,19 +78,19 @@ static class LibraryQuestions {
 
         // Reimport of the selection is declared and disabled, with the reason (moved from the application).
         context.AddCommand(
-            new EditorCommand("assets.reimport", EditorStrings.CommandAssetsReimport, () => { }) {
-                Category = EditorStrings.CategoryAssets,
-                Unavailable = EditorStrings.PlannedReasons["assets.reimport"]
+            new EditorCommand("assets.reimport", EditorStrings.CommandAssetsReimport, static () => { }) {
+                Category = EditorStrings.CategoryAssets, Unavailable = EditorStrings.PlannedReasons["assets.reimport"]
             }
         );
 
         // ⚠ Behind the same busy flag as Reimport All: deleting the cache under a running import is
         // deleting the files it is writing.
         context.AddCommand(
-            new EditorCommand("build.clean-library", EditorStrings.CommandBuildCleanLibrary, () => CleanLibrary(shell, project)) {
-                Category = EditorStrings.CategoryBuild,
-                Enablement = () => !library.IsImporting
-            }
+            new EditorCommand(
+                "build.clean-library",
+                EditorStrings.CommandBuildCleanLibrary,
+                () => CleanLibrary(shell, project)
+            ) { Category = EditorStrings.CategoryBuild, Enablement = () => !library.IsImporting }
         );
     }
 
@@ -103,7 +103,7 @@ static class LibraryQuestions {
     ///     produce two different files.
     /// </remarks>
     static void ChooseKind(EditorShell shell, IEditorRegistry registry) {
-        List<NewAssetKind> kinds = [.. registry.All<NewAssetKind>().OrderBy(static kind => kind.Order)];
+        List<NewAssetKind> kinds = [..registry.All<NewAssetKind>().OrderBy(static kind => kind.Order)];
 
         if (kinds.Count == 0) {
             return;
@@ -113,11 +113,12 @@ static class LibraryQuestions {
 
         async Task Ask() {
             var chosen = await shell.ChooseAsync(
-                "What kind of asset?",
-                kinds,
-                static kind => kind.Title.Text,
-                static kind => kind.Extension
-            ).ConfigureAwait(true);
+                    "What kind of asset?",
+                    kinds,
+                    static kind => kind.Title.Text,
+                    static kind => kind.Extension
+                )
+                .ConfigureAwait(true);
 
             if (chosen is not null) {
                 shell.Commands.Execute(chosen.Id);
@@ -148,7 +149,7 @@ static class LibraryQuestions {
         var folder = library.Shown.Folder;
 
         deferred.When(
-            dialogs.OpenFilesAsync(new FileDialogOptions { Title = "Import Assets", AllowsMultipleSelection = true }),
+            dialogs.OpenFilesAsync(new() { Title = "Import Assets", AllowsMultipleSelection = true }),
             paths => library.Import(paths, folder),
             failure => shell.Notifications.Show("Could not import", NotificationSeverity.Error, failure.Message)
         );
@@ -169,7 +170,7 @@ static class LibraryQuestions {
 
         deferred.When(
             dialogs.SaveFileAsync(
-                new FileDialogOptions {
+                new() {
                     Title = "Export Package",
                     InitialDirectory = project.Paths.Root,
                     SuggestedFileName = Path.GetFileName(project.Paths.Root.TrimEnd(Path.DirectorySeparatorChar))
@@ -190,7 +191,7 @@ static class LibraryQuestions {
     static void CleanLibrary(EditorShell shell, EditorProject project) {
         try {
             if (Directory.Exists(project.Paths.Library)) {
-                Directory.Delete(project.Paths.Library, recursive: true);
+                Directory.Delete(project.Paths.Library, true);
             }
 
             shell.Notifications.Success("Library cleared");

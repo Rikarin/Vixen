@@ -58,8 +58,12 @@ public sealed record DeviceEntry(
 
 /// <summary>Something that can say which devices are there.</summary>
 /// <remarks>
-///     ⚠ <b>An interface with no implementation in this assembly, and that is the honest state of
-///     it.</b> Finding an Android device means <c>adb</c>, a console means the vendor's SDK, and a
+///     ⚠
+///     <b>
+///         An interface with no implementation in this assembly, and that is the honest state of
+///         it.
+///     </b>
+///     Finding an Android device means <c>adb</c>, a console means the vendor's SDK, and a
 ///     machine on the LAN means whatever discovery <c>Vixen.Net</c> grows — none of which the editor
 ///     can do today, and all of which are one class each behind this. What exists now is the panel,
 ///     the shape of an entry, and a local provider, so that adding <c>adb</c> is adding a provider
@@ -83,7 +87,9 @@ public interface IDeviceProvider {
 public sealed class LocalDeviceProvider : IDeviceProvider {
     /// <summary>Names the local provider.</summary>
     /// <param name="endpoint">Where a standalone build would listen, or <see langword="null" />.</param>
-    public LocalDeviceProvider(string? endpoint = null) => Endpoint = endpoint;
+    public LocalDeviceProvider(string? endpoint = null) {
+        Endpoint = endpoint;
+    }
 
     /// <summary>Where a standalone build would listen.</summary>
     public string? Endpoint { get; set; }
@@ -107,8 +113,12 @@ public sealed class LocalDeviceProvider : IDeviceProvider {
 /// <summary>Every device every provider can see, in one list.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Rediscovery replaces rather than merges, and a device that has gone becomes
-///         <see cref="DeviceStatus.Unreachable" /> rather than disappearing.</b> A phone whose cable
+///         ⚠
+///         <b>
+///             Rediscovery replaces rather than merges, and a device that has gone becomes
+///             <see cref="DeviceStatus.Unreachable" /> rather than disappearing.
+///         </b>
+///         A phone whose cable
 ///         is loose vanishing from the list looks like a panel that lost it; a phone marked
 ///         unreachable is a phone somebody goes and plugs back in.
 ///     </para>
@@ -179,8 +189,12 @@ public sealed class DeviceManager {
     /// <param name="status">What it is doing.</param>
     /// <returns>Whether there was a device with that id.</returns>
     /// <remarks>
-    ///     ⚠ <b><see cref="DeviceStatus.Deploying" /> and <see cref="DeviceStatus.Running" /> are not
-    ///     things a provider can see.</b> Discovery answers "is it there"; whether a build is being
+    ///     ⚠
+    ///     <b>
+    ///         <see cref="DeviceStatus.Deploying" /> and <see cref="DeviceStatus.Running" /> are not
+    ///         things a provider can see.
+    ///     </b>
+    ///     Discovery answers "is it there"; whether a build is being
     ///     copied to it is a fact about what the editor is doing, and it is known here and nowhere
     ///     else. Without this the two states would be enum members no code could ever produce — which
     ///     is a promise the panel breaks the first time somebody deploys and the row says Available.
@@ -218,10 +232,10 @@ public sealed class DeviceManager {
                     devices.Add(found);
                 }
             } catch (Exception exception) when (exception
-                is IOException
-                or InvalidOperationException
-                or UnauthorizedAccessException
-                or TimeoutException) {
+                                                    is IOException
+                                                    or InvalidOperationException
+                                                    or UnauthorizedAccessException
+                                                    or TimeoutException) {
                 problems.Add($"{provider.Name}: {exception.Message}");
             }
         }

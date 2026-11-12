@@ -157,7 +157,11 @@ public static class LootSimulator {
             seenThisEvent.Clear();
 
             foreach (var drop in result.Drops) {
-                ref var counter = ref CollectionsMarshal.GetValueRefOrAddDefault(counters, drop.Item.Value, out var existed);
+                ref var counter = ref CollectionsMarshal.GetValueRefOrAddDefault(
+                    counters,
+                    drop.Item.Value,
+                    out var existed
+                );
 
                 if (!existed) {
                     counter.Smallest = int.MaxValue;
@@ -194,8 +198,7 @@ public static class LootSimulator {
 
         // Most frequent first, ties by name, so a rerun of the same table lists its rows in the same
         // order and a designer comparing two runs is comparing rows rather than positions.
-        statistics.Sort(
-            static (left, right) => right.Events != left.Events
+        statistics.Sort(static (left, right) => right.Events != left.Events
                 ? right.Events.CompareTo(left.Events)
                 : string.CompareOrdinal(left.Name, right.Name)
         );
@@ -213,8 +216,12 @@ public static class LootSimulator {
 
     /// <summary>A pity store that also counts what it was told.</summary>
     /// <remarks>
-    ///     ⚠ <b>Counted here rather than inferred from the drops, because the two are not the same
-    ///     question.</b> Whether a pity row dropped is visible in the result; whether the evaluator
+    ///     ⚠
+    ///     <b>
+    ///         Counted here rather than inferred from the drops, because the two are not the same
+    ///         question.
+    ///     </b>
+    ///     Whether a pity row dropped is visible in the result; whether the evaluator
     ///     considered it an <em>attempt</em> is not — a row excluded by its conditions is not a miss,
     ///     and counting it as one would report a drought the policy never promised anything about.
     ///     The store is the only thing that knows, so the store is what counts.

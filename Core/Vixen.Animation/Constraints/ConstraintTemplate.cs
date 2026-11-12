@@ -83,8 +83,11 @@ public sealed record TemplateDiff(IReadOnlyList<TemplateChange> Changes) {
 /// <summary>A named, versioned bundle of tags with relative timings.</summary>
 /// <remarks>
 ///     <para>
-///         <b>A seated interaction is twenty constraints and nobody authors twenty constraints
-///         repeatedly.</b> This is the thing that makes the authoring cost bearable, and
+///         <b>
+///             A seated interaction is twenty constraints and nobody authors twenty constraints
+///             repeatedly.
+///         </b>
+///         This is the thing that makes the authoring cost bearable, and
 ///         <see cref="Revision" /> is what makes it maintainable: a template that improves can be
 ///         pushed back across every clip that used it, with a diff first.
 ///     </para>
@@ -134,8 +137,8 @@ public sealed class ConstraintTemplateContent {
         foreach (var tag in Tags) {
             var copy = Copy(tag);
 
-            copy.Begin = from + (tag.Begin * span);
-            copy.End = from + (tag.End * span);
+            copy.Begin = from + tag.Begin * span;
+            copy.End = from + tag.End * span;
             copy.EaseIn = tag.EaseIn * span;
             copy.EaseOut = tag.EaseOut * span;
             copy.Template = Name;

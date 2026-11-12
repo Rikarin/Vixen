@@ -9,8 +9,11 @@ namespace Vixen.Platform.Windows;
 /// <summary>The accent colour Windows is set to, read as the pair it draws a selection with.</summary>
 /// <remarks>
 ///     <para>
-///         <b><c>COLOR_HIGHLIGHT</c> and <c>COLOR_HIGHLIGHTTEXT</c>, and ⚠ <i>not</i>
-///         <c>DWM\ColorizationColor</c>, which is what this was expected to read.</b> Three things
+///         <b>
+///             <c>COLOR_HIGHLIGHT</c> and <c>COLOR_HIGHLIGHTTEXT</c>, and ⚠ <i>not</i>
+///             <c>DWM\ColorizationColor</c>, which is what this was expected to read.
+///         </b>
+///         Three things
 ///         decide it, and the third is the one that settles it:
 ///     </para>
 ///     <para>
@@ -75,8 +78,12 @@ public static class WindowsAccent {
 
     /// <summary>One <c>COLORREF</c>, opaque, in sRGB.</summary>
     /// <remarks>
-    ///     ⚠ <b>A <c>COLORREF</c> is <c>0x00BBGGRR</c> — blue in the high byte of the three, which is
-    ///     the reverse of the hex a human writes.</b> Reading it the other way round is the one
+    ///     ⚠
+    ///     <b>
+    ///         A <c>COLORREF</c> is <c>0x00BBGGRR</c> — blue in the high byte of the three, which is
+    ///         the reverse of the hex a human writes.
+    ///     </b>
+    ///     Reading it the other way round is the one
     ///     mistake here whose result is still a plausible colour, so it is a pure function with a
     ///     test of its own rather than four shifts inside a platform call nothing off Windows can
     ///     run.

@@ -78,7 +78,8 @@ public sealed class BlackboardDecorator : BehaviorDecorator {
         BlackboardKey key,
         bool set = true,
         ObserverAborts aborts = ObserverAborts.None
-    ) => new(key, set ? BlackboardTest.IsSet : BlackboardTest.IsNotSet, aborts);
+    ) =>
+        new(key, set ? BlackboardTest.IsSet : BlackboardTest.IsNotSet, aborts);
 
     /// <summary>Tests a boolean key.</summary>
     /// <param name="key">The key.</param>
@@ -89,7 +90,8 @@ public sealed class BlackboardDecorator : BehaviorDecorator {
         BlackboardKey key,
         bool value = true,
         ObserverAborts aborts = ObserverAborts.None
-    ) => new(key, BlackboardTest.Equal, aborts, value ? 1f : 0f);
+    ) =>
+        new(key, BlackboardTest.Equal, aborts, value ? 1f : 0f);
 
     /// <summary>Compares a numeric key against a constant.</summary>
     /// <param name="key">The key.</param>
@@ -107,7 +109,8 @@ public sealed class BlackboardDecorator : BehaviorDecorator {
         BlackboardTest test,
         float value,
         ObserverAborts aborts = ObserverAborts.None
-    ) => new(key, test, aborts, value);
+    ) =>
+        new(key, test, aborts, value);
 
     /// <summary>Compares a symbol key against a constant.</summary>
     /// <param name="key">The key.</param>
@@ -120,12 +123,13 @@ public sealed class BlackboardDecorator : BehaviorDecorator {
         Symbol value,
         bool equal = true,
         ObserverAborts aborts = ObserverAborts.None
-    ) => new(
-        key,
-        equal ? BlackboardTest.Equal : BlackboardTest.NotEqual,
-        aborts,
-        symbol: value
-    );
+    ) =>
+        new(
+            key,
+            equal ? BlackboardTest.Equal : BlackboardTest.NotEqual,
+            aborts,
+            symbol: value
+        );
 
     /// <summary>Compares an entity key against one.</summary>
     /// <param name="key">The key.</param>
@@ -138,12 +142,13 @@ public sealed class BlackboardDecorator : BehaviorDecorator {
         Entity value,
         bool equal = true,
         ObserverAborts aborts = ObserverAborts.None
-    ) => new(
-        key,
-        equal ? BlackboardTest.Equal : BlackboardTest.NotEqual,
-        aborts,
-        entity: value
-    );
+    ) =>
+        new(
+            key,
+            equal ? BlackboardTest.Equal : BlackboardTest.NotEqual,
+            aborts,
+            entity: value
+        );
 
     /// <inheritdoc />
     public override bool Evaluate(in BehaviorContext context, ReadOnlySpan<byte> state) {
@@ -177,15 +182,16 @@ public sealed class BlackboardDecorator : BehaviorDecorator {
 
     bool Match(bool equal) => test == BlackboardTest.NotEqual ? !equal : equal;
 
-    bool Compare(float value) => test switch {
-        BlackboardTest.Equal => value == number,
-        BlackboardTest.NotEqual => value != number,
-        BlackboardTest.Less => value < number,
-        BlackboardTest.LessOrEqual => value <= number,
-        BlackboardTest.Greater => value > number,
-        BlackboardTest.GreaterOrEqual => value >= number,
-        _ => false
-    };
+    bool Compare(float value) =>
+        test switch {
+            BlackboardTest.Equal => value == number,
+            BlackboardTest.NotEqual => value != number,
+            BlackboardTest.Less => value < number,
+            BlackboardTest.LessOrEqual => value <= number,
+            BlackboardTest.Greater => value > number,
+            BlackboardTest.GreaterOrEqual => value >= number,
+            _ => false
+        };
 }
 
 /// <summary>Two keys against each other.</summary>
@@ -247,15 +253,16 @@ public sealed class CompareEntriesDecorator : BehaviorDecorator {
 
     bool Match(bool equal) => test == BlackboardTest.NotEqual ? !equal : equal;
 
-    bool Compare(float left, float right) => test switch {
-        BlackboardTest.Equal => left == right,
-        BlackboardTest.NotEqual => left != right,
-        BlackboardTest.Less => left < right,
-        BlackboardTest.LessOrEqual => left <= right,
-        BlackboardTest.Greater => left > right,
-        BlackboardTest.GreaterOrEqual => left >= right,
-        _ => false
-    };
+    bool Compare(float left, float right) =>
+        test switch {
+            BlackboardTest.Equal => left == right,
+            BlackboardTest.NotEqual => left != right,
+            BlackboardTest.Less => left < right,
+            BlackboardTest.LessOrEqual => left <= right,
+            BlackboardTest.Greater => left > right,
+            BlackboardTest.GreaterOrEqual => left >= right,
+            _ => false
+        };
 }
 
 /// <summary>How a <see cref="CompositeDecorator" /> joins the decorators under it.</summary>
@@ -303,7 +310,7 @@ public sealed class CompositeDecorator : BehaviorDecorator {
         // The union of what the operands read, so that a change to any of them wakes the whole
         // expression. Deduplicated, because two operands on one key would otherwise register twice
         // and the tree would test the expression twice for one write.
-        keys = [.. operands.SelectMany(operand => operand.ObservedKeys.ToArray()).Distinct()];
+        keys = [..operands.SelectMany(static operand => operand.ObservedKeys.ToArray()).Distinct()];
     }
 
     /// <inheritdoc />

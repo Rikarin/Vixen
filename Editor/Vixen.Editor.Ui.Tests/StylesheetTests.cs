@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Text.RegularExpressions;
-using Vixen.Ui;
 using Vixen.Ui.Markup.Testing;
 using Vixen.Ui.Styling;
 using Vixen.Ui.Styling.Utilities;
@@ -37,8 +36,12 @@ public partial class StylesheetTests {
     ///         deliberately made it otherwise.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>It was empty until <c>SettingsView</c> was ported, and that is the premise being
-    ///         corrected rather than an exception being carved out.</b> "Almost throughout" was doing
+    ///         ⚠
+    ///         <b>
+    ///             It was empty until <c>SettingsView</c> was ported, and that is the premise being
+    ///             corrected rather than an exception being carved out.
+    ///         </b>
+    ///         "Almost throughout" was doing
     ///         real work in that sentence: <c>settings-rail &gt; button.settings-tab</c> has been an
     ///         <c>EditorTheme</c> rule since the window was written, and it needs a class because the
     ///         thing it styles is a <i>control</i> — a tag selector cannot tell one <c>button</c> from
@@ -70,8 +73,12 @@ public partial class StylesheetTests {
     /// <param name="lines">The file — handed in so a test can give it lines no committed file holds.</param>
     /// <returns>The attribute matches, in file order.</returns>
     /// <remarks>
-    ///     ⚠ <b>Through <see cref="VxmlLines" />, and before #1341 this was a regex over the raw
-    ///     file.</b> The shared parts' header comments demonstrate their own element, so a header
+    ///     ⚠
+    ///     <b>
+    ///         Through <see cref="VxmlLines" />, and before #1341 this was a regex over the raw
+    ///         file.
+    ///     </b>
+    ///     The shared parts' header comments demonstrate their own element, so a header
     ///     showing a <c>class="…"</c> was checked as a utility the markup uses — a typo in prose would
     ///     have failed this gate, and a correct name in prose would have stood in for one nothing
     ///     writes. The lines are joined back with their newlines, because an attribute's value can
@@ -90,12 +97,16 @@ public partial class StylesheetTests {
     /// </remarks>
     [Fact]
     public void A_class_in_a_markup_comment_is_not_written() {
-        var names = ClassAttributes([
-            "<!--",
-            "    Used as <FactRow class=\"from-a-header\" /> the day a panel is ported.",
-            "-->",
-            "<fact-row class=\"flex gap-2\" /> <!-- not class=\"from-a-trailer\" -->"
-        ]).Select(static match => match.Groups[1].Value).ToList();
+        var names = ClassAttributes(
+                [
+                    "<!--",
+                    """    Used as <FactRow class="from-a-header" /> the day a panel is ported.""",
+                    "-->",
+                    """<fact-row class="flex gap-2" /> <!-- not class="from-a-trailer" -->"""
+                ]
+            )
+            .Select(static match => match.Groups[1].Value)
+            .ToList();
 
         Assert.Equal(["flex gap-2"], names);
     }
@@ -106,7 +117,11 @@ public partial class StylesheetTests {
             var data = new TheoryData<string>();
             var seen = new HashSet<string>(StringComparer.Ordinal);
 
-            foreach (var markup in Directory.EnumerateFiles(Fixtures("markup"), "*.vxml", SearchOption.AllDirectories)) {
+            foreach (var markup in Directory.EnumerateFiles(
+                         Fixtures("markup"),
+                         "*.vxml",
+                         SearchOption.AllDirectories
+                     )) {
                 foreach (Match match in ClassAttributes(File.ReadAllLines(markup))) {
                     foreach (var name in match.Groups[1].Value.Split(' ', StringSplitOptions.RemoveEmptyEntries)) {
                         // `@Mark(entry.Slot)` is a whole class name at run time and nothing at compile
@@ -268,8 +283,11 @@ public partial class StylesheetTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>The ladder, and <em>only</em> the ladder, can produce this answer — and it is the
-    ///     opposite of the answer this test asserted before the theme sheets were layered.</b>
+    ///     ⚠
+    ///     <b>
+    ///         The ladder, and <em>only</em> the ladder, can produce this answer — and it is the
+    ///         opposite of the answer this test asserted before the theme sheets were layered.
+    ///     </b>
     ///     <c>task-center { min-width: 280px }</c> used to win because it was unlayered and unlayered
     ///     beats every layer, so every chrome rule beat every utility silently and always. It is now
     ///     a <c>components</c> rule, <c>utilities</c> comes after <c>components</c>, and
@@ -294,8 +312,12 @@ public partial class StylesheetTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>The sabotage, kept in the suite rather than run once and thrown away — and pointed at
-    ///     the other sheet now.</b> The utilities README records a layer test that passed with the
+    ///     ⚠
+    ///     <b>
+    ///         The sabotage, kept in the suite rather than run once and thrown away — and pointed at
+    ///         the other sheet now.
+    ///     </b>
+    ///     The utilities README records a layer test that passed with the
     ///     <c>@layer</c> wrapper replaced by <c>@media all</c>, because it was accidentally asserting
     ///     document order. This is that replacement, made permanent, and the sheet it is applied to
     ///     had to move: unlayering the <i>utility</i> sheet no longer changes the answer, because a
@@ -318,8 +340,12 @@ public partial class StylesheetTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>Why the whole ladder has to live inside one origin, shown rather than asserted in a
-    ///     comment.</b> <c>CascadePrecedence</c> compares <c>OriginRank</c> <i>before</i>
+    ///     ⚠
+    ///     <b>
+    ///         Why the whole ladder has to live inside one origin, shown rather than asserted in a
+    ///         comment.
+    ///     </b>
+    ///     <c>CascadePrecedence</c> compares <c>OriginRank</c> <i>before</i>
     ///     <c>LayerRank</c>, so no arrangement of layers settles anything across an origin boundary.
     ///     Here the chrome sheet is <c>Author</c> and the utility sheet is <c>UserAgent</c>: the
     ///     chrome rule is in the lower layer and wins anyway, and it would win if it were in the
@@ -331,7 +357,7 @@ public partial class StylesheetTests {
     public void An_origin_outranks_the_whole_ladder() {
         using var ui = UiTest.Create();
 
-        ui.Document.Load(EditorTheme.Css, StyleOrigin.Author);
+        ui.Document.Load(EditorTheme.Css);
         ui.Document.Load(EditorStyles.Utilities, StyleOrigin.UserAgent);
 
         var panel = ui.Create("task-center", ui.Document.Root, null, "min-w-0");
@@ -350,7 +376,7 @@ public partial class StylesheetTests {
     public void A_panels_own_scoped_style_beats_a_utility() {
         using var ui = Editor();
 
-        ui.Document.Load("task-title { min-width: 44px; }", StyleOrigin.Author);
+        ui.Document.Load("task-title { min-width: 44px; }");
 
         var title = ui.Create("task-title", ui.Document.Root, null, "min-w-0");
 
@@ -377,8 +403,12 @@ public partial class StylesheetTests {
     /// <remarks>
     ///     <c>@media all</c> rather than deleting the wrapper, because the braces have to stay
     ///     balanced and an at-rule that matches everything is the smallest change that keeps the file
-    ///     parseable while removing the one thing under test. The <c>@layer base, components,
-    ///     utilities;</c> statement at the top is left alone deliberately: it declares three empty
+    ///     parseable while removing the one thing under test. The
+    ///     <c>
+    ///         @layer base, components,
+    ///         utilities;
+    ///     </c>
+    ///     statement at the top is left alone deliberately: it declares three empty
     ///     layers and contributes no rules, so what the replacement removes is the sheet's
     ///     <i>membership</i> of a layer and nothing else.
     /// </remarks>

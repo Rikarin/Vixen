@@ -22,7 +22,7 @@ public class SinkTests {
     [Fact]
     public void A_burst_gets_through_and_the_rest_of_the_window_is_counted() {
         var clock = new ManualTimeProvider();
-        var limiter = new LogRateLimiter(TimeSpan.FromSeconds(1), burst: 2, timeProvider: clock);
+        var limiter = new LogRateLimiter(TimeSpan.FromSeconds(1), 2, timeProvider: clock);
 
         Assert.True(limiter.TryAdmit("Test", 2001, LogLevel.Warning, out var first));
         Assert.Equal(0, first);
@@ -49,7 +49,7 @@ public class SinkTests {
     [Fact]
     public void Identity_is_the_category_and_the_event_id_together() {
         var clock = new ManualTimeProvider();
-        var limiter = new LogRateLimiter(TimeSpan.FromSeconds(1), burst: 1, timeProvider: clock);
+        var limiter = new LogRateLimiter(TimeSpan.FromSeconds(1), 1, timeProvider: clock);
 
         Assert.True(limiter.TryAdmit("Vixen.Graphics", 2001, LogLevel.Warning, out _));
         Assert.False(limiter.TryAdmit("Vixen.Graphics", 2001, LogLevel.Warning, out _));
@@ -63,7 +63,7 @@ public class SinkTests {
     [Fact]
     public void Critical_records_are_never_suppressed() {
         var clock = new ManualTimeProvider();
-        var limiter = new LogRateLimiter(TimeSpan.FromSeconds(1), burst: 1, timeProvider: clock);
+        var limiter = new LogRateLimiter(TimeSpan.FromSeconds(1), 1, timeProvider: clock);
 
         for (var i = 0; i < 100; i++) {
             Assert.True(limiter.TryAdmit("Test", 1, LogLevel.Critical, out _));
@@ -75,7 +75,7 @@ public class SinkTests {
     [Fact]
     public void A_full_table_admits_novel_events_rather_than_losing_them() {
         var clock = new ManualTimeProvider();
-        var limiter = new LogRateLimiter(TimeSpan.FromSeconds(1), burst: 1, maxTrackedEvents: 2, timeProvider: clock);
+        var limiter = new LogRateLimiter(TimeSpan.FromSeconds(1), 1, 2, clock);
 
         Assert.True(limiter.TryAdmit("Test", 1, LogLevel.Warning, out _));
         Assert.True(limiter.TryAdmit("Test", 2, LogLevel.Warning, out _));
@@ -96,7 +96,7 @@ public class SinkTests {
     [Fact]
     public void Resetting_forgets_the_windows_but_keeps_the_totals() {
         var clock = new ManualTimeProvider();
-        var limiter = new LogRateLimiter(TimeSpan.FromSeconds(1), burst: 1, timeProvider: clock);
+        var limiter = new LogRateLimiter(TimeSpan.FromSeconds(1), 1, timeProvider: clock);
 
         Assert.True(limiter.TryAdmit("Test", 1, LogLevel.Warning, out _));
         Assert.False(limiter.TryAdmit("Test", 1, LogLevel.Warning, out _));
@@ -112,9 +112,7 @@ public class SinkTests {
     [Fact]
     public void A_rate_limited_sink_records_what_it_dropped_on_the_line_that_follows() {
         var clock = new ManualTimeProvider();
-        var sink = new RingBufferSink(64) {
-            RateLimiter = new(TimeSpan.FromSeconds(1), burst: 1, timeProvider: clock)
-        };
+        var sink = new RingBufferSink(64) { RateLimiter = new(TimeSpan.FromSeconds(1), 1, timeProvider: clock) };
 
         var logger = sink.CreateLogger("Test");
 
@@ -155,11 +153,10 @@ public class SinkTests {
     public void The_console_writes_an_aligned_line_and_sends_errors_to_standard_error() {
         var output = new StringWriter();
         var error = new StringWriter();
-        using var sink = new ConsoleSink(output, error, LogLevel.Trace) {
-            UseColour = false,
-            ShowTimestamps = false,
-            CategoryWidth = 12
-        };
+        using var sink = new ConsoleSink(output, error, LogLevel.Trace);
+        sink.UseColour = false;
+        sink.ShowTimestamps = false;
+        sink.CategoryWidth = 12;
 
         var logger = sink.CreateLogger("Vixen.Graphics.VulkanDevice");
         TestLog.DeviceLost(logger, 42);
@@ -179,11 +176,10 @@ public class SinkTests {
     [Fact]
     public void The_console_says_nothing_when_there_is_no_event_id() {
         var output = new StringWriter();
-        using var sink = new ConsoleSink(output, output, LogLevel.Trace) {
-            UseColour = false,
-            ShowTimestamps = false,
-            CategoryWidth = 4
-        };
+        using var sink = new ConsoleSink(output, output, LogLevel.Trace);
+        sink.UseColour = false;
+        sink.ShowTimestamps = false;
+        sink.CategoryWidth = 4;
 
         // ⚠ Through the raw Log rather than a [LoggerMessage] method, because that is the only way
         // to produce the id every ILogger extension method produces — zero. "#0" identifies nothing
@@ -196,10 +192,9 @@ public class SinkTests {
     [Fact]
     public void The_console_paints_the_level_when_colour_is_on() {
         var output = new StringWriter();
-        using var sink = new ConsoleSink(output, output, LogLevel.Trace) {
-            UseColour = true,
-            ShowTimestamps = false
-        };
+        using var sink = new ConsoleSink(output, output, LogLevel.Trace);
+        sink.UseColour = true;
+        sink.ShowTimestamps = false;
 
         TestLog.Warning(sink.CreateLogger("Test"));
 
@@ -210,11 +205,10 @@ public class SinkTests {
     public void The_console_appends_the_repeat_count() {
         var clock = new ManualTimeProvider();
         var output = new StringWriter();
-        using var sink = new ConsoleSink(output, output, LogLevel.Trace) {
-            UseColour = false,
-            ShowTimestamps = false,
-            RateLimiter = new(TimeSpan.FromSeconds(1), burst: 1, timeProvider: clock)
-        };
+        using var sink = new ConsoleSink(output, output, LogLevel.Trace);
+        sink.UseColour = false;
+        sink.ShowTimestamps = false;
+        sink.RateLimiter = new(TimeSpan.FromSeconds(1), 1, timeProvider: clock);
 
         var logger = sink.CreateLogger("Test");
 
@@ -290,7 +284,7 @@ public class SinkTests {
     [Fact]
     public void The_remote_sink_drops_rather_than_grows_when_nobody_is_attached() {
         var transport = new FakeTransport { IsConnected = false };
-        using var sink = new RemoteSink(transport, capacity: 8, minimumLevel: LogLevel.Trace);
+        using var sink = new RemoteSink(transport, 8, LogLevel.Trace);
         var logger = sink.CreateLogger("Test");
 
         for (var i = 0; i < 40; i++) {
@@ -330,7 +324,7 @@ public class SinkTests {
             // a sentence somebody has to parse back out.
             Assert.Equal(42, document.RootElement.GetProperty("Ms").GetInt32());
         } finally {
-            Directory.Delete(directory, recursive: true);
+            Directory.Delete(directory, true);
         }
     }
 
@@ -359,7 +353,7 @@ public class SinkTests {
             // when they have the sentence rather than the number.
             Assert.Equal("DeviceLost", document.RootElement.GetProperty("EventIdName").GetString());
         } finally {
-            Directory.Delete(directory, recursive: true);
+            Directory.Delete(directory, true);
         }
     }
 
@@ -370,9 +364,8 @@ public class SinkTests {
         Directory.CreateDirectory(directory);
 
         try {
-            using (var sink = new ZLoggerFileSink(directory, "test", minimumLevel: LogLevel.Trace) {
-                RateLimiter = new(TimeSpan.FromSeconds(1), burst: 1, timeProvider: clock)
-            }) {
+            using (var sink = new ZLoggerFileSink(directory, "test", minimumLevel: LogLevel.Trace)) {
+                sink.RateLimiter = new(TimeSpan.FromSeconds(1), 1, timeProvider: clock);
                 var logger = sink.CreateLogger("Test");
 
                 for (var i = 0; i < 5; i++) {
@@ -391,7 +384,7 @@ public class SinkTests {
             using var document = JsonDocument.Parse(lines[^1]);
             Assert.Equal(4, document.RootElement.GetProperty("SuppressedCount").GetInt32());
         } finally {
-            Directory.Delete(directory, recursive: true);
+            Directory.Delete(directory, true);
         }
     }
 
@@ -415,7 +408,7 @@ public class SinkTests {
         public IReadOnlyList<string> Lines {
             get {
                 lock (gate) {
-                    return [.. lines];
+                    return [..lines];
                 }
             }
         }
@@ -436,7 +429,7 @@ public class SinkTests {
         public IReadOnlyList<EventWrittenEventArgs> Events {
             get {
                 lock (gate) {
-                    return [.. events];
+                    return [..events];
                 }
             }
         }

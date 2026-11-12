@@ -27,8 +27,12 @@ namespace Vixen.Graphics.Golden.Tests;
 ///         agreed at a white of one — the only white any device test drew a group at.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The colour matrix is the other half, and fixing the tint alone would have regressed
-///         it.</b> <c>UiComposite.Filter</c> and <see cref="UiColorMatrix.Apply(Color4)" /> clamp to
+///         ⚠
+///         <b>
+///             The colour matrix is the other half, and fixing the tint alone would have regressed
+///             it.
+///         </b>
+///         <c>UiComposite.Filter</c> and <see cref="UiColorMatrix.Apply(Color4)" /> clamp to
 ///         the alpha — correct for a white of one, a cap at one candela for any other — and add the
 ///         offset at the alpha, so <c>invert</c> and a drop shadow's colour, which are offsets, landed
 ///         a factor of the white too dark on both executors. The double-lit tint happened to re-light a
@@ -114,7 +118,10 @@ public sealed class UiCompositeWhiteLevelDeviceTests {
         var middle = At(one, Side / 2, Side / 2);
         var field = At(one, 4, 4);
 
-        Assert.True(middle.X + middle.Y + middle.Z > 0.05f, $"{arrangement}: the group's middle is black at a white of one");
+        Assert.True(
+            middle.X + middle.Y + middle.Z > 0.05f,
+            $"{arrangement}: the group's middle is black at a white of one"
+        );
         Assert.True(
             MathF.Abs(middle.X - field.X) + MathF.Abs(middle.Y - field.Y) + MathF.Abs(middle.Z - field.Z) > 0.05f,
             $"{arrangement}: the group's middle {middle} is the bare field {field}, so nothing composited"
@@ -123,7 +130,7 @@ public sealed class UiCompositeWhiteLevelDeviceTests {
         if (arrangement == "opacity") {
             // An independent closed form for the plainest case, so the scaling below is not the only
             // statement: the group's paint at its opacity over the field, in cd/m².
-            var expected = ((Paint.G * Opacity) + (Field.G * (1f - Opacity))) * DiffuseWhite;
+            var expected = (Paint.G * Opacity + Field.G * (1f - Opacity)) * DiffuseWhite;
             Assert.True(
                 MathF.Abs(At(lit, Side / 2, Side / 2).Y - expected) <= expected * 0.01f,
                 $"the opacity group's middle is {At(lit, Side / 2, Side / 2).Y} cd/m² in green where the closed form is {expected}"
@@ -151,7 +158,10 @@ public sealed class UiCompositeWhiteLevelDeviceTests {
         return data;
     }
 
-    /// <summary>Every <c>mix-blend-mode</c> at a white of 203 is the same blend at one, times 203 — on the device and in software.</summary>
+    /// <summary>
+    ///     Every <c>mix-blend-mode</c> at a white of 203 is the same blend at one, times 203 — on the device and in
+    ///     software.
+    /// </summary>
     /// <remarks>
     ///     <para>
     ///         ⚠ <b>#783's white-level half, which #1418 was blocking.</b> <c>UiBlend</c> normalises both
@@ -190,7 +200,11 @@ public sealed class UiCompositeWhiteLevelDeviceTests {
         var over = At(plain, Side / 2, Side / 2);
 
         Assert.True(
-            MathF.Max(MathF.Abs(blended.X - over.X), MathF.Max(MathF.Abs(blended.Y - over.Y), MathF.Abs(blended.Z - over.Z))) > 0.02f,
+            MathF.Max(
+                MathF.Abs(blended.X - over.X),
+                MathF.Max(MathF.Abs(blended.Y - over.Y), MathF.Abs(blended.Z - over.Z))
+            )
+            > 0.02f,
             $"{mode} is source-over on these operands at a white of one ({blended} against {over}), so the scaling cannot tell it ran"
         );
 
@@ -204,12 +218,20 @@ public sealed class UiCompositeWhiteLevelDeviceTests {
         AssertScaled(mode.ToString(), "the device", one, lit);
 
         var geometry = Build(list, DiffuseWhite, out var atlas);
-        var softOne = ToPixels(SoftwareUiRasterizer.RenderLinear(Build(list, 1f, out var atlasOne), atlasOne, Side, Side, Clear));
+        var softOne = ToPixels(
+            SoftwareUiRasterizer.RenderLinear(Build(list, 1f, out var atlasOne), atlasOne, Side, Side, Clear)
+        );
 
-        AssertScaled(mode.ToString(), "the software renderer", softOne, ToPixels(SoftwareUiRasterizer.RenderLinear(geometry, atlas, Side, Side, Clear)));
+        AssertScaled(
+            mode.ToString(),
+            "the software renderer",
+            softOne,
+            ToPixels(SoftwareUiRasterizer.RenderLinear(geometry, atlas, Side, Side, Clear))
+        );
     }
 
-    public static TheoryData<UiBlendMode> NonSeparable() => [UiBlendMode.Hue, UiBlendMode.Saturation, UiBlendMode.Color];
+    public static TheoryData<UiBlendMode> NonSeparable() =>
+        [UiBlendMode.Hue, UiBlendMode.Saturation, UiBlendMode.Color];
 
     /// <summary>
     ///     On a float target, a <c>hue</c>, <c>saturation</c> or <c>color</c> group agrees with the
@@ -260,22 +282,28 @@ public sealed class UiCompositeWhiteLevelDeviceTests {
         Assert.Equal(1, renderer.Blended);
         Assert.Equal(0, renderer.Unblended);
 
-        var software = ToPixels(SoftwareUiRasterizer.RenderLinear(Build(list, 1f, out var atlas), atlas, Side, Side, Clear));
+        var software = ToPixels(
+            SoftwareUiRasterizer.RenderLinear(Build(list, 1f, out var atlas), atlas, Side, Side, Clear)
+        );
 
         if (mode == UiBlendMode.Hue) {
             // The closed form at the first grey column right of the paint, mid-height.
-            var luminosity = (0.3f * Field.R) + (0.59f * Field.G) + (0.11f * Field.B);
+            var luminosity = 0.3f * Field.R + 0.59f * Field.G + 0.11f * Field.B;
             var expected = new Vector3(
-                (Opacity * luminosity) + ((1f - Opacity) * Field.R),
-                (Opacity * luminosity) + ((1f - Opacity) * Field.G),
-                (Opacity * luminosity) + ((1f - Opacity) * Field.B)
+                Opacity * luminosity + (1f - Opacity) * Field.R,
+                Opacity * luminosity + (1f - Opacity) * Field.G,
+                Opacity * luminosity + (1f - Opacity) * Field.B
             );
 
             foreach (var (name, frame) in new[] { ("the software executor", software), ("the device", device) }) {
                 var edge = At(frame, 88, Side / 2);
 
                 Assert.True(
-                    MathF.Max(MathF.Abs(edge.X - expected.X), MathF.Max(MathF.Abs(edge.Y - expected.Y), MathF.Abs(edge.Z - expected.Z))) <= 0.01f,
+                    MathF.Max(
+                        MathF.Abs(edge.X - expected.X),
+                        MathF.Max(MathF.Abs(edge.Y - expected.Y), MathF.Abs(edge.Z - expected.Z))
+                    )
+                    <= 0.01f,
                     $"{name}'s grey column beside the paint is {edge} where a hue blend of a grey source is {expected}"
                 );
             }
@@ -357,12 +385,15 @@ public sealed class UiCompositeWhiteLevelDeviceTests {
         Assert.Equal(arrangement == "masked" ? 2 : 0, renderer.Masked);
 
         var expected = new Vector3(
-            (0.125f * DiffuseWhite) + (0.75f * Scene.R),
-            (0.125f * DiffuseWhite) + (0.75f * Scene.G),
-            (0.125f * DiffuseWhite) + (0.75f * Scene.B)
+            0.125f * DiffuseWhite + 0.75f * Scene.R,
+            0.125f * DiffuseWhite + 0.75f * Scene.G,
+            0.125f * DiffuseWhite + 0.75f * Scene.B
         );
 
-        Assert.True(expected.X > DiffuseWhite * 2f, "the closed form is not above the white, so no ceiling there could show");
+        Assert.True(
+            expected.X > DiffuseWhite * 2f,
+            "the closed form is not above the white, so no ceiling there could show"
+        );
         AssertNear("the square panel on the image pipeline", At(square, Side / 2, Side / 2), expected);
 
         var geometry = Build(Glass(arrangement), DiffuseWhite, out var atlas);
@@ -383,7 +414,11 @@ public sealed class UiCompositeWhiteLevelDeviceTests {
             for (var x = 44; x < 84; x++) {
                 var reference = At(software, x, y);
 
-                AssertNear($"{arrangement} against the software executor at ({x}, {y})", At(glass, x, y), new(reference.X, reference.Y, reference.Z));
+                AssertNear(
+                    $"{arrangement} against the software executor at ({x}, {y})",
+                    At(glass, x, y),
+                    new(reference.X, reference.Y, reference.Z)
+                );
             }
         }
 
@@ -393,7 +428,10 @@ public sealed class UiCompositeWhiteLevelDeviceTests {
                 MathF.Max(MathF.Abs(actual.Y - expected.Y) / expected.Y, MathF.Abs(actual.Z - expected.Z) / expected.Z)
             );
 
-            Assert.True(error <= 0.02f, $"{what}: {actual} where {expected} was expected (relative error {error:0.###})");
+            Assert.True(
+                error <= 0.02f,
+                $"{what}: {actual} where {expected} was expected (relative error {error:0.###})"
+            );
         }
     }
 
@@ -405,8 +443,12 @@ public sealed class UiCompositeWhiteLevelDeviceTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The twins' own modules, compiled from the GLSL beside this project, and not a C#
-    ///         reading of them.</b> Every other fixture that draws through a twin is built at a white of
+    ///         ⚠
+    ///         <b>
+    ///             The twins' own modules, compiled from the GLSL beside this project, and not a C#
+    ///             reading of them.
+    ///         </b>
+    ///         Every other fixture that draws through a twin is built at a white of
     ///         one, where <c>UiComposite.Filter</c>'s ceiling of the alpha times the white is the bare
     ///         alpha — so a twin that clamped to the bare alpha drew the same picture as the Raven
     ///         module, and the census recorded the difference as reconciled rather than as a defect.
@@ -440,7 +482,10 @@ public sealed class UiCompositeWhiteLevelDeviceTests {
 
         var middle = At(one, Side / 2, Side / 2);
 
-        Assert.True(middle.X + middle.Y + middle.Z > 0.05f, $"{arrangement}: the twin's middle is black at a white of one");
+        Assert.True(
+            middle.X + middle.Y + middle.Z > 0.05f,
+            $"{arrangement}: the twin's middle is black at a white of one"
+        );
 
         AssertScaled(arrangement, "the GLSL twins", one, lit);
     }
@@ -466,7 +511,14 @@ public sealed class UiCompositeWhiteLevelDeviceTests {
 
         using var owned = fixture!;
 
-        var (glass, renderer) = Frame(owned, Glass(arrangement), DiffuseWhite, $"twin-glass-{arrangement}", Scene, twins: true);
+        var (glass, renderer) = Frame(
+            owned,
+            Glass(arrangement),
+            DiffuseWhite,
+            $"twin-glass-{arrangement}",
+            Scene,
+            true
+        );
 
         Assert.Equal(1, renderer.Backdropped);
         Assert.Equal(0, renderer.Filtered);
@@ -474,9 +526,9 @@ public sealed class UiCompositeWhiteLevelDeviceTests {
         Assert.Equal(arrangement == "masked" ? 2 : 0, renderer.Masked);
 
         var expected = new Vector3(
-            (0.125f * DiffuseWhite) + (0.75f * Scene.R),
-            (0.125f * DiffuseWhite) + (0.75f * Scene.G),
-            (0.125f * DiffuseWhite) + (0.75f * Scene.B)
+            0.125f * DiffuseWhite + 0.75f * Scene.R,
+            0.125f * DiffuseWhite + 0.75f * Scene.G,
+            0.125f * DiffuseWhite + 0.75f * Scene.B
         );
 
         var geometry = Build(Glass(arrangement), DiffuseWhite, out var atlas);
@@ -509,11 +561,17 @@ public sealed class UiCompositeWhiteLevelDeviceTests {
                 MathF.Max(MathF.Abs(actual.Y - expected.Y) / expected.Y, MathF.Abs(actual.Z - expected.Z) / expected.Z)
             );
 
-            Assert.True(error <= 0.02f, $"{what}: {actual} where {expected} was expected (relative error {error:0.###})");
+            Assert.True(
+                error <= 0.02f,
+                $"{what}: {actual} where {expected} was expected (relative error {error:0.###})"
+            );
         }
     }
 
-    /// <summary>A glass panel — <c>backdrop-filter: blur(2px)</c>, no matrix — square, rounded by sixteen, or square with a mask.</summary>
+    /// <summary>
+    ///     A glass panel — <c>backdrop-filter: blur(2px)</c>, no matrix — square, rounded by sixteen, or square with a
+    ///     mask.
+    /// </summary>
     static DrawList Glass(string arrangement) {
         var radius = arrangement == "rounded" ? 16 : 0;
 
@@ -526,17 +584,19 @@ public sealed class UiCompositeWhiteLevelDeviceTests {
 
         if (arrangement == "masked") {
             push = push with {
-                Offset = list.AddMasks([
-                    new UiMask(
-                        new Vector2(Side / 2f, Side / 2f),
-                        new Vector2(40f, 40f),
-                        Vector2.UnitX,
-                        new Vector3(0.5f, 0.5f, 0.5f),
-                        GradientStops.Default,
-                        GradientShape.Linear,
-                        Via: false
-                    )
-                ]),
+                Offset = list.AddMasks(
+                    [
+                        new UiMask(
+                            new(Side / 2f, Side / 2f),
+                            new(40f, 40f),
+                            Vector2.UnitX,
+                            new(0.5f, 0.5f, 0.5f),
+                            GradientStops.Default,
+                            GradientShape.Linear,
+                            false
+                        )
+                    ]
+                ),
                 Length = 1
             };
         }
@@ -557,8 +617,8 @@ public sealed class UiCompositeWhiteLevelDeviceTests {
 
         for (var y = 0; y < Side; y++) {
             for (var x = 0; x < Side; x++) {
-                var a = one[(y * Side) + x];
-                var b = lit[(y * Side) + x];
+                var a = one[y * Side + x];
+                var b = lit[y * Side + x];
 
                 // Relative in the colour, with a floor of a hundredth of the white so a near-black
                 // pixel's rounding is not read as a ratio. Alpha is a coverage and does not scale.
@@ -591,7 +651,7 @@ public sealed class UiCompositeWhiteLevelDeviceTests {
         list.BeginFrame();
         list.Add(new(DrawCommandKind.Rectangle, 0, 0, Side, Side, Field, 0, 0));
 
-        var push = new DrawCommand(DrawCommandKind.LayerPush, 24, 24, 80, 80, new Color4(1f, 1f, 1f, Opacity), 0, 0);
+        var push = new DrawCommand(DrawCommandKind.LayerPush, 24, 24, 80, 80, new(1f, 1f, 1f, Opacity), 0, 0);
 
         push = arrangement switch {
             _ when arrangement.StartsWith("blend-", StringComparison.Ordinal) =>
@@ -599,20 +659,22 @@ public sealed class UiCompositeWhiteLevelDeviceTests {
             "opacity" => push,
             "blend" => push with { Blend = UiBlendMode.Multiply },
             "filter" => push with { Filter = UiColorMatrix.Invert(1f) },
-            "shadow" => push with { Shadow = new UiDropShadow(new Vector2(8f, 8f), 0f, new Color4(0.1f, 0.6f, 0.9f, 1f)) },
+            "shadow" => push with { Shadow = new UiDropShadow(new(8f, 8f), 0f, new(0.1f, 0.6f, 0.9f, 1f)) },
             "backdrop" => push with { Backdrop = new UiBackdrop(0f, 1f, UiColorMatrix.Invert(1f)) },
             "mask" => push with {
-                Offset = list.AddMasks([
-                    new UiMask(
-                        new Vector2(Side / 2f, Side / 2f),
-                        new Vector2(40f, 40f),
-                        Vector2.UnitX,
-                        new Vector3(0.5f, 0.5f, 0.5f),
-                        GradientStops.Default,
-                        GradientShape.Linear,
-                        Via: false
-                    )
-                ]),
+                Offset = list.AddMasks(
+                    [
+                        new UiMask(
+                            new(Side / 2f, Side / 2f),
+                            new(40f, 40f),
+                            Vector2.UnitX,
+                            new(0.5f, 0.5f, 0.5f),
+                            GradientStops.Default,
+                            GradientShape.Linear,
+                            false
+                        )
+                    ]
+                ),
                 Length = 1
             },
             _ => throw new ArgumentOutOfRangeException(nameof(arrangement), arrangement, null)
@@ -624,7 +686,18 @@ public sealed class UiCompositeWhiteLevelDeviceTests {
         // folds into a vertex alpha. The backdrop's group paints translucently, so the inverted field
         // shows through it.
         var over = arrangement == "backdrop" ? new Color4(Paint.R, Paint.G, Paint.B, 0.5f) : Paint;
-        list.Add(new(DrawCommandKind.Rectangle, 24, 24, 80, 80, arrangement == "backdrop" ? new Color4(0.5f, 0.5f, 0.5f, 0.25f) : Grey, 0, 0));
+        list.Add(
+            new(
+                DrawCommandKind.Rectangle,
+                24,
+                24,
+                80,
+                80,
+                arrangement == "backdrop" ? new Color4(0.5f, 0.5f, 0.5f, 0.25f) : Grey,
+                0,
+                0
+            )
+        );
         list.Add(new(DrawCommandKind.Rectangle, 40, 40, 48, 48, over, 0, 0));
         list.Add(new(DrawCommandKind.LayerPop, 0, 0, 0, 0, Color4.White, 0, 0));
         list.EndFrame();
@@ -633,7 +706,7 @@ public sealed class UiCompositeWhiteLevelDeviceTests {
     }
 
     static UiGeometry Build(DrawList list, float white, out GlyphAtlas atlas) {
-        atlas = new GlyphAtlas(64, 64);
+        atlas = new(64, 64);
         var cache = new GlyphFieldCache(atlas);
 
         return new UiGeometryBuilder { Gamut = ColorGamut.Srgb, WhiteLevel = white }.Build(list, cache, Viewport);
@@ -677,11 +750,14 @@ public sealed class UiCompositeWhiteLevelDeviceTests {
 
         fixture.Owns(renderer.Dispose);
 
-        fixture.Graph.AddPass(name, pass => {
-            pass.ColourAttachment(colour, LoadAction.Clear, under);
-            pass.SideEffect();
-            pass.Execute(context => renderer.Record(context.CommandList, geometry, new(Side, Side)));
-        });
+        fixture.Graph.AddPass(
+            name,
+            pass => {
+                pass.ColourAttachment(colour, LoadAction.Clear, under);
+                pass.SideEffect();
+                pass.Execute(context => renderer.Record(context.CommandList, geometry, new(Side, Side)));
+            }
+        );
 
         var readback = device.CreateBuffer(
             new(Side * Side * 16, BufferUsage.CopyDestination, MemoryAccess.HostReadback, "white readback")
@@ -691,7 +767,7 @@ public sealed class UiCompositeWhiteLevelDeviceTests {
 
         using (var commands = device.BeginCommandList(QueueKind.Graphics, "white")) {
             renderer.Upload(commands, geometry, atlas);
-            renderer.Compose(commands, geometry, new Int2(Side, Side), beneath: new UiBackdropSource(under));
+            renderer.Compose(commands, geometry, new(Side, Side), beneath: new(under));
             fixture.Graph.Execute(commands);
             commands.CopyTextureToBuffer(new(fixture.Graph.TextureOf(colour)), new(Side, Side, 1), readback, 0);
             commands.Finish();
@@ -729,13 +805,13 @@ public sealed class UiCompositeWhiteLevelDeviceTests {
         var pixels = new Vector4[floats.Length / 4];
 
         for (var index = 0; index < pixels.Length; index++) {
-            pixels[index] = new(floats[index * 4], floats[(index * 4) + 1], floats[(index * 4) + 2], floats[(index * 4) + 3]);
+            pixels[index] = new(floats[index * 4], floats[index * 4 + 1], floats[index * 4 + 2], floats[index * 4 + 3]);
         }
 
         return pixels;
     }
 
-    static Vector4 At(Vector4[] frame, int x, int y) => frame[(y * Side) + x];
+    static Vector4 At(Vector4[] frame, int x, int y) => frame[y * Side + x];
 
     static bool TryOpen(out Fixture? fixture) {
         if (Fixture.TryOpen(out fixture, out var reason)) {

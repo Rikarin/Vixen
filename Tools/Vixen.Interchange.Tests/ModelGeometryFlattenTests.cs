@@ -13,7 +13,9 @@ public sealed class ModelGeometryFlattenTests {
         // Two triangles sharing an edge by position and not by normal, as a file stores a hard edge.
         MeshData mesh = new() {
             Name = "bolt_low",
-            Positions = [new(0f, 0f, 0f), new(1f, 0f, 0f), new(0f, 1f, 0f), new(0f, 0f, 0f), new(0f, 1f, 0f), new(-1f, 0f, 1f)],
+            Positions = [
+                new(0f, 0f, 0f), new(1f, 0f, 0f), new(0f, 1f, 0f), new(0f, 0f, 0f), new(0f, 1f, 0f), new(-1f, 0f, 1f)
+            ],
             Normals = [Vector3.UnitZ, Vector3.UnitZ, Vector3.UnitZ, Vector3.UnitY, Vector3.UnitY, Vector3.UnitY],
             TexCoords = [new(0f, 0f), new(1f, 0f), new(0f, 1f), new(0.5f, 0f), new(0.5f, 1f), new(1f, 1f)],
             Indices = [0, 1, 2, 3, 4, 5]
@@ -34,14 +36,14 @@ public sealed class ModelGeometryFlattenTests {
         Assert.Equal(2, flat.Mesh.FaceCount);
         Assert.Equal(Vector3.UnitZ, flat.Mesh.Normals[0]);
         Assert.Equal(Vector3.UnitY, flat.Mesh.Normals[3]);
-        Assert.Equal(new Vector2(0.5f, 0f), flat.Mesh.TexCoords[3]);
+        Assert.Equal(new(0.5f, 0f), flat.Mesh.TexCoords[3]);
     }
 
     [Fact]
     public void Everything_is_in_world_space_and_the_parts_are_counted() {
         var flat = ModelGeometry.Flatten(Model());
 
-        Assert.Equal(new Vector3(0f, 0f, 10f), flat.Mesh.Positions[0]);
+        Assert.Equal(new(0f, 0f, 10f), flat.Mesh.Positions[0]);
         Assert.Equal([("bolt_low", 2)], flat.Parts);
     }
 
@@ -134,6 +136,6 @@ public sealed class ModelGeometryFlattenTests {
         Assert.Equal(Vector3.UnitZ, again.Mesh.Normals[0]);
         Assert.Equal(Vector3.UnitY, again.Mesh.Normals[3]);
         Assert.Equal([0xFF0000, 0x0000FF], [again.Mesh.Faces[0].Group, again.Mesh.Faces[1].Group]);
-        Assert.Equal(new Vector2(0.6f, 0.6f), again.Mesh.TexCoords[3]);
+        Assert.Equal(new(0.6f, 0.6f), again.Mesh.TexCoords[3]);
     }
 }

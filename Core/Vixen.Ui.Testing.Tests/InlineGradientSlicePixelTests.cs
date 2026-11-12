@@ -27,8 +27,12 @@ namespace Vixen.Ui.Testing.Tests;
 ///         antialiasing at the edges: whatever those do, they must do the same thing on both sides.
 ///     </para>
 ///     <para>
-///         ⚠ <b>A black-to-white ramp down a 40-point union, so the wrong answer is the maximum
-///         distance from the right one.</b> The second fragment's first row is the ramp's midpoint
+///         ⚠
+///         <b>
+///             A black-to-white ramp down a 40-point union, so the wrong answer is the maximum
+///             distance from the right one.
+///         </b>
+///         The second fragment's first row is the ramp's midpoint
 ///         under <c>slice</c> and its <i>start</i> under <c>clone</c> — near white against near black,
 ///         a couple of hundred levels apart in a channel that is 0 at one end and 255 at the other,
 ///         which is what makes this measurable rather than a matter of tolerance.
@@ -40,6 +44,7 @@ public class InlineGradientSlicePixelTests {
 
     /// <summary>The union of the span's fragments: 30 + 60 on the first line, 60 on the second.</summary>
     const int UnionWidth = 90;
+
     const int UnionHeight = 40;
 
     /// <summary>Where the break is, and therefore the row the two readings disagree most about.</summary>
@@ -63,18 +68,18 @@ public class InlineGradientSlicePixelTests {
     ///     would pass against an implementation that never heard of a fragment.
     /// </remarks>
     static Bitmap Fragmented() {
-        using var ui = UiTest.Create(Width, Height, new UiTestOptions { Background = Background });
+        using var ui = UiTest.Create(Width, Height, new() { Background = Background });
 
         ui.Load(
             $$"""
-            root  { width: {{Width}}px; height: {{Height}}px; align-items: flex-start; }
-            #box  { display: block; width: 100px; height: {{UnionHeight}}px; }
-            #run  { display: inline; background-image: {{Ramp}}; }
-            .cell { display: inline-block; height: 20px; }
-            #a    { width: 30px; }
-            #b    { width: 60px; }
-            #c    { width: 60px; }
-            """
+              root  { width: {{Width}}px; height: {{Height}}px; align-items: flex-start; }
+              #box  { display: block; width: 100px; height: {{UnionHeight}}px; }
+              #run  { display: inline; background-image: {{Ramp}}; }
+              .cell { display: inline-block; height: 20px; }
+              #a    { width: 30px; }
+              #b    { width: 60px; }
+              #c    { width: 60px; }
+              """
         );
 
         var box = ui.Create("div", ui.Document.Root, "box");
@@ -91,14 +96,14 @@ public class InlineGradientSlicePixelTests {
 
     /// <summary>The same ramp on a single unbroken 90×40 box, which is what <c>slice</c> means.</summary>
     static Bitmap Unbroken() {
-        using var ui = UiTest.Create(Width, Height, new UiTestOptions { Background = Background });
+        using var ui = UiTest.Create(Width, Height, new() { Background = Background });
 
         ui.Load(
             $$"""
-            root { width: {{Width}}px; height: {{Height}}px; align-items: flex-start; }
-            #box { display: block; width: {{UnionWidth}}px; height: {{UnionHeight}}px;
-                   background-image: {{Ramp}}; }
-            """
+              root { width: {{Width}}px; height: {{Height}}px; align-items: flex-start; }
+              #box { display: block; width: {{UnionWidth}}px; height: {{UnionHeight}}px;
+                     background-image: {{Ramp}}; }
+              """
         );
 
         ui.Create("div", ui.Document.Root, "box");
@@ -132,8 +137,12 @@ public class InlineGradientSlicePixelTests {
     /// <summary>And the ramp is continuous across the break rather than starting again below it.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The assertion the comparison above cannot make, because it needs no second
-    ///         picture.</b> The comparison is only ever as right as its control: a change that moved
+    ///         ⚠
+    ///         <b>
+    ///             The assertion the comparison above cannot make, because it needs no second
+    ///             picture.
+    ///         </b>
+    ///         The comparison is only ever as right as its control: a change that moved
     ///         both boxes together — the unbroken one included — would leave it green. This is stated
     ///         as an order over one picture instead. A ramp that was never broken descends a column
     ///         monotonically from one end to the other, and the single row a per-fragment ramp gets

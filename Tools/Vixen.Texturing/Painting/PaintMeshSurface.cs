@@ -9,8 +9,11 @@ namespace Vixen.Texturing.Painting;
 /// <summary>A mesh over an atlas: which texels are surface, and where on the surface each one is.</summary>
 /// <remarks>
 ///     <para>
-///         <b>A seam is two places in the atlas that are one place on the mesh, so the mesh is what can paint
-///         across one.</b> A stamp in the atlas stops at an island's edge, and the texels that carry on from
+///         <b>
+///             A seam is two places in the atlas that are one place on the mesh, so the mesh is what can paint
+///             across one.
+///         </b>
+///         A stamp in the atlas stops at an island's edge, and the texels that carry on from
 ///         that edge are somewhere else entirely. Everything here therefore measures a texel by where it is in
 ///         the mesh's own space. <see cref="Through" /> measures it on the picture a camera sees, so a stamp
 ///         lands wherever the disc on the screen falls, on any number of islands; <see cref="AcrossSeams" /> carries
@@ -107,7 +110,7 @@ public sealed class PaintMeshSurface {
     ) =>
         new ViewPlacement(
             this,
-            [view, .. symmetry?.Copies.Select(view.Moved) ?? []],
+            [view, ..symmetry?.Copies.Select(view.Moved) ?? []],
             occlusion ?? PaintOcclusion.Default
         );
 
@@ -284,7 +287,9 @@ public sealed class PaintMeshSurface {
             projection.Triangle(triangle, out var a, out var b, out var c, out var ua, out var ub, out var uc);
 
             surface += Vector3.Cross(b - a, c - a).Length();
-            atlas += MathF.Abs(Edge(ua * new Vector2(width, height), ub * new Vector2(width, height), uc * new Vector2(width, height)));
+            atlas += MathF.Abs(
+                Edge(ua * new Vector2(width, height), ub * new Vector2(width, height), uc * new Vector2(width, height))
+            );
         }
 
         return surface > 0 && atlas > 0 ? (float)Math.Sqrt(atlas / surface) : 1f;
@@ -316,8 +321,8 @@ public sealed class PaintMeshSurface {
                 out _,
                 out _,
                 out coordinates[triangle * 3],
-                out coordinates[(triangle * 3) + 1],
-                out coordinates[(triangle * 3) + 2]
+                out coordinates[triangle * 3 + 1],
+                out coordinates[triangle * 3 + 2]
             );
         }
 
@@ -332,8 +337,8 @@ public sealed class PaintMeshSurface {
             projection.Triangle(triangle, out _, out _, out _, out var a, out var b, out var c);
 
             points[triangle * 3] = new(a.X, a.Y, 0f);
-            points[(triangle * 3) + 1] = new(b.X, b.Y, 0f);
-            points[(triangle * 3) + 2] = new(c.X, c.Y, 0f);
+            points[triangle * 3 + 1] = new(b.X, b.Y, 0f);
+            points[triangle * 3 + 2] = new(c.X, c.Y, 0f);
         }
 
         for (var at = 0; at < order.Length; at++) {
@@ -383,7 +388,7 @@ public sealed class PaintMeshSurface {
 
         for (var y = box.Y; y < box.EndY; y++) {
             for (var x = box.X; x < box.EndX; x++) {
-                var index = (y * width) + x;
+                var index = y * width + x;
 
                 if (!Coverage.IsCovered(index)) {
                     continue;
@@ -403,7 +408,7 @@ public sealed class PaintMeshSurface {
                 wc = MathF.Max(wc, 0f);
 
                 var sum = wa + wb + wc;
-                var weight = weigher.Weigh(((a * wa) + (b * wb) + (c * wc)) / sum, centre, out var picture);
+                var weight = weigher.Weigh((a * wa + b * wb + c * wc) / sum, centre, out var picture);
 
                 if (!(weight > 0f)) {
                     continue;
@@ -429,8 +434,12 @@ public sealed class PaintMeshSurface {
     /// <param name="forward">Which way it looks.</param>
     /// <returns>The texels to scan, empty when the square sees none of it.</returns>
     /// <remarks>
-    ///     ⚠ <b>The triangle clipped by the pyramid, and not a ball round the hit or the square's corners on the
-    ///     plane.</b> A brush at a hard edge asks about a face seen nearly side on, which is ten radii deep under
+    ///     ⚠
+    ///     <b>
+    ///         The triangle clipped by the pyramid, and not a ball round the hit or the square's corners on the
+    ///         plane.
+    ///     </b>
+    ///     A brush at a hard edge asks about a face seen nearly side on, which is ten radii deep under
     ///     it, and a ball that deep scanned tens of thousands of texels of a big triangle per stamp to find a
     ///     sliver. A corner of the square can look past the horizon of that same plane, so corners on the plane
     ///     are no bound there either. Clipping has no such case, and the near plane is what keeps out what is behind.
@@ -461,12 +470,12 @@ public sealed class PaintMeshSurface {
                     next[written++] = from;
                 }
 
-                if ((start >= 0f) != (end >= 0f)) {
+                if (start >= 0f != end >= 0f) {
                     var share = start / (start - end);
 
                     next[written++] = new(
-                        from.Point + ((to.Point - from.Point) * share),
-                        from.Texel + ((to.Texel - from.Texel) * share)
+                        from.Point + (to.Point - from.Point) * share,
+                        from.Texel + (to.Texel - from.Texel) * share
                     );
                 }
             }
@@ -503,16 +512,16 @@ public sealed class PaintMeshSurface {
         // The point dropped onto the triangle's plane, and the map from that plane to the atlas, which
         // holds beyond the triangle's own edges since it is one linear map.
         var offset = point - a;
-        var atlas = (ua * new Vector2(width, height))
-            + (density.PerTangent * Vector3.Dot(offset, density.Tangent))
-            + (density.PerBitangent * Vector3.Dot(offset, density.Bitangent));
-        var half = new Vector2((distance * density.Major) + 2f);
+        var atlas = ua * new Vector2(width, height)
+            + density.PerTangent * Vector3.Dot(offset, density.Tangent)
+            + density.PerBitangent * Vector3.Dot(offset, density.Bitangent);
+        var half = new Vector2(distance * density.Major + 2f);
 
         return PaintRect.Covering(atlas - half, atlas + half);
     }
 
     static float Edge(Vector2 a, Vector2 b, Vector2 point) =>
-        ((b.X - a.X) * (point.Y - a.Y)) - ((b.Y - a.Y) * (point.X - a.X));
+        (b.X - a.X) * (point.Y - a.Y) - (b.Y - a.Y) * (point.X - a.X);
 
     /// <summary>A corner of a clipped triangle, on the mesh and in the atlas.</summary>
     readonly record struct Clipped(Vector3 Point, Vector2 Texel);
@@ -570,12 +579,12 @@ public sealed class PaintMeshSurface {
             var offset = point - centre;
             var across = Vector3.Dot(offset, density.Tangent);
             var along = Vector3.Dot(offset, density.Bitangent);
-            var flat = MathF.Sqrt((across * across) + (along * along));
+            var flat = MathF.Sqrt(across * across + along * along);
 
             // ⚠ Laid flat at its full length: a point round a right angle projects onto almost nothing,
             // and a stamp must reach as far down the next face as it would have on this one.
             var unfold = flat > 0f ? offset.Length() / flat : 1f;
-            var unfolded = anchor + (((density.PerTangent * across) + (density.PerBitangent * along)) * unfold);
+            var unfolded = anchor + (density.PerTangent * across + density.PerBitangent * along) * unfold;
 
             picture = unfolded;
 
@@ -636,7 +645,7 @@ public sealed class PaintMeshSurface {
             var facing = Vector3.Dot(density.Normal, ray.Direction);
             var slope = MathF.Max(MathF.Abs(facing), PaintFootprint.GrazingFloor);
             var reach = radius * MathF.Max(DepthReach, 1f / slope);
-            var sphere = MathF.Sqrt((radius * radius) + (reach * reach));
+            var sphere = MathF.Sqrt(radius * radius + reach * reach);
             var seen = occlusion.Tests ? Cells(index, stamp.Radius) : null;
 
             seen?.Cover(stamp.Centre, across * Corner);
@@ -663,7 +672,7 @@ public sealed class PaintMeshSurface {
 
                 // How square the face is to the line of sight to its middle; past the brush's angle it is left alone.
                 if (least > -1f) {
-                    var sight = camera.Eye - ((a + b + c) / 3f);
+                    var sight = camera.Eye - (a + b + c) / 3f;
                     var lengths = normal.Length() * sight.Length();
 
                     if (!(lengths > 0f) || MathF.Abs(Vector3.Dot(normal, sight)) < least * lengths) {
@@ -746,10 +755,10 @@ public sealed class PaintMeshSurface {
         /// <param name="centre">The square's middle.</param>
         /// <param name="half">Half its side.</param>
         public void Cover(Vector2 centre, float half) {
-            left = (int)MathF.Floor(((centre.X - half) / cell) - 1.5f);
-            top = (int)MathF.Floor(((centre.Y - half) / cell) - 1.5f);
-            columns = (int)MathF.Ceiling(((centre.X + half) / cell) + 1.5f) - left + 1;
-            rows = (int)MathF.Ceiling(((centre.Y + half) / cell) + 1.5f) - top + 1;
+            left = (int)MathF.Floor((centre.X - half) / cell - 1.5f);
+            top = (int)MathF.Floor((centre.Y - half) / cell - 1.5f);
+            columns = (int)MathF.Ceiling((centre.X + half) / cell + 1.5f) - left + 1;
+            rows = (int)MathF.Ceiling((centre.Y + half) / cell + 1.5f) - top + 1;
 
             if (grid.Length < columns * rows) {
                 grid = new float[columns * rows];
@@ -757,7 +766,7 @@ public sealed class PaintMeshSurface {
 
             for (var row = 0; row < rows; row++) {
                 for (var column = 0; column < columns; column++) {
-                    grid[(row * columns) + column] = Depth(left + column, top + row);
+                    grid[row * columns + column] = Depth(left + column, top + row);
                 }
             }
         }
@@ -768,14 +777,14 @@ public sealed class PaintMeshSurface {
         /// <returns>Whether nothing but the tolerance is in front of it.</returns>
         public bool Sees(Vector2 picture, float depth) {
             // The four cell centres round the point: cell n's centre is half a cell into it.
-            var column = (int)MathF.Floor((picture.X / cell) - 0.5f) - left;
-            var row = (int)MathF.Floor((picture.Y / cell) - 0.5f) - top;
+            var column = (int)MathF.Floor(picture.X / cell - 0.5f) - left;
+            var row = (int)MathF.Floor(picture.Y / cell - 0.5f) - top;
 
             if (column < 0 || row < 0 || column + 1 >= columns || row + 1 >= rows) {
                 return true;
             }
 
-            var at = (row * columns) + column;
+            var at = row * columns + column;
             var deepest = MathF.Max(
                 MathF.Max(grid[at], grid[at + 1]),
                 MathF.Max(grid[at + columns], grid[at + columns + 1])
@@ -845,7 +854,7 @@ public sealed class PaintMeshSurface {
 
             projection.Triangle(start, out var a, out var b, out var c, out _, out _, out _);
 
-            var centre = (a * corners.X) + (b * corners.Y) + (c * corners.Z);
+            var centre = a * corners.X + b * corners.Y + c * corners.Z;
             var distance = reach / density.Minor;
             var weigher = new SeamWeigher(centre, density, nearest, kernel, stamp, brush.Alpha);
 
@@ -873,8 +882,7 @@ public sealed class PaintMeshSurface {
                 // ⚠ The frame turned rather than the point turned back: the copy weighs a point by where the
                 // stroke's own stamp would have it, which keeps a mirrored alpha mirrored.
                 var turned = density with {
-                    Tangent = copy.Direction(density.Tangent),
-                    Bitangent = copy.Direction(density.Bitangent)
+                    Tangent = copy.Direction(density.Tangent), Bitangent = copy.Direction(density.Bitangent)
                 };
                 var mirrored = new SeamWeigher(moved, turned, nearest, kernel, stamp, brush.Alpha);
 
@@ -923,7 +931,8 @@ public sealed class PaintMeshSurface {
 
                     projection.Triangle(next, out var a, out var b, out var c, out _, out _, out _);
 
-                    if (Vector3.DistanceSquared(centre, TriangleTree.ClosestPointOnTriangle(centre, a, b, c)) <= limit) {
+                    if (Vector3.DistanceSquared(centre, TriangleTree.ClosestPointOnTriangle(centre, a, b, c))
+                        <= limit) {
                         waiting.Enqueue(next);
                     }
                 }
@@ -1035,8 +1044,8 @@ public sealed class PaintMeshSurface {
                 var (ia, ib, ic) = (Weld(a), Weld(b), Weld(c));
 
                 edges[triangle * 3] = Side.Of(triangle, ia, ib, ua, ub);
-                edges[(triangle * 3) + 1] = Side.Of(triangle, ib, ic, ub, uc);
-                edges[(triangle * 3) + 2] = Side.Of(triangle, ic, ia, uc, ua);
+                edges[triangle * 3 + 1] = Side.Of(triangle, ib, ic, ub, uc);
+                edges[triangle * 3 + 2] = Side.Of(triangle, ic, ia, uc, ua);
             }
 
             Array.Sort(edges, static (left, right) => left.Key.CompareTo(right.Key));

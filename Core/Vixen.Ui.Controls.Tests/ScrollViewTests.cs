@@ -30,17 +30,19 @@ public class ScrollViewTests {
     ///     the spacers are wider than the viewport and the inner carries a left margin.
     /// </remarks>
     static (ControlFixture Fixture, ScrollView Outer, ScrollView Inner, UiElement Mark) Nest(string css) {
-        var fixture = new ControlFixture(css: $$"""
-            root   { width: 400px; height: 300px; }
-            #outer { width: 100px; height: 60px; }
-            #lead  { width: 260px; height: 90px; }
-            #trail { width: 260px; height: 90px; }
-            #inner { width: 60px; height: 40px; margin-left: 110px; }
-            #above { width: 140px; height: 50px; }
-            #mark  { width: 30px; height: 12px; margin-left: 70px; }
-            #below { width: 140px; height: 50px; }
-            {{css}}
-            """);
+        var fixture = new ControlFixture(
+            css: $$"""
+                   root   { width: 400px; height: 300px; }
+                   #outer { width: 100px; height: 60px; }
+                   #lead  { width: 260px; height: 90px; }
+                   #trail { width: 260px; height: 90px; }
+                   #inner { width: 60px; height: 40px; margin-left: 110px; }
+                   #above { width: 140px; height: 50px; }
+                   #mark  { width: 30px; height: 12px; margin-left: 70px; }
+                   #below { width: 140px; height: 50px; }
+                   {{css}}
+                   """
+        );
 
         var outer = fixture.Document.Create<ScrollView>(null, fixture.Document.Root, "outer");
         fixture.Document.Create("div", outer.Content, "lead");
@@ -71,7 +73,7 @@ public class ScrollViewTests {
     }
 
     static void Reveal(ControlFixture fixture, ScrollView inner) {
-        var outer = (ScrollView) inner.Parent!.Parent!;
+        var outer = (ScrollView)inner.Parent!.Parent!;
 
         Reveal(outer);
         fixture.Update();
@@ -88,7 +90,7 @@ public class ScrollViewTests {
     [InlineData("scroll-margin-top: 8px", 8f)]
     [InlineData("scroll-margin-bottom: 8px", 0f)]
     public void Scroll_margin_on_the_target_offsets_where_it_comes_to_rest(string declaration, float earlier) {
-        Assert.Equal(Rest("") - earlier, Rest(declaration), 1);
+        Assert.Equal(Rest(string.Empty) - earlier, Rest(declaration), 1);
 
         static float Rest(string css) {
             var (fixture, outer, inner, _) = Nest($"#inner {{ {css} }}");
@@ -121,7 +123,7 @@ public class ScrollViewTests {
         outer.ScrollIntoView(inner);
         fixture.Update();
 
-        var (bare, plain, spot, _) = Nest("");
+        var (bare, plain, spot, _) = Nest(string.Empty);
         using var other = bare;
 
         plain.ScrollTop = plain.MaximumTop;
@@ -142,7 +144,7 @@ public class ScrollViewTests {
     /// </remarks>
     [Fact]
     public void Scroll_padding_on_the_container_insets_the_viewport() {
-        var plain = Rest("");
+        var plain = Rest(string.Empty);
         var inset = Rest("scroll-padding-top: 8px");
 
         Assert.Equal(plain - 8f, inset, 1);
@@ -227,7 +229,7 @@ public class ScrollViewTests {
     /// <summary>Without it, the same scroll is over before the next frame.</summary>
     [Fact]
     public void The_initial_behaviour_is_still_a_jump() {
-        var (fixture, _, inner, mark) = Nest("");
+        var (fixture, _, inner, mark) = Nest(string.Empty);
         using var scope = fixture;
 
         inner.ScrollIntoView(mark);
@@ -238,8 +240,12 @@ public class ScrollViewTests {
 
     /// <summary>A wheel on a view that has run out chains outwards, unless it is told not to.</summary>
     /// <remarks>
-    ///     ⚠ <b>`contain` and `none` are asserted to behave identically <i>here</i>, and they no
-    ///     longer do everywhere.</b> This is the chaining half of the property, which the two share;
+    ///     ⚠
+    ///     <b>
+    ///         `contain` and `none` are asserted to behave identically <i>here</i>, and they no
+    ///         longer do everywhere.
+    ///     </b>
+    ///     This is the chaining half of the property, which the two share;
     ///     the boundary half is where they part company, and it is asserted in
     ///     <see cref="ScrollRubberBandTests" /> — `contain` keeps the rubber band and `none`
     ///     suppresses it. The note this replaces said the pair were identical in this engine because
@@ -286,14 +292,20 @@ public class ScrollViewTests {
         Assert.Equal(before, outer.ScrollTop, 1);
     }
 
-    /// <summary>`scroll-behavior: smooth` reaches the wheel a notched device turned, and nothing
-    /// else.</summary>
+    /// <summary>
+    ///     `scroll-behavior: smooth` reaches the wheel a notched device turned, and nothing
+    ///     else.
+    /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The whole point of <see cref="WheelEvent.Notched" /> is in the difference between
-    ///         these two rows, and a build that threw the distinction away — carried it as a constant,
-    ///         dropped it in the backend, or read it in the wrong sense — fails one of them whichever
-    ///         constant it picked.</b> That is what makes this a test of the fact travelling rather
+    ///         ⚠
+    ///         <b>
+    ///             The whole point of <see cref="WheelEvent.Notched" /> is in the difference between
+    ///             these two rows, and a build that threw the distinction away — carried it as a constant,
+    ///             dropped it in the backend, or read it in the wrong sense — fails one of them whichever
+    ///             constant it picked.
+    ///         </b>
+    ///         That is what makes this a test of the fact travelling rather
     ///         than of the smoothing.
     ///     </para>
     ///     <para>
@@ -354,11 +366,12 @@ public class ScrollViewTests {
         Assert.Equal(20f, inner.ScrollTop, 1);
     }
 
-    /// <summary>With no `scroll-behavior` declared a notch is still a jump, which is what shipped.
+    /// <summary>
+    ///     With no `scroll-behavior` declared a notch is still a jump, which is what shipped.
     /// </summary>
     [Fact]
     public void A_notched_wheel_still_jumps_where_nothing_asked_for_smooth() {
-        var (fixture, _, inner, _) = Nest("");
+        var (fixture, _, inner, _) = Nest(string.Empty);
         using var scope = fixture;
 
         Reveal(fixture, inner);
@@ -368,11 +381,16 @@ public class ScrollViewTests {
         Assert.Equal(10f, inner.ScrollTop, 1);
     }
 
-    /// <summary>A smoothed notch that has run out still chains, and the destination is what says so.
+    /// <summary>
+    ///     A smoothed notch that has run out still chains, and the destination is what says so.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>The chaining test used to read the offset, and the smooth path does not move the
-    ///     offset in the frame the wheel arrives.</b> Left that way, every smoothed notch would have
+    ///     ⚠
+    ///     <b>
+    ///         The chaining test used to read the offset, and the smooth path does not move the
+    ///         offset in the frame the wheel arrives.
+    ///     </b>
+    ///     Left that way, every smoothed notch would have
     ///     looked like a scroll that went nowhere and been passed to the parent as well — so a page
     ///     containing a smooth list would scroll twice as far as it was asked to.
     /// </remarks>
@@ -437,7 +455,7 @@ public class ScrollViewTests {
     /// </remarks>
     [Fact]
     public void With_nothing_declared_it_still_moves_the_minimum_that_works() {
-        var (fixture, _, inner, mark) = Nest("");
+        var (fixture, _, inner, mark) = Nest(string.Empty);
         using var scope = fixture;
 
         inner.ScrollIntoView(mark);

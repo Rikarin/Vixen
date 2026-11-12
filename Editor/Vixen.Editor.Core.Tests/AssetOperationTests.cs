@@ -8,8 +8,12 @@ namespace Vixen.Editor.Core.Tests;
 
 /// <summary>Renaming, moving and deleting a file the project knows about.</summary>
 /// <remarks>
-///     ⚠ <b>Doc 20 calls a naive rename "the fastest way to corrupt a project", and these are what
-///     it means.</b> Not a stale path — references are GUIDs and a GUID does not move — but a
+///     ⚠
+///     <b>
+///         Doc 20 calls a naive rename "the fastest way to corrupt a project", and these are what
+///         it means.
+///     </b>
+///     Not a stale path — references are GUIDs and a GUID does not move — but a
 ///     sidecar left behind, which turns a rename into a silent loss of identity that nothing reports
 ///     until a scene opens with nothing in it.
 /// </remarks>
@@ -73,13 +77,13 @@ public sealed class AssetOperationTests {
         var project = Open(fixture);
         var scene = Guid(project, "Assets/Scenes/Main.vxscene");
 
-        Assert.Contains(hero, project.References.ReferencesFrom(scene).Select(reference => reference.Asset));
+        Assert.Contains(hero, project.References.ReferencesFrom(scene).Select(static reference => reference.Asset));
 
         Assert.True(AssetOperations.Rename(project, hero, "villain").Ok);
 
         // Nothing was rewritten and nothing needed to be: the scene names a GUID, the GUID is in the
         // sidecar, and the sidecar moved with the file.
-        Assert.Contains(hero, project.References.ReferencesFrom(scene).Select(reference => reference.Asset));
+        Assert.Contains(hero, project.References.ReferencesFrom(scene).Select(static reference => reference.Asset));
         Assert.True(project.Assets.TryGetByGuid(hero, out var entry));
         Assert.Equal("Assets/Textures/villain.png", entry.Path);
     }
@@ -139,7 +143,7 @@ public sealed class AssetOperationTests {
         var result = AssetOperations.Rename(project, hero, "villain");
 
         Assert.False(result.Ok);
-        Assert.Contains("already", result.Message ?? "", StringComparison.Ordinal);
+        Assert.Contains("already", result.Message ?? string.Empty, StringComparison.Ordinal);
     }
 
     [Fact]

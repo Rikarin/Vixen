@@ -14,8 +14,12 @@ public static partial class UvUnwrap {
     /// <exception cref="ArgumentNullException">An argument is null.</exception>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Chart count is an outcome of a quality target, not a knob, and that inversion is the
-    ///         whole design.</b> docs/plan/42 § D3: nothing here is told how many charts to make. A
+    ///         ⚠
+    ///         <b>
+    ///             Chart count is an outcome of a quality target, not a knob, and that inversion is the
+    ///             whole design.
+    ///         </b>
+    ///         docs/plan/42 § D3: nothing here is told how many charts to make. A
     ///         region is flattened, measured, and kept if it comes in under
     ///         <see cref="UvSettings.DistortionThreshold" /> — and split and retried if it does not. Then
     ///         a merge-back pass puts adjacent charts together again wherever their union still passes.
@@ -79,8 +83,12 @@ public static partial class UvUnwrap {
     /// <remarks>
     ///     <para>
     ///         ⚠ <b>Internal, and the merge switch is a measurement rather than a setting.</b>
-    ///         docs/plan/42 § D3 says which half of the fix is which — <i>"step 4 is the cheap half and
-    ///         step 3's top-down direction is the expensive half"</i> — and the only way to say what each
+    ///         docs/plan/42 § D3 says which half of the fix is which —
+    ///         <i>
+    ///             "step 4 is the cheap half and
+    ///             step 3's top-down direction is the expensive half"
+    ///         </i>
+    ///         — and the only way to say what each
     ///         one contributed is to run without one of them. It is not public because turning it off is
     ///         strictly worse: it produces more charts at the same distortion, which is the exact failure
     ///         the design exists to avoid.
@@ -107,8 +115,12 @@ public static partial class UvUnwrap {
 
     /// <summary>Everything the charter knows, including the count before the merge-back pass ran.</summary>
     /// <remarks>
-    ///     ⚠ <b>Internal because <see cref="ChartOutcome.BeforeMerge" /> is a measurement of the design
-    ///     rather than a fact about the mesh.</b> A caller wants the charts; the difference between the
+    ///     ⚠
+    ///     <b>
+    ///         Internal because <see cref="ChartOutcome.BeforeMerge" /> is a measurement of the design
+    ///         rather than a fact about the mesh.
+    ///     </b>
+    ///     A caller wants the charts; the difference between the
     ///     count the recursion reached and the count that shipped is what says whether § D3's two halves
     ///     are both pulling their weight, and that belongs in a test rather than in an API.
     /// </remarks>

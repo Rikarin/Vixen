@@ -24,8 +24,12 @@ public enum LayoutUnit : byte {
 
     /// <summary>The smallest the content can be without overflowing.</summary>
     /// <remarks>
-    ///     ⚠ <b>This store has no separate min-content measure callback, so a min-content request is
-    ///     an ordinary one with nothing to spare on the axis</b> — <see cref="MeasureMode.AtMost" />
+    ///     ⚠
+    ///     <b>
+    ///         This store has no separate min-content measure callback, so a min-content request is
+    ///         an ordinary one with nothing to spare on the axis
+    ///     </b>
+    ///     — <see cref="MeasureMode.AtMost" />
     ///     against zero, which is what makes a text measurer answer with its longest word. The three
     ///     content keywords are therefore one mechanism with three requests rather than three
     ///     mechanisms; see <c>LayoutTree.Intrinsic.cs</c>.
@@ -129,9 +133,13 @@ public enum Align : byte {
 ///         and it decides what happens to that <i>position</i> when the free space goes negative.
 ///     </para>
 ///     <para>
-///         ⚠ <b>It is a modifier on a position, not a position, which is why it is a second field
-///         beside <see cref="LayoutStyle.AlignSelf" /> and its five siblings rather than four more
-///         members on <see cref="Align" />.</b> <c>safe end</c> is not a third place to sit — it is
+///         ⚠
+///         <b>
+///             It is a modifier on a position, not a position, which is why it is a second field
+///             beside <see cref="LayoutStyle.AlignSelf" /> and its five siblings rather than four more
+///             members on <see cref="Align" />.
+///         </b>
+///         <c>safe end</c> is not a third place to sit — it is
 ///         <c>end</c> with a condition attached — and folding it into the position enum would put a
 ///         new arm in every <c>switch</c> that reads one, each of which would answer <c>start</c> by
 ///         falling through a <c>default</c> whether or not anything overflowed.
@@ -166,8 +174,12 @@ public enum OverflowAlignment : byte {
 /// </summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>This is not <c>text-align</c>, and the difference is the reason it has its own name
-///         and its own enum.</b> <c>text-align: center</c> centres the <i>inline</i> content of a
+///         ⚠
+///         <b>
+///             This is not <c>text-align</c>, and the difference is the reason it has its own name
+///             and its own enum.
+///         </b>
+///         <c>text-align: center</c> centres the <i>inline</i> content of a
 ///         block container and leaves its block-level children exactly where §10.3.3 put them.
 ///         <c>-webkit-center</c> — the behaviour <c>&lt;center&gt;</c> had, kept alive because pages
 ///         depend on it — centres the child <i>boxes</i> as well, which is a block-layout rule that
@@ -227,8 +239,12 @@ public enum LegacyTextAlign : byte {
 /// </summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>The other half of <see cref="LegacyTextAlign" />, and the two are separate fields on
-///         purpose.</b> One CSS property carries both sets of keywords and they govern different
+///         ⚠
+///         <b>
+///             The other half of <see cref="LegacyTextAlign" />, and the two are separate fields on
+///             purpose.
+///         </b>
+///         One CSS property carries both sets of keywords and they govern different
 ///         boxes: the legacy three move a block container's <i>block-level</i> children and this one
 ///         distributes the <i>inline-level</i> items on a line. A container can have both kinds of
 ///         child, so one field could not hold both answers — which is the argument
@@ -273,8 +289,12 @@ public enum TextAlign : byte {
 /// <summary>Which side a box floats to, per CSS 2.1 §9.5.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>A float is out of flow but not out of the picture, which is what makes it unlike
-///         <see cref="PositionType.Absolute" />.</b> An absolute box is removed and forgotten: nothing
+///         ⚠
+///         <b>
+///             A float is out of flow but not out of the picture, which is what makes it unlike
+///             <see cref="PositionType.Absolute" />.
+///         </b>
+///         An absolute box is removed and forgotten: nothing
 ///         else moves because of it. A float is removed from the flow and then <i>shortens</i> what is
 ///         left — the line boxes beside it, the border box of any sibling that establishes a
 ///         formatting context of its own, and the height of the block formatting context that
@@ -302,8 +322,12 @@ public enum FloatSide : byte {
 
     /// <summary><c>float: inline-start</c> — <see cref="Left" /> in LTR and <see cref="Right" /> in RTL.</summary>
     /// <remarks>
-    ///     ⚠ <b>A flow-relative float is a <see cref="Direction" /> question, not a writing-mode
-    ///     one, and reading it as the latter is what kept it out of this enum.</b> CSS Logical
+    ///     ⚠
+    ///     <b>
+    ///         A flow-relative float is a <see cref="Direction" /> question, not a writing-mode
+    ///         one, and reading it as the latter is what kept it out of this enum.
+    ///     </b>
+    ///     CSS Logical
     ///     Properties defines <c>inline-start</c> against the writing mode <i>and</i> the direction —
     ///     and with no vertical writing mode the inline axis is horizontal in every configuration
     ///     this engine can be in, so the whole of the resolution is the one this line states. It does
@@ -328,8 +352,12 @@ public enum FloatSide : byte {
 ///         spent rather than carried forward.
 ///     </para>
 ///     <para>
-///         ⚠ <b><see cref="Left" /> and <see cref="Right" /> are physical and do not flip with
-///         <see cref="Direction" />.</b> §9.5.2's keywords name the same two sides
+///         ⚠
+///         <b>
+///             <see cref="Left" /> and <see cref="Right" /> are physical and do not flip with
+///             <see cref="Direction" />.
+///         </b>
+///         §9.5.2's keywords name the same two sides
 ///         <see cref="FloatSide" /> does, and neither pair is writing-mode-relative in CSS 2.1.
 ///         <see cref="InlineStart" /> and <see cref="InlineEnd" /> are the flow-relative pair CSS
 ///         Logical Properties adds beside them, and they exist <i>because</i> the first two do not.
@@ -372,8 +400,12 @@ public enum PositionType : byte {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Neither of the two obvious spellings works, which is why there is a fourth member
-    ///         rather than an alias.</b> CSS Position 3 § 2 lists <c>sticky</c> among the
+    ///         ⚠
+    ///         <b>
+    ///             Neither of the two obvious spellings works, which is why there is a fourth member
+    ///             rather than an alias.
+    ///         </b>
+    ///         CSS Position 3 § 2 lists <c>sticky</c> among the
     ///         <i>positioned</i> values, so a sticky box is the containing block of its absolutely
     ///         positioned descendants — which <see cref="Static" /> is not. But its <c>top</c> is a
     ///         floor applied against a scroll position, not a layout offset, so
@@ -451,8 +483,12 @@ public enum Overflow : byte {
 /// <summary>What a node promises about its contents, so that the rest of the tree may ignore them.</summary>
 /// <remarks>
 ///     <para>
-///         CSS Containment 2's <c>contain</c>, which is <b>five independent effects behind one
-///         property</b> rather than one switch with five settings — and reading it as one switch is
+///         CSS Containment 2's <c>contain</c>, which is
+///         <b>
+///             five independent effects behind one
+///             property
+///         </b>
+///         rather than one switch with five settings — and reading it as one switch is
 ///         how it gets built wrong. The eight Tailwind classes are combinations: <c>contain-content</c>
 ///         is <c>layout paint style</c> and <c>contain-strict</c> adds <c>size</c>, so a partial
 ///         implementation makes both aggregates half true rather than absent.
@@ -465,8 +501,12 @@ public enum Overflow : byte {
 ///         happen to fit, which is most of them.
 ///     </para>
 ///     <para>
-///         ⚠ <b>There is no <c>style</c> member, and its absence is a measurement rather than an
-///         omission.</b> § 3.4 scopes counters and quotes to the subtree; this engine has neither, so
+///         ⚠
+///         <b>
+///             There is no <c>style</c> member, and its absence is a measurement rather than an
+///             omission.
+///         </b>
+///         § 3.4 scopes counters and quotes to the subtree; this engine has neither, so
 ///         every value of it would compute and move nothing. <c>LayoutStyleBuilder</c> therefore
 ///         accepts the keyword and maps it to no flag, which is the difference between a property
 ///         that does nothing here and one that is not understood.
@@ -532,8 +572,12 @@ public enum Containment : byte {
 
 /// <summary>Which formatting context a node establishes for its children.</summary>
 /// <remarks>
-///     ⚠ <b>This was <c>{ Flex, None }</c>, and the one keyword added here is a whole second
-///     algorithm.</b> Doc 43 § B1. A <see cref="Block" /> container is not a flex column with
+///     ⚠
+///     <b>
+///         This was <c>{ Flex, None }</c>, and the one keyword added here is a whole second
+///         algorithm.
+///     </b>
+///     Doc 43 § B1. A <see cref="Block" /> container is not a flex column with
 ///     <c>align-items: stretch</c>: its children's vertical margins <i>collapse</i> into each other
 ///     and into the container's own, per CSS 2.1 §8.3.1, and CSS Flexbox §9.5 says in as many words
 ///     that flex item margins do not. Anything that reads this enum and treats an unrecognised member
@@ -572,8 +616,12 @@ public enum Display : byte {
     ///     taking one of its own.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>This store treats an <c>inline</c> box as <i>atomic</i>, and that is the one place the
-    ///     keyword is not the CSS one.</b> CSS Display §2.2 makes a non-replaced <c>inline</c> box
+    ///     ⚠
+    ///     <b>
+    ///         This store treats an <c>inline</c> box as <i>atomic</i>, and that is the one place the
+    ///         keyword is not the CSS one.
+    ///     </b>
+    ///     CSS Display §2.2 makes a non-replaced <c>inline</c> box
     ///     non-atomic: when it does not fit, it <i>fragments</i> — one box becomes several, one per
     ///     line it crosses, each with its own rectangle and with the horizontal border and padding
     ///     drawn only at the two real ends. A <see cref="LayoutResult" /> holds exactly one rectangle
@@ -592,9 +640,13 @@ public enum Display : byte {
     ///     stack.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>The difference from <see cref="Block" /> is entirely on the outside, and it is the
-    ///     reason this keyword was left unmapped until there was an inline formatting context to map
-    ///     it into.</b> A <see cref="Block" /> box in normal flow takes the whole line — CSS 2.1
+    ///     ⚠
+    ///     <b>
+    ///         The difference from <see cref="Block" /> is entirely on the outside, and it is the
+    ///         reason this keyword was left unmapped until there was an inline formatting context to map
+    ///         it into.
+    ///     </b>
+    ///     A <see cref="Block" /> box in normal flow takes the whole line — CSS 2.1
     ///     §10.3.3 solves <c>width: auto</c> to the containing block's width. An <c>inline-block</c>
     ///     resolves the same <c>width: auto</c> by §10.3.9's <i>shrink-to-fit</i>, and shares its line
     ///     with whatever comes before and after. Aliasing this onto <see cref="Block" /> would have
@@ -617,8 +669,12 @@ public enum Display : byte {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Not an alias for <see cref="Block" />, and the difference is the whole content of
-    ///         the keyword.</b> Every other way of getting a new formatting context has a side effect
+    ///         ⚠
+    ///         <b>
+    ///             Not an alias for <see cref="Block" />, and the difference is the whole content of
+    ///             the keyword.
+    ///         </b>
+    ///         Every other way of getting a new formatting context has a side effect
     ///         somebody has to live with — <c>overflow: hidden</c> clips, <c>float</c> takes the box
     ///         out of the stack, <c>inline-block</c> shrink-to-fits and shares a line. <c>flow-root</c>
     ///         is the one that asks for the formatting context and nothing else, so a
@@ -639,8 +695,12 @@ public enum Display : byte {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The fifth algorithm, and not an alias for <see cref="Block" /> — which is the one
-    ///         shortcut every audit of <c>Rikarin/Vixen#258</c> warned against.</b> A cell's width
+    ///         ⚠
+    ///         <b>
+    ///             The fifth algorithm, and not an alias for <see cref="Block" /> — which is the one
+    ///             shortcut every audit of <c>Rikarin/Vixen#258</c> warned against.
+    ///         </b>
+    ///         A cell's width
     ///         comes from its COLUMN, which is decided across rows before any cell is laid out, and its
     ///         height from its ROW, which is decided across the row's cells. Neither question can be
     ///         asked of a block box. See <c>LayoutTree.Table.cs</c>.
@@ -702,9 +762,13 @@ public enum TableLayout : byte {
 /// </summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>The split that used to be "three work and five are refused" is now a split between
-///         the values that need a <i>strut</i> and the values that do not, and the five are honoured
-///         wherever one has been written down.</b> <see cref="Baseline" />, <see cref="Top" /> and
+///         ⚠
+///         <b>
+///             The split that used to be "three work and five are refused" is now a split between
+///             the values that need a <i>strut</i> and the values that do not, and the five are honoured
+///             wherever one has been written down.
+///         </b>
+///         <see cref="Baseline" />, <see cref="Top" /> and
 ///         <see cref="Bottom" /> are geometry this store computes for itself: a baseline, and the two
 ///         edges of a box it just laid out. <see cref="Middle" />, <see cref="TextTop" />,
 ///         <see cref="TextBottom" />, <see cref="Sub" /> and <see cref="Super" /> are each defined
@@ -714,8 +778,12 @@ public enum TableLayout : byte {
 ///         the fonts writes on the container, the same way it already writes a resolved font size.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Where no strut was written the five still fall back to <see cref="Baseline" />, and
-///         that refusal is unchanged.</b> A silent fallback would put <c>vertical-align: middle</c>
+///         ⚠
+///         <b>
+///             Where no strut was written the five still fall back to <see cref="Baseline" />, and
+///             that refusal is unchanged.
+///         </b>
+///         A silent fallback would put <c>vertical-align: middle</c>
 ///         half an x-height out and read as a rounding error rather than as a missing number; what
 ///         the fallback now means is "nobody supplied a font", not "this store cannot".
 ///     </para>

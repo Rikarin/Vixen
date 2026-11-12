@@ -154,11 +154,12 @@ public static class GlProfiles {
     public static bool HasBorderClamp(this GlProfile profile) => profile >= GlProfile.Core45;
 
     /// <summary>The GLSL version directive the profile wants.</summary>
-    public static string ShaderVersion(this GlProfile profile) => profile switch {
-        GlProfile.Core45 => "#version 450 core",
-        GlProfile.Es32 => "#version 320 es",
-        _ => "#version 300 es"
-    };
+    public static string ShaderVersion(this GlProfile profile) =>
+        profile switch {
+            GlProfile.Core45 => "#version 450 core",
+            GlProfile.Es32 => "#version 320 es",
+            _ => "#version 300 es"
+        };
 
     /// <summary>What a device on this profile reports it can do.</summary>
     /// <param name="profile">The profile.</param>
@@ -167,67 +168,68 @@ public static class GlProfiles {
     ///     record: a capability nobody remembered to set comes back absent, so the failure mode of
     ///     forgetting a line is "the fallback path runs" rather than "the device lied".
     /// </remarks>
-    public static GraphicsDeviceFeatures Features(this GlProfile profile) => GraphicsDeviceFeatures.Minimum with {
-        HasCompute = profile.HasCompute(),
-        HasGeometryShaders = profile >= GlProfile.Es32,
-        HasTessellation = profile >= GlProfile.Es32,
+    public static GraphicsDeviceFeatures Features(this GlProfile profile) =>
+        GraphicsDeviceFeatures.Minimum with {
+            HasCompute = profile.HasCompute(),
+            HasGeometryShaders = profile >= GlProfile.Es32,
+            HasTessellation = profile >= GlProfile.Es32,
 
-        // Never. Mesh shaders are a vendor extension on GL and are not in any core profile.
-        HasMeshShaders = false,
+            // Never. Mesh shaders are a vendor extension on GL and are not in any core profile.
+            HasMeshShaders = false,
 
-        // Never. `GL_ARB_bindless_texture` exists but is not core anywhere and is absent on every
-        // GLES driver — so the non-bindless path is not a legacy concession here, it is the path.
-        HasBindless = false,
-        HasMultiDrawIndirect = profile >= GlProfile.Core45,
+            // Never. `GL_ARB_bindless_texture` exists but is not core anywhere and is absent on every
+            // GLES driver — so the non-bindless path is not a legacy concession here, it is the path.
+            HasBindless = false,
+            HasMultiDrawIndirect = profile >= GlProfile.Core45,
 
-        // The desktop profile only. `baseInstance` arrived with `ARB_base_instance`, core in 4.2, and
-        // GLES has it as an extension no core profile includes — so an indirect command's
-        // `firstInstance` must be zero on ES and may be anything on Core45.
-        HasDrawIndirectFirstInstance = profile >= GlProfile.Core45,
+            // The desktop profile only. `baseInstance` arrived with `ARB_base_instance`, core in 4.2, and
+            // GLES has it as an extension no core profile includes — so an indirect command's
+            // `firstInstance` must be zero on ES and may be anything on Core45.
+            HasDrawIndirectFirstInstance = profile >= GlProfile.Core45,
 
-        // Never, at any profile this backend targets. `glMultiDrawElementsIndirectCount` is core in
-        // 4.6 and an ARB extension before it, and Core45 is this backend's ceiling — see GlProfile.
-        // So a compacted run is issued at its maximum length with the culled arguments zeroed, which
-        // is what GpuDrawArguments does without the capability and will keep doing here.
-        HasDrawIndirectCount = false,
+            // Never, at any profile this backend targets. `glMultiDrawElementsIndirectCount` is core in
+            // 4.6 and an ARB extension before it, and Core45 is this backend's ceiling — see GlProfile.
+            // So a compacted run is issued at its maximum length with the culled arguments zeroed, which
+            // is what GpuDrawArguments does without the capability and will keep doing here.
+            HasDrawIndirectCount = false,
 
-        // Never. GL has no semaphores of any kind: its execution model is one implicit in-order
-        // stream, which is exactly why this backend elides barriers rather than translating them.
-        HasTimelineSemaphores = false,
-        HasAsyncCompute = false,
-        HasAsyncTransfer = false,
-        HasSparseResources = false,
+            // Never. GL has no semaphores of any kind: its execution model is one implicit in-order
+            // stream, which is exactly why this backend elides barriers rather than translating them.
+            HasTimelineSemaphores = false,
+            HasAsyncCompute = false,
+            HasAsyncTransfer = false,
+            HasSparseResources = false,
 
-        // Never. Hardware ray tracing arrived with the explicit APIs and was never back-ported to
-        // GL — no core profile or widely shipped extension has acceleration structures — so the
-        // distance-field tracer is the path on this backend, permanently.
-        HasRayTracing = false,
-        HasFloat64 = profile >= GlProfile.Core45,
-        HasSubgroupOperations = false,
+            // Never. Hardware ray tracing arrived with the explicit APIs and was never back-ported to
+            // GL — no core profile or widely shipped extension has acceleration structures — so the
+            // distance-field tracer is the path on this backend, permanently.
+            HasRayTracing = false,
+            HasFloat64 = profile >= GlProfile.Core45,
+            HasSubgroupOperations = false,
 
-        // GL renders into framebuffer objects, which are attachment sets built at bind time and
-        // thrown away — there is no render-pass object to be without. Reporting the capability
-        // Vulkan uses to mean "no VkRenderPass needed" is the honest answer.
-        HasDynamicRendering = true,
-        HasDepthClamp = profile >= GlProfile.Core45,
-        HasWireframe = profile.HasWireframe(),
-        HasAnisotropicFiltering = profile.HasAnisotropy(),
-        HasIndependentBlend = profile >= GlProfile.Es32,
-        HasPipelineStatistics = false,
+            // GL renders into framebuffer objects, which are attachment sets built at bind time and
+            // thrown away — there is no render-pass object to be without. Reporting the capability
+            // Vulkan uses to mean "no VkRenderPass needed" is the honest answer.
+            HasDynamicRendering = true,
+            HasDepthClamp = profile >= GlProfile.Core45,
+            HasWireframe = profile.HasWireframe(),
+            HasAnisotropicFiltering = profile.HasAnisotropy(),
+            HasIndependentBlend = profile >= GlProfile.Es32,
+            HasPipelineStatistics = false,
 
-        // A GLES or WebGL2 context is on a phone or in a browser; both share memory with the host.
-        HasUnifiedMemory = profile <= GlProfile.Es32,
-        MaxTextureSize = profile >= GlProfile.Core45 ? 16384 : 4096,
-        MaxTextureArrayLayers = 256,
-        MaxColourAttachments = 4,
-        MaxVertexBuffers = 4,
-        MaxDescriptorSets = 4,
+            // A GLES or WebGL2 context is on a phone or in a browser; both share memory with the host.
+            HasUnifiedMemory = profile <= GlProfile.Es32,
+            MaxTextureSize = profile >= GlProfile.Core45 ? 16384 : 4096,
+            MaxTextureArrayLayers = 256,
+            MaxColourAttachments = 4,
+            MaxVertexBuffers = 4,
+            MaxDescriptorSets = 4,
 
-        // GL has no push constants. They are emulated as plain uniforms in a reserved block, and
-        // 128 bytes is what the RHI's floor asks for — see `GlPipelineLayout`.
-        MaxPushConstantSize = 128,
-        MaxAnisotropy = profile.HasAnisotropy() ? 16f : 1f,
-        MaxComputeWorkgroupSize = (128, 128, 64),
-        SupportedSampleCounts = profile >= GlProfile.Es32 ? 0b101 : 0b1
-    };
+            // GL has no push constants. They are emulated as plain uniforms in a reserved block, and
+            // 128 bytes is what the RHI's floor asks for — see `GlPipelineLayout`.
+            MaxPushConstantSize = 128,
+            MaxAnisotropy = profile.HasAnisotropy() ? 16f : 1f,
+            MaxComputeWorkgroupSize = (128, 128, 64),
+            SupportedSampleCounts = profile >= GlProfile.Es32 ? 0b101 : 0b1
+        };
 }

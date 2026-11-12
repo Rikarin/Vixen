@@ -7,8 +7,10 @@ using System.Text.RegularExpressions;
 namespace Vixen.Graphics.OpenGL;
 
 /// <summary>A resource declaration that has to be bound by name after the link.</summary>
-/// <param name="Name">The GLSL identifier — a block name for a buffer, a variable name for a
-/// sampler.</param>
+/// <param name="Name">
+///     The GLSL identifier — a block name for a buffer, a variable name for a
+///     sampler.
+/// </param>
 /// <param name="Kind">What it binds.</param>
 /// <param name="Index">The flat GL index the plan gave it.</param>
 readonly record struct GlNamedBinding(string Name, DescriptorKind Kind, uint Index);
@@ -66,8 +68,12 @@ readonly record struct TranslatedShader(string Source, IReadOnlyList<GlNamedBind
 ///         the sort of thing that is right in eleven shaders and forgotten in the twelfth.
 ///     </para>
 ///     <para>
-///         <em>Interpolation.</em> ⚠ <b>And this one is not inside a <c>layout(…)</c> list, which is
-///         why it was missed.</b> <c>noperspective</c> is legal in the Vulkan GLSL Raven emits and is
+///         <em>Interpolation.</em> ⚠
+///         <b>
+///             And this one is not inside a <c>layout(…)</c> list, which is
+///             why it was missed.
+///         </b>
+///         <c>noperspective</c> is legal in the Vulkan GLSL Raven emits and is
 ///         a <em>reserved word</em> in GLSL ES at every version, so it is dropped for an ES head —
 ///         see <see cref="NoPerspectivePattern" />.
 ///     </para>
@@ -108,10 +114,11 @@ static partial class GlslTranslator {
 
         RefuseSeparateTextureAndSampler(body);
 
-        body = QualifierPattern().Replace(
-            body,
-            match => Rewrite(match, profile, plan, slotOf, named)
-        );
+        body = QualifierPattern()
+            .Replace(
+                body,
+                match => Rewrite(match, profile, plan, slotOf, named)
+            );
 
         // ⚠ An interpolation qualifier sits *outside* the layout parentheses, so nothing above this
         // line can see it — which is the whole of #1222. See NoPerspectivePattern.
@@ -135,9 +142,7 @@ static partial class GlslTranslator {
         }
 
         if (plan.PushConstantVectors > 0) {
-            builder.AppendLine(
-                $"uniform vec4 {PushConstantUniform}[{plan.PushConstantVectors}];"
-            );
+            builder.AppendLine($"uniform vec4 {PushConstantUniform}[{plan.PushConstantVectors}];");
         }
 
         var wraps = stage == ShaderStage.Vertex && !profile.HasClipControl();
@@ -170,8 +175,10 @@ static partial class GlslTranslator {
     }
 
     /// <summary>Whether a source already carries a version directive.</summary>
-    /// <remarks>Public for the test that asserts the directive is replaced rather than duplicated —
-    /// two <c>#version</c> lines is a compile error on every driver.</remarks>
+    /// <remarks>
+    ///     Public for the test that asserts the directive is replaced rather than duplicated —
+    ///     two <c>#version</c> lines is a compile error on every driver.
+    /// </remarks>
     public static bool HasVersion(string source) => VersionPattern().IsMatch(source);
 
     static string StripVersion(string source) => VersionPattern().Replace(source, string.Empty, 1);
@@ -275,8 +282,12 @@ static partial class GlslTranslator {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A separate texture and sampler is a syntax error on every GL profile, not a
-    ///         dialect wrinkle.</b> Raven emits Vulkan GLSL — <c>uniform texture2D albedo;</c>,
+    ///         ⚠
+    ///         <b>
+    ///             A separate texture and sampler is a syntax error on every GL profile, not a
+    ///             dialect wrinkle.
+    ///         </b>
+    ///         Raven emits Vulkan GLSL — <c>uniform texture2D albedo;</c>,
     ///         <c>uniform sampler albedoSampler;</c>, and
     ///         <c>texture(sampler2D(albedo, albedoSampler), uv)</c> at every use — which is
     ///         <c>GL_KHR_vulkan_glsl</c>. GL has only the combined object, so combining the pair is a
@@ -287,8 +298,12 @@ static partial class GlslTranslator {
     ///     <para>
     ///         That is <c>Vixen.Raven.Transpile</c>'s job, offline, through SPIRV-Cross — and it is
     ///         deliberately not this one's. What this does is refuse the input by name rather than
-    ///         hand the driver a shader whose first error is <c>syntax error, unexpected
-    ///         IDENTIFIER</c> several declarations away from the cause, which is what happened to
+    ///         hand the driver a shader whose first error is
+    ///         <c>
+    ///             syntax error, unexpected
+    ///             IDENTIFIER
+    ///         </c>
+    ///         several declarations away from the cause, which is what happened to
     ///         every Raven shader with a texture in it before this check existed.
     ///     </para>
     /// </remarks>
@@ -352,8 +367,12 @@ static partial class GlslTranslator {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The one thing this rewriter has to reach that is not inside a
-    ///         <c>layout(…)</c> list.</b> Raven's <c>[Interpolation("noperspective")]</c> emits
+    ///         ⚠
+    ///         <b>
+    ///             The one thing this rewriter has to reach that is not inside a
+    ///             <c>layout(…)</c> list.
+    ///         </b>
+    ///         Raven's <c>[Interpolation("noperspective")]</c> emits
     ///         <c>layout(location = 0) noperspective in vec2 in_x;</c>, and
     ///         <see cref="QualifierPattern" /> captures the parentheses and passes the declaration
     ///         after them through verbatim — so before this the word reached

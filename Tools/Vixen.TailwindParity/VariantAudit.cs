@@ -51,7 +51,7 @@ static class VariantAudit {
 
             if (variant.Probe is null) {
                 findings.Add(
-                    new ParityFinding(
+                    new(
                         "TWP010",
                         variant.Name,
                         $"{registry.Package}@{registry.Version} registers this variant and compiles no class"
@@ -66,7 +66,7 @@ static class VariantAudit {
 
             if (supported && declared.Contains(variant.Name)) {
                 findings.Add(
-                    new ParityFinding(
+                    new(
                         "TWP009",
                         variant.Name,
                         $"`{variant.Probe}:` resolves now, so this line must come out of"
@@ -79,7 +79,7 @@ static class VariantAudit {
 
             if (!supported && !declared.Contains(variant.Name)) {
                 findings.Add(
-                    new ParityFinding(
+                    new(
                         "TWP008",
                         variant.Name,
                         $"{registry.Package}@{registry.Version} has this variant, `{variant.Probe}:` does not"
@@ -92,7 +92,7 @@ static class VariantAudit {
         foreach (var name in declared) {
             if (!known.Contains(name)) {
                 findings.Add(
-                    new ParityFinding(
+                    new(
                         "TWP011",
                         name,
                         $"{registry.Package}@{registry.Version} has no such variant, so this line of"

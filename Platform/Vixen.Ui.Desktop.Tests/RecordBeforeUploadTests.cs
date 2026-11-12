@@ -63,8 +63,12 @@ public class RecordBeforeUploadTests {
         using var document = Panel(grouped);
 
         var device = new NullDevice(new() { Record = true });
-        var renderer = new UiRenderer(device, UiShaderLibrary.Load(device), new RenderOutput([PixelFormat.Bgra8UNormSrgb]));
-        var glyphs = new GlyphFieldCache(new GlyphAtlas(256, 256), resolution: 32);
+        var renderer = new UiRenderer(
+            device,
+            UiShaderLibrary.Load(device),
+            new RenderOutput([PixelFormat.Bgra8UNormSrgb])
+        );
+        var glyphs = new GlyphFieldCache(new(256, 256), 32);
         var frame = default(UiGeometry);
 
         document.Update();
@@ -110,26 +114,32 @@ public class RecordBeforeUploadTests {
         device.Recorder!.Clear();
         device.GraphicsQueue.Submit([commands]);
 
-        return [.. device.Recorder.Commands];
+        return [..device.Recorder.Commands];
     }
 
     [Fact]
     public void Recording_before_any_upload_is_refused_by_name_before_a_command_is_recorded() {
-        var (device, renderer, frame, _) = Frame(grouped: false);
+        var (device, renderer, frame, _) = Frame(false);
 
-        using (device)
-        using (renderer) {
-            InvalidOperationException? refused = null;
+        using (device) {
+            using (renderer) {
+                InvalidOperationException? refused = null;
 
-            var recorded = Submitted(
-                device,
-                inPass: true,
-                list => refused = Assert.Throws<InvalidOperationException>(() => renderer.Record(list, frame, new Int2(200, 200)))
-            );
+                var recorded = Submitted(
+                    device,
+                    true,
+                    list => refused = Assert.Throws<InvalidOperationException>(() => renderer.Record(
+                            list,
+                            frame,
+                            new(200, 200)
+                        )
+                    )
+                );
 
-            Assert.Contains("Upload", refused!.Message);
-            Assert.DoesNotContain(recorded, command => command.Kind == RecordedCommandKind.BindVertexBuffer);
-            Assert.DoesNotContain(recorded, command => command.Kind == RecordedCommandKind.DrawIndexed);
+                Assert.Contains("Upload", refused!.Message);
+                Assert.DoesNotContain(recorded, static command => command.Kind == RecordedCommandKind.BindVertexBuffer);
+                Assert.DoesNotContain(recorded, static command => command.Kind == RecordedCommandKind.DrawIndexed);
+            }
         }
     }
 
@@ -140,16 +150,21 @@ public class RecordBeforeUploadTests {
     /// </summary>
     [Fact]
     public void The_same_frame_uploaded_first_records_its_geometry() {
-        var (device, renderer, frame, atlas) = Frame(grouped: false);
+        var (device, renderer, frame, atlas) = Frame(false);
 
-        using (device)
-        using (renderer) {
-            Submitted(device, inPass: false, list => renderer.Upload(list, frame, atlas));
+        using (device) {
+            using (renderer) {
+                Submitted(device, false, list => renderer.Upload(list, frame, atlas));
 
-            var recorded = Submitted(device, inPass: true, list => renderer.Record(list, frame, new Int2(200, 200)));
+                var recorded = Submitted(
+                    device,
+                    true,
+                    list => renderer.Record(list, frame, new(200, 200))
+                );
 
-            Assert.Contains(recorded, command => command.Kind == RecordedCommandKind.BindVertexBuffer);
-            Assert.Contains(recorded, command => command.Kind == RecordedCommandKind.DrawIndexed);
+                Assert.Contains(recorded, static command => command.Kind == RecordedCommandKind.BindVertexBuffer);
+                Assert.Contains(recorded, static command => command.Kind == RecordedCommandKind.DrawIndexed);
+            }
         }
     }
 
@@ -159,30 +174,40 @@ public class RecordBeforeUploadTests {
     /// </summary>
     [Fact]
     public void Composing_before_any_upload_is_refused_by_name_before_a_command_is_recorded() {
-        var (device, renderer, frame, atlas) = Frame(grouped: true);
+        var (device, renderer, frame, atlas) = Frame(true);
 
-        using (device)
-        using (renderer) {
-            InvalidOperationException? refused = null;
+        using (device) {
+            using (renderer) {
+                InvalidOperationException? refused = null;
 
-            var recorded = Submitted(
-                device,
-                inPass: false,
-                list => refused = Assert.Throws<InvalidOperationException>(() => renderer.Compose(list, frame, new Int2(200, 200)))
-            );
+                var recorded = Submitted(
+                    device,
+                    false,
+                    list => refused = Assert.Throws<InvalidOperationException>(() => renderer.Compose(
+                            list,
+                            frame,
+                            new(200, 200)
+                        )
+                    )
+                );
 
-            // The submit itself is recorded; nothing the renderer would have issued is.
-            Assert.Contains("Upload", refused!.Message);
-            Assert.DoesNotContain(recorded, command => command.Kind == RecordedCommandKind.BeginRenderPass);
-            Assert.DoesNotContain(recorded, command => command.Kind == RecordedCommandKind.BindVertexBuffer);
+                // The submit itself is recorded; nothing the renderer would have issued is.
+                Assert.Contains("Upload", refused!.Message);
+                Assert.DoesNotContain(recorded, static command => command.Kind == RecordedCommandKind.BeginRenderPass);
+                Assert.DoesNotContain(recorded, static command => command.Kind == RecordedCommandKind.BindVertexBuffer);
 
-            // And the pair: uploaded first, the same frame composes its group.
-            Submitted(device, inPass: false, list => renderer.Upload(list, frame, atlas));
+                // And the pair: uploaded first, the same frame composes its group.
+                Submitted(device, false, list => renderer.Upload(list, frame, atlas));
 
-            var composed = Submitted(device, inPass: false, list => renderer.Compose(list, frame, new Int2(200, 200)));
+                var composed = Submitted(
+                    device,
+                    false,
+                    list => renderer.Compose(list, frame, new(200, 200))
+                );
 
-            Assert.Equal(1, renderer.Composited);
-            Assert.Contains(composed, command => command.Kind == RecordedCommandKind.BindVertexBuffer);
+                Assert.Equal(1, renderer.Composited);
+                Assert.Contains(composed, static command => command.Kind == RecordedCommandKind.BindVertexBuffer);
+            }
         }
     }
 
@@ -192,22 +217,23 @@ public class RecordBeforeUploadTests {
     /// </summary>
     [Fact]
     public void An_empty_frame_before_any_upload_records_nothing_and_is_not_refused() {
-        var (device, renderer, _, _) = Frame(grouped: false);
+        var (device, renderer, _, _) = Frame(false);
 
-        using (device)
-        using (renderer) {
-            var empty = new UiGeometry([], [], [], []);
+        using (device) {
+            using (renderer) {
+                var empty = new UiGeometry([], [], [], []);
 
-            var recorded = Submitted(
-                device,
-                inPass: true,
-                list => {
-                    renderer.Record(list, empty, new Int2(200, 200));
-                    renderer.Compose(list, empty, new Int2(200, 200));
-                }
-            );
+                var recorded = Submitted(
+                    device,
+                    true,
+                    list => {
+                        renderer.Record(list, empty, new(200, 200));
+                        renderer.Compose(list, empty, new(200, 200));
+                    }
+                );
 
-            Assert.DoesNotContain(recorded, command => command.Kind == RecordedCommandKind.BindVertexBuffer);
+                Assert.DoesNotContain(recorded, static command => command.Kind == RecordedCommandKind.BindVertexBuffer);
+            }
         }
     }
 }

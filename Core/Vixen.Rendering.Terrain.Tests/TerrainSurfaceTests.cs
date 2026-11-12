@@ -5,10 +5,10 @@ using Vixen.Core.Mathematics;
 using Vixen.Foliage;
 using Vixen.Terrain;
 using Xunit;
-
 using TerrainMap = Vixen.Terrain.Terrain;
 
 namespace Vixen.Rendering.Terrain.Tests;
+
 /// <summary>The adapter that lets a scatter stand on a heightfield.</summary>
 public sealed class TerrainSurfaceTests {
     static TerrainMap Flat(float height = 10f) =>
@@ -22,7 +22,7 @@ public sealed class TerrainSurfaceTests {
         var terrain = Flat(12f);
         var surface = new TerrainSurface(terrain);
 
-        var ground = surface.SampleAt(new(20f, 20f), "");
+        var ground = surface.SampleAt(new(20f, 20f), string.Empty);
 
         Assert.True(ground.Hit);
         Assert.Equal(12f, ground.Position.Y, 1);
@@ -40,16 +40,16 @@ public sealed class TerrainSurfaceTests {
     public void OffTheTerrainIsMissed() {
         var surface = new TerrainSurface(Flat());
 
-        Assert.False(surface.SampleAt(new(-1f, 20f), "").Hit);
-        Assert.False(surface.SampleAt(new(20f, -1f), "").Hit);
-        Assert.False(surface.SampleAt(new(100000f, 20f), "").Hit);
-        Assert.True(surface.SampleAt(new(1f, 1f), "").Hit);
+        Assert.False(surface.SampleAt(new(-1f, 20f), string.Empty).Hit);
+        Assert.False(surface.SampleAt(new(20f, -1f), string.Empty).Hit);
+        Assert.False(surface.SampleAt(new(100000f, 20f), string.Empty).Hit);
+        Assert.True(surface.SampleAt(new(1f, 1f), string.Empty).Hit);
     }
 
     [Fact]
     public void FlatGroundFacesUp() {
         var surface = new TerrainSurface(Flat());
-        var ground = surface.SampleAt(new(20f, 20f), "");
+        var ground = surface.SampleAt(new(20f, 20f), string.Empty);
 
         Assert.Equal(0f, ground.Slope, 3);
         Assert.Equal(1f, ground.Normal.Y, 3);
@@ -76,7 +76,7 @@ public sealed class TerrainSurfaceTests {
         terrain.Resolve();
 
         var surface = new TerrainSurface(terrain);
-        var ground = surface.SampleAt(new(20f, 20f), "");
+        var ground = surface.SampleAt(new(20f, 20f), string.Empty);
 
         Assert.Equal(MathF.PI / 4f, ground.Slope, 2);
     }
@@ -110,7 +110,7 @@ public sealed class TerrainSurfaceTests {
         var surface = new TerrainSurface(terrain);
 
         Assert.Equal(0f, surface.SampleAt(new(20f, 20f), "Gras").Weight);
-        Assert.Equal(1f, surface.SampleAt(new(20f, 20f), "").Weight);
+        Assert.Equal(1f, surface.SampleAt(new(20f, 20f), string.Empty).Weight);
     }
 
     /// <summary>A hole is not ground.</summary>
@@ -123,8 +123,8 @@ public sealed class TerrainSurfaceTests {
         var surface = new TerrainSurface(terrain);
         var scale = terrain.Description.MetresPerQuad;
 
-        Assert.False(surface.SampleAt(new(4.5f * scale, 4.5f * scale), "").Hit);
-        Assert.True(surface.SampleAt(new(20f * scale, 20f * scale), "").Hit);
+        Assert.False(surface.SampleAt(new(4.5f * scale, 4.5f * scale), string.Empty).Hit);
+        Assert.True(surface.SampleAt(new(20f * scale, 20f * scale), string.Empty).Hit);
     }
 
     /// <summary>A terrain placed away from the origin still answers in world space.</summary>
@@ -132,9 +132,9 @@ public sealed class TerrainSurfaceTests {
     public void AnOriginOffsetsTheWholeAnswer() {
         var surface = new TerrainSurface(Flat(5f), new(1000f, 3f, -500f));
 
-        Assert.False(surface.SampleAt(new(20f, 20f), "").Hit);
+        Assert.False(surface.SampleAt(new(20f, 20f), string.Empty).Hit);
 
-        var ground = surface.SampleAt(new(1020f, -480f), "");
+        var ground = surface.SampleAt(new(1020f, -480f), string.Empty);
 
         Assert.True(ground.Hit);
         Assert.Equal(8f, ground.Position.Y, 1);

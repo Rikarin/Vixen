@@ -30,7 +30,9 @@ abstract class JobPayloadStore {
     /// <summary>The profiling key every job in this store records under.</summary>
     internal ProfilingKey Key { get; }
 
-    private protected JobPayloadStore(ProfilingKey key) => Key = key;
+    private protected JobPayloadStore(ProfilingKey key) {
+        Key = key;
+    }
 
     /// <summary>Runs one batch of the job in <paramref name="slot" />.</summary>
     /// <param name="slot">Which payload to run.</param>
@@ -48,7 +50,9 @@ abstract class JobPayloadStore {
 sealed class SequentialJobStore<TJob> : JobPayloadStore where TJob : struct, IJob {
     readonly TJob[] payloads;
 
-    internal SequentialJobStore(int capacity) : base(SequentialJobType<TJob>.Key) => payloads = new TJob[capacity];
+    internal SequentialJobStore(int capacity) : base(SequentialJobType<TJob>.Key) {
+        payloads = new TJob[capacity];
+    }
 
     internal void Store(int slot, in TJob job) => payloads[slot] = job;
 
@@ -68,7 +72,9 @@ sealed class SequentialJobStore<TJob> : JobPayloadStore where TJob : struct, IJo
 sealed class ParallelJobStore<TJob> : JobPayloadStore where TJob : struct, IJobParallelFor {
     readonly TJob[] payloads;
 
-    internal ParallelJobStore(int capacity) : base(ParallelJobType<TJob>.Key) => payloads = new TJob[capacity];
+    internal ParallelJobStore(int capacity) : base(ParallelJobType<TJob>.Key) {
+        payloads = new TJob[capacity];
+    }
 
     internal void Store(int slot, in TJob job) => payloads[slot] = job;
 

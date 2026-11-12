@@ -189,13 +189,13 @@ public sealed partial class VirtualizingGrid : Control, IRowPool {
         // ⚠ The scroller's own width, not this control's. The difference is the vertical scrollbar,
         // and a grid that counted columns against the outer width fits one too many the moment the
         // content is tall enough to need one — which is every grid that needed virtualising.
-        columns = Math.Max(1, (int) MathF.Floor(Math.Max(Scroller.Width, 0f) / width));
+        columns = Math.Max(1, (int)MathF.Floor(Math.Max(Scroller.Width, 0f) / width));
 
         var lines = (Count + columns - 1) / columns;
 
         Scroller.Content.SetStyle("height", Px(lines * height));
 
-        var visible = (int) MathF.Ceiling(Math.Max(Scroller.Height, 0f) / height) + (Overscan * 2) + 1;
+        var visible = (int)MathF.Ceiling(Math.Max(Scroller.Height, 0f) / height) + Overscan * 2 + 1;
         var capacity = Math.Min(Count, visible * columns);
 
         // ⚠ Clamped in *lines* and not in items, which is the difference between this and a list.
@@ -204,7 +204,7 @@ public sealed partial class VirtualizingGrid : Control, IRowPool {
         // past the pool and cannot be reached however far the grid is scrolled. Bounding the first
         // line by `lines - visible` instead makes `first + capacity` reach `Count` exactly.
         var firstLine = Math.Clamp(
-            (int) MathF.Floor(Scroller.ScrollTop / height) - Overscan,
+            (int)MathF.Floor(Scroller.ScrollTop / height) - Overscan,
             0,
             Math.Max(0, lines - visible)
         );

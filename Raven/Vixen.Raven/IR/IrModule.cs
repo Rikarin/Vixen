@@ -24,7 +24,7 @@ public sealed class IrModule(string name) {
     public IReadOnlyList<IrShader> Shaders => shaders;
 
     /// <summary>Every function in the module, shaders' included.</summary>
-    public IEnumerable<IrFunction> AllFunctions => functions.Concat(shaders.SelectMany(s => s.Functions));
+    public IEnumerable<IrFunction> AllFunctions => functions.Concat(shaders.SelectMany(static s => s.Functions));
 
     public override string ToString() => Name;
 

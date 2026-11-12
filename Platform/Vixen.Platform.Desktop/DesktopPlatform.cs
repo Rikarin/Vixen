@@ -15,8 +15,10 @@ public readonly record struct DesktopPlatformOptions() {
     /// <summary>The publisher name used to place <c>/data</c> and <c>/cache</c>.</summary>
     public string Organisation { get; init; } = "Vixen";
 
-    /// <summary>The application name used to place <c>/data</c> and <c>/cache</c>, and the name SDL
-    /// gives the OS for its window class and audio streams.</summary>
+    /// <summary>
+    ///     The application name used to place <c>/data</c> and <c>/cache</c>, and the name SDL
+    ///     gives the OS for its window class and audio streams.
+    /// </summary>
     public string Application { get; init; } = "Vixen";
 
     /// <summary>Where files live, or <see langword="null" /> for the OS's standard locations.</summary>
@@ -45,7 +47,6 @@ public readonly record struct DesktopPlatformOptions() {
     ///     get one. Leaving it on also means a machine with no Vulkan fails at window creation with
     ///     SDL saying exactly that, rather than succeeding and failing later somewhere less
     ///     informative.
-    ///
     ///     Turn it off for a head that will never draw — a content-build tool, or a test — and for
     ///     the <c>dummy</c> video driver, which has no Vulkan at all.
     /// </remarks>
@@ -54,15 +55,23 @@ public readonly record struct DesktopPlatformOptions() {
     /// <summary>Whether windows should be created ready for an OpenGL context.</summary>
     /// <remarks>
     ///     <para>
-    ///         Off by default, and <b>mutually exclusive with
-    ///         <see cref="RequestGpuSurface" /></b>: SDL fixes a window's graphics API at creation,
+    ///         Off by default, and
+    ///         <b>
+    ///             mutually exclusive with
+    ///             <see cref="RequestGpuSurface" />
+    ///         </b>
+    ///         : SDL fixes a window's graphics API at creation,
     ///         a drawable is a Vulkan surface or a GL framebuffer and cannot be both, and neither
     ///         flag can be added afterwards. When both are set this one wins — it is the
     ///         non-default, so a head that set it meant it.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>This is what decides whether <c>GraphicsBackend.OpenGl</c> can ever
-    ///         succeed</b>, and it has to be decided before the graphics backend is chosen. So
+    ///         ⚠
+    ///         <b>
+    ///             This is what decides whether <c>GraphicsBackend.OpenGl</c> can ever
+    ///             succeed
+    ///         </b>
+    ///         , and it has to be decided before the graphics backend is chosen. So
     ///         a preference list of <c>[Vulkan, OpenGl, Null]</c> cannot fall back from Vulkan to
     ///         OpenGL within one process: the window was already made for Vulkan. Put OpenGL first
     ///         to run on it; falling back <i>across</i> window APIs would mean destroying and
@@ -88,8 +97,10 @@ public readonly record struct DesktopPlatformOptions() {
     /// </remarks>
     public bool UseNativeSupplement { get; init; } = true;
 
-    /// <summary>A specific supplement to use, or <see langword="null" /> to choose by operating
-    /// system.</summary>
+    /// <summary>
+    ///     A specific supplement to use, or <see langword="null" /> to choose by operating
+    ///     system.
+    /// </summary>
     /// <remarks>
     ///     Overrides <see cref="UseNativeSupplement" /> when set. Two uses: a test that wants to
     ///     observe what a supplement is asked and told, and a head that has its own — an embedder
@@ -132,9 +143,11 @@ public sealed unsafe class DesktopPlatform : IPlatform {
     bool disposed;
 
     /// <summary>Starts SDL and builds the platform.</summary>
-        /// <exception cref="PlatformNotSupportedException">SDL is not installed, or refused to
-    /// start.</exception>
-    public DesktopPlatform() : this(new DesktopPlatformOptions()) { }
+    /// <exception cref="PlatformNotSupportedException">
+    ///     SDL is not installed, or refused to
+    ///     start.
+    /// </exception>
+    public DesktopPlatform() : this(new()) { }
 
     /// <summary>Creates the platform.</summary>
     /// <param name="options">What to build it out of.</param>
@@ -207,8 +220,8 @@ public sealed unsafe class DesktopPlatform : IPlatform {
         // ⚠ Last, and read once here rather than lazily on the first `ColorScheme`. The whole point
         // of the property is that a host can seed its document from it before the first frame, and a
         // lazy first read would put a `gsettings` subprocess in the middle of one.
-        appearance = new DesktopAppearance();
-        accessibility = new DesktopAccessibility();
+        appearance = new();
+        accessibility = new();
 
         Clipboard = services.Clipboard;
         Dialogs = services.Dialogs;
@@ -286,8 +299,10 @@ public sealed unsafe class DesktopPlatform : IPlatform {
     /// <inheritdoc />
     public IProcessorTopology Processors { get; }
 
-    /// <summary>Which video driver SDL chose: <c>"windows"</c>, <c>"cocoa"</c>, <c>"wayland"</c>,
-    /// <c>"x11"</c>.</summary>
+    /// <summary>
+    ///     Which video driver SDL chose: <c>"windows"</c>, <c>"cocoa"</c>, <c>"wayland"</c>,
+    ///     <c>"x11"</c>.
+    /// </summary>
     /// <remarks>
     ///     Worth logging at boot. Half of the Linux bug reports an engine receives are answered by
     ///     this one string, and the difference between Wayland and X11 changes what the platform can
@@ -499,7 +514,7 @@ public sealed unsafe class DesktopPlatform : IPlatform {
     ///     difference is the whole of input latency, and measuring it needs the original number.
     /// </remarks>
     long TimestampOf(uint sdlMilliseconds) =>
-        startTimestamp + ((long)(sdlMilliseconds - startTicks) * Stopwatch.Frequency / 1000);
+        startTimestamp + (long)(sdlMilliseconds - startTicks) * Stopwatch.Frequency / 1000;
 
     void Translate(Event* sdlEvent) {
         var kind = (EventType)sdlEvent->Type;
@@ -755,25 +770,29 @@ public sealed unsafe class DesktopPlatform : IPlatform {
             case EventType.Quit:
                 ((DesktopLifecycle)Lifecycle).QuitReceived(TimestampOf(sdlEvent->Quit.Timestamp));
                 break;
-
-            default:
-                break;
         }
     }
 
     /// <summary>Where the pointer is over a window, for an event that does not say.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>SDL 2's drop event carries no coordinates at all, and posting
-    ///         <c>Vector2.Zero</c> is not a neutral answer — it is the top-left corner.</b> A
+    ///         ⚠
+    ///         <b>
+    ///             SDL 2's drop event carries no coordinates at all, and posting
+    ///             <c>Vector2.Zero</c> is not a neutral answer — it is the top-left corner.
+    ///         </b>
+    ///         A
     ///         consumer that hit-tests a drop the way it hit-tests a click would therefore deliver
     ///         every file in the application to whatever element happens to sit in that corner,
     ///         which is a working-looking wire that is wrong everywhere. That was the shipped
     ///         behaviour until this had a consumer, and it was invisible because it had none.
     ///     </para>
     ///     <para>
-    ///         <b>The position has to be asked for rather than read off the event, and it cannot be
-    ///         remembered from the last motion event either</b>: while a native drag is in progress
+    ///         <b>
+    ///             The position has to be asked for rather than read off the event, and it cannot be
+    ///             remembered from the last motion event either
+    ///         </b>
+    ///         : while a native drag is in progress
     ///         the window system owns the pointer and SDL delivers no motion at all, so the last one
     ///         seen is from wherever the pointer was before the drag began.
     ///         <c>SDL_GetGlobalMouseState</c> queries the window system instead of reading SDL's
@@ -868,9 +887,7 @@ public sealed unsafe class DesktopPlatform : IPlatform {
                 break;
 
             case WindowEventID.DisplayChanged:
-                events.Post(
-                    PlatformEvent.WindowDpiChanged(id, timestamp, FindWindow(id)?.DpiScale ?? 1f)
-                );
+                events.Post(PlatformEvent.WindowDpiChanged(id, timestamp, FindWindow(id)?.DpiScale ?? 1f));
 
                 break;
 
@@ -881,8 +898,7 @@ public sealed unsafe class DesktopPlatform : IPlatform {
 
     KeyModifiers Modifiers => SdlTranslation.ToModifiers(sdl.GetModState());
 
-    DesktopWindow? FindWindow(uint id) =>
-        byId.TryGetValue(id, out var window) && !window.IsClosed ? window : null;
+    DesktopWindow? FindWindow(uint id) => byId.TryGetValue(id, out var window) && !window.IsClosed ? window : null;
 
     static string ReadUtf8(byte* value) {
         var length = 0;

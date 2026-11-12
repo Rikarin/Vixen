@@ -133,7 +133,7 @@ public sealed class CompositeClientRaceTests : IDisposable {
         using var client = CompositeTransport.Racing([Route(Dead), Route(Live)], TimeSpan.FromSeconds(10));
 
         client.StartClient();
-        Pump(client, rounds: 4);
+        Pump(client, 4);
 
         Assert.Single(events.Connects(TransportRole.Client));
     }
@@ -214,14 +214,16 @@ public sealed class CompositeClientRaceTests : IDisposable {
     /// <summary>A stagger that runs backwards is refused where it is given, not where it is used.</summary>
     [Fact]
     public void ANegativeStaggerIsRefused() =>
-        Assert.Throws<ArgumentOutOfRangeException>(
-            () => CompositeTransport.Racing([new SilentTransport()], TimeSpan.FromMilliseconds(-1))
+        Assert.Throws<ArgumentOutOfRangeException>(static () => CompositeTransport.Racing(
+                [new SilentTransport()],
+                TimeSpan.FromMilliseconds(-1)
+            )
         );
 
     /// <summary>A composite that was not asked to race still drives exactly the one it was told to.</summary>
     [Fact]
     public void ACompositeThatWasNotAskedToRaceDrivesTheOneItWasTold() {
-        using var client = new CompositeTransport([Route(Live), Route(Dead)], clientTransport: 1);
+        using var client = new CompositeTransport([Route(Live), Route(Dead)], 1);
 
         client.StartClient();
         Pump(client);
@@ -274,8 +276,12 @@ public sealed class CompositeClientRaceTests : IDisposable {
     /// <summary>A route that connects and swallows loses to one that answers, and the session joins.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The case a race decided on the first connect cannot cover, and the reason
-    ///         <c>confirmWithin</c> exists.</b> <see cref="BlackHoleTransport" /> is the firewall that
+    ///         ⚠
+    ///         <b>
+    ///             The case a race decided on the first connect cannot cover, and the reason
+    ///             <c>confirmWithin</c> exists.
+    ///         </b>
+    ///         <see cref="BlackHoleTransport" /> is the firewall that
     ///         completes the connection and drops the payload: it wins the connect outright, so
     ///         without a budget every other route is torn down and the session above sends its
     ///         <c>ConnectRequest</c> into a hole with no fallback left. That is asserted next door in
@@ -283,8 +289,12 @@ public sealed class CompositeClientRaceTests : IDisposable {
     ///         makes this one evidence rather than decoration.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And the promotion is a second <c>OnConnected</c>, which the layer above is built
-    ///         for.</b> <c>NetworkSession</c>'s client arm abandons the earlier handshake span and
+    ///         ⚠
+    ///         <b>
+    ///             And the promotion is a second <c>OnConnected</c>, which the layer above is built
+    ///             for.
+    ///         </b>
+    ///         <c>NetworkSession</c>'s client arm abandons the earlier handshake span and
     ///         sends a fresh <c>ConnectRequest</c>; the session still reports exactly one
     ///         <c>Connected</c>, because that one is raised on the admission and not on the wire.
     ///     </para>
@@ -372,13 +382,13 @@ public sealed class CompositeClientRaceTests : IDisposable {
         client.StartClient();
 
         for (var poll = 0; poll < 16; poll++) {
-            Pump(client, rounds: 1);
+            Pump(client, 1);
 
             Assert.Same(hole, client.ClientTransport);
             Assert.Single(events.Connects(TransportRole.Client));
         }
 
-        Pump(client, rounds: 1);
+        Pump(client, 1);
 
         Assert.Same(client.Transports[1], client.ClientTransport);
         Assert.Equal(2, events.Connects(TransportRole.Client).Count);
@@ -433,7 +443,7 @@ public sealed class CompositeClientRaceTests : IDisposable {
         using var client = CompositeTransport.Racing([hole, Route(Live)], confirmWithin: Budget);
 
         client.StartClient();
-        Pump(client, rounds: 5);
+        Pump(client, 5);
 
         Assert.Equal(2, events.Connects(TransportRole.Client).Count);
         Assert.Empty(events.Disconnects(TransportRole.Client));
@@ -454,7 +464,7 @@ public sealed class CompositeClientRaceTests : IDisposable {
         );
 
         client.StartClient();
-        Pump(client, rounds: 64);
+        Pump(client, 64);
 
         var disconnects = events.Disconnects(TransportRole.Client);
 
@@ -466,8 +476,10 @@ public sealed class CompositeClientRaceTests : IDisposable {
     /// <summary>A confirmation budget that runs backwards is refused where it is given.</summary>
     [Fact]
     public void ANegativeConfirmationBudgetIsRefused() =>
-        Assert.Throws<ArgumentOutOfRangeException>(
-            () => CompositeTransport.Racing([new SilentTransport()], confirmWithin: TimeSpan.FromMilliseconds(-1))
+        Assert.Throws<ArgumentOutOfRangeException>(static () => CompositeTransport.Racing(
+                [new SilentTransport()],
+                confirmWithin: TimeSpan.FromMilliseconds(-1)
+            )
         );
 
     LocalTransport Route(string address) => new(network, address);
@@ -488,7 +500,7 @@ public sealed class CompositeClientRaceTests : IDisposable {
     sealed class SilentTransport : ITransport {
         public int Payload { get; init; } = 1200;
 
-        public TransportCapabilities Capabilities => new(Payload, IsInProcess: true, IsLossy: false);
+        public TransportCapabilities Capabilities => new(Payload, true, false);
         public TransportState ServerState { get; private set; }
         public TransportState ClientState { get; private set; }
 
@@ -502,6 +514,7 @@ public sealed class CompositeClientRaceTests : IDisposable {
         public void Poll(TimeSpan elapsed, ITransportEvents events) { }
         public void Dispose() { }
     }
+
     /// <summary>A transport that completes the connection and then swallows everything.</summary>
     /// <remarks>
     ///     ⚠ The middlebox this whole half exists for, and it is a different failure from
@@ -516,7 +529,7 @@ public sealed class CompositeClientRaceTests : IDisposable {
         /// <summary>How many polls after connecting it admits to being gone, or zero for never.</summary>
         public int DropAfter { get; init; }
 
-        public TransportCapabilities Capabilities => new(1200, IsInProcess: true, IsLossy: false);
+        public TransportCapabilities Capabilities => new(1200, true, false);
         public TransportState ServerState => TransportState.Stopped;
         public TransportState ClientState { get; private set; }
 

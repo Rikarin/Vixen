@@ -102,7 +102,7 @@ public static class CatalogFormat {
 
         WriteInt32(file, index[catalog.Target]);
 
-        var entries = catalog.Entries.OrderBy(entry => entry.Address, StringComparer.Ordinal).ToArray();
+        var entries = catalog.Entries.OrderBy(static entry => entry.Address, StringComparer.Ordinal).ToArray();
         WriteInt32(file, entries.Length);
 
         foreach (var entry in entries) {
@@ -119,7 +119,7 @@ public static class CatalogFormat {
             WriteIndices(file, index, entry.Labels);
         }
 
-        var bundles = catalog.Bundles.OrderBy(bundle => bundle.Name, StringComparer.Ordinal).ToArray();
+        var bundles = catalog.Bundles.OrderBy(static bundle => bundle.Name, StringComparer.Ordinal).ToArray();
         WriteInt32(file, bundles.Length);
 
         foreach (var bundle in bundles) {
@@ -153,8 +153,12 @@ public static class CatalogFormat {
     /// <exception cref="CatalogFormatException">It is not a catalog, is a version this cannot read, or is damaged.</exception>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Every count and every table index is checked, and the checksum above is not what
-    ///         makes that unnecessary.</b> A CRC32 says the bytes arrived as they were sent; it says
+    ///         ⚠
+    ///         <b>
+    ///             Every count and every table index is checked, and the checksum above is not what
+    ///             makes that unnecessary.
+    ///         </b>
+    ///         A CRC32 says the bytes arrived as they were sent; it says
     ///         nothing about who sent them, and it is four bytes anybody who edits the file can
     ///         recompute. So a catalog that reaches this point is intact, not trustworthy — and the
     ///         counts in it size arrays while the indices in it read one.
@@ -240,7 +244,7 @@ public static class CatalogFormat {
                 dependencies,
                 labels,
                 size,
-                new AssetReference(new AssetId(asset), new SubAssetId(subAsset)),
+                new AssetReference(new(asset), new(subAsset)),
                 shape
             );
         }
@@ -299,8 +303,12 @@ public static class CatalogFormat {
     /// <param name="what">What is being counted, for the message.</param>
     /// <returns>The count.</returns>
     /// <remarks>
-    ///     ⚠ <b>The array is sized from this, so this is where a small file buys a large
-    ///     allocation.</b> Every record in this format has a fixed minimum width, so the bytes left
+    ///     ⚠
+    ///     <b>
+    ///         The array is sized from this, so this is where a small file buys a large
+    ///         allocation.
+    ///     </b>
+    ///     Every record in this format has a fixed minimum width, so the bytes left
     ///     are an upper bound on how many of them there can be — which makes the check exact rather
     ///     than a guessed cap, and makes the cost of parsing a catalog proportional to its size.
     /// </remarks>
@@ -381,11 +389,11 @@ public static class CatalogFormat {
     /// </remarks>
     static void WriteGuid(Stream file, Guid value) {
         Span<byte> buffer = stackalloc byte[16];
-        value.TryWriteBytes(buffer, bigEndian: true, out _);
+        value.TryWriteBytes(buffer, true, out _);
         file.Write(buffer);
     }
 
-    static Guid ReadGuid(ReadOnlySpan<byte> body, ref int cursor) => new(Take(body, ref cursor, 16), bigEndian: true);
+    static Guid ReadGuid(ReadOnlySpan<byte> body, ref int cursor) => new(Take(body, ref cursor, 16), true);
 
     static void WriteInt64(Stream file, long value) {
         Span<byte> buffer = stackalloc byte[8];

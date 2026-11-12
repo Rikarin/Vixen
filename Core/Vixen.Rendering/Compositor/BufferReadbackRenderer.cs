@@ -33,8 +33,11 @@ namespace Vixen.Rendering.Compositor;
 ///         <see cref="RenderGraphPassBuilder.SideEffect" />.
 ///     </para>
 ///     <para>
-///         <strong>When the bytes are valid is <see cref="Latency" />'s question, and it is the only
-///         hard one here.</strong> There is no implicit wait anywhere in this — see
+///         <strong>
+///             When the bytes are valid is <see cref="Latency" />'s question, and it is the only
+///             hard one here.
+///         </strong>
+///         There is no implicit wait anywhere in this — see
 ///         <see cref="IGraphicsDevice.Read" /> for why an RHI that inserted one would be hiding a stall
 ///         the caller cannot see.
 ///     </para>
@@ -192,8 +195,7 @@ public sealed class BufferReadbackRenderer : SceneRenderer, IDisposable {
                 // costs, and it is the honest way round: a graph that guessed would keep every pass.
                 pass.SideEffect();
 
-                pass.Execute(
-                    context => context.CommandList.CopyBuffer(
+                pass.Execute(context => context.CommandList.CopyBuffer(
                         context.Buffer(source),
                         sourceOffset,
                         destination,

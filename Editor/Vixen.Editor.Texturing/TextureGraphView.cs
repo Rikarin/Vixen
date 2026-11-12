@@ -3,10 +3,7 @@
 
 using System.Globalization;
 using Vixen.Editor.NodeGraph;
-using Vixen.Editor.Plugin;
 using Vixen.NodeGraph;
-using Vixen.Texturing.Layers;
-using Vixen.Texturing.Painting;
 using Vixen.Ui;
 using Vixen.Ui.Controls;
 using Vixen.Ui.Controls.Advanced;
@@ -16,15 +13,22 @@ namespace Vixen.Editor.Texturing;
 /// <summary>A texture graph, open for editing: the canvas, and the picture it would make.</summary>
 /// <remarks>
 ///     <para>
-///         <b>Doc 48 § D1's panel, and the first production caller <see cref="ImageView" /> has
-///         had.</b> The canvas is <c>NodeGraphView</c>'s — the same one the shader graph, the VFX
+///         <b>
+///             Doc 48 § D1's panel, and the first production caller <see cref="ImageView" /> has
+///             had.
+///         </b>
+///         The canvas is <c>NodeGraphView</c>'s — the same one the shader graph, the VFX
 ///         graph and the compositor use, undoable in every gesture because it writes through the
 ///         document's own <c>CommandStack</c> — and the pane beside it is the image view batch 1
 ///         built for exactly this, which until now nothing in the editor constructed.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The preview pane draws what the device produced, and the line under it says what
-///         that is.</b> Two things used to stand between this panel and a picture and both are
+///         ⚠
+///         <b>
+///             The preview pane draws what the device produced, and the line under it says what
+///             that is.
+///         </b>
+///         Two things used to stand between this panel and a picture and both are
 ///         closed: a device published to plugins
 ///         (<a href="https://github.com/Rikarin/Vixen/issues/737">#737</a>), and a caller for the
 ///         public compiler (<a href="https://github.com/Rikarin/Vixen/issues/792">#792</a>). So the
@@ -36,8 +40,12 @@ namespace Vixen.Editor.Texturing;
 ///         document and not about the host.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Built in C# rather than in <c>.vxml</c>, and that is a debt rather than a
-///         preference.</b> Doc 36 § P4 makes markup the authoring path and <c>TerrainBrushInspector</c>
+///         ⚠
+///         <b>
+///             Built in C# rather than in <c>.vxml</c>, and that is a debt rather than a
+///             preference.
+///         </b>
+///         Doc 36 § P4 makes markup the authoring path and <c>TerrainBrushInspector</c>
 ///         is the worked example; this panel is three elements and a status line, and porting it is
 ///         worth doing when it grows a form. The layout is set inline for the reason a component's
 ///         host element collapses otherwise: nothing here is styled by a sheet this assembly owns.
@@ -52,8 +60,12 @@ sealed class TextureGraphView {
 
     /// <summary>Whether the preview has been framed against a box that had a size.</summary>
     /// <remarks>
-    ///     ⚠ <b><see cref="ImageView.Fit" /> answers false rather than throwing when there is nothing
-    ///     to fit</b> — the frame before the first layout, a collapsed dock, a hidden tab. So the
+    ///     ⚠
+    ///     <b>
+    ///         <see cref="ImageView.Fit" /> answers false rather than throwing when there is nothing
+    ///         to fit
+    ///     </b>
+    ///     — the frame before the first layout, a collapsed dock, a hidden tab. So the
     ///     first fit is one that has to be *retried* until it takes, and a view that framed once and
     ///     never again would show a graph at a zoom of nothing.
     /// </remarks>
@@ -166,9 +178,13 @@ sealed class TextureGraphView {
 
     /// <summary>The channel and transfer-function pickers over that pane.</summary>
     /// <remarks>
-    ///     ⚠ <b>Held rather than built and forgotten, because
-    ///     <a href="https://github.com/Rikarin/Vixen/issues/1012">#1012</a> is about the strip being
-    ///     reachable and a test has to be able to click it.</b> The strip writes
+    ///     ⚠
+    ///     <b>
+    ///         Held rather than built and forgotten, because
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/1012">#1012</a> is about the strip being
+    ///         reachable and a test has to be able to click it.
+    ///     </b>
+    ///     The strip writes
     ///     <see cref="ImageView.Channels" /> and <see cref="ImageView.ColorSpace" /> on
     ///     <see cref="Preview" /> and reads nothing back, so this panel neither stores nor restores
     ///     the choice: it is a way of looking at the picture rather than a property of the graph, and
@@ -194,18 +210,27 @@ sealed class TextureGraphView {
     ///         <see cref="TexturePreviewBlocker.AnotherPane" /> tells the reader.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>It fires on every change to the model, including a node being dragged to a new
-    ///         position.</b> That is a compile and a dispatch for a move that cannot change a texel,
+    ///         ⚠
+    ///         <b>
+    ///             It fires on every change to the model, including a node being dragged to a new
+    ///             position.
+    ///         </b>
+    ///         That is a compile and a dispatch for a move that cannot change a texel,
     ///         and the alternative is a pane that is right about some edits and stale about others,
     ///         which is worse than slow.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>What that cost was <em>not</em> is the layers panel's, and the remark here said it
-    ///         was</b> — <a href="https://github.com/Rikarin/Vixen/issues/957">#957</a>.
+    ///         ⚠
+    ///         <b>
+    ///             What that cost was <em>not</em> is the layers panel's, and the remark here said it
+    ///             was
+    ///         </b>
+    ///         — <a href="https://github.com/Rikarin/Vixen/issues/957">#957</a>.
     ///         <c>GraphChanged</c> is raised from <c>NodeGraphView.OnGraphChanged</c> <em>after</em>
     ///         that method has already reprojected the canvas, so the refresh this triggers used to
     ///         project a second time and refit the preview — a rebuilt canvas and a discarded zoom on
-    ///         every wire dragged. <see cref="Show(TextureGraphDocument, TextureGraphPicture)" /> now assigns the registry only when the node
+    ///         every wire dragged. <see cref="Show(TextureGraphDocument, TextureGraphPicture)" /> now assigns the registry
+    ///         only when the node
     ///         types changed and frames the preview only when its subject does.
     ///     </para>
     /// </remarks>
@@ -224,7 +249,8 @@ sealed class TextureGraphView {
 
     /// <summary>Set by a caller that compiled before showing, to say the compile republished.</summary>
     /// <remarks>
-    ///     ⚠ <b>Cleared by the next <see cref="Show(TextureGraphDocument, TextureGraphPicture)" />, so it cannot answer twice.</b>
+    ///     ⚠
+    ///     <b>Cleared by the next <see cref="Show(TextureGraphDocument, TextureGraphPicture)" />, so it cannot answer twice.</b>
     ///     <c>TextureGraphDocument.Republish</c> is a one-shot: it returns true once per change and
     ///     false afterwards. Anything that compiles — which is what producing a picture means —
     ///     consumes it, so a caller that produces the picture first has to carry the answer across
@@ -277,7 +303,7 @@ sealed class TextureGraphView {
 
         Empty.SetStyle("display", document is null ? "flex" : "none");
         root.SetStyle("display", document is null ? "none" : "flex");
-        status.Text = picture?.Status ?? "";
+        status.Text = picture?.Status ?? string.Empty;
 
         if (document is null) {
             title.Text = "Result";
@@ -313,7 +339,7 @@ sealed class TextureGraphView {
             status.Text = string.Join(
                 " · ",
                 document.CompoundProblems
-                    .Select(problem => $"'{problem.Path}' is not in the menu: {problem.Problem}")
+                    .Select(static problem => $"'{problem.Path}' is not in the menu: {problem.Problem}")
                     .Prepend(status.Text)
             );
         }
@@ -325,8 +351,8 @@ sealed class TextureGraphView {
         // nowhere else to appear — #830's finding, one panel over.
         if (picture is not null) {
             var cautions = picture.Diagnostics
-                .Where(one => one.Severity != NodeSeverity.Error)
-                .Select(one => one.Id + ": " + one.Message)
+                .Where(static one => one.Severity != NodeSeverity.Error)
+                .Select(static one => one.Id + ": " + one.Message)
                 .ToArray();
 
             if (cautions.Length > 0) {
@@ -395,7 +421,9 @@ sealed class TextureGraphView {
         // were inspecting was recomputed, which is exactly when they were looking at it. A new
         // document or a new extent is a different picture and is framed; the same graph recompiled is
         // the same picture and is left where the author put it.
-        if (fitted && ReferenceEquals(framed, document) && framedWidth == document.BaseWidth
+        if (fitted
+            && ReferenceEquals(framed, document)
+            && framedWidth == document.BaseWidth
             && framedHeight == document.BaseHeight) {
             return;
         }
@@ -418,7 +446,7 @@ sealed class TextureGraphView {
     ///     One entry is the ordinary state — the author's own graph — and the trail strip is hidden
     ///     for it. Anything more and the canvas is showing a published graph rather than the document.
     /// </remarks>
-    public IReadOnlyList<string> Trail => [.. opened.Select(step => step.Label)];
+    public IReadOnlyList<string> Trail => [..opened.Select(static step => step.Label)];
 
     /// <summary>What the trail says about the graph it took the author into.</summary>
     public const string ReadOnly =
@@ -428,8 +456,12 @@ sealed class TextureGraphView {
     /// <param name="type">Its node-type path, which is what the trail calls it.</param>
     /// <param name="graph">The graph.</param>
     /// <remarks>
-    ///     ⚠ <b>The model is the library's own and every graph containing that node type shares
-    ///     it</b>, which is why the canvas is put in its read-only state rather than merely being
+    ///     ⚠
+    ///     <b>
+    ///         The model is the library's own and every graph containing that node type shares
+    ///         it
+    ///     </b>
+    ///     , which is why the canvas is put in its read-only state rather than merely being
     ///     asked nicely: an edit here would rewrite a compound for every material in the project,
     ///     with no undo entry and nothing to save it to. <c>NodeGraphView.IsReadOnly</c> is
     ///     "there is no stack", so taking the stack away is the whole mechanism.
@@ -441,8 +473,12 @@ sealed class TextureGraphView {
 
     /// <summary>Points the trail at a rebuilt library, and truncates it where it no longer reaches.</summary>
     /// <remarks>
-    ///     ⚠ <b>Re-resolved by node-type path rather than kept, because the path is the only part of
-    ///     a trail step that survives a republish.</b> A crumb's label <em>is</em> that path, which
+    ///     ⚠
+    ///     <b>
+    ///         Re-resolved by node-type path rather than kept, because the path is the only part of
+    ///         a trail step that survives a republish.
+    ///     </b>
+    ///     A crumb's label <em>is</em> that path, which
     ///     is what makes this possible at all; a compound that has been renamed or deleted resolves
     ///     to nothing, and the trail is cut back to the last step that is still true rather than
     ///     left pointing at a graph no library has.

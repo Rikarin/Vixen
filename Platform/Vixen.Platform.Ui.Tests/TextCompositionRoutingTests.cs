@@ -11,8 +11,11 @@ namespace Vixen.Platform.Ui.Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>The gap this closes was invisible from both ends, and that is the point of putting a
-///         test on the seam rather than on either side of it.</b>
+///         ⚠
+///         <b>
+///             The gap this closes was invisible from both ends, and that is the point of putting a
+///             test on the seam rather than on either side of it.
+///         </b>
 ///         <c>PlatformEventKind.TextEditing</c> has existed since the platform layer was written, is
 ///         documented on <c>PlatformEvent</c>, is produced by <c>DesktopPlatform</c> from SDL and by
 ///         <c>WebPlatform</c> from the invisible <c>&lt;input&gt;</c>'s composition events, and has a

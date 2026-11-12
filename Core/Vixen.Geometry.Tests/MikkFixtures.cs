@@ -19,7 +19,8 @@ static class MikkFixtures {
 
     /// <summary>One flat quad of two triangles, with <c>u</c> along +X and the image's top along +Y.</summary>
     public static Soup Plane() {
-        Vector3[] points = [new(0f, 0f, 0f), new(2f, 0f, 0f), new(2f, 3f, 0f), new(0f, 0f, 0f), new(2f, 3f, 0f), new(0f, 3f, 0f)];
+        Vector3[] points =
+            [new(0f, 0f, 0f), new(2f, 0f, 0f), new(2f, 3f, 0f), new(0f, 0f, 0f), new(2f, 3f, 0f), new(0f, 3f, 0f)];
         Vector2[] uvs = [new(0f, 1f), new(1f, 1f), new(1f, 0f), new(0f, 1f), new(1f, 0f), new(0f, 0f)];
 
         return new("plane", points, Same(Vector3.UnitZ, 6), uvs);
@@ -35,9 +36,9 @@ static class MikkFixtures {
             var angle = MathF.Tau * column / around;
             var normal = new Vector3(MathF.Cos(angle), 0f, MathF.Sin(angle));
 
-            points.Add(normal + (Vector3.UnitY * ((float)row / up)));
+            points.Add(normal + Vector3.UnitY * ((float)row / up));
             normals.Add(normal);
-            uvs.Add(new((float)column / around, 1f - ((float)row / up)));
+            uvs.Add(new((float)column / around, 1f - (float)row / up));
         }
 
         for (var column = 0; column < around; column++) {
@@ -51,7 +52,7 @@ static class MikkFixtures {
             }
         }
 
-        return new("cylinder", [.. points], [.. normals], [.. uvs]);
+        return new("cylinder", [..points], [..normals], [..uvs]);
     }
 
     /// <summary>The cylinder with its atlas folded at the middle, so one half is mirrored.</summary>
@@ -83,7 +84,7 @@ static class MikkFixtures {
         Face(Vector3.UnitY, Vector3.UnitX, -Vector3.UnitZ);
         Face(-Vector3.UnitY, Vector3.UnitX, Vector3.UnitZ);
 
-        return new("hard-box", [.. points], [.. normals], [.. uvs]);
+        return new("hard-box", [..points], [..normals], [..uvs]);
     }
 
     /// <summary>
@@ -99,7 +100,7 @@ static class MikkFixtures {
             heights[at] = random.NextSingle() * 0.3f;
         }
 
-        Vector3 Point(int x, int y) => new(x + (0.01f * (x * y % 3)), y, heights[(y * (Side + 1)) + x]);
+        Vector3 Point(int x, int y) => new(x + 0.01f * (x * y % 3), y, heights[y * (Side + 1) + x]);
 
         Vector3 Normal(int x, int y) {
             var (left, right) = (Point(Math.Max(x - 1, 0), y), Point(Math.Min(x + 1, Side), y));
@@ -108,7 +109,7 @@ static class MikkFixtures {
             return Vector3.Normalize(Vector3.Cross(right - left, up - down));
         }
 
-        Vector2 Uv(int x, int y) => new(x > 8 ? (16f - x) / Side : (float)x / Side, 1f - ((float)y / Side));
+        Vector2 Uv(int x, int y) => new(x > 8 ? (16f - x) / Side : (float)x / Side, 1f - (float)y / Side);
 
         List<(Vector3, Vector3, Vector2)[]> triangles = [];
 
@@ -128,7 +129,7 @@ static class MikkFixtures {
         triangles.Add([one, one, Corner(5, 5)]);
         triangles.Add([Corner(6, 6), Corner(6, 6), Corner(6, 6)]);
         triangles.Add([Corner(1, 1), Corner(2, 1) with { Item3 = Uv(1, 1) }, Corner(2, 2) with { Item3 = Uv(1, 1) }]);
-        triangles.Add([.. triangles[10]]);
+        triangles.Add([..triangles[10]]);
 
         for (var at = triangles.Count - 1; at > 0; at--) {
             var other = random.Next(at + 1);
@@ -140,11 +141,11 @@ static class MikkFixtures {
 
         return new(
             $"awkward-{seed}",
-            [.. corners.Select(static corner => corner.Item1)],
-            [.. corners.Select(static corner => corner.Item2)],
-            [.. corners.Select(static corner => corner.Item3)]
+            [..corners.Select(static corner => corner.Item1)],
+            [..corners.Select(static corner => corner.Item2)],
+            [..corners.Select(static corner => corner.Item3)]
         );
     }
 
-    static Vector3[] Same(Vector3 value, int count) => [.. Enumerable.Repeat(value, count)];
+    static Vector3[] Same(Vector3 value, int count) => [..Enumerable.Repeat(value, count)];
 }

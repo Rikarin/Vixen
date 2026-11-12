@@ -127,8 +127,12 @@ public readonly record struct SnapHit(Vector3 Point, Vector3? Normal, SnapElemen
 ///         without being either.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The four booleans and three steps that were here before are still here, and still
-///         mean what they meant.</b> They are views over <see cref="Elements" /> rather than separate
+///         ⚠
+///         <b>
+///             The four booleans and three steps that were here before are still here, and still
+///             mean what they meant.
+///         </b>
+///         They are views over <see cref="Elements" /> rather than separate
 ///         state — two writers for one fact is how a toolbar toggle and a settings panel end up
 ///         disagreeing — so everything that reads <see cref="SnapPosition" /> or
 ///         <see cref="SnapToVertex" /> is unchanged, and everything that writes them moves the set.
@@ -153,8 +157,12 @@ public sealed class SnapContext {
 
     /// <summary>The orthogonal switches.</summary>
     /// <remarks>
-    ///     ⚠ <b><see cref="SnapModifiers.AlignToTarget" /> is on by default, which is not Blender's
-    ///     default and is deliberate.</b> A drop onto a surface has stood the dropped thing up since
+    ///     ⚠
+    ///     <b>
+    ///         <see cref="SnapModifiers.AlignToTarget" /> is on by default, which is not Blender's
+    ///         default and is deliberate.
+    ///     </b>
+    ///     A drop onto a surface has stood the dropped thing up since
     ///     before this type existed, and the whole argument for one context is that a drop and a drag
     ///     onto the same ramp cannot disagree. Nothing is reachable without turning
     ///     <see cref="SnapElements.Face" /> on, which is off.
@@ -171,8 +179,12 @@ public sealed class SnapContext {
     /// <summary>Whether a translate lands on the world grid rather than moving by whole steps of it.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Two different things are called snapping and only one of them puts objects on the
-    ///         grid.</b> Off — the default, and what Blender, Unity and Unreal all do — a drag moves
+    ///         ⚠
+    ///         <b>
+    ///             Two different things are called snapping and only one of them puts objects on the
+    ///             grid.
+    ///         </b>
+    ///         Off — the default, and what Blender, Unity and Unreal all do — a drag moves
     ///         by a whole number of steps, so something at 0.3 dragged one step lands at 1.3. That is
     ///         the right answer for nudging a thing that is already where it should be, and it is
     ///         useless for lining several things up. On, the drag rounds the resulting <i>position</i>,
@@ -220,8 +232,12 @@ public sealed class SnapContext {
 
     /// <summary>How far apart the grid lines are, in world units.</summary>
     /// <remarks>
-    ///     ⚠ <b>A <see cref="Plane" /> with a chosen step wins, and writing this while it has one has
-    ///     no effect that anybody can see.</b> That is the point rather than a hazard: the designer
+    ///     ⚠
+    ///     <b>
+    ///         A <see cref="Plane" /> with a chosen step wins, and writing this while it has one has
+    ///         no effect that anybody can see.
+    ///     </b>
+    ///     That is the point rather than a hazard: the designer
     ///     chose the step with <c>]</c> and <c>[</c>, and a second number able to disagree with it is
     ///     exactly what D5 objects to. Nothing in the editor writes this; it is the default for a
     ///     context with no plane, which is every test and every host without a viewport.
@@ -261,8 +277,7 @@ public sealed class SnapContext {
     /// <summary>Turns an element on or off.</summary>
     /// <param name="element">The element.</param>
     /// <param name="on">Whether it should be on.</param>
-    public void Toggle(SnapElements element, bool on) =>
-        Elements = on ? Elements | element : Elements & ~element;
+    public void Toggle(SnapElements element, bool on) => Elements = on ? Elements | element : Elements & ~element;
 
     /// <summary>Turns a modifier on or off.</summary>
     /// <param name="modifier">The modifier.</param>
@@ -294,6 +309,5 @@ public sealed class SnapContext {
     /// <returns>The rounded factor.</returns>
     public float Scale(float factor) => Round(factor, SnapScale ? ScaleStep : 0f);
 
-    static float Round(float value, float step) =>
-        step <= 0f ? value : MathF.Round(value / step) * step;
+    static float Round(float value, float step) => step <= 0f ? value : MathF.Round(value / step) * step;
 }

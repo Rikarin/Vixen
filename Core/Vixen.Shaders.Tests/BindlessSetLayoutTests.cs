@@ -86,8 +86,10 @@ public class BindlessSetLayoutTests {
         // rather than by reading the layout back, because a write is what the capacity is *for*.
         device.UpdateDescriptorSet(set, [DescriptorWrite.Texture(0, view) with { ArrayIndex = 63 }]);
 
-        Assert.Throws<ArgumentOutOfRangeException>(
-            () => device.UpdateDescriptorSet(set, [DescriptorWrite.Texture(0, view) with { ArrayIndex = 64 }])
+        Assert.Throws<ArgumentOutOfRangeException>(() => device.UpdateDescriptorSet(
+                set,
+                [DescriptorWrite.Texture(0, view) with { ArrayIndex = 64 }]
+            )
         );
 
         // And the device would have allowed vastly more, which is what makes the number the loader's.
@@ -119,8 +121,10 @@ public class BindlessSetLayoutTests {
 
         var narrow = device.CreateDescriptorSet(small);
 
-        Assert.Throws<ArgumentOutOfRangeException>(
-            () => device.UpdateDescriptorSet(narrow, [DescriptorWrite.Texture(0, view) with { ArrayIndex = 255 }])
+        Assert.Throws<ArgumentOutOfRangeException>(() => device.UpdateDescriptorSet(
+                narrow,
+                [DescriptorWrite.Texture(0, view) with { ArrayIndex = 255 }]
+            )
         );
     }
 
@@ -154,8 +158,10 @@ public class BindlessSetLayoutTests {
 
         device.UpdateDescriptorSet(set, [DescriptorWrite.Texture(2, view) with { ArrayIndex = 63 }]);
 
-        Assert.Throws<ArgumentOutOfRangeException>(
-            () => device.UpdateDescriptorSet(set, [DescriptorWrite.Texture(2, view) with { ArrayIndex = 64 }])
+        Assert.Throws<ArgumentOutOfRangeException>(() => device.UpdateDescriptorSet(
+                set,
+                [DescriptorWrite.Texture(2, view) with { ArrayIndex = 64 }]
+            )
         );
 
         // And the device would have allowed vastly more — the ceiling this used to fall back to.
@@ -186,8 +192,10 @@ public class BindlessSetLayoutTests {
 
         device.UpdateDescriptorSet(set, [DescriptorWrite.Texture(3, view) with { ArrayIndex = 31 }]);
 
-        Assert.Throws<ArgumentOutOfRangeException>(
-            () => device.UpdateDescriptorSet(set, [DescriptorWrite.Texture(3, view) with { ArrayIndex = 32 }])
+        Assert.Throws<ArgumentOutOfRangeException>(() => device.UpdateDescriptorSet(
+                set,
+                [DescriptorWrite.Texture(3, view) with { ArrayIndex = 32 }]
+            )
         );
     }
 
@@ -203,10 +211,7 @@ public class BindlessSetLayoutTests {
 
     /// <summary>Something for a table to hold.</summary>
     static TextureViewHandle View(NullDevice device) =>
-        device.CreateTextureView(
-            device.CreateTexture(new(PixelFormat.Rgba8UNorm, 4, 4, TextureUsage.Sampled)),
-            new()
-        );
+        device.CreateTextureView(device.CreateTexture(new(PixelFormat.Rgba8UNorm, 4, 4, TextureUsage.Sampled)));
 
     /// <summary>And the four ordinary sets still share their layouts across shaders.</summary>
     /// <remarks>

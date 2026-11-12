@@ -6,7 +6,6 @@ using Vixen.Editor.Testing;
 using Vixen.Engine.Diagnostics;
 using Vixen.Engine.Diagnostics.Overlays;
 using Vixen.Engine.Transforms;
-using Vixen.Physics.Bodies;
 using Vixen.Physics.Ecs;
 using Xunit;
 
@@ -92,7 +91,7 @@ public class PlayOverlayTests {
 
         // A body to draw. Through the session's own scene, so this is the simulation the overlay
         // holds rather than a second one.
-        var crate = physics.Entities.Create(LocalTransform.At(new Vector3(0f, 5f, 0f)));
+        var crate = physics.Entities.Create(LocalTransform.At(new(0f, 5f, 0f)));
 
         physics.Entities.Add(crate, Collider.Of(physics.Shapes.Box(0.5f)));
         physics.Entities.Add(crate, RigidBody.Dynamic());
@@ -250,7 +249,7 @@ public class PlayOverlayTests {
         Assert.True(play.TryGet<PhysicsScene>(out var physics));
         Assert.NotNull(physics);
 
-        var crate = physics.Entities.Create(LocalTransform.At(new Vector3(0f, 5f, 0f)));
+        var crate = physics.Entities.Create(LocalTransform.At(new(0f, 5f, 0f)));
 
         physics.Entities.Add(crate, Collider.Of(physics.Shapes.Box(0.5f)));
         physics.Entities.Add(crate, RigidBody.Dynamic());

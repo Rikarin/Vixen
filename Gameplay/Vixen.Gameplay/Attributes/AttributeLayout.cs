@@ -141,5 +141,5 @@ public sealed class AttributeLayoutBuilder {
 
     /// <summary>Produces the layout.</summary>
     /// <returns>The layout.</returns>
-    public AttributeLayout Build() => new([.. schemas]);
+    public AttributeLayout Build() => new([..schemas]);
 }

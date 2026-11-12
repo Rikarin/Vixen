@@ -8,11 +8,8 @@ using Vixen.Graphics.Vulkan;
 using Vixen.Rendering;
 using Vixen.Rendering.Compositor;
 using Vixen.Rendering.Features;
-using Vixen.Rendering.Materials;
 using Vixen.Rendering.Vfx;
-using Vixen.ShaderCompiler;
 using Vixen.Shaders;
-using Vixen.Ui.Testing.Visual;
 using Vixen.Vfx;
 using Xunit;
 
@@ -36,24 +33,32 @@ namespace Vixen.Graphics.Golden.Tests;
 ///         Four separate contracts have to hold at once here, and each fails silently on its own:
 ///     </para>
 ///     <list type="bullet">
-///         <item><description>
-///             the <b>attribute names</b>, because <c>ParticleInstances.Schema</c> matches by name —
-///             <c>instanceRow0</c> against a stage declaring <c>row0</c> is a pipeline the driver
-///             refuses with a complaint about the layout rather than about the attribute;
-///         </description></item>
-///         <item><description>
-///             the <b>step mode</b>, which is the whole mechanism and is not an error when it is
-///             wrong: a transform read per vertex hands every corner of the mesh a different
-///             particle's placement, and the effect draws as one smeared shape rather than as two;
-///         </description></item>
-///         <item><description>
-///             the <b>row convention</b> — translation in the <c>w</c> lanes, three rows and no fourth
-///             — which read as columns puts every instance somewhere plausible and wrong;
-///         </description></item>
-///         <item><description>
-///             the <b>material</b>, on <see cref="ParticleSpriteDeviceTests" />' terms: <c>Draw</c>
-///             skips any object whose material resolves to no variant.
-///         </description></item>
+///         <item>
+///             <description>
+///                 the <b>attribute names</b>, because <c>ParticleInstances.Schema</c> matches by name —
+///                 <c>instanceRow0</c> against a stage declaring <c>row0</c> is a pipeline the driver
+///                 refuses with a complaint about the layout rather than about the attribute;
+///             </description>
+///         </item>
+///         <item>
+///             <description>
+///                 the <b>step mode</b>, which is the whole mechanism and is not an error when it is
+///                 wrong: a transform read per vertex hands every corner of the mesh a different
+///                 particle's placement, and the effect draws as one smeared shape rather than as two;
+///             </description>
+///         </item>
+///         <item>
+///             <description>
+///                 the <b>row convention</b> — translation in the <c>w</c> lanes, three rows and no fourth
+///                 — which read as columns puts every instance somewhere plausible and wrong;
+///             </description>
+///         </item>
+///         <item>
+///             <description>
+///                 the <b>material</b>, on <see cref="ParticleSpriteDeviceTests" />' terms: <c>Draw</c>
+///                 skips any object whose material resolves to no variant.
+///             </description>
+///         </item>
 ///     </list>
 ///     <para>
 ///         A picture is the only thing that catches all four.
@@ -116,7 +121,7 @@ public class ParticleMeshDeviceTests {
         Assert.True(
             runs.Count == 2,
             $"expected one shape per particle across the middle of the picture and found {runs.Count}: "
-            + $"[{string.Join(", ", runs.Select(run => $"{run.Start}..{run.End}"))}]. One wide run is the "
+            + $"[{string.Join(", ", runs.Select(static run => $"{run.Start}..{run.End}"))}]. One wide run is the "
             + "instance stream being read at the vertex rate."
         );
 
@@ -142,7 +147,7 @@ public class ParticleMeshDeviceTests {
 
         var loader = new EffectLoader(device);
         var effects = new EffectSystem();
-        effects.AddProvider(new Compiling(loader, _ => RavenEffects.Everything()));
+        effects.AddProvider(new Compiling(loader, static _ => RavenEffects.Everything()));
 
         // ⚠ The engine's own default, for <see cref="ParticleSpriteMaterial.Default" />'s reason: what
         // a game gets is `WorldRenderer.MeshParticleMaterial`, and the way that kind of material failed
@@ -156,10 +161,9 @@ public class ParticleMeshDeviceTests {
         using var allocator = new DescriptorAllocator(device);
         using var system = new RenderSystem();
 
-        using var view = new ViewConstants(device) {
-            Descriptors = allocator,
-            Layout = effect!.SetLayouts[(int)DescriptorSetSlot.PerView]
-        };
+        using var view = new ViewConstants(device);
+        view.Descriptors = allocator;
+        view.Layout = effect!.SetLayouts[(int)DescriptorSetSlot.PerView];
 
         var stage = system.AddStage(
             new("Debris", RenderSortMode.BackToFront) {
@@ -179,20 +183,12 @@ public class ParticleMeshDeviceTests {
 
         var materials = new MaterialRenderFeature { Effects = effects, Device = device, Descriptors = allocator };
 
-        var particles = new ParticleRenderFeature {
-            Device = device,
-            Pipelines = new(device),
-            Describer = describer
-        };
+        var particles = new ParticleRenderFeature { Device = device, Pipelines = new(device), Describer = describer };
 
         particles.Add(materials);
         system.AddFeature(particles);
 
-        var camera = new RenderView("camera") {
-            Camera = Camera,
-            Stages = stage.Mask,
-            Position = Vector3.Zero
-        };
+        var camera = new RenderView("camera") { Camera = Camera, Stages = stage.Mask, Position = Vector3.Zero };
 
         camera.Frustum = new(camera.ViewProjection);
         system.SetViews([camera]);
@@ -201,11 +197,7 @@ public class ParticleMeshDeviceTests {
         var debris = Effect();
 
         var id = system.Objects.Add(
-            new() {
-                Bounds = new(new Vector3(0f, 0f, Depth), 8f),
-                Stages = stage.Mask,
-                FeatureIndex = particles.Index
-            }
+            new() { Bounds = new(new Vector3(0f, 0f, Depth), 8f), Stages = stage.Mask, FeatureIndex = particles.Index }
         );
 
         particles.SetSystem(id, debris);
@@ -226,10 +218,7 @@ public class ParticleMeshDeviceTests {
 
         var display = fixture.Owned("Display", TextureUsage.ColourTarget | TextureUsage.CopySource);
 
-        var compositor = new GraphicsCompositor(system) {
-            FrameSize = new(Fixture.Side, Fixture.Side),
-            Game = pass
-        };
+        var compositor = new GraphicsCompositor(system) { FrameSize = new(Fixture.Side, Fixture.Side), Game = pass };
 
         compositor.Imports["Display"] = new(
             display.Texture,
@@ -264,8 +253,11 @@ public class ParticleMeshDeviceTests {
     /// <summary>A square in the mesh's own space, two units across, as the buffers a draw binds.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>Written straight into device buffers rather than through
-    ///         <see cref="Vixen.Rendering.Ecs.GeometryResidency" />.</b> What is under test is the vertex layout and the
+    ///         <b>
+    ///             Written straight into device buffers rather than through
+    ///             <see cref="Vixen.Rendering.Ecs.GeometryResidency" />.
+    ///         </b>
+    ///         What is under test is the vertex layout and the
     ///         shader, and a suballocator between the two would add a staging flush this frame has no
     ///         place to record.
     ///     </para>

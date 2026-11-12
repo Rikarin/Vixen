@@ -21,7 +21,7 @@ public class SecureTextBoxTests {
         var field = Typed(fixture, Secret);
 
         Assert.Equal(Secret, field.Value);
-        Assert.Equal(new string(SecureTextBox.Bullet, Secret.Length), Drawn(field));
+        Assert.Equal(new(SecureTextBox.Bullet, Secret.Length), Drawn(field));
     }
 
     /// <summary>
@@ -33,7 +33,7 @@ public class SecureTextBoxTests {
     public void The_mask_is_the_same_length_as_the_value() {
         using var fixture = new ControlFixture();
 
-        foreach (var value in new[] { "", "a", Secret, "  spaces  ", "ünïcödé" }) {
+        foreach (var value in new[] { string.Empty, "a", Secret, "  spaces  ", "ünïcödé" }) {
             var field = Typed(fixture, value);
             Assert.Equal(value.Length, Drawn(field).Length);
         }
@@ -49,8 +49,8 @@ public class SecureTextBoxTests {
         using var fixture = new ControlFixture();
         var field = Typed(fixture, Secret);
 
-        Assert.Equal(new string(SecureTextBox.Bullet, Secret.Length), field.AccessibleValue);
-        Assert.DoesNotContain(Secret, field.AccessibleValue ?? "", StringComparison.Ordinal);
+        Assert.Equal(new(SecureTextBox.Bullet, Secret.Length), field.AccessibleValue);
+        Assert.DoesNotContain(Secret, field.AccessibleValue ?? string.Empty, StringComparison.Ordinal);
     }
 
     /// <summary>An ordinary field is unaffected, which is what the seam being a no-op by default means.</summary>
@@ -76,6 +76,6 @@ public class SecureTextBoxTests {
 
     /// <summary>What the field's text part actually holds, which is what gets shaped and drawn.</summary>
     static string Drawn(TextField field) =>
-        field.Children.First(child => string.Equals(child.Tag, "field-text", StringComparison.Ordinal)).Text
+        field.Children.First(static child => string.Equals(child.Tag, "field-text", StringComparison.Ordinal)).Text
         ?? string.Empty;
 }

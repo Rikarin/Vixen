@@ -11,8 +11,11 @@ namespace Tests;
 /// <summary>Which queue the suites' shared upload helper touches an exclusive texture from.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b><a href="https://github.com/Rikarin/Vixen/issues/679">#679</a>, and it is
-///         <a href="https://github.com/Rikarin/Vixen/issues/617">#617</a> a second time.</b>
+///         ⚠
+///         <b>
+///             <a href="https://github.com/Rikarin/Vixen/issues/679">#679</a>, and it is
+///             <a href="https://github.com/Rikarin/Vixen/issues/617">#617</a> a second time.
+///         </b>
 ///         <c>TextureKernelHarness.Upload</c> recorded on <c>QueueKind.Graphics</c> and submitted to
 ///         <c>device.GraphicsQueue</c> while <see cref="TexturePlanEvaluator" /> dispatches on
 ///         <see cref="IGraphicsDevice.ComputeQueue" />. Every texture a bake reads is

@@ -205,7 +205,7 @@ public sealed class VirtualShadowAtlas : IDisposable {
 
             while (bits != 0) {
                 var bit = System.Numerics.BitOperations.TrailingZeroCount(bits);
-                var page = (word * 32) + bit;
+                var page = word * 32 + bit;
 
                 bits &= bits - 1;
 
@@ -308,7 +308,7 @@ public sealed class VirtualShadowAtlas : IDisposable {
                 bits &= bits - 1;
                 MarkedPages++;
 
-                Residency.Request(new(VirtualShadowPages.Source, (word * 32) + bit));
+                Residency.Request(new(VirtualShadowPages.Source, word * 32 + bit));
             }
         }
 
@@ -324,7 +324,7 @@ public sealed class VirtualShadowAtlas : IDisposable {
 
             while (bits != 0) {
                 var bit = System.Numerics.BitOperations.TrailingZeroCount(bits);
-                var page = (word * 32) + bit;
+                var page = word * 32 + bit;
 
                 bits &= bits - 1;
                 Residency.Touch(new(VirtualShadowPages.Source, page));
@@ -351,8 +351,12 @@ public sealed class VirtualShadowAtlas : IDisposable {
     ///         same values are written once per pass rather than once for a set nobody owns.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The two biases are converted before they arrive here, and until they were
-    ///         published at all the lookup used its own declaration's defaults</b> — raw normalised
+    ///         ⚠
+    ///         <b>
+    ///             The two biases are converted before they arrive here, and until they were
+    ///             published at all the lookup used its own declaration's defaults
+    ///         </b>
+    ///         — raw normalised
     ///         depth against a four hundred metre box, which is metres of world. See
     ///         <see cref="VirtualShadowMap.DepthScale" /> for what that cost and
     ///         <see cref="Compositor.VirtualShadowRenderer.ConstantBias" /> for where the metres are
@@ -485,7 +489,7 @@ public sealed class VirtualShadowAtlas : IDisposable {
         );
 
         if (zeros.IsValid) {
-            device.Write(zeros, 0, MemoryMarshal.AsBytes<uint>(new uint[MarkWords]));
+            device.Write(zeros, 0, MemoryMarshal.AsBytes(new uint[MarkWords]));
         }
 
         return markBuffer.IsValid && markReadback.IsValid && zeros.IsValid;

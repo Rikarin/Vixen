@@ -6,8 +6,10 @@ namespace Vixen.Live.Cluster;
 /// <summary>The shadow of <see cref="ShardId" />.</summary>
 /// <remarks>
 ///     <para>
-///         <b>This file is how the vocabulary crosses a grain call without the assembly that declares
-///         it knowing Orleans exists.</b>
+///         <b>
+///             This file is how the vocabulary crosses a grain call without the assembly that declares
+///             it knowing Orleans exists.
+///         </b>
 ///     </para>
 ///     <para>
 ///         ⚠ <b>This file is the price of ADR-017, paid in one place and worth it.</b>
@@ -24,8 +26,12 @@ namespace Vixen.Live.Cluster;
 ///         and drift, which is the failure the whole three-assembly split exists to prevent.
 ///     </para>
 ///     <para>
-///         ⚠ <b>A type added to the vocabulary and not to this file fails at the first grain call
-///         that carries it, not at compile time.</b> <c>ClusterSerializationTests</c> round-trips
+///         ⚠
+///         <b>
+///             A type added to the vocabulary and not to this file fails at the first grain call
+///             that carries it, not at compile time.
+///         </b>
+///         <c>ClusterSerializationTests</c> round-trips
 ///         every one of them through a real Orleans serializer for that reason.
 ///     </para>
 /// </remarks>

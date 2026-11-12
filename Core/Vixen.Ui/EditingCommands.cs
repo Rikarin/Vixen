@@ -155,15 +155,23 @@ public enum EditingCommand : byte {
 ///         character on macOS while the same chord in a text box moved by a word.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Which table is a document's is a setting with a platform-derived default, not a
-///         compile-time question.</b> A test that depended on the machine it ran on would be a suite
+///         ⚠
+///         <b>
+///             Which table is a document's is a setting with a platform-derived default, not a
+///             compile-time question.
+///         </b>
+///         A test that depended on the machine it ran on would be a suite
 ///         that passes on Linux and fails on a Mac for a reason nobody could see in the diff; both
 ///         fixtures pin <see cref="EditingKeymap.Windows" /> and the tables are compared against each
 ///         other directly.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The exact chord is tried first and then the same one with Shift dropped, and every
-///         other modifier must match exactly.</b> Shift says <i>how</i> for every motion — extend the
+///         ⚠
+///         <b>
+///             The exact chord is tried first and then the same one with Shift dropped, and every
+///             other modifier must match exactly.
+///         </b>
+///         Shift says <i>how</i> for every motion — extend the
 ///         selection — so a table that named it everywhere would double to say one bit; ⌘⇧Z is the
 ///         one place it means something else, and it is macOS's only spelling of Redo. The switches
 ///         this replaces used <c>HasFlag</c>, so ⌃⌥← was word motion — and ⌃⌥← is a
@@ -378,8 +386,11 @@ public sealed partial class UiDocument {
     ///         application's Edit menu has.
     ///     </para>
     ///     <para>
-    ///         <b>Through <see cref="CommandRoute" />, so the chord and the menu item cannot
-    ///         disagree.</b> The nearest responder that answers wins and its refusal is final — a
+    ///         <b>
+    ///             Through <see cref="CommandRoute" />, so the chord and the menu item cannot
+    ///             disagree.
+    ///         </b>
+    ///         The nearest responder that answers wins and its refusal is final — a
     ///         focused field with no selection that answers <c>edit.copy</c> and says no is not then
     ///         passed over for the document's Copy, because Edit ▸ Copy would not be either. A
     ///         refused chord is still marked handled, for <c>CommandDispatcher</c>'s reason: it

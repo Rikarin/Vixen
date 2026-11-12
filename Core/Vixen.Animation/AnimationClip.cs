@@ -5,7 +5,6 @@ using System.Runtime.InteropServices;
 using Vixen.Animation.Constraints;
 using Vixen.Core.Mathematics;
 using Vixen.Geometry;
-using Vixen.Rendering;
 
 namespace Vixen.Animation;
 
@@ -550,7 +549,7 @@ public sealed class AnimationClip {
             longest = MathF.Max(longest, Last(channel.ScaleTimes, scaleCount));
         }
 
-        AnimationEvent[] authored = events is null ? [] : [.. events.OrderBy(e => e.Time)];
+        AnimationEvent[] authored = events is null ? [] : [..events.OrderBy(static e => e.Time)];
 
         // An exporter that leaves the duration at zero is common enough to be worth handling, and
         // the last key is the only defensible answer. A genuinely zero-length clip stays one frame
@@ -595,19 +594,19 @@ public sealed class AnimationClip {
             data.Name,
             duration,
             skeleton,
-            [.. built],
-            [.. positionTimes],
-            [.. positions],
-            [.. rotationTimes],
-            [.. rotations],
-            [.. scaleTimes],
-            [.. scales],
-            [.. index],
+            [..built],
+            [..positionTimes],
+            [..positions],
+            [..rotationTimes],
+            [..rotations],
+            [..scaleTimes],
+            [..scales],
+            [..index],
             authored,
             ResolveRootJoint(skeleton, rootJoint),
             unresolved,
             constraints,
-            new([.. shapes], [.. weightTracks], [.. weightTimes], [.. weightValues])
+            new([..shapes], [..weightTracks], [..weightTimes], [..weightValues])
         );
     }
 
@@ -658,7 +657,7 @@ public sealed class AnimationClip {
         var index = FindKey(times, Index(track.Index, track.Count), time, out var t);
 
         return index + 1 < values.Length
-            ? values[index] + ((values[index + 1] - values[index]) * t)
+            ? values[index] + (values[index + 1] - values[index]) * t
             : values[index];
     }
 

@@ -13,15 +13,14 @@ public class IrradianceFieldTests {
     ///     Not at the origin, and not cubic, because an offset dropped from a probe position is
     ///     invisible in a field whose minimum is zero, and an axis swapped is invisible in a cube.
     /// </remarks>
-    static IrradianceField Field() =>
-        new(new BoundingBox(new(-3f, 1f, 2f), new(9f, 9f, 6f)), new(3, 2, 2));
+    static IrradianceField Field() => new(new BoundingBox(new(-3f, 1f, 2f), new(9f, 9f, 6f)), new(3, 2, 2));
 
     [Fact]
     public void ABrickSpansFourGapsNotFive() {
         var field = Field();
 
-        Assert.Equal(new Vector3(4f, 4f, 2f), field.Indirection.CellSize);
-        Assert.Equal(new Vector3(1f, 1f, 0.5f), field.FinestProbeSpacing);
+        Assert.Equal(new(4f, 4f, 2f), field.Indirection.CellSize);
+        Assert.Equal(new(1f, 1f, 0.5f), field.FinestProbeSpacing);
     }
 
     /// <summary>
@@ -68,8 +67,8 @@ public class IrradianceFieldTests {
         Assert.True(field.Indirection.TryBrick(new(0, 0, 0), out var first));
         Assert.True(field.Indirection.TryBrick(new(2, 1, 1), out var last));
 
-        Assert.Equal(new Vector3(-3f, 1f, 2f), field.ProbePosition(first, 0, 0, 0));
-        Assert.Equal(new Vector3(9f, 9f, 6f), field.ProbePosition(last, 4, 4, 4));
+        Assert.Equal(new(-3f, 1f, 2f), field.ProbePosition(first, 0, 0, 0));
+        Assert.Equal(new(9f, 9f, 6f), field.ProbePosition(last, 4, 4, 4));
     }
 
     /// <summary>
@@ -111,7 +110,7 @@ public class IrradianceFieldTests {
     [InlineData(false)]
     [InlineData(true)]
     public void WithoutBordersTheSeamShows(bool refined) {
-        var field = refined ? Mixed(sync: false) : Filled(sync: false);
+        var field = refined ? Mixed(false) : Filled(false);
         var worst = 0f;
 
         foreach (var point in Interior(field)) {
@@ -186,7 +185,10 @@ public class IrradianceFieldTests {
                     for (var x = 0; x <= 4; x++) {
                         if (x < 4 && y < 4 && z < 4) {
                             field.SetProbe(
-                                brick, x, y, z,
+                                brick,
+                                x,
+                                y,
+                                z,
                                 Probes.Of(Probes.Ramp(field.ProbePosition(brick, x, y, z)))
                             );
                         } else {
@@ -237,9 +239,7 @@ public class IrradianceFieldTests {
         field.AllocateAll();
 
         Assert.True(field.Indirection.TryBrick(new(0, 0, 0), out var brick));
-        Assert.Throws<ArgumentOutOfRangeException>(
-            () => field.SetProbe(brick, 4, 0, 0, IrradianceProbe.Empty)
-        );
+        Assert.Throws<ArgumentOutOfRangeException>(() => field.SetProbe(brick, 4, 0, 0, IrradianceProbe.Empty));
     }
 
     [Fact]

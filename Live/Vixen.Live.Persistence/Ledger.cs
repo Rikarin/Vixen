@@ -27,10 +27,10 @@ namespace Vixen.Live.Persistence;
 /// <param name="Operation">Which one, as the thing that minted it names it.</param>
 public readonly record struct IdempotencyKey(PlayerKey Player, string Kind, string Operation) {
     /// <summary>What sort of operation. Null only on <c>default</c>.</summary>
-    public string Kind { get; } = Kind ?? "";
+    public string Kind { get; } = Kind ?? string.Empty;
 
     /// <summary>Which one. Null only on <c>default</c>.</summary>
-    public string Operation { get; } = Operation ?? "";
+    public string Operation { get; } = Operation ?? string.Empty;
 
     /// <summary>Whether this names an operation at all.</summary>
     public bool IsValid => Player.IsValid && !string.IsNullOrEmpty(Kind) && !string.IsNullOrEmpty(Operation);
@@ -40,11 +40,11 @@ public readonly record struct IdempotencyKey(PlayerKey Player, string Kind, stri
     /// <returns>Whether they are equal.</returns>
     public bool Equals(IdempotencyKey other) =>
         Player == other.Player
-        && string.Equals(Kind ?? "", other.Kind ?? "", StringComparison.Ordinal)
-        && string.Equals(Operation ?? "", other.Operation ?? "", StringComparison.Ordinal);
+        && string.Equals(Kind ?? string.Empty, other.Kind ?? string.Empty, StringComparison.Ordinal)
+        && string.Equals(Operation ?? string.Empty, other.Operation ?? string.Empty, StringComparison.Ordinal);
 
     /// <inheritdoc />
-    public override int GetHashCode() => HashCode.Combine(Player, Kind ?? "", Operation ?? "");
+    public override int GetHashCode() => HashCode.Combine(Player, Kind ?? string.Empty, Operation ?? string.Empty);
 
     /// <inheritdoc />
     public override string ToString() =>
@@ -81,7 +81,7 @@ public sealed record LedgerIntent {
     public ImmutableArray<AssetMovement> Movements { get; init; } = [];
 
     /// <summary>Why, for the support tool. Free text, and the only field nothing depends on.</summary>
-    public string Detail { get; init; } = "";
+    public string Detail { get; init; } = string.Empty;
 
     /// <summary>Whether the legs balance — the invariant a store refuses to break.</summary>
     /// <returns>Whether every asset's deltas sum to zero.</returns>
@@ -132,10 +132,7 @@ public sealed record LedgerIntent {
         long quantity
     ) =>
         new() {
-            Key = key,
-            LeaseEpoch = epoch,
-            At = at,
-            Movements = [new(from, asset, -quantity), new(to, asset, quantity)]
+            Key = key, LeaseEpoch = epoch, At = at, Movements = [new(from, asset, -quantity), new(to, asset, quantity)]
         };
 
     /// <inheritdoc />
@@ -280,8 +277,12 @@ public interface ILedger {
     /// <param name="cancellation">Gives up.</param>
     /// <returns>Every account and asset where the two disagree. Empty is the healthy answer.</returns>
     /// <remarks>
-    ///     ⚠ <b>This is the conservation oracle doc 27 § Testing asks for, as an operation rather
-    ///     than only as a test.</b> A fleet that has been running for a month wants to be able to ask
+    ///     ⚠
+    ///     <b>
+    ///         This is the conservation oracle doc 27 § Testing asks for, as an operation rather
+    ///         than only as a test.
+    ///     </b>
+    ///     A fleet that has been running for a month wants to be able to ask
     ///     the question the CI job asks after every randomised transfer, and the answer being cheap
     ///     to obtain is what makes it something a nightly job actually runs.
     /// </remarks>

@@ -2,10 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core;
-using Vixen.Editor.Core;
 using Vixen.Editor.Texturing.Layers;
 using Vixen.Texturing;
-using Vixen.Texturing.Layers;
 using Vixen.Ui;
 using Xunit;
 
@@ -14,8 +12,11 @@ namespace Vixen.Editor.Texturing.Tests;
 /// <summary>The panel's tree is <c>LayerStackChrome.vxml</c>, and its one binding follows the model.</summary>
 /// <remarks>
 ///     <para>
-///         <b>The second half of <a href="https://github.com/Rikarin/Vixen/issues/881">#881</a>, as
-///         far as it went.</b> <c>TexturingTheme.vcss</c> took the panel's flex boxes in batch 18;
+///         <b>
+///             The second half of <a href="https://github.com/Rikarin/Vixen/issues/881">#881</a>, as
+///             far as it went.
+///         </b>
+///         <c>TexturingTheme.vcss</c> took the panel's flex boxes in batch 18;
 ///         this is the markup, for the part of the panel that is a fixed tree. The rows are still
 ///         written from C# and the issue's own comments say why — a <c>@for</c> over the layers is a
 ///         model change first, because <c>LayerStackView.Shape</c> rebuilds a row only when its shape
@@ -36,8 +37,12 @@ public class LayerStackMarkupTests {
     /// <summary>⚠ The block grows, is laid out, shrinks again and goes back to occupying nothing.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Four states in one panel, because each of the two halves is satisfied by half a
-    ///         port.</b> A <c>@for</c> whose region was built once and never re-run draws the first
+    ///         ⚠
+    ///         <b>
+    ///             Four states in one panel, because each of the two halves is satisfied by half a
+    ///             port.
+    ///         </b>
+    ///         A <c>@for</c> whose region was built once and never re-run draws the first
     ///         list for ever, and is green against any single reading; a class binding that was
     ///         written once is green against the same. So the document is put in, taken out and put
     ///         back, and the assertions alternate.
@@ -52,8 +57,12 @@ public class LayerStackMarkupTests {
     ///         which is how it was confirmed.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The width and emphatically not the height, and the reason is a property of the
-    ///         test host rather than of the panel.</b> Nothing in this fixture measures text: the
+    ///         ⚠
+    ///         <b>
+    ///             The width and emphatically not the height, and the reason is a property of the
+    ///             test host rather than of the panel.
+    ///         </b>
+    ///         Nothing in this fixture measures text: the
     ///         legend — one element with its <c>Text</c> assigned in C#, untouched by this port —
     ///         reports a height of zero beside a message block reporting the same, so a height
     ///         assertion here cannot tell a hidden block from a shown one and would be green in both
@@ -136,8 +145,11 @@ public class LayerStackMarkupTests {
 
     /// <summary>⚠ The markup's element <em>is</em> the panel's, rather than a box inside one.</summary>
     /// <remarks>
-    ///     <b>What <c>@inherits Vixen.Ui.UiElement</c> buys, and the thing a port to a
-    ///     <c>Component</c> would have quietly changed.</b> A component mounts inside a host element
+    ///     <b>
+    ///         What <c>@inherits Vixen.Ui.UiElement</c> buys, and the thing a port to a
+    ///         <c>Component</c> would have quietly changed.
+    ///     </b>
+    ///     A component mounts inside a host element
     ///     of its own, so every rule in <c>TexturingTheme.vcss</c> and every geometry assertion in
     ///     <c>LayerStackThemeTests</c> would have been one level out. Asserting the type of the
     ///     element the sheet selects is what says the tree did not gain a level: it is the markup's
@@ -168,8 +180,12 @@ public class LayerStackMarkupTests {
 
     /// <summary>A view of this file's own, in a panel of its own.</summary>
     /// <remarks>
-    ///     ⚠ <b>Its own rather than the module's, because these assertions drive <c>Show</c>
-    ///     directly.</b> The module refreshes its view from its own document and its own evaluator;
+    ///     ⚠
+    ///     <b>
+    ///         Its own rather than the module's, because these assertions drive <c>Show</c>
+    ///         directly.
+    ///     </b>
+    ///     The module refreshes its view from its own document and its own evaluator;
     ///     what is being asserted is that one assignment reaches the tree, which needs the two calls
     ///     to be this test's.
     /// </remarks>
@@ -178,8 +194,8 @@ public class LayerStackMarkupTests {
 
         fixture.Shell.RegisterPanel(
             ViewPanel,
-            new StringId("editor.panel." + ViewPanel, "Layers"),
-            panel => built = new LayerStackView(panel)
+            new("editor.panel." + ViewPanel, "Layers"),
+            panel => built = new(panel)
         );
 
         fixture.Shell.Workspace.Open(ViewPanel);
@@ -191,8 +207,12 @@ public class LayerStackMarkupTests {
 
     /// <summary>Runs the frame, which is what drains the effects a markup binding queues.</summary>
     /// <remarks>
-    ///     ⚠ <b>A real pass rather than <c>Effects.Flush</c>, because half of what is asserted is
-    ///     geometry.</b> <c>UiDocument.Update</c> drains the queue before its first pass — which is
+    ///     ⚠
+    ///     <b>
+    ///         A real pass rather than <c>Effects.Flush</c>, because half of what is asserted is
+    ///         geometry.
+    ///     </b>
+    ///     <c>UiDocument.Update</c> drains the queue before its first pass — which is
     ///     the ordering that makes a bound panel correct in the frame the assignment happened in —
     ///     and the layout that follows is what turns <c>display: none</c> into a height of zero.
     /// </remarks>

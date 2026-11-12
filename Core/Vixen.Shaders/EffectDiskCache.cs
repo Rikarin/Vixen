@@ -123,8 +123,7 @@ public sealed class EffectDiskCache : IEffectSource {
     public string PathOf(EffectKey key) => Path.Combine(Directory, Name(key) + Extension);
 
     /// <summary>The entry name for a key: the target and the key, hashed together.</summary>
-    string Name(EffectKey key) =>
-        Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes($"{Target}\n{key}")));
+    string Name(EffectKey key) => Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes($"{Target}\n{key}")));
 
     EffectData? Read(string path) {
         byte[] bytes;
@@ -139,8 +138,10 @@ public sealed class EffectDiskCache : IEffectSource {
 
         try {
             effect = Serializer.Read<EffectData>(bytes);
-        } catch (Exception exception) when (exception is SerializationException or InvalidDataException
-                                                or ArgumentOutOfRangeException or IndexOutOfRangeException) {
+        } catch (Exception exception) when (exception is SerializationException
+                                                or InvalidDataException
+                                                or ArgumentOutOfRangeException
+                                                or IndexOutOfRangeException) {
             // A half-written or older entry. Absent, not fatal — see the class remarks.
             return null;
         }
@@ -157,13 +158,15 @@ public sealed class EffectDiskCache : IEffectSource {
         // process — two editors on one project, a build running while the game does. A move is
         // atomic within a volume, so a reader sees the whole entry or no entry, never the first
         // half of one.
-        var temporary = path + ".tmp" + Environment.CurrentManagedThreadId.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        var temporary = path
+            + ".tmp"
+            + Environment.CurrentManagedThreadId.ToString(System.Globalization.CultureInfo.InvariantCulture);
 
         try {
             lock (writing) {
                 System.IO.Directory.CreateDirectory(Directory);
                 File.WriteAllBytes(temporary, Serializer.ToBytes(effect));
-                File.Move(temporary, path, overwrite: true);
+                File.Move(temporary, path, true);
                 Writes++;
             }
         } catch (Exception exception) when (exception is IOException or UnauthorizedAccessException) {

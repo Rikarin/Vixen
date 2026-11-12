@@ -4,7 +4,6 @@
 using Vixen.Core.Mathematics;
 using Vixen.Physics.Bodies;
 using Vixen.Physics.Events;
-using Vixen.Physics.Queries;
 using Xunit;
 
 namespace Vixen.Physics.Tests;
@@ -18,7 +17,7 @@ public sealed class PhysicsWorldTests {
 
         Assert.Equal(0, world.BodyCount);
         Assert.Equal(0, world.ConstraintCount);
-        Assert.Equal(new Vector3(0f, -9.81f, 0f), world.Gravity);
+        Assert.Equal(new(0f, -9.81f, 0f), world.Gravity);
     }
 
     [Fact]
@@ -37,7 +36,7 @@ public sealed class PhysicsWorldTests {
         // would make this a change detector for the solver rather than a test of gravity.
         var fallen = 10f - world.GetPosition(falling).Y;
         Assert.InRange(fallen, 4f, 6f);
-        Assert.Equal(new Vector3(5f, 10f, 0f), world.GetPosition(fixedBody));
+        Assert.Equal(new(5f, 10f, 0f), world.GetPosition(fixedBody));
     }
 
     [Fact]
@@ -131,8 +130,7 @@ public sealed class PhysicsWorldTests {
 
         var body = world.CreateBody(
             BodyDescription.Dynamic(world.Shapes.Sphere(0.5f), Vector3.Zero) with {
-                Mass = 1f,
-                DegreesOfFreedom = BodyDegreesOfFreedom.TranslationX
+                Mass = 1f, DegreesOfFreedom = BodyDegreesOfFreedom.TranslationX
             }
         );
 
@@ -174,8 +172,8 @@ public sealed class PhysicsWorldTests {
         Vector3[] vertices = [Vector3.Zero, new(1f, 0f, 0f), new(0f, 0f, 1f)];
         var mesh = world.Shapes.Mesh(vertices, [0, 1, 2]);
 
-        var error = Assert.Throws<PhysicsShapeException>(
-            () => world.CreateBody(BodyDescription.Dynamic(mesh, Vector3.Zero))
+        var error = Assert.Throws<PhysicsShapeException>(() =>
+            world.CreateBody(BodyDescription.Dynamic(mesh, Vector3.Zero))
         );
 
         Assert.Contains("inertia", error.Message, StringComparison.Ordinal);
@@ -288,15 +286,11 @@ public sealed class PhysicsWorldTests {
         static float CrossWall(BodyMotionQuality quality) {
             using var world = new PhysicsWorld(new() { Gravity = Vector3.Zero });
 
-            world.CreateBody(
-                BodyDescription.Static(world.Shapes.Box(new Vector3(5f, 5f, 0.02f)), Vector3.Zero)
-            );
+            world.CreateBody(BodyDescription.Static(world.Shapes.Box(new Vector3(5f, 5f, 0.02f)), Vector3.Zero));
 
             var bullet = world.CreateBody(
                 BodyDescription.Dynamic(world.Shapes.Sphere(0.02f), new(0f, 0f, -5f)) with {
-                    MotionQuality = quality,
-                    Layer = new(1),
-                    LinearVelocity = new(0f, 0f, 400f)
+                    MotionQuality = quality, Layer = new(1), LinearVelocity = new(0f, 0f, 400f)
                 }
             );
 

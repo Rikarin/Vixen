@@ -41,7 +41,7 @@ public sealed class WaterProfileTests {
     ///     <c>cross(up, tangent)</c> and not a convention this test may pick: it is what
     ///     <see cref="WaterEdit.SideAt" /> answers and what the handles are therefore drawn on.
     /// </remarks>
-    static Spline River() => new(Spline.SmoothTangents([new(0f, 0f, 0f), new(100f, 0f, 0f)]), closed: false);
+    static Spline River() => new(Spline.SmoothTangents([new(0f, 0f, 0f), new(100f, 0f, 0f)]), false);
 
     static WaterBodyComponent Body() =>
         WaterBodyComponent.Default with { Kind = WaterBodyKind.River, Spline = "river", HalfWidth = 10f, Depth = 3f };
@@ -133,7 +133,7 @@ public sealed class WaterProfileTests {
         Assert.True(scene.Press(handles.Right));
         scene.Move(new(0f, 0f, -20f));
 
-        Assert.True(scene.Mode.Key(scene.Viewport, new KeyEvent { Key = InputKey.Escape }));
+        Assert.True(scene.Mode.Key(scene.Viewport, new() { Key = InputKey.Escape }));
 
         Assert.Equal(WaterHandle.None, scene.Mode.Editing.Holding);
         Assert.Equal(10f, scene.Component.HalfWidth, 3);
@@ -191,8 +191,11 @@ public sealed class WaterProfileTests {
     /// <summary>⚠ The centre line is drawn too, and not only the markers at the control points.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b><c>SplineOverlay</c> was complete, tested and called by nothing but its own tests
-    ///         — GitHub #118.</b> This is its first caller: the Profile tool draws the body's curve
+    ///         <b>
+    ///             <c>SplineOverlay</c> was complete, tested and called by nothing but its own tests
+    ///             — GitHub #118.
+    ///         </b>
+    ///         This is its first caller: the Profile tool draws the body's curve
     ///         before the handles that hang off it.
     ///     </para>
     ///     <para>
@@ -215,7 +218,7 @@ public sealed class WaterProfileTests {
 
         Assert.Contains(
             lines,
-            vertex => vertex.Colour == SplineOverlay.CurveColour
+            static vertex => vertex.Colour == SplineOverlay.CurveColour
                 && vertex.Position.X > 1f
                 && vertex.Position.X < 99f
         );
@@ -345,7 +348,7 @@ public sealed class WaterProfileTests {
 
             return Mode.Pointer(
                 Viewport,
-                new PointerEvent { Action = action, Button = button, X = screen.X, Y = screen.Y }
+                new() { Action = action, Button = button, X = screen.X, Y = screen.Y }
             );
         }
 
@@ -362,7 +365,7 @@ public sealed class WaterProfileTests {
 
             try {
                 if (Directory.Exists(root)) {
-                    Directory.Delete(root, recursive: true);
+                    Directory.Delete(root, true);
                 }
             } catch (IOException) {
                 // A temporary directory a virus scanner still has open. Not this test's business.

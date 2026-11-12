@@ -30,10 +30,15 @@ public class PublishedServicesReadmeTests {
 
     [Fact]
     public void The_readme_names_exactly_what_the_editor_publishes() {
-        var text = File.ReadAllText(Path.Combine(RepositoryFiles.Root, Readme.Replace('/', Path.DirectorySeparatorChar)));
+        var text = File.ReadAllText(
+            Path.Combine(RepositoryFiles.Root, Readme.Replace('/', Path.DirectorySeparatorChar))
+        );
         var sentence = Sentence.Match(text);
 
-        Assert.True(sentence.Success, $"{Readme} no longer has the sentence beginning \"What `Vixen.Editor.App` publishes today is\".");
+        Assert.True(
+            sentence.Success,
+            $"{Readme} no longer has the sentence beginning \"What `Vixen.Editor.App` publishes today is\"."
+        );
 
         var named = Named.Matches(sentence.Groups["list"].Value)
             .Select(static match => match.Groups[1].Value)

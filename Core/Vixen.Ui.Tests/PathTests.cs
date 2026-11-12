@@ -24,9 +24,9 @@ public class PathTests {
             // Kept in a field and cleared, which is the advice the builder's remarks give: a control
             // that draws every frame should not make a new one every frame.
             path.Clear()
-                .MoveTo(new Vector2(context.Bounds.Left, context.Bounds.Bottom))
-                .LineTo(new Vector2(context.Bounds.Center.X, context.Bounds.Top))
-                .LineTo(new Vector2(context.Bounds.Right, context.Bounds.Bottom))
+                .MoveTo(new(context.Bounds.Left, context.Bounds.Bottom))
+                .LineTo(new(context.Bounds.Center.X, context.Bounds.Top))
+                .LineTo(new(context.Bounds.Right, context.Bounds.Bottom))
                 .Close();
 
             context.Fill(path, Tint, Rule);
@@ -40,10 +40,12 @@ public class PathTests {
     static (UiDocument Document, Triangle Shape) Drawn() {
         var document = new UiDocument(100f, 100f);
 
-        document.Load("""
-            root { width: 100px; height: 100px; }
-            shape { width: 40px; height: 20px; }
-        """);
+        document.Load(
+            """
+                root { width: 100px; height: 100px; }
+                shape { width: 40px; height: 20px; }
+            """
+        );
 
         var shape = document.Root.Add<Triangle>("shape");
         document.Update();
@@ -98,11 +100,13 @@ public class PathTests {
     public void Custom_drawing_sits_over_the_background_and_under_the_children() {
         using var document = new UiDocument(100f, 100f);
 
-        document.Load("""
-            root { width: 100px; height: 100px; }
-            shape { width: 40px; height: 40px; background-color: #ffffff; }
-            box { width: 10px; height: 10px; background-color: #000000; }
-        """);
+        document.Load(
+            """
+                root { width: 100px; height: 100px; }
+                shape { width: 40px; height: 40px; background-color: #ffffff; }
+                box { width: 10px; height: 10px; background-color: #000000; }
+            """
+        );
 
         var shape = document.Root.Add<Triangle>("shape");
         shape.Add("box");
@@ -173,7 +177,7 @@ public class PathTests {
         var list = document.Drawing;
         list.BeginFrame();
 
-        new DrawContext(document.Root, list).Fill(new PathBuilder(), Color4.White);
+        new DrawContext(document.Root, list).Fill(new(), Color4.White);
         new DrawContext(document.Root, list).Stroke(new PathBuilder().MoveTo(default), Color4.White, 0f);
 
         list.EndFrame();
@@ -187,8 +191,8 @@ public class PathTests {
     [Fact]
     public void Close_remembers_where_the_contour_started() {
         var path = new PathBuilder()
-            .MoveTo(new Vector2(1f, 2f))
-            .LineTo(new Vector2(5f, 2f))
+            .MoveTo(new(1f, 2f))
+            .LineTo(new(5f, 2f))
             .Close();
 
         var close = path.Segments[^1];
@@ -198,31 +202,31 @@ public class PathTests {
         // building would round the wrong corner — and a consumer wanting the coordinates should not
         // have to walk backwards to find the last MoveTo.
         Assert.Equal(PathVerb.Close, close.Verb);
-        Assert.Equal(new Vector2(1f, 2f), close.P2);
-        Assert.Equal(new Vector2(1f, 2f), path.Current);
+        Assert.Equal(new(1f, 2f), close.P2);
+        Assert.Equal(new(1f, 2f), path.Current);
     }
 
     [Fact]
     public void A_second_contour_closes_to_its_own_start() {
         var path = new PathBuilder()
-            .MoveTo(new Vector2(0f, 0f))
-            .LineTo(new Vector2(1f, 0f))
+            .MoveTo(new(0f, 0f))
+            .LineTo(new(1f, 0f))
             .Close()
-            .MoveTo(new Vector2(10f, 10f))
-            .LineTo(new Vector2(11f, 10f))
+            .MoveTo(new(10f, 10f))
+            .LineTo(new(11f, 10f))
             .Close();
 
         // Which is what makes a path with a hole in it possible at all: the second contour's Close
         // has to go back to the second MoveTo and not to the first.
-        Assert.Equal(new Vector2(0f, 0f), path.Segments[2].P2);
-        Assert.Equal(new Vector2(10f, 10f), path.Segments[5].P2);
+        Assert.Equal(new(0f, 0f), path.Segments[2].P2);
+        Assert.Equal(new(10f, 10f), path.Segments[5].P2);
     }
 
     [Fact]
     public void A_curve_stays_a_curve() {
         var path = new PathBuilder()
-            .MoveTo(new Vector2(0f, 0f))
-            .CubicTo(new Vector2(1f, 0f), new Vector2(2f, 1f), new Vector2(2f, 2f));
+            .MoveTo(new(0f, 0f))
+            .CubicTo(new(1f, 0f), new(2f, 1f), new(2f, 2f));
 
         // ⚠ Nothing flattens it. How finely to flatten depends on how large the curve will be on
         // screen, which is a device scale the draw list does not know — flattened here, a path built
@@ -230,14 +234,14 @@ public class PathTests {
         // recover the curve to do better.
         var cubic = path.Segments[1];
         Assert.Equal(PathVerb.Cubic, cubic.Verb);
-        Assert.Equal(new Vector2(1f, 0f), cubic.P0);
-        Assert.Equal(new Vector2(2f, 1f), cubic.P1);
-        Assert.Equal(new Vector2(2f, 2f), cubic.P2);
+        Assert.Equal(new(1f, 0f), cubic.P0);
+        Assert.Equal(new(2f, 1f), cubic.P1);
+        Assert.Equal(new(2f, 2f), cubic.P2);
     }
 
     [Fact]
     public void An_ellipse_is_four_cubics_and_ends_where_it_started() {
-        var path = new PathBuilder().AddEllipse(new Rectangle(10f, 20f, 40f, 60f));
+        var path = new PathBuilder().AddEllipse(new(10f, 20f, 40f, 60f));
 
         Assert.Equal(PathVerb.Move, path.Segments[0].Verb);
         Assert.Equal(4, path.Segments.Count(static segment => segment.Verb == PathVerb.Cubic));
@@ -246,36 +250,38 @@ public class PathTests {
         // Top centre, and back to it. A quarter turn's control points are the well-known constant
         // rather than an arc, because a Bézier cannot be a circular arc exactly and the error at
         // that constant is about one part in ten thousand of the radius.
-        Assert.Equal(new Vector2(30f, 20f), path.Segments[0].P2);
-        Assert.Equal(new Vector2(30f, 20f), path.Segments[4].P2);
+        Assert.Equal(new(30f, 20f), path.Segments[0].P2);
+        Assert.Equal(new(30f, 20f), path.Segments[4].P2);
     }
 
     [Fact]
     public void Clearing_a_builder_forgets_where_the_pen_was() {
-        var path = new PathBuilder().MoveTo(new Vector2(7f, 7f)).LineTo(new Vector2(9f, 9f));
+        var path = new PathBuilder().MoveTo(new(7f, 7f)).LineTo(new(9f, 9f));
 
         // ⚠ The pen goes back to the origin with the segments. Clearing only the list leaves an empty
         // builder claiming the pen is wherever last frame left it — and a control that reads
         // `Current` to decide where to start would draw from the previous frame's shape.
         Assert.Equal(default, path.Clear().Current);
 
-        path.MoveTo(new Vector2(1f, 1f)).LineTo(new Vector2(2f, 2f)).Close();
+        path.MoveTo(new(1f, 1f)).LineTo(new(2f, 2f)).Close();
 
         // Reused between frames, so the contour start has to be reset with the segments. Kept, the
         // second frame's Close would join back to the first frame's shape.
         Assert.Equal(3, path.Count);
-        Assert.Equal(new Vector2(1f, 1f), path.Segments[^1].P2);
+        Assert.Equal(new(1f, 1f), path.Segments[^1].P2);
     }
 
     [Fact]
     public void A_path_is_clipped_by_the_element_that_clips() {
         using var document = new UiDocument(100f, 100f);
 
-        document.Load("""
-            root { width: 100px; height: 100px; }
-            panel { width: 50px; height: 50px; overflow: hidden; }
-            shape { width: 40px; height: 20px; }
-        """);
+        document.Load(
+            """
+                root { width: 100px; height: 100px; }
+                panel { width: 50px; height: 50px; overflow: hidden; }
+                shape { width: 40px; height: 20px; }
+            """
+        );
 
         var panel = document.Root.Add("panel");
         panel.Add<Triangle>("shape");

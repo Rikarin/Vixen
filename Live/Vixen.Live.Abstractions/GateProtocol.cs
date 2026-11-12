@@ -49,8 +49,12 @@ public sealed record CreateCharacterRequest(string Name, string Region, string M
 
 /// <summary>What this fleet is running, and where to fetch it.</summary>
 /// <remarks>
-///     ⚠ <b>The client asks this before it asks to play, and that ordering is ADR-022's whole
-///     upgrade story.</b> A client whose catalog does not match is not rejected at a handshake — it
+///     ⚠
+///     <b>
+///         The client asks this before it asks to play, and that ordering is ADR-022's whole
+///         upgrade story.
+///     </b>
+///     A client whose catalog does not match is not rejected at a handshake — it
 ///     is told what the target is and where to get it, and it keeps playing on a shard that still
 ///     matches until it does. Doc 27 § Upgrades' three bounds are what stop that being forever.
 /// </remarks>
@@ -82,8 +86,12 @@ public enum PlayStatus : byte {
 
     /// <summary>A shard is coming up. Ask again shortly, and show a wait rather than a failure.</summary>
     /// <remarks>
-    ///     ⚠ <b>Not an error, and a client that renders it as one turns an elastic fleet's ordinary
-    ///     behaviour into a support ticket.</b> Doc 27 § Placement's spawn path takes seconds.
+    ///     ⚠
+    ///     <b>
+    ///         Not an error, and a client that renders it as one turns an elastic fleet's ordinary
+    ///         behaviour into a support ticket.
+    ///     </b>
+    ///     Doc 27 § Placement's spawn path takes seconds.
     /// </remarks>
     Starting = 1,
 

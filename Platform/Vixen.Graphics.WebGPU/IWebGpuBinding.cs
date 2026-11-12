@@ -42,8 +42,10 @@ public interface IWebGpuBinding : IDisposable {
     /// <summary>Whether there is a surface to present to.</summary>
     bool HasSurface { get; }
 
-    /// <summary>The format the surface prefers, or
-    /// <see cref="WgpuTextureFormat.Undefined" /> when there is no surface.</summary>
+    /// <summary>
+    ///     The format the surface prefers, or
+    ///     <see cref="WgpuTextureFormat.Undefined" /> when there is no surface.
+    /// </summary>
     WgpuTextureFormat PreferredSurfaceFormat { get; }
 
     /// <summary>
@@ -57,8 +59,12 @@ public interface IWebGpuBinding : IDisposable {
     ///         only when this lists <see cref="WgpuTextureUsage.TextureBinding" /> (#1462).
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>An implementation that cannot ask reports what it has always configured and no
-    ///         more.</b> Listing a usage the surface does not take is a validation error at configure,
+    ///         ⚠
+    ///         <b>
+    ///             An implementation that cannot ask reports what it has always configured and no
+    ///             more.
+    ///         </b>
+    ///         Listing a usage the surface does not take is a validation error at configure,
     ///         which on a native implementation is an uncaptured error rather than a refusal anyone
     ///         can handle.
     ///     </para>
@@ -134,8 +140,10 @@ public interface IWebGpuBinding : IDisposable {
     /// <param name="buffer">The buffer, which must be map-readable.</param>
     /// <param name="offset">Where to start reading, in bytes.</param>
     /// <param name="destination">Where to put it.</param>
-    /// <returns><see langword="false" /> if the map failed, leaving
-    /// <paramref name="destination" /> untouched.</returns>
+    /// <returns>
+    ///     <see langword="false" /> if the map failed, leaving
+    ///     <paramref name="destination" /> untouched.
+    /// </returns>
     /// <remarks>
     ///     Blocking, and knowingly so. WebGPU's map is asynchronous everywhere and genuinely
     ///     unblockable in a browser's main thread, so the browser surface reports readback
@@ -148,8 +156,10 @@ public interface IWebGpuBinding : IDisposable {
     void Submit(ReadOnlySpan<WebGpuObject> commands);
 
     /// <summary>Blocks until everything submitted has finished.</summary>
-    /// <returns><see langword="false" /> if the implementation cannot block, which a browser
-    /// cannot.</returns>
+    /// <returns>
+    ///     <see langword="false" /> if the implementation cannot block, which a browser
+    ///     cannot.
+    /// </returns>
     bool WaitIdle();
 
     /// <summary>Lets the implementation run its callbacks.</summary>

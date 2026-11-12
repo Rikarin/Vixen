@@ -55,20 +55,24 @@ public readonly record struct AuthenticationDecision(
     string Reason
 ) {
     /// <summary>Let them in, as nobody in particular.</summary>
-    public static AuthenticationDecision Accept { get; } = new(AuthenticationOutcome.Accept, "", "");
+    public static AuthenticationDecision Accept { get; } =
+        new(AuthenticationOutcome.Accept, string.Empty, string.Empty);
 
     /// <summary>Not decided yet. The session will ask again next tick, until it times out.</summary>
-    public static AuthenticationDecision Pending { get; } = new(AuthenticationOutcome.Pending, "", "");
+    public static AuthenticationDecision Pending { get; } =
+        new(AuthenticationOutcome.Pending, string.Empty, string.Empty);
 
     /// <summary>Let them in as somebody.</summary>
     /// <param name="identity">Who the server should consider them to be.</param>
     /// <returns>The decision.</returns>
-    public static AuthenticationDecision As(string identity) => new(AuthenticationOutcome.Accept, identity, "");
+    public static AuthenticationDecision As(string identity) =>
+        new(AuthenticationOutcome.Accept, identity, string.Empty);
 
     /// <summary>Refuse them.</summary>
     /// <param name="reason">Why, which the client is told.</param>
     /// <returns>The decision.</returns>
-    public static AuthenticationDecision Refuse(string reason) => new(AuthenticationOutcome.Reject, "", reason);
+    public static AuthenticationDecision Refuse(string reason) =>
+        new(AuthenticationOutcome.Reject, string.Empty, reason);
 }
 
 /// <summary>Decides who is allowed in.</summary>

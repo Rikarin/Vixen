@@ -27,8 +27,11 @@ public enum AgentDebugOrigin : byte {
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>Doc 37 § P7's "editor panels over the same records", and <i>the same records</i> is the
-///         whole of it.</b> This holds an <see cref="AiAgentSnapshot" /> and a list of
+///         <b>
+///             Doc 37 § P7's "editor panels over the same records", and <i>the same records</i> is the
+///             whole of it.
+///         </b>
+///         This holds an <see cref="AiAgentSnapshot" /> and a list of
 ///         <see cref="AgentDebugRecord" />s, which are the two things the runtime overlay draws — so
 ///         the panel is a richer view over one implementation rather than a second one that will
 ///         disagree with it in six months.

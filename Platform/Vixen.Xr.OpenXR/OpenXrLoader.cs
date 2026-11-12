@@ -20,8 +20,11 @@ namespace Vixen.Xr.OpenXR;
 ///         <c>Vixen.Graphics.Vulkan</c>'s <c>VulkanLoader</c> and
 ///         <c>Vixen.Audio.Backend.OpenAL</c>'s <c>OpenALLoader</c> both record, and
 ///         <c>Tools/Vixen.AotProbe/README.md</c> named this call site before it was written:
-///         <i>"A new Silk.NET backend that calls <c>GetApi()</c> will fail this gate, and that is the
-///         intended outcome."</i> It was the only reason <c>Vixen.Xr</c> and <c>Vixen.Xr.OpenXR</c>
+///         <i>
+///             "A new Silk.NET backend that calls <c>GetApi()</c> will fail this gate, and that is the
+///             intended outcome."
+///         </i>
+///         It was the only reason <c>Vixen.Xr</c> and <c>Vixen.Xr.OpenXR</c>
 ///         were on <c>NotRooted.txt</c>.
 ///     </para>
 ///     <para>
@@ -33,8 +36,12 @@ namespace Vixen.Xr.OpenXR;
 ///         undecorated name that lets the dynamic linker answer is the case that will actually fire.
 ///     </para>
 ///     <para>
-///         ⚠ <b><c>xrGetInstanceProcAddr</c> is the probe, and a handle that lacks it is not an
-///         OpenXR.</b> It is the one function the specification requires every loader to export, and
+///         ⚠
+///         <b>
+///             <c>xrGetInstanceProcAddr</c> is the probe, and a handle that lacks it is not an
+///             OpenXR.
+///         </b>
+///         It is the one function the specification requires every loader to export, and
 ///         checking for it is what keeps something else on the search path with a similar name from
 ///         being adopted as a runtime and failing four calls later with a null function pointer.
 ///     </para>
@@ -95,10 +102,11 @@ static class OpenXrLoader {
                     continue;
                 }
 
-                loaded = new XR(
+                loaded = new(
                     new LamdaNativeContext(symbol => NativeLibrary.TryGetExport(handle, symbol, out var address)
-                        ? address
-                        : 0)
+                            ? address
+                            : 0
+                    )
                 );
 
                 ResolvedPath = candidate;

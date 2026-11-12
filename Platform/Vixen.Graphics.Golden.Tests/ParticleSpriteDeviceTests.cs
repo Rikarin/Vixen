@@ -3,16 +3,12 @@
 
 using Vixen.Core.Imaging;
 using Vixen.Core.Mathematics;
-using Vixen.Graphics.Vulkan;
 using Vixen.Rendering;
 using Vixen.Rendering.Compositor;
 using Vixen.Rendering.Features;
-using Vixen.Rendering.Materials;
 using Vixen.Rendering.Vfx;
-using Vixen.ShaderCompiler;
 using Vixen.Shaders;
 using Vixen.Shaders.Generated;
-using Vixen.Ui.Testing.Visual;
 using Vixen.Vfx;
 using Xunit;
 
@@ -36,22 +32,28 @@ namespace Vixen.Graphics.Golden.Tests;
 ///         contracts have to hold at once and each of them fails silently on its own:
 ///     </para>
 ///     <list type="bullet">
-///         <item><description>
-///             the <b>attribute names</b> — <c>ParticleVertices.Schema</c> matches a stage's inputs by
-///             name, so <c>color</c> against a stage declaring <c>particleColor</c> is a pipeline the
-///             driver refuses and an error that names the layout rather than the attribute;
-///         </description></item>
-///         <item><description>
-///             the <b>set-1 layout</b>, which has to be allocated from this pipeline's own — a
-///             particle shader reads nothing per frame where a shading pass reads thirteen bindings,
-///             and a set 1 allocated from the shading pass's layout is not bound at all as far as
-///             this pipeline is concerned;
-///         </description></item>
-///         <item><description>
-///             the <b>material</b>, because <c>Draw</c> asks its material sub-feature which variant
-///             each object resolves to and quietly skips any object with no answer — an effect that
-///             expands its quads every frame and draws none of them.
-///         </description></item>
+///         <item>
+///             <description>
+///                 the <b>attribute names</b> — <c>ParticleVertices.Schema</c> matches a stage's inputs by
+///                 name, so <c>color</c> against a stage declaring <c>particleColor</c> is a pipeline the
+///                 driver refuses and an error that names the layout rather than the attribute;
+///             </description>
+///         </item>
+///         <item>
+///             <description>
+///                 the <b>set-1 layout</b>, which has to be allocated from this pipeline's own — a
+///                 particle shader reads nothing per frame where a shading pass reads thirteen bindings,
+///                 and a set 1 allocated from the shading pass's layout is not bound at all as far as
+///                 this pipeline is concerned;
+///             </description>
+///         </item>
+///         <item>
+///             <description>
+///                 the <b>material</b>, because <c>Draw</c> asks its material sub-feature which variant
+///                 each object resolves to and quietly skips any object with no answer — an effect that
+///                 expands its quads every frame and draws none of them.
+///             </description>
+///         </item>
 ///     </list>
 ///     <para>
 ///         A picture is the only thing that catches all three, which is the same argument
@@ -115,7 +117,7 @@ public class ParticleSpriteDeviceTests {
 
         var loader = new EffectLoader(device);
         var effects = new EffectSystem();
-        effects.AddProvider(new Compiling(loader, _ => RavenEffects.Everything()));
+        effects.AddProvider(new Compiling(loader, static _ => RavenEffects.Everything()));
 
         // ⚠ **The engine's own default, not one built here, and that is the whole point of the
         // assertion.** A material assembled by this fixture would prove that *a* correctly filled
@@ -136,10 +138,9 @@ public class ParticleSpriteDeviceTests {
         using var allocator = new DescriptorAllocator(device);
         using var system = new RenderSystem();
 
-        using var view = new ViewConstants(device) {
-            Descriptors = allocator,
-            Layout = effect!.SetLayouts[(int)DescriptorSetSlot.PerView]
-        };
+        using var view = new ViewConstants(device);
+        view.Descriptors = allocator;
+        view.Layout = effect!.SetLayouts[(int)DescriptorSetSlot.PerView];
 
         // Additive, no depth at all, and nothing culled — a billboard's winding follows the camera.
         // The document that draws these in a real frame says the same three things; see the `Embers`
@@ -163,20 +164,13 @@ public class ParticleSpriteDeviceTests {
         var materials = new MaterialRenderFeature { Effects = effects, Device = device, Descriptors = allocator };
 
         var particles = new ParticleRenderFeature {
-            Device = device,
-            Pipelines = new(device),
-            Describer = describer,
-            VertexLayout = 0
+            Device = device, Pipelines = new(device), Describer = describer, VertexLayout = 0
         };
 
         particles.Add(materials);
         system.AddFeature(particles);
 
-        var camera = new RenderView("camera") {
-            Camera = Camera,
-            Stages = stage.Mask,
-            Position = Vector3.Zero
-        };
+        var camera = new RenderView("camera") { Camera = Camera, Stages = stage.Mask, Position = Vector3.Zero };
 
         camera.Frustum = new(camera.ViewProjection);
         system.SetViews([camera]);
@@ -190,11 +184,7 @@ public class ParticleSpriteDeviceTests {
         var drift = Effect();
 
         var id = system.Objects.Add(
-            new() {
-                Bounds = new(new Vector3(0f, 0f, Depth), 4f),
-                Stages = stage.Mask,
-                FeatureIndex = particles.Index
-            }
+            new() { Bounds = new(new Vector3(0f, 0f, Depth), 4f), Stages = stage.Mask, FeatureIndex = particles.Index }
         );
 
         particles.SetSystem(id, drift);
@@ -210,10 +200,7 @@ public class ParticleSpriteDeviceTests {
 
         var display = fixture.Owned("Display", TextureUsage.ColourTarget | TextureUsage.CopySource);
 
-        var compositor = new GraphicsCompositor(system) {
-            FrameSize = new(Fixture.Side, Fixture.Side),
-            Game = pass
-        };
+        var compositor = new GraphicsCompositor(system) { FrameSize = new(Fixture.Side, Fixture.Side), Game = pass };
 
         compositor.Imports["Display"] = new(
             display.Texture,
@@ -241,8 +228,7 @@ public class ParticleSpriteDeviceTests {
     }
 
     /// <summary>The camera the quads are expanded against.</summary>
-    static RenderCamera Camera =>
-        RenderCamera.Default with { Position = Vector3.Zero, AspectRatio = 1f };
+    static RenderCamera Camera => RenderCamera.Default with { Position = Vector3.Zero, AspectRatio = 1f };
 
     /// <summary>One large orange particle in front of the camera, stepped once.</summary>
     /// <remarks>
@@ -253,8 +239,12 @@ public class ParticleSpriteDeviceTests {
     ///         ember at six metres does not cover it.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Exactly one, and at the sphere's centre — the count is what the colour assertion
-    ///         rests on.</b> The blend is additive, so sixty-four overlapping orange sprites sum past
+    ///         ⚠
+    ///         <b>
+    ///             Exactly one, and at the sphere's centre — the count is what the colour assertion
+    ///             rests on.
+    ///         </b>
+    ///         The blend is additive, so sixty-four overlapping orange sprites sum past
     ///         one in every channel and come back as white, which passes "something is there" and fails
     ///         "it is the colour the effect set" for a reason that has nothing to do with the shader.
     ///     </para>

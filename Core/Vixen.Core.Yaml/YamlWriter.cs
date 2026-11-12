@@ -137,7 +137,7 @@ public static class YamlWriter {
     static void WriteValue(StringBuilder builder, YamlNode value, int depth) {
         switch (value) {
             case YamlScalar scalar:
-                builder.Append(' ').Append(Tagged(value, EmitScalar(scalar, flow: false)));
+                builder.Append(' ').Append(Tagged(value, EmitScalar(scalar, false)));
                 WriteTrailing(builder, value);
                 builder.Append('\n');
                 return;
@@ -214,7 +214,8 @@ public static class YamlWriter {
 
     static string Tagged(YamlNode node, string body) => node.Tag is { } tag ? $"!{tag} {body}" : body;
 
-    static StringBuilder AppendIndent(StringBuilder builder, int depth) => builder.Insert(builder.Length, Indent, depth);
+    static StringBuilder AppendIndent(StringBuilder builder, int depth) =>
+        builder.Insert(builder.Length, Indent, depth);
 
     /// <summary>Whether a collection should be written on one line.</summary>
     static bool IsFlow(YamlNode node, int depth) {
@@ -228,7 +229,7 @@ public static class YamlWriter {
                     return true;
                 }
 
-                return mapping.Entries.All(entry => entry.Value is YamlScalar)
+                return mapping.Entries.All(static entry => entry.Value is YamlScalar)
                     && Fits(mapping, depth);
 
             case YamlSequence sequence:
@@ -240,26 +241,25 @@ public static class YamlWriter {
                     return true;
                 }
 
-                return sequence.Items.All(item => item is YamlScalar) && Fits(sequence, depth);
+                return sequence.Items.All(static item => item is YamlScalar) && Fits(sequence, depth);
 
             default:
                 return false;
         }
     }
 
-    static bool Fits(YamlNode node, int depth) =>
-        Flow(node).Length + (depth * Indent.Length) <= FlowWidthLimit;
+    static bool Fits(YamlNode node, int depth) => Flow(node).Length + depth * Indent.Length <= FlowWidthLimit;
 
     /// <summary>Renders a node on one line.</summary>
     static string Flow(YamlNode node) {
         switch (node) {
             case YamlScalar scalar:
-                return EmitScalar(scalar, flow: true);
+                return EmitScalar(scalar, true);
 
             case YamlSequence sequence:
                 return sequence.Count == 0
                     ? "[]"
-                    : "[" + string.Join(", ", sequence.Items.Select(item => Tagged(item, Flow(item)))) + "]";
+                    : "[" + string.Join(", ", sequence.Items.Select(static item => Tagged(item, Flow(item)))) + "]";
 
             case YamlMapping mapping:
                 return mapping.Count == 0
@@ -267,7 +267,9 @@ public static class YamlWriter {
                     : "{ "
                     + string.Join(
                         ", ",
-                        mapping.Entries.Select(entry => $"{EmitKey(entry.Key)}: {Tagged(entry.Value, Flow(entry.Value))}")
+                        mapping.Entries.Select(static entry =>
+                            $"{EmitKey(entry.Key)}: {Tagged(entry.Value, Flow(entry.Value))}"
+                        )
                     )
                     + " }";
 
@@ -276,7 +278,7 @@ public static class YamlWriter {
         }
     }
 
-    static string EmitKey(string key) => IsUnsafeBare(key, flow: true) || ReadsAsAnotherType(key) ? Quote(key) : key;
+    static string EmitKey(string key) => IsUnsafeBare(key, true) || ReadsAsAnotherType(key) ? Quote(key) : key;
 
     static string EmitScalar(YamlScalar scalar, bool flow) =>
         scalar.Style switch {
@@ -362,7 +364,7 @@ public static class YamlWriter {
 
     static readonly SearchValues<char> FlowIndicators = SearchValues.Create(":,[]{}");
 
-    static readonly char[] Indicators = "-?:,[]{}#&*!|>'\"%@`".ToCharArray();
+    static readonly char[] Indicators = """-?:,[]{}#&*!|>'"%@`""".ToCharArray();
 
     static readonly string[] Reserved = ["true", "false", "null", "~", "yes", "no", "on", "off"];
 }

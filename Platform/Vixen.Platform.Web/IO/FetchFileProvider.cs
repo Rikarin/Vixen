@@ -10,8 +10,11 @@ namespace Vixen.Platform.Web;
 /// <summary>The application's shipped content, over HTTP.</summary>
 /// <remarks>
 ///     <para>
-///         <b>This is the case doc 10 says the virtual file system exists for, in its strongest
-///         form.</b> Content on the web is not a directory, is not local, and is not even
+///         <b>
+///             This is the case doc 10 says the virtual file system exists for, in its strongest
+///             form.
+///         </b>
+///         Content on the web is not a directory, is not local, and is not even
 ///         necessarily whole — a 300 MB bundle should be streamed in pieces rather than downloaded
 ///         before the first frame. Every other platform's <c>/app</c> is a directory or an archive;
 ///         this one is a base URL and a manifest, and the only reason the rest of the engine does
@@ -25,8 +28,11 @@ namespace Vixen.Platform.Web;
 ///         a request for the lot below the size where streaming pays.
 ///     </para>
 ///     <para>
-///         <b>The synchronous half is answered from the manifest, and the synchronous
-///         <c>OpenRead</c> is refused.</b> <see cref="IFileProvider" /> implements it by blocking on
+///         <b>
+///             The synchronous half is answered from the manifest, and the synchronous
+///             <c>OpenRead</c> is refused.
+///         </b>
+///         <see cref="IFileProvider" /> implements it by blocking on
 ///         the asynchronous one, which on the browser's single thread does not wait — it deadlocks
 ///         the tab, because the fetch it is waiting for can only complete on the thread it has
 ///         stopped. Throwing with a message that names <see cref="OpenReadAsync" /> is the one
@@ -48,10 +54,14 @@ public sealed class FetchFileProvider : IFileProvider {
     readonly WebContentManifest manifest;
 
     /// <summary>Creates the provider.</summary>
-    /// <param name="baseUrl">Where content is fetched from, relative to the page. A trailing
-    /// <c>/</c> is added if it is missing.</param>
-    /// <param name="manifest">What is there. See <see cref="WebContentManifest" /> for why this is
-    /// required rather than discovered.</param>
+    /// <param name="baseUrl">
+    ///     Where content is fetched from, relative to the page. A trailing
+    ///     <c>/</c> is added if it is missing.
+    /// </param>
+    /// <param name="manifest">
+    ///     What is there. See <see cref="WebContentManifest" /> for why this is
+    ///     required rather than discovered.
+    /// </param>
     public FetchFileProvider(string baseUrl, WebContentManifest manifest) {
         ArgumentNullException.ThrowIfNull(baseUrl);
         ArgumentNullException.ThrowIfNull(manifest);
@@ -67,8 +77,7 @@ public sealed class FetchFileProvider : IFileProvider {
     public WebContentManifest Manifest => manifest;
 
     /// <inheritdoc />
-    public bool Exists(VirtualPath path) =>
-        manifest.TryGet(path.Value, out _) || manifest.HasDirectory(path.Value);
+    public bool Exists(VirtualPath path) => manifest.TryGet(path.Value, out _) || manifest.HasDirectory(path.Value);
 
     /// <inheritdoc />
     public bool TryGetEntry(VirtualPath path, out FileEntry entry) {
@@ -169,7 +178,5 @@ public sealed class FetchFileProvider : IFileProvider {
     }
 
     /// <summary>Where a file is fetched from.</summary>
-    internal string UrlFor(in WebContentEntry entry) =>
-        baseUrl + (entry.Url ?? entry.Path.TrimStart('/'));
-
+    internal string UrlFor(in WebContentEntry entry) => baseUrl + (entry.Url ?? entry.Path.TrimStart('/'));
 }

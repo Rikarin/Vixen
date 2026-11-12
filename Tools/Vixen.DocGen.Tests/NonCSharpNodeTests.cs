@@ -14,7 +14,7 @@ public class NonCSharpNodeTests : IDisposable {
 
     public void Dispose() {
         if (Directory.Exists(root)) {
-            Directory.Delete(root, recursive: true);
+            Directory.Delete(root, true);
         }
 
         GC.SuppressFinalize(this);
@@ -27,14 +27,14 @@ public class NonCSharpNodeTests : IDisposable {
         File.WriteAllText(path, contents);
     }
 
-    IReadOnlyList<DocNode> Read() =>
-        NonCSharpNodes.Read(root, new SourceLinks(root, "https://github.com/rikarin/Vixen", "abc123"));
+    IReadOnlyList<DocNode> Read() => NonCSharpNodes.Read(root, new(root, "https://github.com/rikarin/Vixen", "abc123"));
 
     // ── Shaders ─────────────────────────────────────────────────────────────────────────────────
 
     [Fact]
     public void AShaderIsDescribedByItsReflectionRatherThanItsSource() {
-        Write("Raven/Library/Pipeline/ForwardPlus.reflect.json",
+        Write(
+            "Raven/Library/Pipeline/ForwardPlus.reflect.json",
             """
             {
               "Sets": [{ "Set": 0 }, { "Set": 1 }],
@@ -43,17 +43,20 @@ public class NonCSharpNodeTests : IDisposable {
               "Permutations": [{ "Name": "UseSkinning" }],
               "Parameters": [{ "Name": "transformBase" }, { "Name": "albedo" }]
             }
-            """);
+            """
+        );
 
-        Write("Raven/Library/Pipeline/ForwardPlus.rvn",
+        Write(
+            "Raven/Library/Pipeline/ForwardPlus.rvn",
             """
             // SPDX-FileCopyrightText: Copyright (c) Rikarin
             // The forward+ opaque pass.
 
             shader ForwardPlus { }
-            """);
+            """
+        );
 
-        var node = Assert.Single(Read(), candidate => candidate.Kind == DocKind.Shader);
+        var node = Assert.Single(Read(), static candidate => candidate.Kind == DocKind.Shader);
 
         Assert.Equal("R:Pipeline/ForwardPlus", node.Id);
         Assert.Equal("shaders/pipeline.forwardplus", node.Slug);
@@ -73,7 +76,7 @@ public class NonCSharpNodeTests : IDisposable {
     public void AShaderWithoutReflectionIsNotDocumented() {
         Write("Raven/Library/Pipeline/Uncompiled.rvn", "shader Uncompiled { }");
 
-        Assert.DoesNotContain(Read(), node => node.Kind == DocKind.Shader);
+        Assert.DoesNotContain(Read(), static node => node.Kind == DocKind.Shader);
     }
 
     [Fact]
@@ -81,7 +84,7 @@ public class NonCSharpNodeTests : IDisposable {
         Write("Raven/Library/Pipeline/Broken.reflect.json", "{ not json");
         Write("Raven/Library/Pipeline/Fine.reflect.json", """{ "Sets": [{ "Set": 0 }] }""");
 
-        var node = Assert.Single(Read(), candidate => candidate.Kind == DocKind.Shader);
+        var node = Assert.Single(Read(), static candidate => candidate.Kind == DocKind.Shader);
 
         Assert.Equal("Fine", node.Name);
     }
@@ -90,16 +93,18 @@ public class NonCSharpNodeTests : IDisposable {
 
     [Fact]
     public void ADiagnosticCodeBecomesANodeWithWhatEmitsIt() {
-        Write("docs/manual/diagnostic-codes.md",
+        Write(
+            "docs/manual/diagnostic-codes.md",
             """
             # Diagnostic codes
 
             | Code | Meaning | Emitted by |
             |---|---|---|
             | `VX1001` | An importer said something about an asset. | `vixen import`, `vixen content build` |
-            """);
+            """
+        );
 
-        var node = Assert.Single(Read(), candidate => candidate.Kind == DocKind.Diagnostic);
+        var node = Assert.Single(Read(), static candidate => candidate.Kind == DocKind.Diagnostic);
 
         Assert.Equal("D:VX1001", node.Id);
         Assert.Equal("diagnostics/vx1001", node.Slug);
@@ -109,7 +114,8 @@ public class NonCSharpNodeTests : IDisposable {
 
     [Fact]
     public void ALogEventCarriesItsLevelAndTheSubsystemItsHeadingNames() {
-        Write("docs/manual/log-events.md",
+        Write(
+            "docs/manual/log-events.md",
             """
             # Log event ids
 
@@ -126,9 +132,10 @@ public class NonCSharpNodeTests : IDisposable {
             | Id | Level | Message | Since |
             |---|---|---|---|
             | 2001 | Warning | The Vulkan validation layers were asked for and are not installed | 0.1.0 |
-            """);
+            """
+        );
 
-        var node = Assert.Single(Read(), candidate => candidate.Kind == DocKind.LogEvent);
+        var node = Assert.Single(Read(), static candidate => candidate.Kind == DocKind.LogEvent);
 
         Assert.Equal("L:2001", node.Id);
         Assert.Equal("Warning", node.Facets?.Level);
@@ -142,15 +149,17 @@ public class NonCSharpNodeTests : IDisposable {
     /// </summary>
     [Fact]
     public void ARangeIsNotAnEvent() {
-        Write("docs/manual/log-events.md",
+        Write(
+            "docs/manual/log-events.md",
             """
             | Range | Subsystem | Status |
             |---|---|---|
             | 1 000 – 1 999 | `Vixen.Core.*` | reserved |
             | 2 000 – 2 999 | `Vixen.Graphics` | **in use** |
-            """);
+            """
+        );
 
-        Assert.DoesNotContain(Read(), node => node.Kind == DocKind.LogEvent);
+        Assert.DoesNotContain(Read(), static node => node.Kind == DocKind.LogEvent);
     }
 
     [Fact]

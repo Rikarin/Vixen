@@ -16,12 +16,20 @@ using Vixen.Testing;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         Doc 46 § A3 states the property as <i>"an id used nowhere and an id declared nowhere are
-///         both build errors"</i>. <c>StringDeclarationAnalyzer</c> closes the second half inside an
+///         Doc 46 § A3 states the property as
+///         <i>
+///             "an id used nowhere and an id declared nowhere are
+///             both build errors"
+///         </i>
+///         . <c>StringDeclarationAnalyzer</c> closes the second half inside an
 ///         assembly that owns a declaration class, and the compiler closes it for a member name — a
 ///         call site naming <c>EditorStrings.Whatever</c> that does not exist is CS0117 and always
-///         was. What neither can answer is the first half: <b>six of <c>ControlStrings</c>' fifteen
-///         declarations are used only from <c>Vixen.Ui.Controls.Advanced</c></b>, so an analyzer
+///         was. What neither can answer is the first half:
+///         <b>
+///             six of <c>ControlStrings</c>' fifteen
+///             declarations are used only from <c>Vixen.Ui.Controls.Advanced</c>
+///         </b>
+///         , so an analyzer
 ///         running over <c>Vixen.Ui.Controls</c> that called an unreferenced declaration dead would
 ///         be wrong about six of them, and one that counted the <c>All</c> list as a use would be
 ///         vacuous — every declaration is in <c>All</c> by construction.
@@ -96,136 +104,141 @@ partial class Build {
     ) =>
         StringIdCensus.LiteralIds(contents, members, parameters);
 
-    Target CheckStrings => definition => definition
-        .Description("Fails if a declared string id is used nowhere, if a call site repeats an id a declaration class already declares, if a shipping call site builds one no class declares, or if it builds one out of a run-time value")
-        .Executes(() => {
-                // ⚠ What git calls the tree, not what the disk holds (#1424). This was a glob of the
-                // whole disk below the root with bin/, obj/ and artifacts/ filtered out by substring
-                // and this checkout's own .claude/ by an anchored prefix — the other checkouts of
-                // this repository, which reported every violation once per worktree and resurrected
-                // declarations master had deleted. The anchoring was got wrong once too: a worktree's
-                // own RootDirectory *is* …/.claude/worktrees/<name>, so a substring test excluded the
-                // entire tree. `git ls-files` is relative to the checkout by construction, lists a
-                // sibling worktree as one nested-repository entry it never descends, and knows about
-                // the ignored references/ clones and .nuke/temp/, which none of those filters did.
-                // The assertion below is still what makes an empty read a broken gate rather than a
-                // silent one.
-                var sources = RepositoryFiles.Files(RootDirectory, "*.cs", "*.vxml")
-                    .Select(AbsolutePath.Create)
+    Target CheckStrings =>
+        definition => definition
+            .Description(
+                "Fails if a declared string id is used nowhere, if a call site repeats an id a declaration class already declares, if a shipping call site builds one no class declares, or if it builds one out of a run-time value"
+            )
+            .Executes(() => {
+                    // ⚠ What git calls the tree, not what the disk holds (#1424). This was a glob of the
+                    // whole disk below the root with bin/, obj/ and artifacts/ filtered out by substring
+                    // and this checkout's own .claude/ by an anchored prefix — the other checkouts of
+                    // this repository, which reported every violation once per worktree and resurrected
+                    // declarations master had deleted. The anchoring was got wrong once too: a worktree's
+                    // own RootDirectory *is* …/.claude/worktrees/<name>, so a substring test excluded the
+                    // entire tree. `git ls-files` is relative to the checkout by construction, lists a
+                    // sibling worktree as one nested-repository entry it never descends, and knows about
+                    // the ignored references/ clones and .nuke/temp/, which none of those filters did.
+                    // The assertion below is still what makes an empty read a broken gate rather than a
+                    // silent one.
+                    var sources = RepositoryFiles.Files(RootDirectory, "*.cs", "*.vxml")
+                        .Select(AbsolutePath.Create)
 
-                    // ⚠ The analyzer's own tests, whose C# is *data*: every fixture is a declaration
-                    // class inside a raw string literal, written to be reported on. Reading them as
-                    // source makes this gate fail on the tests that prove the other half of the same
-                    // property works. Excluded by name and with a reason, the way CheckArchitecture
-                    // excludes Tools/Vixen.Templates/templates/ — which is not this repository's code
-                    // either.
-                    .Where(path => !Slashed(path).Contains("/Vixen.Ui.Generators.Tests/", StringComparison.Ordinal))
+                        // ⚠ The analyzer's own tests, whose C# is *data*: every fixture is a declaration
+                        // class inside a raw string literal, written to be reported on. Reading them as
+                        // source makes this gate fail on the tests that prove the other half of the same
+                        // property works. Excluded by name and with a reason, the way CheckArchitecture
+                        // excludes Tools/Vixen.Templates/templates/ — which is not this repository's code
+                        // either.
+                        .Where(path => !Slashed(path).Contains("/Vixen.Ui.Generators.Tests/", StringComparison.Ordinal))
 
-                    // ⚠ And the census's own fixtures, for the same reason one gate along. They are
-                    // the pre-migration text of the sites this gate exists to catch — a real id, a
-                    // real source string, verbatim from the commit that removed them — so reading
-                    // them as source makes the gate fail on the tests that prove it fires. Verbatim
-                    // rather than reduced is deliberate: a reduction is a claim about what the
-                    // defect looked like (`SplicedShaderFixture` says the same thing next door).
-                    .Where(path => !Slashed(path).EndsWith("Vixen.ApiCheck.Tests/StringIdCensusTests.cs", StringComparison.Ordinal))
-                    .ToList();
+                        // ⚠ And the census's own fixtures, for the same reason one gate along. They are
+                        // the pre-migration text of the sites this gate exists to catch — a real id, a
+                        // real source string, verbatim from the commit that removed them — so reading
+                        // them as source makes the gate fail on the tests that prove it fires. Verbatim
+                        // rather than reduced is deliberate: a reduction is a claim about what the
+                        // defect looked like (`SplicedShaderFixture` says the same thing next door).
+                        .Where(path => !Slashed(path)
+                                .EndsWith("Vixen.ApiCheck.Tests/StringIdCensusTests.cs", StringComparison.Ordinal)
+                        )
+                        .ToList();
 
-                Assert.True(sources.Count > 0, "Found no sources to check — the glob is wrong.");
+                    Assert.True(sources.Count > 0, "Found no sources to check — the glob is wrong.");
 
-                var text = sources.ToDictionary(path => path, path => path.ReadAllText());
+                    var text = sources.ToDictionary(path => path, path => path.ReadAllText());
 
-                // ⚠ The type an object initialiser does not carry, recovered from the tree's own
-                // declarations. An initialiser assigning `Unavailable` is building a StringId
-                // because Vixen.Ui.Controls/EditorCommand.cs declares that member as one, an
-                // assembly away from the file that assigns it — so this is tree-wide or nothing.
-                //
-                // ⚠ The shape is described here rather than written out, because a `//` line is not
-                // a `///` line and the census excludes only the second. Spelling the example out
-                // made this comment a call site twice over, and the gate failed on it both times.
-                var members = StringIdCensus.Members(text.Values);
+                    // ⚠ The type an object initialiser does not carry, recovered from the tree's own
+                    // declarations. An initialiser assigning `Unavailable` is building a StringId
+                    // because Vixen.Ui.Controls/EditorCommand.cs declares that member as one, an
+                    // assembly away from the file that assigns it — so this is tree-wide or nothing.
+                    //
+                    // ⚠ The shape is described here rather than written out, because a `//` line is not
+                    // a `///` line and the census excludes only the second. Spelling the example out
+                    // made this comment a call site twice over, and the gate failed on it both times.
+                    var members = StringIdCensus.Members(text.Values);
 
-                // ⚠ And the instrument, because this half fails silently in exactly one direction.
-                // A member pattern that stopped matching yields an empty set, every
-                // object-initialiser construction stops being recognised, and the two ceilings
-                // below go DOWN — which reads as progress and is the shape #1203 is about.
-                Assert.True(
-                    members.Contains("Unavailable") && members.Count > 100,
-                    $"Only {members.Count} StringId member names were read out of the tree. The member pattern is "
-                    + "wrong, and a census that recognises no members reports every object-initialiser id as absent."
-                );
+                    // ⚠ And the instrument, because this half fails silently in exactly one direction.
+                    // A member pattern that stopped matching yields an empty set, every
+                    // object-initialiser construction stops being recognised, and the two ceilings
+                    // below go DOWN — which reads as progress and is the shape #1203 is about.
+                    Assert.True(
+                        members.Contains("Unavailable") && members.Count > 100,
+                        $"Only {members.Count} StringId member names were read out of the tree. The member pattern is "
+                        + "wrong, and a census that recognises no members reports every object-initialiser id as absent."
+                    );
 
-                // ⚠ The fourth shape's half of the same instrument (#1492): a target-typed new(…)
-                // passed as an argument is a StringId only because some parameter list says so, and
-                // a map that read nothing un-sees every one of them in the same quiet direction.
-                // EditorCommand's constructor is the call site #1492 measured.
-                var parameters = StringIdCensus.Parameters(text.Values);
+                    // ⚠ The fourth shape's half of the same instrument (#1492): a target-typed new(…)
+                    // passed as an argument is a StringId only because some parameter list says so, and
+                    // a map that read nothing un-sees every one of them in the same quiet direction.
+                    // EditorCommand's constructor is the call site #1492 measured.
+                    var parameters = StringIdCensus.Parameters(text.Values);
 
-                Assert.True(
-                    parameters.Takes("EditorCommand", 1) && parameters.Count > 25,
-                    $"Only {parameters.Count} callables taking a StringId were read out of the tree. The "
-                    + "parameter reader is wrong, and a census that knows no parameters reports every "
-                    + "target-typed argument as absent."
-                );
+                    Assert.True(
+                        parameters.Takes("EditorCommand", 1) && parameters.Count > 25,
+                        $"Only {parameters.Count} callables taking a StringId were read out of the tree. The "
+                        + "parameter reader is wrong, and a census that knows no parameters reports every "
+                        + "target-typed argument as absent."
+                    );
 
-                var declarations = new List<(string Class, string Member, string Id, AbsolutePath File)>();
+                    var declarations = new List<(string Class, string Member, string Id, AbsolutePath File)>();
 
-                foreach (var (path, contents) in text) {
-                    if (!AllListPattern.IsMatch(contents)) {
-                        // Not a declaration class. A `.vxml` code block or a fixture may hold a single
-                        // StringId without claiming to be where an assembly's ids live; `All` is what
-                        // makes the claim, because `All` is the whole of what a translator sees.
-                        continue;
+                    foreach (var (path, contents) in text) {
+                        if (!AllListPattern.IsMatch(contents)) {
+                            // Not a declaration class. A `.vxml` code block or a fixture may hold a single
+                            // StringId without claiming to be where an assembly's ids live; `All` is what
+                            // makes the claim, because `All` is the whole of what a translator sees.
+                            continue;
+                        }
+
+                        if (DeclarationClassPattern.Match(contents) is not { Success: true } owner) {
+                            continue;
+                        }
+
+                        foreach (Match declaration in DeclarationPattern.Matches(contents)) {
+                            declarations.Add(
+                                (owner.Groups["name"].Value,
+                                    declaration.Groups["member"].Value,
+                                    declaration.Groups["id"].Value,
+                                    path)
+                            );
+                        }
                     }
 
-                    if (DeclarationClassPattern.Match(contents) is not { Success: true } owner) {
-                        continue;
+                    Assert.True(
+                        declarations.Count > 0,
+                        "Found no string declarations at all. Either the tree has none — in which case "
+                        + "this gate is checking nothing and should be deleted rather than left passing "
+                        + "— or DeclarationPattern no longer matches the shape."
+                    );
+
+                    var declared = declarations
+                        .GroupBy(declaration => declaration.Id, StringComparer.Ordinal)
+                        .ToDictionary(group => group.Key, group => group.First(), StringComparer.Ordinal);
+
+                    var violations = new List<string>();
+
+                    Unused(declarations, text, violations);
+                    Repeated(declared, text, members, parameters, violations);
+                    Undeclared(declared, text, members, parameters, violations);
+                    Constructed(text, members, parameters, violations);
+
+                    foreach (var violation in violations) {
+                        Log.Error("{Violation}", violation);
                     }
 
-                    foreach (Match declaration in DeclarationPattern.Matches(contents)) {
-                        declarations.Add(
-                            (owner.Groups["name"].Value,
-                                declaration.Groups["member"].Value,
-                                declaration.Groups["id"].Value,
-                                path)
-                        );
-                    }
+                    Assert.True(
+                        violations.Count == 0,
+                        $"{violations.Count} string-catalogue violation(s). See the errors above."
+                    );
+
+                    Log.Information(
+                        "Checked {Declarations} declarations in {Classes} declaration class(es) against {Files} files; no violations.",
+                        declarations.Count,
+                        declarations.Select(declaration => declaration.Class).Distinct(StringComparer.Ordinal).Count(),
+                        sources.Count
+                    );
                 }
-
-                Assert.True(
-                    declarations.Count > 0,
-                    "Found no string declarations at all. Either the tree has none — in which case "
-                    + "this gate is checking nothing and should be deleted rather than left passing "
-                    + "— or DeclarationPattern no longer matches the shape."
-                );
-
-                var declared = declarations
-                    .GroupBy(declaration => declaration.Id, StringComparer.Ordinal)
-                    .ToDictionary(group => group.Key, group => group.First(), StringComparer.Ordinal);
-
-                var violations = new List<string>();
-
-                Unused(declarations, text, violations);
-                Repeated(declared, text, members, parameters, violations);
-                Undeclared(declared, text, members, parameters, violations);
-                Constructed(text, members, parameters, violations);
-
-                foreach (var violation in violations) {
-                    Log.Error("{Violation}", violation);
-                }
-
-                Assert.True(
-                    violations.Count == 0,
-                    $"{violations.Count} string-catalogue violation(s). See the errors above."
-                );
-
-                Log.Information(
-                    "Checked {Declarations} declarations in {Classes} declaration class(es) against {Files} files; no violations.",
-                    declarations.Count,
-                    declarations.Select(declaration => declaration.Class).Distinct(StringComparer.Ordinal).Count(),
-                    sources.Count
-                );
-            }
-        );
+            );
 
     /// <summary>"An id used nowhere is a build error."</summary>
     /// <remarks>
@@ -311,9 +324,13 @@ partial class Build {
     ///         logging a warning nobody reads.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The old note said a handful of the population could not be declared and named
-    ///         <c>WaterMode</c>'s <c>"editor.command." + id</c> as the example. That was never in the
-    ///         population.</b> Both patterns need a string literal where the id goes, so a
+    ///         ⚠
+    ///         <b>
+    ///             The old note said a handful of the population could not be declared and named
+    ///             <c>WaterMode</c>'s <c>"editor.command." + id</c> as the example. That was never in the
+    ///             population.
+    ///         </b>
+    ///         Both patterns need a string literal where the id goes, so a
     ///         concatenation is invisible to this check — which means it is invisible to the
     ///         translator's template as well, and the ceiling can be zero precisely because the
     ///         genuinely irreducible ids were never being counted. <see cref="Constructed" /> is
@@ -378,7 +395,7 @@ partial class Build {
         }
 
         // ⚠ The other half, and the reason this is a constant rather than a literal zero: a ceiling
-        // that only ever fails upwards is one nobody lowers. `CheckWhitespace`'s exemption list has
+        // that only ever fails upwards is one nobody lowers. `CheckDocComments`' exemption list has
         // the same rule, for the same reason.
         Assert.True(
             undeclared.Count == UndeclaredCeiling,
@@ -394,8 +411,12 @@ partial class Build {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>This is the population <see cref="Undeclared" />'s ceiling of zero was measured
-    ///         without.</b> <c>new StringId("editor.command." + id, label)</c> has no literal where
+    ///         ⚠
+    ///         <b>
+    ///             This is the population <see cref="Undeclared" />'s ceiling of zero was measured
+    ///             without.
+    ///         </b>
+    ///         <c>new StringId("editor.command." + id, label)</c> has no literal where
     ///         the id goes, so it was in neither pattern, so it was in no violation and in no
     ///         warning — and, for exactly the same reason, in no <c>All</c> list and no translator's
     ///         template. The ids that genuinely could not be declared were the ones nothing counted,
@@ -438,7 +459,8 @@ partial class Build {
     ///         <b>What the eight are.</b> Every one needs a decision rather than a migration:
     ///         <c>DeclaredMenus</c> in <c>Vixen.Editor.Plugin</c> (3, a plugin's command, its top
     ///         menu and an undeclared submenu — moved out of <c>DeclaredContributions</c> by #1283,
-    ///         where they were the same three, so both readers of the attributes share them), <c>EditorApplication</c> (1, a panel titled by a document — user
+    ///         where they were the same three, so both readers of the attributes share them), <c>EditorApplication</c> (1, a
+    ///         panel titled by a document — user
     ///         data), <c>EditorParity</c> (1, a recent project's directory name — user data),
     ///         <c>EditorBuilds</c> (2, "This Machine (rid)" — machine data — and
     ///         <c>PlayerBuild.WhyNotPublishable</c>'s prose, which another assembly owns) and
@@ -453,8 +475,12 @@ partial class Build {
     ///         the ceiling read eight with nine sites in the tree. Raising it is the measurement
     ///         being corrected, not a regression admitted: the site is the one helper behind the label
     ///         of every viewport command.
-    ///         ⚠ <b>It was left here "because one of its labels is <c>"Reference: " + placed.Name</c>
-    ///         — user data", and that was false.</b> <c>placed</c> iterates <c>ReferenceVolumes.All</c>,
+    ///         ⚠
+    ///         <b>
+    ///             It was left here "because one of its labels is <c>"Reference: " + placed.Name</c>
+    ///             — user data", and that was false.
+    ///         </b>
+    ///         <c>placed</c> iterates <c>ReferenceVolumes.All</c>,
     ///         four built-in volumes with literal names, so every label behind the helper is a word a
     ///         declaration can hold. So it was migrated rather than decided
     ///         (<a href="https://github.com/Rikarin/Vixen/issues/1513">#1513</a>): its seventy-one
@@ -471,8 +497,12 @@ partial class Build {
     ///         has a declaration class, so those four cannot regress by one site.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Four of <c>EditorParity</c>'s five went one helper at a time, and that is the
-    ///         opposite of what #1178 said was possible.</b> "All-or-nothing per assembly" is true of
+    ///         ⚠
+    ///         <b>
+    ///             Four of <c>EditorParity</c>'s five went one helper at a time, and that is the
+    ///             opposite of what #1178 said was possible.
+    ///         </b>
+    ///         "All-or-nothing per assembly" is true of
     ///         <c>VXS0312</c> and does not bind here: the analyzer reports only in a compilation
     ///         whose <em>own syntax</em> contains a declaration class, and <c>Vixen.Editor.App</c>
     ///         has none — its words are declared in <c>EditorStrings</c>, one assembly away, and it
@@ -483,8 +513,12 @@ partial class Build {
     ///         reader meets on a greyed menu line and no translator could reach.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>An id built in an object initialiser was in neither half of this census, and it
-    ///         is the third shape now</b> (#1203). <c>Unavailable = new("editor.command.…", "…")</c>
+    ///         ⚠
+    ///         <b>
+    ///             An id built in an object initialiser was in neither half of this census, and it
+    ///             is the third shape now
+    ///         </b>
+    ///         (#1203). <c>Unavailable = new("editor.command.…", "…")</c>
     ///         carries neither a <c>new StringId</c> nor a declared type name, because the target's
     ///         type is only in the semantic model — so <c>FoliageMode</c>'s was in no count, in no
     ///         violation and in no translator's template for as long as it existed, and migrating

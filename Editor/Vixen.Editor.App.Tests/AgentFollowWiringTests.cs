@@ -52,7 +52,7 @@ public class AgentFollowWiringTests {
 
         session.Frames(2);
 
-        Assert.Contains(view.Canvas.Graph.Nodes, node => node.Badge.StartsWith('●'));
+        Assert.Contains(view.Canvas.Graph.Nodes, static node => node.Badge.StartsWith('●'));
     }
 
     /// <summary>
@@ -75,12 +75,12 @@ public class AgentFollowWiringTests {
 
         session.Frames(2);
 
-        Assert.DoesNotContain(view.Canvas.Graph.Nodes, node => node.Badge.StartsWith('●'));
+        Assert.DoesNotContain(view.Canvas.Graph.Nodes, static node => node.Badge.StartsWith('●'));
         Assert.True(model.ToggleBreakpoint(Symbol.Intern(TreeName), 0));
 
         session.Frames(2);
 
-        Assert.Contains(view.Canvas.Graph.Nodes, node => node.Badge.StartsWith('●'));
+        Assert.Contains(view.Canvas.Graph.Nodes, static node => node.Badge.StartsWith('●'));
     }
 
     /// <summary>A utility set opened in the editor draws the followed agent's scores.</summary>
@@ -104,7 +104,7 @@ public class AgentFollowWiringTests {
 
         var snapshot = new AiAgentSnapshot { Planner = AiPlanner.Utility, Asset = Symbol.Intern("Mood") };
 
-        snapshot.Add(AiDebugRow.Of(AiDebugSection.Doing, "Flee", 0.75f, active: true));
+        snapshot.Add(AiDebugRow.Of(AiDebugSection.Doing, "Flee", 0.75f, true));
         model.Show(snapshot);
 
         session.Frames(2);
@@ -130,7 +130,7 @@ public class AgentFollowWiringTests {
 
         session.Frames(2);
 
-        Assert.DoesNotContain(view.Canvas.Graph.Nodes, node => node.Badge.StartsWith('●'));
+        Assert.DoesNotContain(view.Canvas.Graph.Nodes, static node => node.Badge.StartsWith('●'));
 
         session.Close(id);
         session.Frames(2);
@@ -140,7 +140,7 @@ public class AgentFollowWiringTests {
 
         session.Frames(2);
 
-        Assert.DoesNotContain(view.Canvas.Graph.Nodes, node => node.Badge.StartsWith('●'));
+        Assert.DoesNotContain(view.Canvas.Graph.Nodes, static node => node.Badge.StartsWith('●'));
     }
 
     /// <summary>The debugger's model, which is the one every followed editor has to be handed.</summary>

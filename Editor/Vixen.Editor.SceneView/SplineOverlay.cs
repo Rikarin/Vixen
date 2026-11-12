@@ -23,8 +23,12 @@ namespace Vixen.Editor.SceneView;
 ///         it is most likely to have is arithmetic, not binding.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Every method has a <see cref="GizmoDraw" /> overload, and that one is the
-///         implementation.</b> A pane hands a drawer a <see cref="GizmoDraw" /> and never its list —
+///         ⚠
+///         <b>
+///             Every method has a <see cref="GizmoDraw" /> overload, and that one is the
+///             implementation.
+///         </b>
+///         A pane hands a drawer a <see cref="GizmoDraw" /> and never its list —
 ///         <c>SceneViewport.Cursor</c> and <c>ComponentGizmos</c> both — so an overlay that only took
 ///         a <c>List&lt;LineVertex&gt;</c> was one no viewport could call, which is what it was for
 ///         two phases. The list overloads wrap a <see cref="GizmoDraw" /> over the list rather than
@@ -38,8 +42,12 @@ namespace Vixen.Editor.SceneView;
 ///         the curve bends.
 ///     </para>
 ///     <para>
-///         ⚠ <b>A tangent handle is drawn at a third of its length, which is Bézier's convention and
-///         not an aesthetic one.</b> A Hermite tangent and its Bézier control point differ by exactly
+///         ⚠
+///         <b>
+///             A tangent handle is drawn at a third of its length, which is Bézier's convention and
+///             not an aesthetic one.
+///         </b>
+///         A Hermite tangent and its Bézier control point differ by exactly
 ///         that factor, and <see cref="SplineAsset.InsertOn" /> converts between them — so a handle
 ///         drawn at full length would sit somewhere the geometry never passes and a person dragging
 ///         it would be aiming at the wrong place.
@@ -80,7 +88,8 @@ public static class SplineOverlay {
     /// <summary>Emits the curve as a line strip.</summary>
     /// <remarks>
     ///     Takes a built <see cref="Spline" /> rather than an asset, because building one is what
-    ///     refuses a single control point — <see cref="Draw(SplineAsset, List{LineVertex}, int, float)" /> is the entry point that guards.
+    ///     refuses a single control point — <see cref="Draw(SplineAsset, List{LineVertex}, int, float)" /> is the entry point
+    ///     that guards.
     /// </remarks>
     /// <param name="spline">The curve.</param>
     /// <param name="into">Where the vertices go, appended as pairs.</param>
@@ -157,8 +166,8 @@ public static class SplineOverlay {
         var colour = selected ? SelectedColour : PointColour;
         var arms = 0;
 
-        foreach (var axis in (Vector3[]) [Vector3.UnitX, Vector3.UnitY, Vector3.UnitZ]) {
-            draw.Line(point.Position - (axis * size), point.Position + (axis * size), colour);
+        foreach (var axis in (Vector3[])[Vector3.UnitX, Vector3.UnitY, Vector3.UnitZ]) {
+            draw.Line(point.Position - axis * size, point.Position + axis * size, colour);
 
             arms++;
         }
@@ -169,12 +178,12 @@ public static class SplineOverlay {
         // `TangentIn` already points backwards from its point. Negating it here would draw the
         // incoming handle on the outgoing side, and a person dragging it would move the curve the
         // other way.
-        foreach (var tangent in (Vector3[]) [point.TangentIn, point.TangentOut]) {
+        foreach (var tangent in (Vector3[])[point.TangentIn, point.TangentOut]) {
             if (tangent.LengthSquared() <= 0f) {
                 continue;
             }
 
-            draw.Line(point.Position, point.Position + (tangent / 3f), TangentColour);
+            draw.Line(point.Position, point.Position + tangent / 3f, TangentColour);
 
             arms++;
         }
@@ -190,8 +199,12 @@ public static class SplineOverlay {
     /// <returns>How many line segments were emitted.</returns>
     /// <exception cref="ArgumentNullException">There is no asset or nowhere to put them.</exception>
     /// <remarks>
-    ///     ⚠ <b>The curve first and the handles after, because the line renderer draws in order and
-    ///     does not sort.</b> Points drawn under the curve are points a person cannot see on a road
+    ///     ⚠
+    ///     <b>
+    ///         The curve first and the handles after, because the line renderer draws in order and
+    ///         does not sort.
+    ///     </b>
+    ///     Points drawn under the curve are points a person cannot see on a road
     ///     that runs along them, which is every road.
     /// </remarks>
     public static int Draw(SplineAsset asset, List<LineVertex> into, int selected = -1, float size = 0.4f) {
@@ -209,8 +222,12 @@ public static class SplineOverlay {
     /// <returns>How many line segments were emitted.</returns>
     /// <exception cref="ArgumentNullException">There is no asset or nowhere to put them.</exception>
     /// <remarks>
-    ///     ⚠ <b>The curve first and the handles after, because the line renderer draws in order and
-    ///     does not sort.</b> Points drawn under the curve are points a person cannot see on a road
+    ///     ⚠
+    ///     <b>
+    ///         The curve first and the handles after, because the line renderer draws in order and
+    ///         does not sort.
+    ///     </b>
+    ///     Points drawn under the curve are points a person cannot see on a road
     ///     that runs along them, which is every road.
     /// </remarks>
     public static int Draw(SplineAsset asset, GizmoDraw draw, int selected = -1, float size = 0.4f) {

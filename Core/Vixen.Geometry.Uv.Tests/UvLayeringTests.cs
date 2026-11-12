@@ -31,7 +31,7 @@ public class UvLayeringTests {
     [Fact]
     public void TheUnwrapperReferencesNothingAboveIt() {
         var violations = References()
-            .Where(name => Forbidden.Any(prefix => name.StartsWith(prefix, StringComparison.Ordinal)))
+            .Where(static name => Forbidden.Any(prefix => name.StartsWith(prefix, StringComparison.Ordinal)))
             .ToList();
 
         Assert.True(
@@ -60,7 +60,7 @@ public class UvLayeringTests {
         };
 
         var unexpected = References()
-            .Where(name => name.StartsWith("Vixen.", StringComparison.Ordinal))
+            .Where(static name => name.StartsWith("Vixen.", StringComparison.Ordinal))
             .Where(name => !allowed.Contains(name))
             .ToList();
 
@@ -79,14 +79,16 @@ public class UvLayeringTests {
     [Fact]
     public void OnlyTheRemesherDependsOnTheUnwrapper() {
         var dependents = AppDomain.CurrentDomain.GetAssemblies()
-            .Select(assembly => assembly.GetName().Name)
-            .Where(name => name?.StartsWith("Vixen.", StringComparison.Ordinal) == true)
-            .Where(name => name is not ("Vixen.Geometry.Uv" or "Vixen.Geometry.Uv.Tests" or "Vixen.Geometry.Remeshing"))
-            .Where(
-                name => AppDomain.CurrentDomain.GetAssemblies()
+            .Select(static assembly => assembly.GetName().Name)
+            .Where(static name => name?.StartsWith("Vixen.", StringComparison.Ordinal) == true)
+            .Where(static name => name is not ("Vixen.Geometry.Uv"
+                    or "Vixen.Geometry.Uv.Tests"
+                    or "Vixen.Geometry.Remeshing")
+            )
+            .Where(static name => AppDomain.CurrentDomain.GetAssemblies()
                     .First(assembly => assembly.GetName().Name == name)
                     .GetReferencedAssemblies()
-                    .Any(reference => reference.Name == "Vixen.Geometry.Uv")
+                    .Any(static reference => reference.Name == "Vixen.Geometry.Uv")
             )
             .ToList();
 
@@ -96,8 +98,12 @@ public class UvLayeringTests {
     /// <summary>The same rule against the project file, because the compiled one cannot see an unused reference.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>This exists because the reflection test above was sabotage-tested and did not
-    ///         fail.</b> A <c>ProjectReference</c> to <c>Vixen.Rendering</c> was added to this
+    ///         ⚠
+    ///         <b>
+    ///             This exists because the reflection test above was sabotage-tested and did not
+    ///             fail.
+    ///         </b>
+    ///         A <c>ProjectReference</c> to <c>Vixen.Rendering</c> was added to this
     ///         assembly's project file, the solution rebuilt, and all three facts still passed —
     ///         because Roslyn elides an assembly reference whose types nothing uses, so
     ///         <c>GetReferencedAssemblies</c> never sees it.
@@ -120,9 +126,9 @@ public class UvLayeringTests {
     [Fact]
     public void TheProjectFileDeclaresOnlyTheSameReferences() {
         var declared = DeclaredReferences("Vixen.Geometry.Uv")
-            .Where(name => !name.Equals("Vixen.Geometry", StringComparison.Ordinal))
-            .Where(name => !name.Equals("Vixen.Core.Mathematics", StringComparison.Ordinal))
-            .Where(name => !name.Equals("Vixen.Core.Threading", StringComparison.Ordinal))
+            .Where(static name => !name.Equals("Vixen.Geometry", StringComparison.Ordinal))
+            .Where(static name => !name.Equals("Vixen.Core.Mathematics", StringComparison.Ordinal))
+            .Where(static name => !name.Equals("Vixen.Core.Threading", StringComparison.Ordinal))
             .ToList();
 
         Assert.True(
@@ -144,17 +150,17 @@ public class UvLayeringTests {
 
         return XDocument.Load(file)
             .Descendants("ProjectReference")
-            .Select(element => (string?)element.Attribute("Include") ?? string.Empty)
+            .Select(static element => (string?)element.Attribute("Include") ?? string.Empty)
 
             // ⚠ MSBuild writes its separators as backslashes on every platform, and `Path` on a
             // Unix host does not treat one as a separator — so `GetFileNameWithoutExtension` hands
             // back the entire relative path and every comparison below silently misses. Found by
             // the sabotage test that motivated this fact in the first place.
-            .Select(include => include.Replace('\\', '/'))
-            .Select(include => Path.GetFileNameWithoutExtension(include.AsSpan()).ToString())
-            .Where(name => name.Length > 0);
+            .Select(static include => include.Replace('\\', '/'))
+            .Select(static include => Path.GetFileNameWithoutExtension(include.AsSpan()).ToString())
+            .Where(static name => name.Length > 0);
     }
 
     static IEnumerable<string> References() =>
-        typeof(UvIsland).Assembly.GetReferencedAssemblies().Select(assembly => assembly.Name ?? string.Empty);
+        typeof(UvIsland).Assembly.GetReferencedAssemblies().Select(static assembly => assembly.Name ?? string.Empty);
 }

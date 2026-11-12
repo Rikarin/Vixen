@@ -15,8 +15,9 @@ public sealed class ServiceNotFoundException : Exception {
     /// <summary>Reports that <paramref name="serviceType" /> is not registered.</summary>
     /// <param name="serviceType">The service type that was asked for.</param>
     public ServiceNotFoundException(Type serviceType)
-        : base($"No service is registered as {serviceType}.") =>
+        : base($"No service is registered as {serviceType}.") {
         ServiceType = serviceType;
+    }
 
     /// <summary>Creates the exception with a default message.</summary>
     public ServiceNotFoundException()

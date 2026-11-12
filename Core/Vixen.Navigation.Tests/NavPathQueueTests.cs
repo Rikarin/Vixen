@@ -36,10 +36,14 @@ public sealed class NavPathQueueTests {
         query.FindNearestPoly(new(38, 0, 38), Extents, NavQueryFilter.Default, out var end, out var endPoint);
 
         Span<NavPolyRef> whole = stackalloc NavPolyRef[512];
-        var wholeStatus = query.FindPath(start, end, startPoint, endPoint, NavQueryFilter.Default, whole, out var wholeCount);
+        var wholeStatus =
+            query.FindPath(start, end, startPoint, endPoint, NavQueryFilter.Default, whole, out var wholeCount);
 
         // The same search, four expansions at a time.
-        Assert.NotEqual(NavPathStatus.Failed, query.InitSlicedFindPath(start, end, startPoint, endPoint, NavQueryFilter.Default));
+        Assert.NotEqual(
+            NavPathStatus.Failed,
+            query.InitSlicedFindPath(start, end, startPoint, endPoint, NavQueryFilter.Default)
+        );
 
         var slices = 0;
 
@@ -115,14 +119,17 @@ public sealed class NavPathQueueTests {
         queue.Update(32);
 
         // This is the whole point: sixty-four searches, and the update costs thirty-two expansions.
-        Assert.True(queue.LastIterations <= 32, $"The update did {queue.LastIterations} expansions against a budget of 32.");
+        Assert.True(
+            queue.LastIterations <= 32,
+            $"The update did {queue.LastIterations} expansions against a budget of 32."
+        );
         Assert.True(queue.PendingCount > 32, "Most of the requests should still be waiting.");
     }
 
     [Fact]
     public void AFullQueueRefusesRatherThanGrows() {
         var mesh = Room();
-        var queue = new NavPathQueue(mesh, capacity: 4);
+        var queue = new NavPathQueue(mesh, 4);
         var query = new NavMeshQuery(mesh);
 
         query.FindNearestPoly(new(2, 0, 2), Extents, NavQueryFilter.Default, out var start, out var startPoint);
@@ -138,7 +145,7 @@ public sealed class NavPathQueueTests {
     [Fact]
     public void ACancelledRequestGivesItsSlotBack() {
         var mesh = Room();
-        var queue = new NavPathQueue(mesh, capacity: 1);
+        var queue = new NavPathQueue(mesh, 1);
         var query = new NavMeshQuery(mesh);
 
         query.FindNearestPoly(new(2, 0, 2), Extents, NavQueryFilter.Default, out var start, out var startPoint);
@@ -179,7 +186,7 @@ public sealed class NavPathQueueTests {
     [Fact]
     public void AStaleRequestNamesNothingAfterItsSlotIsReused() {
         var mesh = Room();
-        var queue = new NavPathQueue(mesh, capacity: 1);
+        var queue = new NavPathQueue(mesh, 1);
         var query = new NavMeshQuery(mesh);
 
         query.FindNearestPoly(new(2, 0, 2), Extents, NavQueryFilter.Default, out var start, out var startPoint);
@@ -202,7 +209,10 @@ public sealed class NavPathQueueTests {
         var handles = new List<CrowdAgentHandle>();
 
         for (var index = 0; index < 24; index++) {
-            var handle = crowd.AddAgent(new(3f + (index % 6 * 1.2f), 0, 3f + (index / 6 * 1.2f)), new() { Radius = 0.4f, MaxSpeed = 3f });
+            var handle = crowd.AddAgent(
+                new(3f + index % 6 * 1.2f, 0, 3f + index / 6 * 1.2f),
+                new() { Radius = 0.4f, MaxSpeed = 3f }
+            );
 
             Assert.False(handle.IsNull);
             handles.Add(handle);

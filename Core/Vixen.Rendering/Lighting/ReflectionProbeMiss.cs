@@ -35,8 +35,10 @@ namespace Vixen.Rendering.Lighting;
 /// </remarks>
 public sealed class ReflectionProbeMiss : IReflectionFallback {
     /// <summary>How many probes the shader's arrays hold — its fixed binding count.</summary>
-    /// <remarks>Four, and not selectable from a host, for <c>GlobalDistanceField.LevelCount</c>'s
-    ///     exact reason: the compiler does not surface a composed shader's permutations.</remarks>
+    /// <remarks>
+    ///     Four, and not selectable from a host, for <c>GlobalDistanceField.LevelCount</c>'s
+    ///     exact reason: the compiler does not surface a composed shader's permutations.
+    /// </remarks>
     public const int ProbeLimit = 4;
 
     readonly List<(ReflectionProbe Probe, CubeImage Radiance)> probes = [];
@@ -91,20 +93,26 @@ public sealed class ReflectionProbeMiss : IReflectionFallback {
 
     /// <summary>Writes the device half — cubes, volumes, count — under the slot's qualified names.</summary>
     /// <param name="parameters">Where the consuming pass reads its set 0 from.</param>
-    /// <param name="shaderName">The slot's qualified name —
-    ///     <c>ReflectionTrace.ReflectionProbeMissSource</c> for the kernel.</param>
+    /// <param name="shaderName">
+    ///     The slot's qualified name —
+    ///     <c>ReflectionTrace.ReflectionProbeMissSource</c> for the kernel.
+    /// </param>
     /// <param name="sampler">How the cubes are sampled — one sampler for the set, the frame's.</param>
     /// <exception cref="ArgumentNullException">There are no parameters.</exception>
     /// <exception cref="ArgumentException">There is no shader name.</exception>
-    /// <remarks>⚠ Every slot of the array is written, the spare ones with the last probe's cube —
+    /// <remarks>
+    ///     ⚠ Every slot of the array is written, the spare ones with the last probe's cube —
     ///     the shader samples a slot before it weighs it, the forward pass's own rule, and a
-    ///     descriptor left empty binds nothing at all.</remarks>
+    ///     descriptor left empty binds nothing at all.
+    /// </remarks>
     public void Apply(ParameterCollection parameters, string shaderName, SamplerHandle sampler) {
         ArgumentNullException.ThrowIfNull(parameters);
         ArgumentException.ThrowIfNullOrEmpty(shaderName);
 
         if (probes.Count == 0) {
-            throw new InvalidOperationException("a miss source with no probes has nothing to bind — compose the sky instead");
+            throw new InvalidOperationException(
+                "a miss source with no probes has nothing to bind — compose the sky instead"
+            );
         }
 
         for (var index = 0; index < ProbeLimit; index++) {
@@ -141,16 +149,15 @@ public sealed class ReflectionProbeMiss : IReflectionFallback {
         var furthest = Vector3.Max(toMax, toMin);
         var distance = MathF.Min(furthest.X, MathF.Min(furthest.Y, furthest.Z));
 
-        return Vector3.Normalize(position + (reflected * distance) - centre);
+        return Vector3.Normalize(position + reflected * distance - centre);
     }
 
     /// <summary>The sphere correction — <c>Ibl.ParallaxCorrectSphere</c>'s, mirrored exactly.</summary>
     static Vector3 CorrectSphere(Vector3 reflected, Vector3 position, Vector3 centre, float radius) {
         var toCentre = centre - position;
         var along = Vector3.Dot(toCentre, reflected);
-        var half = MathF.Sqrt(MathF.Max((radius * radius) - (Vector3.Dot(toCentre, toCentre) - (along * along)), 0f));
+        var half = MathF.Sqrt(MathF.Max(radius * radius - (Vector3.Dot(toCentre, toCentre) - along * along), 0f));
 
-        return Vector3.Normalize(position + (reflected * (along + half)) - centre);
+        return Vector3.Normalize(position + reflected * (along + half) - centre);
     }
-
 }

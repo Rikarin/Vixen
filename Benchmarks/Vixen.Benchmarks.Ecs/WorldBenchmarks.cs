@@ -162,9 +162,9 @@ public class WorldBenchmarks {
         }
     }
 
-    struct Frozen : ITagComponent;
+    readonly struct Frozen : ITagComponent;
 
-    struct Integrate : IForEach<Position, Velocity> {
+    readonly struct Integrate : IForEach<Position, Velocity> {
         public void Execute(ref Position position, ref Velocity velocity) => position.X += velocity.X;
     }
 }

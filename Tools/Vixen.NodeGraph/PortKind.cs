@@ -91,8 +91,11 @@ public enum PortKind {
     ///         by a compiler rather than by the enum.
     ///     </para>
     ///     <para>
-    ///         <b>It answers zero to both of the port model's questions, and neither is an
-    ///         oversight.</b> <see cref="PortKinds.Lanes" /> is "how wide is this value in the emitted
+    ///         <b>
+    ///             It answers zero to both of the port model's questions, and neither is an
+    ///             oversight.
+    ///         </b>
+    ///         <see cref="PortKinds.Lanes" /> is "how wide is this value in the emitted
     ///         source", and an image is not a float vector of any width — a dispatch over a storage
     ///         image is not an expression with lanes. <see cref="PortKinds.Fields" /> is "how many
     ///         boxes does an author type into", and there is no literal image: an unconnected image
@@ -108,13 +111,14 @@ public enum PortKind {
 /// <summary>The rules a port's type follows.</summary>
 public static class PortKinds {
     /// <summary>How many float lanes a kind occupies, or zero when it is not a vector at all.</summary>
-    public static int Lanes(PortKind kind) => kind switch {
-        PortKind.Float => 1,
-        PortKind.Float2 => 2,
-        PortKind.Float3 => 3,
-        PortKind.Float4 => 4,
-        _ => 0
-    };
+    public static int Lanes(PortKind kind) =>
+        kind switch {
+            PortKind.Float => 1,
+            PortKind.Float2 => 2,
+            PortKind.Float3 => 3,
+            PortKind.Float4 => 4,
+            _ => 0
+        };
 
     /// <summary>Whether a kind is one of the float vectors, which is what <see cref="PortKind.Dynamic" /> resolves to.</summary>
     public static bool IsVector(PortKind kind) => Lanes(kind) > 0;
@@ -138,22 +142,24 @@ public static class PortKinds {
     ///         wired to a <i>different</i> port.
     ///     </para>
     /// </remarks>
-    public static int Fields(PortKind kind) => kind switch {
-        PortKind.Bool or PortKind.Int or PortKind.Dynamic => 1,
-        _ => Lanes(kind)
-    };
+    public static int Fields(PortKind kind) =>
+        kind switch {
+            PortKind.Bool or PortKind.Int or PortKind.Dynamic => 1,
+            _ => Lanes(kind)
+        };
 
     /// <summary>The vector kind with a given number of lanes.</summary>
     /// <param name="lanes">One to four.</param>
     /// <returns>The kind.</returns>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="lanes" /> is not one to four.</exception>
-    public static PortKind OfLanes(int lanes) => lanes switch {
-        1 => PortKind.Float,
-        2 => PortKind.Float2,
-        3 => PortKind.Float3,
-        4 => PortKind.Float4,
-        _ => throw new ArgumentOutOfRangeException(nameof(lanes), lanes, "A vector port has one to four lanes.")
-    };
+    public static PortKind OfLanes(int lanes) =>
+        lanes switch {
+            1 => PortKind.Float,
+            2 => PortKind.Float2,
+            3 => PortKind.Float3,
+            4 => PortKind.Float4,
+            _ => throw new ArgumentOutOfRangeException(nameof(lanes), lanes, "A vector port has one to four lanes.")
+        };
 
     /// <summary>
     ///     What a node's dynamic ports resolve to, given what its inputs are connected to.

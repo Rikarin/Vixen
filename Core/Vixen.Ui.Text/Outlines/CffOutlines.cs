@@ -24,17 +24,17 @@ internal sealed class CffOutlines {
     readonly byte[] cff;
     readonly CffRange[] charStrings;
     readonly CffRange[] globalSubrs;
-    readonly CffRange[][] localSubrs;      // by font-dict index; one entry when the font is not CID
-    readonly int[] fdSelect;               // per glyph, or empty for a non-CID font
+    readonly CffRange[][] localSubrs; // by font-dict index; one entry when the font is not CID
+    readonly int[] fdSelect; // per glyph, or empty for a non-CID font
     readonly float[] matrix = [0.001f, 0, 0, 0.001f, 0, 0];
 
     public CffOutlines(byte[] cff, int unitsPerEm) {
         this.cff = cff;
 
-        var reader = new SfntReader(cff) { Position = cff.Length > 2 ? cff[2] : 4 };   // past the header
-        _ = ReadIndex(ref reader);                                                     // Name
-        var top = ReadIndex(ref reader);                                               // Top DICT
-        _ = ReadIndex(ref reader);                                                     // String
+        var reader = new SfntReader(cff) { Position = cff.Length > 2 ? cff[2] : 4 }; // past the header
+        _ = ReadIndex(ref reader); // Name
+        var top = ReadIndex(ref reader); // Top DICT
+        _ = ReadIndex(ref reader); // String
         globalSubrs = ReadIndex(ref reader);
 
         var dict = top.Length > 0 ? ReadDict(top[0]) : [];
@@ -139,7 +139,7 @@ internal sealed class CffOutlines {
         var data = reader.Position - 1;
         var entries = new CffRange[count];
         for (var i = 0; i < count; i++) {
-            entries[i] = new CffRange(data + offsets[i], data + offsets[i + 1]);
+            entries[i] = new(data + offsets[i], data + offsets[i + 1]);
         }
 
         reader.Position = data + offsets[count];
@@ -157,7 +157,7 @@ internal sealed class CffOutlines {
             return [];
         }
 
-        var privateDict = ReadDict(new CffRange(at, at + size));
+        var privateDict = ReadDict(new(at, at + size));
         return privateDict.TryGetValue(Subrs, out var subrs) && subrs.Length > 0
             ? ReadIndexAt(at + (int)subrs[0])
             : [];
@@ -173,7 +173,7 @@ internal sealed class CffOutlines {
 
             if (b0 <= 21) {
                 var op = b0 == 12 && reader.Has(1) ? 0xC00 | reader.U8() : b0;
-                result[op] = [.. operands];
+                result[op] = [..operands];
                 operands.Clear();
             } else if (b0 == 28 && reader.Has(2)) {
                 operands.Add(reader.S16());
@@ -184,9 +184,9 @@ internal sealed class CffOutlines {
             } else if (b0 is >= 32 and <= 246) {
                 operands.Add(b0 - 139);
             } else if (b0 is >= 247 and <= 250 && reader.Has(1)) {
-                operands.Add(((b0 - 247) * 256) + reader.U8() + 108);
+                operands.Add((b0 - 247) * 256 + reader.U8() + 108);
             } else if (b0 is >= 251 and <= 254 && reader.Has(1)) {
-                operands.Add((-(b0 - 251) * 256) - reader.U8() - 108);
+                operands.Add(-(b0 - 251) * 256 - reader.U8() - 108);
             }
         }
 
@@ -195,7 +195,7 @@ internal sealed class CffOutlines {
 
     /// <summary>A DICT real, stored as a nibble string rather than as a float.</summary>
     static float ReadReal(ref SfntReader reader) {
-        var text = new StringBuilder(16);
+        var text = new StringBuilder();
 
         while (reader.Has(1)) {
             var b = reader.U8();
@@ -213,7 +213,6 @@ internal sealed class CffOutlines {
                         return float.TryParse(text.ToString(), CultureInfo.InvariantCulture, out var value)
                             ? value
                             : 0;
-                    default: break;
                 }
             }
         }
@@ -256,9 +255,6 @@ internal sealed class CffOutlines {
 
                 break;
             }
-
-            default:
-                break;
         }
 
         return map;

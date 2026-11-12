@@ -8,6 +8,7 @@ namespace Vixen.DocGen;
 /// <summary>Turns a compilation's public surface into <see cref="DocNode" />s — docs/plan/25 § 2.</summary>
 sealed class SymbolReader(SourceLinks links) {
     Compilation? subject;
+
     static readonly SymbolDisplayFormat SignatureFormat = new(
         SymbolDisplayGlobalNamespaceStyle.Omitted,
         SymbolDisplayTypeQualificationStyle.NameAndContainingTypes,
@@ -94,7 +95,8 @@ sealed class SymbolReader(SourceLinks links) {
     /// </summary>
     internal static bool IsVisible(ISymbol symbol) {
         for (var current = symbol; current is not null; current = current.ContainingType) {
-            if (current.DeclaredAccessibility is not (Accessibility.Public or Accessibility.Protected
+            if (current.DeclaredAccessibility is not (Accessibility.Public
+                or Accessibility.Protected
                 or Accessibility.ProtectedOrInternal)) {
                 return false;
             }
@@ -109,7 +111,7 @@ sealed class SymbolReader(SourceLinks links) {
         var source = links.For(type);
         var kind = Taxonomy.Of(type);
 
-        return new DocNode {
+        return new() {
             Id = id,
             Kind = kind,
             Name = type.Name,
@@ -124,14 +126,16 @@ sealed class SymbolReader(SourceLinks links) {
             BaseType = type.BaseType is { SpecialType: not SpecialType.System_Object } baseType
                 ? baseType.GetDocumentationCommentId()
                 : null,
-            Interfaces = [.. type.Interfaces
-                .Select(candidate => candidate.GetDocumentationCommentId())
-                .Where(candidate => candidate is not null)!],
+            Interfaces = [
+                ..type.Interfaces
+                    .Select(static candidate => candidate.GetDocumentationCommentId())
+                    .Where(static candidate => candidate is not null)!
+            ],
             Attributes = Attributes(type),
-            Members = [.. Members(type)],
+            Members = [..Members(type)],
             SeeAlso = docs.SeeAlso,
             Obsolete = Obsolete(type),
-            Facets = Vixen.DocGen.Facets.For(type, kind, subject),
+            Facets = Facets.For(type, kind, subject),
             IsGenerated = source is not null && links.IsGenerated(source.Path),
             IsPackable = isPackable,
             Source = source
@@ -171,27 +175,34 @@ sealed class SymbolReader(SourceLinks links) {
         }
     }
 
-    static string Kind(ISymbol member) => member switch {
-        IFieldSymbol { IsConst: true } => "constant",
-        IFieldSymbol => "field",
-        IPropertySymbol { IsIndexer: true } => "indexer",
-        IPropertySymbol => "property",
-        IEventSymbol => "event",
-        IMethodSymbol { MethodKind: MethodKind.Constructor } => "constructor",
-        IMethodSymbol { MethodKind: MethodKind.UserDefinedOperator or MethodKind.Conversion } => "operator",
-        IMethodSymbol => "method",
-        _ => "member"
-    };
+    static string Kind(ISymbol member) =>
+        member switch {
+            IFieldSymbol { IsConst: true } => "constant",
+            IFieldSymbol => "field",
+            IPropertySymbol { IsIndexer: true } => "indexer",
+            IPropertySymbol => "property",
+            IEventSymbol => "event",
+            IMethodSymbol { MethodKind: MethodKind.Constructor } => "constructor",
+            IMethodSymbol { MethodKind: MethodKind.UserDefinedOperator or MethodKind.Conversion } => "operator",
+            IMethodSymbol => "method",
+            _ => "member"
+        };
 
-    static IReadOnlyList<DocAttribute> Attributes(ISymbol symbol) => [.. symbol.GetAttributes()
-        .Where(attribute => attribute.AttributeClass is not null)
-        .Select(attribute => new DocAttribute(
-            attribute.AttributeClass!.GetDocumentationCommentId() ?? attribute.AttributeClass.ToDisplayString(),
-            Trim(attribute.AttributeClass.Name),
-            [
-                .. attribute.ConstructorArguments.Select(Format),
-                .. attribute.NamedArguments.Select(argument => $"{argument.Key} = {Format(argument.Value)}")
-            ]))];
+    static IReadOnlyList<DocAttribute> Attributes(ISymbol symbol) => [
+        ..symbol.GetAttributes()
+            .Where(static attribute => attribute.AttributeClass is not null)
+            .Select(static attribute => new DocAttribute(
+                    attribute.AttributeClass!.GetDocumentationCommentId() ?? attribute.AttributeClass.ToDisplayString(),
+                    Trim(attribute.AttributeClass.Name),
+                    [
+                        ..attribute.ConstructorArguments.Select(Format),
+                        ..attribute.NamedArguments.Select(static argument =>
+                            $"{argument.Key} = {Format(argument.Value)}"
+                        )
+                    ]
+                )
+            )
+    ];
 
     /// <summary>
     ///     An attribute argument as it reads in source: <c>".fbx"</c>, <c>16</c>, <c>Channel.Unreliable</c>.
@@ -201,26 +212,29 @@ sealed class SymbolReader(SourceLinks links) {
     ///     that matter here — the extensions an importer claims, the bits a quantised float costs —
     ///     are strings, numbers, enums and arrays of them.
     /// </remarks>
-    static string Format(TypedConstant constant) => constant.Kind switch {
-        // ⚠ `Values` is an uninitialised ImmutableArray when the array itself is null — `[Foo(null)]`
-        // on a `params` parameter — and touching it throws rather than returning empty.
-        TypedConstantKind.Array when constant.IsNull || constant.Values.IsDefault => "null",
-        TypedConstantKind.Array => "[" + string.Join(", ", constant.Values.Select(Format)) + "]",
-        TypedConstantKind.Type => constant.Value is ITypeSymbol type ? type.ToDisplayString() : "null",
-        TypedConstantKind.Enum when constant.Type is not null =>
-            $"{constant.Type.Name}.{constant.Value}",
-        _ => constant.Value switch {
-            null => "null",
-            string text => $"\"{text}\"",
-            bool flag => flag ? "true" : "false",
-            var value => Convert.ToString(value, System.Globalization.CultureInfo.InvariantCulture) ?? "null"
-        }
-    };
+    static string Format(TypedConstant constant) =>
+        constant.Kind switch {
+            // ⚠ `Values` is an uninitialised ImmutableArray when the array itself is null — `[Foo(null)]`
+            // on a `params` parameter — and touching it throws rather than returning empty.
+            TypedConstantKind.Array when constant.IsNull || constant.Values.IsDefault => "null",
+            TypedConstantKind.Array => "[" + string.Join(", ", constant.Values.Select(Format)) + "]",
+            TypedConstantKind.Type => constant.Value is ITypeSymbol type ? type.ToDisplayString() : "null",
+            TypedConstantKind.Enum when constant.Type is not null =>
+                $"{constant.Type.Name}.{constant.Value}",
+            _ => constant.Value switch {
+                null => "null",
+                string text => $"\"{text}\"",
+                bool flag => flag ? "true" : "false",
+                var value => Convert.ToString(value, System.Globalization.CultureInfo.InvariantCulture) ?? "null"
+            }
+        };
 
     /// <summary>The `[Obsolete]` message, or null. Deprecation is a fact the release diff reads.</summary>
     static string? Obsolete(ISymbol symbol) {
-        var obsolete = symbol.GetAttributes().FirstOrDefault(attribute =>
-            attribute.AttributeClass?.ToDisplayString() == "System.ObsoleteAttribute");
+        var obsolete = symbol.GetAttributes()
+            .FirstOrDefault(static attribute =>
+                attribute.AttributeClass?.ToDisplayString() == "System.ObsoleteAttribute"
+            );
 
         if (obsolete is null) {
             return null;

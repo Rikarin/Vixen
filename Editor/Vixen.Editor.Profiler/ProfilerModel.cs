@@ -15,9 +15,12 @@ public enum ProfilerState : byte {
 /// <summary>The half of the profiler panel that is not chrome.</summary>
 /// <remarks>
 ///     <para>
-///         <b>Which source is selected, whether it is recording, what the last capture holds, and
-///         what it is being compared against — none of which needs a <c>UiDocument</c> to be
-///         right.</b> The same split <c>ConsoleModel</c> makes, for the same reason: the decisions
+///         <b>
+///             Which source is selected, whether it is recording, what the last capture holds, and
+///             what it is being compared against — none of which needs a <c>UiDocument</c> to be
+///             right.
+///         </b>
+///         The same split <c>ConsoleModel</c> makes, for the same reason: the decisions
 ///         worth testing are all here and the view is bars and buttons over them.
 ///     </para>
 ///     <para>
@@ -217,7 +220,7 @@ public sealed class ProfilerModel {
         }
 
         var samples = Capture.Threads
-            .Select(thread => new Vixen.Core.Diagnostics.ProfilerThreadSamples(
+            .Select(static thread => new Vixen.Core.Diagnostics.ProfilerThreadSamples(
                     thread.ThreadId,
                     thread.ThreadName,
                     thread.Samples
@@ -245,7 +248,7 @@ public sealed class ProfilerModel {
     internal static string TraceFileName(string source, DateTimeOffset when) {
         var cleaned = new string(
             [
-                .. source.Select(character =>
+                ..source.Select(static character =>
                     char.IsLetterOrDigit(character) || character is '-' or '_' ? character : '-'
                 )
             ]
@@ -278,8 +281,7 @@ public sealed class ProfilerModel {
     }
 
     /// <summary>The thread whose chart is on screen, or <see langword="null" /> when there is none.</summary>
-    public ProfileThread? Current =>
-        Thread >= 0 && Thread < Capture.Threads.Count ? Capture.Threads[Thread] : null;
+    public ProfileThread? Current => Thread >= 0 && Thread < Capture.Threads.Count ? Capture.Threads[Thread] : null;
 
     /// <summary>The roots the chart should draw, honouring <see cref="Frame" />.</summary>
     public IReadOnlyList<FlameNode> Roots =>
@@ -318,7 +320,7 @@ public sealed class ProfilerModel {
         var index = 0;
 
         foreach (var (id, samples) in byThread) {
-            merged[index++] = new(id, names[id], [.. samples]);
+            merged[index++] = new(id, names[id], [..samples]);
         }
 
         return merged;

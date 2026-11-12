@@ -213,12 +213,12 @@ Each step is independently shippable and leaves the editor working.
    > editor theme already has. A new public control would have been a container with no behaviour in
    > it.
    >
-   > ⚠ Overtaken on 2026-09-05: `918c2a098` built `Toolbar` (`ApplicationBars.cs:32`), and it has
+   > ⚠ Overtaken on 2026-09-05: `918c2a098` built `Toolbar` (`ApplicationBars.cs:36`), and it has
    > behaviour — the toolbar role a screen reader reads, and one tab stop with the arrows moving
    > inside it, which a `Panel` of `Button`s cannot do.
 
    > ⚠️ **A second, larger finding: the route could not see past the surfaces that display it.**
-   > `Menu.OnOpened` (`Menus.cs:454`) focuses its first item so the arrow keys work, and
+   > `Menu.OnOpened` (`Menus.cs:486`) focuses its first item so the arrow keys work, and
    > `MenuBarItem` is a `ButtonBase` that takes the focus when pressed. So a menu item resolving
    > `edit.copy` from `UiDocument.Focused` resolved it **from inside the menu**, found nothing, and
    > greyed every line — the criterion below would have been met by a menu in which every command
@@ -260,15 +260,15 @@ Each step is independently shippable and leaves the editor working.
 
    > ⚠️ **Three of the doc's other parity assumptions were checked and hold, so nothing was
    > rebuilt.** `UiElement.Focusable` + `TabIndex = -1` is already `acceptsFirstResponder` plus
-   > exclusion from the key view loop (`Focus.cs:424`, *"Negative is focusable but not a stop"*),
+   > exclusion from the key view loop (`Focus.cs:439`, *"Negative is focusable but not a stop"*),
    > so **focus acceptance needed no new API**. `CommandDispatcher`'s single root handler on the
-   > **bubble** leg (`CommandDispatcher.cs:67`, `RoutingStrategy.Bubble` by default) gives the inner
+   > **bubble** leg (`CommandDispatcher.cs:70`, `RoutingStrategy.Bubble` by default) gives the inner
    > control the same priority AppKit's downward `performKeyEquivalent:` does — different mechanism,
-   > same outcome. `Menu.IsCommandTransparent` (`Menus.cs:282`), `MenuBar.IsCommandTransparent` (`Menus.cs:715`) and
-   > a bound control's (`ButtonBase.cs:82`) are already "a menu is not in the responder chain".
+   > same outcome. `Menu.IsCommandTransparent` (`Menus.cs:309`), `MenuBar.IsCommandTransparent` (`Menus.cs:754`) and
+   > a bound control's (`ButtonBase.cs:85`) are already "a menu is not in the responder chain".
 
    > ⚠️ **One claim in the brief for this step was refuted: the editor's `CommandRegistry` does not
-   > outlive its shell.** `EditorShell.cs:102` is the only place one is constructed and the shell
+   > outlive its shell.** `EditorShell.cs:105` is the only place one is constructed and the shell
    > owns it, so the `Changed` subscription added here is a cycle inside one ownership unit — the
    > pair is collected together and this is *not* the ~95 MB-a-reload shape. It is unsubscribed in
    > `Dispose` anyway, because a disposed shell invalidating a disposed document is wrong on its own

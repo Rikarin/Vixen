@@ -8,16 +8,23 @@ namespace Vixen.Editor.SceneView;
 /// <summary>The plane everything is placed, dragged and snapped in: an origin, a rotation and a step.</summary>
 /// <remarks>
 ///     <para>
-///         <b>Doc 24's D5, and it is CubeGrid's repositionable grid and Blender's 3D cursor in one
-///         object.</b> The floor grid is a <i>view</i> of this rather than a thing of its own, which
+///         <b>
+///             Doc 24's D5, and it is CubeGrid's repositionable grid and Blender's 3D cursor in one
+///             object.
+///         </b>
+///         The floor grid is a <i>view</i> of this rather than a thing of its own, which
 ///         is what makes the three commonest blockout gestures possible at all: put the grid on a
 ///         wall and everything afterwards is in the wall's plane; double and halve the step to build
 ///         at four metres, then one, then a quarter; offset along the normal to build the second floor
 ///         without doing arithmetic.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The rotation takes +Y onto the plane's normal, which is the same convention
-///         <c>ScenePlacement.Upright</c> uses.</b> A plane is a floor whichever way it is facing —
+///         ⚠
+///         <b>
+///             The rotation takes +Y onto the plane's normal, which is the same convention
+///             <c>ScenePlacement.Upright</c> uses.
+///         </b>
+///         A plane is a floor whichever way it is facing —
 ///         its local X and Z are the two directions you build along, and its local Y is out of it —
 ///         so the ground plane is the identity and nothing about the default changes.
 ///     </para>
@@ -60,10 +67,11 @@ public sealed class WorkPlane {
     public Vector3 Normal => Quaternion.Transform(Vector3.UnitY, Rotation);
 
     /// <summary>Whether it is still the ground plane through the world origin.</summary>
-    /// <remarks>What a "Work Plane to World" command greys itself out on, and what a status readout
-    ///     stays quiet about.</remarks>
-    public bool IsGround =>
-        Origin.IsZero && Step is null && Vector3.NearEqual(Normal, Vector3.UnitY, 1e-5f);
+    /// <remarks>
+    ///     What a "Work Plane to World" command greys itself out on, and what a status readout
+    ///     stays quiet about.
+    /// </remarks>
+    public bool IsGround => Origin.IsZero && Step is null && Vector3.NearEqual(Normal, Vector3.UnitY, 1e-5f);
 
     /// <summary>Raised when anything about it changes.</summary>
     /// <remarks>What a viewport redraws its grid from, and what a readout listens to.</remarks>
@@ -88,8 +96,10 @@ public sealed class WorkPlane {
 
     /// <summary>Moves the plane along its own normal.</summary>
     /// <param name="distance">How far, in world units. Negative goes the other way.</param>
-    /// <remarks>Building the second floor at three metres without doing arithmetic — D5's third
-    ///     gesture, and the reason the offset is along the <i>normal</i> rather than along world Y.</remarks>
+    /// <remarks>
+    ///     Building the second floor at three metres without doing arithmetic — D5's third
+    ///     gesture, and the reason the offset is along the <i>normal</i> rather than along world Y.
+    /// </remarks>
     public void Offset(float distance) {
         if (distance == 0f) {
             return;
@@ -147,8 +157,7 @@ public sealed class WorkPlane {
     /// <summary>And back.</summary>
     /// <param name="world">The world point.</param>
     /// <returns>The point in the plane's space, whose Y is its distance out of the plane.</returns>
-    public Vector3 ToLocal(Vector3 world) =>
-        Quaternion.Transform(world - Origin, Quaternion.Inverse(Rotation));
+    public Vector3 ToLocal(Vector3 world) => Quaternion.Transform(world - Origin, Quaternion.Inverse(Rotation));
 
     /// <summary>The nearest point on the plane to a world point.</summary>
     /// <param name="world">The point.</param>
@@ -156,7 +165,7 @@ public sealed class WorkPlane {
     public Vector3 Project(Vector3 world) {
         var local = ToLocal(world);
 
-        return ToWorld(new Vector3(local.X, 0f, local.Z));
+        return ToWorld(new(local.X, 0f, local.Z));
     }
 
     /// <summary>The plane itself, for a ray test.</summary>
@@ -164,7 +173,7 @@ public sealed class WorkPlane {
     public Plane AsPlane() {
         var normal = Normal;
 
-        return new Plane(normal, -Vector3.Dot(normal, Origin));
+        return new(normal, -Vector3.Dot(normal, Origin));
     }
 
     float Chosen(float step) {

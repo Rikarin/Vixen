@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core.Imaging;
-using Vixen.Core.Mathematics;
 using Xunit;
 
 namespace Vixen.Ui.Testing.Tests;
@@ -18,7 +17,7 @@ namespace Vixen.Ui.Testing.Tests;
 public class ContainerStyleQueryPixelTests {
     [Fact]
     public void A_style_query_colours_only_the_label_under_the_matching_parent() {
-        using var ui = UiTest.Create(200, 100, new UiTestOptions { Background = new Color4(0f, 0f, 0f, 1f) });
+        using var ui = UiTest.Create(200, 100, new() { Background = new(0f, 0f, 0f, 1f) });
 
         ui.Load(
             """
@@ -82,7 +81,7 @@ public class ContainerStyleQueryPixelTests {
     /// </remarks>
     [Fact]
     public void A_named_style_query_colours_the_label_under_the_named_card_and_follows_it() {
-        using var ui = UiTest.Create(200, 100, new UiTestOptions { Background = new Color4(0f, 0f, 0f, 1f) });
+        using var ui = UiTest.Create(200, 100, new() { Background = new(0f, 0f, 0f, 1f) });
 
         ui.Load(
             """
@@ -135,7 +134,7 @@ public class ContainerStyleQueryPixelTests {
     /// </remarks>
     [Fact]
     public void A_mixed_query_colours_the_label_only_when_its_size_container_passes_both_halves() {
-        using var ui = UiTest.Create(200, 100, new UiTestOptions { Background = new Color4(0f, 0f, 0f, 1f) });
+        using var ui = UiTest.Create(200, 100, new() { Background = new(0f, 0f, 0f, 1f) });
 
         ui.Load(
             """
@@ -190,7 +189,7 @@ public class ContainerStyleQueryPixelTests {
     /// </remarks>
     [Fact]
     public void An_or_mixed_query_colours_the_label_when_either_half_holds() {
-        using var ui = UiTest.Create(200, 100, new UiTestOptions { Background = new Color4(0f, 0f, 0f, 1f) });
+        using var ui = UiTest.Create(200, 100, new() { Background = new(0f, 0f, 0f, 1f) });
 
         ui.Load(
             """
@@ -242,7 +241,7 @@ public class ContainerStyleQueryPixelTests {
     /// </remarks>
     [Fact]
     public void A_height_query_skips_an_inline_size_container_for_the_size_container_above() {
-        using var ui = UiTest.Create(200, 100, new UiTestOptions { Background = new Color4(0f, 0f, 0f, 1f) });
+        using var ui = UiTest.Create(200, 100, new() { Background = new(0f, 0f, 0f, 1f) });
 
         ui.Load(
             """
@@ -255,8 +254,18 @@ public class ContainerStyleQueryPixelTests {
             """
         );
 
-        ui.Create("div", ui.Create("div", ui.Create("div", ui.Document.Root, null, "slot"), null, "inline"), null, "label");
-        ui.Create("div", ui.Create("div", ui.Create("div", ui.Document.Root, null, "slot", "short"), null, "inline"), null, "label");
+        ui.Create(
+            "div",
+            ui.Create("div", ui.Create("div", ui.Document.Root, null, "slot"), null, "inline"),
+            null,
+            "label"
+        );
+        ui.Create(
+            "div",
+            ui.Create("div", ui.Create("div", ui.Document.Root, null, "slot", "short"), null, "inline"),
+            null,
+            "label"
+        );
 
         ui.Frame();
 

@@ -109,7 +109,11 @@ public abstract class PostEffectRenderer : SceneRenderer, IDisposable {
     /// <param name="frame">The frame being built, for its size.</param>
     /// <param name="parameters">The pass's parameters, to set.</param>
     /// <param name="bindings">The pass's bindings, already cleared.</param>
-    protected abstract void Configure(CompositorFrame frame, ParameterCollection parameters, IList<ResourceBinding> bindings);
+    protected abstract void Configure(
+        CompositorFrame frame,
+        ParameterCollection parameters,
+        IList<ResourceBinding> bindings
+    );
 
     /// <summary>Adds a sampled texture to the pass, and records that it is read.</summary>
     /// <remarks>
@@ -179,8 +183,7 @@ public abstract class PostEffectRenderer : SceneRenderer, IDisposable {
     }
 
     /// <summary>One texel of a texture of the given size, which most of these shaders want.</summary>
-    protected static Vector2 TexelSize(Int2 size) =>
-        new(1f / Math.Max(size.X, 1), 1f / Math.Max(size.Y, 1));
+    protected static Vector2 TexelSize(Int2 size) => new(1f / Math.Max(size.X, 1), 1f / Math.Max(size.Y, 1));
 
     /// <summary>How large the named plane actually is, or the frame's size where it is absent.</summary>
     /// <param name="frame">The frame being built.</param>
@@ -202,9 +205,13 @@ public abstract class PostEffectRenderer : SceneRenderer, IDisposable {
     /// <param name="plane">The resource the shader taps, or null for a source switched off.</param>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Every neighbour tap in this library is <c>uv + offset * texelSize</c>, so this
-    ///         number is a statement about the texture being read and never about the target being
-    ///         written.</b> The two are the same size in a frame rendered at native resolution, which
+    ///         ⚠
+    ///         <b>
+    ///             Every neighbour tap in this library is <c>uv + offset * texelSize</c>, so this
+    ///             number is a statement about the texture being read and never about the target being
+    ///             written.
+    ///         </b>
+    ///         The two are the same size in a frame rendered at native resolution, which
     ///         is why <c>TexelSize(frame.Size)</c> stood everywhere and was right everywhere — and
     ///         why it stops being right the moment a tier scales the scene planes down.
     ///     </para>
@@ -224,8 +231,12 @@ public abstract class PostEffectRenderer : SceneRenderer, IDisposable {
 
     /// <inheritdoc />
     /// <remarks>
-    ///     ⚠ <b>The inner pass is not in <see cref="SceneRenderer.Nested" />, so its answer is carried
-    ///     out by hand.</b> A post effect is one <see cref="FullScreenRenderer" /> that the effect owns
+    ///     ⚠
+    ///     <b>
+    ///         The inner pass is not in <see cref="SceneRenderer.Nested" />, so its answer is carried
+    ///         out by hand.
+    ///     </b>
+    ///     A post effect is one <see cref="FullScreenRenderer" /> that the effect owns
     ///     rather than a node a document named — which is deliberate, and which means
     ///     <see cref="GraphicsCompositor.Degradations" /> cannot reach it. Every effect deriving from
     ///     this therefore inherits the pass's reason as its own: <c>TonemapRenderer</c> is the node that
@@ -286,7 +297,7 @@ public abstract class PostEffectRenderer : SceneRenderer, IDisposable {
 
     /// <inheritdoc />
     public void Dispose() {
-        Dispose(disposing: true);
+        Dispose(true);
         GC.SuppressFinalize(this);
     }
 

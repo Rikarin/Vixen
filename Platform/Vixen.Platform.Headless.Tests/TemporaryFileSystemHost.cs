@@ -35,7 +35,7 @@ sealed class TemporaryFileSystemHost : IFileSystemHost, IDisposable {
     public bool IsSandboxed => false;
 
     public void MountStandardLocations(VirtualFileSystem fileSystem) {
-        fileSystem.Mount(MountPoints.App, new PhysicalFileProvider(ApplicationDirectory, isReadOnly: true));
+        fileSystem.Mount(MountPoints.App, new PhysicalFileProvider(ApplicationDirectory, true));
         fileSystem.Mount(MountPoints.Data, new PhysicalFileProvider(DataDirectory));
         fileSystem.Mount(MountPoints.Cache, new PhysicalFileProvider(CacheDirectory));
         fileSystem.Mount(MountPoints.Temp, new PhysicalFileProvider(TemporaryDirectory));
@@ -50,7 +50,7 @@ sealed class TemporaryFileSystemHost : IFileSystemHost, IDisposable {
     public void Dispose() {
         try {
             if (Directory.Exists(root)) {
-                Directory.Delete(root, recursive: true);
+                Directory.Delete(root, true);
             }
         } catch (IOException) {
             // A leftover temp directory is not worth failing a test run over.

@@ -9,7 +9,6 @@ using Vixen.Editor.Ui;
 using Vixen.Engine.Transforms;
 using Vixen.Ui;
 using Vixen.Ui.Controls;
-using Vixen.Ui.Controls.Advanced;
 using Xunit;
 
 namespace Vixen.Editor.App.Tests;
@@ -44,8 +43,12 @@ public class OutlinerColumnTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>The two columns are glyphs and the glyph changes, which is the whole of what they
-    ///     say.</b> They were a cross and a tick with the words "Hide" and "Lock" beside them: a
+    ///     ⚠
+    ///     <b>
+    ///         The two columns are glyphs and the glyph changes, which is the whole of what they
+    ///         say.
+    ///     </b>
+    ///     They were a cross and a tick with the words "Hide" and "Lock" beside them: a
     ///     label on every row of the outliner, four times the button's width, naming the action
     ///     rather than the state. The word is still set — it is the tooltip and what a screen reader
     ///     reads — and the theme is what keeps it off the screen.
@@ -78,8 +81,7 @@ public class OutlinerColumnTests {
     }
 
     /// <summary>The element carrying a control's word, which the theme is expected to hide here.</summary>
-    static UiElement Text(ToggleButton button) =>
-        button.Children.First(child => child.Tag == "label");
+    static UiElement Text(ToggleButton button) => button.Children.First(static child => child.Tag == "label");
 
     /// <summary>
     ///     ⚠ <b>The click has to reach the viewport, not just the row.</b> An eye that greys a name
@@ -140,8 +142,12 @@ public class OutlinerColumnTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>Hiding a prop and finding its four children still drawn is what makes a visibility
-    ///     column useless.</b> The walk is upwards from the child rather than a mark pushed down,
+    ///     ⚠
+    ///     <b>
+    ///         Hiding a prop and finding its four children still drawn is what makes a visibility
+    ///         column useless.
+    ///     </b>
+    ///     The walk is upwards from the child rather than a mark pushed down,
     ///     because unhiding the parent has to put back exactly what was there — and a pushed mark
     ///     cannot tell which descendants the user hid on purpose.
     /// </summary>
@@ -228,8 +234,12 @@ public class OutlinerColumnTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>Hierarchy order is the default because it is the only one that carries information
-    ///     the others destroy.</b> The order of siblings is something the user arranged.
+    ///     ⚠
+    ///     <b>
+    ///         Hierarchy order is the default because it is the only one that carries information
+    ///         the others destroy.
+    ///     </b>
+    ///     The order of siblings is something the user arranged.
     /// </summary>
     [Fact]
     public void The_rows_can_be_sorted_by_name_and_put_back() {
@@ -250,7 +260,7 @@ public class OutlinerColumnTests {
 
         var sorted = Siblings(editor, "Ground");
 
-        Assert.Equal(sorted.OrderBy(name => name, StringComparer.CurrentCultureIgnoreCase), sorted);
+        Assert.Equal(sorted.OrderBy(static name => name, StringComparer.CurrentCultureIgnoreCase), sorted);
 
         order.Value = "Name (Z–A)";
         editor.Settle();
@@ -271,14 +281,14 @@ public class OutlinerColumnTests {
     static List<string> Siblings(EditorSession editor, string parent) {
         foreach (var node in EditorSession.NodesOf(editor.Hierarchy)) {
             if (node.Text == parent) {
-                return [.. node.Children.Select(child => child.Text ?? string.Empty)];
+                return [..node.Children.Select(static child => child.Text ?? string.Empty)];
             }
         }
 
         throw editor.Fail($"there is no '{parent}' row to read the siblings of");
     }
 
-    static T? Find<T>(Vixen.Ui.UiElement element) where T : Vixen.Ui.UiElement {
+    static T? Find<T>(UiElement element) where T : UiElement {
         if (element is T match) {
             return match;
         }

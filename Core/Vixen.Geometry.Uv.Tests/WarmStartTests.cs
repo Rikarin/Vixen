@@ -63,8 +63,12 @@ public class WarmStartTests {
 
     /// <summary>And the gap grows as the two solves get closer, which is the mechanism and not a coincidence.</summary>
     /// <remarks>
-    ///     ⚠ <b>A single "warm beats cold" comparison would also pass on a solver that was merely
-    ///     lucky with one right-hand side.</b> The claim docs/plan/42 § D5 makes is causal — the saving
+    ///     ⚠
+    ///     <b>
+    ///         A single "warm beats cold" comparison would also pass on a solver that was merely
+    ///         lucky with one right-hand side.
+    ///     </b>
+    ///     The claim docs/plan/42 § D5 makes is causal — the saving
     ///     comes from consecutive solves being close — so the test drives the distance between them
     ///     and asserts the cost follows it down. Measured on this fixture: 67, 59, 48, 34 iterations
     ///     against a cold start that stays at 73 whatever happens.
@@ -180,11 +184,11 @@ public class WarmStartTests {
         var right = new double[size];
 
         for (var index = 0; index < size; index++) {
-            right[index] = Math.Sin((index * 0.618d) + drift) + (0.25d * Math.Cos(index * 0.137d));
+            right[index] = Math.Sin(index * 0.618d + drift) + 0.25d * Math.Cos(index * 0.137d);
         }
 
         return right;
     }
 
-    static double Norm(double[] vector) => Math.Sqrt(vector.Sum(value => value * value));
+    static double Norm(double[] vector) => Math.Sqrt(vector.Sum(static value => value * value));
 }

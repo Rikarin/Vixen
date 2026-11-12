@@ -8,8 +8,12 @@ namespace Vixen.Ui.Layout;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>The store's third algorithm, and the one that needed something on the <i>input</i>
-///         side.</b> Block's whole cost was three outputs — a collapsible margin at each end and a
+///         ⚠
+///         <b>
+///             The store's third algorithm, and the one that needed something on the <i>input</i>
+///             side.
+///         </b>
+///         Block's whole cost was three outputs — a collapsible margin at each end and a
 ///         flag — because a block child has to report what escaped past its edges. Grid reports
 ///         nothing unusual: it is a barrier to margin collapsing exactly as a flex container is, so
 ///         its honest answer to all three is "my own margin, and no", which
@@ -24,8 +28,12 @@ namespace Vixen.Ui.Layout;
 ///         tracks, each item's resolved width — is an input to the row pass.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Named areas (<c>grid-template-areas</c>) reach §8 as ordinary lines and are resolved
-///         in exactly two places</b> — <c>PlaceGridItems</c> for an in-flow item and
+///         ⚠
+///         <b>
+///             Named areas (<c>grid-template-areas</c>) reach §8 as ordinary lines and are resolved
+///             in exactly two places
+///         </b>
+///         — <c>PlaceGridItems</c> for an in-flow item and
 ///         <c>RecordAbsoluteGridAreas</c> for an out-of-flow one, both through
 ///         <c>ResolveNamedPlacement</c>. This paragraph said the property was not implemented and
 ///         said why: B0's corpus sets it in no fixture, so it is the one part of grid with no oracle
@@ -104,13 +112,17 @@ public sealed partial class LayoutTree {
         float marginAxisRow,
         float marginAxisColumn
     ) {
-        var insetLeft = results[index].Padding[(int) Edge.Left] + results[index].Border[(int) Edge.Left]
+        var insetLeft = results[index].Padding[(int)Edge.Left]
+            + results[index].Border[(int)Edge.Left]
             + ScrollbarGutterAt(index, Edge.Left, direction);
-        var insetRight = results[index].Padding[(int) Edge.Right] + results[index].Border[(int) Edge.Right]
+        var insetRight = results[index].Padding[(int)Edge.Right]
+            + results[index].Border[(int)Edge.Right]
             + ScrollbarGutterAt(index, Edge.Right, direction);
-        var insetTop = results[index].Padding[(int) Edge.Top] + results[index].Border[(int) Edge.Top]
+        var insetTop = results[index].Padding[(int)Edge.Top]
+            + results[index].Border[(int)Edge.Top]
             + ScrollbarGutterAt(index, Edge.Top, direction);
-        var insetBottom = results[index].Padding[(int) Edge.Bottom] + results[index].Border[(int) Edge.Bottom]
+        var insetBottom = results[index].Padding[(int)Edge.Bottom]
+            + results[index].Border[(int)Edge.Bottom]
             + ScrollbarGutterAt(index, Edge.Bottom, direction);
         var insetRow = insetLeft + insetRight;
         var insetColumn = insetTop + insetBottom;
@@ -121,8 +133,10 @@ public sealed partial class LayoutTree {
         // than its own scrollbar — the bar simply covers everything — but never smaller than its own
         // edges. Flooring at `insetRow`/`insetColumn` would let the gutter win an argument the
         // author's `max-*` is supposed to.
-        var paddingBorderRow = StyleResolution.PaddingAndBorderForAxis(in styles[index], FlexDirection.Row, direction, ownerWidth);
-        var paddingBorderColumn = StyleResolution.PaddingAndBorderForAxis(in styles[index], FlexDirection.Column, direction, ownerWidth);
+        var paddingBorderRow =
+            StyleResolution.PaddingAndBorderForAxis(in styles[index], FlexDirection.Row, direction, ownerWidth);
+        var paddingBorderColumn =
+            StyleResolution.PaddingAndBorderForAxis(in styles[index], FlexDirection.Column, direction, ownerWidth);
 
         var columnGap = StyleResolution.GapForAxis(in styles[index], FlexDirection.Row, ownerWidth);
         var rowGap = StyleResolution.GapForAxis(in styles[index], FlexDirection.Column, ownerWidth);
@@ -133,7 +147,14 @@ public sealed partial class LayoutTree {
             : ResolvedBoundedDimension(index, Dimension.Width, direction, ownerWidth, ownerHeight);
 
         var definiteHeight = heightSizingMode == SizingMode.StretchFit
-            ? BoundAxis(index, FlexDirection.Column, direction, availableHeight - marginAxisColumn, ownerHeight, ownerWidth)
+            ? BoundAxis(
+                index,
+                FlexDirection.Column,
+                direction,
+                availableHeight - marginAxisColumn,
+                ownerHeight,
+                ownerWidth
+            )
             : ResolvedBoundedDimension(index, Dimension.Height, direction, ownerWidth, ownerHeight);
 
         var innerWidth = float.IsNaN(definiteWidth) ? float.NaN : MathF.Max(0f, definiteWidth - insetRow);
@@ -160,8 +181,8 @@ public sealed partial class LayoutTree {
         var templateColumns = ExplicitTrackCount(in styles[index].GridTemplateColumns, innerWidth, columnGap);
         var templateRows = ExplicitTrackCount(in styles[index].GridTemplateRows, innerHeight, rowGap);
 
-        var explicitColumns = int.Max(templateColumns, AreaTrackCount(index, inline: true));
-        var explicitRows = int.Max(templateRows, AreaTrackCount(index, inline: false));
+        var explicitColumns = int.Max(templateColumns, AreaTrackCount(index, true));
+        var explicitRows = int.Max(templateRows, AreaTrackCount(index, false));
 
         var placement = PlaceGridItems(index, explicitColumns, explicitRows);
 
@@ -175,15 +196,16 @@ public sealed partial class LayoutTree {
             innerWidth
         );
 
-        CollapseAutoFitTracks(in styles[index].GridTemplateColumns, in placement, columnsAt, templateColumns, inline: true);
+        CollapseAutoFitTracks(in styles[index].GridTemplateColumns, in placement, columnsAt, templateColumns, true);
 
-        var definiteRowSpace = placement.Rows == 1 && !float.IsNaN(innerHeight) && StretchesTracks(styles[index].AlignContent)
-            ? innerHeight
-            : float.NaN;
+        var definiteRowSpace =
+            placement.Rows == 1 && !float.IsNaN(innerHeight) && StretchesTracks(styles[index].AlignContent)
+                ? innerHeight
+                : float.NaN;
 
         // ── The inline axis ─────────────────────────────────────────────────────────────────────
         var columnAxis = new GridAxis(
-            Inline: true,
+            true,
             columnsAt,
             placement.Columns,
             placement.ItemsAt,
@@ -212,7 +234,14 @@ public sealed partial class LayoutTree {
             outerWidth = definiteWidth;
             unboundedWidth = definiteWidth;
         } else {
-            outerWidth = BoundAxis(index, FlexDirection.Row, direction, contentWidth + insetRow, ownerWidth, ownerWidth);
+            outerWidth = BoundAxis(
+                index,
+                FlexDirection.Row,
+                direction,
+                contentWidth + insetRow,
+                ownerWidth,
+                ownerWidth
+            );
             unboundedWidth = MathF.Max(contentWidth + insetRow, paddingBorderRow);
 
             // ⚠ <b>A fit-content container that did not fit re-sizes its tracks, and one that did
@@ -282,7 +311,15 @@ public sealed partial class LayoutTree {
         // ── §11.8, and it has to happen here ────────────────────────────────────────────────────
         // The shim is an input to §12 rather than an output of it, so it is resolved after the
         // columns (an item's baseline depends on the inline size it was given) and before the rows.
-        ResolveBaselineShims(index, placement.ItemsAt, placement.ItemCount, direction, ownerWidth, ownerHeight, currentDepth);
+        ResolveBaselineShims(
+            index,
+            placement.ItemsAt,
+            placement.ItemCount,
+            direction,
+            ownerWidth,
+            ownerHeight,
+            currentDepth
+        );
 
         // ── The block axis ──────────────────────────────────────────────────────────────────────
         var rowsAt = BuildGridTracks(
@@ -295,10 +332,10 @@ public sealed partial class LayoutTree {
             innerHeight
         );
 
-        CollapseAutoFitTracks(in styles[index].GridTemplateRows, in placement, rowsAt, templateRows, inline: false);
+        CollapseAutoFitTracks(in styles[index].GridTemplateRows, in placement, rowsAt, templateRows, false);
 
         var rowAxis = new GridAxis(
-            Inline: false,
+            false,
             rowsAt,
             placement.Rows,
             placement.ItemsAt,
@@ -379,7 +416,17 @@ public sealed partial class LayoutTree {
         var originLeft = MathF.Min(insetLeft, MathF.Max(0f, outerWidth - insetRight));
         var originTop = MathF.Min(insetTop, MathF.Max(0f, outerHeight - insetBottom));
 
-        PlaceGridItemBoxes(index, in columnAxis, in rowAxis, direction, innerWidth, innerHeight, originLeft, originTop, currentDepth);
+        PlaceGridItemBoxes(
+            index,
+            in columnAxis,
+            in rowAxis,
+            direction,
+            innerWidth,
+            innerHeight,
+            originLeft,
+            originTop,
+            currentDepth
+        );
 
         RecordAbsoluteGridAreas(
             index,
@@ -412,8 +459,12 @@ public sealed partial class LayoutTree {
     /// <summary>CSS Grid §11.8: how far each baseline-aligned item drops to meet its row's baseline.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A baseline-sharing group is a row, and the shim is a contribution rather than an
-    ///         offset.</b> §12.5 step 1 folds the distance from an item's own baseline to its group's
+    ///         ⚠
+    ///         <b>
+    ///             A baseline-sharing group is a row, and the shim is a contribution rather than an
+    ///             offset.
+    ///         </b>
+    ///         §12.5 step 1 folds the distance from an item's own baseline to its group's
     ///         into the size it contributes to its track, so a 20-point item whose baseline is 10
     ///         points down, sharing a row with a 50-point item whose baseline is at its bottom edge,
     ///         asks its row for 40 + 20 rather than for 20. Sizing the rows first and shifting the
@@ -474,12 +525,20 @@ public sealed partial class LayoutTree {
             // bottom edge, so every plain item in the group would report a baseline of zero and the
             // shims would come out inverted. That is not a hypothetical; it is what the first
             // version of this pass did.
-            var statedHeight = StyleResolution.ProcessedDimension(in styles[child], Dimension.Height).Unit == LayoutUnit.Point
-                ? ResolvedDimension(child, Dimension.Height, ownerHeight, ownerWidth, direction)
-                : float.NaN;
+            var statedHeight =
+                StyleResolution.ProcessedDimension(in styles[child], Dimension.Height).Unit == LayoutUnit.Point
+                    ? ResolvedDimension(child, Dimension.Height, ownerHeight, ownerWidth, direction)
+                    : float.NaN;
 
             if (!float.IsNaN(statedHeight)) {
-                statedHeight = BoundAxisWithinMinAndMax(child, direction, FlexDirection.Column, statedHeight, ownerHeight, ownerWidth);
+                statedHeight = BoundAxisWithinMinAndMax(
+                    child,
+                    direction,
+                    FlexDirection.Column,
+                    statedHeight,
+                    ownerHeight,
+                    ownerWidth
+                );
             }
 
             CalculateLayoutInternal(
@@ -491,13 +550,14 @@ public sealed partial class LayoutTree {
                 float.IsNaN(statedHeight) ? SizingMode.MaxContent : SizingMode.StretchFit,
                 float.IsNaN(inlineSize) ? ownerWidth : MathF.Max(0f, inlineSize - marginRow),
                 ownerHeight,
-                performLayout: true,
+                true,
                 currentDepth
             );
 
             // The baseline of the item's *outer* box, because the shim shifts the outer box and the
             // row is sized in outer sizes.
-            var marginTop = StyleResolution.InlineStartMargin(in styles[child], FlexDirection.Column, direction, ownerWidth);
+            var marginTop =
+                StyleResolution.InlineStartMargin(in styles[child], FlexDirection.Column, direction, ownerWidth);
 
             Scratch.Item(itemAt).OwnBaseline = marginTop.OrZero() + CalculateBaseline(child);
             participants++;
@@ -542,7 +602,13 @@ public sealed partial class LayoutTree {
         styles[child].AlignSelf == Align.Auto ? styles[index].AlignItems : styles[child].AlignSelf;
 
     /// <summary>A node's own stated size on an axis, clamped, or NaN when it has none.</summary>
-    float ResolvedBoundedDimension(int index, Dimension dimension, Direction direction, float ownerWidth, float ownerHeight) {
+    float ResolvedBoundedDimension(
+        int index,
+        Dimension dimension,
+        Direction direction,
+        float ownerWidth,
+        float ownerHeight
+    ) {
         var axis = dimension == Dimension.Width ? FlexDirection.Row : FlexDirection.Column;
         var reference = dimension == Dimension.Width ? ownerWidth : ownerHeight;
         var stated = ResolvedDimension(index, dimension, reference, ownerWidth, direction);
@@ -569,14 +635,15 @@ public sealed partial class LayoutTree {
     static bool StretchesTracks(Align align) => align is Align.Stretch or Align.FlexStart;
 
     /// <summary>Reads a block-axis content distribution as the same six keywords the inline one uses.</summary>
-    static Justify JustifyOf(Align align) => align switch {
-        Align.Center => Justify.Center,
-        Align.FlexEnd => Justify.FlexEnd,
-        Align.SpaceBetween => Justify.SpaceBetween,
-        Align.SpaceAround => Justify.SpaceAround,
-        Align.SpaceEvenly => Justify.SpaceEvenly,
-        _ => Justify.FlexStart
-    };
+    static Justify JustifyOf(Align align) =>
+        align switch {
+            Align.Center => Justify.Center,
+            Align.FlexEnd => Justify.FlexEnd,
+            Align.SpaceBetween => Justify.SpaceBetween,
+            Align.SpaceAround => Justify.SpaceAround,
+            Align.SpaceEvenly => Justify.SpaceEvenly,
+            _ => Justify.FlexStart
+        };
 
     /// <summary>How many explicit tracks the template comes to once its repetition is counted.</summary>
     int ExplicitTrackCount(in GridTemplate template, float availableSpace, float gap) {
@@ -598,13 +665,15 @@ public sealed partial class LayoutTree {
             }
 
             var track = stored[at];
-            var size = track.Max.IsFixed(availableSpace) ? track.Max.Resolve(availableSpace) : track.Min.Resolve(availableSpace);
+            var size = track.Max.IsFixed(availableSpace)
+                ? track.Max.Resolve(availableSpace)
+                : track.Min.Resolve(availableSpace);
             fixedSize += float.IsNaN(size) ? 0f : MathF.Max(0f, size);
         }
 
         var repetitions = AutomaticRepetitions(in template, availableSpace, gap, stated, fixedSize);
 
-        return int.Min(stated + (repetitions * template.AutoRepeatCount), LayoutLimits.MaximumGridTracks);
+        return int.Min(stated + repetitions * template.AutoRepeatCount, LayoutLimits.MaximumGridTracks);
     }
 
     /// <summary>§7.2.3.2: <c>auto-fit</c> drops the generated tracks that no item landed in.</summary>
@@ -626,7 +695,13 @@ public sealed partial class LayoutTree {
     ///     the end of the repetition.
     /// </param>
     /// <param name="inline">Which axis.</param>
-    void CollapseAutoFitTracks(in GridTemplate template, in GridPlacementResult placement, int tracksAt, int templateCount, bool inline) {
+    void CollapseAutoFitTracks(
+        in GridTemplate template,
+        in GridPlacementResult placement,
+        int tracksAt,
+        int templateCount,
+        bool inline
+    ) {
         if (template.AutoRepeatKind != GridAutoRepeat.AutoFit || template.AutoRepeatCount <= 0) {
             return;
         }
@@ -679,7 +754,7 @@ public sealed partial class LayoutTree {
             alive++;
         }
 
-        return total + (axis.Gap * int.Max(0, alive - 1));
+        return total + axis.Gap * int.Max(0, alive - 1);
     }
 
     /// <summary>A grid container's min-content size on one axis, for CSS Flexbox §4.5's probe.</summary>
@@ -693,8 +768,12 @@ public sealed partial class LayoutTree {
     ///         `gridflex_row_integration` is that fixture.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b><see cref="GridSizingConstraint" />'s <c>MinContent</c> case existed and nothing
-    ///         reached it</b>: <see cref="ConstraintFor" /> returns only <c>Definite</c> or
+    ///         ⚠
+    ///         <b>
+    ///             <see cref="GridSizingConstraint" />'s <c>MinContent</c> case existed and nothing
+    ///             reached it
+    ///         </b>
+    ///         : <see cref="ConstraintFor" /> returns only <c>Definite</c> or
     ///         <c>MaxContent</c>, because a grid being laid out is either given a size or asked how
     ///         big it would like to be — never how small it can be. §12's phases already read the
     ///         constraint (an <c>auto</c> maximum takes the min-content contribution under it, and
@@ -724,8 +803,8 @@ public sealed partial class LayoutTree {
 
             var templateColumns = ExplicitTrackCount(in styles[index].GridTemplateColumns, float.NaN, columnGap);
             var templateRows = ExplicitTrackCount(in styles[index].GridTemplateRows, float.NaN, rowGap);
-            var explicitColumns = int.Max(templateColumns, AreaTrackCount(index, inline: true));
-            var explicitRows = int.Max(templateRows, AreaTrackCount(index, inline: false));
+            var explicitColumns = int.Max(templateColumns, AreaTrackCount(index, true));
+            var explicitRows = int.Max(templateRows, AreaTrackCount(index, false));
 
             var placement = PlaceGridItems(index, explicitColumns, explicitRows);
 
@@ -739,10 +818,10 @@ public sealed partial class LayoutTree {
                 float.NaN
             );
 
-            CollapseAutoFitTracks(in styles[index].GridTemplateColumns, in placement, columnsAt, templateColumns, inline: true);
+            CollapseAutoFitTracks(in styles[index].GridTemplateColumns, in placement, columnsAt, templateColumns, true);
 
             var columnAxis = new GridAxis(
-                Inline: true,
+                true,
                 columnsAt,
                 placement.Columns,
                 placement.ItemsAt,
@@ -751,9 +830,9 @@ public sealed partial class LayoutTree {
                 columnGap,
                 GridSizingConstraint.MinContent,
                 // Nothing to stretch into: an intrinsic pass has no free space by definition.
-                StretchAuto: false,
+                false,
                 // …and nothing definite on the other axis either, for the same reason.
-                DefiniteCrossSpace: float.NaN
+                float.NaN
             );
 
             SizeGridTracks(in columnAxis, direction, ownerWidth, ownerHeight, currentDepth);
@@ -773,7 +852,15 @@ public sealed partial class LayoutTree {
                     AreaSize(in columnAxis, Scratch.Item(itemAt).ColumnStart, Scratch.Item(itemAt).ColumnSpan);
             }
 
-            ResolveBaselineShims(index, placement.ItemsAt, placement.ItemCount, direction, ownerWidth, ownerHeight, currentDepth);
+            ResolveBaselineShims(
+                index,
+                placement.ItemsAt,
+                placement.ItemCount,
+                direction,
+                ownerWidth,
+                ownerHeight,
+                currentDepth
+            );
 
             var rowsAt = BuildGridTracks(
                 in styles[index].GridTemplateRows,
@@ -785,10 +872,10 @@ public sealed partial class LayoutTree {
                 float.NaN
             );
 
-            CollapseAutoFitTracks(in styles[index].GridTemplateRows, in placement, rowsAt, templateRows, inline: false);
+            CollapseAutoFitTracks(in styles[index].GridTemplateRows, in placement, rowsAt, templateRows, false);
 
             var rowAxis = new GridAxis(
-                Inline: false,
+                false,
                 rowsAt,
                 placement.Rows,
                 placement.ItemsAt,
@@ -796,8 +883,8 @@ public sealed partial class LayoutTree {
                 float.NaN,
                 rowGap,
                 GridSizingConstraint.MinContent,
-                StretchAuto: false,
-                DefiniteCrossSpace: float.NaN
+                false,
+                float.NaN
             );
 
             SizeGridTracks(in rowAxis, direction, ownerWidth, ownerHeight, currentDepth);
@@ -919,10 +1006,13 @@ public sealed partial class LayoutTree {
             // its grid area rather than the container's content box. All four of them, including
             // the vertical pair — `grid_margins_percent_center` is the family that tells the two
             // apart, and a two-column grid halves every percentage margin the moment this is right.
-            var marginStart = StyleResolution.InlineStartMargin(in styles[child], FlexDirection.Row, direction, areaWidth);
+            var marginStart =
+                StyleResolution.InlineStartMargin(in styles[child], FlexDirection.Row, direction, areaWidth);
             var marginEnd = StyleResolution.InlineEndMargin(in styles[child], FlexDirection.Row, direction, areaWidth);
-            var marginTop = StyleResolution.InlineStartMargin(in styles[child], FlexDirection.Column, direction, areaWidth);
-            var marginBottom = StyleResolution.InlineEndMargin(in styles[child], FlexDirection.Column, direction, areaWidth);
+            var marginTop =
+                StyleResolution.InlineStartMargin(in styles[child], FlexDirection.Column, direction, areaWidth);
+            var marginBottom =
+                StyleResolution.InlineEndMargin(in styles[child], FlexDirection.Column, direction, areaWidth);
 
             var startIsAuto = StyleResolution.InlineStartMarginIsAuto(in styles[child], FlexDirection.Row, direction);
             var endIsAuto = StyleResolution.InlineEndMarginIsAuto(in styles[child], FlexDirection.Row, direction);
@@ -1015,12 +1105,12 @@ public sealed partial class LayoutTree {
                 heightMode,
                 areaWidth,
                 areaHeight,
-                performLayout: true,
+                true,
                 currentDepth
             );
 
-            var usedWidth = results[child].MeasuredDimensions[(int) Dimension.Width];
-            var usedHeight = results[child].MeasuredDimensions[(int) Dimension.Height];
+            var usedWidth = results[child].MeasuredDimensions[(int)Dimension.Width];
+            var usedHeight = results[child].MeasuredDimensions[(int)Dimension.Height];
 
             var offsetX = AlignInArea(
                 areaWidth,
@@ -1067,14 +1157,14 @@ public sealed partial class LayoutTree {
                 ? RelativePosition(child, FlexDirection.Row, direction, innerWidth)
                 : -RelativePosition(child, FlexDirection.Row, direction, innerWidth);
 
-            results[child].Position[(int) Edge.Left] = x + relativeX;
-            results[child].Position[(int) Edge.Top] =
+            results[child].Position[(int)Edge.Left] = x + relativeX;
+            results[child].Position[(int)Edge.Top] =
                 insetTop + areaY + offsetY + RelativePosition(child, FlexDirection.Column, direction, innerHeight);
 
-            results[child].Margin[(int) (direction == Direction.Ltr ? Edge.Left : Edge.Right)] = usedStart;
-            results[child].Margin[(int) (direction == Direction.Ltr ? Edge.Right : Edge.Left)] = usedEnd;
-            results[child].Margin[(int) Edge.Top] = usedTop;
-            results[child].Margin[(int) Edge.Bottom] = usedBottom;
+            results[child].Margin[(int)(direction == Direction.Ltr ? Edge.Left : Edge.Right)] = usedStart;
+            results[child].Margin[(int)(direction == Direction.Ltr ? Edge.Right : Edge.Left)] = usedEnd;
+            results[child].Margin[(int)Edge.Top] = usedTop;
+            results[child].Margin[(int)Edge.Bottom] = usedBottom;
         }
 
         static Align Resolve(Align self, Align container) => self == Align.Auto ? container : self;
@@ -1086,8 +1176,12 @@ public sealed partial class LayoutTree {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>An <c>auto</c> line is the container's PADDING edge, not a one-track span, and
-    ///         that single sentence is most of this method.</b> §9.2 resolves an out-of-flow child's
+    ///         ⚠
+    ///         <b>
+    ///             An <c>auto</c> line is the container's PADDING edge, not a one-track span, and
+    ///             that single sentence is most of this method.
+    ///         </b>
+    ///         §9.2 resolves an out-of-flow child's
     ///         four placement properties against the implicit grid and puts the padding edge wherever
     ///         one of them says <c>auto</c> — so <c>grid-column-start: 1</c> alone gives an area that
     ///         runs from the first line all the way to the right padding edge, not a 40-point column.
@@ -1127,13 +1221,13 @@ public sealed partial class LayoutTree {
         // and it is worth reading in both directions: the `top: 100%; left: 100%` child lands at 165
         // rather than 180 in `ltr`, and the `left: 0` child lands at 35 rather than 20 in `rtl`,
         // because the bar changes sides and the origin moves instead of the far edge.
-        var borderLeft = results[index].Border[(int) Edge.Left] + ScrollbarGutterAt(index, Edge.Left, direction);
-        var borderTop = results[index].Border[(int) Edge.Top] + ScrollbarGutterAt(index, Edge.Top, direction);
-        var paddingBoxRight = results[index].MeasuredDimensions[(int) Dimension.Width]
-            - results[index].Border[(int) Edge.Right]
+        var borderLeft = results[index].Border[(int)Edge.Left] + ScrollbarGutterAt(index, Edge.Left, direction);
+        var borderTop = results[index].Border[(int)Edge.Top] + ScrollbarGutterAt(index, Edge.Top, direction);
+        var paddingBoxRight = results[index].MeasuredDimensions[(int)Dimension.Width]
+            - results[index].Border[(int)Edge.Right]
             - ScrollbarGutterAt(index, Edge.Right, direction);
-        var paddingBoxBottom = results[index].MeasuredDimensions[(int) Dimension.Height]
-            - results[index].Border[(int) Edge.Bottom]
+        var paddingBoxBottom = results[index].MeasuredDimensions[(int)Dimension.Height]
+            - results[index].Border[(int)Edge.Bottom]
             - ScrollbarGutterAt(index, Edge.Bottom, direction);
 
         foreach (var child in ChildIds(index)) {
@@ -1145,10 +1239,30 @@ public sealed partial class LayoutTree {
             // reads the same four properties from a different file, and a `grid-area: header` that
             // reached only one of them is an absolutely positioned child silently falling back to the
             // padding box while its in-flow sibling lands in the area.
-            var columnStart = AbsoluteLine(ResolveNamedPlacement(index, child, Edge.Left, styles[child].GridColumnStart), explicitColumns, placement.ColumnOffset, columnAxis.TrackCount);
-            var columnEnd = AbsoluteLine(ResolveNamedPlacement(index, child, Edge.Right, styles[child].GridColumnEnd), explicitColumns, placement.ColumnOffset, columnAxis.TrackCount);
-            var rowStart = AbsoluteLine(ResolveNamedPlacement(index, child, Edge.Top, styles[child].GridRowStart), explicitRows, placement.RowOffset, rowAxis.TrackCount);
-            var rowEnd = AbsoluteLine(ResolveNamedPlacement(index, child, Edge.Bottom, styles[child].GridRowEnd), explicitRows, placement.RowOffset, rowAxis.TrackCount);
+            var columnStart = AbsoluteLine(
+                ResolveNamedPlacement(index, child, Edge.Left, styles[child].GridColumnStart),
+                explicitColumns,
+                placement.ColumnOffset,
+                columnAxis.TrackCount
+            );
+            var columnEnd = AbsoluteLine(
+                ResolveNamedPlacement(index, child, Edge.Right, styles[child].GridColumnEnd),
+                explicitColumns,
+                placement.ColumnOffset,
+                columnAxis.TrackCount
+            );
+            var rowStart = AbsoluteLine(
+                ResolveNamedPlacement(index, child, Edge.Top, styles[child].GridRowStart),
+                explicitRows,
+                placement.RowOffset,
+                rowAxis.TrackCount
+            );
+            var rowEnd = AbsoluteLine(
+                ResolveNamedPlacement(index, child, Edge.Bottom, styles[child].GridRowEnd),
+                explicitRows,
+                placement.RowOffset,
+                rowAxis.TrackCount
+            );
 
             // Two definite lines the wrong way round name the same area as the right way round.
             if (columnStart >= 0 && columnEnd >= 0 && columnEnd < columnStart) {
@@ -1166,7 +1280,9 @@ public sealed partial class LayoutTree {
                 left = columnStart < 0 ? borderLeft : insetLeft + GridLinePosition(in columnAxis, columnStart);
                 right = columnEnd < 0 ? paddingBoxRight : insetLeft + GridLinePosition(in columnAxis, columnEnd);
             } else {
-                right = columnStart < 0 ? paddingBoxRight : insetLeft + innerWidth - GridLinePosition(in columnAxis, columnStart);
+                right = columnStart < 0
+                    ? paddingBoxRight
+                    : insetLeft + innerWidth - GridLinePosition(in columnAxis, columnStart);
                 left = columnEnd < 0 ? borderLeft : insetLeft + innerWidth - GridLinePosition(in columnAxis, columnEnd);
             }
 
@@ -1209,8 +1325,12 @@ public sealed partial class LayoutTree {
     ///     What size to ask an item for, given the area it sits in and how it is aligned there.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>Only a stretched item is given its area's size; every other alignment asks for the
-    ///     item's own.</b> CSS Box Alignment §6.2 makes <c>stretch</c> the default precisely so that
+    ///     ⚠
+    ///     <b>
+    ///         Only a stretched item is given its area's size; every other alignment asks for the
+    ///         item's own.
+    ///     </b>
+    ///     CSS Box Alignment §6.2 makes <c>stretch</c> the default precisely so that
     ///     a card with no width fills its cell — but <c>justify-self: center</c> on the same card
     ///     means "be as wide as you want, then centre", and handing it the area's width instead
     ///     produces a centred box that is already the full width and therefore is not centred at all.
@@ -1304,11 +1424,12 @@ public sealed partial class LayoutTree {
         // the keyword rather than of the sign, so an `unsafe` overflow still overflows:
         // `grid_safe_align_self_end_overflow` and `grid_unsafe_align_self_end_overflow` are the same
         // 150-point item in the same 100-point row and Chrome answers 0 and −50.
-        return usedStart + SafeFallback(alignment, overflow, free) switch {
-            Align.Center => free / 2f,
-            Align.FlexEnd => free,
-            _ => 0f
-        };
+        return usedStart
+            + SafeFallback(alignment, overflow, free) switch {
+                Align.Center => free / 2f,
+                Align.FlexEnd => free,
+                _ => 0f
+            };
     }
 
     /// <summary>The three numbers §12 asks of one item on one axis.</summary>
@@ -1323,8 +1444,12 @@ public sealed partial class LayoutTree {
     ///     </para>
     ///     <para>
     ///         ⚠ <b>The <i>minimum</i> contribution is not the min-content one.</b> CSS Sizing: an
-    ///         item whose preferred size behaves as <c>auto</c> contributes its <i>used minimum
-    ///         size</i>, so a box with <c>min-width: 20px</c> and a 50-point min-content size
+    ///         item whose preferred size behaves as <c>auto</c> contributes its
+    ///         <i>
+    ///             used minimum
+    ///             size
+    ///         </i>
+    ///         , so a box with <c>min-width: 20px</c> and a 50-point min-content size
     ///         contributes 20 to an <c>auto</c> track's floor and 50 to a <c>min-content</c> one.
     ///         Reading both as the min-content contribution makes every <c>auto</c> track as wide as
     ///         its content, which is right often enough to look correct and wrong wherever a stated
@@ -1377,7 +1502,13 @@ public sealed partial class LayoutTree {
 
             var statedInline = float.IsNaN(item.ResolvedInlineSize)
                 ? float.NaN
-                : ResolvedDimension(child, Dimension.Width, item.ResolvedInlineSize, item.ResolvedInlineSize, direction);
+                : ResolvedDimension(
+                    child,
+                    Dimension.Width,
+                    item.ResolvedInlineSize,
+                    item.ResolvedInlineSize,
+                    direction
+                );
 
             var borderBoxInline = float.IsNaN(statedInline) ? areaInline : MathF.Max(0f, statedInline);
             var outerInline = float.IsNaN(statedInline) ? item.ResolvedInlineSize : borderBoxInline + marginRow;
@@ -1391,14 +1522,18 @@ public sealed partial class LayoutTree {
             // tall, and because a `0fr` track's whole size comes from this number the track collapses
             // and every stretched sibling in it collapses with it. The inline axis was accidentally
             // immune: its min-content contribution already reads the preferred size.
-            var statedHeight = StyleResolution.ProcessedDimension(in styles[child], Dimension.Height).Unit == LayoutUnit.Point
-                ? ResolvedDimension(child, Dimension.Height, ownerHeight, ownerWidth, direction)
-                : float.NaN;
+            var statedHeight =
+                StyleResolution.ProcessedDimension(in styles[child], Dimension.Height).Unit == LayoutUnit.Point
+                    ? ResolvedDimension(child, Dimension.Height, ownerHeight, ownerWidth, direction)
+                    : float.NaN;
 
             // ⚠ …and a ratio is the other way the block axis can be definite without being stated.
             // CSS Sizing §4.1: a box with a preferred aspect ratio and a definite inline size has a
             // definite block size. The inline size here came from the column pass, so it is.
-            if (float.IsNaN(statedHeight) && !float.IsNaN(styles[child].AspectRatio) && styles[child].AspectRatio > 0f && !float.IsNaN(borderBoxInline)) {
+            if (float.IsNaN(statedHeight)
+                && !float.IsNaN(styles[child].AspectRatio)
+                && styles[child].AspectRatio > 0f
+                && !float.IsNaN(borderBoxInline)) {
                 statedHeight = HeightAcrossRatio(child, direction, borderBoxInline, item.ResolvedInlineSize);
             }
 
@@ -1426,11 +1561,11 @@ public sealed partial class LayoutTree {
                     SizingMode.MaxContent,
                     float.IsNaN(item.ResolvedInlineSize) ? ownerWidth : item.ResolvedInlineSize,
                     ownerHeight,
-                    performLayout: false,
+                    false,
                     currentDepth
                 );
 
-                measured = results[child].MeasuredDimensions[(int) Dimension.Height];
+                measured = results[child].MeasuredDimensions[(int)Dimension.Height];
             }
 
             // §12.5 step 1: a baseline-aligned item contributes the shim that carries it down to its
@@ -1449,7 +1584,8 @@ public sealed partial class LayoutTree {
             var blockCeiling = FixedMaximumAcross(in axis, in item);
 
             if (!float.IsNaN(blockCeiling)) {
-                contentBasedBlockMinimum = MathF.Min(contentBasedBlockMinimum, MathF.Max(0f, blockCeiling - marginColumn));
+                contentBasedBlockMinimum =
+                    MathF.Min(contentBasedBlockMinimum, MathF.Max(0f, blockCeiling - marginColumn));
             }
 
             // ⚠ <b>A stated `min-height` is the minimum contribution, and reading the measured
@@ -1462,15 +1598,17 @@ public sealed partial class LayoutTree {
             // the full content height anyway, which is the whole `_003_fixedmin_` family: every
             // one of its failures was a height and not one of them was a width.
             var blockMinimum = MinimumContribution(
-                child,
-                Dimension.Height,
-                direction,
-                contentBasedBlockMinimum,
-                ownerWidth,
-                ownerHeight
-            ) + marginColumn + item.BaselineShim;
+                    child,
+                    Dimension.Height,
+                    direction,
+                    contentBasedBlockMinimum,
+                    ownerWidth,
+                    ownerHeight
+                )
+                + marginColumn
+                + item.BaselineShim;
 
-            return new GridContribution(blockMinimum, height, height);
+            return new(blockMinimum, height, height);
         }
 
         // ⚠ <b>A PERCENTAGE margin contributes NOTHING here, and resolving it against `ownerWidth`
@@ -1505,7 +1643,16 @@ public sealed partial class LayoutTree {
         // number Chrome uses was in hand the whole time and nothing carried it into the inline pass.
         var blockBasis = float.IsNaN(axis.DefiniteCrossSpace) ? ownerHeight : axis.DefiniteCrossSpace;
 
-        var minContent = MinContentContribution(child, FlexDirection.Row, direction, ownerWidth, blockBasis, ownerWidth, currentDepth) + margin;
+        var minContent = MinContentContribution(
+                child,
+                FlexDirection.Row,
+                direction,
+                ownerWidth,
+                blockBasis,
+                ownerWidth,
+                currentDepth
+            )
+            + margin;
 
         // ⚠ <b>The owner size handed to the max-content probe is NaN, and passing the real one is a
         // bug that looks like a track-sizing bug.</b> CSS Sizing §5.2.1: while an intrinsic
@@ -1524,11 +1671,11 @@ public sealed partial class LayoutTree {
             SizingMode.MaxContent,
             float.NaN,
             axis.DefiniteCrossSpace,
-            performLayout: false,
+            false,
             currentDepth
         );
 
-        var maxContent = results[child].MeasuredDimensions[(int) Dimension.Width] + margin;
+        var maxContent = results[child].MeasuredDimensions[(int)Dimension.Width] + margin;
 
         var contentBasedInlineMinimum = AutomaticMinimumIsZero(in axis, in item, child, Dimension.Width)
             ? 0f
@@ -1541,7 +1688,7 @@ public sealed partial class LayoutTree {
             contentBasedInlineMinimum = MathF.Min(contentBasedInlineMinimum, MathF.Max(0f, inlineCeiling - margin));
         }
 
-        return new GridContribution(
+        return new(
             MinimumContribution(
                 child,
                 Dimension.Width,
@@ -1549,7 +1696,8 @@ public sealed partial class LayoutTree {
                 contentBasedInlineMinimum,
                 ownerWidth,
                 ownerHeight
-            ) + margin,
+            )
+            + margin,
             minContent,
             MathF.Max(maxContent, minContent)
         );
@@ -1560,8 +1708,12 @@ public sealed partial class LayoutTree {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A multi-track item over a flexible track has an automatic minimum of zero, and
-    ///         nothing about its contents changes that.</b> §6.6 grants the content-based minimum
+    ///         ⚠
+    ///         <b>
+    ///             A multi-track item over a flexible track has an automatic minimum of zero, and
+    ///             nothing about its contents changes that.
+    ///         </b>
+    ///         §6.6 grants the content-based minimum
     ///         only when the item spans a track with an <c>auto</c> minimum <i>and</i>, if it spans
     ///         more than one, none of them is flexible. The reason is circularity: a flexible track's
     ///         size is a share of the space left over, and letting a spanning item floor it would
@@ -1606,10 +1758,18 @@ public sealed partial class LayoutTree {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>§6.6 has a second paragraph, and it is the one that stops a track from being
-    ///         dragged past a ceiling it stated.</b> After granting a content-based minimum, the rule
-    ///         adds that <i>if the item spans only tracks that have a fixed max track sizing
-    ///         function</i>, its content size suggestion is further clamped to the stretch fit into
+    ///         ⚠
+    ///         <b>
+    ///             §6.6 has a second paragraph, and it is the one that stops a track from being
+    ///             dragged past a ceiling it stated.
+    ///         </b>
+    ///         After granting a content-based minimum, the rule
+    ///         adds that
+    ///         <i>
+    ///             if the item spans only tracks that have a fixed max track sizing
+    ///             function
+    ///         </i>
+    ///         , its content size suggestion is further clamped to the stretch fit into
     ///         the area's maximum size — the sum of those maxima plus any intervening fixed gutters.
     ///         Without it a <c>minmax(auto, 10px)</c> column holding 20 points of text is 20 wide,
     ///         because the automatic minimum floors the base size and §7.2.2 then lifts the growth
@@ -1662,13 +1822,17 @@ public sealed partial class LayoutTree {
             var preferred = ResolvedDimension(child, dimension, reference, ownerWidth, direction);
 
             if (!float.IsNaN(preferred)) {
-                return MathF.Max(0f, BoundAxisWithinMinAndMax(child, direction, axis, preferred, reference, ownerWidth));
+                return MathF.Max(
+                    0f,
+                    BoundAxisWithinMinAndMax(child, direction, axis, preferred, reference, ownerWidth)
+                );
             }
         }
 
         // A stated minimum is used as though it were the preferred size; only `min-*: auto` falls
         // through to the content-based automatic minimum.
-        var stated = StyleResolution.ResolvedMinDimension(in styles[child], dimension, reference, ownerWidth, direction);
+        var stated =
+            StyleResolution.ResolvedMinDimension(in styles[child], dimension, reference, ownerWidth, direction);
 
         var contribution = float.IsNaN(stated) ? minContentSize : stated;
 

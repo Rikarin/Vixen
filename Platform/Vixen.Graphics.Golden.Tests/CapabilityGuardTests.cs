@@ -11,8 +11,12 @@ namespace Vixen.Graphics.Golden.Tests;
 /// <summary>The capability guard's own rules, asserted where a driver is not needed to assert them.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Every test in this file runs on a machine with no GPU at all, and that is the
-///         design.</b> #143's second leg is a rule about when a device test may stand aside; a rule
+///         ⚠
+///         <b>
+///             Every test in this file runs on a machine with no GPU at all, and that is the
+///             design.
+///         </b>
+///         #143's second leg is a rule about when a device test may stand aside; a rule
 ///         that could only be checked on a device would skip on exactly the runners whose skips it
 ///         governs. So <c>Capability.Decide</c> is pure and this asserts it directly, while
 ///         <c>Capability.Require</c> is a thin actor over it.
@@ -35,7 +39,7 @@ public sealed class CapabilityGuardTests {
     public void ADeviceWhoseDescriptionNeverRanFailsRatherThanSkipping() {
         Assert.Equal(
             CapabilityVerdict.DescriptionMissing,
-            Capability.Decide(described: false, available: false, Capability.Bindless, null, named: false)
+            Capability.Decide(false, false, Capability.Bindless, null, false)
         );
     }
 
@@ -50,7 +54,7 @@ public sealed class CapabilityGuardTests {
         foreach (var capability in Capability.Known) {
             Assert.Equal(
                 CapabilityVerdict.DescriptionMissing,
-                Capability.Decide(described: false, available: false, capability, promised: "", named: false)
+                Capability.Decide(false, false, capability, string.Empty, false)
             );
         }
 
@@ -68,7 +72,7 @@ public sealed class CapabilityGuardTests {
     public void ADescribedDeviceThatLacksItSkips() {
         Assert.Equal(
             CapabilityVerdict.Skip,
-            Capability.Decide(described: true, available: false, Capability.RayQuery, null, named: false)
+            Capability.Decide(true, false, Capability.RayQuery, null, false)
         );
     }
 
@@ -83,7 +87,7 @@ public sealed class CapabilityGuardTests {
         foreach (var capability in Capability.Known) {
             Assert.Equal(
                 CapabilityVerdict.Available,
-                Capability.Decide(described: true, available: true, capability, null, named: false)
+                Capability.Decide(true, true, capability, null, false)
             );
         }
 
@@ -106,7 +110,7 @@ public sealed class CapabilityGuardTests {
     public void APromisedCapabilityTheDeviceDeclinesFails(string? promised, bool named) {
         Assert.Equal(
             CapabilityVerdict.Promised,
-            Capability.Decide(described: true, available: false, Capability.RayQuery, promised, named)
+            Capability.Decide(true, false, Capability.RayQuery, promised, named)
         );
     }
 
@@ -124,7 +128,7 @@ public sealed class CapabilityGuardTests {
     public void APromiseNamingSomethingUnknownFails(string promised) {
         Assert.Equal(
             CapabilityVerdict.Unknown,
-            Capability.Decide(described: true, available: false, Capability.Bindless, promised, named: false)
+            Capability.Decide(true, false, Capability.Bindless, promised, false)
         );
     }
 
@@ -133,7 +137,7 @@ public sealed class CapabilityGuardTests {
     public void ACallSiteNamingSomethingUnknownFails() {
         Assert.Equal(
             CapabilityVerdict.Unknown,
-            Capability.Decide(described: true, available: true, "wave-intrinsics", null, named: false)
+            Capability.Decide(true, true, "wave-intrinsics", null, false)
         );
     }
 
@@ -167,11 +171,14 @@ public sealed class CapabilityGuardTests {
             .GetFields(BindingFlags.Public | BindingFlags.Static | BindingFlags.DeclaredOnly)
             .Where(field => field is { IsLiteral: true, FieldType.FullName: "System.String" })
             .Where(field => !reserved.Contains(field.Name))
-            .Select(field => (string)field.GetRawConstantValue()!)
-            .Where(value => value != Capability.Everything)
+            .Select(static field => (string)field.GetRawConstantValue()!)
+            .Where(static value => value != Capability.Everything)
             .ToHashSet(StringComparer.Ordinal);
 
-        Assert.Equal(Capability.Known.OrderBy(name => name, StringComparer.Ordinal), constants.OrderBy(name => name, StringComparer.Ordinal));
+        Assert.Equal(
+            Capability.Known.OrderBy(static name => name, StringComparer.Ordinal),
+            constants.OrderBy(static name => name, StringComparer.Ordinal)
+        );
     }
 
     /// <summary>Every capability gate in this assembly goes through the guard.</summary>
@@ -192,9 +199,15 @@ public sealed class CapabilityGuardTests {
     public void EveryCapabilityGateNamesAConstant() {
         var sources = Directory.GetFiles(ProjectDirectory(), "*.cs", SearchOption.TopDirectoryOnly);
 
-        Assert.True(sources.Length >= 50, $"{sources.Length} sources under '{ProjectDirectory()}' is not this project.");
+        Assert.True(
+            sources.Length >= 50,
+            $"{sources.Length} sources under '{ProjectDirectory()}' is not this project."
+        );
 
-        var calls = new Regex(@"Capability\.Require\(\s*(?<device>[^,]+),\s*(?<capability>[^,\r\n]+),", RegexOptions.Singleline);
+        var calls = new Regex(
+            @"Capability\.Require\(\s*(?<device>[^,]+),\s*(?<capability>[^,\r\n]+),",
+            RegexOptions.Singleline
+        );
         var seen = 0;
 
         foreach (var path in sources) {
@@ -237,7 +250,9 @@ public sealed class CapabilityGuardTests {
     ///     file names from above reports on a tree nobody is editing.
     /// </remarks>
     static string ProjectDirectory() {
-        for (var directory = new DirectoryInfo(AppContext.BaseDirectory); directory is not null; directory = directory.Parent) {
+        for (var directory = new DirectoryInfo(AppContext.BaseDirectory);
+             directory is not null;
+             directory = directory.Parent) {
             var candidate = Path.Combine(directory.FullName, "Platform", "Vixen.Graphics.Golden.Tests");
 
             if (File.Exists(Path.Combine(candidate, "Capability.cs"))) {
@@ -245,6 +260,8 @@ public sealed class CapabilityGuardTests {
             }
         }
 
-        throw new DirectoryNotFoundException($"this project's sources were not found above '{AppContext.BaseDirectory}'.");
+        throw new DirectoryNotFoundException(
+            $"this project's sources were not found above '{AppContext.BaseDirectory}'."
+        );
     }
 }

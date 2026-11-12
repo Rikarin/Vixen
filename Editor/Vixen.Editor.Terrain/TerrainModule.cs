@@ -7,8 +7,6 @@ using Vixen.Editor.Inspector;
 using Vixen.Editor.Plugin;
 using Vixen.Editor.SceneView;
 using Vixen.Editor.Ui;
-using Vixen.Ui;
-using Vixen.Ui.Controls.Advanced;
 using Vixen.Ui.HotReload;
 
 namespace Vixen.Editor.Terrain;
@@ -16,8 +14,11 @@ namespace Vixen.Editor.Terrain;
 /// <summary>Doc 31's toolset, registering itself through the door a third party comes through.</summary>
 /// <remarks>
 ///     <para>
-///         <b>Two modes, five panels, and everything that binds them to the scene in front of
-///         them.</b> All of it used to be two partials of the editor's application —
+///         <b>
+///             Two modes, five panels, and everything that binds them to the scene in front of
+///             them.
+///         </b>
+///         All of it used to be two partials of the editor's application —
 ///         <c>EditorTerrainPanels</c> and <c>EditorTerrainSession</c>, 1,340 lines — which meant the
 ///         terrain tools could only exist in an editor that had been compiled with them. Doc 36 § F2
 ///         is the finding; this type is the answer for this feature.
@@ -29,8 +30,12 @@ namespace Vixen.Editor.Terrain;
 ///         <see cref="Activate" />.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Two hooks that had to be built for this, because the application used to do both by
-///         hand.</b> <c>PluginContext.OnUpdate</c> — the brush follows the entity selection, and
+///         ⚠
+///         <b>
+///             Two hooks that had to be built for this, because the application used to do both by
+///             hand.
+///         </b>
+///         <c>PluginContext.OnUpdate</c> — the brush follows the entity selection, and
 ///         nothing raises an event about that — and <c>EditorDocument.Saved</c>, because a scene
 ///         names a heightfield and a foliage file beside itself and saving one without the others
 ///         leaves a project whose ground exists only in a process that has exited. Both were a line
@@ -172,5 +177,4 @@ public sealed partial class TerrainModule : IEditorPlugin {
         SaveTerrains();
         SaveFoliage();
     }
-
 }

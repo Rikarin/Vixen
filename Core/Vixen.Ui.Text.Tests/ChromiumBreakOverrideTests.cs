@@ -13,8 +13,11 @@ namespace Vixen.Ui.Text.Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>Not a conformance suite — a ledger of a disagreement, and the disagreement is the
-///         point.</b> CSS Text 3 § 5.1 says the specification "does not fully define where soft wrap
+///         <b>
+///             Not a conformance suite — a ledger of a disagreement, and the disagreement is the
+///             point.
+///         </b>
+///         CSS Text 3 § 5.1 says the specification "does not fully define where soft wrap
 ///         opportunities occur"; Vixen implements UAX #14 as written and Chromium does not, so
 ///         neither is wrong and both answers are worth having written down. What this file exists to
 ///         prevent is the third state: a change to <see cref="LineBreaker" /> that moves one of these
@@ -22,8 +25,12 @@ namespace Vixen.Ui.Text.Tests;
 ///         browser's preferences and never will.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The listing is committed and compared byte for byte, and that is the instrument
-///         decision.</b> A test that recomputed both sides and asserted they differ somewhere would
+///         ⚠
+///         <b>
+///             The listing is committed and compared byte for byte, and that is the instrument
+///             decision.
+///         </b>
+///         A test that recomputed both sides and asserted they differ somewhere would
 ///         pass on the day either side stopped being computed at all — a comparator that called two
 ///         empty manifests identical is a real thing this repository has shipped. So
 ///         <c>ChromiumBreakDeltas.txt</c> is data: the run rebuilds it and demands the same bytes,
@@ -32,8 +39,12 @@ namespace Vixen.Ui.Text.Tests;
 ///         <c>VIXEN_REGENERATE=1</c> rewrites it, as everywhere else in this tree.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Pairs in isolation, which is what Parley's table is and is therefore the only honest
-///         comparison.</b> Each row asks both sides about a two-character string, so UAX #14's
+///         ⚠
+///         <b>
+///             Pairs in isolation, which is what Parley's table is and is therefore the only honest
+///             comparison.
+///         </b>
+///         Each row asks both sides about a two-character string, so UAX #14's
 ///         context-sensitive rules — the numeric run of LB25, the Hebrew hyphen of LB21a — never
 ///         arise, and a delta here is a disagreement about the pair rather than about a paragraph.
 ///         The one exception is stated where it lives: Chromium's <c>-</c>-before-a-digit rule reads
@@ -50,8 +61,12 @@ namespace Vixen.Ui.Text.Tests;
 public class ChromiumBreakOverrideTests {
     /// <summary>Parley's <c>chromium_hyphen_digit_depends_on_preceding_char</c>.</summary>
     /// <remarks>
-    ///     ⚠ <b>The rule that makes <c>Subtract -5</c> and <c>AAAA-2222</c> break differently, and the
-    ///     only one in Chromium's table that reads three characters.</b> A hyphen is a minus sign when
+    ///     ⚠
+    ///     <b>
+    ///         The rule that makes <c>Subtract -5</c> and <c>AAAA-2222</c> break differently, and the
+    ///         only one in Chromium's table that reads three characters.
+    ///     </b>
+    ///     A hyphen is a minus sign when
     ///     what precedes it is not alphanumeric — including nothing at all, which is Chromium's
     ///     <c>last_last_ch == 0</c> and is why a start-of-text hyphen suppresses rather than defers.
     /// </remarks>
@@ -68,12 +83,17 @@ public class ChromiumBreakOverrideTests {
         char beforeBefore,
         char after,
         bool expected
-    ) => Assert.Equal(expected, ChromiumLineBreakOverride.Of(beforeBefore == '\0' ? null : beforeBefore, '-', after));
+    ) =>
+        Assert.Equal(expected, ChromiumLineBreakOverride.Of(beforeBefore == '\0' ? null : beforeBefore, '-', after));
 
     /// <summary>Parley's <c>chromium_ignores_uax_14_lb13</c>.</summary>
     /// <remarks>
-    ///     ⚠ <b>The deviation Parley names outright, and the one with a Chromium source line beside
-    ///     it.</b> LB13 forbids an opportunity before a closing bracket, a comma or an exclamation
+    ///     ⚠
+    ///     <b>
+    ///         The deviation Parley names outright, and the one with a Chromium source line beside
+    ///         it.
+    ///     </b>
+    ///     LB13 forbids an opportunity before a closing bracket, a comma or an exclamation
     ///     mark <i>even after a space</i>; Blink allows a break after a space run unconditionally. So
     ///     a browser puts <c>)</c> at the start of the next line where this store keeps it on the
     ///     previous one, and no amount of UAX #14 conformance will produce the browser's answer.
@@ -117,8 +137,12 @@ public class ChromiumBreakOverrideTests {
 
     /// <summary>Parley's <c>chromium_allows_some_breaks</c>.</summary>
     /// <remarks>
-    ///     ⚠ <b>Every assertion here is about the ORDER the table is folded in, which is the one thing
-    ///     a transcription of it can get wrong without looking wrong.</b> <c>) (</c> breaks and
+    ///     ⚠
+    ///     <b>
+    ///         Every assertion here is about the ORDER the table is folded in, which is the one thing
+    ///         a transcription of it can get wrong without looking wrong.
+    ///     </b>
+    ///     <c>) (</c> breaks and
     ///     <c>a (</c> does not, because the "break before an opening bracket" rule is written early
     ///     and the "no break after a letter" rule is written later and overwrites it. Sort the rules
     ///     alphabetically, or group them by allow/suppress, and these five change while every other
@@ -180,12 +204,12 @@ public class ChromiumBreakOverrideTests {
     [Fact]
     public void The_ledger_is_not_empty_and_runs_both_ways() {
         var lines = File.ReadAllLines(LedgerPath())
-            .Where(line => line.Length > 0 && line[0] != '#')
+            .Where(static line => line.Length > 0 && line[0] != '#')
             .ToList();
 
         Assert.NotEmpty(lines);
-        Assert.Contains(lines, line => line.EndsWith("chromium=break  uax14=none", StringComparison.Ordinal));
-        Assert.Contains(lines, line => line.EndsWith("chromium=none  uax14=break", StringComparison.Ordinal));
+        Assert.Contains(lines, static line => line.EndsWith("chromium=break  uax14=none", StringComparison.Ordinal));
+        Assert.Contains(lines, static line => line.EndsWith("chromium=none  uax14=break", StringComparison.Ordinal));
 
         // The LB13 deviation, which is the one Parley cites a Chromium line number for. Ten closers
         // and separators a browser will start a line with and this store will not.
@@ -253,8 +277,12 @@ public class ChromiumBreakOverrideTests {
 
     /// <summary>The committed listing, in the source tree rather than in the output directory.</summary>
     /// <remarks>
-    ///     ⚠ <b>Neither an embedded resource nor a copied one, and both of those were tried and are
-    ///     wrong here.</b> The file is DATA UNDER REVIEW: a regenerating run has to rewrite the copy a
+    ///     ⚠
+    ///     <b>
+    ///         Neither an embedded resource nor a copied one, and both of those were tried and are
+    ///         wrong here.
+    ///     </b>
+    ///     The file is DATA UNDER REVIEW: a regenerating run has to rewrite the copy a
     ///     reviewer will read in the diff, and a copy in <c>bin</c> is neither. Walking up to the
     ///     repository root is what <c>ConformanceCorpusNoticeTests</c> does for the NOTICE and for the
     ///     same reason — and it lands in whichever worktree the assembly was built in, which is the

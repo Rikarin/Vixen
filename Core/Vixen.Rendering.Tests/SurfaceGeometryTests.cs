@@ -35,10 +35,10 @@ public sealed class SurfaceGeometryTests {
 
         var vertex = Assert.Single(SurfaceGeometry.Packed(mesh));
 
-        Assert.Equal(new Vector3(1f, 2f, 3f), vertex.Position);
+        Assert.Equal(new(1f, 2f, 3f), vertex.Position);
         Assert.Equal(Vector3.UnitX, vertex.Normal);
-        Assert.Equal(new Vector4(0f, 0f, 1f, -1f), vertex.Tangent);
-        Assert.Equal(new Vector2(0.25f, 0.75f), vertex.TexCoord);
+        Assert.Equal(new(0f, 0f, 1f, -1f), vertex.Tangent);
+        Assert.Equal(new(0.25f, 0.75f), vertex.TexCoord);
     }
 
     /// <remarks>
@@ -117,10 +117,7 @@ public sealed class SurfaceGeometryTests {
     /// </remarks>
     [Fact]
     public void AnAttributeShorterThanThePositionsIsFilledForTheRest() {
-        var mesh = new MeshData {
-            Positions = [Vector3.Zero, Vector3.UnitX],
-            Normals = [Vector3.UnitZ]
-        };
+        var mesh = new MeshData { Positions = [Vector3.Zero, Vector3.UnitX], Normals = [Vector3.UnitZ] };
 
         var vertices = SurfaceGeometry.Packed(mesh);
 
@@ -141,8 +138,7 @@ public sealed class SurfaceGeometryTests {
     [Fact]
     public void BoundsComeFromTheBoxTheImporterWrote() {
         var mesh = new MeshData {
-            Positions = [Vector3.Zero],
-            Bounds = new(new Vector3(-2f, -2f, -2f), new Vector3(2f, 2f, 2f))
+            Positions = [Vector3.Zero], Bounds = new(new Vector3(-2f, -2f, -2f), new Vector3(2f, 2f, 2f))
         };
 
         var bounds = SurfaceGeometry.BoundsOf(mesh);
@@ -166,6 +162,5 @@ public sealed class SurfaceGeometryTests {
     }
 
     [Fact]
-    public void AMeshWithNothingInItHasNoBounds() =>
-        Assert.Equal(0f, SurfaceGeometry.BoundsOf(new MeshData()).Radius);
+    public void AMeshWithNothingInItHasNoBounds() => Assert.Equal(0f, SurfaceGeometry.BoundsOf(new()).Radius);
 }

@@ -171,7 +171,10 @@ public class GameplayTagTableTests {
     [Fact]
     public void ATagDeeperThanTheLimitIsRefusedRatherThanOverflowingTheWalk() {
         var builder = new GameplayTagTableBuilder();
-        var deep = string.Join('.', Enumerable.Range(0, GameplayTagTable.MaximumDepth + 1).Select(index => $"s{index}"));
+        var deep = string.Join(
+            '.',
+            Enumerable.Range(0, GameplayTagTable.MaximumDepth + 1).Select(static index => $"s{index}")
+        );
 
         Assert.Throws<ArgumentException>(() => builder.Add(deep));
     }
@@ -355,9 +358,9 @@ public class GameplayTagQueryTests {
 
         var query = GameplayTagQuery.Resolve(
             table,
-            all: ["Creature.Undead"],
-            any: ["State.InCombat", "State.Mounted"],
-            none: ["Creature.Beast"]
+            ["Creature.Undead"],
+            ["State.InCombat", "State.Mounted"],
+            ["Creature.Beast"]
         );
 
         var undeadInCombat = new GameplayTagSet();
@@ -382,7 +385,7 @@ public class GameplayTagQueryTests {
     public void AQueryOverTagsTheContentDoesNotHaveFailsClosed() {
         var table = Table();
 
-        Assert.False(GameplayTagQuery.Resolve(table, all: ["Creature.Dragon"]).Matches(new()));
+        Assert.False(GameplayTagQuery.Resolve(table, ["Creature.Dragon"]).Matches(new()));
         Assert.False(GameplayTagQuery.Resolve(table, any: ["Creature.Dragon"]).Matches(new()));
         Assert.True(GameplayTagQuery.Resolve(table, none: ["Creature.Dragon"]).Matches(new()));
     }

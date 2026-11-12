@@ -117,15 +117,17 @@ public static class MeshletBuilder {
             }
 
             var built = new MeshletMesh {
-                Meshlets = [.. meshlets],
-                Groups = [.. groups],
-                Vertices = [.. vertices],
-                Triangles = [.. triangles],
-                Roots = [.. roots],
+                Meshlets = [..meshlets],
+                Groups = [..groups],
+                Vertices = [..vertices],
+                Triangles = [..triangles],
+                Roots = [..roots],
                 LevelCount = levels
             };
 
-            return built with { Fallback = MeshletCut.Flatten(built, MeshletCut.SelectByBudget(built, settings.FallbackTriangles)) };
+            return built with {
+                Fallback = MeshletCut.Flatten(built, MeshletCut.SelectByBudget(built, settings.FallbackTriangles))
+            };
         }
 
         /// <summary>Simplifies one level's clusters in groups and splits the results back into clusters.</summary>
@@ -141,7 +143,8 @@ public static class MeshletBuilder {
                 var corners = Gather(current, group);
                 var locked = LockedEdges(current, group, corners);
                 var target = Math.Max(1, (int)(corners.Length / 3 * settings.SimplifyRatio));
-                var result = MeshSimplifier.Simplify(mesh.Positions, welded, seam, vertexError, corners, locked, target);
+                var result =
+                    MeshSimplifier.Simplify(mesh.Positions, welded, seam, vertexError, corners, locked, target);
 
                 // A group that did not get smaller is a group that would be simplified again next
                 // level, with the same locks and the same answer. Its clusters become roots instead.
@@ -149,7 +152,7 @@ public static class MeshletBuilder {
             }
 
             if (settings.Parallel && members.Count > 1) {
-                System.Threading.Tasks.Parallel.For(0, members.Count, One);
+                Parallel.For(0, members.Count, One);
             } else {
                 for (var index = 0; index < members.Count; index++) {
                     One(index);
@@ -192,9 +195,7 @@ public static class MeshletBuilder {
 
                 groups.Add(
                     new() {
-                        Children = [.. group.Select(child => current[child].Index)],
-                        Level = level - 1,
-                        Error = error
+                        Children = [..group.Select(child => current[child].Index)], Level = level - 1, Error = error
                     }
                 );
 
@@ -204,7 +205,9 @@ public static class MeshletBuilder {
                 }
 
                 var produced = Split(result.Corners, level, groupIndex, error);
-                groups[groupIndex] = groups[groupIndex] with { Parents = [.. produced.Select(parent => parent.Index)] };
+                groups[groupIndex] = groups[groupIndex] with {
+                    Parents = [..produced.Select(static parent => parent.Index)]
+                };
                 parents.AddRange(produced);
             }
 
@@ -257,7 +260,7 @@ public static class MeshletBuilder {
                 members[parts[cluster]].Add(cluster);
             }
 
-            members.RemoveAll(group => group.Count == 0);
+            members.RemoveAll(static group => group.Count == 0);
 
             return members;
         }
@@ -270,8 +273,8 @@ public static class MeshletBuilder {
 
             for (var triangle = 0; triangle < corners.Length / 3; triangle++) {
                 for (var corner = 0; corner < 3; corner++) {
-                    var a = welded[corners[(triangle * 3) + corner]];
-                    var b = welded[corners[(triangle * 3) + ((corner + 1) % 3)]];
+                    var a = welded[corners[triangle * 3 + corner]];
+                    var b = welded[corners[triangle * 3 + (corner + 1) % 3]];
 
                     if (a != b) {
                         edges.Add(Topology.Edge(a, b));
@@ -438,7 +441,7 @@ public static class MeshletBuilder {
                 var added = 0;
 
                 for (var corner = 0; corner < 3; corner++) {
-                    if (!distinct.Contains(corners[(triangle * 3) + corner])) {
+                    if (!distinct.Contains(corners[triangle * 3 + corner])) {
                         added++;
                     }
                 }
@@ -453,7 +456,7 @@ public static class MeshletBuilder {
                 current.Add(triangle);
 
                 for (var corner = 0; corner < 3; corner++) {
-                    distinct.Add(corners[(triangle * 3) + corner]);
+                    distinct.Add(corners[triangle * 3 + corner]);
                 }
             }
 
@@ -482,7 +485,7 @@ public static class MeshletBuilder {
 
             foreach (var triangle in cluster) {
                 for (var corner = 0; corner < 3; corner++) {
-                    var vertex = corners[(triangle * 3) + corner];
+                    var vertex = corners[triangle * 3 + corner];
 
                     if (!local.TryGetValue(vertex, out var index)) {
                         index = (byte)local.Count;
@@ -536,7 +539,7 @@ public static class MeshletBuilder {
 
             for (var index = 0; index < cluster.Count; index++) {
                 for (var corner = 0; corner < 3; corner++) {
-                    own[(index * 3) + corner] = corners[(cluster[index] * 3) + corner];
+                    own[index * 3 + corner] = corners[cluster[index] * 3 + corner];
                 }
             }
 
@@ -549,8 +552,8 @@ public static class MeshletBuilder {
         /// <returns>The unnormalised normal, so that summing weights each triangle by its area.</returns>
         Vector3 Normal(int[] corners, int triangle) {
             var a = mesh.Positions[corners[triangle * 3]];
-            var b = mesh.Positions[corners[(triangle * 3) + 1]];
-            var c = mesh.Positions[corners[(triangle * 3) + 2]];
+            var b = mesh.Positions[corners[triangle * 3 + 1]];
+            var c = mesh.Positions[corners[triangle * 3 + 2]];
 
             return Vector3.Cross(b - a, c - a);
         }
@@ -571,11 +574,11 @@ public static class MeshletBuilder {
             }
 
             for (var influence = 0; influence < 4; influence++) {
-                if (mesh.BoneWeights[(vertex * 4) + influence] <= 0) {
+                if (mesh.BoneWeights[vertex * 4 + influence] <= 0) {
                     continue;
                 }
 
-                var bone = mesh.BoneIndices[(vertex * 4) + influence];
+                var bone = mesh.BoneIndices[vertex * 4 + influence];
                 first = Math.Min(first, bone);
                 last = Math.Max(last, bone);
             }

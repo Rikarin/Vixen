@@ -11,7 +11,7 @@ public class ReleaseTests : IDisposable {
 
     public void Dispose() {
         if (Directory.Exists(root)) {
-            Directory.Delete(root, recursive: true);
+            Directory.Delete(root, true);
         }
 
         GC.SuppressFinalize(this);
@@ -26,47 +26,53 @@ public class ReleaseTests : IDisposable {
         IReadOnlyList<string>? interfaces = null,
         DocFacets? facets = null,
         IReadOnlyList<DocMember>? members = null
-    ) => new() {
-        Id = $"T:Fixtures.{name}",
-        Kind = kind,
-        Name = name,
-        QualifiedName = $"Fixtures.{name}",
-        Namespace = "Fixtures",
-        Assembly = "Fixtures",
-        Area = "Core",
-        Slug = Slugs.ForType($"T:Fixtures.{name}"),
-        Signature = [.. string.Format(System.Globalization.CultureInfo.InvariantCulture, signature, name)
-            .Split(' ')
-            .SelectMany((word, index) => index == 0
-                ? [new DocSpan(word, Keyword(word))]
-                : new[] { new DocSpan(" ", "text"), new DocSpan(word, Keyword(word)) })],
-        Obsolete = obsolete,
-        BaseType = baseType,
-        Interfaces = interfaces ?? [],
-        Facets = facets,
-        Members = members ?? []
-    };
+    ) =>
+        new() {
+            Id = $"T:Fixtures.{name}",
+            Kind = kind,
+            Name = name,
+            QualifiedName = $"Fixtures.{name}",
+            Namespace = "Fixtures",
+            Assembly = "Fixtures",
+            Area = "Core",
+            Slug = Slugs.ForType($"T:Fixtures.{name}"),
+            Signature = [
+                ..string.Format(System.Globalization.CultureInfo.InvariantCulture, signature, name)
+                    .Split(' ')
+                    .SelectMany(static (word, index) => index == 0
+                            ? [new DocSpan(word, Keyword(word))]
+                            : new[] { new DocSpan(" ", "text"), new DocSpan(word, Keyword(word)) }
+                    )
+            ],
+            Obsolete = obsolete,
+            BaseType = baseType,
+            Interfaces = interfaces ?? [],
+            Facets = facets,
+            Members = members ?? []
+        };
 
     static string Keyword(string word) =>
         word is "public" or "sealed" or "abstract" or "class" or "struct" or "ref" or "enum" or "readonly"
             ? "keyword"
             : "class";
 
-    static DocMember Member(string name, string signature) => new() {
-        Id = $"M:Fixtures.Holder.{name}",
-        Name = name,
-        MemberKind = "method",
-        Signature = [new DocSpan(signature, "text")]
-    };
+    static DocMember Member(string name, string signature) =>
+        new() {
+            Id = $"M:Fixtures.Holder.{name}",
+            Name = name,
+            MemberKind = "method",
+            Signature = [new DocSpan(signature, "text")]
+        };
 
-    static DocGraph Graph(params DocNode[] nodes) => new() {
-        Solution = "Vixen.slnx",
-        Configuration = "Release",
-        Commit = "abc123",
-        ProjectCount = 1,
-        GeneratedDocumentCount = 0,
-        Nodes = nodes
-    };
+    static DocGraph Graph(params DocNode[] nodes) =>
+        new() {
+            Solution = "Vixen.slnx",
+            Configuration = "Release",
+            Commit = "abc123",
+            ProjectCount = 1,
+            GeneratedDocumentCount = 0,
+            Nodes = nodes
+        };
 
     static Change Single(IReadOnlyList<Change> changes, ChangeKind kind) =>
         Assert.Single(changes, change => change.Kind == kind);
@@ -82,7 +88,10 @@ public class ReleaseTests : IDisposable {
         Assert.NotNull(read);
         Assert.Equal(2, read.Nodes.Count);
         Assert.Equal("abc123", read.Commit);
-        Assert.Equal("public void Run()", string.Concat(read.Nodes[1].Members[0].Signature.Select(span => span.Text)));
+        Assert.Equal(
+            "public void Run()",
+            string.Concat(read.Nodes[1].Members[0].Signature.Select(static span => span.Text))
+        );
         Assert.Equal(2, record.Types);
         Assert.Equal(1, record.Members);
         Assert.True(record.Bytes > 0);
@@ -95,7 +104,7 @@ public class ReleaseTests : IDisposable {
 
         var releases = History.Read(root);
 
-        Assert.Equal(["0.1.0", "0.2.0"], releases.Select(release => release.Version));
+        Assert.Equal(["0.1.0", "0.2.0"], releases.Select(static release => release.Version));
         Assert.Equal("2026-09-01", releases[1].Date);
     }
 
@@ -122,7 +131,8 @@ public class ReleaseTests : IDisposable {
 
         Assert.Equal(
             ["0.2.0", "0.10.0", "1.0.0-rc.1", "1.0.0"],
-            History.Read(root).Select(release => release.Version));
+            History.Read(root).Select(static release => release.Version)
+        );
     }
 
     [Fact]
@@ -160,7 +170,8 @@ public class ReleaseTests : IDisposable {
     public void ARemovedTypeDoesNotAlsoRemoveItsMembers() {
         var changes = ReleaseDiff.Between(
             Graph(Node("Alpha"), Node("Holder", members: [Member("Run", "public void Run()")])),
-            Graph(Node("Alpha")));
+            Graph(Node("Alpha"))
+        );
 
         Assert.Equal("T:Fixtures.Holder", Single(changes, ChangeKind.Removed).Id);
     }
@@ -169,7 +180,8 @@ public class ReleaseTests : IDisposable {
     public void AnAddedTypeDoesNotAlsoAddItsMembers() {
         var changes = ReleaseDiff.Between(
             Graph(Node("Alpha")),
-            Graph(Node("Alpha"), Node("Holder", members: [Member("Run", "public void Run()")])));
+            Graph(Node("Alpha"), Node("Holder", members: [Member("Run", "public void Run()")]))
+        );
 
         Assert.Equal("T:Fixtures.Holder", Single(changes, ChangeKind.Added).Id);
     }
@@ -178,7 +190,8 @@ public class ReleaseTests : IDisposable {
     public void AMemberAddedToAnExistingTypeIsItsOwnRow() {
         var changes = ReleaseDiff.Between(
             Graph(Node("Holder")),
-            Graph(Node("Holder", members: [Member("Run", "public void Run()")])));
+            Graph(Node("Holder", members: [Member("Run", "public void Run()")]))
+        );
 
         Assert.Equal("M:Fixtures.Holder.Run", Single(changes, ChangeKind.Added).Id);
     }
@@ -187,7 +200,8 @@ public class ReleaseTests : IDisposable {
     public void GainingObsoleteIsDeprecation() {
         var changes = ReleaseDiff.Between(
             Graph(Node("Alpha")),
-            Graph(Node("Alpha", obsolete: "Use Beta instead.")));
+            Graph(Node("Alpha", obsolete: "Use Beta instead."))
+        );
 
         var deprecated = Single(changes, ChangeKind.Deprecated);
 
@@ -201,7 +215,8 @@ public class ReleaseTests : IDisposable {
     public void AChangedMemberSignatureIsABreak() {
         var changes = ReleaseDiff.Between(
             Graph(Node("Holder", members: [Member("Run", "public void Run()")])),
-            Graph(Node("Holder", members: [Member("Run", "public void Run(int frames)")])));
+            Graph(Node("Holder", members: [Member("Run", "public void Run(int frames)")]))
+        );
 
         var broken = Single(changes, ChangeKind.SignatureBreak);
 
@@ -216,7 +231,8 @@ public class ReleaseTests : IDisposable {
     public void AShapeChangeSaysWhatItCosts(string before, string after, string expected) {
         var changes = ReleaseDiff.Between(
             Graph(Node("Alpha", before)),
-            Graph(Node("Alpha", after)));
+            Graph(Node("Alpha", after))
+        );
 
         Assert.Contains(expected, Single(changes, ChangeKind.ShapeBreak).Note, StringComparison.Ordinal);
     }
@@ -225,7 +241,8 @@ public class ReleaseTests : IDisposable {
     public void ADroppedInterfaceIsAShapeChange() {
         var changes = ReleaseDiff.Between(
             Graph(Node("Alpha", interfaces: ["T:Vixen.Ecs.ISystem", "T:System.IDisposable"])),
-            Graph(Node("Alpha", interfaces: ["T:System.IDisposable"])));
+            Graph(Node("Alpha", interfaces: ["T:System.IDisposable"]))
+        );
 
         Assert.Contains("ISystem", Single(changes, ChangeKind.ShapeBreak).Note, StringComparison.Ordinal);
     }
@@ -234,7 +251,8 @@ public class ReleaseTests : IDisposable {
     public void AChangedBaseTypeIsAShapeChange() {
         var changes = ReleaseDiff.Between(
             Graph(Node("Alpha", baseType: "T:Vixen.Ecs.SystemBase")),
-            Graph(Node("Alpha", baseType: "T:Vixen.Ecs.Behavior")));
+            Graph(Node("Alpha", baseType: "T:Vixen.Ecs.Behavior"))
+        );
 
         Assert.Contains("base type", Single(changes, ChangeKind.ShapeBreak).Note, StringComparison.Ordinal);
     }
@@ -243,7 +261,8 @@ public class ReleaseTests : IDisposable {
     public void ANarrowedEnumIsAShapeChange() {
         var changes = ReleaseDiff.Between(
             Graph(Node("Flags", "public enum {0} : int", DocKind.Enum)),
-            Graph(Node("Flags", "public enum {0} : byte", DocKind.Enum)));
+            Graph(Node("Flags", "public enum {0} : byte", DocKind.Enum))
+        );
 
         Assert.Contains("underlying type", Single(changes, ChangeKind.ShapeBreak).Note, StringComparison.Ordinal);
     }
@@ -257,21 +276,23 @@ public class ReleaseTests : IDisposable {
     [Fact]
     public void AComponentThatChangedSizeIsBreakingWithAnIdenticalSignature() {
         var changes = ReleaseDiff.Between(
-            Graph(Node("Position", kind: DocKind.Component, facets: new DocFacets { SizeBytes = 8 })),
-            Graph(Node("Position", kind: DocKind.Component, facets: new DocFacets { SizeBytes = 12 })));
+            Graph(Node("Position", kind: DocKind.Component, facets: new() { SizeBytes = 8 })),
+            Graph(Node("Position", kind: DocKind.Component, facets: new() { SizeBytes = 12 }))
+        );
 
         var broken = Single(changes, ChangeKind.EngineBreak);
 
         Assert.Contains("8 b → 12 b", broken.Note, StringComparison.Ordinal);
         Assert.True(broken.IsBreaking);
-        Assert.DoesNotContain(changes, change => change.Kind == ChangeKind.SignatureBreak);
+        Assert.DoesNotContain(changes, static change => change.Kind == ChangeKind.SignatureBreak);
     }
 
     [Fact]
     public void ASystemThatChangedPhaseIsBreaking() {
         var changes = ReleaseDiff.Between(
-            Graph(Node("Movement", kind: DocKind.System, facets: new DocFacets { Phase = "Update" })),
-            Graph(Node("Movement", kind: DocKind.System, facets: new DocFacets { Phase = "LateUpdate" })));
+            Graph(Node("Movement", kind: DocKind.System, facets: new() { Phase = "Update" })),
+            Graph(Node("Movement", kind: DocKind.System, facets: new() { Phase = "LateUpdate" }))
+        );
 
         Assert.Contains("Update → LateUpdate", Single(changes, ChangeKind.EngineBreak).Note, StringComparison.Ordinal);
     }
@@ -279,8 +300,9 @@ public class ReleaseTests : IDisposable {
     [Fact]
     public void AShaderThatChangedItsDescriptorLayoutIsBreaking() {
         var changes = ReleaseDiff.Between(
-            Graph(Node("Lit", kind: DocKind.Shader, facets: new DocFacets { DescriptorSets = 2 })),
-            Graph(Node("Lit", kind: DocKind.Shader, facets: new DocFacets { DescriptorSets = 3 })));
+            Graph(Node("Lit", kind: DocKind.Shader, facets: new() { DescriptorSets = 2 })),
+            Graph(Node("Lit", kind: DocKind.Shader, facets: new() { DescriptorSets = 3 }))
+        );
 
         Assert.Contains("recompiled", Single(changes, ChangeKind.EngineBreak).Note, StringComparison.Ordinal);
     }
@@ -288,8 +310,9 @@ public class ReleaseTests : IDisposable {
     [Fact]
     public void ASystemThatChangedItsDeclaredAccessIsBreaking() {
         var changes = ReleaseDiff.Between(
-            Graph(Node("Movement", kind: DocKind.System, facets: new DocFacets { Reads = ["T:Fixtures.Position"] })),
-            Graph(Node("Movement", kind: DocKind.System, facets: new DocFacets { Writes = ["T:Fixtures.Position"] })));
+            Graph(Node("Movement", kind: DocKind.System, facets: new() { Reads = ["T:Fixtures.Position"] })),
+            Graph(Node("Movement", kind: DocKind.System, facets: new() { Writes = ["T:Fixtures.Position"] }))
+        );
 
         Assert.Contains("declared access", Single(changes, ChangeKind.EngineBreak).Note, StringComparison.Ordinal);
     }
@@ -301,7 +324,8 @@ public class ReleaseTests : IDisposable {
         var changes = ReleaseDiff.Between(
             Graph(Node("Alpha")),
             Graph(Node("Alpha")),
-            [("rendering/colour", "Materials now default to linear space.")]);
+            [("rendering/colour", "Materials now default to linear space.")]
+        );
 
         var broken = Single(changes, ChangeKind.SemanticBreak);
 
@@ -313,7 +337,8 @@ public class ReleaseTests : IDisposable {
     public void TheTableCountsWhatItShows() {
         var changes = ReleaseDiff.Between(
             Graph(Node("Alpha"), Node("Gone")),
-            Graph(Node("Alpha"), Node("New")));
+            Graph(Node("Alpha"), Node("New"))
+        );
 
         var markdown = ReleaseDiff.Markdown("0.2.0", "0.1.0", "2026-09-01", changes);
 
@@ -368,7 +393,13 @@ public class ReleaseTests : IDisposable {
         var output = Path.Combine(root, "artifacts", "docs");
         var record = History.Write(root, Graph(Node("Alpha")), "0.2.0", "2026-09-01");
 
-        Releases.Write(root, output, record, "0.1.0", ReleaseDiff.Between(Graph(Node("Alpha"), Node("Gone")), Graph(Node("Alpha"))));
+        Releases.Write(
+            root,
+            output,
+            record,
+            "0.1.0",
+            ReleaseDiff.Between(Graph(Node("Alpha"), Node("Gone")), Graph(Node("Alpha")))
+        );
         Releases.Write(root, output, record, "0.1.0", ReleaseDiff.Between(Graph(Node("Alpha")), Graph(Node("Alpha"))));
 
         var changelog = File.ReadAllText(Path.Combine(root, "CHANGELOG.md"));
@@ -386,11 +417,19 @@ public class ReleaseTests : IDisposable {
 
         var second = History.Write(root, Graph(Node("Alpha"), Node("Beta")), "0.2.0", "2026-09-01");
 
-        Releases.Write(root, output, second, "0.1.0", ReleaseDiff.Between(Graph(Node("Alpha")), Graph(Node("Alpha"), Node("Beta"))));
+        Releases.Write(
+            root,
+            output,
+            second,
+            "0.1.0",
+            ReleaseDiff.Between(Graph(Node("Alpha")), Graph(Node("Alpha"), Node("Beta")))
+        );
 
         var changelog = File.ReadAllText(Path.Combine(root, "CHANGELOG.md"));
 
-        Assert.True(changelog.IndexOf("## 0.2.0", StringComparison.Ordinal)
-            < changelog.IndexOf("## 0.1.0", StringComparison.Ordinal));
+        Assert.True(
+            changelog.IndexOf("## 0.2.0", StringComparison.Ordinal)
+            < changelog.IndexOf("## 0.1.0", StringComparison.Ordinal)
+        );
     }
 }

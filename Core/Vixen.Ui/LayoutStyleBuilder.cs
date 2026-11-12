@@ -4,7 +4,6 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Runtime.InteropServices;
-
 using Vixen.Ui.Layout;
 using Vixen.Ui.Styling;
 
@@ -20,8 +19,11 @@ namespace Vixen.Ui;
 ///         cannot be built until a computed style can become a layout style.
 ///     </para>
 ///     <para>
-///         <b>Font size is resolved first and separately, because it is the thing everything else is
-///         relative to.</b> On <c>font-size</c> itself, <c>em</c> and <c>%</c> mean the
+///         <b>
+///             Font size is resolved first and separately, because it is the thing everything else is
+///             relative to.
+///         </b>
+///         On <c>font-size</c> itself, <c>em</c> and <c>%</c> mean the
 ///         <i>parent's</i> size; on every other property they mean the element's own. Conflating the
 ///         two compounds down the tree — three nested <c>font-size: 1.2em</c> come out at 1.2× rather
 ///         than 1.728×, and the error grows with depth, so it looks like a rendering quirk rather
@@ -38,8 +40,12 @@ public sealed class LayoutStyleBuilder {
     /// <summary>What an element with no declarations gets, per CSS rather than per Yoga.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b><see cref="LayoutStyle.Default" /> is Yoga's initial state, and it differs from
-    ///         CSS's in five places.</b> That is correct where it lives — <c>Vixen.Ui.Layout</c> is
+    ///         ⚠
+    ///         <b>
+    ///             <see cref="LayoutStyle.Default" /> is Yoga's initial state, and it differs from
+    ///             CSS's in five places.
+    ///         </b>
+    ///         That is correct where it lives — <c>Vixen.Ui.Layout</c> is
     ///         judged by Yoga's own conformance suite and has to start where Yoga starts — and it is
     ///         wrong here, because a VCSS author writes CSS. The two specifications disagree about
     ///         <c>flex-direction</c> (<c>column</c> against <c>row</c>), <c>align-content</c>
@@ -48,8 +54,12 @@ public sealed class LayoutStyleBuilder {
     ///         <c>flex-shrink</c> (<c>0</c> against <c>1</c>).
     ///     </para>
     ///     <para>
-    ///         ⚠ <b><c>flex-shrink</c> was the fifth and it was missing for as long as this class
-    ///         existed</b>, which made every element in every <c>.vcss</c> and <c>.vxml</c> in the
+    ///         ⚠
+    ///         <b>
+    ///             <c>flex-shrink</c> was the fifth and it was missing for as long as this class
+    ///             existed
+    ///         </b>
+    ///         , which made every element in every <c>.vcss</c> and <c>.vxml</c> in the
     ///         repository unable to shrink. It is the one of the five that changes what a document
     ///         looks like rather than only what an author has to type: an over-full row in a browser
     ///         squeezes its items and wraps their text, and the same markup here overflowed instead.
@@ -63,8 +73,12 @@ public sealed class LayoutStyleBuilder {
     ///     </para>
     ///     <para>
     ///         Two deliberate departures from CSS remain. <c>display</c> starts at <c>flex</c>
-    ///         rather than at CSS's <c>inline</c>, and ⚠ <b>that is now a choice rather than a
-    ///         limitation</b>: doc 43 § B3 gave the engine an inline formatting context, so
+    ///         rather than at CSS's <c>inline</c>, and ⚠
+    ///         <b>
+    ///             that is now a choice rather than a
+    ///             limitation
+    ///         </b>
+    ///         : doc 43 § B3 gave the engine an inline formatting context, so
     ///         <c>inline</c> is a member it could start at. It does not, because an element with no
     ///         <c>display</c> at all is far more often a container somebody forgot to declare than a
     ///         run of text, and defaulting to <c>inline</c> would shrink-to-fit every undeclared box
@@ -106,12 +120,12 @@ public sealed class LayoutStyleBuilder {
         ArgumentNullException.ThrowIfNull(values);
         ArgumentNullException.ThrowIfNull(keywordNames);
 
-        parser = new StyleValueParser(values, keywordNames);
-        containment = new ContainmentReader(properties, values);
+        parser = new(values, keywordNames);
+        containment = new(properties, values);
         this.values = values;
         propertyNames = properties;
-        names = new Properties(properties);
-        keywords = new Keywords(keywordNames);
+        names = new(properties);
+        keywords = new(keywordNames);
 
         variableLength = [
             new TrackListProperty(names.GridTemplateColumns, GridTrackSlot.Columns),
@@ -129,8 +143,12 @@ public sealed class LayoutStyleBuilder {
     /// <summary>What this bridge could not read, and why.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The same shape as <c>StyleSheetLoader.Diagnostics</c>, and deliberately so — but
-    ///         it answers a question that list cannot.</b> The loader reports what it could not
+    ///         ⚠
+    ///         <b>
+    ///             The same shape as <c>StyleSheetLoader.Diagnostics</c>, and deliberately so — but
+    ///             it answers a question that list cannot.
+    ///         </b>
+    ///         The loader reports what it could not
     ///         <i>parse</i>; this reports what parsed as CSS and then meant nothing here. Those are
     ///         different failures: <c>grid-template-columns: 4furlongs</c> is a perfectly well-formed
     ///         declaration that ExCSS hands through untouched, because ExCSS 4.3.2 has never heard of
@@ -158,8 +176,12 @@ public sealed class LayoutStyleBuilder {
     /// <summary>Records a refused declaration, once per distinct declaration.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>These carry no <c>Rule</c>, and it is not an oversight — the information does not
-    ///         reach here.</b> <see cref="SelectorDiagnostic" /> was widened so that a refusal naming
+    ///         ⚠
+    ///         <b>
+    ///             These carry no <c>Rule</c>, and it is not an oversight — the information does not
+    ///             reach here.
+    ///         </b>
+    ///         <see cref="SelectorDiagnostic" /> was widened so that a refusal naming
     ///         a fragment can also name the rule the fragment was written in, and the loader and the
     ///         compiler both pass one. This producer cannot: it is handed a
     ///         <see cref="ComputedStyle" />, which is two <c>int[]</c>s of interned property and
@@ -194,7 +216,7 @@ public sealed class LayoutStyleBuilder {
             }
         }
 
-        diagnostics.Add(new SelectorDiagnostic(text, reason));
+        diagnostics.Add(new(text, reason));
     }
 
     /// <summary>Resolves an element's font size, which everything else is measured against.</summary>
@@ -272,8 +294,12 @@ public sealed class LayoutStyleBuilder {
     /// <param name="node">The node, which is what these properties need and <see cref="Build" /> lacks.</param>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>This is a second call rather than a wider <see cref="Build" />, and the reason is
-    ///         ownership rather than convenience.</b> A track list is stored in the tree's
+    ///         ⚠
+    ///         <b>
+    ///             This is a second call rather than a wider <see cref="Build" />, and the reason is
+    ///             ownership rather than convenience.
+    ///         </b>
+    ///         A track list is stored in the tree's
     ///         <c>TrackArena</c> behind an <c>(offset, count)</c> handle that belongs to the
     ///         <i>node</i>, not to the value — which is exactly why
     ///         <see cref="LayoutTree.SetStyle" /> deliberately carries those four handles across a
@@ -297,8 +323,12 @@ public sealed class LayoutStyleBuilder {
     ///     <para>
     ///         The mechanism generalises to any property whose value is a list: a new one is a class
     ///         with a grammar and a store call, and the driver below neither knows nor asks what it
-    ///         parses. ⚠ <b><c>grid-template-areas</c> was named here as the thing this was shaped
-    ///         for and is now one of its entries</b>, at the promised cost of one subclass and one
+    ///         parses. ⚠
+    ///         <b>
+    ///             <c>grid-template-areas</c> was named here as the thing this was shaped
+    ///             for and is now one of its entries
+    ///         </b>
+    ///         , at the promised cost of one subclass and one
     ///         line. It also showed what the mechanism is really for, which is not length: a named
     ///         placement is <i>one word</i> and still cannot ride in a <see cref="LayoutStyle" />,
     ///         because a name resolves against the container's template and so belongs to the node.
@@ -391,17 +421,35 @@ public sealed class LayoutStyleBuilder {
         // six — but nothing crossing this bridge ever set one, so `align-items: safe end` was a
         // declaration ExCSS kept, the cascade computed, and `TryKeyword` then dropped whole for
         // arriving as a token list. The property stayed at its initial value with nothing said.
-        if (TryAlignment(style, names.JustifyContent, keywords.Justifications, out Justify justify, out var justifyOverflow)) {
+        if (TryAlignment(
+                style,
+                names.JustifyContent,
+                keywords.Justifications,
+                out Justify justify,
+                out var justifyOverflow
+            )) {
             result.JustifyContent = justify;
             result.JustifyContentOverflow = justifyOverflow;
         }
 
-        if (TryAlignment(style, names.AlignContent, keywords.Alignments, out Align alignContent, out var alignContentOverflow)) {
+        if (TryAlignment(
+                style,
+                names.AlignContent,
+                keywords.Alignments,
+                out Align alignContent,
+                out var alignContentOverflow
+            )) {
             result.AlignContent = alignContent;
             result.AlignContentOverflow = alignContentOverflow;
         }
 
-        if (TryAlignment(style, names.AlignItems, keywords.Alignments, out Align alignItems, out var alignItemsOverflow)) {
+        if (TryAlignment(
+                style,
+                names.AlignItems,
+                keywords.Alignments,
+                out Align alignItems,
+                out var alignItemsOverflow
+            )) {
             result.AlignItems = alignItems;
             result.AlignItemsOverflow = alignItemsOverflow;
         }
@@ -482,12 +530,24 @@ public sealed class LayoutStyleBuilder {
         // member names lie about the axis rather than about the value.</b> `Align.FlexStart` is the
         // inline start here, which is what `LayoutStyle.JustifyItems` documents; sharing the table is
         // what makes `justify-items: center` and `align-items: center` mean the same word.
-        if (TryAlignment(style, names.JustifyItems, keywords.Alignments, out Align justifyItems, out var justifyItemsOverflow)) {
+        if (TryAlignment(
+                style,
+                names.JustifyItems,
+                keywords.Alignments,
+                out Align justifyItems,
+                out var justifyItemsOverflow
+            )) {
             result.JustifyItems = justifyItems;
             result.JustifyItemsOverflow = justifyItemsOverflow;
         }
 
-        if (TryAlignment(style, names.JustifySelf, keywords.Alignments, out Align justifySelf, out var justifySelfOverflow)) {
+        if (TryAlignment(
+                style,
+                names.JustifySelf,
+                keywords.Alignments,
+                out Align justifySelf,
+                out var justifySelfOverflow
+            )) {
             result.JustifySelf = justifySelf;
             result.JustifySelfOverflow = justifySelfOverflow;
         }
@@ -496,8 +556,12 @@ public sealed class LayoutStyleBuilder {
     /// <summary>Applies the six placement properties, the cascade having already ordered them.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>This no longer decides the precedence, and the fact that it once did was a
-    ///         defect.</b> <see cref="Vixen.Ui.Styling.ShorthandExpansion" /> now splits
+    ///         ⚠
+    ///         <b>
+    ///             This no longer decides the precedence, and the fact that it once did was a
+    ///             defect.
+    ///         </b>
+    ///         <see cref="Vixen.Ui.Styling.ShorthandExpansion" /> now splits
     ///         <c>grid-column</c> and <c>grid-row</c> into their two longhands at load, so both halves
     ///         of the question reach the cascade as comparable declarations and the one written last
     ///         wins — which is the answer CSS gives and the one this method had no way to compute.
@@ -508,9 +572,17 @@ public sealed class LayoutStyleBuilder {
     ///         cell — the exact failure the paragraph below says this bridge exists to stop.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The two shorthand branches stay, and they are now a fallback rather than a
-    ///         rule.</b> A shorthand only reaches here when the expander refused it — <c>grid-column:
-    ///         var(--place)</c>, whose <c>var()</c> may itself hold the slash, and the two-slash
+    ///         ⚠
+    ///         <b>
+    ///             The two shorthand branches stay, and they are now a fallback rather than a
+    ///             rule.
+    ///         </b>
+    ///         A shorthand only reaches here when the expander refused it —
+    ///         <c>
+    ///             grid-column:
+    ///             var(--place)
+    ///         </c>
+    ///         , whose <c>var()</c> may itself hold the slash, and the two-slash
     ///         <c>grid-area</c> form written under the wrong name. The loader has already reported
     ///         that refusal, so reading what can be read beats dropping it. Their order against the
     ///         longhands is unchanged and is still <c>overflow</c>'s above: the cascade could not
@@ -613,7 +685,7 @@ public sealed class LayoutStyleBuilder {
         // ordinal group 2 where every browser puts it in group 0. The cascade has no integer kind
         // (`order: 2` arrives as the float 2), so integrality is checked here or nowhere.
         if (TryNumber(style, names.Order, out var order) && float.IsInteger(order)) {
-            result.Order = (int) order;
+            result.Order = (int)order;
         }
 
         if (TryNumber(style, names.AspectRatio, out var bare)) {
@@ -650,7 +722,12 @@ public sealed class LayoutStyleBuilder {
 
         if (slash < 0
             || !float.TryParse(text[..slash].Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out var width)
-            || !float.TryParse(text[(slash + 1)..].Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out var height)
+            || !float.TryParse(
+                text[(slash + 1)..].Trim(),
+                NumberStyles.Float,
+                CultureInfo.InvariantCulture,
+                out var height
+            )
             || height == 0f) {
             return false;
         }
@@ -662,8 +739,12 @@ public sealed class LayoutStyleBuilder {
     /// <summary>Writes the six size slots, which are the only ones a content keyword may land in.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b><see cref="SetSizeLength" /> and not <see cref="SetLength" />, and the split is the
-    ///         grammar rather than a convenience.</b> CSS Sizing § 5's <c>min-content</c>,
+    ///         ⚠
+    ///         <b>
+    ///             <see cref="SetSizeLength" /> and not <see cref="SetLength" />, and the split is the
+    ///             grammar rather than a convenience.
+    ///         </b>
+    ///         CSS Sizing § 5's <c>min-content</c>,
     ///         <c>max-content</c> and <c>fit-content</c> are values of <c>width</c>, <c>height</c> and
     ///         their four bounds and of nothing else — a <c>margin: max-content</c> or a
     ///         <c>gap: fit-content</c> is not a narrower thing than CSS allows, it is invalid. Sharing
@@ -683,12 +764,12 @@ public sealed class LayoutStyleBuilder {
     ///     </para>
     /// </remarks>
     void ApplyDimensions(ComputedStyle style, in LengthContext context, ref LayoutStyle result) {
-        SetSizeLength(style, names.Width, in context, ref result.Dimensions[(int) Dimension.Width]);
-        SetSizeLength(style, names.Height, in context, ref result.Dimensions[(int) Dimension.Height]);
-        SetSizeLength(style, names.MinWidth, in context, ref result.MinDimensions[(int) Dimension.Width]);
-        SetSizeLength(style, names.MinHeight, in context, ref result.MinDimensions[(int) Dimension.Height]);
-        SetSizeLength(style, names.MaxWidth, in context, ref result.MaxDimensions[(int) Dimension.Width]);
-        SetSizeLength(style, names.MaxHeight, in context, ref result.MaxDimensions[(int) Dimension.Height]);
+        SetSizeLength(style, names.Width, in context, ref result.Dimensions[(int)Dimension.Width]);
+        SetSizeLength(style, names.Height, in context, ref result.Dimensions[(int)Dimension.Height]);
+        SetSizeLength(style, names.MinWidth, in context, ref result.MinDimensions[(int)Dimension.Width]);
+        SetSizeLength(style, names.MinHeight, in context, ref result.MinDimensions[(int)Dimension.Height]);
+        SetSizeLength(style, names.MaxWidth, in context, ref result.MaxDimensions[(int)Dimension.Width]);
+        SetSizeLength(style, names.MaxHeight, in context, ref result.MaxDimensions[(int)Dimension.Height]);
         SetLength(style, names.FlexBasis, in context, ref result.FlexBasis);
     }
 
@@ -729,8 +810,8 @@ public sealed class LayoutStyleBuilder {
     ///     renders transposed.
     /// </remarks>
     void ApplyGaps(ComputedStyle style, in LengthContext context, ref LayoutStyle result) {
-        SetLength(style, names.RowGap, in context, ref result.Gap[(int) Gutter.Row]);
-        SetLength(style, names.ColumnGap, in context, ref result.Gap[(int) Gutter.Column]);
+        SetLength(style, names.RowGap, in context, ref result.Gap[(int)Gutter.Row]);
+        SetLength(style, names.ColumnGap, in context, ref result.Gap[(int)Gutter.Column]);
     }
 
     /// <summary>Writes <c>table-layout</c> and <c>border-spacing</c>, which only a table reads.</summary>
@@ -777,15 +858,19 @@ public sealed class LayoutStyleBuilder {
             return;
         }
 
-        result.BorderSpacing[(int) Dimension.Width] = x;
-        result.BorderSpacing[(int) Dimension.Height] = y;
+        result.BorderSpacing[(int)Dimension.Width] = x;
+        result.BorderSpacing[(int)Dimension.Height] = y;
     }
 
     /// <summary>Reads <c>vertical-align</c>, which is seven keywords or a distance.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The percentage is resolved HERE and nowhere else, because this is the last place
-    ///         that knows what it is a percentage of.</b> CSS 2.1 §10.8.1 resolves a percentage
+    ///         ⚠
+    ///         <b>
+    ///             The percentage is resolved HERE and nowhere else, because this is the last place
+    ///             that knows what it is a percentage of.
+    ///         </b>
+    ///         CSS 2.1 §10.8.1 resolves a percentage
     ///         <c>vertical-align</c> against the <i>element's own</i> <c>line-height</c> — not the
     ///         container's and not the line box's — and the layout store's inline-level box is a
     ///         rectangle with no line height in it. <see cref="LengthContext.LineHeight" /> is that
@@ -825,8 +910,12 @@ public sealed class LayoutStyleBuilder {
     /// <summary>Writes the scrollbar gutter.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A length here, where CSS has a three-valued keyword, and the difference is
-    ///         deliberate.</b> The web's <c>scrollbar-width</c> is <c>auto | thin | none</c> because
+    ///         ⚠
+    ///         <b>
+    ///             A length here, where CSS has a three-valued keyword, and the difference is
+    ///             deliberate.
+    ///         </b>
+    ///         The web's <c>scrollbar-width</c> is <c>auto | thin | none</c> because
     ///         the browser owns the widget and only the page's preference is negotiable. Nothing here
     ///         owns one — <c>ScrollView</c> builds its own bar and knows how thick it is — so the
     ///         useful value is the thickness itself. <c>none</c> is spelled <c>0</c> and the keyword
@@ -862,12 +951,12 @@ public sealed class LayoutStyleBuilder {
     ///     and the layout store already resolves that when it reads them.
     /// </remarks>
     void ApplyEdgeLonghands(ComputedStyle style, in EdgeNames group, in LengthContext context, ref EdgeLengths edges) {
-        SetLength(style, group.Left, in context, ref edges[(int) Edge.Left]);
-        SetLength(style, group.Top, in context, ref edges[(int) Edge.Top]);
-        SetLength(style, group.Right, in context, ref edges[(int) Edge.Right]);
-        SetLength(style, group.Bottom, in context, ref edges[(int) Edge.Bottom]);
-        SetLength(style, group.Start, in context, ref edges[(int) Edge.Start]);
-        SetLength(style, group.End, in context, ref edges[(int) Edge.End]);
+        SetLength(style, group.Left, in context, ref edges[(int)Edge.Left]);
+        SetLength(style, group.Top, in context, ref edges[(int)Edge.Top]);
+        SetLength(style, group.Right, in context, ref edges[(int)Edge.Right]);
+        SetLength(style, group.Bottom, in context, ref edges[(int)Edge.Bottom]);
+        SetLength(style, group.Start, in context, ref edges[(int)Edge.Start]);
+        SetLength(style, group.End, in context, ref edges[(int)Edge.End]);
     }
 
     /// <summary>CSS's one-to-four-value edge shorthand.</summary>
@@ -879,7 +968,7 @@ public sealed class LayoutStyleBuilder {
     /// </remarks>
     void ApplyEdgeShorthand(StyleValue value, in LengthContext context, ref EdgeLengths edges) {
         if (value.Kind != StyleValueKind.List) {
-            Set(ToEdgeLength(value, in context), ref edges[(int) Edge.All]);
+            Set(ToEdgeLength(value, in context), ref edges[(int)Edge.All]);
             return;
         }
 
@@ -887,24 +976,21 @@ public sealed class LayoutStyleBuilder {
 
         switch (parts.Length) {
             case 2:
-                Set(ToEdgeLength(parts[0], in context), ref edges[(int) Edge.Vertical]);
-                Set(ToEdgeLength(parts[1], in context), ref edges[(int) Edge.Horizontal]);
+                Set(ToEdgeLength(parts[0], in context), ref edges[(int)Edge.Vertical]);
+                Set(ToEdgeLength(parts[1], in context), ref edges[(int)Edge.Horizontal]);
                 break;
 
             case 3:
-                Set(ToEdgeLength(parts[0], in context), ref edges[(int) Edge.Top]);
-                Set(ToEdgeLength(parts[1], in context), ref edges[(int) Edge.Horizontal]);
-                Set(ToEdgeLength(parts[2], in context), ref edges[(int) Edge.Bottom]);
+                Set(ToEdgeLength(parts[0], in context), ref edges[(int)Edge.Top]);
+                Set(ToEdgeLength(parts[1], in context), ref edges[(int)Edge.Horizontal]);
+                Set(ToEdgeLength(parts[2], in context), ref edges[(int)Edge.Bottom]);
                 break;
 
             case 4:
-                Set(ToEdgeLength(parts[0], in context), ref edges[(int) Edge.Top]);
-                Set(ToEdgeLength(parts[1], in context), ref edges[(int) Edge.Right]);
-                Set(ToEdgeLength(parts[2], in context), ref edges[(int) Edge.Bottom]);
-                Set(ToEdgeLength(parts[3], in context), ref edges[(int) Edge.Left]);
-                break;
-
-            default:
+                Set(ToEdgeLength(parts[0], in context), ref edges[(int)Edge.Top]);
+                Set(ToEdgeLength(parts[1], in context), ref edges[(int)Edge.Right]);
+                Set(ToEdgeLength(parts[2], in context), ref edges[(int)Edge.Bottom]);
+                Set(ToEdgeLength(parts[3], in context), ref edges[(int)Edge.Left]);
                 break;
         }
     }
@@ -993,8 +1079,11 @@ public sealed class LayoutStyleBuilder {
 
     /// <summary>Reads a keyword written as one word or as two, against a table keyed on the pair.</summary>
     /// <remarks>
-    ///     ⚠ <b>A two-word CSS value never reaches <see cref="TryKeyword" /> as a keyword, and
-    ///     believing it did cost `grid-auto-flow` four of its seven spellings.</b>
+    ///     ⚠
+    ///     <b>
+    ///         A two-word CSS value never reaches <see cref="TryKeyword" /> as a keyword, and
+    ///         believing it did cost `grid-auto-flow` four of its seven spellings.
+    ///     </b>
     ///     <see cref="StyleValueParser.Parse(int)" /> splits on top-level whitespace before it decides
     ///     anything, so `row dense` is a <see cref="StyleValueKind.List" /> of two keywords and the
     ///     interned string `"row dense"` is a key nothing can ever produce. Splitting is the parser's
@@ -1015,9 +1104,9 @@ public sealed class LayoutStyleBuilder {
 
                 case StyleValueKind.List
                     when value.Items.Length == 2
-                         && value.Items[0].Kind == StyleValueKind.Keyword
-                         && value.Items[1].Kind == StyleValueKind.Keyword
-                         && table.TryGetValue((value.Items[0].Keyword, value.Items[1].Keyword), out result):
+                    && value.Items[0].Kind == StyleValueKind.Keyword
+                    && value.Items[1].Kind == StyleValueKind.Keyword
+                    && table.TryGetValue((value.Items[0].Keyword, value.Items[1].Keyword), out result):
                     return true;
             }
         }
@@ -1029,8 +1118,11 @@ public sealed class LayoutStyleBuilder {
     /// <summary>Reads CSS Box Alignment §4.1's <c>[ safe | unsafe ]? &lt;position&gt;</c>.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>Both halves or neither, which is why this is one method and not a second
-    ///         <see cref="TryKeyword" /> call against a table of prefixes.</b> An alignment value is a
+    ///         <b>
+    ///             Both halves or neither, which is why this is one method and not a second
+    ///             <see cref="TryKeyword" /> call against a table of prefixes.
+    ///         </b>
+    ///         An alignment value is a
     ///         position and a modifier on it, and a reader that took them from two declarations could
     ///         put the modifier of one on the position of another — the failure
     ///         <see cref="Vixen.Ui.Layout.LayoutTree" />'s own <c>ResolveChildAlignmentOverflow</c>
@@ -1038,8 +1130,12 @@ public sealed class LayoutStyleBuilder {
     ///         by a child whose `align-self` is `auto`.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>An unprefixed keyword yields <see cref="OverflowAlignment.Unsafe" /> and the caller
-    ///         writes it, rather than leaving the field alone.</b> Both halves of the declaration are
+    ///         ⚠
+    ///         <b>
+    ///             An unprefixed keyword yields <see cref="OverflowAlignment.Unsafe" /> and the caller
+    ///             writes it, rather than leaving the field alone.
+    ///         </b>
+    ///         Both halves of the declaration are
     ///         replaced together, so `align-items: end` after `align-items: safe end` in the cascade
     ///         means what it says. Leaving the prefix behind would make the second declaration a
     ///         partial overwrite of the first, which is not how a single property works.
@@ -1119,12 +1215,21 @@ public sealed class LayoutStyleBuilder {
     }
 
     /// <summary>Which of the four track lists a <see cref="TrackListProperty" /> writes.</summary>
-    enum GridTrackSlot { Columns, Rows, AutoColumns, AutoRows }
+    enum GridTrackSlot {
+        Columns,
+        Rows,
+        AutoColumns,
+        AutoRows
+    }
 
     /// <summary>A style property whose value is a list, and so cannot live in a fixed-size struct.</summary>
     /// <remarks>
-    ///     ⚠ <b>The driver knows only "present, absent, refused" — everything about the grammar and
-    ///     about where the value is stored belongs to the subclass.</b> That is the whole of what
+    ///     ⚠
+    ///     <b>
+    ///         The driver knows only "present, absent, refused" — everything about the grammar and
+    ///         about where the value is stored belongs to the subclass.
+    ///     </b>
+    ///     That is the whole of what
     ///     makes this a mechanism rather than four special cases: adding
     ///     <c>grid-template-areas</c> was a new subclass and one line in the array, and it brought
     ///     its own scratch buffer with it rather than widening a signature everything else has to
@@ -1199,11 +1304,23 @@ public sealed class LayoutStyleBuilder {
 
             switch (slot) {
                 case GridTrackSlot.Columns:
-                    tree.SetGridTemplateColumns(node, CollectionsMarshal.AsSpan(scratch), repeat.Kind, repeat.Index, repeat.Count);
+                    tree.SetGridTemplateColumns(
+                        node,
+                        CollectionsMarshal.AsSpan(scratch),
+                        repeat.Kind,
+                        repeat.Index,
+                        repeat.Count
+                    );
                     break;
 
                 case GridTrackSlot.Rows:
-                    tree.SetGridTemplateRows(node, CollectionsMarshal.AsSpan(scratch), repeat.Kind, repeat.Index, repeat.Count);
+                    tree.SetGridTemplateRows(
+                        node,
+                        CollectionsMarshal.AsSpan(scratch),
+                        repeat.Kind,
+                        repeat.Index,
+                        repeat.Count
+                    );
                     break;
 
                 default:
@@ -1241,8 +1358,12 @@ public sealed class LayoutStyleBuilder {
 
     /// <summary><c>grid-template-areas</c>, the second shape this registry was built for.</summary>
     /// <remarks>
-    ///     ⚠ <b>It is here rather than in <see cref="Build" /> for the reason the track lists are,
-    ///     and the reason is not that the value is long.</b> A <see cref="LayoutStyle" /> never sees
+    ///     ⚠
+    ///     <b>
+    ///         It is here rather than in <see cref="Build" /> for the reason the track lists are,
+    ///         and the reason is not that the value is long.
+    ///     </b>
+    ///     A <see cref="LayoutStyle" /> never sees
     ///     a node id, and an area template belongs to the <i>node</i> — the store keeps one object
     ///     per grid container beside the style array, exactly as it keeps a measure function. A
     ///     value returned from <c>Build</c> would be a reference two elements that resolved alike
@@ -1269,8 +1390,12 @@ public sealed class LayoutStyleBuilder {
     /// <summary>One placement longhand, read as the name of a grid area.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The same declaration is read twice, by two different halves of this bridge, and
-    ///         that is deliberate rather than an oversight.</b> <c>grid-row-start</c> is a line
+    ///         ⚠
+    ///         <b>
+    ///             The same declaration is read twice, by two different halves of this bridge, and
+    ///             that is deliberate rather than an oversight.
+    ///         </b>
+    ///         <c>grid-row-start</c> is a line
     ///         number to <see cref="ApplyPlacements" /> and an area name to this, and exactly one of
     ///         the two can be true of any one value — so each reads it, one of them succeeds, and the
     ///         one that does not <i>writes the absence</i>. Leaving the name alone when the number
@@ -1301,7 +1426,7 @@ public sealed class LayoutStyleBuilder {
             refusal = null;
 
             if (GridPlacement.TryParse(value, out _)) {
-                tree.SetGridPlacement(node, edge, name: null);
+                tree.SetGridPlacement(node, edge, null);
                 return true;
             }
 
@@ -1316,7 +1441,7 @@ public sealed class LayoutStyleBuilder {
             return true;
         }
 
-        public override void Reset(LayoutTree tree, LayoutNodeId node) => tree.SetGridPlacement(node, edge, name: null);
+        public override void Reset(LayoutTree tree, LayoutNodeId node) => tree.SetGridPlacement(node, edge, null);
     }
 
     sealed class Properties {
@@ -1480,26 +1605,26 @@ public sealed class LayoutStyleBuilder {
                 table.Intern("flex-end")
             ];
 
-            ContentSizes = new Dictionary<int, LayoutUnit> {
+            ContentSizes = new() {
                 [table.Intern("min-content")] = LayoutUnit.MinContent,
                 [table.Intern("max-content")] = LayoutUnit.MaxContent,
                 [table.Intern("fit-content")] = LayoutUnit.FitContent
             };
 
-            Directions = new Dictionary<int, Direction> {
+            Directions = new() {
                 [table.Intern("inherit")] = Direction.Inherit,
                 [table.Intern("ltr")] = Direction.Ltr,
                 [table.Intern("rtl")] = Direction.Rtl
             };
 
-            FlexDirections = new Dictionary<int, FlexDirection> {
+            FlexDirections = new() {
                 [table.Intern("row")] = FlexDirection.Row,
                 [table.Intern("row-reverse")] = FlexDirection.RowReverse,
                 [table.Intern("column")] = FlexDirection.Column,
                 [table.Intern("column-reverse")] = FlexDirection.ColumnReverse
             };
 
-            Justifications = new Dictionary<int, Justify> {
+            Justifications = new() {
                 [table.Intern("flex-start")] = Justify.FlexStart,
                 [table.Intern("center")] = Justify.Center,
                 [table.Intern("flex-end")] = Justify.FlexEnd,
@@ -1520,7 +1645,7 @@ public sealed class LayoutStyleBuilder {
                 [table.Intern("normal")] = Justify.FlexStart
             };
 
-            Alignments = new Dictionary<int, Align> {
+            Alignments = new() {
                 [Auto] = Align.Auto,
                 [table.Intern("flex-start")] = Align.FlexStart,
                 [table.Intern("center")] = Align.Center,
@@ -1551,14 +1676,14 @@ public sealed class LayoutStyleBuilder {
             // wrong height rather than an error. See `PositionType.Sticky` for why it could not be
             // spelled `relative` instead. `fixed` is still absent, and is a different gap: nothing
             // here has a viewport-fixed containing block to offer it.
-            Positions = new Dictionary<int, PositionType> {
+            Positions = new() {
                 [table.Intern("static")] = PositionType.Static,
                 [table.Intern("relative")] = PositionType.Relative,
                 [table.Intern("absolute")] = PositionType.Absolute,
                 [table.Intern("sticky")] = PositionType.Sticky
             };
 
-            Wraps = new Dictionary<int, Wrap> {
+            Wraps = new() {
                 [table.Intern("nowrap")] = Wrap.NoWrap,
                 [table.Intern("wrap")] = Wrap.Wrap,
                 [table.Intern("wrap-reverse")] = Wrap.WrapReverse
@@ -1588,7 +1713,7 @@ public sealed class LayoutStyleBuilder {
             // a distinction with no reader, which is the thing this file already refused for `auto`.
             // The author's own keyword survives in the computed style, so an engine that later grows a
             // scroll container can separate them there, where the information is.
-            Overflows = new Dictionary<int, Overflow> {
+            Overflows = new() {
                 [table.Intern("visible")] = Overflow.Visible,
                 [table.Intern("hidden")] = Overflow.Hidden,
                 [table.Intern("clip")] = Overflow.Hidden,
@@ -1615,7 +1740,7 @@ public sealed class LayoutStyleBuilder {
             // rather than worked around: the placement longhands are ordinary fixed-size fields and
             // cross here, and the four track lists cross through <c>ApplyVariableLength</c>, which
             // does take a node. <c>grid-cols-3</c> reaches §12.
-            Displays = new Dictionary<int, Display> {
+            Displays = new() {
                 [table.Intern("flex")] = Display.Flex,
                 [table.Intern("none")] = Display.None,
                 [table.Intern("block")] = Display.Block,
@@ -1636,10 +1761,7 @@ public sealed class LayoutStyleBuilder {
                 [table.Intern("table-cell")] = Display.TableCell
             };
 
-            TableLayouts = new Dictionary<int, TableLayout> {
-                [Auto] = TableLayout.Auto,
-                [table.Intern("fixed")] = TableLayout.Fixed
-            };
+            TableLayouts = new() { [Auto] = TableLayout.Auto, [table.Intern("fixed")] = TableLayout.Fixed };
 
             // ⚠ <b>The two LOGICAL keywords are here now, and what used to keep them out was a
             // conflation rather than a limit.</b> This table said Tailwind v4's
@@ -1661,7 +1783,7 @@ public sealed class LayoutStyleBuilder {
             // <see cref="FloatSide.InlineStart" /> has to be its own value instead of a rereading of
             // <see cref="FloatSide.Left" />. It was never an argument that the logical keyword could
             // not be expressed.
-            Floats = new Dictionary<int, FloatSide> {
+            Floats = new() {
                 [table.Intern("none")] = FloatSide.None,
                 [table.Intern("left")] = FloatSide.Left,
                 [table.Intern("right")] = FloatSide.Right,
@@ -1669,7 +1791,7 @@ public sealed class LayoutStyleBuilder {
                 [table.Intern("inline-end")] = FloatSide.InlineEnd
             };
 
-            Clears = new Dictionary<int, Clear> {
+            Clears = new() {
                 [table.Intern("none")] = Clear.None,
                 [table.Intern("left")] = Clear.Left,
                 [table.Intern("right")] = Clear.Right,
@@ -1689,7 +1811,7 @@ public sealed class LayoutStyleBuilder {
             // that is not there — it is the half of the feature that lives on this side.
             // The `<length>` and `<percentage>` form is not a keyword and is read by
             // `ApplyVerticalAlign`, which is also what this table is now called from.
-            VerticalAligns = new Dictionary<int, VerticalAlign> {
+            VerticalAligns = new() {
                 [table.Intern("baseline")] = VerticalAlign.Baseline,
                 [table.Intern("top")] = VerticalAlign.Top,
                 [table.Intern("bottom")] = VerticalAlign.Bottom,
@@ -1721,7 +1843,7 @@ public sealed class LayoutStyleBuilder {
             // both and sets both fields, which is one declaration doing the two things the keyword
             // means. A plain `center` still matches only this one, which is the direction §10.3.3
             // pins: block-level children do not move for it.
-            TextAligns = new Dictionary<int, TextAlign> {
+            TextAligns = new() {
                 [table.Intern("start")] = TextAlign.Start,
                 [table.Intern("end")] = TextAlign.End,
                 [table.Intern("left")] = TextAlign.Left,
@@ -1746,15 +1868,14 @@ public sealed class LayoutStyleBuilder {
             // because §10.3.3 does not move a block-level child for it, while a legacy value appears
             // in *both* tables and sets both fields. Which is why the union type would be wrong — it
             // could not express a value that is two answers at once.
-            LegacyTextAligns = new Dictionary<int, LegacyTextAlign> {
+            LegacyTextAligns = new() {
                 [table.Intern("-webkit-left")] = LegacyTextAlign.Left,
                 [table.Intern("-webkit-center")] = LegacyTextAlign.Center,
                 [table.Intern("-webkit-right")] = LegacyTextAlign.Right
             };
 
-            BoxSizings = new Dictionary<int, BoxSizing> {
-                [table.Intern("border-box")] = BoxSizing.BorderBox,
-                [table.Intern("content-box")] = BoxSizing.ContentBox
+            BoxSizings = new() {
+                [table.Intern("border-box")] = BoxSizing.BorderBox, [table.Intern("content-box")] = BoxSizing.ContentBox
             };
 
             // ⚠ <b>All four written-out spellings, because `dense` is a second word rather than a
@@ -1772,7 +1893,7 @@ public sealed class LayoutStyleBuilder {
             // compound spellings fell out of the table and left the property at `row`, so
             // `grid-flow-row-dense` and `grid-flow-col-dense` resolved, cascaded, and packed exactly
             // as the default does. Filed as `Rikarin/Vixen#528`.
-            GridAutoFlows = new Dictionary<(int First, int Second), GridAutoFlow> {
+            GridAutoFlows = new() {
                 [(table.Intern("row"), NameTable.None)] = GridAutoFlow.Row,
                 [(table.Intern("column"), NameTable.None)] = GridAutoFlow.Column,
                 [(table.Intern("dense"), NameTable.None)] = GridAutoFlow.RowDense,
@@ -1798,14 +1919,19 @@ public sealed class LayoutStyleBuilder {
         ///     five words here.
         /// </summary>
         /// <remarks>
-        ///     ⚠ <b>A separate set rather than "whatever <see cref="Alignments" /> holds", because the
-        ///     alignment tables hold the distribution and baseline keywords too and the prefix is
-        ///     invalid on every one of them.</b> `safe space-between` and `safe stretch` are not
+        ///     ⚠
+        ///     <b>
+        ///         A separate set rather than "whatever <see cref="Alignments" /> holds", because the
+        ///         alignment tables hold the distribution and baseline keywords too and the prefix is
+        ///         invalid on every one of them.
+        ///     </b>
+        ///     `safe space-between` and `safe stretch` are not
         ///     values CSS Box Alignment gives any of the six properties, so accepting them would make
         ///     this bridge read a declaration a browser drops — and the `safe` would go on to change
         ///     the layout, which is worse than ignoring it.
         /// </remarks>
         public HashSet<int> OverflowPositions { get; }
+
         public Dictionary<int, LayoutUnit> ContentSizes { get; }
         public Dictionary<int, VerticalAlign> VerticalAligns { get; }
         public Dictionary<int, TextAlign> TextAligns { get; }

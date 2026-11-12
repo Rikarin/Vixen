@@ -8,9 +8,12 @@ namespace Vixen.Editor.Ui;
 /// <summary>The panel that is looked at most often when something has gone wrong.</summary>
 /// <remarks>
 ///     <para>
-///         <b>Doc 20 calls the Console "the least built thing in the shell" and the largest single
-///         item in its Part A, and both were true: it was a <c>TextBlock</c> saying "Nothing logged
-///         yet."</b> What replaces it is doc 20's A7 in full — a virtualised list over the ring the
+///         <b>
+///             Doc 20 calls the Console "the least built thing in the shell" and the largest single
+///             item in its Part A, and both were true: it was a <c>TextBlock</c> saying "Nothing logged
+///             yet."
+///         </b>
+///         What replaces it is doc 20's A7 in full — a virtualised list over the ring the
 ///         diagnostics layer already keeps, level toggles carrying counts, a category filter, a
 ///         search box, collapse-duplicates, clear, clear-on-play, and a detail pane showing the whole
 ///         record and its stack.
@@ -34,8 +37,12 @@ public sealed partial class ConsoleView;
 
 /// <summary>A console row's severity stripe, coloured by its <c>level-*</c> class.</summary>
 /// <remarks>
-///     ⚠ <b>One tiny type per tag, and that is the markup ports' convention rather than
-///     ceremony</b> — see <c>MessageMark</c>. A capitalised tag with a <c>Text</c> writes the
+///     ⚠
+///     <b>
+///         One tiny type per tag, and that is the markup ports' convention rather than
+///         ceremony
+///     </b>
+///     — see <c>MessageMark</c>. A capitalised tag with a <c>Text</c> writes the
 ///     element's own text, where an interpolation inside a plain element makes a child text node;
 ///     the columns were written as their own text by the hand-built rows, and a row whose layout the
 ///     stylesheet sizes by column has to stay that shape.

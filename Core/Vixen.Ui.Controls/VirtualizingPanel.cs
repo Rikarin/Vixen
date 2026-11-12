@@ -21,8 +21,12 @@ namespace Vixen.Ui.Controls;
 ///         height makes that arithmetic instead of a walk.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Variable heights are the running-sum index this used to say was a different
-///         control.</b> They are not: <c>TreeView</c> delegates its pool here, so a second control
+///         ⚠
+///         <b>
+///             Variable heights are the running-sum index this used to say was a different
+///             control.
+///         </b>
+///         They are not: <c>TreeView</c> delegates its pool here, so a second control
 ///         would have had to duplicate the pool, the parking, the <c>LayoutFinished</c> subscription,
 ///         <see cref="RowOf" /> and <see cref="ScrollIntoView(int)" /> to gain one array — and every
 ///         caller wanting one row taller than the rest would have had to choose a control rather than
@@ -103,8 +107,12 @@ public sealed partial class VirtualizingPanel : Control, IRowPool {
 
     /// <inheritdoc />
     /// <remarks>
-    ///     ⚠ <b>Explicit, all four, because three of them collide with this control's own members
-    ///     and the fourth would be a second way to say <see cref="Count" />.</b> The interface is
+    ///     ⚠
+    ///     <b>
+    ///         Explicit, all four, because three of them collide with this control's own members
+    ///         and the fourth would be a second way to say <see cref="Count" />.
+    ///     </b>
+    ///     The interface is
     ///     this control's contract restated in terms <c>Vixen.Ui</c> can name — it cannot reference
     ///     this assembly — so implementing it implicitly would mean renaming the properties every
     ///     caller in the tree already uses, to no end. See <c>BuildContext.Pool</c>, which is what
@@ -164,8 +172,12 @@ public sealed partial class VirtualizingPanel : Control, IRowPool {
     ///         appears, and the list is right on the one after that.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Which means an item nobody has scrolled to is the estimate, and the estimate is
-    ///         <c>--row-height</c>.</b> The scroll bar over a hundred thousand unmeasured rows is
+    ///         ⚠
+    ///         <b>
+    ///             Which means an item nobody has scrolled to is the estimate, and the estimate is
+    ///             <c>--row-height</c>.
+    ///         </b>
+    ///         The scroll bar over a hundred thousand unmeasured rows is
     ///         therefore a guess that gets better as the list is used, which is what every variable
     ///         virtualiser does and is the reason the estimate is worth setting to something near the
     ///         truth. A caller that already knows each height — a log of records whose line count it
@@ -247,8 +259,12 @@ public sealed partial class VirtualizingPanel : Control, IRowPool {
     ///         opens a file with a hundred thousand lines in it.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>What the index costs is two floats an item, and only after the first one is
-    ///         set.</b> A hundred thousand rows is 800 KB, which is worth saying out loud because it
+    ///         ⚠
+    ///         <b>
+    ///             What the index costs is two floats an item, and only after the first one is
+    ///             set.
+    ///         </b>
+    ///         A hundred thousand rows is 800 KB, which is worth saying out loud because it
     ///         is charged for items nobody has looked at. It buys the property that matters: an
     ///         offset, a total and "which item is at this offset" are all logarithmic, so the frame
     ///         cost does not depend on how far down the list somebody has scrolled.
@@ -263,7 +279,7 @@ public sealed partial class VirtualizingPanel : Control, IRowPool {
 
         Reindex(Count);
 
-        return (index * estimate) + Prefix(index);
+        return index * estimate + Prefix(index);
     }
 
     /// <summary>How tall the whole list is, realised or not.</summary>
@@ -275,7 +291,7 @@ public sealed partial class VirtualizingPanel : Control, IRowPool {
 
             Reindex(Count);
 
-            return (Count * estimate) + Prefix(Count);
+            return Count * estimate + Prefix(Count);
         }
     }
 
@@ -294,7 +310,7 @@ public sealed partial class VirtualizingPanel : Control, IRowPool {
 
         if (own is null) {
             var height = RowHeight;
-            return height <= 0f ? 0 : Math.Clamp((int) MathF.Floor(offset / height), 0, Count - 1);
+            return height <= 0f ? 0 : Math.Clamp((int)MathF.Floor(offset / height), 0, Count - 1);
         }
 
         var low = 0;
@@ -397,8 +413,12 @@ public sealed partial class VirtualizingPanel : Control, IRowPool {
             (Count * rowHeight).ToString("0.##", CultureInfo.InvariantCulture) + "px"
         );
 
-        var capacity = Math.Min(Count, (int) MathF.Ceiling(Scroller.Height / rowHeight) + (Overscan * 2) + 1);
-        first = Math.Clamp((int) MathF.Floor(Scroller.ScrollTop / rowHeight) - Overscan, 0, Math.Max(0, Count - capacity));
+        var capacity = Math.Min(Count, (int)MathF.Ceiling(Scroller.Height / rowHeight) + Overscan * 2 + 1);
+        first = Math.Clamp(
+            (int)MathF.Floor(Scroller.ScrollTop / rowHeight) - Overscan,
+            0,
+            Math.Max(0, Count - capacity)
+        );
 
         while (rows.Count < capacity) {
             rows.Add(CreateRow(this));
@@ -423,8 +443,12 @@ public sealed partial class VirtualizingPanel : Control, IRowPool {
 
     /// <summary>Makes the index exist, long enough, and summed against the current estimate.</summary>
     /// <remarks>
-    ///     ⚠ <b>What is stored is each item's <i>absolute</i> height, and the tree holds the
-    ///     differences.</b> The obvious arrangement — store the differences and nothing else — cannot
+    ///     ⚠
+    ///     <b>
+    ///         What is stored is each item's <i>absolute</i> height, and the tree holds the
+    ///         differences.
+    ///     </b>
+    ///     The obvious arrangement — store the differences and nothing else — cannot
     ///     survive a change of <c>--row-height</c>: an item 50 pixels tall is <c>+30</c> against an
     ///     estimate of 20 and <c>+20</c> against one of 30, and a stored <c>0</c> is indistinguishable
     ///     from an item nobody has measured. ⚠ <b>And that is not a hypothetical:</b> the estimate is

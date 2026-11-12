@@ -33,7 +33,7 @@ public class WhiteSpaceInlinePixelTests {
 
     static FontFace LoadFont() {
         using var stream = Assembly.GetExecutingAssembly()
-            .GetManifestResourceStream("Vixen.Ui.Controls.Tests.Fonts.OpenSans-Regular.ttf")
+                .GetManifestResourceStream("Vixen.Ui.Controls.Tests.Fonts.OpenSans-Regular.ttf")
             ?? throw new InvalidOperationException("the test font is not embedded");
 
         using var memory = new MemoryStream();
@@ -139,7 +139,10 @@ public class WhiteSpaceInlinePixelTests {
         var reference = ink[0].Right - ink[0].Left;
 
         Assert.InRange(ink[2].Right - ink[2].Left, reference, reference + 1);
-        Assert.True(ink[3].Right - ink[3].Left > reference + 3, $"the control inks {ink[3].Right - ink[3].Left} columns against {reference}");
+        Assert.True(
+            ink[3].Right - ink[3].Left > reference + 3,
+            $"the control inks {ink[3].Right - ink[3].Left} columns against {reference}"
+        );
     }
 
     /// <summary>An inline element that begins its container's line does not draw its leading run; the control does.</summary>
@@ -148,6 +151,9 @@ public class WhiteSpaceInlinePixelTests {
         var ink = Ink();
 
         Assert.Equal(ink[4].Left, ink[5].Left);
-        Assert.True(ink[6].Left > ink[4].Left + 3, $"the control starts at {ink[6].Left}, not a space after {ink[4].Left}");
+        Assert.True(
+            ink[6].Left > ink[4].Left + 3,
+            $"the control starts at {ink[6].Left}, not a space after {ink[4].Left}"
+        );
     }
 }

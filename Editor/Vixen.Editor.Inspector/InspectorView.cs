@@ -86,7 +86,7 @@ public sealed class InspectorView : Control {
     ///     overload and cleared by the other, so a panel that showed a graph node and is then handed
     ///     an entity does not keep reaching for ports.
     /// </remarks>
-    Core.IEditProvider? provider;
+    IEditProvider? provider;
 
     ContextMenu? menu;
     MenuItem copy = null!;
@@ -153,8 +153,11 @@ public sealed class InspectorView : Control {
     ///         is the only reason it scrolls, which is the only reason you are filtering it.
     ///     </para>
     ///     <para>
-    ///         <b><see cref="ScrollView.Content" /> is public so that a host can put its own sections
-    ///         under the rows and have them scroll with them.</b> The application's component
+    ///         <b>
+    ///             <see cref="ScrollView.Content" /> is public so that a host can put its own sections
+    ///             under the rows and have them scroll with them.
+    ///         </b>
+    ///         The application's component
     ///         foldouts are the case: they are deliberately not part of this view — see
     ///         <c>ComponentsView</c> — but a panel with two independent scroll regions in it is one
     ///         where half the answer is always off screen.
@@ -176,8 +179,12 @@ public sealed class InspectorView : Control {
 
     /// <summary>The row a secondary click landed on, which is what the context menu acts upon.</summary>
     /// <remarks>
-    ///     ⚠ <b>Published so that a host can add lines to <see cref="Contextualise" />'s menu that
-    ///     act on the same row the built-in ones do.</b> The alternative on offer was for a host to
+    ///     ⚠
+    ///     <b>
+    ///         Published so that a host can add lines to <see cref="Contextualise" />'s menu that
+    ///         act on the same row the built-in ones do.
+    ///     </b>
+    ///     The alternative on offer was for a host to
     ///     hit-test the rows itself from the pointer position, which is a second answer to a question
     ///     this class already answers — and one that would disagree the moment a menu is opened by
     ///     the keyboard rather than by a click.
@@ -189,7 +196,8 @@ public sealed class InspectorView : Control {
 
     /// <summary>Whether the inspector is held on what it is showing.</summary>
     /// <remarks>
-    ///     ⚠ <b>A locked inspector ignores <see cref="Inspect(System.ReadOnlySpan{object})" /> and does not clear.</b> Anything
+    ///     ⚠ <b>A locked inspector ignores <see cref="Inspect(System.ReadOnlySpan{object})" /> and does not clear.</b>
+    ///     Anything
     ///     softer — following the selection but remembering the old one, say — is a panel whose
     ///     contents depend on which of two rules fired last.
     /// </remarks>
@@ -257,7 +265,7 @@ public sealed class InspectorView : Control {
         Empty = Part<EmptyState>();
         Empty.AddClass("hidden");
 
-        AddHandler<ClickEvent>(static (element, args) => ((InspectorView) element).Chosen(args));
+        AddHandler<ClickEvent>(static (element, args) => ((InspectorView)element).Chosen(args));
 
         // ⚠ On the capture leg, so the row is known before the menu this belongs to opens. A handler
         // that ran after the menu's own would decide which row the menu is about from whatever the
@@ -265,11 +273,11 @@ public sealed class InspectorView : Control {
         AddHandler<PointerEvent>(
             static (element, args) => {
                 if (args is { Action: PointerAction.Pressed, Button: PointerButton.Secondary }) {
-                    ((InspectorView) element).aimed = ((InspectorView) element).RowAt(args.X, args.Y);
+                    ((InspectorView)element).aimed = ((InspectorView)element).RowAt(args.X, args.Y);
                 }
             },
             RoutingStrategy.Capture,
-            handledEventsToo: true
+            true
         );
     }
 
@@ -484,7 +492,7 @@ public sealed class InspectorView : Control {
 
         Empty.AddClass("hidden");
 
-        UiElement section = Body;
+        var section = Body;
 
         foreach (var member in descriptor.Members) {
             // A heading belongs to the member that follows it, so a new one starts a section and
@@ -522,8 +530,12 @@ public sealed class InspectorView : Control {
 
     /// <summary>The hand-written inspector for a type, or nothing.</summary>
     /// <remarks>
-    ///     ⚠ <b>Highest <see cref="CustomInspector.Order" /> wins, and a tie goes to whichever
-    ///     registered last.</b> Two contributions for one type is not an error — a project overriding
+    ///     ⚠
+    ///     <b>
+    ///         Highest <see cref="CustomInspector.Order" /> wins, and a tie goes to whichever
+    ///         registered last.
+    ///     </b>
+    ///     Two contributions for one type is not an error — a project overriding
     ///     a package's inspector is the case — and refusing the second would mean the override you can
     ///     install is the one nobody shipped first.
     /// </remarks>
@@ -559,8 +571,11 @@ public sealed class InspectorView : Control {
     ///         nothing.
     ///     </para>
     ///     <para>
-    ///         <b>Four lines, and every one of them already existed as a method nothing could
-    ///         reach.</b> <see cref="Copy" />, <see cref="Paste" />, <see cref="Reset" /> and
+    ///         <b>
+    ///             Four lines, and every one of them already existed as a method nothing could
+    ///             reach.
+    ///         </b>
+    ///         <see cref="Copy" />, <see cref="Paste" />, <see cref="Reset" /> and
     ///         <see cref="RevertToPrefab" /> have been on this type since it was written; the reset
     ///         button is the only one that had an affordance, and paste — the one that saves the most
     ///         time — had none at all.

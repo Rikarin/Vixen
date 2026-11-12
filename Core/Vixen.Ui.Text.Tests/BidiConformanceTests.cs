@@ -36,8 +36,9 @@ public class BidiConformanceTests {
 
             total++;
 
-            var codePoints = fields[0].Split(' ', StringSplitOptions.RemoveEmptyEntries)
-                .Select(hex => int.Parse(hex, NumberStyles.HexNumber, CultureInfo.InvariantCulture))
+            var codePoints = fields[0]
+                .Split(' ', StringSplitOptions.RemoveEmptyEntries)
+                .Select(static hex => int.Parse(hex, NumberStyles.HexNumber, CultureInfo.InvariantCulture))
                 .ToArray();
 
             var direction = fields[1] switch {
@@ -52,8 +53,9 @@ public class BidiConformanceTests {
             // A level of `x` means the character was removed, and its level is not checked — X9
             // says so, and asserting one would be asserting an implementation detail.
             var expectedLevels = fields[3].Split(' ', StringSplitOptions.RemoveEmptyEntries);
-            var expectedOrder = fields[4].Split(' ', StringSplitOptions.RemoveEmptyEntries)
-                .Select(value => int.Parse(value, CultureInfo.InvariantCulture))
+            var expectedOrder = fields[4]
+                .Split(' ', StringSplitOptions.RemoveEmptyEntries)
+                .Select(static value => int.Parse(value, CultureInfo.InvariantCulture))
                 .ToArray();
 
             var wrong = result.ParagraphLevel != expectedLevel || !result.VisualOrder.SequenceEqual(expectedOrder);
@@ -87,7 +89,7 @@ public class BidiConformanceTests {
 
     static IEnumerable<string> Lines() {
         using var stream = Assembly.GetExecutingAssembly()
-            .GetManifestResourceStream("Vixen.Ui.Text.Tests.Generated.BidiCharacterConformance.data")
+                .GetManifestResourceStream("Vixen.Ui.Text.Tests.Generated.BidiCharacterConformance.data")
             ?? throw new InvalidOperationException("the conformance data is not embedded");
 
         using var reader = new StreamReader(stream);

@@ -36,8 +36,11 @@ namespace Vixen.Rendering.Features;
 ///         most common reason a Vulkan renderer ends up slower than the D3D11 one it replaced.
 ///     </para>
 ///     <para>
-///         <strong>One set per frame, from a <see cref="DescriptorAllocator" />, not one set for
-///         ever.</strong> The buffer is recreated when the scene outgrows it, and a set held across
+///         <strong>
+///             One set per frame, from a <see cref="DescriptorAllocator" />, not one set for
+///             ever.
+///         </strong>
+///         The buffer is recreated when the scene outgrows it, and a set held across
 ///         frames would have to be rewritten to point at the new one — which is a write to a set the
 ///         frames still in flight are reading, and drivers execute that without a word. The ring is
 ///         exactly <see cref="IGraphicsDevice.FramesInFlight" /> deep, so the set this frame writes
@@ -71,7 +74,9 @@ public sealed class ForwardLightingRenderFeature
     public const int ProbeWeightOffset = 8;
 
     readonly List<RenderLight> lights = [];
+
     readonly List<int> punctual = [];
+
     // ⚠ 1280 rather than the default 256, for the reason PunctualShadowRenderer's tile buffer says at
     // length: a light's index carries the ring's own offset (see SceneLightBase), so the region stride
     // has to be a whole number of records. 1280 is the least common multiple of the eighty-byte
@@ -124,8 +129,7 @@ public sealed class ForwardLightingRenderFeature
     ///     <see cref="PermutationKeys" /> — which is what lets <c>CompositorBuilder</c> name the
     ///     source of the routing without reaching into a list by index.
     /// </remarks>
-    internal static PermutationKey<bool> ClusteredKey =>
-        ParameterKeys.NewPermutation(false, ClusteredFlagName);
+    internal static PermutationKey<bool> ClusteredKey => ParameterKeys.NewPermutation(false, ClusteredFlagName);
 
     /// <summary>
     ///     The shader permutation <see cref="Clustered" /> has to fill, for the pass named.
@@ -134,9 +138,13 @@ public sealed class ForwardLightingRenderFeature
     /// <returns>The key, interned under <c>&lt;pass&gt;.UseClusteredLights</c>.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b><see cref="MaxLightsKey" />'s defect, one permutation along, and it was worse:
-    ///         the budget at least reached the compiler under a wrong number, where this reached it
-    ///         under no name at all.</b> <see cref="Clustered" /> is contributed under
+    ///         ⚠
+    ///         <b>
+    ///             <see cref="MaxLightsKey" />'s defect, one permutation along, and it was worse:
+    ///             the budget at least reached the compiler under a wrong number, where this reached it
+    ///             under no name at all.
+    ///         </b>
+    ///         <see cref="Clustered" /> is contributed under
     ///         <see cref="ClusteredFlagName" />, and until <c>CompositorBuilder</c> routed it nothing
     ///         in the repository outside tests ever wrote
     ///         <see cref="MaterialRenderFeature.PermutationSources" /> — so a frame that turned
@@ -201,9 +209,16 @@ public sealed class ForwardLightingRenderFeature
     /// <returns>The key, interned under <c>&lt;pass&gt;.MaxLights</c>.</returns>
     /// <remarks>
     ///     <para>
-    ///         <strong><c>CascadeCount</c>'s defect, one array along, and it was live in the same
-    ///         way.</strong> <c>ClusteredShading.rvn</c> declares <c>[Permutation] val MaxLights: int
-    ///         = 16</c> and sizes <c>lights[MaxLights]</c> from it, this feature writes a block sized
+    ///         <strong>
+    ///             <c>CascadeCount</c>'s defect, one array along, and it was live in the same
+    ///             way.
+    ///         </strong>
+    ///         <c>ClusteredShading.rvn</c> declares
+    ///         <c>
+    ///             [Permutation] val MaxLights: int
+    ///             = 16
+    ///         </c>
+    ///         and sizes <c>lights[MaxLights]</c> from it, this feature writes a block sized
     ///         from its own eight, and nothing joined the two — so every default frame bound a
     ///         768-byte per-draw range at a block the variant declares 1296 bytes of, and the tiers
     ///         that ask for four lights an object got eight.
@@ -257,8 +272,12 @@ public sealed class ForwardLightingRenderFeature
     /// <remarks>
     ///     <para>
     ///         The switch between the two halves of docs/plan/06's default pipeline, and what it turns
-    ///         off is the interesting part: <strong>clustered lighting has no per-object work at
-    ///         all</strong>. No selection, no block per object, no descriptor bound per draw — the
+    ///         off is the interesting part:
+    ///         <strong>
+    ///             clustered lighting has no per-object work at
+    ///             all
+    ///         </strong>
+    ///         . No selection, no block per object, no descriptor bound per draw — the
     ///         whole per-object path here goes quiet, and what replaces it is one compute dispatch and
     ///         one buffer every fragment indexes.
     ///     </para>
@@ -354,7 +373,7 @@ public sealed class ForwardLightingRenderFeature
     /// <summary>What was written this frame, for a test or an inspector.</summary>
     public ReadOnlySpan<ObjectRecord> Records => records.Items;
 
-    static int RecordBaseOf(long offset) => (int)(offset / System.Runtime.CompilerServices.Unsafe.SizeOf<ObjectRecord>());
+    static int RecordBaseOf(long offset) => (int)(offset / Unsafe.SizeOf<ObjectRecord>());
 
     /// <summary>
     ///     Turns the per-object record path on, where the draw can address a record at all.
@@ -370,8 +389,11 @@ public sealed class ForwardLightingRenderFeature
     /// <returns>Whether records were turned on.</returns>
     /// <remarks>
     ///     <para>
-    ///         <strong>The precondition is another feature's answer, which is why it is a
-    ///         parameter.</strong> What addresses a record is <c>SV_InstanceID</c>, and the API adds
+    ///         <strong>
+    ///             The precondition is another feature's answer, which is why it is a
+    ///             parameter.
+    ///         </strong>
+    ///         What addresses a record is <c>SV_InstanceID</c>, and the API adds
     ///         <c>firstInstance</c> into it — which holds the object's slot only because the transform
     ///         record path put it there. With the matrix still pushed, every draw carries zero and
     ///         every object would read record zero's probe: a picture, and a plausible one.
@@ -427,8 +449,12 @@ public sealed class ForwardLightingRenderFeature
     ///         would pay as well.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Derived from <see cref="Lights" /> on every read, and it used to be a field
-    ///         <see cref="Prepare" /> latched.</b> That is a phase later than the earliest reader:
+    ///         ⚠
+    ///         <b>
+    ///             Derived from <see cref="Lights" /> on every read, and it used to be a field
+    ///             <see cref="Prepare" /> latched.
+    ///         </b>
+    ///         That is a phase later than the earliest reader:
     ///         <c>ShadowMapRenderer.Collect</c> asks which way the sun points <em>before</em> the
     ///         render system runs any of its phases, so a latched field answered with the previous
     ///         frame's sun — and on the first frame, with none at all. What that cost was one frame
@@ -529,8 +555,12 @@ public sealed class ForwardLightingRenderFeature
     /// <summary>Where an unset <see cref="Layout" /> is taken from, once a shader has resolved.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Because a host cannot set <see cref="Layout" /> before there is a shader, and the
-    ///         first frame without it is a GPU fault rather than a dark frame.</b> The layout has to be
+    ///         ⚠
+    ///         <b>
+    ///             Because a host cannot set <see cref="Layout" /> before there is a shader, and the
+    ///             first frame without it is a GPU fault rather than a dark frame.
+    ///         </b>
+    ///         The layout has to be
     ///         the pass's own; the pass's own comes off a resolved variant; and the first variant
     ///         resolves inside the first frame, after every constructor a host has run. Adopting it at
     ///         the start of that same frame's <c>Prepare</c> is the earliest moment it exists — and it
@@ -580,7 +610,7 @@ public sealed class ForwardLightingRenderFeature
 
         for (var i = 0; i < assignment.Count; i++) {
             yield return MemoryMarshal.Read<PunctualLightData>(
-                staging.AsSpan(assignment.Offset + HeaderSize + (i * Unsafe.SizeOf<PunctualLightData>()))
+                staging.AsSpan(assignment.Offset + HeaderSize + i * Unsafe.SizeOf<PunctualLightData>())
             );
         }
     }
@@ -702,7 +732,7 @@ public sealed class ForwardLightingRenderFeature
 
             for (var i = 0; i < count; i++) {
                 var light = lights[chosen[i]].ToGpu();
-                MemoryMarshal.Write(block[(HeaderSize + (i * Unsafe.SizeOf<PunctualLightData>()))..], in light);
+                MemoryMarshal.Write(block[(HeaderSize + i * Unsafe.SizeOf<PunctualLightData>())..], in light);
             }
 
             assignments[index] = new(offset, count);
@@ -927,9 +957,9 @@ public sealed class ForwardLightingRenderFeature
         }
 
         var ratio = distance / light.Range;
-        var window = Math.Clamp(1f - (ratio * ratio * ratio * ratio), 0f, 1f);
+        var window = Math.Clamp(1f - ratio * ratio * ratio * ratio, 0f, 1f);
 
-        return light.Colour.Luminance() * light.Intensity * window * window / ((distance * distance) + 1f);
+        return light.Colour.Luminance() * light.Intensity * window * window / (distance * distance + 1f);
     }
 
     /// <summary>Whether a spot light's cone touches a sphere at all.</summary>
@@ -948,10 +978,10 @@ public sealed class ForwardLightingRenderFeature
         }
 
         var cosOuter = MathF.Cos(light.OuterAngle);
-        var sinOuter = MathF.Sqrt(MathF.Max(1f - (cosOuter * cosOuter), 0f));
-        var perpendicular = MathF.Sqrt(MathF.Max(toCentre.LengthSquared() - (alongAxis * alongAxis), 0f));
+        var sinOuter = MathF.Sqrt(MathF.Max(1f - cosOuter * cosOuter, 0f));
+        var perpendicular = MathF.Sqrt(MathF.Max(toCentre.LengthSquared() - alongAxis * alongAxis, 0f));
 
-        return (cosOuter * perpendicular) - (alongAxis * sinOuter) <= bounds.Radius;
+        return cosOuter * perpendicular - alongAxis * sinOuter <= bounds.Radius;
     }
 
     static bool IsVisibleAnywhere(RenderSystem system, int index) {
@@ -1028,7 +1058,7 @@ public sealed class ForwardLightingRenderFeature
 
     /// <summary>Sizes the scratch arrays, the staging buffer and the GPU buffer for this frame.</summary>
     void Resize() {
-        var wanted = Align(HeaderSize + (MaxLightsPerObject * Unsafe.SizeOf<PunctualLightData>()), OffsetAlignment);
+        var wanted = Align(HeaderSize + MaxLightsPerObject * Unsafe.SizeOf<PunctualLightData>(), OffsetAlignment);
 
         // Both inputs, not just the light count: a host that queried the device and lowered the
         // alignment after the first frame would otherwise keep the stride it was given at startup,
@@ -1070,9 +1100,7 @@ public sealed class ForwardLightingRenderFeature
             Device.Destroy(buffer);
         }
 
-        buffer = Device.CreateBuffer(
-            new(size, BufferUsage.Uniform, MemoryAccess.HostUpload, "ForwardLighting.Lights")
-        );
+        buffer = Device.CreateBuffer(new(size, BufferUsage.Uniform, MemoryAccess.HostUpload, "ForwardLighting.Lights"));
     }
 
     /// <summary>Takes this frame's set, pointing at whatever buffer this frame ended up with.</summary>
@@ -1144,7 +1172,7 @@ public sealed class ForwardLightingRenderFeature
 ///     four four-byte fields in declaration order is what std430 gives — but the padding field is,
 ///     because a shader's struct is padded to sixteen whether or not a host writes it.
 /// </remarks>
-[System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Sequential)]
+[StructLayout(LayoutKind.Sequential)]
 public struct ObjectRecord {
     /// <summary>Which of the bound probe cubes reaches this object.</summary>
     public int ProbeIndex;

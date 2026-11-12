@@ -175,7 +175,7 @@ public class VirtualShadowPageTests {
         }
 
         Settle(residency);
-        pages.TakePending(16);
+        pages.TakePending();
 
         for (var page = 0; page < 4; page++) {
             pages.Drawn(page);
@@ -207,7 +207,7 @@ public class VirtualShadowPageTests {
     /// </remarks>
     [Fact]
     public void The_atlas_never_holds_more_pages_than_it_has_slots() {
-        var (pages, residency) = Pool(pagesPerSide: 4);
+        var (pages, residency) = Pool(4);
         using var owned = residency;
 
         for (var page = 0; page < VirtualShadowMap.MaxPages; page += 7) {
@@ -242,7 +242,7 @@ public class VirtualShadowPageTests {
     /// </remarks>
     [Fact]
     public void The_draws_are_budgeted_and_the_newest_go_first() {
-        var (pages, residency) = Pool(pagesPerSide: 4);
+        var (pages, residency) = Pool(4);
         using var owned = residency;
 
         for (var page = 0; page < 8; page++) {
@@ -259,7 +259,7 @@ public class VirtualShadowPageTests {
         // Newest first, so the pages the most recent allocation named are drawn before the older ones.
         Assert.DoesNotContain(first[0], pages.Pending);
 
-        var rest = pages.TakePending(16);
+        var rest = pages.TakePending();
 
         Assert.Equal(5, rest.Length);
         Assert.Empty(pages.Pending);
@@ -276,14 +276,14 @@ public class VirtualShadowPageTests {
     /// </remarks>
     [Fact]
     public void A_backlog_beyond_the_budget_lands_within_its_own_frames() {
-        var (pages, residency) = Pool(pagesPerSide: 8);
+        var (pages, residency) = Pool(8);
         using var owned = residency;
 
         for (var page = 0; page < 24; page++) {
             residency.Request(Key(page));
         }
 
-        Settle(residency, 32);
+        Settle(residency);
 
         // Allocated, every one — and not one of them sampleable until its draw lands.
         for (var page = 0; page < 24; page++) {
@@ -364,7 +364,7 @@ public class VirtualShadowPageTests {
     /// </remarks>
     [Fact]
     public void An_owed_mark_outranks_the_stale_backlog() {
-        var (pages, residency) = Pool(pagesPerSide: 4);
+        var (pages, residency) = Pool(4);
         using var owned = residency;
 
         for (var page = 0; page < 6; page++) {

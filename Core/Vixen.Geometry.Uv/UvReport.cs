@@ -41,8 +41,12 @@ public readonly record struct UvStageTiming(UvStage Stage, TimeSpan Elapsed, int
 ///         and an angle-only metric calls that excellent.
 ///     </para>
 ///     <para>
-///         ⚠ <b><see cref="Flipped" /> is a correctness field wearing a metric's clothes and must be
-///         zero.</b> A flipped triangle is a region of the atlas where the mapping is not invertible:
+///         ⚠
+///         <b>
+///             <see cref="Flipped" /> is a correctness field wearing a metric's clothes and must be
+///             zero.
+///         </b>
+///         A flipped triangle is a region of the atlas where the mapping is not invertible:
 ///         a bake writes to the wrong texel and sampling reads from it. A chart that cannot reach
 ///         zero is subdivided rather than shipped.
 ///     </para>
@@ -79,7 +83,10 @@ public readonly record struct UvTexelDensity(float Minimum, float Mean, float Ma
 /// <param name="EffectiveEfficiency">The same after margin — what the atlas actually costs.</param>
 /// <param name="TexelDensity">Achieved density across every chart.</param>
 /// <param name="Stages">Time and element counts, per stage.</param>
-/// <param name="Warnings">What the caller should know: a chart that had to be split, a rescale, a spill into a second tile.</param>
+/// <param name="Warnings">
+///     What the caller should know: a chart that had to be split, a rescale, a spill into a second
+///     tile.
+/// </param>
 /// <remarks>
 ///     <para>
 ///         <b>Five of these are MeshTailor's and the rest are what a renderer needs.</b>
@@ -88,14 +95,22 @@ public readonly record struct UvTexelDensity(float Minimum, float Mean, float Ma
 ///         from "an artist would accept this", which nothing else in the field writes down.
 ///     </para>
 ///     <para>
-///         ⚠ <b><see cref="SeamLengthNormalized" /> divides by the square root of the area, not by
-///         the area.</b> The paper defines it over area, which is not dimensionless: halve a model's
+///         ⚠
+///         <b>
+///             <see cref="SeamLengthNormalized" /> divides by the square root of the area, not by
+///             the area.
+///         </b>
+///         The paper defines it over area, which is not dimensionless: halve a model's
 ///         scale and the figure doubles. Both are reported so the number compares across models and
 ///         the published one is still recoverable.
 ///     </para>
 ///     <para>
-///         ⚠ <b><see cref="PackingEfficiency" /> and <see cref="EffectiveEfficiency" /> are both
-///         here because the first one flatters.</b> Raw used-area-over-atlas-area rewards a packer
+///         ⚠
+///         <b>
+///             <see cref="PackingEfficiency" /> and <see cref="EffectiveEfficiency" /> are both
+///             here because the first one flatters.
+///         </b>
+///         Raw used-area-over-atlas-area rewards a packer
 ///         that leaves no room to bleed into, and the gap between the two is exactly what a margin
 ///         setting costs.
 ///     </para>

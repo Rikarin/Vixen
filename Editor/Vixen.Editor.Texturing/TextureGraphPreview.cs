@@ -2,12 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Collections.Immutable;
-using Vixen.Editor.NodeGraph;
 using Vixen.Editor.Plugin;
 using Vixen.Graphics;
 using Vixen.NodeGraph;
 using Vixen.TextureGraph;
-using Vixen.Texturing.Layers;
 using Vixen.Texturing.Painting;
 
 namespace Vixen.Editor.Texturing;
@@ -17,8 +15,12 @@ namespace Vixen.Editor.Texturing;
 /// <returns>The evaluator, which the caller does not own.</returns>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>A lease and not a constructor argument, because the device arrives after the module
-///         does.</b> <c>EditorApplication</c> builds its plugin host in its constructor and acquires a
+///         ⚠
+///         <b>
+///             A lease and not a constructor argument, because the device arrives after the module
+///             does.
+///         </b>
+///         <c>EditorApplication</c> builds its plugin host in its constructor and acquires a
 ///         device when the window can present — <a href="https://github.com/Rikarin/Vixen/issues/737">#737</a>
 ///         — so a pane handed an evaluator at activation would be handed one built on nothing.
 ///     </para>
@@ -56,15 +58,22 @@ sealed record TextureGraphPicture(IEditorImage? Image, string Status) {
 /// <summary>Turns a graph into pixels on the editor's device, and puts them where the pane draws them.</summary>
 /// <remarks>
 ///     <para>
-///         <b>The first thing outside a test that dispatches a texture kernel, and the first
-///         production caller <c>ImageView</c> has had.</b> Four batches built an evaluator and a
+///         <b>
+///             The first thing outside a test that dispatches a texture kernel, and the first
+///             production caller <c>ImageView</c> has had.
+///         </b>
+///         Four batches built an evaluator and a
 ///         folder of kernels; this is where the editor runs one. It is also what proves
 ///         <see cref="IEditorGraphics" /> is sufficient rather than merely published — a contract no
 ///         plugin can draw through is the same gap doc 36 § F2 was written to find, one layer along.
 ///     </para>
 ///     <para>
-///         ⚠ <b>It evaluates the graph the author wired, and for three batches it evaluated a fixed
-///         checkerboard instead</b> — <a href="https://github.com/Rikarin/Vixen/issues/792">#792</a>
+///         ⚠
+///         <b>
+///             It evaluates the graph the author wired, and for three batches it evaluated a fixed
+///             checkerboard instead
+///         </b>
+///         — <a href="https://github.com/Rikarin/Vixen/issues/792">#792</a>
 ///         and <a href="https://github.com/Rikarin/Vixen/issues/816">#816</a>. The reason written
 ///         here for that was <em>false</em>: it said <c>TextureGraphCompiler</c> was <c>internal</c>
 ///         and that "nothing here can turn a canvas into a <see cref="TexturePlan" />". It has been
@@ -80,8 +89,12 @@ sealed record TextureGraphPicture(IEditorImage? Image, string Status) {
 ///         that path looking like a failure of the compiler.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The evaluator is held across evaluations and that is the reason
-///         <see cref="IEditorGraphics" /> lends a device rather than a call.</b> It caches one
+///         ⚠
+///         <b>
+///             The evaluator is held across evaluations and that is the reason
+///             <see cref="IEditorGraphics" /> lends a device rather than a call.
+///         </b>
+///         It caches one
 ///         compiled pipeline per kernel and output format, so an evaluator built per preview would
 ///         recompile every kernel the plan touches on every keystroke — and it is held by the
 ///         <em>module</em> rather than here, because two panes over one device were two of those
@@ -108,7 +121,7 @@ sealed class TextureGraphPreview : IDisposable {
 
     readonly IEditorGraphics graphics;
     readonly TextureEvaluatorLease evaluators;
-    readonly global::Vixen.Texturing.Painting.PaintCanvasStore canvases;
+    readonly PaintCanvasStore canvases;
 
     IEditorImage? shown;
 
@@ -126,7 +139,7 @@ sealed class TextureGraphPreview : IDisposable {
     public TextureGraphPreview(
         IEditorGraphics graphics,
         TextureEvaluatorLease evaluators,
-        global::Vixen.Texturing.Painting.PaintCanvasStore canvases
+        PaintCanvasStore canvases
     ) {
         ArgumentNullException.ThrowIfNull(graphics);
         ArgumentNullException.ThrowIfNull(evaluators);
@@ -159,7 +172,7 @@ sealed class TextureGraphPreview : IDisposable {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(width);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(height);
 
-        return new TexturePlan {
+        return new() {
             BaseWidth = width,
             BaseHeight = height,
             Images = [new(TextureFormat.Rgba8)],
@@ -191,8 +204,12 @@ sealed class TextureGraphPreview : IDisposable {
     /// <exception cref="ArgumentNullException"><paramref name="document" /> is null.</exception>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Every refusal comes back as a sentence rather than an exception, including the
-    ///         ones that are this build's fault</b> — <c>LayerStackPreview.Evaluate</c>'s rule
+    ///         ⚠
+    ///         <b>
+    ///             Every refusal comes back as a sentence rather than an exception, including the
+    ///             ones that are this build's fault
+    ///         </b>
+    ///         — <c>LayerStackPreview.Evaluate</c>'s rule
     ///         unchanged. A preview runs on every edit; a throw out of one is a throw out of a panel
     ///         build, which takes the editor's frame with it.
     ///     </para>
@@ -283,7 +300,7 @@ sealed class TextureGraphPreview : IDisposable {
         // does not draw what the graph describes, and it reached `TextureBake.Warnings` and stopped.
         var cautions = bake.Warnings.Length > 0
             ? " ⚠ " + string.Join(" · ", bake.Warnings)
-            : "";
+            : string.Empty;
 
         return Said(
             image,
@@ -304,8 +321,8 @@ sealed class TextureGraphPreview : IDisposable {
     /// </remarks>
     static string Refused(TextureGraphCompilation compilation) {
         var problems = compilation.Diagnostics
-            .Where(one => one.Severity == NodeSeverity.Error)
-            .Select(one => one.Id + ": " + one.Message)
+            .Where(static one => one.Severity == NodeSeverity.Error)
+            .Select(static one => one.Id + ": " + one.Message)
             .ToArray();
 
         return problems.Length == 0

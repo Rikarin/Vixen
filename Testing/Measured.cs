@@ -63,7 +63,7 @@ static class Measured {
             work();
         }
 
-        for (var attempt = 1; ; attempt++) {
+        for (var attempt = 1;; attempt++) {
             GC.Collect();
             GC.WaitForPendingFinalizers();
             GC.Collect();
@@ -141,16 +141,23 @@ static class Measured {
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>⚠ This is not what docs/plan/12 and docs/plan/15 § R4 specify, because that cannot be
-///         built.</b> Both documents say the gate "names the exact allocation via a
+///         <b>
+///             ⚠ This is not what docs/plan/12 and docs/plan/15 § R4 specify, because that cannot be
+///             built.
+///         </b>
+///         Both documents say the gate "names the exact allocation via a
 ///         <c>GCHeapAllocationEventSource</c> listener". There is no such event source in the runtime;
 ///         what exists is <c>Microsoft-Windows-DotNETRuntime</c>. Measured on .NET 10.0.11, macOS
 ///         arm64, workstation GC, against an in-process <see cref="EventListener" />:
 ///     </para>
 ///     <list type="bullet">
 ///         <item>
-///             <c>GCAllocationTick</c>, the event the plan documents mean, <b>is never delivered at
-///             all</b>. Not at keyword <c>GC</c> (0x1) at Informational, not with every keyword bit set
+///             <c>GCAllocationTick</c>, the event the plan documents mean,
+///             <b>
+///                 is never delivered at
+///                 all
+///             </b>
+///             . Not at keyword <c>GC</c> (0x1) at Informational, not with every keyword bit set
 ///             at Verbose, and not for a window of 96 MB in which some nine hundred other runtime
 ///             events arrived.
 ///         </item>
@@ -167,8 +174,11 @@ static class Measured {
 ///         </item>
 ///         <item>
 ///             <b>There is no call site.</b> The payload is
-///             <c>AllocationKind, ClrInstanceID, TypeID, TypeName, Address, ObjectSize,
-///             SampledByteOffset</c> — no stack — and the callback runs on the EventPipe dispatcher
+///             <c>
+///                 AllocationKind, ClrInstanceID, TypeID, TypeName, Address, ObjectSize,
+///                 SampledByteOffset
+///             </c>
+///             — no stack — and the callback runs on the EventPipe dispatcher
 ///             thread, never the allocating one, so a <see cref="StackTrace" /> taken inside it names
 ///             the dispatcher. Across every sweep run, samples observed on the allocating thread: 0.
 ///         </item>
@@ -182,8 +192,12 @@ static class Measured {
 ///         of the named bytes; 100,000 passes / 4,800,040 B gave forty-five, still 100%.
 ///     </para>
 ///     <para>
-///         ⚠ <b>And a pass count sized against that rate is still not enough, because the rate does not
-///         start when the provider is enabled.</b> The 51,200 passes a 48 B/pass reading asks for run in
+///         ⚠
+///         <b>
+///             And a pass count sized against that rate is still not enough, because the rate does not
+///             start when the provider is enabled.
+///         </b>
+///         The 51,200 passes a 48 B/pass reading asks for run in
 ///         1.0 ms, and on an idle machine not one sample had arrived by the end of them in any of twenty
 ///         runs — the two dozen the report showed were taken as the window closed and dispatched during
 ///         the drain. On a loaded machine they are taken after it closes and the report has no names at
@@ -291,7 +305,7 @@ sealed class AllocationNames : EventListener {
 
         if (data.EventSource.Name == MeasuringThreadMarker.SourceName) {
             // Synchronous on the writing thread, so this id is the measuring thread's own.
-            Volatile.Write(ref measuringThread, (long)data.OSThreadId);
+            Volatile.Write(ref measuringThread, data.OSThreadId);
 
             return;
         }
@@ -317,7 +331,7 @@ sealed class AllocationNames : EventListener {
             }
         }
 
-        if ((long)data.OSThreadId != Volatile.Read(ref measuringThread)) {
+        if (data.OSThreadId != Volatile.Read(ref measuringThread)) {
             Interlocked.Increment(ref elsewhere);
 
             return;
@@ -434,7 +448,7 @@ sealed class AllocationNames : EventListener {
         List<KeyValuePair<string, Sampled>> found;
 
         lock (gate) {
-            found = [.. mine.OrderByDescending(pair => pair.Value.Bytes)];
+            found = [..mine.OrderByDescending(static pair => pair.Value.Bytes)];
         }
 
         var other = Volatile.Read(ref elsewhere);

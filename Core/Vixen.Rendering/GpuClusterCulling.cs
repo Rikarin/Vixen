@@ -41,8 +41,11 @@ public struct CullCluster {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <strong>Not the cluster's own bound, and the difference is the whole of why a cut does
-    ///         not tear.</strong> A group's simplification produces several parents, every one of
+    ///         <strong>
+    ///             Not the cluster's own bound, and the difference is the whole of why a cut does
+    ///             not tear.
+    ///         </strong>
+    ///         A group's simplification produces several parents, every one of
     ///         which replaces <em>all</em> of the group's children — so all of them have to reach the
     ///         same refinement decision. If one refines while its sibling does not, the sibling is
     ///         drawn beside the children of its own group and the surface is covered twice in one
@@ -353,12 +356,18 @@ public static class GpuClusterCulling {
             var moved = (Matrix4x4.TransformPosition(center, bone) - center).Length();
 
             var deformation = MathF.Sqrt(
-                Squared(bone.M11 - 1f) + Squared(bone.M12) + Squared(bone.M13)
-                + Squared(bone.M21) + Squared(bone.M22 - 1f) + Squared(bone.M23)
-                + Squared(bone.M31) + Squared(bone.M32) + Squared(bone.M33 - 1f)
+                Squared(bone.M11 - 1f)
+                + Squared(bone.M12)
+                + Squared(bone.M13)
+                + Squared(bone.M21)
+                + Squared(bone.M22 - 1f)
+                + Squared(bone.M23)
+                + Squared(bone.M31)
+                + Squared(bone.M32)
+                + Squared(bone.M33 - 1f)
             );
 
-            worst = MathF.Max(worst, moved + (deformation * radius));
+            worst = MathF.Max(worst, moved + deformation * radius);
         }
 
         return worst;
@@ -410,9 +419,9 @@ public static class GpuClusterCulling {
             return false;
         }
 
-        var sine = MathF.Sqrt(MathF.Max(1f - (cosine * cosine), 0f));
+        var sine = MathF.Sqrt(MathF.Max(1f - cosine * cosine, 0f));
 
-        return Vector3.Dot(axis, offset / distance) < -sine - (radius / distance);
+        return Vector3.Dot(axis, offset / distance) < -sine - radius / distance;
     }
 
     /// <summary>
@@ -500,7 +509,7 @@ public static class GpuClusterCulling {
             };
         }
 
-        return new(clusters, [.. children], [.. mesh.Roots.Select(root => (uint)root)]);
+        return new(clusters, [..children], [..mesh.Roots.Select(static root => (uint)root)]);
     }
 
     /// <summary>The sphere enclosing a run of clusters' bounds.</summary>
@@ -659,7 +668,7 @@ public static class GpuClusterCulling {
             var cluster = queue.Dequeue();
             var record = scene.Clusters[(int)(instance.FirstCluster + cluster)];
 
-            var centre = instance.Position + (record.Center * instance.Scale);
+            var centre = instance.Position + record.Center * instance.Scale;
             var radius = (record.Radius + instance.MotionRadius) * instance.Scale;
 
             if (view.MaximumDistance > 0f) {
@@ -713,7 +722,7 @@ public static class GpuClusterCulling {
         var accepted = visible.ToArray();
         Array.Sort(accepted);
 
-        var wanted = requests.Select(page => (int)page).ToArray();
+        var wanted = requests.Select(static page => (int)page).ToArray();
         Array.Sort(wanted);
 
         var compute = software.ToArray();
@@ -850,7 +859,7 @@ public static class GpuClusterCulling {
             }
         }
 
-        return [.. cut];
+        return [..cut];
     }
 
     /// <summary>One cluster's own error in pixels, projected at its group's bound.</summary>
@@ -863,7 +872,7 @@ public static class GpuClusterCulling {
     ///     is the one place they could differ for a reason that is not a defect.
     /// </remarks>
     public static float ProjectedError(in CullCluster record, in CullInstance instance, in CullView view) {
-        var centre = instance.Position + (record.ErrorCenter * instance.Scale);
+        var centre = instance.Position + record.ErrorCenter * instance.Scale;
         var radius = record.ErrorRadius * instance.Scale;
         var distance = MathF.Max((centre - view.Position).Length() - radius, GpuCulling.ClipEpsilon);
 

@@ -52,7 +52,7 @@ public sealed class StatisticsAndMemoryTests {
 
         var over = SceneStatistics.Collect(world, new() { Entities = 5 });
         Assert.Equal(BudgetState.Over, Row(over, "Entities").State);
-        Assert.Contains(over.Warnings, warning => warning.Contains("over budget", StringComparison.Ordinal));
+        Assert.Contains(over.Warnings, static warning => warning.Contains("over budget", StringComparison.Ordinal));
 
         var near = SceneStatistics.Collect(world, new() { Entities = 10 });
         Assert.Equal(BudgetState.Near, Row(near, "Entities").State);
@@ -85,7 +85,7 @@ public sealed class StatisticsAndMemoryTests {
         using World world = new("Test");
         world.Create(new Position());
 
-        Assert.DoesNotContain(SceneStatistics.Collect(world).Rows, row => row.Label == "Hierarchy depth");
+        Assert.DoesNotContain(SceneStatistics.Collect(world).Rows, static row => row.Label == "Hierarchy depth");
         Assert.Equal(4, Row(SceneStatistics.Collect(world, depth: 4), "Hierarchy depth").Value);
     }
 
@@ -102,7 +102,7 @@ public sealed class StatisticsAndMemoryTests {
     public void AMemorySnapshotHasTheManagedArenaInIt() {
         var snapshot = MemorySnapshot.Take();
 
-        Assert.Contains(snapshot.Of(MemoryArena.Managed), row => row.Label == "Heap" && row.Bytes > 0);
+        Assert.Contains(snapshot.Of(MemoryArena.Managed), static row => row.Label == "Heap" && row.Bytes > 0);
         Assert.True(snapshot.BytesOf(MemoryArena.Managed) > 0);
     }
 
@@ -111,8 +111,12 @@ public sealed class StatisticsAndMemoryTests {
     ///     the flag exists to prevent.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>The collection is what makes the count non-zero, and without it this asserted a
-    ///     property of the machine.</b> The count rows are <see cref="GC.CollectionCount" /> per
+    ///     ⚠
+    ///     <b>
+    ///         The collection is what makes the count non-zero, and without it this asserted a
+    ///         property of the machine.
+    ///     </b>
+    ///     The count rows are <see cref="GC.CollectionCount" /> per
     ///     generation, which in a process that has not collected yet is zero three times over — so
     ///     "counts exist and are excluded" degenerated into "zero is excluded", which every
     ///     implementation satisfies. A test host with enough memory and few enough tests reaches this
@@ -150,15 +154,15 @@ public sealed class StatisticsAndMemoryTests {
         var tracked = LeakTracker.IsSupported;
 
         if (!tracked) {
-            Assert.Contains(rows, row => row.Label.Contains("Not tracked", StringComparison.Ordinal));
+            Assert.Contains(rows, static row => row.Label.Contains("Not tracked", StringComparison.Ordinal));
         }
     }
 
     [Fact]
     public void ProvidersFillTheArenasThisAssemblyCannotSee() {
         MemoryProviders providers = new() {
-            Gpu = () => [new(MemoryArena.Gpu, "Device-local", 512 * 1024 * 1024)],
-            Assets = () => [new(MemoryArena.Assets, "Textures", 12, IsCount: true)]
+            Gpu = static () => [new(MemoryArena.Gpu, "Device-local", 512 * 1024 * 1024)],
+            Assets = static () => [new(MemoryArena.Assets, "Textures", 12, IsCount: true)]
         };
 
         var snapshot = MemorySnapshot.Take(providers);

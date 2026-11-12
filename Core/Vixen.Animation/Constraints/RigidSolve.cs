@@ -78,7 +78,13 @@ public static class RigidBodySolver {
                 continue;
             }
 
-            var weight = DefaultConstraintArbiter.Share(goals, 0, goals.Length, index, new(position, rotation, Vector3.One));
+            var weight = DefaultConstraintArbiter.Share(
+                goals,
+                0,
+                goals.Length,
+                index,
+                new(position, rotation, Vector3.One)
+            );
 
             if (weight <= Epsilon) {
                 continue;
@@ -114,7 +120,13 @@ public static class RigidBodySolver {
                 continue;
             }
 
-            var weight = DefaultConstraintArbiter.Share(goals, 0, goals.Length, index, new(position, facing, Vector3.One));
+            var weight = DefaultConstraintArbiter.Share(
+                goals,
+                0,
+                goals.Length,
+                index,
+                new(position, facing, Vector3.One)
+            );
 
             if (weight <= Epsilon) {
                 continue;
@@ -126,7 +138,11 @@ public static class RigidBodySolver {
             }
 
             orientation += weight;
-            facing = Quaternion.Nlerp(facing, Quaternion.Concatenate(goal.Rotation, goals[index].Frame.Rotation), weight / orientation);
+            facing = Quaternion.Nlerp(
+                facing,
+                Quaternion.Concatenate(goal.Rotation, goals[index].Frame.Rotation),
+                weight / orientation
+            );
         }
 
         if (orientation > Epsilon) {
@@ -138,7 +154,13 @@ public static class RigidBodySolver {
                 continue;
             }
 
-            var weight = DefaultConstraintArbiter.Share(goals, 0, goals.Length, index, new(position, facing, Vector3.One));
+            var weight = DefaultConstraintArbiter.Share(
+                goals,
+                0,
+                goals.Length,
+                index,
+                new(position, facing, Vector3.One)
+            );
 
             if (weight <= Epsilon) {
                 continue;
@@ -167,7 +189,16 @@ public static class RigidBodySolver {
             facing = Quaternion.Concatenate(facing, AimGoal.ScaleRotation(swing, freedom));
         }
 
-        turned = 2f * MathF.Acos(MathF.Abs(MathUtil.Clamp(Quaternion.Dot(Quaternion.Normalize(rotation), Quaternion.Normalize(facing)), -1f, 1f)));
+        turned = 2f
+            * MathF.Acos(
+                MathF.Abs(
+                    MathUtil.Clamp(
+                        Quaternion.Dot(Quaternion.Normalize(rotation), Quaternion.Normalize(facing)),
+                        -1f,
+                        1f
+                    )
+                )
+            );
 
         return new(position, facing, body.Scale);
     }

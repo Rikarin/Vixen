@@ -60,12 +60,19 @@ struct BehaviorCompositeState {
 ///         is the ordinary case — tasks write their results — and acting on it there would tear down
 ///         the state of the thing currently executing. A notification therefore only sets a bit; the
 ///         tree works out what that means at the top of the next step, before any node updates. The
-///         cost is stated rather than hidden: <b>a condition that goes false during a task's tick
-///         takes effect at the start of the next tick.</b>
+///         cost is stated rather than hidden:
+///         <b>
+///             a condition that goes false during a task's tick
+///             takes effect at the start of the next tick.
+///         </b>
 ///     </para>
 ///     <para>
-///         ⚠ <b>Observers are registered once, on the union of every key any observing decorator
-///         reads, and not per branch.</b> Registering per branch is what Unreal does and it buys
+///         ⚠
+///         <b>
+///             Observers are registered once, on the union of every key any observing decorator
+///             reads, and not per branch.
+///         </b>
+///         Registering per branch is what Unreal does and it buys
 ///         nothing here, because the scope test — is the decorator's parent composite on the active
 ///         path, and is the active node inside or after its subtree — is a pair of integer
 ///         comparisons made when the change is <i>resolved</i>. Paying registration churn on every
@@ -290,7 +297,7 @@ public sealed class BehaviorTreeInstance : IBlackboardObserver {
                 // it is over. The parent then resumes — moves to its next child — rather than
                 // restarting from child zero, which is the difference between "this branch is
                 // finished" and "something higher-priority became available".
-                if (Settle(in agent, Unwind(in agent, interrupt, ActionStatus.Failed, gated: true))) {
+                if (Settle(in agent, Unwind(in agent, interrupt, ActionStatus.Failed, true))) {
                     return LastResult;
                 }
 
@@ -341,7 +348,7 @@ public sealed class BehaviorTreeInstance : IBlackboardObserver {
 
             Header.Active = -1;
 
-            if (Settle(in agent, Unwind(in agent, active, outcome, gated: false))) {
+            if (Settle(in agent, Unwind(in agent, active, outcome, false))) {
                 return LastResult;
             }
         }
@@ -661,7 +668,9 @@ public sealed class BehaviorTreeInstance : IBlackboardObserver {
             // implementation answers differently and silently.
             var current = CompositeStateOf(walk).Current;
 
-            for (var child = node.FirstChild; child > 0 && child < current; child = template[child].LastDescendant + 1) {
+            for (var child = node.FirstChild;
+                 child > 0 && child < current;
+                 child = template[child].LastDescendant + 1) {
                 if (EvaluateDecorators(in agent, child)) {
                     restart = Math.Min(restart, walk);
 
@@ -763,7 +772,7 @@ public sealed class BehaviorTreeInstance : IBlackboardObserver {
 
         var draw = AgentRandom.Value(agent.Entity, agent.Seed, (uint)(0x5E000000 + slot));
 
-        return service.Interval + ((draw - 0.5f) * 2f * service.RandomDeviation);
+        return service.Interval + (draw - 0.5f) * 2f * service.RandomDeviation;
     }
 
     /// <summary>Ticks the main task of every open parallel, then the active task itself.</summary>
@@ -807,9 +816,9 @@ public sealed class BehaviorTreeInstance : IBlackboardObserver {
 
             // Immediate: the background branch is torn down at once and the parallel finishes with
             // the main task's result.
-            AbortThrough(in agent, walk, inclusive: false);
+            AbortThrough(in agent, walk, false);
             Header.Active = -1;
-            Settle(in agent, Unwind(in agent, walk, status, gated: false));
+            Settle(in agent, Unwind(in agent, walk, status, false));
 
             return ActionStatus.Running;
         }
@@ -829,7 +838,7 @@ public sealed class BehaviorTreeInstance : IBlackboardObserver {
             Header.Transitions++;
 
             if (!EvaluateDecorators(in agent, walk)) {
-                return Unwind(in agent, walk, ActionStatus.Failed, gated: true);
+                return Unwind(in agent, walk, ActionStatus.Failed, true);
             }
 
             EnterDecorators(in agent, walk);
@@ -878,7 +887,7 @@ public sealed class BehaviorTreeInstance : IBlackboardObserver {
                     in agent,
                     walk,
                     node.Composite == BehaviorCompositeKind.Sequence ? ActionStatus.Succeeded : ActionStatus.Failed,
-                    gated: false
+                    false
                 );
             }
 
@@ -1149,7 +1158,10 @@ public sealed class BehaviorTreeInstance : IBlackboardObserver {
         for (var slot = node.DecoratorStart; slot < node.DecoratorStart + node.DecoratorCount; slot++) {
             ref readonly var decorator = ref template.Decorators[slot];
 
-            decorator.Decorator.Enter(new(agent, this, index), block.Slice(decorator.MemoryOffset, decorator.MemorySize));
+            decorator.Decorator.Enter(
+                new(agent, this, index),
+                block.Slice(decorator.MemoryOffset, decorator.MemorySize)
+            );
         }
     }
 
@@ -1254,8 +1266,7 @@ public sealed class BehaviorTreeInstance : IBlackboardObserver {
     ///     plan — which means it cannot take a tree-shaped context. The two nodes that genuinely need
     ///     the tree, both of them subtree runners, read it off here; every other task ignores it.
     /// </remarks>
-    AgentContext Running(in AgentContext agent, int node) =>
-        agent with { RunningTree = this, RunningNode = node };
+    AgentContext Running(in AgentContext agent, int node) => agent with { RunningTree = this, RunningNode = node };
 
     bool Touched(ReadOnlySpan<BlackboardKey> keys) {
         foreach (var key in keys) {

@@ -25,7 +25,7 @@ public class SchemaTests {
     public void Migrations_are_numbered_from_one_without_gaps_or_repeats() {
         Assert.Equal(
             Enumerable.Range(1, Schema.Steps.Length),
-            Schema.Steps.Select(step => step.Version)
+            Schema.Steps.Select(static step => step.Version)
         );
     }
 
@@ -33,10 +33,10 @@ public class SchemaTests {
     public void Every_migration_has_statements_and_a_note() {
         Assert.All(
             Schema.Steps,
-            step => {
+            static step => {
                 Assert.NotEmpty(step.Statements);
                 Assert.False(string.IsNullOrWhiteSpace(step.Note));
-                Assert.All(step.Statements, statement => Assert.False(string.IsNullOrWhiteSpace(statement)));
+                Assert.All(step.Statements, static statement => Assert.False(string.IsNullOrWhiteSpace(statement)));
             }
         );
     }
@@ -51,8 +51,12 @@ public class SchemaTests {
         Assert.Contains("if not exists", Schema.CreateVersionTable, StringComparison.Ordinal);
 
         Assert.All(
-            Schema.Steps.SelectMany(step => step.Statements),
-            statement => Assert.DoesNotContain($"create table if not exists {Schema.VersionTable}", statement, StringComparison.Ordinal)
+            Schema.Steps.SelectMany(static step => step.Statements),
+            static statement => Assert.DoesNotContain(
+                $"create table if not exists {Schema.VersionTable}",
+                statement,
+                StringComparison.Ordinal
+            )
         );
     }
 
@@ -63,8 +67,9 @@ public class SchemaTests {
     [Fact]
     public void Every_create_is_if_not_exists() {
         Assert.All(
-            Schema.Steps.SelectMany(step => step.Statements).Where(statement => statement.StartsWith("create", StringComparison.Ordinal)),
-            statement => Assert.Contains("if not exists", statement, StringComparison.Ordinal)
+            Schema.Steps.SelectMany(static step => step.Statements)
+                .Where(static statement => statement.StartsWith("create", StringComparison.Ordinal)),
+            static statement => Assert.Contains("if not exists", statement, StringComparison.Ordinal)
         );
     }
 
@@ -74,13 +79,13 @@ public class SchemaTests {
     /// </summary>
     [Fact]
     public void The_journal_and_its_idempotency_key_are_shaped_as_the_design_says() {
-        var sql = string.Join('\n', Schema.Steps.SelectMany(step => step.Statements));
+        var sql = string.Join('\n', Schema.Steps.SelectMany(static step => step.Statements));
 
         Assert.Contains("create table if not exists live_ledger (", sql, StringComparison.Ordinal);
         Assert.Contains("sequence     bigserial    primary key", sql, StringComparison.Ordinal);
         Assert.Contains("primary key (op_account, op_character, op_kind, op_id)", sql, StringComparison.Ordinal);
-        Assert.Contains("primary key (account, \"character\")", sql, StringComparison.Ordinal);
-        Assert.Contains("primary key (guild, account, \"character\")", sql, StringComparison.Ordinal);
+        Assert.Contains("""primary key (account, "character")""", sql, StringComparison.Ordinal);
+        Assert.Contains("""primary key (guild, account, "character")""", sql, StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -98,8 +103,8 @@ public class SchemaTests {
     [Fact]
     public void No_statement_carries_a_backslash() {
         Assert.All(
-            Schema.Steps.SelectMany(step => step.Statements).Append(Schema.CreateVersionTable),
-            statement => Assert.DoesNotContain("\\", statement, StringComparison.Ordinal)
+            Schema.Steps.SelectMany(static step => step.Statements).Append(Schema.CreateVersionTable),
+            static statement => Assert.DoesNotContain("""\""", statement, StringComparison.Ordinal)
         );
     }
 }

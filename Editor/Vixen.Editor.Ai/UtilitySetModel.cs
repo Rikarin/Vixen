@@ -15,8 +15,12 @@ namespace Vixen.Editor.Ai;
 ///         list of considerations, and every operation here is on one of those two lists.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Order does not matter, and that is worth stating because it is the opposite of a
-///         tree.</b> A composite's child order <i>is</i> its priority; a set's action order is a
+///         ⚠
+///         <b>
+///             Order does not matter, and that is worth stating because it is the opposite of a
+///             tree.
+///         </b>
+///         A composite's child order <i>is</i> its priority; a set's action order is a
 ///         display convenience and a tie-break, and nothing else. Moving a row up cannot change what
 ///         an agent does unless two actions score exactly the same, which is why this model has a
 ///         <see cref="Move" /> and no equivalent of the tree's careful reparent arithmetic.
@@ -144,9 +148,7 @@ public sealed class UtilitySetModel {
             for (var step = 0; step <= 8; step++) {
                 var time = step / 8f;
 
-                consideration.Keys.Add(
-                    new() { Time = time, Value = previous.Evaluate(time), Mode = TangentMode.Auto }
-                );
+                consideration.Keys.Add(new() { Time = time, Value = previous.Evaluate(time), Mode = TangentMode.Auto });
             }
         }
 
@@ -235,7 +237,7 @@ public sealed class UtilitySetModel {
 
         key.Name = name;
 
-        foreach (var consideration in Content.Actions.SelectMany(action => action.Considerations)) {
+        foreach (var consideration in Content.Actions.SelectMany(static action => action.Considerations)) {
             if (string.Equals(consideration.Key, old, StringComparison.Ordinal)) {
                 consideration.Key = name;
                 rewritten++;
@@ -258,7 +260,7 @@ public sealed class UtilitySetModel {
         }
 
         var dangling = Content.Actions
-            .SelectMany(action => action.Considerations)
+            .SelectMany(static action => action.Considerations)
             .Count(consideration => string.Equals(consideration.Key, key.Name, StringComparison.Ordinal));
 
         Raise();
@@ -332,45 +334,46 @@ public sealed class UtilitySetModel {
             SelectorCount = content.SelectorCount,
             CommitmentBonus = content.CommitmentBonus,
             DecisionInterval = content.DecisionInterval,
-            Keys = [.. content.Keys.Select(key => new BehaviorKeyContent { Name = key.Name, Type = key.Type })],
-            Actions = [.. content.Actions.Select(Copy)]
+            Keys = [..content.Keys.Select(key => new BehaviorKeyContent { Name = key.Name, Type = key.Type })],
+            Actions = [..content.Actions.Select(Copy)]
         };
     }
 
-    static UtilityActionContent Copy(UtilityActionContent action) => new() {
-        Name = action.Name,
-        Task = action.Task,
-        Weight = action.Weight,
-        Cooldown = action.Cooldown,
-        Bucket = action.Bucket,
-        Fields = new(action.Fields, StringComparer.Ordinal),
-        Considerations = [.. action.Considerations.Select(Copy)]
-    };
+    static UtilityActionContent Copy(UtilityActionContent action) =>
+        new() {
+            Name = action.Name,
+            Task = action.Task,
+            Weight = action.Weight,
+            Cooldown = action.Cooldown,
+            Bucket = action.Bucket,
+            Fields = new(action.Fields, StringComparer.Ordinal),
+            Considerations = [..action.Considerations.Select(Copy)]
+        };
 
-    static UtilityConsiderationContent Copy(UtilityConsiderationContent consideration) => new() {
-        Name = consideration.Name,
-        Input = consideration.Input,
-        Key = consideration.Key,
-        Source = consideration.Source,
-        Minimum = consideration.Minimum,
-        Maximum = consideration.Maximum,
-        Curve = consideration.Curve,
-        Slope = consideration.Slope,
-        Exponent = consideration.Exponent,
-        Shift = consideration.Shift,
-        Centre = consideration.Centre,
-        Keys = [
-            .. consideration.Keys.Select(
-                key => new UtilityCurveKeyContent {
-                    Time = key.Time,
-                    Value = key.Value,
-                    InTangent = key.InTangent,
-                    OutTangent = key.OutTangent,
-                    Mode = key.Mode
-                }
-            )
-        ]
-    };
+    static UtilityConsiderationContent Copy(UtilityConsiderationContent consideration) =>
+        new() {
+            Name = consideration.Name,
+            Input = consideration.Input,
+            Key = consideration.Key,
+            Source = consideration.Source,
+            Minimum = consideration.Minimum,
+            Maximum = consideration.Maximum,
+            Curve = consideration.Curve,
+            Slope = consideration.Slope,
+            Exponent = consideration.Exponent,
+            Shift = consideration.Shift,
+            Centre = consideration.Centre,
+            Keys = [
+                ..consideration.Keys.Select(key => new UtilityCurveKeyContent {
+                        Time = key.Time,
+                        Value = key.Value,
+                        InTangent = key.InTangent,
+                        OutTangent = key.OutTangent,
+                        Mode = key.Mode
+                    }
+                )
+            ]
+        };
 
     void Raise() => Changed?.Invoke(this);
 }

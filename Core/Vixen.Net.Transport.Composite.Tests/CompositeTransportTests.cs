@@ -70,7 +70,7 @@ public sealed class CompositeTransportTests : IDisposable {
 
         Assert.Equal(2, connects.Count);
         Assert.Equal(2, connects.Distinct().Count());
-        Assert.All(connects, id => Assert.True(id.IsValid));
+        Assert.All(connects, static id => Assert.True(id.IsValid));
     }
 
     [Fact]
@@ -80,8 +80,8 @@ public sealed class CompositeTransportTests : IDisposable {
         overWebSocket.StartClient();
         Pump();
 
-        overLocal.SendToServer(Encoding.UTF8.GetBytes("from the local one"), Channel.Reliable);
-        overWebSocket.SendToServer(Encoding.UTF8.GetBytes("from the websocket"), Channel.Reliable);
+        overLocal.SendToServer("from the local one"u8, Channel.Reliable);
+        overWebSocket.SendToServer("from the websocket"u8, Channel.Reliable);
         Pump();
 
         var texts = serverEvents.Texts(TransportRole.Server);
@@ -128,7 +128,7 @@ public sealed class CompositeTransportTests : IDisposable {
 
     [Fact]
     public void ACompositeOfNothing_IsRefused() =>
-        Assert.Throws<ArgumentException>(() => new CompositeTransport([]));
+        Assert.Throws<ArgumentException>(static () => new CompositeTransport([]));
 
     void Pump(EventRecorder? local = null, EventRecorder? socket = null) {
         for (var round = 0; round < 8; round++) {

@@ -39,11 +39,11 @@ namespace Vixen.Ui.Tests;
 public class PerSurfaceMediaTests {
     /// <summary>A box that is 10 px wide below 640 and 300 above it.</summary>
     const string Responsive = """
-        root { flex-direction: column; }
-        ui-surface { flex-direction: column; }
-        .box { width: 10px; height: 20px; }
-        @media (min-width: 640px) { .box { width: 300px; } }
-        """;
+                              root { flex-direction: column; }
+                              ui-surface { flex-direction: column; }
+                              .box { width: 10px; height: 20px; }
+                              @media (min-width: 640px) { .box { width: 300px; } }
+                              """;
 
     static UiDocument Document(float width = 1000f, string css = Responsive) {
         var document = new UiDocument(width, 600f);
@@ -122,11 +122,11 @@ public class PerSurfaceMediaTests {
     public void Two_surfaces_answer_the_colour_gamut_separately() {
         using var document = Document(
             css: """
-                root { flex-direction: column; }
-                ui-surface { flex-direction: column; }
-                .box { width: 10px; height: 20px; }
-                @media (color-gamut: p3) { .box { width: 300px; } }
-                """
+                 root { flex-direction: column; }
+                 ui-surface { flex-direction: column; }
+                 .box { width: 10px; height: 20px; }
+                 @media (color-gamut: p3) { .box { width: 300px; } }
+                 """
         );
 
         var srgb = document.Root.Add("div", null, "box");
@@ -235,10 +235,10 @@ public class PerSurfaceMediaTests {
     public void Two_surface_roots_do_not_share_one_computed_style() {
         using var document = Document(
             css: """
-                root { flex-direction: column; }
-                ui-surface { flex-direction: column; height: 20px; }
-                @media (min-width: 640px) { ui-surface { height: 90px; } }
-                """
+                 root { flex-direction: column; }
+                 ui-surface { flex-direction: column; height: 20px; }
+                 @media (min-width: 640px) { ui-surface { height: 90px; } }
+                 """
         );
 
         var wide = document.CreateSurface(800f, 300f);
@@ -268,13 +268,13 @@ public class PerSurfaceMediaTests {
     public void A_nested_group_conjoins_in_each_window(float width, float expected) {
         using var document = Document(
             css: """
-                root { flex-direction: column; }
-                ui-surface { flex-direction: column; }
-                .box { width: 10px; height: 20px; }
-                @media (min-width: 640px) {
-                    @media (min-width: 900px) { .box { width: 300px; } }
-                }
-                """
+                 root { flex-direction: column; }
+                 ui-surface { flex-direction: column; }
+                 .box { width: 10px; height: 20px; }
+                 @media (min-width: 640px) {
+                     @media (min-width: 900px) { .box { width: 300px; } }
+                 }
+                 """
         );
 
         var box = document.CreateSurface(width, 300f).Root.Add("div", null, "box");
@@ -313,7 +313,7 @@ public class PerSurfaceMediaTests {
             """
         );
 
-        var warning = Assert.Single(sink.Snapshot(), record => record.Level >= LogLevel.Warning);
+        var warning = Assert.Single(sink.Snapshot(), static record => record.Level >= LogLevel.Warning);
 
         Assert.Contains("min-frobnicate", warning.Message, StringComparison.Ordinal);
     }
@@ -341,9 +341,9 @@ public class PerSurfaceMediaTests {
     public void Sharing_stays_sound_until_a_positional_rule_is_actually_reachable() {
         using var document = Document(
             css: """
-                .box { width: 10px; height: 20px; }
-                @media (min-width: 640px) { .box:nth-child(2n) { width: 300px; } }
-                """
+                 .box { width: 10px; height: 20px; }
+                 @media (min-width: 640px) { .box:nth-child(2n) { width: 300px; } }
+                 """
         );
 
         var narrow = document.CreateSurface(400f, 300f);

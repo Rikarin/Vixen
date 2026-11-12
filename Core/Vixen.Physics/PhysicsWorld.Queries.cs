@@ -58,7 +58,13 @@ public sealed partial class PhysicsWorld {
         // to the query distance is what makes fraction 1 mean "the far end" rather than "one metre".
         var ray = new JoltRay(JoltMath.ToJolt(origin), JoltMath.ToJolt(unit * distance));
 
-        if (!system.NarrowPhaseQuery.CastRay(in ray, out RayCastResult result, default, queryLayerFilter, queryBodyFilter)) {
+        if (!system.NarrowPhaseQuery.CastRay(
+                in ray,
+                out RayCastResult result,
+                default,
+                queryLayerFilter,
+                queryBodyFilter
+            )) {
             return false;
         }
 
@@ -297,7 +303,7 @@ public sealed partial class PhysicsWorld {
 
     RayHit Describe(in RayCastResult result, Vector3 origin, Vector3 unit, float distance) {
         var handle = new BodyHandle(result.BodyID.ID);
-        var position = origin + (unit * (result.Fraction * distance));
+        var position = origin + unit * (result.Fraction * distance);
         var normal = Vector3.Zero;
 
         if (IsAlive(handle)) {

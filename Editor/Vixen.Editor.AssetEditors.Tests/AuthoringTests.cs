@@ -3,7 +3,6 @@
 
 using Vixen.Animation;
 using Vixen.Animation.Constraints;
-using Vixen.Audio.Assets;
 using Vixen.Core;
 using Vixen.Core.Curves;
 using Vixen.Core.Mathematics;
@@ -17,9 +16,7 @@ using Vixen.Editor.Assets.Animation;
 using Vixen.Editor.Core.Scenes;
 using Vixen.Editor.SceneView;
 using Vixen.Engine.Transforms;
-using Vixen.Geometry;
 using Vixen.Input;
-using Vixen.Rendering;
 using Xunit;
 
 namespace Vixen.Editor.AssetEditors.Tests;
@@ -66,7 +63,11 @@ public class AuthoringTests {
     public void AnEffectEmitsTheShaderFromTheSameCompile() {
         using var fixture = new EditorFixture();
 
-        var document = new VfxDocument(fixture.Project, AssetId.Empty, fixture.Write("Assets/Smoke.vxvfx", string.Empty));
+        var document = new VfxDocument(
+            fixture.Project,
+            AssetId.Empty,
+            fixture.Write("Assets/Smoke.vxvfx", string.Empty)
+        );
 
         Assert.NotNull(document.Compile());
 
@@ -205,20 +206,20 @@ public class AuthoringTests {
         document.AddKey(target, AnimationProperty.Weight, 0f, 0.5f, "browRaise");
 
         var weighted = document.Clip.ToClipData()
-            .Channels.Where(channel => channel.WeightTimes.Length > 0)
+            .Channels.Where(static channel => channel.WeightTimes.Length > 0)
             .ToArray();
 
         Assert.Equal(2, weighted.Length);
 
-        var jaw = Assert.Single(weighted, channel => channel.Shape == "jawOpen");
+        var jaw = Assert.Single(weighted, static channel => channel.Shape == "jawOpen");
 
         Assert.Equal("Head", jaw.Target);
-        Assert.Equal<float>([0f, 2f], jaw.WeightTimes);
-        Assert.Equal<float>([0f, 1f], jaw.Weights);
+        Assert.Equal([0f, 2f], jaw.WeightTimes);
+        Assert.Equal([0f, 1f], jaw.Weights);
 
-        var brow = Assert.Single(weighted, channel => channel.Shape == "browRaise");
+        var brow = Assert.Single(weighted, static channel => channel.Shape == "browRaise");
 
-        Assert.Equal<float>([0.5f], brow.Weights);
+        Assert.Equal([0.5f], brow.Weights);
     }
 
     /// <summary>
@@ -253,9 +254,8 @@ public class AuthoringTests {
 
         // A rig that has never heard of "HeadMesh", which is every rig: it is a mesh node.
         var skeleton = Skeleton.Create(
-            new SkeletonData {
-                Name = "Rig",
-                Joints = [new() { Name = "Root", Parent = -1, InverseBindPose = Matrix4x4.Identity }]
+            new() {
+                Name = "Rig", Joints = [new() { Name = "Root", Parent = -1, InverseBindPose = Matrix4x4.Identity }]
             }
         );
 
@@ -305,7 +305,10 @@ public class AuthoringTests {
 
         // And it reads back with the shape intact, which is the half a version number is about.
         var reopened = AnimationClipAsset.FromYaml(yaml);
-        var curve = Assert.Single(reopened.Targets[0].Curves, entry => entry.Property == AnimationProperty.Weight);
+        var curve = Assert.Single(
+            reopened.Targets[0].Curves,
+            static entry => entry.Property == AnimationProperty.Weight
+        );
 
         Assert.Equal("jawOpen", curve.Shape);
     }
@@ -351,7 +354,13 @@ public class AuthoringTests {
         var document = new AnimationClipDocument(fixture.Project, AssetId.Empty, path);
 
         var tag = document.AddConstraint(
-            new() { Name = "right hand", Kind = GoalKind.Position, Effector = "hand_r", Begin = 0.2f, End = 0.6f }
+            new() {
+                Name = "right hand",
+                Kind = GoalKind.Position,
+                Effector = "hand_r",
+                Begin = 0.2f,
+                End = 0.6f
+            }
         );
 
         document.MoveConstraint(tag, 0.3f, 0.7f);
@@ -466,11 +475,14 @@ public class AuthoringTests {
         document.ReapplyTemplate(template, 0.25f, 0.75f);
 
         Assert.Equal(3, document.Clip.Constraints.Count);
-        Assert.Contains(document.Clip.Constraints, entry => entry.Name == "chin" && entry.Template.Length == 0);
-        Assert.Contains(document.Clip.Constraints, entry => entry.Name == "right hand" && entry.MaxWeight == 0.4f);
+        Assert.Contains(document.Clip.Constraints, static entry => entry.Name == "chin" && entry.Template.Length == 0);
+        Assert.Contains(
+            document.Clip.Constraints,
+            static entry => entry.Name == "right hand" && entry.MaxWeight == 0.4f
+        );
 
         document.Stack.Undo();
-        Assert.Contains(document.Clip.Constraints, entry => entry.Name == "right hand" && entry.MaxWeight == 1f);
+        Assert.Contains(document.Clip.Constraints, static entry => entry.Name == "right hand" && entry.MaxWeight == 1f);
     }
 
     /// <summary>
@@ -524,14 +536,9 @@ public class AuthoringTests {
     [Fact]
     public void AFrameRoundTripsThroughTheOneLineItIsShownAs() {
         foreach (var text in new[] {
-            "World 1 2 3",
-            "Joint hand_r",
-            "Entity held-item",
-            "Socket held-item grip",
-            "Provided ledge",
-            "Attachment right-hand-grip",
-            "Surface belly 0.25 0.6"
-        }) {
+                     "World 1 2 3", "Joint hand_r", "Entity held-item", "Socket held-item grip", "Provided ledge",
+                     "Attachment right-hand-grip", "Surface belly 0.25 0.6"
+                 }) {
             var frame = ConstraintFieldAccess.Parse(text);
 
             Assert.NotNull(frame);
@@ -566,19 +573,22 @@ public class AuthoringTests {
 
         document.AddTransition(idle, walk.Name);
 
-        document.Edit("Rename State", () => {
-            walk.Name = "Run";
+        document.Edit(
+            "Rename State",
+            () => {
+                walk.Name = "Run";
 
-            foreach (var leaving in idle.Transitions) {
-                if (string.Equals(leaving.To, "Walk", StringComparison.Ordinal)) {
-                    leaving.To = "Run";
+                foreach (var leaving in idle.Transitions) {
+                    if (string.Equals(leaving.To, "Walk", StringComparison.Ordinal)) {
+                        leaving.To = "Run";
+                    }
                 }
             }
-        });
+        );
 
         Assert.Equal("Run", document.Layer(0)!.States[1].Name);
         Assert.Equal("Run", document.Layer(0)!.States[0].Transitions[0].To);
-        Assert.DoesNotContain(document.Compile()!.Diagnostics, diagnostic => diagnostic.Id == "AG0011");
+        Assert.DoesNotContain(document.Compile()!.Diagnostics, static diagnostic => diagnostic.Id == "AG0011");
     }
 
     [Fact]
@@ -616,12 +626,20 @@ public class AuthoringTests {
         var path = fixture.Write("Assets/Controls.vxinput", string.Empty);
         var document = new InputActionsDocument(fixture.Project, AssetId.Empty, path);
 
-        document.AddBinding("Player", "Move", new(string.Empty, Composite: InputCompositeKind.Vector2, Parts: [
-            new("up", "<Keyboard>/w"),
-            new("down", "<Keyboard>/s"),
-            new("left", "<Keyboard>/a"),
-            new("right", "<Keyboard>/d")
-        ]));
+        document.AddBinding(
+            "Player",
+            "Move",
+            new(
+                string.Empty,
+                Composite: InputCompositeKind.Vector2,
+                Parts: [
+                    new("up", "<Keyboard>/w"),
+                    new("down", "<Keyboard>/s"),
+                    new("left", "<Keyboard>/a"),
+                    new("right", "<Keyboard>/d")
+                ]
+            )
+        );
 
         document.Save();
 
@@ -688,11 +706,11 @@ public class AuthoringTests {
         document.AddBus("Reverb");
         document.AddSend("SFX", "Reverb");
 
-        Assert.Single(document.Mixer.Buses.First(bus => bus.Name == "SFX").Sends);
+        Assert.Single(document.Mixer.Buses.First(static bus => bus.Name == "SFX").Sends);
 
         document.RemoveBus("Reverb");
 
-        Assert.Empty(document.Mixer.Buses.First(bus => bus.Name == "SFX").Sends);
+        Assert.Empty(document.Mixer.Buses.First(static bus => bus.Name == "SFX").Sends);
         Assert.Empty(document.Validate());
     }
 
@@ -704,7 +722,7 @@ public class AuthoringTests {
         var document = new AudioMixerDocument(fixture.Project, AssetId.Empty, path);
 
         document.AddSnapshot("Underwater");
-        document.SetSnapshotBus("Underwater", "Music", -12f, muted: false);
+        document.SetSnapshotBus("Underwater", "Music", -12f, false);
 
         Assert.Single(document.Mixer.Snapshots[0].Buses);
 
@@ -819,9 +837,10 @@ public class AuthoringTests {
 
     [Fact]
     public void EveryNewExtensionIsClaimedByExactlyOneEditor() {
-        var registry = StandardEditors.CreateWorldless(new Core.EditorProject(new Core.ProjectPaths(Path.GetTempPath())));
+        var registry = StandardEditors.CreateWorldless(new(new(Path.GetTempPath())));
 
-        foreach (var extension in (string[]) [".vxvfx", ".vxanim", ".vxanimgraph", ".vxseq", ".vxinput", ".vxmixer", ".vxfont"]) {
+        foreach (var extension in (string[])
+                 [".vxvfx", ".vxanim", ".vxanimgraph", ".vxseq", ".vxinput", ".vxmixer", ".vxfont"]) {
             Assert.True(registry.TryGetForFile("Thing" + extension, out var editor), extension);
             Assert.NotNull(editor);
         }

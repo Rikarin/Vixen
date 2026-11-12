@@ -10,14 +10,21 @@ namespace Vixen.Ui.Tests;
 /// <summary>That <c>cqw</c>, <c>cqi</c>, <c>cqb</c>, <c>cqmin</c> and <c>cqmax</c> measure a container.</summary>
 /// <remarks>
 ///     <para>
-///         <b>Every assertion here is a resolved width or height on an element inside a container of
-///         a known size</b>, which is <see cref="ContainerWiringTests" />'s discipline and for its
+///         <b>
+///             Every assertion here is a resolved width or height on an element inside a container of
+///             a known size
+///         </b>
+///         , which is <see cref="ContainerWiringTests" />'s discipline and for its
 ///         reason: the failure this feature can have is a unit that parses, reaches the layout tree
 ///         and measures the wrong box, and a test that checks the parse cannot see it.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Nearly every case is a pair, because the wrong answer here is a <i>plausible</i>
-///         number rather than nothing.</b> CSS Containment 3 § 5.3 makes a container unit outside
+///         ⚠
+///         <b>
+///             Nearly every case is a pair, because the wrong answer here is a <i>plausible</i>
+///             number rather than nothing.
+///         </b>
+///         CSS Containment 3 § 5.3 makes a container unit outside
 ///         every container resolve against the viewport, so an implementation that never found a
 ///         container would answer every one of these with a viewport fraction — a box of a sensible
 ///         size, in a sensible place, wrong. The paired cases differ only in the container, so a
@@ -96,8 +103,12 @@ public class ContainerUnitTests {
 
     /// <summary>⚠ An <c>inline-size</c> container answers <c>cqi</c> and not <c>cqb</c>.</summary>
     /// <remarks>
-    ///     ⚠ <b>The axis a container did not claim falls back to the viewport, not to that
-    ///     container's height.</b> An <c>inline-size</c> container's height is still its content's —
+    ///     ⚠
+    ///     <b>
+    ///         The axis a container did not claim falls back to the viewport, not to that
+    ///         container's height.
+    ///     </b>
+    ///     An <c>inline-size</c> container's height is still its content's —
     ///     that is the whole of what the keyword means — so reading it for <c>cqb</c> would be
     ///     reading a number the containment did not make well-defined, which is the same refusal
     ///     <c>ContainerQuery</c> makes for <c>(min-height:)</c> one layer up. The pair is what makes
@@ -143,8 +154,12 @@ public class ContainerUnitTests {
 
     /// <summary>⚠ An inner <c>inline-size</c> container does not shadow an outer <c>size</c> one.</summary>
     /// <remarks>
-    ///     ⚠ <b>The two axes can come from two different ancestors, and this is the case that says
-    ///     so.</b> The nearest container on the inline axis is the inner panel; the nearest on the
+    ///     ⚠
+    ///     <b>
+    ///         The two axes can come from two different ancestors, and this is the case that says
+    ///         so.
+    ///     </b>
+    ///     The nearest container on the inline axis is the inner panel; the nearest on the
     ///     block axis is the outer one, because the inner never claimed that axis. An implementation
     ///     carrying one box down the walk answers <c>cqb</c> from the inner panel's height — 60 here
     ///     rather than 100 — or from the viewport, 300. Three distinguishable numbers, which is why
@@ -220,8 +235,12 @@ public class ContainerUnitTests {
 
     /// <summary>⚠ And a unit still converges in a document whose sheet DOES declare a query group.</summary>
     /// <remarks>
-    ///     ⚠ <b>The branch every other fixture here avoids, and it was untested until this was
-    ///     written.</b> Resolving a container unit takes a second settle pass, because styles are
+    ///     ⚠
+    ///     <b>
+    ///         The branch every other fixture here avoids, and it was untested until this was
+    ///         written.
+    ///     </b>
+    ///     Resolving a container unit takes a second settle pass, because styles are
     ///     built before layout runs. <c>WithContainerOf</c> asks for that pass only when
     ///     <c>Recontain</c> will not — an unconditional invalidate costs every document with a query
     ///     container a pass it does not need, which <see cref="ContainerWiringTests" /> measures — so
@@ -293,8 +312,12 @@ public class ContainerUnitTests {
     /// <summary>⚠ And a <c>translate</c> distance measures it too, which the sizing half cannot show.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A second reader, seeded from a different context, and it is the one a container
-    ///         unit can reach without anybody noticing.</b> Every assertion above resolves through
+    ///         ⚠
+    ///         <b>
+    ///             A second reader, seeded from a different context, and it is the one a container
+    ///             unit can reach without anybody noticing.
+    ///         </b>
+    ///         Every assertion above resolves through
     ///         <c>UiDocument.Apply</c>, which is the walk <c>WithContainerOf</c> runs on;
     ///         <c>translate</c>, <c>transform</c> and <c>position: sticky</c> resolve in
     ///         <c>UiDocument.Accumulate</c>, which used to thread the bare surface context through the
@@ -384,7 +407,7 @@ public class ContainerUnitTests {
 
         var shadow = Assert.Single(
             document.Drawing.Commands,
-            command => command.Kind == DrawCommandKind.Shadow
+            static command => command.Kind == DrawCommandKind.Shadow
         );
 
         // Ten hundredths of the 200px container is 20. Ten hundredths of the 1000px viewport is 100.
@@ -416,7 +439,7 @@ public class ContainerUnitTests {
 
         var layer = Assert.Single(
             document.Drawing.Commands,
-            command => command.Kind == DrawCommandKind.LayerPush && command.Blur > 0f
+            static command => command.Kind == DrawCommandKind.LayerPush && command.Blur > 0f
         );
 
         // Five hundredths of the 200px container is 10. Of the 1000px viewport, 50.
@@ -435,8 +458,12 @@ public class ContainerUnitTests {
     ///         own <c>50cqw</c> is under no container at all and is half the viewport.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>This is what makes <c>UiElement.WithAppliedContainer</c> reset on the
-    ///         no-container branch instead of passing its argument through.</b> Every other caller
+    ///         ⚠
+    ///         <b>
+    ///             This is what makes <c>UiElement.WithAppliedContainer</c> reset on the
+    ///             no-container branch instead of passing its argument through.
+    ///         </b>
+    ///         Every other caller
     ///         hands it a context with no container in it, where a pass-through and a reset are the
     ///         same thing; this one hands it the child's, and a pass-through would read the stage's
     ///         <c>perspective: 50cqw</c> as 100 rather than 320 — a projection three times as strong
@@ -465,7 +492,7 @@ public class ContainerUnitTests {
         document.Update();
 
         var card = Assert.IsType<UiTransform>(document.Root.Children[0].Children[0].Transform);
-        var at = card.Apply(new Vector2(70f, 120f));
+        var at = card.Apply(new(70f, 120f));
 
         Assert.Equal(62.1756f, at.X, 0.01f);
         Assert.Equal(91.0878f, at.Y, 0.01f);

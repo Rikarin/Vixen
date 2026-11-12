@@ -3,8 +3,6 @@
 
 using System.Runtime.CompilerServices;
 using Vixen.Build;
-using Vixen.Texturing.Layers;
-using Vixen.Texturing.Painting;
 using Xunit;
 
 namespace Vixen.Editor.Texturing.Tests;
@@ -23,8 +21,12 @@ namespace Vixen.Editor.Texturing.Tests;
 ///         <c>Blend.Combine</c>'s block and <c>Combine</c>.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The rule #1076 asked for was measured and refused, which is the finding worth
-///         carrying.</b> "A block whose prose names a different <c>func</c> in the same file" reports
+///         ⚠
+///         <b>
+///             The rule #1076 asked for was measured and refused, which is the finding worth
+///             carrying.
+///         </b>
+///         "A block whose prose names a different <c>func</c> in the same file" reports
 ///         49 findings on this tree and every one sampled is a deliberate cross-reference — including
 ///         <c>ComputeColor.SoftLight</c>'s own correction, which names <c>HardLight</c> on purpose.
 ///         It also misses the defect it was proposed for, since <c>Combine</c>'s old summary named no
@@ -48,8 +50,7 @@ public class RavenDocCommentRuleTests {
     ///     <see cref="DocCommentRuleTests" />'s reason: <c>.claude/worktrees</c> holds a whole
     ///     checkout per agent and a climb from there reads somebody else's copy of these shaders.
     /// </remarks>
-    static string Repository() =>
-        Path.GetFullPath(Path.Combine(Path.GetDirectoryName(Here())!, "..", ".."));
+    static string Repository() => Path.GetFullPath(Path.Combine(Path.GetDirectoryName(Here())!, "..", ".."));
 
     /// <summary>
     ///     ⚠ Every doc comment in every committed shader describes the declaration it is attached to,
@@ -64,8 +65,12 @@ public class RavenDocCommentRuleTests {
     ///         "clean tree", so all three are refused by name first.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The exemption list was empty the day the rule landed, so it can never be the
-    ///         instrument.</b> Eight blocks were wrong when this was written and all eight were fixed
+    ///         ⚠
+    ///         <b>
+    ///             The exemption list was empty the day the rule landed, so it can never be the
+    ///             instrument.
+    ///         </b>
+    ///         Eight blocks were wrong when this was written and all eight were fixed
     ///         in the same commit — the mistake <c>docs/DocCommentExempt.txt</c> records is asserting
     ///         "the list is not empty, therefore this run flagged something", which goes vacuous on
     ///         exactly the day it is needed.
@@ -83,7 +88,7 @@ public class RavenDocCommentRuleTests {
             + "report a clean tree."
         );
 
-        var texts = sources.ToDictionary(file => file, File.ReadAllText, StringComparer.Ordinal);
+        var texts = sources.ToDictionary(static file => file, File.ReadAllText, StringComparer.Ordinal);
         var blocks = texts.Values.Sum(RavenDocCommentRule.Blocks);
 
         Assert.True(
@@ -115,7 +120,8 @@ public class RavenDocCommentRuleTests {
         Assert.True(
             stale.Count == 0,
             $"{stale.Count} file(s) in {RavenDocCommentRule.ExemptionsPath} no longer hold one. Delete their lines — "
-            + "the list may only shrink: " + string.Join(", ", stale)
+            + "the list may only shrink: "
+            + string.Join(", ", stale)
         );
     }
 
@@ -128,8 +134,11 @@ public class RavenDocCommentRuleTests {
     public void The_block_Lift_was_inserted_into_is_red() {
         var findings = RavenDocCommentRule.Check("Blend.rvn", SplicedOntoLift);
 
-        Assert.Contains(findings, finding => finding.Message.Contains("spliced", StringComparison.Ordinal));
-        Assert.Contains(findings, finding => finding.Message.Contains("TextureBlendDeviceTests", StringComparison.Ordinal));
+        Assert.Contains(findings, static finding => finding.Message.Contains("spliced", StringComparison.Ordinal));
+        Assert.Contains(
+            findings,
+            static finding => finding.Message.Contains("TextureBlendDeviceTests", StringComparison.Ordinal)
+        );
     }
 
     /// <summary>
@@ -147,7 +156,7 @@ public class RavenDocCommentRuleTests {
     public void The_protocol_block_that_sat_on_a_struct_is_red() {
         var findings = RavenDocCommentRule.Check("IrradianceField.rvn", StapledOntoIrradianceSample);
 
-        Assert.Contains(findings, finding => finding.Message.Contains("spliced", StringComparison.Ordinal));
+        Assert.Contains(findings, static finding => finding.Message.Contains("spliced", StringComparison.Ordinal));
     }
 
     /// <summary>A block that heads no declaration is red.</summary>
@@ -169,7 +178,10 @@ public class RavenDocCommentRuleTests {
             """
         );
 
-        Assert.Contains(findings, finding => finding.Message.Contains("documents nothing", StringComparison.Ordinal));
+        Assert.Contains(
+            findings,
+            static finding => finding.Message.Contains("documents nothing", StringComparison.Ordinal)
+        );
     }
 
     /// <summary>An XML <c>&lt;param&gt;</c> naming a parameter the function below does not have is red.</summary>
@@ -191,8 +203,11 @@ public class RavenDocCommentRuleTests {
             """
         );
 
-        Assert.Contains(findings, finding => finding.Message.Contains("`beta`", StringComparison.Ordinal));
-        Assert.Contains(findings, finding => finding.Message.Contains("`GgxAnisotropic`", StringComparison.Ordinal));
+        Assert.Contains(findings, static finding => finding.Message.Contains("`beta`", StringComparison.Ordinal));
+        Assert.Contains(
+            findings,
+            static finding => finding.Message.Contains("`GgxAnisotropic`", StringComparison.Ordinal)
+        );
     }
 
     /// <summary>
@@ -241,8 +256,12 @@ public class RavenDocCommentRuleTests {
 
     /// <summary>The shapes an over-eager rule reports and this one has to leave alone.</summary>
     /// <remarks>
-    ///     ⚠ <b>The half that decides whether this gate survives, and the fixture had no line for
-    ///     it.</b> A paragraph whose line ends a sentence <em>at</em> the wrap column ran out of room
+    ///     ⚠
+    ///     <b>
+    ///         The half that decides whether this gate survives, and the fixture had no line for
+    ///         it.
+    ///     </b>
+    ///     A paragraph whose line ends a sentence <em>at</em> the wrap column ran out of room
     ///     and continues — <c>taps</c>' block is that shape, at 100 columns against a wrap of 116 and
     ///     a slack of 18, so lowering <see cref="RavenDocCommentRule" />'s slack turns this named
     ///     case red rather than only the tree sweep. A declaration wearing
@@ -287,24 +306,24 @@ public class RavenDocCommentRuleTests {
     ///     sixteen blend modes and their neutrals described a two-line widening helper.
     /// </remarks>
     const string SplicedOntoLift = """
-        shader Blend {
-            /// The mode applied to two colours, alpha left alone.
-            ///
-            /// **Every mode has a neutral foreground, and that is what the suite reads them off.** Copy has
-            /// none by construction; multiply and divide are neutral at white, screen, add, subtract,
-            /// difference, exclusion and colour dodge at black, darken at white, lighten at black, colour
-            /// burn at white, overlay, hard light, soft light and signed add at mid-grey. ⚠ A mode
-            /// implemented with an operand swapped, a factor dropped or a `1 −` missing generally *keeps*
-            /// its distinguishing value at some point and loses its neutral, or the reverse — which is why
-            /// `TextureBlendDeviceTests` asserts both and not either.
-            /// A three-channel result back in the four lanes `Combine` answers in.
-            ///
-            /// ⚠ **The fourth lane of `Combine` is dead and this is where that is written down.** Both
-            /// `target.Store` calls in `Main` build their alpha out of `a.w`, `b.w` and `opacity` — never
-            /// out of `Combine`'s — and read the colour as `blended.xyz`.
-            func Lift(colour: float3, over: float4): float4 => float4(colour.x, colour.y, colour.z, over.w)
-        }
-        """;
+                                   shader Blend {
+                                       /// The mode applied to two colours, alpha left alone.
+                                       ///
+                                       /// **Every mode has a neutral foreground, and that is what the suite reads them off.** Copy has
+                                       /// none by construction; multiply and divide are neutral at white, screen, add, subtract,
+                                       /// difference, exclusion and colour dodge at black, darken at white, lighten at black, colour
+                                       /// burn at white, overlay, hard light, soft light and signed add at mid-grey. ⚠ A mode
+                                       /// implemented with an operand swapped, a factor dropped or a `1 −` missing generally *keeps*
+                                       /// its distinguishing value at some point and loses its neutral, or the reverse — which is why
+                                       /// `TextureBlendDeviceTests` asserts both and not either.
+                                       /// A three-channel result back in the four lanes `Combine` answers in.
+                                       ///
+                                       /// ⚠ **The fourth lane of `Combine` is dead and this is where that is written down.** Both
+                                       /// `target.Store` calls in `Main` build their alpha out of `a.w`, `b.w` and `opacity` — never
+                                       /// out of `Combine`'s — and read the colour as `blended.xyz`.
+                                       func Lift(colour: float3, over: float4): float4 => float4(colour.x, colour.y, colour.z, over.w)
+                                   }
+                                   """;
 
     /// <summary>⚠ <c>IIrradianceSource</c>'s block where it sat, on <c>struct IrradianceSample</c>.</summary>
     /// <remarks>
@@ -313,24 +332,24 @@ public class RavenDocCommentRuleTests {
     ///     no documentation of its own.
     /// </remarks>
     const string StapledOntoIrradianceSample = """
-        /// What a pass needs from an irradiance field, whatever is behind it.
-        ///
-        /// A `protocol` rather than a shader a pass hard-codes, for the reason `IDistanceFieldSource` is one: the
-        /// slot is resolved at compile time with no dispatch, so a pass that reads indirect light is written once
-        /// and a project with no field fills the slot with something that answers "none" — no permutation in the
-        /// pass, no branch, and no bindings it does not use.
-        /// What a surface receives from a field, as the three separate numbers it actually is.
-        ///
-        /// Separate because a consumer multiplies each into a different term: the irradiance into the ambient
-        /// one, the sun into the direct one, and the coverage into whichever fallback it has.
-        struct IrradianceSample {
-            /// The indirect diffuse a surface receives, divided by π — what to multiply by albedo.
-            var irradiance: float3
-        }
+                                               /// What a pass needs from an irradiance field, whatever is behind it.
+                                               ///
+                                               /// A `protocol` rather than a shader a pass hard-codes, for the reason `IDistanceFieldSource` is one: the
+                                               /// slot is resolved at compile time with no dispatch, so a pass that reads indirect light is written once
+                                               /// and a project with no field fills the slot with something that answers "none" — no permutation in the
+                                               /// pass, no branch, and no bindings it does not use.
+                                               /// What a surface receives from a field, as the three separate numbers it actually is.
+                                               ///
+                                               /// Separate because a consumer multiplies each into a different term: the irradiance into the ambient
+                                               /// one, the sun into the direct one, and the coverage into whichever fallback it has.
+                                               struct IrradianceSample {
+                                                   /// The indirect diffuse a surface receives, divided by π — what to multiply by albedo.
+                                                   var irradiance: float3
+                                               }
 
-        protocol IIrradianceSource {
-            /// Everything a field says about where a surface stands, in one lookup.
-            func Sample(position: float3, normal: float3, view: float3): IrradianceSample
-        }
-        """;
+                                               protocol IIrradianceSource {
+                                                   /// Everything a field says about where a surface stands, in one lookup.
+                                                   func Sample(position: float3, normal: float3, view: float3): IrradianceSample
+                                               }
+                                               """;
 }

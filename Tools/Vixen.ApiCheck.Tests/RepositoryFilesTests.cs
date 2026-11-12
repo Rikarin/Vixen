@@ -22,8 +22,12 @@ namespace Vixen.ApiCheck.Tests;
 ///         replaces every list with <c>git ls-files</c>.
 ///     </para>
 ///     <para>
-///         ⚠ <b>A scratch repository carrying this checkout's own <c>.gitignore</c>, not the
-///         checkout.</b> The trees that caused the failure — clones, unpacked packages, a sample's
+///         ⚠
+///         <b>
+///             A scratch repository carrying this checkout's own <c>.gitignore</c>, not the
+///             checkout.
+///         </b>
+///         The trees that caused the failure — clones, unpacked packages, a sample's
 ///         build output — are exactly what CI and a fresh worktree do not have, so "none of them is
 ///         swept" asked of the real tree is a predicate that cannot be false there.
 ///     </para>
@@ -62,7 +66,10 @@ public sealed class RepositoryFilesTests {
         scratch.GitIn(".claude/worktrees/wf_other", "init", "--quiet");
 
         Assert.Equal(
-            [".gitignore", "Core/Vixen.Demo/Demo.cs", "Core/Vixen.Demo/Shouting.CS", "Core/Vixen.Demo/Tracked.cs", "references/README.md"],
+            [
+                ".gitignore", "Core/Vixen.Demo/Demo.cs", "Core/Vixen.Demo/Shouting.CS", "Core/Vixen.Demo/Tracked.cs",
+                "references/README.md"
+            ],
             RepositoryFiles.Listed(scratch.Root).Order(StringComparer.Ordinal)
         );
 
@@ -89,10 +96,10 @@ public sealed class RepositoryFilesTests {
             var refused = Assert.Throws<InvalidOperationException>(() => RepositoryFiles.Listed(outside));
             Assert.Contains("git ls-files", refused.Message, StringComparison.Ordinal);
         } finally {
-            Directory.Delete(outside, recursive: true);
+            Directory.Delete(outside, true);
         }
 
-        using var empty = new ScratchRepository(withIgnoreFile: false);
+        using var empty = new ScratchRepository(false);
 
         Assert.Contains(
             "listed no file",
@@ -108,7 +115,7 @@ public sealed class RepositoryFilesTests {
 
         Assert.True(listed.Count > 3000, $"{listed.Count} files is not this repository.");
         Assert.Contains("Testing/RepositoryFiles.cs", listed);
-        Assert.DoesNotContain(listed, path => path.StartsWith(".claude/worktrees/", StringComparison.Ordinal));
+        Assert.DoesNotContain(listed, static path => path.StartsWith(".claude/worktrees/", StringComparison.Ordinal));
     }
 
     /// <summary>
@@ -164,22 +171,31 @@ public sealed class RepositoryFilesTests {
         ];
 
         var found = RepositoryFiles.Files(RepositoryFiles.Root, "*.cs", "*.vxml")
-            .Where(path => KeepsASkipList(File.ReadAllText(path)))
-            .Select(path => Path.GetRelativePath(RepositoryFiles.Root, path).Replace('\\', '/'))
-            .Where(path => path != "Tools/Vixen.ApiCheck.Tests/RepositoryFilesTests.cs")
+            .Where(static path => KeepsASkipList(File.ReadAllText(path)))
+            .Select(static path => Path.GetRelativePath(RepositoryFiles.Root, path).Replace('\\', '/'))
+            .Where(static path => path != "Tools/Vixen.ApiCheck.Tests/RepositoryFilesTests.cs")
             .Order(StringComparer.Ordinal)
             .ToList();
 
         Assert.Equal(
             string.Empty,
-            string.Join('\n', found.Except(named).Select(path =>
-                $"{path} names two or more build-output directories on one line or in one comparison — a sweep deciding for itself "
-                + "what the repository is. Read it through Testing/RepositoryFiles.cs (#1424)."))
+            string.Join(
+                '\n',
+                found.Except(named)
+                    .Select(static path =>
+                        $"{path} names two or more build-output directories on one line or in one comparison — a sweep deciding for itself "
+                        + "what the repository is. Read it through Testing/RepositoryFiles.cs (#1424)."
+                    )
+            )
         );
 
         Assert.Equal(
             string.Empty,
-            string.Join('\n', named.Except(found).Select(path => $"{path} is named here and no longer keeps a list — delete its line."))
+            string.Join(
+                '\n',
+                named.Except(found)
+                    .Select(static path => $"{path} is named here and no longer keeps a list — delete its line.")
+            )
         );
     }
 
@@ -203,13 +219,13 @@ public sealed class RepositoryFilesTests {
     ///     in one statement that also compares against them.
     /// </summary>
     static bool KeepsASkipList(string source) {
-        static int Distinct(string text) =>
-            SkipList.Matches(text).Select(match => match.Value).Distinct(StringComparer.Ordinal).Count();
-
         return source.Split('\n').Any(line => Distinct(line) >= 2)
             || LineComment.Replace(source, string.Empty)
                 .Split(';')
                 .Any(statement => Distinct(statement) >= 2 && Comparison.IsMatch(statement));
+
+        static int Distinct(string text) =>
+            SkipList.Matches(text).Select(static match => match.Value).Distinct(StringComparer.Ordinal).Count();
     }
 
     /// <summary>A throwaway git repository in a temp folder, with this checkout's <c>.gitignore</c>.</summary>
@@ -260,7 +276,7 @@ public sealed class RepositoryFilesTests {
                 File.SetAttributes(file, FileAttributes.Normal);
             }
 
-            Directory.Delete(Root, recursive: true);
+            Directory.Delete(Root, true);
         }
     }
 }

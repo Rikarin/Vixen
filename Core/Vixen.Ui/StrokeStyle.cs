@@ -6,8 +6,12 @@ namespace Vixen.Ui;
 /// <summary>What a <c>border-style</c> or an <c>outline-style</c> asks a stroke to look like.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b><see cref="Solid" /> is zero and it is what an element that declares no style gets,
-///         which is a deliberate departure from CSS's initial value of <c>none</c>.</b> A browser
+///         ⚠
+///         <b>
+///             <see cref="Solid" /> is zero and it is what an element that declares no style gets,
+///             which is a deliberate departure from CSS's initial value of <c>none</c>.
+///         </b>
+///         A browser
 ///         paints nothing for <c>border-width: 2px</c> alone; this engine has always painted, and
 ///         every stylesheet, theme and utility class in the tree is written against that — the
 ///         <c>border-*</c> family emits a width and no style at all, and v4 emits
@@ -17,8 +21,12 @@ namespace Vixen.Ui;
 ///         <c>border</c> shorthand carry a width without committing to one.
 ///     </para>
 ///     <para>
-///         ⚠ <b><c>groove</c>, <c>ridge</c>, <c>inset</c> and <c>outset</c> are absent rather than
-///         aliased onto <see cref="Solid" />.</b> All four are two-tone: CSS derives a lighter and a
+///         ⚠
+///         <b>
+///             <c>groove</c>, <c>ridge</c>, <c>inset</c> and <c>outset</c> are absent rather than
+///             aliased onto <see cref="Solid" />.
+///         </b>
+///         All four are two-tone: CSS derives a lighter and a
 ///         darker shade of the border colour and gives one to each pair of edges, which is a second
 ///         colour this engine's border record does not carry. An alias would resolve, compute and
 ///         paint a flat ring — the inert shape the utility gate exists to keep out — so an
@@ -94,8 +102,12 @@ static class Dashes {
     /// <param name="style">Which of the two broken styles.</param>
     /// <param name="into">Where the marks go. Cleared first.</param>
     /// <remarks>
-    ///     ⚠ <b>The ink is exactly <c>count × mark</c>, which is what makes this testable without a
-    ///     picture.</b> A dashed run covers strictly less than the run it is on and covers a length
+    ///     ⚠
+    ///     <b>
+    ///         The ink is exactly <c>count × mark</c>, which is what makes this testable without a
+    ///         picture.
+    ///     </b>
+    ///     A dashed run covers strictly less than the run it is on and covers a length
     ///     nobody has to eyeball, so a test can assert the covered area rather than compare two
     ///     images — the closed-form oracle this repository prefers over a reference PNG.
     /// </remarks>
@@ -111,7 +123,7 @@ static class Dashes {
         var gap = GapOf(style, thickness);
 
         if (mark <= 0f || length <= mark) {
-            into.Add(new DashMark(0f, length));
+            into.Add(new(0f, length));
             return;
         }
 
@@ -119,17 +131,17 @@ static class Dashes {
         // on a mark — so `length + gap` is what divides evenly. Clamped so the marks cannot ask for
         // more room than the run has, which `Round` can do on a run just under two periods.
         var period = mark + gap;
-        var count = Math.Clamp((int) MathF.Round((length + gap) / period), 1, (int) (length / mark));
+        var count = Math.Clamp((int)MathF.Round((length + gap) / period), 1, (int)(length / mark));
 
         if (count <= 1) {
-            into.Add(new DashMark(0f, length));
+            into.Add(new(0f, length));
             return;
         }
 
-        var spread = (length - (count * mark)) / (count - 1);
+        var spread = (length - count * mark) / (count - 1);
 
         for (var i = 0; i < count; i++) {
-            into.Add(new DashMark(i * (mark + spread), mark));
+            into.Add(new(i * (mark + spread), mark));
         }
     }
 }

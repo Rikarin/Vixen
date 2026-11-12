@@ -40,8 +40,11 @@ namespace Vixen.Editor.App;
 ///         application's.
 ///     </para>
 ///     <para>
-///         <b>The fifth made the Scene menu, the Scenes panel and Open Scene Additively / Close Scene
-///         the module's</b> — <see cref="SceneMenuBar" /> and <see cref="ScenesPanel" />, over
+///         <b>
+///             The fifth made the Scene menu, the Scenes panel and Open Scene Additively / Close Scene
+///             the module's
+///         </b>
+///         — <see cref="SceneMenuBar" /> and <see cref="ScenesPanel" />, over
 ///         <see cref="ISceneEditing.OpenAdditively" /> and <see cref="ISceneEditing.Close" />. The outliner's
 ///         context menu was already <see cref="SceneOutliner" />'s.
 ///     </para>
@@ -59,7 +62,13 @@ sealed class SceneModule : IEditorPlugin {
 
         bool Selected() => editing.Active.Selection.Count > 0;
 
-        Verb(context, "entity.create-child", EditorStrings.CommandEntityCreateChild, () => editing.CreateChild(), Selected);
+        Verb(
+            context,
+            "entity.create-child",
+            EditorStrings.CommandEntityCreateChild,
+            () => editing.CreateChild(),
+            Selected
+        );
 
         Verb(context, "entity.group", EditorStrings.CommandEntityGroup, () => editing.Group(), Selected);
 
@@ -98,9 +107,12 @@ sealed class SceneModule : IEditorPlugin {
         // moves a vertex. See `SceneProbe`'s own remarks.
         Verb(context, "entity.snap-to-floor", EditorStrings.CommandEntitySnapToFloor, editing.SnapToFloor, Selected);
 
-        context.AddDefaultBinding("entity.create-child", new KeyChord(InputKey.N, ModifierKeys.Alt | ModifierKeys.Shift));
-        context.AddDefaultBinding("entity.group", new KeyChord(InputKey.G, ModifierKeys.Control));
-        context.AddDefaultBinding("entity.snap-to-floor", new KeyChord(InputKey.End, ModifierKeys.None));
+        context.AddDefaultBinding(
+            "entity.create-child",
+            new(InputKey.N, ModifierKeys.Alt | ModifierKeys.Shift)
+        );
+        context.AddDefaultBinding("entity.group", new(InputKey.G, ModifierKeys.Control));
+        context.AddDefaultBinding("entity.snap-to-floor", new(InputKey.End, ModifierKeys.None));
 
         // ── The Entity menu's planned lines and the two marks (#1296) ───────────────────────────
         // Declared and disabled with the reason, which is doc 20's E0: a verb that is not implemented
@@ -108,9 +120,8 @@ sealed class SceneModule : IEditorPlugin {
         // with the rest of the Entity menu's lines, so switching this module off takes all of them.
         foreach (var (id, title) in PlannedEntityLines) {
             context.AddCommand(
-                new EditorCommand(id, title, () => { }) {
-                    Category = EditorStrings.CategoryEntity,
-                    Unavailable = EditorStrings.PlannedReasons[id]
+                new EditorCommand(id, title, static () => { }) {
+                    Category = EditorStrings.CategoryEntity, Unavailable = EditorStrings.PlannedReasons[id]
                 }
             );
         }
@@ -124,7 +135,11 @@ sealed class SceneModule : IEditorPlugin {
             new EditorCommand(
                 "entity.toggle-hidden",
                 EditorStrings.CommandEntityToggleHidden,
-                () => Mark(editing, static (scene, entity) => scene.IsHiddenDirectly(entity), static (scene, entity, on) => scene.SetHidden(entity, on))
+                () => Mark(
+                    editing,
+                    static (scene, entity) => scene.IsHiddenDirectly(entity),
+                    static (scene, entity, on) => scene.SetHidden(entity, on)
+                )
             ) {
                 Category = EditorStrings.CategoryEntity,
                 Enablement = Selected,
@@ -136,7 +151,11 @@ sealed class SceneModule : IEditorPlugin {
             new EditorCommand(
                 "entity.toggle-lock",
                 EditorStrings.CommandEntityToggleLock,
-                () => Mark(editing, static (scene, entity) => scene.IsLockedDirectly(entity), static (scene, entity, on) => scene.SetLocked(entity, on))
+                () => Mark(
+                    editing,
+                    static (scene, entity) => scene.IsLockedDirectly(entity),
+                    static (scene, entity, on) => scene.SetLocked(entity, on)
+                )
             ) {
                 Category = EditorStrings.CategoryEntity,
                 Enablement = Selected,
@@ -144,21 +163,27 @@ sealed class SceneModule : IEditorPlugin {
             }
         );
 
-        context.AddDefaultBinding("entity.toggle-hidden", new KeyChord(InputKey.H, ModifierKeys.None));
-        context.AddDefaultBinding("entity.toggle-lock", new KeyChord(InputKey.L, ModifierKeys.None));
+        context.AddDefaultBinding("entity.toggle-hidden", new(InputKey.H, ModifierKeys.None));
+        context.AddDefaultBinding("entity.toggle-lock", new(InputKey.L, ModifierKeys.None));
 
         // ── Part D's verbs that ask nothing (#1290's second slice) ──────────────────────────────
         context.AddCommand(
-            new EditorCommand("edit.isolate", EditorStrings.CommandEditIsolate, editing.Isolate) {
+            new("edit.isolate", EditorStrings.CommandEditIsolate, editing.Isolate) {
                 Category = EditorStrings.CategoryEdit,
                 Enablement = () => editing.IsIsolating || Selected(),
                 Checked = () => editing.IsIsolating
             }
         );
 
-        context.AddDefaultBinding("edit.isolate", new KeyChord(InputKey.I, ModifierKeys.Control | ModifierKeys.Shift));
+        context.AddDefaultBinding("edit.isolate", new(InputKey.I, ModifierKeys.Control | ModifierKeys.Shift));
 
-        Verb(context, "entity.reset-transform", EditorStrings.CommandEntityResetTransform, editing.ResetTransform, Selected);
+        Verb(
+            context,
+            "entity.reset-transform",
+            EditorStrings.CommandEntityResetTransform,
+            editing.ResetTransform,
+            Selected
+        );
 
         Verb(
             context,
@@ -190,12 +215,13 @@ sealed class SceneModule : IEditorPlugin {
                 "scene.create-entity",
                 EditorStrings.CommandCreateEntity,
                 () => editing.CreateEntity()
-            ) {
-                Category = EditorStrings.CategoryEdit
-            }
+            ) { Category = EditorStrings.CategoryEdit }
         );
 
-        context.AddDefaultBinding("scene.create-entity", new KeyChord(InputKey.N, ModifierKeys.Control | ModifierKeys.Shift));
+        context.AddDefaultBinding(
+            "scene.create-entity",
+            new(InputKey.N, ModifierKeys.Control | ModifierKeys.Shift)
+        );
 
         ShapeCommands(context, editing);
         ObjectCommands(context, editing);
@@ -225,7 +251,7 @@ sealed class SceneModule : IEditorPlugin {
 
         context.Publish(outliner);
         context.AddPanel(
-            new PanelDescriptor(SceneOutliner.PanelId, EditorStrings.PanelHierarchy, outliner.Build) { Closed = outliner.Closed }
+            new(SceneOutliner.PanelId, EditorStrings.PanelHierarchy, outliner.Build) { Closed = outliner.Closed }
         );
         context.OnUpdate(_ => outliner.Update());
 
@@ -259,11 +285,11 @@ sealed class SceneModule : IEditorPlugin {
         // guessing from "is anything selected" gets it wrong the moment both panels have a selection
         // — which after clicking an asset and then a row is most of the time.
         context.AddCommand(
-            new EditorCommand("edit.delete", EditorStrings.CommandEditDelete, () => editing.Active.Delete([.. editing.Active.Selection])) {
-                Category = EditorStrings.CategoryEdit,
-                Context = EditorApplication.SceneContext,
-                Enablement = Selected
-            }
+            new EditorCommand(
+                "edit.delete",
+                EditorStrings.CommandEditDelete,
+                () => editing.Active.Delete([..editing.Active.Selection])
+            ) { Category = EditorStrings.CategoryEdit, Context = EditorApplication.SceneContext, Enablement = Selected }
         );
 
         // In place, in the outliner — which is why it needs the outliner open.
@@ -283,8 +309,8 @@ sealed class SceneModule : IEditorPlugin {
             }
         );
 
-        context.AddDefaultBinding("edit.delete", new KeyChord(InputKey.Delete, ModifierKeys.None));
-        context.AddDefaultBinding("edit.rename", new KeyChord(InputKey.F2, ModifierKeys.None));
+        context.AddDefaultBinding("edit.delete", new(InputKey.Delete, ModifierKeys.None));
+        context.AddDefaultBinding("edit.rename", new(InputKey.F2, ModifierKeys.None));
 
         // ⚠ This block said "Cut, Copy, Paste and Duplicate need a subtree *clone*, which the engine
         // does not have", and `SceneClone`'s own remarks call themselves "the thing doc 20's
@@ -292,14 +318,19 @@ sealed class SceneModule : IEditorPlugin {
         // now. The other three still are not, and the reason is no longer the copy: a clipboard is a
         // *buffer that outlives the selection* — what was cut has to survive being deleted, and a
         // paste has to land somewhere the copy did not come from.
-        EditVerb(context, "edit.duplicate", EditorStrings.CommandEditDuplicate, () => editing.DuplicateSelection(), Selected);
+        EditVerb(
+            context,
+            "edit.duplicate",
+            EditorStrings.CommandEditDuplicate,
+            () => editing.DuplicateSelection(),
+            Selected
+        );
 
         foreach (var (id, title, key) in Clipboard()) {
             if (context.Shell.Commands[id] is null) {
                 context.AddCommand(
-                    new EditorCommand(id, title, () => { }) {
-                        Category = EditorStrings.CategoryEdit,
-                        Unavailable = EditorStrings.PlannedReasons[id]
+                    new EditorCommand(id, title, static () => { }) {
+                        Category = EditorStrings.CategoryEdit, Unavailable = EditorStrings.PlannedReasons[id]
                     }
                 );
             }
@@ -309,7 +340,12 @@ sealed class SceneModule : IEditorPlugin {
             }
         }
 
-        EditVerb(context, "edit.select-all", EditorStrings.CommandEditSelectAll, () => editing.Active.Selection.Set([.. editing.Active.Entities]));
+        EditVerb(
+            context,
+            "edit.select-all",
+            EditorStrings.CommandEditSelectAll,
+            () => editing.Active.Selection.Set([..editing.Active.Entities])
+        );
 
         // Through the outliner when it is open: the rows' highlight is the tree's own state and the
         // document's selection is written from it, so clearing only the document would leave a row
@@ -327,11 +363,20 @@ sealed class SceneModule : IEditorPlugin {
         );
 
         EditVerb(context, "edit.invert-selection", EditorStrings.CommandEditInvertSelection, editing.InvertSelection);
-        EditVerb(context, "edit.select-children", EditorStrings.CommandEditSelectChildren, editing.SelectChildren, Selected);
+        EditVerb(
+            context,
+            "edit.select-children",
+            EditorStrings.CommandEditSelectChildren,
+            editing.SelectChildren,
+            Selected
+        );
         EditVerb(context, "edit.select-parent", EditorStrings.CommandEditSelectParent, editing.SelectParent, Selected);
 
-        context.AddDefaultBinding("edit.select-all", new KeyChord(InputKey.A, ModifierKeys.Control));
-        context.AddDefaultBinding("edit.deselect-all", new KeyChord(InputKey.A, ModifierKeys.Control | ModifierKeys.Shift));
+        context.AddDefaultBinding("edit.select-all", new(InputKey.A, ModifierKeys.Control));
+        context.AddDefaultBinding(
+            "edit.deselect-all",
+            new(InputKey.A, ModifierKeys.Control | ModifierKeys.Shift)
+        );
 
         // ── The Scenes panel and the multi-scene verbs (#1290's fifth slice) ───────────────────
         // ⚠ Over `ISceneEditing.OpenAdditively`/`Close`; the picker is the published one, so a host
@@ -370,12 +415,7 @@ sealed class SceneModule : IEditorPlugin {
 
     /// <summary>Registers one of the Edit menu's verbs.</summary>
     static void EditVerb(PluginContext context, string id, StringId title, Action run, Func<bool>? enabled = null) =>
-        context.AddCommand(
-            new EditorCommand(id, title, run) {
-                Category = EditorStrings.CategoryEdit,
-                Enablement = enabled
-            }
-        );
+        context.AddCommand(new(id, title, run) { Category = EditorStrings.CategoryEdit, Enablement = enabled });
 
     /// <summary>The Entity menu's lines that are declared and not yet built, in the order the menu shows them.</summary>
     static readonly (string Id, StringId Title)[] PlannedEntityLines = [
@@ -437,9 +477,7 @@ sealed class SceneModule : IEditorPlugin {
                     ShapeCommandId(shape),
                     EditorStrings.CreateShapes[name.ToLowerInvariant()],
                     () => editing.CreateShape(shape)
-                ) {
-                    Category = EditorStrings.CategoryCreate
-                }
+                ) { Category = EditorStrings.CategoryCreate }
             );
         }
     }
@@ -450,8 +488,12 @@ sealed class SceneModule : IEditorPlugin {
 
     /// <summary>One command per kind of light, and one for a camera.</summary>
     /// <remarks>
-    ///     ⚠ <b>Commands rather than menu lines, which is <see cref="ShapeCommands" />' argument
-    ///     applied to the other half of a Create menu.</b> "Create Point Light" being findable in the
+    ///     ⚠
+    ///     <b>
+    ///         Commands rather than menu lines, which is <see cref="ShapeCommands" />' argument
+    ///         applied to the other half of a Create menu.
+    ///     </b>
+    ///     "Create Point Light" being findable in the
     ///     palette and bindable to a key is what makes it a thing the editor can do, rather than a
     ///     thing one menu happens to offer — and it is why the Scene menu and the hierarchy's context
     ///     menu can both name it without either of them owning it.
@@ -465,9 +507,7 @@ sealed class SceneModule : IEditorPlugin {
                     LightCommandId(light),
                     EditorStrings.CreateLights[Lights.NameOf(light).ToLowerInvariant()],
                     () => editing.CreateLight(light)
-                ) {
-                    Category = EditorStrings.CategoryCreate
-                }
+                ) { Category = EditorStrings.CategoryCreate }
             );
         }
 
@@ -476,9 +516,7 @@ sealed class SceneModule : IEditorPlugin {
                 "scene.create-camera",
                 EditorStrings.CommandCreateCamera,
                 () => editing.CreateCamera()
-            ) {
-                Category = EditorStrings.CategoryCreate
-            }
+            ) { Category = EditorStrings.CategoryCreate }
         );
     }
 
@@ -487,10 +525,5 @@ sealed class SceneModule : IEditorPlugin {
         "scene.create-light-" + Lights.NameOf(kind).ToLowerInvariant();
 
     static void Verb(PluginContext context, string id, StringId title, Action run, Func<bool> enabled) =>
-        context.AddCommand(
-            new EditorCommand(id, title, run) {
-                Category = EditorStrings.CategoryEntity,
-                Enablement = enabled
-            }
-        );
+        context.AddCommand(new(id, title, run) { Category = EditorStrings.CategoryEntity, Enablement = enabled });
 }

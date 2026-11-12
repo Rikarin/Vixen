@@ -8,8 +8,12 @@ namespace Vixen.Geometry.Uv.Packing;
 /// <summary>One island rasterized to texels, in one orientation, beside the same shape grown by the margin.</summary>
 /// <remarks>
 ///     <para>
-///         docs/plan/42 § D7. ⚠ <b>Rasterized masks rather than no-fit polygons, and the reason is
-///         rotation.</b> An NFP needs a unique polygon per <i>pair</i> per <i>orientation</i>, so
+///         docs/plan/42 § D7. ⚠
+///         <b>
+///             Rasterized masks rather than no-fit polygons, and the reason is
+///             rotation.
+///         </b>
+///         An NFP needs a unique polygon per <i>pair</i> per <i>orientation</i>, so
 ///         sixteen orientations of a thousand islands is a quarter of a billion polygons. A bitmask
 ///         overlap test is a word-wise <c>AND</c>, it is trivially parallel, it is trivially
 ///         deterministic, and it gets <i>more</i> accurate as the atlas grows — which is the direction
@@ -56,10 +60,10 @@ sealed class IslandMask {
     public int Margin { get; }
 
     /// <summary>The grown shape's width — the raw one plus a margin on each side.</summary>
-    public int GrownWidth => Width + (2 * Margin);
+    public int GrownWidth => Width + 2 * Margin;
 
     /// <summary>Its height.</summary>
-    public int GrownHeight => Height + (2 * Margin);
+    public int GrownHeight => Height + 2 * Margin;
 
     /// <summary>The raw shape, one bit per texel, row-major.</summary>
     public ulong[] Raw { get; }
@@ -84,8 +88,12 @@ sealed class IslandMask {
 
     /// <summary>A hash of the shape itself, which is what breaks a tie between two equal areas.</summary>
     /// <remarks>
-    ///     ⚠ <b>Ordering by area with the input index as the only tie-break is not order-independent,
-    ///     and that is a trap rather than a subtlety.</b> Two islands of the same texel area and
+    ///     ⚠
+    ///     <b>
+    ///         Ordering by area with the input index as the only tie-break is not order-independent,
+    ///         and that is a trap rather than a subtlety.
+    ///     </b>
+    ///     Two islands of the same texel area and
     ///     different shapes swap places when the caller hands them over in a different order, and every
     ///     placement after them moves. docs/plan/42 § D7 asks for the same islands to pack the same way;
     ///     a key taken from the shape gets that, and the index stays as the final tie-break for two
@@ -147,9 +155,9 @@ sealed class IslandMask {
         }
 
         for (var triangle = 0; triangle < triangles; triangle++) {
-            var a = (coordinates![(triangle * 3) + 0] - island.Minimum) * scale;
-            var b = (coordinates[(triangle * 3) + 1] - island.Minimum) * scale;
-            var c = (coordinates[(triangle * 3) + 2] - island.Minimum) * scale;
+            var a = (coordinates![triangle * 3] - island.Minimum) * scale;
+            var b = (coordinates[triangle * 3 + 1] - island.Minimum) * scale;
+            var c = (coordinates[triangle * 3 + 2] - island.Minimum) * scale;
 
             Fill(coverage, width, height, a, b, c);
         }
@@ -180,8 +188,8 @@ sealed class IslandMask {
         }
 
         var grown = Grow(coverage, width, height, margin);
-        var grownWidth = width + (2 * margin);
-        var grownHeight = height + (2 * margin);
+        var grownWidth = width + 2 * margin;
+        var grownHeight = height + 2 * margin;
         var bottom = new int[width];
         var grownTop = new int[grownWidth];
 
@@ -189,7 +197,7 @@ sealed class IslandMask {
             bottom[x] = -1;
 
             for (var y = 0; y < height; y++) {
-                if (coverage[(y * width) + x] != 0) {
+                if (coverage[y * width + x] != 0) {
                     bottom[x] = y;
 
                     break;
@@ -199,7 +207,7 @@ sealed class IslandMask {
 
         for (var x = 0; x < grownWidth; x++) {
             for (var y = grownHeight - 1; y >= 0; y--) {
-                if (grown[(y * grownWidth) + x] != 0) {
+                if (grown[y * grownWidth + x] != 0) {
                     grownTop[x] = y + 1;
 
                     break;
@@ -221,7 +229,7 @@ sealed class IslandMask {
 
         var signature = 14695981039346656037UL;
 
-        foreach (var word in (ulong[])[(ulong)width, (ulong)height, .. raw]) {
+        foreach (var word in (ulong[])[(ulong)width, (ulong)height, ..raw]) {
             signature = (signature ^ word) * 1099511628211UL;
         }
 
@@ -243,7 +251,7 @@ sealed class IslandMask {
                 // (x, y) → (h - 1 - y, x), which is the discrete form of the coordinate turn
                 // `UvPlacement.Apply` performs. The two have to agree or the mask describes a shape
                 // the coordinates never take.
-                turned[(x * height) + (height - 1 - y)] = coverage[(y * width) + x];
+                turned[x * height + (height - 1 - y)] = coverage[y * width + x];
             }
         }
 
@@ -257,10 +265,10 @@ sealed class IslandMask {
 
         for (var y = 0; y < Height; y++) {
             for (var x = 0; x < Width; x++) {
-                var word = Raw[(y * RawStride) + (x >> WordShift)];
+                var word = Raw[y * RawStride + (x >> WordShift)];
 
                 if ((word & (1UL << (x & 63))) != 0) {
-                    coverage[(y * Width) + x] = 1;
+                    coverage[y * Width + x] = 1;
                 }
             }
         }
@@ -289,7 +297,7 @@ sealed class IslandMask {
     }
 
     static void Fill(byte[] coverage, int width, int height, Vector2 a, Vector2 b, Vector2 c) {
-        var twice = ((b.X - a.X) * (c.Y - a.Y)) - ((b.Y - a.Y) * (c.X - a.X));
+        var twice = (b.X - a.X) * (c.Y - a.Y) - (b.Y - a.Y) * (c.X - a.X);
 
         if (!float.IsFinite(twice)) {
             return;
@@ -328,25 +336,25 @@ sealed class IslandMask {
             for (var x = minimumX; x <= maximumX; x++) {
                 var centreX = x + 0.5f;
 
-                var edgeA = ((b.X - a.X) * (centreY - a.Y)) - ((b.Y - a.Y) * (centreX - a.X));
+                var edgeA = (b.X - a.X) * (centreY - a.Y) - (b.Y - a.Y) * (centreX - a.X);
 
                 if (edgeA + biasA < 0f) {
                     continue;
                 }
 
-                var edgeB = ((c.X - b.X) * (centreY - b.Y)) - ((c.Y - b.Y) * (centreX - b.X));
+                var edgeB = (c.X - b.X) * (centreY - b.Y) - (c.Y - b.Y) * (centreX - b.X);
 
                 if (edgeB + biasB < 0f) {
                     continue;
                 }
 
-                var edgeC = ((a.X - c.X) * (centreY - c.Y)) - ((a.Y - c.Y) * (centreX - c.X));
+                var edgeC = (a.X - c.X) * (centreY - c.Y) - (a.Y - c.Y) * (centreX - c.X);
 
                 if (edgeC + biasC < 0f) {
                     continue;
                 }
 
-                coverage[(y * width) + x] = 1;
+                coverage[y * width + x] = 1;
             }
         }
     }
@@ -359,13 +367,13 @@ sealed class IslandMask {
         var x = Math.Clamp((int)MathF.Floor(point.X), 0, width - 1);
         var y = Math.Clamp((int)MathF.Floor(point.Y), 0, height - 1);
 
-        coverage[(y * width) + x] = 1;
+        coverage[y * width + x] = 1;
     }
 
     /// <summary>Chebyshev dilation, separably, because a filter footprint is a box and not a disc.</summary>
     static byte[] Grow(byte[] coverage, int width, int height, int margin) {
-        var grownWidth = width + (2 * margin);
-        var grownHeight = height + (2 * margin);
+        var grownWidth = width + 2 * margin;
+        var grownHeight = height + 2 * margin;
         var grown = new byte[grownWidth * grownHeight];
 
         if (margin == 0) {
@@ -374,7 +382,7 @@ sealed class IslandMask {
             return grown;
         }
 
-        var window = (2 * margin) + 1;
+        var window = 2 * margin + 1;
         var horizontal = new byte[grownWidth * height];
 
         for (var y = 0; y < height; y++) {
@@ -383,18 +391,18 @@ sealed class IslandMask {
             for (var x = 0; x < grownWidth; x++) {
                 // The window ending at x covers source columns [x - 2m, x], which is exactly the set
                 // within Chebyshev distance m of the source column x - m.
-                if (x < width && coverage[(y * width) + x] != 0) {
+                if (x < width && coverage[y * width + x] != 0) {
                     count++;
                 }
 
                 var leaving = x - window;
 
-                if (leaving >= 0 && leaving < width && coverage[(y * width) + leaving] != 0) {
+                if (leaving >= 0 && leaving < width && coverage[y * width + leaving] != 0) {
                     count--;
                 }
 
                 if (count > 0) {
-                    horizontal[(y * grownWidth) + x] = 1;
+                    horizontal[y * grownWidth + x] = 1;
                 }
             }
         }
@@ -403,18 +411,18 @@ sealed class IslandMask {
             var count = 0;
 
             for (var y = 0; y < grownHeight; y++) {
-                if (y < height && horizontal[(y * grownWidth) + x] != 0) {
+                if (y < height && horizontal[y * grownWidth + x] != 0) {
                     count++;
                 }
 
                 var leaving = y - window;
 
-                if (leaving >= 0 && leaving < height && horizontal[(leaving * grownWidth) + x] != 0) {
+                if (leaving >= 0 && leaving < height && horizontal[leaving * grownWidth + x] != 0) {
                     count--;
                 }
 
                 if (count > 0) {
-                    grown[(y * grownWidth) + x] = 1;
+                    grown[y * grownWidth + x] = 1;
                 }
             }
         }
@@ -428,8 +436,8 @@ sealed class IslandMask {
 
         for (var y = 0; y < height; y++) {
             for (var x = 0; x < width; x++) {
-                if (coverage[(y * width) + x] != 0) {
-                    bits[(y * stride) + (x >> WordShift)] |= 1UL << (x & 63);
+                if (coverage[y * width + x] != 0) {
+                    bits[y * stride + (x >> WordShift)] |= 1UL << (x & 63);
                 }
             }
         }

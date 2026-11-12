@@ -5,7 +5,6 @@ using Vixen.Core.Syntax.Diagnostics;
 using Vixen.Raven;
 using Vixen.Raven.Artefacts;
 using Vixen.Raven.CodeGen;
-using Vixen.Raven.Diagnostics;
 using Vixen.Raven.IR;
 using Vixen.Raven.Lowering;
 using Vixen.Raven.Reflection;
@@ -117,7 +116,7 @@ public class WritableResourceTests {
     [InlineData("Buffer<Sampler>")]
     [InlineData("RWBuffer<Texture2D>")]
     public void AnElementWithNoLayoutIsRefused(string type) {
-        Assert.Contains(Declare($"var data: {type}"), d => d.Id == "RVN2118" && d.IsError);
+        Assert.Contains(Declare($"var data: {type}"), static d => d.Id == "RVN2118" && d.IsError);
     }
 
     /// <summary>
@@ -135,13 +134,13 @@ public class WritableResourceTests {
     public void ANestedBufferIsRefusedByTheElementCheck() {
         var diagnostics = Declare("var data: Buffer<Buffer<float>>");
 
-        Assert.Contains(diagnostics, d => d.Id == "RVN2118" && d.IsError);
-        Assert.DoesNotContain(diagnostics, d => d.Id == "RVN1001");
+        Assert.Contains(diagnostics, static d => d.Id == "RVN2118" && d.IsError);
+        Assert.DoesNotContain(diagnostics, static d => d.Id == "RVN1001");
     }
 
     [Fact]
     public void ABufferNeedsExactlyOneElementType() {
-        var error = Assert.Single(Declare("var data: Buffer<float, int>"), d => d.Id == "RVN2004");
+        var error = Assert.Single(Declare("var data: Buffer<float, int>"), static d => d.Id == "RVN2004");
         Assert.True(error.IsError);
     }
 
@@ -164,7 +163,7 @@ public class WritableResourceTests {
     [InlineData("sized[0] = 1f")]
     public void AWriteToAReadOnlyBindingIsRefused(string statement) {
         var diagnostics = Body(statement);
-        var error = Assert.Single(diagnostics, d => d.Id == "RVN2119");
+        var error = Assert.Single(diagnostics, static d => d.Id == "RVN2119");
         Assert.True(error.IsError);
     }
 
@@ -173,7 +172,7 @@ public class WritableResourceTests {
     /// </summary>
     [Fact]
     public void TheReadOnlyBufferMessageNamesTheAlternative() {
-        var error = Assert.Single(Body("readOnly[0] = 1f"), d => d.Id == "RVN2119");
+        var error = Assert.Single(Body("readOnly[0] = 1f"), static d => d.Id == "RVN2119");
         Assert.Contains("RWBuffer", error.GetMessage(), StringComparison.Ordinal);
     }
 
@@ -181,7 +180,7 @@ public class WritableResourceTests {
     [InlineData("writable[0] = 1f")]
     [InlineData("var local = 1f\n        local = 2f")]
     public void AWriteToSomethingWritableIsAllowed(string statement) {
-        Assert.DoesNotContain(Body(statement), d => d.Id == "RVN2119");
+        Assert.DoesNotContain(Body(statement), static d => d.Id == "RVN2119");
     }
 
     /// <summary>
@@ -214,7 +213,7 @@ public class WritableResourceTests {
 
                      """;
 
-        var error = Assert.Single(Compile(source), d => d.Id == "RVN2119");
+        var error = Assert.Single(Compile(source), static d => d.Id == "RVN2119");
         Assert.Contains("'readOnly'", error.GetMessage(), StringComparison.Ordinal);
     }
 
@@ -309,13 +308,13 @@ public class WritableResourceTests {
         var module = Lower(Source);
         var shader = LoweringTestBase.FindShader(module, "Step");
 
-        Assert.True(shader.Bindings.Single(binding => binding.Name == "particles").IsWritable);
-        Assert.False(shader.Bindings.Single(binding => binding.Name == "spawn").IsWritable);
+        Assert.True(shader.Bindings.Single(static binding => binding.Name == "particles").IsWritable);
+        Assert.False(shader.Bindings.Single(static binding => binding.Name == "spawn").IsWritable);
 
         // And the decoration the backend writes from it. `readonly` on a buffer that is stored into
         // is what the GLSL front end refuses, and asserting the emitted text is the cheapest way to
         // hold the fix without a reference compiler on the machine.
-        var generated = Assert.Single(CodeGenTestBase.GenerateClean(Source, "glsl"));
+        var generated = Assert.Single(CodeGenTestBase.GenerateClean(Source));
 
         Assert.Contains("buffer particlesBlock", generated.Code, StringComparison.Ordinal);
         Assert.DoesNotContain("readonly buffer particlesBlock", generated.Code, StringComparison.Ordinal);
@@ -335,9 +334,9 @@ public class WritableResourceTests {
     [Fact]
     public void TheReflectionReportsStd430AndTheHostsCount() {
         var reflection = ReflectionBuilder.Describe(Lower(Simulate).Shaders.Single());
-        var bindings = reflection.Sets.SelectMany(set => set.Bindings).ToArray();
+        var bindings = reflection.Sets.SelectMany(static set => set.Bindings).ToArray();
 
-        var particles = bindings.Single(b => b.Name == "particles");
+        var particles = bindings.Single(static b => b.Name == "particles");
         Assert.Equal(DescriptorType.StorageBuffer, particles.Type);
         Assert.True(particles.IsWritable);
 
@@ -348,9 +347,9 @@ public class WritableResourceTests {
 
         // Offsets are the element's, relative to the start of one element — which is what the host
         // needs, since the stride is what gets it from one to the next.
-        Assert.Equal([0, 0, 12, 16, 28], particles.Members.Select(m => m.Offset));
+        Assert.Equal([0, 0, 12, 16, 28], particles.Members.Select(static m => m.Offset));
 
-        Assert.False(bindings.Single(b => b.Name == "spawn").IsWritable);
+        Assert.False(bindings.Single(static b => b.Name == "spawn").IsWritable);
     }
 
     /// <summary>
@@ -366,10 +365,10 @@ public class WritableResourceTests {
     public void Std140AndStd430DisagreeAboutAnArrayMember() {
         var array = new IrArrayType(IrScalarType.Float, 4);
 
-        Assert.Equal(16, ShaderLayout.ArrayStride(array, LayoutRule.Std140));
+        Assert.Equal(16, ShaderLayout.ArrayStride(array));
         Assert.Equal(4, ShaderLayout.ArrayStride(array, LayoutRule.Std430));
 
-        Assert.Equal(64, ShaderLayout.Size(array, LayoutRule.Std140));
+        Assert.Equal(64, ShaderLayout.Size(array));
         Assert.Equal(16, ShaderLayout.Size(array, LayoutRule.Std430));
     }
 
@@ -485,7 +484,7 @@ public class WritableResourceTests {
         Assert.Empty(compilation.GetDiagnostics());
 
         var of = Assert.Single(
-            Assert.Single(compilation.GetReferencedTypes(), type => type.Name == "Sum")
+            Assert.Single(compilation.GetReferencedTypes(), static type => type.Name == "Sum")
                 .GetMembers("Of")
                 .OfType<MethodSymbol>()
         );
@@ -510,11 +509,11 @@ public class WritableResourceTests {
     public void TheParticlePassKeepsItsArithmeticBindingFree() {
         var simulate = File.ReadAllText(LibraryPath("Vfx/ParticleSimulate.rvn"))
             .Split('\n')
-            .Where(line => !line.TrimStart().StartsWith("//", StringComparison.Ordinal))
+            .Where(static line => !line.TrimStart().StartsWith("//", StringComparison.Ordinal))
             .ToArray();
 
-        Assert.DoesNotContain(simulate, line => line.StartsWith("shader ", StringComparison.Ordinal));
-        Assert.DoesNotContain(simulate, line => line.Contains("Buffer<", StringComparison.Ordinal));
+        Assert.DoesNotContain(simulate, static line => line.StartsWith("shader ", StringComparison.Ordinal));
+        Assert.DoesNotContain(simulate, static line => line.Contains("Buffer<", StringComparison.Ordinal));
 
         var update = File.ReadAllText(LibraryPath("Vfx/ParticleUpdate.rvn"));
         Assert.Contains("RWBuffer<Particle>", update, StringComparison.Ordinal);
@@ -556,7 +555,7 @@ public class WritableResourceTests {
 
     static FieldSymbol FieldOf(Compilation compilation, string name) =>
         compilation.GetAllTypes()
-            .SelectMany(type => type.GetMembers())
+            .SelectMany(static type => type.GetMembers())
             .OfType<FieldSymbol>()
             .Single(field => field.Name == name);
 
@@ -566,8 +565,8 @@ public class WritableResourceTests {
 
         var bag = new DiagnosticBag();
         var module = Lowerer.Lower(compilation, bag);
-        Assert.True(IrVerifier.Verify(module, bag), string.Join("\n", bag.Select(d => d.ToString())));
-        Assert.True(bag.IsEmpty, string.Join("\n", bag.Select(d => d.ToString())));
+        Assert.True(IrVerifier.Verify(module, bag), string.Join("\n", bag.Select(static d => d.ToString())));
+        Assert.True(bag.IsEmpty, string.Join("\n", bag.Select(static d => d.ToString())));
         return module;
     }
 
@@ -575,8 +574,8 @@ public class WritableResourceTests {
         var bag = new DiagnosticBag();
         var generated = TargetBackends.Create(target)!.Generate(Lower(source), bag);
 
-        var errors = bag.ToArray().Where(d => d.IsError).ToArray();
-        Assert.True(errors.Length == 0, string.Join("\n", errors.Select(d => d.ToString())));
+        var errors = bag.ToArray().Where(static d => d.IsError).ToArray();
+        Assert.True(errors.Length == 0, string.Join("\n", errors.Select(static d => d.ToString())));
 
         // ⚠ Two callers only assert inside a `foreach` over this, so an empty result is a pass.
         Assert.True(generated.Count > 0, CodeGenTestBase.EmptyResult(target));
@@ -585,11 +584,11 @@ public class WritableResourceTests {
     }
 
     static IrBinding FindBinding(IrModule module, string name) =>
-        module.Shaders.SelectMany(shader => shader.Bindings).Single(binding => binding.Name == name);
+        module.Shaders.SelectMany(static shader => shader.Bindings).Single(binding => binding.Name == name);
 
     static IrFunction FindFunction(IrModule module, string name) =>
         module.Shaders
-            .SelectMany(shader => shader.Functions)
+            .SelectMany(static shader => shader.Functions)
             .Concat(module.Functions)
             .Single(function => function.Name.EndsWith(name, StringComparison.Ordinal));
 
@@ -621,7 +620,7 @@ public class WritableResourceTests {
             case IrLoopStatement loop: {
                 IrBlock?[] parts = [loop.Condition, loop.Body, loop.Continue];
 
-                foreach (var nested in parts.Where(p => p is not null).SelectMany(p => Flatten(p!))) {
+                foreach (var nested in parts.Where(static p => p is not null).SelectMany(static p => Flatten(p!))) {
                     yield return nested;
                 }
 
@@ -636,7 +635,7 @@ public class WritableResourceTests {
 
         var bag = new DiagnosticBag();
         var library = LibraryBuilder.Build(compilation, Lowerer.LowerWithLinks(compilation, bag), bag);
-        Assert.DoesNotContain(bag.ToArray(), d => d.IsError);
+        Assert.DoesNotContain(bag.ToArray(), static d => d.IsError);
         return library;
     }
 }

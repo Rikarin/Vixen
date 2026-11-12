@@ -73,8 +73,12 @@ public static class TextureFormats {
     /// <returns><see langword="true" /> when a storage image can be declared for it.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>False for <see cref="TextureFormat.R8" /> and <see cref="TextureFormat.Rg8" />,
-    ///         and this refutes a line in doc 48 § M1 and in issue #566.</b> Both list R8 and RG8
+    ///         ⚠
+    ///         <b>
+    ///             False for <see cref="TextureFormat.R8" /> and <see cref="TextureFormat.Rg8" />,
+    ///             and this refutes a line in doc 48 § M1 and in issue #566.
+    ///         </b>
+    ///         Both list R8 and RG8
     ///         beside the other three as though the five were interchangeable. They are not:
     ///         <c>Raven/Vixen.Raven/Symbols/ImageFormats.cs</c> admits sixteen storage-image formats
     ///         and neither <c>r8</c> nor <c>rg8</c> is among them — and that table is not an
@@ -84,8 +88,12 @@ public static class TextureFormats {
     ///         conformant device.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>But the five that are storable are not all mandatory either, and
-    ///         <see cref="TextureFormat.R16Float" /> is the one that is not.</b> Vulkan's required
+    ///         ⚠
+    ///         <b>
+    ///             But the five that are storable are not all mandatory either, and
+    ///             <see cref="TextureFormat.R16Float" /> is the one that is not.
+    ///         </b>
+    ///         Vulkan's required
     ///         storage set covers <c>rgba8</c>, <c>rgba16f</c>, <c>r32f</c> and <c>rgba32f</c>; <c>r16f</c> is in the
     ///         <em>extended</em> list, so a plan computing in <c>R16Float</c> — which is what a
     ///         height field wants — needs <c>shaderStorageImageExtendedFormats</c>. It is set on
@@ -131,14 +139,13 @@ public static class TextureFormats {
         };
 
     /// <summary>Every format a kernel can write, which is what its variants are built for.</summary>
-    public static IReadOnlyList<TextureFormat> Storable { get; } =
-        [
-            TextureFormat.Rgba8,
-            TextureFormat.R16Float,
-            TextureFormat.Rgba16Float,
-            TextureFormat.R32Float,
-            TextureFormat.Rgba32Float
-        ];
+    public static IReadOnlyList<TextureFormat> Storable { get; } = [
+        TextureFormat.Rgba8,
+        TextureFormat.R16Float,
+        TextureFormat.Rgba16Float,
+        TextureFormat.R32Float,
+        TextureFormat.Rgba32Float
+    ];
 
     /// <summary>The storage one number of channels is kept in, at a bit depth.</summary>
     /// <param name="channels">Grey or colour.</param>

@@ -15,8 +15,11 @@ namespace Vixen.Rendering.Ecs;
 ///         frame's reconciliation asks again.
 ///     </para>
 ///     <para>
-///         <b>An interface here rather than an <c>AssetManager</c>, because this assembly must not know
-///         what a bundle is.</b> A renderer's business is a descriptor set; catalogs, addresses and
+///         <b>
+///             An interface here rather than an <c>AssetManager</c>, because this assembly must not know
+///             what a bundle is.
+///         </b>
+///         A renderer's business is a descriptor set; catalogs, addresses and
 ///         claims belong to <c>Vixen.Assets</c>. <c>Vixen.Engine.Renderer</c> is where the two meet —
 ///         see <c>AssetMaterialSource</c>.
 ///     </para>

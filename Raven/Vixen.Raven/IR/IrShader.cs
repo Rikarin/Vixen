@@ -397,8 +397,11 @@ public sealed class IrEntryPoint(
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <strong>The stream half of <see cref="InputsRead" />, and it is the same defect one
-    ///         step further along the pipeline.</strong> A <c>stream</c> is declared on the shader
+    ///         <strong>
+    ///             The stream half of <see cref="InputsRead" />, and it is the same defect one
+    ///             step further along the pipeline.
+    ///         </strong>
+    ///         A <c>stream</c> is declared on the shader
     ///         and its direction is derived from what a stage's code touches, so a vertex stage that
     ///         writes one is an output whatever the fragment stage does — and when the only read is
     ///         inside a permutation that folded away, the fragment stage reads nothing and the
@@ -467,8 +470,11 @@ public sealed class IrEntryPoint(
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <strong>A parameter cannot appear inside a permutation, so this is where a folded
-    ///         variant stops paying for one.</strong> A stage's signature is fixed by its
+    ///         <strong>
+    ///             A parameter cannot appear inside a permutation, so this is where a folded
+    ///             variant stops paying for one.
+    ///         </strong>
+    ///         A stage's signature is fixed by its
     ///         declaration — <c>ShadowCaster.Vertex</c> takes bone indices and weights whether or
     ///         not <c>Skinned</c> is on — but the branch that reads them folds away with the
     ///         permutation, and what is left is an interface variable no instruction touches. Both
@@ -477,8 +483,11 @@ public sealed class IrEntryPoint(
     ///     <para>
     ///         ⚠ <b>It is not an optimisation.</b> A vertex input is a promise the host has an
     ///         attribute to bind, and the driver checks it whether or not the shader reads it:
-    ///         <c>pVertexAttributeDescriptions does not have a Location 1, but the vertex stage has
-    ///         an Input variable at Location 1</c> is a pipeline that fails to create. So a
+    ///         <c>
+    ///             pVertexAttributeDescriptions does not have a Location 1, but the vertex stage has
+    ///             an Input variable at Location 1
+    ///         </c>
+    ///         is a pipeline that fails to create. So a
     ///         static-mesh vertex format could not satisfy the non-skinned caster, and there was no
     ///         layout that could.
     ///     </para>
@@ -490,7 +499,7 @@ public sealed class IrEntryPoint(
     ///         layout of every shader that has an unread parameter in some variant.
     ///     </para>
     /// </remarks>
-    public IReadOnlyList<bool> InputsRead { get; private set; } = [.. inputs.Select(_ => true)];
+    public IReadOnlyList<bool> InputsRead { get; private set; } = [..inputs.Select(static _ => true)];
 
     /// <summary>Whether the stage reads the input at <paramref name="index" />.</summary>
     public bool ReadsInput(int index) => InputsRead[index];

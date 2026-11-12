@@ -24,8 +24,12 @@ namespace Vixen.Ui;
 ///         references' worth of state and it exists for the length of one virtual call.
 ///     </para>
 ///     <para>
-///         ⚠ <b>There is no text method here, and that does not mean a drawn layer cannot write a
-///         word</b> — <a href="https://github.com/Rikarin/Vixen/issues/1112">#1112</a>, which read
+///         ⚠
+///         <b>
+///             There is no text method here, and that does not mean a drawn layer cannot write a
+///             word
+///         </b>
+///         — <a href="https://github.com/Rikarin/Vixen/issues/1112">#1112</a>, which read
 ///         the absence as a wall and is why this paragraph exists. Every piece is public and
 ///         reachable from here: <see cref="UiDocument.Fonts" /> resolves a face,
 ///         <see cref="UiDocument.Shaping" /> shapes one run through the same LRU the layout pass
@@ -90,10 +94,8 @@ public readonly struct DrawContext {
         }
 
         List.Add(
-            new DrawCommand(DrawCommandKind.Path, 0f, 0f, 0f, 0f, DrawListBuilder.Fade(color, alpha), 0f, 0f) {
-                Offset = List.AddPath(path),
-                Length = path.Count,
-                FillRule = rule
+            new(DrawCommandKind.Path, 0f, 0f, 0f, 0f, DrawListBuilder.Fade(color, alpha), 0f, 0f) {
+                Offset = List.AddPath(path), Length = path.Count, FillRule = rule
             }
         );
     }
@@ -105,8 +107,12 @@ public readonly struct DrawContext {
     /// <param name="rule">How to decide what is inside it.</param>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The path is local and the position is separate, and that is not a convenience —
-    ///         it is what makes the cache work.</b> The field is keyed on the geometry, so a path
+    ///         ⚠
+    ///         <b>
+    ///             The path is local and the position is separate, and that is not a convenience —
+    ///             it is what makes the cache work.
+    ///         </b>
+    ///         The field is keyed on the geometry, so a path
     ///         handed over in absolute coordinates is a different path every time whatever is drawing
     ///         it moves: a tree scrolled by a fraction of a pixel would re-encode every icon in it,
     ///         every frame, at milliseconds each. This is the arrangement a glyph run already uses —
@@ -114,8 +120,11 @@ public readonly struct DrawContext {
     ///         it is why two identical labels in different places are recognised as the same.
     ///     </para>
     ///     <para>
-    ///         <b>For vector art: an icon, a glyph a control draws itself, a marker repeated down a
-    ///         list.</b> The path is rasterised into the glyph atlas once and drawn as four vertices
+    ///         <b>
+    ///             For vector art: an icon, a glyph a control draws itself, a marker repeated down a
+    ///             list.
+    ///         </b>
+    ///         The path is rasterised into the glyph atlas once and drawn as four vertices
     ///         thereafter, where <see cref="Fill" /> tessellates it into as many triangles as its shape
     ///         needs — which for a hand-drawn icon is hundreds, every frame, per instance.
     ///     </para>
@@ -144,7 +153,7 @@ public readonly struct DrawContext {
         }
 
         List.Add(
-            new DrawCommand(
+            new(
                 DrawCommandKind.Field,
                 origin.X,
                 origin.Y,
@@ -153,11 +162,7 @@ public readonly struct DrawContext {
                 DrawListBuilder.Fade(color, alpha),
                 0f,
                 0f
-            ) {
-                Offset = List.AddPath(path),
-                Length = path.Count,
-                FillRule = rule
-            }
+            ) { Offset = List.AddPath(path), Length = path.Count, FillRule = rule }
         );
     }
 
@@ -196,7 +201,16 @@ public readonly struct DrawContext {
         }
 
         List.Add(
-            new DrawCommand(DrawCommandKind.PathStroke, origin.X, origin.Y, 0f, 0f, DrawListBuilder.Fade(color, alpha), 0f, thickness) {
+            new(
+                DrawCommandKind.PathStroke,
+                origin.X,
+                origin.Y,
+                0f,
+                0f,
+                DrawListBuilder.Fade(color, alpha),
+                0f,
+                thickness
+            ) {
                 Offset = List.AddPath(path),
                 Length = path.Count,
                 Join = join,
@@ -217,7 +231,7 @@ public readonly struct DrawContext {
     /// </remarks>
     public void FillRectangle(Rectangle rectangle, Color4 color, float radius = 0f) =>
         List.Add(
-            new DrawCommand(
+            new(
                 DrawCommandKind.Rectangle,
                 rectangle.X,
                 rectangle.Y,
@@ -264,7 +278,7 @@ public readonly struct DrawContext {
         UiImageView view = default
     ) =>
         List.Add(
-            new DrawCommand(
+            new(
                 DrawCommandKind.Image,
                 rectangle.X,
                 rectangle.Y,
@@ -322,7 +336,7 @@ public readonly struct DrawContext {
         bool hollowCentre = false
     ) =>
         List.Add(
-            new DrawCommand(
+            new(
                 DrawCommandKind.Image,
                 rectangle.X,
                 rectangle.Y,
@@ -354,7 +368,7 @@ public readonly struct DrawContext {
     public void FillRectangle(Rectangle rectangle, Color4 color, BoxStyle style) =>
         List.Add(
             Styled(
-                new DrawCommand(
+                new(
                     DrawCommandKind.Rectangle,
                     rectangle.X,
                     rectangle.Y,
@@ -376,7 +390,7 @@ public readonly struct DrawContext {
     public void StrokeRectangle(Rectangle rectangle, Color4 color, float thickness, BoxStyle style = default) =>
         List.Add(
             Styled(
-                new DrawCommand(
+                new(
                     DrawCommandKind.Border,
                     rectangle.X,
                     rectangle.Y,
@@ -393,9 +407,13 @@ public readonly struct DrawContext {
     /// <summary>Attaches a box style to a command, unless the cheap uniform path covers it.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The same test <see cref="DrawListBuilder" /> applies to the declarative path, and
-    ///         until it was applied here the imperative one paid for a record full of zeroes on every
-    ///         box it drew.</b> <see cref="StrokeRectangle" />'s style parameter <i>defaults</i>, so
+    ///         ⚠
+    ///         <b>
+    ///             The same test <see cref="DrawListBuilder" /> applies to the declarative path, and
+    ///             until it was applied here the imperative one paid for a record full of zeroes on every
+    ///             box it drew.
+    ///         </b>
+    ///         <see cref="StrokeRectangle" />'s style parameter <i>defaults</i>, so
     ///         every <c>StrokeRectangle(rect, colour, thickness)</c> in the tree — the surfaces, the
     ///         node canvas, the colour picker, the curve and gradient editors — wrote an entry saying
     ///         nothing. <see cref="DrawList.Boxes" /> is compared entry by entry every frame beside

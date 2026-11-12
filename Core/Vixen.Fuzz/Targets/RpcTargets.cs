@@ -4,7 +4,6 @@
 using Vixen.Net;
 using Vixen.Net.Engine;
 using Vixen.Net.Messaging;
-using Vixen.Net.Replication;
 using Vixen.Net.Rpc;
 using Vixen.Net.Sessions;
 
@@ -70,7 +69,7 @@ public sealed class RpcRouterTarget : IFuzzTarget {
     ///     call allocates whatever its arguments are, which for this handler is a capped string. The
     ///     constant covers the token bucket's first entry.
     /// </remarks>
-    public long AllowanceFor(int inputLength) => 2048 + (16L * inputLength);
+    public long AllowanceFor(int inputLength) => 2048 + 16L * inputLength;
 
     /// <inheritdoc />
     public void Seed(ICollection<byte[]> corpus) {
@@ -79,16 +78,16 @@ public sealed class RpcRouterTarget : IFuzzTarget {
         // One well-formed call per method, over both a registered object and an unregistered one.
         for (var method = 0u; method < (uint)Methods.Length; method++) {
             foreach (var target in (uint[])[1, 2, 3]) {
-                corpus.Add(Call(target, 0, method, arguments: true));
-                corpus.Add(Call(target, 0, method, arguments: false));
+                corpus.Add(Call(target, 0, method, true));
+                corpus.Add(Call(target, 0, method, false));
             }
         }
 
         // Indices well past the end of the manifest, which is the check the whole closed-set design
         // exists for.
-        corpus.Add(Call(1, 99, 0, arguments: true));
-        corpus.Add(Call(1, 0, 99, arguments: true));
-        corpus.Add(Call(uint.MaxValue, uint.MaxValue, uint.MaxValue, arguments: true));
+        corpus.Add(Call(1, 99, 0, true));
+        corpus.Add(Call(1, 0, 99, true));
+        corpus.Add(Call(uint.MaxValue, uint.MaxValue, uint.MaxValue, true));
     }
 
     /// <inheritdoc />
@@ -107,13 +106,13 @@ public sealed class RpcRouterTarget : IFuzzTarget {
         // everything is a corpus that guides nothing — see IFuzzTarget.Run.
         var after = Read();
         var signature = (ran ? 1_000_003L : 0)
-            + ((after.Accepted - before.Accepted) * 7919L)
-            + ((after.Manifest - before.Manifest) * 131L)
-            + ((after.Direction - before.Direction) * 127L)
-            + ((after.Object - before.Object) * 113L)
-            + ((after.Ownership - before.Ownership) * 109L)
-            + ((after.Arguments - before.Arguments) * 107L)
-            + ((after.RateLimit - before.RateLimit) * 103L)
+            + (after.Accepted - before.Accepted) * 7919L
+            + (after.Manifest - before.Manifest) * 131L
+            + (after.Direction - before.Direction) * 127L
+            + (after.Object - before.Object) * 113L
+            + (after.Ownership - before.Ownership) * 109L
+            + (after.Arguments - before.Arguments) * 107L
+            + (after.RateLimit - before.RateLimit) * 103L
             + (after.Invoked - before.Invoked);
 
         before = after;
@@ -155,7 +154,7 @@ public sealed class RpcRouterTarget : IFuzzTarget {
         if (arguments) {
             writer.WriteVariable(7);
             writer.WriteSingle(1.25f);
-            writer.WriteBool(value: true);
+            writer.WriteBool(true);
         }
 
         return writer.TryFinish(out var packet) ? packet.ToArray() : [];
@@ -163,15 +162,36 @@ public sealed class RpcRouterTarget : IFuzzTarget {
 
     static RpcMethod[] Build() {
         var methods = new[] {
-            new RpcMethod("Fuzzed", "Move(uint,float,bool)", RpcKind.Server, requireOwnership: true, Channel.Unreliable, RpcTarget.All),
-            new RpcMethod("Fuzzed", "Say(string)", RpcKind.Server, requireOwnership: false, Channel.Reliable, RpcTarget.All),
-            new RpcMethod("Fuzzed", "Nothing()", RpcKind.Server, requireOwnership: false, Channel.Reliable, RpcTarget.All)
+            new RpcMethod(
+                "Fuzzed",
+                "Move(uint,float,bool)",
+                RpcKind.Server,
+                true,
+                Channel.Unreliable,
+                RpcTarget.All
+            ),
+            new RpcMethod(
+                "Fuzzed",
+                "Say(string)",
+                RpcKind.Server,
+                false,
+                Channel.Reliable,
+                RpcTarget.All
+            ),
+            new RpcMethod(
+                "Fuzzed",
+                "Nothing()",
+                RpcKind.Server,
+                false,
+                Channel.Reliable,
+                RpcTarget.All
+            )
         };
 
         // A manifest is ordered by method id, and registering an unordered table is refused. The
         // ids are hashes of the names, so the order is whatever the hashes say rather than whatever
         // reads well here.
-        Array.Sort(methods, (left, right) => left.MethodId.CompareTo(right.MethodId));
+        Array.Sort(methods, static (left, right) => left.MethodId.CompareTo(right.MethodId));
 
         return methods;
     }
@@ -183,7 +203,7 @@ public sealed class RpcRouterTarget : IFuzzTarget {
 
         public uint RpcTypeId { get; } = RpcMethod.Hash("Fuzzed");
 
-        public long Signature => (calls * 37L) + argumentBytes;
+        public long Signature => calls * 37L + argumentBytes;
 
         public bool Invoke(uint methodIndex, in RpcContext context, ref BitReader reader) {
             switch (methodIndex) {
@@ -201,7 +221,7 @@ public sealed class RpcRouterTarget : IFuzzTarget {
                 case 1:
                     // A string argument is the one a generated invoker allocates for, and the cap
                     // is the generator's — stated at the call site, never taken from the packet.
-                    if (!TryReadString(ref reader, maxBytes: 64, out var text)) {
+                    if (!TryReadString(ref reader, 64, out var text)) {
                         return false;
                     }
 
@@ -281,7 +301,7 @@ public sealed class SyncListTarget : IFuzzTarget {
     ///     The bound is the ratio; <see cref="Maintain" /> is what stops the list itself becoming
     ///     the measurement.
     /// </remarks>
-    public long AllowanceFor(int inputLength) => 2048 + (64L * inputLength);
+    public long AllowanceFor(int inputLength) => 2048 + 64L * inputLength;
 
     /// <summary>How many items the list holds.</summary>
     public long Held => list.Count;
@@ -328,7 +348,7 @@ public sealed class SyncListTarget : IFuzzTarget {
         var reader = new BitReader(input);
         var applied = list.Apply(ref reader);
 
-        return (applied ? 1_000_003L : 0) + (list.Count * 31L) + reader.BitsRead;
+        return (applied ? 1_000_003L : 0) + list.Count * 31L + reader.BitsRead;
     }
 
     byte[] Pending(SyncList<int> source) {

@@ -8,7 +8,6 @@ using Vixen.Graphics.RenderGraph;
 using Vixen.Rendering.Compositor;
 using Vixen.Rendering.Lighting;
 using Vixen.Rendering.ScreenProbes;
-using Vixen.Shaders;
 
 namespace Vixen.Rendering.PostFx;
 
@@ -41,8 +40,12 @@ namespace Vixen.Rendering.PostFx;
 ///         undefined memory and the resolve reads validity out of it.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The lattice is sized on the first build, and a resized frame is refused rather than
-///         rebuilt.</b> Rebuilding the textures mid-flight while frames still reference them is a
+///         ⚠
+///         <b>
+///             The lattice is sized on the first build, and a resized frame is refused rather than
+///             rebuilt.
+///         </b>
+///         Rebuilding the textures mid-flight while frames still reference them is a
 ///         use-after-free with latency, and <see cref="Build" /> is inside a frame. The resize is a
 ///         step outside one: a host writes the new size through
 ///         <see cref="Compositor.GraphicsCompositor.Resize" />, which idles the device and calls
@@ -89,8 +92,12 @@ public sealed class ScreenProbeGatherRenderer : SceneRenderer, IResizeTarget, ID
     /// <summary>The colour a screen hit radiates, or null for the occlusion answer.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>With <see cref="ScreenTraces" /> on and no colour, the gather gets darker rather
-    ///         than better.</b> The screen is marched for geometry the distance field may not hold —
+    ///         ⚠
+    ///         <b>
+    ///             With <see cref="ScreenTraces" /> on and no colour, the gather gets darker rather
+    ///             than better.
+    ///         </b>
+    ///         The screen is marched for geometry the distance field may not hold —
     ///         skinned meshes, foliage, anything too small or too mobile to bake — which is geometry
     ///         whose light is therefore missing from the field as well. Answering black makes every
     ///         one of those surfaces a pure occluder, so the more the screen trace finds, the more
@@ -142,8 +149,10 @@ public sealed class ScreenProbeGatherRenderer : SceneRenderer, IResizeTarget, ID
     public string? AccumulateSkipped { get; private set; }
 
     /// <summary>What spreads each accumulated probe over its plane-sharing neighbours.</summary>
-    /// <remarks>Only run when <see cref="Accumulator" /> is also set — the filter reads the history
-    ///     the accumulation wrote, and without one there is nothing to spread.</remarks>
+    /// <remarks>
+    ///     Only run when <see cref="Accumulator" /> is also set — the filter reads the history
+    ///     the accumulation wrote, and without one there is nothing to spread.
+    /// </remarks>
     public ScreenProbeFilterFill? SpatialFilter { get; set; }
 
     /// <summary>Why the spatial filter recorded nothing last frame, or null.</summary>
@@ -165,8 +174,10 @@ public sealed class ScreenProbeGatherRenderer : SceneRenderer, IResizeTarget, ID
     public Matrix4x4 InverseViewProjection { get; set; } = Matrix4x4.Identity;
 
     /// <summary>This frame's camera, forward — what the screen trace projects its samples with.</summary>
-    /// <remarks>Only read when <see cref="ScreenTraces" /> is on. The host has both matrices;
-    ///     deriving one from the other here would manufacture error.</remarks>
+    /// <remarks>
+    ///     Only read when <see cref="ScreenTraces" /> is on. The host has both matrices;
+    ///     deriving one from the other here would manufacture error.
+    /// </remarks>
     public Matrix4x4 ViewProjection { get; set; } = Matrix4x4.Identity;
 
     /// <summary>The view whose camera drives the pair above, or null for a host that sets them.</summary>
@@ -198,9 +209,11 @@ public sealed class ScreenProbeGatherRenderer : SceneRenderer, IResizeTarget, ID
     /// </remarks>
     public HiZPyramid? Pyramid { get; set; }
 
-    /// <summary>How deep the trace's shell is in view units, where a perspective ray can say. Zero
+    /// <summary>
+    ///     How deep the trace's shell is in view units, where a perspective ray can say. Zero
     ///     keeps the device-depth shell — forwarded to
-    ///     <see cref="ScreenProbeTraceFill.ScreenLinearThickness" />.</summary>
+    ///     <see cref="ScreenProbeTraceFill.ScreenLinearThickness" />.
+    /// </summary>
     public float ScreenLinearThickness { get; set; }
 
     /// <summary>How many pixels one probe stands for, along each axis.</summary>
@@ -291,7 +304,9 @@ public sealed class ScreenProbeGatherRenderer : SceneRenderer, IResizeTarget, ID
 
         // The colour plane only where the screen is actually marched: a declared read of a resource
         // nothing loads is an ordering edge bought for nothing.
-        var colourTexture = ScreenTraces && Colour is { } name ? frame.Texture(ToString(), name) : default(GraphTexture?);
+        var colourTexture = ScreenTraces && Colour is { } name
+            ? frame.Texture(ToString(), name)
+            : default(GraphTexture?);
 
         DeclareCompute(frame, device, depthTexture, colourTexture);
         PublishPlanes(frame);
@@ -448,7 +463,7 @@ public sealed class ScreenProbeGatherRenderer : SceneRenderer, IResizeTarget, ID
             for (var x = 0; x < layout.GridSize.X; x++) {
                 var probe = new Int2(x, y);
                 var anchor = layout.Anchor(probe);
-                var index = (anchor.Y * width) + anchor.X;
+                var index = anchor.Y * width + anchor.X;
 
                 surface.Depth[index] = DecodeDepthAt(depthBytes, depthFormat, index);
                 surface.Normals[index] = DecodeNormalAt(normalBytes, normalFormat, index);
@@ -503,8 +518,7 @@ public sealed class ScreenProbeGatherRenderer : SceneRenderer, IResizeTarget, ID
                     }
                 }
 
-                pass.Execute(
-                    context => {
+                pass.Execute(context => {
                         var commands = context.CommandList;
 
                         // ⚠ The stages are timed one level under the pass, because this pass is five
@@ -690,19 +704,18 @@ public sealed class ScreenProbeGatherRenderer : SceneRenderer, IResizeTarget, ID
                 pass.Reads(normals, ResourceState.CopySource);
                 pass.SideEffect();
 
-                pass.Execute(
-                    context => {
+                pass.Execute(context => {
                         var commands = context.CommandList;
 
                         commands.CopyTextureToBuffer(
-                            new TextureRegion(context.Texture(depth)),
+                            new(context.Texture(depth)),
                             new(layout.Viewport.X, layout.Viewport.Y, 1),
                             depthReadback,
                             depthOffset
                         );
 
                         commands.CopyTextureToBuffer(
-                            new TextureRegion(context.Texture(normals)),
+                            new(context.Texture(normals)),
                             new(layout.Viewport.X, layout.Viewport.Y, 1),
                             normalReadback,
                             normalOffset

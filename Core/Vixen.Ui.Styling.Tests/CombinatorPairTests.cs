@@ -21,9 +21,13 @@ namespace Vixen.Ui.Styling.Tests;
 ///         green while it was dead.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Four passes have tried to adjudicate that and stopped, and they reported four
-///         different sizes for the thing they were adjudicating — 88, 72, 75 and 70 pairs, from four
-///         hand-rolled parsers over the same seventeen sheets.</b> That is the finding this file
+///         ⚠
+///         <b>
+///             Four passes have tried to adjudicate that and stopped, and they reported four
+///             different sizes for the thing they were adjudicating — 88, 72, 75 and 70 pairs, from four
+///             hand-rolled parsers over the same seventeen sheets.
+///         </b>
+///         That is the finding this file
 ///         acts on. A gate cannot be argued about while its domain is a number somebody re-derives
 ///         with a regular expression each time, so the extracted <i>set</i> is committed and compared
 ///         exactly, read out of the compiled selector table rather than off the text — which is what
@@ -40,8 +44,12 @@ namespace Vixen.Ui.Styling.Tests;
 ///         evidence about how far the obvious models get.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Measured on 2026-09-06, and it refutes the recipe the audit trail keeps recommending
-///         for a second time.</b> Markup nesting alone — a lower-case <c>.vxml</c> element directly
+///         ⚠
+///         <b>
+///             Measured on 2026-09-06, and it refutes the recipe the audit trail keeps recommending
+///             for a second time.
+///         </b>
+///         Markup nesting alone — a lower-case <c>.vxml</c> element directly
 ///         inside another — proves <b>3</b> of the 88 pairs here. Adding the type→tag map everybody
 ///         asks for (301 names, from <c>TagName</c> overrides plus every <c>@component</c>/<c>@tag</c>
 ///         pair) so that a capitalised child resolves to the tag it creates takes that to <b>14</b>.
@@ -84,8 +92,7 @@ public class CombinatorPairTests {
     const string CensusFile = "Core/Vixen.Ui.Styling.Tests/CombinatorPairs.txt";
 
     /// <summary>Set <c>VIXEN_REGENERATE=1</c> to write the census back instead of asserting it.</summary>
-    static bool Regenerating =>
-        Environment.GetEnvironmentVariable("VIXEN_REGENERATE") is "1";
+    static bool Regenerating => Environment.GetEnvironmentVariable("VIXEN_REGENERATE") is "1";
 
     /// <summary>One <c>A &gt; B</c>, and the first sheet that declares it.</summary>
     /// <param name="Parent">The tag on the left of the <c>&gt;</c>.</param>
@@ -129,7 +136,7 @@ public class CombinatorPairTests {
             + "sheets losing them"
         );
 
-        var text = Declared.Select(pair => pair.Text).ToHashSet(StringComparer.Ordinal);
+        var text = Declared.Select(static pair => pair.Text).ToHashSet(StringComparer.Ordinal);
 
         // ⚠ Live, all three, each traced to its two ends by hand in `Rikarin/Vixen#531`'s comments:
         // `editor-shell > menu-bar` through `MenuPresenter`'s `host`, `node-graph > node-canvas`
@@ -164,13 +171,15 @@ public class CombinatorPairTests {
         }
 
         var census = Census(path);
-        var found = Declared.ToDictionary(pair => pair.Text, pair => pair.Sheet, StringComparer.Ordinal);
+        var found = Declared.ToDictionary(static pair => pair.Text, static pair => pair.Sheet, StringComparer.Ordinal);
 
         var arrived = found.Keys.Where(pair => !census.ContainsKey(pair)).Order(StringComparer.Ordinal).ToList();
         var departed = census.Keys.Where(pair => !found.ContainsKey(pair)).Order(StringComparer.Ordinal).ToList();
 
         var moved = found.Keys
-            .Where(pair => census.TryGetValue(pair, out var sheet) && !sheet.Equals(found[pair], StringComparison.Ordinal))
+            .Where(pair => census.TryGetValue(pair, out var sheet)
+                && !sheet.Equals(found[pair], StringComparison.Ordinal)
+            )
             .Order(StringComparer.Ordinal)
             .ToList();
 
@@ -204,7 +213,7 @@ public class CombinatorPairTests {
         // "It has rows" cannot stand in for "it was read": a truncated file and a repository with no
         // combinator rules in it are both zero rows, and only one of them still has the header.
         Assert.True(
-            lines.Count(line => line.StartsWith('#')) >= 5,
+            lines.Count(static line => line.StartsWith('#')) >= 5,
             $"{CensusFile} has lost its header, so it was emptied rather than answered."
         );
 
@@ -251,15 +260,19 @@ public class CombinatorPairTests {
     }
 
     static string Lines(IEnumerable<string> rows) {
-        var joined = string.Join("\n", rows.Select(row => $"  {row}"));
+        var joined = string.Join("\n", rows.Select(static row => $"  {row}"));
 
         return joined.Length == 0 ? "  (none)" : joined;
     }
 
     /// <summary>Every <c>A &gt; B</c> between two bare type selectors, from every committed sheet.</summary>
     /// <remarks>
-    ///     ⚠ <b>A compound carrying classes as well as a tag still counts, and that is the right
-    ///     reading rather than a loose one.</b> <c>fact-value.numeric &gt; numeric-input</c> is a
+    ///     ⚠
+    ///     <b>
+    ///         A compound carrying classes as well as a tag still counts, and that is the right
+    ///         reading rather than a loose one.
+    ///     </b>
+    ///     <c>fact-value.numeric &gt; numeric-input</c> is a
     ///     narrower rule than <c>fact-value &gt; numeric-input</c>, but the parent-child adjacency it
     ///     needs is the same one — so the pair is a necessary condition of the rule firing either
     ///     way. What is deliberately excluded is a type inside <c>:is()</c>, <c>:not()</c> or
@@ -276,7 +289,7 @@ public class CombinatorPairTests {
 
         foreach (var path in paths) {
             var engine = new StyleEngine();
-            engine.Load(File.ReadAllText(path), StyleOrigin.Author);
+            engine.Load(File.ReadAllText(path));
 
             var sheet = Path.GetRelativePath(root, path).Replace('\\', '/');
             var table = engine.Selectors;
@@ -295,7 +308,7 @@ public class CombinatorPairTests {
                     }
 
                     if (seen.Add($"{parent} > {child}")) {
-                        found.Add(new Pair(parent, child, sheet));
+                        found.Add(new(parent, child, sheet));
                     }
                 }
             }

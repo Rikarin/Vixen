@@ -4,7 +4,6 @@
 using Vixen.Editor.Core;
 using Vixen.Editor.Ui;
 using Vixen.Platform;
-using Vixen.Ui.Controls;
 
 namespace Vixen.Editor.App;
 
@@ -31,7 +30,8 @@ sealed partial class EditorApplication {
     ///     <c>WorkspaceModule</c>'s over another one — and this is the start-up latch's door onto it,
     ///     public because a host opens it.
     /// </remarks>
-    public void ShowProjectBrowser() => new ProjectChooser(Shell, session, services.Dialogs, deferred, dataDirectory).Show();
+    public void ShowProjectBrowser() =>
+        new ProjectChooser(Shell, session, services.Dialogs, deferred, dataDirectory).Show();
 
     /// <summary>Asks the platform something that answers with a path, and acts on the answer.</summary>
     /// <param name="ask">Which picker to open.</param>

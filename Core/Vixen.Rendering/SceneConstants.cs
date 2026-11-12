@@ -160,7 +160,10 @@ public sealed class SceneConstants(IGraphicsDevice device, string name = "Scene"
             return false;
         }
 
-        var set = Descriptors.Allocate(effect.SetLayouts[slot], System.Runtime.InteropServices.CollectionsMarshal.AsSpan(writes));
+        var set = Descriptors.Allocate(
+            effect.SetLayouts[slot],
+            System.Runtime.InteropServices.CollectionsMarshal.AsSpan(writes)
+        );
 
         commands.BindDescriptorSet(Slot, set);
         WriteCount++;
@@ -185,7 +188,7 @@ public sealed class SceneConstants(IGraphicsDevice device, string name = "Scene"
 
         MissingBinding = missingByEffect.Count == 0
             ? null
-            : string.Join("; ", missingByEffect.Select(entry => $"{entry.Key}: {entry.Value}"));
+            : string.Join("; ", missingByEffect.Select(static entry => $"{entry.Key}: {entry.Value}"));
     }
 
     /// <summary>The frame's block, refilled only when a value changed.</summary>

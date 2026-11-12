@@ -9,8 +9,11 @@ namespace Vixen.Platform.MacOS;
 /// <summary>The other direction: a class whose methods are managed code, so Objective-C can ask us.</summary>
 /// <remarks>
 ///     <para>
-///         <b><see cref="ObjC" /> can send a message and cannot answer one, and half of AppKit is a
-///         protocol that asks.</b> <c>NSAccessibility</c> is the case this exists for — AppKit calls
+///         <b>
+///             <see cref="ObjC" /> can send a message and cannot answer one, and half of AppKit is a
+///             protocol that asks.
+///         </b>
+///         <c>NSAccessibility</c> is the case this exists for — AppKit calls
 ///         <c>accessibilityRole</c>, <c>accessibilityChildren</c>, <c>accessibilityFrame</c> and some
 ///         forty more selectors on an object it was handed, and until a Vixen object can <i>be</i>
 ///         that object there is no bridge to write. The same shape holds for
@@ -50,8 +53,12 @@ static partial class ObjCRuntime {
     /// <param name="superclass">The class to inherit from — <c>NSObject</c> unless there is a reason.</param>
     /// <returns>The class, or <see cref="nint.Zero" /> if the name is taken or the superclass is missing.</returns>
     /// <remarks>
-    ///     ⚠ <b>The name is taken for the life of the process, and a second attempt answers nil rather
-    ///     than the existing class.</b> Registration is therefore a once-per-process act, and a caller
+    ///     ⚠
+    ///     <b>
+    ///         The name is taken for the life of the process, and a second attempt answers nil rather
+    ///         than the existing class.
+    ///     </b>
+    ///     Registration is therefore a once-per-process act, and a caller
     ///     that might run twice — a test, a hot reload — asks <see cref="Lookup" /> first.
     /// </remarks>
     public static nint Define(string name, string superclass) {
@@ -139,8 +146,12 @@ static partial class ObjCRuntime {
 
     /// <summary>A message whose return type is a <c>CGRect</c> — <c>accessibilityFrame</c>.</summary>
     /// <remarks>
-    ///     ⚠ <b><c>objc_msgSend</c> and not <c>objc_msgSend_stret</c>, and only because this engine's
-    ///     Mac is arm64.</b> Four <c>double</c>s are a homogeneous floating-point aggregate on that
+    ///     ⚠
+    ///     <b>
+    ///         <c>objc_msgSend</c> and not <c>objc_msgSend_stret</c>, and only because this engine's
+    ///         Mac is arm64.
+    ///     </b>
+    ///     Four <c>double</c>s are a homogeneous floating-point aggregate on that
     ///     ABI and come back in <c>v0</c>–<c>v3</c> like any other; on x86-64 a 32-byte structure is
     ///     returned through a hidden pointer and needs the <c>_stret</c> entry point, which this
     ///     declaration would silently fail to use.

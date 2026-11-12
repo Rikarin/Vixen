@@ -194,7 +194,7 @@ public static class NetworkRulesContent {
             loaded.Add(policy.Name);
         }
 
-        return new([.. loaded], [.. problems]);
+        return new([..loaded], [..problems]);
     }
 
     static List<string> Addresses(AssetManager assets, IEnumerable<string> labels) {
@@ -212,8 +212,12 @@ public static class NetworkRulesContent {
 
     /// <summary>Reads one address as a policy, or null if it is not one.</summary>
     /// <remarks>
-    ///     ⚠ <b>The handle is released once the record is read, and on the failure path it has already
-    ///     released itself.</b> <c>AssetManager</c> gives back everything a failed load claimed before
+    ///     ⚠
+    ///     <b>
+    ///         The handle is released once the record is read, and on the failure path it has already
+    ///         released itself.
+    ///     </b>
+    ///     <c>AssetManager</c> gives back everything a failed load claimed before
     ///     it throws, so releasing again here would take somebody else's claim on a shared dependency.
     ///     Unlike a prefab there is nothing to capture — the record <i>is</i> the asset — so what the
     ///     registry keeps is a <c>NetworkRules</c> and not a handle.

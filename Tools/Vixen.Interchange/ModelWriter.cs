@@ -11,15 +11,22 @@ namespace Vixen.Interchange;
 /// <summary>Writes meshes back out as a file a DCC opens: OBJ, glTF or GLB.</summary>
 /// <remarks>
 ///     <para>
-///         <b><see cref="ModelReader" />'s other half, and it is here for the same reason that one
-///         is.</b> docs/plan/41 § D16 and docs/plan/42 § D13 both give the batch surface as
+///         <b>
+///             <see cref="ModelReader" />'s other half, and it is here for the same reason that one
+///             is.
+///         </b>
+///         docs/plan/41 § D16 and docs/plan/42 § D13 both give the batch surface as
 ///         <c>vixen remesh in.glb out.glb</c>, which is a read through Assimp and a write that Assimp
 ///         does not do for us. Putting the write beside the read means the CLI links one assembly to
 ///         do a round trip rather than two that disagree about what a mesh is.
 ///     </para>
 ///     <para>
-///         ⚠ <b><c>MeshExport</c> in <c>Vixen.Editor.SceneView</c> writes glTF too, and this is not
-///         it.</b> That one takes doc 24's <c>ExportPiece</c> — a kernel mesh, a world transform and a
+///         ⚠
+///         <b>
+///             <c>MeshExport</c> in <c>Vixen.Editor.SceneView</c> writes glTF too, and this is not
+///             it.
+///         </b>
+///         That one takes doc 24's <c>ExportPiece</c> — a kernel mesh, a world transform and a
 ///         name, straight out of a scene document — and lives in the viewport assembly, which carries
 ///         the whole UI stack. A batch tool that took that reference to write a file would link a
 ///         renderer and a control library to run on a build server. The overlap is the glTF envelope
@@ -39,15 +46,19 @@ public static class ModelWriter {
 
     /// <summary>UTF-8 with no byte-order mark, which is the only kind a mesh file may have.</summary>
     /// <remarks>
-    ///     ⚠ <b><see cref="Encoding.UTF8" /> emits a BOM and that is enough to make a valid glTF
-    ///     unreadable.</b> Assimp finds its importer by searching the first couple of hundred bytes for
+    ///     ⚠
+    ///     <b>
+    ///         <see cref="Encoding.UTF8" /> emits a BOM and that is enough to make a valid glTF
+    ///         unreadable.
+    ///     </b>
+    ///     Assimp finds its importer by searching the first couple of hundred bytes for
     ///     <c>"asset"</c> and <c>"scenes"</c>, and three bytes of preamble in front of the opening brace
     ///     take the file past every check it has — the error it gives back is "no suitable reader found
     ///     for the file format", which reads as a bug in the writer's JSON and is a bug in its
     ///     encoding. Measured: the same document round-trips with this encoder and does not with the
     ///     framework's default.
     /// </remarks>
-    static readonly UTF8Encoding Utf8 = new(encoderShouldEmitUTF8Identifier: false);
+    static readonly UTF8Encoding Utf8 = new(false);
 
     /// <summary>Whether a path names a format this can write.</summary>
     /// <param name="path">The file name or path.</param>
@@ -94,7 +105,8 @@ public static class ModelWriter {
             default:
                 throw new NotSupportedException(
                     $"'{Path.GetExtension(path)}' is not a format this writes. It writes "
-                    + string.Join(", ", Extensions) + "."
+                    + string.Join(", ", Extensions)
+                    + "."
                 );
         }
     }
@@ -110,8 +122,12 @@ public static class ModelWriter {
     ///         quads, because <c>f a b c d</c> is a quad.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>glTF and GLB are triangles-only by specification, so <c>.glb</c> genuinely cannot
-    ///         carry a quad.</b> Both write a triangulated copy and say so on
+    ///         ⚠
+    ///         <b>
+    ///             glTF and GLB are triangles-only by specification, so <c>.glb</c> genuinely cannot
+    ///             carry a quad.
+    ///         </b>
+    ///         Both write a triangulated copy and say so on
     ///         <paramref name="warnings" />. Silently triangulating is what produced a tool whose output
     ///         nobody could tell had been triangulated; refusing the format outright would take away the
     ///         one container the rest of the pipeline reads.
@@ -139,11 +155,12 @@ public static class ModelWriter {
         if (!CanWrite(path)) {
             throw new NotSupportedException(
                 $"'{Path.GetExtension(path)}' is not a format this writes. It writes "
-                + string.Join(", ", Extensions) + "."
+                + string.Join(", ", Extensions)
+                + "."
             );
         }
 
-        var sided = meshes.Count(entry => Sided(entry.Mesh));
+        var sided = meshes.Count(static entry => Sided(entry.Mesh));
 
         if (sided > 0 && warnings is not null) {
             warnings.WriteLine(
@@ -152,7 +169,11 @@ public static class ModelWriter {
             );
         }
 
-        Write(path, [.. meshes.Select(entry => ModelGeometry.ToMeshData(entry.Mesh, entry.Name, entry.TexCoords))], name);
+        Write(
+            path,
+            [..meshes.Select(static entry => ModelGeometry.ToMeshData(entry.Mesh, entry.Name, entry.TexCoords))],
+            name
+        );
     }
 
     /// <summary>Whether a mesh has a face that a triangle list would have to cut up.</summary>
@@ -177,8 +198,12 @@ public static class ModelWriter {
     ///         object's vertices.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Positions are shared between the corners that sit on one, and the coordinates and
-    ///         normals are not.</b> A <see cref="MeshData" /> is a vertex buffer — one entry per corner
+    ///         ⚠
+    ///         <b>
+    ///             Positions are shared between the corners that sit on one, and the coordinates and
+    ///             normals are not.
+    ///         </b>
+    ///         A <see cref="MeshData" /> is a vertex buffer — one entry per corner
     ///         — so writing its entries out as <c>v</c> lines one for one produces a file in which no
     ///         two triangles share a vertex and every edge is a boundary: 76 293 positions and 76 293
     ///         boundary edges for a 25 439-triangle mesh, measured. OBJ has a separate index per
@@ -204,23 +229,34 @@ public static class ModelWriter {
             var welded = Weld(mesh.Positions, out var distinct);
 
             foreach (var position in distinct) {
-                text.Append("v ").Append(Number(position.X)).Append(' ')
-                    .Append(Number(position.Y)).Append(' ')
-                    .Append(Number(position.Z)).Append('\n');
+                text.Append("v ")
+                    .Append(Number(position.X))
+                    .Append(' ')
+                    .Append(Number(position.Y))
+                    .Append(' ')
+                    .Append(Number(position.Z))
+                    .Append('\n');
             }
 
             foreach (var normal in mesh.Normals) {
-                text.Append("vn ").Append(Number(normal.X)).Append(' ')
-                    .Append(Number(normal.Y)).Append(' ')
-                    .Append(Number(normal.Z)).Append('\n');
+                text.Append("vn ")
+                    .Append(Number(normal.X))
+                    .Append(' ')
+                    .Append(Number(normal.Y))
+                    .Append(' ')
+                    .Append(Number(normal.Z))
+                    .Append('\n');
             }
 
             foreach (var coordinate in mesh.TexCoords) {
                 // ⚠ V is flipped back on the way out. ModelReader asks Assimp for FlipUVs so that a
                 // coordinate arrives in the convention the renderer samples in; a file written without
                 // undoing that is a file whose textures are upside down in every other tool.
-                text.Append("vt ").Append(Number(coordinate.X)).Append(' ')
-                    .Append(Number(1f - coordinate.Y)).Append('\n');
+                text.Append("vt ")
+                    .Append(Number(coordinate.X))
+                    .Append(' ')
+                    .Append(Number(1f - coordinate.Y))
+                    .Append('\n');
             }
 
             var hasNormals = mesh.Normals.Length == mesh.Positions.Length;
@@ -289,17 +325,24 @@ public static class ModelWriter {
             text.Append("o ").Append(entry.Name.Length > 0 ? entry.Name : "Mesh").Append('\n');
 
             foreach (var position in mesh.Positions) {
-                text.Append("v ").Append(Number(position.X)).Append(' ')
-                    .Append(Number(position.Y)).Append(' ')
-                    .Append(Number(position.Z)).Append('\n');
+                text.Append("v ")
+                    .Append(Number(position.X))
+                    .Append(' ')
+                    .Append(Number(position.Y))
+                    .Append(' ')
+                    .Append(Number(position.Z))
+                    .Append('\n');
             }
 
             var hasCoordinates = entry.TexCoords.Count == mesh.CornerCount && mesh.CornerCount > 0;
 
             if (hasCoordinates) {
                 foreach (var coordinate in entry.TexCoords) {
-                    text.Append("vt ").Append(Number(coordinate.X)).Append(' ')
-                        .Append(Number(1f - coordinate.Y)).Append('\n');
+                    text.Append("vt ")
+                        .Append(Number(coordinate.X))
+                        .Append(' ')
+                        .Append(Number(1f - coordinate.Y))
+                        .Append('\n');
                 }
             }
 
@@ -310,9 +353,13 @@ public static class ModelWriter {
                     facing = Vector3.Normalize(facing);
                 }
 
-                text.Append("vn ").Append(Number(facing.X)).Append(' ')
-                    .Append(Number(facing.Y)).Append(' ')
-                    .Append(Number(facing.Z)).Append('\n');
+                text.Append("vn ")
+                    .Append(Number(facing.X))
+                    .Append(' ')
+                    .Append(Number(facing.Y))
+                    .Append(' ')
+                    .Append(Number(facing.Z))
+                    .Append('\n');
             }
 
             for (var face = 0; face < mesh.FaceCount; face++) {
@@ -393,7 +440,7 @@ public static class ModelWriter {
     ) {
         ArgumentNullException.ThrowIfNull(meshes);
 
-        return Document(meshes, name, embedded: true, materials ?? []).Json;
+        return Document(meshes, name, true, materials ?? []).Json;
     }
 
     /// <summary>Writes meshes as a binary glTF container.</summary>
@@ -402,8 +449,12 @@ public static class ModelWriter {
     /// <param name="materials">What <see cref="MeshData.MaterialIndex" /> indexes, or null for none.</param>
     /// <returns>The file's bytes.</returns>
     /// <remarks>
-    ///     ⚠ <b>Both chunks are padded to four bytes, the JSON with spaces and the binary with
-    ///     zeroes.</b> The specification says so and says which filler each takes, and a reader that
+    ///     ⚠
+    ///     <b>
+    ///         Both chunks are padded to four bytes, the JSON with spaces and the binary with
+    ///         zeroes.
+    ///     </b>
+    ///     The specification says so and says which filler each takes, and a reader that
     ///     trusts the chunk length — most of them — reads the padding as content otherwise. A GLB that
     ///     is wrong this way opens in exactly one viewer and in none of the others.
     /// </remarks>
@@ -415,35 +466,35 @@ public static class ModelWriter {
     ) {
         ArgumentNullException.ThrowIfNull(meshes);
 
-        var (json, buffer) = Document(meshes, name, embedded: false, materials ?? []);
+        var (json, buffer) = Document(meshes, name, false, materials ?? []);
         var text = Utf8.GetBytes(json);
         var textPadding = (4 - text.Length % 4) % 4;
         var binaryPadding = (4 - buffer.Count % 4) % 4;
 
         using var stream = new MemoryStream();
-        using var writer = new BinaryWriter(stream, Utf8, leaveOpen: true);
+        using var writer = new BinaryWriter(stream, Utf8, true);
 
         var total = 12 + 8 + text.Length + textPadding + (buffer.Count > 0 ? 8 + buffer.Count + binaryPadding : 0);
 
         writer.Write(0x46546C67u);
         writer.Write(2u);
-        writer.Write((uint) total);
+        writer.Write((uint)total);
 
-        writer.Write((uint) (text.Length + textPadding));
+        writer.Write((uint)(text.Length + textPadding));
         writer.Write(0x4E4F534Au);
         writer.Write(text);
 
         for (var pad = 0; pad < textPadding; pad++) {
-            writer.Write((byte) 0x20);
+            writer.Write((byte)0x20);
         }
 
         if (buffer.Count > 0) {
-            writer.Write((uint) (buffer.Count + binaryPadding));
+            writer.Write((uint)(buffer.Count + binaryPadding));
             writer.Write(0x004E4942u);
             writer.Write(buffer.ToArray());
 
             for (var pad = 0; pad < binaryPadding; pad++) {
-                writer.Write((byte) 0);
+                writer.Write((byte)0);
             }
         }
 
@@ -505,19 +556,19 @@ public static class ModelWriter {
         }
 
         var declaration = embedded
-            ? $$"""{"byteLength":{{buffer.Count}},"uri":"data:application/octet-stream;base64,{{Convert.ToBase64String([.. buffer])}}"}"""
+            ? $$"""{"byteLength":{{buffer.Count}},"uri":"data:application/octet-stream;base64,{{Convert.ToBase64String([..buffer])}}"}"""
             : $$"""{"byteLength":{{buffer.Count}}}""";
 
         var json = $$"""
-            {"asset":{"version":"2.0","generator":"Vixen"},
-            "scene":0,
-            "scenes":[{"name":{{Text(name)}},"nodes":[{{string.Join(",", Enumerable.Range(0, nodes.Count))}}]}],
-            "nodes":[{{string.Join(",", nodes)}}],
-            {{Materials(materials)}}"meshes":[{{string.Join(",", primitives)}}],
-            "accessors":[{{string.Join(",", accessors)}}],
-            "bufferViews":[{{string.Join(",", views)}}],
-            "buffers":[{{declaration}}]}
-            """.Replace("\n", string.Empty, StringComparison.Ordinal);
+                     {"asset":{"version":"2.0","generator":"Vixen"},
+                     "scene":0,
+                     "scenes":[{"name":{{Text(name)}},"nodes":[{{string.Join(",", Enumerable.Range(0, nodes.Count))}}]}],
+                     "nodes":[{{string.Join(",", nodes)}}],
+                     {{Materials(materials)}}"meshes":[{{string.Join(",", primitives)}}],
+                     "accessors":[{{string.Join(",", accessors)}}],
+                     "bufferViews":[{{string.Join(",", views)}}],
+                     "buffers":[{{declaration}}]}
+                     """.Replace("\n", string.Empty, StringComparison.Ordinal);
 
         return (json, buffer);
     }
@@ -556,7 +607,9 @@ public static class ModelWriter {
         }
 
         views.Add($$"""{"buffer":0,"byteOffset":{{offset}},"byteLength":{{values.Length * 12}}}""");
-        accessors.Add($$"""{"bufferView":{{views.Count - 1}},"componentType":5126,"count":{{values.Length}},"type":"VEC3"}""");
+        accessors.Add(
+            $$"""{"bufferView":{{views.Count - 1}},"componentType":5126,"count":{{values.Length}},"type":"VEC3"}"""
+        );
 
         return accessors.Count - 1;
     }
@@ -573,7 +626,9 @@ public static class ModelWriter {
         }
 
         views.Add($$"""{"buffer":0,"byteOffset":{{offset}},"byteLength":{{values.Length * 8}}}""");
-        accessors.Add($$"""{"bufferView":{{views.Count - 1}},"componentType":5126,"count":{{values.Length}},"type":"VEC2"}""");
+        accessors.Add(
+            $$"""{"bufferView":{{views.Count - 1}},"componentType":5126,"count":{{values.Length}},"type":"VEC2"}"""
+        );
 
         return accessors.Count - 1;
     }
@@ -590,7 +645,9 @@ public static class ModelWriter {
         }
 
         views.Add($$"""{"buffer":0,"byteOffset":{{offset}},"byteLength":{{values.Length * 16}}}""");
-        accessors.Add($$"""{"bufferView":{{views.Count - 1}},"componentType":5126,"count":{{values.Length}},"type":"VEC4"}""");
+        accessors.Add(
+            $$"""{"bufferView":{{views.Count - 1}},"componentType":5126,"count":{{values.Length}},"type":"VEC4"}"""
+        );
 
         return accessors.Count - 1;
     }
@@ -643,22 +700,28 @@ public static class ModelWriter {
         var written = materials.Select(material => Material(material, Image, used)).ToList();
 
         var textures = images.Select(uri => {
-            if (!uri.EndsWith(".webp", StringComparison.OrdinalIgnoreCase)) {
-                return $$"""{"sampler":0,"source":{{Number(images.IndexOf(uri))}}}""";
-            }
+                    if (!uri.EndsWith(".webp", StringComparison.OrdinalIgnoreCase)) {
+                        return $$"""{"sampler":0,"source":{{Number(images.IndexOf(uri))}}}""";
+                    }
 
-            used.Add("EXT_texture_webp");
-            required.Add("EXT_texture_webp");
+                    used.Add("EXT_texture_webp");
+                    required.Add("EXT_texture_webp");
 
-            return "{\"sampler\":0,\"extensions\":{\"EXT_texture_webp\":{\"source\":" + Number(images.IndexOf(uri)) + "}}}";
-        }).ToList();
+                    return """{"sampler":0,"extensions":{"EXT_texture_webp":{"source":"""
+                        + Number(images.IndexOf(uri))
+                        + "}}}";
+                }
+            )
+            .ToList();
 
         var text = new StringBuilder();
         text.Append($"\"materials\":[{string.Join(",", written)}],");
 
         if (images.Count > 0) {
             text.Append($"\"textures\":[{string.Join(",", textures)}],");
-            text.Append($"\"images\":[{string.Join(",", images.Select(static uri => $$"""{"uri":{{Text(Escape(uri))}}}"""))}],");
+            text.Append(
+                $"\"images\":[{string.Join(",", images.Select(static uri => $$"""{"uri":{{Text(Escape(uri))}}}"""))}],"
+            );
             // Trilinear and repeat, which is what a texture that tiles over a UV layout wants.
             text.Append("\"samplers\":[{\"magFilter\":9729,\"minFilter\":9987,\"wrapS\":10497,\"wrapT\":10497}],");
         }
@@ -702,11 +765,15 @@ public static class ModelWriter {
         members.Add($"\"pbrMetallicRoughness\":{{{string.Join(",", pbr)}}}");
 
         if (textures.Normal is { } normal) {
-            members.Add($"\"normalTexture\":{{\"index\":{Number(image(normal))},\"scale\":{Number(textures.NormalScale)}}}");
+            members.Add(
+                $"\"normalTexture\":{{\"index\":{Number(image(normal))},\"scale\":{Number(textures.NormalScale)}}}"
+            );
         }
 
         if (textures.Occlusion is { } occlusion) {
-            members.Add($"\"occlusionTexture\":{{\"index\":{Number(image(occlusion))},\"strength\":{Number(textures.OcclusionStrength)}}}");
+            members.Add(
+                $"\"occlusionTexture\":{{\"index\":{Number(image(occlusion))},\"strength\":{Number(textures.OcclusionStrength)}}}"
+            );
         }
 
         if (textures.Emissive is { } emissive) {
@@ -733,7 +800,9 @@ public static class ModelWriter {
 
         if (textures.EmissiveStrength > 1f) {
             used.Add("KHR_materials_emissive_strength");
-            members.Add($"\"extensions\":{{\"KHR_materials_emissive_strength\":{{\"emissiveStrength\":{Number(textures.EmissiveStrength)}}}}}");
+            members.Add(
+                $"\"extensions\":{{\"KHR_materials_emissive_strength\":{{\"emissiveStrength\":{Number(textures.EmissiveStrength)}}}}}"
+            );
         }
 
         return $"{{{string.Join(",", members)}}}";
@@ -747,11 +816,13 @@ public static class ModelWriter {
         var offset = Align(buffer);
 
         foreach (var index in indices) {
-            buffer.AddRange(BitConverter.GetBytes((uint) index));
+            buffer.AddRange(BitConverter.GetBytes((uint)index));
         }
 
         views.Add($$"""{"buffer":0,"byteOffset":{{offset}},"byteLength":{{indices.Length * 4}}}""");
-        accessors.Add($$"""{"bufferView":{{views.Count - 1}},"componentType":5125,"count":{{indices.Length}},"type":"SCALAR"}""");
+        accessors.Add(
+            $$"""{"bufferView":{{views.Count - 1}},"componentType":5125,"count":{{indices.Length}},"type":"SCALAR"}"""
+        );
 
         return accessors.Count - 1;
     }
@@ -776,5 +847,7 @@ public static class ModelWriter {
     static string Number(int value) => value.ToString(CultureInfo.InvariantCulture);
 
     static string Text(string value) =>
-        "\"" + value.Replace("\\", "\\\\", StringComparison.Ordinal).Replace("\"", "\\\"", StringComparison.Ordinal) + "\"";
+        "\""
+        + value.Replace("\\", "\\\\", StringComparison.Ordinal).Replace("\"", "\\\"", StringComparison.Ordinal)
+        + "\"";
 }

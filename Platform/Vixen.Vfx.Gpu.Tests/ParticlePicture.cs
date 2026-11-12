@@ -13,7 +13,6 @@ using Vixen.Raven.Lowering;
 using Vixen.Raven.Reflection;
 using Vixen.Raven.Syntax;
 using Vixen.Rendering;
-using Vixen.Vfx;
 using Xunit;
 using RavenStage = Vixen.Raven.Symbols.ShaderStage;
 using ShaderStage = Vixen.Graphics.ShaderStage;
@@ -128,13 +127,18 @@ static class ParticlePicture {
 
         particles = new VfxGeometryBuilder().Build(effect, camera, expanded);
 
-        return Draw(device, compiled, expanded.AsSpan(0, particles * VfxGeometryBuilder.VerticesPerParticle), new() {
-            Side = side,
-            ViewProjection = view.ViewProjection,
-            Tint = tint ?? new Vector4(1f, 1f, 1f, 1f),
-            Emissive = emissive,
-            EdgeSharpness = edgeSharpness
-        });
+        return Draw(
+            device,
+            compiled,
+            expanded.AsSpan(0, particles * VfxGeometryBuilder.VerticesPerParticle),
+            new() {
+                Side = side,
+                ViewProjection = view.ViewProjection,
+                Tint = tint ?? new Vector4(1f, 1f, 1f, 1f),
+                Emissive = emissive,
+                EdgeSharpness = edgeSharpness
+            }
+        );
     }
 
     /// <summary>One pixel of a returned picture, as channels in 0..1.</summary>
@@ -145,7 +149,7 @@ static class ParticlePicture {
     public static Vector3 Pixel(byte[] pixels, int side, int x, int y) {
         ArgumentNullException.ThrowIfNull(pixels);
 
-        var offset = ((Math.Clamp(y, 0, side - 1) * side) + Math.Clamp(x, 0, side - 1)) * 4;
+        var offset = (Math.Clamp(y, 0, side - 1) * side + Math.Clamp(x, 0, side - 1)) * 4;
 
         return new(pixels[offset] / 255f, pixels[offset + 1] / 255f, pixels[offset + 2] / 255f);
     }
@@ -177,27 +181,30 @@ static class ParticlePicture {
         var setLayouts = SetLayouts(device, reflection);
         var pipelineLayout = device.CreatePipelineLayout(new(setLayouts, [], "ParticleSprite"));
 
-        var pipeline = device.CreateGraphicsPipeline(new(
-            vertexModule,
-            fragmentModule,
-            pipelineLayout,
+        var pipeline = device.CreateGraphicsPipeline(
+            new(
+                vertexModule,
+                fragmentModule,
+                pipelineLayout,
 
-            // Additive, and it goes on the target rather than on the pipeline — a wholly default
-            // BlendState means opaque, so omitting this draws the sprite over the clear rather than
-            // into it and the centre pixel comes back orange either way.
-            [new(PixelFormat.Rgba8UNorm, BlendState.Additive)],
-            VertexLayout(reflection),
+                // Additive, and it goes on the target rather than on the pipeline — a wholly default
+                // BlendState means opaque, so omitting this draws the sprite over the clear rather than
+                // into it and the centre pixel comes back orange either way.
+                [new(PixelFormat.Rgba8UNorm, BlendState.Additive)],
+                VertexLayout(reflection),
 
-            // No depth at all and nothing culled, which is what a billboard needs: its winding
-            // follows the camera, so half of any effect is back-facing at any moment.
-            Rasterizer: RasterizerState.TwoSided,
-            DepthStencil: DepthStencilState.Disabled,
-            Name: "ParticleSprite"
-        ));
+                // No depth at all and nothing culled, which is what a billboard needs: its winding
+                // follows the camera, so half of any effect is back-facing at any moment.
+                Rasterizer: RasterizerState.TwoSided,
+                DepthStencil: DepthStencilState.Disabled,
+                Name: "ParticleSprite"
+            )
+        );
 
         // Sized for at least one quad even when there is nothing to draw, because a zero-length
         // buffer is not a thing and the pass still has to clear.
-        var vertexBytes = Math.Max(vertices.Length, VfxGeometryBuilder.VerticesPerParticle) * ParticleVertices.SizeInBytes;
+        var vertexBytes = Math.Max(vertices.Length, VfxGeometryBuilder.VerticesPerParticle)
+            * ParticleVertices.SizeInBytes;
         var indices = new uint[Math.Max(quads, 1) * VfxGeometryBuilder.IndicesPerParticle];
 
         VfxGeometryBuilder.WriteQuadIndices(indices, quads);
@@ -230,22 +237,26 @@ static class ParticlePicture {
 
         var blocks = Blocks(device, reflection, values);
 
-        var target = device.CreateTexture(new(
-            PixelFormat.Rgba8UNorm,
-            side,
-            side,
-            TextureUsage.ColourTarget | TextureUsage.CopySource,
-            Name: "particle target"
-        ));
+        var target = device.CreateTexture(
+            new(
+                PixelFormat.Rgba8UNorm,
+                side,
+                side,
+                TextureUsage.ColourTarget | TextureUsage.CopySource,
+                Name: "particle target"
+            )
+        );
 
         var targetView = device.CreateTextureView(target);
 
-        var readback = device.CreateBuffer(new(
-            side * side * 4,
-            BufferUsage.CopyDestination,
-            MemoryAccess.HostReadback,
-            "particle readback"
-        ));
+        var readback = device.CreateBuffer(
+            new(
+                side * side * 4,
+                BufferUsage.CopyDestination,
+                MemoryAccess.HostReadback,
+                "particle readback"
+            )
+        );
 
         using var descriptors = new DescriptorAllocator(device, "Particles");
 
@@ -259,18 +270,27 @@ static class ParticlePicture {
             ];
 
             buffers.AddRange(
-                blocks.Select(block => new BufferBarrier(block.Buffer, ResourceState.HostAccess, ResourceState.UniformRead))
+                blocks.Select(static block => new BufferBarrier(
+                        block.Buffer,
+                        ResourceState.HostAccess,
+                        ResourceState.UniformRead
+                    )
+                )
             );
 
-            list.Barrier(new(
-                [.. buffers],
-                [new(target, ResourceState.Undefined, ResourceState.ColourTarget)]
-            ));
+            list.Barrier(
+                new(
+                    [..buffers],
+                    [new(target, ResourceState.Undefined, ResourceState.ColourTarget)]
+                )
+            );
 
-            list.BeginRenderPass(new(
-                [new(targetView, LoadAction.Clear, StoreAction.Store, Background)],
-                name: "Sparks"
-            ));
+            list.BeginRenderPass(
+                new(
+                    [new(targetView, LoadAction.Clear, StoreAction.Store, Background)],
+                    name: "Sparks"
+                )
+            );
 
             if (quads > 0) {
                 list.BindPipeline(pipeline);
@@ -342,7 +362,7 @@ static class ParticlePicture {
     ///     and the driver refuses the draw naming the layout rather than the set.
     /// </remarks>
     static DescriptorSetLayoutHandle[] SetLayouts(VulkanDevice device, RavenReflection reflection) {
-        var count = reflection.Sets.Length == 0 ? 0 : reflection.Sets.Max(set => set.Set) + 1;
+        var count = reflection.Sets.Length == 0 ? 0 : reflection.Sets.Max(static set => set.Set) + 1;
         var layouts = new DescriptorSetLayoutHandle[count];
 
         for (var slot = 0; slot < count; slot++) {
@@ -351,12 +371,13 @@ static class ParticlePicture {
             DescriptorBinding[] bindings = declared is null
                 ? []
                 : [
-                    .. declared.Bindings.Select(binding => new DescriptorBinding(
-                        (uint)binding.Binding,
-                        Kind(binding.Type),
-                        Stages(binding.Stages),
-                        Math.Max(1, binding.Count)
-                    ))
+                    ..declared.Bindings.Select(static binding => new DescriptorBinding(
+                            (uint)binding.Binding,
+                            Kind(binding.Type),
+                            Stages(binding.Stages),
+                            Math.Max(1, binding.Count)
+                        )
+                    )
                 ];
 
             layouts[slot] = device.CreateDescriptorSetLayout(
@@ -385,13 +406,18 @@ static class ParticlePicture {
 
         for (var index = 0; index < elements.Length; index++) {
             var input = reflection.VertexInputs[index];
-            var channel = schema.Attributes.FirstOrDefault(a => string.Equals(a.Name, input.Name, StringComparison.Ordinal));
+            var channel = schema.Attributes.FirstOrDefault(a => string.Equals(
+                    a.Name,
+                    input.Name,
+                    StringComparison.Ordinal
+                )
+            );
 
             if (channel.Name is null) {
                 throw new InvalidOperationException(
                     $"ParticleSprite reads a vertex attribute called '{input.Name}' at location "
                     + $"{input.Location}, and ParticleVertices.Schema holds "
-                    + $"{string.Join(", ", schema.Attributes.Select(a => a.Name))}."
+                    + $"{string.Join(", ", schema.Attributes.Select(static a => a.Name))}."
                 );
             }
 
@@ -419,12 +445,14 @@ static class ParticlePicture {
                     }
                 }
 
-                var buffer = device.CreateBuffer(new(
-                    bytes.Length,
-                    BufferUsage.Uniform,
-                    MemoryAccess.HostUpload,
-                    binding.Name
-                ));
+                var buffer = device.CreateBuffer(
+                    new(
+                        bytes.Length,
+                        BufferUsage.Uniform,
+                        MemoryAccess.HostUpload,
+                        binding.Name
+                    )
+                );
 
                 device.Write(buffer, 0, bytes);
 
@@ -466,8 +494,7 @@ static class ParticlePicture {
         return result;
     }
 
-    static byte[] Bytes<T>(T value) where T : unmanaged =>
-        MemoryMarshal.AsBytes(new ReadOnlySpan<T>(in value)).ToArray();
+    static byte[] Bytes<T>(T value) where T : unmanaged => [..MemoryMarshal.AsBytes(new ReadOnlySpan<T>(in value))];
 
     // --- The shader ---------------------------------------------------------
 
@@ -501,7 +528,7 @@ static class ParticlePicture {
         // Math.rvn is what declares `package Vixen.Shaders.Core`, which ParticleSprite.rvn imports.
         var trees = new[] { "Core/Math.rvn", "Vfx/ParticleSprite.rvn" }
             .Select(name => Path.Combine(root, name))
-            .Select(path => SyntaxTree.ParseText(File.ReadAllText(path), path: Path.GetFileName(path)))
+            .Select(static path => SyntaxTree.ParseText(File.ReadAllText(path), path: Path.GetFileName(path)))
             .ToArray();
 
         foreach (var tree in trees) {
@@ -527,7 +554,7 @@ static class ParticlePicture {
 
         Assert.True(Errors(bag).Count == 0, Report("Generating", Errors(bag)));
 
-        var shader = module.Shaders.FirstOrDefault(s => s.Name == "ParticleSprite");
+        var shader = module.Shaders.FirstOrDefault(static s => s.Name == "ParticleSprite");
 
         Assert.True(shader is not null, "The library produced no shader called 'ParticleSprite'.");
 
@@ -549,15 +576,15 @@ static class ParticlePicture {
 
         Assert.Fail(
             $"No {stage} module for 'ParticleSprite'. Got: "
-            + string.Join(", ", generated.Select(unit => $"{unit.Name} ({unit.Stage})"))
+            + string.Join(", ", generated.Select(static unit => $"{unit.Name} ({unit.Stage})"))
         );
 
         return [];
     }
 
     static List<Diagnostic> Errors(DiagnosticBag bag) =>
-        [.. bag.ToArray().Where(d => d.Severity == DiagnosticSeverity.Error)];
+        [..bag.ToArray().Where(static d => d.Severity == DiagnosticSeverity.Error)];
 
     static string Report(string phase, IReadOnlyList<Diagnostic> diagnostics) =>
-        $"{phase} ParticleSprite.rvn failed:\n{string.Join("\n", diagnostics.Select(d => d.ToString()))}";
+        $"{phase} ParticleSprite.rvn failed:\n{string.Join("\n", diagnostics.Select(static d => d.ToString()))}";
 }

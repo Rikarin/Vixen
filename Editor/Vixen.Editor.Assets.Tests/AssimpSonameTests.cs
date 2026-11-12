@@ -49,7 +49,7 @@ public class AssimpSonameTests {
     static IReadOnlyList<string> Names() {
         var container = typeof(Silk.NET.Assimp.Assimp).Assembly
             .GetTypes()
-            .SingleOrDefault(type => type.Name == "AssimpLibraryNameContainer");
+            .SingleOrDefault(static type => type.Name == "AssimpLibraryNameContainer");
 
         Assert.True(
             container is not null,
@@ -58,7 +58,7 @@ public class AssimpSonameTests {
             + "keyed on, and they have to be re-established before that exclusion can be trusted."
         );
 
-        var instance = Activator.CreateInstance(container!, nonPublic: true);
+        var instance = Activator.CreateInstance(container!, true);
 
         // ⚠ Every one of them is a `string[]` and not a `string`: a platform may name several
         // candidates and the loader tries each. Assimp names exactly one per platform today, which is
@@ -67,14 +67,19 @@ public class AssimpSonameTests {
         // the shape of wrong answer this file exists to refuse.
         var names = container!
             .GetProperties(
-                BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static
+                BindingFlags.Public
+                | BindingFlags.NonPublic
+                | BindingFlags.Instance
+                | BindingFlags.Static
                 | BindingFlags.FlattenHierarchy
             )
-            .Where(property => property.PropertyType == typeof(string[]) && property.GetGetMethod(true) is not null)
+            .Where(static property => property.PropertyType == typeof(string[])
+                && property.GetGetMethod(true) is not null
+            )
             .SelectMany(property =>
                 (string[]?)property.GetValue(property.GetGetMethod(true)!.IsStatic ? null : instance) ?? []
             )
-            .Where(name => !string.IsNullOrEmpty(name))
+            .Where(static name => !string.IsNullOrEmpty(name))
             .ToArray();
 
         Assert.NotEmpty(names);
@@ -132,7 +137,9 @@ public class AssimpSonameTests {
     ///     copy of this file and reports on a tree nobody is editing.
     /// </remarks>
     static string SdkProject() {
-        for (var directory = new DirectoryInfo(AppContext.BaseDirectory); directory is not null; directory = directory.Parent) {
+        for (var directory = new DirectoryInfo(AppContext.BaseDirectory);
+             directory is not null;
+             directory = directory.Parent) {
             var candidate = Path.Combine(directory.FullName, "Tools", "Vixen.Sdk", "Vixen.Sdk.csproj");
 
             if (File.Exists(candidate)) {

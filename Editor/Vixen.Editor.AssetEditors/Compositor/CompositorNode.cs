@@ -99,8 +99,7 @@ public abstract class CompositorNode : Node {
 
     /// <summary>Adds whatever this node declares to the frame. Nothing, for a node that draws.</summary>
     /// <param name="declarations">What is being collected.</param>
-    protected internal virtual void Contribute(CompositorDeclarations declarations) {
-    }
+    protected internal virtual void Contribute(CompositorDeclarations declarations) { }
 
     /// <summary>Produces this node's part of the tree.</summary>
     /// <param name="children">What this node's inner chain produced, empty for a node with none.</param>
@@ -129,7 +128,7 @@ public abstract class CompositorNode : Node {
     /// <returns>The number.</returns>
     protected int Whole(string key, int fallback) {
         var lanes = Binding.Value(key);
-        return lanes.Length == 0 ? fallback : (int) MathF.Round(lanes[0]);
+        return lanes.Length == 0 ? fallback : (int)MathF.Round(lanes[0]);
     }
 
     /// <summary>A numeric setting as a float.</summary>
@@ -161,7 +160,7 @@ public abstract class CompositorNode : Node {
     ///     saved frame does — with no diff to look at, because the file did not change.
     /// </remarks>
     protected TEnum Choice<TEnum>(string key, TEnum fallback) where TEnum : struct, Enum =>
-        Enum.TryParse<TEnum>(Text(key), ignoreCase: true, out var value) ? value : fallback;
+        Enum.TryParse<TEnum>(Text(key), true, out var value) ? value : fallback;
 
     /// <summary>What this node is called, falling back to something rather than to nothing.</summary>
     /// <param name="fallback">What to call it when the author has not.</param>

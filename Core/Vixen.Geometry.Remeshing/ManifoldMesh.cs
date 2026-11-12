@@ -22,8 +22,11 @@ readonly record struct TangentFrame(Vector3 Normal, Vector3 Tangent, Vector3 Bit
 /// <summary>A manifold triangle surface with tangent frames and ordered one-rings — the field's structure.</summary>
 /// <remarks>
 ///     <para>
-///         <b>docs/plan/41 § B5, and the resolution it states is that these are two structures for two
-///         jobs.</b> Doc 24 chose an indexed face set with an explicit edge table <i>specifically</i>
+///         <b>
+///             docs/plan/41 § B5, and the resolution it states is that these are two structures for two
+///             jobs.
+///         </b>
+///         Doc 24 chose an indexed face set with an explicit edge table <i>specifically</i>
 ///         so that non-manifold geometry is reported rather than refused, and that is right for an
 ///         editable mesh and wrong for a field solve. So the conversion is a stage: conditioning
 ///         builds this, the solver works here, and extraction hands back an <see cref="EditMesh" /> of
@@ -31,8 +34,11 @@ readonly record struct TangentFrame(Vector3 Normal, Vector3 Tangent, Vector3 Bit
 ///         n-gons.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The one-ring is in <i>fan</i> order, and that is the whole reason this type exists
-///         rather than a handful of helpers over <c>EditMesh</c>.</b>
+///         ⚠
+///         <b>
+///             The one-ring is in <i>fan</i> order, and that is the whole reason this type exists
+///             rather than a handful of helpers over <c>EditMesh</c>.
+///         </b>
 ///         <see cref="EditMesh.EdgesAt" /> returns the edges at a position in the order the edge table
 ///         discovered them, which is build order — correct for a valence count and useless for
 ///         anything angular. A cross field integrates a rotation round a vertex; a smoothing step
@@ -98,9 +104,13 @@ sealed class ManifoldMesh {
 
     /// <summary>Where the per-triangle groups came from, carried from the mesh conditioning started at.</summary>
     /// <remarks>
-    ///     ⚠ <b>Conditioning rewrites the triangulation and never changes what a group id means, so this
-    ///     is the source mesh's answer and dropping it is a silent behaviour change in both
-    ///     directions.</b> <see cref="FeatureDetector" /> reads a group boundary as a crease: lost, a
+    ///     ⚠
+    ///     <b>
+    ///         Conditioning rewrites the triangulation and never changes what a group id means, so this
+    ///         is the source mesh's answer and dropping it is a silent behaviour change in both
+    ///         directions.
+    ///     </b>
+    ///     <see cref="FeatureDetector" /> reads a group boundary as a crease: lost, a
     ///     material boundary stops being a feature; invented, every edge of a faceted surface becomes
     ///     one.
     /// </remarks>
@@ -162,7 +172,8 @@ sealed class ManifoldMesh {
     ///     neighbour is adjacent to the first; for a boundary vertex it does not, and the two ends are
     ///     the two boundary edges.
     /// </returns>
-    public ReadOnlySpan<int> Ring(int vertex) => ring.AsSpan(ringStarts[vertex], ringStarts[vertex + 1] - ringStarts[vertex]);
+    public ReadOnlySpan<int> Ring(int vertex) =>
+        ring.AsSpan(ringStarts[vertex], ringStarts[vertex + 1] - ringStarts[vertex]);
 
     /// <summary>How many neighbours a vertex has.</summary>
     /// <param name="vertex">Its index.</param>
@@ -206,7 +217,7 @@ sealed class ManifoldMesh {
     /// <param name="side">Which side: <c>0</c> runs from corner 0 to corner 1, and so on round.</param>
     /// <returns>The neighbouring triangle, or <c>-1</c> where that side is a boundary.</returns>
     public int Adjacent(int triangle, int side) {
-        var twin = twins[(triangle * 3) + side];
+        var twin = twins[triangle * 3 + side];
 
         return twin < 0 ? -1 : twin / 3;
     }
@@ -219,9 +230,12 @@ sealed class ManifoldMesh {
     ///     <see cref="EditMesh.Normal" /> records the capsule's poles for: a fixed tolerance is a
     ///     statement about how big a triangle has to be to count, and a primitive built at a tenth of
     ///     the scale would have all of them declared degenerate.
-    ///
-    ///     ⚠ <b>Corrected in R2, because the original was that fixed tolerance without meaning to
-    ///     be.</b> It crossed the raw edges and handed the result to
+    ///     ⚠
+    ///     <b>
+    ///         Corrected in R2, because the original was that fixed tolerance without meaning to
+    ///         be.
+    ///     </b>
+    ///     It crossed the raw edges and handed the result to
     ///     <see cref="Vector3.Normalize" />, which returns zero below <c>MathUtil.ZeroTolerance</c> —
     ///     an absolute <c>1e-6</c>. A cross product scales as the square of the model, so every
     ///     triangle of a millimetre-wide sphere came back with no normal at all. See
@@ -233,9 +247,9 @@ sealed class ManifoldMesh {
     /// <param name="triangle">Its index.</param>
     /// <returns>The cross product of two of its edges.</returns>
     public Vector3 Cross(int triangle) {
-        var a = positions[triangles[(triangle * 3) + 0]];
-        var b = positions[triangles[(triangle * 3) + 1]];
-        var c = positions[triangles[(triangle * 3) + 2]];
+        var a = positions[triangles[triangle * 3]];
+        var b = positions[triangles[triangle * 3 + 1]];
+        var c = positions[triangles[triangle * 3 + 2]];
 
         return Vector3.Cross(b - a, c - a);
     }
@@ -255,8 +269,11 @@ sealed class ManifoldMesh {
     /// <summary>The way back out: an <see cref="EditMesh" /> of the same triangles over the same positions.</summary>
     /// <returns>The mesh, with each triangle in the group it came in with.</returns>
     /// <remarks>
-    ///     ⚠ <b>Positions are added one by one rather than through
-    ///     <see cref="EditMesh.FromTriangles" />, and the difference is load-bearing.</b>
+    ///     ⚠
+    ///     <b>
+    ///         Positions are added one by one rather than through
+    ///         <see cref="EditMesh.FromTriangles" />, and the difference is load-bearing.
+    ///     </b>
     ///     <c>FromTriangles</c> welds, and welding is exactly what undoes the repair in
     ///     docs/plan/41 § D3 step 4: a non-manifold edge is repaired by <i>cutting</i>, which puts two
     ///     coincident positions where there was one, and any weld tolerance at all merges them
@@ -272,9 +289,9 @@ sealed class ManifoldMesh {
         Span<int> loop = stackalloc int[3];
 
         for (var triangle = 0; triangle < TriangleCount; triangle++) {
-            loop[0] = triangles[(triangle * 3) + 0];
-            loop[1] = triangles[(triangle * 3) + 1];
-            loop[2] = triangles[(triangle * 3) + 2];
+            loop[0] = triangles[triangle * 3];
+            loop[1] = triangles[triangle * 3 + 1];
+            loop[2] = triangles[triangle * 3 + 2];
 
             mesh.AddFace(loop, groups[triangle]);
         }
@@ -298,7 +315,7 @@ sealed class ManifoldMesh {
             );
         }
 
-        return Build([.. soup.Positions], [.. soup.Triangles], [.. soup.Groups], soup.GroupSource);
+        return Build([..soup.Positions], [..soup.Triangles], [..soup.Groups], soup.GroupSource);
     }
 
     /// <summary>Builds the view from raw arrays, which the constructor takes ownership of.</summary>
@@ -340,9 +357,7 @@ sealed class ManifoldMesh {
             tangents,
             built.Boundary,
             defects
-        ) {
-            GroupSource = source
-        };
+        ) { GroupSource = source };
     }
 
     /// <summary>The half-edge opposite each half-edge, or <c>-1</c>.</summary>
@@ -365,7 +380,7 @@ sealed class ManifoldMesh {
             var from = indices[half];
             var to = indices[Next(half)];
 
-            if (from == to || (uint) from >= (uint) vertexCount || (uint) to >= (uint) vertexCount) {
+            if (from == to || (uint)from >= (uint)vertexCount || (uint)to >= (uint)vertexCount) {
                 unpaired++;
                 continue;
             }
@@ -414,11 +429,11 @@ sealed class ManifoldMesh {
             var from = indices[half];
             var to = indices[Next(half)];
 
-            if ((uint) from < (uint) vertexCount) {
+            if ((uint)from < (uint)vertexCount) {
                 boundary[from] = true;
             }
 
-            if ((uint) to < (uint) vertexCount) {
+            if ((uint)to < (uint)vertexCount) {
                 boundary[to] = true;
             }
         }
@@ -429,7 +444,7 @@ sealed class ManifoldMesh {
         var outStarts = new int[vertexCount + 1];
 
         foreach (var index in indices) {
-            if ((uint) index < (uint) vertexCount) {
+            if ((uint)index < (uint)vertexCount) {
                 outStarts[index + 1]++;
             }
         }
@@ -444,7 +459,7 @@ sealed class ManifoldMesh {
         for (var half = 0; half < indices.Length; half++) {
             var from = indices[half];
 
-            if ((uint) from >= (uint) vertexCount) {
+            if ((uint)from >= (uint)vertexCount) {
                 continue;
             }
 
@@ -500,7 +515,7 @@ sealed class ManifoldMesh {
         }
 
         starts[vertexCount] = ring.Count;
-        return ([.. ring], starts, outgoing, outStarts, boundary);
+        return ([..ring], starts, outgoing, outStarts, boundary);
     }
 
     /// <summary>A normal and a tangent per vertex.</summary>
@@ -518,9 +533,9 @@ sealed class ManifoldMesh {
         // unweighted average gives each of them the same vote as the real surface round them, and the
         // frame the field is solved in inherits the noise.
         for (var triangle = 0; triangle * 3 < indices.Length; triangle++) {
-            var ia = indices[(triangle * 3) + 0];
-            var ib = indices[(triangle * 3) + 1];
-            var ic = indices[(triangle * 3) + 2];
+            var ia = indices[triangle * 3];
+            var ib = indices[triangle * 3 + 1];
+            var ic = indices[triangle * 3 + 2];
 
             var cross = Vector3.Cross(points[ib] - points[ia], points[ic] - points[ia]);
 
@@ -561,11 +576,11 @@ sealed class ManifoldMesh {
     }
 
     /// <summary>The next half-edge round the same triangle.</summary>
-    internal static int Next(int half) => half - (half % 3) + ((half + 1) % 3);
+    internal static int Next(int half) => half - half % 3 + (half + 1) % 3;
 
     /// <summary>The previous one.</summary>
-    internal static int Previous(int half) => half - (half % 3) + ((half + 2) % 3);
+    internal static int Previous(int half) => half - half % 3 + (half + 2) % 3;
 
     /// <summary>An ordered vertex pair as one key, so the twin lookup is a dictionary of longs.</summary>
-    static long Key(int from, int to) => ((long) from << 32) | (uint) to;
+    static long Key(int from, int to) => ((long)from << 32) | (uint)to;
 }

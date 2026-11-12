@@ -23,8 +23,12 @@ public static partial class UvUnwrap {
     /// <exception cref="InvalidOperationException">The islands did not fit and could not be made to.</exception>
     /// <remarks>
     ///     <para>
-    ///         docs/plan/42 § D1's fourth entry point. The other three exist because <b>conflating the
-    ///         stages is the first mistake</b> — they have different literatures, different failure modes
+    ///         docs/plan/42 § D1's fourth entry point. The other three exist because
+    ///         <b>
+    ///             conflating the
+    ///             stages is the first mistake
+    ///         </b>
+    ///         — they have different literatures, different failure modes
     ///         and different runtimes, and a tool that exposes only the fused verb cannot be debugged.
     ///         This one exists because the importer does not want to care.
     ///     </para>
@@ -35,12 +39,20 @@ public static partial class UvUnwrap {
     ///         <see cref="UvReport.Warnings" /> with the reason. Producing coordinates for it would be
     ///         producing a fold, which § D5 is explicit is a correctness failure rather than a quality
     ///         one; refusing the whole mesh over one chart would throw away the other ninety-nine.
-    ///         <see cref="UvReport.IsInjective" /> is the field that answers <i>"is all of this
-    ///         usable"</i>.
+    ///         <see cref="UvReport.IsInjective" /> is the field that answers
+    ///         <i>
+    ///             "is all of this
+    ///             usable"
+    ///         </i>
+    ///         .
     ///     </para>
     ///     <para>
-    ///         ⚠ <b><see cref="UvReport.SeamLengthNormalized" /> divides by the square root of the
-    ///         area.</b> MeshTailor defines it over the area, which is not dimensionless — halve a
+    ///         ⚠
+    ///         <b>
+    ///             <see cref="UvReport.SeamLengthNormalized" /> divides by the square root of the
+    ///             area.
+    ///         </b>
+    ///         MeshTailor defines it over the area, which is not dimensionless — halve a
     ///         model's scale and the published figure doubles. Both are here, so the number compares
     ///         across models and the published one is still recoverable from
     ///         <see cref="UvReport.SeamLength" />.
@@ -122,8 +134,12 @@ public static partial class UvUnwrap {
 
     /// <summary>Merges the three stages' reports into the one docs/plan/42 § Part 4 describes.</summary>
     /// <remarks>
-    ///     ⚠ <b>Each stage fills only what it knows, which is why this is an assembly rather than one
-    ///     measurement pass.</b> Charting knows the seam length and nothing about shape; flattening
+    ///     ⚠
+    ///     <b>
+    ///         Each stage fills only what it knows, which is why this is an assembly rather than one
+    ///         measurement pass.
+    ///     </b>
+    ///     Charting knows the seam length and nothing about shape; flattening
     ///     knows the four distortion measures and nothing about the atlas; packing knows both
     ///     efficiencies and the achieved density and nothing about the surface. The three shape figures
     ///     are the only ones computed here, because they are the only ones that need the mesh and the

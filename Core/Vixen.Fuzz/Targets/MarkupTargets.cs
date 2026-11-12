@@ -11,16 +11,23 @@ namespace Vixen.Fuzz.Targets;
 /// <summary>A <c>.vxml</c> file, parsed, printed, and reparsed after an edit.</summary>
 /// <remarks>
 ///     <para>
-///         <b>The first target here whose input is a language rather than a format, and the first to
-///         need <see cref="IFuzzDomain" />.</b> Byte havoc over a markup file produces text that dies
+///         <b>
+///             The first target here whose input is a language rather than a format, and the first to
+///             need <see cref="IFuzzDomain" />.
+///         </b>
+///         Byte havoc over a markup file produces text that dies
 ///         in the lexer; what is worth reaching is behind it — the recovery paths that fabricate a
 ///         missing token, the trivia bookkeeping that carries skipped source, and the incremental
 ///         reparser that decides which subtrees it may keep. See <c>SyntaxDomain</c> for how an edit
 ///         is chosen from the tree and carried in the text.
 ///     </para>
 ///     <para>
-///         ⚠ <b>"Nothing escapes" is the weakest thing this target checks, and on its own it would
-///         prove very little.</b> The parser is total by design — every file produces a tree, missing
+///         ⚠
+///         <b>
+///             "Nothing escapes" is the weakest thing this target checks, and on its own it would
+///             prove very little.
+///         </b>
+///         The parser is total by design — every file produces a tree, missing
 ///         tokens are fabricated zero-width, unusable source travels as trivia — so it has no
 ///         throwing paths to find and a run that only watched for exceptions would come back clean
 ///         for ever. What can go wrong is a tree that is <i>wrong</i>: one that no longer reproduces
@@ -52,7 +59,7 @@ public sealed class VxmlTarget : IFuzzTarget {
     /// <inheritdoc />
     public IFuzzDomain Domain { get; } = new SyntaxDomain(
         "VXML documents, one syntax node at a time",
-        text => SyntaxTree.ParseText(text, Path).GetRoot(),
+        static text => SyntaxTree.ParseText(text, Path).GetRoot(),
         MarkupSeeds.Fragments,
         0x7658_C0DE_2026_0805ul
     );
@@ -87,7 +94,7 @@ public sealed class VxmlTarget : IFuzzTarget {
     ///         linear parser into a quadratic one and this is what notices.
     ///     </para>
     /// </remarks>
-    public long AllowanceFor(int inputLength) => 65536 + (768L * inputLength);
+    public long AllowanceFor(int inputLength) => 65536 + 768L * inputLength;
 
     /// <inheritdoc />
     public void Seed(ICollection<byte[]> corpus) {
@@ -112,12 +119,10 @@ public sealed class VxmlTarget : IFuzzTarget {
         var printed = root.ToFullString();
 
         if (!string.Equals(printed, text, StringComparison.Ordinal)) {
-            throw new InvalidOperationException(
-                $"The parse does not reproduce its source: {Where(text, printed)}."
-            );
+            throw new InvalidOperationException($"The parse does not reproduce its source: {Where(text, printed)}.");
         }
 
-        long signature = (17 * 31) + tree.Diagnostics.Count;
+        long signature = 17 * 31 + tree.Diagnostics.Count;
 
         foreach (var diagnostic in tree.Diagnostics) {
             var id = diagnostic.Descriptor.Id;
@@ -130,27 +135,34 @@ public sealed class VxmlTarget : IFuzzTarget {
                 throw new InvalidOperationException($"A VXML parse reported '{id}', which is not a VXML syntax id.");
             }
 
-            signature = (signature * 31) + Fold(id);
+            signature = signature * 31 + Fold(id);
         }
 
-        signature = (signature * 31) + Shape(root, 0);
+        signature = signature * 31 + Shape(root, 0);
 
-        return (signature * 31) + Reparse(tree, text);
+        return signature * 31 + Reparse(tree, text);
     }
 
     /// <summary>Edits the file and requires the incremental reparse to equal a full one.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>Incremental-versus-full is a classic bug farm and this is the cheapest possible
-    ///         assay of it.</b> The reparser keeps a subtree when the new token stream reads the old
+    ///         <b>
+    ///             Incremental-versus-full is a classic bug farm and this is the cheapest possible
+    ///             assay of it.
+    ///         </b>
+    ///         The reparser keeps a subtree when the new token stream reads the old
     ///         characters the same way; every condition on that is a chance to keep one it should
     ///         have thrown away, and the result is a tree that is subtly not the file — which nothing
     ///         downstream can detect and which only shows up as a binding error against a line the
     ///         author did not write.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The edit is derived from the input's own bytes rather than from the run's
-    ///         generator, and that is a requirement rather than a style.</b> A finding carries the
+    ///         ⚠
+    ///         <b>
+    ///             The edit is derived from the input's own bytes rather than from the run's
+    ///             generator, and that is a requirement rather than a style.
+    ///         </b>
+    ///         A finding carries the
     ///         input and nothing else, so an oracle that depended on where the run had got to would
     ///         hand somebody a corpus file that does not reproduce it.
     ///     </para>
@@ -174,14 +186,14 @@ public sealed class VxmlTarget : IFuzzTarget {
 
         if (!string.Equals(one.ToFullString(), two.ToFullString(), StringComparison.Ordinal)) {
             throw new InvalidOperationException(
-                $"An incremental reparse printed something a full parse did not, "
+                "An incremental reparse printed something a full parse did not, "
                 + $"after replacing [{start}, {start + length}) with '{inserted}'."
             );
         }
 
         if (Shape(one, 0) != Shape(two, 0)) {
             throw new InvalidOperationException(
-                $"An incremental reparse built a different tree than a full parse, "
+                "An incremental reparse built a different tree than a full parse, "
                 + $"after replacing [{start}, {start + length}) with '{inserted}'."
             );
         }
@@ -205,7 +217,8 @@ public sealed class VxmlTarget : IFuzzTarget {
     ///     which exercises the fast path and nothing else; a quote, a brace or an <c>@</c> is what
     ///     makes the tokens after it read differently and forces the decision this is checking.
     /// </remarks>
-    static readonly string[] Insertions = ["", "<", ">", "\"", "{", "}", "@", "</", "-->", "@code {", " ", "\n"];
+    static readonly string[] Insertions =
+        [string.Empty, "<", ">", "\"", "{", "}", "@", "</", "-->", "@code {", " ", "\n"];
 
     static bool IsMarkupId(string id) =>
         id.Length == 8
@@ -240,15 +253,15 @@ public sealed class VxmlTarget : IFuzzTarget {
         long shape = node.RawKind;
 
         if (node is SyntaxToken token) {
-            shape = (shape * 31) + (token.IsMissing ? 1 : 2);
+            shape = shape * 31 + (token.IsMissing ? 1 : 2);
 
-            return (shape * 31) + Fold(token.Text);
+            return shape * 31 + Fold(token.Text);
         }
 
-        shape = (shape * 31) + node.SlotCount;
+        shape = shape * 31 + node.SlotCount;
 
         for (var i = 0; i < node.SlotCount; i++) {
-            shape = (shape * 31) + (node.GetSlot(i) is { } child ? Shape(child, depth + 1) : 0);
+            shape = shape * 31 + (node.GetSlot(i) is { } child ? Shape(child, depth + 1) : 0);
         }
 
         return shape;
@@ -264,7 +277,7 @@ public sealed class VxmlTarget : IFuzzTarget {
         long folded = 17;
 
         foreach (var character in text) {
-            folded = (folded * 31) + character;
+            folded = folded * 31 + character;
         }
 
         return folded;
@@ -290,8 +303,12 @@ public sealed class VxmlTarget : IFuzzTarget {
 ///     <c>EveryGrammarSeedIsWellFormed</c> next to the gate. A seed that does not parse is a seed
 ///     that seeds nothing — the lesson the heightmap's seeds record, where a PNG the decoder refused
 ///     three branches in left the interesting paths unvisited for as long as nobody measured it. A
-///     grammar makes that failure quieter still, because a malformed seed still <i>produces a
-///     tree</i> and looks for all the world like it is working.
+///     grammar makes that failure quieter still, because a malformed seed still
+///     <i>
+///         produces a
+///         tree
+///     </i>
+///     and looks for all the world like it is working.
 /// </remarks>
 static class MarkupSeeds {
     /// <summary>Whole documents, covering every construct the grammar has.</summary>
